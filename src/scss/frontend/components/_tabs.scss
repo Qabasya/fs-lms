@@ -50,6 +50,10 @@
 
   &.is-active { display: block; }
 
+  // Вкладка «Ответ» — простой многострочный текст без разметки:
+  // переносы строк автора должны сохраняться.
+  &[data-panel='answer'] { white-space: pre-wrap; }
+
   pre {
     background: $color-bg-subtle;
     color: $color-text;

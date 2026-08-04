@@ -297,6 +297,15 @@ trait Sanitizer {
 		return sanitize_text_field( wp_unslash( is_string( $value ) ? $value : (string) $value ) );
 	}
 
+	/**
+	 * Многострочный текст: теги вырезаются, переводы строк сохраняются.
+	 *
+	 * @see sanitizeTextValue() — однострочный вариант (переносы схлопываются).
+	 */
+	protected function sanitizeMultilineTextValue( mixed $value ): string {
+		return sanitize_textarea_field( wp_unslash( is_string( $value ) ? $value : (string) $value ) );
+	}
+
 	protected function sanitizeHtmlValue( mixed $value ): string {
 		return wp_kses_post( wp_unslash( is_string( $value ) ? $value : (string) $value ) );
 	}

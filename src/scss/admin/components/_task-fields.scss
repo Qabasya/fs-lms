@@ -229,6 +229,12 @@
 		flex: 1 1 auto;
 	}
 
+	// Многострочное поле (TextareaField): тянется по ширине, растягивается вручную.
+	.fs-lms-textarea {
+		min-height: v.rem(88);
+		resize: vertical;
+	}
+
 	.button {
 		flex: 0 0 auto;
 		white-space: nowrap;

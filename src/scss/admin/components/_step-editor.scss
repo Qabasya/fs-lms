@@ -221,6 +221,9 @@
 		font-size: $font-size-sm; color: $color-text-primary; line-height: 1.6;
 		p { margin: 0 0 $spacing-xs; &:last-child { margin-bottom: 0; } }
 	}
+
+	// Эталонный ответ — простой текст: переносы строк автора значимы.
+	.fs-cb-tp-answer { white-space: pre-wrap; }
 	.fs-cb-tp-options { @include cb-qa-stack(rem(4)); }
 
 	.fs-cb-tp-option {

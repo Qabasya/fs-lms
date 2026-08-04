@@ -2,7 +2,7 @@
 
 namespace Inc\MetaBoxes\Templates;
 
-use Inc\MetaBoxes\Fields\InputField;
+use Inc\MetaBoxes\Fields\TextareaField;
 use Inc\MetaBoxes\Fields\ConditionField;
 
 /**
@@ -20,7 +20,7 @@ class StandardTaskTemplate extends BaseTemplate {
 	 *
 	 * Инициализирует набор полей шаблона:
 	 * - task_condition: условие задания (textarea)
-	 * - task_answer: правильный ответ (input)
+	 * - task_answer: правильный ответ (многострочный текст)
 	 */
 	public function __construct() {
 		$this->fields = array(
@@ -30,7 +30,7 @@ class StandardTaskTemplate extends BaseTemplate {
 			),
 			'task_answer'    => array(
 				'label'  => 'Правильный ответ',
-				'object' => new InputField(),        // Текстовое поле
+				'object' => new TextareaField(), // Многострочный текст (переносы сохраняются)
 			),
 		);
 	}

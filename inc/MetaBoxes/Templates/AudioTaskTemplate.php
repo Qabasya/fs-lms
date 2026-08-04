@@ -6,7 +6,7 @@ namespace Inc\MetaBoxes\Templates;
 
 use Inc\MetaBoxes\Fields\AudioField;
 use Inc\MetaBoxes\Fields\ConditionField;
-use Inc\MetaBoxes\Fields\InputField;
+use Inc\MetaBoxes\Fields\TextareaField;
 
 /**
  * Class AudioTaskTemplate
@@ -30,7 +30,7 @@ class AudioTaskTemplate extends BaseTemplate {
 			),
 			'task_answer' => array(
 				'label'  => 'Правильный ответ',
-				'object' => new InputField(),
+				'object' => new TextareaField(), // Многострочный текст (переносы сохраняются)
 			),
 		);
 	}
