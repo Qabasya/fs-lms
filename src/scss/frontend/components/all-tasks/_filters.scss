@@ -5,7 +5,6 @@
 // Оформление — карточка макета: шапка с разделителем, строки-секции,
 // uppercase-подписи и значение среза справа.
 .fs-all-tasks-page {
-
   .sidebar {
     @include fs-sticky(rem(16));
 
@@ -23,6 +22,7 @@
     padding: rem(16) rem(18);
     border-bottom: 1px solid $color-border-light;
   }
+
   .filters-side-title {
     font-size: $font-size-md; font-weight: $font-bold;
     letter-spacing: -.01em; color: $color-text;
@@ -61,12 +61,14 @@
 
     &:hover { background: $color-surface-2; }
   }
+
   .filter-sec-title {
     font-size: $font-size-code; font-weight: $font-semibold;
     letter-spacing: .05em; text-transform: uppercase;
     color: $color-muted-2;
   }
   .filter-sec-right { display: inline-flex; align-items: center; gap: rem(8); }
+
   .filter-sec-summary {
     font-size: $font-size-sm; font-weight: $font-medium;
     color: $color-text-secondary; font-variant-numeric: tabular-nums;
@@ -80,12 +82,14 @@
     background: $color-accent-soft; color: $color-accent-700;
     font-size: $font-size-2xs; font-weight: $font-bold; font-variant-numeric: tabular-nums;
   }
+
   .filter-sec-chev {
     display: inline-flex; color: $color-muted-2;
     transition: transform .2s ease, color $transition;
 
     &.is-open { transform: rotate(90deg); color: $color-accent-700; }
   }
+
   .filter-sec-body {
     max-height: rem(240);
     padding: 0 rem(12) rem(15);
@@ -113,6 +117,7 @@
   }
   .filter-option-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .filter-option-count { font-size: $font-size-xs; color: $color-muted-2; font-variant-numeric: tabular-nums; }
+
   .filter-option-check {
     display: grid; place-items: center;
     width: rem(14); height: rem(14); flex: 0 0 rem(14);

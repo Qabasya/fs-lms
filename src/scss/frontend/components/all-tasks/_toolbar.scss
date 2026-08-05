@@ -3,7 +3,6 @@
 
 // Тулбар (поиск) и строка меты результатов над списком карточек.
 .fs-all-tasks-page {
-
   // ── Строка крошек: слева цепочка, справа свёрнутый поиск ──────
   .crumbs-row {
     // rem(0), а не 0: миксин подставляет отступ в calc() со сдвигом под
@@ -55,6 +54,7 @@
     transition: color $transition, padding-left $transition-collapse;
   }
   .toolbar-search:hover .toolbar-search-toggle { color: $color-accent-700; }
+
   .toolbar-search.is-open .toolbar-search-toggle {
     flex: 0 0 auto; padding-left: rem(16);
     transition: color $transition, padding-left $transition-slow;
@@ -68,6 +68,7 @@
     opacity: 1; overflow: hidden;
     transition: max-width $transition-collapse, opacity $transition-collapse;
   }
+
   .toolbar-search.is-open .toolbar-search-hint {
     max-width: 0; opacity: 0;
     transition: max-width $transition-slow, opacity $transition-slow;
@@ -82,6 +83,7 @@
 
     &::placeholder { color: $color-muted-2; }
   }
+
   .toolbar-search.is-open .toolbar-search-input {
     flex: 1 1 0;
     padding-right: rem(16);

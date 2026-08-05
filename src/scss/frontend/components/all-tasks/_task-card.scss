@@ -25,6 +25,7 @@
     letter-spacing: -.02em; line-height: 1.2;
     color: $color-text;
   }
+
   .tcr-title-link {
     color: inherit; text-decoration: none;
     transition: color $transition;
@@ -79,11 +80,13 @@
 
     &:hover { color: $color-accent-700; }
   }
+
   .tcr-condition-toggle-ico {
     display: inline-flex;
     transition: transform .25s ease;
   }
   .tcr-body.is-expanded .tcr-condition-toggle-ico { transform: rotate(180deg); }
+
   .tcr-condition {
     position: relative; // якорь для затухания над обрезкой
     margin: 0;
@@ -139,6 +142,7 @@
     border-top: 1px solid $color-border-light;
   }
   .tcr-actions { display: inline-flex; align-items: center; gap: rem(8); margin-left: auto; }
+
   .tcr-btn-primary {
     @include fs-btn-accent;
     @include fs-arrow-icon-reveal;

@@ -3,7 +3,6 @@
 // Оболочка страницы «Все задания»: скоуп-корень, сетка, заголовок.
 // Крошки — общий компонент `components/_breadcrumbs.scss` (разметка из партиала).
 .fs-all-tasks-page {
-
   // Сглаживание — против «пиксельного» вида на Win/Mac.
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;

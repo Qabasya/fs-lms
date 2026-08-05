@@ -144,6 +144,21 @@
   line-height: $line-height-tight;
 }
 
+// «Записаться» — та же подпись-кнопка, что «Перейти» у статьи: стрелка
+// выезжает при наведении на всю строку курса.
+.fs-sidebar-course-go {
+  @include fs-arrow-reveal;
+
+  margin-top: rem(7);
+  font-size: $font-size-xs;
+  font-weight: $font-semibold;
+  color: $color-accent;
+}
+
+.fs-sidebar-courses li a:hover .fs-sidebar-course-go {
+  @include fs-arrow-reveal-open;
+}
+
 
 // Адаптив: сайдбар уезжает под контент и перестаёт липнуть (сетку задаёт _layout).
 @media (max-width: $bp-md) {

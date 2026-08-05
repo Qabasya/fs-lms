@@ -32,6 +32,7 @@
 
 .fs-assessment-notice {
 	padding: $spacing-md;
+
 	// Нейтральная подложка — готовый токен: $color-muted теперь полупрозрачный,
 	// и подмешивать его в белый значило бы получить полупрозрачный фон.
 	background: $color-bg-subtle;

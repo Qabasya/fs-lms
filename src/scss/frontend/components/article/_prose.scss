@@ -1,0 +1,171 @@
+@use '../../variables' as *;
+
+// Текст статьи. Классы блокам проставляет пост-обработка контента
+// (ArticleContentService): редактор отдаёт голые теги, здесь они получают вид
+// макета. Листинги кода оформляет общий _code-block.scss — его разметку
+// собирает code-block.js по классу-хуку .js-code.
+// Всё под скоупом страницы: сброс типографики в _reset.scss обнуляет h1–h6
+// и ссылки той же силой селектора, и без скоупа перебивал бы эти правила.
+.fs-article-page {
+  .fs-article-prose {
+    font-size: $font-size-md;
+    line-height: $line-height-relaxed;
+    color: $color-text-secondary;
+
+    h2,
+    h3,
+    h4 {
+      color: $color-text;
+      font-family: inherit;
+      font-weight: $font-bold;
+      text-wrap: pretty;
+
+      // Якорь из оглавления не должен упирать заголовок в самый верх окна.
+      scroll-margin-top: rem(24);
+    }
+
+    h2 {
+      margin-top: rem(52);
+      font-size: $font-size-xl;
+      line-height: 1.25;
+      letter-spacing: -.02em;
+    }
+
+    h3 {
+      margin-top: rem(38);
+      font-size: $font-size-lead;
+      line-height: 1.3;
+      letter-spacing: -.01em;
+    }
+
+    // h4 в статьях используют как подпись к вставке (ссылка на задание, врезка).
+    h4 {
+      margin-top: $spacing-4xl;
+      font-size: $font-size-md;
+      line-height: 1.35;
+    }
+
+    strong,
+    b {
+      color: $color-text;
+      font-weight: $font-semibold;
+    }
+
+    a {
+      color: $color-accent;
+      text-decoration: none;
+
+      &:hover { text-decoration: underline; }
+    }
+
+    ul,
+    ol {
+      display: grid;
+      gap: $spacing-sm;
+      padding-left: rem(22);
+      list-style: revert;
+    }
+
+    li::marker { color: $color-muted-2; }
+
+    img {
+      max-width: 100%;
+      height: auto;
+      border-radius: $border-radius-xl;
+    }
+
+    hr {
+      height: 1px;
+      border: 0;
+      background: $color-border;
+    }
+  }
+
+  // Вводный абзац — крупнее основного текста: макет отбивает им начало статьи.
+  .fs-article-lead {
+    font-size: $font-size-lead;
+    line-height: 1.6;
+  }
+
+  // Инлайновый код: короткое обозначение внутри строки, не листинг.
+  .fs-article-mono {
+    padding: rem(1) rem(5);
+    background: $color-surface-2;
+    border: 1px solid $color-border-light;
+    border-radius: $border-radius-sm;
+    font-family: $font-code;
+    font-size: $font-size-base;
+    color: $color-text;
+  }
+
+  // Врезка — акцентная плашка вокруг важного замечания (blockquote редактора).
+  // Боковые и нижний отступы темы снимаем, верхний остаётся за ритмом ниже.
+  .fs-article-note {
+    padding: $spacing-lg $spacing-2xl;
+    margin-inline: 0;
+    margin-bottom: 0;
+    background: $color-accent-soft;
+    border: 1px solid $color-accent-soft-2;
+    border-radius: $radius-card;
+    color: $color-text-secondary;
+
+    > * + * { margin-top: $spacing-md; }
+
+    b,
+    strong { color: $color-accent-700; }
+  }
+
+  // Иллюстрация с подписью.
+  .fs-article-figure {
+    display: grid;
+    gap: rem(9);
+    margin-inline: 0;
+    margin-bottom: 0;
+
+    figcaption {
+      font-size: $font-size-xs;
+      line-height: 1.5;
+      color: $color-muted-2;
+    }
+  }
+
+  // Таблица: своя прокрутка, чтобы широкая таблица не растягивала колонку текста.
+  .fs-article-table {
+    display: block;
+    width: 100%;
+    overflow-x: auto;
+    border-collapse: collapse;
+    font-size: $font-size-base;
+
+    th,
+    td {
+      padding: rem(9) rem(12);
+      border: 1px solid $color-border-light;
+      text-align: left;
+    }
+
+    th {
+      background: $color-surface-2;
+      color: $color-text;
+      font-weight: $font-semibold;
+    }
+  }
+
+  // ── Вертикальный ритм. Правило идёт последним и НЕ дублируется в блоках:
+  // любое `margin: 0` внутри блочного правила выше по файлу перебивало бы его
+  // (та же специфичность, но позже в каскаде) — так отступы и пропадали.
+  // Отступ задаёт только соседство: первый блок не отбивается от заголовка
+  // статьи, последний — от подвала.
+  .fs-article-prose > * + * { margin-top: $spacing-2xl; }
+
+  // Узкий отступ там, где блоки читаются как одна группа: пункты перечисления
+  // («а)», «1)») и строки-ссылки. Классы им проставляет пост-обработка — по
+  // разметке редактора такие абзацы от обычных не отличить.
+  .fs-article-prose > * + .fs-article-item,
+  .fs-article-prose > * + .fs-article-linkline { margin-top: $spacing-md; }
+
+  // Подзаголовок сразу под заголовком — часть той же шапки раздела, большой
+  // отступ разрывал бы её надвое.
+  .fs-article-prose h2 + h3,
+  .fs-article-prose h3 + h4 { margin-top: $spacing-lg; }
+}

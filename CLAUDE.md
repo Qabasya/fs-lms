@@ -247,6 +247,10 @@ SVG-иконки) — `src/js/CLAUDE.md`, грузится при работе �
 - Modify only source files in `src/js/` or `src/scss/`
 - Build step runs separately
 - Frontend task page template injected via `template_include` filter in `TaskPageCallbacks`
+- Страница статьи (`{subject}_articles`) — `ArticlePageController` → `Callbacks\Article\TemplateCallbacks`
+  → `single-article.php`. Спец-разметку внутри текста автор НЕ размечает: классы врезкам,
+  иллюстрациям и листингам, якоря заголовкам (для оглавления) и карточку задания вместо
+  абзаца-ссылки на задание делает пост-обработка `ArticleContentService`
 
 ### ThemeCompatService — обязательно для всех публичных шаблонов
 

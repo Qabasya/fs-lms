@@ -24,7 +24,12 @@ if ( empty( $sidebar_courses ) ) {
 }
 ?>
 <section class="fs-sidebar-block">
-	<div class="fs-sidebar-title">Курсы</div>
+	<div class="fs-sidebar-head">
+		<span class="fs-sidebar-title">Курсы</span>
+		<?php // Стрелку рисует CSS (миксин fs-arrow-reveal): в покое её нет, появляется по ховеру. ?>
+		<?php // TODO: публичной витрины курсов пока нет — ссылка-заглушка. ?>
+		<a href="#" class="fs-sidebar-more">Все курсы</a>
+	</div>
 
 	<ul class="fs-sidebar-courses">
 		<?php foreach ( $sidebar_courses as $course ) : ?>
@@ -36,6 +41,8 @@ if ( empty( $sidebar_courses ) ) {
 							<?php echo esc_html( Pluralizer::withNumber( $course->lessons, 'урок', 'урока', 'уроков' ) ); ?>
 						</span>
 					<?php endif; ?>
+					<?php // Не ссылка, а подпись внутри неё: вложенные <a> недопустимы. ?>
+					<span class="fs-sidebar-course-go">Записаться</span>
 				</a>
 			</li>
 		<?php endforeach; ?>

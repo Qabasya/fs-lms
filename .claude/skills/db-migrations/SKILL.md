@@ -14,7 +14,7 @@ description: Правила миграций схемы и данных fs-lms �
 1. Удалить колонку из DDL в `Migration_1_0_0::up()`
 2. Добавить строку в секцию "Cleanup" того же файла: `$wpdb->query( "ALTER TABLE \`$table\` DROP COLUMN IF EXISTS \`col\`" );`
 3. Сбросить версию схемы: `docker exec wp_db mariadb -u root -proot wordpress -e "UPDATE wp_options SET option_value='0.0.0' WHERE option_name='fs_lms_schema_version';"`
-4. Реактивировать плагин, чтобы миграции перезапустились: `docker compose -f /Users/daniil/FS-LMS/docker-compose.yml run --rm wpcli wp plugin deactivate fs-lms && ... wp plugin activate fs-lms` (или тумблер в админке). ⚠️ Сброс версии + реактивация прогонит `up()` целиком, включая `CREATE TABLE`/DROP — на dev это безопасно, на данных с людьми — нет.
+4. Реактивировать плагин, чтобы миграции перезапустились — из каталога со стеком (где лежит `docker-compose.yml`; из другого места добавь `-f <путь>/docker-compose.yml`): `docker compose run --rm wpcli wp plugin deactivate fs-lms && docker compose run --rm wpcli wp plugin activate fs-lms` (или тумблер в админке). ⚠️ Сброс версии + реактивация прогонит `up()` целиком, включая `CREATE TABLE`/DROP — на dev это безопасно, на данных с людьми — нет.
 
 **Новые таблицы** — добавлять в `Migration_1_0_0::up()` и `down()`, не создавать отдельный файл.
 
