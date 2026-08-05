@@ -1,0 +1,38 @@
+@use '../../variables' as *;
+
+// Кнопка «наверх»: появляется, когда список уехал далеко вниз (показ и скрытие —
+// атрибутом hidden из components/scroll-top.js).
+.fs-all-tasks-page {
+
+  .fs-to-top {
+    position: fixed; right: rem(28); bottom: rem(28);
+    z-index: 20;
+    display: grid; place-items: center;
+    width: rem(44); height: rem(44);
+    background: $color-white;
+    border: 1px solid $color-border; border-radius: 50%;
+    box-shadow: $shadow-hover;
+    color: $color-accent;
+    cursor: pointer;
+    animation: fs-to-top-in .2s ease-out;
+    transition: background $transition, border-color $transition, color $transition;
+
+    &:hover {
+      background: $color-accent;
+      border-color: $color-accent;
+      color: $color-white;
+    }
+
+    // Стрелка вверх — тот же шеврон, что у раскрытия условия, развёрнутый.
+    svg { display: block; transform: rotate(180deg); }
+  }
+
+  @media (max-width: $bp-md) {
+    .fs-to-top { right: rem(16); bottom: rem(16); }
+  }
+}
+
+@keyframes fs-to-top-in {
+  from { opacity: 0; transform: translateY(rem(6)); }
+  to   { opacity: 1; transform: translateY(0); }
+}

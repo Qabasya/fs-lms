@@ -6,7 +6,7 @@
  * динамические группы фильтров-таксономий, карточки заданий, поиск,
  * infinite-scroll. Данные — AllTasksPageDTO из AllTasksDataBuilder.
  *
- * @var \Inc\DTO\AllTasksPageDTO $page_data
+ * @var \Inc\DTO\Task\AllTasksPageDTO $page_data
  *
  * @package FS LMS
  */
@@ -19,7 +19,7 @@ use Inc\Enums\Ui\Icon;
 use Inc\Services\Shared\Pluralizer;
 use Inc\Services\Shared\ThemeCompatService;
 
-/** @var \Inc\DTO\AllTasksPageDTO $page_data */
+/** @var \Inc\DTO\Task\AllTasksPageDTO $page_data */
 $page_data   = get_query_var( 'fs_all_tasks_data' );
 $subject_key = $page_data->subject_key;
 $total       = $page_data->total;
@@ -40,6 +40,27 @@ ThemeCompatService::header();
 	data-has-more="<?php echo $page_data->has_more ? '1' : '0'; ?>">
 
 	<div class="shell">
+		<!-- Крошки (общий партиал со страницей задания) и свёрнутый поиск в одной строке -->
+		<div class="crumbs-row">
+			<?php
+			$crumbs = $page_data->breadcrumbs;
+			include __DIR__ . '/partials/breadcrumbs.php';
+			?>
+
+			<div class="toolbar-search js-search">
+				<button type="button" class="toolbar-search-toggle js-search-toggle" aria-expanded="false" aria-label="Поиск">
+					<span class="toolbar-search-icon" aria-hidden="true">
+						<?php echo Icon::Search->svg( 16 ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+					</span>
+					<span class="toolbar-search-hint">Поиск</span>
+				</button>
+				<input class="toolbar-search-input js-search-input"
+					type="search"
+					placeholder="Найти задание по номеру или фрагменту условия…"
+					aria-label="Поиск" />
+			</div>
+		</div>
+
 		<div class="layout">
 
 			<!-- ===================== САЙДБАР / ФИЛЬТРЫ ===================== -->
@@ -73,7 +94,8 @@ ThemeCompatService::header();
 											<span class="filter-option-label"><?php echo esc_html( $term['name'] ); ?></span>
 											<span class="filter-option-count"><?php echo esc_html( (string) $term['count'] ); ?></span>
 											<span class="filter-option-check" aria-hidden="true">
-												<?php echo Icon::Check->svg( 14 ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+												<?php // 10px: бокс галочки 14px с рамкой 1.5 даёт 11px внутри — иконка 14 в него не помещалась. ?>
+												<?php echo Icon::Check->svg( 10 ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
 											</span>
 										</button>
 									<?php endforeach; ?>
@@ -84,8 +106,14 @@ ThemeCompatService::header();
 				</section>
 
 				<?php
+				// Курсы предмета — общий со страницей задания партиал; нет курсов, нет блока.
+				$sidebar_courses = $page_data->courses;
+				include __DIR__ . '/partials/sidebar-courses.php';
+				?>
+
+				<?php
 				// Статьи: без выбранного типа задания — случайные, с выбором — по нему
-				// (добор свежими до 4). Список перерисовывает JS при смене фильтров.
+				// (добор свежими до лимита). Список перерисовывает JS при смене фильтров.
 				$sidebar_articles     = $page_data->articles;
 				$sidebar_articles_url = $page_data->articles_url;
 				include __DIR__ . '/partials/sidebar-articles.php';
@@ -96,52 +124,27 @@ ThemeCompatService::header();
 			<!-- ===================== ОСНОВНОЙ КОНТЕНТ ===================== -->
 			<main class="main" id="fs-tasks-main">
 
-				<!-- Хлебные крошки (общий партиал со страницей задания) -->
-				<?php
-				$crumbs = $page_data->breadcrumbs;
-				include __DIR__ . '/partials/breadcrumbs.php';
-				?>
-
-				<h1 class="page-title">Все задания</h1>
-
-				<!-- Поиск -->
-				<div class="toolbar">
-					<div class="toolbar-search">
-						<span class="toolbar-search-icon" aria-hidden="true">
-							<?php echo Icon::Search->svg( 16 ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
-						</span>
-						<input class="js-search-input"
-							type="search"
-							placeholder="Найти задание по номеру или фрагменту условия…"
-							aria-label="Поиск" />
-					</div>
-				</div>
-
-				<!-- Мета: счётчик + сброс. Форму слова после AJAX пересчитывает JS (common/plural.js). -->
-				<div class="results-meta">
-					<span>
-						<strong class="js-results-count"><?php echo esc_html( (string) $total ); ?></strong>
-						<span class="js-results-noun"><?php echo esc_html( Pluralizer::ru( $total, 'задание', 'задания', 'заданий' ) ); ?></span>
-					</span>
-					<button class="results-clear js-filters-clear" <?php echo $has_selected ? '' : 'hidden'; ?>>Сбросить</button>
-				</div>
-
 				<!-- Список карточек заданий -->
 				<div class="task-cards js-task-cards">
 					<?php foreach ( $page_data->tasks as $task ) : ?>
 						<article class="task-card-row" data-task-id="<?php echo esc_attr( (string) $task->id ); ?>">
+							<h2 class="tcr-title">
+								<a class="tcr-title-link" href="<?php echo esc_url( $task->url ); ?>"><?php echo esc_html( $task->title ); ?></a>
+							</h2>
+
 							<header class="tcr-header">
 								<div class="tcr-header-inner">
 									<div class="tcr-meta">
 										<?php if ( $task->task_number > 0 && $task->task_number_slug ) : ?>
-											<button type="button" class="tcr-tag js-tag-filter"
+											<?php // Ступень палитры чипа — по таксономии (TagPaletteService). ?>
+											<button type="button" class="tcr-tag js-tag-filter<?php echo $task->task_number_color > 0 ? ' tcr-tag--c' . (int) $task->task_number_color : ''; ?>"
 												data-filter="<?php echo esc_attr( $task->task_number_taxonomy ); ?>"
 												data-value="<?php echo esc_attr( $task->task_number_slug ); ?>">
 												Задание №<?php echo esc_html( (string) $task->task_number ); ?>
 											</button>
 										<?php endif; ?>
 										<?php foreach ( $task->tags as $tag ) : ?>
-											<button type="button" class="tcr-tag js-tag-filter"
+											<button type="button" class="tcr-tag js-tag-filter<?php echo ! empty( $tag['color'] ) ? ' tcr-tag--c' . (int) $tag['color'] : ''; ?>"
 												data-filter="<?php echo esc_attr( $tag['taxonomy'] ); ?>"
 												data-value="<?php echo esc_attr( $tag['slug'] ); ?>">
 												<?php echo esc_html( $tag['label'] ); ?>
@@ -151,13 +154,17 @@ ThemeCompatService::header();
 								</div>
 							</header>
 
-							<h2 class="tcr-title">
-								<a class="tcr-title-link" href="<?php echo esc_url( $task->url ); ?>"><?php echo esc_html( $task->title ); ?></a>
-							</h2>
-
 							<?php if ( $task->condition ) : ?>
-								<div class="tcr-body">
-									<div class="tcr-condition"><?php echo wp_kses_post( $task->condition ); ?></div>
+								<div class="tcr-body js-condition">
+									<?php // Кнопку раскрытия показывает task-condition.js — только тем условиям, что не влезли. ?>
+									<div class="tcr-condition" id="tcr-cond-<?php echo esc_attr( (string) $task->id ); ?>"><?php echo wp_kses_post( $task->condition ); ?></div>
+									<button type="button" class="tcr-condition-toggle js-condition-toggle"
+										aria-expanded="false" aria-controls="tcr-cond-<?php echo esc_attr( (string) $task->id ); ?>" hidden>
+										<span class="js-condition-toggle-label">Показать полностью</span>
+										<span class="tcr-condition-toggle-ico" aria-hidden="true">
+											<?php echo Icon::ChevronDown->svg( 14 ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+										</span>
+									</button>
 								</div>
 							<?php endif; ?>
 
@@ -166,12 +173,15 @@ ThemeCompatService::header();
 									<?php foreach ( $task->files as $file ) : ?>
 										<a class="tcr-file" href="<?php echo esc_url( $file['url'] ); ?>">
 											<span class="tcr-file-icon" aria-hidden="true">
-												<?php echo Icon::File->svg( 13 ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+												<?php echo Icon::File->svg( 17 ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
 											</span>
 											<span class="tcr-file-name"><?php echo esc_html( $file['name'] ); ?></span>
 											<?php if ( ! empty( $file['size'] ) ) : ?>
 												<span class="tcr-file-size"><?php echo esc_html( $file['size'] ); ?></span>
 											<?php endif; ?>
+											<span class="tcr-file-dl" aria-hidden="true">
+												<?php echo Icon::Download->svg( 17 ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+											</span>
 										</a>
 									<?php endforeach; ?>
 								</div>
@@ -179,7 +189,8 @@ ThemeCompatService::header();
 
 							<footer class="tcr-foot">
 								<?php if ( $task->answer ) : ?>
-									<button type="button" class="tcr-answer-toggle js-answer-toggle" aria-expanded="false">Ответ</button>
+									<button type="button" class="fs-answer-toggle js-answer-toggle" aria-expanded="false"
+										aria-controls="fs-answer-<?php echo esc_attr( (string) $task->id ); ?>">Показать ответ</button>
 								<?php endif; ?>
 								<div class="tcr-actions">
 									<a class="tcr-btn tcr-btn-primary" href="<?php echo esc_url( $task->url ); ?>">
@@ -190,9 +201,9 @@ ThemeCompatService::header();
 							</footer>
 
 							<?php if ( $task->answer ) : ?>
-								<div class="tcr-answer js-answer-panel" hidden>
-									<div class="tcr-answer-label">Правильный ответ</div>
-									<div class="tcr-answer-value"><?php echo esc_html( $task->answer ); ?></div>
+								<div id="fs-answer-<?php echo esc_attr( (string) $task->id ); ?>" class="fs-answer js-answer-panel" hidden>
+									<div class="fs-answer-label">Правильный ответ:</div>
+									<div class="fs-answer-value"><?php echo esc_html( $task->answer ); ?></div>
 								</div>
 							<?php endif; ?>
 						</article>
@@ -223,6 +234,11 @@ ThemeCompatService::header();
 		</div>
 	</div>
 
+
+	<?php // Кнопка «наверх» — показывает и прячет components/scroll-top.js. ?>
+	<button type="button" class="fs-to-top js-to-top" aria-label="Наверх" hidden>
+		<?php echo Icon::ChevronDown->svg( 18 ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+	</button>
 </div>
 
 <?php ThemeCompatService::footer(); ?>

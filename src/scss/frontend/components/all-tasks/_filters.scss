@@ -2,79 +2,93 @@
 @use '../../mixins' as *;
 
 // Сайдбар с фильтрами-таксономиями: секции-аккордеоны и опции-чекбоксы.
+// Оформление — карточка макета: шапка с разделителем, строки-секции,
+// uppercase-подписи и значение среза справа.
 .fs-all-tasks-page {
 
   .sidebar {
-    @include fs-sticky;
+    @include fs-sticky(rem(16));
 
     display: flex; flex-direction: column;
-    gap: rem(15);
+    gap: rem(16);
   }
 
   .side-card { @include fs-surface-card($padding: rem(16) rem(18) rem(18)); }
 
-  // overflow: hidden — hover-фон крайних .filter-sec-head прямоугольный и вылезал
-  // за скругление карточки ($border-radius-xl).
-  .filters-side { padding: rem(6) rem(0) rem(0); overflow: hidden; }
+  .filters-side { padding: 0; overflow: hidden; }
 
   .filters-side-head {
     display: flex; align-items: center; justify-content: space-between;
     gap: rem(8);
-    padding: rem(8) rem(16) rem(6);
+    padding: rem(16) rem(18);
+    border-bottom: 1px solid $color-border-light;
   }
-  .filters-side-title { font-size: $font-size-xs; font-weight: $font-bold; color: $color-text; }
+  .filters-side-title {
+    font-size: $font-size-md; font-weight: $font-bold;
+    letter-spacing: -.01em; color: $color-text;
+  }
 
   .filters-side-clear {
-    padding: 0;
-    background: none; border: 0;
-    font-family: inherit; font-size: rem(11.5); color: $color-muted;
+    padding: rem(5) rem(9);
+    background: none;
+    border: 0; border-radius: rem(7);
+    font-family: inherit; font-size: $font-size-xs; font-weight: $font-semibold;
+    color: $color-muted-2;
     cursor: pointer;
-    transition: color $transition;
+    transition: background $transition, color $transition;
 
-    &:hover:not(:disabled) { color: $color-accent; }
-    &:disabled { opacity: .4; cursor: not-allowed; }
+    &:hover:not(:disabled) { background: $color-accent-soft; color: $color-accent-700; }
+
+    &:disabled { opacity: .5; cursor: not-allowed; }
   }
 
   // ── Секция-аккордеон ──────────────────────────────────────────
-  .filter-sec { border-top: 1px solid $color-border; }
+  .filter-sec {
+    border-bottom: 1px solid $color-border-light;
+
+    &:last-child { border-bottom: 0; }
+  }
 
   .filter-sec-head {
     display: flex; align-items: center; justify-content: space-between;
-    gap: rem(10);
+    gap: rem(12);
     width: 100%;
-    padding: rem(11) rem(16);
+    padding: rem(13) rem(18);
     background: transparent; border: 0;
     font-family: inherit; text-align: left;
     cursor: pointer;
     transition: background $transition;
-    
-    &:hover { background: $color-bg-subtle; }
+
+    &:hover { background: $color-surface-2; }
   }
   .filter-sec-title {
-    font-size: rem(10.5); font-weight: $font-bold;
-    letter-spacing: .14em; text-transform: uppercase;
-    color: $color-muted;
+    font-size: $font-size-code; font-weight: $font-semibold;
+    letter-spacing: .05em; text-transform: uppercase;
+    color: $color-muted-2;
   }
   .filter-sec-right { display: inline-flex; align-items: center; gap: rem(8); }
-  .filter-sec-summary { font-size: $font-size-xs; color: $color-muted; font-variant-numeric: tabular-nums; }
+  .filter-sec-summary {
+    font-size: $font-size-sm; font-weight: $font-medium;
+    color: $color-text-secondary; font-variant-numeric: tabular-nums;
+  }
 
   .filter-sec-badge {
     display: inline-flex; align-items: center; justify-content: center;
     min-width: rem(18); height: rem(18);
-    padding: 0 rem(5);
+    padding: 0 rem(6);
     border-radius: $border-radius-pill;
-    background: $color-accent; color: $color-white;
-    font-size: rem(10.5); font-weight: $font-bold; font-variant-numeric: tabular-nums;
+    background: $color-accent-soft; color: $color-accent-700;
+    font-size: $font-size-2xs; font-weight: $font-bold; font-variant-numeric: tabular-nums;
   }
   .filter-sec-chev {
-    display: inline-flex; color: $color-muted;
-    transition: transform .2s ease;
+    display: inline-flex; color: $color-muted-2;
+    transition: transform .2s ease, color $transition;
 
-    &.is-open { transform: rotate(90deg); color: $color-text; }
+    &.is-open { transform: rotate(90deg); color: $color-accent-700; }
   }
   .filter-sec-body {
     max-height: rem(240);
-    padding: rem(4) rem(12) rem(14);
+    padding: 0 rem(12) rem(15);
     overflow-y: auto; overscroll-behavior: contain;
     scrollbar-width: thin;
   }
@@ -86,27 +100,27 @@
     display: flex; align-items: center;
     gap: rem(10);
     padding: rem(7) rem(8);
-    border-radius: $border-radius-md;
+    border-radius: rem(7);
     background: transparent; border: 0;
-    font-family: inherit; font-size: $font-size-xs; color: $color-muted;
+    font-family: inherit; font-size: $font-size-sm; color: $color-text-secondary;
     text-align: left; cursor: pointer;
     transition: background $transition, color $transition;
 
-    &:hover { background: $color-border-light; color: $color-text; }
-    &.is-active { background: rgba($color-accent, .12); color: $color-accent; }
+    &:hover { background: $color-surface-2; color: $color-text; }
+    &.is-active { background: $color-accent-soft; color: $color-accent-700; font-weight: $font-semibold; }
 
-    // Недоступные под текущий срез опции скрывает JS атрибутом hidden —
-    // без этого правила его перебивает display: flex выше.
     &[hidden] { display: none; }
   }
   .filter-option-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .filter-option-count { font-size: rem(11); color: $color-muted; font-variant-numeric: tabular-nums; }
+  .filter-option-count { font-size: $font-size-xs; color: $color-muted-2; font-variant-numeric: tabular-nums; }
   .filter-option-check {
     display: grid; place-items: center;
     width: rem(14); height: rem(14); flex: 0 0 rem(14);
-    border: 1.5px solid $color-separator; border-radius: $border-radius-sm;
+    border: 1.5px solid $color-border; border-radius: $border-radius-sm;
     color: transparent;
     transition: background $transition, border-color $transition, color $transition;
+
+    svg { display: block; }
   }
   .filter-option.is-active .filter-option-check { background: $color-accent; border-color: $color-accent; color: $color-white; }
 

@@ -14,6 +14,8 @@ export function initCarousel() {
 
     let index = realCount;
 
+    // Ступени обязаны совпадать с медиазапросами .fs-carousel-item
+    // (components/_carousel.scss): шаг прокрутки считается по ширине кадра.
     const visibleCount = () => {
         if (window.innerWidth <= 600) return 1;
         if (window.innerWidth <= 900) return 2;

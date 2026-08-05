@@ -21,7 +21,7 @@
 
 	&__title {
 		font-size: $font-size-2xl;
-		font-weight: $font-bold;
+		font-weight: $font-medium;
 		color: $color-text;
 		margin: 0 0 $spacing-lg;
 	}
@@ -123,7 +123,7 @@
 
 	&__paneltype {
 		font-size: $font-size-xs;
-		font-weight: $font-bold;
+		font-weight: $font-medium;
 		text-transform: uppercase;
 		letter-spacing: 0.04em;
 		color: $color-white;
@@ -134,7 +134,7 @@
 
 	&__panelname {
 		font-size: $font-size-md;
-		font-weight: $font-semibold;
+		font-weight: $font-medium;
 		margin: 0;
 	}
 
@@ -191,7 +191,7 @@
 
 	&__lock-title {
 		font-size: $font-size-2xl;
-		font-weight: $font-bold;
+		font-weight: $font-medium;
 		color: $color-text;
 		margin-bottom: $spacing-sm;
 	}
@@ -204,7 +204,7 @@
 
 	&__countdown {
 		font-size: $font-size-2xl;
-		font-weight: $font-bold;
+		font-weight: $font-medium;
 		font-variant-numeric: tabular-nums;
 		color: $color-accent;
 	}

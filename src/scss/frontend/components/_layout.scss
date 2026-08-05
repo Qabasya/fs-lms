@@ -1,8 +1,9 @@
 @use '../variables' as *;
 @use '../mixins' as *;
 
+// Фон страницы — серый макета: карточки-поверхности читаются только на нём.
 .fs-page-wrapper {
-  background: $color-bg-subtle;
+  background: $color-bg;
 
   @include fs-page-pad;
 }
@@ -17,6 +18,12 @@
   grid-template-columns: $sidebar-width 1fr;
   gap: $layout-gap;
   align-items: start;
+}
+
+// Сайдбар пуст (ни курсов, ни статей) — его нет в разметке, и задание занимает
+// всю ширину сетки по центру страницы.
+.fs-task-page--solo {
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .fs-task-main { min-width: 0; }
@@ -36,12 +43,11 @@
 
   .fs-task-main { order: 1; }
 
-  .fs-carousel-item { flex: 0 0 50%; }
+  // Ступени кадра карусели — целиком в _carousel.scss (он идёт позже в каскаде).
 }
 
 @media (max-width: $bp-sm) {
-  .fs-task-title { font-size: $font-size-md !important; }
-
+  // Мобильный кегль заголовка — в _task-content.scss, рядом с базовым правилом.
   .fs-task-nav__info { max-width: rem(90); }
 
   .fs-task-nav__title {
@@ -52,8 +58,6 @@
   }
 
   .fs-task-sidebar { grid-template-columns: 1fr; }
-
-  .fs-carousel-item { flex: 0 0 100%; }
 
   .fs-task-carousel .fs-carousel-btn { display: none; }
 }

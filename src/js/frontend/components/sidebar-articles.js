@@ -40,8 +40,13 @@ export function renderSidebarArticles(block, articles) {
     list.innerHTML = items.map(article => `
         <li>
             <a href="${esc(article.url)}">
-                <span class="fs-sidebar-article-title">${esc(article.title)}</span>
-                ${article.excerpt ? `<span class="fs-sidebar-article-desc">${esc(article.excerpt)}</span>` : ''}
+                ${article.thumbnail
+                    ? `<img class="fs-sidebar-article-thumb" src="${esc(article.thumbnail)}" alt="" loading="lazy" decoding="async" />`
+                    : '<span class="fs-sidebar-article-thumb fs-sidebar-article-thumb--empty" aria-hidden="true"></span>'}
+                <span class="fs-sidebar-article-text">
+                    <span class="fs-sidebar-article-title">${esc(article.title)}</span>
+                    <span class="fs-sidebar-article-go">Перейти</span>
+                </span>
             </a>
         </li>
     `).join('');

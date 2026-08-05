@@ -18,7 +18,7 @@
 
   &__title {
     font-size: $font-size-2xl;
-    font-weight: $font-bold;
+    font-weight: $font-medium;
     color: $color-text;
     margin: 0 0 rem(28);
     padding-bottom: rem(20);
@@ -36,7 +36,7 @@
 
     h2, h3, h4 {
       margin: $spacing-2xl 0 $spacing-md;
-      font-weight: $font-semibold;
+      font-weight: $font-medium;
       line-height: $line-height-tight;
     }
 
@@ -51,7 +51,7 @@
       li { margin-bottom: rem(6); }
     }
 
-    strong { font-weight: $font-semibold; }
+    strong { font-weight: $font-medium; }
 
     em { color: $color-muted; }
   }

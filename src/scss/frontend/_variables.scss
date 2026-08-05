@@ -5,39 +5,81 @@
 	rem, below, $bp-mobile, $bp-wp, $bp-tablet, $bp-wide,
 	$spacing-xs, $spacing-sm, $spacing-md, $spacing-lg,
 	$border-radius-sm, $border-radius-md, $border-radius-lg, $border-radius-xl,
-	$font-size-xs, $font-size-sm, $font-size-base, $font-size-md,
-	$font-regular, $font-semibold, $font-bold,
-	$color-danger;
+	$font-size-2xs, $font-size-code, $font-size-xs, $font-size-sm, $font-size-base,
+	$font-size-md, $font-size-lead, $font-size-xl,
+	$font-regular, $font-semibold, $font-bold, $color-danger;
 @use '../shared/tokens' as t;
 
-// ── Цвета
-$color-accent: #28c0f1;
-$color-text: #242424;
-$color-muted: #888;
-$color-text-secondary: #444;                // вторичный текст (условие, чипы) — между text и muted
-$color-border: #ddd;
-$color-border-light: #eee;
-$color-separator: #ccc;
-$color-white: #fff;
-$color-bg-subtle: #f4f4f4;
-$color-success: #2e7d32;
+// ═══════════════════════════════════════════════════════════════════
+// Палитра публичных страниц — макет «Шаг в будущее» (Claude Design
+// handoff: task-bank.css + course-player/cp-base.css :root).
+// Приглушённые оттенки здесь — самостоятельные hex макета, а не альфа
+// основного цвета: сетка серых у макета своя и в альфу не раскладывается.
+// ═══════════════════════════════════════════════════════════════════
 
-// Поверхность ошибки в формах (apply/join/auth) — намеренно иной красный, чем $color-danger
-$color-error-text: #c0392b;
-$color-error-bg: #fdf0ef;
-$color-error-border: #f5c6c3;
+// ── Акцент
+$color-accent: #3b5bdb;
+$color-accent-600: #364fc7; // ховер заливной кнопки
+$color-accent-700: #2f44b3; // акцентный текст на светлом
+$color-accent-soft: #edf0fe; // подложка чипа/активной опции
+$color-accent-soft-2: #dde3fb; // рамка поверх мягкой подложки
+
+// ── Поверхности и текст
+$color-bg: #f3f4f7;        // фон страницы под карточками
+$color-white: #fff;        // основная поверхность (карточка)
+$color-surface-2: #fafbfc; // вторая поверхность: ховер строки, код, плашки
+$color-text: #181b23;
+$color-text-secondary: #3c424e; // условие задания, длинный текст
+$color-muted: #6b7280;          // подписи, счётчики
+$color-muted-2: #9aa1ad;        // надзаголовки, плейсхолдеры, иконки в покое
+$color-text-faint: $color-muted-2;
+$color-border: #e7e9ef;         // рамка карточки
+$color-border-light: #eef0f4;   // внутренние разделители
+$color-separator: $color-border-light;
+// Историческое имя «приглушённой подложки»: во всех потребителях это вторая
+// поверхность макета (формы, табы, плашки кода).
+$color-bg-subtle: $color-surface-2;
+
+// ── Семантика (статусы, теги, иконки файлов)
+$color-ok: #2f9e44;
+$color-ok-soft: #e9f7ee;
+$color-ok-line: #c4e8d1;
+$color-err: #e03131;
+$color-err-soft: #fdecec;
+$color-err-line: #f5c9c9;
+$color-wait: #b36b00;
+$color-wait-soft: #fdf3e3;
+$color-wait-line: #f3ddb5;
+$color-info: #1c7ed6;
+$color-info-soft: #e7f2fd;
+$color-success: $color-ok;
+
+// Ошибка в формах (apply/join/auth) — та же семантика, что и err макета.
+$color-error-text: $color-err;
+$color-error-bg: $color-err-soft;
+$color-error-border: $color-err-line;
+
+// ── Палитра чипов-тегов: цвет закреплён за таксономией предмета
+// Порядок ступеней = порядок таксономий (PHP-сторона — TagPaletteService,
+// её COLORS обязана совпадать с длиной этого списка). Каждая ступень — пара
+// «текст, подложка» из палитры макета: чип залит целиком, поэтому оттенок
+// текста и фона задаётся явно, а не альфой.
+// Первая ступень — акцент проекта: её получает номер задания.
+$tag-palette: ($color-accent, $color-accent-soft), ($color-wait, $color-wait-soft),
+	($color-ok, $color-ok-soft), ($color-info, $color-info-soft),
+	($color-err, $color-err-soft), ($color-muted, #f0f1f4);
 
 // ── Подсветка кода (светлая тема, редактор в _code-block.scss)
-$code-header-bg: #fafafa;
-$code-body-bg: $color-bg-subtle;           // #f4f4f4 — как pre в _tabs
-$code-gutter-text: #a0a4a8;
-$code-selection-bg: rgba(40, 192, 241, .18);
+$code-header-bg: $color-surface-2;
+$code-body-bg: $color-surface-2;
+$code-gutter-text: $color-muted-2;
+$code-selection-bg: rgba($color-accent, .18);
 $hl-keyword: t.$hue-violet-dk;              // def, return, if, for…
 $hl-builtin: #2563eb;                       // print, len, range…
 $hl-function: #1d4ed8;                      // имя функции после def
 $hl-string: #15803d;                        // строковые литералы
 $hl-number: #0e7490;                        // числа
-$hl-comment: #6b7280;                       // комментарии
+$hl-comment: $color-muted;                  // комментарии
 
 // ── Типографика (крупные ступени — только на публичных страницах)
 $font-family: t.$font-ui; // тот же шрифт, что в кабинете и плеере
@@ -46,19 +88,27 @@ $font-family: t.$font-ui; // тот же шрифт, что в кабинете 
 $font-code: 'Courier New', courier, monospace;
 $font-size-2xl: t.rem(28);
 $font-size-lg: t.rem(22);
-$line-height-relaxed: 1.6;
-$line-height-tight: 1.4;
+$line-height-relaxed: 1.62; // длинный текст макета: условие, описания
+$line-height-tight: 1.35;
+
+// Сколько строк условия видно у свёрнутой карточки списка (высоту считает
+// _task-card.scss: строки × $line-height-relaxed). Порог, с которого условие
+// вообще сворачивается, задаёт CLAMP_AFTER_LINES в modules/task-condition.js.
+$task-condition-lines: 4;
 
 // Обычный вес: тема (TT5) ставит body{font-weight:300}, и UA-шный bolder у b/strong
 // от 300 даёт лишь 400 — жирный пропадает. Контентные блоки задают вес абсолютно.
 $font-normal: 400;
 $font-medium: 500;
+// 600/700 макета форвардятся из ядра ($font-semibold/$font-bold): на них держится
+// вся иерархия — номер задания, заголовки карточек, чипы, кнопки.
 
 // ── Компоновка
+// Сетка — прежняя (макетные 1440/316/24 не берём: ширина полосы и колонок
+// подобрана пользователем под контент этих страниц).
 $max-width: t.rem(1160);
 $sidebar-width: t.rem(300);
 $layout-gap: t.rem(22);
-$carousel-padding: t.rem(60);
 
 // Высота админ-бара WP — на неё сдвигаются липкие блоки (миксин fs-sticky)
 $wp-admin-bar-height: 32px;
@@ -69,16 +119,25 @@ $spacing-2xl: t.rem(24);
 $spacing-4xl: t.rem(32);
 
 // ── Форма (мелкие радиусы — из ядра)
+// Ступени макета: карточка 14, элемент управления 9. Ядровые -xl/-lg общие с
+// админкой и значат другие размеры, поэтому это отдельные фронтовые имена.
+$radius-card: t.rem(14);
+$radius-control: t.rem(9);
 $border-radius-2xl: t.rem(16);
-$border-radius-pill: 999px; // «таблетка»: полное скругление, в отличие от ядрового $border-radius-xl
+$border-radius-pill: 999px; // «таблетка»: полное скругление
 
-// ── Тени
-// Многослойная тень карточек публичных страниц (ядровая $shadow-card — плоская).
-$shadow-surface: 0 1px 0 rgba(0, 0, 0, .03), 0 t.rem(8) t.rem(24) t.rem(-10) rgba(0, 0, 0, .08), 0 t.rem(2) t.rem(6) t.rem(-2) rgba(0, 0, 0, .05);
-$shadow-hover: 0 t.rem(4) t.rem(16) rgba(0, 0, 0, .07);
+// ── Тени макета (shadow-sm / shadow-md): холодный оттенок, два слоя
+$shadow-surface: 0 1px 2px rgba(16, 24, 40, .05), 0 1px 3px rgba(16, 24, 40, .05);
+$shadow-hover: 0 t.rem(4) t.rem(12) rgba(16, 24, 40, .08), 0 t.rem(2) t.rem(4) rgba(16, 24, 40, .04);
 
 // ── Анимации
 $transition: 0.15s ease;
+// Медленная ступень — для раскрытий, где 0.15s читается как рывок
+// (свёрнутый поиск в строке крошек).
+$transition-slow: 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+// Обратный ход: сворачивание тянется дольше раскрытия — иначе элемент
+// «схлопывается» рывком, стоит увести курсор.
+$transition-collapse: 0.8s cubic-bezier(0.4, 0, 0.2, 1);
 
 // ── Брейкпоинты
 $bp-md: t.rem(900);

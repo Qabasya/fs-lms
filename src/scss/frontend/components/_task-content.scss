@@ -6,48 +6,79 @@
   font-weight: $font-bold;
   line-height: 1.2;
   letter-spacing: -.02em;
-  margin-bottom: rem(28);
+  margin: rem(14) 0 rem(18);
+
+  // Мобильный кегль — здесь же, рядом с базовым правилом: у _layout.scss тот же
+  // селектор проигрывает по порядку каскада и потребовал бы !important.
+  @media (max-width: $bp-sm) {
+    font-size: $font-size-md;
+  }
 }
 
 .fs-task-tags {
   display: flex;
   flex-wrap: wrap;
   gap: $spacing-sm;
-  margin: 0 0 rem(22) 0;
+  margin: 0 0 rem(18) 0;
 }
 
-.fs-tag { @include fs-chip; }
+// Скоуп страницы: тег-ссылка иначе получает цвет из сброса `.fs-task-page a`.
+.fs-task-page .fs-tag { @include fs-chip; }
 
-// Task card
+// Карточка задания — та же поверхность и та же геометрия, что у карточки
+// списка на «Всех заданиях» (макет Task Page: паддинг 26/30/24).
 .fs-task-card {
-  @include fs-surface-card($shadow: $shadow-surface);
+  @include fs-surface-card;
 
   overflow: hidden;
-  margin: rem(14) 0 0 0;
 }
 
 .fs-task-card__body {
-  padding: $spacing-4xl rem(36) rem(20);
+  padding: rem(26) rem(30) rem(24);
 }
 
+// Условие — тот же набор правил, что у карточки списка (.tcr-condition):
+// один кегль, один интерлиньяж, одинаковые плашки формул и кода.
 .fs-task-condition {
   font-size: $font-size-md;
   line-height: $line-height-relaxed;
+  text-align: justify;
   // Сброс наследуемого body{font-weight:300} темы: UA-шный bolder у b/strong
   // от 300 даёт всего 400 — жирный визуально пропадает. Веса задаём абсолютно.
   font-weight: $font-normal;
-  color: $color-text;
+  color: $color-text-secondary;
 
-  * { color: $color-text; }
-  b, strong { font-weight: $font-bold; }
+  * { color: inherit; }
+  b, strong { font-weight: $font-semibold; color: $color-text; }
+  p + p  { margin-top: rem(11); }
   img    { max-width: 100%; height: auto; display: block; }
   table  { border-collapse: collapse; margin: $spacing-md 0; }
   td, th { border: 1px solid $color-border; padding: rem(5) rem(10); font-size: $font-size-base; }
+
+  code, .m {
+    padding: rem(1) rem(5);
+    background: $color-surface-2;
+    border: 1px solid $color-border-light; border-radius: $border-radius-sm;
+    font-family: $font-code; font-size: $font-size-sm;
+    color: $color-text;
+  }
+
+  pre {
+    margin-top: rem(12); padding: rem(14) rem(16);
+    background: $color-surface-2;
+    border: 1px solid $color-border; border-radius: $radius-control;
+    font-family: $font-code; font-size: $font-size-sm; line-height: 1.6;
+    overflow: auto;
+  }
 }
 
-.fs-task-files { display: flex; flex-wrap: wrap; gap: rem(8); }
+// Вложение теперь широкая строка (примитив fs-file-chip), а не компактный чип:
+// в ряд они не встают — раскладываем колонкой, как в макете.
+.fs-task-files { display: grid; gap: rem(10); margin-top: rem(18); }
 
 .fs-file-link { @include fs-file-chip; }
 .fs-file-icon { @include fs-file-chip-icon; }
 .fs-file-name { font-weight: $font-semibold; }
 .fs-file-size { @include fs-file-chip-size; }
+.fs-file-dl   { @include fs-file-chip-download; }
+.fs-file-link:hover .fs-file-dl { color: $color-accent; }

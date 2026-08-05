@@ -4,17 +4,24 @@ declare(strict_types=1);
 
 namespace Inc\Controllers\Builders;
 
-use Inc\DTO\Task\PostViewDTO;
 use Inc\DTO\Subject\SubjectDTO;
-use Inc\DTO\Task\TaskPageDTO;
 use Inc\DTO\Subject\TermViewDTO;
+use Inc\DTO\Task\AdjacentTaskDTO;
+use Inc\DTO\Task\NavigationDTO;
+use Inc\DTO\Task\PostViewDTO;
+use Inc\DTO\Task\TabDTO;
+use Inc\DTO\Task\TagDTO;
+use Inc\DTO\Task\TaskContentDTO;
+use Inc\DTO\Task\TaskPageDTO;
 use Inc\Enums\Wp\PostMetaName;
 use Inc\Managers\Wp\PostManager;
 use Inc\Managers\Wp\TermManager;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Repositories\OptionsRepositories\TaxonomyRepository;
+use Inc\Services\Course\PublicCourseService;
 use Inc\Services\Subject\ArticleService;
 use Inc\Services\Subject\PostTypeResolver;
+use Inc\Services\Subject\TagPaletteService;
 use Inc\Services\Task\TaskMetaService;
 
 /**
@@ -30,9 +37,14 @@ use Inc\Services\Task\TaskMetaService;
  */
 readonly class TaskDataBuilder {
 
-	private const KEY_ANSWER = 'answer';
-	private const KEY_CODE   = 'code';
-	private const KEY_TEXT   = 'text';
+	private const KEY_CODE = 'code';
+	private const KEY_TEXT = 'text';
+
+	/** Сколько случайных статей показать, если по типу задания их нет. */
+	private const SIDEBAR_ARTICLES = 3;
+
+	/** Язык листинга: поля выбора языка у задания нет, все листинги — Python. */
+	private const CODE_LANG = 'Python';
 
 	/**
 	 * @param SubjectRepository  $subject_repository  Репозиторий предметов.
@@ -40,7 +52,10 @@ readonly class TaskDataBuilder {
 	 * @param TaskMetaService    $task_meta_service   Сервис мета-данных задания.
 	 * @param PostManager        $post_manager        Менеджер записей WordPress.
 	 * @param ArticleService     $article_service     Сервис статей предмета.
-	 * @param TermManager        $term_manager        Менеджер терминов таксономии.
+	 * @param TermManager         $term_manager        Менеджер терминов таксономии.
+	 * @param BreadcrumbsBuilder  $breadcrumbs_builder Строитель хлебных крошек.
+	 * @param PublicCourseService $course_service      Курсы предмета для сайдбара.
+	 * @param TagPaletteService   $tag_palette         Цвет чипа по таксономии.
 	 */
 	public function __construct(
 		private SubjectRepository $subject_repository,
@@ -50,6 +65,8 @@ readonly class TaskDataBuilder {
 		private ArticleService $article_service,
 		private TermManager $term_manager,
 		private BreadcrumbsBuilder $breadcrumbs_builder,
+		private PublicCourseService $course_service,
+		private TagPaletteService $tag_palette,
 	) {}
 
 	/**
@@ -63,7 +80,7 @@ readonly class TaskDataBuilder {
 		$post = $this->post_manager->get( $post_id );
 
 		if ( ! $post || ! PostTypeResolver::isTaskPostType( $post->post_type ) ) {
-			return $this->emptyTaskData();
+			return TaskPageDTO::empty();
 		}
 
 		$subject_key       = PostTypeResolver::subjectFromTaskPostType( $post->post_type );
@@ -79,7 +96,7 @@ readonly class TaskDataBuilder {
 	/**
 	 * Собирает DTO данных страницы задания.
 	 *
-	 * @param PostViewDTO|null $post              DTO записи задания.
+	 * @param PostViewDTO      $post              DTO записи задания.
 	 * @param string           $subject_key       Ключ предмета.
 	 * @param array            $meta              Мета-данные задания.
 	 * @param SubjectDTO|null  $subject           DTO предмета.
@@ -88,15 +105,15 @@ readonly class TaskDataBuilder {
 	 * @return TaskPageDTO
 	 */
 	private function buildTaskData(
-		?PostViewDTO $post = null,
-		string $subject_key = '',
-		array $meta = array(),
-		?SubjectDTO $subject = null,
-		?TermViewDTO $current_task_type = null
+		PostViewDTO $post,
+		string $subject_key,
+		array $meta,
+		?SubjectDTO $subject,
+		?TermViewDTO $current_task_type
 	): TaskPageDTO {
 		$subject_name = $subject ? $subject->name : $subject_key;
 		$content      = $this->buildContentData( $meta );
-		$archive_url  = $subject_key ? $this->post_manager->getArchiveLink( PostTypeResolver::tasks( $subject_key ) ) : '';
+		$archive_url  = $this->post_manager->getArchiveLink( PostTypeResolver::tasks( $subject_key ) );
 
 		return new TaskPageDTO(
 			post:         $post,
@@ -104,8 +121,9 @@ readonly class TaskDataBuilder {
 			subject_name: $subject_name,
 			content:      $content,
 			files:        $this->task_meta_service->getTaskFiles( $meta ),
-			tags:         $this->buildTags( $post?->id ?? 0, $subject_key, $current_task_type, $archive_url ),
+			tags:         $this->buildTags( $post->id, $subject_key, $current_task_type, $archive_url ),
 			articles:     $this->buildArticles( $subject_key, $current_task_type ),
+			courses:      $this->course_service->getSidebarCourses( $subject_key ),
 			navigation:   $this->buildNavigation( $post, $subject_name, $archive_url, $current_task_type ),
 			tabs:         $this->buildTabs( $content ),
 		);
@@ -114,39 +132,50 @@ readonly class TaskDataBuilder {
 	/**
 	 * Возвращает основное содержимое задания из мета-данных.
 	 *
+	 * Листинг решения отдаётся сырым: разметку `<pre><code class="js-code">`
+	 * печатает шаблон, редактор с подсветкой собирает `code-block.js`.
+	 *
 	 * @param array $meta Мета-данные задания.
 	 *
-	 * @return array
+	 * @return TaskContentDTO
 	 */
-	private function buildContentData( array $meta ): array {
-		$raw_code = $meta['task_code'] ?? '';
+	private function buildContentData( array $meta ): TaskContentDTO {
+		$code = (string) ( $meta['task_code'] ?? '' );
 
-		return array(
-			'condition'       => $this->task_meta_service->getCombinedCondition( $meta ),
-			self::KEY_ANSWER  => $meta['task_answer'] ?? '',
-			self::KEY_CODE    => '' !== $raw_code ? '<pre><code>' . esc_html( $raw_code ) . '</code></pre>' : '',
-			self::KEY_TEXT    => $meta['task_text'] ?? '',
+		return new TaskContentDTO(
+			condition: $this->task_meta_service->getCombinedCondition( $meta ),
+			answer:    (string) ( $meta['task_answer'] ?? '' ),
+			code:      $code,
+			code_lang: '' !== $code ? self::CODE_LANG : '',
+			text:      (string) ( $meta['task_text'] ?? '' ),
 		);
 	}
 
 	/**
-	 * Возвращает список табов для шаблона на основе готового массива content.
+	 * Возвращает список табов для шаблона на основе готового контента.
 	 *
-	 * @param array $content Массив контента задания из buildContentData().
+	 * Ответа среди табов нет: он выводится тем же блоком, что и в карточке
+	 * списка на «Всех заданиях» — кнопка в футере карточки плюс панель
+	 * (`$content->answer` шаблон берёт напрямую).
 	 *
-	 * @return array Список табов.
+	 * @param TaskContentDTO $content Контент задания из buildContentData().
+	 *
+	 * @return TabDTO[]
 	 */
-	private function buildTabs( array $content ): array {
+	private function buildTabs( TaskContentDTO $content ): array {
 		$tabs = array();
 
-		if ( ! empty( $content[ self::KEY_ANSWER ] ) ) {
-			$tabs[] = array( 'id' => self::KEY_ANSWER, 'label' => 'Ответ', 'content' => $content[ self::KEY_ANSWER ] );
+		if ( '' !== $content->code ) {
+			$tabs[] = new TabDTO(
+				id:      self::KEY_CODE,
+				label:   'Решение',
+				content: $content->code,
+				is_code: true,
+				lang:    $content->code_lang,
+			);
 		}
-		if ( ! empty( $content[ self::KEY_CODE ] ) ) {
-			$tabs[] = array( 'id' => self::KEY_CODE, 'label' => 'Решение', 'content' => $content[ self::KEY_CODE ] );
-		}
-		if ( ! empty( $content[ self::KEY_TEXT ] ) ) {
-			$tabs[] = array( 'id' => self::KEY_TEXT, 'label' => 'Пояснение', 'content' => $content[ self::KEY_TEXT ] );
+		if ( '' !== $content->text ) {
+			$tabs[] = new TabDTO( id: self::KEY_TEXT, label: 'Пояснение', content: $content->text );
 		}
 
 		return $tabs;
@@ -163,19 +192,21 @@ readonly class TaskDataBuilder {
 	 * @param TermViewDTO|null $current_task_type DTO текущего типа задания.
 	 * @param string           $archive_url       Ссылка на «Все задания» предмета.
 	 *
-	 * @return array Список тегов задания.
+	 * @return TagDTO[]
 	 */
 	private function buildTags( int $post_id, string $subject_key, ?TermViewDTO $current_task_type, string $archive_url ): array {
 		$tags = array();
 
 		if ( $current_task_type ) {
-			$tags[] = array(
-				'type'     => 'task_type',
-				'label'    => 'Задание №' . $current_task_type->name,
-				'taxonomy' => $current_task_type->taxonomy,
-				'term_id'  => $current_task_type->id,
-				'slug'     => $current_task_type->slug,
-				'url'      => $this->filterUrl( $archive_url, $current_task_type->taxonomy, $current_task_type->slug ),
+			$tags[] = new TagDTO(
+				type:          TagDTO::TYPE_TASK_TYPE,
+				label:         'Задание №' . $current_task_type->name,
+				taxonomy:      $current_task_type->taxonomy,
+				taxonomy_name: '',
+				term_id:       $current_task_type->id,
+				slug:          $current_task_type->slug,
+				url:           $this->filterUrl( $archive_url, $current_task_type->taxonomy, $current_task_type->slug ),
+				color:         $this->tag_palette->colorIndex( $subject_key, $current_task_type->taxonomy ),
 			);
 		}
 
@@ -196,14 +227,15 @@ readonly class TaskDataBuilder {
 					continue;
 				}
 
-				$tags[] = array(
-					'type'          => 'taxonomy',
-					'taxonomy'      => $taxonomy_dto->slug,
-					'taxonomy_name' => $taxonomy_dto->name,
-					'label'         => $term->name,
-					'term_id'       => $term->id,
-					'slug'          => $term->slug,
-					'url'           => $this->filterUrl( $archive_url, $taxonomy_dto->slug, $term->slug ),
+				$tags[] = new TagDTO(
+					type:          TagDTO::TYPE_TAXONOMY,
+					label:         $term->name,
+					taxonomy:      $taxonomy_dto->slug,
+					taxonomy_name: $taxonomy_dto->name,
+					term_id:       $term->id,
+					slug:          $term->slug,
+					url:           $this->filterUrl( $archive_url, $taxonomy_dto->slug, $term->slug ),
+					color:         $this->tag_palette->colorIndex( $subject_key, $taxonomy_dto->slug ),
 				);
 			}
 		}
@@ -238,12 +270,21 @@ readonly class TaskDataBuilder {
 	 * @param string           $subject_key       Ключ предмета.
 	 * @param TermViewDTO|null $current_task_type DTO текущего типа задания.
 	 *
-	 * @return array Ключи: 'related' (по типу задания), 'recommended' (свежие),
+	 * @return array Ключи: 'related' (по типу задания, иначе случайные),
+	 *               'recommended' (свежие),
 	 *               'archive_url' (архив статей предмета — ссылка «Все материалы»).
 	 */
 	private function buildArticles( string $subject_key, ?TermViewDTO $current_task_type ): array {
+		$related = $this->article_service->getRelatedArticles( $subject_key, $current_task_type );
+
+		// По типу задания статей нет — показываем случайные статьи предмета,
+		// иначе блок сайдбара пустовал бы (тот же приём, что на «Всех заданиях»).
+		if ( empty( $related ) ) {
+			$related = $this->article_service->getSidebarArticles( $subject_key, array(), self::SIDEBAR_ARTICLES );
+		}
+
 		return array(
-			'related'     => $this->article_service->getRelatedArticles( $subject_key, $current_task_type ),
+			'related'     => $related,
 			'recommended' => $this->article_service->getLatestArticles( $subject_key ),
 			'archive_url' => $subject_key
 				? $this->post_manager->getArchiveLink( PostTypeResolver::articles( $subject_key ) )
@@ -254,40 +295,84 @@ readonly class TaskDataBuilder {
 	/**
 	 * Возвращает данные навигации, хлебных крошек и соседних постов.
 	 *
-	 * @param PostViewDTO|null $post              DTO записи задания.
+	 * Навигация ходит только по заданиям ТОГО ЖЕ типа (термин {key}_task_number)
+	 * и закольцована: с последнего задания «Следующее» ведёт на первое, а с
+	 * первого «Предыдущее» — на последнее.
+	 *
+	 * @param PostViewDTO      $post              DTO записи задания.
 	 * @param string           $subject_label     Название предмета.
 	 * @param string           $archive_url       Ссылка на «Все задания» предмета.
 	 * @param TermViewDTO|null $current_task_type DTO текущего типа задания.
 	 *
-	 * @return array
+	 * @return NavigationDTO
 	 */
 	private function buildNavigation(
-		?PostViewDTO $post,
+		PostViewDTO $post,
 		string $subject_label,
 		string $archive_url,
 		?TermViewDTO $current_task_type,
-	): array {
-		$post_id  = $post?->id ?? 0;
+	): NavigationDTO {
 		$term_url = $current_task_type
 			? $this->filterUrl( $archive_url, $current_task_type->taxonomy, $current_task_type->slug )
 			: '';
 
-		$prev_post = $post_id ? PostViewDTO::normalizePost( $this->post_manager->getAdjacent( $post_id, true ) ) : null;
-		$next_post = $post_id ? PostViewDTO::normalizePost( $this->post_manager->getAdjacent( $post_id, false ) ) : null;
+		$taxonomy = $current_task_type?->taxonomy ?? '';
 
-		return array(
+		$prev = $this->post_manager->getAdjacent( $post->id, true, $taxonomy )
+			?? $this->edgeTask( $post, $current_task_type, false );
+		$next = $this->post_manager->getAdjacent( $post->id, false, $taxonomy )
+			?? $this->edgeTask( $post, $current_task_type, true );
+
+		$prev_post = PostViewDTO::normalizePost( $prev );
+		$next_post = PostViewDTO::normalizePost( $next );
+
+		return new NavigationDTO(
 			// Общая с «Все задания» цепочка: плоский список для партиала крошек.
-			'breadcrumbs' => $this->breadcrumbs_builder->forTask(
+			breadcrumbs: $this->breadcrumbs_builder->forTask(
 				$subject_label,
 				$archive_url,
 				$current_task_type ? $current_task_type->name . ' задание' : '',
 				$term_url,
-				$post ? $post->title : ''
+				$post->title
 			),
-			'archive_url' => $archive_url,
-			'prev'        => $this->adjacentLink( $prev_post ),
-			'next'        => $this->adjacentLink( $next_post ),
+			archive_url: $archive_url,
+			prev:        $this->adjacentLink( $prev_post ),
+			next:        $this->adjacentLink( $next_post ),
 		);
+	}
+
+	/**
+	 * Крайнее задание того же типа — точка «перескока» кольцевой навигации.
+	 *
+	 * @param PostViewDTO      $post      Текущее задание.
+	 * @param TermViewDTO|null $task_type Тип задания; null — кольцо по всем заданиям предмета.
+	 * @param bool             $oldest    true — самое старое (для «Следующего» с конца),
+	 *                                    false — самое свежее (для «Предыдущего» с начала).
+	 *
+	 * @return \WP_Post|null Null, если задание этого типа единственное.
+	 */
+	private function edgeTask( PostViewDTO $post, ?TermViewDTO $task_type, bool $oldest ): ?\WP_Post {
+		$opts = array(
+			'status'  => 'publish',
+			'limit'   => 1,
+			'orderby' => 'date',
+			'order'   => $oldest ? 'ASC' : 'DESC',
+		);
+
+		if ( $task_type ) {
+			$opts['tax_query'] = array(
+				array(
+					'taxonomy' => $task_type->taxonomy,
+					'field'    => 'term_id',
+					'terms'    => array( $task_type->id ),
+				),
+			);
+		}
+
+		$found = $this->post_manager->search( $post->post_type, $opts )[0] ?? null;
+
+		// Единственное задание типа: кольцо вырождается — соседа нет.
+		return ( $found instanceof \WP_Post && $found->ID !== $post->id ) ? $found : null;
 	}
 
 	/**
@@ -295,17 +380,17 @@ readonly class TaskDataBuilder {
 	 *
 	 * @param PostViewDTO|null $post DTO соседней записи.
 	 *
-	 * @return array<string, string>|null
+	 * @return AdjacentTaskDTO|null
 	 */
-	private function adjacentLink( ?PostViewDTO $post ): ?array {
+	private function adjacentLink( ?PostViewDTO $post ): ?AdjacentTaskDTO {
 		if ( ! $post ) {
 			return null;
 		}
 
-		return array(
-			'title' => $post->title,
-			'url'   => $post->url,
-			'slug'  => rawurldecode( $post->slug ),
+		return new AdjacentTaskDTO(
+			title: $post->title,
+			url:   $post->url,
+			slug:  rawurldecode( $post->slug ),
 		);
 	}
 
@@ -324,16 +409,5 @@ readonly class TaskDataBuilder {
 		);
 
 		return TermViewDTO::normalizeTerm( $terms[0] ?? null );
-	}
-
-	/**
-	 * Возвращает пустой TaskPageDTO.
-	 *
-	 * Используется, если запись не найдена или не является заданием.
-	 *
-	 * @return TaskPageDTO
-	 */
-	private function emptyTaskData(): TaskPageDTO {
-		return $this->buildTaskData();
 	}
 }

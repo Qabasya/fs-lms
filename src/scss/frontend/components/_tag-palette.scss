@@ -1,0 +1,33 @@
+@use 'sass:color';
+@use 'sass:list';
+@use '../variables' as *;
+
+// Цвет чипа закреплён за таксономией задания: ступень палитры печатает PHP
+// классом --c{n} (TagPaletteService), значения живут здесь.
+//
+// Чип макета залит целиком: мягкая подложка + насыщенный текст той же ступени.
+// Ховер (чипы карточки списка — кнопки-фильтры) уплотняет подложку подмешиванием
+// цвета текста, поэтому третий оттенок нигде не появляется.
+//
+// Скоуп страницы обязателен обоим чипам: сброс `.fs-task-page a { color: inherit }`
+// и `.fs-all-tasks-page .tcr-tag:hover` перебивают цвет ступени по специфичности
+// (тег задания — ссылка, и без скоупа он оставался серым).
+$tag-chip-scopes: (
+  '.fs-tag': '.fs-task-page ',
+  '.tcr-tag': '.fs-all-tasks-page ',
+);
+
+@each $chip, $scope in $tag-chip-scopes {
+  @for $i from 1 through list.length($tag-palette) {
+    $step: list.nth($tag-palette, $i);
+    $ink: list.nth($step, 1);
+    $soft: list.nth($step, 2);
+
+    #{$scope}#{$chip}--c#{$i} {
+      background: $soft;
+      color: $ink;
+
+      &:hover { background: color.mix($ink, $soft, 12%); }
+    }
+  }
+}

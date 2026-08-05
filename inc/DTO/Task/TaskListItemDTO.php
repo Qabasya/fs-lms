@@ -2,7 +2,7 @@
 
 declare( strict_types=1 );
 
-namespace Inc\DTO;
+namespace Inc\DTO\Task;
 
 /**
  * Class TaskListItemDTO
@@ -13,7 +13,7 @@ namespace Inc\DTO;
  * термины пользовательских таксономий предмета ($tags), а номер задания —
  * термин фиксированной таксономии {subject}_task_number ($task_number).
  *
- * @package Inc\DTO
+ * @package Inc\DTO\Task
  */
 readonly class TaskListItemDTO {
 
@@ -25,7 +25,8 @@ readonly class TaskListItemDTO {
 	 * @param string $task_type_url        Ссылка на архив термина типа задания.
 	 * @param string $task_number_taxonomy Слаг таксономии типа задания ({subject}_task_number) — для фильтра.
 	 * @param string $task_number_slug     Слаг термина типа задания — для фильтра (совпадает с опцией сайдбара).
-	 * @param array  $tags                 Теги-классификаторы: [{taxonomy, taxonomy_name, label, slug, url}].
+	 * @param int    $task_number_color    Ступень палитры чипа номера (TagPaletteService).
+	 * @param array  $tags                 Теги-классификаторы: [{taxonomy, taxonomy_name, label, slug, url, color}].
 	 * @param string $condition            Условие задания (HTML).
 	 * @param string $answer               Правильный ответ.
 	 * @param array  $files                Файлы задания: [{name, url, size}].
@@ -38,6 +39,7 @@ readonly class TaskListItemDTO {
 		public string $task_type_url,
 		public string $task_number_taxonomy,
 		public string $task_number_slug,
+		public int    $task_number_color,
 		public array  $tags,
 		public string $condition,
 		public string $answer,
@@ -58,6 +60,7 @@ readonly class TaskListItemDTO {
 			'task_type_url'        => $this->task_type_url,
 			'task_number_taxonomy' => $this->task_number_taxonomy,
 			'task_number_slug'     => $this->task_number_slug,
+			'task_number_color'    => $this->task_number_color,
 			'tags'                 => $this->tags,
 			'condition'     => $this->condition,
 			'answer'        => $this->answer,

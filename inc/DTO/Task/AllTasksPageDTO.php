@@ -2,7 +2,7 @@
 
 declare( strict_types=1 );
 
-namespace Inc\DTO;
+namespace Inc\DTO\Task;
 
 /**
  * Class AllTasksPageDTO
@@ -13,7 +13,7 @@ namespace Inc\DTO;
  * (тип задания + пользовательские: год, источник/автор и др.):
  *   [{ taxonomy, name, terms: [{ slug, name, count, url }] }]
  *
- * @package Inc\DTO
+ * @package Inc\DTO\Task
  */
 readonly class AllTasksPageDTO {
 
@@ -24,6 +24,7 @@ readonly class AllTasksPageDTO {
 	 * @param array  $filters      Группы фильтров-таксономий (см. описание класса).
 	 * @param array  $articles     Статьи сайдбара (подбор — ArticleService::getSidebarArticles).
 	 * @param string $articles_url Архив статей предмета — ссылка «Все материалы».
+	 * @param array  $courses      Опубликованные курсы предмета: CourseCardDTO[]; пусто — блока нет.
 	 * @param array  $tasks        Первая страница: TaskListItemDTO[].
 	 * @param int    $total        Полное число заданий с учётом фильтров.
 	 * @param int    $per_page     Размер страницы.
@@ -37,6 +38,7 @@ readonly class AllTasksPageDTO {
 		public array  $filters,
 		public array  $articles,
 		public string $articles_url,
+		public array  $courses,
 		public array  $tasks,
 		public int    $total,
 		public int    $per_page,
