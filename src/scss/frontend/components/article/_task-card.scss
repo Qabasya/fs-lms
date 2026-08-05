@@ -1,0 +1,146 @@
+@use '../../variables' as *;
+@use '../../mixins' as *;
+
+// Карточка задания внутри текста статьи. Разметку подставляет пост-обработка
+// контента, раскрытие — класс .is-open от components/article-task-card.js.
+.fs-article-page {
+  .fs-article-task {
+    @include fs-surface-card;
+
+    overflow: hidden;
+    transition: border-color $transition, box-shadow $transition;
+
+    &:hover {
+      border-color: $color-accent-soft-2;
+      box-shadow: $shadow-hover;
+    }
+
+    &.is-open { border-color: $color-accent-soft-2; }
+  }
+
+  .fs-article-task__top {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+    gap: $spacing-lg;
+    width: 100%;
+    padding: rem(18) rem(20);
+    background: none;
+    border: 0;
+    font-family: inherit;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: background $transition;
+
+    &:hover { background: $color-surface-2; }
+  }
+
+  .fs-article-task.is-open .fs-article-task__top {
+    background: none;
+    border-bottom: 1px solid $color-border-light;
+  }
+
+  .fs-article-task__main {
+    display: grid;
+    gap: $spacing-sm;
+    min-width: 0;
+  }
+
+  .fs-article-task__title {
+    font-size: $font-size-md;
+    font-weight: $font-bold;
+    letter-spacing: -.015em;
+    color: $color-text;
+  }
+
+  .fs-article-task__peek {
+    @include line-clamp(2);
+
+    font-size: $font-size-base;
+    line-height: 1.55;
+    color: $color-muted;
+  }
+
+  // Раскрытая карточка показывает условие целиком — превью в ней лишнее.
+  .fs-article-task.is-open .fs-article-task__peek { display: none; }
+
+  .fs-article-task__chev {
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    width: rem(32);
+    height: rem(32);
+    background: $color-white;
+    border: 1px solid $color-border;
+    border-radius: 50%;
+    color: $color-muted;
+    transition: background $transition, border-color $transition, color $transition;
+
+    svg { display: block; transition: transform $transition-medium; }
+  }
+
+  .fs-article-task__top:hover .fs-article-task__chev {
+    background: $color-accent-soft;
+    border-color: $color-accent-soft-2;
+    color: $color-accent-700;
+  }
+
+  .fs-article-task.is-open .fs-article-task__chev svg { transform: rotate(180deg); }
+
+  // Раскрытие через grid-template-rows: высота тела заранее неизвестна, а
+  // анимировать max-height по «на глаз» подобранному потолку — рывок в конце.
+  .fs-article-task__body {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows $transition-medium;
+  }
+
+  .fs-article-task.is-open .fs-article-task__body { grid-template-rows: 1fr; }
+
+  .fs-article-task__body-inner {
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .fs-article-task.is-open .fs-article-task__body-inner { padding: rem(20); }
+
+  .fs-article-task__stmt {
+    display: grid;
+    gap: rem(11);
+    font-size: $font-size-md;
+    line-height: $line-height-relaxed;
+    color: $color-text-secondary;
+
+    p { margin: 0; }
+
+    img {
+      max-width: 100%;
+      height: auto;
+    }
+  }
+
+  .fs-article-task__foot {
+    display: flex;
+    align-items: center;
+    gap: $spacing-lg;
+    flex-wrap: wrap;
+    margin-top: rem(18);
+    padding-top: $spacing-lg;
+    border-top: 1px solid $color-border-light;
+  }
+
+  .fs-article-task__open {
+    display: inline-flex;
+    align-items: center;
+    gap: rem(6);
+    font-size: $font-size-sm;
+    font-weight: $font-semibold;
+    color: $color-accent;
+    text-decoration: none;
+
+    &:hover { color: $color-accent-700; }
+
+    svg { display: block; }
+  }
+}

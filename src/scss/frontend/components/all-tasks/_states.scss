@@ -3,7 +3,6 @@
 
 // Состояния списка: пусто и бесконечная подгрузка.
 .fs-all-tasks-page {
-
   .tasks-empty {
     @include fs-surface-card($padding: rem(60) rem(24) rem(64));
 
@@ -25,6 +24,7 @@
     padding: rem(28) rem(12) rem(12);
     font-size: $font-size-sm; color: $color-muted;
   }
+
   .infinite-spinner {
     width: rem(14); height: rem(14);
     border: 2px solid $color-border; border-top-color: $color-accent; border-radius: 50%;

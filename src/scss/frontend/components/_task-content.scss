@@ -19,7 +19,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: $spacing-sm;
-  margin: 0 0 rem(18) 0;
+  margin: 0 0 rem(18);
 }
 
 // Скоуп страницы: тег-ссылка иначе получает цвет из сброса `.fs-task-page a`.
@@ -43,6 +43,7 @@
   font-size: $font-size-md;
   line-height: $line-height-relaxed;
   text-align: justify;
+
   // Сброс наследуемого body{font-weight:300} темы: UA-шный bolder у b/strong
   // от 300 даёт всего 400 — жирный визуально пропадает. Веса задаём абсолютно.
   font-weight: $font-normal;

@@ -1,0 +1,24 @@
+# Переводы строк. Плагин собирается и правится из WSL/Linux, а клонировать его
+# могут и на Windows с core.autocrlf=true — без этого файла такой клон подменяет
+# LF на CRLF и любая правка даёт дифф во весь файл.
+# `text=auto eol=lf`: git сам определяет текстовые файлы и всегда кладёт в индекс
+# и в рабочую копию LF, независимо от ОС и настроек клиента.
+* text=auto eol=lf
+
+# Явно бинарные: не нормализовать, не диффать как текст.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.svg text eol=lf
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary
+*.zip binary
+*.pdf binary
+
+# Дампы БД — текст, но диффы бесполезны и огромны.
+*.sql text eol=lf -diff

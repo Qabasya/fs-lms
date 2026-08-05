@@ -238,47 +238,14 @@ ThemeCompatService::header();
 		</div>
 	</div>
 
-	<!-- Карусель рекомендуемых статей -->
+	<!-- Карусель рекомендуемых статей (общий партиал со страницей статьи) -->
 	<?php if ( ! empty( $articles['recommended'] ) ) : ?>
 		<hr class="fs-task-divider fs-carousel-divider">
-		<div class="fs-task-carousel">
-			<div class="fs-carousel-header">
-				<h3 class="fs-carousel-title">Рекомендуемые статьи</h3>
-			</div>
-			<div class="fs-carousel-row">
-				<button type="button" class="fs-carousel-btn fs-carousel-btn--prev" aria-label="Назад"><?php echo Icon::ChevronLeft->svg( 16 ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></button>
-
-				<div class="fs-carousel-overflow">
-					<div class="fs-carousel-track">
-						<?php foreach ( $articles['recommended'] as $article ) : ?>
-							<div class="fs-carousel-item">
-								<a href="<?php echo esc_url( $article['url'] ); ?>">
-									<?php // Нет обложки — заглушка на её месте: карточки карусели равны по высоте. ?>
-									<?php if ( ! empty( $article['thumbnail'] ) ) : ?>
-										<img class="fs-carousel-thumb"
-											src="<?php echo esc_url( $article['thumbnail'] ); ?>"
-											alt="" loading="lazy" decoding="async" />
-									<?php else : ?>
-										<span class="fs-carousel-thumb fs-carousel-thumb--empty" aria-hidden="true"></span>
-									<?php endif; ?>
-									<?php // Текст в своей обёртке: у ссылки отступов нет, чтобы миниатюра доходила до рамок. ?>
-									<span class="fs-carousel-body">
-										<strong><?php echo esc_html( $article['title'] ); ?></strong>
-										<?php if ( ! empty( $article['excerpt'] ) ) : ?>
-											<p><?php echo esc_html( $article['excerpt'] ); ?></p>
-										<?php endif; ?>
-										<?php // Стрелку рисует CSS (миксин fs-arrow-reveal) на ховере карточки. ?>
-										<span class="fs-carousel-read">Читать</span>
-									</span>
-								</a>
-							</div>
-						<?php endforeach; ?>
-					</div>
-				</div>
-
-			<button type="button" class="fs-carousel-btn fs-carousel-btn--next" aria-label="Вперёд"><?php echo Icon::ChevronRight->svg( 16 ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></button>
-			</div>
-		</div>
+		<?php
+		$carousel_articles = $articles['recommended'];
+		$carousel_title    = 'Рекомендуемые статьи';
+		include __DIR__ . '/partials/articles-carousel.php';
+		?>
 	<?php endif; ?>
 
 </div>

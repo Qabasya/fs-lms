@@ -635,70 +635,64 @@ class Migration_1_0_0 implements MigrationInterface {
 
 		// ===== Cleanup — добавление колонок для уже существующих установок =====
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		$wpdb->query( "ALTER TABLE `$student_records`
-			ADD COLUMN IF NOT EXISTS `snapshot_last_name`   varchar(100) NOT NULL DEFAULT '',
-			ADD COLUMN IF NOT EXISTS `snapshot_first_name`  varchar(100) NOT NULL DEFAULT '',
-			ADD COLUMN IF NOT EXISTS `snapshot_middle_name` varchar(100) DEFAULT NULL,
-			ADD COLUMN IF NOT EXISTS `snapshot_school`      varchar(255) DEFAULT NULL,
-			ADD COLUMN IF NOT EXISTS `snapshot_grade`       varchar(10)  DEFAULT NULL,
-			ADD COLUMN IF NOT EXISTS `enrolled_by_user_id`  bigint(20) unsigned DEFAULT NULL" );
-		$wpdb->query( "ALTER TABLE `$groups`
-			DROP INDEX IF EXISTS `group_id`,
-			DROP COLUMN IF EXISTS `group_id`" );
+		$this->addColumn( $student_records, 'snapshot_last_name', "varchar(100) NOT NULL DEFAULT ''" );
+		$this->addColumn( $student_records, 'snapshot_first_name', "varchar(100) NOT NULL DEFAULT ''" );
+		$this->addColumn( $student_records, 'snapshot_middle_name', 'varchar(100) DEFAULT NULL' );
+		$this->addColumn( $student_records, 'snapshot_school', 'varchar(255) DEFAULT NULL' );
+		$this->addColumn( $student_records, 'snapshot_grade', 'varchar(10) DEFAULT NULL' );
+		$this->addColumn( $student_records, 'enrolled_by_user_id', 'bigint(20) unsigned DEFAULT NULL' );
+		$this->dropIndex( $groups, 'group_id' );
+		$this->dropColumn( $groups, 'group_id' );
 		$persons = TableName::Persons->prefixed();
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.SchemaChange
 		if ( $wpdb->get_var( "SHOW COLUMNS FROM `$persons` LIKE 'deleted_at'" ) ) {
 			$wpdb->query( "ALTER TABLE `$persons` CHANGE COLUMN `deleted_at` `expelled_at` datetime DEFAULT NULL" );
 		}
-		$wpdb->query( "ALTER TABLE `$persons` ADD INDEX IF NOT EXISTS `expelled_at` (`expelled_at`)" );
-		$wpdb->query( "ALTER TABLE `$pii_access_log` ADD COLUMN IF NOT EXISTS `actor_ua` text DEFAULT NULL" );
-		$wpdb->query( "ALTER TABLE `$export_log`
-			ADD COLUMN IF NOT EXISTS `operation_type` varchar(10) NOT NULL DEFAULT 'export',
-			ADD COLUMN IF NOT EXISTS `actor_ip` varchar(45) NOT NULL DEFAULT '',
-			ADD COLUMN IF NOT EXISTS `actor_ua` text DEFAULT NULL" );
-		$wpdb->query( "ALTER TABLE `$email_log` ADD COLUMN IF NOT EXISTS `recipient_email` varchar(255) DEFAULT NULL" );
-		$wpdb->query( "ALTER TABLE `$applications` ADD COLUMN IF NOT EXISTS `subject_key` varchar(50) DEFAULT NULL" );
-		$wpdb->query( "ALTER TABLE `$groups` ADD COLUMN IF NOT EXISTS `course_id` bigint(20) unsigned DEFAULT NULL" );
-		if ( $wpdb->get_var( "SHOW COLUMNS FROM `$groups` LIKE 'schedule'" ) ) {
+		$this->addIndex( $persons, 'expelled_at', '`expelled_at`' );
+		$this->addColumn( $pii_access_log, 'actor_ua', 'text DEFAULT NULL' );
+		$this->addColumn( $export_log, 'operation_type', "varchar(10) NOT NULL DEFAULT 'export'" );
+		$this->addColumn( $export_log, 'actor_ip', "varchar(45) NOT NULL DEFAULT ''" );
+		$this->addColumn( $export_log, 'actor_ua', 'text DEFAULT NULL' );
+		$this->addColumn( $email_log, 'recipient_email', 'varchar(255) DEFAULT NULL' );
+		$this->addColumn( $applications, 'subject_key', 'varchar(50) DEFAULT NULL' );
+		$this->addColumn( $groups, 'course_id', 'bigint(20) unsigned DEFAULT NULL' );
+		if ( $this->hasColumn( $groups, 'schedule' ) ) {
 			$wpdb->query( "ALTER TABLE `$groups` CHANGE COLUMN `schedule` `meetings` json DEFAULT NULL" );
 		} else {
-			$wpdb->query( "ALTER TABLE `$groups` ADD COLUMN IF NOT EXISTS `meetings` json DEFAULT NULL" );
+			$this->addColumn( $groups, 'meetings', 'json DEFAULT NULL' );
 		}
-		$wpdb->query( "ALTER TABLE `$group_lessons`
-			ADD COLUMN IF NOT EXISTS `ends_at`   datetime   DEFAULT NULL,
-			ADD COLUMN IF NOT EXISTS `is_pinned` tinyint(1) NOT NULL DEFAULT 0,
-			ADD COLUMN IF NOT EXISTS `label`     varchar(150) DEFAULT NULL,
-			MODIFY COLUMN `lesson_id` bigint unsigned DEFAULT NULL" );
+		$this->addColumn( $group_lessons, 'ends_at', 'datetime DEFAULT NULL' );
+		$this->addColumn( $group_lessons, 'is_pinned', 'tinyint(1) NOT NULL DEFAULT 0' );
+		$this->addColumn( $group_lessons, 'label', 'varchar(150) DEFAULT NULL' );
+		$wpdb->query( "ALTER TABLE `$group_lessons` MODIFY COLUMN `lesson_id` bigint unsigned DEFAULT NULL" );
 		// Задача 5 — привязка попытки экзамена к конкретному занятию группы (для сводки по ученику).
 		$assessment_attempts = TableName::AssessmentAttempts->prefixed();
-		$wpdb->query( "ALTER TABLE `$assessment_attempts` ADD COLUMN IF NOT EXISTS `group_lesson_id` int unsigned DEFAULT NULL" );
-		$wpdb->query( "ALTER TABLE `$assessment_answers` ADD COLUMN IF NOT EXISTS `grader_note` text DEFAULT NULL" );
-		$wpdb->query( "ALTER TABLE `$assessment_answers` ADD COLUMN IF NOT EXISTS `criteria_scores` json DEFAULT NULL" ); // Эпик 13 (D17)
+		$this->addColumn( $assessment_attempts, 'group_lesson_id', 'int unsigned DEFAULT NULL' );
+		$this->addColumn( $assessment_answers, 'grader_note', 'text DEFAULT NULL' );
+		$this->addColumn( $assessment_answers, 'criteria_scores', 'json DEFAULT NULL' ); // Эпик 13 (D17)
 		$wpdb->query( "ALTER TABLE `$lesson_progress` MODIFY COLUMN `status` enum('locked','available','viewed','completed','failed') NOT NULL DEFAULT 'locked'" );
 		// Этап 7 (пакетная сдача): SubmissionStatus::PendingReview — колонка отставала от enum'а
 		// (INSERT/UPDATE со status='pending_review' падал под STRICT_TRANS_TABLES: "Data truncated for column 'status'").
 		$wpdb->query( "ALTER TABLE `$submissions` MODIFY COLUMN `status` enum('assigned','submitted','pending_review','graded','returned') NOT NULL DEFAULT 'assigned'" );
 		$group_lessons = TableName::GroupLessons->prefixed();
-		$wpdb->query( "ALTER TABLE `$group_lessons` ADD COLUMN IF NOT EXISTS `step_settings_overrides` json DEFAULT NULL" );
+		$this->addColumn( $group_lessons, 'step_settings_overrides', 'json DEFAULT NULL' );
 		// Эпик 4 — индивидуальные занятия (эволюция group_lessons).
-		$wpdb->query( "ALTER TABLE `$group_lessons`
-			ADD COLUMN IF NOT EXISTS `kind`              enum('group','individual') NOT NULL DEFAULT 'group',
-			ADD COLUMN IF NOT EXISTS `status`            enum('scheduled','held','cancelled','moved') NOT NULL DEFAULT 'scheduled',
-			ADD COLUMN IF NOT EXISTS `student_person_id` int unsigned DEFAULT NULL" );
+		$this->addColumn( $group_lessons, 'kind', "enum('group','individual') NOT NULL DEFAULT 'group'" );
+		$this->addColumn( $group_lessons, 'status', "enum('scheduled','held','cancelled','moved') NOT NULL DEFAULT 'scheduled'" );
+		$this->addColumn( $group_lessons, 'student_person_id', 'int unsigned DEFAULT NULL' );
 		// Эпик 9 — кабинеты: room_id на группе (дефолт года) и на занятии (override/индивидуальные).
-		$wpdb->query( "ALTER TABLE `$group_lessons` ADD COLUMN IF NOT EXISTS `room_id` int unsigned DEFAULT NULL" );
-		$wpdb->query( "ALTER TABLE `$groups` ADD COLUMN IF NOT EXISTS `room_id` int unsigned DEFAULT NULL" );
+		$this->addColumn( $group_lessons, 'room_id', 'int unsigned DEFAULT NULL' );
+		$this->addColumn( $groups, 'room_id', 'int unsigned DEFAULT NULL' );
 		// T1.8 — lock КТП: публикация программы фиксирует дату блокировки (NULL = редактируемо).
-		$wpdb->query( "ALTER TABLE `$groups` ADD COLUMN IF NOT EXISTS `program_locked_at` datetime DEFAULT NULL" );
+		$this->addColumn( $groups, 'program_locked_at', 'datetime DEFAULT NULL' );
 		// Эпик 15 — открытые группы (self-paced): вся программа публикуется сразу, без дат занятий.
-		$wpdb->query( "ALTER TABLE `$groups` ADD COLUMN IF NOT EXISTS `access_mode` enum('scheduled','open') NOT NULL DEFAULT 'scheduled'" );
+		$this->addColumn( $groups, 'access_mode', "enum('scheduled','open') NOT NULL DEFAULT 'scheduled'" );
 		// T12.2 (D13) — дедлайны работ занятия: {work_id: 'Y-m-d H:i:s'}, per-work; legacy homework_due_at — фолбэк.
-		$wpdb->query( "ALTER TABLE `$group_lessons` ADD COLUMN IF NOT EXISTS `work_deadlines` json DEFAULT NULL" );
+		$this->addColumn( $group_lessons, 'work_deadlines', 'json DEFAULT NULL' );
 		// T12.6 (D14) — продолжение темы на вторую дату: связь на исходную строку (не мультидаты, не независимый дубль).
-		$wpdb->query( "ALTER TABLE `$group_lessons` ADD COLUMN IF NOT EXISTS `continued_from_id` int unsigned DEFAULT NULL" );
-		$wpdb->query( "ALTER TABLE `$consent_change_log`
-			ADD COLUMN IF NOT EXISTS `actor_ip` varchar(45) DEFAULT NULL,
-			ADD COLUMN IF NOT EXISTS `actor_ua` text DEFAULT NULL" );
+		$this->addColumn( $group_lessons, 'continued_from_id', 'int unsigned DEFAULT NULL' );
+		$this->addColumn( $consent_change_log, 'actor_ip', 'varchar(45) DEFAULT NULL' );
+		$this->addColumn( $consent_change_log, 'actor_ua', 'text DEFAULT NULL' );
 		$entity_audit_log = TableName::EntityAuditLog->prefixed();
 		$wpdb->query( "ALTER TABLE `$entity_audit_log` MODIFY COLUMN `entity_id` varchar(100) DEFAULT NULL" );
 		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
@@ -709,6 +703,119 @@ class Migration_1_0_0 implements MigrationInterface {
 		// «Трансляция» (broadcast). Перенос recording_slot-шагов вынесен в
 		// одноразовую {@see BroadcastStepMigration} (version-gated, срабатывает на
 		// обычной загрузке из Init::run() — этот up() на живых установках не гоняется).
+	}
+
+	/**
+	 * Добавляет колонку, если её ещё нет.
+	 *
+	 * Синтаксис `ADD COLUMN IF NOT EXISTS` понимает только MariaDB: на MySQL
+	 * такой ALTER падает с ошибкой синтаксиса, а `$wpdb` её не пробрасывает —
+	 * миграция «проходит», оставляя схему без колонки. Поэтому существование
+	 * проверяем сами, а ALTER даём обычный.
+	 *
+	 * @param string $table      Имя таблицы с префиксом.
+	 * @param string $column     Имя колонки.
+	 * @param string $definition Тип и атрибуты («varchar(50) DEFAULT NULL»).
+	 *
+	 * @return void
+	 */
+	private function addColumn( string $table, string $column, string $definition ): void {
+		global $wpdb;
+
+		if ( $this->hasColumn( $table, $column ) ) {
+			return;
+		}
+
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->query( "ALTER TABLE `$table` ADD COLUMN `$column` $definition" );
+	}
+
+	/**
+	 * Удаляет колонку, если она есть (в MySQL нет `DROP COLUMN IF EXISTS`).
+	 *
+	 * @param string $table  Имя таблицы с префиксом.
+	 * @param string $column Имя колонки.
+	 *
+	 * @return void
+	 */
+	private function dropColumn( string $table, string $column ): void {
+		global $wpdb;
+
+		if ( ! $this->hasColumn( $table, $column ) ) {
+			return;
+		}
+
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->query( "ALTER TABLE `$table` DROP COLUMN `$column`" );
+	}
+
+	/**
+	 * Добавляет индекс, если его ещё нет (в MySQL нет `ADD INDEX IF NOT EXISTS`).
+	 *
+	 * @param string $table   Имя таблицы с префиксом.
+	 * @param string $index   Имя индекса.
+	 * @param string $columns Список колонок индекса («`expelled_at`»).
+	 *
+	 * @return void
+	 */
+	private function addIndex( string $table, string $index, string $columns ): void {
+		global $wpdb;
+
+		if ( $this->hasIndex( $table, $index ) ) {
+			return;
+		}
+
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->query( "ALTER TABLE `$table` ADD INDEX `$index` ($columns)" );
+	}
+
+	/**
+	 * Удаляет индекс, если он есть (в MySQL нет `DROP INDEX IF EXISTS`).
+	 *
+	 * @param string $table Имя таблицы с префиксом.
+	 * @param string $index Имя индекса.
+	 *
+	 * @return void
+	 */
+	private function dropIndex( string $table, string $index ): void {
+		global $wpdb;
+
+		if ( ! $this->hasIndex( $table, $index ) ) {
+			return;
+		}
+
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->query( "ALTER TABLE `$table` DROP INDEX `$index`" );
+	}
+
+	/**
+	 * Есть ли колонка в таблице.
+	 *
+	 * @param string $table  Имя таблицы с префиксом.
+	 * @param string $column Имя колонки.
+	 *
+	 * @return bool
+	 */
+	private function hasColumn( string $table, string $column ): bool {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.DirectDatabaseQuery.NoCaching
+		return (bool) $wpdb->get_var( $wpdb->prepare( "SHOW COLUMNS FROM `$table` LIKE %s", $column ) );
+	}
+
+	/**
+	 * Есть ли индекс в таблице.
+	 *
+	 * @param string $table Имя таблицы с префиксом.
+	 * @param string $index Имя индекса.
+	 *
+	 * @return bool
+	 */
+	private function hasIndex( string $table, string $index ): bool {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.DirectDatabaseQuery.NoCaching
+		return (bool) $wpdb->get_var( $wpdb->prepare( "SHOW INDEX FROM `$table` WHERE Key_name = %s", $index ) );
 	}
 
 	public function down(): void {

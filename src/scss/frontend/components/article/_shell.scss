@@ -1,0 +1,78 @@
+@use '../../variables' as *;
+@use '../../mixins' as *;
+
+// Оболочка страницы статьи: скоуп-корень, три колонки, заголовок.
+// Всё внутри скоупа .fs-article-page — как на «Всех заданиях»: там же живёт
+// сброс шрифта и типографики (components/_reset.scss), и без скоупа его
+// правила для h1/a/button перебивали бы компонентные.
+// Крошки, сайдбар курсов и карусель — общие компоненты (_breadcrumbs,
+// _sidebar, _carousel), фон и внешние отступы даёт .fs-page-wrapper.
+.fs-article-page {
+  // Сглаживание — против «пиксельного» вида на Win/Mac (как на «Всех заданиях»).
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+
+  // Атрибут [hidden] должен побеждать любой display компонента. !important — перебивка UA/компонентных правил.
+  [hidden] { display: none !important; }
+
+  // Имена .shell/.layout дженерик — живут только внутри скоупа страницы.
+  .shell { max-width: $max-width; margin: 0 auto; }
+
+  .crumbs-row { margin-bottom: rem(12); }
+
+  // Сайдбар слева: содержание, под ним курсы. Та же геометрия, что у страницы
+  // задания и «Всех заданий» — колонка одна и та же по ширине и отступу.
+  .layout {
+    display: grid;
+    grid-template-columns: $sidebar-width minmax(0, 1fr);
+    gap: $layout-gap;
+    align-items: start;
+  }
+
+  // Ни оглавления, ни курсов — колонки нет: текст занимает всю полосу.
+  .layout--solo { grid-template-columns: minmax(0, 1fr); }
+
+  .fs-article-main { min-width: 0; }
+
+  // Липнет колонка целиком, а не каждая карточка по отдельности: иначе на
+  // прокрутке содержание и курсы наезжали бы друг на друга у верхней кромки.
+  // Не влезли в экран — колонка прокручивается внутри себя.
+  .fs-article-aside {
+    @include fs-sticky;
+
+    display: grid;
+    gap: $spacing-lg;
+    align-content: start;
+    align-self: start;
+    min-width: 0;
+    max-height: calc(100vh - #{rem(56)});
+    overflow-y: auto;
+    scrollbar-width: thin;
+  }
+
+  .fs-article-title {
+    margin: rem(6) 0 rem(18);
+    font-size: $font-size-3xl;
+    font-weight: $font-bold;
+    line-height: 1.15;
+    letter-spacing: -.025em;
+    color: $color-text;
+    text-wrap: pretty;
+  }
+
+  // ── Адаптив: одна колонка — сайдбар над текстом (оглавление там стартует
+  //    свёрнутым, его сворачивает article-toc.js).
+  @media (max-width: $bp-md) {
+    .layout,
+    .layout--solo { grid-template-columns: minmax(0, 1fr); }
+
+    // Липнуть некуда, и собственная прокрутка колонки только мешает.
+    .fs-article-aside {
+      position: static;
+      max-height: none;
+      overflow: visible;
+    }
+
+    .fs-article-title { font-size: $font-size-2xl; }
+  }
+}

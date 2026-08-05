@@ -543,4 +543,29 @@ class PostManager {
 		$link = get_post_type_archive_link( $post_type );
 		return false !== $link ? $link : '';
 	}
+
+	/**
+	 * Прогоняет сырой контент записи через штатный конвейер `the_content`.
+	 *
+	 * Нужен там, где контент рендерит не главный цикл (страница статьи собирает
+	 * его в билдере): без фильтров не отработают ни wpautop, ни шорткоды, ни oEmbed.
+	 *
+	 * @param string $content Сырой post_content.
+	 *
+	 * @return string HTML после фильтров темы и плагинов.
+	 */
+	public function renderContent( string $content ): string {
+		return (string) apply_filters( 'the_content', $content );
+	}
+
+	/**
+	 * ID записи по её публичному URL; 0 — ссылка ведёт не на запись этого сайта.
+	 *
+	 * @param string $url Абсолютный или относительный URL.
+	 *
+	 * @return int
+	 */
+	public function idFromUrl( string $url ): int {
+		return '' === $url ? 0 : url_to_postid( $url );
+	}
 }
