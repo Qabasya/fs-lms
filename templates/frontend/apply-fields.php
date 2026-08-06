@@ -251,7 +251,7 @@ $max_birth_date = gmdate( 'Y-m-d' );
         <!-- Слот капчи — заполняется JS -->
         <div id="fs-captcha-slot" class="fs-apply-card__captcha" role="region" aria-label="<?php esc_attr_e( 'Проверка безопасности', 'fs-lms' ); ?>"></div>
 
-        <button type="submit" id="fs-apply-submit" class="button button-primary button-large fs-apply-card__submit">
+        <button type="submit" id="fs-apply-submit" class="fs-apply-card__submit">
             <?php esc_html_e( 'Подать заявку', 'fs-lms' ); ?>
         </button>
     </form>
@@ -286,7 +286,7 @@ $max_birth_date = gmdate( 'Y-m-d' );
                 </div>
             </div>
 
-            <button type="submit" id="fs-otp-submit" class="button button-primary button-large fs-apply-card__submit">
+            <button type="submit" id="fs-otp-submit" class="fs-apply-card__submit">
                 <?php esc_html_e( 'Подтвердить', 'fs-lms' ); ?>
             </button>
 

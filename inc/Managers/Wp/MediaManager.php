@@ -22,6 +22,10 @@ class MediaManager {
 		'application/msword',
 		'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
 		'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+		// Таблицы: .xls принимается медиатекой WP по умолчанию, значит и формы
+		// плагина, и пакет переноса предмета обязаны их принимать.
+		'application/vnd.ms-excel',
+		'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
 		'text/plain',
 		// Файлы данных с дробями через запятую («1,5») libmagic принимает за CSV —
 		// это тот же плейнтекст (данные ЕГЭ, задание 27).
