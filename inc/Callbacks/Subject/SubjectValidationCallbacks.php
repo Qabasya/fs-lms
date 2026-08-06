@@ -10,6 +10,7 @@ use Inc\Enums\Wp\PostMetaName;
 use Inc\Managers\Wp\PostManager;
 use Inc\Managers\Wp\TermManager;
 use Inc\Repositories\OptionsRepositories\TaxonomyRepository;
+use Inc\Services\Subject\ArticlePublishValidator;
 use Inc\Services\Subject\PostTypeResolver;
 use Inc\Services\Task\TaskPublishGuard;
 use Inc\Services\Task\TaskPublishValidator;
@@ -43,20 +44,22 @@ class SubjectValidationCallbacks extends BaseController {
 	/**
 	 * Конструктор коллбеков.
 	 *
-	 * @param TaskPublishValidator $validator        Валидатор заданий перед публикацией
-	 * @param TaskPublishGuard     $guard            Общий протокол блокировки публикации
-	 * @param PostManager          $posts            Доступ к сохранённой мете задания
-	 * @param TermManager          $terms            Доступ к привязанным терминам
-	 * @param TaxonomyRepository   $taxonomies       Таксономии предмета (для сборки состояния)
-	 * @param TemplateResolver     $templateResolver Резолвер шаблона задания (как в метабоксе)
+	 * @param TaskPublishValidator    $validator        Валидатор заданий перед публикацией
+	 * @param ArticlePublishValidator $articleValidator Валидатор статей перед публикацией
+	 * @param TaskPublishGuard        $guard            Общий протокол блокировки публикации
+	 * @param PostManager             $posts            Доступ к сохранённой мете задания
+	 * @param TermManager             $terms            Доступ к привязанным терминам
+	 * @param TaxonomyRepository      $taxonomies       Таксономии предмета (для сборки состояния)
+	 * @param TemplateResolver        $templateResolver Резолвер шаблона задания (как в метабоксе)
 	 */
 	public function __construct(
-		private readonly TaskPublishValidator $validator,
-		private readonly TaskPublishGuard     $guard,
-		private readonly PostManager          $posts,
-		private readonly TermManager          $terms,
-		private readonly TaxonomyRepository   $taxonomies,
-		private readonly TemplateResolver     $templateResolver,
+		private readonly TaskPublishValidator    $validator,
+		private readonly ArticlePublishValidator $articleValidator,
+		private readonly TaskPublishGuard        $guard,
+		private readonly PostManager             $posts,
+		private readonly TermManager             $terms,
+		private readonly TaxonomyRepository      $taxonomies,
+		private readonly TemplateResolver        $templateResolver,
 	) {
 		parent::__construct();
 	}
@@ -72,6 +75,11 @@ class SubjectValidationCallbacks extends BaseController {
 	 */
 	public function validateRequiredTaxonomies( array $data, array $postarr ): array {
 		$postType = $data['post_type'] ?? '';
+
+		// Статьи (суффикс '_articles') — свой набор проверок, см. validateArticle()
+		if ( PostTypeResolver::isArticlePostType( $postType ) ) {
+			return $this->validateArticle( $data, (int) ( $postarr['ID'] ?? 0 ), $postType );
+		}
 
 		// Только для типов постов заданий (суффикс '_tasks')
 		if ( ! PostTypeResolver::isTaskPostType( $postType ) ) {
@@ -110,6 +118,87 @@ class SubjectValidationCallbacks extends BaseController {
 	}
 
 	/**
+	 * Блокировка публикации статьи: номер задания и обязательные для статей таксономии.
+	 *
+	 * @param array<string, mixed> $data     Очищенные данные поста
+	 * @param int                  $postId   ID статьи (0 — создаётся новая)
+	 * @param string               $postType CPT статей
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function validateArticle( array $data, int $postId, string $postType ): array {
+		return $this->guard->enforce(
+			$data,
+			'fs_lms_publish_error_',
+			'Укажите название статьи.',
+			function () use ( $postType, $postId ): ?string {
+				// Программная вставка (импорт пакета, рестор): формы нет, поста ещё нет —
+				// термины запишутся сразу после insert. Проверка по пустому состоянию
+				// откатывала бы такие статьи в черновик.
+				if ( $postId <= 0 && ! isset( $_POST['tax_input'] ) ) {
+					return null;
+				}
+
+				return $this->articleValidator->getBlockingError(
+					$postType,
+					$this->effectiveArticleTaxInput( $postId, $postType )
+				);
+			}
+		);
+	}
+
+	/**
+	 * Термины статьи: из формы редактора, а при её отсутствии — уже сохранённые.
+	 *
+	 * Читаются только проверяемые таксономии: номер задания и обязательные для
+	 * статей пользовательские (по флагу «Использовать в статьях»).
+	 *
+	 * @param int    $postId   ID статьи (0 — создаётся новая).
+	 * @param string $postType CPT статей.
+	 *
+	 * @return array<string, mixed> Карта [слаг таксономии => привязки].
+	 */
+	private function effectiveArticleTaxInput( int $postId, string $postType ): array {
+		if ( isset( $_POST['tax_input'] ) ) {
+			return $this->unslashArray( 'tax_input' );
+		}
+
+		if ( $postId <= 0 ) {
+			return array();
+		}
+
+		$subjectKey = PostTypeResolver::subjectFromArticlePostType( $postType );
+		$slugs      = array( PostTypeResolver::getTaskTaxonomy( $subjectKey ) );
+
+		foreach ( $this->articleValidator->requiredForArticles( $subjectKey ) as $tax ) {
+			$slugs[] = $tax->slug;
+		}
+
+		return $this->storedTerms( $postId, $slugs );
+	}
+
+	/**
+	 * Сохранённые привязки поста по списку таксономий.
+	 *
+	 * @param int      $postId ID записи.
+	 * @param string[] $slugs  Слаги таксономий.
+	 *
+	 * @return array<string, int[]> Карта [слаг таксономии => ID терминов].
+	 */
+	private function storedTerms( int $postId, array $slugs ): array {
+		$stored = array();
+
+		foreach ( $slugs as $slug ) {
+			$terms = $this->terms->getPostTerms( $postId, $slug );
+			if ( ! empty( $terms ) ) {
+				$stored[ $slug ] = array_map( static fn( $term ) => (int) $term->term_id, $terms );
+			}
+		}
+
+		return $stored;
+	}
+
+	/**
 	 * Термины задания: из формы редактора, а при её отсутствии — уже сохранённые.
 	 *
 	 * Быстрое и массовое редактирование, а также программные `wp_update_post()`
@@ -131,16 +220,12 @@ class SubjectValidationCallbacks extends BaseController {
 		}
 
 		$subjectKey = PostTypeResolver::subjectFromTaskPostType( $postType );
-		$stored     = array();
+		$slugs      = array_map(
+			static fn( $tax ): string => $tax->slug,
+			$this->taxonomies->getBySubject( $subjectKey )
+		);
 
-		foreach ( $this->taxonomies->getBySubject( $subjectKey ) as $tax ) {
-			$terms = $this->terms->getPostTerms( $postId, $tax->slug );
-			if ( ! empty( $terms ) ) {
-				$stored[ $tax->slug ] = array_map( static fn( $term ) => (int) $term->term_id, $terms );
-			}
-		}
-
-		return $stored;
+		return $this->storedTerms( $postId, $slugs );
 	}
 
 	/**
@@ -194,24 +279,40 @@ class SubjectValidationCallbacks extends BaseController {
 	}
 
 	/**
-	 * Вызывается на хуке 'admin_notices' на экране редактирования задания.
+	 * Вызывается на хуке 'admin_notices' на экране редактирования задания или статьи.
 	 * Предупреждает, если обязательная таксономия не содержит термов.
 	 *
 	 * @return void
 	 */
 	public function showEmptyRequiredTaxNotice(): void {
-		$screen = get_current_screen();
+		$screen    = get_current_screen();
+		$isArticle = $screen && PostTypeResolver::isArticlePostType( $screen->post_type );
 
 		// Показываем ошибку валидации публикации, если она была отложена
-		$this->guard->renderDeferredError( 'fs_lms_publish_error_', __( 'Невозможно опубликовать задание', 'fs-lms' ) );
+		$this->guard->renderDeferredError(
+			'fs_lms_publish_error_',
+			$isArticle
+				? __( 'Невозможно опубликовать статью', 'fs-lms' )
+				: __( 'Невозможно опубликовать задание', 'fs-lms' )
+		);
 
-		if ( ! $screen || ! PostTypeResolver::isTaskPostType( $screen->post_type ) ) {
+		if ( ! $screen ) {
 			return;
 		}
 
-		$subjectKey = PostTypeResolver::subjectFromTaskPostType( $screen->post_type );
-		// Находим обязательные таксономии, в которых нет ни одного терма
-		$emptyTaxes = $this->validator->findEmptyRequired( $subjectKey );
+		// Пустые обязательные таксономии: у задания — все обязательные предмета,
+		// у статьи — только помеченные «Использовать в статьях».
+		if ( $isArticle ) {
+			$subjectKey = PostTypeResolver::subjectFromArticlePostType( $screen->post_type );
+			$emptyTaxes = $this->articleValidator->findEmptyRequired( $subjectKey );
+			$contentWord = 'статью';
+		} elseif ( PostTypeResolver::isTaskPostType( $screen->post_type ) ) {
+			$subjectKey = PostTypeResolver::subjectFromTaskPostType( $screen->post_type );
+			$emptyTaxes = $this->validator->findEmptyRequired( $subjectKey );
+			$contentWord = 'задание';
+		} else {
+			return;
+		}
 
 		if ( empty( $emptyTaxes ) ) {
 			return;
@@ -231,8 +332,9 @@ class SubjectValidationCallbacks extends BaseController {
 			}
 
 			printf(
-				'<div class="notice notice-warning"><p><strong>Внимание:</strong> Обязательная таксономия «%s» не содержит термов — задание нельзя будет опубликовать.%s</p></div>',
+				'<div class="notice notice-warning"><p><strong>Внимание:</strong> Обязательная таксономия «%s» не содержит термов — %s нельзя будет опубликовать.%s</p></div>',
 				esc_html( $tax->name ),
+				esc_html( $contentWord ),
 				$canManage ? $link : esc_html( $link )
 			);
 		}

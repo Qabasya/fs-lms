@@ -16,7 +16,6 @@ use Inc\Enums\Log\OperationType;
 use Inc\Managers\Wp\PostManager;
 use Inc\Managers\Wp\TermManager;
 use Inc\Repositories\OptionsRepositories\TaxonomyRepository;
-use Inc\Services\Subject\PostTypeResolver;
 use Inc\Shared\Traits\Authorizer;
 use Inc\Shared\Traits\Sanitizer;
 use Inc\Shared\Traits\SlugGenerator;
@@ -80,11 +79,12 @@ class TaxonomySettingsCallbacks extends BaseController {
 		}
 
 		$dto    = new TaxonomyDataDTO(
-			slug:         $tax_slug,
-			name:         $tax_name,
-			subject_key:  $subject_key,
-			display_type: $display_type,
-			is_required:  $this->sanitizeBool( 'is_required' ),
+			slug:            $tax_slug,
+			name:            $tax_name,
+			subject_key:     $subject_key,
+			display_type:    $display_type,
+			is_required:     $this->sanitizeBool( 'is_required' ),
+			use_in_articles: $this->sanitizeBool( 'use_in_articles' ),
 		);
 		$result = $this->taxonomies->save( $dto );
 
@@ -124,11 +124,12 @@ class TaxonomySettingsCallbacks extends BaseController {
 		$oldLabel = $existing?->name;
 
 		$dto    = new TaxonomyDataDTO(
-			slug:         $tax_slug,
-			name:         $tax_name,
-			subject_key:  $subject_key,
-			display_type: $this->getValidatedDisplayType(),
-			is_required:  $this->sanitizeBool( 'is_required' ),
+			slug:            $tax_slug,
+			name:            $tax_name,
+			subject_key:     $subject_key,
+			display_type:    $this->getValidatedDisplayType(),
+			is_required:     $this->sanitizeBool( 'is_required' ),
+			use_in_articles: $this->sanitizeBool( 'use_in_articles' ),
 		);
 		$result = $this->taxonomies->save( $dto );
 
@@ -186,7 +187,12 @@ class TaxonomySettingsCallbacks extends BaseController {
 	}
 
 	/**
-	 * Назначает первый терм таксономии всем заданиям предмета, у которых этот терм не выставлен.
+	 * Назначает первый терм таксономии всем записям предмета, у которых он не выставлен.
+	 *
+	 * Обходит те же CPT, на которых таксономия зарегистрирована ({@see TaxonomyDataDTO::postTypes()}):
+	 * задания всегда, статьи — при включённом флаге «Использовать в статьях». Без этого
+	 * прохода по статьям существующие статьи остались бы без обязательного терма и
+	 * перестали бы публиковаться.
 	 *
 	 * @param TaxonomyDataDTO $dto DTO таксономии
 	 *
@@ -199,13 +205,13 @@ class TaxonomySettingsCallbacks extends BaseController {
 		}
 
 		$first_term_id = (int) $terms[0]->term_id;
-		$post_type     = PostTypeResolver::tasks( $dto->subject_key );
-		$post_ids      = $this->posts->getIds( $post_type );
 
-		foreach ( $post_ids as $post_id ) {
-			$existing = $this->terms->getPostTerms( (int) $post_id, $dto->slug );
-			if ( empty( $existing ) ) {
-				$this->terms->setPostTerms( (int) $post_id, array( $first_term_id ), $dto->slug );
+		foreach ( $dto->postTypes() as $post_type ) {
+			foreach ( $this->posts->getIds( $post_type ) as $post_id ) {
+				$existing = $this->terms->getPostTerms( (int) $post_id, $dto->slug );
+				if ( empty( $existing ) ) {
+					$this->terms->setPostTerms( (int) $post_id, array( $first_term_id ), $dto->slug );
+				}
 			}
 		}
 	}

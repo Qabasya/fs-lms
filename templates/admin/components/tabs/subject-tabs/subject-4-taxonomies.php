@@ -18,6 +18,7 @@ require_once FS_LMS_PATH . 'templates/admin/components/UI/ui_renderers.php';
 	<p class="description">Здесь задаются таксономии для выбранного предмета.
 		<br>Для добавления новой таксономии нажмите на символ «+» внизу таблицы.
 		<br>Обязательные таксономии используются для фильтрации на странице отображения задания
+		<br>Таксономия с флагом «В статьях» доступна и статьям предмета; вместе с обязательностью она блокирует публикацию статьи без выбранного термина
 	</p>
 
 	<table class="wp-list-table widefat fixed striped fs-table fs-table--taxonomy js-taxonomy-table">
@@ -26,6 +27,7 @@ require_once FS_LMS_PATH . 'templates/admin/components/UI/ui_renderers.php';
 			<th class=" column-primary tw-30">Название</th>
 			<th class="">Тип отображения</th>
 			<th class="">Обязательна</th>
+			<th class="">В статьях</th>
 			<th class="">Действия</th>
 		</tr>
 		</thead>
@@ -41,7 +43,8 @@ require_once FS_LMS_PATH . 'templates/admin/components/UI/ui_renderers.php';
 			<tr data-slug="<?php echo esc_attr( $tax->slug ); ?>"
 				data-name="<?php echo esc_attr( $tax->name ); ?>"
 				data-display="<?php echo esc_attr( $display_type ); ?>"
-				data-required="<?php echo esc_attr( $tax->is_required ? '1' : '0' ); ?>">
+				data-required="<?php echo esc_attr( $tax->is_required ? '1' : '0' ); ?>"
+				data-articles="<?php echo esc_attr( $tax->use_in_articles ? '1' : '0' ); ?>">
 
 				<td class="column-title">
 					<strong><?php echo esc_html( $tax->name ); ?></strong>
@@ -70,6 +73,19 @@ require_once FS_LMS_PATH . 'templates/admin/components/UI/ui_renderers.php';
 					?>
 				</td>
 
+				<td>
+					<?php
+					render_fs_toggle(
+						"use_in_articles_status_{$tax->slug}",
+						$tax->use_in_articles,
+						array(
+							'readonly' => true, // Только отображение
+							'id'       => 'view_tax_articles_' . $tax->slug,
+						)
+					);
+					?>
+				</td>
+
 				<td class="column-actions">
 					<div class="row-actions visible">
 				<span class="edit">
@@ -87,7 +103,7 @@ require_once FS_LMS_PATH . 'templates/admin/components/UI/ui_renderers.php';
 
 		<tfoot>
 		<tr class="fs-add-row-tr">
-			<td colspan="4">
+			<td colspan="5">
 				<button type="button" class="button-link scss-add-item js-add-taxonomy" title="Добавить таксономию">
 					<span class="dashicons dashicons-plus"></span>
 				</button>

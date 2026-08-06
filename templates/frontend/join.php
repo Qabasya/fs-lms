@@ -542,7 +542,7 @@ ThemeCompatService::header();
 
                 </fieldset>
 
-                <button type="submit" id="fs-join-submit" class="button button-primary button-large fs-join-card__submit">
+                <button type="submit" id="fs-join-submit" class="fs-join-card__submit">
                     <?php esc_html_e( 'Заключить договор', 'fs-lms' ); ?>
                 </button>
             </form>

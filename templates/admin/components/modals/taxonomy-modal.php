@@ -34,6 +34,19 @@
 					<input type="checkbox" id="tax-is-required" value="1">
 					Сделать обязательной
 				</label>
+    <p class="description">
+        Таксономия будет использована для фильтрации заданий
+    </p>
+			</div>
+
+			<div class="fs-form-group">
+				<label>
+					<input type="checkbox" id="tax-use-in-articles" value="1">
+					Использовать в статьях
+				</label>
+				<p class="description">
+					Таксономия появится и у статей предмета
+				</p>
 			</div>
 
 			<div class="fs-form-group">

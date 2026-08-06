@@ -41,6 +41,7 @@ use Inc\Controllers\Group\StudentGroupController;
 use Inc\Controllers\Subject\SubjectController;
 use Inc\Controllers\Task\TaskCreationController;
 use Inc\Controllers\Pages\AllTasksPageController;
+use Inc\Controllers\Article\ArticleMetaBoxController;
 use Inc\Controllers\Pages\ArticlePageController;
 use Inc\Controllers\Pages\SubjectLandingController;
 use Inc\Controllers\Pages\AssessmentPageController;
@@ -134,6 +135,7 @@ final class Init {
 			TaskCreationController::class, // Создание заданий
 			TaskPageController::class,       // Frontend-страница задания
 			AllTasksPageController::class,   // Frontend-страница «Все задания» (тренажёр)
+			ArticleMetaBoxController::class, // Метабокс краткого описания статьи
 			ArticlePageController::class,    // Frontend-страница статьи
 			SubjectLandingController::class, // Разделы лендинга предмета (шорткоды страниц)
 			AssessmentPageController::class, // Frontend-страница контрольной

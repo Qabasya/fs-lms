@@ -72,11 +72,13 @@ class SubjectPageCallbacks extends BaseController {
 
 		// DTO для системной таксономии номеров заданий (защищена от удаления)
 		$fixed_tax_dto = new TaxonomyDataDTO(
-			slug:         "{$key}_task_number",
-			name:         'Номера заданий',
-			subject_key:  $key,
-			is_protected: true,
-			is_required:  true
+			slug:            "{$key}_task_number",
+			name:            'Номера заданий',
+			subject_key:     $key,
+			is_protected:    true,
+			is_required:     true,
+			// Номера заданий регистрируются и на CPT статей (SubjectContentRegistrar).
+			use_in_articles: true
 		);
 
 		// Определение активной вкладки из URL

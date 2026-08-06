@@ -45,6 +45,15 @@
  * @property {string} security    Nonce для создания заданий
  * @property {string} subject_key Ключ текущего предмета
  * @property {string} post_type   Тип поста (CPT заданий)
+ * @property {Array<{slug: string, name: string}>} [required_taxonomies] Таксономии, обязательные при публикации
+ */
+
+/**
+ * Данные экрана статьи (передаются из PHP в JS).
+ *
+ * @typedef {Object} FSLmsArticleData
+ * @property {string} subject_key Ключ текущего предмета
+ * @property {Array<{slug: string, name: string}>} required_taxonomies Таксономии, обязательные при публикации статьи
  */
 
 /**
@@ -206,3 +215,9 @@ window.fs_lms_vars = window.fs_lms_vars || /** @type {any} */ ({});
  * @type {FSLmsTaskData}
  */
 window.fs_lms_task_data = window.fs_lms_task_data || /** @type {any} */ ({});
+
+/**
+ * @global
+ * @type {FSLmsArticleData}
+ */
+window.fs_lms_article_data = window.fs_lms_article_data || /** @type {any} */ ({});

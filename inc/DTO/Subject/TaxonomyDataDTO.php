@@ -4,6 +4,8 @@ declare( strict_types=1 );
 
 namespace Inc\DTO\Subject;
 
+use Inc\Services\Subject\PostTypeResolver;
+
 /**
  * Class TaxonomyDataDTO
  *
@@ -31,10 +33,10 @@ readonly class TaxonomyDataDTO {
 	 * @param string $slug         Уникальный идентификатор таксономии (tax_slug), например 'math_author'
 	 * @param string $name         Отображаемое название таксономии, например 'Автор'
 	 * @param string $subject_key  Ключ предмета, к которому привязана таксономия, например 'math'
-	 * @param string $display_type Тип отображения метабокса: 'select', 'radio', 'checkbox'
-	 * @param bool   $is_protected Флаг защищённой таксономии (нельзя редактировать/удалять)
-	 * @param bool   $is_required  Флаг обязательной таксономии (должна быть выбрана при публикации)
-	 * @param array  $post_types   Массив типов постов, к которым привязана таксономия
+	 * @param string $display_type    Тип отображения метабокса: 'select', 'radio', 'checkbox'
+	 * @param bool   $is_protected    Флаг защищённой таксономии (нельзя редактировать/удалять)
+	 * @param bool   $is_required     Флаг обязательной таксономии (должна быть выбрана при публикации)
+	 * @param bool   $use_in_articles Флаг привязки таксономии к CPT статей предмета
 	 */
 	public function __construct(
 		public string $slug,
@@ -43,7 +45,7 @@ readonly class TaxonomyDataDTO {
 		public string $display_type = 'select',
 		public bool $is_protected = false,
 		public bool $is_required = false,
-		public array $post_types = array()
+		public bool $use_in_articles = false
 	) {
 	}
 
@@ -54,9 +56,10 @@ readonly class TaxonomyDataDTO {
 	 */
 	public function toArray(): array {
 		return array(
-			'name'         => $this->name,
-			'display_type' => $this->display_type,
-			'is_required'  => $this->is_required,
+			'name'            => $this->name,
+			'display_type'    => $this->display_type,
+			'is_required'     => $this->is_required,
+			'use_in_articles' => $this->use_in_articles,
 		);
 	}
 
@@ -71,13 +74,30 @@ readonly class TaxonomyDataDTO {
 	 */
 	public static function fromArray( string $slug, array $data, string $subject_key = '' ): self {
 		return new self(
-			slug        : $slug,
-			name        : $data['name'] ?? '',
-			subject_key : $subject_key ?: ( $data['subject_key'] ?? '' ),
-			display_type: $data['display_type'] ?? 'select',
-			is_protected: $data['is_protected'] ?? false,
-			is_required : (bool) ( $data['is_required'] ?? false ),
-			post_types  : $data['post_types'] ?? array()
+			slug           : $slug,
+			name           : $data['name'] ?? '',
+			subject_key    : $subject_key ?: ( $data['subject_key'] ?? '' ),
+			display_type   : $data['display_type'] ?? 'select',
+			is_protected   : $data['is_protected'] ?? false,
+			is_required    : (bool) ( $data['is_required'] ?? false ),
+			use_in_articles: (bool) ( $data['use_in_articles'] ?? false )
 		);
+	}
+
+	/**
+	 * CPT предмета, к которым привязана таксономия.
+	 *
+	 * Задания — всегда; статьи — по флагу «Использовать в статьях».
+	 *
+	 * @return string[] Слаги типов записей для register_taxonomy()
+	 */
+	public function postTypes(): array {
+		$types = array( PostTypeResolver::tasks( $this->subject_key ) );
+
+		if ( $this->use_in_articles ) {
+			$types[] = PostTypeResolver::articles( $this->subject_key );
+		}
+
+		return $types;
 	}
 }

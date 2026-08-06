@@ -517,6 +517,12 @@ if (!function_exists('current_user_can')) {
     // Управляется $GLOBALS['_fs_test_can'] (по умолчанию — есть права).
     function current_user_can(string $cap): bool { return $GLOBALS['_fs_test_can'] ?? true; }
 }
+if (!function_exists('wp_verify_nonce')) {
+    // Тем же флагом, что и check_ajax_referer: сохранение метабоксов ходит через wp_verify_nonce.
+    function wp_verify_nonce($nonce, $action = -1) {
+        return ($GLOBALS['_fs_test_nonce_ok'] ?? true) === false ? false : 1;
+    }
+}
 if (!function_exists('check_ajax_referer')) {
     // Управляется $GLOBALS['_fs_test_nonce_ok']; при невалидном — поведение WP (json error).
     function check_ajax_referer($action, $query_arg = false, $die = true) {

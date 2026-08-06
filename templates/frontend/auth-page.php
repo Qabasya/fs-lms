@@ -45,7 +45,7 @@ $prefill_login = isset( $_GET['fs_user'] ) ? sanitize_text_field( wp_unslash( $_
 			<a href="<?php echo esc_url( $lost_pass_url ); ?>">Забыли пароль?</a>
 		</div>
 
-		<button type="submit" name="wp-submit" id="wp-submit" class="button button-primary fs-auth-card__submit">
+		<button type="submit" name="wp-submit" id="wp-submit" class="fs-auth-card__submit">
 			Войти
 		</button>
 

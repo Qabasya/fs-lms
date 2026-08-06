@@ -427,11 +427,12 @@ class SubjectBundleImportService {
 	private function importTaxonomies( string $key, array $taxonomies ): void {
 		foreach ( $taxonomies as $slug => $data ) {
 			$this->taxonomies->save( new TaxonomyDataDTO(
-				slug:         sanitize_title( (string) $slug ),
-				name:         sanitize_text_field( (string) ( $data['name'] ?? '' ) ),
-				subject_key:  $key,
-				display_type: sanitize_text_field( (string) ( $data['display_type'] ?? 'select' ) ),
-				is_required:  (bool) ( $data['is_required'] ?? false ),
+				slug:            sanitize_title( (string) $slug ),
+				name:            sanitize_text_field( (string) ( $data['name'] ?? '' ) ),
+				subject_key:     $key,
+				display_type:    sanitize_text_field( (string) ( $data['display_type'] ?? 'select' ) ),
+				is_required:     (bool) ( $data['is_required'] ?? false ),
+				use_in_articles: (bool) ( $data['use_in_articles'] ?? false ),
 			) );
 		}
 	}

@@ -11,6 +11,7 @@ use Inc\Enums\Wp\PageRoutes;
 use Inc\Repositories\OptionsRepositories\TaxonomyRepository;
 use Inc\Services\Security\FormGuardService;
 use Inc\Core\Assets\AdminScreenContext;
+use Inc\Services\Subject\ArticlePublishValidator;
 use Inc\Services\Subject\PostTypeResolver;
 use Inc\Services\Profile\ProfileViewResolver;
 use Inc\Services\Shared\PluginConfig;
@@ -58,6 +59,7 @@ class Enqueue extends BaseController implements ServiceInterface {
 		private readonly FormGuardService   $formGuard,
 		private readonly TemplateRegistry   $templateRegistry,
 		private readonly ProfileViewResolver $profileResolver,
+		private readonly ArticlePublishValidator $articleValidator,
 	) {
 		parent::__construct();
 	}
@@ -176,9 +178,47 @@ class Enqueue extends BaseController implements ServiceInterface {
 			// На экране работ нужен task-modal для создания задания.
 			'fs_lms_task_data'         => $this->taskDataVars( $ctx ),
 			'fs_lms_task_editor_vars'  => $ctx->needsTaskEditor() ? $this->taskEditorVars() : null,
+			// Экран статьи: обязательные для статей таксономии — для клиентского гарда публикации.
+			'fs_lms_article_data'      => $ctx->article ? $this->articleDataVars( $ctx ) : null,
 			'fs_lms_applications_vars' => 'fs_lms_userlist' === $ctx->page ? $this->applicationsVars() : null,
 			// Глобальные переменные — на всех страницах админки плагина.
 			'fs_lms_vars'              => $this->globalAdminVars(),
+		);
+	}
+
+	/**
+	 * Переменные экрана CPT статей.
+	 *
+	 * Список таксономий, без которых статью нельзя опубликовать: номер задания
+	 * плюс обязательные таксономии предмета с флагом «Использовать в статьях».
+	 * Серверная проверка — {@see \Inc\Services\Subject\ArticlePublishValidator};
+	 * здесь тот же набор отдаётся клиентскому гарду, чтобы автор увидел ошибку
+	 * до отправки формы.
+	 *
+	 * @param AdminScreenContext $ctx Признаки экрана
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function articleDataVars( AdminScreenContext $ctx ): array {
+		$subjectKey = PostTypeResolver::subjectFromArticlePostType( $ctx->postType );
+
+		$taxonomies = array(
+			array(
+				'slug' => PostTypeResolver::getTaskTaxonomy( $subjectKey ),
+				'name' => 'Номер задания',
+			),
+		);
+
+		foreach ( $this->articleValidator->requiredForArticles( $subjectKey ) as $dto ) {
+			$taxonomies[] = array(
+				'slug' => $dto->slug,
+				'name' => $dto->name,
+			);
+		}
+
+		return array(
+			'subject_key'         => $subjectKey,
+			'required_taxonomies' => $taxonomies,
 		);
 	}
 
