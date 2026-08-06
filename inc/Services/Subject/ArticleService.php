@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Inc\Services\Subject;
 
+use Inc\DTO\Article\AdjacentArticleDTO;
+use Inc\DTO\Article\ArticleNavigationDTO;
 use Inc\DTO\Subject\TermViewDTO;
 use Inc\Managers\Wp\TermManager;
 use Inc\Repositories\OptionsRepositories\ArticleRepository;
@@ -118,6 +120,75 @@ class ArticleService {
 	}
 
 	/**
+	 * Собирает навигацию страницы статьи по серии одного номера задания.
+	 *
+	 * Серия — все опубликованные статьи с тем же термином {key}_task_number,
+	 * в хронологическом порядке. Из одного списка берутся и соседи, и позиция:
+	 * считать их разными запросами нельзя — разъедутся при равных датах.
+	 *
+	 * @param string $subject_key  Ключ предмета.
+	 * @param int    $current_id   ID открытой статьи.
+	 * @param string $textbook_url Ссылка на учебник (архив статей предмета).
+	 *
+	 * @return ArticleNavigationDTO Пустой DTO — серии нет, блок не рендерится.
+	 */
+	public function getNavigation( string $subject_key, int $current_id, string $textbook_url ): ArticleNavigationDTO {
+		if ( '' === $subject_key || $current_id < 1 ) {
+			return new ArticleNavigationDTO();
+		}
+
+		$taxonomy = PostTypeResolver::getTaskTaxonomy( $subject_key );
+		$terms    = $this->term_manager->getPostTerms( $current_id, $taxonomy );
+		$term     = $terms[0] ?? null;
+
+		// Номер задания у статьи не проставлен: множества «статей того же типа»
+		// не существует, переключать и считать нечего.
+		if ( ! $term instanceof \WP_Term ) {
+			return new ArticleNavigationDTO();
+		}
+
+		$posts = $this->article_repository->findAllInTerm(
+			PostTypeResolver::articles( $subject_key ),
+			(int) $term->term_id,
+			$taxonomy
+		);
+
+		$ids   = array_map( static fn( \WP_Post $post ): int => (int) $post->ID, $posts );
+		$index = array_search( $current_id, $ids, true );
+
+		// Текущей статьи нет в выборке — например, она ещё черновик.
+		if ( ! is_int( $index ) ) {
+			return new ArticleNavigationDTO();
+		}
+
+		return new ArticleNavigationDTO(
+			prev:         $this->adjacentArticle( $posts[ $index - 1 ] ?? null ),
+			next:         $this->adjacentArticle( $posts[ $index + 1 ] ?? null ),
+			textbook_url: $textbook_url,
+			position:     $index + 1,
+			total:        count( $posts ),
+		);
+	}
+
+	/**
+	 * Ссылка на соседнюю статью серии.
+	 *
+	 * @param \WP_Post|null $post Запись соседней статьи.
+	 *
+	 * @return AdjacentArticleDTO|null Null — край серии, сторона неактивна.
+	 */
+	private function adjacentArticle( ?\WP_Post $post ): ?AdjacentArticleDTO {
+		if ( ! $post instanceof \WP_Post ) {
+			return null;
+		}
+
+		return new AdjacentArticleDTO(
+			title: get_the_title( $post ),
+			url:   (string) get_permalink( $post ),
+		);
+	}
+
+	/**
 	 * Приводит записи статей к единому формату для шаблона.
 	 *
 	 * @param array $posts Массив WP_Post объектов.
@@ -152,6 +223,9 @@ class ArticleService {
 				'url'         => get_permalink( $post->ID ),
 				'excerpt'     => $this->getArticleExcerpt( $post ),
 				'task_number' => $task_number,
+				// Миниатюра: сайдбар обрезает её в квадрат, карусель — в широкую
+				// шапку карточки. Размера medium хватает обоим; пусто — блока нет.
+				'thumbnail'   => (string) get_the_post_thumbnail_url( $post->ID, 'medium' ),
 			);
 		}
 

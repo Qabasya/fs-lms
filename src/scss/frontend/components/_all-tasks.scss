@@ -11,3 +11,6 @@
 @use 'all-tasks/toolbar';
 @use 'all-tasks/task-card';
 @use 'all-tasks/states';
+
+// Кнопка «наверх» переехала в общий components/_to-top.scss: её делит
+// со страницей статьи.

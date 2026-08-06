@@ -39,7 +39,7 @@
 
   &__section-title {
     font-size: $font-size-base;
-    font-weight: $font-bold;
+    font-weight: $font-medium;
     color: $color-text;
     text-transform: uppercase;
     letter-spacing: 0.04em;
@@ -177,7 +177,7 @@
 
   &__success-title {
     font-size: $font-size-md;
-    font-weight: $font-bold;
+    font-weight: $font-medium;
     color: $color-text;
     margin: 0 0 $spacing-sm;
   }

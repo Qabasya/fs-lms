@@ -2,7 +2,7 @@
 
 declare( strict_types=1 );
 
-namespace Inc\Callbacks;
+namespace Inc\Callbacks\Task;
 
 use Inc\Controllers\Builders\AllTasksDataBuilder;
 use Inc\Core\BaseController;
@@ -21,7 +21,7 @@ use Inc\Shared\Traits\Sanitizer;
  *
  * Публичный доступ (nopriv): capability не проверяется, только nonce.
  *
- * @package Inc\Callbacks
+ * @package Inc\Callbacks\Task
  */
 class AllTasksCallbacks extends BaseController {
 

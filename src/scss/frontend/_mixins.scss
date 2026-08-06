@@ -17,15 +17,6 @@
   &:hover { border-color: $color-accent; color: $color-accent; }
 }
 
-// ── Заголовок секции (uppercase, muted)
-@mixin section-label {
-  font-size: $font-size-xs;
-  font-weight: 700;
-  color: $color-muted;
-  text-transform: uppercase;
-  letter-spacing: rem(0.7);
-}
-
 // ── Многострочный клэмп
 @mixin line-clamp($lines: 2) {
   display: -webkit-box;
@@ -49,7 +40,7 @@
 // ── Заголовок карточки-формы (margin задаётся на месте)
 @mixin fs-card-title {
   font-size: $font-size-lg;
-  font-weight: $font-bold;
+  font-weight: $font-medium;
   line-height: $line-height-tight;
   text-align: center;
   color: $color-text;
@@ -151,6 +142,15 @@
   margin-bottom: $spacing-md;
 }
 
+// ── Кнопка отправки карточки-формы (!important сохранён); box-sizing/margin задаются на месте
+@mixin fs-form-submit($padding) {
+  width: 100% !important;
+  padding: $padding !important;
+  height: auto !important;
+  font-size: $font-size-base !important;
+  font-weight: $font-medium;
+}
+
 // ── Первичная кнопка (accent); hover-opacity отличается (.85/.88) → параметр
 @mixin fs-btn-primary($hover-opacity) {
   background: $color-accent;
@@ -197,15 +197,9 @@
   padding: 0;
 }
 
-// ── Состояние disabled
-@mixin fs-disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-// ── Базовый паддинг страницы-обёртки
+// ── Базовый паддинг страницы-обёртки (макет: 22 сверху, 32 по бокам, 64 снизу)
 @mixin fs-page-pad {
-  padding: rem(44) $spacing-4xl rem(96);
+  padding: rem(22) $spacing-4xl rem(64);
 }
 
 // =================================================================
@@ -217,88 +211,204 @@
 // =================================================================
 
 // ── Поверхность-карточка: белый фон, рамка, единый радиус
-@mixin fs-surface-card($padding: 0, $shadow: none) {
+@mixin fs-surface-card($padding: 0, $shadow: $shadow-surface) {
   background: $color-white;
   border: 1px solid $color-border;
-  border-radius: $border-radius-xl;
+  border-radius: $radius-card;
   padding: $padding;
   box-shadow: $shadow;
 }
 
-// ── Чип-метка (тег задания, тег карточки списка) с точкой-маркером
-@mixin fs-chip {
+// ── Кнопка макета: заливная (акцент) и призрачная (белая с рамкой).
+// Обе одной геометрии — различаются только заливкой.
+@mixin fs-btn-base {
   display: inline-flex;
   align-items: center;
-  gap: rem(6);
-  height: rem(24);
-  padding: 0 $spacing-md;
-  background: $color-bg-subtle;
-  border: 1px solid $color-border;
-  border-radius: $border-radius-pill;
+  justify-content: center;
+  gap: rem(8);
+  height: rem(38);
+  padding: 0 rem(18);
+  border: 0;
+  border-radius: $radius-control;
   font-family: inherit;
-  font-size: rem(11.5);
+  font-size: $font-size-base;
   font-weight: $font-semibold;
-  color: $color-text-secondary;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
   transition: background $transition, color $transition, border-color $transition;
+}
 
-  &::before {
-    content: '';
-    width: rem(5);
-    height: rem(5);
-    border-radius: 50%;
-    background: $color-border;
-    flex-shrink: 0;
-    transition: background $transition;
-  }
+@mixin fs-btn-accent {
+  @include fs-btn-base;
+
+  background: $color-accent;
+  color: $color-white;
+  box-shadow: $shadow-surface;
+
+  &:hover { background: $color-accent-600; color: $color-white; }
+}
+
+@mixin fs-btn-ghost {
+  @include fs-btn-base;
+
+  background: $color-white;
+  border: 1px solid $color-border;
+  color: $color-text-secondary;
 
   &:hover {
-    background: rgba($color-accent, .12);
-    border-color: $color-accent;
-
-    &::before { background: $color-accent; }
+    background: $color-surface-2;
+    border-color: $color-accent-soft-2;
+    color: $color-accent-700;
   }
 }
 
-// ── Чип файла-вложения (иконка + имя + размер)
-@mixin fs-file-chip {
+// ── Кнопка-переключатель: призрачная в покое, заливная во включённом
+// состоянии. Один вид у кнопки ответа и у табов материалов задания.
+@mixin fs-btn-toggle {
+  @include fs-btn-ghost;
+
+  &.is-active {
+    background: $color-accent;
+    border-color: $color-accent;
+    color: $color-white;
+  }
+}
+
+// ── Заглушка миниатюры: у статьи ещё нет обложки, но карточки в списке и
+// карусели обязаны оставаться одного размера. Серое поле с диагональным
+// крестом — тем же приёмом, что стандартный placeholder изображения.
+@mixin fs-thumb-placeholder {
+  background:
+    linear-gradient(to top right, transparent calc(50% - 1px), $color-border calc(50% - 1px), $color-border calc(50% + 1px), transparent calc(50% + 1px)),
+    linear-gradient(to bottom right, transparent calc(50% - 1px), $color-border calc(50% - 1px), $color-border calc(50% + 1px), transparent calc(50% + 1px)),
+    $color-bg-subtle;
+}
+
+// ── Чип-метка (тег задания, тег карточки списка).
+// Макет заливает чип целиком: мягкая подложка + насыщенный текст своей ступени
+// палитры. Базовые цвета здесь нейтральные — ступень назначает _tag-palette.
+@mixin fs-chip {
   display: inline-flex;
   align-items: center;
-  gap: rem(8);
-  padding: rem(7) rem(12) rem(7) rem(10);
-  background: $color-bg-subtle;
+  padding: rem(5) rem(11);
+  background: $color-surface-2;
+  border: 0;
+  border-radius: $border-radius-pill;
+  font-family: inherit;
+  font-size: $font-size-code;
+  font-weight: $font-bold;
+  line-height: 1.2;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: $color-muted;
+  transition: background $transition, color $transition;
+}
+
+// ── Стрелка-подсказка у ссылок-действий («Все материалы», «Читать»)
+// В покое стрелки нет — ни глифа, ни занятого места; при наведении она
+// проявляется и выезжает вправо. Открытое состояние вешается на ховер
+// того элемента, который его вызывает (сама ссылка или карточка-родитель).
+@mixin fs-arrow-reveal {
+  // Сама ссылка — inline-flex: стрелка выравнивается по центру строки, а не по
+  // базовой линии. С baseline её ломал overflow: hidden (он нужен, чтобы глиф
+  // не торчал при нулевой ширине): элемент вставал то выше строки, то ниже.
+  display: inline-flex;
+  align-items: center;
+
+  &::after {
+    content: '→';
+    max-width: 0;
+    margin-left: 0;
+    opacity: 0;
+    overflow: hidden;
+    line-height: 1;
+    transform: translateX(rem(-4));
+    transition: opacity $transition, transform $transition, max-width $transition, margin-left $transition;
+  }
+}
+
+@mixin fs-arrow-reveal-open {
+  &::after {
+    max-width: rem(20);
+    margin-left: rem(6);
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+// ── То же для готовой SVG-стрелки внутри кнопки (Icon::ArrowRight).
+// Отступ даёт margin у самой иконки, а не gap контейнера: gap держал бы
+// пустое место и при скрытой стрелке.
+@mixin fs-arrow-icon-reveal {
+  gap: 0;
+
+  svg {
+    max-width: 0;
+    margin-left: 0;
+    opacity: 0;
+    overflow: hidden;
+    transform: translateX(rem(-4));
+    transition: opacity $transition, transform $transition, max-width $transition, margin-left $transition;
+  }
+}
+
+@mixin fs-arrow-icon-reveal-open {
+  svg {
+    max-width: rem(20);
+    margin-left: rem(8);
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+// ── Строка файла-вложения (иконка + имя + размер + стрелка скачивания).
+// В макете вложение — не компактный чип, а широкая строка-карточка.
+@mixin fs-file-chip {
+  display: flex;
+  align-items: center;
+  gap: rem(14);
+  padding: rem(12) rem(16);
+  background: $color-white;
   border: 1px solid $color-border;
-  border-radius: $border-radius-lg;
-  font-size: $font-size-xs;
+  border-radius: $border-radius-xl;
+  font-size: $font-size-base;
   font-weight: $font-semibold;
   color: $color-text;
   text-decoration: none;
   transition: background $transition, border-color $transition;
 
-  &:hover { background: rgba($color-accent, .12); border-color: $color-accent; }
+  &:hover { background: $color-surface-2; border-color: $color-accent-soft-2; }
 }
 
-// ── Квадрат-иконка внутри чипа файла
+// ── Квадрат-иконка внутри строки файла: плашка семантики «документ».
 @mixin fs-file-chip-icon {
   display: grid;
   place-items: center;
-  width: rem(24);
-  height: rem(24);
-  flex: 0 0 rem(24);
-  background: $color-white;
-  border: 1px solid $color-border;
-  border-radius: $border-radius-md;
-  color: $color-muted;
+  width: rem(38);
+  height: rem(38);
+  flex: 0 0 rem(38);
+  background: $color-err-soft;
+  border-radius: $radius-control;
+  color: $color-err;
 }
 
-// ── Подпись размера файла.
-// Шрифт тот же, что у имени файла (моноширинный Courier выглядел пиксельным),
-// line-height как у соседа — иначе подпись «висит» выше имени.
+// ── Подпись размера файла: приглушённый вес рядом с именем.
 @mixin fs-file-chip-size {
   font-family: inherit;
-  font-size: rem(11.5);
+  font-size: $font-size-xs;
   font-weight: $font-normal;
   line-height: inherit;
   color: $color-muted;
+}
+
+// ── Стрелка скачивания в правом краю строки файла
+@mixin fs-file-chip-download {
+  display: flex;
+  margin-left: auto;
+  color: $color-muted-2;
+  transition: color $transition;
 }
 
 // ── Липкий блок с отступом от верха окна.

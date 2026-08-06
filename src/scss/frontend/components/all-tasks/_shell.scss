@@ -3,26 +3,17 @@
 // Оболочка страницы «Все задания»: скоуп-корень, сетка, заголовок.
 // Крошки — общий компонент `components/_breadcrumbs.scss` (разметка из партиала).
 .fs-all-tasks-page {
-
   // Сглаживание — против «пиксельного» вида на Win/Mac.
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 
-  // Атрибут [hidden] должен побеждать любой display компонента (иначе панель
-  // ответа с display:flex видна всегда). !important — перебивка UA/компонентных правил.
+  // Атрибут [hidden] должен побеждать любой display компонента. !important — перебивка UA/компонентных правил.
   [hidden] { display: none !important; }
 
   // ── Оболочка / сетка (общие токены со страницей задания) ──────
   .shell  { max-width: $max-width; margin: 0 auto; }
   .layout { display: grid; grid-template-columns: $sidebar-width 1fr; gap: $layout-gap; align-items: start; }
   .main   { min-width: 0; }
-
-  .page-title {
-    margin: rem(4) 0 rem(24);
-    font-size: $font-size-2xl; font-weight: $font-bold;
-    line-height: 1.15;
-    color: $color-text;
-  }
 
   // ── Адаптив: одна колонка (сброс липкости сайдбара — в _filters,
   //    иначе базовое правило перебивает медиазапрос по порядку каскада)

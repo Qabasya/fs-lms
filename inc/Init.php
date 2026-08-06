@@ -40,9 +40,10 @@ use Inc\Controllers\Enrollment\RecoveryController;
 use Inc\Controllers\Group\StudentGroupController;
 use Inc\Controllers\Subject\SubjectController;
 use Inc\Controllers\Task\TaskCreationController;
+use Inc\Controllers\Pages\AllTasksPageController;
+use Inc\Controllers\Pages\ArticlePageController;
 use Inc\Controllers\Pages\AssessmentPageController;
 use Inc\Controllers\Pages\TaskPageController;
-use Inc\Controllers\AllTasksPageController;
 use Inc\Controllers\Log\LogsController;
 use Inc\Controllers\Settings\ConfigController;
 use Inc\Controllers\Settings\SettingsController;
@@ -132,6 +133,7 @@ final class Init {
 			TaskCreationController::class, // Создание заданий
 			TaskPageController::class,       // Frontend-страница задания
 			AllTasksPageController::class,   // Frontend-страница «Все задания» (тренажёр)
+			ArticlePageController::class,    // Frontend-страница статьи
 			AssessmentPageController::class, // Frontend-страница контрольной
 			BoilerplateController::class,  // Типовые условия (boilerplate)
 			UserController::class,

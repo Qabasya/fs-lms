@@ -6,74 +6,159 @@
 
   display: flex;
   flex-direction: column;
-  gap: rem(14);
+  gap: rem(16);
 }
 
-.fs-sidebar-block { @include fs-surface-card($padding: rem(20) rem(22) rem(22)); }
+// Карточка сайдбара макета: собственных отступов нет — их задают строки
+// внутри, а разделителем служит верхняя линия каждой строки.
+.fs-sidebar-block {
+  @include fs-surface-card;
+
+  overflow: hidden;
+}
+
+// Шапка блока сайдбара — та же, что у карточки фильтров: заголовок слева,
+// действие справа, разделитель под ними.
+.fs-sidebar-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: rem(8);
+  padding: rem(16) rem(18);
+  border-bottom: 1px solid $color-border-light;
+}
 
 .fs-sidebar-title {
+  font-size: $font-size-md;
+  font-weight: $font-bold;
+  letter-spacing: -.01em;
+  color: $color-text;
+  margin: 0;
+}
+
+// Заголовок без шапки (курсы) сам держит свои отступы.
+.fs-sidebar-block > .fs-sidebar-title { padding: rem(16) rem(18); }
+
+// «Все материалы» — действие в правом верхнем углу блока. Стрелки в покое нет,
+// она выезжает по ховеру. Селектор с тегом и родителем — иначе
+// `.fs-all-tasks-page a { color: inherit }` из _reset.scss перебивает цвет.
+.fs-sidebar-head a.fs-sidebar-more {
+  @include fs-arrow-reveal;
+
+  flex: 0 0 auto;
+  padding: rem(5) rem(9);
+  border-radius: rem(7);
   font-size: $font-size-xs;
   font-weight: $font-semibold;
-  text-transform: uppercase;
-  letter-spacing: .08em;
-  color: $color-separator;
-  margin: 0 0 rem(10);
-}
+  color: $color-accent; // тот же синий, что у «Перейти» в карточке статьи
+  transition: background $transition, color $transition;
 
-.fs-sidebar-stub {
-  font-size: $font-size-sm;
-  color: $color-muted;
-  margin-bottom: $spacing-sm;
-}
+  &:hover {
+    @include fs-arrow-reveal-open;
 
-.fs-sidebar-more {
-  display: inline-block;
-  font-size: $font-size-xs;
-  color: $color-separator;
-  transition: color $transition;
-  margin-top: rem(20);
-
-  &:hover { color: $color-accent; }
-}
-
-.fs-sidebar-articles {
-  list-style: none;
-  padding: 0;
-  margin: 0 0 rem(14);
-
-  li {
-    padding: $spacing-md 0;
-    border-bottom: 1px solid $color-border-light;
-
-    &:first-child { padding-top: 0; }
-    &:last-child  { border-bottom: none; padding-bottom: 0; }
-
-    a {
-      display: flex;
-      flex-direction: column;
-      gap: rem(3);
-      transition: color $transition;
-
-      &:hover { color: $color-accent; }
-    }
+    background: $color-accent-soft;
+    color: $color-accent-700;
   }
 }
 
-.fs-sidebar-article-title {
-  font-size: $font-size-sm;
-  font-weight: $font-medium;
-  line-height: $line-height-tight;
+// Списки сайдбара — статьи и курсы: одна геометрия, разные данные.
+// Пункты разделяет тонкая линия сверху, отступы — у самой ссылки.
+.fs-sidebar-articles,
+.fs-sidebar-courses {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  margin: 0;
+
+  li a {
+    display: flex;
+    align-items: flex-start;
+    gap: rem(13);
+    padding: rem(14) rem(18);
+    border-top: 1px solid $color-border-light;
+    transition: background $transition;
+
+    &:hover { background: $color-surface-2; }
+  }
+
+  // Первая строка примыкает к надзаголовку блока — своя линия ей не нужна.
+  li:first-child a { border-top: 0; }
 }
 
-.fs-sidebar-article-desc {
+// Миниатюра статьи — прямоугольник 96×72 слева; размер задан явно, иначе
+// align-items растянул бы её по высоте строки и сломал пропорции.
+.fs-sidebar-article-thumb {
+  flex: 0 0 rem(96);
+  width: rem(96);
+  height: rem(72);
+  border-radius: rem(10);
+  object-fit: cover;
+  display: block;
+}
+
+// Обложки ещё нет — место держит заглушка того же размера.
+.fs-sidebar-article-thumb--empty { @include fs-thumb-placeholder; }
+
+// Текстовая колонка: заголовок, описание, «Перейти».
+.fs-sidebar-article-text {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+// «Перейти» — подпись-кнопка карточки: стрелка выезжает при наведении на всю
+// строку статьи, а не на саму подпись.
+.fs-sidebar-article-go {
+  @include fs-arrow-reveal;
+
+  margin-top: rem(7);
+  font-size: $font-size-xs;
+  font-weight: $font-semibold;
+  color: $color-accent;
+}
+
+.fs-sidebar-articles li a:hover .fs-sidebar-article-go {
+  @include fs-arrow-reveal-open;
+}
+
+
+// У курсов нет миниатюры: название и число уроков идут колонкой.
+.fs-sidebar-courses li a {
+  flex-direction: column; align-items: flex-start;
+  gap: rem(3);
+}
+
+.fs-sidebar-article-title,
+.fs-sidebar-course-title {
+  font-weight: $font-semibold;
+  line-height: $line-height-tight;
+  color: $color-text;
+}
+
+.fs-sidebar-article-title { font-size: $font-size-sm; }
+.fs-sidebar-course-title  { font-size: $font-size-base; }
+
+.fs-sidebar-course-meta {
   font-size: $font-size-xs;
   color: $color-muted;
   line-height: $line-height-tight;
-
-  @include line-clamp(2);
-
-  transition: color $transition;
 }
+
+// «Записаться» — та же подпись-кнопка, что «Перейти» у статьи: стрелка
+// выезжает при наведении на всю строку курса.
+.fs-sidebar-course-go {
+  @include fs-arrow-reveal;
+
+  margin-top: rem(7);
+  font-size: $font-size-xs;
+  font-weight: $font-semibold;
+  color: $color-accent;
+}
+
+.fs-sidebar-courses li a:hover .fs-sidebar-course-go {
+  @include fs-arrow-reveal-open;
+}
+
 
 // Адаптив: сайдбар уезжает под контент и перестаёт липнуть (сетку задаёт _layout).
 @media (max-width: $bp-md) {

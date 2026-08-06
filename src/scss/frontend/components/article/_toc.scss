@@ -1,0 +1,140 @@
+@use '../../variables' as *;
+@use '../../mixins' as *;
+
+// Оглавление статьи: карточка-поверхность с прокруткой длинного списка и
+// полосой прогресса чтения. Свёрнутое состояние — класс .is-collapsed от
+// components/article-toc.js (на узком экране ставится сразу).
+.fs-article-page {
+  .fs-article-toc {
+    @include fs-surface-card;
+
+    padding: rem(14) 0;
+    overflow: hidden;
+  }
+
+  // Шапка центрирована по кнопке: в свёрнутом виде видна только она, и любой
+  // перекос подписи относительно кнопки сразу читается как «съехало».
+  .fs-article-toc__head {
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
+    min-height: rem(26);
+    padding: 0 rem(12) 0 rem(18);
+  }
+
+  .fs-article-toc__title {
+    font-size: $font-size-code;
+    font-weight: $font-semibold;
+    letter-spacing: .07em;
+    text-transform: uppercase;
+    color: $color-text;
+    line-height: 1;
+  }
+
+  .fs-article-toc__toggle {
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    width: rem(26);
+    height: rem(26);
+    margin-left: auto;
+    background: $color-white;
+    border: 1px solid $color-border;
+    border-radius: $border-radius-md;
+    color: $color-muted-2;
+    cursor: pointer;
+    transition: background $transition, border-color $transition, color $transition;
+
+    &:hover {
+      background: $color-accent-soft;
+      border-color: $color-accent-soft-2;
+      color: $color-accent-700;
+    }
+
+    svg { display: block; transition: transform $transition-medium; }
+  }
+
+  // Сворачивание через grid-template-rows: высота списка заранее неизвестна,
+  // а display: none схлопывал бы блок рывком, без перехода.
+  .fs-article-toc__body {
+    display: grid;
+    grid-template-rows: 1fr;
+    transition: grid-template-rows $transition-medium;
+  }
+
+  .fs-article-toc__body-inner {
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  // Своей прокрутки у списка нет: длинную колонку целиком прокручивает
+  // .fs-article-aside — иначе внутри липкого сайдбара было бы два скролла.
+  .fs-article-toc__list {
+    display: grid;
+    padding-top: $spacing-md;
+  }
+
+  .fs-article-toc__link {
+    padding: $spacing-sm rem(18);
+    border-left: 2px solid transparent;
+    font-size: $font-size-base;
+    line-height: 1.4;
+    color: $color-muted;
+    text-decoration: none;
+    transition: background $transition, color $transition;
+
+    &:hover {
+      background: $color-surface-2;
+      color: $color-text;
+    }
+    
+    // Кегль активного пункта общий со всеми: отличают его подложка, цвет,
+    // полоса слева и жирное начертание.
+    &.is-active {
+      background: $color-accent-soft;
+      border-left-color: $color-accent;
+      color: $color-accent-700;
+      font-weight: $font-semibold;
+    }
+  }
+
+  // Подзаголовок (h3) — вложенный пункт: отличается только сдвигом, кегль
+  // общий со всеми пунктами.
+  .fs-article-toc__link--sub { padding-left: rem(32); }
+
+  // Полосе нужен свой ряд с отступами: <progress> — заменяемый элемент, от
+  // width: auto он не растягивается и висел бы обрубком у края карточки.
+  .fs-article-toc__progress-row { padding: $spacing-md rem(18) 0; }
+
+  // Прогресс чтения. Нативный <progress>: JS меняет значение, а не стиль,
+  // поэтому вид задаётся здесь целиком — включая обе браузерные части.
+  .fs-article-toc__progress {
+    display: block;
+    width: 100%;
+    height: rem(3);
+    appearance: none;
+    background: $color-border-light;
+    border: 0;
+    border-radius: $border-radius-pill;
+    overflow: hidden;
+
+    &::-webkit-progress-bar { background: $color-border-light; }
+
+    &::-webkit-progress-value {
+      background: $color-accent;
+      border-radius: $border-radius-pill;
+    }
+
+    &::-moz-progress-bar {
+      background: $color-accent;
+      border-radius: $border-radius-pill;
+    }
+  }
+
+  // ── Свёрнутое состояние: остаётся только шапка с кнопкой
+  .fs-article-toc.is-collapsed {
+    .fs-article-toc__body { grid-template-rows: 0fr; }
+
+    .fs-article-toc__toggle svg { transform: rotate(-90deg); }
+  }
+}

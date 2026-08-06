@@ -1,50 +1,112 @@
 @use '../../variables' as *;
+@use '../../mixins' as *;
 
 // Тулбар (поиск) и строка меты результатов над списком карточек.
 .fs-all-tasks-page {
+  // ── Строка крошек: слева цепочка, справа свёрнутый поиск ──────
+  .crumbs-row {
+    // rem(0), а не 0: миксин подставляет отступ в calc() со сдвигом под
+    // админ-бар, а безразмерный ноль делает calc невалидным.
+    @include fs-sticky(rem(0));
 
-  // ── Тулбар: поиск ─────────────────────────────────────────────
-  .toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: rem(12); margin-bottom: rem(18); }
-
-  .toolbar-search {
-    flex: 1; min-width: rem(260);
+    z-index: 5;
     display: flex; align-items: center;
-    gap: rem(10);
-    height: rem(42); padding: 0 rem(14);
-    background: $color-white;
-    border: 1px solid $color-border; border-radius: $border-radius-xl;
-    transition: border-color $transition;
+    gap: rem(40);
+    margin-top: rem(-22);
+    margin-bottom: 0;
+    margin-left: calc(#{$sidebar-width} + #{$layout-gap} - #{rem(20)});
+    margin-right: rem(-20);
+    padding: rem(16) rem(20);
+    background: $color-bg;
 
-    &:focus-within { border-color: $color-accent; }
+    .fs-breadcrumbs { flex: 0 1 auto; min-width: 0; margin-bottom: 0; }
   }
-  .toolbar-search-icon { display: inline-flex; flex: 0 0 rem(16); color: $color-muted; }
-  .toolbar-search input {
-    flex: 1; min-width: 0;
+
+  // ── Поиск: всегда полураскрыт (лупа + подпись)
+  .toolbar-search {
+    display: flex; align-items: center;
+    flex: 0 0 auto;
+    width: rem(112); max-width: 100%;
+    margin-left: auto;
+    height: rem(38);
+    background: $color-white;
+    border: 1px solid $color-border; border-radius: $border-radius-pill;
+    box-shadow: $shadow-surface;
+    overflow: hidden;
+    transition: width $transition-collapse, border-color $transition, box-shadow $transition;
+
+    &:hover { border-color: $color-accent-soft-2; }
+
+    &.is-open {
+      width: rem(360);
+      border-color: $color-accent-soft-2;
+      box-shadow: 0 0 0 rem(3) $color-accent-soft;
+      transition: width $transition-slow, border-color $transition, box-shadow $transition;
+    }
+  }
+
+  .toolbar-search-toggle {
+    display: inline-flex; align-items: center;
+    flex: 1 1 auto;
+    gap: rem(9);
+    height: 100%; padding: 0 rem(14);
+    color: $color-muted;
+    transition: color $transition, padding-left $transition-collapse;
+  }
+  .toolbar-search:hover .toolbar-search-toggle { color: $color-accent-700; }
+
+  .toolbar-search.is-open .toolbar-search-toggle {
+    flex: 0 0 auto; padding-left: rem(16);
+    transition: color $transition, padding-left $transition-slow;
+  }
+  .toolbar-search-icon { display: inline-flex; flex: 0 0 rem(15); color: $color-muted-2; }
+
+  // Подпись видна всегда; прячется только когда поле раскрыто.
+  .toolbar-search-hint {
+    max-width: rem(90);
+    font-size: $font-size-sm; white-space: nowrap;
+    opacity: 1; overflow: hidden;
+    transition: max-width $transition-collapse, opacity $transition-collapse;
+  }
+
+  .toolbar-search.is-open .toolbar-search-hint {
+    max-width: 0; opacity: 0;
+    transition: max-width $transition-slow, opacity $transition-slow;
+  }
+
+  .toolbar-search-input {
+    flex: 0 0 0; width: 0; min-width: 0; margin-left: 0; padding: 0;
     background: transparent; border: 0; outline: 0;
     font-family: inherit; font-size: $font-size-sm; color: $color-text;
-  }
-  .toolbar-search input::placeholder { color: $color-muted; }
+    opacity: 0;
+    transition: opacity $transition-collapse, padding-right $transition-collapse;
 
-  // ── Мета результатов ──────────────────────────────────────────
-  .results-meta {
-    display: flex; align-items: center; flex-wrap: wrap;
-    gap: rem(10);
-    padding: 0 rem(2) rem(14);
-    font-size: $font-size-xs; color: $color-muted; font-variant-numeric: tabular-nums;
-
-    strong { color: $color-text; font-weight: $font-semibold; }
+    &::placeholder { color: $color-muted-2; }
   }
+
+  .toolbar-search.is-open .toolbar-search-input {
+    flex: 1 1 0;
+    padding-right: rem(16);
+    opacity: 1;
+    transition: opacity $transition-slow, padding-right $transition-slow;
+  }
+
   .results-clear {
-    padding: 0;
-    background: none; border: 0;
-    font-family: inherit; font-size: $font-size-xs; color: $color-muted;
+    padding: rem(5) rem(9);
+    background: none; border: 0; border-radius: $border-radius-md;
+    font-family: inherit; font-size: $font-size-xs; font-weight: $font-semibold;
+    color: $color-muted-2;
     cursor: pointer;
-    transition: color $transition;
+    transition: color $transition, background $transition;
 
-    &:hover { color: $color-accent; }
+    &:hover { background: $color-accent-soft; color: $color-accent-700; }
   }
 
   @media (max-width: $bp-md) {
-    .toolbar-search { min-width: 0; }
+    // Узкий экран: полураскрытому полю хватает доступной ширины, а раскрытому
+    // нужна вся строка — крошки уходят на свою. Сайдбара сбоку нет, сдвиг слева
+    // не нужен.
+    .crumbs-row { flex-wrap: wrap; gap: rem(12); padding-left: rem(20); }
+    .toolbar-search.is-open { width: 100%; margin-left: 0; }
   }
 }

@@ -71,6 +71,10 @@ export const icoSearch = ( s = 14 ) =>
 export const icoFile = ( s = 16 ) =>
 	stroke20( '<path d="M5 2.5h6.2L15.5 6.8V17.5H5V2.5z" stroke="{c}" stroke-width="1.5" stroke-linejoin="round"/><path d="M11 3v4.3h4.3" stroke="{c}" stroke-width="1.5" stroke-linejoin="round"/>', s );
 
+/** Скачивание вложения (зеркало PHP Icon::Download). */
+export const icoDownload = ( s = 17 ) =>
+	stroke20( '<path d="M10 3v9m0 0 3.5-3.5M10 12 6.5 8.5M4 16h12" stroke="{c}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>', s );
+
 /** Стрелка-вправо в кнопке действия (зеркало PHP Icon::ArrowRight). */
 export const icoArrowRight = ( s = 16 ) =>
 	stroke20( '<path d="M4 10h11m0 0-4-4m4 4-4 4" stroke="{c}" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>', s );

@@ -30,7 +30,7 @@
     margin: -#{$spacing-md} 0 $spacing-2xl;
     text-align: center;
     font-size: $font-size-md;
-    font-weight: $font-bold;
+    font-weight: $font-medium;
     color: $color-accent;
   }
 
@@ -144,7 +144,7 @@
 
   &__success-title {
     font-size: $font-size-md;
-    font-weight: $font-bold;
+    font-weight: $font-medium;
     color: $color-text;
     margin: 0;
   }

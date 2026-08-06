@@ -21,21 +21,26 @@ readonly class BreadcrumbsBuilder {
 	/** Общая для обеих страниц подпись раздела. */
 	public const TRAINER_LABEL = 'Тренажёр';
 
+	/** Подпись раздела статей в крошках. */
+	public const MATERIALS_LABEL = 'Учебник';
+
 	/**
 	 * Крошки архива заданий: предмет / Тренажёр.
 	 *
-	 * Предмет собственной страницы не имеет, а архив — это и есть текущая
-	 * страница, поэтому ссылок в цепочке нет.
+	 * Собственной страницы у предмета нет, поэтому крошка предмета ведёт на
+	 * архив заданий — так же, как на странице одного задания. Текущая крошка
+	 * («Тренажёр») ссылкой не становится: это текущая страница.
 	 *
 	 * @param string $subject_name Название предмета.
+	 * @param string $archive_url  Ссылка на архив заданий предмета.
 	 *
 	 * @return array<int, array<string, mixed>>
 	 */
-	public function forArchive( string $subject_name ): array {
+	public function forArchive( string $subject_name, string $archive_url = '' ): array {
 		$crumbs = array();
 
 		if ( '' !== $subject_name ) {
-			$crumbs[] = $this->crumb( $subject_name );
+			$crumbs[] = $this->crumb( $subject_name, $archive_url );
 		}
 
 		$crumbs[] = $this->crumb( self::TRAINER_LABEL, '', true );
@@ -75,6 +80,40 @@ readonly class BreadcrumbsBuilder {
 
 		if ( '' !== $task_label ) {
 			$crumbs[] = $this->crumb( $task_label, '', true );
+		}
+
+		return $crumbs;
+	}
+
+	/**
+	 * Крошки страницы статьи: предмет / Учебник / заголовок.
+	 *
+	 * Крошка предмета ведёт туда же, куда со страницы задания — на архив
+	 * заданий: собственной страницы у предмета нет.
+	 *
+	 * @param string $subject_name         Название предмета.
+	 * @param string $tasks_archive_url    Ссылка на архив заданий предмета.
+	 * @param string $articles_archive_url Ссылка на архив статей предмета.
+	 * @param string $article_label        Заголовок статьи (текущая крошка).
+	 *
+	 * @return array<int, array<string, mixed>>
+	 */
+	public function forArticle(
+		string $subject_name,
+		string $tasks_archive_url,
+		string $articles_archive_url,
+		string $article_label
+	): array {
+		$crumbs = array();
+
+		if ( '' !== $subject_name ) {
+			$crumbs[] = $this->crumb( $subject_name, $tasks_archive_url );
+		}
+
+		$crumbs[] = $this->crumb( self::MATERIALS_LABEL, $articles_archive_url );
+
+		if ( '' !== $article_label ) {
+			$crumbs[] = $this->crumb( $article_label, '', true );
 		}
 
 		return $crumbs;

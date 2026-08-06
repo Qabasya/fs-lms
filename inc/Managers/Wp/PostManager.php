@@ -379,18 +379,24 @@ class PostManager {
 	/**
 	 * Возвращает соседний пост (предыдущий или следующий) относительно указанного.
 	 *
-	 * @param int  $post_id  ID поста.
-	 * @param bool $previous true — предыдущий, false — следующий.
+	 * Непустая $taxonomy ограничивает выборку записями с ТЕМ ЖЕ термином этой
+	 * таксономии (навигация внутри одного типа задания).
+	 *
+	 * @param int    $post_id  ID поста.
+	 * @param bool   $previous true — предыдущий, false — следующий.
+	 * @param string $taxonomy Слаг таксономии для «в пределах термина»; '' — по всем записям.
 	 *
 	 * @return \WP_Post|null
 	 */
-	public function getAdjacent( int $post_id, bool $previous = true ): ?\WP_Post {
+	public function getAdjacent( int $post_id, bool $previous = true, string $taxonomy = '' ): ?\WP_Post {
 		global $post;
 		$saved = $post;
 		$post  = get_post( $post_id );
 		setup_postdata( $post );
-		$adjacent = get_adjacent_post( false, '', $previous );
-		$post     = $saved;
+		$adjacent = '' !== $taxonomy
+			? get_adjacent_post( true, '', $previous, $taxonomy )
+			: get_adjacent_post( false, '', $previous );
+		$post = $saved;
 		wp_reset_postdata();
 		return $adjacent instanceof \WP_Post ? $adjacent : null;
 	}
@@ -536,5 +542,30 @@ class PostManager {
 	public function getArchiveLink( string $post_type ): string {
 		$link = get_post_type_archive_link( $post_type );
 		return false !== $link ? $link : '';
+	}
+
+	/**
+	 * Прогоняет сырой контент записи через штатный конвейер `the_content`.
+	 *
+	 * Нужен там, где контент рендерит не главный цикл (страница статьи собирает
+	 * его в билдере): без фильтров не отработают ни wpautop, ни шорткоды, ни oEmbed.
+	 *
+	 * @param string $content Сырой post_content.
+	 *
+	 * @return string HTML после фильтров темы и плагинов.
+	 */
+	public function renderContent( string $content ): string {
+		return (string) apply_filters( 'the_content', $content );
+	}
+
+	/**
+	 * ID записи по её публичному URL; 0 — ссылка ведёт не на запись этого сайта.
+	 *
+	 * @param string $url Абсолютный или относительный URL.
+	 *
+	 * @return int
+	 */
+	public function idFromUrl( string $url ): int {
+		return '' === $url ? 0 : url_to_postid( $url );
 	}
 }
