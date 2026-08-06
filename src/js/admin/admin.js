@@ -4,6 +4,7 @@ import { ContentClone } from './services/content-clone.js';
 import {Boilerplates} from './services/boilerplates.js';
 import {PostsTable} from './services/tables/posts-table.js';
 import {RequiredTaxGuard} from './services/required-tax-guard.js';
+import {ArticleDescription} from './services/article-description.js';
 import {TaskFilter} from "./services/task-dashboard.js";
 import {RecentContent} from "./services/recent-posts";
 import {AuthSettings} from "./services/settings/auth-settings";
@@ -102,6 +103,10 @@ import { RolesSettings } from './services/roles-settings.js';
         }
 
         RequiredTaxGuard.init();
+
+        if ($('.js-article-description').length) {
+            ArticleDescription.init();
+        }
 
         if ( $( '.fs-lms-ref-field' ).length ) {
             RefSelector.init();

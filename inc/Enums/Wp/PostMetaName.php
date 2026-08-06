@@ -39,4 +39,10 @@ enum PostMetaName: string {
 
 	/** Плоский ключ вида контрольной — дублирует fs_lms_meta['kind'] для фильтрации в list table. */
 	case AssessmentKind = 'fs_lms_assessment_kind';
+
+	/**
+	 * Краткое описание статьи (карточка в учебнике, тег description).
+	 * Не длиннее {@see \Inc\Controllers\Article\ArticleMetaBoxController::MAX_LENGTH} символов.
+	 */
+	case ArticleDescription = 'fs_lms_article_description';
 }

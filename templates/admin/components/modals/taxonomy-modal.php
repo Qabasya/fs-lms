@@ -37,6 +37,17 @@
 			</div>
 
 			<div class="fs-form-group">
+				<label>
+					<input type="checkbox" id="tax-use-in-articles" value="1">
+					Использовать в статьях
+				</label>
+				<p class="description">
+					Таксономия появится и у статей предмета. Вместе с флагом «обязательная»
+					статью нельзя будет опубликовать, пока термин не выбран.
+				</p>
+			</div>
+
+			<div class="fs-form-group">
 				<label>Тип отображения:</label>
 				<div class="fs-radio-group">
 					<label class="fs-radio-label">

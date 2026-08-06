@@ -71,6 +71,15 @@ npx gulp styles:common    # common CSS only
 
 Subjects are stored in `wp_options` (key: `fs_lms_subjects_list`) as `['subject_key' => ['key' => ..., 'name' => ...]]`. Each subject dynamically registers two CPTs (`{key}_tasks`, `{key}_articles`) and a fixed taxonomy `{key}_task_number` (numeric sort applied automatically). User-defined taxonomies are also stored in `wp_options` via `TaxonomyRepository`. Boilerplates and template assignments are similarly stored in `wp_options` — never in post/term meta.
 
+**Два флага пользовательской таксономии** (`TaxonomyDataDTO`) задают её роль, и оба обязаны
+доезжать до экспорта/импорта предмета:
+`is_required` — публичная: попадает в фильтры тренажёра/учебника и блокирует публикацию;
+`use_in_articles` — привязывает таксономию к CPT статей (`TaxonomyDataDTO::postTypes()`,
+задания получают её всегда). Матрица: обязательная + в статьях → фильтр и в тренажёре, и в
+учебнике, публикация статьи без терма запрещена (`ArticlePublishValidator`); необязательная +
+в статьях → служебная пометка автора, на фронт не выходит. Публикация статьи, кроме того,
+всегда требует терм `{key}_task_number`.
+
 **Ключи и константы — только через энумы**, сырых строк в коде быть не должно:
 `OptionName` (`inc/Enums/OptionName.php`) — все ключи `wp_options`; `PostMetaName` — ключи
 пост-меты; `Capability` — права; `UserRole` — роли (у каждой есть `->label()`);

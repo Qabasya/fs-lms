@@ -108,15 +108,16 @@ class SubjectExportService {
 	 *
 	 * @param string $subject_key Ключ предмета
 	 *
-	 * @return array [tax_slug => ['name', 'display_type', 'is_required']]
+	 * @return array [tax_slug => ['name', 'display_type', 'is_required', 'use_in_articles']]
 	 */
 	private function exportTaxonomies( string $subject_key ): array {
 		$result = array();
 		foreach ( $this->taxonomies->getBySubject( $subject_key ) as $dto ) {
 			$result[ $dto->slug ] = array(
-				'name'         => $dto->name,
-				'display_type' => $dto->display_type,
-				'is_required'  => $dto->is_required,
+				'name'            => $dto->name,
+				'display_type'    => $dto->display_type,
+				'is_required'     => $dto->is_required,
+				'use_in_articles' => $dto->use_in_articles,
 			);
 		}
 		return $result;

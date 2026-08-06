@@ -5,6 +5,7 @@ declare( strict_types=1 );
 namespace Inc\Registrars;
 
 use Inc\Controllers\Builders\SubjectCptArgsBuilder;
+use Inc\DTO\Subject\TaxonomyDataDTO;
 use Inc\Repositories\OptionsRepositories\TaxonomyRepository;
 use Inc\Services\Subject\PostTypeResolver;
 
@@ -102,7 +103,7 @@ class SubjectContentRegistrar {
 		$this->addType( $articleCpt, 'articles', 'Статьи', $subject );
 
 		$this->addTaskNumberTaxonomy( $key, $taskCpt, $articleCpt );
-		$this->addCustomTaxonomies( $key, $taskCpt );
+		$this->addCustomTaxonomies( $key );
 
 		return $taskCpt;
 	}
@@ -152,18 +153,20 @@ class SubjectContentRegistrar {
 	}
 
 	/**
-	 * Пользовательские таксономии предмета (только для заданий).
+	 * Пользовательские таксономии предмета.
 	 *
-	 * @param string $key     Ключ предмета
-	 * @param string $taskCpt CPT заданий
+	 * Задания получают все таксономии предмета; статьи — только те, у которых
+	 * включён флаг «Использовать в статьях» ({@see TaxonomyDataDTO::postTypes()}).
+	 *
+	 * @param string $key Ключ предмета
 	 *
 	 * @return void
 	 */
-	private function addCustomTaxonomies( string $key, string $taskCpt ): void {
+	private function addCustomTaxonomies( string $key ): void {
 		foreach ( $this->taxonomies->getBySubject( $key ) as $tax ) {
 			$this->taxRegistrar->addStandardTaxonomy(
 				$tax->slug,
-				array( $taskCpt ),
+				$tax->postTypes(),
 				$tax->name,
 				$tax->name,
 				$tax->display_type

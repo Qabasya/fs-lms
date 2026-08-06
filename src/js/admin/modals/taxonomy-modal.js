@@ -48,6 +48,8 @@ export const TaxonomyModal = {
     $displayInputs: null,
     /** @type {jQuery} Чекбокс обязательности заполнения таксономии */
     $isRequiredInput: null,
+    /** @type {jQuery} Чекбокс привязки таксономии к статьям предмета */
+    $useInArticlesInput: null,
     /** @type {jQuery} Кнопка сохранения формы */
     $saveBtn: null,
     /** @type {jQuery} Элемент заголовка модального окна */
@@ -92,6 +94,7 @@ export const TaxonomyModal = {
         this.$saveBtn           = $('.js-modal-save');
         this.$titleEl           = this.$modal.find('#modal-title');
         this.$isRequiredInput   = $('#tax-is-required');
+        this.$useInArticlesInput = $('#tax-use-in-articles');
         this.$form              = this.$modal.find('form');
 
         // Инициализируем внешнюю систему валидации для этой конкретной формы.
@@ -151,6 +154,7 @@ export const TaxonomyModal = {
      * @param {string} [data.name] - Название таксономии.
      * @param {string} [data.display] - Тип отображения ('select' и т.д.).
      * @param {boolean} [data.is_required] - Флаг обязательности.
+     * @param {boolean} [data.use_in_articles] - Флаг привязки к статьям предмета.
      */
     open(action, data = {}) {
         const isUpdate = action === 'update';
@@ -174,8 +178,9 @@ export const TaxonomyModal = {
         const displayType = (isUpdate && data.display) ? data.display : 'select';
         this.$displayInputs.filter(`[value="${displayType}"]`).prop('checked', true);
 
-        // Для чекбокса преобразуем значение в строгий boolean через !!
+        // Для чекбоксов преобразуем значение в строгий boolean через !!
         this.$isRequiredInput.prop('checked', isUpdate ? !!data.is_required : false);
+        this.$useInArticlesInput.prop('checked', isUpdate ? !!data.use_in_articles : false);
 
         // Базовая логика открытия модалки и привязки клавиши Esc
         openModal(this.$modal);
@@ -230,9 +235,10 @@ export const TaxonomyModal = {
         this.$originalSlugInput.val('');
         this.$actionInput.val('store');
 
-        // Возвращаем радио-кнопки и чекбокс к значениям по умолчанию
+        // Возвращаем радио-кнопки и чекбоксы к значениям по умолчанию
         this.$displayInputs.filter('[value="select"]').prop('checked', true);
         this.$isRequiredInput.prop('checked', false);
+        this.$useInArticlesInput.prop('checked', false);
     },
 
     /**
@@ -254,6 +260,7 @@ export const TaxonomyModal = {
             // Если не отмечен, вернет false, и мы отправим '0'.
             // Это стандартная практика для корректной обработки булевых значений на бэкенде (PHP).
             is_required:  this.$isRequiredInput.is(':checked') ? '1' : '0',
+            use_in_articles: this.$useInArticlesInput.is(':checked') ? '1' : '0',
         };
     },
 };

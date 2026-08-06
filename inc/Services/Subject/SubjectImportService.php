@@ -255,11 +255,12 @@ class SubjectImportService {
 		foreach ( $taxonomies as $tax_slug => $tax_data ) {
 			$this->taxonomies->save(
 				new TaxonomyDataDTO(
-					slug:         sanitize_title( (string) $tax_slug ),
-					name:         sanitize_text_field( $tax_data['name'] ?? '' ),
-					subject_key:  $key,
-					display_type: sanitize_text_field( $tax_data['display_type'] ?? 'select' ),
-					is_required:  (bool) ( $tax_data['is_required'] ?? false ),
+					slug:            sanitize_title( (string) $tax_slug ),
+					name:            sanitize_text_field( $tax_data['name'] ?? '' ),
+					subject_key:     $key,
+					display_type:    sanitize_text_field( $tax_data['display_type'] ?? 'select' ),
+					is_required:     (bool) ( $tax_data['is_required'] ?? false ),
+					use_in_articles: (bool) ( $tax_data['use_in_articles'] ?? false ),
 				)
 			);
 		}

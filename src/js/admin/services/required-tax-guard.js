@@ -67,9 +67,22 @@ export const RequiredTaxGuard = {
         // typeof fs_lms_task_data !== 'undefined' — стандартный способ проверки 
         // существования глобальной переменной без риска ReferenceError.
         // Если переменная не определена, используем пустой массив как fallback.
-        const rawRequired = typeof fs_lms_task_data !== 'undefined'
-            ? (fs_lms_task_data.required_taxonomies || [])
-            : [];
+        // Экран задания отдаёт список в fs_lms_task_data, экран статьи — в
+        // fs_lms_article_data (там список свой: номер задания + обязательные
+        // таксономии с флагом «Использовать в статьях»).
+        //
+        // Проверяем именно наличие списка, а не самого глобала: _types.js создаёт
+        // оба объекта пустыми для подсказок IDE, поэтому typeof-проверка глобала
+        // прошла бы и на том экране, где список не локализован.
+        const listOf = (globalObj) => (
+            typeof globalObj !== 'undefined' && Array.isArray(globalObj.required_taxonomies)
+                ? globalObj.required_taxonomies
+                : null
+        );
+
+        const rawRequired = listOf(typeof fs_lms_task_data !== 'undefined' ? fs_lms_task_data : undefined)
+            || listOf(typeof fs_lms_article_data !== 'undefined' ? fs_lms_article_data : undefined)
+            || [];
 
         // ==========================================
         // 2. УТИЛИТА ФОРМАТИРОВАНИЯ SLUG В ЧИТАЕМОЕ ИМЯ

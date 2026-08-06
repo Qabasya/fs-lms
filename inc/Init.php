@@ -41,6 +41,7 @@ use Inc\Controllers\Group\StudentGroupController;
 use Inc\Controllers\Subject\SubjectController;
 use Inc\Controllers\Task\TaskCreationController;
 use Inc\Controllers\Pages\AllTasksPageController;
+use Inc\Controllers\Article\ArticleMetaBoxController;
 use Inc\Controllers\Pages\ArticlePageController;
 use Inc\Controllers\Pages\AssessmentPageController;
 use Inc\Controllers\Pages\TaskPageController;
@@ -133,6 +134,7 @@ final class Init {
 			TaskCreationController::class, // Создание заданий
 			TaskPageController::class,       // Frontend-страница задания
 			AllTasksPageController::class,   // Frontend-страница «Все задания» (тренажёр)
+			ArticleMetaBoxController::class, // Метабокс краткого описания статьи
 			ArticlePageController::class,    // Frontend-страница статьи
 			AssessmentPageController::class, // Frontend-страница контрольной
 			BoilerplateController::class,  // Типовые условия (boilerplate)

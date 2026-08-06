@@ -9,6 +9,7 @@ use Inc\DTO\Subject\TaxonomyDataDTO;
 use Inc\Managers\Wp\PostManager;
 use Inc\Managers\Wp\TermManager;
 use Inc\Repositories\OptionsRepositories\TaxonomyRepository;
+use Inc\Services\Subject\ArticlePublishValidator;
 use Inc\Services\Task\TaskPublishGuard;
 use Inc\Services\Task\TaskPublishValidator;
 use Inc\Services\Template\TemplateResolver;
@@ -21,7 +22,8 @@ use PHPUnit\Framework\TestCase;
  */
 class SubjectValidationCallbacksTest extends TestCase {
 
-	private TaskPublishValidator $validator;
+	private TaskPublishValidator    $validator;
+	private ArticlePublishValidator $articleValidator;
 	private PostManager          $posts;
 	private TermManager          $terms;
 	private TaxonomyRepository   $taxonomies;
@@ -33,6 +35,7 @@ class SubjectValidationCallbacksTest extends TestCase {
 		$_POST = array();
 
 		$this->validator        = $this->createMock( TaskPublishValidator::class );
+		$this->articleValidator = $this->createMock( ArticlePublishValidator::class );
 		$this->posts            = $this->createMock( PostManager::class );
 		$this->terms            = $this->createMock( TermManager::class );
 		$this->taxonomies       = $this->createMock( TaxonomyRepository::class );
@@ -40,6 +43,7 @@ class SubjectValidationCallbacksTest extends TestCase {
 
 		$this->cb = new SubjectValidationCallbacks(
 			$this->validator,
+			$this->articleValidator,
 			new TaskPublishGuard(),
 			$this->posts,
 			$this->terms,
@@ -216,5 +220,91 @@ class SubjectValidationCallbacksTest extends TestCase {
 		$data = $this->cb->validateRequiredTaxonomies( $this->postData( 'publish', 'page' ), array( 'ID' => 15 ) );
 
 		self::assertSame( 'publish', $data['post_status'] );
+	}
+
+	// ── Статьи ──────────────────────────────────────────────────────────────────
+
+	public function test_article_form_terms_are_passed_to_article_validator(): void {
+		$_POST = array( 'tax_input' => array( 'inf_task_number' => array( '12' ) ) );
+
+		$this->validator->expects( $this->never() )->method( 'getBlockingError' );
+		$this->articleValidator->expects( $this->once() )
+			->method( 'getBlockingError' )
+			->with( 'inf_articles', array( 'inf_task_number' => array( '12' ) ) )
+			->willReturn( null );
+
+		$data = $this->cb->validateRequiredTaxonomies(
+			$this->postData( 'publish', 'inf_articles' ),
+			array( 'ID' => 21 )
+		);
+
+		self::assertSame( 'publish', $data['post_status'] );
+	}
+
+	public function test_article_without_required_taxonomy_is_rolled_back_to_draft(): void {
+		$_POST = array( 'tax_input' => array( 'inf_task_number' => array( '12' ) ) );
+
+		$this->articleValidator->method( 'getBlockingError' )
+			->willReturn( 'Обязательная таксономия «Раздел» не заполнена.' );
+
+		$data = $this->cb->validateRequiredTaxonomies(
+			$this->postData( 'publish', 'inf_articles' ),
+			array( 'ID' => 21 )
+		);
+
+		self::assertSame( 'draft', $data['post_status'] );
+	}
+
+	/**
+	 * Быстрое/массовое редактирование статьи формы метабоксов не шлёт — состояние
+	 * берётся из БД, иначе заполненная статья откатывалась бы в черновик.
+	 */
+	public function test_article_stored_terms_are_used_when_form_is_absent(): void {
+		$this->articleValidator->method( 'requiredForArticles' )->with( 'inf' )->willReturn( array(
+			new TaxonomyDataDTO( 'inf_section', 'Раздел', 'inf', 'select', false, true, true ),
+		) );
+
+		$this->terms->method( 'getPostTerms' )->willReturnMap( array(
+			array( 21, 'inf_task_number', array( new \WP_Term( 3, '12', 'inf_task_number' ) ) ),
+			array( 21, 'inf_section', array( new \WP_Term( 8, 'Алгебра', 'inf_section' ) ) ),
+		) );
+
+		$this->articleValidator->expects( $this->once() )
+			->method( 'getBlockingError' )
+			->with( 'inf_articles', array( 'inf_task_number' => array( 3 ), 'inf_section' => array( 8 ) ) )
+			->willReturn( null );
+
+		$data = $this->cb->validateRequiredTaxonomies(
+			$this->postData( 'publish', 'inf_articles' ),
+			array( 'ID' => 21 )
+		);
+
+		self::assertSame( 'publish', $data['post_status'] );
+	}
+
+	/**
+	 * Регрессия-близнец задания: импорт пакета вставляет опубликованную статью при
+	 * пустом $_POST — термины пишутся сразу после insert, проверять ещё нечего.
+	 */
+	public function test_programmatic_article_insert_is_not_validated(): void {
+		$this->articleValidator->expects( $this->never() )->method( 'getBlockingError' );
+
+		$data = $this->cb->validateRequiredTaxonomies(
+			$this->postData( 'publish', 'inf_articles' ),
+			array( 'ID' => 0 )
+		);
+
+		self::assertSame( 'publish', $data['post_status'] );
+	}
+
+	public function test_article_draft_is_not_validated(): void {
+		$this->articleValidator->expects( $this->never() )->method( 'getBlockingError' );
+
+		$data = $this->cb->validateRequiredTaxonomies(
+			$this->postData( 'draft', 'inf_articles' ),
+			array( 'ID' => 21 )
+		);
+
+		self::assertSame( 'draft', $data['post_status'] );
 	}
 }

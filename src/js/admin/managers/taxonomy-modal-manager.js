@@ -63,10 +63,11 @@ export const TaxonomyModalManager = {
             // Оператор === 1 используется, так как data-атрибуты в HTML всегда строки, 
             // а нам нужно передать в модалку строгий boolean.
             TaxonomyModal.open('update', {
-                slug:        $row.data('slug'),
-                name:        $row.data('name'),
-                display:     $row.data('display'),
-                is_required: $row.data('required') === 1,
+                slug:            $row.data('slug'),
+                name:            $row.data('name'),
+                display:         $row.data('display'),
+                is_required:     $row.data('required') === 1,
+                use_in_articles: $row.data('articles') === 1,
             });
         });
 
@@ -118,12 +119,13 @@ export const TaxonomyModalManager = {
 
         // Формируем базовый объект payload для AJAX-запроса
         const postData = {
-            action:       isStore ? fs_lms_vars.ajax_actions.storeTaxonomy : fs_lms_vars.ajax_actions.updateTaxonomy,
-            security:     fs_lms_vars.nonces.subject,
-            subject_key:  data.subject_key,
-            tax_name:     data.tax_name,
-            display_type: data.display_type,
-            is_required:  data.is_required,
+            action:          isStore ? fs_lms_vars.ajax_actions.storeTaxonomy : fs_lms_vars.ajax_actions.updateTaxonomy,
+            security:        fs_lms_vars.nonces.subject,
+            subject_key:     data.subject_key,
+            tax_name:        data.tax_name,
+            display_type:    data.display_type,
+            is_required:     data.is_required,
+            use_in_articles: data.use_in_articles,
         };
 
         // УСЛОВНОЕ ДОБАВЛЕНИЕ ПОЛЯ: 
