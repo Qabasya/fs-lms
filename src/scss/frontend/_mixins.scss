@@ -151,15 +151,6 @@
   margin-bottom: $spacing-md;
 }
 
-// ── Кнопка отправки карточки-формы (!important сохранён); box-sizing/margin задаются на месте
-@mixin fs-form-submit($padding) {
-  width: 100% !important;
-  padding: $padding !important;
-  height: auto !important;
-  font-size: $font-size-base !important;
-  font-weight: $font-bold;
-}
-
 // ── Первичная кнопка (accent); hover-opacity отличается (.85/.88) → параметр
 @mixin fs-btn-primary($hover-opacity) {
   background: $color-accent;
@@ -169,6 +160,25 @@
   cursor: pointer;
 
   &:hover { opacity: $hover-opacity; }
+}
+
+// ── Кнопка отправки карточки-формы (!important сохранён); box-sizing/margin задаются на месте
+// Цвет задаём сами: раньше он приходил от wp-admin `.button-primary`, но buttons.css
+// на публичных страницах не подключён — кнопка рендерилась дефолтной браузерной.
+@mixin fs-form-submit($padding) {
+  @include fs-btn-primary(0.88);
+
+  width: 100% !important;
+  padding: $padding !important;
+  height: auto !important;
+  font-size: $font-size-base !important;
+  font-weight: $font-bold;
+
+  &:disabled {
+    @include fs-disabled;
+
+    &:hover { opacity: 0.5; }
+  }
 }
 
 // ── Вторичная кнопка (нейтральная)

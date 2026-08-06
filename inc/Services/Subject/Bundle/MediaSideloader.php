@@ -7,7 +7,6 @@ namespace Inc\Services\Subject\Bundle;
 use Inc\Services\Subject\Import\ImportedEntitiesCollector;
 use Inc\Shared\Traits\ScopedFilter;
 use Inc\Shared\PluginLogger;
-use RuntimeException;
 
 /**
  * Class MediaSideloader
@@ -27,6 +26,12 @@ use RuntimeException;
  * и не расширяется ради импорта: пакет — такой же пользовательский ввод, как
  * загрузка файла через форму, и ослаблять для него правила нельзя. Проверяется
  * реальный тип содержимого (`finfo`), а не расширение из архива.
+ *
+ * Файл недопустимого типа пропускается с предупреждением, а не роняет импорт:
+ * экспорт кладёт в пакет всё, на что ссылается контент (включая файлы, залитые
+ * мимо форм плагина — прямо в медиатеку), поэтому один нестандартный файл не
+ * должен отменять перенос всего предмета. Ссылка на него остаётся исходным URL —
+ * то же поведение, что и для отсутствующего в пакете медиа.
  */
 class MediaSideloader {
 
@@ -46,7 +51,11 @@ class MediaSideloader {
 		'application/msword',
 		'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
 		'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+		'application/vnd.ms-excel',
+		'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
 		'text/plain',
+		'text/csv',
+		'application/csv',
 		'text/x-python',
 	);
 
@@ -58,8 +67,6 @@ class MediaSideloader {
 	 * @param ImportedEntitiesCollector $created    Журнал созданного (для отката)
 	 *
 	 * @return array{map: MediaIdMap, warnings: string[]}
-	 *
-	 * @throws RuntimeException При недопустимом типе файла внутри архива
 	 */
 	public function sideloadAll( array $media, string $extractDir, ImportedEntitiesCollector $created ): array {
 		$map      = new MediaIdMap();
@@ -88,7 +95,11 @@ class MediaSideloader {
 				continue;
 			}
 
-			$this->assertAllowedType( $path, $relative );
+			$rejection = $this->rejectionReason( $path, $relative );
+			if ( null !== $rejection ) {
+				$warnings[] = $rejection;
+				continue;
+			}
 
 			$attachmentId = $this->sideload( $path, (string) ( $entry['filename'] ?? basename( $path ) ) );
 
@@ -164,23 +175,25 @@ class MediaSideloader {
 	}
 
 	/**
-	 * Отвергает файл с недопустимым типом содержимого.
+	 * Возвращает причину отказа для файла с недопустимым типом содержимого.
 	 *
 	 * @param string $path     Путь к файлу
 	 * @param string $relative Имя внутри архива (для сообщения)
 	 *
-	 * @return void
-	 *
-	 * @throws RuntimeException При недопустимом типе
+	 * @return string|null Текст предупреждения; null, если тип допустим
 	 */
-	private function assertAllowedType( string $path, string $relative ): void {
+	private function rejectionReason( string $path, string $relative ): ?string {
 		$type = mime_content_type( $path );
 
-		if ( ! is_string( $type ) || ! in_array( $type, self::ALLOWED_MIME_TYPES, true ) ) {
-			throw new RuntimeException(
-				sprintf( 'Архив отклонён: файл «%s» имеет недопустимый тип (%s).', $relative, (string) $type )
-			);
+		if ( is_string( $type ) && in_array( $type, self::ALLOWED_MIME_TYPES, true ) ) {
+			return null;
 		}
+
+		return sprintf(
+			'Медиафайл «%s» пропущен: недопустимый тип (%s) — ссылки на него не восстановлены.',
+			$relative,
+			(string) $type
+		);
 	}
 
 	/**
