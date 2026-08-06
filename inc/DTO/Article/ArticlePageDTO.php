@@ -22,6 +22,7 @@ readonly class ArticlePageDTO {
 	 * @param array<int, array<string, mixed>>     $breadcrumbs Крошки для общего партиала.
 	 * @param \Inc\DTO\Course\CourseCardDTO[]      $courses     Курсы предмета для сайдбара.
 	 * @param array<int, array<string, mixed>>     $recommended Статьи блока «Читать далее».
+	 * @param ArticleNavigationDTO                 $navigation  Соседние статьи серии и счётчик.
 	 */
 	public function __construct(
 		public ?PostViewDTO $post,
@@ -30,6 +31,7 @@ readonly class ArticlePageDTO {
 		public array $breadcrumbs,
 		public array $courses,
 		public array $recommended,
+		public ArticleNavigationDTO $navigation = new ArticleNavigationDTO(),
 	) {}
 
 	/**

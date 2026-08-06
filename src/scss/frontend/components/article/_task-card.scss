@@ -35,8 +35,9 @@
 
     &:hover { background: $color-surface-2; }
   }
-
+  
   .fs-article-task.is-open .fs-article-task__top {
+    align-items: center;
     background: none;
     border-bottom: 1px solid $color-border-light;
   }
@@ -98,9 +99,14 @@
 
   .fs-article-task.is-open .fs-article-task__body { grid-template-rows: 1fr; }
 
+  // Боковые отступы постоянные, переключаются только вертикальные: если снимать
+  // padding целиком, при сворачивании текст условия на время анимации получает
+  // всю ширину карточки и переносится заново — видно скачок строк.
   .fs-article-task__body-inner {
     min-height: 0;
+    padding: 0 rem(20);
     overflow: hidden;
+    transition: padding $transition-medium;
   }
 
   .fs-article-task.is-open .fs-article-task__body-inner { padding: rem(20); }
@@ -123,24 +129,26 @@
   .fs-article-task__foot {
     display: flex;
     align-items: center;
+    justify-content: flex-end;
     gap: $spacing-lg;
     flex-wrap: wrap;
     margin-top: rem(18);
-    padding-top: $spacing-lg;
-    border-top: 1px solid $color-border-light;
   }
 
-  .fs-article-task__open {
-    display: inline-flex;
-    align-items: center;
-    gap: rem(6);
-    font-size: $font-size-sm;
-    font-weight: $font-semibold;
-    color: $color-accent;
-    text-decoration: none;
+  // Тот же вид, что у «Смотреть решение» в банке заданий: заливная акцентная
+  // кнопка, стрелка выезжает по наведению.
+  // Скоуп .fs-article-prose обязателен: карточка лежит внутри текста статьи, а
+  // правило прозы для <a> (два класса + тег) сильнее правила кнопки в два
+  // класса — подпись красилась в акцентный цвет и сливалась с заливкой.
+  .fs-article-prose .fs-article-task__open {
+    @include fs-btn-accent;
+    @include fs-arrow-icon-reveal;
 
-    &:hover { color: $color-accent-700; }
+    &:hover {
+      @include fs-arrow-icon-reveal-open;
 
-    svg { display: block; }
+      // Проза подчёркивает ссылки по наведению — кнопке подчёркивание не нужно.
+      text-decoration: none;
+    }
   }
 }
