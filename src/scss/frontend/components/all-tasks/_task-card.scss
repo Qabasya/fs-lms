@@ -18,7 +18,7 @@
 
   // ── Заголовок / чипы / условие ────────────────────────────────
   // Порядок правил повторяет DOM карточки: заголовок → чипы → условие
-  // (SSR-разметка в all-tasks.php и её JS-зеркало task-card.js).
+  // (SSR-разметка в partials/all-tasks-body.php и её JS-зеркало task-card.js).
   .tcr-title {
     padding: 0;
     font-size: $font-size-xl; font-weight: $font-bold;
@@ -99,9 +99,8 @@
     b, strong { font-weight: $font-semibold; color: $color-text; }
 
     p + p { margin-top: rem(11); }
-
-    // Картинка условия не должна вылезать за карточку и ломать замер строк.
-    img { max-width: 100%; height: auto; }
+    
+    img { display: block; max-width: 100%; height: auto; margin-inline: auto; }
 
     // Формула/значение внутри условия — плашка на второй поверхности.
     code, .m {

@@ -13,6 +13,7 @@ use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\WPDBRepositories\RoomRepository;
 use Inc\Services\Subject\SubjectDeletionService;
+use Inc\Services\Subject\SubjectPagesService;
 
 class SubjectDeletionCascadeHandler {
 
@@ -23,6 +24,7 @@ class SubjectDeletionCascadeHandler {
 		private readonly RoomRepository              $rooms,
 		private readonly DeletionEventDispatcher     $dispatcher,
 		private readonly LogEventDispatcherInterface $logEvents,
+		private readonly SubjectPagesService         $pages,
 	) {}
 
 	public function handle( DeleteSubjectEvent $event ): void {
@@ -36,6 +38,9 @@ class SubjectDeletionCascadeHandler {
 		}
 
 		$this->subjectDeletion->deleteWithCascade( $subjectKey );
+		// Страницы лендинга — в корзину, а не в снос: их содержимое (описание
+		// предмета) писал редактор, и восстановить его должно быть чем.
+		$this->pages->trashForSubject( $subjectKey );
 		$this->rooms->removeSubjectFromAll( $subjectKey );
 		$this->subjects->remove( $subjectKey );
 		flush_rewrite_rules();

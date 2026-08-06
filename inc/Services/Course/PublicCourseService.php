@@ -33,14 +33,14 @@ class PublicCourseService {
 	) {}
 
 	/**
-	 * Опубликованные курсы предмета для сайдбара.
+	 * Опубликованные курсы предмета: карточки в порядке названия.
 	 *
 	 * @param string $subject_key Ключ предмета.
 	 * @param int    $limit       Сколько курсов вернуть.
 	 *
 	 * @return CourseCardDTO[]
 	 */
-	public function getSidebarCourses( string $subject_key, int $limit = self::LIMIT ): array {
+	public function getCourses( string $subject_key, int $limit ): array {
 		if ( '' === $subject_key || $limit < 1 ) {
 			return array();
 		}
@@ -56,6 +56,18 @@ class PublicCourseService {
 		);
 
 		return array_map( fn( CourseDTO $course ) => $this->toCard( $course ), $courses );
+	}
+
+	/**
+	 * Опубликованные курсы предмета для сайдбара.
+	 *
+	 * @param string $subject_key Ключ предмета.
+	 * @param int    $limit       Сколько курсов вернуть.
+	 *
+	 * @return CourseCardDTO[]
+	 */
+	public function getSidebarCourses( string $subject_key, int $limit = self::LIMIT ): array {
+		return $this->getCourses( $subject_key, $limit );
 	}
 
 	/**

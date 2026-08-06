@@ -8,7 +8,7 @@
  *
  * @var array  $sidebar_articles Статьи: id, title, url, excerpt, task_number.
  * @var string $sidebar_articles_title Заголовок блока (по умолчанию «Статьи»).
- * @var string $sidebar_articles_url Ссылка «Все материалы» (архив статей предмета).
+ * @var string $sidebar_articles_url Ссылка «Все материалы» (учебник предмета).
  *
  * @package FS LMS
  */

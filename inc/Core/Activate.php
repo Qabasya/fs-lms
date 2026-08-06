@@ -12,6 +12,8 @@ use Inc\Managers\Person\RoleManager;
 use Inc\Migrations\Migration_1_0_0;
 use Inc\Migrations\MigrationRunner;
 use Inc\Repositories\OptionsRepositories\ConsentDefinitionsRepository;
+use Inc\Repositories\OptionsRepositories\SubjectRepository;
+use Inc\Services\Subject\SubjectPagesService;
 use Inc\Services\System\PageGeneratorService;
 use Inc\Services\Security\PiiCryptoService;
 
@@ -64,6 +66,10 @@ class Activate {
 		// Автоматическое создание страниц входа, регистрации и профиля
 		self::generatePages();
 
+		// Лендинги предметов: добор для заведённых до появления разделов и
+		// восстановление страниц, удалённых вручную.
+		self::generateSubjectPages( $container );
+
 		// flush_rewrite_rules() — сбрасывает и пересобирает правила ЧПУ в WordPress
 		// Необходимо после регистрации новых CPT, таксономий или маршрутов
 		flush_rewrite_rules();
@@ -97,6 +103,25 @@ class Activate {
 		$generator->createPageIfNeeded( PageRoutes::CoursePreview, 'Просмотр курса', '' );
 
 		self::createDefaultConsentIfNeeded();
+	}
+
+	/**
+	 * Заводит недостающие страницы лендинга каждому предмету.
+	 *
+	 * @param Container $container DI-контейнер активации.
+	 *
+	 * @return void
+	 */
+	private static function generateSubjectPages( Container $container ): void {
+		/** @var SubjectPagesService $pages */
+		$pages = $container->get( SubjectPagesService::class );
+
+		/** @var SubjectRepository $subjects */
+		$subjects = $container->get( SubjectRepository::class );
+
+		foreach ( $subjects->readAll() as $subject ) {
+			$pages->ensureForSubject( $subject );
+		}
 	}
 
 	/**

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Inc\Controllers\Builders;
 
 use Inc\DTO\Subject\SubjectDTO;
+use Inc\DTO\Subject\SubjectLinksDTO;
 use Inc\DTO\Subject\TermViewDTO;
 use Inc\DTO\Task\AdjacentTaskDTO;
 use Inc\DTO\Task\NavigationDTO;
@@ -21,6 +22,7 @@ use Inc\Repositories\OptionsRepositories\TaxonomyRepository;
 use Inc\Services\Course\PublicCourseService;
 use Inc\Services\Subject\ArticleService;
 use Inc\Services\Subject\PostTypeResolver;
+use Inc\Services\Subject\SubjectPagesService;
 use Inc\Services\Subject\TagPaletteService;
 use Inc\Services\Task\TaskMetaService;
 
@@ -67,6 +69,7 @@ readonly class TaskDataBuilder {
 		private BreadcrumbsBuilder $breadcrumbs_builder,
 		private PublicCourseService $course_service,
 		private TagPaletteService $tag_palette,
+		private SubjectPagesService $subject_pages,
 	) {}
 
 	/**
@@ -113,7 +116,7 @@ readonly class TaskDataBuilder {
 	): TaskPageDTO {
 		$subject_name = $subject ? $subject->name : $subject_key;
 		$content      = $this->buildContentData( $meta );
-		$archive_url  = $this->post_manager->getArchiveLink( PostTypeResolver::tasks( $subject_key ) );
+		$links        = $this->subject_pages->links( $subject_key );
 
 		return new TaskPageDTO(
 			post:         $post,
@@ -121,10 +124,11 @@ readonly class TaskDataBuilder {
 			subject_name: $subject_name,
 			content:      $content,
 			files:        $this->task_meta_service->getTaskFiles( $meta ),
-			tags:         $this->buildTags( $post->id, $subject_key, $current_task_type, $archive_url ),
-			articles:     $this->buildArticles( $subject_key, $current_task_type ),
+			tags:         $this->buildTags( $post->id, $subject_key, $current_task_type, $links->trainer ),
+			articles:     $this->buildArticles( $subject_key, $current_task_type, $links->textbook ),
 			courses:      $this->course_service->getSidebarCourses( $subject_key ),
-			navigation:   $this->buildNavigation( $post, $subject_name, $archive_url, $current_task_type ),
+			courses_url:  $links->courses,
+			navigation:   $this->buildNavigation( $post, $subject_name, $links, $current_task_type ),
 			tabs:         $this->buildTabs( $content ),
 		);
 	}
@@ -190,11 +194,11 @@ readonly class TaskDataBuilder {
 	 * @param int              $post_id           ID записи.
 	 * @param string           $subject_key       Ключ предмета.
 	 * @param TermViewDTO|null $current_task_type DTO текущего типа задания.
-	 * @param string           $archive_url       Ссылка на «Все задания» предмета.
+	 * @param string           $trainer_url       Ссылка на тренажёр предмета.
 	 *
 	 * @return TagDTO[]
 	 */
-	private function buildTags( int $post_id, string $subject_key, ?TermViewDTO $current_task_type, string $archive_url ): array {
+	private function buildTags( int $post_id, string $subject_key, ?TermViewDTO $current_task_type, string $trainer_url ): array {
 		$tags = array();
 
 		if ( $current_task_type ) {
@@ -205,7 +209,7 @@ readonly class TaskDataBuilder {
 				taxonomy_name: '',
 				term_id:       $current_task_type->id,
 				slug:          $current_task_type->slug,
-				url:           $this->filterUrl( $archive_url, $current_task_type->taxonomy, $current_task_type->slug ),
+				url:           $this->filterUrl( $trainer_url,$current_task_type->taxonomy, $current_task_type->slug ),
 				color:         $this->tag_palette->colorIndex( $subject_key, $current_task_type->taxonomy ),
 			);
 		}
@@ -234,7 +238,7 @@ readonly class TaskDataBuilder {
 					taxonomy_name: $taxonomy_dto->name,
 					term_id:       $term->id,
 					slug:          $term->slug,
-					url:           $this->filterUrl( $archive_url, $taxonomy_dto->slug, $term->slug ),
+					url:           $this->filterUrl( $trainer_url,$taxonomy_dto->slug, $term->slug ),
 					color:         $this->tag_palette->colorIndex( $subject_key, $taxonomy_dto->slug ),
 				);
 			}
@@ -244,24 +248,24 @@ readonly class TaskDataBuilder {
 	}
 
 	/**
-	 * Ссылка на «Все задания» с предвыбранным фильтром.
+	 * Ссылка на тренажёр с предвыбранным фильтром.
 	 *
 	 * Формат параметра тот же, что у AJAX-подгрузки списка:
 	 * `filters[<taxonomy_slug>][]=<term_slug>` — страница разбирает его на SSR
 	 * и отмечает опцию в сайдбаре как активную.
 	 *
-	 * @param string $archive_url Ссылка на архив заданий предмета.
+	 * @param string $trainer_url Ссылка на тренажёр предмета.
 	 * @param string $taxonomy    Слаг таксономии.
 	 * @param string $term_slug   Слаг термина.
 	 *
-	 * @return string Пустая строка, если архив или термин неизвестны.
+	 * @return string Пустая строка, если раздел или термин неизвестны.
 	 */
-	private function filterUrl( string $archive_url, string $taxonomy, string $term_slug ): string {
-		if ( '' === $archive_url || '' === $taxonomy || '' === $term_slug ) {
+	private function filterUrl( string $trainer_url, string $taxonomy, string $term_slug ): string {
+		if ( '' === $trainer_url || '' === $taxonomy || '' === $term_slug ) {
 			return '';
 		}
 
-		return add_query_arg( array( 'filters' => array( $taxonomy => array( $term_slug ) ) ), $archive_url );
+		return add_query_arg( array( 'filters' => array( $taxonomy => array( $term_slug ) ) ), $trainer_url );
 	}
 
 	/**
@@ -269,12 +273,13 @@ readonly class TaskDataBuilder {
 	 *
 	 * @param string           $subject_key       Ключ предмета.
 	 * @param TermViewDTO|null $current_task_type DTO текущего типа задания.
+	 * @param string           $textbook_url      Учебник предмета — ссылка «Все материалы».
 	 *
 	 * @return array Ключи: 'related' (по типу задания, иначе случайные),
 	 *               'recommended' (свежие),
-	 *               'archive_url' (архив статей предмета — ссылка «Все материалы»).
+	 *               'archive_url' (ссылка «Все материалы»).
 	 */
-	private function buildArticles( string $subject_key, ?TermViewDTO $current_task_type ): array {
+	private function buildArticles( string $subject_key, ?TermViewDTO $current_task_type, string $textbook_url ): array {
 		$related = $this->article_service->getRelatedArticles( $subject_key, $current_task_type );
 
 		// По типу задания статей нет — показываем случайные статьи предмета,
@@ -286,9 +291,7 @@ readonly class TaskDataBuilder {
 		return array(
 			'related'     => $related,
 			'recommended' => $this->article_service->getLatestArticles( $subject_key ),
-			'archive_url' => $subject_key
-				? $this->post_manager->getArchiveLink( PostTypeResolver::articles( $subject_key ) )
-				: '',
+			'archive_url' => $textbook_url,
 		);
 	}
 
@@ -301,7 +304,7 @@ readonly class TaskDataBuilder {
 	 *
 	 * @param PostViewDTO      $post              DTO записи задания.
 	 * @param string           $subject_label     Название предмета.
-	 * @param string           $archive_url       Ссылка на «Все задания» предмета.
+	 * @param SubjectLinksDTO  $links             Ссылки на разделы предмета.
 	 * @param TermViewDTO|null $current_task_type DTO текущего типа задания.
 	 *
 	 * @return NavigationDTO
@@ -309,11 +312,11 @@ readonly class TaskDataBuilder {
 	private function buildNavigation(
 		PostViewDTO $post,
 		string $subject_label,
-		string $archive_url,
+		SubjectLinksDTO $links,
 		?TermViewDTO $current_task_type,
 	): NavigationDTO {
 		$term_url = $current_task_type
-			? $this->filterUrl( $archive_url, $current_task_type->taxonomy, $current_task_type->slug )
+			? $this->filterUrl( $links->trainer, $current_task_type->taxonomy, $current_task_type->slug )
 			: '';
 
 		$taxonomy = $current_task_type?->taxonomy ?? '';
@@ -330,12 +333,12 @@ readonly class TaskDataBuilder {
 			// Общая с «Все задания» цепочка: плоский список для партиала крошек.
 			breadcrumbs: $this->breadcrumbs_builder->forTask(
 				$subject_label,
-				$archive_url,
+				$links,
 				$current_task_type ? $current_task_type->name . ' задание' : '',
 				$term_url,
 				$post->title
 			),
-			archive_url: $archive_url,
+			archive_url: $links->trainer,
 			prev:        $this->adjacentLink( $prev_post ),
 			next:        $this->adjacentLink( $next_post ),
 		);

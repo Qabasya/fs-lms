@@ -38,12 +38,29 @@ enum ShortCode: string {
 	/** Шорткод списка видимых уроков ученика */
 	case GroupLessons = 'fs_lms_group_lessons';
 
+	/** Шорткод раздела «Тренажёр» лендинга предмета (задания предмета) */
+	case SubjectTrainer = 'fs_lms_subject_trainer';
+
+	/** Шорткод раздела «Учебник» лендинга предмета (статьи предмета) */
+	case SubjectTextbook = 'fs_lms_subject_textbook';
+
+	/** Шорткод раздела «Курсы» лендинга предмета */
+	case SubjectCourses = 'fs_lms_subject_courses';
+
 	/**
 	 * Возвращает строку шорткода в формате с квадратными скобками.
 	 *
-	 * @return string Например, '[fs_lms_login_form]'
+	 * @param array<string, string> $atts Атрибуты шорткода: [имя => значение].
+	 *
+	 * @return string Например, '[fs_lms_login_form]' или '[fs_lms_subject_trainer subject="math"]'
 	 */
-	public function tag(): string {
-		return '[' . $this->value . ']';
+	public function tag( array $atts = array() ): string {
+		$parts = array( $this->value );
+
+		foreach ( $atts as $name => $value ) {
+			$parts[] = sprintf( '%s="%s"', $name, esc_attr( $value ) );
+		}
+
+		return '[' . implode( ' ', $parts ) . ']';
 	}
 }

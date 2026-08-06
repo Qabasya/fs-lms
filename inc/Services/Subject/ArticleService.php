@@ -22,6 +22,9 @@ use Inc\Repositories\OptionsRepositories\ArticleRepository;
  */
 class ArticleService {
 
+	/** Сколько статей отдаёт блок «Рекомендуемые» — размер выборки по умолчанию. */
+	private const LATEST_LIMIT = 6;
+
 	/**
 	 * @param ArticleRepository $article_repository Репозиторий статей.
 	 * @param TermManager       $term_manager       Менеджер терминов таксономии.
@@ -56,19 +59,21 @@ class ArticleService {
 	}
 
 	/**
-	 * Возвращает последние опубликованные статьи предмета (блок «Рекомендуемые»).
+	 * Возвращает последние опубликованные статьи предмета (блок «Рекомендуемые»,
+	 * витрина учебника).
 	 *
 	 * @param string $subject_key Ключ предмета.
+	 * @param int    $limit       Сколько статей вернуть.
 	 *
 	 * @return array Список статей, свежие первыми.
 	 */
-	public function getLatestArticles( string $subject_key ): array {
-		if ( '' === $subject_key ) {
+	public function getLatestArticles( string $subject_key, int $limit = self::LATEST_LIMIT ): array {
+		if ( '' === $subject_key || $limit < 1 ) {
 			return array();
 		}
 
 		$post_type = PostTypeResolver::articles( $subject_key );
-		$posts     = $this->article_repository->findLatest( $post_type );
+		$posts     = $this->article_repository->findLatest( $post_type, $limit );
 
 		return $this->formatArticlePosts( $posts );
 	}
@@ -128,7 +133,7 @@ class ArticleService {
 	 *
 	 * @param string $subject_key  Ключ предмета.
 	 * @param int    $current_id   ID открытой статьи.
-	 * @param string $textbook_url Ссылка на учебник (архив статей предмета).
+	 * @param string $textbook_url Ссылка на учебник предмета.
 	 *
 	 * @return ArticleNavigationDTO Пустой DTO — серии нет, блок не рендерится.
 	 */

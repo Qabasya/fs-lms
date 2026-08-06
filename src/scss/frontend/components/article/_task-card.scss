@@ -119,10 +119,12 @@
     color: $color-text-secondary;
 
     p { margin: 0; }
-
+    
     img {
+      display: block;
       max-width: 100%;
       height: auto;
+      margin-inline: auto;
     }
   }
 
