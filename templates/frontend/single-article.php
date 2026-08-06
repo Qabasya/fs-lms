@@ -28,6 +28,7 @@ $article_post = $article_data->post;
 $content      = $article_data->content;
 $headings     = $content->headings;
 $courses      = $article_data->courses;
+$navigation   = $article_data->navigation;
 
 // Ни оглавления, ни курсов — колонки нет вовсе: текст занимает всю полосу.
 $has_sidebar = ! empty( $headings ) || ! empty( $courses );
@@ -95,6 +96,13 @@ ThemeCompatService::header();
 
 			<!-- ===================== ТЕКСТ СТАТЬИ ===================== -->
 			<main class="fs-article-main">
+				<?php
+				// Навигация по серии — над заголовком и под текстом. Один партиал
+				// на обе копии: разметка длинная, дублировать её в шаблоне нельзя.
+				$article_nav_modifier = '';
+				include __DIR__ . '/partials/article-nav.php';
+				?>
+
 				<h1 class="fs-article-title"><?php echo esc_html( $article_post->title ); ?></h1>
 
 				<?php
@@ -106,6 +114,13 @@ ThemeCompatService::header();
 				<div class="fs-article-prose js-article-prose">
 					<?php echo $content->html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
 				</div>
+
+				<?php
+				// Нижняя копия: модификатор нужен ради отступа сверху — у текста
+				// статьи снизу своего отступа нет.
+				$article_nav_modifier = ' fs-task-nav--bottom';
+				include __DIR__ . '/partials/article-nav.php';
+				?>
 
 			</main>
 

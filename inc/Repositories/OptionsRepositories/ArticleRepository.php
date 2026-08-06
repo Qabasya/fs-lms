@@ -116,6 +116,39 @@ class ArticleRepository {
 	}
 
 	/**
+	 * Возвращает ВСЕ опубликованные статьи термина в хронологическом порядке.
+	 *
+	 * Отличается от findRelated() отсутствием лимита и порядком: от старых к
+	 * свежим. Это порядок чтения — по нему блок навигации статьи считает и
+	 * соседей, и позицию текущей статьи в серии.
+	 *
+	 * @param string $post_type Тип записей статей.
+	 * @param int    $term_id   ID термина.
+	 * @param string $taxonomy  Слаг таксономии.
+	 *
+	 * @return \WP_Post[] Список статей, старые первыми.
+	 */
+	public function findAllInTerm( string $post_type, int $term_id, string $taxonomy ): array {
+		$query = new \WP_Query( array(
+			'post_type'      => $post_type,
+			'post_status'    => 'publish',
+			'posts_per_page' => -1,
+			'no_found_rows'  => true,
+			'orderby'        => 'date',
+			'order'          => 'ASC',
+			'tax_query'      => array(
+				array(
+					'taxonomy' => $taxonomy,
+					'field'    => 'term_id',
+					'terms'    => $term_id,
+				),
+			),
+		) );
+
+		return $query->posts;
+	}
+
+	/**
 	 * Возвращает последние опубликованные статьи указанного типа записи.
 	 *
 	 * @param string $post_type Тип записей статей.

@@ -24,6 +24,8 @@
       scroll-margin-top: rem(24);
     }
 
+    > :first-child { margin-top: 0; }
+
     h2 {
       margin-top: rem(52);
       font-size: $font-size-xl;

@@ -18,7 +18,8 @@ use Inc\Services\Subject\PostTypeResolver;
  *
  * Строитель данных frontend-страницы статьи (CPT {subject}_articles).
  *
- * Собирает контент с оглавлением, крошки, курсы сайдбара и блок «Читать далее».
+ * Собирает контент с оглавлением, крошки, курсы сайдбара, блок «Читать далее»
+ * и навигацию по статьям одного номера задания.
  * Сайдбары общие со страницей задания — данные для них берутся из тех же
  * сервисов, чтобы блоки не разъезжались между страницами.
  *
@@ -66,6 +67,9 @@ readonly class ArticleDataBuilder {
 			return ArticlePageDTO::empty();
 		}
 
+		// Архив статей — он же «Учебник» в крошках и центр блока навигации.
+		$textbook_url = $this->post_manager->getArchiveLink( PostTypeResolver::articles( $subject_key ) );
+
 		return new ArticlePageDTO(
 			post:        $post_view,
 			subject_key: $subject_key,
@@ -73,11 +77,12 @@ readonly class ArticleDataBuilder {
 			breadcrumbs: $this->breadcrumbs->forArticle(
 				$subject_name,
 				$this->post_manager->getArchiveLink( PostTypeResolver::tasks( $subject_key ) ),
-				$this->post_manager->getArchiveLink( PostTypeResolver::articles( $subject_key ) ),
+				$textbook_url,
 				$post_view->title
 			),
 			courses:     $this->course_service->getSidebarCourses( $subject_key ),
 			recommended: $this->buildRecommended( $subject_key, $post_view->id ),
+			navigation:  $this->article_service->getNavigation( $subject_key, $post_view->id, $textbook_url ),
 		);
 	}
 
