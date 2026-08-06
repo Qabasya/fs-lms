@@ -4,6 +4,8 @@ declare( strict_types=1 );
 
 namespace Inc\Controllers\Builders;
 
+use Inc\Enums\Wp\SubjectPageType;
+
 /**
  * Class SubjectCptArgsBuilder
  *
@@ -28,8 +30,8 @@ class SubjectCptArgsBuilder {
 	 */
 	public function build( string $type, object $subject ): array {
 		$args = match ( $type ) {
-			'tasks'       => $this->tasks(),
-			'articles'    => $this->articles(),
+			'tasks'       => $this->tasks( (string) ( $subject->key ?? '' ) ),
+			'articles'    => $this->articles( (string) ( $subject->key ?? '' ) ),
 			'lessons'     => $this->lessons(),
 			'works'       => $this->works(),
 			'courses'     => $this->courses(),
@@ -74,9 +76,11 @@ class SubjectCptArgsBuilder {
 	/**
 	 * Задания: заголовок; права fs_lms_content (препод публикует задания); скрыты из top-level.
 	 *
+	 * @param string $subject_key Ключ предмета (для адреса записи).
+	 *
 	 * @return array{labels: array, options: array}
 	 */
-	private function tasks(): array {
+	private function tasks( string $subject_key ): array {
 		return array(
 			'labels'  => array(
 				'nom'    => 'Задание',
@@ -84,11 +88,14 @@ class SubjectCptArgsBuilder {
 				'gen'    => 'задания',
 				'gender' => 'neuter',
 			),
-			'options' => array(
-				'supports'        => array( 'title' ),
-				'show_in_menu'    => false,
-				'capability_type' => 'fs_lms_content',
-				'map_meta_cap'    => true,
+			'options' => array_merge(
+				array(
+					'supports'        => array( 'title' ),
+					'show_in_menu'    => false,
+					'capability_type' => 'fs_lms_content',
+					'map_meta_cap'    => true,
+				),
+				$this->sectionRouting( $subject_key, SubjectPageType::Trainer )
 			),
 		);
 	}
@@ -100,7 +107,7 @@ class SubjectCptArgsBuilder {
 	 *
 	 * @return array{labels: array, options: array}
 	 */
-	private function articles(): array {
+	private function articles( string $subject_key ): array {
 		return array(
 			'labels'  => array(
 				'nom'    => 'Статья',
@@ -108,11 +115,41 @@ class SubjectCptArgsBuilder {
 				'gen'    => 'статьи',
 				'gender' => 'feminine',
 			),
-			'options' => array(
-				'supports'        => array( 'title', 'editor', 'thumbnail' ),
-				'show_in_menu'    => false,
-				'capability_type' => 'fs_lms_article',
-				'map_meta_cap'    => true,
+			'options' => array_merge(
+				array(
+					'supports'        => array( 'title', 'editor', 'thumbnail' ),
+					'show_in_menu'    => false,
+					'capability_type' => 'fs_lms_article',
+					'map_meta_cap'    => true,
+				),
+				$this->sectionRouting( $subject_key, SubjectPageType::Textbook )
+			),
+		);
+	}
+
+	/**
+	 * Адрес записи внутри раздела лендинга: `/{key}/trainer/{slug}/`,
+	 * `/{key}/textbook/{slug}/`.
+	 *
+	 * Собственный архив CPT при этом не нужен и вреден: его адрес совпал бы с
+	 * адресом страницы раздела — списком заданий и статей заведует лендинг
+	 * (SubjectLandingController).
+	 *
+	 * @param string          $subject_key Ключ предмета.
+	 * @param SubjectPageType $section     Раздел лендинга.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function sectionRouting( string $subject_key, SubjectPageType $section ): array {
+		if ( '' === $subject_key ) {
+			return array();
+		}
+
+		return array(
+			'has_archive' => false,
+			'rewrite'     => array(
+				'slug'       => $section->path( $subject_key ),
+				'with_front' => false,
 			),
 		);
 	}

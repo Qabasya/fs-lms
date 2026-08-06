@@ -67,6 +67,7 @@ class SubjectImportService {
 	 * @param TermManager           $terms        Менеджер терминов
 	 * @param PostManager           $posts        Менеджер постов
 	 * @param ImportRollbackService $rollback     Компенсирующее удаление при ошибке
+	 * @param SubjectPagesService   $pages        Страницы публичного лендинга предмета
 	 */
 	public function __construct(
 		private readonly SubjectRepository $subjects,
@@ -76,6 +77,7 @@ class SubjectImportService {
 		private readonly TermManager $terms,
 		private readonly PostManager $posts,
 		private readonly ImportRollbackService $rollback,
+		private readonly SubjectPagesService $pages,
 	) {}
 
 	/**
@@ -143,7 +145,8 @@ class SubjectImportService {
 			// Создание предмета; hasBank переносим из экспорта (по умолчанию true — старые
 			// файлы экспорта, созданные до Эпика 18, этого поля не содержат).
 			$hasBank = (bool) ( $data['subject']['hasBank'] ?? true );
-			if ( ! $this->subjects->save( new SubjectDTO( $key, $name, hasBank: $hasBank ) ) ) {
+			$subject = new SubjectDTO( $key, $name, hasBank: $hasBank );
+			if ( ! $this->subjects->save( $subject ) ) {
 				throw new \RuntimeException( 'Критическая ошибка при создании записи предмета в БД' );
 			}
 			$created->addSubject( $key );
@@ -159,6 +162,10 @@ class SubjectImportService {
 			$this->rollback->undo( $created );
 			throw $e;
 		}
+
+		// Лендинг заводим последним: откат импорта страниц не удаляет,
+		// и после неудачной попытки их остаться не должно.
+		$this->pages->ensureForSubject( $subject );
 
 		return new SubjectImportReportDTO(
 			dryRun:      false,

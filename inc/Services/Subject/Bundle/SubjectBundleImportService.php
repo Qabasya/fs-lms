@@ -18,6 +18,7 @@ use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Repositories\OptionsRepositories\TaxonomyRepository;
 use Inc\Services\Subject\Import\ImportRollbackService;
 use Inc\Services\Subject\PostTypeResolver;
+use Inc\Services\Subject\SubjectPagesService;
 use InvalidArgumentException;
 use RuntimeException;
 
@@ -78,6 +79,7 @@ class SubjectBundleImportService {
 	 * @param MediaSideloader       $media        Заливка медиафайлов
 	 * @param ProblemDeduplicator   $problems     Дедуп глобального банка задач
 	 * @param ImportRollbackService $rollback     Компенсирующее удаление
+	 * @param SubjectPagesService   $pages        Страницы публичного лендинга предмета
 	 */
 	public function __construct(
 		private readonly SubjectRepository     $subjects,
@@ -89,6 +91,7 @@ class SubjectBundleImportService {
 		private readonly MediaSideloader       $media,
 		private readonly ProblemDeduplicator   $problems,
 		private readonly ImportRollbackService $rollback,
+		private readonly SubjectPagesService   $pages,
 	) {}
 
 	/**
@@ -192,7 +195,8 @@ class SubjectBundleImportService {
 
 			// 2. Предмет и его option-структуры.
 			$hasBank = (bool) ( $manifest['subject']['hasBank'] ?? true );
-			if ( ! $this->subjects->save( new SubjectDTO( $key, $name, hasBank: $hasBank ) ) ) {
+			$subject = new SubjectDTO( $key, $name, hasBank: $hasBank );
+			if ( ! $this->subjects->save( $subject ) ) {
 				throw new RuntimeException( 'Не удалось создать запись предмета в БД.' );
 			}
 			$created->addSubject( $key );
@@ -212,6 +216,10 @@ class SubjectBundleImportService {
 			$this->rollback->undo( $created );
 			throw $e;
 		}
+
+		// Лендинг заводим последним: откат импорта страниц не удаляет,
+		// и после неудачной попытки их остаться не должно.
+		$this->pages->ensureForSubject( $subject );
 
 		return new SubjectImportReportDTO(
 			dryRun:      false,

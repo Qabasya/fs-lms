@@ -69,4 +69,7 @@ enum OptionName: string {
 
 	/** Политика доступа после отчисления: 'retain' (default) | 'block' */
 	case ExpulsionRetentionPolicy = 'fs_lms_expulsion_retention_policy';
+
+	/** Страницы лендинга предмета: [subject_key => [page_type => page_id]] */
+	case SubjectPages = 'fs_lms_subject_pages';
 }

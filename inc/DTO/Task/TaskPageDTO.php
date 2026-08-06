@@ -24,6 +24,8 @@ readonly class TaskPageDTO {
 	 *                                       related / recommended / archive_url.
 	 * @param array            $courses      Опубликованные курсы предмета: CourseCardDTO[];
 	 *                                       пусто — блок сайдбара не выводится.
+	 * @param string           $courses_url  Витрина курсов предмета — ссылка «Все курсы»;
+	 *                                       '' — ссылки нет.
 	 * @param NavigationDTO    $navigation   Крошки, архив, соседние задания.
 	 * @param TabDTO[]         $tabs         Табы карточки (ответ, решение, пояснение).
 	 */
@@ -36,6 +38,7 @@ readonly class TaskPageDTO {
 		public array $tags,
 		public array $articles,
 		public array $courses,
+		public string $courses_url,
 		public NavigationDTO $navigation,
 		public array $tabs,
 	) {}
@@ -59,6 +62,7 @@ readonly class TaskPageDTO {
 				'archive_url' => '',
 			),
 			courses:      array(),
+			courses_url:  '',
 			navigation:   new NavigationDTO(),
 			tabs:         array(),
 		);

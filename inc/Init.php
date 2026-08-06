@@ -42,6 +42,7 @@ use Inc\Controllers\Subject\SubjectController;
 use Inc\Controllers\Task\TaskCreationController;
 use Inc\Controllers\Pages\AllTasksPageController;
 use Inc\Controllers\Pages\ArticlePageController;
+use Inc\Controllers\Pages\SubjectLandingController;
 use Inc\Controllers\Pages\AssessmentPageController;
 use Inc\Controllers\Pages\TaskPageController;
 use Inc\Controllers\Log\LogsController;
@@ -134,6 +135,7 @@ final class Init {
 			TaskPageController::class,       // Frontend-страница задания
 			AllTasksPageController::class,   // Frontend-страница «Все задания» (тренажёр)
 			ArticlePageController::class,    // Frontend-страница статьи
+			SubjectLandingController::class, // Разделы лендинга предмета (шорткоды страниц)
 			AssessmentPageController::class, // Frontend-страница контрольной
 			BoilerplateController::class,  // Типовые условия (boilerplate)
 			UserController::class,

@@ -12,6 +12,7 @@ use Inc\Services\Course\PublicCourseService;
 use Inc\Services\Subject\ArticleContentService;
 use Inc\Services\Subject\ArticleService;
 use Inc\Services\Subject\PostTypeResolver;
+use Inc\Services\Subject\SubjectPagesService;
 
 /**
  * Class ArticleDataBuilder
@@ -34,6 +35,7 @@ readonly class ArticleDataBuilder {
 	 * @param ArticleService        $article_service    Статьи предмета.
 	 * @param PublicCourseService   $course_service     Курсы предмета для сайдбара.
 	 * @param BreadcrumbsBuilder    $breadcrumbs        Строитель хлебных крошек.
+	 * @param SubjectPagesService   $subject_pages      Ссылки на разделы предмета.
 	 */
 	public function __construct(
 		private PostManager $post_manager,
@@ -42,6 +44,7 @@ readonly class ArticleDataBuilder {
 		private ArticleService $article_service,
 		private PublicCourseService $course_service,
 		private BreadcrumbsBuilder $breadcrumbs,
+		private SubjectPagesService $subject_pages,
 	) {}
 
 	/**
@@ -67,22 +70,18 @@ readonly class ArticleDataBuilder {
 			return ArticlePageDTO::empty();
 		}
 
-		// Архив статей — он же «Учебник» в крошках и центр блока навигации.
-		$textbook_url = $this->post_manager->getArchiveLink( PostTypeResolver::articles( $subject_key ) );
+		// «Учебник» в крошках и центр блока навигации — раздел статей предмета.
+		$links = $this->subject_pages->links( $subject_key );
 
 		return new ArticlePageDTO(
 			post:        $post_view,
 			subject_key: $subject_key,
 			content:     $this->content_service->build( $post->post_content ),
-			breadcrumbs: $this->breadcrumbs->forArticle(
-				$subject_name,
-				$this->post_manager->getArchiveLink( PostTypeResolver::tasks( $subject_key ) ),
-				$textbook_url,
-				$post_view->title
-			),
+			breadcrumbs: $this->breadcrumbs->forArticle( $subject_name, $links, $post_view->title ),
 			courses:     $this->course_service->getSidebarCourses( $subject_key ),
+			courses_url: $links->courses,
 			recommended: $this->buildRecommended( $subject_key, $post_view->id ),
-			navigation:  $this->article_service->getNavigation( $subject_key, $post_view->id, $textbook_url ),
+			navigation:  $this->article_service->getNavigation( $subject_key, $post_view->id, $links->textbook ),
 		);
 	}
 

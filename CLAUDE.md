@@ -247,6 +247,22 @@ SVG-иконки) — `src/js/CLAUDE.md`, грузится при работе �
 - Modify only source files in `src/js/` or `src/scss/`
 - Build step runs separately
 - Frontend task page template injected via `template_include` filter in `TaskPageCallbacks`
+- Лендинг предмета — WP-страницы, создаваемые вместе с предметом: `/{key}/` (описание,
+  наполняется вручную) и дочерние разделы `trainer` / `textbook` / `courses`. Состав, слаги,
+  заголовки и шорткоды разделов задаёт enum `Inc\Enums\Wp\SubjectPageType`; заводит и сносит
+  страницы `SubjectPagesService` (идемпотентно; ID хранит `SubjectPagesRepository` в опции
+  `fs_lms_subject_pages`), рендерит — `SubjectLandingController` через шорткоды.
+  Предмет без банка (`hasBank = false`) получает только описание и курсы; удаление предмета
+  отправляет страницы в корзину, архивация их не трогает
+- **Адреса записей живут внутри разделов**: задание — `/{key}/trainer/{номер}/`, статья —
+  `/{key}/textbook/{slug}/` (`SubjectCptArgsBuilder::sectionRouting()`). Собственных архивов
+  у `{key}_tasks` / `{key}_articles` нет (`has_archive => false`): их адреса совпали бы с
+  адресами страниц разделов. Списки отдаёт лендинг, поэтому смена ключа предмета или слага
+  раздела требует `flush_rewrite_rules()`
+- **Ссылки на разделы предмета — только через `SubjectPagesService::links()`** (`SubjectLinksDTO`):
+  крошки, «Все задания», «Все материалы», «Все курсы» и чипы-фильтры ведут на страницы лендинга.
+  Фолбэк на архивы CPT зашит в сам `links()` — билдеры и шаблоны `getArchiveLink()` для
+  заданий и статей больше не зовут
 - Страница статьи (`{subject}_articles`) — `ArticlePageController` → `Callbacks\Article\TemplateCallbacks`
   → `single-article.php`. Спец-разметку внутри текста автор НЕ размечает: классы врезкам,
   иллюстрациям и листингам, якоря заголовкам (для оглавления) и карточку задания вместо

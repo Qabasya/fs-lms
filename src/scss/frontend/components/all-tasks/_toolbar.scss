@@ -82,13 +82,34 @@
     transition: opacity $transition-collapse, padding-right $transition-collapse;
 
     &::placeholder { color: $color-muted-2; }
+    
+    &::-webkit-search-cancel-button { display: none; }
   }
 
   .toolbar-search.is-open .toolbar-search-input {
     flex: 1 1 0;
-    padding-right: rem(16);
+    padding-right: rem(12);
     opacity: 1;
     transition: opacity $transition-slow, padding-right $transition-slow;
+  }
+
+  // Своя очистка: показывается только при непустом поле (атрибут hidden снимает
+  // search-box.js).
+  .toolbar-search-clear {
+    display: grid; place-items: center;
+    flex: 0 0 auto;
+    width: rem(20); height: rem(20);
+    margin-right: rem(12); padding: 0;
+    background: $color-surface-2;
+    border: 0; border-radius: 50%;
+    color: $color-muted-2;
+    cursor: pointer;
+    transition: background $transition, color $transition;
+
+    &:hover { background: $color-accent-soft; color: $color-accent-700; }
+    &[hidden] { display: none; }
+
+    svg { display: block; }
   }
 
   .results-clear {

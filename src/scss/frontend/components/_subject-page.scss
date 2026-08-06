@@ -1,0 +1,132 @@
+@use '../variables' as *;
+@use '../mixins' as *;
+
+// ═══════════════════════════════════════════════════════════════════
+// Разделы лендинга предмета: учебник и курсы (шорткоды на WP-страницах).
+// Тренажёр своей вёрстки не имеет — он выводит разметку «Всех заданий».
+// Раздел живёт внутри контентной колонки темы, поэтому отступов страницы
+// (.fs-page-wrapper) здесь нет — только ограничение полосы.
+// ═══════════════════════════════════════════════════════════════════
+
+.fs-subject-section {
+  max-width: $max-width;
+  margin: 0 auto;
+  font-family: $font-family;
+}
+
+.fs-subject-empty {
+  margin: 0;
+  padding: $spacing-2xl 0;
+  font-size: $font-size-base;
+  color: $color-muted;
+}
+
+// Ширина ступени — та же, что у карточки карусели статей в кадре из трёх:
+// на широкой полосе ряды витрины и карусели совпадают.
+.fs-subject-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(rem(280), 1fr));
+  gap: $spacing-2xl;
+}
+
+.fs-subject-card {
+  @include fs-surface-card;
+
+  display: flex;
+
+  // Миниатюра доходит до рамок — её углы обрезает скругление карточки.
+  overflow: hidden;
+  transition: border-color $transition, box-shadow $transition;
+
+  &:hover {
+    border-color: $color-accent-soft-2;
+    box-shadow: $shadow-hover;
+  }
+
+  &:hover .fs-subject-card-title { color: $color-accent-700; }
+
+  // Стрелка «Читать» проявляется при наведении на всю карточку.
+  &:hover .fs-subject-card-more {
+    @include fs-arrow-reveal-open;
+
+    color: $color-accent-700;
+  }
+}
+
+.fs-subject-card-link {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  text-decoration: none;
+}
+
+// Текстовая часть: тянется на всю оставшуюся высоту, чтобы действие карточки
+// («Читать», «Записаться») прижималось к низу.
+.fs-subject-card-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: rem(9);
+  padding: rem(16) rem(18) rem(18);
+}
+
+.fs-subject-card-thumb {
+  display: block;
+  width: 100%;
+  height: rem(170);
+  flex: 0 0 rem(170);
+  border-bottom: 1px solid $color-border-light;
+  object-fit: cover;
+}
+
+// Обложки ещё нет — место держит заглушка той же высоты.
+.fs-subject-card-thumb--empty { @include fs-thumb-placeholder; }
+
+// Номер задания — первая ступень палитры чипов, как у карточки задания.
+.fs-subject-card-tag {
+  @include fs-chip;
+
+  align-self: flex-start;
+  background: $color-accent-soft;
+  color: $color-accent-700;
+}
+
+.fs-subject-card-title {
+  display: block;
+  font-size: $font-size-md;
+  font-weight: $font-bold;
+  line-height: $line-height-tight;
+  letter-spacing: -.01em;
+  color: $color-text;
+  transition: color $transition;
+}
+
+.fs-subject-card-text {
+  font-size: $font-size-xs;
+  line-height: 1.5;
+  color: $color-muted;
+
+  @include line-clamp(3);
+}
+
+.fs-subject-card-meta {
+  font-size: $font-size-xs;
+  color: $color-muted;
+}
+
+.fs-subject-card-more {
+  @include fs-arrow-reveal;
+
+  margin-top: auto;
+  font-size: $font-size-xs;
+  font-weight: $font-semibold;
+  color: $color-accent;
+  transition: color $transition;
+}
+
+.fs-subject-card-btn {
+  @include fs-btn-accent;
+
+  align-self: flex-start;
+  margin-top: auto;
+}

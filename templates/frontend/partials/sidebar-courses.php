@@ -6,7 +6,8 @@
  * (`src/scss/frontend/components/_sidebar.scss`). Курсов нет — блока нет:
  * заглушку «Скоро появятся курсы» не показываем.
  *
- * @var \Inc\DTO\Course\CourseCardDTO[] $sidebar_courses Опубликованные курсы предмета.
+ * @var \Inc\DTO\Course\CourseCardDTO[] $sidebar_courses     Опубликованные курсы предмета.
+ * @var string                          $sidebar_courses_url Витрина курсов предмета (раздел лендинга).
  *
  * @package FS LMS
  */
@@ -17,7 +18,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 use Inc\Services\Shared\Pluralizer;
 
-$sidebar_courses = (array) ( $sidebar_courses ?? array() );
+$sidebar_courses     = (array) ( $sidebar_courses ?? array() );
+$sidebar_courses_url = (string) ( $sidebar_courses_url ?? '' );
 
 if ( empty( $sidebar_courses ) ) {
 	return;
@@ -27,8 +29,9 @@ if ( empty( $sidebar_courses ) ) {
 	<div class="fs-sidebar-head">
 		<span class="fs-sidebar-title">Курсы</span>
 		<?php // Стрелку рисует CSS (миксин fs-arrow-reveal): в покое её нет, появляется по ховеру. ?>
-		<?php // TODO: публичной витрины курсов пока нет — ссылка-заглушка. ?>
-		<a href="#" class="fs-sidebar-more">Все курсы</a>
+		<?php if ( '' !== $sidebar_courses_url ) : ?>
+			<a href="<?php echo esc_url( $sidebar_courses_url ); ?>" class="fs-sidebar-more">Все курсы</a>
+		<?php endif; ?>
 	</div>
 
 	<ul class="fs-sidebar-courses">
