@@ -14,11 +14,15 @@ namespace Inc\DTO\Article;
 readonly class AdjacentArticleDTO {
 
 	/**
-	 * @param string $title Заголовок статьи.
-	 * @param string $url   Пермалинк статьи.
+	 * @param string $title       Заголовок статьи.
+	 * @param string $url         Пермалинк статьи.
+	 * @param string $description Краткое описание для карточки перехода.
+	 * @param string $thumbnail   URL обложки; '' — вместо неё заглушка.
 	 */
 	public function __construct(
 		public string $title,
 		public string $url,
+		public string $description = '',
+		public string $thumbnail = '',
 	) {}
 }

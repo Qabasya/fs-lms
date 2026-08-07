@@ -8,8 +8,7 @@
   letter-spacing: -.02em;
   margin: rem(14) 0 rem(18);
 
-  // Мобильный кегль — здесь же, рядом с базовым правилом: у _layout.scss тот же
-  // селектор проигрывает по порядку каскада и потребовал бы !important.
+  // Мобильный кегль
   @media (max-width: $bp-sm) {
     font-size: $font-size-md;
   }
@@ -25,8 +24,7 @@
 // Скоуп страницы: тег-ссылка иначе получает цвет из сброса `.fs-task-page a`.
 .fs-task-page .fs-tag { @include fs-chip; }
 
-// Карточка задания — та же поверхность и та же геометрия, что у карточки
-// списка на «Всех заданиях» (макет Task Page: паддинг 26/30/24).
+// Карточка задания
 .fs-task-card {
   @include fs-surface-card;
 
@@ -37,15 +35,13 @@
   padding: rem(26) rem(30) rem(24);
 }
 
-// Условие — тот же набор правил, что у карточки списка (.tcr-condition):
-// один кегль, один интерлиньяж, одинаковые плашки формул и кода.
+// Условие
 .fs-task-condition {
   font-size: $font-size-md;
   line-height: $line-height-relaxed;
   text-align: justify;
 
-  // Сброс наследуемого body{font-weight:300} темы: UA-шный bolder у b/strong
-  // от 300 даёт всего 400 — жирный визуально пропадает. Веса задаём абсолютно.
+  // Сброс наследуемого body{font-weight:300} темы
   font-weight: $font-normal;
   color: $color-text-secondary;
 
@@ -73,8 +69,7 @@
   }
 }
 
-// Вложение теперь широкая строка (примитив fs-file-chip), а не компактный чип:
-// в ряд они не встают — раскладываем колонкой, как в макете.
+// Вложение (примитив fs-file-chip)
 .fs-task-files { display: grid; gap: rem(10); margin-top: rem(18); }
 
 .fs-file-link { @include fs-file-chip; }

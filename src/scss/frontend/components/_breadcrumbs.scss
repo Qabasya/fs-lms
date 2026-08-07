@@ -1,8 +1,6 @@
 @use '../variables' as *;
 
-// Крошки публичных страниц. Разметку рендерит общий партиал
-// templates/frontend/partials/breadcrumbs.php — классы едины для
-// страницы задания и «Всех заданий».
+// Крошки публичных страниц
 .fs-breadcrumbs {
   display: flex;
   align-items: center;

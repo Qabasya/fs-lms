@@ -1,9 +1,7 @@
 @use '../../variables' as *;
 @use '../../mixins' as *;
 
-// Оглавление статьи: карточка-поверхность с прокруткой длинного списка и
-// полосой прогресса чтения. Свёрнутое состояние — класс .is-collapsed от
-// components/article-toc.js (на узком экране ставится сразу).
+// Оглавление статьи
 .fs-article-page {
   .fs-article-toc {
     @include fs-surface-card;
@@ -12,8 +10,6 @@
     overflow: hidden;
   }
 
-  // Шапка центрирована по кнопке: в свёрнутом виде видна только она, и любой
-  // перекос подписи относительно кнопки сразу читается как «съехало».
   .fs-article-toc__head {
     display: flex;
     align-items: center;
@@ -54,8 +50,6 @@
     svg { display: block; transition: transform $transition-medium; }
   }
 
-  // Сворачивание через grid-template-rows: высота списка заранее неизвестна,
-  // а display: none схлопывал бы блок рывком, без перехода.
   .fs-article-toc__body {
     display: grid;
     grid-template-rows: 1fr;
@@ -67,8 +61,6 @@
     overflow: hidden;
   }
 
-  // Своей прокрутки у списка нет: длинную колонку целиком прокручивает
-  // .fs-article-aside — иначе внутри липкого сайдбара было бы два скролла.
   .fs-article-toc__list {
     display: grid;
     padding-top: $spacing-md;
@@ -87,9 +79,7 @@
       background: $color-surface-2;
       color: $color-text;
     }
-    
-    // Кегль активного пункта общий со всеми: отличают его подложка, цвет,
-    // полоса слева и жирное начертание.
+
     &.is-active {
       background: $color-accent-soft;
       border-left-color: $color-accent;
@@ -98,16 +88,11 @@
     }
   }
 
-  // Подзаголовок (h3) — вложенный пункт: отличается только сдвигом, кегль
-  // общий со всеми пунктами.
+  // Подзаголовок (h3)
   .fs-article-toc__link--sub { padding-left: rem(32); }
 
-  // Полосе нужен свой ряд с отступами: <progress> — заменяемый элемент, от
-  // width: auto он не растягивается и висел бы обрубком у края карточки.
   .fs-article-toc__progress-row { padding: $spacing-md rem(18) 0; }
 
-  // Прогресс чтения. Нативный <progress>: JS меняет значение, а не стиль,
-  // поэтому вид задаётся здесь целиком — включая обе браузерные части.
   .fs-article-toc__progress {
     display: block;
     width: 100%;

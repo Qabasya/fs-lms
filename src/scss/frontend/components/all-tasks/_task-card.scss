@@ -1,9 +1,6 @@
 @use '../../variables' as *;
 @use '../../mixins' as *;
 
-// Карточка задания в списке: шапка с чипами, условие, файлы, ответ, футер.
-// Геометрия макета: единый паддинг карточки, блоки разделены margin'ами,
-// футер отбит волосяной линией внутри паддинга.
 .fs-all-tasks-page {
 
   .task-cards { display: flex; flex-direction: column; gap: rem(16); }
@@ -17,8 +14,6 @@
   }
 
   // ── Заголовок / чипы / условие ────────────────────────────────
-  // Порядок правил повторяет DOM карточки: заголовок → чипы → условие
-  // (SSR-разметка в partials/all-tasks-body.php и её JS-зеркало task-card.js).
   .tcr-title {
     padding: 0;
     font-size: $font-size-xl; font-weight: $font-bold;
@@ -46,17 +41,11 @@
   .tcr-body { padding: 0; margin-top: rem(18); }
 
   // ── Сворачивание длинного условия ─────────────────────────────
-  // Обрезаем max-height'ом, а не line-clamp: условие идёт через wp_kses_post
-  // и может содержать <p>, списки и картинки — display: -webkit-box ломает их
-  // раскладку. Классы вешает task-condition.js: он же меряет переполнение и
-  // кладёт полную высоту в --tcr-full (иначе анимировать не к чему).
   .tcr-body.is-clamped .tcr-condition {
     max-height: calc(#{$task-condition-lines} * #{$line-height-relaxed} * 1em);
     overflow: hidden;
     cursor: pointer;
 
-    // Затухание над обрезкой: последняя строка уходит в фон карточки,
-    // а не обрывается на полуслове.
     &::after {
       content: '';
       position: absolute; left: 0; right: 0; bottom: 0;
@@ -67,8 +56,6 @@
   }
   .tcr-body.is-expanded .tcr-condition { max-height: var(--tcr-full, none); }
 
-  // Отступ сверху — паддингом кнопки: у условия, которое заканчивается
-  // картинкой, подпись иначе прилипала к её нижнему краю.
   .tcr-condition-toggle {
     display: inline-flex; align-items: center;
     gap: rem(6);
@@ -88,7 +75,7 @@
   .tcr-body.is-expanded .tcr-condition-toggle-ico { transform: rotate(180deg); }
 
   .tcr-condition {
-    position: relative; // якорь для затухания над обрезкой
+    position: relative;
     margin: 0;
     transition: max-height .45s cubic-bezier(.4, 0, .2, 1);
     font-size: $font-size-md; line-height: $line-height-relaxed;
@@ -102,7 +89,6 @@
     
     img { display: block; max-width: 100%; height: auto; margin-inline: auto; }
 
-    // Формула/значение внутри условия — плашка на второй поверхности.
     code, .m {
       padding: rem(1) rem(5);
       background: $color-surface-2;
@@ -128,9 +114,6 @@
   .tcr-file-size { @include fs-file-chip-size; }
   .tcr-file-dl   { @include fs-file-chip-download; }
   .tcr-file:hover .tcr-file-dl { color: $color-accent; }
-
-  // Блок ответа и его кнопка — общий компонент обеих страниц
-  // (`components/_answer.scss`), собственных правил здесь нет.
 
   // ── Футер карточки ────────────────────────────────────────────
   .tcr-foot {

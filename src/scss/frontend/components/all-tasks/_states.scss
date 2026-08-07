@@ -1,7 +1,6 @@
 @use '../../variables' as *;
 @use '../../mixins' as *;
 
-// Состояния списка: пусто и бесконечная подгрузка.
 .fs-all-tasks-page {
   .tasks-empty {
     @include fs-surface-card($padding: rem(60) rem(24) rem(64));

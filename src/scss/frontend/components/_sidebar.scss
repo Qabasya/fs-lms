@@ -17,8 +17,7 @@
   overflow: hidden;
 }
 
-// Шапка блока сайдбара — та же, что у карточки фильтров: заголовок слева,
-// действие справа, разделитель под ними.
+// Шапка блока сайдбара
 .fs-sidebar-head {
   display: flex; align-items: center; justify-content: space-between;
   gap: rem(8);
@@ -37,9 +36,6 @@
 // Заголовок без шапки (курсы) сам держит свои отступы.
 .fs-sidebar-block > .fs-sidebar-title { padding: rem(16) rem(18); }
 
-// «Все материалы» — действие в правом верхнем углу блока. Стрелки в покое нет,
-// она выезжает по ховеру. Селектор с тегом и родителем — иначе
-// `.fs-all-tasks-page a { color: inherit }` из _reset.scss перебивает цвет.
 .fs-sidebar-head a.fs-sidebar-more {
   @include fs-arrow-reveal;
 
@@ -48,7 +44,7 @@
   border-radius: rem(7);
   font-size: $font-size-xs;
   font-weight: $font-semibold;
-  color: $color-accent; // тот же синий, что у «Перейти» в карточке статьи
+  color: $color-accent;
   transition: background $transition, color $transition;
 
   &:hover {
@@ -59,8 +55,7 @@
   }
 }
 
-// Списки сайдбара — статьи и курсы: одна геометрия, разные данные.
-// Пункты разделяет тонкая линия сверху, отступы — у самой ссылки.
+// Списки сайдбара — статьи и курсы
 .fs-sidebar-articles,
 .fs-sidebar-courses {
   list-style: none;
@@ -84,8 +79,7 @@
   li:first-child a { border-top: 0; }
 }
 
-// Миниатюра статьи — прямоугольник 96×72 слева; размер задан явно, иначе
-// align-items растянул бы её по высоте строки и сломал пропорции.
+// Миниатюра статьи
 .fs-sidebar-article-thumb {
   flex: 0 0 rem(96);
   width: rem(96);
@@ -106,8 +100,7 @@
   min-width: 0;
 }
 
-// «Перейти» — подпись-кнопка карточки: стрелка выезжает при наведении на всю
-// строку статьи, а не на саму подпись.
+// «Перейти» — подпись-кнопка карточки
 .fs-sidebar-article-go {
   @include fs-arrow-reveal;
 
@@ -144,8 +137,7 @@
   line-height: $line-height-tight;
 }
 
-// «Записаться» — та же подпись-кнопка, что «Перейти» у статьи: стрелка
-// выезжает при наведении на всю строку курса.
+// «Записаться» — та же подпись-кнопка, что «Перейти» у статьи
 .fs-sidebar-course-go {
   @include fs-arrow-reveal;
 

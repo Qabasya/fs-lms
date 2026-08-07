@@ -1,9 +1,7 @@
 @use '../../variables' as *;
 @use '../../mixins' as *;
 
-// Сайдбар с фильтрами-таксономиями: секции-аккордеоны и опции-чекбоксы.
-// Оформление — карточка макета: шапка с разделителем, строки-секции,
-// uppercase-подписи и значение среза справа.
+// Сайдбар с фильтрами-таксономиями
 .fs-all-tasks-page {
   .sidebar {
     @include fs-sticky(rem(16));
@@ -129,7 +127,6 @@
   }
   .filter-option.is-active .filter-option-check { background: $color-accent; border-color: $color-accent; color: $color-white; }
 
-  // ── Адаптив: сайдбар уезжает под контент и перестаёт липнуть ───
   @media (max-width: $bp-md) {
     .sidebar { position: static; order: 2; }
   }

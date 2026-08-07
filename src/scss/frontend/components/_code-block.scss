@@ -1,9 +1,6 @@
 @use '../variables' as *;
 
-// Блок кода (read-only). code-block.js заменяет <pre><code> на .fs-code-editor:
-//   header (бейдж языка + copy) | body → gutter + area(highlight).
-// Метрики шрифта (font-size, line-height, padding-y) у highlight и gutter обязаны
-// совпадать, иначе номера строк расходятся с кодом. Текст выделяется и копируется.
+// Блок кода (read-only)
 
 $code-font-size: $font-size-base;
 $code-pad-y: rem(16);
@@ -83,7 +80,6 @@ $code-pad-x: rem(18);
   span { display: block; }
 }
 
-// min-width: 0 позволяет области сжиматься во flex и включает горизонтальный скролл <pre>.
 .fs-code-area {
   flex: 1 1 auto;
   min-width: 0;

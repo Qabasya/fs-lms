@@ -2,6 +2,7 @@ import { initTabs }             from './components/task-tabs.js';
 import { initCarousel }         from './components/article-carousel.js';
 import { initArticleToc }       from './components/article-toc.js';
 import { initArticleTaskCards } from './components/article-task-card.js';
+import { initArticleNav }       from './components/article-nav.js';
 import { initCodeBlocks }       from './components/code-block.js';
 import { initLessonCountdown }  from './components/lesson-countdown.js';
 import { initSearchBox }        from './components/search-box.js';
@@ -17,6 +18,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initCarousel();
     initArticleToc();
     initArticleTaskCards();
+    initArticleNav();
     initCodeBlocks();
     initLessonCountdown();
     initSearchBox();

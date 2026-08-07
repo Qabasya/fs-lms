@@ -1,8 +1,7 @@
 @use '../../variables' as *;
 @use '../../mixins' as *;
 
-// Карточка задания внутри текста статьи. Разметку подставляет пост-обработка
-// контента, раскрытие — класс .is-open от components/article-task-card.js.
+// Карточка задания внутри текста статьи
 .fs-article-page {
   .fs-article-task {
     @include fs-surface-card;
@@ -63,7 +62,6 @@
     color: $color-muted;
   }
 
-  // Раскрытая карточка показывает условие целиком — превью в ней лишнее.
   .fs-article-task.is-open .fs-article-task__peek { display: none; }
 
   .fs-article-task__chev {
@@ -89,8 +87,6 @@
 
   .fs-article-task.is-open .fs-article-task__chev svg { transform: rotate(180deg); }
 
-  // Раскрытие через grid-template-rows: высота тела заранее неизвестна, а
-  // анимировать max-height по «на глаз» подобранному потолку — рывок в конце.
   .fs-article-task__body {
     display: grid;
     grid-template-rows: 0fr;
@@ -99,9 +95,6 @@
 
   .fs-article-task.is-open .fs-article-task__body { grid-template-rows: 1fr; }
 
-  // Боковые отступы постоянные, переключаются только вертикальные: если снимать
-  // padding целиком, при сворачивании текст условия на время анимации получает
-  // всю ширину карточки и переносится заново — видно скачок строк.
   .fs-article-task__body-inner {
     min-height: 0;
     padding: 0 rem(20);
@@ -137,11 +130,6 @@
     margin-top: rem(18);
   }
 
-  // Тот же вид, что у «Смотреть решение» в банке заданий: заливная акцентная
-  // кнопка, стрелка выезжает по наведению.
-  // Скоуп .fs-article-prose обязателен: карточка лежит внутри текста статьи, а
-  // правило прозы для <a> (два класса + тег) сильнее правила кнопки в два
-  // класса — подпись красилась в акцентный цвет и сливалась с заливкой.
   .fs-article-prose .fs-article-task__open {
     @include fs-btn-accent;
     @include fs-arrow-icon-reveal;
@@ -149,7 +137,6 @@
     &:hover {
       @include fs-arrow-icon-reveal-open;
 
-      // Проза подчёркивает ссылки по наведению — кнопке подчёркивание не нужно.
       text-decoration: none;
     }
   }

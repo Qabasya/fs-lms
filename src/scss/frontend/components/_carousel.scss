@@ -24,8 +24,7 @@
   margin: rem(28) auto 0;
 }
 
-// Стрелки — часть ряда, а не абсолютные накладки: раньше они висели левее
-// заголовка блока и выходили за сетку.
+// Стрелки
 .fs-carousel-row {
   display: flex;
   align-items: center;
@@ -38,21 +37,15 @@
   overflow: hidden;
   border-radius: $radius-card;
 
-  // Тени карточек не должны срезаться краем окна прокрутки.
   padding: rem(4) 0;
 }
 
 .fs-carousel-track {
   display: flex;
-
-  // Растягиваем ячейки по высоте самой большой: карточки в ряду одинаковы,
-  // независимо от длины заголовка.
   align-items: stretch;
 }
 
-// Сколько карточек в кадре — единственный источник правды для CSS и JS:
-// шаг прокрутки в article-carousel.js (visibleCount) обязан совпадать с этими
-// ступенями, иначе трек уезжает не на карточку.
+// Сколько карточек в кадре
 .fs-carousel-item {
   display: flex;
   flex: 0 0 calc(100% / 3);
@@ -68,8 +61,6 @@
     border-radius: $radius-card;
     box-shadow: $shadow-surface;
 
-    // Отступов у ссылки нет — миниатюра доходит до рамок; overflow обрезает
-    // её углы по скруглению карточки. Текст отступы берёт из .fs-carousel-body.
     padding: 0;
     overflow: hidden;
     transition: border-color $transition, box-shadow $transition;
@@ -98,12 +89,10 @@
       margin: 0;
     }
 
-    // Заголовок откликается на наведение вместе со всей карточкой.
     strong { transition: color $transition; }
 
     &:hover strong { color: $color-accent-700; }
 
-    // Стрелка «Читать» проявляется при наведении на всю карточку статьи.
     &:hover .fs-carousel-read {
       @include fs-arrow-reveal-open;
 
@@ -112,8 +101,6 @@
   }
 }
 
-// Текстовая часть карточки: свои отступы, тянется на всю оставшуюся высоту,
-// чтобы «Читать» прижималось к низу (margin-top: auto).
 .fs-carousel-body {
   display: flex;
   flex-direction: column;
@@ -122,8 +109,7 @@
   padding: rem(16) rem(18) rem(18);
 }
 
-// Миниатюра статьи — шапка карточки карусели во всю ширину, вплотную к рамкам
-// (в сайдбаре та же картинка стоит слева, см. .fs-sidebar-article-thumb).
+// Миниатюра статьи
 .fs-carousel-thumb {
   display: block;
   width: 100%;
@@ -133,7 +119,6 @@
   object-fit: cover;
 }
 
-// Обложки ещё нет — место держит заглушка той же высоты.
 .fs-carousel-thumb--empty { @include fs-thumb-placeholder; }
 
 .fs-carousel-read {
@@ -154,8 +139,6 @@
   box-shadow: $shadow-surface;
   color: $color-text-secondary;
 
-  // Инлайновый svg сидит на базовой линии — в блочном потоке он центрируется
-  // по кнопке точно.
   svg { display: block; }
 
   &:hover {
@@ -173,8 +156,7 @@
   margin-top: $spacing-lg;
 }
 
-// Ступени кадра. Держим их здесь целиком (а не в _layout): файл идёт позже в
-// каскаде, и разбросанные по двум файлам медиазапросы перебивали друг друга.
+// Ступени кадра
 @media (max-width: $bp-md) {
   .fs-carousel-item { flex-basis: 50%; }
 }
@@ -194,8 +176,7 @@
   &.is-active { background: $color-accent; }
 }
 
-// Ступени кадра. Держим их здесь целиком (а не в _layout): файл идёт позже в
-// каскаде, и разбросанные по двум файлам медиазапросы перебивали друг друга.
+// Ступени кадра
 @media (max-width: $bp-md) {
   .fs-carousel-item { flex-basis: 50%; }
 }

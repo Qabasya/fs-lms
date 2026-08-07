@@ -402,6 +402,18 @@ class PostManager {
 	}
 
 	/**
+	 * Возвращает URL миниатюры записи в нужном размере.
+	 *
+	 * @param int    $post_id ID поста
+	 * @param string $size    Размер изображения WordPress
+	 *
+	 * @return string URL миниатюры; '' — обложки у записи нет.
+	 */
+	public function getThumbnailUrl( int $post_id, string $size = 'large' ): string {
+		return (string) get_the_post_thumbnail_url( $post_id, $size );
+	}
+
+	/**
 	 * Получает конкретное мета-поле поста.
 	 *
 	 * @param int    $post_id ID поста
