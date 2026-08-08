@@ -97,14 +97,16 @@ ThemeCompatService::header();
 
 			<!-- ===================== ТЕКСТ СТАТЬИ ===================== -->
 			<main class="fs-article-main">
-				<?php
-				// Навигация по серии — над заголовком и под текстом. Один партиал
-				// на обе копии: разметка длинная, дублировать её в шаблоне нельзя.
-				$article_nav_modifier = '';
-				include __DIR__ . '/partials/article-nav.php';
-				?>
 
 				<h1 class="fs-article-title"><?php echo esc_html( $article_post->title ); ?></h1>
+
+				<?php // Обложка статьи — перед текстом. Alt пустой: картинка иллюстрирует заголовок рядом, а не несёт своего смысла. ?>
+				<?php if ( '' !== $article_data->thumbnail ) : ?>
+					<div class="fs-article-cover">
+						<img src="<?php echo esc_url( $article_data->thumbnail ); ?>"
+							alt="" decoding="async" />
+					</div>
+				<?php endif; ?>
 
 				<?php
 				// Контент статьи выводится сырым — ровно как это делает the_content()
@@ -117,9 +119,7 @@ ThemeCompatService::header();
 				</div>
 
 				<?php
-				// Нижняя копия: модификатор нужен ради отступа сверху — у текста
-				// статьи снизу своего отступа нет.
-				$article_nav_modifier = ' fs-task-nav--bottom';
+				// Переходы по серии: отбивка и отступ сверху — в самом компоненте.
 				include __DIR__ . '/partials/article-nav.php';
 				?>
 

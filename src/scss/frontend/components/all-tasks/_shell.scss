@@ -1,13 +1,11 @@
 @use '../../variables' as *;
 
-// Оболочка страницы «Все задания»: скоуп-корень, сетка, заголовок.
-// Крошки — общий компонент `components/_breadcrumbs.scss` (разметка из партиала).
+// Оболочка страницы «Все задания»: скоуп-корень, сетка, заголовок
 .fs-all-tasks-page {
   // Сглаживание — против «пиксельного» вида на Win/Mac.
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 
-  // Атрибут [hidden] должен побеждать любой display компонента. !important — перебивка UA/компонентных правил.
   [hidden] { display: none !important; }
 
   // ── Оболочка / сетка (общие токены со страницей задания) ──────
@@ -15,8 +13,6 @@
   .layout { display: grid; grid-template-columns: $sidebar-width 1fr; gap: $layout-gap; align-items: start; }
   .main   { min-width: 0; }
 
-  // ── Адаптив: одна колонка (сброс липкости сайдбара — в _filters,
-  //    иначе базовое правило перебивает медиазапрос по порядку каскада)
   @media (max-width: $bp-md) {
     .layout { grid-template-columns: 1fr; }
   }

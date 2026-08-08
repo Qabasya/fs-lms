@@ -1,0 +1,145 @@
+@use '../../variables' as *;
+@use '../../mixins' as *;
+
+$nav-text-line: rem(18);
+$nav-text-gap: rem(3);
+
+// Навигация по серии статей под текстом
+.fs-article-page .fs-article-nav {
+  margin-top: rem(44);
+  border-top: 1px solid $color-border;
+
+  &__head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: rem(6) rem(14);
+    padding: rem(18) 0 rem(12);
+  }
+
+  &__counter {
+    font-size: $font-size-xs;
+    font-weight: $font-bold;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: $color-muted-2;
+    white-space: nowrap;
+  }
+
+  &__all {
+    @include fs-arrow-reveal;
+
+    margin-left: auto;
+    font-size: $font-size-sm;
+    font-weight: $font-semibold;
+    color: $color-accent;
+    white-space: nowrap;
+    transition: color $transition;
+
+    &:hover {
+      @include fs-arrow-reveal-open;
+
+      color: $color-accent-700;
+    }
+  }
+
+  &__pair {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: rem(12);
+    align-items: stretch;
+  }
+  
+  &__row {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: rem(12);
+    padding: rem(10);
+    background: $color-white;
+    border: 1px solid $color-border;
+    border-radius: $radius-card;
+    color: inherit;
+    transition: border-color $transition, background $transition, box-shadow $transition;
+
+    &:is(a):hover {
+      background: $color-accent-soft;
+      border-color: $color-accent-soft-2;
+      box-shadow: $shadow-surface;
+      color: inherit;
+    }
+
+    &--empty {
+      background: $color-border;
+      border-color: transparent;
+    }
+
+    &:is(a):hover .fs-article-nav__kicker { color: $color-accent; }
+  }
+
+  &__kicker {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+    gap: rem(5);
+    height: $nav-text-line;
+    font-size: $font-size-code;
+    font-weight: $font-bold;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: $color-muted-2;
+    transition: color $transition;
+  }
+  
+  &__thumb {
+    display: block;
+    flex-shrink: 0;
+    width: rem(88);
+    height: rem(80);
+    object-fit: cover;
+    background: $color-surface-2;
+    border: 1px solid $color-border-light;
+    border-radius: $border-radius-md;
+  }
+
+  &__thumb--empty { @include fs-thumb-placeholder; }
+
+  &__text {
+    display: flex;
+    flex-direction: column;
+    gap: $nav-text-gap;
+    min-width: 0;
+    height: $nav-text-line * 4 + $nav-text-gap * 2;
+    overflow: hidden;
+  }
+
+  &__title {
+    @include line-clamp(2);
+
+    flex-shrink: 0;
+    font-size: $font-size-sm;
+    font-weight: $font-bold;
+    line-height: $nav-text-line;
+    letter-spacing: -.015em;
+    color: $color-text;
+    text-wrap: pretty;
+    overflow-wrap: anywhere;
+  }
+
+  &__desc {
+    @include line-clamp(2);
+
+    flex: 1 1 auto;
+    min-height: 0;
+    font-size: $font-size-xs;
+    line-height: $nav-text-line;
+    color: $color-muted;
+    overflow-wrap: anywhere;
+  }
+  
+  &__row--tight .fs-article-nav__desc { -webkit-line-clamp: 1; }
+}
+
+@media (max-width: $bp-sm) {
+  .fs-article-page .fs-article-nav__pair { grid-template-columns: minmax(0, 1fr); }
+}

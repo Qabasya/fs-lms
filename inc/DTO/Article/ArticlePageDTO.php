@@ -23,6 +23,7 @@ readonly class ArticlePageDTO {
 	 * @param \Inc\DTO\Course\CourseCardDTO[]      $courses     Курсы предмета для сайдбара.
 	 * @param string                               $courses_url Витрина курсов предмета; '' — ссылки нет.
 	 * @param array<int, array<string, mixed>>     $recommended Статьи блока «Читать далее».
+	 * @param string                               $thumbnail   URL обложки статьи; '' — обложки нет.
 	 * @param ArticleNavigationDTO                 $navigation  Соседние статьи серии и счётчик.
 	 */
 	public function __construct(
@@ -33,6 +34,7 @@ readonly class ArticlePageDTO {
 		public array $courses,
 		public string $courses_url,
 		public array $recommended,
+		public string $thumbnail = '',
 		public ArticleNavigationDTO $navigation = new ArticleNavigationDTO(),
 	) {}
 

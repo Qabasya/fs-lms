@@ -1,18 +1,13 @@
 <?php
 /**
- * Навигация по статьям одного номера задания.
+ * Навигация по статьям одного номера задания — под текстом статьи.
  *
- * Разметка и классы — те же, что у блока страницы задания (`.fs-task-nav`):
- * компонент один, стили общие (`src/scss/frontend/components/_nav.scss`).
- * Отличий от страницы задания два: кольца нет — на краях серии сторона
- * неактивна, и в центре вместо «Все задания» стоит счётчик позиции со ссылкой
+ * Собственный компонент страницы статьи (`components/article/_nav.scss`),
+ * с блоком страницы задания (`.fs-task-nav`) больше не общий: по макету это
+ * пара карточек с обложкой и описанием, а над ними — счётчик позиции и ссылка
  * на учебник.
  *
- * Партиал подключается дважды — над текстом статьи и под ним, — поэтому
- * подписи сторон и разметка живут здесь, а не в шаблоне страницы.
- *
- * @var \Inc\DTO\Article\ArticleNavigationDTO $navigation           Данные навигации.
- * @var string                                $article_nav_modifier Доп. класс блока (отступы нижней копии).
+ * @var \Inc\DTO\Article\ArticleNavigationDTO $navigation Данные навигации.
  *
  * @package FS LMS
  */
@@ -28,58 +23,67 @@ if ( ! $navigation instanceof \Inc\DTO\Article\ArticleNavigationDTO || $navigati
 	return;
 }
 
-$nav_prev             = $navigation->prev;
-$nav_next             = $navigation->next;
-$nav_counter          = $navigation->position . ' из ' . $navigation->total;
-$article_nav_modifier = (string) ( $article_nav_modifier ?? '' );
+if ( ! $navigation->prev && ! $navigation->next ) {
+	return;
+}
+
+$nav_prev    = $navigation->prev;
+$nav_next    = $navigation->next;
+$nav_counter = $navigation->position . ' из ' . $navigation->total;
 ?>
-<nav class="fs-task-nav<?php echo esc_attr( $article_nav_modifier ); ?>" aria-label="Навигация по статьям">
-	<?php if ( $nav_prev ) : ?>
-	<a href="<?php echo esc_url( $nav_prev->url ); ?>" class="fs-task-nav__side fs-task-nav__side--prev" aria-label="Предыдущая статья">
-	<?php else : ?>
-	<div class="fs-task-nav__side fs-task-nav__side--prev">
-	<?php endif; ?>
-		<span class="fs-task-nav__arrow<?php echo ! $nav_prev ? ' fs-task-nav__arrow--disabled' : ''; ?>" aria-hidden="true"><?php echo Icon::ChevronLeft->svg( 16 ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></span>
-		<div class="fs-task-nav__info">
-			<span class="fs-task-nav__label">Предыдущая</span>
-			<span class="fs-task-nav__title">
-				<?php echo $nav_prev ? esc_html( $nav_prev->title ) : '&mdash;'; ?>
-			</span>
-		</div>
-	<?php if ( $nav_prev ) : ?>
-	</a>
-	<?php else : ?>
+<nav class="fs-article-nav" aria-label="Навигация по статьям">
+	<div class="fs-article-nav__head">
+		<span class="fs-article-nav__counter"><?php echo esc_html( $nav_counter ); ?></span>
+		<?php // Стрелку рисует CSS (миксин fs-arrow-reveal) — как у «Все курсы» в сайдбаре. ?>
+		<?php if ( '' !== $navigation->textbook_url ) : ?>
+			<a href="<?php echo esc_url( $navigation->textbook_url ); ?>" class="fs-article-nav__all">Все статьи темы</a>
+		<?php endif; ?>
 	</div>
-	<?php endif; ?>
 
-	<?php // Центр ведёт в учебник — тот же адрес, что у крошки «Учебник». ?>
-	<?php if ( '' !== $navigation->textbook_url ) : ?>
-		<a href="<?php echo esc_url( $navigation->textbook_url ); ?>" class="fs-task-nav__center">
-			<span class="fs-task-nav__dots" aria-hidden="true"><i></i><i></i><i></i></span>
-			<span class="fs-task-nav__all"><?php echo esc_html( $nav_counter ); ?></span>
-		</a>
-	<?php else : ?>
-		<div class="fs-task-nav__center">
-			<span class="fs-task-nav__dots" aria-hidden="true"><i></i><i></i><i></i></span>
-			<span class="fs-task-nav__all fs-task-nav__all--plain"><?php echo esc_html( $nav_counter ); ?></span>
-		</div>
-	<?php endif; ?>
+	<div class="fs-article-nav__pair">
+		<?php
+		$nav_sides = array(
+			array( 'key' => 'prev', 'label' => 'Предыдущая', 'article' => $nav_prev ),
+			array( 'key' => 'next', 'label' => 'Следующая', 'article' => $nav_next ),
+		);
 
-	<?php if ( $nav_next ) : ?>
-	<a href="<?php echo esc_url( $nav_next->url ); ?>" class="fs-task-nav__side fs-task-nav__side--next" aria-label="Следующая статья">
-	<?php else : ?>
-	<div class="fs-task-nav__side fs-task-nav__side--next">
-	<?php endif; ?>
-		<span class="fs-task-nav__arrow<?php echo ! $nav_next ? ' fs-task-nav__arrow--disabled' : ''; ?>" aria-hidden="true"><?php echo Icon::ChevronRight->svg( 16 ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></span>
-		<div class="fs-task-nav__info fs-task-nav__info--right">
-			<span class="fs-task-nav__label">Следующая</span>
-			<span class="fs-task-nav__title">
-				<?php echo $nav_next ? esc_html( $nav_next->title ) : '&mdash;'; ?>
-			</span>
-		</div>
-	<?php if ( $nav_next ) : ?>
-	</a>
-	<?php else : ?>
+		foreach ( $nav_sides as $side ) :
+			$is_next = 'next' === $side['key'];
+
+			if ( ! $side['article'] ) :
+				?>
+				<div class="fs-article-nav__row fs-article-nav__row--empty" aria-hidden="true"></div>
+				<?php
+				continue;
+			endif;
+			?>
+			<a href="<?php echo esc_url( $side['article']->url ); ?>"
+				class="fs-article-nav__row fs-article-nav__row--<?php echo esc_attr( $side['key'] ); ?>">
+				<?php // Нет обложки — заглушка того же размера: карточки сторон равны по высоте. ?>
+				<?php if ( '' !== $side['article']->thumbnail ) : ?>
+					<img class="fs-article-nav__thumb"
+						src="<?php echo esc_url( $side['article']->thumbnail ); ?>"
+						alt="" loading="lazy" decoding="async" />
+				<?php else : ?>
+					<span class="fs-article-nav__thumb fs-article-nav__thumb--empty" aria-hidden="true"></span>
+				<?php endif; ?>
+
+				<span class="fs-article-nav__text">
+					<span class="fs-article-nav__kicker">
+						<?php if ( ! $is_next ) : ?>
+							<?php echo Icon::ChevronLeft->svg( 13 ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+						<?php endif; ?>
+						<?php echo esc_html( $side['label'] ); ?>
+						<?php if ( $is_next ) : ?>
+							<?php echo Icon::ChevronRight->svg( 13 ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+						<?php endif; ?>
+					</span>
+					<span class="fs-article-nav__title"><?php echo esc_html( $side['article']->title ); ?></span>
+					<?php if ( '' !== $side['article']->description ) : ?>
+						<span class="fs-article-nav__desc"><?php echo esc_html( $side['article']->description ); ?></span>
+					<?php endif; ?>
+				</span>
+			</a>
+		<?php endforeach; ?>
 	</div>
-	<?php endif; ?>
 </nav>

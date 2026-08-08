@@ -20,8 +20,6 @@
   align-items: start;
 }
 
-// Сайдбар пуст (ни курсов, ни статей) — его нет в разметке, и задание занимает
-// всю ширину сетки по центру страницы.
 .fs-task-page--solo {
   grid-template-columns: minmax(0, 1fr);
 }
@@ -33,8 +31,7 @@
 
   .fs-task-page { grid-template-columns: 1fr; }
 
-  // Сброс липкости — в _sidebar.scss: он идёт позже в каскаде и его базовое
-  // правило перебило бы медиазапрос отсюда.
+  // Сброс липкости
   .fs-task-sidebar {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -43,7 +40,7 @@
 
   .fs-task-main { order: 1; }
 
-  // Ступени кадра карусели — целиком в _carousel.scss (он идёт позже в каскаде).
+  // Ступени кадра карусели — целиком в _carousel.scss.
 }
 
 @media (max-width: $bp-sm) {

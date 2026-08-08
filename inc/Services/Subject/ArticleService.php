@@ -7,6 +7,8 @@ namespace Inc\Services\Subject;
 use Inc\DTO\Article\AdjacentArticleDTO;
 use Inc\DTO\Article\ArticleNavigationDTO;
 use Inc\DTO\Subject\TermViewDTO;
+use Inc\Enums\Wp\PostMetaName;
+use Inc\Managers\Wp\PostManager;
 use Inc\Managers\Wp\TermManager;
 use Inc\Repositories\OptionsRepositories\ArticleRepository;
 
@@ -28,10 +30,12 @@ class ArticleService {
 	/**
 	 * @param ArticleRepository $article_repository Репозиторий статей.
 	 * @param TermManager       $term_manager       Менеджер терминов таксономии.
+	 * @param PostManager       $post_manager       Менеджер записей (мета статьи).
 	 */
 	public function __construct(
 		private readonly ArticleRepository $article_repository,
 		private readonly TermManager $term_manager,
+		private readonly PostManager $post_manager,
 	) {}
 
 	/**
@@ -186,10 +190,12 @@ class ArticleService {
 		if ( ! $post instanceof \WP_Post ) {
 			return null;
 		}
-
+		
 		return new AdjacentArticleDTO(
-			title: get_the_title( $post ),
-			url:   (string) get_permalink( $post ),
+			title:       get_the_title( $post ),
+			url:         (string) get_permalink( $post ),
+			description: $this->getArticleExcerpt( $post ),
+			thumbnail:   $this->post_manager->getThumbnailUrl( $post->ID, 'medium' ),
 		);
 	}
 
@@ -202,6 +208,14 @@ class ArticleService {
 	 */
 	private function formatArticlePosts( array $posts ): array {
 		$articles = array();
+
+		// Описание карточки читается метой у каждой записи — прогреваем кэш одним запросом.
+		$this->post_manager->primeMetaCache(
+			array_map(
+				static fn( $post ) => $post instanceof \WP_Post ? $post->ID : 0,
+				$posts
+			)
+		);
 
 		foreach ( $posts as $post ) {
 			if ( ! $post instanceof \WP_Post ) {
@@ -240,14 +254,23 @@ class ArticleService {
 	/**
 	 * Возвращает короткий текст статьи для карточки на frontend.
 	 *
-	 * Использует ручной excerpt, если он заполнен, иначе берёт post_content.
+	 * Заполнено «Краткое описание» ({@see PostMetaName::ArticleDescription}) —
+	 * показываем его целиком: автор писал именно текст карточки. Пусто — фолбэк
+	 * на ручной excerpt, иначе на начало текста статьи; карточка обрезает его
+	 * до трёх строк (`line-clamp(3)` в `_carousel.scss`).
 	 * HTML удаляется перед обрезкой, чтобы в превью не попадала разметка.
 	 *
 	 * @param \WP_Post $post Запись статьи WordPress.
 	 *
-	 * @return string Обрезанный текст статьи.
+	 * @return string Текст карточки статьи.
 	 */
 	private function getArticleExcerpt( \WP_Post $post ): string {
+		$description = $this->post_manager->getMeta( $post->ID, PostMetaName::ArticleDescription->value );
+
+		if ( is_string( $description ) && '' !== trim( $description ) ) {
+			return trim( $description );
+		}
+
 		$excerpt = has_excerpt( $post->ID ) ? get_the_excerpt( $post->ID ) : $post->post_content;
 
 		$excerpt = wp_strip_all_tags( $excerpt );
