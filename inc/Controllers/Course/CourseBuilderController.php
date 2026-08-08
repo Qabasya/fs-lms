@@ -7,6 +7,7 @@ namespace Inc\Controllers\Course;
 use Inc\Contracts\ServiceInterface;
 use Inc\Core\BaseController;
 use Inc\Enums\Access\Capability;
+use Inc\Shared\Traits\Sanitizer;
 use Inc\Shared\Traits\TemplateRenderer;
 
 /**
@@ -21,6 +22,7 @@ use Inc\Shared\Traits\TemplateRenderer;
  */
 class CourseBuilderController extends BaseController implements ServiceInterface {
 
+	use Sanitizer;
 	use TemplateRenderer;
 
 	/** Слаг страницы (начинается с fs_ → Enqueue подхватывает ассеты). */
@@ -49,8 +51,8 @@ class CourseBuilderController extends BaseController implements ServiceInterface
 	 * Рендерит контейнер-маунт приложения.
 	 */
 	public function renderPage(): void {
-		$course_id = absint( wp_unslash( $_GET['course'] ?? 0 ) );
-		$subject   = sanitize_key( wp_unslash( $_GET['subject'] ?? '' ) );
+		$course_id = $this->sanitizeGetInt( 'course' );
+		$subject   = $this->sanitizeGetKey( 'subject' );
 		$post      = $course_id > 0 ? get_post( $course_id ) : null;
 
 		$this->render( 'admin/course-builder', array(

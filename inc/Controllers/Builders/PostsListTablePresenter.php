@@ -71,13 +71,17 @@ class PostsListTablePresenter {
 			'page' => $page,
 			'tab'  => $tab,
 		);
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended, WordPress.Security.ValidatedSanitizedInput.MissingUnslash -- статическая фабрика (трейт Sanitizer недоступен); значение проходит sanitize_key на месте, нонса у admin-списков нет.
 		if ( ! empty( $_GET['post_status'] ) ) {
+			// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.MissingUnslash -- sanitize_key режет слэши сам.
 			$uriArgs['post_status'] = sanitize_key( $_GET['post_status'] );
 		}
 
 		$originalUri            = (string) $_SERVER['REQUEST_URI'];
 		$_SERVER['REQUEST_URI'] = '/wp-admin/admin.php?' . http_build_query( $uriArgs );
 
+		// Запись (не чтение) в $_GET: подготовка окружения WP_Posts_List_Table,
+		// который читает post_type из суперглобала. Sanitizer здесь ни при чём.
 		$_GET['post_type'] = $postType;
 		$table->prepare_items();
 

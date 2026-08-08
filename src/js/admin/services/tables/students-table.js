@@ -26,6 +26,7 @@
 
 import { ExpelModal } from '../../modals/enrollment/expel-modal.js';
 import { PiiExportService } from '../pii-export-service.js';
+import { escapeHtml as esc } from '../../modules/utils.js';
 
 const $ = jQuery;
 
@@ -172,17 +173,7 @@ export const StudentsTable = {
             const $row = $( `tr[data-wp-user-id="${ studentId }"]` );
             if ( ! $row.length ) return; // Если строка не найдена, выходим
 
-            // УТИЛИТА БЕЗОПАСНОГО ЭКРАНИРОВАНИЯ (XSS-защита):
-            // Создаем временный div, устанавливаем текст через .text() (автоматически экранирует HTML),
-            // а затем забираем безопасный HTML через .html().
-            // Это гарантирует, что если в названии предмета есть символы '<' или '>',
-            // они будут отображены как текст, а не исполнены как HTML-код.
-            // 
-            // Альтернатива: использовать утилиту escapeHtml из modules/utils.js.
-            // Но этот jQuery-трюк короче и не требует импорта дополнительных модулей.
-            const esc = ( str ) => $( '<div>' ).text( String( str || '' ) ).html();
-
-            // Формируем HTML для каждой колонки.
+            // Формируем HTML для каждой колонки (esc — общий escapeHtml из modules/utils.js).
             // remaining.map() преобразует массив зачислений в массив строк,
             // а join('<br>') объединяет их через HTML-перенос строки.
             // Это создает многострочный контент внутри одной ячейки таблицы.

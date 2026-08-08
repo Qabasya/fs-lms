@@ -8,6 +8,7 @@ use Inc\Core\BaseController;
 use Inc\Enums\Wp\Nonce;
 use Inc\Modules\AdSync\Callbacks\AdSyncSettingsCallbacks;
 use Inc\Modules\AdSync\Config\AdSyncConfig;
+use Inc\Shared\Traits\Sanitizer;
 
 /**
  * Class AdSyncSettingsController
@@ -23,6 +24,8 @@ use Inc\Modules\AdSync\Config\AdSyncConfig;
  * @package Inc\Modules\AdSync\Controllers
  */
 class AdSyncSettingsController extends BaseController {
+
+	use Sanitizer;
 
 	/** Собственное имя AJAX-действия (вне core AjaxHook — изоляция). */
 	public const SAVE_ACTION = 'fs_lms_ad_sync_save';
@@ -81,7 +84,7 @@ class AdSyncSettingsController extends BaseController {
 	}
 
 	public function enqueueAssets( string $hook ): void {
-		if ( 'fs_lms_settings' !== sanitize_key( wp_unslash( $_GET['page'] ?? '' ) ) ) {
+		if ( 'fs_lms_settings' !== $this->sanitizeGetKey( 'page' ) ) {
 			return;
 		}
 

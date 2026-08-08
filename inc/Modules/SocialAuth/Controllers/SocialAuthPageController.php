@@ -9,10 +9,12 @@ use Inc\Contracts\ServiceInterface;
 use Inc\Core\BaseController;
 use Inc\Enums\Wp\PageRoutes;
 use Inc\Enums\Wp\ShortCode;
+use Inc\Shared\Traits\Sanitizer;
 use Inc\Shared\Traits\TemplateRenderer;
 
 class SocialAuthPageController extends BaseController implements ServiceInterface {
 
+	use Sanitizer;
 	use TemplateRenderer;
 
 	public function __construct(
@@ -52,14 +54,15 @@ class SocialAuthPageController extends BaseController implements ServiceInterfac
 	public function redirectToCustomLogin(): void {
 		global $pagenow;
 
-		if ( 'wp-login.php' === $pagenow && ! isset( $_POST['wp-submit'] ) && 'GET' === $_SERVER['REQUEST_METHOD'] && 'logout' !== ( $_GET['action'] ?? '' ) ) {
+		if ( 'wp-login.php' === $pagenow && ! $this->hasParam( 'wp-submit' ) && 'GET' === $_SERVER['REQUEST_METHOD'] && 'logout' !== $this->sanitizeGetText( 'action' ) ) {
 			wp_safe_redirect( PageRoutes::SignIn->url() );
 			exit;
 		}
 	}
 
 	public function redirectFailedLogin( string $username ): void {
-		if ( empty( $_POST['fs_lms_login'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing
+		// Маркер нашей формы логина (hidden value="1"); у wp-login flow нонса нет.
+		if ( ! $this->sanitizeBool( 'fs_lms_login' ) ) {
 			return;
 		}
 

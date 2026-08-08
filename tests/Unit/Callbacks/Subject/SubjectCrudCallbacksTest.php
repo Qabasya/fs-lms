@@ -30,7 +30,14 @@ class SubjectCrudCallbacksTest extends TestCase {
 		$this->archiveGuard = $this->createMock( SubjectArchiveGuard::class );
 		$this->archiveGuard->method( 'activeGroups' )->willReturn( array() );
 		$logEvents          = $this->createMock( LogEventDispatcherInterface::class );
-		$this->cb           = new SubjectCrudCallbacks( $this->subjects, $this->dispatcher, $logEvents, $this->groups, $this->archiveGuard );
+		$this->cb           = new SubjectCrudCallbacks(
+			$this->subjects,
+			$this->dispatcher,
+			$logEvents,
+			$this->groups,
+			$this->archiveGuard,
+			$this->createMock( \Inc\Services\Subject\SubjectPagesService::class ),
+		);
 	}
 
 	public function test_delete_blocked_when_subject_has_groups(): void {
@@ -87,7 +94,14 @@ class SubjectCrudCallbacksTest extends TestCase {
 		$guard->method( 'activeGroups' )->willReturn( array( (object) array( 'id' => 1, 'name' => 'М-101' ) ) );
 
 		$logEvents = $this->createMock( LogEventDispatcherInterface::class );
-		$cb        = new SubjectCrudCallbacks( $subjects, $this->dispatcher, $logEvents, $this->groups, $guard );
+		$cb        = new SubjectCrudCallbacks(
+			$subjects,
+			$this->dispatcher,
+			$logEvents,
+			$this->groups,
+			$guard,
+			$this->createMock( \Inc\Services\Subject\SubjectPagesService::class ),
+		);
 		$_POST     = array( 'key' => 'math' );
 
 		$r = fs_test_capture_json( fn() => $cb->ajaxToggleSubjectArchive() );

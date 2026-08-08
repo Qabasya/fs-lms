@@ -1,6 +1,8 @@
 import '../_types.js';
 import { icoPlus, icoX, icoReplace, icoImport, icoCaret, icoTrash } from '../../common/icons.js';
-import { openPicker, esc, readSteps } from './step-editor.js';
+import { escapeHtml as esc } from '../modules/utils.js';
+import { openPicker } from '../modules/picker.js';
+import { readSteps } from './step-editor.js';
 import { showToast } from '../modules/toast.js';
 import { ConfirmModal } from '../modals/confirm-modal.js';
 

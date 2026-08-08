@@ -18,6 +18,9 @@ $test_env = $config['test_env']        ?? array( 'value' => false, 'defined_in_c
 $otp      = $config['otp_bypass_code'] ?? array( 'value' => '', 'defined_in_config' => false, 'editable' => true );
 $enc_set  = (bool) ( $config['enc_key_set']   ?? false );
 $salt_set = (bool) ( $config['hash_salt_set'] ?? false );
+$logo     = $config['brand_logo'] ?? array( 'id' => 0, 'url' => '' );
+$logo_id  = (int) ( $logo['id'] ?? 0 );
+$logo_url = (string) ( $logo['url'] ?? '' );
 ?>
 
 <div id="tab-config" class="tab-pane active">
@@ -76,6 +79,31 @@ $salt_set = (bool) ( $config['hash_salt_set'] ?? false );
 					<p class="fs-field__desc">Универсальный код для обхода OTP-проверки (для поддержки учеников без доступа к email).</p>
 				</div>
 
+			</div>
+		</div>
+
+		<!-- ======== Оформление ======== -->
+		<div class="fs-card fs-card--flat">
+			<div class="fs-card__header">
+				<h2 class="fs-card__title">Оформление</h2>
+			</div>
+			<div class="fs-card__body">
+				<div class="fs-field">
+					<span class="fs-field__label">Логотип личного кабинета</span>
+					<div class="fs-field__control fs-config-logo">
+						<input type="hidden" name="brand_logo_id" id="fs-config-logo-id" value="<?php echo esc_attr( (string) $logo_id ); ?>">
+						<img
+							src="<?php echo esc_url( $logo_url ); ?>"
+							alt=""
+							class="fs-config-logo__preview"
+							id="fs-config-logo-preview"
+							<?php echo '' === $logo_url ? 'hidden' : ''; ?>
+						/>
+						<button type="button" class="button js-brand-logo-pick">Выбрать из медиатеки</button>
+						<button type="button" class="button js-brand-logo-clear" <?php echo $logo_id > 0 ? '' : 'hidden'; ?>>Убрать</button>
+					</div>
+					<p class="fs-field__desc">Показывается в шапке личного кабинета вместо стандартного знака. Пусто — используется знак по умолчанию.</p>
+				</div>
 			</div>
 			<?php if ( $otp['editable'] || $test_env['editable'] ) : ?>
 				<div class="fs-card__footer">

@@ -57,8 +57,8 @@ class WorkCallbacks extends BaseController {
 		$this->authorize( Nonce::AuthorWork, Capability::AuthorLmsCourses );
 
 		$subject_key = $this->requireKey( 'subject_key' );
-		$task_type   = (int) ( $_POST['task_type'] ?? 0 );
-		$collection  = (int) ( $_POST['collection'] ?? 0 );
+		$task_type   = $this->sanitizeInt( 'task_type' );
+		$collection  = $this->sanitizeInt( 'collection' );
 		$scope       = $this->sanitizeKey( 'scope' );
 		$search      = $this->sanitizeText( 'search' );
 
@@ -79,7 +79,7 @@ class WorkCallbacks extends BaseController {
 		$this->authorize( Nonce::AuthorWork, Capability::AuthorLmsCourses );
 
 		$subject_key = $this->requireKey( 'subject_key' );
-		$collection  = (int) ( $_POST['collection'] ?? 0 );
+		$collection  = $this->sanitizeInt( 'collection' );
 		$scope       = $this->sanitizeKey( 'scope' );
 		$search      = $this->sanitizeText( 'search' );
 

@@ -11,6 +11,10 @@
 	background: $color-bg-modal; border: 1px solid $color-border-input; border-radius: rem(9);
 	box-shadow: $shadow-cb-popover; padding: $spacing-sm; width: rem(240);
 
+	// Флип вверх относительно якоря (placement: 'above') — константный сдвиг,
+	// JS только вешает класс; top/left остаются инлайновой геометрией.
+	&.is-above { transform: translateY(calc(-100% - #{rem(6)})); }
+
 	.sp-title { @include cb-eyebrow($font-size-code); padding: rem(6) $spacing-sm $spacing-sm; }
 
 	.sp-option {

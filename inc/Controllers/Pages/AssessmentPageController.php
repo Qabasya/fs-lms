@@ -12,6 +12,7 @@ use Inc\Managers\Assessment\AssessmentManager;
 use Inc\Services\Assessment\AttemptPageService;
 use Inc\Services\Subject\PostTypeResolver;
 use Inc\Services\Shared\ThemeCompatService;
+use Inc\Shared\Traits\Sanitizer;
 
 /**
  * Class AssessmentPageController
@@ -38,6 +39,8 @@ use Inc\Services\Shared\ThemeCompatService;
  * @package Inc\Controllers\Pages
  */
 class AssessmentPageController extends BaseController implements ServiceInterface {
+
+	use Sanitizer;
 
 	/**
 	 * WP filter: выбор шаблона-рендерера плеера экзамена (T7.19).
@@ -202,8 +205,8 @@ class AssessmentPageController extends BaseController implements ServiceInterfac
 	 * см. `partials/step-assessment.php`), иначе — на `/profile/`.
 	 */
 	private function resolveBackUrl(): string {
-		$fromGid = isset( $_GET['from_gid'] ) ? absint( wp_unslash( $_GET['from_gid'] ) ) : 0; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-		$fromGl  = isset( $_GET['from_gl'] ) ? absint( wp_unslash( $_GET['from_gl'] ) ) : 0; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$fromGid = $this->sanitizeGetInt( 'from_gid' );
+		$fromGl  = $this->sanitizeGetInt( 'from_gl' );
 
 		if ( $fromGid > 0 && $fromGl > 0 ) {
 			return PageRoutes::LessonPlayer->lessonUrl( $fromGid, $fromGl );

@@ -8,6 +8,7 @@ use Inc\Core\BaseController;
 use Inc\Enums\Wp\Nonce;
 use Inc\Modules\SmartCaptcha\Callbacks\SmartCaptchaSettingsCallbacks;
 use Inc\Modules\SmartCaptcha\Config\SmartCaptchaConfig;
+use Inc\Shared\Traits\Sanitizer;
 
 /**
  * Class SmartCaptchaSettingsController
@@ -22,6 +23,8 @@ use Inc\Modules\SmartCaptcha\Config\SmartCaptchaConfig;
  * @package Inc\Modules\SmartCaptcha\Controllers
  */
 class SmartCaptchaSettingsController extends BaseController {
+
+	use Sanitizer;
 
 	/** Собственное имя AJAX-действия (вне core AjaxHook — изоляция). */
 	public const SAVE_ACTION = 'fs_lms_smart_captcha_save';
@@ -78,7 +81,7 @@ class SmartCaptchaSettingsController extends BaseController {
 	}
 
 	public function enqueueAssets( string $hook ): void {
-		if ( 'fs_lms_settings' !== sanitize_key( wp_unslash( $_GET['page'] ?? '' ) ) ) {
+		if ( 'fs_lms_settings' !== $this->sanitizeGetKey( 'page' ) ) {
 			return;
 		}
 

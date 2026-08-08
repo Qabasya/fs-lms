@@ -45,6 +45,20 @@
   &--err { color: $color-danger; }
 }
 
+// ── Логотип кабинета (Оформление)
+.fs-config-logo {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+
+  &__preview {
+    max-height: rem(40);
+    max-width: rem(120);
+    border: 1px solid $color-border-footer;
+    border-radius: $border-radius-sm;
+  }
+}
+
 // ── Строки ключей шифрования
 .fs-config-key-row {
   padding: $spacing-lg 0;

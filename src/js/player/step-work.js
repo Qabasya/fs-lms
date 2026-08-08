@@ -84,7 +84,7 @@ function mountWork( panel, root ) {
 		const txt = root.querySelector( '[data-work-prog-txt]' );
 		const bar = root.querySelector( '[data-work-prog-bar]' );
 		if ( txt ) { txt.textContent = `Отвечено ${ n } из ${ cards.length }`; }
-		if ( bar ) { bar.style.width = cards.length ? `${ ( n / cards.length ) * 100 }%` : '0%'; }
+		if ( bar ) { bar.style.setProperty( '--progress', cards.length ? `${ ( n / cards.length ) * 100 }%` : '0%' ); }
 	}
 
 	updateProgress();

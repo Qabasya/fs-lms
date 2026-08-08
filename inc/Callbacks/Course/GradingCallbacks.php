@@ -92,8 +92,8 @@ class GradingCallbacks extends BaseController {
 		$this->authorize( Nonce::GradeWork, Capability::ManageLmsTeaching );
 
 		$submissionId = $this->requireInt( 'submission_id' );
-		$score        = (float) ( $_POST['score'] ?? 0 );
-		$maxScore     = (float) ( $_POST['max_score'] ?? 100 );
+		$score        = $this->sanitizeFloat( 'score' );
+		$maxScore     = $this->sanitizeFloat( 'max_score', 'POST', 100.0 );
 		$feedback     = $this->sanitizeText( 'feedback' );
 
 		$sub = $this->submissionRepo->find( $submissionId );

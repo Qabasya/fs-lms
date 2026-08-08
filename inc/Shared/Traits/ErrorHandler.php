@@ -1,5 +1,7 @@
 <?php
 
+declare( strict_types=1 );
+
 namespace Inc\Shared\Traits;
 
 use Inc\Enums\Access\Capability;
