@@ -20,7 +20,7 @@ readonly class ArticleNavigationDTO {
 	/**
 	 * @param AdjacentArticleDTO|null $prev         Предыдущая статья серии; null — текущая первая.
 	 * @param AdjacentArticleDTO|null $next         Следующая статья серии; null — текущая последняя.
-	 * @param string                  $textbook_url Ссылка на учебник (архив статей предмета).
+	 * @param string                  $textbook_url Ссылка на учебник предмета.
 	 * @param int                     $position     Номер текущей статьи в серии, с единицы.
 	 * @param int                     $total        Сколько всего статей в серии.
 	 */

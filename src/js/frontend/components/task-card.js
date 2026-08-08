@@ -4,7 +4,7 @@ import { escapeHtml as esc } from '../../common/utils.js';
 /**
  * Строит HTML-строку карточки задания для вставки в DOM.
  *
- * Разметка зеркалит SSR-шаблон all-tasks.php — тот же DOM, чтобы работали
+ * Разметка зеркалит SSR-партиал all-tasks-body.php — тот же DOM, чтобы работали
  * общий CSS, bindAnswerToggle (кнопка «Ответ») и делегирование .js-tag-filter.
  * Не обращается к DOM — только строит строку.
  *

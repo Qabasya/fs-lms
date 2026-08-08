@@ -7,17 +7,14 @@ namespace Inc\Callbacks\Task;
 use Inc\Controllers\Builders\AllTasksDataBuilder;
 use Inc\Core\BaseController;
 use Inc\Enums\Wp\Nonce;
-use Inc\Services\Subject\PostTypeResolver;
+use Inc\Services\Task\TaskFilterParser;
 use Inc\Shared\Traits\Sanitizer;
 
 /**
  * Class AllTasksCallbacks
  *
- * Коллбеки публичной страницы «Все задания» (тренажёр).
- *
- * Обрабатывает:
- *   1. Подмену шаблона WordPress на архиве CPT заданий (template_include).
- *   2. AJAX-подгрузку отфильтрованного постраничного списка заданий.
+ * AJAX-подгрузка отфильтрованного постраничного списка заданий для тренажёра
+ * (первичный рендер собирает SubjectLandingController).
  *
  * Публичный доступ (nopriv): capability не проверяется, только nonce.
  *
@@ -29,50 +26,9 @@ class AllTasksCallbacks extends BaseController {
 
 	public function __construct(
 		private readonly AllTasksDataBuilder $builder,
+		private readonly TaskFilterParser    $filters,
 	) {
 		parent::__construct();
-	}
-
-	/**
-	 * Подключает кастомный шаблон архива заданий предмета.
-	 *
-	 * Срабатывает на фильтре template_include, заменяет шаблон темы только на
-	 * архивных страницах CPT вида {subject}_tasks.
-	 *
-	 * @param string $template Путь к текущему шаблону.
-	 *
-	 * @return string
-	 */
-	public function loadAllTasksTemplate( string $template ): string {
-		if ( ! is_post_type_archive() ) {
-			return $template;
-		}
-
-		$queried = get_queried_object();
-
-		if ( ! ( $queried instanceof \WP_Post_Type ) ) {
-			return $template;
-		}
-
-		if ( ! PostTypeResolver::isTaskPostType( $queried->name ) ) {
-			return $template;
-		}
-
-		$custom_template = FS_LMS_PATH . 'templates/frontend/all-tasks.php';
-
-		if ( ! file_exists( $custom_template ) ) {
-			return $template;
-		}
-
-		$subject_key = PostTypeResolver::subjectFromTaskPostType( $queried->name );
-
-		// Фильтры могут прийти в URL (клик по тегу на странице задания) — тем же
-		// форматом filters[<taxonomy>][]=<term>, что и в AJAX-подгрузке.
-		$selected = $this->parseTaxonomyFilters( 'GET' );
-
-		set_query_var( 'fs_all_tasks_data', $this->builder->getPageData( $subject_key, $selected ) );
-
-		return $custom_template;
 	}
 
 	/**
@@ -98,7 +54,7 @@ class AllTasksCallbacks extends BaseController {
 
 		$filters = array(
 			'search'     => $this->sanitizeText( 'search' ),
-			'taxonomies' => $this->parseTaxonomyFilters(),
+			'taxonomies' => $this->filters->fromRequest(),
 		);
 
 		[ $tasks, $total ] = $this->builder->fetchTasks( $subject_key, $filters, $offset, $per_page );
@@ -114,38 +70,5 @@ class AllTasksCallbacks extends BaseController {
 			// текущий срез. При догрузке страницы срез тот же — не пересылаем.
 			'filters'  => 0 === $offset ? $this->builder->buildFilters( $subject_key, $filters ) : null,
 		) );
-	}
-
-	/**
-	 * Разбирает и санитизирует карту фильтров: [taxonomy_slug => term_slugs].
-	 *
-	 * @param string $source Источник данных: 'POST' (AJAX) или 'GET' (ссылка-фильтр).
-	 *
-	 * @return array<string, string[]>
-	 */
-	private function parseTaxonomyFilters( string $source = 'POST' ): array {
-		$raw = $this->unslashArray( 'filters', $source );
-
-		if ( ! is_array( $raw ) ) {
-			return array();
-		}
-
-		$result = array();
-
-		foreach ( $raw as $taxonomy => $slugs ) {
-			$tax = $this->sanitizeKeyValue( $taxonomy );
-
-			if ( '' === $tax || ! is_array( $slugs ) ) {
-				continue;
-			}
-
-			$clean = array_values( array_filter( array_map( 'sanitize_key', $slugs ) ) );
-
-			if ( ! empty( $clean ) ) {
-				$result[ $tax ] = $clean;
-			}
-		}
-
-		return $result;
 	}
 }

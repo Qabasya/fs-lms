@@ -4,6 +4,8 @@ declare( strict_types=1 );
 
 namespace Inc\Controllers\Builders;
 
+use Inc\DTO\Subject\SubjectLinksDTO;
+
 /**
  * Class BreadcrumbsBuilder
  *
@@ -25,22 +27,21 @@ readonly class BreadcrumbsBuilder {
 	public const MATERIALS_LABEL = 'Учебник';
 
 	/**
-	 * Крошки архива заданий: предмет / Тренажёр.
+	 * Крошки тренажёра: предмет / Тренажёр.
 	 *
-	 * Собственной страницы у предмета нет, поэтому крошка предмета ведёт на
-	 * архив заданий — так же, как на странице одного задания. Текущая крошка
+	 * Крошка предмета ведёт на его корневую страницу. Текущая крошка
 	 * («Тренажёр») ссылкой не становится: это текущая страница.
 	 *
-	 * @param string $subject_name Название предмета.
-	 * @param string $archive_url  Ссылка на архив заданий предмета.
+	 * @param string           $subject_name Название предмета.
+	 * @param SubjectLinksDTO  $links        Ссылки на разделы предмета.
 	 *
 	 * @return array<int, array<string, mixed>>
 	 */
-	public function forArchive( string $subject_name, string $archive_url = '' ): array {
+	public function forArchive( string $subject_name, SubjectLinksDTO $links = new SubjectLinksDTO() ): array {
 		$crumbs = array();
 
 		if ( '' !== $subject_name ) {
-			$crumbs[] = $this->crumb( $subject_name, $archive_url );
+			$crumbs[] = $this->crumb( $subject_name, $links->subject );
 		}
 
 		$crumbs[] = $this->crumb( self::TRAINER_LABEL, '', true );
@@ -51,17 +52,17 @@ readonly class BreadcrumbsBuilder {
 	/**
 	 * Крошки страницы задания: предмет / Тренажёр / тип задания / задание.
 	 *
-	 * @param string $subject_name Название предмета.
-	 * @param string $archive_url  Ссылка на архив заданий предмета.
-	 * @param string $type_label   Подпись типа задания (пустая — крошка пропускается).
-	 * @param string $type_url     Ссылка на архив типа задания.
-	 * @param string $task_label   Заголовок задания (текущая крошка).
+	 * @param string          $subject_name Название предмета.
+	 * @param SubjectLinksDTO $links        Ссылки на разделы предмета.
+	 * @param string          $type_label   Подпись типа задания (пустая — крошка пропускается).
+	 * @param string          $type_url     Тренажёр с предвыбранным типом задания.
+	 * @param string          $task_label   Заголовок задания (текущая крошка).
 	 *
 	 * @return array<int, array<string, mixed>>
 	 */
 	public function forTask(
 		string $subject_name,
-		string $archive_url,
+		SubjectLinksDTO $links,
 		string $type_label,
 		string $type_url,
 		string $task_label
@@ -69,10 +70,10 @@ readonly class BreadcrumbsBuilder {
 		$crumbs = array();
 
 		if ( '' !== $subject_name ) {
-			$crumbs[] = $this->crumb( $subject_name, $archive_url );
+			$crumbs[] = $this->crumb( $subject_name, $links->subject );
 		}
 
-		$crumbs[] = $this->crumb( self::TRAINER_LABEL, $archive_url );
+		$crumbs[] = $this->crumb( self::TRAINER_LABEL, $links->trainer );
 
 		if ( '' !== $type_label ) {
 			$crumbs[] = $this->crumb( $type_label, $type_url );
@@ -88,29 +89,20 @@ readonly class BreadcrumbsBuilder {
 	/**
 	 * Крошки страницы статьи: предмет / Учебник / заголовок.
 	 *
-	 * Крошка предмета ведёт туда же, куда со страницы задания — на архив
-	 * заданий: собственной страницы у предмета нет.
-	 *
-	 * @param string $subject_name         Название предмета.
-	 * @param string $tasks_archive_url    Ссылка на архив заданий предмета.
-	 * @param string $articles_archive_url Ссылка на архив статей предмета.
-	 * @param string $article_label        Заголовок статьи (текущая крошка).
+	 * @param string          $subject_name  Название предмета.
+	 * @param SubjectLinksDTO $links         Ссылки на разделы предмета.
+	 * @param string          $article_label Заголовок статьи (текущая крошка).
 	 *
 	 * @return array<int, array<string, mixed>>
 	 */
-	public function forArticle(
-		string $subject_name,
-		string $tasks_archive_url,
-		string $articles_archive_url,
-		string $article_label
-	): array {
+	public function forArticle( string $subject_name, SubjectLinksDTO $links, string $article_label ): array {
 		$crumbs = array();
 
 		if ( '' !== $subject_name ) {
-			$crumbs[] = $this->crumb( $subject_name, $tasks_archive_url );
+			$crumbs[] = $this->crumb( $subject_name, $links->subject );
 		}
 
-		$crumbs[] = $this->crumb( self::MATERIALS_LABEL, $articles_archive_url );
+		$crumbs[] = $this->crumb( self::MATERIALS_LABEL, $links->textbook );
 
 		if ( '' !== $article_label ) {
 			$crumbs[] = $this->crumb( $article_label, '', true );

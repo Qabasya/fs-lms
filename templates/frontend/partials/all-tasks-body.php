@@ -1,10 +1,13 @@
 <?php
 /**
- * Страница «Все задания» (архив CPT {subject}_tasks).
+ * Тело страницы «Все задания» (тренажёр предмета).
  *
  * SSR-разметка первой страницы + точки монтирования для AllTasksPage (JS):
  * динамические группы фильтров-таксономий, карточки заданий, поиск,
  * infinite-scroll. Данные — AllTasksPageDTO из AllTasksDataBuilder.
+ *
+ * Выводится разделом «Тренажёр» лендинга предмета (`subject/trainer.php`);
+ * JS-зеркало карточки — `components/task-card.js`.
  *
  * @var \Inc\DTO\Task\AllTasksPageDTO $page_data
  *
@@ -16,19 +19,13 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 use Inc\Enums\Ui\Icon;
-use Inc\Services\Shared\Pluralizer;
-use Inc\Services\Shared\ThemeCompatService;
 
-/** @var \Inc\DTO\Task\AllTasksPageDTO $page_data */
-$page_data   = get_query_var( 'fs_all_tasks_data' );
 $subject_key = $page_data->subject_key;
 $total       = $page_data->total;
 
 // Пришли ли фильтры в URL (клик по тегу на странице задания): от этого зависит
 // раскрытие секций сайдбара, бейджи и доступность кнопки «Сбросить».
 $has_selected = (bool) array_sum( array_column( $page_data->filters, 'active' ) );
-
-ThemeCompatService::header();
 ?>
 
 <div class="fs-page-wrapper fs-all-tasks-page"
@@ -44,7 +41,7 @@ ThemeCompatService::header();
 		<div class="crumbs-row">
 			<?php
 			$crumbs = $page_data->breadcrumbs;
-			include __DIR__ . '/partials/breadcrumbs.php';
+			include __DIR__ . '/breadcrumbs.php';
 			?>
 
 			<div class="toolbar-search js-search">
@@ -56,8 +53,11 @@ ThemeCompatService::header();
 				</button>
 				<input class="toolbar-search-input js-search-input"
 					type="search"
-					placeholder="Найти задание по номеру или фрагменту условия…"
+					placeholder="Номер или фрагмент условия…"
 					aria-label="Поиск" />
+				<button type="button" class="toolbar-search-clear js-search-clear" aria-label="Очистить поиск" hidden>
+					<?php echo Icon::Cross->svg( 12 ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+				</button>
 			</div>
 		</div>
 
@@ -107,8 +107,9 @@ ThemeCompatService::header();
 
 				<?php
 				// Курсы предмета — общий со страницей задания партиал; нет курсов, нет блока.
-				$sidebar_courses = $page_data->courses;
-				include __DIR__ . '/partials/sidebar-courses.php';
+				$sidebar_courses     = $page_data->courses;
+				$sidebar_courses_url = $page_data->courses_url;
+				include __DIR__ . '/sidebar-courses.php';
 				?>
 
 				<?php
@@ -116,7 +117,7 @@ ThemeCompatService::header();
 				// (добор свежими до лимита). Список перерисовывает JS при смене фильтров.
 				$sidebar_articles     = $page_data->articles;
 				$sidebar_articles_url = $page_data->articles_url;
-				include __DIR__ . '/partials/sidebar-articles.php';
+				include __DIR__ . '/sidebar-articles.php';
 				?>
 
 			</aside>
@@ -240,5 +241,3 @@ ThemeCompatService::header();
 		<?php echo Icon::ChevronDown->svg( 18 ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
 	</button>
 </div>
-
-<?php ThemeCompatService::footer(); ?>

@@ -17,6 +17,7 @@ use Inc\Services\Course\PublicCourseService;
 use Inc\Services\Shared\Pluralizer;
 use Inc\Services\Subject\ArticleService;
 use Inc\Services\Subject\PostTypeResolver;
+use Inc\Services\Subject\SubjectPagesService;
 use Inc\Services\Subject\TagPaletteService;
 use Inc\Services\Task\TaskMetaService;
 use Inc\Shared\PluginLogger;
@@ -59,6 +60,7 @@ readonly class AllTasksDataBuilder {
 		private ArticleService     $article_service,
 		private PublicCourseService $course_service,
 		private TagPaletteService  $tag_palette,
+		private SubjectPagesService $subject_pages,
 	) {}
 
 	/**
@@ -73,19 +75,20 @@ readonly class AllTasksDataBuilder {
 		$subject      = $this->subject_repository->getByKey( $subject_key );
 		$subject_name = $subject?->name ?? $subject_key;
 
-		$filters     = array( 'taxonomies' => $selected );
-		$archive_url = $this->post_manager->getArchiveLink( PostTypeResolver::tasks( $subject_key ) );
+		$filters = array( 'taxonomies' => $selected );
+		$links   = $this->subject_pages->links( $subject_key );
 
 		[ $tasks, $total ] = $this->fetchTasks( $subject_key, $filters, 0, self::PER_PAGE );
 
 		return new AllTasksPageDTO(
 			subject_key:  $subject_key,
 			subject_name: $subject_name,
-			breadcrumbs:  $this->breadcrumbs_builder->forArchive( $subject_name, $archive_url ),
+			breadcrumbs:  $this->breadcrumbs_builder->forArchive( $subject_name, $links ),
 			filters:      $this->buildFilters( $subject_key, $filters ),
 			articles:     $this->fetchArticles( $subject_key, $selected ),
-			articles_url: $this->post_manager->getArchiveLink( PostTypeResolver::articles( $subject_key ) ),
+			articles_url: $links->textbook,
 			courses:      $this->course_service->getSidebarCourses( $subject_key ),
+			courses_url:  $links->courses,
 			tasks:        $tasks,
 			total:        $total,
 			per_page:     self::PER_PAGE,

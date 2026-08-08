@@ -13,7 +13,20 @@ export function initSearchBox() {
 
     const toggle = box.querySelector('.js-search-toggle');
     const input  = box.querySelector('.js-search-input');
+    const clear  = box.querySelector('.js-search-clear');
     if (!toggle || !input) return;
+
+    // Крестик очистки — свой, родной у input[type=search] скрыт стилями.
+    const syncClear = () => {
+        if (clear) clear.hidden = input.value === '';
+    };
+
+    const reset = () => {
+        input.value = '';
+        // Событие input — чтобы AllTasksPage сбросил поисковый фильтр.
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        syncClear();
+    };
 
     const open = () => {
         box.classList.add('is-open');
@@ -38,15 +51,24 @@ export function initSearchBox() {
         }
     });
 
+    input.addEventListener('input', syncClear);
+
     input.addEventListener('keydown', e => {
         if (e.key !== 'Escape') return;
 
-        // Событие input — чтобы AllTasksPage сбросил поисковый фильтр.
-        input.value = '';
-        input.dispatchEvent(new Event('input', { bubbles: true }));
+        reset();
         input.blur();
         close();
     });
+
+    if (clear) {
+        clear.addEventListener('click', () => {
+            reset();
+            input.focus();
+        });
+    }
+
+    syncClear();
 
     document.addEventListener('click', e => {
         if (!box.contains(e.target)) close();

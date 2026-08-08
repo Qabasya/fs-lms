@@ -18,6 +18,7 @@ use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Services\Deletion\DeleteSubjectEvent;
 use Inc\Services\Deletion\DeletionEventDispatcher;
 use Inc\Services\Subject\SubjectArchiveGuard;
+use Inc\Services\Subject\SubjectPagesService;
 use Inc\Shared\Traits\Authorizer;
 use Inc\Shared\Traits\Sanitizer;
 use Inc\Shared\Traits\TaxonomySeeder;
@@ -56,6 +57,7 @@ class SubjectCrudCallbacks extends BaseController {
 		private readonly LogEventDispatcherInterface $logEvents,
 		private readonly GroupsRepository            $groups,
 		private readonly SubjectArchiveGuard         $archiveGuard,
+		private readonly SubjectPagesService         $pages,
 	) {
 		parent::__construct();
 	}
@@ -83,7 +85,8 @@ class SubjectCrudCallbacks extends BaseController {
 		$hasBank = $count > 0;
 
 		// Сохранение предмета через репозиторий
-		$result = $this->subjects->save( new SubjectDTO( $key, $name, hasBank: $hasBank ) );
+		$subject = new SubjectDTO( $key, $name, hasBank: $hasBank );
+		$result  = $this->subjects->save( $subject );
 
 		// seedTaskNumbers() — создаёт термины таксономии (1, 2, 3... $count); для безбанкового
 		// предмета таксономии task_number не существует (SubjectController её не регистрирует).
@@ -92,6 +95,10 @@ class SubjectCrudCallbacks extends BaseController {
 		}
 
 		if ( $result ) {
+			// Публичный лендинг предмета: страницы разделов заводятся сразу,
+			// их состав зависит от наличия банка (SubjectPageType::forSubject).
+			$this->pages->ensureForSubject( $subject );
+
 			// flush_rewrite_rules() — перестраивает правила ЧПУ после регистрации новых CPT/таксономий
 			flush_rewrite_rules();
 			$this->logEvents->dispatch(
@@ -127,14 +134,19 @@ class SubjectCrudCallbacks extends BaseController {
 
 		// archived/hasBank переносим из текущей записи — это не форма переименования
 		// этих флагов, их меняют отдельные действия (toggle-архив, только при создании).
-		$result = $this->subjects->save( new SubjectDTO(
+		$subject = new SubjectDTO(
 			key:      $key,
 			name:     $name,
 			archived: $oldSubject?->archived ?? false,
 			hasBank:  $oldSubject?->hasBank ?? true,
-		) );
+		);
+
+		$result = $this->subjects->save( $subject );
 
 		if ( $result ) {
+			// Заголовки страниц лендинга следуют за названием; слаги неизменны.
+			$this->pages->renameForSubject( $subject );
+
 			$this->logEvents->dispatch(
 				LogEvent::SubjectUpdated,
 				new EntityChangedEvent( get_current_user_id(), OperationType::Update, EntityType::Subject, $key, $oldLabel )

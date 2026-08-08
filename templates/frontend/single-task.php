@@ -48,7 +48,8 @@ ThemeCompatService::header();
 
 				<?php
 				// Курсы предмета — общий партиал; нет опубликованных курсов, нет блока.
-				$sidebar_courses = $task_data->courses;
+				$sidebar_courses     = $task_data->courses;
+				$sidebar_courses_url = $task_data->courses_url;
 				include __DIR__ . '/partials/sidebar-courses.php';
 				?>
 
@@ -177,10 +178,10 @@ ThemeCompatService::header();
 
 					<!-- Табы -->
 					<?php if ( ! empty( $tabs ) || '' !== $content->answer ) : ?>
-						<?php // При открытии страницы все табы закрыты — панель раскрывает клик (task-tabs.js). ?>
+						<?php ?>
 						<div class="fs-task-tabs">
 							<div class="fs-tabs-toolbar">
-								<?php // Ответ — тот же блок, что в карточке списка: кнопка + панель по aria-controls. ?>
+								<?php ?>
 								<?php if ( '' !== $content->answer ) : ?>
 									<button type="button" class="fs-answer-toggle js-answer-toggle"
 										aria-expanded="false" aria-controls="fs-answer-<?php echo esc_attr( (string) ( $task_post?->id ?? 0 ) ); ?>">Показать ответ</button>
@@ -219,7 +220,7 @@ ThemeCompatService::header();
 										aria-labelledby="fs-tab-<?php echo esc_attr( $tab->id ); ?>"
 										data-panel="<?php echo esc_attr( $tab->id ); ?>">
 										<?php if ( $tab->is_code ) : ?>
-											<?php // Редактор с подсветкой собирает code-block.js по хуку .js-code. ?>
+											<?php ?>
 											<pre><code class="js-code" data-lang="<?php echo esc_attr( $tab->lang ); ?>"><?php echo esc_html( $tab->content ); ?></code></pre>
 										<?php else : ?>
 											<?php echo wp_kses_post( $tab->content ); ?>

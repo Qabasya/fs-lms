@@ -16,7 +16,7 @@ readonly class NavigationDTO {
 	/**
 	 * @param array                $breadcrumbs Плоский список крошек от BreadcrumbsBuilder
 	 *                                          для общего партиала partials/breadcrumbs.php.
-	 * @param string               $archive_url Ссылка на «Все задания» предмета.
+	 * @param string               $archive_url Ссылка на тренажёр предмета («Все задания»).
 	 * @param AdjacentTaskDTO|null $prev        Предыдущее задание.
 	 * @param AdjacentTaskDTO|null $next        Следующее задание.
 	 */

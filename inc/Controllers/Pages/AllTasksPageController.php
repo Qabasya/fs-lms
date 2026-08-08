@@ -15,8 +15,8 @@ use Inc\Services\Task\TaskSearchIndexer;
  *
  * Контроллер публичной страницы «Все задания» (тренажёр).
  *
- * Регистрирует:
- *   - template_include — подмена шаблона на архиве CPT {subject}_tasks;
+ * Саму страницу рендерит SubjectLandingController (раздел лендинга предмета),
+ * здесь — её серверная обвязка. Регистрирует:
  *   - AJAX-хук постраничной подгрузки/фильтрации заданий (priv + nopriv);
  *   - обновление поискового индекса задания (post_content) при сохранении меты.
  *
@@ -32,8 +32,6 @@ class AllTasksPageController extends BaseController implements ServiceInterface 
 	}
 
 	public function register(): void {
-		add_filter( 'template_include', array( $this->callbacks, 'loadAllTasksTemplate' ) );
-
 		add_action(
 			AjaxHook::FetchAllTasks->action(),
 			array( $this->callbacks, AjaxHook::FetchAllTasks->callbackMethod() )

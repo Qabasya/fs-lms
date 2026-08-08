@@ -86,7 +86,8 @@ ThemeCompatService::header();
 
 					<?php if ( ! empty( $courses ) ) : ?>
 						<?php
-						$sidebar_courses = $courses;
+						$sidebar_courses     = $courses;
+						$sidebar_courses_url = $article_data->courses_url;
 						include __DIR__ . '/partials/sidebar-courses.php';
 						?>
 					<?php endif; ?>
