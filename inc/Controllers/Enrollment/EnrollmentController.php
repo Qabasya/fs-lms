@@ -6,9 +6,12 @@ namespace Inc\Controllers\Enrollment;
 
 use Inc\Controllers\System\AjaxController;
 
-use Inc\Callbacks\Enrollment\EnrollmentCallbacks;
+use Inc\Callbacks\Enrollment\ApplicationDataCallbacks;
+use Inc\Callbacks\Enrollment\ApplicationTrashCallbacks;
+use Inc\Callbacks\Enrollment\EnrollmentLifecycleCallbacks;
+use Inc\Callbacks\Enrollment\ParentLinkCallbacks;
+use Inc\Callbacks\Enrollment\UserCredentialsCallbacks;
 use Inc\Enums\Wp\AjaxHook;
-use Inc\Enums\Access\Capability;
 
 /**
  * Class EnrollmentController
@@ -19,28 +22,27 @@ use Inc\Enums\Access\Capability;
  *
  * ### Основные обязанности:
  *
- * 1. **Регистрация административных страниц** — добавление скрытой страницы карточки заявки.
- * 2. **AJAX-обработчики** — регистрация хуков для операций с заявками (зачисление, отклонение, корзина).
+ * 1. **AJAX-обработчики** — регистрация хуков для операций с заявками
+ *    (зачисление, корзина, правка данных, родители, креды).
  *
  * ### Архитектурная роль:
  *
- * Наследует AjaxController для регистрации AJAX-хуков.
- * Делегирует бизнес-логику EnrollmentCallbacks.
+ * Наследует AjaxController для регистрации AJAX-хуков. После распила Т14.2
+ * делегирует пяти доменным Callbacks-классам: жизненный цикл зачисления,
+ * данные заявки (PII), корзина, связка с родителями, учётные данные.
  *
  * ### Примечания:
  *
  * - Список заявок (таб "Заявки") находится на странице "Пользователи" (?page=fs_lms_userlist&tab=tab-1)
- * - Для отображения карточки заявки создаётся скрытая подстраница (parent_slug = null)
  */
 class EnrollmentController extends AjaxController {
 
-	/**
-	 * Конструктор контроллера.
-	 *
-	 * @param EnrollmentCallbacks $callbacks Коллбеки для операций с заявками и зачислением
-	 */
 	public function __construct(
-		private readonly EnrollmentCallbacks $callbacks,
+		private readonly EnrollmentLifecycleCallbacks $lifecycle,
+		private readonly ApplicationDataCallbacks     $data,
+		private readonly ApplicationTrashCallbacks    $trash,
+		private readonly ParentLinkCallbacks          $parents,
+		private readonly UserCredentialsCallbacks     $credentials,
 	) {
 		parent::__construct();
 	}
@@ -62,40 +64,32 @@ class EnrollmentController extends AjaxController {
 	 */
 	protected function ajaxActions(): array {
 		return array(
-			// Зачисление студента
-			array( AjaxHook::EnrollStudent, $this->callbacks ),
-			// Перемещение заявки в корзину
-			array( AjaxHook::MoveApplicationToTrash, $this->callbacks ),
-			// Восстановление заявки из корзины
-			array( AjaxHook::RestoreApplicationFromTrash, $this->callbacks ),
-			// Очистка корзины (физическое удаление всех заявок со статусом Trash)
-			array( AjaxHook::EmptyApplicationsTrash, $this->callbacks ),
-			// Постоянное удаление одной заявки из корзины
-			array( AjaxHook::DeleteApplication, $this->callbacks ),
-			// Редактирование данных заявки
-			array( AjaxHook::UpdateApplicationData, $this->callbacks ),
-			// Редактирование данных заявки на проверке (ReadyForReview)
-			array( AjaxHook::UpdateReviewData, $this->callbacks ),
-			// Начало зачисления (ReadyForReview → Enrolling)
-			array( AjaxHook::StartEnrollment, $this->callbacks ),
-			// Отмена зачисления (Enrolling → ReadyForReview)
-			array( AjaxHook::CancelEnrollment, $this->callbacks ),
-			// Получение данных заявки (расшифрованных)
-			array( AjaxHook::GetApplicationData, $this->callbacks ),
-			// Получение групп по периоду и предмету
-			array( AjaxHook::GetStudentGroups, $this->callbacks ),
-			// Показать логин и пароль пользователя (расшифровать из user meta)
-			array( AjaxHook::RevealUserCredentials, $this->callbacks ),
-			// Сгенерировать новый пароль (если старый был сменён вручную)
-			array( AjaxHook::RegenerateUserPassword, $this->callbacks ),
-			// Восстановить ученика из архива (событие 2A / 4B)
-			array( AjaxHook::RestoreFromArchive, $this->callbacks ),
-			// Назначить существующего родителя к заявке (событие 3B / 4B)
-			array( AjaxHook::SelectExistingParent, $this->callbacks ),
-			// Снять назначение родителя с заявки
-			array( AjaxHook::RemoveParentAssignment, $this->callbacks ),
-			// Поиск родителей для модалки выбора
-			array( AjaxHook::SearchParents, $this->callbacks ),
+			// ── Жизненный цикл зачисления ──
+			array( AjaxHook::EnrollStudent, $this->lifecycle ),
+			array( AjaxHook::StartEnrollment, $this->lifecycle ),
+			array( AjaxHook::CancelEnrollment, $this->lifecycle ),
+			array( AjaxHook::RestoreFromArchive, $this->lifecycle ),
+			array( AjaxHook::GetStudentGroups, $this->lifecycle ),
+
+			// ── Данные заявки (PII) ──
+			array( AjaxHook::UpdateApplicationData, $this->data ),
+			array( AjaxHook::UpdateReviewData, $this->data ),
+			array( AjaxHook::GetApplicationData, $this->data ),
+
+			// ── Корзина заявок ──
+			array( AjaxHook::MoveApplicationToTrash, $this->trash ),
+			array( AjaxHook::RestoreApplicationFromTrash, $this->trash ),
+			array( AjaxHook::DeleteApplication, $this->trash ),
+			array( AjaxHook::EmptyApplicationsTrash, $this->trash ),
+
+			// ── Родители ──
+			array( AjaxHook::SelectExistingParent, $this->parents ),
+			array( AjaxHook::RemoveParentAssignment, $this->parents ),
+			array( AjaxHook::SearchParents, $this->parents ),
+
+			// ── Учётные данные ──
+			array( AjaxHook::RevealUserCredentials, $this->credentials ),
+			array( AjaxHook::RegenerateUserPassword, $this->credentials ),
 		);
 	}
 

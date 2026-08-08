@@ -1,6 +1,9 @@
 import '../_types.js';
 import { icoGrip, icoCaret, icoPlus, icoImport, icoModule, icoDuplicate, icoEye } from '../../common/icons.js';
-import { createStepEditor, esc, ajax, tmpKey, openPicker } from './step-editor.js';
+import { escapeHtml as esc } from '../modules/utils.js';
+import { openPicker } from '../modules/picker.js';
+import { createStepEditor } from './step-editor.js';
+import { ajax, tmpKey } from './step-ajax.js';
 import { createPersistence } from './course-persistence.js';
 import { showToast } from '../modules/toast.js';
 import { ConfirmModal } from '../modals/confirm-modal.js';

@@ -81,9 +81,9 @@ class ImportCallbacks extends BaseController {
 	 * @return string Путь к tmp-файлу
 	 */
 	private function validateUploadedFile(): string {
-		$file = $_FILES['file'] ?? null;
+		$file = $this->uploadedFile( 'file' );
 
-		if ( ! is_array( $file ) || ( $file['error'] ?? UPLOAD_ERR_NO_FILE ) !== UPLOAD_ERR_OK ) {
+		if ( null === $file || ( $file['error'] ?? UPLOAD_ERR_NO_FILE ) !== UPLOAD_ERR_OK ) {
 			$this->error( 'Файл не загружен или загружен с ошибкой.' );
 		}
 

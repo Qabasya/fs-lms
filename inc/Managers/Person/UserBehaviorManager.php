@@ -8,6 +8,7 @@ use Inc\Enums\Access\Capability;
 use Inc\Enums\Wp\MetaKeys;
 use Inc\Enums\Wp\PageRoutes;
 use Inc\Enums\Access\UserRole;
+use Inc\Shared\Traits\Sanitizer;
 
 /**
  * Class UserBehaviorManager
@@ -32,6 +33,8 @@ use Inc\Enums\Access\UserRole;
  * управления поведением пользователей в системе.
  */
 class UserBehaviorManager {
+
+	use Sanitizer;
 
 	/**
 	 * Конструктор менеджера.
@@ -111,7 +114,7 @@ class UserBehaviorManager {
 		// свой URL. Ядро WP само покажет экран успеха и закроет модалку; любой
 		// принудительный редирект здесь прогрузил бы полноценную админку внутрь
 		// модального окна поверх текущей страницы.
-		if ( isset( $_REQUEST['interim-login'] ) ) {
+		if ( $this->hasParam( 'interim-login', 'REQUEST' ) ) {
 			return $redirect_to;
 		}
 

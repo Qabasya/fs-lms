@@ -9,24 +9,24 @@ use Inc\Core\BaseController;
 use Inc\Enums\Access\Capability;
 use Inc\Enums\Course\BankType;
 use Inc\Enums\Wp\Menu;
-use Inc\Controllers\Builders\BankListFilters;
 use Inc\Registrars\MenuRegistrar;
 use Inc\Services\Course\TeacherSubjectsService;
 use Inc\Services\Subject\PostTypeResolver;
-use Inc\Shared\Traits\TemplateRenderer;
 
 /**
  * Class LearningMenuController
  *
- * Единое меню «Обучение» с сабменю-банками (Курсы / Уроки / Работы / Задания / Статьи).
- * Каждая страница — переключатель предметов (мягкий скоуп под предмет препода) + переход
- * на нативный экран соответствующего CPT. Сами CPT скрыты из top-level (show_in_menu=false).
+ * Единое меню «Обучение» с сабменю-банками (Курсы / Уроки / Работы / Задания / Статьи)
+ * и подсветка активного пункта на нативных экранах CPT (show_in_menu=false).
+ *
+ * После распила Т14.1 здесь ТОЛЬКО меню и подсветка (общее состояние $bank_slugs);
+ * фильтры list-table — BankListTableController, шапка/лендинги банков —
+ * BankChromeController (его колбеки регистрируются сабстраницами-фолбэками),
+ * row-actions и модалка черновика — BankRowActionsController.
  *
  * @package Inc\Controllers
  */
 class LearningMenuController extends BaseController implements ServiceInterface {
-
-	use TemplateRenderer;
 
 	/**
 	 * Слаги банков по типу (courses|lessons|works|tasks|articles): нативная таблица
@@ -45,7 +45,7 @@ class LearningMenuController extends BaseController implements ServiceInterface 
 	public function __construct(
 		private readonly MenuRegistrar          $menu_registrar,
 		private readonly TeacherSubjectsService $teacher_subjects,
-		private readonly BankListFilters        $filters,
+		private readonly BankChromeController   $chrome,
 	) {
 		parent::__construct();
 	}
@@ -58,152 +58,13 @@ class LearningMenuController extends BaseController implements ServiceInterface 
 		// Подсветка раздела «Обучение» на нативных экранах банков (CPT скрыты из меню).
 		add_filter( 'parent_file', array( $this, 'highlightLearningParent' ) );
 		add_filter( 'submenu_file', array( $this, 'highlightLearningSubmenu' ) );
-
-		// Над таблицей банка: описание + таб-бар предметов ОДНИМ блоком-нотисом.
-		// НБ-1: единый `.notice` штатный JS WP переносит под заголовок целиком, поэтому
-		// табы не «прыгают» отдельно от описания при загрузке страницы.
-		add_action( 'admin_notices', array( $this, 'renderBankChrome' ) );
-
-		// Фильтры по типу работы / виду контрольной / использованию / автору в list table.
-		add_action( 'restrict_manage_posts', array( $this, 'renderTypeFilter' ), 10, 2 );
-		add_action( 'pre_get_posts', array( $this, 'applyTypeFilter' ) );
-
-		// «Незавершённая» вместо стандартного «Черновик» для задач банка.
-		add_filter( 'display_post_states', array( $this, 'filterTaskDraftState' ), 10, 2 );
-
-		// «Дублировать» в строке таблицы банка — точка входа к AjaxHook::Clone*
-		// (Эпик: допиливание UI недостижимых эндпоинтов).
-		add_filter( 'post_row_actions', array( $this, 'addCloneRowAction' ), 10, 2 );
-
-		// draft-creator-modal: рендерится на страницах уроков и курсов
-		// (создание работы из урока / урока из курса без перезагрузки).
-		add_action( 'admin_footer', array( $this, 'renderDraftCreatorModal' ) );
-	}
-
-	/**
-	 * Добавляет действие «Дублировать» в строку таблицы банка контента.
-	 *
-	 * Кнопка ничего не делает сама: JS (`admin/services/content-clone.js`) читает
-	 * `data-clone-*` и зовёт соответствующий AJAX-хук клонирования.
-	 *
-	 * @param array<string, string> $actions Действия строки
-	 * @param \WP_Post              $post    Запись банка
-	 *
-	 * @return array<string, string>
-	 */
-	public function addCloneRowAction( array $actions, \WP_Post $post ): array {
-		$type = match ( true ) {
-			PostTypeResolver::isLessonPostType( $post->post_type )     => 'lesson',
-			PostTypeResolver::isWorkPostType( $post->post_type )       => 'work',
-			PostTypeResolver::isAssessmentPostType( $post->post_type ) => 'assessment',
-			PostTypeResolver::isCoursePostType( $post->post_type )     => 'course',
-			default                                                    => '',
-		};
-
-		if ( '' === $type || ! current_user_can( Capability::Admin->value ) ) {
-			return $actions;
-		}
-
-		$actions['fs_lms_clone'] = sprintf(
-			'<a href="#" class="js-fs-clone" data-clone-type="%s" data-clone-id="%d">%s</a>',
-			esc_attr( $type ),
-			$post->ID,
-			esc_html__( 'Дублировать', 'fs-lms' )
-		);
-
-		return $actions;
-	}
-
-	/** Подключает модаль создания черновика на страницах курсов, уроков, работ. */
-	public function renderDraftCreatorModal(): void {
-		$screen = get_current_screen();
-		if ( ! $screen ) {
-			return;
-		}
-		$pt = $screen->post_type;
-		if ( PostTypeResolver::isWorkPostType( $pt )
-			|| PostTypeResolver::isLessonPostType( $pt )
-			|| PostTypeResolver::isCoursePostType( $pt )
-			|| PostTypeResolver::isAssessmentPostType( $pt ) ) {
-			include_once $this->plugin_path . 'templates/admin/components/modals/draft-creator-modal.php';
-		}
-	}
-
-	public function renderCourses(): void {
-		$this->renderBank( BankType::Courses );
-	}
-
-	public function renderLessons(): void {
-		$this->renderBank( BankType::Lessons );
-	}
-
-	public function renderWorks(): void {
-		$this->renderBank( BankType::Works );
-	}
-
-	public function renderTasks(): void {
-		$this->renderBank( BankType::Tasks );
-	}
-
-	public function renderArticles(): void {
-		$this->renderBank( BankType::Articles );
-	}
-
-	public function renderAssessments(): void {
-		$this->renderBank( BankType::Assessments );
-	}
-
-	/**
-	 * Фильтры банка над нативной таблицей (хук restrict_manage_posts).
-	 *
-	 * @param string $post_type CPT экрана
-	 * @param string $which     Позиция панели: top|bottom
-	 *
-	 * @return void
-	 */
-	public function renderTypeFilter( string $post_type, string $which = 'top' ): void {
-		if ( 'top' !== $which ) {
-			return;
-		}
-
-		$selects = $this->filters->selectsFor( $post_type );
-		if ( empty( $selects ) ) {
-			return;
-		}
-
-		$this->render( 'admin/learning/bank-filters', compact( 'selects' ) );
-	}
-
-	/**
-	 * @param array<string,string> $states
-	 */
-	public function filterTaskDraftState( array $states, \WP_Post $post ): array {
-		if ( PostTypeResolver::isTaskPostType( $post->post_type ) && isset( $states['draft'] ) ) {
-			$states['draft'] = __( 'Незавершённая', 'fs-lms' );
-		}
-		return $states;
-	}
-
-	/**
-	 * Применяет фильтры банка к списку (хук pre_get_posts).
-	 *
-	 * @param \WP_Query $query Запрос экрана
-	 *
-	 * @return void
-	 */
-	public function applyTypeFilter( \WP_Query $query ): void {
-		if ( ! is_admin() || ! $query->is_main_query() ) {
-			return;
-		}
-
-		$this->filters->apply( $query );
 	}
 
 	/**
 	 * Строит меню «Обучение» на хуке admin_menu (когда текущий пользователь известен).
 	 *
 	 * Родитель и все пункты ведут на нативные таблицы первого предмета препода.
-	 * Переключение между предметами — таб-баром над таблицей (renderSubjectBankTabs).
+	 * Переключение между предметами — таб-баром над таблицей (BankChromeController).
 	 * Если предметов в системе нет — лендинг-фолбэки с предупреждением.
 	 */
 	public function registerLearningMenu(): void {
@@ -282,7 +143,8 @@ class LearningMenuController extends BaseController implements ServiceInterface 
 	/**
 	 * Конфиг сабстраницы банка предмета.
 	 *
-	 * Прямой переход на edit.php callback не требует; лендинг-фолбэк — требует.
+	 * Прямой переход на edit.php callback не требует; лендинг-фолбэк рендерит
+	 * BankChromeController (колбеки renderCourses()/renderLessons()/…).
 	 *
 	 * @return array<string, mixed>
 	 */
@@ -295,7 +157,7 @@ class LearningMenuController extends BaseController implements ServiceInterface 
 			'menu_title'  => $case->menu_title(),
 			'capability'  => $cap,
 			'menu_slug'   => $slug,
-			'callback'    => $is_direct ? '' : array( $this, $case->callback() ),
+			'callback'    => $is_direct ? '' : array( $this->chrome, $case->callback() ),
 		);
 	}
 
@@ -328,98 +190,5 @@ class LearningMenuController extends BaseController implements ServiceInterface 
 		$bankType = BankType::fromPostType( $post_type );
 
 		return null !== $bankType ? ( $this->bank_slugs[ $bankType->value ] ?? '' ) : '';
-	}
-
-	/**
-	 * Тип банка для текущего экрана списка (или null — не экран банка).
-	 */
-	private function currentBankType(): ?BankType {
-		$screen = get_current_screen();
-		if ( ! $screen || 'edit' !== $screen->base ) {
-			return null;
-		}
-
-		return BankType::fromPostType( $screen->post_type );
-	}
-
-	/**
-	 * Выводит «шапку» банка над нативной таблицей ОДНИМ блоком: описание-абзац +
-	 * таб-бар предметов (при 2+ предметах, курсы/уроки/работы/задания/статьи).
-	 *
-	 * НБ-1: и описание, и табы лежат в одном `.notice`, который штатный JS WP
-	 * целиком переносит под заголовок (перед `subsubsub`-views), поэтому табы не
-	 * «прыгают» отдельно от описания при загрузке. Хук admin_notices.
-	 */
-	public function renderBankChrome(): void {
-		$bankType = $this->currentBankType();
-		if ( null === $bankType ) {
-			return;
-		}
-
-		$tabs     = array();
-		// Эпик 18: не предлагаем переключиться на предмет без CPT этого банка (T18.4).
-		$subjects = array_filter(
-			$this->teacher_subjects->subjectsForUser( get_current_user_id() ),
-			static fn( $s ) => post_type_exists( $bankType->cpt( $s->key ) )
-		);
-		if ( count( $subjects ) >= 2 ) {
-			$active = $bankType->subjectFromPostType( get_current_screen()->post_type );
-			foreach ( $subjects as $subject ) {
-				$tabs[] = array(
-					'name'   => $subject->name,
-					'url'    => admin_url( 'edit.php?post_type=' . $bankType->cpt( $subject->key ) ),
-					'active' => $subject->key === $active,
-				);
-			}
-		}
-
-		$this->render(
-			'admin/components/bank-notice',
-			array(
-				'text' => $bankType->description(),
-				'tabs' => $tabs,
-			)
-		);
-	}
-
-	/**
-	 * Рендерит лендинг-фолбэк банка: вкладки-предметы + переход на нативный экран CPT.
-	 * Вызывается только когда у меню нет прямого edit.php-слага (нет предметов в системе).
-	 */
-	private function renderBank( BankType $bankType ): void {
-		$user     = get_current_user_id();
-		// Эпик 18: только предметы, у которых реально зарегистрирован CPT этого банка
-		// (T18.4) — иначе список/добавление вели бы на несуществующий post_type.
-		$subjects = array_values( array_filter(
-			$this->teacher_subjects->subjectsForUser( $user ),
-			static fn( $s ) => post_type_exists( $bankType->cpt( $s->key ) )
-		) );
-
-		$active = sanitize_key( wp_unslash( $_GET['fs_subject'] ?? '' ) );
-		$keys   = array_map( static fn( $s ) => $s->key, $subjects );
-		if ( '' === $active || ! in_array( $active, $keys, true ) ) {
-			$active = $keys[0] ?? '';
-		}
-
-		$page_slug = $bankType->menu()->value;
-		$tabs      = array();
-		foreach ( $subjects as $subject ) {
-			$tabs[] = array(
-				'name'   => $subject->name,
-				'url'    => add_query_arg(
-					array( 'page' => $page_slug, 'fs_subject' => $subject->key ),
-					admin_url( 'admin.php' )
-				),
-				'active' => $subject->key === $active,
-			);
-		}
-
-		$cpt      = '' !== $active ? $bankType->cpt( $active ) : '';
-		$list_url = '' !== $cpt ? admin_url( 'edit.php?post_type=' . $cpt ) : '';
-		$new_url  = '' !== $cpt ? admin_url( 'post-new.php?post_type=' . $cpt ) : '';
-
-		$this->render( 'admin/learning/bank-landing', compact( 'subjects', 'tabs', 'list_url', 'new_url' ) + array(
-			'title' => $bankType->title(),
-		) );
 	}
 }

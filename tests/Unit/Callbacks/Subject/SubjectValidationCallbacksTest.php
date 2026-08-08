@@ -65,9 +65,7 @@ class SubjectValidationCallbacksTest extends TestCase {
 		$stored = array( 'task_condition' => 'Условие', 'task_answer' => '42' );
 		$post   = new \WP_Post( array( 'ID' => 15, 'post_type' => 'inf_tasks' ) );
 
-		$this->posts->method( 'getMeta' )->willReturnMap( array(
-			array( 15, 'fs_lms_meta', true, $stored ),
-		) );
+		$this->posts->method( 'taskMeta' )->with( 15 )->willReturn( $stored );
 		$this->posts->method( 'get' )->with( 15 )->willReturn( $post );
 		$this->templateResolver->method( 'resolveId' )->with( $post )->willReturn( 'choice_task' );
 		$this->taxonomies->method( 'getBySubject' )->willReturn( array() );
@@ -119,6 +117,7 @@ class SubjectValidationCallbacksTest extends TestCase {
 
 	public function test_form_data_wins_over_stored_state(): void {
 		$this->posts->expects( $this->never() )->method( 'getMeta' );
+		$this->posts->expects( $this->never() )->method( 'taskMeta' );
 		$this->taxonomies->method( 'getBySubject' )->willReturn( array() );
 
 		$_POST = array(

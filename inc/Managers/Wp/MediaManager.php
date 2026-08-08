@@ -45,6 +45,8 @@ class MediaManager {
 	 * @throws \RuntimeException При ошибке загрузки или невалидном файле.
 	 */
 	public function uploadFromRequest( string $fileKey, int $postParent = 0 ): int {
+		// Прямой $_FILES легален: MediaManager — слой-обёртка WP upload API,
+		// $_FILES — его транспорт (аналогично «add_action внутри Managers» из CLAUDE.md).
 		if ( ! isset( $_FILES[ $fileKey ] ) ) {
 			throw new \RuntimeException( 'Файл не найден в запросе.' );
 		}

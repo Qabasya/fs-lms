@@ -56,7 +56,7 @@ export function closeModal( $modal ) { ... }
 
 ## Globals (window)
 
-All `wp_localize_script` calls live in `Enqueue.php` only — never in templates.
+All `wp_localize_script` calls live in the `inc/Core/Assets/*` layer only (facade — `Enqueue.php`) — never in templates.
 
 | Variable | Scope | Contents |
 |---|---|---|

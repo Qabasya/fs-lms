@@ -3,6 +3,8 @@
  * Pure-JS function pattern (no jQuery).
  */
 
+import { escapeHtml, debounce as debounceUtil } from '../../common/utils.js';
+
 const vars = window.fs_lms_assessment_vars;
 
 /**
@@ -12,12 +14,10 @@ const vars = window.fs_lms_assessment_vars;
  * модульного `vars` — принимают его параметром, поэтому годятся для любого
  * бандла, локализующего свой собственный `fs_lms_*_vars` с теми же полями
  * (ajax_url, actions.saveAttemptAnswer, nonces.startAttempt).
+ *
+ * escHtml/debounce — реэкспорт канона из common/utils.js (своих копий не заводим).
  */
-export function escHtml( str ) {
-	const d = document.createElement( 'div' );
-	d.textContent = str;
-	return d.innerHTML;
-}
+export { escapeHtml as escHtml };
 
 /**
  * Универсальный обратный отсчёт: обновляет displayEl каждую секунду, вызывает
@@ -57,11 +57,8 @@ function initTimer( form, deadlineAt ) {
 	} );
 }
 
-/** Debounce helper. */
-export function debounce( fn, ms ) {
-	let t;
-	return ( ...args ) => { clearTimeout( t ); t = setTimeout( () => fn( ...args ), ms ); };
-}
+/** Debounce helper — канон из common/utils.js. */
+export const debounce = debounceUtil;
 
 /**
  * Autosave a single answer via AJAX. `vars` — localized bundle vars (ajax_url/actions/nonces).

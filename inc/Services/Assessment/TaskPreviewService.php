@@ -7,6 +7,7 @@ namespace Inc\Services\Assessment;
 use Inc\Enums\Wp\PostMetaName;
 use Inc\Managers\Assessment\AssessmentManager;
 use Inc\Managers\Course\WorkManager;
+use Inc\Managers\Wp\PostManager;
 use Inc\Services\Subject\PostTypeResolver;
 
 /**
@@ -23,6 +24,7 @@ class TaskPreviewService {
 	public function __construct(
 		private readonly WorkManager       $workManager,
 		private readonly AssessmentManager $assessmentManager,
+		private readonly PostManager       $posts,
 	) {}
 
 	/**
@@ -68,6 +70,10 @@ class TaskPreviewService {
 			$item_ids = $dto ? $dto->taskIds : array();
 		}
 
+		// ID приходят из меты работы/контрольной, не из WP_Query — прогреваем
+		// мета-кэш одним запросом (в превью по два чтения меты на задание).
+		$this->posts->primeMetaCache( array_map( 'intval', $item_ids ) );
+
 		$tasks = array();
 		foreach ( $item_ids as $task_id ) {
 			$task_post = get_post( (int) $task_id );
@@ -88,9 +94,8 @@ class TaskPreviewService {
 	 */
 	private function buildTaskPreviewData( \WP_Post $post ): array {
 		$task_id       = $post->ID;
-		$meta          = get_post_meta( $task_id, PostMetaName::Meta->value, true );
-		$meta          = is_array( $meta ) ? $meta : array();
-		$template_type = (string) ( get_post_meta( $task_id, PostMetaName::TemplateType->value, true ) ?: '' );
+		$meta          = $this->posts->taskMeta( $task_id );
+		$template_type = (string) ( $this->posts->getMeta( $task_id, PostMetaName::TemplateType->value ) ?: '' );
 
 		$common_html = '';
 		if ( ! empty( $meta['common_condition'] ) && is_string( $meta['common_condition'] ) ) {

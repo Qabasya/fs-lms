@@ -1,5 +1,7 @@
 <?php
 
+declare( strict_types=1 );
+
 namespace Inc\Shared\Traits;
 
 /**
@@ -277,6 +279,113 @@ trait Sanitizer {
 		$data  = 'POST' === $source ? $_POST : $_GET;
 		$value = $data[ $key ] ?? '';
 		return sanitize_email( wp_unslash( is_string( $value ) ? $value : '' ) );
+	}
+
+	/**
+	 * Проверяет наличие ключа в запросе (без чтения значения).
+	 *
+	 * Единственная точка isset()-проверок по суперглобалам: «поле пришло из формы»
+	 * (чекбоксы, маркеры скрытых форм, tax_input) — значение потом читается
+	 * санитайзящими методами.
+	 *
+	 * @param string $key    Ключ в суперглобальном массиве
+	 * @param string $source Источник данных: 'POST', 'GET' или 'REQUEST'
+	 *
+	 * @return bool
+	 */
+	protected function hasParam( string $key, string $source = 'POST' ): bool {
+		$data = match ( $source ) {
+			'GET'     => $_GET,
+			'REQUEST' => $_REQUEST,
+			default   => $_POST,
+		};
+
+		return isset( $data[ $key ] );
+	}
+
+	/**
+	 * Получает и санирует дробное число (баллы, оценки).
+	 *
+	 * @param string $key     Ключ в суперглобальном массиве
+	 * @param string $source  Источник данных: 'POST' или 'GET'
+	 * @param float  $default Значение при отсутствии ключа
+	 *
+	 * @return float
+	 */
+	protected function sanitizeFloat( string $key, string $source = 'POST', float $default = 0.0 ): float {
+		$data  = 'POST' === $source ? $_POST : $_GET;
+		$value = $data[ $key ] ?? $default;
+
+		return is_scalar( $value ) ? (float) $value : $default;
+	}
+
+	/**
+	 * Целое число либо null, если ключ отсутствует или пуст (необязательные ID).
+	 *
+	 * @param string $key    Ключ в суперглобальном массиве
+	 * @param string $source Источник данных: 'POST' или 'GET'
+	 *
+	 * @return int|null
+	 */
+	protected function sanitizeIntOrNull( string $key, string $source = 'POST' ): ?int {
+		$data = 'POST' === $source ? $_POST : $_GET;
+		if ( ! isset( $data[ $key ] ) || '' === $data[ $key ] ) {
+			return null;
+		}
+
+		return $this->sanitizeInt( $key, $source );
+	}
+
+	/**
+	 * Текст либо null, если ключ отсутствует или пуст (необязательные поля).
+	 *
+	 * @param string $key    Ключ в суперглобальном массиве
+	 * @param string $source Источник данных: 'POST' или 'GET'
+	 *
+	 * @return string|null
+	 */
+	protected function sanitizeTextOrNull( string $key, string $source = 'POST' ): ?string {
+		$data = 'POST' === $source ? $_POST : $_GET;
+		if ( ! isset( $data[ $key ] ) || '' === $data[ $key ] ) {
+			return null;
+		}
+
+		return $this->sanitizeText( $key, $source );
+	}
+
+	/**
+	 * Сырая строка из запроса: только wp_unslash, без sanitize_text_field.
+	 *
+	 * Для JSON-пейлоадов и подобных структурных строк, которые прогонять через
+	 * text-field-санитайз нельзя (порежет содержимое) — валидация структурная
+	 * (json_decode и доменные проверки) на вызывающей стороне.
+	 *
+	 * @param string $key    Ключ в суперглобальном массиве
+	 * @param string $source Источник данных: 'POST' или 'GET'
+	 *
+	 * @return string
+	 */
+	protected function unslashRawString( string $key, string $source = 'POST' ): string {
+		$data  = 'POST' === $source ? $_POST : $_GET;
+		$value = $data[ $key ] ?? '';
+
+		return is_string( $value ) ? wp_unslash( $value ) : '';
+	}
+
+	/**
+	 * Дескриптор загруженного файла из $_FILES; null — файл не передан.
+	 *
+	 * Значения (tmp_name, size, error) не санитизируются: их валидирует
+	 * обработчик загрузки (MediaManager / доменный код).
+	 *
+	 * @param string $key Ключ в $_FILES
+	 *
+	 * @return array<string, mixed>|null
+	 */
+	protected function uploadedFile( string $key ): ?array {
+		$file = $_FILES[ $key ] ?? null;
+
+		return is_array( $file ) ? $file : null;
 	}
 
 	protected function sanitizeGetKey( string $key ): string {

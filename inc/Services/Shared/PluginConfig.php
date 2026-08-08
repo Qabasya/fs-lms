@@ -35,6 +35,23 @@ readonly class PluginConfig {
 		return (string) ( $this->repository->get()['otp_bypass_code'] ?? '' );
 	}
 
+	/** Attachment ID логотипа кабинета; 0 — не задан. */
+	public function brandLogoId(): int {
+		return (int) ( $this->repository->get()['brand_logo_id'] ?? 0 );
+	}
+
+	/** URL логотипа кабинета; '' — не задан (фронт показывает дефолтный BrandMark). */
+	public function brandLogoUrl(): string {
+		$id = $this->brandLogoId();
+		if ( $id <= 0 ) {
+			return '';
+		}
+
+		$url = wp_get_attachment_image_url( $id, 'medium' );
+
+		return $url ?: '';
+	}
+
 	public function isEncKeySet(): bool {
 		return defined( 'FS_LMS_ENC_KEY' ) && '' !== FS_LMS_ENC_KEY;
 	}
@@ -65,6 +82,10 @@ readonly class PluginConfig {
 			),
 			'enc_key_set'     => $this->isEncKeySet(),
 			'hash_salt_set'   => $this->isHashSaltSet(),
+			'brand_logo'      => array(
+				'id'  => $this->brandLogoId(),
+				'url' => $this->brandLogoUrl(),
+			),
 		);
 	}
 }

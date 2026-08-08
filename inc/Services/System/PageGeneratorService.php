@@ -1,5 +1,7 @@
 <?php
 
+declare( strict_types=1 );
+
 namespace Inc\Services\System;
 
 use Inc\Enums\Wp\PageRoutes;

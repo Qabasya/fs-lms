@@ -15,6 +15,7 @@
  */
 
 import { openModal, closeModal, bindEsc, unbindEsc } from '../../modules/modal-base.js';
+import { escapeHtml as esc } from '../../modules/utils.js';
 
 const $ = jQuery;
 
@@ -108,12 +109,7 @@ export const TeacherViewModal = {
         this.$modal.find( '[data-tvm="full_name"]' ).text( data.full_name || empty );
         this.$modal.find( '[data-tvm="email"]' ).text( data.email || empty );
 
-        // УТИЛИТА ДЛЯ БЕЗОПАСНОГО ЭКРАНИРОВАНИЯ HTML (XSS-защита):
-        // Создает временный div, устанавливает текст через .text() (что автоматически экранирует спецсимволы),
-        // а затем возвращает HTML-представление этого текста через .html().
-        // Это гарантирует, что если в названии предмета есть символы вроде '<' или '>', 
-        // они будут отображены как текст, а не исполнены как HTML-код.
-        const esc = ( str ) => $( '<div>' ).text( String( str ) ).html();
+        // Экранирование — общий escapeHtml (modules/utils.js), локальных копий не заводим.
 
         // Получаем массив предметов и групп с fallback на пустой массив
         const subjectsGroups = data.subjects_groups || [];

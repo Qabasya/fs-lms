@@ -1,5 +1,7 @@
 <?php
 
+declare( strict_types=1 );
+
 namespace Inc\MetaBoxes\Templates;
 
 use Inc\MetaBoxes\Fields\TextareaField;

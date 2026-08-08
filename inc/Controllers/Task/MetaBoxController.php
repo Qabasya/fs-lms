@@ -11,12 +11,14 @@ use Inc\Enums\Wp\Nonce;
 use Inc\Enums\Wp\PostMetaName;
 use Inc\MetaBoxes\Fields\HintField;
 use Inc\Managers\Wp\MetaBoxManager;
+use Inc\Managers\Wp\PostManager;
 use Inc\Registrars\MetaBoxRegistrar;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Services\Subject\PostTypeResolver;
 use Inc\Services\Template\TemplateRegistry;
 use Inc\Services\Template\TemplateResolver;
 use Inc\Shared\Traits\Authorizer;
+use Inc\Shared\Traits\Sanitizer;
 use Inc\Shared\Traits\TemplateRenderer;
 
 /**
@@ -42,6 +44,7 @@ use Inc\Shared\Traits\TemplateRenderer;
 class MetaBoxController extends BaseController implements ServiceInterface {
 
 	use Authorizer;
+	use Sanitizer;
 	use TemplateRenderer;
 
 	/**
@@ -52,6 +55,7 @@ class MetaBoxController extends BaseController implements ServiceInterface {
 	 * @param TemplateRegistry  $registry        Реестр шаблонов
 	 * @param TemplateResolver  $resolver        Определитель шаблона для поста
 	 * @param MetaBoxManager    $metaBoxManager  Менеджер мета-данных
+	 * @param PostManager       $postManager     Менеджер постов (чтение меты задания)
 	 */
 	public function __construct(
 		private readonly SubjectRepository $subjects,
@@ -59,6 +63,7 @@ class MetaBoxController extends BaseController implements ServiceInterface {
 		private readonly TemplateRegistry  $registry,
 		private readonly TemplateResolver  $resolver,
 		private readonly MetaBoxManager    $metaBoxManager,
+		private readonly PostManager       $postManager,
 	) {
 		parent::__construct();
 	}
@@ -150,6 +155,7 @@ class MetaBoxController extends BaseController implements ServiceInterface {
 			'wrapper_class' => 'fs-lms-metabox-wrapper',
 			'post'          => $post,
 			'template'      => $template,
+			'values'        => $this->postManager->taskMeta( $post->ID ),
 		) );
 	}
 
@@ -159,8 +165,7 @@ class MetaBoxController extends BaseController implements ServiceInterface {
 	 * @param \WP_Post $post
 	 */
 	public function renderHintMetabox( \WP_Post $post ): void {
-		$meta   = get_post_meta( $post->ID, PostMetaName::Meta->value, true );
-		$values = is_array( $meta ) ? $meta : array();
+		$values = $this->postManager->taskMeta( $post->ID );
 
 		( new HintField() )->render( $post, 'task_hint', 'Подсказка', $values['task_hint'] ?? '' );
 	}
@@ -216,8 +221,7 @@ class MetaBoxController extends BaseController implements ServiceInterface {
 			return;
 		}
 
-		$raw_data = wp_unslash( $_POST[ PostMetaName::Meta->value ] ?? array() );
-		$data     = is_array( $raw_data ) ? $raw_data : array();
+		$data = $this->unslashArray( PostMetaName::Meta->value );
 
 		// Мержим (не заменяем) — hint сохраняется отдельным метабоксом и должен
 		// оставаться нетронутым, если его метабокс скрыт через Screen Options.
