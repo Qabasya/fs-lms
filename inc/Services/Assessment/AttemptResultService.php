@@ -36,9 +36,15 @@ class AttemptResultService {
 			throw new \InvalidArgumentException( 'Попытка не найдена.' );
 		}
 
+		$rows = $this->answers->listByAttempt( $attemptId );
+
+		// ID заданий приходят из таблицы ответов, не из WP_Query — прогреваем
+		// мета-кэш одним запросом вместо запроса на каждый getMeta() в цикле.
+		$this->posts->primeMetaCache( array_map( static fn( $a ) => $a->taskId, $rows ) );
+
 		$result = array();
 		$n      = 0;
-		foreach ( $this->answers->listByAttempt( $attemptId ) as $ans ) {
+		foreach ( $rows as $ans ) {
 			$verdict = null === $ans->isCorrect ? 'pending' : ( $ans->isCorrect ? 'correct' : 'incorrect' );
 
 			$template = TaskTemplate::fromDatabase(

@@ -280,7 +280,7 @@ class ProblemsController extends BaseController implements ServiceInterface {
 			'fs_lms_problem_publish_error_',
 			'Название задачи обязательно для заполнения.',
 			function () use ( $postId ) {
-				$hasMetaForm = isset( $_POST[ PostMetaName::Meta->value ] );
+				$hasMetaForm = $this->hasParam( PostMetaName::Meta->value );
 
 				// Программная вставка (импорт пакета, рестор банка): формы нет, поста
 				// ещё нет — мета запишется сразу после insert, валидировать нечего.

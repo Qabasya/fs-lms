@@ -1,5 +1,7 @@
 <?php
 
+declare( strict_types=1 );
+
 namespace Inc\Core;
 
 use Inc\Managers\Wp\CronManager;

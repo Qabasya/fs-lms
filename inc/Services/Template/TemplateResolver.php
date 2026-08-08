@@ -6,6 +6,7 @@ namespace Inc\Services\Template;
 
 use Inc\Enums\Wp\PostMetaName;
 use Inc\Enums\Subject\TaskTemplate;
+use Inc\Managers\Wp\PostManager;
 use Inc\Repositories\OptionsRepositories\MetaBoxRepository;
 use Inc\Services\Subject\PostTypeResolver;
 
@@ -42,9 +43,11 @@ class TemplateResolver {
 	 * Конструктор.
 	 *
 	 * @param MetaBoxRepository $metaboxes Репозиторий привязок шаблонов к номерам заданий
+	 * @param PostManager       $posts     Менеджер постов (чтение меты шаблона)
 	 */
 	public function __construct(
-		private readonly MetaBoxRepository $metaboxes
+		private readonly MetaBoxRepository $metaboxes,
+		private readonly PostManager       $posts,
 	) {}
 	
 	/**
@@ -75,10 +78,9 @@ class TemplateResolver {
 		}
 		
 		// 3. ПРИОРИТЕТ 2: Мета-поле конкретного поста (обратная совместимость со старыми данными)
-		// get_post_meta() — получает мета-поле поста (третий параметр true — одно значение)
-		$saved_meta = get_post_meta( $post->ID, PostMetaName::TemplateType->value, true );
+		$saved_meta = $this->posts->getMeta( $post->ID, PostMetaName::TemplateType->value );
 		if ( empty( $saved_meta ) ) {
-			$saved_meta = get_post_meta( $post->ID, self::LEGACY_TEMPLATE_META, true );
+			$saved_meta = $this->posts->getMeta( $post->ID, self::LEGACY_TEMPLATE_META );
 		}
 		if ( ! empty( $saved_meta ) ) {
 			return (string) $saved_meta;

@@ -427,6 +427,13 @@ class ApplicationCallbacks extends BaseController {
 	public function ajaxCheckUsernameAvailable(): void {
 		Nonce::CheckUsernameAvailable->verify();
 
+		$ip = (string) ( $_SERVER['REMOTE_ADDR'] ?? '' );
+
+		// Нонс общий для всех посетителей страницы — от перебора защищает только лимит по IP.
+		if ( ! $this->rateLimitService->allowUsernameCheck( $ip ) ) {
+			$this->error( 'Слишком много запросов. Попробуйте позже.' );
+		}
+
 		$username = $this->sanitizeText( 'username' );
 
 		if ( '' === $username ) {
@@ -438,6 +445,13 @@ class ApplicationCallbacks extends BaseController {
 
 	public function ajaxCheckEmailAvailable(): void {
 		Nonce::CheckEmailAvailable->verify();
+
+		$ip = (string) ( $_SERVER['REMOTE_ADDR'] ?? '' );
+
+		// Ответ подтверждает факт регистрации по email (ПД) — лимит жёстче, чем у логина.
+		if ( ! $this->rateLimitService->allowEmailCheck( $ip ) ) {
+			$this->error( 'Слишком много запросов. Попробуйте позже.' );
+		}
 
 		$email = $this->sanitizeEmail( 'email' );
 

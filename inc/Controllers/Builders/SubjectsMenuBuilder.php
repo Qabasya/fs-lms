@@ -1,5 +1,7 @@
 <?php
 
+declare( strict_types=1 );
+
 namespace Inc\Controllers\Builders;
 
 use Inc\Callbacks\Subject\SubjectPageCallbacks;

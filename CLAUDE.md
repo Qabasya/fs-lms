@@ -145,6 +145,24 @@ Log format: `[FS LMS] CONTEXT: message | Context: {timestamp, user_id, ip, ...da
 - **`_types.js`** — JSDoc-типизация глобалов; импорт в admin-файлах **необязателен** (нужен лишь для подсказок IDE, на сборку не влияет). ESLint-правило ради этого не заводим.
 - **`require.context` в `ui.js` нерекурсивен** — модалки из подпапок (`modals/enrollment/`) инициализируются явно в `admin.js`: у них есть порядок относительно своих сервисов. Фолбэк автозагрузчика берёт первый экспорт **с методом `init()`**, а не просто первый.
 
+Дополнено 2026-08-08 (этап фиксов по сквозному ревью):
+
+- **Бренд-логотипы OAuth** — цветные, не `currentColor`, поэтому живут НЕ в `Icon`, а в партиале
+  `templates/admin/components/modals/partials/provider-logo.php`. Новый бренд-SVG — только через
+  этот партиал; модульные шаблоны (SocialAuth `settings-tab.php`) подключают его же, а не копируют пути.
+- **Модульные AJAX-экшены** — локальные константы модуля (`AdSyncSettingsController::SAVE_ACTION`,
+  `AdSyncController::STATUS_ACTION` и аналоги в DaData/VideoLibrary/SmartCaptcha), вне core `AjaxHook`:
+  ядро не знает о модулях. Обработчики — всё равно в Callbacks-классах модуля.
+- **Модульные транзиенты** — ключи живут в модуле константой одного класса
+  (`VideoLibrary/RecordingAlertService::COUNT_TRANSIENT`, `AdSync/AdStatusTokenService::PREFIX`),
+  вне core `TransientKey`; сырые `set_/get_transient` там легальны — та же логика инкапсуляции,
+  что у RateLimitService/EmailOtpService.
+- **`current_user_can()` вне AJAX** — запрет прямых вызовов в Callbacks относится к AJAX-методам
+  (там `Authorizer` с JSON-ответом); в не-AJAX хук-колбеках (`admin_notices` и т.п.) прямая проверка
+  права допустима, право — только кейсом `Capability`.
+- **`$_FILES`** — трейт `Sanitizer` даёт `uploadedFile()` для чтения дескриптора в Callbacks;
+  внутри `MediaManager` прямой `$_FILES` легален (менеджер-обёртка WP upload API — его транспорт).
+
 ## Strict Rules
 
 - Controllers must NOT contain business logic or direct WP API calls
@@ -295,9 +313,13 @@ ThemeCompatService::footer(); // вместо get_footer()
 Система валидации — `src/js/common/validators/` + `validation-manager.js`; как повесить
 валидатор на поле и завести новый, описывает скилл `form-validation`.
 
-### wp_localize_script — только в Enqueue.php
+### wp_localize_script — только в слое Core/Assets
 
-Все `wp_localize_script()` вызовы должны быть в `inc/Core/Enqueue.php`, не в шаблонах.
+Все `wp_localize_script()` вызовы должны быть в слое `inc/Core/Assets/*`
+(`AdminAssets` / `AdminLocalizations` / `FrontendAssets` / `BundleLoader`;
+фасад — `inc/Core/Enqueue.php`), не в шаблонах. Исключения — self-contained
+модули, локализующие СВОЙ admin-JS в своём settings-контроллере (AdSync и др.),
+и `ModulesDashboardController` (локализация Dashboard-бандла).
 
 ## CSS / SCSS Rules
 

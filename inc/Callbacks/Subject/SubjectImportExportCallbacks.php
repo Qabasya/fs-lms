@@ -144,7 +144,7 @@ class SubjectImportExportCallbacks extends BaseController {
 	 * @return array Декодированные данные
 	 */
 	private function decodeImportPayload(): array {
-		$raw = wp_unslash( $_POST['json'] ?? '' );
+		$raw = $this->unslashRawString( 'json' );
 		if ( empty( $raw ) ) {
 			$this->error( 'JSON не передан' );
 		}

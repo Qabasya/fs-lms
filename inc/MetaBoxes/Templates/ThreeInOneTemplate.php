@@ -1,8 +1,9 @@
 <?php
 
+declare( strict_types=1 );
+
 namespace Inc\MetaBoxes\Templates;
 
-use Inc\Enums\Wp\PostMetaName;
 use Inc\MetaBoxes\Fields\CodeField;
 use Inc\MetaBoxes\Fields\ConditionField;
 use Inc\MetaBoxes\Fields\InputField;
@@ -83,64 +84,24 @@ class ThreeInOneTemplate extends BaseTemplate {
 	}
 
 	/**
-	 * Переопределяем родительский render, сохраняя логику получения данных
-	 * TODO: вынести отсюда html и стили
+	 * Переопределяем родительский render: три блока-связки + общий код.
+	 * Разметка — партиал templates/admin/metaboxes/triple-task-fields.php,
+	 * стили — admin-SCSS (_metabox-triple.scss); класс только отдаёт данные.
 	 */
-	public function render( \WP_Post $post ): void {
-		// 1. Получаем данные точно так же, как в BaseTemplate
-		$values = get_post_meta( $post->ID, PostMetaName::Meta->value, true );
-		if ( ! is_array( $values ) ) {
-			$values = array();
-		}
-
-		echo '<style>
-            .triple-section { border-left: 4px solid #2271b1; padding: 15px; margin: 20px 0; background: #fcfcfc; }
-            .triple-section h4 { margin-top: 0; color: #2271b1; text-transform: uppercase; font-size: 13px; border-bottom: 1px solid #eee; padding-bottom: 5px; }
-            .common-header { background: #e7f3ff; padding: 10px; border-radius: 4px; margin-bottom: 15px; }
-        </style>';
-
-		echo '<div class="fs-lms-template-wrapper" id="template-' . esc_attr( $this->get_id() ) . '">';
-
-		// 2. Рендерим группы вручную, вызывая метод поля напрямую
-
-		// --- БЛОК 19 ---
-		echo '<div class="triple-section"><h4>Задание №19</h4>';
-		$this->render_single_field( 'task_19_condition', $post, $values );
-		$this->render_single_field( 'task_19_answer', $post, $values );
-		echo '</div>';
-
-		// --- БЛОК 20 ---
-		echo '<div class="triple-section"><h4>Задание №20</h4>';
-		$this->render_single_field( 'task_20_condition', $post, $values );
-		$this->render_single_field( 'task_20_answer', $post, $values );
-		echo '</div>';
-
-		// --- БЛОК 21 ---
-		echo '<div class="triple-section"><h4>Задание №21</h4>';
-		$this->render_single_field( 'task_21_condition', $post, $values );
-		$this->render_single_field( 'task_21_answer', $post, $values );
-		echo '</div>';
-
-		// --- КОД ---
-		echo '<h3>Программное решение</h3>';
-		$this->render_single_field( 'task_code', $post, $values );
-
-		echo '</div>';
+	public function render( \WP_Post $post, array $values ): void {
+		$template = $this;
+		require FS_LMS_PATH . 'templates/admin/metaboxes/triple-task-fields.php';
 	}
 
 	/**
-	 * Повторяет логику вызова из BaseTemplate для одного конкретного поля
+	 * Рендер одного поля шаблона (зовётся партиалом разметки).
 	 */
-	private function render_single_field( string $field_id, \WP_Post $post, array $values ): void {
+	public function renderField( string $field_id, \WP_Post $post, array $values ): void {
 		if ( ! isset( $this->fields[ $field_id ] ) ) {
 			return;
 		}
 
 		$config = $this->fields[ $field_id ];
-		$label  = $config['label'];
-		$field  = $config['object'];
-		$value  = $values[ $field_id ] ?? '';
-
-		$field->render( $post, $field_id, $label, $value );
+		$config['object']->render( $post, $field_id, $config['label'], $values[ $field_id ] ?? '' );
 	}
 }

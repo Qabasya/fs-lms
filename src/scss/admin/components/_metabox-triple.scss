@@ -1,0 +1,19 @@
+// ── Метабокс «Связка 19-21» (ThreeInOneTemplate): секции трёх подзаданий.
+//    Вынесено из инлайнового <style> PHP-класса шаблона (Т13А, фиксы по ревью).
+@use '../variables' as *;
+
+.fs-triple-section {
+	border-left: 4px solid $color-primary;
+	padding: $spacing-lg;
+	margin: $spacing-xl 0;
+	background: $wp-admin-gray-bg-light;
+
+	h4 {
+		margin-top: 0;
+		color: $color-primary;
+		text-transform: uppercase;
+		font-size: $font-size-sm;
+		border-bottom: 1px solid $wp-admin-gray-2;
+		padding-bottom: rem(5);
+	}
+}

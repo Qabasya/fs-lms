@@ -93,7 +93,7 @@ class SubjectValidationCallbacks extends BaseController {
 			'fs_lms_publish_error_',
 			'Укажите название задания.',
 			function () use ( $postType, $postId ) {
-				$hasMetaForm = isset( $_POST[ PostMetaName::Meta->value ] );
+				$hasMetaForm = $this->hasParam( PostMetaName::Meta->value );
 
 				// Программная вставка (импорт пакета, рестор): формы нет, поста ещё
 				// нет — мета и термины будут записаны сразу после insert. Валидация
@@ -104,7 +104,7 @@ class SubjectValidationCallbacks extends BaseController {
 
 				// Первичная вставка из модалки (post_id=0): терминов ни в форме, ни
 				// в БД ещё нет — проверять таксономии не по чему.
-				$blockingError = ( $postId > 0 || isset( $_POST['tax_input'] ) )
+				$blockingError = ( $postId > 0 || $this->hasParam( 'tax_input' ) )
 					? $this->validator->getBlockingError( $postType, $this->effectiveTaxInput( $postId, $postType ) )
 					: null;
 
@@ -135,7 +135,7 @@ class SubjectValidationCallbacks extends BaseController {
 				// Программная вставка (импорт пакета, рестор): формы нет, поста ещё нет —
 				// термины запишутся сразу после insert. Проверка по пустому состоянию
 				// откатывала бы такие статьи в черновик.
-				if ( $postId <= 0 && ! isset( $_POST['tax_input'] ) ) {
+				if ( $postId <= 0 && ! $this->hasParam( 'tax_input' ) ) {
 					return null;
 				}
 
@@ -159,7 +159,7 @@ class SubjectValidationCallbacks extends BaseController {
 	 * @return array<string, mixed> Карта [слаг таксономии => привязки].
 	 */
 	private function effectiveArticleTaxInput( int $postId, string $postType ): array {
-		if ( isset( $_POST['tax_input'] ) ) {
+		if ( $this->hasParam( 'tax_input' ) ) {
 			return $this->unslashArray( 'tax_input' );
 		}
 
@@ -211,7 +211,7 @@ class SubjectValidationCallbacks extends BaseController {
 	 * @return array<string, mixed> Карта [слаг таксономии => привязки].
 	 */
 	private function effectiveTaxInput( int $postId, string $postType ): array {
-		if ( isset( $_POST['tax_input'] ) ) {
+		if ( $this->hasParam( 'tax_input' ) ) {
 			return $this->unslashArray( 'tax_input' );
 		}
 
@@ -236,7 +236,7 @@ class SubjectValidationCallbacks extends BaseController {
 	 * @return array<string, mixed>
 	 */
 	private function effectiveMeta( int $postId ): array {
-		if ( isset( $_POST[ PostMetaName::Meta->value ] ) ) {
+		if ( $this->hasParam( PostMetaName::Meta->value ) ) {
 			return $this->unslashArray( PostMetaName::Meta->value );
 		}
 
@@ -244,9 +244,7 @@ class SubjectValidationCallbacks extends BaseController {
 			return array();
 		}
 
-		$meta = $this->posts->getMeta( $postId, PostMetaName::Meta->value );
-
-		return is_array( $meta ) ? $meta : array();
+		return $this->posts->taskMeta( $postId );
 	}
 
 	/**
@@ -318,10 +316,12 @@ class SubjectValidationCallbacks extends BaseController {
 			return;
 		}
 
-		foreach ( $emptyTaxes as $tax ) {
-			// Право на управление терминами таксономий (WP-капабилити рубрик)
-			$canManage = current_user_can( Capability::ManageTerms->value );
+		// Право на управление терминами таксономий (WP-капабилити рубрик).
+		// Прямой current_user_can() здесь легален: это admin_notices, а не AJAX —
+		// authorize() из Authorizer слал бы JSON и ломал рендер (см. CLAUDE.md).
+		$canManage = current_user_can( Capability::ManageTerms->value );
 
+		foreach ( $emptyTaxes as $tax ) {
 			if ( $canManage ) {
 				$link = sprintf(
 					' <a href="%s">Добавить термы &rarr;</a>',

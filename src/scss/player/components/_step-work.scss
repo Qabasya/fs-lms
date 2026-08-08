@@ -52,6 +52,9 @@
 
     span {
       display: block;
+
+      // Заполнение двигает JS через CSS-переменную (setProperty), не style.width.
+      width: var(--progress, 0%);
       height: 100%;
       background: var(--accent);
       border-radius: 999px;

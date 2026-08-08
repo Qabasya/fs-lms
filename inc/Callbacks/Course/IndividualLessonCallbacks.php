@@ -163,7 +163,7 @@ class IndividualLessonCallbacks extends BaseController {
 	 * @param string $key Ключ в $_POST
 	 */
 	private function optionalInt( string $key ): ?int {
-		return isset( $_POST[ $key ] ) && '' !== $_POST[ $key ] ? $this->sanitizeInt( $key ) : null;
+		return $this->sanitizeIntOrNull( $key );
 	}
 
 	/**
@@ -172,6 +172,6 @@ class IndividualLessonCallbacks extends BaseController {
 	 * @param string $key Ключ в $_POST
 	 */
 	private function optionalText( string $key ): ?string {
-		return isset( $_POST[ $key ] ) && '' !== $_POST[ $key ] ? $this->sanitizeText( $key ) : null;
+		return $this->sanitizeTextOrNull( $key );
 	}
 }

@@ -48,8 +48,8 @@ require_once FS_LMS_PATH . 'templates/admin/components/UI/ui_renderers.php';
 			<?php foreach ( $rooms as $room ) : ?>
 				<?php
 				$row_id       = (int) $room->id;
-				$row_name     = esc_attr( $room->name );
-				$row_subjects = esc_attr( implode( ',', $room->allowedSubjects ) );
+				$row_name     = $room->name;
+				$row_subjects = implode( ',', $room->allowedSubjects );
 				$groups       = $rooms_groups[ $row_id ] ?? array();
 				?>
 				<tr id="room-row-<?php echo $row_id; ?>">
@@ -58,8 +58,8 @@ require_once FS_LMS_PATH . 'templates/admin/components/UI/ui_renderers.php';
 							<a class="row-title js-edit-room"
 								href="#"
 								data-id="<?php echo $row_id; ?>"
-								data-name="<?php echo $row_name; ?>"
-								data-subjects="<?php echo $row_subjects; ?>">
+								data-name="<?php echo esc_attr( $row_name ); ?>"
+								data-subjects="<?php echo esc_attr( $row_subjects ); ?>">
 								<?php echo esc_html( $room->name ); ?>
 							</a>
 						</strong>
@@ -81,8 +81,8 @@ require_once FS_LMS_PATH . 'templates/admin/components/UI/ui_renderers.php';
 								<a href="#"
 									class="js-edit-room"
 									data-id="<?php echo $row_id; ?>"
-									data-name="<?php echo $row_name; ?>"
-									data-subjects="<?php echo $row_subjects; ?>">
+									data-name="<?php echo esc_attr( $row_name ); ?>"
+									data-subjects="<?php echo esc_attr( $row_subjects ); ?>">
 									Изменить
 								</a>
 							</span> |
@@ -90,7 +90,7 @@ require_once FS_LMS_PATH . 'templates/admin/components/UI/ui_renderers.php';
 								<a href="#"
 									class="js-delete-room"
 									data-id="<?php echo $row_id; ?>"
-									data-name="<?php echo $row_name; ?>">
+									data-name="<?php echo esc_attr( $row_name ); ?>">
 									Удалить
 								</a>
 							</span>

@@ -97,7 +97,7 @@ export function initCore() {
 		const txt  = document.getElementById( 'fsProgTxt' );
 		const bar  = document.getElementById( 'fsProgBar' );
 		if ( txt ) { txt.textContent = `Урок · ${ done } из ${ panels.length }`; }
-		if ( bar ) { bar.style.width = `${ ( done / panels.length ) * 100 }%`; }
+		if ( bar ) { bar.style.setProperty( '--progress', `${ ( done / panels.length ) * 100 }%` ); }
 	}
 
 	function updateNav() {

@@ -218,7 +218,8 @@ class SubjectDataCallbacks extends BaseController {
 		$paged  = $this->sanitizeInt( 'paged' );
 		$s      = $this->sanitizeText( 's' );
 
-		// WP_ListTable читает параметры фильтрации из суперглобальных массивов
+		// WP_ListTable читает параметры фильтрации из суперглобальных массивов —
+		// здесь ЗАПИСЬ уже санитизированных значений (подготовка окружения), не чтение ввода.
 		if ( $status ) {
 			$_GET['post_status'] = $_REQUEST['post_status'] = $status;
 		}

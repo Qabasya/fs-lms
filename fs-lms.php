@@ -1,5 +1,7 @@
 <?php
 
+declare( strict_types=1 );
+
 /**
  * Plugin Name:     FS LMS
  * Plugin URI:      https://github.com/Qabasya/fs-lms
@@ -15,6 +17,7 @@
 use Inc\Contracts\ClockInterface;
 use Inc\Contracts\LogEventDispatcherInterface;
 use Inc\Controllers\System\AdminController;
+use Inc\Controllers\System\AdminFooterModalsController;
 use Inc\Controllers\Settings\ConfigController;
 use Inc\Core\Activate;
 use Inc\Core\Container;
@@ -46,7 +49,9 @@ if ( ! PiiCryptoService::isAvailable() ) {
 	$_minimal_container->bind( ClockInterface::class, WpClock::class );
 	$_minimal_container->bind( LogEventDispatcherInterface::class, LogEventDispatcher::class );
 
-	foreach ( array( Enqueue::class, AdminController::class, ConfigController::class ) as $_class ) {
+	// AdminFooterModalsController — Confirm/Alert-модалки нужны и в минимальном
+	// режиме: страница настроек генерирует ключи через эти модалки.
+	foreach ( array( Enqueue::class, AdminFooterModalsController::class, AdminController::class, ConfigController::class ) as $_class ) {
 		$_minimal_container->get( $_class )->register();
 	}
 

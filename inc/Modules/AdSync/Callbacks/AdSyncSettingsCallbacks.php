@@ -37,9 +37,7 @@ class AdSyncSettingsCallbacks extends BaseController {
 	public function ajaxSaveSettings(): void {
 		$this->authorize( Nonce::Config, Capability::Admin );
 
-		// phpcs:ignore WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- nonce проверен в authorize() выше; каждый элемент санитизируется ниже.
-		$raw = wp_unslash( $_POST['provision_subjects'] ?? array() );
-		$raw = is_array( $raw ) ? $raw : array();
+		$raw = $this->unslashArray( 'provision_subjects' );
 
 		// Валидация по readAll() (не readActive): уже сохранённый архивный предмет не должен выпадать молча.
 		$validKeys = array_map( static fn( $s ) => $s->key, $this->subjects->readAll() );

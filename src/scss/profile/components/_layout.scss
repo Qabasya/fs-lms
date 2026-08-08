@@ -72,7 +72,11 @@ body.prof-menu-off .prof-mtoggle { display: flex; }
   background: linear-gradient(135deg, var(--accent), var(--accent-700));
   display: flex; align-items: center; justify-content: center;
   color: var(--ink-inverse); box-shadow: var(--shadow-sm);
+  overflow: hidden;
 }
+
+// Пользовательский логотип из настроек оформления — заполняет квадрат знака.
+.prof-brand-logo { width: 100%; height: 100%; object-fit: cover; display: block; }
 .prof-brand-name { font-size: rem(16); font-weight: 700; letter-spacing: -.01em; }
 .prof-brand-name span { color: var(--accent); }
 .prof-brand-sub { font-size: rem(11); color: var(--muted-2); margin-top: 1px; }

@@ -14,6 +14,8 @@
   }
 
   // ── Заголовок / чипы / условие ────────────────────────────────
+  // Порядок правил повторяет DOM карточки: заголовок → чипы → условие
+  // (SSR-разметка в partials/all-tasks-body.php и её JS-зеркало task-card.js).
   .tcr-title {
     padding: 0;
     font-size: $font-size-xl; font-weight: $font-bold;
@@ -89,6 +91,7 @@
     
     img { display: block; max-width: 100%; height: auto; margin-inline: auto; }
 
+    // Формула/значение внутри условия — плашка на второй поверхности.
     code, .m {
       padding: rem(1) rem(5);
       background: $color-surface-2;

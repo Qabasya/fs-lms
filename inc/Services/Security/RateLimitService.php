@@ -36,6 +36,8 @@ use Inc\Services\Shared\PluginConfig;
  * - JOIN-ссылки: fs_lms_rl_join_{ipHash}
  * - Submit-ы:    fs_lms_rl_parent_{ipHash}
  * - PII reveal:  fs_lms_rl_pii_{userId}
+ * - Логин-чек:   fs_lms_rl_unamechk_{ipHash}
+ * - Email-чек:   fs_lms_rl_emailchk_{ipHash}
  */
 readonly class RateLimitService {
 
@@ -51,6 +53,11 @@ readonly class RateLimitService {
 	private const LIMIT_PARENT      = 3;
 	private const LIMIT_PII_REVEAL  = 100;
 	private const LIMIT_OTP_EMAIL   = 5;
+
+	// Публичные проверки занятости (лимит по IP; email жёстче — это проверка ПД).
+	// IP за школьным NAT общий на класс — ниже 20/час не опускать.
+	private const LIMIT_USERNAME_CHECK = 20;
+	private const LIMIT_EMAIL_CHECK    = 10;
 
 	/**
 	 * Проверяет и фиксирует попытку создания заявки с данного IP.
@@ -101,6 +108,36 @@ readonly class RateLimitService {
 	public function allowParentSubmit( string $ip ): bool {
 		if ( $this->pluginConfig->isTestEnv() ) { return true; }
 		return $this->check( $this->ipKey( 'parent', $ip ), self::LIMIT_PARENT );
+	}
+
+	/**
+	 * Проверяет и фиксирует попытку проверки занятости логина с данного IP.
+	 *
+	 * Эндпоинт публичный (nopriv): без лимита это пакетное перечисление
+	 * пользователей через username_exists().
+	 *
+	 * @param string $ip IP-адрес клиента
+	 *
+	 * @return bool false если лимит превышен
+	 */
+	public function allowUsernameCheck( string $ip ): bool {
+		if ( $this->pluginConfig->isTestEnv() ) { return true; }
+		return $this->check( $this->ipKey( 'unamechk', $ip ), self::LIMIT_USERNAME_CHECK );
+	}
+
+	/**
+	 * Проверяет и фиксирует попытку проверки занятости email с данного IP.
+	 *
+	 * Жёстче лимита логина: подтверждение регистрации по произвольному email —
+	 * раскрытие персональных данных, проверяемое пакетно по списку адресов.
+	 *
+	 * @param string $ip IP-адрес клиента
+	 *
+	 * @return bool false если лимит превышен
+	 */
+	public function allowEmailCheck( string $ip ): bool {
+		if ( $this->pluginConfig->isTestEnv() ) { return true; }
+		return $this->check( $this->ipKey( 'emailchk', $ip ), self::LIMIT_EMAIL_CHECK );
 	}
 
 	/**

@@ -68,11 +68,20 @@ class LearnerServiceTest extends TestCase {
 		$this->gate->method( 'resolveLesson' )->willReturn( \Inc\Enums\Course\GateState::Available );
 		$this->effectiveTeacher = $this->createMock( EffectiveTeacherResolver::class );
 		$this->examLock         = $this->createMock( \Inc\Services\Assessment\ExamLockService::class );
-		$this->service = new LearnerService(
+		// Т14.3: LearnerService — фасад над секциями; собираем реальные секции из моков,
+		// чтобы тесты по-прежнему проверяли сквозную сборку кабинета.
+		$contextBuilder = new \Inc\Services\Profile\Learner\LearnerContextBuilder(
 			$this->records, $this->groups, $this->groupLessons, $this->lessons, $this->courses,
-			$this->gradebook, $this->attendance, $this->clock,
-			$this->submissions, $this->worksResolver, $this->gate, $this->progress,
-			$this->subjects, $this->rooms, $this->effectiveTeacher, $this->examLock,
+			$this->subjects, $this->rooms, $this->clock, $this->effectiveTeacher,
+			$this->progress, $this->gate,
+		);
+		$this->service = new LearnerService(
+			$contextBuilder,
+			new \Inc\Services\Profile\Learner\LearnerScheduleSection( $this->submissions, $this->worksResolver, $this->lessons ),
+			new \Inc\Services\Profile\Learner\LearnerPerformanceSection( $this->gradebook, $this->attendance ),
+			new \Inc\Services\Profile\Learner\LearnerCoursesSection(
+				$this->courses, $this->lessons, $this->progress, $this->subjects, $this->groups, $this->examLock, $contextBuilder,
+			),
 		);
 	}
 

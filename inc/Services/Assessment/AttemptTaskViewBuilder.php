@@ -52,6 +52,10 @@ readonly class AttemptTaskViewBuilder {
 		$expandComposites = null !== $kind && $kind->expandsComposites();
 		$taxonomy         = '' !== $subjectKey ? PostTypeResolver::getTaskTaxonomy( $subjectKey ) : '';
 
+		// ID приходят из таблицы контрольной, не из WP_Query — без прогрева каждый
+		// getMeta() в цикле шёл бы отдельным запросом (2 на задание).
+		$this->posts->primeMetaCache( $taskIds );
+
 		$views = array();
 		foreach ( $taskIds as $taskId ) {
 			$taskId   = (int) $taskId;

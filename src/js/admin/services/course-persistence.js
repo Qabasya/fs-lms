@@ -1,4 +1,5 @@
-import { esc, ajax } from './step-editor.js';
+import { escapeHtml as esc } from '../modules/utils.js';
+import { ajax } from './step-ajax.js';
 import { showToast } from '../modules/toast.js';
 
 /* global fs_lms_vars */

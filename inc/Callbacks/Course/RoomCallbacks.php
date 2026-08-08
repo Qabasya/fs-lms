@@ -80,8 +80,8 @@ class RoomCallbacks extends BaseController {
 		$name     = $this->requireText( 'name' );
 		$seats    = max( 0, $this->sanitizeInt( 'seats' ) );
 		// Модалка кабинета не содержит поля активности → по умолчанию активен.
-		$active   = ! isset( $_POST['is_active'] ) || $this->sanitizeBool( 'is_active' );
-		$subjects = array_values( array_filter( array_map( 'sanitize_key', (array) ( $_POST['allowed_subjects'] ?? array() ) ) ) );
+		$active   = ! $this->hasParam( 'is_active' ) || $this->sanitizeBool( 'is_active' );
+		$subjects = $this->sanitizeKeyList( 'allowed_subjects' );
 
 		$data = array( 'name' => $name, 'seats' => $seats, 'allowed_subjects' => $subjects, 'is_active' => $active );
 

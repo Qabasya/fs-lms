@@ -11,6 +11,7 @@ readonly class PluginConfigRepository {
 	private const DEFAULTS = array(
 		'test_env'        => false,
 		'otp_bypass_code' => '',
+		'brand_logo_id'   => 0, // attachment ID логотипа кабинета (0 — дефолтный BrandMark)
 	);
 
 	public function get(): array {

@@ -43,6 +43,12 @@
 .fs-carousel-track {
   display: flex;
   align-items: stretch;
+
+  // Плавный сдвиг только под классом: бесшовный перескок клона делается без
+  // анимации (JS снимает класс), сам transform JS задаёт инлайном (геометрия).
+  &.is-animating {
+    transition: transform $transition-medium;
+  }
 }
 
 // Сколько карточек в кадре

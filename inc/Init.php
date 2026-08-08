@@ -17,6 +17,7 @@ use Inc\Controllers\Pages\ApplyPageController;
 use Inc\Controllers\Person\ConsentController;
 use Inc\Controllers\System\CronController;
 use Inc\Controllers\System\AdminController;
+use Inc\Controllers\System\AdminFooterModalsController;
 use Inc\Controllers\System\MediaUploadController;
 use Inc\Controllers\System\ModulesDashboardController;
 use Inc\Controllers\Task\BoilerplateController;
@@ -29,6 +30,9 @@ use Inc\Controllers\Course\CourseBuilderController;
 use Inc\Controllers\Course\CourseController;
 use Inc\Controllers\Course\CourseMetaBoxController;
 use Inc\Controllers\Assessment\AssessmentMetaBoxController;
+use Inc\Controllers\Course\BankChromeController;
+use Inc\Controllers\Course\BankListTableController;
+use Inc\Controllers\Course\BankRowActionsController;
 use Inc\Controllers\Course\LearningMenuController;
 use Inc\Controllers\Subject\ContentDeletionGuard;
 use Inc\Controllers\Problems\ProblemsController;
@@ -115,13 +119,17 @@ final class Init {
 	 */
 	public static function getServices(): array {
 		return array(
-			Enqueue::class,                   // Подключение скриптов и стилей
+			Enqueue::class,                   // Подключение скриптов и стилей (фасад Core/Assets)
+			AdminFooterModalsController::class, // Модалки Confirm/Alert в admin_footer
 			AdminController::class,           // Административное меню
 			ModulesDashboardController::class, // AJAX и локализация для Dashboard-модулей
 			MediaUploadController::class,     // Проверка типов загружаемых файлов (.txt, принятый finfo за CSV)
 			SubjectController::class, // Управление предметами и CPT
 			MetaBoxController::class,        // Метабоксы заданий
-			LearningMenuController::class,   // Меню «Обучение» (банки контента)
+			LearningMenuController::class,   // Меню «Обучение» (банки контента): пункты + подсветка
+			BankChromeController::class,     // Шапка банков над list-table + лендинг-фолбэки
+			BankListTableController::class,  // Фильтры list-table банков + статус «Незавершённая»
+			BankRowActionsController::class, // «Дублировать» в строках банков + модалка черновика
 			LessonMetaBoxController::class,  // Метабокс урока
 			LessonController::class,         // AJAX конструктора урока
 			WorkMetaBoxController::class,    // Метабокс работы

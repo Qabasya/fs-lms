@@ -45,7 +45,7 @@ class AssessmentAuthorCallbacks extends BaseController {
 		$assessment_id = $this->requireInt( 'assessment_id' );
 		$item_ids      = $this->sanitizeIntList( 'item_ids' );
 
-		$raw_points  = (array) ( $_POST['task_points'] ?? array() );
+		$raw_points  = $this->unslashArray( 'task_points' );
 		$task_points = array();
 		foreach ( $raw_points as $task_id => $points ) {
 			$tid = (int) $task_id;
@@ -57,7 +57,7 @@ class AssessmentAuthorCallbacks extends BaseController {
 
 		// Задача 8: номера банковских задач (fs_lms_problems) — задаются в конструкторе,
 		// т.к. у глобального банка нет таксономии {subject}_task_number.
-		$raw_numbers  = (array) ( $_POST['task_numbers'] ?? array() );
+		$raw_numbers  = $this->unslashArray( 'task_numbers' );
 		$task_numbers = array();
 		foreach ( $raw_numbers as $task_id => $number ) {
 			$tid = (int) $task_id;

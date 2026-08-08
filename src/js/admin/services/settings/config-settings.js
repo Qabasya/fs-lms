@@ -28,6 +28,9 @@ export const ConfigSettings = {
 			const targetId = $( e.currentTarget ).data( 'target' );
 			this.copyToClipboard( targetId, e.currentTarget );
 		} );
+
+		$( document ).on( 'click', '.js-brand-logo-pick', () => this.pickBrandLogo() );
+		$( document ).on( 'click', '.js-brand-logo-clear', () => this.clearBrandLogo() );
 	},
 
 	saveConfig() {
@@ -43,6 +46,7 @@ export const ConfigSettings = {
 			security:      fs_lms_vars.nonces.config,
 			otp_bypass_code: $form.find( '[name=otp_bypass_code]' ).val(),
 			test_env:      $form.find( '[name=test_env]' ).is( ':checked' ) ? 1 : 0,
+			brand_logo_id: $form.find( '[name=brand_logo_id]' ).val() || 0,
 		} )
 			.done( ( res ) => {
 				if ( res.success ) {
@@ -96,6 +100,40 @@ export const ConfigSettings = {
 		};
 
 		doRequest();
+	},
+
+	/** Открывает медиатеку и подставляет выбранный логотип (сохранится общей кнопкой формы). */
+	pickBrandLogo() {
+		if ( ! window.wp || ! wp.media ) {
+			AlertModal.show( { title: 'Ошибка', message: 'Медиатека недоступна на этой странице.' } );
+			return;
+		}
+
+		if ( ! this._logoFrame ) {
+			this._logoFrame = wp.media( {
+				title:    'Логотип личного кабинета',
+				button:   { text: 'Выбрать' },
+				library:  { type: 'image' },
+				multiple: false,
+			} );
+
+			this._logoFrame.on( 'select', () => {
+				const att = this._logoFrame.state().get( 'selection' ).first().toJSON();
+				const url = ( att.sizes && att.sizes.medium ? att.sizes.medium.url : att.url ) || '';
+				$( '#fs-config-logo-id' ).val( att.id );
+				$( '#fs-config-logo-preview' ).attr( 'src', url ).removeAttr( 'hidden' );
+				$( '.js-brand-logo-clear' ).removeAttr( 'hidden' );
+			} );
+		}
+
+		this._logoFrame.open();
+	},
+
+	/** Сбрасывает логотип на дефолтный знак (сохранится общей кнопкой формы). */
+	clearBrandLogo() {
+		$( '#fs-config-logo-id' ).val( 0 );
+		$( '#fs-config-logo-preview' ).attr( 'hidden', true ).attr( 'src', '' );
+		$( '.js-brand-logo-clear' ).attr( 'hidden', true );
 	},
 
 	copyToClipboard( targetId, btn ) {

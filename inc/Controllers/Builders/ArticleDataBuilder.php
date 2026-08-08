@@ -81,7 +81,6 @@ readonly class ArticleDataBuilder {
 			courses:     $this->course_service->getSidebarCourses( $subject_key ),
 			courses_url: $links->courses,
 			recommended: $this->buildRecommended( $subject_key, $post_view->id ),
-			thumbnail:   $this->post_manager->getThumbnailUrl( $post_view->id, 'large' ),
 			navigation:  $this->article_service->getNavigation( $subject_key, $post_view->id, $links->textbook ),
 		);
 	}

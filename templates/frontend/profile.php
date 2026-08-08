@@ -15,6 +15,9 @@ if ( ! is_user_logged_in() ) {
 	wp_safe_redirect( home_url( '/sign-in/' ) );
 	exit;
 }
+
+// Логотип из настроек оформления (ProfileController → set_query_var); '' — дефолтный знак.
+$fs_brand_logo_url = (string) get_query_var( 'fs_lms_brand_logo_url', '' );
 ?>
 <!DOCTYPE html>
 <html <?php language_attributes(); ?>>
@@ -33,9 +36,12 @@ if ( ! is_user_logged_in() ) {
 
 	<aside class="prof-sidebar">
 		<div class="prof-brand">
-<!--        TODO: заменить на логотип в меню настройки стилей-->
-            <div class="prof-brand-mark">
-				<?php echo Icon::BrandMark->svg(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+			<div class="prof-brand-mark">
+				<?php if ( '' !== $fs_brand_logo_url ) : ?>
+					<img class="prof-brand-logo" src="<?php echo esc_url( $fs_brand_logo_url ); ?>" alt="">
+				<?php else : ?>
+					<?php echo Icon::BrandMark->svg(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+				<?php endif; ?>
 			</div>
 			<div>
 				<div class="prof-brand-name"><span>Шаг в будущее</span></div>

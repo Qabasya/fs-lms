@@ -90,6 +90,8 @@
     transition: opacity $transition-slow, padding-right $transition-slow;
   }
 
+  // Своя очистка: показывается только при непустом поле (атрибут hidden снимает
+  // search-box.js).
   .toolbar-search-clear {
     display: grid; place-items: center;
     flex: 0 0 auto;

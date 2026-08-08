@@ -6,20 +6,7 @@
  * UI-only, без AJAX — данные приходят из AllTasksPage.
  */
 
-/**
- * Экранирует текст для вставки в разметку.
- *
- * @param {string} value Исходная строка.
- *
- * @returns {string}
- */
-function esc(value) {
-    return String(value ?? '')
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
-}
+import { escapeHtml as esc } from '../../common/utils.js';
 
 /**
  * Перерисовывает список статей и прячет блок, когда статей нет.
