@@ -50,6 +50,28 @@ readonly class BreadcrumbsBuilder {
 	}
 
 	/**
+	 * Крошки каталога учебника: предмет / Учебник.
+	 *
+	 * Текущая крошка ссылкой не становится — это открытая страница.
+	 *
+	 * @param string          $subject_name Название предмета.
+	 * @param SubjectLinksDTO $links        Ссылки на разделы предмета.
+	 *
+	 * @return array<int, array<string, mixed>>
+	 */
+	public function forArticles( string $subject_name, SubjectLinksDTO $links = new SubjectLinksDTO() ): array {
+		$crumbs = array();
+
+		if ( '' !== $subject_name ) {
+			$crumbs[] = $this->crumb( $subject_name, $links->subject );
+		}
+
+		$crumbs[] = $this->crumb( self::MATERIALS_LABEL, '', true );
+
+		return $crumbs;
+	}
+
+	/**
 	 * Крошки страницы задания: предмет / Тренажёр / тип задания / задание.
 	 *
 	 * @param string          $subject_name Название предмета.
@@ -102,7 +124,7 @@ readonly class BreadcrumbsBuilder {
 			$crumbs[] = $this->crumb( $subject_name, $links->subject );
 		}
 
-		$crumbs[] = $this->crumb( self::MATERIALS_LABEL, $links->textbook );
+		$crumbs[] = $this->crumb( self::MATERIALS_LABEL, $links->articles );
 
 		if ( '' !== $article_label ) {
 			$crumbs[] = $this->crumb( $article_label, '', true );

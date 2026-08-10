@@ -125,7 +125,7 @@ readonly class TaskDataBuilder {
 			content:      $content,
 			files:        $this->task_meta_service->getTaskFiles( $meta ),
 			tags:         $this->buildTags( $post->id, $subject_key, $current_task_type, $links->trainer ),
-			articles:     $this->buildArticles( $subject_key, $current_task_type, $links->textbook ),
+			articles:     $this->buildArticles( $subject_key, $current_task_type, $links->articles ),
 			courses:      $this->course_service->getSidebarCourses( $subject_key ),
 			courses_url:  $links->courses,
 			navigation:   $this->buildNavigation( $post, $subject_name, $links, $current_task_type ),
@@ -273,13 +273,13 @@ readonly class TaskDataBuilder {
 	 *
 	 * @param string           $subject_key       Ключ предмета.
 	 * @param TermViewDTO|null $current_task_type DTO текущего типа задания.
-	 * @param string           $textbook_url      Учебник предмета — ссылка «Все материалы».
+	 * @param string           $articles_url      Учебник предмета — ссылка «Все материалы».
 	 *
 	 * @return array Ключи: 'related' (по типу задания, иначе случайные),
 	 *               'recommended' (свежие),
 	 *               'archive_url' (ссылка «Все материалы»).
 	 */
-	private function buildArticles( string $subject_key, ?TermViewDTO $current_task_type, string $textbook_url ): array {
+	private function buildArticles( string $subject_key, ?TermViewDTO $current_task_type, string $articles_url ): array {
 		$related = $this->article_service->getRelatedArticles( $subject_key, $current_task_type );
 
 		// По типу задания статей нет — показываем случайные статьи предмета,
@@ -291,7 +291,7 @@ readonly class TaskDataBuilder {
 		return array(
 			'related'     => $related,
 			'recommended' => $this->article_service->getLatestArticles( $subject_key ),
-			'archive_url' => $textbook_url,
+			'archive_url' => $articles_url,
 		);
 	}
 

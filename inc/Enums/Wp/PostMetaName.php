@@ -45,4 +45,10 @@ enum PostMetaName: string {
 	 * Не длиннее {@see \Inc\Controllers\Article\ArticleMetaBoxController::MAX_LENGTH} символов.
 	 */
 	case ArticleDescription = 'fs_lms_article_description';
+
+	/**
+	 * Слаг статьи заморожен первой публикацией — автогенерация его больше не трогает.
+	 * Ставится при переходе в publish, см. {@see \Inc\Callbacks\Article\SlugCallbacks}.
+	 */
+	case ArticleSlugLocked = 'fs_lms_article_slug_locked';
 }

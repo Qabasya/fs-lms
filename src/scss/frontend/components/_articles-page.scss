@@ -1,0 +1,70 @@
+@use '../variables' as *;
+@use '../mixins' as *;
+
+// ═══════════════════════════════════════════════════════════════════
+// Каталог учебника (раздел `articles` лендинга предмета).
+// Оболочка, крошки, поиск и сайдбар-фильтры — общие с «Всеми заданиями»:
+// скоуп .fs-articles-page подмешан к их партиалам (all-tasks/*). Здесь —
+// только своё: секции по номерам заданий, сетка карточек и пустой результат.
+// Карточка статьи — .fs-subject-card (_subject-page.scss) плюс строка меты.
+// ═══════════════════════════════════════════════════════════════════
+
+.fs-articles-page {
+  // Отступ якоря: строка крошек липкая и перекрыла бы заголовок секции.
+  .fs-articles-sec { scroll-margin-top: rem(88); }
+
+  .fs-articles-sec:not([hidden]) ~ .fs-articles-sec:not([hidden]) {
+    margin-top: $spacing-4xl;
+  }
+
+  .fs-articles-sec__head {
+    display: flex;
+    align-items: baseline;
+    gap: $spacing-md;
+    padding-bottom: rem(14);
+    margin-bottom: $spacing-lg;
+    border-bottom: 1px solid $color-border;
+  }
+
+  .fs-articles-sec__title {
+    margin: 0;
+    font-size: $font-size-lead;
+    font-weight: $font-bold;
+    line-height: $line-height-tight;
+    letter-spacing: -.02em;
+    color: $color-text;
+  }
+
+  .fs-articles-sec__count {
+    margin-left: auto;
+    font-size: $font-size-xs;
+    color: $color-muted-2;
+    white-space: nowrap;
+  }
+
+  .fs-articles-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(rem(240), 1fr));
+    gap: $spacing-lg;
+  }
+
+  .fs-articles-card .fs-subject-card-title {
+    @include line-clamp(2);
+  }
+
+  // Мета карточки: время чтения слева, «Читать» справа — отбиты от текста
+  // линией, как в макете.
+  .fs-articles-card__meta {
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
+    margin-top: auto;
+    padding-top: $spacing-md;
+    border-top: 1px solid $color-border-light;
+  }
+
+  .fs-articles-card__meta .fs-subject-card-more {
+    margin-top: 0;
+    margin-left: auto;
+  }
+}

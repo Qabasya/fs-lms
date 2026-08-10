@@ -91,5 +91,11 @@ class ContentCacheService {
 		// Ключ общий с SubjectDataCallbacks — оба берут его из TransientKey
 		$key = 'tasks' === $type_suffix ? TransientKey::RecentTasks : TransientKey::RecentArticles;
 		$this->transients->delete( $key, $subject_key );
+
+		// Каталог учебника собирается из всех статей предмета разом — правка
+		// любой из них делает его несвежим.
+		if ( 'articles' === $type_suffix ) {
+			$this->transients->delete( TransientKey::ArticleCatalog, $subject_key );
+		}
 	}
 }

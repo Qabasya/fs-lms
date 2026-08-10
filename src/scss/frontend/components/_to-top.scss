@@ -1,12 +1,13 @@
 @use '../variables' as *;
 
 // Кнопка «наверх» — общий компонент длинных публичных страниц («Все задания»,
-// статья). Показ и скрытие — атрибутом hidden из components/scroll-top.js.
+// учебник, статья). Показ и скрытие — атрибутом hidden из components/scroll-top.js.
 
 // Скоуп страниц обязателен: сброс `button` в _reset.scss объявлен как
 // `.fs-all-tasks-page button` (класс + тег) и без него перебивает по
 // специфичности фон, рамку, тень и padding кнопки.
 .fs-all-tasks-page,
+.fs-articles-page,
 .fs-article-page {
   .fs-to-top {
     position: fixed; right: rem(28); bottom: rem(28);

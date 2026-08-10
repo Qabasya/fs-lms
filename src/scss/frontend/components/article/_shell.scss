@@ -31,9 +31,10 @@
     align-content: start;
     align-self: start;
     min-width: 0;
-    max-height: calc(100vh - #{rem(56)});
-    overflow-y: auto;
-    scrollbar-width: thin;
+
+    // Класс и переменную ставит article-aside.js в одном вызове, поэтому
+    // фолбэк не нужен: сайдбар выше экрана едет вместе с текстом.
+    &.is-scroll-sticky { top: var(--fs-aside-top); }
   }
 
   .fs-article-title {
@@ -64,11 +65,8 @@
     .layout,
     .layout--solo { grid-template-columns: minmax(0, 1fr); }
 
-    .fs-article-aside {
-      position: static;
-      max-height: none;
-      overflow: visible;
-    }
+    // Статичный сайдбар — сигнал для article-aside.js: вести его не нужно.
+    .fs-article-aside { position: static; }
 
     .fs-article-title { font-size: $font-size-2xl; }
   }

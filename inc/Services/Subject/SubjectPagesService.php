@@ -154,7 +154,7 @@ readonly class SubjectPagesService {
 		return new SubjectLinksDTO(
 			subject:  $this->url( $subjectKey, SubjectPageType::Overview ) ?: $trainer,
 			trainer:  $trainer,
-			textbook: $this->url( $subjectKey, SubjectPageType::Textbook ),
+			articles: $this->url( $subjectKey, SubjectPageType::Articles ),
 			courses:  $this->url( $subjectKey, SubjectPageType::Courses ),
 		);
 	}

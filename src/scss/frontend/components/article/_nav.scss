@@ -49,7 +49,7 @@ $nav-text-gap: rem(3);
     gap: rem(12);
     align-items: stretch;
   }
-  
+
   &__row {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr);
@@ -69,11 +69,6 @@ $nav-text-gap: rem(3);
       color: inherit;
     }
 
-    &--empty {
-      background: $color-border;
-      border-color: transparent;
-    }
-
     &:is(a):hover .fs-article-nav__kicker { color: $color-accent; }
   }
 
@@ -90,7 +85,7 @@ $nav-text-gap: rem(3);
     color: $color-muted-2;
     transition: color $transition;
   }
-  
+
   &__thumb {
     display: block;
     flex-shrink: 0;
@@ -136,7 +131,7 @@ $nav-text-gap: rem(3);
     color: $color-muted;
     overflow-wrap: anywhere;
   }
-  
+
   &__row--tight .fs-article-nav__desc { -webkit-line-clamp: 1; }
 }
 

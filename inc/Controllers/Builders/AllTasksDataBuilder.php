@@ -14,8 +14,8 @@ use Inc\Managers\Wp\TermManager;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Repositories\OptionsRepositories\TaxonomyRepository;
 use Inc\Services\Course\PublicCourseService;
-use Inc\Services\Shared\Pluralizer;
 use Inc\Services\Subject\ArticleService;
+use Inc\Services\Subject\FilterGroupService;
 use Inc\Services\Subject\PostTypeResolver;
 use Inc\Services\Subject\SubjectPagesService;
 use Inc\Services\Subject\TagPaletteService;
@@ -53,6 +53,7 @@ readonly class AllTasksDataBuilder {
 		private PublicCourseService $course_service,
 		private TagPaletteService  $tag_palette,
 		private SubjectPagesService $subject_pages,
+		private FilterGroupService $filter_groups,
 	) {}
 
 	/**
@@ -78,7 +79,7 @@ readonly class AllTasksDataBuilder {
 			breadcrumbs:  $this->breadcrumbs_builder->forArchive( $subject_name, $links ),
 			filters:      $this->buildFilters( $subject_key, $filters ),
 			articles:     $this->fetchArticles( $subject_key, $selected ),
-			articles_url: $links->textbook,
+			articles_url: $links->articles,
 			courses:      $this->course_service->getSidebarCourses( $subject_key ),
 			courses_url:  $links->courses,
 			tasks:        $tasks,
@@ -310,13 +311,13 @@ readonly class AllTasksDataBuilder {
 			unset( $constraint[ $tax_slug ] );
 
 			$counts = $this->facetCounts( $subject_key, $search, $constraint, $tax_slug, $ids_cache );
-			$terms  = $this->buildTermOptions( $tax_slug, $counts, $selected[ $tax_slug ] ?? array(), $tax_slug === $number_tax );
+			$terms  = $this->filter_groups->options( $tax_slug, $counts, $selected[ $tax_slug ] ?? array(), $tax_slug === $number_tax );
 
 			if ( empty( $terms ) ) {
 				continue;
 			}
 
-			$groups[] = $this->filterGroup( $tax_slug, $name, $terms, $is_type );
+			$groups[] = $this->filter_groups->group( $tax_slug, $name, $terms, $is_type );
 		}
 
 		return $groups;
@@ -382,121 +383,4 @@ readonly class AllTasksDataBuilder {
 		return array_map( 'intval', $result['posts'] );
 	}
 
-	/**
-	 * Собирает группу фильтров вместе со сводкой и числом выбранных опций.
-	 *
-	 * @param string $taxonomy Слаг таксономии.
-	 * @param string $name     Заголовок группы.
-	 * @param array  $terms    Опции группы.
-	 * @param bool   $is_type  Группа типа задания (для склонения в сводке).
-	 *
-	 * @return array<string, mixed>
-	 */
-	private function filterGroup( string $taxonomy, string $name, array $terms, bool $is_type ): array {
-		$available = array_values( array_filter( $terms, static fn( array $term ) => ! empty( $term['available'] ) ) );
-
-		return array(
-			'taxonomy'  => $taxonomy,
-			'name'      => $name,
-			'terms'     => $terms,
-			'summary'   => $this->filterSummary( $available, $is_type ),
-			// Сколько опций пришло выбранными из URL — секция раскрывается, появляется бейдж.
-			'active'    => count( array_filter( $terms, static fn( array $term ) => ! empty( $term['selected'] ) ) ),
-			// Ноль доступных опций — группу скрываем целиком (термины остаются
-			// в разметке, чтобы JS вернул их при снятии фильтров).
-			'available' => count( $available ),
-		);
-	}
-
-	/**
-	 * Текст-сводка группы фильтров (виден, когда секция свёрнута и ничего не выбрано).
-	 * Год (все термины — 4-значные числа) → см. yearSummary(); тип → «Все N типов»;
-	 * прочее → «Все N».
-	 *
-	 * @param array $terms   Опции группы: [{slug,name,count,url}].
-	 * @param bool  $is_type Группа типа задания (для склонения «тип/типа/типов»).
-	 *
-	 * @return string
-	 */
-	private function filterSummary( array $terms, bool $is_type ): string {
-		$count = count( $terms );
-
-		$years = array_filter( $terms, static fn( $t ) => (bool) preg_match( '/^\d{4}$/', (string) $t['name'] ) );
-		if ( $count > 0 && count( $years ) === $count ) {
-			return $this->yearSummary( array_map( static fn( $t ) => (int) $t['name'], $terms ) );
-		}
-
-		if ( $is_type ) {
-			return sprintf( 'Все %d %s', $count, Pluralizer::ru( $count, 'тип', 'типа', 'типов' ) );
-		}
-
-		return sprintf( 'Все %d', $count );
-	}
-
-	/**
-	 * Сводка группы годов. Диапазон «min—max» годится, только пока годы идут
-	 * подряд: при отборе по типу задания в срезе остаются, например, 2021 и 2026,
-	 * и прежний «2021—2026» выглядел так, будто подпись не отреагировала.
-	 *
-	 * Один год → «2021»; до трёх → перечисление; непрерывный ряд → «2021—2026»;
-	 * остальное → «5 лет».
-	 *
-	 * @param int[] $years Годы доступных опций группы.
-	 *
-	 * @return string
-	 */
-	private function yearSummary( array $years ): string {
-		$years = array_values( array_unique( $years ) );
-		sort( $years );
-
-		$count = count( $years );
-		$min   = $years[0];
-		$max   = $years[ $count - 1 ];
-
-		if ( $count <= 3 ) {
-			return implode( ', ', $years );
-		}
-
-		if ( $max - $min + 1 === $count ) {
-			return "{$min}—{$max}";
-		}
-
-		return sprintf( '%d %s', $count, Pluralizer::ru( $count, 'год', 'года', 'лет' ) );
-	}
-
-	/**
-	 * Опции одной группы фильтров: термины таксономии со счётчиками текущего среза.
-	 *
-	 * Счётчик берём не из `$term->count` (он суммирует все типы записей таксономии),
-	 * а из фасетного подсчёта строго по заданиям (см. facetCounts()).
-	 *
-	 * @param string $taxonomy           Слаг таксономии.
-	 * @param array  $counts             Счётчики [term_id => count] в текущем срезе.
-	 * @param array  $selected_slugs     Слаги выбранных терминов.
-	 * @param bool   $prefer_description Показывать описание термина вместо названия
-	 *
-	 * @return array<int, array<string, mixed>>
-	 */
-	private function buildTermOptions( string $taxonomy, array $counts, array $selected_slugs = array(), bool $prefer_description = false ): array {
-		return array_map(
-			function ( \WP_Term $term ) use ( $taxonomy, $counts, $selected_slugs, $prefer_description ): array {
-				$count    = $counts[ (int) $term->term_id ] ?? 0;
-				$selected = in_array( $term->slug, $selected_slugs, true );
-
-				return array(
-					'slug'     => $term->slug,
-					'name'     => $prefer_description && '' !== trim( (string) $term->description )
-						? trim( (string) $term->description )
-						: $term->name,
-					'count'    => $count,
-					'url'      => $this->term_manager->getLink( $term->term_id, $taxonomy ),
-					'selected' => $selected,
-					// Выбранный термин остаётся видимым даже при нулевом счётчике —
-					// иначе снять несовместимый выбор было бы нечем.
-					'available' => $count > 0 || $selected,
-				);
-			},
-			$this->term_manager->getAll( $taxonomy )
-		);
-	}
 }

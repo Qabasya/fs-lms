@@ -19,10 +19,9 @@
   }
 
   .fs-article-toc__title {
-    font-size: $font-size-code;
-    font-weight: $font-semibold;
-    letter-spacing: .07em;
-    text-transform: uppercase;
+    font-size: $font-size-md;
+    font-weight: $font-bold;
+    letter-spacing: -.01em;
     color: $color-text;
     line-height: 1;
   }
@@ -89,7 +88,19 @@
   }
 
   // Подзаголовок (h3)
-  .fs-article-toc__link--sub { padding-left: rem(32); }
+  .fs-article-toc__link--sub {
+    position: relative;
+    padding-left: rem(32);
+
+    &::before {
+      content: '';
+      position: absolute;
+      top: calc(#{$spacing-sm} + .7em);
+      left: rem(18);
+      width: rem(8);
+      border-top: 1px solid currentcolor;
+    }
+  }
 
   .fs-article-toc__progress-row { padding: $spacing-md rem(18) 0; }
 

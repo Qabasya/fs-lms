@@ -34,8 +34,8 @@ enum SubjectPageType: string {
 	/** Тренажёр `/{key}/trainer/` — задания предмета. */
 	case Trainer = 'trainer';
 
-	/** Учебник `/{key}/textbook/` — статьи предмета. */
-	case Textbook = 'textbook';
+	/** Учебник `/{key}/articles/` — статьи предмета. */
+	case Articles = 'articles';
 
 	/** Курсы `/{key}/courses/` — витрина опубликованных курсов. */
 	case Courses = 'courses';
@@ -75,7 +75,7 @@ enum SubjectPageType: string {
 		return match ( $this ) {
 			self::Overview => $subjectName,
 			self::Trainer  => "{$subjectName} — тренажёр",
-			self::Textbook => "{$subjectName} — учебник",
+			self::Articles => "{$subjectName} — учебник",
 			self::Courses  => "{$subjectName} — курсы",
 		};
 	}
@@ -90,7 +90,7 @@ enum SubjectPageType: string {
 		return match ( $this ) {
 			self::Overview => null,
 			self::Trainer  => ShortCode::SubjectTrainer,
-			self::Textbook => ShortCode::SubjectTextbook,
+			self::Articles => ShortCode::SubjectArticles,
 			self::Courses  => ShortCode::SubjectCourses,
 		};
 	}
@@ -118,7 +118,7 @@ enum SubjectPageType: string {
 	 * @return bool
 	 */
 	public function requiresBank(): bool {
-		return in_array( $this, array( self::Trainer, self::Textbook ), true );
+		return in_array( $this, array( self::Trainer, self::Articles ), true );
 	}
 
 	/**

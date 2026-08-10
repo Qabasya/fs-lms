@@ -42,7 +42,7 @@ enum ShortCode: string {
 	case SubjectTrainer = 'fs_lms_subject_trainer';
 
 	/** Шорткод раздела «Учебник» лендинга предмета (статьи предмета) */
-	case SubjectTextbook = 'fs_lms_subject_textbook';
+	case SubjectArticles = 'fs_lms_subject_articles';
 
 	/** Шорткод раздела «Курсы» лендинга предмета */
 	case SubjectCourses = 'fs_lms_subject_courses';

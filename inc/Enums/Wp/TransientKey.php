@@ -26,6 +26,9 @@ enum TransientKey: string {
 	/** HTML-таблица последних статей предмета (суффикс — ключ предмета). */
 	case RecentArticles = 'fs_lms_recent_articles_';
 
+	/** Карточки каталога учебника — весь банк статей предмета (суффикс — ключ предмета). */
+	case ArticleCatalog = 'fs_lms_article_catalog_';
+
 	/**
 	 * Полный ключ транзиента.
 	 *
