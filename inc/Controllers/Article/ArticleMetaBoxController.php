@@ -47,7 +47,30 @@ class ArticleMetaBoxController extends BaseController implements ServiceInterfac
 
 	public function register(): void {
 		add_action( 'add_meta_boxes', array( $this, 'handleAddMetaBoxes' ) );
+		// Приоритет > 10: коробки ядра к этому моменту уже зарегистрированы.
+		add_action( 'add_meta_boxes', array( $this, 'removeAttributesMetaBox' ), 100 );
 		add_action( 'save_post', array( $this, 'handleArticleSave' ) );
+	}
+
+	/**
+	 * Убирает коробку ядра «Атрибуты» с экрана статьи.
+	 *
+	 * CPT статей не поддерживает `page-attributes`, но ядро всё равно показывает
+	 * коробку, если тема объявляет шаблоны страниц (`get_page_templates()` отдаёт их
+	 * и для наших CPT). Выбор шаблона темы для статьи бессмыслен: страницу рисует
+	 * `single-article.php` через `template_include` ({@see \Inc\Controllers\Pages\ArticlePageController}).
+	 *
+	 * @param string $post_type Тип записи текущего экрана
+	 *
+	 * @return void
+	 */
+	public function removeAttributesMetaBox( string $post_type ): void {
+		if ( ! PostTypeResolver::isArticlePostType( $post_type ) ) {
+			return;
+		}
+
+		// remove_meta_box() — снимает ранее зарегистрированную коробку
+		remove_meta_box( 'pageparentdiv', $post_type, 'side' );
 	}
 
 	/**

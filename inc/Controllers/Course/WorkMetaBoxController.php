@@ -10,6 +10,7 @@ use Inc\Enums\Wp\Nonce;
 use Inc\Enums\Wp\PostMetaName;
 use Inc\Managers\Course\WorkManager;
 use Inc\Managers\Wp\MetaBoxManager;
+use Inc\Managers\Wp\PostManager;
 use Inc\MetaBoxes\Templates\WorkTemplate;
 use Inc\Registrars\MetaBoxRegistrar;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
@@ -40,6 +41,7 @@ class WorkMetaBoxController extends BaseController implements ServiceInterface {
 		private readonly MetaBoxManager    $metaBoxManager,
 		private readonly WorkTemplate      $template,
 		private readonly WorkManager       $works,
+		private readonly PostManager       $postManager,
 		private readonly TaskPublishGuard  $guard,
 	) {
 		parent::__construct();
@@ -123,6 +125,7 @@ class WorkMetaBoxController extends BaseController implements ServiceInterface {
 			'wrapper_class' => 'fs-lms-work-settings',
 			'post'          => $post,
 			'template'      => $this->template,
+			'values'        => $this->postManager->taskMeta( $post->ID ),
 		) );
 	}
 
