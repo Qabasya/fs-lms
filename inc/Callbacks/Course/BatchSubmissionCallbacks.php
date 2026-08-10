@@ -94,7 +94,7 @@ class BatchSubmissionCallbacks extends BaseController {
 		$this->authorize( Nonce::GradeBatch, Capability::ManageLmsTeaching );
 
 		$submissionId = $this->requireInt( 'submission_id' );
-		$score        = (float) ( $_POST['score'] ?? 0 );
+		$score        = $this->sanitizeFloat( 'score' );
 		$feedback     = $this->sanitizeHtml( 'feedback' );
 
 		$teacherUserId = get_current_user_id();

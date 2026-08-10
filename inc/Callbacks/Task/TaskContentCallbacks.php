@@ -43,7 +43,7 @@ class TaskContentCallbacks extends BaseController {
 
 		$subjectKey = $this->requireKey( 'subject_key' );
 		$templateId = $this->requireKey( 'template' );
-		$postId     = (int) ( $_POST['post_id'] ?? 0 );
+		$postId     = $this->sanitizeInt( 'post_id' );
 
 		$template = $this->templateRegistry->get( $templateId );
 		if ( ! $template ) {
@@ -65,7 +65,7 @@ class TaskContentCallbacks extends BaseController {
 		}
 
 		ob_start();
-		$template->render( $post );
+		$template->render( $post, $this->posts->taskMeta( $post->ID ) );
 		$html = (string) ob_get_clean();
 
 		$this->success( array( 'html' => $html ) );
@@ -81,7 +81,7 @@ class TaskContentCallbacks extends BaseController {
 		$subjectKey = $this->requireKey( 'subject_key' );
 		$templateId = $this->requireKey( 'template' );
 		$title      = $this->requireText( 'title' );
-		$postId     = (int) ( $_POST['post_id'] ?? 0 );
+		$postId     = $this->sanitizeInt( 'post_id' );
 		$rawMeta    = $this->unslashArray( PostMetaName::Meta->value );
 
 		$template = $this->templateRegistry->get( $templateId );

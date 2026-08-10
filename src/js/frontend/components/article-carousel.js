@@ -47,8 +47,9 @@ export function initCarousel() {
     };
 
     const update = (animate = true) => {
-        track.style.transition = animate ? 'transform 0.3s ease' : 'none';
-        track.style.transform  = `translateX(-${index * itemWidth()}px)`;
+        // Анимация — класс (transition живёт в SCSS), JS задаёт только геометрию сдвига.
+        track.classList.toggle('is-animating', animate);
+        track.style.transform = `translateX(-${index * itemWidth()}px)`;
         updateDots();
     };
 

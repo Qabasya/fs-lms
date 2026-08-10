@@ -1,5 +1,7 @@
 <?php
 
+declare( strict_types=1 );
+
 /**
  * Uninstall handler for Future Step LMS plugin
  *

@@ -11,6 +11,7 @@ use Inc\Enums\Wp\PageRoutes;
 use Inc\Managers\Course\CourseManager;
 use Inc\Services\Course\CoursePreviewAccessGuard;
 use Inc\Services\Course\CoursePreviewService;
+use Inc\Shared\Traits\Sanitizer;
 
 /**
  * Class CoursePreviewController
@@ -23,6 +24,8 @@ use Inc\Services\Course\CoursePreviewService;
  * @package Inc\Controllers\Course
  */
 class CoursePreviewController extends BaseController implements ServiceInterface {
+
+	use Sanitizer;
 
 	public function __construct(
 		private readonly CoursePreviewAccessGuard $access,
@@ -37,9 +40,11 @@ class CoursePreviewController extends BaseController implements ServiceInterface
 	}
 
 	public function loadTemplate( string $template ): string {
-		if ( ! PageRoutes::CoursePreview->isCurrent() || ! isset( $_GET['course'] ) ) {
+		if ( ! PageRoutes::CoursePreview->isCurrent() || ! $this->hasParam( 'course', 'GET' ) ) {
 			return $template;
 		}
+
+		$params = $this->deepLinkParams();
 
 		$userId = get_current_user_id();
 		if ( ! $userId ) {
@@ -47,7 +52,7 @@ class CoursePreviewController extends BaseController implements ServiceInterface
 			exit;
 		}
 
-		$courseId = (int) $_GET['course'];
+		$courseId = $params['course'];
 		if ( ! $this->access->canPreview( $userId, $courseId ) ) {
 			// Постороннему не раскрываем наличие курса (404), как в LessonPlayerController.
 			return $this->notFound();
@@ -58,7 +63,9 @@ class CoursePreviewController extends BaseController implements ServiceInterface
 			return $this->notFound();
 		}
 
-		$lessonId = isset( $_GET['lesson'] ) ? (int) $_GET['lesson'] : ( $course->lessonIds()[0] ?? 0 );
+		// Фолбэк на первый урок курса — только здесь: ссылка возврата (currentDeepLink)
+		// не должна дописывать урок, которого не было в исходном запросе.
+		$lessonId = $params['lesson'] ?? ( $course->lessonIds()[0] ?? 0 );
 		$view     = $lessonId ? $this->preview->buildView( $courseId, $lessonId ) : null;
 		if ( null === $view ) {
 			return $this->notFound();
@@ -68,7 +75,7 @@ class CoursePreviewController extends BaseController implements ServiceInterface
 		$view['tree']  = $this->preview->tree( $course, $lessonId );
 
 		$groupId     = 0; // Предпросмотр не привязан к группе.
-		$active_step = isset( $_GET['step'] ) ? sanitize_key( wp_unslash( $_GET['step'] ) ) : '';
+		$active_step = $params['step'];
 		$can_edit    = current_user_can( Capability::AuthorLmsCourses->value );
 
 		// Плеер — полноэкранный app-shell со своим <html> (см. LessonPlayerController):
@@ -78,14 +85,32 @@ class CoursePreviewController extends BaseController implements ServiceInterface
 		exit;
 	}
 
+	/**
+	 * Единый разбор deep-link `?course=&lesson=&step=`.
+	 *
+	 * lesson === null — параметр не передан: фолбэк на первый урок курса делает
+	 * только loadTemplate(), ссылка возврата урок не дописывает.
+	 *
+	 * @return array{course: int, lesson: ?int, step: string}
+	 */
+	private function deepLinkParams(): array {
+		return array(
+			'course' => $this->sanitizeGetInt( 'course' ),
+			'lesson' => $this->hasParam( 'lesson', 'GET' ) ? $this->sanitizeGetInt( 'lesson' ) : null,
+			'step'   => $this->sanitizeGetKey( 'step' ),
+		);
+	}
+
 	/** Текущая глубокая ссылка на курс/урок/шаг (для возврата после логина). */
 	private function currentDeepLink(): string {
-		$args = array( 'course' => (int) ( $_GET['course'] ?? 0 ) );
-		if ( isset( $_GET['lesson'] ) ) {
-			$args['lesson'] = (int) $_GET['lesson'];
+		$params = $this->deepLinkParams();
+
+		$args = array( 'course' => $params['course'] );
+		if ( null !== $params['lesson'] ) {
+			$args['lesson'] = $params['lesson'];
 		}
-		if ( isset( $_GET['step'] ) ) {
-			$args['step'] = sanitize_key( wp_unslash( $_GET['step'] ) );
+		if ( $this->hasParam( 'step', 'GET' ) ) {
+			$args['step'] = $params['step'];
 		}
 
 		return add_query_arg( $args, PageRoutes::CoursePreview->url() );

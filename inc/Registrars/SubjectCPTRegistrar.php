@@ -1,5 +1,7 @@
 <?php
 
+declare( strict_types=1 );
+
 namespace Inc\Registrars;
 
 use Inc\Managers\Wp\CPTManager;

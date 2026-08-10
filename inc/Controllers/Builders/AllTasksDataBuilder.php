@@ -20,6 +20,7 @@ use Inc\Services\Subject\PostTypeResolver;
 use Inc\Services\Subject\SubjectPagesService;
 use Inc\Services\Subject\TagPaletteService;
 use Inc\Services\Task\TaskMetaService;
+use Inc\Shared\PluginLogger;
 
 /**
  * Class AllTasksDataBuilder
@@ -41,6 +42,13 @@ readonly class AllTasksDataBuilder {
 
 	/** Сколько статей показывает сайдбар страницы (SSR и AJAX — одно число). */
 	private const SIDEBAR_ARTICLES = 2;
+
+	/**
+	 * Потолок выборки ID для фасетных счётчиков (2P2). При упоре в него счётчики
+	 * становятся нижней оценкой — приемлемо для UI фильтров; точность на банке
+	 * крупнее вернёт только SQL-подсчёт. Упор логируется warning-ом.
+	 */
+	private const FACET_IDS_CAP = 3000;
 
 	public function __construct(
 		private SubjectRepository  $subject_repository,
@@ -364,7 +372,7 @@ readonly class AllTasksDataBuilder {
 	 */
 	private function matchingIds( string $subject_key, string $search, array $selected ): array {
 		$args = array(
-			'posts_per_page' => -1,
+			'posts_per_page' => self::FACET_IDS_CAP,
 			'fields'         => 'ids',
 			'no_found_rows'  => true,
 		);
@@ -379,6 +387,13 @@ readonly class AllTasksDataBuilder {
 		}
 
 		$result = $this->post_manager->query( PostTypeResolver::tasks( $subject_key ), $args );
+
+		if ( count( $result['posts'] ) >= self::FACET_IDS_CAP ) {
+			PluginLogger::warning( 'AllTasksDataBuilder', 'Фасетная выборка ID упёрлась в потолок — счётчики фильтров стали нижней оценкой', array(
+				'subject' => $subject_key,
+				'cap'     => self::FACET_IDS_CAP,
+			) );
+		}
 
 		return array_map( 'intval', $result['posts'] );
 	}

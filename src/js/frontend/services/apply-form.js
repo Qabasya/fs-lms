@@ -135,7 +135,7 @@ function showSuccess( notice ) {
  * обновляя сообщение, пока статус не станет терминальным (done/failed) или не истечёт лимит.
  * Ядро не знает, что именно создаётся (это инструктирует модуль через ответ).
  *
- * @param {{action:string,nonce:string,ref:number,interval?:number,max?:number}} [poll]
+ * @param {{action:string,nonce:string,ref:string,interval?:number,max?:number}} [poll]
  */
 function startStatusPoll( poll ) {
     if ( ! poll || ! poll.action ) { return; }

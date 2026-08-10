@@ -61,6 +61,7 @@ class SubjectBundleCallbacks extends BaseController {
 		$this->authorize( Nonce::SubjectBundle, Capability::Admin );
 
 		$key     = $this->requireKey( 'key', error: 'Не выбран предмет для экспорта.' );
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput -- нонс проверен в authorize() выше; каждое поле санитизирует BundleOptionsDTO::fromRequest().
 		$options = BundleOptionsDTO::fromRequest( $_POST );
 
 		try {
@@ -135,9 +136,9 @@ class SubjectBundleCallbacks extends BaseController {
 	 * @return string Путь к tmp-файлу
 	 */
 	private function uploadedArchivePath(): string {
-		$file = $_FILES['bundle'] ?? null;
+		$file = $this->uploadedFile( 'bundle' );
 
-		if ( ! is_array( $file ) || ( $file['error'] ?? UPLOAD_ERR_NO_FILE ) !== UPLOAD_ERR_OK ) {
+		if ( null === $file || ( $file['error'] ?? UPLOAD_ERR_NO_FILE ) !== UPLOAD_ERR_OK ) {
 			$this->error( $this->uploadErrorMessage( (int) ( $file['error'] ?? UPLOAD_ERR_NO_FILE ) ) );
 		}
 

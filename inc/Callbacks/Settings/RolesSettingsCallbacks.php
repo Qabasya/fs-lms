@@ -45,8 +45,7 @@ class RolesSettingsCallbacks extends BaseController {
 		$this->authorize( Nonce::SaveRoles, Capability::ManageLmsRoles );
 
 		$user_id = $this->requireInt( 'user_id' );
-		$roles   = $_POST['roles'] ?? array();
-		$roles   = is_array( $roles ) ? $roles : array();
+		$roles   = $this->sanitizeKeyList( 'roles' );
 
 		$target = get_userdata( $user_id );
 		if ( ! $target ) {

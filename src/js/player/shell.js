@@ -15,8 +15,9 @@ export function initShell() {
 	if ( ! document.getElementById( 'fsPlayerApp' ) ) { return; }
 
 	// Серверные прогресс-бары: ширина приходит числом в data-width (0–100).
+	// Ширину задаёт CSS через var(--progress) — JS только выставляет переменную.
 	document.querySelectorAll( '[data-width]' ).forEach( ( el ) => {
-		el.style.width = `${ parseInt( el.dataset.width, 10 ) || 0 }%`;
+		el.style.setProperty( '--progress', `${ parseInt( el.dataset.width, 10 ) || 0 }%` );
 	} );
 
 	document.querySelectorAll( '[data-toast]' ).forEach( ( el ) => {

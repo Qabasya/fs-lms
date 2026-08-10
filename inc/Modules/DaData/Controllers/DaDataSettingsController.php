@@ -8,6 +8,7 @@ use Inc\Core\BaseController;
 use Inc\Enums\Wp\Nonce;
 use Inc\Modules\DaData\Callbacks\DaDataSettingsCallbacks;
 use Inc\Modules\DaData\Config\DaDataConfig;
+use Inc\Shared\Traits\Sanitizer;
 
 /**
  * Class DaDataSettingsController
@@ -22,6 +23,8 @@ use Inc\Modules\DaData\Config\DaDataConfig;
  * @package Inc\Modules\DaData\Controllers
  */
 class DaDataSettingsController extends BaseController {
+
+	use Sanitizer;
 
 	/** Собственное имя AJAX-действия (вне core AjaxHook — изоляция). */
 	public const SAVE_ACTION = 'fs_lms_dadata_save';
@@ -78,7 +81,7 @@ class DaDataSettingsController extends BaseController {
 	}
 
 	public function enqueueAssets( string $hook ): void {
-		if ( 'fs_lms_settings' !== sanitize_key( wp_unslash( $_GET['page'] ?? '' ) ) ) {
+		if ( 'fs_lms_settings' !== $this->sanitizeGetKey( 'page' ) ) {
 			return;
 		}
 

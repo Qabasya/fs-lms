@@ -11,6 +11,7 @@ use Inc\Enums\Wp\PageRoutes;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 use Inc\Services\Profile\ProfileViewResolver;
+use Inc\Services\Shared\PluginConfig;
 
 /**
  * Class ProfileController
@@ -41,6 +42,7 @@ class ProfileController extends BaseController implements ServiceInterface {
 		private readonly StudentRecordRepository $studentRecords,
 		private readonly ProfileViewResolver     $resolver,
 		private readonly ExpulsionPolicyRepository $expulsionPolicy,
+		private readonly PluginConfig            $pluginConfig,
 	) {
 		parent::__construct();
 	}
@@ -107,6 +109,11 @@ class ProfileController extends BaseController implements ServiceInterface {
 		if ( ! PageRoutes::UserProfile->isCurrent() ) {
 			return $template;
 		}
+
+		// Логотип кабинета из настроек («Конфигурация → Оформление»); пусто — шаблон
+		// покажет дефолтный Icon::BrandMark.
+		set_query_var( 'fs_lms_brand_logo_url', $this->pluginConfig->brandLogoUrl() );
+
 		return $this->path( 'templates/frontend/profile.php' );
 	}
 }

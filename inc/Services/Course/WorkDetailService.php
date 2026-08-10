@@ -139,9 +139,15 @@ class WorkDetailService {
 		}
 		$assessment = $this->assessments->get( $attempt->assessmentId );
 
+		$rows = $this->answers->listByAttempt( $attemptId );
+
+		// ID заданий приходят из таблицы ответов, не из WP_Query — прогреваем
+		// мета-кэш одним запросом (в цикле по два чтения меты на задание).
+		$this->posts->primeMetaCache( array_map( static fn( $a ) => $a->taskId, $rows ) );
+
 		$tasks = array();
 		$n     = 0;
-		foreach ( $this->answers->listByAttempt( $attemptId ) as $ans ) {
+		foreach ( $rows as $ans ) {
 			$verdict = null === $ans->isCorrect ? 'pending' : ( $ans->isCorrect ? 'correct' : 'incorrect' );
 
 			// Эпик 13 (D16/D17): «Развёрнутый ответ» — ответ закодирован как JSON

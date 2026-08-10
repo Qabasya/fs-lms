@@ -1,9 +1,10 @@
 <?php
 
+declare( strict_types=1 );
+
 namespace Inc\MetaBoxes\Templates;
 
 use Inc\Enums\Subject\TemplateCategory;
-use Inc\Enums\Wp\PostMetaName;
 
 /**
  * Class BaseTemplate
@@ -76,16 +77,15 @@ abstract class BaseTemplate {
 	/**
 	 * Отрисовывает все поля шаблона, включая подсказку.
 	 *
-	 * @param \WP_Post $post Объект текущего поста
+	 * Значения меты приходят снаружи (PostManager::taskMeta) — шаблон только
+	 * рисует и сам в данные не ходит.
+	 *
+	 * @param \WP_Post             $post   Объект текущего поста
+	 * @param array<string, mixed> $values Мета задания (PostMetaName::Meta)
 	 *
 	 * @return void
 	 */
-	public function render( \WP_Post $post ): void {
-		$values = get_post_meta( $post->ID, PostMetaName::Meta->value, true );
-		if ( ! is_array( $values ) ) {
-			$values = array();
-		}
-
+	public function render( \WP_Post $post, array $values ): void {
 		echo '<div class="fs-lms-template-wrapper" id="template-' . esc_attr( $this->get_id() ) . '">';
 
 		foreach ( $this->get_fields() as $field_id => $config ) {

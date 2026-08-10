@@ -118,7 +118,7 @@ class ArticleMetaBoxController extends BaseController implements ServiceInterfac
 		$field = PostMetaName::ArticleDescription->value;
 
 		// Быстрое/массовое редактирование поля не шлёт — сохранённое описание не трогаем.
-		if ( ! isset( $_POST[ $field ] ) ) {
+		if ( ! $this->hasParam( $field ) ) {
 			return;
 		}
 

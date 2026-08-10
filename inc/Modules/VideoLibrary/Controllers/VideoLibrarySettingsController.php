@@ -11,6 +11,7 @@ use Inc\Enums\Wp\Nonce;
 use Inc\Modules\VideoLibrary\Callbacks\VideoLibrarySettingsCallbacks;
 use Inc\Modules\VideoLibrary\Config\VideoLibraryConfig;
 use Inc\Modules\VideoLibrary\Services\RecordingAlertService;
+use Inc\Shared\Traits\Sanitizer;
 
 /**
  * Class VideoLibrarySettingsController
@@ -25,6 +26,8 @@ use Inc\Modules\VideoLibrary\Services\RecordingAlertService;
  * @package Inc\Modules\VideoLibrary\Controllers
  */
 class VideoLibrarySettingsController extends BaseController {
+
+	use Sanitizer;
 
 	/** Собственное имя AJAX-действия сохранения (вне core AjaxHook — изоляция). */
 	public const SAVE_ACTION = 'fs_lms_video_library_save';
@@ -61,7 +64,7 @@ class VideoLibrarySettingsController extends BaseController {
 			return;
 		}
 
-		$page = sanitize_key( wp_unslash( $_GET['page'] ?? '' ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$page = $this->sanitizeGetKey( 'page' );
 		if ( ! str_starts_with( $page, 'fs_' ) || Menu::Settings->value === $page ) {
 			return;
 		}
@@ -129,7 +132,7 @@ class VideoLibrarySettingsController extends BaseController {
 	}
 
 	public function enqueueAssets( string $hook ): void {
-		if ( 'fs_lms_settings' !== sanitize_key( wp_unslash( $_GET['page'] ?? '' ) ) ) {
+		if ( 'fs_lms_settings' !== $this->sanitizeGetKey( 'page' ) ) {
 			return;
 		}
 

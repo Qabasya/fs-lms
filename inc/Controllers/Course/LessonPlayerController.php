@@ -42,7 +42,7 @@ class LessonPlayerController extends BaseController implements ServiceInterface 
 
 	public function loadTemplate( string $template ): string {
 		// Обрабатываем только «проигрывание урока»: маршрут плеера + параметр gl.
-		if ( ! PageRoutes::LessonPlayer->isCurrent() || ! isset( $_GET['gl'] ) ) {
+		if ( ! PageRoutes::LessonPlayer->isCurrent() || ! $this->hasParam( 'gl', 'GET' ) ) {
 			return $template;
 		}
 

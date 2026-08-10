@@ -97,19 +97,21 @@
   background: rgba(255, 255, 255, 0.26);
   cursor: pointer;
 
+  // Прогресс проигрывания: одна переменная на контейнере (.vp-line) двигает
+  // и заливку (width), и бегунок (left) — JS ставит только --progress.
   .fill {
     position: absolute;
     left: 0;
     top: 0;
     bottom: 0;
-    width: 0%;
+    width: var(--progress, 0%);
     border-radius: 999px;
     background: var(--ink-inverse);
   }
 
   .knob {
     position: absolute;
-    left: 0%;
+    left: var(--progress, 0%);
     top: 50%;
     transform: translate(-50%, -50%);
     width: rem(12);

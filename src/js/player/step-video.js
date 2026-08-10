@@ -43,8 +43,8 @@ function mountChrome( panel, root ) {
 	const updateTime = () => {
 		const dur = video.duration || 0;
 		const pct = dur ? ( video.currentTime / dur ) * 100 : 0;
-		if ( fill ) { fill.style.width = `${ pct }%`; }
-		if ( knob ) { knob.style.left = `${ pct }%`; }
+		// Одна переменная на контейнере двигает и заливку, и бегунок (CSS var(--progress)).
+		if ( line ) { line.style.setProperty( '--progress', `${ pct }%` ); }
 		if ( timeEl ) { timeEl.textContent = `${ fmt( video.currentTime ) } / ${ fmt( dur ) }`; }
 	};
 

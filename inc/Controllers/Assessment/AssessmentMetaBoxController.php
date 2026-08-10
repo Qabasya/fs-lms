@@ -19,6 +19,7 @@ use Inc\Services\Assessment\EgeCompletenessChecker;
 use Inc\Services\Subject\PostTypeResolver;
 use Inc\Services\Task\TaskPublishGuard;
 use Inc\Shared\Traits\Authorizer;
+use Inc\Shared\Traits\Sanitizer;
 use Inc\Shared\Traits\TemplateRenderer;
 use Inc\Shared\Traits\TidiesCoreMetaBoxes;
 
@@ -33,7 +34,7 @@ class AssessmentMetaBoxController extends BaseController implements ServiceInter
 
 	use TemplateRenderer;
 
-	use Authorizer, TidiesCoreMetaBoxes;
+	use Authorizer, Sanitizer, TidiesCoreMetaBoxes;
 
 	public function __construct(
 		private readonly SubjectRepository  $subjects,
@@ -96,8 +97,9 @@ class AssessmentMetaBoxController extends BaseController implements ServiceInter
 			return null;
 		}
 
-		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- ранний хук; фактический сейв c нонсом в handleAssessmentSave().
-		$rawKind    = isset( $_POST['fs_lms_meta']['kind'] ) ? sanitize_key( (string) wp_unslash( $_POST['fs_lms_meta']['kind'] ) ) : '';
+		// Ранний хук; фактический сейв c нонсом в handleAssessmentSave().
+		$postedMeta = $this->unslashArray( PostMetaName::Meta->value );
+		$rawKind    = $this->sanitizeKeyValue( $postedMeta['kind'] ?? '' );
 		$postedKind = '' !== $rawKind ? AssessmentKind::tryFrom( $rawKind ) : null;
 		$kind       = $postedKind ?? $assessment->kind;
 
@@ -220,9 +222,7 @@ class AssessmentMetaBoxController extends BaseController implements ServiceInter
 			return;
 		}
 
-		$raw_data = wp_unslash( $_POST[ PostMetaName::Meta->value ] ?? array() );
-
-		$data = is_array( $raw_data ) ? $raw_data : array();
+		$data = $this->unslashArray( PostMetaName::Meta->value );
 
 		$this->metaBoxManager->saveFieldsMerge(
 			$post_id,

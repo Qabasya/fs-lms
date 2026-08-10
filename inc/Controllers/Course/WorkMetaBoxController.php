@@ -16,6 +16,7 @@ use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Services\Subject\PostTypeResolver;
 use Inc\Services\Task\TaskPublishGuard;
 use Inc\Shared\Traits\Authorizer;
+use Inc\Shared\Traits\Sanitizer;
 use Inc\Shared\Traits\TemplateRenderer;
 use Inc\Shared\Traits\TidiesCoreMetaBoxes;
 
@@ -29,6 +30,7 @@ use Inc\Shared\Traits\TidiesCoreMetaBoxes;
 class WorkMetaBoxController extends BaseController implements ServiceInterface {
 
 	use Authorizer;
+	use Sanitizer;
 	use TemplateRenderer;
 	use TidiesCoreMetaBoxes;
 
@@ -184,13 +186,11 @@ class WorkMetaBoxController extends BaseController implements ServiceInterface {
 			return;
 		}
 
-		$raw_data = wp_unslash( $_POST[ PostMetaName::Meta->value ] ?? array() );
-
 		// Мерж: сохраняем только work_type, item_ids (степ-лист, AJAX) не затираем.
 		$this->metaBoxManager->saveFieldsMerge(
 			$post_id,
 			PostMetaName::Meta->value,
-			is_array( $raw_data ) ? $raw_data : array(),
+			$this->unslashArray( PostMetaName::Meta->value ),
 			$this->template->get_fields()
 		);
 	}

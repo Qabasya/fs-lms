@@ -4,6 +4,9 @@ declare( strict_types=1 );
 
 namespace Inc\Managers\Wp;
 
+use Inc\Enums\Wp\PostMetaName;
+use Inc\Shared\PluginLogger;
+
 /**
  * Class PostManager
  *
@@ -26,6 +29,17 @@ namespace Inc\Managers\Wp;
 class PostManager {
 
 	/**
+	 * Страховочный потолок «безлимитных» выборок (2P2). Это НЕ бизнес-лимит:
+	 * до потолка поведение прежнее, а упор в него громко логируется — сигнал
+	 * переводить потребителя на SQL-подсчёт/пагинацию. Тихой обрезки быть не
+	 * должно: reference-guard и экспорт предмета обязаны видеть всё.
+	 */
+	private const HARD_CAP = 5000;
+
+	/** Потолок выборки постов по терму (статьи/задания одного номера). */
+	private const TERM_POSTS_CAP = 1000;
+
+	/**
 	 * Возвращает массив ID постов указанного типа.
 	 *
 	 * @param string $post_type Тип поста (например, "math_tasks")
@@ -34,18 +48,21 @@ class PostManager {
 	 */
 	public function getIds( string $post_type ): array {
 		// get_posts() — возвращает массив постов по параметрам
-		// 'numberposts' => -1 — получить все посты без ограничения
 		// 'post_status' => явный список — 'any' НЕ включает trash/auto-draft, из-за чего
 		// эти посты переживают deleteAll() и остаются мусором в wp_posts
 		// 'fields' => 'ids' — возвращать только ID (экономия памяти)
-		return get_posts(
+		$ids = get_posts(
 			array(
 				'post_type'   => $post_type,
-				'numberposts' => - 1,
+				'numberposts' => self::HARD_CAP,
 				'post_status' => array( 'publish', 'draft', 'pending', 'private', 'future', 'fs_archived', 'trash', 'auto-draft' ),
 				'fields'      => 'ids',
 			)
 		);
+
+		$this->warnIfCapped( count( $ids ), self::HARD_CAP, __FUNCTION__, $post_type );
+
+		return $ids;
 	}
 
 	/**
@@ -56,13 +73,30 @@ class PostManager {
 	 * @return \WP_Post[] Массив объектов постов
 	 */
 	public function getAll( string $post_type ): array {
-		return get_posts(
+		$posts = get_posts(
 			array(
 				'post_type'   => $post_type,
-				'numberposts' => - 1,
+				'numberposts' => self::HARD_CAP,
 				'post_status' => 'any',
 			)
 		);
+
+		$this->warnIfCapped( count( $posts ), self::HARD_CAP, __FUNCTION__, $post_type );
+
+		return $posts;
+	}
+
+	/**
+	 * Логирует упор выборки в страховочный потолок — сигнал, что потребителю
+	 * пора на пагинацию/SQL-счёт, а не молчаливое «обрезали и забыли».
+	 */
+	private function warnIfCapped( int $count, int $cap, string $method, string $post_type ): void {
+		if ( $count >= $cap ) {
+			PluginLogger::warning( 'PostManager', "Выборка упёрлась в потолок {$cap}", array(
+				'method'    => $method,
+				'post_type' => $post_type,
+			) );
+		}
 	}
 
 	/**
@@ -122,24 +156,26 @@ class PostManager {
 	 * @return int Количество постов
 	 */
 	public function countByTerm( string $post_type, string $taxonomy, int $term_id ): int {
-		// tax_query — условие фильтрации по таксономии
-		return count(
-			get_posts(
-				array(
-					'post_type'   => $post_type,
-					'numberposts' => - 1,
-					'post_status' => 'any',
-					'fields'      => 'ids',
-					'tax_query'   => array(
-						array(
-							'taxonomy' => $taxonomy,
-							'field'    => 'term_id',
-							'terms'    => $term_id,
-						),
+		// Точный счёт через found_posts: не грузим все ID в память ради count(),
+		// потолок не нужен — счёт корректен при любом размере банка.
+		$query = new \WP_Query(
+			array(
+				'post_type'      => $post_type,
+				'posts_per_page' => 1,
+				'post_status'    => 'any',
+				'fields'         => 'ids',
+				'no_found_rows'  => false,
+				'tax_query'      => array(
+					array(
+						'taxonomy' => $taxonomy,
+						'field'    => 'term_id',
+						'terms'    => $term_id,
 					),
-				)
+				),
 			)
 		);
+
+		return (int) $query->found_posts;
 	}
 
 
@@ -373,7 +409,7 @@ class PostManager {
 		$query = new \WP_Query(
 			array(
 				'post_type'      => $post_type,
-				'posts_per_page' => -1,
+				'posts_per_page' => self::TERM_POSTS_CAP,
 				'post_status'    => 'publish',
 				'tax_query'      => array(
 					array(
@@ -384,6 +420,8 @@ class PostManager {
 				),
 			)
 		);
+
+		$this->warnIfCapped( count( $query->posts ), self::TERM_POSTS_CAP, __FUNCTION__, $post_type );
 
 		return array_map(
 			function ( \WP_Post $post ) use ( $visible_taxonomies ) {
@@ -520,6 +558,21 @@ class PostManager {
 	}
 
 	/**
+	 * Мета задания (PostMetaName::Meta) целиком — единственная точка чтения
+	 * вместо прямых get_post_meta по слоям (метабоксы, превью, резолверы).
+	 * Любое не-массивное значение (нет меты, легаси-строка) даёт пустой массив.
+	 *
+	 * @param int $post_id ID поста
+	 *
+	 * @return array<string, mixed>
+	 */
+	public function taskMeta( int $post_id ): array {
+		$meta = get_post_meta( $post_id, PostMetaName::Meta->value, true );
+
+		return is_array( $meta ) ? $meta : array();
+	}
+
+	/**
 	 * Прогревает meta-кэш списка постов одним запросом (батч без N+1):
 	 * последующие getMeta() по этим ID читают из object cache, а не из БД.
 	 * Обёртка над `update_postmeta_cache()` (алиас `update_meta_cache('post', …)`).
@@ -552,10 +605,12 @@ class PostManager {
 	 * @return \WP_Post[]
 	 */
 	public function search( string $post_type, array $opts = array() ): array {
+		// Явный limit вызывающего уважаем (в т.ч. -1: reference-guard обязан видеть всё);
+		// потолок HARD_CAP — только на дефолт без limit.
 		$args = array(
 			'post_type'        => $post_type,
 			'post_status'      => $opts['status'] ?? array( 'publish', 'draft' ),
-			'numberposts'      => $opts['limit'] ?? -1,
+			'numberposts'      => $opts['limit'] ?? self::HARD_CAP,
 			'orderby'          => $opts['orderby'] ?? 'title',
 			'order'            => $opts['order'] ?? 'ASC',
 			'suppress_filters' => false,
@@ -574,7 +629,13 @@ class PostManager {
 			$args['meta_query'] = $opts['meta_query'];
 		}
 
-		return get_posts( $args );
+		$posts = get_posts( $args );
+
+		if ( ! isset( $opts['limit'] ) ) {
+			$this->warnIfCapped( count( $posts ), self::HARD_CAP, __FUNCTION__, $post_type );
+		}
+
+		return $posts;
 	}
 
 	/**

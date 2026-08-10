@@ -167,6 +167,7 @@ class SubjectImportServiceTest extends TestCase {
 			$terms,
 			$posts,
 			$rollback ?? $this->createMock( ImportRollbackService::class ),
+			$this->createMock( \Inc\Services\Subject\SubjectPagesService::class ),
 		);
 	}
 
