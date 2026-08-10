@@ -5,15 +5,19 @@
  * здесь — только поведение. UI-only, без AJAX.
  */
 
+import { onScrollFrame } from '../modules/scroll-frame.js';
+
 /** Отступ от верха окна, с которого заголовок считается текущим. */
 const ACTIVE_OFFSET = 120;
 
 /**
  * Ширина, ниже которой оглавление стартует свёрнутым: на узком экране оно
  * стоит над текстом и в развёрнутом виде отодвигает статью на экран вниз.
- * Ступень обязана совпадать с медиазапросом в components/article/_toc.scss.
+ * Медиазапросом, а не числом в px: ступень $bp-md задана в rem, и при системном
+ * размере шрифта ≠ 16px сравнение с innerWidth разъехалось бы с вёрсткой
+ * (components/article/_shell.scss).
  */
-const COLLAPSE_BELOW = 900;
+const COLLAPSE_QUERY = '(max-width: 56.25rem)';
 
 /**
  * @returns {void}
@@ -33,41 +37,60 @@ export function initArticleToc() {
     // даже если контент отдал заголовки в другом порядке.
     const headings = links.map(link => findHeading(link.hash.slice(1)));
 
-    let ticking = false;
+    // Геометрия меняется только на resize и подгрузке картинок, а не на каждом
+    // кадре прокрутки — держим её замерами, а не чтением DOM в sync().
+    let offsets    = [];
+    let proseTop   = 0;
+    let proseHeight = 0;
+
+    const measure = () => {
+        const scrollY = window.scrollY;
+
+        offsets     = headings.map(heading => (heading ? heading.getBoundingClientRect().top + scrollY : Infinity));
+        proseTop    = prose.getBoundingClientRect().top + scrollY;
+        proseHeight = prose.offsetHeight;
+    };
 
     const sync = () => {
-        ticking = false;
-
         const edge = window.scrollY + ACTIVE_OFFSET;
         let active = 0;
 
-        headings.forEach((heading, index) => {
-            if (heading && heading.getBoundingClientRect().top + window.scrollY <= edge) active = index;
+        offsets.forEach((top, index) => {
+            if (top <= edge) active = index;
         });
 
         links.forEach((link, index) => link.classList.toggle('is-active', index === active));
 
         if (progress) {
-            const scrollable = document.documentElement.scrollHeight - window.innerHeight;
-            progress.value = scrollable > 0 ? Math.min(100, (window.scrollY / scrollable) * 100) : 0;
+            const read = window.scrollY + window.innerHeight - proseTop;
+
+            progress.value = proseHeight > 0 ? Math.min(100, Math.max(0, (read / proseHeight) * 100)) : 0;
         }
     };
 
-    // Слушатель прокрутки срабатывает часто — реальную проверку делаем раз в кадр.
-    window.addEventListener('scroll', () => {
-        if (ticking) return;
-        ticking = true;
-        window.requestAnimationFrame(sync);
-    }, { passive: true });
+    const remeasure = () => {
+        measure();
+        sync();
+    };
+
+    onScrollFrame(sync);
+
+    window.addEventListener('resize', remeasure);
+
+    // Картинки статьи догружаются после DOMContentLoaded и двигают всю геометрию;
+    // на узком экране её двигает ещё и сворачивание оглавления над текстом.
+    if (window.ResizeObserver) new ResizeObserver(remeasure).observe(prose);
 
     if (toggle) {
-        setCollapsed(toc, toggle, window.innerWidth <= COLLAPSE_BELOW);
+        setCollapsed(toc, toggle, window.matchMedia(COLLAPSE_QUERY).matches);
 
         toggle.addEventListener('click', () => {
             setCollapsed(toc, toggle, !toc.classList.contains('is-collapsed'));
+            remeasure();
         });
     }
 
+    measure();
     sync();
 }
 

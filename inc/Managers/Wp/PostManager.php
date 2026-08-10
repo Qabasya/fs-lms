@@ -230,6 +230,24 @@ class PostManager {
 	}
 
 	/**
+	 * Считает опубликованные записи типа — счётчик банка для публичных блоков.
+	 *
+	 * `wp_count_posts()`, а не `WP_Query`: один сгруппированный запрос вместо
+	 * выборки со счётом совпадений, и результат лежит в объектном кэше.
+	 *
+	 * @param string $post_type Тип записи.
+	 *
+	 * @return int
+	 */
+	public function countPublished( string $post_type ): int {
+		if ( '' === $post_type ) {
+			return 0;
+		}
+
+		return (int) ( wp_count_posts( $post_type )->publish ?? 0 );
+	}
+
+	/**
 	 * Обновляет поля поста (post_title, post_content и т.д.).
 	 *
 	 * @param int   $post_id ID поста
@@ -266,6 +284,81 @@ class PostManager {
 		);
 
 		clean_post_cache( $post_id );
+	}
+
+	/**
+	 * Слаги записей типа, начинающиеся с заданного префикса.
+	 *
+	 * Нужен генератору слага статьи ({@see \Inc\Services\Subject\ArticleSlugService}):
+	 * ему важны только занятые порядковые номера серии, и один запрос за слагами
+	 * дешевле выборки записей с разбором объектов.
+	 *
+	 * Корзина исключена: ядро дописывает удалённым записям суффикс `__trashed`
+	 * (wp-includes/post.php:8399), их номера свободны.
+	 *
+	 * @param string $post_type  Тип записи.
+	 * @param string $prefix     Начало слага, например `article-task-5-`.
+	 * @param int    $exclude_id Какую запись не учитывать (обычно — саму сохраняемую).
+	 *
+	 * @return string[] Занятые слаги.
+	 */
+	public function findSlugsByPrefix( string $post_type, string $prefix, int $exclude_id = 0 ): array {
+		global $wpdb;
+
+		$slugs = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT post_name FROM {$wpdb->posts}
+				 WHERE post_type = %s AND post_status <> 'trash' AND ID <> %d AND post_name LIKE %s",
+				$post_type,
+				$exclude_id,
+				$wpdb->esc_like( $prefix ) . '%'
+			)
+		);
+
+		return array_map( 'strval', $slugs ?: array() );
+	}
+
+	/**
+	 * Низкоуровневая смена слага без запуска жизненного цикла сохранения.
+	 *
+	 * Пишет напрямую в таблицу — как {@see self::updatePostContent()}. Через
+	 * `wp_update_post()` пакетное переименование ловило бы собственный фильтр
+	 * генерации слага, плодило ревизии и двигало `post_modified`.
+	 *
+	 * @param int    $post_id ID записи.
+	 * @param string $slug    Новый слаг (уникальность — на вызывающем коде).
+	 *
+	 * @return void
+	 */
+	public function renameSlug( int $post_id, string $slug ): void {
+		global $wpdb;
+
+		$wpdb->update(
+			$wpdb->posts,
+			array( 'post_name' => $slug ),
+			array( 'ID' => $post_id )
+		);
+
+		clean_post_cache( $post_id );
+	}
+
+	/**
+	 * Запоминает прежний слаг записи, чтобы старый адрес отдавал 301.
+	 *
+	 * `_wp_old_slug` — штатный механизм ядра: по нему работает
+	 * `wp_old_slug_redirect()` на 404.
+	 *
+	 * @param int    $post_id  ID записи.
+	 * @param string $old_slug Прежний слаг.
+	 *
+	 * @return void
+	 */
+	public function rememberOldSlug( int $post_id, string $old_slug ): void {
+		if ( '' === $old_slug ) {
+			return;
+		}
+
+		add_post_meta( $post_id, '_wp_old_slug', $old_slug );
 	}
 
 	/**

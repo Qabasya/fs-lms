@@ -73,6 +73,12 @@ readonly class ArticleDataBuilder {
 		// «Учебник» в крошках и центр блока навигации — раздел статей предмета.
 		$links = $this->subject_pages->links( $subject_key );
 
+		// Считаем банк только когда есть куда вести: у предмета без тренажёра
+		// блок сайдбара не выйдет в любом случае.
+		$tasks_total = '' !== $links->trainer
+			? $this->post_manager->countPublished( PostTypeResolver::tasks( $subject_key ) )
+			: 0;
+
 		return new ArticlePageDTO(
 			post:        $post_view,
 			subject_key: $subject_key,
@@ -81,7 +87,10 @@ readonly class ArticleDataBuilder {
 			courses:     $this->course_service->getSidebarCourses( $subject_key ),
 			courses_url: $links->courses,
 			recommended: $this->buildRecommended( $subject_key, $post_view->id ),
-			navigation:  $this->article_service->getNavigation( $subject_key, $post_view->id, $links->textbook ),
+			thumbnail:   $this->post_manager->getThumbnailUrl( $post_view->id, 'large' ),
+			navigation:  $this->article_service->getNavigation( $subject_key, $post_view->id, $links->articles ),
+			trainer_url: $links->trainer,
+			tasks_total: $tasks_total,
 		);
 	}
 

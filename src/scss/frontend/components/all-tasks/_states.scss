@@ -1,8 +1,10 @@
 @use '../../variables' as *;
 @use '../../mixins' as *;
 
-.fs-all-tasks-page {
-  .tasks-empty {
+.fs-all-tasks-page,
+.fs-articles-page {
+  .tasks-empty,
+  .fs-articles-empty {
     @include fs-surface-card($padding: rem(60) rem(24) rem(64));
 
     text-align: center; color: $color-text-secondary;

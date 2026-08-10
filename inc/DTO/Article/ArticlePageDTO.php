@@ -25,6 +25,8 @@ readonly class ArticlePageDTO {
 	 * @param array<int, array<string, mixed>>     $recommended Статьи блока «Читать далее».
 	 * @param string                               $thumbnail   URL обложки статьи; '' — обложки нет.
 	 * @param ArticleNavigationDTO                 $navigation  Соседние статьи серии и счётчик.
+	 * @param string                               $trainer_url Тренажёр предмета; '' — раздела нет.
+	 * @param int                                  $tasks_total Сколько заданий опубликовано в банке предмета.
 	 */
 	public function __construct(
 		public ?PostViewDTO $post,
@@ -36,7 +38,18 @@ readonly class ArticlePageDTO {
 		public array $recommended,
 		public string $thumbnail = '',
 		public ArticleNavigationDTO $navigation = new ArticleNavigationDTO(),
+		public string $trainer_url = '',
+		public int $tasks_total = 0,
 	) {}
+
+	/**
+	 * Есть ли что показывать в блоке тренажёра: и раздел, и непустой банк.
+	 *
+	 * @return bool
+	 */
+	public function hasTrainer(): bool {
+		return '' !== $this->trainer_url && $this->tasks_total > 0;
+	}
 
 	/**
 	 * Пустой DTO: запись не найдена или не является статьёй.

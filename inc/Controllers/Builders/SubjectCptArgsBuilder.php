@@ -122,14 +122,14 @@ class SubjectCptArgsBuilder {
 					'capability_type' => 'fs_lms_article',
 					'map_meta_cap'    => true,
 				),
-				$this->sectionRouting( $subject_key, SubjectPageType::Textbook )
+				$this->sectionRouting( $subject_key, SubjectPageType::Articles )
 			),
 		);
 	}
 
 	/**
 	 * Адрес записи внутри раздела лендинга: `/{key}/trainer/{slug}/`,
-	 * `/{key}/textbook/{slug}/`.
+	 * `/{key}/articles/{slug}/`.
 	 *
 	 * Собственный архив CPT при этом не нужен и вреден: его адрес совпал бы с
 	 * адресом страницы раздела — списком заданий и статей заведует лендинг

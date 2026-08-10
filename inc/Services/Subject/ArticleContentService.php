@@ -72,7 +72,10 @@ readonly class ArticleContentService {
 			return new ArticleContentDTO( html: $html );
 		}
 
-		$root     = $dom->documentElement;
+		$root = $dom->documentElement;
+
+		$this->unwrapContainers( $dom );
+
 		$headings = $this->markHeadings( $dom );
 
 		$this->markLead( $root );
@@ -177,6 +180,57 @@ readonly class ArticleContentService {
 		}
 
 		return $headings;
+	}
+
+	/**
+	 * Разбирает контейнеры-обёртки, оставляя от вложенной разметки сами блоки.
+	 *
+	 * Текст статьи нередко приезжает из страничного конструктора (WPBakery,
+	 * Elementor): каждый абзац там завёрнут в четыре-пять `<div>` подряд, и на
+	 * странице от них остаются только классы чужой темы. Вертикальный ритм
+	 * статьи держится на соседстве прямых детей контейнера — во вложенной
+	 * разметке соседей нет, и абзацы с иллюстрациями слипаются.
+	 *
+	 * Разворачиваем только пустые обёртки: `<div>` с собственным текстом — это
+	 * уже блок статьи, а не контейнер, и его содержимое трогать нельзя. Обход
+	 * идёт сверху вниз, поэтому вложенные обёртки доходят до корня за один
+	 * проход. Корень исключён условием `ancestor::div`: он и есть контейнер контента.
+	 *
+	 * @param \DOMDocument $dom Документ контента.
+	 *
+	 * @return void
+	 */
+	private function unwrapContainers( \DOMDocument $dom ): void {
+		foreach ( $this->query( $dom, '//div[ancestor::div]' ) as $node ) {
+			$parent = $node->parentNode;
+
+			if ( ! $parent || $this->hasOwnText( $node ) ) {
+				continue;
+			}
+
+			while ( $node->firstChild ) {
+				$parent->insertBefore( $node->firstChild, $node );
+			}
+
+			$parent->removeChild( $node );
+		}
+	}
+
+	/**
+	 * Есть ли у узла собственный текст — не считая текста вложенных тегов.
+	 *
+	 * @param \DOMElement $node Узел.
+	 *
+	 * @return bool
+	 */
+	private function hasOwnText( \DOMElement $node ): bool {
+		foreach ( $node->childNodes as $child ) {
+			if ( $child instanceof \DOMText && '' !== trim( $child->wholeText ) ) {
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	/**
@@ -303,7 +357,7 @@ readonly class ArticleContentService {
 				continue;
 			}
 
-			$card = $this->buildCard( $link->getAttribute( 'href' ) );
+			$card = $this->buildCard( $link );
 
 			// Ссылка ведёт не на задание — карточки не будет, но это всё равно
 			// строка-ссылка, а не абзац текста: широкий отступ ей не нужен.
@@ -327,12 +381,12 @@ readonly class ArticleContentService {
 	/**
 	 * Собирает карточку задания по ссылке из текста статьи.
 	 *
-	 * @param string $url Ссылка из абзаца.
+	 * @param \DOMElement $link Ссылка из абзаца.
 	 *
 	 * @return ArticleTaskCardDTO|null Null — ссылка ведёт не на задание.
 	 */
-	private function buildCard( string $url ): ?ArticleTaskCardDTO {
-		$post_id = $this->post_manager->idFromUrl( $url );
+	private function buildCard( \DOMElement $link ): ?ArticleTaskCardDTO {
+		$post_id = $this->resolveTaskId( $link );
 
 		if ( 0 === $post_id ) {
 			return null;
@@ -340,7 +394,10 @@ readonly class ArticleContentService {
 
 		$post = $this->post_manager->get( $post_id );
 
-		if ( ! $post || ! PostTypeResolver::isTaskPostType( $post->post_type ) ) {
+		// Статус проверяем явно: по href его гарантировал url_to_postid(), а
+		// data-id отдаёт запись любого статуса — карточка черновика утекла бы
+		// в публичный текст статьи вместе с условием.
+		if ( ! $post || 'publish' !== $post->post_status || ! PostTypeResolver::isTaskPostType( $post->post_type ) ) {
 			return null;
 		}
 
@@ -354,6 +411,29 @@ readonly class ArticleContentService {
 			peek:      wp_trim_words( wp_strip_all_tags( $condition ), self::PEEK_WORDS, '…' ),
 			condition: $condition,
 		);
+	}
+
+	/**
+	 * Достаёт ID записи из ссылки статьи.
+	 *
+	 * Сначала `data-id`: блочный редактор проставляет его при выборе записи из
+	 * поиска, и атрибут переживает переезд адресов (задания уже уезжали внутрь
+	 * разделов лендинга — разбор href на старых ссылках даёт ноль). Классический
+	 * редактор такого атрибута не даёт, поэтому href — не запасной путь, а
+	 * основной для части контента.
+	 *
+	 * @param \DOMElement $link Ссылка из абзаца.
+	 *
+	 * @return int Ноль — ID определить не удалось.
+	 */
+	private function resolveTaskId( \DOMElement $link ): int {
+		$post_id = (int) $link->getAttribute( 'data-id' );
+
+		if ( $post_id > 0 ) {
+			return $post_id;
+		}
+
+		return $this->post_manager->idFromUrl( $link->getAttribute( 'href' ) );
 	}
 
 	/**

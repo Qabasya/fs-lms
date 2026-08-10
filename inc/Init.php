@@ -46,6 +46,7 @@ use Inc\Controllers\Subject\SubjectController;
 use Inc\Controllers\Task\TaskCreationController;
 use Inc\Controllers\Pages\AllTasksPageController;
 use Inc\Controllers\Article\ArticleMetaBoxController;
+use Inc\Controllers\Article\ArticleSlugController;
 use Inc\Controllers\Pages\ArticlePageController;
 use Inc\Controllers\Pages\SubjectLandingController;
 use Inc\Controllers\Pages\AssessmentPageController;
@@ -78,6 +79,7 @@ use Inc\Controllers\Course\PreviewSolveController;
 use Inc\Controllers\Course\LessonPlayerController;
 use Inc\Controllers\Course\LessonProgressController;
 use Inc\Controllers\Course\SubmissionController;
+use Inc\Cli\ArticleSlugCommand;
 use Inc\Cli\SubjectBundleCommand;
 use Inc\Controllers\Import\ImportController;
 use Inc\Controllers\Person\UserController;
@@ -86,6 +88,7 @@ use Inc\Contracts\ClockInterface;
 use Inc\Contracts\LogEventDispatcherInterface;
 use Inc\Core\Container;
 use Inc\Core\Enqueue;
+use Inc\Migrations\ArticlesSectionMigration;
 use Inc\Migrations\BroadcastStepMigration;
 use Inc\Services\Log\LogEventDispatcher;
 use Inc\Services\Shared\WpClock;
@@ -144,6 +147,7 @@ final class Init {
 			TaskPageController::class,       // Frontend-страница задания
 			AllTasksPageController::class,   // Frontend-страница «Все задания» (тренажёр)
 			ArticleMetaBoxController::class, // Метабокс краткого описания статьи
+			ArticleSlugController::class,    // Слаг статьи: article-task-{задание}-{номер}
 			ArticlePageController::class,    // Frontend-страница статьи
 			SubjectLandingController::class, // Разделы лендинга предмета (шорткоды страниц)
 			AssessmentPageController::class, // Frontend-страница контрольной
@@ -162,6 +166,7 @@ final class Init {
 			DeletionController::class,
 			ImportController::class,   // Импорт учеников из CSV
 			SubjectBundleCommand::class, // WP-CLI: перенос предмета пакетом (регистрируется только под WP_CLI)
+			ArticleSlugCommand::class,   // WP-CLI: пакетное переименование слагов статей
 			ConfigController::class,
 			SettingsController::class,
 			LogsController::class,
@@ -241,5 +246,9 @@ final class Init {
 		// MigrationRunner: тот вызывается только при активации, а на установках с
 		// fs_lms_schema_version=1.0.0 его up() уже не запускается.
 		( new BroadcastStepMigration() )->ensure();
+
+		// Раздел «Учебник»: /{key}/textbook/ → /{key}/articles/ (ключ опции,
+		// слаг страницы, тег шорткода). Гейт — собственная опция миграции.
+		( new ArticlesSectionMigration() )->ensure();
 	}
 }

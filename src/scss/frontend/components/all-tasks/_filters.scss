@@ -1,8 +1,9 @@
 @use '../../variables' as *;
 @use '../../mixins' as *;
 
-// Сайдбар с фильтрами-таксономиями
-.fs-all-tasks-page {
+// Сайдбар с фильтрами-таксономиями (общий с каталогом учебника)
+.fs-all-tasks-page,
+.fs-articles-page {
   .sidebar {
     @include fs-sticky(rem(16));
 

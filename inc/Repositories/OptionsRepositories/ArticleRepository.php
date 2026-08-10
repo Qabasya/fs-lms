@@ -122,26 +122,95 @@ class ArticleRepository {
 	 * свежим. Это порядок чтения — по нему блок навигации статьи считает и
 	 * соседей, и позицию текущей статьи в серии.
 	 *
-	 * @param string $post_type Тип записей статей.
-	 * @param int    $term_id   ID термина.
-	 * @param string $taxonomy  Слаг таксономии.
+	 * Вторичная сортировка по ID обязательна: у статей из пакетного импорта
+	 * предмета post_date совпадает до секунды, и без неё соседи и счётчик
+	 * «N из M» меняются от запроса к запросу.
+	 *
+	 * @param string   $post_type Тип записей статей.
+	 * @param int      $term_id   ID термина.
+	 * @param string   $taxonomy  Слаг таксономии.
+	 * @param string[] $statuses  Статусы записей; по умолчанию только опубликованные.
 	 *
 	 * @return \WP_Post[] Список статей, старые первыми.
 	 */
-	public function findAllInTerm( string $post_type, int $term_id, string $taxonomy ): array {
+	public function findAllInTerm( string $post_type, int $term_id, string $taxonomy, array $statuses = array( 'publish' ) ): array {
 		$query = new \WP_Query( array(
 			'post_type'      => $post_type,
-			'post_status'    => 'publish',
+			'post_status'    => $statuses,
 			'posts_per_page' => -1,
 			'no_found_rows'  => true,
-			'orderby'        => 'date',
-			'order'          => 'ASC',
+			'orderby'        => array(
+				'date' => 'ASC',
+				'ID'   => 'ASC',
+			),
 			'tax_query'      => array(
 				array(
 					'taxonomy' => $taxonomy,
 					'field'    => 'term_id',
 					'terms'    => $term_id,
 				),
+			),
+		) );
+
+		return $query->posts;
+	}
+
+	/**
+	 * Возвращает статьи БЕЗ номера задания — в том же порядке чтения.
+	 *
+	 * Нужен пакетному переименованию слагов: такие статьи образуют свою серию
+	 * (`article-1`, `article-2`, …), а обычными выборками они не отбираются —
+	 * те всегда идут от терма.
+	 *
+	 * @param string   $post_type Тип записей статей.
+	 * @param string   $taxonomy  Слаг таксономии номеров заданий.
+	 * @param string[] $statuses  Статусы записей; по умолчанию только опубликованные.
+	 *
+	 * @return \WP_Post[] Список статей, старые первыми.
+	 */
+	public function findWithoutTerm( string $post_type, string $taxonomy, array $statuses = array( 'publish' ) ): array {
+		$query = new \WP_Query( array(
+			'post_type'      => $post_type,
+			'post_status'    => $statuses,
+			'posts_per_page' => -1,
+			'no_found_rows'  => true,
+			'orderby'        => array(
+				'date' => 'ASC',
+				'ID'   => 'ASC',
+			),
+			'tax_query'      => array(
+				array(
+					'taxonomy' => $taxonomy,
+					'operator' => 'NOT EXISTS',
+				),
+			),
+		) );
+
+		return $query->posts;
+	}
+
+	/**
+	 * Возвращает ВСЕ опубликованные статьи предмета в порядке чтения.
+	 *
+	 * Каталог учебника — конечная витрина: он показывает весь банк статей
+	 * предмета разом, сгруппированный по номерам заданий, и фильтрует его на
+	 * клиенте. Порядок тот же, что у навигации по серии (старые первыми,
+	 * вторичная сортировка по ID) — иначе серия в каталоге и переключатель
+	 * внутри статьи шли бы в разном порядке.
+	 *
+	 * @param string $post_type Тип записей статей.
+	 *
+	 * @return \WP_Post[] Список статей, старые первыми.
+	 */
+	public function findAllPublished( string $post_type ): array {
+		$query = new \WP_Query( array(
+			'post_type'      => $post_type,
+			'post_status'    => 'publish',
+			'posts_per_page' => -1,
+			'no_found_rows'  => true,
+			'orderby'        => array(
+				'date' => 'ASC',
+				'ID'   => 'ASC',
 			),
 		) );
 

@@ -17,6 +17,24 @@
   overflow: hidden;
 }
 
+.fs-sidebar-trainer {
+  &__body {
+    display: grid;
+    gap: rem(14);
+    padding: rem(16) rem(18);
+  }
+
+  &__text {
+    font-size: $font-size-base;
+    line-height: $line-height-relaxed;
+    color: $color-muted;
+  }
+
+  a.fs-sidebar-trainer__btn {
+    @include fs-btn-accent;
+  }
+}
+
 // Шапка блока сайдбара
 .fs-sidebar-head {
   display: flex; align-items: center; justify-content: space-between;

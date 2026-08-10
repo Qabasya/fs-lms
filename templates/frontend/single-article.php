@@ -2,9 +2,9 @@
 /**
  * Страница статьи (CPT {subject}_articles).
  *
- * Данные — ArticlePageDTO из ArticleDataBuilder. Три колонки: курсы предмета,
- * текст статьи, оглавление. Крошки, сайдбар курсов и карусель статей — общие
- * партиалы со страницей задания.
+ * Данные — ArticlePageDTO из ArticleDataBuilder. Две колонки: сайдбар
+ * (оглавление, курсы, тренажёр) и текст статьи. Крошки, сайдбар курсов и
+ * карусель статей — общие партиалы со страницей задания.
  *
  * Контент уже прошёл `the_content` и пост-обработку в ArticleContentService:
  * у заголовков есть якоря, у врезок и листингов — классы. Экранировать его
@@ -30,8 +30,8 @@ $headings     = $content->headings;
 $courses      = $article_data->courses;
 $navigation   = $article_data->navigation;
 
-// Ни оглавления, ни курсов — колонки нет вовсе: текст занимает всю полосу.
-$has_sidebar = ! empty( $headings ) || ! empty( $courses );
+// Ни одного блока — колонки нет вовсе: текст занимает всю полосу.
+$has_sidebar = ! empty( $headings ) || ! empty( $courses ) || $article_data->hasTrainer();
 
 ThemeCompatService::header();
 ?>
@@ -50,7 +50,7 @@ ThemeCompatService::header();
 
 			<!-- ===================== САЙДБАР: СОДЕРЖАНИЕ + КУРСЫ ===================== -->
 			<?php if ( $has_sidebar ) : ?>
-				<aside class="fs-article-aside">
+				<aside class="fs-article-aside js-article-aside">
 
 					<?php if ( ! empty( $headings ) ) : ?>
 						<nav class="fs-article-toc js-article-toc" aria-label="Содержание статьи">
@@ -89,6 +89,14 @@ ThemeCompatService::header();
 						$sidebar_courses     = $courses;
 						$sidebar_courses_url = $article_data->courses_url;
 						include __DIR__ . '/partials/sidebar-courses.php';
+						?>
+					<?php endif; ?>
+
+					<?php if ( $article_data->hasTrainer() ) : ?>
+						<?php
+						$sidebar_trainer_url   = $article_data->trainer_url;
+						$sidebar_trainer_total = $article_data->tasks_total;
+						include __DIR__ . '/partials/sidebar-trainer.php';
 						?>
 					<?php endif; ?>
 
