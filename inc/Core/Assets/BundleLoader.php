@@ -227,6 +227,16 @@ class BundleLoader extends BaseController {
 	}
 
 	/**
+	 * WP filter: имя AJAX-экшена листа ответов предпросмотра КЕГЭ. Модульный
+	 * `PreviewResultCallbacks::ACTION` живёт вне core `AjaxHook` (изоляция модуля —
+	 * см. CLAUDE.md), поэтому публикуется ядру фильтром, а не импортом класса
+	 * модуля сюда. Пустая строка — модуль выключен/удалён: кнопка «Завершить
+	 * экзамен» в предпросмотре просто не сможет посчитать лист (JS это не ломает,
+	 * запрос уйдёт на пустой action и получит -1 от admin-ajax.php).
+	 */
+	public const KEGE_PREVIEW_RESULT_FILTER = 'fs_lms_kege_preview_result_action';
+
+	/**
 	 * Подключение изолированного бандла станции КЕГЭ (T15.10) — bare-документ
 	 * на токенах плеера, свой JS/CSS. Модуль EgeComputer (опциональный, см.
 	 * inc/Modules/EgeComputer/) взводит fs_lms_is_kege_route в
@@ -245,6 +255,7 @@ class BundleLoader extends BaseController {
 					'saveAttemptAnswer' => AjaxHook::SaveAttemptAnswer->jsAction(),
 					'submitAttempt'     => AjaxHook::SubmitAttempt->jsAction(),
 					'getAttemptResult'  => AjaxHook::GetAttemptResult->jsAction(),
+					'previewResult'     => (string) apply_filters( self::KEGE_PREVIEW_RESULT_FILTER, '' ),
 				),
 				'nonces'   => array(
 					'startAttempt'  => Nonce::StartAttempt->create(),

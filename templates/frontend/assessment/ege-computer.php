@@ -19,6 +19,8 @@
  * @var \Inc\DTO\Person\PersonDTO|null         $person
  * @var array<int, array{template: string, materials: array, taskNumber: int}> $taskViews
  * @var string                                 $backUrl
+ * @var string                                 $now         Серверное «сейчас» ('Y-m-d H:i:s', пояс сайта)
+ * @var bool                                   $previewMode Предпросмотр автора: ученика и попытки нет
  */
 declare( strict_types=1 );
 
@@ -28,13 +30,16 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 use Inc\Enums\Assessment\AttemptStatus;
 
-if ( ! $person ) {
+if ( ! $person && ! $previewMode ) {
 	wp_redirect( wp_login_url( get_permalink() ) );
 	exit;
 }
 
-$isRunning  = $activeAttempt && AttemptStatus::InProgress === $activeAttempt->status;
-$isFinished = ! $isRunning && null !== $lastAttempt;
+// Предпросмотр: все три стадии станции отрендерены сразу и переключаются на
+// клиенте (kege-entry.js/kege-exam.js), потому что настоящей попытки — а с ней
+// и серверного состояния «идёт экзамен» / «сдано» — здесь не существует.
+$isRunning  = ! $previewMode && $activeAttempt && AttemptStatus::InProgress === $activeAttempt->status;
+$isFinished = ! $previewMode && ! $isRunning && null !== $lastAttempt;
 ?>
 <!DOCTYPE html>
 <html <?php language_attributes(); ?>>
@@ -56,15 +61,26 @@ $isFinished = ! $isRunning && null !== $lastAttempt;
 	data-time-limit="<?php echo esc_attr( (string) $assessment->timeLimit ); ?>"
 	data-task-count="<?php echo esc_attr( (string) count( $assessment->taskIds ) ); ?>"
 	data-back-url="<?php echo esc_url( $backUrl ); ?>"
+	<?php if ( $previewMode ) : ?>
+		data-preview="1"
+	<?php endif; ?>
 	<?php if ( $isRunning ) : ?>
 		data-attempt-id="<?php echo esc_attr( (string) $activeAttempt->id ); ?>"
 		<?php if ( $assessment->timeLimit > 0 ) : ?>
+			<?php // Серверное «сейчас» рядом с дедлайном: обе даты в поясе сайта, и отсчёт ?>
+			<?php // считается от них, а не от часов браузера (см. startCountdown). ?>
 			data-deadline="<?php echo esc_attr( $activeAttempt->deadlineAt ); ?>"
+			data-now="<?php echo esc_attr( $now ); ?>"
 		<?php endif; ?>
 	<?php endif; ?>
 >
 
-<?php if ( $isRunning ) : ?>
+<?php if ( $previewMode ) : ?>
+	<div class="kege-preview-flag">Предпросмотр · попытка не записывается</div>
+	<?php include __DIR__ . '/kege/exam.php'; ?>
+	<?php include __DIR__ . '/kege/finish.php'; ?>
+	<?php include __DIR__ . '/kege/entry.php'; ?>
+<?php elseif ( $isRunning ) : ?>
 	<?php include __DIR__ . '/kege/exam.php'; ?>
 <?php else : ?>
 	<?php if ( $isFinished ) : ?>

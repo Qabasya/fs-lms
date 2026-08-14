@@ -9,16 +9,15 @@ use Inc\Enums\Assessment\AssessmentKind;
 use Inc\Enums\Subject\TaskTemplate as TT;
 use Inc\Enums\Wp\PostMetaName;
 use Inc\Managers\Wp\PostManager;
-use Inc\MetaBoxes\Templates\BaseTemplate;
 use Inc\Services\Course\BatchCheckService;
 use Inc\Services\Task\Checkers\ChoiceChecker;
 use Inc\Services\Task\Checkers\TextAnswerChecker;
+use Inc\Services\Task\CompositeSubItemResolver;
 use Inc\Services\Task\TaskCheckerRegistry;
 use Inc\Services\Task\Checkers\FillChecker;
 use Inc\Services\Task\Checkers\MatchingChecker;
 use Inc\Services\Task\Checkers\OrderingChecker;
 use Inc\Services\Task\Checkers\TripleAnswerChecker;
-use Inc\Services\Template\TemplateRegistry;
 use Inc\Services\Template\TemplateResolver;
 use PHPUnit\Framework\TestCase;
 use WP_Post;
@@ -30,16 +29,16 @@ class BatchCheckServiceTest extends TestCase {
 
 	private PostManager       $posts;
 	private TemplateResolver  $resolver;
-	private TemplateRegistry  $templates;
+	private CompositeSubItemResolver $subItems;
 	private TaskCheckerRegistry $checkers;
 	private BatchCheckService $svc;
 
 	protected function setUp(): void {
 		fs_test_reset_posts();
-		$this->posts     = $this->createMock( PostManager::class );
-		$this->resolver  = $this->createMock( TemplateResolver::class );
-		$this->templates = $this->createMock( TemplateRegistry::class );
-		$this->checkers  = new TaskCheckerRegistry(
+		$this->posts    = $this->createMock( PostManager::class );
+		$this->resolver = $this->createMock( TemplateResolver::class );
+		$this->subItems = $this->createMock( CompositeSubItemResolver::class );
+		$this->checkers = new TaskCheckerRegistry(
 			new TextAnswerChecker(),
 			new TripleAnswerChecker(),
 			new ChoiceChecker(),
@@ -50,8 +49,8 @@ class BatchCheckServiceTest extends TestCase {
 		$this->svc = new BatchCheckService(
 			$this->posts,
 			$this->resolver,
-			$this->templates,
 			$this->checkers,
+			$this->subItems,
 		);
 	}
 
@@ -80,7 +79,6 @@ public function test_empty_answers_returns_zero_counts(): void {
 		$this->posts->method( 'get' )->willReturn( $post );
 		$this->resolver->method( 'resolveId' )->willReturn( 'choice' );
 		$this->resolver->method( 'resolveEnum' )->willReturn( TT::Choice );
-		$this->templates->method( 'get' )->willReturn( null );
 		$this->posts->method( 'getMeta' )->willReturn( [
 			'task_options' => [ 'multiple' => false, 'options' => $options ],
 		] );
@@ -103,7 +101,6 @@ public function test_empty_answers_returns_zero_counts(): void {
 		$this->posts->method( 'get' )->willReturn( $post );
 		$this->resolver->method( 'resolveId' )->willReturn( 'choice' );
 		$this->resolver->method( 'resolveEnum' )->willReturn( TT::Choice );
-		$this->templates->method( 'get' )->willReturn( null );
 		$this->posts->method( 'getMeta' )->willReturn( [
 			'task_options' => [ 'multiple' => false, 'options' => $options ],
 		] );
@@ -129,7 +126,6 @@ public function test_empty_answers_returns_zero_counts(): void {
 		$this->posts->method( 'get' )->willReturn( $post );
 		$this->resolver->method( 'resolveId' )->willReturn( 'file_answer' );
 		$this->resolver->method( 'resolveEnum' )->willReturn( TT::FileAnswer );
-		$this->templates->method( 'get' )->willReturn( null );
 		$this->posts->method( 'getMeta' )->willReturn( [] );
 
 		$result = $this->svc->check( [ 3 => 'развёрнутый ответ' ] );
@@ -147,7 +143,6 @@ public function test_empty_answers_returns_zero_counts(): void {
 		$this->posts->method( 'get' )->willReturn( $post );
 		$this->resolver->method( 'resolveId' )->willReturn( 'choice' );
 		$this->resolver->method( 'resolveEnum' )->willReturn( TT::Choice );
-		$this->templates->method( 'get' )->willReturn( null );
 		$this->posts->method( 'getMeta' )->willReturn( [
 			'task_options' => [ 'multiple' => false, 'options' => $options ],
 		] );
@@ -176,15 +171,13 @@ public function test_empty_answers_returns_zero_counts(): void {
 		$this->resolver->method( 'resolveId' )->willReturn( 'three_in_one' );
 		$this->resolver->method( 'resolveEnum' )->willReturn( TT::Triple );
 
-		// Stub template object that expands for exam.
-		$templateObj = $this->createMock( BaseTemplate::class );
-		$templateObj->method( 'expandsForExam' )->willReturn( [
+		// Запись отвечает за весь блок 19-21 — резолвер отдаёт все три подпункта.
+		$this->subItems->method( 'forPost' )->willReturn( [
 			[ 'key' => '19', 'condition_field' => 'task_19_condition', 'answer_field' => 'task_19_answer' ],
 			[ 'key' => '20', 'condition_field' => 'task_20_condition', 'answer_field' => 'task_20_answer' ],
 			[ 'key' => '21', 'condition_field' => 'task_21_condition', 'answer_field' => 'task_21_answer' ],
 		] );
 
-		$this->templates->method( 'get' )->willReturn( $templateObj );
 		$this->posts->method( 'getMeta' )->willReturn( [
 			'task_19_answer' => '42',
 			'task_20_answer' => 'нет',
@@ -213,11 +206,9 @@ public function test_empty_answers_returns_zero_counts(): void {
 		$this->resolver->method( 'resolveId' )->willReturn( 'three_in_one' );
 		$this->resolver->method( 'resolveEnum' )->willReturn( TT::Triple );
 
-		$templateObj = $this->createMock( BaseTemplate::class );
-		// expandsForExam must NOT be called when kind is null.
-		$templateObj->expects( $this->never() )->method( 'expandsForExam' );
+		// Разворот подпунктов не запрашивается вовсе, когда kind не задан.
+		$this->subItems->expects( $this->never() )->method( 'forPost' );
 
-		$this->templates->method( 'get' )->willReturn( $templateObj );
 		$this->posts->method( 'getMeta' )->willReturn( [
 			'task_19_answer' => '42',
 			'task_20_answer' => 'нет',

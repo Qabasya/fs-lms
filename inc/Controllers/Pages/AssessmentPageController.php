@@ -9,6 +9,7 @@ use Inc\Core\BaseController;
 use Inc\DTO\Assessment\AssessmentDTO;
 use Inc\Enums\Wp\PageRoutes;
 use Inc\Managers\Assessment\AssessmentManager;
+use Inc\Services\Assessment\AssessmentAccessPolicy;
 use Inc\Services\Assessment\AttemptPageService;
 use Inc\Services\Subject\PostTypeResolver;
 use Inc\Services\Shared\ThemeCompatService;
@@ -79,6 +80,7 @@ class AssessmentPageController extends BaseController implements ServiceInterfac
 	public function __construct(
 		private readonly AssessmentManager           $assessments,
 		private readonly AttemptPageService          $pageService,
+		private readonly AssessmentAccessPolicy      $access,
 	) {
 		parent::__construct();
 	}
@@ -111,14 +113,23 @@ class AssessmentPageController extends BaseController implements ServiceInterfac
 			exit;
 		}
 
-		// Нет ученика или доступа → 404 (не раскрываем наличие контрольной).
+		// Нет ученика или доступа → предпросмотр автора, иначе 404 (постороннему
+		// наличие контрольной не раскрываем).
 		$page = $this->pageService->build( $assessment, $userId );
 		if ( null === $page ) {
-			global $wp_query;
-			$wp_query->set_404();
-			status_header( 404 );
-			nocache_headers();
-			return get_404_template();
+			if ( ! $this->access->canPreview( $userId, $assessment->id ) ) {
+				global $wp_query;
+				$wp_query->set_404();
+				status_header( 404 );
+				nocache_headers();
+				return get_404_template();
+			}
+
+			// Автор/методист/офис — и преподаватель, в чьих группах эта контрольная
+			// стоит в занятии — смотрит станцию вхолостую: без ученика, без попытки
+			// в БД, без сохранения ответов и обратного отсчёта
+			// (см. AttemptPageService::buildPreview()).
+			$page = $this->pageService->buildPreview( $assessment );
 		}
 
 		// Остаётся открытой по пермалинку — запрещаем индексацию.
@@ -135,6 +146,7 @@ class AssessmentPageController extends BaseController implements ServiceInterfac
 		$outcomeState   = $page->outcomeState;
 		$canRetry       = $page->canRetry;
 		$now            = $page->now;
+		$previewMode    = $page->previewMode;
 
 		$defaultTemplate = $this->path( 'templates/frontend/assessment/attempt.php' );
 		$template        = $this->resolveRenderer( $assessment, $defaultTemplate );

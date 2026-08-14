@@ -96,6 +96,29 @@ readonly class AttemptPageService {
 	}
 
 	/**
+	 * Холостое состояние страницы для предпросмотра автора: заданий столько же,
+	 * сколько увидит ученик, но ученика нет, попытка не заводится и в БД ничего
+	 * не пишется — станция рисуется «вхолостую» (см. AssessmentPageController).
+	 *
+	 * @param AssessmentDTO $assessment Контрольная
+	 */
+	public function buildPreview( AssessmentDTO $assessment ): AttemptPageDTO {
+		return new AttemptPageDTO(
+			person:         null,
+			activeAttempt:  null,
+			lastAttempt:    null,
+			examInProgress: false,
+			taskViews:      $this->taskViews->build( $assessment->taskIds, $assessment->subjectKey, $assessment->kind ),
+			resultPerTask:  array(),
+			outcome:        '',
+			outcomeState:   'fail',
+			canRetry:       false,
+			now:            $this->clock->now(),
+			previewMode:    true,
+		);
+	}
+
+	/**
 	 * Можно ли начать ещё попытку (кнопка «Пройти ещё раз» на экране результата):
 	 * без лимита (0) — всегда; иначе — пока использовано меньше лимита.
 	 *

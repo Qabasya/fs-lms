@@ -20,26 +20,53 @@ class AssessmentAnswerRepository {
 	/**
 	 * Вставляет или обновляет ответ на задание внутри попытки.
 	 *
-	 * @param int   $attemptId
-	 * @param int   $taskId
-	 * @param array $data  Поля для записи (answer_text, is_correct, score, max_score, …)
+	 * Одним запросом, а не «прочитать → решить → записать»: автосохранение шлёт
+	 * ответ по вводу, по уходу из поля и по кнопке, и два таких запроса приходят
+	 * почти одновременно. При проверке существования на стороне PHP оба видели
+	 * пустоту и делали по INSERT — в таблице оказывались две строки на одну пару
+	 * (attempt_id, task_id), а дальше чтение брало произвольную из них: ответ
+	 * «то сохранялся, то нет». Уникальный ключ на пару ставит
+	 * {@see \Inc\Migrations\AssessmentAnswerUniqueMigration}.
+	 *
+	 * @param int   $attemptId Попытка
+	 * @param int   $taskId    Задание
+	 * @param array $data      Поля для записи (answer_text, is_correct, score, max_score, …)
 	 */
 	public function upsert( int $attemptId, int $taskId, array $data ): bool {
-		$existing = $this->findByAttemptAndTask( $attemptId, $taskId );
+		$row = array_merge( [ 'attempt_id' => $attemptId, 'task_id' => $taskId ], $data );
 
-		if ( $existing ) {
-			$result = $this->wpdb->update(
-				$this->table,
-				$data,
-				[ 'attempt_id' => $attemptId, 'task_id' => $taskId ]
-			);
-			return false !== $result;
+		$columns      = array();
+		$placeholders = array();
+		$values       = array();
+
+		foreach ( $row as $column => $value ) {
+			$columns[] = '`' . $column . '`';
+			// null через %s превратился бы в пустую строку — «не оценено» стало бы
+			// нулём, поэтому NULL кладём литералом.
+			if ( null === $value ) {
+				$placeholders[] = 'NULL';
+				continue;
+			}
+			$placeholders[] = '%s';
+			$values[]       = $value;
 		}
 
-		$result = $this->wpdb->insert(
-			$this->table,
-			array_merge( [ 'attempt_id' => $attemptId, 'task_id' => $taskId ], $data )
+		// Ключевые колонки в UPDATE не попадают: они и так совпали. Данных, кроме
+		// ключей, не бывает (все вызовы пишут хотя бы одно поле), но пустой список
+		// сделал бы запрос синтаксически неверным — подстраховываемся no-op'ом.
+		$updates = array_map(
+			static fn( string $column ): string => "`$column` = VALUES(`$column`)",
+			array_keys( $data )
 		);
+		$onDuplicate = $updates ? implode( ', ', $updates ) : '`attempt_id` = VALUES(`attempt_id`)';
+
+		$sql = 'INSERT INTO `' . $this->table . '` (' . implode( ', ', $columns ) . ')'
+			. ' VALUES (' . implode( ', ', $placeholders ) . ')'
+			. ' ON DUPLICATE KEY UPDATE ' . $onDuplicate;
+
+		// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$result = $this->wpdb->query( $values ? $this->wpdb->prepare( $sql, $values ) : $sql );
+
 		return false !== $result;
 	}
 

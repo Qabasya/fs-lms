@@ -150,9 +150,9 @@ class StepContentRenderer {
 	public function buildConditionHtml( array $meta, TaskTemplate $template ): string|array {
 		if ( TaskTemplate::Triple === $template ) {
 			return array(
-				'19' => wp_kses_post( (string) ( $meta['task_19_condition'] ?? '' ) ),
-				'20' => wp_kses_post( (string) ( $meta['task_20_condition'] ?? '' ) ),
-				'21' => wp_kses_post( (string) ( $meta['task_21_condition'] ?? '' ) ),
+				'19' => $this->conditionHtml( $meta['task_19_condition'] ?? '' ),
+				'20' => $this->conditionHtml( $meta['task_20_condition'] ?? '' ),
+				'21' => $this->conditionHtml( $meta['task_21_condition'] ?? '' ),
 			);
 		}
 
@@ -160,16 +160,35 @@ class StepContentRenderer {
 			return '';
 		}
 
-		$condition = wp_kses_post( (string) ( $meta['task_condition'] ?? '' ) );
+		$condition = $this->conditionHtml( $meta['task_condition'] ?? '' );
 
 		if ( TaskTemplate::Common === $template ) {
-			$common = wp_kses_post( (string) ( $meta['common_condition'] ?? '' ) );
+			$common = $this->conditionHtml( $meta['common_condition'] ?? '' );
 			if ( '' !== $common ) {
-				return '' !== $condition ? $common . '<br>' . $condition : $common;
+				return $common . $condition;
 			}
 		}
 
 		return $condition;
+	}
+
+	/**
+	 * Санитайзинг + абзацы условия — единая точка для всех потребителей
+	 * (плеер урока, preview-плеер, страница прохождения контрольной).
+	 *
+	 * Метабокс хранит условие так, как его отдал редактор: обычно это текст с
+	 * переводами строк без единого тега, и в браузере он слипается в сплошное
+	 * полотно. `wpautop()` даёт ту же разбивку, что `the_content` у легаси-условий
+	 * из `post_content`, и не трогает уже размеченный HTML — блочные теги он
+	 * оборачивать не станет. Порядок важен: сначала `wp_kses_post()`, потом
+	 * разбивка, иначе kses пришлось бы прогонять по сгенерированной разметке.
+	 *
+	 * @param mixed $raw Сырое значение поля условия
+	 */
+	private function conditionHtml( mixed $raw ): string {
+		$html = wp_kses_post( (string) $raw );
+
+		return '' === trim( $html ) ? '' : wpautop( $html );
 	}
 
 	/**

@@ -9,13 +9,14 @@
  * @var string                                 $introTemplate  D16.4: путь к партиалу интро-шага (стадия [intro])
  * @var string                                 $outcome        Задача 10: метка исхода попытки
  * @var string                                 $outcomeState   Задача 10: состояние плашки (ok/fail/review)
+ * @var bool                                   $previewMode    Предпросмотр автора: ученика и попытки нет
  */
 declare( strict_types=1 );
 ?>
 <div class="fs-page-wrapper">
 	<div class="fs-assessment-page">
 
-		<?php if ( ! $person ) : ?>
+		<?php if ( ! $person && ! $previewMode ) : ?>
 			<h1 class="fs-assessment-title"><?php echo esc_html( $assessment->title ); ?></h1>
 			<p class="fs-assessment-notice"><?php echo esc_html( 'Для прохождения экзамена необходимо войти в систему.' ); ?></p>
 
@@ -24,7 +25,9 @@ declare( strict_types=1 );
 			<?php /* ===== ФОРМА АКТИВНОЙ ПОПЫТКИ (стадия [tasks]) ===== */ ?>
 			<div id="fs-assessment-form"
 				data-attempt-id="<?php echo esc_attr( (string) $activeAttempt->id ); ?>"
-				<?php if ( $assessment->timeLimit > 0 ) : ?>data-deadline="<?php echo esc_attr( $activeAttempt->deadlineAt ); ?>"<?php endif; ?>>
+				<?php // data-now — серверное «сейчас» рядом с дедлайном: обе даты в поясе сайта, ?>
+				<?php // и таймер считает остаток от них, а не от часов браузера (см. startCountdown). ?>
+				<?php if ( $assessment->timeLimit > 0 ) : ?>data-deadline="<?php echo esc_attr( $activeAttempt->deadlineAt ); ?>" data-now="<?php echo esc_attr( $now ); ?>"<?php endif; ?>>
 
 				<?php /* Таймер вынесен в липкую шапку .s-top (attempt-shell-header.php) — всегда виден при скролле. */ ?>
 

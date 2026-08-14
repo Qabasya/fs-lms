@@ -8,8 +8,8 @@ use Inc\DTO\Course\BatchCheckResultDTO;
 use Inc\Enums\Assessment\AssessmentKind;
 use Inc\Enums\Wp\PostMetaName;
 use Inc\Managers\Wp\PostManager;
+use Inc\Services\Task\CompositeSubItemResolver;
 use Inc\Services\Task\TaskCheckerRegistry;
-use Inc\Services\Template\TemplateRegistry;
 use Inc\Services\Template\TemplateResolver;
 
 /**
@@ -23,10 +23,10 @@ use Inc\Services\Template\TemplateResolver;
 class BatchCheckService {
 
 	public function __construct(
-		private readonly PostManager         $posts,
-		private readonly TemplateResolver    $resolver,
-		private readonly TemplateRegistry    $templates,
-		private readonly TaskCheckerRegistry $checkers,
+		private readonly PostManager              $posts,
+		private readonly TemplateResolver         $resolver,
+		private readonly TaskCheckerRegistry      $checkers,
+		private readonly CompositeSubItemResolver $subItems,
 	) {}
 
 	/**
@@ -58,14 +58,14 @@ class BatchCheckService {
 				continue;
 			}
 
-			$templateId  = $this->resolver->resolveId( $post );
-			$templateObj = $this->templates->get( $templateId );
-			$template    = $this->resolver->resolveEnum( $post );
-			$meta        = $this->posts->getMeta( $post->ID, PostMetaName::Meta->value );
-			$metaArr     = is_array( $meta ) ? $meta : [];
+			$template = $this->resolver->resolveEnum( $post );
+			$meta     = $this->posts->getMeta( $post->ID, PostMetaName::Meta->value );
+			$metaArr  = is_array( $meta ) ? $meta : [];
 
 			// Разворот составного шаблона (ThreeInOne → 19 / 20 / 21) в режиме ЕГЭ.
-			$subItems = ( $expandComposites && null !== $templateObj ) ? $templateObj->expandsForExam() : [];
+			// Какие именно подпункты берёт запись — решает CompositeSubItemResolver:
+			// запись, помеченная номером одного из них, отвечает только за свой номер.
+			$subItems = $expandComposites ? $this->subItems->forPost( $post ) : [];
 
 			if ( ! empty( $subItems ) ) {
 				$studentAnswers = is_array( $answer ) ? $answer : [];

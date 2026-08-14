@@ -163,6 +163,7 @@ class AssessmentMetaBoxController extends BaseController implements ServiceInter
 			'wrapper_class' => 'fs-lms-assessment-settings',
 			'post'          => $post,
 			'template'      => $this->template,
+			'values'        => $this->postManager->taskMeta( $post->ID ),
 		) );
 	}
 

@@ -510,7 +510,7 @@ class Migration_1_0_0 implements MigrationInterface {
 			graded_at           datetime        DEFAULT NULL,
 			criteria_scores     json            DEFAULT NULL,
 			PRIMARY KEY  (id),
-			KEY attempt_id (attempt_id),
+			UNIQUE KEY attempt_task (attempt_id,task_id),
 			KEY task_id (task_id)
 		) $cc;"
 		);

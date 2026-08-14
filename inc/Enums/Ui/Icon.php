@@ -69,6 +69,10 @@ enum Icon: string {
 	/** Стрелка-вправо в кнопке действия (напр. «Смотреть решение»). */
 	case ArrowRight = 'arrow_right';
 
+	/** Стрелки прокрутки списка (напр. навигатор заданий станции КЕГЭ). */
+	case ArrowUp   = 'arrow_up';
+	case ArrowDown = 'arrow_down';
+
 	/**
 	 * Готовая SVG-разметка иконки.
 	 *
@@ -111,6 +115,8 @@ enum Icon: string {
 			self::Cross           => 12,
 			self::Search,
 			self::ArrowRight      => 16,
+			self::ArrowUp,
+			self::ArrowDown       => 14,
 		};
 	}
 
@@ -144,6 +150,8 @@ enum Icon: string {
 			self::Search          => '<circle cx="9" cy="9" r="5.5" stroke="currentColor" stroke-width="1.6"/><path d="m13.5 13.5 3.2 3.2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>',
 			self::Cross           => '<path d="M5 5l10 10M15 5 5 15" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>',
 			self::ArrowRight      => '<path d="M4 10h11m0 0-4-4m4 4-4 4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>',
+			self::ArrowUp         => '<path d="M10 16V4M4.5 9.5 10 4l5.5 5.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>',
+			self::ArrowDown       => '<path d="M10 4v12M4.5 10.5 10 16l5.5-5.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>',
 		};
 	}
 }
