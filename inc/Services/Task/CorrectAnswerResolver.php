@@ -13,10 +13,12 @@ use Inc\Managers\Wp\PostManager;
  *
  * Достаёт человекочитаемый эталонный ответ задачи из `fs_lms_meta` по шаблону
  * (Эпик 11 T11.8). Только для teacher-facing детали работы — на клиент ученика
- * правильные ответы не отдаются. Ручные шаблоны (код/файл/развёрнутый) → null.
+ * правильные ответы не отдаются (исключение — лист ответов станции КЕГЭ, см.
+ * {@see \Inc\Modules\EgeComputer\Services\KegeResultSheetService}). Эталона нет
+ * только у «Развёрнутого ответа» — единственного полностью ручного шаблона.
  *
  * Ключи меты соответствуют полям шаблонов/чекеров:
- *  standard/common/audio → task_answer; triple → task_19/20/21_answer;
+ *  standard/common/audio/код/файловые → task_answer; triple → task_19/20/21_answer;
  *  choice → task_options.options[].{text,correct}; matching → task_pairs.pairs[].{left,right};
  *  ordering → task_order_items.items[]; fill → task_gap_text.text (FillTextParser).
  *
@@ -38,7 +40,17 @@ class CorrectAnswerResolver {
 		$tpl     = TaskTemplate::fromDatabase( is_string( $tplRaw ) ? $tplRaw : null );
 
 		$answer = match ( $tpl ) {
-			TaskTemplate::Standard, TaskTemplate::Common, TaskTemplate::Audio => trim( (string) ( $meta['task_answer'] ?? '' ) ),
+			// Строка ответа `task_answer` — у всех шаблонов, кроме «Развёрнутого»
+			// (см. TaskCheckerRegistry): у код/файловых не автопроверяется сам код
+			// или файл, но короткий ответ у них есть и эталон для него существует.
+			TaskTemplate::Standard,
+			TaskTemplate::Common,
+			TaskTemplate::Audio,
+			TaskTemplate::Code,
+			TaskTemplate::FileCode,
+			TaskTemplate::File,
+			TaskTemplate::TwoFile,
+			TaskTemplate::TextSolution => trim( (string) ( $meta['task_answer'] ?? '' ) ),
 			TaskTemplate::Triple   => $this->triple( $meta ),
 			TaskTemplate::Choice   => $this->choice( $meta ),
 			TaskTemplate::Matching => $this->matching( $meta ),

@@ -60,8 +60,13 @@ class CoursePreviewAccessGuard {
 		return false;
 	}
 
-	/** Сотрудник, которому предпросмотр открыт целиком: админ, платформа, автор курсов. */
-	private function isStaffPreviewer( int $wpUserId ): bool {
+	/**
+	 * Сотрудник, которому предпросмотр открыт целиком: админ, платформа, автор
+	 * курсов. Публичный, потому что этот же признак нужен доменным гардам, где
+	 * «всё остальное» надо сузить до своей области видимости — напр.
+	 * {@see \Inc\Services\Assessment\AssessmentAccessPolicy::canPreview()}.
+	 */
+	public function isStaffPreviewer( int $wpUserId ): bool {
 		return user_can( $wpUserId, Capability::Admin->value )
 			|| user_can( $wpUserId, Capability::ManageLmsPlatform->value )
 			|| user_can( $wpUserId, Capability::AuthorLmsCourses->value );

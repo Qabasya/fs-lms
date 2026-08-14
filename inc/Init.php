@@ -89,6 +89,7 @@ use Inc\Contracts\LogEventDispatcherInterface;
 use Inc\Core\Container;
 use Inc\Core\Enqueue;
 use Inc\Migrations\ArticlesSectionMigration;
+use Inc\Migrations\AssessmentAnswerUniqueMigration;
 use Inc\Migrations\BroadcastStepMigration;
 use Inc\Services\Log\LogEventDispatcher;
 use Inc\Services\Shared\WpClock;
@@ -250,5 +251,9 @@ final class Init {
 		// Раздел «Учебник»: /{key}/textbook/ → /{key}/articles/ (ключ опции,
 		// слаг страницы, тег шорткода). Гейт — собственная опция миграции.
 		( new ArticlesSectionMigration() )->ensure();
+
+		// Уникальный ключ (attempt_id, task_id) на ответах попытки + вычистка
+		// дублей, накопленных до атомарного upsert() (см. класс миграции).
+		( new AssessmentAnswerUniqueMigration() )->ensure();
 	}
 }

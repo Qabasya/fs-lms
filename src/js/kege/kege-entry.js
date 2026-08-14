@@ -9,15 +9,7 @@
  * персистятся в localStorage, чтобы пережить перезагрузку страницы.
  */
 
-const LS_KEY = 'fsKegeSimV1';
-
-function loadState() {
-	try {
-		return Object.assign( { stage: 'entry', br: [ '', '', '' ], slide: 0, kim: null, code: null }, JSON.parse( localStorage.getItem( LS_KEY ) ) || {} );
-	} catch ( e ) {
-		return { stage: 'entry', br: [ '', '', '' ], slide: 0, kim: null, code: null };
-	}
-}
+import { KEGE_RITUAL_STAGES, clearKegeState, kegeBr, kegeKim, loadKegeState, saveKegeState } from './kege-state.js';
 
 function toast( msg ) {
 	const el = document.getElementById( 'kegeToast' );
@@ -32,6 +24,15 @@ function showStage( root, name ) {
 	root.querySelectorAll( '[data-kege-stage]' ).forEach( ( el ) => {
 		el.hidden = el.dataset.kegeStage !== name;
 	} );
+}
+
+/**
+ * Куда вернуть ритуал, если сохранённая стадия — 'exam'/'done', а самого экрана
+ * на странице нет (попытка уже сдана и сервер снова отдал ритуал). Введённые
+ * данные при этом сохраняются: с готовым КИМ возвращаемся сразу к активации.
+ */
+function ritualFallback( state ) {
+	return state.kim ? 'act' : 'entry';
 }
 
 function randDigits( n ) {
@@ -87,22 +88,23 @@ function initInstrStage( root, state, persist, onDone ) {
 	if ( ! slides.length || ! prev || ! next || ! done ) { return; }
 
 	const showSlide = ( i ) => {
+		const last = i === slides.length - 1;
 		state.slide = i;
 		persist();
 		slides.forEach( ( s, idx ) => { s.hidden = idx !== i; } );
 		prev.hidden = 0 === i;
-		next.hidden = i === slides.length - 1;
+		next.hidden = last;
+		// «Далее» доступна только после пролистывания всей инструкции.
+		done.hidden = ! last;
 	};
 	showSlide( Math.min( state.slide || 0, slides.length - 1 ) );
 
 	prev.addEventListener( 'click', () => showSlide( Math.max( 0, state.slide - 1 ) ) );
 	next.addEventListener( 'click', () => showSlide( Math.min( slides.length - 1, state.slide + 1 ) ) );
 
+	// Кнопка отрисована только на последнем слайде (done.hidden = ! last),
+	// поэтому дополнительной проверки «дошёл ли до конца» здесь уже не нужно.
 	done.addEventListener( 'click', () => {
-		if ( state.slide < slides.length - 1 ) {
-			showSlide( state.slide + 1 );
-			return;
-		}
 		state.stage = 'reg';
 		persist();
 		showStage( root, 'reg' );
@@ -186,7 +188,27 @@ function initRegStage( root, state, persist ) {
 	}
 }
 
-function initActStage( root, state, persist, kegeVars, assessmentId ) {
+/**
+ * Предпросмотр автора: попытки нет и StartAttempt не вызывается — экран экзамена
+ * уже отрендерен скрытым (ege-computer.php), поэтому просто раскрываем его и
+ * сообщаем kege-exam.js, что пора обновить шапку значениями ритуала.
+ *
+ * Стадия пишется в состояние: обновление страницы должно вернуть экран
+ * экзамена, а не откатить на активацию (сервер здесь ничего не знает —
+ * настоящей попытки нет).
+ */
+function startPreviewExam( root, state, persist ) {
+	const exam = document.getElementById( 'kegeExam' );
+	if ( ! exam ) { return; }
+	state.stage = 'exam';
+	persist();
+	root.hidden = true;
+	document.getElementById( 'kegeFinish' )?.setAttribute( 'hidden', '' );
+	exam.hidden = false;
+	document.dispatchEvent( new CustomEvent( 'fs-kege-preview-start' ) );
+}
+
+function initActStage( root, state, persist, kegeVars, assessmentId, preview ) {
 	const edit  = document.getElementById( 'kegeActEdit' );
 	const input = document.getElementById( 'kegeCodeInput' );
 	const err   = document.getElementById( 'kegeCodeErr' );
@@ -207,6 +229,10 @@ function initActStage( root, state, persist, kegeVars, assessmentId ) {
 		if ( input.value !== state.code ) {
 			input.classList.add( 'kege-code-in--err' );
 			err.hidden = false;
+			return;
+		}
+		if ( preview ) {
+			startPreviewExam( root, state, persist );
 			return;
 		}
 		if ( ! kegeVars ) { return; }
@@ -240,31 +266,117 @@ function initActStage( root, state, persist, kegeVars, assessmentId ) {
 	input.addEventListener( 'keydown', ( e ) => { if ( 'Enter' === e.key ) { doStart(); } } );
 }
 
-/** Тренажёрная контрольная сумма — детерминирована по attemptId/КИМ/бланку, без серверного смысла. */
-function computeChecksum( seed ) {
-	let h = 7;
-	for ( const c of seed ) { h = ( h * 31 + c.charCodeAt( 0 ) ) >>> 0; }
-	const d = String( h ).padStart( 10, '0' ).slice( 0, 10 );
-	return d.match( /../g ).join( '-' );
+/** Балл строки: «—», пока задание не оценено — зеркалит `$kegeScore` из finish.php. */
+function kegeRowScore( score ) {
+	return null === score || undefined === score ? '—' : String( Math.round( score * 100 ) / 100 );
 }
 
+/**
+ * Перестраивает лист ответов данными, посчитанными сервером (см.
+ * `PreviewResultCallbacks`/`KegeResultSheetService::buildFromAnswers()`).
+ *
+ * Только предпросмотр: реальная сдача перезагружает страницу и получает те же
+ * данные уже отрисованными в PHP (`kege/finish.php`) — эта функция дублирует
+ * ровно ту разметку (шапка счёта, деление строк на две таблицы пополам)
+ * специально для случая, когда перезагрузки не будет и взять готовый HTML
+ * неоткуда: в предпросмотре попытки в БД нет.
+ *
+ * @param {{rows: Array, answered: number, total: number, primary: number,
+ *           primary_max: number, secondary: number, secondary_max: number}} sheet
+ */
+export function renderKegeSheet( sheet ) {
+	const cnt = document.querySelector( '#kegeFinCnt b' );
+	if ( cnt ) { cnt.textContent = sheet.answered + '/' + sheet.total; }
+
+	const scoreVal = document.getElementById( 'kegeFinScoreVal' );
+	const scoreSub = document.getElementById( 'kegeFinScoreSub' );
+	if ( scoreVal ) { scoreVal.textContent = sheet.secondary + '/' + sheet.secondary_max; }
+	if ( scoreSub ) {
+		scoreSub.textContent = 'Первичный балл: ' + kegeRowScore( sheet.primary ) + '/' + kegeRowScore( sheet.primary_max );
+	}
+
+	const tables = document.getElementById( 'kegeFinTables' );
+	if ( ! tables ) { return; }
+	tables.innerHTML = '';
+
+	// Две таблицы рядом (макет): первая половина строк — левая, остаток — правая
+	// (зеркалит array_chunk() в finish.php).
+	const half   = Math.ceil( sheet.rows.length / 2 );
+	const chunks = half > 0 ? [ sheet.rows.slice( 0, half ), sheet.rows.slice( half ) ] : [];
+
+	chunks.forEach( ( chunk ) => {
+		const table = document.createElement( 'table' );
+		table.className = 'kege-fin-tbl';
+
+		const thead    = document.createElement( 'thead' );
+		const headRow  = document.createElement( 'tr' );
+		[ '№', 'Балл', 'Ваш\nответ', 'Правильный\nответ' ].forEach( ( label ) => {
+			const th = document.createElement( 'th' );
+			// textContent + \n вместо <br>: white-space: pre-line у .kege-fin-tbl
+			// рендерит перенос так же, как и в теле таблицы (единый способ).
+			th.textContent = label;
+			headRow.appendChild( th );
+		} );
+		thead.appendChild( headRow );
+		table.appendChild( thead );
+
+		const tbody = document.createElement( 'tbody' );
+		chunk.forEach( ( row ) => {
+			const tr = document.createElement( 'tr' );
+
+			const n = document.createElement( 'td' );
+			n.className   = 'kege-fin-tbl__n';
+			n.textContent = row.number;
+
+			const score = document.createElement( 'td' );
+			score.textContent = kegeRowScore( row.score );
+
+			const answer = document.createElement( 'td' );
+			answer.className   = 'kege-fin-tbl__ans';
+			answer.textContent = row.answer;
+
+			const correct = document.createElement( 'td' );
+			correct.className   = 'kege-fin-tbl__ans';
+			correct.textContent = row.correct;
+
+			tr.append( n, score, answer, correct );
+			tbody.appendChild( tr );
+		} );
+		table.appendChild( tbody );
+
+		tables.appendChild( table );
+	} );
+}
+
+/**
+ * Лист ответов (kege/finish.php): строки таблиц и баллы отдаёт сервер, клиенту
+ * остаются тренажёрные номера КИМ/бланка из ритуала и выход со станции.
+ */
 function initFinishScreen( state ) {
 	const finish = document.getElementById( 'kegeFinish' );
 	if ( ! finish ) { return; }
 
-	const sumEl = document.getElementById( 'kegeFinSum' );
-	if ( sumEl ) {
-		const seed = ( finish.dataset.attemptId || '' ) + ( state.kim || '' ) + state.br.join( '' );
-		sumEl.textContent = computeChecksum( seed || String( Date.now() ) );
-	}
+	const attemptId = finish.dataset.attemptId || '0';
+	const kimEl     = document.getElementById( 'kegeFinKim' );
+	const brEl      = document.getElementById( 'kegeFinBr' );
 
-	const retry = document.getElementById( 'kegeRetryBtn' );
-	if ( retry ) {
-		retry.addEventListener( 'click', () => {
-			localStorage.removeItem( LS_KEY );
-			window.location.reload();
-		} );
-	}
+	const syncHead = ( ritual ) => {
+		if ( kimEl ) { kimEl.textContent = 'КИМ № ' + kegeKim( ritual, attemptId ); }
+		if ( brEl )  { brEl.textContent  = 'БР № ' + kegeBr( ritual, attemptId ); }
+	};
+	syncHead( state );
+
+	// Предпросмотр автора: лист раскрывается без перезагрузки страницы, уже после
+	// того, как ритуал сгенерировал номера (см. kege-exam.js).
+	document.addEventListener( 'fs-kege-preview-finish', () => syncHead( loadKegeState() ) );
+
+	document.getElementById( 'kegeFinishBtn' )?.addEventListener( 'click', () => {
+		// Лист ответов — последний экран станции: уходим туда же, куда ведёт
+		// «Вернуться» шелла, и снимаем состояние ритуала, чтобы следующий заход
+		// начинался с номера бланка регистрации.
+		clearKegeState();
+		window.location.href = document.getElementById( 'kegeApp' )?.dataset.backUrl || '/';
+	} );
 }
 
 export function initKegeEntry() {
@@ -274,20 +386,44 @@ export function initKegeEntry() {
 
 	const assessmentId = app.dataset.assessmentId;
 	const kegeVars      = window.fs_lms_kege_vars;
+	const preview       = '1' === app.dataset.preview;
 
-	const state   = loadState();
-	const persist = () => localStorage.setItem( LS_KEY, JSON.stringify( state ) );
+	const state = loadKegeState();
+	// Пишем только свои ключи: открытое задание ведёт kege-exam.js, и запись
+	// целого объекта затирала бы его значением, устаревшим с момента загрузки.
+	const persist = () => saveKegeState( {
+		stage: state.stage,
+		br:    state.br,
+		slide: state.slide,
+		kim:   state.kim,
+		code:  state.code,
+	} );
 
 	initFinishScreen( state );
 
 	if ( ! root ) { return; }
 
-	showStage( root, state.stage );
-	if ( 'reg' === state.stage ) { populateRegStage( state, persist ); }
-	if ( 'act' === state.stage ) { populateActStage( state, persist ); }
+	// Восстановление после обновления страницы: возвращаем ровно тот экран, на
+	// котором пользователь был, вместе с уже введёнными бланком, КИМ и кодом.
+	// 'exam'/'done' — стадии предпросмотра (в реальном прохождении их держит
+	// сервер: активная попытка отдаёт сразу экран экзамена, без ритуала).
+	const examScreen   = document.getElementById( 'kegeExam' );
+	const finishScreen = document.getElementById( 'kegeFinish' );
+
+	if ( 'exam' === state.stage && examScreen ) {
+		startPreviewExam( root, state, persist );
+	} else if ( 'done' === state.stage && finishScreen ) {
+		root.hidden = true;
+		finishScreen.removeAttribute( 'hidden' );
+	} else {
+		const stage = KEGE_RITUAL_STAGES.includes( state.stage ) ? state.stage : ritualFallback( state );
+		showStage( root, stage );
+		if ( 'reg' === stage ) { populateRegStage( state, persist ); }
+		if ( 'act' === stage ) { populateActStage( state, persist ); }
+	}
 
 	initEntryStage( root, state, persist );
 	initInstrStage( root, state, persist, () => populateRegStage( state, persist ) );
 	initRegStage( root, state, persist );
-	initActStage( root, state, persist, kegeVars, assessmentId );
+	initActStage( root, state, persist, kegeVars, assessmentId, preview );
 }

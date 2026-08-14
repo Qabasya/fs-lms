@@ -7,7 +7,8 @@
  * переключает видимость (см. lesson-player .pstep — тот же приём).
  *
  * Если есть $lastAttempt (сюда включается вместе с kege/finish.php), этот
- * ритуал изначально скрыт — раскрывается кнопкой «Пройти ещё раз».
+ * ритуал скрыт: экран станции — лист ответов, а новая попытка начинается с
+ * повторного входа на страницу контрольной.
  *
  * @var \Inc\DTO\Assessment\AssessmentDTO $assessment
  * @var bool                              $isFinished
@@ -20,7 +21,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 use Inc\Modules\EgeComputer\Config\KegeSlidesConfig;
 
-$slides = KegeSlidesConfig::slides();
+$slides    = KegeSlidesConfig::slides();
+$blankHint = KegeSlidesConfig::blankHint();
 ?>
 <div class="kege-entry" id="kegeEntry"<?php echo ! empty( $isFinished ) ? ' hidden' : ''; ?>>
 
@@ -42,6 +44,15 @@ $slides = KegeSlidesConfig::slides();
 				</p>
 				<button type="button" class="kege-ghost-link" id="kegeFillDemo">Заполнить демо-номером</button>
 			</div>
+
+			<div>
+				<div class="kege-field-label">В этом месте бланка регистрации указан номер, который Вам необходимо внести в систему.</div>
+				<img class="kege-blank-shot"
+					src="<?php echo esc_url( $blankHint['image'] ); ?>"
+					alt="<?php echo esc_attr( $blankHint['alt'] ); ?>"
+					width="<?php echo esc_attr( (string) $blankHint['width'] ); ?>"
+					height="<?php echo esc_attr( (string) $blankHint['height'] ); ?>">
+			</div>
 		</div>
 
 		<button type="button" class="kege-btn kege-btn--cyan kege-next-fab" id="kegeEntryNext" disabled>Далее</button>
@@ -53,14 +64,21 @@ $slides = KegeSlidesConfig::slides();
 		<div class="kege-slides" id="kegeSlides">
 			<?php foreach ( $slides as $i => $slide ) : ?>
 				<div class="kege-slide" data-slide-index="<?php echo esc_attr( (string) $i ); ?>"<?php echo 0 !== $i ? ' hidden' : ''; ?>>
-					<h3><?php echo esc_html( $slide['title'] ); ?></h3>
-					<?php echo wp_kses_post( $slide['body'] ); ?>
+					<?php // Первый слайд грузим сразу, остальные — по мере пролистывания. ?>
+					<?php // width/height — резервирование пропорций: без них слайд прыгает при смене. ?>
+					<img class="kege-slide-shot"
+						src="<?php echo esc_url( $slide['image'] ); ?>"
+						alt="<?php echo esc_attr( $slide['alt'] ); ?>"
+						width="<?php echo esc_attr( (string) $slide['width'] ); ?>"
+						height="<?php echo esc_attr( (string) $slide['height'] ); ?>"
+						<?php echo 0 !== $i ? 'loading="lazy"' : ''; ?>>
 				</div>
 			<?php endforeach; ?>
 		</div>
 		<button type="button" class="kege-nav-c kege-nav-c--left" id="kegeSlidePrev" hidden>‹</button>
 		<button type="button" class="kege-nav-c kege-nav-c--right" id="kegeSlideNext">›</button>
-		<button type="button" class="kege-btn kege-btn--cyan kege-next-fab" id="kegeInstrNext">Далее</button>
+		<?php // Кнопка появляется только на последнем слайде — см. initInstrStage(). ?>
+		<button type="button" class="kege-btn kege-btn--cyan kege-next-fab" id="kegeInstrNext" hidden>Далее</button>
 	</section>
 
 	<!-- Этап: регистрация участника -->

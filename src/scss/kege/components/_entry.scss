@@ -4,6 +4,12 @@
 // регистрация (номер КИМ) / активация. Все стадии рендерятся сервером сразу
 // (kege/entry.php) — kege-entry.js только переключает [data-kege-stage].
 
+// «Обвязка» этапа инструкции над и под слайдом: верхний отступ .kege-stage
+// (24) + заголовок (~46) + нижняя зона кнопки «Далее» (90) + запас. Отдельным
+// именем, потому что число складывается из соседних правил и молча разъезжается
+// при правке любого из них.
+$slide-chrome: rem(220);
+
 .kege-entry { position: relative; }
 
 .kege-stage {
@@ -23,44 +29,49 @@
   margin-bottom: rem(30);
 }
 
-// ── Вход: две колонки (поле ввода + иллюстрация бланка — намеренно опущена,
-// станция тренажёра ограничивается вводом номера, без мока бланка ГЭК)
+// ── Вход: две колонки — поле ввода номера и скан бланка регистрации,
+// показывающий, где этот номер напечатан.
 .kege-entry-grid {
   display: grid;
-  grid-template-columns: minmax(380px, 480px);
+  grid-template-columns: minmax(rem(380), rem(480)) minmax(rem(420), rem(620));
   gap: rem(80);
   margin-top: rem(46);
 }
 
-// ── Инструкция (слайды, содержимое — inc/Modules/EgeComputer/Config/KegeSlidesConfig.php)
-.kege-slides {
-  max-width: rem(780);
-  margin: 0 auto;
-  padding: 0 rem(40);
+.kege-blank-shot {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--kege-line-2);
+  box-shadow: 0 4px 18px rgba(29, 62, 110, 0.12);
+}
 
-  h3 { font-size: 19px; font-weight: 500; margin-bottom: 20px; }
+// ── Инструкция: карусель скриншотов станции
+// (состав — inc/Modules/EgeComputer/Config/KegeSlidesConfig.php).
+// Ширина с запасом под круглые стрелки, они прижаты к краям экрана.
+.kege-slides {
+  max-width: rem(1100);
+  margin: 0 auto;
+  padding: 0 rem(90);
 }
 
 .kege-slide[hidden] { display: none; }
 
-.kege-slide-list {
-  margin: 0 0 rem(18) rem(22);
-  display: flex;
-  flex-direction: column;
-  gap: rem(12);
-
-  li { font-size: 14.5px; line-height: 1.6; padding-left: 4px; }
+// Слайд обязан помещаться в экран целиком: инструкция листается стрелками, а не
+// прокруткой. Вычитаем «обвязку» этапа — верхний отступ, заголовок и нижнюю
+// зону кнопки «Далее»; пропорции держит width: auto при заданной max-height.
+// dvh, а не vh: на мобильных vh считает высоту с уже свёрнутой адресной строкой,
+// и слайд вылезал бы за экран ровно на её высоту.
+.kege-slide-shot {
+  display: block;
+  width: auto;
+  max-width: 100%;
+  height: auto;
+  max-height: calc(100dvh - #{$slide-chrome});
+  margin: 0 auto;
+  border: 1px solid var(--kege-line-2);
+  box-shadow: 0 4px 18px rgba(29, 62, 110, 0.1);
 }
-
-.kege-slide-note {
-  font-size: rem(13.5);
-  color: var(--kege-muted);
-  border-top: 1px solid var(--kege-line-2);
-  padding-top: rem(14);
-  max-width: rem(640);
-}
-
-.kege-slide-warn { color: var(--kege-red); font-size: 15px; text-align: center; margin-top: 14px; }
 
 // ── Шаги 1-2-3 (регистрация/активация)
 .kege-steps {

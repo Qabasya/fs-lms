@@ -10,6 +10,7 @@
  * `intro_html`, при пустом — из дефолтов конфига; блок правил — авто из DTO.
  *
  * @var \Inc\DTO\Assessment\AssessmentDTO $assessment
+ * @var bool                              $previewMode Предпросмотр автора: попытку начать нельзя
  */
 declare( strict_types=1 );
 
@@ -40,10 +41,15 @@ $rules = AssessmentIntroConfig::rules( $assessment );
 	<?php endif; ?>
 
 	<div class="fs-assessment-intro__actions">
+		<?php // Предпросмотр автора: попытка не заводится, поэтому старт заблокирован. ?>
 		<button class="fs-btn fs-btn--primary" id="fs-start-attempt-btn"
-			data-assessment-id="<?php echo esc_attr( (string) $assessment->id ); ?>">
+			data-assessment-id="<?php echo esc_attr( (string) $assessment->id ); ?>"
+			<?php echo $previewMode ? 'disabled' : ''; ?>>
 			Начать
 		</button>
 	</div>
+	<?php if ( $previewMode ) : ?>
+		<p class="fs-assessment-notice">Предпросмотр: попытка не записывается, начать экзамен можно только из курса.</p>
+	<?php endif; ?>
 	<p class="fs-start-notice" id="fs-start-notice" aria-live="polite"></p>
 </div>

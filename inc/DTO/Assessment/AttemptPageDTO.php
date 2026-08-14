@@ -16,7 +16,7 @@ use Inc\DTO\Person\PersonDTO;
 readonly class AttemptPageDTO {
 
 	/**
-	 * @param PersonDTO                 $person         Ученик (по текущему пользователю WP)
+	 * @param PersonDTO|null            $person         Ученик (по текущему пользователю WP); null — предпросмотр автора
 	 * @param AttemptDTO|null $activeAttempt  Незавершённая попытка, если есть
 	 * @param AttemptDTO|null $lastAttempt    Последняя сданная попытка (экран результата)
 	 * @param bool                      $examInProgress Идёт активная непросроченная попытка
@@ -26,9 +26,10 @@ readonly class AttemptPageDTO {
 	 * @param string                    $outcomeState   Состояние исхода: pass|fail|…
 	 * @param bool                      $canRetry       Доступна ли ещё попытка
 	 * @param string                    $now            Текущее время (mysql)
+	 * @param bool                      $previewMode    Предпросмотр автора: ученика и попытки нет, ответы не сохраняются
 	 */
 	public function __construct(
-		public PersonDTO             $person,
+		public ?PersonDTO            $person,
 		public ?AttemptDTO $activeAttempt,
 		public ?AttemptDTO $lastAttempt,
 		public bool                  $examInProgress,
@@ -38,5 +39,6 @@ readonly class AttemptPageDTO {
 		public string                $outcomeState,
 		public bool                  $canRetry,
 		public string                $now,
+		public bool                  $previewMode = false,
 	) {}
 }

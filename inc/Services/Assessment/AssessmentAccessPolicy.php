@@ -7,7 +7,9 @@ namespace Inc\Services\Assessment;
 use Inc\DTO\Course\GroupLessonDTO;
 use Inc\Managers\Course\LessonManager;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
+use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
+use Inc\Services\Course\CoursePreviewAccessGuard;
 use Inc\Services\Course\LessonAccessPolicy;
 
 /**
@@ -23,10 +25,12 @@ use Inc\Services\Course\LessonAccessPolicy;
 class AssessmentAccessPolicy {
 
 	public function __construct(
-		private readonly StudentRecordRepository $studentRecords,
-		private readonly GroupLessonRepository   $groupLessons,
-		private readonly LessonManager           $lessons,
-		private readonly LessonAccessPolicy      $lessonAccess,
+		private readonly StudentRecordRepository  $studentRecords,
+		private readonly GroupLessonRepository    $groupLessons,
+		private readonly LessonManager            $lessons,
+		private readonly LessonAccessPolicy       $lessonAccess,
+		private readonly GroupsRepository         $groups,
+		private readonly CoursePreviewAccessGuard $previewAccess,
 	) {}
 
 	/**
@@ -85,6 +89,48 @@ class AssessmentAccessPolicy {
 		}
 
 		return $best;
+	}
+
+	/**
+	 * Может ли пользователь открыть контрольную «вхолостую» — без ученика,
+	 * попытки и записи ответов (см. `AttemptPageService::buildPreview()`).
+	 *
+	 * Скоуп — по контрольной, а не по пользователю: страница отдаёт полные
+	 * условия всех заданий и ссылки на приложенные файлы, поэтому «преподаватель
+	 * вообще» здесь недостаточное условие — иначе учитель одного предмета читал
+	 * бы неопубликованные контрольные любого другого. Сотруднику (админ,
+	 * платформа, автор курсов) отдаём без проверки: он и так видит эти задания
+	 * в админке, сужение ничего бы не защитило.
+	 *
+	 * Проверка зеркалит {@see resolveAccessibleLesson()}, но без ученической
+	 * части: преподавателю достаточно, чтобы контрольная стояла в занятии одной
+	 * из его групп — даты, статусы и видимость для него не ограничение.
+	 *
+	 * @param int $wpUserId     ID пользователя WP.
+	 * @param int $assessmentId ID поста контрольной.
+	 */
+	public function canPreview( int $wpUserId, int $assessmentId ): bool {
+		if ( $wpUserId <= 0 || $assessmentId <= 0 ) {
+			return false;
+		}
+
+		if ( $this->previewAccess->isStaffPreviewer( $wpUserId ) ) {
+			return true;
+		}
+
+		foreach ( $this->groups->findByTeacherId( $wpUserId ) as $group ) {
+			foreach ( $this->groupLessons->listByGroup( (int) $group->id ) as $groupLesson ) {
+				if ( null === $groupLesson->lessonId ) {
+					continue;
+				}
+				$lesson = $this->lessons->get( $groupLesson->lessonId );
+				if ( null !== $lesson && in_array( $assessmentId, $lesson->assessmentIds(), true ) ) {
+					return true;
+				}
+			}
+		}
+
+		return false;
 	}
 
 	/**

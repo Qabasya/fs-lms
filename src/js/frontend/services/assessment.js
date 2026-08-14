@@ -19,40 +19,85 @@ const vars = window.fs_lms_assessment_vars;
  */
 export { escapeHtml as escHtml };
 
+/** Наивная дата сервера ('Y-m-d H:i:s') → timestamp. */
+function parseAt( value ) {
+	return new Date( String( value ).replace( ' ', 'T' ) ).getTime();
+}
+
+/**
+ * Остаток до дедлайна словами таймера. Часы показываем только когда они есть:
+ * у контрольной на 3 ч 55 мин формат MM:SS давал «235:00» вместо «03:55:00».
+ */
+function formatRemaining( seconds ) {
+	const total = Math.max( 0, seconds );
+	const mm    = String( Math.floor( total / 60 ) % 60 ).padStart( 2, '0' );
+	const ss    = String( total % 60 ).padStart( 2, '0' );
+
+	if ( total < 3600 ) { return `${ mm }:${ ss }`; }
+
+	return `${ String( Math.floor( total / 3600 ) ).padStart( 2, '0' ) }:${ mm }:${ ss }`;
+}
+
 /**
  * Универсальный обратный отсчёт: обновляет displayEl каждую секунду, вызывает
- * onExpire() один раз по достижении нуля. Возвращает id интервала (для очистки).
+ * onExpire() РОВНО ОДИН РАЗ по достижении нуля. Возвращает id интервала (для
+ * очистки) либо null, если отсчёт закончился уже на первом тике.
+ *
+ * `nowAt` — серверное «сейчас» в том же наивном формате, что и дедлайн. Оба
+ * значения приходят в часовом поясе сайта, а `Date` разбирает такую строку как
+ * местное время браузера: у пользователя в другом поясе отсчёт уезжал на часы —
+ * вплоть до мгновенной авто-сдачи попытки. Поэтому остаток считаем от серверного
+ * времени плюс то, что прожила страница; без `nowAt` поведение прежнее.
+ *
+ * @param {HTMLElement} displayEl  Элемент таймера
+ * @param {string}      deadlineAt Дедлайн попытки ('Y-m-d H:i:s')
+ * @param {Object}      options    onExpire / warnAt / nowAt
  */
-export function startCountdown( displayEl, deadlineAt, { onExpire, warnAt = 60 } = {} ) {
+export function startCountdown( displayEl, deadlineAt, { onExpire, warnAt = 60, nowAt = '' } = {} ) {
 	if ( ! displayEl || ! deadlineAt ) { return null; }
 
-	const deadline = new Date( deadlineAt.replace( ' ', 'T' ) ).getTime();
+	const deadline  = parseAt( deadlineAt );
+	const serverNow = nowAt ? parseAt( nowAt ) : Date.now();
+	const openedAt  = Date.now();
+	if ( Number.isNaN( deadline ) || Number.isNaN( serverNow ) ) { return null; }
+
+	const remainingSec = () => Math.floor( ( deadline - serverNow - ( Date.now() - openedAt ) ) / 1000 );
+
+	let timer   = null;
+	let expired = false;
 
 	const tick = () => {
-		const remaining = Math.floor( ( deadline - Date.now() ) / 1000 );
+		const remaining = remainingSec();
 		if ( remaining <= 0 ) {
-			displayEl.textContent = '00:00';
+			displayEl.textContent = formatRemaining( 0 );
 			displayEl.classList.add( 'fs-timer--expired' );
+			// Без снятия интервала onExpire дёргался бы каждую секунду — на странице
+			// экзамена это повторная сдача попытки раз в секунду.
+			if ( null !== timer ) { clearInterval( timer ); timer = null; }
+			if ( expired ) { return; }
+			expired = true;
 			if ( onExpire ) { onExpire(); }
 			return;
 		}
-		const m = String( Math.floor( remaining / 60 ) ).padStart( 2, '0' );
-		const s = String( remaining % 60 ).padStart( 2, '0' );
-		displayEl.textContent = `${ m }:${ s }`;
+		displayEl.textContent = formatRemaining( remaining );
 		if ( remaining < warnAt ) {
 			displayEl.classList.add( 'fs-timer--warning' );
 		}
 	};
 
 	tick();
-	return setInterval( tick, 1000 );
+	if ( expired ) { return null; }
+
+	timer = setInterval( tick, 1000 );
+	return timer;
 }
 
 /** Countdown timer that auto-submits when deadline is reached. */
-function initTimer( form, deadlineAt ) {
+function initTimer( form, deadlineAt, nowAt ) {
 	const display = document.getElementById( 'fs-timer-display' );
 	if ( ! display ) { return null; }
 	return startCountdown( display, deadlineAt, {
+		nowAt,
 		onExpire: () => form.dispatchEvent( new Event( 'submit' ) ),
 	} );
 }
@@ -63,9 +108,15 @@ export const debounce = debounceUtil;
 /**
  * Autosave a single answer via AJAX. `vars` — localized bundle vars (ajax_url/actions/nonces).
  * `statusEl` необязателен — если передан, показывает статус; без него сохраняет молча.
+ *
+ * Возвращает признак «сервер подтвердил запись»: вызывающий по нему решает,
+ * можно ли считать ответ сохранённым (отметить задание в навигаторе, обновить
+ * счётчик). Без этого «✓» и подсветка появлялись даже на упавшем запросе.
+ *
+ * @returns {Promise<boolean>} true — ответ записан в БД
  */
 export async function saveAnswer( vars, attemptId, taskId, answerText, statusEl ) {
-	if ( ! vars ) { return; }
+	if ( ! vars ) { return false; }
 	if ( statusEl ) { statusEl.textContent = 'Сохраняется…'; }
 	try {
 		const fd = new FormData();
@@ -77,8 +128,10 @@ export async function saveAnswer( vars, attemptId, taskId, answerText, statusEl 
 		const res = await fetch( vars.ajax_url, { method: 'POST', body: fd } );
 		const json = await res.json();
 		if ( statusEl ) { statusEl.textContent = json.success ? '✓' : ( json.data || 'Ошибка' ); }
+		return true === json.success;
 	} catch ( e ) {
 		if ( statusEl ) { statusEl.textContent = 'Сетевая ошибка'; }
+		return false;
 	}
 }
 
@@ -330,7 +383,7 @@ function initRunningAttempt() {
 	const resultEl     = document.getElementById( 'fs-assessment-result' );
 	if ( ! form || ! resultEl ) { return; }
 
-	const timerInterval = initTimer( form, deadlineAt );
+	const timerInterval = initTimer( form, deadlineAt, wrapper.dataset.now );
 
 	bindAutosave( form, attemptId );
 	bindFileAnswers( form, attemptId );

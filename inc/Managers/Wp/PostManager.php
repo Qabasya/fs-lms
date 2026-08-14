@@ -589,6 +589,25 @@ class PostManager {
 	}
 
 	/**
+	 * Прогревает кэш самих записей одним запросом. Нужен там, где ID пришли не из
+	 * `WP_Query` (списки заданий контрольной, шаги урока): без прогрева каждый
+	 * `get()` в цикле уходит в БД отдельным SELECT'ом.
+	 *
+	 * Меты и термы не трогает — для них есть `primeMetaCache()` и собственные
+	 * прогревы, а тянуть их всегда дороже, чем нужно вызывающему.
+	 *
+	 * @param int[] $post_ids ID постов
+	 *
+	 * @return void
+	 */
+	public function primePostCache( array $post_ids ): void {
+		$ids = array_filter( array_map( 'intval', $post_ids ) );
+		if ( array() !== $ids ) {
+			_prime_post_caches( $ids, false, false );
+		}
+	}
+
+	/**
 	 * Гибкая выборка постов типа (для селекторов банков и read-моделей).
 	 *
 	 * @param string $post_type Тип записи.

@@ -9,6 +9,18 @@
   flex-direction: column;
   overflow: hidden;
   background: var(--kege-surface);
+
+  // Предпросмотр автора: экран отрендерен скрытым и раскрывается на клиенте —
+  // без этого display: flex перебил бы атрибут hidden.
+  &[hidden] { display: none; }
+
+  // Ступени масштаба текста задания (тулбар A+ / A− / A). Классы, а не
+  // inline-стиль: JS только переключает ступень.
+  &--fs-1 { --kege-tfs: 15.5px; }
+  &--fs-2 { --kege-tfs: 17.5px; }
+  &--fs-3 { --kege-tfs: 20px; }
+  &--fs-4 { --kege-tfs: 22px; }
+  &--fs-5 { --kege-tfs: 24px; }
 }
 
 .kege-ex-head {
@@ -33,7 +45,7 @@
   &.fs-timer--expired { border-color: var(--kege-red); color: var(--kege-timer-warn); }
 }
 
-.kege-kim-t { font-size: 14px; font-weight: 500; }
+.kege-kim-t { font-size: rem(19); font-weight: 500; letter-spacing: 0.01em; }
 .kege-hd-sp { flex: 1; }
 
 .kege-head-link { color: var(--kege-head-link); font-size: 14px; padding: 6px 4px; }
@@ -57,11 +69,11 @@
 .kege-cnt-v { font-size: 28px; font-weight: 300; margin: 2px 0 10px; font-variant-numeric: tabular-nums; }
 
 .kege-sq-arrow {
-  width: rem(44);
-  height: rem(30);
+  width: rem(38);
+  height: rem(38);
   background: var(--kege-blue);
   color: var(--kege-on);
-  border-radius: 3px;
+  border-radius: rem(6);
   flex-shrink: 0;
   display: flex;
   align-items: center;
@@ -85,11 +97,11 @@
 }
 
 .kege-numb {
-  width: rem(44);
+  width: rem(38);
   height: rem(38);
   background: var(--kege-surface);
   border: 1px solid var(--kege-line);
-  border-radius: 3px;
+  border-radius: rem(6);
   font-size: rem(14);
   flex-shrink: 0;
   display: flex;
@@ -107,7 +119,32 @@
 // ── Контент задания
 .kege-ex-main { flex: 1; min-width: 0; display: flex; flex-direction: column; position: relative; background: var(--kege-surface); }
 
-.kege-task-scroll { flex: 1; overflow-y: auto; padding: 26px 100px 30px 80px; scrollbar-width: thin; scrollbar-color: var(--kege-line) transparent; }
+// Тулбар масштаба текста задания (A+ / A− / A) — поверх скролла слева.
+.kege-task-tools {
+  position: absolute;
+  left: rem(18);
+  top: rem(22);
+  display: flex;
+  flex-direction: column;
+  gap: rem(10);
+  z-index: 6;
+}
+
+.kege-tool-b {
+  width: rem(34);
+  height: rem(34);
+  border: 1px dashed var(--kege-dim);
+  color: var(--kege-muted);
+  font-size: rem(13);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--kege-surface);
+
+  &:hover { border-color: var(--kege-cyan); color: var(--kege-text); }
+}
+
+.kege-task-scroll { flex: 1; overflow-y: auto; padding: 26px 100px 30px 120px; scrollbar-width: thin; scrollbar-color: var(--kege-line) transparent; }
 
 .kege-t-body[hidden] { display: none; }
 
@@ -116,9 +153,25 @@
 .kege-t-content {
   font-size: var(--kege-tfs);
   line-height: 1.72;
-  max-width: rem(1100);
+  max-width: rem(1560);
 
-  p { margin: 6px 0; }
+  // Ресет станции (`* { margin: 0; padding: 0 }`) снимает отступы абзацев и
+  // втяжку списков — возвращаем их здесь. Единицы em, а не px: ритм должен
+  // тянуться за ступенями масштаба текста (A+ / A− / A).
+  p { margin: 0 0 0.7em; }
+
+  ul, ol { margin: 0 0 0.7em; padding-left: 1.6em; }
+
+  li { margin-bottom: 0.3em; }
+
+  > :last-child { margin-bottom: 0; }
+
+  // Подпункты составного задания (19–21) приходят из AttemptTaskViewBuilder.
+  .fs-attempt-subcondition + .fs-attempt-subcondition { margin-top: 0.9em; }
+
+  // Втяжка перечислений внутри условия/инструкции (.ind макета) — пункты
+  // a)…f) уже несут собственную литеру, поэтому это абзацы, а не список.
+  .kege-ind { padding-left: rem(18); }
 
   pre, .code {
     font-family: var(--kege-mono);
@@ -149,16 +202,39 @@
   }
 }
 
-.kege-t-materials { margin-top: 16px; display: flex; gap: 14px; flex-wrap: wrap; }
+// Файлы задания: чипы в нижней панели слева (клон блока из панели задания).
+.kege-files {
+  display: flex;
+  gap: rem(18);
+  flex-wrap: wrap;
+  margin-right: auto;
+
+  &[hidden] { display: none; }
+}
+
+// Сводный список всех файлов попытки на вкладке «i» (кнопка «Скачать все файлы»).
+.kege-dl-list { margin: rem(14) 0 0; }
+
+.kege-dl-all {
+  margin-top: rem(22);
+  background: var(--kege-teal);
+  color: var(--kege-on);
+  padding: rem(10) rem(18);
+  font-size: rem(13.5);
+
+  &:hover { filter: brightness(1.08); }
+}
 
 .kege-f-chip {
   display: flex;
   align-items: center;
-  gap: rem(6);
-  color: color-mix(in oklab, var(--kege-blue) 70%, var(--kege-cyan-ink));
+  gap: rem(7);
+  color: var(--kege-link);
   font-size: rem(13.5);
 
   &:hover { color: var(--kege-text); }
+
+  svg { flex-shrink: 0; }
 }
 
 // ── Нижняя панель ответа (текстовый вариант)
@@ -166,6 +242,7 @@
   border-top: 1px solid var(--kege-line-2);
   padding: rem(12) rem(20);
   flex-shrink: 0;
+  background: var(--kege-surface);
   display: flex;
   align-items: center;
   gap: rem(14);
@@ -198,13 +275,20 @@
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
-  padding: rem(16);
-  gap: rem(12);
 
   &[hidden] { display: none; }
+
+  .kege-save-status { padding: 0 rem(16) rem(16); }
 }
 
-.kege-ap-head { font-size: 12.5px; color: var(--kege-muted); }
+.kege-ap-head {
+  margin: 0 0 rem(18);
+  background: var(--kege-navy);
+  color: var(--kege-on);
+  font-size: rem(12.5);
+  text-align: center;
+  padding: rem(9) rem(12);
+}
 
 .kege-ap-table {
   margin: 0 auto;
@@ -213,17 +297,17 @@
 
   th, td { border: 1px solid var(--kege-tbl-border); }
 
-  th { background: var(--kege-side); font-weight: 400; font-size: 13px; padding: 6px 8px; min-width: 56px; }
+  th { background: var(--kege-side); font-weight: 400; font-size: rem(14); padding: rem(7) rem(10); min-width: rem(64); color: var(--kege-text); }
 
   td input {
-    width: rem(108);
-    height: rem(34);
+    width: rem(128);
+    height: rem(36);
     background: transparent;
     border: none;
     outline: none;
     color: var(--kege-text);
     text-align: center;
-    font-size: rem(14);
+    font-size: rem(15);
 
     &:focus { background: color-mix(in oklab, var(--kege-cyan) 10%, transparent); }
   }
@@ -246,7 +330,7 @@
   display: flex;
   align-items: center;
   gap: rem(12);
-  margin-top: rem(10);
+  margin: rem(10) rem(16) 0;
 
   input {
     flex: 1;
@@ -268,7 +352,7 @@
   color: var(--kege-muted);
 }
 
-.kege-ap-actions { margin-top: auto; display: flex; gap: 12px; }
+.kege-ap-actions { margin-top: auto; display: flex; gap: rem(12); padding: rem(16); }
 
 .kege-clear-btn {
   flex: 1;
