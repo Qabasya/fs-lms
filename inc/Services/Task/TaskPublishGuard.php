@@ -74,6 +74,37 @@ class TaskPublishGuard {
 	}
 
 	/**
+	 * Мягкое предупреждение вместо блокировки: пост публикуется как есть, а
+	 * сообщение уходит в тот же транзиентный механизм, что и блокирующая ошибка,
+	 * но выводится через {@see renderDeferredWarning()} жёлтым notice-warning.
+	 */
+	public function warn( string $transientPrefix, string $message ): void {
+		set_transient( $transientPrefix . get_current_user_id(), $message, self::TTL );
+	}
+
+	/**
+	 * Выводит отложенное предупреждение в `admin_notices` (notice-warning, в
+	 * отличие от {@see renderDeferredError()}) и очищает транзиент.
+	 *
+	 * @param string $transientPrefix Тот же префикс, что и в {@see warn()}.
+	 * @param string $heading         Заголовок уведомления (будет экранирован).
+	 */
+	public function renderDeferredWarning( string $transientPrefix, string $heading ): void {
+		$key     = $transientPrefix . get_current_user_id();
+		$warning = get_transient( $key );
+		if ( ! $warning ) {
+			return;
+		}
+
+		delete_transient( $key );
+		printf(
+			'<div class="notice notice-warning is-dismissible"><p><strong>%s:</strong> %s</p></div>',
+			esc_html( $heading ),
+			esc_html( (string) $warning )
+		);
+	}
+
+	/**
 	 * Откатывает статус в `draft` и сохраняет сообщение в транзиент пользователя.
 	 *
 	 * @param array<string, mixed> $data

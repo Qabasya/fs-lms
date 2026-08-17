@@ -36,6 +36,9 @@ class AssessmentMetaBoxController extends BaseController implements ServiceInter
 
 	use Authorizer, Sanitizer, TidiesCoreMetaBoxes;
 
+	/** Префикс транзиента предупреждения о неукомплектованной КЕГЭ (см. {@see resolveCompletenessError()}). */
+	private const COMPLETENESS_WARNING_PREFIX = 'fs_lms_assessment_completeness_warning_';
+
 	public function __construct(
 		private readonly SubjectRepository  $subjects,
 		private readonly MetaBoxRegistrar   $registrar,
@@ -56,6 +59,7 @@ class AssessmentMetaBoxController extends BaseController implements ServiceInter
 		// #10: не даём опубликовать контрольную без названия (откат в draft + notice).
 		add_filter( 'wp_insert_post_data', array( $this, 'validateAssessmentTitle' ), 10, 2 );
 		add_action( 'admin_notices', array( $this, 'showPublishError' ) );
+		add_action( 'admin_notices', array( $this, 'showCompletenessWarning' ) );
 	}
 
 	/**
@@ -112,7 +116,20 @@ class AssessmentMetaBoxController extends BaseController implements ServiceInter
 			return null;
 		}
 
+		// Тестовое окружение (WP_DEBUG): КЕГЭ разрешаем публиковать неукомплектованной —
+		// жёлтое предупреждение вместо блокировки, чтобы быстро проверять вёрстку без
+		// набора полного комплекта номеров заданий.
+		if ( $this->allowsIncompletePublish( $kind ) ) {
+			$this->guard->warn( self::COMPLETENESS_WARNING_PREFIX, 'Работа не укомплектована — ' . $result->summary() . '.' );
+			return null;
+		}
+
 		return 'Работа не укомплектована — ' . $result->summary() . '.';
+	}
+
+	/** Только тестовое окружение и только «Компьютерный ЕГЭ» — см. {@see resolveCompletenessError()}. */
+	private function allowsIncompletePublish( AssessmentKind $kind ): bool {
+		return ( defined( 'WP_DEBUG' ) && WP_DEBUG ) && AssessmentKind::EgeComputer === $kind;
 	}
 
 	/** Выводит отложенную ошибку публикации контрольной на экране редактирования. */
@@ -122,6 +139,15 @@ class AssessmentMetaBoxController extends BaseController implements ServiceInter
 			return;
 		}
 		$this->guard->renderDeferredError( 'fs_lms_assessment_publish_error_', __( 'Невозможно опубликовать контрольную', 'fs-lms' ) );
+	}
+
+	/** Выводит отложенное предупреждение о неукомплектованной публикации (тестовое окружение). */
+	public function showCompletenessWarning(): void {
+		$screen = get_current_screen();
+		if ( ! $screen || ! PostTypeResolver::isAssessmentPostType( $screen->post_type ) ) {
+			return;
+		}
+		$this->guard->renderDeferredWarning( self::COMPLETENESS_WARNING_PREFIX, __( 'Опубликовано неукомплектованным (тестовое окружение)', 'fs-lms' ) );
 	}
 
 	public function handleAddMetaBoxes(): void {
