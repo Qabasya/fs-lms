@@ -44,6 +44,7 @@ function createApp( mount ) {
 	let stepEditor    = null; // активный экземпляр createStepEditor() для выбранного урока
 	let initialStepRef = 0;  // step_ref из URL — используется однократно при первом renderLessonEditor
 	let initialStepKey = ''; // step_key из URL (#15-E, deep-link на text/video-шаг без ref)
+	let structureReady = Promise.resolve(); // последнее сохранение структуры (новый модуль)
 	const persist  = createPersistence( { courseId, mount, state, onPublishToggle: () => renderEditor() } );
 
 	if ( courseId > 0 ) {
@@ -286,6 +287,20 @@ function createApp( mount ) {
 		}
 		return null;
 	}
+	function findModule( id ) {
+		return state.course.modules.find( ( m ) => m.id === id ) || null;
+	}
+	// Куда класть новый/импортируемый урок: открытая страница модуля →
+	// модуль активного урока → последний модуль курса (не первый).
+	function targetModule() {
+		const byPage = state.activeModuleId ? findModule( state.activeModuleId ) : null;
+		if ( byPage ) { return byPage; }
+
+		const f = state.activeLessonId ? findLesson( state.activeLessonId ) : null;
+		if ( f ) { return f.module; }
+
+		return state.course.modules[ state.course.modules.length - 1 ] || null;
+	}
 
 	// ══════════ TREE ══════════
 	function renderTree() {
@@ -342,7 +357,15 @@ function createApp( mount ) {
 	let dragLessonId = null;
 	let dragModuleId = null;
 
-	function attachDnD( el, { onStart, onEnd, isValidTarget, onDrop, containsCheck = false } ) {
+	const DROP_CLASSES = [ 'drop-before', 'drop-after', 'drop-into' ];
+
+	function clearDropMarks( el ) {
+		el.classList.remove( ...DROP_CLASSES );
+	}
+
+	// dropMode: 'edge' — вставка до/после цели, 'into' — вложение внутрь цели
+	// (урок, брошенный на модуль: шапка, свёрнутый или пустой модуль).
+	function attachDnD( el, { onStart, onEnd, isValidTarget, onDrop, containsCheck = false, dropMode = () => 'edge' } ) {
 		el.addEventListener( 'dragstart', ( e ) => {
 			onStart();
 			el.classList.add( 'dragging' );
@@ -352,11 +375,16 @@ function createApp( mount ) {
 		el.addEventListener( 'dragend', () => {
 			if ( onEnd ) { onEnd(); }
 			el.classList.remove( 'dragging' );
-			mount.querySelectorAll( '.drop-before,.drop-after' ).forEach( ( n ) => n.classList.remove( 'drop-before', 'drop-after' ) );
+			mount.querySelectorAll( '.drop-before,.drop-after,.drop-into' ).forEach( clearDropMarks );
 		} );
 		el.addEventListener( 'dragover', ( e ) => {
 			if ( ! isValidTarget() ) { return; }
 			e.preventDefault(); e.stopPropagation();
+			clearDropMarks( el );
+			if ( 'into' === dropMode() ) {
+				el.classList.add( 'drop-into' );
+				return;
+			}
 			const r = el.getBoundingClientRect();
 			const after = ( e.clientY - r.top ) > r.height / 2;
 			el.classList.toggle( 'drop-after', after );
@@ -364,14 +392,14 @@ function createApp( mount ) {
 		} );
 		el.addEventListener( 'dragleave', ( ev ) => {
 			if ( containsCheck && el.contains( ev.relatedTarget ) ) { return; }
-			el.classList.remove( 'drop-before', 'drop-after' );
+			clearDropMarks( el );
 		} );
 		el.addEventListener( 'drop', ( e ) => {
 			if ( ! isValidTarget() ) { return; }
 			e.preventDefault(); e.stopPropagation();
 			const r = el.getBoundingClientRect();
 			const after = ( e.clientY - r.top ) > r.height / 2;
-			el.classList.remove( 'drop-before', 'drop-after' );
+			clearDropMarks( el );
 			onDrop( after );
 		} );
 	}
@@ -386,11 +414,17 @@ function createApp( mount ) {
 	}
 
 	function attachModuleDrag( el, mod ) {
+		// Модуль — цель и для модуля (порядок), и для урока (перенос в конец модуля):
+		// иначе в пустой или свёрнутый модуль урок положить нечем.
 		attachDnD( el, {
 			onStart:       () => { dragModuleId = mod.id; dragLessonId = null; },
 			onEnd:         () => { dragModuleId = null; },
-			isValidTarget: () => !! dragModuleId && dragModuleId !== mod.id,
-			onDrop:        ( after ) => moveModule( dragModuleId, mod.id, after ),
+			isValidTarget: () => ( !! dragModuleId && dragModuleId !== mod.id ) || !! dragLessonId,
+			dropMode:      () => ( dragLessonId ? 'into' : 'edge' ),
+			onDrop:        ( after ) => {
+				if ( dragLessonId ) { moveLessonToModule( dragLessonId, mod.id ); return; }
+				moveModule( dragModuleId, mod.id, after );
+			},
 			containsCheck: true,
 		} );
 	}
@@ -418,6 +452,22 @@ function createApp( mount ) {
 		let ti = tm.lessons.findIndex( ( l ) => l.id === targetLessonId );
 		if ( ti < 0 ) { ti = tm.lessons.length - 1; }
 		tm.lessons.splice( after ? ti + 1 : ti, 0, moved );
+		renderTree();
+		persist.saveStructure( 'Урок перемещён' );
+	}
+
+	// Урок брошен на модуль целиком (шапка / пустой / свёрнутый) — в конец модуля.
+	function moveLessonToModule( lessonId, targetModuleId ) {
+		const tm = findModule( targetModuleId );
+		if ( ! tm ) { return; }
+
+		const src = state.course.modules.find( ( m ) => m.lessons.some( ( l ) => l.id === lessonId ) );
+		if ( ! src ) { return; }
+		if ( src === tm && tm.lessons[ tm.lessons.length - 1 ]?.id === lessonId ) { return; }
+
+		const [ moved ] = src.lessons.splice( src.lessons.findIndex( ( l ) => l.id === lessonId ), 1 );
+		tm.lessons.push( moved );
+		tm.collapsed = false;
 		renderTree();
 		persist.saveStructure( 'Урок перемещён' );
 	}
@@ -537,10 +587,11 @@ function createApp( mount ) {
 
 	// ══════════ ADD lesson / module ══════════
 	function addLesson() {
-		const f = findLesson( state.activeLessonId );
-		const mod = f ? f.module : state.course.modules[ 0 ];
+		const mod = targetModule();
 		if ( ! mod ) { showToast( 'Сначала добавьте модуль', 'error' ); return; }
-		ajax( acts().createLessonInModule, { course_id: courseId, module_id: mod.id, title: 'Новый урок' } )
+		// Модуль мог быть создан только что — ждём, пока структура доедет до сервера.
+		structureReady
+			.then( () => ajax( acts().createLessonInModule, { course_id: courseId, module_id: mod.id, title: 'Новый урок' } ) )
 			.then( ( node ) => {
 				mod.lessons.push( node );
 				mod.collapsed = false;
@@ -564,7 +615,7 @@ function createApp( mount ) {
 		const mod = { id: tmpKey( 'm' ), title: 'Новый модуль', description: '', collapsed: false, lessons: [] };
 		state.course.modules.push( mod );
 		selectModule( mod.id ); // открыть страницу модуля — задать имя/описание
-		persist.saveStructure( 'Модуль добавлен' );
+		structureReady = persist.saveStructure( 'Модуль добавлен' );
 	}
 
 	async function removeLesson( lesson, module ) {
@@ -613,8 +664,7 @@ function createApp( mount ) {
 
 	// ── импорт готового урока из библиотеки ──
 	function importLessonFlow( anchor ) {
-		const f   = findLesson( state.activeLessonId );
-		const mod = f ? f.module : state.course.modules[ 0 ];
+		const mod = targetModule();
 		if ( ! mod ) { showToast( 'Сначала добавьте модуль', 'error' ); return; }
 		openLessonPicker( anchor, ( lessonId ) => importLesson( mod, lessonId ) );
 	}
