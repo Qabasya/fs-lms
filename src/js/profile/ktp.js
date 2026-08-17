@@ -11,6 +11,7 @@
 
 import { esc, toast } from './utils.js';
 import { icoLock, icoSwap, icoChevronLeft, icoChevronRight } from '../common/icons.js';
+import { confirmDialog } from '../common/components/confirm-dialog.js';
 import { createApi } from './api.js';
 import { DOW_RU, MONTHS_RU } from './constants.js';
 import { groupPickerBtnHtml, openGroupPicker } from './picker.js';
@@ -61,6 +62,9 @@ function currentGroup() {
 }
 /* T1.8: КТП опубликована (заблокирована) — правки структуры/расписания недоступны. */
 function isLocked() { return !!(state.data && state.data.locked); }
+/* Хоть одна тема уже поставлена на дату — «Распределить» тогда не имеет смысла,
+   вместо неё показываем «Отменить распределение». */
+function hasScheduledThemes() { return (state.data.themes || []).some(t => t.scheduled_at); }
 
 /* ── AJAX ─────────────────────────────────────────────────────────────── */
 async function loadCalendar() {
@@ -106,11 +110,12 @@ function render() {
                     Опубликовано
                 </span>
                 <button class="prof-btn prof-btn-sm" id="ktpUnpublish">Снять публикацию</button>` : `
+                ${hasScheduledThemes() ? `
+                <button class="prof-btn prof-btn-sm" id="ktpUnschedule">Отменить распределение</button>` : `
                 <button class="prof-btn prof-btn-sm prof-btn-primary" id="ktpReflow">
                     ${icoSwap(15)}
                     Распределить
-                </button>
-                <button class="prof-btn prof-btn-sm" id="ktpUnschedule">Отменить распределение</button>
+                </button>`}
                 <button class="prof-btn prof-btn-sm" id="ktpPublish">Опубликовать</button>`}` : ''}
         </div>
 
@@ -142,8 +147,11 @@ function render() {
         if (locked) {
             document.getElementById('ktpUnpublish').onclick = doUnpublish;
         } else {
-            document.getElementById('ktpReflow').onclick = doReflow;
-            document.getElementById('ktpUnschedule').onclick = doUnschedule;
+            if (hasScheduledThemes()) {
+                document.getElementById('ktpUnschedule').onclick = doUnschedule;
+            } else {
+                document.getElementById('ktpReflow').onclick = doReflow;
+            }
             document.getElementById('ktpPublish').onclick = doPublish;
         }
         document.getElementById('ktpPrev').onclick = () => shiftMonthBy(-1);
@@ -295,7 +303,8 @@ async function doReflow() {
 }
 
 async function doUnschedule() {
-    if (!window.confirm('Отменить распределение? Темы вернутся в «Темы курса» без дат.')) { return; }
+    const ok = await confirmDialog('Отменить распределение? Темы вернутся в «Темы курса» без дат.', 'Отменить распределение', 'Не отменять');
+    if (!ok) { return; }
     try {
         await api('unschedule', { group_id: state.groupId });
         toast('Распределение отменено — темы возвращены в пул');
