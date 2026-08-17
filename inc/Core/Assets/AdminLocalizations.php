@@ -129,7 +129,11 @@ class AdminLocalizations {
 			'security'            => Nonce::TaskCreation->create(),
 			'subject_key'         => $subjectKey,
 			'post_type'           => $ctx->task ? $ctx->postType : PostTypeResolver::tasks( $subjectKey ),
-			'required_taxonomies' => $this->getRequiredTaxonomies( $subjectKey ),
+			// Гард публикации (RequiredTaxGuard) вешается на #publish текущего экрана и ищет
+			// tax_input[slug] — такие поля есть только на экране самого задания. На экранах
+			// работ/уроков/курсов/страницы предмета этот блок нужен лишь для модалки создания
+			// задания, поэтому список обязательных таксономий здесь не отдаём.
+			'required_taxonomies' => $ctx->task ? $this->getRequiredTaxonomies( $subjectKey ) : array(),
 		);
 	}
 
