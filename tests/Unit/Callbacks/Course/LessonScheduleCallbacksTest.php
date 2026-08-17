@@ -61,6 +61,34 @@ class LessonScheduleCallbacksTest extends TestCase {
 		self::assertFalse( fs_test_capture_json( fn() => $this->cb->ajaxReflowSchedule() )->success );
 	}
 
+	public function test_unschedule_group_delegates_when_allowed(): void {
+		$this->guard->method( 'canManage' )->willReturn( true );
+		$this->schedule->expects( $this->once() )->method( 'unschedule' )->with( 5, $this->anything() )->willReturn( 4 );
+		$_POST = array( 'group_id' => '5' );
+
+		$r = fs_test_capture_json( fn() => $this->cb->ajaxUnscheduleGroup() );
+
+		self::assertTrue( $r->success );
+		self::assertSame( 4, $r->payload['affected'] );
+	}
+
+	public function test_unschedule_group_denied_when_not_manager(): void {
+		$this->guard->method( 'canManage' )->willReturn( false );
+		$this->schedule->expects( $this->never() )->method( 'unschedule' );
+		$_POST = array( 'group_id' => '5' );
+
+		self::assertFalse( fs_test_capture_json( fn() => $this->cb->ajaxUnscheduleGroup() )->success );
+	}
+
+	public function test_unschedule_group_blocked_when_program_locked(): void {
+		$this->guard->method( 'canManage' )->willReturn( true );
+		$this->program->method( 'isProgramLocked' )->with( 5 )->willReturn( true );
+		$this->schedule->expects( $this->never() )->method( 'unschedule' );
+		$_POST = array( 'group_id' => '5' );
+
+		self::assertFalse( fs_test_capture_json( fn() => $this->cb->ajaxUnscheduleGroup() )->success );
+	}
+
 	public function test_pin_lesson_delegates_to_pin_to_date(): void {
 		$this->program->method( 'getProgramRow' )->with( 42 )->willReturn( $this->programRow() );
 		$this->guard->method( 'canManage' )->willReturn( true );

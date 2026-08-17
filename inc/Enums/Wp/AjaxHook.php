@@ -226,6 +226,7 @@ enum AjaxHook: string {
 
 	// ==== КТП / расписание (ЛК преподавателя, Эпик 1) ====
 	case ReflowSchedule          = 'reflow_schedule';    // params: group_id — авто-распределение тем по слотам периода
+	case UnscheduleGroup         = 'unschedule_group';   // params: group_id — отменить распределение, вернуть темы в пул
 	case PinLesson               = 'pin_lesson';         // params: group_lesson_id, scheduled_at — закрепить тему на дату
 	case GetGroupCalendar        = 'get_group_calendar'; // params: group_id — слоты периода + выходные + размещённые темы
 	case GetWorkDeadlines        = 'get_work_deadlines';  // params: group_lesson_id — работы занятия + текущие per-work дедлайны (T12.3, D13)

@@ -234,6 +234,63 @@ class GroupLessonRepositoryTest extends TestCase {
 		self::assertSame( '2026-09-01 10:00:00', $this->wpdb->updates[0]['data']['scheduled_at'] );
 	}
 
+	/**
+	 * Если первый урок закреплён вручную на дату — остальные раскладываются
+	 * ПОСЛЕ неё, а не с начала слотов периода (баг: перетаскивание первого
+	 * урока распределяло все остальные от начала периода).
+	 */
+	public function test_apply_slots_distributes_after_pinned_first_lesson(): void {
+		$this->wpdb->queueResults( [
+			$this->slotRow( 1, 0, [ 'is_pinned' => 1, 'scheduled_at' => '2026-09-03 10:00:00' ] ),
+			$this->slotRow( 2, 1 ),
+			$this->slotRow( 3, 2 ),
+		] );
+
+		$this->repo->applySlots( 5, [
+			$this->slot( '2026-09-01 10:00:00' ), // до закреплённой даты — не используется
+			$this->slot( '2026-09-03 10:00:00' ), // совпадает с закреплённой датой — не используется
+			$this->slot( '2026-09-05 10:00:00' ), // первый слот ПОСЛЕ закреплённой даты
+			$this->slot( '2026-09-08 10:00:00' ),
+		] );
+
+		self::assertCount( 2, $this->wpdb->updates );
+		self::assertSame( 2, $this->wpdb->updates[0]['where']['id'] );
+		self::assertSame( '2026-09-05 10:00:00', $this->wpdb->updates[0]['data']['scheduled_at'] );
+		self::assertSame( 3, $this->wpdb->updates[1]['where']['id'] );
+		self::assertSame( '2026-09-08 10:00:00', $this->wpdb->updates[1]['data']['scheduled_at'] );
+	}
+
+	/** Первый урок НЕ закреплён — раскладка идёт с начала слотов периода (штатное поведение). */
+	public function test_apply_slots_distributes_from_start_when_first_lesson_unpinned(): void {
+		$this->wpdb->queueResults( [
+			$this->slotRow( 1, 0 ),
+			$this->slotRow( 2, 1 ),
+		] );
+
+		$this->repo->applySlots( 5, [
+			$this->slot( '2026-09-01 10:00:00' ),
+			$this->slot( '2026-09-03 10:00:00' ),
+		] );
+
+		self::assertCount( 2, $this->wpdb->updates );
+		self::assertSame( '2026-09-01 10:00:00', $this->wpdb->updates[0]['data']['scheduled_at'] );
+		self::assertSame( '2026-09-03 10:00:00', $this->wpdb->updates[1]['data']['scheduled_at'] );
+	}
+
+	public function test_unschedule_all_resets_dates_and_excludes_individual_and_held(): void {
+		$this->wpdb->queueQuery( 2 );
+
+		$affected = $this->repo->unscheduleAll( 5 );
+
+		self::assertSame( 2, $affected );
+		$q = $this->wpdb->lastQuery();
+		self::assertStringContainsString( 'group_id = 5', $q );
+		self::assertStringContainsString( "kind != 'individual'", $q );
+		self::assertStringContainsString( "status != 'held'", $q );
+		self::assertStringContainsString( 'scheduled_at = NULL', $q );
+		self::assertStringContainsString( 'is_pinned = 0', $q );
+	}
+
 	/* ── V4 (VideoLibrary): выборки дня + писатели recording_url/status ───── */
 
 	public function test_list_by_group_and_day_filters_by_date(): void {

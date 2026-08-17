@@ -77,6 +77,15 @@ class ScheduleReflowServiceTest extends TestCase {
 		$this->service->pin( 42, true, 99 );
 	}
 
+	public function test_unschedule_returns_affected_count_and_dispatches_event(): void {
+		$this->groupLessons->method( 'unscheduleAll' )->with( 5 )->willReturn( 4 );
+		$this->dispatcher->expects( self::once() )
+			->method( 'dispatch' )
+			->with( LogEvent::ScheduleChanged, self::anything() );
+
+		self::assertSame( 4, $this->service->unschedule( 5, 99 ) );
+	}
+
 	public function test_reflow_returns_conflict_count_from_calendar(): void {
 		$this->calendar->method( 'reflow' )->with( 5 )->willReturn( 3 );
 

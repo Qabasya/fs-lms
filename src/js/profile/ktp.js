@@ -110,6 +110,7 @@ function render() {
                     ${icoSwap(15)}
                     Распределить
                 </button>
+                <button class="prof-btn prof-btn-sm" id="ktpUnschedule">Отменить распределение</button>
                 <button class="prof-btn prof-btn-sm" id="ktpPublish">Опубликовать</button>`}` : ''}
         </div>
 
@@ -142,6 +143,7 @@ function render() {
             document.getElementById('ktpUnpublish').onclick = doUnpublish;
         } else {
             document.getElementById('ktpReflow').onclick = doReflow;
+            document.getElementById('ktpUnschedule').onclick = doUnschedule;
             document.getElementById('ktpPublish').onclick = doPublish;
         }
         document.getElementById('ktpPrev').onclick = () => shiftMonthBy(-1);
@@ -286,6 +288,17 @@ async function doReflow() {
         toast(conflicts > 0
             ? `Темы распределены · кабинет снят с ${conflicts} занятий (был занят)`
             : 'Темы распределены автоматически');
+        await loadCalendar();
+    } catch (e) {
+        toast(e.message, 'error');
+    }
+}
+
+async function doUnschedule() {
+    if (!window.confirm('Отменить распределение? Темы вернутся в «Темы курса» без дат.')) { return; }
+    try {
+        await api('unschedule', { group_id: state.groupId });
+        toast('Распределение отменено — темы возвращены в пул');
         await loadCalendar();
     } catch (e) {
         toast(e.message, 'error');

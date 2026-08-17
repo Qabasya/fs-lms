@@ -132,6 +132,13 @@ class GroupLessonRepository {
 		foreach ( $rows as $row ) {
 			// Индивидуальные и пиннутые привязаны к своей дате, а не к последовательности — не двигаем.
 			if ( $row->isPinned || 'individual' === $row->kind ) {
+				// Пиннутая строка — курсор слотов сдвигаем за её дату, чтобы следующие
+				// непиннутые темы раскладывались ПОСЛЕ неё, а не с начала периода.
+				if ( $row->isPinned && $row->scheduledAt ) {
+					while ( isset( $slots[ $i ] ) && $slots[ $i ]['scheduled_at'] <= $row->scheduledAt ) {
+						++$i;
+					}
+				}
 				continue;
 			}
 			$status = LessonStatus::fromValueOrDefault( $row->status );
@@ -161,6 +168,25 @@ class GroupLessonRepository {
 			);
 			$i++;
 		}
+	}
+
+	/**
+	 * Отменяет распределение группы: снимает дату/закрепление/кабинет со всех
+	 * непроведённых групповых занятий (индивидуальные и уже проведённые — не трогаем,
+	 * это исторический факт). Темы возвращаются в пул «Темы курса».
+	 *
+	 * @return int Количество затронутых строк.
+	 */
+	public function unscheduleAll( int $groupId ): int {
+		// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+		return (int) $this->wpdb->query(
+			$this->wpdb->prepare(
+				"UPDATE %i SET scheduled_at = NULL, ends_at = NULL, room_id = NULL, is_pinned = 0, status = 'scheduled'
+				 WHERE group_id = %d AND kind != 'individual' AND status != 'held'",
+				$this->table,
+				$groupId
+			)
+		);
 	}
 
 	public function setVisibility( int $id, string $visibility, ?string $openedAt ): bool {

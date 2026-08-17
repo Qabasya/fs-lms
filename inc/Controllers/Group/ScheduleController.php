@@ -42,6 +42,7 @@ class ScheduleController extends AjaxController {
 
 			// Даты и раскладка
 			array( AjaxHook::ReflowSchedule,          $this->schedule ),
+			array( AjaxHook::UnscheduleGroup,         $this->schedule ),
 			array( AjaxHook::PinLesson,               $this->schedule ),
 			array( AjaxHook::GetGroupCalendar,        $this->schedule ),
 			array( AjaxHook::GetFreeRooms,            $this->schedule ),

@@ -72,6 +72,23 @@ class LessonScheduleCallbacks extends BaseController {
 	}
 
 	/**
+	 * Отменяет распределение (кнопка «Отменить распределение» в КТП): снимает
+	 * даты/закрепление со всех непроведённых занятий группы — темы возвращаются
+	 * в пул «Темы курса». Params: group_id
+	 */
+	public function ajaxUnscheduleGroup(): void {
+		$this->authorize( Nonce::SaveSchedule, Capability::ManageLmsTeaching );
+		$groupId = $this->requireInt( 'group_id' );
+		$userId  = get_current_user_id();
+
+		$this->requireGroupAccess( $groupId );
+		$this->denyIfProgramLocked( $groupId );
+
+		$affected = $this->schedule->unschedule( $groupId, $userId );
+		$this->success( array( 'affected' => $affected ) );
+	}
+
+	/**
 	 * Закрепляет тему на дату (drag-drop темы на день календаря).
 	 * Params: group_lesson_id, scheduled_at
 	 */

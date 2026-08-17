@@ -89,6 +89,22 @@ readonly class ScheduleReflowService {
 	}
 
 	/**
+	 * Отменяет распределение: снимает даты/закрепление со всех непроведённых
+	 * групповых занятий — темы возвращаются в пул «Темы курса».
+	 *
+	 * @param int $groupId     ID группы
+	 * @param int $actorUserId Автор изменения
+	 *
+	 * @return int Количество затронутых строк.
+	 */
+	public function unschedule( int $groupId, int $actorUserId ): int {
+		$affected = $this->groupLessons->unscheduleAll( $groupId );
+		$this->events->groupChanged( $groupId, $actorUserId );
+
+		return $affected;
+	}
+
+	/**
 	 * Закрепляет тему на конкретную дату (drag-drop в КТП): дата + pin, затем
 	 * остальные (непиннутые) темы переразливаются вокруг закреплённой.
 	 *
