@@ -429,6 +429,17 @@ if (!function_exists('absint')) {
 if (!function_exists('wp_kses_post')) {
     function wp_kses_post(string $content): string { return $content; }
 }
+if (!function_exists('wpautop')) {
+    function wpautop(string $text): string {
+        $text = trim($text);
+        if ('' === $text) { return ''; }
+        $paragraphs = preg_split('/\n\s*\n/', $text);
+        return implode("\n", array_map(
+            static fn(string $p): string => '<p>' . trim(nl2br(trim($p))) . '</p>',
+            array_filter(array_map('trim', $paragraphs), static fn(string $p): bool => '' !== $p)
+        ));
+    }
+}
 if (!function_exists('get_post_mime_type')) {
     function get_post_mime_type(int $postId): string|false {
         return $GLOBALS['_fs_test_post_mime_types'][$postId] ?? false;
