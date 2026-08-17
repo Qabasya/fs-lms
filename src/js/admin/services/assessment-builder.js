@@ -22,6 +22,7 @@ function mount( el ) {
 	const subject       = String( el.dataset.subject || '' );
 	const egeSlots      = parseInt( el.dataset.egeSlots, 10 ) || 0;
 	const egeKinds      = JSON.parse( el.dataset.egeKinds || '[]' );
+	const allowIncompleteKinds = JSON.parse( el.dataset.allowIncompleteKinds || '[]' );
 	const taskPointsMap  = JSON.parse( el.dataset.taskPoints || '{}' );
 	const taskNumbersMap = JSON.parse( el.dataset.taskNumbers || '{}' );
 	const acts          = fs_lms_vars.ajax_actions;
@@ -31,6 +32,10 @@ function mount( el ) {
 	let prevKind     = kindSelect ? kindSelect.value : '';
 
 	const isEge        = ( kind ) => egeKinds.includes( kind );
+	// Тестовое окружение (см. AssessmentMetaBoxController::allowsIncompletePublish()) —
+	// сервер уже разрешает публиковать эти виды неукомплектованными, поэтому клиентский
+	// гейт (D16.5) их дизейблить не должен — только предупреждение остаётся видимым.
+	const allowsIncomplete = ( kind ) => allowIncompleteKinds.includes( kind );
 	const blankSlot    = ( i ) => ( { key: 'slot_' + i, taskId: 0, title: '', points: 1, number: '' } );
 	const buildEgeSlots = ( count ) => Array.from( { length: count }, ( _, i ) => blankSlot( i ) );
 
@@ -89,7 +94,7 @@ function mount( el ) {
 		}
 		statusBar.innerHTML = chips.join( '' );
 
-		gatePublish( !! verdict.isComplete );
+		gatePublish( !! verdict.isComplete || allowsIncomplete( prevKind ) );
 	}
 
 	function buildTaskPoints( slots ) {

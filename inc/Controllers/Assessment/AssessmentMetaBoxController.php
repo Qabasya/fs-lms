@@ -221,15 +221,25 @@ class AssessmentMetaBoxController extends BaseController implements ServiceInter
 
 		$ege_kinds_json = wp_json_encode( AssessmentKind::weightedScoreValues() );
 
+		// Тот же тестовый гейт, что и на сервере (см. resolveCompletenessError()) — не
+		// дизейблим кнопку «Опубликовать» на клиенте для неукомплектованного КЕГЭ, чтобы
+		// клиентский гейт (D16.5) не блокировал то, что серверный уже разрешает.
+		$allow_incomplete_kinds = array();
+		if ( $this->allowsIncompletePublish( AssessmentKind::EgeComputer ) ) {
+			$allow_incomplete_kinds[] = AssessmentKind::EgeComputer->value;
+		}
+		$allow_incomplete_json = wp_json_encode( $allow_incomplete_kinds );
+
 		$this->render( 'admin/metaboxes/builder-shell', array(
 			'root_class' => 'fs-lms-assessment-builder',
 			'data'       => array(
-				'assessment-id' => $post->ID,
-				'subject'       => $subject,
-				'ege-slots'     => $ege_slots,
-				'ege-kinds'     => $ege_kinds_json ?: '[]',
-				'task-points'   => $points_json ?: '{}',
-				'task-numbers'  => $numbers_json ?: '{}',
+				'assessment-id'         => $post->ID,
+				'subject'               => $subject,
+				'ege-slots'             => $ege_slots,
+				'ege-kinds'             => $ege_kinds_json ?: '[]',
+				'allow-incomplete-kinds' => $allow_incomplete_json ?: '[]',
+				'task-points'           => $points_json ?: '{}',
+				'task-numbers'          => $numbers_json ?: '{}',
 			),
 			'json'       => (string) $json,
 		) );
