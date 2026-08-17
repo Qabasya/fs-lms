@@ -140,6 +140,7 @@ enum AjaxHook: string {
 	case SelectExistingParent        = 'select_existing_parent';
 	case RemoveParentAssignment      = 'remove_parent_assignment';
 	case RestoreFromArchive          = 'restore_from_archive';
+	case BulkRestoreFromArchive      = 'bulk_restore_from_archive';
 	case SearchParents               = 'search_parents';
 	case CheckUsernameAvailable      = 'check_username_available';
 	case CheckEmailAvailable         = 'check_email_available';
