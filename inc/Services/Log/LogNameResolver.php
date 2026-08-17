@@ -4,6 +4,8 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Log;
 
+use Inc\Enums\Wp\MetaKeys;
+
 /**
  * Class LogNameResolver
  *

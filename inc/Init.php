@@ -91,6 +91,9 @@ use Inc\Core\Enqueue;
 use Inc\Migrations\ArticlesSectionMigration;
 use Inc\Migrations\AssessmentAnswerUniqueMigration;
 use Inc\Migrations\BroadcastStepMigration;
+use Inc\Migrations\Migration_1_0_0;
+use Inc\Migrations\Migration_1_1_0;
+use Inc\Migrations\MigrationRunner;
 use Inc\Services\Log\LogEventDispatcher;
 use Inc\Services\Shared\WpClock;
 
@@ -247,6 +250,17 @@ final class Init {
 		// MigrationRunner: тот вызывается только при активации, а на установках с
 		// fs_lms_schema_version=1.0.0 его up() уже не запускается.
 		( new BroadcastStepMigration() )->ensure();
+
+		// MigrationRunner штатно регистрируется и запускается только при активации
+		// (Activate::activate()) — установки, уже получившие fs_lms_schema_version,
+		// новые версионные миграции иначе никогда не увидят. Здесь — та же регистрация,
+		// но на обычной загрузке: run() накатывает только миграции с version() выше уже
+		// применённой (get_option + version_compare, без реальных запросов, если накатывать
+		// нечего), поэтому безопасно вызывать на каждом запросе.
+		$migrationRunner = new MigrationRunner();
+		$migrationRunner->register( new Migration_1_0_0() );
+		$migrationRunner->register( new Migration_1_1_0() );
+		$migrationRunner->run();
 
 		// Раздел «Учебник»: /{key}/textbook/ → /{key}/articles/ (ключ опции,
 		// слаг страницы, тег шорткода). Гейт — собственная опция миграции.

@@ -610,28 +610,9 @@ class Migration_1_0_0 implements MigrationInterface {
 		) $cc;"
 		);
 
-		// ===== 25. notifications — in-app уведомления кабинета =====
-		$notifications = TableName::Notifications->prefixed();
-		dbDelta(
-			"CREATE TABLE $notifications (
-			id                 bigint unsigned NOT NULL AUTO_INCREMENT,
-			recipient_user_id  bigint unsigned NOT NULL,
-			type               varchar(40)  NOT NULL,
-			group_id           smallint unsigned DEFAULT NULL,
-			entity_type        varchar(30)  DEFAULT NULL,
-			entity_id          bigint unsigned DEFAULT NULL,
-			payload            longtext     DEFAULT NULL,
-			url                varchar(500) DEFAULT NULL,
-			dedupe_key         varchar(120) NOT NULL,
-			created_at         datetime     NOT NULL,
-			seen_at            datetime     DEFAULT NULL,
-			read_at            datetime     DEFAULT NULL,
-			PRIMARY KEY (id),
-			UNIQUE KEY recipient_dedupe (recipient_user_id, dedupe_key),
-			KEY recipient_created (recipient_user_id, created_at),
-			KEY recipient_seen (recipient_user_id, seen_at)
-		) $cc;"
-		);
+		// notifications (in-app уведомления кабинета) — Migration_1_1_0, не здесь:
+		// эта таблица появилась после того, как часть установок уже накатила 1.0.0,
+		// поэтому вынесена в отдельную версионную миграцию (см. её докблок).
 
 		// ===== Cleanup — добавление колонок для уже существующих установок =====
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
