@@ -166,6 +166,41 @@ class EnrollmentLifecycleCallbacks extends BaseController {
 	}
 
 	/**
+	 * AJAX: массовое восстановление учеников из архива — одно решение (с родителем/без)
+	 * применяется ко всем выбранным записям, для каждой создаётся отдельная заявка.
+	 */
+	public function ajaxBulkRestoreFromArchive(): void {
+		$this->authorize( Nonce::RestoreFromArchive, Capability::ManageApplications );
+
+		$ids = array_filter( $this->sanitizeIntList( 'ids' ) );
+		if ( ! $ids ) {
+			$this->error( 'Не выбрано ни одной записи.' );
+		}
+
+		$withParent = (bool) $this->sanitizeInt( 'with_parent' );
+
+		$created = array();
+		$errors  = array();
+
+		foreach ( $ids as $archiveId ) {
+			try {
+				$result    = $this->enrollmentService->restoreFromArchive( $archiveId, $withParent );
+				$created[] = $result->toArray();
+			} catch ( \Throwable $e ) {
+				$errors[] = array(
+					'archive_id' => $archiveId,
+					'message'    => $e->getMessage(),
+				);
+			}
+		}
+
+		$this->success( array(
+			'created' => $created,
+			'errors'  => $errors,
+		) );
+	}
+
+	/**
 	 * AJAX: список групп по периоду и предмету.
 	 *
 	 * @return void

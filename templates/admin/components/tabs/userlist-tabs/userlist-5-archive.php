@@ -104,6 +104,7 @@ $statusLabels = array(
 			<select id="js-archive-bulk-action">
 				<option value="">— Массовые действия —</option>
 				<option value="export">Экспортировать</option>
+				<option value="restore">Вернуть в заявки</option>
 			</select>
 			<button type="button" id="js-archive-bulk-apply" class="button action">Применить</button>
 		</div>
@@ -269,7 +270,9 @@ $statusLabels = array(
 			<tr data-enrollment="<?php echo esc_attr( (string) wp_json_encode( $enrollmentData ) ); ?>">
 
 				<td class="check-column">
-					<input type="checkbox" class="js-archive-cb" value="<?php echo esc_attr( (string) $row->id ); ?>">
+					<input type="checkbox" class="js-archive-cb"
+						value="<?php echo esc_attr( (string) $row->id ); ?>"
+						data-has-parent="<?php echo $row->parentPersonId > 0 ? '1' : '0'; ?>">
 				</td>
 
 				<td class="column-title">

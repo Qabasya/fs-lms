@@ -71,6 +71,69 @@ export const ArchiveViewModalManager = {
     },
 
     /**
+     * Массовое восстановление нескольких архивных записей одним решением.
+     * Модалка выбора режима показывается один раз; выбранный режим (с родителем/без)
+     * применяется одинаково ко всем переданным записям.
+     *
+     * @param {Array<number>} ids - ID архивных записей.
+     * @param {boolean} allHaveParent - true, если у ВСЕХ выбранных записей есть родитель
+     *                                  (иначе опция "с родителем" в модалке отключается).
+     */
+    bulkRestore( ids, allHaveParent ) {
+        if ( ! ids || ! ids.length ) { return; }
+
+        RestoreArchiveModal.choose( allHaveParent )
+            .then( ( { withParent } ) => this._doBulkRestore( ids, withParent ) )
+            .catch( ( err ) => {
+                if ( err !== 'cancel' ) {
+                    showNotice( String( err ), 'error', $( '.fs-lms-archive' ) );
+                }
+            } );
+    },
+
+    /**
+     * Выполнение AJAX-запроса на массовое восстановление из архива.
+     *
+     * @param {Array<number>} ids - ID архивных записей.
+     * @param {boolean} withParent - Общий для всех записей флаг восстановления с родителем.
+     */
+    _doBulkRestore( ids, withParent ) {
+        const vars = window.fs_lms_applications_vars ?? {};
+
+        $.ajax( {
+            url:    fs_lms_vars.ajaxurl,
+            method: 'POST',
+            data:   {
+                action:      fs_lms_vars.ajax_actions.bulkRestoreFromArchive,
+                ids:         ids,
+                with_parent: withParent ? 1 : 0,
+                security:    vars.nonces?.restoreFromArchive ?? '',
+            },
+            success: ( res ) => {
+                if ( ! res.success ) {
+                    showNotice( res.data || 'Ошибка восстановления.', 'error', $( '.fs-lms-archive' ) );
+                    return;
+                }
+
+                const created = res.data?.created ?? [];
+                const errors  = res.data?.errors  ?? [];
+
+                let msg = `Заявок создано: ${ created.length }.`;
+                if ( errors.length ) {
+                    msg += ` Не удалось восстановить: ${ errors.length }.`;
+                }
+
+                showNotice( msg, errors.length ? 'error' : 'success', $( '.fs-lms-archive' ), { autoDismiss: true, autoDismissDelay: 2000 } );
+
+                setTimeout( () => location.reload(), 2000 );
+            },
+            error: () => {
+                showNotice( 'Сетевая ошибка.', 'error', $( '.fs-lms-archive' ) );
+            },
+        } );
+    },
+
+    /**
      * Выполнение AJAX-запроса на восстановление заявки из архива.
      *
      * @param {string|number} archiveId - ID записи в архиве.

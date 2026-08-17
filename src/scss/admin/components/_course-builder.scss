@@ -181,6 +181,7 @@
 	.dragging { opacity: 0.4; }
 	.drop-before { box-shadow: 0 -2px 0 var(--color-primary); }
 	.drop-after { box-shadow: 0 2px 0 var(--color-primary); }
+	.drop-into { box-shadow: inset 0 0 0 2px var(--color-primary); border-radius: rem(5); }
 
 	// RIGHT: editor
 	.editor-pane { @include cb-editor-pane; }

@@ -1,3 +1,5 @@
+import { ArchiveViewModalManager } from '../../managers/enrollment/archive-view-modal-manager.js';
+
 const $ = jQuery;
 
 const NONCES   = () => fs_lms_applications_vars.nonces;
@@ -31,16 +33,33 @@ export const ArchiveTable = {
     },
 
     _applyBulk() {
-        if ( $( '#js-archive-bulk-action' ).val() !== 'export' ) return;
+        const action = $( '#js-archive-bulk-action' ).val();
+        if ( ! action ) return;
 
         const ids = [];
+        let allHaveParent = true;
         $( '.js-archive-cb:checked' ).each( ( _, el ) => {
-            const id = parseInt( $( el ).val(), 10 );
+            const $cb = $( el );
+            const id  = parseInt( $cb.val(), 10 );
             if ( id ) ids.push( id );
+            if ( parseInt( $cb.data( 'has-parent' ) ?? '0', 10 ) !== 1 ) {
+                allHaveParent = false;
+            }
         } );
 
         if ( ! ids.length ) return;
 
+        if ( action === 'export' ) {
+            this._exportSelected( ids );
+            return;
+        }
+
+        if ( action === 'restore' ) {
+            ArchiveViewModalManager.bulkRestore( ids, allHaveParent );
+        }
+    },
+
+    _exportSelected( ids ) {
         $.post( AJAX_URL(), {
             action:   ACTIONS().exportArchive,
             ids:      ids,

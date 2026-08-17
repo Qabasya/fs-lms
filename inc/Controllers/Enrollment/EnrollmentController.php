@@ -69,6 +69,7 @@ class EnrollmentController extends AjaxController {
 			array( AjaxHook::StartEnrollment, $this->lifecycle ),
 			array( AjaxHook::CancelEnrollment, $this->lifecycle ),
 			array( AjaxHook::RestoreFromArchive, $this->lifecycle ),
+			array( AjaxHook::BulkRestoreFromArchive, $this->lifecycle ),
 			array( AjaxHook::GetStudentGroups, $this->lifecycle ),
 
 			// ── Данные заявки (PII) ──

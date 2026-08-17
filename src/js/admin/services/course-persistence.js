@@ -32,7 +32,9 @@ export function createPersistence( { courseId, mount, state, onPublishToggle } )
 	}
 
 	function saveStructure( okMsg ) {
-		ajax( acts().saveCourseStructure, { course_id: courseId, modules: structurePayload() } )
+		// Промис возвращается наружу: операции, которым нужен уже сохранённый
+		// на сервере модуль (создание/импорт урока), ждут завершения.
+		return ajax( acts().saveCourseStructure, { course_id: courseId, modules: structurePayload() } )
 			.then( () => {
 				if ( okMsg ) { showToast( okMsg, 'success' ); }
 				const mc = mount.querySelector( '[data-module-count]' );

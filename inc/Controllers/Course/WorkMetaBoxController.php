@@ -41,6 +41,7 @@ class WorkMetaBoxController extends BaseController implements ServiceInterface {
 		private readonly MetaBoxManager    $metaBoxManager,
 		private readonly WorkTemplate      $template,
 		private readonly WorkManager       $works,
+		private readonly PostManager       $postManager,
 		private readonly TaskPublishGuard  $guard,
 		private readonly PostManager       $postManager,
 	) {
