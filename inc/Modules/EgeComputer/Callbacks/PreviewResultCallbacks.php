@@ -66,7 +66,7 @@ class PreviewResultCallbacks extends BaseController {
 		foreach ( $this->unslashArray( 'answers' ) as $taskId => $value ) {
 			$taskId = absint( $taskId );
 			if ( $taskId > 0 ) {
-				$answerText[ $taskId ] = $this->sanitizeHtmlValue( $value );
+				$answerText[ $taskId ] = $this->sanitizeAnswerTextValue( $value );
 			}
 		}
 

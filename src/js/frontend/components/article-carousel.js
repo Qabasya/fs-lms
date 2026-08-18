@@ -14,15 +14,11 @@ export function initCarousel() {
 
     let index = realCount;
 
-    // Ступени обязаны совпадать с медиазапросами .fs-carousel-item
-    // (components/_carousel.scss): шаг прокрутки считается по ширине кадра.
-    const visibleCount = () => {
-        if (window.innerWidth <= 600) return 1;
-        if (window.innerWidth <= 900) return 2;
-        return 3;
-    };
-
-    const itemWidth = () => overflow.offsetWidth / visibleCount();
+    // Ширина карточки фиксирована токеном $subject-card-width (_carousel.scss) —
+    // та же, что у карточки каталога учебника и витрины курсов, поэтому шаг
+    // прокрутки меряется по факту отрисованного слайда, а не гадается по брейкпоинту:
+    // сколько карточек видно в кадре зависит только от его ширины.
+    const itemWidth = () => origItems[0].getBoundingClientRect().width;
 
     const dotsWrap = document.createElement('div');
     dotsWrap.className = 'fs-carousel-dots';

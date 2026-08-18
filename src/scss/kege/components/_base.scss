@@ -137,14 +137,38 @@ input.kege-dcell:focus { border-color: var(--kege-cyan); }
   top: 0;
   left: 50%;
   transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: rem(12);
+  max-width: calc(100vw - #{rem(32)});
   background: var(--kege-red);
   color: var(--kege-on);
   font-size: rem(12);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  padding: rem(5) rem(16);
+  letter-spacing: 0.02em;
+  padding: rem(6) rem(10) rem(6) rem(16);
   border-radius: 0 0 rem(6) rem(6);
   z-index: 95;
+
+  span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.kege-preview-flag__restart {
+  flex: 0 0 auto;
+  background: rgba(255, 255, 255, 0.16);
+  color: inherit;
+  border: 0;
+  border-radius: rem(4);
+  padding: rem(4) rem(10);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+
+  &:hover { background: rgba(255, 255, 255, 0.28); }
 }
 
 // ── Модалка подтверждения (завершение экзамена)

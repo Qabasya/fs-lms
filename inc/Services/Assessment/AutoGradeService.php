@@ -5,6 +5,7 @@ declare( strict_types=1 );
 namespace Inc\Services\Assessment;
 
 use Inc\Contracts\LogEventDispatcherInterface;
+use Inc\DTO\Assessment\AssessmentDTO;
 use Inc\DTO\Assessment\AttemptDTO;
 use Inc\DTO\Log\Events\LearningEvent;
 use Inc\Enums\Assessment\AttemptStatus;
@@ -74,6 +75,52 @@ class AutoGradeService {
 			? $assessment->taskIds
 			: array_map( static fn( $a ) => (int) $a->taskId, $this->answers->listByAttempt( $attempt->id ) );
 
+		// Сохранённые ответы по task_id (сырой текст) — для сопоставления с полным списком.
+		$rawByTask = array();
+		foreach ( $this->answers->listByAttempt( $attempt->id ) as $a ) {
+			$rawByTask[ (int) $a->taskId ] = $a->answerText;
+		}
+
+		$result = $this->evaluate( $assessment, $taskIds, $rawByTask );
+
+		$totalScore = 0.0;
+		$totalMax   = 0.0;
+		$hasManual  = false;
+
+		foreach ( $result['perTask'] as $taskId => $a ) {
+			if ( $a['pending'] ) {
+				$hasManual = true;
+				$this->answers->upsert( $attempt->id, $taskId, array( 'max_score' => $a['max'] ) );
+			} else {
+				$this->answers->upsert( $attempt->id, $taskId, array(
+					'is_correct' => $a['correct'] ? 1 : 0,
+					'score'      => $a['score'],
+					'max_score'  => $a['max'],
+				) );
+			}
+			$totalScore += $a['score'];
+			$totalMax   += $a['max'];
+		}
+
+		return $this->persistTotals( $attempt, $totalScore, $totalMax, $hasManual );
+	}
+
+	/**
+	 * Тот же алгоритм оценки, что и в gradeAttempt() (D16.1: бинарный балл для
+	 * Control, взвешенный + разворот составных для ЕГЭ/КЕГЭ через
+	 * BatchCheckService), но БЕЗ побочек в БД — читает и пишет только память.
+	 *
+	 * Используется предпросмотром générique-контрольной (T-preview-4): у него
+	 * нет ни попытки, ни строк в assessment_answers, ответы приходят напрямую
+	 * из формы (аналог KegeResultSheetService::buildFromAnswers() для станции КЕГЭ).
+	 *
+	 * @param AssessmentDTO|null       $assessment Контрольная (null — фолбэк по $taskIds без веса/типа)
+	 * @param array<int, int|string>   $taskIds    Полный состав работы (пропуски тоже занимают позицию)
+	 * @param array<int, string|array> $rawByTask  Ответ ученика по task_id — как он лёг бы в answer_text
+	 *
+	 * @return array{perTask: array<int, array{score: float, max: float, correct: bool, pending: bool}>}
+	 */
+	public function evaluate( ?AssessmentDTO $assessment, array $taskIds, array $rawByTask ): array {
 		// D16.1: контрольная (Control) — бинарный балл «верно/неверно»: каждое
 		// задание весит ровно 1 (max = 1). ЕГЭ/КЕГЭ — взвешенный балл + разворот
 		// составных заданий (ThreeInOne → 19/20/21) через BatchCheckService.
@@ -81,15 +128,9 @@ class AutoGradeService {
 		$kind       = $assessment?->kind;
 		$taskPoints = $assessment?->taskPoints ?? array();
 
-		// Сохранённые ответы по task_id (сырой текст) — для сопоставления с полным списком.
-		$rawByTask = array();
-		foreach ( $this->answers->listByAttempt( $attempt->id ) as $a ) {
-			$rawByTask[ (int) $a->taskId ] = $a->answerText;
-		}
-
 		// Строим вход BatchCheckService: строка для обычных задач, массив {19,20,21}
 		// (json_decode) для составных (Triple) — их ответ хранится JSON на родительском task_id.
-		$taskAnswers  = array();
+		$taskAnswers   = array();
 		$existingTasks = array();
 		foreach ( $taskIds as $taskId ) {
 			$taskId = (int) $taskId;
@@ -101,10 +142,10 @@ class AutoGradeService {
 			$raw = $rawByTask[ $taskId ] ?? '';
 
 			if ( $this->isComposite( $post, $kind ) ) {
-				$decoded              = is_string( $raw ) && '' !== $raw ? json_decode( $raw, true ) : null;
+				$decoded                = is_array( $raw ) ? $raw : ( is_string( $raw ) && '' !== $raw ? json_decode( $raw, true ) : null );
 				$taskAnswers[ $taskId ] = is_array( $decoded ) ? $decoded : array();
 			} else {
-				$taskAnswers[ $taskId ] = (string) ( $raw ?? '' );
+				$taskAnswers[ $taskId ] = is_string( $raw ) ? $raw : '';
 			}
 		}
 
@@ -128,10 +169,7 @@ class AutoGradeService {
 			}
 		}
 
-		$totalScore = 0.0;
-		$totalMax   = 0.0;
-		$hasManual  = false;
-
+		$perTask = array();
 		foreach ( $agg as $taskId => $a ) {
 			if ( ! isset( $existingTasks[ $taskId ] ) ) {
 				continue;
@@ -140,29 +178,25 @@ class AutoGradeService {
 			if ( $a['pending'] ) {
 				// Ручное задание (нет чекера) — уходит на проверку. D16.1: контрольная —
 				// max = 1; ЕГЭ — сумма критериев (Эпик 13/D17), иначе вес слота.
-				$hasManual = true;
-				$max       = $binary ? 1.0 : $this->manualMax( $taskId, $a['max'] );
-				$this->answers->upsert( $attempt->id, $taskId, array( 'max_score' => $max ) );
-				$totalMax += $max;
+				$perTask[ $taskId ] = array(
+					'score'   => 0.0,
+					'max'     => $binary ? 1.0 : $this->manualMax( $taskId, $a['max'] ),
+					'correct' => false,
+					'pending' => true,
+				);
 				continue;
 			}
 
-			$isCorrect = $a['correct'];
 			// D16.1: бинарный балл — верно→1, иначе→0, max = 1.
-			$score = $binary ? ( $isCorrect ? 1.0 : 0.0 ) : $a['score'];
-			$max   = $binary ? 1.0 : $a['max'];
-
-			$this->answers->upsert( $attempt->id, $taskId, array(
-				'is_correct' => $isCorrect ? 1 : 0,
-				'score'      => $score,
-				'max_score'  => $max,
-			) );
-
-			$totalScore += $score;
-			$totalMax   += $max;
+			$perTask[ $taskId ] = array(
+				'score'   => $binary ? ( $a['correct'] ? 1.0 : 0.0 ) : $a['score'],
+				'max'     => $binary ? 1.0 : $a['max'],
+				'correct' => $a['correct'],
+				'pending' => false,
+			);
 		}
 
-		return $this->persistTotals( $attempt, $totalScore, $totalMax, $hasManual );
+		return array( 'perTask' => $perTask );
 	}
 
 	/** Составное ли задание (ThreeInOne) в режиме ЕГЭ — разворачивается на под-пункты. */

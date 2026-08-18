@@ -76,7 +76,10 @@ $isFinished = ! $previewMode && ! $isRunning && null !== $lastAttempt;
 >
 
 <?php if ( $previewMode ) : ?>
-	<div class="kege-preview-flag">Предпросмотр · попытка не записывается</div>
+	<div class="kege-preview-flag">
+		<span>Предпросмотр · от лица автора — попытка нигде не сохраняется, лимит попыток и время не учитываются</span>
+		<button type="button" class="kege-preview-flag__restart" id="kegePreviewRestart">Начать заново</button>
+	</div>
 	<?php include __DIR__ . '/kege/exam.php'; ?>
 	<?php include __DIR__ . '/kege/finish.php'; ?>
 	<?php include __DIR__ . '/kege/entry.php'; ?>

@@ -6,7 +6,9 @@ namespace Inc\Callbacks\Assessment;
 
 use Inc\Core\BaseController;
 use Inc\Enums\Wp\Nonce;
+use Inc\Managers\Assessment\AssessmentManager;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
+use Inc\Services\Assessment\AssessmentAccessPolicy;
 use Inc\Services\Assessment\AttemptResultService;
 use Inc\Services\Assessment\AttemptService;
 use Inc\Shared\Traits\AjaxResponse;
@@ -18,9 +20,11 @@ class AttemptCallbacks extends BaseController {
 	use Sanitizer;
 
 	public function __construct(
-		private readonly AttemptService       $attemptService,
-		private readonly PersonRepository     $personRepository,
-		private readonly AttemptResultService $resultService,
+		private readonly AttemptService          $attemptService,
+		private readonly PersonRepository        $personRepository,
+		private readonly AttemptResultService    $resultService,
+		private readonly AssessmentManager       $assessments,
+		private readonly AssessmentAccessPolicy  $access,
 	) {
 		parent::__construct();
 	}
@@ -56,7 +60,7 @@ class AttemptCallbacks extends BaseController {
 
 		$attemptId  = $this->requireInt( 'attempt_id' );
 		$taskId     = $this->requireInt( 'task_id' );
-		$answerText = $this->sanitizeHtml( 'answer_text' );
+		$answerText = $this->sanitizeAnswerText( 'answer_text' );
 
 		$userId = get_current_user_id();
 		$person = $this->personRepository->findByWpUserId( $userId );
@@ -117,5 +121,52 @@ class AttemptCallbacks extends BaseController {
 		} catch ( \InvalidArgumentException $e ) {
 			$this->error( $e->getMessage() );
 		}
+	}
+
+	/**
+	 * Результат по ответам, присланным прямо из формы (T-preview-4): предпросмотр
+	 * générique-контрольной у автора/методиста/куратора занятия — попытки в БД
+	 * нет и не будет (AttemptPageService::buildPreview()), поэтому оценка идёт
+	 * по накопленному в этой вкладке, тем же алгоритмом, что и настоящая сдача
+	 * (см. AutoGradeService::evaluate(), AttemptResultService::previewPerTask()).
+	 * Аналог PreviewResultCallbacks станции КЕГЭ, только для générique-плеера.
+	 */
+	public function ajaxPreviewAttemptResult(): void {
+		Nonce::StartAttempt->verify();
+
+		$assessmentId = $this->requireInt( 'assessment_id' );
+
+		$userId = get_current_user_id();
+		// Тот же гейт, что открывает саму страницу вхолостую (AssessmentPageController):
+		// без него любой залогиненный мог бы дёрнуть эндпоинт с чужим assessment_id
+		// и получить вердикт/баллы по контрольной, до которой доступа нет.
+		if ( ! $userId || ! $this->access->canPreview( $userId, $assessmentId ) ) {
+			$this->error( 'Доступ запрещён.' );
+			return;
+		}
+
+		$assessment = $this->assessments->get( $assessmentId );
+		if ( ! $assessment ) {
+			$this->error( 'Контрольная не найдена.' );
+			return;
+		}
+
+		$rawByTask = array();
+		foreach ( $this->unslashArray( 'answers' ) as $taskId => $value ) {
+			$taskId = absint( $taskId );
+			if ( $taskId > 0 ) {
+				$rawByTask[ $taskId ] = $this->sanitizeAnswerTextValue( $value );
+			}
+		}
+
+		$perTask    = $this->resultService->previewPerTask( $assessment, $rawByTask );
+		$totalScore = array_sum( array_map( static fn( array $t ): float => (float) ( $t['score'] ?? 0.0 ), $perTask ) );
+		$totalMax   = array_sum( array_map( static fn( array $t ): float => (float) ( $t['max_score'] ?? 0.0 ), $perTask ) );
+
+		$this->success( array(
+			'total_score' => $totalScore,
+			'max_score'   => $totalMax,
+			'per_task'    => $perTask,
+		) );
 	}
 }

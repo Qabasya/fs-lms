@@ -6,7 +6,7 @@
  * логику autosave/таймера, только адаптирует их под разметку станции.
  */
 import { saveAnswer, debounce, startCountdown } from '../frontend/services/assessment.js';
-import { kegeBr, kegeKim, loadKegeState, setKegeStage, setKegeTask } from './kege-state.js';
+import { kegeBr, kegeKim, loadKegeState, setKegeAnswers, setKegeStage, setKegeTask } from './kege-state.js';
 import { renderKegeSheet } from './kege-entry.js';
 
 function toast( msg ) {
@@ -70,13 +70,35 @@ export function initKegeExam() {
 
 	const timerEl = document.getElementById( 'kegeTimer' );
 	if ( preview ) {
-		// Статичный лимит вместо обратного отсчёта — предпросмотр не идёт по времени.
 		const limit = Number( app.dataset.timeLimit || 0 );
-		if ( timerEl ) {
+
+		// Статичный лимит вместо обратного отсчёта по умолчанию — предпросмотр не
+		// идёт по времени, пока автор не включит его сам («Запустить отсчёт»).
+		const showStaticLimit = () => {
+			if ( ! timerEl ) { return; }
 			const h = String( Math.floor( limit / 60 ) ).padStart( 2, '0' );
 			const m = String( limit % 60 ).padStart( 2, '0' );
 			timerEl.textContent = `${ h }:${ m }:00`;
-		}
+		};
+		showStaticLimit();
+
+		// По местным часам браузера, без серверного `now` (в предпросмотре его нет):
+		// оба конца отсчёта — локальный клок, расхождение поясов здесь не возникает.
+		const localDeadline = ( minutes ) => {
+			const d = new Date( Date.now() + minutes * 60 * 1000 );
+			const pad = ( n ) => String( n ).padStart( 2, '0' );
+			return `${ d.getFullYear() }-${ pad( d.getMonth() + 1 ) }-${ pad( d.getDate() ) } `
+				+ `${ pad( d.getHours() ) }:${ pad( d.getMinutes() ) }:${ pad( d.getSeconds() ) }`;
+		};
+
+		document.getElementById( 'kegePreviewTimerToggle' )?.addEventListener( 'click', ( e ) => {
+			e.target.disabled = true;
+			e.target.textContent = 'Отсчёт идёт';
+			startCountdown( timerEl, localDeadline( limit ), {
+				onExpire: () => { void submitAttempt( true ); },
+			} );
+		} );
+
 		// Ритуал входа проходится уже после инициализации экрана — обновляем шапку.
 		document.addEventListener( 'fs-kege-preview-start', () => {
 			ritual = loadKegeState();
@@ -144,12 +166,15 @@ export function initKegeExam() {
 	/** Ответ задания, подтверждённый сервером. */
 	const storedAnswer = ( taskId ) => savedAnswers.get( String( taskId ) ) || '';
 
-	/** Запись ответа: в предпросмотре — только индикатор, без AJAX и записи в БД. */
+	/**
+	 * Запись ответа: в предпросмотре — только индикатор, без AJAX и записи в БД
+	 * (ответ уезжает в localStorage из flushAnswer, см. rememberPreviewAnswers).
+	 */
 	const persistAnswer = ( taskId, text, statusEl ) => {
 		saveChain = saveChain
 			.then( () => {
 				if ( preview ) {
-					if ( statusEl ) { statusEl.textContent = '✓ (не сохраняется)'; }
+					if ( statusEl ) { statusEl.textContent = '✓'; }
 					return true;
 				}
 				return saveAnswer( kegeVars, attemptId, taskId, text, statusEl );
@@ -192,7 +217,19 @@ export function initKegeExam() {
 		}
 		markSaved( current.taskId, savedAnswers.has( String( current.taskId ) ) );
 		syncCount();
+		rememberPreviewAnswers();
 	};
+
+	/**
+	 * Предпросмотр: копия ответов в localStorage. Настоящей попытки нет, БД
+	 * ответов не видит, и без этой копии обновление страницы теряло и набранное,
+	 * и уже показанный лист ответов. В реальном прохождении не вызывается —
+	 * там ответы восстанавливает getAttemptResult.
+	 */
+	function rememberPreviewAnswers() {
+		if ( ! preview ) { return; }
+		setKegeAnswers( Object.fromEntries( savedAnswers ) );
+	}
 
 	// Автосохранение по ходу ввода — как на générique-странице попытки. Кнопка
 	// «Сохранить ответ» остаётся (её ждёт ученик), но ответ больше не зависит от
@@ -657,6 +694,28 @@ export function initKegeExam() {
 			// Тихо игнорируем — предзагрузка необязательна, autosave продолжит работать.
 		}
 	} )();
+
+	/* ── Предпросмотр: восстановление после обновления страницы ── */
+	/* Ответы поднимаем из localStorage ДО первого showPanel, чтобы панель ответа */
+	/* строилась уже с набранным значением, а не пустой.                          */
+	if ( preview ) {
+		Object.entries( ritual.answers ).forEach( ( [ taskId, text ] ) => {
+			if ( ! text ) { return; }
+			savedAnswers.set( String( taskId ), text );
+			markSaved( taskId, true );
+		} );
+		syncCount();
+
+		// Лист ответов уже был показан до обновления: PHP отрисовал пустой (попытки
+		// в БД нет), поэтому пересчитываем его сервером по восстановленным ответам.
+		if ( 'done' === ritual.stage && savedAnswers.size > 0 ) {
+			void ( async () => {
+				const sheet = await fetchPreviewSheet();
+				if ( sheet ) { renderKegeSheet( sheet ); }
+				document.dispatchEvent( new CustomEvent( 'fs-kege-preview-finish' ) );
+			} )();
+		}
+	}
 
 	// Обновление страницы не должно сбрасывать экзамен на вкладку инструкции:
 	// открываем то задание, на котором пользователь остановился.

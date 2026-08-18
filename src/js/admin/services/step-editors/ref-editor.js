@@ -140,10 +140,16 @@ export function refEditor( ed, step, ctx ) {
 			'<div class="fs-cb-ref">' +
 			'<span class="fs-cb-ref-title">' + esc( step._title || step.title ) + '</span>' +
 			'<a class="button" href="' + adminBase + 'post.php?post=' + refId + '&action=edit" target="_blank" rel="noopener">Редактировать ↗</a>' +
+			'<span class="fs-cb-ref-preview" data-ref-preview></span>' +
 			'<button type="button" class="button fs-sb-btn-danger" data-pick>' + icoReplace( 13 ) + ' Заменить</button>' +
 			'</div>' +
 			'<div class="fs-cb-ref-tasks"></div>';
-		loadRefPreview( ed.querySelector( '.fs-cb-ref-tasks' ), refId, isWork ? 'work' : 'assessment' );
+		loadRefPreview(
+			ed.querySelector( '.fs-cb-ref-tasks' ),
+			refId,
+			isWork ? 'work' : 'assessment',
+			ed.querySelector( '[data-ref-preview]' )
+		);
 	}
 
 	const pickBtn = ed.querySelector( '[data-pick]' );

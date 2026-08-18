@@ -21,11 +21,12 @@
   color: $color-muted;
 }
 
-// Ширина ступени — та же, что у карточки карусели статей в кадре из трёх:
-// на широкой полосе ряды витрины и карусели совпадают.
+// Колонки — фиксированная $subject-card-width, а не minmax(…, 1fr): с 1fr
+// колонки растягивались бы вплоть до последней в ряду, и карточка была бы
+// шире карточки учебника на той же ширине контейнера.
 .fs-subject-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(rem(280), 1fr));
+  grid-template-columns: repeat(auto-fill, $subject-card-width);
   gap: $spacing-2xl;
 }
 

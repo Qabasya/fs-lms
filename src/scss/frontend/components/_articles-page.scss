@@ -42,9 +42,11 @@
     white-space: nowrap;
   }
 
+  // Фиксированная $subject-card-width — не minmax(…, 1fr): растяжение сделало бы
+  // карточку каталога шире витрины курсов/карусели на той же ширине контейнера.
   .fs-articles-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(rem(240), 1fr));
+    grid-template-columns: repeat(auto-fill, $subject-card-width);
     gap: $spacing-lg;
   }
 

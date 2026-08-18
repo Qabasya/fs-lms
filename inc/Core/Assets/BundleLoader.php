@@ -202,6 +202,8 @@ class BundleLoader extends BaseController {
 				'getAttemptResult'  => AjaxHook::GetAttemptResult->jsAction(),
 				// Эпик 13 (D16): двухшаговая загрузка файла ответа («Развёрнутый ответ»).
 				'uploadAnswerFile'  => AjaxHook::UploadAnswerFile->jsAction(),
+				// T-preview-4: результат предпросмотра générique-контрольной (без попытки в БД).
+				'previewResult'     => AjaxHook::PreviewAttemptResult->jsAction(),
 			),
 			'nonces'   => array(
 				'startAttempt'     => Nonce::StartAttempt->create(),

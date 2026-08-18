@@ -114,6 +114,14 @@ class AttemptService {
 	public function saveAnswer( int $attemptId, int $taskId, string $answerText, int $studentPersonId ): void {
 		$attempt = $this->requireActiveAttempt( $attemptId, $studentPersonId );
 
+		// Задание обязано входить в саму работу: task_id приходит из запроса, и без
+		// проверки в попытку можно было дописать ответ на постороннее задание —
+		// лист ответов и авто-проверка идут по составу работы и такую строку не видят.
+		$assessment = $this->assessments->get( $attempt->assessmentId );
+		if ( ! $assessment || ! in_array( $taskId, array_map( 'intval', $assessment->taskIds ), true ) ) {
+			throw new \InvalidArgumentException( 'Задание не входит в эту работу.' );
+		}
+
 		$this->answers->upsert( $attempt->id, $taskId, [ 'answer_text' => $answerText ] );
 	}
 

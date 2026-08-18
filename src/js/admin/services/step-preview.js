@@ -69,10 +69,24 @@ function buildRefTaskBody( task ) {
 	return html || '<div class="fs-cb-tp-section"><div class="fs-cb-tp-loading">Нет содержимого</div></div>';
 }
 
-export function loadRefPreview( container, refId, type ) {
+/**
+ * Ссылка «Предпросмотр» контрольной рядом с «Редактировать»/«Заменить» (T-preview-6):
+ * тот же гейт, что открывает станцию вхолостую автору/методисту/куратору занятия
+ * (AssessmentAccessPolicy::canPreview()) — просто прямой путь к ней из конструктора
+ * работы и из КТП (шаг «assessment» степ-редактора использует ту же карточку).
+ * У «работы» своего предпросмотра нет — data.preview_url тогда пуст, кнопка не рисуется.
+ */
+function renderPreviewLink( linkSlot, previewUrl ) {
+	if ( ! linkSlot || ! previewUrl ) { return; }
+	linkSlot.innerHTML = '<a class="button" href="' + esc( previewUrl ) + '" target="_blank" rel="noopener">Предпросмотр ↗</a>';
+}
+
+export function loadRefPreview( container, refId, type, linkSlot ) {
 	container.innerHTML = '<div class="fs-cb-tp-loading">Загрузка задач…</div>';
 	ajax( acts().getRefPreview, { ref_id: refId, ref_type: type } )
 		.then( ( data ) => {
+			renderPreviewLink( linkSlot, data.preview_url );
+
 			if ( ! data.tasks || ! data.tasks.length ) {
 				container.innerHTML = '<div class="fs-cb-tp-loading">Задачи не добавлены</div>';
 				return;

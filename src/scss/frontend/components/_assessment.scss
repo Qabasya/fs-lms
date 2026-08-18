@@ -37,6 +37,19 @@
 	color: $color-muted;
 }
 
+// Плашка предпросмотра générique-контрольной (T-preview-4) — зеркало
+// .kege-preview-flag станции КЕГЭ, но в потоке страницы: у générique-плеера
+// нет своего фиксированного bare-шелла, встраивать в него некуда.
+.fs-assessment-preview-flag {
+	padding: $spacing-sm $spacing-md;
+	margin-bottom: $spacing-lg;
+	background: $color-danger;
+	color: $color-white;
+	border-radius: $border-radius-sm;
+	font-size: 0.85rem;
+	font-weight: $font-medium;
+}
+
 // Timer
 .fs-assessment-timer {
 	display: inline-flex;

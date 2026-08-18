@@ -9,6 +9,7 @@
 	$font-size-md, $font-size-lead, $font-size-xl,
 	$font-regular, $font-semibold, $font-bold, $color-danger;
 @use '../shared/tokens' as t;
+@use 'sass:math';
 
 // ═══════════════════════════════════════════════════════════════════
 // Палитра публичных страниц — макет «Шаг в будущее» (Claude Design
@@ -112,6 +113,9 @@ $font-medium: 500;
 $max-width: t.rem(1160);
 $sidebar-width: t.rem(300);
 $layout-gap: t.rem(22);
+
+// Ширина карточки
+$subject-card-width: math.div( $max-width - $sidebar-width - $layout-gap - 2 * t.$spacing-lg, 3 );
 
 // Высота админ-бара WP — на неё сдвигаются липкие блоки (миксин fs-sticky)
 $wp-admin-bar-height: 32px;

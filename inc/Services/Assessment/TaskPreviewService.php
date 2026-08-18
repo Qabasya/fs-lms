@@ -83,9 +83,10 @@ class TaskPreviewService {
 		}
 
 		return array(
-			'title'    => get_the_title( $post ),
-			'edit_url' => admin_url( 'post.php?post=' . $refId . '&action=edit' ),
-			'tasks'    => $tasks,
+			'title'       => get_the_title( $post ),
+			'edit_url'    => admin_url( 'post.php?post=' . $refId . '&action=edit' ),
+			'preview_url' => 'assessment' === $refType ? get_preview_post_link( $post ) : null,
+			'tasks'       => $tasks,
 		);
 	}
 

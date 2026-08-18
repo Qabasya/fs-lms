@@ -38,6 +38,13 @@
   border-radius: $radius-card;
 
   padding: rem(4) 0;
+  mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    #000 rem(56),
+    #000 calc(100% - #{rem(56)}),
+    transparent 100%
+  );
 }
 
 .fs-carousel-track {
@@ -51,90 +58,19 @@
   }
 }
 
-// Сколько карточек в кадре
+// Ширина слайда — $subject-card-width, тот же токен, что у колонки каталога
+// учебника и витрины курсов: карточка карусели обязана быть той же ширины,
+// а не долей ширины кадра (иначе на разных экранах она не совпадала бы с
+// остальными). border-box (глобальный reset) делает базис = card-width + падинг
+// с двух сторон, внутренняя .fs-subject-card (flex: 1) получает ровно card-width.
+// Сколько карточек видно в кадре — вопрос ширины кадра, а не CSS: JS считает
+// сам (visibleCount() в article-carousel.js), брейкпоинтов здесь нет.
 .fs-carousel-item {
   display: flex;
-  flex: 0 0 calc(100% / 3);
+  flex: 0 0 calc(#{$subject-card-width} + #{$spacing-sm} * 2);
   padding: 0 $spacing-sm;
 
-  a {
-    display: flex;
-    flex: 1;
-    flex-direction: column;
-    min-height: rem(380);
-    background: $color-white;
-    border: 1px solid $color-border;
-    border-radius: $radius-card;
-    box-shadow: $shadow-surface;
-
-    padding: 0;
-    overflow: hidden;
-    transition: border-color $transition, box-shadow $transition;
-
-    &:hover {
-      border-color: $color-accent-soft-2;
-      box-shadow: $shadow-hover;
-    }
-
-    strong {
-      display: block;
-      font-size: $font-size-md;
-      font-weight: $font-bold;
-      line-height: $line-height-tight;
-      letter-spacing: -.01em;
-      color: $color-text;
-    }
-
-    p {
-      font-size: $font-size-xs;
-      color: $color-muted;
-      line-height: 1.5;
-
-      @include line-clamp(3);
-
-      margin: 0;
-    }
-
-    strong { transition: color $transition; }
-
-    &:hover strong { color: $color-accent-700; }
-
-    &:hover .fs-carousel-read {
-      @include fs-arrow-reveal-open;
-
-      color: $color-accent-700;
-    }
-  }
-}
-
-.fs-carousel-body {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  gap: rem(9);
-  padding: rem(16) rem(18) rem(18);
-}
-
-// Миниатюра статьи
-.fs-carousel-thumb {
-  display: block;
-  width: 100%;
-  height: rem(170);
-  flex: 0 0 rem(170);
-  border-bottom: 1px solid $color-border-light;
-  object-fit: cover;
-}
-
-.fs-carousel-thumb--empty { @include fs-thumb-placeholder; }
-
-.fs-carousel-read {
-  @include fs-arrow-reveal;
-
-  margin-top: auto;
-  font-size: $font-size-xs;
-  font-weight: $font-semibold;
-  color: $color-accent;
-  transition: color $transition;
+  .fs-subject-card { flex: 1; }
 }
 
 .fs-task-carousel .fs-carousel-btn {
@@ -162,15 +98,6 @@
   margin-top: $spacing-lg;
 }
 
-// Ступени кадра
-@media (max-width: $bp-md) {
-  .fs-carousel-item { flex-basis: 50%; }
-}
-
-@media (max-width: $bp-sm) {
-  .fs-carousel-item { flex-basis: 100%; }
-}
-
 .fs-task-carousel .fs-carousel-dot {
   height: rem(4);
   width: rem(26);
@@ -180,13 +107,4 @@
   transition: background .25s ease;
 
   &.is-active { background: $color-accent; }
-}
-
-// Ступени кадра
-@media (max-width: $bp-md) {
-  .fs-carousel-item { flex-basis: 50%; }
-}
-
-@media (max-width: $bp-sm) {
-  .fs-carousel-item { flex-basis: 100%; }
 }
