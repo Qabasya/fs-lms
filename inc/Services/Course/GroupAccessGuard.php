@@ -17,11 +17,12 @@ class GroupAccessGuard {
 		private readonly SubstitutionRepository  $substitutions,
 	) {}
 
-	/** Может ли пользователь управлять группой (teacher_id || Admin || активная замена). */
+	/** Может ли пользователь управлять группой (teacher_id || Admin || автор курсов || активная замена). */
 	public function canManage( int $groupId, int $userId ): bool {
 		if (
 			user_can( $userId, Capability::Admin->value ) ||
-			user_can( $userId, Capability::ManageLmsPlatform->value )
+			user_can( $userId, Capability::ManageLmsPlatform->value ) ||
+			user_can( $userId, Capability::AuthorLmsCourses->value )
 		) {
 			return true;
 		}
