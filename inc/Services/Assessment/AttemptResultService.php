@@ -115,7 +115,7 @@ class AttemptResultService {
 
 	/** @return list<array{url: string, name: string, mime: string}> */
 	private function filesFor( TaskTemplate $template, mixed $answerText ): array {
-		if ( TaskTemplate::FileAnswer !== $template ) {
+		if ( ! $template->isFileAnswerShape() ) {
 			return array();
 		}
 

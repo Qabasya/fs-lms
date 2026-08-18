@@ -13,6 +13,7 @@
 @use 'components/student-courses';
 @use 'components/ktp';
 @use 'components/overlays';
+
 // Изолированный бандл не грузит common.min.css — переиспользуем партиал напрямую.
 @use '../common/components/confirm-dialog';
 @use 'components/notifications';

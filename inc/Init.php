@@ -278,6 +278,13 @@ final class Init {
 		// /course-preview/) создаются только при активации — на установках,
 		// где страница добавилась в код позже или была случайно удалена,
 		// без этого маршрут молча даёт 404 (см. докблок класса миграции).
-		( new RoutingPagesMigration( new PageGeneratorService() ) )->ensure();
+		// На 'init', не сразу: ensure() умеет создавать страницы (wp_insert_post()),
+		// а это в цепочке вызывает get_permalink() → нужен $wp_rewrite. Init::run()
+		// выполняется при подключении плагина (wp-settings.php, до 'plugins_loaded'),
+		// а $wp_rewrite создаётся позже — прямой вызов здесь падает фатальной ошибкой
+		// на первом запросе, где миграция ещё не отмечена выполненной.
+		add_action( 'init', static function (): void {
+			( new RoutingPagesMigration( new PageGeneratorService() ) )->ensure();
+		} );
 	}
 }

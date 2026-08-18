@@ -4,6 +4,8 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Subject\Bundle;
 
+use Inc\Enums\Wp\PostMetaName;
+
 /**
  * Class RefRemapper
  *
@@ -39,14 +41,18 @@ namespace Inc\Services\Subject\Bundle;
 final class RefRemapper {
 
 	/**
-	 * Ключи со списком ссылок на записи.
+	 * Ключи со списком ссылок на записи. `TaskBundleChildIds` (§3.2, .docs/Tasks.md) —
+	 * parent-пост связки 19-21 хранит id трёх materialized children тем же
+	 * способом, что Work/Assessment хранят свои item_ids/task_ids.
 	 */
-	private const array REF_LIST_KEYS = array( 'item_ids', 'task_ids', 'lesson_ids' );
+	private const array REF_LIST_KEYS = array( 'item_ids', 'task_ids', 'lesson_ids', PostMetaName::TaskBundleChildIds->value );
 
 	/**
-	 * Ключи с одиночной ссылкой на запись.
+	 * Ключи с одиночной ссылкой на запись. `TaskBundleParentId` — обратная
+	 * ссылка child → parent, без ремапа указывала бы после импорта на WP ID
+	 * исходного сайта (постороннюю или несуществующую запись на целевом).
 	 */
-	private const array REF_SCALAR_KEYS = array( 'ref' );
+	private const array REF_SCALAR_KEYS = array( 'ref', PostMetaName::TaskBundleParentId->value );
 
 	/**
 	 * Ключи со списком вложений медиабиблиотеки.

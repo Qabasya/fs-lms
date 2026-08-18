@@ -12,6 +12,7 @@ use Inc\Managers\Wp\PostManager;
 use Inc\Repositories\WPDBRepositories\AssessmentAnswerRepository;
 use Inc\Repositories\WPDBRepositories\AssessmentAttemptRepository;
 use Inc\Services\Assessment\AttemptResultService;
+use Inc\Services\Assessment\AutoGradeService;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -37,6 +38,7 @@ class AttemptResultServiceTest extends TestCase {
 			$this->answers,
 			$this->posts,
 			$this->media,
+			$this->createMock( AutoGradeService::class ),
 		);
 	}
 

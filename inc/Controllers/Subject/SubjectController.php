@@ -227,21 +227,31 @@ class SubjectController extends AjaxController {
 		// хук вешаем здесь (регистрация хуков — обязанность контроллера).
 		add_filter(
 			'get_terms_orderby', // Хук WordPress для изменения сортировки терминов
-			$this->numericSortFilter(
-				't.name', // Поле для сортировки
-				static function ( $args ): bool {
-					$tax = (array) ( $args['taxonomy'] ?? array() );
-					// str_contains() — проверяет наличие подстроки '_task_number'
-					return str_contains( reset( $tax ), '_task_number' );
-				}
-			),
+			$this->numericSortFilter( 't.name', array( self::class, 'isTaskNumberTaxonomyQuery' ) ),
 			10,
 			2
 		);
 	}
 
+	/**
+	 * Условие для {@see numericSortFilter()}: запрос идёт по таксономии
+	 * `{subject}_task_number`. `$args['taxonomy']` может отсутствовать или прийти
+	 * пустым массивом (напр. `term_exists()` без явной таксономии) — `reset()` на
+	 * пустом массиве даёт `false`, и `str_contains( false, ... )` кидает TypeError
+	 * при `strict_types=1`; поэтому пустой случай отсекается до `reset()`.
+	 *
+	 * @param array $args Query vars запроса терминов (`WP_Term_Query`).
+	 */
+	private static function isTaskNumberTaxonomyQuery( array $args ): bool {
+		$tax = (array) ( $args['taxonomy'] ?? array() );
+		if ( array() === $tax ) {
+			return false;
+		}
 
+		$first = reset( $tax );
 
+		return is_string( $first ) && str_contains( $first, '_task_number' );
+	}
 
 	/**
 	 * Логирует создание терма в плагинной таксономии.

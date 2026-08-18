@@ -36,7 +36,7 @@ class WorkDetailService {
 
 	/**
 	 * WP filter: рубрика ручной проверки для задания станции «Компьютерный ОГЭ»
-	 * (13.1/13.2/14/15/16) — единый балл + текст всех уровней, вместо покритерийной
+	 * (13/14/15/16) — единый балл + текст всех уровней, вместо покритерийной
 	 * суммы (см. .docs/Tasks.md §3.4). Ядро не знает о модуле — тот же приём, что
 	 * `AssessmentManager::STATION_SETTINGS_FILTER`.
 	 *
@@ -168,7 +168,7 @@ class WorkDetailService {
 			$template = TaskTemplate::fromDatabase(
 				(string) $this->posts->getMeta( $ans->taskId, PostMetaName::TemplateType->value )
 			);
-			if ( TaskTemplate::FileAnswer === $template ) {
+			if ( $template->isFileAnswerShape() ) {
 				$parsed     = $this->parseFileAnswer( $ans->answerText );
 				$answerText = $parsed['text'];
 				$files      = $parsed['files'];

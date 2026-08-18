@@ -422,6 +422,11 @@ if (!function_exists('term_exists')) {
 if (!function_exists('wp_unslash')) {
     function wp_unslash(mixed $value): mixed { return is_string($value) ? stripslashes($value) : $value; }
 }
+if (!function_exists('wp_check_invalid_utf8')) {
+    // Тестовый ввод всегда валидный UTF-8 — пропускаем как есть (реальная функция
+    // WP чистит/обрезает невалидные байты, здесь это не нужно).
+    function wp_check_invalid_utf8(mixed $string, bool $strip = false): string { return is_string($string) ? $string : ''; }
+}
 if (!function_exists('sanitize_textarea_field')) {
     function sanitize_textarea_field(string $str): string { return trim(strip_tags($str)); }
 }
@@ -528,7 +533,9 @@ if (!function_exists('sanitize_title')) {
 //  wp_send_json_* бросает FsTestJsonResponse вместо exit, чтобы тест
 //  перехватил ответ. Управление авторизацией — через глобалы ниже.
 // ────────────────────────────────────────────────────────────────
-if (!function_exists('plugin_dir_path')) { function plugin_dir_path(string $f): string { return rtrim($f, '/\\') . '/'; } }
+if (!function_exists('__return_true'))  { function __return_true(): bool { return true; } }
+if (!function_exists('__return_false')) { function __return_false(): bool { return false; } }
+if (!function_exists('plugin_dir_path')) { function plugin_dir_path(string $f): string { return rtrim(dirname($f), '/\\') . '/'; } }
 if (!function_exists('plugin_dir_url'))  { function plugin_dir_url(string $f): string { return 'http://example.test/'; } }
 if (!function_exists('plugin_basename')) { function plugin_basename(string $f): string { return basename($f); } }
 

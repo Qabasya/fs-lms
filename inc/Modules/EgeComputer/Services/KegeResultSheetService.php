@@ -6,9 +6,11 @@ namespace Inc\Modules\EgeComputer\Services;
 
 use Inc\DTO\Assessment\AssessmentDTO;
 use Inc\DTO\Assessment\AttemptDTO;
+use Inc\Enums\Assessment\AssessmentKind;
 use Inc\Enums\Wp\PostMetaName;
 use Inc\Managers\Wp\PostManager;
 use Inc\Modules\EgeComputer\Config\KegeScaleConfig;
+use Inc\Modules\EgeComputer\Config\OgeScaleConfig;
 use Inc\Modules\EgeComputer\DTO\KegeSheetDTO;
 use Inc\Repositories\WPDBRepositories\AssessmentAnswerRepository;
 use Inc\Services\Assessment\SecondaryScoreService;
@@ -107,7 +109,7 @@ readonly class KegeResultSheetService {
 		foreach ( $assessment->taskIds as $position => $taskId ) {
 			$taskId = (int) $taskId;
 			$number = $this->number( $assessment, $taskViews, $taskId, (int) $position );
-			$slots  = KegeScaleConfig::answerSlots( (int) $number );
+			$slots  = $this->answerSlots( $assessment->kind, (int) $number );
 
 			$given   = $this->slots( $this->studentAnswer( $answerText[ $taskId ] ?? '', $number ), $slots );
 			$correct = $this->slots( $this->correctAnswer( $taskId, $number ), $slots );
@@ -128,9 +130,10 @@ readonly class KegeResultSheetService {
 			}
 		}
 
-		// Шкала перевода станции фиксирована (см. KegeScaleConfig): у реального
-		// КЕГЭ максимум вторичного балла — 100, авторская таблица работы его не меняет.
-		$secondary = $this->secondaryScore->translate( $primary, KegeScaleConfig::scale() ) ?? 0;
+		// Шкала перевода станции фиксирована (см. KegeScaleConfig/OgeScaleConfig) и
+		// зависит от вида станции: у КЕГЭ максимум вторичного балла — 100, у ОГЭ —
+		// отметка 2-5; авторская таблица работы её не меняет ни там, ни там.
+		$secondary = $this->secondaryScore->translate( $primary, $this->scale( $assessment->kind ) ) ?? 0;
 
 		$answered = count( array_filter( $rows, static fn( array $row ): bool => '' !== $row['answer'] ) );
 
@@ -140,8 +143,28 @@ readonly class KegeResultSheetService {
 			primary     : $primary,
 			primaryMax  : $primaryMax,
 			secondary   : $secondary,
-			secondaryMax: KegeScaleConfig::secondaryMax(),
+			secondaryMax: $this->secondaryMax( $assessment->kind ),
 		);
+	}
+
+	/**
+	 * Сколько позиций ответа занимает задание — диспетчеризуется по виду станции
+	 * (см. докблоки {@see KegeScaleConfig::answerSlots()} / {@see OgeScaleConfig::answerSlots()}).
+	 */
+	private function answerSlots( AssessmentKind $kind, int $number ): int {
+		return AssessmentKind::OgeComputer === $kind
+			? OgeScaleConfig::answerSlots()
+			: KegeScaleConfig::answerSlots( $number );
+	}
+
+	/** Таблица перевода первичного балла во вторичный/отметку — по виду станции. */
+	private function scale( AssessmentKind $kind ): array {
+		return AssessmentKind::OgeComputer === $kind ? OgeScaleConfig::scale() : KegeScaleConfig::scale();
+	}
+
+	/** Максимум вторичного балла/отметки — по виду станции. */
+	private function secondaryMax( AssessmentKind $kind ): int {
+		return AssessmentKind::OgeComputer === $kind ? OgeScaleConfig::secondaryMax() : KegeScaleConfig::secondaryMax();
 	}
 
 	/**

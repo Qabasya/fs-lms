@@ -116,7 +116,8 @@ class EgeComputerModule implements ServiceInterface {
 	 * резолвится так же, как {@see \Inc\Services\Assessment\EgeCompletenessChecker}:
 	 * терм таксономии — для предметных заданий, ручной номер (`taskNumbers`,
 	 * Задача 8) — фолбэк для банковских и обязательное поле для ОГЭ 13-16
-	 * (терм не умеет хранить «13.1»/«13.2»).
+	 * (единый путь для всех четырёх позиций ручной проверки, см. докблок
+	 * {@see OgeCriteriaConfig}).
 	 *
 	 * @return array<int, float>
 	 */
@@ -155,10 +156,12 @@ class EgeComputerModule implements ServiceInterface {
 	}
 
 	/**
-	 * Рубрика ручной проверки для задания 13.1/13.2/14/15/16 «Компьютерного ОГЭ».
+	 * Рубрика ручной проверки для задания 13/14/15/16 «Компьютерного ОГЭ». Для
+	 * позиции «13» (альтернатива 13.1/13.2, один пост —
+	 * {@see \Inc\MetaBoxes\Templates\AlternativeConditionsTemplate}) рубрика
+	 * содержит критерии ОБОИХ вариантов, проверяющий выбирает подходящий сам.
 	 * Позиция берётся ИСКЛЮЧИТЕЛЬНО из ручного номера (`taskNumbers`, Задача 8) —
-	 * не из таксономии `{key}_task_number` (та принимает только целые числа и не
-	 * умеет хранить «13.1»/«13.2», см. докблок {@see OgeCriteriaConfig}).
+	 * не из таксономии `{key}_task_number`, см. докблок {@see OgeCriteriaConfig}.
 	 *
 	 * @param mixed         $default    Значение фильтра по умолчанию (не используется)
 	 * @param AssessmentDTO $assessment Экзамен, к которому относится задание
@@ -181,7 +184,7 @@ class EgeComputerModule implements ServiceInterface {
 
 	/** @param string $default Путь к дефолтному шаблону */
 	public function resolveRenderer( string $default, string $kind, string $subjectKey ): string {
-		if ( $kind !== AssessmentKind::EgeComputer->value ) {
+		if ( $kind !== AssessmentKind::EgeComputer->value && $kind !== AssessmentKind::OgeComputer->value ) {
 			return $default;
 		}
 

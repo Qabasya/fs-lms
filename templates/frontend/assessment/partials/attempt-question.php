@@ -10,13 +10,15 @@
  */
 declare( strict_types=1 );
 
+use Inc\Enums\Subject\TaskTemplate;
+
 $task = get_post( $taskId );
 if ( ! $task ) {
 	return;
 }
 
 $taskView     = $taskViews[ (int) $taskId ] ?? array( 'template' => '', 'materials' => array(), 'condition' => '', 'subparts' => array() );
-$isFileAnswer = 'file_answer_task' === $taskView['template'];
+$isFileAnswer = TaskTemplate::fromDatabase( (string) $taskView['template'] )->isFileAnswerShape();
 $subparts     = is_array( $taskView['subparts'] ?? null ) ? $taskView['subparts'] : array();
 if ( ! isset( $fs_seq ) ) {
 	$fs_seq = 0;

@@ -156,6 +156,17 @@ class StepContentRenderer {
 			);
 		}
 
+		// «Два условия на выбор» (ОГЭ №13, AlternativeConditionsTemplate) — оба
+		// условия показываются сразу (ученик сам решает, какое из двух решать),
+		// тем же паттерном, что Triple: массив → AttemptTaskViewBuilder оборачивает
+		// каждую часть в .fs-attempt-subcondition и конкатенирует.
+		if ( TaskTemplate::AlternativeConditions === $template ) {
+			return array(
+				'1' => $this->conditionHtml( $meta['task_condition_1'] ?? '' ),
+				'2' => $this->conditionHtml( $meta['task_condition_2'] ?? '' ),
+			);
+		}
+
 		if ( TaskTemplate::Fill === $template ) {
 			return '';
 		}

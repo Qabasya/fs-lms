@@ -7,7 +7,9 @@ namespace Unit\Callbacks\Assessment;
 use Inc\Callbacks\Assessment\AttemptCallbacks;
 use Inc\DTO\Assessment\AttemptDTO;
 use Inc\DTO\Person\PersonDTO;
+use Inc\Managers\Assessment\AssessmentManager;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
+use Inc\Services\Assessment\AssessmentAccessPolicy;
 use Inc\Services\Assessment\AttemptResultService;
 use Inc\Services\Assessment\AttemptService;
 use PHPUnit\Framework\TestCase;
@@ -25,7 +27,13 @@ class AttemptCallbacksTest extends TestCase {
 		$this->service       = $this->createMock( AttemptService::class );
 		$this->persons       = $this->createMock( PersonRepository::class );
 		$this->resultService = $this->createMock( AttemptResultService::class );
-		$this->cb            = new AttemptCallbacks( $this->service, $this->persons, $this->resultService );
+		$this->cb            = new AttemptCallbacks(
+			$this->service,
+			$this->persons,
+			$this->resultService,
+			$this->createMock( AssessmentManager::class ),
+			$this->createMock( AssessmentAccessPolicy::class ),
+		);
 	}
 
 	private function person( int $id ): PersonDTO {

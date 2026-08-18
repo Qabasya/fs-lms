@@ -19,11 +19,13 @@ use Inc\Services\Task\Checkers\TripleAnswerChecker;
  * Реестр авто-проверщиков: TaskTemplate → TaskCheckerInterface.
  * Шаблоны без записи в реестре требуют ручной проверки.
  *
- * Единственный ручной тип во всём плагине — «Развёрнутый ответ»
- * ({@see TaskTemplate::FileAnswer}): у него нет поля `task_answer`, только
- * материалы/критерии для преподавателя. У ВСЕХ остальных шаблонов есть строка
- * ответа `task_answer` (в т.ч. код/файловые: код и файл не автопроверяются —
- * сверяется ТОЛЬКО ответ), поэтому они привязаны к {@see TextAnswerChecker}.
+ * Ручных типов два ({@see \Inc\Enums\Subject\TaskTemplate::isFileAnswerShape()}) —
+ * «Развёрнутый ответ» ({@see TaskTemplate::FileAnswer}) и «Два условия на
+ * выбор» ({@see TaskTemplate::AlternativeConditions}, ОГЭ №13): у обоих нет
+ * поля `task_answer`, только материалы/критерии для преподавателя. У ВСЕХ
+ * остальных шаблонов есть строка ответа `task_answer` (в т.ч. код/файловые:
+ * код и файл не автопроверяются — сверяется ТОЛЬКО ответ), поэтому они
+ * привязаны к {@see TextAnswerChecker}.
  *
  * @package Inc\Services\Task
  */
@@ -56,7 +58,7 @@ class TaskCheckerRegistry {
 			TaskTemplate::Matching->value     => $matching,
 			TaskTemplate::Ordering->value     => $ordering,
 			TaskTemplate::Fill->value         => $fill,
-			// TaskTemplate::FileAnswer — намеренно НЕ в реестре: единственный ручной.
+			// TaskTemplate::FileAnswer / AlternativeConditions — намеренно НЕ в реестре: ручные.
 		);
 	}
 

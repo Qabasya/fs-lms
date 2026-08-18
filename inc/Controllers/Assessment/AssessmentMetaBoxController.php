@@ -226,9 +226,11 @@ class AssessmentMetaBoxController extends BaseController implements ServiceInter
 		// информатике — все термы таксономии номеров (обычно 27), ОГЭ — фиксированные
 		// 16 (см. .docs/Tasks.md §2 и Inc\Modules\EgeComputer\Config\OgeScaleConfig —
 		// авторитетный источник числа 16, здесь не импортируется: ядро не знает о
-		// модулях). Таксономия для ОГЭ ни при чём — позиции 13.1/13.2 не могут быть
-		// термами (см. докблок OgeCriteriaConfig). Карта kind => slots, а не одно
-		// число — раньше ОГЭ ошибочно наследовал число слотов ЕГЭ.
+		// модулях). Таксономия для ОГЭ ни при чём — позиции 13-16 резолвятся
+		// ручным номером на самом экзамене, а не термом (см. докблок OgeCriteriaConfig;
+		// «13» — один пост с двумя условиями на выбор, AlternativeConditionsTemplate).
+		// Карта kind => slots, а не одно число — раньше ОГЭ ошибочно наследовал
+		// число слотов ЕГЭ.
 		$ege_slots_by_kind = array(
 			AssessmentKind::EgeComputer->value => (int) wp_count_terms( array(
 				'taxonomy'   => $subject . '_task_number',

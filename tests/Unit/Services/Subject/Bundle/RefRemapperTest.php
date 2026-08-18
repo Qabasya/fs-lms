@@ -5,6 +5,7 @@ declare( strict_types=1 );
 namespace Unit\Services\Subject\Bundle;
 
 use Inc\Enums\Subject\BundleSection;
+use Inc\Enums\Wp\PostMetaName;
 use Inc\Services\Subject\Bundle\ExportIdMapper;
 use Inc\Services\Subject\Bundle\MediaIdMap;
 use Inc\Services\Subject\Bundle\RefRemapper;
@@ -148,5 +149,61 @@ class RefRemapperTest extends TestCase {
 
 		self::assertSame( array( 101, 102 ), $restored['item_ids'] );
 		self::assertSame( 155, $restored['steps'][0]['payload']['ref'] );
+	}
+
+	/**
+	 * §3.2 (.docs/Tasks.md): parent → children связки 19-21 ссылается тем же
+	 * механизмом, что item_ids/task_ids — до фикса `TaskBundleParentId`/
+	 * `TaskBundleChildIds` не входили в списки ключей RefRemapper и после
+	 * импорта хранили WP ID исходного сайта (чужую либо несуществующую запись).
+	 */
+	public function test_round_trip_remaps_task_bundle_parent_and_child_ids(): void {
+		$meta = array(
+			PostMetaName::TaskBundleChildIds->value  => array( 19, 20, 21 ),
+			PostMetaName::TaskBundleParentId->value  => 18,
+		);
+
+		$exportMap = new ExportIdMapper();
+		$exportMap->register( BundleSection::Tasks, 18 );
+		$exportMap->register( BundleSection::Tasks, 19 );
+		$exportMap->register( BundleSection::Tasks, 20 );
+		$exportMap->register( BundleSection::Tasks, 21 );
+
+		$packed = ( new RefRemapper() )->toExportIds( $meta, $exportMap );
+
+		self::assertSame(
+			array( 'tasks:19', 'tasks:20', 'tasks:21' ),
+			$packed[ PostMetaName::TaskBundleChildIds->value ]
+		);
+		self::assertSame( 'tasks:18', $packed[ PostMetaName::TaskBundleParentId->value ] );
+
+		$importMap = new ExportIdMapper();
+		$importMap->bind( 'tasks:18', 618 );
+		$importMap->bind( 'tasks:19', 619 );
+		$importMap->bind( 'tasks:20', 620 );
+		$importMap->bind( 'tasks:21', 621 );
+
+		$restored = ( new RefRemapper() )->toPostIds( $packed, $importMap, new MediaIdMap() );
+
+		self::assertSame(
+			array( 619, 620, 621 ),
+			$restored[ PostMetaName::TaskBundleChildIds->value ]
+		);
+		self::assertSame( 618, $restored[ PostMetaName::TaskBundleParentId->value ] );
+	}
+
+	/**
+	 * Обычное задание не участвует в связке — у него этой меты вообще нет,
+	 * подтверждаем, что отсутствие ключа не ломает обход (нет спецкейса «нет
+	 * TaskBundleParentId» в самом RefRemapper — просто ключа не будет в массиве).
+	 */
+	public function test_task_bundle_child_id_unresolvable_falls_back_to_zero(): void {
+		$remapped = ( new RefRemapper() )->toPostIds(
+			array( PostMetaName::TaskBundleParentId->value => 'tasks:404' ),
+			new ExportIdMapper(),
+			new MediaIdMap()
+		);
+
+		self::assertSame( 0, $remapped[ PostMetaName::TaskBundleParentId->value ] );
 	}
 }

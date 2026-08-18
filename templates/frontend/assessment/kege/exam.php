@@ -120,9 +120,12 @@ foreach ( $taskViews as $view ) {
 					// Табличный ответ — особенность №25/№27 настоящего КЕГЭ; у ОГЭ таких
 					// позиций нет вовсе, поэтому проверка гасится по kind.
 					$isTable  = ! $isOge && ! $isTriple && in_array( $view['taskNumber'], array( 25, 27 ), true );
-					// Задания 13-16 ОГЭ — «Развёрнутый ответ» (file_answer_task): только
-					// загрузка файла, без текстового поля (решено с пользователем 2026-08-18).
-					$isFile   = ! $isTriple && ! $isTable && TaskTemplate::FileAnswer->value === ( $view['template'] ?? '' );
+					// Задания 13-16 ОГЭ — только загрузка файла, без текстового поля (решено
+					// с пользователем 2026-08-18): «Развёрнутый ответ» (14-16) и «Два условия
+					// на выбор» (№13, консолидация 13.1/13.2 в один пост) — общий предикат
+					// TaskTemplate::isFileAnswerShape().
+					$isFile   = ! $isTriple && ! $isTable
+						&& TaskTemplate::fromDatabase( (string) ( $view['template'] ?? '' ) )->isFileAnswerShape();
 					$shape    = $isTriple ? 'triple' : ( $isTable ? 'table' : ( $isFile ? 'file' : 'text' ) );
 					$n        = $i + 1;
 					// Номер в банке — для всех заданий одинаково, включая составное:

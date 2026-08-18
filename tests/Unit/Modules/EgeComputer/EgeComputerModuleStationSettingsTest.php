@@ -84,14 +84,14 @@ class EgeComputerModuleStationSettingsTest extends TestCase {
 		self::assertSame( [ 10 => 1.0, 20 => 2.0 ], $result->taskPoints );
 	}
 
-	/** OGE 13.1/14/16 — баллы из OgeCriteriaConfig через OgeScaleConfig::pointsForPosition(). */
+	/** OGE 13/14 — баллы из OgeCriteriaConfig через OgeScaleConfig::pointsForPosition(). */
 	public function test_oge_computer_recomputes_task_points_from_position(): void {
 		$dto = new AssessmentDTO(
 			id: 1, subjectKey: 'inf_oge', title: 'ОГЭ', taskIds: [ 1, 2, 3 ],
 			timeLimit: 0, attemptsAllowed: 0, passScore: 0.0,
 			scoringPolicy: ScoringPolicy::Highest, status: 'publish',
 			kind: AssessmentKind::OgeComputer, taskPoints: [], scoreMap: [],
-			taskNumbers: [ 1 => '5', 2 => '13.1', 3 => '14' ],
+			taskNumbers: [ 1 => '5', 2 => '13', 3 => '14' ],
 		);
 
 		$result = $this->module->applyStationSettings( $dto );
@@ -152,5 +152,34 @@ class EgeComputerModuleStationSettingsTest extends TestCase {
 		);
 
 		self::assertNull( $this->module->resolveOgeRubric( null, $dto, 501 ) );
+	}
+
+	/**
+	 * §6.4 (.docs/Tasks.md): резолвер станции обязан отдавать станционный шаблон
+	 * и для ОГЭ, не только для ЕГЭ — до фикса `resolveRenderer()` возвращал
+	 * `$default` (générique-флоу) для любого kind, кроме EgeComputer.
+	 */
+	public function test_resolve_renderer_resolves_station_template_for_oge_computer(): void {
+		$default = '/generic/attempt.php';
+
+		$resolved = $this->module->resolveRenderer( $default, AssessmentKind::OgeComputer->value, 'inf_oge' );
+
+		self::assertNotSame( $default, $resolved );
+		self::assertStringEndsWith( 'ege-computer.php', str_replace( '\\', '/', $resolved ) );
+	}
+
+	public function test_resolve_renderer_resolves_station_template_for_ege_computer(): void {
+		$default = '/generic/attempt.php';
+
+		$resolved = $this->module->resolveRenderer( $default, AssessmentKind::EgeComputer->value, 'inf_ege' );
+
+		self::assertNotSame( $default, $resolved );
+		self::assertStringEndsWith( 'ege-computer.php', str_replace( '\\', '/', $resolved ) );
+	}
+
+	public function test_resolve_renderer_leaves_control_kind_untouched(): void {
+		$default = '/generic/attempt.php';
+
+		self::assertSame( $default, $this->module->resolveRenderer( $default, AssessmentKind::Control->value, 'inf' ) );
 	}
 }

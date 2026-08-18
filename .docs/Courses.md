@@ -144,7 +144,10 @@ CREATE TABLE fs_lms_substitutions (
 
 ### 3.5. Взвешивание оценок 🔴
 
-- У работ есть `WorkType` (practice/independent/homework), у контрольных — `AssessmentKind`. Добавляем **вес по типу** (конфиг предмета/группы) → взвешенный средний балл в `GradebookEntryDTO`/`GradeSourceInterface`.
+- У работ есть `WorkType` (practice/independent/homework), у контрольных — `AssessmentKind`
+  (`control` — обычная контрольная, `ege_computer`/`oge_computer` — станции «Компьютерный
+  ЕГЭ»/«Компьютерный ОГЭ»; подробности — `.docs/basic_doc.md`, §34). Добавляем **вес по типу**
+  (конфиг предмета/группы) → взвешенный средний балл в `GradebookEntryDTO`/`GradeSourceInterface`.
 - Ожидание РФ-журнала: контрольная > самостоятельная > ответ. 🔶 включать в v1 или позже.
 
 ---

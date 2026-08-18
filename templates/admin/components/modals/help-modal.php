@@ -215,4 +215,4 @@
 			<button type="button" class="fs-lms-modal-close button button-primary">Понятно</button>
 		</div>
 	</div>
-</div>dadata
+</div>
