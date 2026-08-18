@@ -81,7 +81,15 @@ $asm_preview = ! empty( $is_preview ) && ! empty( $render['assessment_found'] );
 		</div>
 
 		<?php if ( $asm_preview ) : ?>
-			<p class="step-muted pv-note"><?php esc_html_e( 'Предпросмотр контрольной — прорешайте задания, результат не сохраняется.', 'fs-lms' ); ?></p>
+			<div class="pv-note-row">
+				<p class="step-muted pv-note"><?php esc_html_e( 'Предпросмотр контрольной — прорешайте задания, результат не сохраняется.', 'fs-lms' ); ?></p>
+				<?php if ( '' !== $asm_url ) : ?>
+					<a class="b b-gh b-sm" href="<?php echo esc_url( $asm_url ); ?>" target="_blank" rel="noopener">
+						<?php esc_html_e( 'Открыть как у ученика', 'fs-lms' ); ?>
+						<?php echo Icon::ChevronRight->svg( 13 ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+					</a>
+				<?php endif; ?>
+			</div>
 
 			<div class="work-root"
 				data-work-id="<?php echo esc_attr( (string) $render['ref'] ); ?>"

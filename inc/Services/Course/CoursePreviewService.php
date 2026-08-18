@@ -260,6 +260,10 @@ class CoursePreviewService {
 			'ref'              => $asmId,
 			'assessment_found' => true,
 			'title'            => $asm->title,
+			// D-2: инлайн-прорешивание — основной режим предпросмотра, но по этой ссылке
+			// методист/автор может открыть тот же attempt-флоу (в т.ч. станцию КЕГЭ), что
+			// увидит ученик — AssessmentAccessPolicy::canPreview() пускает staff без группы.
+			'url'              => (string) get_permalink( $asmId ),
 			'time_limit_min'   => $asm->timeLimit,
 			'max_attempts'     => $asm->attemptsAllowed,
 			'task_count'       => count( $tasks ),
