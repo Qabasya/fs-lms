@@ -307,15 +307,6 @@ readonly class EnrollmentService {
 		);
 	}
 
-	/**
-	 * Назначает заявке уже существующего в системе родителя.
-	 *
-	 * В отличие от обычного flow (родитель сам заходит по join-ссылке и
-	 * подтверждает/заполняет данные — {@see \Inc\Services\Application\ApplicationService::submitParentData()}),
-	 * здесь родитель уже известен системе — данные копируются из его карточки,
-	 * поэтому заявка сразу переводится в `ReadyForReview`, минуя повторное
-	 * подтверждение (симметрично `restoreFromArchive( withParent: true )`).
-	 */
 	public function selectExistingParent( int $applicationId, int $parentPersonId ): ParentAssignmentResultDTO {
 		$app = $this->applicationRepository->find( $applicationId );
 
@@ -385,7 +376,6 @@ readonly class EnrollmentService {
 			'parent_data_enc'  => $parentDataEnc,
 			'join_code_hash'   => $newHash,
 			'join_code_enc'    => $newEnc,
-			'status'           => ApplicationStatus::ReadyForReview->value,
 			'updated_at'       => $this->clock->now( 'mysql', true ),
 		) );
 

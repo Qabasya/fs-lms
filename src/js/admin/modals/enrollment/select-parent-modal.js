@@ -9,11 +9,11 @@ import { searchParents, selectExistingParent, removeParentAssignment } from '../
  *              - Отображение результатов в динамически генерируемой таблице
  *              - Выбор родителя и назначение его на заявку
  *              - Снятие назначения родителя с подтверждением
+ *              - Обновление строки таблицы заявок БЕЗ перезагрузки страницы
  *
- *              Снятие назначения статус заявки не меняет — строка обновляется
- *              точечно через DOM-манипуляции. Назначение, наоборот, сразу переводит
- *              заявку в ReadyForReview — это меняет весь набор кнопок в колонке
- *              "Действия", поэтому после него страница перезагружается.
+ *              Ключевая особенность: после успешного назначения/снятия родителя
+ *              строка таблицы обновляется через DOM-манипуляции, что создает
+ *              ощущение мгновенного отклика интерфейса (SPA-подобное поведение).
  *
  * @requires jQuery
  * @requires openModal, closeModal, bindEsc, unbindEsc - базовые утилиты управления модальными окнами
@@ -24,7 +24,6 @@ import { searchParents, selectExistingParent, removeParentAssignment } from '../
 import { openModal, closeModal, bindEsc, unbindEsc } from '../../modules/modal-base.js';
 import { AlertModal } from '../alert-modal.js';
 import { ConfirmModal } from '../confirm-modal.js';
-import { showNotice } from '../../modules/utils.js';
 
 const $ = jQuery;
 
@@ -257,21 +256,16 @@ export const SelectParentModal = {
                 // Закрываем модалку после успешного назначения
                 this.close();
 
-                // Назначение существующего родителя сразу переводит заявку в
-                // ReadyForReview (см. EnrollmentService::selectExistingParent()) —
-                // это меняет и бейдж статуса, и весь набор кнопок в колонке
-                // "Действия" (появляется "Зачислить", пропадает "Изменить" в пользу
-                // "Начать проверку", которому нужны расшифрованные ПД родителя, не
-                // приходящие в этом AJAX-ответе). Точечный DOM-патч строки это не
-                // покрывает — перезагружаем страницу, как и в потоке восстановления
-                // из архива (archive-view-modal-manager.js).
-                showNotice(
-                    `Родитель назначен: ${ res.data.parent_name ?? '' }. Заявка готова к проверке.`,
-                    'success',
-                    $( '.fs-lms-applications' ),
-                    { autoDismiss: true, autoDismissDelay: 1500 }
+                // ОБНОВЛЕНИЕ СТРОКИ ТАБЛИЦЫ БЕЗ ПЕРЕЗАГРУЗКИ:
+                // Это ключевой UX-паттерн: вместо location.reload() мы точечно
+                // обновляем только ту строку таблицы, которую редактировали.
+                // Это создает ощущение мгновенного отклика интерфейса.
+                this._updateRow(
+                    appId,
+                    res.data.parent_name ?? '',   // Имя назначенного родителя
+                    res.data.join_url ?? '',      // Новая JOIN-ссылка
+                    true                          // Флаг: родитель назначен
                 );
-                setTimeout( () => location.reload(), 1500 );
             },
             () => AlertModal.show( 'Сетевая ошибка.' )
         );

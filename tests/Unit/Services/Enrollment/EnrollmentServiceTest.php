@@ -414,23 +414,6 @@ class EnrollmentServiceTest extends TestCase {
 		self::assertStringContainsString( 'JOIN-ABCD-EFGH-1234', $result->joinUrl );
 	}
 
-	/**
-	 * Родитель уже известен системе (данные скопированы из его карточки) —
-	 * заявка сразу готова к проверке, повторное подтверждение родителем не
-	 * требуется (симметрично restoreFromArchive( withParent: true )).
-	 */
-	public function test_select_existing_parent_moves_application_to_ready_for_review(): void {
-		$this->appRepo->method( 'find' )->willReturn( $this->makePendingApp() );
-		$this->personRepo->method( 'findIncludingDeleted' )->willReturn( $this->makePersonDTO( 5 ) );
-		$this->docsRepo->method( 'findByPersonId' )->willReturn( null );
-
-		$this->appRepo->expects( $this->once() )->method( 'update' )
-			->with( 1, $this->callback( fn( array $d ) => ApplicationStatus::ReadyForReview->value === ( $d['status'] ?? null ) ) )
-			->willReturn( true );
-
-		$this->service->selectExistingParent( 1, 5 );
-	}
-
 	// ── removeParentAssignment() ──────────────────────────────────────────────
 
 	public function test_remove_parent_throws_when_app_not_found(): void {
