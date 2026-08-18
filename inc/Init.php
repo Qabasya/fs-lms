@@ -94,6 +94,8 @@ use Inc\Migrations\BroadcastStepMigration;
 use Inc\Migrations\Migration_1_0_0;
 use Inc\Migrations\Migration_1_1_0;
 use Inc\Migrations\MigrationRunner;
+use Inc\Migrations\RoutingPagesMigration;
+use Inc\Services\System\PageGeneratorService;
 use Inc\Services\Log\LogEventDispatcher;
 use Inc\Services\Shared\WpClock;
 
@@ -269,5 +271,11 @@ final class Init {
 		// Уникальный ключ (attempt_id, task_id) на ответах попытки + вычистка
 		// дублей, накопленных до атомарного upsert() (см. класс миграции).
 		( new AssessmentAnswerUniqueMigration() )->ensure();
+
+		// Служебные страницы маршрутизации (/apply/, /profile/, /lesson/,
+		// /course-preview/) создаются только при активации — на установках,
+		// где страница добавилась в код позже или была случайно удалена,
+		// без этого маршрут молча даёт 404 (см. докблок класса миграции).
+		( new RoutingPagesMigration( new PageGeneratorService() ) )->ensure();
 	}
 }

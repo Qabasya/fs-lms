@@ -20,7 +20,7 @@
                             name="name"
                             id="subj_name"
                             placeholder="Введите название..."
-                            data-validate="cyrillicDigits"
+                            data-validate="subjectName"
                             required
                     >
 				</div>

@@ -18,7 +18,6 @@ readonly class LearnerDashboardDTO {
 	 * @param array<string, string>|null       $examLock   Активная контрольная, блокирующая контент
 	 * @param array<int, array>                $groups     Группы ученика (без открытых — D17.2)
 	 * @param array<int, array>                $courses    Курсы ученика с прогрессом
-	 * @param array<int, array>                $catalog    Открытые курсы для самозаписи
 	 * @param array<int, array>                $upcoming   Ближайшие занятия (топ-6)
 	 * @param array<int, array>                $deadlines  Ближайшие дедлайны работ (топ-6)
 	 * @param array<int, array>                $recent     Последние оценки (топ-5)
@@ -30,7 +29,6 @@ readonly class LearnerDashboardDTO {
 		public ?array $examLock,
 		public array  $groups,
 		public array  $courses,
-		public array  $catalog,
 		public array  $upcoming,
 		public array  $deadlines,
 		public array  $recent,
@@ -49,7 +47,6 @@ readonly class LearnerDashboardDTO {
 			'exam_lock'  => $this->examLock,
 			'groups'     => $this->groups,
 			'courses'    => $this->courses,
-			'catalog'    => $this->catalog,
 			'upcoming'   => $this->upcoming,
 			'deadlines'  => $this->deadlines,
 			'recent'     => $this->recent,

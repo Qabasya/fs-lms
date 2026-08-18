@@ -25,6 +25,11 @@ if (!class_exists('wpdb')) {
         public int $insert_id = 1;
         public string $last_error = '';
         public string $prefix = 'wp_';
+        public string $users = 'wp_users';
+        public string $usermeta = 'wp_usermeta';
+        public string $posts = 'wp_posts';
+        public string $postmeta = 'wp_postmeta';
+        public string $options = 'wp_options';
         public function query(string $sql): bool|int { return 1; }
         public function prepare(string $sql, ...$args): string { return $sql; }
         public function insert(string $table, array $data, ?array $format = null): int|false { return 1; }
@@ -176,6 +181,9 @@ if (!function_exists('get_userdata')) {
     function get_userdata(int $userId): WP_User|false {
         return $GLOBALS['_fs_test_userdata'][$userId] ?? false;
     }
+}
+if (!function_exists('clean_user_cache')) {
+    function clean_user_cache(int|WP_User $user): void {}
 }
 if (!function_exists('user_can')) {
     function user_can(int $userId, string $cap): bool {

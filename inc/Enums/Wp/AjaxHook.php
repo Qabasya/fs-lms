@@ -271,7 +271,6 @@ enum AjaxHook: string {
 
 	// ==== ЛК учащегося/родителя (Эпик 7) ====
 	case GetLearnerProfile       = 'get_learner_profile';      // [student_person_id] — родитель выбирает ребёнка; ученик игнорит
-	case SelfEnrollOpenGroup     = 'self_enroll_open_group';   // params: group_id — самозапись ученика в открытую группу (Эпик 15, П10)
 	case GetOwnWorkDetail        = 'get_own_work_detail';      // params: source_type, source_id, [student_person_id] — деталь своей работы/попытки (задачи 12/13)
 
 	// ==== Кабинеты / аудитории (офис, Эпик 9) ====

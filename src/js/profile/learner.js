@@ -156,10 +156,8 @@ function renderLessons(root, d) {
                 <div id="scProgBody"></div>
             </div>
         ` : emptyCard('Активных курсов пока нет.')}
-        ${catalogHtml(d)}
     </div>`;
     wireChild(root);
-    wireCatalog(root);
     if (!courses.length) { return; }
 
     if (!scState || !courses.some(c => c.id === scState.active)) {
@@ -171,46 +169,6 @@ function renderLessons(root, d) {
         scState.query = e.target.value;
         scRenderProgram(courses);
     });
-}
-
-/* ── Каталог открытых курсов (Эпик 15, П10): самозапись учеником ───────── */
-function catalogHtml(d) {
-    const items = Array.isArray(d.catalog) ? d.catalog : [];
-    if (!items.length) { return ''; }
-    // Родитель — read-only: каталог виден, но записываться может только сам ученик.
-    const canEnroll = !isParent();
-    return `
-    <div class="prof-card sc-catalog">
-        <div class="prof-card-head">
-            <div><h3>Доступные курсы</h3><span class="ch-sub">свободное прохождение — весь курс открыт сразу</span></div>
-        </div>
-        ${items.map(c => `
-        <div class="sc-cat-row">
-            <span class="sc-chip ${chipBg(c.subject_key)}">${esc(shortName(c.title))}</span>
-            <span class="sc-lb">
-                <span class="sc-ltitle">${esc(c.title)}</span>
-                <span class="sc-lsub">${[c.subject, c.teacher, c.lessons_total ? c.lessons_total + ' ' + scPlural(c.lessons_total, ['урок', 'урока', 'уроков']) : ''].filter(Boolean).map(esc).join(' · ')}</span>
-            </span>
-            ${canEnroll ? `<button class="prof-btn prof-btn-sm prof-btn-primary js-cat-enroll" data-gid="${c.group_id}">Записаться</button>` : ''}
-        </div>`).join('')}
-    </div>`;
-}
-
-function wireCatalog(root) {
-    root.querySelectorAll('.js-cat-enroll').forEach(btn => btn.addEventListener('click', async () => {
-        btn.disabled = true;
-        btn.textContent = 'Записываем…';
-        try {
-            await api('selfEnroll', { group_id: btn.dataset.gid });
-            toast('Вы записаны на курс');
-            load(true);
-            rerenderAll();
-        } catch (e) {
-            toast(e.message, 'error');
-            btn.disabled = false;
-            btn.textContent = 'Записаться';
-        }
-    }));
 }
 
 const scCourse = (courses) => courses.find(c => c.id === scState.active) || courses[0];

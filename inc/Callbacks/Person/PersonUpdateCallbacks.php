@@ -10,6 +10,7 @@ use Inc\DTO\Log\Events\PersonDataChangedEvent;
 use Inc\Enums\Access\Capability;
 use Inc\Enums\Log\LogEvent;
 use Inc\Enums\Wp\Nonce;
+use Inc\Managers\Person\UserManager;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 use Inc\Services\Security\PasswordGeneratorService;
@@ -48,6 +49,7 @@ class PersonUpdateCallbacks extends BaseController {
 	 * @param PersonRepository         $personRepository         Репозиторий лиц
 	 * @param StudentRecordRepository  $studentRecordRepository  Репозиторий записей студентов
 	 * @param PasswordGeneratorService $passwordGenerator        Сервис генерации паролей
+	 * @param UserManager              $userManager              Смена логина WP-пользователя
 	 */
 	public function __construct(
 		private readonly PersonService            $personService,
@@ -55,6 +57,7 @@ class PersonUpdateCallbacks extends BaseController {
 		private readonly StudentRecordRepository  $studentRecordRepository,
 		private readonly PasswordGeneratorService $passwordGenerator,
 		private readonly LogEventDispatcherInterface $logEvents,
+		private readonly UserManager               $userManager,
 	) {
 		parent::__construct();
 	}
@@ -122,10 +125,15 @@ class PersonUpdateCallbacks extends BaseController {
 		if ( $person->wpUserId ) {
 			$userData = array( 'ID' => $person->wpUserId );
 
-			// Изменение логина
+			// Изменение логина. wp_update_user() игнорирует user_login при обновлении
+			// существующего пользователя (ограничение ядра WP) — меняем отдельно.
 			$newLogin = $this->sanitizeText( 'login' );
 			if ( $newLogin ) {
-				$userData['user_login'] = $newLogin;
+				try {
+					$this->userManager->changeLogin( $person->wpUserId, $newLogin );
+				} catch ( \RuntimeException $e ) {
+					$this->error( $e->getMessage() );
+				}
 			}
 
 			// Изменение email

@@ -7,8 +7,6 @@ namespace Inc\Services\Profile\Learner;
 use Inc\DTO\Course\GroupLessonDTO;
 use Inc\Managers\Course\CourseManager;
 use Inc\Managers\Course\LessonManager;
-use Inc\Repositories\OptionsRepositories\SubjectRepository;
-use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Services\Assessment\ExamLockService;
 use Inc\Services\Course\LessonProgressService;
 
@@ -16,8 +14,7 @@ use Inc\Services\Course\LessonProgressService;
  * Class LearnerCoursesSection
  *
  * Секция кабинета ученика: «Мои курсы» (структура модулей, статусы уроков,
- * recency-сортировка), каталог открытых курсов для самозаписи (Эпик 15, П10)
- * и гейт активной контрольной (ExamLockService).
+ * recency-сортировка) и гейт активной контрольной (ExamLockService).
  *
  * Выделена из LearnerService (Т14.3).
  *
@@ -29,8 +26,6 @@ class LearnerCoursesSection {
 		private readonly CourseManager         $courses,
 		private readonly LessonManager         $lessons,
 		private readonly LessonProgressService $progress,
-		private readonly SubjectRepository     $subjects,
-		private readonly GroupsRepository      $groups,
 		private readonly ExamLockService       $examLock,
 		private readonly LearnerContextBuilder $contextBuilder,
 	) {}
@@ -56,39 +51,6 @@ class LearnerCoursesSection {
 			'title' => get_the_title( $lockAttempt->assessmentId ) ?: 'Экзамен',
 			'url'   => (string) get_permalink( $lockAttempt->assessmentId ),
 		);
-	}
-
-	/**
-	 * Каталог открытых курсов для самозаписи (Эпик 15, П10): открытые группы с
-	 * назначенным курсом, в которых ученик ещё не состоит.
-	 *
-	 * @param int[] $memberGroupIds ID групп, где ученик уже активен.
-	 * @return array<int, array<string, mixed>>
-	 */
-	public function buildCatalog( array $memberGroupIds ): array {
-		$catalog = array();
-		foreach ( $this->groups->findOpen() as $g ) {
-			$gid      = (int) $g->id;
-			$courseId = (int) ( $g->course_id ?? 0 );
-			if ( $courseId <= 0 || in_array( $gid, $memberGroupIds, true ) ) {
-				continue;
-			}
-			$course = $this->courses->get( $courseId );
-			if ( null === $course ) {
-				continue;
-			}
-			$subjectName = $this->subjects->getByKey( $g->subject_key )?->name ?? $g->subject_key;
-			$catalog[]   = array(
-				'group_id'      => $gid,
-				'title'         => '' !== $course->title ? $course->title : $subjectName,
-				'subject'       => $subjectName,
-				'subject_key'   => (string) $g->subject_key,
-				'teacher'       => ! empty( $g->teacher_id ) ? ( get_userdata( (int) $g->teacher_id )->display_name ?? '' ) : '',
-				'lessons_total' => count( $course->lessonIds() ),
-			);
-		}
-
-		return $catalog;
 	}
 
 	/**

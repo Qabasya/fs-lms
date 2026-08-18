@@ -55,8 +55,6 @@ class LearnerService {
 			examLock:   $this->coursesSection->examLock( $personId ),
 			groups:     $visibleGroups,
 			courses:    $this->coursesSection->buildCourses( $ctx->groups, $ctx->rawRows, $ctx->lessonMap, $ctx->roomNames, $personId ),
-			// Эпик 15 (П10): каталог открытых курсов для самозаписи.
-			catalog:    $this->coursesSection->buildCatalog( array_keys( $ctx->groups ) ),
 			upcoming:   array_slice( $this->schedule->upcoming( $ctx ), 0, 6 ),
 			deadlines:  array_slice( $this->schedule->deadlines( $ctx, $personId ), 0, 6 ),
 			recent:     array_slice( $this->performance->recentGrades( $grades ), 0, 5 ),

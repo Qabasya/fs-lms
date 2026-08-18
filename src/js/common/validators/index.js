@@ -7,6 +7,7 @@ import { PassportSeriesNumberValidator } from './PassportSeriesNumberValidator.j
 import {SchoolNameValidator} from "./SchoolNameValidator";
 import {InnValidator} from "./InnValidator";
 import {CyrillicDigitsValidator} from "./CyrillicDigitsValidator";
+import {SubjectNameValidator} from "./SubjectNameValidator";
 
 // Экспортируем карту инстансов для быстрого доступа по ключу
 export const FieldValidators = {
@@ -14,6 +15,7 @@ export const FieldValidators = {
     phone:        new PhoneValidator(),
     cyrillicName: new CyrillicNameValidator(),
     cyrillicDigits: new CyrillicDigitsValidator(),
+    subjectName:  new SubjectNameValidator(),
     address:     new AddressValidator(),
     schoolName:   new SchoolNameValidator(),
     latinOnly:    new LatinOnlyValidator(),
