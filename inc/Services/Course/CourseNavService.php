@@ -6,6 +6,7 @@ namespace Inc\Services\Course;
 
 use Inc\DTO\Course\CourseDTO;
 use Inc\DTO\Course\GroupLessonDTO;
+use Inc\Enums\Course\LessonKind;
 use Inc\Managers\Course\CourseManager;
 use Inc\Managers\Course\LessonManager;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
@@ -272,7 +273,7 @@ class CourseNavService {
 		return array_values(
 			array_filter(
 				$this->groupLessons->listByGroup( $groupId ),
-				static fn( GroupLessonDTO $row ): bool => 'group' === $row->kind && null === $row->continuedFromId
+				static fn( GroupLessonDTO $row ): bool => LessonKind::Group === $row->kind && null === $row->continuedFromId
 			)
 		);
 	}

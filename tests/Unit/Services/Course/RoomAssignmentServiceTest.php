@@ -6,6 +6,7 @@ namespace Unit\Services\Course;
 
 use Inc\DTO\Course\GroupLessonDTO;
 use Inc\DTO\Course\RoomDTO;
+use Inc\Enums\Course\LessonKind;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\WPDBRepositories\RoomRepository;
@@ -103,7 +104,7 @@ class RoomAssignmentServiceTest extends TestCase {
 			id: $id, groupId: 7, lessonId: 1, position: 0, workIdsSnapshot: null, extraWorkIds: array(),
 			scheduledAt: $start, endsAt: null, isPinned: false, teacherUserId: null, visibility: 'open',
 			openedAt: null, homeworkDueAt: null, allowLate: true, recordingUrl: null,
-			createdByUserId: null, updatedByUserId: null, kind: $kind,
+			createdByUserId: null, updatedByUserId: null, kind: LessonKind::fromValueOrDefault( $kind ),
 		);
 	}
 

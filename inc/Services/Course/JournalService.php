@@ -73,7 +73,7 @@ class JournalService {
 		$lessons = array();
 		foreach ( $this->groupLessons->listByGroup( $groupId ) as $row ) {
 			// Индивидуальные (на одного ученика) не образуют столбец группового журнала.
-			if ( 'individual' === $row->kind ) {
+			if ( $row->kind->isIndividual() ) {
 				continue;
 			}
 			if ( ! $row->scheduledAt && ! $isOpen ) {

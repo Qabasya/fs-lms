@@ -65,7 +65,6 @@ npx gulp styles:common    # common CSS only
 `inc/Contracts/` defines interfaces all implementations must satisfy:
 - `ServiceInterface` — `register(): void`; required by DI container bootstrap
 - `FieldInterface` — implemented by MetaBox field classes
-- `AuthStrategyInterface` — implemented by each OAuth provider strategy
 
 ### Data Model
 
@@ -147,9 +146,6 @@ Log format: `[FS LMS] CONTEXT: message | Context: {timestamp, user_id, ip, ...da
 
 Дополнено 2026-08-08 (этап фиксов по сквозному ревью):
 
-- **Бренд-логотипы OAuth** — цветные, не `currentColor`, поэтому живут НЕ в `Icon`, а в партиале
-  `templates/admin/components/modals/partials/provider-logo.php`. Новый бренд-SVG — только через
-  этот партиал; модульные шаблоны (SocialAuth `settings-tab.php`) подключают его же, а не копируют пути.
 - **Модульные AJAX-экшены** — локальные константы модуля (`AdSyncSettingsController::SAVE_ACTION`,
   `AdSyncController::STATUS_ACTION` и аналоги в DaData/VideoLibrary/SmartCaptcha), вне core `AjaxHook`:
   ядро не знает о модулях. Обработчики — всё равно в Callbacks-классах модуля.
@@ -228,9 +224,17 @@ CSV-импорт учеников, два режима (`Inc\Enums\Import\Import
 распаковки описаны в `inc/Services/Subject/Bundle/CLAUDE.md` (грузится при работе с каталогом).
 Большие предметы — через WP-CLI `wp fs-lms subject export|import`.
 
-### Auth (`inc/Modules/SocialAuth/Services/`)
+### Вход (`inc/Controllers/Person/AuthPageController.php`)
 
-OAuth via Hybridauth, extracted into the disable-able `SocialAuth` module (`inc/Modules/SocialAuth/`). `AuthService` orchestrates the full flow: find user by social ID → find by email (account linking) → register new → WP login. Provider strategies in `Services/AuthStrategies/` (Google, VK, GitHub) implement `AuthStrategyInterface`. Auth settings (client IDs, secrets) stored in `OptionName::AUTH_SETTINGS`. Social user meta keys follow the pattern `fs_social_{provider}_id`.
+Вход — только по логину и паролю, штатным механизмом WordPress. Страница `/sign-in/`
+(шорткод `ShortCode::LoginForm`, шаблон `templates/frontend/auth-page.php`) живёт в ядре:
+контроллер регистрирует шорткод, уводит GET-заходы с `wp-login.php` на страницу плагина,
+на `wp_login_failed` (приоритет 20 — после `AuthLogController`) возвращает на неё с флагом
+ошибки и введённым логином, а `template_include` подменяет шаблон темы на `clean-page.php`.
+Сама форма постит на `wp-login.php`, поэтому проверкой пароля и куками занимается WP.
+
+Входа через соцсети нет: модуль `SocialAuth` (Hybridauth, Google/VK/GitHub) снят при
+подготовке релиза вместе со свободными ролями внешних пользователей.
 
 **Filter hook for CPT args:** `apply_filters('fs_lms_cpt_args', $args, $type, $subject)` — fired in `SubjectController` before registering each CPT; allows external modification of labels and options.
 

@@ -1,6 +1,150 @@
 # Bug fix
 
-...
+## КТП: переполнение периода, ручное распределение и урок вне расписания
+
+### Что выяснено (проверено зондом на `FakeWpdb`, не рассуждением)
+
+**Раскладка живёт в двух местах.** `SessionCalendarService::generate()` разворачивает
+`group.meetings[] × [period.start..period.end] − holidays[]` в упорядоченный список слотов;
+`GroupLessonRepository::applySlots()` идёт по строкам программы **в порядке `position`** и
+выдаёт им слоты по курсору `$i`. Пиннутые и индивидуальные строки пропускаются, `held`
+съедает слот, `cancelled`/`moved` освобождает.
+
+**1. Уроков больше, чем слотов — наполовину работает.**
+`applySlots()` на исчерпании слотов делает `break`. Строки без даты остаются с
+`scheduled_at = NULL` → попадают в пул «Темы курса», счётчик в шапке показывает
+`72 / 80 распределено`. **Это верное поведение.**
+
+Но `break` не трогает строки, у которых дата **уже была**. Зонд:
+
+```
+4 урока, 2 слота, у уроков 3–4 даты с прошлой раскладки (период укоротили)
+  UPDATE id=1 → '2026-09-01 10:00:00'
+  UPDATE id=2 → '2026-09-03 10:00:00'
+  всего UPDATE: 2 — строки 3 и 4 не тронуты, старые даты остались
+```
+
+То есть после сокращения периода (сдвинули `end_date`, убрали день из `meetings`, добавили
+праздники) хвост висит на датах **вне нового периода**: в пул не вернулся, в календаре не
+виден (месяц за границей), в счётчике числится распределённым.
+
+Плюс предупреждение о переполнении уходит только в `PluginLogger::warning` →
+`debug.log`. Преподаватель его не увидит никогда.
+
+**2. Ручное распределение ломает порядок — подтверждено.**
+`ScheduleReflowService::pinToDate()` пишет `scheduled_at` + `is_pinned`, но **не трогает
+`position`**, а `applySlots()` ходит именно по `position`. Курсор-догон
+(`while ($slots[$i] <= $row->scheduledAt) ++$i`) срабатывает только когда обход **дошёл**
+до пиннутой строки — а к этому моменту курсор уже ушёл вперёд. Зонд:
+
+```
+урок #5 (position 4) перетащили на 2026-09-03 — дату 2-го слота
+  урок #1 → 2026-09-01
+  урок #2 → 2026-09-03   ← коллизия
+  урок #3 → 2026-09-05
+  урок #4 → 2026-09-08
+  урок #5 → 2026-09-03   (закреплён)
+```
+
+Два урока на 03.09, а после закреплённого идут #3 и #4 вместо #6, #7. Ожидание
+«поставил на место 9 → дальше 10, 11» не выполняется. Существующий тест
+`test_apply_slots_distributes_after_pinned_first_lesson` этот случай не ловит: он пиннит
+строку с `position 0`, где курсор ещё не успел уйти.
+
+**Побочный баг там же:** `pinToDate()` зовёт
+`updateSchedule($id, $scheduledAt, $row->teacherUserId)` — четвёртый аргумент `$endsAt`
+по умолчанию `null`, то есть **затирает `ends_at`**. Восстановить некому: `applySlots()`
+пиннутые строки пропускает. Дальше страдают проверка занятости кабинета
+(`assertRoomFree()` падает на фолбэк «+60 минут»), время в ячейке календаря и подбор
+записи занятия по временному окну в VideoLibrary.
+
+**3. Урока вне расписания сейчас нет.** `attachDrop()` в `src/js/profile/ktp.js` вешается
+только на `.kal-cell[data-lesson="1"]`, а время берёт из `lessonTimes[day]` и без него
+отказывается закреплять. Механика для фичи, однако, уже есть целиком:
+`LessonVisibilityService::effectiveVisibility()` открывает урок ученикам, как только
+наступил `scheduled_at`. То есть «урок вне расписания» — это обычная строка с датой на дне,
+которого нет в `meetings`, и `is_pinned = 1` (пиннутые слот не потребляют, последовательность
+не сдвигают).
+
+---
+
+### Этап 1. Хвост за пределами периода возвращается в пул
+
+- [ ] `GroupLessonRepository::applySlots()` — заменить `break` на проход до конца: строкам,
+      которым слот не достался, ставить `scheduled_at = NULL`, `ends_at = NULL`,
+      `room_id = NULL`, `is_pinned = 0`. Не трогать `held` (исторический факт) и
+      индивидуальные
+- [ ] Тест: «слотов меньше, чем строк — хвост обнуляется, а не сохраняет старую дату»
+- [ ] Тест: «`held` за пределами слотов сохраняет дату»
+
+### Этап 2. Переполнение видно преподавателю
+
+- [ ] `SessionCalendarService::reflow()` — возвращать не только `int $conflicts`, а структуру
+      `{conflicts:int, slots:int, consuming:int, unplaced:int}`. Сейчас сигнатура `int`,
+      её читает `ScheduleReflowService::reflow()` → `ajaxReflowSchedule()` → `doReflow()`
+- [ ] `GroupCalendarService::getCalendar()` — добавить в payload `slots_total` и `unplaced`
+      (считается там же, где `periodMeta`), чтобы баннер жил и после перезагрузки страницы,
+      а не только в тосте после нажатия «Распределить»
+- [ ] `src/js/profile/ktp.js` — баннер над календарём: «В периоде 72 занятия, в курсе 80 тем.
+      8 тем не поместились — поставьте их вручную или откройте вне расписания».
+      Тост `doReflow()` дополнить тем же числом
+- [ ] Стиль баннера — в `src/scss/profile/components/`, токенами, без инлайна
+
+### Этап 3. Перетаскивание переставляет урок в последовательности
+
+Смысл операции меняется: сейчас drop = «закрепить на дате», должно быть «переставить на это
+место в последовательности и закрепить». Иначе ожидание «после 9-го идут 10, 11» невыполнимо
+в принципе — `applySlots()` раздаёт слоты строго по `position`.
+
+- [ ] `ScheduleReflowService::pinToDate()` — перед `reflow()` пересчитать `position`:
+      1. взять групповые строки группы по `position` (`getProgram()` уже отфильтровывает
+         индивидуальные);
+      2. найти индекс целевого слота `k` в `SessionCalendarService::generate()`;
+      3. вынуть перетаскиваемую строку из списка и вставить на позицию `k` среди
+         **слот-потребляющих** строк (не пиннутых, не `cancelled`/`moved`);
+      4. записать новый порядок через существующий `GroupLessonRepository::reorder()`
+- [ ] Даты без слота (этап 4) — индекс вставки считать по сравнению дат с соседями,
+      а не по индексу слота
+- [ ] Продолжения темы (`continuedFromId`, T12.6) — перемещать вместе с оригиналом, иначе
+      части «1/2» и «2/2» разъедутся по последовательности
+- [ ] **Починить `ends_at`**: `pinToDate()` обязан передавать четвёртый аргумент
+      `updateSchedule()` — конец слота из `generate()`, а для дня без слота — начало плюс
+      длительность из `meetings` (при разнобое — длительность ближайшей встречи)
+- [ ] Тест: «перетаскивание урока #5 на дату 2-го слота даёт 1,2,5,3,4 по датам без коллизий»
+- [ ] Тест: «`ends_at` после `pinToDate()` не пустой»
+- [ ] Тест: «продолжение темы едет за оригиналом»
+
+### Этап 4. Урок вне расписания
+
+- [ ] `src/js/profile/ktp.js` — `attachDrop()` вешать на **все** ячейки периода, кроме
+      выходных (`holiday`), а не только на `[data-lesson="1"]`
+- [ ] День со слотом, где уже есть тема: ставить урок **после** существующего — время старта
+      равно `ends_at` последней темы дня (стек по дате уже поддержан, T12.5). Модалку не
+      показывать
+- [ ] День без слота: модалка-предупреждение «В этот день занятия нет. Урок просто откроется
+      ученикам — выберите время» + выбор времени (дефолт — время ближайшей встречи из
+      `meetings`) и длительности. Компонент — рядом с `ktp-individual.js`, паттерн
+      `indi-modal.js`
+- [ ] Бэкенд: `ajaxPinLesson()` принимает необязательные `ends_at`/`duration_min`;
+      `pinToDate()` пишет `is_pinned = 1` — такая строка слот не потребляет и
+      последовательность не двигает
+- [ ] Валидация на сервере: дата внутри периода, день не выходной, кабинет свободен
+      (`assertRoomFree()` уже есть), время не пересекается с другим занятием группы в этот день
+- [ ] Отдавать признак «вне расписания» в `getCalendar()` (`off_schedule: scheduled_at есть,
+      дня нет в lessonDays`) и помечать карточку в календаре — иначе такой урок неотличим
+      от планового
+- [ ] Проверить `LessonVisibilityService::effectiveVisibility()`: урок вне расписания должен
+      открыться ученикам ровно в назначенное время, отдельной ветки не требуется — убедиться
+      тестом, а не предположением
+- [ ] Журнал и посещаемость: убедиться, что занятие вне расписания попадает в
+      `JournalService` и `AttendanceService` наравне с плановым
+
+### Открытый вопрос
+
+Смена смысла drag в этапе 3 ломает сценарий «закрепить тему на дате, не меняя порядок»
+(например, «эта тема обязана быть 1 сентября, остальное вокруг»). Если такой сценарий нужен,
+его придётся оставить отдельным действием — например, пункт «Закрепить дату» в меню темы
+(`ktp-popovers.js`), рядом с «Продолжить на другую дату». **Решить до реализации этапа 3.**
 
 ---
 
@@ -134,25 +278,28 @@ docker exec wp_db mariadb -u root -proot wordpress -e "SHOW TABLES LIKE 'wp_fs_l
 шорткодом `fs_lms_login_form`, но регистрировать шорткод некому — страница пустая, редиректа
 с `wp-login.php` нет. Перенос в ядро чинит это, а не украшает.
 
-- [ ] Создать `inc/Controllers/Person/AuthPageController.php` (ядро, в `Init::getServices()`) —
-      копия `SocialAuthPageController` без `$providers`: `add_shortcode(ShortCode::LoginForm)`,
-      `redirectToCustomLogin()` (перехват `wp-login.php`), `redirectFailedLogin()` на
-      `wp_login_failed` с приоритетом 20, `forceCleanAuthLayout()` через `template_include`
-- [ ] `templates/frontend/auth-page.php` — оставить форму, убрать блок
-      `if ( ! empty( $providers ) )` целиком; убрать закомментированный блок
-      «Зарегистрироваться как преподаватель»; `<a href="#">` в футере заменить реальными
-      ссылками (страница согласия из `ConsentDefinitionsRepository`) либо снять абзац
-- [ ] `src/scss/frontend/components/_auth-page.scss` — снять `&__socials`, `&__btn-social`,
-      `.fs-social-icon` (строки ~83–115)
-- [ ] Удалить `inc/Modules/SocialAuth/` целиком (18 файлов)
-- [ ] Удалить `SocialAuthModule` из `Init::getServices()` + `use`
-- [ ] Удалить `OptionName::AuthSettings` — читается только `SocialAuthSettingsRepository`
-- [ ] Убрать `hybridauth/hybridauth` из `composer.json`, пересобрать `composer.lock`
-- [ ] `templates/admin/components/modals/partials/provider-logo.php` — удалять **только если**
-      после правки `help-modal.php` он больше не нужен: сейчас его подключает и
-      `settings-tab.php` модуля, и `help-modal.php` (три бренд-логотипа в инструкции по OAuth).
-      Инструкцию из help-модалки убрать вместе с модулем — тогда партиал уходит следом
-- [ ] Вычистить упоминания SocialAuth / `AuthStrategyInterface` из `CLAUDE.md`
+- [x] Создан `inc/Controllers/Person/AuthPageController.php` (ядро, в `Init::getServices()`) —
+      `add_shortcode(ShortCode::LoginForm)`, `redirectToCustomLogin()` (перехват `wp-login.php`),
+      `redirectFailedLogin()` на `wp_login_failed` с приоритетом 20 (после `AuthLogController`),
+      `forceCleanAuthLayout()` через `template_include`
+- [x] `templates/frontend/auth-page.php` — блок провайдеров и закомментированная регистрация
+      преподавателя убраны; вместо `<a href="#">` футер ведёт на страницу согласия
+      (`ConsentDefinitionsRepository`, ключ `pd_processing`) и целиком скрывается, если
+      согласие не заведено
+- [x] `src/scss/frontend/components/_auth-page.scss` — сняты `&__divider`, `&__socials`,
+      `&__btn-social`, `.fs-social-icon`
+- [x] Удалён `inc/Modules/SocialAuth/` целиком (18 файлов)
+- [x] Удалён `SocialAuthModule` из `Init::getServices()` + `use`
+- [x] Удалён `OptionName::AuthSettings`; заодно снят осиротевший
+      `UserRepository::getBySocialId()`
+- [x] `hybridauth/hybridauth` убран из `composer.json`, `composer.lock` пересобран
+- [x] Удалены `provider-logo.php` и секции google/vk/github из `help-modal.php` (модалка
+      осталась — её используют DaData и SmartCaptcha); удалён
+      `src/js/admin/services/settings/auth-settings.js` и его вызов в `admin.js`
+- [x] Упоминания SocialAuth / `AuthStrategyInterface` вычищены из `CLAUDE.md`
+- [x] `RoutingPagesMigration` — добавлен `/sign-in/` (страницей больше не владеет модуль),
+      `VERSION` поднята до `'2'`. Класс всё равно уходит на этапе 2 — правка на время
+      до него
 
 ---
 
@@ -188,8 +335,12 @@ docker exec wp_db mariadb -u root -proot wordpress -e "SHOW TABLES LIKE 'wp_fs_l
 `Capability::ManageLMSAssignments` — такого кейса в энуме нет (там 14 других). Удаление
 плагина из админки падает фаталом.
 
-- [ ] `uninstall.php` — убрать строку 47, список `$lms_caps` привести к фактическому набору из
-      `UserRole::FSOffice->capabilities()`
+- [x] `uninstall.php` переписан. Список прав больше не хардкодится: `RoleManager::purgeAdminCaps()`
+      собирает его из `Capability::cases()` + производных прав CPT — из тех же источников, что и
+      выдача, поэтому разойтись снова не может. `manage_options` и `manage_categories` исключены
+      явно (штатные права WP, плагин их не выдавал). Таблицы сносятся по префиксу
+      `{prefix}fs_lms_%`, а не перечислением: старый список из `Migration_1_0_0::down()`
+      оставлял в базе `fs_lms_ad_outbox` и `fs_lms_video_recordings` (таблицы модулей)
 
 **Энумы:**
 
@@ -205,9 +356,11 @@ docker exec wp_db mariadb -u root -proot wordpress -e "SHOW TABLES LIKE 'wp_fs_l
 - [ ] `ShortCode::GroupLessons` (`fs_lms_group_lessons`, остаток снятого кокпита группы)
 - [ ] `PageRoutes::ConsentPage` (`'consent'`) — проверить `templates/frontend/consent-page.php`:
       если страница рендерится по другому маршруту, кейс мёртв
-- [ ] `Inc\Enums\Course\LessonKind` — файл никем не импортируется, `group_lessons.kind`
-      читается сырой строкой. Либо удалить энум, либо (лучше по CLAUDE.md «ключи только через
-      энумы») завести его в `GroupLessonDTO`. **Решить, посмотрев на потребителей**
+- [x] `Inc\Enums\Course\LessonKind` — протащен в `GroupLessonDTO` и `GroupLessonInputDTO`
+      (было: `public string $kind = 'group'`). 23 файла: сравнения `'individual' === $row->kind`
+      заменены на `$row->kind->isIndividual()`, два SQL-литерала в `GroupLessonRepository`
+      (`unscheduleAll`, `listIndividualByTeacherAndDay`) — на `%s` + `LessonKind::Individual->value`,
+      выходные массивы отдают `->value`. JSON-контракт для JS не изменился
 
 **Классы:**
 
@@ -302,8 +455,9 @@ inc/Services/Subject/Bundle/CLAUDE.md
    обязательна, иначе WP распакует файлы в корень `wp-content/plugins/`
 10. `softprops/action-gh-release@v2` с ZIP в `files`
 
-- [ ] **`.github/workflows/ci.yml`** — добавить `npm run lint:css` в job `assets`: сейчас его
-      там нет, хотя `npm run ci` его гоняет — то есть stylelint не проверяется на PR
+- [x] **`.github/workflows/ci.yml`** — `npm run lint:css` добавлен в job `assets` (раньше
+      stylelint на PR не проверялся). Прогон: 0 ошибок, 123 предупреждения `!important`,
+      exit 0 — гейт не красный
 - [ ] **Версия** — поднять `0.0.1` → `1.0.0` в трёх местах: шапка `fs-lms.php`, константа
       `FS_LMS_VERSION`, `package.json`. Заодно `@since 0.0.1` в `uninstall.php`
 
@@ -341,10 +495,18 @@ inc/Services/Subject/Bundle/CLAUDE.md
 страницу с ошибкой и подставленным логином; `logout` не зацикливается; ролей
 `lms_student_free` / `lms_teacher_free` в БД нет.
 
-**5. Удаление плагина не падает**
+**5. Удаление плагина не падает** ✅ прогнано 2026-08-19 на dev (снимок БД → прогон → восстановление)
 
-«Удалить» в списке плагинов → `uninstall.php` отрабатывает, таблицы и опции `fs_lms_%` снесены,
-capabilities с администратора сняты.
+| Этап | Таблицы `wp_fs_lms_*` | Опции `fs_lms_%` | LMS-роли | `manage_lms_platform` у admin | Крон |
+|---|---|---|---|---|---|
+| исходно | 27 | 17 | 8 | да | стоит |
+| после `deactivate` | **27** | **17** | 0 | да | снят |
+| после `activate` | 27 | 17 | 8 | да | стоит |
+| после `uninstall` | **0** | **0** | 0 | нет | снят |
+
+Ключевое: деактивация не трогает ни одной строки данных — данные уничтожает только удаление.
+После uninstall остались 13 штатных таблиц WP; `manage_options` и `manage_categories` у
+администратора на месте. Фатала (старый `Capability::ManageLMSAssignments`) больше нет.
 
 **6. Релизный ZIP**
 

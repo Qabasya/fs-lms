@@ -5,6 +5,7 @@ declare( strict_types=1 );
 namespace Unit\Modules\VideoLibrary;
 
 use Inc\DTO\Course\GroupLessonDTO;
+use Inc\Enums\Course\LessonKind;
 use Inc\Modules\VideoLibrary\Services\VideoLessonResolver;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use PHPUnit\Framework\TestCase;
@@ -39,7 +40,7 @@ class VideoLessonResolverTest extends TestCase {
 			recordingUrl    : null,
 			createdByUserId : null,
 			updatedByUserId : null,
-			kind            : $over['kind'] ?? 'group',
+			kind            : LessonKind::fromValueOrDefault( (string) ( $over['kind'] ?? '' ) ),
 			status          : $over['status'] ?? 'scheduled',
 		);
 	}

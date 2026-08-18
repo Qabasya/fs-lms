@@ -11,6 +11,7 @@ use Inc\DTO\Course\GroupLessonDTO;
 use Inc\DTO\Course\GroupLessonInputDTO;
 use Inc\DTO\Course\ModuleDTO;
 use Inc\Enums\Course\AssignmentPolicy;
+use Inc\Enums\Course\LessonKind;
 use Inc\Enums\Log\LogEvent;
 use Inc\Managers\Course\CourseManager;
 use Inc\Managers\Course\LessonManager;
@@ -283,7 +284,7 @@ class CourseAssignmentServiceTest extends TestCase {
 			id: $id, groupId: 1, lessonId: $lessonId, position: 0, workIdsSnapshot: null, extraWorkIds: array(),
 			scheduledAt: null, endsAt: null, isPinned: false, teacherUserId: null, visibility: 'hidden',
 			openedAt: null, homeworkDueAt: null, allowLate: true, recordingUrl: null,
-			createdByUserId: null, updatedByUserId: null, label: null, kind: $kind,
+			createdByUserId: null, updatedByUserId: null, label: null, kind: LessonKind::fromValueOrDefault( $kind ),
 		);
 	}
 

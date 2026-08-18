@@ -62,7 +62,7 @@ class IndividualLessonServiceTest extends TestCase {
 		$this->groupLessons->expects( self::once() )
 			->method( 'add' )
 			->with( self::callback(
-				static fn( $dto ) => 'individual' === $dto->kind
+				static fn( $dto ) => $dto->kind->isIndividual()
 					&& 9001 === $dto->studentPersonId
 					&& true === $dto->isPinned
 					&& '2026-05-20 15:00:00' === $dto->scheduledAt

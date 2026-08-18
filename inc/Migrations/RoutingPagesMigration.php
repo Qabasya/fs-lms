@@ -29,9 +29,9 @@ use Inc\Services\System\PageGeneratorService;
  * Та выполняется только при (ре)активации — паттерн {@see BroadcastStepMigration}:
  * гейт собственной опцией, вызов из {@see \Inc\Init::run()} на обычной загрузке.
  *
- * `/sign-in/` сюда намеренно не включён — этой страницей владеет модуль
- * SocialAuth и сам её восстанавливает при включении (`onToggle`); ядро не
- * должно знать о модулях.
+ * `/sign-in/` тоже здесь: раньше страницей владел модуль SocialAuth и
+ * восстанавливал её сам при включении, но модуль снят, а форма входа переехала
+ * в ядро ({@see \Inc\Controllers\Person\AuthPageController}).
  *
  * Идемпотентна: {@see PageGeneratorService::ensurePublished()} не трогает уже
  * опубликованные страницы.
@@ -43,8 +43,8 @@ class RoutingPagesMigration {
 	/** Опция-гейт (значение = версия выполненной миграции). */
 	private const VERSION_OPTION = 'fs_lms_routing_pages_migration';
 
-	/** Версия миграции. */
-	private const VERSION = '1';
+	/** Версия миграции. Поднята до '2' вместе с добавлением `/sign-in/`. */
+	private const VERSION = '2';
 
 	public function __construct( private readonly PageGeneratorService $pages ) {}
 
@@ -59,6 +59,7 @@ class RoutingPagesMigration {
 			return;
 		}
 
+		$this->pages->ensurePublished( PageRoutes::SignIn, 'Авторизация', ShortCode::LoginForm->tag() );
 		$this->pages->ensurePublished( PageRoutes::Apply, 'Подать заявку', ShortCode::ApplyForm->tag() );
 		$this->pages->ensurePublished( PageRoutes::UserProfile, 'Личный кабинет', ShortCode::Profile->tag() );
 		$this->pages->ensurePublished( PageRoutes::LessonPlayer, 'Урок', '' );

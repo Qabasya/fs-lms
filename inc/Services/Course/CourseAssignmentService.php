@@ -209,7 +209,7 @@ class CourseAssignmentService {
 
 			foreach ( $this->groupLessons->listByGroup( (int) $group->id ) as $row ) {
 				$lessonId = (int) ( $row->lessonId ?? 0 );
-				if ( $lessonId <= 0 || 'individual' === $row->kind ) {
+				if ( $lessonId <= 0 || $row->kind->isIndividual() ) {
 					continue; // индивидуальные/безурочные строки — не из курса.
 				}
 				if ( isset( $courseLessonIds[ $lessonId ] ) ) {

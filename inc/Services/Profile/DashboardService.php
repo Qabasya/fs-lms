@@ -93,7 +93,7 @@ class DashboardService {
 					++$lessonsTd;
 					// НБ-10: группы — по уникальным group_id групповых занятий, инд. —
 					// отдельно; иначе «занятий» и «групп» расходятся с расписанием.
-					if ( 'individual' === $row->kind ) {
+					if ( $row->kind->isIndividual() ) {
 						++$todayIndividual;
 					} else {
 						$todayGroupIds[ $gid ] = true;
@@ -104,7 +104,7 @@ class DashboardService {
 				$weekItems[] = $item;
 
 				// «Заполнить»: прошедшее групповое занятие без единой отметки.
-				if ( 'individual' !== $row->kind && $row->scheduledAt < $now && ! isset( $matrix[ $row->id ] ) ) {
+				if ( ! $row->kind->isIndividual() && $row->scheduledAt < $now && ! isset( $matrix[ $row->id ] ) ) {
 					$toFill[] = array(
 						'group_lesson_id' => $row->id,
 						'group_id'        => $gid,
@@ -230,11 +230,11 @@ class DashboardService {
 			'date'            => substr( (string) $row->scheduledAt, 0, 10 ),
 			'start'           => substr( (string) $row->scheduledAt, 11, 5 ),
 			'end'             => $row->endsAt ? substr( $row->endsAt, 11, 5 ) : '',
-			'kind'            => $row->kind,
+			'kind'            => $row->kind->value,
 			'is_substitute'   => $isCovering,
 			'room'            => $this->roomName( $row, $g, $roomNames ),
 			// НБ-9: ФИО ученика для индивидуального занятия (для группового — пусто).
-			'student_name'    => ( 'individual' === $row->kind && null !== $row->studentPersonId )
+			'student_name'    => ( $row->kind->isIndividual() && null !== $row->studentPersonId )
 				? ( $studentNames[ $row->studentPersonId ] ?? '' ) : '',
 			'player_url'      => $hasContent ? PageRoutes::LessonPlayer->lessonUrl( $gid, $row->id ) : '',
 		);

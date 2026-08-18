@@ -5,6 +5,7 @@ declare( strict_types=1 );
 namespace Inc\Services\Profile\Learner;
 
 use Inc\DTO\Course\GroupLessonDTO;
+use Inc\Enums\Course\LessonKind;
 use Inc\Managers\Course\CourseManager;
 use Inc\Managers\Course\LessonManager;
 use Inc\Services\Assessment\ExamLockService;
@@ -70,7 +71,7 @@ class LearnerCoursesSection {
 		// lessonId → item ученика, по группе (групповые занятия с контентом).
 		$byLesson = array();
 		foreach ( $rawRows as $glid => $row ) {
-			if ( 'individual' === $row->kind || null === $row->lessonId || 0 === (int) $row->lessonId ) {
+			if ( $row->kind->isIndividual() || null === $row->lessonId || 0 === (int) $row->lessonId ) {
 				continue;
 			}
 			$byLesson[ $row->groupId ][ (int) $row->lessonId ] = $lessonMap[ $glid ] ?? null;
@@ -101,7 +102,7 @@ class LearnerCoursesSection {
 			if ( empty( $modules ) ) {
 				$rows = array_values( array_filter(
 					$lessonMap,
-					static fn( $it ) => $it['group_id'] === $gid && 'individual' !== $it['kind']
+					static fn( $it ) => $it['group_id'] === $gid && LessonKind::Individual->value !== $it['kind']
 				) );
 				usort( $rows, static fn( $a, $b ) => strcmp( (string) $a['scheduled_at'], (string) $b['scheduled_at'] ) );
 				foreach ( $rows as $i => $it ) {

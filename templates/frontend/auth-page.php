@@ -3,9 +3,8 @@
  * Шаблон страницы авторизации (Sign-In)
  *
  * @package FS LMS
- * @var array<string, array{url: string, id: string, label: string}> $providers    Список активных провайдеров соцсетей
- * @var string                                                           $register_url URL страницы регистрации
- * @var string                                                           $lost_pass_url URL страницы восстановления пароля
+ * @var string $lost_pass_url URL восстановления пароля
+ * @var string $consent_url   URL согласия на обработку ПДн; '' — сноску не показываем
  */
 
 // Флаг неудачного входа и введённый логин приходят редиректом из wp_login_failed.
@@ -53,33 +52,11 @@ $prefill_login = isset( $_GET['fs_user'] ) ? sanitize_text_field( wp_unslash( $_
 		<input type="hidden" name="redirect_to" value="<?php echo esc_url( apply_filters( 'lms_auth_redirect_url', home_url(), null ) ); ?>">
 	</form>
 
-	<!-- Ссылка на страницу регистрации преподавателей  ВРЕМЕННО НЕДОСТУПНО-->
-<!--	<div class="fs-auth-card__switch">-->
-<!--		Вы преподаватель?<br><a href="--><?php //echo esc_url( $register_url ); ?><!--">Зарегистрироваться как преподаватель</a>-->
-<!--	</div>-->
-
-	<!-- Блок авторизации через социальные сети (отображается только если есть активные провайдеры) -->
-	<?php if ( ! empty( $providers ) ) : ?>
-		<div class="fs-auth-card__divider">
-			<span>или</span>
-		</div>
-
-		<div class="fs-auth-card__socials">
-			<?php
-			foreach ( $providers as $provider ) :
-				$provider_id = esc_attr( $provider['id'] );
-				?>
-				<a href="<?php echo esc_url( $provider['url'] ); ?>" class="fs-auth-card__btn-social">
-					<span class="fs-social-icon fs-social-icon--<?php echo $provider_id; ?>"></span>
-					Продолжить с <?php echo esc_html( $provider['label'] ); ?>
-				</a>
-			<?php endforeach; ?>
+	<?php // Сноска — только когда согласие на обработку ПДн заведено: ссылка в никуда хуже её отсутствия. ?>
+	<?php if ( '' !== $consent_url ) : ?>
+		<div class="fs-auth-card__footer">
+			Входя в систему, вы соглашаетесь с<br>
+			<a href="<?php echo esc_url( $consent_url ); ?>">политикой обработки персональных данных</a>.
 		</div>
 	<?php endif; ?>
-
-	<!-- Футер с юридической информацией -->
-	<div class="fs-auth-card__footer">
-		Входя в систему, вы соглашаетесь с нашими <br>
-		<a href="#">Условиями использования</a> и <a href="#">Политикой конфиденциальности</a>.
-	</div>
 </div>

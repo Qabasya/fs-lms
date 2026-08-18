@@ -97,7 +97,7 @@ readonly class ProgramCompositionService {
 		$result = array();
 
 		foreach ( $this->groupLessons->listByGroup( $groupId ) as $row ) {
-			if ( 'individual' === $row->kind ) {
+			if ( $row->kind->isIndividual() ) {
 				continue;
 			}
 

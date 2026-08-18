@@ -6,6 +6,7 @@ namespace Tests\Support;
 
 use Inc\DTO\Course\GroupLessonDTO;
 use Inc\DTO\Course\LessonDTO;
+use Inc\Enums\Course\LessonKind;
 
 /**
  * Общие фикстуры строк программы и уроков для тестов сервисов КТП.
@@ -42,7 +43,7 @@ trait GroupLessonFixtures {
 			recordingUrl    : null,
 			createdByUserId : null,
 			updatedByUserId : null,
-			kind            : $kind,
+			kind            : LessonKind::fromValueOrDefault( $kind ),
 			roomId          : $roomId,
 			continuedFromId : $continuedFromId,
 		);

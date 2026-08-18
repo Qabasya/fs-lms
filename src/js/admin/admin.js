@@ -7,7 +7,6 @@ import {RequiredTaxGuard} from './services/required-tax-guard.js';
 import {ArticleDescription} from './services/article-description.js';
 import {TaskFilter} from "./services/task-dashboard.js";
 import {RecentContent} from "./services/recent-posts";
-import {AuthSettings} from "./services/settings/auth-settings";
 import { GroupsTable } from "./services/tables/groups-table.js";
 import { ApplicationsTable } from './services/tables/applications-table.js';
 import { StudentsTable } from './services/tables/students-table.js';
@@ -118,10 +117,6 @@ import { RolesSettings } from './services/roles-settings.js';
 
         if ($('#fs-recent-tasks-container, #fs-recent-articles-container').length) {
             RecentContent.init();
-        }
-
-        if ($('.js-provider-toggle').length) {
-            AuthSettings.init();
         }
 
         if ($('.js-open-help-modal').length) {

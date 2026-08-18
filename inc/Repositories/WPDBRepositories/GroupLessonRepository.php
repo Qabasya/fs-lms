@@ -6,6 +6,7 @@ namespace Inc\Repositories\WPDBRepositories;
 
 use Inc\DTO\Course\GroupLessonDTO;
 use Inc\DTO\Course\GroupLessonInputDTO;
+use Inc\Enums\Course\LessonKind;
 use Inc\Enums\Course\LessonStatus;
 use Inc\Enums\Settings\TableName;
 
@@ -131,7 +132,7 @@ class GroupLessonRepository {
 		$i    = 0;
 		foreach ( $rows as $row ) {
 			// Индивидуальные и пиннутые привязаны к своей дате, а не к последовательности — не двигаем.
-			if ( $row->isPinned || 'individual' === $row->kind ) {
+			if ( $row->isPinned || $row->kind->isIndividual() ) {
 				// Пиннутая строка — курсор слотов сдвигаем за её дату, чтобы следующие
 				// непиннутые темы раскладывались ПОСЛЕ неё, а не с начала периода.
 				if ( $row->isPinned && $row->scheduledAt ) {
@@ -182,9 +183,10 @@ class GroupLessonRepository {
 		return (int) $this->wpdb->query(
 			$this->wpdb->prepare(
 				"UPDATE %i SET scheduled_at = NULL, ends_at = NULL, room_id = NULL, is_pinned = 0, status = 'scheduled'
-				 WHERE group_id = %d AND kind != 'individual' AND status != 'held'",
+				 WHERE group_id = %d AND kind != %s AND status != 'held'",
 				$this->table,
-				$groupId
+				$groupId,
+				LessonKind::Individual->value
 			)
 		);
 	}
@@ -329,12 +331,13 @@ class GroupLessonRepository {
 			$this->wpdb->prepare(
 				"SELECT gl.* FROM %i gl
 				 JOIN %i g ON g.id = gl.group_id
-				 WHERE gl.kind = 'individual'
+				 WHERE gl.kind = %s
 				   AND DATE(gl.scheduled_at) = %s
 				   AND ( gl.teacher_user_id = %d OR ( gl.teacher_user_id IS NULL AND g.teacher_id = %d ) )
 				 ORDER BY gl.scheduled_at ASC",
 				$this->table,
 				$groups,
+				LessonKind::Individual->value,
 				$day,
 				$teacherUserId,
 				$teacherUserId

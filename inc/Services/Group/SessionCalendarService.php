@@ -108,7 +108,7 @@ class SessionCalendarService {
 		$consuming = array_filter(
 			$rows,
 			static fn( $r ) => ! $r->isPinned
-				&& 'individual' !== $r->kind
+				&& ! $r->kind->isIndividual()
 				&& ! LessonStatus::fromValueOrDefault( $r->status )->freesSlot()
 		);
 

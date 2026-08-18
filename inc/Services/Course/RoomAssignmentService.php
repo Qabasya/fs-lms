@@ -112,7 +112,7 @@ class RoomAssignmentService {
 		$applied = 0;
 		$skipped = array();
 		foreach ( $this->groupLessons->listByGroup( $groupId ) as $lesson ) {
-			if ( 'individual' === $lesson->kind || ! $lesson->scheduledAt ) {
+			if ( $lesson->kind->isIndividual() || ! $lesson->scheduledAt ) {
 				continue;
 			}
 			$date = substr( $lesson->scheduledAt, 0, 10 );

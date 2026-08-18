@@ -18,7 +18,6 @@ $tabs = apply_filters(
 			'title' => 'Предметы',
 			'file'  => '/components/tabs/settings-tabs/settings-1-subjects-manager.php',
 		),
-		// tab-2 «Авторизация» — вносится модулем SocialAuth через фильтр выше
 		'tab-3' => array(
 			'title' => 'Периоды',
 			'file'  => '/components/tabs/settings-tabs/settings-3-periods.php',

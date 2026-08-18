@@ -10,7 +10,6 @@ use Inc\Modules\AdSync\AdSyncModule;
 use Inc\Modules\DaData\DaDataModule;
 use Inc\Modules\EgeComputer\EgeComputerModule;
 use Inc\Modules\SmartCaptcha\SmartCaptchaModule;
-use Inc\Modules\SocialAuth\SocialAuthModule;
 use Inc\Modules\VideoLibrary\VideoLibraryModule;
 use Inc\Controllers\Enrollment\ApplicationController;
 use Inc\Controllers\Pages\ApplyPageController;
@@ -37,6 +36,7 @@ use Inc\Controllers\Course\LearningMenuController;
 use Inc\Controllers\Subject\ContentDeletionGuard;
 use Inc\Controllers\Problems\ProblemsController;
 use Inc\Controllers\Task\MetaBoxController;
+use Inc\Controllers\Person\AuthPageController;
 use Inc\Controllers\Person\PiiController;
 use Inc\Controllers\Person\ProfileController;
 use Inc\Controllers\Enrollment\ExpulsionController;
@@ -161,6 +161,7 @@ final class Init {
 			BoilerplateController::class,  // Типовые условия (boilerplate)
 			UserController::class,
 			ApplyPageController::class,
+			AuthPageController::class,       // Страница входа /sign-in/ (шорткод + перехват wp-login.php)
 			ProfileController::class,
 			StudentGroupController::class,
 			CronController::class,
@@ -206,7 +207,6 @@ final class Init {
 			SubmissionController::class,       // AJAX сдачи / проверки / журнала
 			AssessmentController::class,       // AJAX попыток контрольных
 			// ==== Опциональные модули (изолированы, вырезаются удалением каталога + этой строки) ====
-			SocialAuthModule::class,          // Inc\Modules\SocialAuth — OAuth через соцсети (флаг-гейт, по умолчанию вкл.)
 			AdSyncModule::class,              // Inc\Modules\AdSync — синхронизация заявок с AD (флаг-гейт)
 			EgeComputerModule::class,         // Inc\Modules\EgeComputer — плеер ЕГЭ (Компьютер) (флаг-гейт, T7.20)
 			DaDataModule::class,              // Inc\Modules\DaData — автодополнение DaData на /lms/join (флаг-гейт)

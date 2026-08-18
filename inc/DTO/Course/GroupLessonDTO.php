@@ -4,6 +4,8 @@ declare( strict_types=1 );
 
 namespace Inc\DTO\Course;
 
+use Inc\Enums\Course\LessonKind;
+
 readonly class GroupLessonDTO {
 
 	/**
@@ -46,8 +48,8 @@ readonly class GroupLessonDTO {
 		public ?string $label = null,
 		/** @var array<string, array{max_attempts:int,shuffle:bool,hint_after_errors:int}>|null */
 		public ?array  $stepSettingsOverrides = null,
-		/** group|individual — тип занятия (D3). */
-		public string  $kind = 'group',
+		/** Тип занятия (D3): групповое или индивидуальное. */
+		public LessonKind $kind = LessonKind::Group,
 		/** scheduled|held|cancelled|moved — план/факт (D3). */
 		public string  $status = 'scheduled',
 		/** Ученик индивидуального занятия (NULL для групповых). */
@@ -90,7 +92,7 @@ readonly class GroupLessonDTO {
 			stepSettingsOverrides: isset( $row['step_settings_overrides'] )
 				? json_decode( (string) $row['step_settings_overrides'], true )
 				: null,
-			kind            : (string) ( $row['kind'] ?? 'group' ),
+			kind            : LessonKind::fromValueOrDefault( (string) ( $row['kind'] ?? '' ) ),
 			status          : (string) ( $row['status'] ?? 'scheduled' ),
 			studentPersonId : isset( $row['student_person_id'] ) ? (int) $row['student_person_id'] : null,
 			roomId          : isset( $row['room_id'] ) && '' !== $row['room_id'] ? (int) $row['room_id'] : null,
