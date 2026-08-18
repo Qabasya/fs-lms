@@ -84,7 +84,7 @@ class ExamLockServiceTest extends TestCase {
 
 	public function test_active_ege_exam_locks(): void {
 		$attempt    = $this->attempt( 5 );
-		$assessment = $this->assessment( AssessmentKind::Ege );
+		$assessment = $this->assessment( AssessmentKind::EgeComputer );
 
 		$this->attempts->method( 'findAnyActive' )->willReturn( $attempt );
 		$this->assessments->method( 'get' )->willReturn( $assessment );

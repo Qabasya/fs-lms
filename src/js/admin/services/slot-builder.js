@@ -199,6 +199,49 @@ export function createSlotBuilder( el, config ) {
 		save();
 	}
 
+	/**
+	 * Связка 19-21: parent разворачивается в 3 слота (children) вместо одного —
+	 * см. .docs/Tasks.md, §3.3/§3.5. Обычный (не-связка) пик идёт через assignTask.
+	 *
+	 * @param {number} index    Слот, в который пикали.
+	 * @param {number} taskId   ID выбранного поста.
+	 * @param {string} title    Заголовок выбранного поста.
+	 * @param {Object} item     Исходный элемент кандидата (может нести bundle_children).
+	 */
+	function assignPicked( index, taskId, title, item ) {
+		const children = item && Array.isArray( item.bundle_children ) ? item.bundle_children : null;
+		if ( ! children || ! children.length ) {
+			assignTask( index, taskId, title );
+			return;
+		}
+
+		const newIds = children.map( ( c ) => c.id );
+		const dup = slots.some( ( slot, i ) => i !== index && newIds.includes( slot.taskId ) );
+		if ( dup ) {
+			showToast( 'Одно из подзаданий связки уже добавлено', 'error' );
+			return;
+		}
+
+		const replacement = children.map( ( c, i ) => {
+			const s = newSlot( index + i );
+			s.taskId = c.id;
+			s.title  = c.title;
+			// Ручной номер (Задача 8) — обязателен для банковских детей связки:
+			// без него EgeCompletenessChecker не видит childId ни через терм (у
+			// fs_lms_problems его нет), ни через task_numbers, и считает «сиротой».
+			// Для предметных детей значение избыточно, но не мешает — бэкенд
+			// игнорирует ручной номер при наличии терма.
+			if ( 'number' in s && c.number ) { s.number = String( c.number ); }
+			return s;
+		} );
+
+		slots.splice( index, 1, ...replacement );
+		activeIndex = index;
+		render();
+		save();
+		showToast( 'Связка разложена на ' + replacement.length + ' слота', 'success' );
+	}
+
 	// ── Render ────────────────────────────────────────────────────────────────
 	function render() {
 		renderLeft();
@@ -355,7 +398,7 @@ export function createSlotBuilder( el, config ) {
 				placeholder: 'Поиск задачи…',
 				emptyText:   'Задачи не найдены',
 				fetchFn:     ( q ) => config.search( q ),
-				onPick:      ( id, title ) => assignTask( index, id, title ),
+				onPick:      ( id, title, source, item ) => assignPicked( index, id, title, item ),
 			} );
 		} );
 		actions.appendChild( pickBtn );

@@ -92,7 +92,7 @@ class AttemptServiceTest extends TestCase {
 	}
 
 	public function test_ege_start_blocked_when_incomplete(): void {
-		$this->assessments->method( 'get' )->willReturn( $this->assessment( AssessmentKind::Ege ) );
+		$this->assessments->method( 'get' )->willReturn( $this->assessment( AssessmentKind::EgeComputer ) );
 		$this->completeness->method( 'validate' )->willReturn( $this->incomplete() );
 
 		// Попытка НЕ должна создаваться.
@@ -105,7 +105,7 @@ class AttemptServiceTest extends TestCase {
 	}
 
 	public function test_ege_start_allowed_when_complete(): void {
-		$this->assessments->method( 'get' )->willReturn( $this->assessment( AssessmentKind::Ege ) );
+		$this->assessments->method( 'get' )->willReturn( $this->assessment( AssessmentKind::EgeComputer ) );
 		$this->completeness->method( 'validate' )->willReturn( $this->complete() );
 		$this->attempts->method( 'countByAssessmentAndStudent' )->willReturn( 0 );
 		$this->attempts->method( 'nextAttemptNumber' )->willReturn( 1 );

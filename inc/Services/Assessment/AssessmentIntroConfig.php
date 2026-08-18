@@ -28,7 +28,7 @@ class AssessmentIntroConfig {
 			AssessmentKind::Control     =>
 				'<p>Перед вами контрольная работа. Ответьте на все задания и нажмите ' .
 				'«Сдать». Каждое задание оценивается в один балл.</p>',
-			AssessmentKind::Ege, AssessmentKind::EgeComputer =>
+			AssessmentKind::EgeComputer, AssessmentKind::OgeComputer =>
 				'<p>Перед вами экзаменационная работа в формате ЕГЭ. Задания открываются ' .
 				'по одному; переходите между ними через меню номеров и сохраняйте ответы. ' .
 				'Ответ можно изменить до завершения работы.</p>',

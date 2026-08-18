@@ -20,7 +20,11 @@ export const AssessmentBuilder = {
 function mount( el ) {
 	const assessmentId  = parseInt( el.dataset.assessmentId, 10 ) || 0;
 	const subject       = String( el.dataset.subject || '' );
-	const egeSlots      = parseInt( el.dataset.egeSlots, 10 ) || 0;
+	// Число позиций зависит от вида — ЕГЭ и ОГЭ считают разное количество
+	// (см. AssessmentMetaBoxController::renderBuilderContent()); плоское число здесь
+	// раньше приводило к тому, что ОГЭ ошибочно наследовал число слотов ЕГЭ.
+	const egeSlotsByKind = JSON.parse( el.dataset.egeSlots || '{}' );
+	const egeSlots       = ( kind ) => parseInt( egeSlotsByKind[ kind ], 10 ) || 0;
 	const egeKinds      = JSON.parse( el.dataset.egeKinds || '[]' );
 	const allowIncompleteKinds = JSON.parse( el.dataset.allowIncompleteKinds || '[]' );
 	const taskPointsMap  = JSON.parse( el.dataset.taskPoints || '{}' );
@@ -42,20 +46,34 @@ function mount( el ) {
 	// D16.5: живой индикатор укомплектованности ЕГЭ — вставляется рядом с
 	// конструктором (в .fs-sb-wrap), т.к. createSlotBuilder очищает innerHTML el.
 	let statusBar = null;
-	if ( egeSlots > 0 && el.parentElement ) {
+	if ( egeSlots( prevKind ) > 0 && el.parentElement ) {
 		statusBar = document.createElement( 'div' );
 		statusBar.className = 'fs-ege-status';
 		statusBar.hidden    = ! isEge( prevKind );
 		el.parentElement.insertBefore( statusBar, el );
 	}
 
+	// Станции (ЕГЭ/ОГЭ) имитируют реальный экзамен: время/попытки/таблица баллов/
+	// вступительный текст больше не редактируются автором работы — приходят из
+	// module-level StationExamConfig (см. AssessmentMetaBoxController::handleAssessmentSave(),
+	// .docs/Tasks.md §3.2). Скрываем эти поля вместо простого дизейбла — не
+	// инлайновым style, а атрибутом hidden (см. CLAUDE.md, CSS/JS правила).
+	// intro_html (EditorField) не имеет элемента с id="intro_html" (wp_editor
+	// использует свой собственный id) — адресуем по классу-обёртке поля.
+	const STATION_ONLY_HIDDEN_FIELD_IDS = [ 'time_limit_minutes', 'max_attempts', 'pass_score', 'score_map' ];
+
 	function toggleKindFields( kind ) {
-		const scoreMapRow = document.querySelector( '#score_map' )?.closest( '.fs-lms-field-group' );
-		if ( scoreMapRow ) {
-			scoreMapRow.classList.toggle( 'fs-hidden', ! isEge( kind ) );
-		}
-		if ( statusBar ) { statusBar.hidden = ! isEge( kind ); }
-		if ( ! isEge( kind ) ) { gatePublish( true ); }
+		const isStation = isEge( kind );
+
+		STATION_ONLY_HIDDEN_FIELD_IDS.forEach( ( id ) => {
+			const row = document.getElementById( id )?.closest( '.fs-field, .fs-lms-field-group' );
+			if ( row ) { row.hidden = isStation; }
+		} );
+		const introRow = document.querySelector( '.fs-lms-editor-field' );
+		if ( introRow ) { introRow.hidden = isStation; }
+
+		if ( statusBar ) { statusBar.hidden = ! isStation; }
+		if ( ! isStation ) { gatePublish( true ); }
 	}
 
 	/**
@@ -133,9 +151,12 @@ function mount( el ) {
 		},
 		newSlot: blankSlot,
 
+		// Пустые (ещё не заполненные) слоты — taskId=0 — в item_ids не идут: несколько
+		// нулей подряд задевают гард дублей на бэкенде (AssessmentManager::setItemIds)
+		// и сохранение целиком отклоняется с ложным «Экзамен не найден».
 		persist: ( slots ) => post( acts.saveAssessmentItems, nonces.authorAssessment, {
 			assessment_id: assessmentId,
-			item_ids:      slots.map( ( s ) => s.taskId ),
+			item_ids:      slots.filter( ( s ) => s.taskId > 0 ).map( ( s ) => s.taskId ),
 			task_points:   buildTaskPoints( slots ),
 			task_numbers:  buildTaskNumbers( slots ),
 		} ),
@@ -163,32 +184,13 @@ function mount( el ) {
 			title,
 		} ),
 
-		// Баллы за задание — только для ЕГЭ-видов.
+		// Номер задания — только для ЕГЭ/ОГЭ-видов. Баллы за задание больше не
+		// вводятся здесь (§3.5, .docs/Tasks.md): для станций это фиксированная
+		// таблица «номер → баллы» в module-level конфиге (аналог KegeScaleConfig/
+		// OgeCriteriaConfig), подставляется на чтении (AssessmentManager::STATION_SETTINGS_FILTER-
+		// подобная подмена в EgeComputerModule) — редактировать её через builder UI нельзя.
 		renderExtraBody: ( container, slot, index, api ) => {
 			if ( ! isEge( prevKind ) ) { return; }
-
-			const wrap = document.createElement( 'div' );
-			wrap.className = 'fs-sb-task-score';
-
-			const label = document.createElement( 'label' );
-			label.textContent = 'Баллов за задание:';
-			label.htmlFor     = 'fs-sb-points-' + index;
-
-			const input = document.createElement( 'input' );
-			input.type      = 'number';
-			input.id        = 'fs-sb-points-' + index;
-			input.className = 'small-text';
-			input.min       = '0';
-			input.step      = '0.5';
-			input.value     = String( slot.points || 0 );
-			input.addEventListener( 'change', () => {
-				slot.points = parseFloat( input.value ) || 0;
-				api.save();
-			} );
-
-			wrap.appendChild( label );
-			wrap.appendChild( input );
-			container.appendChild( wrap );
 
 			// Задача 8: «Номер задания» для банковских задач (fs_lms_problems) — у них
 			// нет таксономии {subject}_task_number. Для обычных subject-задач номер берётся
@@ -232,8 +234,8 @@ function mount( el ) {
 					toggleKindFields( newKind );
 
 					if ( isEge( newKind ) ) {
-						if ( egeSlots > 0 ) {
-							api.replaceSlots( buildEgeSlots( egeSlots ), 0 );
+						if ( egeSlots( newKind ) > 0 ) {
+							api.replaceSlots( buildEgeSlots( egeSlots( newKind ) ), 0 );
 							api.save();
 						}
 					} else {
@@ -242,9 +244,9 @@ function mount( el ) {
 				} );
 			}
 
-			// Авто-заполнение слотов под число заданий ЕГЭ при первом открытии.
-			if ( egeSlots > 0 && api.getSlots().length === 0 && isEge( prevKind ) ) {
-				api.replaceSlots( buildEgeSlots( egeSlots ), 0 );
+			// Авто-заполнение слотов под число заданий ЕГЭ/ОГЭ при первом открытии.
+			if ( egeSlots( prevKind ) > 0 && api.getSlots().length === 0 && isEge( prevKind ) ) {
+				api.replaceSlots( buildEgeSlots( egeSlots( prevKind ) ), 0 );
 				api.save();
 			} else if ( isEge( prevKind ) ) {
 				// Слоты уже есть — тихо запрашиваем начальный вердикт полноты для индикатора.

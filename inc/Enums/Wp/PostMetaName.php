@@ -51,4 +51,16 @@ enum PostMetaName: string {
 	 * Ставится при переходе в publish, см. {@see \Inc\Callbacks\Article\SlugCallbacks}.
 	 */
 	case ArticleSlugLocked = 'fs_lms_article_slug_locked';
+
+	/**
+	 * На дочернем задании связки (19/20/21) — ID родительского поста triple_task.
+	 * См. {@see \Inc\Services\Task\TaskBundleService}.
+	 */
+	case TaskBundleParentId = 'fs_lms_task_bundle_parent_id';
+
+	/**
+	 * На родительском посте связки — ID трёх дочерних заданий в порядке 19/20/21.
+	 * См. {@see \Inc\Services\Task\TaskBundleService}.
+	 */
+	case TaskBundleChildIds = 'fs_lms_task_bundle_child_ids';
 }

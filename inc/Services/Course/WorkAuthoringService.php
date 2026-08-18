@@ -7,6 +7,7 @@ namespace Inc\Services\Course;
 use Inc\Managers\Wp\PostManager;
 use Inc\Managers\Wp\TermManager;
 use Inc\Services\Subject\PostTypeResolver;
+use Inc\Services\Task\TaskBundleService;
 
 /**
  * Class WorkAuthoringService
@@ -18,8 +19,9 @@ use Inc\Services\Subject\PostTypeResolver;
 class WorkAuthoringService {
 
 	public function __construct(
-		private readonly PostManager $posts,
-		private readonly TermManager $terms,
+		private readonly PostManager      $posts,
+		private readonly TermManager      $terms,
+		private readonly TaskBundleService $taskBundles,
 	) {}
 
 	/**
@@ -64,12 +66,30 @@ class WorkAuthoringService {
 			'tax_query' => $tax_query,
 		) );
 
-		return array_map( static fn( \WP_Post $post ): array => array(
+		return array_map( fn( \WP_Post $post ): array => $this->withBundleChildren( array(
 			'id'     => $post->ID,
 			'title'  => $post->post_title,
 			'author' => (int) $post->post_author,
 			'type'   => 'task',
-		), $posts );
+		), $post->ID ), $posts );
+	}
+
+	/**
+	 * Если пост — parent связки (19/20/21), добавляет `bundle_children` (id+title
+	 * трёх children): builder разворачивает такой пик в 3 слота вместо одного
+	 * (см. .docs/Tasks.md, §3.3).
+	 *
+	 * @param array<string, mixed> $item
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function withBundleChildren( array $item, int $postId ): array {
+		$children = $this->taskBundles->childrenSummary( $postId );
+		if ( ! empty( $children ) ) {
+			$item['bundle_children'] = $children;
+		}
+
+		return $item;
 	}
 
 	/**
@@ -105,12 +125,12 @@ class WorkAuthoringService {
 			'search' => $search,
 		) );
 
-		return array_map( static fn( \WP_Post $post ): array => array(
+		return array_map( fn( \WP_Post $post ): array => $this->withBundleChildren( array(
 			'id'     => $post->ID,
 			'title'  => $post->post_title,
 			'author' => (int) $post->post_author,
 			'type'   => 'problem',
-		), $posts );
+		), $post->ID ), $posts );
 	}
 
 	/**

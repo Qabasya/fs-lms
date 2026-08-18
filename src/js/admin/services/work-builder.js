@@ -23,9 +23,12 @@ function mount( el ) {
 		treeTitle: 'Структура работы',
 		emptyText: 'Нет заданий — нажмите «+ Задача».',
 
+		// Пустые (ещё не заполненные) слоты — taskId=0 — в item_ids не идут: несколько
+		// нулей подряд задевают гард дублей на бэкенде (WorkManager::setItemIds) и
+		// сохранение целиком отклоняется.
 		persist: ( slots ) => post( acts.saveWorkItems, nonces.authorWork, {
 			work_id:  workId,
-			item_ids: slots.map( ( s ) => s.taskId ),
+			item_ids: slots.filter( ( s ) => s.taskId > 0 ).map( ( s ) => s.taskId ),
 		} ),
 
 		search: ( q ) => post( acts.getWorkItemCandidates, nonces.authorWork, {

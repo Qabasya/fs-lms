@@ -222,4 +222,14 @@
 .stgc-label { flex: 1 1 auto; font-size: rem(12.5); color: var(--ink-2); }
 .stgc-points { width: rem(60); height: rem(30); padding: 0 rem(6); border: 1px solid var(--line); border-radius: var(--radius-xs); font: inherit; color: var(--ink); }
 .stgc-of { font-size: rem(12); color: var(--muted); width: rem(32); }
+
+/* §3.4 (.docs/Tasks.md): holistic-рубрика ОГЭ 13.1/13.2/14/15/16 — текст всех
+   уровней целиком (не сумма критериев), один балл ставится dropdown-ом ниже. */
+.sum-task-rubric { margin-top: rem(8); padding: rem(8) rem(10); background: var(--surface-2); border-radius: var(--radius-xs); font-size: rem(12.5); color: var(--ink-2); }
+.fs-oge-rubric__tier { padding: rem(4) 0; border-bottom: 1px dashed var(--line); }
+.fs-oge-rubric__tier:last-child { border-bottom: none; }
+.fs-oge-rubric__score { display: block; font-weight: 600; color: var(--ink); margin-bottom: rem(2); }
+.fs-oge-rubric__desc { display: block; line-height: 1.5; }
+.sum-task-grade--oge-rubric { flex-direction: column; align-items: stretch; gap: rem(6); }
+.stg-oge-score { width: rem(120); height: rem(32); padding: 0 rem(8); border: 1px solid var(--line); border-radius: var(--radius-xs); font: inherit; color: var(--ink); }
 .sum-task-grade--criteria .stg-fb { margin-top: rem(4); }

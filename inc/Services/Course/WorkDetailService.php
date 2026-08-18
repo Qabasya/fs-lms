@@ -34,6 +34,19 @@ use Inc\Services\Task\CorrectAnswerResolver;
  */
 class WorkDetailService {
 
+	/**
+	 * WP filter: рубрика ручной проверки для задания станции «Компьютерный ОГЭ»
+	 * (13.1/13.2/14/15/16) — единый балл + текст всех уровней, вместо покритерийной
+	 * суммы (см. .docs/Tasks.md §3.4). Ядро не знает о модуле — тот же приём, что
+	 * `AssessmentManager::STATION_SETTINGS_FILTER`.
+	 *
+	 *   apply_filters( self::OGE_RUBRIC_FILTER, null, $assessment, $taskId )
+	 *
+	 * @see \Inc\DTO\Assessment\AssessmentDTO $assessment
+	 * @return array{max_points: int, html: string}|null
+	 */
+	public const OGE_RUBRIC_FILTER = 'fs_lms_oge_manual_rubric';
+
 	public function __construct(
 		private readonly SubmissionRepository        $submissions,
 		private readonly WorkManager                 $works,
@@ -165,16 +178,17 @@ class WorkDetailService {
 			}
 
 			$tasks[] = array(
-				'n'         => ++$n,
-				'task_id'   => $ans->taskId,
-				'condition' => $this->condition( $ans->taskId ),
-				'answer'    => $answerText,
-				'files'     => $files,
-				'correct'   => $this->correctAnswers->resolve( $ans->taskId ),
-				'verdict'   => $verdict,
-				'score'     => $ans->score,
-				'max_score' => $ans->maxScore,
-				'criteria'  => $this->criteriaFor( $ans->taskId, $ans->criteriaScores ),
+				'n'          => ++$n,
+				'task_id'    => $ans->taskId,
+				'condition'  => $this->condition( $ans->taskId ),
+				'answer'     => $answerText,
+				'files'      => $files,
+				'correct'    => $this->correctAnswers->resolve( $ans->taskId ),
+				'verdict'    => $verdict,
+				'score'      => $ans->score,
+				'max_score'  => $ans->maxScore,
+				'criteria'   => $this->criteriaFor( $ans->taskId, $ans->criteriaScores ),
+				'oge_rubric' => $assessment ? apply_filters( self::OGE_RUBRIC_FILTER, null, $assessment, $ans->taskId ) : null,
 			);
 		}
 

@@ -29,8 +29,13 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
+use Inc\Enums\Assessment\AssessmentKind;
 use Inc\Modules\EgeComputer\DTO\KegeSheetDTO;
 use Inc\Modules\EgeComputer\EgeComputerModule;
+
+$examTitle = AssessmentKind::OgeComputer === $assessment->kind
+	? 'Основной государственный экзамен'
+	: 'Единый государственный экзамен';
 
 $kegeSheet = apply_filters( EgeComputerModule::SHEET_FILTER, null, $assessment, $lastAttempt, $taskViews );
 if ( ! $kegeSheet instanceof KegeSheetDTO ) {
@@ -45,7 +50,7 @@ $kegeTables = $kegeHalf > 0 ? array_chunk( $kegeSheet->rows, $kegeHalf ) : array
 $kegeScore = static fn( ?float $score ): string => null === $score ? '—' : (string) round( $score, 2 );
 ?>
 <div class="kege-fin" id="kegeFinish" data-attempt-id="<?php echo esc_attr( (string) ( $lastAttempt->id ?? 0 ) ); ?>"<?php echo $previewMode ? ' hidden' : ''; ?>>
-	<div class="kege-fin-head">Единый государственный экзамен · <b><?php echo esc_html( $assessment->title ); ?></b></div>
+	<div class="kege-fin-head"><?php echo esc_html( $examTitle ); ?> · <b><?php echo esc_html( $assessment->title ); ?></b></div>
 
 	<div class="kege-fin-body">
 		<?php // Тренажёрные номера ритуала входа — подставляет kege-entry.js. ?>

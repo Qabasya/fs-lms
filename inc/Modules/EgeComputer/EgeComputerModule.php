@@ -10,10 +10,16 @@ use Inc\Core\Assets\BundleLoader;
 use Inc\DTO\Assessment\AssessmentDTO;
 use Inc\DTO\Assessment\AttemptDTO;
 use Inc\Enums\Assessment\AssessmentKind;
+use Inc\Managers\Assessment\AssessmentManager;
 use Inc\Modules\EgeComputer\Callbacks\PreviewResultCallbacks;
 use Inc\Modules\EgeComputer\Config\EgeComputerConfig;
+use Inc\Modules\EgeComputer\Config\KegeScaleConfig;
+use Inc\Modules\EgeComputer\Config\OgeCriteriaConfig;
+use Inc\Modules\EgeComputer\Config\OgeScaleConfig;
+use Inc\Modules\EgeComputer\Config\StationExamConfig;
 use Inc\Modules\EgeComputer\DTO\KegeSheetDTO;
 use Inc\Modules\EgeComputer\Services\KegeResultSheetService;
+use Inc\Services\Course\WorkDetailService;
 
 /**
  * Class EgeComputerModule
@@ -50,6 +56,8 @@ class EgeComputerModule implements ServiceInterface {
 
 		add_filter( AssessmentPageController::RENDERER_FILTER, [ $this, 'resolveRenderer' ], 10, 3 );
 		add_filter( self::SHEET_FILTER, [ $this, 'buildResultSheet' ], 10, 4 );
+		add_filter( AssessmentManager::STATION_SETTINGS_FILTER, [ $this, 'applyStationSettings' ] );
+		add_filter( WorkDetailService::OGE_RUBRIC_FILTER, [ $this, 'resolveOgeRubric' ], 10, 3 );
 
 		// Лист ответов предпросмотра (T15.10-preview): попытки в БД нет, поэтому
 		// накопленные в JS ответы приходят на этот эндпоинт напрямую — см. PreviewResultCallbacks.
@@ -70,6 +78,105 @@ class EgeComputerModule implements ServiceInterface {
 	 */
 	public function buildResultSheet( mixed $sheet, AssessmentDTO $assessment, ?AttemptDTO $attempt, array $taskViews ): KegeSheetDTO {
 		return $this->resultSheet->build( $assessment, $attempt, $taskViews );
+	}
+
+	/**
+	 * Подменяет время/попытки/проходной балл/шкалу/баллы за задание станции
+	 * значениями конфига — для остальных `kind` DTO не трогается. `AssessmentDTO` —
+	 * readonly, поэтому override только через новую копию.
+	 */
+	public function applyStationSettings( AssessmentDTO $dto ): AssessmentDTO {
+		$settings = StationExamConfig::for( $dto->kind );
+		if ( null === $settings ) {
+			return $dto;
+		}
+
+		return new AssessmentDTO(
+			id            : $dto->id,
+			subjectKey    : $dto->subjectKey,
+			title         : $dto->title,
+			taskIds       : $dto->taskIds,
+			timeLimit     : $settings['timeLimit'],
+			attemptsAllowed: $settings['maxAttempts'],
+			passScore     : $settings['passScore'],
+			scoringPolicy : $dto->scoringPolicy,
+			status        : $dto->status,
+			kind          : $dto->kind,
+			taskPoints    : $this->computeTaskPoints( $dto ),
+			scoreMap      : $settings['scoreMap'],
+			taskNumbers   : $dto->taskNumbers,
+			introHtml     : $dto->introHtml,
+		);
+	}
+
+	/**
+	 * Баллы за задание (§3.5, .docs/Tasks.md) — фиксированная таблица «номер →
+	 * баллы» вместо per-assessment `task_points` из меты (builder UI больше не
+	 * даёт её редактировать, см. assessment-builder.js). Позиция задания
+	 * резолвится так же, как {@see \Inc\Services\Assessment\EgeCompletenessChecker}:
+	 * терм таксономии — для предметных заданий, ручной номер (`taskNumbers`,
+	 * Задача 8) — фолбэк для банковских и обязательное поле для ОГЭ 13-16
+	 * (терм не умеет хранить «13.1»/«13.2»).
+	 *
+	 * @return array<int, float>
+	 */
+	private function computeTaskPoints( AssessmentDTO $dto ): array {
+		$taxonomy = $dto->subjectKey . '_task_number';
+		$points   = array();
+
+		foreach ( $dto->taskIds as $taskId ) {
+			$taskId   = (int) $taskId;
+			$position = $this->resolveTaskPosition( $taskId, $taxonomy, $dto->taskNumbers );
+			if ( '' === $position ) {
+				continue;
+			}
+
+			$points[ $taskId ] = (float) match ( $dto->kind ) {
+				AssessmentKind::EgeComputer => KegeScaleConfig::answerSlots( (int) $position ),
+				AssessmentKind::OgeComputer => OgeScaleConfig::pointsForPosition( $position ),
+				default                     => 1,
+			};
+		}
+
+		return $points;
+	}
+
+	/**
+	 * Номер/позиция задания: терм таксономии (предметное задание) с фолбэком на
+	 * ручной номер (банковское задание либо ОГЭ 13-16, где терм невозможен).
+	 */
+	private function resolveTaskPosition( int $taskId, string $taxonomy, array $taskNumbers ): string {
+		$terms = wp_get_post_terms( $taskId, $taxonomy, array( 'fields' => 'names' ) );
+		if ( ! is_wp_error( $terms ) && ! empty( $terms ) ) {
+			return (string) $terms[0];
+		}
+
+		return (string) ( $taskNumbers[ $taskId ] ?? '' );
+	}
+
+	/**
+	 * Рубрика ручной проверки для задания 13.1/13.2/14/15/16 «Компьютерного ОГЭ».
+	 * Позиция берётся ИСКЛЮЧИТЕЛЬНО из ручного номера (`taskNumbers`, Задача 8) —
+	 * не из таксономии `{key}_task_number` (та принимает только целые числа и не
+	 * умеет хранить «13.1»/«13.2», см. докблок {@see OgeCriteriaConfig}).
+	 *
+	 * @param mixed         $default    Значение фильтра по умолчанию (не используется)
+	 * @param AssessmentDTO $assessment Экзамен, к которому относится задание
+	 * @param int           $taskId     ID задания
+	 *
+	 * @return array{max_points: int, html: string}|null
+	 */
+	public function resolveOgeRubric( mixed $default, AssessmentDTO $assessment, int $taskId ): ?array {
+		if ( AssessmentKind::OgeComputer !== $assessment->kind ) {
+			return $default;
+		}
+
+		$position = $assessment->taskNumbers[ $taskId ] ?? '';
+		if ( '' === $position ) {
+			return $default;
+		}
+
+		return OgeCriteriaConfig::rubricFor( $position ) ?? $default;
 	}
 
 	/** @param string $default Путь к дефолтному шаблону */

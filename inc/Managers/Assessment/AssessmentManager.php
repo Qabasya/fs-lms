@@ -19,6 +19,17 @@ use Inc\Services\Subject\PostTypeResolver;
  */
 class AssessmentManager {
 
+	/**
+	 * WP filter: настройки станции-экзамена (время/попытки/проходной балл/шкала)
+	 * поверх собранного из меты `AssessmentDTO`. Ядро не знает про
+	 * `Inc\Modules\EgeComputer` — модуль сам решает, для каких `kind` подменять
+	 * значения (см. `EgeComputerModule::applyStationSettings()`), тем же приёмом,
+	 * что и `AssessmentPageController::RENDERER_FILTER`.
+	 *
+	 *   apply_filters( self::STATION_SETTINGS_FILTER, $dto )
+	 */
+	public const STATION_SETTINGS_FILTER = 'fs_lms_assessment_station_settings';
+
 	public function __construct(
 		private readonly PostManager $posts,
 	) {}
@@ -30,7 +41,10 @@ class AssessmentManager {
 		}
 
 		$meta = get_post_meta( $post->ID, PostMetaName::Meta->value, true );
-		return AssessmentDTO::fromPost( $post, is_array( $meta ) ? $meta : [] );
+		return apply_filters(
+			self::STATION_SETTINGS_FILTER,
+			AssessmentDTO::fromPost( $post, is_array( $meta ) ? $meta : [] )
+		);
 	}
 
 	/**
@@ -83,7 +97,10 @@ class AssessmentManager {
 
 		return array_map( static function ( \WP_Post $post ): AssessmentDTO {
 			$meta = get_post_meta( $post->ID, PostMetaName::Meta->value, true );
-			return AssessmentDTO::fromPost( $post, is_array( $meta ) ? $meta : [] );
+			return apply_filters(
+				self::STATION_SETTINGS_FILTER,
+				AssessmentDTO::fromPost( $post, is_array( $meta ) ? $meta : [] )
+			);
 		}, $posts );
 	}
 }

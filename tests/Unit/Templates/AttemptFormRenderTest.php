@@ -10,8 +10,9 @@ use Inc\Enums\Assessment\ScoringPolicy;
 use PHPUnit\Framework\TestCase;
 
 /**
- * T16.11c: обычный Ege рендерится станцией-навигатором (боковое меню номеров),
- * Control — одностраничным списком. Общий партиал задания в обоих режимах.
+ * Générique-шаблон попытки (Control) — одностраничный список заданий.
+ * Станции (EgeComputer/OgeComputer) рендерятся отдельным шаблоном модуля,
+ * этого партиала не используют.
  */
 class AttemptFormRenderTest extends TestCase {
 
@@ -47,18 +48,6 @@ class AttemptFormRenderTest extends TestCase {
 		ob_start();
 		require self::PARTIALS . '/' . $file;
 		return (string) ob_get_clean();
-	}
-
-	public function test_ege_renders_navigator_with_number_menu(): void {
-		$html = $this->renderPartial( 'attempt-form-nav.php', AssessmentKind::Ege );
-
-		$this->assertStringContainsString( 'fs-ege-nav', $html );
-		$this->assertStringContainsString( 'fs-ege-nav__menu', $html );
-		// Две кнопки-номера + два блока задания.
-		$this->assertSame( 2, substr_count( $html, 'fs-ege-nav__num' ) );
-		$this->assertSame( 2, substr_count( $html, 'fs-attempt-question"' ) );
-		$this->assertStringContainsString( 'data-task-id="10"', $html );
-		$this->assertStringContainsString( 'data-task-id="20"', $html );
 	}
 
 	public function test_control_renders_single_page_list(): void {

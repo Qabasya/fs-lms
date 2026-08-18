@@ -127,9 +127,9 @@ class AssessmentMetaBoxController extends BaseController implements ServiceInter
 		return 'Работа не укомплектована — ' . $result->summary() . '.';
 	}
 
-	/** Только тестовое окружение и только «Компьютерный ЕГЭ» — см. {@see resolveCompletenessError()}. */
+	/** Только тестовое окружение и только станции ЕГЭ/ОГЭ — см. {@see resolveCompletenessError()}. */
 	private function allowsIncompletePublish( AssessmentKind $kind ): bool {
-		return ( defined( 'WP_DEBUG' ) && WP_DEBUG ) && AssessmentKind::EgeComputer === $kind;
+		return ( defined( 'WP_DEBUG' ) && WP_DEBUG ) && $kind->isStation();
 	}
 
 	/** Выводит отложенную ошибку публикации контрольной на экране редактирования. */
@@ -214,20 +214,31 @@ class AssessmentMetaBoxController extends BaseController implements ServiceInter
 		$points_json  = wp_json_encode( $task_points, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT );
 		$numbers_json = wp_json_encode( $task_numbers, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT );
 
-		$ege_slots = (int) wp_count_terms( array(
-			'taxonomy'   => $subject . '_task_number',
-			'hide_empty' => false,
-		) );
+		// Число позиций зависит от ВИДА экзамена, не только от предмета: ЕГЭ по
+		// информатике — все термы таксономии номеров (обычно 27), ОГЭ — фиксированные
+		// 16 (см. .docs/Tasks.md §2 и Inc\Modules\EgeComputer\Config\OgeScaleConfig —
+		// авторитетный источник числа 16, здесь не импортируется: ядро не знает о
+		// модулях). Таксономия для ОГЭ ни при чём — позиции 13.1/13.2 не могут быть
+		// термами (см. докблок OgeCriteriaConfig). Карта kind => slots, а не одно
+		// число — раньше ОГЭ ошибочно наследовал число слотов ЕГЭ.
+		$ege_slots_by_kind = array(
+			AssessmentKind::EgeComputer->value => (int) wp_count_terms( array(
+				'taxonomy'   => $subject . '_task_number',
+				'hide_empty' => false,
+			) ),
+			AssessmentKind::OgeComputer->value => 16,
+		);
+		$ege_slots_json = wp_json_encode( $ege_slots_by_kind );
 
 		$ege_kinds_json = wp_json_encode( AssessmentKind::weightedScoreValues() );
 
 		// Тот же тестовый гейт, что и на сервере (см. resolveCompletenessError()) — не
 		// дизейблим кнопку «Опубликовать» на клиенте для неукомплектованного КЕГЭ, чтобы
 		// клиентский гейт (D16.5) не блокировал то, что серверный уже разрешает.
-		$allow_incomplete_kinds = array();
-		if ( $this->allowsIncompletePublish( AssessmentKind::EgeComputer ) ) {
-			$allow_incomplete_kinds[] = AssessmentKind::EgeComputer->value;
-		}
+		$allow_incomplete_kinds = array_values( array_filter(
+			array_map( static fn( AssessmentKind $kind ) => $kind->value, AssessmentKind::cases() ),
+			fn( string $value ) => $this->allowsIncompletePublish( AssessmentKind::from( $value ) )
+		) );
 		$allow_incomplete_json = wp_json_encode( $allow_incomplete_kinds );
 
 		$this->render( 'admin/metaboxes/builder-shell', array(
@@ -235,7 +246,7 @@ class AssessmentMetaBoxController extends BaseController implements ServiceInter
 			'data'       => array(
 				'assessment-id'         => $post->ID,
 				'subject'               => $subject,
-				'ege-slots'             => $ege_slots,
+				'ege-slots'             => $ege_slots_json ?: '{}',
 				'ege-kinds'             => $ege_kinds_json ?: '[]',
 				'allow-incomplete-kinds' => $allow_incomplete_json ?: '[]',
 				'task-points'           => $points_json ?: '{}',
@@ -261,6 +272,18 @@ class AssessmentMetaBoxController extends BaseController implements ServiceInter
 
 		$data = $this->unslashArray( PostMetaName::Meta->value );
 
+		// Станции (ЕГЭ/ОГЭ) имитируют реальный экзамен — время, лимит попыток,
+		// таблица перевода баллов и вступительный текст больше не редактируются
+		// автором конкретной работы, приходят из module-level StationExamConfig
+		// (см. AssessmentManager::STATION_SETTINGS_FILTER, .docs/Tasks.md §3.2).
+		// Даже если что-то из этого пришло в $_POST — не сохраняем.
+		$kind = sanitize_key( $data['kind'] ?? '' );
+		if ( AssessmentKind::fromValueOrDefault( $kind )->isStation() ) {
+			foreach ( [ 'time_limit_minutes', 'max_attempts', 'pass_score', 'score_map', 'intro_html' ] as $stationField ) {
+				unset( $data[ $stationField ] );
+			}
+		}
+
 		$this->metaBoxManager->saveFieldsMerge(
 			$post_id,
 			PostMetaName::Meta->value,
@@ -269,7 +292,6 @@ class AssessmentMetaBoxController extends BaseController implements ServiceInter
 		);
 
 		// Плоский ключ для фильтрации в list table.
-		$kind = sanitize_key( $data['kind'] ?? '' );
 		if ( '' !== $kind ) {
 			$this->postManager->updateMeta( $post_id, PostMetaName::AssessmentKind->value, $kind );
 		}

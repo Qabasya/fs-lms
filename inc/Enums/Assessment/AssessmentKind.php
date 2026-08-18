@@ -7,14 +7,14 @@ namespace Inc\Enums\Assessment;
 enum AssessmentKind: string {
 
 	case Control     = 'control';
-	case Ege         = 'ege';
 	case EgeComputer = 'ege_computer';
+	case OgeComputer = 'oge_computer';
 
 	public function label(): string {
 		return match ( $this ) {
 			self::Control     => 'Контрольная',
-			self::Ege         => 'ЕГЭ',
 			self::EgeComputer => 'Компьютерный ЕГЭ',
+			self::OgeComputer => 'Компьютерный ОГЭ',
 		};
 	}
 
@@ -31,8 +31,20 @@ enum AssessmentKind: string {
 	/** Каждое задание имеет собственный балл (task_points); для Control вес = 1 имплицитно. */
 	public function usesWeightedScore(): bool {
 		return match ( $this ) {
-			self::Ege, self::EgeComputer => true,
-			default                      => false,
+			self::EgeComputer, self::OgeComputer => true,
+			default                              => false,
+		};
+	}
+
+	/**
+	 * Станция-эмулятор реального экзамена: время, лимит попыток, шкала перевода
+	 * баллов и вступительный экран заданы module-level конфигом
+	 * ({@see \Inc\Modules\EgeComputer}), а не полями конкретного поста.
+	 */
+	public function isStation(): bool {
+		return match ( $this ) {
+			self::EgeComputer, self::OgeComputer => true,
+			default                              => false,
 		};
 	}
 
@@ -51,7 +63,7 @@ enum AssessmentKind: string {
 	/** Первичный балл переводится во вторичный по score_map работы. */
 	public function needsSecondaryScore(): bool {
 		return match ( $this ) {
-			self::Ege, self::EgeComputer => true,
+			self::EgeComputer, self::OgeComputer => true,
 			default                      => false,
 		};
 	}
@@ -59,7 +71,7 @@ enum AssessmentKind: string {
 	/** Составные шаблоны (ThreeInOne) разворачиваются в отдельно оцениваемые элементы. */
 	public function expandsComposites(): bool {
 		return match ( $this ) {
-			self::Ege, self::EgeComputer => true,
+			self::EgeComputer, self::OgeComputer => true,
 			default                      => false,
 		};
 	}
@@ -67,7 +79,7 @@ enum AssessmentKind: string {
 	/** Показывает мягкое предупреждение при неполном покрытии {key}_task_number. */
 	public function needsCompletenessCheck(): bool {
 		return match ( $this ) {
-			self::Ege, self::EgeComputer => true,
+			self::EgeComputer, self::OgeComputer => true,
 			default                      => false,
 		};
 	}

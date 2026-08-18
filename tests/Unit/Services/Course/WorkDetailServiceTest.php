@@ -204,4 +204,46 @@ class WorkDetailServiceTest extends TestCase {
 
 		self::assertNull( $criteria[0]['awarded'] );
 	}
+
+	/* ── fromAttempt: oge_rubric (holistic-рубрика ОГЭ 13-16, §3.4) ── */
+
+	public function test_from_attempt_exposes_oge_rubric_via_module_filter(): void {
+		$this->attempts->method( 'find' )->willReturn( $this->attemptFixture() );
+		$this->answers->method( 'listByAttempt' )->willReturn( array(
+			AttemptAnswerDTO::fromArray( array(
+				'id' => 1, 'attempt_id' => 9, 'task_id' => 42, 'answer_text' => '{"text":"","files":[]}',
+			) ),
+		) );
+		$this->posts->method( 'getMeta' )->willReturnCallback( function ( int $postId, string $key ) {
+			return PostMetaName::TemplateType->value === $key ? 'file_answer_task' : array();
+		} );
+		$this->assessments->method( 'get' )->willReturn( $this->createMock( \Inc\DTO\Assessment\AssessmentDTO::class ) );
+
+		$GLOBALS['_fs_test_filter_returns'][ WorkDetailService::OGE_RUBRIC_FILTER ] = array(
+			'max_points' => 3, 'html' => '<div>рубрика</div>',
+		);
+
+		$task = $this->service->forWork( 'attempt', 9 )['tasks'][0];
+
+		unset( $GLOBALS['_fs_test_filter_returns'][ WorkDetailService::OGE_RUBRIC_FILTER ] );
+
+		self::assertSame( array( 'max_points' => 3, 'html' => '<div>рубрика</div>' ), $task['oge_rubric'] );
+	}
+
+	public function test_from_attempt_oge_rubric_null_when_module_disabled_or_not_applicable(): void {
+		$this->attempts->method( 'find' )->willReturn( $this->attemptFixture() );
+		$this->answers->method( 'listByAttempt' )->willReturn( array(
+			AttemptAnswerDTO::fromArray( array(
+				'id' => 1, 'attempt_id' => 9, 'task_id' => 42, 'answer_text' => '{"text":"","files":[]}',
+			) ),
+		) );
+		$this->posts->method( 'getMeta' )->willReturnCallback( function ( int $postId, string $key ) {
+			return PostMetaName::TemplateType->value === $key ? 'file_answer_task' : array();
+		} );
+		$this->assessments->method( 'get' )->willReturn( $this->createMock( \Inc\DTO\Assessment\AssessmentDTO::class ) );
+
+		$task = $this->service->forWork( 'attempt', 9 )['tasks'][0];
+
+		self::assertNull( $task['oge_rubric'] );
+	}
 }

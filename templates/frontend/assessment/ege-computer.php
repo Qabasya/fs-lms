@@ -40,13 +40,20 @@ if ( ! $person && ! $previewMode ) {
 // и серверного состояния «идёт экзамен» / «сдано» — здесь не существует.
 $isRunning  = ! $previewMode && $activeAttempt && AttemptStatus::InProgress === $activeAttempt->status;
 $isFinished = ! $previewMode && ! $isRunning && null !== $lastAttempt;
+
+// «kege»/«Станция КЕГЭ» в именах файлов/классов/бандла — служебное имя
+// станции-платформы (общей для ЕГЭ и ОГЭ), не аббревиатура конкретного
+// экзамена; здесь параметризуется только видимый пользователю текст.
+$stationLabel = \Inc\Enums\Assessment\AssessmentKind::OgeComputer === $assessment->kind
+	? 'Станция ОГЭ'
+	: 'Станция КЕГЭ';
 ?>
 <!DOCTYPE html>
 <html <?php language_attributes(); ?>>
 <head>
 	<meta charset="<?php bloginfo( 'charset' ); ?>">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
-	<title><?php echo esc_html( $assessment->title ); ?> — Станция КЕГЭ</title>
+	<title><?php echo esc_html( $assessment->title ); ?> — <?php echo esc_html( $stationLabel ); ?></title>
 	<meta name="robots" content="noindex, nofollow">
 	<link rel="preconnect" href="https://fonts.googleapis.com">
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

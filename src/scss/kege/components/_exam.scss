@@ -366,3 +366,40 @@
 }
 
 .kege-save2 { flex: 1; background: var(--kege-teal); color: var(--kege-on); padding: 10px; font-size: 13.5px; }
+
+/* Задания 13-16 ОГЭ («Развёрнутый ответ», §3.3/§6.2 .docs/Tasks.md) — только
+   загрузка файла, без текстового поля. */
+.kege-ap-file-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: rem(8);
+  margin: 0 rem(16) rem(12);
+}
+
+.kege-ap-file-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: rem(6);
+  padding: rem(6) rem(10);
+  background: var(--kege-surface);
+  border: 1px solid var(--kege-tbl-border);
+  border-radius: 4px;
+  font-size: rem(13);
+  color: var(--kege-text);
+}
+
+.kege-ap-file-chip__rm {
+  background: none;
+  border: none;
+  color: var(--kege-red);
+  cursor: pointer;
+  font-size: rem(13);
+  padding: 0;
+}
+
+.kege-ap-file-status {
+  display: block;
+  margin: rem(8) rem(16) 0;
+  font-size: rem(12.5);
+  color: var(--kege-muted);
+}

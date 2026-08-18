@@ -4,6 +4,8 @@ declare( strict_types=1 );
 
 namespace Inc\Managers\Wp;
 
+use Inc\Enums\Wp\PostMetaName;
+
 /**
  * Class TermManager
  *
@@ -134,6 +136,29 @@ class TermManager {
 	}
 
 	/**
+	 * Возвращает ID термина по названию, создавая его при отсутствии (в отличие
+	 * от {@see insert()}, который для уже существующего термина отдаёт 0).
+	 *
+	 * @param string $name     Название термина (напр. номер задания)
+	 * @param string $taxonomy Слаг таксономии
+	 *
+	 * @return int ID термина; 0 — если создать не удалось
+	 */
+	public function getOrCreateIdByName( string $name, string $taxonomy ): int {
+		// term_exists() возвращает term_id (термин без иерархии) или массив ['term_id' => ..., 'term_taxonomy_id' => ...]
+		$existing = term_exists( $name, $taxonomy );
+		if ( is_array( $existing ) ) {
+			return (int) ( $existing['term_id'] ?? 0 );
+		}
+		if ( is_numeric( $existing ) ) {
+			return (int) $existing;
+		}
+
+		$result = wp_insert_term( $name, $taxonomy );
+		return is_wp_error( $result ) ? 0 : (int) ( $result['term_id'] ?? 0 );
+	}
+
+	/**
 	 * Регистрирует таксономию, если она ещё не существует.
 	 *
 	 * @param string $taxonomy Слаг таксономии
@@ -261,6 +286,8 @@ class TermManager {
 	public function countPostsByType( string $taxonomy, string $post_type, string $post_status = 'publish' ): array {
 		global $wpdb;
 
+		// Дочерние задания связки (19/20/21, PostMetaName::TaskBundleParentId) на витрине
+		// не показываются — исключаем их из счётчиков теми же условиями, что и список.
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT tt.term_id AS term_id, COUNT( p.ID ) AS total
@@ -268,10 +295,15 @@ class TermManager {
 				 INNER JOIN {$wpdb->term_relationships} tr ON tr.term_taxonomy_id = tt.term_taxonomy_id
 				 INNER JOIN {$wpdb->posts} p ON p.ID = tr.object_id
 				 WHERE tt.taxonomy = %s AND p.post_type = %s AND p.post_status = %s
+				 AND NOT EXISTS (
+				     SELECT 1 FROM {$wpdb->postmeta} pm
+				     WHERE pm.post_id = p.ID AND pm.meta_key = %s
+				 )
 				 GROUP BY tt.term_id",
 				$taxonomy,
 				$post_type,
-				$post_status
+				$post_status,
+				PostMetaName::TaskBundleParentId->value
 			),
 			ARRAY_A
 		);

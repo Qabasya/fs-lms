@@ -7,6 +7,7 @@ namespace Unit\Services\Course;
 use Inc\Managers\Wp\PostManager;
 use Inc\Managers\Wp\TermManager;
 use Inc\Services\Course\WorkAuthoringService;
+use Inc\Services\Task\TaskBundleService;
 use PHPUnit\Framework\TestCase;
 
 class WorkAuthoringServiceTest extends TestCase {
@@ -16,7 +17,12 @@ class WorkAuthoringServiceTest extends TestCase {
 	protected function setUp(): void {
 		parent::setUp();
 		fs_test_reset_posts();
-		$this->service = new WorkAuthoringService( new PostManager(), $this->createMock( TermManager::class ) );
+		$posts = new PostManager();
+		$this->service = new WorkAuthoringService(
+			$posts,
+			$this->createMock( TermManager::class ),
+			new TaskBundleService( $posts, $this->createMock( TermManager::class ) )
+		);
 	}
 
 	public function test_task_candidates_are_scoped_to_subject(): void {

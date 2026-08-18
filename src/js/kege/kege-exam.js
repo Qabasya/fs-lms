@@ -407,6 +407,102 @@ export function initKegeExam() {
 				inputs.forEach( ( row ) => row.forEach( ( i ) => { i.value = ''; } ) );
 				void flushAnswer();
 			} );
+		} else if ( 'file' === shape ) {
+			// Задания 13-16 ОГЭ («Развёрнутый ответ») — только загрузка файла, без
+			// текстового поля (решено с пользователем 2026-08-18). Формат ответа —
+			// тот же JSON {"text":"","files":[ids]}, что и générique file_answer_task
+			// (см. frontend/services/assessment.js::bindFileAnswers, answerValue) —
+			// KegeResultSheetService/WorkDetailService уже умеют его разбирать.
+			panelWrap.hidden = false;
+
+			let savedFiles = [];
+			try {
+				const parsed = saved ? JSON.parse( saved ) : {};
+				savedFiles = Array.isArray( parsed.files ) ? parsed.files : [];
+			} catch ( _e ) { savedFiles = []; }
+
+			const head = document.createElement( 'div' );
+			head.className = 'kege-ap-head';
+			head.textContent = 'Прикрепите файл с решением';
+			panelWrap.appendChild( head );
+
+			const chips = document.createElement( 'div' );
+			chips.className = 'kege-ap-file-chips';
+			// Существующие ID сохранены, но имя файла сервер не отдаёт назад — как и
+			// в générique-флоу (assessment.js), чипы восстанавливаются только для
+			// файлов, загруженных в ЭТОЙ сессии; уже сохранённый ответ при этом не
+			// теряется — просто список визуально пуст до следующей загрузки.
+			const fileIds = savedFiles.slice();
+
+			const addChip = ( id, name ) => {
+				const chip = document.createElement( 'span' );
+				chip.className = 'kege-ap-file-chip';
+				const nameEl = document.createElement( 'span' );
+				nameEl.textContent = name;
+				const rm = document.createElement( 'button' );
+				rm.type = 'button';
+				rm.className = 'kege-ap-file-chip__rm';
+				rm.textContent = '✕';
+				rm.setAttribute( 'aria-label', 'Убрать файл' );
+				rm.addEventListener( 'click', () => {
+					const idx = fileIds.indexOf( id );
+					if ( idx > -1 ) { fileIds.splice( idx, 1 ); }
+					chip.remove();
+					void flushAnswer();
+				} );
+				chip.append( nameEl, rm );
+				chips.appendChild( chip );
+			};
+
+			const fileInput = document.createElement( 'input' );
+			fileInput.type = 'file';
+			fileInput.hidden = true;
+
+			const addBtn = document.createElement( 'button' );
+			addBtn.type = 'button';
+			addBtn.className = 'kege-btn kege-btn--cyan';
+			addBtn.textContent = '📎 Прикрепить файл';
+			addBtn.addEventListener( 'click', () => fileInput.click() );
+
+			const uploadStatus = document.createElement( 'span' );
+			uploadStatus.className = 'kege-ap-file-status';
+
+			fileInput.addEventListener( 'change', async () => {
+				const file = ( fileInput.files || [] )[ 0 ];
+				if ( ! file || ! kegeVars?.actions?.uploadAnswerFile ) { return; }
+
+				addBtn.disabled = true;
+				uploadStatus.textContent = `Загрузка: ${ file.name }…`;
+				try {
+					const fd = new FormData();
+					fd.append( 'action', kegeVars.actions.uploadAnswerFile );
+					fd.append( 'security', kegeVars.nonces.uploadAnswerFile );
+					fd.append( 'attempt_id', String( attemptId ) );
+					fd.append( 'answer_file', file );
+					const res  = await fetch( kegeVars.ajax_url, { method: 'POST', body: fd } );
+					const json = await res.json();
+					if ( ! json?.success ) {
+						throw new Error( json?.data?.message || json?.data || 'Не удалось загрузить файл' );
+					}
+					fileIds.push( json.data.attachment_id );
+					addChip( json.data.attachment_id, json.data.name || file.name );
+					uploadStatus.textContent = '';
+					void flushAnswer();
+				} catch ( e ) {
+					uploadStatus.textContent = e.message;
+				}
+				fileInput.value  = '';
+				addBtn.disabled  = false;
+			} );
+
+			panelWrap.append( chips, fileInput, addBtn, uploadStatus, statusEl );
+
+			binding = {
+				taskId,
+				statusEl,
+				inflight: null,
+				collect: () => fileIds.length ? JSON.stringify( { text: '', files: fileIds } ) : '',
+			};
 		} else {
 			panelWrap.hidden = true;
 

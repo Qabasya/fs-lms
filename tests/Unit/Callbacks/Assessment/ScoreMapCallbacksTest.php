@@ -54,10 +54,10 @@ class ScoreMapCallbacksTest extends TestCase {
 	public function test_sources_exclude_current_non_ege_and_empty_maps(): void {
 		$this->posts->method( 'get' )->willReturn( $this->post( 10 ) );
 		$this->assessments->method( 'getBankBySubject' )->willReturn( array(
-			$this->assessment( 10, AssessmentKind::Ege, array( 0 => 0, 34 => 100 ) ),        // текущая — исключается
+			$this->assessment( 10, AssessmentKind::EgeComputer, array( 0 => 0, 34 => 100 ) ),        // текущая — исключается
 			$this->assessment( 11, AssessmentKind::Control, array( 0 => 0, 5 => 5 ) ),       // не ЕГЭ — исключается
-			$this->assessment( 12, AssessmentKind::Ege, array() ),                           // пустая шкала — исключается
-			$this->assessment( 13, AssessmentKind::Ege, array( 0 => 0, 1 => 6, 34 => 100 ) ), // годится
+			$this->assessment( 12, AssessmentKind::EgeComputer, array() ),                           // пустая шкала — исключается
+			$this->assessment( 13, AssessmentKind::EgeComputer, array( 0 => 0, 1 => 6, 34 => 100 ) ), // годится
 		) );
 
 		$_POST = array( 'assessment_id' => '10' );
@@ -84,15 +84,15 @@ class ScoreMapCallbacksTest extends TestCase {
 		$map = array( 0 => 0, 1 => 6, 34 => 100 );
 
 		$this->assessments->method( 'get' )->willReturnMap( array(
-			array( 1, $this->assessment( 1, AssessmentKind::Ege, $map ) ),
-			array( 2, $this->assessment( 2, AssessmentKind::Ege, array() ) ),
+			array( 1, $this->assessment( 1, AssessmentKind::EgeComputer, $map ) ),
+			array( 2, $this->assessment( 2, AssessmentKind::EgeComputer, array() ) ),
 		) );
 		$this->posts->method( 'get' )->willReturn( $this->post( 2 ) );
-		$this->posts->method( 'getMeta' )->willReturn( array( 'kind' => 'ege' ) );
+		$this->posts->method( 'getMeta' )->willReturn( array( 'kind' => 'ege_computer' ) );
 
 		$this->posts->expects( $this->once() )
 			->method( 'updateMeta' )
-			->with( 2, 'fs_lms_meta', array( 'kind' => 'ege', 'score_map' => $map ) );
+			->with( 2, 'fs_lms_meta', array( 'kind' => 'ege_computer', 'score_map' => $map ) );
 
 		$_POST = array( 'source_assessment_id' => '1', 'target_assessment_id' => '2' );
 
@@ -103,7 +103,7 @@ class ScoreMapCallbacksTest extends TestCase {
 	}
 
 	public function test_copy_rejects_source_with_empty_map(): void {
-		$this->assessments->method( 'get' )->willReturn( $this->assessment( 1, AssessmentKind::Ege, array() ) );
+		$this->assessments->method( 'get' )->willReturn( $this->assessment( 1, AssessmentKind::EgeComputer, array() ) );
 		$this->posts->expects( $this->never() )->method( 'updateMeta' );
 
 		$_POST = array( 'source_assessment_id' => '1', 'target_assessment_id' => '2' );
@@ -113,7 +113,7 @@ class ScoreMapCallbacksTest extends TestCase {
 
 	public function test_copy_rejects_non_ege_target(): void {
 		$this->assessments->method( 'get' )->willReturnMap( array(
-			array( 1, $this->assessment( 1, AssessmentKind::Ege, array( 0 => 0 ) ) ),
+			array( 1, $this->assessment( 1, AssessmentKind::EgeComputer, array( 0 => 0 ) ) ),
 			array( 2, $this->assessment( 2, AssessmentKind::Control, array() ) ),
 		) );
 		$this->posts->expects( $this->never() )->method( 'updateMeta' );

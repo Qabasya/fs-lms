@@ -32,13 +32,10 @@ declare( strict_types=1 );
 				<?php /* Таймер вынесен в липкую шапку .s-top (attempt-shell-header.php) — всегда виден при скролле. */ ?>
 
 				<?php
-				// D16.7: обычный Ege — станция-навигатор (одно задание на экран),
-				// Control — одностраничный список. Разметка задания общая (партиал).
-				if ( \Inc\Enums\Assessment\AssessmentKind::Ege === $assessment->kind ) {
-					require __DIR__ . '/partials/attempt-form-nav.php';
-				} else {
-					require __DIR__ . '/partials/attempt-form-list.php';
-				}
+				// Этот générique-шаблон достигается только для Control — станции
+				// (EgeComputer/OgeComputer) резолвятся отдельным рендерером модуля
+				// (EgeComputerModule::resolveRenderer), сюда не попадают.
+				require __DIR__ . '/partials/attempt-form-list.php';
 				?>
 
 				<div id="fs-assessment-result" hidden>

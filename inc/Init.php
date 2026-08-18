@@ -81,6 +81,7 @@ use Inc\Controllers\Course\LessonProgressController;
 use Inc\Controllers\Course\SubmissionController;
 use Inc\Cli\ArticleSlugCommand;
 use Inc\Cli\SubjectBundleCommand;
+use Inc\Cli\TaskBundleMigrationCommand;
 use Inc\Controllers\Import\ImportController;
 use Inc\Controllers\Person\UserController;
 use Inc\Services\Export\ExportServiceBootstrap;
@@ -173,6 +174,7 @@ final class Init {
 			ImportController::class,   // Импорт учеников из CSV
 			SubjectBundleCommand::class, // WP-CLI: перенос предмета пакетом (регистрируется только под WP_CLI)
 			ArticleSlugCommand::class,   // WP-CLI: пакетное переименование слагов статей
+			TaskBundleMigrationCommand::class, // WP-CLI: перевод связок 19-21 на модель parent+children
 			ConfigController::class,
 			SettingsController::class,
 			LogsController::class,

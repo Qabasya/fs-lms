@@ -229,6 +229,7 @@ export function createStepEditor( opts ) {
 				renderStepBody,
 				saveSteps,
 				scheduleSave,
+				expandStepToBundle,
 			} );
 		}
 	}
@@ -287,6 +288,35 @@ export function createStepEditor( opts ) {
 		renderStepsRow(); renderStepBody(); onChange();
 		saveSteps();
 		showToast( 'Шаг удалён', 'success' );
+	}
+
+	/**
+	 * Связка 19-21: вместо ref = parent разворачивает ТЕКУЩИЙ шаг «Задача» в 3
+	 * отдельных шага подряд (ref = каждый child), см. .docs/Tasks.md, §3.4.
+	 *
+	 * @param {Object} step     Текущий шаг (заменяется).
+	 * @param {Array<{id:number,title:string}>} children Дети связки, порядок 19/20/21.
+	 */
+	function expandStepToBundle( step, children ) {
+		const i = lesson.steps.indexOf( step );
+		if ( i < 0 || ! children.length ) { return; }
+		if ( lesson.steps.length - 1 + children.length > MAX_STEPS ) {
+			showToast( `В уроке не может быть больше ${ MAX_STEPS } шагов`, 'error' );
+			return;
+		}
+
+		const newSteps = children.map( ( c ) => ( {
+			key:     tmpKey( 's' ),
+			type:    step.type,
+			title:   c.title,
+			payload: { ref: c.id },
+		} ) );
+
+		lesson.steps.splice( i, 1, ...newSteps );
+		activeKey = newSteps[ 0 ].key;
+		renderStepsRow(); renderStepBody(); onChange();
+		saveSteps();
+		showToast( 'Связка разложена на ' + newSteps.length + ' отдельных шага', 'success' );
 	}
 
 	function addStep( menuType ) {

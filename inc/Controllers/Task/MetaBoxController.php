@@ -7,6 +7,7 @@ namespace Inc\Controllers\Task;
 use Inc\Contracts\ServiceInterface;
 use Inc\Core\BaseController;
 use Inc\DTO\Task\TaskMetaDTO;
+use Inc\Enums\Subject\TaskTemplate;
 use Inc\Enums\Wp\Nonce;
 use Inc\Enums\Wp\PostMetaName;
 use Inc\MetaBoxes\Fields\HintField;
@@ -15,6 +16,7 @@ use Inc\Managers\Wp\PostManager;
 use Inc\Registrars\MetaBoxRegistrar;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Services\Subject\PostTypeResolver;
+use Inc\Services\Task\TaskBundleService;
 use Inc\Services\Template\TemplateRegistry;
 use Inc\Services\Template\TemplateResolver;
 use Inc\Shared\Traits\Authorizer;
@@ -64,6 +66,7 @@ class MetaBoxController extends BaseController implements ServiceInterface {
 		private readonly TemplateResolver  $resolver,
 		private readonly MetaBoxManager    $metaBoxManager,
 		private readonly PostManager       $postManager,
+		private readonly TaskBundleService $taskBundles,
 	) {
 		parent::__construct();
 	}
@@ -80,6 +83,7 @@ class MetaBoxController extends BaseController implements ServiceInterface {
 		// 'add_meta_boxes' — хук, срабатывающий перед добавлением метабоксов
 		add_action( 'add_meta_boxes', array( $this, 'handleAddMetaBoxes' ) );
 		add_action( 'save_post', array( $this, 'handleMetaSave' ) );
+		add_action( 'transition_post_status', array( $this, 'handleBundleStatusTransition' ), 10, 3 );
 		add_filter( 'fs_lms_get_templates', array( $this, 'getTemplatesList' ) );
 		add_filter( 'default_hidden_meta_boxes', array( $this, 'defaultHiddenMetaboxes' ), 10, 2 );
 	}
@@ -236,6 +240,34 @@ class MetaBoxController extends BaseController implements ServiceInterface {
 			$data,
 			$all_fields
 		);
+
+		// Связка 19-21: parent — единственный источник контента, children материализуются
+		// автоматически при каждом сохранении (см. .docs/Tasks.md, §3.1).
+		if ( TaskTemplate::Triple->value === $template_id ) {
+			$this->taskBundles->syncChildren( $post_id );
+		}
+	}
+
+	/**
+	 * Переносит статус parent-поста связки на его children (draft/publish/trash) —
+	 * children не должны остаться опубликованными при удалённом/задрафченном parent.
+	 *
+	 * @param string   $new_status
+	 * @param string   $old_status
+	 * @param \WP_Post $post
+	 */
+	public function handleBundleStatusTransition( string $new_status, string $old_status, \WP_Post $post ): void {
+		if ( $new_status === $old_status ) {
+			return;
+		}
+		if ( ! PostTypeResolver::isTaskPostType( $post->post_type ) && ! PostTypeResolver::isProblemPostType( $post->post_type ) ) {
+			return;
+		}
+		if ( $this->resolver->resolveId( $post ) !== TaskTemplate::Triple->value ) {
+			return;
+		}
+
+		$this->taskBundles->cascadeStatus( $post->ID, $new_status );
 	}
 
 	/**

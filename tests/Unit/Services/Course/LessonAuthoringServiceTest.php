@@ -7,7 +7,9 @@ namespace Unit\Services\Course;
 use Inc\Enums\Course\StepType;
 use Inc\Managers\Course\LessonManager;
 use Inc\Managers\Wp\PostManager;
+use Inc\Managers\Wp\TermManager;
 use Inc\Services\Course\LessonAuthoringService;
+use Inc\Services\Task\TaskBundleService;
 use PHPUnit\Framework\TestCase;
 
 class LessonAuthoringServiceTest extends TestCase {
@@ -20,7 +22,12 @@ class LessonAuthoringServiceTest extends TestCase {
 		fs_test_reset_posts();
 		$posts         = new PostManager();
 		$this->lessons = new LessonManager( $posts );
-		$this->service = new LessonAuthoringService( $posts, $this->lessons, new \Inc\Services\Template\TemplateRegistry() );
+		$this->service = new LessonAuthoringService(
+			$posts,
+			$this->lessons,
+			new \Inc\Services\Template\TemplateRegistry(),
+			new TaskBundleService( $posts, $this->createMock( TermManager::class ) )
+		);
 	}
 
 	/**

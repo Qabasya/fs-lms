@@ -46,7 +46,7 @@ class EgeCompletenessCheckerTest extends TestCase {
 			id: 1, subjectKey: self::SUBJECT, title: 'ЕГЭ', taskIds: $taskIds,
 			timeLimit: 0, attemptsAllowed: 0, passScore: 0.0,
 			scoringPolicy: ScoringPolicy::Highest, status: 'draft',
-			kind: AssessmentKind::Ege, taskPoints: array(), scoreMap: array(),
+			kind: AssessmentKind::EgeComputer, taskPoints: array(), scoreMap: array(),
 		);
 	}
 

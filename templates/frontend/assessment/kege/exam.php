@@ -24,9 +24,13 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
+use Inc\Enums\Assessment\AssessmentKind;
+use Inc\Enums\Subject\TaskTemplate;
 use Inc\Enums\Ui\Icon;
 use Inc\Modules\EgeComputer\Config\KegeInstructionConfig;
+use Inc\Modules\EgeComputer\Config\OgeInstructionConfig;
 
+$isOge     = AssessmentKind::OgeComputer === $assessment->kind;
 $taskCount = count( $assessment->taskIds );
 
 // «Скачать все файлы» на вкладке «i»: сводный список материалов всей попытки,
@@ -75,7 +79,7 @@ foreach ( $taskViews as $view ) {
 
 				<div class="kege-t-body" data-kege-panel="i">
 					<div class="kege-t-content">
-						<?php foreach ( KegeInstructionConfig::paragraphs() as $paragraph ) : ?>
+						<?php foreach ( ( $isOge ? OgeInstructionConfig::paragraphs() : KegeInstructionConfig::paragraphs() ) as $paragraph ) : ?>
 							<p<?php echo $paragraph['indent'] ? ' class="kege-ind"' : ''; ?>><?php echo esc_html( $paragraph['text'] ); ?></p>
 						<?php endforeach; ?>
 					</div>
@@ -108,8 +112,13 @@ foreach ( $taskViews as $view ) {
 					);
 					$subparts = is_array( $view['subparts'] ?? null ) ? $view['subparts'] : array();
 					$isTriple = ! empty( $subparts );
-					$isTable  = ! $isTriple && in_array( $view['taskNumber'], array( 25, 27 ), true );
-					$shape    = $isTriple ? 'triple' : ( $isTable ? 'table' : 'text' );
+					// Табличный ответ — особенность №25/№27 настоящего КЕГЭ; у ОГЭ таких
+					// позиций нет вовсе, поэтому проверка гасится по kind.
+					$isTable  = ! $isOge && ! $isTriple && in_array( $view['taskNumber'], array( 25, 27 ), true );
+					// Задания 13-16 ОГЭ — «Развёрнутый ответ» (file_answer_task): только
+					// загрузка файла, без текстового поля (решено с пользователем 2026-08-18).
+					$isFile   = ! $isTriple && ! $isTable && TaskTemplate::FileAnswer->value === ( $view['template'] ?? '' );
+					$shape    = $isTriple ? 'triple' : ( $isTable ? 'table' : ( $isFile ? 'file' : 'text' ) );
 					$n        = $i + 1;
 					// Номер в банке — для всех заданий одинаково, включая составное:
 					// диапазон «19–21» в скобках ничего не говорит о самой записи.

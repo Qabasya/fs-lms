@@ -264,10 +264,13 @@ function taskBlock(t, d) {
         ? `<span class="st-score">${fmtNum(t.score)}${t.max_score != null ? '/' + fmtNum(t.max_score) : ''}</span>` : '';
     const canGrade = d.kind === 'exam' && t.task_id && attemptGradeApi;
     const hasCriteria = canGrade && Array.isArray(t.criteria) && t.criteria.length;
+    const hasOgeRubric = canGrade && !hasCriteria && t.oge_rubric;
     // Пооответное оценивание экзамена (T11.9). Эпик 13 (D17): если у задачи есть
     // критерии — оценивание покритерийное (сумма сырых баллов, без весов);
+    // holistic-рубрика ОГЭ (§3.4, .docs/Tasks.md) — один балл через dropdown с
+    // полным текстом всех уровней рядом (НЕ сумма критериев);
     // иначе — прежний контрол «балл + верно».
-    const grade = hasCriteria ? criteriaGradeBlock(t) : canGrade ? `
+    const grade = hasCriteria ? criteriaGradeBlock(t) : hasOgeRubric ? ogeRubricGradeBlock(t) : canGrade ? `
             <div class="sum-task-grade" data-task-id="${t.task_id}" data-max="${t.max_score ?? ''}">
                 <input type="number" class="stg-score" step="0.5" min="0" value="${t.score ?? ''}" placeholder="балл">
                 <span class="stg-of">/ ${t.max_score != null ? fmtNum(t.max_score) : '1'}</span>
@@ -318,13 +321,31 @@ function criteriaGradeBlock(t) {
             </div>`;
 }
 
+/* §3.4 (.docs/Tasks.md): holistic-рубрика ОГЭ (13.1/13.2/14/15/16) — учитель
+   видит текст всех уровней целиком и ставит ОДИН балл через dropdown, а не
+   сумму независимых критериев (в отличие от criteriaGradeBlock выше). */
+function ogeRubricGradeBlock(t) {
+    const max = t.oge_rubric.max_points;
+    const options = Array.from({ length: max + 1 }, (_, score) => max - score)
+        .map((score) => `<option value="${score}" ${t.score !== null && Math.round(+t.score) === score ? 'selected' : ''}>${score} из ${max}</option>`)
+        .join('');
+    return `
+            <div class="sum-task-rubric">${t.oge_rubric.html}</div>
+            <div class="sum-task-grade sum-task-grade--oge-rubric" data-task-id="${t.task_id}" data-max="${max}">
+                <select class="stg-oge-score">${options}</select>
+                <input type="text" class="stg-fb" placeholder="комментарий">
+                <button class="prof-btn prof-btn-sm prof-btn-primary stg-save">Оценить</button>
+            </div>`;
+}
+
 /* Пооответное оценивание попытки экзамена (T11.9). Эпик 13 (D17): критериальные
    задачи шлют criteria_scores (JSON {индекс: баллы}) вместо score/is_correct. */
 function wireAttemptGrading(modal, d) {
     const meta = modal.querySelector('#smhMeta');
     modal.querySelectorAll('.sum-task-grade').forEach(box => {
         const btn = box.querySelector('.stg-save');
-        const isCriteria = box.classList.contains('sum-task-grade--criteria');
+        const isCriteria  = box.classList.contains('sum-task-grade--criteria');
+        const isOgeRubric = box.classList.contains('sum-task-grade--oge-rubric');
         btn.addEventListener('click', async () => {
             const taskId = +box.dataset.taskId;
             const feedback = box.querySelector('.stg-fb').value.trim();
@@ -342,6 +363,14 @@ function wireAttemptGrading(modal, d) {
                 });
                 payload.criteria_scores = JSON.stringify(scores);
                 verdict = sum >= max ? 'correct' : 'incorrect';
+            } else if (isOgeRubric) {
+                // Holistic-рубрика (§3.4): один выбранный уровень — обычный простой
+                // балл (GradeAttemptCallbacks без критериев), не сумма по критериям.
+                const score = +box.querySelector('.stg-oge-score').value;
+                const max   = +box.dataset.max;
+                payload.score      = String(score);
+                payload.is_correct = score >= max ? '1' : '0';
+                verdict = score >= max ? 'correct' : 'incorrect';
             } else {
                 payload.score = box.querySelector('.stg-score').value || '0';
                 payload.is_correct = box.querySelector('.stg-ok-cb').checked ? '1' : '0';

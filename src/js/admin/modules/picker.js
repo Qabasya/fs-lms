@@ -8,7 +8,9 @@ import { escapeHtml as esc } from '../../common/utils.js';
  * @param {string}     [opts.placeholder='Поиск…']
  * @param {string}     [opts.emptyText='Ничего не найдено']
  * @param {Function}    opts.fetchFn   (search: string) => Promise<{id, title}[]>
- * @param {Function}    opts.onPick    (id: number, title: string) => void
+ * @param {Function}    opts.onPick    (id: number, title: string, source: string, item: Object) => void
+ *                                     `item` — исходный элемент кандидата целиком (напр.
+ *                                     `bundle_children` связки 19-21, см. slot-builder.js).
  */
 export function openPicker( anchor, { placeholder = 'Поиск…', emptyText = 'Ничего не найдено', fetchFn, onPick, placement = 'below' } ) {
 	const pop = document.createElement( 'div' );
@@ -43,7 +45,7 @@ export function openPicker( anchor, { placeholder = 'Поиск…', emptyText =
 					badge.textContent = 'bank' === it.source ? 'Банк' : 'Предмет';
 					opt.appendChild( badge );
 				}
-				opt.addEventListener( 'click', () => { onPick( parseInt( it.id, 10 ), it.title, it.source || '' ); pop.remove(); } );
+				opt.addEventListener( 'click', () => { onPick( parseInt( it.id, 10 ), it.title, it.source || '', it ); pop.remove(); } );
 				results.appendChild( opt );
 			} );
 		} )

@@ -1,843 +1,581 @@
-сквозное ревью проекта
+# Связка 19-21 (composite task) — декомпозиция в работах/курсе/экзамене
 
-Безопасность
+> **Статус:** реализация в основном сделана. §3.1, §3.3, §3.4, §4 — полностью; §3.2 и §3.5 —
+> частично (см. галочки внутри разделов); §3.6 не требует правок. Осталось только: вывод
+> `TripleAnswerChecker`/composite-кода из эксплуатации (намеренно отложено до подтверждения
+> нулевого использования в проде, см. §3.5) и прогон миграции на самом проде (§4, последний
+> пункт — нужно решение по окну простоя, см. §5.3). 1206/1206 тестов зелёные, `eslint`/
+> `gulp scripts` без ошибок, вся цепочка (материализация → раскрытие в билдерах → WP-CLI
+> миграция ссылок) прогнана end-to-end на реальном dev-банке через WP-CLI.
+> **Дата:** 2026-08-18.
+> **Связанные файлы:** `inc/MetaBoxes/Templates/ThreeInOneTemplate.php`, `inc/Enums/Subject/TaskTemplate.php`,
+> `inc/Services/Task/CompositeSubItemResolver.php`, `inc/Services/Task/Checkers/TripleAnswerChecker.php`,
+> `inc/Services/Course/BatchCheckService.php`, `inc/Services/Assessment/AutoGradeService.php`,
+> `inc/Services/Assessment/AttemptTaskViewBuilder.php`, `inc/Services/Assessment/EgeCompletenessChecker.php`,
+> `inc/DTO/Course/WorkDTO.php`, `inc/DTO/Assessment/AssessmentDTO.php`,
+> `src/js/admin/services/{slot-builder,work-builder,assessment-builder}.js`, `src/js/admin/services/step-editor.js`.
 
-2S1 — высокий. Публичное перечисление пользователей без ограничения частоты
+## 1. Проблема
 
-inc/Callbacks/Enrollment/ApplicationCallbacks.php:427-437 и :439-449
+Задание-связка ЕГЭ (напр. «Связка 19-21, Теория игр») сегодня — **один пост** CPT `{key}_tasks`
+шаблона `triple_task` (`ThreeInOneTemplate`) с тремя парами `task_19_condition/answer`,
+`task_20_...`, `task_21_...`. Везде по стеку (Work.itemIds, Assessment.taskIds, таблицы
+`submissions`/`assessment_answers`/`task_attempts`, все с `UNIQUE(attempt_id, task_id)`)
+действует инвариант «1 task_id = 1 ответ = 1 строка» — связка на станции ЕГЭ визуально рисуется
+как 3 подпункта, но физически это один слот с одним комбинированным баллом
+(`TripleAnswerChecker`, до 3 баллов, JSON-ответ). В работах (Work) расщепления вообще нет.
 
-ajaxCheckUsernameAvailable и ajaxCheckEmailAvailable зарегистрированы как nopriv
-(ApplicationController::publicAjaxActions():79-82). Оба проверяют нонс — и на этом всё.
-Остальные четыре публичных действия того же класса поголовно проходят через RateLimitService
-(:123, :255, :270, :298, :382), эти два — нет.
+## 2. Целевая модель
 
-Нонс не барьер: он печатается в публичную страницу заявки (fs_lms_apply_vars.nonces), для
-разлогиненного посетителя живёт 12-24 часа и одинаков для всех. Достаточно взять его один раз и
-дальше без ограничений опрашивать username_exists() / email_exists().
+**Задание-связка = 1 канонический пост (parent) + 3 материализованных дочерних поста (children).**
 
-Что утекает: факт регистрации по произвольному email — это подтверждение персональных данных
-(«такой-то учится в этой школе»), проверяемое пакетно по списку адресов. Плюс перебор логинов
-под будущий подбор пароля.
+- **Parent** (`triple_task`, как сейчас) — единственный источник контента: автор заполняет условие
+  и ответ по 19/20/21 на одном экране. Это единственный пост, у которого есть **публичная
+  страница** (`/{key}/trainer/{номер}/`) — на ней связка отображается как один пост/страница,
+  как и сегодня.
+- **Children** — 3 обычных поста CPT `{key}_tasks` шаблона `StandardTaskTemplate`
+  (`task_condition`/`task_answer` как у любого обычного задания), с термом
+  `{key}_task_number` = `19`/`20`/`21` каждый. Создаются и синхронизируются автоматически при
+  сохранении parent-поста (upsert по связке `parent_id + суффикс`), сами по себе **не
+  публикуются на витрину** — публичный роут для них гейтится/редиректит на parent (см. §3.2).
+- **Work / Assessment / Lesson-step «Задача»** ссылаются на **children**, а не на parent —
+  для них это 3 обычных независимых задания: свой `task_answer`, свой `TextAnswerChecker`, своя
+  строка в `submissions`/`assessment_answers`/`task_attempts`. **Никаких изменений схемы БД и
+  scoring-кода не требуется** — вся составная механика (`CompositeSubItemResolver`,
+  `TripleAnswerChecker`, `expandsComposites()`-ветка в `BatchCheckService`/`AutoGradeService`,
+  `subparts()` в `AttemptTaskViewBuilder`) со временем выводится из эксплуатации (см. §3.5).
 
-Фикс: те же RateLimitService-лимиты по IP, что и у соседних действий класса; для email —
-жёстче (это проверка ПД, а не удобство ввода). Ответ стоит унифицировать по времени.
+## 3. Задачи
 
-2S2 — средний. IDOR в статусе провижна AD
+### 3.1 Материализация: parent → 3 children — ✅ СДЕЛАНО (2026-08-18)
+- [x] `Inc\Services\Task\TaskBundleService` (`inc/Services/Task/TaskBundleService.php`):
+      `syncChildren(int $parentId): array` — идемпотентный upsert 3 children по
+      `task_19/20/21_condition/answer` parent-а (создаёт при отсутствии, иначе обновляет
+      контент/заголовок/статус по сохранённым в `TaskBundleChildIds` id); `cascadeStatus(int, string)`
+      — переносит статус на существующих children, ничего не создавая. 5 unit-тестов
+      (`tests/Unit/Services/Task/TaskBundleServiceTest.php`).
+- [x] `PostMetaName::TaskBundleParentId` (child → parent) и `PostMetaName::TaskBundleChildIds`
+      (parent → [id19, id20, id21]) — добавлены в enum, пишутся только через
+      `PostManager::updateMeta()`/`MetaBoxManager`, не напрямую.
+- [x] Хук синхронизации — `Task\MetaBoxController::handleMetaSave()`: после `saveFieldsMerge()`
+      для `template_id === TaskTemplate::Triple` зовёт `TaskBundleService::syncChildren()`. Номер
+      задания на child ставится через новый `TermManager::getOrCreateIdByName()` (get-or-create
+      термина по имени — в отличие от `insert()`, который для существующего термина отдаёт 0).
+- [x] Статус — `MetaBoxController::handleBundleStatusTransition()` на `transition_post_status`
+      (тот же паттерн, что `SlugCallbacks::lockOnPublish`/`CourseMetaBoxController::onCoursePublished`):
+      cascade на children при draft/publish/trash parent-а. Дублирует часть работы `syncChildren()`
+      (он тоже видит новый статус при save_post), но остаётся страховкой для путей, не идущих
+      через полный сейв меты (быстрое редактирование, массовые действия).
 
-inc/Modules/AdSync/Controllers/AdSyncController.php:85-91
+### 3.2 Публичная страница — остаётся одна (parent) — ⚠️ ЧАСТИЧНО СДЕЛАНО (2026-08-18)
+- [x] Гейт в роутинге — `Callbacks\Task\TemplateCallbacks::loadTaskFrontendTemplate()`: прямой
+      заход на child (есть `TaskBundleParentId`) — `wp_safe_redirect(parent_link, 301)` (решение
+      по §5 вопросу 1 принято: 301, не 404 — тот же паттерн, что
+      `SubjectLandingController::redirectLegacySection()`).
+- [x] Исключены из каталога/поиска банка тренажёра — `AllTasksDataBuilder::fetchTasks()`/
+      `matchingIds()` (meta_query `NOT EXISTS TaskBundleParentId`) и
+      `TermManager::countPostsByType()` (тот же `NOT EXISTS` в SQL — иначе счётчики фильтров
+      «Все задания» разъезжались бы со списком). `ContentCacheService`/admin-виджет «Последние
+      задания» НЕ трогали намеренно — там children видеть уместно (это авторский, не публичный
+      экран).
+- [ ] Экспорт предмета (`inc/Services/Subject/Bundle/PostCollector`) — не проверено и не покрыто
+      тестом на круглый ремап `TaskBundleParentId`/`TaskBundleChildIds` через `RefRemapper`.
 
-nopriv-эндпоинт принимает $_POST['ref'] — сырой ID заявки — и отдаёт состояние провижна
-(none / pending / done / failed). Владение не проверяется, лимита частоты нет, нонс
-публичный (Nonce::Apply). ID заявок последовательные → анонимный перебор даёт факт
-существования заявок, их количество и темп поступления.
+### 3.3 Work (работы) — 3 отдельных поста-слота — ✅ СДЕЛАНО (2026-08-18)
+- [x] Общий механизм раскрытия — в `slot-builder.js` (используют и Work, и Assessment билдеры):
+      новая `assignPicked(index, taskId, title, item)` — если у выбранного элемента есть
+      `item.bundle_children` (отдаёт бэкенд, см. ниже), вместо одного слота подставляются
+      **3 слота** (children в порядке 19/20/21, через `newSlot()` конфига — сохраняет форму слота
+      конкретного билдера: у Assessment есть `points`/`number`, у Work — нет). Guard на дубли
+      расширен на весь набор детей. `openPicker()` (`modules/picker.js`) теперь передаёт в
+      `onPick` 4-м аргументом весь элемент кандидата (обратно совместимо — старые 3-арг колбэки
+      не ломаются).
+- [x] Источник `bundle_children` — `TaskBundleService::childrenSummary(int $parentId)`
+      (`[{id, title, number}, ...]`, пусто для обычных заданий). Подключён в
+      `WorkAuthoringService::getTaskCandidates()`/`getProblemCandidates()` — оба источника
+      кандидатов Work (`{key}_tasks` и `fs_lms_problems`), т.к. связка может быть в любом из них
+      (в текущей БД обе используемые связки — из банка, `fs_lms_problems`).
+- [x] Guard на дубли (`WorkManager::setItemIds`) не тронут — children уже разные id.
+- [x] `WorkDTO`/`WorkManager` — без изменений схемы, `itemIds` просто содержит 3 id вместо 1.
+- [x] **Регрессия найдена и исправлена (2026-08-18, при выполнении пользовательской проверки
+      «раскрытие ЕГЭ 19-21 + гард»):** `childrenSummary()` изначально отдавал только `{id, title}`
+      без номера — банковские children (`fs_lms_problems`, без своей таксономии) получали в
+      `assessment-builder.js` пустой `s.number`, и `EgeCompletenessChecker` видел их «сиротами»
+      (терма нет, `task_numbers` тоже пуст). Исправлено: `childrenSummary()` теперь возвращает
+      фиксированный номер (19/20/21 по порядку из `TaskBundleService::NUMBERS`) третьим полем,
+      `slot-builder.js::assignPicked()` переносит его в `s.number` нового слота (только если у
+      слота вообще есть это поле — Work-слоты его не имеют, Assessment-слоты имеют). Для
+      предметных children поле избыточно (бэкенд игнорирует ручной номер при наличии терма), но
+      безвредно. Подтверждено на реальных данных через `EgeCompletenessChecker::validate()` —
+      после фикса позиции 19/20/21 резолвятся без orphans/missing/duplicated.
+- [x] E2E проверено вручную через WP-CLI на реальных данных (parent 16694 → children
+      16939/16940/16941) — `getStepCandidates`/кандидаты корректно отдают `bundle_children` с
+      номерами, `EgeCompletenessChecker` корректно закрывает позиции 19/20/21.
 
-Фикс: опрашивать не по ID, а по одноразовому непредсказуемому токену, который выдаётся
-подавшему в filterApplyResponse():73-79 и живёт в транзиенте рядом с ID.
+### 3.4 Lesson-step «Задача» — 3 отдельных шага — ✅ СДЕЛАНО (2026-08-18)
+- [x] `step-editor.js`: новая `expandStepToBundle(step, children)` — заменяет ТЕКУЩИЙ шаг
+      «Задача» на **3 отдельных шага** подряд (ref = child 19/20/21, заголовок = заголовок
+      child), с проверкой лимита `MAX_STEPS`. Прокинута в `ref-editor.js` через `ctx`
+      (по образцу остальных колбеков `stepMeta`/`renderStepsRow`/…).
+- [x] `ref-editor.js`: обработчик пика задачи (`isTask`-ветка) теперь принимает 4-й аргумент
+      `item` из `openPicker` — при `item.bundle_children` зовёт `expandStepToBundle()` вместо
+      простой установки `step.payload.ref = id`.
+- [x] Источник `bundle_children` для лесенки — `LessonAuthoringService::candidatesFrom()`
+      (новый параметр `$withBundles`, включён только для `kind = 'task'` — не для work/
+      assessment/article/lesson кандидатов), через тот же `TaskBundleService::childrenSummary()`.
+- [x] `LessonDTO`/`LessonManager` — без правок (шаг типа `task` хранит один `ref`; теперь просто
+      3 шага вместо одного).
+- [x] Затронутые конструкторы сервисов (`WorkAuthoringService`, `LessonAuthoringService`) получили
+      новую DI-зависимость `TaskBundleService` — все прямые `new …AuthoringService(...)` в тестах
+      обновлены (5 файлов), 1199/1199 тестов зелёные, `npx eslint`/`npx gulp scripts` без ошибок.
 
-2S3 — информационно. SQL-слой чист
+### 3.5 Assessment (контрольные/экзамен) — переезд на children, ретрит composite-кода
+- [x] `assessment-builder.js` — раскрытие через тот же общий `assignPicked()`/`newSlot()` из
+      `slot-builder.js` (см. §3.3): новый слот получает дефолтные `points: 1`/`number: ''` из
+      `blankSlot()` конфига — вес 1 каждому ребёнку, а не 3 на весь блок, как и требовалось.
+      Номер задания для предметных children выставляется термом автоматически
+      (`TaskBundleService`), поле «Номер для банка» в UI остаётся резервным путём для
+      банковских детей (как у любой другой банковской задачи).
+- [ ] `EgeCompletenessChecker` — после перехода на children работает **без изменений**: номера
+      19/20/21 закрываются тремя обычными таксон-термами, специальный orphan-кейс для целого
+      блока больше не возникает.
+- [ ] Once миграция (§4) завершена и в проде не осталось активных `taskIds`, указывающих на
+      parent-посты связок в `AssessmentDTO`/`WorkDTO`: вывести из эксплуатации —
+      `CompositeSubItemResolver`, `TripleAnswerChecker`, `expandsComposites()`-ветку в
+      `BatchCheckService::check()`/`AutoGradeService::gradeAttempt()`, `subparts()` в
+      `AttemptTaskViewBuilder`, `data-triple-subs`/`.kege-t-subpart` рендер в
+      `templates/frontend/assessment/kege/exam.php` + `src/js/kege/kege-exam.js`. Отдельный
+      чистовой PR, не раньше подтверждения нулевого использования в проде.
 
-Прогон по всем $wpdb-вызовам: идентификаторы через %i, списки IN (…) собираются
-array_fill()-плейсхолдерами и уходят в prepare() (NotificationRepository:148-154,
-ApplicationRepository:89-121, PersonRepository:73-77, AbstractLogRepository:196-198,
-TermManager:307-314). Конкатенации пользовательского ввода в SQL не нашёл. Инъекционных
-находок нет — фиксирую, чтобы приоритет ушёл в 2S1/2S2, а не в перепроверку SQL.
+### 3.6 Станция ЕГЭ / шаблон задачи — рендер parent на публичной странице
+- [ ] Публичная страница parent-поста (`templates/frontend/lesson-player/partials/step-task.php`,
+      ветка `triple_task`, уже умеет рисовать 3 условия `fs-task-subpart`) — оставить как есть,
+      это единственное место, где связка показывается «одним постом».
 
-2S4 — информационно. Escaping в шаблонах: безопасно, но не проверяемо
+## 4. Миграция существующего банка — ✅ СДЕЛАНО (2026-08-18)
 
-Все 30+ срабатываний «echo без esc_» в templates/ разобраны вручную: во фронтовых шаблонах
-это тернарники с литералами (all-tasks-body.php, player.php, step-task.php и т.д.), в
-админских — переменные, экранированные заранее
-(settings-9-rooms.php:52-53: $row_name = esc_attr( $room->name ), дальше echo $row_name).
+- [x] WP-CLI команда `wp fs-lms task-bundle migrate [--dry-run]`
+      (`inc/Cli/TaskBundleMigrationCommand.php`, зарегистрирована в `Init::getServices()`) —
+      тот же паттерн, что `wp fs-lms article reslug` (план отделён от применения,
+      бизнес-логика в сервисе, не в CLI-классе): `TaskBundleMigrationPlanner`
+      (`inc/Services/Task/TaskBundleMigrationPlanner.php`).
+      Фаза 1 — `findBundleParents()` находит все `triple_task`-посты (предметные CPT
+      предметов с банком + глобальный `fs_lms_problems`), `materialize()` зовёт
+      `TaskBundleService::syncChildren()` на каждый (идемпотентно; выполняется **даже
+      под `--dry-run`** — она не разрушительна, а план фазы 2 без реальных id children
+      был бы пустым/лживым).
+- [x] Фаза 2 — `planReferenceUpdates()`/`applyReferenceUpdates()`: находит Work/Assessment,
+      чьи `itemIds`/`taskIds` ссылаются на parent-id связки, заменяет один id на 3 id
+      children (`TaskBundleReferenceChangeDTO`, `inc/DTO/Task/TaskBundleReferenceChangeDTO.php`).
+      Вес — по 1 на каждого child независимо от исходного `taskPoints[parent]` (совпадает
+      с текущей поштучной оценкой 19/20/21 у `TripleAnswerChecker`). Ручной номер
+      (`taskNumbers`, фолбэк Задачи 8) переносится **только для банковских children**
+      (`fs_lms_problems` — нет своей таксономии) и **только по связкам, реально стоящим
+      в этой конкретной работе/контрольной** — попутно найден и исправлен баг черновика:
+      наивная реализация заносила номера ВСЕХ найденных по сайту связок в `taskNumbers`
+      каждой затронутой записи, а не только своей.
+- [x] `--dry-run` — показывает план обеих фаз, ничего не пишет во 2-й (разрушительной)
+      фазе. Гейт неотключаем для фазы 2 (сама структура команды: apply — отдельный, явный
+      шаг после показа таблицы плана).
+      Исторические строки `task_attempts`/`assessment_answers` по старому parent-`task_id`
+      не трогаются в принципе — миграция их не касается вообще.
+- [x] `applyReferenceUpdates()` возвращает `{applied, failed}`, а не просто счётчик —
+      `WorkManager::setItemIds()`/`AssessmentManager::setItemIds()` молча отказывают
+      (`false`), если итоговый список содержит дубли (гард «задача 6»); найдено на
+      реальном dev-банке: одна работа уже содержала повторяющийся `item_id` **до**
+      миграции (независимо от связок). Команда явно предупреждает про такие ID вместо
+      того, чтобы молча заявить успех — 7 unit-тестов на планировщик, включая регресс
+      на утечку `taskNumbers` и на разделение applied/failed.
+- [x] Прогнано end-to-end на реальном dev-банке через WP-CLI (`docker compose run --rm
+      wpcli`): 8 найденных связок, 3 реально затронутых Work/Assessment (одна из связок
+      обнаружилась в предмете `git`, у которого `hasBank = false` — по пути найден и
+      исправлен второй баг черновика: Work/Assessment CPT регистрируются независимо от
+      `hasBank`, фильтровать по нему список предметов для сканирования ссылок было
+      нельзя, см. `SubjectContentRegistrar::registerAll()`). После применения повторный
+      `--dry-run`/прогон находит 0 изменений — идемпотентность подтверждена. Полный набор
+      — 1206/1206 тестов зелёные.
+- [ ] Прогон на проде — не проводился (нужен отдельный запуск на реальном проде, когда
+      будет решён вопрос §5.3 про расписание/окно простоя).
 
-Уязвимости нет. Но приём «экранируем в одном месте, печатаем в семи» ломает и ревью, и phpcs:
-одна новая строка $row_name = $room->name без esc_attr превращается в хранимую XSS
-незаметно. Экранировать стоит в точке вывода — settings-9-rooms.php, settings-3-periods.php.
+## 5. Открытые вопросы (нужно решить до старта)
 
-2S5. Все phpcs-подавления обоснованы
-
-200 phpcs:ignore по проекту, каждое с причиной; 4 подавления NonceVerification.Missing
-проверены поимённо — во всех случаях нонс действительно проверен строкой выше либо это ранний
-хук до фактического сейва. Отдельных находок нет.
-
-Архитектура и правила проекта
-
-2A1. Прямые WP data API вне Managers/Repositories
-
-Правило: «Do NOT use WP_Query, get_posts, update_option, update_post_meta directly».
-Нарушители (по одному-двум вызовам, но в слоях, которым это запрещено):
-- inc/Controllers/Task/MetaBoxController.php:162 — get_post_meta в контроллере;
-- inc/MetaBoxes/Templates/BaseTemplate.php:84, ThreeInOneTemplate.php:91;
-- inc/Services/Template/TemplateResolver.php:79,81;
-- inc/Services/Assessment/TaskPreviewService.php:91,93.
-
-Во всех пяти читается одна и та же PostMetaName::Meta — просится один метод
-PostManager::taskMeta( int $post_id ): array и полное исчезновение прямых вызовов.
-
-2A2. Прямая работа с суперглобалами вместо трейта Sanitizer
-
-69 обращений к $_POST/$_GET/$_REQUEST/$_FILES в 35 файлах при живом трейте с
-sanitizeInt()/sanitizeKey()/sanitizeText(). Крупнейший — Controllers/Course/CoursePreviewController.php
-(9 обращений, :40-88), причём разбор ?course=&lesson=&step= продублирован в loadTemplate()
-и currentDeepLink(). Данные там кастуются и проверяются на доступ — это не дыра, а
-разъезжающаяся конвенция и лишний код.
-
-2A3. current_user_can() напрямую в Callback-классе
-
-inc/Callbacks/Subject/SubjectValidationCallbacks.php:323 — прямой вызов вместо
-$this->authorize(). По CLAUDE.md это запрещено явно («Never call check_ajax_referer() or
-current_user_can() directly in Callback methods»). Единственный такой случай во всех Callbacks
-— остальные 150+ AJAX-методов дисциплинированы: сверка «методов ajax* против guard'ов» по всем
-59 Callback-классам дала совпадение или перевес guard'ов везде.
-
-2A4. AJAX мимо всей конвенции сразу
-
-inc/Modules/AdSync/Controllers/AdSyncController.php:35-36,85 — хук регистрируется сырой строкой
-('wp_ajax_nopriv_' . self::STATUS_ACTION) мимо enum AjaxHook, а обработчик живёт в
-контроллере, хотя в том же модуле есть AdSyncSettingsCallbacks. Нарушены три правила:
-ключи-только-через-энумы, «AJAX-логика только в Callbacks», «контроллеры только регистрируют».
-
-2A5. Транзиенты мимо TransientManager
-
-inc/Modules/VideoLibrary/Services/RecordingAlertService.php:42,53 — сырые
-set_transient/get_transient. Документированное исключение из CLAUDE.md покрывает только
-RateLimitService, EmailOtpService, TaskPublishGuard; этот сервис в список не входит.
-Либо ключ переезжает в Enums/Wp/TransientKey, либо сервис дописывается в исключения.
-
-2A6. declare(strict_types=1) отсутствует в 37 файлах из 738
-
-Правило требует его в каждом. Среди отсутствующих — не периферия, а базовые вещи:
-Shared/Traits/Sanitizer.php, Shared/Traits/ErrorHandler.php, Shared/Traits/TemplateRenderer.php,
-Managers/Wp/CPTManager.php, Enums/Access/UserRole.php, Controllers/Subject/SubjectController.php.
-В файле без строгой типизации (int) "12abc" и "1" == 1 ведут себя иначе, чем в соседнем — это
-не косметика.
-
-2A7. Инлайновый <svg> в PHP-шаблонах
-
-Правило: иконки только из Inc\Enums\Ui\Icon. Нарушают два файла —
-templates/admin/components/modals/partials/provider-logo.php и
-inc/Modules/SocialAuth/templates/settings-tab.php. Оба про логотипы OAuth-провайдеров: их в
-Icon нет и, возможно, быть не должно (бренд ≠ UI-глиф) — тогда исключение нужно записать в
-CLAUDE.md, а не оставлять молча. В JS-бандлах правило соблюдено полностью: инлайновых <svg>
-вне common/icons.js нет ни одного.
-
-2A8. Правило «JS не задаёт стили» соблюдается наполовину
-
-Две конкурирующие идиомы на одну задачу. Правильная — отдать число в CSS-переменную
-(article-aside.js:49, modules/task-condition.js:140, modal-base.js:55). Прямое присваивание
-стилей: profile/utils.js:130-179 (7 мест), admin/services/step-editor.js:893-961 (6),
-player/shell.js:19, player/step-work.js:87, player/step-video.js:46-47, player/core.js:100,
-frontend/components/article-carousel.js:50-51.
-
-Позиционирование поповеров по геометрии — честное исключение. Но четыре прогресс-бара
-(style.width = '…%') переводятся в --progress механически, а article-carousel.js:50
-(style.transition = …) — это анимационный конфиг в JS, ему место в классе.
-
-Производительность
-
-2P1. getMeta() в цикле по ID, не пришедшим из WP_Query
-
-PostManager::primeMetaCache() существует и используется ровно в 3 местах на весь плагин. При
-этом есть циклы, где ID берутся из своих таблиц (ответы, попытки), то есть мета-кэш WP не
-прогрет ничем, и каждый виток — отдельный запрос:
-- Services/Assessment/AttemptTaskViewBuilder.php:58,60 — по два getMeta на задание попытки;
-- Services/Assessment/AttemptResultService.php:45;
-- Services/Course/WorkDetailService.php:150;
-- Services/Course/ContentUsageService.php:156,317,344,370 — четыре разных цикла в одном сервисе.
-
-Контрольная на 30 заданий — это 60+ лишних запросов на просмотр результата. Лечится одной
-строкой primeMetaCache( $ids ) перед каждым циклом.
-
-2P2. Выборки без лимита
-
-posts_per_page => -1 / numberposts => -1 в 8 местах. Ограниченные по природе (все статьи
-одного номера задания) вопросов не вызывают, но Controllers/Builders/AllTasksDataBuilder.php:366
-и Managers/Wp/PostManager.php:44,62,130,283 растут вместе с банком заданий — на большом
-предмете это выборка всего банка в память. Нужен явный потолок с логированием обрезки.
-
-Дублирование и мёртвый код
-
-2D1. Пять локальных копий общих утилит
-
-Правило src/js/CLAUDE.md: «Доменные бандлы реэкспортируют их под своими именами — своих копий
-не заводить». Заведены:
-- escapeHtml: admin/services/step-editor.js:62, admin/services/tables/students-table.js:183,
-  admin/modals/enrollment/teacher-view-modal.js:116, frontend/components/sidebar-articles.js:16;
-- debounce: второй экземпляр в frontend/services/assessment.js:61.
-
-Три из четырёх esc реализованы через $('<div>').text().html(), четвёртая — через String() с
-заменами: то есть ещё и разное экранирование в разных бандлах.
-
-2D2. Файлы, переросшие свою роль
-
-src/js/admin/services/step-editor.js (46 КБ), src/js/profile/ktp.js (44 КБ),
-inc/Core/Enqueue.php (30 КБ), inc/Services/Profile/LearnerService.php (25 КБ),
-inc/Callbacks/Enrollment/EnrollmentCallbacks.php (23 КБ, 17 AJAX-методов),
-inc/Controllers/Course/LearningMenuController.php (11 хуков, 30 методов: меню + фильтры
-list-table + модалка + «хром» банка).
-
-Enqueue.php раздувается по прямому требованию CLAUDE.md («все wp_localize_script — только
-здесь»), то есть правило и размер связаны: разумный выход — оставить правило, но разложить файл
-на per-bundle энкьюеры с общим фасадом.
-
-2D3. Проверенные гипотезы, оказавшиеся ложными
-
-Чтобы не тратить время повторно: templates/frontend/join.php (35 КБ) — чистая разметка без
-логики и не дублирует apply-fields.php (13 общих строк из 286); XSS в JS-рендерах нет —
-frontend/components/task-card.js экранирует каждое поле, админские таблицы вставляют
-серверный HTML целиком; ref-selector.js:161 экранирует через jQuery.
-
-Комментарии и гигиена
-
-2H1. 170 «учебных» комментариев
-
-Только по одному узкому шаблону (// имя_функции() — что она делает) находится 170 штук.
-Плотнее всего: Managers/Wp/TermManager.php (10), Repositories/OptionsRepositories/UserRepository.php
-(8), Services/Security/PiiCryptoService.php (7), Shared/Traits/TaxonomySeeder.php (6),
-Shared/Traits/Sanitizer.php (6), Services/Email/EmailOtpService.php (6),
-Migrations/MigrationRunner.php (6), Controllers/Pages/BoilerplatePageController.php (6).
-Реальный объём шума больше: сюда не попали заголовки-разделы вида «### Основные обязанности» и
-пересказы строк («Получение типа поста через статический метод PostTypeResolver»).
-
-Чистку по проекту пользователь отложил — фиксирую объём и точки входа.
-
-2H2. Пять TODO в рабочем коде
-
-AdSyncController.php:72,92 — оба помечают тексты, которые видит посетитель («TODO(текст):
-сообщения статусов»); Services/Course/ContentUsageService.php:452 — незакрытый этап
-кросс-предметного поиска; MetaBoxes/Templates/ThreeInOneTemplate.php:87 — «вынести отсюда html
-и стили»; templates/frontend/profile.php:36.
-
----
-
-# Задачи этапа фиксов по ревью
-
-Сопоставление: каждая задача ссылается на пункт ревью. Без задач остаются: 2S3, 2S5, 2D3
-(информационные, действий нет), 2H1 (чистка комментариев отложена решением пользователя),
-TODO AdSync-текстов из 2H2 (тексты не финализируем — маркеры `TODO(текст)` остаются) и
-ContentUsageService:452 (кросс-предметный поиск — фича «Этап 2», не долг этого этапа).
-
-Рекомендуемый порядок: Т1–Т3 (безопасность) → Т4 (нужна Т10 и Т13) → Т5–Т9 → Т10–Т12 →
-Т13 → Т14 (распил — в самом конце, чтобы фиксы не переезжали по файлам).
+1. ✅ **Закрыт (2026-08-18).** Публичный роут child-поста — 301 на parent (реализовано,
+   см. §3.2).
+2. ✅ **Закрыт, вопрос снят.** У `ThreeInOneTemplate` нет отдельного поля «общий контекст серии» —
+   каждое из 19/20/21 уже хранит собственное самостоятельное условие (`task_19_condition` и т.д.),
+   ничего общего дублировать не нужно: child просто получает свою пару condition/answer как есть.
+3. **Частично закрыт фактом, решение по срокам не принято.** Проверено в текущей (dev)
+   БД: 8 `triple_task`-постов, 2 из них опубликованы (ID 16694, 16707) и **реально
+   используются** — 16694 в `taskIds` контрольной 16692, 16707 в `item_ids` работы 16732 и
+   `taskIds` контрольной 16733; по обоим есть строки в `wp_fs_lms_assessment_answers`
+   (история сдачи). План §4 это уже учитывает («исторические строки по старому
+   parent-task_id не трогаем»), но подтверждения по прод-окружению (не dev) и расписания
+   прогона миграции пока нет — нужно решить перед реальным запуском WP-CLI миграции.
 
 ---
 
-## Т1 (2S1, высокий) — rate limit на публичные проверки логина/email
-
-**Файлы:** `inc/Services/Security/RateLimitService.php`,
-`inc/Callbacks/Enrollment/ApplicationCallbacks.php:427-449`.
-
-**Проблема.** `ajaxCheckUsernameAvailable` / `ajaxCheckEmailAvailable` — nopriv, защищены только
-нонсом, который печатается в публичную страницу и одинаков для всех посетителей. Без лимита это
-пакетная проверка `username_exists()` / `email_exists()` — перечисление пользователей и
-подтверждение ПД по списку адресов.
-
-**Шаги.**
-1. В `RateLimitService` добавить константы `LIMIT_USERNAME_CHECK = 20` и
-   `LIMIT_EMAIL_CHECK = 10` (email жёстче — это проверка ПД; значения — стартовые, окно — общий
-   `WINDOW` 1 час) и методы по образцу соседей (`allowApplicationCreation`):
-   - `allowUsernameCheck( string $ip ): bool` → `check( $this->ipKey( 'unamechk', $ip ), … )`;
-   - `allowEmailCheck( string $ip ): bool` → `check( $this->ipKey( 'emailchk', $ip ), … )`.
-   Оба обязаны начинаться с байпаса `if ( $this->pluginConfig->isTestEnv() ) { return true; }`
-   (иначе лягут e2e-прогоны формы). Дописать оба ключа в докблок класса «Ключи transient-ов».
-2. `ajaxCheckUsernameAvailable()`: после `Nonce::CheckUsernameAvailable->verify()` —
-   `$ip = (string) ( $_SERVER['REMOTE_ADDR'] ?? '' );` и при `! allowUsernameCheck( $ip )` →
-   `$this->error( 'Слишком много запросов. Попробуйте позже.' )` — дословно тот же текст, что у
-   соседних методов (унификация ответа из ревью).
-3. `ajaxCheckEmailAvailable()`: то же с `allowEmailCheck`.
-
-**JS не менять.** `apply-form.js:253-274` и `join-form.js:14-37` уже fail-open: поле блокируется
-только при явном `available === false`; error-ответ (в т.ч. лимит) игнорируется, а финальная
-проверка занятости всё равно выполняется на создании заявки/учётки. Вручную убедиться, что при
-исчерпанном лимите форма по-прежнему отправляется.
-
-**Грабли.**
-- Не менять форму успешного ответа (`{ available: bool }`) — на неё завязаны обе формы.
-- Не добавлять per-email-счётчик (как у `allowOtpSendForEmail`) — здесь защита от перебора
-  Источником (IP), а не от бомбинга цели; per-target-лимит сломает легитимный ввод.
-- IP за школьным NAT общий на класс — лимиты ниже 20/час не ставить.
-
-**Готово, когда:** 21-й запрос `check_username` (11-й — `check_email`) с одного IP за час получает
-`error`; в тест-окружении лимита нет; blur-проверка на формах работает.
-
----
-
-## Т2 (2S2 + 2A4, средний) — статус AD-провижна по токену и вынос обработчика из контроллера
-
-**Файлы:** `inc/Modules/AdSync/Controllers/AdSyncController.php`;
-новые `inc/Modules/AdSync/Services/AdStatusTokenService.php` и
-`inc/Modules/AdSync/Callbacks/AdSyncStatusCallbacks.php`;
-`src/js/frontend/services/apply-form.js:138` (только JSDoc).
-
-**Проблема.** nopriv-эндпоинт `fs_lms_ad_status` принимает сырой последовательный ID заявки
-(`$_POST['ref']`) — анонимный перебор отдаёт существование, количество и темп заявок. Плюс
-AJAX-обработчик живёт в контроллере, а не в Callbacks.
-
-**Шаги.**
-1. Новый `AdStatusTokenService` (в `Services/` модуля):
-   - `private const PREFIX = 'fs_lms_ad_ref_';`, `private const TTL = 15 * MINUTE_IN_SECONDS;`
-     (окно поллинга ~100 с, запас на ретраи);
-   - `issue( int $applicationId ): string` — `bin2hex( random_bytes( 16 ) )`,
-     `set_transient( self::PREFIX . $token, $applicationId, self::TTL )`, вернуть токен;
-   - `resolve( string $token ): int` — `(int) get_transient( self::PREFIX . $token )`
-     (0 — нет/протух). Читает, НЕ удаляет: поллинг до 40 запросов.
-   Сырые `set_/get_transient` здесь легальны: ключ инкапсулирован в одном классе модуля —
-   паттерн `RateLimitService`/`EmailOtpService` (фиксируется в Т7).
-2. Новый `AdSyncStatusCallbacks extends BaseController` + `use Sanitizer` (образец —
-   `AdSyncSettingsCallbacks`): метод `ajaxStatus()`:
-   - `Nonce::Apply->verify();`
-   - `$token = $this->sanitizeKey( 'ref' );` (hex проходит `sanitize_key`);
-   - `$appId = '' !== $token ? $this->tokens->resolve( $token ) : 0;`
-   - дальше — текущая логика статуса и массив `$messages` (переезжают из контроллера как есть,
-     вместе с комментарием `TODO(текст)` — тексты в этом этапе не финализируем).
-   - Невалидный/протухший токен = `state 'none'` с тем же сообщением, что и `pending`, — ответ
-     не должен различать «заявки нет» и «токен истёк».
-3. `AdSyncController`:
-   - `filterApplyResponse()`: `'ref' => $this->tokens->issue( $applicationId )` вместо сырого ID
-     (остальные поля `poll` без изменений);
-   - `ajaxStatus()` удалить; обе регистрации `wp_ajax_(nopriv_)` перевести на
-     `array( $this->statusCallbacks, 'ajaxStatus' )`; зависимости — через конструктор (DI);
-   - `STATUS_ACTION` ОСТАВИТЬ module-local константой с докблоком как у
-     `AdSyncSettingsController::SAVE_ACTION` («вне core AjaxHook — изоляция»).
-4. `apply-form.js:138`: JSDoc `{ref:number}` → `{ref:string}`. Код не меняется — `poll.ref`
-   пересылается как есть (`:157`).
-
-**Грабли.**
-- НЕ заводить кейс в core `AjaxHook`/`TransientKey`, как буквально предлагает ревью: ядро не
-  должно знать о модулях (тот же принцип, что для модульных опций; прецедент —
-  `SAVE_ACTION`). Настоящие нарушения 2A4 — логика в контроллере и хардкод-тексты, их и чиним.
-- Токен НЕ одноразовый (`take()` нельзя) — фронт опрашивает многократно.
-- `statusForApplication()` по 0 не звать (короткое замыкание как сейчас: `$appId > 0`).
-
-**Готово, когда:** в ответе apply нет числового ID заявки; POST с `ref=<число>` или произвольным
-токеном возвращает `none` без утечки; штатный поллинг доходит до `done` (docker, тестовая заявка).
-
----
-
-## Т3 (2S4, низкий) — экранирование в точке вывода в двух табах настроек
-
-**Файлы:** `templates/admin/components/tabs/settings-tabs/settings-9-rooms.php`,
-`templates/admin/components/tabs/settings-tabs/settings-3-periods.php`.
-
-**Проблема.** Приём «экранируем в переменную, печатаем в N местах» (`$row_name =
-esc_attr( … )` → голые `echo $row_name`) не уязвим сейчас, но одна новая строка без `esc_attr`
-превращается в хранимую XSS незаметно для ревью и phpcs.
-
-**Шаги.**
-1. `settings-9-rooms.php`: убрать `esc_attr()` из присваиваний `:51-52` (оставить
-   `$row_name = $room->name;` и т.п.), добавить `esc_attr()` в каждую точку вывода:
-   `$row_name` — `:61, :84, :93`; `$row_subjects` — `:62, :85`. `$row_id` — `(int)`-каст,
-   не трогать.
-2. `settings-3-periods.php`: то же для `$row_id` (`:60, :65, :100, :111`) и `$row_name`
-   (`:66, :101, :112`); присваивания `:50-51` — без esc. `$start_date`/`$end_date` уже
-   экранируются на месте — не трогать.
-
-**Готово, когда:** в обоих файлах нет `echo $var` без `esc_*` в самой точке вывода; вёрстка табов
-не изменилась; phpcs зелёный без новых подавлений.
-
----
-
-## Т4 (2A1) — `PostManager::taskMeta()` вместо прямых `get_post_meta`
-
-**Файлы:** `inc/Managers/Wp/PostManager.php` (+5 потребителей ниже).
-
-**Шаги.**
-1. В `PostManager` добавить (рядом с `getMeta`, `:413`):
-   ```php
-   public function taskMeta( int $post_id ): array {
-       $meta = get_post_meta( $post_id, PostMetaName::Meta->value, true );
-       return is_array( $meta ) ? $meta : array();
-   }
-   ```
-   (импортировать `PostMetaName`; guard `is_array` — общий для всех пяти мест).
-2. Заменить прямые вызовы:
-   - `inc/Controllers/Task/MetaBoxController.php:162-163` → `taskMeta( $post->ID )`
-     (проверить конструктор: если `PostManager` не внедрён — добавить);
-   - `inc/MetaBoxes/Templates/BaseTemplate.php:84-87` → защищённый метод
-     `protected function taskValues( \WP_Post $post ): array` поверх `taskMeta()`;
-   - `inc/MetaBoxes/Templates/ThreeInOneTemplate.php:91-94` — удалить дословную копию чтения,
-     звать `$this->taskValues( $post )` (комментарий «точно так же, как в BaseTemplate» умрёт);
-   - `inc/Services/Assessment/TaskPreviewService.php:91-92` → `taskMeta()`; `:93`
-     (`TemplateType`) → существующий `getMeta( $task_id, PostMetaName::TemplateType->value )`;
-   - `inc/Services/Template/TemplateResolver.php:79,81` → `getMeta()` (два ключа:
-     `PostMetaName::TemplateType` и `self::LEGACY_TEMPLATE_META`); внедрить `PostManager`.
-3. Способ внедрения в Templates выяснить по факту: если шаблоны метабоксов создаёт контейнер —
-   конструкторная зависимость в `BaseTemplate` (наследники зовут `parent::__construct`); если
-   инстанцируются вручную в `TemplateRegistry` — передать `PostManager` из места создания.
-
-**Грабли.** Поведение 1:1: `taskMeta` возвращает `array()` на любое не-массивное значение — это
-ровно текущие guard-ы. Не подменять `TemplateResolver`-у порядок фолбэков (сначала
-`TemplateType`, при пустом — legacy-ключ, потом `TaskTemplate::Standard`).
-
-**Готово, когда:** `grep -rn "get_post_meta" inc/ --include=*.php` вне `inc/Managers/` пуст;
-метабокс задания, inline-модалка (`GetTaskEditorForm`) и предпросмотр работы рендерятся как до
-правки.
-
----
-
-## Т5 (2A2) — полная зачистка суперглобалов через трейт `Sanitizer`
-
-**Объём:** все ~69 обращений к `$_POST` / `$_GET` / `$_REQUEST` / `$_FILES` в ~35 файлах `inc/`
-(решение пользователя — полная зачистка). Список получить на месте:
-`grep -rnE '\$_(POST|GET|REQUEST|FILES)' inc/ --include=*.php`.
-
-**Правила замены (поведение строго 1:1).**
-- `isset( $_GET['x'] ) ? (int) $_GET['x'] : 0` → `sanitizeGetInt( 'x' )` (`Sanitizer:290`);
-- `sanitize_key( wp_unslash( $_GET['x'] ?? '' ) )` → `sanitizeGetKey( 'x' )` (`Sanitizer:282`);
-- POST-строки/ключи/числа → `sanitizeText` / `sanitizeKey` / `sanitizeInt`; списки —
-  `sanitizeIntList` / `sanitizeKeyList`; произвольные структуры — `unslashArray()` +
-  `sanitize*Value()` поэлементно;
-- `require*` использовать ТОЛЬКО там, где пустое значение и сейчас приводит к ошибке — появление
-  нового исключения = изменение поведения;
-- если нужного варианта в трейте нет (например, GET-текст) — добавить метод В ТРЕЙТ по образцу
-  соседей, а не городить локальный разбор;
-- `$_FILES`: трейт файлы не покрывает — эти места не переписывать вслепую; либо завести хелпер в
-  `Sanitizer`/`MediaManager`, либо оставить прямое обращение с `phpcs:ignore` и причиной
-  (молча не оставлять);
-- `$_SERVER` (`REMOTE_ADDR`, `HTTP_USER_AGENT`) в объём НЕ входит — не трогать.
-- В классах вне Callbacks трейт подключать явно (`use Inc\Shared\Traits\Sanitizer;`).
-
-**Отдельно — `inc/Controllers/Course/CoursePreviewController.php` (худший, 7 обращений, дубль).**
-1. Подключить `Sanitizer` (сейчас нет).
-2. Единый приватный разбор deep-link вместо двух копий:
-   `private function deepLinkParams(): array` → `['course' => sanitizeGetInt('course'),
-   'lesson' => isset($_GET['lesson']) ? sanitizeGetInt('lesson') : null,
-   'step' => sanitizeGetKey('step')]` — и `loadTemplate()` (`:40-71`), и `currentDeepLink()`
-   (`:82-88`) используют его.
-3. Сохранить разницу поведения: фолбэк `lesson` на первый урок курса существует ТОЛЬКО в
-   `loadTemplate()` (`:61`) — он остаётся там, `deepLinkParams()` отдаёт `null`;
-   `currentDeepLink()` не добавляет `lesson`/`step`, если их не было в запросе.
-
-**Готово, когда:** grep из шапки возвращает только `Sanitizer.php` и согласованные
-`phpcs:ignore`-места с причиной; `npm run ci` зелёный; смоук: превью курса с deep-link
-(`?course=&lesson=&step=`), сохранение форм в админке, импорт CSV, загрузка вложений.
-
----
-
-## Т6 (2A3) — `SubjectValidationCallbacks:323`: НЕ `authorize()`, а вынос из цикла
-
-**Файл:** `inc/Callbacks/Subject/SubjectValidationCallbacks.php:321-338`.
-
-**Важно — поправка к ревью.** Метод `showEmptyRequiredTaxNotice()` — колбек `admin_notices`, а не
-AJAX: предложенный ревью `$this->authorize()` слал бы JSON-403 и ломал бы рендер админки.
-Слепое исполнение рекомендации здесь и было бы «повторить ошибку ревью».
-
-**Шаги.**
-1. Вынести `$canManage = current_user_can( Capability::ManageTerms->value );` из
-   `foreach ( $emptyTaxes … )` (`:321`) перед цикл — вызов от `$tax` не зависит.
-2. В CLAUDE.md (вместе с Т7) уточнить правило: запрет прямых `current_user_can()` /
-   `check_ajax_referer()` относится к **AJAX-методам** (там — `Authorizer`); в не-AJAX
-   хук-колбеках (`admin_notices` и т.п.) прямая проверка права допустима, право — только кейсом
-   `Capability`.
-
-**Готово, когда:** вызов один на рендер нотиса; правило в CLAUDE.md уточнено; других прямых
-`current_user_can` в Callbacks нет (по ревью этот был единственным).
-
----
-
-## Т7 (2A5 + 2A7) — зафиксировать исключения в CLAUDE.md + дедуп SVG-партиала
-
-**Файлы:** `CLAUDE.md` (раздел «Принятые исключения»),
-`inc/Modules/SocialAuth/templates/settings-tab.php`.
-
-**Решения пользователя:** логотипы OAuth в `Icon` не переносим — фиксируем исключение.
-
-**Шаги.**
-1. Дописать в «Принятые исключения» CLAUDE.md (датировать):
-   - **Бренд-логотипы OAuth** — цветные, не `currentColor`, поэтому живут не в `Icon`, а в
-     партиале `templates/admin/components/modals/partials/provider-logo.php` (его докблок уже
-     это объясняет). Новые бренд-SVG — только через этот партиал.
-   - **Модульные AJAX-экшены** — локальные константы модуля
-     (`AdSyncSettingsController::SAVE_ACTION`, `AdSyncController::STATUS_ACTION`), вне core
-     `AjaxHook`: ядро не знает о модулях. Обработчики — всё равно в Callbacks-классах модуля.
-   - **Модульные транзиенты** — ключи в модуле, вне core `TransientKey`, сырые
-     `set_/get_transient` при ключе-константе в одном классе:
-     `VideoLibrary/RecordingAlertService::COUNT_TRANSIENT`, `AdSync/AdStatusTokenService` (Т2).
-     Это закрывает 2A5 без правки кода.
-   - Уточнение правила `current_user_can` из Т6.
-2. `settings-tab.php:29,84,137`: три инлайновых `<svg>` — дословные копии путей из
-   `provider-logo.php`, но БЕЗ `viewBox`/`aria-hidden` (то есть ещё и хуже). Заменить каждую на
-   подключение партиала: `$provider = 'google'; require <plugin_path>/templates/admin/components/
-   modals/partials/provider-logo.php;` (модулю можно использовать core-партиал; обратное
-   направление запрещено). Путь строить хелпером `path()`, если шаблон рендерится из
-   контроллера с `BaseController`.
-
-**Готово, когда:** grep `<svg` по `templates/` и `inc/Modules/**/templates/` находит только
-`provider-logo.php`; вкладка настроек SocialAuth выглядит как раньше; CLAUDE.md дополнен.
-
----
-
-## Т8 (2A6) — `declare(strict_types=1)` в 37 файлах `inc/` + 3 корневых
-
-**Объём (ровно 37 из ревью, agent-перепроверено):**
-Callbacks: `Task/BoilerplateCallbacks.php`, `Task/TemplateManagerCallbacks.php`;
-Contracts: `ServiceInterface.php`;
-Controllers: `Builders/SubjectsMenuBuilder.php`, `Subject/SubjectController.php`,
-`System/AdminController.php`, `Task/BoilerplateController.php`;
-Core: `BaseController.php`, `Container.php`, `Deactivate.php`;
-Enums: `Access/UserRole.php`, `Log/AuditAction.php`, `Person/ConsentType.php`,
-`Subject/TaskTemplate.php`, `Wp/PageRoutes.php`;
-Managers: `Wp/CPTManager.php`, `Wp/MenuManager.php`, `Wp/TaxonomyManager.php`;
-MetaBoxes/Templates: `BaseTemplate.php`, `CodeTaskTemplate.php`, `CommonConditionTemplate.php`,
-`FileAnswerTaskTemplate.php`, `FileCodeTaskTemplate.php`, `FileTaskTemplate.php`,
-`StandardTaskTemplate.php`, `TaskTextSolution.php`, `ThreeInOneTemplate.php`,
-`TwoFileCodeTaskTemplate.php`;
-Registrars: `MenuRegistrar.php`, `MetaBoxRegistrar.php`, `SubjectCPTRegistrar.php`,
-`SubjectTaxonomyRegistrar.php`;
-Services: `System/PageGeneratorService.php`;
-Shared/Traits: `ErrorHandler.php`, `NumericSorter.php`, `Sanitizer.php`, `TemplateRenderer.php`.
-Плюс корневые: `fs-lms.php`, `uninstall.php`, `tests/Unit/Services/PiiMaskingServiceTest.php`.
-
-**Шаги.**
-1. В каждом — `declare( strict_types=1 );` сразу после `<?php` (формат с пробелами — как во всех
-   остальных файлах проекта).
-2. Это НЕ чисто механика: strict_types меняет семантику вызовов внутри файла. Перед коммитом
-   пройти по перечисленным файлам глазами на предмет вызовов, куда прилетают «числа-строки» из
-   меты/опций/запросов (типичный риск: `(int)`-некастованный параметр, `'1' == 1`-сравнения не
-   ломаются, а вот передача `"5"` в `int`-параметр — теперь TypeError).
-3. Смоук обязательный (файлы бутстрап-критичные: `Container`, `CPTManager`, Registrars,
-   `BaseController`, `Sanitizer`): реактивация плагина в docker, создание/сохранение задания
-   (все шаблоны метабоксов из списка!), страница настроек, фронт задания и статьи, `npm run ci`.
-
-**Вне объёма:** 60 файлов `templates/` тоже без строгой типизации — ревью считало только `inc/`.
-Решить отдельно: либо добить вторым проходом, либо уточнить правило в CLAUDE.md
-(«каждый PHP-файл с логикой»); в этой задаче шаблоны не трогать.
-
-**Готово, когда:** grep файлов без `strict_types` по `inc/` пуст; смоук пройден.
-
----
-
-## Т9 (2A8) — прогресс-бары на CSS-переменную, transition/transform — в классы
-
-**Проблема.** Четыре прогресс-бара двигаются `style.width = '…%'` из JS; правильная идиома в
-проекте — CSS-переменная (`modal-base.js:55` → `--scrollbar-width`, `task-condition.js:140` →
-`--tcr-full`). Позиционирование поповеров по геометрии — честное исключение, его НЕ трогаем
-(`profile/utils.js:130-179`, `step-editor.js:893-961` top/left — остаются как есть).
-
-**Шаги.**
-1. SCSS — задать ширину от переменной (сейчас ширина живёт только в инлайне из JS):
-   - `src/scss/player/components/_shell.scss:101-114` — `.sp-bar span { width: var(--progress, 0%); }`;
-   - `src/scss/player/components/_step-work.scss:46-58` — `.ap-bar span { width: var(--progress, 0%); }`;
-   - `src/scss/player/components/_rail.scss:128-141` — `.bar span { width: var(--progress, 0%); }`;
-   - `src/scss/player/components/_step-video.scss:100-113` — `.fill { width: var(--progress, 0%); }`,
-     `.knob { left: var(--progress, 0%); }` (одна переменная двигает и заливку, и бегунок).
-2. JS — вместо `style.width`/`style.left` ставить переменную:
-   - `player/shell.js:19` (гидрация `data-width`) →
-     `el.style.setProperty( '--progress', pct + '%' )`;
-   - `player/step-work.js:87`; `player/core.js:100` — аналогично;
-   - `player/step-video.js:46-47` — ОДИН `setProperty('--progress', …)` на общем контейнере
-     прогресса (заливка и бегунок — дети, возьмут `var()`), вместо двух присваиваний.
-3. `frontend/components/article-carousel.js:50` — `style.transition = …` убрать: класс-модификатор
-   (напр. `.is-animating` с `transition: transform …` из токена таймингов, см. `src/scss/CLAUDE.md`)
-   навешивать/снимать вместо инлайна. `:51` (`translateX` от `itemWidth()`) — динамическая
-   геометрия, допустимо оставить; по желанию — та же схема с `--carousel-shift`.
-4. `admin/services/step-editor.js:957` — `style.transform = 'translateY(calc(-100% - 6px))'` —
-   константа: класс (напр. `.is-above`) в admin-SCSS, JS только вешает класс.
-
-**Грабли.** Прогресс — проценты строкой (`'42%'`), не число; stylelint не пропустит сырой тайминг
-`0.3s ease` — брать токен; `hidden`-логику не трогать.
-
-**Готово, когда:** grep `style\.width|style\.transition` по `src/js` пуст; `style.transform` —
-только динамическая геометрия (carousel `:51`); все четыре бара и бегунок видео работают
-(топбар урока, рельса, «Отвечено n из N», прогресс видео); `npx gulp build` + stylelint зелёные.
-
----
-
-## Т10 (2P1) — `primeMetaCache()` перед циклами по ID из своих таблиц
-
-**Проблема.** ID приходят из таблиц ответов/попыток — мета-кэш WP не прогрет, каждый `getMeta()`
-в цикле — отдельный запрос (контрольная на 30 заданий = 60+ запросов).
-
-**Шаги** (везде `PostManager` уже внедрён):
-1. `inc/Services/Assessment/AttemptTaskViewBuilder.php` — `build( array $taskIds, … )`: перед
-   `foreach` (`:56`) — `$this->posts->primeMetaCache( $taskIds );`.
-2. `inc/Services/Assessment/AttemptResultService.php` — `studentPerTask()`: материализовать
-   `$rows = $this->answers->listByAttempt( $attemptId );`, собрать
-   `array_map( fn( $a ) => $a->taskId, $rows )` → `primeMetaCache()`, затем цикл по `$rows`.
-3. `inc/Services/Course/WorkDetailService.php` — `fromAttempt()` (`:144`): так же (в цикле два
-   чтения на задание — `:150` и `condition()` `:164`, прогрев закрывает оба).
-4. `inc/Services/Assessment/TaskPreviewService.php` — цикл по `$item_ids` (`:72-77`):
-   `primeMetaCache( $item_ids )` перед циклом (делать после Т4).
-
-**НЕ трогать `ContentUsageService` (:156, :317, :344, :370) — поправка к ревью.** Его циклы идут
-по результатам `consumers()` → `PostManager::search()` → `get_posts` (полные посты, без
-`fields=>ids`): WP_Query сам прогревает postmeta-кэш при выборке (`update_post_meta_cache`
-по умолчанию). N+1 там нет; добавлять `primeMetaCache` — шум. Пункт ревью в этой части
-ложноположительный.
-
-**Готово, когда:** с Query Monitor/`SAVEQUERIES` просмотр результата контрольной на ~30 заданий
-даёт 1-2 постмета-запроса вместо ~60; предпросмотр работы — аналогично.
-
----
-
-## Т11 (2P2) — потолки на безлимитные выборки + точный счёт вместо загрузки ID
-
-**Файлы:** `inc/Managers/Wp/PostManager.php:44,62,130,283,453`,
-`inc/Controllers/Builders/AllTasksDataBuilder.php:361-380`.
-
-**Принцип.** Потолок — страховочный и БОЛЬШОЙ: часть потребителей (reference-guard
-`ContentUsageService`, экспорт предмета) обязаны видеть ВСЁ — тихая обрезка там даст ложное
-«контент не используется» и разрешит удаление используемого. Поэтому: большой потолок + громкий
-`PluginLogger::warning` при упоре в него (сигнал переделывать на SQL), поведение до потолка —
-неизменное.
-
-**Шаги.**
-1. `PostManager`: константа `private const HARD_CAP = 5000;` (комментарий: страховка, не бизнес-
-   лимит). В `getIds()` (`:44`), `getAll()` (`:62`) и `search()` (дефолт `limit` `:453`) заменить
-   `-1` на `self::HARD_CAP`; после выборки: если `count(...) === self::HARD_CAP` —
-   `PluginLogger::warning( 'PostManager', 'выборка упёрлась в потолок', [ 'post_type' => …, 'method' => … ] )`.
-2. `countByTerm()` (`:124-130`) — переписать честно: не тянуть все ID ради `count()`, а
-   `$this->query( $post_type, [ 'posts_per_page' => 1, 'fields' => 'ids', 'tax_query' => …,
-   'no_found_rows' => false ] )['total']`. Потолок не нужен — счёт точный при любом размере.
-3. `getPostsByTerm()` (`:283`) — `posts_per_page => 1000` + warning при упоре (выдача статей
-   по терму; 1000 — заведомо больше реального употребления).
-4. `AllTasksDataBuilder::matchingIds()` (`:363`) — `posts_per_page => 3000` (константа
-   `FACET_IDS_CAP`) + warning; комментарий в код: при упоре фасетные счётчики становятся нижней
-   оценкой — приемлемо, точность вернёт только SQL-подсчёт.
-
-**Грабли.** Явно передаваемый вызывающим `limit` в `search()` уважать (потолок — только на
-дефолт). Ничего не менять в `query()` — он и так постраничный.
-
-**Готово, когда:** в `PostManager`/`AllTasksDataBuilder` нет `-1`; warning реально пишется
-(проверить, временно снизив потолок в dev); счётчики `countByTerm` совпадают с прежними.
-
----
-
-## Т12 (2D1) — убрать шесть локальных копий `escapeHtml`/`debounce`
-
-**Канон:** `src/js/common/utils.js` — `escapeHtml` (`:18`, экранирует и `'`), `debounce` (`:99`).
-Admin-хаб реэкспортов уже есть: `src/js/admin/modules/utils.js:25-27`.
-
-**Шаги.**
-1. `admin/services/step-editor.js:62` — тело `export const esc = …` заменить реэкспортом:
-   `export { escapeHtml as esc } from '../../common/utils.js';`
-   ВНИМАНИЕ: из него импортируют `esc` ещё 4 файла (`course-builder.js:3`,
-   `course-persistence.js:1`, `slot-builder.js:3`) — реэкспорт сохраняет их API. 17 внутренних
-   использований не трогать.
-2. `admin/services/tables/students-table.js:183` — удалить локальную стрелку и комментарий-
-   оправдание `:181-182`; вверху `import { escapeHtml as esc } from '../../modules/utils.js';`
-   (4 использования `:189-192` не меняются).
-3. `admin/modals/enrollment/teacher-view-modal.js:116` — то же: удалить локальную из `_fill()`,
-   импорт из `../../modules/utils.js`, `esc` объявить на уровне модуля.
-4. `frontend/components/sidebar-articles.js:16` — удалить `function esc`, добавить
-   `import { escapeHtml as esc } from '../../common/utils.js';` (первый импорт файла — норм).
-5. `frontend/services/assessment.js:61` — `debounce` заменить реэкспортом
-   `export { debounce } from '../../common/utils.js';` (экспорт обязан остаться — его тянет
-   бандл `kege/`, см. комментарий `:9-15`).
-6. Там же `assessment.js:16` — ревью пропустило ШЕСТУЮ копию: `export function escHtml` →
-   `export { escapeHtml as escHtml } from '../../common/utils.js';`.
-
-**Поведенческая разница** (осознанная, в безопасную сторону): канон экранирует ещё `'` →
-`&#039;`; копии в step-editor/sidebar-articles этого не делали. Для атрибутов в двойных кавычках
-и текста — без визуальных отличий.
-
-**Готово, когда:** в `src/js` ровно одна реализация экранирования (`common/utils.js`; `grep -rn
-"'<div>'\)\.text\|=> String( s ==\|function escHtml\|function esc(" src/js`); `npx gulp build`
-зелёный; смоук: таблица учеников (экспелл-партиал), модалка учителя, сайдбар статей, автосейв
-эссе в тренажёре, конструктор курса (esc из step-editor).
-
----
-
-## Т13 (2H2, выбранные) — закрыть TODO: ThreeInOneTemplate и логотип профиля
-
-**А. `inc/MetaBoxes/Templates/ThreeInOneTemplate.php:87`** («вынести отсюда html и стили»).
-1. Инлайновый `<style>` (`:96-100`) перенести в admin-SCSS (`src/scss/admin/…`, файл про
-   метабоксы; классам — префикс, сырые значения — токенами) — инлайн-стили в PHP запрещены
-   правилами проекта.
-2. Разметку рендера вынести из класса: либо в partial `templates/admin/metaboxes/…`, либо
-   собрать из `Fields/*` как у остальных шаблонов. КРИТИЧНО: тот же HTML отдаётся inline-модалке
-   по AJAX (`AjaxHook::GetTaskEditorForm` → `BaseTemplate::render()`) — менять можно
-   местоположение кода, но не итоговую разметку/имена полей `fs_lms_meta[...]`.
-3. Делать после Т4 (там в этот же файл приезжает `taskValues()`).
-**Готово:** в PHP-классах MetaBoxes нет `<style>` и «простыней» HTML; метабокс и модалка
-рендерятся идентично прежнему.
-
-**Б. `templates/frontend/profile.php:36`** («заменить на логотип в меню настройки стилей»).
-Сейчас в шапке профиля захардкожен `Icon::BrandMark->svg()`. Закрыть TODO = сделать логотип
-настраиваемым:
-1. Поле «Логотип» (attachment ID) в существующем табе настроек оформления админки (если таба
-   оформления нет — в общий таб настроек); сохранение — через опцию в `OptionName` +
-   репозиторий (не сырой `update_option`), загрузка — стандартной медиатекой.
-2. В `profile.php` выводить логотип из настройки, фолбэк — текущий `Icon::BrandMark`.
-3. Проверить, где ещё на фронте выводится `BrandMark` (grep) — использовать ту же настройку.
-**Это мини-фича**: если в ходе этапа решим не делать — TODO из кода удалить, завести тикет.
-
----
-
-## Т14 (2D2) — распил переросших файлов (решение пользователя: всё сейчас)
-
-**Общие правила всех шести подпунктов.**
-- Распил ≠ рефакторинг логики: поведение, разметка, имена хуков/нонсов/AJAX-экшенов, форматы
-  ответов — байт-в-байт. Меняется только раскладка кода.
-- Один подпункт = один коммит/PR со своим смоуком. Делать ПОСЛЕ Т1–Т13 (иначе фиксы будут
-  переезжать по файлам под ногами).
-- Новые PHP-контроллеры реализуют `ServiceInterface` и добавляются в `Init::getServices()`;
-  новые Callbacks-классы — `extends BaseController` + `Authorizer`/`Sanitizer`, регистрируются
-  существующими контроллерами. Новые JS-модули следуют паттернам бандла (admin — объекты,
-  frontend/profile — функции; см. `src/js/CLAUDE.md`).
-- Порядок — от дешёвого к дорогому: 14.1 → 14.2 → 14.3 → 14.4 → 14.5 → 14.6.
-
-### Т14.1 — `inc/Controllers/Course/LearningMenuController.php` (425 строк → 4 контроллера)
-
-Группы не пересекаются по состоянию, каждая тянет ровно одну зависимость — самый дешёвый распил.
-1. `LearningMenuBuilder.php` (Controllers/Course/) — меню «Обучение» + подсветка:
-   `registerLearningMenu` :209, `subjectBankSlug` :271, `subjectBankSubpage` :289,
-   `highlightLearningParent` :305, `highlightLearningSubmenu` :314, `learningSubmenuFor` :323;
-   владеет `$bank_slugs`/`$learning_parent_slug` (группы 1–2 разделять НЕЛЬЗЯ — общее состояние).
-   Хуки: `admin_menu`, `parent_file`, `submenu_file`. Зависимости: MenuRegistrar,
-   TeacherSubjectsService.
-2. `BankListTableController.php` — фильтры list-table: `renderTypeFilter` :164,
-   `applyTypeFilter` :194, `filterTaskDraftState` :180. Хуки: `restrict_manage_posts`,
-   `pre_get_posts`, `display_post_states`. Зависимость: BankListFilters.
-3. `BankChromeController.php` — «хром» банка: `renderBankChrome` :353, `currentBankType` :336,
-   `renderBank` :389 + 6 лендинг-фолбэков `render*` :132-154. Хук `admin_notices` + колбеки
-   сабстраниц (через LearningMenuBuilder → MenuRegistrar: колбеки передаются при построении).
-4. `BankRowActionsController.php` (тоже Controllers/Course/ — новых каталогов не заводить) —
-   «довесок»: `addCloneRowAction` :94 (контракт `data-clone-*` для `content-clone.js` не менять),
-   `renderDraftCreatorModal` :118. Хуки: `post_row_actions`, `admin_footer`. Без зависимостей.
-
-**Готово:** меню «Обучение» со всеми сабстраницами, табы предметов, фильтры банка, статус
-«Незавершённая», «Дублировать» и модалка черновика работают; старый файл удалён; все четыре
-класса в `Init::getServices()`.
-
-### Т14.2 — `inc/Callbacks/Enrollment/EnrollmentCallbacks.php` (636 строк, 17 ajax → 5 классов)
-
-Границы подтверждены структурой JS-менеджеров (enrollment-api, application-*-manager,
-person-*-manager). `EnrollmentController` меняется тривиально — только объект-получатель в
-регистрациях.
-1. `EnrollmentLifecycleCallbacks.php` — `ajaxStartEnrollment` :355, `ajaxEnrollStudent` :89,
-   `ajaxCancelEnrollment` :431, `ajaxRestoreFromArchive` :559 + справочник
-   `ajaxGetStudentGroups` :455.
-2. `ApplicationDataCallbacks.php` — самый тяжёлый кусок (~185 строк, вся PII-крипта):
-   `ajaxUpdateApplicationData` :215, `ajaxUpdateReviewData` :278, `ajaxGetApplicationData` :382.
-3. `ApplicationTrashCallbacks.php` — корзина: `ajaxMoveApplicationToTrash` :139,
-   `ajaxRestoreApplicationFromTrash` :162, `ajaxDeleteApplication` :191,
-   `ajaxEmptyApplicationsTrash` :476.
-4. `ParentLinkCallbacks.php` — `ajaxSelectExistingParent` :578, `ajaxRemoveParentAssignment`
-   :594, `ajaxSearchParents` :612.
-5. `UserCredentialsCallbacks.php` — `ajaxRevealUserCredentials` :515,
-   `ajaxRegenerateUserPassword` :547 (отдельно от родителей: другие нонсы/права; PII-выгрузки —
-   помнить стандарт `authorizeAll(ManageLmsPlatform, ExportPII)` там, где он уже стоит).
-Конструкторы забирают только свои зависимости (сейчас 9 на всех).
-
-**Готово:** все 17 экшенов отвечают как раньше (прогнать модалки заявок, корзину, зачисление,
-reveal кредов); grep по `EnrollmentCallbacks` пуст; каждый класс ≤ ~200 строк.
-
-### Т14.3 — `inc/Services/Profile/LearnerService.php` (595 строк, 16 зависимостей → фасад + 4 секции)
-
-Внешний контракт не трогать: `LearnerCallbacks` продолжает звать `build( $personId )->toArray()`.
-Новые классы — в `inc/Services/Profile/Learner/`; все получают готовый `LearnerContextDTO`.
-1. `LearnerContextBuilder.php` — `context` :99, `groupCards` :141, `lessonCard` :183,
-   `topicOf` :582, `lessonStatus` :588, `courseTitleForGroup` :577 (+ кэши roomNames/teacherNames).
-   Зависимости: records, groups, groupLessons, rooms, clock, effectiveTeacher.
-2. `LearnerScheduleSection.php` — `upcoming` :221, `deadlines` :245 (submissions, worksResolver,
-   lessons). Дип-линк `?step=` дублируется в `NotificationService` — на будущее общая точка,
-   в этом распиле НЕ дедуплицировать (правило «распил без изменений логики»).
-3. `LearnerPerformanceSection.php` — `grades` :298, `recentGrades` :327, `attendance` :342
-   (gradebook, attendance).
-4. `LearnerCoursesSection.php` — `buildCourses` :440, `buildCatalog` :401, `courseLessonItem`
-   :547, `examLock` :381 (courses, lessons, gate, progress, subjects, examLock).
-`LearnerService::build()` остаётся тонкой оркестрацией секций; конструктор — с 16 до ~5
-зависимостей.
-
-**Готово:** кабинет ученика (все 10 секций DTO) рендерится идентично (сверить JSON ответа до/
-после на одном ученике); контейнер собирает граф без ручных биндингов.
-
-### Т14.4 — `inc/Core/Enqueue.php` (790 строк → фасад + 4 класса в `inc/Core/Assets/`)
-
-Правило «все wp_localize_script — только здесь» СОХРАНЯЕТСЯ, но «здесь» становится слоем
-`Core/Assets/*`: обновить формулировки в корневом CLAUDE.md и `src/js/CLAUDE.md` (раздел
-Globals). `Enqueue` остаётся фасадом: регистрирует 4 хука и делегирует.
-1. `AdminAssets.php` — `enqueue_admin_assets` :88, `enqueueAdminBase` :128, гейт
-   `AdminScreenContext`, media/editor.
-2. `AdminLocalizations.php` — `adminLocalizations` :175 + 6 vars-провайдеров (`lessonVars`,
-   `taskDataVars`, `taskEditorVars`, `articleDataVars`, `applicationsVars`, `globalAdminVars`) +
-   `getRequiredTaxonomies` :728. Забирает 4 из 6 зависимостей конструктора.
-3. `FrontendAssets.php` — `enqueue_frontend_assets` :534 (роутинг SPA vs общий стек),
-   `enqueueFrontendBase` :594, `frontendLocalizations` :640, `applyVars`, `assessmentVars`,
-   `joinVars`.
-4. `BundleLoader.php` — `enqueueBundle` :371, `enqueueUiFont` :362, `enqueueMathJax` :400,
-   `fontResourceHints` :585 + 4 SPA-бандла (profile/player/assessment/kege) как реестр
-   `slug → varName → data-фабрика`.
-Плюс: `render_confirm_modal` :771 + `isPluginAdminScreen` :749 — это не ассеты, вынести в
-контроллер admin-футера (Controllers/System/).
-Известные дубли устранить ПРИ переносе (единственное разрешённое «изменение»):
-`assessmentVars()` :681 ≈ inline-массив в `enqueue_assessment_assets` :477 (свести к одному
-провайдеру с флагом `previewSolve`); Font Awesome/common-стили задублированы в admin/frontend
-base (:130 и :597) — один общий приватный метод.
-
-**Готово:** на каждой странице (админка, apply, join, профиль, плеер, тренажёр, kege, статья)
-`wp_scripts`-очередь и window-глобалы идентичны до/после (сравнить `console.log` ключевых
-глобалов); CLAUDE.md-правило переформулировано.
-
-### Т14.5 — `src/js/admin/services/step-editor.js` (1017 строк → ядро + 4 модуля)
-
-Внешние потребители: `course-builder.js` (createStepEditor, esc, ajax, tmpKey, openPicker),
-`lesson-step-editor.js` (createStepEditor, readSteps), `course-persistence.js` (esc, ajax),
-`slot-builder.js` (openPicker, esc, readSteps). Их импорты обновить на новые модули; реэкспорты-
-мостики в step-editor.js не оставлять (один символ — один путь). `esc` после Т12 — реэкспорт
-`common/utils.js`: при распиле потребители переходят на импорт из `admin/modules/utils.js`,
-реэкспорт из step-editor.js удаляется.
-1. `admin/services/step-ajax.js` — `ajax` :79, `nonceFor` :66, `tmpKey` :61, `acts` :54.
-2. `admin/modules/picker.js` — `openPicker` :949 целиком + `openLibraryPicker` :906 как обёртка
-   (модуль общего назначения → каталог `admin/modules/`, паттерн named function exports).
-3. `admin/services/step-preview.js` — превью ссылочного контента (~165 строк, автономно):
-   `buildAnswerSection` :87, `buildRefTaskBody` :139, `loadRefPreview` :149,
-   `loadTaskPreview` :183, `renderTaskPreview` :192.
-4. `admin/services/step-editors/` — по файлу на тип тела шага: `inline-editor.js` (`inlineEditor`
-   :406, `setupLatexButtons` :422, `destroyTiny` :290 — TinyMCE/LaTeX), `video-editor.js`
-   (`fmtChapterTime` :565, `parseChapterTime` :570, `renderChapterRows` :577,
-   `renderAttachmentRows` :608), `ref-editor.js` (`refEditor` :636, ~175 строк).
-Ядро `step-editor.js` (~250 строк): `TYPE_UI`/`ADD_TYPES`/`MAX_STEPS`, каркас/чипы/drag
-(`render` :306, `renderStepsRow` :319, `attachStepDrag` :347), CRUD шагов (:811-:876), автосейв
-(`payloadForSave`/`saveSteps`/`scheduleSave` :922-:936), `readSteps` :1000.
-
-**Готово:** `npx gulp build` зелёный; конструктор курса/урока: создание шагов всех типов,
-inline-редактор с LaTeX, видео-главы и вложения, ссылочные шаги с превью, drag, дублирование,
-автосейв, пикеры в slot-builder — всё работает; ни один модуль не превышает ~300 строк.
-
-### Т14.6 — `src/js/profile/ktp.js` (865 строк → ядро + 4 модуля в `profile/ktp/`)
-
-Единственный внешний потребитель — `profile/app.js:8` (`renderKTP`): внешний контракт не
-меняется, `profile/ktp.js` остаётся точкой входа (или переезжает в `profile/ktp/index.js` с
-обновлением одного импорта).
-1. `profile/ktp/ktp-individual.js` — весь режим «Индивидуальные занятия» (~250 строк, самый
-   автономный): `fetchIndividual` :369, `loadIndividual` :376, `renderIndividual` :414,
-   `renderIndiCalendar` :480, `openAddIndi` :541, `openEditIndi` :552, `selectIndiSlot` :576,
-   `loadIndiCandidates` :586, `renderIndiBank` :599, `assignIndiLesson` :617,
-   `renderLessonCandidates` :629, `indiMonths`/`indiInitialCursor`/`shiftIndiMonth`,
-   `indiSlotChip` :527. Выносить ПЕРВЫМ.
-2. `profile/ktp/ktp-calendar-model.js` — чистые вычисления без DOM (тестируемо):
-   `computeMonths` :70, `initialCursor` :83, `shiftMonth` :352, `toLocalInputValue` :768,
-   `fromLocalInputValue` :772.
-3. `profile/ktp/ktp-templates.js` — все `*Html`-шаблоны: `themeCardHtml` :304,
-   `recordingIconHtml` :318, `placedThemeHtml` :331, `emptyStateHtml` :845, `noGroupsHtml` :859,
-   `errorHtml` :863, `openProgramHtml` :172, `partLabel` :300.
-4. `profile/ktp/ktp-popovers.js` — пары `attach*Click`/`open*` (:672-:806): дедлайны, запись
-   занятия, меню действий темы.
-Ядро: стейт (`root/state/api/coursesApi`), `renderKTP`, `loadCalendar`, `render`, `renderBank`,
-`renderCalendar`, drag-drop (:807-:833), reflow/publish/unpublish (:638-:660),
-`wireCoursePicker` :187.
-
-**Готово:** сборка зелёная; КТП: календарь групп, банк тем, drag закрепления, reflow,
-публикация/снятие, дедлайны, привязка записей, меню темы, режим индивидуальных занятий
-(добавление/правка/кандидаты) — всё работает как до распила.
-
----
-
-## Сводка объёма этапа
-
-| Блок | Задачи |
-|---|---|
-| Безопасность | Т1, Т2, Т3 |
-| Архитектура/конвенции | Т4, Т5, Т6, Т7, Т8 |
-| UI-идиомы | Т9 |
-| Производительность | Т10, Т11 |
-| Дедупликация | Т12 |
-| TODO | Т13 |
-| Распил (в конце) | Т14.1–Т14.6 |
-
-Поправки к ревью, учтённые в задачах (чтобы не «чинить» лишнего): 2A3 — метод не AJAX,
-`authorize()` там сломал бы админку (Т6); 2A4 — module-local константы экшенов легальны,
-нарушение только в месте жизни обработчика (Т2/Т7); 2P1 — `ContentUsageService` уже прогрет
-самим WP_Query, правится только четвёрка сервисов с ID из своих таблиц (Т10); 2D1 — копий не 5,
-а 6 (`assessment.js:16 escHtml`) (Т12).
+# Компьютерный ОГЭ + вынос настроек компьютерных экзаменов в конфиг плагина
+
+> **Статус:** §3.1 (enum), §3.2 (конфиг станций: время/попытки/шкала), §3.4 (критерии 13-16 —
+> holistic-рубрика + dropdown), §3.5 (баллы за задание из конфига, `pass_score` тоже убран из
+> UI) — сделаны, с тестами. Данные пользователя учтены полностью (`.docs/oge/{criteries,scores}.md`).
+> Не сделано: собственно **визуальная станция ОГЭ** — см. §6 «Поэтапный план визуальной
+> станции» ниже, работа начинается с уточняющих вопросов (§6.0) до кода.
+> **Дата:** 2026-08-18.
+> **Связанные файлы:** `inc/Enums/Assessment/AssessmentKind.php`, `inc/Modules/EgeComputer/EgeComputerModule.php`,
+> `inc/Modules/EgeComputer/Config/{KegeScaleConfig,KegeInstructionConfig,KegeSlidesConfig}.php`,
+> `inc/Modules/EgeComputer/Services/KegeResultSheetService.php`, `inc/DTO/Assessment/AssessmentDTO.php`,
+> `inc/MetaBoxes/Templates/AssessmentTemplate.php`, `inc/Callbacks/Assessment/GradeAttemptCallbacks.php`,
+> `inc/MetaBoxes/Fields/CriteriaField.php`, `inc/Services/Assessment/EgeCompletenessChecker.php`,
+> `templates/frontend/assessment/kege/{entry,exam,finish}.php`, `templates/frontend/assessment/ege-computer.php`.
+
+## 1. Проблема
+
+Сейчас в `AssessmentKind` (`inc/Enums/Assessment/AssessmentKind.php:7-98`) три кейса:
+`Control` (Контрольная), `Ege` (ЕГЭ), `EgeComputer` (Компьютерный ЕГЭ). `Ege` и `EgeComputer`
+во всех match-ветках enum'а (`usesWeightedScore`, `needsSecondaryScore`, `expandsComposites`,
+`needsCompletenessCheck`) ведут себя идентично — разница только в том, что `EgeComputer`
+рендерится отдельным шаблоном-станцией (`EgeComputerModule::resolveRenderer`, L77-95) со своими
+хардкод-конфигами (`KegeScaleConfig`, `KegeInstructionConfig`, `KegeSlidesConfig`), а `Ege` —
+обычным `attempt-intro.php`-флоу с настройками из меты поста. Отдельный тип «просто ЕГЭ» не
+нужен: станция «Компьютерный ЕГЭ» уже покрывает сценарий, а голый `Ege` только путает выбор в
+конструкторе. Второе: те же настройки, что сейчас лежат в мете каждого экзамена
+(`AssessmentDTO`: `time_limit_minutes`, `max_attempts`, `pass_score`/`score_map`, `intro_html`),
+для «станционных» типов не должны редактироваться преподавателем — они имитируют реальный
+экзамен и обязаны быть едиными для всех экзаменов этого типа на сайте.
+
+## 2. Целевая модель
+
+Три вида экзамена в конструкторе:
+
+- **«Контрольная» (`Control`)** — без изменений, все текущие поля (`time_limit_minutes`,
+  `max_attempts`, `score_map`, `intro_html`) остаются per-assessment, как сейчас.
+- **«Компьютерный ЕГЭ» (`EgeComputer`)** — станция без изменений по существу (27 заданий,
+  текущие `KegeScaleConfig`/`KegeInstructionConfig`/`KegeSlidesConfig`), но лимит времени,
+  макс. попыток, таблица перевода баллов и вступительный текст больше не читаются из меты
+  поста — приходят из module-level конфига (тот же паттерн, что уже применён к
+  `KegeScaleConfig`).
+- **«Компьютерный ОГЭ» (новый `OgeComputer`)** — вторая станция, тот же движок рендера/попыток,
+  что и КЕГЭ, но: **16 позиций** в списке заданий — задания 1-12 автопроверяемые (ввод числа/
+  буквы, как обычные задания), задание **13 — альтернатива 13.1/13.2** (ученик решает один из
+  двух вариантов: 13.1 — про программирование, 13.2 — про пользовательские программы; считается
+  одной позицией независимо от выбора), задания **13-16 решаются «на бумаге»**: в станции у них
+  нет поля ввода ответа, только кнопка загрузки файла (аналог `file_answer_task`). Учитель видит
+  загруженный файл и выставляет баллы по хардкод-критериям из плагинного конфига (см. §3.4),
+  **раздельно для 13.1 и 13.2** (разные наборы критериев — разное содержание заданий).
+  Свои вступительные экраны/инструкции, своё время, свой лимит попыток, своя шкала перевода
+  первичных баллов во вторичные, свои баллы за задание — всё захардкожено в config-классах
+  модуля (не редактируется через UI, аналогично `KegeScaleConfig`).
+- `Ege` (плоский «ЕГЭ» без станции) — кейс enum'а удалён (в БД на момент постановки задачи не
+  было ни одной записи `kind = ege` — миграция данных не потребовалась, см. §5 вопрос 1).
+
+## 3. Задачи
+
+### 3.1 Enum: убрать `Ege`, добавить `OgeComputer` — ✅ СДЕЛАНО (2026-08-18)
+- [x] `inc/Enums/Assessment/AssessmentKind.php` — кейс `Ege` удалён, добавлен `OgeComputer`
+      («Компьютерный ОГЭ») с той же логикой match-веток, что у `EgeComputer`. Добавлен помогающий
+      предикат `isStation()` (true для `EgeComputer`/`OgeComputer`) — используется вместо
+      повторения списка кейсов по всей кодовой базе.
+- [x] `AssessmentMetaBoxController::allowsIncompletePublish` — теперь `$kind->isStation()`,
+      автоматически покрывает оба вида. `renderBuilderContent()` собирает
+      `allow-incomplete-kinds` перебором `AssessmentKind::cases()`, а не хардкодом одного кейса.
+- [x] Все обращения к `AssessmentKind::Ege` по кодовой базе (`GradeBadge`, `AssessmentIntroConfig`,
+      `attempt.php`, 9 тестовых файлов) исправлены. `attempt.php` — générique-шаблон попытки
+      (партиал `attempt-form-nav.php`) реально обслуживал только плоский `Ege` и после его
+      удаления стал недостижим (станции резолвятся отдельным рендерером модуля, `Control` всегда
+      использовал `attempt-form-list.php`) — партиал и тест на него удалены как мёртвый код.
+      Полный набор тестов зелёный (1191/1191).
+- [x] БД проверена (`wp_postmeta` по `fs_lms_assessment_kind`): в проде 0 записей с
+      `kind = ege`/`ege_computer` (только 2 `control`) — миграция данных не потребовалась.
+
+### 3.2 Плагинный конфиг вместо per-assessment настроек станций — ✅ СДЕЛАНО (2026-08-18)
+- [x] `StationExamConfig::for(AssessmentKind $kind)` (`inc/Modules/EgeComputer/Config/StationExamConfig.php`)
+      — единая точка для обеих станций: `{timeLimit, maxAttempts, passScore, scoreMap}`, `null`
+      для нестанционных kind'ов. Цифры — из `.docs/oge/scores.md` (2026-08-18): ЕГЭ 235 мин / 1
+      попытка / проходной 6 первичных / шкала `KegeScaleConfig` (переиспользована, не
+      продублирована); ОГЭ 150 мин / 1 попытка / проходной 5 первичных / новая
+      `OgeScaleConfig::scale()` (0–21 первичных → 2–5, а не 100-балльная шкала ЕГЭ —
+      историческое различие двух экзаменов, тот же generic `SecondaryScoreService::translate()`
+      подходит без изменений).
+- [x] Подмена значений `AssessmentDTO` — не прямой импорт модуля в DTO/Manager (ядро не знает о
+      модулях), а WP-фильтр `AssessmentManager::STATION_SETTINGS_FILTER` (тот же приём, что
+      `AssessmentPageController::RENDERER_FILTER`): `AssessmentManager::get()`/`getBankBySubject()`
+      зовут `apply_filters(..., $dto)`, `EgeComputerModule::applyStationSettings()` подписан на
+      фильтр и для `kind->isStation()` строит новую копию DTO (readonly — без `with`) с
+      подменёнными `timeLimit`/`attemptsAllowed`/`passScore`/`scoreMap`; для `Control` — no-op.
+      Это единственная точка подмены — все читающие сайты (`AttemptService`, `AttemptOutcomeService`,
+      `ExamResultService`, `AssessmentIntroConfig`, `AttemptPageService`) получают уже
+      подменённый DTO без собственных правок.
+- [x] `AssessmentMetaBoxController::handleAssessmentSave()` — для `kind->isStation()` эти 4 поля
+      (`time_limit_minutes`, `max_attempts`, `score_map`, `intro_html`) вырезаются из `$data`
+      ДО `saveFieldsMerge()`, даже если пришли в `$_POST`.
+      `assessment-builder.js::toggleKindFields()` скрывает те же 4 поля атрибутом `hidden`
+      (не инлайн-стилем) при выборе станционного `kind`; ранее `score_map` был, наоборот, ВИДИМ
+      только для ЕГЭ/ОГЭ — правило инвертировано (видим только для `Control`).
+- [x] 12 новых unit-тестов (`OgeScaleConfigTest`, `StationExamConfigTest`,
+      `EgeComputerModuleStationSettingsTest`, `AssessmentStationFieldsGateTest`) + полный набор
+      1218/1218 зелёный, `eslint`/`gulp scripts` без ошибок.
+
+### 3.3 «Компьютерный ОГЭ» — станция
+- [ ] `EgeComputerModule::resolveRenderer` (L77-95) — расширить ветвление по `kind`: для
+      `OgeComputer` резолвить отдельный шаблон/партиалы (`templates/frontend/assessment/oge-computer.php`
+      + `templates/frontend/assessment/oge/{entry,exam,finish}.php` — параллельно `kege/*`, не
+      переиспользуя `kege/*` напрямую, т.к. вступительные экраны и разметка листа ответов другие).
+- [ ] Параллельные конфиги: `OgeInstructionConfig` (свои вступительные экраны/тексты — по
+      аналогии с `KegeInstructionConfig::paragraphs()`), `OgeSlidesConfig` (свои картинки
+      инструктажа — по аналогии с `KegeSlidesConfig`, свои assets в
+      `inc/Modules/EgeComputer/assets/images/oge-*` либо отдельная папка модуля).
+- [ ] `KegeResultSheetService`/`KegeSheetDTO` — сейчас завязаны на 27-заданный/29-строчный
+      КЕГЭ-макет (`KegeResultSheetService.php:26`, `kege/finish.php:9`). Обобщить по `kind`
+      (параметризовать число заданий/строк листа ответов) либо завести параллельный
+      `OgeResultSheetService`/`OgeSheetDTO` под 16 заданий — решить при реализации, но жёстко
+      прибитого «27» после этой задачи по кодовой базе остаться не должно ни в одном месте,
+      которое теперь обслуживает два разных экзамена.
+- [ ] `EgeCompletenessChecker` — уже общий (гоняет по числу термов таксономии номера задания,
+      без хардкода 27), для ОГЭ с 16 заданиями правок не требует — только завести 16 термов
+      `{key}_task_number` в банке.
+
+### 3.4 Задания 13-16 ОГЭ — ручная проверка по хардкод-критериям — ✅ СДЕЛАНО (2026-08-18)
+
+**Важное уточнение формата после чтения `.docs/oge/criteries.md`.** Критерии ОГЭ — НЕ
+аддитивные (не сумма независимых К1+К2, как ожидалось в постановке ниже и как работает
+существующий `CriteriaField`): каждый уровень (2/1/0 баллов, у №14 — 3/2/1/0) описывает
+ЦЕЛОСТНОЕ качество работы, проверяющий выбирает РОВНО ОДИН уровень целиком. Решение с
+пользователем (2026-08-18): учитель видит текст ВСЕХ уровней целиком и ставит один балл через
+**dropdown** — это обычный «простой балл» (`GradeAttemptCallbacks` без критериев), не
+покритерийная сумма. Ниже — как это реализовано вместо исходного плана «по структуре
+`task_criteria.criteria`».
+
+- [x] `OgeCriteriaConfig` (`inc/Modules/EgeComputer/Config/OgeCriteriaConfig.php`) — хардкод
+      рубрик 13.1/13.2/14/15/16 (текст — дословно из `criteries.md`), `rubricFor(string $position): ?array{max_points, html}`.
+      Позиция задания резолвится ТОЛЬКО через ручной номер (`AssessmentDTO::$taskNumbers`,
+      Задача 8) — не через таксономию `{key}_task_number` (та принимает только целые числа,
+      не умеет хранить «13.1»/«13.2», см. `TaskNumberTermGuard`). Автор банка ОГЭ обязан
+      проставить номер вручную в Assessment builder для ЛЮБОГО задания 13.1/13.2/14/15/16, даже
+      предметного — задокументировано в докблоке класса.
+- [x] Задания 13-16 не автопроверяются — переиспользуется существующий `file_answer_task`
+      (см. «Дополнительно» ниже, п. 2) — pending-верификация уже работает как есть, отдельного
+      кода не потребовалось.
+- [x] Подключение — фильтр `WorkDetailService::OGE_RUBRIC_FILTER` (core, тот же паттерн, что
+      `AssessmentManager::STATION_SETTINGS_FILTER`): `fromAttempt()` добавляет `'oge_rubric'`
+      в per-task массив, `EgeComputerModule::resolveOgeRubric()` подписан на фильтр, резолвит
+      позицию по `taskNumbers[$taskId]`, возвращает `OgeCriteriaConfig::rubricFor()`.
+- [x] Экран учителя (`src/js/profile/summary.js`, «Сводка по ученику» → проверка попытки
+      экзамена) — новая ветка `ogeRubricGradeBlock()`: показывает `t.oge_rubric.html` (весь
+      текст рубрики) + `<select>` с баллами `0..max_points`. Сохранение —
+      `wireAttemptGrading()`, новая ветка `isOgeRubric`: шлёт `score`/`is_correct` (простой балл,
+      существующий путь `GradeAttemptCallbacks`), НЕ `criteria_scores`. Новые SCSS-классы
+      (`.sum-task-rubric`, `.fs-oge-rubric__*`, `.sum-task-grade--oge-rubric`) — токенами,
+      без инлайн-стилей и хардкод-цветов, `stylelint` чист.
+- [x] 12 новых unit-тестов (`OgeCriteriaConfigTest` — 7, `EgeComputerModuleStationSettingsTest`
+      — доп. 4 на `resolveOgeRubric`, `WorkDetailServiceTest` — доп. 2 на `oge_rubric` в выдаче) +
+      полный набор 1230/1230 зелёный, `eslint`/`stylelint`/`gulp build` без ошибок.
+- [ ] Критерии заданий **14, 15, 16 уже получены и закодированы** — весь текст из
+      `criteries.md` учтён (был вопрос §4 п.2 «ещё нужны критерии 14-15-16» — закрыт, файл
+      пользователь дополнил).
+
+### 3.5 Баллы за задание — тоже в конфиг — ✅ СДЕЛАНО (2026-08-18)
+- [x] Поле «Баллов за задание» убрано из builder UI для станционных видов
+      (`assessment-builder.js::renderExtraBody`) — остаётся только «Номер задания (для банка)».
+      Баллы теперь вычисляются на чтении в `EgeComputerModule::applyStationSettings()` →
+      `computeTaskPoints()`: для каждого `taskId` резолвится позиция (терм таксономии — для
+      предметных заданий, иначе ручной номер `taskNumbers` — тот же путь, что использует
+      `EgeCompletenessChecker`), затем баллы берутся из `KegeScaleConfig::answerSlots()` (ЕГЭ:
+      1 балл на позицию, №26/27 — по 2) или новой `OgeScaleConfig::pointsForPosition()` (ОГЭ:
+      1..12 → 1 балл, 13.1/13.2/14/15/16 → максимум берётся из `OgeCriteriaConfig::rubricFor()`
+      — единый источник с рубрикой проверки, баллы задания и критерии не могут разойтись).
+      Задание без распознанной позиции в карту `taskPoints` не попадает (эквивалент «нет баллов»).
+- [x] **Проходной балл тоже убран** (пропущен в первом проходе §3.2 — исправлено по запросу
+      пользователя): `pass_score` добавлен в список полей, скрываемых в UI и не сохраняемых
+      на бэкенде для станций (`AssessmentMetaBoxController::handleAssessmentSave`,
+      `assessment-builder.js::STATION_ONLY_HIDDEN_FIELD_IDS`).
+- [x] **Побочные баги, найденные и исправленные при проверке на реальных данных:**
+      1) Число слотов в builder ошибочно было ОДНИМ числом на оба вида экзамена (счётчик
+      термов таксономии предмета — обычно 27, унаследовано от ЕГЭ), из-за чего «Компьютерный
+      ОГЭ» тоже показывал 27 позиций вместо 16. Исправлено: `renderBuilderContent()` передаёт
+      карту `{kind: slots}` (`ege_computer` — из таксономии, `oge_computer` — фиксированные 16),
+      JS выбирает нужное число по текущему `kind`.
+      2) Автозаполнение пустых слотов при выборе станционного вида сохраняло МАССИВ НУЛЕЙ
+      (`taskId=0` для каждого незаполненного слота) — гард от дублей (`AssessmentManager`/
+      `WorkManager::setItemIds`) схлопывал несколько нулей в один и отклонял сохранение с
+      ложным тостом «Экзамен не найден». Баг СИММЕТРИЧНО живёт и в Work-конструкторе (тот же
+      слот-билдер). Исправлено на клиенте: `persist()` в `assessment-builder.js` и
+      `work-builder.js` теперь фильтрует `taskId > 0` перед отправкой — пустые слоты в
+      `item_ids` не попадают.
+- [x] 2 новых unit-теста на `computeTaskPoints()` (ЕГЭ: обычная позиция vs №26 с двумя
+      ответами; ОГЭ: автопроверяемая позиция vs 13.1/14 с баллами из рубрики), полный набор
+      1232/1232 зелёный, `eslint`/`gulp build` без ошибок. Подтверждено вручную через WP-CLI:
+      карта слотов на dev — `{"ege_computer":27,"oge_computer":16}`.
+
+## 4. Открытые вопросы (нужно решить до старта)
+
+1. ✅ **Закрыт.** Что в проде хранится под `AssessmentKind::Ege` — проверено запросом к БД
+   (`wp_postmeta` по `fs_lms_assessment_kind`): 0 записей с `kind = ege`/`ege_computer`, только
+   2 `control`. Миграция данных не нужна, см. §3.1.
+2. **В работе.** Итоговые критерии оценивания заданий 13-16 «Компьютерного ОГЭ»:
+   - Формат задания 13 уточнён с пользователем: это **альтернатива 13.1/13.2** (ученик решает
+     один из двух вариантов — 13.1 «презентация», 13.2 «текстовый документ с таблицей»), считается
+     одной позицией из 16 в списке заданий; критерии — раздельные наборы для 13.1 и 13.2.
+   - Задания 13-16 решаются «на бумаге»: в станции у них нет поля ответа, только загрузка файла
+     (как `file_answer_task`); учитель проверяет вручную по критериям.
+   - ✅ **Закрыт полностью.** Текст критериев для 13.1/13.2/14/15/16 получен
+     (`.docs/oge/criteries.md`, 2026-08-18) и закодирован в `OgeCriteriaConfig`. По ходу
+     выяснилось и решено с пользователем: критерии не аддитивные, а holistic (один уровень
+     целиком) — учитель видит текст всех уровней + ставит балл через dropdown. См. §3.4.
+3. ✅ **Закрыт.** Шкала перевода первичных баллов и время/лимит попыток для ОГЭ и ЕГЭ — цифры
+   получены (`.docs/oge/scores.md`, 2026-08-18) и закодированы в `StationExamConfig`/
+   `OgeScaleConfig`. См. §3.2.
+4. **Открыт, частично закрыт.** Вступительные экраны ОГЭ: текст первого экрана получен
+   (`.docs/oge/oge-screens/1-sreen.md`) и 8 картинок остальных экранов (`screen-2.png` … 
+   `screen-9.png`) — но САМ карусель-код (`OgeInstructionConfig`/`OgeSlidesConfig`,
+   аналог `KegeInstructionConfig`/`KegeSlidesConfig`) ещё не написан: экраны 2-9 — картинки как
+   у КЕГЭ, а экран 1 — ТЕКСТ (не картинка, в отличие от КЕГЭ, где первый слайд карусели тоже
+   картинка) — значит `entry.php`-карусель нужно параметризовать под смешанный тип слайда
+   (текст ИЛИ картинка), а не просто скопировать структуру КЕГЭ. Не начато — входит в объём
+   вопроса 8 ниже.
+5. **Открыт.** `KegeResultSheetService`/лист ответов — обобщать один сервис на оба kind'а
+   параметром числа заданий, или заводить отдельный `OgeResultSheetService`? Влияет на объём
+   рефакторинга существующего КЕГЭ-кода при добавлении ОГЭ. Часть вопроса 8 ниже.
+6. ✅ **Закрыт технически.** Задание 13 — альтернатива 13.1/13.2: со стороны банка это два
+   отдельных task-поста (в банке `fs_lms_problems`, не предметные — таксономия `{key}_task_number`
+   принимает только целые числа и не может хранить «13.1»), с **ручным** номером «13.1»/«13.2»
+   в `taskNumbers` конкретного экзамена (не термом). Реализовано в `OgeCriteriaConfig`/
+   `EgeComputerModule::resolveOgeRubric()`, см. §3.4. Как именно ученик ВЫБИРАЕТ между 13.1/13.2
+   на экране станции (два аплоада с переключателем vs что-то другое) — вопрос UI станции,
+   переходит в вопрос 8.
+7. ✅ **Закрыт.** Формат критериев (аддитивный CriteriaField vs holistic) — решено с
+   пользователем: holistic, единый балл через dropdown + полный текст рубрики. См. §3.4.
+8. ✅ **Закрыт, объём переоценён вниз после чтения кода станции.** `kege/exam.php`,
+   `kege/finish.php`, `ege-computer.php`-обёртка и `KegeResultSheetService` оказались почти
+   полностью **уже параметризованы данными** (`$assessment->taskIds`/`taskNumbers`,
+   `KegeScaleConfig::answerSlots()`/`scale()`) — НЕ хардкодят «27» нигде, кроме самих вызовов
+   `KegeScaleConfig::*`. Решение: подход (а) — переиспользовать эти же файлы для ОГЭ через
+   kind-условия в нескольких точках, НЕ форкать в параллельный `oge/*`. Разбивка на этапы —
+   §6 ниже.
+
+Дополнительно (проверено 2026-08-18):
+1. ✅ **Проверено, найден и исправлен баг.** Раскрытие связки 19-21 в конструкторе ЕГЭ гоняли
+   на реальных dev-данных (parent 16694 → children 16939/16940/16941) через
+   `EgeCompletenessChecker::validate()`. Изначально гард видел раскрытых детей «сиротами» —
+   баг в `TaskBundleService::childrenSummary()` (не отдавал номер), исправлен и подтверждён
+   повторной проверкой. Подробности и место фикса — §3.3 выше.
+2. ✅ **Не требуется — уже есть готовый шаблон.** Существующий `file_answer_task`
+   (`inc/MetaBoxes/Templates/FileAnswerTaskTemplate.php`, «Развёрнутый ответ (файл, ручная
+   проверка)») уже покрывает ровно этот сценарий один-в-один: у автора — поле
+   `task_materials` (`FileAttachmentsField`, «Материалы задания, видны ученику») для своих
+   файлов, у ученика — виджет загрузки файлов в générique-плеере попытки
+   (`templates/frontend/assessment/partials/attempt-question.php:84-99`, приём
+   `.jpg/.png/.pdf/.doc/.docx/.pptx/.txt/.py`, ручная проверка через `task_criteria`/простой
+   балл). Докблок шаблона прямо называет целевые сценарии: «презентация/документ (ОГЭ инф.
+   №13), программа .py (ОГЭ инф. №15)» — шаблон, судя по всему, изначально проектировался
+   именно под эти номера ОГЭ. Для банка ОГЭ 13-16 использовать этот шаблон как есть, новый не
+   заводить. **Важная оговорка:** этот générique-виджет загрузки существует только в
+   `attempt-question.php` (générique-флоу попытки) — станция ОГЭ (§3.3 второй задачи, ещё не
+   построена) рендерит задания СВОИМ отдельным кодом (по образцу `kege/exam.php`, который тоже
+   не переиспользует `attempt-question.php`), так что для появления загрузки файлов внутри
+   самой станции этот виджет всё равно придётся перенести/адаптировать в новый шаблон
+   станции — шаблон банка уже готов, State станции — нет.
+
+## 6. Поэтапный план визуальной станции ОГЭ
+
+> **Статус:** §6.0 (все вопросы закрыты), §6.1, §6.2, §6.4 — сделаны. §6.3 — частично (шкала/
+> баллы листа ответов ещё не диспетчеризованы по kind). §6.5 (тесты/e2e) — не начато.
+
+**Ключевая находка при чтении кода станции ЕГЭ**, меняющая объём работы в меньшую сторону:
+`kege/exam.php`, `kege/finish.php`, `ege-computer.php`-обёртка и `KegeResultSheetService` НЕ
+хардкодят число заданий/позиций нигде — они полностью управляются `$assessment->taskIds`/
+`taskNumbers`, а «27 заданий → 29 позиций» — это ПОВЕДЕНИЕ, вычисленное из
+`KegeScaleConfig::answerSlots()` для конкретного набора номеров, а не константа в шаблоне.
+Единственное МЕСТО, которое реально хардкодит логику ЕГЭ — сами точки вызова
+`KegeScaleConfig::scale()/answerSlots()/secondaryMax()` (3-4 места) и несколько кусков текста
+(«Единый государственный экзамен», вкладка «i» — конвенции логических операций КЕГЭ). Значит
+план — НЕ форк в параллельный `oge/*`, а точечная параметризация существующих файлов по
+`$assessment->kind` + один новый тип ответа («файл», для 13-16).
+
+### 6.0 Уточнить перед стартом — статус ответов (решено с пользователем 2026-08-18)
+
+1. ✅ **Решено, контент получен и согласован.** Вкладка «i» — текст из
+   `.docs/oge/oge-screens/exam-1-screen.md` (исправленная версия, 2026-08-18: «16 заданий»,
+   «файлы — результат заданий 13-16», согласуется с уже реализованными 16 позициями).
+2. ✅ **Решено.** Бланк регистрации — тот же, что у ЕГЭ (`blank-number.webp`, та же разметка
+   ввода). Отдельного `OgeSlidesConfig::blankHint()` не нужно — `EgeComputerModule` резолвит
+   один и тот же `KegeSlidesConfig::blankHint()` для обоих kind.
+3. ✅ **Решено.** Код активации — тот же `2599`, что у ЕГЭ.
+4. ✅ **Решено.** Заголовки экранов ОГЭ — «Основной государственный экзамен».
+5. ✅ **Решено.** Задания 13-16 ОГЭ на экране экзамена — ТОЛЬКО кнопка загрузки файла, без
+   текстового поля ответа (в отличие от générique `file_answer_task`, где текст опционален).
+
+### 6.1 Ритуал входа (`kege/entry.php`) — параметризация под kind — ✅ СДЕЛАНО (2026-08-18)
+
+- [x] `OgeSlidesConfig` (`inc/Modules/EgeComputer/Config/OgeSlidesConfig.php`): слайд 1 — ТЕКСТ
+      (шаги ритуала из `.docs/oge/oge-screens/1-sreen.md`), слайды 2-9 — картинки
+      `oge-instruction-2.png` … `oge-instruction-9.png` (скопированы из `.docs/oge/oge-screens/
+      screen-2..9.png` в `inc/Modules/EgeComputer/assets/images/`, формат оставлен png).
+      `entry.php` теперь поддерживает смешанный тип слайда (`type: 'text'|'image'`) —
+      КЕГЭ-слайды без явного `type` трактуются как `'image'` (обратная совместимость, правки
+      `KegeSlidesConfig` не потребовалось).
+- [x] `entry.php` резолвит `OgeSlidesConfig::slides()` для `OgeComputer`, иначе
+      `KegeSlidesConfig::slides()`. Бланк регистрации — везде `KegeSlidesConfig::blankHint()`
+      (решено: общий с ЕГЭ, п. 6.0.2). Код активации не трогали (общий `2599`, п. 6.0.3, зашит в
+      `kege-entry.js`, kind не влияет).
+- [x] Заголовок «Единый государственный экзамен» / «Основной государственный экзамен» —
+      kind-aware (`$isOge` в `entry.php`, `finish.php`; `$stationLabel` в `ege-computer.php` для
+      `<title>`, `kege-page`/`kege-*`-классы НЕ переименовывались — служебное имя платформы,
+      см. 6.4).
+
+### 6.2 Экран экзамена (`kege/exam.php`, `kege-exam.js`) — новый тип ответа «файл» — ✅ СДЕЛАНО (2026-08-18)
+
+- [x] `exam.php`: `$isTable` теперь гейтится `! $isOge` (у ОГЭ таких позиций нет). Новая ветка
+      `$isFile = TaskTemplate::FileAnswer->value === $view['template']` → `data-answer-shape="file"`.
+- [x] Вкладка «i» — `OgeInstructionConfig::paragraphs()` (текст из исправленного
+      `exam-1-screen.md`, 16 заданий/13-16 файлы, согласовано с пользователем) для `OgeComputer`,
+      иначе прежний `KegeInstructionConfig`.
+- [x] `kege-exam.js`: новая ветка `'file' === shape` в свитче ответов — загрузка через
+      `kegeVars.actions.uploadAnswerFile`/`kegeVars.nonces.uploadAnswerFile` (тот же AJAX, что и
+      générique `assessment.js::bindFileAnswers`, уже локализован в `fs_lms_kege_vars` —
+      `BundleLoader::assessmentVars()`, правок бэкенда не потребовалось). `collect()` отдаёт JSON
+      `{"text":"","files":[ids]}` (решено: только файл, без текстового поля, п. 6.0.5) — тот же
+      формат, что уже разбирают `KegeResultSheetService::studentAnswer()` и
+      `WorkDetailService::parseFileAnswer()`. Восстановление чипов при возврате на задание не
+      реализовано — тот же (уже существующий) пробел, что и в générique-флоу `assessment.js`, не
+      регрессия. SCSS — `src/scss/kege/components/_exam.scss` (`.kege-ap-file-*`, токенами).
+- [x] Задания 1-12 — без изменений, прежняя ветка `else` (текстовый инпут).
+
+### 6.3 Лист ответов (`kege/finish.php`, `KegeResultSheetService`) — ⚠️ ЧАСТИЧНО СДЕЛАНО (2026-08-18)
+
+- [x] `finish.php`: заголовок kind-aware (см. 6.1).
+- [ ] `KegeResultSheetService` — 3-4 точки вызова `KegeScaleConfig::scale()/answerSlots()/
+      secondaryMax()` ВСЁ ЕЩЁ хардкожены на `KegeScaleConfig`, не диспетчеризованы по
+      `$assessment->kind`. Для `OgeComputer` лист ответов сейчас посчитает баллы по ЕГЭ-шкале —
+      это баг, который проявится, как только появится реальная попытка ОГЭ. Нужно: `match` на
+      `KegeScaleConfig`/`OgeScaleConfig` (контракт `scale()`/`secondaryMax()` одинаковый;
+      `OgeScaleConfig::answerSlots()` — новый метод, всегда возвращает 1, у ОГЭ нет позиций с
+      двумя ответами вроде №26/27 ЕГЭ) — можно завести общий интерфейс вместо `match`, решить
+      при реализации.
+- [ ] Для строк 13-16 (`file`-ответ) не проверено, что колонка «Правильный ответ» показывает
+      «—», а не путается с обычным пропуском (`correctAnswer()` для `file_answer_task` уже
+      отдаёт пусто, но end-to-end не прогонялось).
+
+### 6.4 Роутинг и обёртка — ✅ СДЕЛАНО (2026-08-18)
+
+- [x] Заголовок/подпись `ege-computer.php` параметризованы (`$stationLabel`). Имена файлов и
+      CSS/JS-классы `kege-*` НЕ переименовывались — решение по умолчанию (не переспрашивали
+      отдельно): `kege` — служебное имя станции-платформы, общей для обоих экзаменов, а не
+      аббревиатура ЕГЭ; переименование потянуло бы правки по всему бандлу без функциональной
+      пользы.
+- [ ] **НЕ СДЕЛАНО, блокирует всё остальное:** `EgeComputerModule::resolveRenderer()`
+      всё ещё содержит `if ($kind !== AssessmentKind::EgeComputer->value) return $default;` —
+      для `OgeComputer` НИКОГДА не резолвит `ege-computer.php`, попытка открыть станцию ОГЭ
+      сейчас попадёт в générique-флоу (`attempt.php`), а не на новый экран. Все правки §6.1/6.2
+      физически недостижимы для пользователя, пока это не исправлено — следующий шаг №1.
+- [x] `Enqueue::enqueue_kege_assets()`/`KEGE_ROUTE_FILTER` не трогали — они взводятся тем же
+      `add_filter(KEGE_ROUTE_FILTER, '__return_true')` внутри `resolveRenderer()`, так что после
+      фикса выше сработают для обоих kind без дополнительных правок.
+
+### 6.5 Тесты и проверка — ❌ НЕ НАЧАТО
+
+- [ ] Unit-тесты на новую kind-диспетчеризацию в `KegeResultSheetService` (после §6.3).
+- [ ] Unit-тест на то, что `resolveRenderer()` резолвит станцию для `OgeComputer` (после §6.4).
+- [ ] E2E через WP-CLI/headless — прогнать реальную попытку ОГЭ (создать тестовый банк из 16
+      задач нужных типов, пройти сценарий вход→экзамен→завершение, проверить лист ответов и
+      загрузку файлов 13-16).

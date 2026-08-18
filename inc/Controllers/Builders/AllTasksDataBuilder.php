@@ -152,6 +152,7 @@ readonly class AllTasksDataBuilder {
 		if ( ! empty( $tax_query ) ) {
 			$args['tax_query'] = $tax_query;
 		}
+		$args['meta_query'] = $this->excludeBundleChildren();
 
 		$result = $this->post_manager->query( $post_type, $args );
 		$tasks  = array_map(
@@ -179,6 +180,21 @@ readonly class AllTasksDataBuilder {
 				$this->taxonomy_repository->getBySubject( $subject_key ),
 				static fn( TaxonomyDataDTO $taxonomy ) => $taxonomy->is_required
 			)
+		);
+	}
+
+	/**
+	 * Исключает дочерние задания связки (19/20/21) — на витрине показывается только
+	 * parent-пост (см. .docs/Tasks.md, §3.2).
+	 *
+	 * @return array
+	 */
+	private function excludeBundleChildren(): array {
+		return array(
+			array(
+				'key'     => PostMetaName::TaskBundleParentId->value,
+				'compare' => 'NOT EXISTS',
+			),
 		);
 	}
 
@@ -385,6 +401,7 @@ readonly class AllTasksDataBuilder {
 		if ( ! empty( $tax_query ) ) {
 			$args['tax_query'] = $tax_query;
 		}
+		$args['meta_query'] = $this->excludeBundleChildren();
 
 		$result = $this->post_manager->query( PostTypeResolver::tasks( $subject_key ), $args );
 

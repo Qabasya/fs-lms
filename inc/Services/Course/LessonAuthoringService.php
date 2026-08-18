@@ -13,6 +13,7 @@ use Inc\Enums\Subject\TemplateCategory;
 use Inc\Managers\Course\LessonManager;
 use Inc\Managers\Wp\PostManager;
 use Inc\Services\Subject\PostTypeResolver;
+use Inc\Services\Task\TaskBundleService;
 use Inc\Services\Template\TemplateRegistry;
 use Inc\Shared\PluginLogger;
 use Inc\Shared\Traits\Sanitizer;
@@ -37,6 +38,7 @@ class LessonAuthoringService {
 		private readonly PostManager      $posts,
 		private readonly LessonManager    $lessons,
 		private readonly TemplateRegistry $templates,
+		private readonly TaskBundleService $taskBundles,
 	) {}
 
 	/**
@@ -112,8 +114,8 @@ class LessonAuthoringService {
 		// Задача-шаг тянется из обоих источников сразу (предмет + банк) — вариант А.
 		if ( 'task' === $kind && 'all' === $source ) {
 			return array_merge(
-				$this->candidatesFrom( PostTypeResolver::tasks( $subjectKey ), $search, 'subject' ),
-				$this->candidatesFrom( PostTypeResolver::problems(), $search, 'bank' )
+				$this->candidatesFrom( PostTypeResolver::tasks( $subjectKey ), $search, 'subject', true ),
+				$this->candidatesFrom( PostTypeResolver::problems(), $search, 'bank', true )
 			);
 		}
 
@@ -132,16 +134,18 @@ class LessonAuthoringService {
 
 		$origin = 'task' === $kind ? ( 'bank' === $source ? 'bank' : 'subject' ) : '';
 
-		return $this->candidatesFrom( $post_type, $search, $origin );
+		return $this->candidatesFrom( $post_type, $search, $origin, 'task' === $kind );
 	}
 
 	/**
 	 * Кандидаты одного CPT в формате пикера. `$source` (если задан) проставляет
 	 * происхождение задачи (subject|bank) — нужно для payload.source шага.
+	 * `$withBundles` — только для задач: добавляет `bundle_children`, если пост —
+	 * parent связки 19-21 (см. .docs/Tasks.md, §3.4).
 	 *
-	 * @return array<int, array{id: int, title: string, source?: string}>
+	 * @return array<int, array{id: int, title: string, source?: string, bundle_children?: array}>
 	 */
-	private function candidatesFrom( string $post_type, string $search, string $source = '' ): array {
+	private function candidatesFrom( string $post_type, string $search, string $source = '', bool $withBundles = false ): array {
 		$result = array();
 		foreach ( $this->posts->search( $post_type, array( 'limit' => 50, 'search' => $search ) ) as $post ) {
 			$item = array(
@@ -150,6 +154,12 @@ class LessonAuthoringService {
 			);
 			if ( '' !== $source ) {
 				$item['source'] = $source;
+			}
+			if ( $withBundles ) {
+				$children = $this->taskBundles->childrenSummary( $post->ID );
+				if ( ! empty( $children ) ) {
+					$item['bundle_children'] = $children;
+				}
 			}
 			$result[] = $item;
 		}
