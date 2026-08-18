@@ -167,6 +167,40 @@ function render_fs_select( array $args ): void {
 }
 
 /**
+ * Render native WP pagination (paginate_links()) in the standard tablenav wrapper —
+ * тот же паттерн, что уже используют вкладки страницы «Журналы» (logs-tabs): first/
+ * prev/next/last-page, сжатие диапазона номеров, поле ввода страницы при большом
+ * числе страниц — вместо самодельного постраничного списка кнопок.
+ *
+ * @param int    $current    Текущая страница (с единицы).
+ * @param int    $totalPages Всего страниц.
+ * @param string $base       URL с плейсхолдером `%#%` на месте номера страницы
+ *                           (см. {@see paginate_links()}); обычно
+ *                           `add_query_arg( 'paged', '%#%' )`.
+ */
+function render_fs_pagination( int $current, int $totalPages, string $base ): void {
+	if ( $totalPages <= 1 ) {
+		return;
+	}
+	?>
+	<div class="tablenav bottom">
+		<div class="tablenav-pages">
+			<?php
+			echo paginate_links( array(
+				'base'      => $base,
+				'format'    => '',
+				'current'   => $current,
+				'total'     => $totalPages,
+				'prev_text' => '&laquo;',
+				'next_text' => '&raquo;',
+			) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+			?>
+		</div>
+	</div>
+	<?php
+}
+
+/**
  * Render an empty-state primitive.
  *
  * @param array{

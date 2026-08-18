@@ -331,20 +331,7 @@ $statusLabels = array(
 		</tbody>
 	</table>
 
-	<?php if ( $pages > 1 ) : ?>
-		<div class="tablenav bottom">
-			<div class="tablenav-pages">
-				<?php for ( $p = 1; $p <= $pages; $p++ ) :
-					$url = add_query_arg( array( 'paged' => $p ) );
-					?>
-					<a href="<?php echo esc_url( $url ); ?>"
-						class="button button-small <?php echo $p === $page ? 'button-primary' : ''; ?>">
-						<?php echo esc_html( (string) $p ); ?>
-					</a>
-				<?php endfor; ?>
-			</div>
-		</div>
-	<?php endif; ?>
+	<?php render_fs_pagination( $page, $pages, add_query_arg( 'paged', '%#%' ) ); ?>
 
 </div>
 
