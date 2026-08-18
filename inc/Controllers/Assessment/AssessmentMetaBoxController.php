@@ -194,6 +194,14 @@ class AssessmentMetaBoxController extends BaseController implements ServiceInter
 	}
 
 	public function renderBuilderContent( \WP_Post $post ): void {
+		// Тот же гейт, что открывает станцию вхолостую по прямой ссылке
+		// (AssessmentAccessPolicy::canPreview()) — прямой путь из конструктора,
+		// без необходимости знать пермалинк контрольной или её текущий статус.
+		printf(
+			'<p class="fs-lms-assessment-preview"><a class="button" href="%s" target="_blank" rel="noopener">Предпросмотр ↗</a></p>',
+			esc_url( (string) get_preview_post_link( $post ) )
+		);
+
 		$subject     = PostTypeResolver::subjectFromAssessmentPostType( $post->post_type );
 		$assessment  = $this->assessmentManager->get( $post->ID );
 		$task_ids     = null !== $assessment ? $assessment->taskIds : array();

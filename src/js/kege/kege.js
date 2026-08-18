@@ -4,7 +4,7 @@
  * активации + экран завершения; #kegeExam — реальный экзамен (сервер рендерит
  * только то, что актуально для текущего состояния попытки).
  */
-import { initKegeEntry } from './kege-entry.js';
+import { initKegeEntry, initPreviewRestart } from './kege-entry.js';
 import { initKegeExam } from './kege-exam.js';
 import { useKegeAssessment } from './kege-state.js';
 
@@ -23,4 +23,5 @@ document.addEventListener( 'DOMContentLoaded', () => {
 	if ( document.getElementById( 'kegeEntry' ) ) {
 		initKegeEntry();
 	}
+	initPreviewRestart();
 } );

@@ -47,6 +47,11 @@ foreach ( $taskViews as $view ) {
 	<div class="kege-ex-head">
 		<?php if ( $assessment->timeLimit > 0 ) : ?>
 			<span class="kege-timer-chip" id="kegeTimer">—:—:—</span>
+			<?php // Предпросмотр: таймер по умолчанию статичный (лимит без отсчёта) — ?>
+			<?php // включатель нужен, чтобы автор мог проверить и сам отсчёт, и авто-сдачу по истечении времени. ?>
+			<?php if ( $previewMode ) : ?>
+				<button type="button" class="kege-head-link" id="kegePreviewTimerToggle">Запустить отсчёт</button>
+			<?php endif; ?>
 		<?php endif; ?>
 		<span class="kege-kim-t" id="kegeHeadKim"></span>
 		<span class="kege-kim-t" id="kegeHeadBr"></span>

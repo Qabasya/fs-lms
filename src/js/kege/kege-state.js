@@ -37,7 +37,7 @@ export function useKegeAssessment( assessmentId ) {
 }
 
 function defaults() {
-	return { stage: 'entry', br: [ '', '', '' ], slide: 0, kim: null, code: null, task: '', taskAttempt: '' };
+	return { stage: 'entry', br: [ '', '', '' ], slide: 0, kim: null, code: null, task: '', taskAttempt: '', answers: {} };
 }
 
 /**
@@ -57,6 +57,11 @@ function normalize( raw ) {
 	if ( 'string' === typeof raw.code ) { state.code = raw.code; }
 	if ( 'string' === typeof raw.task ) { state.task = raw.task; }
 	if ( 'string' === typeof raw.taskAttempt ) { state.taskAttempt = raw.taskAttempt; }
+	if ( raw.answers && 'object' === typeof raw.answers && ! Array.isArray( raw.answers ) ) {
+		Object.entries( raw.answers ).forEach( ( [ taskId, text ] ) => {
+			if ( 'string' === typeof text ) { state.answers[ String( taskId ) ] = text; }
+		} );
+	}
 
 	return state;
 }
@@ -100,6 +105,19 @@ export function setKegeStage( stage ) {
  */
 export function setKegeTask( task, attemptId ) {
 	saveKegeState( { task: String( task ), taskAttempt: String( attemptId ) } );
+}
+
+/**
+ * Ответы предпросмотра автора: попытки в БД нет, писать их некуда, а лист
+ * ответов считается по накопленному в этой вкладке. Без хранения обновление
+ * страницы обнуляло и набранные ответы, и уже показанный лист.
+ *
+ * В реальном прохождении не используется — там источник истины БД (autosave).
+ *
+ * @param {Object<string, string>} answers Ответ по task_id, как он лёг бы в answer_text
+ */
+export function setKegeAnswers( answers ) {
+	saveKegeState( { answers } );
 }
 
 export function clearKegeState() {

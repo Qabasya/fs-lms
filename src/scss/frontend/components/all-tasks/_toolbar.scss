@@ -19,7 +19,25 @@
     padding: rem(16) rem(20);
     background: $color-bg;
 
-    .fs-breadcrumbs { flex: 0 1 auto; min-width: 0; margin-bottom: 0; }
+    // Крошки сжимаются в одну строку с многоточием: собственный flex-wrap
+    // цепочки уводил её на вторую строку (зум страницы от 150%, узкий экран),
+    // и липкая строка вырастала вдвое, а поиск уезжал под неё.
+    .fs-breadcrumbs {
+      flex: 0 1 auto;
+      flex-wrap: nowrap;
+      min-width: 0;
+      margin-bottom: 0;
+      overflow: hidden;
+    }
+
+    .fs-breadcrumbs a,
+    .fs-breadcrumbs__current {
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+
+    .fs-breadcrumbs__sep { flex: 0 0 auto; }
   }
 
   // ── Поиск
@@ -38,7 +56,7 @@
     &:hover { border-color: $color-accent-soft-2; }
 
     &.is-open {
-      width: rem(360);
+      width: rem(280);
       border-color: $color-accent-soft-2;
       box-shadow: 0 0 0 rem(3) $color-accent-soft;
       transition: width $transition-slow, border-color $transition, box-shadow $transition;
@@ -122,8 +140,16 @@
     &:hover { background: $color-accent-soft; color: $color-accent-700; }
   }
 
+  // Сайдбар ушёл под контент (_shell.scss) — отступ под него больше не нужен.
+  // Строка остаётся одной: цепочка сжимается многоточием, поиск — до узкого
+  // раскрытия. Перенос строки и поиск во всю ширину — только на телефоне.
   @media (max-width: $bp-md) {
-    .crumbs-row { flex-wrap: wrap; gap: rem(12); padding-left: rem(20); }
+    .crumbs-row { gap: rem(16); margin-left: 0; padding-left: rem(20); }
+    .toolbar-search.is-open { width: rem(220); }
+  }
+
+  @media (max-width: $bp-sm) {
+    .crumbs-row { flex-wrap: wrap; gap: rem(12); }
     .toolbar-search.is-open { width: 100%; margin-left: 0; }
   }
 }

@@ -161,22 +161,66 @@ function answerValue( block ) {
 	return JSON.stringify( { text: textarea.value.trim(), files } );
 }
 
+/**
+ * Значение блока, подтверждённое сервером. По нему решается, есть ли
+ * несохранённый ввод: без этого маячок на уходе со страницы слал бы все ответы
+ * подряд, в том числе нетронутые.
+ */
+const savedValues = new WeakMap();
+
+/** Запись блока с отметкой подтверждённого значения. */
+async function saveBlock( block, attemptId, statusEl ) {
+	const value = answerValue( block );
+	const ok    = await saveAnswer( vars, attemptId, block.dataset.taskId, value, statusEl );
+	if ( ok ) { savedValues.set( block, value ); }
+	return ok;
+}
+
 /** Bind autosave handlers to all answer textareas (кнопки «Сохранить» нет — сохраняется само). */
 function bindAutosave( form, attemptId ) {
 	form.querySelectorAll( '.fs-attempt-question' ).forEach( ( block ) => {
-		const taskId    = block.dataset.taskId;
 		// Составное задание (Triple) содержит несколько под-полей — вешаем на все;
 		// сохраняем весь блок одним вызовом (answerValue собирает JSON).
 		const textareas = block.querySelectorAll( '.fs-attempt-answer' );
 		const statusEl  = block.querySelector( '.fs-save-status' ); // необязателен (индикатор убран)
 		if ( ! textareas.length ) { return; }
 
-		const save = () => saveAnswer( vars, attemptId, taskId, answerValue( block ), statusEl );
+		// Отправная точка — то, что отрисовал сервер: ответ из прошлой сессии
+		// иначе считался бы несохранённым и уходил маячком при каждом уходе.
+		savedValues.set( block, answerValue( block ) );
+
+		const save = () => saveBlock( block, attemptId, statusEl );
 
 		textareas.forEach( ( textarea ) => {
 			// Дебаунс при вводе + немедленное сохранение при уходе из поля (blur).
 			textarea.addEventListener( 'input', debounce( save, 1200 ) );
 			textarea.addEventListener( 'blur', save );
+		} );
+	} );
+}
+
+/**
+ * Уход со страницы (закрытие вкладки, обновление, переход по ссылке): всё, что
+ * не успело уехать дебаунсом, дописываем маячком — обычный fetch браузер вправе
+ * оборвать. Тот же экшен и нонс, что у автосохранения (как на станции КЕГЭ).
+ */
+function bindUnloadBeacon( form, attemptId ) {
+	window.addEventListener( 'pagehide', () => {
+		if ( ! vars || ! navigator.sendBeacon ) { return; }
+
+		form.querySelectorAll( '.fs-attempt-question' ).forEach( ( block ) => {
+			if ( ! block.querySelector( '.fs-attempt-answer' ) ) { return; }
+
+			const value = answerValue( block );
+			if ( value === savedValues.get( block ) ) { return; }
+
+			const fd = new FormData();
+			fd.append( 'action', vars.actions.saveAttemptAnswer );
+			fd.append( 'security', vars.nonces.startAttempt );
+			fd.append( 'attempt_id', String( attemptId ) );
+			fd.append( 'task_id', String( block.dataset.taskId ) );
+			fd.append( 'answer_text', value );
+			navigator.sendBeacon( vars.ajax_url, fd );
 		} );
 	} );
 }
@@ -189,10 +233,9 @@ function bindAutosave( form, attemptId ) {
 async function saveAll( form, attemptId ) {
 	const jobs = [];
 	form.querySelectorAll( '.fs-attempt-question' ).forEach( ( block ) => {
-		const taskId   = block.dataset.taskId;
 		const statusEl = block.querySelector( '.fs-save-status' ); // необязателен (индикатор убран)
 		if ( ! block.querySelector( '.fs-attempt-answer' ) ) { return; }
-		jobs.push( saveAnswer( vars, attemptId, taskId, answerValue( block ), statusEl ) );
+		jobs.push( saveBlock( block, attemptId, statusEl ) );
 	} );
 	await Promise.all( jobs );
 }
@@ -204,7 +247,6 @@ async function saveAll( form, attemptId ) {
  */
 function bindFileAnswers( form, attemptId ) {
 	form.querySelectorAll( '.fs-attempt-question[data-template="file_answer"]' ).forEach( ( block ) => {
-		const taskId   = block.dataset.taskId;
 		const textarea = block.querySelector( '.fs-attempt-answer' );
 		const saveEl   = block.querySelector( '.fs-save-status' );
 		const chips    = block.querySelector( '.fs-attempt-files__chips' );
@@ -213,7 +255,7 @@ function bindFileAnswers( form, attemptId ) {
 		const statusEl = block.querySelector( '.fs-attempt-files__status' );
 		if ( ! chips || ! input || ! addBtn || ! textarea ) { return; }
 
-		const persist = () => saveAnswer( vars, attemptId, taskId, answerValue( block ), saveEl );
+		const persist = () => saveBlock( block, attemptId, saveEl );
 
 		const addChip = ( id, name ) => {
 			const chip      = document.createElement( 'span' );
@@ -375,7 +417,7 @@ async function submitAttempt( attemptId, form, resultEl, timerInterval ) {
 /** Initialize the running attempt form (timer + autosave + submit). */
 function initRunningAttempt() {
 	const wrapper = document.getElementById( 'fs-assessment-form' );
-	if ( ! wrapper ) { return; }
+	if ( ! wrapper || wrapper.dataset.preview ) { return; } // предпросмотр — initPreviewAttempt()
 
 	const attemptId    = wrapper.dataset.attemptId;
 	const deadlineAt   = wrapper.dataset.deadline;
@@ -387,6 +429,7 @@ function initRunningAttempt() {
 
 	bindAutosave( form, attemptId );
 	bindFileAnswers( form, attemptId );
+	bindUnloadBeacon( form, attemptId );
 
 	let submitting = false;
 	form.addEventListener( 'submit', async ( e ) => {
@@ -396,6 +439,74 @@ function initRunningAttempt() {
 		// Досохраняем всё перед сдачей (кнопки «Сохранить» нет).
 		try { await saveAll( form, attemptId ); } catch ( err ) { /* сохранение не критично для сдачи */ }
 		submitAttempt( attemptId, form, resultEl, timerInterval );
+	} );
+}
+
+/**
+ * Предпросмотр générique-контрольной (T-preview-4): попытки в БД нет и не
+ * будет (AttemptPageService::buildPreview()), поэтому ни autosave, ни маячок
+ * ухода, ни загрузка файлов ответа не работают — их не к чему привязать на
+ * сервере (SubmissionCallbacks::ajaxUploadAnswerFile() требует свою попытку).
+ * «Сдать» считает результат по накопленному в форме — тем же алгоритмом, что
+ * и настоящая сдача (AutoGradeService::evaluate(), см. previewResult).
+ */
+function initPreviewAttempt() {
+	const wrapper = document.getElementById( 'fs-assessment-form' );
+	if ( ! wrapper || ! wrapper.dataset.preview ) { return; }
+
+	const assessmentId = wrapper.dataset.assessmentId;
+	const form         = wrapper.querySelector( '.fs-attempt-form' );
+	const resultEl     = document.getElementById( 'fs-assessment-result' );
+	if ( ! form || ! resultEl || ! vars ) { return; }
+
+	// Файл ответа некуда сохранить без реальной попытки — прячем контрол и
+	// объясняем, а не даём кликнуть в пустоту.
+	form.querySelectorAll( '.fs-attempt-files' ).forEach( ( block ) => {
+		block.querySelector( '.fs-attempt-files__controls' )?.setAttribute( 'hidden', '' );
+		const hint = block.querySelector( '.fs-attempt-files__hint' );
+		if ( hint ) { hint.textContent = 'Загрузка файлов недоступна в предпросмотре.'; }
+	} );
+
+	let submitting = false;
+	form.addEventListener( 'submit', async ( e ) => {
+		e.preventDefault();
+		if ( submitting ) { return; }
+		submitting = true;
+
+		try {
+			const fd = new FormData();
+			fd.append( 'action', vars.actions.previewResult );
+			fd.append( 'security', vars.nonces.startAttempt );
+			fd.append( 'assessment_id', String( assessmentId ) );
+			form.querySelectorAll( '.fs-attempt-question' ).forEach( ( block ) => {
+				if ( ! block.querySelector( '.fs-attempt-answer' ) ) { return; }
+				fd.append( `answers[${ block.dataset.taskId }]`, answerValue( block ) );
+			} );
+
+			const res  = await fetch( vars.ajax_url, { method: 'POST', body: fd } );
+			const json = await res.json();
+
+			form.hidden = true;
+			resultEl.removeAttribute( 'hidden' );
+
+			if ( ! json.success ) {
+				resultEl.querySelector( '.fs-result-score' ).textContent = json.data || 'Ошибка при сдаче.';
+				return;
+			}
+
+			resultEl.querySelector( '.fs-result-score' ).textContent =
+				`Баллов: ${ json.data.total_score } / ${ json.data.max_score }`;
+			const tasksEl = document.createElement( 'div' );
+			tasksEl.className = 'fs-result-tasks';
+			( json.data.per_task || [] ).forEach( ( task ) => tasksEl.appendChild( renderResultTask( task ) ) );
+			resultEl.appendChild( tasksEl );
+		} catch ( err ) {
+			form.hidden = true;
+			resultEl.removeAttribute( 'hidden' );
+			resultEl.querySelector( '.fs-result-score' ).textContent = 'Сетевая ошибка при отправке.';
+		} finally {
+			submitting = false;
+		}
 	} );
 }
 
@@ -439,5 +550,6 @@ function initStartButton() {
 export function initAssessment() {
 	if ( ! document.querySelector( '.fs-assessment-page' ) ) { return; }
 	initRunningAttempt();
+	initPreviewAttempt();
 	initStartButton();
 }

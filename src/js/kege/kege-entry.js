@@ -379,6 +379,19 @@ function initFinishScreen( state ) {
 	} );
 }
 
+/**
+ * Кнопка «Начать заново» на плашке предпросмотра (T-preview-1): сброс ритуала
+ * и ответов доступен с любого экрана станции, не только с листа ответов —
+ * раньше выйти можно было только дойдя до конца и нажав «Завершить экзамен».
+ * Кнопка есть только в предпросмотре (см. ege-computer.php) — гард не нужен.
+ */
+export function initPreviewRestart() {
+	document.getElementById( 'kegePreviewRestart' )?.addEventListener( 'click', () => {
+		clearKegeState();
+		window.location.reload();
+	} );
+}
+
 export function initKegeEntry() {
 	const root = document.getElementById( 'kegeEntry' );
 	const app  = document.getElementById( 'kegeApp' );

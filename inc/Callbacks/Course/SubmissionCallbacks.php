@@ -5,6 +5,7 @@ declare( strict_types=1 );
 namespace Inc\Callbacks\Course;
 
 use Inc\Core\BaseController;
+use Inc\Enums\Assessment\AttemptStatus;
 use Inc\Enums\Wp\Nonce;
 use Inc\Managers\Wp\MediaManager;
 use Inc\Repositories\WPDBRepositories\AssessmentAttemptRepository;
@@ -47,6 +48,13 @@ class SubmissionCallbacks extends BaseController {
 		$attempt   = $this->attempts->find( $attemptId );
 		if ( ! $attempt || $attempt->studentPersonId !== $person->id ) {
 			$this->error( 'Нет доступа к попытке.' );
+			return;
+		}
+
+		// Попытка уже сдана/истекла — файл к ответу больше не приложить: он не
+		// попадёт ни в один answer_text (autosave отключён тем же гейтом на сервере).
+		if ( AttemptStatus::InProgress !== $attempt->status ) {
+			$this->error( 'Попытка уже завершена.' );
 			return;
 		}
 

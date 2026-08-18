@@ -20,6 +20,33 @@ declare( strict_types=1 );
 			<h1 class="fs-assessment-title"><?php echo esc_html( $assessment->title ); ?></h1>
 			<p class="fs-assessment-notice"><?php echo esc_html( 'Для прохождения экзамена необходимо войти в систему.' ); ?></p>
 
+		<?php elseif ( $previewMode ) : ?>
+			<?php /* ===== T-preview-4: ПРЕДПРОСМОТР АВТОРА (générique-контрольная) =====
+			 * Ученика и попытки нет ($activeAttempt/$lastAttempt всегда null в
+			 * buildPreview()) — ветки ниже сюда никогда не попадают, поэтому свой
+			 * явный branch, а не "не нашли активную/последнюю попытку → intro". */ ?>
+			<h1 class="fs-assessment-title"><?php echo esc_html( $assessment->title ); ?></h1>
+			<div class="fs-assessment-preview-flag">
+				Предпросмотр — от лица автора, ответы нигде не сохраняются, время и лимит попыток не учитываются
+			</div>
+			<div id="fs-assessment-form"
+				data-preview="1"
+				data-assessment-id="<?php echo esc_attr( (string) $assessment->id ); ?>">
+
+				<?php
+				if ( \Inc\Enums\Assessment\AssessmentKind::Ege === $assessment->kind ) {
+					require __DIR__ . '/partials/attempt-form-nav.php';
+				} else {
+					require __DIR__ . '/partials/attempt-form-list.php';
+				}
+				?>
+
+				<div id="fs-assessment-result" hidden>
+					<h2>Результат</h2>
+					<p class="fs-result-score"></p>
+				</div>
+			</div>
+
 		<?php elseif ( $activeAttempt && ! $activeAttempt->isExpired( $now ) ) : ?>
 			<h1 class="fs-assessment-title"><?php echo esc_html( $assessment->title ); ?></h1>
 			<?php /* ===== ФОРМА АКТИВНОЙ ПОПЫТКИ (стадия [tasks]) ===== */ ?>
