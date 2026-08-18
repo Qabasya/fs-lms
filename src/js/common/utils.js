@@ -106,6 +106,47 @@ export function debounce( fn, ms ) {
 }
 
 /**
+ * Копирует текст в буфер обмена.
+ *
+ * Сначала пробует Clipboard API (`navigator.clipboard.writeText`) — но он доступен
+ * только в secure context (HTTPS или localhost); на HTTP `navigator.clipboard`
+ * равен `undefined`, а прямой вызов `.writeText()` без этой проверки падает
+ * синхронным `TypeError` ДО того, как успевает сработать `.catch()`. При недоступности
+ * или ошибке API — fallback на `document.execCommand('copy')` через скрытый textarea,
+ * который работает независимо от схемы (HTTP/HTTPS).
+ *
+ * @param {string} text Текст для копирования.
+ * @return {Promise<boolean>} true — скопировано (любым из двух способов), false — не удалось.
+ */
+export async function copyToClipboard( text ) {
+    if ( navigator.clipboard && window.isSecureContext ) {
+        try {
+            await navigator.clipboard.writeText( text );
+            return true;
+        } catch {
+            // Падаем в execCommand-fallback ниже.
+        }
+    }
+
+    const textarea = document.createElement( 'textarea' );
+    textarea.value = text;
+    textarea.className = 'fs-clipboard-fallback';
+    document.body.appendChild( textarea );
+    textarea.focus();
+    textarea.select();
+
+    let copied = false;
+    try {
+        copied = document.execCommand( 'copy' );
+    } catch {
+        copied = false;
+    }
+    document.body.removeChild( textarea );
+
+    return copied;
+}
+
+/**
  * Показывает или скрывает элемент атрибутом `hidden`.
  *
  * Инлайновые стили в JS запрещены (CLAUDE.md), поэтому видимость переключается

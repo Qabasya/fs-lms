@@ -17,6 +17,7 @@
 import { ArchiveViewModal } from '../../modals/enrollment/archive-view-modal.js';
 import { RestoreArchiveModal } from '../../modals/enrollment/restore-archive-modal.js';
 import { toggleButton, showNotice } from '../../modules/utils.js';
+import { copyToClipboard } from '../../../common/utils.js';
 
 const $ = jQuery;
 
@@ -159,7 +160,7 @@ export const ArchiveViewModalManager = {
                 // Безопасное получение nonce с fallback на пустую строку, если объект или свойство отсутствуют
                 security:    vars.nonces?.restoreFromArchive ?? '',
             },
-            success: ( res ) => {
+            success: async ( res ) => {
                 // Снимаем блокировку с кнопки по завершении запроса
                 if ( $triggerBtn ) { toggleButton( $triggerBtn, false ); }
 
@@ -179,19 +180,19 @@ export const ArchiveViewModalManager = {
                     msg += ` Родитель: ${ parentName }.`;
                 }
 
-                // Попытка скопировать ссылку в буфер обмена.
-                // Используется опциональная цепочка ?.writeText, так как API буфера обмена 
-                // может быть недоступно (например, страница открыта не по HTTPS или заблокирована браузером).
-                // Метод .catch( () => {} ) подавляет ошибку, если копирование не удалось, чтобы не ломать UX.
+                // Копируем ссылку в буфер обмена; copyToClipboard() сама падает в
+                // execCommand-fallback, если Clipboard API недоступен (страница не по
+                // HTTPS) — пользователь явно узнаёт результат вместо тихого сбоя.
                 if ( joinUrl ) {
-                    navigator.clipboard?.writeText( joinUrl ).catch( () => {} );
+                    const copied = await copyToClipboard( joinUrl );
+                    msg += copied ? ' Ссылка скопирована.' : ` Ссылка: ${ joinUrl }`;
                 }
 
                 // Показываем уведомление об успехе.
                 // Параметры autoDismiss и autoDismissDelay заставляют уведомление исчезнуть автоматически через 2 секунды.
                 showNotice( msg, 'success', $( '.fs-lms-archive' ), { autoDismiss: true, autoDismissDelay: 2000 } );
 
-                // Перезагружаем страницу через 2 секунды, давая пользователю время прочитать уведомление 
+                // Перезагружаем страницу через 2 секунды, давая пользователю время прочитать уведомление
                 // и (неявно) воспользоваться скопированной ссылкой.
                 setTimeout( () => location.reload(), 2000 );
             },

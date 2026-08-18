@@ -1,3 +1,5 @@
+import { copyToClipboard } from '../utils.js';
+
 const $ = jQuery;
 
 const BTN_HTML =
@@ -22,7 +24,7 @@ export const CopyButton = {
     init() {
         this.inject();
 
-        $( document ).on( 'click', '.fs-copy-field__btn', ( e ) => {
+        $( document ).on( 'click', '.fs-copy-field__btn', async ( e ) => {
             const $btn   = $( e.currentTarget );
             const $input = $btn.prev( 'input' );
             if ( ! $input.length ) return;
@@ -30,9 +32,9 @@ export const CopyButton = {
             const text = $input.val().trim();
             if ( ! text ) return;
 
-            navigator.clipboard.writeText( text )
-                .then( ()  => this._succeed( $btn ) )
-                .catch( () => {} );
+            if ( await copyToClipboard( text ) ) {
+                this._succeed( $btn );
+            }
         } );
     },
 
