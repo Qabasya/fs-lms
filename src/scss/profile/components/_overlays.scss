@@ -74,23 +74,54 @@
 .gp-field select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 .gp-fixed { flex: 1 1 rem(160); text-align: right; font-size: rem(13); font-weight: 600; color: var(--ink); }
 
-/* Модалка инд. занятия (B2): метки фиксированной ширины → все контролы стартуют
-   с одной вертикали (выровнены по левому краю); строки одинаковой высоты (~rem(40)). */
-.gp-indi .gp-field {
+/* Модалка инд. занятия (B2) и модалка урока вне расписания (Этап 4, ★): метки
+   фиксированной ширины → все контролы стартуют с одной вертикали (выровнены по
+   левому краю); строки одинаковой высоты (~rem(40)). */
+.gp-indi .gp-field,
+.gp-offsched .gp-field {
   justify-content: flex-start;
   gap: rem(12);
   min-height: rem(40);
   margin-bottom: rem(4);
 }
-.gp-indi .gp-field > span { flex: 0 0 rem(92); text-align: left; font-weight: 500; }
+
+.gp-indi .gp-field > span,
+.gp-offsched .gp-field > span { flex: 0 0 rem(92); text-align: left; font-weight: 500; }
 
 .gp-indi .gp-field input,
 .gp-indi .gp-field select,
-.gp-indi .gp-fixed { flex: 1 1 auto; width: auto; height: rem(36); }
-.gp-indi .gp-fixed { display: flex; align-items: center; text-align: left; }
-.gp-indi .gp-time { display: flex; align-items: center; gap: rem(8); flex: 1 1 auto; }
-.gp-indi .gp-time input { flex: 1; height: rem(36); }
-.gp-indi .gp-dash { flex: 0 0 auto; color: var(--muted-2); }
+.gp-indi .gp-fixed,
+.gp-offsched .gp-field input,
+.gp-offsched .gp-fixed { flex: 1 1 auto; width: auto; height: rem(36); }
+
+.gp-indi .gp-fixed,
+.gp-offsched .gp-fixed { display: flex; align-items: center; text-align: left; }
+
+.gp-indi .gp-time,
+.gp-offsched .gp-time { display: flex; align-items: center; gap: rem(8); flex: 1 1 auto; }
+
+.gp-indi .gp-time input,
+.gp-offsched .gp-time input { flex: 1; height: rem(36); }
+
+.gp-indi .gp-dash,
+.gp-offsched .gp-dash { flex: 0 0 auto; color: var(--muted-2); }
+
+/* Этап 4 (★): предупреждение в модалке урока вне расписания — «в этот день занятия нет». */
+.gp-offsched .gp-warn {
+  display: flex;
+  align-items: flex-start;
+  gap: rem(8);
+  margin-bottom: rem(12);
+  padding: rem(8) rem(10);
+  border: 1px solid var(--wait-line);
+  border-radius: var(--radius-xs);
+  background: var(--wait-soft);
+  color: var(--wait-text);
+  font-size: rem(12.5);
+  line-height: 1.45;
+
+  svg { flex-shrink: 0; margin-top: 1px; stroke: var(--wait-ink); }
+}
 
 /* ── Мобильный (Фаза 5): форма инд. занятия не упирается в 500px ─────── */
 @media (max-width: $breakpoint-mobile) {

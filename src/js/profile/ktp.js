@@ -19,6 +19,7 @@ import { computeMonths, initialCursor, shiftMonth } from './ktp/ktp-calendar-mod
 import { themeCardHtml, placedThemeHtml, openProgramHtml, emptyStateHtml, noGroupsHtml, errorHtml } from './ktp/ktp-templates.js';
 import { attachDeadlinesClick, attachPlacedThemeClick, attachRecordingClick, attachThemeActionsClick } from './ktp/ktp-popovers.js';
 import { INDI_ID, loadIndividual } from './ktp/ktp-individual.js';
+import { openOffScheduleModal } from './ktp/ktp-offschedule-modal.js';
 
 let root = null;
 let state = null;
@@ -289,7 +290,9 @@ function renderCalendar() {
     // Индикатор записи занятия — тоже ведёт в плеер (Этап 2, ★); тоже delivery, доступен даже при lock КТП.
     grid.querySelectorAll('.pt-recording').forEach(el => attachRecordingClick(el, api, loadCalendar));
     if (!isLocked()) {
-        grid.querySelectorAll('.kal-cell[data-lesson="1"]').forEach(attachDrop);
+        // Этап 4: drop доступен на любой день периода (кроме выходных), не только
+        // на дни со штатным слотом — attachDrop() сам разруливает slot/off-schedule.
+        grid.querySelectorAll('.kal-cell[data-day]:not(.holiday)').forEach(attachDrop);
         grid.querySelectorAll('.placed-theme[draggable="true"]').forEach(attachDrag);
         // T12.6: «Продолжить на другую дату» — структурное изменение, блокируется lock КТП.
         grid.querySelectorAll('.pt-more').forEach(el => attachThemeActionsClick(el, api, loadCalendar));
@@ -368,34 +371,65 @@ function attachDrag(el) {
     });
 }
 
+/**
+ * Этап 4: время ближайшей встречи группы — дефолт для модалки урока вне
+ * расписания. lessonTimes уже посчитан из meetings (SessionCalendarService),
+ * отдельного запроса не нужно — берём дату из lessonTimes, ближайшую к day.
+ */
+function nearestMeetingTime(day) {
+    const days = Object.keys(state.data.lessonTimes || {});
+    if (!days.length) return '15:00';
+    const target = new Date(day).getTime();
+    const nearest = days.reduce((best, d) =>
+        Math.abs(new Date(d).getTime() - target) < Math.abs(new Date(best).getTime() - target) ? d : best
+    );
+    const m = (state.data.lessonTimes[nearest] || '').match(/\d{1,2}:\d{2}/);
+    return m ? m[0] : '15:00';
+}
+
+/**
+ * Этап 3: drop строго закрепляет тему на дату, вытесняя ту, что там стояла
+ * (если была) — вернётся в пул. Имя темы для тоста берём из уже загруженного
+ * календаря (state.data), запрос AJAX это не меняет.
+ */
+async function doPin(glid, day, scheduledAt, endsAt) {
+    const dragged = (state.data.themes || []).find(t => String(t.group_lesson_id) === String(glid));
+    const displaced = (state.data.themes || [])
+        .find(t => t.group_lesson_id !== dragged?.group_lesson_id && (t.scheduled_at || '').slice(0, 10) === day);
+    try {
+        await api('pin', { group_lesson_id: glid, scheduled_at: scheduledAt, ends_at: endsAt || '' });
+        const draggedLabel = dragged ? `Тема ${dragged.n}` : 'Тема';
+        toast(displaced
+            ? `${draggedLabel} закреплена на ${fmtDayMonth(day)} · тема ${displaced.n} возвращена в пул`
+            : `${draggedLabel} закреплена на ${fmtDayMonth(day)}`);
+        await loadCalendar();
+    } catch (err) {
+        toast(err.message, 'error');
+    }
+}
+
 function attachDrop(cell) {
     cell.addEventListener('dragover', e => { e.preventDefault(); cell.classList.add('drop-ok'); });
     cell.addEventListener('dragleave', () => cell.classList.remove('drop-ok'));
-    cell.addEventListener('drop', async e => {
+    cell.addEventListener('drop', e => {
         e.preventDefault();
         cell.classList.remove('drop-ok');
         if (!state.dragGlid) return;
         const glid = state.dragGlid;
         const day = cell.dataset.day;
         // Время слота — из расписания группы (lessonTimes: 'HH:MM–HH:MM').
-        // Никаких 09:00-заглушек: нет времени слота — не закрепляем.
         const start = (((state.data.lessonTimes || {})[day] || '').match(/\d{1,2}:\d{2}/) || [])[0];
-        if (!start) { toast('У этого дня нет слота занятия', 'error'); return; }
-        // Этап 3: drop строго закрепляет тему на дату, вытесняя ту, что там стояла
-        // (если была) — вернётся в пул. Имя темы для тоста берём из уже загруженного
-        // календаря (state.data), запрос AJAX это не меняет.
-        const dragged = (state.data.themes || []).find(t => String(t.group_lesson_id) === String(glid));
-        const displaced = (state.data.themes || [])
-            .find(t => t.group_lesson_id !== dragged?.group_lesson_id && (t.scheduled_at || '').slice(0, 10) === day);
-        try {
-            await api('pin', { group_lesson_id: glid, scheduled_at: `${day} ${start}:00` });
-            const draggedLabel = dragged ? `Тема ${dragged.n}` : 'Тема';
-            toast(displaced
-                ? `${draggedLabel} закреплена на ${fmtDayMonth(day)} · тема ${displaced.n} возвращена в пул`
-                : `${draggedLabel} закреплена на ${fmtDayMonth(day)}`);
-            await loadCalendar();
-        } catch (err) {
-            toast(err.message, 'error');
+        if (start) {
+            doPin(glid, day, `${day} ${start}:00`);
+            return;
         }
+        // Этап 4: день без слота — занятия в этот день нет, урок просто откроется
+        // ученикам. Модалка предупреждает и даёт выбрать время (дефолт — ближайшая встреча).
+        openOffScheduleModal({
+            anchor: cell,
+            day,
+            defaultTime: nearestMeetingTime(day),
+            onConfirm: ({ scheduledAt, endsAt }) => doPin(glid, day, scheduledAt, endsAt),
+        });
     });
 }

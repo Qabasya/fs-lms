@@ -88,7 +88,8 @@ readonly class GroupCalendarService {
 			$roomNames[ $r->id ] = $r->name;
 		}
 
-		$entries = $this->program->numberThemes( $this->program->getProgram( $groupId ) );
+		$entries    = $this->program->numberThemes( $this->program->getProgram( $groupId ) );
+		$lessonDays = array_flip( $meta['lessonDays'] );
 
 		$themes       = array();
 		$teacherNames = array(); // кэш id→display_name.
@@ -103,6 +104,9 @@ readonly class GroupCalendarService {
 			// Вход в плеер курса (Этап 2, ★): урок с контентом (lesson_id) получает
 			// ссылку в плеер teacher-режима — как player_url у ученика (LearnerService).
 			$hasContent = null !== $row->lessonId && 0 !== $row->lessonId;
+			// Этап 4: тема с датой на дне, которого нет в расписании группы — урок
+			// вне расписания. Отдаём флагом, иначе на календаре неотличим от планового.
+			$offSchedule = null !== $row->scheduledAt && ! isset( $lessonDays[ substr( (string) $row->scheduledAt, 0, 10 ) ] );
 			$themes[]   = array(
 				'group_lesson_id' => $row->id,
 				'lesson_id'       => $row->lessonId,
@@ -113,6 +117,7 @@ readonly class GroupCalendarService {
 				'topic'           => $entry['topic'],
 				'scheduled_at'    => $row->scheduledAt,
 				'is_pinned'       => $row->isPinned,
+				'off_schedule'    => $offSchedule,
 				'room'            => ( $effRoomId && isset( $roomNames[ $effRoomId ] ) ) ? $roomNames[ $effRoomId ] : '',
 				'teacher'         => $teacherId ? ( $teacherNames[ $teacherId ] ?? '' ) : '',
 				// Индикатор записи занятия в КТП (модуль VideoLibrary или ручная ссылка).

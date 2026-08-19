@@ -118,23 +118,32 @@ readonly class ScheduleReflowService {
 	 * Одна тема на день — правило действует на любом дне, слот там есть или нет
 	 * (в т.ч. Этап 4, урок вне расписания).
 	 *
-	 * @param int    $groupLessonId ID строки программы
-	 * @param string $scheduledAt   Дата/датавремя слота ('Y-m-d' или 'Y-m-d H:i:s')
-	 * @param int    $actorUserId   Автор изменения
+	 * @param int         $groupLessonId ID строки программы
+	 * @param string      $scheduledAt   Дата/датавремя слота ('Y-m-d' или 'Y-m-d H:i:s')
+	 * @param int         $actorUserId   Автор изменения
+	 * @param string|null $endsAt        Явный конец занятия (Этап 4: выбран автором в
+	 *                                   модалке урока вне расписания) — если не передан,
+	 *                                   вычисляется автоматически {@see resolveEndsAt()}
 	 *
 	 * @return void
 	 *
-	 * @throws \InvalidArgumentException Если строка не найдена, кабинет занят, либо
-	 *                                   на дате уже стоит проведённое (`held`) занятие
+	 * @throws \InvalidArgumentException Если строка не найдена, дата вне периода/выходной,
+	 *                                   кабинет занят, время пересекается с индивидуальным
+	 *                                   занятием группы в этот день, либо на дате уже стоит
+	 *                                   проведённое (`held`) занятие
 	 */
-	public function pinToDate( int $groupLessonId, string $scheduledAt, int $actorUserId ): void {
+	public function pinToDate( int $groupLessonId, string $scheduledAt, int $actorUserId, ?string $endsAt = null ): void {
 		$row = $this->requireRow( $groupLessonId );
 
+		$this->assertWithinPeriod( $row->groupId, $scheduledAt );
 		$this->assertRoomFree( $row, $scheduledAt, $groupLessonId );
 
+		$endsAt = $endsAt && '' !== $endsAt ? $endsAt : $this->resolveEndsAt( $row->groupId, $scheduledAt );
+
 		$day       = substr( $scheduledAt, 0, 10 );
+		$dayRows   = $this->groupLessons->listByGroupAndDay( $row->groupId, $day );
 		$displaced = array_values( array_filter(
-			$this->groupLessons->listByGroupAndDay( $row->groupId, $day ),
+			$dayRows,
 			static fn( $r ) => $r->id !== $groupLessonId && ! $r->kind->isIndividual()
 		) );
 
@@ -147,7 +156,18 @@ readonly class ScheduleReflowService {
 			}
 		}
 
-		$endsAt = $this->resolveEndsAt( $row->groupId, $scheduledAt );
+		// Индивидуальные занятия того же дня не вытесняются (Этап 3) — но окно времени
+		// должно не пересекаться с ними, иначе тема физически накладывается на занятие
+		// другого ученика в расписании преподавателя.
+		foreach ( $dayRows as $r ) {
+			if ( $r->id === $groupLessonId || ! $r->kind->isIndividual() || null === $r->scheduledAt ) {
+				continue;
+			}
+			$rEnd = $r->endsAt ?? $r->scheduledAt;
+			if ( $scheduledAt < $rEnd && $endsAt > $r->scheduledAt ) {
+				throw new \InvalidArgumentException( 'Время пересекается с индивидуальным занятием группы в этот день.' );
+			}
+		}
 
 		$this->groupLessons->updateSchedule( $groupLessonId, $scheduledAt, $row->teacherUserId, $endsAt );
 		$this->groupLessons->setPinned( $groupLessonId, true );
@@ -195,6 +215,29 @@ readonly class ScheduleReflowService {
 		}
 
 		return ( new \DateTimeImmutable( $scheduledAt ) )->modify( "+{$duration} minutes" )->format( 'Y-m-d H:i:s' );
+	}
+
+	/**
+	 * Дата закрепления обязана лежать внутри границ учебного периода группы и не
+	 * приходиться на выходной (Этап 4: и день без слота — тоже рабочий день периода,
+	 * просто без штатной встречи).
+	 *
+	 * @throws \InvalidArgumentException Периода нет, дата вне его границ, либо день — выходной
+	 */
+	private function assertWithinPeriod( int $groupId, string $scheduledAt ): void {
+		$meta   = $this->calendar->periodMeta( $groupId );
+		$period = $meta['period'];
+		if ( ! $period ) {
+			throw new \InvalidArgumentException( 'У группы не задан учебный период.' );
+		}
+
+		$day = substr( $scheduledAt, 0, 10 );
+		if ( $day < $period['start_date'] || $day > $period['end_date'] ) {
+			throw new \InvalidArgumentException( 'Дата вне границ учебного периода.' );
+		}
+		if ( in_array( $day, $meta['holidays'], true ) ) {
+			throw new \InvalidArgumentException( 'На этот день назначен выходной.' );
+		}
 	}
 
 	/**

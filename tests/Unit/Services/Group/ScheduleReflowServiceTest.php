@@ -37,6 +37,14 @@ class ScheduleReflowServiceTest extends TestCase {
 		$this->calendar         = $this->createMock( SessionCalendarService::class );
 		$this->roomAvailability = $this->createMock( RoomAvailabilityService::class );
 		$this->dispatcher       = $this->createMock( LogEventDispatcherInterface::class );
+		// Широкий период по умолчанию — большинство тестов проверяют не границы периода,
+		// а логику вытеснения/ends_at; тест assertWithinPeriod() переопределяет явно.
+		$this->calendar->method( 'periodMeta' )->willReturn( array(
+			'period'      => array( 'start_date' => '2026-01-01', 'end_date' => '2026-12-31' ),
+			'holidays'    => array(),
+			'lessonDays'  => array(),
+			'lessonTimes' => array(),
+		) );
 
 		$this->service = new ScheduleReflowService(
 			$this->groupLessons,
@@ -235,6 +243,112 @@ class ScheduleReflowServiceTest extends TestCase {
 			->with( 42, '2026-05-20 15:00:00', null, '2026-05-20 16:30:00' );
 
 		$this->service->pinToDate( 42, '2026-05-20 15:00:00', 1 );
+	}
+
+	/* ── Этап 4: урок вне расписания ──────────────────────────────────────── */
+
+	/** Явный ends_at (модалка урока вне расписания) — приоритет над авто-расчётом. */
+	public function test_pin_to_date_uses_explicit_ends_at_when_given(): void {
+		$this->groupLessons->method( 'find' )->willReturn( $this->makeRow( 42, 'group' ) );
+		$this->groups->method( 'findById' )->willReturn( new \stdClass() );
+		$this->roomAvailability->method( 'isFree' )->willReturn( true );
+		$this->groupLessons->method( 'listByGroupAndDay' )->willReturn( array() );
+		$this->calendar->expects( self::never() )->method( 'generate' ); // авто-расчёт не нужен
+
+		$this->groupLessons->expects( self::once() )->method( 'updateSchedule' )
+			->with( 42, '2026-05-20 11:00:00', null, '2026-05-20 13:00:00' );
+
+		$this->service->pinToDate( 42, '2026-05-20 11:00:00', 1, '2026-05-20 13:00:00' );
+	}
+
+	/** Дата за пределами периода — отклоняется, ничего не пишется. */
+	public function test_pin_to_date_rejects_date_outside_period(): void {
+		$this->calendar = $this->createMock( SessionCalendarService::class );
+		$this->calendar->method( 'periodMeta' )->willReturn( array(
+			'period' => array( 'start_date' => '2026-09-01', 'end_date' => '2026-12-31' ),
+			'holidays' => array(), 'lessonDays' => array(), 'lessonTimes' => array(),
+		) );
+		$service = new ScheduleReflowService(
+			$this->groupLessons, $this->groups, $this->calendar, $this->roomAvailability,
+			new ScheduleEventPublisher( $this->dispatcher ),
+		);
+		$this->groupLessons->method( 'find' )->willReturn( $this->makeRow( 42, 'group' ) );
+		$this->groupLessons->expects( self::never() )->method( 'updateSchedule' );
+
+		$this->expectException( \InvalidArgumentException::class );
+		$service->pinToDate( 42, '2026-08-15 11:00:00', 1 );
+	}
+
+	/** День — выходной периода — отклоняется. */
+	public function test_pin_to_date_rejects_holiday(): void {
+		$this->calendar = $this->createMock( SessionCalendarService::class );
+		$this->calendar->method( 'periodMeta' )->willReturn( array(
+			'period' => array( 'start_date' => '2026-01-01', 'end_date' => '2026-12-31' ),
+			'holidays' => array( '2026-11-04' ), 'lessonDays' => array(), 'lessonTimes' => array(),
+		) );
+		$service = new ScheduleReflowService(
+			$this->groupLessons, $this->groups, $this->calendar, $this->roomAvailability,
+			new ScheduleEventPublisher( $this->dispatcher ),
+		);
+		$this->groupLessons->method( 'find' )->willReturn( $this->makeRow( 42, 'group' ) );
+		$this->groupLessons->expects( self::never() )->method( 'updateSchedule' );
+
+		$this->expectException( \InvalidArgumentException::class );
+		$service->pinToDate( 42, '2026-11-04 11:00:00', 1, '2026-11-04 12:00:00' );
+	}
+
+	/** Без периода у группы — отклоняется. */
+	public function test_pin_to_date_rejects_when_group_has_no_period(): void {
+		$this->calendar = $this->createMock( SessionCalendarService::class );
+		$this->calendar->method( 'periodMeta' )->willReturn( array(
+			'period' => null, 'holidays' => array(), 'lessonDays' => array(), 'lessonTimes' => array(),
+		) );
+		$service = new ScheduleReflowService(
+			$this->groupLessons, $this->groups, $this->calendar, $this->roomAvailability,
+			new ScheduleEventPublisher( $this->dispatcher ),
+		);
+		$this->groupLessons->method( 'find' )->willReturn( $this->makeRow( 42, 'group' ) );
+
+		$this->expectException( \InvalidArgumentException::class );
+		$service->pinToDate( 42, '2026-05-20 11:00:00', 1 );
+	}
+
+	/** Время закрепления пересекается с индивидуальным занятием того же дня — отклоняется. */
+	public function test_pin_to_date_rejects_overlap_with_individual_lesson_same_day(): void {
+		$this->groupLessons->method( 'find' )->willReturn( $this->makeRow( 5, 'group' ) );
+		$this->groups->method( 'findById' )->willReturn( new \stdClass() );
+		$this->roomAvailability->method( 'isFree' )->willReturn( true );
+
+		$individual = new \Inc\DTO\Course\GroupLessonDTO(
+			id: 9, groupId: 5, lessonId: 10, position: 0, workIdsSnapshot: null, extraWorkIds: array(),
+			scheduledAt: '2026-09-03 11:30:00', endsAt: '2026-09-03 12:30:00', isPinned: true, teacherUserId: null,
+			visibility: 'hidden', openedAt: null, homeworkDueAt: null, allowLate: true, recordingUrl: null,
+			createdByUserId: null, updatedByUserId: null, kind: \Inc\Enums\Course\LessonKind::Individual,
+		);
+		$this->groupLessons->method( 'listByGroupAndDay' )->willReturn( array( $individual ) );
+		$this->groupLessons->expects( self::never() )->method( 'updateSchedule' );
+
+		$this->expectException( \InvalidArgumentException::class );
+		// 11:00–12:00 пересекается с 11:30–12:30.
+		$this->service->pinToDate( 5, '2026-09-03 11:00:00', 1, '2026-09-03 12:00:00' );
+	}
+
+	/** Не пересекается — окна впритык (12:00 == конец индивидуального) проходят без ошибки. */
+	public function test_pin_to_date_allows_adjacent_individual_lesson_same_day(): void {
+		$this->groupLessons->method( 'find' )->willReturn( $this->makeRow( 5, 'group' ) );
+		$this->groups->method( 'findById' )->willReturn( new \stdClass() );
+		$this->roomAvailability->method( 'isFree' )->willReturn( true );
+
+		$individual = new \Inc\DTO\Course\GroupLessonDTO(
+			id: 9, groupId: 5, lessonId: 10, position: 0, workIdsSnapshot: null, extraWorkIds: array(),
+			scheduledAt: '2026-09-03 12:00:00', endsAt: '2026-09-03 13:00:00', isPinned: true, teacherUserId: null,
+			visibility: 'hidden', openedAt: null, homeworkDueAt: null, allowLate: true, recordingUrl: null,
+			createdByUserId: null, updatedByUserId: null, kind: \Inc\Enums\Course\LessonKind::Individual,
+		);
+		$this->groupLessons->method( 'listByGroupAndDay' )->willReturn( array( $individual ) );
+		$this->groupLessons->expects( self::once() )->method( 'updateSchedule' );
+
+		$this->service->pinToDate( 5, '2026-09-03 11:00:00', 1, '2026-09-03 12:00:00' );
 	}
 
 	/** День без слота (Этап 4): ends_at считается по длительности встречи того же дня недели. */

@@ -109,6 +109,41 @@ class LessonVisibilityServiceTest extends TestCase {
 		$this->service->syncExtraWorksForOpenOccurrences( 1 );
 	}
 
+	/**
+	 * Этап 4 (Tasks.md): урок вне расписания открывается ученикам ровно в назначенное
+	 * время БЕЗ отдельной ветки — effectiveVisibility() решает только по scheduledAt/
+	 * visibility, дню недели/наличию слота в расписании группы вообще не известно.
+	 * Тест, а не предположение.
+	 */
+	public function test_effective_visibility_opens_off_schedule_lesson_once_time_arrives(): void {
+		$row = $this->makeRow( workIdsSnapshot: [ 10 ] );
+		$row = new GroupLessonDTO(
+			id: $row->id, groupId: $row->groupId, lessonId: $row->lessonId, position: $row->position,
+			workIdsSnapshot: $row->workIdsSnapshot, extraWorkIds: $row->extraWorkIds,
+			scheduledAt: '2024-06-01 09:00:00', // до clock->now() (12:00) — уже наступило
+			endsAt: null, isPinned: true, teacherUserId: null, visibility: 'hidden',
+			openedAt: null, homeworkDueAt: null, allowLate: true, recordingUrl: null,
+			createdByUserId: null, updatedByUserId: null,
+		);
+
+		self::assertSame( 'open', $this->service->effectiveVisibility( $row ) );
+	}
+
+	/** Та же строка, но время ещё не наступило — остаётся hidden. */
+	public function test_effective_visibility_keeps_off_schedule_lesson_hidden_before_time(): void {
+		$row = $this->makeRow( workIdsSnapshot: [ 10 ] );
+		$row = new GroupLessonDTO(
+			id: $row->id, groupId: $row->groupId, lessonId: $row->lessonId, position: $row->position,
+			workIdsSnapshot: $row->workIdsSnapshot, extraWorkIds: $row->extraWorkIds,
+			scheduledAt: '2024-06-01 15:00:00', // после clock->now() (12:00) — ещё не наступило
+			endsAt: null, isPinned: true, teacherUserId: null, visibility: 'hidden',
+			openedAt: null, homeworkDueAt: null, allowLate: true, recordingUrl: null,
+			createdByUserId: null, updatedByUserId: null,
+		);
+
+		self::assertSame( 'hidden', $this->service->effectiveVisibility( $row ) );
+	}
+
 	// --- helpers ---
 
 	private function makeRow( ?array $workIdsSnapshot, array $extraWorkIds = [] ): GroupLessonDTO {

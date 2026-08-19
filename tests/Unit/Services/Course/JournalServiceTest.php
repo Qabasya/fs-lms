@@ -104,10 +104,31 @@ class JournalServiceTest extends TestCase {
 		self::assertSame( array(), $result['attendance'] );
 	}
 
-	private function glRow( int $id, int $lessonId ): GroupLessonDTO {
+	/**
+	 * Этап 4 (Tasks.md): урок вне расписания — обычная строка `group_lessons` с
+	 * датой и `is_pinned=1`, ничем структурно не отличается для журнала от
+	 * планового занятия (то же `scheduledAt`) — попадает в столбцы наравне с ним,
+	 * отдельной ветки в forGroup() для него нет.
+	 */
+	public function test_off_schedule_lesson_appears_as_regular_column(): void {
+		$this->groups->method( 'findById' )->willReturn( (object) array( 'access_mode' => 'scheduled' ) );
+		$this->records->method( 'findActiveByGroupId' )->willReturn( array( $this->studentRecord( 1 ) ) );
+		$this->groupLessons->method( 'listByGroup' )->willReturn( array(
+			$this->glRow( 10, 20, scheduledAt: '2026-09-05 16:00:00', isPinned: true ),
+		) );
+		$this->attendance->method( 'matrixForGroup' )->willReturn( array() );
+
+		$result = $this->service->forGroup( 5 );
+
+		self::assertCount( 1, $result['lessons'] );
+		self::assertSame( 10, $result['lessons'][0]['group_lesson_id'] );
+		self::assertSame( '2026-09-05', $result['lessons'][0]['date'] );
+	}
+
+	private function glRow( int $id, int $lessonId, ?string $scheduledAt = null, bool $isPinned = false ): GroupLessonDTO {
 		return new GroupLessonDTO(
 			id: $id, groupId: 5, lessonId: $lessonId, position: 0, workIdsSnapshot: null, extraWorkIds: array(),
-			scheduledAt: null, endsAt: null, isPinned: false, teacherUserId: null, visibility: 'open',
+			scheduledAt: $scheduledAt, endsAt: null, isPinned: $isPinned, teacherUserId: null, visibility: 'open',
 			openedAt: '2026-01-01 00:00:00', homeworkDueAt: null, allowLate: true, recordingUrl: null,
 			createdByUserId: null, updatedByUserId: null,
 		);

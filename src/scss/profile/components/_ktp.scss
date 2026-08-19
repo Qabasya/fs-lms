@@ -146,6 +146,15 @@
 .placed-theme .pt-pin { position: absolute; top: rem(3); right: rem(4); color: var(--accent); display: none; }
 .placed-theme.pinned .pt-pin { display: block; }
 
+/* Этап 4 (★): урок вне расписания — маркер рядом с pt-pin (такие уроки всегда
+   закреплены, is_pinned=1 всегда true у них — сдвинут левее, чтобы не наложиться). */
+.placed-theme .pt-off-schedule {
+  position: absolute; top: rem(3); right: rem(18); display: flex; align-items: center;
+  color: var(--wait-ink);
+}
+.placed-theme.off-schedule { border-left-color: var(--wait); }
+.placed-theme.off-schedule .pt-title { color: var(--wait-ink); }
+
 /* #16: тема — жирная, в стиле бывшего номера (pt-num); закреплённая — акцентная. */
 .placed-theme .pt-title { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 700; color: var(--ok); }
 .placed-theme.pinned .pt-title { color: var(--accent-700); }

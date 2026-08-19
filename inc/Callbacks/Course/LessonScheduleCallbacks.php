@@ -93,13 +93,17 @@ class LessonScheduleCallbacks extends BaseController {
 	}
 
 	/**
-	 * Закрепляет тему на дату (drag-drop темы на день календаря).
-	 * Params: group_lesson_id, scheduled_at
+	 * Закрепляет тему на дату (drag-drop темы на день календаря). `ends_at`
+	 * опционален (Этап 4: модалка урока вне расписания сама считает конец занятия
+	 * по выбранным времени/длительности) — без него сервис вычисляет его сам
+	 * из слота периода или встречи того же дня недели.
+	 * Params: group_lesson_id, scheduled_at, ends_at?
 	 */
 	public function ajaxPinLesson(): void {
 		$this->authorize( Nonce::SaveSchedule, Capability::ManageLmsTeaching );
 		$groupLessonId = $this->requireInt( 'group_lesson_id' );
 		$scheduledAt   = $this->sanitizeText( 'scheduled_at' );
+		$endsAt        = $this->sanitizeText( 'ends_at' );
 		$userId        = get_current_user_id();
 
 		$row = $this->requireProgramRow( $groupLessonId );
@@ -110,7 +114,7 @@ class LessonScheduleCallbacks extends BaseController {
 		}
 
 		try {
-			$this->schedule->pinToDate( $groupLessonId, $scheduledAt, $userId );
+			$this->schedule->pinToDate( $groupLessonId, $scheduledAt, $userId, '' !== $endsAt ? $endsAt : null );
 		} catch ( \InvalidArgumentException $e ) {
 			$this->error( $e->getMessage() );
 			return;
