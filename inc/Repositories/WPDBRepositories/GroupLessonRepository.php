@@ -452,6 +452,29 @@ class GroupLessonRepository {
 	}
 
 	/**
+	 * Занятия, у которых `scheduled_at` уже прошёл, но в базе они всё ещё числятся
+	 * `hidden` (Этап 5, Tasks.md) — кандидаты уведомления «Открыт урок». `visibility`
+	 * в БД не переписывается автопереходом hidden→open (тот ленивый, только на чтение,
+	 * {@see \Inc\Services\Course\LessonVisibilityService::effectiveVisibility()}), поэтому
+	 * такая строка продолжает попадать в выборку на каждом тике сколько угодно — сервис
+	 * различает «уже уведомляли» через `dedupe_key`, а не через эту выборку.
+	 *
+	 * @return GroupLessonDTO[]
+	 */
+	public function listRecentlyOpened( string $since, string $until ): array {
+		$rows = $this->wpdb->get_results(
+			$this->wpdb->prepare(
+				"SELECT * FROM %i WHERE visibility = 'hidden' AND scheduled_at > %s AND scheduled_at <= %s",
+				$this->table,
+				$since,
+				$until
+			),
+			ARRAY_A
+		);
+		return array_map( [ GroupLessonDTO::class, 'fromArray' ], $rows ?: array() );
+	}
+
+	/**
 	 * Открытые (видимые ученику) занятия с каким-либо дедлайном — кандидаты cron-продюсера
 	 * «дедлайн скоро/просрочен» ({@see \Inc\Services\Profile\NotificationCronService}).
 	 * Per-work разбор (какие именно работы и какой у них эффективный дедлайн) — на сервисе.

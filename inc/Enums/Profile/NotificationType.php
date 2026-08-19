@@ -23,6 +23,9 @@ enum NotificationType: string {
 	case ReviewNeeded       = 'review_needed';
 	case SubstituteAssigned = 'substitute_assigned';
 	case AttendanceMissed   = 'attendance_missed';
+	/** Этап 5 (Tasks.md): урок вне расписания открылся ученикам — плановое занятие
+	 * такого не шлёт, за него уже отвечает LessonSoon за 30 минут до начала. */
+	case LessonOpened       = 'lesson_opened';
 
 	/** Заголовок плитки уведомления. */
 	public function title(): string {
@@ -37,13 +40,14 @@ enum NotificationType: string {
 			self::ReviewNeeded       => 'Сдана работа — нужна проверка',
 			self::SubstituteAssigned => 'Вам назначена замена',
 			self::AttendanceMissed   => 'Пропущено занятие',
+			self::LessonOpened       => 'Открыт новый урок',
 		};
 	}
 
 	/** Цвет кружка плитки: ok — позитивное, warn — требует внимания, err — негативное, info — нейтральное. */
 	public function tone(): string {
 		return match ( $this ) {
-			self::VideoUploaded, self::LessonSoon, self::SubstituteAssigned => 'info',
+			self::VideoUploaded, self::LessonSoon, self::SubstituteAssigned, self::LessonOpened => 'info',
 			self::WorkGraded, self::AttemptGraded                          => 'ok',
 			self::DeadlineSoon, self::WorkReturned, self::ReviewNeeded      => 'warn',
 			self::DeadlineMissed, self::AttendanceMissed                   => 'err',

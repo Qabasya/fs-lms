@@ -315,6 +315,31 @@ class NotificationServiceTest extends TestCase {
 		self::assertTrue( $out['unread'] );
 	}
 
+	/** Этап 5 (Tasks.md): плитка «Открыт новый урок» — тема + группа, как VideoUploaded. */
+	public function test_to_client_array_renders_lesson_opened_body(): void {
+		$dto = NotificationDTO::fromArray( array(
+			'id'                => 3,
+			'recipient_user_id' => 21,
+			'type'              => 'lesson_opened',
+			'group_id'          => 5,
+			'entity_type'       => 'group_lesson',
+			'entity_id'         => 200,
+			'payload'           => wp_json_encode( array( 'topic' => 'Внеплановый разбор', 'group_name' => 'Группа А' ) ),
+			'url'               => '/group/?gid=5&gl=200',
+			'created_at'        => '2026-01-15 09:05:00',
+			'seen_at'           => null,
+			'read_at'           => null,
+		) );
+
+		$out = $this->service->toClientArray( $dto );
+
+		self::assertSame( 'lesson_opened', $out['type'] );
+		self::assertSame( 'info', $out['tone'] );
+		self::assertSame( 'Открыт новый урок', $out['title'] );
+		self::assertStringContainsString( 'Внеплановый разбор', $out['body'] );
+		self::assertStringContainsString( 'Группа А', $out['body'] );
+	}
+
 	public function test_to_client_array_renders_review_needed_body_with_student_name(): void {
 		$dto = NotificationDTO::fromArray( array(
 			'id'                => 2,

@@ -178,27 +178,31 @@
 никак. Момент открытия уже определён — `LessonVisibilityService::effectiveVisibility()`
 переводит `hidden` → `open`, как только наступил `scheduled_at`.
 
-- [ ] `Inc\Enums\Profile\NotificationType` — кейс `LessonOpened = 'lesson_opened'`,
+- [x] `Inc\Enums\Profile\NotificationType` — кейс `LessonOpened = 'lesson_opened'`,
       `title()` → «Открыт новый урок», `tone()` → `info`
-- [ ] Текст плитки — в `NotificationService::toClientArray()`, рядом с остальными
+- [x] Текст плитки — в `NotificationService::toClientArray()`, рядом с остальными
       (тема + название группы, как у `VideoUploaded`)
-- [ ] Иконка — `Inc\Enums\Ui\Icon` + зеркало в `src/js/common/icons.js` (оба источника,
-      см. правило про SVG)
-- [ ] **Продюсер — по крону, а не по событию.** `effectiveVisibility()` — ленивый расчёт при
+- [x] Иконка — `src/js/common/icons.js` (`icoEye`, зеркало в `notifications.js:TYPE_ICON`).
+      `Inc\Enums\Ui\Icon` не задействован — по прецеденту у остальных 10 типов уведомлений
+      (icон выбирается только на клиенте по `type`, сервер PHP-иконку не рендерит)
+- [x] **Продюсер — по крону, а не по событию.** `effectiveVisibility()` — ленивый расчёт при
       чтении, момента перехода как события не существует: он «наступает» у каждого читателя
       свой. Ставить уведомление туда нельзя — плитка родится при первом заходе кого угодно
       в кабинет, а у кого не зашёл — не родится вовсе. Правильное место —
       `NotificationCronService::tick()`, рядом с `LessonSoon`: выбрать строки, у которых
       `scheduled_at` уже прошёл, `visibility = hidden` (то есть открылись лениво), и
       разослать ученикам занятия. Дедуп-ключ `opened:{group_lesson_id}` делает повтор
-      невозможным
-- [ ] Получатели — `NotificationService::lessonStudentUserIds()` (уже есть, учитывает
+      невозможным (реализовано новым `GroupLessonRepository::listRecentlyOpened()`,
+      окно поиска — 24 часа назад, устойчиво к пропущенным тикам)
+- [x] Получатели — `NotificationService::lessonStudentUserIds()` (уже есть, учитывает
       индивидуальные занятия)
-- [ ] Ссылка плитки — `PageRoutes::LessonPlayer->lessonUrl()`, как у `VideoUploaded`
-- [ ] **Не дублировать `LessonSoon`**: если занятие плановое, ученик за 30 минут уже получил
+- [x] Ссылка плитки — `PageRoutes::LessonPlayer->lessonUrl()`, как у `VideoUploaded`
+- [x] **Не дублировать `LessonSoon`**: если занятие плановое, ученик за 30 минут уже получил
       «Занятие через 30 минут». Слать `LessonOpened` только для уроков вне расписания
       (признак `off_schedule` из этапа 4) либо развести по времени — решить при реализации
-- [ ] Тест: «урок вне расписания даёт ровно одну плитку `lesson_opened` при повторных тиках»
+      (решение: `NotificationCronService::isOffSchedule()` пересчитывает флаг тем же способом,
+      что и `GroupCalendarService`, через `SessionCalendarService::periodMeta()->lessonDays`)
+- [x] Тест: «урок вне расписания даёт ровно одну плитку `lesson_opened` при повторных тиках»
 
 ---
 

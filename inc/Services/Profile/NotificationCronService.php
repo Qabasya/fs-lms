@@ -14,6 +14,7 @@ use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\NotificationRepository;
 use Inc\Repositories\WPDBRepositories\SubmissionRepository;
 use Inc\Services\Course\EffectiveWorksResolver;
+use Inc\Services\Group\SessionCalendarService;
 
 /**
  * Class NotificationCronService
@@ -40,10 +41,12 @@ readonly class NotificationCronService {
 		private NotificationRepository   $notificationRepository,
 		private NotificationService      $notifications,
 		private ClockInterface           $clock,
+		private SessionCalendarService   $calendar,
 	) {}
 
 	public function tick(): void {
 		$this->lessonSoon();
+		$this->lessonOpened();
 		$this->deadlines();
 		$this->purge();
 	}
@@ -80,6 +83,58 @@ readonly class NotificationCronService {
 				$lesson->id
 			);
 		}
+	}
+
+	/**
+	 * Уроки вне расписания (Этап 4, Tasks.md), открывшиеся ученикам лениво: занятия
+	 * в этот день нет — `LessonSoon` не отправлялся (плановой встречи не было), и
+	 * без этого уведомления ученик о новом уроке не узнает никак. Плановые занятия
+	 * не дублируем — LessonSoon уже предупредил за 30 минут.
+	 *
+	 * `visibility` в БД не переписывается автопереходом hidden→open (тот ленивый,
+	 * только на чтение), поэтому окно смотрит назад с запасом, а не «ровно этот
+	 * тик» — устойчиво к пропущенным прогонам WP-Cron; дубли гасит `dedupe_key`.
+	 */
+	private function lessonOpened(): void {
+		$now   = $this->clock->now();
+		$since = $this->shift( $now, '-24 hours' );
+
+		foreach ( $this->groupLessons->listRecentlyOpened( $since, $now ) as $lesson ) {
+			if ( ! $this->isOffSchedule( $lesson ) ) {
+				continue;
+			}
+
+			$recipients = $this->notifications->lessonStudentUserIds( $lesson );
+			if ( empty( $recipients ) ) {
+				continue;
+			}
+
+			$this->notifications->push(
+				array_unique( $recipients ),
+				NotificationType::LessonOpened,
+				"opened:{$lesson->id}",
+				array(
+					'topic'      => $this->notifications->lessonTopic( $lesson ),
+					'group_name' => $this->notifications->groupName( $lesson->groupId ),
+				),
+				$lesson->lessonId
+					? PageRoutes::LessonPlayer->lessonUrl( $lesson->groupId, $lesson->id )
+					: PageRoutes::UserProfile->url(),
+				$lesson->groupId,
+				'group_lesson',
+				$lesson->id
+			);
+		}
+	}
+
+	/** День занятия не входит в штатное расписание группы (Этап 4: урок вне расписания). */
+	private function isOffSchedule( GroupLessonDTO $lesson ): bool {
+		if ( null === $lesson->scheduledAt ) {
+			return false;
+		}
+		$lessonDays = $this->calendar->periodMeta( $lesson->groupId )['lessonDays'];
+
+		return ! in_array( substr( $lesson->scheduledAt, 0, 10 ), $lessonDays, true );
 	}
 
 	/**

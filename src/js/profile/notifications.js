@@ -9,7 +9,7 @@
    ══════════════════════════════════════════════════════════════════════ */
 
 import { esc, toast } from './utils.js';
-import { icoBell, icoCamera, icoClock, icoAlert, icoCheck, icoReplace, icoDocCheck, icoSwap } from '../common/icons.js';
+import { icoBell, icoCamera, icoClock, icoAlert, icoCheck, icoReplace, icoDocCheck, icoSwap, icoEye } from '../common/icons.js';
 import { createApi } from './api.js';
 
 const POLL_MS = 60000;
@@ -26,6 +26,7 @@ const TYPE_ICON = {
     review_needed:       icoDocCheck,
     substitute_assigned: icoSwap,
     attendance_missed:   icoAlert,
+    lesson_opened:       icoEye,
 };
 
 let api = null;

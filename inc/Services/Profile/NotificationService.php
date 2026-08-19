@@ -285,6 +285,7 @@ readonly class NotificationService {
 			NotificationType::DeadlineSoon,
 			NotificationType::DeadlineMissed,
 			NotificationType::LessonSoon,
+			NotificationType::LessonOpened,
 			NotificationType::WorkReturned => '' !== $topic ? "«{$topic}»{$tail}" : ltrim( $tail, ' ·' ),
 
 			NotificationType::WorkGraded,
