@@ -33,7 +33,7 @@ class AssessmentTemplate extends BaseTemplate {
 				'object' => new NumberInputField(),
 			),
 			'pass_score'         => array(
-				'label'  => 'Проходной балл (0 = без порога; для ЕГЭ/КЕГЭ — во вторичных баллах)',
+				'label'  => 'Проходной балл (0 = без порога)',
 				'object' => new NumberInputField(),
 			),
 			'score_map'          => array(

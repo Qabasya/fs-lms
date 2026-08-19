@@ -28,33 +28,28 @@ class FileAttachmentsField extends BaseField {
 		$attachmentId = $ids[0] ?? 0;
 		$base         = esc_attr( $this->get_field_name( $id ) );
 		$url          = $attachmentId ? wp_get_attachment_url( $attachmentId ) : '';
-		$title        = $attachmentId ? ( get_the_title( $attachmentId ) ?: "Файл #{$attachmentId}" ) : '';
 		?>
-		<div class="fs-lms-field-group fs-task-materials-field" data-field="task-materials" data-base="<?php echo $base; ?>">
+		<div class="fs-lms-field-group fs-lms-file-group fs-task-materials-field" data-field="task-materials" data-base="<?php echo $base; ?>">
 			<label class="fs-lms-label">
 				<?php echo esc_html( $label ); ?>
 				<?php echo self::tooltip( 'Файл виден ученику как ссылка на скачивание (данные к заданию, исходник).' ); // phpcs:ignore WordPress.Security.EscapeOutput ?>
 			</label>
+			<div class="fs-lms-input-wrapper">
+				<input type="url"
+						value="<?php echo esc_url( (string) $url ); ?>"
+						placeholder="https://..."
+						class="large-text fs-lms-input fs-lms-file-input js-materials-url"
+						readonly>
 
+				<button type="button" class="button button-primary js-materials-select">
+					<?php echo $attachmentId ? 'Заменить файл' : 'Выбрать файл'; ?>
+				</button>
+			</div>
 			<input type="hidden"
 				name="<?php echo $base; ?>[attachment_ids][]"
 				value="<?php echo (int) $attachmentId; ?>"
 				class="js-materials-attachment-id">
-
-			<div class="fs-task-materials__preview" <?php echo $url ? '' : 'style="display:none"'; ?>>
-				<a href="<?php echo esc_url( (string) $url ); ?>" target="_blank" rel="noopener noreferrer" class="js-materials-link">
-					<?php echo esc_html( (string) $title ); ?>
-				</a>
-			</div>
-
-			<div class="fs-task-materials__actions">
-				<button type="button" class="button js-materials-select">
-					<?php echo $attachmentId ? 'Заменить файл' : 'Выбрать файл'; ?>
-				</button>
-				<?php if ( $attachmentId ) : ?>
-					<button type="button" class="button-link js-materials-remove">Удалить</button>
-				<?php endif; ?>
-			</div>
+			<p class="description">Выберите файл из библиотеки — ссылка на скачивание для ученика</p>
 		</div>
 		<?php
 	}
