@@ -277,6 +277,51 @@ class GroupLessonRepositoryTest extends TestCase {
 		self::assertSame( '2026-09-03 10:00:00', $this->wpdb->updates[1]['data']['scheduled_at'] );
 	}
 
+	/**
+	 * Слотов меньше, чем строк (курс больше периода, или период укоротили и у
+	 * хвоста остались даты вне нового периода) — хвост возвращается в пул «Темы
+	 * курса», а не сохраняет устаревшую дату (T1, Этап 1).
+	 */
+	public function test_apply_slots_tail_beyond_slots_is_returned_to_pool(): void {
+		$this->wpdb->queueResults( [
+			$this->slotRow( 1, 0 ),
+			$this->slotRow( 2, 1, [ 'scheduled_at' => '2026-10-01 10:00:00' ] ), // устаревшая дата
+			$this->slotRow( 3, 2, [ 'scheduled_at' => '2026-10-08 10:00:00' ] ), // тоже устаревшая
+		] );
+
+		$this->repo->applySlots( 5, [ $this->slot( '2026-09-01 10:00:00' ) ] );
+
+		self::assertCount( 3, $this->wpdb->updates );
+		self::assertSame( 1, $this->wpdb->updates[0]['where']['id'] );
+		self::assertSame( '2026-09-01 10:00:00', $this->wpdb->updates[0]['data']['scheduled_at'] );
+
+		// Строка 2 — слот кончился, хвост обнуляется, а не сохраняет старую дату.
+		self::assertSame( 2, $this->wpdb->updates[1]['where']['id'] );
+		self::assertNull( $this->wpdb->updates[1]['data']['scheduled_at'] );
+		self::assertNull( $this->wpdb->updates[1]['data']['ends_at'] );
+		self::assertNull( $this->wpdb->updates[1]['data']['room_id'] );
+		self::assertSame( 0, $this->wpdb->updates[1]['data']['is_pinned'] );
+
+		// Строка 3 — тоже без слота, обнуляется.
+		self::assertSame( 3, $this->wpdb->updates[2]['where']['id'] );
+		self::assertNull( $this->wpdb->updates[2]['data']['scheduled_at'] );
+	}
+
+	/** held — исторический факт, слотов не хватает и на него, но дату не трогаем. */
+	public function test_apply_slots_held_beyond_slots_keeps_its_date(): void {
+		$this->wpdb->queueResults( [
+			$this->slotRow( 1, 0, [ 'status' => 'held', 'scheduled_at' => '2026-09-01 10:00:00' ] ),
+			$this->slotRow( 2, 1 ), // scheduled — слотов не хватит и на неё
+		] );
+
+		$this->repo->applySlots( 5, [ $this->slot( '2026-09-01 10:00:00' ) ] );
+
+		// held занял единственный слот; строка 2 идёт в пул.
+		self::assertCount( 1, $this->wpdb->updates );
+		self::assertSame( 2, $this->wpdb->updates[0]['where']['id'] );
+		self::assertNull( $this->wpdb->updates[0]['data']['scheduled_at'] );
+	}
+
 	public function test_unschedule_all_resets_dates_and_excludes_individual_and_held(): void {
 		$this->wpdb->queueQuery( 2 );
 

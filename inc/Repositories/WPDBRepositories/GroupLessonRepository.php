@@ -155,7 +155,22 @@ class GroupLessonRepository {
 				continue;
 			}
 			if ( ! isset( $slots[ $i ] ) ) {
-				break;
+				// Слотов меньше, чем строк (курс больше периода, T1): хвост не «зависает»
+				// на старой дате (напр. после укорачивания периода) — возвращается в пул
+				// «Темы курса» без даты и закрепления, чтобы автор мог разместить его вручную
+				// или вне расписания (Этап 4). held/индивидуальные сюда не попадают — они уже
+				// отфильтрованы выше.
+				$this->wpdb->update(
+					$this->table,
+					array(
+						'scheduled_at' => null,
+						'ends_at'      => null,
+						'room_id'      => null,
+						'is_pinned'    => 0,
+					),
+					array( 'id' => $row->id )
+				);
+				continue;
 			}
 			$this->wpdb->update(
 				$this->table,
