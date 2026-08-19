@@ -19,6 +19,7 @@ use Inc\Modules\EgeComputer\Config\OgeScaleConfig;
 use Inc\Modules\EgeComputer\Config\StationExamConfig;
 use Inc\Modules\EgeComputer\DTO\KegeSheetDTO;
 use Inc\Modules\EgeComputer\Services\KegeResultSheetService;
+use Inc\Services\Assessment\AttemptRevealPolicy;
 use Inc\Services\Assessment\EgeCompletenessChecker;
 use Inc\Services\Course\WorkDetailService;
 
@@ -48,6 +49,7 @@ class EgeComputerModule implements ServiceInterface {
 		private readonly EgeComputerConfig      $config,
 		private readonly KegeResultSheetService $resultSheet,
 		private readonly PreviewResultCallbacks $previewResult,
+		private readonly AttemptRevealPolicy    $revealPolicy,
 	) {}
 
 	public function register(): void {
@@ -79,7 +81,11 @@ class EgeComputerModule implements ServiceInterface {
 	 * @param array           $taskViews  Per-task view-данные страницы
 	 */
 	public function buildResultSheet( mixed $sheet, AssessmentDTO $assessment, ?AttemptDTO $attempt, array $taskViews ): KegeSheetDTO {
-		return $this->resultSheet->build( $assessment, $attempt, $taskViews );
+		// D18: предпросмотр автора ($attempt === null) не гейтится — ответы видит
+		// сам автор, подтверждать нечего и не перед кем.
+		$revealed = null === $attempt || $this->revealPolicy->isRevealed( $assessment, $attempt );
+
+		return $this->resultSheet->build( $assessment, $attempt, $taskViews, $revealed );
 	}
 
 	/**

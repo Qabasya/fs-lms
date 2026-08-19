@@ -16,6 +16,7 @@ use Inc\Repositories\WPDBRepositories\AssessmentAnswerRepository;
 use Inc\Repositories\WPDBRepositories\AssessmentAttemptRepository;
 use Inc\DTO\Course\GroupLessonDTO;
 use Inc\Services\Assessment\AssessmentAccessPolicy;
+use Inc\Services\Assessment\AttemptRevealPolicy;
 use Inc\Services\Assessment\AttemptService;
 use Inc\Services\Assessment\AutoGradeService;
 use Inc\Services\Assessment\EgeCompletenessChecker;
@@ -35,6 +36,7 @@ class AttemptServiceTest extends TestCase {
 	private ClockInterface&MockObject              $clock;
 	private AssessmentAccessPolicy&MockObject      $access;
 	private EgeCompletenessChecker&MockObject      $completeness;
+	private AttemptRevealPolicy&MockObject         $revealPolicy;
 	private AttemptService                         $service;
 
 	protected function setUp(): void {
@@ -47,6 +49,7 @@ class AttemptServiceTest extends TestCase {
 		$this->clock        = $this->createMock( ClockInterface::class );
 		$this->access       = $this->createMock( AssessmentAccessPolicy::class );
 		$this->completeness = $this->createMock( EgeCompletenessChecker::class );
+		$this->revealPolicy = $this->createMock( AttemptRevealPolicy::class );
 
 		$this->clock->method( 'now' )->willReturn( '2026-06-01 10:00:00' );
 		// Политика сама возвращает занятие: попытка привязывается к нему, даже если
@@ -62,6 +65,7 @@ class AttemptServiceTest extends TestCase {
 			$this->clock,
 			$this->access,
 			$this->completeness,
+			$this->revealPolicy,
 		);
 	}
 
@@ -164,6 +168,66 @@ class AttemptServiceTest extends TestCase {
 			->willReturn( 5 );
 
 		$this->service->start( 99, 1, 3, 55 );
+	}
+
+	/* ── D18: getResult() — гейт по AttemptRevealPolicy (не только UI finish.php,
+	   но и сам AJAX-эндпоинт get_attempt_result, доступный станции даже после сдачи) ── */
+
+	private function submittedAttempt(): AttemptDTO {
+		return AttemptDTO::fromArray( array(
+			'id' => 5, 'assessment_id' => 1, 'student_person_id' => 99,
+			'group_id' => null, 'attempt_number' => 1,
+			'started_at' => '2026-06-01 10:00:00', 'deadline_at' => '2026-06-01 11:00:00',
+			'status' => 'submitted',
+		) );
+	}
+
+	private function gradedAnswer(): \Inc\DTO\Assessment\AttemptAnswerDTO {
+		return \Inc\DTO\Assessment\AttemptAnswerDTO::fromArray( array(
+			'id' => 1, 'attempt_id' => 5, 'task_id' => 10, 'answer_text' => 'мой ответ',
+			'is_correct' => 1, 'score' => 2.0, 'max_score' => 2.0, 'grader_note' => 'молодец',
+		) );
+	}
+
+	public function test_get_result_scrubs_verdict_when_not_revealed(): void {
+		$this->attempts->method( 'find' )->willReturn( $this->submittedAttempt() );
+		$this->assessments->method( 'get' )->willReturn( $this->assessment( AssessmentKind::OgeComputer ) );
+		$this->answers->method( 'listByAttempt' )->willReturn( array( $this->gradedAnswer() ) );
+		$this->revealPolicy->method( 'isRevealed' )->willReturn( false );
+
+		$result = $this->service->getResult( 5, 99 );
+		$answer = $result['answers'][0];
+
+		self::assertSame( 'мой ответ', $answer->answerText ); // свой ответ не секрет
+		self::assertNull( $answer->isCorrect );
+		self::assertNull( $answer->score );
+		self::assertNull( $answer->criteriaScores );
+		self::assertNull( $answer->graderNote );
+	}
+
+	public function test_get_result_keeps_verdict_when_revealed(): void {
+		$this->attempts->method( 'find' )->willReturn( $this->submittedAttempt() );
+		$this->assessments->method( 'get' )->willReturn( $this->assessment( AssessmentKind::OgeComputer ) );
+		$this->answers->method( 'listByAttempt' )->willReturn( array( $this->gradedAnswer() ) );
+		$this->revealPolicy->method( 'isRevealed' )->willReturn( true );
+
+		$answer = $this->service->getResult( 5, 99 )['answers'][0];
+
+		self::assertTrue( $answer->isCorrect );
+		self::assertSame( 2.0, $answer->score );
+	}
+
+	/** Assessment не найден (крайний случай) — fail closed, зачищаем. */
+	public function test_get_result_scrubs_when_assessment_missing(): void {
+		$this->attempts->method( 'find' )->willReturn( $this->submittedAttempt() );
+		$this->assessments->method( 'get' )->willReturn( null );
+		$this->answers->method( 'listByAttempt' )->willReturn( array( $this->gradedAnswer() ) );
+		$this->revealPolicy->expects( $this->never() )->method( 'isRevealed' );
+
+		$answer = $this->service->getResult( 5, 99 )['answers'][0];
+
+		self::assertNull( $answer->isCorrect );
+		self::assertNull( $answer->score );
 	}
 
 	/** Занятие, через которое контрольная доступна ученику. */

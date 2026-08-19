@@ -50,6 +50,14 @@ class AssessmentAttemptRepository {
 		return false !== $result;
 	}
 
+	/** D18: учитель подтверждает результат — открывает ответы/баллы ученику. */
+	public function approve( int $id, int $approvedByUserId, string $approvedAt ): bool {
+		return $this->update( $id, [
+			'approved_at'         => $approvedAt,
+			'approved_by_user_id' => $approvedByUserId,
+		] );
+	}
+
 	/** Активная (in_progress, не просроченная) попытка студента по контрольной. */
 	public function findActive( int $studentPersonId, int $assessmentId ): ?AttemptDTO {
 		$row = $this->wpdb->get_row(

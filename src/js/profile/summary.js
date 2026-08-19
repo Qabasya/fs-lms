@@ -16,6 +16,10 @@ const KIND_LABEL = { group: 'Групповое', individual: 'Индивиду�
 const ATT_LABEL  = { present: 'Присутствовал', absent: 'Отсутствовал', none: 'Не отмечено' };
 const VERDICT_LABEL = { correct: 'Верно', incorrect: 'Неверно', pending: 'На проверке' };
 const STATUS_LABEL  = { submitted: 'Сдано', pending: 'На проверке', graded: 'Оценено', returned: 'Возвращено', in_progress: 'В процессе', expired: 'Просрочено' };
+/* D18: ответы/баллы скрыты от ученика до подтверждения — у ЕГЭ (без ручной
+   проверки заданий) Graded наступает сразу при сдаче и не значит «учитель
+   посмотрел», нужна отдельная кнопка. */
+const APPROVABLE_KIND = 'ege_computer';
 
 let root = null;
 let state = null;
@@ -170,6 +174,10 @@ function renderDetailModal(d, src) {
         ? `${fmtNum(d.score)}${d.max_score != null ? ' / ' + fmtNum(d.max_score) : ''} б.`
         : 'без оценки';
 
+    const isApproved = !!d.approved_at;
+    const canApprove = d.kind === 'exam' && d.attempt_id && attemptGradeApi
+        && d.assessment_kind === APPROVABLE_KIND && !isApproved;
+
     const grading = d.gradable ? `
         <div class="sum-modal-foot">
             <div class="smf-fields">
@@ -195,6 +203,8 @@ function renderDetailModal(d, src) {
                     <div class="smh-meta" id="smhMeta">${d.kind === 'exam' ? 'Экзамен' : 'Работа'} · ${esc(STATUS_LABEL[d.status] || d.status)} · ${esc(scoreLine)}${d.is_late ? ' · <span class="smh-late">Просрочено</span>' : ''}</div>
                 </div>
                 <div class="smh-actions">
+                    ${canApprove ? '<button class="prof-btn prof-btn-sm prof-btn-primary sum-approve">Утвердить работу</button>' : ''}
+                    ${isApproved ? '<span class="sum-approved-badge" title="Ответы открыты ученику">Утверждено</span>' : ''}
                     ${src ? '<button class="prof-btn prof-btn-sm sum-reset" data-armed="0">Сбросить попытки</button>' : ''}
                     <button class="sum-modal-x" aria-label="Закрыть">&times;</button>
                 </div>
@@ -214,7 +224,24 @@ function renderDetailModal(d, src) {
 
     if (d.gradable) wireGrading(modal, d.submission_id);
     if (d.kind === 'exam' && d.attempt_id && attemptGradeApi) wireAttemptGrading(modal, d);
+    if (canApprove) wireApprove(modal, d);
     if (src) wireReset(modal, src);
+}
+
+/* D18: «Утвердить работу» — единственное явное действие учителя для ЕГЭ (без
+   ручной проверки заданий), открывает ответы/баллы ученику. */
+function wireApprove(modal, d) {
+    const btn = modal.querySelector('.sum-approve');
+    if (!btn) return;
+    btn.addEventListener('click', async () => {
+        btn.disabled = true;
+        try {
+            await attemptGradeApi('approveAttempt', { attempt_id: d.attempt_id });
+            toast('Работа утверждена — ответы открыты ученику');
+            closeDetailModal();
+            loadSummary();
+        } catch (e) { toast(e.message, 'error'); btn.disabled = false; }
+    });
 }
 
 /* Задача 11: сброс попыток/сдач ученика (необратимо) — двойной клик для подтверждения. */

@@ -468,6 +468,10 @@ class Migration_1_0_0 implements MigrationInterface {
 		);
 
 		// ===== 18. assessment_attempts — попытки контрольных / экзаменов (Этап 4) =====
+		// approved_at/approved_by_user_id (сокрытие ответов до подтверждения, D18):
+		// независимый флаг «учитель подтвердил результат», НЕ синоним status=graded —
+		// у ЕГЭ (без ручной проверки) graded наступает сразу при сдаче, approved_at
+		// требует отдельного явного действия учителя. См. AttemptRevealPolicy.
 		$assessment_attempts = TableName::AssessmentAttempts->prefixed();
 		dbDelta(
 			"CREATE TABLE $assessment_attempts (
@@ -484,6 +488,8 @@ class Migration_1_0_0 implements MigrationInterface {
 			total_score         decimal(6,2)         DEFAULT NULL,
 			max_score           decimal(6,2)         DEFAULT NULL,
 			graded_by_user_id   bigint unsigned      DEFAULT NULL,
+			approved_at         datetime             DEFAULT NULL,
+			approved_by_user_id bigint unsigned      DEFAULT NULL,
 			created_at          datetime             NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			updated_at          datetime             NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 			PRIMARY KEY  (id),
@@ -649,6 +655,8 @@ class Migration_1_0_0 implements MigrationInterface {
 		// Задача 5 — привязка попытки экзамена к конкретному занятию группы (для сводки по ученику).
 		$assessment_attempts = TableName::AssessmentAttempts->prefixed();
 		$this->addColumn( $assessment_attempts, 'group_lesson_id', 'int unsigned DEFAULT NULL' );
+		$this->addColumn( $assessment_attempts, 'approved_at', 'datetime DEFAULT NULL' );
+		$this->addColumn( $assessment_attempts, 'approved_by_user_id', 'bigint unsigned DEFAULT NULL' );
 		$this->addColumn( $assessment_answers, 'grader_note', 'text DEFAULT NULL' );
 		$this->addColumn( $assessment_answers, 'criteria_scores', 'json DEFAULT NULL' ); // Эпик 13 (D17)
 		$wpdb->query( "ALTER TABLE `$lesson_progress` MODIFY COLUMN `status` enum('locked','available','viewed','completed','failed') NOT NULL DEFAULT 'locked'" );

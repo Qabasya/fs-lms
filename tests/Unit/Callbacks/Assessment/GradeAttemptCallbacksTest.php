@@ -161,4 +161,41 @@ class GradeAttemptCallbacksTest extends TestCase {
 
 		self::assertTrue( fs_test_capture_json( fn() => $this->cb->ajaxGradeAttempt() )->success );
 	}
+
+	/* ── D18: «Утвердить работу» (ЕГЭ без ручной проверки) ───────────────── */
+
+	public function test_approve_attempt_not_found_errors(): void {
+		$this->attempts->method( 'find' )->willReturn( null );
+		$_POST = array( 'attempt_id' => '5' );
+
+		self::assertFalse( fs_test_capture_json( fn() => $this->cb->ajaxApproveAttempt() )->success );
+	}
+
+	public function test_approve_attempt_denied_without_capability(): void {
+		$GLOBALS['_fs_test_can'] = false;
+		$this->attempts->expects( $this->never() )->method( 'find' );
+		$_POST = array( 'attempt_id' => '5' );
+
+		self::assertFalse( fs_test_capture_json( fn() => $this->cb->ajaxApproveAttempt() )->success );
+	}
+
+	public function test_approve_attempt_denied_when_not_manager_of_group(): void {
+		$this->attempts->method( 'find' )->willReturn( $this->attemptFixture() );
+		$this->guard->method( 'canWriteJournal' )->willReturn( false );
+		$this->attempts->expects( $this->never() )->method( 'approve' );
+		$_POST = array( 'attempt_id' => '5' );
+
+		self::assertFalse( fs_test_capture_json( fn() => $this->cb->ajaxApproveAttempt() )->success );
+	}
+
+	public function test_approve_attempt_writes_approval(): void {
+		$this->attempts->method( 'find' )->willReturn( $this->attemptFixture() );
+		$this->guard->method( 'canWriteJournal' )->willReturn( true );
+
+		$this->attempts->expects( $this->once() )->method( 'approve' )->with( 5, self::anything(), self::anything() );
+
+		$_POST = array( 'attempt_id' => '5' );
+
+		self::assertTrue( fs_test_capture_json( fn() => $this->cb->ajaxApproveAttempt() )->success );
+	}
 }

@@ -201,9 +201,14 @@ class WorkDetailService {
 			'feedback'      => null,
 			'gradable'      => false, // целиком не оценивается — грейдинг по задачам (T11.9)
 			'submission_id' => null,
-			'attempt_id'    => $attemptId,
-			'tasks'         => $tasks,
-			'group_id'      => $attempt->groupId ?? 0,
+			'attempt_id'      => $attemptId,
+			'tasks'           => $tasks,
+			'group_id'        => $attempt->groupId ?? 0,
+			// D18: «Утвердить работу» — для kind без ручной проверки заданий (ЕГЭ
+			// компьютерный) Graded наступает сразу при сдаче и не значит «учитель
+			// посмотрел»; approved_at — отдельный явный шаг (см. AttemptRevealPolicy).
+			'assessment_kind' => $assessment?->kind->value,
+			'approved_at'     => $attempt->approvedAt,
 		);
 	}
 

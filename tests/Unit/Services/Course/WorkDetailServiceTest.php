@@ -105,6 +105,15 @@ class WorkDetailServiceTest extends TestCase {
 		) );
 	}
 
+	private function assessmentFixture(): \Inc\DTO\Assessment\AssessmentDTO {
+		return new \Inc\DTO\Assessment\AssessmentDTO(
+			id: 1, subjectKey: 'inf', title: 'ОГЭ', taskIds: array( 42 ),
+			timeLimit: 0, attemptsAllowed: 0, passScore: 0.0,
+			scoringPolicy: \Inc\Enums\Assessment\ScoringPolicy::Highest, status: 'publish',
+			kind: \Inc\Enums\Assessment\AssessmentKind::OgeComputer, taskPoints: array(), scoreMap: array(),
+		);
+	}
+
 	public function test_from_attempt_file_answer_task_parses_text_and_resolves_files(): void {
 		$this->attempts->method( 'find' )->willReturn( $this->attemptFixture() );
 		$this->answers->method( 'listByAttempt' )->willReturn( array(
@@ -217,7 +226,7 @@ class WorkDetailServiceTest extends TestCase {
 		$this->posts->method( 'getMeta' )->willReturnCallback( function ( int $postId, string $key ) {
 			return PostMetaName::TemplateType->value === $key ? 'file_answer_task' : array();
 		} );
-		$this->assessments->method( 'get' )->willReturn( $this->createMock( \Inc\DTO\Assessment\AssessmentDTO::class ) );
+		$this->assessments->method( 'get' )->willReturn( $this->assessmentFixture() );
 
 		$GLOBALS['_fs_test_filter_returns'][ WorkDetailService::OGE_RUBRIC_FILTER ] = array(
 			'max_points' => 3, 'html' => '<div>рубрика</div>',
@@ -230,6 +239,22 @@ class WorkDetailServiceTest extends TestCase {
 		self::assertSame( array( 'max_points' => 3, 'html' => '<div>рубрика</div>' ), $task['oge_rubric'] );
 	}
 
+	/** D18: деталь работы отдаёт вид контрольной + факт подтверждения — нужно JS для кнопки «Утвердить». */
+	public function test_from_attempt_exposes_kind_and_approval_state(): void {
+		$this->attempts->method( 'find' )->willReturn( AttemptDTO::fromArray( array(
+			'id' => 9, 'assessment_id' => 1, 'student_person_id' => 10, 'group_id' => null,
+			'attempt_number' => 1, 'started_at' => '2026-06-01 10:00:00', 'deadline_at' => '2026-06-01 11:00:00',
+			'status' => 'graded', 'approved_at' => '2026-06-02 09:00:00', 'approved_by_user_id' => 77,
+		) ) );
+		$this->answers->method( 'listByAttempt' )->willReturn( array() );
+		$this->assessments->method( 'get' )->willReturn( $this->assessmentFixture() );
+
+		$detail = $this->service->forWork( 'attempt', 9 );
+
+		self::assertSame( 'oge_computer', $detail['assessment_kind'] );
+		self::assertSame( '2026-06-02 09:00:00', $detail['approved_at'] );
+	}
+
 	public function test_from_attempt_oge_rubric_null_when_module_disabled_or_not_applicable(): void {
 		$this->attempts->method( 'find' )->willReturn( $this->attemptFixture() );
 		$this->answers->method( 'listByAttempt' )->willReturn( array(
@@ -240,7 +265,7 @@ class WorkDetailServiceTest extends TestCase {
 		$this->posts->method( 'getMeta' )->willReturnCallback( function ( int $postId, string $key ) {
 			return PostMetaName::TemplateType->value === $key ? 'file_answer_task' : array();
 		} );
-		$this->assessments->method( 'get' )->willReturn( $this->createMock( \Inc\DTO\Assessment\AssessmentDTO::class ) );
+		$this->assessments->method( 'get' )->willReturn( $this->assessmentFixture() );
 
 		$task = $this->service->forWork( 'attempt', 9 )['tasks'][0];
 

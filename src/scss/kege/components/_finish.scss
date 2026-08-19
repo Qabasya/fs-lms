@@ -130,3 +130,21 @@
 }
 
 .kege-fin-done { flex-shrink: 0; }
+
+// D18: результаты скрыты до подтверждения учителем — ОГЭ (проверка 13-16) или
+// ЕГЭ («Утвердить работу»). Занимает место таблиц/сводки баллов, тот же
+// центрированный стиль карточки, что и .kege-mcard.
+.kege-fin-pending {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  max-width: rem(460);
+  margin: auto;
+  text-align: center;
+  background: var(--kege-surface);
+  border: 1px solid var(--kege-line-2);
+  padding: rem(26) rem(28);
+
+  &__title { font-size: rem(17); font-weight: 500; margin-bottom: rem(10); }
+  &__text { font-size: rem(13.5); color: var(--kege-muted); line-height: 1.6; }
+}

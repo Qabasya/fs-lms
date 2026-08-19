@@ -23,6 +23,11 @@ readonly class KegeSheetDTO {
 	 * @param float      $primaryMax   Максимальный первичный балл
 	 * @param int|null   $secondary    Вторичный балл; null — таблица перевода не задана
 	 * @param int|null   $secondaryMax Максимум таблицы перевода; null вместе с $secondary
+	 * @param bool       $revealed     D18: можно ли показывать ответы/баллы ученику — false,
+	 *                                 пока учитель не подтвердил результат ({@see \Inc\Services\Assessment\AttemptRevealPolicy}).
+	 *                                 При false строки/баллы уже зачищены сервисом — шаблон
+	 *                                 их не получает, но обязан ещё и сам проверять этот флаг
+	 *                                 перед рендером таблицы (defense in depth)
 	 */
 	public function __construct(
 		public array  $rows,
@@ -31,6 +36,7 @@ readonly class KegeSheetDTO {
 		public float  $primaryMax,
 		public ?int   $secondary,
 		public ?int   $secondaryMax,
+		public bool   $revealed = true,
 	) {}
 
 	/** Пустой лист — модуль выключен или фильтр никем не обработан. */

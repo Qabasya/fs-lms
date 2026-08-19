@@ -13,6 +13,7 @@ use Inc\Modules\EgeComputer\Config\KegeScaleConfig;
 use Inc\Modules\EgeComputer\Config\OgeScaleConfig;
 use Inc\Modules\EgeComputer\EgeComputerModule;
 use Inc\Modules\EgeComputer\Services\KegeResultSheetService;
+use Inc\Services\Assessment\AttemptRevealPolicy;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -29,6 +30,7 @@ class EgeComputerModuleStationSettingsTest extends TestCase {
 			$this->createMock( EgeComputerConfig::class ),
 			$this->createMock( KegeResultSheetService::class ),
 			$this->createMock( PreviewResultCallbacks::class ),
+			$this->createMock( AttemptRevealPolicy::class ),
 		);
 	}
 

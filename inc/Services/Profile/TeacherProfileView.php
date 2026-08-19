@@ -168,7 +168,9 @@ final class TeacherProfileView implements ProfileViewInterface {
 			'attemptGrade' => array(
 				'nonce'   => Nonce::GradeAttempt->create(),
 				'actions' => array(
-					'gradeAttempt' => AjaxHook::GradeAttempt->jsAction(),
+					'gradeAttempt'   => AjaxHook::GradeAttempt->jsAction(),
+					// D18: «Утвердить работу» — открывает ответы ученику для ЕГЭ (без ручной проверки).
+					'approveAttempt' => AjaxHook::ApproveAttempt->jsAction(),
 				),
 			),
 			'dashboard' => array(

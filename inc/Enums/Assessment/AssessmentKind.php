@@ -23,11 +23,6 @@ enum AssessmentKind: string {
 		return true;
 	}
 
-	/** Правильные ответы ученику не показываются после сдачи. */
-	public function hidesAnswers(): bool {
-		return true;
-	}
-
 	/** Каждое задание имеет собственный балл (task_points); для Control вес = 1 имплицитно. */
 	public function usesWeightedScore(): bool {
 		return match ( $this ) {

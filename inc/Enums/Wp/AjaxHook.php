@@ -195,6 +195,8 @@ enum AjaxHook: string {
 	case SaveAttemptAnswer = 'save_attempt_answer';
 	case SubmitAttempt     = 'submit_attempt';
 	case GradeAttempt      = 'grade_attempt';
+	/** D18: учитель утверждает работу ЕГЭ (без ручной проверки) — открывает ответы ученику. */
+	case ApproveAttempt    = 'approve_attempt';
 	case GetAttemptResult  = 'get_attempt_result';
 	// T-preview-4: результат по ответам, присланным прямо из формы, — предпросмотр
 	// générique-контрольной (у него нет ни ученика, ни попытки, ни строк в БД).

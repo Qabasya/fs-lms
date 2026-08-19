@@ -59,50 +59,71 @@ $kegeScore = static fn( ?float $score ): string => null === $score ? '—' : (st
 			<span id="kegeFinBr">БР № —</span>
 		</div>
 
-		<div class="kege-fin-cnt" id="kegeFinCnt">
-			Дано ответов <b><?php echo esc_html( (string) $kegeSheet->answered ); ?>/<?php echo esc_html( (string) $kegeSheet->total() ); ?></b>
-		</div>
-
-		<div class="kege-fin-grid">
-			<div class="kege-fin-score">
-				<div class="kege-fin-score__lbl">Результаты экзамена</div>
-				<?php if ( null !== $kegeSheet->secondary ) : ?>
-					<div class="kege-fin-score__val" id="kegeFinScoreVal"><?php echo esc_html( $kegeSheet->secondary . '/' . $kegeSheet->secondaryMax ); ?></div>
-					<div class="kege-fin-score__sub" id="kegeFinScoreSub">Первичный балл: <?php echo esc_html( round( $kegeSheet->primary, 2 ) . '/' . round( $kegeSheet->primaryMax, 2 ) ); ?></div>
-				<?php else : ?>
-					<?php // Таблицы перевода у работы нет — вторичный балл считать не из чего. ?>
-					<div class="kege-fin-score__val" id="kegeFinScoreVal"><?php echo esc_html( round( $kegeSheet->primary, 2 ) . '/' . round( $kegeSheet->primaryMax, 2 ) ); ?></div>
-					<div class="kege-fin-score__sub" id="kegeFinScoreSub">Первичный балл</div>
-				<?php endif; ?>
+		<?php if ( ! $kegeSheet->revealed ) : ?>
+			<?php
+			// D18: результаты видны ученику только после подтверждения учителем —
+			// для ОГЭ это факт полной ручной проверки заданий 13-16 (AttemptStatus::Graded),
+			// для ЕГЭ — отдельная кнопка «Утвердить работу» в «Сводке по ученику».
+			// KegeResultSheetService уже зачистил rows/баллы — этот блок ничего
+			// чувствительного не получает даже потенциально.
+			?>
+			<div class="kege-fin-pending">
+				<div class="kege-fin-pending__title">Работа сдана и обрабатывается</div>
+				<p class="kege-fin-pending__text">
+					<?php if ( AssessmentKind::OgeComputer === $assessment->kind ) : ?>
+						Задания 13-16 проверяются вручную. Ответы и баллы появятся здесь, как только
+						преподаватель завершит проверку.
+					<?php else : ?>
+						Результаты появятся здесь после того, как преподаватель утвердит работу.
+					<?php endif; ?>
+				</p>
+			</div>
+		<?php else : ?>
+			<div class="kege-fin-cnt" id="kegeFinCnt">
+				Дано ответов <b><?php echo esc_html( (string) $kegeSheet->answered ); ?>/<?php echo esc_html( (string) $kegeSheet->total() ); ?></b>
 			</div>
 
-			<?php // Предпросмотр (T15.10-preview) перестраивает содержимое целиком (kege-entry.js) — ?>
-			<?php // id на контейнере, разметка строк ниже ему не нужна, только начальный (пустой) вид. ?>
-			<div class="kege-fin-tables" id="kegeFinTables">
-				<?php foreach ( $kegeTables as $kegeChunk ) : ?>
-					<table class="kege-fin-tbl">
-						<thead>
-							<tr>
-								<th>№</th>
-								<th>Балл</th>
-								<th>Ваш<br>ответ</th>
-								<th>Правильный<br>ответ</th>
-							</tr>
-						</thead>
-						<tbody>
-							<?php foreach ( $kegeChunk as $kegeRow ) : ?>
+			<div class="kege-fin-grid">
+				<div class="kege-fin-score">
+					<div class="kege-fin-score__lbl">Результаты экзамена</div>
+					<?php if ( null !== $kegeSheet->secondary ) : ?>
+						<div class="kege-fin-score__val" id="kegeFinScoreVal"><?php echo esc_html( $kegeSheet->secondary . '/' . $kegeSheet->secondaryMax ); ?></div>
+						<div class="kege-fin-score__sub" id="kegeFinScoreSub">Первичный балл: <?php echo esc_html( round( $kegeSheet->primary, 2 ) . '/' . round( $kegeSheet->primaryMax, 2 ) ); ?></div>
+					<?php else : ?>
+						<?php // Таблицы перевода у работы нет — вторичный балл считать не из чего. ?>
+						<div class="kege-fin-score__val" id="kegeFinScoreVal"><?php echo esc_html( round( $kegeSheet->primary, 2 ) . '/' . round( $kegeSheet->primaryMax, 2 ) ); ?></div>
+						<div class="kege-fin-score__sub" id="kegeFinScoreSub">Первичный балл</div>
+					<?php endif; ?>
+				</div>
+
+				<?php // Предпросмотр (T15.10-preview) перестраивает содержимое целиком (kege-entry.js) — ?>
+				<?php // id на контейнере, разметка строк ниже ему не нужна, только начальный (пустой) вид. ?>
+				<div class="kege-fin-tables" id="kegeFinTables">
+					<?php foreach ( $kegeTables as $kegeChunk ) : ?>
+						<table class="kege-fin-tbl">
+							<thead>
 								<tr>
-									<td class="kege-fin-tbl__n"><?php echo esc_html( $kegeRow['number'] ); ?></td>
-									<td><?php echo esc_html( $kegeScore( $kegeRow['score'] ) ); ?></td>
-									<td class="kege-fin-tbl__ans"><?php echo esc_html( $kegeRow['answer'] ); ?></td>
-									<td class="kege-fin-tbl__ans"><?php echo esc_html( $kegeRow['correct'] ); ?></td>
+									<th>№</th>
+									<th>Балл</th>
+									<th>Ваш<br>ответ</th>
+									<th>Правильный<br>ответ</th>
 								</tr>
-							<?php endforeach; ?>
-						</tbody>
-					</table>
-				<?php endforeach; ?>
+							</thead>
+							<tbody>
+								<?php foreach ( $kegeChunk as $kegeRow ) : ?>
+									<tr>
+										<td class="kege-fin-tbl__n"><?php echo esc_html( $kegeRow['number'] ); ?></td>
+										<td><?php echo esc_html( $kegeScore( $kegeRow['score'] ) ); ?></td>
+										<td class="kege-fin-tbl__ans"><?php echo esc_html( $kegeRow['answer'] ); ?></td>
+										<td class="kege-fin-tbl__ans"><?php echo esc_html( $kegeRow['correct'] ); ?></td>
+									</tr>
+								<?php endforeach; ?>
+							</tbody>
+						</table>
+					<?php endforeach; ?>
+				</div>
 			</div>
-		</div>
+		<?php endif; ?>
 
 		<button type="button" class="kege-btn kege-btn--cyan kege-fin-done" id="kegeFinishBtn">Завершить экзамен</button>
 	</div>
