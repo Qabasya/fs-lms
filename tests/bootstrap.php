@@ -63,6 +63,12 @@ if (!function_exists('get_current_user_id')) {
 if (!function_exists('is_user_logged_in')) {
     function is_user_logged_in(): bool { return $GLOBALS['_test_logged_in'] ?? true; }
 }
+if (!function_exists('wp_get_current_user')) {
+    // Управляется $GLOBALS['_fs_test_user_roles'] (список слагов ролей текущего пользователя).
+    function wp_get_current_user(): object {
+        return (object) [ 'roles' => $GLOBALS['_fs_test_user_roles'] ?? [] ];
+    }
+}
 if (!function_exists('wp_json_encode')) {
     function wp_json_encode(mixed $data, int $flags = 0, int $depth = 512): string|false {
         return json_encode($data, $flags, $depth);
