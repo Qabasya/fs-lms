@@ -63,9 +63,12 @@ function currentGroup() {
 }
 /* T1.8: КТП опубликована (заблокирована) — правки структуры/расписания недоступны. */
 function isLocked() { return !!(state.data && state.data.locked); }
-/* Хоть одна тема уже поставлена на дату — «Распределить» тогда не имеет смысла,
-   вместо неё показываем «Отменить распределение». */
+/* Кнопки независимы, не альтернативны: «Распределить» нужна и когда часть тем уже
+   стоит на датах — фича выбора старта курса (закрепить первый урок вручную, затем
+   раскладку остального доверить reflow — он раскладывает НЕПИННУТЫЕ темы после
+   пиннутых, applySlots() продвигает курсор слотов за дату каждой пиннутой строки). */
 function hasScheduledThemes() { return (state.data.themes || []).some(t => t.scheduled_at); }
+function hasUnplacedThemes() { return (state.data.themes || []).some(t => !t.scheduled_at); }
 
 /* ── AJAX ─────────────────────────────────────────────────────────────── */
 async function loadCalendar() {
@@ -111,12 +114,13 @@ function render() {
                     Опубликовано
                 </span>
                 <button class="prof-btn prof-btn-sm" id="ktpUnpublish">Снять публикацию</button>` : `
-                ${hasScheduledThemes() ? `
-                <button class="prof-btn prof-btn-sm" id="ktpUnschedule">Отменить распределение</button>` : `
+                ${hasUnplacedThemes() ? `
                 <button class="prof-btn prof-btn-sm prof-btn-primary" id="ktpReflow">
                     ${icoSwap(15)}
                     Распределить
-                </button>`}
+                </button>` : ''}
+                ${hasScheduledThemes() ? `
+                <button class="prof-btn prof-btn-sm" id="ktpUnschedule">Отменить распределение</button>` : ''}
                 <button class="prof-btn prof-btn-sm" id="ktpPublish">Опубликовать</button>`}` : ''}
         </div>
 
@@ -150,11 +154,11 @@ function render() {
         if (locked) {
             document.getElementById('ktpUnpublish').onclick = doUnpublish;
         } else {
-            if (hasScheduledThemes()) {
-                document.getElementById('ktpUnschedule').onclick = doUnschedule;
-            } else {
-                document.getElementById('ktpReflow').onclick = doReflow;
-            }
+            // Обе кнопки не альтернативны — могут стоять рядом (см. hasUnplacedThemes()).
+            const reflowBtn = document.getElementById('ktpReflow');
+            if (reflowBtn) reflowBtn.onclick = doReflow;
+            const unscheduleBtn = document.getElementById('ktpUnschedule');
+            if (unscheduleBtn) unscheduleBtn.onclick = doUnschedule;
             document.getElementById('ktpPublish').onclick = doPublish;
         }
         document.getElementById('ktpPrev').onclick = () => shiftMonthBy(-1);
