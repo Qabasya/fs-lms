@@ -72,11 +72,14 @@ readonly class GroupCalendarService {
 	 *
 	 * @param int $groupId ID группы
 	 *
-	 * @return array{assigned:bool, period:?array, holidays:string[], lessonDays:string[], lessonTimes:array<string,string>, themes:array<int,array<string,mixed>>}
+	 * @return array{assigned:bool, period:?array, holidays:string[], lessonDays:string[], lessonTimes:array<string,string>, slots_total:int, unplaced:int, themes:array<int,array<string,mixed>>}
 	 */
 	public function getCalendar( int $groupId ): array {
-		$group = $this->groups->findById( $groupId );
-		$meta  = $this->calendar->periodMeta( $groupId );
+		$group        = $this->groups->findById( $groupId );
+		$meta         = $this->calendar->periodMeta( $groupId );
+		// Этап 2 (Tasks.md): переполнение периода видно и без нажатия «Распределить» —
+		// баннер должен пережить перезагрузку страницы. Только чтение, БД не трогает.
+		$completeness = $this->calendar->completeness( $groupId );
 
 		// Эффективный кабинет темы (T11.2): кабинет занятия ?? основной кабинет группы.
 		$groupRoomId = ( $group && ! empty( $group->room_id ) ) ? (int) $group->room_id : 0;
@@ -134,6 +137,8 @@ readonly class GroupCalendarService {
 			'lessonDays'    => $meta['lessonDays'],
 			// T12.4: время занятия по дате ('16:00–17:30') для ячейки календаря КТП.
 			'lessonTimes'   => $meta['lessonTimes'],
+			'slots_total'   => $completeness['slots'],
+			'unplaced'      => $completeness['unplaced'],
 			'themes'        => $themes,
 			// T1.8: заблокирована ли КТП (опубликована) — фронт скрывает правки.
 			'locked'        => $group ? ! empty( $group->program_locked_at ) : false,

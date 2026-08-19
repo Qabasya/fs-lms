@@ -126,6 +126,26 @@ class GroupLessonRepository {
 		return false !== $result;
 	}
 
+	/**
+	 * Снимает дату/закрепление/кабинет со строки — возвращает тему в пул «Темы
+	 * курса». Используется при вытеснении занятой даты (Этап 3: строгая замена)
+	 * и обнулении хвоста сверх слотов (Этап 1: {@see applySlots()}).
+	 * `teacher_user_id` не трогаем — назначение преподавателя не привязано к дате.
+	 */
+	public function clearSchedule( int $id ): bool {
+		$result = $this->wpdb->update(
+			$this->table,
+			array(
+				'scheduled_at' => null,
+				'ends_at'      => null,
+				'room_id'      => null,
+				'is_pinned'    => 0,
+			),
+			array( 'id' => $id )
+		);
+		return false !== $result;
+	}
+
 	/** Bulk-assign slots from SessionCalendarService::generate(); skips pinned rows. */
 	public function applySlots( int $groupId, array $slots ): void {
 		$rows = $this->listByGroup( $groupId );
@@ -160,16 +180,7 @@ class GroupLessonRepository {
 				// «Темы курса» без даты и закрепления, чтобы автор мог разместить его вручную
 				// или вне расписания (Этап 4). held/индивидуальные сюда не попадают — они уже
 				// отфильтрованы выше.
-				$this->wpdb->update(
-					$this->table,
-					array(
-						'scheduled_at' => null,
-						'ends_at'      => null,
-						'room_id'      => null,
-						'is_pinned'    => 0,
-					),
-					array( 'id' => $row->id )
-				);
+				$this->clearSchedule( $row->id );
 				continue;
 			}
 			$this->wpdb->update(

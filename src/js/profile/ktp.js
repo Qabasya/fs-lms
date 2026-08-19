@@ -9,8 +9,8 @@
    ktp-popovers (поповеры темы), ktp-individual (инд. занятия).
    ══════════════════════════════════════════════════════════════════════ */
 
-import { esc, toast } from './utils.js';
-import { icoLock, icoSwap, icoChevronLeft, icoChevronRight } from '../common/icons.js';
+import { esc, toast, plural, fmtDayMonth } from './utils.js';
+import { icoLock, icoSwap, icoChevronLeft, icoChevronRight, icoAlert } from '../common/icons.js';
 import { confirmDialog } from '../common/components/confirm-dialog.js';
 import { createApi } from './api.js';
 import { DOW_RU, MONTHS_RU } from './constants.js';
@@ -119,6 +119,8 @@ function render() {
                 <button class="prof-btn prof-btn-sm" id="ktpPublish">Опубликовать</button>`}` : ''}
         </div>
 
+        ${assigned && !open ? overflowBannerHtml(state.data) : ''}
+
         ${assigned ? (open ? openProgramHtml(state.data.themes || []) : `
         <div class="prof-ktp-grid">
             <div class="prof-theme-bank">
@@ -193,6 +195,24 @@ async function wireCoursePicker() {
             await loadCalendar();
         } catch (e) { toast(e.message, 'error'); btn.disabled = false; }
     });
+}
+
+/**
+ * Этап 2 (Tasks.md): переполнение периода — тем в курсе больше, чем занятий в периоде.
+ * Живёт в payload getCalendar() (slots_total/unplaced), не только в тосте doReflow() —
+ * баннер переживает перезагрузку страницы.
+ */
+function overflowBannerHtml(data) {
+    const unplaced = data.unplaced || 0;
+    if (!unplaced) return '';
+    const slots = data.slots_total || 0;
+    const total = slots + unplaced;
+    return `
+    <div class="ktp-overflow-banner">
+        ${icoAlert(16)}
+        <span>В периоде ${slots} ${plural(slots, 'занятие', 'занятия', 'занятий')}, в курсе ${total} ${plural(total, 'тема', 'темы', 'тем')}.
+        ${unplaced} ${plural(unplaced, 'тема', 'темы', 'тем')} не ${plural(unplaced, 'помещается', 'помещаются', 'помещаются')} — ${unplaced === 1 ? 'её' : 'их'} можно открыть только вне расписания.</span>
+    </div>`;
 }
 
 function renderBank() {
@@ -293,9 +313,11 @@ async function doReflow() {
     try {
         const res = await api('reflow', { group_id: state.groupId });
         const conflicts = res && res.room_conflicts ? +res.room_conflicts : 0;
-        toast(conflicts > 0
-            ? `Темы распределены · кабинет снят с ${conflicts} занятий (был занят)`
-            : 'Темы распределены автоматически');
+        const unplaced = res && res.unplaced ? +res.unplaced : 0;
+        const parts = ['Темы распределены' + (conflicts === 0 && unplaced === 0 ? ' автоматически' : '')];
+        if (unplaced > 0) parts.push(`${unplaced} ${plural(unplaced, 'тема', 'темы', 'тем')} не ${plural(unplaced, 'поместилась', 'поместились', 'поместились')} — откройте вне расписания`);
+        if (conflicts > 0) parts.push(`кабинет снят с ${conflicts} занятий (был занят)`);
+        toast(parts.join(' · '));
         await loadCalendar();
     } catch (e) {
         toast(e.message, 'error');
@@ -359,9 +381,18 @@ function attachDrop(cell) {
         // Никаких 09:00-заглушек: нет времени слота — не закрепляем.
         const start = (((state.data.lessonTimes || {})[day] || '').match(/\d{1,2}:\d{2}/) || [])[0];
         if (!start) { toast('У этого дня нет слота занятия', 'error'); return; }
+        // Этап 3: drop строго закрепляет тему на дату, вытесняя ту, что там стояла
+        // (если была) — вернётся в пул. Имя темы для тоста берём из уже загруженного
+        // календаря (state.data), запрос AJAX это не меняет.
+        const dragged = (state.data.themes || []).find(t => String(t.group_lesson_id) === String(glid));
+        const displaced = (state.data.themes || [])
+            .find(t => t.group_lesson_id !== dragged?.group_lesson_id && (t.scheduled_at || '').slice(0, 10) === day);
         try {
             await api('pin', { group_lesson_id: glid, scheduled_at: `${day} ${start}:00` });
-            toast(`Тема закреплена на ${day} ${start}`);
+            const draggedLabel = dragged ? `Тема ${dragged.n}` : 'Тема';
+            toast(displaced
+                ? `${draggedLabel} закреплена на ${fmtDayMonth(day)} · тема ${displaced.n} возвращена в пул`
+                : `${draggedLabel} закреплена на ${fmtDayMonth(day)}`);
             await loadCalendar();
         } catch (err) {
             toast(err.message, 'error');

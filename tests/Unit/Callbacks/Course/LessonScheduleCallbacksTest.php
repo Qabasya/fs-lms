@@ -5,6 +5,7 @@ declare( strict_types=1 );
 namespace Unit\Callbacks\Course;
 
 use Inc\Callbacks\Course\LessonScheduleCallbacks;
+use Inc\DTO\Course\ScheduleReflowResultDTO;
 use Inc\Services\Course\GroupAccessGuard;
 use Inc\Services\Group\GroupCalendarService;
 use Inc\Services\Group\ProgramCompositionService;
@@ -38,7 +39,8 @@ class LessonScheduleCallbacksTest extends TestCase {
 
 	public function test_reflow_schedule_delegates_when_allowed(): void {
 		$this->guard->method( 'canManage' )->willReturn( true );
-		$this->schedule->expects( $this->once() )->method( 'reflow' )->with( 5, $this->anything() );
+		$this->schedule->expects( $this->once() )->method( 'reflow' )->with( 5, $this->anything() )
+			->willReturn( new ScheduleReflowResultDTO( conflicts: 0, slots: 10, consuming: 8, unplaced: 0 ) );
 		$_POST = array( 'group_id' => '5' );
 
 		self::assertTrue( fs_test_capture_json( fn() => $this->cb->ajaxReflowSchedule() )->success );

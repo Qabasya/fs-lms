@@ -11,8 +11,11 @@ use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\WPDBRepositories\RoomRepository;
 use Inc\Services\Group\SessionCalendarService;
 use PHPUnit\Framework\TestCase;
+use Tests\Support\GroupLessonFixtures;
 
 class SessionCalendarServiceTest extends TestCase {
+
+	use GroupLessonFixtures;
 
 	private GroupsRepository&\PHPUnit\Framework\MockObject\MockObject $groups;
 	private GroupLessonRepository&\PHPUnit\Framework\MockObject\MockObject $groupLessons;
@@ -29,6 +32,61 @@ class SessionCalendarServiceTest extends TestCase {
 		$this->service       = new SessionCalendarService(
 			$this->groups, $this->groupLessons, $this->periods, $this->rooms,
 		);
+	}
+
+	/** Группа без meetings/периода — generate() возвращает 0 слотов. */
+	private function stubEmptySchedule(): void {
+		$this->groups->method( 'findById' )->willReturn( null );
+	}
+
+	/** Этап 2: 3 строки-претендента, 0 слотов (нет расписания) — 3 не поместились. */
+	public function test_reflow_reports_unplaced_when_slots_missing(): void {
+		$this->stubEmptySchedule();
+		$this->groupLessons->method( 'listByGroup' )->willReturn( array(
+			$this->makeRow( 1 ),
+			$this->makeRow( 2 ),
+			$this->makeRow( 3 ),
+		) );
+		$this->groupLessons->expects( self::once() )->method( 'applySlots' )->with( 5, array() );
+
+		$result = $this->service->reflow( 5 );
+
+		self::assertSame( 0, $result->conflicts );
+		self::assertSame( 0, $result->slots );
+		self::assertSame( 3, $result->consuming );
+		self::assertSame( 3, $result->unplaced );
+	}
+
+	/** completeness() — то же число, но без побочных эффектов (applySlots не вызывается). */
+	public function test_completeness_is_read_only(): void {
+		$this->stubEmptySchedule();
+		$this->groupLessons->method( 'listByGroup' )->willReturn( array(
+			$this->makeRow( 1 ),
+			$this->makeRow( 2 ),
+		) );
+		$this->groupLessons->expects( self::never() )->method( 'applySlots' );
+
+		$result = $this->service->completeness( 5 );
+
+		self::assertSame( array( 'slots' => 0, 'consuming' => 2, 'unplaced' => 2 ), $result );
+	}
+
+	/** Пиннутые и индивидуальные не считаются «претендентами» на слот. */
+	public function test_completeness_excludes_pinned_and_individual(): void {
+		$this->stubEmptySchedule();
+		$pinned = $this->makeRow( 1 );
+		$pinned = new \Inc\DTO\Course\GroupLessonDTO(
+			id: 1, groupId: 5, lessonId: 10, position: 0, workIdsSnapshot: null, extraWorkIds: array(),
+			scheduledAt: '2026-09-01 10:00:00', endsAt: null, isPinned: true, teacherUserId: null,
+			visibility: 'hidden', openedAt: null, homeworkDueAt: null, allowLate: true, recordingUrl: null,
+			createdByUserId: null, updatedByUserId: null,
+		);
+		$individual = $this->makeRow( 2, 'individual' );
+		$this->groupLessons->method( 'listByGroup' )->willReturn( array( $pinned, $individual ) );
+
+		$result = $this->service->completeness( 5 );
+
+		self::assertSame( array( 'slots' => 0, 'consuming' => 0, 'unplaced' => 0 ), $result );
 	}
 
 	/** T12.4: periodMeta() отдаёт время занятия по дате ('16:00–17:30') из слотов. */

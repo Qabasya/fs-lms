@@ -67,8 +67,12 @@ class LessonScheduleCallbacks extends BaseController {
 		$this->requireGroupAccess( $groupId );
 		$this->denyIfProgramLocked( $groupId );
 
-		$conflicts = $this->schedule->reflow( $groupId, $userId );
-		$this->success( array( 'room_conflicts' => $conflicts ) );
+		$result = $this->schedule->reflow( $groupId, $userId );
+		$this->success( array(
+			'room_conflicts' => $result->conflicts,
+			'slots_total'    => $result->slots,
+			'unplaced'       => $result->unplaced,
+		) );
 	}
 
 	/**

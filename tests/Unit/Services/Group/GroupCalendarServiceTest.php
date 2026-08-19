@@ -94,11 +94,24 @@ class GroupCalendarServiceTest extends TestCase {
 		self::assertSame( 1, $themes[0]['total_parts'] );
 	}
 
-	private function stubCalendarDeps(): void {
+	/** Этап 2: getCalendar() пробрасывает укомплектованность периода — баннер живёт без reflow(). */
+	public function test_get_calendar_exposes_slots_total_and_unplaced(): void {
+		$this->stubCalendarDeps( array( 'slots' => 72, 'consuming' => 80, 'unplaced' => 8 ) );
+		$this->groupLessons->method( 'listByGroup' )->willReturn( array() );
+
+		$calendar = $this->service->getCalendar( 5 );
+
+		self::assertSame( 72, $calendar['slots_total'] );
+		self::assertSame( 8, $calendar['unplaced'] );
+	}
+
+	/** @param array{slots:int, consuming:int, unplaced:int} $completeness */
+	private function stubCalendarDeps( array $completeness = array( 'slots' => 0, 'consuming' => 0, 'unplaced' => 0 ) ): void {
 		$this->groups->method( 'findById' )->willReturn( new \stdClass() );
 		$this->calendar->method( 'periodMeta' )->willReturn( array(
 			'period' => null, 'holidays' => array(), 'lessonDays' => array(), 'lessonTimes' => array(),
 		) );
+		$this->calendar->method( 'completeness' )->willReturn( $completeness );
 		$this->lessonManager->method( 'get' )->willReturn( null );
 		$this->rooms->method( 'findAll' )->willReturn( array() );
 	}
