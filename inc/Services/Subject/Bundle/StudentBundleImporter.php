@@ -13,6 +13,7 @@ use Inc\Managers\Wp\PostManager;
 use Inc\Repositories\OptionsRepositories\AcademicPeriodRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
+use Inc\Services\Course\CourseAssignmentService;
 use Inc\Services\Enrollment\AccountProvisioningService;
 use Inc\Services\Import\StudentRecordWriter;
 use Inc\Shared\PluginLogger;
@@ -67,6 +68,7 @@ class StudentBundleImporter {
 	 * @param AcademicPeriodRepository   $periods       Репозиторий учебных периодов
 	 * @param PostManager                $posts         Менеджер записей (проверка курса)
 	 * @param ClockInterface             $clock         Текущее время
+	 * @param CourseAssignmentService    $courseAssignment Снапшот уроков курса в КТП группы
 	 */
 	public function __construct(
 		private readonly GroupsRepository           $groups,
@@ -76,6 +78,7 @@ class StudentBundleImporter {
 		private readonly AcademicPeriodRepository   $periods,
 		private readonly PostManager                $posts,
 		private readonly ClockInterface             $clock,
+		private readonly CourseAssignmentService     $courseAssignment,
 	) {}
 
 	/**
@@ -188,6 +191,24 @@ class StudentBundleImporter {
 
 			$created->addGroup( $groupId );
 			$map[ $sourceId ] = $groupId;
+
+			// `course_id` сам по себе КТП не наполняет — group_lessons снапшотится
+			// только через CourseAssignmentService::assign(). Без этого шага группа
+			// приезжает с назначенным курсом, но без единого урока в программе, и
+			// учителю пришлось бы самому открыть КТП и назначить курс заново — то
+			// же действие, которое импорт может сделать сам.
+			if ( $courseId > 0 ) {
+				try {
+					$this->courseAssignment->assign( $groupId, $courseId, get_current_user_id() ?: 0 );
+				} catch ( \Throwable $e ) {
+					PluginLogger::exception( 'SUBJECT_BUNDLE', $e, array( 'group_id' => $groupId, 'course_id' => $courseId ), true );
+					$warnings[] = sprintf(
+						'Группе «%s» назначен курс, но КТП не удалось заполнить уроками: %s. Назначьте курс вручную в КТП.',
+						$name,
+						$e->getMessage()
+					);
+				}
+			}
 		}
 
 		return $map;

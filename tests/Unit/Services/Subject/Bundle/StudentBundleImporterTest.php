@@ -12,6 +12,7 @@ use Inc\Managers\Wp\PostManager;
 use Inc\Repositories\OptionsRepositories\AcademicPeriodRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
+use Inc\Services\Course\CourseAssignmentService;
 use Inc\Services\Enrollment\AccountProvisioningService;
 use Inc\Services\Import\StudentRecordWriter;
 use Inc\Services\Subject\Bundle\ExportIdMapper;
@@ -48,6 +49,81 @@ class StudentBundleImporterTest extends TestCase {
 		self::assertSame( 'Группа А', $captured['name'] );
 		self::assertSame( 'math', $captured['subject_key'] );
 		self::assertSame( 555, $captured['course_id'], 'группа должна ссылаться на импортированный курс' );
+	}
+
+	/**
+	 * `course_id` сам по себе КТП не наполняет — без явного вызова
+	 * CourseAssignmentService::assign() группа приезжает с назначенным курсом,
+	 * но пустой программой (нет ни одного урока в group_lessons).
+	 */
+	public function test_snapshots_course_lessons_into_ktp_for_new_group_with_course(): void {
+		$groups = $this->createMock( GroupsRepository::class );
+		$groups->method( 'findByNameSubjectPeriod' )->willReturn( null );
+		$groups->method( 'create' )->willReturn( 300 );
+
+		$courseAssignment = $this->createMock( CourseAssignmentService::class );
+		$courseAssignment->expects( self::once() )->method( 'assign' )->with( 300, 555, self::anything() );
+
+		$mapper = new ExportIdMapper();
+		$mapper->bind( 'courses:90', 555 );
+
+		$this->makeImporter( groups: $groups, courseAssignment: $courseAssignment )->restore(
+			$this->students(),
+			'math',
+			$mapper,
+			new ImportedEntitiesCollector()
+		);
+	}
+
+	/** Курса в пакете нет — снапшотить нечего, assign() не зовём вовсе. */
+	public function test_does_not_call_course_assignment_without_course(): void {
+		$courseAssignment = $this->createMock( CourseAssignmentService::class );
+		$courseAssignment->expects( self::never() )->method( 'assign' );
+
+		$this->makeImporter( courseAssignment: $courseAssignment )->restore(
+			$this->students(),
+			'math',
+			new ExportIdMapper(), // курс не забинден — resolveCourseId() вернёт 0
+			new ImportedEntitiesCollector()
+		);
+	}
+
+	/** Группа уже существовала (повторный импорт) — её программу не трогаем. */
+	public function test_does_not_reassign_course_for_reused_existing_group(): void {
+		$groups = $this->createMock( GroupsRepository::class );
+		$groups->method( 'findByNameSubjectPeriod' )->willReturn( (object) array( 'id' => 42 ) );
+		$groups->expects( self::never() )->method( 'create' );
+
+		$courseAssignment = $this->createMock( CourseAssignmentService::class );
+		$courseAssignment->expects( self::never() )->method( 'assign' );
+
+		$mapper = new ExportIdMapper();
+		$mapper->bind( 'courses:90', 555 );
+
+		$this->makeImporter( groups: $groups, courseAssignment: $courseAssignment )->restore(
+			$this->students(),
+			'math',
+			$mapper,
+			new ImportedEntitiesCollector()
+		);
+	}
+
+	/** Ошибка assign() не должна ронять весь импорт — попадает в предупреждения. */
+	public function test_course_assignment_failure_becomes_warning_not_exception(): void {
+		$courseAssignment = $this->createMock( CourseAssignmentService::class );
+		$courseAssignment->method( 'assign' )->willThrowException( new \InvalidArgumentException( 'Курс принадлежит другому предмету.' ) );
+
+		$mapper = new ExportIdMapper();
+		$mapper->bind( 'courses:90', 555 );
+
+		$result = $this->makeImporter( courseAssignment: $courseAssignment )->restore(
+			$this->students(),
+			'math',
+			$mapper,
+			new ImportedEntitiesCollector()
+		);
+
+		self::assertStringContainsString( 'КТП', implode( ' ', $result['warnings'] ) );
 	}
 
 	public function test_group_without_course_in_package_is_created_without_program(): void {
@@ -213,7 +289,8 @@ class StudentBundleImporterTest extends TestCase {
 		?StudentRecordRepository $records = null,
 		?StudentRecordWriter $writer = null,
 		?AcademicPeriodRepository $periods = null,
-		?AccountProvisioningService $provisioning = null
+		?AccountProvisioningService $provisioning = null,
+		?CourseAssignmentService $courseAssignment = null
 	): StudentBundleImporter {
 		if ( null === $groups ) {
 			$groups = $this->createMock( GroupsRepository::class );
@@ -264,7 +341,12 @@ class StudentBundleImporterTest extends TestCase {
 		$clock = $this->createMock( ClockInterface::class );
 		$clock->method( 'now' )->willReturn( '2026-07-30 12:00:00' );
 
-		return new StudentBundleImporter( $groups, $records, $writer, $provisioning, $periods, $posts, $clock );
+		if ( null === $courseAssignment ) {
+			$courseAssignment = $this->createMock( CourseAssignmentService::class );
+			$courseAssignment->method( 'assign' )->willReturn( 0 );
+		}
+
+		return new StudentBundleImporter( $groups, $records, $writer, $provisioning, $periods, $posts, $clock, $courseAssignment );
 	}
 
 	/**

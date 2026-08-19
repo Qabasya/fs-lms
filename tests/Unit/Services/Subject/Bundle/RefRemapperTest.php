@@ -206,4 +206,79 @@ class RefRemapperTest extends TestCase {
 
 		self::assertSame( 0, $remapped[ PostMetaName::TaskBundleParentId->value ] );
 	}
+
+	/**
+	 * D-Bundle-2: `task_points`/`task_numbers` работы — карта `task_id => …`, где
+	 * ссылка на задание живёт в КЛЮЧЕ, а не в значении (балл/номер — не ссылка).
+	 * До фикса ключ обходился как обычная мета и оставался WP ID исходного сайта:
+	 * на целевом сайте банковское задание получает новый ID, и позиция задания
+	 * (`AssessmentDTO::taskNumbers`) переставала резолвиться — «номера заданий
+	 * банка не сохранились после переноса».
+	 */
+	public function test_export_remaps_task_points_and_task_numbers_keys(): void {
+		$mapper = new ExportIdMapper();
+		$mapper->register( BundleSection::Problems, 16968 );
+		$mapper->register( BundleSection::Problems, 16969 );
+
+		$remapped = ( new RefRemapper() )->toExportIds(
+			array(
+				'task_points'  => array( 16968 => 2.0, 16969 => 3.0 ),
+				'task_numbers' => array( 16968 => '13', 16969 => '14' ),
+			),
+			$mapper
+		);
+
+		self::assertSame( array( 'problems:16968' => 2.0, 'problems:16969' => 3.0 ), $remapped['task_points'] );
+		self::assertSame( array( 'problems:16968' => '13', 'problems:16969' => '14' ), $remapped['task_numbers'] );
+	}
+
+	public function test_import_remaps_task_points_and_task_numbers_keys_to_new_site_ids(): void {
+		$mapper = new ExportIdMapper();
+		$mapper->bind( 'problems:16968', 501 );
+		$mapper->bind( 'problems:16969', 502 );
+
+		$remapped = ( new RefRemapper() )->toPostIds(
+			array(
+				'task_points'  => array( 'problems:16968' => 2.0, 'problems:16969' => 3.0 ),
+				'task_numbers' => array( 'problems:16968' => '13', 'problems:16969' => '14' ),
+			),
+			$mapper,
+			new MediaIdMap()
+		);
+
+		self::assertSame( array( 501 => 2.0, 502 => 3.0 ), $remapped['task_points'] );
+		self::assertSame( array( 501 => '13', 502 => '14' ), $remapped['task_numbers'] );
+	}
+
+	/** Задание удалили до экспорта — его позиция выбрасывается вместе с ключом, а не переносится вслепую. */
+	public function test_task_numbers_drops_unresolvable_key_and_reports_it(): void {
+		$remapper = new RefRemapper();
+
+		$remapped = $remapper->toPostIds(
+			array( 'task_numbers' => array( 'problems:404' => '13' ) ),
+			new ExportIdMapper(),
+			new MediaIdMap()
+		);
+
+		self::assertSame( array(), $remapped['task_numbers'] );
+		self::assertNotEmpty( $remapper->droppedRefs() );
+	}
+
+	public function test_round_trip_preserves_task_numbers_across_id_reassignment(): void {
+		$exportMap = new ExportIdMapper();
+		$exportMap->register( BundleSection::Problems, 16968 );
+
+		$packed = ( new RefRemapper() )->toExportIds(
+			array( 'task_numbers' => array( 16968 => '14' ) ),
+			$exportMap
+		);
+
+		// Целевой сайт выдал банковскому заданию совсем другой ID.
+		$importMap = new ExportIdMapper();
+		$importMap->bind( 'problems:16968', 999 );
+
+		$restored = ( new RefRemapper() )->toPostIds( $packed, $importMap, new MediaIdMap() );
+
+		self::assertSame( array( 999 => '14' ), $restored['task_numbers'] );
+	}
 }

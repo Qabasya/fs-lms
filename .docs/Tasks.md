@@ -273,9 +273,13 @@ docker exec wp_db mariadb -u root -proot wordpress -e "SHOW TABLES LIKE 'wp_fs_l
 
 **`inc/Migrations/Migration_1_0_0.php`**
 
-- [ ] Убрать блок «Сброс старой схемы» (строки 48–62): дропает `fs_lms_expelled_archive`,
+- [x] Убрать блок «Сброс старой схемы» (строки 48–62): дропает `fs_lms_expelled_archive`,
       `fs_lms_relationships`, `fs_lms_enrollments`, `fs_lms_archive` и чистит
       `fs_lms_student_group_matrix` — на чистой установке этого нет никогда
+      (снят 2026-08-19 внепланово: блок дропал ЕЩЁ и `fs_lms_persons`/`fs_lms_groups`/
+      `fs_lms_student_records` при каждом полном прогоне `up()` — реальный сброс
+      схемы версии на dev стёр эти три таблицы с боевыми на тот момент данными
+      импорта; см. `migration-reset-drops-core-tables.md` в памяти)
 - [ ] Влить блок «Cleanup — добавление колонок для уже существующих установок»
       (строки 617–681) внутрь соответствующих `CREATE TABLE`. Затрагивает:
       `student_records` (6 snapshot-колонок + `enrolled_by_user_id`),

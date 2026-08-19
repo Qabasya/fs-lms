@@ -45,22 +45,6 @@ class Migration_1_0_0 implements MigrationInterface {
 			require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 		}
 
-		// ===== Сброс старой схемы =====
-		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		foreach ( array(
-			$wpdb->prefix . 'fs_lms_expelled_archive',
-			$wpdb->prefix . 'fs_lms_relationships',
-			$wpdb->prefix . 'fs_lms_enrollments',
-			$wpdb->prefix . 'fs_lms_archive',
-			$wpdb->prefix . 'fs_lms_student_records',
-			$wpdb->prefix . 'fs_lms_persons',
-			$wpdb->prefix . 'fs_lms_groups',
-		) as $t ) {
-			$wpdb->query( "DROP TABLE IF EXISTS `$t`" );
-		}
-		$wpdb->query( "DELETE FROM `{$wpdb->options}` WHERE option_name = 'fs_lms_student_group_matrix'" );
-		// phpcs:enable
-
 		// ===== 1. persons — идентификация (нечувствительные данные) =====
 		$persons = TableName::Persons->prefixed();
 		dbDelta(
