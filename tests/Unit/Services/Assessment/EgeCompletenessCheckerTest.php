@@ -22,9 +22,10 @@ class EgeCompletenessCheckerTest extends TestCase {
 
 	protected function setUp(): void {
 		parent::setUp();
-		$GLOBALS['_fs_test_terms']      = array();
-		$GLOBALS['_fs_test_post_terms'] = array();
-		$this->checker                  = new EgeCompletenessChecker();
+		$GLOBALS['_fs_test_terms']          = array();
+		$GLOBALS['_fs_test_post_terms']     = array();
+		$GLOBALS['_fs_test_filter_returns'] = array();
+		$this->checker                      = new EgeCompletenessChecker();
 	}
 
 	/** Регистрирует N номеров-термов (1..N) в таксономии предмета. */
@@ -41,12 +42,12 @@ class EgeCompletenessCheckerTest extends TestCase {
 		$GLOBALS['_fs_test_post_terms'][ $taskId ][ self::TAXONOMY ] = null === $number ? array() : array( $number );
 	}
 
-	private function assessment( array $taskIds ): AssessmentDTO {
+	private function assessment( array $taskIds, AssessmentKind $kind = AssessmentKind::EgeComputer, array $taskNumbers = array() ): AssessmentDTO {
 		return new AssessmentDTO(
 			id: 1, subjectKey: self::SUBJECT, title: 'ЕГЭ', taskIds: $taskIds,
 			timeLimit: 0, attemptsAllowed: 0, passScore: 0.0,
 			scoringPolicy: ScoringPolicy::Highest, status: 'draft',
-			kind: AssessmentKind::EgeComputer, taskPoints: array(), scoreMap: array(),
+			kind: $kind, taskPoints: array(), scoreMap: array(), taskNumbers: $taskNumbers,
 		);
 	}
 
@@ -124,5 +125,61 @@ class EgeCompletenessCheckerTest extends TestCase {
 			array( '3', '4', '5', '6', '7', '8', '9', '10', '11', '12' ),
 			$result->missing
 		);
+	}
+
+	/**
+	 * ОГЭ №13-16 не имеют терма таксономии по замыслу (ручная проверка, номер
+	 * только в AssessmentDTO::$taskNumbers) — модуль EgeComputer добавляет их
+	 * фильтром EXTRA_POSITIONS_FILTER, иначе строгая проверка никогда не
+	 * признаёт ОГЭ-работу укомплектованной.
+	 */
+	public function test_oge_extra_positions_from_filter_complete_bijection(): void {
+		$GLOBALS['_fs_test_filter_returns'][ EgeCompletenessChecker::EXTRA_POSITIONS_FILTER ] = array( '13', '14', '15', '16' );
+
+		$this->seedNumbers( 12 );
+		$taskIds     = array();
+		$taskNumbers = array();
+		for ( $i = 1; $i <= 12; $i++ ) {
+			$taskId    = 100 + $i;
+			$taskIds[] = $taskId;
+			$this->tagTask( $taskId, (string) $i );
+		}
+		foreach ( array( '13', '14', '15', '16' ) as $j => $number ) {
+			$taskId               = 200 + $j;
+			$taskIds[]            = $taskId;
+			$taskNumbers[ $taskId ] = $number;
+			$this->tagTask( $taskId, null ); // без терма — только ручной номер
+		}
+
+		$result = $this->checker->validate(
+			$this->assessment( $taskIds, AssessmentKind::OgeComputer, $taskNumbers ),
+			self::SUBJECT
+		);
+
+		$this->assertTrue( $result->isStrictlyComplete() );
+		$this->assertSame( 16, $result->expectedCount );
+		$this->assertSame( 16, $result->actualCount );
+	}
+
+	/** Без задач на позициях 13-16 работа остаётся неукомплектованной — они попадают в missing. */
+	public function test_oge_missing_manual_positions_reported(): void {
+		$GLOBALS['_fs_test_filter_returns'][ EgeCompletenessChecker::EXTRA_POSITIONS_FILTER ] = array( '13', '14', '15', '16' );
+
+		$this->seedNumbers( 12 );
+		$taskIds = array();
+		for ( $i = 1; $i <= 12; $i++ ) {
+			$taskId    = 100 + $i;
+			$taskIds[] = $taskId;
+			$this->tagTask( $taskId, (string) $i );
+		}
+
+		$result = $this->checker->validate(
+			$this->assessment( $taskIds, AssessmentKind::OgeComputer ),
+			self::SUBJECT
+		);
+
+		$this->assertFalse( $result->isStrictlyComplete() );
+		$this->assertSame( array( '13', '14', '15', '16' ), $result->missing );
+		$this->assertSame( 16, $result->expectedCount );
 	}
 }

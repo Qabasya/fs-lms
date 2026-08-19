@@ -64,6 +64,19 @@ class OgeCriteriaConfig {
 	}
 
 	/**
+	 * Номера позиций ручной проверки («13», «14», «15», «16») — у них нет терма
+	 * `{key}_task_number` (см. докблок класса), только ручной номер работы.
+	 * Источник для {@see \Inc\Services\Assessment\EgeCompletenessChecker::EXTRA_POSITIONS_FILTER}.
+	 *
+	 * @return string[]
+	 */
+	public static function positions(): array {
+		// array_keys() отдал бы int (PHP автокастит числовые строковые ключи '13'..'16'
+		// в int) — приводим обратно к string, чтобы соответствовать заявленному типу.
+		return array_map( 'strval', array_keys( self::rubrics() ) );
+	}
+
+	/**
 	 * @return array<string, array{max_points: int, html: string}>
 	 */
 	private static function rubrics(): array {

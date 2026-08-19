@@ -25,6 +25,17 @@ use Inc\Services\Subject\PostTypeResolver;
 class EgeCompletenessChecker {
 
 	/**
+	 * WP filter: позиции работы, у которых заведомо нет терма `{key}_task_number`
+	 * (напр. ОГЭ №13-16 — ручная проверка, номер только в `AssessmentDTO::$taskNumbers`,
+	 * см. докблок `Inc\Modules\EgeComputer\Config\OgeCriteriaConfig`). Ядро о таких
+	 * позициях не знает — модуль дополняет список этим фильтром:
+	 *   apply_filters( self::EXTRA_POSITIONS_FILTER, [], $assessment, $subjectKey )
+	 *
+	 * @return string[] Метки позиций (напр. ['13', '14', '15', '16']).
+	 */
+	public const EXTRA_POSITIONS_FILTER = 'fs_lms_assessment_completeness_extra_positions';
+
+	/**
 	 * Строгий вердикт укомплектованности (D16.2): ровно одно задание на каждый
 	 * терм `{key}_task_number`, все номера покрыты, без дублей и заданий без номера.
 	 *
@@ -46,6 +57,20 @@ class EgeCompletenessChecker {
 		foreach ( $terms as $term ) {
 			$termNames[ $term->slug ] = $term->name;
 			$nameToSlug[ $term->name ] = $term->slug;
+		}
+
+		// Позиции вне таксономии (ОГЭ №13-16 и т.п.) — синтетический slug,
+		// покрытие сверяется по AssessmentDTO::$taskNumbers ниже (тот же fallback,
+		// что и для банковских задач без терма).
+		$extraPositions = (array) apply_filters( self::EXTRA_POSITIONS_FILTER, array(), $assessment, $subjectKey );
+		foreach ( $extraPositions as $position ) {
+			$position = trim( (string) $position );
+			if ( '' === $position || isset( $nameToSlug[ $position ] ) ) {
+				continue; // уже есть таксономический терм с этим именем — не дублируем.
+			}
+			$slug               = 'manual_' . $position;
+			$termNames[ $slug ] = $position;
+			$nameToSlug[ $position ] = $slug;
 		}
 
 		// slug => сколько заданий его покрывают; список сирот (без валидного номера).

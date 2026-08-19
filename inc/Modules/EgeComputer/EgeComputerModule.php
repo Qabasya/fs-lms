@@ -19,6 +19,7 @@ use Inc\Modules\EgeComputer\Config\OgeScaleConfig;
 use Inc\Modules\EgeComputer\Config\StationExamConfig;
 use Inc\Modules\EgeComputer\DTO\KegeSheetDTO;
 use Inc\Modules\EgeComputer\Services\KegeResultSheetService;
+use Inc\Services\Assessment\EgeCompletenessChecker;
 use Inc\Services\Course\WorkDetailService;
 
 /**
@@ -58,6 +59,7 @@ class EgeComputerModule implements ServiceInterface {
 		add_filter( self::SHEET_FILTER, [ $this, 'buildResultSheet' ], 10, 4 );
 		add_filter( AssessmentManager::STATION_SETTINGS_FILTER, [ $this, 'applyStationSettings' ] );
 		add_filter( WorkDetailService::OGE_RUBRIC_FILTER, [ $this, 'resolveOgeRubric' ], 10, 3 );
+		add_filter( EgeCompletenessChecker::EXTRA_POSITIONS_FILTER, [ $this, 'resolveExtraPositions' ], 10, 3 );
 
 		// Лист ответов предпросмотра (T15.10-preview): попытки в БД нет, поэтому
 		// накопленные в JS ответы приходят на этот эндпоинт напрямую — см. PreviewResultCallbacks.
@@ -180,6 +182,26 @@ class EgeComputerModule implements ServiceInterface {
 		}
 
 		return OgeCriteriaConfig::rubricFor( $position ) ?? $default;
+	}
+
+	/**
+	 * Позиции ОГЭ №13-16 (ручная проверка) — они не имеют терма таксономии
+	 * `{key}_task_number` по замыслу (см. докблок {@see OgeCriteriaConfig}), поэтому
+	 * `EgeCompletenessChecker` не увидел бы их без этого фильтра и никогда не признал
+	 * бы ОГЭ-работу укомплектованной. Для остальных `kind` список не трогаем.
+	 *
+	 * @param string[]      $positions  Список позиций по умолчанию (не используется)
+	 * @param AssessmentDTO $assessment Экзамен, к которому относится проверка
+	 * @param string        $subjectKey Ключ предмета (не используется — kind уже на DTO)
+	 *
+	 * @return string[]
+	 */
+	public function resolveExtraPositions( array $positions, AssessmentDTO $assessment, string $subjectKey = '' ): array {
+		if ( AssessmentKind::OgeComputer !== $assessment->kind ) {
+			return $positions;
+		}
+
+		return array_merge( $positions, OgeCriteriaConfig::positions() );
 	}
 
 	/** @param string $default Путь к дефолтному шаблону */

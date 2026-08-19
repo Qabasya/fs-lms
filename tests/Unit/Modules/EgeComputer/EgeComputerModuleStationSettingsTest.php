@@ -182,4 +182,23 @@ class EgeComputerModuleStationSettingsTest extends TestCase {
 
 		self::assertSame( $default, $this->module->resolveRenderer( $default, AssessmentKind::Control->value, 'inf' ) );
 	}
+
+	/**
+	 * №13-16 не имеют терма таксономии по замыслу (ручная проверка) — без этого
+	 * фильтра EgeCompletenessChecker никогда не признаёт ОГЭ-работу укомплектованной.
+	 */
+	public function test_resolve_extra_positions_adds_manual_positions_for_oge(): void {
+		$dto = $this->assessment( AssessmentKind::OgeComputer );
+
+		self::assertSame(
+			[ '13', '14', '15', '16' ],
+			$this->module->resolveExtraPositions( [], $dto )
+		);
+	}
+
+	public function test_resolve_extra_positions_untouched_for_non_oge_kind(): void {
+		$dto = $this->assessment( AssessmentKind::EgeComputer );
+
+		self::assertSame( [], $this->module->resolveExtraPositions( [], $dto ) );
+	}
 }
