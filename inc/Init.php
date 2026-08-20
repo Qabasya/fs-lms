@@ -87,14 +87,8 @@ use Inc\Contracts\ClockInterface;
 use Inc\Contracts\LogEventDispatcherInterface;
 use Inc\Core\Container;
 use Inc\Core\Enqueue;
-use Inc\Migrations\ArticlesSectionMigration;
-use Inc\Migrations\AssessmentAnswerUniqueMigration;
-use Inc\Migrations\BroadcastStepMigration;
 use Inc\Migrations\Migration_1_0_0;
-use Inc\Migrations\Migration_1_1_0;
 use Inc\Migrations\MigrationRunner;
-use Inc\Migrations\RoutingPagesMigration;
-use Inc\Services\System\PageGeneratorService;
 use Inc\Services\Log\LogEventDispatcher;
 use Inc\Services\Shared\WpClock;
 
@@ -238,18 +232,12 @@ final class Init {
 
 		// Синхронизация capabilities администратора при несоответствии версии.
 		// Запись в БД происходит только один раз при смене FS_LMS_CAPS_VERSION.
-		$capsVersion = '5.3'; // 5.3: − AuthorLmsBank (откат авторинга банка преподавателем)
+		$capsVersion = '5.4'; // 5.4: − свободные роли Student/Teacher (lms_student_free/lms_teacher_free)
 		if ( get_option( OptionName::CapsVersion->value ) !== $capsVersion ) {
 			$roleManager = $container->get( \Inc\Managers\Person\RoleManager::class );
 			$roleManager->registerAll();
 			update_option( OptionName::CapsVersion->value, $capsVersion );
 		}
-
-		// Одноразовая data-миграция recording_slot → broadcast (Этап 1), version-gated
-		// собственной опцией (дешёвый option-read при уже выполненной). Здесь, а не в
-		// MigrationRunner: тот вызывается только при активации, а на установках с
-		// fs_lms_schema_version=1.0.0 его up() уже не запускается.
-		( new BroadcastStepMigration() )->ensure();
 
 		// MigrationRunner штатно регистрируется и запускается только при активации
 		// (Activate::activate()) — установки, уже получившие fs_lms_schema_version,
@@ -259,28 +247,6 @@ final class Init {
 		// нечего), поэтому безопасно вызывать на каждом запросе.
 		$migrationRunner = new MigrationRunner();
 		$migrationRunner->register( new Migration_1_0_0() );
-		$migrationRunner->register( new Migration_1_1_0() );
 		$migrationRunner->run();
-
-		// Раздел «Учебник»: /{key}/textbook/ → /{key}/articles/ (ключ опции,
-		// слаг страницы, тег шорткода). Гейт — собственная опция миграции.
-		( new ArticlesSectionMigration() )->ensure();
-
-		// Уникальный ключ (attempt_id, task_id) на ответах попытки + вычистка
-		// дублей, накопленных до атомарного upsert() (см. класс миграции).
-		( new AssessmentAnswerUniqueMigration() )->ensure();
-
-		// Служебные страницы маршрутизации (/apply/, /profile/, /lesson/,
-		// /course-preview/) создаются только при активации — на установках,
-		// где страница добавилась в код позже или была случайно удалена,
-		// без этого маршрут молча даёт 404 (см. докблок класса миграции).
-		// На 'init', не сразу: ensure() умеет создавать страницы (wp_insert_post()),
-		// а это в цепочке вызывает get_permalink() → нужен $wp_rewrite. Init::run()
-		// выполняется при подключении плагина (wp-settings.php, до 'plugins_loaded'),
-		// а $wp_rewrite создаётся позже — прямой вызов здесь падает фатальной ошибкой
-		// на первом запросе, где миграция ещё не отмечена выполненной.
-		add_action( 'init', static function (): void {
-			( new RoutingPagesMigration( new PageGeneratorService() ) )->ensure();
-		} );
 	}
 }

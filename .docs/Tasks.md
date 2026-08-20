@@ -610,29 +610,33 @@ docker exec wp_db mariadb -u root -proot wordpress -e "SHOW TABLES LIKE 'wp_fs_l
       `fs_lms_student_records` при каждом полном прогоне `up()` — реальный сброс
       схемы версии на dev стёр эти три таблицы с боевыми на тот момент данными
       импорта; см. `migration-reset-drops-core-tables.md` в памяти)
-- [ ] Влить блок «Cleanup — добавление колонок для уже существующих установок»
-      (строки 617–681) внутрь соответствующих `CREATE TABLE`. Затрагивает:
-      `student_records` (6 snapshot-колонок + `enrolled_by_user_id`),
-      `groups` (`course_id`, `meetings`, `room_id`, `program_locked_at`, `access_mode`,
-      без `group_id`),
-      `group_lessons` (`ends_at`, `is_pinned`, `label`, `step_settings_overrides`, `kind`,
-      `status`, `student_person_id`, `room_id`, `work_deadlines`, `continued_from_id`,
-      `lesson_id` nullable),
-      `assessment_attempts` (`group_lesson_id`),
-      `assessment_answers` (`grader_note`, `criteria_scores`),
-      `lesson_progress` / `submissions` (полный набор значений `enum`),
-      `pii_access_log`, `export_log`, `email_log`, `applications`, `consent_change_log`,
-      `entity_audit_log`, `persons` (`expelled_at` + индекс).
-      **Определения брать из `schema-before.sql`, а не выводить вручную** — там уже финал
-- [ ] Влить `UNIQUE KEY attempt_task (attempt_id, task_id)` прямо в `CREATE TABLE`
-      `assessment_answers` (секция 19)
-- [ ] Влить `CREATE TABLE notifications` из `Migration_1_1_0` как секцию 25
-- [ ] Удалить приватные хелперы `addColumn()` / `dropColumn()` / `dropIndex()` / `addIndex()` /
-      `hasColumn()` — после вливания они не вызываются
-- [ ] Проверить, что список в `down()` полон (25 таблиц, `Notifications` уже есть)
-- [ ] Обновить докблок класса: он до сих пор описывает снятые `enrollments` / `archive` /
-      `deletion_log`
-- [ ] Удалить `inc/Migrations/Migration_1_1_0.php`
+- [x] Влит блок «Cleanup — добавление колонок для уже существующих установок» внутрь
+      соответствующих `CREATE TABLE`. По факту большая часть Cleanup-колонок уже была
+      баked-in в `CREATE TABLE` заранее (грейдер-код в файле разошёлся с dev-БД раньше:
+      `fs_lms_schema_version` на dev застрял на `1.1.0`, поэтому новые Cleanup-строки,
+      дописанные в код позже, никогда не докатывались до dev — обнаружено сверкой с
+      `schema-before.sql` **после** принудительного сброса версии схемы и реактивации
+      плагина, см. скилл `db-migrations`). Реально не хватало и добавлено вручную:
+      `groups.course_id`/`room_id`, `group_lessons.step_settings_overrides`,
+      `submissions.status` enum без `pending_review`. Остальные Cleanup-строки оказались
+      уже избыточны (колонка и так в `CREATE TABLE`) — убраны вместе с блоком.
+      **Осознанно НЕ перенесены** (дохлые колонки dev-БД, не пишутся и не читаются нигде
+      в коде — `grep` по `period_key`/`converted_to_enrollment_id` дал 0 совпадений в
+      `inc/`): `applications.period_key`, `applications.converted_to_enrollment_id`,
+      избыточный одиночный `KEY attempt_id` на `assessment_answers` (уже покрыт
+      составным `UNIQUE KEY attempt_task`). Подтверждено дифом
+      `schema-before.sql` (после ресинка) против свежей установки — расхождений,
+      кроме этих трёх дохлых сущностей и косметики (AUTO_INCREMENT, порядок колонок,
+      collation `notifications` теперь единообразный через общий `$cc`), нет
+- [x] `UNIQUE KEY attempt_task (attempt_id, task_id)` — уже был в `CREATE TABLE`
+      `assessment_answers` (секция 19) до этой сессии, отдельных действий не потребовалось
+- [x] Влит `CREATE TABLE notifications` из `Migration_1_1_0` как секцию 25
+- [x] Удалены приватные хелперы `addColumn()` / `dropColumn()` / `dropIndex()` / `addIndex()` /
+      `hasColumn()` / `hasIndex()` — после вливания не вызываются
+- [x] Список в `down()` уже был полон (25 таблиц, `Notifications` уже была) — без изменений
+- [x] Докблок класса обновлён: снят список из `enrollments`/`archive`/`deletion_log`,
+      заменён актуальным списком всех 25 таблиц
+- [x] Удалён `inc/Migrations/Migration_1_1_0.php`
 
 `MigrationRunner` и `MigrationInterface` **оставить**: это штатный способ довезти DDL до
 установок в будущих патч-релизах (см. скилл `db-migrations`).
@@ -651,15 +655,19 @@ docker exec wp_db mariadb -u root -proot wordpress -e "SHOW TABLES LIKE 'wp_fs_l
 | `AssessmentAnswerUniqueMigration` | Удалить | Ключ уехал в DDL (этап 1) |
 | `RoutingPagesMigration` | Удалить класс | `Activate::generatePages()` — заменить `createPageIfNeeded()` на `ensurePublished()` (восстанавливает удалённую/черновиковую страницу, а не только создаёт отсутствующую) и добавить туда `/sign-in/` |
 
-- [ ] Удалить четыре класса миграций
-- [ ] `Activate::generatePages()` — перевести на `ensurePublished()`, добавить `/sign-in/`
-- [ ] `inc/Init.php` — вырезать блок строк 252–288 (`BroadcastStepMigration::ensure()`,
-      регистрация и `run()` `MigrationRunner`, `ArticlesSectionMigration`,
-      `AssessmentAnswerUniqueMigration`, `add_action('init', RoutingPagesMigration)`)
-      и соответствующие `use`. Побочный эффект — минус 4 `get_option()` на каждом запросе;
-      миграции остаются только в `Activate::activate()`
-- [ ] `SubjectLandingController::redirectLegacySection()` (редирект `/textbook/` →
-      `/articles/`) — проверить и удалить, если он существует только ради переехавших установок
+- [x] Удалены четыре класса миграций (`BroadcastStepMigration`, `ArticlesSectionMigration`,
+      `AssessmentAnswerUniqueMigration`, `RoutingPagesMigration`) + их тест
+      (`BroadcastStepMigrationTest`)
+- [x] `Activate::generatePages()` — переведён на `ensurePublished()`; `/sign-in/` уже был в
+      списке (`PageRoutes::SignIn` — первая строка), отдельно добавлять не потребовалось
+- [x] `inc/Init.php` — вырезан блок `BroadcastStepMigration::ensure()`, регистрация
+      `Migration_1_1_0` в `MigrationRunner`, `ArticlesSectionMigration::ensure()`,
+      `AssessmentAnswerUniqueMigration::ensure()`, `add_action('init', RoutingPagesMigration)`
+      + соответствующие `use` (включая неиспользуемый после этого `PageGeneratorService`)
+- [x] `SubjectLandingController::redirectLegacySection()` (редирект `/textbook/` →
+      `/articles/`) — существовал только ради переехавших установок (боевой установки нет,
+      `ArticlesSectionMigration` тоже удалена этим же шагом) — удалён вместе с константой
+      `LEGACY_SECTION` и регистрацией на `template_redirect`
 
 ---
 
@@ -700,24 +708,29 @@ docker exec wp_db mariadb -u root -proot wordpress -e "SHOW TABLES LIKE 'wp_fs_l
 `UserRole::Teacher` (`lms_teacher_free`) уже мёртв. `UserRole::Student` (`lms_student_free`)
 держится на трёх точках, все три уходят вместе с SocialAuth или переписываются.
 
-- [ ] `inc/Enums/Access/UserRole.php` — снять кейсы `Student` и `Teacher`, за ними строки в
+- [x] `inc/Enums/Access/UserRole.php` — сняты кейсы `Student` и `Teacher`, за ними строки в
       `label()`, `baseCapabilities()`, `capabilities()`
-- [ ] Разобрать фолбэки: `primary()` возвращает `self::Student`, когда ни один слаг не совпал →
-      сменить на `?self` с `null` (и поправить вызывающих) либо на `FSStudent`. Выбрать по
-      вызывающим: `primaryForCabinet()`, `primarySlug()`, `UserDTO::fromArray()` (строка 77 —
-      `?? UserRole::Student`)
-- [ ] `frontCabinetRoles()` — убрать `Student`; порядок приоритета в `primary()` — убрать оба
-      хвостовых кейса
-- [ ] `inc/Services/Profile/ProfileViewResolver.php` — строки 84 и 111, `UserRole::Student` из
-      обоих `in_array`
-- [ ] `inc/Managers/Person/RoleManager.php` — в `registerAll()` добавить `remove_role()` для
-      `lms_student_free` и `lms_teacher_free`: на dev-БД роли уже созданы и сами не исчезнут
-- [ ] Поднять `$capsVersion` в `Init.php:245` с `'5.3'` до `'5.4'`, иначе пересинхронизация не
-      запустится
-- [ ] `src/js/profile/app.js` — строка 60 (`lms_student_free: 'Ученик'`) и строка 207
-      (`hideRole`-список)
-- [ ] Тесты: `tests/Unit/Enums/UserRoleTest.php` (строки 29, 33),
-      `tests/Unit/Services/Profile/ProfileViewResolverTest.php` (строка 51)
+- [x] Фолбэки разобраны: `primary()` (и через него `primaryForCabinet()`) теперь возвращает
+      `self::FSStudent`, когда ни один слаг не совпал — не `?self`/`null`, единственный реальный
+      вызывающий (`ProfileViewResolver::context()`) и так уже трактовал «неизвестную роль» как
+      витрину ученика через `FSStudent`/`Student` в одном `in_array`, так что null создал бы
+      лишнюю ветку без выгоды. `UserDTO::fromArray()` (была строка 77 — `?? UserRole::Student`)
+      — на `?? UserRole::FSStudent`. `primarySlug()` фолбэка не имеет (для неизвестной роли
+      отдаёт сырой слаг), не тронут
+- [x] `frontCabinetRoles()` — убран `Student`; порядок приоритета в `primary()` — убраны оба
+      хвостовых кейса (`Teacher`, `Student`)
+- [x] `inc/Services/Profile/ProfileViewResolver.php` — `UserRole::Student` убран из обоих
+      `in_array` (viewFor/jsConfig), докблок класса поправлен под актуальный маппинг
+- [x] `inc/Managers/Person/RoleManager.php` — в `registerAll()` добавлены `remove_role('lms_student_free')`/
+      `remove_role('lms_teacher_free')`: на dev-БД роли уже были созданы и сами не исчезли бы
+- [x] Поднят `$capsVersion` в `Init.php` с `'5.3'` до `'5.4'` — пересинхронизация (и снятие
+      ролей) запустилась на первом же запросе, подтверждено на dev: `wp_user_roles` больше не
+      содержит `lms_student_free`/`lms_teacher_free`
+- [x] `src/js/profile/app.js` — `ROLE_LABELS.lms_student_free` и `lms_student_free` в
+      `hideRole`-списке убраны
+- [x] Тесты: `tests/Unit/Enums/UserRoleTest.php` (фолбэк-тесты переведены на `FSStudent`),
+      `tests/Unit/Services/Profile/ProfileViewResolverTest.php` (снята ассерция на `Student`).
+      Полный набор — 1369 тестов зелёные
 
 ---
 

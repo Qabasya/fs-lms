@@ -10,7 +10,6 @@ use Inc\Enums\Wp\CronHook;
 use Inc\Managers\Wp\CronManager;
 use Inc\Managers\Person\RoleManager;
 use Inc\Migrations\Migration_1_0_0;
-use Inc\Migrations\Migration_1_1_0;
 use Inc\Migrations\MigrationRunner;
 use Inc\Repositories\OptionsRepositories\ConsentDefinitionsRepository;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
@@ -62,7 +61,6 @@ class Activate {
 
 		$migration_runner = new MigrationRunner();
 		$migration_runner->register( new Migration_1_0_0() );
-		$migration_runner->register( new Migration_1_1_0() );
 		$migration_runner->run();
 
 		// Автоматическое создание страниц входа, регистрации и профиля
@@ -98,11 +96,11 @@ class Activate {
 	private static function generatePages(): void {
 		$generator = new PageGeneratorService();
 
-		$generator->createPageIfNeeded( PageRoutes::SignIn, 'Авторизация', ShortCode::LoginForm->tag() );
-		$generator->createPageIfNeeded( PageRoutes::Apply, 'Подать заявку', ShortCode::ApplyForm->tag() );
-		$generator->createPageIfNeeded( PageRoutes::UserProfile, 'Личный кабинет', ShortCode::Profile->tag() );
-		$generator->createPageIfNeeded( PageRoutes::LessonPlayer, 'Урок', '' );
-		$generator->createPageIfNeeded( PageRoutes::CoursePreview, 'Просмотр курса', '' );
+		$generator->ensurePublished( PageRoutes::SignIn, 'Авторизация', ShortCode::LoginForm->tag() );
+		$generator->ensurePublished( PageRoutes::Apply, 'Подать заявку', ShortCode::ApplyForm->tag() );
+		$generator->ensurePublished( PageRoutes::UserProfile, 'Личный кабинет', ShortCode::Profile->tag() );
+		$generator->ensurePublished( PageRoutes::LessonPlayer, 'Урок', '' );
+		$generator->ensurePublished( PageRoutes::CoursePreview, 'Просмотр курса', '' );
 
 		self::createDefaultConsentIfNeeded();
 	}

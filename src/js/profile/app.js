@@ -63,7 +63,6 @@ const ROLE_LABELS = {
     lms_teacher:       'Преподаватель',
     lms_office:        'Администратор',
     lms_student:       'Ученик',
-    lms_student_free:  'Ученик',
     lms_parent:        'Родитель',
 };
 
@@ -219,7 +218,7 @@ function buildSidebar() {
     if (user) {
         const u = cfg.user || { name: '', initials: '' };
         // Роль показываем всем, кроме ученика/родителя (им — только имя).
-        const hideRole = ['lms_student', 'lms_student_free', 'lms_parent'].includes(cfg.role);
+        const hideRole = ['lms_student', 'lms_parent'].includes(cfg.role);
         const roleLabel = hideRole ? '' : (ROLE_LABELS[cfg.role] || 'Пользователь');
         user.innerHTML = `
             <div class="prof-avatar">${esc(u.initials)}</div>

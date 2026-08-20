@@ -25,8 +25,8 @@ class AssessmentAnswerRepository {
 	 * почти одновременно. При проверке существования на стороне PHP оба видели
 	 * пустоту и делали по INSERT — в таблице оказывались две строки на одну пару
 	 * (attempt_id, task_id), а дальше чтение брало произвольную из них: ответ
-	 * «то сохранялся, то нет». Уникальный ключ на пару ставит
-	 * {@see \Inc\Migrations\AssessmentAnswerUniqueMigration}.
+	 * «то сохранялся, то нет». Уникальный ключ `attempt_task (attempt_id, task_id)`
+	 * на таблицу ставит `Migration_1_0_0` (секция `assessment_answers`).
 	 *
 	 * @param int   $attemptId Попытка
 	 * @param int   $taskId    Задание

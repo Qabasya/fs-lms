@@ -25,11 +25,11 @@ class UserRoleTest extends TestCase {
 		self::assertSame( UserRole::FSStudent, UserRole::primaryForCabinet( array( UserRole::FSStudent->value ) ) );
 	}
 
-	public function test_primary_for_cabinet_no_roles_falls_back_to_student(): void {
-		self::assertSame( UserRole::Student, UserRole::primaryForCabinet( array() ) );
+	public function test_primary_for_cabinet_no_roles_falls_back_to_fs_student(): void {
+		self::assertSame( UserRole::FSStudent, UserRole::primaryForCabinet( array() ) );
 	}
 
-	public function test_primary_for_cabinet_unknown_non_admin_role_falls_back_to_student(): void {
-		self::assertSame( UserRole::Student, UserRole::primaryForCabinet( array( 'subscriber' ) ) );
+	public function test_primary_for_cabinet_unknown_non_admin_role_falls_back_to_fs_student(): void {
+		self::assertSame( UserRole::FSStudent, UserRole::primaryForCabinet( array( 'subscriber' ) ) );
 	}
 }

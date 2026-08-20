@@ -48,7 +48,6 @@ class ProfileViewResolverTest extends TestCase {
 	public function test_learner_roles_get_learner_view(): void {
 		self::assertInstanceOf( LearnerProfileView::class, $this->resolver->viewFor( UserRole::FSStudent ) );
 		self::assertInstanceOf( LearnerProfileView::class, $this->resolver->viewFor( UserRole::FSParent ) );
-		self::assertInstanceOf( LearnerProfileView::class, $this->resolver->viewFor( UserRole::Student ) );
 	}
 
 	public function test_back_office_roles_have_no_front_cabinet(): void {

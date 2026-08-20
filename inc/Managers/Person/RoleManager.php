@@ -58,6 +58,13 @@ class RoleManager {
 			add_role( $role->value, $role->label(), $role->baseCapabilities() );
 		}
 
+		// Свободные роли Student/Teacher сняты с плана (Этап 4 подготовки к релизу):
+		// на dev-установках, где они успели создаться, add_role() их больше не
+		// восстановит — снимаем явно, remove_role() безопасно вызывать на
+		// несуществующей роли.
+		remove_role( 'lms_student_free' );
+		remove_role( 'lms_teacher_free' );
+
 		$this->syncCapabilities();
 	}
 

@@ -71,7 +71,7 @@ readonly class UserDTO {
 			id:          (int)    ( $data['id'] ?? 0 ),
 			email:       (string) ( $data['email'] ?? '' ),
 			displayName: (string) ( $data['displayName'] ?? '' ),
-			role:        UserRole::tryFrom( (string) ( $data['role'] ?? '' ) ) ?? UserRole::Student,
+			role:        UserRole::tryFrom( (string) ( $data['role'] ?? '' ) ) ?? UserRole::FSStudent,
 			meta:        (array)  ( $data['meta'] ?? array() ),
 		);
 	}

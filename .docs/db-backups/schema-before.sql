@@ -67,6 +67,8 @@ Create Table: CREATE TABLE `wp_fs_lms_assessment_attempts` (
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `group_lesson_id` int(10) unsigned DEFAULT NULL,
+  `approved_at` datetime DEFAULT NULL,
+  `approved_by_user_id` bigint(20) unsigned DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `attempt` (`assessment_id`,`student_person_id`,`attempt_number`),
   KEY `assessment_id` (`assessment_id`),

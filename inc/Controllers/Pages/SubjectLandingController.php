@@ -34,9 +34,6 @@ class SubjectLandingController extends BaseController implements ServiceInterfac
 	/** Сколько курсов показывает витрина курсов. */
 	private const COURSES_LIMIT = 24;
 
-	/** Прежний слаг раздела статей — с него уводим редиректом. */
-	private const LEGACY_SECTION = 'textbook';
-
 	public function __construct(
 		private readonly SubjectRepository      $subjects,
 		private readonly SubjectPagesRepository $pages,
@@ -58,45 +55,6 @@ class SubjectLandingController extends BaseController implements ServiceInterfac
 		}
 
 		add_filter( 'template_include', array( $this, 'loadSectionTemplate' ) );
-		add_action( 'template_redirect', array( $this, 'redirectLegacySection' ) );
-	}
-
-	/**
-	 * Уводит старые адреса учебника на новые: `/{key}/textbook/…` →
-	 * `/{key}/articles/…`.
-	 *
-	 * Слаг раздела сменился уже после публикации статей, поэтому их прежние
-	 * адреса разошлись по ссылкам и закладкам. Отвечаем 301: адрес сменился
-	 * навсегда, и поисковику незачем держать обе версии.
-	 *
-	 * @return void
-	 */
-	public function redirectLegacySection(): void {
-		if ( ! is_404() ) {
-			return;
-		}
-
-		$path = (string) wp_parse_url( (string) ( $_SERVER['REQUEST_URI'] ?? '' ), PHP_URL_PATH );
-
-		if ( ! preg_match( '#^/([^/]+)/' . self::LEGACY_SECTION . '(/.*)?$#', $path, $matches ) ) {
-			return;
-		}
-
-		// Первый сегмент обязан быть ключом живого предмета: `/blog/textbook/`
-		// к разделам лендинга отношения не имеет.
-		if ( null === $this->subjects->getByKey( $matches[1] ) ) {
-			return;
-		}
-
-		$target = sprintf(
-			'/%s/%s%s',
-			$matches[1],
-			SubjectPageType::Articles->value,
-			$matches[2] ?? '/'
-		);
-
-		wp_safe_redirect( home_url( $target ), 301 );
-		exit;
 	}
 
 	/**
