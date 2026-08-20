@@ -4,7 +4,6 @@ declare( strict_types=1 );
 
 namespace Inc\Controllers\Pages;
 
-use Inc\Contracts\ServiceInterface;
 use Inc\Core\BaseController;
 use Inc\Repositories\OptionsRepositories\BoilerplateRepository;
 use Inc\Repositories\OptionsRepositories\MetaBoxRepository;
@@ -16,9 +15,9 @@ use Inc\Shared\Traits\TemplateRenderer;
  * Class BoilerplatePageController
  *
  * Контроллер отображения страниц управления типовыми условиями (boilerplate).
+ * Резолвится контейнером из AdminCallbacks — не сервис, register() не требуется.
  *
  * @package Inc\Controllers
- * @implements ServiceInterface
  *
  * ### Основные обязанности:
  *
@@ -30,7 +29,7 @@ use Inc\Shared\Traits\TemplateRenderer;
  *
  * Делегирует получение данных репозиториям, а отрисовку — трейту TemplateRenderer.
  */
-class BoilerplatePageController extends BaseController implements ServiceInterface {
+class BoilerplatePageController extends BaseController {
 	use Sanitizer;
 	use TemplateRenderer;
 
@@ -40,10 +39,6 @@ class BoilerplatePageController extends BaseController implements ServiceInterfa
 		private readonly SubjectRepository $subjects,
 	) {
 		parent::__construct();
-	}
-
-	public function register(): void {
-		// Регистрация хуков и фильтров (реализация в будущем)
 	}
 
 	// ============================ ПУБЛИЧНЫЕ МЕТОДЫ ============================ //

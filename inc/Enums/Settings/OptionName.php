@@ -49,17 +49,11 @@ enum OptionName: string {
 	/** Версия набора capabilities — пересинхронизация ролей при изменении. */
 	case CapsVersion = 'fs_lms_caps_version';
 
-	/** Справочник учебных периодов */
-	case Periods = 'fs_lms_periods_list';
-
 	/** Шаблоны email-писем (редактируются в настройках плагина) */
 	case EmailTemplates = 'fs_lms_email_templates';
 
 	/** Определения согласий: [key => ['name' => string, 'page_id' => int]] */
 	case ConsentDefinitions = 'fs_lms_consent_definitions';
-
-	/** Option group */
-	case AuthGroups = 'fs_lms_auth_group';
 
 	/** Конфигурация плагина: DaData-токен, тест-окружение, OTP bypass-код */
 	case PluginConfig = 'fs_lms_plugin_config';

@@ -26,17 +26,11 @@ enum ShortCode: string {
 	/** Шорткод формы авторизации (входа в личный кабинет) */
 	case LoginForm    = 'fs_lms_login_form';
 
-	/** Шорткод формы регистрации нового пользователя */
-	case RegisterForm = 'fs_lms_register_form';
-
 	/** Шорткод личного кабинета пользователя */
 	case Profile      = 'fs_lms_profile';
 
 	/** Шорткод формы подачи заявки на обучение */
 	case ApplyForm    = 'fs_lms_apply_form';
-
-	/** Шорткод списка видимых уроков ученика */
-	case GroupLessons = 'fs_lms_group_lessons';
 
 	/** Шорткод раздела «Тренажёр» лендинга предмета (задания предмета) */
 	case SubjectTrainer = 'fs_lms_subject_trainer';

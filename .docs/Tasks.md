@@ -587,7 +587,7 @@ WordPress и работает; следующий тег (`v1.0.1` и т.д.) в
 миграций — это перенос результата всех этих `ALTER` внутрь `CREATE TABLE`, и сверять его надо
 с фактом, а не с чтением кода.
 
-- [ ] Снять `SHOW CREATE TABLE` со всех `wp_fs_lms_*` в `schema-before.sql`
+- [x] Снять `SHOW CREATE TABLE` со всех `wp_fs_lms_*` в `schema-before.sql`
 
 ```bash
 docker exec wp_db mariadb -u root -proot wordpress -e "SHOW TABLES LIKE 'wp_fs_lms%'"
@@ -736,18 +736,20 @@ docker exec wp_db mariadb -u root -proot wordpress -e "SHOW TABLES LIKE 'wp_fs_l
 
 **Энумы:**
 
-- [ ] `OptionName::Periods` (`fs_lms_periods_list`) — дубль-пустышка; живой ключ —
+- [x] `OptionName::Periods` (`fs_lms_periods_list`) — дубль-пустышка; живой ключ —
       `AcademicPeriods` (`fs_lms_academic_periods`), его читает `AcademicPeriodRepository`
-- [ ] `OptionName::AuthGroups` (`fs_lms_auth_group`)
-- [ ] `EmailTemplateType::PasswordSetup`, `ApplicationConfirmation`, `ApplicationReady`,
+- [x] `OptionName::AuthGroups` (`fs_lms_auth_group`)
+- [x] `EmailTemplateType::PasswordSetup`, `ApplicationConfirmation`, `ApplicationReady`,
       `Rejection` — редактируются во вкладке «Шаблоны писем», но ни одно письмо этих типов не
       отправляется (`EmailService` шлёт только `WelcomeWithCredentials`, `CourseGranted`,
       `OtpCode`). Снять кейсы и строки в `label()`; проверить вкладку настроек и
-      `EmailTemplateSettingsCallbacks`
-- [ ] `ShortCode::RegisterForm` (`fs_lms_register_form`)
-- [ ] `ShortCode::GroupLessons` (`fs_lms_group_lessons`, остаток снятого кокпита группы)
-- [ ] `PageRoutes::ConsentPage` (`'consent'`) — проверить `templates/frontend/consent-page.php`:
-      если страница рендерится по другому маршруту, кейс мёртв
+      `EmailTemplateSettingsCallbacks` — вкладка (`settings-4-email-templates.php`) и так уже
+      хардкодит только `otp_code`/`welcome_with_credentials`, правок не потребовала
+- [x] `ShortCode::RegisterForm` (`fs_lms_register_form`)
+- [x] `ShortCode::GroupLessons` (`fs_lms_group_lessons`, остаток снятого кокпита группы)
+- [x] `PageRoutes::ConsentPage` (`'consent'`) — подтверждено мёртв: `ConsentController` рендерит
+      страницу согласия через свой rewrite-маршрут `/lms/consent/{type}/{version}`, а не через
+      slug `'consent'`
 - [x] `Inc\Enums\Course\LessonKind` — протащен в `GroupLessonDTO` и `GroupLessonInputDTO`
       (было: `public string $kind = 'group'`). 23 файла: сравнения `'individual' === $row->kind`
       заменены на `$row->kind->isIndividual()`, два SQL-литерала в `GroupLessonRepository`
@@ -756,39 +758,47 @@ docker exec wp_db mariadb -u root -proot wordpress -e "SHOW TABLES LIKE 'wp_fs_l
 
 **Классы:**
 
-- [ ] `inc/Cli/TaskBundleMigrationCommand.php` + `inc/Services/Task/TaskBundleMigrationPlanner.php`
-      + `inc/DTO/Task/TaskBundleReferenceChangeDTO.php` (проверить, что DTO больше нигде не нужен)
-- [ ] `inc/Cli/ArticleSlugCommand.php`
-- [ ] Обе команды — из `Init::getServices()` (`Init.php:177` и рядом)
-- [ ] `BoilerplatePageController` — снять `implements ServiceInterface` и пустой `register()`
+- [x] `inc/Cli/TaskBundleMigrationCommand.php` + `inc/Services/Task/TaskBundleMigrationPlanner.php`
+      + `inc/DTO/Task/TaskBundleReferenceChangeDTO.php` — DTO нигде больше не использовался
+      (только `@see`-докблоки в `TaskBundleService`/`AssessmentManager`, зачищены), удалены
+      вместе с `TaskBundleMigrationPlannerTest.php`
+- [x] `inc/Cli/ArticleSlugCommand.php`
+- [x] Обе команды — из `Init::getServices()` (`Init.php:177` и рядом)
+- [x] `BoilerplatePageController` — снят `implements ServiceInterface` и пустой `register()`
       (класс резолвится контейнером из `AdminCallbacks`, сервисом не является)
-- [ ] `BoilerplateController` — снять неиспользуемый `use TemplateRenderer`
+- [x] `BoilerplateController` — снят неиспользуемый `use TemplateRenderer`
 
 **Файлы:**
 
-- [ ] `assets/css/{all,fontawesome,solid}.min.css`, `assets/webfonts/` — FontAwesome грузится
-      с CDN (`BundleLoader.php:75`), локальные копии не используются и не в git
-- [ ] `.docs/db-backups/legacy-tables-pre-migration-reset.sql`
+- [x] `assets/css/{all,fontawesome,solid}.min.css`, `assets/webfonts/` — FontAwesome грузится
+      с CDN (`BundleLoader.php:75`), локальные копии не используются; подтверждено, что они и
+      так не в git (`git ls-files` их не находит — уже фильтруются `.gitignore`), удалять
+      из репозитория нечего
+- [x] `.docs/db-backups/legacy-tables-pre-migration-reset.sql`
 
 ---
 
 ## Этап 6. Хвосты снятых с плана фич
 
-- [ ] `src/js/profile/api.js` (шапка файла) — обещание «перенести кабинет в Telegram Web App
-      или мобильное приложение» и мост `window.FS_LMS_API.request`. **Код оставить** —
-      косвенность транспорта ничего не стоит и это хорошая изоляция; переписать комментарий
+- [x] `src/js/profile/api.js` (шапка файла) — обещание «перенести кабинет в Telegram Web App
+      или мобильное приложение» и мост `window.FS_LMS_API.request`. **Код оставлен** —
+      косвенность транспорта ничего не стоит и это хорошая изоляция; комментарий переписан
       так, чтобы он описывал текущий шов, а не будущую интеграцию
-- [ ] `inc/Services/Profile/NotificationService.php:50` — «шов будущего Telegram-модуля
-      Notifier», комментарий
-- [ ] `inc/DTO/Person/UserDTO.php` — поле `telegramId` и чтение меты `fs_telegram_id`: нигде
-      не заполняется и не читается, снять
-- [ ] `inc/Callbacks/System/AdminCallbacks.php:85` — Dashboard помечен «временная заглушка»,
-      но фактически рендерит `admin/dashboard` с фильтром `fs_lms_dashboard_modules`. Снять
-      формулировку
-- [ ] `inc/Services/Course/ContentUsageService.php:452` — `TODO Этап 2` про кросс-предметный
-      поиск. Решить: доделать или зафиксировать как сознательное ограничение в докблоке
-- [ ] `AdSync`: `AdSyncStatusCallbacks.php:41` и `AdSyncController.php:75` — `TODO(текст)`,
-      недописанные пользовательские сообщения. Дописать
+- [x] `inc/Services/Profile/NotificationService.php:50` — «шов будущего Telegram-модуля
+      Notifier» переформулирован как общая точка расширения (`do_action`), без обещания
+      конкретного будущего модуля
+- [x] `inc/DTO/Person/UserDTO.php` — поле `telegramId` и чтение меты `fs_telegram_id` нигде не
+      заполнялись и не читались за пределами файла, сняты (конструктор, `toArray()`,
+      `fromArray()`, `fromWPUser()`)
+- [x] `inc/Callbacks/System/AdminCallbacks.php:85` — Dashboard помечен «временная заглушка»,
+      но фактически рендерит `admin/dashboard` с фильтром `fs_lms_dashboard_modules`. Снята
+      формулировка
+- [x] `inc/Services/Course/ContentUsageService.php:452` — `TODO Этап 2` про кросс-предметный
+      поиск зафиксирован как сознательное ограничение в докблоке `relationFor()` (задание
+      глобального банка `fs_lms_problems` не привязано к предмету до материализации в
+      `{key}_tasks`), не доделывалось
+- [x] `AdSync`: `AdSyncStatusCallbacks.php:41` и `AdSyncController.php:75` — `TODO(текст)` снят,
+      сообщения уже были дописаны в коде рядом (просто TODO-маркер устарел)
 
 ---
 

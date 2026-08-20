@@ -72,7 +72,6 @@ class AdSyncController {
 			return $response;
 		}
 
-		// TODO(текст): сообщение под «Заявка отправлена», пока создаётся учётка.
 		$response['notice'] = 'Создаём учётную запись в домене…';
 		$response['poll']   = array(
 			'action'   => self::STATUS_ACTION,

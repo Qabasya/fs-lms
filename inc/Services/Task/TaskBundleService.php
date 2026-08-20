@@ -24,8 +24,7 @@ use Inc\Services\Subject\PostTypeResolver;
 class TaskBundleService {
 
 	/**
-	 * Номера задания в связке, порядок фиксирован — используется и планировщиком
-	 * миграции ({@see \Inc\Services\Task\TaskBundleMigrationPlanner}) для
+	 * Номера задания в связке, порядок фиксирован — используется для
 	 * восстановления номера банковских children (нет своей таксономии).
 	 */
 	public const NUMBERS = array( 19, 20, 21 );
