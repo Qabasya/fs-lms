@@ -9,8 +9,10 @@ use Inc\DTO\Course\LessonDTO;
 use Inc\DTO\Enrollment\StudentRecordDTO;
 use Inc\Managers\Course\LessonManager;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
+use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 use Inc\Services\Assessment\AssessmentAccessPolicy;
+use Inc\Services\Course\CoursePreviewAccessGuard;
 use Inc\Services\Course\LessonAccessPolicy;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -26,19 +28,25 @@ class AssessmentAccessPolicyTest extends TestCase {
 	private GroupLessonRepository&MockObject   $groupLessons;
 	private LessonManager&MockObject           $lessons;
 	private LessonAccessPolicy&MockObject      $lessonAccess;
+	private GroupsRepository&MockObject        $groups;
+	private CoursePreviewAccessGuard&MockObject $previewAccess;
 	private AssessmentAccessPolicy             $policy;
 
 	protected function setUp(): void {
 		parent::setUp();
-		$this->records      = $this->createMock( StudentRecordRepository::class );
-		$this->groupLessons = $this->createMock( GroupLessonRepository::class );
-		$this->lessons      = $this->createMock( LessonManager::class );
-		$this->lessonAccess = $this->createMock( LessonAccessPolicy::class );
-		$this->policy       = new AssessmentAccessPolicy(
+		$this->records       = $this->createMock( StudentRecordRepository::class );
+		$this->groupLessons  = $this->createMock( GroupLessonRepository::class );
+		$this->lessons       = $this->createMock( LessonManager::class );
+		$this->lessonAccess  = $this->createMock( LessonAccessPolicy::class );
+		$this->groups        = $this->createMock( GroupsRepository::class );
+		$this->previewAccess = $this->createMock( CoursePreviewAccessGuard::class );
+		$this->policy        = new AssessmentAccessPolicy(
 			$this->records,
 			$this->groupLessons,
 			$this->lessons,
 			$this->lessonAccess,
+			$this->groups,
+			$this->previewAccess,
 		);
 	}
 

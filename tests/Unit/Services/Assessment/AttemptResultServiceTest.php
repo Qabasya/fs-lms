@@ -12,6 +12,7 @@ use Inc\Managers\Wp\PostManager;
 use Inc\Repositories\WPDBRepositories\AssessmentAnswerRepository;
 use Inc\Repositories\WPDBRepositories\AssessmentAttemptRepository;
 use Inc\Services\Assessment\AttemptResultService;
+use Inc\Services\Assessment\AutoGradeService;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -23,6 +24,7 @@ class AttemptResultServiceTest extends TestCase {
 	private AssessmentAnswerRepository&\PHPUnit\Framework\MockObject\MockObject  $answers;
 	private PostManager&\PHPUnit\Framework\MockObject\MockObject                 $posts;
 	private MediaManager&\PHPUnit\Framework\MockObject\MockObject                $media;
+	private AutoGradeService&\PHPUnit\Framework\MockObject\MockObject            $autoGrade;
 	private AttemptResultService $service;
 
 	protected function setUp(): void {
@@ -31,12 +33,14 @@ class AttemptResultServiceTest extends TestCase {
 		$this->attempts = $this->createMock( AssessmentAttemptRepository::class );
 		$this->answers  = $this->createMock( AssessmentAnswerRepository::class );
 		$this->posts    = $this->createMock( PostManager::class );
-		$this->media    = $this->createMock( MediaManager::class );
-		$this->service  = new AttemptResultService(
+		$this->media     = $this->createMock( MediaManager::class );
+		$this->autoGrade = $this->createMock( AutoGradeService::class );
+		$this->service   = new AttemptResultService(
 			$this->attempts,
 			$this->answers,
 			$this->posts,
 			$this->media,
+			$this->autoGrade,
 		);
 	}
 

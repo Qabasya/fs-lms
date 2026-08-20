@@ -6,8 +6,30 @@ namespace Inc\Repositories\WPDBRepositories;
 
 use Inc\DTO\Assessment\AttemptAnswerDTO;
 use Inc\Enums\Settings\TableName;
+use Inc\Shared\PluginLogger;
 
 class AssessmentAnswerRepository {
+
+	/**
+	 * Колонки, которые {@see upsert()} вправе писать (схема — секция 19
+	 * {@see \Inc\Migrations\Migration_1_0_0}; `id` не пишется никогда).
+	 *
+	 * Имена колонок уходят в запрос интерполяцией — `$wpdb->prepare()`
+	 * подставляет только значения. Белый список держит эту интерполяцию
+	 * безопасной независимо от того, откуда вызывающий взял ключи `$data`.
+	 */
+	private const WRITABLE_COLUMNS = array(
+		'attempt_id',
+		'task_id',
+		'answer_text',
+		'is_correct',
+		'score',
+		'max_score',
+		'grader_note',
+		'graded_by_user_id',
+		'graded_at',
+		'criteria_scores',
+	);
 
 	private \wpdb  $wpdb;
 	private string $table;
@@ -33,7 +55,18 @@ class AssessmentAnswerRepository {
 	 * @param array $data      Поля для записи (answer_text, is_correct, score, max_score, …)
 	 */
 	public function upsert( int $attemptId, int $taskId, array $data ): bool {
-		$row = array_merge( [ 'attempt_id' => $attemptId, 'task_id' => $taskId ], $data );
+		// Неизвестная колонка — ошибка вызывающего, а не повод собрать битый
+		// (в пределе — инъектируемый) запрос: отбрасываем её и оставляем след.
+		$allowed = array_intersect_key( $data, array_flip( self::WRITABLE_COLUMNS ) );
+		if ( count( $allowed ) !== count( $data ) ) {
+			PluginLogger::warning(
+				'AssessmentAnswerRepository',
+				'Запись ответа: неизвестные колонки отброшены',
+				array( 'columns' => array_keys( array_diff_key( $data, $allowed ) ) )
+			);
+		}
+
+		$row = array_merge( [ 'attempt_id' => $attemptId, 'task_id' => $taskId ], $allowed );
 
 		$columns      = array();
 		$placeholders = array();
@@ -56,7 +89,7 @@ class AssessmentAnswerRepository {
 		// сделал бы запрос синтаксически неверным — подстраховываемся no-op'ом.
 		$updates = array_map(
 			static fn( string $column ): string => "`$column` = VALUES(`$column`)",
-			array_keys( $data )
+			array_keys( $allowed )
 		);
 		$onDuplicate = $updates ? implode( ', ', $updates ) : '`attempt_id` = VALUES(`attempt_id`)';
 
