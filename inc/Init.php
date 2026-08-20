@@ -54,6 +54,7 @@ use Inc\Controllers\Pages\TaskPageController;
 use Inc\Controllers\Log\LogsController;
 use Inc\Controllers\Settings\ConfigController;
 use Inc\Controllers\Settings\SettingsController;
+use Inc\Services\Update\GithubReleaseUpdater;
 use Inc\Controllers\Subscribers\AuthLogController; // логирует общие WP-события (wp_login, wp_login_failed)
 use Inc\Controllers\Subscribers\EntityAuditSubscriber;
 use Inc\Controllers\Subscribers\PostEntityAuditController;
@@ -168,6 +169,7 @@ final class Init {
 			SubjectBundleCommand::class, // WP-CLI: перенос предмета пакетом (регистрируется только под WP_CLI)
 			ConfigController::class,
 			SettingsController::class,
+			GithubReleaseUpdater::class, // Индикатор «Доступно обновление» из GitHub Releases (Qabasya/fs-lms)
 			LogsController::class,
 			AuthLogController::class,
 			EntityAuditSubscriber::class,

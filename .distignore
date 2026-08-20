@@ -1,0 +1,34 @@
+/src/
+/tests/
+/.docs/
+/.github/
+/.claude/
+/.idea/
+/node_modules/
+/.phpunit.cache/
+/.scss-check/
+/assets/css/maps/
+*.map
+*.LICENSE.txt
+# FontAwesome грузится с CDN (BundleLoader::enqueueFontAwesome) — локальные копии
+# не нужны, если случайно окажутся на диске при сборке.
+/assets/css/all.min.css
+/assets/css/fontawesome.min.css
+/assets/css/solid.min.css
+/assets/webfonts/
+/composer.json
+/composer.lock
+/package.json
+/package-lock.json
+/gulpfile.js
+/eslint.config.cjs
+/.stylelintrc.json
+/phpcs.xml
+/phpunit.xml
+/.gitignore
+/.gitattributes
+/.distignore
+/CLAUDE.md
+/README.md
+/Tasks.md
+inc/Services/Subject/Bundle/CLAUDE.md
