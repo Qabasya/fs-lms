@@ -107,6 +107,10 @@ export const icoJournal = ( s = 19 ) =>
 export const icoDocCheck = ( s = 19 ) =>
 	stroke20( '<path d="M5 3h8l3 3v11H5z" stroke="{c}" stroke-width="1.6" stroke-linejoin="round"/><path d="M7.5 10l2 2 4-4.5" stroke="{c}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>', s );
 
+/* D3 (.docs/Tasks.md): вкладка «Работы» — входящий лоток («на проверку»). */
+export const icoInbox = ( s = 19 ) =>
+	stroke20( '<path d="M3 11.5 5.5 4h9l2.5 7.5v4.5a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z" stroke="{c}" stroke-width="1.6" stroke-linejoin="round"/><path d="M3 11.5h4.5l1 2h3l1-2H17" stroke="{c}" stroke-width="1.6" stroke-linejoin="round"/>', s );
+
 export const icoCalendarBoard = ( s = 19 ) =>
 	stroke20( '<rect x="3" y="4" width="14" height="13" rx="2" stroke="{c}" stroke-width="1.6"/><path d="M3 8h14M7 2.5v3M13 2.5v3" stroke="{c}" stroke-width="1.6" stroke-linecap="round"/>', s );
 

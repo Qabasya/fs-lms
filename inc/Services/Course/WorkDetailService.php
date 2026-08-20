@@ -5,6 +5,7 @@ declare( strict_types=1 );
 namespace Inc\Services\Course;
 
 use Inc\Enums\Subject\TaskTemplate;
+use Inc\Enums\Course\SubmissionStatus;
 use Inc\Enums\Course\WorkSourceType;
 use Inc\Enums\Wp\PostMetaName;
 use Inc\Managers\Assessment\AssessmentManager;
@@ -80,32 +81,68 @@ class WorkDetailService {
 		$work    = $this->works->get( $sub->workId );
 		$perTask = $this->decode( $sub->answerText );
 
-		// Ответы ученика по каждой задаче (per-task строки сдачи).
-		$answerByTask = array();
+		// Per-task строки сдачи (task_id NOT NULL) — источник ответа ученика И, для
+		// ручных заданий, авторитетного вердикта/балла ПОСЛЕ оценки (D4, .docs/Tasks.md):
+		// `SubmissionService::gradeBatchTask()` пишет score/status в саму эту строку,
+		// не трогая JSON-снапшот агрегата ($perTask выше) — он остаётся авто-проверкой
+		// на момент сдачи и достоверен только для авто-проверяемых заданий.
+		$rowsByTask = array();
 		foreach ( $this->submissions->listPerTaskByStudentWorkLesson( $sub->studentPersonId, $sub->groupLessonId, $sub->workId ) as $row ) {
 			if ( null !== $row->taskId ) {
-				$answerByTask[ $row->taskId ] = $row->answerText;
+				$rowsByTask[ $row->taskId ] = $row;
 			}
 		}
 
-		$itemIds = $work?->itemIds ?: array_map( 'intval', array_keys( $perTask ) );
-		$tasks   = array();
-		$n       = 0;
+		$itemIds  = $work?->itemIds ?: array_map( 'intval', array_keys( $perTask ) );
+		$tasks    = array();
+		$n        = 0;
+		$hasGradableTask = false;
 		foreach ( $itemIds as $taskId ) {
-			$taskId = (int) $taskId;
-			$pt     = $perTask[ $taskId ] ?? array();
+			$taskId   = (int) $taskId;
+			$pt       = $perTask[ $taskId ] ?? array();
+			$row      = $rowsByTask[ $taskId ] ?? null;
+			$gradable = $this->isGradable( $taskId );
+			if ( $gradable ) {
+				$hasGradableTask = true;
+			}
+
+			// Ручное задание (file_answer_task) с уже начатой/законченной проверкой —
+			// per-task строка авторитетнее авто-снапшота агрегата (см. докблок выше).
+			if ( $gradable && $row ) {
+				$verdict = SubmissionStatus::PendingReview === $row->status
+					? 'pending'
+					: ( ( $row->score ?? 0.0 ) >= ( $row->maxScore ?? 1.0 ) ? 'correct' : 'incorrect' );
+				$tasks[] = array(
+					'n'                  => ++$n,
+					'condition'          => $this->condition( $taskId ),
+					'answer'             => (string) ( $row->answerText ?? '' ),
+					'correct'            => $this->correctAnswers->resolve( $taskId ),
+					'verdict'            => $verdict,
+					'score'              => $row->score,
+					'max_score'          => $row->maxScore,
+					'feedback'           => $row->feedback,
+					'gradable'           => true,
+					'task_submission_id' => $row->id,
+				);
+				continue;
+			}
+
 			$tasks[] = array(
-				'n'         => ++$n,
-				'condition' => $this->condition( $taskId ),
-				'answer'    => (string) ( $answerByTask[ $taskId ] ?? '' ),
-				'correct'   => $this->correctAnswers->resolve( $taskId ),
-				'verdict'   => (string) ( $pt['verdict'] ?? 'pending' ),
-				'score'     => isset( $pt['score'] ) ? (float) $pt['score'] : null,
-				'max_score' => isset( $pt['maxScore'] ) ? (float) $pt['maxScore'] : null,
+				'n'                  => ++$n,
+				'condition'          => $this->condition( $taskId ),
+				'answer'             => (string) ( $row->answerText ?? '' ),
+				'correct'            => $this->correctAnswers->resolve( $taskId ),
+				'verdict'            => (string) ( $pt['verdict'] ?? 'pending' ),
+				'score'              => isset( $pt['score'] ) ? (float) $pt['score'] : null,
+				'max_score'          => isset( $pt['maxScore'] ) ? (float) $pt['maxScore'] : null,
+				'feedback'           => null,
+				'gradable'           => $gradable,
+				'task_submission_id' => $row?->id,
 			);
 		}
 
-		// Фолбэк: свободный ответ (не разложен по задачам) — единый блок.
+		// Фолбэк: свободный ответ (не разложен по задачам) — единый блок, старая
+		// цельная форма оценивания (см. `gradable` ниже) остаётся для этого случая.
 		if ( empty( $tasks ) && null !== $sub->answerText && '' !== $sub->answerText ) {
 			$tasks[] = array(
 				'n'         => 1,
@@ -115,8 +152,16 @@ class WorkDetailService {
 				'verdict'   => 'pending',
 				'score'     => $sub->score,
 				'max_score' => $sub->maxScore,
+				'feedback'  => null,
+				'gradable'  => false,
+				'task_submission_id' => null,
 			);
 		}
+
+		// Решено (D): submission-работы с разбором по заданиям оцениваются поштучно,
+		// как экзамены — единая форма «Сохранить оценку» под всей сдачей нужна только
+		// фолбэку выше (свободный ответ без разбора на задачи).
+		$wholeSubmissionGradable = ! $hasGradableTask && empty( $work?->itemIds );
 
 		// T13.1: вложение ученика (фото/файл решения) — форма одиночной сдачи уже
 		// принимает файл (SubmissionService::submit → MediaManager::uploadFromRequest),
@@ -135,7 +180,7 @@ class WorkDetailService {
 			'score'           => $sub->score,
 			'max_score'       => $sub->maxScore,
 			'feedback'        => $sub->feedback,
-			'gradable'        => true,
+			'gradable'        => $wholeSubmissionGradable,
 			'submission_id'   => $sub->id,
 			'tasks'           => $tasks,
 			// T12.2 (D13): дедлайн работы (снимок на момент сдачи) + постоянная метка «Просрочено».
@@ -217,6 +262,17 @@ class WorkDetailService {
 	/** Условие задания хранится в мете (`task_condition` и составные шаблоны), не в `post_content`. */
 	private function condition( int $taskId ): string {
 		return $this->taskMeta->getCombinedCondition( $this->posts->taskMeta( $taskId ) );
+	}
+
+	/**
+	 * Задание требует ручной оценки (D4, .docs/Tasks.md) — источник истины
+	 * {@see TaskTemplate::isFileAnswerShape()} (у обоих шаблонов такой формы нет
+	 * автопроверки в {@see \Inc\Services\Task\TaskCheckerRegistry}).
+	 */
+	private function isGradable( int $taskId ): bool {
+		return TaskTemplate::fromDatabase(
+			(string) $this->posts->getMeta( $taskId, PostMetaName::TemplateType->value )
+		)->isFileAnswerShape();
 	}
 
 	/**

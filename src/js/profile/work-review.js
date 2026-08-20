@@ -22,6 +22,7 @@ let wrRoot   = null;
 let onBackCb = () => {};
 let reviewApi = null;
 let attemptGradeApi = null;
+let batchGradeApi = null;
 let returnTo = 'summary';
 let current  = null; // { sourceType, sourceId }
 
@@ -32,6 +33,9 @@ export function renderWorkReview(root, { onBack } = {}) {
     const p = window.fsProfile || {};
     reviewApi       = p.review ? createApi(p.review) : null;
     attemptGradeApi = p.attemptGrade ? createApi(p.attemptGrade) : null;
+    // D4: поштучное оценивание задания «Развёрнутый ответ» внутри submission-работы —
+    // переиспользует Этап-7 эндпоинт GradeBatchTask (пишет per-task строку submissions).
+    batchGradeApi   = p.batchGrade ? createApi(p.batchGrade) : null;
 }
 
 /** Экран, на который вернёт кнопка «‹ Назад» (summary | works) — читает app.js при клике. */
@@ -113,6 +117,7 @@ function render(d) {
 
     if (d.gradable) { wireGrading(wrRoot, d.submission_id); }
     if (d.kind === 'exam' && d.attempt_id && attemptGradeApi) { wireAttemptGrading(wrRoot, d); }
+    if (d.kind === 'work' && batchGradeApi) { wireSubmissionTaskGrading(wrRoot); }
     if (canApprove) { wireApprove(wrRoot, d); }
     wireReset(wrRoot);
 }
@@ -179,6 +184,11 @@ function taskBlock(t, d) {
     const canGrade = d.kind === 'exam' && t.task_id && attemptGradeApi;
     const hasCriteria = canGrade && Array.isArray(t.criteria) && t.criteria.length;
     const hasOgeRubric = canGrade && !hasCriteria && t.oge_rubric;
+    // D4 (.docs/Tasks.md): submission-работы оцениваются поштучно, как экзамены —
+    // только для задач с t.gradable (file_answer_task/alternative_conditions_task,
+    // TaskTemplate::isFileAnswerShape()); авто-проверяемые задачи работы — только
+    // condition/answer/correct, без input'ов (как non-gradable экзаменационные).
+    const canGradeSubmissionTask = d.kind === 'work' && t.gradable && t.task_submission_id && batchGradeApi;
     // Пооответное оценивание экзамена (T11.9). Эпик 13 (D17): если у задачи есть
     // критерии — оценивание покритерийное (сумма сырых баллов, без весов);
     // holistic-рубрика ОГЭ (§3.4, .docs/Tasks.md) — один балл через dropdown с
@@ -190,6 +200,12 @@ function taskBlock(t, d) {
                 <span class="stg-of">/ ${t.max_score != null ? fmtNum(t.max_score) : '1'}</span>
                 <label class="stg-ok"><input type="checkbox" class="stg-ok-cb" ${t.verdict === 'correct' ? 'checked' : ''}>верно</label>
                 <input type="text" class="stg-fb" placeholder="комментарий">
+                <button class="prof-btn prof-btn-sm prof-btn-primary stg-save">Оценить</button>
+            </div>` : canGradeSubmissionTask ? `
+            <div class="sum-task-grade sum-task-grade--batch" data-submission-id="${t.task_submission_id}" data-max="${t.max_score ?? 1}">
+                <input type="number" class="stg-score" step="0.5" min="0" value="${t.score ?? ''}" placeholder="балл">
+                <span class="stg-of">/ ${t.max_score != null ? fmtNum(t.max_score) : '1'}</span>
+                <input type="text" class="stg-fb" placeholder="комментарий" value="${t.feedback ? esc(t.feedback) : ''}">
                 <button class="prof-btn prof-btn-sm prof-btn-primary stg-save">Оценить</button>
             </div>` : '';
     return `
@@ -303,6 +319,29 @@ function wireAttemptGrading(root, d) {
                 toast('Оценка сохранена');
             } catch (e) { toast(e.message, 'error'); }
             btn.disabled = false;
+        });
+    });
+}
+
+/* D4 (.docs/Tasks.md): поштучное оценивание задания «Развёрнутый ответ» внутри
+   submission-работы — GradeBatchTask пишет score/feedback в per-task строку и
+   пересчитывает агрегат (итог работы = сумма по заданиям), полная деталь
+   перезапрашивается через reload() — проще инкрементального обновления шапки
+   и достаточно (список заданий работы короткий). */
+function wireSubmissionTaskGrading(root) {
+    root.querySelectorAll('.sum-task-grade--batch').forEach((box) => {
+        const btn = box.querySelector('.stg-save');
+        btn.addEventListener('click', async () => {
+            const submissionId = +box.dataset.submissionId;
+            const score = box.querySelector('.stg-score').value || '0';
+            const feedback = box.querySelector('.stg-fb').value.trim();
+
+            btn.disabled = true;
+            try {
+                await batchGradeApi('gradeTask', { submission_id: submissionId, score, feedback });
+                toast('Оценка сохранена');
+                reload();
+            } catch (e) { toast(e.message, 'error'); btn.disabled = false; }
         });
     });
 }

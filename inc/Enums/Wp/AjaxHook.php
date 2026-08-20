@@ -259,6 +259,10 @@ enum AjaxHook: string {
 	// ==== Сброс попыток ученика преподавателем (задача 11) ====
 	case ResetAttempts           = 'reset_attempts'; // params: source_type (submission|attempt), source_id — удаляет попытки/сдачи ученика по этой работе/экзамену
 
+	// ==== Вкладка «Работы» (D3, .docs/Tasks.md) ====
+	case GetPendingWorks    = 'get_pending_works';    // params: tab (pending|confirm|done), all_groups? — работы/экзамены на проверку по вкладке
+	case GetWorkSubmissions = 'get_work_submissions'; // params: source_type (work|assessment), source_id, tab, all_groups? — сдачи конкретной работы/экзамена
+
 	// ==== Курс-пикер КТП (ЛК преподавателя, Эпик 11 T11.1) ====
 	case GetSubjectCourses       = 'get_subject_courses'; // params: group_id — курсы предмета группы для назначения
 

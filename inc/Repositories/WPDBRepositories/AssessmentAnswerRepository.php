@@ -108,6 +108,20 @@ class AssessmentAnswerRepository {
 		return array_map( [ AttemptAnswerDTO::class, 'fromArray' ], $rows ?: [] );
 	}
 
+	/**
+	 * Есть ли у попытки хотя бы один ответ, ещё не оценённый (`is_correct IS NULL`) —
+	 * критерий «требует ручной оценки» для вкладки «Работы» (D3, .docs/Tasks.md).
+	 */
+	public function hasPendingAnswers( int $attemptId ): bool {
+		return (int) $this->wpdb->get_var(
+			$this->wpdb->prepare(
+				'SELECT EXISTS(SELECT 1 FROM %i WHERE attempt_id = %d AND is_correct IS NULL)',
+				$this->table,
+				$attemptId
+			)
+		) > 0;
+	}
+
 	public function deleteByAttempt( int $attemptId ): bool {
 		$result = $this->wpdb->delete( $this->table, [ 'attempt_id' => $attemptId ] );
 		return false !== $result;

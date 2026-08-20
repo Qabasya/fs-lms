@@ -1,9 +1,11 @@
 import { esc, shortName, chipBg, closeGradePop, closeCtxMenu, openCtxMenuRaw } from './utils.js';
-import { icoHome, icoUsers, icoJournal, icoDocCheck, icoSwap, icoCalendarBoard, icoBook, icoStar, icoClock, icoCaret, icoGear, icoLogout } from '../common/icons.js';
+import { icoHome, icoUsers, icoJournal, icoDocCheck, icoInbox, icoSwap, icoCalendarBoard, icoBook, icoStar, icoClock, icoCaret, icoGear, icoLogout } from '../common/icons.js';
 import { renderDashboard } from './dashboard.js';
 import { renderJournal, setJournalGroup } from './journal.js';
 import { renderGroups, setGroupsGroup } from './groups.js';
 import { renderSummary } from './summary.js';
+import { renderWorks } from './works.js';
+import { renderWorkReview, openWorkReview, getReturnTo } from './work-review.js';
 import { renderSubstitutions } from './substitutions.js';
 import { renderKTP } from './ktp.js';
 import { renderActivity } from './activity.js';
@@ -15,7 +17,8 @@ const SCREENS = {
     dashboard:            (root) => renderDashboard(root, { openJournalFor, openReview: () => go('summary') }),
     groups:               (root) => renderGroups(root, { openJournal: openJournalFor }),
     journal:              (root) => renderJournal(root),
-    summary:              (root) => renderSummary(root),
+    works:                (root) => renderWorks(root, { openWorkReview: openWorkReviewFrom('works') }),
+    summary:              (root) => renderSummary(root, { openWorkReview: openWorkReviewFrom('summary') }),
     substitutions:        (root) => renderSubstitutions(root),
     ktp:                  (root) => renderKTP(root),
     activity:             (root) => renderActivity(root),
@@ -29,7 +32,9 @@ const TOPBAR = {
     dashboard:            { crumb: 'Личный кабинет',   title: 'Главная' },
     groups:               { crumb: 'Группы',           title: 'Группы' },
     journal:              { crumb: 'Журнал',           title: 'Журнал' },
+    works:                { crumb: 'Работы',           title: 'Работы' },
     summary:              { crumb: 'Успеваемость',      title: 'Сводка по ученику' },
+    'work-review':        { crumb: 'Проверка работ',    title: 'Проверка работы' },
     substitutions:        { crumb: 'Офис',             title: 'Замены' },
     ktp:                  { crumb: 'Планирование',     title: 'КТП и расписание' },
     activity:             { crumb: 'Аналитика',       title: 'Активность' },
@@ -43,6 +48,7 @@ const NAV_ICONS = {
     dashboard:            icoHome(19),
     groups:               icoUsers(19),
     journal:              icoJournal(19),
+    works:                icoInbox(19),
     summary:              icoDocCheck(19),
     substitutions:        icoSwap(19),
     ktp:                  icoCalendarBoard(19),
@@ -95,6 +101,15 @@ function setTopbar(screen, override) {
     const title = document.getElementById('profTbTitle');
     if (crumb) crumb.textContent = t.crumb;
     if (title) title.textContent = t.title;
+}
+
+/* D2/D3: деталь работы открывается программно (не в cfg.screens/сайдбаре) —
+   из Сводки и из «Работ» (D3). `from` — экран, на который вернёт «‹ Назад». */
+function openWorkReviewFrom(from) {
+    return (sourceType, sourceId) => {
+        openWorkReview(sourceType, sourceId, from);
+        go('work-review');
+    };
 }
 
 function openJournalFor(gid) {
@@ -222,8 +237,11 @@ function buildSidebar() {
 function buildStage() {
     const stage = document.getElementById('profStage');
     if (!stage) return;
+    // work-review (D2) — не в cfg.screens (открывается только программно из
+    // Сводки/«Работ»), но секция в DOM нужна всегда, наравне с остальными.
     stage.innerHTML = cfg.screens.map((key, i) =>
-        `<section class="prof-screen ${i === 0 ? 'active' : ''}" data-screen="${esc(key)}"></section>`).join('');
+        `<section class="prof-screen ${i === 0 ? 'active' : ''}" data-screen="${esc(key)}"></section>`).join('')
+        + '<section class="prof-screen" data-screen="work-review"></section>';
 }
 
 function mountScreens() {
@@ -232,6 +250,9 @@ function mountScreens() {
         const render = SCREENS[key];
         if (root && render) render(root);
     });
+
+    const wrRoot = document.querySelector('.prof-screen[data-screen="work-review"]');
+    if (wrRoot) { renderWorkReview(wrRoot, { onBack: () => go(getReturnTo()) }); }
 }
 
 /* ── Меню пользователя (шестерёнка) — dropdown вверх с «Выход» ────────── */

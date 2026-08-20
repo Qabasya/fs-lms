@@ -173,6 +173,31 @@ class AssessmentAttemptRepository {
 	}
 
 	/**
+	 * Попытки НЕСКОЛЬКИХ групп со статусом graded|submitted — для вкладки «Работы»
+	 * (D3, .docs/Tasks.md): один запрос вместо цикла по группам пользователя
+	 * (`listByGroupForGradebook()` — только одна группа).
+	 *
+	 * @param int[] $groupIds
+	 *
+	 * @return AttemptDTO[]
+	 */
+	public function listByGroupsForGradebook( array $groupIds ): array {
+		if ( empty( $groupIds ) ) {
+			return array();
+		}
+		$placeholders = implode( ', ', array_fill( 0, count( $groupIds ), '%d' ) );
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$sql = $this->wpdb->prepare(
+			"SELECT * FROM %i WHERE group_id IN ($placeholders) AND status IN ('graded','submitted') ORDER BY id ASC",
+			array_merge( array( $this->table ), $groupIds )
+		);
+		// phpcs:enable
+		$rows = $this->wpdb->get_results( $sql, ARRAY_A );
+
+		return array_map( array( AttemptDTO::class, 'fromArray' ), $rows ?: array() );
+	}
+
+	/**
 	 * Попытки студента со статусом graded|submitted — для журнала оценок.
 	 *
 	 * @return AttemptDTO[]

@@ -1,0 +1,74 @@
+/* ══════════════════════════════════════════════════════════════════════
+   Деталь работы/экзамена — полноэкранная страница (D2, .docs/Tasks.md).
+   Раньше была модалкой `sum-modal*` (_summary.scss) — контейнер здесь
+   обычный `prof-screen`-контент, без position:fixed/backdrop/shadow-lg.
+   Содержимое (задачи/оценка/вложение) переиспользует `.sum-task*`/`.stg-*`/
+   `.smh-*`/`.smf-*` из _summary.scss как есть — это не модалка-специфика,
+   а сами блоки данных.
+   ══════════════════════════════════════════════════════════════════════ */
+@use '../variables' as *;
+
+.wr-screen {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+.wr-loading {
+  padding: rem(40);
+  text-align: center;
+  color: var(--muted);
+  font-size: rem(14);
+}
+
+.wr-head {
+  flex: none;
+  display: flex;
+  align-items: flex-start;
+  gap: rem(16);
+  padding: rem(22) rem(26) rem(16);
+  border-bottom: 1px solid var(--line);
+}
+
+.wr-back {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: rem(6);
+  height: rem(34);
+  padding: 0 rem(12);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink-2);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color $tr, color $tr;
+}
+.wr-back:hover { border-color: var(--accent); color: var(--accent-700); }
+
+.wr-head-main { flex: 1 1 auto; min-width: 0; }
+
+.wr-body {
+  flex: 1 1 auto;
+  padding: rem(20) rem(26);
+  display: flex;
+  flex-direction: column;
+  gap: rem(12);
+}
+
+.wr-foot {
+  flex: none;
+  border-top: 1px solid var(--line);
+  padding: rem(14) rem(26);
+  display: flex;
+  flex-direction: column;
+  gap: rem(10);
+}
+
+@media (max-width: $breakpoint-mobile) {
+  .wr-head { padding: rem(16) rem(14) rem(12); }
+  .wr-body { padding: rem(14); }
+  .wr-foot { padding: rem(12) rem(14); }
+}

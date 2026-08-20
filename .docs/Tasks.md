@@ -123,46 +123,48 @@
   `ConditionField`, строки 23-59). У обычных шаблонов поле условия —
   `task_condition` с меткой «Условие задания» (`StandardTaskTemplate.php:30`
   и 10 других шаблонов).
-- [ ] Причина — тот же реэнтерабельный `wp_insert_post()` из `TaskBundleService::
+- [x] Причина — тот же реэнтерабельный `wp_insert_post()` из `TaskBundleService::
   upsertChild()`, но в этом CPT он бьёт по другому хуку:
   `SubjectValidationCallbacks::validateRequiredTaxonomies()`
   (`inc/Callbacks/Subject/SubjectValidationCallbacks.php:76-118`), навешанному
   на `wp_insert_post_data` — срабатывает при вставке каждого child в рамках того
   же запроса, где `$_POST` — форма **родителя**.
-- [ ] `effectiveTemplateId()` (строки 261-277) — для нового child `$postId` внутри
+- [x] `effectiveTemplateId()` (строки 261-277) — для нового child `$postId` внутри
   фильтра `wp_insert_post_data` ещё равен `0` (ID не назначен на этой стадии),
   поэтому ветка `$this->templateResolver->resolveId($post)` не срабатывает; при
   этом `sanitizeKey(TemplateType)` тоже пусто (форма — родителя, поля `fs_lms_
   template_type` в ней для этого CPT нет — шаблон предметного parent'а назначается
   термом таксономии, см. `TemplateResolver` приоритет 1) → возвращает `''`.
-- [ ] `TemplateRegistry::get('')` (`inc/Services/Template/TemplateRegistry.php:79-89`)
+- [x] `TemplateRegistry::get('')` (`inc/Services/Template/TemplateRegistry.php:79-89`)
   фолбэчит через `TaskTemplate::fromDatabase('')` (`TaskTemplate.php:100-115`) →
   `Standard`.
-- [ ] `effectiveMeta(0)` (строки 238-248) видит `hasParam('fs_lms_meta') === true`
+- [x] `effectiveMeta(0)` (строки 238-248) видит `hasParam('fs_lms_meta') === true`
   (форма родителя) и отдаёт **родительский** массив меты (ключи `task_19_condition`
   и т.п.), где `task_condition` нет → `TaskPublishValidator::getSoftError()`
   (`inc/Services/Task/TaskPublishValidator.php:48-84`) возвращает «Заполните
   «Условие задания»».
-- [ ] `TaskPublishGuard::enforce()` → `forceDraft()` (`inc/Services/Task/
+- [x] `TaskPublishGuard::enforce()` → `forceDraft()` (`inc/Services/Task/
   TaskPublishGuard.php:107-128`) переводит **child** в `draft` и пишет транзиент
   `fs_lms_publish_error_<uid>`, который `showEmptyRequiredTaxNotice()`
   (`SubjectValidationCallbacks.php:285-295`) выводит на экране parent'а как общую
   ошибку публикации — вводя автора в заблуждение: сам parent публикуется нормально,
   ошибка относится к побочно создаваемым children.
-- [ ] Фикс — тот же, что в A: после перехода `TaskBundleService::upsertChild()` на
+- [x] Фикс — тот же, что в A: после перехода `TaskBundleService::upsertChild()` на
   bypass-вставку (A, пункт «архитектурный фикс») эта проблема исчезает сама, т.к.
   `wp_insert_post_data` для children вызываться не будет. Отдельного фикса в
   `SubjectValidationCallbacks` не требуется — не плодить два параллельных
   обходных пути.
-- [ ] Тест-регресс: после фикса A публикация `triple_task` в `{key}_tasks`
-  переводит все 3 children в `publish`, `TaskPublishGuard` на них не срабатывает.
+- [x] Тест-регресс: покрыто существующими/обновлёнными `TaskBundleServiceTest` —
+  дети создаются через `insertBypassingHooks()`/`updateBypassingHooks()`, минуя
+  `wp_insert_post_data`/`save_post`, поэтому `SubjectValidationCallbacks` и
+  `ProblemsController` больше не видят реэнтерабельный вызов на child'ах.
 
-## C. Автозаполнение слотов 19/20/21 в конструкторе «Компьютерный ЕГЭ»
+## C. Автозаполнение слотов 19/20/21 в конструкторе «Компьютерный ЕГЭ» ✅ 2026-08-20
 
 Сейчас каждый из трёх слотов (19, 20, 21) в конструкторе EgeComputer заполняется
 вручную поиском по названию — даже если все три условия хранятся в одной связке.
 
-- [ ] `src/js/admin/services/assessment-builder.js` — слоты позиционные
+- [x] `src/js/admin/services/assessment-builder.js` — слоты позиционные
   (`buildEgeSlots()`/`blankSlot()`, строки 42-43), AJAX-поиск шлёт `position:
   String(index + 1)` (строки 165-171) → сервер фильтрует кандидатов строго по
   номеру позиции (`LessonAuthoringService::getStepCandidates()`,
@@ -170,7 +172,7 @@
   `bankNumberQuery()` строки 152-185) — т.е. в слоте 19 ищутся именно
   **дети-№19** (термированные отдельно, `TaskBundleService::upsertChild()`
   строки 189-195), а не parent-связка.
-- [ ] Готовый, но не подключённый к EGE-конструктору паттерн: `WorkAuthoringService::
+- [x] Готовый, но не подключённый к EGE-конструктору паттерн: `WorkAuthoringService::
   withBundleChildren()` (`inc/Services/Course/WorkAuthoringService.php:86-93`) и
   `LessonAuthoringService::candidatesFrom()` (`$withBundles`, строки 196-217)
   добавляют кандидату поле `bundle_children` через `TaskBundleService::
@@ -178,24 +180,26 @@
   assignPicked()` (строки 204-237) при наличии `bundle_children` заменяет 1 слот
   на 3 (`splice`). Не подходит впрямую: `splice()` рвёт фиксированную связку
   «индекс слота = номер позиции» для EGE-конструктора (слоты 20+ съедут).
-- [ ] **План**:
-  1. Сервер — в ветке `kind==='task' && position!==''` (`LessonAuthoringService::
-     candidatesFrom()` или соседний метод) для child-поста с метой
-     `PostMetaName::TaskBundleParentId` (`inc/Enums/Wp/PostMetaName.php:59`)
-     резолвить parent → `TaskBundleService::childrenSummary($parentId)` и класть
-     в item `bundle_siblings: {19:{id,title}, 20:{...}, 21:{...}}`. Понадобится
-     обратный маппинг child→parent в `TaskBundleService`/`PostManager` (сейчас
-     `childrenSummary()` работает только parent→children).
-  2. JS — отдельно в `assessment-builder.js` (не трогать общий `slot-builder.js`,
-     чтобы не задеть Work builder), только для `isEge(kind)`: после выбора
-     кандидата с `bundle_siblings` — для номеров 20/21 находить слот по индексу
-     `Number(number) - 1` и присваивать туда сиблинга напрямую (без `splice`),
-     затем один `save()`. Понадобится либо публичный метод `assignTaskAt(index,
-     id, title)` в `api` из `createSlotBuilder`, либо хук `onPickWithSiblings`
-     через `config`.
-  3. Тест-регресс: пикнули задачу №19 из связки в EGE-слот → слоты 20 и 21
-     сами проставились соответствующими детьми той же связки; для не-связочных
-     задач поведение не меняется.
+- [x] **План** — реализован:
+  1. Сервер: `TaskBundleService::siblingsOf(int $childId)` — обратный маппинг
+     child→{номер => {id,title}} по всей связке (через `TaskBundleParentId` →
+     `childrenSummary()` родителя). `LessonAuthoringService::candidatesFrom()`
+     принимает `$position` и для child'а без `bundle_children` (не parent),
+     но при непустом `$position`, кладёт `item['bundle_siblings']` из
+     `siblingsOf()`. Прокинуто через `getStepCandidates()`/оба места вызова
+     `candidatesFrom()`.
+  2. JS: `slot-builder.js` — новый метод `api.assignManyAt(pairs)` (прямое
+     присвоение нескольких `{index,taskId,title}` без `splice`, один `save()`)
+     и хук `config.onPick(index,id,title,item)` в `renderActions()` (перехват
+     пика до дефолтного `assignPicked()`, возврат `true` — обработано).
+     `assessment-builder.js` — `onPick`: для `isEge(kind)` и `item.bundle_siblings`
+     раскладывает пары `{index: Number(number)-1, taskId, title}` через
+     `assignManyAt()`, иначе `false` (дефолтное поведение). `slot-builder.js`
+     остался общим для Work builder — не тронут кроме добавления hook-точки.
+  3. Тест-регресс: `LessonAuthoringServiceTest::
+     test_step_candidates_task_with_position_exposes_bundle_siblings`,
+     `TaskBundleServiceTest::test_siblings_of_returns_full_bundle_by_number` /
+     `test_siblings_of_empty_for_plain_task`.
 
 ---
 
@@ -327,123 +331,137 @@
   `condition` берётся из меты, `PostManager::get()` (post_content) не вызывается.
   Полный набор — 1338 тестов зелёные.
 
-### D2. Деталь работы — экран SPA вместо модалки
+### D2. Деталь работы — экран SPA вместо модалки ✅ 2026-08-20
 
-- [ ] Убрать `sum-modal` (`renderDetailModal`/`closeDetailModal`/`onDetailEsc` и все
-  `wire*`-обработчики оценивания) из `src/js/profile/summary.js`, вынести их в новый
-  модуль `src/js/profile/work-review.js` (object-pattern, admin-конвенции JS не
-  действуют — это `profile/`, здесь чистые функции) как полноценный экран, а не
-  контент модалки: `renderWorkReview(root, { sourceType, sourceId, onBack })`.
-  Логика оценивания (`wireGrading`, `wireAttemptGrading`, criteria/oge-rubric блоки,
-  `wireApprove`, `wireReset`) переносится как есть — меняется только контейнер
-  (страница вместо `<div class="sum-modal">`) и способ закрытия (кнопка «‹ Назад»
-  вместо крестика/Escape/backdrop).
-- [ ] `src/js/profile/app.js` — новый экран в `SCREENS`, не входящий в `cfg.screens` по
-  умолчанию (открывается только программно, как временный «под-экран», по аналогии
-  с тем, как `dashboard`→`openReview` делает `go('summary')`): нужен статful переход
-  `go('work-review', {sourceType, sourceId})` — либо простая мутация module-level
-  `state.current` в `work-review.js` перед `go()`, либо расширить `go()` параметром
-  контекста. Кнопка «‹ Назад» возвращает на экран, с которого открыли (Сводка или
-  «Работы», см. D3) — хранить `returnTo` в состоянии перехода.
-- [ ] `src/js/profile/summary.js` — клик по бейджу работы (`openWorkDetail`) теперь не
-  грузит деталь и не рисует модалку сам, а вызывает переход на `work-review` с
-  `returnTo: 'summary'`; данные (`reviewApi.getDetail`) грузит сам `work-review.js`.
-- [ ] SCSS: `sum-modal*` классы (`src/scss/profile/_summary.scss` или где они объявлены)
-  либо переиспользовать под страничную обёртку (без `position:fixed`/backdrop/
-  `box-shadow` поверх контента — обычный `prof-screen`), либо завести
-  `src/scss/profile/_work-review.scss` с `.wr-*` классами на токенах
-  `_variables.scss` — визуально то же (шапка/панель заданий/подтабы ответ-эталон/
-  вердикт), но как контент экрана, не оверлей.
-- [ ] Deep-link со страницы работы/журнала (если такой есть, проверить) и hash-навигация
-  уровня прежней очереди `05-review.html#sub=N` — не переносить: текущий вход уже
-  идёт из Сводки/«Работы» кликом, отдельный URL-параметр не нужен.
+- [x] `sum-modal`-логика (`renderDetailModal`/`closeDetailModal`/`onDetailEsc` и все
+  `wire*`-обработчики оценивания) убрана из `src/js/profile/summary.js`, живёт в
+  `src/js/profile/work-review.js` (pure-function паттерн `profile/`, не admin object
+  pattern) как полноценный экран: `renderWorkReview(root, {onBack})` (монтаж один раз)
+  + `openWorkReview(sourceType, sourceId, from)` (загрузка/рендер по клику). Логика
+  оценивания (`wireGrading`, `wireAttemptGrading`, criteria/oge-rubric блоки,
+  `wireApprove`, `wireReset`) перенесена как есть — контейнер `.wr-screen` вместо
+  `<div class="sum-modal">`, закрытие — кнопка «‹ Назад» (`.wr-back`) вместо
+  крестика/Escape/backdrop.
+- [x] `src/js/profile/app.js` — секция `work-review` добавлена в `buildStage()` ВНЕ
+  `cfg.screens` (всегда в DOM, не в сайдбаре/дефолтном экране), смонтирована один раз
+  в `mountScreens()` через `renderWorkReview(root, {onBack: () => go(getReturnTo())})`.
+  Переход — `openWorkReviewFrom(from)` (замыкание, возвращает функцию `(sourceType,
+  sourceId) => { openWorkReview(...); go('work-review'); }`), контекст (`returnTo`)
+  хранится в module-level состоянии `work-review.js` (`getReturnTo()`), не в `go()`.
+- [x] `src/js/profile/summary.js` — клик по бейджу работы больше не грузит деталь и не
+  рисует модалку сам, вызывает `openWorkReviewCb` (проброшен через `renderSummary(root,
+  {openWorkReview})`), который в `app.js` = `openWorkReviewFrom('summary')`.
+- [x] SCSS: контейнерные классы модалки (`.sum-modal`, `.sum-modal-backdrop`,
+  `.sum-modal-box`, `.sum-modal-head`, `.sum-modal-x`, `.sum-modal-body`,
+  `.sum-modal-foot` + narrow-breakpoint блок) удалены из `_summary.scss`; новый
+  `src/scss/profile/components/_work-review.scss` с `.wr-*` (шапка/тело/футер —
+  обычный `prof-screen`-контент, без `position:fixed`/backdrop/`shadow-lg`). Блоки
+  данных (`.sum-task*`, `.stg-*`, `.smh-*`, `.smf-*`, `.sum-attachment*`, `.sum-fb`,
+  `.own-*`) остались в `_summary.scss` как есть — переиспользуются `work-review.js`
+  напрямую. Осиротевший `$z-modal` (profile `_variables.scss`) удалён.
+- [x] Deep-link/hash-навигация — подтверждено отсутствие: вход только кликом из Сводки
+  (и «Работ», D3), отдельный URL-параметр не заводился.
 
-### D3. Вкладка «Работы» — список работ на проверку, без обхода по ученикам
+### D3. Вкладка «Работы» — список работ на проверку, без обхода по ученикам ✅ 2026-08-20
 
 Решено (см. «Решения (D)» ниже): три вкладки как в референсе (На проверке / Ждут
 подтверждения / Проверенные) + фильтры группа/тип работы/сортировка; ЕГЭ-компьютерный
 (и любой другой kind, закрытый через «Утвердить работу», D18) попадает в «Ждут
 подтверждения» — именно отсюда, а не из Сводки, теперь и утверждается.
 
-- [ ] `inc/Services/Profile/TeacherProfileView.php` — новый пункт `nav`/`screens`:
-  `array( 'key' => 'works', 'label' => 'Работы' )` (препод + офис, сразу после
-  «Журнал» — до «Сводки», это теперь основной вход в проверку). Новый блок конфига
-  `works` с нонсом `Nonce::GradeWork` и экшенами `getPendingWorks`/`getWorkSubmissions`
-  (плюс переиспользуемые `reviewApi`/`attemptGrade` блоки для перехода в D2, включая
-  `approveAttempt` — «Утвердить работу» теперь доступна и с этого экрана).
-- [ ] Новый сервис `inc/Services/Course/ReviewQueueService.php` (или расширить существующий
-  домен, если найдётся более подходящий) — `pendingWorks(int $userId, bool $allGroups, string $tab): array`:
-  агрегирует **и** обычные работы (`submissions`, сгруппированные по `work_id`), **и**
-  экзамены (`assessment_attempts`, сгруппированные по `assessment_id`) по группам
-  пользователя (переиспользовать `GroupAccessGuard`/набор групп, как в
-  `DashboardService::collectGroups()`). Три корзины по `$tab`:
-  - `pending` — есть хотя бы одна сдача/попытка со статусом, требующим ручной оценки
-  (`submitted`, либо экзамен с неоценённым `file_answer_task`-заданием);
-  - `confirm` — попытки, для которых `AttemptRevealPolicy`/`needsSecondaryScore` уже
-  выставили итог автоматически, но `approved_at` ещё `null` (ЕГЭ-компьютерный и
-  подобные kind — сюда, не в «pending»);
-  - `done` — `graded`/утверждённые.
-  Поля элемента: `source_type`, `source_id`, `title`, `label` (тип работы/«Экзамен»),
-  `count` (сколько сдач в корзине), `group_ids`. Пустой список для активной вкладки →
-  фронт покажет «Работ на проверку нет».
-- [ ] Там же — `submissionsFor(string $sourceType, int $sourceId, int $userId, bool $allGroups, string $tab): array`:
-  список сдач по конкретной работе/экзамену в разрезе той же вкладки — ученик, группа,
-  дата сдачи, `source_type`/`source_id` **сдачи** (для перехода на D2: у работы с
-  несколькими учениками у каждого свой `submission_id`/`attempt_id`).
-- [ ] `inc/Repositories/WPDBRepositories/SubmissionRepository.php` — новый метод группировки
-  по `work_id` через все группы пользователя (сейчас `listQueueByGroup()` — только одна
-  группа; нужен вариант с `group_id IN (...)` и `GROUP BY work_id`).
-- [ ] `inc/Repositories/WPDBRepositories/AssessmentAttemptRepository.php` — симметричный
-  метод группировки по `assessment_id` через список групп (сейчас есть только
-  `listByGroupForGradebook()` для одной группы); плюс выборка «есть попытки с
-  `approved_at IS NULL`, но статус уже финальный» для корзины `confirm`.
-- [ ] Новые AJAX-хуки в `Inc\Enums\Wp\AjaxHook`: `GetPendingWorks`, `GetWorkSubmissions`;
-  обработчики — в `GradingCallbacks` (или новый `ReviewQueueCallbacks`, если
-  `GradingCallbacks` разрастётся) через `$this->authorize( Nonce::GradeWork, Capability::ManageLmsTeaching )`.
-- [ ] `src/js/profile/works.js` (новый, чистые функции, как остальные экраны `profile/`) —
-  `renderWorks(root)`: вкладки «На проверке / Ждут подтверждения / Проверенные»
-  (счётчик на каждой, как `tabs .b` в референсе) + фильтры группа/тип работы/сортировка
-  над списком (переиспользовать `groupPickerBtnHtml`/`openGroupPicker` из `picker.js`
-  для фильтра группы). Шаг 1 — пикер работы в активной вкладке, либо пустое состояние
-  «Работ на проверку нет» (`emptyState()` из `utils.js`); шаг 2 — после выбора работы,
-  таблица учеников: **группа**, **дата сдачи**, кнопка/строка-клик «Открыть» →
-  `go('work-review', { sourceType, sourceId, returnTo: 'works' })` (см. D2). На вкладке
-  «Ждут подтверждения» строка ведёт на тот же `work-review` — кнопка «Утвердить работу»
-  там уже есть (переносится из модалки как есть, D2).
-- [ ] SCSS: вкладки/фильтры/таблица списка учеников — переиспользовать существующий
-  табличный паттерн профиля (`journal`/`groups` roster-таблицы) и паттерн вкладок
-  (`.tabs`/`.b` из референса адаптировать в `prof-` BEM на токенах `_variables.scss`,
-  как уже сделано в других экранах); без raw-значений.
-- [ ] Тесты: `ReviewQueueServiceTest` (агрегация по группам пользователя и по вкладке,
-  пустой список, попадание ЕГЭ-компьютерного attempt'а именно в `confirm`), юниты на
-  новые методы `SubmissionRepository`/`AssessmentAttemptRepository`, AJAX-тесты на
-  новые колбэки (авторизация, доступ только к своим/office-всем группам).
+- [x] `inc/Services/Profile/TeacherProfileView.php` — `nav`/`screens` дополнены
+  `array('key'=>'works','label'=>'Работы')` (сразу после «Журнала» — до «Сводки»).
+  Новый блок конфига `works` с нонсом `Nonce::GradeWork` и экшенами
+  `getPendingWorks`/`getWorkSubmissions`; блоки `review`/`attemptGrade` (переход в
+  D2, включая `approveAttempt`) уже существовали — переиспользуются как есть.
+- [x] Новый сервис `inc/Services/Course/ReviewQueueService.php` —
+  `pendingWorks(int $userId, bool $allGroups, string $tab): array`: агрегирует
+  submissions (по `work_id`) и assessment_attempts (по `assessment_id`) по группам
+  пользователя (`groupIdsFor()` — тот же принцип, что `DashboardService::
+  collectGroups()`, включая активные замены). Три корзины: `pending` —
+  `hasPendingAnswers()` (есть неоценённое задание, независимо от вида); `confirm` —
+  полностью оценено, но `AssessmentKind::EgeComputer` без `approved_at` (единственный
+  вид с явной кнопкой «Утвердить работу», D18 — ОГЭ подтверждается автоматически при
+  оценке последнего задания, минует confirm); `done` — остальное. Элемент несёт
+  `source_type`/`source_id`/`title`/`label`/`count`/`group_ids`, плюс `latest_at`
+  (MAX(submitted_at) корзины — для клиентской сортировки).
+- [x] Там же — `submissionsFor(string $sourceType, int $sourceId, int $userId, bool $allGroups, string $tab): array`
+  — список сдач конкретной работы/экзамена (ученик, группа, дата сдачи,
+  `source_type`/`source_id` самой сдачи — `submission`/`attempt`).
+- [x] `SubmissionRepository::summaryByGroups()`/`listByWorkAndGroups()` —
+  `group_id IN (...)` + `GROUP BY work_id` (агрегатные строки, `task_id IS NULL`).
+- [x] `AssessmentAttemptRepository::listByGroupsForGradebook()` — симметричный метод
+  по списку групп; `AssessmentAnswerRepository::hasPendingAnswers()` — есть ли у
+  попытки неоценённый ответ (`is_correct IS NULL`), критерий корзины `pending`.
+- [x] Новые AJAX-хуки `AjaxHook::GetPendingWorks`/`GetWorkSubmissions`; обработчики —
+  новый `inc/Callbacks/Course/ReviewQueueCallbacks.php` (не разрастили
+  `GradingCallbacks`), `$this->authorize(Nonce::GradeWork, Capability::ManageLmsTeaching)`,
+  зарегистрированы в `SubmissionController`.
+- [x] `src/js/profile/works.js` (новый, pure-function паттерн `profile/`) —
+  `renderWorks(root, {openWorkReview})`: вкладки с бейджем-счётчиком (сумма `count`
+  корзины, все три вкладки грузятся параллельно при монтаже), фильтры группа
+  (`groupPickerBtnHtml`/`openGroupPicker`, сентинел «Все группы»)/тип работы/
+  сортировка новизны (по `latest_at`). Шаг 1 — список работ/экзаменов вкладки либо
+  `emptyState()` «Работ на проверку нет»; шаг 2 — сдачи выбранной работы (ученик,
+  группа, дата), клик по строке → `openWorkReview` (D2), `returnTo: 'works'`.
+- [x] SCSS: `src/scss/profile/components/_works.scss` — `.wk-*` (вкладки/бейджи/
+  фильтры/список/шаг 2) на токенах `_variables.scss`, паттерн строки зеркалит
+  `.pr-row` (`_roster.scss`); подключён в `profile.scss`.
+- [x] Тесты: `ReviewQueueServiceTest` (10 тестов — набор групп teacher/office,
+  агрегация submissions через группы, confirm никогда не трогает submissions,
+  pending по `hasPendingAnswers()` независимо от вида, EgeComputer → confirm без
+  approved_at / → done после approve, OgeComputer минует confirm, `submissionsFor`
+  резолвит имя/группу), юниты на `SubmissionRepository::summaryByGroups/
+  listByWorkAndGroups`, `AssessmentAttemptRepository::listByGroupsForGradebook`,
+  `AssessmentAnswerRepository::hasPendingAnswers`, `ReviewQueueCallbacksTest` (валидация
+  вкладки/source_type, проброс office-флага из `Capability::ManageLmsPlatform`).
+  Полный набор — 1373 теста зелёные (не считая одного pre-existing сбоя
+  `MediaManagerTest` из-за отсутствующего расширения `fileinfo` в dev-окружении,
+  к задаче не относится).
 
-### D4. Автопроверяемые vs ручные задания в детали работы
+### D4. Автопроверяемые vs ручные задания в детали работы ✅ 2026-08-20
 
 Решено (см. «Решения (D)» ниже): submission-работы оцениваются поштучно, как экзамены.
 
-- [ ] Новый AJAX `GradeSubmissionTask` (аналог `GradeAttempt`, но пишет в per-task строку
-  `submissions` вместо `assessment_attempts`/`assessment_answers`) — обработчик рядом с
-  `GradingCallbacks::ajaxSaveGrade()`/`ajaxReturnSubmission()`, тот же нонс `GradeWork`,
-  та же проверка `GroupAccessGuard::canWriteJournal()`. Итоговый балл работы — сумма по
-  заданиям (аналог `tSum()` в референсе), как сейчас пишется в `submissions.score` при
-  «Сохранить оценку».
-- [ ] `WorkDetailService::fromSubmission()` — `tasks[]` уже даёт `verdict`/`score` по
-  заданию (см. текущий код); дополнительно нужно поле, различающее авто/ручное задание
-  для фронта (`gradable: bool` на уровне задачи), источник истины —
-  `TaskTemplate::isFileAnswerShape()` через `TaskCheckerRegistry` (единственный ручной
-  шаблон сейчас — `file_answer_task`).
-- [ ] `src/js/profile/work-review.js` (после переноса из `summary.js`, см. D2) —
-  `taskBlock()`: контролы оценивания рисуются только для `t.gradable === true`
-  (`file_answer_task`), для остальных — только `condition`/`answer`/`correct`, без
-  input'ов; общая логика (`criteriaGradeBlock`, простой балл) переиспользуется у
-  `kind: 'work'` так же, как сейчас у `kind: 'exam'` (`wireAttemptGrading` обобщается
-  на оба источника, дергая либо `GradeAttempt`, либо новый `GradeSubmissionTask` по
-  `d.kind`).
-- [ ] Тесты: `GradingCallbacksTest`/аналог на `GradeSubmissionTask` (сумма по заданиям,
-  доступ через `canWriteJournal`), `WorkDetailServiceTest` — `tasks[].gradable`
-  корректно для `file_answer_task` vs остальных шаблонов.
+- [x] **Переиспользован уже существующий эндпоинт вместо нового**: `AjaxHook::GradeBatchTask`/
+  `BatchSubmissionCallbacks::ajaxGradeBatchTask()`/`SubmissionService::gradeBatchTask()`
+  (Этап 7) уже делали ровно то, что просил `GradeSubmissionTask` — пишут в per-task
+  строку `submissions` (не в аггрегат) и пересчитывают итог работы суммой по заданиям
+  (`recalculateAggregate()`); просто были заведены, но нигде не подключены к UI.
+  Заводить второй параллельный эндпоинт с тем же поведением значило бы «плодить два
+  обходных пути» (тот же принцип уже применён в задаче A/B этого файла). Единственный
+  реальный пробел — `ajaxGradeBatchTask()` не проверял доступ к группе сдачи вообще
+  (только `Capability::ManageLmsTeaching`, без `GroupAccessGuard::canWriteJournal()`);
+  добавлена точно такая же проверка, что у `ajaxSaveGrade()` (find сдачи → resolve
+  group_lesson → `canWriteJournal`). Нонс — `Nonce::GradeBatch` (уже существовал),
+  выведен в профиль новым конфиг-блоком `batchGrade` (`TeacherProfileView`).
+- [x] `WorkDetailService::fromSubmission()` — per-task `gradable: bool` через
+  `TaskTemplate::isFileAnswerShape()` (у `TaskCheckerRegistry` таких шаблонов ДВА —
+  `file_answer_task` и `alternative_conditions_task`, докблок реестра расходится с
+  формулировкой задачи, код — источник истины). Для gradable-задачи с уже начатой/
+  законченной ручной проверкой per-task строка (`listPerTaskByStudentWorkLesson`)
+  теперь АВТОРИТЕТНЕЕ JSON-снапшота агрегата (`gradeBatchTask()` пишет score/status
+  именно в неё, снапшот остаётся исходной авто-проверкой и не обновляется) — добавлены
+  поля `task_submission_id`/`feedback` на задачу. Итоговое `gradable` ЦЕЛОЙ сдачи
+  (старая единая форма «Сохранить оценку») теперь `true` только для легаси-фолбэка
+  (свободный ответ без разбора на задачи, `work.itemIds` пуст) — для сдач с разбором по
+  заданиям единая форма больше не показывается, оценка только поштучно.
+- [x] `src/js/profile/work-review.js` — `taskBlock()`: новая ветка
+  `canGradeSubmissionTask` (`d.kind==='work' && t.gradable && t.task_submission_id`)
+  рисует простой контрол балл+комментарий+«Оценить» (`sum-task-grade--batch`, без
+  чекбокса «верно» — `gradeBatchTask()` не принимает `is_correct`, вердикт выводится
+  сервером из `score >= max_score` при следующей загрузке); негейдable-задачи работы —
+  только condition/answer/correct, как у неоцениваемых задач экзамена. Новый
+  `wireSubmissionTaskGrading()` шлёт `batchGradeApi('gradeTask', ...)`, затем
+  `reload()` (полная перезагрузка детали — проще инкрементального пересчёта шапки,
+  список задач короткий).
+- [x] Тесты: `BatchSubmissionCallbacksTest` — 3 новых теста на `ajaxGradeBatchTask`
+  (сдача не найдена, доступ запрещён без `canWriteJournal`, грейдинг при доступе);
+  `WorkDetailServiceTest` — 5 новых тестов (`gradable`/`task_submission_id` для
+  ручного задания, per-task строка авторитетнее агрегата после оценки, `gradable:
+  false` для авто-проверяемых, единая форма отключена при разборе по заданиям,
+  единая форма жива для легаси-фолбэка). Полный набор — 1381 тест зелёный (не считая
+  того же pre-existing сбоя `MediaManagerTest`).
 
 ---
 
@@ -471,7 +489,7 @@
 
 ---
 
-# Задача: тип экзамена — отдельный метабокс (2026-08-20)
+# Задача: тип экзамена — отдельный метабокс (2026-08-20) ✅
 
 Контекст: сейчас метабокс «Настройки контрольной» (`AssessmentMetaBoxController::renderSettingsContent()`,
 `AssessmentTemplate`) — один контейнер на все поля сразу: `kind` (тип экзамена), `time_limit_minutes`,
@@ -485,42 +503,33 @@
 этом конфликтует с «показывать контейнер только для Control» — его нужно вынести в третий, отдельный
 метабокс с противоположной видимостью, иначе для ЕГЭ/ОГЭ таблица перевода останется без контейнера.
 
-- [ ] `inc/MetaBoxes/Templates/AssessmentTemplate.php` — источник истины состава полей не менять
-  (`kind`, `time_limit_minutes`, `max_attempts`, `pass_score`, `score_map`, `intro_html` остаются
-  здесь одним списком — на нём держится `handleAssessmentSave()::saveFieldsMerge()` и JS-схема
-  редактора); рендер по трём разным метабоксам — на уровне контроллера, не шаблона.
-- [ ] `inc/Controllers/Assessment/AssessmentMetaBoxController.php::handleAddMetaBoxes()` — вместо
-  одного `fs_lms_assessment_settings` зарегистрировать три:
-  1. `fs_lms_assessment_kind` («Тип экзамена») — только поле `kind`, всегда видим, приоритет `high`,
-     рендерится ДО двух остальных (они зависят от его значения).
+- [x] `inc/MetaBoxes/Templates/AssessmentTemplate.php` — источник истины состава полей не тронут;
+  добавлен `BaseTemplate::renderFields($post, $values, $fieldIds)` — рендер подмножества полей
+  без общей обёртки, для использования из нескольких метабоксов над одним шаблоном.
+- [x] `inc/Controllers/Assessment/AssessmentMetaBoxController.php::handleAddMetaBoxes()` — вместо
+  одного `fs_lms_assessment_settings` регистрируются три (в порядке `high`/очередь регистрации):
+  1. `fs_lms_assessment_kind` («Тип экзамена») — только поле `kind`, всегда видим, держатель
+     единственного `wp_nonce_field()` формы.
   2. `fs_lms_assessment_settings` («Настройки контрольной») — `time_limit_minutes`, `max_attempts`,
-     `pass_score`, `intro_html`; видим только для `AssessmentKind::Control` (`! kind->isStation()`).
-  3. `fs_lms_assessment_score_map` («Таблица перевода баллов») — только `score_map`; видим только для
-     станций (`kind->isStation()` / `needsSecondaryScore()` — тот же predicate, что уже в Block C).
-- [ ] Три новых/переименованных render-метода контроллера рендерят каждый свой подмножество полей
-  (`AssessmentTemplate::get_fields()['kind']`/… по отдельности через `fields-wrapper` — обёртка уже
-  принимает произвольный `template`/`values`, дублировать `BaseTemplate::render()` не нужно: либо
-  завести тонкий рендер-хелпер над подмножеством полей, либо три тонких шаблон-класса-обёртки над
-  тем же `$fields`, отдающих нужное подмножество из `get_fields()` — без копипасты сигнатур полей).
-- [ ] `src/js/admin/services/assessment-builder.js::toggleKindFields()` — переписать под три
-  контейнера вместо трёх спрятанных строк:
-  - постбокс `#fs_lms_assessment_settings` целиком скрывается/показывается по `! isEge(kind)`
-    (`isEge` здесь = `isStation()`, как и раньше — переименование не требуется);
-  - постбокс `#fs_lms_assessment_score_map` — по `isEge(kind)` (то же условие, что раньше было у
-    `score_map`-строки, Block C);
-  - `STATION_ONLY_HIDDEN_FIELD_IDS`/поштучный обход `.fs-field, .fs-lms-field-group` для этих полей
-    убрать — они больше не соседи `kind` в одном контейнере, скрывается сразу весь `<div class="postbox">`
-    (WP-обёртка метабокса, id = `id` метабокса) через `hidden`, не `style`;
-  - постбокс `#fs_lms_assessment_kind` (с `kindSelect`) остаётся видимым всегда — не трогать.
-- [ ] `handleAssessmentSave()` — сохранение не меняется (уже стрипает станционные поля/`score_map`
-  по `AssessmentKind`, независимо от того, в каком контейнере они отрисованы).
-- [ ] Порядок постбоксов на экране: «Тип экзамена» — первым (`priority: 'high'`), «Настройки
-  контрольной» и «Таблица перевода баллов» — следующими; «Конструктор контрольной»
-  (`fs_lms_assessment_builder`) — как сейчас, ниже.
-- [ ] Тесты: `AssessmentMetaBoxControllerTest`/`AssessmentStationFieldsGateTest` — проверить, что
-  `renderSettingsContent`-эквивалент для новых трёх колбэков рендерит правильное подмножество полей
-  (`kind` только в своём метабоксе, `score_map` только в своём, остальные три — в «Настройках»);
-  сохранение (`handleAssessmentSave`) — без изменений, старые тесты не должны сломаться.
+     `pass_score`, `intro_html`.
+  3. `fs_lms_assessment_score_map` («Таблица перевода баллов») — только `score_map`.
+- [x] Три render-метода контроллера (`renderKindContent`/`renderSettingsContent`/
+  `renderScoreMapContent`) — новый шаблон `templates/admin/metaboxes/fields-subset.php` (обёртка
+  `wrapper_class` + `field_ids`), рендерящий `BaseTemplate::renderFields()`; состав полей —
+  константа `SETTINGS_FIELD_IDS` в контроллере.
+- [x] `src/js/admin/services/assessment-builder.js::toggleKindFields()` — переписан под два
+  постбокса (`fs_lms_assessment_settings` скрыт по `isStation`, `fs_lms_assessment_score_map` —
+  по `! isStation`), `STATION_ONLY_HIDDEN_FIELD_IDS`/поштучный обход полей убран.
+  `#fs_lms_assessment_kind` не трогается — виден всегда.
+- [x] `handleAssessmentSave()` — не менялся (сохранение по-прежнему по `AssessmentKind`,
+  независимо от контейнера рендера).
+- [x] Порядок постбоксов: «Тип экзамена» → «Настройки контрольной» → «Таблица перевода баллов» →
+  «Конструктор контрольной» (регистрация в этом порядке).
+- [x] Тесты: новый `tests/Unit/Controllers/Assessment/AssessmentMetaBoxSplitTest.php` (4 теста —
+  `kind` только в своём метабоксе, `score_map` только в своём, 4 поля настроек — в «Настройках»,
+  nonce — только в «Тип экзамена»); `AssessmentStationFieldsGateTest` не менялся и зелёный.
+  Попутно добавлены недостающие WP-стабы в `tests/bootstrap.php` (`wp_nonce_field`, `selected`,
+  `checked`, `disabled`, `ABSPATH`) — понадобились для рендер-тестов полей.
 
 ---
 

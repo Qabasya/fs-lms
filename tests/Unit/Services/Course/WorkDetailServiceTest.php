@@ -113,6 +113,109 @@ class WorkDetailServiceTest extends TestCase {
 		self::assertSame( 'Условие из меты', $task['condition'] );
 	}
 
+	/* ── D4 (.docs/Tasks.md): submission-работы оцениваются поштучно, как экзамены ── */
+
+	private function perTaskSub( int $id, int $taskId, array $overrides = array() ): SubmissionDTO {
+		return new SubmissionDTO(
+			id: $id, studentPersonId: 10, groupLessonId: 5, workId: 3, workType: WorkType::Practice,
+			taskId: $taskId,
+			answerText: $overrides['answerText'] ?? 'ответ ученика',
+			attachmentId: null, dueAt: null,
+			status: $overrides['status'] ?? SubmissionStatus::Submitted,
+			score: $overrides['score'] ?? null, maxScore: $overrides['maxScore'] ?? null,
+			feedback: $overrides['feedback'] ?? null,
+			gradedByUserId: null, submittedAt: '2026-06-01 10:00:00', gradedAt: null, createdAt: '', updatedAt: '',
+		);
+	}
+
+	private function workWithItems( array $itemIds ): \Inc\DTO\Course\WorkDTO {
+		return new \Inc\DTO\Course\WorkDTO(
+			id: 3, subjectKey: 'inf', title: 'Работа', workType: WorkType::Practice,
+			itemIds: $itemIds, instructions: '', authorId: 1, status: 'publish',
+		);
+	}
+
+	public function test_from_submission_marks_file_answer_task_as_gradable_with_submission_id(): void {
+		$this->submissions->method( 'find' )->willReturn( $this->sub( null ) );
+		$this->submissions->method( 'listPerTaskByStudentWorkLesson' )->willReturn( array(
+			$this->perTaskSub( 501, 42, array( 'status' => SubmissionStatus::PendingReview ) ),
+		) );
+		$this->works->method( 'get' )->willReturn( $this->workWithItems( array( 42 ) ) );
+		$this->posts->method( 'getMeta' )->with( 42, PostMetaName::TemplateType->value )->willReturn( 'file_answer_task' );
+		$this->posts->method( 'taskMeta' )->willReturn( array() );
+
+		$task = $this->service->forWork( 'submission', 7 )['tasks'][0];
+
+		self::assertTrue( $task['gradable'] );
+		self::assertSame( 501, $task['task_submission_id'] );
+		self::assertSame( 'pending', $task['verdict'] );
+	}
+
+	public function test_from_submission_graded_file_answer_task_uses_per_task_row_as_authoritative(): void {
+		$this->submissions->method( 'find' )->willReturn( $this->sub( null ) );
+		$this->submissions->method( 'listPerTaskByStudentWorkLesson' )->willReturn( array(
+			$this->perTaskSub( 501, 42, array(
+				'status' => SubmissionStatus::Graded, 'score' => 1.0, 'maxScore' => 1.0, 'feedback' => 'Молодец',
+			) ),
+		) );
+		$this->works->method( 'get' )->willReturn( $this->workWithItems( array( 42 ) ) );
+		$this->posts->method( 'getMeta' )->willReturn( 'file_answer_task' );
+		$this->posts->method( 'taskMeta' )->willReturn( array() );
+
+		$task = $this->service->forWork( 'submission', 7 )['tasks'][0];
+
+		self::assertSame( 'correct', $task['verdict'] );
+		self::assertSame( 1.0, $task['score'] );
+		self::assertSame( 'Молодец', $task['feedback'] );
+	}
+
+	public function test_from_submission_non_gradable_task_has_no_task_grading_target(): void {
+		$this->submissions->method( 'find' )->willReturn( $this->sub( null ) );
+		$this->submissions->method( 'listPerTaskByStudentWorkLesson' )->willReturn( array(
+			$this->perTaskSub( 501, 42 ),
+		) );
+		$this->works->method( 'get' )->willReturn( $this->workWithItems( array( 42 ) ) );
+		$this->posts->method( 'getMeta' )->willReturn( 'standard_task' );
+		$this->posts->method( 'taskMeta' )->willReturn( array() );
+
+		$task = $this->service->forWork( 'submission', 7 )['tasks'][0];
+
+		self::assertFalse( $task['gradable'] );
+	}
+
+	/** Разбор по заданиям (itemIds непуст) — единая форма оценивания больше не нужна. */
+	public function test_from_submission_whole_form_disabled_when_work_has_items(): void {
+		$this->submissions->method( 'find' )->willReturn( $this->sub( null ) );
+		$this->submissions->method( 'listPerTaskByStudentWorkLesson' )->willReturn( array(
+			$this->perTaskSub( 501, 42 ),
+		) );
+		$this->works->method( 'get' )->willReturn( $this->workWithItems( array( 42 ) ) );
+		$this->posts->method( 'getMeta' )->willReturn( 'standard_task' );
+		$this->posts->method( 'taskMeta' )->willReturn( array() );
+
+		$detail = $this->service->forWork( 'submission', 7 );
+
+		self::assertFalse( $detail['gradable'] );
+	}
+
+	/** Фолбэк свободного ответа (без разбора на задачи) — старая форма сохраняется. */
+	public function test_from_submission_whole_form_enabled_for_freeform_fallback(): void {
+		$freeform = new SubmissionDTO(
+			id: 7, studentPersonId: 10, groupLessonId: 5, workId: 3, workType: WorkType::Practice,
+			taskId: null, answerText: 'свободный ответ', attachmentId: null, dueAt: null,
+			status: SubmissionStatus::Submitted, score: null, maxScore: null, feedback: null,
+			gradedByUserId: null, submittedAt: '2026-06-01 10:00:00', gradedAt: null, createdAt: '', updatedAt: '',
+		);
+		$this->submissions->method( 'find' )->willReturn( $freeform );
+		$this->submissions->method( 'listPerTaskByStudentWorkLesson' )->willReturn( array() );
+		$this->works->method( 'get' )->willReturn( $this->workWithItems( array() ) );
+
+		$detail = $this->service->forWork( 'submission', 7 );
+
+		self::assertTrue( $detail['gradable'] );
+		self::assertFalse( $detail['tasks'][0]['gradable'] );
+	}
+
 	/* ── fromAttempt: «Развёрнутый ответ» — файлы + критерии (Эпик 13, T13.6) ── */
 
 	private function attemptFixture(): AttemptDTO {

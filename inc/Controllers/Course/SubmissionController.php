@@ -8,6 +8,7 @@ use Inc\Controllers\System\AjaxController;
 
 use Inc\Callbacks\Course\BatchSubmissionCallbacks;
 use Inc\Callbacks\Course\GradingCallbacks;
+use Inc\Callbacks\Course\ReviewQueueCallbacks;
 use Inc\Callbacks\Course\SubmissionCallbacks;
 use Inc\Enums\Wp\AjaxHook;
 
@@ -17,6 +18,7 @@ class SubmissionController extends AjaxController {
 		private readonly SubmissionCallbacks      $submissionCallbacks,
 		private readonly GradingCallbacks         $gradingCallbacks,
 		private readonly BatchSubmissionCallbacks $batchCallbacks,
+		private readonly ReviewQueueCallbacks     $reviewQueueCallbacks,
 	) {
 		parent::__construct();
 	}
@@ -30,6 +32,8 @@ class SubmissionController extends AjaxController {
 			array( AjaxHook::ResetAttempts,       $this->gradingCallbacks ),
 			array( AjaxHook::SubmitBatchWork,     $this->batchCallbacks ),
 			array( AjaxHook::GradeBatchTask,      $this->batchCallbacks ),
+			array( AjaxHook::GetPendingWorks,     $this->reviewQueueCallbacks ),
+			array( AjaxHook::GetWorkSubmissions,  $this->reviewQueueCallbacks ),
 		);
 	}
 }
