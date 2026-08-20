@@ -106,10 +106,38 @@ class SubstitutionService {
 			$id
 		);
 
+		$this->notifications->push(
+			$this->notifications->groupStudentUserIds( $groupId ),
+			NotificationType::SubstituteAssignedStudent,
+			"sub-student:{$id}",
+			array(
+				'group_name'   => (string) ( $group->name ?? '' ),
+				'teacher_name' => get_userdata( $substituteTeacherId )->display_name ?? '',
+				'valid_from'   => $validFrom,
+				'valid_to'     => $validTo,
+			),
+			(string) PageRoutes::UserProfile->url(),
+			$groupId,
+			'substitution',
+			$id
+		);
+
 		return $id;
 	}
 
 	public function revoke( int $id ): void {
+		$substitution = $this->repo->find( $id );
+		if ( $substitution ) {
+			$this->notifications->retract(
+				array( $substitution->substituteTeacherId ),
+				"sub:{$id}"
+			);
+			$this->notifications->retract(
+				$this->notifications->groupStudentUserIds( $substitution->groupId ),
+				"sub-student:{$id}"
+			);
+		}
+
 		$this->repo->delete( $id );
 	}
 

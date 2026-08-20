@@ -20,6 +20,7 @@ use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\SubmissionRepository;
 use Inc\Services\Course\WorkDetailService;
 use Inc\Services\Task\CorrectAnswerResolver;
+use Inc\Services\Task\TaskMetaService;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -59,6 +60,7 @@ class WorkDetailServiceTest extends TestCase {
 			$this->assessments,
 			$this->createMock( CorrectAnswerResolver::class ),
 			$this->media,
+			new TaskMetaService(),
 		);
 	}
 
@@ -93,6 +95,22 @@ class WorkDetailServiceTest extends TestCase {
 
 		self::assertNull( $detail['attachment_url'] );
 		self::assertNull( $detail['attachment_mime'] );
+	}
+
+	/** D1 (Tasks.md, блок D): условие задания читается из меты, не из пустого post_content. */
+	public function test_from_submission_condition_read_from_task_meta(): void {
+		$this->submissions->method( 'find' )->willReturn( $this->sub( null ) );
+		$this->submissions->method( 'listPerTaskByStudentWorkLesson' )->willReturn( array() );
+		$this->works->method( 'get' )->willReturn( new \Inc\DTO\Course\WorkDTO(
+			id: 3, subjectKey: 'inf', title: 'Работа', workType: WorkType::Practice,
+			itemIds: array( 42 ), instructions: '', authorId: 1, status: 'publish',
+		) );
+		$this->posts->method( 'taskMeta' )->with( 42 )->willReturn( array( 'task_condition' => 'Условие из меты' ) );
+		$this->posts->expects( $this->never() )->method( 'get' );
+
+		$task = $this->service->forWork( 'submission', 7 )['tasks'][0];
+
+		self::assertSame( 'Условие из меты', $task['condition'] );
 	}
 
 	/* ── fromAttempt: «Развёрнутый ответ» — файлы + критерии (Эпик 13, T13.6) ── */
@@ -142,6 +160,25 @@ class WorkDetailServiceTest extends TestCase {
 		self::assertSame( 'https://example.test/a.jpg', $task['files'][0]['url'] );
 		self::assertSame( 'image/jpeg', $task['files'][0]['mime'] );
 		self::assertSame( array(), $task['criteria'] );
+	}
+
+	/** D1 (Tasks.md, блок D): условие задания читается из меты и в ветке экзамена. */
+	public function test_from_attempt_condition_read_from_task_meta(): void {
+		$this->attempts->method( 'find' )->willReturn( $this->attemptFixture() );
+		$this->answers->method( 'listByAttempt' )->willReturn( array(
+			AttemptAnswerDTO::fromArray( array(
+				'id' => 1, 'attempt_id' => 9, 'task_id' => 42, 'answer_text' => 'x',
+			) ),
+		) );
+		$this->posts->method( 'getMeta' )->willReturnCallback( function ( int $postId, string $key ) {
+			return PostMetaName::TemplateType->value === $key ? 'standard_task' : array();
+		} );
+		$this->posts->method( 'taskMeta' )->with( 42 )->willReturn( array( 'task_condition' => 'Условие экзамена' ) );
+		$this->posts->expects( $this->never() )->method( 'get' );
+
+		$task = $this->service->forWork( 'attempt', 9 )['tasks'][0];
+
+		self::assertSame( 'Условие экзамена', $task['condition'] );
 	}
 
 	public function test_from_attempt_non_file_answer_task_leaves_answer_and_files_untouched(): void {

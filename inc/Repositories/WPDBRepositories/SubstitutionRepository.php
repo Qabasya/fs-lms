@@ -127,6 +127,39 @@ class SubstitutionRepository {
 		);
 	}
 
+	/**
+	 * Замены пользователя как замещающего, ещё не завершившиеся (для «Главной»/дашборда):
+	 * будущие и текущие, без нижней границы по `valid_from`.
+	 */
+	public function findUpcomingOrActiveBySubstitute( int $userId, string $today ): array {
+		$rows = $this->wpdb->get_results(
+			$this->wpdb->prepare(
+				'SELECT * FROM %i WHERE substitute_teacher_id = %d AND valid_to >= %s ORDER BY valid_from ASC',
+				$this->table,
+				$userId,
+				$today
+			),
+			ARRAY_A
+		);
+		return array_map( array( SubstitutionDTO::class, 'fromArray' ), $rows ?: array() );
+	}
+
+	/**
+	 * Есть ли у пользователя grant на группу, уже утверждённый и ещё не завершившийся
+	 * (для GroupAccessGuard::canManage() — доступ на чтение открывается сразу при
+	 * утверждении, а не в момент наступления `valid_from`).
+	 */
+	public function hasUpcomingOrActiveGrant( int $userId, int $groupId ): bool {
+		return (bool) $this->wpdb->get_var(
+			$this->wpdb->prepare(
+				'SELECT 1 FROM %i WHERE substitute_teacher_id = %d AND group_id = %d AND valid_to >= CURDATE() LIMIT 1',
+				$this->table,
+				$userId,
+				$groupId
+			)
+		);
+	}
+
 	public function delete( int $id ): bool {
 		return (bool) $this->wpdb->delete( $this->table, array( 'id' => $id ) );
 	}

@@ -279,16 +279,24 @@ class AssessmentMetaBoxController extends BaseController implements ServiceInter
 
 		$data = $this->unslashArray( PostMetaName::Meta->value );
 
-		// Станции (ЕГЭ/ОГЭ) имитируют реальный экзамен — время, лимит попыток,
-		// таблица перевода баллов и вступительный текст больше не редактируются
-		// автором конкретной работы, приходят из module-level StationExamConfig
-		// (см. AssessmentManager::STATION_SETTINGS_FILTER, .docs/Tasks.md §3.2).
-		// Даже если что-то из этого пришло в $_POST — не сохраняем.
-		$kind = sanitize_key( $data['kind'] ?? '' );
-		if ( AssessmentKind::fromValueOrDefault( $kind )->isStation() ) {
-			foreach ( [ 'time_limit_minutes', 'max_attempts', 'pass_score', 'score_map', 'intro_html' ] as $stationField ) {
+		// Станции (ЕГЭ/ОГЭ) имитируют реальный экзамен — время, лимит попыток и
+		// вступительный текст больше не редактируются автором конкретной работы,
+		// приходят из module-level StationExamConfig (см.
+		// AssessmentManager::STATION_SETTINGS_FILTER, .docs/Tasks.md §3.2). Даже если
+		// что-то из этого пришло в $_POST — не сохраняем.
+		$kind           = sanitize_key( $data['kind'] ?? '' );
+		$assessmentKind = AssessmentKind::fromValueOrDefault( $kind );
+		if ( $assessmentKind->isStation() ) {
+			foreach ( [ 'time_limit_minutes', 'max_attempts', 'pass_score', 'intro_html' ] as $stationField ) {
 				unset( $data[ $stationField ] );
 			}
+		}
+
+		// score_map (перевод первичного балла во вторичный, SecondaryScoreService) —
+		// нужен только видам с needsSecondaryScore() (ЕГЭ/ОГЭ); у Control нигде не
+		// читается, поэтому не сохраняем, даже если пришёл в $_POST.
+		if ( ! $assessmentKind->needsSecondaryScore() ) {
+			unset( $data['score_map'] );
 		}
 
 		$this->metaBoxManager->saveFieldsMerge(

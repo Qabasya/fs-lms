@@ -16,9 +16,11 @@ use Inc\Services\Task\TaskPublishGuard;
 use PHPUnit\Framework\TestCase;
 
 /**
- * Станции (ЕГЭ/ОГЭ) имитируют реальный экзамен: время/попытки/таблица баллов/
- * вступительный текст больше не сохраняются из формы, даже если пришли в
- * $_POST (см. .docs/Tasks.md, §3.2).
+ * Станции (ЕГЭ/ОГЭ) имитируют реальный экзамен: время/попытки/вступительный
+ * текст больше не сохраняются из формы, даже если пришли в $_POST (см.
+ * .docs/Tasks.md, §3.2). score_map — наоборот: нужен только видам с
+ * needsSecondaryScore() (ЕГЭ/ОГЭ, перевод первичного балла во вторичный,
+ * SecondaryScoreService), у Control нигде не читается и стрипается (блок C).
  */
 class AssessmentStationFieldsGateTest extends TestCase {
 
@@ -70,7 +72,7 @@ class AssessmentStationFieldsGateTest extends TestCase {
 
 		self::assertArrayNotHasKey( 'time_limit_minutes', $captured );
 		self::assertArrayNotHasKey( 'max_attempts', $captured );
-		self::assertArrayNotHasKey( 'score_map', $captured );
+		self::assertArrayHasKey( 'score_map', $captured );
 		self::assertArrayNotHasKey( 'intro_html', $captured );
 		self::assertSame( 'ege_computer', $captured['kind'] );
 	}
@@ -89,10 +91,10 @@ class AssessmentStationFieldsGateTest extends TestCase {
 		$this->controller->handleAssessmentSave( 8 );
 
 		self::assertArrayNotHasKey( 'time_limit_minutes', $captured );
-		self::assertArrayNotHasKey( 'score_map', $captured );
+		self::assertArrayHasKey( 'score_map', $captured );
 	}
 
-	public function test_control_kind_keeps_all_fields(): void {
+	public function test_control_kind_keeps_time_and_intro_but_strips_score_map(): void {
 		fs_test_seed_post( array( 'ID' => 9, 'post_type' => 'inf_assessments' ) );
 		$_POST['fs_lms_meta_nonce'] = 'x';
 		$_POST['fs_lms_meta']       = $this->postData( 'control' );
@@ -107,7 +109,7 @@ class AssessmentStationFieldsGateTest extends TestCase {
 
 		self::assertArrayHasKey( 'time_limit_minutes', $captured );
 		self::assertArrayHasKey( 'max_attempts', $captured );
-		self::assertArrayHasKey( 'score_map', $captured );
+		self::assertArrayNotHasKey( 'score_map', $captured );
 		self::assertArrayHasKey( 'intro_html', $captured );
 	}
 }

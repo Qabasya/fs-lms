@@ -305,6 +305,19 @@ readonly class NotificationService {
 				$group,
 				'' !== (string) ( $p['valid_from'] ?? '' ) ? sprintf( ', %s – %s', (string) $p['valid_from'], (string) ( $p['valid_to'] ?? '' ) ) : ''
 			) ),
+
+			NotificationType::SubstituteAssignedStudent => trim( sprintf(
+				'%s%s%s',
+				(string) ( $p['teacher_name'] ?? '' ),
+				$tail,
+				'' !== (string) ( $p['valid_from'] ?? '' ) ? sprintf( ', %s – %s', (string) $p['valid_from'], (string) ( $p['valid_to'] ?? '' ) ) : ''
+			) ),
+
+			NotificationType::RoomChanged => trim( sprintf(
+				'%s%s',
+				sprintf( '%s → %s', (string) ( $p['old_room'] ?? '—' ), (string) ( $p['new_room'] ?? '—' ) ),
+				$tail
+			) ),
 		};
 	}
 

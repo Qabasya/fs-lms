@@ -52,26 +52,71 @@ class SubstitutionServiceTest extends TestCase {
 	public function test_assign_pushes_notification_to_substitute_teacher(): void {
 		$this->groups->method( 'findById' )->willReturn( (object) array( 'teacher_id' => 42, 'name' => 'ОГЭ-1' ) );
 		$this->repo->method( 'create' )->willReturn( 3 );
+		$this->notifications->method( 'groupStudentUserIds' )->willReturn( array() );
 
-		$this->notifications->expects( self::once() )
+		$calls = array();
+		$this->notifications->expects( self::exactly( 2 ) )
 			->method( 'push' )
-			->with(
-				array( 55 ),
-				NotificationType::SubstituteAssigned,
-				'sub:3',
-				self::callback(
-					static fn( $payload ) => 'ОГЭ-1' === $payload['group_name']
-						&& '2026-05-01' === $payload['valid_from']
-						&& '2026-05-31' === $payload['valid_to']
-						&& 'Отпуск' === $payload['reason']
-				),
-				self::anything(),
-				7,
-				'substitution',
-				3
-			);
+			->willReturnCallback( function ( ...$args ) use ( &$calls ) {
+				$calls[] = $args;
+			} );
 
 		$this->service->assign( 7, 55, '2026-05-01', '2026-05-31', 'Отпуск', 9 );
+
+		self::assertSame( array( 55 ), $calls[0][0] );
+		self::assertSame( NotificationType::SubstituteAssigned, $calls[0][1] );
+		self::assertSame( 'sub:3', $calls[0][2] );
+		self::assertSame( 'ОГЭ-1', $calls[0][3]['group_name'] );
+		self::assertSame( '2026-05-01', $calls[0][3]['valid_from'] );
+		self::assertSame( '2026-05-31', $calls[0][3]['valid_to'] );
+		self::assertSame( 'Отпуск', $calls[0][3]['reason'] );
+	}
+
+	public function test_assign_pushes_notification_to_group_students(): void {
+		$this->groups->method( 'findById' )->willReturn( (object) array( 'teacher_id' => 42, 'name' => 'ОГЭ-1' ) );
+		$this->repo->method( 'create' )->willReturn( 3 );
+		$this->notifications->method( 'groupStudentUserIds' )->with( 7 )->willReturn( array( 101, 102 ) );
+
+		$calls = array();
+		$this->notifications->expects( self::exactly( 2 ) )
+			->method( 'push' )
+			->willReturnCallback( function ( ...$args ) use ( &$calls ) {
+				$calls[] = $args;
+			} );
+
+		$this->service->assign( 7, 55, '2026-05-01', '2026-05-31', 'Отпуск', 9 );
+
+		self::assertSame( array( 101, 102 ), $calls[1][0] );
+		self::assertSame( NotificationType::SubstituteAssignedStudent, $calls[1][1] );
+		self::assertSame( 'sub-student:3', $calls[1][2] );
+		self::assertSame( 'ОГЭ-1', $calls[1][3]['group_name'] );
+		self::assertSame( '2026-05-01', $calls[1][3]['valid_from'] );
+		self::assertSame( '2026-05-31', $calls[1][3]['valid_to'] );
+	}
+
+	public function test_revoke_retracts_notifications_for_substitute_and_students(): void {
+		$this->repo->method( 'find' )->with( 3 )->willReturn( SubstitutionDTO::fromArray( array(
+			'id'                    => 3,
+			'group_id'              => 7,
+			'original_teacher_id'   => 42,
+			'substitute_teacher_id' => 55,
+			'valid_from'            => '2026-05-01',
+			'valid_to'              => '2026-05-31',
+			'reason'                => null,
+			'approved_by'           => 9,
+			'created_at'            => '2026-04-01 00:00:00',
+		) ) );
+		$this->notifications->method( 'groupStudentUserIds' )->with( 7 )->willReturn( array( 101, 102 ) );
+
+		$this->notifications->expects( self::exactly( 2 ) )
+			->method( 'retract' )
+			->willReturnMap( array(
+				array( array( 55 ), 'sub:3', null ),
+				array( array( 101, 102 ), 'sub-student:3', null ),
+			) );
+		$this->repo->expects( self::once() )->method( 'delete' )->with( 3 );
+
+		$this->service->revoke( 3 );
 	}
 
 	public function test_assign_throws_when_group_missing(): void {

@@ -5,7 +5,7 @@
    маркеры замен (Эпик 5). Демо-слой (data.js) убран.
    ══════════════════════════════════════════════════════════════════════ */
 
-import { esc, plural, fmtDayMonth, chipBg, chipBorder, groupSubjectKey, shortName, emptyState } from './utils.js';
+import { esc, plural, fmtDayMonth, todayIso, chipBg, chipBorder, groupSubjectKey, shortName, emptyState } from './utils.js';
 import { icoCalendar, icoCheck, icoAlert, icoMapPin, icoBookmark, icoShield, icoChevronRight, icoHome } from '../common/icons.js';
 import { createApi } from './api.js';
 import { DOW_JS } from './constants.js';
@@ -237,8 +237,11 @@ function reviewRow(w) {
 }
 
 function grpCard(g) {
+    const isFuture = g.covering_from && g.covering_from > todayIso();
     const badge = g.covering_until
-        ? `<span class="prof-sub-tag">замещаете до ${fmtDayMonth(g.covering_until)}</span>`
+        ? ( isFuture
+            ? `<span class="prof-sub-tag">замещаете с ${fmtDayMonth(g.covering_from)}</span>`
+            : `<span class="prof-sub-tag">замещаете до ${fmtDayMonth(g.covering_until)}</span>` )
         : ( g.covered_until ? `<span class="prof-sub-tag warn">замена до ${fmtDayMonth(g.covered_until)}</span>` : '' );
     return `<div class="prof-grp-card" data-grp="${g.id}">
         <span class="prof-group-chip ${chipBg(groupSubjectKey(g.id))}">${esc(shortName(g.name))}</span>
@@ -251,9 +254,12 @@ function grpCard(g) {
 }
 
 function coveringBanner(covering) {
+    const today = todayIso();
     return `<div class="prof-cover-banner">
         ${icoShield(18)}
-        <span>Вы замещаете: ${covering.map(c => `${esc(c.group_name)} <b>до ${fmtDayMonth(c.valid_to)}</b>`).join(', ')}</span>
+        <span>Вы замещаете: ${covering.map(c => c.valid_from > today
+            ? `${esc(c.group_name)} <b>с ${fmtDayMonth(c.valid_from)}</b>`
+            : `${esc(c.group_name)} <b>до ${fmtDayMonth(c.valid_to)}</b>`).join(', ')}</span>
     </div>`;
 }
 

@@ -16,6 +16,7 @@ use Inc\Repositories\WPDBRepositories\AssessmentAttemptRepository;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\SubmissionRepository;
 use Inc\Services\Task\CorrectAnswerResolver;
+use Inc\Services\Task\TaskMetaService;
 
 /**
  * Class WorkDetailService
@@ -57,6 +58,7 @@ class WorkDetailService {
 		private readonly AssessmentManager           $assessments,
 		private readonly CorrectAnswerResolver       $correctAnswers,
 		private readonly MediaManager                $media,
+		private readonly TaskMetaService             $taskMeta,
 	) {}
 
 	/**
@@ -212,9 +214,9 @@ class WorkDetailService {
 		);
 	}
 
+	/** Условие задания хранится в мете (`task_condition` и составные шаблоны), не в `post_content`. */
 	private function condition( int $taskId ): string {
-		$post = $this->posts->get( $taskId );
-		return $post ? wp_kses_post( $post->post_content ) : '';
+		return $this->taskMeta->getCombinedCondition( $this->posts->taskMeta( $taskId ) );
 	}
 
 	/**

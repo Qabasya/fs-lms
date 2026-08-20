@@ -362,4 +362,66 @@ class NotificationServiceTest extends TestCase {
 		self::assertStringContainsString( 'Эссе', $out['body'] );
 		self::assertTrue( $out['unread'] );
 	}
+
+	/** Блок B (Tasks.md): ученикам группы — замена преподавателя, а не только замещающему. */
+	public function test_to_client_array_renders_substitute_assigned_student_body(): void {
+		$dto = NotificationDTO::fromArray( array(
+			'id'                => 4,
+			'recipient_user_id' => 101,
+			'type'              => 'substitute_assigned_student',
+			'group_id'          => 7,
+			'entity_type'       => 'substitution',
+			'entity_id'         => 3,
+			'payload'           => wp_json_encode( array(
+				'group_name'   => 'ОГЭ-1',
+				'teacher_name' => 'Петрова А.А.',
+				'valid_from'   => '2026-05-01',
+				'valid_to'     => '2026-05-31',
+			) ),
+			'url'               => '/profile/?screen=dashboard',
+			'created_at'        => '2026-04-25 10:00:00',
+			'seen_at'           => null,
+			'read_at'           => null,
+		) );
+
+		$out = $this->service->toClientArray( $dto );
+
+		self::assertSame( 'substitute_assigned_student', $out['type'] );
+		self::assertSame( 'info', $out['tone'] );
+		self::assertSame( 'Замена преподавателя', $out['title'] );
+		self::assertStringContainsString( 'Петрова А.А.', $out['body'] );
+		self::assertStringContainsString( 'ОГЭ-1', $out['body'] );
+		self::assertStringContainsString( '2026-05-01', $out['body'] );
+		self::assertStringContainsString( '2026-05-31', $out['body'] );
+	}
+
+	/** Блок B (Tasks.md): разовая замена кабинета — старый/новый кабинет в теле плитки. */
+	public function test_to_client_array_renders_room_changed_body(): void {
+		$dto = NotificationDTO::fromArray( array(
+			'id'                => 5,
+			'recipient_user_id' => 101,
+			'type'              => 'room_changed',
+			'group_id'          => 7,
+			'entity_type'       => 'group_lesson',
+			'entity_id'         => 10,
+			'payload'           => wp_json_encode( array(
+				'group_name' => 'ОГЭ-1',
+				'old_room'   => 'Каб. 12',
+				'new_room'   => 'Каб. 5',
+			) ),
+			'url'               => '/group/?gid=7&gl=10',
+			'created_at'        => '2026-05-05 08:00:00',
+			'seen_at'           => null,
+			'read_at'           => null,
+		) );
+
+		$out = $this->service->toClientArray( $dto );
+
+		self::assertSame( 'room_changed', $out['type'] );
+		self::assertSame( 'info', $out['tone'] );
+		self::assertSame( 'Изменился кабинет', $out['title'] );
+		self::assertStringContainsString( 'Каб. 12', $out['body'] );
+		self::assertStringContainsString( 'Каб. 5', $out['body'] );
+		self::assertStringContainsString( 'ОГЭ-1', $out['body'] );
+	}
 }

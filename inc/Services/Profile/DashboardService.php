@@ -129,7 +129,8 @@ class DashboardService {
 				'subject'       => $this->subjectName( (string) $g->subject_key ),
 				'students'      => $activeCount,
 				'covered_until' => $coveredUntil,
-				'covering_until' => $covering[ $gid ] ?? null,
+				'covering_until' => $covering[ $gid ]['valid_to'] ?? null,
+				'covering_from'  => $covering[ $gid ]['valid_from'] ?? null,
 			);
 		}
 
@@ -157,7 +158,8 @@ class DashboardService {
 				static fn( $gid ) => array(
 					'group_id'   => $gid,
 					'group_name' => $groups[ $gid ]->name,
-					'valid_to'   => $covering[ $gid ],
+					'valid_from' => $covering[ $gid ]['valid_from'],
+					'valid_to'   => $covering[ $gid ]['valid_to'],
 				),
 				array_keys( $covering )
 			),
@@ -177,8 +179,11 @@ class DashboardService {
 		}
 
 		$covering = array();
-		foreach ( $this->substitutions->findActiveBySubstitute( $userId, $today ) as $sub ) {
-			$covering[ $sub->groupId ] = $sub->validTo;
+		foreach ( $this->substitutions->findUpcomingOrActiveBySubstitute( $userId, $today ) as $sub ) {
+			$covering[ $sub->groupId ] = array(
+				'valid_from' => $sub->validFrom,
+				'valid_to'   => $sub->validTo,
+			);
 			if ( ! isset( $groups[ $sub->groupId ] ) ) {
 				$g = $this->groups->findById( $sub->groupId );
 				if ( $g ) {

@@ -59,7 +59,7 @@ function mount( el ) {
 	// инлайновым style, а атрибутом hidden (см. CLAUDE.md, CSS/JS правила).
 	// intro_html (EditorField) не имеет элемента с id="intro_html" (wp_editor
 	// использует свой собственный id) — адресуем по классу-обёртке поля.
-	const STATION_ONLY_HIDDEN_FIELD_IDS = [ 'time_limit_minutes', 'max_attempts', 'pass_score', 'score_map' ];
+	const STATION_ONLY_HIDDEN_FIELD_IDS = [ 'time_limit_minutes', 'max_attempts', 'pass_score' ];
 
 	function toggleKindFields( kind ) {
 		const isStation = isEge( kind );
@@ -68,6 +68,12 @@ function mount( el ) {
 			const row = document.getElementById( id )?.closest( '.fs-field, .fs-lms-field-group' );
 			if ( row ) { row.hidden = isStation; }
 		} );
+		// score_map — наоборот остальных station-only полей: нужен только ЕГЭ/ОГЭ
+		// (перевод первичного балла во вторичный, SecondaryScoreService), у Control
+		// нигде не читается — мёртвое поле, скрываем.
+		const scoreMapRow = document.getElementById( 'score_map' )?.closest( '.fs-field, .fs-lms-field-group' );
+		if ( scoreMapRow ) { scoreMapRow.hidden = ! isStation; }
+
 		const introRow = document.querySelector( '.fs-lms-editor-field' );
 		if ( introRow ) { introRow.hidden = isStation; }
 
@@ -201,12 +207,24 @@ function mount( el ) {
 				} );
 			}
 
-			// Авто-заполнение слотов под число заданий ЕГЭ/ОГЭ при первом открытии.
-			if ( egeSlots( prevKind ) > 0 && api.getSlots().length === 0 && isEge( prevKind ) ) {
-				api.replaceSlots( buildEgeSlots( egeSlots( prevKind ) ), 0 );
-				api.save();
-			} else if ( isEge( prevKind ) ) {
-				// Слоты уже есть — тихо запрашиваем начальный вердикт полноты для индикатора.
+			// Авто-заполнение слотов под число заданий ЕГЭ/ОГЭ: пустые (ещё не выбранные)
+			// позиции в item_ids не сохраняются (см. persist() выше — taskId=0 отфильтрован),
+			// поэтому после частичного заполнения сервер при перезагрузке отдаёт только
+			// реально заполненные слоты. Без паддинга остальные заготовленные пустые
+			// позиции (напр. 25 из 27 у ЕГЭ) при повторном открытии терялись — довозим
+			// до egeSlots(kind), сохраняя уже заполненные слоты на своих местах.
+			if ( isEge( prevKind ) ) {
+				const expected = egeSlots( prevKind );
+				const current  = api.getSlots();
+				if ( expected > 0 && current.length < expected ) {
+					const missing = Array.from(
+						{ length: expected - current.length },
+						( _, i ) => blankSlot( current.length + i )
+					);
+					api.replaceSlots( current.concat( missing ), 0 );
+				}
+				// Тихо запрашиваем вердикт полноты для индикатора (persist() отфильтрует
+				// пустые слоты сам — серверный item_ids не меняется).
 				api.save();
 			}
 		},

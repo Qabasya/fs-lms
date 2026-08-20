@@ -1,165 +1,68 @@
 /* ══════════════════════════════════════════════════════════════════════
-   «Сводка по ученику» (Эпик 10 T10.8, D8) — заменяет очередь «Проверка работ».
-   Источник: window.fsProfile.{groups, summary:{nonce,actions}, ajax.url}.
-   Выбор группы + ученика → карточки его занятий: дата, тема, цветная полоса
-   (🟢 посещён · 🟣 индивидуальное · 🔴 пропуск · серый — не отмечено) и результаты
-   работ по типам (badge + сырой балл). Оценивание — в детали работы (T10.9).
+   Деталь работы/экзамена — полноэкранная страница проверки (Tasks.md, D2).
+   Раньше жила модалкой `sum-modal` внутри «Сводки по ученику» (summary.js);
+   вынесена в отдельный SCREENS-экран, чтобы открываться и из «Работ» (D3),
+   не только из Сводки. Источник: window.fsProfile.{review, attemptGrade}.
+   Экран НЕ входит в cfg.screens — открывается только программно через
+   openWorkReview(), app.js держит его секцию в DOM всегда.
    ══════════════════════════════════════════════════════════════════════ */
 
-import { esc, emptyState, fmtDate } from './utils.js';
-import { icoDocCheck } from '../common/icons.js';
+import { esc, toast, fmtNum } from './utils.js';
+import { icoChevronLeft } from '../common/icons.js';
 import { createApi } from './api.js';
-import { DOW_JS } from './constants.js';
-import { groupPickerBtnHtml, studentPickerBtnHtml, openGroupPicker, openStudentPicker } from './picker.js';
 
-const KIND_LABEL = { group: 'Групповое', individual: 'Индивидуальное' };
-const ATT_LABEL  = { present: 'Присутствовал', absent: 'Отсутствовал', none: 'Не отмечено' };
+const VERDICT_LABEL = { correct: 'Верно', incorrect: 'Неверно', pending: 'На проверке' };
+const STATUS_LABEL  = { submitted: 'Сдано', pending: 'На проверке', graded: 'Оценено', returned: 'Возвращено', in_progress: 'В процессе', expired: 'Просрочено' };
+/* D18: ответы/баллы скрыты от ученика до подтверждения — у ЕГЭ (без ручной
+   проверки заданий) Graded наступает сразу при сдаче и не значит «учитель
+   посмотрел», нужна отдельная кнопка. */
+const APPROVABLE_KIND = 'ege_computer';
 
-let root = null;
-let state = null;
-let api = null;
-let openWorkReviewCb = null;
+let wrRoot   = null;
+let onBackCb = () => {};
+let reviewApi = null;
+let attemptGradeApi = null;
+let returnTo = 'summary';
+let current  = null; // { sourceType, sourceId }
 
-/** @param {{ openWorkReview?: (sourceType: string, sourceId: number) => void }} [opts] */
-export function renderSummary(r, opts = {}) {
-    root = r;
-    openWorkReviewCb = typeof opts.openWorkReview === 'function' ? opts.openWorkReview : null;
+/** Вызывается один раз при монтаже SPA (см. app.js) — только сохраняет root/колбэк. */
+export function renderWorkReview(root, { onBack } = {}) {
+    wrRoot   = root;
+    onBackCb = typeof onBack === 'function' ? onBack : () => {};
     const p = window.fsProfile || {};
-    state = {
-        groups:   Array.isArray(p.groups) ? p.groups : [],
-        cfg:      p.summary || null,
-        groupId:  (p.groups && p.groups[0]) ? p.groups[0].id : null,
-        personId: null,
-        roster:   [],
-        data:     null,
-    };
-    api = createApi(state.cfg);
-    if (!state.groups.length || !state.cfg) { root.innerHTML = empty('Нет групп', 'За вами не закреплены группы.'); return; }
-    loadRoster();
+    reviewApi       = p.review ? createApi(p.review) : null;
+    attemptGradeApi = p.attemptGrade ? createApi(p.attemptGrade) : null;
 }
 
-async function loadRoster() {
-    try {
-        const d = await api('getRoster', { group_id: state.groupId });
-        state.roster = Array.isArray(d.students) ? d.students : [];
-    } catch (e) {
-        root.innerHTML = empty('Не удалось загрузить ростер', e.message);
-        return;
-    }
-    state.personId = state.roster.length ? state.roster[0].person_id : null;
-    if (!state.personId) { state.data = { lessons: [] }; render(); return; }
-    loadSummary();
+/** Экран, на который вернёт кнопка «‹ Назад» (summary | works) — читает app.js при клике. */
+export function getReturnTo() {
+    return returnTo;
 }
 
-async function loadSummary() {
-    try {
-        state.data = await api('getSummary', { group_id: state.groupId, student_person_id: state.personId });
-    } catch (e) {
-        root.innerHTML = empty('Не удалось загрузить сводку', e.message);
-        return;
-    }
-    render();
-}
-
-/* ── Render ───────────────────────────────────────────────────────────── */
-function render() {
-    const lessons = (state.data && state.data.lessons) || [];
-    const cards = lessons.length
-        ? lessons.map(lessonCard).join('')
-        : `<div class="j-empty">${state.data && state.data.open ? 'В программе нет занятий.' : 'У ученика пока нет датированных занятий.'}</div>`;
-
-    const g = state.groups.find(x => x.id === state.groupId) || state.groups[0];
-    const student = state.roster.find(s => s.person_id === state.personId);
-
-    root.innerHTML = `
-    <div class="prof-summary">
-        <div class="sum-head">
-            <div class="prof-ktp-pick">
-                <span class="kp-label">Группа</span>
-                ${groupPickerBtnHtml(g, 'sumGroupBtn')}
-            </div>
-            <div class="prof-ktp-pick">
-                <span class="kp-label">Ученик</span>
-                ${studentPickerBtnHtml(student, state.roster, 'sumStudentBtn')}
-            </div>
-        </div>
-        <div class="sum-cards">${cards}</div>
-    </div>`;
-
-    const gBtn = root.querySelector('#sumGroupBtn');
-    if (gBtn) gBtn.addEventListener('click', openGroupMenu);
-    const sBtn = root.querySelector('#sumStudentBtn');
-    if (sBtn && state.roster.length) sBtn.addEventListener('click', openStudentMenu);
-
-    root.querySelectorAll('.sum-work[data-src-id]').forEach(el =>
-        el.addEventListener('click', () => openWorkDetail(el.dataset.srcType, +el.dataset.srcId)));
-}
-
-/* T12.8: дропдауны группы/ученика — общий пикер (picker.js). */
-function openGroupMenu() {
-    openGroupPicker(document.getElementById('sumGroupBtn'), state.groups, state.groupId, id => {
-        state.groupId = id;
-        loadRoster();
-    });
-}
-
-function openStudentMenu() {
-    openStudentPicker(document.getElementById('sumStudentBtn'), state.roster, state.personId, id => {
-        state.personId = id;
-        loadSummary();
-    });
-}
-
-function strip(l) {
-    if (l.kind === 'individual') return 'individual';
-    return l.attendance; // present | absent | none
-}
-
-function lessonCard(l) {
-    const open = !!(state.data && state.data.open);
-    const st = strip(l);
-    const works = l.works.length
-        ? `<div class="sum-works">${l.works.map(w => `
-            <span class="sum-work${w.display === 'pending' ? ' pending' : ''}${w.overdue ? ' overdue' : ''}" role="button" tabindex="0"
-                data-src-type="${esc(w.source_type)}" data-src-id="${w.source_id}" title="${esc(w.title)}${w.overdue ? ' — сдано после дедлайна' : ''} — открыть">
-                ${w.badge ? `<b>${esc(w.badge)}</b> ` : ''}${w.display === 'pending' ? 'на проверке' : esc(w.value)}${w.overdue ? ' <span class="sum-work-late">просрочено</span>' : ''}
-            </span>`).join('')}</div>`
-        : '<div class="sum-works sum-works-empty">Работ нет</div>';
-
-    return `
-    <div class="sum-card">
-        <span class="sum-strip sum-strip-${esc(st)}" title="${esc(ATT_LABEL[st] || KIND_LABEL[l.kind] || '')}"></span>
-        <div class="sum-card-body">
-            <div class="sum-card-top">
-                ${l.date ? `<span class="sum-date">${esc(fmtDate(l.date))}</span>` : ''}
-                <span class="sum-kind sum-kind-${esc(l.kind)}">${esc(KIND_LABEL[l.kind] || l.kind)}</span>
-                ${l.kind !== 'individual' && !open ? `<span class="sum-att sum-att-${esc(l.attendance)}">${esc(ATT_LABEL[l.attendance])}</span>` : ''}
-            </div>
-            <div class="sum-topic">${esc(l.topic || '—')}</div>
-            ${works}
-        </div>
-    </div>`;
-}
-
-/* ── Деталь работы + оценивание (T10.9) ──────────────────────────────── */
-async function openWorkDetail(sourceType, sourceId) {
+/** Открывает деталь работы/экзамена — вызывается из Сводки (D2) и «Работ» (D3). */
+export async function openWorkReview(sourceType, sourceId, from) {
+    returnTo = from || 'summary';
+    current  = { sourceType, sourceId };
+    if (!wrRoot) { return; }
     if (!reviewApi) { toast('Оценивание недоступно', 'error'); return; }
+
+    wrRoot.innerHTML = '<div class="wr-loading">Загрузка…</div>';
     let d;
     try {
         d = await reviewApi('getDetail', { source_type: sourceType, source_id: sourceId });
-    } catch (e) { toast(e.message, 'error'); return; }
-    renderDetailModal(d, { sourceType, sourceId });
+    } catch (e) {
+        wrRoot.innerHTML = `<div class="wr-loading">${esc(e.message)}</div>`;
+        return;
+    }
+    render(d);
 }
 
-function closeDetailModal() {
-    const m = document.getElementById('sumModal');
-    if (m) m.remove();
-    document.removeEventListener('keydown', onDetailEsc);
+function reload() {
+    if (current) { openWorkReview(current.sourceType, current.sourceId, returnTo); }
 }
-function onDetailEsc(e) { if (e.key === 'Escape') closeDetailModal(); }
 
-function renderDetailModal(d, src) {
-    closeDetailModal();
+/* ── Render ───────────────────────────────────────────────────────────── */
+function render(d) {
     const tasks = d.tasks.length
         ? d.tasks.map(t => taskBlock(t, d)).join('')
         : '<div class="sum-detail-empty">В работе нет задач.</div>';
@@ -172,7 +75,7 @@ function renderDetailModal(d, src) {
         && d.assessment_kind === APPROVABLE_KIND && !isApproved;
 
     const grading = d.gradable ? `
-        <div class="sum-modal-foot">
+        <div class="wr-foot">
             <div class="smf-fields">
                 <label>Балл<input type="number" id="grScore" step="0.5" min="0" value="${d.score ?? ''}"></label>
                 <label>Из<input type="number" id="grMax" step="0.5" min="0" value="${d.max_score ?? ''}"></label>
@@ -184,63 +87,55 @@ function renderDetailModal(d, src) {
             </div>
         </div>` : '';
 
-    const modal = document.createElement('div');
-    modal.className = 'sum-modal';
-    modal.id = 'sumModal';
-    modal.innerHTML = `
-        <div class="sum-modal-backdrop"></div>
-        <div class="sum-modal-box" role="dialog" aria-modal="true">
-            <div class="sum-modal-head">
-                <div>
+    wrRoot.innerHTML = `
+        <div class="wr-screen">
+            <div class="wr-head">
+                <button class="wr-back">${icoChevronLeft(16)} Назад</button>
+                <div class="wr-head-main">
                     <div class="smh-title">${esc(d.title)}</div>
                     <div class="smh-meta" id="smhMeta">${d.kind === 'exam' ? 'Экзамен' : 'Работа'} · ${esc(STATUS_LABEL[d.status] || d.status)} · ${esc(scoreLine)}${d.is_late ? ' · <span class="smh-late">Просрочено</span>' : ''}</div>
                 </div>
                 <div class="smh-actions">
                     ${canApprove ? '<button class="prof-btn prof-btn-sm prof-btn-primary sum-approve">Утвердить работу</button>' : ''}
                     ${isApproved ? '<span class="sum-approved-badge" title="Ответы открыты ученику">Утверждено</span>' : ''}
-                    ${src ? '<button class="prof-btn prof-btn-sm sum-reset" data-armed="0">Сбросить попытки</button>' : ''}
-                    <button class="sum-modal-x" aria-label="Закрыть">&times;</button>
+                    <button class="prof-btn prof-btn-sm sum-reset" data-armed="0">Сбросить попытки</button>
                 </div>
             </div>
-            <div class="sum-modal-body">
+            <div class="wr-body">
                 ${tasks}
                 ${d.attachment_url ? attachmentBlock(d) : ''}
                 ${d.feedback ? `<div class="sum-fb"><b>Комментарий:</b> ${esc(d.feedback)}</div>` : ''}
             </div>
             ${grading}
         </div>`;
-    document.body.appendChild(modal);
 
-    modal.querySelector('.sum-modal-backdrop').addEventListener('click', closeDetailModal);
-    modal.querySelector('.sum-modal-x').addEventListener('click', closeDetailModal);
-    document.addEventListener('keydown', onDetailEsc);
+    wrRoot.querySelector('.wr-back').addEventListener('click', () => onBackCb());
 
-    if (d.gradable) wireGrading(modal, d.submission_id);
-    if (d.kind === 'exam' && d.attempt_id && attemptGradeApi) wireAttemptGrading(modal, d);
-    if (canApprove) wireApprove(modal, d);
-    if (src) wireReset(modal, src);
+    if (d.gradable) { wireGrading(wrRoot, d.submission_id); }
+    if (d.kind === 'exam' && d.attempt_id && attemptGradeApi) { wireAttemptGrading(wrRoot, d); }
+    if (canApprove) { wireApprove(wrRoot, d); }
+    wireReset(wrRoot);
 }
 
 /* D18: «Утвердить работу» — единственное явное действие учителя для ЕГЭ (без
    ручной проверки заданий), открывает ответы/баллы ученику. */
-function wireApprove(modal, d) {
-    const btn = modal.querySelector('.sum-approve');
-    if (!btn) return;
+function wireApprove(root, d) {
+    const btn = root.querySelector('.sum-approve');
+    if (!btn) { return; }
     btn.addEventListener('click', async () => {
         btn.disabled = true;
         try {
             await attemptGradeApi('approveAttempt', { attempt_id: d.attempt_id });
             toast('Работа утверждена — ответы открыты ученику');
-            closeDetailModal();
-            loadSummary();
+            reload();
         } catch (e) { toast(e.message, 'error'); btn.disabled = false; }
     });
 }
 
 /* Задача 11: сброс попыток/сдач ученика (необратимо) — двойной клик для подтверждения. */
-function wireReset(modal, src) {
-    const btn = modal.querySelector('.sum-reset');
-    if (!btn) return;
+function wireReset(root) {
+    const btn = root.querySelector('.sum-reset');
+    if (!btn || !current) { return; }
     let armTimer;
     btn.addEventListener('click', async () => {
         if (btn.dataset.armed !== '1') {
@@ -258,10 +153,9 @@ function wireReset(modal, src) {
         clearTimeout(armTimer);
         btn.disabled = true;
         try {
-            await reviewApi('resetAttempts', { source_type: src.sourceType, source_id: src.sourceId });
+            await reviewApi('resetAttempts', { source_type: current.sourceType, source_id: current.sourceId });
             toast('Попытки сброшены');
-            closeDetailModal();
-            loadSummary();
+            onBackCb();
         } catch (e) { toast(e.message, 'error'); btn.disabled = false; }
     });
 }
@@ -360,9 +254,9 @@ function ogeRubricGradeBlock(t) {
 
 /* Пооответное оценивание попытки экзамена (T11.9). Эпик 13 (D17): критериальные
    задачи шлют criteria_scores (JSON {индекс: баллы}) вместо score/is_correct. */
-function wireAttemptGrading(modal, d) {
-    const meta = modal.querySelector('#smhMeta');
-    modal.querySelectorAll('.sum-task-grade').forEach(box => {
+function wireAttemptGrading(root, d) {
+    const meta = root.querySelector('#smhMeta');
+    root.querySelectorAll('.sum-task-grade').forEach(box => {
         const btn = box.querySelector('.stg-save');
         const isCriteria  = box.classList.contains('sum-task-grade--criteria');
         const isOgeRubric = box.classList.contains('sum-task-grade--oge-rubric');
@@ -407,19 +301,18 @@ function wireAttemptGrading(modal, d) {
                     meta.textContent = `Экзамен · ${STATUS_LABEL[res.attempt_status] || res.attempt_status} · ${fmtNum(res.total_score)}${d.max_score != null ? ' / ' + fmtNum(d.max_score) : ''} б.`;
                 }
                 toast('Оценка сохранена');
-                loadSummary();
             } catch (e) { toast(e.message, 'error'); }
             btn.disabled = false;
         });
     });
 }
 
-function wireGrading(modal, submissionId) {
-    const scoreEl = modal.querySelector('#grScore');
-    const maxEl   = modal.querySelector('#grMax');
-    const fbEl    = modal.querySelector('#grFb');
+function wireGrading(root, submissionId) {
+    const scoreEl = root.querySelector('#grScore');
+    const maxEl   = root.querySelector('#grMax');
+    const fbEl    = root.querySelector('#grFb');
 
-    modal.querySelector('[data-grade="save"]').addEventListener('click', async () => {
+    root.querySelector('[data-grade="save"]').addEventListener('click', async () => {
         try {
             await reviewApi('saveGrade', {
                 submission_id: submissionId,
@@ -428,25 +321,17 @@ function wireGrading(modal, submissionId) {
                 feedback: fbEl.value.trim(),
             });
             toast('Оценка сохранена');
-            closeDetailModal();
-            loadSummary();
+            reload();
         } catch (e) { toast(e.message, 'error'); }
     });
 
-    modal.querySelector('[data-grade="return"]').addEventListener('click', async () => {
+    root.querySelector('[data-grade="return"]').addEventListener('click', async () => {
         const fb = fbEl.value.trim();
         if (!fb) { toast('Укажите комментарий для возврата', 'error'); fbEl.focus(); return; }
         try {
             await reviewApi('returnSubmission', { submission_id: submissionId, feedback: fb });
             toast('Работа возвращена на доработку');
-            closeDetailModal();
-            loadSummary();
+            onBackCb();
         } catch (e) { toast(e.message, 'error'); }
     });
-}
-
-/* ── Helpers ──────────────────────────────────────────────────────────── */
-
-function empty(title, text) {
-    return emptyState('prof-summary', icoDocCheck(34), title, text);
 }

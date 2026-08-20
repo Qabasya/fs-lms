@@ -30,7 +30,17 @@ class GroupAccessGuardTest extends TestCase {
 		$group             = new \stdClass();
 		$group->teacher_id = 42;
 		$this->groups->method( 'findById' )->willReturn( $group );
-		$this->substitutions->method( 'hasActiveGrant' )->with( 99, 7 )->willReturn( true );
+		$this->substitutions->method( 'hasUpcomingOrActiveGrant' )->with( 99, 7 )->willReturn( true );
+
+		self::assertTrue( $this->guard->canManage( 7, 99 ) );
+	}
+
+	public function test_can_manage_upcoming_substitute_grant_before_valid_from(): void {
+		$group             = new \stdClass();
+		$group->teacher_id = 42;
+		$this->groups->method( 'findById' )->willReturn( $group );
+		// Замена утверждена, но valid_from ещё не наступил — доступ на чтение уже открыт (T1.A).
+		$this->substitutions->method( 'hasUpcomingOrActiveGrant' )->with( 99, 7 )->willReturn( true );
 
 		self::assertTrue( $this->guard->canManage( 7, 99 ) );
 	}
