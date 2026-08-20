@@ -204,9 +204,8 @@ class AssessmentMetaBoxController extends BaseController implements ServiceInter
 
 		$subject     = PostTypeResolver::subjectFromAssessmentPostType( $post->post_type );
 		$assessment  = $this->assessmentManager->get( $post->ID );
-		$task_ids     = null !== $assessment ? $assessment->taskIds : array();
-		$task_points  = null !== $assessment ? $assessment->taskPoints : array();
-		$task_numbers = null !== $assessment ? $assessment->taskNumbers : array();
+		$task_ids    = null !== $assessment ? $assessment->taskIds : array();
+		$task_points = null !== $assessment ? $assessment->taskPoints : array();
 
 		$steps = array();
 		foreach ( $task_ids as $i => $id ) {
@@ -218,9 +217,8 @@ class AssessmentMetaBoxController extends BaseController implements ServiceInter
 				'_title'  => $id > 0 ? get_the_title( $id ) : '',
 			);
 		}
-		$json         = wp_json_encode( $steps, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT );
-		$points_json  = wp_json_encode( $task_points, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT );
-		$numbers_json = wp_json_encode( $task_numbers, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT );
+		$json        = wp_json_encode( $steps, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT );
+		$points_json = wp_json_encode( $task_points, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT );
 
 		// Число позиций зависит от ВИДА экзамена, не только от предмета: ЕГЭ по
 		// информатике — все термы таксономии номеров (обычно 27), ОГЭ — фиксированные
@@ -260,7 +258,6 @@ class AssessmentMetaBoxController extends BaseController implements ServiceInter
 				'ege-kinds'             => $ege_kinds_json ?: '[]',
 				'allow-incomplete-kinds' => $allow_incomplete_json ?: '[]',
 				'task-points'           => $points_json ?: '{}',
-				'task-numbers'          => $numbers_json ?: '{}',
 			),
 			'json'       => (string) $json,
 		) );

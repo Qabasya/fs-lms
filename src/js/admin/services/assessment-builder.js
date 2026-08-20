@@ -28,7 +28,6 @@ function mount( el ) {
 	const egeKinds      = JSON.parse( el.dataset.egeKinds || '[]' );
 	const allowIncompleteKinds = JSON.parse( el.dataset.allowIncompleteKinds || '[]' );
 	const taskPointsMap  = JSON.parse( el.dataset.taskPoints || '{}' );
-	const taskNumbersMap = JSON.parse( el.dataset.taskNumbers || '{}' );
 	const acts          = fs_lms_vars.ajax_actions;
 	const nonces        = fs_lms_vars.nonces;
 
@@ -40,7 +39,7 @@ function mount( el ) {
 	// сервер уже разрешает публиковать эти виды неукомплектованными, поэтому клиентский
 	// гейт (D16.5) их дизейблить не должен — только предупреждение остаётся видимым.
 	const allowsIncomplete = ( kind ) => allowIncompleteKinds.includes( kind );
-	const blankSlot    = ( i ) => ( { key: 'slot_' + i, taskId: 0, title: '', points: 1, number: '' } );
+	const blankSlot    = ( i ) => ( { key: 'slot_' + i, taskId: 0, title: '', points: 1 } );
 	const buildEgeSlots = ( count ) => Array.from( { length: count }, ( _, i ) => blankSlot( i ) );
 
 	// D16.5: живой индикатор укомплектованности ЕГЭ — вставляется рядом с
@@ -123,18 +122,6 @@ function mount( el ) {
 		return map;
 	}
 
-	// Задача 8: номера банковских задач (fs_lms_problems) — таксономии у них нет,
-	// номер задаётся вручную здесь. Пустые не отправляем.
-	function buildTaskNumbers( slots ) {
-		const map = {};
-		slots.forEach( ( s ) => {
-			if ( s.taskId > 0 && s.number && '' !== String( s.number ).trim() ) {
-				map[ s.taskId ] = String( s.number ).trim();
-			}
-		} );
-		return map;
-	}
-
 	createSlotBuilder( el, {
 		treeTitle: 'Структура контрольной',
 		emptyText: 'Нет слотов — нажмите «+ Задача».',
@@ -146,7 +133,6 @@ function mount( el ) {
 				taskId,
 				title:  s._title || '',
 				points: parseFloat( taskPointsMap[ taskId ] || 0 ),
-				number: String( taskNumbersMap[ taskId ] || '' ),
 			};
 		},
 		newSlot: blankSlot,
@@ -158,7 +144,6 @@ function mount( el ) {
 			assessment_id: assessmentId,
 			item_ids:      slots.filter( ( s ) => s.taskId > 0 ).map( ( s ) => s.taskId ),
 			task_points:   buildTaskPoints( slots ),
-			task_numbers:  buildTaskNumbers( slots ),
 		} ),
 
 		// D16.5: ответ сохранения несёт строгий вердикт полноты (T16.10) —
@@ -167,11 +152,16 @@ function mount( el ) {
 			if ( data && data.completeness ) { renderCompleteness( data.completeness ); }
 		},
 
-		search: ( q ) => post( acts.getStepCandidates, nonces.authorLesson, {
+		// Позиция слота (1-based) = номер задания экзамена: для ЕГЭ/ОГЭ отдаём её
+		// бэкенду, чтобы выпадающий список показывал только подходящие по номеру
+		// задачи (предметные — по терму {subject}_task_number, банковские — по
+		// PostMetaName::BankTaskSubject/BankTaskNumber, см. LessonAuthoringService).
+		search: ( q, index ) => post( acts.getStepCandidates, nonces.authorLesson, {
 			subject_key: subject,
 			kind:        'task',
 			source:      'all', // и банк, и задачи предмета (как в Работах) — с бейджем источника
 			search:      q,
+			position:    isEge( prevKind ) && 'number' === typeof index ? String( index + 1 ) : '',
 		} ),
 
 		preview: ( taskId ) => post( acts.getTaskPreview, nonces.authorAssessment, {
@@ -183,39 +173,6 @@ function mount( el ) {
 			subject_key: subject,
 			title,
 		} ),
-
-		// Номер задания — только для ЕГЭ/ОГЭ-видов. Баллы за задание больше не
-		// вводятся здесь (§3.5, .docs/Tasks.md): для станций это фиксированная
-		// таблица «номер → баллы» в module-level конфиге (аналог KegeScaleConfig/
-		// OgeCriteriaConfig), подставляется на чтении (AssessmentManager::STATION_SETTINGS_FILTER-
-		// подобная подмена в EgeComputerModule) — редактировать её через builder UI нельзя.
-		renderExtraBody: ( container, slot, index, api ) => {
-			if ( ! isEge( prevKind ) ) { return; }
-
-			// Задача 8: «Номер задания» для банковских задач (fs_lms_problems) — у них
-			// нет таксономии {subject}_task_number. Для обычных subject-задач номер берётся
-			// из таксономии автоматически (введённое здесь бэкенд игнорирует при наличии терма).
-			const numWrap = document.createElement( 'div' );
-			numWrap.className = 'fs-sb-task-number';
-
-			const numLabel = document.createElement( 'label' );
-			numLabel.textContent = 'Номер задания (для банка):';
-			numLabel.htmlFor     = 'fs-sb-number-' + index;
-
-			const numInput = document.createElement( 'input' );
-			numInput.type      = 'text';
-			numInput.id        = 'fs-sb-number-' + index;
-			numInput.className = 'small-text';
-			numInput.value     = String( slot.number || '' );
-			numInput.addEventListener( 'change', () => {
-				slot.number = numInput.value.trim();
-				api.save();
-			} );
-
-			numWrap.appendChild( numLabel );
-			numWrap.appendChild( numInput );
-			container.appendChild( numWrap );
-		},
 
 		onReady: ( api ) => {
 			if ( kindSelect ) {

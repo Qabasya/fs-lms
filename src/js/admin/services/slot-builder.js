@@ -226,12 +226,6 @@ export function createSlotBuilder( el, config ) {
 			const s = newSlot( index + i );
 			s.taskId = c.id;
 			s.title  = c.title;
-			// Ручной номер (Задача 8) — обязателен для банковских детей связки:
-			// без него EgeCompletenessChecker не видит childId ни через терм (у
-			// fs_lms_problems его нет), ни через task_numbers, и считает «сиротой».
-			// Для предметных детей значение избыточно, но не мешает — бэкенд
-			// игнорирует ручной номер при наличии терма.
-			if ( 'number' in s && c.number ) { s.number = String( c.number ); }
 			return s;
 		} );
 
@@ -397,7 +391,7 @@ export function createSlotBuilder( el, config ) {
 			openPicker( pickBtn, {
 				placeholder: 'Поиск задачи…',
 				emptyText:   'Задачи не найдены',
-				fetchFn:     ( q ) => config.search( q ),
+				fetchFn:     ( q ) => config.search( q, index ),
 				onPick:      ( id, title, source, item ) => assignPicked( index, id, title, item ),
 			} );
 		} );

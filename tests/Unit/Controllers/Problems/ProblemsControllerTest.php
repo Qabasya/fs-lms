@@ -7,7 +7,9 @@ namespace Unit\Controllers\Problems;
 use Inc\Controllers\Builders\ProblemListFilters;
 use Inc\Controllers\Problems\ProblemsController;
 use Inc\Managers\Wp\PostManager;
+use Inc\Managers\Wp\TermManager;
 use Inc\Registrars\ProblemBankRegistrar;
+use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Services\Task\TaskPublishGuard;
 use Inc\Services\Task\TaskPublishValidator;
 use Inc\Services\Template\TemplateRegistry;
@@ -38,7 +40,9 @@ class ProblemsControllerTest extends TestCase {
 			$this->validator,
 			new TaskPublishGuard(),
 			$this->createMock( ProblemBankRegistrar::class ),
-			$this->createMock( ProblemListFilters::class )
+			$this->createMock( ProblemListFilters::class ),
+			$this->createMock( SubjectRepository::class ),
+			$this->createMock( TermManager::class )
 		);
 	}
 

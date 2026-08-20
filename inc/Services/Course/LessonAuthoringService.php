@@ -104,18 +104,22 @@ class LessonAuthoringService {
 	 * Кандидаты для шага-ссылки (модалка «Добавить шаг», T1.5.5).
 	 *
 	 * @param string $subjectKey
-	 * @param string $kind   work|task|assessment|article|lesson
-	 * @param string $source subject|bank|all — источник задачи (для kind=task; all = предмет + банк)
+	 * @param string $kind     work|task|assessment|article|lesson
+	 * @param string $source   subject|bank|all — источник задачи (для kind=task; all = предмет + банк)
 	 * @param string $search
+	 * @param string $position Номер позиции экзамена (для kind=task в конструкторе ЕГЭ/ОГЭ) — фильтрует
+	 *                         предметные задачи по терму `{subject}_task_number` и банковские по
+	 *                         {@see PostMetaName::BankTaskSubject}/{@see PostMetaName::BankTaskNumber}.
+	 *                         '' — без фильтра (обычный степ урока/работы).
 	 *
 	 * @return array<int, array{id: int, title: string, source?: string}>
 	 */
-	public function getStepCandidates( string $subjectKey, string $kind, string $source = 'subject', string $search = '' ): array {
+	public function getStepCandidates( string $subjectKey, string $kind, string $source = 'subject', string $search = '', string $position = '' ): array {
 		// Задача-шаг тянется из обоих источников сразу (предмет + банк) — вариант А.
 		if ( 'task' === $kind && 'all' === $source ) {
 			return array_merge(
-				$this->candidatesFrom( PostTypeResolver::tasks( $subjectKey ), $search, 'subject', true ),
-				$this->candidatesFrom( PostTypeResolver::problems(), $search, 'bank', true )
+				$this->candidatesFrom( PostTypeResolver::tasks( $subjectKey ), $search, 'subject', true, $this->taskNumberQuery( $subjectKey, $position ) ),
+				$this->candidatesFrom( PostTypeResolver::problems(), $search, 'bank', true, $this->bankNumberQuery( $subjectKey, $position ) )
 			);
 		}
 
@@ -132,9 +136,52 @@ class LessonAuthoringService {
 			return array();
 		}
 
-		$origin = 'task' === $kind ? ( 'bank' === $source ? 'bank' : 'subject' ) : '';
+		$origin     = 'task' === $kind ? ( 'bank' === $source ? 'bank' : 'subject' ) : '';
+		$extraQuery = 'task' !== $kind ? array() : ( 'bank' === $source
+			? $this->bankNumberQuery( $subjectKey, $position )
+			: $this->taskNumberQuery( $subjectKey, $position ) );
 
-		return $this->candidatesFrom( $post_type, $search, $origin, 'task' === $kind );
+		return $this->candidatesFrom( $post_type, $search, $origin, 'task' === $kind, $extraQuery );
+	}
+
+	/**
+	 * Фильтр предметных задач по номеру позиции — терм `{subject}_task_number` с именем $position.
+	 *
+	 * @return array{tax_query?: array}
+	 */
+	private function taskNumberQuery( string $subjectKey, string $position ): array {
+		if ( '' === $position ) {
+			return array();
+		}
+
+		return array(
+			'tax_query' => array(
+				array(
+					'taxonomy' => PostTypeResolver::getTaskTaxonomy( $subjectKey ),
+					'field'    => 'name',
+					'terms'    => $position,
+				),
+			),
+		);
+	}
+
+	/**
+	 * Фильтр банковских задач (fs_lms_problems) по номеру позиции — своей мете
+	 * (у CPT банка нет таксономии номеров), см. {@see PostMetaName::BankTaskSubject}.
+	 *
+	 * @return array{meta_query?: array}
+	 */
+	private function bankNumberQuery( string $subjectKey, string $position ): array {
+		if ( '' === $position ) {
+			return array();
+		}
+
+		return array(
+			'meta_query' => array(
+				array( 'key' => PostMetaName::BankTaskSubject->value, 'value' => $subjectKey ),
+				array( 'key' => PostMetaName::BankTaskNumber->value, 'value' => $position ),
+			),
+		);
 	}
 
 	/**
@@ -142,12 +189,14 @@ class LessonAuthoringService {
 	 * происхождение задачи (subject|bank) — нужно для payload.source шага.
 	 * `$withBundles` — только для задач: добавляет `bundle_children`, если пост —
 	 * parent связки 19-21 (см. .docs/Tasks.md, §3.4).
+	 * `$extraQuery` — доп. tax_query/meta_query (см. {@see taskNumberQuery()}/{@see bankNumberQuery()}).
 	 *
 	 * @return array<int, array{id: int, title: string, source?: string, bundle_children?: array}>
 	 */
-	private function candidatesFrom( string $post_type, string $search, string $source = '', bool $withBundles = false ): array {
+	private function candidatesFrom( string $post_type, string $search, string $source = '', bool $withBundles = false, array $extraQuery = array() ): array {
 		$result = array();
-		foreach ( $this->posts->search( $post_type, array( 'limit' => 50, 'search' => $search ) ) as $post ) {
+		$opts   = array_merge( array( 'limit' => 50, 'search' => $search ), $extraQuery );
+		foreach ( $this->posts->search( $post_type, $opts ) as $post ) {
 			$item = array(
 				'id'    => $post->ID,
 				'title' => $post->post_title,

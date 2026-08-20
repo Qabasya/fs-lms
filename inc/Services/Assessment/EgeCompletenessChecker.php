@@ -84,8 +84,9 @@ class EgeCompletenessChecker {
 				static fn( $slug ) => isset( $termNames[ $slug ] )
 			) );
 
-			// Задача 8: у банковских (fs_lms_problems) задач нет таксономического терма —
-			// номер берём из карты task_numbers работы (fallback), сверяя с эталоном.
+			// У банковских (fs_lms_problems) задач нет таксономического терма — номер
+			// берём из AssessmentDTO::$taskNumbers (снапшот, авто-вычисляемый
+			// AssessmentManager::setItemIds() из собственной меты банковской задачи).
 			if ( empty( $slugs ) ) {
 				$number = $assessment->taskNumbers[ $taskId ] ?? '';
 				if ( '' !== $number && isset( $nameToSlug[ $number ] ) ) {
@@ -162,7 +163,7 @@ class EgeCompletenessChecker {
 					$hasTerm                 = true;
 				}
 			}
-			// Задача 8: банковская задача без терма — по номеру из task_numbers.
+			// Банковская задача без терма — по номеру из task_numbers.
 			if ( ! $hasTerm ) {
 				$number = $assessment->taskNumbers[ $taskId ] ?? '';
 				if ( '' !== $number && isset( $nameToSlug[ $number ] ) ) {

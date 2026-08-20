@@ -25,7 +25,12 @@ readonly class AssessmentDTO {
 		public array          $taskPoints,
 		/** @var array<int, int> primary_score => secondary_score */
 		public array          $scoreMap,
-		/** @var array<int, string> task_id => номер задания (задача 8: fallback для банковских задач без таксономии) */
+		/**
+		 * @var array<int, string> task_id => номер задания. Снапшот, авто-вычисляемый
+		 * {@see \Inc\Managers\Assessment\AssessmentManager::setItemIds()} из собственной меты
+		 * банковской задачи (PostMetaName::BankTaskSubject/BankTaskNumber) при каждом
+		 * сохранении степ-листа — fallback для fs_lms_problems без таксономии номеров.
+		 */
 		public array          $taskNumbers = [],
 		/** Per-work WYSIWYG-описание для интро-шага (D16.4); пусто → дефолты AssessmentIntroConfig. */
 		public string         $introHtml = '',

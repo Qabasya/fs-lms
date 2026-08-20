@@ -63,4 +63,19 @@ enum PostMetaName: string {
 	 * См. {@see \Inc\Services\Task\TaskBundleService}.
 	 */
 	case TaskBundleChildIds = 'fs_lms_task_bundle_child_ids';
+
+	/**
+	 * На банковской задаче (fs_lms_problems) — ключ предмета, за которым автор
+	 * закрепил задачу (необязательная пометка). Вместе с {@see BankTaskNumber}
+	 * заменяет ручной ввод номера в конструкторе контрольной: канонический
+	 * источник номера банковской задачи теперь сам пост, а не мета контрольной.
+	 */
+	case BankTaskSubject = 'fs_lms_bank_task_subject';
+
+	/**
+	 * На банковской задаче (fs_lms_problems) — номер позиции экзамена (совпадает
+	 * с именем терма `{subject}_task_number` или синтетической позицией вроде
+	 * «13» для ручной проверки ОГЭ). Имеет смысл только вместе с {@see BankTaskSubject}.
+	 */
+	case BankTaskNumber = 'fs_lms_bank_task_number';
 }

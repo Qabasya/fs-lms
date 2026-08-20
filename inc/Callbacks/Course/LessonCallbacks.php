@@ -103,7 +103,8 @@ class LessonCallbacks extends BaseController {
 
 	/**
 	 * Кандидаты для шага-ссылки (модалка билдера).
-	 * Params: subject_key, kind (work|task|assessment|article), source (subject|bank), search
+	 * Params: subject_key, kind (work|task|assessment|article), source (subject|bank), search,
+	 * position (опц.: номер позиции экзамена — конструктор ЕГЭ/ОГЭ)
 	 */
 	public function ajaxGetStepCandidates(): void {
 		$this->authorize( Nonce::AuthorLesson, Capability::AuthorLmsCourses );
@@ -112,8 +113,9 @@ class LessonCallbacks extends BaseController {
 		$kind        = $this->sanitizeKey( 'kind' );
 		$source      = $this->sanitizeKey( 'source' );
 		$search      = $this->sanitizeText( 'search' );
+		$position    = $this->sanitizeText( 'position' );
 
-		$this->success( $this->authoringService->getStepCandidates( $subject_key, $kind, $source, $search ) );
+		$this->success( $this->authoringService->getStepCandidates( $subject_key, $kind, $source, $search, $position ) );
 	}
 
 	/**

@@ -25,6 +25,7 @@ import { AssessmentBuilder } from './services/assessment-builder.js';
 import { ScoreMap } from './services/score-map.js';
 import { CourseBuilder } from './services/course-builder.js';
 import { TaskTemplateType } from './services/task-template-type.js';
+import { ProblemBankFields } from './services/problem-bank-fields.js';
 import { ModuleToggle } from './services/module-toggle.js';
 import { TaskFields } from './services/task-fields.js';
 import { TaskEditor } from './services/task-editor.js';
@@ -185,6 +186,7 @@ import { RolesSettings } from './services/roles-settings.js';
         }
 
         TaskTemplateType.init();
+        ProblemBankFields.init();
         TaskFields.init();
         TaskEditor.init();
 

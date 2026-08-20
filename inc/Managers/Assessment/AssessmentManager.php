@@ -54,12 +54,14 @@ class AssessmentManager {
 	 * @param int[] $itemIds
 	 */
 	/**
-	 * @param int[]    $itemIds
-	 * @param float[]  $taskPoints  taskId => points
-	 * @param string[] $taskNumbers taskId => номер задания (задача 8: fallback-номер для
-	 *                              банковских fs_lms_problems-задач без таксономического терма).
+	 * @param int[]      $itemIds
+	 * @param float[]    $taskPoints  taskId => points
+	 * @param string[]|null $taskNumbers taskId => номер, явное значение (используется только
+	 *                                   переносом ссылок связки при смене ID, {@see \Inc\Services\Task\TaskBundleMigrationPlanner});
+	 *                                   null (по умолчанию) — вычисляется из меты банковских
+	 *                                   задач ({@see deriveTaskNumbers()}), обычный путь сохранения из конструктора.
 	 */
-	public function setItemIds( int $assessmentId, array $itemIds, array $taskPoints = [], array $taskNumbers = [] ): bool {
+	public function setItemIds( int $assessmentId, array $itemIds, array $taskPoints = [], ?array $taskNumbers = null ): bool {
 		$post = get_post( $assessmentId );
 		if ( ! $post instanceof \WP_Post || ! PostTypeResolver::isAssessmentPostType( $post->post_type ) ) {
 			return false;
@@ -75,10 +77,38 @@ class AssessmentManager {
 		$meta                 = is_array( $meta ) ? $meta : array();
 		$meta['task_ids']     = $ids;
 		$meta['task_points']  = $taskPoints;
-		$meta['task_numbers'] = $taskNumbers;
+		$meta['task_numbers'] = $taskNumbers ?? $this->deriveTaskNumbers( $ids, PostTypeResolver::subjectFromAssessmentPostType( $post->post_type ) );
 
 		$this->posts->updateMeta( $assessmentId, PostMetaName::Meta->value, $meta );
 		return true;
+	}
+
+	/**
+	 * Номер позиции банковских задач (fs_lms_problems) — больше не вводится вручную
+	 * в конструкторе, а вычисляется из собственной меты задачи (метабокс «Предмет и
+	 * номер задания», {@see \Inc\Controllers\Problems\ProblemsController}). Задача
+	 * учитывается только если помечена ТЕМ ЖЕ предметом, что и контрольная — иначе
+	 * {@see \Inc\Services\Assessment\EgeCompletenessChecker} увидит её «сиротой».
+	 *
+	 * @param int[] $itemIds
+	 *
+	 * @return array<int, string> taskId => номер
+	 */
+	private function deriveTaskNumbers( array $itemIds, string $subjectKey ): array {
+		$numbers = array();
+		foreach ( $itemIds as $taskId ) {
+			$taskSubject = (string) $this->posts->getMeta( $taskId, PostMetaName::BankTaskSubject->value );
+			if ( '' === $subjectKey || $taskSubject !== $subjectKey ) {
+				continue;
+			}
+
+			$number = trim( (string) $this->posts->getMeta( $taskId, PostMetaName::BankTaskNumber->value ) );
+			if ( '' !== $number ) {
+				$numbers[ $taskId ] = $number;
+			}
+		}
+
+		return $numbers;
 	}
 
 	/**
