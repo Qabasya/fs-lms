@@ -10,6 +10,7 @@ declare( strict_types=1 );
 
 use Inc\Enums\Access\Capability;
 use Inc\Enums\Enrollment\EnrollmentStatus;
+use Inc\Enums\Enrollment\ExpulsionReasons;
 
 require_once FS_LMS_PATH . 'templates/admin/components/UI/ui_renderers.php';
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
@@ -17,6 +18,7 @@ use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Repositories\WPDBRepositories\PersonDocumentsRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
+use Inc\Services\Log\LogNameResolver;
 use Inc\Services\Security\PiiCryptoService;
 
 defined( 'ABSPATH' ) || exit;
@@ -37,6 +39,15 @@ $page         = max( 1, (int) ( $_GET['paged'] ?? 1 ) );
 $perPage      = 20;
 $statusFilter = sanitize_key( $_GET['arc_status'] ?? '' );
 
+$subjectFilter = sanitize_key( wp_unslash( $_GET['subject_key'] ?? '' ) );
+$groupFilter   = (int) ( $_GET['group_id'] ?? 0 );
+$reasonFilter  = sanitize_text_field( wp_unslash( $_GET['reason'] ?? '' ) );
+
+$sortableColumns  = array( 'student_name', 'status', 'subject', 'group' );
+$requestedOrderby = sanitize_key( wp_unslash( $_GET['orderby'] ?? '' ) );
+$orderby          = in_array( $requestedOrderby, $sortableColumns, true ) ? $requestedOrderby : 'enrolled_at';
+$order            = 'asc' === sanitize_key( wp_unslash( $_GET['order'] ?? '' ) ) ? 'ASC' : 'DESC';
+
 $terminalStatuses = array(
 	EnrollmentStatus::Expelled->value,
 	EnrollmentStatus::Finished->value,
@@ -45,13 +56,19 @@ $terminalStatuses = array(
 
 $allStatuses = array_merge( array( EnrollmentStatus::Active->value ), $terminalStatuses );
 
+$sideFilters = array_filter( array(
+	'subject_key' => $subjectFilter,
+	'group_id'    => $groupFilter ?: '',
+	'reason'      => $reasonFilter,
+) );
+
 if ( '' === $statusFilter || ! in_array( $statusFilter, array_column( EnrollmentStatus::cases(), 'value' ), true ) ) {
-	$filters = array( 'status' => $allStatuses );
+	$filters = array_merge( $sideFilters, array( 'status' => $allStatuses ) );
 } else {
-	$filters = array( 'status' => array( $statusFilter ) );
+	$filters = array_merge( $sideFilters, array( 'status' => array( $statusFilter ) ) );
 }
 
-$records = $recordRepo->list( $filters, $page, $perPage );
+$records = $recordRepo->list( $filters, $page, $perPage, $orderby, $order );
 $total   = $recordRepo->count( $filters );
 $pages   = (int) ceil( $total / $perPage );
 
@@ -60,7 +77,18 @@ foreach ( $subjectRepo->readAll() as $dto ) {
 	$allSubjects[ $dto->key ] = $dto->name;
 }
 
-$baseUrl      = add_query_arg( array( 'page' => 'fs_lms_userlist', 'tab' => 'tab-5' ), admin_url( 'admin.php' ) );
+$groupOptions = array();
+foreach ( $groupRepo->findAll() as $g ) {
+	$groupOptions[ $g->id ] = $g->name . ' (' . ( $allSubjects[ $g->subject_key ] ?? $g->subject_key ) . ')';
+}
+
+$reasonOptions = array();
+foreach ( ExpulsionReasons::values() as $reasonValue ) {
+	$reasonOptions[ $reasonValue ] = $reasonValue;
+}
+
+$pageSlug     = sanitize_key( $_GET['page'] ?? '' );
+$baseUrl      = add_query_arg( array( 'page' => $pageSlug, 'tab' => 'tab-5' ), admin_url( 'admin.php' ) );
 $statusLabels = array(
 	''                              => 'Все',
 	EnrollmentStatus::Active->value      => 'Обучается',
@@ -69,9 +97,16 @@ $statusLabels = array(
 	EnrollmentStatus::Expelled->value    => 'Отчислен',
 );
 
+$activeFilters = array_merge( $sideFilters, array_filter( array( 'arc_status' => $statusFilter ) ) );
+$sortUrl       = add_query_arg( $activeFilters, $baseUrl );
+$sortParams    = 'enrolled_at' !== $orderby
+	? array( 'orderby' => $orderby, 'order' => strtolower( $order ) )
+	: array();
+$filterUrl     = add_query_arg( array_merge( $activeFilters, $sortParams ), $baseUrl );
+
 ?>
 
-<div class="fs-lms-archive">
+<div class="fs-lms-archive fs-logs-tab">
 
 	<!-- Фильтры по статусу -->
 	<ul class="subsubsub">
@@ -80,12 +115,12 @@ $statusLabels = array(
 		$lastKey    = end( $filterKeys );
 		foreach ( $statusLabels as $val => $label ) :
 			$url      = '' === $val
-				? $baseUrl
-				: add_query_arg( array( 'arc_status' => $val ), $baseUrl );
+				? add_query_arg( $sideFilters, $baseUrl )
+				: add_query_arg( array_merge( $sideFilters, array( 'arc_status' => $val ) ), $baseUrl );
 			$isCurrent = $statusFilter === $val;
 			$countFilters = '' === $val
-				? array( 'status' => $allStatuses )
-				: array( 'status' => array( $val ) );
+				? array_merge( $sideFilters, array( 'status' => $allStatuses ) )
+				: array_merge( $sideFilters, array( 'status' => array( $val ) ) );
 			$cnt = $recordRepo->count( $countFilters );
 			?>
 			<li>
@@ -110,22 +145,62 @@ $statusLabels = array(
 		</div>
 	</div>
 
+	<form method="get" action="<?php echo esc_url( admin_url( 'admin.php' ) ); ?>" class="fs-logs-filters">
+		<input type="hidden" name="page" value="<?php echo esc_attr( $pageSlug ); ?>">
+		<input type="hidden" name="tab"  value="tab-5">
+		<?php if ( '' !== $statusFilter ) : ?>
+			<input type="hidden" name="arc_status" value="<?php echo esc_attr( $statusFilter ); ?>">
+		<?php endif; ?>
+
+		<?php render_fs_select( array(
+			'name'      => 'subject_key',
+			'options'   => $allSubjects,
+			'selected'  => $subjectFilter,
+			'all_label' => 'Все направления',
+		) ); ?>
+
+		<?php render_fs_select( array(
+			'name'      => 'group_id',
+			'options'   => $groupOptions,
+			'selected'  => $groupFilter ?: '',
+			'all_label' => 'Все группы',
+		) ); ?>
+
+		<?php render_fs_select( array(
+			'name'      => 'reason',
+			'options'   => $reasonOptions,
+			'selected'  => $reasonFilter,
+			'all_label' => 'Все причины',
+		) ); ?>
+
+		<button type="submit" class="button">Применить</button>
+
+		<?php if ( ! empty( $sideFilters ) ) : ?>
+			<a href="<?php echo esc_url( add_query_arg( array_filter( array( 'arc_status' => $statusFilter ) ), $baseUrl ) ); ?>" class="button">Сбросить</a>
+		<?php endif; ?>
+	</form>
+
+	<p class="fs-logs-summary">
+		Найдено записей: <strong><?php echo number_format_i18n( $total ); ?></strong>
+		<?php if ( ! empty( $sideFilters ) ) : ?><em>(с фильтрами)</em><?php endif; ?>
+	</p>
+
 	<table class="wp-list-table widefat fixed striped fs-table fs-table--applications">
 
 		<thead>
 		<tr>
 			<th class="check-column"><input type="checkbox" id="js-select-all-archive"></th>
 			<th class="column-title column-primary">
-				<?php esc_html_e( 'ФИО ученика', 'fs-lms' ); ?>
+				<?php echo LogNameResolver::sortableHeader( 'ФИО ученика', 'student_name', $orderby, strtolower( $order ), $sortUrl ); // phpcs:ignore ?>
 			</th>
 			<th class="column-title">
-				<?php esc_html_e( 'Статус', 'fs-lms' ); ?>
+				<?php echo LogNameResolver::sortableHeader( 'Статус', 'status', $orderby, strtolower( $order ), $sortUrl ); // phpcs:ignore ?>
 			</th>
 			<th class="column-title">
-				<?php esc_html_e( 'Направление', 'fs-lms' ); ?>
+				<?php echo LogNameResolver::sortableHeader( 'Направление', 'subject', $orderby, strtolower( $order ), $sortUrl ); // phpcs:ignore ?>
 			</th>
 			<th class="column-title">
-				<?php esc_html_e( 'Группа', 'fs-lms' ); ?>
+				<?php echo LogNameResolver::sortableHeader( 'Группа', 'group', $orderby, strtolower( $order ), $sortUrl ); // phpcs:ignore ?>
 			</th>
 			<th class="column-title">
 				<?php esc_html_e( 'Дата завершения', 'fs-lms' ); ?>
@@ -331,7 +406,7 @@ $statusLabels = array(
 		</tbody>
 	</table>
 
-	<?php render_fs_pagination( $page, $pages, add_query_arg( 'paged', '%#%' ) ); ?>
+	<?php render_fs_pagination( $page, $pages, add_query_arg( 'paged', '%#%', $filterUrl ) ); ?>
 
 </div>
 

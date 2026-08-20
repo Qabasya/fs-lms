@@ -11,6 +11,7 @@ declare( strict_types=1 );
 use Inc\Enums\Access\Capability;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
+use Inc\Services\Log\LogNameResolver;
 
 require_once FS_LMS_PATH . 'templates/admin/components/UI/ui_renderers.php';
 
@@ -27,14 +28,22 @@ $recordRepo = new StudentRecordRepository();
 $page    = max( 1, (int) ( $_GET['paged'] ?? 1 ) );
 $perPage = 20;
 
-$allParents    = $personRepo->findByIsStudent( false );
-$total         = count( $allParents );
+$orderby = 'child_name' === sanitize_key( wp_unslash( $_GET['orderby'] ?? '' ) ) ? 'child_name' : 'name';
+$order   = 'desc' === sanitize_key( wp_unslash( $_GET['order'] ?? '' ) ) ? 'DESC' : 'ASC';
+
+$total         = $personRepo->countParents();
 $pages         = $total > 0 ? (int) ceil( $total / $perPage ) : 1;
-$parentPersons = array_slice( $allParents, ( $page - 1 ) * $perPage, $perPage );
+$parentPersons = $personRepo->listParents( $page, $perPage, $orderby, $order );
+
+$pageSlug  = sanitize_key( $_GET['page'] ?? '' );
+$baseUrl   = add_query_arg( array( 'page' => $pageSlug, 'tab' => 'tab-3' ), admin_url( 'admin.php' ) );
+$sortUrl   = $baseUrl;
+$sortParams = array( 'orderby' => $orderby, 'order' => strtolower( $order ) );
+$filterUrl  = add_query_arg( $sortParams, $baseUrl );
 
 ?>
 
-<div class="fs-lms-parents">
+<div class="fs-lms-parents fs-logs-tab">
 
 	<div class="tablenav top fs-students-bulk-bar">
 		<div class="alignleft actions bulkactions">
@@ -55,10 +64,10 @@ $parentPersons = array_slice( $allParents, ( $page - 1 ) * $perPage, $perPage );
 				<input type="checkbox" id="js-select-all-parents">
 			</th>
 			<th class="column-title column-primary">
-				<?php esc_html_e( 'ФИО родителя', 'fs-lms' ); ?>
+				<?php echo LogNameResolver::sortableHeader( 'ФИО родителя', 'name', $orderby, strtolower( $order ), $sortUrl ); // phpcs:ignore ?>
 			</th>
 			<th class="column-title">
-				<?php esc_html_e( 'ФИО ребёнка', 'fs-lms' ); ?>
+				<?php echo LogNameResolver::sortableHeader( 'ФИО ребёнка', 'child_name', $orderby, strtolower( $order ), $sortUrl ); // phpcs:ignore ?>
 			</th>
 			<th class="column-title">
 				<?php esc_html_e( 'Действия', 'fs-lms' ); ?>
@@ -156,7 +165,7 @@ $parentPersons = array_slice( $allParents, ( $page - 1 ) * $perPage, $perPage );
 		</tbody>
 	</table>
 
-	<?php render_fs_pagination( $page, $pages, add_query_arg( 'paged', '%#%' ) ); ?>
+	<?php render_fs_pagination( $page, $pages, add_query_arg( 'paged', '%#%', $filterUrl ) ); ?>
 
 </div>
 

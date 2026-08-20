@@ -15,6 +15,7 @@ use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
+use Inc\Services\Log\LogNameResolver;
 
 require_once FS_LMS_PATH . 'templates/admin/components/UI/ui_renderers.php';
 
@@ -33,8 +34,20 @@ $subjectRepo = new SubjectRepository();
 $page    = max( 1, (int) ( $_GET['paged'] ?? 1 ) );
 $perPage = 20;
 
-$filters    = array( 'status' => EnrollmentStatus::Active->value );
-$studentIds = $recordRepo->listDistinctStudentIds( $filters, $page, $perPage );
+$subjectFilter = sanitize_key( wp_unslash( $_GET['subject_key'] ?? '' ) );
+$groupFilter   = (int) ( $_GET['group_id'] ?? 0 );
+$orderby       = 'student_name' === sanitize_key( wp_unslash( $_GET['orderby'] ?? '' ) ) ? 'student_name' : 'enrolled_at';
+$order         = 'asc' === sanitize_key( wp_unslash( $_GET['order'] ?? '' ) ) ? 'ASC' : 'DESC';
+
+$filters = array( 'status' => EnrollmentStatus::Active->value );
+if ( '' !== $subjectFilter ) {
+	$filters['subject_key'] = $subjectFilter;
+}
+if ( $groupFilter > 0 ) {
+	$filters['group_id'] = $groupFilter;
+}
+
+$studentIds = $recordRepo->listDistinctStudentIds( $filters, $page, $perPage, $orderby, $order );
 $total      = $recordRepo->countDistinctStudents( $filters );
 $pages      = (int) ceil( $total / $perPage );
 
@@ -43,9 +56,26 @@ foreach ( $subjectRepo->readAll() as $dto ) {
 	$allSubjects[ $dto->key ] = $dto->name;
 }
 
+$groupOptions = array();
+foreach ( $groupRepo->findAll() as $g ) {
+	$groupOptions[ $g->id ] = $g->name . ' (' . ( $allSubjects[ $g->subject_key ] ?? $g->subject_key ) . ')';
+}
+
+$pageSlug      = sanitize_key( $_GET['page'] ?? '' );
+$baseUrl       = add_query_arg( array( 'page' => $pageSlug, 'tab' => 'tab-2' ), admin_url( 'admin.php' ) );
+$activeFilters = array_filter( array(
+	'subject_key' => $subjectFilter,
+	'group_id'    => $groupFilter ?: '',
+) );
+$sortUrl    = add_query_arg( $activeFilters, $baseUrl );
+$sortParams = 'student_name' === $orderby
+	? array( 'orderby' => 'student_name', 'order' => strtolower( $order ) )
+	: array();
+$filterUrl  = add_query_arg( array_merge( $activeFilters, $sortParams ), $baseUrl );
+
 ?>
 
-<div class="fs-lms-students">
+<div class="fs-lms-students fs-logs-tab">
 
 	<div class="tablenav top fs-students-bulk-bar">
 		<div class="alignleft actions bulkactions">
@@ -59,13 +89,43 @@ foreach ( $subjectRepo->readAll() as $dto ) {
 		</div>
 	</div>
 
+	<form method="get" action="<?php echo esc_url( admin_url( 'admin.php' ) ); ?>" class="fs-logs-filters">
+		<input type="hidden" name="page" value="<?php echo esc_attr( $pageSlug ); ?>">
+		<input type="hidden" name="tab"  value="tab-2">
+
+		<?php render_fs_select( array(
+			'name'      => 'subject_key',
+			'options'   => $allSubjects,
+			'selected'  => $subjectFilter,
+			'all_label' => 'Все предметы',
+		) ); ?>
+
+		<?php render_fs_select( array(
+			'name'      => 'group_id',
+			'options'   => $groupOptions,
+			'selected'  => $groupFilter ?: '',
+			'all_label' => 'Все группы',
+		) ); ?>
+
+		<button type="submit" class="button">Применить</button>
+
+		<?php if ( ! empty( $activeFilters ) ) : ?>
+			<a href="<?php echo esc_url( $baseUrl ); ?>" class="button">Сбросить</a>
+		<?php endif; ?>
+	</form>
+
+	<p class="fs-logs-summary">
+		Найдено учеников: <strong><?php echo number_format_i18n( $total ); ?></strong>
+		<?php if ( ! empty( $activeFilters ) ) : ?><em>(с фильтрами)</em><?php endif; ?>
+	</p>
+
 	<table class="wp-list-table widefat fixed striped fs-table fs-table--applications">
 
 		<thead>
 		<tr>
 			<th class="column-cb check-column"><input type="checkbox" id="js-select-all-students"></th>
 			<th class="column-title column-primary">
-				<?php esc_html_e( 'ФИО ученика', 'fs-lms' ); ?>
+				<?php echo LogNameResolver::sortableHeader( 'ФИО ученика', 'student_name', $orderby, strtolower( $order ), $sortUrl ); // phpcs:ignore ?>
 			</th>
 			<th class="column-title">
 				<?php esc_html_e( 'Предмет', 'fs-lms' ); ?>
@@ -275,7 +335,7 @@ foreach ( $subjectRepo->readAll() as $dto ) {
 		</tbody>
 	</table>
 
-	<?php render_fs_pagination( $page, $pages, add_query_arg( 'paged', '%#%' ) ); ?>
+	<?php render_fs_pagination( $page, $pages, add_query_arg( 'paged', '%#%', $filterUrl ) ); ?>
 
 </div>
 

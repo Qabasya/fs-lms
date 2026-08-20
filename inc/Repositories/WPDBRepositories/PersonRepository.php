@@ -254,6 +254,59 @@ class PersonRepository {
 	}
 
 	/**
+	 * Возвращает родителей (is_student=false) с пагинацией и сортировкой.
+	 *
+	 * @param int    $page    Номер страницы
+	 * @param int    $perPage Количество записей на странице
+	 * @param string $orderby Поле сортировки: 'name' (ФИО родителя) | 'child_name' (ФИО ребёнка)
+	 * @param string $order   Направление: ASC|DESC
+	 *
+	 * @return PersonDTO[]
+	 */
+	public function listParents( int $page = 1, int $perPage = 20, string $orderby = 'name', string $order = 'ASC' ): array {
+		$offset = ( max( 1, $page ) - 1 ) * $perPage;
+		$order  = 'DESC' === strtoupper( $order ) ? 'DESC' : 'ASC';
+
+		if ( 'child_name' === $orderby ) {
+			$sql = "SELECT p.*, (
+					SELECT CONCAT_WS(' ', cp.last_name, cp.first_name, cp.middle_name)
+					FROM %i sr
+					INNER JOIN %i cp ON cp.id = sr.student_person_id
+					WHERE sr.parent_person_id = p.id AND sr.status = 'active'
+					ORDER BY cp.last_name, cp.first_name
+					LIMIT 1
+				) AS child_name
+				FROM %i p
+				WHERE p.is_student = 0 AND p.expelled_at IS NULL
+				ORDER BY child_name {$order}
+				LIMIT %d OFFSET %d";
+			$args = array( TableName::StudentRecords->prefixed(), $this->table, $this->table, $perPage, $offset );
+		} else {
+			$sql  = "SELECT * FROM %i WHERE is_student = 0 AND expelled_at IS NULL ORDER BY last_name {$order}, first_name {$order} LIMIT %d OFFSET %d";
+			$args = array( $this->table, $perPage, $offset );
+		}
+
+		// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+		$rows = $this->wpdb->get_results( $this->wpdb->prepare( $sql, ...$args ), ARRAY_A );
+
+		return array_map( fn( array $row ) => PersonDTO::fromArray( $row ), $rows ?: array() );
+	}
+
+	/**
+	 * Количество родителей (is_student=false, не удалённых).
+	 *
+	 * @return int
+	 */
+	public function countParents(): int {
+		return (int) $this->wpdb->get_var(
+			$this->wpdb->prepare(
+				'SELECT COUNT(*) FROM %i WHERE is_student = 0 AND expelled_at IS NULL',
+				$this->table
+			)
+		);
+	}
+
+	/**
 	 * Находит мягко удалённых лиц старше указанного количества дней.
 	 * Используется для окончательной анонимизации retention-задачами.
 	 *
