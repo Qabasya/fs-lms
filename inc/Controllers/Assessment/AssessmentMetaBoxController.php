@@ -39,6 +39,12 @@ class AssessmentMetaBoxController extends BaseController implements ServiceInter
 	/** Префикс транзиента предупреждения о неукомплектованной КЕГЭ (см. {@see resolveCompletenessError()}). */
 	private const COMPLETENESS_WARNING_PREFIX = 'fs_lms_assessment_completeness_warning_';
 
+	/**
+	 * Поля метабокса «Настройки контрольной» — видим только для `AssessmentKind::Control`
+	 * (`! kind->isStation()`), см. .docs/Tasks.md «тип экзамена — отдельный метабокс».
+	 */
+	private const SETTINGS_FIELD_IDS = array( 'time_limit_minutes', 'max_attempts', 'pass_score', 'intro_html' );
+
 	public function __construct(
 		private readonly SubjectRepository  $subjects,
 		private readonly MetaBoxRegistrar   $registrar,
@@ -161,10 +167,27 @@ class AssessmentMetaBoxController extends BaseController implements ServiceInter
 			$all_subjects
 		);
 
+		// Порядок регистрации = порядок на экране (все 'high', WP сохраняет очередь
+		// внутри одного приоритета): тип экзамена — первым, от него зависят два
+		// следующих (settings — Control, score_map — станции ЕГЭ/ОГЭ).
+		$this->registrar->add(
+			'fs_lms_assessment_kind',
+			'Тип экзамена',
+			array( $this, 'renderKindContent' ),
+			$assessment_post_types
+		)->register();
+
 		$this->registrar->add(
 			'fs_lms_assessment_settings',
 			'Настройки контрольной',
 			array( $this, 'renderSettingsContent' ),
+			$assessment_post_types
+		)->register();
+
+		$this->registrar->add(
+			'fs_lms_assessment_score_map',
+			'Таблица перевода баллов',
+			array( $this, 'renderScoreMapContent' ),
 			$assessment_post_types
 		)->register();
 
@@ -183,13 +206,48 @@ class AssessmentMetaBoxController extends BaseController implements ServiceInter
 		}
 	}
 
-	public function renderSettingsContent( \WP_Post $post ): void {
+	/**
+	 * «Тип экзамена» — только поле `kind`, единственный держатель nonce'а формы
+	 * (остальные два метабокса ниже его не дублируют — один nonce на форму).
+	 */
+	public function renderKindContent( \WP_Post $post ): void {
 		wp_nonce_field( Nonce::SaveMeta->value, 'fs_lms_meta_nonce' );
-		$this->render( 'admin/metaboxes/fields-wrapper', array(
+		$this->render( 'admin/metaboxes/fields-subset', array(
+			'wrapper_class' => 'fs-lms-assessment-kind',
+			'post'          => $post,
+			'template'      => $this->template,
+			'values'        => $this->postManager->taskMeta( $post->ID ),
+			'field_ids'     => array( 'kind' ),
+		) );
+	}
+
+	/**
+	 * «Настройки контрольной» — весь контейнер видим только для `AssessmentKind::Control`
+	 * (JS: `assessment-builder.js::toggleKindFields()`); для станций (ЕГЭ/ОГЭ) эти четыре
+	 * поля всё равно не редактируются — приходят из `StationExamConfig`.
+	 */
+	public function renderSettingsContent( \WP_Post $post ): void {
+		$this->render( 'admin/metaboxes/fields-subset', array(
 			'wrapper_class' => 'fs-lms-assessment-settings',
 			'post'          => $post,
 			'template'      => $this->template,
 			'values'        => $this->postManager->taskMeta( $post->ID ),
+			'field_ids'     => self::SETTINGS_FIELD_IDS,
+		) );
+	}
+
+	/**
+	 * «Таблица перевода баллов» — обратная видимость: только станции (ЕГЭ/ОГЭ),
+	 * где `score_map` реально участвует в переводе первичного балла во вторичный
+	 * (`SecondaryScoreService`); у Control поле мёртвое.
+	 */
+	public function renderScoreMapContent( \WP_Post $post ): void {
+		$this->render( 'admin/metaboxes/fields-subset', array(
+			'wrapper_class' => 'fs-lms-assessment-score-map',
+			'post'          => $post,
+			'template'      => $this->template,
+			'values'        => $this->postManager->taskMeta( $post->ID ),
+			'field_ids'     => array( 'score_map' ),
 		) );
 	}
 

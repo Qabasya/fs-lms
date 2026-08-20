@@ -151,6 +151,7 @@ export function createSlotBuilder( el, config ) {
 			activeIndex = ( active === undefined ) ? ( slots.length ? 0 : -1 ) : active;
 			render();
 		},
+		assignManyAt,
 		render,
 		save,
 	};
@@ -196,6 +197,28 @@ export function createSlotBuilder( el, config ) {
 		activeIndex = index;
 		renderLeft();
 		renderCenter();
+		save();
+	}
+
+	/**
+	 * Прямое присвоение нескольких {index, taskId, title} без splice/дубль-тоста
+	 * и без промежуточных save() на каждую пару — один save() на весь набор.
+	 * Нужно EGE-конструктору (.docs/Tasks.md, задача C): позиционные слоты
+	 * 19/20/21 сдвинулись бы при использовании assignPicked()/splice(), т.к. там
+	 * индекс слота жёстко равен номеру позиции экзамена.
+	 *
+	 * @param {Array<{index:number, taskId:number, title:string}>} pairs
+	 */
+	function assignManyAt( pairs ) {
+		const valid = pairs.filter( ( p ) => p.index >= 0 && p.index < slots.length );
+		if ( ! valid.length ) { return; }
+
+		valid.forEach( ( p ) => {
+			slots[ p.index ].taskId = p.taskId;
+			slots[ p.index ].title  = p.title;
+		} );
+		activeIndex = valid[ 0 ].index;
+		render();
 		save();
 	}
 
@@ -392,7 +415,14 @@ export function createSlotBuilder( el, config ) {
 				placeholder: 'Поиск задачи…',
 				emptyText:   'Задачи не найдены',
 				fetchFn:     ( q ) => config.search( q, index ),
-				onPick:      ( id, title, source, item ) => assignPicked( index, id, title, item ),
+				// config.onPick (опц.) — перехват пика до дефолтного assignPicked(); должен
+				// вернуть true, если сам обработал присвоение (EGE-связка, задача C).
+				onPick:      ( id, title, source, item ) => {
+					if ( typeof config.onPick === 'function' && config.onPick( index, id, title, item ) ) {
+						return;
+					}
+					assignPicked( index, id, title, item );
+				},
 			} );
 		} );
 		actions.appendChild( pickBtn );

@@ -36,18 +36,18 @@
 
 ---
 
-## A. КРИТИЧНО: бесконечная рекурсия при публикации связки в банке (`fs_lms_problems`)
+## A. КРИТИЧНО: бесконечная рекурсия при публикации связки в банке (`fs_lms_problems`) ✅ 2026-08-20
 
-- [ ] `inc/Controllers/Problems/ProblemsController.php:72` — `add_action('save_post_' . $cpt,
+- [x] `inc/Controllers/Problems/ProblemsController.php:72` — `add_action('save_post_' . $cpt,
   array($this, 'saveTemplateType'))` — хук специфичного типа поста, WP fires его
   **раньше** обычного `save_post` (`wp-includes/post.php`: сперва
   `save_post_{$post_type}`, потом `save_post`).
-- [ ] Там же, `saveTemplateType()` (строки 123-134) — читает `$template_id =
+- [x] Там же, `saveTemplateType()` (строки 123-134) — читает `$template_id =
   $this->sanitizeKey(PostMetaName::TemplateType->value)` **напрямую из `$_POST`**,
   без проверки, что `$post_id` совпадает с постом текущей формы (`$_POST['post_ID']`),
   и безусловно пишет это значение в мету **любого** `$post_id`, для которого сейчас
   сработал `save_post_fs_lms_problems` — включая только что вставленных детей связки.
-- [ ] Цепочка: `MetaBoxController::handleMetaSave(18153)` (родитель, `template_id ===
+- [x] Цепочка: `MetaBoxController::handleMetaSave(18153)` (родитель, `template_id ===
   'triple_task'`) → `TaskBundleService::syncChildren(18153)` → `upsertChild()` →
   `PostManager::insert()` создаёт child C1 → `wp_insert_post()` синхронно fires
   `save_post_fs_lms_problems(C1)` **до** `save_post(C1)` → `ProblemsController::
@@ -59,13 +59,13 @@
   проставленный) → считает C1 связкой → вызывает `TaskBundleService::syncChildren(C1)`
   **снова** → создаёт C2 с заголовком `"№ 19. " . C1->post_title` → рекурсия без
   дна, ограниченная только `max_execution_time`/`memory_limit`/обрывом соединения.
-- [ ] **Фикс (сервер, приоритет)**: `ProblemsController::saveTemplateType()` и
+- [x] **Фикс (сервер, приоритет)**: `ProblemsController::saveTemplateType()` и
   `saveSubjectFields()` (обе на `save_post_fs_lms_problems`) должны игнорировать
   вызов, если `$post_id !== (int) ($_POST['post_ID'] ?? 0)` — стандартная защита от
   реэнтерабельного `save_post` (WP всегда шлёт `post_ID` в форме редактора текущего
   поста; для программных вставок внутри того же запроса это значение не совпадёт
   с ID только что созданного ребёнка).
-- [ ] **Фикс (архитектурный, устраняет класс проблемы)**: `TaskBundleService::
+- [x] **Фикс (архитектурный, устраняет класс проблемы)**: `TaskBundleService::
   upsertChild()` не должен создавать/обновлять children через `PostManager::insert()/
   update()` (полный `wp_insert_post()`/`wp_update_post()`, с фильтрами и экшенами).
   Завести в `PostManager` низкоуровневые `insertBypassingHooks()`/
@@ -73,11 +73,11 @@
   (`inc/Managers/Wp/PostManager.php:264-283`, docblock прямо описывает эту же
   проблему для другого случая) — прямая работа с `$wpdb->posts` + `clean_post_cache()`,
   без единого `do_action('save_post', ...)`. Переключить `upsertChild()` на них.
-- [ ] **Фикс (defense-in-depth)**: `TaskBundleService::syncChildren()` — статический
-  guard-флаг (`private static bool $syncing = false`), возврат `array()` при
-  повторном входе в рамках одного запроса. Дешёвая страховка на случай будущих
-  похожих хуков, не зависящая от корректности первых двух фиксов.
-- [ ] **A4. Чистка докер-БД** (сделано в диагностической сессии 2026-08-20):
+- [x] **Фикс (defense-in-depth)**: `TaskBundleService::syncChildren()` — guard-флаг
+  (реализован как instance-свойство `private bool $syncing = false` — свежий экземпляр
+  на singleton-сервис даёт тот же эффект, что static, но не течёт между тестами),
+  возврат `array()` при повторном входе в рамках одного запроса.
+- [x] **A4. Чистка докер-БД** (сделано в диагностической сессии 2026-08-20):
   `DELETE FROM wp_posts WHERE post_type = 'fs_lms_problems' AND post_title LIKE
   '№ 19. № 19.%'` (потомки поста 18153, кроме него самого) + восстановить
   заголовок/статус самого 18153 вручную, `wp_update_post` не использовать
@@ -110,14 +110,14 @@
   `fs_lms_bank_task_subject`/`fs_lms_bank_task_number` и весь `fs_lms_meta` с
   тестовыми значениями `task_19_condition` и т.д. Явление объясняется целиком
   пунктами A1-A3, отдельного бага для заголовка parent'а нет.
-- [ ] Тест-регресс: `TaskBundleServiceTest` — публикация `triple_task` в
-  `fs_lms_problems` создаёт ровно 3 children за один вызов `syncChildren()`,
-  без повторных вставок (мокнуть `PostManager` и проверить количество вызовов
-  `insert()`).
+- [x] Тест-регресс: `TaskBundleServiceTest::test_reentrant_sync_children_call_is_ignored` —
+  реэнтерабельный вызов `syncChildren()` внутри `insertBypassingHooks()` возвращает
+  пустой массив, ровно 3 вставки за весь цикл (плюс существующие тесты обновлены на
+  `insertBypassingHooks()`/`updateBypassingHooks()`).
 
-## B. Баг публикации «Условие задания» для связки в банке заданий предмета (`{key}_tasks`)
+## B. Баг публикации «Условие задания» для связки в банке заданий предмета (`{key}_tasks`) ✅ 2026-08-20
 
-- [ ] Тип задания — `inc/Enums/Subject/TaskTemplate.php:45` (`case Triple =
+- [x] Тип задания — `inc/Enums/Subject/TaskTemplate.php:45` (`case Triple =
   'triple_task'`) → `inc/MetaBoxes/Templates/ThreeInOneTemplate.php` (поля
   `task_19_condition/task_19_answer`, `task_20_...`, `task_21_...`,
   `ConditionField`, строки 23-59). У обычных шаблонов поле условия —

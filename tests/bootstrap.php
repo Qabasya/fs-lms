@@ -10,6 +10,7 @@ define('FS_LMS_HASH_SALT', 'test-hash-salt-for-unit-tests');
 define('FS_LMS_OTP_BYPASS_CODE', 'TEST_BYPASS_000');
 
 // WP constants
+if (!defined('ABSPATH')) { define('ABSPATH', __DIR__ . '/'); }
 if (!defined('ARRAY_A')) { define('ARRAY_A', 'ARRAY_A'); }
 if (!defined('OBJECT'))  { define('OBJECT',  'OBJECT'); }
 if (!defined('WP_DEBUG')) { define('WP_DEBUG', false); }
@@ -614,6 +615,34 @@ if (!function_exists('esc_attr'))     { function esc_attr($text) { return $text;
 if (!function_exists('esc_textarea')) { function esc_textarea($text) { return $text; } }
 if (!function_exists('esc_html__'))   { function esc_html__($text, $domain = null) { return $text; } }
 if (!function_exists('esc_attr__'))   { function esc_attr__($text, $domain = null) { return $text; } }
+if (!function_exists('selected')) {
+    function selected($a, $b = true, bool $echo = true): string {
+        $result = ((string) $a === (string) $b) ? ' selected="selected"' : '';
+        if ($echo) { echo $result; }
+        return $result;
+    }
+}
+if (!function_exists('checked')) {
+    function checked($a, $b = true, bool $echo = true): string {
+        $result = ((string) $a === (string) $b) ? ' checked="checked"' : '';
+        if ($echo) { echo $result; }
+        return $result;
+    }
+}
+if (!function_exists('disabled')) {
+    function disabled($a, $b = true, bool $echo = true): string {
+        $result = ((string) $a === (string) $b) ? ' disabled="disabled"' : '';
+        if ($echo) { echo $result; }
+        return $result;
+    }
+}
+if (!function_exists('wp_nonce_field')) {
+    function wp_nonce_field($action = -1, string $name = '_wpnonce', bool $referer = true, bool $echo = true): string {
+        $field = '<input type="hidden" name="' . $name . '" value="test-nonce" />';
+        if ($echo) { echo $field; }
+        return $field;
+    }
+}
 
 /** Управляется $GLOBALS['_fs_test_users_by'][$field][$value] (WP_User); нет записи — false. */
 function get_user_by( string $field, mixed $value ): WP_User|false {

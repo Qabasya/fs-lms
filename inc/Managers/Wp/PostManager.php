@@ -262,6 +262,83 @@ class PostManager {
 	}
 
 	/**
+	 * Создаёт пост, подавляя жизненный цикл сохранения (save_post, save_post_{type},
+	 * wp_insert_post_data) на время самого вызова.
+	 *
+	 * Нужно для программной вставки поста ВНУТРИ уже идущего сохранения другого
+	 * поста (см. {@see \Inc\Services\Task\TaskBundleService::upsertChild()}) —
+	 * иначе `wp_insert_post()` синхронно повторно файрит эти хуки для нового ID,
+	 * а колбэки, которые читают `$_POST` без проверки `post_ID`, принимают его за
+	 * пост текущей формы (реэнтерабельный save_post, задача A из .docs/Tasks.md).
+	 *
+	 * @param array $data Данные поста (как для {@see insert()})
+	 *
+	 * @return int ID созданного поста или 0 при ошибке
+	 */
+	public function insertBypassingHooks( array $data ): int {
+		return $this->withSuppressedPostLifecycle( (string) ( $data['post_type'] ?? 'post' ), function () use ( $data ): int {
+			$id = wp_insert_post( $data );
+
+			return is_wp_error( $id ) ? 0 : (int) $id;
+		} );
+	}
+
+	/**
+	 * Обновляет пост, подавляя жизненный цикл сохранения — см. {@see insertBypassingHooks()}.
+	 *
+	 * @param int   $post_id ID поста
+	 * @param array $data    Поля для обновления (без ID — добавляется автоматически)
+	 *
+	 * @return bool true при успехе
+	 */
+	public function updateBypassingHooks( int $post_id, array $data ): bool {
+		return $this->withSuppressedPostLifecycle( (string) get_post_type( $post_id ), function () use ( $post_id, $data ): bool {
+			$result = wp_update_post( array_merge( $data, array( 'ID' => $post_id ) ) );
+
+			return ! is_wp_error( $result ) && 0 !== $result;
+		} );
+	}
+
+	/**
+	 * Снимает колбэки с хуков жизненного цикла сохранения поста на время
+	 * выполнения `$fn`, затем возвращает их обратно (даже при исключении).
+	 *
+	 * @template T
+	 *
+	 * @param string   $postType Тип поста — для хука `save_post_{type}`
+	 * @param callable $fn       Колбэк, чей результат возвращается
+	 *
+	 * @return mixed Результат `$fn`
+	 */
+	private function withSuppressedPostLifecycle( string $postType, callable $fn ): mixed {
+		global $wp_filter;
+
+		$hooks = array(
+			'save_post',
+			"save_post_{$postType}",
+			'wp_insert_post_data',
+			'wp_insert_post',
+			"wp_insert_post_{$postType}",
+		);
+
+		$backup = array();
+		foreach ( $hooks as $hook ) {
+			if ( isset( $wp_filter[ $hook ] ) ) {
+				$backup[ $hook ] = $wp_filter[ $hook ];
+				unset( $wp_filter[ $hook ] );
+			}
+		}
+
+		try {
+			return $fn();
+		} finally {
+			foreach ( $backup as $hook => $filter ) {
+				$wp_filter[ $hook ] = $filter;
+			}
+		}
+	}
+
+	/**
 	 * Низкоуровневое обновление post_content без запуска жизненного цикла сохранения.
 	 *
 	 * Пишет напрямую в таблицу, минуя wp_update_post и фильтры wp_insert_post_data

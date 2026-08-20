@@ -55,27 +55,22 @@ function mount( el ) {
 	// Станции (ЕГЭ/ОГЭ) имитируют реальный экзамен: время/попытки/таблица баллов/
 	// вступительный текст больше не редактируются автором работы — приходят из
 	// module-level StationExamConfig (см. AssessmentMetaBoxController::handleAssessmentSave(),
-	// .docs/Tasks.md §3.2). Скрываем эти поля вместо простого дизейбла — не
-	// инлайновым style, а атрибутом hidden (см. CLAUDE.md, CSS/JS правила).
-	// intro_html (EditorField) не имеет элемента с id="intro_html" (wp_editor
-	// использует свой собственный id) — адресуем по классу-обёртке поля.
-	const STATION_ONLY_HIDDEN_FIELD_IDS = [ 'time_limit_minutes', 'max_attempts', 'pass_score' ];
-
+	// .docs/Tasks.md §3.2). «Настройки контрольной» и «Таблица перевода баллов» —
+	// теперь отдельные метабоксы (см. .docs/Tasks.md «тип экзамена — отдельный
+	// метабокс»), скрывается сразу весь <div class="postbox"> атрибутом hidden
+	// (не style — см. CLAUDE.md, CSS/JS правила), не отдельные поля внутри.
+	// «Тип экзамена» (#fs_lms_assessment_kind) не трогаем — виден всегда.
 	function toggleKindFields( kind ) {
 		const isStation = isEge( kind );
 
-		STATION_ONLY_HIDDEN_FIELD_IDS.forEach( ( id ) => {
-			const row = document.getElementById( id )?.closest( '.fs-field, .fs-lms-field-group' );
-			if ( row ) { row.hidden = isStation; }
-		} );
-		// score_map — наоборот остальных station-only полей: нужен только ЕГЭ/ОГЭ
-		// (перевод первичного балла во вторичный, SecondaryScoreService), у Control
-		// нигде не читается — мёртвое поле, скрываем.
-		const scoreMapRow = document.getElementById( 'score_map' )?.closest( '.fs-field, .fs-lms-field-group' );
-		if ( scoreMapRow ) { scoreMapRow.hidden = ! isStation; }
+		const settingsBox = document.getElementById( 'fs_lms_assessment_settings' );
+		if ( settingsBox ) { settingsBox.hidden = isStation; }
 
-		const introRow = document.querySelector( '.fs-lms-editor-field' );
-		if ( introRow ) { introRow.hidden = isStation; }
+		// score_map — обратная видимость остальных station-only полей: нужен
+		// только ЕГЭ/ОГЭ (перевод первичного балла во вторичный,
+		// SecondaryScoreService), у Control нигде не читается — мёртвое поле.
+		const scoreMapBox = document.getElementById( 'fs_lms_assessment_score_map' );
+		if ( scoreMapBox ) { scoreMapBox.hidden = ! isStation; }
 
 		if ( statusBar ) { statusBar.hidden = ! isStation; }
 		if ( ! isStation ) { gatePublish( true ); }
@@ -127,6 +122,11 @@ function mount( el ) {
 		} );
 		return map;
 	}
+
+	// Заполняется в onReady — используется onPick ниже (задача C, .docs/Tasks.md):
+	// пик задания-ребёнка связки 19-21 в ЕГЭ/ОГЭ-слоте сразу проставляет сиблингов
+	// в позиционные слоты 20/21, без ручного поиска по каждому номеру.
+	let builderApi = null;
 
 	createSlotBuilder( el, {
 		treeTitle: 'Структура контрольной',
@@ -180,7 +180,33 @@ function mount( el ) {
 			title,
 		} ),
 
+		// EGE/ОГЭ-позиционный слот: пик задания с bundle_siblings (ребёнок связки
+		// 19-21) сам расставляет все три номера по своим индексам (position - 1),
+		// без splice — иначе слоты 20+ сместились бы (задача C, .docs/Tasks.md).
+		// Возврат true отменяет дефолтный assignPicked() в slot-builder.js.
+		onPick: ( index, id, title, item ) => {
+			if ( ! builderApi || ! isEge( prevKind ) || ! item || ! item.bundle_siblings ) {
+				return false;
+			}
+
+			const total = egeSlots( prevKind );
+			const pairs = Object.keys( item.bundle_siblings )
+				.map( ( number ) => ( {
+					index:  parseInt( number, 10 ) - 1,
+					taskId: item.bundle_siblings[ number ].id,
+					title:  item.bundle_siblings[ number ].title,
+				} ) )
+				.filter( ( p ) => p.index >= 0 && p.index < total );
+
+			if ( ! pairs.length ) { return false; }
+
+			builderApi.assignManyAt( pairs );
+			showToast( 'Связка разложена на ' + pairs.length + ' номера', 'success' );
+			return true;
+		},
+
 		onReady: ( api ) => {
+			builderApi = api;
 			if ( kindSelect ) {
 				toggleKindFields( prevKind );
 

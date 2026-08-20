@@ -53,7 +53,7 @@ class TaskBundleServiceTest extends TestCase {
 		$this->posts->method( 'getMeta' )->willReturn( array() );
 
 		$this->posts->expects( self::exactly( 3 ) )
-			->method( 'insert' )
+			->method( 'insertBypassingHooks' )
 			->willReturnOnConsecutiveCalls( 201, 202, 203 );
 
 		$this->terms->method( 'getOrCreateIdByName' )->willReturnMap( array(
@@ -91,8 +91,8 @@ class TaskBundleServiceTest extends TestCase {
 			->with( 100, PostMetaName::TaskBundleChildIds->value, true )
 			->willReturn( array( 201, 202, 203 ) );
 
-		$this->posts->expects( self::never() )->method( 'insert' );
-		$this->posts->expects( self::exactly( 3 ) )->method( 'update' );
+		$this->posts->expects( self::never() )->method( 'insertBypassingHooks' );
+		$this->posts->expects( self::exactly( 3 ) )->method( 'updateBypassingHooks' );
 
 		$this->terms->method( 'getOrCreateIdByName' )->willReturn( 301 );
 
@@ -133,7 +133,7 @@ class TaskBundleServiceTest extends TestCase {
 		$this->posts->method( 'getMeta' )->willReturn( array() );
 
 		$insertedTypes = array();
-		$this->posts->method( 'insert' )
+		$this->posts->method( 'insertBypassingHooks' )
 			->willReturnCallback( function ( array $data ) use ( &$insertedTypes ) {
 				$insertedTypes[] = $data['post_type'];
 				return 200 + count( $insertedTypes );
@@ -190,11 +190,82 @@ class TaskBundleServiceTest extends TestCase {
 		$this->service->cascadeStatus( 100, 'trash' );
 	}
 
+	/**
+	 * Задача C (.docs/Tasks.md): обратный маппинг child → номер сиблингов —
+	 * для EGE-конструктора, который позиционно раскладывает 19/20/21.
+	 */
+	public function test_siblings_of_returns_full_bundle_by_number(): void {
+		$this->posts->method( 'getMeta' )->willReturnMap( array(
+			array( 201, PostMetaName::TaskBundleParentId->value, true, 100 ),
+			array( 100, PostMetaName::TaskBundleChildIds->value, true, array( 201, 202, 203 ) ),
+		) );
+		$this->posts->method( 'get' )->willReturnMap( array(
+			array( 201, new \WP_Post( array( 'ID' => 201, 'post_title' => '№ 19. Связка' ) ) ),
+			array( 202, new \WP_Post( array( 'ID' => 202, 'post_title' => '№ 20. Связка' ) ) ),
+			array( 203, new \WP_Post( array( 'ID' => 203, 'post_title' => '№ 21. Связка' ) ) ),
+		) );
+
+		self::assertSame(
+			array(
+				'19' => array( 'id' => 201, 'title' => '№ 19. Связка' ),
+				'20' => array( 'id' => 202, 'title' => '№ 20. Связка' ),
+				'21' => array( 'id' => 203, 'title' => '№ 21. Связка' ),
+			),
+			$this->service->siblingsOf( 201 )
+		);
+	}
+
+	public function test_siblings_of_empty_for_plain_task(): void {
+		$this->posts->method( 'getMeta' )->willReturn( 0 );
+
+		self::assertSame( array(), $this->service->siblingsOf( 500 ) );
+	}
+
 	public function test_cascade_status_noop_without_children_meta(): void {
 		$this->posts->method( 'getMeta' )->willReturn( '' );
 
 		$this->posts->expects( self::never() )->method( 'updateStatus' );
 
 		$this->service->cascadeStatus( 100, 'trash' );
+	}
+
+	/**
+	 * Defense-in-depth (.docs/Tasks.md, задача A): реэнтерабельный вызов
+	 * syncChildren() в рамках уже идущего syncChildren() (напр. хук, забывший
+	 * проверить post_ID, снова считает child'а связкой) должен вернуть пустой
+	 * массив, а не создать ещё детей — ровно 3 вставки за весь цикл, без рекурсии.
+	 */
+	public function test_reentrant_sync_children_call_is_ignored(): void {
+		$parent = $this->parentPost();
+
+		$this->posts->method( 'get' )->willReturnMap( array(
+			array( 100, $parent ),
+		) );
+		$this->posts->method( 'taskMeta' )->with( 100 )->willReturn( array(
+			'task_19_condition' => 'Условие 19',
+			'task_19_answer'    => 'Ответ 19',
+		) );
+		$this->posts->method( 'getMeta' )->willReturn( array() );
+
+		$reentrantResult = 'not-called';
+		$this->posts->expects( self::exactly( 3 ) )
+			->method( 'insertBypassingHooks' )
+			->willReturnCallback( function () use ( &$reentrantResult ): int {
+				static $calls = 0;
+				$calls++;
+				if ( 1 === $calls ) {
+					// Симулирует хук, который в рамках insert() снова вызывает syncChildren().
+					$reentrantResult = $this->service->syncChildren( 100 );
+				}
+
+				return 200 + $calls;
+			} );
+
+		$this->terms->method( 'getOrCreateIdByName' )->willReturn( 301 );
+
+		$childIds = $this->service->syncChildren( 100 );
+
+		self::assertSame( array(), $reentrantResult );
+		self::assertCount( 3, $childIds );
 	}
 }

@@ -118,8 +118,8 @@ class LessonAuthoringService {
 		// Задача-шаг тянется из обоих источников сразу (предмет + банк) — вариант А.
 		if ( 'task' === $kind && 'all' === $source ) {
 			return array_merge(
-				$this->candidatesFrom( PostTypeResolver::tasks( $subjectKey ), $search, 'subject', true, $this->taskNumberQuery( $subjectKey, $position ) ),
-				$this->candidatesFrom( PostTypeResolver::problems(), $search, 'bank', true, $this->bankNumberQuery( $subjectKey, $position ) )
+				$this->candidatesFrom( PostTypeResolver::tasks( $subjectKey ), $search, 'subject', true, $this->taskNumberQuery( $subjectKey, $position ), $position ),
+				$this->candidatesFrom( PostTypeResolver::problems(), $search, 'bank', true, $this->bankNumberQuery( $subjectKey, $position ), $position )
 			);
 		}
 
@@ -141,7 +141,7 @@ class LessonAuthoringService {
 			? $this->bankNumberQuery( $subjectKey, $position )
 			: $this->taskNumberQuery( $subjectKey, $position ) );
 
-		return $this->candidatesFrom( $post_type, $search, $origin, 'task' === $kind, $extraQuery );
+		return $this->candidatesFrom( $post_type, $search, $origin, 'task' === $kind, $extraQuery, $position );
 	}
 
 	/**
@@ -190,10 +190,14 @@ class LessonAuthoringService {
 	 * `$withBundles` — только для задач: добавляет `bundle_children`, если пост —
 	 * parent связки 19-21 (см. .docs/Tasks.md, §3.4).
 	 * `$extraQuery` — доп. tax_query/meta_query (см. {@see taskNumberQuery()}/{@see bankNumberQuery()}).
+	 * `$position` — непусто только для позиционного поиска EGE/ОГЭ-конструктора:
+	 * кандидату-ребёнку связки (не parent'у — у него уже есть `bundle_children`
+	 * выше) добавляет `bundle_siblings` ({@see TaskBundleService::siblingsOf()}),
+	 * чтобы JS сразу разложил номера 19/20/21 по позиционным слотам (задача C).
 	 *
-	 * @return array<int, array{id: int, title: string, source?: string, bundle_children?: array}>
+	 * @return array<int, array{id: int, title: string, source?: string, bundle_children?: array, bundle_siblings?: array}>
 	 */
-	private function candidatesFrom( string $post_type, string $search, string $source = '', bool $withBundles = false, array $extraQuery = array() ): array {
+	private function candidatesFrom( string $post_type, string $search, string $source = '', bool $withBundles = false, array $extraQuery = array(), string $position = '' ): array {
 		$result = array();
 		$opts   = array_merge( array( 'limit' => 50, 'search' => $search ), $extraQuery );
 		foreach ( $this->posts->search( $post_type, $opts ) as $post ) {
@@ -208,6 +212,11 @@ class LessonAuthoringService {
 				$children = $this->taskBundles->childrenSummary( $post->ID );
 				if ( ! empty( $children ) ) {
 					$item['bundle_children'] = $children;
+				} elseif ( '' !== $position ) {
+					$siblings = $this->taskBundles->siblingsOf( $post->ID );
+					if ( ! empty( $siblings ) ) {
+						$item['bundle_siblings'] = $siblings;
+					}
 				}
 			}
 			$result[] = $item;

@@ -124,6 +124,9 @@ class ProblemsController extends BaseController implements ServiceInterface {
 		if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) {
 			return;
 		}
+		if ( ! $this->isFormPostId( $post_id ) ) {
+			return;
+		}
 		if ( ! $this->authorizePostSave( Nonce::SaveMeta, $post_id ) ) {
 			return;
 		}
@@ -164,6 +167,17 @@ class ProblemsController extends BaseController implements ServiceInterface {
 	}
 
 	/**
+	 * Защита от реэнтерабельного `save_post_fs_lms_problems`: хук может сработать
+	 * для ЧУЖОГО `$post_id` в рамках того же запроса (напр. `TaskBundleService::
+	 * upsertChild()` создаёт детей связки внутри сохранения родителя) — тогда
+	 * `$_POST` всё ещё содержит форму родителя и не имеет отношения к `$post_id`.
+	 * WP-редактор всегда шлёт `post_ID` формы текущего поста — сверяем с ним.
+	 */
+	private function isFormPostId( int $post_id ): bool {
+		return $post_id === (int) ( $_POST['post_ID'] ?? 0 );
+	}
+
+	/**
 	 * Номер имеет смысл только вместе с предметом — без выбранного предмета
 	 * поле в UI скрыто, а значение при сохранении отбрасывается. Значение
 	 * сверяется с актуальным набором опций ({@see numberOptionsFor()}), а не
@@ -172,6 +186,9 @@ class ProblemsController extends BaseController implements ServiceInterface {
 	 */
 	public function saveSubjectFields( int $post_id ): void {
 		if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) {
+			return;
+		}
+		if ( ! $this->isFormPostId( $post_id ) ) {
 			return;
 		}
 		if ( ! $this->authorizePostSave( Nonce::SaveMeta, $post_id ) ) {

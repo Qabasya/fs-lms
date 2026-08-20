@@ -30,6 +30,14 @@ class TaskBundleService {
 	 */
 	public const NUMBERS = array( 19, 20, 21 );
 
+	/**
+	 * Guard от повторного входа в рамках одного запроса — страховка на случай
+	 * будущих хуков save_post, не защищённых проверкой post_ID (см. .docs/Tasks.md,
+	 * задача A, «фикс defense-in-depth»). Основная защита — bypass-вставка в
+	 * {@see upsertChild()}, этот флаг лишь дешёвый второй рубеж.
+	 */
+	private bool $syncing = false;
+
 	public function __construct(
 		private readonly PostManager $posts,
 		private readonly TermManager $terms,
@@ -50,45 +58,54 @@ class TaskBundleService {
 	 *               parent не найден или относится к неподдерживаемому CPT.
 	 */
 	public function syncChildren( int $parentId ): array {
-		$parent = $this->posts->get( $parentId );
-		if ( ! $parent ) {
+		if ( $this->syncing ) {
 			return array();
 		}
+		$this->syncing = true;
 
-		$isBank = PostTypeResolver::isProblemPostType( $parent->post_type );
-		$subjectKey = $isBank ? '' : PostTypeResolver::subjectFromTaskPostType( $parent->post_type );
-		if ( ! $isBank && '' === $subjectKey ) {
-			return array();
+		try {
+			$parent = $this->posts->get( $parentId );
+			if ( ! $parent ) {
+				return array();
+			}
+
+			$isBank = PostTypeResolver::isProblemPostType( $parent->post_type );
+			$subjectKey = $isBank ? '' : PostTypeResolver::subjectFromTaskPostType( $parent->post_type );
+			if ( ! $isBank && '' === $subjectKey ) {
+				return array();
+			}
+
+			$childPostType = $isBank ? PostTypeResolver::problems() : PostTypeResolver::tasks( $subjectKey );
+			$taxonomy      = $isBank ? '' : "{$subjectKey}_task_number";
+
+			$meta = $this->posts->taskMeta( $parentId );
+
+			$existingChildIds = $this->posts->getMeta( $parentId, PostMetaName::TaskBundleChildIds->value, true );
+			$existingChildIds = is_array( $existingChildIds ) ? array_values( $existingChildIds ) : array();
+
+			$childIds = array();
+			foreach ( self::NUMBERS as $i => $number ) {
+				$condition = (string) ( $meta[ "task_{$number}_condition" ] ?? '' );
+				$answer    = (string) ( $meta[ "task_{$number}_answer" ] ?? '' );
+				$existingId = (int) ( $existingChildIds[ $i ] ?? 0 );
+
+				$childIds[] = $this->upsertChild(
+					$existingId,
+					$parent,
+					$childPostType,
+					$taxonomy,
+					$number,
+					$condition,
+					$answer
+				);
+			}
+
+			$this->posts->updateMeta( $parentId, PostMetaName::TaskBundleChildIds->value, $childIds );
+
+			return $childIds;
+		} finally {
+			$this->syncing = false;
 		}
-
-		$childPostType = $isBank ? PostTypeResolver::problems() : PostTypeResolver::tasks( $subjectKey );
-		$taxonomy      = $isBank ? '' : "{$subjectKey}_task_number";
-
-		$meta = $this->posts->taskMeta( $parentId );
-
-		$existingChildIds = $this->posts->getMeta( $parentId, PostMetaName::TaskBundleChildIds->value, true );
-		$existingChildIds = is_array( $existingChildIds ) ? array_values( $existingChildIds ) : array();
-
-		$childIds = array();
-		foreach ( self::NUMBERS as $i => $number ) {
-			$condition = (string) ( $meta[ "task_{$number}_condition" ] ?? '' );
-			$answer    = (string) ( $meta[ "task_{$number}_answer" ] ?? '' );
-			$existingId = (int) ( $existingChildIds[ $i ] ?? 0 );
-
-			$childIds[] = $this->upsertChild(
-				$existingId,
-				$parent,
-				$childPostType,
-				$taxonomy,
-				$number,
-				$condition,
-				$answer
-			);
-		}
-
-		$this->posts->updateMeta( $parentId, PostMetaName::TaskBundleChildIds->value, $childIds );
-
-		return $childIds;
 	}
 
 	/**
@@ -130,6 +147,31 @@ class TaskBundleService {
 	}
 
 	/**
+	 * Обратный маппинг child → {номер => {id, title}} по всей связке (включая
+	 * самого child'а) — для позиционного EGE/ОГЭ-конструктора (.docs/Tasks.md,
+	 * задача C): пик ребёнка №19 сразу знает id/title сиблингов №20/№21.
+	 * Пусто, если пост не ребёнок связки (нет `TaskBundleParentId`) или у
+	 * родителя ещё нет сохранённых children.
+	 *
+	 * @param int $childId
+	 *
+	 * @return array<string, array{id: int, title: string}> номер (напр. "19") => {id, title}
+	 */
+	public function siblingsOf( int $childId ): array {
+		$parentId = (int) $this->posts->getMeta( $childId, PostMetaName::TaskBundleParentId->value, true );
+		if ( $parentId <= 0 ) {
+			return array();
+		}
+
+		$result = array();
+		foreach ( $this->childrenSummary( $parentId ) as $child ) {
+			$result[ $child['number'] ] = array( 'id' => $child['id'], 'title' => $child['title'] );
+		}
+
+		return $result;
+	}
+
+	/**
 	 * Переносит статус parent-поста на все его children (draft/publish/trash).
 	 * Не создаёт children, если их ещё нет — это делает только {@see syncChildren()}.
 	 *
@@ -165,13 +207,13 @@ class TaskBundleService {
 		$title = "№ {$number}. " . $parent->post_title;
 
 		if ( $existingId > 0 && $this->posts->get( $existingId ) ) {
-			$this->posts->update( $existingId, array(
+			$this->posts->updateBypassingHooks( $existingId, array(
 				'post_title'  => $title,
 				'post_status' => $parent->post_status,
 			) );
 			$childId = $existingId;
 		} else {
-			$childId = $this->posts->insert( array(
+			$childId = $this->posts->insertBypassingHooks( array(
 				'post_title'  => $title,
 				'post_type'   => $childPostType,
 				'post_status' => $parent->post_status,
