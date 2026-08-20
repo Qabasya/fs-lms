@@ -10,6 +10,195 @@
   Исправлено: `src/js/admin/services/assessment-builder.js::onReady()` теперь
   довозит слоты до `egeSlots(kind)` при каждом открытии, а не только при первом.
 
+# Задача: связка 19-21 — реэнтерабельный save_post ломает bundle (2026-08-20)
+
+Контекст: тестировали публикацию задания-связки «№19-21» (`TaskTemplate::Triple`,
+`ThreeInOneTemplate`) — сперва увидели ошибку «Невозможно опубликовать задание:
+Заполните «Условие задания»», а при повторе в глобальном банке (`fs_lms_problems`)
+поймали **активную бесконечную рекурсию**: `wp_posts` разрослась с ~100 до 2000+
+строк за минуты, каждая новая запись — заголовок предыдущей + ещё один префикс
+«№ 19. » (пост `18153` докатился до строки на ~9600 байт). Остановлено только
+перезапуском `wp_app` (PHP не прерывается по обрыву соединения без
+`ignore_user_abort`). **Мусорные записи из докер-БД удалены** (см. пункт A4);
+на проде аналогичный мусор ещё не выявлен и не почищен — см. пункт A5.
+
+**Корень обеих проблем один и тот же**: `TaskBundleService::upsertChild()`
+(`inc/Services/Task/TaskBundleService.php:163-197`) создаёт/обновляет 3 children
+через `PostManager::insert()`/`update()` (`inc/Managers/Wp/PostManager.php:189-194,
+258-262`), которые вызывают полновесные `wp_insert_post()`/`wp_update_post()` — а
+значит **повторно** запускают весь жизненный цикл сохранения поста
+(`wp_insert_post_data`, `save_post_{cpt}`, `save_post`) **в рамках того же PHP-запроса**,
+где `$_POST` всё ещё содержит форму **родительского** поста-связки. Хуки, которые
+читают `$_POST` без проверки, что это форма именно текущего `$post_id`, принимают
+детей за parent и либо ломают им валидацию (banка задания предмета), либо —
+что хуже — заново метят их как `triple_task` и рекурсивно создают ещё детей
+(глобальный банк).
+
+---
+
+## A. КРИТИЧНО: бесконечная рекурсия при публикации связки в банке (`fs_lms_problems`)
+
+- [ ] `inc/Controllers/Problems/ProblemsController.php:72` — `add_action('save_post_' . $cpt,
+  array($this, 'saveTemplateType'))` — хук специфичного типа поста, WP fires его
+  **раньше** обычного `save_post` (`wp-includes/post.php`: сперва
+  `save_post_{$post_type}`, потом `save_post`).
+- [ ] Там же, `saveTemplateType()` (строки 123-134) — читает `$template_id =
+  $this->sanitizeKey(PostMetaName::TemplateType->value)` **напрямую из `$_POST`**,
+  без проверки, что `$post_id` совпадает с постом текущей формы (`$_POST['post_ID']`),
+  и безусловно пишет это значение в мету **любого** `$post_id`, для которого сейчас
+  сработал `save_post_fs_lms_problems` — включая только что вставленных детей связки.
+- [ ] Цепочка: `MetaBoxController::handleMetaSave(18153)` (родитель, `template_id ===
+  'triple_task'`) → `TaskBundleService::syncChildren(18153)` → `upsertChild()` →
+  `PostManager::insert()` создаёт child C1 → `wp_insert_post()` синхронно fires
+  `save_post_fs_lms_problems(C1)` **до** `save_post(C1)` → `ProblemsController::
+  saveTemplateType(C1)` ставит C1.meta[`fs_lms_template_type`] = `'triple_task'`
+  (из того же родительского `$_POST`, который для C1 не имеет смысла) → следом
+  срабатывает `save_post(C1)` → `MetaBoxController::handleMetaSave(C1)` →
+  `TemplateResolver::resolveId(C1)` (`inc/Services/Template/TemplateResolver.php:81-84`,
+  приоритет 2 — метаполе поста) **теперь видит** `triple_task` (только что
+  проставленный) → считает C1 связкой → вызывает `TaskBundleService::syncChildren(C1)`
+  **снова** → создаёт C2 с заголовком `"№ 19. " . C1->post_title` → рекурсия без
+  дна, ограниченная только `max_execution_time`/`memory_limit`/обрывом соединения.
+- [ ] **Фикс (сервер, приоритет)**: `ProblemsController::saveTemplateType()` и
+  `saveSubjectFields()` (обе на `save_post_fs_lms_problems`) должны игнорировать
+  вызов, если `$post_id !== (int) ($_POST['post_ID'] ?? 0)` — стандартная защита от
+  реэнтерабельного `save_post` (WP всегда шлёт `post_ID` в форме редактора текущего
+  поста; для программных вставок внутри того же запроса это значение не совпадёт
+  с ID только что созданного ребёнка).
+- [ ] **Фикс (архитектурный, устраняет класс проблемы)**: `TaskBundleService::
+  upsertChild()` не должен создавать/обновлять children через `PostManager::insert()/
+  update()` (полный `wp_insert_post()`/`wp_update_post()`, с фильтрами и экшенами).
+  Завести в `PostManager` низкоуровневые `insertBypassingHooks()`/
+  `updateBypassingHooks()` — по аналогии с уже существующим `updatePostContent()`
+  (`inc/Managers/Wp/PostManager.php:264-283`, docblock прямо описывает эту же
+  проблему для другого случая) — прямая работа с `$wpdb->posts` + `clean_post_cache()`,
+  без единого `do_action('save_post', ...)`. Переключить `upsertChild()` на них.
+- [ ] **Фикс (defense-in-depth)**: `TaskBundleService::syncChildren()` — статический
+  guard-флаг (`private static bool $syncing = false`), возврат `array()` при
+  повторном входе в рамках одного запроса. Дешёвая страховка на случай будущих
+  похожих хуков, не зависящая от корректности первых двух фиксов.
+- [ ] **A4. Чистка докер-БД** (сделано в диагностической сессии 2026-08-20):
+  `DELETE FROM wp_posts WHERE post_type = 'fs_lms_problems' AND post_title LIKE
+  '№ 19. № 19.%'` (потомки поста 18153, кроме него самого) + восстановить
+  заголовок/статус самого 18153 вручную, `wp_update_post` не использовать
+  (снова спровоцирует хук) — прямой SQL + `clean_post_cache()`.
+- [ ] **A5. Чистка прод-БД** — выполнить теми же SQL-запросами через прямой доступ
+  к проду (не WP-CLI/`wp_update_post`, чтобы не спровоцировать хук снова):
+  ```sql
+  -- посчитать масштаб
+  SELECT COUNT(*) FROM wp_posts WHERE post_type = 'fs_lms_problems'
+    AND post_title LIKE '№ 19. № 19.%';
+  -- удалить мусорных детей/внуков (не трогает исходный parent-пост)
+  DELETE FROM wp_posts WHERE post_type = 'fs_lms_problems'
+    AND post_title LIKE '№ 19. № 19.%';
+  -- почистить осиротевшую постмету удалённых ID (если удаляли не через wp_delete_post)
+  DELETE pm FROM wp_postmeta pm
+    LEFT JOIN wp_posts p ON p.ID = pm.post_id
+    WHERE p.ID IS NULL;
+  ```
+  Затем вручную поправить заголовок исходного parent-поста связки (у него тоже
+  накопился хвост «№ 19. № 19. ...» — см. A6) через прямой `UPDATE wp_posts SET
+  post_title = '<оригинальный заголовок>' WHERE ID = <parent_id>` — **не** через
+  редактор/`wp_update_post`, пока фикс A выше не выкачен, иначе повторит рекурсию.
+- [x] **A6. Разгадано** (докер-сессия 2026-08-20): пост `18153` — НЕ parent, а
+  рядовой мусорный пост из середины рекурсивной цепочки (реальный parent — `17163`,
+  «ЕГЭ-19», не тронут; первый child — `17164`, «№ 19. ЕГЭ-19»; garbage-диапазон
+  `17164..19130`, 1966 постов). `18153` выглядел как «родитель» только потому, что
+  `ProblemsController::saveTemplateType()` **и** `saveSubjectFields()` (обе на
+  `save_post_fs_lms_problems`, п. A2) на каждом уровне рекурсии копируют на текущий
+  `$post_id` ПОЛНУЮ мету из того же неизменного `$_POST` — включая
+  `fs_lms_bank_task_subject`/`fs_lms_bank_task_number` и весь `fs_lms_meta` с
+  тестовыми значениями `task_19_condition` и т.д. Явление объясняется целиком
+  пунктами A1-A3, отдельного бага для заголовка parent'а нет.
+- [ ] Тест-регресс: `TaskBundleServiceTest` — публикация `triple_task` в
+  `fs_lms_problems` создаёт ровно 3 children за один вызов `syncChildren()`,
+  без повторных вставок (мокнуть `PostManager` и проверить количество вызовов
+  `insert()`).
+
+## B. Баг публикации «Условие задания» для связки в банке заданий предмета (`{key}_tasks`)
+
+- [ ] Тип задания — `inc/Enums/Subject/TaskTemplate.php:45` (`case Triple =
+  'triple_task'`) → `inc/MetaBoxes/Templates/ThreeInOneTemplate.php` (поля
+  `task_19_condition/task_19_answer`, `task_20_...`, `task_21_...`,
+  `ConditionField`, строки 23-59). У обычных шаблонов поле условия —
+  `task_condition` с меткой «Условие задания» (`StandardTaskTemplate.php:30`
+  и 10 других шаблонов).
+- [ ] Причина — тот же реэнтерабельный `wp_insert_post()` из `TaskBundleService::
+  upsertChild()`, но в этом CPT он бьёт по другому хуку:
+  `SubjectValidationCallbacks::validateRequiredTaxonomies()`
+  (`inc/Callbacks/Subject/SubjectValidationCallbacks.php:76-118`), навешанному
+  на `wp_insert_post_data` — срабатывает при вставке каждого child в рамках того
+  же запроса, где `$_POST` — форма **родителя**.
+- [ ] `effectiveTemplateId()` (строки 261-277) — для нового child `$postId` внутри
+  фильтра `wp_insert_post_data` ещё равен `0` (ID не назначен на этой стадии),
+  поэтому ветка `$this->templateResolver->resolveId($post)` не срабатывает; при
+  этом `sanitizeKey(TemplateType)` тоже пусто (форма — родителя, поля `fs_lms_
+  template_type` в ней для этого CPT нет — шаблон предметного parent'а назначается
+  термом таксономии, см. `TemplateResolver` приоритет 1) → возвращает `''`.
+- [ ] `TemplateRegistry::get('')` (`inc/Services/Template/TemplateRegistry.php:79-89`)
+  фолбэчит через `TaskTemplate::fromDatabase('')` (`TaskTemplate.php:100-115`) →
+  `Standard`.
+- [ ] `effectiveMeta(0)` (строки 238-248) видит `hasParam('fs_lms_meta') === true`
+  (форма родителя) и отдаёт **родительский** массив меты (ключи `task_19_condition`
+  и т.п.), где `task_condition` нет → `TaskPublishValidator::getSoftError()`
+  (`inc/Services/Task/TaskPublishValidator.php:48-84`) возвращает «Заполните
+  «Условие задания»».
+- [ ] `TaskPublishGuard::enforce()` → `forceDraft()` (`inc/Services/Task/
+  TaskPublishGuard.php:107-128`) переводит **child** в `draft` и пишет транзиент
+  `fs_lms_publish_error_<uid>`, который `showEmptyRequiredTaxNotice()`
+  (`SubjectValidationCallbacks.php:285-295`) выводит на экране parent'а как общую
+  ошибку публикации — вводя автора в заблуждение: сам parent публикуется нормально,
+  ошибка относится к побочно создаваемым children.
+- [ ] Фикс — тот же, что в A: после перехода `TaskBundleService::upsertChild()` на
+  bypass-вставку (A, пункт «архитектурный фикс») эта проблема исчезает сама, т.к.
+  `wp_insert_post_data` для children вызываться не будет. Отдельного фикса в
+  `SubjectValidationCallbacks` не требуется — не плодить два параллельных
+  обходных пути.
+- [ ] Тест-регресс: после фикса A публикация `triple_task` в `{key}_tasks`
+  переводит все 3 children в `publish`, `TaskPublishGuard` на них не срабатывает.
+
+## C. Автозаполнение слотов 19/20/21 в конструкторе «Компьютерный ЕГЭ»
+
+Сейчас каждый из трёх слотов (19, 20, 21) в конструкторе EgeComputer заполняется
+вручную поиском по названию — даже если все три условия хранятся в одной связке.
+
+- [ ] `src/js/admin/services/assessment-builder.js` — слоты позиционные
+  (`buildEgeSlots()`/`blankSlot()`, строки 42-43), AJAX-поиск шлёт `position:
+  String(index + 1)` (строки 165-171) → сервер фильтрует кандидатов строго по
+  номеру позиции (`LessonAuthoringService::getStepCandidates()`,
+  `inc/Services/Course/LessonAuthoringService.php:117-145`, `taskNumberQuery()`/
+  `bankNumberQuery()` строки 152-185) — т.е. в слоте 19 ищутся именно
+  **дети-№19** (термированные отдельно, `TaskBundleService::upsertChild()`
+  строки 189-195), а не parent-связка.
+- [ ] Готовый, но не подключённый к EGE-конструктору паттерн: `WorkAuthoringService::
+  withBundleChildren()` (`inc/Services/Course/WorkAuthoringService.php:86-93`) и
+  `LessonAuthoringService::candidatesFrom()` (`$withBundles`, строки 196-217)
+  добавляют кандидату поле `bundle_children` через `TaskBundleService::
+  childrenSummary()` (строки 110-134), а `src/js/admin/services/slot-builder.js::
+  assignPicked()` (строки 204-237) при наличии `bundle_children` заменяет 1 слот
+  на 3 (`splice`). Не подходит впрямую: `splice()` рвёт фиксированную связку
+  «индекс слота = номер позиции» для EGE-конструктора (слоты 20+ съедут).
+- [ ] **План**:
+  1. Сервер — в ветке `kind==='task' && position!==''` (`LessonAuthoringService::
+     candidatesFrom()` или соседний метод) для child-поста с метой
+     `PostMetaName::TaskBundleParentId` (`inc/Enums/Wp/PostMetaName.php:59`)
+     резолвить parent → `TaskBundleService::childrenSummary($parentId)` и класть
+     в item `bundle_siblings: {19:{id,title}, 20:{...}, 21:{...}}`. Понадобится
+     обратный маппинг child→parent в `TaskBundleService`/`PostManager` (сейчас
+     `childrenSummary()` работает только parent→children).
+  2. JS — отдельно в `assessment-builder.js` (не трогать общий `slot-builder.js`,
+     чтобы не задеть Work builder), только для `isEge(kind)`: после выбора
+     кандидата с `bundle_siblings` — для номеров 20/21 находить слот по индексу
+     `Number(number) - 1` и присваивать туда сиблинга напрямую (без `splice`),
+     затем один `save()`. Понадобится либо публичный метод `assignTaskAt(index,
+     id, title)` в `api` из `createSlotBuilder`, либо хук `onPickWithSiblings`
+     через `config`.
+  3. Тест-регресс: пикнули задачу №19 из связки в EGE-слот → слоты 20 и 21
+     сами проставились соответствующими детьми той же связки; для не-связочных
+     задач поведение не меняется.
+
+---
+
 # Задачи: замены преподавателя — доступ и уведомления; поле контрольной (2026-08-20)
 
 Контекст: два независимых запроса пользователя по системе замен (Эпик 5), плюс отдельная
