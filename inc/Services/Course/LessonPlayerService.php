@@ -4,6 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Course;
 
+use Inc\Shared\SafeHtml;
 use Inc\DTO\Course\GroupLessonDTO;
 use Inc\DTO\Course\LessonDTO;
 use Inc\DTO\Course\StepDTO;
@@ -189,7 +190,7 @@ class LessonPlayerService {
 	 */
 	private function solutionFor( int $taskId, array $meta ): ?array {
 		$answer = (string) ( $this->correctAnswers->resolve( $taskId ) ?? '' );
-		$html   = wp_kses_post( (string) ( $meta['task_text'] ?? '' ) );
+		$html   = SafeHtml::post( (string) ( $meta['task_text'] ?? '' ) );
 
 		if ( '' === $answer && '' === $html ) {
 			return null;
@@ -254,7 +255,7 @@ class LessonPlayerService {
 			'title'           => $work->title,
 			'work_type'       => $work->workType->value,
 			'work_type_label' => $work->workType->label(),
-			'instructions'    => wp_kses_post( $work->instructions ),
+			'instructions'    => SafeHtml::post( $work->instructions ),
 			'task_count'      => count( $tasks ),
 			// Батч-проверка без явных весов — вес каждой задачи равен 1.
 			'total_points'    => count( $tasks ),
@@ -308,7 +309,7 @@ class LessonPlayerService {
 			'answer'    => $submission->answerText,
 			'score'     => $submission->score,
 			'max_score' => $submission->maxScore,
-			'feedback'  => null !== $submission->feedback ? wp_kses_post( $submission->feedback ) : null,
+			'feedback'  => null !== $submission->feedback ? SafeHtml::post( $submission->feedback ) : null,
 		);
 	}
 
@@ -353,7 +354,7 @@ class LessonPlayerService {
 		$attempts   = $this->taskAttempts->listByStep( $studentPersonId, $groupLesson->id, $step->key );
 		$usedCount  = count( $attempts );
 		$wrongCount = count( array_filter( $attempts, static fn( $a ) => false === $a->isCorrect ) );
-		$hintHtml   = wp_kses_post( (string) ( $meta['task_hint'] ?? '' ) );
+		$hintHtml   = SafeHtml::post( (string) ( $meta['task_hint'] ?? '' ) );
 		$revealHint = '' !== $hintHtml && ( $settings->hintAfterErrors === 0 || $wrongCount >= $settings->hintAfterErrors );
 
 		$data = array(

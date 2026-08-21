@@ -36,7 +36,7 @@ use Inc\Enums\Ui\Icon;
 		<?php if ( '' !== (string) $teacher_solution['html'] ) : ?>
 			<div class="fs-solution__row">
 				<span class="fs-solution__label"><?php esc_html_e( 'Решение', 'fs-lms' ); ?></span>
-				<div class="fs-solution__html wpc"><?php echo wp_kses_post( (string) $teacher_solution['html'] ); ?></div>
+				<div class="fs-solution__html wpc"><?php echo \Inc\Shared\SafeHtml::post( (string) $teacher_solution['html'] ); ?></div>
 			</div>
 		<?php endif; ?>
 	</div>

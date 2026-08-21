@@ -4,6 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Course;
 
+use Inc\Shared\SafeHtml;
 use Inc\Enums\Subject\TaskTemplate;
 use Inc\Enums\Course\SubmissionStatus;
 use Inc\Enums\Course\WorkSourceType;
@@ -160,7 +161,7 @@ class WorkDetailService {
 		if ( empty( $tasks ) && null !== $sub->answerText && '' !== $sub->answerText ) {
 			$tasks[] = array(
 				'n'         => 1,
-				'condition' => $work?->instructions ? wp_kses_post( $work->instructions ) : '',
+				'condition' => $work?->instructions ? SafeHtml::post( $work->instructions ) : '',
 				'answer'    => (string) $sub->answerText,
 				'correct'   => null,
 				'verdict'   => 'pending',

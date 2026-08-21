@@ -4,6 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Assessment;
 
+use Inc\Shared\SafeHtml;
 use Inc\Enums\Wp\PostMetaName;
 use Inc\Managers\Assessment\AssessmentManager;
 use Inc\Managers\Course\WorkManager;
@@ -100,14 +101,14 @@ class TaskPreviewService {
 
 		$common_html = '';
 		if ( ! empty( $meta['common_condition'] ) && is_string( $meta['common_condition'] ) ) {
-			$common_html = wp_kses_post( $meta['common_condition'] );
+			$common_html = SafeHtml::post( $meta['common_condition'] );
 		}
 
 		// Условие — только task_condition (+ common_condition как префикс). task_text — это
 		// поле «Решение», не условие; problem_text/question_text/content в шаблонах не существуют.
 		$condition_html = '';
 		if ( ! empty( $meta['task_condition'] ) && is_string( $meta['task_condition'] ) ) {
-			$condition_html = wp_kses_post( $meta['task_condition'] );
+			$condition_html = SafeHtml::post( $meta['task_condition'] );
 		}
 		if ( $common_html ) {
 			$condition_html = $common_html . ( $condition_html ? '<br>' . $condition_html : '' );
@@ -120,12 +121,12 @@ class TaskPreviewService {
 
 		$gap_text = '';
 		if ( ! empty( $meta['task_gap_text']['text'] ) && is_string( $meta['task_gap_text']['text'] ) ) {
-			$gap_text = wp_kses_post( $meta['task_gap_text']['text'] );
+			$gap_text = SafeHtml::post( $meta['task_gap_text']['text'] );
 		}
 
 		$three_in_one = null;
 		foreach ( array( '19', '20', '21' ) as $k ) {
-			$cond   = ! empty( $meta[ 'task_' . $k . '_condition' ] ) ? wp_kses_post( $meta[ 'task_' . $k . '_condition' ] ) : '';
+			$cond   = ! empty( $meta[ 'task_' . $k . '_condition' ] ) ? SafeHtml::post( $meta[ 'task_' . $k . '_condition' ] ) : '';
 			$answer = ! empty( $meta[ 'task_' . $k . '_answer' ] ) ? wp_strip_all_tags( $meta[ 'task_' . $k . '_answer' ] ) : '';
 			if ( $cond || $answer ) {
 				$three_in_one[] = array( 'condition' => $cond, 'answer' => $answer );
@@ -135,19 +136,19 @@ class TaskPreviewService {
 		// Ответ — только task_answer (answer/answer_text/correct_answer в шаблонах нет).
 		$answer_html = '';
 		if ( ! empty( $meta['task_answer'] ) && is_string( $meta['task_answer'] ) ) {
-			$answer_html = wp_kses_post( $meta['task_answer'] );
+			$answer_html = SafeHtml::post( $meta['task_answer'] );
 		}
 
 		// Решение — поле «Решение/пояснение» (task_text, есть у TaskTextSolution).
 		$solution_html = '';
 		if ( ! empty( $meta['task_text'] ) && is_string( $meta['task_text'] ) ) {
-			$solution_html = wp_kses_post( $meta['task_text'] );
+			$solution_html = SafeHtml::post( $meta['task_text'] );
 		}
 
 		// Подсказка (task_hint) — отдельная секция; раньше уезжала в блок «Решение».
 		$hint_html = '';
 		if ( ! empty( $meta['task_hint'] ) && is_string( $meta['task_hint'] ) ) {
-			$hint_html = wp_kses_post( $meta['task_hint'] );
+			$hint_html = SafeHtml::post( $meta['task_hint'] );
 		}
 
 		$audio_url = '';

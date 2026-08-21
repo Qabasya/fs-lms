@@ -161,11 +161,11 @@ foreach ( $taskViews as $view ) {
 										<?php if ( count( $subparts ) > 1 ) : ?>
 											<div class="kege-t-subpart-tag">Задание <?php echo esc_html( (string) $sub['number'] ); ?></div>
 										<?php endif; ?>
-										<?php echo wp_kses_post( $sub['condition'] ); ?>
+										<?php echo \Inc\Shared\SafeHtml::post( $sub['condition'] ); ?>
 									</div>
 								<?php endforeach; ?>
 							<?php else : ?>
-								<?php echo wp_kses_post( $view['condition'] ); ?>
+								<?php echo \Inc\Shared\SafeHtml::post( $view['condition'] ); ?>
 							<?php endif; ?>
 						</div>
 						<?php if ( ! empty( $view['materials'] ) ) : ?>

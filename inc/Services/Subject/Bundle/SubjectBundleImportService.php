@@ -4,6 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Subject\Bundle;
 
+use Inc\Shared\SafeHtml;
 use Inc\Services\Subject\Import\ImportedEntitiesCollector;
 use Inc\DTO\Subject\SubjectDTO;
 use Inc\DTO\Subject\SubjectImportReportDTO;
@@ -471,7 +472,7 @@ class SubjectBundleImportService {
 					subject_key: $key,
 					term_slug:   sanitize_text_field( (string) $termSlug ),
 					title:       sanitize_text_field( (string) ( $bp['title'] ?? '' ) ),
-					content:     wp_kses_post( (string) ( $bp['content'] ?? '' ) ),
+					content:     SafeHtml::post( (string) ( $bp['content'] ?? '' ) ),
 					is_default:  (bool) ( $bp['is_default'] ?? false ),
 				) );
 			}

@@ -4,6 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Course;
 
+use Inc\Shared\SafeHtml;
 use Inc\DTO\Course\StepDTO;
 use Inc\Enums\Subject\TaskTemplate;
 use Inc\Enums\Wp\PostMetaName;
@@ -197,7 +198,7 @@ class StepContentRenderer {
 	 * @param mixed $raw Сырое значение поля условия
 	 */
 	private function conditionHtml( mixed $raw ): string {
-		$html = wp_kses_post( (string) $raw );
+		$html = SafeHtml::post( (string) $raw );
 
 		return '' === trim( $html ) ? '' : wpautop( $html );
 	}

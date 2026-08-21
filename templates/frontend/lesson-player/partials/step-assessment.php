@@ -135,7 +135,7 @@ $asm_preview = ! empty( $is_preview ) && ! empty( $render['assessment_found'] );
 								</div>
 
 								<?php if ( ! empty( $asm_task['condition_html'] ) && is_string( $asm_task['condition_html'] ) ) : ?>
-									<div class="q wpc"><?php echo wp_kses_post( $asm_task['condition_html'] ); ?></div>
+									<div class="q wpc"><?php echo \Inc\Shared\SafeHtml::post( $asm_task['condition_html'] ); ?></div>
 								<?php endif; ?>
 
 								<?php foreach ( (array) ( $asm_task['files'] ?? array() ) as $asm_task_file ) : ?>

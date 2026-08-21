@@ -160,7 +160,7 @@ $examTitle  = $isOge ? 'Основной государственный экза
 
 		<div class="kege-reg-foot">
 			<span class="kege-warn-ico">!</span>
-			<div class="kege-warn-t">Код активации — <b id="kegeActCode"></b> (подсказка тренажёра).</div>
+			<div class="kege-warn-t">Код активации — <b id="kegeActCode"></b> (режим имитации).</div>
 			<div class="kege-act-right">
 				<input class="kege-code-in" id="kegeCodeInput" maxlength="4" inputmode="numeric" placeholder="····" autocomplete="off">
 				<span class="kege-code-err" id="kegeCodeErr" hidden>Неверный код</span>

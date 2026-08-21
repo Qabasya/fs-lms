@@ -4,6 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\Callbacks\Settings;
 
+use Inc\Shared\SafeHtml;
 use Inc\Core\BaseController;
 use Inc\Managers\Wp\PostManager;
 use Inc\Enums\Access\Capability;
@@ -157,7 +158,7 @@ class ConsentSettingsCallbacks extends BaseController {
 					'found'   => true,
 					'key'     => $key,
 					'name'    => $def['name'] ?? $key,
-					'content' => wp_kses_post( $page->post_content ),
+					'content' => SafeHtml::post( $page->post_content ),
 					'version' => 'Текущая версия',
 					'date'    => wp_date( 'd.m.Y H:i', strtotime( $page->post_modified ) ),
 				) );
@@ -170,7 +171,7 @@ class ConsentSettingsCallbacks extends BaseController {
 						'found'   => true,
 						'key'     => $key,
 						'name'    => $def['name'] ?? $key,
-						'content' => wp_kses_post( $rev->post_content ),
+						'content' => SafeHtml::post( $rev->post_content ),
 						'version' => 'Ревизия от ' . wp_date( 'd.m.Y H:i', strtotime( $rev->post_date ) ),
 						'date'    => wp_date( 'd.m.Y H:i', strtotime( $rev->post_date ) ),
 					) );

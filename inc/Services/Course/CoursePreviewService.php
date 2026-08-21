@@ -4,6 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Course;
 
+use Inc\Shared\SafeHtml;
 use Inc\DTO\Course\CourseDTO;
 use Inc\DTO\Course\StepDTO;
 use Inc\Enums\Course\GateState;
@@ -219,7 +220,7 @@ class CoursePreviewService {
 			'title'           => $work->title,
 			'work_type'       => $work->workType->value,
 			'work_type_label' => $work->workType->label(),
-			'instructions'    => wp_kses_post( $work->instructions ),
+			'instructions'    => SafeHtml::post( $work->instructions ),
 			'task_count'      => count( $tasks ),
 			'total_points'    => count( $tasks ),
 			'tasks'           => $tasks,

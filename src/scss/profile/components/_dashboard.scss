@@ -137,8 +137,8 @@
 .prof-work-item:last-child { border-bottom: none; }
 .prof-work-item:hover { background: var(--surface-2); }
 
-/* занятие-ссылка в плеер курса (T14.13) */
-a.prof-lesson-go { text-decoration: none; color: inherit; cursor: pointer; }
+/* занятие-ссылка в плеер курса (T14.13) / работа-ссылка на страницу работы/контрольной */
+a.prof-lesson-go, a.prof-work-item, a.prof-grade-attempt { text-decoration: none; color: inherit; cursor: pointer; }
 .prof-work-item.is-clickable { cursor: pointer; }
 
 .prof-work-ico {

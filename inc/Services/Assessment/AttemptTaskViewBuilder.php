@@ -4,6 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Assessment;
 
+use Inc\Shared\SafeHtml;
 use Inc\Enums\Assessment\AssessmentKind;
 use Inc\Enums\Subject\TaskTemplate;
 use Inc\Enums\Wp\PostMetaName;
@@ -232,7 +233,7 @@ readonly class AttemptTaskViewBuilder {
 
 		if ( '' === trim( (string) $html ) ) {
 			$post = $this->posts->get( $taskId );
-			$html = $post ? wp_kses_post( apply_filters( 'the_content', $post->post_content ) ) : '';
+			$html = $post ? SafeHtml::post( apply_filters( 'the_content', $post->post_content ) ) : '';
 		}
 
 		return (string) $html;

@@ -4,8 +4,13 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Profile\Learner;
 
+use Inc\DTO\Course\GradebookEntryDTO;
 use Inc\DTO\Profile\LearnerContextDTO;
+use Inc\Enums\Course\WorkSourceType;
+use Inc\Managers\Course\LessonManager;
+use Inc\Repositories\WPDBRepositories\AssessmentAttemptRepository;
 use Inc\Repositories\WPDBRepositories\AttendanceRepository;
+use Inc\Repositories\WPDBRepositories\SubmissionRepository;
 use Inc\Services\Course\GradebookService;
 
 /**
@@ -21,8 +26,11 @@ use Inc\Services\Course\GradebookService;
 class LearnerPerformanceSection {
 
 	public function __construct(
-		private readonly GradebookService     $gradebook,
-		private readonly AttendanceRepository $attendance,
+		private readonly GradebookService            $gradebook,
+		private readonly AttendanceRepository        $attendance,
+		private readonly SubmissionRepository        $submissions,
+		private readonly AssessmentAttemptRepository $attempts,
+		private readonly LessonManager               $lessons,
 	) {}
 
 	/**
@@ -46,13 +54,72 @@ class LearnerPerformanceSection {
 				'display'     => $e->displayType,
 				'graded_at'   => $e->gradedAt,
 				'group_name'  => $ctx->groups[ $e->groupId ]['name'] ?? '',
-				// #12: источник результата — для перехода к деталям работы/попытки.
-				'source_type' => $e->sourceType,
-				'source_id'   => $e->sourceId,
+				// Ссылка на саму работу/попытку — та же страница, что открывает плеер
+				// курса (контрольная — её permalink, обычная работа — шаг плеера).
+				'url'         => $this->workUrl( $ctx, $e ),
 			);
 		}
 
 		return $grades;
+	}
+
+	/**
+	 * Ссылка на страницу работы/попытки — та же, что использует плеер курса
+	 * (Bug: «не нажимается работа» — раньше клик открывал попап-сводку вместо
+	 * перехода к реальной странице; теперь везде одна точка входа).
+	 *
+	 *  - Контрольная (`attempt`)  → permalink CPT `{subject}_assessments` +
+	 *    `from_gid`/`from_gl` (см. `step-assessment.php`) — уже завершённая
+	 *    попытка страница экзамена сама покажет экран результата.
+	 *  - Обычная работа (`submission`) → плеер урока + `?step=<ключ шага>`
+	 *    (тот же приём, что {@see LearnerScheduleSection::deadlines()}).
+	 */
+	private function workUrl( LearnerContextDTO $ctx, GradebookEntryDTO $e ): string {
+		return match ( WorkSourceType::fromValueOrNull( $e->sourceType ) ) {
+			WorkSourceType::Attempt    => $this->attemptUrl( $e ),
+			WorkSourceType::Submission => $this->submissionUrl( $ctx, $e ),
+			default                    => '',
+		};
+	}
+
+	private function attemptUrl( GradebookEntryDTO $e ): string {
+		$attempt = $this->attempts->find( $e->sourceId );
+		if ( null === $attempt ) {
+			return '';
+		}
+
+		$url = get_permalink( $attempt->assessmentId );
+		if ( ! $url ) {
+			return '';
+		}
+
+		$gid = $e->groupId;
+		$gl  = (int) ( $e->groupLessonId ?? $attempt->groupLessonId ?? 0 );
+		if ( $gid > 0 && $gl > 0 ) {
+			$url = (string) add_query_arg( array( 'from_gid' => $gid, 'from_gl' => $gl ), $url );
+		}
+
+		return $url;
+	}
+
+	private function submissionUrl( LearnerContextDTO $ctx, GradebookEntryDTO $e ): string {
+		if ( null === $e->groupLessonId ) {
+			return '';
+		}
+
+		$sub = $this->submissions->find( $e->sourceId );
+		if ( null === $sub ) {
+			return '';
+		}
+
+		$row     = $ctx->rawRows[ $e->groupLessonId ] ?? null;
+		$lesson  = $row?->lessonId ? $this->lessons->get( $row->lessonId ) : null;
+		$baseUrl = (string) ( $ctx->lessonMap[ $e->groupLessonId ]['player_url'] ?? '' );
+		$stepKey = $lesson?->stepKeyForWork( $sub->workId );
+
+		return ( '' !== $baseUrl && $stepKey )
+			? (string) add_query_arg( 'step', $stepKey, $baseUrl )
+			: $baseUrl;
 	}
 
 	/**

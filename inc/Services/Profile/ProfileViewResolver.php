@@ -113,8 +113,6 @@ class ProfileViewResolver {
 				'nonce'   => Nonce::LearnerProfile->create(),
 				'actions' => array(
 					'getProfile' => AjaxHook::GetLearnerProfile->jsAction(),
-					// Задачи 12/13: деталь своей работы/попытки (эталонные ответы + футер).
-					'getOwnDetail' => AjaxHook::GetOwnWorkDetail->jsAction(),
 				),
 			);
 		}
