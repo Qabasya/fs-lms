@@ -66,12 +66,6 @@ function mount( el ) {
 		const settingsBox = document.getElementById( 'fs_lms_assessment_settings' );
 		if ( settingsBox ) { settingsBox.hidden = isStation; }
 
-		// score_map — обратная видимость остальных station-only полей: нужен
-		// только ЕГЭ/ОГЭ (перевод первичного балла во вторичный,
-		// SecondaryScoreService), у Control нигде не читается — мёртвое поле.
-		const scoreMapBox = document.getElementById( 'fs_lms_assessment_score_map' );
-		if ( scoreMapBox ) { scoreMapBox.hidden = ! isStation; }
-
 		if ( statusBar ) { statusBar.hidden = ! isStation; }
 		if ( ! isStation ) { gatePublish( true ); }
 	}

@@ -84,9 +84,6 @@ enum Nonce: string {
 	case SubmitBatchWork = 'fs_lms_submit_batch_work';
 	case GradeBatch      = 'fs_lms_grade_batch';
 
-	// ==== Этап 7 — редактор таблицы перевода ЕГЭ ====
-	case ScoreMap = 'fs_lms_score_map';
-
 	// ==== Этап 4 — контрольные и экзамены ====
 	case StartAttempt  = 'fs_lms_start_attempt';
 	case SubmitAttempt = 'fs_lms_submit_attempt';

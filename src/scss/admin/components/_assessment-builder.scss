@@ -5,12 +5,11 @@
 //  Конструктор задач вынесен в общий _slot-builder.scss (fs-sb-*).
 // ══════════════════════════════════════════════════════════════
 
-// ── Тип экзамена / Настройки контрольной / Таблица перевода баллов ─
-// Три отдельных метабокса поверх одного AssessmentTemplate (см. .docs/Tasks.md,
+// ── Тип экзамена / Настройки контрольной ────────────────────────
+// Два отдельных метабокса поверх одного AssessmentTemplate (см. .docs/Tasks.md,
 // «тип экзамена — отдельный метабокс») — общий паддинг контента метабокса.
 .fs-lms-assessment-kind,
-.fs-lms-assessment-settings,
-.fs-lms-assessment-score-map {
+.fs-lms-assessment-settings {
 	padding: $spacing-lg $spacing-xl;
 }
 
@@ -20,17 +19,11 @@
 		grid-template-columns: repeat(4, 1fr);
 		gap: $spacing-md $spacing-xl;
 
-		// score_map и intro_html (WYSIWYG) занимают всю ширину сетки
+		// intro_html (WYSIWYG) занимает всю ширину сетки
 		.fs-lms-field-group {
 			grid-column: 1 / -1;
 		}
 	}
-}
-
-// ── score_map textarea ────────────────────────────────────────
-.fs-lms-score-map-field {
-	font-family: monospace;
-	font-size: $font-size-xs;
 }
 
 // Утилита скрытия (замена инлайновому display:none в JS).
@@ -72,37 +65,5 @@
 	&__ok {
 		color: $wp-admin-green-text;
 		font-weight: 600;
-	}
-}
-
-// ── Помощники поля score_map (копирование + разбор) ────────────
-.fs-score-map {
-	&__copy-toggle {
-		margin-left: auto;
-		font-size: $font-size-xs;
-	}
-
-	// Панель скрыта атрибутом hidden (инлайновые стили в JS запрещены),
-	// поэтому display задаём только видимому состоянию.
-	&__copy:not([hidden]) {
-		display: flex;
-		flex-wrap: wrap;
-		gap: $spacing-sm;
-		align-items: center;
-		margin-bottom: $spacing-sm;
-	}
-
-	&__source {
-		max-width: 100%;
-	}
-
-	&__copy-note,
-	&__parsed {
-		color: $color-text-secondary;
-		font-size: $font-size-xs;
-	}
-
-	&__parsed:empty {
-		display: none;
 	}
 }

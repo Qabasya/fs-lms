@@ -168,8 +168,9 @@ class AssessmentMetaBoxController extends BaseController implements ServiceInter
 		);
 
 		// Порядок регистрации = порядок на экране (все 'high', WP сохраняет очередь
-		// внутри одного приоритета): тип экзамена — первым, от него зависят два
-		// следующих (settings — Control, score_map — станции ЕГЭ/ОГЭ).
+		// внутри одного приоритета): тип экзамена — первым, от него зависит второй
+		// (settings — только Control; для станций ЕГЭ/ОГЭ эти поля приходят из
+		// StationExamConfig, см. handleAssessmentSave()).
 		$this->registrar->add(
 			'fs_lms_assessment_kind',
 			'Тип экзамена',
@@ -181,13 +182,6 @@ class AssessmentMetaBoxController extends BaseController implements ServiceInter
 			'fs_lms_assessment_settings',
 			'Настройки контрольной',
 			array( $this, 'renderSettingsContent' ),
-			$assessment_post_types
-		)->register();
-
-		$this->registrar->add(
-			'fs_lms_assessment_score_map',
-			'Таблица перевода баллов',
-			array( $this, 'renderScoreMapContent' ),
 			$assessment_post_types
 		)->register();
 
@@ -233,21 +227,6 @@ class AssessmentMetaBoxController extends BaseController implements ServiceInter
 			'template'      => $this->template,
 			'values'        => $this->postManager->taskMeta( $post->ID ),
 			'field_ids'     => self::SETTINGS_FIELD_IDS,
-		) );
-	}
-
-	/**
-	 * «Таблица перевода баллов» — обратная видимость: только станции (ЕГЭ/ОГЭ),
-	 * где `score_map` реально участвует в переводе первичного балла во вторичный
-	 * (`SecondaryScoreService`); у Control поле мёртвое.
-	 */
-	public function renderScoreMapContent( \WP_Post $post ): void {
-		$this->render( 'admin/metaboxes/fields-subset', array(
-			'wrapper_class' => 'fs-lms-assessment-score-map',
-			'post'          => $post,
-			'template'      => $this->template,
-			'values'        => $this->postManager->taskMeta( $post->ID ),
-			'field_ids'     => array( 'score_map' ),
 		) );
 	}
 
@@ -351,11 +330,12 @@ class AssessmentMetaBoxController extends BaseController implements ServiceInter
 		}
 
 		// score_map (перевод первичного балла во вторичный, SecondaryScoreService) —
-		// нужен только видам с needsSecondaryScore() (ЕГЭ/ОГЭ); у Control нигде не
-		// читается, поэтому не сохраняем, даже если пришёл в $_POST.
-		if ( ! $assessmentKind->needsSecondaryScore() ) {
-			unset( $data['score_map'] );
-		}
+		// для станций (ЕГЭ/ОГЭ) шкала берётся из module-level StationExamConfig
+		// (KegeScaleConfig/OgeScaleConfig) и безусловно переопределяет значение из
+		// меты при каждом чтении (EgeComputerModule::applyStationSettings()); у
+		// Control поле не читается вовсе. Значит мета-версия мертва в обоих
+		// случаях — никогда не сохраняем её, даже если пришла в $_POST.
+		unset( $data['score_map'] );
 
 		$this->metaBoxManager->saveFieldsMerge(
 			$post_id,

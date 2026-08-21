@@ -138,7 +138,6 @@ class ContentCloneService {
 				'pass_score'         => $assessment->passScore,
 				'scoring_policy'     => $assessment->scoringPolicy->value,
 				'task_points'        => $assessment->taskPoints,
-				'score_map'          => $assessment->scoreMap,
 			) );
 		}
 

@@ -17,10 +17,10 @@ use PHPUnit\Framework\TestCase;
 
 /**
  * Тип экзамена вынесен в свой метабокс (.docs/Tasks.md, «тип экзамена — отдельный
- * метабокс»): `kind` рендерится ТОЛЬКО в renderKindContent(), `score_map` — ТОЛЬКО
- * в renderScoreMapContent(), остальные три поля («Настройки контрольной») —
- * ТОЛЬКО в renderSettingsContent(). Состав полей по-прежнему один источник —
- * AssessmentTemplate::get_fields() — колбэки лишь фильтруют подмножество.
+ * метабокс»): `kind` рендерится ТОЛЬКО в renderKindContent(), остальные четыре
+ * поля («Настройки контрольной») — ТОЛЬКО в renderSettingsContent(). Состав полей
+ * по-прежнему один источник — AssessmentTemplate::get_fields() — колбэки лишь
+ * фильтруют подмножество.
  */
 class AssessmentMetaBoxSplitTest extends TestCase {
 
@@ -62,11 +62,10 @@ class AssessmentMetaBoxSplitTest extends TestCase {
 		self::assertStringNotContainsString( 'for="time_limit_minutes"', $html );
 		self::assertStringNotContainsString( 'for="max_attempts"', $html );
 		self::assertStringNotContainsString( 'for="pass_score"', $html );
-		self::assertStringNotContainsString( 'for="score_map"', $html );
 		self::assertStringNotContainsString( 'intro_html', $html );
 	}
 
-	public function test_settings_metabox_renders_four_fields_but_not_kind_or_score_map(): void {
+	public function test_settings_metabox_renders_four_fields_but_not_kind(): void {
 		$html = $this->capture( fn() => $this->controller->renderSettingsContent( $this->post() ) );
 
 		self::assertStringContainsString( 'for="time_limit_minutes"', $html );
@@ -74,24 +73,13 @@ class AssessmentMetaBoxSplitTest extends TestCase {
 		self::assertStringContainsString( 'for="pass_score"', $html );
 		self::assertStringContainsString( 'intro_html', $html );
 		self::assertStringNotContainsString( 'for="kind"', $html );
-		self::assertStringNotContainsString( 'for="score_map"', $html );
-	}
-
-	public function test_score_map_metabox_renders_only_score_map_field(): void {
-		$html = $this->capture( fn() => $this->controller->renderScoreMapContent( $this->post() ) );
-
-		self::assertStringContainsString( 'for="score_map"', $html );
-		self::assertStringNotContainsString( 'for="kind"', $html );
-		self::assertStringNotContainsString( 'for="time_limit_minutes"', $html );
 	}
 
 	public function test_only_kind_metabox_outputs_the_nonce_field(): void {
 		$kindHtml     = $this->capture( fn() => $this->controller->renderKindContent( $this->post() ) );
 		$settingsHtml = $this->capture( fn() => $this->controller->renderSettingsContent( $this->post() ) );
-		$scoreHtml    = $this->capture( fn() => $this->controller->renderScoreMapContent( $this->post() ) );
 
 		self::assertStringContainsString( 'fs_lms_meta_nonce', $kindHtml );
 		self::assertStringNotContainsString( 'fs_lms_meta_nonce', $settingsHtml );
-		self::assertStringNotContainsString( 'fs_lms_meta_nonce', $scoreHtml );
 	}
 }
