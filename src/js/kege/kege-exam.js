@@ -19,15 +19,44 @@ function toast( msg ) {
 	toast._t = setTimeout( () => el.classList.remove( 'show' ), 2400 );
 }
 
-/** Официальные номера заданий с табличным (многозначным) ответом (T15.10) — форма из настоящего КЕГЭ по информатике. */
+/**
+ * Официальные номера заданий с табличным (многозначным) ответом (T15.10) —
+ * форма из настоящего КЕГЭ по информатике. №25 — переменное число строк
+ * (сколько шагов деления даст конкретный вариант, заранее не известно) —
+ * `growable: true` разрешает таблице дорастать при вставке многострочного
+ * ответа; №26/№27 — фиксированная форма, ровно 2 балла на позицию
+ * ({@see KegeScaleConfig.MULTI_ANSWER}). №17/№18/№20 — тот же 1×2 ввод, что
+ * и №26, но чисто ради удобства (у части вариантов там два числа) — балл
+ * позиции остаётся один, answerSlots() их не знает и не трогает.
+ */
 function tableShapeFor( taskNumber ) {
 	if ( 25 === taskNumber ) {
-		return { cols: [ 'Число', 'Результат деления' ], rows: 5 };
+		return { cols: [ 'Число', 'Результат деления' ], rows: 5, growable: true };
+	}
+	if ( [ 17, 18, 20, 26 ].includes( taskNumber ) ) {
+		return { cols: [ '1', '2' ], rows: [ '1' ] };
 	}
 	if ( 27 === taskNumber ) {
 		return { cols: [ '1', '2' ], rows: [ '1', '2' ] };
 	}
 	return { cols: [ 'Значение' ], rows: 3 };
+}
+
+/**
+ * Разбирает вставленный из буфера многострочный блок («число [пробел] число»
+ * на каждой строке) в матрицу токенов — для авто-распределения по ячейкам
+ * таблицы (задание №25: вставить весь ответ одним куском вместо ручного
+ * набора по клеточкам).
+ *
+ * @param {string} text
+ * @return {string[][]} Список строк, каждая — список токенов (без пустых).
+ */
+function parsePasteBlock( text ) {
+	return text
+		.split( /\r\n|\r|\n/ )
+		.map( ( line ) => line.trim() )
+		.filter( Boolean )
+		.map( ( line ) => line.split( /\s+/ ).filter( Boolean ) );
 }
 
 /**
@@ -205,7 +234,7 @@ export function initKegeExam() {
 	 * оставлял задание помеченным как сданное.
 	 */
 	const flushAnswer = async () => {
-		if ( ! isDirty() ) { return; }
+		if ( ! isDirty() ) { return true; } // уже совпадает с сервером — считаем сохранённым
 
 		const current = binding;
 		const text    = current.collect();
@@ -213,7 +242,7 @@ export function initKegeExam() {
 		current.inflight = text;
 		const saved = await persistAnswer( current.taskId, text, current.statusEl );
 		if ( current.inflight === text ) { current.inflight = null; }
-		if ( ! saved ) { return; }
+		if ( ! saved ) { return false; }
 
 		if ( text ) {
 			savedAnswers.set( String( current.taskId ), text );
@@ -223,6 +252,7 @@ export function initKegeExam() {
 		markSaved( current.taskId, savedAnswers.has( String( current.taskId ) ) );
 		syncCount();
 		rememberPreviewAnswers();
+		return true;
 	};
 
 	/**
@@ -379,13 +409,18 @@ export function initKegeExam() {
 		} else if ( 'table' === shape ) {
 			panelWrap.hidden = false;
 
-			const { cols, rows } = tableShapeFor( taskNumber );
+			const { cols, rows, growable } = tableShapeFor( taskNumber );
 			const rowLabels = Array.isArray( rows ) ? rows : Array.from( { length: rows }, ( _, i ) => String( i + 1 ) );
 			const savedGrid = parseTable( saved );
+			// Таблица растёт под сохранённый ответ, если он длиннее шаблона по
+			// умолчанию (№25: заранее не известно, сколько шагов деления даст вариант).
+			const initialRowCount = Math.max( rowLabels.length, growable ? savedGrid.length : 0 );
 
 			const head = document.createElement( 'div' );
 			head.className = 'kege-ap-head';
-			head.textContent = 'Введите значения в таблицу';
+			head.textContent = growable
+				? 'Введите значения в таблицу — можно набрать вручную или вставить весь ответ в любую ячейку первого столбца (по строке на пару значений)'
+				: 'Введите значения в таблицу';
 			panelWrap.appendChild( head );
 
 			const table = document.createElement( 'table' );
@@ -398,26 +433,64 @@ export function initKegeExam() {
 				headRow.appendChild( th );
 			} );
 			table.appendChild( headRow );
+			panelWrap.appendChild( table );
 
 			const inputs = [];
-			rowLabels.forEach( ( label, ri ) => {
+
+			/** Строка «Сохранить ответ» → «Сохранено!» до следующей правки. */
+			const markUnsaved = () => {
+				saveBtn.textContent = 'Сохранить ответ';
+				saveBtn.classList.remove( 'is-saved' );
+			};
+
+			/** Добавляет строку в конец таблицы и возвращает её input'ы. */
+			const addRow = ( label ) => {
+				const ri = inputs.length;
 				const tr = document.createElement( 'tr' );
 				const th = document.createElement( 'th' );
 				th.textContent = label;
 				tr.appendChild( th );
+
 				const rowInputs = [];
 				cols.forEach( ( c, ci ) => {
 					const td = document.createElement( 'td' );
 					const input = document.createElement( 'input' );
 					input.value = ( savedGrid[ ri ] && savedGrid[ ri ][ ci ] ) || '';
+					input.addEventListener( 'input', markUnsaved );
+					// Вставка многострочного блока (весь ответ разом) — только когда в
+					// буфере реально несколько строк; одиночное значение вставляется как
+					// обычно (без перехвата). Всегда распределяем с 1-й колонки строки,
+					// куда бы ни попал курсор — так совпадает с примером «число [Tab] число».
+					input.addEventListener( 'paste', ( e ) => {
+						const text = ( e.clipboardData || window.clipboardData )?.getData( 'text' ) || '';
+						if ( ! /[\n\r]/.test( text ) ) { return; }
+						e.preventDefault();
+
+						const parsed = parsePasteBlock( text );
+						parsed.forEach( ( tokens, i ) => {
+							const targetRow = ri + i;
+							if ( targetRow >= inputs.length ) {
+								if ( ! growable ) { return; }
+								addRow( String( inputs.length + 1 ) );
+							}
+							tokens.slice( 0, cols.length ).forEach( ( v, ci ) => {
+								if ( inputs[ targetRow ]?.[ ci ] ) { inputs[ targetRow ][ ci ].value = v; }
+							} );
+						} );
+						markUnsaved();
+					} );
 					td.appendChild( input );
 					tr.appendChild( td );
 					rowInputs.push( input );
 				} );
 				inputs.push( rowInputs );
 				table.appendChild( tr );
-			} );
-			panelWrap.appendChild( table );
+				return rowInputs;
+			};
+
+			for ( let ri = 0; ri < initialRowCount; ri++ ) {
+				addRow( rowLabels[ ri ] ?? String( ri + 1 ) );
+			}
 
 			const actions = document.createElement( 'div' );
 			actions.className = 'kege-ap-actions';
@@ -441,13 +514,22 @@ export function initKegeExam() {
 					return grid.some( ( row ) => row.some( Boolean ) ) ? serializeTable( grid ) : '';
 				},
 			};
-			autosaveOn( inputs.flat() );
-			saveBtn.addEventListener( 'click', () => { void flushAnswer(); } );
-			// «Очистить» — тоже сохранение (пустым ответом), а не только правка полей:
-			// раньше отметка снималась локально, до подтверждения сервера.
-			clearBtn.addEventListener( 'click', () => {
+			// Автосейва здесь нет намеренно (2026-08-21): значения фиксируются только
+			// по явному клику «Сохранить ответ» — во время набора таблицы промежуточные
+			// (заведомо неполные) состояния на сервер не летят.
+			saveBtn.addEventListener( 'click', async () => {
+				if ( await flushAnswer() ) {
+					saveBtn.textContent = 'Сохранено!';
+					saveBtn.classList.add( 'is-saved' );
+				}
+			} );
+			clearBtn.addEventListener( 'click', async () => {
 				inputs.forEach( ( row ) => row.forEach( ( i ) => { i.value = ''; } ) );
-				void flushAnswer();
+				markUnsaved();
+				if ( await flushAnswer() ) {
+					saveBtn.textContent = 'Сохранено!';
+					saveBtn.classList.add( 'is-saved' );
+				}
 			} );
 		} else if ( 'file' === shape ) {
 			// Задания 13-16 ОГЭ («Развёрнутый ответ») — только загрузка файла, без

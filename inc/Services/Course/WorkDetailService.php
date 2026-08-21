@@ -49,6 +49,20 @@ class WorkDetailService {
 	 */
 	public const OGE_RUBRIC_FILTER = 'fs_lms_oge_manual_rubric';
 
+	/**
+	 * WP filter: приводит сериализованный табличный ответ (№17/18/20/25/26/27
+	 * «Компьютерного ЕГЭ» — станция кодирует несколько ячеек одной строкой,
+	 * `|` разделяет столбцы, `\n` строки) к читаемому виду для экрана «Работы»
+	 * учителя. Без фильтра здесь остаётся сырой вид с `|` — модуль сам решает,
+	 * какие номера заданий табличные (ядро не знает о модулях), тот же приём,
+	 * что `OGE_RUBRIC_FILTER`.
+	 *
+	 *   apply_filters( self::TABLE_ANSWER_FILTER, $answerText, $assessment, $taskId )
+	 *
+	 * @see \Inc\DTO\Assessment\AssessmentDTO $assessment
+	 */
+	public const TABLE_ANSWER_FILTER = 'fs_lms_kege_table_answer';
+
 	public function __construct(
 		private readonly SubmissionRepository        $submissions,
 		private readonly WorkManager                 $works,
@@ -205,9 +219,29 @@ class WorkDetailService {
 		// мета-кэш одним запросом (в цикле по два чтения меты на задание).
 		$this->posts->primeMetaCache( array_map( static fn( $a ) => $a->taskId, $rows ) );
 
+		// Строки ответов идут в порядке вставки (когда ученик отвечал), а не в
+		// порядке позиций экзамена — «Задача 1» рендерилась бы тем заданием,
+		// которое сохранилось первым (нередко №25/№27, набранные не по порядку).
+		// Перекладываем в порядок assessment->taskIds — как уже делает
+		// KegeResultSheetService::assemble() для листа результатов.
+		$byTaskId = array();
+		foreach ( $rows as $ans ) {
+			$byTaskId[ $ans->taskId ] = $ans;
+		}
+		$orderedRows = array();
+		foreach ( $assessment?->taskIds ?? array() as $taskId ) {
+			if ( isset( $byTaskId[ (int) $taskId ] ) ) {
+				$orderedRows[] = $byTaskId[ (int) $taskId ];
+				unset( $byTaskId[ (int) $taskId ] );
+			}
+		}
+		// Остаток (ответ на задание, которого больше нет в task_ids контрольной) —
+		// в хвост, как и раньше, чтобы ни одна сдача не потерялась молча.
+		$orderedRows = array_merge( $orderedRows, array_values( $byTaskId ) );
+
 		$tasks = array();
 		$n     = 0;
-		foreach ( $rows as $ans ) {
+		foreach ( $orderedRows as $ans ) {
 			$verdict = null === $ans->isCorrect ? 'pending' : ( $ans->isCorrect ? 'correct' : 'incorrect' );
 
 			// Эпик 13 (D16/D17): «Развёрнутый ответ» — ответ закодирован как JSON
@@ -215,7 +249,13 @@ class WorkDetailService {
 			$template = TaskTemplate::fromDatabase(
 				(string) $this->posts->getMeta( $ans->taskId, PostMetaName::TemplateType->value )
 			);
-			if ( $template->isFileAnswerShape() ) {
+			// Ручная проверка нужна ТОЛЬКО этой форме ответа (TaskCheckerRegistry не
+			// умеет её проверить автоматически) — балл/чекбокс/комментарий учителя на
+			// экране показываем только здесь; для авто-проверяемых задач эти поля
+			// никто не читает (итог считает AutoGradeService по task_checker'у), и
+			// показанная форма вводила в заблуждение — заполнялась, но не влияла.
+			$isManual = $template->isFileAnswerShape();
+			if ( $isManual ) {
 				$parsed     = $this->parseFileAnswer( $ans->answerText );
 				$answerText = $parsed['text'];
 				$files      = $parsed['files'];
@@ -223,6 +263,10 @@ class WorkDetailService {
 				$answerText = (string) ( $ans->answerText ?? '' );
 				$files      = array();
 			}
+			// Табличные задания станции (№17/18/20/25/26/27) кодируют ответ одной
+			// строкой (`|` между столбцами, `\n` между строками таблицы) — без
+			// фильтра здесь остался бы сырой вид с `|`.
+			$answerText = (string) apply_filters( self::TABLE_ANSWER_FILTER, $answerText, $assessment, $ans->taskId );
 
 			$tasks[] = array(
 				'n'          => ++$n,
@@ -234,6 +278,8 @@ class WorkDetailService {
 				'verdict'    => $verdict,
 				'score'      => $ans->score,
 				'max_score'  => $ans->maxScore,
+				'manual'     => $isManual,
+				'feedback'   => $ans->graderNote,
 				'criteria'   => $this->criteriaFor( $ans->taskId, $ans->criteriaScores ),
 				'oge_rubric' => $assessment ? apply_filters( self::OGE_RUBRIC_FILTER, null, $assessment, $ans->taskId ) : null,
 			);

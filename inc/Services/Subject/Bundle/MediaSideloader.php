@@ -53,10 +53,14 @@ class MediaSideloader {
 		'application/vnd.openxmlformats-officedocument.presentationml.presentation',
 		'application/vnd.ms-excel',
 		'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+		'application/vnd.oasis.opendocument.text',
+		'application/vnd.oasis.opendocument.presentation',
 		'text/plain',
 		'text/csv',
 		'application/csv',
 		'text/x-python',
+		'application/zip',
+		'application/x-zip-compressed',
 	);
 
 	/**

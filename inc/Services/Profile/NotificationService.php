@@ -318,6 +318,10 @@ readonly class NotificationService {
 				sprintf( '%s → %s', (string) ( $p['old_room'] ?? '—' ), (string) ( $p['new_room'] ?? '—' ) ),
 				$tail
 			) ),
+
+			NotificationType::AttemptReset => '' !== $topic
+				? "Можете решить «{$topic}» заново{$tail}"
+				: trim( "Можете пройти заново{$tail}" ),
 		};
 	}
 

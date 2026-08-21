@@ -62,6 +62,7 @@ class EgeComputerModule implements ServiceInterface {
 		add_filter( self::SHEET_FILTER, [ $this, 'buildResultSheet' ], 10, 4 );
 		add_filter( AssessmentManager::STATION_SETTINGS_FILTER, [ $this, 'applyStationSettings' ] );
 		add_filter( WorkDetailService::OGE_RUBRIC_FILTER, [ $this, 'resolveOgeRubric' ], 10, 3 );
+		add_filter( WorkDetailService::TABLE_ANSWER_FILTER, [ $this, 'resolveTableAnswer' ], 10, 3 );
 		add_filter( EgeCompletenessChecker::EXTRA_POSITIONS_FILTER, [ $this, 'resolveExtraPositions' ], 10, 3 );
 		add_filter( ProblemsController::NUMBER_OPTIONS_FILTER, [ $this, 'appendOgeManualPositions' ], 10, 2 );
 
@@ -210,6 +211,32 @@ class EgeComputerModule implements ServiceInterface {
 		}
 
 		return array_merge( $positions, OgeCriteriaConfig::positions() );
+	}
+
+	/**
+	 * Табличный ответ станции (№17/18/20/25/26/27, {@see KegeScaleConfig::TABLE_TASK_NUMBERS})
+	 * на экране «Работы» учителя: `answer_text` там хранится сериализованным
+	 * (`|` между столбцами, `\n` между строками — {@see WorkDetailService::TABLE_ANSWER_FILTER}),
+	 * приводим к тому же читаемому виду, что и лист ответов станции
+	 * ({@see KegeResultSheetService::readableTable()}). ОГЭ такой формы ответа
+	 * не имеет вовсе (см. exam.php `$isTable`), поэтому не трогаем.
+	 *
+	 * @param string        $answerText Сырой ответ ученика
+	 * @param AssessmentDTO $assessment Экзамен, к которому относится задание
+	 * @param int           $taskId     ID задания
+	 */
+	public function resolveTableAnswer( string $answerText, AssessmentDTO $assessment, int $taskId ): string {
+		if ( '' === $answerText || AssessmentKind::EgeComputer !== $assessment->kind ) {
+			return $answerText;
+		}
+
+		$taxonomy = $assessment->subjectKey . '_task_number';
+		$position = $this->resolveTaskPosition( $taskId, $taxonomy, $assessment->taskNumbers );
+		if ( '' === $position || ! in_array( (int) $position, KegeScaleConfig::TABLE_TASK_NUMBERS, true ) ) {
+			return $answerText;
+		}
+
+		return KegeResultSheetService::readableTable( $answerText );
 	}
 
 	/**

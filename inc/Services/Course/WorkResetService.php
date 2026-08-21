@@ -7,10 +7,15 @@ namespace Inc\Services\Course;
 use Inc\Repositories\WPDBRepositories\AssessmentAnswerRepository;
 use Inc\Enums\Course\AttemptSource;
 use Inc\Enums\Course\WorkSourceType;
+use Inc\Enums\Profile\NotificationType;
+use Inc\Enums\Wp\PageRoutes;
+use Inc\Managers\Assessment\AssessmentManager;
+use Inc\Managers\Course\WorkManager;
 use Inc\Repositories\WPDBRepositories\AssessmentAttemptRepository;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\SubmissionRepository;
 use Inc\Repositories\WPDBRepositories\TaskAttemptRepository;
+use Inc\Services\Profile\NotificationService;
 use Inc\Shared\PluginLogger;
 
 /**
@@ -34,6 +39,9 @@ class WorkResetService {
 		private readonly AssessmentAnswerRepository  $answers,
 		private readonly GroupLessonRepository       $groupLessons,
 		private readonly TaskAttemptRepository       $taskAttempts,
+		private readonly NotificationService         $notifications,
+		private readonly AssessmentManager           $assessments,
+		private readonly WorkManager                 $works,
 	) {}
 
 	/**
@@ -84,7 +92,32 @@ class WorkResetService {
 			)
 		);
 
+		$this->notifyReset( $attempt->studentPersonId, $attempt->groupId, $this->assessments->get( $attempt->assessmentId )?->title ?? '' );
+
 		return $deleted;
+	}
+
+	/**
+	 * Уведомление ученику: попытки/сдачи сброшены, можно проходить заново.
+	 *
+	 * @param int    $studentPersonId
+	 * @param ?int   $groupId
+	 * @param string $topic Название работы/экзамена (пусто — не резолвилось)
+	 */
+	private function notifyReset( int $studentPersonId, ?int $groupId, string $topic ): void {
+		$userId = $this->notifications->studentUserId( $studentPersonId );
+		if ( null === $userId ) {
+			return;
+		}
+
+		$this->notifications->push(
+			array( $userId ),
+			NotificationType::AttemptReset,
+			'reset:' . $studentPersonId . ':' . $topic . ':' . current_time( 'mysql' ),
+			array( 'topic' => $topic ),
+			(string) add_query_arg( array( 'screen' => 'learner-grades' ), PageRoutes::UserProfile->url() ),
+			$groupId
+		);
 	}
 
 	private function resetSubmission( int $submissionId ): int {
@@ -117,6 +150,9 @@ class WorkResetService {
 				'rows_deleted'      => $deleted,
 			)
 		);
+
+		$groupId = $this->groupLessons->find( $sub->groupLessonId )?->groupId;
+		$this->notifyReset( $sub->studentPersonId, $groupId, $this->works->get( $sub->workId )?->title ?? '' );
 
 		return $deleted;
 	}

@@ -37,14 +37,22 @@ class AssessmentGradeSource implements GradeSourceInterface {
 			$isPending   = $attempt->status === AttemptStatus::Submitted;
 			$displayType = 'score';
 			$score       = $attempt->totalScore;
+			$maxScore    = $attempt->maxScore;
 
 			if ( $isPending ) {
 				$displayType = 'pending';
 			} elseif ( $assessment && $assessment->kind->needsSecondaryScore() ) {
-				// Для ЕГЭ — вторичный балл в ячейке журнала.
+				// Для ЕГЭ/ОГЭ — вторичный балл в ячейке журнала (тестовый, 0-100
+				// у ЕГЭ / 2-5 у ОГЭ) вместо первичного — иначе "7" читается как
+				// «7 из 29 заданий», а это на самом деле переведённый балл.
+				// 'fraction' вместо голого числа: без денаминатора «7» неотличимо
+				// от количества решённых задач. Максимум — из уже отфильтрованной
+				// STATION_SETTINGS_FILTER шкалы (AssessmentManager::get()), а не из
+				// module-level конфига: ядро не знает о модулях (CLAUDE.md).
 				$secondary   = $this->secondaryScore->translate( $attempt->totalScore ?? 0.0, $assessment->scoreMap );
 				$score       = null !== $secondary ? (float) $secondary : $attempt->totalScore;
-				$displayType = 'score';
+				$maxScore    = ! empty( $assessment->scoreMap ) ? (float) max( $assessment->scoreMap ) : $attempt->maxScore;
+				$displayType = 'fraction';
 			}
 
 			$entries[] = new GradebookEntryDTO(
@@ -55,7 +63,7 @@ class AssessmentGradeSource implements GradeSourceInterface {
 				title           : $title,
 				category        : 'assessment',
 				score           : $score,
-				maxScore        : $attempt->maxScore,
+				maxScore        : $maxScore,
 				gradedAt        : $attempt->submittedAt,
 				displayType     : $displayType,
 				groupLessonId   : $attempt->groupLessonId,

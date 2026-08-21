@@ -30,6 +30,8 @@ enum NotificationType: string {
 	case SubstituteAssignedStudent = 'substitute_assigned_student';
 	/** Ученикам (+эффективному преподавателю) — при разовой замене кабинета занятия/периода. */
 	case RoomChanged        = 'room_changed';
+	/** Ученику — преподаватель сбросил его попытки/сдачи по работе/экзамену (2026-08-21). */
+	case AttemptReset       = 'attempt_reset';
 
 	/** Заголовок плитки уведомления. */
 	public function title(): string {
@@ -47,6 +49,7 @@ enum NotificationType: string {
 			self::LessonOpened       => 'Открыт новый урок',
 			self::SubstituteAssignedStudent => 'Замена преподавателя',
 			self::RoomChanged        => 'Изменился кабинет',
+			self::AttemptReset       => 'Попытка сброшена',
 		};
 	}
 
@@ -54,7 +57,7 @@ enum NotificationType: string {
 	public function tone(): string {
 		return match ( $this ) {
 			self::VideoUploaded, self::LessonSoon, self::SubstituteAssigned, self::LessonOpened,
-			self::SubstituteAssignedStudent, self::RoomChanged => 'info',
+			self::SubstituteAssignedStudent, self::RoomChanged, self::AttemptReset => 'info',
 			self::WorkGraded, self::AttemptGraded                          => 'ok',
 			self::DeadlineSoon, self::WorkReturned, self::ReviewNeeded      => 'warn',
 			self::DeadlineMissed, self::AttendanceMissed                   => 'err',

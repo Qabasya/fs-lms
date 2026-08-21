@@ -83,12 +83,34 @@ class GradeAttemptCallbacksTest extends TestCase {
 		self::assertFalse( fs_test_capture_json( fn() => $this->cb->ajaxGradeAttempt() )->success );
 	}
 
+	/**
+	 * 2026-08-21: ручная оценка запрещена для заданий с авто-чекером — иначе
+	 * ручной балл в assessment_answers.score расходится с пересчётом на листе
+	 * результатов станции (KegeResultSheetService игнорирует ручной балл, если
+	 * у задания есть эталонный ответ).
+	 */
+	public function test_grade_attempt_denied_for_auto_checkable_task(): void {
+		$this->attempts->method( 'find' )->willReturn( $this->attemptFixture() );
+		$this->guard->method( 'canWriteJournal' )->willReturn( true );
+		$this->posts->method( 'getMeta' )->willReturnMap( array(
+			array( 7, 'fs_lms_template_type', 'standard_task' ), // авто-проверяемый шаблон
+		) );
+		$this->answers->expects( $this->never() )->method( 'upsert' );
+
+		$_POST = array( 'attempt_id' => '5', 'task_id' => '7', 'score' => '4', 'is_correct' => '1' );
+
+		self::assertFalse( fs_test_capture_json( fn() => $this->cb->ajaxGradeAttempt() )->success );
+	}
+
 	/* ── Критерии (Эпик 13, D17): балл = сумма по критериям, без весов ──────── */
 
 	public function test_grade_attempt_without_criteria_uses_plain_score(): void {
 		$this->attempts->method( 'find' )->willReturn( $this->attemptFixture() );
 		$this->guard->method( 'canWriteJournal' )->willReturn( true );
-		$this->posts->method( 'getMeta' )->willReturn( array() ); // задача без критериев
+		$this->posts->method( 'getMeta' )->willReturnMap( array(
+			array( 7, 'fs_lms_template_type', 'file_answer_task' ),
+			array( 7, 'fs_lms_meta', array() ), // задача без критериев
+		) );
 		$this->autoGrade->method( 'finalize' )->willReturn( $this->attemptFixture() );
 
 		$this->answers->expects( $this->once() )->method( 'upsert' )->with(
@@ -109,10 +131,13 @@ class GradeAttemptCallbacksTest extends TestCase {
 	public function test_grade_attempt_with_criteria_sums_and_clamps_points(): void {
 		$this->attempts->method( 'find' )->willReturn( $this->attemptFixture() );
 		$this->guard->method( 'canWriteJournal' )->willReturn( true );
-		$this->posts->method( 'getMeta' )->willReturn( array(
-			'task_criteria' => array( 'criteria' => array(
-				array( 'label' => 'К1', 'max_points' => 2 ),
-				array( 'label' => 'К2', 'max_points' => 1 ),
+		$this->posts->method( 'getMeta' )->willReturnMap( array(
+			array( 7, 'fs_lms_template_type', 'file_answer_task' ),
+			array( 7, 'fs_lms_meta', array(
+				'task_criteria' => array( 'criteria' => array(
+					array( 'label' => 'К1', 'max_points' => 2 ),
+					array( 'label' => 'К2', 'max_points' => 1 ),
+				) ),
 			) ),
 		) );
 		$this->autoGrade->method( 'finalize' )->willReturn( $this->attemptFixture() );
@@ -142,9 +167,12 @@ class GradeAttemptCallbacksTest extends TestCase {
 	public function test_grade_attempt_with_criteria_full_marks_is_correct(): void {
 		$this->attempts->method( 'find' )->willReturn( $this->attemptFixture() );
 		$this->guard->method( 'canWriteJournal' )->willReturn( true );
-		$this->posts->method( 'getMeta' )->willReturn( array(
-			'task_criteria' => array( 'criteria' => array(
-				array( 'label' => 'К1', 'max_points' => 2 ),
+		$this->posts->method( 'getMeta' )->willReturnMap( array(
+			array( 7, 'fs_lms_template_type', 'file_answer_task' ),
+			array( 7, 'fs_lms_meta', array(
+				'task_criteria' => array( 'criteria' => array(
+					array( 'label' => 'К1', 'max_points' => 2 ),
+				) ),
 			) ),
 		) );
 		$this->autoGrade->method( 'finalize' )->willReturn( $this->attemptFixture() );

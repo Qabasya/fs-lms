@@ -26,12 +26,19 @@ class MediaManager {
 		// плагина, и пакет переноса предмета обязаны их принимать.
 		'application/vnd.ms-excel',
 		'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+		// OpenDocument (LibreOffice/OpenOffice) — тот же класс материалов, что и
+		// .docx/.pptx выше, некоторые ученики/авторы работают только в нём.
+		'application/vnd.oasis.opendocument.text',
+		'application/vnd.oasis.opendocument.presentation',
 		'text/plain',
 		// Файлы данных с дробями через запятую («1,5») libmagic принимает за CSV —
 		// это тот же плейнтекст (данные ЕГЭ, задание 27).
 		'text/csv',
 		'application/csv',
 		'text/x-python',
+		// Архив с решением (несколько файлов проекта, скрипт + данные и т.п.).
+		'application/zip',
+		'application/x-zip-compressed',
 	);
 
 	private const MAX_SIZE_BYTES = 20 * 1024 * 1024; // 20 MB (T13.2: фото решений с телефона)

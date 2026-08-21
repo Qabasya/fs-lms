@@ -10,6 +10,7 @@
 import { esc, toast, fmtNum } from './utils.js';
 import { icoChevronLeft } from '../common/icons.js';
 import { createApi } from './api.js';
+import { confirmDialog } from '../common/components/confirm-dialog.js';
 
 const VERDICT_LABEL = { correct: 'Верно', incorrect: 'Неверно', pending: 'На проверке' };
 const STATUS_LABEL  = { submitted: 'Сдано', pending: 'На проверке', graded: 'Оценено', returned: 'Возвращено', in_progress: 'В процессе', expired: 'Просрочено' };
@@ -102,7 +103,7 @@ function render(d) {
                 <div class="smh-actions">
                     ${canApprove ? '<button class="prof-btn prof-btn-sm prof-btn-primary sum-approve">Утвердить работу</button>' : ''}
                     ${isApproved ? '<span class="sum-approved-badge" title="Ответы открыты ученику">Утверждено</span>' : ''}
-                    <button class="prof-btn prof-btn-sm sum-reset" data-armed="0">Сбросить попытки</button>
+                    <button class="prof-btn prof-btn-sm sum-reset">Сбросить попытки</button>
                 </div>
             </div>
             <div class="wr-body">
@@ -137,25 +138,19 @@ function wireApprove(root, d) {
     });
 }
 
-/* Задача 11: сброс попыток/сдач ученика (необратимо) — двойной клик для подтверждения. */
+/* Задача 11: сброс попыток/сдач ученика (необратимо) — модалка подтверждения
+   вместо двойного клика (2026-08-21: вид кнопки больше не меняется). */
 function wireReset(root) {
     const btn = root.querySelector('.sum-reset');
     if (!btn || !current) { return; }
-    let armTimer;
     btn.addEventListener('click', async () => {
-        if (btn.dataset.armed !== '1') {
-            btn.dataset.armed = '1';
-            btn.classList.add('sum-reset--armed');
-            btn.textContent = 'Точно сбросить? Ещё раз';
-            clearTimeout(armTimer);
-            armTimer = setTimeout(() => {
-                btn.dataset.armed = '0';
-                btn.classList.remove('sum-reset--armed');
-                btn.textContent = 'Сбросить попытки';
-            }, 4000);
-            return;
-        }
-        clearTimeout(armTimer);
+        const ok = await confirmDialog(
+            'Все попытки и сдачи ученика по этой работе будут удалены без возможности восстановления. Ученик сможет пройти её заново.',
+            'Сбросить попытки',
+            'Отмена'
+        );
+        if (!ok) { return; }
+
         btn.disabled = true;
         try {
             await reviewApi('resetAttempts', { source_type: current.sourceType, source_id: current.sourceId });
@@ -181,7 +176,12 @@ function attachmentBlock(d) {
 function taskBlock(t, d) {
     const score = (t.score !== null && t.score !== undefined)
         ? `<span class="st-score">${fmtNum(t.score)}${t.max_score != null ? '/' + fmtNum(t.max_score) : ''}</span>` : '';
-    const canGrade = d.kind === 'exam' && t.task_id && attemptGradeApi;
+    // t.manual — задача требует ручной проверки (TaskTemplate::isFileAnswerShape()
+    // на сервере); для авто-проверяемых задач баллы считает TaskCheckerRegistry
+    // при сдаче, а не эта форма — балл/чекбокс/комментарий тут никто не читал
+    // (заполнялись, но не влияли на итог), поэтому для них форма не рендерится
+    // вовсе (2026-08-21).
+    const canGrade = d.kind === 'exam' && t.task_id && t.manual && attemptGradeApi;
     const hasCriteria = canGrade && Array.isArray(t.criteria) && t.criteria.length;
     const hasOgeRubric = canGrade && !hasCriteria && t.oge_rubric;
     // D4 (.docs/Tasks.md): submission-работы оцениваются поштучно, как экзамены —
@@ -199,7 +199,7 @@ function taskBlock(t, d) {
                 <input type="number" class="stg-score" step="0.5" min="0" value="${t.score ?? ''}" placeholder="балл">
                 <span class="stg-of">/ ${t.max_score != null ? fmtNum(t.max_score) : '1'}</span>
                 <label class="stg-ok"><input type="checkbox" class="stg-ok-cb" ${t.verdict === 'correct' ? 'checked' : ''}>верно</label>
-                <input type="text" class="stg-fb" placeholder="комментарий">
+                <input type="text" class="stg-fb" placeholder="комментарий" value="${t.feedback ? esc(t.feedback) : ''}">
                 <button class="prof-btn prof-btn-sm prof-btn-primary stg-save">Оценить</button>
             </div>` : canGradeSubmissionTask ? `
             <div class="sum-task-grade sum-task-grade--batch" data-submission-id="${t.task_submission_id}" data-max="${t.max_score ?? 1}">
@@ -246,7 +246,7 @@ function criteriaGradeBlock(t) {
     return `
             <div class="sum-task-grade sum-task-grade--criteria" data-task-id="${t.task_id}">
                 ${rows}
-                <input type="text" class="stg-fb" placeholder="комментарий">
+                <input type="text" class="stg-fb" placeholder="комментарий" value="${t.feedback ? esc(t.feedback) : ''}">
                 <button class="prof-btn prof-btn-sm prof-btn-primary stg-save">Оценить</button>
             </div>`;
 }
@@ -263,7 +263,7 @@ function ogeRubricGradeBlock(t) {
             <div class="sum-task-rubric">${t.oge_rubric.html}</div>
             <div class="sum-task-grade sum-task-grade--oge-rubric" data-task-id="${t.task_id}" data-max="${max}">
                 <select class="stg-oge-score">${options}</select>
-                <input type="text" class="stg-fb" placeholder="комментарий">
+                <input type="text" class="stg-fb" placeholder="комментарий" value="${t.feedback ? esc(t.feedback) : ''}">
                 <button class="prof-btn prof-btn-sm prof-btn-primary stg-save">Оценить</button>
             </div>`;
 }
