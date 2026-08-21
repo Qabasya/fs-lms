@@ -5,6 +5,7 @@ declare( strict_types=1 );
 namespace Inc\Migrations;
 
 use Inc\Enums\Settings\TableName;
+use Inc\Shared\PluginLogger;
 
 /**
  * Class AssessmentAnswerUniqueMigration
@@ -70,7 +71,31 @@ class AssessmentAnswerUniqueMigration {
 			$this->addIndex( $table );
 		}
 
+		// Гейт закрываем только по факту стоящего ключа. Безусловный
+		// `update_option()` означал бы, что упавший `ALTER` (нет прав, блокировка
+		// таблицы, таймаут) больше никогда не повторится, а `upsert()` останется
+		// неатомарным — ровно та гонка, ради которой миграция и написана, только
+		// молча и навсегда.
+		if ( ! $this->hasIndex( $table ) ) {
+			PluginLogger::warning(
+				'AssessmentAnswerUniqueMigration',
+				'Не удалось добавить уникальный ключ (attempt_id, task_id) — попытка повторится на следующей загрузке',
+				array(
+					'table' => $table,
+					'error' => $this->wpdbError(),
+				)
+			);
+			return;
+		}
+
 		update_option( self::VERSION_OPTION, self::VERSION, false );
+	}
+
+	/** Текст последней ошибки $wpdb ('' — драйвер её не отдал). */
+	private function wpdbError(): string {
+		global $wpdb;
+
+		return (string) $wpdb->last_error;
 	}
 
 	/**

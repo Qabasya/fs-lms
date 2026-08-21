@@ -437,6 +437,21 @@ if (!function_exists('wp_check_invalid_utf8')) {
 if (!function_exists('sanitize_textarea_field')) {
     function sanitize_textarea_field(string $str): string { return trim(strip_tags($str)); }
 }
+if (!function_exists('wp_check_invalid_utf8')) {
+    // Ядро при невалидном UTF-8 и без $strip отдаёт пустую строку — стаб повторяет это.
+    function wp_check_invalid_utf8(string $string, bool $strip = false): string {
+        if ('' === $string) { return ''; }
+        if (false !== mb_check_encoding($string, 'UTF-8')) { return $string; }
+        return $strip ? (string) mb_convert_encoding($string, 'UTF-8', 'UTF-8') : '';
+    }
+}
+if (!function_exists('wpautop')) {
+    // Достаточно для проверок «отрендерился ли текст шага»: разметку тесты не сверяют.
+    function wpautop(string $text, bool $br = true): string {
+        if ('' === trim($text)) { return ''; }
+        return '<p>' . str_replace("\n\n", '</p><p>', trim($text)) . '</p>';
+    }
+}
 if (!function_exists('sanitize_text_field')) {
     function sanitize_text_field(string $str): string { return trim(preg_replace('/[\r\n\t ]+/', ' ', strip_tags($str))); }
 }

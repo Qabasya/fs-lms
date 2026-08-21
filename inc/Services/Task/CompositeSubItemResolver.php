@@ -4,6 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Task;
 
+use Inc\Managers\Wp\TermManager;
 use Inc\Services\Subject\PostTypeResolver;
 use Inc\Services\Template\TemplateRegistry;
 use Inc\Services\Template\TemplateResolver;
@@ -31,10 +32,12 @@ class CompositeSubItemResolver {
 	/**
 	 * @param TemplateResolver $resolver  Шаблон задания по записи
 	 * @param TemplateRegistry $templates Реестр шаблонов заданий
+	 * @param TermManager      $terms     Термы записи
 	 */
 	public function __construct(
 		private readonly TemplateResolver $resolver,
 		private readonly TemplateRegistry $templates,
+		private readonly TermManager      $terms,
 	) {}
 
 	/**
@@ -77,12 +80,12 @@ class CompositeSubItemResolver {
 			return '';
 		}
 
-		$terms = wp_get_post_terms(
-			$post->ID,
-			PostTypeResolver::getTaskTaxonomy( $subjectKey ),
-			array( 'fields' => 'names' )
-		);
+		// Через менеджер, а не `wp_get_post_terms()`: доступ к данным WP — его
+		// зона (CLAUDE.md), и он читает объектный кеш термов, а не ходит в БД на
+		// каждое задание — проверка работы КЕГЭ перебирает их все подряд.
+		$terms = $this->terms->getPostTerms( $post->ID, PostTypeResolver::getTaskTaxonomy( $subjectKey ) );
+		$first = reset( $terms );
 
-		return ( ! is_wp_error( $terms ) && ! empty( $terms ) ) ? trim( (string) $terms[0] ) : '';
+		return false === $first ? '' : trim( $first->name );
 	}
 }

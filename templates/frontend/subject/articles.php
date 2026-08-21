@@ -21,9 +21,11 @@ use Inc\Enums\Ui\Icon;
 use Inc\Services\Shared\Pluralizer;
 ?>
 <div class="fs-page-wrapper fs-articles-page">
-	<div class="shell">
 
-		<div class="crumbs-row">
+	<!-- Полоса крошек с поиском липкая и лежит вне .shell — её фон тянется
+		на всю ширину окна. -->
+	<div class="crumbs-row">
+		<div class="crumbs-row__inner">
 			<?php
 			$crumbs = $page_data->breadcrumbs;
 			include __DIR__ . '/../partials/breadcrumbs.php';
@@ -45,7 +47,9 @@ use Inc\Services\Shared\Pluralizer;
 				</button>
 			</div>
 		</div>
+	</div>
 
+	<div class="shell">
 		<div class="layout">
 
 			<!-- ===================== САЙДБАР / ФИЛЬТРЫ ===================== -->
