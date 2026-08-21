@@ -5,10 +5,16 @@
 //  Конструктор задач вынесен в общий _slot-builder.scss (fs-sb-*).
 // ══════════════════════════════════════════════════════════════
 
-// ── Настройки контрольной (над конструктором) ─────────────────
-.fs-lms-assessment-settings {
+// ── Тип экзамена / Настройки контрольной / Таблица перевода баллов ─
+// Три отдельных метабокса поверх одного AssessmentTemplate (см. .docs/Tasks.md,
+// «тип экзамена — отдельный метабокс») — общий паддинг контента метабокса.
+.fs-lms-assessment-kind,
+.fs-lms-assessment-settings,
+.fs-lms-assessment-score-map {
 	padding: $spacing-lg $spacing-xl;
+}
 
+.fs-lms-assessment-settings {
 	.fs-lms-template-wrapper {
 		display: grid;
 		grid-template-columns: repeat(4, 1fr);

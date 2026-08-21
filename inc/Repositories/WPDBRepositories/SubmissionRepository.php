@@ -175,6 +175,76 @@ class SubmissionRepository {
 		return $row ? SubmissionDTO::fromArray( $row ) : null;
 	}
 
+	/**
+	 * Сводка агрегатных сдач (task_id IS NULL) нужного статуса по НЕСКОЛЬКИМ группам —
+	 * для вкладки «Работы» (D3, .docs/Tasks.md): один запрос вместо цикла по группам
+	 * пользователя (`listQueueByGroup()` — только одна группа).
+	 *
+	 * @param int[]    $groupIds
+	 * @param string[] $statuses
+	 *
+	 * @return array<int, array{work_id:int, work_type:string, group_id:int, cnt:int, latest_at:?string}>
+	 */
+	public function summaryByGroups( array $groupIds, array $statuses ): array {
+		if ( empty( $groupIds ) || empty( $statuses ) ) {
+			return array();
+		}
+		$groupPlaceholders  = implode( ', ', array_fill( 0, count( $groupIds ), '%d' ) );
+		$statusPlaceholders = implode( ', ', array_fill( 0, count( $statuses ), '%s' ) );
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$sql = $this->wpdb->prepare(
+			"SELECT s.work_id AS work_id, s.work_type AS work_type, gl.group_id AS group_id, COUNT(*) AS cnt,
+			        MAX(s.submitted_at) AS latest_at
+			 FROM %i s
+			 INNER JOIN %i gl ON gl.id = s.group_lesson_id
+			 WHERE gl.group_id IN ($groupPlaceholders) AND s.task_id IS NULL AND s.status IN ($statusPlaceholders)
+			 GROUP BY s.work_id, s.work_type, gl.group_id",
+			array_merge( array( $this->table, $this->glTable ), $groupIds, $statuses )
+		);
+		// phpcs:enable
+		$rows = $this->wpdb->get_results( $sql, ARRAY_A );
+
+		return array_map(
+			static fn( array $r ): array => array(
+				'work_id'   => (int) $r['work_id'],
+				'work_type' => (string) $r['work_type'],
+				'group_id'  => (int) $r['group_id'],
+				'cnt'       => (int) $r['cnt'],
+				'latest_at' => $r['latest_at'] ?? null,
+			),
+			$rows ?: array()
+		);
+	}
+
+	/**
+	 * Агрегатные сдачи конкретной работы нужного статуса по группам пользователя —
+	 * список учеников для второго шага вкладки «Работы» (D3).
+	 *
+	 * @param int[]    $groupIds
+	 * @param string[] $statuses
+	 *
+	 * @return SubmissionDTO[]
+	 */
+	public function listByWorkAndGroups( int $workId, array $groupIds, array $statuses ): array {
+		if ( empty( $groupIds ) || empty( $statuses ) ) {
+			return array();
+		}
+		$groupPlaceholders  = implode( ', ', array_fill( 0, count( $groupIds ), '%d' ) );
+		$statusPlaceholders = implode( ', ', array_fill( 0, count( $statuses ), '%s' ) );
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$sql = $this->wpdb->prepare(
+			"SELECT s.* FROM %i s
+			 INNER JOIN %i gl ON gl.id = s.group_lesson_id
+			 WHERE gl.group_id IN ($groupPlaceholders) AND s.work_id = %d AND s.task_id IS NULL AND s.status IN ($statusPlaceholders)
+			 ORDER BY s.submitted_at ASC",
+			array_merge( array( $this->table, $this->glTable ), $groupIds, array( $workId ), $statuses )
+		);
+		// phpcs:enable
+		$rows = $this->wpdb->get_results( $sql, ARRAY_A );
+
+		return array_map( array( SubmissionDTO::class, 'fromArray' ), $rows ?: array() );
+	}
+
 	/** Каскадная очистка при удалении занятия (GroupDeletionHandler). */
 	public function deleteAllByGroupLesson( int $groupLessonId ): int {
 		return (int) $this->wpdb->delete( $this->table, array( 'group_lesson_id' => $groupLessonId ) );

@@ -47,11 +47,13 @@ final class TeacherProfileView implements ProfileViewInterface {
 		$nav = array(
 			array( 'key' => 'dashboard', 'label' => 'Главная' ),
 			array( 'key' => 'journal',   'label' => 'Журнал' ),
+			// D3: основной вход в проверку — сразу после «Журнала», до «Сводки».
+			array( 'key' => 'works',     'label' => 'Работы' ),
 			array( 'key' => 'summary',   'label' => 'Сводка по ученику' ),
 			array( 'key' => 'ktp',       'label' => 'КТП и расписание' ),
 			array( 'key' => 'activity',  'label' => 'Активность' ),
 		);
-		$screens = array( 'dashboard', 'groups', 'journal', 'summary', 'ktp', 'activity' );
+		$screens = array( 'dashboard', 'groups', 'journal', 'works', 'summary', 'ktp', 'activity' );
 
 		// Замены (кабинет + педагог) — офисный инструмент, препод не видит.
 		if ( UserRole::FSOffice === $context->role ) {
@@ -100,6 +102,7 @@ final class TeacherProfileView implements ProfileViewInterface {
 				'actions' => array(
 					'getCalendar'   => AjaxHook::GetGroupCalendar->jsAction(),
 					'reflow'        => AjaxHook::ReflowSchedule->jsAction(),
+					'unschedule'    => AjaxHook::UnscheduleGroup->jsAction(),
 					'pin'           => AjaxHook::PinLesson->jsAction(),
 					'getProgram'    => AjaxHook::GetGroupProgram->jsAction(),
 					'publish'       => AjaxHook::PublishProgram->jsAction(),
@@ -153,6 +156,16 @@ final class TeacherProfileView implements ProfileViewInterface {
 					'getSummary' => AjaxHook::GetStudentSummary->jsAction(),
 				),
 			),
+			// Вкладка «Работы» (D3): список работ/экзаменов на проверку по вкладке
+			// (На проверке / Ждут подтверждения / Проверенные) + сдачи по каждой.
+			// review/attemptGrade ниже переиспользуются переходом в деталь работы (D2).
+			'works'    => array(
+				'nonce'   => Nonce::GradeWork->create(),
+				'actions' => array(
+					'getPendingWorks'    => AjaxHook::GetPendingWorks->jsAction(),
+					'getWorkSubmissions' => AjaxHook::GetWorkSubmissions->jsAction(),
+				),
+			),
 			// Деталь работы + оценивание (нонс GradeWork) для «Сводки по ученику» (T10.9).
 			'review'   => array(
 				'nonce'   => Nonce::GradeWork->create(),
@@ -167,7 +180,19 @@ final class TeacherProfileView implements ProfileViewInterface {
 			'attemptGrade' => array(
 				'nonce'   => Nonce::GradeAttempt->create(),
 				'actions' => array(
-					'gradeAttempt' => AjaxHook::GradeAttempt->jsAction(),
+					'gradeAttempt'   => AjaxHook::GradeAttempt->jsAction(),
+					// D18: «Утвердить работу» — открывает ответы ученику для ЕГЭ (без ручной проверки).
+					'approveAttempt' => AjaxHook::ApproveAttempt->jsAction(),
+				),
+			),
+			// D4: поштучное оценивание задания «Развёрнутый ответ» внутри submission-работы —
+			// переиспользует уже существующий Этап-7 эндпоинт GradeBatchTask (пишет в
+			// per-task строку submissions и пересчитывает агрегат), ранее не подключённый
+			// ни к одному экрану кабинета.
+			'batchGrade' => array(
+				'nonce'   => Nonce::GradeBatch->create(),
+				'actions' => array(
+					'gradeTask' => AjaxHook::GradeBatchTask->jsAction(),
 				),
 			),
 			'dashboard' => array(

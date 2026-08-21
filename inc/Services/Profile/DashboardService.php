@@ -93,7 +93,7 @@ class DashboardService {
 					++$lessonsTd;
 					// НБ-10: группы — по уникальным group_id групповых занятий, инд. —
 					// отдельно; иначе «занятий» и «групп» расходятся с расписанием.
-					if ( 'individual' === $row->kind ) {
+					if ( $row->kind->isIndividual() ) {
 						++$todayIndividual;
 					} else {
 						$todayGroupIds[ $gid ] = true;
@@ -104,7 +104,7 @@ class DashboardService {
 				$weekItems[] = $item;
 
 				// «Заполнить»: прошедшее групповое занятие без единой отметки.
-				if ( 'individual' !== $row->kind && $row->scheduledAt < $now && ! isset( $matrix[ $row->id ] ) ) {
+				if ( ! $row->kind->isIndividual() && $row->scheduledAt < $now && ! isset( $matrix[ $row->id ] ) ) {
 					$toFill[] = array(
 						'group_lesson_id' => $row->id,
 						'group_id'        => $gid,
@@ -129,7 +129,8 @@ class DashboardService {
 				'subject'       => $this->subjectName( (string) $g->subject_key ),
 				'students'      => $activeCount,
 				'covered_until' => $coveredUntil,
-				'covering_until' => $covering[ $gid ] ?? null,
+				'covering_until' => $covering[ $gid ]['valid_to'] ?? null,
+				'covering_from'  => $covering[ $gid ]['valid_from'] ?? null,
 			);
 		}
 
@@ -157,7 +158,8 @@ class DashboardService {
 				static fn( $gid ) => array(
 					'group_id'   => $gid,
 					'group_name' => $groups[ $gid ]->name,
-					'valid_to'   => $covering[ $gid ],
+					'valid_from' => $covering[ $gid ]['valid_from'],
+					'valid_to'   => $covering[ $gid ]['valid_to'],
 				),
 				array_keys( $covering )
 			),
@@ -177,8 +179,11 @@ class DashboardService {
 		}
 
 		$covering = array();
-		foreach ( $this->substitutions->findActiveBySubstitute( $userId, $today ) as $sub ) {
-			$covering[ $sub->groupId ] = $sub->validTo;
+		foreach ( $this->substitutions->findUpcomingOrActiveBySubstitute( $userId, $today ) as $sub ) {
+			$covering[ $sub->groupId ] = array(
+				'valid_from' => $sub->validFrom,
+				'valid_to'   => $sub->validTo,
+			);
 			if ( ! isset( $groups[ $sub->groupId ] ) ) {
 				$g = $this->groups->findById( $sub->groupId );
 				if ( $g ) {
@@ -230,11 +235,11 @@ class DashboardService {
 			'date'            => substr( (string) $row->scheduledAt, 0, 10 ),
 			'start'           => substr( (string) $row->scheduledAt, 11, 5 ),
 			'end'             => $row->endsAt ? substr( $row->endsAt, 11, 5 ) : '',
-			'kind'            => $row->kind,
+			'kind'            => $row->kind->value,
 			'is_substitute'   => $isCovering,
 			'room'            => $this->roomName( $row, $g, $roomNames ),
 			// НБ-9: ФИО ученика для индивидуального занятия (для группового — пусто).
-			'student_name'    => ( 'individual' === $row->kind && null !== $row->studentPersonId )
+			'student_name'    => ( $row->kind->isIndividual() && null !== $row->studentPersonId )
 				? ( $studentNames[ $row->studentPersonId ] ?? '' ) : '',
 			'player_url'      => $hasContent ? PageRoutes::LessonPlayer->lessonUrl( $gid, $row->id ) : '',
 		);

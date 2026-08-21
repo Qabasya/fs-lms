@@ -7,6 +7,8 @@ namespace Inc\Callbacks\Task;
 use Inc\Controllers\Builders\TaskDataBuilder;
 use Inc\Core\BaseController;
 use Inc\DTO\Task\TaskPageDTO;
+use Inc\Enums\Wp\PostMetaName;
+use Inc\Managers\Wp\PostManager;
 use Inc\Services\Subject\PostTypeResolver;
 
 /**
@@ -26,6 +28,7 @@ class TemplateCallbacks extends BaseController {
 	 */
 	public function __construct(
 		private readonly TaskDataBuilder $task_data_builder,
+		private readonly PostManager     $postManager,
 	) {
 		parent::__construct();
 	}
@@ -47,10 +50,24 @@ class TemplateCallbacks extends BaseController {
 			$post_type = get_post_type();
 
 			if ( $post_type && PostTypeResolver::isTaskPostType( $post_type ) ) {
+				$post_id = get_queried_object_id();
+
+				// Дочернее задание связки (19/20/21) собственной публичной страницы не имеет —
+				// показывается только parent (см. .docs/Tasks.md, §3.2).
+				$parent_id = (int) $this->postManager->getMeta( $post_id, PostMetaName::TaskBundleParentId->value );
+				if ( $parent_id > 0 ) {
+					$parent_link = get_permalink( $parent_id );
+					if ( $parent_link ) {
+						wp_safe_redirect( $parent_link, 301 );
+						exit;
+					}
+					return $this->notFound( $template );
+				}
+
 				$custom_template = FS_LMS_PATH . 'templates/frontend/single-task.php';
 
 				if ( file_exists( $custom_template ) ) {
-					$task_data = $this->getTaskData( get_queried_object_id() );
+					$task_data = $this->getTaskData( $post_id );
 
 					if ( ! $task_data->post ) {
 						return $this->notFound( $template );

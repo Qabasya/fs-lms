@@ -31,7 +31,6 @@
     "fix:php": "phpcbf"
   },
   "require": {
-    "hybridauth/hybridauth": "^3.13",
     "ext-mbstring": "*"
   }
 }

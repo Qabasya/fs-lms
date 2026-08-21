@@ -7,8 +7,10 @@ namespace Unit\Callbacks\Course;
 use Inc\Callbacks\Course\LessonCallbacks;
 use Inc\Managers\Course\LessonManager;
 use Inc\Managers\Wp\PostManager;
+use Inc\Managers\Wp\TermManager;
 use Inc\Services\Course\LessonAuthoringService;
 use Inc\Services\Course\LessonVisibilityService;
+use Inc\Services\Task\TaskBundleService;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -26,7 +28,12 @@ class LessonCallbacksTest extends TestCase {
 		$posts           = new PostManager();
 		$this->lessons   = new LessonManager( $posts );
 		$this->callbacks = new LessonCallbacks(
-			new LessonAuthoringService( $posts, $this->lessons, new \Inc\Services\Template\TemplateRegistry() ),
+			new LessonAuthoringService(
+				$posts,
+				$this->lessons,
+				new \Inc\Services\Template\TemplateRegistry(),
+				new TaskBundleService( $posts, $this->createMock( TermManager::class ) )
+			),
 			$this->lessons,
 			$this->createMock( LessonVisibilityService::class ),
 		);

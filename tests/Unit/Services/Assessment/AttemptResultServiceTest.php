@@ -40,7 +40,7 @@ class AttemptResultServiceTest extends TestCase {
 			$this->answers,
 			$this->posts,
 			$this->media,
-			$this->autoGrade,
+			$this->createMock( AutoGradeService::class ),
 		);
 	}
 

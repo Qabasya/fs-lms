@@ -4,6 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\Enums\Subject;
 
+use Inc\MetaBoxes\Templates\AlternativeConditionsTemplate;
 use Inc\MetaBoxes\Templates\AudioTaskTemplate;
 use Inc\MetaBoxes\Templates\ChoiceTaskTemplate;
 use Inc\MetaBoxes\Templates\CodeTaskTemplate;
@@ -77,6 +78,15 @@ enum TaskTemplate: string {
 	case FileAnswer = 'file_answer_task';
 
 	/**
+	 * Два условия на выбор — один пост, ученик решает один из двух вариантов
+	 * (ОГЭ информатика №13: 13.1 «презентация» / 13.2 «текстовый документ»).
+	 * Ответ — файл, проверка только ручная (как FileAnswer). Один пост вместо
+	 * двух отдельных — чтобы таксономический номер оставался целым (см.
+	 * докблок AlternativeConditionsTemplate).
+	 */
+	case AlternativeConditions = 'alternative_conditions_task';
+
+	/**
 	 * Умный конструктор Enum с фолбеком на Standard.
 	 *
 	 * Если в БД сохранён ID шаблона, которого нет в списке
@@ -129,6 +139,7 @@ enum TaskTemplate: string {
 			self::Fill     => FillTaskTemplate::class,
 			self::Audio    => AudioTaskTemplate::class,
 			self::FileAnswer => FileAnswerTaskTemplate::class,
+			self::AlternativeConditions => AlternativeConditionsTemplate::class,
 		};
 	}
 
@@ -155,6 +166,25 @@ enum TaskTemplate: string {
 			self::Fill         => 'Пропуски в тексте',
 			self::Audio        => 'Задание с аудио',
 			self::FileAnswer   => 'Развёрнутый ответ (файл, ручная проверка)',
+			self::AlternativeConditions => 'Два условия на выбор (ОГЭ №13)',
+		};
+	}
+
+	/**
+	 * Ответ — файл (+опционально текст), проверка ТОЛЬКО ручная: нет чекера в
+	 * `TaskCheckerRegistry`, нет строки `task_answer`, есть поле `task_materials`.
+	 * Единая точка вместо разбросанных по коду `=== TaskTemplate::FileAnswer` —
+	 * `AlternativeConditions` («Два условия на выбор», ОГЭ №13) устроен так же,
+	 * просто с двумя условиями вместо одного (см. докблок класса шаблона).
+	 * Используется станцией (`kege/exam.php`, тип ответа «файл»), générique-флоу
+	 * попытки (`attempt-question.php`), листами результатов
+	 * (`AttemptResultService`/`WorkDetailService`) и `AttemptTaskViewBuilder`
+	 * (откуда брать материалы — `task_materials`, а не файловые LinkField-поля).
+	 */
+	public function isFileAnswerShape(): bool {
+		return match ( $this ) {
+			self::FileAnswer, self::AlternativeConditions => true,
+			default => false,
 		};
 	}
 }

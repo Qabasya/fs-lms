@@ -46,7 +46,7 @@ class StudentSummaryService {
 
 		// Занятия: групповые датированные + личные индивидуальные этого ученика.
 		foreach ( $this->groupLessons->listByGroup( $groupId ) as $gl ) {
-			if ( 'individual' === $gl->kind && $gl->studentPersonId !== $personId ) {
+			if ( $gl->kind->isIndividual() && $gl->studentPersonId !== $personId ) {
 				continue;
 			}
 			if ( ! $gl->scheduledAt && ! $isOpen ) {
@@ -57,7 +57,7 @@ class StudentSummaryService {
 				'group_lesson_id' => $gl->id,
 				'date'            => $gl->scheduledAt ? substr( $gl->scheduledAt, 0, 10 ) : '',
 				'topic'           => $lesson?->topic ?? ( $gl->label ?? '' ),
-				'kind'            => $gl->kind,
+				'kind'            => $gl->kind->value,
 				'attendance'      => 'none',
 				'works'           => array(),
 			);

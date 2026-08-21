@@ -16,6 +16,25 @@
 }
 .ktp-lock-badge svg { stroke: currentcolor; flex-shrink: 0; }
 
+/* Этап 2 (Tasks.md): тем в курсе больше, чем занятий в периоде — «лишние» темы
+   размещаются только вне расписания (Этап 4). */
+.ktp-overflow-banner {
+  display: flex;
+  align-items: center;
+  gap: rem(10);
+  margin-bottom: rem(14);
+  padding: rem(10) rem(16);
+  border: 1px solid var(--wait-line);
+  border-radius: var(--radius);
+  background: var(--wait-soft);
+  color: var(--wait-text);
+  font-size: rem(13);
+  line-height: 1.5;
+  flex-shrink: 0;
+
+  svg { flex-shrink: 0; stroke: var(--wait-ink); }
+}
+
 .prof-ktp-pickers { display: flex; align-items: flex-end; gap: rem(12); }
 .prof-ktp-pick { display: flex; flex-direction: column; gap: rem(5); }
 .kp-label { font-size: rem(11); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--muted-2); padding-left: rem(2); }
@@ -126,6 +145,15 @@
 .placed-theme.pinned .pt-num { color: var(--accent-700); }
 .placed-theme .pt-pin { position: absolute; top: rem(3); right: rem(4); color: var(--accent); display: none; }
 .placed-theme.pinned .pt-pin { display: block; }
+
+/* Этап 4 (★): урок вне расписания — маркер рядом с pt-pin (такие уроки всегда
+   закреплены, is_pinned=1 всегда true у них — сдвинут левее, чтобы не наложиться). */
+.placed-theme .pt-off-schedule {
+  position: absolute; top: rem(3); right: rem(18); display: flex; align-items: center;
+  color: var(--wait-ink);
+}
+.placed-theme.off-schedule { border-left-color: var(--wait); }
+.placed-theme.off-schedule .pt-title { color: var(--wait-ink); }
 
 /* #16: тема — жирная, в стиле бывшего номера (pt-num); закреплённая — акцентная. */
 .placed-theme .pt-title { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 700; color: var(--ok); }

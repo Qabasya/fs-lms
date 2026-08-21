@@ -7,7 +7,10 @@ namespace Inc\Callbacks\Course;
 use Inc\Core\BaseController;
 use Inc\Enums\Access\Capability;
 use Inc\Enums\Wp\Nonce;
+use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
+use Inc\Repositories\WPDBRepositories\SubmissionRepository;
+use Inc\Services\Course\GroupAccessGuard;
 use Inc\Services\Course\SubmissionService;
 use Inc\Shared\Traits\Authorizer;
 use Inc\Shared\Traits\AjaxResponse;
@@ -27,8 +30,11 @@ class BatchSubmissionCallbacks extends BaseController {
 	use Sanitizer;
 
 	public function __construct(
-		private readonly SubmissionService $submissionService,
-		private readonly PersonRepository  $persons,
+		private readonly SubmissionService     $submissionService,
+		private readonly PersonRepository      $persons,
+		private readonly SubmissionRepository  $submissionRepo,
+		private readonly GroupLessonRepository $groupLessons,
+		private readonly GroupAccessGuard      $guard,
 	) {
 		parent::__construct();
 	}
@@ -86,7 +92,9 @@ class BatchSubmissionCallbacks extends BaseController {
 	}
 
 	/**
-	 * Преподаватель оценивает один свободный ответ в пакетной сдаче.
+	 * Преподаватель оценивает одно ручное задание («Развёрнутый ответ») в пакетной
+	 * сдаче — поштучное оценивание submission-работы (D4, .docs/Tasks.md), та же
+	 * проверка доступа, что у ajaxSaveGrade().
 	 *
 	 * POST: submission_id, score, feedback, security
 	 */
@@ -96,6 +104,18 @@ class BatchSubmissionCallbacks extends BaseController {
 		$submissionId = $this->requireInt( 'submission_id' );
 		$score        = $this->sanitizeFloat( 'score' );
 		$feedback     = $this->sanitizeHtml( 'feedback' );
+
+		$sub = $this->submissionRepo->find( $submissionId );
+		if ( ! $sub ) {
+			$this->error( 'Сдача не найдена.' );
+			return;
+		}
+
+		$gl = $this->groupLessons->find( $sub->groupLessonId );
+		if ( ! $gl || ! $this->guard->canWriteJournal( $gl->groupId, get_current_user_id() ) ) {
+			$this->error( 'Нет доступа к этой группе.' );
+			return;
+		}
 
 		$teacherUserId = get_current_user_id();
 

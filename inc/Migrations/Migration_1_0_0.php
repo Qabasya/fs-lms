@@ -45,22 +45,6 @@ class Migration_1_0_0 implements MigrationInterface {
 			require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 		}
 
-		// ===== Сброс старой схемы =====
-		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		foreach ( array(
-			$wpdb->prefix . 'fs_lms_expelled_archive',
-			$wpdb->prefix . 'fs_lms_relationships',
-			$wpdb->prefix . 'fs_lms_enrollments',
-			$wpdb->prefix . 'fs_lms_archive',
-			$wpdb->prefix . 'fs_lms_student_records',
-			$wpdb->prefix . 'fs_lms_persons',
-			$wpdb->prefix . 'fs_lms_groups',
-		) as $t ) {
-			$wpdb->query( "DROP TABLE IF EXISTS `$t`" );
-		}
-		$wpdb->query( "DELETE FROM `{$wpdb->options}` WHERE option_name = 'fs_lms_student_group_matrix'" );
-		// phpcs:enable
-
 		// ===== 1. persons — идентификация (нечувствительные данные) =====
 		$persons = TableName::Persons->prefixed();
 		dbDelta(
@@ -468,6 +452,10 @@ class Migration_1_0_0 implements MigrationInterface {
 		);
 
 		// ===== 18. assessment_attempts — попытки контрольных / экзаменов (Этап 4) =====
+		// approved_at/approved_by_user_id (сокрытие ответов до подтверждения, D18):
+		// независимый флаг «учитель подтвердил результат», НЕ синоним status=graded —
+		// у ЕГЭ (без ручной проверки) graded наступает сразу при сдаче, approved_at
+		// требует отдельного явного действия учителя. См. AttemptRevealPolicy.
 		$assessment_attempts = TableName::AssessmentAttempts->prefixed();
 		dbDelta(
 			"CREATE TABLE $assessment_attempts (
@@ -484,6 +472,8 @@ class Migration_1_0_0 implements MigrationInterface {
 			total_score         decimal(6,2)         DEFAULT NULL,
 			max_score           decimal(6,2)         DEFAULT NULL,
 			graded_by_user_id   bigint unsigned      DEFAULT NULL,
+			approved_at         datetime             DEFAULT NULL,
+			approved_by_user_id bigint unsigned      DEFAULT NULL,
 			created_at          datetime             NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			updated_at          datetime             NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 			PRIMARY KEY  (id),
@@ -610,28 +600,9 @@ class Migration_1_0_0 implements MigrationInterface {
 		) $cc;"
 		);
 
-		// ===== 25. notifications — in-app уведомления кабинета =====
-		$notifications = TableName::Notifications->prefixed();
-		dbDelta(
-			"CREATE TABLE $notifications (
-			id                 bigint unsigned NOT NULL AUTO_INCREMENT,
-			recipient_user_id  bigint unsigned NOT NULL,
-			type               varchar(40)  NOT NULL,
-			group_id           smallint unsigned DEFAULT NULL,
-			entity_type        varchar(30)  DEFAULT NULL,
-			entity_id          bigint unsigned DEFAULT NULL,
-			payload            longtext     DEFAULT NULL,
-			url                varchar(500) DEFAULT NULL,
-			dedupe_key         varchar(120) NOT NULL,
-			created_at         datetime     NOT NULL,
-			seen_at            datetime     DEFAULT NULL,
-			read_at            datetime     DEFAULT NULL,
-			PRIMARY KEY (id),
-			UNIQUE KEY recipient_dedupe (recipient_user_id, dedupe_key),
-			KEY recipient_created (recipient_user_id, created_at),
-			KEY recipient_seen (recipient_user_id, seen_at)
-		) $cc;"
-		);
+		// notifications (in-app уведомления кабинета) — Migration_1_1_0, не здесь:
+		// эта таблица появилась после того, как часть установок уже накатила 1.0.0,
+		// поэтому вынесена в отдельную версионную миграцию (см. её докблок).
 
 		// ===== Cleanup — добавление колонок для уже существующих установок =====
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
@@ -668,6 +639,8 @@ class Migration_1_0_0 implements MigrationInterface {
 		// Задача 5 — привязка попытки экзамена к конкретному занятию группы (для сводки по ученику).
 		$assessment_attempts = TableName::AssessmentAttempts->prefixed();
 		$this->addColumn( $assessment_attempts, 'group_lesson_id', 'int unsigned DEFAULT NULL' );
+		$this->addColumn( $assessment_attempts, 'approved_at', 'datetime DEFAULT NULL' );
+		$this->addColumn( $assessment_attempts, 'approved_by_user_id', 'bigint unsigned DEFAULT NULL' );
 		$this->addColumn( $assessment_answers, 'grader_note', 'text DEFAULT NULL' );
 		$this->addColumn( $assessment_answers, 'criteria_scores', 'json DEFAULT NULL' ); // Эпик 13 (D17)
 		$wpdb->query( "ALTER TABLE `$lesson_progress` MODIFY COLUMN `status` enum('locked','available','viewed','completed','failed') NOT NULL DEFAULT 'locked'" );

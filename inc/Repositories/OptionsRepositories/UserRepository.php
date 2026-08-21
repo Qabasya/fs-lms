@@ -116,27 +116,6 @@ class UserRepository {
 	}
 
 	/**
-	 * Поиск пользователя по социальному ID (для авторизации через соцсети).
-	 *
-	 * @param string $provider   Название соцсети (google, vk, github)
-	 * @param string $identifier Уникальный ID пользователя в соцсети
-	 *
-	 * @return UserDTO|null
-	 */
-	public function getBySocialId( string $provider, string $identifier ): ?UserDTO {
-		$users = get_users( array(
-			// 'meta_key' — имя мета-поля для хранения ID в соцсети
-			'meta_key'   => "fs_social_{$provider}_id",
-			// 'meta_value' — значение для поиска
-			'meta_value' => $identifier,
-			'number'     => 1,       // Нужен только первый результат
-			'fields'     => 'all',   // Возвращаем полные объекты WP_User
-		) );
-
-		return empty( $users ) ? null : UserDTO::fromWPUser( $users[0] );
-	}
-
-	/**
 	 * Создаёт нового пользователя.
 	 *
 	 * @param array $data Данные пользователя (user_login, user_email, display_name, role, meta)

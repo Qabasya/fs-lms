@@ -22,3 +22,15 @@
 .pv-note {
   color: var(--wait-ink);
 }
+
+.pv-note-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: rem(12);
+  flex-wrap: wrap;
+
+  .pv-note {
+    margin: 0;
+  }
+}

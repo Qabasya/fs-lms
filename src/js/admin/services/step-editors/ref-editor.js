@@ -13,7 +13,7 @@ import { loadRefPreview, loadTaskPreview } from '../step-preview.js';
  */
 
 export function refEditor( ed, step, ctx ) {
-	const { stepMeta, adminBase, subjectKey, openLibraryPicker, renderStepsRow, renderStepBody, saveSteps, scheduleSave } = ctx;
+	const { stepMeta, adminBase, subjectKey, openLibraryPicker, renderStepsRow, renderStepBody, saveSteps, scheduleSave, expandStepToBundle } = ctx;
 	const meta     = stepMeta( step );
 	const candKind = meta.candKind; // task | work | assessment
 	const refId    = parseInt( step.payload.ref || 0, 10 );
@@ -78,7 +78,12 @@ export function refEditor( ed, step, ctx ) {
 
 		const pickBtn = ed.querySelector( '[data-pick]' );
 		if ( pickBtn ) {
-			pickBtn.addEventListener( 'click', ( e ) => openLibraryPicker( e, candKind, ( id, title, source ) => {
+			pickBtn.addEventListener( 'click', ( e ) => openLibraryPicker( e, candKind, ( id, title, source, item ) => {
+				// Связка 19-21: parent разворачивается в 3 отдельных шага вместо ref = parent.
+				if ( item && Array.isArray( item.bundle_children ) && item.bundle_children.length ) {
+					expandStepToBundle( step, item.bundle_children );
+					return;
+				}
 				step.payload.ref    = id;
 				step._title         = title;
 				step.title          = title;

@@ -402,24 +402,44 @@ class StudentRecordRepository {
 	}
 
 	/**
-	 * Получает список записей с фильтрацией и пагинацией.
+	 * Получает список записей с фильтрацией, пагинацией и сортировкой.
 	 *
-	 * @param array $filters Массив фильтров (status, student_person_id)
-	 * @param int   $page    Номер страницы
-	 * @param int   $perPage Количество записей на странице
+	 * @param array  $filters Массив фильтров (status, student_person_id, group_id, subject_key, reason)
+	 * @param int    $page    Номер страницы
+	 * @param int    $perPage Количество записей на странице
+	 * @param string $orderby Поле сортировки: student_name|status|subject|group|enrolled_at
+	 * @param string $order   Направление: ASC|DESC
 	 *
 	 * @return StudentRecordDTO[]
 	 */
-	public function list( array $filters = array(), int $page = 1, int $perPage = 20 ): array {
+	public function list( array $filters = array(), int $page = 1, int $perPage = 20, string $orderby = 'enrolled_at', string $order = 'DESC' ): array {
 		$offset = ( max( 1, $page ) - 1 ) * $perPage;
-		[ $where, $args ] = $this->buildWhereClause( $filters );
-		$args[] = $perPage;
-		$args[] = $offset;
+		[ $where, $args ] = $this->buildWhereClause( $filters, 'sr.' );
 
+		$order       = 'ASC' === strtoupper( $order ) ? 'ASC' : 'DESC';
+		$joinPersons = 'student_name' === $orderby;
+		$orderExpr   = match ( $orderby ) {
+			'student_name' => 'p.last_name, p.first_name',
+			'status'       => 'sr.status',
+			'subject'      => 'g.subject_key',
+			'group'        => 'g.name',
+			default        => 'sr.enrolled_at',
+		};
+
+		$joinsSql = 'LEFT JOIN %i g ON g.id = sr.group_id';
+		$joinArgs = array( TableName::Groups->prefixed() );
+		if ( $joinPersons ) {
+			$joinsSql  .= ' LEFT JOIN %i p ON p.id = sr.student_person_id';
+			$joinArgs[] = TableName::Persons->prefixed();
+		}
+
+		$sqlArgs = array_merge( array( $this->table ), $joinArgs, array_slice( $args, 1 ), array( $perPage, $offset ) );
+
+		// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
 		$rows = $this->wpdb->get_results(
 			$this->wpdb->prepare(
-				"SELECT * FROM %i {$where} ORDER BY enrolled_at DESC LIMIT %d OFFSET %d",
-				...$args
+				"SELECT sr.* FROM %i sr {$joinsSql} {$where} ORDER BY {$orderExpr} {$order} LIMIT %d OFFSET %d",
+				...$sqlArgs
 			),
 			ARRAY_A
 		);
@@ -435,32 +455,48 @@ class StudentRecordRepository {
 	 * @return int
 	 */
 	public function count( array $filters = array() ): int {
-		[ $where, $args ] = $this->buildWhereClause( $filters );
+		[ $where, $args ] = $this->buildWhereClause( $filters, 'sr.' );
+		$sqlArgs = array_merge( array( $this->table, TableName::Groups->prefixed() ), array_slice( $args, 1 ) );
 
+		// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
 		return (int) $this->wpdb->get_var(
-			$this->wpdb->prepare( "SELECT COUNT(*) FROM %i {$where}", ...$args )
+			$this->wpdb->prepare( "SELECT COUNT(*) FROM %i sr LEFT JOIN %i g ON g.id = sr.group_id {$where}", ...$sqlArgs )
 		);
 	}
 
 	/**
-	 * Возвращает уникальные student_person_id с пагинацией, упорядоченные по дате последнего зачисления.
+	 * Возвращает уникальные student_person_id с пагинацией и сортировкой.
 	 *
-	 * @param array $filters  Массив фильтров
-	 * @param int   $page     Номер страницы
-	 * @param int   $perPage  Количество записей на странице
+	 * @param array  $filters Массив фильтров (status, group_id, subject_key)
+	 * @param int    $page    Номер страницы
+	 * @param int    $perPage Количество записей на странице
+	 * @param string $orderby Поле сортировки: student_name|enrolled_at
+	 * @param string $order   Направление: ASC|DESC
 	 *
 	 * @return int[]
 	 */
-	public function listDistinctStudentIds( array $filters = array(), int $page = 1, int $perPage = 20 ): array {
-		$offset            = ( max( 1, $page ) - 1 ) * $perPage;
-		[ $where, $args ]  = $this->buildWhereClause( $filters );
-		$args[]            = $perPage;
-		$args[]            = $offset;
+	public function listDistinctStudentIds( array $filters = array(), int $page = 1, int $perPage = 20, string $orderby = 'enrolled_at', string $order = 'DESC' ): array {
+		$offset = ( max( 1, $page ) - 1 ) * $perPage;
+		[ $where, $args ] = $this->buildWhereClause( $filters, 'sr.' );
 
+		$order       = 'ASC' === strtoupper( $order ) ? 'ASC' : 'DESC';
+		$joinPersons = 'student_name' === $orderby;
+		$orderExpr   = $joinPersons ? 'MIN(p.last_name), MIN(p.first_name)' : 'MAX(sr.enrolled_at)';
+
+		$joinsSql = 'LEFT JOIN %i g ON g.id = sr.group_id';
+		$joinArgs = array( TableName::Groups->prefixed() );
+		if ( $joinPersons ) {
+			$joinsSql  .= ' LEFT JOIN %i p ON p.id = sr.student_person_id';
+			$joinArgs[] = TableName::Persons->prefixed();
+		}
+
+		$sqlArgs = array_merge( array( $this->table ), $joinArgs, array_slice( $args, 1 ), array( $perPage, $offset ) );
+
+		// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
 		$rows = $this->wpdb->get_col(
 			$this->wpdb->prepare(
-				"SELECT student_person_id FROM %i {$where} GROUP BY student_person_id ORDER BY MAX(enrolled_at) DESC LIMIT %d OFFSET %d",
-				...$args
+				"SELECT sr.student_person_id FROM %i sr {$joinsSql} {$where} GROUP BY sr.student_person_id ORDER BY {$orderExpr} {$order} LIMIT %d OFFSET %d",
+				...$sqlArgs
 			)
 		);
 
@@ -492,10 +528,12 @@ class StudentRecordRepository {
 	 * @return int
 	 */
 	public function countDistinctStudents( array $filters = array() ): int {
-		[ $where, $args ] = $this->buildWhereClause( $filters );
+		[ $where, $args ] = $this->buildWhereClause( $filters, 'sr.' );
+		$sqlArgs = array_merge( array( $this->table, TableName::Groups->prefixed() ), array_slice( $args, 1 ) );
 
+		// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
 		return (int) $this->wpdb->get_var(
-			$this->wpdb->prepare( "SELECT COUNT(DISTINCT student_person_id) FROM %i {$where}", ...$args )
+			$this->wpdb->prepare( "SELECT COUNT(DISTINCT sr.student_person_id) FROM %i sr LEFT JOIN %i g ON g.id = sr.group_id {$where}", ...$sqlArgs )
 		);
 	}
 
@@ -543,7 +581,15 @@ class StudentRecordRepository {
 		return array_map( fn( array $r ) => StudentRecordDTO::fromArray( $r ), $rows ?: array() );
 	}
 
-	private function buildWhereClause( array $filters ): array {
+	/**
+	 * Формирует WHERE-условие и массив параметров для prepare.
+	 *
+	 * @param array  $filters Массив фильтров (status, student_person_id, group_id, subject_key, reason)
+	 * @param string $prefix  Префикс алиаса основной таблицы в SQL (напр. 'sr.'), пусто — без алиаса
+	 *
+	 * @return array{0: string, 1: array}
+	 */
+	private function buildWhereClause( array $filters, string $prefix = '' ): array {
 		$where = 'WHERE 1=1';
 		$args  = array( $this->table );
 
@@ -552,18 +598,36 @@ class StudentRecordRepository {
 			$status = $filters['status'];
 			if ( is_array( $status ) ) {
 				$placeholders = implode( ', ', array_fill( 0, count( $status ), '%s' ) );
-				$where       .= " AND status IN ({$placeholders})";
+				$where       .= " AND {$prefix}status IN ({$placeholders})";
 				array_push( $args, ...$status );
 			} else {
-				$where  .= ' AND status = %s';
+				$where  .= " AND {$prefix}status = %s";
 				$args[] = $status;
 			}
 		}
 
 		// Фильтр по ID студента
 		if ( ! empty( $filters['student_person_id'] ) ) {
-			$where  .= ' AND student_person_id = %d';
+			$where  .= " AND {$prefix}student_person_id = %d";
 			$args[] = (int) $filters['student_person_id'];
+		}
+
+		// Фильтр по группе
+		if ( ! empty( $filters['group_id'] ) ) {
+			$where  .= " AND {$prefix}group_id = %d";
+			$args[] = (int) $filters['group_id'];
+		}
+
+		// Фильтр по предмету (требует LEFT JOIN groups g на стороне вызывающего метода)
+		if ( ! empty( $filters['subject_key'] ) ) {
+			$where  .= ' AND g.subject_key = %s';
+			$args[] = (string) $filters['subject_key'];
+		}
+
+		// Фильтр по причине отчисления (совпадение по префиксу — учитывает "Другое:<текст>")
+		if ( ! empty( $filters['reason'] ) ) {
+			$where  .= " AND {$prefix}expel_reason LIKE %s";
+			$args[] = $this->wpdb->esc_like( (string) $filters['reason'] ) . '%';
 		}
 
 		return array( $where, $args );

@@ -14,8 +14,8 @@ class AssessmentKindTest extends TestCase {
 
 	public function test_only_control_uses_binary_scoring(): void {
 		$this->assertTrue( AssessmentKind::Control->binaryScoring() );
-		$this->assertFalse( AssessmentKind::Ege->binaryScoring() );
 		$this->assertFalse( AssessmentKind::EgeComputer->binaryScoring() );
+		$this->assertFalse( AssessmentKind::OgeComputer->binaryScoring() );
 	}
 
 	public function test_binary_scoring_is_inverse_of_weighted_score(): void {
@@ -29,8 +29,14 @@ class AssessmentKindTest extends TestCase {
 	}
 
 	public function test_ege_kinds_need_completeness_check(): void {
-		$this->assertTrue( AssessmentKind::Ege->needsCompletenessCheck() );
 		$this->assertTrue( AssessmentKind::EgeComputer->needsCompletenessCheck() );
+		$this->assertTrue( AssessmentKind::OgeComputer->needsCompletenessCheck() );
 		$this->assertFalse( AssessmentKind::Control->needsCompletenessCheck() );
+	}
+
+	public function test_station_kinds(): void {
+		$this->assertTrue( AssessmentKind::EgeComputer->isStation() );
+		$this->assertTrue( AssessmentKind::OgeComputer->isStation() );
+		$this->assertFalse( AssessmentKind::Control->isStation() );
 	}
 }

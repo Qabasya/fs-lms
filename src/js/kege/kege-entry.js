@@ -165,7 +165,7 @@ function populateActStage( state, persist ) {
 	fillKimDisplay( [ 'kegeActKim0', 'kegeActKim1', 'kegeActKim2' ], state.kim );
 
 	if ( ! state.code ) {
-		state.code = String( 1000 + Math.floor( Math.random() * 9000 ) );
+		state.code = '2599';
 		persist();
 	}
 	const hint = document.getElementById( 'kegeActCode' );

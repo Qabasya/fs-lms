@@ -17,6 +17,7 @@
 import { ArchiveViewModal } from '../../modals/enrollment/archive-view-modal.js';
 import { RestoreArchiveModal } from '../../modals/enrollment/restore-archive-modal.js';
 import { toggleButton, showNotice } from '../../modules/utils.js';
+import { copyToClipboard } from '../../../common/utils.js';
 
 const $ = jQuery;
 
@@ -71,6 +72,69 @@ export const ArchiveViewModalManager = {
     },
 
     /**
+     * Массовое восстановление нескольких архивных записей одним решением.
+     * Модалка выбора режима показывается один раз; выбранный режим (с родителем/без)
+     * применяется одинаково ко всем переданным записям.
+     *
+     * @param {Array<number>} ids - ID архивных записей.
+     * @param {boolean} allHaveParent - true, если у ВСЕХ выбранных записей есть родитель
+     *                                  (иначе опция "с родителем" в модалке отключается).
+     */
+    bulkRestore( ids, allHaveParent ) {
+        if ( ! ids || ! ids.length ) { return; }
+
+        RestoreArchiveModal.choose( allHaveParent )
+            .then( ( { withParent } ) => this._doBulkRestore( ids, withParent ) )
+            .catch( ( err ) => {
+                if ( err !== 'cancel' ) {
+                    showNotice( String( err ), 'error', $( '.fs-lms-archive' ) );
+                }
+            } );
+    },
+
+    /**
+     * Выполнение AJAX-запроса на массовое восстановление из архива.
+     *
+     * @param {Array<number>} ids - ID архивных записей.
+     * @param {boolean} withParent - Общий для всех записей флаг восстановления с родителем.
+     */
+    _doBulkRestore( ids, withParent ) {
+        const vars = window.fs_lms_applications_vars ?? {};
+
+        $.ajax( {
+            url:    fs_lms_vars.ajaxurl,
+            method: 'POST',
+            data:   {
+                action:      fs_lms_vars.ajax_actions.bulkRestoreFromArchive,
+                ids:         ids,
+                with_parent: withParent ? 1 : 0,
+                security:    vars.nonces?.restoreFromArchive ?? '',
+            },
+            success: ( res ) => {
+                if ( ! res.success ) {
+                    showNotice( res.data || 'Ошибка восстановления.', 'error', $( '.fs-lms-archive' ) );
+                    return;
+                }
+
+                const created = res.data?.created ?? [];
+                const errors  = res.data?.errors  ?? [];
+
+                let msg = `Заявок создано: ${ created.length }.`;
+                if ( errors.length ) {
+                    msg += ` Не удалось восстановить: ${ errors.length }.`;
+                }
+
+                showNotice( msg, errors.length ? 'error' : 'success', $( '.fs-lms-archive' ), { autoDismiss: true, autoDismissDelay: 2000 } );
+
+                setTimeout( () => location.reload(), 2000 );
+            },
+            error: () => {
+                showNotice( 'Сетевая ошибка.', 'error', $( '.fs-lms-archive' ) );
+            },
+        } );
+    },
+
+    /**
      * Выполнение AJAX-запроса на восстановление заявки из архива.
      *
      * @param {string|number} archiveId - ID записи в архиве.
@@ -96,7 +160,7 @@ export const ArchiveViewModalManager = {
                 // Безопасное получение nonce с fallback на пустую строку, если объект или свойство отсутствуют
                 security:    vars.nonces?.restoreFromArchive ?? '',
             },
-            success: ( res ) => {
+            success: async ( res ) => {
                 // Снимаем блокировку с кнопки по завершении запроса
                 if ( $triggerBtn ) { toggleButton( $triggerBtn, false ); }
 
@@ -116,19 +180,19 @@ export const ArchiveViewModalManager = {
                     msg += ` Родитель: ${ parentName }.`;
                 }
 
-                // Попытка скопировать ссылку в буфер обмена.
-                // Используется опциональная цепочка ?.writeText, так как API буфера обмена 
-                // может быть недоступно (например, страница открыта не по HTTPS или заблокирована браузером).
-                // Метод .catch( () => {} ) подавляет ошибку, если копирование не удалось, чтобы не ломать UX.
+                // Копируем ссылку в буфер обмена; copyToClipboard() сама падает в
+                // execCommand-fallback, если Clipboard API недоступен (страница не по
+                // HTTPS) — пользователь явно узнаёт результат вместо тихого сбоя.
                 if ( joinUrl ) {
-                    navigator.clipboard?.writeText( joinUrl ).catch( () => {} );
+                    const copied = await copyToClipboard( joinUrl );
+                    msg += copied ? ' Ссылка скопирована.' : ` Ссылка: ${ joinUrl }`;
                 }
 
                 // Показываем уведомление об успехе.
                 // Параметры autoDismiss и autoDismissDelay заставляют уведомление исчезнуть автоматически через 2 секунды.
                 showNotice( msg, 'success', $( '.fs-lms-archive' ), { autoDismiss: true, autoDismissDelay: 2000 } );
 
-                // Перезагружаем страницу через 2 секунды, давая пользователю время прочитать уведомление 
+                // Перезагружаем страницу через 2 секунды, давая пользователю время прочитать уведомление
                 // и (неявно) воспользоваться скопированной ссылкой.
                 setTimeout( () => location.reload(), 2000 );
             },

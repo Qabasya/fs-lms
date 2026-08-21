@@ -98,6 +98,31 @@ abstract class BaseTemplate {
 	}
 
 	/**
+	 * Отрисовывает подмножество полей шаблона — без общей обёртки `render()`
+	 * (id/класс контейнера рисует шаблон-вызывающий). Нужен, когда состав шаблона
+	 * распределяется по НЕСКОЛЬКИМ метабоксам (напр. «Тип экзамена» /
+	 * «Настройки контрольной» / «Таблица перевода баллов» — три метабокса поверх
+	 * одного `AssessmentTemplate::get_fields()`, см. .docs/Tasks.md). Источник
+	 * полей не дублируется — состав и порядок по-прежнему задаёт get_fields().
+	 *
+	 * @param \WP_Post             $post
+	 * @param array<string, mixed> $values   Мета задания (PostMetaName::Meta)
+	 * @param string[]             $fieldIds Какие field_id рендерить (остальные пропускаются)
+	 *
+	 * @return void
+	 */
+	public function renderFields( \WP_Post $post, array $values, array $fieldIds ): void {
+		foreach ( $this->get_fields() as $field_id => $config ) {
+			if ( ! in_array( $field_id, $fieldIds, true ) ) {
+				continue;
+			}
+			$field = $config['object'];
+			$value = $values[ $field_id ] ?? '';
+			$field->render( $post, $field_id, $config['label'], $value );
+		}
+	}
+
+	/**
 	 * Возвращает поля шаблона без подсказки (для рендеринга основного метабокса и схемы редактора).
 	 * Подсказка вынесена в отдельный метабокс — сохраняется через MetaBoxController.
 	 *

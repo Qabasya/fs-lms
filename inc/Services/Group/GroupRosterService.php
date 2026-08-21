@@ -40,7 +40,7 @@ class GroupRosterService {
 
 		// Индивидуальные занятия (kind='individual') — раскладываем по ученику.
 		foreach ( $this->lessons->listByGroup( $groupId ) as $gl ) {
-			if ( 'individual' !== $gl->kind || null === $gl->studentPersonId ) {
+			if ( ! $gl->kind->isIndividual() || null === $gl->studentPersonId ) {
 				continue;
 			}
 			if ( ! isset( $students[ $gl->studentPersonId ] ) ) {

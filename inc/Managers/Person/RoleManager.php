@@ -204,4 +204,53 @@ class RoleManager {
 			remove_role( $role->value );
 		}
 	}
+
+	/**
+	 * Снимает с роли `administrator` все права, выданные плагином.
+	 *
+	 * Вызывается из `uninstall.php`. Деактивация сносит только LMS-роли, а права,
+	 * дописанные администратору в {@see syncCapabilities()}, лежат в опции
+	 * `wp_user_roles` и без этого остаются в базе после удаления плагина навсегда.
+	 *
+	 * Список берётся из тех же источников, что и выдача ({@see pluginGrantedCaps}) —
+	 * захардкоженная копия однажды уже разошлась с энумом и роняла удаление плагина
+	 * фатальной ошибкой на несуществующем кейсе.
+	 *
+	 * @return void
+	 */
+	public function purgeAdminCaps(): void {
+		$admin = get_role( 'administrator' );
+
+		if ( null === $admin ) {
+			return;
+		}
+
+		foreach ( self::pluginGrantedCaps() as $cap ) {
+			$admin->remove_cap( $cap );
+		}
+	}
+
+	/**
+	 * Все capabilities, которые плагин выдаёт администратору: LMS-права из
+	 * {@see Capability} плюс производные права CPT уроков и статей.
+	 *
+	 * `manage_options` и `manage_categories` намеренно исключены: это штатные
+	 * права WordPress, плагин их не создавал и снимать при удалении не вправе —
+	 * иначе администратор потеряет доступ к настройкам всего сайта.
+	 *
+	 * @return string[]
+	 */
+	private static function pluginGrantedCaps(): array {
+		$caps = array();
+
+		foreach ( Capability::cases() as $cap ) {
+			if ( Capability::Admin === $cap || Capability::ManageTerms === $cap ) {
+				continue;
+			}
+
+			$caps[] = $cap->value;
+		}
+
+		return array_merge( $caps, self::lessonCaps(), self::articleCaps() );
+	}
 }

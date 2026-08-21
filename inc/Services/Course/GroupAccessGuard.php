@@ -17,11 +17,12 @@ class GroupAccessGuard {
 		private readonly SubstitutionRepository  $substitutions,
 	) {}
 
-	/** Может ли пользователь управлять группой (teacher_id || Admin || активная замена). */
+	/** Может ли пользователь управлять группой (teacher_id || Admin || автор курсов || активная замена). */
 	public function canManage( int $groupId, int $userId ): bool {
 		if (
 			user_can( $userId, Capability::Admin->value ) ||
-			user_can( $userId, Capability::ManageLmsPlatform->value )
+			user_can( $userId, Capability::ManageLmsPlatform->value ) ||
+			user_can( $userId, Capability::AuthorLmsCourses->value )
 		) {
 			return true;
 		}
@@ -29,8 +30,9 @@ class GroupAccessGuard {
 		if ( $group && (int) $group->teacher_id === $userId ) {
 			return true;
 		}
-		// Замещающий получает доступ на срок grant; гаснет по valid_to (D5).
-		return $this->substitutions->hasActiveGrant( $userId, $groupId );
+		// Замещающий получает доступ на чтение сразу при утверждении замены (T1.A),
+		// не дожидаясь наступления valid_from; гаснет по valid_to.
+		return $this->substitutions->hasUpcomingOrActiveGrant( $userId, $groupId );
 	}
 
 	/**

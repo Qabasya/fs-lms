@@ -16,6 +16,7 @@ jobs:
           cache: 'npm'
       - run: npm ci
       - run: npm run lint:js
+      - run: npm run lint:css
       # GUARD: падает, если любой SCSS-бандл не собирается (см. styles:check в gulpfile).
       - run: npm run build:check
 

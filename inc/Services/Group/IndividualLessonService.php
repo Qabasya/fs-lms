@@ -6,6 +6,7 @@ namespace Inc\Services\Group;
 
 use Inc\DTO\Course\GroupLessonDTO;
 use Inc\DTO\Course\GroupLessonInputDTO;
+use Inc\Enums\Course\LessonKind;
 use Inc\Managers\Course\CourseManager;
 use Inc\Managers\Course\LessonManager;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
@@ -91,7 +92,7 @@ readonly class IndividualLessonService {
 			teacherUserId   : $teacherUserId,
 			createdByUserId : $actorUserId,
 			label           : $label,
-			kind            : 'individual',
+			kind            : LessonKind::Individual,
 			status          : 'scheduled',
 			studentPersonId : $studentPersonId,
 			roomId          : $roomId,
@@ -130,7 +131,7 @@ readonly class IndividualLessonService {
 
 		$items = array();
 		foreach ( $this->groupLessons->listByGroup( $groupId ) as $row ) {
-			if ( 'individual' !== $row->kind || null === $row->studentPersonId ) {
+			if ( ! $row->kind->isIndividual() || null === $row->studentPersonId ) {
 				continue;
 			}
 
@@ -279,7 +280,7 @@ readonly class IndividualLessonService {
 	 */
 	private function requireIndividual( int $groupLessonId ): GroupLessonDTO {
 		$row = $this->groupLessons->find( $groupLessonId );
-		if ( ! $row || 'individual' !== $row->kind ) {
+		if ( ! $row || ! $row->kind->isIndividual() ) {
 			throw new \InvalidArgumentException( 'Индивидуальное занятие не найдено.' );
 		}
 

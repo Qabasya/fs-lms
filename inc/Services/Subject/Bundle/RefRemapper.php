@@ -4,6 +4,8 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Subject\Bundle;
 
+use Inc\Enums\Wp\PostMetaName;
+
 /**
  * Class RefRemapper
  *
@@ -39,14 +41,29 @@ namespace Inc\Services\Subject\Bundle;
 final class RefRemapper {
 
 	/**
-	 * Ключи со списком ссылок на записи.
+	 * Ключи со списком ссылок на записи. `TaskBundleChildIds` (§3.2, .docs/Tasks.md) —
+	 * parent-пост связки 19-21 хранит id трёх materialized children тем же
+	 * способом, что Work/Assessment хранят свои item_ids/task_ids.
 	 */
-	private const array REF_LIST_KEYS = array( 'item_ids', 'task_ids', 'lesson_ids' );
+	private const array REF_LIST_KEYS = array( 'item_ids', 'task_ids', 'lesson_ids', PostMetaName::TaskBundleChildIds->value );
 
 	/**
-	 * Ключи с одиночной ссылкой на запись.
+	 * Ключи карт «ссылка на запись → значение» (D-Bundle-2), где ссылка — САМ
+	 * КЛЮЧ элемента, а не его значение: `task_points`/`task_numbers` работы —
+	 * `{task_id: балл}` / `{task_id: номер}`. Без отдельной обработки эти ключи
+	 * попадали в общий рекурсивный обход как «просто мета» и оставались WP ID
+	 * исходного сайта — на целевом сайте они ни на что не указывают (задания
+	 * банка получают новые ID), и `AssessmentDTO::fromPost()`/`EgeComputerModule`
+	 * не находят по ним позицию задания.
 	 */
-	private const array REF_SCALAR_KEYS = array( 'ref' );
+	private const array REF_KEYED_MAP_KEYS = array( 'task_points', 'task_numbers' );
+
+	/**
+	 * Ключи с одиночной ссылкой на запись. `TaskBundleParentId` — обратная
+	 * ссылка child → parent, без ремапа указывала бы после импорта на WP ID
+	 * исходного сайта (постороннюю или несуществующую запись на целевом).
+	 */
+	private const array REF_SCALAR_KEYS = array( 'ref', PostMetaName::TaskBundleParentId->value );
 
 	/**
 	 * Ключи со списком вложений медиабиблиотеки.
@@ -127,6 +144,11 @@ final class RefRemapper {
 				continue;
 			}
 
+			if ( in_array( $name, self::REF_KEYED_MAP_KEYS, true ) ) {
+				$result[ $key ] = $this->mapKeyedMap( $value, $mapPostRef, $name );
+				continue;
+			}
+
 			if ( in_array( $name, self::MEDIA_LIST_KEYS, true ) ) {
 				$result[ $key ] = $this->mapList( $value, $mapMediaRef, $name );
 				continue;
@@ -172,6 +194,36 @@ final class RefRemapper {
 				continue;
 			}
 			$mapped[] = $resolved;
+		}
+
+		return $mapped;
+	}
+
+	/**
+	 * Преобразует карту, где ссылка на запись — ключ элемента (`task_points`,
+	 * `task_numbers`), а значение (балл/номер) ссылкой не является и остаётся
+	 * как есть. Нерезолвимый ключ выбрасывается вместе со своим значением —
+	 * как и для списков, а не переносится «как есть» (см. докблок класса).
+	 *
+	 * @param mixed    $value Исходное значение ключа (карта task_id => …)
+	 * @param callable $map   Преобразователь одной ссылки (получает КЛЮЧ элемента)
+	 * @param string   $field Имя поля (для отчёта)
+	 *
+	 * @return array<int|string, mixed>
+	 */
+	private function mapKeyedMap( mixed $value, callable $map, string $field ): array {
+		if ( ! is_array( $value ) ) {
+			return array();
+		}
+
+		$mapped = array();
+		foreach ( $value as $refKey => $item ) {
+			$resolved = $map( $refKey );
+			if ( null === $resolved ) {
+				$this->dropped[] = sprintf( '%s: ссылка «%s» не найдена в пакете', $field, (string) $refKey );
+				continue;
+			}
+			$mapped[ $resolved ] = $item;
 		}
 
 		return $mapped;

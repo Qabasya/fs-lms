@@ -4,10 +4,14 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Course;
 
+use Inc\DTO\Course\GroupLessonDTO;
+use Inc\Enums\Profile\NotificationType;
+use Inc\Enums\Wp\PageRoutes;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\WPDBRepositories\RoomRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
+use Inc\Services\Profile\NotificationService;
 
 /**
  * Назначение кабинетов группам и занятиям (Эпик 9, R1/R2).
@@ -25,6 +29,7 @@ class RoomAssignmentService {
 		private readonly GroupsRepository          $groups,
 		private readonly GroupLessonRepository     $groupLessons,
 		private readonly StudentRecordRepository   $records,
+		private readonly NotificationService       $notifications,
 	) {}
 
 	/**
@@ -84,6 +89,10 @@ class RoomAssignmentService {
 			}
 		}
 
+		if ( $lesson->roomId !== $roomId ) {
+			$this->notifyRoomChanged( $lesson, $roomId );
+		}
+
 		$this->groupLessons->setRoom( $groupLessonId, $roomId );
 	}
 
@@ -112,7 +121,7 @@ class RoomAssignmentService {
 		$applied = 0;
 		$skipped = array();
 		foreach ( $this->groupLessons->listByGroup( $groupId ) as $lesson ) {
-			if ( 'individual' === $lesson->kind || ! $lesson->scheduledAt ) {
+			if ( $lesson->kind->isIndividual() || ! $lesson->scheduledAt ) {
 				continue;
 			}
 			$date = substr( $lesson->scheduledAt, 0, 10 );
@@ -127,6 +136,10 @@ class RoomAssignmentService {
 					continue;
 				}
 			}
+			if ( $lesson->roomId !== $roomId ) {
+				$this->notifyRoomChanged( $lesson, $roomId );
+			}
+
 			$this->groupLessons->setRoom( $lesson->id, $roomId );
 			++$applied;
 		}
@@ -145,5 +158,50 @@ class RoomAssignmentService {
 	public function unassignFromAll( int $roomId ): void {
 		$this->groups->clearRoomId( $roomId );
 		$this->groupLessons->clearRoomId( $roomId );
+	}
+
+	/**
+	 * Ученикам занятия + эффективному преподавателю — разовая замена кабинета
+	 * (Tasks.md, блок B). Дефолт группы на год (`assignToGroup()`) уведомлений
+	 * не шлёт — решено не спамить на год вперёд.
+	 */
+	private function notifyRoomChanged( GroupLessonDTO $lesson, ?int $newRoomId ): void {
+		$recipients = $this->notifications->lessonStudentUserIds( $lesson );
+		$teacherId  = $this->notifications->lessonTeacherUserId( $lesson );
+		if ( null !== $teacherId ) {
+			$recipients[] = $teacherId;
+		}
+		if ( empty( $recipients ) ) {
+			return;
+		}
+
+		$payload = array(
+			'group_name' => $this->notifications->groupName( $lesson->groupId ),
+			'old_room'   => $this->roomLabel( $lesson->roomId, $lesson->groupId ),
+			'new_room'   => $this->roomLabel( $newRoomId, $lesson->groupId ),
+		);
+
+		$this->notifications->pushFresh(
+			$recipients,
+			NotificationType::RoomChanged,
+			"room-lesson:{$lesson->id}",
+			$payload,
+			PageRoutes::LessonPlayer->lessonUrl( $lesson->groupId, $lesson->id ),
+			$lesson->groupId,
+			'group_lesson',
+			$lesson->id
+		);
+	}
+
+	/** Название кабинета: явный `$roomId`, иначе дефолт группы (`NULL` = кабинет не назначен). */
+	private function roomLabel( ?int $roomId, int $groupId ): string {
+		if ( null !== $roomId ) {
+			return $this->rooms->find( $roomId )?->name ?? '—';
+		}
+
+		$group         = $this->groups->findById( $groupId );
+		$defaultRoomId = ( $group && isset( $group->room_id ) && '' !== $group->room_id ) ? (int) $group->room_id : null;
+
+		return $defaultRoomId ? ( $this->rooms->find( $defaultRoomId )?->name ?? '—' ) : '—';
 	}
 }

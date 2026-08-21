@@ -55,19 +55,7 @@ class AssessmentAuthorCallbacks extends BaseController {
 			}
 		}
 
-		// Задача 8: номера банковских задач (fs_lms_problems) — задаются в конструкторе,
-		// т.к. у глобального банка нет таксономии {subject}_task_number.
-		$raw_numbers  = $this->unslashArray( 'task_numbers' );
-		$task_numbers = array();
-		foreach ( $raw_numbers as $task_id => $number ) {
-			$tid = (int) $task_id;
-			$num = $this->sanitizeTextValue( $number );
-			if ( $tid > 0 && '' !== $num ) {
-				$task_numbers[ $tid ] = $num;
-			}
-		}
-
-		if ( ! $this->assessmentManager->setItemIds( $assessment_id, $item_ids, $task_points, $task_numbers ) ) {
+		if ( ! $this->assessmentManager->setItemIds( $assessment_id, $item_ids, $task_points ) ) {
 			$this->error( 'Экзамен не найден.' );
 			return;
 		}

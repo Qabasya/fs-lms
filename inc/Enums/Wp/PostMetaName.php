@@ -51,4 +51,31 @@ enum PostMetaName: string {
 	 * Ставится при переходе в publish, см. {@see \Inc\Callbacks\Article\SlugCallbacks}.
 	 */
 	case ArticleSlugLocked = 'fs_lms_article_slug_locked';
+
+	/**
+	 * На дочернем задании связки (19/20/21) — ID родительского поста triple_task.
+	 * См. {@see \Inc\Services\Task\TaskBundleService}.
+	 */
+	case TaskBundleParentId = 'fs_lms_task_bundle_parent_id';
+
+	/**
+	 * На родительском посте связки — ID трёх дочерних заданий в порядке 19/20/21.
+	 * См. {@see \Inc\Services\Task\TaskBundleService}.
+	 */
+	case TaskBundleChildIds = 'fs_lms_task_bundle_child_ids';
+
+	/**
+	 * На банковской задаче (fs_lms_problems) — ключ предмета, за которым автор
+	 * закрепил задачу (необязательная пометка). Вместе с {@see BankTaskNumber}
+	 * заменяет ручной ввод номера в конструкторе контрольной: канонический
+	 * источник номера банковской задачи теперь сам пост, а не мета контрольной.
+	 */
+	case BankTaskSubject = 'fs_lms_bank_task_subject';
+
+	/**
+	 * На банковской задаче (fs_lms_problems) — номер позиции экзамена (совпадает
+	 * с именем терма `{subject}_task_number` или синтетической позицией вроде
+	 * «13» для ручной проверки ОГЭ). Имеет смысл только вместе с {@see BankTaskSubject}.
+	 */
+	case BankTaskNumber = 'fs_lms_bank_task_number';
 }

@@ -12,7 +12,9 @@ use Inc\Enums\Wp\Nonce;
 use Inc\Enums\Wp\PostMetaName;
 use Inc\Controllers\Builders\ProblemListFilters;
 use Inc\Managers\Wp\PostManager;
+use Inc\Managers\Wp\TermManager;
 use Inc\Registrars\ProblemBankRegistrar;
+use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Services\Subject\PostTypeResolver;
 use Inc\Services\Task\TaskPublishGuard;
 use Inc\Services\Task\TaskPublishValidator;
@@ -42,9 +44,22 @@ class ProblemsController extends BaseController implements ServiceInterface {
 		private readonly TaskPublishGuard      $guard,
 		private readonly ProblemBankRegistrar  $bank,
 		private readonly ProblemListFilters    $filters,
+		private readonly SubjectRepository     $subjects,
+		private readonly TermManager           $terms,
 	) {
 		parent::__construct();
 	}
+
+	/**
+	 * WP filter: доп. номера позиции для метабокса «Предмет и номер задания»
+	 * банковской задачи — вне таксономии `{subject}_task_number` (напр. ОГЭ
+	 * №13-16, ручная проверка: термов для них нет, см. докблок
+	 * `Inc\Modules\EgeComputer\Config\OgeCriteriaConfig`). Та же идея, что
+	 * `EgeCompletenessChecker::EXTRA_POSITIONS_FILTER`, но без контекста
+	 * конкретной контрольной — только по предмету:
+	 *   apply_filters( self::NUMBER_OPTIONS_FILTER, [], $subjectKey )
+	 */
+	public const NUMBER_OPTIONS_FILTER = 'fs_lms_bank_task_number_options';
 
 	public function register(): void {
 		$cpt = PostTypeResolver::problems();
@@ -52,8 +67,10 @@ class ProblemsController extends BaseController implements ServiceInterface {
 		add_action( 'init', array( $this->bank, 'registerCpt' ) );
 		add_action( 'init', array( $this->bank, 'registerTaxonomy' ) );
 		add_action( 'add_meta_boxes', array( $this, 'addTemplateMetabox' ) );
+		add_action( 'add_meta_boxes', array( $this, 'addSubjectMetabox' ) );
 		add_action( 'add_meta_boxes_' . $cpt, array( $this, 'moveAuthorMetaboxToSide' ), 20 );
 		add_action( 'save_post_' . $cpt, array( $this, 'saveTemplateType' ) );
+		add_action( 'save_post_' . $cpt, array( $this, 'saveSubjectFields' ) );
 		add_action( AjaxHook::SetTaskTemplateType->action(), array( $this, 'ajaxSetTemplateType' ) );
 
 		add_filter( "manage_{$cpt}_posts_columns", array( $this, 'addColumns' ) );
@@ -107,6 +124,9 @@ class ProblemsController extends BaseController implements ServiceInterface {
 		if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) {
 			return;
 		}
+		if ( ! $this->isFormPostId( $post_id ) ) {
+			return;
+		}
 		if ( ! $this->authorizePostSave( Nonce::SaveMeta, $post_id ) ) {
 			return;
 		}
@@ -114,6 +134,119 @@ class ProblemsController extends BaseController implements ServiceInterface {
 		if ( '' !== $template_id ) {
 			$this->posts->updateMeta( $post_id, PostMetaName::TemplateType->value, $template_id );
 		}
+	}
+
+	/**
+	 * Метабокс «Предмет и номер задания» — необязательная пометка банковской
+	 * задачи (T: убрать ручной номер из конструктора контрольной). Канонический
+	 * источник номера позиции экзамена теперь сам пост банка, а не мета
+	 * контрольной ({@see \Inc\Services\Assessment\EgeCompletenessChecker}).
+	 */
+	public function addSubjectMetabox(): void {
+		add_meta_box(
+			'fs_lms_problem_subject',
+			'Предмет и номер задания',
+			array( $this, 'renderSubjectMetabox' ),
+			PostTypeResolver::problems(),
+			'side',
+		);
+	}
+
+	public function renderSubjectMetabox( \WP_Post $post ): void {
+		$subject     = (string) $this->posts->getMeta( $post->ID, PostMetaName::BankTaskSubject->value );
+		$number      = (string) $this->posts->getMeta( $post->ID, PostMetaName::BankTaskNumber->value );
+		$allSubjects = $this->subjects->readAll();
+
+		wp_nonce_field( Nonce::SaveMeta->value, 'fs_lms_meta_nonce' );
+		$this->render( 'admin/problems/subject-number-select', array(
+			'subjects'         => $allSubjects,
+			'subject'          => $subject,
+			'number'           => $number,
+			'numbersBySubject' => $this->numberOptionsBySubject( $allSubjects ),
+		) );
+	}
+
+	/**
+	 * Защита от реэнтерабельного `save_post_fs_lms_problems`: хук может сработать
+	 * для ЧУЖОГО `$post_id` в рамках того же запроса (напр. `TaskBundleService::
+	 * upsertChild()` создаёт детей связки внутри сохранения родителя) — тогда
+	 * `$_POST` всё ещё содержит форму родителя и не имеет отношения к `$post_id`.
+	 * WP-редактор всегда шлёт `post_ID` формы текущего поста — сверяем с ним.
+	 */
+	private function isFormPostId( int $post_id ): bool {
+		return $post_id === (int) ( $_POST['post_ID'] ?? 0 );
+	}
+
+	/**
+	 * Номер имеет смысл только вместе с предметом — без выбранного предмета
+	 * поле в UI скрыто, а значение при сохранении отбрасывается. Значение
+	 * сверяется с актуальным набором опций ({@see numberOptionsFor()}), а не
+	 * просто санитайзится — присланный извне номер, не входящий в таксономию
+	 * предмета (и не добавленный NUMBER_OPTIONS_FILTER), отбрасывается.
+	 */
+	public function saveSubjectFields( int $post_id ): void {
+		if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) {
+			return;
+		}
+		if ( ! $this->isFormPostId( $post_id ) ) {
+			return;
+		}
+		if ( ! $this->authorizePostSave( Nonce::SaveMeta, $post_id ) ) {
+			return;
+		}
+
+		$subject = $this->sanitizeKey( PostMetaName::BankTaskSubject->value );
+		if ( null === $this->subjects->getByKey( $subject ) ) {
+			$subject = '';
+		}
+		$this->posts->updateMeta( $post_id, PostMetaName::BankTaskSubject->value, $subject );
+
+		$number = '';
+		if ( '' !== $subject ) {
+			$candidate = $this->sanitizeText( PostMetaName::BankTaskNumber->value );
+			if ( in_array( $candidate, $this->numberOptionsFor( $subject ), true ) ) {
+				$number = $candidate;
+			}
+		}
+		$this->posts->updateMeta( $post_id, PostMetaName::BankTaskNumber->value, $number );
+	}
+
+	/**
+	 * Допустимые номера позиции для каждого предмета (для JS-переключателя
+	 * в метабоксе — при смене предмета список номеров перестраивается без AJAX).
+	 *
+	 * @param \Inc\DTO\Subject\SubjectDTO[] $subjects
+	 *
+	 * @return array<string, string[]> subjectKey => номера
+	 */
+	private function numberOptionsBySubject( array $subjects ): array {
+		$map = array();
+		foreach ( $subjects as $s ) {
+			$map[ $s->key ] = $this->numberOptionsFor( $s->key );
+		}
+
+		return $map;
+	}
+
+	/**
+	 * Номера позиции предмета: термы таксономии `{subject}_task_number`
+	 * (численно отсортированные — `get_terms()` по умолчанию сортирует по
+	 * имени, т.е. алфавитно) плюс расширения через NUMBER_OPTIONS_FILTER.
+	 *
+	 * @return string[]
+	 */
+	private function numberOptionsFor( string $subjectKey ): array {
+		$names = array_map(
+			static fn( \WP_Term $t ): string => $t->name,
+			$this->terms->getAll( PostTypeResolver::getTaskTaxonomy( $subjectKey ) )
+		);
+
+		$extra = (array) apply_filters( self::NUMBER_OPTIONS_FILTER, array(), $subjectKey );
+		$names = array_values( array_unique( array_merge( $names, array_map( 'strval', $extra ) ) ) );
+
+		usort( $names, static fn( string $a, string $b ): int => (int) $a - (int) $b );
+
+		return $names;
 	}
 
 	/**

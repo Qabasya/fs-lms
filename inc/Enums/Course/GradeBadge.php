@@ -56,8 +56,8 @@ enum GradeBadge: string {
 	/** Из {@see AssessmentKind} (контрольные/экзамены). */
 	public static function fromAssessmentKind( AssessmentKind $kind ): self {
 		return match ( $kind ) {
-			AssessmentKind::Control                          => self::Control,
-			AssessmentKind::Ege, AssessmentKind::EgeComputer => self::Exam,
+			AssessmentKind::Control                              => self::Control,
+			AssessmentKind::EgeComputer, AssessmentKind::OgeComputer => self::Exam,
 		};
 	}
 }

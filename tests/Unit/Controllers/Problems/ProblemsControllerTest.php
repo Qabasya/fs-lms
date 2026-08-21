@@ -7,7 +7,9 @@ namespace Unit\Controllers\Problems;
 use Inc\Controllers\Builders\ProblemListFilters;
 use Inc\Controllers\Problems\ProblemsController;
 use Inc\Managers\Wp\PostManager;
+use Inc\Managers\Wp\TermManager;
 use Inc\Registrars\ProblemBankRegistrar;
+use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Services\Task\TaskPublishGuard;
 use Inc\Services\Task\TaskPublishValidator;
 use Inc\Services\Template\TemplateRegistry;
@@ -38,7 +40,9 @@ class ProblemsControllerTest extends TestCase {
 			$this->validator,
 			new TaskPublishGuard(),
 			$this->createMock( ProblemBankRegistrar::class ),
-			$this->createMock( ProblemListFilters::class )
+			$this->createMock( ProblemListFilters::class ),
+			$this->createMock( SubjectRepository::class ),
+			$this->createMock( TermManager::class )
 		);
 	}
 
@@ -104,5 +108,35 @@ class ProblemsControllerTest extends TestCase {
 		);
 
 		self::assertSame( 'publish', $data['post_status'] );
+	}
+
+	/**
+	 * Регрессия (.docs/Tasks.md, задача A): save_post_fs_lms_problems срабатывает
+	 * для ID, отличного от post_ID формы — программная вставка child'а связки
+	 * ВНУТРИ сохранения parent'а (тот же запрос, тот же $_POST). Мета child'а не
+	 * должна писаться из формы parent'а.
+	 */
+	public function test_save_template_type_ignores_reentrant_call_for_other_post_id(): void {
+		$_POST = array(
+			'post_ID'              => '15',
+			'fs_lms_meta_nonce'    => 'nonce',
+			'fs_lms_template_type' => 'triple_task',
+		);
+
+		$this->posts->expects( $this->never() )->method( 'updateMeta' );
+
+		$this->controller->saveTemplateType( 201 );
+	}
+
+	public function test_save_subject_fields_ignores_reentrant_call_for_other_post_id(): void {
+		$_POST = array(
+			'post_ID'                 => '15',
+			'fs_lms_meta_nonce'       => 'nonce',
+			'fs_lms_bank_task_subject' => 'inf',
+		);
+
+		$this->posts->expects( $this->never() )->method( 'updateMeta' );
+
+		$this->controller->saveSubjectFields( 201 );
 	}
 }

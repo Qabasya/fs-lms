@@ -61,7 +61,7 @@ class AssessmentPublishGuardTest extends TestCase {
 	}
 
 	public function test_incomplete_ege_publish_reverts_to_draft(): void {
-		$this->assessments->method( 'get' )->willReturn( $this->assessment( AssessmentKind::Ege ) );
+		$this->assessments->method( 'get' )->willReturn( $this->assessment( AssessmentKind::EgeComputer ) );
 		$this->completeness->method( 'validate' )->willReturn(
 			new EgeCompletenessResult( array( '3' ), array(), array(), 27, 26 )
 		);
@@ -72,7 +72,7 @@ class AssessmentPublishGuardTest extends TestCase {
 	}
 
 	public function test_complete_ege_publish_allowed(): void {
-		$this->assessments->method( 'get' )->willReturn( $this->assessment( AssessmentKind::Ege ) );
+		$this->assessments->method( 'get' )->willReturn( $this->assessment( AssessmentKind::EgeComputer ) );
 		$this->completeness->method( 'validate' )->willReturn(
 			new EgeCompletenessResult( array(), array(), array(), 2, 2 )
 		);

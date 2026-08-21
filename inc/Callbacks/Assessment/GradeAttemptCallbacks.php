@@ -112,4 +112,34 @@ class GradeAttemptCallbacks extends BaseController {
 			'total_score'    => $updated->totalScore,
 		] );
 	}
+
+	/**
+	 * Утверждение работы (D18): для станций без ручной проверки заданий (ЕГЭ
+	 * компьютерный) `AttemptStatus::Graded` наступает сразу при сдаче — этот
+	 * статус не значит «учитель посмотрел». Отдельная кнопка «Утвердить работу»
+	 * пишет `approved_at`/`approved_by_user_id`, который и открывает ответы
+	 * ученику ({@see \Inc\Services\Assessment\AttemptRevealPolicy}).
+	 *
+	 * Params: attempt_id
+	 */
+	public function ajaxApproveAttempt(): void {
+		$this->authorize( Nonce::GradeAttempt, Capability::ManageLmsTeaching );
+
+		$attemptId = $this->requireInt( 'attempt_id' );
+
+		$attempt = $this->attempts->find( $attemptId );
+		if ( ! $attempt ) {
+			$this->error( 'Попытка не найдена.' );
+			return;
+		}
+
+		if ( $attempt->groupId && ! $this->guard->canWriteJournal( (int) $attempt->groupId, get_current_user_id() ) ) {
+			$this->error( 'Нет доступа к этой группе.' );
+			return;
+		}
+
+		$this->attempts->approve( $attemptId, get_current_user_id(), $this->clock->now() );
+
+		$this->success();
+	}
 }

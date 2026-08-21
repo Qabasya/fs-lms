@@ -151,6 +151,7 @@ export function createSlotBuilder( el, config ) {
 			activeIndex = ( active === undefined ) ? ( slots.length ? 0 : -1 ) : active;
 			render();
 		},
+		assignManyAt,
 		render,
 		save,
 	};
@@ -197,6 +198,65 @@ export function createSlotBuilder( el, config ) {
 		renderLeft();
 		renderCenter();
 		save();
+	}
+
+	/**
+	 * Прямое присвоение нескольких {index, taskId, title} без splice/дубль-тоста
+	 * и без промежуточных save() на каждую пару — один save() на весь набор.
+	 * Нужно EGE-конструктору (.docs/Tasks.md, задача C): позиционные слоты
+	 * 19/20/21 сдвинулись бы при использовании assignPicked()/splice(), т.к. там
+	 * индекс слота жёстко равен номеру позиции экзамена.
+	 *
+	 * @param {Array<{index:number, taskId:number, title:string}>} pairs
+	 */
+	function assignManyAt( pairs ) {
+		const valid = pairs.filter( ( p ) => p.index >= 0 && p.index < slots.length );
+		if ( ! valid.length ) { return; }
+
+		valid.forEach( ( p ) => {
+			slots[ p.index ].taskId = p.taskId;
+			slots[ p.index ].title  = p.title;
+		} );
+		activeIndex = valid[ 0 ].index;
+		render();
+		save();
+	}
+
+	/**
+	 * Связка 19-21: parent разворачивается в 3 слота (children) вместо одного —
+	 * см. .docs/Tasks.md, §3.3/§3.5. Обычный (не-связка) пик идёт через assignTask.
+	 *
+	 * @param {number} index    Слот, в который пикали.
+	 * @param {number} taskId   ID выбранного поста.
+	 * @param {string} title    Заголовок выбранного поста.
+	 * @param {Object} item     Исходный элемент кандидата (может нести bundle_children).
+	 */
+	function assignPicked( index, taskId, title, item ) {
+		const children = item && Array.isArray( item.bundle_children ) ? item.bundle_children : null;
+		if ( ! children || ! children.length ) {
+			assignTask( index, taskId, title );
+			return;
+		}
+
+		const newIds = children.map( ( c ) => c.id );
+		const dup = slots.some( ( slot, i ) => i !== index && newIds.includes( slot.taskId ) );
+		if ( dup ) {
+			showToast( 'Одно из подзаданий связки уже добавлено', 'error' );
+			return;
+		}
+
+		const replacement = children.map( ( c, i ) => {
+			const s = newSlot( index + i );
+			s.taskId = c.id;
+			s.title  = c.title;
+			return s;
+		} );
+
+		slots.splice( index, 1, ...replacement );
+		activeIndex = index;
+		render();
+		save();
+		showToast( 'Связка разложена на ' + replacement.length + ' слота', 'success' );
 	}
 
 	// ── Render ────────────────────────────────────────────────────────────────
@@ -354,8 +414,15 @@ export function createSlotBuilder( el, config ) {
 			openPicker( pickBtn, {
 				placeholder: 'Поиск задачи…',
 				emptyText:   'Задачи не найдены',
-				fetchFn:     ( q ) => config.search( q ),
-				onPick:      ( id, title ) => assignTask( index, id, title ),
+				fetchFn:     ( q ) => config.search( q, index ),
+				// config.onPick (опц.) — перехват пика до дефолтного assignPicked(); должен
+				// вернуть true, если сам обработал присвоение (EGE-связка, задача C).
+				onPick:      ( id, title, source, item ) => {
+					if ( typeof config.onPick === 'function' && config.onPick( index, id, title, item ) ) {
+						return;
+					}
+					assignPicked( index, id, title, item );
+				},
 			} );
 		} );
 		actions.appendChild( pickBtn );

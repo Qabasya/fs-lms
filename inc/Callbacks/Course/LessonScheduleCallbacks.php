@@ -67,18 +67,43 @@ class LessonScheduleCallbacks extends BaseController {
 		$this->requireGroupAccess( $groupId );
 		$this->denyIfProgramLocked( $groupId );
 
-		$conflicts = $this->schedule->reflow( $groupId, $userId );
-		$this->success( array( 'room_conflicts' => $conflicts ) );
+		$result = $this->schedule->reflow( $groupId, $userId );
+		$this->success( array(
+			'room_conflicts' => $result->conflicts,
+			'slots_total'    => $result->slots,
+			'unplaced'       => $result->unplaced,
+		) );
 	}
 
 	/**
-	 * Закрепляет тему на дату (drag-drop темы на день календаря).
-	 * Params: group_lesson_id, scheduled_at
+	 * Отменяет распределение (кнопка «Отменить распределение» в КТП): снимает
+	 * даты/закрепление со всех непроведённых занятий группы — темы возвращаются
+	 * в пул «Темы курса». Params: group_id
+	 */
+	public function ajaxUnscheduleGroup(): void {
+		$this->authorize( Nonce::SaveSchedule, Capability::ManageLmsTeaching );
+		$groupId = $this->requireInt( 'group_id' );
+		$userId  = get_current_user_id();
+
+		$this->requireGroupAccess( $groupId );
+		$this->denyIfProgramLocked( $groupId );
+
+		$affected = $this->schedule->unschedule( $groupId, $userId );
+		$this->success( array( 'affected' => $affected ) );
+	}
+
+	/**
+	 * Закрепляет тему на дату (drag-drop темы на день календаря). `ends_at`
+	 * опционален (Этап 4: модалка урока вне расписания сама считает конец занятия
+	 * по выбранным времени/длительности) — без него сервис вычисляет его сам
+	 * из слота периода или встречи того же дня недели.
+	 * Params: group_lesson_id, scheduled_at, ends_at?
 	 */
 	public function ajaxPinLesson(): void {
 		$this->authorize( Nonce::SaveSchedule, Capability::ManageLmsTeaching );
 		$groupLessonId = $this->requireInt( 'group_lesson_id' );
 		$scheduledAt   = $this->sanitizeText( 'scheduled_at' );
+		$endsAt        = $this->sanitizeText( 'ends_at' );
 		$userId        = get_current_user_id();
 
 		$row = $this->requireProgramRow( $groupLessonId );
@@ -89,7 +114,7 @@ class LessonScheduleCallbacks extends BaseController {
 		}
 
 		try {
-			$this->schedule->pinToDate( $groupLessonId, $scheduledAt, $userId );
+			$this->schedule->pinToDate( $groupLessonId, $scheduledAt, $userId, '' !== $endsAt ? $endsAt : null );
 		} catch ( \InvalidArgumentException $e ) {
 			$this->error( $e->getMessage() );
 			return;

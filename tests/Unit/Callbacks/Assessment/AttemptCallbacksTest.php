@@ -29,14 +29,12 @@ class AttemptCallbacksTest extends TestCase {
 		$this->service       = $this->createMock( AttemptService::class );
 		$this->persons       = $this->createMock( PersonRepository::class );
 		$this->resultService = $this->createMock( AttemptResultService::class );
-		$this->assessments   = $this->createMock( AssessmentManager::class );
-		$this->access        = $this->createMock( AssessmentAccessPolicy::class );
 		$this->cb            = new AttemptCallbacks(
 			$this->service,
 			$this->persons,
 			$this->resultService,
-			$this->assessments,
-			$this->access,
+			$this->createMock( AssessmentManager::class ),
+			$this->createMock( AssessmentAccessPolicy::class ),
 		);
 	}
 

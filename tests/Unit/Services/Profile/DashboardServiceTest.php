@@ -55,7 +55,7 @@ class DashboardServiceTest extends TestCase {
 	public function test_aggregates_schedule_worklist_and_stats(): void {
 		$this->groups->method( 'findByTeacherId' )->with( 99 )
 			->willReturn( array( (object) array( 'id' => 1, 'name' => 'Г1', 'subject_key' => 'inf', 'teacher_id' => 99 ) ) );
-		$this->substitutions->method( 'findActiveBySubstitute' )->willReturn( array() );
+		$this->substitutions->method( 'findUpcomingOrActiveBySubstitute' )->willReturn( array() );
 		$this->substitutions->method( 'findActiveForGroup' )->willReturn( null );
 		$this->attendance->method( 'matrixForGroup' )->willReturn( array() ); // нет отметок
 		$this->records->method( 'countActiveByGroup' )->willReturn( 6 );
@@ -82,7 +82,7 @@ class DashboardServiceTest extends TestCase {
 	public function test_marks_group_covered_by_substitute(): void {
 		$this->groups->method( 'findByTeacherId' )
 			->willReturn( array( (object) array( 'id' => 1, 'name' => 'Г1', 'subject_key' => 'inf', 'teacher_id' => 99 ) ) );
-		$this->substitutions->method( 'findActiveBySubstitute' )->willReturn( array() );
+		$this->substitutions->method( 'findUpcomingOrActiveBySubstitute' )->willReturn( array() );
 		$this->substitutions->method( 'findActiveForGroup' )->with( 1, '2026-05-20' )->willReturn(
 			new \Inc\DTO\Course\SubstitutionDTO( 1, 1, 99, 55, '2026-05-01', '2026-05-31', null, 3, '2026-05-01 00:00:00' )
 		);
@@ -94,6 +94,28 @@ class DashboardServiceTest extends TestCase {
 		$d = $this->service->build( 99, false );
 
 		self::assertSame( '2026-05-31', $d['groups'][0]['covered_until'] );
+	}
+
+	public function test_includes_group_with_future_substitution_and_valid_from_marker(): void {
+		$this->groups->method( 'findByTeacherId' )->with( 55 )->willReturn( array() );
+		// Замена утверждена «с понедельника», valid_from ещё не наступил (T1.A).
+		$this->substitutions->method( 'findUpcomingOrActiveBySubstitute' )->with( 55, '2026-05-20' )->willReturn(
+			array( new \Inc\DTO\Course\SubstitutionDTO( 1, 1, 99, 55, '2026-05-25', '2026-05-31', null, 3, '2026-05-01 00:00:00' ) )
+		);
+		$this->groups->method( 'findById' )->with( 1 )
+			->willReturn( (object) array( 'id' => 1, 'name' => 'Г1', 'subject_key' => 'inf', 'teacher_id' => 99 ) );
+		$this->substitutions->method( 'findActiveForGroup' )->willReturn( null );
+		$this->attendance->method( 'matrixForGroup' )->willReturn( array() );
+		$this->records->method( 'countActiveByGroup' )->willReturn( 6 );
+		$this->submissions->method( 'listQueueByGroup' )->willReturn( array() );
+		$this->groupLessons->method( 'listByGroup' )->willReturn( array() );
+
+		$d = $this->service->build( 55, false );
+
+		self::assertCount( 1, $d['groups'] );
+		self::assertSame( '2026-05-25', $d['groups'][0]['covering_from'] );
+		self::assertSame( '2026-05-31', $d['groups'][0]['covering_until'] );
+		self::assertSame( '2026-05-25', $d['covering'][0]['valid_from'] );
 	}
 
 	private function lesson(): LessonDTO {

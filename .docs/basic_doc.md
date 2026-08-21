@@ -113,8 +113,13 @@ FS LMS — WordPress-плагин, реализующий полноценную
 
 Термины, которые встречаются постоянно:
 
-- **Предмет (subject)** — единица каталога («информатика», «математика»); под каждый предмет
-  динамически регистрируются свои CPT (`inf_tasks`, `inf_lessons`, …).
+- **Предмет (subject)** — единица каталога; под каждый предмет динамически регистрируются свои
+  CPT (`inf_tasks`, `inf_lessons`, …). Архитектура — generic (любой предмет заводится без
+  правки кода), но **бизнес-охват сознательно сужен**: от унификации под произвольные предметы
+  отказались, реальный каталог — только информатика в четырёх разрезах: «ЕГЭ», «ОГЭ»,
+  «Программирование на Python», «Робототехника Ардуино» (первые два — банки с контрольными
+  типа `ege_computer`/`oge_computer`, §34; вторые два — обычные контрольные `control`,
+  §34). Другие школьные предметы (математика и т.п.) не планируются.
 - **Банк контента** — CPT-хранилище многоразовых материалов (задания/работы/уроки/курсы/контрольные).
 - **Группа** — учебная группа (таблица `fs_lms_groups`); ей назначается курс и расписание.
 - **Занятие** — строка `fs_lms_group_lessons`: датированный слот программы группы
@@ -1478,7 +1483,7 @@ UI — вкладка «Конфигурация» в Настройках: по
 |---|---|---|---|---|
 | `SocialAuth` | OAuth-вход (VK/Google/GitHub), страница входа `[fs_lms_login_form]` | `FS_LMS_SOCIAL_AUTH` | `fs_lms_social_auth` (**вкл.**) | свои контроллеры страницы/настроек |
 | `AdSync` | Провижининг учёток в Active Directory (outbox-очередь + REST для Python-поллера) | `FS_LMS_AD_SYNC`, `FS_LMS_AD_HMAC_SECRET` | `fs_lms_ad_sync` (выкл.) | события заявок; REST `GET /ad/jobs`, `POST /ad/ack`; своя таблица через `AdSchema::ensure()` |
-| `EgeComputer` | Альтернативный плеер контрольной «ЕГЭ (компьютерный)» | `FS_LMS_EGE_COMPUTER` (не задана → вкл.) | — | фильтр `fs_lms_assessment_renderer` (§34) |
+| `EgeComputer` | Альтернативные плеер-станции контрольной «ЕГЭ (компьютерный)» и «ОГЭ (компьютерный)» (общий движок рендера/попыток, свои конфиги времени/попыток/шкалы `StationExamConfig`) | `FS_LMS_EGE_COMPUTER` (не задана → вкл.) | — | фильтр `fs_lms_assessment_renderer` (§34) |
 | `DaData` | Автодополнение ФИО/адреса на `/lms/join` | `FS_LMS_DADATA`, `DADATA_API_TOKEN` | `fs_lms_dadata` (выкл.) | фильтр `fs_lms_join_vars` |
 | `SmartCaptcha` | Yandex SmartCaptcha на `/apply/` | `FS_LMS_SMART_CAPTCHA`, ключи капчи | `fs_lms_smart_captcha` (выкл.) | фильтры `fs_lms_captcha_provider`, `fs_lms_apply_vars` |
 
@@ -1581,7 +1586,7 @@ public function register(): void {
 | Работа | название | инструкция | `work_type`, `item_ids[]` (ссылки на задания/задачи) |
 | Урок | тема | теория (inline) | `steps[]` (§29); `work_ids` — производное |
 | Курс | название | описание | `modules[]` (§29); `lesson_ids` — производное |
-| Контрольная | название | описание | `task_ids[]`, `kind`, `time_limit_minutes`, `max_attempts`, `pass_score`, `scoring_policy`, `shuffle`, `score_map`, `task_points` |
+| Контрольная | название | описание | `task_ids[]`, `kind`, `time_limit_minutes`, `max_attempts`, `pass_score`, `scoring_policy`, `shuffle`, `score_map`, `task_points` (последние 4 — только для `control`; у станционных `kind` их подменяет `StationExamConfig`/`EgeComputerModule::applyStationSettings()`, см. §34) |
 
 ### Жизненный цикл контента
 
@@ -1813,10 +1818,11 @@ JS красит виджет (зелёный/красный, пофрагмен�
 (`task_id IS NULL`, `score = верных / всего`). Ручная оценка задания —
 `ajaxGradeBatchTask` → пересчёт агрегата; все пер-тасковые `graded` → агрегат `graded`.
 
-### AssessmentKind
+### AssessmentKind — три типа контрольной
 
-`Enums\Assessment\AssessmentKind`: `control` (обычная контрольная), `ege`, `ege_computer`.
-Поведение — **только через предикаты** (не `match` по кейсу):
+`Enums\Assessment\AssessmentKind`: `control`, `ege_computer`, `oge_computer` (плоский `ege` без
+станции — исторический кейс, удалён 2026-08-18, см. `.docs/Tasks.md`; в БД к моменту удаления не
+было ни одной записи). Поведение — **только через предикаты** (не `match` по кейсу):
 
 | Предикат | Что включает |
 |---|---|
@@ -1826,6 +1832,20 @@ JS красит виджет (зелёный/красный, пофрагмен�
 | `needsSecondaryScore()` | вторичный балл по таблице `score_map` |
 | `expandsComposites()` | `ThreeInOne` → отдельные под-задания |
 | `needsCompletenessCheck()` | `EgeCompletenessChecker` предупреждает о непокрытых номерах |
+| `isStation()` | true для `ege_computer`/`oge_computer` — обе рендерятся свой станцией (см. ниже), обычные настройки контрольной (`time_limit_minutes`/`max_attempts`/`pass_score`/`score_map`/`intro_html`) скрыты из builder UI и не сохраняются на бэкенде (`AssessmentMetaBoxController::handleAssessmentSave`) |
+
+Три вида контрольной в конструкторе, на практике привязанные к конкретным предметам каталога
+(см. §1 — каталог сейчас состоит из четырёх информатических предметов):
+
+| `kind` | Название в UI | Где используется | Настройки станции |
+|---|---|---|---|
+| `control` | «Контрольная» | Программирование на Python, Робототехника Ардуино (а также любая обычная проверочная у ЕГЭ/ОГЭ-предметов) | per-assessment, как обычно (мета поста) |
+| `ege_computer` | «Компьютерный ЕГЭ» | предмет «ЕГЭ» — 27 позиций, эталонная станция (`ege-computer.php`, `kege/*`) | `StationExamConfig::for(EgeComputer)`: 235 мин / 1 попытка / шкала `KegeScaleConfig` (0-100) |
+| `oge_computer` | «Компьютерный ОГЭ» | предмет «ОГЭ» — 16 позиций, задания 13-16 проверяются вручную по холистик-рубрикам `OgeCriteriaConfig` (тот же `file_answer_task`, что и обычная ручная проверка) | `StationExamConfig::for(OgeComputer)`: 150 мин / 1 попытка / шкала `OgeScaleConfig` (0-21 → отметка 2-5) |
+
+Оба станционных вида используют один и тот же рендер-код (`ege-computer.php` + `kege/{entry,exam,finish}.php`)
+с kind-ветвлением внутри, а не форк в параллельные шаблоны — решение зафиксировано при добавлении
+ОГЭ (см. `.docs/Tasks.md`, «Компьютерный ОГЭ», вопрос 8).
 
 ### Score map (перевод первичных баллов ЕГЭ)
 

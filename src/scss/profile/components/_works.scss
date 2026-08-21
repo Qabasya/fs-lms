@@ -1,0 +1,162 @@
+/* ══════════════════════════════════════════════════════════════════════
+   Вкладка «Работы» (D3, .docs/Tasks.md) — три вкладки + фильтры + список
+   работ/экзаменов на проверку (шаг 1), список сдач выбранной работы (шаг 2).
+   ══════════════════════════════════════════════════════════════════════ */
+@use '../variables' as *;
+
+.prof-works {
+  padding: rem(22) rem(26) rem(40);
+}
+
+/* ── Вкладки (На проверке / Ждут подтверждения / Проверенные) ─────────── */
+.wk-tabs {
+  display: flex;
+  gap: rem(4);
+  border-bottom: 1px solid var(--line);
+  margin-bottom: rem(18);
+}
+
+.wk-tab {
+  border: 0;
+  background: none;
+  padding: rem(10) rem(14);
+  font: inherit;
+  font-size: rem(13.5);
+  color: var(--muted);
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: rem(6);
+  transition: color $tr, border-color $tr;
+}
+.wk-tab:hover { color: var(--ink-2); }
+.wk-tab.active { color: var(--accent-700); border-bottom-color: var(--accent); font-weight: 600; }
+
+.wk-tab-badge {
+  background: var(--surface-2);
+  border-radius: 999px;
+  padding: 0 rem(8);
+  font-size: rem(11.5);
+  color: var(--muted);
+}
+.wk-tab.active .wk-tab-badge { background: var(--accent-soft); color: var(--accent-700); }
+
+/* ── Фильтры ────────────────────────────────────────────────────────── */
+.wk-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: rem(10);
+  align-items: center;
+  margin-bottom: rem(16);
+}
+
+.wk-select {
+  height: rem(38);
+  padding: 0 rem(12);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink-2);
+  font: inherit;
+  font-size: rem(13.5);
+}
+.wk-select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+
+/* ── Список работ (шаг 1) ──────────────────────────────────────────── */
+.wk-list {
+  display: flex;
+  flex-direction: column;
+  gap: rem(8);
+}
+
+.wk-row {
+  display: flex;
+  align-items: center;
+  gap: rem(14);
+  padding: rem(12) rem(16);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: border-color $tr, box-shadow $tr;
+}
+.wk-row:hover { border-color: var(--line-2); box-shadow: var(--shadow-sm); }
+
+.wk-badge {
+  flex: none;
+  font-size: rem(11);
+  font-weight: 700;
+  padding: rem(3) rem(9);
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--muted);
+}
+.wk-badge-exam { background: var(--accent-soft); color: var(--accent-700); }
+
+.wk-row-main { flex: 1 1 auto; min-width: 0; }
+.wk-row-title { font-size: rem(14.5); font-weight: 600; color: var(--ink); }
+.wk-row-meta { font-size: rem(12.5); color: var(--muted); margin-top: rem(2); }
+
+.wk-loading {
+  padding: rem(40);
+  text-align: center;
+  color: var(--muted);
+  font-size: rem(14);
+}
+
+.wk-empty-wrap .prof-ktp-empty { margin: 0 auto; }
+
+/* ── Шаг 2: сдачи выбранной работы ──────────────────────────────────── */
+.wk-step-head {
+  display: flex;
+  align-items: center;
+  gap: rem(14);
+  margin-bottom: rem(16);
+}
+
+.wk-back {
+  flex: none;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink-2);
+  font: inherit;
+  font-weight: 600;
+  height: rem(34);
+  padding: 0 rem(12);
+  cursor: pointer;
+  transition: border-color $tr, color $tr;
+}
+.wk-back:hover { border-color: var(--accent); color: var(--accent-700); }
+
+.wk-step-title { font-size: rem(16); font-weight: 700; color: var(--ink); }
+
+.wk-sub-list {
+  display: flex;
+  flex-direction: column;
+  gap: rem(8);
+}
+
+.wk-sub-row {
+  display: flex;
+  align-items: center;
+  gap: rem(14);
+  padding: rem(12) rem(16);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: border-color $tr, box-shadow $tr;
+}
+.wk-sub-row:hover { border-color: var(--line-2); box-shadow: var(--shadow-sm); }
+
+.wk-sub-main { flex: 1 1 auto; min-width: 0; }
+.wk-sub-name { font-size: rem(14.5); font-weight: 600; color: var(--ink); }
+.wk-sub-meta { font-size: rem(12.5); color: var(--muted); margin-top: rem(2); }
+
+@media (max-width: $breakpoint-mobile) {
+  .prof-works { padding: rem(16) rem(14) rem(32); }
+  .wk-filters .kp-btn { max-width: none; width: 100%; }
+  .wk-row, .wk-sub-row { flex-wrap: wrap; }
+}

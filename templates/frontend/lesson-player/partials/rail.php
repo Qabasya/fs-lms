@@ -119,8 +119,13 @@ $rail_chevd = Icon::ChevronDown->svg( 13 );
 	</div>
 	<div class="rf-list">
 		<?php foreach ( $rail_modules as $rail_module ) : ?>
-			<?php $rail_is_cur_mod = 'current' === $rail_module['state']; ?>
-			<div class="t-mod<?php echo $rail_is_cur_mod ? '' : ' dim'; ?>">
+			<?php
+			$rail_is_cur_mod = 'current' === $rail_module['state'];
+			// Предпросмотр (Фаза 5): все модули развёрнуты — "видно всё содержимое курса",
+			// в отличие от боевого плеера, где раскрыт только текущий модуль (T14.4).
+			$rail_expanded = $rail_is_cur_mod || ! empty( $is_preview );
+			?>
+			<div class="t-mod<?php echo $rail_expanded ? '' : ' dim'; ?>">
 				<span class="tmi <?php echo esc_attr( match ( $rail_module['state'] ) { 'done' => 'ok', 'current' => 'cur', 'locked' => 'lk', default => '' } ); ?>">
 					<?php
 					if ( 'done' === $rail_module['state'] ) {
@@ -133,10 +138,10 @@ $rail_chevd = Icon::ChevronDown->svg( 13 );
 					?>
 				</span>
 				<?php echo esc_html( $rail_module['title'] ); ?>
-				<span class="chev"><?php echo $rail_is_cur_mod ? $rail_chevd : $rail_chevr; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></span>
+				<span class="chev"><?php echo $rail_expanded ? $rail_chevd : $rail_chevr; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></span>
 			</div>
 
-			<?php if ( $rail_is_cur_mod ) : ?>
+			<?php if ( $rail_expanded ) : ?>
 				<?php foreach ( $rail_module['lessons'] as $rail_node ) : ?>
 					<?php
 					$rail_title = sprintf(

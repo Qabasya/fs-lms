@@ -71,7 +71,7 @@ class LearnerContextBuilder {
 		foreach ( array_keys( $groups ) as $gid ) {
 			foreach ( $this->groupLessons->listByGroup( $gid ) as $row ) {
 				// Чужие индивидуальные занятия ученику не показываем.
-				if ( 'individual' === $row->kind && $row->studentPersonId !== $personId ) {
+				if ( $row->kind->isIndividual() && $row->studentPersonId !== $personId ) {
 					continue;
 				}
 
@@ -167,7 +167,7 @@ class LearnerContextBuilder {
 			'scheduled_at'    => $row->scheduledAt,
 			'homework_due_at' => $row->homeworkDueAt,
 			'visibility'      => $row->visibility,
-			'kind'            => $row->kind,
+			'kind'            => $row->kind->value,
 			'room'            => $roomId > 0 ? ( $roomNames[ $roomId ] ?? '' ) : '',
 			'teacher'         => $teacherId ? ( $teacherNames[ $teacherId ] ?? '' ) : '',
 			'course'          => (string) ( $group['course_title'] ?? '' ),

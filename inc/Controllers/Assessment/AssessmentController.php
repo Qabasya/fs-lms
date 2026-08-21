@@ -35,6 +35,7 @@ class AssessmentController extends AjaxController {
 			[ AjaxHook::GetAttemptResult,   $this->attemptCallbacks ],
 			[ AjaxHook::PreviewAttemptResult, $this->attemptCallbacks ],
 			[ AjaxHook::GradeAttempt,       $this->gradeCallbacks ],
+			[ AjaxHook::ApproveAttempt,     $this->gradeCallbacks ],
 			[ AjaxHook::ParseScoreMap,      $this->scoreMapCallbacks ],
 			[ AjaxHook::CopyScoreMap,       $this->scoreMapCallbacks ],
 			[ AjaxHook::GetScoreMapSources, $this->scoreMapCallbacks ],

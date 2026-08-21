@@ -10,7 +10,6 @@ use Inc\Modules\AdSync\AdSyncModule;
 use Inc\Modules\DaData\DaDataModule;
 use Inc\Modules\EgeComputer\EgeComputerModule;
 use Inc\Modules\SmartCaptcha\SmartCaptchaModule;
-use Inc\Modules\SocialAuth\SocialAuthModule;
 use Inc\Modules\VideoLibrary\VideoLibraryModule;
 use Inc\Controllers\Enrollment\ApplicationController;
 use Inc\Controllers\Pages\ApplyPageController;
@@ -37,6 +36,7 @@ use Inc\Controllers\Course\LearningMenuController;
 use Inc\Controllers\Subject\ContentDeletionGuard;
 use Inc\Controllers\Problems\ProblemsController;
 use Inc\Controllers\Task\MetaBoxController;
+use Inc\Controllers\Person\AuthPageController;
 use Inc\Controllers\Person\PiiController;
 use Inc\Controllers\Person\ProfileController;
 use Inc\Controllers\Enrollment\ExpulsionController;
@@ -81,6 +81,7 @@ use Inc\Controllers\Course\LessonProgressController;
 use Inc\Controllers\Course\SubmissionController;
 use Inc\Cli\ArticleSlugCommand;
 use Inc\Cli\SubjectBundleCommand;
+use Inc\Cli\TaskBundleMigrationCommand;
 use Inc\Controllers\Import\ImportController;
 use Inc\Controllers\Person\UserController;
 use Inc\Services\Export\ExportServiceBootstrap;
@@ -91,6 +92,11 @@ use Inc\Core\Enqueue;
 use Inc\Migrations\ArticlesSectionMigration;
 use Inc\Migrations\AssessmentAnswerUniqueMigration;
 use Inc\Migrations\BroadcastStepMigration;
+use Inc\Migrations\Migration_1_0_0;
+use Inc\Migrations\Migration_1_1_0;
+use Inc\Migrations\MigrationRunner;
+use Inc\Migrations\RoutingPagesMigration;
+use Inc\Services\System\PageGeneratorService;
 use Inc\Services\Log\LogEventDispatcher;
 use Inc\Services\Shared\WpClock;
 
@@ -155,6 +161,7 @@ final class Init {
 			BoilerplateController::class,  // Типовые условия (boilerplate)
 			UserController::class,
 			ApplyPageController::class,
+			AuthPageController::class,       // Страница входа /sign-in/ (шорткод + перехват wp-login.php)
 			ProfileController::class,
 			StudentGroupController::class,
 			CronController::class,
@@ -168,6 +175,7 @@ final class Init {
 			ImportController::class,   // Импорт учеников из CSV
 			SubjectBundleCommand::class, // WP-CLI: перенос предмета пакетом (регистрируется только под WP_CLI)
 			ArticleSlugCommand::class,   // WP-CLI: пакетное переименование слагов статей
+			TaskBundleMigrationCommand::class, // WP-CLI: перевод связок 19-21 на модель parent+children
 			ConfigController::class,
 			SettingsController::class,
 			LogsController::class,
@@ -199,7 +207,6 @@ final class Init {
 			SubmissionController::class,       // AJAX сдачи / проверки / журнала
 			AssessmentController::class,       // AJAX попыток контрольных
 			// ==== Опциональные модули (изолированы, вырезаются удалением каталога + этой строки) ====
-			SocialAuthModule::class,          // Inc\Modules\SocialAuth — OAuth через соцсети (флаг-гейт, по умолчанию вкл.)
 			AdSyncModule::class,              // Inc\Modules\AdSync — синхронизация заявок с AD (флаг-гейт)
 			EgeComputerModule::class,         // Inc\Modules\EgeComputer — плеер ЕГЭ (Компьютер) (флаг-гейт, T7.20)
 			DaDataModule::class,              // Inc\Modules\DaData — автодополнение DaData на /lms/join (флаг-гейт)
@@ -248,6 +255,17 @@ final class Init {
 		// fs_lms_schema_version=1.0.0 его up() уже не запускается.
 		( new BroadcastStepMigration() )->ensure();
 
+		// MigrationRunner штатно регистрируется и запускается только при активации
+		// (Activate::activate()) — установки, уже получившие fs_lms_schema_version,
+		// новые версионные миграции иначе никогда не увидят. Здесь — та же регистрация,
+		// но на обычной загрузке: run() накатывает только миграции с version() выше уже
+		// применённой (get_option + version_compare, без реальных запросов, если накатывать
+		// нечего), поэтому безопасно вызывать на каждом запросе.
+		$migrationRunner = new MigrationRunner();
+		$migrationRunner->register( new Migration_1_0_0() );
+		$migrationRunner->register( new Migration_1_1_0() );
+		$migrationRunner->run();
+
 		// Раздел «Учебник»: /{key}/textbook/ → /{key}/articles/ (ключ опции,
 		// слаг страницы, тег шорткода). Гейт — собственная опция миграции.
 		( new ArticlesSectionMigration() )->ensure();
@@ -255,5 +273,18 @@ final class Init {
 		// Уникальный ключ (attempt_id, task_id) на ответах попытки + вычистка
 		// дублей, накопленных до атомарного upsert() (см. класс миграции).
 		( new AssessmentAnswerUniqueMigration() )->ensure();
+
+		// Служебные страницы маршрутизации (/apply/, /profile/, /lesson/,
+		// /course-preview/) создаются только при активации — на установках,
+		// где страница добавилась в код позже или была случайно удалена,
+		// без этого маршрут молча даёт 404 (см. докблок класса миграции).
+		// На 'init', не сразу: ensure() умеет создавать страницы (wp_insert_post()),
+		// а это в цепочке вызывает get_permalink() → нужен $wp_rewrite. Init::run()
+		// выполняется при подключении плагина (wp-settings.php, до 'plugins_loaded'),
+		// а $wp_rewrite создаётся позже — прямой вызов здесь падает фатальной ошибкой
+		// на первом запросе, где миграция ещё не отмечена выполненной.
+		add_action( 'init', static function (): void {
+			( new RoutingPagesMigration( new PageGeneratorService() ) )->ensure();
+		} );
 	}
 }

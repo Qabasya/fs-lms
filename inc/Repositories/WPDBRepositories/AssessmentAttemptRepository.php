@@ -50,6 +50,14 @@ class AssessmentAttemptRepository {
 		return false !== $result;
 	}
 
+	/** D18: учитель подтверждает результат — открывает ответы/баллы ученику. */
+	public function approve( int $id, int $approvedByUserId, string $approvedAt ): bool {
+		return $this->update( $id, [
+			'approved_at'         => $approvedAt,
+			'approved_by_user_id' => $approvedByUserId,
+		] );
+	}
+
 	/** Активная (in_progress, не просроченная) попытка студента по контрольной. */
 	public function findActive( int $studentPersonId, int $assessmentId ): ?AttemptDTO {
 		$row = $this->wpdb->get_row(
@@ -162,6 +170,31 @@ class AssessmentAttemptRepository {
 			ARRAY_A
 		);
 		return array_map( [ AttemptDTO::class, 'fromArray' ], $rows ?: [] );
+	}
+
+	/**
+	 * Попытки НЕСКОЛЬКИХ групп со статусом graded|submitted — для вкладки «Работы»
+	 * (D3, .docs/Tasks.md): один запрос вместо цикла по группам пользователя
+	 * (`listByGroupForGradebook()` — только одна группа).
+	 *
+	 * @param int[] $groupIds
+	 *
+	 * @return AttemptDTO[]
+	 */
+	public function listByGroupsForGradebook( array $groupIds ): array {
+		if ( empty( $groupIds ) ) {
+			return array();
+		}
+		$placeholders = implode( ', ', array_fill( 0, count( $groupIds ), '%d' ) );
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$sql = $this->wpdb->prepare(
+			"SELECT * FROM %i WHERE group_id IN ($placeholders) AND status IN ('graded','submitted') ORDER BY id ASC",
+			array_merge( array( $this->table ), $groupIds )
+		);
+		// phpcs:enable
+		$rows = $this->wpdb->get_results( $sql, ARRAY_A );
+
+		return array_map( array( AttemptDTO::class, 'fromArray' ), $rows ?: array() );
 	}
 
 	/**

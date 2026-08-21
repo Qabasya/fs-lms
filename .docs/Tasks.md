@@ -1,843 +1,1014 @@
-сквозное ревью проекта
+# Bug fix
 
-Безопасность
+- [x] Конструктор экзамена (ЕГЭ/ОГЭ): заготовленные пустые слоты заданий (номера без
+  выбранной задачи) пропадали после сохранения при частичном заполнении — `persist()`
+  не отправляет пустые слоты (`taskId=0`) в `item_ids`, а авто-паддинг слотов до
+  `egeSlots(kind)` в `onReady()` срабатывал только при полном отсутствии слотов
+  (`length === 0`). После сохранения 2 из 27/16 заданий сервер на перезагрузке отдаёт
+  только реально заполненные (`AssessmentMetaBoxController::renderBuilderContent()`,
+  `$task_ids = $assessment->taskIds`) — остальные позиции терялись насовсем.
+  Исправлено: `src/js/admin/services/assessment-builder.js::onReady()` теперь
+  довозит слоты до `egeSlots(kind)` при каждом открытии, а не только при первом.
 
-2S1 — высокий. Публичное перечисление пользователей без ограничения частоты
+# Задача: связка 19-21 — реэнтерабельный save_post ломает bundle (2026-08-20)
 
-inc/Callbacks/Enrollment/ApplicationCallbacks.php:427-437 и :439-449
+Контекст: тестировали публикацию задания-связки «№19-21» (`TaskTemplate::Triple`,
+`ThreeInOneTemplate`) — сперва увидели ошибку «Невозможно опубликовать задание:
+Заполните «Условие задания»», а при повторе в глобальном банке (`fs_lms_problems`)
+поймали **активную бесконечную рекурсию**: `wp_posts` разрослась с ~100 до 2000+
+строк за минуты, каждая новая запись — заголовок предыдущей + ещё один префикс
+«№ 19. » (пост `18153` докатился до строки на ~9600 байт). Остановлено только
+перезапуском `wp_app` (PHP не прерывается по обрыву соединения без
+`ignore_user_abort`). **Мусорные записи из докер-БД удалены** (см. пункт A4);
+на проде аналогичный мусор ещё не выявлен и не почищен — см. пункт A5.
 
-ajaxCheckUsernameAvailable и ajaxCheckEmailAvailable зарегистрированы как nopriv
-(ApplicationController::publicAjaxActions():79-82). Оба проверяют нонс — и на этом всё.
-Остальные четыре публичных действия того же класса поголовно проходят через RateLimitService
-(:123, :255, :270, :298, :382), эти два — нет.
-
-Нонс не барьер: он печатается в публичную страницу заявки (fs_lms_apply_vars.nonces), для
-разлогиненного посетителя живёт 12-24 часа и одинаков для всех. Достаточно взять его один раз и
-дальше без ограничений опрашивать username_exists() / email_exists().
-
-Что утекает: факт регистрации по произвольному email — это подтверждение персональных данных
-(«такой-то учится в этой школе»), проверяемое пакетно по списку адресов. Плюс перебор логинов
-под будущий подбор пароля.
-
-Фикс: те же RateLimitService-лимиты по IP, что и у соседних действий класса; для email —
-жёстче (это проверка ПД, а не удобство ввода). Ответ стоит унифицировать по времени.
-
-2S2 — средний. IDOR в статусе провижна AD
-
-inc/Modules/AdSync/Controllers/AdSyncController.php:85-91
-
-nopriv-эндпоинт принимает $_POST['ref'] — сырой ID заявки — и отдаёт состояние провижна
-(none / pending / done / failed). Владение не проверяется, лимита частоты нет, нонс
-публичный (Nonce::Apply). ID заявок последовательные → анонимный перебор даёт факт
-существования заявок, их количество и темп поступления.
-
-Фикс: опрашивать не по ID, а по одноразовому непредсказуемому токену, который выдаётся
-подавшему в filterApplyResponse():73-79 и живёт в транзиенте рядом с ID.
-
-2S3 — информационно. SQL-слой чист
-
-Прогон по всем $wpdb-вызовам: идентификаторы через %i, списки IN (…) собираются
-array_fill()-плейсхолдерами и уходят в prepare() (NotificationRepository:148-154,
-ApplicationRepository:89-121, PersonRepository:73-77, AbstractLogRepository:196-198,
-TermManager:307-314). Конкатенации пользовательского ввода в SQL не нашёл. Инъекционных
-находок нет — фиксирую, чтобы приоритет ушёл в 2S1/2S2, а не в перепроверку SQL.
-
-2S4 — информационно. Escaping в шаблонах: безопасно, но не проверяемо
-
-Все 30+ срабатываний «echo без esc_» в templates/ разобраны вручную: во фронтовых шаблонах
-это тернарники с литералами (all-tasks-body.php, player.php, step-task.php и т.д.), в
-админских — переменные, экранированные заранее
-(settings-9-rooms.php:52-53: $row_name = esc_attr( $room->name ), дальше echo $row_name).
-
-Уязвимости нет. Но приём «экранируем в одном месте, печатаем в семи» ломает и ревью, и phpcs:
-одна новая строка $row_name = $room->name без esc_attr превращается в хранимую XSS
-незаметно. Экранировать стоит в точке вывода — settings-9-rooms.php, settings-3-periods.php.
-
-2S5. Все phpcs-подавления обоснованы
-
-200 phpcs:ignore по проекту, каждое с причиной; 4 подавления NonceVerification.Missing
-проверены поимённо — во всех случаях нонс действительно проверен строкой выше либо это ранний
-хук до фактического сейва. Отдельных находок нет.
-
-Архитектура и правила проекта
-
-2A1. Прямые WP data API вне Managers/Repositories
-
-Правило: «Do NOT use WP_Query, get_posts, update_option, update_post_meta directly».
-Нарушители (по одному-двум вызовам, но в слоях, которым это запрещено):
-- inc/Controllers/Task/MetaBoxController.php:162 — get_post_meta в контроллере;
-- inc/MetaBoxes/Templates/BaseTemplate.php:84, ThreeInOneTemplate.php:91;
-- inc/Services/Template/TemplateResolver.php:79,81;
-- inc/Services/Assessment/TaskPreviewService.php:91,93.
-
-Во всех пяти читается одна и та же PostMetaName::Meta — просится один метод
-PostManager::taskMeta( int $post_id ): array и полное исчезновение прямых вызовов.
-
-2A2. Прямая работа с суперглобалами вместо трейта Sanitizer
-
-69 обращений к $_POST/$_GET/$_REQUEST/$_FILES в 35 файлах при живом трейте с
-sanitizeInt()/sanitizeKey()/sanitizeText(). Крупнейший — Controllers/Course/CoursePreviewController.php
-(9 обращений, :40-88), причём разбор ?course=&lesson=&step= продублирован в loadTemplate()
-и currentDeepLink(). Данные там кастуются и проверяются на доступ — это не дыра, а
-разъезжающаяся конвенция и лишний код.
-
-2A3. current_user_can() напрямую в Callback-классе
-
-inc/Callbacks/Subject/SubjectValidationCallbacks.php:323 — прямой вызов вместо
-$this->authorize(). По CLAUDE.md это запрещено явно («Never call check_ajax_referer() or
-current_user_can() directly in Callback methods»). Единственный такой случай во всех Callbacks
-— остальные 150+ AJAX-методов дисциплинированы: сверка «методов ajax* против guard'ов» по всем
-59 Callback-классам дала совпадение или перевес guard'ов везде.
-
-2A4. AJAX мимо всей конвенции сразу
-
-inc/Modules/AdSync/Controllers/AdSyncController.php:35-36,85 — хук регистрируется сырой строкой
-('wp_ajax_nopriv_' . self::STATUS_ACTION) мимо enum AjaxHook, а обработчик живёт в
-контроллере, хотя в том же модуле есть AdSyncSettingsCallbacks. Нарушены три правила:
-ключи-только-через-энумы, «AJAX-логика только в Callbacks», «контроллеры только регистрируют».
-
-2A5. Транзиенты мимо TransientManager
-
-inc/Modules/VideoLibrary/Services/RecordingAlertService.php:42,53 — сырые
-set_transient/get_transient. Документированное исключение из CLAUDE.md покрывает только
-RateLimitService, EmailOtpService, TaskPublishGuard; этот сервис в список не входит.
-Либо ключ переезжает в Enums/Wp/TransientKey, либо сервис дописывается в исключения.
-
-2A6. declare(strict_types=1) отсутствует в 37 файлах из 738
-
-Правило требует его в каждом. Среди отсутствующих — не периферия, а базовые вещи:
-Shared/Traits/Sanitizer.php, Shared/Traits/ErrorHandler.php, Shared/Traits/TemplateRenderer.php,
-Managers/Wp/CPTManager.php, Enums/Access/UserRole.php, Controllers/Subject/SubjectController.php.
-В файле без строгой типизации (int) "12abc" и "1" == 1 ведут себя иначе, чем в соседнем — это
-не косметика.
-
-2A7. Инлайновый <svg> в PHP-шаблонах
-
-Правило: иконки только из Inc\Enums\Ui\Icon. Нарушают два файла —
-templates/admin/components/modals/partials/provider-logo.php и
-inc/Modules/SocialAuth/templates/settings-tab.php. Оба про логотипы OAuth-провайдеров: их в
-Icon нет и, возможно, быть не должно (бренд ≠ UI-глиф) — тогда исключение нужно записать в
-CLAUDE.md, а не оставлять молча. В JS-бандлах правило соблюдено полностью: инлайновых <svg>
-вне common/icons.js нет ни одного.
-
-2A8. Правило «JS не задаёт стили» соблюдается наполовину
-
-Две конкурирующие идиомы на одну задачу. Правильная — отдать число в CSS-переменную
-(article-aside.js:49, modules/task-condition.js:140, modal-base.js:55). Прямое присваивание
-стилей: profile/utils.js:130-179 (7 мест), admin/services/step-editor.js:893-961 (6),
-player/shell.js:19, player/step-work.js:87, player/step-video.js:46-47, player/core.js:100,
-frontend/components/article-carousel.js:50-51.
-
-Позиционирование поповеров по геометрии — честное исключение. Но четыре прогресс-бара
-(style.width = '…%') переводятся в --progress механически, а article-carousel.js:50
-(style.transition = …) — это анимационный конфиг в JS, ему место в классе.
-
-Производительность
-
-2P1. getMeta() в цикле по ID, не пришедшим из WP_Query
-
-PostManager::primeMetaCache() существует и используется ровно в 3 местах на весь плагин. При
-этом есть циклы, где ID берутся из своих таблиц (ответы, попытки), то есть мета-кэш WP не
-прогрет ничем, и каждый виток — отдельный запрос:
-- Services/Assessment/AttemptTaskViewBuilder.php:58,60 — по два getMeta на задание попытки;
-- Services/Assessment/AttemptResultService.php:45;
-- Services/Course/WorkDetailService.php:150;
-- Services/Course/ContentUsageService.php:156,317,344,370 — четыре разных цикла в одном сервисе.
-
-Контрольная на 30 заданий — это 60+ лишних запросов на просмотр результата. Лечится одной
-строкой primeMetaCache( $ids ) перед каждым циклом.
-
-2P2. Выборки без лимита
-
-posts_per_page => -1 / numberposts => -1 в 8 местах. Ограниченные по природе (все статьи
-одного номера задания) вопросов не вызывают, но Controllers/Builders/AllTasksDataBuilder.php:366
-и Managers/Wp/PostManager.php:44,62,130,283 растут вместе с банком заданий — на большом
-предмете это выборка всего банка в память. Нужен явный потолок с логированием обрезки.
-
-Дублирование и мёртвый код
-
-2D1. Пять локальных копий общих утилит
-
-Правило src/js/CLAUDE.md: «Доменные бандлы реэкспортируют их под своими именами — своих копий
-не заводить». Заведены:
-- escapeHtml: admin/services/step-editor.js:62, admin/services/tables/students-table.js:183,
-  admin/modals/enrollment/teacher-view-modal.js:116, frontend/components/sidebar-articles.js:16;
-- debounce: второй экземпляр в frontend/services/assessment.js:61.
-
-Три из четырёх esc реализованы через $('<div>').text().html(), четвёртая — через String() с
-заменами: то есть ещё и разное экранирование в разных бандлах.
-
-2D2. Файлы, переросшие свою роль
-
-src/js/admin/services/step-editor.js (46 КБ), src/js/profile/ktp.js (44 КБ),
-inc/Core/Enqueue.php (30 КБ), inc/Services/Profile/LearnerService.php (25 КБ),
-inc/Callbacks/Enrollment/EnrollmentCallbacks.php (23 КБ, 17 AJAX-методов),
-inc/Controllers/Course/LearningMenuController.php (11 хуков, 30 методов: меню + фильтры
-list-table + модалка + «хром» банка).
-
-Enqueue.php раздувается по прямому требованию CLAUDE.md («все wp_localize_script — только
-здесь»), то есть правило и размер связаны: разумный выход — оставить правило, но разложить файл
-на per-bundle энкьюеры с общим фасадом.
-
-2D3. Проверенные гипотезы, оказавшиеся ложными
-
-Чтобы не тратить время повторно: templates/frontend/join.php (35 КБ) — чистая разметка без
-логики и не дублирует apply-fields.php (13 общих строк из 286); XSS в JS-рендерах нет —
-frontend/components/task-card.js экранирует каждое поле, админские таблицы вставляют
-серверный HTML целиком; ref-selector.js:161 экранирует через jQuery.
-
-Комментарии и гигиена
-
-2H1. 170 «учебных» комментариев
-
-Только по одному узкому шаблону (// имя_функции() — что она делает) находится 170 штук.
-Плотнее всего: Managers/Wp/TermManager.php (10), Repositories/OptionsRepositories/UserRepository.php
-(8), Services/Security/PiiCryptoService.php (7), Shared/Traits/TaxonomySeeder.php (6),
-Shared/Traits/Sanitizer.php (6), Services/Email/EmailOtpService.php (6),
-Migrations/MigrationRunner.php (6), Controllers/Pages/BoilerplatePageController.php (6).
-Реальный объём шума больше: сюда не попали заголовки-разделы вида «### Основные обязанности» и
-пересказы строк («Получение типа поста через статический метод PostTypeResolver»).
-
-Чистку по проекту пользователь отложил — фиксирую объём и точки входа.
-
-2H2. Пять TODO в рабочем коде
-
-AdSyncController.php:72,92 — оба помечают тексты, которые видит посетитель («TODO(текст):
-сообщения статусов»); Services/Course/ContentUsageService.php:452 — незакрытый этап
-кросс-предметного поиска; MetaBoxes/Templates/ThreeInOneTemplate.php:87 — «вынести отсюда html
-и стили»; templates/frontend/profile.php:36.
+**Корень обеих проблем один и тот же**: `TaskBundleService::upsertChild()`
+(`inc/Services/Task/TaskBundleService.php:163-197`) создаёт/обновляет 3 children
+через `PostManager::insert()`/`update()` (`inc/Managers/Wp/PostManager.php:189-194,
+258-262`), которые вызывают полновесные `wp_insert_post()`/`wp_update_post()` — а
+значит **повторно** запускают весь жизненный цикл сохранения поста
+(`wp_insert_post_data`, `save_post_{cpt}`, `save_post`) **в рамках того же PHP-запроса**,
+где `$_POST` всё ещё содержит форму **родительского** поста-связки. Хуки, которые
+читают `$_POST` без проверки, что это форма именно текущего `$post_id`, принимают
+детей за parent и либо ломают им валидацию (banка задания предмета), либо —
+что хуже — заново метят их как `triple_task` и рекурсивно создают ещё детей
+(глобальный банк).
 
 ---
 
-# Задачи этапа фиксов по ревью
+## A. КРИТИЧНО: бесконечная рекурсия при публикации связки в банке (`fs_lms_problems`) ✅ 2026-08-20
 
-Сопоставление: каждая задача ссылается на пункт ревью. Без задач остаются: 2S3, 2S5, 2D3
-(информационные, действий нет), 2H1 (чистка комментариев отложена решением пользователя),
-TODO AdSync-текстов из 2H2 (тексты не финализируем — маркеры `TODO(текст)` остаются) и
-ContentUsageService:452 (кросс-предметный поиск — фича «Этап 2», не долг этого этапа).
+- [x] `inc/Controllers/Problems/ProblemsController.php:72` — `add_action('save_post_' . $cpt,
+  array($this, 'saveTemplateType'))` — хук специфичного типа поста, WP fires его
+  **раньше** обычного `save_post` (`wp-includes/post.php`: сперва
+  `save_post_{$post_type}`, потом `save_post`).
+- [x] Там же, `saveTemplateType()` (строки 123-134) — читает `$template_id =
+  $this->sanitizeKey(PostMetaName::TemplateType->value)` **напрямую из `$_POST`**,
+  без проверки, что `$post_id` совпадает с постом текущей формы (`$_POST['post_ID']`),
+  и безусловно пишет это значение в мету **любого** `$post_id`, для которого сейчас
+  сработал `save_post_fs_lms_problems` — включая только что вставленных детей связки.
+- [x] Цепочка: `MetaBoxController::handleMetaSave(18153)` (родитель, `template_id ===
+  'triple_task'`) → `TaskBundleService::syncChildren(18153)` → `upsertChild()` →
+  `PostManager::insert()` создаёт child C1 → `wp_insert_post()` синхронно fires
+  `save_post_fs_lms_problems(C1)` **до** `save_post(C1)` → `ProblemsController::
+  saveTemplateType(C1)` ставит C1.meta[`fs_lms_template_type`] = `'triple_task'`
+  (из того же родительского `$_POST`, который для C1 не имеет смысла) → следом
+  срабатывает `save_post(C1)` → `MetaBoxController::handleMetaSave(C1)` →
+  `TemplateResolver::resolveId(C1)` (`inc/Services/Template/TemplateResolver.php:81-84`,
+  приоритет 2 — метаполе поста) **теперь видит** `triple_task` (только что
+  проставленный) → считает C1 связкой → вызывает `TaskBundleService::syncChildren(C1)`
+  **снова** → создаёт C2 с заголовком `"№ 19. " . C1->post_title` → рекурсия без
+  дна, ограниченная только `max_execution_time`/`memory_limit`/обрывом соединения.
+- [x] **Фикс (сервер, приоритет)**: `ProblemsController::saveTemplateType()` и
+  `saveSubjectFields()` (обе на `save_post_fs_lms_problems`) должны игнорировать
+  вызов, если `$post_id !== (int) ($_POST['post_ID'] ?? 0)` — стандартная защита от
+  реэнтерабельного `save_post` (WP всегда шлёт `post_ID` в форме редактора текущего
+  поста; для программных вставок внутри того же запроса это значение не совпадёт
+  с ID только что созданного ребёнка).
+- [x] **Фикс (архитектурный, устраняет класс проблемы)**: `TaskBundleService::
+  upsertChild()` не должен создавать/обновлять children через `PostManager::insert()/
+  update()` (полный `wp_insert_post()`/`wp_update_post()`, с фильтрами и экшенами).
+  Завести в `PostManager` низкоуровневые `insertBypassingHooks()`/
+  `updateBypassingHooks()` — по аналогии с уже существующим `updatePostContent()`
+  (`inc/Managers/Wp/PostManager.php:264-283`, docblock прямо описывает эту же
+  проблему для другого случая) — прямая работа с `$wpdb->posts` + `clean_post_cache()`,
+  без единого `do_action('save_post', ...)`. Переключить `upsertChild()` на них.
+- [x] **Фикс (defense-in-depth)**: `TaskBundleService::syncChildren()` — guard-флаг
+  (реализован как instance-свойство `private bool $syncing = false` — свежий экземпляр
+  на singleton-сервис даёт тот же эффект, что static, но не течёт между тестами),
+  возврат `array()` при повторном входе в рамках одного запроса.
+- [x] **A4. Чистка докер-БД** (сделано в диагностической сессии 2026-08-20):
+  `DELETE FROM wp_posts WHERE post_type = 'fs_lms_problems' AND post_title LIKE
+  '№ 19. № 19.%'` (потомки поста 18153, кроме него самого) + восстановить
+  заголовок/статус самого 18153 вручную, `wp_update_post` не использовать
+  (снова спровоцирует хук) — прямой SQL + `clean_post_cache()`.
+- [ ] **A5. Чистка прод-БД** — выполнить теми же SQL-запросами через прямой доступ
+  к проду (не WP-CLI/`wp_update_post`, чтобы не спровоцировать хук снова):
+  ```sql
+  -- посчитать масштаб
+  SELECT COUNT(*) FROM wp_posts WHERE post_type = 'fs_lms_problems'
+    AND post_title LIKE '№ 19. № 19.%';
+  -- удалить мусорных детей/внуков (не трогает исходный parent-пост)
+  DELETE FROM wp_posts WHERE post_type = 'fs_lms_problems'
+    AND post_title LIKE '№ 19. № 19.%';
+  -- почистить осиротевшую постмету удалённых ID (если удаляли не через wp_delete_post)
+  DELETE pm FROM wp_postmeta pm
+    LEFT JOIN wp_posts p ON p.ID = pm.post_id
+    WHERE p.ID IS NULL;
+  ```
+  Затем вручную поправить заголовок исходного parent-поста связки (у него тоже
+  накопился хвост «№ 19. № 19. ...» — см. A6) через прямой `UPDATE wp_posts SET
+  post_title = '<оригинальный заголовок>' WHERE ID = <parent_id>` — **не** через
+  редактор/`wp_update_post`, пока фикс A выше не выкачен, иначе повторит рекурсию.
+- [x] **A6. Разгадано** (докер-сессия 2026-08-20): пост `18153` — НЕ parent, а
+  рядовой мусорный пост из середины рекурсивной цепочки (реальный parent — `17163`,
+  «ЕГЭ-19», не тронут; первый child — `17164`, «№ 19. ЕГЭ-19»; garbage-диапазон
+  `17164..19130`, 1966 постов). `18153` выглядел как «родитель» только потому, что
+  `ProblemsController::saveTemplateType()` **и** `saveSubjectFields()` (обе на
+  `save_post_fs_lms_problems`, п. A2) на каждом уровне рекурсии копируют на текущий
+  `$post_id` ПОЛНУЮ мету из того же неизменного `$_POST` — включая
+  `fs_lms_bank_task_subject`/`fs_lms_bank_task_number` и весь `fs_lms_meta` с
+  тестовыми значениями `task_19_condition` и т.д. Явление объясняется целиком
+  пунктами A1-A3, отдельного бага для заголовка parent'а нет.
+- [x] Тест-регресс: `TaskBundleServiceTest::test_reentrant_sync_children_call_is_ignored` —
+  реэнтерабельный вызов `syncChildren()` внутри `insertBypassingHooks()` возвращает
+  пустой массив, ровно 3 вставки за весь цикл (плюс существующие тесты обновлены на
+  `insertBypassingHooks()`/`updateBypassingHooks()`).
 
-Рекомендуемый порядок: Т1–Т3 (безопасность) → Т4 (нужна Т10 и Т13) → Т5–Т9 → Т10–Т12 →
-Т13 → Т14 (распил — в самом конце, чтобы фиксы не переезжали по файлам).
+## B. Баг публикации «Условие задания» для связки в банке заданий предмета (`{key}_tasks`) ✅ 2026-08-20
 
----
+- [x] Тип задания — `inc/Enums/Subject/TaskTemplate.php:45` (`case Triple =
+  'triple_task'`) → `inc/MetaBoxes/Templates/ThreeInOneTemplate.php` (поля
+  `task_19_condition/task_19_answer`, `task_20_...`, `task_21_...`,
+  `ConditionField`, строки 23-59). У обычных шаблонов поле условия —
+  `task_condition` с меткой «Условие задания» (`StandardTaskTemplate.php:30`
+  и 10 других шаблонов).
+- [x] Причина — тот же реэнтерабельный `wp_insert_post()` из `TaskBundleService::
+  upsertChild()`, но в этом CPT он бьёт по другому хуку:
+  `SubjectValidationCallbacks::validateRequiredTaxonomies()`
+  (`inc/Callbacks/Subject/SubjectValidationCallbacks.php:76-118`), навешанному
+  на `wp_insert_post_data` — срабатывает при вставке каждого child в рамках того
+  же запроса, где `$_POST` — форма **родителя**.
+- [x] `effectiveTemplateId()` (строки 261-277) — для нового child `$postId` внутри
+  фильтра `wp_insert_post_data` ещё равен `0` (ID не назначен на этой стадии),
+  поэтому ветка `$this->templateResolver->resolveId($post)` не срабатывает; при
+  этом `sanitizeKey(TemplateType)` тоже пусто (форма — родителя, поля `fs_lms_
+  template_type` в ней для этого CPT нет — шаблон предметного parent'а назначается
+  термом таксономии, см. `TemplateResolver` приоритет 1) → возвращает `''`.
+- [x] `TemplateRegistry::get('')` (`inc/Services/Template/TemplateRegistry.php:79-89`)
+  фолбэчит через `TaskTemplate::fromDatabase('')` (`TaskTemplate.php:100-115`) →
+  `Standard`.
+- [x] `effectiveMeta(0)` (строки 238-248) видит `hasParam('fs_lms_meta') === true`
+  (форма родителя) и отдаёт **родительский** массив меты (ключи `task_19_condition`
+  и т.п.), где `task_condition` нет → `TaskPublishValidator::getSoftError()`
+  (`inc/Services/Task/TaskPublishValidator.php:48-84`) возвращает «Заполните
+  «Условие задания»».
+- [x] `TaskPublishGuard::enforce()` → `forceDraft()` (`inc/Services/Task/
+  TaskPublishGuard.php:107-128`) переводит **child** в `draft` и пишет транзиент
+  `fs_lms_publish_error_<uid>`, который `showEmptyRequiredTaxNotice()`
+  (`SubjectValidationCallbacks.php:285-295`) выводит на экране parent'а как общую
+  ошибку публикации — вводя автора в заблуждение: сам parent публикуется нормально,
+  ошибка относится к побочно создаваемым children.
+- [x] Фикс — тот же, что в A: после перехода `TaskBundleService::upsertChild()` на
+  bypass-вставку (A, пункт «архитектурный фикс») эта проблема исчезает сама, т.к.
+  `wp_insert_post_data` для children вызываться не будет. Отдельного фикса в
+  `SubjectValidationCallbacks` не требуется — не плодить два параллельных
+  обходных пути.
+- [x] Тест-регресс: покрыто существующими/обновлёнными `TaskBundleServiceTest` —
+  дети создаются через `insertBypassingHooks()`/`updateBypassingHooks()`, минуя
+  `wp_insert_post_data`/`save_post`, поэтому `SubjectValidationCallbacks` и
+  `ProblemsController` больше не видят реэнтерабельный вызов на child'ах.
 
-## Т1 (2S1, высокий) — rate limit на публичные проверки логина/email
+## C. Автозаполнение слотов 19/20/21 в конструкторе «Компьютерный ЕГЭ» ✅ 2026-08-20
 
-**Файлы:** `inc/Services/Security/RateLimitService.php`,
-`inc/Callbacks/Enrollment/ApplicationCallbacks.php:427-449`.
+Сейчас каждый из трёх слотов (19, 20, 21) в конструкторе EgeComputer заполняется
+вручную поиском по названию — даже если все три условия хранятся в одной связке.
 
-**Проблема.** `ajaxCheckUsernameAvailable` / `ajaxCheckEmailAvailable` — nopriv, защищены только
-нонсом, который печатается в публичную страницу и одинаков для всех посетителей. Без лимита это
-пакетная проверка `username_exists()` / `email_exists()` — перечисление пользователей и
-подтверждение ПД по списку адресов.
-
-**Шаги.**
-1. В `RateLimitService` добавить константы `LIMIT_USERNAME_CHECK = 20` и
-   `LIMIT_EMAIL_CHECK = 10` (email жёстче — это проверка ПД; значения — стартовые, окно — общий
-   `WINDOW` 1 час) и методы по образцу соседей (`allowApplicationCreation`):
-   - `allowUsernameCheck( string $ip ): bool` → `check( $this->ipKey( 'unamechk', $ip ), … )`;
-   - `allowEmailCheck( string $ip ): bool` → `check( $this->ipKey( 'emailchk', $ip ), … )`.
-   Оба обязаны начинаться с байпаса `if ( $this->pluginConfig->isTestEnv() ) { return true; }`
-   (иначе лягут e2e-прогоны формы). Дописать оба ключа в докблок класса «Ключи transient-ов».
-2. `ajaxCheckUsernameAvailable()`: после `Nonce::CheckUsernameAvailable->verify()` —
-   `$ip = (string) ( $_SERVER['REMOTE_ADDR'] ?? '' );` и при `! allowUsernameCheck( $ip )` →
-   `$this->error( 'Слишком много запросов. Попробуйте позже.' )` — дословно тот же текст, что у
-   соседних методов (унификация ответа из ревью).
-3. `ajaxCheckEmailAvailable()`: то же с `allowEmailCheck`.
-
-**JS не менять.** `apply-form.js:253-274` и `join-form.js:14-37` уже fail-open: поле блокируется
-только при явном `available === false`; error-ответ (в т.ч. лимит) игнорируется, а финальная
-проверка занятости всё равно выполняется на создании заявки/учётки. Вручную убедиться, что при
-исчерпанном лимите форма по-прежнему отправляется.
-
-**Грабли.**
-- Не менять форму успешного ответа (`{ available: bool }`) — на неё завязаны обе формы.
-- Не добавлять per-email-счётчик (как у `allowOtpSendForEmail`) — здесь защита от перебора
-  Источником (IP), а не от бомбинга цели; per-target-лимит сломает легитимный ввод.
-- IP за школьным NAT общий на класс — лимиты ниже 20/час не ставить.
-
-**Готово, когда:** 21-й запрос `check_username` (11-й — `check_email`) с одного IP за час получает
-`error`; в тест-окружении лимита нет; blur-проверка на формах работает.
-
----
-
-## Т2 (2S2 + 2A4, средний) — статус AD-провижна по токену и вынос обработчика из контроллера
-
-**Файлы:** `inc/Modules/AdSync/Controllers/AdSyncController.php`;
-новые `inc/Modules/AdSync/Services/AdStatusTokenService.php` и
-`inc/Modules/AdSync/Callbacks/AdSyncStatusCallbacks.php`;
-`src/js/frontend/services/apply-form.js:138` (только JSDoc).
-
-**Проблема.** nopriv-эндпоинт `fs_lms_ad_status` принимает сырой последовательный ID заявки
-(`$_POST['ref']`) — анонимный перебор отдаёт существование, количество и темп заявок. Плюс
-AJAX-обработчик живёт в контроллере, а не в Callbacks.
-
-**Шаги.**
-1. Новый `AdStatusTokenService` (в `Services/` модуля):
-   - `private const PREFIX = 'fs_lms_ad_ref_';`, `private const TTL = 15 * MINUTE_IN_SECONDS;`
-     (окно поллинга ~100 с, запас на ретраи);
-   - `issue( int $applicationId ): string` — `bin2hex( random_bytes( 16 ) )`,
-     `set_transient( self::PREFIX . $token, $applicationId, self::TTL )`, вернуть токен;
-   - `resolve( string $token ): int` — `(int) get_transient( self::PREFIX . $token )`
-     (0 — нет/протух). Читает, НЕ удаляет: поллинг до 40 запросов.
-   Сырые `set_/get_transient` здесь легальны: ключ инкапсулирован в одном классе модуля —
-   паттерн `RateLimitService`/`EmailOtpService` (фиксируется в Т7).
-2. Новый `AdSyncStatusCallbacks extends BaseController` + `use Sanitizer` (образец —
-   `AdSyncSettingsCallbacks`): метод `ajaxStatus()`:
-   - `Nonce::Apply->verify();`
-   - `$token = $this->sanitizeKey( 'ref' );` (hex проходит `sanitize_key`);
-   - `$appId = '' !== $token ? $this->tokens->resolve( $token ) : 0;`
-   - дальше — текущая логика статуса и массив `$messages` (переезжают из контроллера как есть,
-     вместе с комментарием `TODO(текст)` — тексты в этом этапе не финализируем).
-   - Невалидный/протухший токен = `state 'none'` с тем же сообщением, что и `pending`, — ответ
-     не должен различать «заявки нет» и «токен истёк».
-3. `AdSyncController`:
-   - `filterApplyResponse()`: `'ref' => $this->tokens->issue( $applicationId )` вместо сырого ID
-     (остальные поля `poll` без изменений);
-   - `ajaxStatus()` удалить; обе регистрации `wp_ajax_(nopriv_)` перевести на
-     `array( $this->statusCallbacks, 'ajaxStatus' )`; зависимости — через конструктор (DI);
-   - `STATUS_ACTION` ОСТАВИТЬ module-local константой с докблоком как у
-     `AdSyncSettingsController::SAVE_ACTION` («вне core AjaxHook — изоляция»).
-4. `apply-form.js:138`: JSDoc `{ref:number}` → `{ref:string}`. Код не меняется — `poll.ref`
-   пересылается как есть (`:157`).
-
-**Грабли.**
-- НЕ заводить кейс в core `AjaxHook`/`TransientKey`, как буквально предлагает ревью: ядро не
-  должно знать о модулях (тот же принцип, что для модульных опций; прецедент —
-  `SAVE_ACTION`). Настоящие нарушения 2A4 — логика в контроллере и хардкод-тексты, их и чиним.
-- Токен НЕ одноразовый (`take()` нельзя) — фронт опрашивает многократно.
-- `statusForApplication()` по 0 не звать (короткое замыкание как сейчас: `$appId > 0`).
-
-**Готово, когда:** в ответе apply нет числового ID заявки; POST с `ref=<число>` или произвольным
-токеном возвращает `none` без утечки; штатный поллинг доходит до `done` (docker, тестовая заявка).
-
----
-
-## Т3 (2S4, низкий) — экранирование в точке вывода в двух табах настроек
-
-**Файлы:** `templates/admin/components/tabs/settings-tabs/settings-9-rooms.php`,
-`templates/admin/components/tabs/settings-tabs/settings-3-periods.php`.
-
-**Проблема.** Приём «экранируем в переменную, печатаем в N местах» (`$row_name =
-esc_attr( … )` → голые `echo $row_name`) не уязвим сейчас, но одна новая строка без `esc_attr`
-превращается в хранимую XSS незаметно для ревью и phpcs.
-
-**Шаги.**
-1. `settings-9-rooms.php`: убрать `esc_attr()` из присваиваний `:51-52` (оставить
-   `$row_name = $room->name;` и т.п.), добавить `esc_attr()` в каждую точку вывода:
-   `$row_name` — `:61, :84, :93`; `$row_subjects` — `:62, :85`. `$row_id` — `(int)`-каст,
-   не трогать.
-2. `settings-3-periods.php`: то же для `$row_id` (`:60, :65, :100, :111`) и `$row_name`
-   (`:66, :101, :112`); присваивания `:50-51` — без esc. `$start_date`/`$end_date` уже
-   экранируются на месте — не трогать.
-
-**Готово, когда:** в обоих файлах нет `echo $var` без `esc_*` в самой точке вывода; вёрстка табов
-не изменилась; phpcs зелёный без новых подавлений.
-
----
-
-## Т4 (2A1) — `PostManager::taskMeta()` вместо прямых `get_post_meta`
-
-**Файлы:** `inc/Managers/Wp/PostManager.php` (+5 потребителей ниже).
-
-**Шаги.**
-1. В `PostManager` добавить (рядом с `getMeta`, `:413`):
-   ```php
-   public function taskMeta( int $post_id ): array {
-       $meta = get_post_meta( $post_id, PostMetaName::Meta->value, true );
-       return is_array( $meta ) ? $meta : array();
-   }
-   ```
-   (импортировать `PostMetaName`; guard `is_array` — общий для всех пяти мест).
-2. Заменить прямые вызовы:
-   - `inc/Controllers/Task/MetaBoxController.php:162-163` → `taskMeta( $post->ID )`
-     (проверить конструктор: если `PostManager` не внедрён — добавить);
-   - `inc/MetaBoxes/Templates/BaseTemplate.php:84-87` → защищённый метод
-     `protected function taskValues( \WP_Post $post ): array` поверх `taskMeta()`;
-   - `inc/MetaBoxes/Templates/ThreeInOneTemplate.php:91-94` — удалить дословную копию чтения,
-     звать `$this->taskValues( $post )` (комментарий «точно так же, как в BaseTemplate» умрёт);
-   - `inc/Services/Assessment/TaskPreviewService.php:91-92` → `taskMeta()`; `:93`
-     (`TemplateType`) → существующий `getMeta( $task_id, PostMetaName::TemplateType->value )`;
-   - `inc/Services/Template/TemplateResolver.php:79,81` → `getMeta()` (два ключа:
-     `PostMetaName::TemplateType` и `self::LEGACY_TEMPLATE_META`); внедрить `PostManager`.
-3. Способ внедрения в Templates выяснить по факту: если шаблоны метабоксов создаёт контейнер —
-   конструкторная зависимость в `BaseTemplate` (наследники зовут `parent::__construct`); если
-   инстанцируются вручную в `TemplateRegistry` — передать `PostManager` из места создания.
-
-**Грабли.** Поведение 1:1: `taskMeta` возвращает `array()` на любое не-массивное значение — это
-ровно текущие guard-ы. Не подменять `TemplateResolver`-у порядок фолбэков (сначала
-`TemplateType`, при пустом — legacy-ключ, потом `TaskTemplate::Standard`).
-
-**Готово, когда:** `grep -rn "get_post_meta" inc/ --include=*.php` вне `inc/Managers/` пуст;
-метабокс задания, inline-модалка (`GetTaskEditorForm`) и предпросмотр работы рендерятся как до
-правки.
-
----
-
-## Т5 (2A2) — полная зачистка суперглобалов через трейт `Sanitizer`
-
-**Объём:** все ~69 обращений к `$_POST` / `$_GET` / `$_REQUEST` / `$_FILES` в ~35 файлах `inc/`
-(решение пользователя — полная зачистка). Список получить на месте:
-`grep -rnE '\$_(POST|GET|REQUEST|FILES)' inc/ --include=*.php`.
-
-**Правила замены (поведение строго 1:1).**
-- `isset( $_GET['x'] ) ? (int) $_GET['x'] : 0` → `sanitizeGetInt( 'x' )` (`Sanitizer:290`);
-- `sanitize_key( wp_unslash( $_GET['x'] ?? '' ) )` → `sanitizeGetKey( 'x' )` (`Sanitizer:282`);
-- POST-строки/ключи/числа → `sanitizeText` / `sanitizeKey` / `sanitizeInt`; списки —
-  `sanitizeIntList` / `sanitizeKeyList`; произвольные структуры — `unslashArray()` +
-  `sanitize*Value()` поэлементно;
-- `require*` использовать ТОЛЬКО там, где пустое значение и сейчас приводит к ошибке — появление
-  нового исключения = изменение поведения;
-- если нужного варианта в трейте нет (например, GET-текст) — добавить метод В ТРЕЙТ по образцу
-  соседей, а не городить локальный разбор;
-- `$_FILES`: трейт файлы не покрывает — эти места не переписывать вслепую; либо завести хелпер в
-  `Sanitizer`/`MediaManager`, либо оставить прямое обращение с `phpcs:ignore` и причиной
-  (молча не оставлять);
-- `$_SERVER` (`REMOTE_ADDR`, `HTTP_USER_AGENT`) в объём НЕ входит — не трогать.
-- В классах вне Callbacks трейт подключать явно (`use Inc\Shared\Traits\Sanitizer;`).
-
-**Отдельно — `inc/Controllers/Course/CoursePreviewController.php` (худший, 7 обращений, дубль).**
-1. Подключить `Sanitizer` (сейчас нет).
-2. Единый приватный разбор deep-link вместо двух копий:
-   `private function deepLinkParams(): array` → `['course' => sanitizeGetInt('course'),
-   'lesson' => isset($_GET['lesson']) ? sanitizeGetInt('lesson') : null,
-   'step' => sanitizeGetKey('step')]` — и `loadTemplate()` (`:40-71`), и `currentDeepLink()`
-   (`:82-88`) используют его.
-3. Сохранить разницу поведения: фолбэк `lesson` на первый урок курса существует ТОЛЬКО в
-   `loadTemplate()` (`:61`) — он остаётся там, `deepLinkParams()` отдаёт `null`;
-   `currentDeepLink()` не добавляет `lesson`/`step`, если их не было в запросе.
-
-**Готово, когда:** grep из шапки возвращает только `Sanitizer.php` и согласованные
-`phpcs:ignore`-места с причиной; `npm run ci` зелёный; смоук: превью курса с deep-link
-(`?course=&lesson=&step=`), сохранение форм в админке, импорт CSV, загрузка вложений.
+- [x] `src/js/admin/services/assessment-builder.js` — слоты позиционные
+  (`buildEgeSlots()`/`blankSlot()`, строки 42-43), AJAX-поиск шлёт `position:
+  String(index + 1)` (строки 165-171) → сервер фильтрует кандидатов строго по
+  номеру позиции (`LessonAuthoringService::getStepCandidates()`,
+  `inc/Services/Course/LessonAuthoringService.php:117-145`, `taskNumberQuery()`/
+  `bankNumberQuery()` строки 152-185) — т.е. в слоте 19 ищутся именно
+  **дети-№19** (термированные отдельно, `TaskBundleService::upsertChild()`
+  строки 189-195), а не parent-связка.
+- [x] Готовый, но не подключённый к EGE-конструктору паттерн: `WorkAuthoringService::
+  withBundleChildren()` (`inc/Services/Course/WorkAuthoringService.php:86-93`) и
+  `LessonAuthoringService::candidatesFrom()` (`$withBundles`, строки 196-217)
+  добавляют кандидату поле `bundle_children` через `TaskBundleService::
+  childrenSummary()` (строки 110-134), а `src/js/admin/services/slot-builder.js::
+  assignPicked()` (строки 204-237) при наличии `bundle_children` заменяет 1 слот
+  на 3 (`splice`). Не подходит впрямую: `splice()` рвёт фиксированную связку
+  «индекс слота = номер позиции» для EGE-конструктора (слоты 20+ съедут).
+- [x] **План** — реализован:
+  1. Сервер: `TaskBundleService::siblingsOf(int $childId)` — обратный маппинг
+     child→{номер => {id,title}} по всей связке (через `TaskBundleParentId` →
+     `childrenSummary()` родителя). `LessonAuthoringService::candidatesFrom()`
+     принимает `$position` и для child'а без `bundle_children` (не parent),
+     но при непустом `$position`, кладёт `item['bundle_siblings']` из
+     `siblingsOf()`. Прокинуто через `getStepCandidates()`/оба места вызова
+     `candidatesFrom()`.
+  2. JS: `slot-builder.js` — новый метод `api.assignManyAt(pairs)` (прямое
+     присвоение нескольких `{index,taskId,title}` без `splice`, один `save()`)
+     и хук `config.onPick(index,id,title,item)` в `renderActions()` (перехват
+     пика до дефолтного `assignPicked()`, возврат `true` — обработано).
+     `assessment-builder.js` — `onPick`: для `isEge(kind)` и `item.bundle_siblings`
+     раскладывает пары `{index: Number(number)-1, taskId, title}` через
+     `assignManyAt()`, иначе `false` (дефолтное поведение). `slot-builder.js`
+     остался общим для Work builder — не тронут кроме добавления hook-точки.
+  3. Тест-регресс: `LessonAuthoringServiceTest::
+     test_step_candidates_task_with_position_exposes_bundle_siblings`,
+     `TaskBundleServiceTest::test_siblings_of_returns_full_bundle_by_number` /
+     `test_siblings_of_empty_for_plain_task`.
 
 ---
 
-## Т6 (2A3) — `SubjectValidationCallbacks:323`: НЕ `authorize()`, а вынос из цикла
+# Задачи: замены преподавателя — доступ и уведомления; поле контрольной (2026-08-20)
 
-**Файл:** `inc/Callbacks/Subject/SubjectValidationCallbacks.php:321-338`.
+Контекст: два независимых запроса пользователя по системе замен (Эпик 5), плюс отдельная
+правка конструктора контрольной, плюс переработка проверки работ (блок D).
 
-**Важно — поправка к ревью.** Метод `showEmptyRequiredTaxNotice()` — колбек `admin_notices`, а не
-AJAX: предложенный ревью `$this->authorize()` слал бы JSON-403 и ломал бы рендер админки.
-Слепое исполнение рекомендации здесь и было бы «повторить ошибку ревью».
+**A.** Сейчас доступ замещающего к группе (чтение КТП, плеер урока, журнал) открывается/
+закрывается по календарной проверке `valid_from <= CURDATE() <= valid_to`
+(`SubstitutionRepository::hasActiveGrant()`), а не в момент утверждения замены. Если офис
+назначает замену заранее («с понедельника»), препод не видит группу до наступления даты,
+хотя замена уже утверждена. Нужно: чтение (КТП, предстоящие задания) открывать сразу при
+утверждении; запись в журнал — по-прежнему только в активном окне `[valid_from, valid_to]`.
 
-**Шаги.**
-1. Вынести `$canManage = current_user_can( Capability::ManageTerms->value );` из
-   `foreach ( $emptyTaxes … )` (`:321`) перед цикл — вызов от `$tax` не зависит.
-2. В CLAUDE.md (вместе с Т7) уточнить правило: запрет прямых `current_user_can()` /
-   `check_ajax_referer()` относится к **AJAX-методам** (там — `Authorizer`); в не-AJAX
-   хук-колбеках (`admin_notices` и т.п.) прямая проверка права допустима, право — только кейсом
-   `Capability`.
+**B.** При утверждении замены уведомление получает только замещающий преподаватель
+(`NotificationType::SubstituteAssigned`). Ученики группы не оповещаются ни о замене
+преподавателя, ни о смене кабинета (у `RoomAssignmentService` уведомлений нет вообще).
 
-**Готово, когда:** вызов один на рендер нотиса; правило в CLAUDE.md уточнено; других прямых
-`current_user_can` в Callbacks нет (по ревью этот был единственным).
-
----
-
-## Т7 (2A5 + 2A7) — зафиксировать исключения в CLAUDE.md + дедуп SVG-партиала
-
-**Файлы:** `CLAUDE.md` (раздел «Принятые исключения»),
-`inc/Modules/SocialAuth/templates/settings-tab.php`.
-
-**Решения пользователя:** логотипы OAuth в `Icon` не переносим — фиксируем исключение.
-
-**Шаги.**
-1. Дописать в «Принятые исключения» CLAUDE.md (датировать):
-   - **Бренд-логотипы OAuth** — цветные, не `currentColor`, поэтому живут не в `Icon`, а в
-     партиале `templates/admin/components/modals/partials/provider-logo.php` (его докблок уже
-     это объясняет). Новые бренд-SVG — только через этот партиал.
-   - **Модульные AJAX-экшены** — локальные константы модуля
-     (`AdSyncSettingsController::SAVE_ACTION`, `AdSyncController::STATUS_ACTION`), вне core
-     `AjaxHook`: ядро не знает о модулях. Обработчики — всё равно в Callbacks-классах модуля.
-   - **Модульные транзиенты** — ключи в модуле, вне core `TransientKey`, сырые
-     `set_/get_transient` при ключе-константе в одном классе:
-     `VideoLibrary/RecordingAlertService::COUNT_TRANSIENT`, `AdSync/AdStatusTokenService` (Т2).
-     Это закрывает 2A5 без правки кода.
-   - Уточнение правила `current_user_can` из Т6.
-2. `settings-tab.php:29,84,137`: три инлайновых `<svg>` — дословные копии путей из
-   `provider-logo.php`, но БЕЗ `viewBox`/`aria-hidden` (то есть ещё и хуже). Заменить каждую на
-   подключение партиала: `$provider = 'google'; require <plugin_path>/templates/admin/components/
-   modals/partials/provider-logo.php;` (модулю можно использовать core-партиал; обратное
-   направление запрещено). Путь строить хелпером `path()`, если шаблон рендерится из
-   контроллера с `BaseController`.
-
-**Готово, когда:** grep `<svg` по `templates/` и `inc/Modules/**/templates/` находит только
-`provider-logo.php`; вкладка настроек SocialAuth выглядит как раньше; CLAUDE.md дополнен.
+**C.** У обычной контрольной (`AssessmentKind::Control`) в конструкторе виден блок
+«Таблица перевода баллов» (`score_map`) — поле унаследовано от общего шаблона метабокса и
+для Control нигде не используется в расчёте оценки (везде гейт
+`AssessmentKind::needsSecondaryScore()`, который для Control — `false`). Сейчас логика
+скрытия обратная: поле прячется только для ЕГЭ/ОГЭ-станций
+(`STATION_ONLY_HIDDEN_FIELD_IDS` в `assessment-builder.js`), а для Control остаётся
+видимым и сохраняемым, хотя мёртвое. Нужно убрать поле именно у Control, сохранив его для
+ЕГЭ/ОГЭ, где оно реально участвует в переводе первичного балла во вторичный
+(`SecondaryScoreService`).
 
 ---
 
-## Т8 (2A6) — `declare(strict_types=1)` в 37 файлах `inc/` + 3 корневых
+## A. Доступ замещающего — сразу при утверждении
 
-**Объём (ровно 37 из ревью, agent-перепроверено):**
-Callbacks: `Task/BoilerplateCallbacks.php`, `Task/TemplateManagerCallbacks.php`;
-Contracts: `ServiceInterface.php`;
-Controllers: `Builders/SubjectsMenuBuilder.php`, `Subject/SubjectController.php`,
-`System/AdminController.php`, `Task/BoilerplateController.php`;
-Core: `BaseController.php`, `Container.php`, `Deactivate.php`;
-Enums: `Access/UserRole.php`, `Log/AuditAction.php`, `Person/ConsentType.php`,
-`Subject/TaskTemplate.php`, `Wp/PageRoutes.php`;
-Managers: `Wp/CPTManager.php`, `Wp/MenuManager.php`, `Wp/TaxonomyManager.php`;
-MetaBoxes/Templates: `BaseTemplate.php`, `CodeTaskTemplate.php`, `CommonConditionTemplate.php`,
-`FileAnswerTaskTemplate.php`, `FileCodeTaskTemplate.php`, `FileTaskTemplate.php`,
-`StandardTaskTemplate.php`, `TaskTextSolution.php`, `ThreeInOneTemplate.php`,
-`TwoFileCodeTaskTemplate.php`;
-Registrars: `MenuRegistrar.php`, `MetaBoxRegistrar.php`, `SubjectCPTRegistrar.php`,
-`SubjectTaxonomyRegistrar.php`;
-Services: `System/PageGeneratorService.php`;
-Shared/Traits: `ErrorHandler.php`, `NumericSorter.php`, `Sanitizer.php`, `TemplateRenderer.php`.
-Плюс корневые: `fs-lms.php`, `uninstall.php`, `tests/Unit/Services/PiiMaskingServiceTest.php`.
+- [x] `inc/Repositories/WPDBRepositories/SubstitutionRepository.php` — добавить
+  `hasUpcomingOrActiveGrant(int $userId, int $groupId): bool` (та же проверка, что
+  `hasActiveGrant()`, но без условия на `valid_from` — только `valid_to >= CURDATE()`).
+- [x] Там же — `findUpcomingOrActiveBySubstitute(int $userId, string $today): array`
+  (симметрично `findActiveBySubstitute()`, без нижней границы по `valid_from`).
+- [x] `inc/Services/Course/GroupAccessGuard.php::canManage()` — заменить
+  `hasActiveGrant()` → `hasUpcomingOrActiveGrant()`. Одна точка входа закрывает разом
+  КТП (`ProgramAccess::requireGroupAccess/requireProgramRow`), teacher-режим плеера
+  урока (`LessonPlayerController`), превью.
+- [x] `canWriteJournal()` — **не менять**: запись посещаемости/оценок остаётся на
+  `hasActiveGrant()` (дата-в-дату), иначе замещающий сможет проставлять оценки на
+  месяц вперёд.
+- [x] `inc/Services/Profile/DashboardService.php::collectGroups()` — использовать
+  `findUpcomingOrActiveBySubstitute()` вместо `findActiveBySubstitute()`, чтобы группа
+  попадала в «Мои группы»/дашборд сразу после назначения замены.
+- [x] Там же, блок `covering` (строки ~156-163) — добавить `valid_from` в возвращаемый
+  массив, чтобы отличать «замена уже идёт» от «начнётся с {valid_from}».
+- [x] `src/js/profile/dashboard.js` — для будущих замен показывать бейдж «с {valid_from}»
+  вместо текущего «до {valid_to}».
+- [x] Тесты: `GroupAccessGuardTest` (canManage — доступ при будущем `valid_from`,
+  canWriteJournal — по-прежнему запрет), `DashboardServiceTest` (группа в списке при
+  будущей замене), плюс юниты на новые методы репозитория.
 
-**Шаги.**
-1. В каждом — `declare( strict_types=1 );` сразу после `<?php` (формат с пробелами — как во всех
-   остальных файлах проекта).
-2. Это НЕ чисто механика: strict_types меняет семантику вызовов внутри файла. Перед коммитом
-   пройти по перечисленным файлам глазами на предмет вызовов, куда прилетают «числа-строки» из
-   меты/опций/запросов (типичный риск: `(int)`-некастованный параметр, `'1' == 1`-сравнения не
-   ломаются, а вот передача `"5"` в `int`-параметр — теперь TypeError).
-3. Смоук обязательный (файлы бутстрап-критичные: `Container`, `CPTManager`, Registrars,
-   `BaseController`, `Sanitizer`): реактивация плагина в docker, создание/сохранение задания
-   (все шаблоны метабоксов из списка!), страница настроек, фронт задания и статьи, `npm run ci`.
+## B. Уведомления ученикам о замене преподавателя и смене кабинета
 
-**Вне объёма:** 60 файлов `templates/` тоже без строгой типизации — ревью считало только `inc/`.
-Решить отдельно: либо добить вторым проходом, либо уточнить правило в CLAUDE.md
-(«каждый PHP-файл с логикой»); в этой задаче шаблоны не трогать.
+- [x] `inc/Enums/Profile/NotificationType.php` — новые кейсы `SubstituteAssignedStudent`
+  и `RoomChanged`, `title()`/`tone()` (`info`).
+- [x] `inc/Services/Profile/NotificationService.php::renderBody()` — ветки рендера тела
+  для обоих новых типов (группа/препод/даты; старый→новый кабинет).
+- [x] `inc/Services/Course/SubstitutionService.php::assign()` — после существующего
+  `push()` замещающему добавлена рассылка `SubstituteAssignedStudent` через
+  `groupStudentUserIds($groupId)` (родителям не дублируется — решено раньше).
+- [x] `SubstitutionService::revoke()` — теперь отзывает уведомления через `retract()` по
+  dedupe-ключам `sub:{id}` и `sub-student:{id}` (сначала `find()`, потом `delete()`).
+- [x] `inc/Services/Course/RoomAssignmentService.php` — `NotificationService` внедрён в
+  конструктор.
+- [x] Там же, `assignToLesson()` и `overrideForRange()` — после проверки, что кабинет
+  реально меняется, рассылают `RoomChanged` ученикам (`lessonStudentUserIds`) и
+  эффективному преподавателю занятия (`lessonTeacherUserId()`), со старым/новым
+  кабинетом в payload (`pushFresh`, dedupe `room-lesson:{id}` — переживает повторные
+  правки одного занятия). `assignToGroup()` (дефолт на год) уведомлений не шлёт —
+  решено раньше.
+- [x] `src/js/profile/notifications.js` — `TYPE_ICON` дополнен (`substitute_assigned_student`
+  → `icoSwap`, `room_changed` → `icoMapPin`).
+- [x] Тесты: `SubstitutionServiceTest` (рассылка ученикам, retract при revoke),
+  `RoomAssignmentServiceTest` (уведомление/её отсутствие при `assignToLesson`),
+  `NotificationServiceTest` (рендер тела обоих новых типов). Полный набор — 1336
+  тестов зелёные.
 
-**Готово, когда:** grep файлов без `strict_types` по `inc/` пуст; смоук пройден.
+## C. Убрать «Таблицу перевода баллов» у обычной контрольной
 
----
-
-## Т9 (2A8) — прогресс-бары на CSS-переменную, transition/transform — в классы
-
-**Проблема.** Четыре прогресс-бара двигаются `style.width = '…%'` из JS; правильная идиома в
-проекте — CSS-переменная (`modal-base.js:55` → `--scrollbar-width`, `task-condition.js:140` →
-`--tcr-full`). Позиционирование поповеров по геометрии — честное исключение, его НЕ трогаем
-(`profile/utils.js:130-179`, `step-editor.js:893-961` top/left — остаются как есть).
-
-**Шаги.**
-1. SCSS — задать ширину от переменной (сейчас ширина живёт только в инлайне из JS):
-   - `src/scss/player/components/_shell.scss:101-114` — `.sp-bar span { width: var(--progress, 0%); }`;
-   - `src/scss/player/components/_step-work.scss:46-58` — `.ap-bar span { width: var(--progress, 0%); }`;
-   - `src/scss/player/components/_rail.scss:128-141` — `.bar span { width: var(--progress, 0%); }`;
-   - `src/scss/player/components/_step-video.scss:100-113` — `.fill { width: var(--progress, 0%); }`,
-     `.knob { left: var(--progress, 0%); }` (одна переменная двигает и заливку, и бегунок).
-2. JS — вместо `style.width`/`style.left` ставить переменную:
-   - `player/shell.js:19` (гидрация `data-width`) →
-     `el.style.setProperty( '--progress', pct + '%' )`;
-   - `player/step-work.js:87`; `player/core.js:100` — аналогично;
-   - `player/step-video.js:46-47` — ОДИН `setProperty('--progress', …)` на общем контейнере
-     прогресса (заливка и бегунок — дети, возьмут `var()`), вместо двух присваиваний.
-3. `frontend/components/article-carousel.js:50` — `style.transition = …` убрать: класс-модификатор
-   (напр. `.is-animating` с `transition: transform …` из токена таймингов, см. `src/scss/CLAUDE.md`)
-   навешивать/снимать вместо инлайна. `:51` (`translateX` от `itemWidth()`) — динамическая
-   геометрия, допустимо оставить; по желанию — та же схема с `--carousel-shift`.
-4. `admin/services/step-editor.js:957` — `style.transform = 'translateY(calc(-100% - 6px))'` —
-   константа: класс (напр. `.is-above`) в admin-SCSS, JS только вешает класс.
-
-**Грабли.** Прогресс — проценты строкой (`'42%'`), не число; stylelint не пропустит сырой тайминг
-`0.3s ease` — брать токен; `hidden`-логику не трогать.
-
-**Готово, когда:** grep `style\.width|style\.transition` по `src/js` пуст; `style.transform` —
-только динамическая геометрия (carousel `:51`); все четыре бара и бегунок видео работают
-(топбар урока, рельса, «Отвечено n из N», прогресс видео); `npx gulp build` + stylelint зелёные.
-
----
-
-## Т10 (2P1) — `primeMetaCache()` перед циклами по ID из своих таблиц
-
-**Проблема.** ID приходят из таблиц ответов/попыток — мета-кэш WP не прогрет, каждый `getMeta()`
-в цикле — отдельный запрос (контрольная на 30 заданий = 60+ запросов).
-
-**Шаги** (везде `PostManager` уже внедрён):
-1. `inc/Services/Assessment/AttemptTaskViewBuilder.php` — `build( array $taskIds, … )`: перед
-   `foreach` (`:56`) — `$this->posts->primeMetaCache( $taskIds );`.
-2. `inc/Services/Assessment/AttemptResultService.php` — `studentPerTask()`: материализовать
-   `$rows = $this->answers->listByAttempt( $attemptId );`, собрать
-   `array_map( fn( $a ) => $a->taskId, $rows )` → `primeMetaCache()`, затем цикл по `$rows`.
-3. `inc/Services/Course/WorkDetailService.php` — `fromAttempt()` (`:144`): так же (в цикле два
-   чтения на задание — `:150` и `condition()` `:164`, прогрев закрывает оба).
-4. `inc/Services/Assessment/TaskPreviewService.php` — цикл по `$item_ids` (`:72-77`):
-   `primeMetaCache( $item_ids )` перед циклом (делать после Т4).
-
-**НЕ трогать `ContentUsageService` (:156, :317, :344, :370) — поправка к ревью.** Его циклы идут
-по результатам `consumers()` → `PostManager::search()` → `get_posts` (полные посты, без
-`fields=>ids`): WP_Query сам прогревает postmeta-кэш при выборке (`update_post_meta_cache`
-по умолчанию). N+1 там нет; добавлять `primeMetaCache` — шум. Пункт ревью в этой части
-ложноположительный.
-
-**Готово, когда:** с Query Monitor/`SAVEQUERIES` просмотр результата контрольной на ~30 заданий
-даёт 1-2 постмета-запроса вместо ~60; предпросмотр работы — аналогично.
+- [x] `src/js/admin/services/assessment-builder.js` — в `toggleKindFields()` разведены
+  `score_map` и остальные три поля `STATION_ONLY_HIDDEN_FIELD_IDS`
+  (`time_limit_minutes`, `max_attempts`, `pass_score`): те по-прежнему прячутся для
+  станций (Ege/Oge), а `score_map` — наоборот, показывается **только** когда
+  `isEge(kind)` (Ege/Oge, тот же набор, что и `needsSecondaryScore()`), для
+  `Control` скрыт.
+- [x] `inc/Controllers/Assessment/AssessmentMetaBoxController.php::handleAssessmentSave()`
+  — условие удаления `score_map` из `$_POST` инвертировано: раньше стрипался для
+  станций (`isStation()`) вместе с остальными station-only полями, теперь стрипается
+  отдельным условием `! needsSecondaryScore()` (то есть для `Control`), а для ЕГЭ/ОГЭ
+  сохраняется как обычное поле формы (раньше не сохранялся вообще нигде через форму —
+  только через `ScoreMapCallbacks::ajaxCopyScoreMap()`, который пишет в мету напрямую).
+- [x] Рендер метабокса — поле прячется тем же JS-тумблером, что и остальные
+  station-only поля (инвертированное условие `hidden`), без изменений на уровне
+  `AssessmentTemplate`/`ScoreMapField` — DOM-элемент остаётся, скрытие только
+  визуальное + серверный strip.
+- [x] Не тронуты: `ScoreMapField.php`, `ScoreMapCallbacks.php` (копирование между
+  экзаменами), `SecondaryScoreService.php`.
+- [x] У существующих `Control`-контрольных, где уже сохранён `score_map` в мете —
+  оставлено как есть (поле и так нигде не читается), миграция-очистка не заводилась.
+- [x] Тесты: `AssessmentStationFieldsGateTest` обновлён под инверсию (`score_map`
+  сохраняется для `ege_computer`/`oge_computer`, стрипается для `control`; остальные
+  station-only поля — без изменений). Полный набор — 1336 тестов зелёные.
 
 ---
 
-## Т11 (2P2) — потолки на безлимитные выборки + точный счёт вместо загрузки ID
+## D. Проверка работ: страница вместо модалки + вкладка «Работы» + фикс условия
 
-**Файлы:** `inc/Managers/Wp/PostManager.php:44,62,130,283,453`,
-`inc/Controllers/Builders/AllTasksDataBuilder.php:361-380`.
+Контекст: сейчас деталь работы/экзамена — модалка `sum-modal` (`src/js/profile/summary.js`),
+открыть её можно только пройдя Сводка → группа → ученик → занятие → клик по бейджу работы —
+неочевидно и требует знать, у какого ученика что на проверке. Плюс в модалке у каждого
+задания написано «условие недоступно» — реальный баг, не дизайн. Ориентир вида —
+`.docs/05-review.html` (список работ на проверку + отдельная страница-карточка с панелью
+заданий, критериями и вердиктом): адаптировать под наши таблицы/токены/`prof-` BEM, не копировать
+инлайновые стили макета.
 
-**Принцип.** Потолок — страховочный и БОЛЬШОЙ: часть потребителей (reference-guard
-`ContentUsageService`, экспорт предмета) обязаны видеть ВСЁ — тихая обрезка там даст ложное
-«контент не используется» и разрешит удаление используемого. Поэтому: большой потолок + громкий
-`PluginLogger::warning` при упоре в него (сигнал переделывать на SQL), поведение до потолка —
-неизменное.
+### D1. Багфикс: «Условие недоступно» ✅ 2026-08-20
 
-**Шаги.**
-1. `PostManager`: константа `private const HARD_CAP = 5000;` (комментарий: страховка, не бизнес-
-   лимит). В `getIds()` (`:44`), `getAll()` (`:62`) и `search()` (дефолт `limit` `:453`) заменить
-   `-1` на `self::HARD_CAP`; после выборки: если `count(...) === self::HARD_CAP` —
-   `PluginLogger::warning( 'PostManager', 'выборка упёрлась в потолок', [ 'post_type' => …, 'method' => … ] )`.
-2. `countByTerm()` (`:124-130`) — переписать честно: не тянуть все ID ради `count()`, а
-   `$this->query( $post_type, [ 'posts_per_page' => 1, 'fields' => 'ids', 'tax_query' => …,
-   'no_found_rows' => false ] )['total']`. Потолок не нужен — счёт точный при любом размере.
-3. `getPostsByTerm()` (`:283`) — `posts_per_page => 1000` + warning при упоре (выдача статей
-   по терму; 1000 — заведомо больше реального употребления).
-4. `AllTasksDataBuilder::matchingIds()` (`:363`) — `posts_per_page => 3000` (константа
-   `FACET_IDS_CAP`) + warning; комментарий в код: при упоре фасетные счётчики становятся нижней
-   оценкой — приемлемо, точность вернёт только SQL-подсчёт.
+- [x] `inc/Services/Course/WorkDetailService.php::condition()` — читал
+  `$post->post_content` (для заданий всегда пуст), заменено на
+  `TaskMetaService::getCombinedCondition( $this->posts->taskMeta( $taskId ) )` (тот же
+  способ, что `ArticleContentService`) — `TaskMetaService` внедрён в конструктор,
+  `PostManager::taskMeta()` — единая точка чтения `fs_lms_meta` целиком.
+- [x] Тест: `WorkDetailServiceTest` — два новых теста (`fromSubmission`/`fromAttempt`),
+  `condition` берётся из меты, `PostManager::get()` (post_content) не вызывается.
+  Полный набор — 1338 тестов зелёные.
 
-**Грабли.** Явно передаваемый вызывающим `limit` в `search()` уважать (потолок — только на
-дефолт). Ничего не менять в `query()` — он и так постраничный.
+### D2. Деталь работы — экран SPA вместо модалки ✅ 2026-08-20
 
-**Готово, когда:** в `PostManager`/`AllTasksDataBuilder` нет `-1`; warning реально пишется
-(проверить, временно снизив потолок в dev); счётчики `countByTerm` совпадают с прежними.
+- [x] `sum-modal`-логика (`renderDetailModal`/`closeDetailModal`/`onDetailEsc` и все
+  `wire*`-обработчики оценивания) убрана из `src/js/profile/summary.js`, живёт в
+  `src/js/profile/work-review.js` (pure-function паттерн `profile/`, не admin object
+  pattern) как полноценный экран: `renderWorkReview(root, {onBack})` (монтаж один раз)
+  + `openWorkReview(sourceType, sourceId, from)` (загрузка/рендер по клику). Логика
+  оценивания (`wireGrading`, `wireAttemptGrading`, criteria/oge-rubric блоки,
+  `wireApprove`, `wireReset`) перенесена как есть — контейнер `.wr-screen` вместо
+  `<div class="sum-modal">`, закрытие — кнопка «‹ Назад» (`.wr-back`) вместо
+  крестика/Escape/backdrop.
+- [x] `src/js/profile/app.js` — секция `work-review` добавлена в `buildStage()` ВНЕ
+  `cfg.screens` (всегда в DOM, не в сайдбаре/дефолтном экране), смонтирована один раз
+  в `mountScreens()` через `renderWorkReview(root, {onBack: () => go(getReturnTo())})`.
+  Переход — `openWorkReviewFrom(from)` (замыкание, возвращает функцию `(sourceType,
+  sourceId) => { openWorkReview(...); go('work-review'); }`), контекст (`returnTo`)
+  хранится в module-level состоянии `work-review.js` (`getReturnTo()`), не в `go()`.
+- [x] `src/js/profile/summary.js` — клик по бейджу работы больше не грузит деталь и не
+  рисует модалку сам, вызывает `openWorkReviewCb` (проброшен через `renderSummary(root,
+  {openWorkReview})`), который в `app.js` = `openWorkReviewFrom('summary')`.
+- [x] SCSS: контейнерные классы модалки (`.sum-modal`, `.sum-modal-backdrop`,
+  `.sum-modal-box`, `.sum-modal-head`, `.sum-modal-x`, `.sum-modal-body`,
+  `.sum-modal-foot` + narrow-breakpoint блок) удалены из `_summary.scss`; новый
+  `src/scss/profile/components/_work-review.scss` с `.wr-*` (шапка/тело/футер —
+  обычный `prof-screen`-контент, без `position:fixed`/backdrop/`shadow-lg`). Блоки
+  данных (`.sum-task*`, `.stg-*`, `.smh-*`, `.smf-*`, `.sum-attachment*`, `.sum-fb`,
+  `.own-*`) остались в `_summary.scss` как есть — переиспользуются `work-review.js`
+  напрямую. Осиротевший `$z-modal` (profile `_variables.scss`) удалён.
+- [x] Deep-link/hash-навигация — подтверждено отсутствие: вход только кликом из Сводки
+  (и «Работ», D3), отдельный URL-параметр не заводился.
 
----
+### D3. Вкладка «Работы» — список работ на проверку, без обхода по ученикам ✅ 2026-08-20
 
-## Т12 (2D1) — убрать шесть локальных копий `escapeHtml`/`debounce`
+Решено (см. «Решения (D)» ниже): три вкладки как в референсе (На проверке / Ждут
+подтверждения / Проверенные) + фильтры группа/тип работы/сортировка; ЕГЭ-компьютерный
+(и любой другой kind, закрытый через «Утвердить работу», D18) попадает в «Ждут
+подтверждения» — именно отсюда, а не из Сводки, теперь и утверждается.
 
-**Канон:** `src/js/common/utils.js` — `escapeHtml` (`:18`, экранирует и `'`), `debounce` (`:99`).
-Admin-хаб реэкспортов уже есть: `src/js/admin/modules/utils.js:25-27`.
+- [x] `inc/Services/Profile/TeacherProfileView.php` — `nav`/`screens` дополнены
+  `array('key'=>'works','label'=>'Работы')` (сразу после «Журнала» — до «Сводки»).
+  Новый блок конфига `works` с нонсом `Nonce::GradeWork` и экшенами
+  `getPendingWorks`/`getWorkSubmissions`; блоки `review`/`attemptGrade` (переход в
+  D2, включая `approveAttempt`) уже существовали — переиспользуются как есть.
+- [x] Новый сервис `inc/Services/Course/ReviewQueueService.php` —
+  `pendingWorks(int $userId, bool $allGroups, string $tab): array`: агрегирует
+  submissions (по `work_id`) и assessment_attempts (по `assessment_id`) по группам
+  пользователя (`groupIdsFor()` — тот же принцип, что `DashboardService::
+  collectGroups()`, включая активные замены). Три корзины: `pending` —
+  `hasPendingAnswers()` (есть неоценённое задание, независимо от вида); `confirm` —
+  полностью оценено, но `AssessmentKind::EgeComputer` без `approved_at` (единственный
+  вид с явной кнопкой «Утвердить работу», D18 — ОГЭ подтверждается автоматически при
+  оценке последнего задания, минует confirm); `done` — остальное. Элемент несёт
+  `source_type`/`source_id`/`title`/`label`/`count`/`group_ids`, плюс `latest_at`
+  (MAX(submitted_at) корзины — для клиентской сортировки).
+- [x] Там же — `submissionsFor(string $sourceType, int $sourceId, int $userId, bool $allGroups, string $tab): array`
+  — список сдач конкретной работы/экзамена (ученик, группа, дата сдачи,
+  `source_type`/`source_id` самой сдачи — `submission`/`attempt`).
+- [x] `SubmissionRepository::summaryByGroups()`/`listByWorkAndGroups()` —
+  `group_id IN (...)` + `GROUP BY work_id` (агрегатные строки, `task_id IS NULL`).
+- [x] `AssessmentAttemptRepository::listByGroupsForGradebook()` — симметричный метод
+  по списку групп; `AssessmentAnswerRepository::hasPendingAnswers()` — есть ли у
+  попытки неоценённый ответ (`is_correct IS NULL`), критерий корзины `pending`.
+- [x] Новые AJAX-хуки `AjaxHook::GetPendingWorks`/`GetWorkSubmissions`; обработчики —
+  новый `inc/Callbacks/Course/ReviewQueueCallbacks.php` (не разрастили
+  `GradingCallbacks`), `$this->authorize(Nonce::GradeWork, Capability::ManageLmsTeaching)`,
+  зарегистрированы в `SubmissionController`.
+- [x] `src/js/profile/works.js` (новый, pure-function паттерн `profile/`) —
+  `renderWorks(root, {openWorkReview})`: вкладки с бейджем-счётчиком (сумма `count`
+  корзины, все три вкладки грузятся параллельно при монтаже), фильтры группа
+  (`groupPickerBtnHtml`/`openGroupPicker`, сентинел «Все группы»)/тип работы/
+  сортировка новизны (по `latest_at`). Шаг 1 — список работ/экзаменов вкладки либо
+  `emptyState()` «Работ на проверку нет»; шаг 2 — сдачи выбранной работы (ученик,
+  группа, дата), клик по строке → `openWorkReview` (D2), `returnTo: 'works'`.
+- [x] SCSS: `src/scss/profile/components/_works.scss` — `.wk-*` (вкладки/бейджи/
+  фильтры/список/шаг 2) на токенах `_variables.scss`, паттерн строки зеркалит
+  `.pr-row` (`_roster.scss`); подключён в `profile.scss`.
+- [x] Тесты: `ReviewQueueServiceTest` (10 тестов — набор групп teacher/office,
+  агрегация submissions через группы, confirm никогда не трогает submissions,
+  pending по `hasPendingAnswers()` независимо от вида, EgeComputer → confirm без
+  approved_at / → done после approve, OgeComputer минует confirm, `submissionsFor`
+  резолвит имя/группу), юниты на `SubmissionRepository::summaryByGroups/
+  listByWorkAndGroups`, `AssessmentAttemptRepository::listByGroupsForGradebook`,
+  `AssessmentAnswerRepository::hasPendingAnswers`, `ReviewQueueCallbacksTest` (валидация
+  вкладки/source_type, проброс office-флага из `Capability::ManageLmsPlatform`).
+  Полный набор — 1373 теста зелёные (не считая одного pre-existing сбоя
+  `MediaManagerTest` из-за отсутствующего расширения `fileinfo` в dev-окружении,
+  к задаче не относится).
 
-**Шаги.**
-1. `admin/services/step-editor.js:62` — тело `export const esc = …` заменить реэкспортом:
-   `export { escapeHtml as esc } from '../../common/utils.js';`
-   ВНИМАНИЕ: из него импортируют `esc` ещё 4 файла (`course-builder.js:3`,
-   `course-persistence.js:1`, `slot-builder.js:3`) — реэкспорт сохраняет их API. 17 внутренних
-   использований не трогать.
-2. `admin/services/tables/students-table.js:183` — удалить локальную стрелку и комментарий-
-   оправдание `:181-182`; вверху `import { escapeHtml as esc } from '../../modules/utils.js';`
-   (4 использования `:189-192` не меняются).
-3. `admin/modals/enrollment/teacher-view-modal.js:116` — то же: удалить локальную из `_fill()`,
-   импорт из `../../modules/utils.js`, `esc` объявить на уровне модуля.
-4. `frontend/components/sidebar-articles.js:16` — удалить `function esc`, добавить
-   `import { escapeHtml as esc } from '../../common/utils.js';` (первый импорт файла — норм).
-5. `frontend/services/assessment.js:61` — `debounce` заменить реэкспортом
-   `export { debounce } from '../../common/utils.js';` (экспорт обязан остаться — его тянет
-   бандл `kege/`, см. комментарий `:9-15`).
-6. Там же `assessment.js:16` — ревью пропустило ШЕСТУЮ копию: `export function escHtml` →
-   `export { escapeHtml as escHtml } from '../../common/utils.js';`.
+### D4. Автопроверяемые vs ручные задания в детали работы ✅ 2026-08-20
 
-**Поведенческая разница** (осознанная, в безопасную сторону): канон экранирует ещё `'` →
-`&#039;`; копии в step-editor/sidebar-articles этого не делали. Для атрибутов в двойных кавычках
-и текста — без визуальных отличий.
+Решено (см. «Решения (D)» ниже): submission-работы оцениваются поштучно, как экзамены.
 
-**Готово, когда:** в `src/js` ровно одна реализация экранирования (`common/utils.js`; `grep -rn
-"'<div>'\)\.text\|=> String( s ==\|function escHtml\|function esc(" src/js`); `npx gulp build`
-зелёный; смоук: таблица учеников (экспелл-партиал), модалка учителя, сайдбар статей, автосейв
-эссе в тренажёре, конструктор курса (esc из step-editor).
-
----
-
-## Т13 (2H2, выбранные) — закрыть TODO: ThreeInOneTemplate и логотип профиля
-
-**А. `inc/MetaBoxes/Templates/ThreeInOneTemplate.php:87`** («вынести отсюда html и стили»).
-1. Инлайновый `<style>` (`:96-100`) перенести в admin-SCSS (`src/scss/admin/…`, файл про
-   метабоксы; классам — префикс, сырые значения — токенами) — инлайн-стили в PHP запрещены
-   правилами проекта.
-2. Разметку рендера вынести из класса: либо в partial `templates/admin/metaboxes/…`, либо
-   собрать из `Fields/*` как у остальных шаблонов. КРИТИЧНО: тот же HTML отдаётся inline-модалке
-   по AJAX (`AjaxHook::GetTaskEditorForm` → `BaseTemplate::render()`) — менять можно
-   местоположение кода, но не итоговую разметку/имена полей `fs_lms_meta[...]`.
-3. Делать после Т4 (там в этот же файл приезжает `taskValues()`).
-**Готово:** в PHP-классах MetaBoxes нет `<style>` и «простыней» HTML; метабокс и модалка
-рендерятся идентично прежнему.
-
-**Б. `templates/frontend/profile.php:36`** («заменить на логотип в меню настройки стилей»).
-Сейчас в шапке профиля захардкожен `Icon::BrandMark->svg()`. Закрыть TODO = сделать логотип
-настраиваемым:
-1. Поле «Логотип» (attachment ID) в существующем табе настроек оформления админки (если таба
-   оформления нет — в общий таб настроек); сохранение — через опцию в `OptionName` +
-   репозиторий (не сырой `update_option`), загрузка — стандартной медиатекой.
-2. В `profile.php` выводить логотип из настройки, фолбэк — текущий `Icon::BrandMark`.
-3. Проверить, где ещё на фронте выводится `BrandMark` (grep) — использовать ту же настройку.
-**Это мини-фича**: если в ходе этапа решим не делать — TODO из кода удалить, завести тикет.
-
----
-
-## Т14 (2D2) — распил переросших файлов (решение пользователя: всё сейчас)
-
-**Общие правила всех шести подпунктов.**
-- Распил ≠ рефакторинг логики: поведение, разметка, имена хуков/нонсов/AJAX-экшенов, форматы
-  ответов — байт-в-байт. Меняется только раскладка кода.
-- Один подпункт = один коммит/PR со своим смоуком. Делать ПОСЛЕ Т1–Т13 (иначе фиксы будут
-  переезжать по файлам под ногами).
-- Новые PHP-контроллеры реализуют `ServiceInterface` и добавляются в `Init::getServices()`;
-  новые Callbacks-классы — `extends BaseController` + `Authorizer`/`Sanitizer`, регистрируются
-  существующими контроллерами. Новые JS-модули следуют паттернам бандла (admin — объекты,
-  frontend/profile — функции; см. `src/js/CLAUDE.md`).
-- Порядок — от дешёвого к дорогому: 14.1 → 14.2 → 14.3 → 14.4 → 14.5 → 14.6.
-
-### Т14.1 — `inc/Controllers/Course/LearningMenuController.php` (425 строк → 4 контроллера)
-
-Группы не пересекаются по состоянию, каждая тянет ровно одну зависимость — самый дешёвый распил.
-1. `LearningMenuBuilder.php` (Controllers/Course/) — меню «Обучение» + подсветка:
-   `registerLearningMenu` :209, `subjectBankSlug` :271, `subjectBankSubpage` :289,
-   `highlightLearningParent` :305, `highlightLearningSubmenu` :314, `learningSubmenuFor` :323;
-   владеет `$bank_slugs`/`$learning_parent_slug` (группы 1–2 разделять НЕЛЬЗЯ — общее состояние).
-   Хуки: `admin_menu`, `parent_file`, `submenu_file`. Зависимости: MenuRegistrar,
-   TeacherSubjectsService.
-2. `BankListTableController.php` — фильтры list-table: `renderTypeFilter` :164,
-   `applyTypeFilter` :194, `filterTaskDraftState` :180. Хуки: `restrict_manage_posts`,
-   `pre_get_posts`, `display_post_states`. Зависимость: BankListFilters.
-3. `BankChromeController.php` — «хром» банка: `renderBankChrome` :353, `currentBankType` :336,
-   `renderBank` :389 + 6 лендинг-фолбэков `render*` :132-154. Хук `admin_notices` + колбеки
-   сабстраниц (через LearningMenuBuilder → MenuRegistrar: колбеки передаются при построении).
-4. `BankRowActionsController.php` (тоже Controllers/Course/ — новых каталогов не заводить) —
-   «довесок»: `addCloneRowAction` :94 (контракт `data-clone-*` для `content-clone.js` не менять),
-   `renderDraftCreatorModal` :118. Хуки: `post_row_actions`, `admin_footer`. Без зависимостей.
-
-**Готово:** меню «Обучение» со всеми сабстраницами, табы предметов, фильтры банка, статус
-«Незавершённая», «Дублировать» и модалка черновика работают; старый файл удалён; все четыре
-класса в `Init::getServices()`.
-
-### Т14.2 — `inc/Callbacks/Enrollment/EnrollmentCallbacks.php` (636 строк, 17 ajax → 5 классов)
-
-Границы подтверждены структурой JS-менеджеров (enrollment-api, application-*-manager,
-person-*-manager). `EnrollmentController` меняется тривиально — только объект-получатель в
-регистрациях.
-1. `EnrollmentLifecycleCallbacks.php` — `ajaxStartEnrollment` :355, `ajaxEnrollStudent` :89,
-   `ajaxCancelEnrollment` :431, `ajaxRestoreFromArchive` :559 + справочник
-   `ajaxGetStudentGroups` :455.
-2. `ApplicationDataCallbacks.php` — самый тяжёлый кусок (~185 строк, вся PII-крипта):
-   `ajaxUpdateApplicationData` :215, `ajaxUpdateReviewData` :278, `ajaxGetApplicationData` :382.
-3. `ApplicationTrashCallbacks.php` — корзина: `ajaxMoveApplicationToTrash` :139,
-   `ajaxRestoreApplicationFromTrash` :162, `ajaxDeleteApplication` :191,
-   `ajaxEmptyApplicationsTrash` :476.
-4. `ParentLinkCallbacks.php` — `ajaxSelectExistingParent` :578, `ajaxRemoveParentAssignment`
-   :594, `ajaxSearchParents` :612.
-5. `UserCredentialsCallbacks.php` — `ajaxRevealUserCredentials` :515,
-   `ajaxRegenerateUserPassword` :547 (отдельно от родителей: другие нонсы/права; PII-выгрузки —
-   помнить стандарт `authorizeAll(ManageLmsPlatform, ExportPII)` там, где он уже стоит).
-Конструкторы забирают только свои зависимости (сейчас 9 на всех).
-
-**Готово:** все 17 экшенов отвечают как раньше (прогнать модалки заявок, корзину, зачисление,
-reveal кредов); grep по `EnrollmentCallbacks` пуст; каждый класс ≤ ~200 строк.
-
-### Т14.3 — `inc/Services/Profile/LearnerService.php` (595 строк, 16 зависимостей → фасад + 4 секции)
-
-Внешний контракт не трогать: `LearnerCallbacks` продолжает звать `build( $personId )->toArray()`.
-Новые классы — в `inc/Services/Profile/Learner/`; все получают готовый `LearnerContextDTO`.
-1. `LearnerContextBuilder.php` — `context` :99, `groupCards` :141, `lessonCard` :183,
-   `topicOf` :582, `lessonStatus` :588, `courseTitleForGroup` :577 (+ кэши roomNames/teacherNames).
-   Зависимости: records, groups, groupLessons, rooms, clock, effectiveTeacher.
-2. `LearnerScheduleSection.php` — `upcoming` :221, `deadlines` :245 (submissions, worksResolver,
-   lessons). Дип-линк `?step=` дублируется в `NotificationService` — на будущее общая точка,
-   в этом распиле НЕ дедуплицировать (правило «распил без изменений логики»).
-3. `LearnerPerformanceSection.php` — `grades` :298, `recentGrades` :327, `attendance` :342
-   (gradebook, attendance).
-4. `LearnerCoursesSection.php` — `buildCourses` :440, `buildCatalog` :401, `courseLessonItem`
-   :547, `examLock` :381 (courses, lessons, gate, progress, subjects, examLock).
-`LearnerService::build()` остаётся тонкой оркестрацией секций; конструктор — с 16 до ~5
-зависимостей.
-
-**Готово:** кабинет ученика (все 10 секций DTO) рендерится идентично (сверить JSON ответа до/
-после на одном ученике); контейнер собирает граф без ручных биндингов.
-
-### Т14.4 — `inc/Core/Enqueue.php` (790 строк → фасад + 4 класса в `inc/Core/Assets/`)
-
-Правило «все wp_localize_script — только здесь» СОХРАНЯЕТСЯ, но «здесь» становится слоем
-`Core/Assets/*`: обновить формулировки в корневом CLAUDE.md и `src/js/CLAUDE.md` (раздел
-Globals). `Enqueue` остаётся фасадом: регистрирует 4 хука и делегирует.
-1. `AdminAssets.php` — `enqueue_admin_assets` :88, `enqueueAdminBase` :128, гейт
-   `AdminScreenContext`, media/editor.
-2. `AdminLocalizations.php` — `adminLocalizations` :175 + 6 vars-провайдеров (`lessonVars`,
-   `taskDataVars`, `taskEditorVars`, `articleDataVars`, `applicationsVars`, `globalAdminVars`) +
-   `getRequiredTaxonomies` :728. Забирает 4 из 6 зависимостей конструктора.
-3. `FrontendAssets.php` — `enqueue_frontend_assets` :534 (роутинг SPA vs общий стек),
-   `enqueueFrontendBase` :594, `frontendLocalizations` :640, `applyVars`, `assessmentVars`,
-   `joinVars`.
-4. `BundleLoader.php` — `enqueueBundle` :371, `enqueueUiFont` :362, `enqueueMathJax` :400,
-   `fontResourceHints` :585 + 4 SPA-бандла (profile/player/assessment/kege) как реестр
-   `slug → varName → data-фабрика`.
-Плюс: `render_confirm_modal` :771 + `isPluginAdminScreen` :749 — это не ассеты, вынести в
-контроллер admin-футера (Controllers/System/).
-Известные дубли устранить ПРИ переносе (единственное разрешённое «изменение»):
-`assessmentVars()` :681 ≈ inline-массив в `enqueue_assessment_assets` :477 (свести к одному
-провайдеру с флагом `previewSolve`); Font Awesome/common-стили задублированы в admin/frontend
-base (:130 и :597) — один общий приватный метод.
-
-**Готово:** на каждой странице (админка, apply, join, профиль, плеер, тренажёр, kege, статья)
-`wp_scripts`-очередь и window-глобалы идентичны до/после (сравнить `console.log` ключевых
-глобалов); CLAUDE.md-правило переформулировано.
-
-### Т14.5 — `src/js/admin/services/step-editor.js` (1017 строк → ядро + 4 модуля)
-
-Внешние потребители: `course-builder.js` (createStepEditor, esc, ajax, tmpKey, openPicker),
-`lesson-step-editor.js` (createStepEditor, readSteps), `course-persistence.js` (esc, ajax),
-`slot-builder.js` (openPicker, esc, readSteps). Их импорты обновить на новые модули; реэкспорты-
-мостики в step-editor.js не оставлять (один символ — один путь). `esc` после Т12 — реэкспорт
-`common/utils.js`: при распиле потребители переходят на импорт из `admin/modules/utils.js`,
-реэкспорт из step-editor.js удаляется.
-1. `admin/services/step-ajax.js` — `ajax` :79, `nonceFor` :66, `tmpKey` :61, `acts` :54.
-2. `admin/modules/picker.js` — `openPicker` :949 целиком + `openLibraryPicker` :906 как обёртка
-   (модуль общего назначения → каталог `admin/modules/`, паттерн named function exports).
-3. `admin/services/step-preview.js` — превью ссылочного контента (~165 строк, автономно):
-   `buildAnswerSection` :87, `buildRefTaskBody` :139, `loadRefPreview` :149,
-   `loadTaskPreview` :183, `renderTaskPreview` :192.
-4. `admin/services/step-editors/` — по файлу на тип тела шага: `inline-editor.js` (`inlineEditor`
-   :406, `setupLatexButtons` :422, `destroyTiny` :290 — TinyMCE/LaTeX), `video-editor.js`
-   (`fmtChapterTime` :565, `parseChapterTime` :570, `renderChapterRows` :577,
-   `renderAttachmentRows` :608), `ref-editor.js` (`refEditor` :636, ~175 строк).
-Ядро `step-editor.js` (~250 строк): `TYPE_UI`/`ADD_TYPES`/`MAX_STEPS`, каркас/чипы/drag
-(`render` :306, `renderStepsRow` :319, `attachStepDrag` :347), CRUD шагов (:811-:876), автосейв
-(`payloadForSave`/`saveSteps`/`scheduleSave` :922-:936), `readSteps` :1000.
-
-**Готово:** `npx gulp build` зелёный; конструктор курса/урока: создание шагов всех типов,
-inline-редактор с LaTeX, видео-главы и вложения, ссылочные шаги с превью, drag, дублирование,
-автосейв, пикеры в slot-builder — всё работает; ни один модуль не превышает ~300 строк.
-
-### Т14.6 — `src/js/profile/ktp.js` (865 строк → ядро + 4 модуля в `profile/ktp/`)
-
-Единственный внешний потребитель — `profile/app.js:8` (`renderKTP`): внешний контракт не
-меняется, `profile/ktp.js` остаётся точкой входа (или переезжает в `profile/ktp/index.js` с
-обновлением одного импорта).
-1. `profile/ktp/ktp-individual.js` — весь режим «Индивидуальные занятия» (~250 строк, самый
-   автономный): `fetchIndividual` :369, `loadIndividual` :376, `renderIndividual` :414,
-   `renderIndiCalendar` :480, `openAddIndi` :541, `openEditIndi` :552, `selectIndiSlot` :576,
-   `loadIndiCandidates` :586, `renderIndiBank` :599, `assignIndiLesson` :617,
-   `renderLessonCandidates` :629, `indiMonths`/`indiInitialCursor`/`shiftIndiMonth`,
-   `indiSlotChip` :527. Выносить ПЕРВЫМ.
-2. `profile/ktp/ktp-calendar-model.js` — чистые вычисления без DOM (тестируемо):
-   `computeMonths` :70, `initialCursor` :83, `shiftMonth` :352, `toLocalInputValue` :768,
-   `fromLocalInputValue` :772.
-3. `profile/ktp/ktp-templates.js` — все `*Html`-шаблоны: `themeCardHtml` :304,
-   `recordingIconHtml` :318, `placedThemeHtml` :331, `emptyStateHtml` :845, `noGroupsHtml` :859,
-   `errorHtml` :863, `openProgramHtml` :172, `partLabel` :300.
-4. `profile/ktp/ktp-popovers.js` — пары `attach*Click`/`open*` (:672-:806): дедлайны, запись
-   занятия, меню действий темы.
-Ядро: стейт (`root/state/api/coursesApi`), `renderKTP`, `loadCalendar`, `render`, `renderBank`,
-`renderCalendar`, drag-drop (:807-:833), reflow/publish/unpublish (:638-:660),
-`wireCoursePicker` :187.
-
-**Готово:** сборка зелёная; КТП: календарь групп, банк тем, drag закрепления, reflow,
-публикация/снятие, дедлайны, привязка записей, меню темы, режим индивидуальных занятий
-(добавление/правка/кандидаты) — всё работает как до распила.
+- [x] **Переиспользован уже существующий эндпоинт вместо нового**: `AjaxHook::GradeBatchTask`/
+  `BatchSubmissionCallbacks::ajaxGradeBatchTask()`/`SubmissionService::gradeBatchTask()`
+  (Этап 7) уже делали ровно то, что просил `GradeSubmissionTask` — пишут в per-task
+  строку `submissions` (не в аггрегат) и пересчитывают итог работы суммой по заданиям
+  (`recalculateAggregate()`); просто были заведены, но нигде не подключены к UI.
+  Заводить второй параллельный эндпоинт с тем же поведением значило бы «плодить два
+  обходных пути» (тот же принцип уже применён в задаче A/B этого файла). Единственный
+  реальный пробел — `ajaxGradeBatchTask()` не проверял доступ к группе сдачи вообще
+  (только `Capability::ManageLmsTeaching`, без `GroupAccessGuard::canWriteJournal()`);
+  добавлена точно такая же проверка, что у `ajaxSaveGrade()` (find сдачи → resolve
+  group_lesson → `canWriteJournal`). Нонс — `Nonce::GradeBatch` (уже существовал),
+  выведен в профиль новым конфиг-блоком `batchGrade` (`TeacherProfileView`).
+- [x] `WorkDetailService::fromSubmission()` — per-task `gradable: bool` через
+  `TaskTemplate::isFileAnswerShape()` (у `TaskCheckerRegistry` таких шаблонов ДВА —
+  `file_answer_task` и `alternative_conditions_task`, докблок реестра расходится с
+  формулировкой задачи, код — источник истины). Для gradable-задачи с уже начатой/
+  законченной ручной проверкой per-task строка (`listPerTaskByStudentWorkLesson`)
+  теперь АВТОРИТЕТНЕЕ JSON-снапшота агрегата (`gradeBatchTask()` пишет score/status
+  именно в неё, снапшот остаётся исходной авто-проверкой и не обновляется) — добавлены
+  поля `task_submission_id`/`feedback` на задачу. Итоговое `gradable` ЦЕЛОЙ сдачи
+  (старая единая форма «Сохранить оценку») теперь `true` только для легаси-фолбэка
+  (свободный ответ без разбора на задачи, `work.itemIds` пуст) — для сдач с разбором по
+  заданиям единая форма больше не показывается, оценка только поштучно.
+- [x] `src/js/profile/work-review.js` — `taskBlock()`: новая ветка
+  `canGradeSubmissionTask` (`d.kind==='work' && t.gradable && t.task_submission_id`)
+  рисует простой контрол балл+комментарий+«Оценить» (`sum-task-grade--batch`, без
+  чекбокса «верно» — `gradeBatchTask()` не принимает `is_correct`, вердикт выводится
+  сервером из `score >= max_score` при следующей загрузке); негейдable-задачи работы —
+  только condition/answer/correct, как у неоцениваемых задач экзамена. Новый
+  `wireSubmissionTaskGrading()` шлёт `batchGradeApi('gradeTask', ...)`, затем
+  `reload()` (полная перезагрузка детали — проще инкрементального пересчёта шапки,
+  список задач короткий).
+- [x] Тесты: `BatchSubmissionCallbacksTest` — 3 новых теста на `ajaxGradeBatchTask`
+  (сдача не найдена, доступ запрещён без `canWriteJournal`, грейдинг при доступе);
+  `WorkDetailServiceTest` — 5 новых тестов (`gradable`/`task_submission_id` для
+  ручного задания, per-task строка авторитетнее агрегата после оценки, `gradable:
+  false` для авто-проверяемых, единая форма отключена при разборе по заданиям,
+  единая форма жива для легаси-фолбэка). Полный набор — 1381 тест зелёный (не считая
+  того же pre-existing сбоя `MediaManagerTest`).
 
 ---
 
-## Сводка объёма этапа
+## Решения (D)
 
-| Блок | Задачи |
+- Гранулярность оценивания submission-работ: **поштучно**, как у экзамена — не единый балл
+  на всю сдачу. Каждая авто-проверяемая задача просто показывает ответ+эталон, ручная
+  (`file_answer_task`) — с контролом оценки; итог работы — сумма по заданиям.
+- Экран «Работы» — по образцу `.docs/05-review.html`: три вкладки (На проверке / Ждут
+  подтверждения / Проверенные) + фильтры (группа, тип работы, сортировка).
+- Экзамены без поштучной ручной проверки (ЕГЭ-компьютерный и любой другой kind, закрытый
+  через явное «Утвердить работу», D18) **входят** в список «Работы» — во вкладку «Ждут
+  подтверждения». Кнопка «Утвердить работу» переносится на страницу `work-review` (D2) и
+  становится доступна и с этого входа, не только из Сводки — снимает исходную жалобу
+  «в Сводку неудобно лезть».
+
+---
+
+## Открытые вопросы (уточнить перед реализацией B)
+
+- Дублировать ли уведомление о замене родителям (`guardianUserIds()`), или только ученику? - нет, только ученику
+- Нужен ли `RoomChanged` при смене дефолтного кабинета группы на год (`assignToGroup()`),
+  или только при точечном override (`assignToLesson`/`overrideForRange`) — на год вперёд
+  спамить всех уведомлением может быть избыточно - уведомление только при разовой замене
+
+---
+
+# Задача: тип экзамена — отдельный метабокс (2026-08-20) ✅
+
+Контекст: сейчас метабокс «Настройки контрольной» (`AssessmentMetaBoxController::renderSettingsContent()`,
+`AssessmentTemplate`) — один контейнер на все поля сразу: `kind` (тип экзамена), `time_limit_minutes`,
+`max_attempts`, `pass_score`, `score_map`, `intro_html`. Видимость части полей уже переключается JS'ом
+по выбранному `kind` (`assessment-builder.js::toggleKindFields()`, Block C) — но это скрытие отдельных
+строк ВНУТРИ одного контейнера, а не отдельные контейнеры. Нужно: вынести выбор типа экзамена в свой
+метабокс, а «Настройки контрольной» показывать целиком только когда выбран тип «Контрольная»
+(`AssessmentKind::Control`); для станций (ЕГЭ/ОГЭ, `isStation()`) эти четыре поля всё равно не
+редактируются (приходят из `StationExamConfig`, см. `handleAssessmentSave()`) — прятать весь контейнер,
+а не только поля по одной. `score_map` (Block C: видим ТОЛЬКО для `isStation()`, обратное условие) при
+этом конфликтует с «показывать контейнер только для Control» — его нужно вынести в третий, отдельный
+метабокс с противоположной видимостью, иначе для ЕГЭ/ОГЭ таблица перевода останется без контейнера.
+
+- [x] `inc/MetaBoxes/Templates/AssessmentTemplate.php` — источник истины состава полей не тронут;
+  добавлен `BaseTemplate::renderFields($post, $values, $fieldIds)` — рендер подмножества полей
+  без общей обёртки, для использования из нескольких метабоксов над одним шаблоном.
+- [x] `inc/Controllers/Assessment/AssessmentMetaBoxController.php::handleAddMetaBoxes()` — вместо
+  одного `fs_lms_assessment_settings` регистрируются три (в порядке `high`/очередь регистрации):
+  1. `fs_lms_assessment_kind` («Тип экзамена») — только поле `kind`, всегда видим, держатель
+     единственного `wp_nonce_field()` формы.
+  2. `fs_lms_assessment_settings` («Настройки контрольной») — `time_limit_minutes`, `max_attempts`,
+     `pass_score`, `intro_html`.
+  3. `fs_lms_assessment_score_map` («Таблица перевода баллов») — только `score_map`.
+- [x] Три render-метода контроллера (`renderKindContent`/`renderSettingsContent`/
+  `renderScoreMapContent`) — новый шаблон `templates/admin/metaboxes/fields-subset.php` (обёртка
+  `wrapper_class` + `field_ids`), рендерящий `BaseTemplate::renderFields()`; состав полей —
+  константа `SETTINGS_FIELD_IDS` в контроллере.
+- [x] `src/js/admin/services/assessment-builder.js::toggleKindFields()` — переписан под два
+  постбокса (`fs_lms_assessment_settings` скрыт по `isStation`, `fs_lms_assessment_score_map` —
+  по `! isStation`), `STATION_ONLY_HIDDEN_FIELD_IDS`/поштучный обход полей убран.
+  `#fs_lms_assessment_kind` не трогается — виден всегда.
+- [x] `handleAssessmentSave()` — не менялся (сохранение по-прежнему по `AssessmentKind`,
+  независимо от контейнера рендера).
+- [x] Порядок постбоксов: «Тип экзамена» → «Настройки контрольной» → «Таблица перевода баллов» →
+  «Конструктор контрольной» (регистрация в этом порядке).
+- [x] Тесты: новый `tests/Unit/Controllers/Assessment/AssessmentMetaBoxSplitTest.php` (4 теста —
+  `kind` только в своём метабоксе, `score_map` только в своём, 4 поля настроек — в «Настройках»,
+  nonce — только в «Тип экзамена»); `AssessmentStationFieldsGateTest` не менялся и зелёный.
+  Попутно добавлены недостающие WP-стабы в `tests/bootstrap.php` (`wp_nonce_field`, `selected`,
+  `checked`, `disabled`, `ABSPATH`) — понадобились для рендер-тестов полей.
+
+---
+
+# Подготовка к релизу 1.0.0
+
+## Контекст
+
+Плагин достиг финального состояния по фичам. Дальше **не добавляются**: витрины курсов,
+мобильное приложение, Telegram-интеграция, внешние (свободные) преподаватели и ученики.
+Предметы — только информатика: ЕГЭ, ОГЭ, Программирование на Python, Робототехника Ардуино.
+От унификации под произвольные школьные предметы отказываемся, но **сама механика
+произвольного предмета остаётся** — на ней стоят все четыре (свой ключ, свои таксономии,
+`hasBank = false` для Python/Ардуино без банка заданий).
+
+Нужно три вещи. Первая — вычистить код от того, что дальше не дописывается: догоняющие
+data-миграции, одноразовые бэкфиллы, мёртвые ключи и швы под несуществующие фичи. Вторая —
+завести раннер, который по тегу собирает устанавливаемый ZIP без исходников, тестов и
+документации, прогнав перед этим линтеры и тесты. Третья — сам ZIP из GitHub Release должен
+сам доезжать до боевого сайта: пуш тега → релиз → плагин на проде обновляется без ручной
+загрузки файла через админку.
+
+Итог: тег `v1.0.0` → в GitHub Release лежит `fs-lms-1.0.0.zip`, который ставится на чистый
+WordPress и работает; следующий тег (`v1.0.1` и т.д.) виден боевому сайту как обновление и
+может накатиться сам, либо по клику «Обновить» в стандартном экране плагинов WP.
+
+---
+
+## Зафиксированные решения
+
+| Вопрос | Решение |
 |---|---|
-| Безопасность | Т1, Т2, Т3 |
-| Архитектура/конвенции | Т4, Т5, Т6, Т7, Т8 |
-| UI-идиомы | Т9 |
-| Производительность | Т10, Т11 |
-| Дедупликация | Т12 |
-| TODO | Т13 |
-| Распил (в конце) | Т14.1–Т14.6 |
+| Боевая установка | Нет, ставим с нуля → цепочку версий схемы можно схлопнуть |
+| Одноразовые WP-CLI | Удалить (`task-bundle migrate`, `article reslug`) |
+| `OptionName::Periods`, `AuthGroups` | Удалить (мёртвые; живой справочник — `AcademicPeriods`) |
+| Неотправляемые типы писем | Удалить 4 из 7 |
+| Модуль SocialAuth | Снести целиком, страницу входа перенести в ядро |
+| Пакет переноса предмета (Bundle) | Оставить |
+| Типы задач и шагов | Не трогать |
+| Сборка релиза | Тег `v*` → ZIP ассетом GitHub Release |
+| `/assets/`, `/vendor/` | Остаются в `.gitignore`, собираются в раннере |
 
-Поправки к ревью, учтённые в задачах (чтобы не «чинить» лишнего): 2A3 — метод не AJAX,
-`authorize()` там сломал бы админку (Т6); 2A4 — module-local константы экшенов легальны,
-нарушение только в месте жизни обработчика (Т2/Т7); 2P1 — `ContentUsageService` уже прогрет
-самим WP_Query, правится только четвёрка сервисов с ID из своих таблиц (Т10); 2D1 — копий не 5,
-а 6 (`assessment.js:16 escHtml`) (Т12).
+Почему сборка в раннере, а не коммит `/assets/`: коммиченный билд протухает молча — этот
+случай уже записан в `gulpfile.js:108` («так `frontend.min.css` неделями собирался из старого
+кода при сломанном SCSS»). Плюс минифицированный JS в одну строку на 240 КБ даёт конфликт
+слияния на каждой ветке. Дрейф версий закрывается тем, что уже есть: `npm ci` +
+`package-lock.json`, `composer install` + `composer.lock`, пин `node-version: '20'`.
+Плата: плагин больше нельзя ставить `git clone`'ом в `wp-content/plugins` — только из ZIP.
+
+---
+
+## Этап 0. Эталон схемы (делается ПЕРВЫМ, до любых правок)
+
+Текущая dev-БД — единственный носитель полной схемы: она получила `Migration_1_0_0` + блок
+`Cleanup` (~35 `ALTER`) + `Migration_1_1_0` + `AssessmentAnswerUniqueMigration`. Схлопывание
+миграций — это перенос результата всех этих `ALTER` внутрь `CREATE TABLE`, и сверять его надо
+с фактом, а не с чтением кода.
+
+- [ ] Снять `SHOW CREATE TABLE` со всех `wp_fs_lms_*` в `schema-before.sql`
+
+```bash
+docker exec wp_db mariadb -u root -proot wordpress -e "SHOW TABLES LIKE 'wp_fs_lms%'"
+# для каждой: SHOW CREATE TABLE
+```
+
+Эталон — 25 core-таблиц. `wp_fs_lms_ad_outbox` и `wp_fs_lms_video_recordings` в него не входят:
+их заводят сами модули (`AdSync/Schema/AdSchema`, `VideoLibrary/Schema/VideoSchema`).
+
+---
+
+## Этап 1. Схема: одна миграция вместо цепочки
+
+**`inc/Migrations/Migration_1_0_0.php`**
+
+- [x] Убрать блок «Сброс старой схемы» (строки 48–62): дропает `fs_lms_expelled_archive`,
+      `fs_lms_relationships`, `fs_lms_enrollments`, `fs_lms_archive` и чистит
+      `fs_lms_student_group_matrix` — на чистой установке этого нет никогда
+      (снят 2026-08-19 внепланово: блок дропал ЕЩЁ и `fs_lms_persons`/`fs_lms_groups`/
+      `fs_lms_student_records` при каждом полном прогоне `up()` — реальный сброс
+      схемы версии на dev стёр эти три таблицы с боевыми на тот момент данными
+      импорта; см. `migration-reset-drops-core-tables.md` в памяти)
+- [ ] Влить блок «Cleanup — добавление колонок для уже существующих установок»
+      (строки 617–681) внутрь соответствующих `CREATE TABLE`. Затрагивает:
+      `student_records` (6 snapshot-колонок + `enrolled_by_user_id`),
+      `groups` (`course_id`, `meetings`, `room_id`, `program_locked_at`, `access_mode`,
+      без `group_id`),
+      `group_lessons` (`ends_at`, `is_pinned`, `label`, `step_settings_overrides`, `kind`,
+      `status`, `student_person_id`, `room_id`, `work_deadlines`, `continued_from_id`,
+      `lesson_id` nullable),
+      `assessment_attempts` (`group_lesson_id`),
+      `assessment_answers` (`grader_note`, `criteria_scores`),
+      `lesson_progress` / `submissions` (полный набор значений `enum`),
+      `pii_access_log`, `export_log`, `email_log`, `applications`, `consent_change_log`,
+      `entity_audit_log`, `persons` (`expelled_at` + индекс).
+      **Определения брать из `schema-before.sql`, а не выводить вручную** — там уже финал
+- [ ] Влить `UNIQUE KEY attempt_task (attempt_id, task_id)` прямо в `CREATE TABLE`
+      `assessment_answers` (секция 19)
+- [ ] Влить `CREATE TABLE notifications` из `Migration_1_1_0` как секцию 25
+- [ ] Удалить приватные хелперы `addColumn()` / `dropColumn()` / `dropIndex()` / `addIndex()` /
+      `hasColumn()` — после вливания они не вызываются
+- [ ] Проверить, что список в `down()` полон (25 таблиц, `Notifications` уже есть)
+- [ ] Обновить докблок класса: он до сих пор описывает снятые `enrollments` / `archive` /
+      `deletion_log`
+- [ ] Удалить `inc/Migrations/Migration_1_1_0.php`
+
+`MigrationRunner` и `MigrationInterface` **оставить**: это штатный способ довезти DDL до
+установок в будущих патч-релизах (см. скилл `db-migrations`).
+
+---
+
+## Этап 2. Догоняющие data-миграции → в основной код
+
+Все четыре существуют, чтобы починить уже задеплоенные dev-установки. На установке с нуля их
+гейт-опция просто ставится, а работы нет.
+
+| Класс | Что с ним | Куда переезжает результат |
+|---|---|---|
+| `BroadcastStepMigration` | Удалить | Ничего не нужно: `StepType::Broadcast` уже в энуме, `recording_slot`-данных на чистой БД нет |
+| `ArticlesSectionMigration` | Удалить | Ничего: `SubjectPageType::Articles` уже `'articles'` |
+| `AssessmentAnswerUniqueMigration` | Удалить | Ключ уехал в DDL (этап 1) |
+| `RoutingPagesMigration` | Удалить класс | `Activate::generatePages()` — заменить `createPageIfNeeded()` на `ensurePublished()` (восстанавливает удалённую/черновиковую страницу, а не только создаёт отсутствующую) и добавить туда `/sign-in/` |
+
+- [ ] Удалить четыре класса миграций
+- [ ] `Activate::generatePages()` — перевести на `ensurePublished()`, добавить `/sign-in/`
+- [ ] `inc/Init.php` — вырезать блок строк 252–288 (`BroadcastStepMigration::ensure()`,
+      регистрация и `run()` `MigrationRunner`, `ArticlesSectionMigration`,
+      `AssessmentAnswerUniqueMigration`, `add_action('init', RoutingPagesMigration)`)
+      и соответствующие `use`. Побочный эффект — минус 4 `get_option()` на каждом запросе;
+      миграции остаются только в `Activate::activate()`
+- [ ] `SubjectLandingController::redirectLegacySection()` (редирект `/textbook/` →
+      `/articles/`) — проверить и удалить, если он существует только ради переехавших установок
+
+---
+
+## Этап 3. Снос SocialAuth, страница входа — в ядро
+
+Модуль по умолчанию **выключен** (`ModuleConfig::isEnabled()` → `?? false`), а страница
+`/sign-in/` живёт внутри него. То есть на чистой установке `Activate` создаёт страницу с
+шорткодом `fs_lms_login_form`, но регистрировать шорткод некому — страница пустая, редиректа
+с `wp-login.php` нет. Перенос в ядро чинит это, а не украшает.
+
+- [x] Создан `inc/Controllers/Person/AuthPageController.php` (ядро, в `Init::getServices()`) —
+      `add_shortcode(ShortCode::LoginForm)`, `redirectToCustomLogin()` (перехват `wp-login.php`),
+      `redirectFailedLogin()` на `wp_login_failed` с приоритетом 20 (после `AuthLogController`),
+      `forceCleanAuthLayout()` через `template_include`
+- [x] `templates/frontend/auth-page.php` — блок провайдеров и закомментированная регистрация
+      преподавателя убраны; вместо `<a href="#">` футер ведёт на страницу согласия
+      (`ConsentDefinitionsRepository`, ключ `pd_processing`) и целиком скрывается, если
+      согласие не заведено
+- [x] `src/scss/frontend/components/_auth-page.scss` — сняты `&__divider`, `&__socials`,
+      `&__btn-social`, `.fs-social-icon`
+- [x] Удалён `inc/Modules/SocialAuth/` целиком (18 файлов)
+- [x] Удалён `SocialAuthModule` из `Init::getServices()` + `use`
+- [x] Удалён `OptionName::AuthSettings`; заодно снят осиротевший
+      `UserRepository::getBySocialId()`
+- [x] `hybridauth/hybridauth` убран из `composer.json`, `composer.lock` пересобран
+- [x] Удалены `provider-logo.php` и секции google/vk/github из `help-modal.php` (модалка
+      осталась — её используют DaData и SmartCaptcha); удалён
+      `src/js/admin/services/settings/auth-settings.js` и его вызов в `admin.js`
+- [x] Упоминания SocialAuth / `AuthStrategyInterface` вычищены из `CLAUDE.md`
+- [x] `RoutingPagesMigration` — добавлен `/sign-in/` (страницей больше не владеет модуль),
+      `VERSION` поднята до `'2'`. Класс всё равно уходит на этапе 2 — правка на время
+      до него
+
+---
+
+## Этап 4. Свободные роли Student / Teacher
+
+`UserRole::Teacher` (`lms_teacher_free`) уже мёртв. `UserRole::Student` (`lms_student_free`)
+держится на трёх точках, все три уходят вместе с SocialAuth или переписываются.
+
+- [ ] `inc/Enums/Access/UserRole.php` — снять кейсы `Student` и `Teacher`, за ними строки в
+      `label()`, `baseCapabilities()`, `capabilities()`
+- [ ] Разобрать фолбэки: `primary()` возвращает `self::Student`, когда ни один слаг не совпал →
+      сменить на `?self` с `null` (и поправить вызывающих) либо на `FSStudent`. Выбрать по
+      вызывающим: `primaryForCabinet()`, `primarySlug()`, `UserDTO::fromArray()` (строка 77 —
+      `?? UserRole::Student`)
+- [ ] `frontCabinetRoles()` — убрать `Student`; порядок приоритета в `primary()` — убрать оба
+      хвостовых кейса
+- [ ] `inc/Services/Profile/ProfileViewResolver.php` — строки 84 и 111, `UserRole::Student` из
+      обоих `in_array`
+- [ ] `inc/Managers/Person/RoleManager.php` — в `registerAll()` добавить `remove_role()` для
+      `lms_student_free` и `lms_teacher_free`: на dev-БД роли уже созданы и сами не исчезнут
+- [ ] Поднять `$capsVersion` в `Init.php:245` с `'5.3'` до `'5.4'`, иначе пересинхронизация не
+      запустится
+- [ ] `src/js/profile/app.js` — строка 60 (`lms_student_free: 'Ученик'`) и строка 207
+      (`hideRole`-список)
+- [ ] Тесты: `tests/Unit/Enums/UserRoleTest.php` (строки 29, 33),
+      `tests/Unit/Services/Profile/ProfileViewResolverTest.php` (строка 51)
+
+---
+
+## Этап 5. Мёртвый код и ключи
+
+**Блокер, чинить обязательно:** `uninstall.php:47` обращается к
+`Capability::ManageLMSAssignments` — такого кейса в энуме нет (там 14 других). Удаление
+плагина из админки падает фаталом.
+
+- [x] `uninstall.php` переписан. Список прав больше не хардкодится: `RoleManager::purgeAdminCaps()`
+      собирает его из `Capability::cases()` + производных прав CPT — из тех же источников, что и
+      выдача, поэтому разойтись снова не может. `manage_options` и `manage_categories` исключены
+      явно (штатные права WP, плагин их не выдавал). Таблицы сносятся по префиксу
+      `{prefix}fs_lms_%`, а не перечислением: старый список из `Migration_1_0_0::down()`
+      оставлял в базе `fs_lms_ad_outbox` и `fs_lms_video_recordings` (таблицы модулей)
+
+**Энумы:**
+
+- [ ] `OptionName::Periods` (`fs_lms_periods_list`) — дубль-пустышка; живой ключ —
+      `AcademicPeriods` (`fs_lms_academic_periods`), его читает `AcademicPeriodRepository`
+- [ ] `OptionName::AuthGroups` (`fs_lms_auth_group`)
+- [ ] `EmailTemplateType::PasswordSetup`, `ApplicationConfirmation`, `ApplicationReady`,
+      `Rejection` — редактируются во вкладке «Шаблоны писем», но ни одно письмо этих типов не
+      отправляется (`EmailService` шлёт только `WelcomeWithCredentials`, `CourseGranted`,
+      `OtpCode`). Снять кейсы и строки в `label()`; проверить вкладку настроек и
+      `EmailTemplateSettingsCallbacks`
+- [ ] `ShortCode::RegisterForm` (`fs_lms_register_form`)
+- [ ] `ShortCode::GroupLessons` (`fs_lms_group_lessons`, остаток снятого кокпита группы)
+- [ ] `PageRoutes::ConsentPage` (`'consent'`) — проверить `templates/frontend/consent-page.php`:
+      если страница рендерится по другому маршруту, кейс мёртв
+- [x] `Inc\Enums\Course\LessonKind` — протащен в `GroupLessonDTO` и `GroupLessonInputDTO`
+      (было: `public string $kind = 'group'`). 23 файла: сравнения `'individual' === $row->kind`
+      заменены на `$row->kind->isIndividual()`, два SQL-литерала в `GroupLessonRepository`
+      (`unscheduleAll`, `listIndividualByTeacherAndDay`) — на `%s` + `LessonKind::Individual->value`,
+      выходные массивы отдают `->value`. JSON-контракт для JS не изменился
+
+**Классы:**
+
+- [ ] `inc/Cli/TaskBundleMigrationCommand.php` + `inc/Services/Task/TaskBundleMigrationPlanner.php`
+      + `inc/DTO/Task/TaskBundleReferenceChangeDTO.php` (проверить, что DTO больше нигде не нужен)
+- [ ] `inc/Cli/ArticleSlugCommand.php`
+- [ ] Обе команды — из `Init::getServices()` (`Init.php:177` и рядом)
+- [ ] `BoilerplatePageController` — снять `implements ServiceInterface` и пустой `register()`
+      (класс резолвится контейнером из `AdminCallbacks`, сервисом не является)
+- [ ] `BoilerplateController` — снять неиспользуемый `use TemplateRenderer`
+
+**Файлы:**
+
+- [ ] `assets/css/{all,fontawesome,solid}.min.css`, `assets/webfonts/` — FontAwesome грузится
+      с CDN (`BundleLoader.php:75`), локальные копии не используются и не в git
+- [ ] `.docs/db-backups/legacy-tables-pre-migration-reset.sql`
+
+---
+
+## Этап 6. Хвосты снятых с плана фич
+
+- [ ] `src/js/profile/api.js` (шапка файла) — обещание «перенести кабинет в Telegram Web App
+      или мобильное приложение» и мост `window.FS_LMS_API.request`. **Код оставить** —
+      косвенность транспорта ничего не стоит и это хорошая изоляция; переписать комментарий
+      так, чтобы он описывал текущий шов, а не будущую интеграцию
+- [ ] `inc/Services/Profile/NotificationService.php:50` — «шов будущего Telegram-модуля
+      Notifier», комментарий
+- [ ] `inc/DTO/Person/UserDTO.php` — поле `telegramId` и чтение меты `fs_telegram_id`: нигде
+      не заполняется и не читается, снять
+- [ ] `inc/Callbacks/System/AdminCallbacks.php:85` — Dashboard помечен «временная заглушка»,
+      но фактически рендерит `admin/dashboard` с фильтром `fs_lms_dashboard_modules`. Снять
+      формулировку
+- [ ] `inc/Services/Course/ContentUsageService.php:452` — `TODO Этап 2` про кросс-предметный
+      поиск. Решить: доделать или зафиксировать как сознательное ограничение в докблоке
+- [ ] `AdSync`: `AdSyncStatusCallbacks.php:41` и `AdSyncController.php:75` — `TODO(текст)`,
+      недописанные пользовательские сообщения. Дописать
+
+---
+
+## Этап 7. Раннер релиза
+
+- [ ] **`.distignore`** (новый файл в корне) — что не едет на сервер:
+
+```
+/src/
+/tests/
+/.docs/
+/.github/
+/.claude/
+/.idea/
+/node_modules/
+/.phpunit.cache/
+/.scss-check/
+/assets/css/maps/
+*.map
+*.LICENSE.txt
+/composer.json
+/composer.lock
+/package.json
+/package-lock.json
+/gulpfile.js
+/eslint.config.cjs
+/.stylelintrc.json
+/phpcs.xml
+/phpunit.xml
+/.gitignore
+/.gitattributes
+/.distignore
+/CLAUDE.md
+/README.md
+/Tasks.md
+inc/Services/Subject/Bundle/CLAUDE.md
+```
+
+Едут: `fs-lms.php`, `uninstall.php`, `inc/` (включая `inc/Modules/*/assets/` — рукописные,
+ничем не собираются), `templates/`, `assets/js/*.min.js`, `assets/css/*.min.css`, `vendor/`.
+
+- [ ] **`.github/workflows/release.yml`** (новый), триггер `push: tags: ['v*']`:
+
+1. `actions/checkout@v4`
+2. `actions/setup-node@v4` (node 20, `cache: npm`) → `npm ci`
+3. `shivammathur/setup-php@v2` (php 8.3) → `composer install --no-interaction --prefer-dist`
+4. **Гейт качества** (любой красный шаг рушит релиз): `npm run lint:js`, `npm run lint:css`,
+   `npm run build:check`, `vendor/bin/phpunit`
+5. **Гейт версии**: тег без `v` должен совпасть с `Version:` в шапке `fs-lms.php` и с
+   `FS_LMS_VERSION` — иначе `exit 1`. Без этого в манифест пакета переноса предмета уедет
+   неверная версия сборки
+6. `npx gulp build`
+7. `rm -rf vendor && composer install --no-dev --optimize-autoloader --classmap-authoritative`
+8. `rsync -a --exclude-from=.distignore ./ build/fs-lms/`
+9. `cd build && zip -r ../fs-lms-${VERSION}.zip fs-lms` — папка `fs-lms/` **внутри** ZIP
+   обязательна, иначе WP распакует файлы в корень `wp-content/plugins/`
+10. `softprops/action-gh-release@v2` с ZIP в `files`
+
+- [x] **`.github/workflows/ci.yml`** — `npm run lint:css` добавлен в job `assets` (раньше
+      stylelint на PR не проверялся). Прогон: 0 ошибок, 123 предупреждения `!important`,
+      exit 0 — гейт не красный
+- [ ] **Версия** — поднять `0.0.1` → `1.0.0` в трёх местах: шапка `fs-lms.php`, константа
+      `FS_LMS_VERSION`, `package.json`. Заодно `@since 0.0.1` в `uninstall.php`
+
+---
+
+## Этап 8. Автообновление на боевом сайте
+
+Плагин не в каталоге wordpress.org — WP-ядро умеет проверять обновления и качать их только
+оттуда. Раннер (Этап 7) уже кладёт версионный `fs-lms-{version}.zip` в GitHub Release по тегу
+`v*` — этого достаточно, чтобы WP сам увидел новую версию и либо показал «Доступно
+обновление» на экране «Плагины» (клик — как для любого обычного плагина), либо накатил её
+без участия человека через штатный механизм авто-обновлений WP (`wp_maybe_auto_update`, крон
+дважды в сутки). Дальше — пуш тега в репозиторий = релиз = боевой сайт видит обновление.
+
+Технически: WP не знает про сторонние источники «из коробки» — нужен хук в
+`pre_set_site_transient_update_plugins` (какая версия доступна + откуда качать ZIP) и, для
+карточки «Подробнее» на экране плагинов, в `plugins_api` (описание/changelog). Источник
+данных — GitHub Releases API (`GET /repos/Qabasya/fs-lms/releases/latest`), тот же тег и тот
+же ZIP-ассет, что производит Этап 7.
+
+**Открытый вопрос (решить перед реализацией):** репозиторий `Qabasya/fs-lms` — публичный или
+приватный? От этого зависит, нужен ли токен для скачивания ассета и где его хранить на
+проде.
+
+- [ ] **Решить: свой код vs. готовая библиотека.** Кандидат — `yahnisElsts/plugin-update-checker`
+      (проверяет GitHub Releases «из коробки», включая приватные репозитории и релизные
+      ассеты, штатный `factory`-конструктор). Плюс — часы разработки и меньше своих багов в
+      security-чувствительном месте (код, который решает, что скачать и распаковать поверх
+      плагина). Минус — противоречит правилу `CLAUDE.md` «Scope»: «Use only built-in PHP and
+      WordPress APIs, Do not introduce third-party libraries unless explicitly requested» —
+      если библиотеку берём, зафиксировать это как явное исключение (по аналогии с тем, как
+      уже задокументированы «Принятые исключения» P4 в `CLAUDE.md`), а не тихо нарушать
+      правило. Если пишем сами — минимальный сервис на этих двух фильтрах, без парсинга
+      changelog из markdown (просто ссылка на GitHub Release).
+- [ ] Новый сервис (условно `inc/Services/Update/GithubReleaseUpdater.php`), `ServiceInterface`,
+      регистрируется в `Init::getServices()` — если свой код, а не библиотека:
+      - Хук `pre_set_site_transient_update_plugins` — раз в N часов (WP transient-кэш, не на
+        каждый запрос) дёргает GitHub API, сравнивает `tag_name` (без `v`) с `FS_LMS_VERSION`;
+        если новее — прописывает в транзиент `package` (прямая ссылка на ZIP-ассет релиза),
+        `new_version`, `url`.
+      - Хук `plugins_api` — карточка «Просмотреть подробности» (секции info/changelog),
+        источник — тело GitHub Release (markdown как есть, либо `CHANGELOG.md` из репозитория).
+      - Если репозиторий приватный — токен для GitHub API/скачивания ассета живёт в константе
+        `wp-config.php` (аналог `FS_LMS_ENC_KEY`/`FS_LMS_HASH_SALT`, не в `wp_options` — не
+        должен утекать через дамп БД/REST), например `FS_LMS_GITHUB_TOKEN`; минимальный scope
+        токена — чтение релизов конкретного репозитория.
+- [ ] **Полностью автоматическое обновление (без клика в админке)** — отдельно от «показать,
+      что есть обновление»: нужен фильтр `auto_update_plugin` (или запись плагина в опцию
+      `auto_update_plugins`), возвращающий `true` для `plugin_basename(__FILE__)` этого плагина.
+      **Решить, включать ли** — риска добавляет то, что между тегом и фактическим накатом на
+      проде нет ручной проверки; отчасти компенсируется гейтом качества из Этапа 7 (тег без
+      зелёных lint/tests в релиз не попадёт), но не полностью (зелёные тесты — не гарантия
+      отсутствия визуальных/поведенческих регрессий). Вариант компромисса: включить
+      авто-обновление только для патч-версий (`1.0.x`), мажорные/минорные — только руками.
+- [ ] Способ форсировать проверку без ожидания реального тега — для тестирования: WP-CLI
+      (`wp plugin update fs-lms` после сброса транзиента `update_plugins`) или admin-action
+      «Проверить обновления сейчас» рядом с существующими admin-инструментами плагина.
+      Тестовый прогон — тот же второй WP-контейнер, что уже используется в проверке 6 Этапа 7
+      (поставить релизный ZIP `v1.0.0`, затем протолкнуть тестовый тег `v1.0.1-rc1` и убедиться,
+      что обновление увидено и/или накатилось).
+- [ ] Совместимость с раннером: если ставим библиотеку — она едет в `composer.json` как
+      обычная зависимость (`require`, не `require-dev`), иначе `composer install --no-dev`
+      (Этап 7, шаг 7) вырежет её из ZIP и обновление на проде сломается молча — тесты в CI
+      (Этап 7, шаг 4) идут ДО `--no-dev`-шага и такую ошибку не поймают.
+- [ ] Логирование — `PluginLogger::warning`/`::exception` на неудачный запрос к GitHub API
+      (сеть недоступна, rate limit, 404 на релиз) — тихий fail-open (плагин продолжает
+      работать на текущей версии, просто без индикатора обновления), не fail-closed.
+- [ ] Документация: как выпускать патч-релиз (`git tag v1.0.1 && git push --tags` → раннер →
+      обновление видно на проде) — короткий раздел в `README.md` для будущих себя.
+
+---
+
+## Проверка
+
+**1. Схема идентична эталону** (после этапов 1–2)
+
+Деактивировать плагин → `DROP TABLE` все `wp_fs_lms_*` → удалить опции `fs_lms_%` →
+активировать → снять `SHOW CREATE TABLE` заново и сравнить с `schema-before.sql`.
+Сравнивать **состав колонок, типы, ключи и индексы**, не текст целиком: порядок колонок после
+`ALTER` и после чистого `CREATE` закономерно расходится — это не расхождение схемы.
+
+**2. `npm run ci` зелёный** (lint:js + lint:css + build:check + phpunit)
+
+**3. Четыре предмета работают**
+
+Завести на чистой БД: ЕГЭ информатика и ОГЭ информатика (с банком, `hasBank = true`),
+Программирование на Python и Робототехника Ардуино (без банка, `hasBank = false`).
+По каждому:
+
+- лендинг `/{key}/` и разделы `/{key}/trainer/`, `/{key}/articles/`, `/{key}/courses/`
+  (у безбанковых — только описание и курсы)
+- создать задание, проверить адрес `/{key}/trainer/{номер}/`
+- создать статью, опубликовать, проверить слаг `article-task-{N}-{i}` и `ArticlePublishValidator`
+- собрать курс с уроком, назначить группе, открыть КТП, опубликовать программу
+- открыть плеер `/lesson/?gid=&gl=`, пройти шаги, сдать работу
+- контрольная: попытка, автосохранение ответа, оценивание
+- модуль EgeComputer на ЕГЭ и ОГЭ (компьютерный формат)
+
+**4. Вход без модуля**
+
+`/sign-in/` рендерит форму; `wp-login.php` редиректит на неё; неверный пароль возвращает на
+страницу с ошибкой и подставленным логином; `logout` не зацикливается; ролей
+`lms_student_free` / `lms_teacher_free` в БД нет.
+
+**5. Удаление плагина не падает** ✅ прогнано 2026-08-19 на dev (снимок БД → прогон → восстановление)
+
+| Этап | Таблицы `wp_fs_lms_*` | Опции `fs_lms_%` | LMS-роли | `manage_lms_platform` у admin | Крон |
+|---|---|---|---|---|---|
+| исходно | 27 | 17 | 8 | да | стоит |
+| после `deactivate` | **27** | **17** | 0 | да | снят |
+| после `activate` | 27 | 17 | 8 | да | стоит |
+| после `uninstall` | **0** | **0** | 0 | нет | снят |
+
+Ключевое: деактивация не трогает ни одной строки данных — данные уничтожает только удаление.
+После uninstall остались 13 штатных таблиц WP; `manage_options` и `manage_categories` у
+администратора на месте. Фатала (старый `Capability::ManageLMSAssignments`) больше нет.
+
+**6. Релизный ZIP**
+
+Тег `v1.0.0-rc1` в тестовой ветке → раннер собрал ZIP → распаковать в чистый WP (можно поднять
+второй контейнер), активировать, повторить пункты 3–5 на нём. Проверить, что внутри ZIP нет
+`src/`, `tests/`, `.docs/`, `*.map`, а `vendor/autoload.php` есть.
+
+**7. Автообновление**
+
+На том же тестовом WP (уже стоит `v1.0.0-rc1` из проверки 6) протолкнуть тег `v1.0.1-rc1` →
+раннер собрал новый ZIP-релиз → на экране «Плагины» тестового сайта появляется «Доступно
+обновление» с верной версией и ссылкой на changelog; клик «Обновить сейчас» ставит новую
+версию без ошибок. Если включено полностью автоматическое обновление (см. Этап 8) — то же
+самое, но без клика: дождаться/форсировать `wp_maybe_auto_update` и убедиться, что версия
+на сайте подтянулась сама.
+
+---
+
+## Порядок работ
+
+```
+Этап 0  → снять эталон схемы
+Этап 1  → схлопнуть миграции          ─┐
+Этап 2  → убрать догоняющие миграции   ├─ проверка 1
+Этап 3  → SocialAuth → ядро           ─┐
+Этап 4  → свободные роли               ├─ проверка 4
+Этап 5  → мёртвый код + фикс uninstall ├─ проверка 5
+Этап 6  → хвосты                      ─┘
+Этап 7  → раннер                      ─── проверки 2, 3, 6
+Этап 8  → автообновление              ─── проверка 7 (нужен готовый релиз из Этапа 7)
+```
+
+Этапы 3 и 4 связаны (роль `Student` создаётся только соцвходом) — делать подряд.
+Этапы 5 и 6 независимы от остальных, можно в любом порядке.
+
+---
+
+## Что НЕ трогаем
+
+- Механику произвольного предмета: `SubjectRepository`, создание предмета, пользовательские
+  таксономии, `hasBank`, `SubjectPageType` — на ней стоят все четыре предмета
+- Типы заданий (`TaskTemplate`, `MetaBoxes/Templates/*`) и типы шагов (`StepType`)
+- Пакет переноса предмета `inc/Services/Subject/Bundle/` + `wp fs-lms subject export|import`
+- Модули `AdSync`, `DaData`, `EgeComputer`, `SmartCaptcha`, `VideoLibrary`
+- `MigrationRunner` / `MigrationInterface` — нужны для DDL будущих патч-релизов
+- `.docs/` в репозитории (исключается только из релизного ZIP)

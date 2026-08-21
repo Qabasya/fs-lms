@@ -34,9 +34,6 @@ enum OptionName: string {
 	/** Опция для хранения типовых условий (boilerplate) заданий. */
 	case Boilerplate = 'fs_lms_task_type_boilerplates';
 
-	/** Опция для хранения настроек аутентификации (API ключи соцсетей). */
-	case AuthSettings = 'fs_lms_auth_settings';
-
 	/** Опция для хранения учебных периодов. */
 	case AcademicPeriods = 'fs_lms_academic_periods';
 

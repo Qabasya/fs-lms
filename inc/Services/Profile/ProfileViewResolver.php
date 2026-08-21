@@ -113,9 +113,6 @@ class ProfileViewResolver {
 				'nonce'   => Nonce::LearnerProfile->create(),
 				'actions' => array(
 					'getProfile' => AjaxHook::GetLearnerProfile->jsAction(),
-					// Эпик 15 (П10): самозапись в открытую группу (нонс профиля переиспользуется,
-					// как SaveSchedule в блоках преподавателя).
-					'selfEnroll' => AjaxHook::SelfEnrollOpenGroup->jsAction(),
 					// Задачи 12/13: деталь своей работы/попытки (эталонные ответы + футер).
 					'getOwnDetail' => AjaxHook::GetOwnWorkDetail->jsAction(),
 				),

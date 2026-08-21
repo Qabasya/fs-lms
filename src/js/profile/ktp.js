@@ -9,8 +9,9 @@
    ktp-popovers (поповеры темы), ktp-individual (инд. занятия).
    ══════════════════════════════════════════════════════════════════════ */
 
-import { esc, toast } from './utils.js';
-import { icoLock, icoSwap, icoChevronLeft, icoChevronRight } from '../common/icons.js';
+import { esc, toast, plural, fmtDayMonth } from './utils.js';
+import { icoLock, icoSwap, icoChevronLeft, icoChevronRight, icoAlert } from '../common/icons.js';
+import { confirmDialog } from '../common/components/confirm-dialog.js';
 import { createApi } from './api.js';
 import { DOW_RU, MONTHS_RU } from './constants.js';
 import { groupPickerBtnHtml, openGroupPicker } from './picker.js';
@@ -18,6 +19,7 @@ import { computeMonths, initialCursor, shiftMonth } from './ktp/ktp-calendar-mod
 import { themeCardHtml, placedThemeHtml, openProgramHtml, emptyStateHtml, noGroupsHtml, errorHtml } from './ktp/ktp-templates.js';
 import { attachDeadlinesClick, attachPlacedThemeClick, attachRecordingClick, attachThemeActionsClick } from './ktp/ktp-popovers.js';
 import { INDI_ID, loadIndividual } from './ktp/ktp-individual.js';
+import { openOffScheduleModal } from './ktp/ktp-offschedule-modal.js';
 
 let root = null;
 let state = null;
@@ -61,6 +63,12 @@ function currentGroup() {
 }
 /* T1.8: КТП опубликована (заблокирована) — правки структуры/расписания недоступны. */
 function isLocked() { return !!(state.data && state.data.locked); }
+/* Кнопки независимы, не альтернативны: «Распределить» нужна и когда часть тем уже
+   стоит на датах — фича выбора старта курса (закрепить первый урок вручную, затем
+   раскладку остального доверить reflow — он раскладывает НЕПИННУТЫЕ темы после
+   пиннутых, applySlots() продвигает курсор слотов за дату каждой пиннутой строки). */
+function hasScheduledThemes() { return (state.data.themes || []).some(t => t.scheduled_at); }
+function hasUnplacedThemes() { return (state.data.themes || []).some(t => !t.scheduled_at); }
 
 /* ── AJAX ─────────────────────────────────────────────────────────────── */
 async function loadCalendar() {
@@ -106,12 +114,17 @@ function render() {
                     Опубликовано
                 </span>
                 <button class="prof-btn prof-btn-sm" id="ktpUnpublish">Снять публикацию</button>` : `
+                ${hasUnplacedThemes() ? `
                 <button class="prof-btn prof-btn-sm prof-btn-primary" id="ktpReflow">
                     ${icoSwap(15)}
                     Распределить
-                </button>
+                </button>` : ''}
+                ${hasScheduledThemes() ? `
+                <button class="prof-btn prof-btn-sm" id="ktpUnschedule">Отменить распределение</button>` : ''}
                 <button class="prof-btn prof-btn-sm" id="ktpPublish">Опубликовать</button>`}` : ''}
         </div>
+
+        ${assigned && !open ? overflowBannerHtml(state.data) : ''}
 
         ${assigned ? (open ? openProgramHtml(state.data.themes || []) : `
         <div class="prof-ktp-grid">
@@ -141,7 +154,11 @@ function render() {
         if (locked) {
             document.getElementById('ktpUnpublish').onclick = doUnpublish;
         } else {
-            document.getElementById('ktpReflow').onclick = doReflow;
+            // Обе кнопки не альтернативны — могут стоять рядом (см. hasUnplacedThemes()).
+            const reflowBtn = document.getElementById('ktpReflow');
+            if (reflowBtn) reflowBtn.onclick = doReflow;
+            const unscheduleBtn = document.getElementById('ktpUnschedule');
+            if (unscheduleBtn) unscheduleBtn.onclick = doUnschedule;
             document.getElementById('ktpPublish').onclick = doPublish;
         }
         document.getElementById('ktpPrev').onclick = () => shiftMonthBy(-1);
@@ -183,6 +200,24 @@ async function wireCoursePicker() {
             await loadCalendar();
         } catch (e) { toast(e.message, 'error'); btn.disabled = false; }
     });
+}
+
+/**
+ * Этап 2 (Tasks.md): переполнение периода — тем в курсе больше, чем занятий в периоде.
+ * Живёт в payload getCalendar() (slots_total/unplaced), не только в тосте doReflow() —
+ * баннер переживает перезагрузку страницы.
+ */
+function overflowBannerHtml(data) {
+    const unplaced = data.unplaced || 0;
+    if (!unplaced) return '';
+    const slots = data.slots_total || 0;
+    const total = slots + unplaced;
+    return `
+    <div class="ktp-overflow-banner">
+        ${icoAlert(16)}
+        <span>В периоде ${slots} ${plural(slots, 'занятие', 'занятия', 'занятий')}, в курсе ${total} ${plural(total, 'тема', 'темы', 'тем')}.
+        ${unplaced} ${plural(unplaced, 'тема', 'темы', 'тем')} не ${plural(unplaced, 'помещается', 'помещаются', 'помещаются')} — ${unplaced === 1 ? 'её' : 'их'} можно открыть только вне расписания.</span>
+    </div>`;
 }
 
 function renderBank() {
@@ -259,7 +294,9 @@ function renderCalendar() {
     // Индикатор записи занятия — тоже ведёт в плеер (Этап 2, ★); тоже delivery, доступен даже при lock КТП.
     grid.querySelectorAll('.pt-recording').forEach(el => attachRecordingClick(el, api, loadCalendar));
     if (!isLocked()) {
-        grid.querySelectorAll('.kal-cell[data-lesson="1"]').forEach(attachDrop);
+        // Этап 4: drop доступен на любой день периода (кроме выходных), не только
+        // на дни со штатным слотом — attachDrop() сам разруливает slot/off-schedule.
+        grid.querySelectorAll('.kal-cell[data-day]:not(.holiday)').forEach(attachDrop);
         grid.querySelectorAll('.placed-theme[draggable="true"]').forEach(attachDrag);
         // T12.6: «Продолжить на другую дату» — структурное изменение, блокируется lock КТП.
         grid.querySelectorAll('.pt-more').forEach(el => attachThemeActionsClick(el, api, loadCalendar));
@@ -283,9 +320,23 @@ async function doReflow() {
     try {
         const res = await api('reflow', { group_id: state.groupId });
         const conflicts = res && res.room_conflicts ? +res.room_conflicts : 0;
-        toast(conflicts > 0
-            ? `Темы распределены · кабинет снят с ${conflicts} занятий (был занят)`
-            : 'Темы распределены автоматически');
+        const unplaced = res && res.unplaced ? +res.unplaced : 0;
+        const parts = ['Темы распределены' + (conflicts === 0 && unplaced === 0 ? ' автоматически' : '')];
+        if (unplaced > 0) parts.push(`${unplaced} ${plural(unplaced, 'тема', 'темы', 'тем')} не ${plural(unplaced, 'поместилась', 'поместились', 'поместились')} — откройте вне расписания`);
+        if (conflicts > 0) parts.push(`кабинет снят с ${conflicts} занятий (был занят)`);
+        toast(parts.join(' · '));
+        await loadCalendar();
+    } catch (e) {
+        toast(e.message, 'error');
+    }
+}
+
+async function doUnschedule() {
+    const ok = await confirmDialog('Отменить распределение? Темы вернутся в «Темы курса» без дат.', 'Отменить распределение', 'Не отменять');
+    if (!ok) { return; }
+    try {
+        await api('unschedule', { group_id: state.groupId });
+        toast('Распределение отменено — темы возвращены в пул');
         await loadCalendar();
     } catch (e) {
         toast(e.message, 'error');
@@ -324,25 +375,65 @@ function attachDrag(el) {
     });
 }
 
+/**
+ * Этап 4: время ближайшей встречи группы — дефолт для модалки урока вне
+ * расписания. lessonTimes уже посчитан из meetings (SessionCalendarService),
+ * отдельного запроса не нужно — берём дату из lessonTimes, ближайшую к day.
+ */
+function nearestMeetingTime(day) {
+    const days = Object.keys(state.data.lessonTimes || {});
+    if (!days.length) return '15:00';
+    const target = new Date(day).getTime();
+    const nearest = days.reduce((best, d) =>
+        Math.abs(new Date(d).getTime() - target) < Math.abs(new Date(best).getTime() - target) ? d : best
+    );
+    const m = (state.data.lessonTimes[nearest] || '').match(/\d{1,2}:\d{2}/);
+    return m ? m[0] : '15:00';
+}
+
+/**
+ * Этап 3: drop строго закрепляет тему на дату, вытесняя ту, что там стояла
+ * (если была) — вернётся в пул. Имя темы для тоста берём из уже загруженного
+ * календаря (state.data), запрос AJAX это не меняет.
+ */
+async function doPin(glid, day, scheduledAt, endsAt) {
+    const dragged = (state.data.themes || []).find(t => String(t.group_lesson_id) === String(glid));
+    const displaced = (state.data.themes || [])
+        .find(t => t.group_lesson_id !== dragged?.group_lesson_id && (t.scheduled_at || '').slice(0, 10) === day);
+    try {
+        await api('pin', { group_lesson_id: glid, scheduled_at: scheduledAt, ends_at: endsAt || '' });
+        const draggedLabel = dragged ? `Тема ${dragged.n}` : 'Тема';
+        toast(displaced
+            ? `${draggedLabel} закреплена на ${fmtDayMonth(day)} · тема ${displaced.n} возвращена в пул`
+            : `${draggedLabel} закреплена на ${fmtDayMonth(day)}`);
+        await loadCalendar();
+    } catch (err) {
+        toast(err.message, 'error');
+    }
+}
+
 function attachDrop(cell) {
     cell.addEventListener('dragover', e => { e.preventDefault(); cell.classList.add('drop-ok'); });
     cell.addEventListener('dragleave', () => cell.classList.remove('drop-ok'));
-    cell.addEventListener('drop', async e => {
+    cell.addEventListener('drop', e => {
         e.preventDefault();
         cell.classList.remove('drop-ok');
         if (!state.dragGlid) return;
         const glid = state.dragGlid;
         const day = cell.dataset.day;
         // Время слота — из расписания группы (lessonTimes: 'HH:MM–HH:MM').
-        // Никаких 09:00-заглушек: нет времени слота — не закрепляем.
         const start = (((state.data.lessonTimes || {})[day] || '').match(/\d{1,2}:\d{2}/) || [])[0];
-        if (!start) { toast('У этого дня нет слота занятия', 'error'); return; }
-        try {
-            await api('pin', { group_lesson_id: glid, scheduled_at: `${day} ${start}:00` });
-            toast(`Тема закреплена на ${day} ${start}`);
-            await loadCalendar();
-        } catch (err) {
-            toast(err.message, 'error');
+        if (start) {
+            doPin(glid, day, `${day} ${start}:00`);
+            return;
         }
+        // Этап 4: день без слота — занятия в этот день нет, урок просто откроется
+        // ученикам. Модалка предупреждает и даёт выбрать время (дефолт — ближайшая встреча).
+        openOffScheduleModal({
+            anchor: cell,
+            day,
+            defaultTime: nearestMeetingTime(day),
+            onConfirm: ({ scheduledAt, endsAt }) => doPin(glid, day, scheduledAt, endsAt),
+        });
     });
 }

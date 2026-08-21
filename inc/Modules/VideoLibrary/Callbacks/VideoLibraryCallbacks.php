@@ -56,7 +56,7 @@ class VideoLibraryCallbacks extends BaseController {
 				'id'           => $lesson->id,
 				'scheduled_at' => $lesson->scheduledAt,
 				'ends_at'      => $lesson->endsAt,
-				'kind'         => $lesson->kind,
+				'kind'         => $lesson->kind->value,
 				'status'       => $lesson->status,
 				'title'        => $lesson->label ?? ( '' !== $topic ? $topic : "Занятие #{$lesson->id}" ),
 			);

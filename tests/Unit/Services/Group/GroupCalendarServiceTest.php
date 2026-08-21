@@ -94,11 +94,63 @@ class GroupCalendarServiceTest extends TestCase {
 		self::assertSame( 1, $themes[0]['total_parts'] );
 	}
 
-	private function stubCalendarDeps(): void {
+	/** Этап 2: getCalendar() пробрасывает укомплектованность периода — баннер живёт без reflow(). */
+	public function test_get_calendar_exposes_slots_total_and_unplaced(): void {
+		$this->stubCalendarDeps( array( 'slots' => 72, 'consuming' => 80, 'unplaced' => 8 ) );
+		$this->groupLessons->method( 'listByGroup' )->willReturn( array() );
+
+		$calendar = $this->service->getCalendar( 5 );
+
+		self::assertSame( 72, $calendar['slots_total'] );
+		self::assertSame( 8, $calendar['unplaced'] );
+	}
+
+	/** Этап 4: тема с датой на дне вне lessonDays помечается off_schedule. */
+	public function test_get_calendar_marks_off_schedule_theme(): void {
+		$this->stubCalendarDeps( lessonDays: array( '2026-09-01' ) );
+		$this->groupLessons->method( 'listByGroup' )->willReturn( array(
+			$this->rowScheduledOn( 10, '2026-09-01 10:00:00' ), // плановый день
+			$this->rowScheduledOn( 11, '2026-09-05 10:00:00' ), // вне расписания
+		) );
+
+		$themes = $this->service->getCalendar( 5 )['themes'];
+
+		self::assertFalse( $themes[0]['off_schedule'] );
+		self::assertTrue( $themes[1]['off_schedule'] );
+	}
+
+	/** Тема без даты — не «вне расписания», просто ещё не размещена. */
+	public function test_get_calendar_unscheduled_theme_is_not_off_schedule(): void {
+		$this->stubCalendarDeps();
+		$this->groupLessons->method( 'listByGroup' )->willReturn( array( $this->makeRow( 10 ) ) );
+
+		$themes = $this->service->getCalendar( 5 )['themes'];
+
+		self::assertFalse( $themes[0]['off_schedule'] );
+	}
+
+	private function rowScheduledOn( int $id, string $scheduledAt ): \Inc\DTO\Course\GroupLessonDTO {
+		return new \Inc\DTO\Course\GroupLessonDTO(
+			id: $id, groupId: 5, lessonId: 10, position: $id, workIdsSnapshot: null, extraWorkIds: array(),
+			scheduledAt: $scheduledAt, endsAt: null, isPinned: true, teacherUserId: null,
+			visibility: 'hidden', openedAt: null, homeworkDueAt: null, allowLate: true, recordingUrl: null,
+			createdByUserId: null, updatedByUserId: null,
+		);
+	}
+
+	/**
+	 * @param array{slots:int, consuming:int, unplaced:int} $completeness
+	 * @param string[]                                      $lessonDays
+	 */
+	private function stubCalendarDeps(
+		array $completeness = array( 'slots' => 0, 'consuming' => 0, 'unplaced' => 0 ),
+		array $lessonDays = array()
+	): void {
 		$this->groups->method( 'findById' )->willReturn( new \stdClass() );
 		$this->calendar->method( 'periodMeta' )->willReturn( array(
-			'period' => null, 'holidays' => array(), 'lessonDays' => array(), 'lessonTimes' => array(),
+			'period' => null, 'holidays' => array(), 'lessonDays' => $lessonDays, 'lessonTimes' => array(),
 		) );
+		$this->calendar->method( 'completeness' )->willReturn( $completeness );
 		$this->lessonManager->method( 'get' )->willReturn( null );
 		$this->rooms->method( 'findAll' )->willReturn( array() );
 	}

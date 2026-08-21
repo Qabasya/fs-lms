@@ -24,23 +24,23 @@ use PHPUnit\Framework\TestCase;
  */
 class AssessmentAccessPolicyTest extends TestCase {
 
-	private StudentRecordRepository&MockObject $records;
-	private GroupLessonRepository&MockObject   $groupLessons;
-	private LessonManager&MockObject           $lessons;
-	private LessonAccessPolicy&MockObject      $lessonAccess;
-	private GroupsRepository&MockObject        $groups;
+	private StudentRecordRepository&MockObject  $records;
+	private GroupLessonRepository&MockObject    $groupLessons;
+	private LessonManager&MockObject            $lessons;
+	private LessonAccessPolicy&MockObject       $lessonAccess;
+	private GroupsRepository&MockObject         $groups;
 	private CoursePreviewAccessGuard&MockObject $previewAccess;
-	private AssessmentAccessPolicy             $policy;
+	private AssessmentAccessPolicy              $policy;
 
 	protected function setUp(): void {
 		parent::setUp();
-		$this->records       = $this->createMock( StudentRecordRepository::class );
-		$this->groupLessons  = $this->createMock( GroupLessonRepository::class );
-		$this->lessons       = $this->createMock( LessonManager::class );
-		$this->lessonAccess  = $this->createMock( LessonAccessPolicy::class );
-		$this->groups        = $this->createMock( GroupsRepository::class );
+		$this->records      = $this->createMock( StudentRecordRepository::class );
+		$this->groupLessons = $this->createMock( GroupLessonRepository::class );
+		$this->lessons      = $this->createMock( LessonManager::class );
+		$this->lessonAccess = $this->createMock( LessonAccessPolicy::class );
+		$this->groups       = $this->createMock( GroupsRepository::class );
 		$this->previewAccess = $this->createMock( CoursePreviewAccessGuard::class );
-		$this->policy        = new AssessmentAccessPolicy(
+		$this->policy       = new AssessmentAccessPolicy(
 			$this->records,
 			$this->groupLessons,
 			$this->lessons,

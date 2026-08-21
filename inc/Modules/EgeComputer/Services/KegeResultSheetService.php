@@ -6,9 +6,11 @@ namespace Inc\Modules\EgeComputer\Services;
 
 use Inc\DTO\Assessment\AssessmentDTO;
 use Inc\DTO\Assessment\AttemptDTO;
+use Inc\Enums\Assessment\AssessmentKind;
 use Inc\Enums\Wp\PostMetaName;
 use Inc\Managers\Wp\PostManager;
 use Inc\Modules\EgeComputer\Config\KegeScaleConfig;
+use Inc\Modules\EgeComputer\Config\OgeScaleConfig;
 use Inc\Modules\EgeComputer\DTO\KegeSheetDTO;
 use Inc\Repositories\WPDBRepositories\AssessmentAnswerRepository;
 use Inc\Services\Assessment\SecondaryScoreService;
@@ -58,16 +60,24 @@ readonly class KegeResultSheetService {
 	 * @param AssessmentDTO   $assessment Контрольная
 	 * @param AttemptDTO|null $attempt    Последняя сданная попытка; null — предпросмотр автора
 	 * @param array           $taskViews  Per-task view-данные страницы (нужен номер задания)
+	 * @param bool            $revealed   D18: можно ли показывать ответы/баллы ученику —
+	 *                                    предпросмотр автора ($attempt === null) всегда true
 	 */
-	public function build( AssessmentDTO $assessment, ?AttemptDTO $attempt, array $taskViews ): KegeSheetDTO {
+	public function build( AssessmentDTO $assessment, ?AttemptDTO $attempt, array $taskViews, bool $revealed = true ): KegeSheetDTO {
 		$answerText = array();
+		$graded     = array();
 		if ( null !== $attempt ) {
 			foreach ( $this->answers->listByAttempt( $attempt->id ) as $row ) {
 				$answerText[ $row->taskId ] = (string) ( $row->answerText ?? '' );
+				// Ручная проверка (ОГЭ 13-16, D18): task_answer в мете задания нет —
+				// балл сличением текста не посчитать, берём то, что выставил учитель.
+				if ( null !== $row->isCorrect ) {
+					$graded[ $row->taskId ] = $row->score;
+				}
 			}
 		}
 
-		return $this->assemble( $assessment, $answerText, $taskViews, null !== $attempt );
+		return $this->assemble( $assessment, $answerText, $taskViews, null !== $attempt, $graded, $revealed );
 	}
 
 	/**
@@ -84,17 +94,20 @@ readonly class KegeResultSheetService {
 	 * @param array               $taskViews  Per-task view-данные страницы (нужен номер задания)
 	 */
 	public function buildFromAnswers( AssessmentDTO $assessment, array $answerText, array $taskViews ): KegeSheetDTO {
-		return $this->assemble( $assessment, $answerText, $taskViews, true );
+		return $this->assemble( $assessment, $answerText, $taskViews, true, array(), true );
 	}
 
 	/**
-	 * @param AssessmentDTO      $assessment Контрольная
-	 * @param array<int, string> $answerText Ответ ученика по task_id
-	 * @param array              $taskViews  Per-task view-данные страницы
-	 * @param bool               $scored     Считать баллы (есть с чем сличать) — false только
-	 *                                        для générique-предпросмотра без ответов вообще
+	 * @param AssessmentDTO       $assessment Контрольная
+	 * @param array<int, string>  $answerText Ответ ученика по task_id
+	 * @param array               $taskViews  Per-task view-данные страницы
+	 * @param bool                $scored     Считать баллы (есть с чем сличать) — false только
+	 *                                         для générique-предпросмотра без ответов вообще
+	 * @param array<int, ?float>  $graded     task_id => балл ручной проверки (D18, ОГЭ 13-16);
+	 *                                         только для заданий, где `correctAnswer()` пуст
+	 * @param bool                $revealed   D18: можно ли показывать ответы/баллы ученику
 	 */
-	private function assemble( AssessmentDTO $assessment, array $answerText, array $taskViews, bool $scored ): KegeSheetDTO {
+	private function assemble( AssessmentDTO $assessment, array $answerText, array $taskViews, bool $scored, array $graded, bool $revealed ): KegeSheetDTO {
 		// ID приходят из таблицы контрольной, не из WP_Query — без прогрева каждое
 		// чтение меты и записи в цикле шло бы отдельным запросом.
 		$this->posts->primeMetaCache( $assessment->taskIds );
@@ -107,58 +120,93 @@ readonly class KegeResultSheetService {
 		foreach ( $assessment->taskIds as $position => $taskId ) {
 			$taskId = (int) $taskId;
 			$number = $this->number( $assessment, $taskViews, $taskId, (int) $position );
-			$slots  = KegeScaleConfig::answerSlots( (int) $number );
+			$slots  = $this->answerSlots( $assessment->kind, (int) $number );
 
 			$given   = $this->slots( $this->studentAnswer( $answerText[ $taskId ] ?? '', $number ), $slots );
 			$correct = $this->slots( $this->correctAnswer( $taskId, $number ), $slots );
 
-			$primaryMax += $slots;
+			// Балл задания целиком (D18) — не всегда «1 на слот»: ручная проверка ОГЭ
+			// 13-16 стоит 2-3 балла на ОДИН слот (см. OgeCriteriaConfig::rubricFor()).
+			// Источник истины — та же таблица, что и у станции (applyStationSettings());
+			// без неё (générique-предпросмотр) — фолбэк «1 балл на слот», как раньше.
+			$taskMax = isset( $assessment->taskPoints[ $taskId ] ) ? (float) $assessment->taskPoints[ $taskId ] : (float) $slots;
+			$slotMax = $slots > 0 ? $taskMax / $slots : 0.0;
+			$primaryMax += $taskMax;
 
 			for ( $slot = 0; $slot < $slots; $slot++ ) {
-				$score = $this->slotScore( $scored, $given[ $slot ], $correct[ $slot ] );
+				// Ручная проверка (D18): эталона для сличения нет, балл — от учителя.
+				$score = ( '' === $correct[ $slot ] && array_key_exists( $taskId, $graded ) )
+					? $graded[ $taskId ]
+					: $this->slotScore( $scored, $given[ $slot ], $correct[ $slot ], $slotMax );
 
 				$rows[] = array(
 					'number'  => $number,
-					'score'   => $score,
+					'score'   => $revealed ? $score : null,
 					'answer'  => $given[ $slot ],
-					'correct' => $correct[ $slot ],
+					'correct' => $revealed ? $correct[ $slot ] : '',
 				);
 
 				$primary += (float) ( $score ?? 0.0 );
 			}
 		}
 
-		// Шкала перевода станции фиксирована (см. KegeScaleConfig): у реального
-		// КЕГЭ максимум вторичного балла — 100, авторская таблица работы его не меняет.
-		$secondary = $this->secondaryScore->translate( $primary, KegeScaleConfig::scale() ) ?? 0;
+		// Шкала перевода станции фиксирована (см. KegeScaleConfig/OgeScaleConfig) и
+		// зависит от вида станции: у КЕГЭ максимум вторичного балла — 100, у ОГЭ —
+		// отметка 2-5; авторская таблица работы её не меняет ни там, ни там.
+		$secondary = $this->secondaryScore->translate( $primary, $this->scale( $assessment->kind ) ) ?? 0;
 
 		$answered = count( array_filter( $rows, static fn( array $row ): bool => '' !== $row['answer'] ) );
 
 		return new KegeSheetDTO(
 			rows        : $rows,
 			answered    : $answered,
-			primary     : $primary,
+			// D18: сумма баллов доходит до ученика только после подтверждения учителем —
+			// строки уже зачищены выше, но и сводный балл на всякий случай тоже.
+			primary     : $revealed ? $primary : 0.0,
 			primaryMax  : $primaryMax,
-			secondary   : $secondary,
-			secondaryMax: KegeScaleConfig::secondaryMax(),
+			secondary   : $revealed ? $secondary : null,
+			secondaryMax: $this->secondaryMax( $assessment->kind ),
+			revealed    : $revealed,
 		);
 	}
 
 	/**
-	 * Балл позиции: 1 за совпадение с эталоном, 0 за расхождение. Null («—») —
+	 * Сколько позиций ответа занимает задание — диспетчеризуется по виду станции
+	 * (см. докблоки {@see KegeScaleConfig::answerSlots()} / {@see OgeScaleConfig::answerSlots()}).
+	 */
+	private function answerSlots( AssessmentKind $kind, int $number ): int {
+		return AssessmentKind::OgeComputer === $kind
+			? OgeScaleConfig::answerSlots()
+			: KegeScaleConfig::answerSlots( $number );
+	}
+
+	/** Таблица перевода первичного балла во вторичный/отметку — по виду станции. */
+	private function scale( AssessmentKind $kind ): array {
+		return AssessmentKind::OgeComputer === $kind ? OgeScaleConfig::scale() : KegeScaleConfig::scale();
+	}
+
+	/** Максимум вторичного балла/отметки — по виду станции. */
+	private function secondaryMax( AssessmentKind $kind ): int {
+		return AssessmentKind::OgeComputer === $kind ? OgeScaleConfig::secondaryMax() : KegeScaleConfig::secondaryMax();
+	}
+
+	/**
+	 * Балл позиции: $slotMax за совпадение с эталоном, 0 за расхождение. Null («—») —
 	 * когда сличать не с чем: задание без эталонного ответа (ручная проверка
-	 * преподавателем) либо générique-вызов без ответов вообще ($scored = false).
+	 * преподавателем — обрабатывается отдельно вызывающим кодом через `$graded`)
+	 * либо générique-вызов без ответов вообще ($scored = false).
 	 *
 	 * @param bool   $scored  Есть с чем сличать (реальная попытка или предпросмотр с ответами)
 	 * @param string $given   Ответ ученика в этой позиции
 	 * @param string $correct Эталон этой позиции
+	 * @param float  $slotMax Балл за позицию при совпадении (D18: не всегда 1.0)
 	 */
-	private function slotScore( bool $scored, string $given, string $correct ): ?float {
+	private function slotScore( bool $scored, string $given, string $correct, float $slotMax = 1.0 ): ?float {
 		if ( ! $scored || '' === $correct ) {
 			return null;
 		}
 
-		return $this->same( $given, $correct ) ? 1.0 : 0.0;
+		return $this->same( $given, $correct ) ? $slotMax : 0.0;
 	}
 
 	/**

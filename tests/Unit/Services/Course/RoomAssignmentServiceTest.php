@@ -6,11 +6,14 @@ namespace Unit\Services\Course;
 
 use Inc\DTO\Course\GroupLessonDTO;
 use Inc\DTO\Course\RoomDTO;
+use Inc\Enums\Course\LessonKind;
+use Inc\Enums\Profile\NotificationType;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\WPDBRepositories\RoomRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 use Inc\Services\Course\RoomAssignmentService;
+use Inc\Services\Profile\NotificationService;
 use PHPUnit\Framework\TestCase;
 
 class RoomAssignmentServiceTest extends TestCase {
@@ -19,6 +22,7 @@ class RoomAssignmentServiceTest extends TestCase {
 	private $groups;
 	private $groupLessons;
 	private $records;
+	private $notifications;
 	private RoomAssignmentService $service;
 
 	protected function setUp(): void {
@@ -27,7 +31,12 @@ class RoomAssignmentServiceTest extends TestCase {
 		$this->groups       = $this->createMock( GroupsRepository::class );
 		$this->groupLessons = $this->createMock( GroupLessonRepository::class );
 		$this->records      = $this->createMock( StudentRecordRepository::class );
-		$this->service      = new RoomAssignmentService( $this->rooms, $this->groups, $this->groupLessons, $this->records );
+		// Без явных стабов PHPUnit-мок сам вернёт «пусто» подходящего типа
+		// (array()/null/'') — кейсам, не относящимся к уведомлениям, этого достаточно.
+		$this->notifications = $this->createMock( NotificationService::class );
+		$this->service = new RoomAssignmentService(
+			$this->rooms, $this->groups, $this->groupLessons, $this->records, $this->notifications
+		);
 	}
 
 	public function test_assign_to_group_sets_room_and_no_warning(): void {
@@ -77,6 +86,44 @@ class RoomAssignmentServiceTest extends TestCase {
 		$this->service->assignToLesson( 10, 3 );
 	}
 
+	public function test_assign_to_lesson_notifies_students_and_teacher_on_room_change(): void {
+		$lesson = $this->lesson( '2026-05-20 09:00:00', '2026-05-20 09:45:00' );
+		$this->groupLessons->method( 'find' )->willReturn( $lesson );
+		$this->rooms->method( 'find' )->willReturn( new RoomDTO( 3, 'Кабинет A', 30, array(), true ) );
+		$this->rooms->method( 'isBusy' )->willReturn( false );
+		$this->notifications->method( 'lessonStudentUserIds' )->with( $lesson )->willReturn( array( 101, 102 ) );
+		$this->notifications->method( 'lessonTeacherUserId' )->with( $lesson )->willReturn( 55 );
+		$this->notifications->method( 'groupName' )->with( 7 )->willReturn( 'ОГЭ-1' );
+
+		$this->notifications->expects( self::once() )
+			->method( 'pushFresh' )
+			->with(
+				array( 101, 102, 55 ),
+				NotificationType::RoomChanged,
+				'room-lesson:10',
+				self::callback(
+					static fn( $p ) => 'ОГЭ-1' === $p['group_name']
+						&& '—' === $p['old_room']
+						&& 'Кабинет A' === $p['new_room']
+				),
+				self::anything(),
+				7,
+				'group_lesson',
+				10
+			);
+
+		$this->service->assignToLesson( 10, 3 );
+	}
+
+	public function test_assign_to_lesson_does_not_notify_when_room_unchanged(): void {
+		$this->groupLessons->method( 'find' )->willReturn( $this->lesson( '2026-05-20 09:00:00', '2026-05-20 09:45:00' ) );
+		$this->rooms->method( 'isBusy' )->willReturn( false );
+		$this->notifications->expects( self::never() )->method( 'pushFresh' );
+
+		// Урок без кабинета (roomId=null), назначаем тот же NULL — реального изменения нет.
+		$this->service->assignToLesson( 10, null );
+	}
+
 	public function test_override_for_range_applies_and_skips_conflicts(): void {
 		$this->rooms->method( 'find' )->willReturn( new RoomDTO( 3, 'A', 30, array(), true ) );
 		$this->groups->method( 'findById' )->willReturn( (object) array( 'subject_key' => 'inf' ) );
@@ -103,7 +150,7 @@ class RoomAssignmentServiceTest extends TestCase {
 			id: $id, groupId: 7, lessonId: 1, position: 0, workIdsSnapshot: null, extraWorkIds: array(),
 			scheduledAt: $start, endsAt: null, isPinned: false, teacherUserId: null, visibility: 'open',
 			openedAt: null, homeworkDueAt: null, allowLate: true, recordingUrl: null,
-			createdByUserId: null, updatedByUserId: null, kind: $kind,
+			createdByUserId: null, updatedByUserId: null, kind: LessonKind::fromValueOrDefault( $kind ),
 		);
 	}
 

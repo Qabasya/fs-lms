@@ -7,7 +7,9 @@ namespace Unit\Services\Course;
 use Inc\Enums\Course\StepType;
 use Inc\Managers\Course\LessonManager;
 use Inc\Managers\Wp\PostManager;
+use Inc\Managers\Wp\TermManager;
 use Inc\Services\Course\LessonAuthoringService;
+use Inc\Services\Task\TaskBundleService;
 use PHPUnit\Framework\TestCase;
 
 class LessonAuthoringServiceTest extends TestCase {
@@ -20,7 +22,12 @@ class LessonAuthoringServiceTest extends TestCase {
 		fs_test_reset_posts();
 		$posts         = new PostManager();
 		$this->lessons = new LessonManager( $posts );
-		$this->service = new LessonAuthoringService( $posts, $this->lessons, new \Inc\Services\Template\TemplateRegistry() );
+		$this->service = new LessonAuthoringService(
+			$posts,
+			$this->lessons,
+			new \Inc\Services\Template\TemplateRegistry(),
+			new TaskBundleService( $posts, $this->createMock( TermManager::class ) )
+		);
 	}
 
 	/**
@@ -167,6 +174,39 @@ class LessonAuthoringServiceTest extends TestCase {
 
 	public function test_step_candidates_unknown_kind_is_empty(): void {
 		self::assertSame( array(), $this->service->getStepCandidates( 'inf', 'whatever' ) );
+	}
+
+	/**
+	 * Задача C (.docs/Tasks.md): позиционный поиск (position задан) для
+	 * ребёнка связки 19-21 отдаёт bundle_siblings — EGE-конструктор раскладывает
+	 * номера 19/20/21 по позиционным слотам без ручного поиска каждого.
+	 */
+	public function test_step_candidates_task_with_position_exposes_bundle_siblings(): void {
+		fs_test_seed_post(
+			array( 'ID' => 100, 'post_type' => 'inf_tasks', 'post_title' => 'Связка' ),
+			array( \Inc\Enums\Wp\PostMetaName::TaskBundleChildIds->value => array( 201, 202, 203 ) )
+		);
+		fs_test_seed_post(
+			array( 'ID' => 201, 'post_type' => 'inf_tasks', 'post_title' => '№ 19. Связка' ),
+			array( \Inc\Enums\Wp\PostMetaName::TaskBundleParentId->value => 100 )
+		);
+		fs_test_seed_post( array( 'ID' => 202, 'post_type' => 'inf_tasks', 'post_title' => '№ 20. Связка' ) );
+		fs_test_seed_post( array( 'ID' => 203, 'post_type' => 'inf_tasks', 'post_title' => '№ 21. Связка' ) );
+
+		$candidates = $this->service->getStepCandidates( 'inf', 'task', 'subject', '', '19' );
+		$byId       = array();
+		foreach ( $candidates as $c ) { $byId[ $c['id'] ] = $c; }
+
+		self::assertArrayHasKey( 'bundle_siblings', $byId[201] );
+		self::assertSame(
+			array(
+				'19' => array( 'id' => 201, 'title' => '№ 19. Связка' ),
+				'20' => array( 'id' => 202, 'title' => '№ 20. Связка' ),
+				'21' => array( 'id' => 203, 'title' => '№ 21. Связка' ),
+			),
+			$byId[201]['bundle_siblings']
+		);
+		self::assertArrayNotHasKey( 'bundle_siblings', $byId[202] );
 	}
 
 	public function test_step_candidates_lesson_kind(): void {

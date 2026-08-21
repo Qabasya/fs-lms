@@ -188,7 +188,7 @@ public function test_empty_answers_returns_zero_counts(): void {
 		$result         = $this->svc->check(
 			[ 10 => $studentAnswers ],
 			[ '10:19' => 2.0, '10:20' => 1.0, '10:21' => 1.0 ],
-			AssessmentKind::Ege,
+			AssessmentKind::EgeComputer,
 		);
 
 		// Task 19: correct (42=42), 20: wrong (нет≠ДА), 21: correct (7=7).

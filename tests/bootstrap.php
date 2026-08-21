@@ -10,6 +10,7 @@ define('FS_LMS_HASH_SALT', 'test-hash-salt-for-unit-tests');
 define('FS_LMS_OTP_BYPASS_CODE', 'TEST_BYPASS_000');
 
 // WP constants
+if (!defined('ABSPATH')) { define('ABSPATH', __DIR__ . '/'); }
 if (!defined('ARRAY_A')) { define('ARRAY_A', 'ARRAY_A'); }
 if (!defined('OBJECT'))  { define('OBJECT',  'OBJECT'); }
 if (!defined('WP_DEBUG')) { define('WP_DEBUG', false); }
@@ -25,6 +26,11 @@ if (!class_exists('wpdb')) {
         public int $insert_id = 1;
         public string $last_error = '';
         public string $prefix = 'wp_';
+        public string $users = 'wp_users';
+        public string $usermeta = 'wp_usermeta';
+        public string $posts = 'wp_posts';
+        public string $postmeta = 'wp_postmeta';
+        public string $options = 'wp_options';
         public function query(string $sql): bool|int { return 1; }
         public function prepare(string $sql, ...$args): string { return $sql; }
         public function insert(string $table, array $data, ?array $format = null): int|false { return 1; }
@@ -57,6 +63,12 @@ if (!function_exists('get_current_user_id')) {
 }
 if (!function_exists('is_user_logged_in')) {
     function is_user_logged_in(): bool { return $GLOBALS['_test_logged_in'] ?? true; }
+}
+if (!function_exists('wp_get_current_user')) {
+    // Управляется $GLOBALS['_fs_test_user_roles'] (список слагов ролей текущего пользователя).
+    function wp_get_current_user(): object {
+        return (object) [ 'roles' => $GLOBALS['_fs_test_user_roles'] ?? [] ];
+    }
 }
 if (!function_exists('wp_json_encode')) {
     function wp_json_encode(mixed $data, int $flags = 0, int $depth = 512): string|false {
@@ -176,6 +188,9 @@ if (!function_exists('get_userdata')) {
     function get_userdata(int $userId): WP_User|false {
         return $GLOBALS['_fs_test_userdata'][$userId] ?? false;
     }
+}
+if (!function_exists('clean_user_cache')) {
+    function clean_user_cache(int|WP_User $user): void {}
 }
 if (!function_exists('user_can')) {
     function user_can(int $userId, string $cap): bool {
@@ -414,6 +429,11 @@ if (!function_exists('term_exists')) {
 if (!function_exists('wp_unslash')) {
     function wp_unslash(mixed $value): mixed { return is_string($value) ? stripslashes($value) : $value; }
 }
+if (!function_exists('wp_check_invalid_utf8')) {
+    // Тестовый ввод всегда валидный UTF-8 — пропускаем как есть (реальная функция
+    // WP чистит/обрезает невалидные байты, здесь это не нужно).
+    function wp_check_invalid_utf8(mixed $string, bool $strip = false): string { return is_string($string) ? $string : ''; }
+}
 if (!function_exists('sanitize_textarea_field')) {
     function sanitize_textarea_field(string $str): string { return trim(strip_tags($str)); }
 }
@@ -443,6 +463,17 @@ if (!function_exists('absint')) {
 }
 if (!function_exists('wp_kses_post')) {
     function wp_kses_post(string $content): string { return $content; }
+}
+if (!function_exists('wpautop')) {
+    function wpautop(string $text): string {
+        $text = trim($text);
+        if ('' === $text) { return ''; }
+        $paragraphs = preg_split('/\n\s*\n/', $text);
+        return implode("\n", array_map(
+            static fn(string $p): string => '<p>' . trim(nl2br(trim($p))) . '</p>',
+            array_filter(array_map('trim', $paragraphs), static fn(string $p): bool => '' !== $p)
+        ));
+    }
 }
 if (!function_exists('get_post_mime_type')) {
     function get_post_mime_type(int $postId): string|false {
@@ -524,7 +555,9 @@ if (!function_exists('sanitize_title')) {
 //  wp_send_json_* бросает FsTestJsonResponse вместо exit, чтобы тест
 //  перехватил ответ. Управление авторизацией — через глобалы ниже.
 // ────────────────────────────────────────────────────────────────
-if (!function_exists('plugin_dir_path')) { function plugin_dir_path(string $f): string { return rtrim($f, '/\\') . '/'; } }
+if (!function_exists('__return_true'))  { function __return_true(): bool { return true; } }
+if (!function_exists('__return_false')) { function __return_false(): bool { return false; } }
+if (!function_exists('plugin_dir_path')) { function plugin_dir_path(string $f): string { return rtrim(dirname($f), '/\\') . '/'; } }
 if (!function_exists('plugin_dir_url'))  { function plugin_dir_url(string $f): string { return 'http://example.test/'; } }
 if (!function_exists('plugin_basename')) { function plugin_basename(string $f): string { return basename($f); } }
 
@@ -597,6 +630,34 @@ if (!function_exists('esc_attr'))     { function esc_attr($text) { return $text;
 if (!function_exists('esc_textarea')) { function esc_textarea($text) { return $text; } }
 if (!function_exists('esc_html__'))   { function esc_html__($text, $domain = null) { return $text; } }
 if (!function_exists('esc_attr__'))   { function esc_attr__($text, $domain = null) { return $text; } }
+if (!function_exists('selected')) {
+    function selected($a, $b = true, bool $echo = true): string {
+        $result = ((string) $a === (string) $b) ? ' selected="selected"' : '';
+        if ($echo) { echo $result; }
+        return $result;
+    }
+}
+if (!function_exists('checked')) {
+    function checked($a, $b = true, bool $echo = true): string {
+        $result = ((string) $a === (string) $b) ? ' checked="checked"' : '';
+        if ($echo) { echo $result; }
+        return $result;
+    }
+}
+if (!function_exists('disabled')) {
+    function disabled($a, $b = true, bool $echo = true): string {
+        $result = ((string) $a === (string) $b) ? ' disabled="disabled"' : '';
+        if ($echo) { echo $result; }
+        return $result;
+    }
+}
+if (!function_exists('wp_nonce_field')) {
+    function wp_nonce_field($action = -1, string $name = '_wpnonce', bool $referer = true, bool $echo = true): string {
+        $field = '<input type="hidden" name="' . $name . '" value="test-nonce" />';
+        if ($echo) { echo $field; }
+        return $field;
+    }
+}
 
 /** Управляется $GLOBALS['_fs_test_users_by'][$field][$value] (WP_User); нет записи — false. */
 function get_user_by( string $field, mixed $value ): WP_User|false {

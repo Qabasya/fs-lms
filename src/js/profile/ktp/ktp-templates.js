@@ -40,6 +40,7 @@ function recordingIconHtml(t, videoEnabled) {
 
 export function placedThemeHtml(t, videoEnabled) {
     const pinned = t.is_pinned ? ' pinned' : '';
+    const offSchedule = t.off_schedule ? ' off-schedule' : '';
     const roomTip = t.room ? ` · ${t.room}` : '';
     // T12.6: «Продолжить» доступно только для «родных» строк (part 1) — не для уже-продолжений.
     const canContinue = 1 === t.part;
@@ -47,8 +48,11 @@ export function placedThemeHtml(t, videoEnabled) {
     // Номер убран; метка продолжения (part/total) прикреплена к теме.
     // Этап 2 (★): клик по карточке ведёт в плеер курса (teacher-режим) — карточка
     // кликабельна, только если у занятия есть контент (player_url из getCalendar).
-    return `<div class="placed-theme${pinned}" draggable="true" data-glid="${t.group_lesson_id}" title="${esc(t.topic)}${esc(roomTip)}">
+    // Этап 4: урок вне расписания (нет штатного слота в этот день) — иначе неотличим
+    // от планового занятия.
+    return `<div class="placed-theme${pinned}${offSchedule}" draggable="true" data-glid="${t.group_lesson_id}" title="${esc(t.topic)}${esc(roomTip)}">
         <span class="pt-pin">${icoPinFilled(11)}</span>
+        ${t.off_schedule ? `<span class="pt-off-schedule" title="Урок вне расписания — открывается ученикам отдельно">${icoAlert(11)}</span>` : ''}
         <button type="button" class="pt-deadlines" data-glid="${t.group_lesson_id}" title="Дедлайны работ" aria-label="Дедлайны работ">${icoCalendar(12)}</button>
         <span class="pt-title">${esc(t.topic || 'Без названия')}${partLabel(t)}</span>
         ${t.room ? `<span class="pt-meta">${esc(t.room)}</span>` : ''}

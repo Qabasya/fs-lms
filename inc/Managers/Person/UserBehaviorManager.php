@@ -73,6 +73,26 @@ class UserBehaviorManager {
 	}
 
 	/**
+	 * Скрывает верхнюю админ-панель WordPress фронт-кабинетным ролям (преподаватель/
+	 * ученик/родитель) — им она не нужна, весь их UI живёт в `/profile/`. Офисные роли
+	 * (FSOffice/методист/маркетолог) и чистый администратор работают в wp-admin —
+	 * панель им оставляем. Тот же денилист, что и в {@see restrictAdminAccess()}.
+	 * Подключается к фильтру 'show_admin_bar'.
+	 */
+	public function hideAdminBarForFrontCabinet( bool $show ): bool {
+		if ( ! is_user_logged_in() || current_user_can( Capability::Admin->value ) ) {
+			return $show;
+		}
+
+		$frontRoles = array_map( static fn( UserRole $r ): string => $r->value, UserRole::frontCabinetRoles() );
+		if ( array_intersect( $frontRoles, (array) wp_get_current_user()->roles ) ) {
+			return false;
+		}
+
+		return $show;
+	}
+
+	/**
 	 * Фильтрует медиафайлы: администратор видит все, другие пользователи — только свои.
 	 * Используется в хуках 'ajax_query_attachments_args' и 'request'.
 	 *

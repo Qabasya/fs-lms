@@ -1,0 +1,9 @@
+// Скрытый textarea для execCommand('copy')-fallback (см. common/utils.js
+// copyToClipboard()) — элемент обязан оставаться в потоке документа и быть
+// фокусируемым/выделяемым, поэтому display:none/visibility:hidden не годятся.
+.fs-clipboard-fallback {
+  position: fixed;
+  top: -9999px;
+  left: -9999px;
+  opacity: 0;
+}

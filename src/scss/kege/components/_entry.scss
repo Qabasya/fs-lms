@@ -73,6 +73,39 @@ $slide-chrome: rem(220);
   box-shadow: 0 4px 18px rgba(29, 62, 110, 0.1);
 }
 
+// Текстовый слайд карусели (ОГЭ, §6.1 .docs/Tasks.md) — шаги ритуала сдачи
+// экзамена вместо картинки; та же зона высоты, что и у kege-slide-shot.
+.kege-slide-text {
+  max-width: 100%;
+  max-height: calc(100dvh - #{$slide-chrome});
+  overflow-y: auto;
+  margin: 0 auto;
+  padding: rem(24) rem(28);
+  background: var(--kege-surface);
+  border: 1px solid var(--kege-line-2);
+  text-align: left;
+}
+
+.kege-slide-text__title {
+  font-weight: 600;
+  font-size: rem(16);
+  margin-bottom: rem(16);
+  color: var(--kege-text);
+}
+
+.kege-slide-text__steps {
+  margin: 0;
+  padding-left: rem(20);
+
+  li { margin-bottom: rem(14); }
+  p { margin: rem(4) 0 0; color: var(--kege-muted); }
+}
+
+.kege-slide-text__step-title {
+  font-weight: 600;
+  color: var(--kege-text);
+}
+
 // ── Шаги 1-2-3 (регистрация/активация)
 .kege-steps {
   background: var(--kege-surface);

@@ -264,10 +264,8 @@ export const TaskFields = {
 	bindMaterials( root = document ) {
 		root.querySelectorAll( '.fs-task-materials-field' ).forEach( ( wrap ) => {
 			const idInput   = wrap.querySelector( '.js-materials-attachment-id' );
-			const preview   = wrap.querySelector( '.fs-task-materials__preview' );
-			const link      = wrap.querySelector( '.js-materials-link' );
+			const urlInput  = wrap.querySelector( '.js-materials-url' );
 			const selectBtn = wrap.querySelector( '.js-materials-select' );
-			const removeBtn = wrap.querySelector( '.js-materials-remove' );
 
 			if ( ! idInput || ! selectBtn ) return;
 
@@ -281,27 +279,12 @@ export const TaskFields = {
 				frame.on( 'select', () => {
 					const att = frame.state().get( 'selection' ).first().toJSON();
 					idInput.value = att.id;
-					if ( link ) {
-						link.href        = att.url;
-						link.textContent = att.title || att.filename || `Файл #${ att.id }`;
-					}
-					toggleVisible( preview, true );
+					if ( urlInput ) urlInput.value = att.url;
 					selectBtn.textContent = 'Заменить файл';
-					toggleVisible( removeBtn, true );
 				} );
 
 				frame.open();
 			} );
-
-			if ( removeBtn ) {
-				removeBtn.addEventListener( 'click', () => {
-					idInput.value = 0;
-					if ( link ) { link.href = '#'; link.textContent = ''; }
-					toggleVisible( preview, false );
-					selectBtn.textContent = 'Выбрать файл';
-					toggleVisible( removeBtn, false );
-				} );
-			}
 		} );
 	},
 

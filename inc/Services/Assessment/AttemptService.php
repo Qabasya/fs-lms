@@ -6,6 +6,7 @@ namespace Inc\Services\Assessment;
 
 use Inc\Contracts\ClockInterface;
 use Inc\Contracts\LogEventDispatcherInterface;
+use Inc\DTO\Assessment\AttemptAnswerDTO;
 use Inc\DTO\Assessment\AttemptDTO;
 use Inc\DTO\Assessment\AttemptInputDTO;
 use Inc\DTO\Log\Events\LearningEvent;
@@ -26,6 +27,7 @@ class AttemptService {
 		private readonly ClockInterface              $clock,
 		private readonly AssessmentAccessPolicy      $access,
 		private readonly EgeCompletenessChecker      $completeness,
+		private readonly AttemptRevealPolicy         $revealPolicy,
 	) {}
 
 	/**
@@ -193,6 +195,11 @@ class AttemptService {
 	/**
 	 * Результат попытки для отображения.
 	 *
+	 * D18: вердикт/балл каждого ответа (не только эталонный текст, которого тут и
+	 * так нет) зачищается, пока учитель не подтвердил результат — этот метод
+	 * дёргает AJAX-эндпоинт, доступный станции КЕГЭ/ОГЭ даже после сдачи, поэтому
+	 * гейт нужен здесь самостоятельно, а не только на уровне рендера finish.php.
+	 *
 	 * @return array{attempt: AttemptDTO, answers: AttemptAnswerDTO[]}
 	 */
 	public function getResult( int $attemptId, int $studentPersonId ): array {
@@ -206,9 +213,29 @@ class AttemptService {
 		$attempt = $this->attempts->find( $attemptId );
 		assert( $attempt !== null );
 
+		$assessment = $this->assessments->get( $attempt->assessmentId );
+		$revealed   = null !== $assessment && $this->revealPolicy->isRevealed( $assessment, $attempt );
+
+		$answers = $this->answers->listByAttempt( $attemptId );
+		if ( ! $revealed ) {
+			$answers = array_map( static fn( AttemptAnswerDTO $a ): AttemptAnswerDTO => new AttemptAnswerDTO(
+				id            : $a->id,
+				attemptId     : $a->attemptId,
+				taskId        : $a->taskId,
+				answerText    : $a->answerText,
+				isCorrect     : null,
+				score         : null,
+				maxScore      : $a->maxScore,
+				gradedByUserId: null,
+				gradedAt      : null,
+				graderNote    : null,
+				criteriaScores: null,
+			), $answers );
+		}
+
 		return [
 			'attempt' => $attempt,
-			'answers' => $this->answers->listByAttempt( $attemptId ),
+			'answers' => $answers,
 		];
 	}
 

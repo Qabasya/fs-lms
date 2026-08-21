@@ -210,6 +210,61 @@ class SubmissionRepositoryTest extends TestCase {
 		self::assertStringContainsString( 'student_person_id = 10', $q );
 	}
 
+	// ── summaryByGroups (D3) ──────────────────────────────────────────────────
+
+	public function test_summary_by_groups_joins_and_filters_by_groups_and_status(): void {
+		$this->wpdb->queueResults( [] );
+
+		$this->repo->summaryByGroups( [ 3, 7 ], [ 'submitted' ] );
+
+		$q = $this->wpdb->lastQuery();
+		self::assertStringContainsString( 'INNER JOIN', $q );
+		self::assertStringContainsString( 'group_id IN (3, 7)', $q );
+		self::assertStringContainsString( "'submitted'", $q );
+		self::assertStringContainsString( 'task_id IS NULL', $q );
+	}
+
+	public function test_summary_by_groups_maps_aggregate_rows(): void {
+		$this->wpdb->queueResults( [
+			[ 'work_id' => 3, 'work_type' => 'practice', 'group_id' => 7, 'cnt' => 4, 'latest_at' => '2026-03-01 10:00:00' ],
+		] );
+
+		$result = $this->repo->summaryByGroups( [ 7 ], [ 'submitted' ] );
+
+		self::assertSame(
+			[ [ 'work_id' => 3, 'work_type' => 'practice', 'group_id' => 7, 'cnt' => 4, 'latest_at' => '2026-03-01 10:00:00' ] ],
+			$result
+		);
+	}
+
+	public function test_summary_by_groups_empty_on_no_groups_or_statuses(): void {
+		self::assertSame( [], $this->repo->summaryByGroups( [], [ 'submitted' ] ) );
+		self::assertSame( [], $this->repo->summaryByGroups( [ 1 ], [] ) );
+		self::assertEmpty( $this->wpdb->queries );
+	}
+
+	// ── listByWorkAndGroups (D3) ──────────────────────────────────────────────
+
+	public function test_list_by_work_and_groups_filters_by_work_and_groups(): void {
+		$this->wpdb->queueResults( [] );
+
+		$this->repo->listByWorkAndGroups( 3, [ 7, 8 ], [ 'submitted' ] );
+
+		$q = $this->wpdb->lastQuery();
+		self::assertStringContainsString( 'group_id IN (7, 8)', $q );
+		self::assertStringContainsString( 'work_id = 3', $q );
+		self::assertStringContainsString( 'task_id IS NULL', $q );
+	}
+
+	public function test_list_by_work_and_groups_maps_rows_to_dtos(): void {
+		$this->wpdb->queueResults( [ $this->makeRow( [ 'id' => 5 ] ) ] );
+
+		$result = $this->repo->listByWorkAndGroups( 3, [ 7 ], [ 'submitted' ] );
+
+		self::assertCount( 1, $result );
+		self::assertSame( 5, $result[0]->id );
+	}
+
 	// ── update ────────────────────────────────────────────────────────────────
 
 	public function test_update_calls_wpdb_update_with_id_where(): void {

@@ -4,6 +4,8 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Group;
 
+use Inc\DTO\Course\ScheduleReflowResultDTO;
+use Inc\Enums\Course\LessonStatus;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Services\Course\RoomAvailabilityService;
@@ -79,37 +81,163 @@ readonly class ScheduleReflowService {
 	 * @param int $groupId     ID группы
 	 * @param int $actorUserId Автор изменения
 	 *
-	 * @return int Количество конфликтов, обнаруженных при раскладке
+	 * @return ScheduleReflowResultDTO Конфликты кабинета + укомплектованность периода
 	 */
-	public function reflow( int $groupId, int $actorUserId ): int {
-		$conflicts = $this->calendar->reflow( $groupId );
+	public function reflow( int $groupId, int $actorUserId ): ScheduleReflowResultDTO {
+		$result = $this->calendar->reflow( $groupId );
 		$this->events->groupChanged( $groupId, $actorUserId );
 
-		return $conflicts;
+		return $result;
 	}
 
 	/**
-	 * Закрепляет тему на конкретную дату (drag-drop в КТП): дата + pin, затем
-	 * остальные (непиннутые) темы переразливаются вокруг закреплённой.
+	 * Отменяет распределение: снимает даты/закрепление со всех непроведённых
+	 * групповых занятий — темы возвращаются в пул «Темы курса».
 	 *
-	 * @param int    $groupLessonId ID строки программы
-	 * @param string $scheduledAt   Дата/датавремя слота ('Y-m-d' или 'Y-m-d H:i:s')
-	 * @param int    $actorUserId   Автор изменения
+	 * @param int $groupId     ID группы
+	 * @param int $actorUserId Автор изменения
+	 *
+	 * @return int Количество затронутых строк.
+	 */
+	public function unschedule( int $groupId, int $actorUserId ): int {
+		$affected = $this->groupLessons->unscheduleAll( $groupId );
+		$this->events->groupChanged( $groupId, $actorUserId );
+
+		return $affected;
+	}
+
+	/**
+	 * Закрепляет тему строго на дату (Этап 3, Tasks.md, решение принято): тема,
+	 * которая стояла на этой дате, возвращается в пул «Темы курса» — без даты,
+	 * без закрепления. Остальные размещённые темы дат не меняют, никакого
+	 * каскадного сдвига (раньше здесь звался `calendar->reflow()`, который
+	 * перекладывал ВСЕ непиннутые строки от начала периода — корень бага
+	 * «перетащил один урок, съехало всё»). `position` не трогаем: порядок
+	 * курса — это порядок тем, а не порядок дат.
+	 *
+	 * Одна тема на день — правило действует на любом дне, слот там есть или нет
+	 * (в т.ч. Этап 4, урок вне расписания).
+	 *
+	 * @param int         $groupLessonId ID строки программы
+	 * @param string      $scheduledAt   Дата/датавремя слота ('Y-m-d' или 'Y-m-d H:i:s')
+	 * @param int         $actorUserId   Автор изменения
+	 * @param string|null $endsAt        Явный конец занятия (Этап 4: выбран автором в
+	 *                                   модалке урока вне расписания) — если не передан,
+	 *                                   вычисляется автоматически {@see resolveEndsAt()}
 	 *
 	 * @return void
 	 *
-	 * @throws \InvalidArgumentException Если строка не найдена или кабинет занят
+	 * @throws \InvalidArgumentException Если строка не найдена, дата вне периода/выходной,
+	 *                                   кабинет занят, время пересекается с индивидуальным
+	 *                                   занятием группы в этот день, либо на дате уже стоит
+	 *                                   проведённое (`held`) занятие
 	 */
-	public function pinToDate( int $groupLessonId, string $scheduledAt, int $actorUserId ): void {
+	public function pinToDate( int $groupLessonId, string $scheduledAt, int $actorUserId, ?string $endsAt = null ): void {
 		$row = $this->requireRow( $groupLessonId );
 
+		$this->assertWithinPeriod( $row->groupId, $scheduledAt );
 		$this->assertRoomFree( $row, $scheduledAt, $groupLessonId );
 
-		$this->groupLessons->updateSchedule( $groupLessonId, $scheduledAt, $row->teacherUserId );
+		$endsAt = $endsAt && '' !== $endsAt ? $endsAt : $this->resolveEndsAt( $row->groupId, $scheduledAt );
+
+		$day       = substr( $scheduledAt, 0, 10 );
+		$dayRows   = $this->groupLessons->listByGroupAndDay( $row->groupId, $day );
+		$displaced = array_values( array_filter(
+			$dayRows,
+			static fn( $r ) => $r->id !== $groupLessonId && ! $r->kind->isIndividual()
+		) );
+
+		foreach ( $displaced as $d ) {
+			if ( LessonStatus::Held === LessonStatus::fromValueOrDefault( $d->status ) ) {
+				// Проведённое занятие — исторический факт, drop отклоняется целиком:
+				// перетаскиваемая тема ничего не получает, чтобы не создать видимость
+				// успеха при частичном откате.
+				throw new \InvalidArgumentException( 'На эту дату уже поставлено проведённое занятие — заменить его нельзя.' );
+			}
+		}
+
+		// Индивидуальные занятия того же дня не вытесняются (Этап 3) — но окно времени
+		// должно не пересекаться с ними, иначе тема физически накладывается на занятие
+		// другого ученика в расписании преподавателя.
+		foreach ( $dayRows as $r ) {
+			if ( $r->id === $groupLessonId || ! $r->kind->isIndividual() || null === $r->scheduledAt ) {
+				continue;
+			}
+			$rEnd = $r->endsAt ?? $r->scheduledAt;
+			if ( $scheduledAt < $rEnd && $endsAt > $r->scheduledAt ) {
+				throw new \InvalidArgumentException( 'Время пересекается с индивидуальным занятием группы в этот день.' );
+			}
+		}
+
+		$this->groupLessons->updateSchedule( $groupLessonId, $scheduledAt, $row->teacherUserId, $endsAt );
 		$this->groupLessons->setPinned( $groupLessonId, true );
-		$this->calendar->reflow( $row->groupId );
+
+		$allRows = null;
+		foreach ( $displaced as $d ) {
+			$this->groupLessons->clearSchedule( $d->id );
+
+			// T12.6: вытеснение исходной части не должно осиротить вторую — вытесняем
+			// обе вместе (продолжение без даты «оригинала» рядом смотрелось бы разрозненно).
+			$allRows ??= $this->groupLessons->listByGroup( $row->groupId );
+			foreach ( $allRows as $r ) {
+				if ( $r->continuedFromId === $d->id && null !== $r->scheduledAt ) {
+					$this->groupLessons->clearSchedule( $r->id );
+				}
+			}
+		}
 
 		$this->events->lessonChanged( $row->groupId, $groupLessonId, $actorUserId );
+	}
+
+	/**
+	 * Конец занятия для даты закрепления: слот периода даёт готовый `ends_at`;
+	 * день без слота (Этап 4, урок вне расписания) — начало плюс длительность
+	 * встречи того же дня недели (при нескольких встречах в день — первая
+	 * подходящая), либо первой встречи группы, если день недели не совпал ни
+	 * с одной.
+	 */
+	private function resolveEndsAt( int $groupId, string $scheduledAt ): string {
+		foreach ( $this->calendar->generate( $groupId ) as $slot ) {
+			if ( $slot['scheduled_at'] === $scheduledAt ) {
+				return $slot['ends_at'];
+			}
+		}
+
+		$meetings = $this->groups->getMeetings( $groupId );
+		$duration = 60;
+		if ( ! empty( $meetings ) ) {
+			$weekday = (int) ( new \DateTimeImmutable( $scheduledAt ) )->format( 'N' );
+			$sameDay = array_values( array_filter(
+				$meetings,
+				static fn( $m ) => (int) ( $m['weekday'] ?? 0 ) === $weekday
+			) );
+			$duration = (int) ( ( $sameDay[0] ?? $meetings[0] )['duration_min'] ?? 60 );
+		}
+
+		return ( new \DateTimeImmutable( $scheduledAt ) )->modify( "+{$duration} minutes" )->format( 'Y-m-d H:i:s' );
+	}
+
+	/**
+	 * Дата закрепления обязана лежать внутри границ учебного периода группы и не
+	 * приходиться на выходной (Этап 4: и день без слота — тоже рабочий день периода,
+	 * просто без штатной встречи).
+	 *
+	 * @throws \InvalidArgumentException Периода нет, дата вне его границ, либо день — выходной
+	 */
+	private function assertWithinPeriod( int $groupId, string $scheduledAt ): void {
+		$meta   = $this->calendar->periodMeta( $groupId );
+		$period = $meta['period'];
+		if ( ! $period ) {
+			throw new \InvalidArgumentException( 'У группы не задан учебный период.' );
+		}
+
+		$day = substr( $scheduledAt, 0, 10 );
+		if ( $day < $period['start_date'] || $day > $period['end_date'] ) {
+			throw new \InvalidArgumentException( 'Дата вне границ учебного периода.' );
+		}
+		if ( in_array( $day, $meta['holidays'], true ) ) {
+			throw new \InvalidArgumentException( 'На этот день назначен выходной.' );
+		}
 	}
 
 	/**

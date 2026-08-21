@@ -7,6 +7,7 @@ namespace Unit\Services\Course;
 use Inc\DTO\Course\CourseDTO;
 use Inc\DTO\Course\GroupLessonDTO;
 use Inc\DTO\Course\LessonDTO;
+use Inc\Enums\Course\LessonKind;
 use Inc\DTO\Course\ModuleDTO;
 use Inc\Enums\Course\GateState;
 use Inc\Managers\Course\CourseManager;
@@ -60,7 +61,7 @@ class CourseNavServiceTest extends TestCase {
 			id: $id, groupId: 1, lessonId: $lessonId, position: $id, workIdsSnapshot: null, extraWorkIds: array(),
 			scheduledAt: null, endsAt: null, isPinned: false, teacherUserId: null, visibility: 'open',
 			openedAt: null, homeworkDueAt: null, allowLate: true, recordingUrl: null,
-			createdByUserId: null, updatedByUserId: null, kind: $kind, continuedFromId: $continuedFromId,
+			createdByUserId: null, updatedByUserId: null, kind: LessonKind::fromValueOrDefault( $kind ), continuedFromId: $continuedFromId,
 		);
 	}
 

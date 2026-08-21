@@ -20,6 +20,7 @@ use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\SubmissionRepository;
 use Inc\Services\Course\WorkDetailService;
 use Inc\Services\Task\CorrectAnswerResolver;
+use Inc\Services\Task\TaskMetaService;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -59,6 +60,7 @@ class WorkDetailServiceTest extends TestCase {
 			$this->assessments,
 			$this->createMock( CorrectAnswerResolver::class ),
 			$this->media,
+			new TaskMetaService(),
 		);
 	}
 
@@ -95,6 +97,125 @@ class WorkDetailServiceTest extends TestCase {
 		self::assertNull( $detail['attachment_mime'] );
 	}
 
+	/** D1 (Tasks.md, блок D): условие задания читается из меты, не из пустого post_content. */
+	public function test_from_submission_condition_read_from_task_meta(): void {
+		$this->submissions->method( 'find' )->willReturn( $this->sub( null ) );
+		$this->submissions->method( 'listPerTaskByStudentWorkLesson' )->willReturn( array() );
+		$this->works->method( 'get' )->willReturn( new \Inc\DTO\Course\WorkDTO(
+			id: 3, subjectKey: 'inf', title: 'Работа', workType: WorkType::Practice,
+			itemIds: array( 42 ), instructions: '', authorId: 1, status: 'publish',
+		) );
+		$this->posts->method( 'taskMeta' )->with( 42 )->willReturn( array( 'task_condition' => 'Условие из меты' ) );
+		$this->posts->expects( $this->never() )->method( 'get' );
+
+		$task = $this->service->forWork( 'submission', 7 )['tasks'][0];
+
+		self::assertSame( 'Условие из меты', $task['condition'] );
+	}
+
+	/* ── D4 (.docs/Tasks.md): submission-работы оцениваются поштучно, как экзамены ── */
+
+	private function perTaskSub( int $id, int $taskId, array $overrides = array() ): SubmissionDTO {
+		return new SubmissionDTO(
+			id: $id, studentPersonId: 10, groupLessonId: 5, workId: 3, workType: WorkType::Practice,
+			taskId: $taskId,
+			answerText: $overrides['answerText'] ?? 'ответ ученика',
+			attachmentId: null, dueAt: null,
+			status: $overrides['status'] ?? SubmissionStatus::Submitted,
+			score: $overrides['score'] ?? null, maxScore: $overrides['maxScore'] ?? null,
+			feedback: $overrides['feedback'] ?? null,
+			gradedByUserId: null, submittedAt: '2026-06-01 10:00:00', gradedAt: null, createdAt: '', updatedAt: '',
+		);
+	}
+
+	private function workWithItems( array $itemIds ): \Inc\DTO\Course\WorkDTO {
+		return new \Inc\DTO\Course\WorkDTO(
+			id: 3, subjectKey: 'inf', title: 'Работа', workType: WorkType::Practice,
+			itemIds: $itemIds, instructions: '', authorId: 1, status: 'publish',
+		);
+	}
+
+	public function test_from_submission_marks_file_answer_task_as_gradable_with_submission_id(): void {
+		$this->submissions->method( 'find' )->willReturn( $this->sub( null ) );
+		$this->submissions->method( 'listPerTaskByStudentWorkLesson' )->willReturn( array(
+			$this->perTaskSub( 501, 42, array( 'status' => SubmissionStatus::PendingReview ) ),
+		) );
+		$this->works->method( 'get' )->willReturn( $this->workWithItems( array( 42 ) ) );
+		$this->posts->method( 'getMeta' )->with( 42, PostMetaName::TemplateType->value )->willReturn( 'file_answer_task' );
+		$this->posts->method( 'taskMeta' )->willReturn( array() );
+
+		$task = $this->service->forWork( 'submission', 7 )['tasks'][0];
+
+		self::assertTrue( $task['gradable'] );
+		self::assertSame( 501, $task['task_submission_id'] );
+		self::assertSame( 'pending', $task['verdict'] );
+	}
+
+	public function test_from_submission_graded_file_answer_task_uses_per_task_row_as_authoritative(): void {
+		$this->submissions->method( 'find' )->willReturn( $this->sub( null ) );
+		$this->submissions->method( 'listPerTaskByStudentWorkLesson' )->willReturn( array(
+			$this->perTaskSub( 501, 42, array(
+				'status' => SubmissionStatus::Graded, 'score' => 1.0, 'maxScore' => 1.0, 'feedback' => 'Молодец',
+			) ),
+		) );
+		$this->works->method( 'get' )->willReturn( $this->workWithItems( array( 42 ) ) );
+		$this->posts->method( 'getMeta' )->willReturn( 'file_answer_task' );
+		$this->posts->method( 'taskMeta' )->willReturn( array() );
+
+		$task = $this->service->forWork( 'submission', 7 )['tasks'][0];
+
+		self::assertSame( 'correct', $task['verdict'] );
+		self::assertSame( 1.0, $task['score'] );
+		self::assertSame( 'Молодец', $task['feedback'] );
+	}
+
+	public function test_from_submission_non_gradable_task_has_no_task_grading_target(): void {
+		$this->submissions->method( 'find' )->willReturn( $this->sub( null ) );
+		$this->submissions->method( 'listPerTaskByStudentWorkLesson' )->willReturn( array(
+			$this->perTaskSub( 501, 42 ),
+		) );
+		$this->works->method( 'get' )->willReturn( $this->workWithItems( array( 42 ) ) );
+		$this->posts->method( 'getMeta' )->willReturn( 'standard_task' );
+		$this->posts->method( 'taskMeta' )->willReturn( array() );
+
+		$task = $this->service->forWork( 'submission', 7 )['tasks'][0];
+
+		self::assertFalse( $task['gradable'] );
+	}
+
+	/** Разбор по заданиям (itemIds непуст) — единая форма оценивания больше не нужна. */
+	public function test_from_submission_whole_form_disabled_when_work_has_items(): void {
+		$this->submissions->method( 'find' )->willReturn( $this->sub( null ) );
+		$this->submissions->method( 'listPerTaskByStudentWorkLesson' )->willReturn( array(
+			$this->perTaskSub( 501, 42 ),
+		) );
+		$this->works->method( 'get' )->willReturn( $this->workWithItems( array( 42 ) ) );
+		$this->posts->method( 'getMeta' )->willReturn( 'standard_task' );
+		$this->posts->method( 'taskMeta' )->willReturn( array() );
+
+		$detail = $this->service->forWork( 'submission', 7 );
+
+		self::assertFalse( $detail['gradable'] );
+	}
+
+	/** Фолбэк свободного ответа (без разбора на задачи) — старая форма сохраняется. */
+	public function test_from_submission_whole_form_enabled_for_freeform_fallback(): void {
+		$freeform = new SubmissionDTO(
+			id: 7, studentPersonId: 10, groupLessonId: 5, workId: 3, workType: WorkType::Practice,
+			taskId: null, answerText: 'свободный ответ', attachmentId: null, dueAt: null,
+			status: SubmissionStatus::Submitted, score: null, maxScore: null, feedback: null,
+			gradedByUserId: null, submittedAt: '2026-06-01 10:00:00', gradedAt: null, createdAt: '', updatedAt: '',
+		);
+		$this->submissions->method( 'find' )->willReturn( $freeform );
+		$this->submissions->method( 'listPerTaskByStudentWorkLesson' )->willReturn( array() );
+		$this->works->method( 'get' )->willReturn( $this->workWithItems( array() ) );
+
+		$detail = $this->service->forWork( 'submission', 7 );
+
+		self::assertTrue( $detail['gradable'] );
+		self::assertFalse( $detail['tasks'][0]['gradable'] );
+	}
+
 	/* ── fromAttempt: «Развёрнутый ответ» — файлы + критерии (Эпик 13, T13.6) ── */
 
 	private function attemptFixture(): AttemptDTO {
@@ -103,6 +224,15 @@ class WorkDetailServiceTest extends TestCase {
 			'attempt_number' => 1, 'started_at' => '2026-06-01 10:00:00', 'deadline_at' => '2026-06-01 11:00:00',
 			'status' => 'submitted',
 		) );
+	}
+
+	private function assessmentFixture(): \Inc\DTO\Assessment\AssessmentDTO {
+		return new \Inc\DTO\Assessment\AssessmentDTO(
+			id: 1, subjectKey: 'inf', title: 'ОГЭ', taskIds: array( 42 ),
+			timeLimit: 0, attemptsAllowed: 0, passScore: 0.0,
+			scoringPolicy: \Inc\Enums\Assessment\ScoringPolicy::Highest, status: 'publish',
+			kind: \Inc\Enums\Assessment\AssessmentKind::OgeComputer, taskPoints: array(), scoreMap: array(),
+		);
 	}
 
 	public function test_from_attempt_file_answer_task_parses_text_and_resolves_files(): void {
@@ -133,6 +263,25 @@ class WorkDetailServiceTest extends TestCase {
 		self::assertSame( 'https://example.test/a.jpg', $task['files'][0]['url'] );
 		self::assertSame( 'image/jpeg', $task['files'][0]['mime'] );
 		self::assertSame( array(), $task['criteria'] );
+	}
+
+	/** D1 (Tasks.md, блок D): условие задания читается из меты и в ветке экзамена. */
+	public function test_from_attempt_condition_read_from_task_meta(): void {
+		$this->attempts->method( 'find' )->willReturn( $this->attemptFixture() );
+		$this->answers->method( 'listByAttempt' )->willReturn( array(
+			AttemptAnswerDTO::fromArray( array(
+				'id' => 1, 'attempt_id' => 9, 'task_id' => 42, 'answer_text' => 'x',
+			) ),
+		) );
+		$this->posts->method( 'getMeta' )->willReturnCallback( function ( int $postId, string $key ) {
+			return PostMetaName::TemplateType->value === $key ? 'standard_task' : array();
+		} );
+		$this->posts->method( 'taskMeta' )->with( 42 )->willReturn( array( 'task_condition' => 'Условие экзамена' ) );
+		$this->posts->expects( $this->never() )->method( 'get' );
+
+		$task = $this->service->forWork( 'attempt', 9 )['tasks'][0];
+
+		self::assertSame( 'Условие экзамена', $task['condition'] );
 	}
 
 	public function test_from_attempt_non_file_answer_task_leaves_answer_and_files_untouched(): void {
@@ -203,5 +352,63 @@ class WorkDetailServiceTest extends TestCase {
 		$criteria = $this->service->forWork( 'attempt', 9 )['tasks'][0]['criteria'];
 
 		self::assertNull( $criteria[0]['awarded'] );
+	}
+
+	/* ── fromAttempt: oge_rubric (holistic-рубрика ОГЭ 13-16, §3.4) ── */
+
+	public function test_from_attempt_exposes_oge_rubric_via_module_filter(): void {
+		$this->attempts->method( 'find' )->willReturn( $this->attemptFixture() );
+		$this->answers->method( 'listByAttempt' )->willReturn( array(
+			AttemptAnswerDTO::fromArray( array(
+				'id' => 1, 'attempt_id' => 9, 'task_id' => 42, 'answer_text' => '{"text":"","files":[]}',
+			) ),
+		) );
+		$this->posts->method( 'getMeta' )->willReturnCallback( function ( int $postId, string $key ) {
+			return PostMetaName::TemplateType->value === $key ? 'file_answer_task' : array();
+		} );
+		$this->assessments->method( 'get' )->willReturn( $this->assessmentFixture() );
+
+		$GLOBALS['_fs_test_filter_returns'][ WorkDetailService::OGE_RUBRIC_FILTER ] = array(
+			'max_points' => 3, 'html' => '<div>рубрика</div>',
+		);
+
+		$task = $this->service->forWork( 'attempt', 9 )['tasks'][0];
+
+		unset( $GLOBALS['_fs_test_filter_returns'][ WorkDetailService::OGE_RUBRIC_FILTER ] );
+
+		self::assertSame( array( 'max_points' => 3, 'html' => '<div>рубрика</div>' ), $task['oge_rubric'] );
+	}
+
+	/** D18: деталь работы отдаёт вид контрольной + факт подтверждения — нужно JS для кнопки «Утвердить». */
+	public function test_from_attempt_exposes_kind_and_approval_state(): void {
+		$this->attempts->method( 'find' )->willReturn( AttemptDTO::fromArray( array(
+			'id' => 9, 'assessment_id' => 1, 'student_person_id' => 10, 'group_id' => null,
+			'attempt_number' => 1, 'started_at' => '2026-06-01 10:00:00', 'deadline_at' => '2026-06-01 11:00:00',
+			'status' => 'graded', 'approved_at' => '2026-06-02 09:00:00', 'approved_by_user_id' => 77,
+		) ) );
+		$this->answers->method( 'listByAttempt' )->willReturn( array() );
+		$this->assessments->method( 'get' )->willReturn( $this->assessmentFixture() );
+
+		$detail = $this->service->forWork( 'attempt', 9 );
+
+		self::assertSame( 'oge_computer', $detail['assessment_kind'] );
+		self::assertSame( '2026-06-02 09:00:00', $detail['approved_at'] );
+	}
+
+	public function test_from_attempt_oge_rubric_null_when_module_disabled_or_not_applicable(): void {
+		$this->attempts->method( 'find' )->willReturn( $this->attemptFixture() );
+		$this->answers->method( 'listByAttempt' )->willReturn( array(
+			AttemptAnswerDTO::fromArray( array(
+				'id' => 1, 'attempt_id' => 9, 'task_id' => 42, 'answer_text' => '{"text":"","files":[]}',
+			) ),
+		) );
+		$this->posts->method( 'getMeta' )->willReturnCallback( function ( int $postId, string $key ) {
+			return PostMetaName::TemplateType->value === $key ? 'file_answer_task' : array();
+		} );
+		$this->assessments->method( 'get' )->willReturn( $this->assessmentFixture() );
+
+		$task = $this->service->forWork( 'attempt', 9 )['tasks'][0];
+
+		self::assertNull( $task['oge_rubric'] );
 	}
 }

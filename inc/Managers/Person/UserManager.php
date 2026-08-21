@@ -114,6 +114,49 @@ class UserManager {
 		return ! is_wp_error( $result );
 	}
 
+	/**
+	 * Меняет логин уже существующего пользователя.
+	 *
+	 * `wp_update_user()`/`wp_insert_user()` ядра WP игнорируют `user_login` при
+	 * обновлении: значение попадает в набор для записи только при создании
+	 * (`! $update`, см. `wp-includes/user.php`) — единственный рабочий способ сменить
+	 * логин уже созданного пользователя — прямой `UPDATE` таблицы + сброс кэша объекта.
+	 *
+	 * @param int    $userId  ID пользователя WordPress
+	 * @param string $newLogin Новый логин (будет прогнан через sanitize_user())
+	 *
+	 * @throws \RuntimeException Если пользователь не найден, логин пуст после
+	 *                           санитайзинга или уже занят другим пользователем.
+	 */
+	public function changeLogin( int $userId, string $newLogin ): void {
+		global $wpdb;
+
+		if ( null === $this->find( $userId ) ) {
+			throw new \RuntimeException( "Пользователь с ID {$userId} не найден." );
+		}
+
+		$newLogin = sanitize_user( $newLogin, true );
+		if ( '' === $newLogin ) {
+			throw new \RuntimeException( 'Некорректный логин.' );
+		}
+
+		$existing = $this->findByLogin( $newLogin );
+		if ( null !== $existing && $existing->ID !== $userId ) {
+			throw new \RuntimeException( 'Логин уже занят другим пользователем.' );
+		}
+
+		$wpdb->update(
+			$wpdb->users,
+			array(
+				'user_login'    => $newLogin,
+				'user_nicename' => sanitize_title( $newLogin ),
+			),
+			array( 'ID' => $userId )
+		);
+
+		clean_user_cache( $userId );
+	}
+
 	public function findByEmail( string $email ): ?\WP_User {
 		$user = get_user_by( 'email', $email );
 

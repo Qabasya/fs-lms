@@ -4,6 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Group;
 
+use Inc\DTO\Course\ScheduleReflowResultDTO;
 use Inc\Enums\Course\LessonStatus;
 use Inc\Repositories\OptionsRepositories\AcademicPeriodRepository;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
@@ -95,28 +96,21 @@ class SessionCalendarService {
 	/**
 	 * Перераспределяет даты уроков группы по сгенерированным слотам.
 	 * Пинованные строки (`is_pinned=1`) не сдвигаются.
-	 * Хвост уроков, выходящих за период, логируется как warning.
+	 * Хвост уроков, выходящих за период, логируется как warning (Этап 1: сам хвост
+	 * вернёт в пул `applySlots()`).
 	 *
 	 * @param int $groupId
 	 */
-	public function reflow( int $groupId ): int {
-		$slots = $this->generate( $groupId );
-		$rows  = $this->groupLessons->listByGroup( $groupId );
+	public function reflow( int $groupId ): ScheduleReflowResultDTO {
+		$slots     = $this->generate( $groupId );
+		$consuming = $this->consumingCount( $groupId );
+		$unplaced  = max( 0, $consuming - count( $slots ) );
 
-		// Слот последовательности потребляют только групповые непиннутые занятия,
-		// НЕ освобождающие слот (scheduled + held); отменённые/перенесённые и индивидуальные — нет (T11.6).
-		$consuming = array_filter(
-			$rows,
-			static fn( $r ) => ! $r->isPinned
-				&& 'individual' !== $r->kind
-				&& ! LessonStatus::fromValueOrDefault( $r->status )->freesSlot()
-		);
-
-		if ( count( $consuming ) > count( $slots ) ) {
+		if ( $unplaced > 0 ) {
 			PluginLogger::warning(
 				'SessionCalendarService',
 				'Слотов меньше, чем уроков в программе — хвост останется без даты.',
-				array( 'group_id' => $groupId, 'lessons' => count( $consuming ), 'slots' => count( $slots ) )
+				array( 'group_id' => $groupId, 'lessons' => $consuming, 'slots' => count( $slots ) )
 			);
 		}
 
@@ -143,7 +137,47 @@ class SessionCalendarService {
 
 		$this->groupLessons->applySlots( $groupId, $slots );
 
-		return $conflicts;
+		return new ScheduleReflowResultDTO(
+			conflicts: $conflicts,
+			slots    : count( $slots ),
+			consuming: $consuming,
+			unplaced : $unplaced,
+		);
+	}
+
+	/**
+	 * Укомплектованность периода (Этап 2, Tasks.md): сколько слотов сгенерировано,
+	 * сколько строк претендует на слот и сколько не поместится. Только чтение —
+	 * не трогает БД, в отличие от {@see reflow()}; нужен для баннера в календаре,
+	 * который должен жить и без нажатия «Распределить».
+	 *
+	 * @return array{slots:int, consuming:int, unplaced:int}
+	 */
+	public function completeness( int $groupId ): array {
+		$slots     = count( $this->generate( $groupId ) );
+		$consuming = $this->consumingCount( $groupId );
+
+		return array(
+			'slots'     => $slots,
+			'consuming' => $consuming,
+			'unplaced'  => max( 0, $consuming - $slots ),
+		);
+	}
+
+	/**
+	 * Строки, претендующие на слот последовательности: групповые непиннутые
+	 * занятия, не освобождающие слот (scheduled + held); отменённые/перенесённые
+	 * и индивидуальные — нет (T11.6).
+	 */
+	private function consumingCount( int $groupId ): int {
+		$rows = $this->groupLessons->listByGroup( $groupId );
+
+		return count( array_filter(
+			$rows,
+			static fn( $r ) => ! $r->isPinned
+				&& ! $r->kind->isIndividual()
+				&& ! LessonStatus::fromValueOrDefault( $r->status )->freesSlot()
+		) );
 	}
 
 	/**

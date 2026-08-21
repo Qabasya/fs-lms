@@ -80,7 +80,7 @@ class LearnerServiceTest extends TestCase {
 			new \Inc\Services\Profile\Learner\LearnerScheduleSection( $this->submissions, $this->worksResolver, $this->lessons ),
 			new \Inc\Services\Profile\Learner\LearnerPerformanceSection( $this->gradebook, $this->attendance ),
 			new \Inc\Services\Profile\Learner\LearnerCoursesSection(
-				$this->courses, $this->lessons, $this->progress, $this->subjects, $this->groups, $this->examLock, $contextBuilder,
+				$this->courses, $this->lessons, $this->progress, $this->examLock, $contextBuilder,
 			),
 		);
 	}

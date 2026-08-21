@@ -14,6 +14,7 @@ use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\NotificationRepository;
 use Inc\Repositories\WPDBRepositories\SubmissionRepository;
 use Inc\Services\Course\EffectiveWorksResolver;
+use Inc\Services\Group\SessionCalendarService;
 use Inc\Services\Profile\NotificationCronService;
 use Inc\Services\Profile\NotificationService;
 use PHPUnit\Framework\TestCase;
@@ -27,6 +28,7 @@ class NotificationCronServiceTest extends TestCase {
 	private EffectiveWorksResolver&\PHPUnit\Framework\MockObject\MockObject $worksResolver;
 	private NotificationRepository&\PHPUnit\Framework\MockObject\MockObject $notificationRepository;
 	private NotificationService&\PHPUnit\Framework\MockObject\MockObject   $notifications;
+	private SessionCalendarService&\PHPUnit\Framework\MockObject\MockObject $calendar;
 	private NotificationCronService $service;
 
 	protected function setUp(): void {
@@ -37,6 +39,7 @@ class NotificationCronServiceTest extends TestCase {
 		$this->worksResolver         = $this->createMock( EffectiveWorksResolver::class );
 		$this->notificationRepository = $this->createMock( NotificationRepository::class );
 		$this->notifications         = $this->createMock( NotificationService::class );
+		$this->calendar              = $this->createMock( SessionCalendarService::class );
 
 		$clock = $this->createMock( ClockInterface::class );
 		$clock->method( 'now' )->willReturn( self::NOW );
@@ -48,6 +51,7 @@ class NotificationCronServiceTest extends TestCase {
 			$this->notificationRepository,
 			$this->notifications,
 			$clock,
+			$this->calendar,
 		);
 	}
 
@@ -58,10 +62,12 @@ class NotificationCronServiceTest extends TestCase {
 	 *
 	 * @param GroupLessonDTO[] $startingBetween
 	 * @param GroupLessonDTO[] $withDeadlines
+	 * @param GroupLessonDTO[] $recentlyOpened
 	 */
-	private function stubLessons( array $startingBetween = array(), array $withDeadlines = array() ): void {
+	private function stubLessons( array $startingBetween = array(), array $withDeadlines = array(), array $recentlyOpened = array() ): void {
 		$this->groupLessons->method( 'listStartingBetween' )->willReturn( $startingBetween );
 		$this->groupLessons->method( 'listWithDeadlines' )->willReturn( $withDeadlines );
+		$this->groupLessons->method( 'listRecentlyOpened' )->willReturn( $recentlyOpened );
 	}
 
 	private function lesson( array $overrides = array() ): GroupLessonDTO {
@@ -90,6 +96,7 @@ class NotificationCronServiceTest extends TestCase {
 			->with( self::NOW, '2026-01-15 12:30:00' )
 			->willReturn( array() );
 		$this->groupLessons->method( 'listWithDeadlines' )->willReturn( array() );
+		$this->groupLessons->method( 'listRecentlyOpened' )->willReturn( array() );
 
 		$this->service->tick();
 	}
@@ -138,6 +145,77 @@ class NotificationCronServiceTest extends TestCase {
 
 		$this->notifications->expects( self::never() )->method( 'push' );
 
+		$this->service->tick();
+	}
+
+	/* ── Этап 5: «Открыт урок» (вне расписания) ───────────────────────────── */
+
+	private function periodMeta( array $lessonDays ): array {
+		return array( 'period' => null, 'holidays' => array(), 'lessonDays' => $lessonDays, 'lessonTimes' => array() );
+	}
+
+	public function test_lesson_opened_notifies_students_for_off_schedule_lesson(): void {
+		$lesson = $this->lesson( array( 'id' => 200, 'scheduled_at' => '2026-01-15 09:00:00', 'visibility' => 'hidden' ) );
+		$this->groupLessons->expects( self::once() )
+			->method( 'listRecentlyOpened' )
+			->with( '2026-01-14 12:00:00', self::NOW )
+			->willReturn( array( $lesson ) );
+		$this->groupLessons->method( 'listStartingBetween' )->willReturn( array() );
+		$this->groupLessons->method( 'listWithDeadlines' )->willReturn( array() );
+		$this->calendar->method( 'periodMeta' )->with( 5 )->willReturn( $this->periodMeta( array( '2026-01-10' ) ) ); // 15-е не в расписании
+		$this->notifications->method( 'lessonStudentUserIds' )->with( $lesson )->willReturn( array( 31, 32 ) );
+		$this->notifications->method( 'lessonTopic' )->willReturn( 'Тема вне расписания' );
+		$this->notifications->method( 'groupName' )->willReturn( 'Группа' );
+
+		$this->notifications->expects( self::once() )
+			->method( 'push' )
+			->with(
+				array( 31, 32 ),
+				NotificationType::LessonOpened,
+				'opened:200',
+				self::callback( static fn( $p ) => 'Тема вне расписания' === $p['topic'] ),
+				self::anything(),
+				5,
+				'group_lesson',
+				200
+			);
+
+		$this->service->tick();
+	}
+
+	/** Плановое занятие (день в lessonDays) — LessonSoon уже предупредил, LessonOpened не дублирует. */
+	public function test_lesson_opened_skips_when_day_is_in_schedule(): void {
+		$lesson = $this->lesson( array( 'id' => 200, 'scheduled_at' => '2026-01-15 09:00:00', 'visibility' => 'hidden' ) );
+		$this->stubLessons( recentlyOpened: array( $lesson ) );
+		$this->calendar->method( 'periodMeta' )->willReturn( $this->periodMeta( array( '2026-01-15' ) ) ); // день в расписании
+
+		$this->notifications->expects( self::never() )->method( 'push' );
+
+		$this->service->tick();
+	}
+
+	public function test_lesson_opened_skips_when_no_recipients(): void {
+		$lesson = $this->lesson( array( 'id' => 200, 'scheduled_at' => '2026-01-15 09:00:00', 'visibility' => 'hidden' ) );
+		$this->stubLessons( recentlyOpened: array( $lesson ) );
+		$this->calendar->method( 'periodMeta' )->willReturn( $this->periodMeta( array() ) );
+		$this->notifications->method( 'lessonStudentUserIds' )->willReturn( array() );
+
+		$this->notifications->expects( self::never() )->method( 'push' );
+
+		$this->service->tick();
+	}
+
+	public function test_lesson_opened_dedup_key_stable_across_repeated_ticks(): void {
+		$lesson = $this->lesson( array( 'id' => 200, 'scheduled_at' => '2026-01-15 09:00:00', 'visibility' => 'hidden' ) );
+		$this->stubLessons( recentlyOpened: array( $lesson ) );
+		$this->calendar->method( 'periodMeta' )->willReturn( $this->periodMeta( array() ) );
+		$this->notifications->method( 'lessonStudentUserIds' )->willReturn( array( 31 ) );
+
+		$this->notifications->expects( self::exactly( 2 ) )
+			->method( 'push' )
+			->with( self::anything(), NotificationType::LessonOpened, 'opened:200', self::anything(), self::anything(), 5, 'group_lesson', 200 );
+
+		$this->service->tick();
 		$this->service->tick();
 	}
 

@@ -7,7 +7,6 @@ import {RequiredTaxGuard} from './services/required-tax-guard.js';
 import {ArticleDescription} from './services/article-description.js';
 import {TaskFilter} from "./services/task-dashboard.js";
 import {RecentContent} from "./services/recent-posts";
-import {AuthSettings} from "./services/settings/auth-settings";
 import { GroupsTable } from "./services/tables/groups-table.js";
 import { ApplicationsTable } from './services/tables/applications-table.js';
 import { StudentsTable } from './services/tables/students-table.js';
@@ -26,6 +25,7 @@ import { AssessmentBuilder } from './services/assessment-builder.js';
 import { ScoreMap } from './services/score-map.js';
 import { CourseBuilder } from './services/course-builder.js';
 import { TaskTemplateType } from './services/task-template-type.js';
+import { ProblemBankFields } from './services/problem-bank-fields.js';
 import { ModuleToggle } from './services/module-toggle.js';
 import { TaskFields } from './services/task-fields.js';
 import { TaskEditor } from './services/task-editor.js';
@@ -120,10 +120,6 @@ import { RolesSettings } from './services/roles-settings.js';
             RecentContent.init();
         }
 
-        if ($('.js-provider-toggle').length) {
-            AuthSettings.init();
-        }
-
         if ($('.js-open-help-modal').length) {
             HelpModalManager.init();
         }
@@ -190,6 +186,7 @@ import { RolesSettings } from './services/roles-settings.js';
         }
 
         TaskTemplateType.init();
+        ProblemBankFields.init();
         TaskFields.init();
         TaskEditor.init();
 

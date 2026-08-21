@@ -6,6 +6,7 @@ namespace Inc\Repositories\WPDBRepositories;
 
 use Inc\DTO\Course\GroupLessonDTO;
 use Inc\DTO\Course\GroupLessonInputDTO;
+use Inc\Enums\Course\LessonKind;
 use Inc\Enums\Course\LessonStatus;
 use Inc\Enums\Settings\TableName;
 
@@ -125,13 +126,40 @@ class GroupLessonRepository {
 		return false !== $result;
 	}
 
+	/**
+	 * Снимает дату/закрепление/кабинет со строки — возвращает тему в пул «Темы
+	 * курса». Используется при вытеснении занятой даты (Этап 3: строгая замена)
+	 * и обнулении хвоста сверх слотов (Этап 1: {@see applySlots()}).
+	 * `teacher_user_id` не трогаем — назначение преподавателя не привязано к дате.
+	 */
+	public function clearSchedule( int $id ): bool {
+		$result = $this->wpdb->update(
+			$this->table,
+			array(
+				'scheduled_at' => null,
+				'ends_at'      => null,
+				'room_id'      => null,
+				'is_pinned'    => 0,
+			),
+			array( 'id' => $id )
+		);
+		return false !== $result;
+	}
+
 	/** Bulk-assign slots from SessionCalendarService::generate(); skips pinned rows. */
 	public function applySlots( int $groupId, array $slots ): void {
 		$rows = $this->listByGroup( $groupId );
 		$i    = 0;
 		foreach ( $rows as $row ) {
 			// Индивидуальные и пиннутые привязаны к своей дате, а не к последовательности — не двигаем.
-			if ( $row->isPinned || 'individual' === $row->kind ) {
+			if ( $row->isPinned || $row->kind->isIndividual() ) {
+				// Пиннутая строка — курсор слотов сдвигаем за её дату, чтобы следующие
+				// непиннутые темы раскладывались ПОСЛЕ неё, а не с начала периода.
+				if ( $row->isPinned && $row->scheduledAt ) {
+					while ( isset( $slots[ $i ] ) && $slots[ $i ]['scheduled_at'] <= $row->scheduledAt ) {
+						++$i;
+					}
+				}
 				continue;
 			}
 			$status = LessonStatus::fromValueOrDefault( $row->status );
@@ -147,7 +175,13 @@ class GroupLessonRepository {
 				continue;
 			}
 			if ( ! isset( $slots[ $i ] ) ) {
-				break;
+				// Слотов меньше, чем строк (курс больше периода, T1): хвост не «зависает»
+				// на старой дате (напр. после укорачивания периода) — возвращается в пул
+				// «Темы курса» без даты и закрепления, чтобы автор мог разместить его вручную
+				// или вне расписания (Этап 4). held/индивидуальные сюда не попадают — они уже
+				// отфильтрованы выше.
+				$this->clearSchedule( $row->id );
+				continue;
 			}
 			$this->wpdb->update(
 				$this->table,
@@ -161,6 +195,26 @@ class GroupLessonRepository {
 			);
 			$i++;
 		}
+	}
+
+	/**
+	 * Отменяет распределение группы: снимает дату/закрепление/кабинет со всех
+	 * непроведённых групповых занятий (индивидуальные и уже проведённые — не трогаем,
+	 * это исторический факт). Темы возвращаются в пул «Темы курса».
+	 *
+	 * @return int Количество затронутых строк.
+	 */
+	public function unscheduleAll( int $groupId ): int {
+		// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+		return (int) $this->wpdb->query(
+			$this->wpdb->prepare(
+				"UPDATE %i SET scheduled_at = NULL, ends_at = NULL, room_id = NULL, is_pinned = 0, status = 'scheduled'
+				 WHERE group_id = %d AND kind != %s AND status != 'held'",
+				$this->table,
+				$groupId,
+				LessonKind::Individual->value
+			)
+		);
 	}
 
 	public function setVisibility( int $id, string $visibility, ?string $openedAt ): bool {
@@ -303,12 +357,13 @@ class GroupLessonRepository {
 			$this->wpdb->prepare(
 				"SELECT gl.* FROM %i gl
 				 JOIN %i g ON g.id = gl.group_id
-				 WHERE gl.kind = 'individual'
+				 WHERE gl.kind = %s
 				   AND DATE(gl.scheduled_at) = %s
 				   AND ( gl.teacher_user_id = %d OR ( gl.teacher_user_id IS NULL AND g.teacher_id = %d ) )
 				 ORDER BY gl.scheduled_at ASC",
 				$this->table,
 				$groups,
+				LessonKind::Individual->value,
 				$day,
 				$teacherUserId,
 				$teacherUserId
@@ -390,6 +445,29 @@ class GroupLessonRepository {
 				$this->table,
 				$from,
 				$to
+			),
+			ARRAY_A
+		);
+		return array_map( [ GroupLessonDTO::class, 'fromArray' ], $rows ?: array() );
+	}
+
+	/**
+	 * Занятия, у которых `scheduled_at` уже прошёл, но в базе они всё ещё числятся
+	 * `hidden` (Этап 5, Tasks.md) — кандидаты уведомления «Открыт урок». `visibility`
+	 * в БД не переписывается автопереходом hidden→open (тот ленивый, только на чтение,
+	 * {@see \Inc\Services\Course\LessonVisibilityService::effectiveVisibility()}), поэтому
+	 * такая строка продолжает попадать в выборку на каждом тике сколько угодно — сервис
+	 * различает «уже уведомляли» через `dedupe_key`, а не через эту выборку.
+	 *
+	 * @return GroupLessonDTO[]
+	 */
+	public function listRecentlyOpened( string $since, string $until ): array {
+		$rows = $this->wpdb->get_results(
+			$this->wpdb->prepare(
+				"SELECT * FROM %i WHERE visibility = 'hidden' AND scheduled_at > %s AND scheduled_at <= %s",
+				$this->table,
+				$since,
+				$until
 			),
 			ARRAY_A
 		);

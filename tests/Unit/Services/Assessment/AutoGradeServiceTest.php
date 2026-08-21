@@ -157,7 +157,7 @@ class AutoGradeServiceTest extends TestCase {
 	}
 
 	public function test_ege_keeps_weighted_scoring(): void {
-		$this->assessments->method( 'get' )->willReturn( $this->assessment( AssessmentKind::Ege ) );
+		$this->assessments->method( 'get' )->willReturn( $this->assessment( AssessmentKind::EgeComputer ) );
 		$this->seedThreeTasks();
 
 		$this->service->gradeAttempt( $this->attempt() );

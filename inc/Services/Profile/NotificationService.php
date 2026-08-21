@@ -152,7 +152,7 @@ readonly class NotificationService {
 	 * @return int[]
 	 */
 	public function lessonStudentUserIds( GroupLessonDTO $lesson ): array {
-		if ( 'individual' === $lesson->kind ) {
+		if ( $lesson->kind->isIndividual() ) {
 			if ( null === $lesson->studentPersonId ) {
 				return array();
 			}
@@ -171,7 +171,7 @@ readonly class NotificationService {
 	 * @return int[]
 	 */
 	public function lessonStudentPersonIds( GroupLessonDTO $lesson ): array {
-		if ( 'individual' === $lesson->kind ) {
+		if ( $lesson->kind->isIndividual() ) {
 			return null !== $lesson->studentPersonId ? array( $lesson->studentPersonId ) : array();
 		}
 
@@ -285,6 +285,7 @@ readonly class NotificationService {
 			NotificationType::DeadlineSoon,
 			NotificationType::DeadlineMissed,
 			NotificationType::LessonSoon,
+			NotificationType::LessonOpened,
 			NotificationType::WorkReturned => '' !== $topic ? "«{$topic}»{$tail}" : ltrim( $tail, ' ·' ),
 
 			NotificationType::WorkGraded,
@@ -303,6 +304,19 @@ readonly class NotificationService {
 				'%s%s',
 				$group,
 				'' !== (string) ( $p['valid_from'] ?? '' ) ? sprintf( ', %s – %s', (string) $p['valid_from'], (string) ( $p['valid_to'] ?? '' ) ) : ''
+			) ),
+
+			NotificationType::SubstituteAssignedStudent => trim( sprintf(
+				'%s%s%s',
+				(string) ( $p['teacher_name'] ?? '' ),
+				$tail,
+				'' !== (string) ( $p['valid_from'] ?? '' ) ? sprintf( ', %s – %s', (string) $p['valid_from'], (string) ( $p['valid_to'] ?? '' ) ) : ''
+			) ),
+
+			NotificationType::RoomChanged => trim( sprintf(
+				'%s%s',
+				sprintf( '%s → %s', (string) ( $p['old_room'] ?? '—' ), (string) ( $p['new_room'] ?? '—' ) ),
+				$tail
 			) ),
 		};
 	}

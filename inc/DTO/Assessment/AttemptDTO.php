@@ -24,6 +24,12 @@ readonly class AttemptDTO {
 		public string        $createdAt,
 		public string        $updatedAt,
 		public ?int          $groupLessonId = null,
+		/** D18: учитель подтвердил результат — до этого ответы/баллы от ученика скрыты
+		 * (см. {@see \Inc\Services\Assessment\AttemptRevealPolicy}). НЕ синоним
+		 * `status === Graded`: у ЕГЭ (без ручной проверки) graded наступает сразу при
+		 * сдаче, approvedAt требует отдельного явного действия учителя. */
+		public ?string       $approvedAt = null,
+		public ?int          $approvedByUserId = null,
 	) {}
 
 	/**
@@ -58,6 +64,13 @@ readonly class AttemptDTO {
 			createdAt       : (string) ( $row['created_at'] ?? '' ),
 			updatedAt       : (string) ( $row['updated_at'] ?? '' ),
 			groupLessonId   : isset( $row['group_lesson_id'] ) ? (int) $row['group_lesson_id'] : null,
+			approvedAt      : $row['approved_at'] ?? null,
+			approvedByUserId: isset( $row['approved_by_user_id'] ) ? (int) $row['approved_by_user_id'] : null,
 		);
+	}
+
+	/** Учитель подтвердил результат — ответы/баллы можно показывать ученику (D18). */
+	public function isApproved(): bool {
+		return null !== $this->approvedAt;
 	}
 }
