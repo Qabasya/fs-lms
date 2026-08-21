@@ -234,7 +234,7 @@ final class Init {
 
 		// Синхронизация capabilities администратора при несоответствии версии.
 		// Запись в БД происходит только один раз при смене FS_LMS_CAPS_VERSION.
-		$capsVersion = '5.4'; // 5.4: − свободные роли Student/Teacher (lms_student_free/lms_teacher_free)
+		$capsVersion = '5.5'; // 5.5: − роль «Маркетолог» (lms_market), нерабочая (см. Tasks.md)
 		if ( get_option( OptionName::CapsVersion->value ) !== $capsVersion ) {
 			$roleManager = $container->get( \Inc\Managers\Person\RoleManager::class );
 			$roleManager->registerAll();

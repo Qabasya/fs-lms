@@ -1211,7 +1211,7 @@ form.addEventListener( 'submit', ( e ) => {
 ### Редиректы
 
 `ProfileController` (`template_redirect`): незалогиненный на `/profile/` → `/sign-in/`;
-залогиненный на `/sign-in/` → `/profile/`; роль без витрины кабинета (методист/маркетолог) →
+залогиненный на `/sign-in/` → `/profile/`; роль без витрины кабинета (методист) →
 в `wp-admin`; отчисленный при политике `block` — гейт. `UserController` ограничивает LMS-ролям
 доступ в wp-admin и ведёт их после логина на `/profile/`.
 
@@ -1223,7 +1223,6 @@ form.addEventListener( 'submit', ( e ) => {
 |---|---|---|
 | `FSOffice` | `lms_office` | Офис/администратор LMS: заявки, зачисление, PII, замены |
 | `FSMethodist` | `lms_methodist` | Методист: авторинг контента |
-| `FSMarket` | `lms_market` | Маркетолог: статьи, статистика |
 | `FSTeacher` | `lms_teacher` | Преподаватель: ведение групп, журнал, проверка |
 | `FSStudent` | `lms_student` | Ученик |
 | `FSParent` | `lms_parent` | Родитель (read-only кабинет по детям) |
@@ -1995,7 +1994,7 @@ src/js/profile/profile.js → app.js: строит сайдбар, генери�
   readOnly, children }`. Роль — `UserRole::primaryForCabinet()`. Родитель: `readOnly = true`,
   `children` — его дети, `subjectPersonId` — выбранный ребёнок.
 - `viewFor(role)`: `FSTeacher | FSOffice` → `TeacherProfileView`;
-  `FSStudent | FSParent | Student` → `LearnerProfileView`; прочие (методист, маркетолог) →
+  `FSStudent | FSParent | Student` → `LearnerProfileView`; прочие (методист) →
   `null` → редирект в wp-admin.
 - `jsConfig($userId)` собирает весь `window.fsProfile`:
   - общая часть: `role`, `readOnly`, `user{name, initials}`, `subjectPersonId`, `children`,

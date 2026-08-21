@@ -54,12 +54,6 @@ class UserBehaviorManagerTest extends TestCase {
 		self::assertTrue( $this->manager->hideAdminBarForFrontCabinet( true ) );
 	}
 
-	public function test_keeps_bar_for_market(): void {
-		$GLOBALS['_fs_test_user_roles'] = [ 'lms_market' ];
-
-		self::assertTrue( $this->manager->hideAdminBarForFrontCabinet( true ) );
-	}
-
 	/** Дуал-роль admin+FSTeacher — Capability::Admin перебивает денилист, панель остаётся. */
 	public function test_keeps_bar_for_admin_even_with_front_cabinet_role(): void {
 		$GLOBALS['_fs_test_can']        = true;

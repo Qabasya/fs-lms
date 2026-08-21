@@ -27,7 +27,6 @@ class RolesSettingsCallbacks extends BaseController {
 	private const ASSIGNABLE = array(
 		UserRole::FSOffice->value,
 		UserRole::FSMethodist->value,
-		UserRole::FSMarket->value,
 		UserRole::FSTeacher->value,
 	);
 

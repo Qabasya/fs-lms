@@ -52,7 +52,6 @@ class ProfileViewResolverTest extends TestCase {
 
 	public function test_back_office_roles_have_no_front_cabinet(): void {
 		self::assertNull( $this->resolver->viewFor( UserRole::FSMethodist ) );
-		self::assertNull( $this->resolver->viewFor( UserRole::FSMarket ) );
 	}
 
 	/**

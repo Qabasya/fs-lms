@@ -41,18 +41,15 @@ enum UserRole: string {
 	/** Методист: авторинг курсов, уроков, работ, контрольных, задач */
 	case FSMethodist = 'lms_methodist';
 
-	/** Маркетолог: статьи, статистика */
-	case FSMarket = 'lms_market';
-
 	/**
 	 * Возвращает «основную» роль из набора слагов по приоритету.
-	 * Приоритет убывает: FSOffice → FSMethodist → FSMarket → FSTeacher → FSStudent → FSParent.
+	 * Приоритет убывает: FSOffice → FSMethodist → FSTeacher → FSStudent → FSParent.
 	 * Если ни один слаг не совпал — возвращает FSStudent (нет отдельной «безроли»).
 	 *
 	 * @param string[] $slugs Список слагов из $user->roles
 	 */
 	public static function primary( array $slugs ): self {
-		foreach ( array( self::FSOffice, self::FSMethodist, self::FSMarket, self::FSTeacher,
+		foreach ( array( self::FSOffice, self::FSMethodist, self::FSTeacher,
 						 self::FSStudent, self::FSParent ) as $role ) {
 			if ( in_array( $role->value, $slugs, true ) ) {
 				return $role;
@@ -107,7 +104,7 @@ enum UserRole: string {
 	 * {@see \Inc\Managers\Person\UserBehaviorManager::restrictAdminAccess()} не пускает
 	 * в админку. У всех есть витрина ({@see \Inc\Services\Profile\ProfileViewResolver::viewFor()}),
 	 * поэтому редирект на `/profile/` не создаёт петлю. Офисные роли
-	 * (FSOffice/FSMethodist/FSMarket) в этот список НЕ входят — им админка доступна.
+	 * (FSOffice/FSMethodist) в этот список НЕ входят — им админка доступна.
 	 *
 	 * @return list<self>
 	 */
@@ -127,7 +124,6 @@ enum UserRole: string {
 			self::FSParent    => '🎓 LMS: Родитель',
 			self::FSOffice    => '🎓 LMS: Администратор платформы',
 			self::FSMethodist => '🎓 LMS: Методист',
-			self::FSMarket    => '🎓 LMS: Маркетолог',
 		};
 	}
 
@@ -139,11 +135,10 @@ enum UserRole: string {
 	public function baseCapabilities(): array {
 		return match ( $this ) {
 			self::FSTeacher,
-			self::FSMethodist,
-			self::FSMarket  => array( 'read' => true, 'edit_posts' => true, 'upload_files' => true ),
-			self::FSStudent => array( 'read' => true, 'upload_files' => true ),
-			self::FSParent  => array( 'read' => true ),
-			self::FSOffice  => array( 'read' => true ),
+			self::FSMethodist => array( 'read' => true, 'edit_posts' => true, 'upload_files' => true ),
+			self::FSStudent   => array( 'read' => true, 'upload_files' => true ),
+			self::FSParent    => array( 'read' => true ),
+			self::FSOffice    => array( 'read' => true ),
 		};
 	}
 
@@ -170,10 +165,6 @@ enum UserRole: string {
 			),
 			self::FSMethodist => array(
 				Capability::AuthorLmsCourses->value => true,
-			),
-			self::FSMarket => array(
-				Capability::ManageLmsArticles->value => true,
-				Capability::ViewLMSStats->value      => true,
 			),
 			self::FSTeacher => array(
 				Capability::ViewLMSStats->value      => true,

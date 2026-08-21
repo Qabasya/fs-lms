@@ -1032,6 +1032,36 @@ WebP — соседний набор ЕГЭ уже был `instruction-*.webp`) 
 
 ---
 
+# Задача: снос роли «Маркетолог» (2026-08-21) ✅
+
+Контекст: аудит показал, что `FSMarket` (`lms_market`) на практике нерабочая роль — из двух
+её прав `ManageLmsArticles` недостижим в UI (пункт меню «Обучение» гейтится
+`AuthorLmsCourses`, которого у маркетолога нет — WP прячет весь top-level пункт, а не только
+недоступные сабстраницы), а `ViewLMSStats` не гейтит вообще ничего (нет ни одной фичи,
+которая его проверяет). Решено с пользователем: статьями (и статистикой, если появится)
+дальше занимается FSOffice — у него `ManageLmsArticles` уже есть.
+
+- [x] `inc/Enums/Access/UserRole.php` — кейс `FSMarket` снят: из `cases()` (сам кейс),
+      `primary()`, докблока `frontCabinetRoles()`, `label()`, `baseCapabilities()`,
+      `capabilities()`
+- [x] `inc/Managers/Person/RoleManager.php` — `lms_market` снят из докблок-матрицы,
+      `manage_lms_assignments`-отката и выдачи `articleCaps()` (теперь только `lms_office`);
+      добавлен явный `remove_role('lms_market')` в `registerAll()` (тем же приёмом, что
+      `lms_student_free`/`lms_teacher_free`, Этап 4) — на установках, где роль успела
+      создаться, `add_role()` её больше не восстановит
+- [x] `inc/Callbacks/Settings/RolesSettingsCallbacks.php::ASSIGNABLE` — `FSMarket` убран
+- [x] `templates/admin/components/tabs/settings-tabs/settings-8-roles.php` — убран из списка
+      назначаемых ролей вкладки «Роли»
+- [x] `inc/Controllers/Person/ProfileController.php`, `.docs/basic_doc.md` — докблоки/таблицы
+      поправлены (упоминания FSMarket убраны)
+- [x] `.docs/Roles.md` — добавлена пометка о снятии роли вверху файла (сам план — историческая
+      спецификация, не переписывался)
+- [x] Тесты: `UserBehaviorManagerTest::test_keeps_bar_for_market` удалён (сценарий больше не
+      существует), `ProfileViewResolverTest::test_back_office_roles_have_no_front_cabinet`
+      сокращён до `FSMethodist`. Полный набор — 1363 теста зелёные
+
+---
+
 ## Что НЕ трогаем
 
 - Механику произвольного предмета: `SubjectRepository`, создание предмета, пользовательские
