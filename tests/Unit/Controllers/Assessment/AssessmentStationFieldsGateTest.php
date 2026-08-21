@@ -18,9 +18,11 @@ use PHPUnit\Framework\TestCase;
 /**
  * Станции (ЕГЭ/ОГЭ) имитируют реальный экзамен: время/попытки/вступительный
  * текст больше не сохраняются из формы, даже если пришли в $_POST (см.
- * .docs/Tasks.md, §3.2). score_map — наоборот: нужен только видам с
- * needsSecondaryScore() (ЕГЭ/ОГЭ, перевод первичного балла во вторичный,
- * SecondaryScoreService), у Control нигде не читается и стрипается (блок C).
+ * .docs/Tasks.md, §3.2). score_map стрипается всегда, независимо от вида:
+ * для станций шкала приходит из module-level StationExamConfig и безусловно
+ * переопределяет значение из меты при каждом чтении (EgeComputerModule::
+ * applyStationSettings()), у Control поле не читается вовсе — мета-версия
+ * мертва в обоих случаях.
  */
 class AssessmentStationFieldsGateTest extends TestCase {
 
@@ -72,7 +74,7 @@ class AssessmentStationFieldsGateTest extends TestCase {
 
 		self::assertArrayNotHasKey( 'time_limit_minutes', $captured );
 		self::assertArrayNotHasKey( 'max_attempts', $captured );
-		self::assertArrayHasKey( 'score_map', $captured );
+		self::assertArrayNotHasKey( 'score_map', $captured );
 		self::assertArrayNotHasKey( 'intro_html', $captured );
 		self::assertSame( 'ege_computer', $captured['kind'] );
 	}
@@ -91,7 +93,7 @@ class AssessmentStationFieldsGateTest extends TestCase {
 		$this->controller->handleAssessmentSave( 8 );
 
 		self::assertArrayNotHasKey( 'time_limit_minutes', $captured );
-		self::assertArrayHasKey( 'score_map', $captured );
+		self::assertArrayNotHasKey( 'score_map', $captured );
 	}
 
 	public function test_control_kind_keeps_time_and_intro_but_strips_score_map(): void {

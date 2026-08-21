@@ -46,11 +46,11 @@ use Inc\Enums\Ui\Icon;
 					echo '<div class="fs-task-subpart"><h3 class="fs-task-subpart__label">'
 						. esc_html__( 'Задание №', 'fs-lms' ) . esc_html( (string) $task_num )
 						. '</h3><div class="fs-task-subpart__body wpc">'
-						. wp_kses_post( (string) $task_cond )
+						. \Inc\Shared\SafeHtml::post( (string) $task_cond )
 						. '</div></div>';
 				endforeach;
 			elseif ( 'fill_task' !== $task_tmpl && ! empty( $render['condition_html'] ) ) :
-				echo '<div class="fs-task-condition wpc">' . wp_kses_post( (string) $render['condition_html'] ) . '</div>';
+				echo '<div class="fs-task-condition wpc">' . \Inc\Shared\SafeHtml::post( (string) $render['condition_html'] ) . '</div>';
 			endif;
 			?>
 
@@ -65,7 +65,7 @@ use Inc\Enums\Ui\Icon;
 			<?php if ( ! empty( $render['hint_html'] ) ) : ?>
 			<details class="fs-hint"<?php echo ! empty( $render['reveal_hint'] ) ? ' open' : ''; ?>>
 				<summary class="fs-hint__toggle"><?php esc_html_e( 'Подсказка', 'fs-lms' ); ?></summary>
-				<div class="fs-hint__body"><?php echo wp_kses_post( (string) $render['hint_html'] ); ?></div>
+				<div class="fs-hint__body"><?php echo \Inc\Shared\SafeHtml::post( (string) $render['hint_html'] ); ?></div>
 			</details>
 			<?php endif; ?>
 
@@ -113,7 +113,7 @@ use Inc\Enums\Ui\Icon;
 
 		<?php else : ?>
 			<?php if ( ! empty( $render['condition_html'] ) && is_string( $render['condition_html'] ) ) : ?>
-				<div class="fs-task-condition wpc"><?php echo wp_kses_post( $render['condition_html'] ); ?></div>
+				<div class="fs-task-condition wpc"><?php echo \Inc\Shared\SafeHtml::post( $render['condition_html'] ); ?></div>
 			<?php endif; ?>
 			<p class="step-muted">
 				<?php esc_html_e( 'Это задание проверяется вручную. Выполните его и отметьте шаг кнопкой «Далее» — преподаватель проверит работу.', 'fs-lms' ); ?>

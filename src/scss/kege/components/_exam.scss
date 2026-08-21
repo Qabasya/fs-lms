@@ -366,6 +366,7 @@
 }
 
 .kege-save2 { flex: 1; background: var(--kege-teal); color: var(--kege-on); padding: 10px; font-size: 13.5px; }
+.kege-save2.is-saved { background: var(--kege-green); }
 
 /* Задания 13-16 ОГЭ («Развёрнутый ответ», §3.3/§6.2 .docs/Tasks.md) — только
    загрузка файла, без текстового поля. */

@@ -7,7 +7,6 @@ namespace Inc\MetaBoxes\Templates;
 use Inc\MetaBoxes\Fields\AssessmentKindField;
 use Inc\MetaBoxes\Fields\EditorField;
 use Inc\MetaBoxes\Fields\NumberInputField;
-use Inc\MetaBoxes\Fields\ScoreMapField;
 
 /**
  * Class AssessmentTemplate
@@ -35,10 +34,6 @@ class AssessmentTemplate extends BaseTemplate {
 			'pass_score'         => array(
 				'label'  => 'Проходной балл (0 = без порога)',
 				'object' => new NumberInputField(),
-			),
-			'score_map'          => array(
-				'label'  => 'Таблица перевода баллов',
-				'object' => new ScoreMapField(),
 			),
 			'intro_html'         => array(
 				'label'  => 'Описание перед началом (показывается на стартовом экране)',

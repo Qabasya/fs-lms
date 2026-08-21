@@ -226,6 +226,12 @@ if (!function_exists('wp_remote_post')) {
         return $GLOBALS['_test_http_response'] ?? array('response' => array('code' => 200), 'body' => '{"status":"ok"}');
     }
 }
+if (!function_exists('wp_remote_get')) {
+    function wp_remote_get(string $url, array $args = array()): mixed {
+        $GLOBALS['_test_http_last'] = array('url' => $url, 'args' => $args);
+        return $GLOBALS['_test_http_response'] ?? array('response' => array('code' => 200), 'body' => '{"status":"ok"}');
+    }
+}
 if (!function_exists('is_wp_error')) {
     function is_wp_error(mixed $thing): bool { return $thing instanceof WP_Error; }
 }

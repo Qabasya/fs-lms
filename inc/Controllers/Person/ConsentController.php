@@ -4,6 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\Controllers\Person;
 
+use Inc\Shared\SafeHtml;
 use Inc\Contracts\ServiceInterface;
 use Inc\Core\BaseController;
 use Inc\Services\Person\ConsentService;
@@ -78,7 +79,7 @@ class ConsentController extends BaseController implements ServiceInterface {
 		status_header( 200 );
 
 		// Подменяем содержимое страницы нужной версией (текущей или архивной)
-		add_filter( 'the_content', fn() => wp_kses_post( $text ), PHP_INT_MAX );
+		add_filter( 'the_content', fn() => SafeHtml::post( $text ), PHP_INT_MAX );
 
 		// Возвращаем шаблон страницы из темы; fallback — плагиновый шаблон
 		return get_page_template()

@@ -21,10 +21,6 @@ namespace Inc\Enums\Access;
  * Используется в UserManager (создание ролей), UserRepository (фильтрация по роли)
  * и UserDTO (преобразование роли WordPress в enum).
  *
- * ### Группы ролей:
- *
- * - **Защищённые роли (FS)** — пользователи с подпиской/доступом к контенту
- * - **Свободные роли (Free)** — внешние пользователи без подписки
  */
 enum UserRole: string {
 
@@ -45,32 +41,21 @@ enum UserRole: string {
 	/** Методист: авторинг курсов, уроков, работ, контрольных, задач */
 	case FSMethodist = 'lms_methodist';
 
-	/** Маркетолог: статьи, статистика */
-	case FSMarket = 'lms_market';
-
-	// === Роли внешних пользователей (авторизация через провайдеров, без подписки) ===
-
-	/** Свободный ученик (базовый доступ к открытым материалам) */
-	case Student = 'lms_student_free';
-
-	/** Свободный преподаватель (базовый доступ без прав на PII) */
-	case Teacher = 'lms_teacher_free';
-
 	/**
 	 * Возвращает «основную» роль из набора слагов по приоритету.
-	 * Приоритет убывает: FSOffice → FSMethodist → FSMarket → FSTeacher → FSStudent → FSParent → Teacher → Student.
-	 * Если ни один слаг не совпал — возвращает Student.
+	 * Приоритет убывает: FSOffice → FSMethodist → FSTeacher → FSStudent → FSParent.
+	 * Если ни один слаг не совпал — возвращает FSStudent (нет отдельной «безроли»).
 	 *
 	 * @param string[] $slugs Список слагов из $user->roles
 	 */
 	public static function primary( array $slugs ): self {
-		foreach ( array( self::FSOffice, self::FSMethodist, self::FSMarket, self::FSTeacher,
-						 self::FSStudent, self::FSParent, self::Teacher, self::Student ) as $role ) {
+		foreach ( array( self::FSOffice, self::FSMethodist, self::FSTeacher,
+						 self::FSStudent, self::FSParent ) as $role ) {
 			if ( in_array( $role->value, $slugs, true ) ) {
 				return $role;
 			}
 		}
-		return self::Student;
+		return self::FSStudent;
 	}
 
 	/**
@@ -115,16 +100,16 @@ enum UserRole: string {
 
 	/**
 	 * Роли, чей дом — фронт-кабинет `/profile/` (или публичная часть), а не wp-admin:
-	 * преподаватель, ученик, родитель и свободный ученик. Именно их
+	 * преподаватель, ученик, родитель. Именно их
 	 * {@see \Inc\Managers\Person\UserBehaviorManager::restrictAdminAccess()} не пускает
 	 * в админку. У всех есть витрина ({@see \Inc\Services\Profile\ProfileViewResolver::viewFor()}),
 	 * поэтому редирект на `/profile/` не создаёт петлю. Офисные роли
-	 * (FSOffice/FSMethodist/FSMarket) в этот список НЕ входят — им админка доступна.
+	 * (FSOffice/FSMethodist) в этот список НЕ входят — им админка доступна.
 	 *
 	 * @return list<self>
 	 */
 	public static function frontCabinetRoles(): array {
-		return array( self::FSTeacher, self::FSStudent, self::FSParent, self::Student );
+		return array( self::FSTeacher, self::FSStudent, self::FSParent );
 	}
 
 	/**
@@ -139,9 +124,6 @@ enum UserRole: string {
 			self::FSParent    => '🎓 LMS: Родитель',
 			self::FSOffice    => '🎓 LMS: Администратор платформы',
 			self::FSMethodist => '🎓 LMS: Методист',
-			self::FSMarket    => '🎓 LMS: Маркетолог',
-			self::Student     => '🌐 LMS: Пользователь',
-			self::Teacher     => '🌐 LMS: Учитель',
 		};
 	}
 
@@ -153,13 +135,10 @@ enum UserRole: string {
 	public function baseCapabilities(): array {
 		return match ( $this ) {
 			self::FSTeacher,
-			self::FSMethodist,
-			self::FSMarket  => array( 'read' => true, 'edit_posts' => true, 'upload_files' => true ),
-			self::FSStudent => array( 'read' => true, 'upload_files' => true ),
-			self::FSParent  => array( 'read' => true ),
-			self::FSOffice  => array( 'read' => true ),
-			self::Student   => array( 'read' => true, 'upload_files' => true ),
-			self::Teacher   => array( 'read' => true, 'upload_files' => true ),
+			self::FSMethodist => array( 'read' => true, 'edit_posts' => true, 'upload_files' => true ),
+			self::FSStudent   => array( 'read' => true, 'upload_files' => true ),
+			self::FSParent    => array( 'read' => true ),
+			self::FSOffice    => array( 'read' => true ),
 		};
 	}
 
@@ -187,16 +166,11 @@ enum UserRole: string {
 			self::FSMethodist => array(
 				Capability::AuthorLmsCourses->value => true,
 			),
-			self::FSMarket => array(
-				Capability::ManageLmsArticles->value => true,
-				Capability::ViewLMSStats->value      => true,
-			),
 			self::FSTeacher => array(
 				Capability::ViewLMSStats->value      => true,
 				Capability::ManageLmsTeaching->value => true,
 			),
-			self::FSStudent, self::FSParent,
-			self::Student, self::Teacher => array(),
+			self::FSStudent, self::FSParent => array(),
 		};
 	}
 }

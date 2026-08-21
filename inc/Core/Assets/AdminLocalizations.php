@@ -201,7 +201,6 @@ class AdminLocalizations {
 				'authorAssessment'  => Nonce::AuthorAssessment->create(),
 				'authorCourse'      => Nonce::AuthorCourse->create(),
 				'room'              => Nonce::Room->create(),
-				'scoreMap'          => Nonce::ScoreMap->create(),
 			),
 			'ajax_actions'     => AjaxHook::toJsArray(),
 			// Фаза 5, D3/D4: URL preview-плеера курса (кнопка «Просмотр» в конструкторе).

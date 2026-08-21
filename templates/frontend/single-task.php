@@ -151,7 +151,7 @@ ThemeCompatService::header();
 
 						<!-- Условие задачи -->
 						<div class="fs-task-condition">
-							<?php echo wp_kses_post( $content->condition ); ?>
+							<?php echo \Inc\Shared\SafeHtml::post( $content->condition ); ?>
 						</div>
 
 						<!-- Файлы -->
@@ -223,7 +223,7 @@ ThemeCompatService::header();
 											<?php ?>
 											<pre><code class="js-code" data-lang="<?php echo esc_attr( $tab->lang ); ?>"><?php echo esc_html( $tab->content ); ?></code></pre>
 										<?php else : ?>
-											<?php echo wp_kses_post( $tab->content ); ?>
+											<?php echo \Inc\Shared\SafeHtml::post( $tab->content ); ?>
 										<?php endif; ?>
 									</div>
 								<?php endforeach; ?>

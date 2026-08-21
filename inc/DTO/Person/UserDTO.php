@@ -33,7 +33,6 @@ readonly class UserDTO {
 	 * @param string      $email       Email пользователя
 	 * @param string      $displayName Отображаемое имя пользователя
 	 * @param UserRole    $role        Роль пользователя (из enum)
-	 * @param string|null $telegramId  ID в Telegram (для связи с ботом)
 	 * @param array       $meta        Дополнительные мета-данные пользователя
 	 */
 	public function __construct(
@@ -41,7 +40,6 @@ readonly class UserDTO {
 		public string $email,
 		public string $displayName,
 		public UserRole $role,
-		public ?string $telegramId = null,
 		public array $meta = array()
 	) {
 	}
@@ -57,7 +55,6 @@ readonly class UserDTO {
 			'email'       => $this->email,
 			'displayName' => $this->displayName,
 			'role'        => $this->role->value,
-			'telegramId'  => $this->telegramId,
 			'meta'        => $this->meta,
 		);
 	}
@@ -74,8 +71,7 @@ readonly class UserDTO {
 			id:          (int)    ( $data['id'] ?? 0 ),
 			email:       (string) ( $data['email'] ?? '' ),
 			displayName: (string) ( $data['displayName'] ?? '' ),
-			role:        UserRole::tryFrom( (string) ( $data['role'] ?? '' ) ) ?? UserRole::Student,
-			telegramId:  isset( $data['telegramId'] ) ? (string) $data['telegramId'] : null,
+			role:        UserRole::tryFrom( (string) ( $data['role'] ?? '' ) ) ?? UserRole::FSStudent,
 			meta:        (array)  ( $data['meta'] ?? array() ),
 		);
 	}
@@ -88,8 +84,6 @@ readonly class UserDTO {
 			email      : $user->user_email,
 			displayName: $user->display_name,
 			role       : $userRole,
-			// get_user_meta() — получает мета-поле пользователя
-			telegramId : get_user_meta( $user->ID, 'fs_telegram_id', true ) ?: null,
 			meta       : array()  // Сюда можно подгрузить остальные мета-поля
 		);
 	}

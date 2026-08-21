@@ -5,23 +5,15 @@ declare( strict_types=1 );
 namespace Inc\Enums\Email;
 
 enum EmailTemplateType: string {
-	case OtpCode                 = 'otp_code';
-	case PasswordSetup           = 'password_setup';
-	case ApplicationConfirmation = 'application_confirmation';
-	case ApplicationReady        = 'application_ready';
-	case Rejection               = 'rejection';
-	case WelcomeWithCredentials  = 'welcome_with_credentials';
-	case CourseGranted           = 'course_granted';
+	case OtpCode                = 'otp_code';
+	case WelcomeWithCredentials = 'welcome_with_credentials';
+	case CourseGranted          = 'course_granted';
 
 	public function label(): string {
 		return match ( $this ) {
-			self::OtpCode                 => 'OTP-код',
-			self::PasswordSetup           => 'Установка пароля',
-			self::ApplicationConfirmation => 'Подтверждение заявки',
-			self::ApplicationReady        => 'Заявка готова к рассмотрению',
-			self::Rejection               => 'Отказ',
-			self::WelcomeWithCredentials  => 'Приветствие с данными для входа',
-			self::CourseGranted           => 'Открыт доступ к курсу',
+			self::OtpCode                => 'OTP-код',
+			self::WelcomeWithCredentials => 'Приветствие с данными для входа',
+			self::CourseGranted          => 'Открыт доступ к курсу',
 		};
 	}
 }

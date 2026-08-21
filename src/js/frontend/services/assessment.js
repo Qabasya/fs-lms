@@ -3,7 +3,7 @@
  * Pure-JS function pattern (no jQuery).
  */
 
-import { escapeHtml, debounce as debounceUtil } from '../../common/utils.js';
+import { escapeHtml, debounce as debounceUtil, disableCopying } from '../../common/utils.js';
 
 const vars = window.fs_lms_assessment_vars;
 
@@ -418,6 +418,8 @@ async function submitAttempt( attemptId, form, resultEl, timerInterval ) {
 function initRunningAttempt() {
 	const wrapper = document.getElementById( 'fs-assessment-form' );
 	if ( ! wrapper || wrapper.dataset.preview ) { return; } // предпросмотр — initPreviewAttempt()
+
+	disableCopying( wrapper );
 
 	const attemptId    = wrapper.dataset.attemptId;
 	const deadlineAt   = wrapper.dataset.deadline;

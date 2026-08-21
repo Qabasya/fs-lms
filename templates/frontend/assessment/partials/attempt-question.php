@@ -38,7 +38,7 @@ if ( ! isset( $fs_seq ) ) {
 					<span class="fs-attempt-subpart-tag">задание <?php echo esc_html( (string) $sub['number'] ); ?></span>
 				</div>
 				<div class="fs-attempt-question-content wpc">
-					<?php echo wp_kses_post( $sub['condition'] ); ?>
+					<?php echo \Inc\Shared\SafeHtml::post( $sub['condition'] ); ?>
 				</div>
 				<div class="fs-form-group">
 					<textarea
@@ -60,7 +60,7 @@ if ( ! isset( $fs_seq ) ) {
 	<?php echo $isFileAnswer ? 'data-template="file_answer"' : ''; ?>>
 	<div class="fs-attempt-question-number"><?php echo esc_html( (string) $fs_seq ); ?>.</div>
 	<div class="fs-attempt-question-content wpc">
-		<?php echo wp_kses_post( $taskView['condition'] ); ?>
+		<?php echo \Inc\Shared\SafeHtml::post( $taskView['condition'] ); ?>
 	</div>
 
 	<?php if ( $isFileAnswer && ! empty( $taskView['materials'] ) ) : ?>

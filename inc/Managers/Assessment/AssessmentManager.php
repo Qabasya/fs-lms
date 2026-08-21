@@ -56,8 +56,7 @@ class AssessmentManager {
 	/**
 	 * @param int[]      $itemIds
 	 * @param float[]    $taskPoints  taskId => points
-	 * @param string[]|null $taskNumbers taskId => номер, явное значение (используется только
-	 *                                   переносом ссылок связки при смене ID, {@see \Inc\Services\Task\TaskBundleMigrationPlanner});
+	 * @param string[]|null $taskNumbers taskId => номер, явное значение;
 	 *                                   null (по умолчанию) — вычисляется из меты банковских
 	 *                                   задач ({@see deriveTaskNumbers()}), обычный путь сохранения из конструктора.
 	 */

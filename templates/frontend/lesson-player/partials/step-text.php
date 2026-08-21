@@ -29,6 +29,6 @@ use Inc\Enums\Course\StepType;
 	<h2><?php echo esc_html( $step['title'] ); ?></h2>
 
 	<div class="gap16">
-		<div class="wpc"><?php echo wp_kses_post( (string) ( $render['content'] ?? '' ) ); ?></div>
+		<div class="wpc"><?php echo \Inc\Shared\SafeHtml::post( (string) ( $render['content'] ?? '' ) ); ?></div>
 	</div>
 </div>

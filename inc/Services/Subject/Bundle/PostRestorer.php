@@ -4,6 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Subject\Bundle;
 
+use Inc\Shared\SafeHtml;
 use Inc\Services\Subject\Import\ImportedEntitiesCollector;
 use Inc\Managers\Wp\PostManager;
 use Inc\Managers\Wp\TermManager;
@@ -58,7 +59,7 @@ class PostRestorer {
 			'post_type'    => sanitize_key( $postType ),
 			'post_title'   => sanitize_text_field( (string) ( $data['post_title'] ?? '' ) ),
 			'post_name'    => sanitize_title( (string) ( $data['post_name'] ?? '' ) ),
-			'post_content' => wp_kses_post( (string) ( $data['post_content'] ?? '' ) ),
+			'post_content' => SafeHtml::post( (string) ( $data['post_content'] ?? '' ) ),
 			'post_excerpt' => sanitize_text_field( (string) ( $data['post_excerpt'] ?? '' ) ),
 			'post_status'  => sanitize_key( (string) ( $data['post_status'] ?? 'publish' ) ),
 			'post_date'    => sanitize_text_field( (string) ( $data['post_date'] ?? '' ) ),

@@ -10,6 +10,7 @@ use Inc\DTO\Course\GradebookEntryDTO;
 use Inc\DTO\Course\GroupLessonDTO;
 use Inc\Managers\Course\CourseManager;
 use Inc\Managers\Course\LessonManager;
+use Inc\Repositories\WPDBRepositories\AssessmentAttemptRepository;
 use Inc\Repositories\WPDBRepositories\AttendanceRepository;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
@@ -33,6 +34,7 @@ class LearnerServiceTest extends TestCase {
 	private $lessons;
 	private $gradebook;
 	private $attendance;
+	private $attempts;
 	private $clock;
 	private $submissions;
 	private $worksResolver;
@@ -54,6 +56,7 @@ class LearnerServiceTest extends TestCase {
 		$this->courses      = $this->createMock( CourseManager::class );
 		$this->gradebook    = $this->createMock( GradebookService::class );
 		$this->attendance   = $this->createMock( AttendanceRepository::class );
+		$this->attempts     = $this->createMock( AssessmentAttemptRepository::class );
 		$this->clock        = $this->createMock( ClockInterface::class );
 		$this->clock->method( 'now' )->willReturn( '2026-05-20 10:00:00' );
 		// Не стабим дефолт на listByStudentAndGroupLesson/resolve — PHPUnit сам возвращает []
@@ -78,7 +81,7 @@ class LearnerServiceTest extends TestCase {
 		$this->service = new LearnerService(
 			$contextBuilder,
 			new \Inc\Services\Profile\Learner\LearnerScheduleSection( $this->submissions, $this->worksResolver, $this->lessons ),
-			new \Inc\Services\Profile\Learner\LearnerPerformanceSection( $this->gradebook, $this->attendance ),
+			new \Inc\Services\Profile\Learner\LearnerPerformanceSection( $this->gradebook, $this->attendance, $this->submissions, $this->attempts, $this->lessons ),
 			new \Inc\Services\Profile\Learner\LearnerCoursesSection(
 				$this->courses, $this->lessons, $this->progress, $this->examLock, $contextBuilder,
 			),

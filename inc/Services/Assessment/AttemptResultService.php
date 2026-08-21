@@ -7,6 +7,7 @@ namespace Inc\Services\Assessment;
 use Inc\DTO\Assessment\AssessmentDTO;
 use Inc\Enums\Subject\TaskTemplate;
 use Inc\Enums\Wp\PostMetaName;
+use Inc\Managers\Assessment\AssessmentManager;
 use Inc\Managers\Wp\MediaManager;
 use Inc\Managers\Wp\PostManager;
 use Inc\Repositories\WPDBRepositories\AssessmentAnswerRepository;
@@ -24,7 +25,38 @@ class AttemptResultService {
 		private readonly PostManager                 $posts,
 		private readonly MediaManager                $media,
 		private readonly AutoGradeService            $autoGrade,
+		private readonly AssessmentManager           $assessments,
 	) {}
+
+	/**
+	 * Строки ответов идут в порядке вставки (когда ученик отвечал), а не в
+	 * порядке позиций экзамена — «Задача 1» рендерилась бы тем заданием,
+	 * которое сохранилось первым (нередко №25/№27, набранные не по порядку).
+	 * Перекладываем в порядок assessment->taskIds — как уже делает
+	 * {@see \Inc\Modules\EgeComputer\Services\KegeResultSheetService::assemble()}
+	 * для листа результатов.
+	 *
+	 * @param list<\Inc\DTO\Assessment\AttemptAnswerDTO> $rows
+	 * @param int[]                                      $taskIds Порядок из assessment->taskIds
+	 *
+	 * @return list<\Inc\DTO\Assessment\AttemptAnswerDTO>
+	 */
+	private function orderByTaskPosition( array $rows, array $taskIds ): array {
+		$byTaskId = array();
+		foreach ( $rows as $ans ) {
+			$byTaskId[ $ans->taskId ] = $ans;
+		}
+		$ordered = array();
+		foreach ( $taskIds as $taskId ) {
+			if ( isset( $byTaskId[ (int) $taskId ] ) ) {
+				$ordered[] = $byTaskId[ (int) $taskId ];
+				unset( $byTaskId[ (int) $taskId ] );
+			}
+		}
+		// Остаток (ответ на задание, которого больше нет в task_ids контрольной) —
+		// в хвост, а не молча теряем.
+		return array_merge( $ordered, array_values( $byTaskId ) );
+	}
 
 	/**
 	 * Per-task результат для ученика: вердикт, баллы, критерии, загруженные файлы.
@@ -38,7 +70,9 @@ class AttemptResultService {
 			throw new \InvalidArgumentException( 'Попытка не найдена.' );
 		}
 
-		$rows = $this->answers->listByAttempt( $attemptId );
+		$rows       = $this->answers->listByAttempt( $attemptId );
+		$assessment = $this->assessments->get( $attempt->assessmentId );
+		$rows       = $this->orderByTaskPosition( $rows, array_map( 'intval', $assessment?->taskIds ?? array() ) );
 
 		// ID заданий приходят из таблицы ответов, не из WP_Query — прогреваем
 		// мета-кэш одним запросом вместо запроса на каждый getMeta() в цикле.

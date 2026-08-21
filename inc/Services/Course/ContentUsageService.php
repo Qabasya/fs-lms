@@ -442,6 +442,11 @@ class ContentUsageService {
 	/**
 	 * Возвращает [consumer_cpt, meta_field, is_scalar] для типа контента.
 	 *
+	 * Ветка `'problem'` (глобальный банк `fs_lms_problems`) намеренно отдаёт пустой
+	 * `consumer_cpt`: задание банка не привязано к предмету до материализации в
+	 * `{key}_tasks`, поэтому «использование в курсе» для него не резолвится —
+	 * сознательное ограничение, не пробел на будущее.
+	 *
 	 * @param string $type
 	 * @param string $post_type Тип записи потребляемого поста (для резолва предмета).
 	 * @return array{0: string, 1: string, 2: bool}
@@ -449,13 +454,13 @@ class ContentUsageService {
 	private function relationFor( string $type, string $post_type ): array {
 		return match ( $type ) {
 			'task'       => array( PostTypeResolver::works( PostTypeResolver::subjectFromTaskPostType( $post_type ) ), 'item_ids', false ),
-			'problem'    => array( '', 'item_ids', false ), // кросс-предметный поиск — TODO Этап 2 (SubjectRepository needed)
+			'problem'    => array( '', 'item_ids', false ),
 			'work'       => array( PostTypeResolver::lessons( PostTypeResolver::subjectFromWorkPostType( $post_type ) ), 'steps:work', false ),
 			// Контрольная используется как шаг урока (StepType::Assessment) — как и работа.
 			// Без этой ветки usageList('assessment') был пуст: «использование в курсе» не подтягивалось.
 			'assessment' => array( PostTypeResolver::lessons( PostTypeResolver::subjectFromAssessmentPostType( $post_type ) ), 'steps:assessment', false ),
 			'lesson'     => array( PostTypeResolver::courses( PostTypeResolver::subjectFromLessonPostType( $post_type ) ), 'modules:lesson', false ),
-			default      => array( '', '', false ), // course → groups (Этап 2)
+			default      => array( '', '', false ), // course → groups: тоже не реализовано, сознательно
 		};
 	}
 

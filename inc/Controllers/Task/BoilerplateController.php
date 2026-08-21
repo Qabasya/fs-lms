@@ -8,7 +8,6 @@ use Inc\Controllers\System\AjaxController;
 
 use Inc\Callbacks\Task\BoilerplateCallbacks;
 use Inc\Enums\Wp\AjaxHook;
-use Inc\Shared\Traits\TemplateRenderer;
 
 /**
  * Class BoilerplateController
@@ -27,7 +26,6 @@ use Inc\Shared\Traits\TemplateRenderer;
  * через метод ajaxActions(). Делегирует бизнес-логику BoilerplateCallbacks.
  */
 class BoilerplateController extends AjaxController {
-	use TemplateRenderer;  // Трейт с методом render() (может использоваться в будущем)
 
 	/**
 	 * Конструктор контроллера.

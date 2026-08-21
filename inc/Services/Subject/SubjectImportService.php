@@ -4,6 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Subject;
 
+use Inc\Shared\SafeHtml;
 use Inc\Services\Subject\Import\ImportedEntitiesCollector;
 use Inc\DTO\Subject\SubjectDTO;
 use Inc\DTO\Subject\SubjectImportReportDTO;
@@ -310,7 +311,7 @@ class SubjectImportService {
 						subject_key: $key,
 						term_slug:   sanitize_text_field( (string) $term_slug ),
 						title:       sanitize_text_field( $bp['title'] ?? '' ),
-						content:     wp_kses_post( $bp['content'] ?? '' ),
+						content:     SafeHtml::post( $bp['content'] ?? '' ),
 						is_default:  (bool) ( $bp['is_default'] ?? false ),
 					)
 				);
@@ -372,7 +373,7 @@ class SubjectImportService {
 						'post_type'    => sanitize_key( (string) $post_type ),
 						'post_title'   => sanitize_text_field( $post_data['post_title'] ?? '' ),
 						// wp_kses_post() — разрешает только безопасные HTML-теги
-						'post_content' => wp_kses_post( $post_data['post_content'] ?? '' ),
+						'post_content' => SafeHtml::post( $post_data['post_content'] ?? '' ),
 						'post_excerpt' => sanitize_text_field( $post_data['post_excerpt'] ?? '' ),
 						'post_status'  => sanitize_text_field( $post_data['post_status'] ?? 'publish' ),
 						'post_date'    => sanitize_text_field( $post_data['post_date'] ?? '' ),

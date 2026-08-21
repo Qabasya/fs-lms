@@ -15,7 +15,6 @@ if ( ! current_user_can( Capability::ManageLmsRoles->value ) ) {
 $assignable = array(
 	UserRole::FSOffice->value    => UserRole::FSOffice->label(),
 	UserRole::FSMethodist->value => UserRole::FSMethodist->label(),
-	UserRole::FSMarket->value    => UserRole::FSMarket->label(),
 	UserRole::FSTeacher->value   => UserRole::FSTeacher->label(),
 );
 

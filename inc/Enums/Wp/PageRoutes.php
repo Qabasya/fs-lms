@@ -36,9 +36,6 @@ enum PageRoutes: string {
 	/** Страница личного кабинета пользователя */
 	case UserProfile = 'profile';
 
-	/** Страница согласия на обработку персональных данных */
-	case ConsentPage = 'consent';
-
 	/** Плеер урока: занятие группы по `?gid=N&gl=M` (см. LessonPlayerController) */
 	case LessonPlayer = 'lesson';
 

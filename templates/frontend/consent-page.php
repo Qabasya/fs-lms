@@ -27,7 +27,7 @@ ThemeCompatService::header();
 		<?php endif; ?>
 
 		<div class="fs-lms-consent-page__content">
-			<?php echo wp_kses_post( $consent_text ); ?>
+			<?php echo \Inc\Shared\SafeHtml::post( $consent_text ); ?>
 		</div>
 
 	</div>

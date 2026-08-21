@@ -29,6 +29,9 @@ enum TransientKey: string {
 	/** Карточки каталога учебника — весь банк статей предмета (суффикс — ключ предмета). */
 	case ArticleCatalog = 'fs_lms_article_catalog_';
 
+	/** Кэш ответа GitHub Releases API (суффикс — фиксированная метка 'latest', сущность одна на сайт). */
+	case GithubRelease = 'fs_lms_github_release_';
+
 	/**
 	 * Полный ключ транзиента.
 	 *

@@ -22,7 +22,6 @@ import { RefSelector } from './services/ref-selector.js';
 import { LessonStepEditor } from './services/lesson-step-editor.js';
 import { WorkBuilder } from './services/work-builder.js';
 import { AssessmentBuilder } from './services/assessment-builder.js';
-import { ScoreMap } from './services/score-map.js';
 import { CourseBuilder } from './services/course-builder.js';
 import { TaskTemplateType } from './services/task-template-type.js';
 import { ProblemBankFields } from './services/problem-bank-fields.js';
@@ -175,10 +174,6 @@ import { RolesSettings } from './services/roles-settings.js';
 
         if ( $( '.fs-lms-assessment-builder' ).length ) {
             AssessmentBuilder.init();
-        }
-
-        if ( $( '.fs-score-map' ).length ) {
-            ScoreMap.init();
         }
 
         if ( document.getElementById( 'fs-lms-course-builder' ) ) {

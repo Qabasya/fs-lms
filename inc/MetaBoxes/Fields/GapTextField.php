@@ -4,6 +4,8 @@ declare( strict_types=1 );
 
 namespace Inc\MetaBoxes\Fields;
 
+use Inc\Shared\SafeHtml;
+
 /**
  * Class GapTextField
  *
@@ -47,7 +49,7 @@ class GapTextField extends BaseField {
 		}
 
 		return array(
-			'text' => wp_kses_post( wp_unslash( (string) ( $value['text'] ?? '' ) ) ),
+			'text' => SafeHtml::post( wp_unslash( (string) ( $value['text'] ?? '' ) ) ),
 		);
 	}
 

@@ -267,14 +267,16 @@ readonly class KegeResultSheetService {
 			? trim( (string) $meta[ $subKey ] )
 			: trim( (string) ( $this->correctAnswers->resolve( $taskId ) ?? '' ) );
 
-		return $this->readableTable( $raw );
+		return self::readableTable( $raw );
 	}
 
 	/**
 	 * Ответ ученика в виде читаемой строки: табличный ответ (№25/№27) хранится
-	 * ячейками через '|', «Развёрнутый ответ» — JSON с текстом и файлами,
-	 * составное задание — JSON с ответом на каждый подпункт (берём подпункт под
-	 * номер задания, как и эталон).
+	 * ячейками через '|', «Развёрнутый ответ» — JSON с текстом и файлами (задания
+	 * ОГЭ 13-16 обычно приложены файлом, а не текстом — тогда `text` пуст, и
+	 * показываем название вложения вместо пустой ячейки), составное задание —
+	 * JSON с ответом на каждый подпункт (берём подпункт под номер задания, как
+	 * и эталон).
 	 *
 	 * @param string $raw    Сохранённый ответ (answer_text попытки либо строка из предпросмотра)
 	 * @param string $number Номер задания
@@ -288,8 +290,12 @@ readonly class KegeResultSheetService {
 		if ( str_starts_with( $raw, '{' ) ) {
 			$decoded = json_decode( $raw, true );
 			if ( is_array( $decoded ) ) {
-				if ( isset( $decoded['text'] ) ) {
-					return trim( (string) $decoded['text'] );
+				$text = isset( $decoded['text'] ) ? trim( (string) $decoded['text'] ) : '';
+				if ( '' !== $text ) {
+					return $text;
+				}
+				if ( ! empty( $decoded['files'] ) && is_array( $decoded['files'] ) ) {
+					return $this->fileNames( $decoded['files'] );
 				}
 				if ( isset( $decoded[ $number ] ) ) {
 					return trim( (string) $decoded[ $number ] );
@@ -297,7 +303,27 @@ readonly class KegeResultSheetService {
 			}
 		}
 
-		return $this->readableTable( $raw );
+		return self::readableTable( $raw );
+	}
+
+	/**
+	 * Названия вложений «Развёрнутого ответа» через запятую — вместо пустой
+	 * ячейки для заданий ОГЭ 13-16, где ответ обычно приложен файлом, а не
+	 * набран текстом (см. {@see \Inc\Services\Course\WorkDetailService::parseFileAnswer()},
+	 * тот же формат резолва имени, но без URL — лист ответов текстовый).
+	 *
+	 * @param array<int, mixed> $attachmentIds
+	 */
+	private function fileNames( array $attachmentIds ): string {
+		$names = array();
+		foreach ( $attachmentIds as $attachmentId ) {
+			$attachmentId = (int) $attachmentId;
+			if ( $attachmentId > 0 ) {
+				$names[] = get_the_title( $attachmentId ) ?: "Файл #{$attachmentId}";
+			}
+		}
+
+		return implode( ', ', $names );
 	}
 
 	/**
@@ -311,9 +337,16 @@ readonly class KegeResultSheetService {
 	 *
 	 * Текста без '|' и переносов (обычный однострочный ответ) не касается.
 	 *
+	 * Публичный статический метод — переиспользуется
+	 * {@see \Inc\Modules\EgeComputer\EgeComputerModule::resolveTableAnswer()}
+	 * для того же самого сериализованного вида ответа на экране «Работы»
+	 * учителя ({@see \Inc\Services\Course\WorkDetailService}), которая читает
+	 * ответ из той же таблицы БД, но не знает о табличных заданиях сама
+	 * (ядро не знает о модулях).
+	 *
 	 * @param string $raw Ответ или эталон одной строкой
 	 */
-	private function readableTable( string $raw ): string {
+	public static function readableTable( string $raw ): string {
 		$normalized = str_replace( array( "\r\n", "\r" ), "\n", $raw );
 		$lines      = array_map(
 			static fn( string $line ): string => trim( str_replace( '|', ' ', $line ) ),

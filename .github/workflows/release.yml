@@ -1,0 +1,72 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build release ZIP
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          tools: composer
+      - run: composer install --no-interaction --prefer-dist --no-progress
+
+      # Гейт качества: любой красный шаг рушит релиз.
+      - run: npm run lint:js
+      - run: npm run lint:css
+      - run: npm run build:check
+      - run: vendor/bin/phpunit
+
+      # Гейт версии: тег без 'v' обязан совпасть с Version: в шапке fs-lms.php
+      # и с константой FS_LMS_VERSION — иначе в манифест пакета переноса
+      # предмета уедет неверная версия сборки.
+      - name: Verify version matches tag
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          HEADER_VERSION=$(grep -oP '(?<=Version:)\s*\K\S+' fs-lms.php | head -1)
+          CONST_VERSION=$(grep -oP "(?<=define\( 'FS_LMS_VERSION', ')[^']+" fs-lms.php)
+
+          echo "Tag: $TAG_VERSION | Header: $HEADER_VERSION | Constant: $CONST_VERSION"
+
+          if [ "$TAG_VERSION" != "$HEADER_VERSION" ] || [ "$TAG_VERSION" != "$CONST_VERSION" ]; then
+            echo "::error::Version mismatch — tag=$TAG_VERSION header=$HEADER_VERSION const=$CONST_VERSION"
+            exit 1
+          fi
+
+      - name: Build assets
+        run: npx gulp build
+
+      - name: Strip dev composer dependencies
+        run: |
+          rm -rf vendor
+          composer install --no-dev --optimize-autoloader --classmap-authoritative --no-interaction --prefer-dist --no-progress
+
+      - name: Assemble plugin directory
+        run: |
+          mkdir -p build/fs-lms
+          rsync -a --exclude-from=.distignore ./ build/fs-lms/
+
+      - name: Zip release package
+        run: |
+          cd build
+          zip -r "../fs-lms-${GITHUB_REF_NAME#v}.zip" fs-lms
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: fs-lms-*.zip

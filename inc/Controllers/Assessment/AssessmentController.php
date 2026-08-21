@@ -9,7 +9,6 @@ use Inc\Controllers\System\AjaxController;
 use Inc\Callbacks\Assessment\AssessmentAuthorCallbacks;
 use Inc\Callbacks\Assessment\AttemptCallbacks;
 use Inc\Callbacks\Assessment\GradeAttemptCallbacks;
-use Inc\Callbacks\Assessment\ScoreMapCallbacks;
 use Inc\Enums\Wp\AjaxHook;
 
 class AssessmentController extends AjaxController {
@@ -18,7 +17,6 @@ class AssessmentController extends AjaxController {
 		private readonly AssessmentAuthorCallbacks $authorCallbacks,
 		private readonly AttemptCallbacks          $attemptCallbacks,
 		private readonly GradeAttemptCallbacks     $gradeCallbacks,
-		private readonly ScoreMapCallbacks         $scoreMapCallbacks,
 	) {
 		parent::__construct();
 	}
@@ -36,9 +34,6 @@ class AssessmentController extends AjaxController {
 			[ AjaxHook::PreviewAttemptResult, $this->attemptCallbacks ],
 			[ AjaxHook::GradeAttempt,       $this->gradeCallbacks ],
 			[ AjaxHook::ApproveAttempt,     $this->gradeCallbacks ],
-			[ AjaxHook::ParseScoreMap,      $this->scoreMapCallbacks ],
-			[ AjaxHook::CopyScoreMap,       $this->scoreMapCallbacks ],
-			[ AjaxHook::GetScoreMapSources, $this->scoreMapCallbacks ],
 		];
 	}
 }

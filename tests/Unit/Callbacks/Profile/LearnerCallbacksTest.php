@@ -7,7 +7,6 @@ namespace Unit\Callbacks\Profile;
 use Inc\Callbacks\Profile\LearnerCallbacks;
 use Inc\DTO\Profile\ProfileContext;
 use Inc\Enums\Access\UserRole;
-use Inc\Services\Course\OwnWorkDetailService;
 use Inc\DTO\Profile\LearnerDashboardDTO;
 use Inc\Services\Profile\LearnerService;
 use Inc\Services\Profile\ProfileViewResolver;
@@ -17,17 +16,15 @@ class LearnerCallbacksTest extends TestCase {
 
 	private LearnerService&\PHPUnit\Framework\MockObject\MockObject $service;
 	private ProfileViewResolver&\PHPUnit\Framework\MockObject\MockObject $resolver;
-	private OwnWorkDetailService&\PHPUnit\Framework\MockObject\MockObject $ownDetail;
 	private LearnerCallbacks $cb;
 
 	protected function setUp(): void {
 		parent::setUp();
 		fs_test_reset_ajax();
 		$GLOBALS['_test_logged_in'] = true;
-		$this->service   = $this->createMock( LearnerService::class );
-		$this->resolver  = $this->createMock( ProfileViewResolver::class );
-		$this->ownDetail = $this->createMock( OwnWorkDetailService::class );
-		$this->cb        = new LearnerCallbacks( $this->service, $this->resolver, $this->ownDetail );
+		$this->service  = $this->createMock( LearnerService::class );
+		$this->resolver = $this->createMock( ProfileViewResolver::class );
+		$this->cb       = new LearnerCallbacks( $this->service, $this->resolver );
 	}
 
 	public function test_student_sees_only_self_ignoring_param(): void {

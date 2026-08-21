@@ -38,7 +38,6 @@ class AdSyncStatusCallbacks extends BaseController {
 		$appId = '' !== $token ? $this->tokens->resolve( $token ) : 0;
 		$state = $appId > 0 ? $this->service->statusForApplication( $appId ) : 'none';
 
-		// TODO(текст): сообщения статусов (готово / ошибка / в процессе).
 		$messages = array(
 			'done'    => 'Готово! Войдите в учётную запись на компьютере.',
 			'failed'  => 'Не удалось создать учётную запись. Обратитесь к администратору.',

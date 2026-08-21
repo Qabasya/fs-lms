@@ -10,27 +10,41 @@ use Inc\Enums\Settings\TableName;
 /**
  * Class Migration_1_0_0
  *
- * Монолитная миграция. Разворачивает актуальную схему из 9 таблиц.
+ * Монолитная миграция. Разворачивает полную схему плагина (25 таблиц) одним
+ * прогоном — целевая точка для установки с нуля (боевых установок со старой
+ * схемой нет, цепочку версий можно схлопнуть). Апгрейд-путь для ранее
+ * задеплоенных dev-установок (Cleanup-блок ALTER'ов, версионные миграции
+ * `Migration_1_1_0`/`AssessmentAnswerUniqueMigration`) снят вместе с ними.
  *
  * @package Inc\Migrations
  *
  * ### Таблицы:
  *
- * - **persons**          — идентификация (ФИО plain, роль, дата рождения)
- * - **person_documents** — весь PII зашифрован (email, phone, doc, inn, address)
- * - **groups**           — группы; заменяет матрицу из wp_options
- * - **applications**     — заявки на обучение (двухэтапный OTP-флоу)
- * - **enrollments**      — зачисления; group_id → groups.id
- * - **archive**          — запись создаётся при зачислении (expelled_at=NULL); связь родитель→ученик
- * - **consents**         — согласия на обработку ПДн
- * - **audit_log**          — журнал действий (зачисление)
- * - **pii_access_log**     — журнал доступа к PII
- * - **export_log**         — журнал экспорта CSV
- * - **data_change_log**    — журнал изменений данных (PII зашифрован)
- * - **consent_change_log** — журнал изменений согласий
- * - **email_log**          — журнал отправки писем
- * - **deletion_log**       — GDPR-журнал жёстких удалений
- * - **auth_log**           — журнал аутентификации
+ * - **persons**            — идентификация (ФИО plain, роль, дата рождения)
+ * - **person_documents**   — весь PII зашифрован (email, phone, doc, inn, address)
+ * - **groups**              — группы; заменяет матрицу из wp_options
+ * - **applications**        — заявки на обучение (двухэтапный OTP-флоу)
+ * - **student_records**     — факт обучения (зачисление + отчисление + связь родитель→ученик)
+ * - **consents**             — согласия на обработку ПДн
+ * - **entity_audit_log**     — журнал действий с сущностями
+ * - **audit_log**            — журнал действий (зачисление)
+ * - **pii_access_log**       — журнал доступа к PII
+ * - **export_log**           — журнал экспорта CSV
+ * - **data_change_log**      — журнал изменений данных (PII зашифрован)
+ * - **consent_change_log**   — журнал изменений согласий
+ * - **email_log**            — журнал отправки писем
+ * - **auth_log**             — журнал аутентификации
+ * - **group_lessons**        — программа группы
+ * - **learning_events**      — лента доменных событий обучения
+ * - **submissions**          — сдачи работ
+ * - **assessment_attempts**  — попытки контрольных / экзаменов
+ * - **assessment_answers**   — ответы на задания контрольной
+ * - **lesson_progress**      — прохождение шагов урока
+ * - **task_attempts**        — история попыток задания
+ * - **attendance**           — посещаемость занятий
+ * - **substitutions**        — замены преподавателя
+ * - **rooms**                — кабинеты/аудитории
+ * - **notifications**        — in-app уведомления кабинета
  */
 class Migration_1_0_0 implements MigrationInterface {
 
@@ -110,6 +124,8 @@ class Migration_1_0_0 implements MigrationInterface {
 			created_at         datetime          NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			updated_at         datetime          NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 			deleted_at         datetime          DEFAULT NULL,
+			course_id          bigint(20) unsigned DEFAULT NULL,
+			room_id            int unsigned      DEFAULT NULL,
 			PRIMARY KEY  (id),
 			KEY subject_key (subject_key),
 			KEY academic_period_id (academic_period_id),
@@ -393,6 +409,7 @@ class Migration_1_0_0 implements MigrationInterface {
 			updated_by_user_id bigint(20) unsigned DEFAULT NULL,
 			created_at         datetime            NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			updated_at         datetime            NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+			step_settings_overrides json           DEFAULT NULL,
 			PRIMARY KEY (id),
 			KEY group_id (group_id),
 			KEY lesson_id (lesson_id),
@@ -435,7 +452,7 @@ class Migration_1_0_0 implements MigrationInterface {
 			answer_text         longtext             DEFAULT NULL,
 			attachment_id       bigint unsigned      DEFAULT NULL,
 			due_at              datetime             DEFAULT NULL,
-			status              enum('assigned','submitted','graded','returned') NOT NULL DEFAULT 'assigned',
+			status              enum('assigned','submitted','pending_review','graded','returned') NOT NULL DEFAULT 'assigned',
 			score               decimal(6,2)         DEFAULT NULL,
 			max_score           decimal(6,2)         DEFAULT NULL,
 			feedback            text                 DEFAULT NULL,
@@ -600,195 +617,28 @@ class Migration_1_0_0 implements MigrationInterface {
 		) $cc;"
 		);
 
-		// notifications (in-app уведомления кабинета) — Migration_1_1_0, не здесь:
-		// эта таблица появилась после того, как часть установок уже накатила 1.0.0,
-		// поэтому вынесена в отдельную версионную миграцию (см. её докблок).
-
-		// ===== Cleanup — добавление колонок для уже существующих установок =====
-		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		$this->addColumn( $student_records, 'snapshot_last_name', "varchar(100) NOT NULL DEFAULT ''" );
-		$this->addColumn( $student_records, 'snapshot_first_name', "varchar(100) NOT NULL DEFAULT ''" );
-		$this->addColumn( $student_records, 'snapshot_middle_name', 'varchar(100) DEFAULT NULL' );
-		$this->addColumn( $student_records, 'snapshot_school', 'varchar(255) DEFAULT NULL' );
-		$this->addColumn( $student_records, 'snapshot_grade', 'varchar(10) DEFAULT NULL' );
-		$this->addColumn( $student_records, 'enrolled_by_user_id', 'bigint(20) unsigned DEFAULT NULL' );
-		$this->dropIndex( $groups, 'group_id' );
-		$this->dropColumn( $groups, 'group_id' );
-		$persons = TableName::Persons->prefixed();
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.SchemaChange
-		if ( $wpdb->get_var( "SHOW COLUMNS FROM `$persons` LIKE 'deleted_at'" ) ) {
-			$wpdb->query( "ALTER TABLE `$persons` CHANGE COLUMN `deleted_at` `expelled_at` datetime DEFAULT NULL" );
-		}
-		$this->addIndex( $persons, 'expelled_at', '`expelled_at`' );
-		$this->addColumn( $pii_access_log, 'actor_ua', 'text DEFAULT NULL' );
-		$this->addColumn( $export_log, 'operation_type', "varchar(10) NOT NULL DEFAULT 'export'" );
-		$this->addColumn( $export_log, 'actor_ip', "varchar(45) NOT NULL DEFAULT ''" );
-		$this->addColumn( $export_log, 'actor_ua', 'text DEFAULT NULL' );
-		$this->addColumn( $email_log, 'recipient_email', 'varchar(255) DEFAULT NULL' );
-		$this->addColumn( $applications, 'subject_key', 'varchar(50) DEFAULT NULL' );
-		$this->addColumn( $groups, 'course_id', 'bigint(20) unsigned DEFAULT NULL' );
-		if ( $this->hasColumn( $groups, 'schedule' ) ) {
-			$wpdb->query( "ALTER TABLE `$groups` CHANGE COLUMN `schedule` `meetings` json DEFAULT NULL" );
-		} else {
-			$this->addColumn( $groups, 'meetings', 'json DEFAULT NULL' );
-		}
-		$this->addColumn( $group_lessons, 'ends_at', 'datetime DEFAULT NULL' );
-		$this->addColumn( $group_lessons, 'is_pinned', 'tinyint(1) NOT NULL DEFAULT 0' );
-		$this->addColumn( $group_lessons, 'label', 'varchar(150) DEFAULT NULL' );
-		$wpdb->query( "ALTER TABLE `$group_lessons` MODIFY COLUMN `lesson_id` bigint unsigned DEFAULT NULL" );
-		// Задача 5 — привязка попытки экзамена к конкретному занятию группы (для сводки по ученику).
-		$assessment_attempts = TableName::AssessmentAttempts->prefixed();
-		$this->addColumn( $assessment_attempts, 'group_lesson_id', 'int unsigned DEFAULT NULL' );
-		$this->addColumn( $assessment_attempts, 'approved_at', 'datetime DEFAULT NULL' );
-		$this->addColumn( $assessment_attempts, 'approved_by_user_id', 'bigint unsigned DEFAULT NULL' );
-		$this->addColumn( $assessment_answers, 'grader_note', 'text DEFAULT NULL' );
-		$this->addColumn( $assessment_answers, 'criteria_scores', 'json DEFAULT NULL' ); // Эпик 13 (D17)
-		$wpdb->query( "ALTER TABLE `$lesson_progress` MODIFY COLUMN `status` enum('locked','available','viewed','completed','failed') NOT NULL DEFAULT 'locked'" );
-		// Этап 7 (пакетная сдача): SubmissionStatus::PendingReview — колонка отставала от enum'а
-		// (INSERT/UPDATE со status='pending_review' падал под STRICT_TRANS_TABLES: "Data truncated for column 'status'").
-		$wpdb->query( "ALTER TABLE `$submissions` MODIFY COLUMN `status` enum('assigned','submitted','pending_review','graded','returned') NOT NULL DEFAULT 'assigned'" );
-		$group_lessons = TableName::GroupLessons->prefixed();
-		$this->addColumn( $group_lessons, 'step_settings_overrides', 'json DEFAULT NULL' );
-		// Эпик 4 — индивидуальные занятия (эволюция group_lessons).
-		$this->addColumn( $group_lessons, 'kind', "enum('group','individual') NOT NULL DEFAULT 'group'" );
-		$this->addColumn( $group_lessons, 'status', "enum('scheduled','held','cancelled','moved') NOT NULL DEFAULT 'scheduled'" );
-		$this->addColumn( $group_lessons, 'student_person_id', 'int unsigned DEFAULT NULL' );
-		// Эпик 9 — кабинеты: room_id на группе (дефолт года) и на занятии (override/индивидуальные).
-		$this->addColumn( $group_lessons, 'room_id', 'int unsigned DEFAULT NULL' );
-		$this->addColumn( $groups, 'room_id', 'int unsigned DEFAULT NULL' );
-		// T1.8 — lock КТП: публикация программы фиксирует дату блокировки (NULL = редактируемо).
-		$this->addColumn( $groups, 'program_locked_at', 'datetime DEFAULT NULL' );
-		// Эпик 15 — открытые группы (self-paced): вся программа публикуется сразу, без дат занятий.
-		$this->addColumn( $groups, 'access_mode', "enum('scheduled','open') NOT NULL DEFAULT 'scheduled'" );
-		// T12.2 (D13) — дедлайны работ занятия: {work_id: 'Y-m-d H:i:s'}, per-work; legacy homework_due_at — фолбэк.
-		$this->addColumn( $group_lessons, 'work_deadlines', 'json DEFAULT NULL' );
-		// T12.6 (D14) — продолжение темы на вторую дату: связь на исходную строку (не мультидаты, не независимый дубль).
-		$this->addColumn( $group_lessons, 'continued_from_id', 'int unsigned DEFAULT NULL' );
-		$this->addColumn( $consent_change_log, 'actor_ip', 'varchar(45) DEFAULT NULL' );
-		$this->addColumn( $consent_change_log, 'actor_ua', 'text DEFAULT NULL' );
-		$entity_audit_log = TableName::EntityAuditLog->prefixed();
-		$wpdb->query( "ALTER TABLE `$entity_audit_log` MODIFY COLUMN `entity_id` varchar(100) DEFAULT NULL" );
-		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		$wpdb->query( "DROP TABLE IF EXISTS `{$wpdb->prefix}fs_lms_deletion_log`" );
-		// phpcs:enable
-
-		// Этап 1 — чекбокс «запись занятия» у видео-шага заменён отдельным типом
-		// «Трансляция» (broadcast). Перенос recording_slot-шагов вынесен в
-		// одноразовую {@see BroadcastStepMigration} (version-gated, срабатывает на
-		// обычной загрузке из Init::run() — этот up() на живых установках не гоняется).
-	}
-
-	/**
-	 * Добавляет колонку, если её ещё нет.
-	 *
-	 * Синтаксис `ADD COLUMN IF NOT EXISTS` понимает только MariaDB: на MySQL
-	 * такой ALTER падает с ошибкой синтаксиса, а `$wpdb` её не пробрасывает —
-	 * миграция «проходит», оставляя схему без колонки. Поэтому существование
-	 * проверяем сами, а ALTER даём обычный.
-	 *
-	 * @param string $table      Имя таблицы с префиксом.
-	 * @param string $column     Имя колонки.
-	 * @param string $definition Тип и атрибуты («varchar(50) DEFAULT NULL»).
-	 *
-	 * @return void
-	 */
-	private function addColumn( string $table, string $column, string $definition ): void {
-		global $wpdb;
-
-		if ( $this->hasColumn( $table, $column ) ) {
-			return;
-		}
-
-		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$wpdb->query( "ALTER TABLE `$table` ADD COLUMN `$column` $definition" );
-	}
-
-	/**
-	 * Удаляет колонку, если она есть (в MySQL нет `DROP COLUMN IF EXISTS`).
-	 *
-	 * @param string $table  Имя таблицы с префиксом.
-	 * @param string $column Имя колонки.
-	 *
-	 * @return void
-	 */
-	private function dropColumn( string $table, string $column ): void {
-		global $wpdb;
-
-		if ( ! $this->hasColumn( $table, $column ) ) {
-			return;
-		}
-
-		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$wpdb->query( "ALTER TABLE `$table` DROP COLUMN `$column`" );
-	}
-
-	/**
-	 * Добавляет индекс, если его ещё нет (в MySQL нет `ADD INDEX IF NOT EXISTS`).
-	 *
-	 * @param string $table   Имя таблицы с префиксом.
-	 * @param string $index   Имя индекса.
-	 * @param string $columns Список колонок индекса («`expelled_at`»).
-	 *
-	 * @return void
-	 */
-	private function addIndex( string $table, string $index, string $columns ): void {
-		global $wpdb;
-
-		if ( $this->hasIndex( $table, $index ) ) {
-			return;
-		}
-
-		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$wpdb->query( "ALTER TABLE `$table` ADD INDEX `$index` ($columns)" );
-	}
-
-	/**
-	 * Удаляет индекс, если он есть (в MySQL нет `DROP INDEX IF EXISTS`).
-	 *
-	 * @param string $table Имя таблицы с префиксом.
-	 * @param string $index Имя индекса.
-	 *
-	 * @return void
-	 */
-	private function dropIndex( string $table, string $index ): void {
-		global $wpdb;
-
-		if ( ! $this->hasIndex( $table, $index ) ) {
-			return;
-		}
-
-		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$wpdb->query( "ALTER TABLE `$table` DROP INDEX `$index`" );
-	}
-
-	/**
-	 * Есть ли колонка в таблице.
-	 *
-	 * @param string $table  Имя таблицы с префиксом.
-	 * @param string $column Имя колонки.
-	 *
-	 * @return bool
-	 */
-	private function hasColumn( string $table, string $column ): bool {
-		global $wpdb;
-
-		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.DirectDatabaseQuery.NoCaching
-		return (bool) $wpdb->get_var( $wpdb->prepare( "SHOW COLUMNS FROM `$table` LIKE %s", $column ) );
-	}
-
-	/**
-	 * Есть ли индекс в таблице.
-	 *
-	 * @param string $table Имя таблицы с префиксом.
-	 * @param string $index Имя индекса.
-	 *
-	 * @return bool
-	 */
-	private function hasIndex( string $table, string $index ): bool {
-		global $wpdb;
-
-		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.DirectDatabaseQuery.NoCaching
-		return (bool) $wpdb->get_var( $wpdb->prepare( "SHOW INDEX FROM `$table` WHERE Key_name = %s", $index ) );
+		// ===== 25. notifications — in-app уведомления кабинета =====
+		$notifications = TableName::Notifications->prefixed();
+		dbDelta(
+			"CREATE TABLE $notifications (
+			id                 bigint unsigned NOT NULL AUTO_INCREMENT,
+			recipient_user_id  bigint unsigned NOT NULL,
+			type               varchar(40)  NOT NULL,
+			group_id           smallint unsigned DEFAULT NULL,
+			entity_type        varchar(30)  DEFAULT NULL,
+			entity_id          bigint unsigned DEFAULT NULL,
+			payload            longtext     DEFAULT NULL,
+			url                varchar(500) DEFAULT NULL,
+			dedupe_key         varchar(120) NOT NULL,
+			created_at         datetime     NOT NULL,
+			seen_at            datetime     DEFAULT NULL,
+			read_at            datetime     DEFAULT NULL,
+			PRIMARY KEY (id),
+			UNIQUE KEY recipient_dedupe (recipient_user_id, dedupe_key),
+			KEY recipient_created (recipient_user_id, created_at),
+			KEY recipient_seen (recipient_user_id, seen_at)
+		) $cc;"
+		);
 	}
 
 	public function down(): void {

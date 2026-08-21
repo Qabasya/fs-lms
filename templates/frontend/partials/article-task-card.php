@@ -37,7 +37,7 @@ $body_id = 'fs-article-task-' . $task_card->id;
 	<?php // Тело всегда в разметке: раскрытие — CSS-переход по grid-template-rows, а не показ скрытого блока. ?>
 	<div class="fs-article-task__body" id="<?php echo esc_attr( $body_id ); ?>">
 		<div class="fs-article-task__body-inner">
-			<div class="fs-article-task__stmt"><?php echo wp_kses_post( $task_card->condition ); ?></div>
+			<div class="fs-article-task__stmt"><?php echo \Inc\Shared\SafeHtml::post( $task_card->condition ); ?></div>
 
 			<div class="fs-article-task__foot">
 				<a class="fs-article-task__open" href="<?php echo esc_url( $task_card->url ); ?>">

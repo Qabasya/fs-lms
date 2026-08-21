@@ -31,6 +31,12 @@
   padding: rem(28) 0 rem(40);
 }
 
+/* Запрет копирования текста в режиме решения экзамена — только UX-барьер,
+   не защита (JS дополняет блокировкой событий copy/contextmenu). */
+.fs-no-copy {
+  user-select: none;
+}
+
 .fs-assessment-title {
   font-size: rem(22);
   font-weight: 700;

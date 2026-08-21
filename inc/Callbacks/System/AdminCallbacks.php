@@ -82,7 +82,7 @@ class AdminCallbacks extends BaseController {
 	}
 
 	/**
-	 * Главная страница Dashboard (временная заглушка).
+	 * Главная страница Dashboard.
 	 *
 	 * @return void
 	 */

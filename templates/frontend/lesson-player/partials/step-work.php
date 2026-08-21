@@ -85,7 +85,7 @@ $work_meta_line = sprintf(
 
 		<?php if ( ! empty( $render['instructions'] ) ) : ?>
 			<div class="a-task work-instructions">
-				<div class="wpc"><?php echo wp_kses_post( (string) $render['instructions'] ); ?></div>
+				<div class="wpc"><?php echo \Inc\Shared\SafeHtml::post( (string) $render['instructions'] ); ?></div>
 			</div>
 		<?php endif; ?>
 
@@ -103,7 +103,7 @@ $work_meta_line = sprintf(
 					</div>
 
 					<?php if ( ! empty( $work_task['condition_html'] ) && is_string( $work_task['condition_html'] ) ) : ?>
-						<div class="q wpc"><?php echo wp_kses_post( $work_task['condition_html'] ); ?></div>
+						<div class="q wpc"><?php echo \Inc\Shared\SafeHtml::post( $work_task['condition_html'] ); ?></div>
 					<?php endif; ?>
 
 					<?php foreach ( (array) ( $work_task['files'] ?? array() ) as $work_task_file ) : ?>

@@ -257,11 +257,19 @@ class BundleLoader extends BaseController {
 					'saveAttemptAnswer' => AjaxHook::SaveAttemptAnswer->jsAction(),
 					'submitAttempt'     => AjaxHook::SubmitAttempt->jsAction(),
 					'getAttemptResult'  => AjaxHook::GetAttemptResult->jsAction(),
+					// Задания 13-16 ОГЭ («Развёрнутый ответ») — двухшаговая загрузка
+					// файла ответа (kege-exam.js, тот же контракт, что и générique
+					// file_answer_task в assessmentVars() выше). Без этой пары ключей
+					// kegeVars.actions.uploadAnswerFile пуст, и JS молча выходит из
+					// обработчика выбора файла ДО первого запроса — не баг сервера,
+					// файл вообще не пытался никуда уйти.
+					'uploadAnswerFile'  => AjaxHook::UploadAnswerFile->jsAction(),
 					'previewResult'     => (string) apply_filters( self::KEGE_PREVIEW_RESULT_FILTER, '' ),
 				),
 				'nonces'   => array(
-					'startAttempt'  => Nonce::StartAttempt->create(),
-					'submitAttempt' => Nonce::SubmitAttempt->create(),
+					'startAttempt'     => Nonce::StartAttempt->create(),
+					'submitAttempt'    => Nonce::SubmitAttempt->create(),
+					'uploadAnswerFile' => Nonce::UploadAnswerFile->create(),
 				),
 			)
 		);

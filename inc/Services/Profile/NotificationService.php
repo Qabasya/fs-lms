@@ -47,7 +47,7 @@ readonly class NotificationService {
 	/**
 	 * Вставляет уведомление каждому получателю (идемпотентно по dedupe-ключу).
 	 * Для реально вставленных строк дёргает `do_action('fs_lms_notification_created')`
-	 * — шов будущего Telegram-модуля Notifier (core на модуль не ссылается).
+	 * — точка расширения для внешних подписчиков (core на них не ссылается).
 	 *
 	 * @param int[]                $userIds WP user id получателей (0/дубли отфильтровываются)
 	 * @param array<string,mixed>  $payload Снапшот данных для текста плитки
@@ -318,6 +318,10 @@ readonly class NotificationService {
 				sprintf( '%s → %s', (string) ( $p['old_room'] ?? '—' ), (string) ( $p['new_room'] ?? '—' ) ),
 				$tail
 			) ),
+
+			NotificationType::AttemptReset => '' !== $topic
+				? "Можете решить «{$topic}» заново{$tail}"
+				: trim( "Можете пройти заново{$tail}" ),
 		};
 	}
 

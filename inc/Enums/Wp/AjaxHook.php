@@ -216,9 +216,6 @@ enum AjaxHook: string {
 	case PreviewCheckAssessment = 'preview_check_assessment'; // params: ref (assessment id), answers (JSON)
 
 	// ==== Таблица перевода ЕГЭ (Этап 7, T7.16) ====
-	case ParseScoreMap      = 'parse_score_map';       // params: text (сырой текст из Excel/Word)
-	case CopyScoreMap       = 'copy_score_map';        // params: source_assessment_id, target_assessment_id
-	case GetScoreMapSources = 'get_score_map_sources'; // params: assessment_id (текущая работа — исключается из списка)
 
 	// ==== Программа группы (Этап 2) ====
 	case AssignCourse            = 'assign_course';
@@ -280,7 +277,6 @@ enum AjaxHook: string {
 
 	// ==== ЛК учащегося/родителя (Эпик 7) ====
 	case GetLearnerProfile       = 'get_learner_profile';      // [student_person_id] — родитель выбирает ребёнка; ученик игнорит
-	case GetOwnWorkDetail        = 'get_own_work_detail';      // params: source_type, source_id, [student_person_id] — деталь своей работы/попытки (задачи 12/13)
 
 	// ==== Кабинеты / аудитории (офис, Эпик 9) ====
 	case GetRooms                = 'get_rooms';                // список кабинетов + группы (для назначения)

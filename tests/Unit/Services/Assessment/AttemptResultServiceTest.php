@@ -7,6 +7,7 @@ namespace Unit\Services\Assessment;
 use Inc\DTO\Assessment\AttemptAnswerDTO;
 use Inc\DTO\Assessment\AttemptDTO;
 use Inc\Enums\Wp\PostMetaName;
+use Inc\Managers\Assessment\AssessmentManager;
 use Inc\Managers\Wp\MediaManager;
 use Inc\Managers\Wp\PostManager;
 use Inc\Repositories\WPDBRepositories\AssessmentAnswerRepository;
@@ -24,23 +25,24 @@ class AttemptResultServiceTest extends TestCase {
 	private AssessmentAnswerRepository&\PHPUnit\Framework\MockObject\MockObject  $answers;
 	private PostManager&\PHPUnit\Framework\MockObject\MockObject                 $posts;
 	private MediaManager&\PHPUnit\Framework\MockObject\MockObject                $media;
-	private AutoGradeService&\PHPUnit\Framework\MockObject\MockObject            $autoGrade;
+	private AssessmentManager&\PHPUnit\Framework\MockObject\MockObject           $assessments;
 	private AttemptResultService $service;
 
 	protected function setUp(): void {
 		parent::setUp();
 		$GLOBALS['_fs_test_post_mime_types'] = array();
-		$this->attempts = $this->createMock( AssessmentAttemptRepository::class );
-		$this->answers  = $this->createMock( AssessmentAnswerRepository::class );
-		$this->posts    = $this->createMock( PostManager::class );
-		$this->media     = $this->createMock( MediaManager::class );
-		$this->autoGrade = $this->createMock( AutoGradeService::class );
-		$this->service   = new AttemptResultService(
+		$this->attempts    = $this->createMock( AssessmentAttemptRepository::class );
+		$this->answers     = $this->createMock( AssessmentAnswerRepository::class );
+		$this->posts       = $this->createMock( PostManager::class );
+		$this->media       = $this->createMock( MediaManager::class );
+		$this->assessments = $this->createMock( AssessmentManager::class );
+		$this->service      = new AttemptResultService(
 			$this->attempts,
 			$this->answers,
 			$this->posts,
 			$this->media,
 			$this->createMock( AutoGradeService::class ),
+			$this->assessments,
 		);
 	}
 

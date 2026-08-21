@@ -22,22 +22,22 @@ use Inc\Enums\Access\UserRole;
  *
  * ### Матрица capabilities:
  *
- * | Capability            | admin | lms_office | lms_methodist | lms_market | lms_teacher |
- * |-----------------------|-------|------------|---------------|------------|-------------|
- * | ManageLmsPlatform     |   ✓   |     ✓      |               |            |             |
- * | ManageLmsRoles        |   ✓   |            |               |            |             |
- * | AuthorLmsCourses      |   ✓   |     ✓      |       ✓       |            |             |
- * | ManageLmsArticles     |   ✓   |     ✓      |               |     ✓      |             |
- * | ManageLmsTeaching     |   ✓   |     ✓      |               |            |      ✓      |
- * | ManageSchedule        |   ✓   |     ✓      |               |            |             |
- * | ManageApplications    |   ✓   |     ✓      |               |            |             |
- * | EnrollStudent         |   ✓   |     ✓      |               |            |             |
- * | ViewPII               |   ✓   |     ✓      |               |            |             |
- * | ExportPII             |   ✓   |     ✓      |               |            |             |
- * | ManagePersons         |   ✓   |     ✓      |               |            |             |
- * | ViewLMSStats          |   ✓   |     ✓      |               |     ✓      |      ✓      |
- * | fs_lms_content caps   |   ✓   |     ✓      |       ✓       |            |      ✓      |
- * | fs_lms_article caps   |   ✓   |     ✓      |               |     ✓      |             |
+ * | Capability            | admin | lms_office | lms_methodist | lms_teacher |
+ * |-----------------------|-------|------------|---------------|-------------|
+ * | ManageLmsPlatform     |   ✓   |     ✓      |               |             |
+ * | ManageLmsRoles        |   ✓   |            |               |             |
+ * | AuthorLmsCourses      |   ✓   |     ✓      |       ✓       |             |
+ * | ManageLmsArticles     |   ✓   |     ✓      |               |             |
+ * | ManageLmsTeaching     |   ✓   |     ✓      |               |      ✓      |
+ * | ManageSchedule        |   ✓   |     ✓      |               |             |
+ * | ManageApplications    |   ✓   |     ✓      |               |             |
+ * | EnrollStudent         |   ✓   |     ✓      |               |             |
+ * | ViewPII               |   ✓   |     ✓      |               |             |
+ * | ExportPII             |   ✓   |     ✓      |               |             |
+ * | ManagePersons         |   ✓   |     ✓      |               |             |
+ * | ViewLMSStats          |   ✓   |     ✓      |               |      ✓      |
+ * | fs_lms_content caps   |   ✓   |     ✓      |       ✓       |      ✓      |
+ * | fs_lms_article caps   |   ✓   |     ✓      |               |             |
  *
  * ### Lifecycle:
  *
@@ -57,6 +57,18 @@ class RoleManager {
 		foreach ( UserRole::cases() as $role ) {
 			add_role( $role->value, $role->label(), $role->baseCapabilities() );
 		}
+
+		// Свободные роли Student/Teacher сняты с плана (Этап 4 подготовки к релизу),
+		// роль «Маркетолог» снята как нефункциональная (её единственные права —
+		// ManageLmsArticles, недостижимый в UI из-за capability родительского меню
+		// «Обучение», и ViewLMSStats, не гейтивший ничего — статьями занимается
+		// администратор платформы, у которого ManageLmsArticles уже есть):
+		// на dev-установках, где они успели создаться, add_role() их больше не
+		// восстановит — снимаем явно, remove_role() безопасно вызывать на
+		// несуществующей роли.
+		remove_role( 'lms_student_free' );
+		remove_role( 'lms_teacher_free' );
+		remove_role( 'lms_market' );
 
 		$this->syncCapabilities();
 	}
@@ -127,26 +139,24 @@ class RoleManager {
 				$role->remove_cap( 'author_lms_bank' );
 			}
 		}
-		foreach ( array( 'administrator', 'lms_office', 'lms_methodist', 'lms_market', 'lms_teacher' ) as $slug ) {
+		foreach ( array( 'administrator', 'lms_office', 'lms_methodist', 'lms_teacher' ) as $slug ) {
 			$r = get_role( $slug );
 			if ( null !== $r ) {
 				$r->remove_cap( 'manage_lms_assignments' );
 			}
 		}
 
-		foreach ( array( 'lms_office', 'lms_market' ) as $slug ) {
-			$role = get_role( $slug );
-			if ( null !== $role ) {
-				foreach ( self::articleCaps() as $cap ) {
-					$role->add_cap( $cap );
-				}
+		$office = get_role( 'lms_office' );
+		if ( null !== $office ) {
+			foreach ( self::articleCaps() as $cap ) {
+				$office->add_cap( $cap );
 			}
 		}
 	}
 
 	/**
 	 * Производные capabilities CPT статей (capability_type = fs_lms_article).
-	 * Выдаются administrator, lms_office, lms_market — но НЕ lms_methodist.
+	 * Выдаются administrator, lms_office — но НЕ lms_methodist.
 	 *
 	 * @return string[]
 	 */

@@ -7,6 +7,7 @@ namespace Inc\Callbacks\Assessment;
 use Inc\Contracts\ClockInterface;
 use Inc\Core\BaseController;
 use Inc\Enums\Access\Capability;
+use Inc\Enums\Subject\TaskTemplate;
 use Inc\Enums\Wp\Nonce;
 use Inc\Enums\Wp\PostMetaName;
 use Inc\Managers\Wp\PostManager;
@@ -60,6 +61,20 @@ class GradeAttemptCallbacks extends BaseController {
 		// преподавателя (T11.9); в период замены оригинал — read-only (T5.7).
 		if ( $attempt->groupId && ! $this->guard->canWriteJournal( (int) $attempt->groupId, get_current_user_id() ) ) {
 			$this->error( 'Нет доступа к этой группе.' );
+			return;
+		}
+
+		// Ручная оценка — только для заданий без авто-чекера (TaskCheckerRegistry).
+		// 2026-08-21: без этого гейта ручной балл на автопроверяемое задание уходил
+		// в assessment_answers.score и расходился с реальной авто-проверкой — лист
+		// результатов станции (KegeResultSheetService) пересчитывает по эталону и
+		// ручной балл игнорирует, а журнал/«Мои оценки» его учитывали, отсюда два
+		// разных итога на одну и ту же попытку.
+		$isManual = TaskTemplate::fromDatabase(
+			(string) $this->posts->getMeta( $taskId, PostMetaName::TemplateType->value )
+		)->isFileAnswerShape();
+		if ( ! $isManual ) {
+			$this->error( 'Это задание проверяется автоматически — ручная оценка недоступна.' );
 			return;
 		}
 

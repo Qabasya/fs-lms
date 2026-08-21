@@ -23,9 +23,9 @@ use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
  * которым SPA рендерит сайдбар, экраны и режим доступа.
  *
  * Маппинг роль → витрина:
- *  - FSTeacher                       → TeacherProfileView
- *  - FSStudent / Student / FSParent  → LearnerProfileView
- *  - офисные роли (FSOffice/…)       → null (их кабинет — в админке WP, см. ProfileController)
+ *  - FSTeacher              → TeacherProfileView
+ *  - FSStudent / FSParent   → LearnerProfileView
+ *  - офисные роли (FSOffice/…) → null (их кабинет — в админке WP, см. ProfileController)
  *
  * @package Inc\Services\Profile
  */
@@ -81,7 +81,7 @@ class ProfileViewResolver {
 		if ( UserRole::FSTeacher === $role || UserRole::FSOffice === $role ) {
 			return $this->teacherView;
 		}
-		if ( in_array( $role, array( UserRole::FSStudent, UserRole::FSParent, UserRole::Student ), true ) ) {
+		if ( in_array( $role, array( UserRole::FSStudent, UserRole::FSParent ), true ) ) {
 			return $this->learnerView;
 		}
 		return null;
@@ -108,13 +108,11 @@ class ProfileViewResolver {
 		);
 
 		// Учащийся/родитель (Эпик 7): один endpoint профиля (read-only).
-		if ( in_array( $ctx->role, array( UserRole::FSStudent, UserRole::FSParent, UserRole::Student ), true ) ) {
+		if ( in_array( $ctx->role, array( UserRole::FSStudent, UserRole::FSParent ), true ) ) {
 			$config['learner'] = array(
 				'nonce'   => Nonce::LearnerProfile->create(),
 				'actions' => array(
 					'getProfile' => AjaxHook::GetLearnerProfile->jsAction(),
-					// Задачи 12/13: деталь своей работы/попытки (эталонные ответы + футер).
-					'getOwnDetail' => AjaxHook::GetOwnWorkDetail->jsAction(),
 				),
 			);
 		}

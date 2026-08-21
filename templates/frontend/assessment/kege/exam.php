@@ -6,12 +6,12 @@
  * переключает видимость и шлёт AJAX на уже существующие эндпоинты
  * (SaveAttemptAnswer/SubmitAttempt/GetAttemptResult — те же, что и attempt.php).
  *
- * `data-answer-shape="table"` (T15.10) — задания №25/№27 (см. buildTaskViews()
+ * `data-answer-shape="table"` (T15.10) — задания №25/№26/№27 (см. buildTaskViews()
  * в AssessmentPageController, номер берётся из существующей таксономии
  * {key}_task_number, новых полей не заводит). Значения такой таблицы
  * сериализуются в единственную текстовую колонку answerText — авто-проверка
- * для этих двух заданий не выполняется (нет чекера под составной формат),
- * они всегда идут на ручную проверку преподавателем, как и раньше.
+ * для этих заданий не выполняется (нет чекера под составной формат), они
+ * всегда идут на ручную проверку преподавателем, как и раньше.
  *
  * @var \Inc\DTO\Assessment\AssessmentDTO $assessment
  * @var \Inc\DTO\Assessment\AttemptDTO    $activeAttempt
@@ -28,6 +28,7 @@ use Inc\Enums\Assessment\AssessmentKind;
 use Inc\Enums\Subject\TaskTemplate;
 use Inc\Enums\Ui\Icon;
 use Inc\Modules\EgeComputer\Config\KegeInstructionConfig;
+use Inc\Modules\EgeComputer\Config\KegeScaleConfig;
 use Inc\Modules\EgeComputer\Config\OgeInstructionConfig;
 
 $isOge     = AssessmentKind::OgeComputer === $assessment->kind;
@@ -117,9 +118,10 @@ foreach ( $taskViews as $view ) {
 					);
 					$subparts = is_array( $view['subparts'] ?? null ) ? $view['subparts'] : array();
 					$isTriple = ! empty( $subparts );
-					// Табличный ответ — особенность №25/№27 настоящего КЕГЭ; у ОГЭ таких
-					// позиций нет вовсе, поэтому проверка гасится по kind.
-					$isTable  = ! $isOge && ! $isTriple && in_array( $view['taskNumber'], array( 25, 27 ), true );
+					// Табличный ответ — особенность настоящего КЕГЭ; у ОГЭ таких позиций
+					// нет вовсе, поэтому проверка гасится по kind. Список номеров — единая
+					// точка {@see KegeScaleConfig::TABLE_TASK_NUMBERS}.
+					$isTable  = ! $isOge && ! $isTriple && in_array( $view['taskNumber'], KegeScaleConfig::TABLE_TASK_NUMBERS, true );
 					// Задания 13-16 ОГЭ — только загрузка файла, без текстового поля (решено
 					// с пользователем 2026-08-18): «Развёрнутый ответ» (14-16) и «Два условия
 					// на выбор» (№13, консолидация 13.1/13.2 в один пост) — общий предикат
@@ -159,11 +161,11 @@ foreach ( $taskViews as $view ) {
 										<?php if ( count( $subparts ) > 1 ) : ?>
 											<div class="kege-t-subpart-tag">Задание <?php echo esc_html( (string) $sub['number'] ); ?></div>
 										<?php endif; ?>
-										<?php echo wp_kses_post( $sub['condition'] ); ?>
+										<?php echo \Inc\Shared\SafeHtml::post( $sub['condition'] ); ?>
 									</div>
 								<?php endforeach; ?>
 							<?php else : ?>
-								<?php echo wp_kses_post( $view['condition'] ); ?>
+								<?php echo \Inc\Shared\SafeHtml::post( $view['condition'] ); ?>
 							<?php endif; ?>
 						</div>
 						<?php if ( ! empty( $view['materials'] ) ) : ?>

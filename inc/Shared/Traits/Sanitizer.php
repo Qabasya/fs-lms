@@ -4,6 +4,8 @@ declare( strict_types=1 );
 
 namespace Inc\Shared\Traits;
 
+use Inc\Shared\SafeHtml;
+
 /**
  * Trait Sanitizer
  *
@@ -148,9 +150,10 @@ trait Sanitizer {
 	protected function sanitizeHtml( string $key, string $source = 'POST' ): string {
 		$data  = 'POST' === $source ? $_POST : $_GET;
 		$value = $data[ $key ] ?? '';
-		
-		// wp_kses_post() — разрешает только безопасные HTML-теги (для контента постов)
-		return wp_kses_post( wp_unslash( $value ) );
+
+		// SafeHtml::post() — wp_kses_post() (безопасные HTML-теги для контента постов)
+		// с восстановлением data-URI картинок, см. её докблок
+		return SafeHtml::post( wp_unslash( $value ) );
 	}
 	
 	/**
@@ -172,8 +175,8 @@ trait Sanitizer {
 		$sanitized = [];
 		foreach ( $raw as $field_id => $value ) {
 			// sanitize_key — для ID поля (только буквы/цифры/дефисы)
-			// wp_kses_post — для сохранения безопасной верстки
-			$sanitized[ sanitize_key( $field_id ) ] = wp_kses_post( wp_unslash( $value ) );
+			// SafeHtml::post() — для сохранения безопасной верстки
+			$sanitized[ sanitize_key( $field_id ) ] = SafeHtml::post( wp_unslash( $value ) );
 		}
 		
 		// Если одно поле — возвращаем строку, если несколько — JSON
@@ -464,7 +467,7 @@ trait Sanitizer {
 	}
 
 	protected function sanitizeHtmlValue( mixed $value ): string {
-		return wp_kses_post( wp_unslash( is_string( $value ) ? $value : (string) $value ) );
+		return SafeHtml::post( wp_unslash( is_string( $value ) ? $value : (string) $value ) );
 	}
 
 	protected function sanitizeKeyValue( mixed $value ): string {

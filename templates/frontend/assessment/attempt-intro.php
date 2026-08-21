@@ -26,7 +26,7 @@ $rules = AssessmentIntroConfig::rules( $assessment );
 	<h1 class="fs-assessment-title"><?php echo esc_html( $assessment->title ); ?></h1>
 
 	<div class="fs-assessment-intro__desc wpc">
-		<?php echo wp_kses_post( $intro_html ); ?>
+		<?php echo \Inc\Shared\SafeHtml::post( $intro_html ); ?>
 	</div>
 
 	<?php if ( ! empty( $rules ) ) : ?>

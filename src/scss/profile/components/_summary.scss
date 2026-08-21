@@ -117,7 +117,6 @@
 /* Задача 11: действия в шапке (сброс попыток/утверждение). */
 .smh-actions { display: flex; align-items: center; gap: rem(10); flex: none; margin-top: rem(4); }
 .sum-reset { color: var(--err); border-color: var(--err-line); }
-.sum-reset--armed { background: var(--err); border-color: var(--err); color: var(--ink-inverse); }
 
 /* D18: работа утверждена — ответы открыты ученику (замещает кнопку «Утвердить»). */
 .sum-approved-badge {
@@ -196,7 +195,7 @@
 
 .sum-task-files__link {
   display: inline-flex; align-items: center; height: rem(32); padding: 0 rem(10); font-size: rem(12.5); font-weight: 600;
-  color: var(--accent-700); text-decoration: none; border: 1px solid var(--line); border-radius: var(--radius-xs);
+  color: var(--accent-700); background: var(--surface); text-decoration: none; border: 1px solid var(--line); border-radius: var(--radius-xs);
 }
 .sum-task-files__link:hover { text-decoration: underline; }
 

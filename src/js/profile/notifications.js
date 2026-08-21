@@ -29,6 +29,7 @@ const TYPE_ICON = {
     lesson_opened:       icoEye,
     substitute_assigned_student: icoSwap,
     room_changed:        icoMapPin,
+    attempt_reset:       icoReplace,
 };
 
 let api = null;

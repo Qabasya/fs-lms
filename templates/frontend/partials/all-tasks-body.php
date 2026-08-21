@@ -161,7 +161,7 @@ $has_selected = (bool) array_sum( array_column( $page_data->filters, 'active' ) 
 							<?php if ( $task->condition ) : ?>
 								<div class="tcr-body js-condition">
 									<?php // Кнопку раскрытия показывает task-condition.js — только тем условиям, что не влезли. ?>
-									<div class="tcr-condition" id="tcr-cond-<?php echo esc_attr( (string) $task->id ); ?>"><?php echo wp_kses_post( $task->condition ); ?></div>
+									<div class="tcr-condition" id="tcr-cond-<?php echo esc_attr( (string) $task->id ); ?>"><?php echo \Inc\Shared\SafeHtml::post( $task->condition ); ?></div>
 									<button type="button" class="tcr-condition-toggle js-condition-toggle"
 										aria-expanded="false" aria-controls="tcr-cond-<?php echo esc_attr( (string) $task->id ); ?>" hidden>
 										<span class="js-condition-toggle-label">Показать полностью</span>

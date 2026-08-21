@@ -125,6 +125,6 @@ $kegeScore = static fn( ?float $score ): string => null === $score ? '—' : (st
 			</div>
 		<?php endif; ?>
 
-		<button type="button" class="kege-btn kege-btn--cyan kege-fin-done" id="kegeFinishBtn">Завершить экзамен</button>
+		<button type="button" class="kege-btn kege-btn--cyan kege-fin-done" id="kegeFinishBtn">Выход</button>
 	</div>
 </div>

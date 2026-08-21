@@ -587,7 +587,7 @@ WordPress и работает; следующий тег (`v1.0.1` и т.д.) в
 миграций — это перенос результата всех этих `ALTER` внутрь `CREATE TABLE`, и сверять его надо
 с фактом, а не с чтением кода.
 
-- [ ] Снять `SHOW CREATE TABLE` со всех `wp_fs_lms_*` в `schema-before.sql`
+- [x] Снять `SHOW CREATE TABLE` со всех `wp_fs_lms_*` в `schema-before.sql`
 
 ```bash
 docker exec wp_db mariadb -u root -proot wordpress -e "SHOW TABLES LIKE 'wp_fs_lms%'"
@@ -610,29 +610,33 @@ docker exec wp_db mariadb -u root -proot wordpress -e "SHOW TABLES LIKE 'wp_fs_l
       `fs_lms_student_records` при каждом полном прогоне `up()` — реальный сброс
       схемы версии на dev стёр эти три таблицы с боевыми на тот момент данными
       импорта; см. `migration-reset-drops-core-tables.md` в памяти)
-- [ ] Влить блок «Cleanup — добавление колонок для уже существующих установок»
-      (строки 617–681) внутрь соответствующих `CREATE TABLE`. Затрагивает:
-      `student_records` (6 snapshot-колонок + `enrolled_by_user_id`),
-      `groups` (`course_id`, `meetings`, `room_id`, `program_locked_at`, `access_mode`,
-      без `group_id`),
-      `group_lessons` (`ends_at`, `is_pinned`, `label`, `step_settings_overrides`, `kind`,
-      `status`, `student_person_id`, `room_id`, `work_deadlines`, `continued_from_id`,
-      `lesson_id` nullable),
-      `assessment_attempts` (`group_lesson_id`),
-      `assessment_answers` (`grader_note`, `criteria_scores`),
-      `lesson_progress` / `submissions` (полный набор значений `enum`),
-      `pii_access_log`, `export_log`, `email_log`, `applications`, `consent_change_log`,
-      `entity_audit_log`, `persons` (`expelled_at` + индекс).
-      **Определения брать из `schema-before.sql`, а не выводить вручную** — там уже финал
-- [ ] Влить `UNIQUE KEY attempt_task (attempt_id, task_id)` прямо в `CREATE TABLE`
-      `assessment_answers` (секция 19)
-- [ ] Влить `CREATE TABLE notifications` из `Migration_1_1_0` как секцию 25
-- [ ] Удалить приватные хелперы `addColumn()` / `dropColumn()` / `dropIndex()` / `addIndex()` /
-      `hasColumn()` — после вливания они не вызываются
-- [ ] Проверить, что список в `down()` полон (25 таблиц, `Notifications` уже есть)
-- [ ] Обновить докблок класса: он до сих пор описывает снятые `enrollments` / `archive` /
-      `deletion_log`
-- [ ] Удалить `inc/Migrations/Migration_1_1_0.php`
+- [x] Влит блок «Cleanup — добавление колонок для уже существующих установок» внутрь
+      соответствующих `CREATE TABLE`. По факту большая часть Cleanup-колонок уже была
+      баked-in в `CREATE TABLE` заранее (грейдер-код в файле разошёлся с dev-БД раньше:
+      `fs_lms_schema_version` на dev застрял на `1.1.0`, поэтому новые Cleanup-строки,
+      дописанные в код позже, никогда не докатывались до dev — обнаружено сверкой с
+      `schema-before.sql` **после** принудительного сброса версии схемы и реактивации
+      плагина, см. скилл `db-migrations`). Реально не хватало и добавлено вручную:
+      `groups.course_id`/`room_id`, `group_lessons.step_settings_overrides`,
+      `submissions.status` enum без `pending_review`. Остальные Cleanup-строки оказались
+      уже избыточны (колонка и так в `CREATE TABLE`) — убраны вместе с блоком.
+      **Осознанно НЕ перенесены** (дохлые колонки dev-БД, не пишутся и не читаются нигде
+      в коде — `grep` по `period_key`/`converted_to_enrollment_id` дал 0 совпадений в
+      `inc/`): `applications.period_key`, `applications.converted_to_enrollment_id`,
+      избыточный одиночный `KEY attempt_id` на `assessment_answers` (уже покрыт
+      составным `UNIQUE KEY attempt_task`). Подтверждено дифом
+      `schema-before.sql` (после ресинка) против свежей установки — расхождений,
+      кроме этих трёх дохлых сущностей и косметики (AUTO_INCREMENT, порядок колонок,
+      collation `notifications` теперь единообразный через общий `$cc`), нет
+- [x] `UNIQUE KEY attempt_task (attempt_id, task_id)` — уже был в `CREATE TABLE`
+      `assessment_answers` (секция 19) до этой сессии, отдельных действий не потребовалось
+- [x] Влит `CREATE TABLE notifications` из `Migration_1_1_0` как секцию 25
+- [x] Удалены приватные хелперы `addColumn()` / `dropColumn()` / `dropIndex()` / `addIndex()` /
+      `hasColumn()` / `hasIndex()` — после вливания не вызываются
+- [x] Список в `down()` уже был полон (25 таблиц, `Notifications` уже была) — без изменений
+- [x] Докблок класса обновлён: снят список из `enrollments`/`archive`/`deletion_log`,
+      заменён актуальным списком всех 25 таблиц
+- [x] Удалён `inc/Migrations/Migration_1_1_0.php`
 
 `MigrationRunner` и `MigrationInterface` **оставить**: это штатный способ довезти DDL до
 установок в будущих патч-релизах (см. скилл `db-migrations`).
@@ -651,15 +655,19 @@ docker exec wp_db mariadb -u root -proot wordpress -e "SHOW TABLES LIKE 'wp_fs_l
 | `AssessmentAnswerUniqueMigration` | Удалить | Ключ уехал в DDL (этап 1) |
 | `RoutingPagesMigration` | Удалить класс | `Activate::generatePages()` — заменить `createPageIfNeeded()` на `ensurePublished()` (восстанавливает удалённую/черновиковую страницу, а не только создаёт отсутствующую) и добавить туда `/sign-in/` |
 
-- [ ] Удалить четыре класса миграций
-- [ ] `Activate::generatePages()` — перевести на `ensurePublished()`, добавить `/sign-in/`
-- [ ] `inc/Init.php` — вырезать блок строк 252–288 (`BroadcastStepMigration::ensure()`,
-      регистрация и `run()` `MigrationRunner`, `ArticlesSectionMigration`,
-      `AssessmentAnswerUniqueMigration`, `add_action('init', RoutingPagesMigration)`)
-      и соответствующие `use`. Побочный эффект — минус 4 `get_option()` на каждом запросе;
-      миграции остаются только в `Activate::activate()`
-- [ ] `SubjectLandingController::redirectLegacySection()` (редирект `/textbook/` →
-      `/articles/`) — проверить и удалить, если он существует только ради переехавших установок
+- [x] Удалены четыре класса миграций (`BroadcastStepMigration`, `ArticlesSectionMigration`,
+      `AssessmentAnswerUniqueMigration`, `RoutingPagesMigration`) + их тест
+      (`BroadcastStepMigrationTest`)
+- [x] `Activate::generatePages()` — переведён на `ensurePublished()`; `/sign-in/` уже был в
+      списке (`PageRoutes::SignIn` — первая строка), отдельно добавлять не потребовалось
+- [x] `inc/Init.php` — вырезан блок `BroadcastStepMigration::ensure()`, регистрация
+      `Migration_1_1_0` в `MigrationRunner`, `ArticlesSectionMigration::ensure()`,
+      `AssessmentAnswerUniqueMigration::ensure()`, `add_action('init', RoutingPagesMigration)`
+      + соответствующие `use` (включая неиспользуемый после этого `PageGeneratorService`)
+- [x] `SubjectLandingController::redirectLegacySection()` (редирект `/textbook/` →
+      `/articles/`) — существовал только ради переехавших установок (боевой установки нет,
+      `ArticlesSectionMigration` тоже удалена этим же шагом) — удалён вместе с константой
+      `LEGACY_SECTION` и регистрацией на `template_redirect`
 
 ---
 
@@ -700,24 +708,29 @@ docker exec wp_db mariadb -u root -proot wordpress -e "SHOW TABLES LIKE 'wp_fs_l
 `UserRole::Teacher` (`lms_teacher_free`) уже мёртв. `UserRole::Student` (`lms_student_free`)
 держится на трёх точках, все три уходят вместе с SocialAuth или переписываются.
 
-- [ ] `inc/Enums/Access/UserRole.php` — снять кейсы `Student` и `Teacher`, за ними строки в
+- [x] `inc/Enums/Access/UserRole.php` — сняты кейсы `Student` и `Teacher`, за ними строки в
       `label()`, `baseCapabilities()`, `capabilities()`
-- [ ] Разобрать фолбэки: `primary()` возвращает `self::Student`, когда ни один слаг не совпал →
-      сменить на `?self` с `null` (и поправить вызывающих) либо на `FSStudent`. Выбрать по
-      вызывающим: `primaryForCabinet()`, `primarySlug()`, `UserDTO::fromArray()` (строка 77 —
-      `?? UserRole::Student`)
-- [ ] `frontCabinetRoles()` — убрать `Student`; порядок приоритета в `primary()` — убрать оба
-      хвостовых кейса
-- [ ] `inc/Services/Profile/ProfileViewResolver.php` — строки 84 и 111, `UserRole::Student` из
-      обоих `in_array`
-- [ ] `inc/Managers/Person/RoleManager.php` — в `registerAll()` добавить `remove_role()` для
-      `lms_student_free` и `lms_teacher_free`: на dev-БД роли уже созданы и сами не исчезнут
-- [ ] Поднять `$capsVersion` в `Init.php:245` с `'5.3'` до `'5.4'`, иначе пересинхронизация не
-      запустится
-- [ ] `src/js/profile/app.js` — строка 60 (`lms_student_free: 'Ученик'`) и строка 207
-      (`hideRole`-список)
-- [ ] Тесты: `tests/Unit/Enums/UserRoleTest.php` (строки 29, 33),
-      `tests/Unit/Services/Profile/ProfileViewResolverTest.php` (строка 51)
+- [x] Фолбэки разобраны: `primary()` (и через него `primaryForCabinet()`) теперь возвращает
+      `self::FSStudent`, когда ни один слаг не совпал — не `?self`/`null`, единственный реальный
+      вызывающий (`ProfileViewResolver::context()`) и так уже трактовал «неизвестную роль» как
+      витрину ученика через `FSStudent`/`Student` в одном `in_array`, так что null создал бы
+      лишнюю ветку без выгоды. `UserDTO::fromArray()` (была строка 77 — `?? UserRole::Student`)
+      — на `?? UserRole::FSStudent`. `primarySlug()` фолбэка не имеет (для неизвестной роли
+      отдаёт сырой слаг), не тронут
+- [x] `frontCabinetRoles()` — убран `Student`; порядок приоритета в `primary()` — убраны оба
+      хвостовых кейса (`Teacher`, `Student`)
+- [x] `inc/Services/Profile/ProfileViewResolver.php` — `UserRole::Student` убран из обоих
+      `in_array` (viewFor/jsConfig), докблок класса поправлен под актуальный маппинг
+- [x] `inc/Managers/Person/RoleManager.php` — в `registerAll()` добавлены `remove_role('lms_student_free')`/
+      `remove_role('lms_teacher_free')`: на dev-БД роли уже были созданы и сами не исчезли бы
+- [x] Поднят `$capsVersion` в `Init.php` с `'5.3'` до `'5.4'` — пересинхронизация (и снятие
+      ролей) запустилась на первом же запросе, подтверждено на dev: `wp_user_roles` больше не
+      содержит `lms_student_free`/`lms_teacher_free`
+- [x] `src/js/profile/app.js` — `ROLE_LABELS.lms_student_free` и `lms_student_free` в
+      `hideRole`-списке убраны
+- [x] Тесты: `tests/Unit/Enums/UserRoleTest.php` (фолбэк-тесты переведены на `FSStudent`),
+      `tests/Unit/Services/Profile/ProfileViewResolverTest.php` (снята ассерция на `Student`).
+      Полный набор — 1369 тестов зелёные
 
 ---
 
@@ -736,18 +749,20 @@ docker exec wp_db mariadb -u root -proot wordpress -e "SHOW TABLES LIKE 'wp_fs_l
 
 **Энумы:**
 
-- [ ] `OptionName::Periods` (`fs_lms_periods_list`) — дубль-пустышка; живой ключ —
+- [x] `OptionName::Periods` (`fs_lms_periods_list`) — дубль-пустышка; живой ключ —
       `AcademicPeriods` (`fs_lms_academic_periods`), его читает `AcademicPeriodRepository`
-- [ ] `OptionName::AuthGroups` (`fs_lms_auth_group`)
-- [ ] `EmailTemplateType::PasswordSetup`, `ApplicationConfirmation`, `ApplicationReady`,
+- [x] `OptionName::AuthGroups` (`fs_lms_auth_group`)
+- [x] `EmailTemplateType::PasswordSetup`, `ApplicationConfirmation`, `ApplicationReady`,
       `Rejection` — редактируются во вкладке «Шаблоны писем», но ни одно письмо этих типов не
       отправляется (`EmailService` шлёт только `WelcomeWithCredentials`, `CourseGranted`,
       `OtpCode`). Снять кейсы и строки в `label()`; проверить вкладку настроек и
-      `EmailTemplateSettingsCallbacks`
-- [ ] `ShortCode::RegisterForm` (`fs_lms_register_form`)
-- [ ] `ShortCode::GroupLessons` (`fs_lms_group_lessons`, остаток снятого кокпита группы)
-- [ ] `PageRoutes::ConsentPage` (`'consent'`) — проверить `templates/frontend/consent-page.php`:
-      если страница рендерится по другому маршруту, кейс мёртв
+      `EmailTemplateSettingsCallbacks` — вкладка (`settings-4-email-templates.php`) и так уже
+      хардкодит только `otp_code`/`welcome_with_credentials`, правок не потребовала
+- [x] `ShortCode::RegisterForm` (`fs_lms_register_form`)
+- [x] `ShortCode::GroupLessons` (`fs_lms_group_lessons`, остаток снятого кокпита группы)
+- [x] `PageRoutes::ConsentPage` (`'consent'`) — подтверждено мёртв: `ConsentController` рендерит
+      страницу согласия через свой rewrite-маршрут `/lms/consent/{type}/{version}`, а не через
+      slug `'consent'`
 - [x] `Inc\Enums\Course\LessonKind` — протащен в `GroupLessonDTO` и `GroupLessonInputDTO`
       (было: `public string $kind = 'group'`). 23 файла: сравнения `'individual' === $row->kind`
       заменены на `$row->kind->isIndividual()`, два SQL-литерала в `GroupLessonRepository`
@@ -756,45 +771,53 @@ docker exec wp_db mariadb -u root -proot wordpress -e "SHOW TABLES LIKE 'wp_fs_l
 
 **Классы:**
 
-- [ ] `inc/Cli/TaskBundleMigrationCommand.php` + `inc/Services/Task/TaskBundleMigrationPlanner.php`
-      + `inc/DTO/Task/TaskBundleReferenceChangeDTO.php` (проверить, что DTO больше нигде не нужен)
-- [ ] `inc/Cli/ArticleSlugCommand.php`
-- [ ] Обе команды — из `Init::getServices()` (`Init.php:177` и рядом)
-- [ ] `BoilerplatePageController` — снять `implements ServiceInterface` и пустой `register()`
+- [x] `inc/Cli/TaskBundleMigrationCommand.php` + `inc/Services/Task/TaskBundleMigrationPlanner.php`
+      + `inc/DTO/Task/TaskBundleReferenceChangeDTO.php` — DTO нигде больше не использовался
+      (только `@see`-докблоки в `TaskBundleService`/`AssessmentManager`, зачищены), удалены
+      вместе с `TaskBundleMigrationPlannerTest.php`
+- [x] `inc/Cli/ArticleSlugCommand.php`
+- [x] Обе команды — из `Init::getServices()` (`Init.php:177` и рядом)
+- [x] `BoilerplatePageController` — снят `implements ServiceInterface` и пустой `register()`
       (класс резолвится контейнером из `AdminCallbacks`, сервисом не является)
-- [ ] `BoilerplateController` — снять неиспользуемый `use TemplateRenderer`
+- [x] `BoilerplateController` — снят неиспользуемый `use TemplateRenderer`
 
 **Файлы:**
 
-- [ ] `assets/css/{all,fontawesome,solid}.min.css`, `assets/webfonts/` — FontAwesome грузится
-      с CDN (`BundleLoader.php:75`), локальные копии не используются и не в git
-- [ ] `.docs/db-backups/legacy-tables-pre-migration-reset.sql`
+- [x] `assets/css/{all,fontawesome,solid}.min.css`, `assets/webfonts/` — FontAwesome грузится
+      с CDN (`BundleLoader.php:75`), локальные копии не используются; подтверждено, что они и
+      так не в git (`git ls-files` их не находит — уже фильтруются `.gitignore`), удалять
+      из репозитория нечего
+- [x] `.docs/db-backups/legacy-tables-pre-migration-reset.sql`
 
 ---
 
 ## Этап 6. Хвосты снятых с плана фич
 
-- [ ] `src/js/profile/api.js` (шапка файла) — обещание «перенести кабинет в Telegram Web App
-      или мобильное приложение» и мост `window.FS_LMS_API.request`. **Код оставить** —
-      косвенность транспорта ничего не стоит и это хорошая изоляция; переписать комментарий
+- [x] `src/js/profile/api.js` (шапка файла) — обещание «перенести кабинет в Telegram Web App
+      или мобильное приложение» и мост `window.FS_LMS_API.request`. **Код оставлен** —
+      косвенность транспорта ничего не стоит и это хорошая изоляция; комментарий переписан
       так, чтобы он описывал текущий шов, а не будущую интеграцию
-- [ ] `inc/Services/Profile/NotificationService.php:50` — «шов будущего Telegram-модуля
-      Notifier», комментарий
-- [ ] `inc/DTO/Person/UserDTO.php` — поле `telegramId` и чтение меты `fs_telegram_id`: нигде
-      не заполняется и не читается, снять
-- [ ] `inc/Callbacks/System/AdminCallbacks.php:85` — Dashboard помечен «временная заглушка»,
-      но фактически рендерит `admin/dashboard` с фильтром `fs_lms_dashboard_modules`. Снять
-      формулировку
-- [ ] `inc/Services/Course/ContentUsageService.php:452` — `TODO Этап 2` про кросс-предметный
-      поиск. Решить: доделать или зафиксировать как сознательное ограничение в докблоке
-- [ ] `AdSync`: `AdSyncStatusCallbacks.php:41` и `AdSyncController.php:75` — `TODO(текст)`,
-      недописанные пользовательские сообщения. Дописать
+- [x] `inc/Services/Profile/NotificationService.php:50` — «шов будущего Telegram-модуля
+      Notifier» переформулирован как общая точка расширения (`do_action`), без обещания
+      конкретного будущего модуля
+- [x] `inc/DTO/Person/UserDTO.php` — поле `telegramId` и чтение меты `fs_telegram_id` нигде не
+      заполнялись и не читались за пределами файла, сняты (конструктор, `toArray()`,
+      `fromArray()`, `fromWPUser()`)
+- [x] `inc/Callbacks/System/AdminCallbacks.php:85` — Dashboard помечен «временная заглушка»,
+      но фактически рендерит `admin/dashboard` с фильтром `fs_lms_dashboard_modules`. Снята
+      формулировка
+- [x] `inc/Services/Course/ContentUsageService.php:452` — `TODO Этап 2` про кросс-предметный
+      поиск зафиксирован как сознательное ограничение в докблоке `relationFor()` (задание
+      глобального банка `fs_lms_problems` не привязано к предмету до материализации в
+      `{key}_tasks`), не доделывалось
+- [x] `AdSync`: `AdSyncStatusCallbacks.php:41` и `AdSyncController.php:75` — `TODO(текст)` снят,
+      сообщения уже были дописаны в коде рядом (просто TODO-маркер устарел)
 
 ---
 
 ## Этап 7. Раннер релиза
 
-- [ ] **`.distignore`** (новый файл в корне) — что не едет на сервер:
+- [x] **`.distignore`** (новый файл в корне) — что не едет на сервер:
 
 ```
 /src/
@@ -830,7 +853,24 @@ inc/Services/Subject/Bundle/CLAUDE.md
 Едут: `fs-lms.php`, `uninstall.php`, `inc/` (включая `inc/Modules/*/assets/` — рукописные,
 ничем не собираются), `templates/`, `assets/js/*.min.js`, `assets/css/*.min.css`, `vendor/`.
 
-- [ ] **`.github/workflows/release.yml`** (новый), триггер `push: tags: ['v*']`:
+Попутно (снижение веса — по запросу): найдены и удалены мёртвые локальные копии
+FontAwesome (`assets/css/all.min.css`/`fontawesome.min.css`/`solid.min.css` +
+`assets/webfonts/*.woff2`, ~588 КБ) — `BundleLoader::enqueueFontAwesome()` грузит шрифт
+только с CDN, локальные файлы не собираются gulp'ом и не были ничем референсированы
+(подтверждено 2026-08-19 в Этапе 5, но физически на диске оставались). Добавлены в
+`.distignore` explicit-строками на случай повторного появления. Проверено дожен-раном
+пакетирования (`tar` вместо недоступного локально `rsync`, тот же набор паттернов): итоговая
+структура — 9.2 МБ до ZIP (`inc` 7.4М, `vendor` под `--no-dev` — 64 КБ, у плагина нет ни
+одной прод-зависимости в `composer.json`, только `ext-mbstring`; `templates` 916К; `assets`
+848К после чистки). `.map`-файлы и FontAwesome в собранный пакет не попадают — исключения
+подтверждены `find` по дожен-билду. Отдельно: `inc/Modules/EgeComputer/assets/images/
+oge-instruction-{2..9}.png` (2.3 МБ, единственные картинки станции, ещё не переведённые в
+WebP — соседний набор ЕГЭ уже был `instruction-*.webp`) сконвертированы через Imagick
+(quality 82, контейнер `wp_app` — `cwebp`/ImageMagick CLI недоступны ни локально, ни в
+контейнере, а php-imagick есть) → 1.4 МБ, экономия ~900 КБ. Визуально сверено (два слайда,
+включая мелкий текст UI) — артефактов не видно. `OgeSlidesConfig.php` (единственное место со
+ссылками на эти файлы) переведён на `.webp`, оригинальные `.png` удалены из репозитория
+- [x] **`.github/workflows/release.yml`** (новый), триггер `push: tags: ['v*']`:
 
 1. `actions/checkout@v4`
 2. `actions/setup-node@v4` (node 20, `cache: npm`) → `npm ci`
@@ -850,8 +890,9 @@ inc/Services/Subject/Bundle/CLAUDE.md
 - [x] **`.github/workflows/ci.yml`** — `npm run lint:css` добавлен в job `assets` (раньше
       stylelint на PR не проверялся). Прогон: 0 ошибок, 123 предупреждения `!important`,
       exit 0 — гейт не красный
-- [ ] **Версия** — поднять `0.0.1` → `1.0.0` в трёх местах: шапка `fs-lms.php`, константа
-      `FS_LMS_VERSION`, `package.json`. Заодно `@since 0.0.1` в `uninstall.php`
+- [x] **Версия** — поднята `0.0.1` → `1.0.0` в трёх местах: шапка `fs-lms.php`, константа
+      `FS_LMS_VERSION`, `package.json`. `uninstall.php` уже нёс `@since 1.0.0` (обновлён
+      раньше, в Этапе 5) — трогать не потребовалось
 
 ---
 
@@ -859,10 +900,10 @@ inc/Services/Subject/Bundle/CLAUDE.md
 
 Плагин не в каталоге wordpress.org — WP-ядро умеет проверять обновления и качать их только
 оттуда. Раннер (Этап 7) уже кладёт версионный `fs-lms-{version}.zip` в GitHub Release по тегу
-`v*` — этого достаточно, чтобы WP сам увидел новую версию и либо показал «Доступно
-обновление» на экране «Плагины» (клик — как для любого обычного плагина), либо накатил её
-без участия человека через штатный механизм авто-обновлений WP (`wp_maybe_auto_update`, крон
-дважды в сутки). Дальше — пуш тега в репозиторий = релиз = боевой сайт видит обновление.
+`v*` — этого достаточно, чтобы WP сам увидел новую версию и показал «Доступно обновление» на
+экране «Плагины» (клик — как для любого обычного плагина). Полностью автоматический накат без
+участия человека решено не включать (см. ниже). Дальше — пуш тега в репозиторий = релиз =
+боевой сайт видит обновление.
 
 Технически: WP не знает про сторонние источники «из коробки» — нужен хук в
 `pre_set_site_transient_update_plugins` (какая версия доступна + откуда качать ZIP) и, для
@@ -870,55 +911,43 @@ inc/Services/Subject/Bundle/CLAUDE.md
 данных — GitHub Releases API (`GET /repos/Qabasya/fs-lms/releases/latest`), тот же тег и тот
 же ZIP-ассет, что производит Этап 7.
 
-**Открытый вопрос (решить перед реализацией):** репозиторий `Qabasya/fs-lms` — публичный или
-приватный? От этого зависит, нужен ли токен для скачивания ассета и где его хранить на
-проде.
+**Открытый вопрос — решено с пользователем 2026-08-20:** репозиторий `Qabasya/fs-lms` —
+публичный, токен не нужен.
 
-- [ ] **Решить: свой код vs. готовая библиотека.** Кандидат — `yahnisElsts/plugin-update-checker`
-      (проверяет GitHub Releases «из коробки», включая приватные репозитории и релизные
-      ассеты, штатный `factory`-конструктор). Плюс — часы разработки и меньше своих багов в
-      security-чувствительном месте (код, который решает, что скачать и распаковать поверх
-      плагина). Минус — противоречит правилу `CLAUDE.md` «Scope»: «Use only built-in PHP and
-      WordPress APIs, Do not introduce third-party libraries unless explicitly requested» —
-      если библиотеку берём, зафиксировать это как явное исключение (по аналогии с тем, как
-      уже задокументированы «Принятые исключения» P4 в `CLAUDE.md`), а не тихо нарушать
-      правило. Если пишем сами — минимальный сервис на этих двух фильтрах, без парсинга
-      changelog из markdown (просто ссылка на GitHub Release).
-- [ ] Новый сервис (условно `inc/Services/Update/GithubReleaseUpdater.php`), `ServiceInterface`,
-      регистрируется в `Init::getServices()` — если свой код, а не библиотека:
-      - Хук `pre_set_site_transient_update_plugins` — раз в N часов (WP transient-кэш, не на
-        каждый запрос) дёргает GitHub API, сравнивает `tag_name` (без `v`) с `FS_LMS_VERSION`;
-        если новее — прописывает в транзиент `package` (прямая ссылка на ZIP-ассет релиза),
-        `new_version`, `url`.
-      - Хук `plugins_api` — карточка «Просмотреть подробности» (секции info/changelog),
-        источник — тело GitHub Release (markdown как есть, либо `CHANGELOG.md` из репозитория).
-      - Если репозиторий приватный — токен для GitHub API/скачивания ассета живёт в константе
-        `wp-config.php` (аналог `FS_LMS_ENC_KEY`/`FS_LMS_HASH_SALT`, не в `wp_options` — не
-        должен утекать через дамп БД/REST), например `FS_LMS_GITHUB_TOKEN`; минимальный scope
-        токена — чтение релизов конкретного репозитория.
-- [ ] **Полностью автоматическое обновление (без клика в админке)** — отдельно от «показать,
-      что есть обновление»: нужен фильтр `auto_update_plugin` (или запись плагина в опцию
-      `auto_update_plugins`), возвращающий `true` для `plugin_basename(__FILE__)` этого плагина.
-      **Решить, включать ли** — риска добавляет то, что между тегом и фактическим накатом на
-      проде нет ручной проверки; отчасти компенсируется гейтом качества из Этапа 7 (тег без
-      зелёных lint/tests в релиз не попадёт), но не полностью (зелёные тесты — не гарантия
-      отсутствия визуальных/поведенческих регрессий). Вариант компромисса: включить
-      авто-обновление только для патч-версий (`1.0.x`), мажорные/минорные — только руками.
-- [ ] Способ форсировать проверку без ожидания реального тега — для тестирования: WP-CLI
-      (`wp plugin update fs-lms` после сброса транзиента `update_plugins`) или admin-action
-      «Проверить обновления сейчас» рядом с существующими admin-инструментами плагина.
-      Тестовый прогон — тот же второй WP-контейнер, что уже используется в проверке 6 Этапа 7
-      (поставить релизный ZIP `v1.0.0`, затем протолкнуть тестовый тег `v1.0.1-rc1` и убедиться,
-      что обновление увидено и/или накатилось).
-- [ ] Совместимость с раннером: если ставим библиотеку — она едет в `composer.json` как
-      обычная зависимость (`require`, не `require-dev`), иначе `composer install --no-dev`
-      (Этап 7, шаг 7) вырежет её из ZIP и обновление на проде сломается молча — тесты в CI
-      (Этап 7, шаг 4) идут ДО `--no-dev`-шага и такую ошибку не поймают.
-- [ ] Логирование — `PluginLogger::warning`/`::exception` на неудачный запрос к GitHub API
-      (сеть недоступна, rate limit, 404 на релиз) — тихий fail-open (плагин продолжает
-      работать на текущей версии, просто без индикатора обновления), не fail-closed.
-- [ ] Документация: как выпускать патч-релиз (`git tag v1.0.1 && git push --tags` → раннер →
-      обновление видно на проде) — короткий раздел в `README.md` для будущих себя.
+- [x] **Решено: свой код**, не библиотека (соответствует правилу `CLAUDE.md` «Scope»,
+      решено с пользователем). `inc/Services/Update/GithubReleaseUpdater.php` — минимальный
+      сервис на двух фильтрах, без парсинга changelog из markdown (тело релиза как есть в
+      `<pre>` + ссылка на страницу релиза).
+- [x] Новый сервис `inc/Services/Update/GithubReleaseUpdater.php`, `ServiceInterface`,
+      зарегистрирован в `Init::getServices()`:
+      - `pre_set_site_transient_update_plugins` — кэш на 6 часов поверх GitHub API
+        (`TransientKey::GithubRelease`, через `TransientManager`, не сырые `get_/set_transient`),
+        сравнивает `tag_name` (без `v`) с `FS_LMS_VERSION` (фолбэк `'0.0.0'` через
+        `defined()` — тестовое окружение константу не грузит, как и у
+        `SubjectBundleExportService`); новее — прописывает `package`/`new_version`/`url` в
+        транзиент.
+      - `plugins_api` — карточка «Просмотреть подробности» (info/changelog из тела релиза).
+      - Токен не нужен (репозиторий публичный) — весь пункт про `FS_LMS_GITHUB_TOKEN` снят.
+- [x] **Решено с пользователем: только индикатор «Доступно обновление»**, без полностью
+      автоматического наката — `auto_update_plugin` не заводился. Обновление всегда по
+      клику администратора.
+- [x] Способ форсировать проверку — WP-CLI, задокументирован в `README.md`:
+      `wp transient delete update_plugins && wp plugin list` / `wp plugin update fs-lms --dry-run`.
+      Прогнано вживую на dev-контейнере против настоящего публичного `Qabasya/fs-lms`
+      (релизов там ещё нет — получили честный 404 → fail-open → «No plugin updates
+      available.», без фатала и без ложного срабатывания). Admin-action не заводился —
+      WP-CLI достаточно, отдельная кнопка ничего не добавляет
+- [x] Совместимость с раннером — неактуально: своего кода без внешних зависимостей, менять
+      `composer.json` не пришлось.
+- [x] Логирование — `PluginLogger::warning` на wp_error/не-200/битый JSON от GitHub API,
+      тихий fail-open на каждом из трёх путей отказа (сеть, HTTP-код, тело ответа).
+- [x] Документация — раздел «Релиз» в `README.md`: как поднять версию и запушить тег, что
+      делает `release.yml`, как сайт видит обновление и как форсировать проверку.
+- [x] Тесты: `tests/Unit/Services/Update/GithubReleaseUpdaterTest.php` (9 тестов — новее/не
+      новее релиз, отсутствие ZIP-ассета, fail-open на HTTP-ошибке/битом JSON, кэширование
+      между вызовами, фильтрация `plugins_api` по action/slug, содержимое карточки
+      подробностей). `tests/bootstrap.php` дополнен стабом `wp_remote_get()` (был только
+      `wp_remote_post()`). Полный набор — 1378 тестов зелёные
 
 ---
 
@@ -1000,6 +1029,36 @@ inc/Services/Subject/Bundle/CLAUDE.md
 
 Этапы 3 и 4 связаны (роль `Student` создаётся только соцвходом) — делать подряд.
 Этапы 5 и 6 независимы от остальных, можно в любом порядке.
+
+---
+
+# Задача: снос роли «Маркетолог» (2026-08-21) ✅
+
+Контекст: аудит показал, что `FSMarket` (`lms_market`) на практике нерабочая роль — из двух
+её прав `ManageLmsArticles` недостижим в UI (пункт меню «Обучение» гейтится
+`AuthorLmsCourses`, которого у маркетолога нет — WP прячет весь top-level пункт, а не только
+недоступные сабстраницы), а `ViewLMSStats` не гейтит вообще ничего (нет ни одной фичи,
+которая его проверяет). Решено с пользователем: статьями (и статистикой, если появится)
+дальше занимается FSOffice — у него `ManageLmsArticles` уже есть.
+
+- [x] `inc/Enums/Access/UserRole.php` — кейс `FSMarket` снят: из `cases()` (сам кейс),
+      `primary()`, докблока `frontCabinetRoles()`, `label()`, `baseCapabilities()`,
+      `capabilities()`
+- [x] `inc/Managers/Person/RoleManager.php` — `lms_market` снят из докблок-матрицы,
+      `manage_lms_assignments`-отката и выдачи `articleCaps()` (теперь только `lms_office`);
+      добавлен явный `remove_role('lms_market')` в `registerAll()` (тем же приёмом, что
+      `lms_student_free`/`lms_teacher_free`, Этап 4) — на установках, где роль успела
+      создаться, `add_role()` её больше не восстановит
+- [x] `inc/Callbacks/Settings/RolesSettingsCallbacks.php::ASSIGNABLE` — `FSMarket` убран
+- [x] `templates/admin/components/tabs/settings-tabs/settings-8-roles.php` — убран из списка
+      назначаемых ролей вкладки «Роли»
+- [x] `inc/Controllers/Person/ProfileController.php`, `.docs/basic_doc.md` — докблоки/таблицы
+      поправлены (упоминания FSMarket убраны)
+- [x] `.docs/Roles.md` — добавлена пометка о снятии роли вверху файла (сам план — историческая
+      спецификация, не переписывался)
+- [x] Тесты: `UserBehaviorManagerTest::test_keeps_bar_for_market` удалён (сценарий больше не
+      существует), `ProfileViewResolverTest::test_back_office_roles_have_no_front_cabinet`
+      сокращён до `FSMethodist`. Полный набор — 1363 теста зелёные
 
 ---
 
