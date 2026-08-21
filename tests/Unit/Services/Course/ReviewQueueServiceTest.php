@@ -22,6 +22,7 @@ use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 use Inc\Repositories\WPDBRepositories\SubmissionRepository;
 use Inc\Repositories\WPDBRepositories\SubstitutionRepository;
 use Inc\Services\Course\ReviewQueueService;
+use Inc\Services\Course\TeacherGroupResolver;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -55,9 +56,12 @@ class ReviewQueueServiceTest extends TestCase {
 
 		$this->substitutions->method( 'findUpcomingOrActiveBySubstitute' )->willReturn( array() );
 
+		// Реальный резолвер поверх замоканных репозиториев (Tasks.md: логика доступа
+		// вынесена в TeacherGroupResolver) — тесты ниже продолжают мокать
+		// GroupsRepository/SubstitutionRepository напрямую.
 		$this->service = new ReviewQueueService(
 			$this->groups,
-			$this->substitutions,
+			new TeacherGroupResolver( $this->groups, $this->substitutions ),
 			$this->submissions,
 			$this->attempts,
 			$this->answers,
@@ -115,7 +119,7 @@ class ReviewQueueServiceTest extends TestCase {
 		$groups2->expects( self::once() )->method( 'findAll' )->willReturn( array() );
 		$groups2->expects( self::never() )->method( 'findByTeacherId' );
 		$service2 = new ReviewQueueService(
-			$groups2, $this->substitutions, $this->submissions, $this->attempts,
+			$groups2, new TeacherGroupResolver( $groups2, $this->substitutions ), $this->submissions, $this->attempts,
 			$this->answers, $this->works, $this->assessments, $this->groupLessons, $this->studentRecords,
 		);
 		$service2->pendingWorks( 5, true, 'pending' );
