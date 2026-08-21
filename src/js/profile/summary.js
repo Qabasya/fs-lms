@@ -1,19 +1,25 @@
 /* ══════════════════════════════════════════════════════════════════════
-   «Сводка по ученику» (Эпик 10 T10.8, D8) — заменяет очередь «Проверка работ».
-   Источник: window.fsProfile.{groups, summary:{nonce,actions}, ajax.url}.
-   Выбор группы + ученика → карточки его занятий: дата, тема, цветная полоса
-   (🟢 посещён · 🟣 индивидуальное · 🔴 пропуск · серый — не отмечено) и результаты
-   работ по типам (badge + сырой балл). Оценивание — в детали работы (T10.9).
+   «Сводка по ученику» (Эпик 10 T10.8, D8; доработка — .docs/Tasks.md).
+   Источник: window.fsProfile.{summary:{nonce,actions}, ajax.url}.
+   Выбор идёт от ученика (все ученики, доступные пользователю) → его курс
+   (группа), если их больше одного → две вкладки: «Занятия и прогресс по
+   урокам» (карточки занятий: дата, тема, посещаемость, компактный прогресс
+   по шагам урока, работы) и «Работы» (плоская таблица работ курса).
+   Оценивание — в детали работы (T10.9), переход через openWorkReview.
    ══════════════════════════════════════════════════════════════════════ */
 
 import { esc, emptyState, fmtDate } from './utils.js';
 import { icoDocCheck } from '../common/icons.js';
 import { createApi } from './api.js';
-import { DOW_JS } from './constants.js';
 import { groupPickerBtnHtml, studentPickerBtnHtml, openGroupPicker, openStudentPicker } from './picker.js';
 
 const KIND_LABEL = { group: 'Групповое', individual: 'Индивидуальное' };
 const ATT_LABEL  = { present: 'Присутствовал', absent: 'Отсутствовал', none: 'Не отмечено' };
+
+const TABS = [
+    { key: 'lessons', label: 'Занятия и прогресс по урокам' },
+    { key: 'works', label: 'Работы' },
+];
 
 let root = null;
 let state = null;
@@ -26,28 +32,41 @@ export function renderSummary(r, opts = {}) {
     openWorkReviewCb = typeof opts.openWorkReview === 'function' ? opts.openWorkReview : null;
     const p = window.fsProfile || {};
     state = {
-        groups:   Array.isArray(p.groups) ? p.groups : [],
         cfg:      p.summary || null,
-        groupId:  (p.groups && p.groups[0]) ? p.groups[0].id : null,
+        students: [],
         personId: null,
-        roster:   [],
+        courses:  [],
+        groupId:  null,
         data:     null,
+        tab:      'lessons',
     };
     api = createApi(state.cfg);
-    if (!state.groups.length || !state.cfg) { root.innerHTML = empty('Нет групп', 'За вами не закреплены группы.'); return; }
-    loadRoster();
+    if (!state.cfg) { root.innerHTML = empty('Сводка недоступна', 'Экран «Сводка по ученику» не настроен.'); return; }
+    loadStudents();
 }
 
-async function loadRoster() {
+/* ── Data ─────────────────────────────────────────────────────────────── */
+async function loadStudents() {
     try {
-        const d = await api('getRoster', { group_id: state.groupId });
-        state.roster = Array.isArray(d.students) ? d.students : [];
+        state.students = await api('getStudents', {});
     } catch (e) {
-        root.innerHTML = empty('Не удалось загрузить ростер', e.message);
+        root.innerHTML = empty('Не удалось загрузить учеников', e.message);
         return;
     }
-    state.personId = state.roster.length ? state.roster[0].person_id : null;
+    state.personId = state.students.length ? state.students[0].person_id : null;
     if (!state.personId) { state.data = { lessons: [] }; render(); return; }
+    loadCourses();
+}
+
+async function loadCourses() {
+    try {
+        state.courses = await api('getCourses', { student_person_id: state.personId });
+    } catch (e) {
+        root.innerHTML = empty('Не удалось загрузить курсы ученика', e.message);
+        return;
+    }
+    state.groupId = state.courses.length ? state.courses[0].group_id : null;
+    if (!state.groupId) { state.data = { lessons: [] }; render(); return; }
     loadSummary();
 }
 
@@ -63,58 +82,133 @@ async function loadSummary() {
 
 /* ── Render ───────────────────────────────────────────────────────────── */
 function render() {
-    const lessons = (state.data && state.data.lessons) || [];
-    const cards = lessons.length
-        ? lessons.map(lessonCard).join('')
-        : `<div class="j-empty">${state.data && state.data.open ? 'В программе нет занятий.' : 'У ученика пока нет датированных занятий.'}</div>`;
-
-    const g = state.groups.find(x => x.id === state.groupId) || state.groups[0];
-    const student = state.roster.find(s => s.person_id === state.personId);
+    const student = state.students.find(s => s.person_id === state.personId);
 
     root.innerHTML = `
     <div class="prof-summary">
         <div class="sum-head">
             <div class="prof-ktp-pick">
-                <span class="kp-label">Группа</span>
-                ${groupPickerBtnHtml(g, 'sumGroupBtn')}
-            </div>
-            <div class="prof-ktp-pick">
                 <span class="kp-label">Ученик</span>
-                ${studentPickerBtnHtml(student, state.roster, 'sumStudentBtn')}
+                ${studentPickerBtnHtml(student, state.students, 'sumStudentBtn')}
             </div>
+            ${courseBlockHtml()}
         </div>
-        <div class="sum-cards">${cards}</div>
+        ${tabsHtml()}
+        <div class="sum-body">${'works' === state.tab ? worksTableHtml() : lessonsHtml()}</div>
     </div>`;
 
-    const gBtn = root.querySelector('#sumGroupBtn');
-    if (gBtn) gBtn.addEventListener('click', openGroupMenu);
-    const sBtn = root.querySelector('#sumStudentBtn');
-    if (sBtn && state.roster.length) sBtn.addEventListener('click', openStudentMenu);
+    wireHead();
+    wireTabs();
+    wireRows();
+}
 
-    root.querySelectorAll('.sum-work[data-src-id]').forEach(el =>
+function courseBlockHtml() {
+    if (state.courses.length > 1) {
+        const c = state.courses.find(x => x.group_id === state.groupId) || state.courses[0];
+        const g = { id: c.group_id, name: c.name, subject: c.subject };
+        return `<div class="prof-ktp-pick">
+            <span class="kp-label">Курс</span>
+            ${groupPickerBtnHtml(g, 'sumCourseBtn')}
+        </div>`;
+    }
+    if (1 === state.courses.length) {
+        const c = state.courses[0];
+        return `<div class="prof-ktp-pick">
+            <span class="kp-label">Курс</span>
+            <span class="sum-course-label">${esc(c.name)} · ${esc(c.subject)}</span>
+        </div>`;
+    }
+    return '';
+}
+
+function tabsHtml() {
+    return `<div class="sum-tabs">${TABS.map(t => `
+        <button type="button" class="sum-tab${t.key === state.tab ? ' active' : ''}" data-tab="${t.key}">${esc(t.label)}</button>`).join('')}</div>`;
+}
+
+function lessonsHtml() {
+    const lessons = (state.data && state.data.lessons) || [];
+    return lessons.length
+        ? `<div class="sum-cards">${lessons.map(lessonCard).join('')}</div>`
+        : `<div class="j-empty">${state.data && state.data.open ? 'В программе нет занятий.' : 'У ученика пока нет датированных занятий.'}</div>`;
+}
+
+function worksTableHtml() {
+    const rows = flatWorks();
+    if (!rows.length) { return '<div class="j-empty">Работ нет.</div>'; }
+    return `<div class="sum-works-table">
+        <div class="swt-row swt-head">
+            <span>Тип</span><span>Тема</span><span>Дата</span><span>Статус</span><span>Балл</span>
+        </div>
+        ${rows.map(workRow).join('')}
+    </div>`;
+}
+
+function flatWorks() {
+    const lessons = (state.data && state.data.lessons) || [];
+    const rows = [];
+    lessons.forEach(l => (l.works || []).forEach(w => rows.push({ ...w, lessonTopic: l.topic, lessonDate: l.date })));
+    return rows;
+}
+
+function workRow(w) {
+    const statusLabel = 'pending' === w.display ? 'На проверке' : (w.overdue ? 'Просрочено' : 'Оценено');
+    return `<div class="swt-row" role="button" tabindex="0" data-src-type="${esc(w.source_type)}" data-src-id="${w.source_id}">
+        <span>${esc(w.category || w.title)}</span>
+        <span>${esc(w.lessonTopic || '—')}</span>
+        <span>${w.lessonDate ? esc(fmtDate(w.lessonDate)) : '—'}</span>
+        <span class="swt-status${'pending' === w.display ? ' pending' : ''}${w.overdue ? ' overdue' : ''}">${esc(statusLabel)}</span>
+        <span class="swt-score">${'pending' === w.display ? '—' : esc(w.value)}</span>
+    </div>`;
+}
+
+/* T12.8: дропдауны ученика/курса — общий пикер (picker.js). */
+function wireHead() {
+    const sBtn = root.querySelector('#sumStudentBtn');
+    if (sBtn && state.students.length) { sBtn.addEventListener('click', openStudentMenu); }
+
+    const cBtn = root.querySelector('#sumCourseBtn');
+    if (cBtn) { cBtn.addEventListener('click', openCourseMenu); }
+}
+
+function openStudentMenu() {
+    openStudentPicker(document.getElementById('sumStudentBtn'), state.students, state.personId, id => {
+        state.personId = id;
+        state.tab = 'lessons';
+        loadCourses();
+    });
+}
+
+function openCourseMenu() {
+    const groups = state.courses.map(c => ({ id: c.group_id, name: c.name, subject: c.subject }));
+    openGroupPicker(document.getElementById('sumCourseBtn'), groups, state.groupId, id => {
+        state.groupId = id;
+        loadSummary();
+    });
+}
+
+function wireTabs() {
+    root.querySelectorAll('.sum-tab[data-tab]').forEach(btn =>
+        btn.addEventListener('click', () => {
+            if (btn.dataset.tab !== state.tab) { state.tab = btn.dataset.tab; render(); }
+        }));
+}
+
+function wireRows() {
+    root.querySelectorAll('.sum-work[data-src-id], .swt-row[data-src-id]').forEach(el =>
         el.addEventListener('click', () => {
             if (openWorkReviewCb) { openWorkReviewCb(el.dataset.srcType, +el.dataset.srcId); }
         }));
 }
 
-/* T12.8: дропдауны группы/ученика — общий пикер (picker.js). */
-function openGroupMenu() {
-    openGroupPicker(document.getElementById('sumGroupBtn'), state.groups, state.groupId, id => {
-        state.groupId = id;
-        loadRoster();
-    });
-}
-
-function openStudentMenu() {
-    openStudentPicker(document.getElementById('sumStudentBtn'), state.roster, state.personId, id => {
-        state.personId = id;
-        loadSummary();
-    });
-}
-
 function strip(l) {
-    if (l.kind === 'individual') return 'individual';
+    if ('individual' === l.kind) { return 'individual'; }
     return l.attendance; // present | absent | none
+}
+
+function progressBadge(p) {
+    if (!p) { return ''; }
+    return `<span class="sum-progress${p.failed ? ' has-fail' : ''}" title="Прогресс по шагам урока: ${p.done}/${p.total}${p.failed ? ', есть проваленные шаги' : ''}">${p.done}/${p.total}</span>`;
 }
 
 function lessonCard(l) {
@@ -122,9 +216,9 @@ function lessonCard(l) {
     const st = strip(l);
     const works = l.works.length
         ? `<div class="sum-works">${l.works.map(w => `
-            <span class="sum-work${w.display === 'pending' ? ' pending' : ''}${w.overdue ? ' overdue' : ''}" role="button" tabindex="0"
+            <span class="sum-work${'pending' === w.display ? ' pending' : ''}${w.overdue ? ' overdue' : ''}" role="button" tabindex="0"
                 data-src-type="${esc(w.source_type)}" data-src-id="${w.source_id}" title="${esc(w.title)}${w.overdue ? ' — сдано после дедлайна' : ''} — открыть">
-                ${w.badge ? `<b>${esc(w.badge)}</b> ` : ''}${w.display === 'pending' ? 'на проверке' : esc(w.value)}${w.overdue ? ' <span class="sum-work-late">просрочено</span>' : ''}
+                ${w.badge ? `<b>${esc(w.badge)}</b> ` : ''}${'pending' === w.display ? 'на проверке' : esc(w.value)}${w.overdue ? ' <span class="sum-work-late">просрочено</span>' : ''}
             </span>`).join('')}</div>`
         : '<div class="sum-works sum-works-empty">Работ нет</div>';
 
@@ -136,6 +230,7 @@ function lessonCard(l) {
                 ${l.date ? `<span class="sum-date">${esc(fmtDate(l.date))}</span>` : ''}
                 <span class="sum-kind sum-kind-${esc(l.kind)}">${esc(KIND_LABEL[l.kind] || l.kind)}</span>
                 ${l.kind !== 'individual' && !open ? `<span class="sum-att sum-att-${esc(l.attendance)}">${esc(ATT_LABEL[l.attendance])}</span>` : ''}
+                ${progressBadge(l.progress)}
             </div>
             <div class="sum-topic">${esc(l.topic || '—')}</div>
             ${works}

@@ -14,7 +14,6 @@ use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 use Inc\Repositories\WPDBRepositories\SubmissionRepository;
-use Inc\Repositories\WPDBRepositories\SubstitutionRepository;
 
 /**
  * Class ReviewQueueService
@@ -32,7 +31,7 @@ class ReviewQueueService {
 
 	public function __construct(
 		private readonly GroupsRepository            $groups,
-		private readonly SubstitutionRepository      $substitutions,
+		private readonly TeacherGroupResolver        $teacherGroups,
 		private readonly SubmissionRepository        $submissions,
 		private readonly AssessmentAttemptRepository $attempts,
 		private readonly AssessmentAnswerRepository  $answers,
@@ -56,7 +55,7 @@ class ReviewQueueService {
 	 * @return array<int, array{source_type:string, source_id:int, title:string, label:string, count:int, group_ids:int[], latest_at:?string}>
 	 */
 	public function pendingWorks( int $userId, bool $allGroups, string $tab ): array {
-		$groupIds = $this->groupIdsFor( $userId, $allGroups );
+		$groupIds = $this->teacherGroups->idsFor( $userId, $allGroups );
 		if ( empty( $groupIds ) ) {
 			return array();
 		}
@@ -143,7 +142,7 @@ class ReviewQueueService {
 	 * @return array<int, array{source_type:string, source_id:int, student_name:string, group_id:int, group_name:string, submitted_at:?string}>
 	 */
 	public function submissionsFor( string $sourceType, int $sourceId, int $userId, bool $allGroups, string $tab ): array {
-		$groupIds = $this->groupIdsFor( $userId, $allGroups );
+		$groupIds = $this->teacherGroups->idsFor( $userId, $allGroups );
 		if ( empty( $groupIds ) ) {
 			return array();
 		}
@@ -209,24 +208,6 @@ class ReviewQueueService {
 		$needsApproval = null !== $assessment && AssessmentKind::EgeComputer === $assessment->kind;
 
 		return ( $needsApproval && null === $attempt->approvedAt ) ? 'confirm' : 'done';
-	}
-
-	/**
-	 * Набор групп пользователя: свои (или все для офиса) + группы, которые он
-	 * замещает — тот же принцип, что {@see \Inc\Services\Profile\DashboardService::collectGroups()}.
-	 *
-	 * @return int[]
-	 */
-	private function groupIdsFor( int $userId, bool $allGroups ): array {
-		$ids = array();
-		foreach ( $allGroups ? $this->groups->findAll() : $this->groups->findByTeacherId( $userId ) as $g ) {
-			$ids[ (int) $g->id ] = true;
-		}
-		foreach ( $this->substitutions->findUpcomingOrActiveBySubstitute( $userId, current_time( 'Y-m-d' ) ) as $sub ) {
-			$ids[ $sub->groupId ] = true;
-		}
-
-		return array_keys( $ids );
 	}
 
 	private function studentName( int $studentPersonId, int $groupId ): string {

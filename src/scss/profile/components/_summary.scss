@@ -16,6 +16,49 @@
   margin-bottom: rem(18);
 }
 
+/* Доработка Tasks.md: вкладки «Занятия и прогресс по урокам» / «Работы» —
+   переиспользуют паттерн переключения .wk-tabs (_works.scss), свой класс —
+   т.к. это отдельный набор вкладок экрана «Сводка». */
+.sum-tabs {
+  display: flex;
+  gap: rem(4);
+  border-bottom: 1px solid var(--line);
+  margin-bottom: rem(18);
+}
+
+.sum-tab {
+  border: 0;
+  background: none;
+  padding: rem(10) rem(14);
+  font: inherit;
+  font-size: rem(13.5);
+  color: var(--muted);
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: color $tr, border-color $tr;
+}
+.sum-tab:hover { color: var(--ink-2); }
+.sum-tab.active { color: var(--accent-700); border-bottom-color: var(--accent); font-weight: 600; }
+
+.sum-course-label {
+  display: inline-flex;
+  align-items: center;
+  height: rem(38);
+  font-size: rem(13.5);
+  color: var(--ink-2);
+}
+
+/* Компактный прогресс по шагам урока (done/total) рядом с посещаемостью. */
+.sum-progress {
+  font-size: rem(11.5);
+  font-weight: 700;
+  padding: 1px rem(8);
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--muted);
+}
+.sum-progress.has-fail { background: var(--err-soft); color: var(--err); }
+
 .sum-cards {
   display: flex;
   flex-direction: column;
@@ -221,3 +264,47 @@
 .sum-task-grade--oge-rubric { flex-direction: column; align-items: stretch; gap: rem(6); }
 .stg-oge-score { width: rem(120); height: rem(32); padding: 0 rem(8); border: 1px solid var(--line); border-radius: var(--radius-xs); font: inherit; color: var(--ink); }
 .sum-task-grade--criteria .stg-fb { margin-top: rem(4); }
+
+/* ── Вкладка «Работы» (Tasks.md): плоская таблица работ курса ─────────── */
+.sum-works-table {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.swt-row {
+  display: grid;
+  grid-template-columns: rem(160) 1fr rem(100) rem(120) rem(80);
+  gap: rem(12);
+  align-items: center;
+  padding: rem(10) rem(14);
+  font-size: rem(13);
+  color: var(--ink-2);
+  border-top: 1px solid var(--line);
+}
+.swt-row:first-child { border-top: none; }
+
+.swt-head {
+  font-size: rem(11.5);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .02em;
+  color: var(--muted-2);
+  background: var(--surface-2);
+}
+
+.swt-row:not(.swt-head) { cursor: pointer; transition: background $tr; }
+.swt-row:not(.swt-head):hover { background: var(--surface-2); }
+
+.swt-status { font-weight: 600; }
+.swt-status.pending { color: var(--muted); font-style: italic; }
+.swt-status.overdue { color: var(--err); }
+
+.swt-score { font-weight: 700; color: var(--ink); }
+
+@media (max-width: $breakpoint-mobile) {
+  .swt-row { grid-template-columns: 1fr 1fr; row-gap: rem(4); }
+  .swt-head { display: none; }
+}

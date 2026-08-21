@@ -10,6 +10,7 @@ use Inc\Enums\Wp\Nonce;
 use Inc\Services\Course\GroupAccessGuard;
 use Inc\Services\Course\StudentSummaryService;
 use Inc\Services\Group\GroupRosterService;
+use Inc\Services\Group\StudentDirectoryService;
 use Inc\Shared\Traits\Authorizer;
 use Inc\Shared\Traits\Sanitizer;
 
@@ -26,14 +27,16 @@ class GroupRosterCallbacks extends BaseController {
 	use Sanitizer;
 
 	/**
-	 * @param GroupRosterService    $roster  Ростер группы
-	 * @param StudentSummaryService $summary Сводка по ученику
-	 * @param GroupAccessGuard      $guard   Доступ к группе
+	 * @param GroupRosterService     $roster    Ростер группы
+	 * @param StudentSummaryService  $summary   Сводка по ученику
+	 * @param GroupAccessGuard       $guard     Доступ к группе
+	 * @param StudentDirectoryService $directory Стартовый пикер «ученик → курсы» (Tasks.md п.1-2)
 	 */
 	public function __construct(
-		private readonly GroupRosterService    $roster,
-		private readonly StudentSummaryService $summary,
-		private readonly GroupAccessGuard      $guard,
+		private readonly GroupRosterService      $roster,
+		private readonly StudentSummaryService   $summary,
+		private readonly GroupAccessGuard        $guard,
+		private readonly StudentDirectoryService $directory,
 	) {
 		parent::__construct();
 	}
@@ -66,6 +69,29 @@ class GroupRosterCallbacks extends BaseController {
 	}
 
 	/**
+	 * Активные ученики всех групп, доступных текущему пользователю (Tasks.md п.2) —
+	 * для стартового пикера «Сводки по ученику»: сначала ученик, потом курс.
+	 */
+	public function ajaxGetTeacherStudents(): void {
+		$this->authorize( Nonce::SaveSchedule, Capability::ManageLmsTeaching );
+
+		$userId = get_current_user_id();
+		$this->success( $this->directory->forTeacher( $userId, $this->isOffice( $userId ) ) );
+	}
+
+	/**
+	 * Группы (курсы) ученика, доступные текущему пользователю (Tasks.md п.1).
+	 * Params: student_person_id.
+	 */
+	public function ajaxGetStudentCourses(): void {
+		$this->authorize( Nonce::SaveSchedule, Capability::ManageLmsTeaching );
+		$personId = $this->requireInt( 'student_person_id' );
+
+		$userId = get_current_user_id();
+		$this->success( $this->directory->coursesForStudent( $personId, $userId, $this->isOffice( $userId ) ) );
+	}
+
+	/**
 	 * Прерывает ответ, если у текущего пользователя нет доступа к группе.
 	 *
 	 * @param int $groupId ID группы
@@ -76,5 +102,10 @@ class GroupRosterCallbacks extends BaseController {
 		if ( ! $this->guard->canManage( $groupId, get_current_user_id() ) ) {
 			$this->error( __( 'Нет доступа к группе.', 'fs-lms' ) );
 		}
+	}
+
+	/** Офис видит все группы, препод — свои + активные замены (как ReviewQueueCallbacks). */
+	private function isOffice( int $userId ): bool {
+		return user_can( $userId, Capability::ManageLmsPlatform->value );
 	}
 }

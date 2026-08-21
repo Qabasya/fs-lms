@@ -5,6 +5,7 @@ declare( strict_types=1 );
 namespace Inc\Services\Course;
 
 use Inc\Enums\Course\AccessMode;
+use Inc\Enums\Course\ProgressStatus;
 use Inc\Managers\Course\LessonManager;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
@@ -27,13 +28,14 @@ class StudentSummaryService {
 		private readonly AttendanceService     $attendance,
 		private readonly GradebookService      $gradebook,
 		private readonly GroupsRepository      $groups,
+		private readonly LessonProgressService $progress,
 	) {}
 
 	/**
 	 * @return array{lessons: array<int, array{
 	 *   group_lesson_id:int, date:string, topic:string, kind:string,
-	 *   attendance:string,
-	 *   works: array<int, array{badge:?string, value:string, display:string, title:string, source_type:string, source_id:int, overdue:bool}>
+	 *   attendance:string, progress:?array{total:int, done:int, failed:int, open:int},
+	 *   works: array<int, array{badge:?string, value:string, display:string, title:string, source_type:string, source_id:int, overdue:bool, category:string, score:?float, max_score:?float, graded_at:?string, group_key:?string}>
 	 * }>}
 	 */
 	public function forStudent( int $groupId, int $personId ): array {
@@ -59,6 +61,8 @@ class StudentSummaryService {
 				'topic'           => $lesson?->topic ?? ( $gl->label ?? '' ),
 				'kind'            => $gl->kind->value,
 				'attendance'      => 'none',
+				// Открытые группы (D8) и label-занятия без lessonId — прогресс не считаем.
+				'progress'        => ( ! $isOpen && $gl->lessonId ) ? $this->lessonProgress( $personId, $gl->id ) : null,
 				'works'           => array(),
 			);
 		}
@@ -89,6 +93,12 @@ class StudentSummaryService {
 				'source_id'   => $entry->sourceId,
 				// T12.2 (D13): постоянная метка «Просрочено» — сдано после дедлайна работы.
 				'overdue'     => $entry->isLate,
+				// Вкладка «Работы» (Tasks.md п.4): расширенный набор полей из GradebookEntryDTO.
+				'category'    => $entry->category,
+				'score'       => $entry->score,
+				'max_score'   => $entry->maxScore,
+				'graded_at'   => $entry->gradedAt,
+				'group_key'   => $entry->groupKey,
 			);
 		}
 
@@ -102,5 +112,36 @@ class StudentSummaryService {
 		usort( $out, static fn( array $a, array $b ): int => strcmp( $b['date'], $a['date'] ) );
 
 		return array( 'lessons' => $out, 'open' => false );
+	}
+
+	/**
+	 * Компактный агрегат прогресса урока для строки списка занятий (Tasks.md
+	 * п.3): счётчик done/open + признак наличия failed-шагов, без поштучной
+	 * детализации по шагам.
+	 *
+	 * @return array{total:int, done:int, failed:int, open:int}|null
+	 */
+	private function lessonProgress( int $personId, int $groupLessonId ): ?array {
+		$statuses = $this->progress->getStepStatuses( $personId, $groupLessonId );
+		if ( empty( $statuses ) ) {
+			return null;
+		}
+
+		$done   = 0;
+		$failed = 0;
+		foreach ( $statuses as $status ) {
+			if ( ProgressStatus::Completed === $status ) {
+				++$done;
+			} elseif ( ProgressStatus::Failed === $status ) {
+				++$failed;
+			}
+		}
+
+		return array(
+			'total'  => count( $statuses ),
+			'done'   => $done,
+			'failed' => $failed,
+			'open'   => count( $statuses ) - $done - $failed,
+		);
 	}
 }
