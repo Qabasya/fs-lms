@@ -4,6 +4,8 @@
 /.github/
 /.claude/
 /.idea/
+/.git/
+/build/
 /node_modules/
 /.phpunit.cache/
 /.scss-check/
