@@ -48,8 +48,13 @@ class TaskBundleService {
 	 * Parent — либо предметное задание (`{key}_tasks`), либо задача глобального
 	 * банка (`fs_lms_problems`, без таксономии номеров — см. `PostTypeResolver`).
 	 * Children материализуются в том же CPT, что и parent: у банковских связок
-	 * номер термом не проставляется (у банка таксономии нет вовсе — номер вводится
-	 * вручную в Work/Assessment builder, как у любой другой банковской задачи).
+	 * номер термом не проставляется (у банка таксономии нет вовсе), вместо этого
+	 * каждому child программно ставится пара `BankTaskSubject`/`BankTaskNumber`
+	 * (19/20/21) — то же, что автор проставил бы вручную метабоксом «Предмет и
+	 * номер задания», но children создаются программно и этот метабокс никогда
+	 * не открывают, поэтому без явной простановки они оставались «сиротами» для
+	 * {@see \Inc\Services\Assessment\EgeCompletenessChecker} и невидимы для
+	 * поиска по номеру в {@see \Inc\Services\Course\LessonAuthoringService}.
 	 *
 	 * @param int $parentId ID поста-связки (triple_task)
 	 *
@@ -76,6 +81,11 @@ class TaskBundleService {
 
 			$childPostType = $isBank ? PostTypeResolver::problems() : PostTypeResolver::tasks( $subjectKey );
 			$taxonomy      = $isBank ? '' : "{$subjectKey}_task_number";
+			// Предмет банковской связки — та же мета, что метабокс «Предмет и номер
+			// задания» пишет на parent; номер там на parent не выбрать (поле рассчитано
+			// на один номер, а связка даёт сразу 19/20/21), поэтому у детей он всегда
+			// позиционный (self::NUMBERS), а предмет — унаследованный от parent.
+			$bankSubject   = $isBank ? (string) $this->posts->getMeta( $parentId, PostMetaName::BankTaskSubject->value ) : '';
 
 			$meta = $this->posts->taskMeta( $parentId );
 
@@ -95,7 +105,8 @@ class TaskBundleService {
 					$taxonomy,
 					$number,
 					$condition,
-					$answer
+					$answer,
+					$bankSubject
 				);
 			}
 
@@ -112,12 +123,10 @@ class TaskBundleService {
 	 * (там связка выбирается один раз как parent и разворачивается в 3 слота).
 	 * Пусто, если у поста нет `TaskBundleChildIds` (обычное задание, не связка).
 	 *
-	 * `number` (19/20/21 по фиксированному порядку {@see NUMBERS}) нужен, чтобы
-	 * Assessment builder мог сразу заполнить ручной номер (Задача 8, фолбэк для
-	 * банковских детей без таксономии) — без этого `EgeCompletenessChecker` видит
-	 * такого child «сиротой» (нет ни терма, ни ручного номера в `task_numbers`).
-	 * Для предметных children (терм проставлен) значение избыточно, но безвредно:
-	 * бэкенд игнорирует ручной номер при наличии терма.
+	 * `number` (19/20/21 по фиксированному порядку {@see NUMBERS}) — та же
+	 * позиция, что теперь пишется в `BankTaskNumber` банковских children
+	 * ({@see syncChildren()}); дублируется здесь для фронта конструктора
+	 * (подпись слота), а не как единственный источник номера.
 	 *
 	 * @param int $parentId
 	 *
@@ -201,7 +210,8 @@ class TaskBundleService {
 		string $taxonomy,
 		int $number,
 		string $condition,
-		string $answer
+		string $answer,
+		string $bankSubject = ''
 	): int {
 		$title = "№ {$number}. " . $parent->post_title;
 
@@ -230,13 +240,19 @@ class TaskBundleService {
 		) );
 		$this->posts->updateMeta( $childId, PostMetaName::TaskBundleParentId->value, $parent->ID );
 
-		// Банковские задачи (fs_lms_problems) таксономии номеров не имеют — номер
-		// вводится вручную в Work/Assessment builder, как у любой другой банковской задачи.
 		if ( '' !== $taxonomy ) {
 			$termId = $this->terms->getOrCreateIdByName( (string) $number, $taxonomy );
 			if ( $termId > 0 ) {
 				$this->terms->setPostTerms( $childId, array( $termId ), $taxonomy );
 			}
+		} elseif ( '' !== $bankSubject ) {
+			// Банковские задачи (fs_lms_problems) таксономии номеров не имеют — но
+			// child связки создаётся программно и метабокс «Предмет и номер задания»
+			// на нём никогда не открывают, поэтому проставляем ту же пару меты сами,
+			// иначе child остаётся «сиротой» без номера позиции (EgeCompletenessChecker,
+			// LessonAuthoringService::bankNumberQuery()).
+			$this->posts->updateMeta( $childId, PostMetaName::BankTaskSubject->value, $bankSubject );
+			$this->posts->updateMeta( $childId, PostMetaName::BankTaskNumber->value, (string) $number );
 		}
 
 		return $childId;

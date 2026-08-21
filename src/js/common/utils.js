@@ -147,6 +147,26 @@ export async function copyToClipboard( text ) {
 }
 
 /**
+ * Блокирует копирование текста внутри режима экзамена.
+ *
+ * `user-select: none` (класс `fs-no-copy`) мешает выделению мышью, но не
+ * блокирует `Ctrl+C` по программно/иначе выделенному тексту — поэтому
+ * дополнительно глушится само событие `copy`. `contextmenu` блокируется,
+ * чтобы убрать «Копировать» из меню правой кнопки. Только фронтовый
+ * UX-барьер, не защита: DevTools/просмотр исходника всё ещё доступны.
+ *
+ * @param {Element|null} el Корневой элемент режима экзамена.
+ * @return {void}
+ */
+export function disableCopying( el ) {
+    if ( ! el ) { return; }
+
+    el.classList.add( 'fs-no-copy' );
+    el.addEventListener( 'copy', ( e ) => e.preventDefault() );
+    el.addEventListener( 'contextmenu', ( e ) => e.preventDefault() );
+}
+
+/**
  * Показывает или скрывает элемент атрибутом `hidden`.
  *
  * Инлайновые стили в JS запрещены (CLAUDE.md), поэтому видимость переключается

@@ -8,6 +8,12 @@
 
 html, body { height: 100%; }
 
+/* Запрет копирования текста в режиме решения экзамена — только UX-барьер,
+   не защита (JS дополняет блокировкой событий copy/contextmenu). */
+.fs-no-copy {
+  user-select: none;
+}
+
 body.kege-page {
   font-family: var(--kege-font);
   background: var(--kege-bg);

@@ -6,6 +6,7 @@
  * логику autosave/таймера, только адаптирует их под разметку станции.
  */
 import { saveAnswer, debounce, startCountdown } from '../frontend/services/assessment.js';
+import { disableCopying } from '../common/utils.js';
 import { kegeBr, kegeKim, loadKegeState, setKegeAnswers, setKegeStage, setKegeTask } from './kege-state.js';
 import { renderKegeSheet } from './kege-entry.js';
 
@@ -56,6 +57,10 @@ export function initKegeExam() {
 	// «завершить» просто показывает финальный экран (см. ege-computer.php).
 	const preview      = '1' === app.dataset.preview;
 	let   ritual       = loadKegeState();
+
+	if ( ! preview ) {
+		disableCopying( app );
+	}
 
 	const savedAnswers = new Map(); // taskId (string) -> answerText
 
