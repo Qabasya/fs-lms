@@ -58,7 +58,7 @@ subjectKey — это ОГЭ-информатика?» без объекта э�
 
 ---
 
-# Задача: необязательное поле «код» в ответе на задания с кодом (2026-08-26)
+# Задача: необязательное поле «код» в ответе на задания с кодом (2026-08-26) ✅
 
 Контекст: на заданиях с шаблонами «Задание с кодом» (`TaskTemplate::Code`, `code_task`),
 «Задание с файлом и кодом» (`TaskTemplate::FileCode`, `file_code_task`) и «Задание с двумя
@@ -79,42 +79,55 @@ subjectKey — это ОГЭ-информатика?» без объекта э�
     сборка в `WorkDetailService::fromSubmission()` (строки 181-189), рендер
     `work-review.js::attachmentBlock()` (строки 166-174).
 
-- [ ] `inc/Enums/Subject/TaskTemplate.php` — добавить предикат вроде `hasCodeField()`
-      (по образцу `isFileAnswerShape()`) для кейсов `Code`, `FileCode`, `TwoFile`
-- [ ] `inc/Services/Course/StepContentRenderer.php::buildWidgetData()` (~строка 242) —
-      для этих шаблонов вместо попадания в `default => text_answer` отдавать
-      `type => 'text_answer'` с доп. флагом (например `withCode: true`), а не заводить
-      отдельный тип виджета — поле ответа остаётся тем же textarea, код — второе
-      необязательное поле рядом
-- [ ] `src/js/frontend/components/task-widget.js` — билдер текстового ответа
-      (`buildTextAnswerWidget`, строка ~77) при `withCode` рендерит вторую textarea
-      «Код (необязательно)»; `collectAnswer()` при наличии кода отдаёт
-      `JSON.stringify({ text, code })` вместо голой строки (пустой код → не добавлять
-      поле вовсе, чтобы не ломать старые записи без кода)
-- [ ] `inc/Services/Task/Checkers/TextAnswerChecker.php` — при разборе ответа учитывать,
-      что для этих трёх шаблонов ответ может прийти объектом `{text, code}`: сверять
-      с `task_answer` именно `text`, не приводить весь объект к строке
-- [ ] `inc/Services/Course/WorkDetailService.php::fromSubmission()` — по образцу
-      `parseFileAnswer()`, разобрать JSON-ответ по этим трём шаблонам, вынести `code`
-      отдельным полем в `$tasks[]`, с фолбэком «весь ответ как текст» для старых записей
-      без кода
-- [ ] `src/js/profile/work-review.js::taskBlock()` (строка ~176) — добавить
-      `t.code ? codeBlock(t.code) : ''` (по образцу `taskFilesBlock`/`attachmentBlock`),
-      рендер в `<pre><code>` с моноширинным шрифтом
+- [x] `inc/Enums/Subject/TaskTemplate.php` — предикат `hasCodeField()` для `Code`,
+      `FileCode`, `TwoFile`
+- [x] `inc/Services/Course/StepContentRenderer.php::buildWidgetData()` — новая ветка
+      `TaskTemplate::Code, FileCode, TwoFile => ['type' => 'text_answer', 'with_code' => true]`
+      перед `default`; проверено на реальных задачах в БД (`wp eval-file`) — код-шаблоны
+      отдают `with_code: true`, остальные (в т.ч. Standard) — без него
+- [x] `src/js/frontend/components/task-widget.js::buildTextAnswerWidget()` — при
+      `widgetData.with_code` рендерит вторую textarea «Код (необязательно)»;
+      `collectAnswer()` отдаёт `JSON.stringify({text, code})` только если код
+      непустой, иначе — голую строку (обратная совместимость сохранена)
+- [x] `inc/Services/Task/Checkers/TextAnswerChecker.php` — при объектном ответе
+      `{text, code}` сверяет только `text`; подтверждено прогоном на реальном чекере
+      `TaskCheckerRegistry::get(TaskTemplate::Code)` — объектный ответ, ошибочный
+      объектный ответ и легаси-строка отработали верно
+- [x] `inc/Services/Course/WorkDetailService.php` — новый `parseCodeAnswer()` (по
+      образцу `parseFileAnswer()`) + `taskTemplate()` (общий резолвер шаблона,
+      заменил приватный `isGradable()`); `fromSubmission()` разбирает ответ для
+      code-шаблонов на `answer`(text)/`code`, фолбэк на «весь текст, code=null» для
+      старых записей без кода — подтверждено прогоном на реальных данных
+- [x] `src/js/profile/work-review.js::taskBlock()` — `codeBlock()` (по образцу
+      `taskFilesBlock`/`attachmentBlock`), рендер `<pre><code>` моноширинным
+      шрифтом (`var(--mono)`, стили в `_summary.scss`)
 
 **Решено с пользователем (2026-08-26)**: код должен быть виден и на шаге «Задача», и
-на шаге «Работа» — оба места, не только «Работы».
+на шаге «Работа» — сделано в обоих местах.
 
-- [ ] Шаг «Задача» переиспользует тот же `task-widget.js` для ВВОДА кода — правок на
-      вводе не требует. Но сейчас у него **вообще нет** экрана, где учитель видит
-      текст/код ответа: `TaskAttemptReportService::collectTaskAttempt()`
-      (`inc/Services/Course/TaskAttemptReportService.php:92-129`) отдаёт только
-      вердикт `correct/score/tries`, без самого ответа. Чтобы код (и заодно текст
-      ответа) стал виден на шаге «Задача», нужно расширить `collectTaskAttempt()`
-      полями `answer`/`code` (аналогично `parseFileAnswer()`/`WorkDetailService`) и
-      добавить их рендер в соответствующем JS-экране отчёта по задаче (найти текущий
-      потребитель `TaskAttemptReportService` на фронте учителя и добавить туда блок
-      кода по образцу `codeBlock()` из `work-review.js`)
+- [x] `inc/Services/Course/TaskAttemptReportService.php` — новый `splitAnswer()`:
+      разбирает сохранённый ответ попытки на `answer`(текст)/`code`; строковый ответ
+      (Standard/Common/Audio) → просто текст без кода; объект `{text, code}`
+      (Code/FileCode/TwoFile) → оба поля; другие структуры (Choice/Matching/
+      Ordering/Fill) → оба `null` (этот отчёт их не разбирает). Поля добавлены
+      в `collectTaskAttempt()` в каждую строку `attempts[]`
+- [x] `src/js/profile/activity.js::attemptChip()` — экран «Активность → Решения
+      задач» рендерит попытки компактными пилюлями (не полноэкранным списком, как
+      «Работы»), поэтому вместо блока кода — метка «код» (`.act-attempt-code`) на
+      пилюле + код в `title`-тултипе (нативные тултипы поддерживают переводы строк)
+
+**Проверка**: ESLint/stylelint — 0 ошибок на изменённых файлах (только pre-existing
+предупреждения `!important` в других файлах); phpcs — 0 новых нарушений (только
+pre-existing camelCase-предупреждения WordPress-стандарта на DTO-свойствах, были в
+файлах и до правки, подтверждено `git stash` сравнением); `npx gulp build` — сборка
+JS/CSS без ошибок; полный набор PHPUnit — 1363/1363 зелёные; интеграционная проверка
+через `wp eval-file` в докере на реальных опубликованных задачах (`code_task`,
+`file_code_task`, `two_file_code_task`) подтвердила: виджет получает `with_code`
+только для этих шаблонов, чекер сверяет только `text` из объектного ответа,
+`parseCodeAnswer` корректно восстанавливает `{text, code}` и легаси-строки. Полный
+браузерный E2E прогон плеера курса НЕ выполнялся — в БД не нашлось живого урока с
+шагом, ссылающимся на эти задачи (они пока используются только в банке/КЕГЭ), заводить
+тестовый урок ради разовой проверки не стали.
 
 ---
 

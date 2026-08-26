@@ -188,6 +188,23 @@
 .stg-fb { flex: 1 1 rem(160); height: rem(32); padding: 0 rem(8); border: 1px solid var(--line); border-radius: var(--radius-xs); font: inherit; color: var(--ink); }
 .sum-task-grade input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 
+/* Необязательное поле «Код» (Code/FileCode/TwoFile) — только показ, в проверку не участвует. */
+.sum-task-code { margin-top: rem(8); font-size: rem(13); }
+
+.sum-task-code-pre {
+  margin: rem(6) 0 0;
+  padding: rem(10) rem(12);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xs);
+  font-family: var(--mono);
+  font-size: rem(12.5);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  color: var(--ink);
+}
+
 /* Эпик 13 (D16): файлы ученика в ответе «Развёрнутый ответ» */
 .sum-task-files { margin-top: rem(8); font-size: rem(13); }
 .sum-task-files__list { display: flex; flex-wrap: wrap; gap: rem(8); margin-top: rem(6); }

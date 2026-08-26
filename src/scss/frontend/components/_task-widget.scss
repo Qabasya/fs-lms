@@ -49,6 +49,38 @@
 	}
 }
 
+// Код (необязательное доп.поле — Code / FileCode / TwoFile)
+.fs-widget-code-label {
+	display:       block;
+	margin-top:    $spacing-md;
+	margin-bottom: $spacing-xs;
+	font-size:     $font-size-base;
+	color:         $color-muted;
+}
+
+.fs-widget-code {
+	width:       100%;
+	max-width:   rem(560);
+	padding:     $spacing-sm $spacing-md;
+	border:      1px solid $color-border;
+	border-radius: $border-radius-lg;
+	font-size:   $font-size-code;
+	font-family: $font-code;
+	resize:      vertical;
+	transition:  border-color $transition;
+
+	&:focus {
+		outline:       none;
+		border-color:  $color-accent;
+	}
+
+	&:disabled {
+		background: $color-bg-subtle;
+		color:      $color-muted;
+		cursor:     default;
+	}
+}
+
 // Audio player
 .fs-widget-audio {
 	display:       block;

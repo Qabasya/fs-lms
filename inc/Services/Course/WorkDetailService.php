@@ -116,9 +116,21 @@ class WorkDetailService {
 			$taskId   = (int) $taskId;
 			$pt       = $perTask[ $taskId ] ?? array();
 			$row      = $rowsByTask[ $taskId ] ?? null;
-			$gradable = $this->isGradable( $taskId );
+			$template = $this->taskTemplate( $taskId );
+			$gradable = $template->isFileAnswerShape();
 			if ( $gradable ) {
 				$hasGradableTask = true;
+			}
+
+			// Задания с кодом (Code/FileCode/TwoFile) хранят ответ JSON {"text","code"} —
+			// разбираем на текст (участвует в вердикте/сверке) и код (только для показа).
+			$rawAnswer = (string) ( $row->answerText ?? '' );
+			$answer    = $rawAnswer;
+			$code      = null;
+			if ( $template->hasCodeField() ) {
+				$parsedCode = $this->parseCodeAnswer( $rawAnswer );
+				$answer     = $parsedCode['text'];
+				$code       = $parsedCode['code'];
 			}
 
 			// Ручное задание (file_answer_task) с уже начатой/законченной проверкой —
@@ -130,7 +142,8 @@ class WorkDetailService {
 				$tasks[] = array(
 					'n'                  => ++$n,
 					'condition'          => $this->condition( $taskId ),
-					'answer'             => (string) ( $row->answerText ?? '' ),
+					'answer'             => $answer,
+					'code'               => $code,
 					'correct'            => $this->correctAnswers->resolve( $taskId ),
 					'verdict'            => $verdict,
 					'score'              => $row->score,
@@ -145,7 +158,8 @@ class WorkDetailService {
 			$tasks[] = array(
 				'n'                  => ++$n,
 				'condition'          => $this->condition( $taskId ),
-				'answer'             => (string) ( $row->answerText ?? '' ),
+				'answer'             => $answer,
+				'code'               => $code,
 				'correct'            => $this->correctAnswers->resolve( $taskId ),
 				'verdict'            => (string) ( $pt['verdict'] ?? 'pending' ),
 				'score'              => isset( $pt['score'] ) ? (float) $pt['score'] : null,
@@ -311,15 +325,31 @@ class WorkDetailService {
 		return $this->taskMeta->getCombinedCondition( $this->posts->taskMeta( $taskId ) );
 	}
 
-	/**
-	 * Задание требует ручной оценки (D4, .docs/Tasks.md) — источник истины
-	 * {@see TaskTemplate::isFileAnswerShape()} (у обоих шаблонов такой формы нет
-	 * автопроверки в {@see \Inc\Services\Task\TaskCheckerRegistry}).
-	 */
-	private function isGradable( int $taskId ): bool {
+	private function taskTemplate( int $taskId ): TaskTemplate {
 		return TaskTemplate::fromDatabase(
 			(string) $this->posts->getMeta( $taskId, PostMetaName::TemplateType->value )
-		)->isFileAnswerShape();
+		);
+	}
+
+	/**
+	 * Разбор ответа заданий с кодом (Code/FileCode/TwoFile, {@see TaskTemplate::
+	 * hasCodeField()}): ответ хранится JSON `{"text","code"}` (см.
+	 * `src/js/frontend/components/task-widget.js::buildTextAnswerWidget()`), код —
+	 * необязателен. Не-JSON (старая запись без кода, до появления этого поля) —
+	 * весь текст как есть, без кода.
+	 *
+	 * @return array{text: string, code: string|null}
+	 */
+	private function parseCodeAnswer( ?string $answerText ): array {
+		$decoded = is_string( $answerText ) && '' !== $answerText ? json_decode( $answerText, true ) : null;
+		if ( ! is_array( $decoded ) || ! array_key_exists( 'text', $decoded ) ) {
+			return array( 'text' => (string) $answerText, 'code' => null );
+		}
+
+		return array(
+			'text' => (string) $decoded['text'],
+			'code' => isset( $decoded['code'] ) ? (string) $decoded['code'] : null,
+		);
 	}
 
 	/**

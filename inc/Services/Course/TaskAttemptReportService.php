@@ -114,18 +114,50 @@ class TaskAttemptReportService {
 			$groups[ $key ]['students'][ $personId ] = $this->newStudent( $personId, $names );
 		}
 
+		[ $answerText, $code ] = $this->splitAnswer( $attempt->answer );
+
 		$groups[ $key ]['students'][ $personId ]['attempts'][] = array(
 			'number'     => $attempt->attemptNumber,
 			'correct'    => $attempt->isCorrect,
 			'score'      => $attempt->score,
 			'max_score'  => $attempt->maxScore,
 			'created_at' => $attempt->createdAt,
+			'answer'     => $answerText,
+			'code'       => $code,
 		);
 		++$groups[ $key ]['students'][ $personId ]['tries'];
 
 		if ( true === $attempt->isCorrect ) {
 			$groups[ $key ]['students'][ $personId ]['solved'] = true;
 		}
+	}
+
+	/**
+	 * Разбирает сохранённый ответ попытки на текст + необязательный код.
+	 *
+	 * Задания с кодом (Code/FileCode/TwoFile, {@see \Inc\Enums\Subject\TaskTemplate::
+	 * hasCodeField()}) хранят ответ объектом `{text, code}` (см. `task-widget.js::
+	 * buildTextAnswerWidget()`) — остальные шаблоны либо строкой (Standard/Common/
+	 * Audio), либо структурой другой формы (Choice/Matching/Ordering/Fill), которую
+	 * этот отчёт не разбирает — для них оба поля остаются `null`.
+	 *
+	 * @param mixed $answer Декодированный ответ попытки (строка/массив/null)
+	 *
+	 * @return array{0: string|null, 1: string|null} [answerText, code]
+	 */
+	private function splitAnswer( mixed $answer ): array {
+		if ( is_string( $answer ) ) {
+			return array( $answer, null );
+		}
+
+		if ( is_array( $answer ) && array_key_exists( 'text', $answer ) ) {
+			$text = is_string( $answer['text'] ) ? $answer['text'] : (string) $answer['text'];
+			$code = isset( $answer['code'] ) && '' !== $answer['code'] ? (string) $answer['code'] : null;
+
+			return array( $text, $code );
+		}
+
+		return array( null, null );
 	}
 
 	/**

@@ -16,11 +16,22 @@ use Inc\DTO\Task\CheckResultDTO;
  * ТОЛЬКО ответ, сам код/файл не автопроверяется. Ручной лишь FileAnswer (без
  * `task_answer`).
  *
+ * У Code/FileCode/TwoFile (`TaskTemplate::hasCodeField()`) ответ ученика может
+ * прийти объектом `{text, code}` вместо голой строки — сверяется всё равно
+ * только `text`.
+ *
  * @package Inc\Services\Task\Checkers
  */
 class TextAnswerChecker implements TaskCheckerInterface {
 
 	public function check( array $content, mixed $studentAnswer ): CheckResultDTO {
+		// Код/файловые шаблоны с необязательным полем «Код» (TaskTemplate::hasCodeField())
+		// присылают ответ объектом { text, code } вместо голой строки — проверке
+		// подлежит только text, код в сверке не участвует.
+		if ( is_array( $studentAnswer ) && array_key_exists( 'text', $studentAnswer ) ) {
+			$studentAnswer = $studentAnswer['text'];
+		}
+
 		$correct = $this->normalize( (string) ( $content['task_answer'] ?? '' ) );
 		$student = $this->normalize( (string) $studentAnswer );
 

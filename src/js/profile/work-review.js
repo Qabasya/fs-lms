@@ -217,10 +217,21 @@ function taskBlock(t, d) {
             </div>
             <div class="sum-task-cond">${t.condition || '<i>условие недоступно</i>'}</div>
             <div class="sum-task-ans"><span class="sta-label">Ответ ученика:</span> <span class="sta-val">${t.answer ? esc(t.answer) : '—'}</span></div>
+            ${t.code ? codeBlock(t.code) : ''}
             ${t.files && t.files.length ? taskFilesBlock(t.files) : ''}
             ${t.correct ? `<div class="sum-task-ans sum-task-correct"><span class="sta-label">Правильный ответ:</span> <span class="sta-val">${esc(t.correct)}</span></div>` : ''}
             ${grade}
         </div>`;
+}
+
+/* Необязательное поле «Код» у заданий Code/FileCode/TwoFile
+   (TaskTemplate::hasCodeField()) — код ученика показываем отдельным блоком,
+   моноширинным шрифтом, в проверке ответа не участвует. */
+function codeBlock(code) {
+    return `<div class="sum-task-code">
+        <span class="sta-label">Код ученика:</span>
+        <pre class="sum-task-code-pre"><code>${esc(code)}</code></pre>
+    </div>`;
 }
 
 /* Эпик 13 (D16): файлы ученика в ответе «Развёрнутый ответ» — превью изображения
