@@ -7,12 +7,17 @@ defined( 'ABSPATH' ) || exit;
 /**
  * Фильтры над нативной таблицей банка задач (хук restrict_manage_posts).
  *
+ * @var array{name: string, options: array, selected: string, all_label: string}|null $subject
  * @var array{name: string, options: array, selected: string, all_label: string}|null $tag
  * @var array{selected: string, courses: array<int,string>, works: array<int,string>} $usage
  * @var array{name: string, options: array, selected: string, all_label: string}|null $author
  */
 
 require_once __DIR__ . '/../components/UI/ui_renderers.php';
+
+if ( null !== $subject ) {
+	render_fs_select( $subject );
+}
 
 if ( null !== $tag ) {
 	render_fs_select( $tag );

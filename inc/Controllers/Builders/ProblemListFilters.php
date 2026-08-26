@@ -4,7 +4,9 @@ declare( strict_types=1 );
 
 namespace Inc\Controllers\Builders;
 
+use Inc\Enums\Wp\PostMetaName;
 use Inc\Managers\Wp\PostManager;
+use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Services\Course\BankUsageIndex;
 use Inc\Services\Course\ContentUsageService;
 use Inc\Services\Subject\PostTypeResolver;
@@ -14,7 +16,7 @@ use Inc\Shared\Traits\Sanitizer;
  * Class ProblemListFilters
  *
  * Фильтры и сортировка нативной таблицы банка задач (`fs_lms_problems`):
- * тематика, использование (курс/работа/сирота), автор.
+ * предмет, тематика, использование (курс/работа/сирота), автор.
  *
  * @package Inc\Controllers\Builders
  *
@@ -32,6 +34,9 @@ class ProblemListFilters {
 	/** Статусы для сортировки по колонке «Использование». */
 	private const SORT_STATUSES = array( 'publish', 'draft', 'pending', 'private', 'future', 'fs_archived' );
 
+	/** Спец-значение фильтра «Предмет» для задач без выбранного предмета. */
+	private const NO_SUBJECT = 'none';
+
 	/** @var array<int, array{int, string, int[]}>|null Кэш индекса курсов на время запроса. */
 	private ?array $courseIndex = null;
 
@@ -39,20 +44,23 @@ class ProblemListFilters {
 	private ?array $workIndex = null;
 
 	/**
-	 * @param BankUsageIndex      $index Индексы «потребитель → задачи»
-	 * @param ContentUsageService $usage Подписи использования (для сортировки колонки)
-	 * @param PostManager         $posts Доступ к записям банка
+	 * @param BankUsageIndex      $index    Индексы «потребитель → задачи»
+	 * @param ContentUsageService $usage    Подписи использования (для сортировки колонки)
+	 * @param PostManager         $posts    Доступ к записям банка
+	 * @param SubjectRepository   $subjects Список предметов для фильтра/колонки «Предмет»
 	 */
 	public function __construct(
 		private readonly BankUsageIndex      $index,
 		private readonly ContentUsageService $usage,
 		private readonly PostManager         $posts,
+		private readonly SubjectRepository   $subjects,
 	) {}
 
 	/**
 	 * Данные фильтров для шаблона.
 	 *
 	 * @return array{
+	 *     subject: array{name: string, options: array, selected: string, all_label: string}|null,
 	 *     tag: array{name: string, options: array, selected: string, all_label: string}|null,
 	 *     usage: array{selected: string, courses: array<int,string>, works: array<int,string>},
 	 *     author: array{name: string, options: array, selected: string, all_label: string}|null
@@ -60,18 +68,19 @@ class ProblemListFilters {
 	 */
 	public function data(): array {
 		return array(
-			'tag'    => $this->tagSelect(),
-			'usage'  => array(
+			'subject' => $this->subjectSelect(),
+			'tag'     => $this->tagSelect(),
+			'usage'   => array(
 				'selected' => $this->sanitizeGetKey( 'fs_problem_usage' ),
 				'courses'  => $this->index->consumerOptions( $this->courses() ),
 				'works'    => $this->index->consumerOptions( $this->works() ),
 			),
-			'author' => $this->authorSelect(),
+			'author'  => $this->authorSelect(),
 		);
 	}
 
 	/**
-	 * Применяет сортировку и фильтр использования к списку задач.
+	 * Применяет сортировку и фильтры (использование, предмет) к списку задач.
 	 *
 	 * @param \WP_Query $query Основной запрос экрана
 	 *
@@ -80,6 +89,7 @@ class ProblemListFilters {
 	public function apply( \WP_Query $query ): void {
 		$this->applyUsageSort( $query );
 		$this->applyUsageFilter( $query );
+		$this->applySubjectFilter( $query );
 	}
 
 	/**
@@ -149,6 +159,50 @@ class ProblemListFilters {
 			$ids = $this->index->idsFor( $this->works(), (int) $usage );
 			$query->set( 'post__in', empty( $ids ) ? array( 0 ) : $ids );
 		}
+	}
+
+	/**
+	 * Фильтр по предмету банковской задачи (`PostMetaName::BankTaskSubject`) —
+	 * конкретный ключ предмета или спец-значение {@see NO_SUBJECT} («без предмета»,
+	 * мета всегда существует и пуста, если предмет не выбран — см.
+	 * `ProblemsController::saveSubjectFields()`).
+	 *
+	 * @param \WP_Query $query Запрос
+	 *
+	 * @return void
+	 */
+	private function applySubjectFilter( \WP_Query $query ): void {
+		$subject = $this->sanitizeGetKey( 'fs_problem_subject' );
+		if ( '' === $subject ) {
+			return;
+		}
+
+		$value = self::NO_SUBJECT === $subject ? '' : $subject;
+		$query->set( 'meta_query', array( array( 'key' => PostMetaName::BankTaskSubject->value, 'value' => $value ) ) );
+	}
+
+	/**
+	 * Селект предмета — все предметы + «Без предмета».
+	 *
+	 * @return array{name: string, options: array, selected: string, all_label: string}|null
+	 */
+	private function subjectSelect(): ?array {
+		$subjects = $this->subjects->readAll();
+		if ( empty( $subjects ) ) {
+			return null;
+		}
+
+		$options = array( self::NO_SUBJECT => 'Без предмета' );
+		foreach ( $subjects as $s ) {
+			$options[ $s->key ] = $s->name;
+		}
+
+		return array(
+			'name'      => 'fs_problem_subject',
+			'options'   => $options,
+			'selected'  => $this->sanitizeGetKey( 'fs_problem_subject' ),
+			'all_label' => 'Все предметы',
+		);
 	}
 
 	/**

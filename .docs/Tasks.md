@@ -250,7 +250,7 @@ fs_lms_task_attempts`), таблицы вернулись к 0 строк. За�
 
 ---
 
-# Задача: фильтр и колонка «Предмет» в банке задач (2026-08-26)
+# Задача: фильтр и колонка «Предмет» в банке задач (2026-08-26) ✅
 
 Контекст: страница «Банк задач» (`fs_lms_problems`) уже имеет фильтры над таблицей —
 тематика (`problem_tag`), использование (курс/работа/сирота), автор
@@ -263,26 +263,41 @@ fs_lms_task_attempts`), таблицы вернулись к 0 строк. За�
 (`inc/Controllers/Problems/ProblemsController.php:156, 198-202` — метабокс «Предмет и
 номер задания», ключ предмета или пустая строка, если не выбран).
 
-- [ ] `inc/Controllers/Builders/ProblemListFilters.php` — новый метод `subjectSelect()`
-      (по образцу `tagSelect()`/`authorSelect()`, строки 159-205): опции — все предметы
-      из `SubjectRepository::readAll()` (уже внедряется в `ProblemsController` как
-      `$this->subjects`, доступен и здесь через DI) + отдельный пункт «Без предмета»;
-      добавить в `data()` (строка 61-71) как `'subject' => $this->subjectSelect()`
-- [ ] Там же — `applySubjectFilter()` (по образцу `applyUsageFilter()`, строки 129-152):
-      читает `$_GET['fs_problem_subject']`, при конкретном ключе —
-      `meta_query` по `BankTaskSubject = <key>`, при спец-значении (например `none`) —
-      `BankTaskSubject` пусто/не существует; вызвать из `apply()` (строка 80-83)
-- [ ] `templates/admin/problems/problem-filters` — добавить `<select>` предмета рядом с
-      существующими (тематика/использование/автор)
-- [ ] `inc/Controllers/Problems/ProblemsController.php::addColumns()` (строки 299-321) —
-      вставить колонку `subject` в `$order` МЕЖДУ `title` и таксономиями
-      (сейчас порядок: `cb, title, [taxonomy-*], template_type, author, fs_lms_usage,
-      date` — нужно `cb, title, subject, [taxonomy-*], ...`), с подписью «Предмет»
-- [ ] `renderColumn()` (строки 326-335) — добавить ветку для `subject`: читает
-      `BankTaskSubject`, резолвит через `SubjectRepository::getByKey()` в `->name`,
-      выводит `esc_html()`, тире при пустом значении (как у `template_type`)
-- [ ] (опционально) `sortableColumns()` (строки 344-350) — сделать колонку «Предмет»
-      сортируемой мета-сортировкой, по аналогии с `template_type`
+- [x] `inc/Controllers/Builders/ProblemListFilters.php` — новый `subjectSelect()`
+      (по образцу `tagSelect()`/`authorSelect()`): опции — все предметы из
+      `SubjectRepository::readAll()` (новая зависимость конструктора) + спец-пункт
+      `'none' => 'Без предмета'`; добавлен в `data()` как `'subject' => ...`
+- [x] Там же — `applySubjectFilter()` (по образцу `BankListFilters::applyMeta()`):
+      читает `$_GET['fs_problem_subject']`, при конкретном ключе — `meta_query` по
+      `BankTaskSubject = <key>`, при `none` — `BankTaskSubject = ''` (мета всегда
+      существует, пуста при несохранённом предмете); вызывается из `apply()`
+- [x] `templates/admin/problems/problem-filters.php` — `<select>` предмета первым,
+      перед тематикой
+- [x] `ProblemsController::addColumns()` — колонка `subject` вставлена между `title`
+      и таксономиями, подпись «Предмет»
+- [x] `renderColumn()` — ветка для `subject`: `BankTaskSubject` → `SubjectRepository::
+      getByKey()->name`, `esc_html()`, тире при пустом/неизвестном ключе
+- [x] `sortableColumns()` — колонка «Предмет» сделана сортируемой (мета-сортировка
+      по ключу предмета, та же оговорка, что у `template_type`: сортирует по
+      значению меты, не по отображаемому названию)
+
+**Проверка**: ESLint (не затронут)/stylelint (не затронут)/phpcs — 0 новых нарушений
+(одна новая строка `meta_query`-фильтра сознательно оставлена одной строкой — точная
+копия уже существующего паттерна `BankListFilters::applyMeta()`, не отдельная
+инвенция). PHPUnit — 1376/1376 (было 1370, +6: новый файл
+`tests/Unit/Controllers/Builders/ProblemListFiltersTest.php` (3 теста на
+`subjectSelect()`) + 3 новых теста в `ProblemsControllerTest` (порядок колонок,
+рендер колонки с/без предмета). `npx gulp build` не требовался (правки только PHP).
+
+Интеграционная проверка через `wp eval-file`/`wp eval` в докере на реальных данных
+(53 существующие банковские задачи, 32 с предметом `inf_ege`): `ProblemListFilters::
+data()['subject']` отдаёт корректные опции и `all_label`; `apply()` на настоящем
+`WP_Query` (полный жизненный цикл — `set()` + `apply()` + `get_posts()`, как в
+реальном хуке `pre_get_posts`) дал `found_posts` 32/0/53 для `inf_ege`/`none`/без
+фильтра — фильтрация работает корректно на реальных постах, не только по
+структуре `meta_query`. `ProblemsController::addColumns()`/`renderColumn()`
+проверены на реальном посте `#19531` — колонка вернула «Информатика». Полный клик
+по экрану `wp-admin` в браузере не проверялся.
 
 ---
 
