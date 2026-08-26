@@ -245,17 +245,41 @@ function mountWork( panel, root ) {
 			'</div>';
 	}
 
-	// ── «Пройти заново» (повторная сдача поверх существующей) ────────────
+	// ── «Пройти заново» (полностью новая попытка, БЕЗ переноса старых ответов —
+	// предыдущая сдача остаётся в истории попыток педагога нетронутой, см.
+	// .docs/Tasks.md). Виджеты пересоздаются с нуля (тот же приём, что
+	// step-task.js::retry()), а не просто очищаются — это универсально работает
+	// для всех типов (Choice/Matching/Ordering/Fill), не только текстовых.
 	function retry() {
 		resultsRoot.hidden  = true;
 		progressRoot.hidden = false;
-		widgets.forEach( ( widget, taskId ) => {
-			const prev = parseAnswer( state.task_results[ taskId ]?.answer );
-			if ( prev !== undefined && prev !== null ) { widget.setAnswer( prev ); }
+
+		cards.forEach( ( card ) => {
+			const taskId    = card.dataset.taskId;
+			const container = card.querySelector( '.fs-task-widget' );
+			if ( container ) {
+				container.removeAttribute( 'data-done' );
+				container.innerHTML = '';
+			}
+
+			const widget = initTaskWidget( card );
+			if ( ! widget ) { return; }
+			widgets.set( taskId, widget );
+
+			widget.onChange( () => {
+				drafts[ taskId ] = parseAnswer( widget.collectAnswer() );
+				writeDrafts( draftKey, drafts );
+				updateChip( card, widget );
+				updateProgress();
+			} );
+			updateChip( card, widget );
 		} );
-		cards.forEach( ( card ) => updateChip( card, widgets.get( card.dataset.taskId ) ) );
+
+		Object.keys( drafts ).forEach( ( k ) => delete drafts[ k ] );
+		clearDrafts( draftKey );
+
 		updateProgress();
-		toast( 'Ответы можно изменить и сдать работу заново' );
+		toast( 'Работа сброшена — решите её заново' );
 	}
 
 

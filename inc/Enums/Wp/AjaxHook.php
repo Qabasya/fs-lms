@@ -253,6 +253,9 @@ enum AjaxHook: string {
 	// ==== Деталь работы из сводки (ЛК преподавателя, Эпик 10 T10.9) ====
 	case GetWorkDetail           = 'get_work_detail'; // params: source_type (submission|attempt), source_id — условия/ответы/вердикты
 
+	// ==== История попыток «Пройти заново» (.docs/Tasks.md) ====
+	case GetWorkAttemptHistory   = 'get_work_attempt_history'; // params: submission_id — прошлые раунды сдачи работы (read-only), пилюли на экране проверки
+
 	// ==== Сброс попыток ученика преподавателем (задача 11) ====
 	case ResetAttempts           = 'reset_attempts'; // params: source_type (submission|attempt), source_id — удаляет попытки/сдачи ученика по этой работе/экзамену
 

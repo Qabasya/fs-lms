@@ -7,7 +7,7 @@
    openWorkReview(), app.js держит его секцию в DOM всегда.
    ══════════════════════════════════════════════════════════════════════ */
 
-import { esc, toast, fmtNum } from './utils.js';
+import { esc, toast, fmtNum, fmtDateTime } from './utils.js';
 import { icoChevronLeft } from '../common/icons.js';
 import { createApi } from './api.js';
 import { confirmDialog } from '../common/components/confirm-dialog.js';
@@ -59,7 +59,19 @@ export async function openWorkReview(sourceType, sourceId, from) {
         wrRoot.innerHTML = `<div class="wr-loading">${esc(e.message)}</div>`;
         return;
     }
-    render(d);
+
+    // «Пройти заново» (.docs/Tasks.md): история прошлых раундов сдачи — только
+    // для работ (submission), у экзаменов каждая попытка и так отдельная запись.
+    // Не критично для основного экрана — молчаливо пропускаем при сбое.
+    let history = [];
+    if ('work' === d.kind && d.submission_id) {
+        try {
+            const r = await reviewApi('getAttemptHistory', { submission_id: d.submission_id });
+            history = r?.attempts || [];
+        } catch { /* пилюли просто не покажутся */ }
+    }
+
+    render(d, history);
 }
 
 function reload() {
@@ -67,8 +79,8 @@ function reload() {
 }
 
 /* ── Render ───────────────────────────────────────────────────────────── */
-function render(d) {
-    const tasks = d.tasks.length
+function render(d, history = []) {
+    const liveTasksHtml = d.tasks.length
         ? d.tasks.map(t => taskBlock(t, d)).join('')
         : '<div class="sum-detail-empty">В работе нет задач.</div>';
     const scoreLine = (d.score !== null && d.score !== undefined)
@@ -92,6 +104,10 @@ function render(d) {
             </div>
         </div>` : '';
 
+    // «Пройти заново» (.docs/Tasks.md): пилюли попыток — только когда их больше одной.
+    const currentRound = history.length ? Math.max(...history.map(h => h.round)) : null;
+    const pills = attemptPillsBlock(history, currentRound);
+
     wrRoot.innerHTML = `
         <div class="wr-screen">
             <div class="wr-head">
@@ -106,8 +122,9 @@ function render(d) {
                     <button class="prof-btn prof-btn-sm sum-reset">Сбросить попытки</button>
                 </div>
             </div>
+            ${pills}
             <div class="wr-body">
-                ${tasks}
+                <div class="wr-tasks" data-wr-tasks>${liveTasksHtml}</div>
                 ${d.attachment_url ? attachmentBlock(d) : ''}
                 ${d.feedback ? `<div class="sum-fb"><b>Комментарий:</b> ${esc(d.feedback)}</div>` : ''}
             </div>
@@ -116,11 +133,79 @@ function render(d) {
 
     wrRoot.querySelector('.wr-back').addEventListener('click', () => onBackCb());
 
+    const wireLiveTaskControls = () => {
+        if (d.kind === 'exam' && d.attempt_id && attemptGradeApi) { wireAttemptGrading(wrRoot, d); }
+        if (d.kind === 'work' && batchGradeApi) { wireSubmissionTaskGrading(wrRoot); }
+    };
+    wireLiveTaskControls();
+
     if (d.gradable) { wireGrading(wrRoot, d.submission_id); }
-    if (d.kind === 'exam' && d.attempt_id && attemptGradeApi) { wireAttemptGrading(wrRoot, d); }
-    if (d.kind === 'work' && batchGradeApi) { wireSubmissionTaskGrading(wrRoot); }
     if (canApprove) { wireApprove(wrRoot, d); }
     wireReset(wrRoot);
+    if (pills) { wireAttemptPills(wrRoot, history, currentRound, liveTasksHtml, wireLiveTaskControls); }
+}
+
+/* «Пройти заново»: строка вкладок-пилюль над списком задач — по одной на
+   раунд сдачи, последняя всегда «текущая» (то, что и так показывает экран). */
+function attemptPillsBlock(history, currentRound) {
+    if (history.length < 2) { return ''; }
+
+    return `<div class="wr-attempts">
+        ${history.map(h => {
+            const ok = h.tasks.filter(t => 'correct' === t.verdict).length;
+            return `<button type="button" class="wr-attempt-pill${h.round === currentRound ? ' is-active' : ''}" data-round="${h.round}">` +
+                `Попытка ${h.round} · ${esc(fmtDateTime(h.submitted_at))} · ${ok}/${h.tasks.length}` +
+                `${h.round === currentRound ? ' <span class="wr-attempt-cur">текущая</span>' : ''}` +
+                '</button>';
+        }).join('')}
+    </div>`;
+}
+
+/* Клик по пилюле подменяет список задач: текущий раунд — обычный live-рендер
+   (с контролами оценки), прошлые — read-only снимок без них (ручная оценка
+   применима только к актуальной сдаче — она одна попадает в журнал). */
+function wireAttemptPills(root, history, currentRound, liveTasksHtml, wireLiveTaskControls) {
+    const tasksRoot = root.querySelector('[data-wr-tasks]');
+    const foot      = root.querySelector('.wr-foot');
+
+    root.querySelectorAll('[data-round]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            root.querySelectorAll('[data-round]').forEach((b) => b.classList.remove('is-active'));
+            btn.classList.add('is-active');
+
+            const round = Number(btn.dataset.round);
+            if (round === currentRound) {
+                tasksRoot.innerHTML = liveTasksHtml;
+                if (foot) { foot.hidden = false; }
+                wireLiveTaskControls();
+                return;
+            }
+
+            const roundData = history.find((h) => h.round === round);
+            tasksRoot.innerHTML = roundData && roundData.tasks.length
+                ? roundData.tasks.map(historyTaskBlock).join('')
+                : '<div class="sum-detail-empty">В этой попытке нет задач.</div>';
+            if (foot) { foot.hidden = true; }
+        });
+    });
+}
+
+/* Read-only карточка задачи прошлой попытки — без контролов оценки. */
+function historyTaskBlock(t) {
+    const score = (t.score !== null && t.score !== undefined)
+        ? `<span class="st-score">${fmtNum(t.score)}${t.max_score != null ? '/' + fmtNum(t.max_score) : ''}</span>` : '';
+
+    return `
+        <div class="sum-task">
+            <div class="sum-task-head">
+                <span class="st-n">Задача ${t.n}</span>
+                <span class="sum-verdict sv-${esc(t.verdict)}">${esc(VERDICT_LABEL[t.verdict] || t.verdict)}</span>
+                ${score}
+            </div>
+            <div class="sum-task-cond">${t.condition || '<i>условие недоступно</i>'}</div>
+            <div class="sum-task-ans"><span class="sta-label">Ответ ученика:</span> <span class="sta-val">${t.answer ? esc(t.answer) : '—'}</span></div>
+            ${t.code ? codeBlock(t.code) : ''}
+        </div>`;
 }
 
 /* D18: «Утвердить работу» — единственное явное действие учителя для ЕГЭ (без

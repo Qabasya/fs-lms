@@ -131,7 +131,7 @@ JS/CSS без ошибок; полный набор PHPUnit — 1363/1363 зел
 
 ---
 
-# Задача: «Пройти заново» решает работу с нуля + педагог видит все попытки (2026-08-26)
+# Задача: «Пройти заново» решает работу с нуля + педагог видит все попытки (2026-08-26) ✅
 
 Контекст: сценарий — ученик на уроке решил 10 из 12 заданий «Работы», нажал
 «Завершить» (пусть с пустыми полями по недорешённым), потом дома хочет пройти работу
@@ -193,34 +193,54 @@ function retry() {
 
 ## План реализации
 
-- [ ] `src/js/player/step-work.js::retry()` — убрать подстановку `prev` из
-      `state.task_results`, вместо этого сбрасывать виджеты в пустое состояние
-      (`widget.setAnswer('')` либо пересоздание виджета, как уже делается для замка/
-      разблокировки — см. память проекта «recreate widget on retry rather than unlock»)
-- [ ] `inc/Repositories/WPDBRepositories/TaskAttemptRepository.php` — переиспользовать
-      существующий `listByStep(studentPersonId, groupLessonId, stepKey)` (строка 97),
-      ничего нового заводить не нужно — он уже отдаёт полную историю по всем задачам
-      работы
-- [ ] `inc/Services/Course/WorkDetailService.php` — новый метод `attemptHistory(int
-      $submissionId): array`: резолвит `studentPersonId`/`groupLessonId`/`workId` из
-      `$sub` (как в `fromSubmission()`), зовёт `TaskAttemptRepository::listByStep(...,
-      AttemptSource::workStepKey($workId))`, группирует `TaskAttemptDTO[]` по
-      `attemptNumber` в раунды: `{round, submitted_at (max createdAt раунда), is_current
-      (round === max), tasks: [{n, condition, answer, code, verdict, score, max_score}]}`
-      — `condition()`/разбор `{text, code}` переиспользовать из кода задачи №2 этого
-      документа (поле «код» в ответе)
-- [ ] Новый AJAX: `AjaxHook::GetWorkAttemptHistory` (или расширить существующий
-      `getDetail` эндпоинт доп. полем `attempts_count` + отдельным экшеном для полной
-      истории по клику, чтобы не тянуть историю на каждое открытие экрана) —
-      колбэк рядом с существующим обработчиком `reviewApi.getDetail`, та же
-      авторизация, что и у него (доступ к группе/работе)
-- [ ] `src/js/profile/work-review.js` — рендер пилюль попыток (только когда
-      попыток > 1) над `taskBlock()`-списком, загрузка истории через `reviewApi`
-      лениво (по первому клику на непоследнюю пилюлю или сразу вместе с `getDetail`
-      — на усмотрение реализации), read-only рендер прошлых раундов без кнопок
-      «Оценить»/фидбэка
-- [ ] Дедлайн (`SubmissionService.php:109-113`) и отсутствие лимита пересдач для
-      работ — оставить как есть, это не часть этой задачи
+- [x] `src/js/player/step-work.js::retry()` — вместо подстановки `prev` каждая
+      карточка полностью пересоздаётся (`container.innerHTML = ''` +
+      `initTaskWidget(card)` заново — тот же приём, что `step-task.js::retry()`,
+      «recreate widget on retry rather than unlock»): работает единообразно для
+      всех типов виджетов (Choice/Matching/Ordering/Fill), не только текстовых.
+      Черновики раунда (`localStorage`) тоже чистятся, чтобы не подставились
+      при случайной перезагрузке страницы
+- [x] `inc/Services/Course/WorkDetailService.php` — новый `attemptHistory(int
+      $submissionId): ?array` (+ приватный `splitAttemptAnswer()`, разбор
+      `{text, code}` для code-шаблонов): группирует `TaskAttemptRepository::
+      listByStep()` по `attemptNumber` в раунды `{round, submitted_at, is_current,
+      tasks: [{n, condition, answer, code, verdict, score, max_score}]}`.
+      Конструктор получил новую зависимость `TaskAttemptRepository $taskAttempts`
+      (тест обновлён)
+- [x] Новый `AjaxHook::GetWorkAttemptHistory` + колбэк `GradingCallbacks::
+      ajaxGetWorkAttemptHistory()` (params: `submission_id`, та же авторизация
+      `canManage`, что у `ajaxGetWorkDetail`), зарегистрирован в
+      `SubmissionController`, экшен `getAttemptHistory` добавлен в
+      `TeacherProfileView`-конфиг `review` (нонс `GradeWork`, переиспользуется)
+- [x] `src/js/profile/work-review.js` — история грузится сразу вместе с
+      `getDetail` (для `kind === 'work'`, не критично при сбое — пилюли просто
+      не покажутся); пилюли (`attemptPillsBlock`) рендерятся только когда
+      попыток > 1; клик по прошлой пилюле подменяет `.wr-tasks` на read-only
+      `historyTaskBlock()`-рендер и прячет `.wr-foot` (форму оценки) атрибутом
+      `hidden`; клик по текущей — восстанавливает live-рендер и перевешивает
+      `wireSubmissionTaskGrading`/`wireAttemptGrading` на свежие DOM-узлы
+- [x] Дедлайн (`SubmissionService.php:109-113`) и отсутствие лимита пересдач для
+      работ — не тронуты, как и договаривались
+
+**Проверка**: ESLint/stylelint/phpcs — без новых нарушений (только pre-existing
+camelCase/alignment-паттерны; выравнивание `=`/`=>` в местах, где добавлены новые
+строки, поправлено вручную под соседей, а не потому что phpcs требует). PHPUnit —
+1370/1370 (было 1363, +7 новых тестов: 4 на `WorkDetailService::attemptHistory()`,
+3 на `GradingCallbacks::ajaxGetWorkAttemptHistory()`). `npx gulp build` — без ошибок.
+
+Полная интеграционная проверка через `wp eval-file` в докере на РЕАЛЬНЫХ данных
+дев-стенда (группа #1 «Тест-группа 9А», занятие `group_lesson_id=1`, работа
+`work_id=19559`, ученик `person_id=1`): две настоящие сдачи через
+`SubmissionService::submitBatch()` (тот же путь, что и продовый
+`SubmitBatchWork`), затем `WorkDetailService::attemptHistory()` —
+подтверждено: 2 раунда, не слиты в один; раунд 1 помечен `is_current=false`,
+раунд 2 — `true`; ответы раундов не перекрываются (у каждого свой текст).
+Тестовые строки удалены после проверки (`DELETE FROM fs_lms_submissions/
+fs_lms_task_attempts`), таблицы вернулись к 0 строк. Заодно найден и исправлен
+реальный баг вёрстки: `.wr-foot[hidden]` не скрывался — `display: flex` в
+компоненте перебивал UA-стиль `[hidden]`, добавлено явное правило (паттерн уже
+есть в `_apply-form.scss`/`_answer.scss`). Полный браузерный клик по пилюлям в
+живом кабинете НЕ проверялся — только сборка/линт/структура шаблона.
 
 **Не путать** с `AttemptReset`/`WorkResetService::reset()` — тот сброс инициирует
 ПРЕПОДАВАТЕЛЬ и он именно УДАЛЯЕТ всю историю (`fs_lms_task_attempts` +

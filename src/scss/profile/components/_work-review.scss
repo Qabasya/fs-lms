@@ -50,9 +50,52 @@
 
 .wr-head-main { flex: 1 1 auto; min-width: 0; }
 
+/* «Пройти заново» (.docs/Tasks.md): пилюли попыток — по одной на раунд сдачи,
+   последняя всегда активна по умолчанию (текущая сдача). */
+.wr-attempts {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: rem(8);
+  padding: rem(14) rem(26) 0;
+}
+
+.wr-attempt-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: rem(6);
+  padding: rem(6) rem(12);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--ink-2);
+  font: inherit;
+  font-size: rem(12.5);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition: border-color $tr, background $tr, color $tr;
+
+  &:hover { border-color: var(--accent); }
+
+  &.is-active {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+    color: var(--accent-700);
+    font-weight: 600;
+  }
+}
+
+.wr-attempt-cur { color: var(--muted); font-weight: 400; }
+
 .wr-body {
   flex: 1 1 auto;
   padding: rem(20) rem(26);
+  display: flex;
+  flex-direction: column;
+  gap: rem(12);
+}
+
+.wr-tasks {
   display: flex;
   flex-direction: column;
   gap: rem(12);
@@ -65,10 +108,15 @@
   display: flex;
   flex-direction: column;
   gap: rem(10);
+
+  /* Пилюли прошлых попыток скрывают форму оценки атрибутом hidden — без этого
+     явного правила display:flex выше перебивает UA-стиль [hidden]. */
+  &[hidden] { display: none; }
 }
 
 @media (max-width: $breakpoint-mobile) {
   .wr-head { padding: rem(16) rem(14) rem(12); }
+  .wr-attempts { padding: rem(12) rem(14) 0; }
   .wr-body { padding: rem(14); }
   .wr-foot { padding: rem(12) rem(14); }
 }
