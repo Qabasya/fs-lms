@@ -1,3 +1,258 @@
+# Задача: номера позиций ОГЭ 13-16 протекают во все предметы (2026-08-26) ✅
+
+Контекст: при выборе предмета в метабоксе банковской задачи «Предмет и номер задания»
+список номеров задания для ЛЮБОГО предмета (включая предметы без банка, например
+«Программирование на Python», `hasBank=false`) содержит хвост «13, 14, 15, 16» —
+дополнительные позиции ручной проверки ОГЭ по информатике (`OgeCriteriaConfig::positions()`,
+`inc/Modules/EgeComputer/Config/OgeCriteriaConfig.php`), которые физически не существуют
+как термы таксономии `{key}_task_number` этого предмета.
+
+Создание предмета и таксономии номеров работает верно — `SubjectCrudCallbacks::
+ajaxStoreSubject()` (`inc/Callbacks/Subject/SubjectCrudCallbacks.php:70-116`) берёт
+число заданий из формы (`tasks_count`) без хардкода, и при `hasBank=false` таксономия
+номеров вообще не создаётся (гард на строке 93). Баг — не там.
+
+**Корень**: `EgeComputerModule::appendOgeManualPositions()` (`inc/Modules/EgeComputer/
+EgeComputerModule.php:252-254`) навешен на фильтр `ProblemsController::NUMBER_OPTIONS_FILTER`
+безусловно для ВСЕХ предметов — метод принимает `$subjectKey`, но не использует его:
+
+```php
+public function appendOgeManualPositions( array $numbers, string $subjectKey = '' ): array {
+    return array_merge( $numbers, OgeCriteriaConfig::positions() );
+}
+```
+
+Дальше это утекает в `ProblemsController::numberOptionsFor()` (строки 238-250) — термы
+таксономии предмета (пусто для `hasBank=false`) плюс `$extra` от фильтра (всегда 13-16) —
+и рендерится в `<select>` метабокса (`templates/admin/problems/subject-number-select.php`)
+для любого выбранного предмета. Валидация при сохранении (`saveSubjectFields()`, строка 207)
+тоже пропускает эти номера для любого предмета, т.к. сверяется с тем же списком.
+
+Соседний метод `resolveExtraPositions()` (строки 208-214, фильтр
+`EgeCompletenessChecker::EXTRA_POSITIONS_FILTER`, используется в конструкторе экзамена)
+устроен правильно — сверяется с `$assessment->kind === AssessmentKind::OgeComputer`
+перед тем как что-то добавить. У `appendOgeManualPositions()` такой проверки нет, и что
+важнее — **у неё нет доступа к kind вообще**: этот фильтр вызывается вне контекста
+экзамена, просто при выборе предмета для банковской задачи. Kind — свойство экзамена
+(`AssessmentDTO::$kind`), не предмета: сегодня в системе нет способа спросить «этот
+subjectKey — это ОГЭ-информатика?» без объекта экзамена.
+
+**Решено с пользователем (2026-08-26)**: `subjectKey` предмета «ОГЭ по информатике» —
+`inf_oge`. Домешивание убирается целиком (вариант c) — таксономия предмета уже создаётся
+на нужное число заданий через `tasks_count=16` при создании предмета, отдельно добавлять
+13-16 через фильтр не нужно.
+
+- [x] `EgeComputerModule::appendOgeManualPositions()` (`inc/Modules/EgeComputer/
+      EgeComputerModule.php:252-254`) — снят с фильтра `ProblemsController::
+      NUMBER_OPTIONS_FILTER` целиком (метод и `add_filter` удалены, неиспользуемый
+      импорт `ProblemsController` тоже убран). `OgeCriteriaConfig::positions()`
+      остаётся нужен только там, где уже правильно завязан на `kind` — критерии
+      ручной проверки (`resolveExtraPositions()`/`EgeCompletenessChecker`)
+- [x] Проверено в БД: у предмета `inf_oge` таксономия `inf_oge_task_number` уже
+      содержит термы 1-16 — донабирать не пришлось
+- [x] Проверено через `apply_filters('fs_lms_bank_task_number_options', [], $key)`
+      напрямую (`wp eval` в докере) — для `inf_oge` фильтр теперь возвращает пустой
+      список (термы таксономии дают полный 1-16 без домешивания), для предметов без
+      банка список номеров пуст, как и требовалось. Полный набор тестов (1363/1363)
+      зелёный после `docker restart wp_app`
+
+---
+
+# Задача: необязательное поле «код» в ответе на задания с кодом (2026-08-26)
+
+Контекст: на заданиях с шаблонами «Задание с кодом» (`TaskTemplate::Code`, `code_task`),
+«Задание с файлом и кодом» (`TaskTemplate::FileCode`, `file_code_task`) и «Задание с двумя
+файлами и кодом» (`TaskTemplate::TwoFile`, `two_file_code_task`) ученик в плеере курса
+(шаги «Задача» и «Работа») должен иметь возможность необязательно прикрепить свой код —
+чтобы преподаватель видел не только текстовый ответ (`task_answer`), но и код, если ученик
+его оставил. Все три шаблона сейчас авто-проверяются `TextAnswerChecker` только по строке
+`task_answer` (`inc/Services/Task/TaskCheckerRegistry.php:51-54`) — само поле кода при
+проверке не участвует, это чисто информационное поле для учителя.
+
+Прямого образца для НОВОГО структурированного поля ответа в системе уже два — оба по
+одной и той же формуле (сериализация ответа в JSON-объект вместо голой строки + фолбэк
+на «старый» строковый ответ при разборе + условный блок рендера у учителя):
+  - «Развёрнутый ответ» (FileAnswer, экзамены) — `{"text":…, "files":[attachment_ids]}`,
+    сборка на фронте `src/js/frontend/services/assessment.js:140-161`, разбор для учителя
+    `WorkDetailService::parseFileAnswer()` (`inc/Services/Course/WorkDetailService.php:332-354`).
+  - T13.1 (вложение к сдаче работы целиком, не per-task) — `SubmissionDTO::$attachmentId`,
+    сборка в `WorkDetailService::fromSubmission()` (строки 181-189), рендер
+    `work-review.js::attachmentBlock()` (строки 166-174).
+
+- [ ] `inc/Enums/Subject/TaskTemplate.php` — добавить предикат вроде `hasCodeField()`
+      (по образцу `isFileAnswerShape()`) для кейсов `Code`, `FileCode`, `TwoFile`
+- [ ] `inc/Services/Course/StepContentRenderer.php::buildWidgetData()` (~строка 242) —
+      для этих шаблонов вместо попадания в `default => text_answer` отдавать
+      `type => 'text_answer'` с доп. флагом (например `withCode: true`), а не заводить
+      отдельный тип виджета — поле ответа остаётся тем же textarea, код — второе
+      необязательное поле рядом
+- [ ] `src/js/frontend/components/task-widget.js` — билдер текстового ответа
+      (`buildTextAnswerWidget`, строка ~77) при `withCode` рендерит вторую textarea
+      «Код (необязательно)»; `collectAnswer()` при наличии кода отдаёт
+      `JSON.stringify({ text, code })` вместо голой строки (пустой код → не добавлять
+      поле вовсе, чтобы не ломать старые записи без кода)
+- [ ] `inc/Services/Task/Checkers/TextAnswerChecker.php` — при разборе ответа учитывать,
+      что для этих трёх шаблонов ответ может прийти объектом `{text, code}`: сверять
+      с `task_answer` именно `text`, не приводить весь объект к строке
+- [ ] `inc/Services/Course/WorkDetailService.php::fromSubmission()` — по образцу
+      `parseFileAnswer()`, разобрать JSON-ответ по этим трём шаблонам, вынести `code`
+      отдельным полем в `$tasks[]`, с фолбэком «весь ответ как текст» для старых записей
+      без кода
+- [ ] `src/js/profile/work-review.js::taskBlock()` (строка ~176) — добавить
+      `t.code ? codeBlock(t.code) : ''` (по образцу `taskFilesBlock`/`attachmentBlock`),
+      рендер в `<pre><code>` с моноширинным шрифтом
+
+**Решено с пользователем (2026-08-26)**: код должен быть виден и на шаге «Задача», и
+на шаге «Работа» — оба места, не только «Работы».
+
+- [ ] Шаг «Задача» переиспользует тот же `task-widget.js` для ВВОДА кода — правок на
+      вводе не требует. Но сейчас у него **вообще нет** экрана, где учитель видит
+      текст/код ответа: `TaskAttemptReportService::collectTaskAttempt()`
+      (`inc/Services/Course/TaskAttemptReportService.php:92-129`) отдаёт только
+      вердикт `correct/score/tries`, без самого ответа. Чтобы код (и заодно текст
+      ответа) стал виден на шаге «Задача», нужно расширить `collectTaskAttempt()`
+      полями `answer`/`code` (аналогично `parseFileAnswer()`/`WorkDetailService`) и
+      добавить их рендер в соответствующем JS-экране отчёта по задаче (найти текущий
+      потребитель `TaskAttemptReportService` на фронте учителя и добавить туда блок
+      кода по образцу `codeBlock()` из `work-review.js`)
+
+---
+
+# Задача: «Пройти заново» решает работу с нуля + педагог видит все попытки (2026-08-26)
+
+Контекст: сценарий — ученик на уроке решил 10 из 12 заданий «Работы», нажал
+«Завершить» (пусть с пустыми полями по недорешённым), потом дома хочет пройти работу
+заново целиком. **Решено с пользователем**: черновика/автосохранения не нужно — ученик
+решает работу заново с нуля, старые ответы не переносятся; при этом первая (неполная)
+попытка должна остаться видна педагогу отдельно от второй, а не потеряться при
+перезаписи.
+
+**Bug 1 — «Пройти заново» сейчас подставляет старые ответы, а не даёт чистый лист.**
+`retry()` (`src/js/player/step-work.js:249-259`) явно копирует прежние ответы в виджеты:
+```js
+function retry() {
+    ...
+    widgets.forEach( ( widget, taskId ) => {
+        const prev = parseAnswer( state.task_results[ taskId ]?.answer );
+        if ( prev !== undefined && prev !== null ) { widget.setAnswer( prev ); }
+    } );
+    ...
+}
+```
+Это противоречит решению «решать полностью заново» — нужно просто очищать виджеты
+(`widget.setAnswer('')`/сброс) вместо подстановки `prev`.
+
+**Bug 2 — педагог физически не видит первую попытку.** История по каждому заданию
+УЖЕ пишется на каждую сдачу — `SubmissionService::recordWorkAttempt()`
+(`inc/Services/Course/SubmissionService.php`, вызывается из `submitBatch()`) кладёт
+строку в `fs_lms_task_attempts` с растущим `attemptNumber`
+(`TaskAttemptRepository::countByStepTask(...) + 1`) при КАЖДОЙ сдаче — данные первой
+попытки не удаляются. Но экран проверки работы для педагога
+(`WorkDetailService::fromSubmission()` → `work-review.js`) читает только ТЕКУЩУЮ
+строку `fs_lms_submissions`, которая при пересдаче перезаписывается (`submitBatch()`,
+`$existing ? update() : create()`) — значит попытка №1 в БД жива, но нигде не
+отображается. Нужно достроить экран истории, а не менять модель данных.
+
+Важное свойство, на которое опирается группировка: фронт при каждой сдаче отправляет
+ответы СО ВСЕХ виджетов работы разом (`step-work.js::submit()`, включая пустые —
+`?? ''`), поэтому все `task_attempts` одного «раунда» сдачи получают ОДИНАКОВЫЙ
+`attemptNumber` для всех задач работы — можно надёжно группировать всю историю по
+этому полю в «попытки» (раунды), не заводя отдельную таблицу/колонку.
+
+## Дизайн интерфейса «Все попытки» у педагога
+
+Экран проверки работы (`work-review.js`, полноэкранный SPA-экран, открывается из
+Сводки/«Работ») сейчас показывает один список заданий текущей (последней) сдачи с
+контролами оценки. Предлагается:
+
+- Если попытка всего одна — ничего не меняется, текущий вид как есть.
+- Если попыток несколько — над списком заданий (после шапки работы, до `taskBlock()`)
+  добавляется горизонтальная строка вкладок-пилюль: `Попытка 1 · 21 авг, 14:02 · 8/12` /
+  `Попытка 2 · 26 авг, 19:15 · 12/12 (текущая)`. Последняя пилюля — всегда актуальная
+  сдача (то, что уже показывает экран сегодня, включая контролы ручной оценки).
+- Клик по НЕактуальной пилюле подменяет список заданий на read-only снимок этого
+  раунда: условие, ответ/код ученика, авто-вердикт (`is_correct` из `task_attempts`) —
+  БЕЗ контролов «Оценить»/фидбэка (ручная оценка имеет смысл только для актуальной
+  сдачи, которая и попадает в журнал/gradebook). Обычный `taskBlock()`-рендер, но с
+  флагом `readonly: true`, скрывающим кнопки оценки.
+- Пилюли не нужны, если у работы вообще нет ручного/содержательного различия между
+  попытками (не блокирующее условие — просто рендерится всегда одинаково по данным).
+
+## План реализации
+
+- [ ] `src/js/player/step-work.js::retry()` — убрать подстановку `prev` из
+      `state.task_results`, вместо этого сбрасывать виджеты в пустое состояние
+      (`widget.setAnswer('')` либо пересоздание виджета, как уже делается для замка/
+      разблокировки — см. память проекта «recreate widget on retry rather than unlock»)
+- [ ] `inc/Repositories/WPDBRepositories/TaskAttemptRepository.php` — переиспользовать
+      существующий `listByStep(studentPersonId, groupLessonId, stepKey)` (строка 97),
+      ничего нового заводить не нужно — он уже отдаёт полную историю по всем задачам
+      работы
+- [ ] `inc/Services/Course/WorkDetailService.php` — новый метод `attemptHistory(int
+      $submissionId): array`: резолвит `studentPersonId`/`groupLessonId`/`workId` из
+      `$sub` (как в `fromSubmission()`), зовёт `TaskAttemptRepository::listByStep(...,
+      AttemptSource::workStepKey($workId))`, группирует `TaskAttemptDTO[]` по
+      `attemptNumber` в раунды: `{round, submitted_at (max createdAt раунда), is_current
+      (round === max), tasks: [{n, condition, answer, code, verdict, score, max_score}]}`
+      — `condition()`/разбор `{text, code}` переиспользовать из кода задачи №2 этого
+      документа (поле «код» в ответе)
+- [ ] Новый AJAX: `AjaxHook::GetWorkAttemptHistory` (или расширить существующий
+      `getDetail` эндпоинт доп. полем `attempts_count` + отдельным экшеном для полной
+      истории по клику, чтобы не тянуть историю на каждое открытие экрана) —
+      колбэк рядом с существующим обработчиком `reviewApi.getDetail`, та же
+      авторизация, что и у него (доступ к группе/работе)
+- [ ] `src/js/profile/work-review.js` — рендер пилюль попыток (только когда
+      попыток > 1) над `taskBlock()`-списком, загрузка истории через `reviewApi`
+      лениво (по первому клику на непоследнюю пилюлю или сразу вместе с `getDetail`
+      — на усмотрение реализации), read-only рендер прошлых раундов без кнопок
+      «Оценить»/фидбэка
+- [ ] Дедлайн (`SubmissionService.php:109-113`) и отсутствие лимита пересдач для
+      работ — оставить как есть, это не часть этой задачи
+
+**Не путать** с `AttemptReset`/`WorkResetService::reset()` — тот сброс инициирует
+ПРЕПОДАВАТЕЛЬ и он именно УДАЛЯЕТ всю историю (`fs_lms_task_attempts` +
+`fs_lms_submissions` по работе), это осознанное стирание, а не отображение истории;
+трогать не нужно. `ExamLockService` тоже не пересекается с этим флоу (только
+`fs_lms_assessment_attempts`, экзамены).
+
+---
+
+# Задача: фильтр и колонка «Предмет» в банке задач (2026-08-26)
+
+Контекст: страница «Банк задач» (`fs_lms_problems`) уже имеет фильтры над таблицей —
+тематика (`problem_tag`), использование (курс/работа/сирота), автор
+(`inc/Controllers/Builders/ProblemListFilters.php`, шаблон
+`templates/admin/problems/problem-filters`). Нужно добавить туда же фильтр по предмету
+(название предмета или «Без предмета») и колонку «Предмет» в таблицу — между «Название»
+и «Тематика».
+
+Предмет банковской задачи уже хранится как мета `PostMetaName::BankTaskSubject`
+(`inc/Controllers/Problems/ProblemsController.php:156, 198-202` — метабокс «Предмет и
+номер задания», ключ предмета или пустая строка, если не выбран).
+
+- [ ] `inc/Controllers/Builders/ProblemListFilters.php` — новый метод `subjectSelect()`
+      (по образцу `tagSelect()`/`authorSelect()`, строки 159-205): опции — все предметы
+      из `SubjectRepository::readAll()` (уже внедряется в `ProblemsController` как
+      `$this->subjects`, доступен и здесь через DI) + отдельный пункт «Без предмета»;
+      добавить в `data()` (строка 61-71) как `'subject' => $this->subjectSelect()`
+- [ ] Там же — `applySubjectFilter()` (по образцу `applyUsageFilter()`, строки 129-152):
+      читает `$_GET['fs_problem_subject']`, при конкретном ключе —
+      `meta_query` по `BankTaskSubject = <key>`, при спец-значении (например `none`) —
+      `BankTaskSubject` пусто/не существует; вызвать из `apply()` (строка 80-83)
+- [ ] `templates/admin/problems/problem-filters` — добавить `<select>` предмета рядом с
+      существующими (тематика/использование/автор)
+- [ ] `inc/Controllers/Problems/ProblemsController.php::addColumns()` (строки 299-321) —
+      вставить колонку `subject` в `$order` МЕЖДУ `title` и таксономиями
+      (сейчас порядок: `cb, title, [taxonomy-*], template_type, author, fs_lms_usage,
+      date` — нужно `cb, title, subject, [taxonomy-*], ...`), с подписью «Предмет»
+- [ ] `renderColumn()` (строки 326-335) — добавить ветку для `subject`: читает
+      `BankTaskSubject`, резолвит через `SubjectRepository::getByKey()` в `->name`,
+      выводит `esc_html()`, тире при пустом значении (как у `template_type`)
+- [ ] (опционально) `sortableColumns()` (строки 344-350) — сделать колонку «Предмет»
+      сортируемой мета-сортировкой, по аналогии с `template_type`
+
+---
+
 # Bug fix
 
 - [x] Конструктор экзамена (ЕГЭ/ОГЭ): заготовленные пустые слоты заданий (номера без

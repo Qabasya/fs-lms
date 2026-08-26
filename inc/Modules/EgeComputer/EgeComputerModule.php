@@ -6,7 +6,6 @@ namespace Inc\Modules\EgeComputer;
 
 use Inc\Contracts\ServiceInterface;
 use Inc\Controllers\Pages\AssessmentPageController;
-use Inc\Controllers\Problems\ProblemsController;
 use Inc\Core\Assets\BundleLoader;
 use Inc\DTO\Assessment\AssessmentDTO;
 use Inc\DTO\Assessment\AttemptDTO;
@@ -64,7 +63,6 @@ class EgeComputerModule implements ServiceInterface {
 		add_filter( WorkDetailService::OGE_RUBRIC_FILTER, [ $this, 'resolveOgeRubric' ], 10, 3 );
 		add_filter( WorkDetailService::TABLE_ANSWER_FILTER, [ $this, 'resolveTableAnswer' ], 10, 3 );
 		add_filter( EgeCompletenessChecker::EXTRA_POSITIONS_FILTER, [ $this, 'resolveExtraPositions' ], 10, 3 );
-		add_filter( ProblemsController::NUMBER_OPTIONS_FILTER, [ $this, 'appendOgeManualPositions' ], 10, 2 );
 
 		// Лист ответов предпросмотра (T15.10-preview): попытки в БД нет, поэтому
 		// накопленные в JS ответы приходят на этот эндпоинт напрямую — см. PreviewResultCallbacks.
@@ -237,20 +235,6 @@ class EgeComputerModule implements ServiceInterface {
 		}
 
 		return KegeResultSheetService::readableTable( $answerText );
-	}
-
-	/**
-	 * WP filter: те же позиции ОГЭ №13-16 — но для списка номеров в метабоксе
-	 * «Предмет и номер задания» банковской задачи ({@see \Inc\Controllers\Problems\ProblemsController}),
-	 * где нет контекста конкретной контрольной (только предмет), поэтому
-	 * добавляются безусловно — автор сам решает, нужен ли этот номер его предмету.
-	 *
-	 * @param string[] $numbers
-	 *
-	 * @return string[]
-	 */
-	public function appendOgeManualPositions( array $numbers, string $subjectKey = '' ): array {
-		return array_merge( $numbers, OgeCriteriaConfig::positions() );
 	}
 
 	/** @param string $default Путь к дефолтному шаблону */
