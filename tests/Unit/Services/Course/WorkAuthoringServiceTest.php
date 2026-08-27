@@ -50,4 +50,37 @@ class WorkAuthoringServiceTest extends TestCase {
 		$ids = $this->service->validateItemIds( 'inf', array( 1, 5 ) );
 		self::assertSame( array( 1, 5 ), $ids );
 	}
+
+	/**
+	 * Дефолтный дропдаун (source=subject) обязан подхватывать задачи банка,
+	 * помеченные ЭТИМ предметом (BankTaskSubject) — задача может физически
+	 * лежать в fs_lms_problems, оставаясь «предметной» (предмет без своего
+	 * CPT-банка, Эпик 18), а не только скрытый до явного «Все задания».
+	 */
+	public function test_item_candidates_source_subject_includes_subject_tagged_bank(): void {
+		fs_test_seed_post( array( 'ID' => 1, 'post_type' => 'inf_tasks', 'post_title' => 'Задача предмета' ) );
+		fs_test_seed_post(
+			array( 'ID' => 2, 'post_type' => 'fs_lms_problems', 'post_title' => 'Банк, помечен предметом' ),
+			array( \Inc\Enums\Wp\PostMetaName::BankTaskSubject->value => 'inf' )
+		);
+		fs_test_seed_post(
+			array( 'ID' => 3, 'post_type' => 'fs_lms_problems', 'post_title' => 'Банк, без метки' )
+		);
+
+		$ids = array_column( $this->service->getItemCandidates( 'inf', 0, 'subject', '', 'subject' ), 'id' );
+
+		self::assertSame( array( 1, 2 ), $ids );
+	}
+
+	public function test_item_candidates_source_all_ignores_subject_tag(): void {
+		fs_test_seed_post( array( 'ID' => 1, 'post_type' => 'inf_tasks', 'post_title' => 'Задача предмета' ) );
+		fs_test_seed_post(
+			array( 'ID' => 2, 'post_type' => 'fs_lms_problems', 'post_title' => 'Банк, другой предмет' ),
+			array( \Inc\Enums\Wp\PostMetaName::BankTaskSubject->value => 'math' )
+		);
+
+		$ids = array_column( $this->service->getItemCandidates( 'inf', 0, 'subject', '', 'all' ), 'id' );
+
+		self::assertSame( array( 1, 2 ), $ids );
+	}
 }

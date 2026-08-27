@@ -329,12 +329,22 @@ if (!function_exists('wp_editor')) {
 }
 if (!function_exists('get_posts')) {
     function get_posts(array $args = []): array {
-        $type     = $args['post_type'] ?? '';
-        $statuses = (array) ($args['post_status'] ?? ['publish']);
-        $out      = [];
+        $type       = $args['post_type'] ?? '';
+        $statuses   = (array) ($args['post_status'] ?? ['publish']);
+        $meta_query = $args['meta_query'] ?? [];
+        $out        = [];
         foreach ($GLOBALS['_fs_test_posts'] as $post) {
             if ($type && $post->post_type !== $type) { continue; }
             if (!in_array('any', $statuses, true) && !in_array($post->post_status, $statuses, true)) { continue; }
+            // Простое AND по равенству — покрывает bankNumberQuery()/bankSubjectQuery()
+            // (LessonAuthoringService/WorkAuthoringService): пары ['key' => ..., 'value' => ...].
+            $meta_ok = true;
+            foreach ($meta_query as $clause) {
+                if (!is_array($clause) || !isset($clause['key'])) { continue; }
+                $actual = $GLOBALS['_fs_test_meta'][$post->ID][$clause['key']] ?? null;
+                if ((string) $actual !== (string) ($clause['value'] ?? '')) { $meta_ok = false; break; }
+            }
+            if (!$meta_ok) { continue; }
             $out[] = $post;
         }
         // 'fields' => 'ids' — как в реальном WP, возвращаем массив ID вместо объектов

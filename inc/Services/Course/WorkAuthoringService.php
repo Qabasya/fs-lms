@@ -4,6 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Course;
 
+use Inc\Enums\Wp\PostMetaName;
 use Inc\Managers\Wp\PostManager;
 use Inc\Managers\Wp\TermManager;
 use Inc\Services\Subject\PostTypeResolver;
@@ -99,8 +100,12 @@ class WorkAuthoringService {
 	 *
 	 * Дропдаун конструктора по умолчанию сужен до предмета (упрощение поиска
 	 * для пустого списка, НЕ жёсткое ограничение — банк всё равно доступен и
-	 * через поиск, и через явный переключатель «Все задания»): `$source`
-	 * 'subject' — только {key}_tasks, 'all' — плюс глобальный банк.
+	 * через поиск, и через явный переключатель «Все задания»). Задача может
+	 * быть «предметной», физически лежа в глобальном банке (fs_lms_problems,
+	 * напр. предмет без своего CPT-банка, Эпик 18) — привязку задаёт мета
+	 * {@see PostMetaName::BankTaskSubject}, выставляемая на странице банка.
+	 * `$source` 'subject' — {key}_tasks + банк, помеченный ЭТИМ предметом;
+	 * 'all' — {key}_tasks + весь банк без сужения.
 	 *
 	 * @param string $subjectKey
 	 * @param int    $collectionTermId 0 = все коллекции (только для task)
@@ -116,27 +121,34 @@ class WorkAuthoringService {
 		string $search           = '',
 		string $source           = 'subject'
 	): array {
-		$tasks = $this->getTaskCandidates( $subjectKey, 0, $collectionTermId, $scope, $search );
-		if ( 'all' !== $source ) {
-			return $tasks;
-		}
+		$tasks    = $this->getTaskCandidates( $subjectKey, 0, $collectionTermId, $scope, $search );
+		$problems = $this->getProblemCandidates( $search, 'all' === $source ? '' : $subjectKey );
 
-		return array_merge( $tasks, $this->getProblemCandidates( $search ) );
+		return array_merge( $tasks, $problems );
 	}
 
 	/**
 	 * Кандидаты из банка задач (fs_lms_problems, глобальный).
 	 *
 	 * @param string $search
+	 * @param string $subjectKey Непусто — сузить до задач, помеченных этим предметом
+	 *                           ({@see PostMetaName::BankTaskSubject}); пусто — весь банк.
 	 * @return array<int, array{id: int, title: string, author: int, type: string}>
 	 */
-	public function getProblemCandidates( string $search = '' ): array {
-		$posts = $this->posts->search( PostTypeResolver::problems(), array(
+	public function getProblemCandidates( string $search = '', string $subjectKey = '' ): array {
+		$opts = array(
 			'limit'   => 50,
 			'search'  => $search,
 			'orderby' => 'date',
 			'order'   => 'DESC',
-		) );
+		);
+		if ( '' !== $subjectKey ) {
+			$opts['meta_query'] = array(
+				array( 'key' => PostMetaName::BankTaskSubject->value, 'value' => $subjectKey ),
+			);
+		}
+
+		$posts = $this->posts->search( PostTypeResolver::problems(), $opts );
 
 		return array_map( fn( \WP_Post $post ): array => $this->withBundleChildren( array(
 			'id'     => $post->ID,

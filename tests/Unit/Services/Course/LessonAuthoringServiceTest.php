@@ -156,10 +156,35 @@ class LessonAuthoringServiceTest extends TestCase {
 
 	public function test_step_candidates_task_source_subject_vs_bank(): void {
 		fs_test_seed_post( array( 'ID' => 1, 'post_type' => 'inf_tasks', 'post_title' => 'Задача предмета' ) );
-		fs_test_seed_post( array( 'ID' => 2, 'post_type' => 'fs_lms_problems', 'post_title' => 'Задача банка' ) );
+		// Банковская задача без метки предмета — source=subject её не подхватывает
+		// (в отличие от source=bank, который видит весь банк без сужения).
+		fs_test_seed_post( array( 'ID' => 2, 'post_type' => 'fs_lms_problems', 'post_title' => 'Задача банка (без метки)' ) );
 
 		self::assertSame( array( 1 ), array_column( $this->service->getStepCandidates( 'inf', 'task', 'subject' ), 'id' ) );
 		self::assertSame( array( 2 ), array_column( $this->service->getStepCandidates( 'inf', 'task', 'bank' ), 'id' ) );
+	}
+
+	/**
+	 * Задача может физически лежать в глобальном банке (fs_lms_problems), оставаясь
+	 * «предметной» — привязку задаёт мета BankTaskSubject (страница банка задач,
+	 * см. ProblemsController). Дефолтный дропдаун конструктора (source=subject)
+	 * обязан подхватывать такие задачи, а не только {key}_tasks.
+	 */
+	public function test_step_candidates_task_source_subject_includes_subject_tagged_bank(): void {
+		fs_test_seed_post( array( 'ID' => 1, 'post_type' => 'inf_tasks', 'post_title' => 'Задача предмета' ) );
+		fs_test_seed_post(
+			array( 'ID' => 2, 'post_type' => 'fs_lms_problems', 'post_title' => 'Банк, помечен предметом' ),
+			array( \Inc\Enums\Wp\PostMetaName::BankTaskSubject->value => 'inf' )
+		);
+		fs_test_seed_post(
+			array( 'ID' => 3, 'post_type' => 'fs_lms_problems', 'post_title' => 'Банк, другой предмет' ),
+			array( \Inc\Enums\Wp\PostMetaName::BankTaskSubject->value => 'math' )
+		);
+
+		self::assertSame(
+			array( 1, 2 ),
+			array_column( $this->service->getStepCandidates( 'inf', 'task', 'subject' ), 'id' )
+		);
 	}
 
 	public function test_step_candidates_task_all_merges_subject_and_bank(): void {

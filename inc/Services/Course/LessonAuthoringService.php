@@ -105,7 +105,11 @@ class LessonAuthoringService {
 	 *
 	 * @param string $subjectKey
 	 * @param string $kind     work|task|assessment|article|lesson
-	 * @param string $source   subject|bank|all — источник задачи (для kind=task; all = предмет + банк)
+	 * @param string $source   subject|bank|all — источник задачи (для kind=task):
+	 *                         subject = {key}_tasks + банк, СУЖЕННЫЙ до задач этого предмета
+	 *                         (задача может физически лежать в банке, оставаясь «предметной» —
+	 *                         Эпик 18, предмет без своего CPT); bank = только банк без сужения;
+	 *                         all = {key}_tasks + весь банк без сужения.
 	 * @param string $search
 	 * @param string $position Номер позиции экзамена (для kind=task в конструкторе ЕГЭ/ОГЭ) — фильтрует
 	 *                         предметные задачи по терму `{subject}_task_number` и банковские по
@@ -115,12 +119,8 @@ class LessonAuthoringService {
 	 * @return array<int, array{id: int, title: string, source?: string}>
 	 */
 	public function getStepCandidates( string $subjectKey, string $kind, string $source = 'subject', string $search = '', string $position = '' ): array {
-		// Задача-шаг тянется из обоих источников сразу (предмет + банк) — вариант А.
-		if ( 'task' === $kind && 'all' === $source ) {
-			return array_merge(
-				$this->candidatesFrom( PostTypeResolver::tasks( $subjectKey ), $search, 'subject', true, $this->taskNumberQuery( $subjectKey, $position ), $position ),
-				$this->candidatesFrom( PostTypeResolver::problems(), $search, 'bank', true, $this->bankNumberQuery( $subjectKey, $position ), $position )
-			);
+		if ( 'task' === $kind ) {
+			return $this->getTaskStepCandidates( $subjectKey, $source, $search, $position );
 		}
 
 		$post_type = match ( $kind ) {
@@ -128,7 +128,6 @@ class LessonAuthoringService {
 			'assessment' => PostTypeResolver::assessments( $subjectKey ),
 			'article'    => PostTypeResolver::articles( $subjectKey ),
 			'lesson'     => PostTypeResolver::lessons( $subjectKey ),
-			'task'       => 'bank' === $source ? PostTypeResolver::problems() : PostTypeResolver::tasks( $subjectKey ),
 			default      => '',
 		};
 
@@ -136,12 +135,46 @@ class LessonAuthoringService {
 			return array();
 		}
 
-		$origin     = 'task' === $kind ? ( 'bank' === $source ? 'bank' : 'subject' ) : '';
-		$extraQuery = 'task' !== $kind ? array() : ( 'bank' === $source
-			? $this->bankNumberQuery( $subjectKey, $position )
-			: $this->taskNumberQuery( $subjectKey, $position ) );
+		return $this->candidatesFrom( $post_type, $search );
+	}
 
-		return $this->candidatesFrom( $post_type, $search, $origin, 'task' === $kind, $extraQuery, $position );
+	/**
+	 * Кандидаты-задачи (kind=task): предметные {key}_tasks + банк — см. {@see getStepCandidates()}
+	 * за семантикой `$source`. Позиционный поиск (ЕГЭ/ОГЭ, `$position` непусто) уже сам сужает
+	 * банк и предметом, и номером ({@see bankNumberQuery()}) — дополнительное сужение не нужно.
+	 *
+	 * @return array<int, array{id: int, title: string, source?: string}>
+	 */
+	private function getTaskStepCandidates( string $subjectKey, string $source, string $search, string $position ): array {
+		if ( 'bank' === $source ) {
+			return $this->candidatesFrom( PostTypeResolver::problems(), $search, 'bank', true, $this->bankNumberQuery( $subjectKey, $position ), $position );
+		}
+
+		$subjectTasks = $this->candidatesFrom( PostTypeResolver::tasks( $subjectKey ), $search, 'subject', true, $this->taskNumberQuery( $subjectKey, $position ), $position );
+
+		$bankQuery = match ( true ) {
+			'' !== $position  => $this->bankNumberQuery( $subjectKey, $position ),
+			'all' === $source => array(),
+			default           => $this->bankSubjectQuery( $subjectKey ),
+		};
+		$bankTasks = $this->candidatesFrom( PostTypeResolver::problems(), $search, 'bank', true, $bankQuery, $position );
+
+		return array_merge( $subjectTasks, $bankTasks );
+	}
+
+	/**
+	 * Фильтр банковских задач по предмету — без номера позиции (в отличие от
+	 * {@see bankNumberQuery()}). Сужает дефолтный (source=subject) дропдаун
+	 * до задач банка, помеченных ЭТИМ предметом, вместо того чтобы скрывать банк целиком.
+	 *
+	 * @return array{meta_query: array}
+	 */
+	private function bankSubjectQuery( string $subjectKey ): array {
+		return array(
+			'meta_query' => array(
+				array( 'key' => PostMetaName::BankTaskSubject->value, 'value' => $subjectKey ),
+			),
+		);
 	}
 
 	/**
