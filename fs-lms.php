@@ -6,7 +6,7 @@ declare( strict_types=1 );
  * Plugin Name:     FS LMS
  * Plugin URI:      https://github.com/Qabasya/fs-lms
  * Description:     Плагин для управления заданиями ЕГЭ (пока что).
- * Version:         1.0.1
+ * Version:         1.0.2
  * Author:          FutureStep
  * Author URI:      https://future-step.ru/
  * Text Domain:     fs-lms
@@ -35,7 +35,7 @@ define( 'FS_LMS_PATH', plugin_dir_path( __FILE__ ) );
 
 // Версия плагина — попадает в манифест пакета переноса предмета, чтобы при
 // разборе чужого архива было видно, какой сборкой он выгружен.
-define( 'FS_LMS_VERSION', '1.0.1' );
+define( 'FS_LMS_VERSION', '1.0.2' );
 
 require_once FS_LMS_PATH . 'vendor/autoload.php';
 
