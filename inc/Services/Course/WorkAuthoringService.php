@@ -64,6 +64,8 @@ class WorkAuthoringService {
 			'author'    => 'mine' === $scope ? get_current_user_id() : 0,
 			'search'    => $search,
 			'tax_query' => $tax_query,
+			'orderby'   => 'date',
+			'order'     => 'DESC',
 		) );
 
 		return array_map( fn( \WP_Post $post ): array => $this->withBundleChildren( array(
@@ -95,22 +97,31 @@ class WorkAuthoringService {
 	/**
 	 * Кандидаты-элементы: {key}_tasks + fs_lms_problems (unified).
 	 *
+	 * Дропдаун конструктора по умолчанию сужен до предмета (упрощение поиска
+	 * для пустого списка, НЕ жёсткое ограничение — банк всё равно доступен и
+	 * через поиск, и через явный переключатель «Все задания»): `$source`
+	 * 'subject' — только {key}_tasks, 'all' — плюс глобальный банк.
+	 *
 	 * @param string $subjectKey
 	 * @param int    $collectionTermId 0 = все коллекции (только для task)
 	 * @param string $scope            'mine' | 'subject'
 	 * @param string $search
+	 * @param string $source           'subject' | 'all'
 	 * @return array<int, array{id: int, title: string, author: int, type: string}>
 	 */
 	public function getItemCandidates(
 		string $subjectKey,
 		int    $collectionTermId = 0,
 		string $scope            = 'mine',
-		string $search           = ''
+		string $search           = '',
+		string $source           = 'subject'
 	): array {
-		$tasks    = $this->getTaskCandidates( $subjectKey, 0, $collectionTermId, $scope, $search );
-		$problems = $this->getProblemCandidates( $search );
+		$tasks = $this->getTaskCandidates( $subjectKey, 0, $collectionTermId, $scope, $search );
+		if ( 'all' !== $source ) {
+			return $tasks;
+		}
 
-		return array_merge( $tasks, $problems );
+		return array_merge( $tasks, $this->getProblemCandidates( $search ) );
 	}
 
 	/**
@@ -121,8 +132,10 @@ class WorkAuthoringService {
 	 */
 	public function getProblemCandidates( string $search = '' ): array {
 		$posts = $this->posts->search( PostTypeResolver::problems(), array(
-			'limit'  => 50,
-			'search' => $search,
+			'limit'   => 50,
+			'search'  => $search,
+			'orderby' => 'date',
+			'order'   => 'DESC',
 		) );
 
 		return array_map( fn( \WP_Post $post ): array => $this->withBundleChildren( array(

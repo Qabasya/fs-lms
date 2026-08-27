@@ -199,7 +199,7 @@ class LessonAuthoringService {
 	 */
 	private function candidatesFrom( string $post_type, string $search, string $source = '', bool $withBundles = false, array $extraQuery = array(), string $position = '' ): array {
 		$result = array();
-		$opts   = array_merge( array( 'limit' => 50, 'search' => $search ), $extraQuery );
+		$opts   = array_merge( array( 'limit' => 50, 'search' => $search, 'orderby' => 'date', 'order' => 'DESC' ), $extraQuery );
 		foreach ( $this->posts->search( $post_type, $opts ) as $post ) {
 			$item = array(
 				'id'    => $post->ID,

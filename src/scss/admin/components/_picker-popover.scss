@@ -39,5 +39,12 @@
 			&:hover { background: $cb-bg-hover; } }
 		.fs-cb-pick-origin { flex: 0 0 auto; font-size: $font-size-code; color: $color-secondary-hover; background: $cb-bg-hover; padding: 1px rem(7); border-radius: $border-radius-sm; }
 		.fs-cb-pick-empty { padding: $spacing-sm; color: $color-secondary-hover; font-size: $font-size-xs; }
+
+		// «Все задания» — переключатель дропдауна с предмета на предмет+банк.
+		.fs-cb-pick-all {
+			justify-content: center; margin-top: rem(4); padding-top: rem(9);
+			border-top: 1px solid $color-border-input;
+			color: var(--color-primary); font-weight: $font-semibold;
+		}
 	}
 }

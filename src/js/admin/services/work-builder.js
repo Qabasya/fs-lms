@@ -31,9 +31,12 @@ function mount( el ) {
 			item_ids: slots.filter( ( s ) => s.taskId > 0 ).map( ( s ) => s.taskId ),
 		} ),
 
-		search: ( q ) => post( acts.getWorkItemCandidates, nonces.authorWork, {
+		// Дропдаун по умолчанию (пустой поиск) — только задания предмета; «Все
+		// задания» (scope='all') или непустой поиск — предмет + глобальный банк.
+		search: ( q, index, scope ) => post( acts.getWorkItemCandidates, nonces.authorWork, {
 			subject_key: subject,
 			search:      q,
+			source:      q ? 'all' : ( scope || 'subject' ),
 		} ),
 
 		// Превью задачи переиспользует общий эндпоинт банка задач (нонс контрольной).

@@ -414,7 +414,10 @@ export function createSlotBuilder( el, config ) {
 			openPicker( pickBtn, {
 				placeholder: 'Поиск задачи…',
 				emptyText:   'Задачи не найдены',
-				fetchFn:     ( q ) => config.search( q, index ),
+				fetchFn:     ( q, scope ) => config.search( q, index, scope ),
+				// Дропдаун по умолчанию сужен до предмета (упрощение поиска, не запрет) —
+				// «Все задания» переключает на полный список (предмет + банк).
+				browseAllLabel: 'Все задания',
 				// config.onPick (опц.) — перехват пика до дефолтного assignPicked(); должен
 				// вернуть true, если сам обработал присвоение (EGE-связка, задача C).
 				onPick:      ( id, title, source, item ) => {

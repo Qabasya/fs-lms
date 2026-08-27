@@ -202,6 +202,17 @@
   &:disabled { background: var(--surface-2); }
 }
 
+// Поле текстового ответа — по умолчанию высотой в одну строку (как обычный
+// input), а не в четыре (JS ставит rows="4" под многострочный ответ).
+.fs-widget-text.ansbox.txt { height: rem(44); }
+
+// display: block обязателен — margin-top на инлайновом <label> визуально
+// не работает (margin по блоковой оси у инлайновых элементов не применяется).
+.fs-widget-code-label {
+  display: block;
+  margin-top: rem(14);
+}
+
 /* ── Прочие виджеты ─────────────────────────────────────────────────── */
 .fs-widget-audio {
   width: 100%;

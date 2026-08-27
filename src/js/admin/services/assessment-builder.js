@@ -156,10 +156,13 @@ function mount( el ) {
 		// бэкенду, чтобы выпадающий список показывал только подходящие по номеру
 		// задачи (предметные — по терму {subject}_task_number, банковские — по
 		// PostMetaName::BankTaskSubject/BankTaskNumber, см. LessonAuthoringService).
-		search: ( q, index ) => post( acts.getStepCandidates, nonces.authorLesson, {
+		// Дропдаун по умолчанию (пустой поиск) — только задания предмета; «Все
+		// задания» (scope='all') или непустой поиск — предмет + глобальный банк
+		// (с бейджем источника).
+		search: ( q, index, scope ) => post( acts.getStepCandidates, nonces.authorLesson, {
 			subject_key: subject,
 			kind:        'task',
-			source:      'all', // и банк, и задачи предмета (как в Работах) — с бейджем источника
+			source:      q ? 'all' : ( scope || 'subject' ),
 			search:      q,
 			position:    isEge( prevKind ) && 'number' === typeof index ? String( index + 1 ) : '',
 		} ),
