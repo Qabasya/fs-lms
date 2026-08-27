@@ -4,6 +4,15 @@
 > загружаемых частями. **Стратегия зафиксирована: in-plugin модули + фича-флаги**
 > (не отдельные WP-плагины). Эталон изолированного модуля — `Inc\Modules\AdSync`
 > (см. `AdSyncPythonService.md`). Этот документ — карта при распиле и свод правил для нового кода.
+>
+> **Статус: не реализовано.** `ModuleInterface`/`ModuleManager`/`Kernel/` (§3.1, §3.5) — план,
+> не текущий код: `Init::getServices()` к релизу 1.0.0 остаётся плоским списком (см.
+> `basic_doc.md`). Реально изолированы по паттерну «лист» пока только опциональные модули из
+> `inc/Modules/` (`AdSync`, `EgeComputer`, `DaData`, `SmartCaptcha`, `VideoLibrary`) — без
+> отдельного `ModuleInterface`, каждый регистрируется одной строкой в `Init::getServices()` и
+> вырезается удалением каталога + этой строки. `SocialAuth`, упоминавшийся здесь ранее как
+> пример листа, из плагина удалён вместе со свободными ролями внешних пользователей (решение
+> о заморозке фич к 1.0.0) — вход только по логину/паролю (`AuthPageController`, ядро).
 
 ---
 
@@ -11,7 +20,7 @@
 
 - Плагин = **стабильное Ядро (Kernel)** + набор **модулей**, каждый со своим bootstrap, флагом, таблицами, конфигом.
 - Два класса модулей: **слоистое ядро** (Content → Enrollment → Lms, зависят вниз) и **опциональные листья**
-  (SocialAuth, Notifier, AdSync, будущие Личные кабинеты — нулевые входящие зависимости, связь только через хуки).
+  (AdSync, VideoLibrary, Notifier (план), будущие Личные кабинеты — нулевые входящие зависимости, связь только через хуки).
 - Любой модуль **отключается одним флагом** (3 уровня) и **вырезается** удалением каталога + строки.
 - **Главное правило на будущее:** новый функционал пишем так, чтобы его можно было **полностью отключить
   без потери предыдущего** (см. §4). Ядро никогда не ссылается на модуль.
@@ -37,7 +46,7 @@ Kernel ── Content ── Enrollment ── Lms
 **B. Опциональные листья** — в них никто не входит, связь с ядром только через хуки/публичные сервисы,
 включаются/вырезаются свободно:
 ```
-SocialAuth · Notifier(Telegram) · AdSync · [будущее: Cabinet — личные кабинеты]
+AdSync · VideoLibrary · Notifier(Telegram, план) · [будущее: Cabinet — личные кабинеты]
 ```
 
 Разница принципиальная: **листья изолируются дёшево**, **границы внутри ядра — дорого** (распутать ссылки).
@@ -48,12 +57,12 @@ SocialAuth · Notifier(Telegram) · AdSync · [будущее: Cabinet — ли�
 
 ### 2.1. Граф
 ```
-                 ┌───────── SocialAuth (лист)
+                 ┌───────── VideoLibrary (лист)
 Kernel ◄── Content ◄── Enrollment ◄── Lms
    ▲           ▲            ▲           ▲
    │           │            │           └── Cabinet (лист, будущее) ── личные кабинеты
    │           │            └── AdSync (лист) ── события Enrollment → провижн в AD
-   └── Notifier (лист) ── шина событий → Telegram
+   └── Notifier (лист, план) ── шина событий → Telegram
 ```
 (стрелка = «зависит от». Листья зависят от Kernel и **подписываются на события**, а не дёргают классы.)
 
@@ -64,8 +73,8 @@ Kernel ◄── Content ◄── Enrollment ◄── Lms
 | **Content** | предметы, задания, статьи, работы, уроки, курсы (CPT + банки + конструктор) | Kernel | «только предметы/задачи/статьи» |
 | **Enrollment** | заявки, persons, группы, PII, зачисление/отчисление | Kernel (+soft: `subject_key`→Content) | «+ регистрация» |
 | **Lms** | программа группы, сдачи, контрольные, плеер, прогресс, кокпит | Kernel, Content, **Enrollment** | «+ полноценная ЛМС» |
-| **SocialAuth** | OAuth-провайдеры, привязка аккаунтов | Kernel | лист |
-| **Notifier** | Telegram-уведомления (подписчик шины) — контракт зафиксирован in-app системой уведомлений: слушает `do_action('fs_lms_notification_created', $recipientUserId, $type, $payload)` (фактическая вставка строки — `NotificationService::push()`) и/или читает `fs_lms_notifications` (таблица, ключ — `recipient_user_id`+`dedupe_key`) для догоняющей доставки/истории | Kernel + шина | лист |
+| **VideoLibrary** | видеозаписи занятий (S3 Beget + push-REST от `fs-video-uploader` + presigned-выдача в плеер) | Kernel + `GroupLessonRepository` | лист |
+| **Notifier** (план) | Telegram-уведомления (подписчик шины) — контракт зафиксирован in-app системой уведомлений: слушает `do_action('fs_lms_notification_created', $recipientUserId, $type, $payload)` (фактическая вставка строки — `NotificationService::push()`) и/или читает `fs_lms_notifications` (таблица, ключ — `recipient_user_id`+`dedupe_key`) для догоняющей доставки/истории | Kernel + шина | лист |
 | **AdSync** | провижн учёток в AD через заявки | Kernel + события Enrollment | лист |
 
 ### 2.3. Будущие модули (пишем сразу как листья)
@@ -125,7 +134,7 @@ inc/
 │               PiiCrypto, PluginLogger, migrations-runner, event bus, config)
 └── Modules/
     ├── Content/      Enrollment/      Lms/        ← слоистое ядро
-    └── SocialAuth/   Notifier/   AdSync/  Cabinet/ ← листья
+    └── AdSync/   VideoLibrary/   Notifier/   Cabinet/ ← листья
 ```
 Каждый модуль: свои `Controllers/ Services/ Repositories/ DTO/ Enums/ Migrations/ Config/` + `XxxModule.php` (bootstrap).
 
@@ -172,7 +181,7 @@ Enums, nonce, AJAX-хуки, capabilities новой фичи живут в её
 
 | | Сложность | Почему |
 |---|---|---|
-| Листья (SocialAuth, Notifier, AdSync, Cabinet) | **дёшево** | аддитивны, нулевые входящие зависимости, связь хуками |
+| Листья (AdSync, VideoLibrary, Notifier, Cabinet) | **дёшево** | аддитивны, нулевые входящие зависимости, связь хуками |
 | Граница Content / Enrollment / Lms | **дорого** | подтверждённые перекрёстные ссылки (7 файлов Lms → Enrollment-репозитории), общие enums |
 | Общие данные | **самое дорогое** | persons/groups/applications/group_lessons + subjects(option) + монолитная `Migration_1_0_0`; нужно назначить владельцев таблиц и разрезать миграцию |
 
@@ -184,7 +193,8 @@ Enums, nonce, AJAX-хуки, capabilities новой фичи живут в её
 
 1. **Каркас:** ввести `ModuleInterface` + `ModuleManager`; **сгруппировать существующие 55 сервисов** по
    модулям-bootstrap — без смены поведения, только структура. Низкий риск, сразу даёт карту.
-2. **Листья:** вынести SocialAuth, Notifier, AdSync в `inc/Modules/...` (AdSync — уже сделано, см. `AdSyncPythonService.md`).
+2. **Листья:** вынести Notifier в `inc/Modules/...` по образцу уже сделанных AdSync и VideoLibrary
+   (см. `AdSyncPythonService.md`).
 3. **Флаги:** включить per-module флаги (3 уровня §3.2) + admin-notice о неудовлетворённых зависимостях.
 4. **Границы ядра:** провести Content/Enrollment/Lms; перенести файлы; сузить межслойные точки до
    интерфейсов `Kernel/Contracts`.

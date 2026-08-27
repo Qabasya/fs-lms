@@ -249,6 +249,8 @@ enum AjaxHook: string {
 
 	// ==== «Сводка по ученику» (ЛК преподавателя, Эпик 10 T10.8) ====
 	case GetStudentSummary       = 'get_student_summary'; // params: group_id, student_person_id — занятия ученика (посещаемость + работы)
+	case GetTeacherStudents      = 'get_teacher_students'; // без params — активные ученики всех доступных пользователю групп
+	case GetStudentCourses       = 'get_student_courses';  // params: student_person_id — группы (курсы) ученика, доступные пользователю
 
 	// ==== Деталь работы из сводки (ЛК преподавателя, Эпик 10 T10.9) ====
 	case GetWorkDetail           = 'get_work_detail'; // params: source_type (submission|attempt), source_id — условия/ответы/вердикты

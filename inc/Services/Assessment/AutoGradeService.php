@@ -70,16 +70,17 @@ class AutoGradeService {
 	 */
 	public function gradeAttempt( AttemptDTO $attempt ): AttemptDTO {
 		$assessment = $this->assessments->get( $attempt->assessmentId );
-		// Фолбэк: если работа не найдена — оцениваем по заполненным ответам.
-		$taskIds = null !== $assessment
-			? $assessment->taskIds
-			: array_map( static fn( $a ) => (int) $a->taskId, $this->answers->listByAttempt( $attempt->id ) );
 
-		// Сохранённые ответы по task_id (сырой текст) — для сопоставления с полным списком.
+		// Сохранённые ответы по task_id (сырой текст) — для сопоставления с полным
+		// списком. Читаем один раз: тот же набор нужен и фолбэку состава работы.
+		$saved     = $this->answers->listByAttempt( $attempt->id );
 		$rawByTask = array();
-		foreach ( $this->answers->listByAttempt( $attempt->id ) as $a ) {
+		foreach ( $saved as $a ) {
 			$rawByTask[ (int) $a->taskId ] = $a->answerText;
 		}
+
+		// Фолбэк: если работа не найдена — оцениваем по заполненным ответам.
+		$taskIds = null !== $assessment ? $assessment->taskIds : array_keys( $rawByTask );
 
 		$result = $this->evaluate( $assessment, $taskIds, $rawByTask );
 

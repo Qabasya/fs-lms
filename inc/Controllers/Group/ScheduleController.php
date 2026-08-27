@@ -57,6 +57,8 @@ class ScheduleController extends AjaxController {
 			// Ростер группы
 			array( AjaxHook::GetGroupRoster,          $this->roster ),
 			array( AjaxHook::GetStudentSummary,       $this->roster ),
+			array( AjaxHook::GetTeacherStudents,      $this->roster ),
+			array( AjaxHook::GetStudentCourses,       $this->roster ),
 
 			// Доставка занятия: работы, дедлайны, запись
 			array( AjaxHook::SetLessonExtraWorks,     $this->delivery ),

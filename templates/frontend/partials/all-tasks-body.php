@@ -36,9 +36,10 @@ $has_selected = (bool) array_sum( array_column( $page_data->filters, 'active' ) 
 	data-total="<?php echo esc_attr( (string) $total ); ?>"
 	data-has-more="<?php echo $page_data->has_more ? '1' : '0'; ?>">
 
-	<div class="shell">
-		<!-- Крошки (общий партиал со страницей задания) и свёрнутый поиск в одной строке -->
-		<div class="crumbs-row">
+	<!-- Крошки (общий партиал со страницей задания) и свёрнутый поиск в одной строке.
+		Полоса липкая и лежит вне .shell — её фон тянется на всю ширину окна. -->
+	<div class="crumbs-row">
+		<div class="crumbs-row__inner">
 			<?php
 			$crumbs = $page_data->breadcrumbs;
 			include __DIR__ . '/breadcrumbs.php';
@@ -60,7 +61,9 @@ $has_selected = (bool) array_sum( array_column( $page_data->filters, 'active' ) 
 				</button>
 			</div>
 		</div>
+	</div>
 
+	<div class="shell">
 		<div class="layout">
 
 			<!-- ===================== САЙДБАР / ФИЛЬТРЫ ===================== -->

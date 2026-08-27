@@ -109,7 +109,7 @@ FS LMS — WordPress-плагин, реализующий полноценную
 | Обучение | Программа группы, плеер, сдачи, автопроверка, журнал, КТП | §27–35 |
 | Личные кабинеты | SPA `/profile/` (препод/офис/ученик/родитель) + плеер урока | §36–40 |
 | Служебные | Логи и аудит (9 каналов), email-шаблоны, конфигурация, CSV-экспорт | §23–25 |
-| Опциональные модули | SocialAuth, AdSync, EgeComputer, DaData, SmartCaptcha | §26 |
+| Опциональные модули | AdSync, EgeComputer, DaData, SmartCaptcha, VideoLibrary | §26 |
 
 Термины, которые встречаются постоянно:
 
@@ -199,10 +199,10 @@ php -r "echo base64_encode(random_bytes(32)) . PHP_EOL;"   # генерация 
 | `FS_LMS_OTP_BYPASS_CODE` | Постоянный bypass-код OTP (работает и без TEST_ENV) |
 | `DADATA_API_TOKEN` | Токен DaData (модуль DaData) |
 | `FS_LMS_CAPTCHA_SITE_KEY` / `FS_LMS_CAPTCHA_SERVER_KEY` | Ключи Yandex SmartCaptcha (модуль SmartCaptcha) |
-| `FS_LMS_SOCIAL_AUTH` | Жёсткое вкл/выкл модуля SocialAuth (не задана → включён) |
 | `FS_LMS_AD_SYNC`, `FS_LMS_AD_HMAC_SECRET` | Модуль AdSync + секрет HMAC для REST |
 | `FS_LMS_EGE_COMPUTER` | Модуль EgeComputer (не задана → включён) |
 | `FS_LMS_DADATA`, `FS_LMS_SMART_CAPTCHA` | Жёсткое вкл/выкл соответствующих модулей |
+| `FS_LMS_VIDEO_LIBRARY`, `FS_LMS_VIDEO_HMAC_SECRET` | Модуль VideoLibrary (по умолчанию выкл.) + секрет HMAC для push-REST |
 
 ### Отладка
 
@@ -310,7 +310,7 @@ LearningEventSubscriber (лента событий)
 SubmissionController, AssessmentController
 
 — Опциональные модули (вырезаются удалением каталога + этой строки) —
-SocialAuthModule, AdSyncModule, EgeComputerModule, DaDataModule, SmartCaptchaModule
+AdSyncModule, EgeComputerModule, DaDataModule, SmartCaptchaModule, VideoLibraryModule
 ```
 
 > Важно: версий у плагина две, и они независимы. `fs_lms_schema_version` — версия схемы БД
@@ -403,7 +403,7 @@ Repository/Manager → DTO/Enum`. Правила, которые **нельзя*
 | `Log` | Логирование и аудит: шина, каналы, писатели | Controllers, Callbacks, Services, DTO, Enums |
 | `Email` | Письма и шаблоны | Services, DTO, Enums |
 | `Settings` | Конфигурация плагина | Controllers, Callbacks, DTO, Enums |
-| `Auth` | Аутентификация (enum'ы; сам OAuth — в модуле SocialAuth) | Enums |
+| `Auth` | Аутентификация: вход только по логину/паролю через `AuthPageController` (ядро) | Enums |
 
 Служебные папки, специфичные для слоя:
 
@@ -1183,7 +1183,7 @@ form.addEventListener( 'submit', ( e ) => {
 
 | Case | URL | Что это | Кто обслуживает |
 |---|---|---|---|
-| `SignIn` | `/sign-in/` | Вход в кабинет | шорткод `[fs_lms_login_form]` (регистрирует модуль SocialAuth — `SocialAuthPageController`), редиректы — `ProfileController` |
+| `SignIn` | `/sign-in/` | Вход в кабинет (только логин/пароль, соцвход снят) | шорткод `[fs_lms_login_form]` (`AuthPageController`, ядро), редиректы — `ProfileController` |
 | `Apply` | `/apply/` | Заявка ученика | `ApplyPageController` (шорткод `[fs_lms_apply_form]`) |
 | `UserProfile` | `/profile/` | SPA личного кабинета | `ProfileController` (§36) |
 | `ConsentPage` | `/consent/` | Текст согласия | `ConsentController` |
@@ -1480,11 +1480,11 @@ UI — вкладка «Конфигурация» в Настройках: по
 
 | Модуль | Что даёт | Константа | Опция-тумблер (default) | Точка связи с ядром |
 |---|---|---|---|---|
-| `SocialAuth` | OAuth-вход (VK/Google/GitHub), страница входа `[fs_lms_login_form]` | `FS_LMS_SOCIAL_AUTH` | `fs_lms_social_auth` (**вкл.**) | свои контроллеры страницы/настроек |
 | `AdSync` | Провижининг учёток в Active Directory (outbox-очередь + REST для Python-поллера) | `FS_LMS_AD_SYNC`, `FS_LMS_AD_HMAC_SECRET` | `fs_lms_ad_sync` (выкл.) | события заявок; REST `GET /ad/jobs`, `POST /ad/ack`; своя таблица через `AdSchema::ensure()` |
 | `EgeComputer` | Альтернативные плеер-станции контрольной «ЕГЭ (компьютерный)» и «ОГЭ (компьютерный)» (общий движок рендера/попыток, свои конфиги времени/попыток/шкалы `StationExamConfig`) | `FS_LMS_EGE_COMPUTER` (не задана → вкл.) | — | фильтр `fs_lms_assessment_renderer` (§34) |
 | `DaData` | Автодополнение ФИО/адреса на `/lms/join` | `FS_LMS_DADATA`, `DADATA_API_TOKEN` | `fs_lms_dadata` (выкл.) | фильтр `fs_lms_join_vars` |
 | `SmartCaptcha` | Yandex SmartCaptcha на `/apply/` | `FS_LMS_SMART_CAPTCHA`, ключи капчи | `fs_lms_smart_captcha` (выкл.) | фильтры `fs_lms_captcha_provider`, `fs_lms_apply_vars` |
+| `VideoLibrary` | Видеозаписи занятий: S3 Beget + push-REST от `fs-video-uploader` + presigned-выдача в плеер | `FS_LMS_VIDEO_LIBRARY`, `FS_LMS_VIDEO_HMAC_SECRET` | `fs_lms_video_library` (выкл.) | фильтр `fs_lms_recording_url`; публичный `GroupLessonRepository` |
 
 ### Устройство модуля
 

@@ -6,18 +6,26 @@
 .fs-all-tasks-page,
 .fs-articles-page {
   // ── Строка крошек: слева цепочка, справа свёрнутый поиск ──────
+  // Полоса — прямой ребёнок .fs-page-wrapper и выходит в его боковые паддинги,
+  // чтобы фон тянулся от края до края окна: при зуме от 150% под залипшей
+  // полосой проезжает контент, и обрезанный фон выдавал её край.
   .crumbs-row {
     @include fs-sticky(rem(0));
 
     z-index: 5;
+    margin: rem(-22) (-$spacing-4xl) 0;
+    padding: rem(16) $spacing-4xl;
+    background: $color-bg;
+  }
+
+  // Содержимое выровнено по колонке контента: та же ширина, что у .shell,
+  // отступ слева — на ширину сайдбара.
+  .crumbs-row__inner {
     display: flex; align-items: center;
     gap: rem(40);
-    margin-top: rem(-22);
-    margin-bottom: 0;
-    margin-left: calc(#{$sidebar-width} + #{$layout-gap} - #{rem(20)});
-    margin-right: rem(-20);
-    padding: rem(16) rem(20);
-    background: $color-bg;
+    max-width: $max-width;
+    margin: 0 auto;
+    padding-left: calc(#{$sidebar-width} + #{$layout-gap});
 
     // Крошки сжимаются в одну строку с многоточием: собственный flex-wrap
     // цепочки уводил её на вторую строку (зум страницы от 150%, узкий экран),
@@ -143,13 +151,17 @@
   // Сайдбар ушёл под контент (_shell.scss) — отступ под него больше не нужен.
   // Строка остаётся одной: цепочка сжимается многоточием, поиск — до узкого
   // раскрытия. Перенос строки и поиск во всю ширину — только на телефоне.
+  // Отступы врапера на телефоне другие (_layout: rem(16)), и выход полосы в них
+  // пересчитывается целиком — включая верхний: с десктопным rem(-22) полоса
+  // начиналась выше врапера, и её фон подрезался о шапку темы.
   @media (max-width: $bp-md) {
-    .crumbs-row { gap: rem(16); margin-left: 0; padding-left: rem(20); }
+    .crumbs-row       { margin: rem(-16) (-#{rem(16)}) 0; padding-inline: rem(16); }
+    .crumbs-row__inner { gap: rem(16); padding-left: 0; }
     .toolbar-search.is-open { width: rem(220); }
   }
 
   @media (max-width: $bp-sm) {
-    .crumbs-row { flex-wrap: wrap; gap: rem(12); }
+    .crumbs-row__inner { flex-wrap: wrap; gap: rem(12); }
     .toolbar-search.is-open { width: 100%; margin-left: 0; }
   }
 }

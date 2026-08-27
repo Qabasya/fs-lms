@@ -152,8 +152,9 @@ final class TeacherProfileView implements ProfileViewInterface {
 			'summary'  => array(
 				'nonce'   => Nonce::SaveSchedule->create(),
 				'actions' => array(
-					'getRoster'  => AjaxHook::GetGroupRoster->jsAction(),
-					'getSummary' => AjaxHook::GetStudentSummary->jsAction(),
+					'getSummary'  => AjaxHook::GetStudentSummary->jsAction(),
+					'getStudents' => AjaxHook::GetTeacherStudents->jsAction(),
+					'getCourses'  => AjaxHook::GetStudentCourses->jsAction(),
 				),
 			),
 			// Вкладка «Работы» (D3): список работ/экзаменов на проверку по вкладке

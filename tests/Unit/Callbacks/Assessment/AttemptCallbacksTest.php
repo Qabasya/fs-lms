@@ -18,8 +18,10 @@ class AttemptCallbacksTest extends TestCase {
 
 	private AttemptService       $service;
 	private PersonRepository     $persons;
-	private AttemptResultService $resultService;
-	private AttemptCallbacks     $cb;
+	private AttemptResultService   $resultService;
+	private AssessmentManager      $assessments;
+	private AssessmentAccessPolicy $access;
+	private AttemptCallbacks       $cb;
 
 	protected function setUp(): void {
 		parent::setUp();
