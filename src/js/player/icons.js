@@ -21,7 +21,7 @@ import {
 } from '../common/icons.js';
 
 export const TYPES = {
-	text: { label: 'Текст', c: '#1c7ed6', soft: '#e7f2fb' },
+	text: { label: 'Лекция', c: '#1c7ed6', soft: '#e7f2fb' },
 	video: { label: 'Видео', c: '#7048e8', soft: '#f1ecfd' },
 	broadcast: { label: 'Трансляция', c: '#d6336c', soft: '#fbe4ec' },
 	task: { label: 'Задача', c: '#099268', soft: '#e6f7f1' },

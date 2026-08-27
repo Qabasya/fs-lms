@@ -8,21 +8,36 @@
   font-size: rem(14.5);
   line-height: 1.7;
   color: var(--ink-2);
-  display: flex;
-  flex-direction: column;
-  gap: rem(16);
 
-  > * { margin: 0; }
+  // Вертикальный ритм держится на margin-top блочных элементов, а не на
+  // flex-gap прямых детей: контент из внешних редакторов (Collab и т.п.)
+  // часто приезжает с паразитными <div>-обёртками произвольной глубины —
+  // правило обязано работать вне зависимости от вложенности.
+  :where(div, section) { margin: 0; padding: 0; }
 
+  :where(p, ul, ol, pre, blockquote, table, img, .video-embed) {
+    margin-top: rem(16);
+
+    &:first-child { margin-top: 0; }
+  }
+
+  h1,
+  h2,
   h3,
   h4 {
     color: var(--ink);
+    font-weight: 700;
     letter-spacing: -0.01em;
-    margin-top: rem(6);
+    margin-top: rem(28);
+    padding-bottom: rem(8);
+
+    &:first-child { margin-top: 0; }
   }
 
-  h3 { font-size: rem(17); }
-  h4 { font-size: rem(15); }
+  h1 { font-size: rem(32); }
+  h2 { font-size: rem(28); }
+  h3 { font-size: rem(24); }
+  h4 { font-size: rem(20); }
 
   b,
   strong { color: var(--ink); }

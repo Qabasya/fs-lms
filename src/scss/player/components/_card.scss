@@ -12,11 +12,22 @@
 
   @media (max-width: $bp-mobile) { padding: rem(20) rem(16); }
 
+  h1,
+  h2 {
+    font-weight: 700;
+    margin-bottom: rem(6);
+  }
+
   h2 {
     font-size: rem(22);
-    font-weight: 700;
     letter-spacing: -0.015em;
-    margin-bottom: rem(6);
+  }
+
+  // Заголовок лекции (текст-шаг) — семантически h1, стиль совпадает с
+  // h1 внутри .wpc (_step-text.scss), чтобы на шаге все h1 выглядели одинаково.
+  h1 {
+    font-size: rem(32);
+    letter-spacing: -0.01em;
   }
 
   > .gap16 > p,

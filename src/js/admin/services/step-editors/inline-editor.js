@@ -8,6 +8,54 @@ import { renderChapterRows, renderAttachmentRows } from './video-editor.js';
  * TinyMCE, общий с destroyTiny), `scheduleSave`, `clearReviewFlag`.
  */
 
+/**
+ * Разворачивает произвольно вложенные <div>/<span>-обёртки без семантики —
+ * их приносит вставка из внешних редакторов (Google Colab, Jupyter export
+ * и т.п.), а модель лекции держит только плоские блочные теги (p/h1-h4/
+ * ul/ol/pre/blockquote/table/img — см. _step-text.scss). Строки кода,
+ * скопированные построчно как отдельные `<div><code>…</code></div>`,
+ * склеиваются в один `<pre><code>` — иначе каждая строка рендерится своим
+ * блоком с рамкой.
+ */
+function cleanPastedNode( root ) {
+	// Разворачивать div/span, пока не останется ни одного — глубина
+	// исходной вложенности произвольна (у Colab бывает 4-5 уровней).
+	let wrapper;
+	while ( ( wrapper = root.querySelector( 'div, span' ) ) ) {
+		while ( wrapper.firstChild ) {
+			wrapper.parentNode.insertBefore( wrapper.firstChild, wrapper );
+		}
+		wrapper.remove();
+	}
+
+	// Соседние «голые» <code> на верхнем уровне (по одной строке кода на
+	// исходный div) — склеить в один <pre><code>, разделив переносами.
+	const children = Array.from( root.childNodes );
+	let i = 0;
+	while ( i < children.length ) {
+		const node = children[ i ];
+		if ( node.nodeType === 1 && 'CODE' === node.tagName ) {
+			let j = i;
+			const lines = [];
+			while ( j < children.length && children[ j ].nodeType === 1 && 'CODE' === children[ j ].tagName ) {
+				lines.push( children[ j ].textContent );
+				j++;
+			}
+			const pre  = document.createElement( 'pre' );
+			const code = document.createElement( 'code' );
+			code.textContent = lines.join( '\n' );
+			pre.appendChild( code );
+			root.insertBefore( pre, children[ i ] );
+			for ( let k = i; k < j; k++ ) {
+				root.removeChild( children[ k ] );
+			}
+			i = j;
+		} else {
+			i++;
+		}
+	}
+}
+
 export function destroyTiny( tinyState ) {
 	if ( tinyState.id ) {
 		if ( window.wp?.editor ) {
@@ -95,6 +143,7 @@ export function inlineEditor( ed, step, ctx ) {
 					toolbar1         : 'bold italic underline strikethrough code_inline | formatselect | forecolor | bullist numlist | blockquote hr | alignleft aligncenter alignright | link unlink | fs_media | table | removeformat | undo redo | fullscreen',
 					toolbar2         : 'charmap | anchor searchreplace | latex_inline latex_block',
 					height           : 400,
+					paste_postprocess: ( plugin, args ) => cleanPastedNode( args.node ),
 					setup            : setupLatexButtons,
 				},
 				quicktags   : { buttons: 'strong,em,link,ul,ol,li,code,close' },
@@ -110,6 +159,7 @@ export function inlineEditor( ed, step, ctx ) {
 				plugins          : 'link lists hr charmap fullscreen',
 				height           : 400,
 				skin_url         : window.tinymce?.baseURL + '/skins/lightgray',
+				paste_postprocess: ( plugin, args ) => cleanPastedNode( args.node ),
 				setup            : setupLatexButtons,
 			} );
 		} else {

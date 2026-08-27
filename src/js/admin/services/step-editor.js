@@ -36,7 +36,7 @@ import { refEditor } from './step-editors/ref-editor.js';
  * выбором, ЕГЭ с сайта, приватная задача с интерпретатором), Работа, Контрольная.
  */
 const TYPE_UI = {
-	text:       { ui: 'lecture',  name: 'Текст',       inline: true },
+	text:       { ui: 'lecture',  name: 'Лекция',       inline: true },
 	video:      { ui: 'video',    name: 'Видео',       inline: true },
 	broadcast:  { ui: 'broadcast', name: 'Трансляция',  inline: true },
 	task:       { ui: 'task',       name: 'Задача',      inline: false, candKind: 'task' },

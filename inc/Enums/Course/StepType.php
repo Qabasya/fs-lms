@@ -47,7 +47,7 @@ enum StepType: string {
 	 */
 	public function label(): string {
 		return match ( $this ) {
-			self::Text       => 'Текст',
+			self::Text       => 'Лекция',
 			self::Video      => 'Видео',
 			self::Broadcast  => 'Трансляция',
 			self::Task       => 'Задача',

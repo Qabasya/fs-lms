@@ -26,7 +26,7 @@ use Inc\Enums\Course\StepType;
 			<a class="b b-gh b-sm pv-edit" href="<?php echo esc_url( $edit_url ); ?>" target="_blank" rel="noopener"><?php esc_html_e( 'Редактировать', 'fs-lms' ); ?></a>
 		<?php endif; ?>
 	</div>
-	<h2><?php echo esc_html( $step['title'] ); ?></h2>
+	<h1><?php echo esc_html( $step['title'] ); ?></h1>
 
 	<div class="gap16">
 		<div class="wpc"><?php echo \Inc\Shared\SafeHtml::post( (string) ( $render['content'] ?? '' ) ); ?></div>
