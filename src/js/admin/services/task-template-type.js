@@ -40,6 +40,10 @@ export const TaskTemplateType = {
 			template_type: type,
 		} ).done( ( resp ) => {
 			if ( resp && resp.success ) {
+				// Смена select помечает форму поста «изменённой» для WP-core dirty-check
+				// (window.onbeforeunload из wp-admin/js/post.js) — без сброса браузер
+				// спросит «Покинуть страницу?» перед нашим же программным редиректом.
+				window.onbeforeunload = null;
 				// Переход на edit-экран этого поста: надёжно для auto-draft (новая задача)
 				// и для существующих — там это просто перезагрузка.
 				window.location.href = `post.php?post=${ postId }&action=edit`;
