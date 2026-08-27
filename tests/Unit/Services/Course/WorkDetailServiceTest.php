@@ -18,6 +18,7 @@ use Inc\Repositories\WPDBRepositories\AssessmentAnswerRepository;
 use Inc\Repositories\WPDBRepositories\AssessmentAttemptRepository;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\SubmissionRepository;
+use Inc\Repositories\WPDBRepositories\TaskAttemptRepository;
 use Inc\Services\Course\WorkDetailService;
 use Inc\Services\Task\CorrectAnswerResolver;
 use Inc\Services\Task\TaskMetaService;
@@ -37,6 +38,7 @@ class WorkDetailServiceTest extends TestCase {
 	private AssessmentAnswerRepository&\PHPUnit\Framework\MockObject\MockObject  $answers;
 	private AssessmentManager&\PHPUnit\Framework\MockObject\MockObject           $assessments;
 	private MediaManager&\PHPUnit\Framework\MockObject\MockObject                $media;
+	private TaskAttemptRepository&\PHPUnit\Framework\MockObject\MockObject       $taskAttempts;
 	private WorkDetailService $service;
 
 	protected function setUp(): void {
@@ -50,6 +52,7 @@ class WorkDetailServiceTest extends TestCase {
 		$this->answers      = $this->createMock( AssessmentAnswerRepository::class );
 		$this->assessments  = $this->createMock( AssessmentManager::class );
 		$this->media        = $this->createMock( MediaManager::class );
+		$this->taskAttempts = $this->createMock( TaskAttemptRepository::class );
 		$this->service = new WorkDetailService(
 			$this->submissions,
 			$this->works,
@@ -61,6 +64,7 @@ class WorkDetailServiceTest extends TestCase {
 			$this->createMock( CorrectAnswerResolver::class ),
 			$this->media,
 			new TaskMetaService(),
+			$this->taskAttempts,
 		);
 	}
 
@@ -410,5 +414,71 @@ class WorkDetailServiceTest extends TestCase {
 		$task = $this->service->forWork( 'attempt', 9 )['tasks'][0];
 
 		self::assertNull( $task['oge_rubric'] );
+	}
+
+	/* ── attemptHistory(): «Пройти заново» — история попыток педагогу ─────── */
+
+	private function taskAttempt( int $round, int $taskId, mixed $answer, ?bool $isCorrect, string $createdAt ): \Inc\DTO\Task\TaskAttemptDTO {
+		return new \Inc\DTO\Task\TaskAttemptDTO(
+			id: $round * 100 + $taskId, studentPersonId: 10, groupLessonId: 5,
+			stepKey: \Inc\Enums\Course\AttemptSource::workStepKey( 3 ), taskId: $taskId,
+			attemptNumber: $round, answer: $answer, isCorrect: $isCorrect,
+			score: true === $isCorrect ? 1.0 : ( false === $isCorrect ? 0.0 : null ),
+			maxScore: 1.0, itemFeedback: null, createdAt: $createdAt,
+		);
+	}
+
+	public function test_attempt_history_null_when_submission_not_found(): void {
+		$this->submissions->method( 'find' )->willReturn( null );
+
+		self::assertNull( $this->service->attemptHistory( 7 ) );
+	}
+
+	public function test_attempt_history_empty_array_when_no_attempts_recorded(): void {
+		$this->submissions->method( 'find' )->willReturn( $this->sub( null ) );
+		$this->taskAttempts->method( 'listByStep' )->willReturn( array() );
+
+		self::assertSame( array(), $this->service->attemptHistory( 7 ) );
+	}
+
+	/** Две сдачи одной работы группируются по attemptNumber в раунды, ни одна не теряется. */
+	public function test_attempt_history_groups_by_round_and_marks_current(): void {
+		$this->submissions->method( 'find' )->willReturn( $this->sub( null ) );
+		$this->works->method( 'get' )->willReturn( $this->workWithItems( array( 42 ) ) );
+		$this->posts->method( 'getMeta' )->willReturn( 'standard_task' );
+		$this->posts->method( 'taskMeta' )->willReturn( array( 'task_condition' => 'Условие' ) );
+		$this->taskAttempts->method( 'listByStep' )->willReturn( array(
+			$this->taskAttempt( 1, 42, 'первый ответ', false, '2026-08-21 14:02:00' ),
+			$this->taskAttempt( 2, 42, 'второй ответ', true, '2026-08-26 19:15:00' ),
+		) );
+
+		$history = $this->service->attemptHistory( 7 );
+
+		self::assertCount( 2, $history );
+		self::assertSame( 1, $history[0]['round'] );
+		self::assertFalse( $history[0]['is_current'] );
+		self::assertSame( 'incorrect', $history[0]['tasks'][0]['verdict'] );
+		self::assertSame( 'первый ответ', $history[0]['tasks'][0]['answer'] );
+
+		self::assertSame( 2, $history[1]['round'] );
+		self::assertTrue( $history[1]['is_current'] );
+		self::assertSame( 'correct', $history[1]['tasks'][0]['verdict'] );
+		self::assertSame( 'второй ответ', $history[1]['tasks'][0]['answer'] );
+	}
+
+	/** Код-шаблоны (TaskTemplate::hasCodeField()) отдают код отдельным полем в истории. */
+	public function test_attempt_history_splits_code_field_for_code_templates(): void {
+		$this->submissions->method( 'find' )->willReturn( $this->sub( null ) );
+		$this->works->method( 'get' )->willReturn( $this->workWithItems( array( 42 ) ) );
+		$this->posts->method( 'getMeta' )->willReturn( 'code_task' );
+		$this->posts->method( 'taskMeta' )->willReturn( array() );
+		$this->taskAttempts->method( 'listByStep' )->willReturn( array(
+			$this->taskAttempt( 1, 42, array( 'text' => 'print(1)', 'code' => "x = 1\nprint(x)" ), true, '2026-08-26 19:15:00' ),
+		) );
+
+		$task = $this->service->attemptHistory( 7 )[0]['tasks'][0];
+
+		self::assertSame( 'print(1)', $task['answer'] );
+		self::assertSame( "x = 1\nprint(x)", $task['code'] );
 	}
 }

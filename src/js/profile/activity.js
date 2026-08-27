@@ -322,16 +322,25 @@ function studentRow(student) {
     </div>`;
 }
 
+/* Код — необязательное доп.поле у Code/FileCode/TwoFile (see TaskTemplate::
+   hasCodeField()): чип попытки компактный, полный код в проверку не входит —
+   показываем меткой «код» и подсказкой при наведении (тултип поддерживает
+   переводы строк). */
 function attemptChip(attempt) {
     const correct = true === attempt.correct;
     const mark    = correct ? icoCheck(12) : icoCross(10);
     const score   = null !== attempt.score && undefined !== attempt.score
         ? ` ${fmtNum(attempt.score)}/${fmtNum(attempt.max_score)}`
         : '';
+    const hasCode = !! attempt.code;
+    const title   = hasCode
+        ? `${fmtDateTime(attempt.created_at)}\n\nКод:\n${attempt.code}`
+        : fmtDateTime(attempt.created_at);
 
     return `
-    <span class="act-attempt${correct ? ' is-ok' : ' is-err'}" title="${esc(fmtDateTime(attempt.created_at))}">
+    <span class="act-attempt${correct ? ' is-ok' : ' is-err'}" title="${esc(title)}">
         ${mark}<span class="act-attempt-n">#${attempt.number}${score}</span>
+        ${hasCode ? '<span class="act-attempt-code">код</span>' : ''}
     </span>`;
 }
 

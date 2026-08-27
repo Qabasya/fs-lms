@@ -287,7 +287,7 @@ class ProblemsController extends BaseController implements ServiceInterface {
 	}
 
 	/**
-	 * Добавляет колонку «Тип шаблона» перед колонкой даты.
+	 * Добавляет колонки «Предмет» (после названия) и «Тип шаблона» (перед датой).
 	 *
 	 * Колонки «Тематика» (таксономия `problem_tag`) и «Автор» добавляются
 	 * ядром WP автоматически (`show_admin_column` и `supports => author`).
@@ -297,7 +297,7 @@ class ProblemsController extends BaseController implements ServiceInterface {
 	 * @return array<string, string>
 	 */
 	public function addColumns( array $columns ): array {
-		$order = array( 'cb', 'title' );
+		$order = array( 'cb', 'title', 'subject' );
 
 		// Таксономии (добавляются WP автоматически через show_admin_column).
 		foreach ( array_keys( $columns ) as $key ) {
@@ -310,7 +310,9 @@ class ProblemsController extends BaseController implements ServiceInterface {
 
 		$result = array();
 		foreach ( $order as $key ) {
-			if ( 'template_type' === $key ) {
+			if ( 'subject' === $key ) {
+				$result['subject'] = 'Предмет';
+			} elseif ( 'template_type' === $key ) {
 				$result['template_type'] = 'Тип шаблона';
 			} elseif ( isset( $columns[ $key ] ) ) {
 				$result[ $key ] = $columns[ $key ];
@@ -321,9 +323,18 @@ class ProblemsController extends BaseController implements ServiceInterface {
 	}
 
 	/**
-	 * Отрисовывает значение кастомной колонки «Тип шаблона».
+	 * Отрисовывает значения кастомных колонок «Предмет» и «Тип шаблона».
 	 */
 	public function renderColumn( string $column, int $post_id ): void {
+		if ( 'subject' === $column ) {
+			$key     = (string) $this->posts->getMeta( $post_id, PostMetaName::BankTaskSubject->value );
+			$subject = '' !== $key ? $this->subjects->getByKey( $key ) : null;
+
+			echo esc_html( null !== $subject ? $subject->name : '—' );
+
+			return;
+		}
+
 		if ( 'template_type' !== $column ) {
 			return;
 		}
@@ -335,13 +346,14 @@ class ProblemsController extends BaseController implements ServiceInterface {
 	}
 
 	/**
-	 * Делает колонку «Тип шаблона» сортируемой.
+	 * Делает колонки «Предмет» и «Тип шаблона» сортируемыми.
 	 *
 	 * @param array<string, string> $columns
 	 *
 	 * @return array<string, string>
 	 */
 	public function sortableColumns( array $columns ): array {
+		$columns['subject']              = 'subject';
 		$columns['template_type']        = 'template_type';
 		$columns['taxonomy-problem_tag'] = 'taxonomy-problem_tag';
 		$columns['fs_lms_usage']         = 'fs_lms_usage';
@@ -367,9 +379,13 @@ class ProblemsController extends BaseController implements ServiceInterface {
 			return;
 		}
 
-		// Сортировка по типу шаблона — обычная мета-сортировка, остальное — в фильтрах банка.
+		// Сортировка по типу шаблона/предмету — обычная мета-сортировка, остальное — в фильтрах банка.
 		if ( 'template_type' === $query->get( 'orderby' ) ) {
 			$query->set( 'meta_key', PostMetaName::TemplateType->value );
+			$query->set( 'orderby', 'meta_value' );
+		}
+		if ( 'subject' === $query->get( 'orderby' ) ) {
+			$query->set( 'meta_key', PostMetaName::BankTaskSubject->value );
 			$query->set( 'orderby', 'meta_value' );
 		}
 

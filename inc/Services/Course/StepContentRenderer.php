@@ -234,6 +234,13 @@ class StepContentRenderer {
 			TaskTemplate::Fill =>
 				$this->buildFillData( $meta ),
 
+			// Задания с кодом (Code/FileCode/TwoFile) авто-проверяются как обычный
+			// текстовый ответ (TextCheckerAnswer сверяет только task_answer), но
+			// рядом с ним ученику доступно необязательное поле «Код» — чисто
+			// информационное для учителя, в проверку не участвует.
+			TaskTemplate::Code, TaskTemplate::FileCode, TaskTemplate::TwoFile =>
+				array( 'type' => 'text_answer', 'with_code' => true ),
+
 			// Эпик 13 (D16): FileAnswer здесь намеренно НЕ обрабатывается — шаговые
 			// задания урока (task_attempts) требуют авто-проверки (SubmitTaskAnswerCallbacks
 			// жёстко отклоняет шаблоны без чекера в TaskCheckerRegistry) и не имеют

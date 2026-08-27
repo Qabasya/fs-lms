@@ -5,6 +5,10 @@ declare( strict_types=1 );
 namespace Unit\Callbacks\Course;
 
 use Inc\Callbacks\Course\GradingCallbacks;
+use Inc\DTO\Course\GroupLessonDTO;
+use Inc\DTO\Course\SubmissionDTO;
+use Inc\Enums\Course\SubmissionStatus;
+use Inc\Enums\Course\WorkType;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\SubmissionRepository;
 use Inc\Services\Course\GroupAccessGuard;
@@ -80,5 +84,60 @@ class GradingCallbacksTest extends TestCase {
 		$_POST = array( 'source_type' => 'submission', 'source_id' => '5' );
 
 		self::assertFalse( fs_test_capture_json( fn() => $this->cb->ajaxGetWorkDetail() )->success );
+	}
+
+	/* ── getWorkAttemptHistory(): «Пройти заново» — история попыток педагогу ── */
+
+	private function submissionFixture(): SubmissionDTO {
+		return new SubmissionDTO(
+			id: 5, studentPersonId: 10, groupLessonId: 20, workId: 3, workType: WorkType::Practice,
+			taskId: null, answerText: null, attachmentId: null, dueAt: null,
+			status: SubmissionStatus::Submitted, score: null, maxScore: null, feedback: null,
+			gradedByUserId: null, submittedAt: '2026-08-26 19:15:00', gradedAt: null,
+			createdAt: '', updatedAt: '',
+		);
+	}
+
+	private function groupLessonFixture( int $groupId ): GroupLessonDTO {
+		return new GroupLessonDTO(
+			id: 20, groupId: $groupId, lessonId: 1, position: 0, workIdsSnapshot: null, extraWorkIds: array(),
+			scheduledAt: '2026-08-20 09:00:00', endsAt: null, isPinned: false, teacherUserId: null, visibility: 'open',
+			openedAt: null, homeworkDueAt: null, allowLate: true, recordingUrl: null,
+			createdByUserId: null, updatedByUserId: null,
+		);
+	}
+
+	public function test_get_work_attempt_history_submission_not_found_errors(): void {
+		$this->submissions->method( 'find' )->willReturn( null );
+		$this->workDetail->expects( $this->never() )->method( 'attemptHistory' );
+		$_POST = array( 'submission_id' => '5' );
+
+		self::assertFalse( fs_test_capture_json( fn() => $this->cb->ajaxGetWorkAttemptHistory() )->success );
+	}
+
+	public function test_get_work_attempt_history_denied_when_not_manager(): void {
+		$this->submissions->method( 'find' )->willReturn( $this->submissionFixture() );
+		$this->groupLessons->method( 'find' )->willReturn( $this->groupLessonFixture( 9 ) );
+		$this->guard->method( 'canManage' )->willReturn( false );
+		$this->workDetail->expects( $this->never() )->method( 'attemptHistory' );
+		$_POST = array( 'submission_id' => '5' );
+
+		self::assertFalse( fs_test_capture_json( fn() => $this->cb->ajaxGetWorkAttemptHistory() )->success );
+	}
+
+	public function test_get_work_attempt_history_returns_attempts(): void {
+		$this->submissions->method( 'find' )->willReturn( $this->submissionFixture() );
+		$this->groupLessons->method( 'find' )->willReturn( $this->groupLessonFixture( 9 ) );
+		$this->guard->method( 'canManage' )->willReturn( true );
+		$this->workDetail->expects( $this->once() )
+			->method( 'attemptHistory' )
+			->with( 5 )
+			->willReturn( array( array( 'round' => 1, 'is_current' => true, 'tasks' => array() ) ) );
+		$_POST = array( 'submission_id' => '5' );
+
+		$r = fs_test_capture_json( fn() => $this->cb->ajaxGetWorkAttemptHistory() );
+
+		self::assertTrue( $r->success );
+		self::assertCount( 1, $r->payload['attempts'] );
 	}
 }

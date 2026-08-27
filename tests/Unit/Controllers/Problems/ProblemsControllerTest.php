@@ -6,6 +6,7 @@ namespace Unit\Controllers\Problems;
 
 use Inc\Controllers\Builders\ProblemListFilters;
 use Inc\Controllers\Problems\ProblemsController;
+use Inc\DTO\Subject\SubjectDTO;
 use Inc\Managers\Wp\PostManager;
 use Inc\Managers\Wp\TermManager;
 use Inc\Registrars\ProblemBankRegistrar;
@@ -25,14 +26,16 @@ class ProblemsControllerTest extends TestCase {
 
 	private TaskPublishValidator $validator;
 	private PostManager          $posts;
+	private SubjectRepository    $subjects;
 	private ProblemsController   $controller;
 
 	protected function setUp(): void {
 		parent::setUp();
 		$_POST = array();
 
-		$this->validator  = $this->createMock( TaskPublishValidator::class );
-		$this->posts      = $this->createMock( PostManager::class );
+		$this->validator = $this->createMock( TaskPublishValidator::class );
+		$this->posts     = $this->createMock( PostManager::class );
+		$this->subjects  = $this->createMock( SubjectRepository::class );
 
 		$this->controller = new ProblemsController(
 			$this->createMock( TemplateRegistry::class ),
@@ -41,7 +44,7 @@ class ProblemsControllerTest extends TestCase {
 			new TaskPublishGuard(),
 			$this->createMock( ProblemBankRegistrar::class ),
 			$this->createMock( ProblemListFilters::class ),
-			$this->createMock( SubjectRepository::class ),
+			$this->subjects,
 			$this->createMock( TermManager::class )
 		);
 	}
@@ -138,5 +141,45 @@ class ProblemsControllerTest extends TestCase {
 		$this->posts->expects( $this->never() )->method( 'updateMeta' );
 
 		$this->controller->saveSubjectFields( 201 );
+	}
+
+	/* ── Колонка «Предмет» в банке задач (.docs/Tasks.md, 2026-08-26) ──────── */
+
+	public function test_add_columns_places_subject_between_title_and_taxonomy(): void {
+		$order = array_keys( $this->controller->addColumns( array(
+			'cb'                     => '<input type="checkbox">',
+			'title'                  => 'Название',
+			'taxonomy-problem_tag'   => 'Тематика',
+			'author'                 => 'Автор',
+			'date'                   => 'Дата',
+		) ) );
+
+		self::assertSame(
+			array( 'cb', 'title', 'subject', 'taxonomy-problem_tag', 'template_type', 'author', 'date' ),
+			$order
+		);
+	}
+
+	public function test_render_column_subject_shows_dash_when_none_selected(): void {
+		$this->posts->method( 'getMeta' )->willReturn( '' );
+
+		ob_start();
+		$this->controller->renderColumn( 'subject', 15 );
+		$out = ob_get_clean();
+
+		self::assertSame( '—', $out );
+	}
+
+	public function test_render_column_subject_resolves_name_from_key(): void {
+		$this->posts->method( 'getMeta' )->willReturn( 'inf_ege' );
+		$this->subjects->method( 'getByKey' )->with( 'inf_ege' )->willReturn(
+			new SubjectDTO( key: 'inf_ege', name: 'Информатика' )
+		);
+
+		ob_start();
+		$this->controller->renderColumn( 'subject', 15 );
+		$out = ob_get_clean();
+
+		self::assertSame( 'Информатика', $out );
 	}
 }

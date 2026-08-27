@@ -31,7 +31,7 @@ export function initTaskWidget( panel ) {
 	const isDone     = !! container.dataset.done;
 
 	switch ( widgetData.type ) {
-		case 'text_answer': return buildTextAnswerWidget( container, isDone );
+		case 'text_answer': return buildTextAnswerWidget( container, isDone, !! widgetData.with_code );
 		case 'audio':       return buildAudioWidget( container, widgetData, isDone );
 		case 'triple':      return buildTripleWidget( container, isDone );
 		case 'choice':      return buildChoiceWidget( container, widgetData, isDone );
@@ -74,20 +74,50 @@ function inputsApi( inputs, collectAnswer, hasAnswer ) {
 
 // ── Text answer (Standard / Common) ───────────────────────────────────────
 
-function buildTextAnswerWidget( container, isDone ) {
+function buildTextAnswerWidget( container, isDone, withCode ) {
 	const textarea = make( 'textarea', 'fs-widget-text ansbox txt' );
 	textarea.rows        = 4;
 	textarea.placeholder = 'Введите ответ…';
 	if ( isDone ) { textarea.disabled = true; }
 	container.appendChild( textarea );
 
+	let codeArea = null;
+	if ( withCode ) {
+		const label = make( 'label', 'fs-widget-code-label' );
+		label.textContent = 'Код (необязательно)';
+		container.appendChild( label );
+
+		codeArea = make( 'textarea', 'fs-widget-code ansbox txt' );
+		codeArea.rows        = 8;
+		codeArea.placeholder = 'Вставьте свой код…';
+		if ( isDone ) { codeArea.disabled = true; }
+		container.appendChild( codeArea );
+	}
+
+	const inputs = codeArea ? [ textarea, codeArea ] : [ textarea ];
+
 	return Object.assign(
 		inputsApi(
-			[ textarea ],
-			() => JSON.stringify( textarea.value.trim() ),
+			inputs,
+			() => {
+				const code = codeArea ? codeArea.value.trim() : '';
+				return code
+					? JSON.stringify( { text: textarea.value.trim(), code } )
+					: JSON.stringify( textarea.value.trim() );
+			},
 			() => '' !== textarea.value.trim()
 		),
-		{ setAnswer: ( v ) => { textarea.value = 'string' === typeof v ? v : ''; } }
+		{
+			setAnswer: ( v ) => {
+				if ( v && 'object' === typeof v ) {
+					textarea.value = 'string' === typeof v.text ? v.text : '';
+					if ( codeArea ) { codeArea.value = 'string' === typeof v.code ? v.code : ''; }
+					return;
+				}
+				textarea.value = 'string' === typeof v ? v : '';
+				if ( codeArea ) { codeArea.value = ''; }
+			},
+		}
 	);
 }
 

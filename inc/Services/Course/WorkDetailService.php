@@ -6,6 +6,7 @@ namespace Inc\Services\Course;
 
 use Inc\Shared\SafeHtml;
 use Inc\Enums\Subject\TaskTemplate;
+use Inc\Enums\Course\AttemptSource;
 use Inc\Enums\Course\SubmissionStatus;
 use Inc\Enums\Course\WorkSourceType;
 use Inc\Enums\Wp\PostMetaName;
@@ -17,6 +18,7 @@ use Inc\Repositories\WPDBRepositories\AssessmentAnswerRepository;
 use Inc\Repositories\WPDBRepositories\AssessmentAttemptRepository;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\SubmissionRepository;
+use Inc\Repositories\WPDBRepositories\TaskAttemptRepository;
 use Inc\Services\Task\CorrectAnswerResolver;
 use Inc\Services\Task\TaskMetaService;
 
@@ -75,6 +77,7 @@ class WorkDetailService {
 		private readonly CorrectAnswerResolver       $correctAnswers,
 		private readonly MediaManager                $media,
 		private readonly TaskMetaService             $taskMeta,
+		private readonly TaskAttemptRepository       $taskAttempts,
 	) {}
 
 	/**
@@ -86,6 +89,122 @@ class WorkDetailService {
 			WorkSourceType::Attempt    => $this->fromAttempt( $sourceId ),
 			default                    => null,
 		};
+	}
+
+	/**
+	 * История всех попыток сдачи работы (submission), сгруппированных по
+	 * раунду сдачи. `SubmissionService::submitBatch()` перезаписывает текущую
+	 * строку `fs_lms_submissions` при пересдаче («Пройти заново»), но КАЖДАЯ
+	 * сдача пишет отдельные строки в `fs_lms_task_attempts` с общим для всех
+	 * задач работы `attemptNumber` (см. `SubmissionService::recordWorkAttempt()`)
+	 * — этот номер и есть «раунд», по нему группируем историю без изменения
+	 * модели данных.
+	 *
+	 * Экзамены (WorkSourceType::Attempt) сюда не относятся — у `fs_lms_assessment_attempts`
+	 * каждая попытка и так отдельная запись, история видна без этого метода.
+	 *
+	 * @param int $submissionId ID агрегатной строки сдачи (fs_lms_submissions)
+	 *
+	 * @return array<int, array{
+	 *   round: int,
+	 *   submitted_at: string,
+	 *   is_current: bool,
+	 *   tasks: array<int, array{n:int, condition:string, answer:?string, code:?string, verdict:string, score:?float, max_score:?float}>
+	 * }>|null null, если сдача не найдена
+	 */
+	public function attemptHistory( int $submissionId ): ?array {
+		$sub = $this->submissions->find( $submissionId );
+		if ( ! $sub ) {
+			return null;
+		}
+
+		$attempts = $this->taskAttempts->listByStep(
+			$sub->studentPersonId,
+			$sub->groupLessonId,
+			AttemptSource::workStepKey( $sub->workId )
+		);
+		if ( empty( $attempts ) ) {
+			return array();
+		}
+
+		$rounds = array();
+		foreach ( $attempts as $attempt ) {
+			$rounds[ $attempt->attemptNumber ][] = $attempt;
+		}
+		ksort( $rounds );
+		$maxRound = max( array_keys( $rounds ) );
+
+		$work    = $this->works->get( $sub->workId );
+		$itemIds = $work?->itemIds ? array_map( 'intval', $work->itemIds ) : array();
+
+		$result = array();
+		foreach ( $rounds as $round => $roundAttempts ) {
+			$byTask = array();
+			foreach ( $roundAttempts as $a ) {
+				$byTask[ $a->taskId ] = $a;
+			}
+
+			$orderedTaskIds = $itemIds ?: array_keys( $byTask );
+			$submittedAt    = $roundAttempts[0]->createdAt;
+			$tasks          = array();
+			$n              = 0;
+
+			foreach ( $orderedTaskIds as $taskId ) {
+				$a = $byTask[ $taskId ] ?? null;
+				if ( ! $a ) {
+					continue;
+				}
+				if ( $a->createdAt > $submittedAt ) {
+					$submittedAt = $a->createdAt;
+				}
+
+				[ $answer, $code ] = $this->splitAttemptAnswer( $taskId, $a->answer );
+
+				$tasks[] = array(
+					'n'         => ++$n,
+					'condition' => $this->condition( $taskId ),
+					'answer'    => $answer,
+					'code'      => $code,
+					'verdict'   => true === $a->isCorrect ? 'correct' : ( false === $a->isCorrect ? 'incorrect' : 'pending' ),
+					'score'     => $a->score,
+					'max_score' => $a->maxScore,
+				);
+			}
+
+			$result[] = array(
+				'round'        => $round,
+				'submitted_at' => $submittedAt,
+				'is_current'   => $round === $maxRound,
+				'tasks'        => $tasks,
+			);
+		}
+
+		return $result;
+	}
+
+	/**
+	 * Разбирает декодированный ответ попытки (уже `mixed` из `TaskAttemptDTO`) на
+	 * текст + необязательный код — та же логика, что {@see parseCodeAnswer()},
+	 * только источник не JSON-строка `answer_text`, а уже декодированное значение
+	 * из `fs_lms_task_attempts`.
+	 *
+	 * @param int   $taskId    ID задания
+	 * @param mixed $rawAnswer Декодированный ответ попытки (строка/массив/null)
+	 *
+	 * @return array{0: string|null, 1: string|null} [answer, code]
+	 */
+	private function splitAttemptAnswer( int $taskId, mixed $rawAnswer ): array {
+		if ( is_string( $rawAnswer ) ) {
+			return array( $rawAnswer, null );
+		}
+
+		if ( $this->taskTemplate( $taskId )->hasCodeField() && is_array( $rawAnswer ) && array_key_exists( 'text', $rawAnswer ) ) {
+			$code = isset( $rawAnswer['code'] ) && '' !== $rawAnswer['code'] ? (string) $rawAnswer['code'] : null;
+
+			return array( (string) $rawAnswer['text'], $code );
+		}
+
+		return array( null, null );
 	}
 
 	private function fromSubmission( int $submissionId ): ?array {
@@ -116,9 +235,21 @@ class WorkDetailService {
 			$taskId   = (int) $taskId;
 			$pt       = $perTask[ $taskId ] ?? array();
 			$row      = $rowsByTask[ $taskId ] ?? null;
-			$gradable = $this->isGradable( $taskId );
+			$template = $this->taskTemplate( $taskId );
+			$gradable = $template->isFileAnswerShape();
 			if ( $gradable ) {
 				$hasGradableTask = true;
+			}
+
+			// Задания с кодом (Code/FileCode/TwoFile) хранят ответ JSON {"text","code"} —
+			// разбираем на текст (участвует в вердикте/сверке) и код (только для показа).
+			$rawAnswer = (string) ( $row->answerText ?? '' );
+			$answer    = $rawAnswer;
+			$code      = null;
+			if ( $template->hasCodeField() ) {
+				$parsedCode = $this->parseCodeAnswer( $rawAnswer );
+				$answer     = $parsedCode['text'];
+				$code       = $parsedCode['code'];
 			}
 
 			// Ручное задание (file_answer_task) с уже начатой/законченной проверкой —
@@ -130,7 +261,8 @@ class WorkDetailService {
 				$tasks[] = array(
 					'n'                  => ++$n,
 					'condition'          => $this->condition( $taskId ),
-					'answer'             => (string) ( $row->answerText ?? '' ),
+					'answer'             => $answer,
+					'code'               => $code,
 					'correct'            => $this->correctAnswers->resolve( $taskId ),
 					'verdict'            => $verdict,
 					'score'              => $row->score,
@@ -145,7 +277,8 @@ class WorkDetailService {
 			$tasks[] = array(
 				'n'                  => ++$n,
 				'condition'          => $this->condition( $taskId ),
-				'answer'             => (string) ( $row->answerText ?? '' ),
+				'answer'             => $answer,
+				'code'               => $code,
 				'correct'            => $this->correctAnswers->resolve( $taskId ),
 				'verdict'            => (string) ( $pt['verdict'] ?? 'pending' ),
 				'score'              => isset( $pt['score'] ) ? (float) $pt['score'] : null,
@@ -311,15 +444,32 @@ class WorkDetailService {
 		return $this->taskMeta->getCombinedCondition( $this->posts->taskMeta( $taskId ) );
 	}
 
-	/**
-	 * Задание требует ручной оценки (D4, .docs/Tasks.md) — источник истины
-	 * {@see TaskTemplate::isFileAnswerShape()} (у обоих шаблонов такой формы нет
-	 * автопроверки в {@see \Inc\Services\Task\TaskCheckerRegistry}).
-	 */
-	private function isGradable( int $taskId ): bool {
+	/** Резолвит шаблон задания по его типу из меты. */
+	private function taskTemplate( int $taskId ): TaskTemplate {
 		return TaskTemplate::fromDatabase(
 			(string) $this->posts->getMeta( $taskId, PostMetaName::TemplateType->value )
-		)->isFileAnswerShape();
+		);
+	}
+
+	/**
+	 * Разбор ответа заданий с кодом (Code/FileCode/TwoFile, {@see TaskTemplate::
+	 * hasCodeField()}): ответ хранится JSON `{"text","code"}` (см.
+	 * `src/js/frontend/components/task-widget.js::buildTextAnswerWidget()`), код —
+	 * необязателен. Не-JSON (старая запись без кода, до появления этого поля) —
+	 * весь текст как есть, без кода.
+	 *
+	 * @return array{text: string, code: string|null}
+	 */
+	private function parseCodeAnswer( ?string $answerText ): array {
+		$decoded = is_string( $answerText ) && '' !== $answerText ? json_decode( $answerText, true ) : null;
+		if ( ! is_array( $decoded ) || ! array_key_exists( 'text', $decoded ) ) {
+			return array( 'text' => (string) $answerText, 'code' => null );
+		}
+
+		return array(
+			'text' => (string) $decoded['text'],
+			'code' => isset( $decoded['code'] ) ? (string) $decoded['code'] : null,
+		);
 	}
 
 	/**

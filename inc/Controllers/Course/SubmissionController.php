@@ -25,15 +25,16 @@ class SubmissionController extends AjaxController {
 
 	protected function ajaxActions(): array {
 		return array(
-			array( AjaxHook::UploadAnswerFile,    $this->submissionCallbacks ),
-			array( AjaxHook::SaveGrade,           $this->gradingCallbacks ),
-			array( AjaxHook::ReturnSubmission,    $this->gradingCallbacks ),
-			array( AjaxHook::GetWorkDetail,       $this->gradingCallbacks ),
-			array( AjaxHook::ResetAttempts,       $this->gradingCallbacks ),
-			array( AjaxHook::SubmitBatchWork,     $this->batchCallbacks ),
-			array( AjaxHook::GradeBatchTask,      $this->batchCallbacks ),
-			array( AjaxHook::GetPendingWorks,     $this->reviewQueueCallbacks ),
-			array( AjaxHook::GetWorkSubmissions,  $this->reviewQueueCallbacks ),
+			array( AjaxHook::UploadAnswerFile,      $this->submissionCallbacks ),
+			array( AjaxHook::SaveGrade,             $this->gradingCallbacks ),
+			array( AjaxHook::ReturnSubmission,      $this->gradingCallbacks ),
+			array( AjaxHook::GetWorkDetail,         $this->gradingCallbacks ),
+			array( AjaxHook::GetWorkAttemptHistory, $this->gradingCallbacks ),
+			array( AjaxHook::ResetAttempts,         $this->gradingCallbacks ),
+			array( AjaxHook::SubmitBatchWork,       $this->batchCallbacks ),
+			array( AjaxHook::GradeBatchTask,        $this->batchCallbacks ),
+			array( AjaxHook::GetPendingWorks,       $this->reviewQueueCallbacks ),
+			array( AjaxHook::GetWorkSubmissions,    $this->reviewQueueCallbacks ),
 		);
 	}
 }

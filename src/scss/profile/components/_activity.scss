@@ -221,6 +221,20 @@
 
 .act-attempt-n { line-height: 1; }
 
+/* Метка «код» — попытка несёт необязательное поле code (см. attemptChip()),
+   полный код смотрим в подсказке (title) или на экране «Проверки работ». */
+.act-attempt-code {
+  padding: 0 rem(5);
+  border-radius: var(--radius-xs);
+  background: var(--surface-2);
+  font-family: var(--mono);
+  font-size: rem(10);
+  line-height: 1.4;
+  text-transform: uppercase;
+  letter-spacing: .02em;
+  color: var(--muted);
+}
+
 @media (max-width: $breakpoint-tablet) {
   .act-student {
     grid-template-columns: 1fr;

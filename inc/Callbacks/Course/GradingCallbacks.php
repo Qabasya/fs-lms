@@ -60,6 +60,39 @@ class GradingCallbacks extends BaseController {
 	}
 
 	/**
+	 * История прошлых раундов сдачи работы (.docs/Tasks.md, «Пройти заново») —
+	 * read-only снимки предыдущих попыток для пилюль на экране проверки. Только
+	 * для `submission` (работы); у экзаменов (`fs_lms_assessment_attempts`)
+	 * каждая попытка и так отдельная запись, отдельная история не нужна.
+	 * Params: submission_id.
+	 */
+	public function ajaxGetWorkAttemptHistory(): void {
+		$this->authorize( Nonce::GradeWork, Capability::ManageLmsTeaching );
+
+		$submissionId = $this->requireInt( 'submission_id' );
+
+		$sub = $this->submissionRepo->find( $submissionId );
+		if ( ! $sub ) {
+			$this->error( 'Сдача не найдена.' );
+			return;
+		}
+
+		$gl = $this->groupLessons->find( $sub->groupLessonId );
+		if ( ! $gl || ! $this->guard->canManage( $gl->groupId, get_current_user_id() ) ) {
+			$this->error( 'Нет доступа к этой группе.' );
+			return;
+		}
+
+		$history = $this->workDetail->attemptHistory( $submissionId );
+		if ( null === $history ) {
+			$this->error( 'Сдача не найдена.' );
+			return;
+		}
+
+		$this->success( array( 'attempts' => $history ) );
+	}
+
+	/**
 	 * Сброс попыток/сдач ученика по работе или экзамену (задача 11): удаляет все
 	 * попытки/сдачи с результатами, чтобы ученик прошёл заново. Params: source_type, source_id.
 	 */

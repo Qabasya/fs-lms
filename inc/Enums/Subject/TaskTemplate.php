@@ -187,4 +187,16 @@ enum TaskTemplate: string {
 			default => false,
 		};
 	}
+
+	/**
+	 * Задания с кодом получают необязательное доп.поле «Код» рядом с обычным
+	 * текстовым ответом — авто-проверка (`TextAnswerChecker`) по-прежнему идёт
+	 * только по `task_answer`/`text`, код виден учителю чисто информационно.
+	 */
+	public function hasCodeField(): bool {
+		return match ( $this ) {
+			self::Code, self::FileCode, self::TwoFile => true,
+			default => false,
+		};
+	}
 }

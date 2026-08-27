@@ -171,10 +171,12 @@ final class TeacherProfileView implements ProfileViewInterface {
 			'review'   => array(
 				'nonce'   => Nonce::GradeWork->create(),
 				'actions' => array(
-					'getDetail'        => AjaxHook::GetWorkDetail->jsAction(),
-					'saveGrade'        => AjaxHook::SaveGrade->jsAction(),
-					'returnSubmission' => AjaxHook::ReturnSubmission->jsAction(),
-					'resetAttempts'    => AjaxHook::ResetAttempts->jsAction(),
+					'getDetail'         => AjaxHook::GetWorkDetail->jsAction(),
+					'saveGrade'         => AjaxHook::SaveGrade->jsAction(),
+					'returnSubmission'  => AjaxHook::ReturnSubmission->jsAction(),
+					'resetAttempts'     => AjaxHook::ResetAttempts->jsAction(),
+					// «Пройти заново»: история прошлых раундов сдачи (.docs/Tasks.md).
+					'getAttemptHistory' => AjaxHook::GetWorkAttemptHistory->jsAction(),
 				),
 			),
 			// Пооответное оценивание попытки экзамена (T11.9) — отдельный нонс GradeAttempt.
