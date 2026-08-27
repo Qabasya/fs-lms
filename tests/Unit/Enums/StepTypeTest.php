@@ -54,7 +54,7 @@ class StepTypeTest extends TestCase {
 		$options = StepType::options();
 		self::assertCount( 6, $options );
 		self::assertSame( 'Экзамен', $options['assessment'] );
-		self::assertSame( 'Текст', $options['text'] );
+		self::assertSame( 'Лекция', $options['text'] );
 		self::assertSame( 'Трансляция', $options['broadcast'] );
 	}
 }
