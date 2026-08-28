@@ -39,9 +39,10 @@ enum AjaxHook: string {
 	case DeleteBoilerplate = 'delete_boilerplate';
 
 	// ==================== TaskCreationController (Создание задач в модалке) ====================
-	case GetTaskTypes        = 'get_task_types';
-	case GetTaskBoilerplates = 'get_task_boilerplates';
-	case CreateTask          = 'create_task';
+	case GetTaskTypes           = 'get_task_types';
+	case GetTaskBoilerplates    = 'get_task_boilerplates';
+	case GetBoilerplateContent  = 'get_boilerplate_content';
+	case CreateTask             = 'create_task';
 
 	// ==================== SubjectController (Прочие хуки) ====================
 	case GetPostsTable     = 'get_posts_table';

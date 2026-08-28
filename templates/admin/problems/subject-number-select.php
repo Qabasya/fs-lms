@@ -50,3 +50,12 @@ use Inc\Enums\Wp\PostMetaName;
 		<?php endforeach; ?>
 	</select>
 </p>
+<div class="fs-bank-boilerplate-row" <?php echo ( '' === $subject || '' === $number ) ? 'hidden' : ''; ?>>
+	<p>
+		<label for="fs_lms_bank_task_boilerplate"><?php esc_html_e( 'Типовое условие', 'fs-lms' ); ?></label><br />
+		<select id="fs_lms_bank_task_boilerplate" class="widefat" disabled>
+			<option value=""><?php esc_html_e( '— не выбрано —', 'fs-lms' ); ?></option>
+		</select>
+		<span class="description"><?php esc_html_e( 'Подставляет текст условия в поля ниже — можно выбрать другое или поправить вручную.', 'fs-lms' ); ?></span>
+	</p>
+</div>

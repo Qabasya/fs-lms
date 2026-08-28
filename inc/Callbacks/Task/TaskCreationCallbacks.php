@@ -121,4 +121,27 @@ class TaskCreationCallbacks extends BaseController {
 
 		$this->success( $response );
 	}
+
+	/**
+	 * Содержимое конкретного boilerplate по UID — для заливки в уже открытую форму
+	 * задачи (напр. метабокс «Предмет и номер задания» банковской задачи,
+	 * `ProblemsController`). Формат `content` — JSON по id ConditionField-полей
+	 * (см. {@see \Inc\Managers\Subject\TaskManager::parseBoilerplateToMeta()}),
+	 * клиент сам решает, какие ключи применимы к текущему шаблону.
+	 */
+	public function ajaxGetBoilerplateContent(): void {
+		$this->authorize( Nonce::TaskCreation, Capability::AuthorLmsCourses );
+
+		$subject_key = $this->requireKey( 'subject_key', 'GET' );
+		$term_slug   = $this->requireKey( 'term_slug', 'GET' );
+		$uid         = $this->requireText( 'uid', 'GET', 'Не указан boilerplate' );
+
+		$bp = $this->boilerplates->findBoilerplate( $subject_key, $term_slug, $uid );
+		if ( null === $bp ) {
+			$this->error( 'Типовое условие не найдено' );
+			return;
+		}
+
+		$this->success( array( 'content' => $bp->content ) );
+	}
 }

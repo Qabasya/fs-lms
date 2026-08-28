@@ -103,6 +103,8 @@ class TaskCreationController extends AjaxController {
 			array( AjaxHook::GetTaskTypes, $this->task_creation_callbacks ),
 			// Получение списка типовых условий (boilerplate) для типа задания
 			array( AjaxHook::GetTaskBoilerplates, $this->task_creation_callbacks ),
+			// Содержимое конкретного boilerplate по UID (заливка в уже открытую форму)
+			array( AjaxHook::GetBoilerplateContent, $this->task_creation_callbacks ),
 			// Создание нового задания
 			array( AjaxHook::CreateTask, $this->task_creation_callbacks ),
 			// Получение структуры полей шаблона (ConditionField)

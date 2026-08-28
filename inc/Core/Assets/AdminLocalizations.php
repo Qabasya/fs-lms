@@ -201,6 +201,8 @@ class AdminLocalizations {
 				'authorAssessment'  => Nonce::AuthorAssessment->create(),
 				'authorCourse'      => Nonce::AuthorCourse->create(),
 				'room'              => Nonce::Room->create(),
+				// Экран банка задач (fs_lms_problems): подгрузка boilerplate по (предмет, номер).
+				'taskCreation'      => Nonce::TaskCreation->create(),
 			),
 			'ajax_actions'     => AjaxHook::toJsArray(),
 			// Фаза 5, D3/D4: URL preview-плеера курса (кнопка «Просмотр» в конструкторе).
