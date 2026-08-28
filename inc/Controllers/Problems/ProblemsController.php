@@ -155,10 +155,7 @@ class ProblemsController extends BaseController implements ServiceInterface {
 	 * не заведена в SubjectDTO). Расширять по мере появления новых предметов.
 	 */
 	private function defaultTemplateFor( string $subjectKey ): ?TaskTemplate {
-		return match ( $subjectKey ) {
-			'inf_ege', 'inf_oge' => TaskTemplate::Code,
-			default              => null,
-		};
+		return 'python' === $subjectKey ? TaskTemplate::Code : null;
 	}
 
 	/**

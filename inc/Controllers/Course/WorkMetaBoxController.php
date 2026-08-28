@@ -147,11 +147,12 @@ class WorkMetaBoxController extends BaseController implements ServiceInterface {
 				'_title'  => get_the_title( $id ),
 			);
 		}
-		$json = wp_json_encode( $steps, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT );
+		$json          = wp_json_encode( $steps, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT );
+		$numberPrefix  = (string) ( $this->postManager->taskMeta( $post->ID )['task_number_prefix'] ?? '' );
 
 		$this->render( 'admin/metaboxes/builder-shell', array(
 			'root_class' => 'fs-lms-work-builder',
-			'data'       => array( 'work-id' => $post->ID, 'subject' => $subject, 'level' => 'work', 'title' => $post->post_title ),
+			'data'       => array( 'work-id' => $post->ID, 'subject' => $subject, 'level' => 'work', 'number-prefix' => $numberPrefix ),
 			'json'       => (string) $json,
 		) );
 	}
