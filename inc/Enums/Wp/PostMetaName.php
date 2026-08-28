@@ -78,4 +78,10 @@ enum PostMetaName: string {
 	 * «13» для ручной проверки ОГЭ). Имеет смысл только вместе с {@see BankTaskSubject}.
 	 */
 	case BankTaskNumber = 'fs_lms_bank_task_number';
+
+	/**
+	 * Номер записи в WXR-экспорте старой версии сайта — дедуп-ключ разового
+	 * переноса. См. {@see \Inc\Services\Task\LegacyTaskImportService}.
+	 */
+	case LegacyImportNumber = 'fs_lms_legacy_import_number';
 }

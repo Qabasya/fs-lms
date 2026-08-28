@@ -50,6 +50,7 @@ import { SelectParentModal } from './modals/enrollment/select-parent-modal.js';
 import { TeacherViewModal } from './modals/enrollment/teacher-view-modal.js';
 import { AlertModal } from './modals/alert-modal.js';
 import { RolesSettings } from './services/roles-settings.js';
+import { LegacyTaskImport } from './services/legacy-task-import.js';
 
 (function ($) {
     'use strict';
@@ -190,6 +191,10 @@ import { RolesSettings } from './services/roles-settings.js';
         }
 
         RolesSettings.init();
+
+        if ( $( '#fs-legacy-import-start' ).length ) {
+            LegacyTaskImport.init();
+        }
 
     });
 

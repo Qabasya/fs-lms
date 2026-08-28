@@ -1,0 +1,22 @@
+@use '../variables' as *;
+
+// =================================================================
+// Перенос заданий (легаси, скрытая страница fs_lms_legacy_task_import)
+// =================================================================
+
+.fs-legacy-import {
+  &__controls {
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
+  }
+
+  &__status {
+    color: $color-text-secondary;
+    font-size: $font-size-sm;
+  }
+
+  &__progress {
+    width: 100%;
+  }
+}

@@ -20,6 +20,7 @@ use Inc\Controllers\System\AdminFooterModalsController;
 use Inc\Controllers\System\MediaUploadController;
 use Inc\Controllers\System\ModulesDashboardController;
 use Inc\Controllers\Task\BoilerplateController;
+use Inc\Controllers\Task\LegacyTaskImportController;
 use Inc\Controllers\Enrollment\EnrollmentController;
 use Inc\Controllers\Course\LessonController;
 use Inc\Controllers\Course\LessonMetaBoxController;
@@ -166,6 +167,7 @@ final class Init {
 			ExpulsionController::class,
 			DeletionController::class,
 			ImportController::class,   // Импорт учеников из CSV
+			LegacyTaskImportController::class, // AJAX разового переноса заданий со старой версии сайта
 			SubjectBundleCommand::class, // WP-CLI: перенос предмета пакетом (регистрируется только под WP_CLI)
 			ConfigController::class,
 			SettingsController::class,

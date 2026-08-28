@@ -13,6 +13,7 @@ enum Menu: string
 	case Subjects = 'fs_subjects';
 	case Settings = 'fs_lms_settings';
 	case BoilerplateManager = 'fs_boilerplate_manager';
+	case LegacyTaskImport = 'fs_lms_legacy_task_import';
 	case Groups = 'fs_lms_groups';
 	case UserList = 'fs_lms_userlist';
 	case Logs = 'fs_lms_logs';
@@ -35,6 +36,7 @@ enum Menu: string
 			self::Subjects => 'Управление предметами',
 			self::Settings        => 'Настройки',
 			self::BoilerplateManager         => 'Управление типовыми условиями',
+			self::LegacyTaskImport           => 'Перенос заданий (легаси)',
 			self::Groups         => 'Управление группами',
 			self::UserList         => 'Список пользователей',
 			self::Logs         => 'Журналы',
@@ -55,6 +57,7 @@ enum Menu: string
 			self::Subjects           => 'Предметы',
 			self::Settings           => 'Настройки',
 			self::BoilerplateManager => 'Boilerplate Manager',
+			self::LegacyTaskImport   => 'Перенос заданий (легаси)',
 			self::Groups             => 'Группы',
 			self::UserList           => 'Пользователи',
 			self::Logs               => 'Журналы',
@@ -77,6 +80,7 @@ enum Menu: string
 			self::Subjects           => 'subjectsRoot',
 			self::Settings           => 'settingsPage',
 			self::BoilerplateManager => 'boilerplatePage',
+			self::LegacyTaskImport   => 'legacyTaskImportPage',
 			self::Groups             => 'groupsPage',
 			self::UserList           => 'userlistPage',
 			self::Logs               => 'logsPage',

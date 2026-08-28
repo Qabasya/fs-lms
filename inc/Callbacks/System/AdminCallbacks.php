@@ -5,6 +5,7 @@ declare( strict_types=1 );
 namespace Inc\Callbacks\System;
 
 use Inc\Controllers\Pages\BoilerplatePageController;
+use Inc\Controllers\Task\LegacyTaskImportPageController;
 use Inc\Core\BaseController;
 use Inc\DTO\Settings\AcademicPeriodDTO;
 use Inc\DTO\Log\LogPageQueryDTO;
@@ -77,6 +78,7 @@ class AdminCallbacks extends BaseController {
 		private readonly RoomRepository  $rooms,
 		private readonly EmailTemplatesRepository $emailTemplates,
 		private readonly ConsentDefinitionsRepository $consentDefinitions,
+		private readonly LegacyTaskImportPageController $legacyTaskImportPageController,
 	) {
 		parent::__construct();
 	}
@@ -337,5 +339,13 @@ class AdminCallbacks extends BaseController {
 		$this->boilerplatePageController->displayPage();
 	}
 
+	/**
+	 * Прокси-метод для скрытой страницы разового переноса заданий (легаси-импорт).
+	 *
+	 * @return void
+	 */
+	public function legacyTaskImportPage(): void {
+		$this->legacyTaskImportPageController->displayPage();
+	}
 
 }

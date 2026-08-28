@@ -311,6 +311,10 @@ enum AjaxHook: string {
 
 	case FetchAllTasks = 'fetch_all_tasks'; // params: subject_key, offset, per_page, search, filters[taxonomy][]=term_slug
 
+	// ==== Разовый перенос заданий со старой версии сайта ====
+	case LegacyTaskImportStatus = 'legacy_task_import_status'; // без params — общее число записей в JSON
+	case LegacyTaskImportBatch  = 'legacy_task_import_batch';  // params: subject_key, offset, author_taxonomy?, year_taxonomy?, level_taxonomy?
+
 
 
 	// ============================ ГЕНЕРАЦИЯ ИМЁН ============================ //

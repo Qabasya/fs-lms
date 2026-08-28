@@ -205,6 +205,16 @@ class AdminController extends BaseController implements ServiceInterface {
 			'callback'    => array( $this->callbacks, Menu::BoilerplateManager->callback() ),
 		);
 
+		// Скрытая страница разового переноса заданий (легаси-импорт), недоступна из бокового меню
+		$subpages[] = array(
+			'parent_slug' => Menu::_Options->value,
+			'page_title'  => Menu::LegacyTaskImport->page_title(),
+			'menu_title'  => Menu::LegacyTaskImport->menu_title(),
+			'capability'  => Capability::ManageLmsPlatform->value,
+			'menu_slug'   => Menu::LegacyTaskImport->value,
+			'callback'    => array( $this->callbacks, Menu::LegacyTaskImport->callback() ),
+		);
+
 		// ===== НОВЫЕ СТРАНИЦЫ ДОБАВЛЯТЬ ЗДЕСЬ =====//
 		// Группы Groups
 		$subpages[] = array(
