@@ -40,10 +40,11 @@ export const TaskTemplateType = {
 			template_type: type,
 		} ).done( ( resp ) => {
 			if ( resp && resp.success ) {
-				// Смена select помечает форму поста «изменённой» для WP-core dirty-check
-				// (window.onbeforeunload из wp-admin/js/post.js) — без сброса браузер
-				// спросит «Покинуть страницу?» перед нашим же программным редиректом.
-				window.onbeforeunload = null;
+				// Смена select помечает форму поста «изменённой» для WP-core dirty-check.
+				// Хендлер навешан в wp-admin/js/post.js через именованное jQuery-событие
+				// beforeunload.edit-post (не через window.onbeforeunload) — снимаем именно его,
+				// иначе браузер спросит «Покинуть страницу?» перед нашим же редиректом.
+				$( window ).off( 'beforeunload.edit-post' );
 				// Переход на edit-экран этого поста: надёжно для auto-draft (новая задача)
 				// и для существующих — там это просто перезагрузка.
 				window.location.href = `post.php?post=${ postId }&action=edit`;
