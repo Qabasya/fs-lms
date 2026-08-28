@@ -14,10 +14,11 @@ export const WorkBuilder = {
 };
 
 function mount( el ) {
-	const workId  = parseInt( el.dataset.workId, 10 ) || 0;
-	const subject = String( el.dataset.subject || '' );
-	const acts    = fs_lms_vars.ajax_actions;
-	const nonces  = fs_lms_vars.nonces;
+	const workId    = parseInt( el.dataset.workId, 10 ) || 0;
+	const subject   = String( el.dataset.subject || '' );
+	const workTitle = String( el.dataset.title || '' );
+	const acts      = fs_lms_vars.ajax_actions;
+	const nonces    = fs_lms_vars.nonces;
 
 	createSlotBuilder( el, {
 		treeTitle: 'Структура работы',
@@ -45,6 +46,11 @@ function mount( el ) {
 			subject_key: subject,
 		} ),
 
-		createTask: ( title ) => post( acts.createProblemDraft, nonces.authorWork, { title } ),
+		subjectKey: subject,
+
+		// «1.4. П-1» (название работы) → «1.4. П-1-1», «1.4. П-1-2»… — меняется только
+		// последняя цифра (порядковый номер задачи в работе), название работы вводится
+		// автором один раз в её настройках.
+		suggestTitle: ( filledCount ) => ( workTitle ? `${ workTitle }-${ filledCount + 1 }` : '' ),
 	} );
 }

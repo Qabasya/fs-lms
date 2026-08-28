@@ -96,7 +96,11 @@ export function refEditor( ed, step, ctx ) {
 		const createBtn = ed.querySelector( '[data-create]' );
 		if ( createBtn ) {
 			createBtn.addEventListener( 'click', () => {
-				const newWin = window.open( adminBase + 'post-new.php?post_type=fs_lms_problems', '_blank' );
+				const params = new URLSearchParams( { post_type: 'fs_lms_problems' } );
+				if ( subjectKey ) {
+					params.set( 'fs_lms_subject', subjectKey );
+				}
+				const newWin = window.open( adminBase + 'post-new.php?' + params.toString(), '_blank' );
 				let lastHref    = '';
 				const poll = setInterval( () => {
 					if ( newWin && ! newWin.closed ) {

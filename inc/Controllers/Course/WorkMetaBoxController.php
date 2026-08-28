@@ -151,7 +151,7 @@ class WorkMetaBoxController extends BaseController implements ServiceInterface {
 
 		$this->render( 'admin/metaboxes/builder-shell', array(
 			'root_class' => 'fs-lms-work-builder',
-			'data'       => array( 'work-id' => $post->ID, 'subject' => $subject, 'level' => 'work' ),
+			'data'       => array( 'work-id' => $post->ID, 'subject' => $subject, 'level' => 'work', 'title' => $post->post_title ),
 			'json'       => (string) $json,
 		) );
 	}

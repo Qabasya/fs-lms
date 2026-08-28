@@ -172,10 +172,7 @@ function mount( el ) {
 			subject_key: subject,
 		} ),
 
-		createTask: ( title ) => post( acts.createAssessmentTaskDraft, nonces.authorAssessment, {
-			subject_key: subject,
-			title,
-		} ),
+		subjectKey: subject,
 
 		// EGE/ОГЭ-позиционный слот: пик задания с bundle_siblings (ребёнок связки
 		// 19-21) сам расставляет все три номера по своим индексам (position - 1),

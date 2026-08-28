@@ -13,6 +13,7 @@ use Inc\Enums\Wp\PostMetaName;
 use Inc\Controllers\Builders\ProblemListFilters;
 use Inc\Managers\Wp\PostManager;
 use Inc\Managers\Wp\TermManager;
+use Inc\Enums\Subject\TaskTemplate;
 use Inc\Registrars\ProblemBankRegistrar;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Services\Subject\PostTypeResolver;
@@ -81,6 +82,25 @@ class ProblemsController extends BaseController implements ServiceInterface {
 		add_action( 'admin_notices', array( $this, 'renderBankDescription' ) );
 		add_filter( 'wp_insert_post_data', array( $this, 'validateBeforePublish' ), 10, 2 );
 		add_action( 'admin_notices', array( $this, 'showPublishError' ) );
+		add_filter( 'default_title', array( $this, 'prefillTitleFromQuery' ), 10, 2 );
+	}
+
+	/**
+	 * Предзаполняет заголовок нового черновика банка задач подсказкой из
+	 * query-параметра `fs_lms_suggested_title` — билдер работы формирует её из
+	 * названия работы и порядкового номера задачи (см. `work-builder.js`
+	 * suggestTitle), автор может принять её как есть или отредактировать перед
+	 * публикацией. Срабатывает только на `post-new.php` — у существующего поста
+	 * заголовок уже задан ядром раньше вызова этого фильтра.
+	 */
+	public function prefillTitleFromQuery( string $title, \WP_Post $post ): string {
+		if ( PostTypeResolver::problems() !== $post->post_type ) {
+			return $title;
+		}
+
+		$suggested = $this->sanitizeGetText( 'fs_lms_suggested_title' );
+
+		return '' !== $suggested ? $suggested : $title;
 	}
 
 	/**
@@ -112,12 +132,48 @@ class ProblemsController extends BaseController implements ServiceInterface {
 
 	public function renderTemplateMetabox( \WP_Post $post ): void {
 		$current = (string) $this->posts->getMeta( $post->ID, PostMetaName::TemplateType->value );
+		if ( '' === $current ) {
+			// Новый черновик из билдера работы/урока/контрольной (post-new.php?fs_lms_subject=…) —
+			// подставляем дефолтный тип шаблона предмета, чтобы сразу открылись нужные поля.
+			$subjectForDefault = $this->queryOrMetaSubject( $post );
+			$default           = $this->defaultTemplateFor( $subjectForDefault );
+			if ( null !== $default ) {
+				$current = $default->value;
+			}
+		}
 		wp_nonce_field( Nonce::SaveMeta->value, 'fs_lms_meta_nonce' );
 		$this->render( 'admin/metaboxes/template-select', array(
 			'name'      => PostMetaName::TemplateType->value,
 			'current'   => $current,
 			'templates' => $this->registry->getAll(),
 		) );
+	}
+
+	/**
+	 * Дефолтный тип шаблона по предмету (хардкод по решению пользователя,
+	 * 2026-08-28 — настройка «тип шаблона по умолчанию» на уровне предмета пока
+	 * не заведена в SubjectDTO). Расширять по мере появления новых предметов.
+	 */
+	private function defaultTemplateFor( string $subjectKey ): ?TaskTemplate {
+		return match ( $subjectKey ) {
+			'inf_ege', 'inf_oge' => TaskTemplate::Code,
+			default              => null,
+		};
+	}
+
+	/**
+	 * Предмет для дефолтов нового черновика: уже сохранённая мета (правка) либо
+	 * query-параметр `fs_lms_subject` (создание из билдера работы/урока/контрольной).
+	 */
+	private function queryOrMetaSubject( \WP_Post $post ): string {
+		$subject = (string) $this->posts->getMeta( $post->ID, PostMetaName::BankTaskSubject->value );
+		if ( '' !== $subject ) {
+			return $subject;
+		}
+
+		$fromQuery = $this->sanitizeGetKey( 'fs_lms_subject' );
+
+		return null !== $this->subjects->getByKey( $fromQuery ) ? $fromQuery : '';
 	}
 
 	public function saveTemplateType( int $post_id ): void {
@@ -153,7 +209,7 @@ class ProblemsController extends BaseController implements ServiceInterface {
 	}
 
 	public function renderSubjectMetabox( \WP_Post $post ): void {
-		$subject     = (string) $this->posts->getMeta( $post->ID, PostMetaName::BankTaskSubject->value );
+		$subject     = $this->queryOrMetaSubject( $post );
 		$number      = (string) $this->posts->getMeta( $post->ID, PostMetaName::BankTaskNumber->value );
 		$allSubjects = $this->subjects->readAll();
 

@@ -365,13 +365,14 @@ export function createStepEditor( opts ) {
 	function openLibraryPicker( e, kind, onPick ) {
 		e.stopPropagation();
 		closePopover();
-		// Задача тянется сразу из предмета и банка (вариант А); остальные виды — из предмета.
-		const source = 'task' === kind ? 'all' : 'subject';
+		// Дропдаун по умолчанию сужен до предмета (как в билдерах работы/контрольной) —
+		// «Все задания» переключает на предмет + весь банк; непустой поиск — тоже без сужения.
 		openPicker( e.currentTarget, {
-			placeholder: 'Поиск в библиотеке…',
-			fetchFn:     ( search ) => ajax(
+			placeholder:     'Поиск в библиотеке…',
+			browseAllLabel:  'task' === kind ? 'Все задания' : '',
+			fetchFn:         ( search, scope ) => ajax(
 				acts().getStepCandidates,
-				{ subject_key: subjectKey, kind, source, search }
+				{ subject_key: subjectKey, kind, source: search ? 'all' : ( scope || 'subject' ), search }
 			),
 			onPick,
 		} );

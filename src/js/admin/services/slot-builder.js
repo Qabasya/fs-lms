@@ -103,7 +103,11 @@ const defaultNewSlot = ( i ) => ( { key: 'slot_' + i, taskId: 0, title: '' } );
  * @param {Function}    config.persist  (slots) => Promise              Сохранение item_ids.
  * @param {Function}    config.search   (query) => Promise<{id,title}[]>
  * @param {Function}    config.preview  (taskId) => Promise<Object>
- * @param {Function}   [config.createTask] (title) => Promise<{id,title}>  Inline-создание задачи.
+ * @param {string}     [config.subjectKey]    Предмет — прокидывается в URL «Создать задачу»
+ *                                            (post-new.php?fs_lms_subject=…), чтобы новый
+ *                                            черновик в банке сразу был привязан к предмету.
+ * @param {Function}   [config.suggestTitle] (filledCount) => string  Подсказка заголовка нового
+ *                                            черновика (напр. «{название работы}-{N}»).
  * @param {Function}   [config.mapSlot]    (step,i) => slot              Маппинг начальных слотов.
  * @param {Function}   [config.newSlot]    (i) => slot                   Пустой слот для «+ Задача».
  * @param {Function}   [config.renderExtraBody] (container, slot, index, api) => void
@@ -437,7 +441,23 @@ export function createSlotBuilder( el, config ) {
 			createBtn.textContent = 'Создать задачу';
 			createBtn.addEventListener( 'click', () => {
 				const adminBase = fs_lms_vars.ajaxurl.replace( 'admin-ajax.php', '' );
-				const newWin    = window.open( adminBase + 'post-new.php?post_type=fs_lms_problems', '_blank' );
+
+				// Предмет и (для работы) предполагаемый заголовок «{название работы}-{N}» —
+				// новый черновик в банке сразу цепляет предмет и получает подсказку заголовка,
+				// автор принимает её или правит перед публикацией (ProblemsController).
+				const params = new URLSearchParams( { post_type: 'fs_lms_problems' } );
+				if ( config.subjectKey ) {
+					params.set( 'fs_lms_subject', config.subjectKey );
+				}
+				if ( typeof config.suggestTitle === 'function' ) {
+					const filledCount = slots.filter( ( s ) => s.taskId > 0 ).length;
+					const suggested   = config.suggestTitle( filledCount );
+					if ( suggested ) {
+						params.set( 'fs_lms_suggested_title', suggested );
+					}
+				}
+
+				const newWin    = window.open( adminBase + 'post-new.php?' + params.toString(), '_blank' );
 				let lastHref    = '';
 				const poll = setInterval( () => {
 					if ( newWin && ! newWin.closed ) {
