@@ -8,6 +8,7 @@ use Inc\Enums\Access\Capability;
 use Inc\Enums\Wp\MetaKeys;
 use Inc\Enums\Wp\PageRoutes;
 use Inc\Enums\Access\UserRole;
+use Inc\Services\Profile\ProfileViewResolver;
 use Inc\Shared\Traits\Sanitizer;
 
 /**
@@ -42,8 +43,20 @@ class UserBehaviorManager {
 	 * @param UserManager $userManager Менеджер пользователей
 	 */
 	public function __construct(
-		private readonly UserManager $userManager,
+		private readonly UserManager        $userManager,
+		private readonly ProfileViewResolver $profileViewResolver,
 	) {}
+
+	/**
+	 * Есть ли у пользователя витрина /profile/ — единственный источник истины
+	 * (тот же resolver, что использует {@see \Inc\Controllers\Person\ProfileController}),
+	 * а не сырой набор ролей: иначе дуал-роль (напр. методист + преподаватель)
+	 * ловит цикл редиректов между wp-admin и /profile/ — оба места должны решать
+	 * по одной и той же приоритетной роли.
+	 */
+	private function hasFrontCabinet( int $userId ): bool {
+		return null !== $this->profileViewResolver->viewFor( $this->profileViewResolver->context( $userId )->role );
+	}
 
 	/**
 	 * Ограничивает доступ к админ-панели для пользователей без прав.
@@ -62,11 +75,10 @@ class UserBehaviorManager {
 			return;
 		}
 
-		// Денилист вместо вайтлиста: в админку не пускаем только фронт-кабинетные роли
-		// (преподаватель/ученик/родитель/своб. ученик). Офисные роли (FSOffice/методист/
-		// маркетолог) — работают в wp-admin, поэтому их НЕ блокируем.
-		$frontRoles = array_map( static fn( UserRole $r ): string => $r->value, UserRole::frontCabinetRoles() );
-		if ( array_intersect( $frontRoles, (array) wp_get_current_user()->roles ) ) {
+		// В админку не пускаем только тех, у кого приоритетная роль (тот же resolver,
+		// что и на /profile/) имеет витрину кабинета. Офисные роли (FSOffice/методист/
+		// маркетолог) и дуал-роли с офисной ролью в приоритете — работают в wp-admin.
+		if ( $this->hasFrontCabinet( get_current_user_id() ) ) {
 			wp_safe_redirect( home_url( '/profile/' ) );
 			exit;
 		}
@@ -76,7 +88,7 @@ class UserBehaviorManager {
 	 * Скрывает верхнюю админ-панель WordPress фронт-кабинетным ролям (преподаватель/
 	 * ученик/родитель) — им она не нужна, весь их UI живёт в `/profile/`. Офисные роли
 	 * (FSOffice/методист/маркетолог) и чистый администратор работают в wp-admin —
-	 * панель им оставляем. Тот же денилист, что и в {@see restrictAdminAccess()}.
+	 * панель им оставляем. Та же проверка, что и в {@see restrictAdminAccess()}.
 	 * Подключается к фильтру 'show_admin_bar'.
 	 */
 	public function hideAdminBarForFrontCabinet( bool $show ): bool {
@@ -84,8 +96,7 @@ class UserBehaviorManager {
 			return $show;
 		}
 
-		$frontRoles = array_map( static fn( UserRole $r ): string => $r->value, UserRole::frontCabinetRoles() );
-		if ( array_intersect( $frontRoles, (array) wp_get_current_user()->roles ) ) {
+		if ( $this->hasFrontCabinet( get_current_user_id() ) ) {
 			return false;
 		}
 
