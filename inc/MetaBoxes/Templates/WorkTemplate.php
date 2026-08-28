@@ -25,7 +25,7 @@ class WorkTemplate extends BaseTemplate {
 				'object' => new WorkTypeField(),
 			),
 			'task_number_prefix' => array(
-				'label'  => 'Префикс нумерации заданий (напр. «1.4. П-1» → «1.4. П-1-1», «1.4. П-1-2»…)',
+				'label'  => 'Префикс нумерации заданий',
 				'object' => new InputField(),
 			),
 		);
