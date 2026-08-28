@@ -72,6 +72,7 @@ class ProblemsController extends BaseController implements ServiceInterface {
 		add_action( 'add_meta_boxes_' . $cpt, array( $this, 'moveAuthorMetaboxToSide' ), 20 );
 		add_action( 'save_post_' . $cpt, array( $this, 'saveTemplateType' ) );
 		add_action( 'save_post_' . $cpt, array( $this, 'saveSubjectFields' ) );
+		add_action( 'save_post_' . $cpt, array( $this, 'prefillDraftFromQuery' ), 10, 2 );
 		add_action( AjaxHook::SetTaskTemplateType->action(), array( $this, 'ajaxSetTemplateType' ) );
 
 		add_filter( "manage_{$cpt}_posts_columns", array( $this, 'addColumns' ) );
@@ -101,6 +102,35 @@ class ProblemsController extends BaseController implements ServiceInterface {
 		$suggested = $this->sanitizeGetText( 'fs_lms_suggested_title' );
 
 		return '' !== $suggested ? $suggested : $title;
+	}
+
+	/**
+	 * Наполняет автосозданный черновик (`post-new.php?fs_lms_subject=…`) предметом
+	 * и дефолтным типом шаблона СРАЗУ, на первом `wp_insert_post()` авто-черновика
+	 * (WP создаёт его до рендера метабоксов) — а не только визуальным дефолтом в
+	 * селекте. Без этого `TemplateResolver::resolveId()` при первом открытии видит
+	 * пустую мету и резолвит `Standard`, поэтому поля условия рендерились не под
+	 * нужный шаблон до первого сохранения формы.
+	 */
+	public function prefillDraftFromQuery( int $post_id, \WP_Post $post ): void {
+		if ( 'auto-draft' !== $post->post_status ) {
+			return;
+		}
+		if ( '' !== (string) $this->posts->getMeta( $post_id, PostMetaName::BankTaskSubject->value ) ) {
+			return;
+		}
+
+		$subject = $this->sanitizeGetKey( 'fs_lms_subject' );
+		if ( null === $this->subjects->getByKey( $subject ) ) {
+			return;
+		}
+
+		$this->posts->updateMeta( $post_id, PostMetaName::BankTaskSubject->value, $subject );
+
+		$default = $this->defaultTemplateFor( $subject );
+		if ( null !== $default ) {
+			$this->posts->updateMeta( $post_id, PostMetaName::TemplateType->value, $default->value );
+		}
 	}
 
 	/**
