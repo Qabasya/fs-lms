@@ -111,7 +111,7 @@ class StepContentRenderer {
 	}
 
 	/**
-	 * Файлы-материалы задания (шаблоны File/FileCode/TwoFileCode) — имя + ссылка на
+	 * Файлы-материалы задания (шаблоны File/FileCode) — имя + ссылка на
 	 * скачивание, выводятся в плеере сразу после условия.
 	 *
 	 * @return array<int, array{name:string, url:string}>
@@ -234,11 +234,11 @@ class StepContentRenderer {
 			TaskTemplate::Fill =>
 				$this->buildFillData( $meta ),
 
-			// Задания с кодом (Code/FileCode/TwoFile) авто-проверяются как обычный
+			// Задания с кодом (Code/FileCode) авто-проверяются как обычный
 			// текстовый ответ (TextCheckerAnswer сверяет только task_answer), но
 			// рядом с ним ученику доступно необязательное поле «Код» — чисто
 			// информационное для учителя, в проверку не участвует.
-			TaskTemplate::Code, TaskTemplate::FileCode, TaskTemplate::TwoFile =>
+			TaskTemplate::Code, TaskTemplate::FileCode =>
 				array( 'type' => 'text_answer', 'with_code' => true ),
 
 			// Эпик 13 (D16): FileAnswer здесь намеренно НЕ обрабатывается — шаговые

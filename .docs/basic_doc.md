@@ -1760,7 +1760,7 @@ work/assessment-шагов **не хранятся** здесь — резолв
 `triple_task` (шаблон `ThreeInOneTemplate` — три поля ответа; на ЕГЭ разворачивается
 в отдельные под-задания), `common_standard_task`, `choice_task`, `matching_task`,
 `ordering_task`, `fill_task` (пропуски `[[ответ|синоним]]`), `audio_task`; ручные:
-`code_task`, `file_code_task`, `file_task`, `two_file_code_task`, `text_task`,
+`code_task`, `file_code_task`, `file_task`, `text_task`,
 `file_answer_task`.
 
 ```php

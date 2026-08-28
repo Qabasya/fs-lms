@@ -51,7 +51,6 @@ class TaskCheckerRegistry {
 			TaskTemplate::Code->value         => $text,
 			TaskTemplate::FileCode->value     => $text,
 			TaskTemplate::File->value         => $text,
-			TaskTemplate::TwoFile->value      => $text,
 			TaskTemplate::TextSolution->value => $text,
 			TaskTemplate::Triple->value       => $triple,
 			TaskTemplate::Choice->value       => $choice,

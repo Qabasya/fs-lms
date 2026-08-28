@@ -135,7 +135,7 @@ class TaskAttemptReportService {
 	/**
 	 * Разбирает сохранённый ответ попытки на текст + необязательный код.
 	 *
-	 * Задания с кодом (Code/FileCode/TwoFile, {@see \Inc\Enums\Subject\TaskTemplate::
+	 * Задания с кодом (Code/FileCode, {@see \Inc\Enums\Subject\TaskTemplate::
 	 * hasCodeField()}) хранят ответ объектом `{text, code}` (см. `task-widget.js::
 	 * buildTextAnswerWidget()`) — остальные шаблоны либо строкой (Standard/Common/
 	 * Audio), либо структурой другой формы (Choice/Matching/Ordering/Fill), которую

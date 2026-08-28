@@ -309,7 +309,7 @@ function taskBlock(t, d) {
         </div>`;
 }
 
-/* Необязательное поле «Код» у заданий Code/FileCode/TwoFile
+/* Необязательное поле «Код» у заданий Code/FileCode
    (TaskTemplate::hasCodeField()) — код ученика показываем отдельным блоком,
    моноширинным шрифтом, в проверке ответа не участвует. */
 function codeBlock(code) {

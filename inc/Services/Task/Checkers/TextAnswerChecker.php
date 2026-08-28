@@ -12,11 +12,11 @@ use Inc\DTO\Task\CheckResultDTO;
  *
  * Проверяет текстовый ответ (регистронезависимо) по полю `task_answer`.
  * Покрывает все шаблоны с полем ответа: Standard, Common, Audio, а также
- * код/файловые (Code, FileCode, File, TwoFile) и TextSolution — у них сверяется
+ * код/файловые (Code, FileCode, File) и TextSolution — у них сверяется
  * ТОЛЬКО ответ, сам код/файл не автопроверяется. Ручной лишь FileAnswer (без
  * `task_answer`).
  *
- * У Code/FileCode/TwoFile (`TaskTemplate::hasCodeField()`) ответ ученика может
+ * У Code/FileCode (`TaskTemplate::hasCodeField()`) ответ ученика может
  * прийти объектом `{text, code}` вместо голой строки — сверяется всё равно
  * только `text`.
  *

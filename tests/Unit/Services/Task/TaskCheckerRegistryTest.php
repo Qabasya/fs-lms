@@ -45,7 +45,6 @@ class TaskCheckerRegistryTest extends TestCase {
 		self::assertTrue( $this->registry->has( TaskTemplate::Code ) );
 		self::assertTrue( $this->registry->has( TaskTemplate::FileCode ) );
 		self::assertTrue( $this->registry->has( TaskTemplate::File ) );
-		self::assertTrue( $this->registry->has( TaskTemplate::TwoFile ) );
 		self::assertTrue( $this->registry->has( TaskTemplate::TextSolution ) );
 	}
 

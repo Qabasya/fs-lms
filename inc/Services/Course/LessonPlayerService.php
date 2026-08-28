@@ -180,25 +180,29 @@ class LessonPlayerService {
 
 	/**
 	 * Эталон задачи для teacher-режима плеера: человекочитаемый правильный ответ
-	 * (`CorrectAnswerResolver`) + авторское решение (`task_text`). Отдаётся ТОЛЬКО
-	 * преподавателю (`$isTeacher`) — на клиент ученика правильные ответы уходят
-	 * лишь после исчерпания попыток (D20, см. {@see self::renderTaskData()}).
+	 * (`CorrectAnswerResolver`) + авторское решение (`task_text`) + листинг кода
+	 * (`task_code`, только у шаблонов `TaskTemplate::hasCodeField()`). Отдаётся
+	 * ТОЛЬКО преподавателю (`$isTeacher`) — на клиент ученика правильные ответы
+	 * уходят лишь после исчерпания попыток (D20, см. {@see self::renderTaskData()}).
 	 *
-	 * @param array<string, mixed> $meta Мета задачи из `StepContentRenderer::taskBundle()`.
+	 * @param array<string, mixed> $meta          Мета задачи из `StepContentRenderer::taskBundle()`.
+	 * @param string               $templateValue Значение `TaskTemplate` задачи (`bundle['template']`).
 	 *
-	 * @return array{answer:string, html:string}|null null — эталона нет (ручной шаблон без решения).
+	 * @return array{answer:string, html:string, code:string}|null null — эталона нет (ручной шаблон без решения).
 	 */
-	private function solutionFor( int $taskId, array $meta ): ?array {
+	private function solutionFor( int $taskId, array $meta, string $templateValue ): ?array {
 		$answer = (string) ( $this->correctAnswers->resolve( $taskId ) ?? '' );
 		$html   = SafeHtml::post( (string) ( $meta['task_text'] ?? '' ) );
+		$code   = TaskTemplate::from( $templateValue )->hasCodeField() ? (string) ( $meta['task_code'] ?? '' ) : '';
 
-		if ( '' === $answer && '' === $html ) {
+		if ( '' === $answer && '' === $html && '' === $code ) {
 			return null;
 		}
 
 		return array(
 			'answer' => $answer,
 			'html'   => $html,
+			'code'   => $code,
 		);
 	}
 
@@ -240,7 +244,7 @@ class LessonPlayerService {
 			}
 
 			// Эталон каждой задачи работы — только преподавателю («Показать решение»).
-			$solution = $isTeacher ? $this->solutionFor( (int) $taskId, $bundle['meta'] ) : null;
+			$solution = $isTeacher ? $this->solutionFor( (int) $taskId, $bundle['meta'], $bundle['template'] ) : null;
 			unset( $bundle['meta'] );
 			if ( null !== $solution ) {
 				$bundle['solution'] = $solution;
@@ -372,7 +376,7 @@ class LessonPlayerService {
 		// Teacher-режим: эталон доступен всегда, но за кнопкой «Показать решение» —
 		// преподаватель демонстрирует урок классу, ответ не должен светиться сразу.
 		if ( $isTeacher ) {
-			$solution = $this->solutionFor( $taskId, $meta );
+			$solution = $this->solutionFor( $taskId, $meta, $bundle['template'] );
 			if ( null !== $solution ) {
 				$data['solution'] = $solution;
 			}

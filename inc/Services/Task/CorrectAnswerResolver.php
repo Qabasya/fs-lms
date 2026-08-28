@@ -49,7 +49,6 @@ class CorrectAnswerResolver {
 			TaskTemplate::Code,
 			TaskTemplate::FileCode,
 			TaskTemplate::File,
-			TaskTemplate::TwoFile,
 			TaskTemplate::TextSolution => trim( (string) ( $meta['task_answer'] ?? '' ) ),
 			TaskTemplate::Triple   => $this->triple( $meta ),
 			TaskTemplate::Choice   => $this->choice( $meta ),

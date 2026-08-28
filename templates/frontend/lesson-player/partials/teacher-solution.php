@@ -2,12 +2,13 @@
 /**
  * Эталон задачи для преподавателя («Показать решение», teacher-режим плеера).
  *
- * Раскрывающийся блок: правильный ответ + авторское решение. Данные собирает
+ * Раскрывающийся блок: правильный ответ + авторское решение + листинг кода
+ * (у шаблонов с полем «Код», `TaskTemplate::hasCodeField()`). Данные собирает
  * `LessonPlayerService::solutionFor()` и кладёт в `render.solution` (task-шаг)
  * или в `tasks[].solution` (задачи work-шага) — ТОЛЬКО при `$is_teacher`.
  * Ученику этот партиал не подключается ни при каких статусах шага.
  *
- * @var array{answer:string, html:string} $teacher_solution
+ * @var array{answer:string, html:string, code:string} $teacher_solution
  *
  * @package FS LMS
  */
@@ -37,6 +38,12 @@ use Inc\Enums\Ui\Icon;
 			<div class="fs-solution__row">
 				<span class="fs-solution__label"><?php esc_html_e( 'Решение', 'fs-lms' ); ?></span>
 				<div class="fs-solution__html wpc"><?php echo \Inc\Shared\SafeHtml::post( (string) $teacher_solution['html'] ); ?></div>
+			</div>
+		<?php endif; ?>
+		<?php if ( '' !== (string) ( $teacher_solution['code'] ?? '' ) ) : ?>
+			<div class="fs-solution__row">
+				<span class="fs-solution__label"><?php esc_html_e( 'Код', 'fs-lms' ); ?></span>
+				<pre><code class="js-code" data-lang="Python"><?php echo esc_html( (string) $teacher_solution['code'] ); ?></code></pre>
 			</div>
 		<?php endif; ?>
 	</div>

@@ -107,9 +107,8 @@ readonly class AttemptTaskViewBuilder {
 
 		return match ( $template ) {
 			TaskTemplate::File,
-			TaskTemplate::FileCode,
-			TaskTemplate::TwoFile => $this->content->buildFiles( $meta ),
-			default               => array(),
+			TaskTemplate::FileCode => $this->content->buildFiles( $meta ),
+			default                => array(),
 		};
 	}
 

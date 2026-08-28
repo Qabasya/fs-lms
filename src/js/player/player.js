@@ -12,6 +12,7 @@ import { initStepTask } from './step-task.js';
 import { initStepWork } from './step-work.js';
 import { initStepVideo } from './step-video.js';
 import { initLessonCountdown } from '../frontend/components/lesson-countdown.js';
+import { initCodeBlocks } from '../frontend/components/code-block.js';
 
 document.addEventListener( 'DOMContentLoaded', () => {
 	initShell();
@@ -29,4 +30,5 @@ document.addEventListener( 'DOMContentLoaded', () => {
 	initStepTask();
 	initStepWork();
 	initStepVideo();
+	initCodeBlocks();
 } );

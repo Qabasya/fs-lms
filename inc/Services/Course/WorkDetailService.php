@@ -241,7 +241,7 @@ class WorkDetailService {
 				$hasGradableTask = true;
 			}
 
-			// Задания с кодом (Code/FileCode/TwoFile) хранят ответ JSON {"text","code"} —
+			// Задания с кодом (Code/FileCode) хранят ответ JSON {"text","code"} —
 			// разбираем на текст (участвует в вердикте/сверке) и код (только для показа).
 			$rawAnswer = (string) ( $row->answerText ?? '' );
 			$answer    = $rawAnswer;
@@ -452,7 +452,7 @@ class WorkDetailService {
 	}
 
 	/**
-	 * Разбор ответа заданий с кодом (Code/FileCode/TwoFile, {@see TaskTemplate::
+	 * Разбор ответа заданий с кодом (Code/FileCode, {@see TaskTemplate::
 	 * hasCodeField()}): ответ хранится JSON `{"text","code"}` (см.
 	 * `src/js/frontend/components/task-widget.js::buildTextAnswerWidget()`), код —
 	 * необязателен. Не-JSON (старая запись без кода, до появления этого поля) —

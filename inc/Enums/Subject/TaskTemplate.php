@@ -18,7 +18,6 @@ use Inc\MetaBoxes\Templates\OrderingTaskTemplate;
 use Inc\MetaBoxes\Templates\StandardTaskTemplate;
 use Inc\MetaBoxes\Templates\TaskTextSolution;
 use Inc\MetaBoxes\Templates\ThreeInOneTemplate;
-use Inc\MetaBoxes\Templates\TwoFileCodeTaskTemplate;
 
 /**
  * Enum TaskTemplate
@@ -52,7 +51,6 @@ enum TaskTemplate: string {
 	case Code        = 'code_task';
 	case FileCode    = 'file_code_task';
 	case File        = 'file_task';
-	case TwoFile     = 'two_file_code_task';
 	case TextSolution = 'text_task';
 
 	/** Выбор варианта ответа (radio / checkbox). */
@@ -131,7 +129,6 @@ enum TaskTemplate: string {
 			self::Code        => CodeTaskTemplate::class,
 			self::FileCode    => FileCodeTaskTemplate::class,
 			self::File        => FileTaskTemplate::class,
-			self::TwoFile     => TwoFileCodeTaskTemplate::class,
 			self::TextSolution => TaskTextSolution::class,
 			self::Choice   => ChoiceTaskTemplate::class,
 			self::Matching => MatchingTaskTemplate::class,
@@ -158,7 +155,6 @@ enum TaskTemplate: string {
 			self::Code         => 'Задание с кодом',
 			self::FileCode     => 'Задание с файлом и кодом',
 			self::File         => 'Задание с файлом',
-			self::TwoFile      => 'Задание с двумя файлами и кодом',
 			self::TextSolution => 'Задание с решением',
 			self::Choice       => 'Выбор варианта ответа',
 			self::Matching     => 'Сопоставление',
@@ -195,7 +191,7 @@ enum TaskTemplate: string {
 	 */
 	public function hasCodeField(): bool {
 		return match ( $this ) {
-			self::Code, self::FileCode, self::TwoFile => true,
+			self::Code, self::FileCode => true,
 			default => false,
 		};
 	}

@@ -231,7 +231,7 @@
 .stg-fb { flex: 1 1 rem(160); height: rem(32); padding: 0 rem(8); border: 1px solid var(--line); border-radius: var(--radius-xs); font: inherit; color: var(--ink); }
 .sum-task-grade input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 
-/* Необязательное поле «Код» (Code/FileCode/TwoFile) — только показ, в проверку не участвует. */
+/* Необязательное поле «Код» (Code/FileCode) — только показ, в проверку не участвует. */
 .sum-task-code { margin-top: rem(8); font-size: rem(13); }
 
 .sum-task-code-pre {

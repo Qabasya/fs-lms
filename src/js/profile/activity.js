@@ -322,7 +322,7 @@ function studentRow(student) {
     </div>`;
 }
 
-/* Код — необязательное доп.поле у Code/FileCode/TwoFile (see TaskTemplate::
+/* Код — необязательное доп.поле у Code/FileCode (see TaskTemplate::
    hasCodeField()): чип попытки компактный, полный код в проверку не входит —
    показываем меткой «код» и подсказкой при наведении (тултип поддерживает
    переводы строк). */
