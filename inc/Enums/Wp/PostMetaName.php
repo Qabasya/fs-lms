@@ -84,4 +84,10 @@ enum PostMetaName: string {
 	 * переноса. См. {@see \Inc\Services\Task\LegacyTaskImportService}.
 	 */
 	case LegacyImportNumber = 'fs_lms_legacy_import_number';
+
+	/**
+	 * На банковской задаче (fs_lms_problems) — исходный номер задания из
+	 * бумажного сборника (свободный текст, вручную вводит автор).
+	 */
+	case BankTaskSource = 'fs_lms_bank_task_source';
 }

@@ -69,9 +69,11 @@ class ProblemsController extends BaseController implements ServiceInterface {
 		add_action( 'init', array( $this->bank, 'registerTaxonomy' ) );
 		add_action( 'add_meta_boxes', array( $this, 'addTemplateMetabox' ) );
 		add_action( 'add_meta_boxes', array( $this, 'addSubjectMetabox' ) );
-		add_action( 'add_meta_boxes_' . $cpt, array( $this, 'moveAuthorMetaboxToSide' ), 20 );
+		add_action( 'add_meta_boxes', array( $this, 'addSourceMetabox' ) );
+		add_action( 'add_meta_boxes_' . $cpt, array( $this, 'removeAuthorMetabox' ), 20 );
 		add_action( 'save_post_' . $cpt, array( $this, 'saveTemplateType' ) );
 		add_action( 'save_post_' . $cpt, array( $this, 'saveSubjectFields' ) );
+		add_action( 'save_post_' . $cpt, array( $this, 'saveSourceField' ) );
 		add_action( 'save_post_' . $cpt, array( $this, 'prefillDraftFromQuery' ), 10, 2 );
 		add_action( AjaxHook::SetTaskTemplateType->action(), array( $this, 'ajaxSetTemplateType' ) );
 
@@ -333,18 +335,48 @@ class ProblemsController extends BaseController implements ServiceInterface {
 	}
 
 	/**
-	 * Переносит метабокс «Автор» в правый сайдбар (контекст `side`).
-	 *
-	 * Нельзя пере-добавлять под тем же id `authordiv`: `remove_meta_box` ставит
-	 * маркер `false`, и `add_meta_box` с тем же id наследует исходный контекст/приоритет
-	 * (бокс пропадает). Поэтому снимаем core-`authordiv` и регистрируем СВОЙ бокс с
-	 * другим id, переиспользуя нативный рендер `post_author_meta_box` (поле
-	 * `post_author_override` ядро сохраняет само).
+	 * Снимает нативный метабокс «Автор» — вместо него в сайдбаре отображается
+	 * метабокс «Источник» ({@see addSourceMetabox()}).
 	 */
-	public function moveAuthorMetaboxToSide(): void {
-		$cpt = PostTypeResolver::problems();
-		remove_meta_box( 'authordiv', $cpt, 'normal' );
-		add_meta_box( 'fs_lms_problem_author', 'Автор', 'post_author_meta_box', $cpt, 'side' );
+	public function removeAuthorMetabox(): void {
+		remove_meta_box( 'authordiv', PostTypeResolver::problems(), 'normal' );
+	}
+
+	/**
+	 * Метабокс «Источник» — исходный номер задания из бумажного сборника
+	 * (свободный текст, вручную вводит автор).
+	 */
+	public function addSourceMetabox(): void {
+		add_meta_box(
+			'fs_lms_problem_source',
+			'Источник',
+			array( $this, 'renderSourceMetabox' ),
+			PostTypeResolver::problems(),
+			'side',
+		);
+	}
+
+	public function renderSourceMetabox( \WP_Post $post ): void {
+		$value = (string) $this->posts->getMeta( $post->ID, PostMetaName::BankTaskSource->value );
+
+		$this->render( 'admin/problems/source-input', array(
+			'field_name' => PostMetaName::BankTaskSource->value,
+			'value'      => $value,
+		) );
+	}
+
+	public function saveSourceField( int $post_id ): void {
+		if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) {
+			return;
+		}
+		if ( ! $this->isFormPostId( $post_id ) ) {
+			return;
+		}
+		if ( ! $this->authorizePostSave( Nonce::SaveMeta, $post_id ) ) {
+			return;
+		}
+
+		$this->posts->updateMeta( $post_id, PostMetaName::BankTaskSource->value, $this->sanitizeText( PostMetaName::BankTaskSource->value ) );
 	}
 
 	/**
