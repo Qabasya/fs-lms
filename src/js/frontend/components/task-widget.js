@@ -11,9 +11,9 @@
  *   applyVerdict(ok)              — пометить выбор ok/no после проверки (choice);
  *   resetAttempt()                — сброс выбора для «Попробовать ещё раз»;
  *   reveal(correct)               — подсветить эталон после исчерпания попыток (D20);
- *   revealResult(correctIds)      — экран результатов работы: подсветить каждый вариант
- *                                    по отдельности (выбран+верный/выбран+неверный/пропущенный
- *                                    верный) и залочить (choice);
+ *   revealResult(correctIds)      — экран результатов работы: подсветить только выбор
+ *                                    ученика (зелёный+верный/красный+неверный, эталон
+ *                                    ученику не раскрывается) и залочить (choice);
  *   lock()                        — задизейблить ввод.
  */
 
@@ -276,18 +276,16 @@ function buildChoiceWidget( container, data, isDone ) {
 			lock();
 		},
 		revealResult: ( correctIds ) => {
+			// D22: только выбор ученика — верный вариант, если он его НЕ выбрал,
+			// на этом экране не подсвечивается (правильный ответ ученику не раскрывается).
 			const correct = ( Array.isArray( correctIds ) ? correctIds : [] ).map( String );
 			rows().forEach( ( row ) => {
-				const input   = row.querySelector( 'input' );
+				const input = row.querySelector( 'input' );
+				if ( ! input.checked ) { return; }
 				const isRight = correct.includes( String( input.value ) );
 				row.classList.remove( 'sel' );
-				if ( input.checked ) {
-					row.classList.add( isRight ? 'ok' : 'no' );
-					addTail( row, isRight, 'Ваш ответ' );
-				} else if ( isRight ) {
-					row.classList.add( 'ok' );
-					addTail( row, true, 'Правильный ответ' );
-				}
+				row.classList.add( isRight ? 'ok' : 'no' );
+				if ( isRight ) { addTail( row, true, 'Правильный ответ' ); }
 			} );
 			lock();
 		},
