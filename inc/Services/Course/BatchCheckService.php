@@ -8,7 +8,9 @@ use Inc\DTO\Course\BatchCheckResultDTO;
 use Inc\Enums\Assessment\AssessmentKind;
 use Inc\Enums\Wp\PostMetaName;
 use Inc\Managers\Wp\PostManager;
+use Inc\Enums\Subject\TaskTemplate;
 use Inc\Services\Task\CompositeSubItemResolver;
+use Inc\Services\Task\CorrectAnswerResolver;
 use Inc\Services\Task\TaskCheckerRegistry;
 use Inc\Services\Template\TemplateResolver;
 
@@ -16,7 +18,10 @@ use Inc\Services\Template\TemplateResolver;
  * Class BatchCheckService
  *
  * Пакетная авто-проверка набора ответов (работа / экзамен).
- * Эталонные ответы не покидают сервер — только вердикт и баллы.
+ * Эталонные ответы не покидают сервер — только вердикт и баллы; исключение —
+ * choice-задачи: id правильных опций кладутся в perTask['correctOptionIds'],
+ * это уже после факта сдачи (экран результатов подсвечивает варианты, не
+ * черновик), см. {@see CorrectAnswerResolver::choiceCorrectIds()}.
  *
  * @package Inc\Services\Course
  */
@@ -27,6 +32,7 @@ class BatchCheckService {
 		private readonly TemplateResolver         $resolver,
 		private readonly TaskCheckerRegistry      $checkers,
 		private readonly CompositeSubItemResolver $subItems,
+		private readonly CorrectAnswerResolver    $correctAnswers,
 	) {}
 
 	/**
@@ -122,6 +128,10 @@ class BatchCheckService {
 				'score'    => $earned,
 				'maxScore' => $weight,
 			];
+
+			if ( TaskTemplate::Choice === $template ) {
+				$perTask[ $taskId ]['correctOptionIds'] = $this->correctAnswers->choiceCorrectIds( $taskId );
+			}
 		}
 
 		return new BatchCheckResultDTO(

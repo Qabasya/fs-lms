@@ -13,6 +13,7 @@ use Inc\Services\Course\BatchCheckService;
 use Inc\Services\Task\Checkers\ChoiceChecker;
 use Inc\Services\Task\Checkers\TextAnswerChecker;
 use Inc\Services\Task\CompositeSubItemResolver;
+use Inc\Services\Task\CorrectAnswerResolver;
 use Inc\Services\Task\TaskCheckerRegistry;
 use Inc\Services\Task\Checkers\FillChecker;
 use Inc\Services\Task\Checkers\MatchingChecker;
@@ -51,6 +52,7 @@ class BatchCheckServiceTest extends TestCase {
 			$this->resolver,
 			$this->checkers,
 			$this->subItems,
+			new CorrectAnswerResolver( $this->posts ),
 		);
 	}
 

@@ -11,6 +11,9 @@
  *   applyVerdict(ok)              — пометить выбор ok/no после проверки (choice);
  *   resetAttempt()                — сброс выбора для «Попробовать ещё раз»;
  *   reveal(correct)               — подсветить эталон после исчерпания попыток (D20);
+ *   revealResult(correctIds)      — экран результатов работы: подсветить каждый вариант
+ *                                    по отдельности (выбран+верный/выбран+неверный/пропущенный
+ *                                    верный) и залочить (choice);
  *   lock()                        — задизейблить ввод.
  */
 
@@ -56,6 +59,7 @@ function widgetApi( overrides ) {
 			applyVerdict: () => {},
 			resetAttempt: () => {},
 			reveal: () => {},
+			revealResult: () => {},
 			lock: () => {},
 		},
 		overrides
@@ -180,11 +184,14 @@ function buildTripleWidget( container, isDone ) {
 
 // ── Choice (radio / checkbox) — opt-строки по дизайну плеера ───────────────
 
+let choiceWidgetSeq = 0;
+
 function buildChoiceWidget( container, data, isDone ) {
 	const multiple = !! data.multiple;
 	const options  = Array.isArray( data.options ) ? data.options : [];
 	const type     = multiple ? 'checkbox' : 'radio';
-	const name     = `fs-choice-${ Date.now() }`;
+	const taskId   = container.closest( '[data-task-id]' )?.dataset.taskId ?? '';
+	const name     = `fs-choice-${ taskId }-${ ++choiceWidgetSeq }`;
 
 	const list = make( 'div', 'fs-widget-choice-list opt-list' );
 
@@ -262,6 +269,22 @@ function buildChoiceWidget( container, data, isDone ) {
 			rows().forEach( ( row ) => {
 				const input = row.querySelector( 'input' );
 				if ( ids.includes( String( input.value ) ) && ! input.checked ) {
+					row.classList.add( 'ok' );
+					addTail( row, true, 'Правильный ответ' );
+				}
+			} );
+			lock();
+		},
+		revealResult: ( correctIds ) => {
+			const correct = ( Array.isArray( correctIds ) ? correctIds : [] ).map( String );
+			rows().forEach( ( row ) => {
+				const input   = row.querySelector( 'input' );
+				const isRight = correct.includes( String( input.value ) );
+				row.classList.remove( 'sel' );
+				if ( input.checked ) {
+					row.classList.add( isRight ? 'ok' : 'no' );
+					addTail( row, isRight, 'Ваш ответ' );
+				} else if ( isRight ) {
 					row.classList.add( 'ok' );
 					addTail( row, true, 'Правильный ответ' );
 				}

@@ -218,14 +218,32 @@ function mountWork( panel, root ) {
 		progressRoot.hidden   = true;
 		resultsRoot.hidden    = false;
 
+		// Choice-задачи: показать все варианты с подсветкой (не текст ответа) —
+		// требует живого DOM, поэтому монтируется отдельно, после вставки h.
+		cards.forEach( ( card ) => {
+			const taskId  = card.dataset.taskId;
+			const verdict = verdicts[ taskId ] || null;
+			if ( ! verdict || ! Array.isArray( verdict.correctOptionIds ) ) { return; }
+
+			const resultPanel = resultsRoot.querySelector( `[data-result-task-id="${ taskId }"]` );
+			const widget       = resultPanel ? initTaskWidget( resultPanel ) : null;
+			if ( ! widget ) { return; }
+
+			const studentIds = parseAnswer( state.task_results[ taskId ]?.answer );
+			widget.setAnswer( Array.isArray( studentIds ) ? studentIds : [] );
+			widget.revealResult( verdict.correctOptionIds );
+		} );
+
 		resultsRoot.querySelector( '[data-work-retry]' )?.addEventListener( 'click', retry );
 	}
 
 	function resultCard( n, card, verdict, result ) {
-		const title       = card.dataset.title;
-		const conditionEl = card.querySelector( '.q.wpc' );
+		const title         = card.dataset.title;
+		const taskId        = card.dataset.taskId;
+		const conditionEl   = card.querySelector( '.q.wpc' );
 		const conditionHtml = conditionEl ? conditionEl.outerHTML : '';
-		const answerText  = displayAnswer( result?.answer );
+		const widgetEl      = card.querySelector( '.fs-task-widget' );
+		const isChoice      = verdict && Array.isArray( verdict.correctOptionIds );
 		let vd = '';
 
 		if ( ! verdict ) {
@@ -238,13 +256,21 @@ function mountWork( panel, root ) {
 		} else if ( 'correct' === verdict.verdict ) {
 			vd = vdBlock( 'ok', `Верно · +${ verdict.score ?? 1 } балл`, '' );
 		} else {
-			vd = vdBlock( 'no', 'Неверно · 0 баллов', 'Правильный ответ станет доступен после разбора с преподавателем.' );
+			vd = vdBlock( 'no', 'Неверно · 0 баллов', isChoice ? '' : 'Правильный ответ станет доступен после разбора с преподавателем.' );
 		}
 
-		return '<div class="a-task">' +
+		// Choice: варианты ответа с подсветкой (revealResult() в renderResults()) —
+		// вместо текста выбранных id. Для остальных типов — как раньше, текстом.
+		const answerHtml = isChoice
+			? `<div class="fs-task-widget" data-template="${ esc( widgetEl?.dataset.template || '' ) }" data-widget="${ esc( widgetEl?.dataset.widget || '{}' ) }"></div>`
+			: ( ( ( answerText ) => answerText
+				? `<div class="ansbox txt lock">${ esc( answerText ) }</div>`
+				: '<p class="wnote">Ответ не был дан</p>' )( displayAnswer( result?.answer ) ) );
+
+		return `<div class="a-task" data-result-task-id="${ esc( taskId ) }">` +
 			`<div class="th"><span class="tkn">${ n }</span><b>${ esc( title ) }</b></div>` +
 			conditionHtml +
-			( answerText ? `<div class="ansbox txt lock">${ esc( answerText ) }</div>` : '<p class="wnote">Ответ не был дан</p>' ) +
+			answerHtml +
 			vd +
 			'</div>';
 	}
