@@ -90,6 +90,50 @@ class CorrectAnswerResolver {
 		return $ids;
 	}
 
+	/**
+	 * Человекочитаемый ответ УЧЕНИКА для choice-задачи. Виджет
+	 * ({@see \fs-lms/src/js/frontend/components/task-widget.js buildChoiceWidget()})
+	 * хранит `collectAnswer()` как JSON-массив id выбранных опций (напр. `["1"]`),
+	 * а не текст — без сопоставления с `task_options.options[].{id,text}` он и
+	 * попадает «как есть» в интерфейс проверки. Для остальных шаблонов сырой
+	 * ответ уже человекочитаем — метод возвращает null, вызывающий код
+	 * оставляет исходную строку без изменений.
+	 */
+	public function formatChoiceAnswer( int $taskId, string $rawAnswerJson ): ?string {
+		$tplRaw = $this->posts->getMeta( $taskId, PostMetaName::TemplateType->value );
+		if ( TaskTemplate::Choice !== TaskTemplate::fromDatabase( is_string( $tplRaw ) ? $tplRaw : null ) ) {
+			return null;
+		}
+
+		$ids = '' !== $rawAnswerJson ? json_decode( $rawAnswerJson, true ) : null;
+		if ( ! is_array( $ids ) || empty( $ids ) ) {
+			return null;
+		}
+
+		$metaRaw = $this->posts->getMeta( $taskId, PostMetaName::Meta->value );
+		$options = is_array( $metaRaw ) ? ( $metaRaw['task_options']['options'] ?? array() ) : array();
+		if ( ! is_array( $options ) ) {
+			return null;
+		}
+
+		$textById = array();
+		foreach ( $options as $opt ) {
+			if ( is_array( $opt ) && '' !== (string) ( $opt['id'] ?? '' ) ) {
+				$textById[ (string) $opt['id'] ] = trim( (string) ( $opt['text'] ?? '' ) );
+			}
+		}
+
+		$texts = array();
+		foreach ( $ids as $id ) {
+			$text = $textById[ (string) $id ] ?? '';
+			if ( '' !== $text ) {
+				$texts[] = $text;
+			}
+		}
+
+		return empty( $texts ) ? null : implode( ', ', $texts );
+	}
+
 	private function triple( array $meta ): string {
 		$parts = array();
 		foreach ( array( '19', '20', '21' ) as $n ) {

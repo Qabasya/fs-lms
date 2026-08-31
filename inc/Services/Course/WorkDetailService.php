@@ -252,6 +252,13 @@ class WorkDetailService {
 				$code       = $parsedCode['code'];
 			}
 
+			// Choice хранит ответ как JSON-массив id выбранных опций — сопоставляем
+			// с текстом опции, иначе учитель видит сырое `["1"]` вместо ответа.
+			$choiceAnswer = $this->correctAnswers->formatChoiceAnswer( $taskId, $rawAnswer );
+			if ( null !== $choiceAnswer ) {
+				$answer = $choiceAnswer;
+			}
+
 			// Ручное задание (file_answer_task) с уже начатой/законченной проверкой —
 			// per-task строка авторитетнее авто-снапшота агрегата (см. докблок выше).
 			if ( $gradable && $row ) {
@@ -396,6 +403,13 @@ class WorkDetailService {
 			} else {
 				$answerText = (string) ( $ans->answerText ?? '' );
 				$files      = array();
+
+				// Choice хранит ответ как JSON-массив id выбранных опций — сопоставляем
+				// с текстом опции, иначе учитель видит сырое `["1"]` вместо ответа.
+				$choiceAnswer = $this->correctAnswers->formatChoiceAnswer( $ans->taskId, $answerText );
+				if ( null !== $choiceAnswer ) {
+					$answerText = $choiceAnswer;
+				}
 			}
 			// Табличные задания станции (№17/18/20/25/26/27) кодируют ответ одной
 			// строкой (`|` между столбцами, `\n` между строками таблицы) — без

@@ -206,7 +206,7 @@ function mountWork( panel, root ) {
 			const taskId  = card.dataset.taskId;
 			const verdict = verdicts[ taskId ] || null;
 			const result  = state.task_results[ taskId ] || null;
-			h += resultCard( i + 1, card.dataset.title, verdict, result );
+			h += resultCard( i + 1, card, verdict, result );
 		} );
 		h += '</div>';
 
@@ -221,8 +221,11 @@ function mountWork( panel, root ) {
 		resultsRoot.querySelector( '[data-work-retry]' )?.addEventListener( 'click', retry );
 	}
 
-	function resultCard( n, title, verdict, result ) {
-		const answerText = displayAnswer( result?.answer );
+	function resultCard( n, card, verdict, result ) {
+		const title       = card.dataset.title;
+		const conditionEl = card.querySelector( '.q.wpc' );
+		const conditionHtml = conditionEl ? conditionEl.outerHTML : '';
+		const answerText  = displayAnswer( result?.answer );
 		let vd = '';
 
 		if ( ! verdict ) {
@@ -240,6 +243,7 @@ function mountWork( panel, root ) {
 
 		return '<div class="a-task">' +
 			`<div class="th"><span class="tkn">${ n }</span><b>${ esc( title ) }</b></div>` +
+			conditionHtml +
 			( answerText ? `<div class="ansbox txt lock">${ esc( answerText ) }</div>` : '<p class="wnote">Ответ не был дан</p>' ) +
 			vd +
 			'</div>';

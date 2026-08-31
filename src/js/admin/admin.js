@@ -24,7 +24,7 @@ import { WorkBuilder } from './services/work-builder.js';
 import { AssessmentBuilder } from './services/assessment-builder.js';
 import { CourseBuilder } from './services/course-builder.js';
 import { TaskTemplateType } from './services/task-template-type.js';
-import { ProblemBankFields } from './services/problem-bank-fields.js';
+import { ProblemBankFields, ProblemBankFilters } from './services/problem-bank-fields.js';
 import { ModuleToggle } from './services/module-toggle.js';
 import { TaskFields } from './services/task-fields.js';
 import { TaskEditor } from './services/task-editor.js';
@@ -183,6 +183,7 @@ import { LegacyTaskImport } from './services/legacy-task-import.js';
 
         TaskTemplateType.init();
         ProblemBankFields.init();
+        ProblemBankFilters.init();
         TaskFields.init();
         TaskEditor.init();
 

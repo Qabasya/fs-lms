@@ -168,7 +168,7 @@
   background: var(--ok-soft); color: var(--ok-ink); border: 1px solid var(--ok-line);
 }
 
-.sum-task { border: 1px solid var(--line); border-radius: var(--radius-sm); padding: rem(12) rem(14); }
+.sum-task { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: rem(12) rem(14); }
 .sum-task-head { display: flex; align-items: center; gap: rem(10); margin-bottom: rem(8); }
 .st-n { font-size: rem(13); font-weight: 700; color: var(--ink); }
 .st-score { margin-left: auto; font-size: rem(12.5); font-weight: 700; color: var(--ink-2); }

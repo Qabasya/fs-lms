@@ -6,6 +6,7 @@ namespace Inc\Controllers\Builders;
 
 use Inc\Enums\Wp\PostMetaName;
 use Inc\Managers\Wp\PostManager;
+use Inc\Managers\Wp\TermManager;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Services\Course\BankUsageIndex;
 use Inc\Services\Course\ContentUsageService;
@@ -37,6 +38,15 @@ class ProblemListFilters {
 	/** Спец-значение фильтра «Предмет» для задач без выбранного предмета. */
 	private const NO_SUBJECT = 'none';
 
+	/**
+	 * WP filter: доп. номера позиции банковской задачи — вне таксономии
+	 * `{subject}_task_number` (напр. ОГЭ №13-16, ручная проверка: термов для
+	 * них нет). Тот же список расширений использует и метабокс «Предмет и
+	 * номер задания» на форме задачи ({@see \Inc\Controllers\Problems\ProblemsController}):
+	 *   apply_filters( self::NUMBER_OPTIONS_FILTER, [], $subjectKey )
+	 */
+	public const NUMBER_OPTIONS_FILTER = 'fs_lms_bank_task_number_options';
+
 	/** @var array<int, array{int, string, int[]}>|null Кэш индекса курсов на время запроса. */
 	private ?array $courseIndex = null;
 
@@ -54,6 +64,7 @@ class ProblemListFilters {
 		private readonly ContentUsageService $usage,
 		private readonly PostManager         $posts,
 		private readonly SubjectRepository   $subjects,
+		private readonly TermManager         $terms,
 	) {}
 
 	/**
@@ -61,6 +72,7 @@ class ProblemListFilters {
 	 *
 	 * @return array{
 	 *     subject: array{name: string, options: array, selected: string, all_label: string}|null,
+	 *     number: array{name: string, options: array, selected: string, all_label: string, numbersBySubject: array<string,string[]>}|null,
 	 *     tag: array{name: string, options: array, selected: string, all_label: string}|null,
 	 *     usage: array{selected: string, courses: array<int,string>, works: array<int,string>},
 	 *     author: array{name: string, options: array, selected: string, all_label: string}|null
@@ -69,6 +81,7 @@ class ProblemListFilters {
 	public function data(): array {
 		return array(
 			'subject' => $this->subjectSelect(),
+			'number'  => $this->numberSelect(),
 			'tag'     => $this->tagSelect(),
 			'usage'   => array(
 				'selected' => $this->sanitizeGetKey( 'fs_problem_usage' ),
@@ -80,7 +93,7 @@ class ProblemListFilters {
 	}
 
 	/**
-	 * Применяет сортировку и фильтры (использование, предмет) к списку задач.
+	 * Применяет сортировку и фильтры (использование, предмет, номер) к списку задач.
 	 *
 	 * @param \WP_Query $query Основной запрос экрана
 	 *
@@ -89,7 +102,7 @@ class ProblemListFilters {
 	public function apply( \WP_Query $query ): void {
 		$this->applyUsageSort( $query );
 		$this->applyUsageFilter( $query );
-		$this->applySubjectFilter( $query );
+		$this->applySubjectAndNumberFilters( $query );
 	}
 
 	/**
@@ -162,23 +175,34 @@ class ProblemListFilters {
 	}
 
 	/**
-	 * Фильтр по предмету банковской задачи (`PostMetaName::BankTaskSubject`) —
-	 * конкретный ключ предмета или спец-значение {@see NO_SUBJECT} («без предмета»,
-	 * мета всегда существует и пуста, если предмет не выбран — см.
-	 * `ProblemsController::saveSubjectFields()`).
+	 * Фильтры по предмету (`PostMetaName::BankTaskSubject`) и номеру
+	 * (`PostMetaName::BankTaskNumber`) банковской задачи — конкретный ключ
+	 * предмета или спец-значение {@see NO_SUBJECT} («без предмета», мета всегда
+	 * существует и пуста, если предмет не выбран — см.
+	 * `ProblemsController::saveSubjectFields()`). Оба условия собираются в один
+	 * `meta_query` (AND), а не раздельными вызовами `set()` — иначе второй
+	 * перетирает первый.
 	 *
 	 * @param \WP_Query $query Запрос
 	 *
 	 * @return void
 	 */
-	private function applySubjectFilter( \WP_Query $query ): void {
+	private function applySubjectAndNumberFilters( \WP_Query $query ): void {
 		$subject = $this->sanitizeGetKey( 'fs_problem_subject' );
-		if ( '' === $subject ) {
-			return;
+		$number  = $this->sanitizeGetText( 'fs_problem_number' );
+
+		$clauses = array();
+		if ( '' !== $subject ) {
+			$value       = self::NO_SUBJECT === $subject ? '' : $subject;
+			$clauses[] = array( 'key' => PostMetaName::BankTaskSubject->value, 'value' => $value );
+		}
+		if ( '' !== $number ) {
+			$clauses[] = array( 'key' => PostMetaName::BankTaskNumber->value, 'value' => $number );
 		}
 
-		$value = self::NO_SUBJECT === $subject ? '' : $subject;
-		$query->set( 'meta_query', array( array( 'key' => PostMetaName::BankTaskSubject->value, 'value' => $value ) ) );
+		if ( ! empty( $clauses ) ) {
+			$query->set( 'meta_query', $clauses );
+		}
 	}
 
 	/**
@@ -203,6 +227,77 @@ class ProblemListFilters {
 			'selected'  => $this->sanitizeGetKey( 'fs_problem_subject' ),
 			'all_label' => 'Все предметы',
 		);
+	}
+
+	/**
+	 * Селект номера позиции — опции текущего выбранного предмета (или все
+	 * номера всех предметов, если предмет не выбран); полная карта
+	 * `numbersBySubject` едет в `data-numbers` для JS-каскада на клиенте без
+	 * перезагрузки страницы ({@see \Inc\Controllers\Problems\ProblemsController::renderSubjectMetabox()}
+	 * — тот же приём).
+	 *
+	 * @return array{name: string, options: array, selected: string, all_label: string, numbersBySubject: array<string,string[]>}|null
+	 */
+	private function numberSelect(): ?array {
+		$subjects = $this->subjects->readAll();
+		if ( empty( $subjects ) ) {
+			return null;
+		}
+
+		$numbersBySubject = $this->numberOptionsBySubject( $subjects );
+
+		$selectedSubject = $this->sanitizeGetKey( 'fs_problem_subject' );
+		$numbers          = '' !== $selectedSubject && self::NO_SUBJECT !== $selectedSubject
+			? ( $numbersBySubject[ $selectedSubject ] ?? array() )
+			: array_values( array_unique( array_merge( ...array_values( $numbersBySubject ) ) ) );
+
+		$options = array_combine( $numbers, $numbers );
+
+		return array(
+			'name'             => 'fs_problem_number',
+			'options'          => $options,
+			'selected'         => $this->sanitizeGetText( 'fs_problem_number' ),
+			'all_label'        => 'Все номера',
+			'numbersBySubject' => $numbersBySubject,
+		);
+	}
+
+	/**
+	 * Допустимые номера позиции для каждого предмета (для JS-каскада фильтра
+	 * «Номер» — при смене предмета список номеров перестраивается без AJAX).
+	 *
+	 * @param \Inc\DTO\Subject\SubjectDTO[] $subjects
+	 *
+	 * @return array<string, string[]> subjectKey => номера
+	 */
+	public function numberOptionsBySubject( array $subjects ): array {
+		$map = array();
+		foreach ( $subjects as $s ) {
+			$map[ $s->key ] = $this->numberOptionsFor( $s->key );
+		}
+
+		return $map;
+	}
+
+	/**
+	 * Номера позиции предмета: термы таксономии `{subject}_task_number`
+	 * (численно отсортированные — `get_terms()` по умолчанию сортирует по
+	 * имени, т.е. алфавитно) плюс расширения через NUMBER_OPTIONS_FILTER.
+	 *
+	 * @return string[]
+	 */
+	public function numberOptionsFor( string $subjectKey ): array {
+		$names = array_map(
+			static fn( \WP_Term $t ): string => $t->name,
+			$this->terms->getAll( PostTypeResolver::getTaskTaxonomy( $subjectKey ) )
+		);
+
+		$extra = (array) apply_filters( self::NUMBER_OPTIONS_FILTER, array(), $subjectKey );
+		$names = array_values( array_unique( array_merge( $names, array_map( 'strval', $extra ) ) ) );
+
+		usort( $names, static fn( string $a, string $b ): int => (int) $a - (int) $b );
+
+		return $names;
 	}
 
 	/**

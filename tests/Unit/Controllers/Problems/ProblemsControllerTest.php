@@ -8,7 +8,6 @@ use Inc\Controllers\Builders\ProblemListFilters;
 use Inc\Controllers\Problems\ProblemsController;
 use Inc\DTO\Subject\SubjectDTO;
 use Inc\Managers\Wp\PostManager;
-use Inc\Managers\Wp\TermManager;
 use Inc\Registrars\ProblemBankRegistrar;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Services\Task\TaskPublishGuard;
@@ -45,7 +44,6 @@ class ProblemsControllerTest extends TestCase {
 			$this->createMock( ProblemBankRegistrar::class ),
 			$this->createMock( ProblemListFilters::class ),
 			$this->subjects,
-			$this->createMock( TermManager::class )
 		);
 	}
 
@@ -155,9 +153,29 @@ class ProblemsControllerTest extends TestCase {
 		) ) );
 
 		self::assertSame(
-			array( 'cb', 'title', 'subject', 'taxonomy-problem_tag', 'template_type', 'author', 'date' ),
+			array( 'cb', 'title', 'subject', 'number', 'taxonomy-problem_tag', 'template_type', 'author', 'date' ),
 			$order
 		);
+	}
+
+	public function test_render_column_number_shows_dash_when_none_selected(): void {
+		$this->posts->method( 'getMeta' )->willReturn( '' );
+
+		ob_start();
+		$this->controller->renderColumn( 'number', 15 );
+		$out = ob_get_clean();
+
+		self::assertSame( '—', $out );
+	}
+
+	public function test_render_column_number_shows_stored_value(): void {
+		$this->posts->method( 'getMeta' )->willReturn( '4' );
+
+		ob_start();
+		$this->controller->renderColumn( 'number', 15 );
+		$out = ob_get_clean();
+
+		self::assertSame( '4', $out );
 	}
 
 	public function test_render_column_subject_shows_dash_when_none_selected(): void {

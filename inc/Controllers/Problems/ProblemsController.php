@@ -12,7 +12,6 @@ use Inc\Enums\Wp\Nonce;
 use Inc\Enums\Wp\PostMetaName;
 use Inc\Controllers\Builders\ProblemListFilters;
 use Inc\Managers\Wp\PostManager;
-use Inc\Managers\Wp\TermManager;
 use Inc\Enums\Subject\TaskTemplate;
 use Inc\Registrars\ProblemBankRegistrar;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
@@ -46,21 +45,9 @@ class ProblemsController extends BaseController implements ServiceInterface {
 		private readonly ProblemBankRegistrar  $bank,
 		private readonly ProblemListFilters    $filters,
 		private readonly SubjectRepository     $subjects,
-		private readonly TermManager           $terms,
 	) {
 		parent::__construct();
 	}
-
-	/**
-	 * WP filter: доп. номера позиции для метабокса «Предмет и номер задания»
-	 * банковской задачи — вне таксономии `{subject}_task_number` (напр. ОГЭ
-	 * №13-16, ручная проверка: термов для них нет, см. докблок
-	 * `Inc\Modules\EgeComputer\Config\OgeCriteriaConfig`). Та же идея, что
-	 * `EgeCompletenessChecker::EXTRA_POSITIONS_FILTER`, но без контекста
-	 * конкретной контрольной — только по предмету:
-	 *   apply_filters( self::NUMBER_OPTIONS_FILTER, [], $subjectKey )
-	 */
-	public const NUMBER_OPTIONS_FILTER = 'fs_lms_bank_task_number_options';
 
 	public function register(): void {
 		$cpt = PostTypeResolver::problems();
@@ -247,7 +234,7 @@ class ProblemsController extends BaseController implements ServiceInterface {
 			'subjects'         => $allSubjects,
 			'subject'          => $subject,
 			'number'           => $number,
-			'numbersBySubject' => $this->numberOptionsBySubject( $allSubjects ),
+			'numbersBySubject' => $this->filters->numberOptionsBySubject( $allSubjects ),
 		) );
 	}
 
@@ -265,8 +252,8 @@ class ProblemsController extends BaseController implements ServiceInterface {
 	/**
 	 * Номер имеет смысл только вместе с предметом — без выбранного предмета
 	 * поле в UI скрыто, а значение при сохранении отбрасывается. Значение
-	 * сверяется с актуальным набором опций ({@see numberOptionsFor()}), а не
-	 * просто санитайзится — присланный извне номер, не входящий в таксономию
+	 * сверяется с актуальным набором опций ({@see \Inc\Controllers\Builders\ProblemListFilters::numberOptionsFor()}),
+	 * а не просто санитайзится — присланный извне номер, не входящий в таксономию
 	 * предмета (и не добавленный NUMBER_OPTIONS_FILTER), отбрасывается.
 	 */
 	public function saveSubjectFields( int $post_id ): void {
@@ -289,49 +276,11 @@ class ProblemsController extends BaseController implements ServiceInterface {
 		$number = '';
 		if ( '' !== $subject ) {
 			$candidate = $this->sanitizeText( PostMetaName::BankTaskNumber->value );
-			if ( in_array( $candidate, $this->numberOptionsFor( $subject ), true ) ) {
+			if ( in_array( $candidate, $this->filters->numberOptionsFor( $subject ), true ) ) {
 				$number = $candidate;
 			}
 		}
 		$this->posts->updateMeta( $post_id, PostMetaName::BankTaskNumber->value, $number );
-	}
-
-	/**
-	 * Допустимые номера позиции для каждого предмета (для JS-переключателя
-	 * в метабоксе — при смене предмета список номеров перестраивается без AJAX).
-	 *
-	 * @param \Inc\DTO\Subject\SubjectDTO[] $subjects
-	 *
-	 * @return array<string, string[]> subjectKey => номера
-	 */
-	private function numberOptionsBySubject( array $subjects ): array {
-		$map = array();
-		foreach ( $subjects as $s ) {
-			$map[ $s->key ] = $this->numberOptionsFor( $s->key );
-		}
-
-		return $map;
-	}
-
-	/**
-	 * Номера позиции предмета: термы таксономии `{subject}_task_number`
-	 * (численно отсортированные — `get_terms()` по умолчанию сортирует по
-	 * имени, т.е. алфавитно) плюс расширения через NUMBER_OPTIONS_FILTER.
-	 *
-	 * @return string[]
-	 */
-	private function numberOptionsFor( string $subjectKey ): array {
-		$names = array_map(
-			static fn( \WP_Term $t ): string => $t->name,
-			$this->terms->getAll( PostTypeResolver::getTaskTaxonomy( $subjectKey ) )
-		);
-
-		$extra = (array) apply_filters( self::NUMBER_OPTIONS_FILTER, array(), $subjectKey );
-		$names = array_values( array_unique( array_merge( $names, array_map( 'strval', $extra ) ) ) );
-
-		usort( $names, static fn( string $a, string $b ): int => (int) $a - (int) $b );
-
-		return $names;
 	}
 
 	/**
@@ -412,7 +361,7 @@ class ProblemsController extends BaseController implements ServiceInterface {
 	 * @return array<string, string>
 	 */
 	public function addColumns( array $columns ): array {
-		$order = array( 'cb', 'title', 'subject' );
+		$order = array( 'cb', 'title', 'subject', 'number' );
 
 		// Таксономии (добавляются WP автоматически через show_admin_column).
 		foreach ( array_keys( $columns ) as $key ) {
@@ -427,6 +376,8 @@ class ProblemsController extends BaseController implements ServiceInterface {
 		foreach ( $order as $key ) {
 			if ( 'subject' === $key ) {
 				$result['subject'] = 'Предмет';
+			} elseif ( 'number' === $key ) {
+				$result['number'] = 'Номер';
 			} elseif ( 'template_type' === $key ) {
 				$result['template_type'] = 'Тип шаблона';
 			} elseif ( isset( $columns[ $key ] ) ) {
@@ -438,7 +389,7 @@ class ProblemsController extends BaseController implements ServiceInterface {
 	}
 
 	/**
-	 * Отрисовывает значения кастомных колонок «Предмет» и «Тип шаблона».
+	 * Отрисовывает значения кастомных колонок «Предмет», «Номер» и «Тип шаблона».
 	 */
 	public function renderColumn( string $column, int $post_id ): void {
 		if ( 'subject' === $column ) {
@@ -446,6 +397,14 @@ class ProblemsController extends BaseController implements ServiceInterface {
 			$subject = '' !== $key ? $this->subjects->getByKey( $key ) : null;
 
 			echo esc_html( null !== $subject ? $subject->name : '—' );
+
+			return;
+		}
+
+		if ( 'number' === $column ) {
+			$number = (string) $this->posts->getMeta( $post_id, PostMetaName::BankTaskNumber->value );
+
+			echo esc_html( '' !== $number ? $number : '—' );
 
 			return;
 		}
@@ -469,6 +428,7 @@ class ProblemsController extends BaseController implements ServiceInterface {
 	 */
 	public function sortableColumns( array $columns ): array {
 		$columns['subject']              = 'subject';
+		$columns['number']               = 'number';
 		$columns['template_type']        = 'template_type';
 		$columns['taxonomy-problem_tag'] = 'taxonomy-problem_tag';
 		$columns['fs_lms_usage']         = 'fs_lms_usage';
@@ -502,6 +462,10 @@ class ProblemsController extends BaseController implements ServiceInterface {
 		if ( 'subject' === $query->get( 'orderby' ) ) {
 			$query->set( 'meta_key', PostMetaName::BankTaskSubject->value );
 			$query->set( 'orderby', 'meta_value' );
+		}
+		if ( 'number' === $query->get( 'orderby' ) ) {
+			$query->set( 'meta_key', PostMetaName::BankTaskNumber->value );
+			$query->set( 'orderby', 'meta_value_num' );
 		}
 
 		$this->filters->apply( $query );

@@ -428,6 +428,18 @@ if (!class_exists('WP_Term')) {
         }
     }
 }
+/** Минимальный стаб под pre_get_posts-фильтры/сортировки (query_vars get/set). */
+if (!class_exists('WP_Query')) {
+    class WP_Query {
+        /** @var array<string, mixed> */
+        public array $query_vars = [];
+        private bool $mainQuery = true;
+        public function get(string $key): mixed { return $this->query_vars[$key] ?? ''; }
+        public function set(string $key, mixed $value): void { $this->query_vars[$key] = $value; }
+        public function is_main_query(): bool { return $this->mainQuery; }
+        public function setMainQuery(bool $isMain): void { $this->mainQuery = $isMain; }
+    }
+}
 
 /** wp_die() в тестах — исключение вместо остановки процесса. */
 class FsTestWpDie extends \Exception {}

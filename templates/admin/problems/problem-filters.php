@@ -8,6 +8,7 @@ defined( 'ABSPATH' ) || exit;
  * Фильтры над нативной таблицей банка задач (хук restrict_manage_posts).
  *
  * @var array{name: string, options: array, selected: string, all_label: string}|null $subject
+ * @var array{name: string, options: array, selected: string, all_label: string, numbersBySubject: array<string,string[]>}|null $number
  * @var array{name: string, options: array, selected: string, all_label: string}|null $tag
  * @var array{selected: string, courses: array<int,string>, works: array<int,string>} $usage
  * @var array{name: string, options: array, selected: string, all_label: string}|null $author
@@ -18,6 +19,17 @@ require_once __DIR__ . '/../components/UI/ui_renderers.php';
 if ( null !== $subject ) {
 	render_fs_select( $subject );
 }
+
+if ( null !== $number ) : ?>
+	<select name="<?php echo esc_attr( $number['name'] ); ?>" id="fs_problem_number" data-numbers="<?php echo esc_attr( (string) wp_json_encode( $number['numbersBySubject'] ) ); ?>">
+		<option value=""><?php echo esc_html( $number['all_label'] ); ?></option>
+		<?php foreach ( $number['options'] as $value => $label ) : ?>
+			<option value="<?php echo esc_attr( (string) $value ); ?>" <?php selected( $number['selected'], (string) $value ); ?>>
+				<?php echo esc_html( $label ); ?>
+			</option>
+		<?php endforeach; ?>
+	</select>
+<?php endif;
 
 if ( null !== $tag ) {
 	render_fs_select( $tag );

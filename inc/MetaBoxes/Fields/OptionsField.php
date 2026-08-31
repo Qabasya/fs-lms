@@ -21,6 +21,14 @@ class OptionsField extends BaseField {
 		$multiple = (bool) ( $data['multiple'] ?? false );
 		$options  = is_array( $data['options'] ?? null ) ? $data['options'] : array();
 
+		// Новая/только что переключённая на «Выбор» задача — под рукой сразу
+		// 4 пустых варианта вместо одного добавления за раз кнопкой; пустые
+		// строки без текста sanitize() отбрасывает при сохранении, так что
+		// не заполненные автором лишние варианты не засоряют данные.
+		if ( empty( $options ) ) {
+			$options = array_fill( 0, 4, array() );
+		}
+
 		$base = esc_attr( $this->get_field_name( $id ) );
 		?>
 		<div class="fs-lms-field-group fs-task-options-field" data-field="task-options">

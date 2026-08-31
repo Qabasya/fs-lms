@@ -99,6 +99,51 @@ enum UserRole: string {
 	}
 
 	/**
+	 * Первая роль пользователя (по приоритету Office → Teacher → Student → Parent),
+	 * СРЕДИ ТЕХ, у которых вообще есть витрина `/profile/` ({@see \Inc\Services\Profile\ProfileViewResolver::viewFor()}).
+	 * В отличие от {@see primaryForCabinet()}, методиста в приоритет не ставит —
+	 * иначе дуал-роль методист+преподаватель резолвится в Methodist (без витрины)
+	 * и ProfileController молча выгоняет такого пользователя с `/profile/` в
+	 * wp-admin, хотя витрина (учительская) у него есть через вторую роль.
+	 * Возвращает null, если ни одна роль пользователя витрины не имеет
+	 * (чистый методист/маркетолог) — тогда используется {@see primaryForCabinet()}.
+	 *
+	 * @param string[] $slugs
+	 */
+	public static function primaryViewRole( array $slugs ): ?self {
+		foreach ( array( self::FSOffice, self::FSTeacher, self::FSStudent, self::FSParent ) as $role ) {
+			if ( in_array( $role->value, $slugs, true ) ) {
+				return $role;
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * True, если набор ролей пользователя целиком состоит из фронт-кабинетных
+	 * ролей ({@see frontCabinetRoles()}) и не содержит ни одной офисной
+	 * (FSOffice/FSMethodist). Такой пользователь не имеет причин заходить в
+	 * wp-admin — его выгоняет оттуда {@see \Inc\Managers\Person\UserBehaviorManager::restrictAdminAccess()}
+	 * и прячет ему верхнюю панель. Дуал-роль (напр. методист+преподаватель)
+	 * возвращает false: у неё есть легитимная причина работать в wp-admin
+	 * (авторинг курсов методиста), поэтому доступ и панель сохраняются —
+	 * при этом `/profile/` для такой роли всё равно открыт через
+	 * {@see primaryViewRole()}, и никакого цикла редиректов не возникает,
+	 * т.к. ни одна из сторон больше не выталкивает пользователя принудительно.
+	 *
+	 * @param string[] $slugs
+	 */
+	public static function isPureFrontCabinet( array $slugs ): bool {
+		$hasFront = (bool) array_intersect(
+			array_map( static fn( self $r ): string => $r->value, self::frontCabinetRoles() ),
+			$slugs
+		);
+		$hasOffice = in_array( self::FSOffice->value, $slugs, true ) || in_array( self::FSMethodist->value, $slugs, true );
+
+		return $hasFront && ! $hasOffice;
+	}
+
+	/**
 	 * Роли, чей дом — фронт-кабинет `/profile/` (или публичная часть), а не wp-admin:
 	 * преподаватель, ученик, родитель. Именно их
 	 * {@see \Inc\Managers\Person\UserBehaviorManager::restrictAdminAccess()} не пускает

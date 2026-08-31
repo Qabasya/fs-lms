@@ -49,8 +49,13 @@ class ProfileViewResolver {
 	 * Собирает контекст кабинета для WP-пользователя.
 	 */
 	public function context( int $wpUserId ): ProfileContext {
-		$user = get_userdata( $wpUserId );
-		$role = UserRole::primaryForCabinet( $user ? (array) $user->roles : array() );
+		$user  = get_userdata( $wpUserId );
+		$slugs = $user ? (array) $user->roles : array();
+		// Роль С витриной побеждает офисную-без-витрины (методист) в дуал-роли —
+		// иначе методист+преподаватель резолвится в Methodist и теряет /profile/
+		// ({@see UserRole::primaryViewRole()}); чистый методист/маркетолог витрины
+		// не имеет ни при каком раскладе — тогда обычный приоритет primaryForCabinet().
+		$role = UserRole::primaryViewRole( $slugs ) ?? UserRole::primaryForCabinet( $slugs );
 
 		$person   = $this->persons->findByWpUserId( $wpUserId );
 		$personId = $person?->id;

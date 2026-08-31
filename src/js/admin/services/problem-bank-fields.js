@@ -135,3 +135,33 @@ export const ProblemBankFields = {
 		}
 	},
 };
+
+/**
+ * ProblemBankFilters — фильтр-бар над нативной таблицей банка задач
+ * (`restrict_manage_posts`, `templates/admin/problems/problem-filters.php`).
+ * Тот же каскад «Номер» ограничен предметом, что и в метабоксе выше, но без
+ * boilerplate-подстановки и без id (фильтры WP-таблиц id не гарантируют) —
+ * селекторы по `name`.
+ */
+export const ProblemBankFilters = {
+	init() {
+		const $subject = $( 'select[name="fs_problem_subject"]' );
+		const $number  = $( 'select[name="fs_problem_number"]' );
+		if ( ! $subject.length || ! $number.length ) {
+			return;
+		}
+		const numbersBySubject = JSON.parse( $number.attr( 'data-numbers' ) || '{}' );
+		const allNumbers = Array.from( new Set( Object.values( numbersBySubject ).flat() ) );
+
+		$subject.on( 'change', () => {
+			const key     = String( $subject.val() || '' );
+			const current = String( $number.val() || '' );
+			const options = key ? ( numbersBySubject[ key ] || [] ) : allNumbers;
+
+			$number.empty();
+			$number.append( new Option( 'Все номера', '' ) );
+			options.forEach( ( n ) => $number.append( new Option( n, n ) ) );
+			$number.val( options.includes( current ) ? current : '' );
+		} );
+	},
+};

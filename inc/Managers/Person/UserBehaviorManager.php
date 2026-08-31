@@ -8,7 +8,6 @@ use Inc\Enums\Access\Capability;
 use Inc\Enums\Wp\MetaKeys;
 use Inc\Enums\Wp\PageRoutes;
 use Inc\Enums\Access\UserRole;
-use Inc\Services\Profile\ProfileViewResolver;
 use Inc\Shared\Traits\Sanitizer;
 
 /**
@@ -43,19 +42,23 @@ class UserBehaviorManager {
 	 * @param UserManager $userManager Менеджер пользователей
 	 */
 	public function __construct(
-		private readonly UserManager        $userManager,
-		private readonly ProfileViewResolver $profileViewResolver,
+		private readonly UserManager $userManager,
 	) {}
 
 	/**
-	 * Есть ли у пользователя витрина /profile/ — единственный источник истины
-	 * (тот же resolver, что использует {@see \Inc\Controllers\Person\ProfileController}),
-	 * а не сырой набор ролей: иначе дуал-роль (напр. методист + преподаватель)
-	 * ловит цикл редиректов между wp-admin и /profile/ — оба места должны решать
-	 * по одной и той же приоритетной роли.
+	 * Целиком ли роли пользователя — фронт-кабинетные, без единой офисной
+	 * (FSOffice/FSMethodist) — {@see UserRole::isPureFrontCabinet()}. Только
+	 * такой пользователь не имеет причин быть в wp-admin: дуал-роль (напр.
+	 * методист + преподаватель) сохраняет полный доступ в админку — методисту
+	 * он нужен для авторинга, — при этом `/profile/` для неё всё равно открыт
+	 * ({@see \Inc\Services\Profile\ProfileViewResolver::context()}), так что
+	 * цикла редиректов не возникает: ни одна из сторон не выталкивает такого
+	 * пользователя принудительно.
 	 */
-	private function hasFrontCabinet( int $userId ): bool {
-		return null !== $this->profileViewResolver->viewFor( $this->profileViewResolver->context( $userId )->role );
+	private function isPureFrontCabinetUser( int $userId ): bool {
+		$user = $this->userManager->find( $userId );
+
+		return UserRole::isPureFrontCabinet( $user ? (array) $user->roles : array() );
 	}
 
 	/**
@@ -75,10 +78,10 @@ class UserBehaviorManager {
 			return;
 		}
 
-		// В админку не пускаем только тех, у кого приоритетная роль (тот же resolver,
-		// что и на /profile/) имеет витрину кабинета. Офисные роли (FSOffice/методист/
-		// маркетолог) и дуал-роли с офисной ролью в приоритете — работают в wp-admin.
-		if ( $this->hasFrontCabinet( get_current_user_id() ) ) {
+		// В админку не пускаем только тех, чьи роли целиком фронт-кабинетные.
+		// Офисные роли (FSOffice/методист/маркетолог) и дуал-роли с офисной
+		// ролью в наборе — работают в wp-admin.
+		if ( $this->isPureFrontCabinetUser( get_current_user_id() ) ) {
 			wp_safe_redirect( home_url( '/profile/' ) );
 			exit;
 		}
@@ -96,7 +99,7 @@ class UserBehaviorManager {
 			return $show;
 		}
 
-		if ( $this->hasFrontCabinet( get_current_user_id() ) ) {
+		if ( $this->isPureFrontCabinetUser( get_current_user_id() ) ) {
 			return false;
 		}
 
