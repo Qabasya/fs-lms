@@ -6,6 +6,7 @@ namespace Inc\Services\Course;
 
 use Inc\DTO\Assessment\AttemptDTO;
 use Inc\Enums\Assessment\AssessmentKind;
+use Inc\Enums\Course\GradeBadge;
 use Inc\Managers\Assessment\AssessmentManager;
 use Inc\Managers\Course\WorkManager;
 use Inc\Repositories\WPDBRepositories\AssessmentAnswerRepository;
@@ -39,6 +40,7 @@ class ReviewQueueService {
 		private readonly AssessmentManager           $assessments,
 		private readonly GroupLessonRepository        $groupLessons,
 		private readonly StudentRecordRepository     $studentRecords,
+		private readonly WorkMarksService            $marks,
 	) {}
 
 	/**
@@ -65,7 +67,7 @@ class ReviewQueueService {
 		// Обычные работы — только pending/done: у submissions нет отдельного шага
 		// подтверждения (confirm — свойство экзаменов без поштучной ручной проверки).
 		if ( 'confirm' !== $tab ) {
-			$statuses = 'pending' === $tab ? array( 'submitted' ) : array( 'graded' );
+			$statuses = self::workStatusesFor( $tab );
 			$byWork   = array();
 			foreach ( $this->submissions->summaryByGroups( $groupIds, $statuses ) as $row ) {
 				$wid = $row['work_id'];
@@ -139,7 +141,11 @@ class ReviewQueueService {
 	 * на деталь работы, D2 — у работы с несколькими учениками у каждого свой
 	 * `submission_id`/`attempt_id`).
 	 *
-	 * @return array<int, array{source_type:string, source_id:int, student_name:string, group_id:int, group_name:string, submitted_at:?string}>
+	 * `badge`/`marks` (Tasks.md, п. 7) — метка типа работы и «полоска» вердиктов
+	 * по заданиям: карточка сдачи показывает форму результата ещё до открытия
+	 * детали.
+	 *
+	 * @return array<int, array{source_type:string, source_id:int, student_name:string, group_id:int, group_name:string, submitted_at:?string, badge:?string, marks:string[]}>
 	 */
 	public function submissionsFor( string $sourceType, int $sourceId, int $userId, bool $allGroups, string $tab ): array {
 		$groupIds = $this->teacherGroups->idsFor( $userId, $allGroups );
@@ -151,7 +157,7 @@ class ReviewQueueService {
 			if ( 'confirm' === $tab ) {
 				return array();
 			}
-			$statuses = 'pending' === $tab ? array( 'submitted' ) : array( 'graded' );
+			$statuses = self::workStatusesFor( $tab );
 			$out      = array();
 			foreach ( $this->submissions->listByWorkAndGroups( $sourceId, $groupIds, $statuses ) as $sub ) {
 				$gl = $this->groupLessons->find( $sub->groupLessonId );
@@ -166,6 +172,8 @@ class ReviewQueueService {
 					'group_id'     => $gl->groupId,
 					'group_name'   => $group->name ?? '',
 					'submitted_at' => $sub->submittedAt,
+					'badge'        => GradeBadge::fromWorkType( $sub->workType )->badge(),
+					'marks'        => $this->marks->marksFor( 'submission', $sub->id ),
 				);
 			}
 			return $out;
@@ -177,20 +185,36 @@ class ReviewQueueService {
 				if ( $attempt->assessmentId !== $sourceId || $this->attemptBucket( $attempt ) !== $tab ) {
 					continue;
 				}
-				$group = $attempt->groupId ? $this->groups->findById( $attempt->groupId ) : null;
-				$out[] = array(
+				$group      = $attempt->groupId ? $this->groups->findById( $attempt->groupId ) : null;
+				$assessment = $this->assessments->get( $attempt->assessmentId );
+				$out[]      = array(
 					'source_type'  => 'attempt',
 					'source_id'    => $attempt->id,
 					'student_name' => $this->studentName( $attempt->studentPersonId, $attempt->groupId ?? 0 ),
 					'group_id'     => $attempt->groupId ?? 0,
 					'group_name'   => $group->name ?? '',
 					'submitted_at' => $attempt->submittedAt,
+					'badge'        => $assessment ? GradeBadge::fromAssessmentKind( $assessment->kind )->badge() : null,
+					'marks'        => $this->marks->marksFor( 'attempt', $attempt->id ),
 				);
 			}
 			return $out;
 		}
 
 		return array();
+	}
+
+	/**
+	 * Статусы сдач корзины: «На проверке» — и `submitted` (старые автопроверенные
+	 * сдачи, до того как автопроверка стала сразу закрывать работу), и
+	 * `pending_review` (в работе есть развёрнутые ответы — их и ждёт учитель;
+	 * раньше такие сдачи в очередь вообще не попадали). `returned` — не корзина
+	 * проверки: работа у ученика на доработке.
+	 *
+	 * @return string[]
+	 */
+	private static function workStatusesFor( string $tab ): array {
+		return 'pending' === $tab ? array( 'submitted', 'pending_review' ) : array( 'graded' );
 	}
 
 	/**

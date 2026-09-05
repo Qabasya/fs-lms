@@ -116,12 +116,19 @@ class SubmissionRepository {
 	}
 
 	/**
-	 * Оценённые сдачи группы для журнала.
+	 * Сданные работы группы для журнала и «Сводки по ученику».
 	 *
 	 * `task_id IS NULL` — только агрегатные строки: per-task строки пакетной
 	 * сдачи получают статус `graded` при ручной проверке задания
 	 * ({@see \Inc\Services\Course\SubmissionService::gradeBatchTask()}) и иначе
 	 * дублировали бы работу отдельными записями в журнале и «Сводке по ученику».
+	 *
+	 * Статусы: `graded` + ещё не проверенные `submitted`/`pending_review`.
+	 * Раньше фильтр был только по `graded`, и сданная, но не оценённая работа
+	 * пропадала отовсюду («Работ нет» в сводке при нескольких сдачах). Ячейка
+	 * умеет показывать «На проверке» ({@see \Inc\DTO\Course\GradebookEntryDTO::displayValue()}),
+	 * поэтому такие сдачи отдаём — источник помечает их `displayType = 'pending'`.
+	 * `returned` (возвращена на доработку) не отдаём: результата у неё нет.
 	 *
 	 * @return SubmissionDTO[]
 	 */
@@ -130,8 +137,9 @@ class SubmissionRepository {
 			$this->wpdb->prepare(
 				"SELECT s.* FROM %i s
 				 INNER JOIN %i gl ON gl.id = s.group_lesson_id
-				 WHERE gl.group_id = %d AND s.task_id IS NULL AND s.status = 'graded'
-				 ORDER BY s.graded_at DESC",
+				 WHERE gl.group_id = %d AND s.task_id IS NULL
+				   AND s.status IN ( 'graded', 'submitted', 'pending_review' )
+				 ORDER BY COALESCE( s.graded_at, s.submitted_at ) DESC",
 				$this->table,
 				$this->glTable,
 				$groupId
@@ -142,16 +150,19 @@ class SubmissionRepository {
 	}
 
 	/**
-	 * Оценённые сдачи ученика для журнала.
+	 * Сданные работы ученика для журнала.
 	 *
-	 * @see listForGradebookByGroup() Почему только агрегатные строки (task_id IS NULL)
+	 * @see listForGradebookByGroup() Почему только агрегатные строки (task_id IS NULL) и какие статусы
 	 *
 	 * @return SubmissionDTO[]
 	 */
 	public function listForGradebookByStudent( int $studentPersonId ): array {
 		$rows = $this->wpdb->get_results(
 			$this->wpdb->prepare(
-				"SELECT * FROM %i WHERE student_person_id = %d AND task_id IS NULL AND status = 'graded' ORDER BY graded_at DESC",
+				"SELECT * FROM %i
+				 WHERE student_person_id = %d AND task_id IS NULL
+				   AND status IN ( 'graded', 'submitted', 'pending_review' )
+				 ORDER BY COALESCE( graded_at, submitted_at ) DESC",
 				$this->table,
 				$studentPersonId
 			),

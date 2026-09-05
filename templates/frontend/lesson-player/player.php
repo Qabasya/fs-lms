@@ -147,6 +147,8 @@ $next_url    = null !== $next_lesson
 					<?php include __DIR__ . '/partials/rail.php'; ?>
 				</div>
 			</div>
+			<?php // Мобильное затемнение под деревом-оверлеем: тап по нему закрывает дерево (rail.js). ?>
+			<div class="rail-scrim" id="fsRailScrim" hidden></div>
 			<div class="content<?php echo $locked ? ' is-locked' : ''; ?>">
 				<div class="cscroll" id="fsScroll">
 					<div class="col">

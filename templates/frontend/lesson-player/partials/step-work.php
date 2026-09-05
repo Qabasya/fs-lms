@@ -42,9 +42,12 @@ endif;
 $work_tasks     = is_array( $render['tasks'] ?? null ) ? $render['tasks'] : array();
 $work_has_sub   = ! empty( $render['submission'] );
 $work_state     = array(
-	'work_id'      => (int) $render['ref'],
-	'submission'   => $render['submission'] ?? null,
-	'task_results' => $render['task_results'] ?? array(),
+	'work_id'       => (int) $render['ref'],
+	'submission'    => $render['submission'] ?? null,
+	'task_results'  => $render['task_results'] ?? array(),
+	// Tasks.md, п. 8: жёсткий лимит пересдач — предупреждения и блок «Пройти заново».
+	'attempts_used' => (int) ( $render['attempts_used'] ?? 0 ),
+	'max_attempts'  => (int) ( $render['max_attempts'] ?? 0 ),
 );
 $work_meta_line = sprintf(
 	/* translators: 1: work type label, 2: task count, 3: total points */
@@ -69,6 +72,7 @@ $work_meta_line = sprintf(
 			<?php if ( ! empty( $edit_url ) ) : ?>
 				<a class="b b-gh b-sm pv-edit" href="<?php echo esc_url( $edit_url ); ?>" target="_blank" rel="noopener"><?php esc_html_e( 'Редактировать', 'fs-lms' ); ?></a>
 			<?php endif; ?>
+			<span class="work-attempts-note" data-work-attempts hidden></span>
 			<div class="a-prog">
 				<span class="ap-txt" data-work-prog-txt></span>
 				<span class="ap-bar"><span data-work-prog-bar></span></span>

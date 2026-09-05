@@ -9,6 +9,7 @@ use Inc\DTO\Course\SubmissionDTO;
 use Inc\Enums\Course\SubmissionStatus;
 use Inc\Enums\Course\WorkType;
 use Inc\Managers\Course\LessonManager;
+use Inc\Managers\Course\WorkManager;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\SubmissionRepository;
 use Inc\Services\Course\SubmissionGradeSource;
@@ -19,6 +20,7 @@ class SubmissionGradeSourceTest extends TestCase {
 	private SubmissionRepository&\PHPUnit\Framework\MockObject\MockObject $submissions;
 	private GroupLessonRepository&\PHPUnit\Framework\MockObject\MockObject $groupLessons;
 	private LessonManager&\PHPUnit\Framework\MockObject\MockObject $lessonManager;
+	private WorkManager&\PHPUnit\Framework\MockObject\MockObject $works;
 	private SubmissionGradeSource $source;
 
 	protected function setUp(): void {
@@ -26,7 +28,8 @@ class SubmissionGradeSourceTest extends TestCase {
 		$this->submissions   = $this->createMock( SubmissionRepository::class );
 		$this->groupLessons  = $this->createMock( GroupLessonRepository::class );
 		$this->lessonManager = $this->createMock( LessonManager::class );
-		$this->source = new SubmissionGradeSource( $this->submissions, $this->groupLessons, $this->lessonManager );
+		$this->works         = $this->createMock( WorkManager::class );
+		$this->source = new SubmissionGradeSource( $this->submissions, $this->groupLessons, $this->lessonManager, $this->works );
 	}
 
 	private function sub( ?string $submittedAt, ?string $dueAt ): SubmissionDTO {

@@ -206,6 +206,8 @@ enum AjaxHook: string {
 	// ==== Сдача работ (Этап 3) ====
 	case SaveGrade           = 'save_grade';
 	case ReturnSubmission    = 'return_submission';
+	// params: submission_id — закрывает проверку работы целиком: «На проверке» → «Проверенные».
+	case CompleteReview      = 'complete_review';
 
 	// ==== Пакетная сдача / ручная оценка (Этап 7) ====
 	case SubmitBatchWork = 'submit_batch_work'; // params: group_lesson_id, work_id, answers (JSON)

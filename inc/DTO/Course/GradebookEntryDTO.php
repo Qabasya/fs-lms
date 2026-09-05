@@ -44,6 +44,8 @@ readonly class GradebookEntryDTO {
 		 * попытки), стабилен между попытками. null → группируется по sourceType:sourceId.
 		 */
 		public ?string $groupKey = null,
+		/** Когда ученик сдал работу (в отличие от `gradedAt` — когда её проверили). */
+		public ?string $submittedAt = null,
 	) {}
 
 	/** Форматированное значение для отображения в журнале. */

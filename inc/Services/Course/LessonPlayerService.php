@@ -264,6 +264,10 @@ class LessonPlayerService {
 			// Батч-проверка без явных весов — вес каждой задачи равен 1.
 			'total_points'    => count( $tasks ),
 			'tasks'           => $tasks,
+			// Tasks.md, п. 8: жёсткий лимит пересдач — плеер предупреждает о
+			// предпоследней и последней попытке и прячет «Пройти заново».
+			'attempts_used'   => $this->submissionService->workAttemptsUsed( $studentPersonId, $groupLesson->id, $workId ),
+			'max_attempts'    => SubmissionService::MAX_WORK_ATTEMPTS,
 		) + $this->currentSubmission( $studentPersonId, $groupLesson->id, $workId );
 	}
 

@@ -109,7 +109,7 @@ function applyInitialState( ctx ) {
 	if ( used > 0 ) {
 		widget.lock();
 		submitBtn.hidden = true;
-		resultEl.innerHTML = vd( 'no', 'Неверно', 'Проверьте решение и попробуйте ещё раз.', [ remainingMetaPanel( panel ) ] );
+		resultEl.innerHTML = vd( 'no', 'Неверно', 'Проверьте решение и попробуйте ещё раз.', [ remainingMetaPanel( panel ), attemptWarnPanel( panel ) ] );
 		retryBtn.hidden = false;
 		return;
 	}
@@ -220,7 +220,7 @@ async function submit( ctx ) {
 	}
 
 	// 2. Неверно, попытки остались — блокируем поля, показываем пересдачу.
-	resultEl.innerHTML = vd( 'no', 'Неверно', 'Проверьте решение и попробуйте ещё раз.', [ remainingMeta( d ) ] );
+	resultEl.innerHTML = vd( 'no', 'Неверно', 'Проверьте решение и попробуйте ещё раз.', [ remainingMeta( d ), attemptWarnData( d ) ] );
 	widget.lock();
 	submitBtn.hidden = true;
 	retryBtn.hidden  = false;
@@ -250,6 +250,27 @@ function remainingMeta( d ) {
 function remainingMetaPanel( panel ) {
 	const max = maxAttempts( panel );
 	return max > 0 ? `Осталось попыток: ${ Math.max( 0, max - attemptsUsed( panel ) ) }` : '';
+}
+
+/**
+ * Предупреждение о том, что попытки на исходе (Tasks.md, п. 8) — тот же приём,
+ * что у работы (step-work.js). Задания с единственной попыткой не предупреждаем:
+ * там первая же попытка и есть последняя, об этом говорит сам счётчик.
+ */
+function attemptWarn( max, used ) {
+	if ( ! ( max > 1 ) ) { return ''; }
+	const left = Math.max( 0, max - used );
+	if ( 2 === left ) { return 'Следующая попытка — предпоследняя'; }
+	if ( 1 === left ) { return 'Осторожно, это последняя попытка'; }
+	return '';
+}
+
+function attemptWarnData( d ) {
+	return attemptWarn( Number( d.max_attempts ) || 0, Number( d.attempts_used ) || 0 );
+}
+
+function attemptWarnPanel( panel ) {
+	return attemptWarn( maxAttempts( panel ), attemptsUsed( panel ) );
 }
 
 /** Возможна ли пересдача по ответу сервера: без лимита ИЛИ остались попытки. */

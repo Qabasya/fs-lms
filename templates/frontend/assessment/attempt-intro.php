@@ -11,6 +11,7 @@
  *
  * @var \Inc\DTO\Assessment\AssessmentDTO $assessment
  * @var bool                              $previewMode Предпросмотр автора: попытку начать нельзя
+ * @var int                               $attemptsUsed Израсходовано попыток (Tasks.md, п. 8)
  */
 declare( strict_types=1 );
 
@@ -21,6 +22,10 @@ $intro_html = '' !== trim( $assessment->introHtml )
 	: AssessmentIntroConfig::defaultDescription( $assessment->kind );
 
 $rules = AssessmentIntroConfig::rules( $assessment );
+
+// Tasks.md, п. 8: предупреждение о предпоследней/последней попытке. Работы с
+// единственной попыткой не предупреждаем — там об этом говорит сам блок правил.
+$attempt_warning = AssessmentIntroConfig::attemptWarning( $assessment, (int) ( $attemptsUsed ?? 0 ) );
 ?>
 <div class="fs-assessment-intro">
 	<h1 class="fs-assessment-title"><?php echo esc_html( $assessment->title ); ?></h1>
@@ -38,6 +43,10 @@ $rules = AssessmentIntroConfig::rules( $assessment );
 				</li>
 			<?php endforeach; ?>
 		</ul>
+	<?php endif; ?>
+
+	<?php if ( '' !== $attempt_warning ) : ?>
+		<p class="fs-assessment-intro__warn"><?php echo esc_html( $attempt_warning ); ?></p>
 	<?php endif; ?>
 
 	<div class="fs-assessment-intro__actions">

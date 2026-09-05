@@ -11,6 +11,7 @@ import { esc, emptyState, fmtDateTime } from './utils.js';
 import { icoInbox } from '../common/icons.js';
 import { createApi } from './api.js';
 import { groupPickerBtnHtml, openGroupPicker } from './picker.js';
+import { workCardHtml } from './work-card.js';
 
 const TABS = [
     { key: 'pending', label: 'На проверке' },
@@ -203,14 +204,19 @@ function stepTwoHtml() {
     return backRow + rows;
 }
 
+/* Карточка сдачи (Tasks.md, п. 7) — общая вёрстка с «Сводкой по ученику»:
+   бейдж типа, ФИО, полоска вердиктов по заданиям, справа время сдачи. */
 function subRow(s) {
-    return `<div class="wk-sub-row" data-src-type="${esc(s.source_type)}" data-src-id="${s.source_id}">
-        <div class="wk-sub-main">
-            <div class="wk-sub-name">${esc(s.student_name || '—')}</div>
-            <div class="wk-sub-meta">${esc(s.group_name || '')}${s.submitted_at ? ' · ' + esc(fmtDateTime(s.submitted_at)) : ''}</div>
-        </div>
-        <button type="button" class="prof-btn prof-btn-sm">Открыть</button>
-    </div>`;
+    return workCardHtml({
+        title:      s.student_name,
+        badge:      s.badge,
+        marks:      s.marks,
+        subtitle:   s.group_name,
+        date:       s.submitted_at,
+        sourceType: s.source_type,
+        sourceId:   s.source_id,
+        rowClass:   'wk-sub-row',
+    });
 }
 
 /* ── Wiring ───────────────────────────────────────────────────────────── */

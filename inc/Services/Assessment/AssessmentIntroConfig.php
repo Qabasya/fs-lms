@@ -59,4 +59,24 @@ class AssessmentIntroConfig {
 
 		return $rules;
 	}
+
+	/**
+	 * Предупреждение о том, что попытки на исходе (Tasks.md, п. 8) — то же
+	 * правило, что у работы в плеере (`step-work.js`): за две попытки до конца
+	 * и на последней. Работы с единственной попыткой не предупреждаем: там
+	 * первая же попытка и есть последняя, и об этом говорит блок правил.
+	 *
+	 * @param int $attemptsUsed Сколько попыток ученик уже израсходовал
+	 */
+	public static function attemptWarning( AssessmentDTO $assessment, int $attemptsUsed ): string {
+		if ( $assessment->attemptsAllowed <= 1 ) {
+			return '';
+		}
+
+		return match ( max( 0, $assessment->attemptsAllowed - $attemptsUsed ) ) {
+			2       => 'Это предпоследняя попытка — после неё останется ещё одна.',
+			1       => 'Осторожно, это последняя попытка.',
+			default => '',
+		};
+	}
 }

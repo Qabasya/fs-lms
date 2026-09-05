@@ -198,13 +198,20 @@ class WorkDetailService {
 			return array( $rawAnswer, null );
 		}
 
-		if ( $this->taskTemplate( $taskId )->hasCodeField() && is_array( $rawAnswer ) && array_key_exists( 'text', $rawAnswer ) ) {
+		if ( ! is_array( $rawAnswer ) ) {
+			return array( null, null );
+		}
+
+		if ( $this->taskTemplate( $taskId )->hasCodeField() && array_key_exists( 'text', $rawAnswer ) ) {
 			$code = isset( $rawAnswer['code'] ) && '' !== $rawAnswer['code'] ? (string) $rawAnswer['code'] : null;
 
 			return array( (string) $rawAnswer['text'], $code );
 		}
 
-		return array( null, null );
+		// Структурный ответ (сопоставление/сортировка/пропуски/выбор) — тот же
+		// человекочитаемый вид, что и на основном экране проверки (Tasks.md, п. 5),
+		// иначе в истории попыток вместо ответа стоял прочерк.
+		return array( $this->correctAnswers->formatStudentAnswer( $taskId, (string) wp_json_encode( $rawAnswer ) ), null );
 	}
 
 	private function fromSubmission( int $submissionId ): ?array {
@@ -252,11 +259,12 @@ class WorkDetailService {
 				$code       = $parsedCode['code'];
 			}
 
-			// Choice хранит ответ как JSON-массив id выбранных опций — сопоставляем
-			// с текстом опции, иначе учитель видит сырое `["1"]` вместо ответа.
-			$choiceAnswer = $this->correctAnswers->formatChoiceAnswer( $taskId, $rawAnswer );
-			if ( null !== $choiceAnswer ) {
-				$answer = $choiceAnswer;
+			// Структурные шаблоны (choice/matching/ordering/fill/triple) хранят ответ
+			// JSON-ом — приводим к человекочитаемому виду, иначе учитель видит сырое
+			// `[{"left":…,"right":…}]` вместо ответа (Tasks.md, п. 5).
+			$readable = $this->correctAnswers->formatStudentAnswer( $taskId, $rawAnswer );
+			if ( null !== $readable ) {
+				$answer = $readable;
 			}
 
 			// Ручное задание (file_answer_task) с уже начатой/законченной проверкой —
@@ -404,11 +412,11 @@ class WorkDetailService {
 				$answerText = (string) ( $ans->answerText ?? '' );
 				$files      = array();
 
-				// Choice хранит ответ как JSON-массив id выбранных опций — сопоставляем
-				// с текстом опции, иначе учитель видит сырое `["1"]` вместо ответа.
-				$choiceAnswer = $this->correctAnswers->formatChoiceAnswer( $ans->taskId, $answerText );
-				if ( null !== $choiceAnswer ) {
-					$answerText = $choiceAnswer;
+				// Структурные шаблоны (choice/matching/ordering/fill/triple) хранят
+				// ответ JSON-ом — приводим к человекочитаемому виду (Tasks.md, п. 5).
+				$readable = $this->correctAnswers->formatStudentAnswer( $ans->taskId, $answerText );
+				if ( null !== $readable ) {
+					$answerText = $readable;
 				}
 			}
 			// Табличные задания станции (№17/18/20/25/26/27) кодируют ответ одной

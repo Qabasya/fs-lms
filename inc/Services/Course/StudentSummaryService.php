@@ -29,13 +29,14 @@ class StudentSummaryService {
 		private readonly GradebookService      $gradebook,
 		private readonly GroupsRepository      $groups,
 		private readonly LessonProgressService $progress,
+		private readonly WorkMarksService      $marks,
 	) {}
 
 	/**
 	 * @return array{lessons: array<int, array{
 	 *   group_lesson_id:int, date:string, topic:string, kind:string,
 	 *   attendance:string, progress:?array{total:int, done:int, failed:int, open:int},
-	 *   works: array<int, array{badge:?string, value:string, display:string, title:string, source_type:string, source_id:int, overdue:bool, category:string, score:?float, max_score:?float, graded_at:?string, group_key:?string}>
+	 *   works: array<int, array{badge:?string, value:string, display:string, title:string, source_type:string, source_id:int, overdue:bool, category:string, score:?float, max_score:?float, graded_at:?string, group_key:?string, marks:string[], submitted_at:?string}>
 	 * }>}
 	 */
 	public function forStudent( int $groupId, int $personId ): array {
@@ -99,6 +100,10 @@ class StudentSummaryService {
 				'max_score'   => $entry->maxScore,
 				'graded_at'   => $entry->gradedAt,
 				'group_key'   => $entry->groupKey,
+				// Карточка работы (Tasks.md п.7): «полоска» вердиктов по заданиям
+				// и время сдачи — без них карточка была бы просто строкой таблицы.
+				'marks'        => $this->marks->marksFor( $entry->sourceType, $entry->sourceId ),
+				'submitted_at' => $entry->submittedAt,
 			);
 		}
 

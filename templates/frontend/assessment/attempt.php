@@ -10,6 +10,7 @@
  * @var string                                 $outcome        Задача 10: метка исхода попытки
  * @var string                                 $outcomeState   Задача 10: состояние плашки (ok/fail/review)
  * @var bool                                   $previewMode    Предпросмотр автора: ученика и попытки нет
+ * @var int                                    $attemptsUsed   Tasks.md, п. 8: израсходовано попыток
  */
 declare( strict_types=1 );
 ?>
@@ -155,6 +156,17 @@ declare( strict_types=1 );
 					</div>
 				<?php endif; ?>
 			</div>
+			<?php
+			// Tasks.md, п. 8: перед повторным заходом предупреждаем, что попытки
+			// на исходе — тем же правилом, что интро-экран и работа в плеере.
+			$fs_attempt_warning = IncServicesAssessmentAssessmentIntroConfig::attemptWarning( $assessment, (int) ( $attemptsUsed ?? 0 ) );
+			?>
+			<?php if ( $canRetry && '' !== $fs_attempt_warning ) : ?>
+				<p class="fs-assessment-intro__warn"><?php echo esc_html( $fs_attempt_warning ); ?></p>
+			<?php endif; ?>
+			<?php if ( ! $canRetry && $assessment->attemptsAllowed > 0 ) : ?>
+				<p class="fs-assessment-notice">Попытки исчерпаны (<?php echo esc_html( (string) $assessment->attemptsAllowed ); ?>). Сбросить их может преподаватель.</p>
+			<?php endif; ?>
 			<div class="fs-result-actions">
 				<?php if ( $canRetry ) : ?>
 					<button class="fs-btn fs-btn--danger" id="fs-start-attempt-btn"

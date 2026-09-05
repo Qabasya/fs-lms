@@ -37,7 +37,10 @@ function mountWork( panel, root ) {
 
 	let state;
 	try { state = JSON.parse( root.dataset.state || '{}' ); } catch { state = {}; }
-	state.task_results = state.task_results || {};
+	state.task_results  = state.task_results || {};
+	// Tasks.md, п. 8: жёсткий лимит пересдач (0 = без ограничения).
+	state.attempts_used = Number( state.attempts_used ) || 0;
+	state.max_attempts  = Number( state.max_attempts ) || 0;
 
 	const progressRoot = root.querySelector( '[data-work-progress-root]' );
 	const resultsRoot  = root.querySelector( '[data-work-results-root]' );
@@ -91,17 +94,51 @@ function mountWork( panel, root ) {
 
 	root.querySelector( '[data-work-finish]' )?.addEventListener( 'click', openConfirm );
 
+	// ── Лимит пересдач (Tasks.md, п. 8) ───────────────────────────────────
+	/** Осталось сдач; Infinity — лимита нет (или работа одноразовая: предупреждать не о чем). */
+	function attemptsLeft() {
+		return state.max_attempts > 1 ? Math.max( 0, state.max_attempts - state.attempts_used ) : Infinity;
+	}
+
+	/** Предупреждение перед сдачей: предпоследняя / последняя попытка. */
+	function attemptWarning() {
+		const left = attemptsLeft();
+		if ( 2 === left ) { return 'Это предпоследняя попытка сдачи — останется ещё одна.'; }
+		if ( 1 === left ) { return 'Осторожно, это последняя попытка сдачи.'; }
+		return '';
+	}
+
+	/** Строка счётчика попыток для воркбара и экрана результатов. */
+	function attemptsMeta() {
+		return state.max_attempts > 1
+			? `Попытка ${ Math.min( state.attempts_used + 1, state.max_attempts ) } из ${ state.max_attempts }`
+			: '';
+	}
+
+	function renderAttemptsMeta() {
+		const el = root.querySelector( '[data-work-attempts]' );
+		if ( ! el ) { return; }
+		const text  = attemptsMeta();
+		el.textContent = text;
+		el.hidden      = '' === text;
+	}
+
+	renderAttemptsMeta();
+
 	// ── Модалка подтверждения ─────────────────────────────────────────────
 	function openConfirm() {
 		const n     = answeredCount();
 		const total = cards.length;
+		const warn  = attemptWarning();
 		const dim   = document.createElement( 'div' );
 		dim.className = 'cp-dim';
 		dim.innerHTML = '<div class="cp-modal">' +
 			`<div class="mi">${ ICO.flag( 20 ) }</div>` +
 			'<h3>Завершить работу?</h3>' +
 			'<p>После завершения изменить ответы будет нельзя. Задачи с автопроверкой оценятся сразу, развёрнутые ответы проверит преподаватель.</p>' +
+			( warn ? `<p class="cp-warn">${ esc( warn ) }</p>` : '' ) +
 			'<div class="mm">' +
+				`${ attemptsMeta() ? `<span class="chip">${ esc( attemptsMeta() ) }</span>` : '' }` +
 				`<span class="chip">${ ICO.check( 12 ) }<span>Отвечено ${ n } из ${ total }</span></span>` +
 				( n < total ? `<span class="chip warn">Без ответа: ${ total - n }</span>` : '' ) +
 			'</div>' +
@@ -158,6 +195,8 @@ function mountWork( panel, root ) {
 		}
 
 		const d = res.data;
+		if ( undefined !== d.attempts_used ) { state.attempts_used = Number( d.attempts_used ) || 0; }
+		if ( undefined !== d.max_attempts ) { state.max_attempts = Number( d.max_attempts ) || 0; }
 		state.submission = {
 			status      : d.status,
 			status_label: d.status_label,
@@ -210,8 +249,19 @@ function mountWork( panel, root ) {
 		} );
 		h += '</div>';
 
+		// Tasks.md, п. 8: пересдача — только пока остались попытки; когда лимит
+		// исчерпан, вместо кнопки объясняем почему (иначе клик молча падал бы
+		// на серверной проверке).
+		const left = attemptsLeft();
 		h += '<div class="work-resfoot">' +
-			'<button type="button" class="b" data-work-retry>Пройти заново</button>' +
+			( left > 0
+				? '<button type="button" class="b" data-work-retry>Пройти заново</button>'
+				: '' ) +
+			( Infinity !== left
+				? `<span class="work-attempts-note">${ esc( left > 0
+					? `Осталось попыток: ${ left } из ${ state.max_attempts }`
+					: `Попытки исчерпаны (${ state.max_attempts } из ${ state.max_attempts }). Сбросить их может преподаватель.` ) }</span>`
+				: '' ) +
 			'</div>';
 
 		resultsRoot.innerHTML = h;
@@ -279,8 +329,11 @@ function mountWork( panel, root ) {
 	// step-task.js::retry()), а не просто очищаются — это универсально работает
 	// для всех типов (Choice/Matching/Ordering/Fill), не только текстовых.
 	function retry() {
+		if ( 0 === attemptsLeft() ) { toast( 'Попытки сдачи исчерпаны' ); return; }
+
 		resultsRoot.hidden  = true;
 		progressRoot.hidden = false;
+		renderAttemptsMeta();
 
 		cards.forEach( ( card ) => {
 			const taskId    = card.dataset.taskId;
@@ -368,10 +421,18 @@ function displayAnswer( raw ) {
 	const v = parseAnswer( raw );
 	if ( undefined === v || null === v || '' === v ) { return ''; }
 	if ( 'string' === typeof v ) { return v; }
+	// Сопоставление — пары «левое → правое» (незаполненные показываем явно),
+	// сортировка — нумерованный порядок: тот же вид, что видит преподаватель
+	// в проверке (CorrectAnswerResolver::formatStudentAnswer).
 	if ( Array.isArray( v ) ) {
-		return v.map( ( item ) =>
-			item && 'object' === typeof item ? `${ item.left } → ${ item.right }` : String( item )
-		).join( ', ' );
+		if ( v.some( ( item ) => item && 'object' === typeof item ) ) {
+			return v.map( ( item ) => `${ item?.left ?? '' } → ${ item?.right || '— не выбрано' }` ).join( '; ' );
+		}
+		// Нумеруем только там, где порядок и есть ответ (сортировка); одиночное
+		// значение — это выбор варианта, номер ему только мешает.
+		return v.length > 1
+			? v.map( ( item, i ) => `${ i + 1 }. ${ String( item ) }` ).join( '   ' )
+			: v.map( String ).join( ', ' );
 	}
 	if ( 'object' === typeof v ) {
 		return Object.entries( v ).map( ( [ k, val ] ) => `${ k }: ${ val }` ).join( ', ' );

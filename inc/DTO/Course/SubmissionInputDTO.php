@@ -17,6 +17,8 @@ readonly class SubmissionInputDTO {
 		public ?string $dueAt        = null,
 		public string  $status       = 'submitted',
 		public ?string $submittedAt  = null,
+		/** Момент завершения проверки; у автопроверенной сдачи совпадает со сдачей. */
+		public ?string $gradedAt     = null,
 	) {}
 
 	public function toArray(): array {
@@ -31,6 +33,7 @@ readonly class SubmissionInputDTO {
 			'due_at'            => $this->dueAt,
 			'status'            => $this->status,
 			'submitted_at'      => $this->submittedAt,
+			'graded_at'         => $this->gradedAt,
 		);
 	}
 }

@@ -332,6 +332,43 @@ function buildMatchingWidget( container, data, isDone ) {
 
 	container.appendChild( wrapper );
 
+	// Ёмкость варианта: сколько пар ждут именно его. Обычно 1, но у задания
+	// может быть две пары с одинаковым правым текстом — тогда вариант остаётся
+	// доступным, пока не разобраны все его слоты.
+	const capacity = new Map();
+	rights.forEach( ( text ) => capacity.set( text, ( capacity.get( text ) || 0 ) + 1 ) );
+
+	/**
+	 * Убирает из каждого дропдауна варианты, уже разобранные другими строками
+	 * (сопоставление — биекция, повторно тот же вариант не выбирают).
+	 * Свой выбор строка видит всегда, иначе `select` показал бы пустоту.
+	 */
+	const syncOptions = () => {
+		selects.forEach( ( { select } ) => {
+			const free = new Map( capacity );
+			selects.forEach( ( other ) => {
+				if ( other.select === select || '' === other.select.value ) { return; }
+				free.set( other.select.value, ( free.get( other.select.value ) || 0 ) - 1 );
+			} );
+
+			Array.from( select.options ).forEach( ( opt ) => {
+				if ( '' === opt.value ) { return; } // плейсхолдер
+				if ( opt.value === select.value ) {
+					opt.hidden   = false;
+					opt.disabled = false;
+					return;
+				}
+				const left = free.get( opt.value ) || 0;
+				opt.hidden   = left <= 0;
+				opt.disabled = left <= 0;
+				if ( left > 0 ) { free.set( opt.value, left - 1 ); }
+			} );
+		} );
+	};
+
+	selects.forEach( ( { select } ) => select.addEventListener( 'change', syncOptions ) );
+	syncOptions();
+
 	return widgetApi( {
 		collectAnswer: () => JSON.stringify(
 			selects.map( ( { leftText, select } ) => ( { left: leftText, right: select.value } ) )
@@ -342,6 +379,7 @@ function buildMatchingWidget( container, data, isDone ) {
 				const pair   = pairs.find( ( p ) => p && p.left === leftText );
 				select.value = pair ? String( pair.right ?? '' ) : '';
 			} );
+			syncOptions();
 		},
 		hasAnswer: () => selects.some( ( { select } ) => '' !== select.value ),
 		onChange: ( cb ) => selects.forEach( ( { select } ) => select.addEventListener( 'change', cb ) ),

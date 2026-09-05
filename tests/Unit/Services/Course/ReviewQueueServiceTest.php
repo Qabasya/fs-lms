@@ -23,6 +23,7 @@ use Inc\Repositories\WPDBRepositories\SubmissionRepository;
 use Inc\Repositories\WPDBRepositories\SubstitutionRepository;
 use Inc\Services\Course\ReviewQueueService;
 use Inc\Services\Course\TeacherGroupResolver;
+use Inc\Services\Course\WorkMarksService;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -40,6 +41,7 @@ class ReviewQueueServiceTest extends TestCase {
 	private AssessmentManager&\PHPUnit\Framework\MockObject\MockObject           $assessments;
 	private GroupLessonRepository&\PHPUnit\Framework\MockObject\MockObject       $groupLessons;
 	private StudentRecordRepository&\PHPUnit\Framework\MockObject\MockObject     $studentRecords;
+	private WorkMarksService&\PHPUnit\Framework\MockObject\MockObject            $marks;
 	private ReviewQueueService $service;
 
 	protected function setUp(): void {
@@ -53,6 +55,7 @@ class ReviewQueueServiceTest extends TestCase {
 		$this->assessments    = $this->createMock( AssessmentManager::class );
 		$this->groupLessons   = $this->createMock( GroupLessonRepository::class );
 		$this->studentRecords = $this->createMock( StudentRecordRepository::class );
+		$this->marks          = $this->createMock( WorkMarksService::class );
 
 		$this->substitutions->method( 'findUpcomingOrActiveBySubstitute' )->willReturn( array() );
 
@@ -69,6 +72,7 @@ class ReviewQueueServiceTest extends TestCase {
 			$this->assessments,
 			$this->groupLessons,
 			$this->studentRecords,
+			$this->marks,
 		);
 	}
 
@@ -120,7 +124,7 @@ class ReviewQueueServiceTest extends TestCase {
 		$groups2->expects( self::never() )->method( 'findByTeacherId' );
 		$service2 = new ReviewQueueService(
 			$groups2, new TeacherGroupResolver( $groups2, $this->substitutions ), $this->submissions, $this->attempts,
-			$this->answers, $this->works, $this->assessments, $this->groupLessons, $this->studentRecords,
+			$this->answers, $this->works, $this->assessments, $this->groupLessons, $this->studentRecords, $this->marks,
 		);
 		$service2->pendingWorks( 5, true, 'pending' );
 	}
@@ -129,7 +133,7 @@ class ReviewQueueServiceTest extends TestCase {
 
 	public function test_pending_works_aggregates_submission_rows_across_groups(): void {
 		$this->groups->method( 'findByTeacherId' )->willReturn( array( $this->group( 7, 'Группа А' ), $this->group( 8, 'Группа Б' ) ) );
-		$this->submissions->method( 'summaryByGroups' )->with( array( 7, 8 ), array( 'submitted' ) )->willReturn( array(
+		$this->submissions->method( 'summaryByGroups' )->with( array( 7, 8 ), array( 'submitted', 'pending_review' ) )->willReturn( array(
 			array( 'work_id' => 3, 'work_type' => 'practice', 'group_id' => 7, 'cnt' => 2, 'latest_at' => '2026-06-01 09:00:00' ),
 			array( 'work_id' => 3, 'work_type' => 'practice', 'group_id' => 8, 'cnt' => 1, 'latest_at' => '2026-06-02 10:00:00' ),
 		) );
@@ -230,7 +234,7 @@ class ReviewQueueServiceTest extends TestCase {
 			status: \Inc\Enums\Course\SubmissionStatus::Submitted, score: null, maxScore: null, feedback: null,
 			gradedByUserId: null, submittedAt: '2026-06-01 10:00:00', gradedAt: null, createdAt: '', updatedAt: '',
 		);
-		$this->submissions->method( 'listByWorkAndGroups' )->with( 3, array( 7 ), array( 'submitted' ) )->willReturn( array( $sub ) );
+		$this->submissions->method( 'listByWorkAndGroups' )->with( 3, array( 7 ), array( 'submitted', 'pending_review' ) )->willReturn( array( $sub ) );
 		$this->groupLessons->method( 'find' )->with( 20 )->willReturn( \Inc\DTO\Course\GroupLessonDTO::fromArray( array(
 			'id' => 20, 'group_id' => 7, 'position' => 1,
 		) ) );
