@@ -263,9 +263,7 @@ function mountWork( panel, root ) {
 		// вместо текста выбранных id. Для остальных типов — как раньше, текстом.
 		const answerHtml = isChoice
 			? `<div class="fs-task-widget" data-template="${ esc( widgetEl?.dataset.template || '' ) }" data-widget="${ esc( widgetEl?.dataset.widget || '{}' ) }"></div>`
-			: ( ( ( answerText ) => answerText
-				? `<div class="ansbox txt lock">${ esc( answerText ) }</div>`
-				: '<p class="wnote">Ответ не был дан</p>' )( displayAnswer( result?.answer ) ) );
+			: answerBlock( result?.answer );
 
 		return `<div class="a-task" data-result-task-id="${ esc( taskId ) }">` +
 			`<div class="th"><span class="tkn">${ n }</span><b>${ esc( title ) }</b></div>` +
@@ -335,6 +333,34 @@ function parseAnswer( raw ) {
 	if ( undefined === raw || null === raw ) { return undefined; }
 	if ( 'string' !== typeof raw ) { return raw; }
 	try { return JSON.parse( raw ); } catch { return raw; }
+}
+
+/**
+ * Разметка ответа ученика на экране результатов.
+ *
+ * Составной ответ «текст + код» (Code/FileCode) показывается двумя блоками:
+ * текст — как обычный ответ, код — моноширинным <pre>, где переводы строк и
+ * отступы сохраняются (в .ansbox они схлопывались в одну строку).
+ */
+function answerBlock( raw ) {
+	const v = parseAnswer( raw );
+
+	if ( v && 'object' === typeof v && ! Array.isArray( v )
+		&& ( 'string' === typeof v.code || 'string' === typeof v.text ) ) {
+		const text = ( v.text || '' ).trim();
+		const code = ( v.code || '' ).trim();
+
+		if ( '' === text && '' === code ) { return '<p class="wnote">Ответ не был дан</p>'; }
+
+		return ( text ? `<div class="ansbox txt lock">${ esc( text ) }</div>` : '' )
+			+ ( code ? `<pre class="a-task-code"><code>${ esc( code ) }</code></pre>` : '' );
+	}
+
+	const answerText = displayAnswer( raw );
+
+	return answerText
+		? `<div class="ansbox txt lock">${ esc( answerText ) }</div>`
+		: '<p class="wnote">Ответ не был дан</p>';
 }
 
 /** Человекочитаемый ответ для экрана результатов. */

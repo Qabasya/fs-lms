@@ -221,14 +221,18 @@
 
 .fs-widget-triple-group + .fs-widget-triple-group { margin-top: rem(10); }
 
-.fs-widget-matching-row {
+// Сетка задана на контейнере, строки — display: contents: колонка селектов
+// прижата к левой (max-content), но общая для всех пар, поэтому селекты
+// остаются выровненными между строками.
+.fs-widget-matching {
   display: grid;
-  grid-template-columns: 1fr rem(220);
-  gap: rem(12);
+  grid-template-columns: max-content rem(220);
+  justify-content: start;
   align-items: center;
-
-  + .fs-widget-matching-row { margin-top: rem(10); }
+  gap: rem(10) rem(12);
 }
+
+.fs-widget-matching-row { display: contents; }
 
 .fs-widget-matching-left { font-size: rem(14); color: var(--ink-2); }
 
@@ -393,5 +397,5 @@
 
 /* ── Мобильный (Фаза 5): сопоставление — селект под условием, не сбоку ─ */
 @media (max-width: $bp-mobile) {
-  .fs-widget-matching-row { grid-template-columns: 1fr; gap: rem(6); }
+  .fs-widget-matching { grid-template-columns: 1fr; gap: rem(6); }
 }

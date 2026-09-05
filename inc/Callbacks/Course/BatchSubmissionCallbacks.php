@@ -49,7 +49,7 @@ class BatchSubmissionCallbacks extends BaseController {
 
 		$groupLessonId = $this->requireInt( 'group_lesson_id' );
 		$workId        = $this->requireInt( 'work_id' );
-		$answersRaw    = $this->sanitizeText( 'answers' );
+		$answersRaw    = $this->sanitizeAnswerText( 'answers' );
 
 		$answers = json_decode( $answersRaw, true );
 		if ( ! is_array( $answers ) ) {

@@ -115,13 +115,22 @@ class SubmissionRepository {
 		return array_map( [ SubmissionDTO::class, 'fromArray' ], $rows ?: array() );
 	}
 
-	/** @return SubmissionDTO[] Оценённые сдачи группы для журнала. */
+	/**
+	 * Оценённые сдачи группы для журнала.
+	 *
+	 * `task_id IS NULL` — только агрегатные строки: per-task строки пакетной
+	 * сдачи получают статус `graded` при ручной проверке задания
+	 * ({@see \Inc\Services\Course\SubmissionService::gradeBatchTask()}) и иначе
+	 * дублировали бы работу отдельными записями в журнале и «Сводке по ученику».
+	 *
+	 * @return SubmissionDTO[]
+	 */
 	public function listForGradebookByGroup( int $groupId ): array {
 		$rows = $this->wpdb->get_results(
 			$this->wpdb->prepare(
 				"SELECT s.* FROM %i s
 				 INNER JOIN %i gl ON gl.id = s.group_lesson_id
-				 WHERE gl.group_id = %d AND s.status = 'graded'
+				 WHERE gl.group_id = %d AND s.task_id IS NULL AND s.status = 'graded'
 				 ORDER BY s.graded_at DESC",
 				$this->table,
 				$this->glTable,
@@ -132,11 +141,17 @@ class SubmissionRepository {
 		return array_map( [ SubmissionDTO::class, 'fromArray' ], $rows ?: array() );
 	}
 
-	/** @return SubmissionDTO[] Оценённые сдачи ученика для журнала. */
+	/**
+	 * Оценённые сдачи ученика для журнала.
+	 *
+	 * @see listForGradebookByGroup() Почему только агрегатные строки (task_id IS NULL)
+	 *
+	 * @return SubmissionDTO[]
+	 */
 	public function listForGradebookByStudent( int $studentPersonId ): array {
 		$rows = $this->wpdb->get_results(
 			$this->wpdb->prepare(
-				"SELECT * FROM %i WHERE student_person_id = %d AND status = 'graded' ORDER BY graded_at DESC",
+				"SELECT * FROM %i WHERE student_person_id = %d AND task_id IS NULL AND status = 'graded' ORDER BY graded_at DESC",
 				$this->table,
 				$studentPersonId
 			),

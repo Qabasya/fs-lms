@@ -63,7 +63,7 @@ class SubmitTaskAnswerCallbacks extends BaseController {
 
 		$groupLessonId = $this->requireInt( 'group_lesson_id' );
 		$stepKey       = $this->requireKey( 'step_key' );
-		$rawAnswer     = $this->sanitizeText( 'answer' );
+		$rawAnswer     = $this->sanitizeAnswerText( 'answer' );
 
 		$person = $this->persons->findByWpUserId( $userId );
 		if ( ! $person ) {

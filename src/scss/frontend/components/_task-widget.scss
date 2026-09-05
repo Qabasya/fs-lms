@@ -138,21 +138,22 @@
 }
 
 // Matching
+// Сетка на контейнере, строки — display: contents: селект стоит вплотную к
+// тексту пары (max-content), но колонка общая для всех строк, поэтому селекты
+// выровнены между собой.
 .fs-widget-matching {
-	display:        flex;
-	flex-direction: column;
-	gap:            $spacing-sm;
+	display:               grid;
+	grid-template-columns: max-content auto;
+	justify-content:       start;
+	align-items:           center;
+	gap:                   $spacing-sm $spacing-md;
 }
 
 .fs-widget-matching-row {
-	display:     flex;
-	align-items: center;
-	gap:         $spacing-md;
+	display: contents;
 }
 
 .fs-widget-matching-left {
-	min-width:   rem(160);
-	flex:        0 0 auto;
 	font-size:   $font-size-md;
 	font-weight: $font-medium;
 }

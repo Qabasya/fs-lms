@@ -94,6 +94,21 @@
     margin-bottom: rem(14);
   }
 
+  /* Код из составного ответа «текст + код» (Code/FileCode): переводы строк и
+     отступы значимы — pre-wrap, иначе Python-код схлопывается в одну строку. */
+  .a-task-code {
+    margin: rem(10) 0 0;
+    padding: rem(10) rem(12);
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: rem(10);
+    font: #{rem(12.5)}/1.6 var(--mono);
+    color: var(--ink);
+    white-space: pre-wrap;
+    overflow-wrap: break-word;
+    tab-size: 4;
+  }
+
   .tgap {
     display: flex;
     flex-direction: column;

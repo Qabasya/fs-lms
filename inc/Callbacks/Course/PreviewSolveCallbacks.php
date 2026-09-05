@@ -70,7 +70,7 @@ class PreviewSolveCallbacks extends BaseController {
 		$this->authorizePreviewSolve();
 
 		$taskId    = $this->requireInt( 'ref' );
-		$rawAnswer = $this->sanitizeText( 'answer' );
+		$rawAnswer = $this->sanitizeAnswerText( 'answer' );
 
 		$task = $this->posts->get( $taskId );
 		if ( ! $task ) {
@@ -112,7 +112,7 @@ class PreviewSolveCallbacks extends BaseController {
 	public function ajaxPreviewCheckWork(): void {
 		$this->authorizePreviewSolve();
 
-		$answers = json_decode( $this->sanitizeText( 'answers' ), true );
+		$answers = json_decode( $this->sanitizeAnswerText( 'answers' ), true );
 		if ( ! is_array( $answers ) ) {
 			$this->error( 'Неверный формат ответов.' );
 			return;
@@ -141,7 +141,7 @@ class PreviewSolveCallbacks extends BaseController {
 		$this->authorizePreviewSolve();
 
 		$assessment = $this->assessments->get( $this->requireInt( 'ref' ) );
-		$answers    = json_decode( $this->sanitizeText( 'answers' ), true );
+		$answers    = json_decode( $this->sanitizeAnswerText( 'answers' ), true );
 		if ( null === $assessment || ! is_array( $answers ) ) {
 			$this->error( 'Экзамен не найден или ответы некорректны.' );
 			return;
