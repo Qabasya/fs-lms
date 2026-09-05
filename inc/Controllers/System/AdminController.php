@@ -71,6 +71,7 @@ class AdminController extends BaseController implements ServiceInterface {
 		private readonly MenuRegistrar $menu_registrar,
 		private readonly AdminCallbacks $callbacks,
 		private readonly SubjectsMenuBuilder $subjects_menu_builder
+
 	) {
 		parent::__construct();
 	}
