@@ -335,6 +335,8 @@ class EnrollmentCallbacks extends BaseController {
 			docType:    $existingStudentDto->docType,
 			docNumber:  $existingStudentDto->docNumber,
 			inn:        $existingStudentDto->inn,
+			username:      $existingStudentDto->username,
+			loginPassword: $existingStudentDto->loginPassword,
 		);
 
 		try {
@@ -397,6 +399,8 @@ class EnrollmentCallbacks extends BaseController {
 			docType:    $this->sanitizeText( 'student_doc_type' ),
 			docNumber:  $this->sanitizeText( 'student_doc_number' ),
 			inn:        $this->sanitizeText( 'student_inn' ),
+			username:      $existingStudentDto->username,
+			loginPassword: $existingStudentDto->loginPassword,
 		);
 
 		// Обновление данных родителя
