@@ -217,6 +217,13 @@
   .work-resfoot-sp { flex: 1; }
 }
 
+/* Tasks.md, п. 8: счётчик оставшихся сдач — в воркбаре и под результатами. */
+.work-attempts-note {
+  font-size: rem(12);
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
 /* ── Модалка подтверждения ──────────────────────────────────────────── */
 .cp-dim {
   position: fixed;
@@ -258,6 +265,12 @@
     line-height: 1.65;
     color: var(--muted);
     margin-top: rem(8);
+  }
+
+  /* Tasks.md, п. 8: предупреждение о предпоследней / последней попытке. */
+  .cp-warn {
+    color: var(--wait-text);
+    font-weight: 600;
   }
 
   .mm {

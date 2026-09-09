@@ -1,0 +1,106 @@
+/* ══════════════════════════════════════════════════════════════════════
+   Карточка работы (Tasks.md, п. 7) — одна вёрстка для списка сдач в
+   «Работах» (.wk-sub-list) и вкладки «Работы» в «Сводке по ученику».
+   Разметку строит src/js/profile/work-card.js.
+   ══════════════════════════════════════════════════════════════════════ */
+@use '../variables' as *;
+
+.wcard {
+  display: flex;
+  align-items: center;
+  gap: rem(14);
+  padding: rem(12) rem(16);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: border-color $tr, box-shadow $tr;
+}
+
+.wcard:hover { border-color: var(--line-2); box-shadow: var(--shadow-sm); }
+
+.wcard:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Бейдж типа работы: СР / ПР / ДЗ / КР / ЭКЗ. */
+.wcard-badge {
+  flex: none;
+  min-width: rem(38);
+  text-align: center;
+  font-size: rem(11);
+  font-weight: 700;
+  padding: rem(3) rem(9);
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--muted);
+}
+
+.wcard-badge--sr { background: var(--t-zachet-soft); color: var(--t-zachet); }
+.wcard-badge--pr { background: var(--accent-soft); color: var(--accent-700); }
+.wcard-badge--dz { background: var(--wait-soft); color: var(--wait-text); }
+.wcard-badge--kr { background: var(--err-soft); color: var(--err-ink); }
+.wcard-badge--ex { background: var(--indi-bg); color: var(--indi-ink); }
+
+.wcard-main { flex: 1 1 auto; min-width: 0; }
+
+.wcard-title {
+  font-size: rem(14.5);
+  font-weight: 600;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wcard-sub { font-size: rem(12.5); color: var(--muted); margin-top: rem(2); }
+
+/* Полоска заданий: решённые — галочка, нерешённые — крестик, ручные — часы. */
+.wcard-marks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: rem(4);
+  margin-top: rem(8);
+}
+
+.wmark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: rem(20);
+  height: rem(20);
+  border-radius: rem(6);
+  flex: none;
+}
+
+.wmark--correct   { background: var(--ok-soft); color: var(--ok); }
+.wmark--incorrect { background: var(--err-soft); color: var(--err); }
+.wmark--pending   { background: var(--surface-2); color: var(--muted-2); }
+
+.wcard-date {
+  flex: none;
+  font-size: rem(12.5);
+  color: var(--muted);
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* Группировка карточек по занятиям («Сводка по ученику» → вкладка «Работы»). */
+.sum-work-groups {
+  display: flex;
+  flex-direction: column;
+  gap: rem(18);
+}
+
+.swg-head {
+  display: flex;
+  align-items: baseline;
+  gap: rem(10);
+  margin-bottom: rem(8);
+}
+
+.swg-topic { font-size: rem(14); font-weight: 700; color: var(--ink); }
+.swg-date  { font-size: rem(12.5); color: var(--muted); }
+
+@media (max-width: $breakpoint-mobile) {
+  .wcard { flex-wrap: wrap; }
+  .wcard-date { width: 100%; text-align: left; }
+}

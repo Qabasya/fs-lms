@@ -287,9 +287,15 @@
   }
 }
 
+/* Затемнение под деревом-оверлеем (Tasks.md, п. 1). Существует всегда, но
+   работает только на мобильном: на десктопе рейка контент не перекрывает и
+   гасить его незачем. Показ/скрытие — атрибутом hidden из rail.js. */
+.rail-scrim { display: none; }
+
 /* ── Мобильный (Фаза 5): slim-полоска rem(44), дерево — оверлей по пину.
    Hover-разворот отключён (на таче «залипает»): раскрытие только тапом по
-   rs-x (rail.js → setPin(true)), пин в шапке дерева сворачивает обратно. */
+   rs-x (rail.js → setPin(true)); закрытие — тап по затемнению, свайп влево по
+   дереву, Escape или та же булавка в шапке (Tasks.md, п. 1). */
 @media (max-width: $bp-mobile) {
   .rail,
   .rail-slim { width: rem(44); }
@@ -304,4 +310,12 @@
   .rail:hover:not(.pin) .rail-full { opacity: 0; pointer-events: none; }
 
   .rail.pin { width: min(#{rem(316)}, calc(100vw - #{rem(24)})); }
+
+  .rail-scrim:not([hidden]) {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: var(--backdrop);
+    z-index: $z-rail-scrim;
+  }
 }

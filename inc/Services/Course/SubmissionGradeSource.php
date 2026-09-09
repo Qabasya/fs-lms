@@ -7,7 +7,9 @@ namespace Inc\Services\Course;
 use Inc\Contracts\GradeSourceInterface;
 use Inc\DTO\Course\GradebookEntryDTO;
 use Inc\Enums\Course\GradeBadge;
+use Inc\Enums\Course\SubmissionStatus;
 use Inc\Managers\Course\LessonManager;
+use Inc\Managers\Course\WorkManager;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\SubmissionRepository;
 
@@ -17,6 +19,7 @@ class SubmissionGradeSource implements GradeSourceInterface {
 		private readonly SubmissionRepository  $submissions,
 		private readonly GroupLessonRepository $groupLessons,
 		private readonly LessonManager         $lessonManager,
+		private readonly WorkManager           $works,
 	) {}
 
 	public function entriesForGroup( int $groupId ): array {
@@ -32,12 +35,20 @@ class SubmissionGradeSource implements GradeSourceInterface {
 		foreach ( $submissions as $sub ) {
 			$gl     = $this->groupLessons->find( $sub->groupLessonId );
 			$lesson = ( $gl && $gl->lessonId ) ? $this->lessonManager->get( $gl->lessonId ) : null;
-			$title  = $lesson ? $lesson->topic : "Работа #{$sub->workId}";
+			// Название самой работы, а не тема занятия: карточки уже сгруппированы
+			// по занятиям (Tasks.md, п. 7), и тема в заголовке карточки лишь
+			// дублировала бы заголовок группы. Тема — запасной вариант для работ,
+			// удалённых из банка.
+			$work   = $this->works->get( $sub->workId );
+			$title  = $work?->title ?: ( $lesson?->topic ?: "Работа #{$sub->workId}" );
 
 			// В журнал приходят только агрегатные строки сдачи (репозиторий
 			// отсекает per-task по task_id IS NULL): score=correct,
-			// max_score=total → показываем дробью.
-			$displayType = 'fraction';
+			// max_score=total → показываем дробью. Сдача, которую преподаватель
+			// ещё не закрыл (submitted/pending_review), — «На проверке»: как у
+			// экзамена ({@see AssessmentGradeSource}), иначе ячейка врала бы
+			// готовым результатом.
+			$displayType = SubmissionStatus::Graded === $sub->status ? 'fraction' : 'pending';
 
 			$entries[] = new GradebookEntryDTO(
 				studentPersonId : $sub->studentPersonId,
@@ -48,13 +59,14 @@ class SubmissionGradeSource implements GradeSourceInterface {
 				category        : $sub->workType->value,
 				score           : $sub->score,
 				maxScore        : $sub->maxScore,
-				gradedAt        : $sub->gradedAt,
+				gradedAt        : $sub->gradedAt ?? $sub->submittedAt,
 				displayType     : $displayType,
 				groupLessonId   : $sub->groupLessonId,
 				badge           : GradeBadge::fromWorkType( $sub->workType ),
 				// T12.2 (D13): постоянная метка — сдано после дедлайна работы, зафиксированного на момент сдачи.
 				isLate          : $sub->isLate(),
 				groupKey        : 'work:' . $sub->workId,
+				submittedAt     : $sub->submittedAt,
 			);
 		}
 		return $entries;

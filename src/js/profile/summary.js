@@ -4,7 +4,8 @@
    Выбор идёт от ученика (все ученики, доступные пользователю) → его курс
    (группа), если их больше одного → две вкладки: «Занятия и прогресс по
    урокам» (карточки занятий: дата, тема, посещаемость, компактный прогресс
-   по шагам урока, работы) и «Работы» (плоская таблица работ курса).
+   по шагам урока, работы) и «Работы» (карточки работ, сгруппированные по
+   занятиям — та же вёрстка, что в очереди проверки, Tasks.md п. 7).
    Оценивание — в детали работы (T10.9), переход через openWorkReview.
    ══════════════════════════════════════════════════════════════════════ */
 
@@ -12,6 +13,7 @@ import { esc, emptyState, fmtDate } from './utils.js';
 import { icoDocCheck } from '../common/icons.js';
 import { createApi } from './api.js';
 import { groupPickerBtnHtml, studentPickerBtnHtml, openGroupPicker, openStudentPicker } from './picker.js';
+import { workCardHtml } from './work-card.js';
 
 const KIND_LABEL = { group: 'Групповое', individual: 'Индивидуальное' };
 const ATT_LABEL  = { present: 'Присутствовал', absent: 'Отсутствовал', none: 'Не отмечено' };
@@ -94,7 +96,7 @@ function render() {
             ${courseBlockHtml()}
         </div>
         ${tabsHtml()}
-        <div class="sum-body">${'works' === state.tab ? worksTableHtml() : lessonsHtml()}</div>
+        <div class="sum-body">${'works' === state.tab ? worksHtml() : lessonsHtml()}</div>
     </div>`;
 
     wireHead();
@@ -133,33 +135,40 @@ function lessonsHtml() {
         : `<div class="j-empty">${state.data && state.data.open ? 'В программе нет занятий.' : 'У ученика пока нет датированных занятий.'}</div>`;
 }
 
-function worksTableHtml() {
-    const rows = flatWorks();
-    if (!rows.length) { return '<div class="j-empty">Работ нет.</div>'; }
-    return `<div class="sum-works-table">
-        <div class="swt-row swt-head">
-            <span>Тип</span><span>Тема</span><span>Дата</span><span>Статус</span><span>Балл</span>
-        </div>
-        ${rows.map(workRow).join('')}
-    </div>`;
+/* Tasks.md, п. 7: работы — карточками (как в очереди проверки), сгруппированными
+   по занятиям; плоская таблица не показывала ни разбор по заданиям, ни того,
+   к какому уроку работа относится. */
+function worksHtml() {
+    const groups = (((state.data && state.data.lessons) || []).map(l => ({
+        title: l.topic || '—',
+        date:  l.date,
+        works: l.works || [],
+    }))).filter(g => g.works.length);
+
+    if (!groups.length) { return '<div class="j-empty">Работ нет.</div>'; }
+
+    return `<div class="sum-work-groups">${groups.map(g => `
+        <div class="sum-work-group">
+            <div class="swg-head">
+                <span class="swg-topic">${esc(g.title)}</span>
+                ${g.date ? `<span class="swg-date">${esc(fmtDate(g.date))}</span>` : ''}
+            </div>
+            <div class="wk-sub-list">${g.works.map(workCard).join('')}</div>
+        </div>`).join('')}</div>`;
 }
 
-function flatWorks() {
-    const lessons = (state.data && state.data.lessons) || [];
-    const rows = [];
-    lessons.forEach(l => (l.works || []).forEach(w => rows.push({ ...w, lessonTopic: l.topic, lessonDate: l.date })));
-    return rows;
-}
-
-function workRow(w) {
-    const statusLabel = 'pending' === w.display ? 'На проверке' : (w.overdue ? 'Просрочено' : 'Оценено');
-    return `<div class="swt-row" role="button" tabindex="0" data-src-type="${esc(w.source_type)}" data-src-id="${w.source_id}">
-        <span>${esc(w.category || w.title)}</span>
-        <span>${esc(w.lessonTopic || '—')}</span>
-        <span>${w.lessonDate ? esc(fmtDate(w.lessonDate)) : '—'}</span>
-        <span class="swt-status${'pending' === w.display ? ' pending' : ''}${w.overdue ? ' overdue' : ''}">${esc(statusLabel)}</span>
-        <span class="swt-score">${'pending' === w.display ? '—' : esc(w.value)}</span>
-    </div>`;
+function workCard(w) {
+    const status = 'pending' === w.display ? 'На проверке' : (w.overdue ? `Просрочено · ${w.value}` : `Оценено · ${w.value}`);
+    return workCardHtml({
+        title:      w.title,
+        badge:      w.badge,
+        marks:      w.marks,
+        subtitle:   status,
+        date:       w.submitted_at,
+        sourceType: w.source_type,
+        sourceId:   w.source_id,
+        rowClass:   'sum-work-card',
+    });
 }
 
 /* T12.8: дропдауны ученика/курса — общий пикер (picker.js). */
@@ -195,7 +204,7 @@ function wireTabs() {
 }
 
 function wireRows() {
-    root.querySelectorAll('.sum-work[data-src-id], .swt-row[data-src-id]').forEach(el =>
+    root.querySelectorAll('.sum-work[data-src-id], .wcard[data-src-id]').forEach(el =>
         el.addEventListener('click', () => {
             if (openWorkReviewCb) { openWorkReviewCb(el.dataset.srcType, +el.dataset.srcId); }
         }));

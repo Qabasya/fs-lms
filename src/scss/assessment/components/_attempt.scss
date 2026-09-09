@@ -94,10 +94,25 @@
     color: var(--ink);
   }
 
+  /* Tasks.md, п. 8: попытки на исходе — предпоследняя / последняя. */
+  &__warn {
+    margin: 0 0 rem(16);
+    padding: rem(10) rem(14);
+    border: 1px solid var(--wait-line);
+    border-radius: var(--radius);
+    background: var(--wait-soft);
+    color: var(--wait-text);
+    font: 600 rem(13.5) var(--font);
+  }
+
   &__actions {
     margin-bottom: rem(10);
   }
 }
+
+/* Предупреждение работает и вне блока интро — на экране результата попытки. */
+.fs-result-actions + .fs-assessment-intro__warn,
+.fs-assessment-result-page + .fs-assessment-intro__warn { margin-top: rem(16); }
 
 /* ── Таймер в липкой шапке .s-top (всегда виден при скролле) ─────────── */
 .s-timer {

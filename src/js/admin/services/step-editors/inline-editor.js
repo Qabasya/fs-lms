@@ -215,8 +215,10 @@ export function inlineEditor( ed, step, ctx ) {
 		} );
 	} else if ( 'broadcast' === step.type ) {
 		ed.innerHTML = `
-			<div class="field-row"><label>Ссылка на трансляцию</label><input class="field-input" data-stream-url placeholder="https://…"></div>
-			<p class="field-hint">После занятия сюда автоматически привяжется запись.</p>`;
+			<div class="field-row"><label>Ссылка на трансляцию (необязательно)</label><input class="field-input" data-stream-url placeholder="https://…"></div>
+			<p class="field-hint">Адрес эфира на время занятия — Zoom, VK Видео, YouTube и т.п.
+			Поле можно оставить пустым: после занятия шаг сам покажет запись, привязанную к занятию
+			(в том числе загруженную в S3), а до неё — заглушку. Публикацию курса пустой шаг не блокирует.</p>`;
 		const streamUrl = ed.querySelector( '[data-stream-url]' );
 		streamUrl.value = step.payload.stream_url || '';
 		streamUrl.addEventListener( 'input', () => {

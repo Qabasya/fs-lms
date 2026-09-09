@@ -91,29 +91,56 @@ class CorrectAnswerResolver {
 	}
 
 	/**
-	 * Человекочитаемый ответ УЧЕНИКА для choice-задачи. Виджет
-	 * ({@see \fs-lms/src/js/frontend/components/task-widget.js buildChoiceWidget()})
-	 * хранит `collectAnswer()` как JSON-массив id выбранных опций (напр. `["1"]`),
-	 * а не текст — без сопоставления с `task_options.options[].{id,text}` он и
-	 * попадает «как есть» в интерфейс проверки. Для остальных шаблонов сырой
-	 * ответ уже человекочитаем — метод возвращает null, вызывающий код
-	 * оставляет исходную строку без изменений.
+	 * Человекочитаемый ответ УЧЕНИКА для шаблонов, чей виджет хранит ответ
+	 * структурой, а не текстом ({@see \fs-lms/src/js/frontend/components/task-widget.js}):
+	 *
+	 *  - choice   — JSON-массив id выбранных опций (`["1"]`) → тексты опций;
+	 *  - matching — `[{"left":…,"right":…}]`                → `левое → правое; …`;
+	 *  - ordering — `["Первый","Второй"]`                   → `1. Первый   2. Второй`;
+	 *  - fill     — `{"1":"…","2":"…"}`                     → `[1] …   [2] …`;
+	 *  - triple   — `{"19":"…","20":"…","21":"…"}`          → `19: … | 20: … | 21: …`.
+	 *
+	 * Без этого преобразования учитель видел в проверке сырой JSON вместо
+	 * ответа (Tasks.md, п. 5). Формат вывода совпадает с эталоном из
+	 * {@see resolve()} — их показывают рядом, и сравнивать глазами нужно
+	 * одинаково свёрстанные строки.
+	 *
+	 * Для остальных шаблонов сырой ответ уже человекочитаем — метод возвращает
+	 * null, вызывающий код оставляет исходную строку без изменений.
 	 */
-	public function formatChoiceAnswer( int $taskId, string $rawAnswerJson ): ?string {
+	public function formatStudentAnswer( int $taskId, string $rawAnswerJson ): ?string {
+		if ( '' === $rawAnswerJson ) {
+			return null;
+		}
+
 		$tplRaw = $this->posts->getMeta( $taskId, PostMetaName::TemplateType->value );
-		if ( TaskTemplate::Choice !== TaskTemplate::fromDatabase( is_string( $tplRaw ) ? $tplRaw : null ) ) {
+		$tpl    = TaskTemplate::fromDatabase( is_string( $tplRaw ) ? $tplRaw : null );
+
+		$decoded = json_decode( $rawAnswerJson, true );
+		if ( ! is_array( $decoded ) || empty( $decoded ) ) {
 			return null;
 		}
 
-		$ids = '' !== $rawAnswerJson ? json_decode( $rawAnswerJson, true ) : null;
-		if ( ! is_array( $ids ) || empty( $ids ) ) {
-			return null;
-		}
+		$formatted = match ( $tpl ) {
+			TaskTemplate::Choice   => $this->studentChoice( $taskId, $decoded ),
+			TaskTemplate::Matching => $this->studentMatching( $decoded ),
+			TaskTemplate::Ordering => $this->studentOrdering( $decoded ),
+			TaskTemplate::Fill     => $this->studentFill( $decoded ),
+			TaskTemplate::Triple   => $this->studentTriple( $decoded ),
+			default                => '',
+		};
 
+		return '' === $formatted ? null : $formatted;
+	}
+
+	/**
+	 * @param array<int|string, mixed> $ids Выбранные id опций
+	 */
+	private function studentChoice( int $taskId, array $ids ): string {
 		$metaRaw = $this->posts->getMeta( $taskId, PostMetaName::Meta->value );
 		$options = is_array( $metaRaw ) ? ( $metaRaw['task_options']['options'] ?? array() ) : array();
 		if ( ! is_array( $options ) ) {
-			return null;
+			return '';
 		}
 
 		$textById = array();
@@ -125,13 +152,93 @@ class CorrectAnswerResolver {
 
 		$texts = array();
 		foreach ( $ids as $id ) {
+			if ( is_array( $id ) ) {
+				continue;
+			}
 			$text = $textById[ (string) $id ] ?? '';
 			if ( '' !== $text ) {
 				$texts[] = $text;
 			}
 		}
 
-		return empty( $texts ) ? null : implode( ', ', $texts );
+		return implode( ', ', $texts );
+	}
+
+	/**
+	 * Незаполненная строка сопоставления показывается явно («— не выбрано»):
+	 * пропуск молча съел бы информацию о том, что ученик её не разобрал.
+	 *
+	 * @param array<int|string, mixed> $pairs Пары ответа ученика
+	 */
+	private function studentMatching( array $pairs ): string {
+		$out = array();
+		foreach ( $pairs as $pair ) {
+			if ( ! is_array( $pair ) ) {
+				continue;
+			}
+			$left  = trim( (string) ( $pair['left'] ?? '' ) );
+			$right = trim( (string) ( $pair['right'] ?? '' ) );
+			if ( '' === $left && '' === $right ) {
+				continue;
+			}
+			$out[] = $left . ' → ' . ( '' !== $right ? $right : '— не выбрано' );
+		}
+
+		return implode( '; ', $out );
+	}
+
+	/**
+	 * @param array<int|string, mixed> $items Порядок, выставленный учеником
+	 */
+	private function studentOrdering( array $items ): string {
+		$out = array();
+		$i   = 0;
+		foreach ( $items as $item ) {
+			if ( is_array( $item ) ) {
+				continue;
+			}
+			$text = trim( (string) $item );
+			if ( '' !== $text ) {
+				$out[] = ( ++$i ) . '. ' . $text;
+			}
+		}
+
+		return implode( '   ', $out );
+	}
+
+	/**
+	 * @param array<int|string, mixed> $gaps Пропуск => ответ ученика
+	 */
+	private function studentFill( array $gaps ): string {
+		$out = array();
+		foreach ( $gaps as $index => $value ) {
+			if ( is_array( $value ) ) {
+				continue;
+			}
+			$text  = trim( (string) $value );
+			$out[] = '[' . $index . '] ' . ( '' !== $text ? $text : '—' );
+		}
+
+		return implode( '   ', $out );
+	}
+
+	/**
+	 * @param array<int|string, mixed> $answers Номер задания => ответ ученика
+	 */
+	private function studentTriple( array $answers ): string {
+		$out = array();
+		foreach ( array( '19', '20', '21' ) as $n ) {
+			$value = $answers[ $n ] ?? '';
+			if ( is_array( $value ) ) {
+				continue;
+			}
+			$text = trim( (string) $value );
+			if ( '' !== $text ) {
+				$out[] = "{$n}: {$text}";
+			}
+		}
+
+		return implode( ' | ', $out );
 	}
 
 	private function triple( array $meta ): string {

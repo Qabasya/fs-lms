@@ -147,6 +147,7 @@ class AssessmentPageController extends BaseController implements ServiceInterfac
 		$canRetry       = $page->canRetry;
 		$now            = $page->now;
 		$previewMode    = $page->previewMode;
+		$attemptsUsed   = $page->attemptsUsed;
 
 		$defaultTemplate = $this->path( 'templates/frontend/assessment/attempt.php' );
 		$template        = $this->resolveRenderer( $assessment, $defaultTemplate );

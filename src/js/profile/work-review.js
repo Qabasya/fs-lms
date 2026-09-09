@@ -18,6 +18,9 @@ const STATUS_LABEL  = { submitted: 'Сдано', pending: 'На проверке
    проверки заданий) Graded наступает сразу при сдаче и не значит «учитель
    посмотрел», нужна отдельная кнопка. */
 const APPROVABLE_KIND = 'ege_computer';
+/* Статусы сдачи, при которых работа ещё висит в корзине «На проверке» —
+   зеркало ReviewQueueService::workStatusesFor('pending'). */
+const OPEN_STATUSES = [ 'submitted', 'pending_review' ];
 
 let wrRoot   = null;
 let onBackCb = () => {};
@@ -90,6 +93,10 @@ function render(d, history = []) {
     const isApproved = !!d.approved_at;
     const canApprove = d.kind === 'exam' && d.attempt_id && attemptGradeApi
         && d.assessment_kind === APPROVABLE_KIND && !isApproved;
+    // Tasks.md п. 6: работа с разбором по заданиям не имеет единой формы оценки
+    // (оценивание поштучное, D4) — без этой кнопки её нечем было увести из
+    // «На проверке» в «Проверенные».
+    const canComplete = d.kind === 'work' && d.submission_id && OPEN_STATUSES.includes(d.status);
 
     const grading = d.gradable ? `
         <div class="wr-foot">
@@ -104,9 +111,9 @@ function render(d, history = []) {
             </div>
         </div>` : '';
 
-    // «Пройти заново» (.docs/Tasks.md): пилюли попыток — только когда их больше одной.
+    // «Пройти заново» (.docs/Tasks.md): выбор попытки — только когда их больше одной.
     const currentRound = history.length ? Math.max(...history.map(h => h.round)) : null;
-    const pills = attemptPillsBlock(history, currentRound);
+    const picker = attemptPickerBlock(history, currentRound);
 
     wrRoot.innerHTML = `
         <div class="wr-screen">
@@ -119,10 +126,11 @@ function render(d, history = []) {
                 <div class="smh-actions">
                     ${canApprove ? '<button class="prof-btn prof-btn-sm prof-btn-primary sum-approve">Утвердить работу</button>' : ''}
                     ${isApproved ? '<span class="sum-approved-badge" title="Ответы открыты ученику">Утверждено</span>' : ''}
+                    ${canComplete ? '<button class="prof-btn prof-btn-sm prof-btn-primary sum-complete">Проверка завершена</button>' : ''}
                     <button class="prof-btn prof-btn-sm sum-reset">Сбросить попытки</button>
                 </div>
             </div>
-            ${pills}
+            ${picker}
             <div class="wr-body">
                 <div class="wr-tasks" data-wr-tasks>${liveTasksHtml}</div>
                 ${d.attachment_url ? attachmentBlock(d) : ''}
@@ -141,52 +149,63 @@ function render(d, history = []) {
 
     if (d.gradable) { wireGrading(wrRoot, d.submission_id); }
     if (canApprove) { wireApprove(wrRoot, d); }
+    if (canComplete) { wireComplete(wrRoot, d); }
     wireReset(wrRoot);
-    if (pills) { wireAttemptPills(wrRoot, history, currentRound, liveTasksHtml, wireLiveTaskControls); }
+    if (picker) { wireAttemptPicker(wrRoot, history, currentRound, liveTasksHtml, wireLiveTaskControls); }
 }
 
-/* «Пройти заново»: строка вкладок-пилюль над списком задач — по одной на
-   раунд сдачи, последняя всегда «текущая» (то, что и так показывает экран). */
-function attemptPillsBlock(history, currentRound) {
+/* «Пройти заново»: выбор раунда сдачи (Tasks.md п. 8 — вместо строки пилюль,
+   которая расползалась на десяток попыток). Последний раунд всегда «текущий» —
+   то, что и так показывает экран. */
+function attemptPickerBlock(history, currentRound) {
     if (history.length < 2) { return ''; }
 
+    const options = history.slice().reverse().map(h => {
+        const ok = h.tasks.filter(t => 'correct' === t.verdict).length;
+        const cur = h.round === currentRound ? ' · текущая' : '';
+        return `<option value="${h.round}"${h.round === currentRound ? ' selected' : ''}>` +
+            esc(`Попытка ${h.round} · ${fmtDateTime(h.submitted_at)} · ${ok}/${h.tasks.length}${cur}`) +
+            '</option>';
+    }).join('');
+
     return `<div class="wr-attempts">
-        ${history.map(h => {
-            const ok = h.tasks.filter(t => 'correct' === t.verdict).length;
-            return `<button type="button" class="wr-attempt-pill${h.round === currentRound ? ' is-active' : ''}" data-round="${h.round}">` +
-                `Попытка ${h.round} · ${esc(fmtDateTime(h.submitted_at))} · ${ok}/${h.tasks.length}` +
-                `${h.round === currentRound ? ' <span class="wr-attempt-cur">текущая</span>' : ''}` +
-                '</button>';
-        }).join('')}
+        <label class="wr-attempts-label" for="wrAttemptPick">Попытка</label>
+        <select class="wk-select wr-attempt-select" id="wrAttemptPick">${options}</select>
+        <span class="wr-attempts-count">${esc(attemptsCountText(history.length))}</span>
     </div>`;
 }
 
-/* Клик по пилюле подменяет список задач: текущий раунд — обычный live-рендер
+/* Счётчик попыток в шапке выбора: жёсткий лимит сдач один на всю платформу
+   (SubmissionService::MAX_WORK_ATTEMPTS, приезжает в конфиге экрана) — учителю
+   важно видеть, сколько у ученика осталось, прежде чем сбрасывать попытки. */
+function attemptsCountText(used) {
+    const max = Number(window.fsProfile?.review?.maxAttempts) || 0;
+    return max > 0 ? `${used} из ${max}` : `${used}`;
+}
+
+/* Выбор раунда подменяет список задач: текущий — обычный live-рендер
    (с контролами оценки), прошлые — read-only снимок без них (ручная оценка
    применима только к актуальной сдаче — она одна попадает в журнал). */
-function wireAttemptPills(root, history, currentRound, liveTasksHtml, wireLiveTaskControls) {
+function wireAttemptPicker(root, history, currentRound, liveTasksHtml, wireLiveTaskControls) {
     const tasksRoot = root.querySelector('[data-wr-tasks]');
     const foot      = root.querySelector('.wr-foot');
+    const select    = root.querySelector('#wrAttemptPick');
+    if (!select) { return; }
 
-    root.querySelectorAll('[data-round]').forEach((btn) => {
-        btn.addEventListener('click', () => {
-            root.querySelectorAll('[data-round]').forEach((b) => b.classList.remove('is-active'));
-            btn.classList.add('is-active');
+    select.addEventListener('change', () => {
+        const round = Number(select.value);
+        if (round === currentRound) {
+            tasksRoot.innerHTML = liveTasksHtml;
+            if (foot) { foot.hidden = false; }
+            wireLiveTaskControls();
+            return;
+        }
 
-            const round = Number(btn.dataset.round);
-            if (round === currentRound) {
-                tasksRoot.innerHTML = liveTasksHtml;
-                if (foot) { foot.hidden = false; }
-                wireLiveTaskControls();
-                return;
-            }
-
-            const roundData = history.find((h) => h.round === round);
-            tasksRoot.innerHTML = roundData && roundData.tasks.length
-                ? roundData.tasks.map(historyTaskBlock).join('')
-                : '<div class="sum-detail-empty">В этой попытке нет задач.</div>';
-            if (foot) { foot.hidden = true; }
-        });
+        const roundData = history.find((h) => h.round === round);
+        tasksRoot.innerHTML = roundData && roundData.tasks.length
+            ? roundData.tasks.map(historyTaskBlock).join('')
+            : '<div class="sum-detail-empty">В этой попытке нет задач.</div>';
+        if (foot) { foot.hidden = true; }
     });
 }
 
@@ -218,6 +237,33 @@ function wireApprove(root, d) {
         try {
             await attemptGradeApi('approveAttempt', { attempt_id: d.attempt_id });
             toast('Работа утверждена — ответы открыты ученику');
+            reload();
+        } catch (e) { toast(e.message, 'error'); btn.disabled = false; }
+    });
+}
+
+/* Tasks.md п. 6: «Проверка завершена» — переводит сдачу в «Проверенные».
+   Неоценённые развёрнутые ответы фиксируются с текущим баллом, поэтому
+   спрашиваем подтверждение, когда такие задания в работе ещё есть. */
+function wireComplete(root, d) {
+    const btn = root.querySelector('.sum-complete');
+    if (!btn) { return; }
+    const ungraded = (d.tasks || []).filter((t) => t.gradable && 'pending' === t.verdict).length;
+
+    btn.addEventListener('click', async () => {
+        if (ungraded) {
+            const ok = await confirmDialog(
+                `Не оценено развёрнутых ответов: ${ ungraded }. Они будут зачтены с текущим баллом (по умолчанию 0). Завершить проверку?`,
+                'Завершить проверку',
+                'Отмена'
+            );
+            if (!ok) { return; }
+        }
+
+        btn.disabled = true;
+        try {
+            await reviewApi('completeReview', { submission_id: d.submission_id });
+            toast('Работа переведена в «Проверенные»');
             reload();
         } catch (e) { toast(e.message, 'error'); btn.disabled = false; }
     });

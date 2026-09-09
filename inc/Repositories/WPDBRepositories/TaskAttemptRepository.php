@@ -90,6 +90,26 @@ class TaskAttemptRepository {
 	}
 
 	/**
+	 * Номер последнего раунда сдачи по шагу — сколько раз ученик сдавал работу
+	 * целиком (Tasks.md, п. 8: жёсткий лимит попыток).
+	 *
+	 * Именно MAX(attempt_number), а не COUNT(*): у работы номер считается по
+	 * каждой задаче отдельно ({@see countByStepTask()}), поэтому COUNT дал бы
+	 * «задачи × раунды». 0 — сдач ещё не было.
+	 */
+	public function maxAttemptNumberByStep( int $studentPersonId, int $groupLessonId, string $stepKey ): int {
+		return (int) $this->wpdb->get_var(
+			$this->wpdb->prepare(
+				'SELECT COALESCE( MAX(attempt_number), 0 ) FROM %i WHERE student_person_id = %d AND group_lesson_id = %d AND step_key = %s',
+				$this->table,
+				$studentPersonId,
+				$groupLessonId,
+				$stepKey,
+			)
+		);
+	}
+
+	/**
 	 * Все попытки студента по шагу в хронологическом порядке.
 	 *
 	 * @return TaskAttemptDTO[]

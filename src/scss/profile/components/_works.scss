@@ -138,25 +138,11 @@
   gap: rem(8);
 }
 
-.wk-sub-row {
-  display: flex;
-  align-items: center;
-  gap: rem(14);
-  padding: rem(12) rem(16);
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  cursor: pointer;
-  transition: border-color $tr, box-shadow $tr;
-}
-.wk-sub-row:hover { border-color: var(--line-2); box-shadow: var(--shadow-sm); }
-
-.wk-sub-main { flex: 1 1 auto; min-width: 0; }
-.wk-sub-name { font-size: rem(14.5); font-weight: 600; color: var(--ink); }
-.wk-sub-meta { font-size: rem(12.5); color: var(--muted); margin-top: rem(2); }
+/* Сама строка сдачи (.wk-sub-row) — карточка работы: вёрстка и палитра в
+   _work-card.scss, общие с «Сводкой по ученику» (Tasks.md, п. 7). */
 
 @media (max-width: $breakpoint-mobile) {
   .prof-works { padding: rem(16) rem(14) rem(32); }
   .wk-filters .kp-btn { max-width: none; width: 100%; }
-  .wk-row, .wk-sub-row { flex-wrap: wrap; }
+  .wk-row { flex-wrap: wrap; }
 }

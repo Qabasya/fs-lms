@@ -188,25 +188,28 @@ class SubmissionRepositoryTest extends TestCase {
 
 	// ── listForGradebookByGroup ───────────────────────────────────────────────
 
-	public function test_list_for_gradebook_by_group_filters_graded(): void {
+	public function test_list_for_gradebook_by_group_includes_unchecked_submissions(): void {
 		$this->wpdb->queueResults( [] );
 
 		$this->repo->listForGradebookByGroup( 2 );
 
 		$q = $this->wpdb->lastQuery();
-		self::assertStringContainsString( "status = 'graded'", $q );
+		// Сданное, но ещё не проверенное тоже идёт в журнал и сводку — ячейкой
+		// «На проверке» (Tasks.md, п. 3); возвращённое на доработку — нет.
+		self::assertStringContainsString( "status IN ( 'graded', 'submitted', 'pending_review' )", $q );
+		self::assertStringNotContainsString( "'returned'", $q );
 		self::assertStringContainsString( 'group_id = 2', $q );
 	}
 
 	// ── listForGradebookByStudent ─────────────────────────────────────────────
 
-	public function test_list_for_gradebook_by_student_filters_graded(): void {
+	public function test_list_for_gradebook_by_student_includes_unchecked_submissions(): void {
 		$this->wpdb->queueResults( [] );
 
 		$this->repo->listForGradebookByStudent( 10 );
 
 		$q = $this->wpdb->lastQuery();
-		self::assertStringContainsString( "status = 'graded'", $q );
+		self::assertStringContainsString( "status IN ( 'graded', 'submitted', 'pending_review' )", $q );
 		self::assertStringContainsString( 'student_person_id = 10', $q );
 	}
 

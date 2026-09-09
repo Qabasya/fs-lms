@@ -85,6 +85,10 @@ class BatchSubmissionCallbacks extends BaseController {
 				'tally'         => ( (int) ( $aggregate->score ?? 0 ) ) . '/' . ( (int) ( $aggregate->maxScore ?? 0 ) ),
 				'per_task'      => is_array( $perTask ) ? $perTask : array(),
 				'submitted_at'  => $aggregate->submittedAt,
+				// Tasks.md, п. 8: счётчик пересдач — плеер обновляет предупреждение
+				// и блокирует «Пройти заново», не перезагружая урок.
+				'attempts_used' => $this->submissionService->workAttemptsUsed( $person->id, $groupLessonId, $workId ),
+				'max_attempts'  => SubmissionService::MAX_WORK_ATTEMPTS,
 			) );
 		} catch ( \InvalidArgumentException $e ) {
 			$this->error( $e->getMessage() );

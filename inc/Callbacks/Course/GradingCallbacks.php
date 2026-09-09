@@ -149,6 +149,35 @@ class GradingCallbacks extends BaseController {
 		$this->success( array( 'submission_id' => $submissionId ) );
 	}
 
+	/**
+	 * Закрывает проверку работы целиком (Tasks.md, п. 6): сдача уезжает из
+	 * «На проверке» в «Проверенные». Params: submission_id.
+	 */
+	public function ajaxCompleteReview(): void {
+		$this->authorize( Nonce::GradeWork, Capability::ManageLmsTeaching );
+
+		$submissionId = $this->requireInt( 'submission_id' );
+
+		$sub = $this->submissionRepo->find( $submissionId );
+		if ( ! $sub ) {
+			$this->error( 'Сдача не найдена.' );
+			return;
+		}
+
+		$gl = $this->groupLessons->find( $sub->groupLessonId );
+		if ( ! $gl || ! $this->guard->canWriteJournal( $gl->groupId, get_current_user_id() ) ) {
+			$this->error( 'Нет доступа к этой группе.' );
+			return;
+		}
+
+		try {
+			$this->submissionService->completeReview( $submissionId, get_current_user_id() );
+			$this->success( array( 'submission_id' => $submissionId ) );
+		} catch ( \InvalidArgumentException $e ) {
+			$this->error( $e->getMessage() );
+		}
+	}
+
 	public function ajaxReturnSubmission(): void {
 		$this->authorize( Nonce::GradeWork, Capability::ManageLmsTeaching );
 

@@ -50,42 +50,34 @@
 
 .wr-head-main { flex: 1 1 auto; min-width: 0; }
 
-/* «Пройти заново» (.docs/Tasks.md): пилюли попыток — по одной на раунд сдачи,
-   последняя всегда активна по умолчанию (текущая сдача). */
+/* «Пройти заново» (Tasks.md, п. 8): выбор раунда сдачи выпадающим списком —
+   попыток бывает до десяти, строкой пилюль они не помещались. */
 .wr-attempts {
   flex: none;
   display: flex;
   flex-wrap: wrap;
-  gap: rem(8);
+  align-items: center;
+  gap: rem(10);
   padding: rem(14) rem(26) 0;
 }
 
-.wr-attempt-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: rem(6);
-  padding: rem(6) rem(12);
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: var(--surface);
-  color: var(--ink-2);
-  font: inherit;
+.wr-attempts-label {
   font-size: rem(12.5);
-  font-variant-numeric: tabular-nums;
-  cursor: pointer;
-  transition: border-color $tr, background $tr, color $tr;
-
-  &:hover { border-color: var(--accent); }
-
-  &.is-active {
-    border-color: var(--accent);
-    background: var(--accent-soft);
-    color: var(--accent-700);
-    font-weight: 600;
-  }
+  font-weight: 600;
+  color: var(--muted);
 }
 
-.wr-attempt-cur { color: var(--muted); font-weight: 400; }
+.wr-attempt-select {
+  min-width: rem(280);
+  max-width: 100%;
+  font-variant-numeric: tabular-nums;
+}
+
+.wr-attempts-count {
+  font-size: rem(12.5);
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
 
 .wr-body {
   flex: 1 1 auto;

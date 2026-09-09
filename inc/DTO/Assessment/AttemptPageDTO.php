@@ -27,6 +27,7 @@ readonly class AttemptPageDTO {
 	 * @param bool                      $canRetry       Доступна ли ещё попытка
 	 * @param string                    $now            Текущее время (mysql)
 	 * @param bool                      $previewMode    Предпросмотр автора: ученика и попытки нет, ответы не сохраняются
+	 * @param int                       $attemptsUsed   Сколько попыток ученик уже израсходовал (Tasks.md, п. 8)
 	 */
 	public function __construct(
 		public ?PersonDTO            $person,
@@ -40,5 +41,6 @@ readonly class AttemptPageDTO {
 		public bool                  $canRetry,
 		public string                $now,
 		public bool                  $previewMode = false,
+		public int                   $attemptsUsed = 0,
 	) {}
 }

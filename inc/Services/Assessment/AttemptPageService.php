@@ -81,6 +81,10 @@ readonly class AttemptPageService {
 			}
 		}
 
+		// Tasks.md, п. 8: сколько попыток израсходовано — экран интро/результата
+		// предупреждает о предпоследней и последней.
+		$attemptsUsed = $this->attempts->countByAssessmentAndStudent( $assessment->id, $person->id );
+
 		return new AttemptPageDTO(
 			person:         $person,
 			activeAttempt:  $activeAttempt,
@@ -90,8 +94,9 @@ readonly class AttemptPageService {
 			resultPerTask:  $resultPerTask,
 			outcome:        $outcomeLabel,
 			outcomeState:   $outcomeState,
-			canRetry:       $this->canRetry( $assessment, $person->id ),
+			canRetry:       $assessment->attemptsAllowed <= 0 || $attemptsUsed < $assessment->attemptsAllowed,
 			now:            $now,
+			attemptsUsed:   $attemptsUsed,
 		);
 	}
 
@@ -118,15 +123,4 @@ readonly class AttemptPageService {
 		);
 	}
 
-	/**
-	 * Можно ли начать ещё попытку (кнопка «Пройти ещё раз» на экране результата):
-	 * без лимита (0) — всегда; иначе — пока использовано меньше лимита.
-	 *
-	 * @param AssessmentDTO $assessment Контрольная
-	 * @param int           $personId   Ученик
-	 */
-	private function canRetry( AssessmentDTO $assessment, int $personId ): bool {
-		return $assessment->attemptsAllowed <= 0
-			|| $this->attempts->countByAssessmentAndStudent( $assessment->id, $personId ) < $assessment->attemptsAllowed;
-	}
 }
