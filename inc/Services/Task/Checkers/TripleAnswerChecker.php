@@ -6,6 +6,7 @@ namespace Inc\Services\Task\Checkers;
 
 use Inc\Contracts\TaskCheckerInterface;
 use Inc\DTO\Task\CheckResultDTO;
+use Inc\Shared\Traits\AnswerNormalizer;
 
 /**
  * Class TripleAnswerChecker
@@ -19,6 +20,8 @@ use Inc\DTO\Task\CheckResultDTO;
  */
 class TripleAnswerChecker implements TaskCheckerInterface {
 
+	use AnswerNormalizer;
+
 	private const KEYS = array( '19', '20', '21' );
 
 	public function check( array $content, mixed $studentAnswer ): CheckResultDTO {
@@ -27,8 +30,8 @@ class TripleAnswerChecker implements TaskCheckerInterface {
 		$feedback  = array();
 
 		foreach ( self::KEYS as $n ) {
-			$correct = mb_strtolower( trim( (string) ( $content[ "task_{$n}_answer" ] ?? '' ) ) );
-			$student = mb_strtolower( trim( (string) ( $submitted[ $n ] ?? '' ) ) );
+			$correct = self::normalizeAnswer( (string) ( $content[ "task_{$n}_answer" ] ?? '' ) );
+			$student = self::normalizeAnswer( (string) ( $submitted[ $n ] ?? '' ) );
 
 			$ok               = $correct !== '' && $correct === $student;
 			$feedback[ $n ]   = $ok;

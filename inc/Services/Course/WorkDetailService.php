@@ -109,7 +109,7 @@ class WorkDetailService {
 	 *   round: int,
 	 *   submitted_at: string,
 	 *   is_current: bool,
-	 *   tasks: array<int, array{n:int, condition:string, answer:?string, code:?string, verdict:string, score:?float, max_score:?float}>
+	 *   tasks: array<int, array{n:int, condition:string, answer:?string, code:?string, correct:?string, verdict:string, score:?float, max_score:?float}>
 	 * }>|null null, если сдача не найдена
 	 */
 	public function attemptHistory( int $submissionId ): ?array {
@@ -165,6 +165,10 @@ class WorkDetailService {
 					'condition' => $this->condition( $taskId ),
 					'answer'    => $answer,
 					'code'      => $code,
+					// Эталон нужен и в прошлых раундах (Tasks.md, п. 1): read-only
+					// снимок (`historyTaskBlock()`) показывает его по тому же
+					// правилу, что и текущая сдача — только у нерешённой задачи.
+					'correct'   => $this->correctAnswers->resolve( $taskId ),
 					'verdict'   => true === $a->isCorrect ? 'correct' : ( false === $a->isCorrect ? 'incorrect' : 'pending' ),
 					'score'     => $a->score,
 					'max_score' => $a->maxScore,
@@ -285,8 +289,26 @@ class WorkDetailService {
 					'feedback'           => $row->feedback,
 					'gradable'           => true,
 					'task_submission_id' => $row->id,
+					'manually_graded'    => null !== $row->gradedByUserId,
 				);
 				continue;
+			}
+
+			// Балл автопроверенной задачи мог быть выставлен преподавателем вручную
+			// (Tasks.md, п. 6). Отдельной колонки для этого не нужно: авто-проверка
+			// при сдаче `graded_by_user_id` не пишет (`SubmissionService::submitBatch()`),
+			// значит непустое значение — след ручного вмешательства. Такая строка
+			// авторитетнее авто-снапшота агрегата: тот пишется один раз при сдаче,
+			// и у сдач, сделанных до появления синхронизации снимка, зачёт в нём не
+			// отражён вовсе.
+			$manuallyGraded = null !== $row?->gradedByUserId;
+			$verdict        = (string) ( $pt['verdict'] ?? 'pending' );
+			$score          = isset( $pt['score'] ) ? (float) $pt['score'] : null;
+			$maxScore       = isset( $pt['maxScore'] ) ? (float) $pt['maxScore'] : null;
+			if ( $manuallyGraded && $row ) {
+				$score    = $row->score;
+				$maxScore = $row->maxScore ?? $maxScore;
+				$verdict  = ( ( $row->score ?? 0.0 ) >= ( $row->maxScore ?? 1.0 ) ) ? 'correct' : 'incorrect';
 			}
 
 			$tasks[] = array(
@@ -295,12 +317,13 @@ class WorkDetailService {
 				'answer'             => $answer,
 				'code'               => $code,
 				'correct'            => $this->correctAnswers->resolve( $taskId ),
-				'verdict'            => (string) ( $pt['verdict'] ?? 'pending' ),
-				'score'              => isset( $pt['score'] ) ? (float) $pt['score'] : null,
-				'max_score'          => isset( $pt['maxScore'] ) ? (float) $pt['maxScore'] : null,
-				'feedback'           => null,
+				'verdict'            => $verdict,
+				'score'              => $score,
+				'max_score'          => $maxScore,
+				'feedback'           => $manuallyGraded ? $row?->feedback : null,
 				'gradable'           => $gradable,
 				'task_submission_id' => $row?->id,
+				'manually_graded'    => $manuallyGraded,
 			);
 		}
 
@@ -435,6 +458,9 @@ class WorkDetailService {
 				'score'      => $ans->score,
 				'max_score'  => $ans->maxScore,
 				'manual'     => $isManual,
+				// Балл мог быть выставлен/зачтён преподавателем вручную (Tasks.md,
+				// п. 6) — авто-оценка `graded_by_user_id` не пишет.
+				'manually_graded' => null !== $ans->gradedByUserId,
 				'feedback'   => $ans->graderNote,
 				'criteria'   => $this->criteriaFor( $ans->taskId, $ans->criteriaScores ),
 				'oge_rubric' => $assessment ? apply_filters( self::OGE_RUBRIC_FILTER, null, $assessment, $ans->taskId ) : null,

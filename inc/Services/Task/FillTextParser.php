@@ -4,6 +4,8 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Task;
 
+use Inc\Shared\Traits\AnswerNormalizer;
+
 /**
  * Class FillTextParser
  *
@@ -17,6 +19,8 @@ namespace Inc\Services\Task;
  * @package Inc\Services\Task
  */
 class FillTextParser {
+
+	use AnswerNormalizer;
 
 	/**
 	 * Парсит текст и возвращает сегменты + список пропусков.
@@ -78,10 +82,10 @@ class FillTextParser {
 	 */
 	public static function checkGap( ParsedFillText $parsed, int $gapIndex, string $studentAnswer ): bool {
 		$answers = $parsed->gaps[ $gapIndex ] ?? array();
-		$student = mb_strtolower( trim( $studentAnswer ) );
+		$student = self::normalizeAnswer( $studentAnswer );
 
 		foreach ( $answers as $answer ) {
-			if ( $student === mb_strtolower( trim( $answer ) ) ) {
+			if ( $student === self::normalizeAnswer( $answer ) ) {
 				return true;
 			}
 		}

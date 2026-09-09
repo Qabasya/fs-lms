@@ -15,6 +15,7 @@ use Inc\Modules\EgeComputer\DTO\KegeSheetDTO;
 use Inc\Repositories\WPDBRepositories\AssessmentAnswerRepository;
 use Inc\Services\Assessment\SecondaryScoreService;
 use Inc\Services\Task\CorrectAnswerResolver;
+use Inc\Shared\Traits\AnswerNormalizer;
 
 /**
  * Class KegeResultSheetService
@@ -43,6 +44,8 @@ use Inc\Services\Task\CorrectAnswerResolver;
  */
 readonly class KegeResultSheetService {
 
+	use AnswerNormalizer;
+
 	/**
 	 * @param AssessmentAnswerRepository $answers        Ответы попытки
 	 * @param CorrectAnswerResolver      $correctAnswers Эталонный ответ задания
@@ -66,6 +69,7 @@ readonly class KegeResultSheetService {
 	public function build( AssessmentDTO $assessment, ?AttemptDTO $attempt, array $taskViews, bool $revealed = true ): KegeSheetDTO {
 		$answerText = array();
 		$graded     = array();
+		$overridden = array();
 		if ( null !== $attempt ) {
 			foreach ( $this->answers->listByAttempt( $attempt->id ) as $row ) {
 				$answerText[ $row->taskId ] = (string) ( $row->answerText ?? '' );
@@ -74,10 +78,18 @@ readonly class KegeResultSheetService {
 				if ( null !== $row->isCorrect ) {
 					$graded[ $row->taskId ] = $row->score;
 				}
+				// Tasks.md, п. 6: преподаватель засчитал задание вручную — его балл
+				// авторитетнее сличения с эталоном. Маркер — `graded_by_user_id`:
+				// авто-оценка ({@see \Inc\Services\Assessment\AutoGradeService}) его
+				// не пишет. Без этого лист станции пересчитал бы задание по эталону
+				// и разошёлся с журналом на одной и той же попытке.
+				if ( null !== $row->gradedByUserId ) {
+					$overridden[ $row->taskId ] = (float) ( $row->score ?? 0.0 );
+				}
 			}
 		}
 
-		return $this->assemble( $assessment, $answerText, $taskViews, null !== $attempt, $graded, $revealed );
+		return $this->assemble( $assessment, $answerText, $taskViews, null !== $attempt, $graded, $revealed, $overridden );
 	}
 
 	/**
@@ -106,8 +118,10 @@ readonly class KegeResultSheetService {
 	 * @param array<int, ?float>  $graded     task_id => балл ручной проверки (D18, ОГЭ 13-16);
 	 *                                         только для заданий, где `correctAnswer()` пуст
 	 * @param bool                $revealed   D18: можно ли показывать ответы/баллы ученику
+	 * @param array<int, float>   $overridden task_id => балл, выставленный преподавателем вручную
+	 *                                         (Tasks.md, п. 6) — побеждает сличение с эталоном
 	 */
-	private function assemble( AssessmentDTO $assessment, array $answerText, array $taskViews, bool $scored, array $graded, bool $revealed ): KegeSheetDTO {
+	private function assemble( AssessmentDTO $assessment, array $answerText, array $taskViews, bool $scored, array $graded, bool $revealed, array $overridden = array() ): KegeSheetDTO {
 		// ID приходят из таблицы контрольной, не из WP_Query — без прогрева каждое
 		// чтение меты и записи в цикле шло бы отдельным запросом.
 		$this->posts->primeMetaCache( $assessment->taskIds );
@@ -134,10 +148,16 @@ readonly class KegeResultSheetService {
 			$primaryMax += $taskMax;
 
 			for ( $slot = 0; $slot < $slots; $slot++ ) {
-				// Ручная проверка (D18): эталона для сличения нет, балл — от учителя.
-				$score = ( '' === $correct[ $slot ] && array_key_exists( $taskId, $graded ) )
-					? $graded[ $taskId ]
-					: $this->slotScore( $scored, $given[ $slot ], $correct[ $slot ], $slotMax );
+				if ( array_key_exists( $taskId, $overridden ) ) {
+					// Зачёт преподавателя стоит на задании целиком — раскладываем его
+					// по позициям так же, как максимум ($slotMax = $taskMax / $slots).
+					$score = $slots > 0 ? $overridden[ $taskId ] / $slots : 0.0;
+				} else {
+					// Ручная проверка (D18): эталона для сличения нет, балл — от учителя.
+					$score = ( '' === $correct[ $slot ] && array_key_exists( $taskId, $graded ) )
+						? $graded[ $taskId ]
+						: $this->slotScore( $scored, $given[ $slot ], $correct[ $slot ], $slotMax );
+				}
 
 				$rows[] = array(
 					'number'  => $number,
@@ -210,15 +230,14 @@ readonly class KegeResultSheetService {
 	}
 
 	/**
-	 * Сравнение ответа с эталоном: регистр не важен, лишние пробелы тоже —
-	 * ученик набирает ответ руками, а эталон приходит из меты задания.
+	 * Сравнение ответа с эталоном: регистр не важен, пробелы тоже — ученик
+	 * набирает ответ руками, а эталон приходит из меты задания. Нормализация
+	 * общая с чекерами ({@see AnswerNormalizer}), иначе лист станции и
+	 * авто-проверка расходились бы в вердикте на одном и том же ответе
+	 * (Tasks.md, п. 4).
 	 */
 	private function same( string $given, string $correct ): bool {
-		$normalize = static fn( string $value ): string => mb_strtolower(
-			(string) preg_replace( '/\s+/u', ' ', trim( $value ) )
-		);
-
-		return '' !== $given && $normalize( $given ) === $normalize( $correct );
+		return '' !== $given && self::normalizeAnswer( $given ) === self::normalizeAnswer( $correct );
 	}
 
 	/**

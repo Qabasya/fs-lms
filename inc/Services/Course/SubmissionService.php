@@ -290,7 +290,11 @@ class SubmissionService {
 
 	/**
 	 * Преподаватель выставляет балл за конкретный ответ в пакетной сдаче.
-	 * После оценки пересчитывает агрегат.
+	 * После оценки синхронизирует снимок вердиктов и пересчитывает агрегат.
+	 *
+	 * Работает для ЛЮБОГО задания сдачи, не только для ручного шаблона: учитель
+	 * должен уметь засчитать автопроверенную задачу, если ошибка была в условии
+	 * (Tasks.md, п. 6) — не возвращая всю работу на доработку.
 	 *
 	 * @throws \InvalidArgumentException Если сдача не найдена или не является per-task строкой.
 	 */
@@ -300,16 +304,49 @@ class SubmissionService {
 			throw new \InvalidArgumentException( 'Per-task сдача не найдена.' );
 		}
 
+		$maxScore = $sub->maxScore ?? 1.0;
+
 		$this->submissions->update( $submissionId, [
 			'score'             => $score,
-			'max_score'         => $sub->maxScore ?? 1.0,
+			'max_score'         => $maxScore,
 			'feedback'          => $feedback,
 			'status'            => SubmissionStatus::Graded->value,
 			'graded_by_user_id' => $teacherUserId,
 			'graded_at'         => $this->clock->now(),
 		] );
 
+		$this->syncAggregateSnapshot( $sub, $score, $maxScore );
 		$this->recalculateAggregate( $sub->studentPersonId, $sub->groupLessonId, $sub->workId, $teacherUserId );
+	}
+
+	/**
+	 * Переписывает вердикт одной задачи в JSON-снимке агрегатной строки.
+	 *
+	 * Снимок — то, что видит УЧЕНИК на экране результатов работы
+	 * ({@see \Inc\Services\Course\LessonPlayerService::currentSubmission()} →
+	 * `step-work.js::renderResults()`), и он остаётся авто-проверкой на момент
+	 * сдачи. Без этой синхронизации засчитанная преподавателем задача
+	 * пересчитывалась бы в журнале, но у ученика так и висела бы «Неверно».
+	 *
+	 * `correctOptionIds` и прочие ключи записи не трогаем — подсветка вариантов
+	 * choice-задачи от вердикта не зависит.
+	 */
+	private function syncAggregateSnapshot( SubmissionDTO $sub, float $score, float $maxScore ): void {
+		$aggregate = $this->submissions->findAggregate( $sub->studentPersonId, $sub->groupLessonId, $sub->workId );
+		if ( ! $aggregate ) {
+			return;
+		}
+
+		$perTask = json_decode( (string) $aggregate->answerText, true );
+		if ( ! is_array( $perTask ) || ! isset( $perTask[ $sub->taskId ] ) || ! is_array( $perTask[ $sub->taskId ] ) ) {
+			return;
+		}
+
+		$perTask[ $sub->taskId ]['verdict']  = ( $score >= $maxScore && $maxScore > 0 ) ? 'correct' : 'incorrect';
+		$perTask[ $sub->taskId ]['score']    = $score;
+		$perTask[ $sub->taskId ]['maxScore'] = $maxScore;
+
+		$this->submissions->update( $aggregate->id, array( 'answer_text' => wp_json_encode( $perTask ) ) );
 	}
 
 	/**

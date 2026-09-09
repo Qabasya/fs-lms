@@ -202,6 +202,36 @@ public function test_empty_answers_returns_zero_counts(): void {
 		self::assertSame( 'correct',   $result->perTask['10:21']['verdict'] );
 	}
 
+	/**
+	 * Tasks.md, п. 4: подпункты составного задания сверяются тем же
+	 * нормализатором, что и обычные — пробелы и переносы значения не имеют.
+	 */
+	public function test_threeinone_ignores_spaces_and_line_breaks(): void {
+		$post = new WP_Post( [ 'ID' => 12, 'post_type' => 'inf_tasks' ] );
+		$this->posts->method( 'get' )->willReturn( $post );
+		$this->resolver->method( 'resolveId' )->willReturn( 'three_in_one' );
+		$this->resolver->method( 'resolveEnum' )->willReturn( TT::Triple );
+
+		$this->subItems->method( 'forPost' )->willReturn( [
+			[ 'key' => '19', 'condition_field' => 'task_19_condition', 'answer_field' => 'task_19_answer' ],
+			[ 'key' => '20', 'condition_field' => 'task_20_condition', 'answer_field' => 'task_20_answer' ],
+		] );
+
+		$this->posts->method( 'getMeta' )->willReturn( [
+			'task_19_answer' => 'Макс: 2; 3',
+			'task_20_answer' => "первая\nвторая",
+		] );
+
+		$result = $this->svc->check(
+			[ 12 => [ '19' => 'Макс:2;3', '20' => 'ПЕРВАЯ вторая' ] ],
+			[],
+			AssessmentKind::EgeComputer,
+		);
+
+		self::assertSame( 'correct', $result->perTask['12:19']['verdict'] );
+		self::assertSame( 'correct', $result->perTask['12:20']['verdict'] );
+	}
+
 	public function test_no_expansion_without_ege_kind(): void {
 		$post = new WP_Post( [ 'ID' => 11, 'post_type' => 'inf_tasks' ] );
 		$this->posts->method( 'get' )->willReturn( $post );

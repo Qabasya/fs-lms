@@ -245,6 +245,120 @@ class SubmissionServiceTest extends TestCase {
 		$this->service->grade( 999, new GradeDTO( 50, 100, null ), 1 );
 	}
 
+	/**
+	 * Tasks.md, п. 6: ручной зачёт задания должен доехать и до снимка вердиктов
+	 * агрегата — его читает экран результатов УЧЕНИКА. Без синхронизации балл
+	 * менялся в журнале, а ученик по-прежнему видел «Неверно».
+	 */
+	public function test_gradeBatchTask_syncs_aggregate_snapshot(): void {
+		$perTaskRow = $this->makePerTaskSubmission( 21, 7 );
+		$aggregate  = $this->makeAggregateWithVerdicts( 1, [ 7 => [ 'verdict' => 'incorrect', 'score' => 0.0, 'maxScore' => 1.0 ] ] );
+
+		$this->submissions->method( 'find' )->willReturn( $perTaskRow );
+		$this->submissions->method( 'findAggregate' )->willReturn( $aggregate );
+		$this->submissions->method( 'listPerTaskByStudentWorkLesson' )->willReturn( [ $perTaskRow ] );
+
+		$updates = [];
+		$this->submissions->method( 'update' )->willReturnCallback(
+			function ( int $id, array $data ) use ( &$updates ): bool {
+				$updates[] = [ $id, $data ];
+
+				return true;
+			}
+		);
+
+		$this->service->gradeBatchTask( 21, 1.0, '', 99 );
+
+		$snapshot = null;
+		foreach ( $updates as [ $id, $data ] ) {
+			if ( 1 === $id && isset( $data['answer_text'] ) ) {
+				$snapshot = json_decode( (string) $data['answer_text'], true );
+			}
+		}
+
+		self::assertNotNull( $snapshot, 'Снимок вердиктов агрегата не переписан' );
+		self::assertSame( 'correct', $snapshot[7]['verdict'] );
+		self::assertEquals( 1.0, $snapshot[7]['score'] );
+	}
+
+	public function test_gradeBatchTask_marks_snapshot_incorrect_on_partial_score(): void {
+		$perTaskRow = $this->makePerTaskSubmission( 21, 7, 2.0 );
+		$aggregate  = $this->makeAggregateWithVerdicts( 1, [ 7 => [ 'verdict' => 'incorrect', 'score' => 0.0, 'maxScore' => 2.0 ] ] );
+
+		$this->submissions->method( 'find' )->willReturn( $perTaskRow );
+		$this->submissions->method( 'findAggregate' )->willReturn( $aggregate );
+		$this->submissions->method( 'listPerTaskByStudentWorkLesson' )->willReturn( [ $perTaskRow ] );
+
+		$snapshot = null;
+		$this->submissions->method( 'update' )->willReturnCallback(
+			function ( int $id, array $data ) use ( &$snapshot ): bool {
+				if ( 1 === $id && isset( $data['answer_text'] ) ) {
+					$snapshot = json_decode( (string) $data['answer_text'], true );
+				}
+
+				return true;
+			}
+		);
+
+		$this->service->gradeBatchTask( 21, 1.0, '', 99 );
+
+		self::assertSame( 'incorrect', $snapshot[7]['verdict'] );
+	}
+
+	public function test_gradeBatchTask_throws_on_aggregate_row(): void {
+		$this->submissions->method( 'find' )->willReturn( $this->makeSubmission( 1, SubmissionStatus::Submitted ) );
+
+		$this->expectException( \InvalidArgumentException::class );
+		$this->service->gradeBatchTask( 1, 1.0, '', 99 );
+	}
+
+	private function makePerTaskSubmission( int $id, int $taskId, float $maxScore = 1.0 ): SubmissionDTO {
+		return new SubmissionDTO(
+			id               : $id,
+			studentPersonId  : 10,
+			groupLessonId    : 5,
+			workId           : 3,
+			workType         : WorkType::Practice,
+			taskId           : $taskId,
+			answerText       : 'ответ ученика',
+			attachmentId     : null,
+			dueAt            : null,
+			status           : SubmissionStatus::Graded,
+			score            : 0.0,
+			maxScore         : $maxScore,
+			feedback         : null,
+			gradedByUserId   : null,
+			submittedAt      : '2024-01-01 10:00:00',
+			gradedAt         : '2024-01-01 10:00:00',
+			createdAt        : '2024-01-01 00:00:00',
+			updatedAt        : '2024-01-01 00:00:00',
+		);
+	}
+
+	/** @param array<int, array<string, mixed>> $verdicts Снимок батч-проверки */
+	private function makeAggregateWithVerdicts( int $id, array $verdicts ): SubmissionDTO {
+		return new SubmissionDTO(
+			id               : $id,
+			studentPersonId  : 10,
+			groupLessonId    : 5,
+			workId           : 3,
+			workType         : WorkType::Practice,
+			taskId           : null,
+			answerText       : json_encode( $verdicts ),
+			attachmentId     : null,
+			dueAt            : null,
+			status           : SubmissionStatus::Submitted,
+			score            : 0.0,
+			maxScore         : 1.0,
+			feedback         : null,
+			gradedByUserId   : null,
+			submittedAt      : '2024-01-01 10:00:00',
+			gradedAt         : null,
+			createdAt        : '2024-01-01 00:00:00',
+			updatedAt        : '2024-01-01 00:00:00',
+		);
+	}
+
 	public function test_returnForRework_sets_returned_status_and_dispatches(): void {
 		$sub = $this->makeSubmission( 7, SubmissionStatus::Submitted );
 		$this->submissions->method( 'find' )->willReturn( $sub );

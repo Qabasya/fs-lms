@@ -231,6 +231,15 @@
 .stg-fb { flex: 1 1 rem(160); height: rem(32); padding: 0 rem(8); border: 1px solid var(--line); border-radius: var(--radius-xs); font: inherit; color: var(--ink); }
 .sum-task-grade input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 
+/* Tasks.md, п. 6: ручной зачёт задания работы + метка «оценено преподавателем». */
+.sum-task-credit { display: flex; align-items: center; gap: rem(10); flex-wrap: wrap; margin-top: rem(8); padding-top: rem(8); border-top: 1px dashed var(--line); }
+.stc-hint { font-size: rem(12); color: var(--muted-2); }
+
+.sum-manual-mark {
+  font-size: rem(11); font-weight: 600; padding: 1px rem(8); border-radius: 999px;
+  background: var(--accent-soft); color: var(--accent-700);
+}
+
 /* Необязательное поле «Код» (Code/FileCode) — только показ, в проверку не участвует. */
 .sum-task-code { margin-top: rem(8); font-size: rem(13); }
 

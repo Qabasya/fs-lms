@@ -95,10 +95,14 @@ class CorrectAnswerResolver {
 	 * структурой, а не текстом ({@see \fs-lms/src/js/frontend/components/task-widget.js}):
 	 *
 	 *  - choice   — JSON-массив id выбранных опций (`["1"]`) → тексты опций;
-	 *  - matching — `[{"left":…,"right":…}]`                → `левое → правое; …`;
-	 *  - ordering — `["Первый","Второй"]`                   → `1. Первый   2. Второй`;
-	 *  - fill     — `{"1":"…","2":"…"}`                     → `[1] …   [2] …`;
-	 *  - triple   — `{"19":"…","20":"…","21":"…"}`          → `19: … | 20: … | 21: …`.
+	 *  - matching — `[{"left":…,"right":…}]`                → `левое → правое`, по строке на пару;
+	 *  - ordering — `["Первый","Второй"]`                   → `1. Первый`, по строке на элемент;
+	 *  - fill     — `{"1":"…","2":"…"}`                     → `[1] …`, по строке на пропуск;
+	 *  - triple   — `{"19":"…","20":"…","21":"…"}`          → `19: …`, по строке на подпункт.
+	 *
+	 * Многоэлементные шаблоны разделяются переводом строки, а не пробелами
+	 * (Tasks.md, пп. 2-3): в одну строку сопоставления и порядок читаются как
+	 * каша. Шаблоны экрана выводят это в `white-space: pre-wrap`.
 	 *
 	 * Без этого преобразования учитель видел в проверке сырой JSON вместо
 	 * ответа (Tasks.md, п. 5). Формат вывода совпадает с эталоном из
@@ -184,7 +188,7 @@ class CorrectAnswerResolver {
 			$out[] = $left . ' → ' . ( '' !== $right ? $right : '— не выбрано' );
 		}
 
-		return implode( '; ', $out );
+		return implode( "\n", $out );
 	}
 
 	/**
@@ -203,7 +207,7 @@ class CorrectAnswerResolver {
 			}
 		}
 
-		return implode( '   ', $out );
+		return implode( "\n", $out );
 	}
 
 	/**
@@ -219,7 +223,7 @@ class CorrectAnswerResolver {
 			$out[] = '[' . $index . '] ' . ( '' !== $text ? $text : '—' );
 		}
 
-		return implode( '   ', $out );
+		return implode( "\n", $out );
 	}
 
 	/**
@@ -238,7 +242,7 @@ class CorrectAnswerResolver {
 			}
 		}
 
-		return implode( ' | ', $out );
+		return implode( "\n", $out );
 	}
 
 	private function triple( array $meta ): string {
@@ -249,7 +253,7 @@ class CorrectAnswerResolver {
 				$parts[] = "{$n}: {$a}";
 			}
 		}
-		return implode( ' | ', $parts );
+		return implode( "\n", $parts );
 	}
 
 	private function choice( array $meta ): string {
@@ -285,7 +289,7 @@ class CorrectAnswerResolver {
 				$out[] = "{$left} → {$right}";
 			}
 		}
-		return implode( '; ', $out );
+		return implode( "\n", $out );
 	}
 
 	private function ordering( array $meta ): string {
@@ -301,7 +305,7 @@ class CorrectAnswerResolver {
 				$out[] = ( ++$i ) . '. ' . $s;
 			}
 		}
-		return implode( '   ', $out );
+		return implode( "\n", $out );
 	}
 
 	private function fill( array $meta ): string {
@@ -319,6 +323,6 @@ class CorrectAnswerResolver {
 				$out[] = "[{$i}] {$first}";
 			}
 		}
-		return implode( '   ', $out );
+		return implode( "\n", $out );
 	}
 }

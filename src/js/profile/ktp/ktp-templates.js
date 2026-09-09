@@ -23,17 +23,20 @@ export function themeCardHtml(t) {
 }
 
 /** Индикатор записи занятия: зелёная камера — запись есть, красная — занятие прошло, записи нет.
-    Модуль «Видеозаписи занятий» выключен/не настроен (videoEnabled=false) — фронт ведёт себя
-    так, будто про записи занятий вообще не знает: ни иконки, ни ручной правки ссылки. */
+    Ручная правка ссылки доступна ВСЕГДА: `group_lessons.recording_url` — поле ядра, модуль
+    «Видеозаписи занятий» лишь разворачивает указатель `s3://…` в presigned-ссылку и приносит
+    авто-привязку. Пряча иконку под videoEnabled, мы отбирали у преподавателя единственный
+    способ добавить запись руками ровно тогда, когда хранилище недоступно (Tasks.md, п. 5) —
+    флаг остался только в подсказке. */
 function recordingIconHtml(t, videoEnabled) {
-    if (!videoEnabled) {
-        return '';
-    }
     if (t.recording_url) {
         return `<button type="button" class="pt-recording pt-recording--ok" data-glid="${t.group_lesson_id}" data-url="${esc(t.recording_url)}" title="Есть запись занятия — изменить ссылку" aria-label="Запись занятия есть">${icoCamera(13, 'var(--ok)')}</button>`;
     }
     if ('held' === t.status) {
-        return `<button type="button" class="pt-recording pt-recording--err" data-glid="${t.group_lesson_id}" data-url="" title="Занятие прошло, записи нет — добавить ссылку вручную" aria-label="Записи нет">${icoCamera(13, 'var(--err)')}</button>`;
+        const hint = videoEnabled
+            ? 'Занятие прошло, записи нет — дождитесь авто-привязки или добавьте ссылку вручную'
+            : 'Занятие прошло, записи нет — добавить ссылку вручную';
+        return `<button type="button" class="pt-recording pt-recording--err" data-glid="${t.group_lesson_id}" data-url="" title="${esc(hint)}" aria-label="Записи нет">${icoCamera(13, 'var(--err)')}</button>`;
     }
     return '';
 }

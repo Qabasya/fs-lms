@@ -213,4 +213,64 @@ class KegeResultSheetServiceTest extends TestCase {
 		self::assertNull( $sheet->rows[0]['score'] );
 		self::assertSame( 3.0, $sheet->primaryMax ); // максимум уже учтён, только балл пока пуст
 	}
+
+	/* ── Tasks.md, п. 6: ручной зачёт побеждает сличение с эталоном ────────── */
+
+	/**
+	 * Ответ ученика с эталоном НЕ совпадает (опечатка в условии), но
+	 * преподаватель задание засчитал — `graded_by_user_id` делает балл
+	 * авторитетным, иначе лист станции пересчитал бы задание в 0 и разошёлся
+	 * с журналом на одной и той же попытке.
+	 */
+	public function test_teacher_credit_wins_over_reference_answer(): void {
+		$this->answers->method( 'listByAttempt' )->willReturn( [
+			AttemptAnswerDTO::fromArray( [
+				'id' => 1, 'attempt_id' => 9, 'task_id' => 10, 'answer_text' => '41',
+				'is_correct' => 1, 'score' => 1.0, 'max_score' => 1.0, 'graded_by_user_id' => 99,
+			] ),
+		] );
+		$this->posts->method( 'getMeta' )->willReturn( [ 'task_1_answer' => '42' ] );
+
+		$dto   = $this->assessment( AssessmentKind::EgeComputer, [ 10 ], [ 10 => '1' ] );
+		$sheet = $this->service->build( $dto, $this->attempt(), [] );
+
+		self::assertSame( 1.0, $sheet->rows[0]['score'] );
+		self::assertSame( 1.0, $sheet->primary );
+	}
+
+	/** Авто-оценка `graded_by_user_id` не пишет — балл по-прежнему считает эталон. */
+	public function test_auto_graded_answer_still_scored_against_reference(): void {
+		$this->answers->method( 'listByAttempt' )->willReturn( [
+			AttemptAnswerDTO::fromArray( [
+				'id' => 1, 'attempt_id' => 9, 'task_id' => 10, 'answer_text' => '41',
+				'is_correct' => 1, 'score' => 1.0, 'max_score' => 1.0,
+			] ),
+		] );
+		$this->posts->method( 'getMeta' )->willReturn( [ 'task_1_answer' => '42' ] );
+
+		$dto   = $this->assessment( AssessmentKind::EgeComputer, [ 10 ], [ 10 => '1' ] );
+		$sheet = $this->service->build( $dto, $this->attempt(), [] );
+
+		self::assertSame( 0.0, $sheet->rows[0]['score'] );
+		self::assertSame( 0.0, $sheet->primary );
+	}
+
+	/** Зачёт задания на две позиции (№26) раскладывается по ним, как и максимум. */
+	public function test_teacher_credit_spreads_across_answer_slots(): void {
+		$this->answers->method( 'listByAttempt' )->willReturn( [
+			AttemptAnswerDTO::fromArray( [
+				'id' => 1, 'attempt_id' => 9, 'task_id' => 10, 'answer_text' => '1 2',
+				'is_correct' => 1, 'score' => 2.0, 'max_score' => 2.0, 'graded_by_user_id' => 99,
+			] ),
+		] );
+		$this->posts->method( 'getMeta' )->willReturn( [ 'task_26_answer' => '3 4' ] );
+
+		$dto   = $this->assessment( AssessmentKind::EgeComputer, [ 10 ], [ 10 => '26' ] );
+		$sheet = $this->service->build( $dto, $this->attempt(), [] );
+
+		self::assertCount( 2, $sheet->rows );
+		self::assertSame( 1.0, $sheet->rows[0]['score'] );
+		self::assertSame( 1.0, $sheet->rows[1]['score'] );
+		self::assertSame( 2.0, $sheet->primary );
+	}
 }

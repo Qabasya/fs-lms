@@ -102,6 +102,65 @@ class GradeAttemptCallbacksTest extends TestCase {
 		self::assertFalse( fs_test_capture_json( fn() => $this->cb->ajaxGradeAttempt() )->success );
 	}
 
+	/**
+	 * Tasks.md, п. 6: явный ЗАЧЁТ автопроверяемого задания разрешён — в отличие
+	 * от произвольного балла. Балл = максимум ответа, `graded_by_user_id`
+	 * делает его авторитетным и для листа станции.
+	 */
+	public function test_grade_attempt_credit_allowed_for_auto_checkable_task(): void {
+		$this->attempts->method( 'find' )->willReturn( $this->attemptFixture() );
+		$this->guard->method( 'canWriteJournal' )->willReturn( true );
+		$this->posts->method( 'getMeta' )->willReturnMap( array(
+			array( 7, 'fs_lms_template_type', 'standard_task' ),
+		) );
+		$this->answers->method( 'findByAttemptAndTask' )->willReturn(
+			new \Inc\DTO\Assessment\AttemptAnswerDTO(
+				id: 1, attemptId: 5, taskId: 7, answerText: '41', isCorrect: false,
+				score: 0.0, maxScore: 2.0, gradedByUserId: null, gradedAt: null,
+			)
+		);
+		$this->autoGrade->method( 'finalize' )->willReturn( $this->attemptFixture() );
+
+		$this->answers->expects( $this->once() )->method( 'upsert' )->with(
+			5, 7,
+			self::callback( function ( array $data ) {
+				self::assertSame( 2.0, $data['score'] );
+				self::assertSame( 2.0, $data['max_score'] );
+				self::assertSame( 1, $data['is_correct'] );
+				self::assertArrayHasKey( 'graded_by_user_id', $data );
+				return true;
+			} )
+		);
+
+		$_POST = array( 'attempt_id' => '5', 'task_id' => '7', 'credit' => '1' );
+
+		self::assertTrue( fs_test_capture_json( fn() => $this->cb->ajaxGradeAttempt() )->success );
+	}
+
+	/** Ответа в БД ещё нет (задание пропущено) — зачёт даёт балл 1 по фолбэку. */
+	public function test_grade_attempt_credit_falls_back_to_single_point(): void {
+		$this->attempts->method( 'find' )->willReturn( $this->attemptFixture() );
+		$this->guard->method( 'canWriteJournal' )->willReturn( true );
+		$this->posts->method( 'getMeta' )->willReturnMap( array(
+			array( 7, 'fs_lms_template_type', 'standard_task' ),
+		) );
+		$this->answers->method( 'findByAttemptAndTask' )->willReturn( null );
+		$this->autoGrade->method( 'finalize' )->willReturn( $this->attemptFixture() );
+
+		$this->answers->expects( $this->once() )->method( 'upsert' )->with(
+			5, 7,
+			self::callback( function ( array $data ) {
+				self::assertSame( 1.0, $data['score'] );
+				self::assertSame( 1.0, $data['max_score'] );
+				return true;
+			} )
+		);
+
+		$_POST = array( 'attempt_id' => '5', 'task_id' => '7', 'credit' => '1' );
+
+		self::assertTrue( fs_test_capture_json( fn() => $this->cb->ajaxGradeAttempt() )->success );
+	}
+
 	/* ── Критерии (Эпик 13, D17): балл = сумма по критериям, без весов ──────── */
 
 	public function test_grade_attempt_without_criteria_uses_plain_score(): void {

@@ -39,6 +39,7 @@ class WorkDetailServiceTest extends TestCase {
 	private AssessmentManager&\PHPUnit\Framework\MockObject\MockObject           $assessments;
 	private MediaManager&\PHPUnit\Framework\MockObject\MockObject                $media;
 	private TaskAttemptRepository&\PHPUnit\Framework\MockObject\MockObject       $taskAttempts;
+	private CorrectAnswerResolver&\PHPUnit\Framework\MockObject\MockObject       $correctAnswers;
 	private WorkDetailService $service;
 
 	protected function setUp(): void {
@@ -52,7 +53,8 @@ class WorkDetailServiceTest extends TestCase {
 		$this->answers      = $this->createMock( AssessmentAnswerRepository::class );
 		$this->assessments  = $this->createMock( AssessmentManager::class );
 		$this->media        = $this->createMock( MediaManager::class );
-		$this->taskAttempts = $this->createMock( TaskAttemptRepository::class );
+		$this->taskAttempts   = $this->createMock( TaskAttemptRepository::class );
+		$this->correctAnswers = $this->createMock( CorrectAnswerResolver::class );
 		$this->service = new WorkDetailService(
 			$this->submissions,
 			$this->works,
@@ -61,7 +63,7 @@ class WorkDetailServiceTest extends TestCase {
 			$this->attempts,
 			$this->answers,
 			$this->assessments,
-			$this->createMock( CorrectAnswerResolver::class ),
+			$this->correctAnswers,
 			$this->media,
 			new TaskMetaService(),
 			$this->taskAttempts,
@@ -128,7 +130,8 @@ class WorkDetailServiceTest extends TestCase {
 			status: $overrides['status'] ?? SubmissionStatus::Submitted,
 			score: $overrides['score'] ?? null, maxScore: $overrides['maxScore'] ?? null,
 			feedback: $overrides['feedback'] ?? null,
-			gradedByUserId: null, submittedAt: '2026-06-01 10:00:00', gradedAt: null, createdAt: '', updatedAt: '',
+			gradedByUserId: $overrides['gradedByUserId'] ?? null,
+			submittedAt: '2026-06-01 10:00:00', gradedAt: null, createdAt: '', updatedAt: '',
 		);
 	}
 
@@ -153,6 +156,80 @@ class WorkDetailServiceTest extends TestCase {
 		self::assertTrue( $task['gradable'] );
 		self::assertSame( 501, $task['task_submission_id'] );
 		self::assertSame( 'pending', $task['verdict'] );
+	}
+
+	/* ── Tasks.md, п. 6: ручной зачёт задания работы ── */
+
+	/**
+	 * Автопроверенная задача тоже отдаёт `task_submission_id` — без него экран
+	 * не может показать кнопку «Засчитать»; `manually_graded` при этом ложный,
+	 * пока преподаватель не вмешался.
+	 */
+	public function test_from_submission_auto_task_exposes_submission_id_without_manual_mark(): void {
+		$this->submissions->method( 'find' )->willReturn( $this->sub( null ) );
+		$this->submissions->method( 'listPerTaskByStudentWorkLesson' )->willReturn( array(
+			$this->perTaskSub( 501, 42, array( 'status' => SubmissionStatus::Graded, 'score' => 0.0, 'maxScore' => 1.0 ) ),
+		) );
+		$this->works->method( 'get' )->willReturn( $this->workWithItems( array( 42 ) ) );
+		$this->posts->method( 'getMeta' )->willReturn( 'standard_task' );
+		$this->posts->method( 'taskMeta' )->willReturn( array() );
+
+		$task = $this->service->forWork( 'submission', 7 )['tasks'][0];
+
+		self::assertFalse( $task['gradable'] );
+		self::assertSame( 501, $task['task_submission_id'] );
+		self::assertFalse( $task['manually_graded'] );
+	}
+
+	/**
+	 * Маркер ручного вмешательства — непустой `graded_by_user_id`: авто-проверка
+	 * при сдаче его не пишет, отдельная колонка не нужна.
+	 */
+	public function test_from_submission_flags_manually_graded_auto_task(): void {
+		$this->submissions->method( 'find' )->willReturn( $this->sub( null ) );
+		$this->submissions->method( 'listPerTaskByStudentWorkLesson' )->willReturn( array(
+			$this->perTaskSub( 501, 42, array(
+				'status' => SubmissionStatus::Graded, 'score' => 1.0, 'maxScore' => 1.0, 'gradedByUserId' => 99,
+			) ),
+		) );
+		$this->works->method( 'get' )->willReturn( $this->workWithItems( array( 42 ) ) );
+		$this->posts->method( 'getMeta' )->willReturn( 'standard_task' );
+		$this->posts->method( 'taskMeta' )->willReturn( array() );
+
+		$task = $this->service->forWork( 'submission', 7 )['tasks'][0];
+
+		self::assertTrue( $task['manually_graded'] );
+	}
+
+	/**
+	 * Снапшот агрегата пишется один раз при сдаче: у сдач, сделанных до появления
+	 * его синхронизации, зачёта в нём нет — поэтому ручная строка авторитетнее.
+	 */
+	public function test_from_submission_manual_row_overrides_stale_snapshot(): void {
+		$stale = $this->sub( null );
+		$this->submissions->method( 'find' )->willReturn( new SubmissionDTO(
+			id: 7, studentPersonId: 10, groupLessonId: 5, workId: 3, workType: WorkType::Practice,
+			taskId: null,
+			answerText: json_encode( array( 42 => array( 'verdict' => 'incorrect', 'score' => 0.0, 'maxScore' => 1.0 ) ) ),
+			attachmentId: null, dueAt: null, status: $stale->status, score: null, maxScore: null,
+			feedback: null, gradedByUserId: null, submittedAt: '2026-06-01 10:00:00', gradedAt: null,
+			createdAt: '', updatedAt: '',
+		) );
+		$this->submissions->method( 'listPerTaskByStudentWorkLesson' )->willReturn( array(
+			$this->perTaskSub( 501, 42, array(
+				'status' => SubmissionStatus::Graded, 'score' => 1.0, 'maxScore' => 1.0,
+				'gradedByUserId' => 99, 'feedback' => 'Опечатка в условии',
+			) ),
+		) );
+		$this->works->method( 'get' )->willReturn( $this->workWithItems( array( 42 ) ) );
+		$this->posts->method( 'getMeta' )->willReturn( 'standard_task' );
+		$this->posts->method( 'taskMeta' )->willReturn( array() );
+
+		$task = $this->service->forWork( 'submission', 7 )['tasks'][0];
+
+		self::assertSame( 'correct', $task['verdict'] );
+		self::assertSame( 1.0, $task['score'] );
+		self::assertSame( 'Опечатка в условии', $task['feedback'] );
 	}
 
 	public function test_from_submission_graded_file_answer_task_uses_per_task_row_as_authoritative(): void {
@@ -480,5 +557,24 @@ class WorkDetailServiceTest extends TestCase {
 
 		self::assertSame( 'print(1)', $task['answer'] );
 		self::assertSame( "x = 1\nprint(x)", $task['code'] );
+	}
+
+	/**
+	 * Tasks.md, п. 1: прошлый раунд рендерит тот же `taskBlock()`, что и текущий —
+	 * без эталона блок «Правильный ответ» пропадал при переключении попытки.
+	 */
+	public function test_attempt_history_includes_correct_answer(): void {
+		$this->submissions->method( 'find' )->willReturn( $this->sub( null ) );
+		$this->works->method( 'get' )->willReturn( $this->workWithItems( array( 42 ) ) );
+		$this->posts->method( 'getMeta' )->willReturn( 'standard_task' );
+		$this->posts->method( 'taskMeta' )->willReturn( array() );
+		$this->correctAnswers->method( 'resolve' )->with( 42 )->willReturn( 'Макс: 2; 3' );
+		$this->taskAttempts->method( 'listByStep' )->willReturn( array(
+			$this->taskAttempt( 1, 42, 'первый ответ', false, '2026-08-21 14:02:00' ),
+		) );
+
+		$task = $this->service->attemptHistory( 7 )[0]['tasks'][0];
+
+		self::assertSame( 'Макс: 2; 3', $task['correct'] );
 	}
 }

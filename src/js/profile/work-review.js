@@ -144,6 +144,7 @@ function render(d, history = []) {
     const wireLiveTaskControls = () => {
         if (d.kind === 'exam' && d.attempt_id && attemptGradeApi) { wireAttemptGrading(wrRoot, d); }
         if (d.kind === 'work' && batchGradeApi) { wireSubmissionTaskGrading(wrRoot); }
+        wireTaskCredit(wrRoot, d);
     };
     wireLiveTaskControls();
 
@@ -224,6 +225,7 @@ function historyTaskBlock(t) {
             <div class="sum-task-cond">${t.condition || '<i>условие недоступно</i>'}</div>
             <div class="sum-task-ans"><span class="sta-label">Ответ ученика:</span> <span class="sta-val">${t.answer ? esc(t.answer) : '—'}</span></div>
             ${t.code ? codeBlock(t.code) : ''}
+            ${t.correct && 'correct' !== t.verdict ? `<div class="sum-task-ans sum-task-correct"><span class="sta-label">Правильный ответ:</span> <span class="sta-val">${esc(t.correct)}</span></div>` : ''}
         </div>`;
 }
 
@@ -320,6 +322,19 @@ function taskBlock(t, d) {
     // TaskTemplate::isFileAnswerShape()); авто-проверяемые задачи работы — только
     // condition/answer/correct, без input'ов (как non-gradable экзаменационные).
     const canGradeSubmissionTask = d.kind === 'work' && t.gradable && t.task_submission_id && batchGradeApi;
+    // Эталон — только там, где он что-то объясняет: у решённой задачи он дублирует
+    // ответ ученика (Tasks.md, п. 1). На ручной проверке (pending) остаётся —
+    // именно по нему преподаватель и ставит балл.
+    const showCorrect = t.correct && 'correct' !== t.verdict;
+    // Tasks.md, п. 6: ручной зачёт задания — опечатка в условии не должна стоить
+    // ученику возврата всей работы. Доступен для ЛЮБОЙ задачи (в т.ч.
+    // автопроверенной), пока она не засчитана; у ручных задач кнопка стоит рядом
+    // с формой балла, а не вместо неё. Прошлые раунды сдачи task_submission_id
+    // не отдают — там снимок, и кнопки не будет.
+    const creditable = 'correct' !== t.verdict && (
+        (d.kind === 'work' && t.task_submission_id && batchGradeApi)
+        || (d.kind === 'exam' && t.task_id && attemptGradeApi)
+    );
     // Пооответное оценивание экзамена (T11.9). Эпик 13 (D17): если у задачи есть
     // критерии — оценивание покритерийное (сумма сырых баллов, без весов);
     // holistic-рубрика ОГЭ (§3.4, .docs/Tasks.md) — один балл через dropdown с
@@ -339,19 +354,26 @@ function taskBlock(t, d) {
                 <input type="text" class="stg-fb" placeholder="комментарий" value="${t.feedback ? esc(t.feedback) : ''}">
                 <button class="prof-btn prof-btn-sm prof-btn-primary stg-save">Оценить</button>
             </div>` : '';
+    const credit = creditable ? `
+            <div class="sum-task-credit" data-submission-id="${t.task_submission_id ?? ''}" data-task-id="${t.task_id ?? ''}" data-max="${t.max_score ?? 1}">
+                <button class="prof-btn prof-btn-sm stg-credit">Засчитать задание</button>
+                <span class="stc-hint">Выставит полный балл за задание, работа останется у ученика</span>
+            </div>` : '';
     return `
         <div class="sum-task">
             <div class="sum-task-head">
                 <span class="st-n">Задача ${t.n}</span>
                 <span class="sum-verdict sv-${esc(t.verdict)}">${esc(VERDICT_LABEL[t.verdict] || t.verdict)}</span>
                 ${score}
+                ${t.manually_graded ? '<span class="sum-manual-mark">Оценено преподавателем</span>' : ''}
             </div>
             <div class="sum-task-cond">${t.condition || '<i>условие недоступно</i>'}</div>
             <div class="sum-task-ans"><span class="sta-label">Ответ ученика:</span> <span class="sta-val">${t.answer ? esc(t.answer) : '—'}</span></div>
             ${t.code ? codeBlock(t.code) : ''}
             ${t.files && t.files.length ? taskFilesBlock(t.files) : ''}
-            ${t.correct ? `<div class="sum-task-ans sum-task-correct"><span class="sta-label">Правильный ответ:</span> <span class="sta-val">${esc(t.correct)}</span></div>` : ''}
+            ${showCorrect ? `<div class="sum-task-ans sum-task-correct"><span class="sta-label">Правильный ответ:</span> <span class="sta-val">${esc(t.correct)}</span></div>` : ''}
             ${grade}
+            ${credit}
         </div>`;
 }
 
@@ -482,6 +504,51 @@ function wireSubmissionTaskGrading(root) {
             try {
                 await batchGradeApi('gradeTask', { submission_id: submissionId, score, feedback });
                 toast('Оценка сохранена');
+                reload();
+            } catch (e) { toast(e.message, 'error'); btn.disabled = false; }
+        });
+    });
+}
+
+/* Tasks.md, п. 6: «Засчитать задание» — полный балл за одно задание без возврата
+   всей работы ученику (опечатка в условии, спорная формулировка и т.п.).
+
+   Работа — тот же эндпоинт GradeBatchTask, что и у формы выше: он пишет per-task
+   строку, синхронизирует снимок вердиктов (ученик увидит «Верно») и пересчитывает
+   итог. Экзамен — GradeAttempt с флагом credit=1: без него сервер отклоняет ручной
+   балл автопроверяемому заданию, а с ним отметка `graded_by_user_id` делает балл
+   авторитетным и для листа ответов станции.
+
+   Комментарий не трогаем — если учитель его уже оставил, зачёт его не стирает. */
+function wireTaskCredit(root, d) {
+    root.querySelectorAll('.sum-task-credit').forEach((box) => {
+        const btn = box.querySelector('.stg-credit');
+        btn.addEventListener('click', async () => {
+            const ok = await confirmDialog(
+                'За задание будет выставлен полный балл. Работа останется у ученика, на доработку не вернётся.',
+                'Засчитать',
+                'Отмена'
+            );
+            if (!ok) { return; }
+
+            const feedback = box.closest('.sum-task').querySelector('.stg-fb')?.value.trim() || '';
+            btn.disabled = true;
+            try {
+                if (d.kind === 'exam') {
+                    await attemptGradeApi('gradeAttempt', {
+                        attempt_id: d.attempt_id,
+                        task_id: +box.dataset.taskId,
+                        credit: '1',
+                        feedback,
+                    });
+                } else {
+                    await batchGradeApi('gradeTask', {
+                        submission_id: +box.dataset.submissionId,
+                        score: box.dataset.max || '1',
+                        feedback,
+                    });
+                }
+                toast('Задание засчитано');
                 reload();
             } catch (e) { toast(e.message, 'error'); btn.disabled = false; }
         });

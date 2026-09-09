@@ -9,6 +9,7 @@ use Inc\Enums\Assessment\AssessmentKind;
 use Inc\Enums\Wp\PostMetaName;
 use Inc\Managers\Wp\PostManager;
 use Inc\Enums\Subject\TaskTemplate;
+use Inc\Shared\Traits\AnswerNormalizer;
 use Inc\Services\Task\CompositeSubItemResolver;
 use Inc\Services\Task\CorrectAnswerResolver;
 use Inc\Services\Task\TaskCheckerRegistry;
@@ -26,6 +27,8 @@ use Inc\Services\Template\TemplateResolver;
  * @package Inc\Services\Course
  */
 class BatchCheckService {
+
+	use AnswerNormalizer;
 
 	public function __construct(
 		private readonly PostManager              $posts,
@@ -86,7 +89,10 @@ class BatchCheckService {
 					$totalCount++;
 					$maxWeightedScore += $subWeight;
 
-					$isCorrect = '' !== $correctAnswer && strtolower( trim( $subAnswer ) ) === strtolower( trim( $correctAnswer ) );
+					// Та же нормализация, что у чекеров (Tasks.md, п. 4): регистр и
+					// любые пробелы в сверке не участвуют.
+					$isCorrect = '' !== $correctAnswer
+						&& self::normalizeAnswer( $subAnswer ) === self::normalizeAnswer( $correctAnswer );
 					$earned    = $isCorrect ? $subWeight : 0.0;
 
 					if ( $isCorrect ) {

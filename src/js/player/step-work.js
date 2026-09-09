@@ -423,19 +423,20 @@ function displayAnswer( raw ) {
 	if ( 'string' === typeof v ) { return v; }
 	// Сопоставление — пары «левое → правое» (незаполненные показываем явно),
 	// сортировка — нумерованный порядок: тот же вид, что видит преподаватель
-	// в проверке (CorrectAnswerResolver::formatStudentAnswer).
+	// в проверке (CorrectAnswerResolver::formatStudentAnswer). Элементы — по
+	// строке на каждый (Tasks.md, пп. 2-3); переносы держит .ansbox (pre-wrap).
 	if ( Array.isArray( v ) ) {
 		if ( v.some( ( item ) => item && 'object' === typeof item ) ) {
-			return v.map( ( item ) => `${ item?.left ?? '' } → ${ item?.right || '— не выбрано' }` ).join( '; ' );
+			return v.map( ( item ) => `${ item?.left ?? '' } → ${ item?.right || '— не выбрано' }` ).join( '\n' );
 		}
 		// Нумеруем только там, где порядок и есть ответ (сортировка); одиночное
 		// значение — это выбор варианта, номер ему только мешает.
 		return v.length > 1
-			? v.map( ( item, i ) => `${ i + 1 }. ${ String( item ) }` ).join( '   ' )
+			? v.map( ( item, i ) => `${ i + 1 }. ${ String( item ) }` ).join( '\n' )
 			: v.map( String ).join( ', ' );
 	}
 	if ( 'object' === typeof v ) {
-		return Object.entries( v ).map( ( [ k, val ] ) => `${ k }: ${ val }` ).join( ', ' );
+		return Object.entries( v ).map( ( [ k, val ] ) => `${ k }: ${ val }` ).join( '\n' );
 	}
 	return String( v );
 }

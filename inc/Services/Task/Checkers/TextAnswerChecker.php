@@ -6,6 +6,7 @@ namespace Inc\Services\Task\Checkers;
 
 use Inc\Contracts\TaskCheckerInterface;
 use Inc\DTO\Task\CheckResultDTO;
+use Inc\Shared\Traits\AnswerNormalizer;
 
 /**
  * Class TextAnswerChecker
@@ -24,6 +25,8 @@ use Inc\DTO\Task\CheckResultDTO;
  */
 class TextAnswerChecker implements TaskCheckerInterface {
 
+	use AnswerNormalizer;
+
 	public function check( array $content, mixed $studentAnswer ): CheckResultDTO {
 		// Код/файловые шаблоны с необязательным полем «Код» (TaskTemplate::hasCodeField())
 		// присылают ответ объектом { text, code } вместо голой строки — проверке
@@ -32,8 +35,10 @@ class TextAnswerChecker implements TaskCheckerInterface {
 			$studentAnswer = $studentAnswer['text'];
 		}
 
-		$correct = $this->normalize( (string) ( $content['task_answer'] ?? '' ) );
-		$student = $this->normalize( (string) $studentAnswer );
+		// Пробелы и переносы строк в сверке не участвуют вообще (Tasks.md, п. 4) —
+		// см. AnswerNormalizer. Ответ ученика при этом хранится и показывается сырым.
+		$correct = self::normalizeAnswer( (string) ( $content['task_answer'] ?? '' ) );
+		$student = self::normalizeAnswer( (string) $studentAnswer );
 
 		if ( '' === $correct ) {
 			return CheckResultDTO::incorrect();
@@ -42,17 +47,5 @@ class TextAnswerChecker implements TaskCheckerInterface {
 		return $correct === $student
 			? CheckResultDTO::correct()
 			: CheckResultDTO::incorrect();
-	}
-
-	/**
-	 * Приводит ответ к сравнимому виду: регистр, пробелы по краям и — для
-	 * многострочных ответов — переводы строк (CRLF/CR браузеров → LF) и
-	 * хвостовые пробелы каждой строки.
-	 */
-	private function normalize( string $value ): string {
-		$value = str_replace( array( "\r\n", "\r" ), "\n", $value );
-		$lines = array_map( 'rtrim', explode( "\n", $value ) );
-
-		return mb_strtolower( trim( implode( "\n", $lines ) ) );
 	}
 }

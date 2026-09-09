@@ -40,17 +40,17 @@ class CorrectAnswerResolverTest extends TestCase {
 			array( 'left' => 'A', 'right' => '1' ),
 			array( 'left' => 'B', 'right' => '2' ),
 		) ) );
-		self::assertSame( 'A → 1; B → 2', $this->resolver( $meta, 'matching_task' )->resolve( 1 ) );
+		self::assertSame( "A → 1\nB → 2", $this->resolver( $meta, 'matching_task' )->resolve( 1 ) );
 	}
 
 	public function test_ordering_numbers_items(): void {
 		$meta = array( 'task_order_items' => array( 'items' => array( 'один', 'два' ) ) );
-		self::assertSame( '1. один   2. два', $this->resolver( $meta, 'ordering_task' )->resolve( 1 ) );
+		self::assertSame( "1. один\n2. два", $this->resolver( $meta, 'ordering_task' )->resolve( 1 ) );
 	}
 
 	public function test_fill_first_synonym_per_gap(): void {
 		$meta = array( 'task_gap_text' => array( 'text' => 'Столица — [[Москва|Moscow]], река — [[Волга]].' ) );
-		self::assertSame( '[1] Москва   [2] Волга', $this->resolver( $meta, 'fill_task' )->resolve( 1 ) );
+		self::assertSame( "[1] Москва\n[2] Волга", $this->resolver( $meta, 'fill_task' )->resolve( 1 ) );
 	}
 
 	public function test_manual_template_returns_null(): void {

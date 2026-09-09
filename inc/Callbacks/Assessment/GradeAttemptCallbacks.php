@@ -64,17 +64,47 @@ class GradeAttemptCallbacks extends BaseController {
 			return;
 		}
 
-		// Ручная оценка — только для заданий без авто-чекера (TaskCheckerRegistry).
+		// Произвольный балл — только для заданий без авто-чекера (TaskCheckerRegistry).
 		// 2026-08-21: без этого гейта ручной балл на автопроверяемое задание уходил
 		// в assessment_answers.score и расходился с реальной авто-проверкой — лист
 		// результатов станции (KegeResultSheetService) пересчитывает по эталону и
 		// ручной балл игнорирует, а журнал/«Мои оценки» его учитывали, отсюда два
 		// разных итога на одну и ту же попытку.
+		//
+		// Исключение — явный ЗАЧЁТ задания целиком (`credit=1`, Tasks.md, п. 6):
+		// опечатка в условии не должна стоить ученику балла. Расхождения с листом
+		// станции здесь нет: `graded_by_user_id` в строке ответа делает балл
+		// авторитетным и для него ({@see KegeResultSheetService::assemble()}).
+		$isCredit = (bool) $this->sanitizeInt( 'credit' );
 		$isManual = TaskTemplate::fromDatabase(
 			(string) $this->posts->getMeta( $taskId, PostMetaName::TemplateType->value )
 		)->isFileAnswerShape();
-		if ( ! $isManual ) {
+		if ( ! $isManual && ! $isCredit ) {
 			$this->error( 'Это задание проверяется автоматически — ручная оценка недоступна.' );
+			return;
+		}
+
+		// Зачёт автопроверяемого задания: балл — максимум ответа (у станции он
+		// приходит из task_points, иначе 1), критерии и произвольный score с
+		// фронта не читаются вовсе.
+		if ( $isCredit && ! $isManual ) {
+			$existing = $this->answers->findByAttemptAndTask( $attemptId, $taskId );
+			$maxScore = (float) ( $existing?->maxScore ?? 1.0 );
+
+			$this->answers->upsert( $attemptId, $taskId, array(
+				'score'             => $maxScore,
+				'max_score'         => $maxScore,
+				'is_correct'        => 1,
+				'grader_note'       => $feedback,
+				'graded_by_user_id' => get_current_user_id(),
+				'graded_at'         => $this->clock->now(),
+			) );
+
+			$updated = $this->autoGrade->finalize( $attempt );
+			$this->success( array(
+				'attempt_status' => $updated->status->value,
+				'total_score'    => $updated->totalScore,
+			) );
 			return;
 		}
 
