@@ -10,6 +10,7 @@ import { initLessonCountdown }  from './components/lesson-countdown.js';
 import { initSearchBox }        from './components/search-box.js';
 import { initScrollTop }        from './components/scroll-top.js';
 import { initApplyForm }        from './services/apply-form.js';
+import { initLoginForm }        from './services/login-form.js';
 import { initJoinForm }         from './services/join-form.js';
 import { initAssessment }       from './services/assessment.js';
 import { AllTasksPage }         from './services/all-tasks-page.js';
@@ -28,6 +29,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initSearchBox();
     initScrollTop();
     initApplyForm();
+    initLoginForm();
     initJoinForm();
     initAssessment();
     // Кнопка ответа есть и на странице одного задания; повторная привязка на

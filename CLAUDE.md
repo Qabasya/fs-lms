@@ -233,6 +233,20 @@ CSV-импорт учеников, два режима (`Inc\Enums\Import\Import
 ошибки и введённым логином, а `template_include` подменяет шаблон темы на `clean-page.php`.
 Сама форма постит на `wp-login.php`, поэтому проверкой пароля и куками занимается WP.
 
+**Защита входа** — `LoginGuardController` → `Services/Security/LoginGuardService`:
+3 неудачи за 15 минут на пару IP + пользователь (`RateLimitService::*Login*`; пользователь —
+ID, если логин/email существует; лимита по одному IP нет — за ним ~20 человек) и невидимая
+SmartCaptcha на любом POST `wp-login.php` с полем `log` (только когда модуль включён и оба
+ключа заданы). Хук `authenticate` на приоритете 30 — после проверки пароля ядром, иначе
+`WP_Error` затрётся. Отказы по блокировке и капче в счётчик не идут. Уведомление формы —
+`Enums/Auth/LoginNotice` (флаг `login=` в адресе только для отображения).
+
+**Логины гостям не отдаются** — `UserEnumerationController` → `UserEnumerationGuard`: REST
+`/wp/v2/users` без входа → 401, архивы авторов → 404, провайдер `users` карты сайта и автор
+в oEmbed убраны, ошибки логина/пароля в нативной форме неразличимы. **Восстановления пароля
+нет** — `login_form_{lostpassword,retrievepassword,rp,resetpass}` уводят на `/sign-in/`,
+`allow_password_reset` → false.
+
 Входа через соцсети нет: модуль `SocialAuth` (Hybridauth, Google/VK/GitHub) снят при
 подготовке релиза вместе со свободными ролями внешних пользователей.
 

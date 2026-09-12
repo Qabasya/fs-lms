@@ -16,6 +16,15 @@
   overflow: hidden;
 }
 
+// Плашка невидимой SmartCaptcha со ссылкой на политику обработки данных.
+// Основное скрытие — `hideShield: true` в captcha.js; это страховка. Скрипт Яндекса
+// вставляет плашку вне формы и может выставить ей инлайновый стиль — отсюда
+// селектор верхнего уровня и !important.
+.SmartCaptcha-Shield,
+.SmartCaptcha-Shield-PrivacyLink {
+  display: none !important;
+}
+
 .fs-apply-card {
   @include fs-card-shell(rem(480), $spacing-4xl rem(30));
 

@@ -5,6 +5,7 @@ declare( strict_types=1 );
 namespace Inc\Modules\SmartCaptcha;
 
 use Inc\Modules\SmartCaptcha\Providers\YandexSmartCaptchaProvider;
+use Inc\Contracts\CaptchaProviderInterface;
 use Inc\Contracts\ServiceInterface;
 use Inc\Enums\Wp\PageRoutes;
 use Inc\Modules\SmartCaptcha\Config\SmartCaptchaConfig;
@@ -13,10 +14,12 @@ use Inc\Modules\SmartCaptcha\Controllers\SmartCaptchaSettingsController;
 /**
  * Class SmartCaptchaModule
  *
- * Опциональный модуль — капча Yandex SmartCaptcha на форме /lms/apply.
+ * Опциональный модуль — невидимая капча Yandex SmartCaptcha на форме заявки /lms/apply
+ * и на форме входа /sign-in/.
  * Ядро о модуле не знает: провайдер подменяется через фильтр `fs_lms_captcha_provider`
  * (core `CaptchaProviderFactory` по умолчанию отдаёт NullCaptchaProvider), а site key
- * и внешний скрипт добавляются через `fs_lms_apply_vars` / `wp_enqueue_scripts`.
+ * и внешний скрипт добавляются через `fs_lms_apply_vars` / `fs_lms_login_vars` /
+ * `wp_enqueue_scripts`.
  *
  * Уровни выключения:
  *  1) тумблер на странице «Статистика» (опция `fs_lms_smart_captcha.enabled`);
@@ -51,10 +54,11 @@ class SmartCaptchaModule implements ServiceInterface {
 		// Подменяем core-провайдер капчи на Yandex (ядро резолвит провайдер через фильтр в фабрике).
 		add_filter( 'fs_lms_captcha_provider', array( $this, 'provideProvider' ) );
 
-		// Кладём публичный ключ в переменные формы /lms/apply (ядро прогоняет их через фильтр).
+		// Кладём публичный ключ в переменные форм заявки и входа (ядро прогоняет их через фильтр).
 		add_filter( 'fs_lms_apply_vars', array( $this, 'addCaptchaKey' ) );
+		add_filter( 'fs_lms_login_vars', array( $this, 'addCaptchaKey' ) );
 
-		// Грузим внешний скрипт Yandex SmartCaptcha на странице заявки (после core-бандла).
+		// Грузим внешний скрипт Yandex SmartCaptcha на страницах заявки и входа (после core-бандла).
 		add_action( 'wp_enqueue_scripts', array( $this, 'enqueueCaptchaScript' ), 20 );
 	}
 
@@ -72,9 +76,11 @@ class SmartCaptchaModule implements ServiceInterface {
 	}
 
 	public function enqueueCaptchaScript(): void {
-		// Только на странице заявки и только если задан клиентский ключ.
+		// Только на страницах заявки и входа и только если задан клиентский ключ.
 		// Скрипт зависит от core-бандла: тот первым ставит window.__fsSmartCaptchaReady.
-		if ( ! PageRoutes::Apply->isCurrent() || '' === $this->provider->getSiteKey() ) {
+		$onFormPage = PageRoutes::Apply->isCurrent() || PageRoutes::SignIn->isCurrent();
+
+		if ( ! $onFormPage || '' === $this->provider->getSiteKey() ) {
 			return;
 		}
 

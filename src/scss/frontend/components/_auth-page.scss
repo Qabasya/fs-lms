@@ -35,17 +35,6 @@
     }
   }
 
-  &__meta {
-    margin-bottom: rem(20);
-    font-size: $font-size-sm;
-
-    a {
-      color: $color-muted;
-      transition: color $transition;
-      &:hover { color: $color-accent; }
-    }
-  }
-
   &__switch {
     text-align: center;
     margin-top: $spacing-lg;

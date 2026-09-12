@@ -3,22 +3,21 @@
  * Шаблон страницы авторизации (Sign-In)
  *
  * @package FS LMS
- * @var string $lost_pass_url URL восстановления пароля
+ * @var string $error_message Уведомление после неудачного входа; '' — не показываем
+ * @var string $prefill_login Логин из неудачной попытки
  * @var string $consent_url   URL согласия на обработку ПДн; '' — сноску не показываем
  */
-
-// Флаг неудачного входа и введённый логин приходят редиректом из wp_login_failed.
-$login_failed  = isset( $_GET['login'] ) && 'failed' === $_GET['login']; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-$prefill_login = isset( $_GET['fs_user'] ) ? sanitize_text_field( wp_unslash( $_GET['fs_user'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 ?>
 <div class="fs-auth-card">
 	<h2 class="fs-auth-card__title">Войти в личный кабинет</h2>
 
-	<?php if ( $login_failed ) : ?>
+	<?php if ( '' !== $error_message ) : ?>
 		<div class="fs-auth-card__error" role="alert">
-			Неверный логин или пароль.
+			<?php echo esc_html( $error_message ); ?>
 		</div>
 	<?php endif; ?>
+
+	<div class="fs-auth-card__error" id="fs-login-captcha-error" role="alert" hidden></div>
 
 	<!-- Стандартная форма авторизации WordPress -->
 	<form name="loginform" id="loginform" action="<?php echo esc_url( site_url( 'wp-login.php', 'login_post' ) ); ?>" method="post">
@@ -40,9 +39,9 @@ $prefill_login = isset( $_GET['fs_user'] ) ? sanitize_text_field( wp_unslash( $_
 			</button>
 		</div>
 
-		<div class="fs-auth-card__meta">
-			<a href="<?php echo esc_url( $lost_pass_url ); ?>">Забыли пароль?</a>
-		</div>
+		<?php // Слот невидимой капчи (модуль SmartCaptcha); токен пишет login-form.js. ?>
+		<div id="fs-captcha-slot" class="fs-auth-card__captcha" role="region" aria-label="Проверка безопасности"></div>
+		<input type="hidden" name="captcha_token" value="">
 
 		<button type="submit" name="wp-submit" id="wp-submit" class="fs-auth-card__submit">
 			Войти

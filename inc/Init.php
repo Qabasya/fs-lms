@@ -38,6 +38,8 @@ use Inc\Controllers\Subject\ContentDeletionGuard;
 use Inc\Controllers\Problems\ProblemsController;
 use Inc\Controllers\Task\MetaBoxController;
 use Inc\Controllers\Person\AuthPageController;
+use Inc\Controllers\Person\LoginGuardController;
+use Inc\Controllers\Person\UserEnumerationController;
 use Inc\Controllers\Person\PiiController;
 use Inc\Controllers\Person\ProfileController;
 use Inc\Controllers\Enrollment\ExpulsionController;
@@ -156,6 +158,8 @@ final class Init {
 			UserController::class,
 			ApplyPageController::class,
 			AuthPageController::class,       // Страница входа /sign-in/ (шорткод + перехват wp-login.php)
+			LoginGuardController::class,     // Лимит неудачных входов + капча на входе
+			UserEnumerationController::class, // Логины не утекают гостям (REST, архивы авторов, сброс пароля)
 			ProfileController::class,
 			StudentGroupController::class,
 			CronController::class,
@@ -204,7 +208,7 @@ final class Init {
 			AdSyncModule::class,              // Inc\Modules\AdSync — синхронизация заявок с AD (флаг-гейт)
 			EgeComputerModule::class,         // Inc\Modules\EgeComputer — плеер ЕГЭ (Компьютер) (флаг-гейт, T7.20)
 			DaDataModule::class,              // Inc\Modules\DaData — автодополнение DaData на /lms/join (флаг-гейт)
-			SmartCaptchaModule::class,        // Inc\Modules\SmartCaptcha — капча Yandex на /lms/apply (флаг-гейт)
+			SmartCaptchaModule::class,        // Inc\Modules\SmartCaptcha — капча Yandex на /lms/apply и /sign-in/ (флаг-гейт)
 			VideoLibraryModule::class,        // Inc\Modules\VideoLibrary — видеозаписи занятий S3 + REST (флаг-гейт)
 		);
 	}

@@ -38,6 +38,7 @@ use Inc\Services\Shared\PluginConfig;
  * - PII reveal:  fs_lms_rl_pii_{userId}
  * - Логин-чек:   fs_lms_rl_unamechk_{ipHash}
  * - Email-чек:   fs_lms_rl_emailchk_{ipHash}
+ * - Вход:        fs_lms_rl_login_{hash(ip + пользователь)}
  */
 readonly class RateLimitService {
 
@@ -58,6 +59,11 @@ readonly class RateLimitService {
 	// IP за школьным NAT общий на класс — ниже 20/час не опускать.
 	private const LIMIT_USERNAME_CHECK = 20;
 	private const LIMIT_EMAIL_CHECK    = 10;
+
+	// Неудачные входы: счётчик на пару IP + пользователь. Лимита по одному IP нет —
+	// с одного адреса выходят около 20 человек (перебор логинов сдерживает капча).
+	public const LIMIT_LOGIN  = 3;
+	public const LOGIN_WINDOW = 15 * MINUTE_IN_SECONDS;
 
 	/**
 	 * Проверяет и фиксирует попытку создания заявки с данного IP.
@@ -152,6 +158,97 @@ readonly class RateLimitService {
 	}
 
 	/**
+	 * Закрыт ли вход для пары IP + пользователь. Счётчик не увеличивает.
+	 *
+	 * isTestEnv() лимит входа НЕ отключает (как и allowPiiReveal): тумблер тестового
+	 * окружения живёт в опции и может остаться включённым на проде.
+	 *
+	 * @param string $ip      IP-адрес клиента
+	 * @param string $userKey Идентификатор пользователя (см. LoginGuardService)
+	 *
+	 * @return bool
+	 */
+	public function isLoginLocked( string $ip, string $userKey ): bool {
+		return 0 === $this->loginAttemptsLeft( $ip, $userKey );
+	}
+
+	/**
+	 * Сколько неудачных попыток осталось паре до блокировки. Счётчик не увеличивает.
+	 *
+	 * @param string $ip      IP-адрес клиента
+	 * @param string $userKey Идентификатор пользователя
+	 *
+	 * @return int
+	 */
+	public function loginAttemptsLeft( string $ip, string $userKey ): int {
+		$data = $this->peek( $this->loginKey( $ip, $userKey ) );
+
+		return max( 0, self::LIMIT_LOGIN - (int) ( $data['count'] ?? 0 ) );
+	}
+
+	/**
+	 * Учитывает неудачный вход пары.
+	 *
+	 * @param string $ip      IP-адрес клиента
+	 * @param string $userKey Идентификатор пользователя
+	 *
+	 * @return int Остаток попыток после учёта (0 — вход закрыт до конца окна)
+	 */
+	public function registerLoginFailure( string $ip, string $userKey ): int {
+		$this->check( $this->loginKey( $ip, $userKey ), self::LIMIT_LOGIN, self::LOGIN_WINDOW );
+
+		return $this->loginAttemptsLeft( $ip, $userKey );
+	}
+
+	/**
+	 * Сбрасывает счётчик неудачных входов пары (после успешного входа).
+	 *
+	 * @param string $ip      IP-адрес клиента
+	 * @param string $userKey Идентификатор пользователя
+	 *
+	 * @return void
+	 */
+	public function clearLoginFailures( string $ip, string $userKey ): void {
+		delete_transient( $this->loginKey( $ip, $userKey ) );
+	}
+
+	/**
+	 * Минуты до конца окна счётчика входа, округлённые вверх.
+	 *
+	 * @param string $ip      IP-адрес клиента
+	 * @param string $userKey Идентификатор пользователя
+	 *
+	 * @return int 0 — счётчика нет или окно истекло
+	 */
+	public function loginRetryAfter( string $ip, string $userKey ): int {
+		$data = $this->peek( $this->loginKey( $ip, $userKey ) );
+
+		if ( null === $data ) {
+			return 0;
+		}
+
+		return max( 1, (int) ceil( ( (int) $data['reset_at'] - time() ) / MINUTE_IN_SECONDS ) );
+	}
+
+	/**
+	 * Строит transient-ключ счётчика входа.
+	 *
+	 * Пара IP + пользователь хэшируется с солью FS_LMS_HASH_SALT — ни IP, ни логин
+	 * не попадают в ключи в БД.
+	 *
+	 * @param string $ip      IP-адрес клиента
+	 * @param string $userKey Идентификатор пользователя
+	 *
+	 * @return string
+	 */
+	public function loginKey( string $ip, string $userKey ): string {
+		$salt = defined( 'FS_LMS_HASH_SALT' ) ? FS_LMS_HASH_SALT : '';
+		$hash = hash( 'sha256', $ip . '|' . $userKey . $salt );
+
+		return "fs_lms_rl_login_{$hash}";
+	}
+
+	/**
 	 * Сбрасывает счётчик по ключу transient-а.
 	 *
 	 * Предназначен для тестов и ручного управления через wp-cli или код.
@@ -240,5 +337,22 @@ readonly class RateLimitService {
 		set_transient( $key, $data, $ttl );
 
 		return $data['count'] <= $limit;
+	}
+
+	/**
+	 * Читает счётчик без инкремента.
+	 *
+	 * @param string $key Ключ transient-а
+	 *
+	 * @return array{count: int, reset_at: int}|null null — счётчика нет или окно истекло
+	 */
+	private function peek( string $key ): ?array {
+		$data = get_transient( $key );
+
+		if ( ! is_array( $data ) || time() >= (int) ( $data['reset_at'] ?? 0 ) ) {
+			return null;
+		}
+
+		return $data;
 	}
 }

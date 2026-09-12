@@ -1483,7 +1483,7 @@ UI — вкладка «Конфигурация» в Настройках: по
 | `AdSync` | Провижининг учёток в Active Directory (outbox-очередь + REST для Python-поллера) | `FS_LMS_AD_SYNC`, `FS_LMS_AD_HMAC_SECRET` | `fs_lms_ad_sync` (выкл.) | события заявок; REST `GET /ad/jobs`, `POST /ad/ack`; своя таблица через `AdSchema::ensure()` |
 | `EgeComputer` | Альтернативные плеер-станции контрольной «ЕГЭ (компьютерный)» и «ОГЭ (компьютерный)» (общий движок рендера/попыток, свои конфиги времени/попыток/шкалы `StationExamConfig`) | `FS_LMS_EGE_COMPUTER` (не задана → вкл.) | — | фильтр `fs_lms_assessment_renderer` (§34) |
 | `DaData` | Автодополнение ФИО/адреса на `/lms/join` | `FS_LMS_DADATA`, `DADATA_API_TOKEN` | `fs_lms_dadata` (выкл.) | фильтр `fs_lms_join_vars` |
-| `SmartCaptcha` | Yandex SmartCaptcha на `/apply/` | `FS_LMS_SMART_CAPTCHA`, ключи капчи | `fs_lms_smart_captcha` (выкл.) | фильтры `fs_lms_captcha_provider`, `fs_lms_apply_vars` |
+| `SmartCaptcha` | Невидимая Yandex SmartCaptcha на `/apply/` и `/sign-in/` | `FS_LMS_SMART_CAPTCHA`, ключи капчи | `fs_lms_smart_captcha` (выкл.) | фильтры `fs_lms_captcha_provider`, `fs_lms_apply_vars`, `fs_lms_login_vars` |
 | `VideoLibrary` | Видеозаписи занятий: S3 Beget + push-REST от `fs-video-uploader` + presigned-выдача в плеер | `FS_LMS_VIDEO_LIBRARY`, `FS_LMS_VIDEO_HMAC_SECRET` | `fs_lms_video_library` (выкл.) | фильтр `fs_lms_recording_url`; публичный `GroupLessonRepository` |
 
 ### Устройство модуля

@@ -63,6 +63,7 @@ All `wp_localize_script` calls live in the `inc/Core/Assets/*` layer only (facad
 | `fs_lms_vars` | all admin pages | `ajaxurl`, `ajax_actions`, nonces |
 | `fs_lms_task_data` | task CPT pages only | `ajax_url`, `nonce`, `subject_key`, `post_type` |
 | `fs_lms_apply_vars` | frontend `/lms/apply` | `ajax_url`, `actions`, `nonces`, `captcha_key` |
+| `fs_lms_login_vars` | frontend `/sign-in/` | `captcha_unavailable`, `captcha_key` (модуль SmartCaptcha) |
 | `fs_lms_applications_vars` | admin `fs_lms_userlist` | `nonces.trash` |
 
 `fs_lms_vars` and `fs_lms_task_data` are typed in `src/js/admin/_types.js`. Import `_types.js` in any admin file that uses these globals (для подсказок IDE; на сборку не влияет, ESLint-правила на это нет).

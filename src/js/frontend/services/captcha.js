@@ -1,5 +1,5 @@
 /**
- * @fileoverview Невидимая Yandex SmartCaptcha для формы заявки.
+ * @fileoverview Невидимая Yandex SmartCaptcha для форм заявки и входа.
  *
  * @module captcha
  * @description Рендерит невидимый виджет в #fs-captcha-slot и выдаёт токен
@@ -15,11 +15,26 @@ let _widgetId = null;
 let _pending = null;
 
 /**
+ * Клиентский ключ из переменных текущей формы (заявка или вход).
+ * @returns {string}
+ */
+function siteKey() {
+    const vars = window.fs_lms_apply_vars || window.fs_lms_login_vars;
+    return ( vars && vars.captcha_key ) || '';
+}
+
+/**
  * @returns {boolean} Капча подключена (задан клиентский ключ).
  */
 export function isCaptchaEnabled() {
-    const vars = window.fs_lms_apply_vars;
-    return !! ( vars && vars.captcha_key );
+    return '' !== siteKey();
+}
+
+/**
+ * @returns {boolean} Скрипт Яндекса загрузился и виджет отрисован.
+ */
+export function isCaptchaReady() {
+    return null !== _widgetId && !! window.smartCaptcha;
 }
 
 /**
@@ -44,9 +59,12 @@ export function initCaptcha() {
     if ( ! slot || null !== _widgetId ) { return; }
 
     _widgetId = window.smartCaptcha.render( slot, {
-        sitekey:   window.fs_lms_apply_vars.captcha_key,
-        invisible: true,
-        callback:  onToken,
+        sitekey:    siteKey(),
+        invisible:  true,
+        // Плашку о политике обработки данных не показываем (решение 2026-09-12);
+        // CSS-страховка на случай, если Яндекс проигнорирует параметр, — в _apply-form.scss.
+        hideShield: true,
+        callback:   onToken,
     } );
 
     // Пользователь закрыл challenge, не решив — отклоняем ожидающий промис.

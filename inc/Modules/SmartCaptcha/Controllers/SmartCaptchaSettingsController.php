@@ -67,7 +67,7 @@ class SmartCaptchaSettingsController extends BaseController {
 		$modules[] = array(
 			'id'           => 'smart_captcha',
 			'title'        => 'Yandex SmartCaptcha',
-			'description'  => 'Защита формы заявки (/lms/apply) капчей Yandex SmartCaptcha. При включении в Конфигурации появляется секция с вводом ключей. Honeypot, rate-limit и OTP работают независимо от капчи.',
+			'description'  => 'Защита формы заявки (/lms/apply) и формы входа (/sign-in/) невидимой капчей Yandex SmartCaptcha. При включении в Конфигурации появляется секция с вводом ключей. Honeypot, rate-limit и OTP работают независимо от капчи.',
 			'enabled'      => $this->config->isEnabled(),
 			'const_locked' => defined( 'FS_LMS_SMART_CAPTCHA' ),
 			'const_key'    => 'FS_LMS_SMART_CAPTCHA',

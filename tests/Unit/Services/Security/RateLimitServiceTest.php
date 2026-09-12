@@ -16,7 +16,7 @@ class RateLimitServiceTest extends TestCase {
 	}
 
 	private function makeService( bool $testEnv = false ): RateLimitService {
-		$config = $this->createMock( PluginConfig::class );
+		$config = $this->createStub( PluginConfig::class );
 		$config->method( 'isTestEnv' )->willReturn( $testEnv );
 		return new RateLimitService( $config );
 	}
@@ -63,5 +63,85 @@ class RateLimitServiceTest extends TestCase {
 		for ( $i = 1; $i <= 20; $i++ ) {
 			self::assertTrue( $service->allowOtpSendForEmail( $email ) );
 		}
+	}
+
+	// ── Неудачные входы (пара IP + пользователь) ─────────────────────────────────
+
+	public function test_third_login_failure_locks_pair(): void {
+		$service = $this->makeService();
+
+		self::assertSame( 2, $service->registerLoginFailure( '1.1.1.1', 'id:7' ) );
+		self::assertSame( 1, $service->registerLoginFailure( '1.1.1.1', 'id:7' ) );
+		self::assertFalse( $service->isLoginLocked( '1.1.1.1', 'id:7' ) );
+
+		self::assertSame( 0, $service->registerLoginFailure( '1.1.1.1', 'id:7' ) );
+		self::assertTrue( $service->isLoginLocked( '1.1.1.1', 'id:7' ) );
+	}
+
+	public function test_lock_check_does_not_increment(): void {
+		$service = $this->makeService();
+
+		$service->registerLoginFailure( '1.1.1.1', 'id:7' );
+		for ( $i = 0; $i < 5; $i++ ) {
+			$service->isLoginLocked( '1.1.1.1', 'id:7' );
+		}
+
+		self::assertSame( 2, $service->loginAttemptsLeft( '1.1.1.1', 'id:7' ) );
+	}
+
+	public function test_other_login_from_same_ip_is_not_affected(): void {
+		$service = $this->makeService();
+
+		for ( $i = 0; $i < 3; $i++ ) {
+			$service->registerLoginFailure( '1.1.1.1', 'id:7' );
+		}
+
+		self::assertFalse( $service->isLoginLocked( '1.1.1.1', 'id:8' ) );
+		self::assertFalse( $service->isLoginLocked( '2.2.2.2', 'id:7' ) );
+	}
+
+	public function test_pair_opens_after_window_expires(): void {
+		$service = $this->makeService();
+
+		for ( $i = 0; $i < 3; $i++ ) {
+			$service->registerLoginFailure( '1.1.1.1', 'id:7' );
+		}
+		$key = $service->loginKey( '1.1.1.1', 'id:7' );
+		$GLOBALS['_test_transients'][ $key ]['reset_at'] = time() - 1;
+
+		self::assertFalse( $service->isLoginLocked( '1.1.1.1', 'id:7' ) );
+		self::assertSame( 0, $service->loginRetryAfter( '1.1.1.1', 'id:7' ) );
+		// Первая неудача после окна начинает новый отсчёт.
+		self::assertSame( 2, $service->registerLoginFailure( '1.1.1.1', 'id:7' ) );
+	}
+
+	public function test_clear_resets_counter(): void {
+		$service = $this->makeService();
+
+		for ( $i = 0; $i < 3; $i++ ) {
+			$service->registerLoginFailure( '1.1.1.1', 'id:7' );
+		}
+		$service->clearLoginFailures( '1.1.1.1', 'id:7' );
+
+		self::assertFalse( $service->isLoginLocked( '1.1.1.1', 'id:7' ) );
+		self::assertSame( 3, $service->loginAttemptsLeft( '1.1.1.1', 'id:7' ) );
+	}
+
+	public function test_retry_after_is_rounded_up_minutes(): void {
+		$service = $this->makeService();
+
+		$service->registerLoginFailure( '1.1.1.1', 'id:7' );
+
+		self::assertSame( 15, $service->loginRetryAfter( '1.1.1.1', 'id:7' ) );
+	}
+
+	public function test_test_env_does_not_disable_login_limit(): void {
+		$service = $this->makeService( testEnv: true );
+
+		for ( $i = 0; $i < 3; $i++ ) {
+			$service->registerLoginFailure( '1.1.1.1', 'id:7' );
+		}
+
+		self::assertTrue( $service->isLoginLocked( '1.1.1.1', 'id:7' ) );
 	}
 }

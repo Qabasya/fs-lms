@@ -34,7 +34,7 @@ $srv_const  = $config->serverKeyFromConstant();
 
 		<div class="fs-card__body">
 			<p class="fs-card__desc">
-				Защита формы заявки (<code>/lms/apply</code>) от ботов. Оба ключа создаются в консоли
+				Защита формы заявки (<code>/lms/apply</code>) и формы входа (<code>/sign-in/</code>) от ботов. Оба ключа создаются в консоли
 				Yandex Cloud → SmartCaptcha. Можно задать константами <code>FS_LMS_CAPTCHA_SITE_KEY</code> /
 				<code>FS_LMS_CAPTCHA_SERVER_KEY</code> в <code>wp-config.php</code> (тогда поля только для чтения).
 			</p>
@@ -56,7 +56,7 @@ $srv_const  = $config->serverKeyFromConstant();
 						<?php echo $site_const ? 'disabled readonly' : ''; ?>
 					/>
 				</div>
-				<p class="fs-field__desc">Публичный ключ виджета Yandex SmartCaptcha на форме <code>/lms/apply</code>.</p>
+				<p class="fs-field__desc">Публичный ключ виджета Yandex SmartCaptcha на формах <code>/lms/apply</code> и <code>/sign-in/</code>.</p>
 			</div>
 
 			<div class="fs-field">

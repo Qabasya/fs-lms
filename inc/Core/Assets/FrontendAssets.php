@@ -127,6 +127,7 @@ class FrontendAssets extends BaseController {
 
 		return array(
 			'fs_lms_apply_vars'      => PageRoutes::Apply->isCurrent() ? $this->applyVars() : null,
+			'fs_lms_login_vars'      => PageRoutes::SignIn->isCurrent() ? $this->loginVars() : null,
 			// Модульные скины контрольной (EgeComputer и т.п.) на общем стеке —
 			// данные попытки из единого провайдера BundleLoader::assessmentVars().
 			'fs_lms_assessment_vars' => $isAssessment ? $this->bundles->assessmentVars() : null,
@@ -157,6 +158,19 @@ class FrontendAssets extends BaseController {
 				'verify_otp'     => Nonce::VerifyOtp->create(),
 				'check_username' => Nonce::CheckUsernameAvailable->create(),
 			),
+		) );
+	}
+
+	/**
+	 * Форма входа (`/sign-in/`).
+	 *
+	 * Ядро про капчу не знает: модуль SmartCaptcha дописывает `captcha_key` фильтром.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function loginVars(): array {
+		return (array) apply_filters( 'fs_lms_login_vars', array(
+			'captcha_unavailable' => 'Проверка безопасности не загрузилась — отключите блокировщик рекламы и обновите страницу.',
 		) );
 	}
 

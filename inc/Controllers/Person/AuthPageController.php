@@ -6,11 +6,16 @@ namespace Inc\Controllers\Person;
 
 use Inc\Contracts\ServiceInterface;
 use Inc\Core\BaseController;
+use Inc\Enums\Auth\LoginNotice;
 use Inc\Enums\Wp\PageRoutes;
 use Inc\Enums\Wp\ShortCode;
 use Inc\Repositories\OptionsRepositories\ConsentDefinitionsRepository;
+use Inc\Services\Security\LoginGuardService;
+use Inc\Services\Security\RateLimitService;
+use Inc\Shared\Traits\RequestContextProvider;
 use Inc\Shared\Traits\Sanitizer;
 use Inc\Shared\Traits\TemplateRenderer;
+use WP_Error;
 
 /**
  * Class AuthPageController
@@ -37,19 +42,23 @@ use Inc\Shared\Traits\TemplateRenderer;
  */
 class AuthPageController extends BaseController implements ServiceInterface {
 
+	use RequestContextProvider;
 	use Sanitizer;
 	use TemplateRenderer;
 
-	public function __construct( private readonly ConsentDefinitionsRepository $consents ) {
+	public function __construct(
+		private readonly ConsentDefinitionsRepository $consents,
+		private readonly LoginGuardService            $loginGuard,
+	) {
 		parent::__construct();
 	}
 
 	public function register(): void {
 		add_shortcode( ShortCode::LoginForm->value, array( $this, 'renderLoginPage' ) );
 		add_action( 'init', array( $this, 'redirectToCustomLogin' ) );
-		// Приоритет 20: после AuthLogController (10), чтобы попытка успела
-		// записаться в журнал аутентификации до redirect + exit.
-		add_action( 'wp_login_failed', array( $this, 'redirectFailedLogin' ), 20, 1 );
+		// Приоритет 20: после AuthLogController (10) и LoginGuardController (15),
+		// чтобы попытка успела записаться в журнал и счётчик до redirect + exit.
+		add_action( 'wp_login_failed', array( $this, 'redirectFailedLogin' ), 20, 2 );
 		add_filter( 'template_include', array( $this, 'forceCleanAuthLayout' ), 9999 );
 	}
 
@@ -68,12 +77,33 @@ class AuthPageController extends BaseController implements ServiceInterface {
 		$this->render(
 			'frontend/auth-page',
 			array(
-				'lost_pass_url' => wp_lostpassword_url(),
+				'error_message' => $this->loginNoticeMessage(),
+				'prefill_login' => $this->sanitizeGetText( 'fs_user' ),
 				'consent_url'   => $this->consentUrl(),
 			)
 		);
 
 		return (string) ob_get_clean();
+	}
+
+	/**
+	 * Текст уведомления по флагу `login` из редиректа неудачного входа.
+	 *
+	 * Флаг и `wait` только для отображения: решение о блокировке принимает сервер.
+	 *
+	 * @return string Пустая строка — уведомления нет.
+	 */
+	private function loginNoticeMessage(): string {
+		$notice = LoginNotice::tryFrom( $this->sanitizeGetKey( 'login' ) );
+
+		if ( null === $notice ) {
+			return '';
+		}
+
+		$maxWait = intdiv( RateLimitService::LOGIN_WINDOW, MINUTE_IN_SECONDS );
+		$wait    = min( max( $this->sanitizeGetInt( 'wait' ), 0 ), $maxWait );
+
+		return $notice->message( $wait );
 	}
 
 	/**
@@ -114,22 +144,25 @@ class AuthPageController extends BaseController implements ServiceInterface {
 	}
 
 	/**
-	 * Возвращает на страницу входа с флагом ошибки и введённым логином.
+	 * Возвращает на страницу входа с уведомлением и введённым логином.
 	 *
-	 * @param string $username Логин из неудачной попытки.
+	 * @param string        $username Логин из неудачной попытки.
+	 * @param WP_Error|null $error    Причина отказа (с WP 5.4).
 	 *
 	 * @return void
 	 */
-	public function redirectFailedLogin( string $username ): void {
+	public function redirectFailedLogin( string $username, ?WP_Error $error = null ): void {
 		// Маркер нашей формы логина (hidden value="1"); у wp-login flow нонса нет.
 		if ( ! $this->sanitizeBool( 'fs_lms_login' ) ) {
 			return;
 		}
 
+		$notice = $this->loginGuard->noticeFor( $username, $error, $this->requestContext()->ip );
+
 		$url = add_query_arg(
-			array(
-				'login'   => 'failed',
-				'fs_user' => rawurlencode( $username ),
+			array_merge(
+				$notice->queryArgs(),
+				array( 'fs_user' => rawurlencode( $username ) )
 			),
 			PageRoutes::SignIn->url()
 		);

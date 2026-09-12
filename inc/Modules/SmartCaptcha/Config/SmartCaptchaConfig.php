@@ -9,7 +9,7 @@ use Inc\Modules\Shared\ModuleConfig;
 /**
  * Class SmartCaptchaConfig
  *
- * Конфигурация модуля SmartCaptcha (капча Yandex на форме /lms/apply).
+ * Конфигурация модуля SmartCaptcha (капча Yandex на формах /lms/apply и /sign-in/).
  * Модуль владеет СВОЕЙ опцией `fs_lms_smart_captcha` — ядро о ней не знает.
  *
  * Уровни выключения:
