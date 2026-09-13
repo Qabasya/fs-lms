@@ -107,6 +107,7 @@
   padding: 0;
   cursor: pointer;
   color: $color-muted;
+  font: inherit;
   display: flex;
   align-items: center;
 
@@ -148,6 +149,10 @@
   color: $color-white;
   border: none;
   border-radius: $border-radius-sm;
+
+  // `<button>` не наследует шрифт страницы — без этого кнопки карточек
+  // заявки и входа рисовались системным Arial.
+  font-family: inherit;
   cursor: pointer;
 
   &:hover { opacity: $hover-opacity; }

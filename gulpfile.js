@@ -89,6 +89,59 @@ const webpackConfig = {
     devtool: 'source-map'
 };
 
+/**
+ * Кегли публичных бандлов — целыми пикселями на шкале темы fs-lms-theme
+ * (2026-09-13).
+ *
+ * Тема ставит корню 120% (19.2px), и макетные `rem()` давали дробные кегли:
+ * rem(13) → 15.6px, rem(22) → 26.4px. Сама тема держит шкалу целыми
+ * пикселями (14/15/16/18/19/21/22/24/36/56, `theme.json` темы), а плагин
+ * рисует на тех же страницах. Поэтому каждый `rem`-кегль бандла
+ * оборачивается в CSS `round()`:
+ *   - до 19px макета — `round(down, calc(Xrem + .05px), 1px)`: ×1.2 с
+ *     округлением вниз, те же ступени, что у темы (13 → 15, 14 → 16,
+ *     16 → 19). При корне 16px (админка грузит `common`) — ровно макетный
+ *     кегль. `.05px` — страховка: `rem × 19.2` в плавающей точке может
+ *     недобрать до целого (17.9999 → 17);
+ *   - крупнее — макет +2px (22 → 24, 28 → 30): тема тоже уменьшила
+ *     заголовки против простого ×1.2.
+ * Значения остаются в `rem` и следуют за корнем и размером шрифта из
+ * настроек браузера — `round()` лишь снимает дробь. Исходники SCSS и
+ * `rem()` не меняются. `admin.min.css` не обрабатывается: там корень
+ * WordPress (16px) и дробей нет.
+ */
+const THEME_ROOT_PX = 19.2;
+const DESIGN_ROOT_PX = 16;
+const REM_TOKEN = /(^|\s)(\d*\.?\d+)rem(?=$|[\s/])/g;
+
+function themeFontSize(rem) {
+    const designPx = rem * DESIGN_ROOT_PX;
+
+    if (designPx <= 19) {
+        return `round(down, calc(${rem}rem + .05px), 1px)`;
+    }
+
+    const targetRem = Number(((Math.round(designPx) + 2) / THEME_ROOT_PX).toFixed(6));
+
+    return `round(${targetRem}rem, 1px)`;
+}
+
+// Повторный проход PostCSS по изменённой декларации ничего не трогает:
+// внутри `round(`/`calc(` перед числом стоит скобка, а не пробел.
+function fontScale() {
+    return {
+        postcssPlugin: 'fs-lms-font-scale',
+        Declaration(decl) {
+            if (decl.prop !== 'font-size' && decl.prop !== 'font') {
+                return;
+            }
+
+            decl.value = decl.value.replace(REM_TOKEN, (match, lead, value) => lead + themeFontSize(parseFloat(value)));
+        },
+    };
+}
+fontScale.postcss = true;
+
 const errorHandler = function (err) {
     notify.onError({
         title: "Gulp error in " + err.plugin,
@@ -123,7 +176,7 @@ function stylesCommon() {
         .pipe(guard())
         .pipe(sourcemaps.init())
         .pipe(sass())
-        .pipe(postcss([autoprefixer(), cssnano()]))
+        .pipe(postcss([fontScale(), autoprefixer(), cssnano()]))
         .pipe(rename('common.min.css'))
         .pipe(sourcemaps.write(paths.output.maps))
         .pipe(gulp.dest(paths.output.css));
@@ -145,7 +198,7 @@ function stylesFrontend() {
         .pipe(guard())
         .pipe(sourcemaps.init())
         .pipe(sass({ includePaths: [paths.scss.common] }))
-        .pipe(postcss([autoprefixer(), cssnano()]))
+        .pipe(postcss([fontScale(), autoprefixer(), cssnano()]))
         .pipe(rename('frontend.min.css'))
         .pipe(sourcemaps.write(paths.output.maps))
         .pipe(gulp.dest(paths.output.css));
@@ -156,7 +209,7 @@ function stylesProfile() {
         .pipe(guard())
         .pipe(sourcemaps.init())
         .pipe(sass())
-        .pipe(postcss([autoprefixer(), cssnano()]))
+        .pipe(postcss([fontScale(), autoprefixer(), cssnano()]))
         .pipe(rename('profile.min.css'))
         .pipe(sourcemaps.write(paths.output.maps))
         .pipe(gulp.dest(paths.output.css));
@@ -167,7 +220,7 @@ function stylesPlayer() {
         .pipe(guard())
         .pipe(sourcemaps.init())
         .pipe(sass())
-        .pipe(postcss([autoprefixer(), cssnano()]))
+        .pipe(postcss([fontScale(), autoprefixer(), cssnano()]))
         .pipe(rename('player.min.css'))
         .pipe(sourcemaps.write(paths.output.maps))
         .pipe(gulp.dest(paths.output.css));
@@ -178,7 +231,7 @@ function stylesAssessment() {
         .pipe(guard())
         .pipe(sourcemaps.init())
         .pipe(sass())
-        .pipe(postcss([autoprefixer(), cssnano()]))
+        .pipe(postcss([fontScale(), autoprefixer(), cssnano()]))
         .pipe(rename('assessment.min.css'))
         .pipe(sourcemaps.write(paths.output.maps))
         .pipe(gulp.dest(paths.output.css));
@@ -189,7 +242,7 @@ function stylesKege() {
         .pipe(guard())
         .pipe(sourcemaps.init())
         .pipe(sass())
-        .pipe(postcss([autoprefixer(), cssnano()]))
+        .pipe(postcss([fontScale(), autoprefixer(), cssnano()]))
         .pipe(rename('kege.min.css'))
         .pipe(sourcemaps.write(paths.output.maps))
         .pipe(gulp.dest(paths.output.css));
