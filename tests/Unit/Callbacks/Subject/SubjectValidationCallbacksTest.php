@@ -10,6 +10,7 @@ use Inc\Managers\Wp\PostManager;
 use Inc\Managers\Wp\TermManager;
 use Inc\Repositories\OptionsRepositories\TaxonomyRepository;
 use Inc\Services\Subject\ArticlePublishValidator;
+use Inc\Services\Task\TaskNumberService;
 use Inc\Services\Task\TaskPublishGuard;
 use Inc\Services\Task\TaskPublishValidator;
 use Inc\Services\Template\TemplateResolver;
@@ -28,6 +29,7 @@ class SubjectValidationCallbacksTest extends TestCase {
 	private TermManager          $terms;
 	private TaxonomyRepository   $taxonomies;
 	private TemplateResolver     $templateResolver;
+	private TaskNumberService    $numbers;
 	private SubjectValidationCallbacks $cb;
 
 	protected function setUp(): void {
@@ -40,6 +42,7 @@ class SubjectValidationCallbacksTest extends TestCase {
 		$this->terms            = $this->createMock( TermManager::class );
 		$this->taxonomies       = $this->createMock( TaxonomyRepository::class );
 		$this->templateResolver = $this->createMock( TemplateResolver::class );
+		$this->numbers          = $this->createMock( TaskNumberService::class );
 
 		$this->cb = new SubjectValidationCallbacks(
 			$this->validator,
@@ -48,7 +51,8 @@ class SubjectValidationCallbacksTest extends TestCase {
 			$this->posts,
 			$this->terms,
 			$this->taxonomies,
-			$this->templateResolver
+			$this->templateResolver,
+			$this->numbers
 		);
 	}
 
@@ -143,7 +147,10 @@ class SubjectValidationCallbacksTest extends TestCase {
 		) );
 
 		$term          = new \WP_Term( 7, 'Алгоритмы', 'inf_topics' );
-		$this->terms->method( 'getPostTerms' )->with( 15, 'inf_topics' )->willReturn( array( $term ) );
+		$this->terms->method( 'getPostTerms' )->willReturnMap( array(
+			array( 15, 'inf_topics', array( $term ) ),
+			array( 15, 'inf_task_number', array() ),
+		) );
 
 		$this->validator->expects( $this->once() )
 			->method( 'getBlockingError' )
@@ -203,6 +210,78 @@ class SubjectValidationCallbacksTest extends TestCase {
 		$data = $this->cb->validateRequiredTaxonomies( $this->postData(), array( 'ID' => 15 ) );
 
 		self::assertSame( 'draft', $data['post_status'] );
+	}
+
+	// ── Номер задания ───────────────────────────────────────────────────────────
+
+	/**
+	 * Занятый номер: публикация откатывается в черновик, а номер, который ядро
+	 * уже успело переписать в «5002-2», черновику возвращается.
+	 */
+	public function test_taken_number_blocks_publish_and_keeps_number(): void {
+		$_POST = array( 'tax_input' => array( 'inf_task_number' => array( 'inf_5' ) ) );
+
+		$this->posts->method( 'get' )->with( 15 )->willReturn(
+			new \WP_Post( array( 'ID' => 15, 'post_type' => 'inf_tasks', 'post_status' => 'draft', 'post_name' => '5002' ) )
+		);
+		$this->taxonomies->method( 'getBySubject' )->willReturn( array() );
+		$this->validator->method( 'getBlockingError' )->willReturn( null );
+		$this->validator->method( 'getSoftError' )->willReturn( null );
+
+		$this->numbers->method( 'resolveTaskNumber' )->with( array( 'inf_5' ), 'inf' )->willReturn( 5 );
+		$this->numbers->expects( $this->once() )
+			->method( 'publishError' )
+			->with( 'inf_tasks', 15, '5002', 5 )
+			->willReturn( 'Номер 5002 уже занят заданием «№ 5002. Демоверсия» (ID 7).' );
+
+		$data = $this->cb->validateRequiredTaxonomies(
+			$this->postData() + array( 'post_name' => '5002-2' ),
+			array( 'ID' => 15, 'post_name' => '5002' )
+		);
+
+		self::assertSame( 'draft', $data['post_status'] );
+		self::assertSame( '5002', $data['post_name'] );
+	}
+
+	/**
+	 * Правка уже опубликованного задания номер не перепроверяет: адрес живёт, и
+	 * старый номер не повод снимать задание с публикации.
+	 */
+	public function test_published_task_number_is_not_rechecked(): void {
+		$this->posts->method( 'get' )->with( 15 )->willReturn(
+			new \WP_Post( array( 'ID' => 15, 'post_type' => 'inf_tasks', 'post_status' => 'publish', 'post_name' => '5002' ) )
+		);
+		$this->taxonomies->method( 'getBySubject' )->willReturn( array() );
+		$this->validator->method( 'getBlockingError' )->willReturn( null );
+		$this->validator->method( 'getSoftError' )->willReturn( null );
+
+		$this->numbers->expects( $this->never() )->method( 'publishError' );
+
+		$data = $this->cb->validateRequiredTaxonomies( $this->postData(), array( 'ID' => 15 ) );
+
+		self::assertSame( 'publish', $data['post_status'] );
+	}
+
+	public function test_stored_task_number_term_is_used_when_form_is_absent(): void {
+		$this->posts->method( 'get' )->with( 15 )->willReturn(
+			new \WP_Post( array( 'ID' => 15, 'post_type' => 'inf_tasks', 'post_status' => 'draft', 'post_name' => '5003' ) )
+		);
+		$this->taxonomies->method( 'getBySubject' )->willReturn( array() );
+		$this->terms->method( 'getPostTerms' )->with( 15, 'inf_task_number' )->willReturn(
+			array( new \WP_Term( 3, '5', 'inf_task_number' ) )
+		);
+		$this->validator->method( 'getBlockingError' )->willReturn( null );
+		$this->validator->method( 'getSoftError' )->willReturn( null );
+
+		$this->numbers->method( 'resolveTaskNumber' )->with( array( '5' ), 'inf' )->willReturn( 5 );
+		$this->numbers->expects( $this->once() )
+			->method( 'publishError' )
+			->with( 'inf_tasks', 15, '5003', 5 )
+			->willReturn( null );
+
+		$data = $this->cb->validateRequiredTaxonomies( $this->postData(), array( 'ID' => 15 ) );
+
+		self::assertSame( 'publish', $data['post_status'] );
 	}
 
 	public function test_draft_save_is_not_validated(): void {

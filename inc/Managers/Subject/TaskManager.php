@@ -12,6 +12,7 @@ use Inc\Enums\Subject\TaskTemplate;
 use Inc\Repositories\OptionsRepositories\BoilerplateRepository;
 use Inc\Repositories\OptionsRepositories\MetaBoxRepository;
 use Inc\Services\Subject\PostTypeResolver;
+use Inc\Services\Task\TaskNumberService;
 
 /**
  * Class TaskManager
@@ -39,6 +40,7 @@ class TaskManager {
 		private readonly TermManager $termManager,
 		private readonly MetaBoxRepository $metaboxes,
 		private readonly BoilerplateRepository $boilerplates,
+		private readonly TaskNumberService $numbers,
 	) {}
 
 	/**
@@ -72,8 +74,11 @@ class TaskManager {
 		// 2. Получение контента из Boilerplate (если выбран)
 		$taskText = $this->resolveBoilerplateContent( $subjectKey, $termSlug, $boilerplateUid );
 
-		// 3. Генерация уникального номера (слага) для задания
-		$customSlug = $this->generateUniqueSlug( $subjectKey, $taxonomy, $termId, $termSlug );
+		// 3. Наименьший свободный номер (слаг) задания: 'inf_5' → 5000, 5001, …
+		$customSlug = $this->numbers->build(
+			PostTypeResolver::tasks( $subjectKey ),
+			$this->extractNumberFromSlug( $termSlug ) ?: $termId
+		);
 
 		// 4. Вставка поста через PostManager
 		$postId = $this->postManager->insert(
@@ -97,26 +102,6 @@ class TaskManager {
 		$this->syncTaskMetadata( $postId, $subjectKey, $termSlug, $taskText );
 
 		return $postId;
-	}
-
-	/**
-	 * Генерирует уникальный номер задачи.
-	 *
-	 * @param string $key      Ключ предмета
-	 * @param string $tax      Слаг таксономии
-	 * @param int    $id       ID термина
-	 * @param string $slug     Слаг термина
-	 *
-	 * @return string
-	 */
-	private function generateUniqueSlug( string $key, string $tax, int $id, string $slug ): string {
-		// Извлекаем числовой префикс из слага (например 'task_5' → 5)
-		$prefix = $this->extractNumberFromSlug( $slug ) ?: $id;
-		// Считаем существующие посты в этом термине
-		$count = $this->postManager->countByTerm( PostTypeResolver::tasks( $key ), $tax, $id );
-
-		// str_pad() — дополняет число нулями слева до 3 цифр (1 → 001)
-		return $prefix . str_pad( (string) $count, 3, '0', STR_PAD_LEFT );
 	}
 
 	/**

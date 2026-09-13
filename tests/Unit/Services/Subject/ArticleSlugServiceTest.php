@@ -6,6 +6,7 @@ namespace Unit\Services\Subject;
 
 use Inc\Managers\Wp\PostManager;
 use Inc\Services\Subject\ArticleSlugService;
+use Inc\Services\Task\TaskNumberService;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -23,7 +24,7 @@ class ArticleSlugServiceTest extends TestCase {
 		parent::setUp();
 
 		$this->posts = $this->createMock( PostManager::class );
-		$this->slugs = new ArticleSlugService( $this->posts );
+		$this->slugs = new ArticleSlugService( $this->posts, new TaskNumberService( $this->posts ) );
 	}
 
 	public function test_first_article_of_task_gets_ordinal_one(): void {

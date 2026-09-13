@@ -396,6 +396,35 @@ class PostManager {
 	}
 
 	/**
+	 * Другая запись типа с точно таким слагом.
+	 *
+	 * Корзина и автосохранения не в счёт: удалённой записи ядро дописывает
+	 * суффикс `__trashed`, а автосохранение слага не держит.
+	 *
+	 * @param string $post_type  Тип записи.
+	 * @param string $slug       Слаг.
+	 * @param int    $exclude_id Какую запись не учитывать (обычно — саму сохраняемую).
+	 *
+	 * @return \WP_Post|null
+	 */
+	public function findBySlug( string $post_type, string $slug, int $exclude_id = 0 ): ?\WP_Post {
+		global $wpdb;
+
+		$id = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT ID FROM {$wpdb->posts}
+				 WHERE post_type = %s AND post_name = %s AND post_status NOT IN ('trash', 'auto-draft') AND ID <> %d
+				 ORDER BY ID LIMIT 1",
+				$post_type,
+				$slug,
+				$exclude_id
+			)
+		);
+
+		return $id > 0 ? $this->get( $id ) : null;
+	}
+
+	/**
 	 * Низкоуровневая смена слага без запуска жизненного цикла сохранения.
 	 *
 	 * Пишет напрямую в таблицу — как {@see self::updatePostContent()}. Через

@@ -12,6 +12,7 @@ use Inc\Managers\Wp\TermManager;
 use Inc\Repositories\OptionsRepositories\TaxonomyRepository;
 use Inc\Services\Subject\ArticlePublishValidator;
 use Inc\Services\Subject\PostTypeResolver;
+use Inc\Services\Task\TaskNumberService;
 use Inc\Services\Task\TaskPublishGuard;
 use Inc\Services\Task\TaskPublishValidator;
 use Inc\Services\Template\TemplateResolver;
@@ -51,6 +52,7 @@ class SubjectValidationCallbacks extends BaseController {
 	 * @param TermManager             $terms            Доступ к привязанным терминам
 	 * @param TaxonomyRepository      $taxonomies       Таксономии предмета (для сборки состояния)
 	 * @param TemplateResolver        $templateResolver Резолвер шаблона задания (как в метабоксе)
+	 * @param TaskNumberService       $numbers          Номер задания в банке (слаг)
 	 */
 	public function __construct(
 		private readonly TaskPublishValidator    $validator,
@@ -60,6 +62,7 @@ class SubjectValidationCallbacks extends BaseController {
 		private readonly TermManager             $terms,
 		private readonly TaxonomyRepository      $taxonomies,
 		private readonly TemplateResolver        $templateResolver,
+		private readonly TaskNumberService       $numbers,
 	) {
 		parent::__construct();
 	}
@@ -87,12 +90,13 @@ class SubjectValidationCallbacks extends BaseController {
 		}
 
 		$postId = (int) ( $postarr['ID'] ?? 0 );
+		$slug   = $this->desiredSlug( $data, $postarr, $postId );
 
-		return $this->guard->enforce(
+		$result = $this->guard->enforce(
 			$data,
 			'fs_lms_publish_error_',
 			'Укажите название задания.',
-			function () use ( $postType, $postId ) {
+			function () use ( $postType, $postId, $slug ) {
 				$hasMetaForm = $this->hasParam( PostMetaName::Meta->value );
 
 				// Программная вставка (импорт пакета, рестор): формы нет, поста ещё
@@ -109,12 +113,104 @@ class SubjectValidationCallbacks extends BaseController {
 					: null;
 
 				return $blockingError
+					?? $this->numberError( $postType, $postId, $slug )
 					?? $this->validator->getSoftError(
 						$this->effectiveMeta( $postId ),
 						$this->effectiveTemplateId( $postId )
 					);
 			}
 		);
+
+		// Публикация сорвалась: ядро к этому моменту уже переписало занятый номер
+		// в «5002-2» (wp_unique_post_slug идёт до фильтра) — черновику возвращаем
+		// тот номер, с которым его публиковали, иначе номер уедет молча.
+		$renamedByCore = '' !== $slug
+			&& 1 === preg_match( '/^' . preg_quote( $slug, '/' ) . '-\d+$/', (string) ( $data['post_name'] ?? '' ) );
+
+		if ( $result['post_status'] !== $data['post_status'] && $renamedByCore ) {
+			$result['post_name'] = $slug;
+		}
+
+		return $result;
+	}
+
+	/**
+	 * Номер, с которым задание хотят сохранить.
+	 *
+	 * `$data['post_name']` для этого не годится: при публикации ядро уже сделало
+	 * его уникальным и занятый 5002 превратило в 5002-2.
+	 *
+	 * @param array<string, mixed> $data    Очищенные данные поста
+	 * @param array<string, mixed> $postarr Данные поста до очистки
+	 * @param int                  $postId  ID задания (0 — создаётся новое)
+	 *
+	 * @return string
+	 */
+	private function desiredSlug( array $data, array $postarr, int $postId ): string {
+		$fromForm = $this->sanitizeKeyValue( $postarr['post_name'] ?? '' );
+		if ( '' !== $fromForm ) {
+			return $fromForm;
+		}
+
+		$stored = $postId > 0 ? $this->posts->get( $postId ) : null;
+		if ( null !== $stored && '' !== $stored->post_name ) {
+			return $stored->post_name;
+		}
+
+		return (string) ( $data['post_name'] ?? '' );
+	}
+
+	/**
+	 * Номер задания занят или не подходит к выбранному номеру задания.
+	 *
+	 * Только до первой публикации: у опубликованного задания адрес уже живёт,
+	 * и откатывать его в черновик из-за старого номера на любой правке нельзя.
+	 * Задание без номера задания не проверяется — нумеровать его не по чему.
+	 *
+	 * @param string $postType CPT заданий
+	 * @param int    $postId   ID задания (0 — создаётся новое)
+	 * @param string $slug     Номер, с которым задание публикуют
+	 *
+	 * @return string|null
+	 */
+	private function numberError( string $postType, int $postId, string $slug ): ?string {
+		$stored = $postId > 0 ? $this->posts->get( $postId ) : null;
+		if ( null !== $stored && in_array( $stored->post_status, array( 'publish', 'future', 'private' ), true ) ) {
+			return null;
+		}
+
+		$taskNumber = $this->taskNumber( $postId, $postType );
+		if ( null === $taskNumber ) {
+			return null;
+		}
+
+		return $this->numbers->publishError( $postType, $postId, $slug, $taskNumber );
+	}
+
+	/**
+	 * Номер задания: из формы редактора, а при её отсутствии — сохранённый терм.
+	 *
+	 * @param int    $postId   ID задания (0 — создаётся новое)
+	 * @param string $postType CPT заданий
+	 *
+	 * @return int|null
+	 */
+	private function taskNumber( int $postId, string $postType ): ?int {
+		$subjectKey = PostTypeResolver::subjectFromTaskPostType( $postType );
+		$taxonomy   = PostTypeResolver::getTaskTaxonomy( $subjectKey );
+		$taxInput   = $this->unslashArray( 'tax_input' );
+
+		if ( array_key_exists( $taxonomy, $taxInput ) ) {
+			return $this->numbers->resolveTaskNumber( $taxInput[ $taxonomy ], $subjectKey );
+		}
+
+		if ( $postId <= 0 ) {
+			return null;
+		}
+
+		$names = array_map( static fn( \WP_Term $term ): string => $term->name, $this->terms->getPostTerms( $postId, $taxonomy ) );
+
+		return $this->numbers->resolveTaskNumber( $names, $subjectKey );
 	}
 
 	/**

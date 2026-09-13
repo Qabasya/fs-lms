@@ -5,6 +5,7 @@ declare( strict_types=1 );
 namespace Inc\Services\Subject;
 
 use Inc\Managers\Wp\PostManager;
+use Inc\Services\Task\TaskNumberService;
 
 /**
  * Class ArticleSlugService
@@ -34,10 +35,12 @@ readonly class ArticleSlugService {
 	private const PLAIN_PREFIX = 'article-';
 
 	/**
-	 * @param PostManager $posts Менеджер записей WordPress.
+	 * @param PostManager       $posts   Менеджер записей WordPress.
+	 * @param TaskNumberService $numbers Разбор номера задания из формы.
 	 */
 	public function __construct(
 		private PostManager $posts,
+		private TaskNumberService $numbers,
 	) {}
 
 	/**
@@ -88,15 +91,7 @@ readonly class ArticleSlugService {
 	/**
 	 * Достаёт номер задания из значения `tax_input`.
 	 *
-	 * Значение приходит в трёх видах, и все три надо понимать:
-	 * массив слагов терминов (`inf_5`) — нативный метабокс в режиме select
-	 * ({@see \Inc\Registrars\SubjectTaxonomyRegistrar::buildMetaBoxCallback()});
-	 * строка имён через запятую (`5`) — быстрое и массовое редактирование, там
-	 * плоская таксономия приезжает строкой; массив ID — на случай, если режим
-	 * метабокса когда-нибудь сменится.
-	 *
-	 * Обращения к БД тут нет и не нужно: форму терма жёстко держит
-	 * {@see TaskNumberTermGuard} — имя это `[1-9][0-9]*`, слаг это `{ключ}_{имя}`.
+	 * @see TaskNumberService::resolveTaskNumber() Форматы значения
 	 *
 	 * @param mixed  $tax_input_value Значение `tax_input[{taxonomy}]`.
 	 * @param string $subject_key     Ключ предмета.
@@ -104,69 +99,7 @@ readonly class ArticleSlugService {
 	 * @return int|null Null — номера в значении нет (в том числе пустая заглушка метабокса).
 	 */
 	public function resolveTaskNumber( mixed $tax_input_value, string $subject_key ): ?int {
-		foreach ( $this->candidates( $tax_input_value ) as $value ) {
-			$number = $this->numberFromTermValue( $value, $subject_key );
-
-			if ( null !== $number ) {
-				return $number;
-			}
-		}
-
-		return null;
-	}
-
-	/**
-	 * Приводит значение `tax_input` к списку непустых строк.
-	 *
-	 * Пустые строки отбрасываем обязательно: и `<option value="">— Не выбрано —</option>`
-	 * селекта, и скрытая строка-заглушка режимов radio/checkbox приезжают в
-	 * массиве наравне с настоящими значениями.
-	 *
-	 * @param mixed $value Значение `tax_input[{taxonomy}]`.
-	 *
-	 * @return string[]
-	 */
-	private function candidates( mixed $value ): array {
-		if ( is_string( $value ) ) {
-			$value = explode( ',', $value );
-		}
-
-		if ( ! is_array( $value ) ) {
-			return array();
-		}
-
-		$values = array();
-
-		foreach ( $value as $item ) {
-			if ( is_string( $item ) || is_int( $item ) ) {
-				$item = trim( (string) $item );
-
-				if ( '' !== $item ) {
-					$values[] = $item;
-				}
-			}
-		}
-
-		return $values;
-	}
-
-	/**
-	 * Номер задания из имени или слага терма.
-	 *
-	 * @param string $value       Значение из формы.
-	 * @param string $subject_key Ключ предмета.
-	 *
-	 * @return int|null
-	 */
-	private function numberFromTermValue( string $value, string $subject_key ): ?int {
-		// Имя терма — голое число (быстрое редактирование шлёт именно его).
-		if ( 1 === preg_match( '/^[1-9][0-9]*$/', $value ) ) {
-			return (int) $value;
-		}
-
-		$pattern = '/^' . preg_quote( $subject_key, '/' ) . '_([1-9][0-9]*)$/';
-
-		return 1 === preg_match( $pattern, $value, $matches ) ? (int) $matches[1] : null;
+		return $this->numbers->resolveTaskNumber( $tax_input_value, $subject_key );
 	}
 
 	/**
