@@ -6,6 +6,7 @@ namespace Inc\Controllers\Task;
 
 use Inc\Core\BaseController;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
+use Inc\Services\Task\LegacyTaskImportService;
 use Inc\Shared\Traits\TemplateRenderer;
 
 /**
@@ -32,7 +33,8 @@ class LegacyTaskImportPageController extends BaseController {
 		$this->render(
 			'admin/legacy-task-import',
 			array(
-				'subjects' => $this->subjects->readActive(),
+				'subjects'   => $this->subjects->readActive(),
+				'batch_size' => LegacyTaskImportService::BATCH_SIZE,
 			)
 		);
 	}

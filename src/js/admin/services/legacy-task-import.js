@@ -3,10 +3,10 @@
  *               admin.php?page=fs_lms_legacy_task_import).
  *
  * @module LegacyTaskImport
- * @description Гоняет батчи через LegacyTaskImportCallbacks, пока сервер не вернёт
- *              done:true, копит created/skipped/warnings по всем батчам и рендерит
- *              итоговый отчёт. Один батч — один AJAX-запрос (см. BATCH_SIZE в
- *              LegacyTaskImportCallbacks — держит запрос в пределах max_execution_time).
+ * @description Читает выбранный JSON-файл в браузере и отправляет записи батчами
+ *              через LegacyTaskImportCallbacks, копит created/skipped/warnings по всем
+ *              батчам и рендерит итоговый отчёт. Один батч — один AJAX-запрос; размер
+ *              батча отдаёт сервер в data-batch-size (LegacyTaskImportService::BATCH_SIZE).
  *
  * @requires jQuery
  * @requires escapeHtml, showNotice, toggleButton — утилиты
@@ -28,42 +28,61 @@ export const LegacyTaskImport = {
             return;
         }
 
+        this.$file     = $( '#fs-legacy-import-file' );
         this.$status   = $( '#fs-legacy-import-status' );
         this.$progress = $( '#fs-legacy-import-progress' );
         this.$report   = $( '#fs-legacy-import-report' );
+        this.batchSize = Number( this.$start.data( 'batch-size' ) ) || 15;
 
         this.$start.on( 'click', () => this.start() );
     },
 
-    /** Запускает перенос: узнаёт общее число записей, затем гонит батчи по очереди. */
+    /** Запускает перенос: читает файл, затем гонит батчи по очереди. */
     start() {
+        const file = this.$file.prop( 'files' )?.[ 0 ];
+        if ( ! file ) {
+            showNotice( 'Выберите файл переноса.', 'error' );
+            return;
+        }
+
         toggleButton( this.$start, true, 'Перенос…' );
+        this.$file.prop( 'disabled', true );
         this.$report.empty();
-        this.$status.text( '' );
-        this.$progress.prop( { value: 0, max: 100, hidden: false } );
+        this.$status.text( 'Чтение файла…' );
+        this.$progress.prop( { value: 0, max: 100, hidden: true } );
 
-        const params = this.readParams();
-
-        $.post( fs_lms_vars.ajaxurl, {
-            action: fs_lms_vars.ajax_actions.legacyTaskImportStatus,
-            security: fs_lms_vars.nonces.manager,
-        } )
-            .done( ( response ) => {
-                if ( ! response || ! response.success ) {
-                    this.fail( ( response && response.data ) || 'Не удалось получить число записей.' );
+        file.text()
+            .then( ( text ) => {
+                const rows = this.parseRows( text );
+                if ( ! rows ) {
+                    this.fail( 'Файл не является JSON-массивом записей.' );
                     return;
                 }
 
-                const total = Number( response.data.total ) || 0;
-                if ( total <= 0 ) {
+                if ( ! rows.length ) {
                     this.fail( 'Файл переноса пуст.' );
                     return;
                 }
 
-                this.$progress.prop( 'max', total );
-                this.runBatch( params, 0, total, { created: 0, skipped: 0, warnings: [] } );
+                this.$progress.prop( { max: rows.length, hidden: false } );
+                this.runBatch( this.readParams(), rows, 0, { created: 0, skipped: 0, warnings: [] } );
             } )
-            .fail( () => this.fail( 'Ошибка сети при запросе числа записей.' ) );
+            .catch( () => this.fail( 'Не удалось прочитать файл.' ) );
+    },
+
+    /**
+     * Разбирает содержимое файла.
+     *
+     * @param {string} text Текст файла.
+     * @return {Array|null} Массив записей; null — не JSON или не массив.
+     */
+    parseRows( text ) {
+        try {
+            const rows = JSON.parse( text );
+            return Array.isArray( rows ) ? rows : null;
+        } catch ( e ) {
+            return null;
+        }
     },
 
     /**
@@ -81,18 +100,21 @@ export const LegacyTaskImport = {
     },
 
     /**
-     * Выполняет один батч и рекурсивно продолжает, пока сервер не вернёт done:true.
+     * Отправляет один батч и рекурсивно продолжает, пока записи не кончатся.
      *
      * @param {Object} params Параметры предмета/таксономий.
-     * @param {number} offset Смещение текущего батча.
-     * @param {number} total  Общее число записей (для прогресс-бара).
+     * @param {Array}  rows   Все записи файла.
+     * @param {number} offset Позиция первой записи батча.
      * @param {{created:number, skipped:number, warnings:string[]}} totals Накопленный итог.
      */
-    runBatch( params, offset, total, totals ) {
+    runBatch( params, rows, offset, totals ) {
+        const batch = rows.slice( offset, offset + this.batchSize );
+
         $.post( fs_lms_vars.ajaxurl, {
             action: fs_lms_vars.ajax_actions.legacyTaskImportBatch,
             security: fs_lms_vars.nonces.manager,
             offset,
+            rows: JSON.stringify( batch ),
             ...params,
         } )
             .done( ( response ) => {
@@ -106,14 +128,14 @@ export const LegacyTaskImport = {
                 totals.skipped += Number( report.skipped ) || 0;
                 totals.warnings.push( ...( Array.isArray( report.warnings ) ? report.warnings : [] ) );
 
-                const nextOffset = Number( report.next_offset ) || total;
-                this.$progress.prop( 'value', Math.min( nextOffset, total ) );
-                this.$status.text( `${ Math.min( nextOffset, total ) } / ${ total }` );
+                const nextOffset = offset + batch.length;
+                this.$progress.prop( 'value', nextOffset );
+                this.$status.text( `${ nextOffset } / ${ rows.length }` );
 
-                if ( report.done ) {
+                if ( nextOffset >= rows.length ) {
                     this.finish( totals );
                 } else {
-                    this.runBatch( params, nextOffset, total, totals );
+                    this.runBatch( params, rows, nextOffset, totals );
                 }
             } )
             .fail( () => this.fail( 'Ошибка сети при переносе батча.', totals ) );
@@ -125,7 +147,7 @@ export const LegacyTaskImport = {
      * @param {{created:number, skipped:number, warnings:string[]}} totals Итог по всем батчам.
      */
     finish( totals ) {
-        toggleButton( this.$start, false );
+        this.unlock();
         this.$status.text( 'Готово' );
         this.renderReport( totals );
     },
@@ -137,12 +159,20 @@ export const LegacyTaskImport = {
      * @param {{created:number, skipped:number, warnings:string[]}} [totals] Итог, накопленный до сбоя.
      */
     fail( message, totals = null ) {
-        toggleButton( this.$start, false );
+        this.unlock();
         showNotice( message, 'error' );
 
         if ( totals ) {
             this.renderReport( totals );
+        } else {
+            this.$status.text( '' );
         }
+    },
+
+    /** Возвращает форму в исходное состояние после завершения или сбоя. */
+    unlock() {
+        toggleButton( this.$start, false );
+        this.$file.prop( 'disabled', false );
     },
 
     /**

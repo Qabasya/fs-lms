@@ -5,6 +5,7 @@ declare( strict_types=1 );
 namespace Inc\Callbacks\Task;
 
 use Inc\Core\BaseController;
+use Inc\DTO\Task\LegacyTaskRowDTO;
 use Inc\Enums\Access\Capability;
 use Inc\Enums\Wp\Nonce;
 use Inc\Services\Task\LegacyTaskImportService;
@@ -24,31 +25,32 @@ class LegacyTaskImportCallbacks extends BaseController {
 	use Authorizer;
 	use Sanitizer;
 
-	/** Записей за один AJAX-запрос — держит батч в пределах max_execution_time дешёвого хостинга. */
-	private const BATCH_SIZE = 15;
-
 	public function __construct(
 		private readonly LegacyTaskImportService $importService,
 	) {
 		parent::__construct();
 	}
 
-	/** Общее число записей в файле переноса — для инициализации прогресс-бара. */
-	public function ajaxLegacyTaskImportStatus(): void {
-		$this->authorize( Nonce::Manager, Capability::ManageLmsPlatform );
-
-		$this->success( array(
-			'total'      => $this->importService->totalCount(),
-			'batch_size' => self::BATCH_SIZE,
-		) );
-	}
-
-	/** Импортирует один батч, начиная с переданного offset. */
+	/**
+	 * Импортирует один батч записей из файла, выбранного на странице переноса.
+	 *
+	 * Файл разбирает браузер: `rows` — JSON-массив записей текущего батча,
+	 * `offset` — позиция первой из них в файле (для нумерации строк в отчёте).
+	 */
 	public function ajaxLegacyTaskImportBatch(): void {
 		$this->authorize( Nonce::Manager, Capability::ManageLmsPlatform );
 
 		$subjectKey = $this->requireKey( 'subject_key', error: 'Не указан предмет.' );
 		$offset     = $this->sanitizeInt( 'offset' );
+
+		$rows = json_decode( $this->unslashRawString( 'rows' ), true );
+		if ( ! is_array( $rows ) || array() === $rows || ! array_is_list( $rows ) ) {
+			$this->error( 'Батч переноса пуст или повреждён.' );
+		}
+
+		if ( count( $rows ) > LegacyTaskImportService::BATCH_SIZE ) {
+			$this->error( 'В батче больше ' . LegacyTaskImportService::BATCH_SIZE . ' записей.' );
+		}
 
 		$authorTaxonomy = $this->sanitizeKey( 'author_taxonomy' ) ?: "{$subjectKey}_author";
 		$yearTaxonomy   = $this->sanitizeKey( 'year_taxonomy' ) ?: "{$subjectKey}_year";
@@ -58,7 +60,7 @@ class LegacyTaskImportCallbacks extends BaseController {
 			$report = $this->importService->importBatch(
 				$subjectKey,
 				$offset,
-				self::BATCH_SIZE,
+				array_map( array( LegacyTaskRowDTO::class, 'fromArray' ), $rows ),
 				$authorTaxonomy,
 				$yearTaxonomy,
 				$levelTaxonomy

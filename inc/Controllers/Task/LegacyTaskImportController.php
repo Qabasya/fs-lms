@@ -27,7 +27,6 @@ class LegacyTaskImportController extends AjaxController {
 
 	protected function ajaxActions(): array {
 		return array(
-			array( AjaxHook::LegacyTaskImportStatus, $this->callbacks ),
 			array( AjaxHook::LegacyTaskImportBatch, $this->callbacks ),
 		);
 	}
