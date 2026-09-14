@@ -96,9 +96,9 @@ $sort_url    = add_query_arg( $audit_filters, $base_url );
                 <th class="tw-7">Дата</th>
 				<th class="tw-10">Пользователь</th>
 				<th >Действие</th>
-				<th class="tw-20">Субъект</th>
+				<th class="tw-25">Субъект</th>
 				<th class="tw-20">Группа</th>
-				<th class="tw-5">IP</th>
+				<th class="tw-10">IP</th
 			</tr>
 			</thead>
 			<tbody>

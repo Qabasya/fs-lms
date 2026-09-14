@@ -117,7 +117,7 @@ $sort_url    = add_query_arg( $entity_audit_filters, $base_url );
 				<th class="tw-10">Тип сущности</th>
 				<th>Сущность</th>
 				<th>Прошлое значение</th>
-				<th class="tw-5">IP</th>
+				<th class="tw-10">IP</th>
 			</tr>
 			</thead>
 			<tbody>

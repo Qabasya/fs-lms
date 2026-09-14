@@ -93,7 +93,7 @@ $sort_url    = add_query_arg( $email_filters, $base_url );
                 <th class="tw-10">Пользователь</th>
 				<th >Тип письма</th>
 				<th>Субъект ПД</th>
-				<th class="tw-10">Email получателя</th>
+				<th class="tw-15">Email получателя</th>
 				<th class="tw-10">Статус</th>
 			</tr>
 			</thead>

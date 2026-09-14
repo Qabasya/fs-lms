@@ -93,7 +93,7 @@ $sort_url    = add_query_arg( $export_filters, $base_url );
 				<th class="tw-20">Тип данных</th>
 				<th>Действие</th>
 				<th>Цели</th>
-                <th class="tw-5">IP</th>
+                <th class="tw-10">IP</th
 			</tr>
 			</thead>
 			<tbody>

@@ -88,7 +88,7 @@ $sort_url    = add_query_arg( $auth_filters, $base_url );
 				<th class="tw-20">Логин</th>
 				<th>Действие</th>
 				<th class="tw-10" >Результат</th>
-                <th class="tw-5">IP</th>
+                <th class="tw-10">IP</th
 			</tr>
 			</thead>
 			<tbody>
