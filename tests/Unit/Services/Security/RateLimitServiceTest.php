@@ -15,10 +15,69 @@ class RateLimitServiceTest extends TestCase {
 		$GLOBALS['_test_transients'] = array();
 	}
 
-	private function makeService( bool $testEnv = false ): RateLimitService {
+	/** @param string[] $trustedIps */
+	private function makeService( bool $testEnv = false, array $trustedIps = array() ): RateLimitService {
 		$config = $this->createStub( PluginConfig::class );
 		$config->method( 'isTestEnv' )->willReturn( $testEnv );
+		$config->method( 'trustedIps' )->willReturn( $trustedIps );
 		return new RateLimitService( $config );
+	}
+
+	/** Сколько вызовов подряд проходит до первого отказа (с потолком, чтобы не зациклиться). */
+	private function passesBeforeBlock( callable $attempt, int $ceiling = 1000 ): int {
+		for ( $i = 0; $i < $ceiling; $i++ ) {
+			if ( ! $attempt() ) {
+				return $i;
+			}
+		}
+		return $ceiling;
+	}
+
+	// ── Заявка: отдельные счётчики кода и создания ───────────────────────────────
+
+	public function test_otp_send_and_application_creation_have_separate_counters(): void {
+		$service = $this->makeService();
+		$ip      = '5.5.5.5';
+
+		// Исчерпываем лимит отправок кода (LIMIT_APPLICATION = 20).
+		self::assertSame( 20, $this->passesBeforeBlock( fn() => $service->allowOtpSend( $ip ) ) );
+
+		// Создание заявки с того же IP не затронуто.
+		self::assertTrue( $service->allowApplicationCreation( $ip ) );
+	}
+
+	public function test_twenty_students_behind_one_ip_fit_default_limits(): void {
+		$service = $this->makeService();
+		$ip      = '5.5.5.5';
+
+		// Каждый ученик: одна отправка кода и одно создание заявки.
+		for ( $i = 1; $i <= 20; $i++ ) {
+			self::assertTrue( $service->allowOtpSend( $ip ), "Код ученика #$i" );
+			self::assertTrue( $service->allowApplicationCreation( $ip ), "Заявка ученика #$i" );
+		}
+	}
+
+	// ── Белые IP ─────────────────────────────────────────────────────────────────
+
+	public function test_trusted_ip_gets_limits_multiplied_by_ten(): void {
+		$service = $this->makeService( trustedIps: array( '9.9.9.9' ) );
+
+		self::assertSame( 200, $this->passesBeforeBlock( fn() => $service->allowOtpSend( '9.9.9.9' ) ) );
+		self::assertSame( 200, $this->passesBeforeBlock( fn() => $service->allowUsernameCheck( '9.9.9.9' ) ) );
+		self::assertSame( 30, $this->passesBeforeBlock( fn() => $service->allowParentSubmit( '9.9.9.9' ) ) );
+	}
+
+	public function test_other_ips_keep_default_limits_when_trusted_list_is_set(): void {
+		$service = $this->makeService( trustedIps: array( '9.9.9.9' ) );
+
+		self::assertSame( 20, $this->passesBeforeBlock( fn() => $service->allowOtpSend( '5.5.5.5' ) ) );
+		self::assertSame( 3, $this->passesBeforeBlock( fn() => $service->allowParentSubmit( '5.5.5.5' ) ) );
+	}
+
+	public function test_trusted_ip_does_not_raise_per_email_limit(): void {
+		$service = $this->makeService( trustedIps: array( '9.9.9.9' ) );
+
+		self::assertSame( 5, $this->passesBeforeBlock( fn() => $service->allowOtpSendForEmail( 'student@test.com' ) ) );
 	}
 
 	// ── Per-email OTP-лимит ───────────────────────────────────────────────────────

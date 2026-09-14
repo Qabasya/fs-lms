@@ -70,6 +70,17 @@ function showError( container, message ) {
     }
     el.textContent = message;
     el.hidden = false;
+
+    // Ошибка встаёт в начало формы — на телефоне пользователь в этот момент у кнопки внизу.
+    el.scrollIntoView( { block: 'center', behavior: 'smooth' } );
+}
+
+/**
+ * Возвращает страницу к началу: после смены этапа карточка короче, и без прокрутки
+ * пользователь остаётся ниже её содержимого.
+ */
+function scrollToTop() {
+    window.scrollTo( { top: 0, behavior: 'smooth' } );
 }
 
 function clearError( container ) {
@@ -115,11 +126,16 @@ function showOtpStep( maskedEmail ) {
     const resendBtn   = document.getElementById( 'fs-resend-otp-btn' );
     const countdownEl = resendBtn.querySelector( '.js-otp-countdown' );
     startCountdown( resendBtn, countdownEl );
+
+    scrollToTop();
+    // preventScroll — фокус не должен перебить плавную прокрутку; на телефоне сразу открывается цифровая клавиатура.
+    document.getElementById( 'fs_otp_code' )?.focus( { preventScroll: true } );
 }
 
 function showSuccess( notice ) {
     document.querySelector( '.js-otp-input-block' ).hidden  = true;
     document.querySelector( '.js-otp-success-block' ).hidden = false;
+    scrollToTop();
 
     // Необязательное серверное сообщение + спиннер (например, статус создания доменной учётки).
     if ( notice ) {
@@ -250,9 +266,20 @@ async function handleResendOtp() {
 
 // ── Инициализация ─────────────────────────────────────────────────────────────
 
+/**
+ * Последний ответ сервера о занятости логина. Проверка идёт и на blur, и на submit; повторять
+ * запрос для того же значения незачем, а IP-лимит проверок общий на весь класс за одним NAT.
+ * @type {{ username: string, available: boolean }|null}
+ */
+let _usernameCheck = null;
+
 async function checkUsernameAvailable( input ) {
     const username = input.value.trim();
     if ( ! username ) { return true; }
+
+    if ( _usernameCheck?.username === username ) {
+        return applyUsernameCheck( input, _usernameCheck.available );
+    }
 
     try {
         const body = new URLSearchParams( {
@@ -263,11 +290,27 @@ async function checkUsernameAvailable( input ) {
         const res  = await fetch( vars.ajax_url, { method: 'POST', body } );
         const json = await res.json();
 
-        if ( json?.success && json.data?.available === false ) {
-            renderFieldError( input, 'Этот логин уже занят.' );
-            return false;
+        // Кешируем только настоящий ответ: отказ по лимиту не говорит, свободен ли логин.
+        if ( json?.success ) {
+            _usernameCheck = { username, available: json.data?.available !== false };
+            return applyUsernameCheck( input, _usernameCheck.available );
         }
     } catch {}
+
+    clearFieldError( input );
+    return true;
+}
+
+/**
+ * @param {HTMLInputElement} input
+ * @param {boolean}          available
+ * @returns {boolean}
+ */
+function applyUsernameCheck( input, available ) {
+    if ( ! available ) {
+        renderFieldError( input, 'Этот логин уже занят.' );
+        return false;
+    }
 
     clearFieldError( input );
     return true;

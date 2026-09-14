@@ -236,7 +236,7 @@ $max_birth_date = gmdate( 'Y-m-d' );
                         autocapitalize="none"
                         autocorrect="off"
                         spellcheck="false"
-                        data-validate="latinOnly"
+                        data-validate="password"
                         minlength="3"
                         maxlength="16"
                 >

@@ -3,6 +3,7 @@ import { PhoneValidator } from './PhoneValidator.js';
 import { CyrillicNameValidator } from './CyrillicNameValidator.js';
 import {AddressValidator} from './AddressValidator.js';
 import { LatinOnlyValidator } from './LatinOnlyValidator.js';
+import { PasswordValidator } from './PasswordValidator.js';
 import { PassportSeriesNumberValidator } from './PassportSeriesNumberValidator.js';
 import {SchoolNameValidator} from "./SchoolNameValidator";
 import {InnValidator} from "./InnValidator";
@@ -19,6 +20,7 @@ export const FieldValidators = {
     address:     new AddressValidator(),
     schoolName:   new SchoolNameValidator(),
     latinOnly:    new LatinOnlyValidator(),
+    password:     new PasswordValidator(),
     passportSN:   new PassportSeriesNumberValidator(),
     default:      new BaseValidator(),
 };

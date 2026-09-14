@@ -46,6 +46,17 @@ class FormGuardServiceTest extends TestCase {
 		self::assertFalse( $service->isHuman( '', $this->tokenFor( 0 ) ) );
 	}
 
+	public function test_accepts_form_opened_at_start_of_lesson(): void {
+		$service = $this->makeService();
+		// Форму открыли в начале урока и отправили через 2 часа (MAX_TOKEN_AGE = 4 ч).
+		self::assertTrue( $service->isHuman( '', $this->tokenFor( -2 * 3600 ) ) );
+	}
+
+	public function test_rejects_token_older_than_four_hours(): void {
+		$service = $this->makeService();
+		self::assertFalse( $service->isHuman( '', $this->tokenFor( -5 * 3600 ) ) );
+	}
+
 	public function test_rejects_stale_token(): void {
 		$service = $this->makeService();
 		// Токен старше суток (> MAX_TOKEN_AGE).

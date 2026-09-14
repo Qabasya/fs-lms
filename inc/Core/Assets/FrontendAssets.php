@@ -80,6 +80,9 @@ class FrontendAssets extends BaseController {
 	/**
 	 * Базовый публичный стек: шрифт иконок, общий и фронтовый бандлы.
 	 *
+	 * Версия — filemtime(), как в админке: хостинг кеширует статику на неделю, и с
+	 * постоянным `?ver=` браузер после деплоя продолжал бы отдавать старый бандл.
+	 *
 	 * @return void
 	 */
 	private function enqueueFrontendBase(): void {
@@ -90,21 +93,21 @@ class FrontendAssets extends BaseController {
 			'fs-lms-common-style',
 			$this->url( 'assets/css/common.min.css' ),
 			array( 'fs-lms-fontawesome' ),
-			$this->plugin_version
+			filemtime( $this->path( 'assets/css/common.min.css' ) )
 		);
 
 		wp_enqueue_style(
 			'fs-lms-frontend-style',
 			$this->url( 'assets/css/frontend.min.css' ),
 			array( 'fs-lms-common-style', 'dashicons' ),
-			$this->plugin_version
+			filemtime( $this->path( 'assets/css/frontend.min.css' ) )
 		);
 
 		wp_enqueue_script(
 			'fs-lms-common-script',
 			$this->url( 'assets/js/common.min.js' ),
 			array( 'jquery' ),
-			$this->plugin_version,
+			filemtime( $this->path( 'assets/js/common.min.js' ) ),
 			true
 		);
 
@@ -112,7 +115,7 @@ class FrontendAssets extends BaseController {
 			self::FRONTEND_SCRIPT_HANDLE,
 			$this->url( 'assets/js/frontend.min.js' ),
 			array( 'jquery', 'fs-lms-common-script' ),
-			$this->plugin_version,
+			filemtime( $this->path( 'assets/js/frontend.min.js' ) ),
 			true
 		);
 	}

@@ -15,7 +15,9 @@ use Inc\Enums\Access\Capability;
 use Inc\Enums\Person\DocumentType;
 use Inc\Enums\Log\LogEvent;
 use Inc\Enums\Wp\Nonce;
+use Inc\Managers\Person\UserManager;
 use Inc\Repositories\WPDBRepositories\ApplicationRepository;
+use Inc\Services\Security\CredentialsPolicy;
 use Inc\Services\Security\PiiCryptoService;
 use Inc\Shared\Traits\Authorizer;
 use Inc\Shared\Traits\Sanitizer;
@@ -40,6 +42,8 @@ class ApplicationDataCallbacks extends BaseController {
 		private readonly ApplicationRepository       $applicationRepository,
 		private readonly PiiCryptoService            $crypto,
 		private readonly LogEventDispatcherInterface $logEvents,
+		private readonly UserManager                 $userManager,
+		private readonly CredentialsPolicy           $credentials,
 	) {
 		parent::__construct();
 	}
@@ -59,7 +63,7 @@ class ApplicationDataCallbacks extends BaseController {
 			$this->error( 'Заявка не найдена.' );
 		}
 
-		$existingStudentDto = new StudentDataDTO( '', '', '', '', '', '', 0, '', '', '', '' );
+		$existingStudentDto = StudentDataDTO::fromArray( array() );
 		if ( ! empty( $app->studentDataEnc ) ) {
 			try {
 				$existingStudentDto = StudentDataDTO::fromArray(
@@ -72,18 +76,22 @@ class ApplicationDataCallbacks extends BaseController {
 
 		$email = $this->requireText( 'email' );
 
+		[ $username, $loginPassword ] = $this->resolveCredentials( $existingStudentDto );
+
 		$updatedStudentDto = new StudentDataDTO(
-			lastName:   $this->requireText( 'last_name' ),
-			firstName:  $this->requireText( 'first_name' ),
-			middleName: $this->sanitizeText( 'middle_name' ),
-			email:      $email,
-			phone:      $this->requireText( 'phone' ),
-			school:     $this->sanitizeText( 'school' ),
-			grade:      $this->sanitizeInt( 'grade' ),
-			birthDate:  $this->requireText( 'birth_date' ),
-			docType:    $existingStudentDto->docType,
-			docNumber:  $existingStudentDto->docNumber,
-			inn:        $existingStudentDto->inn,
+			lastName:      $this->requireText( 'last_name' ),
+			firstName:     $this->requireText( 'first_name' ),
+			middleName:    $this->sanitizeText( 'middle_name' ),
+			email:         $email,
+			phone:         $this->requireText( 'phone' ),
+			school:        $this->sanitizeText( 'school' ),
+			grade:         $this->sanitizeInt( 'grade' ),
+			birthDate:     $this->requireText( 'birth_date' ),
+			docType:       $existingStudentDto->docType,
+			docNumber:     $existingStudentDto->docNumber,
+			inn:           $existingStudentDto->inn,
+			username:      $username,
+			loginPassword: $loginPassword,
 		);
 
 		try {
@@ -123,7 +131,7 @@ class ApplicationDataCallbacks extends BaseController {
 		}
 
 		// Обновление данных ученика
-		$existingStudentDto = new StudentDataDTO( '', '', '', '', '', '', 0, '', '', '', '' );
+		$existingStudentDto = StudentDataDTO::fromArray( array() );
 		if ( ! empty( $app->studentDataEnc ) ) {
 			try {
 				$existingStudentDto = StudentDataDTO::fromArray(
@@ -146,6 +154,9 @@ class ApplicationDataCallbacks extends BaseController {
 			docType:    $this->sanitizeText( 'student_doc_type' ),
 			docNumber:  $this->sanitizeText( 'student_doc_number' ),
 			inn:        $this->sanitizeText( 'student_inn' ),
+			// Модалка проверки логин и пароль не показывает — переносим как есть.
+			username:      $existingStudentDto->username,
+			loginPassword: $existingStudentDto->loginPassword,
 		);
 
 		// Обновление данных родителя
@@ -231,5 +242,49 @@ class ApplicationDataCallbacks extends BaseController {
 			'parent'      => $parent,
 			'subject_key' => $app->subjectKey ?? '',
 		) );
+	}
+
+	/**
+	 * Логин и пароль из модалки правки заявки.
+	 *
+	 * Пустое поле — оставить прежнее значение. Правила и уникальность проверяются только
+	 * для изменённых значений: у старых заявок логин мог не проходить нынешнее правило,
+	 * и сохранение остальных полей из-за этого блокироваться не должно.
+	 *
+	 * Отказ — JSON-ошибка через $this->error(), выполнение прерывается.
+	 *
+	 * @param StudentDataDTO $existing Данные ученика до правки
+	 *
+	 * @return array{0: string, 1: string} [логин, пароль]
+	 */
+	private function resolveCredentials( StudentDataDTO $existing ): array {
+		$username = trim( $this->unslashRawString( 'login' ) );
+		// Пароль — без sanitize_text_field: она вырезает «%» с двумя hex-цифрами за ним.
+		$password = $this->unslashRawString( 'password' );
+
+		if ( '' === $username ) {
+			$username = $existing->username;
+		}
+		if ( '' === $password ) {
+			$password = $existing->loginPassword;
+		}
+
+		try {
+			if ( $username !== $existing->username ) {
+				$this->credentials->assertLogin( $username );
+
+				if ( null !== $this->userManager->findByLogin( $username ) ) {
+					$this->error( 'Этот логин уже занят.' );
+				}
+			}
+
+			if ( $password !== $existing->loginPassword ) {
+				$this->credentials->assertPassword( $password );
+			}
+		} catch ( \DomainException $e ) {
+			$this->error( $e->getMessage() );
+		}
+
+		return array( $username, $password );
 	}
 }

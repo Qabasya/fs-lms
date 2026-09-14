@@ -30,8 +30,11 @@ readonly class FormGuardService {
 	/** Минимальное «человеческое» время заполнения формы, сек. */
 	private const MIN_FILL_SECONDS = 3;
 
-	/** Срок годности токена формы, сек (защита от reuse старых меток). */
-	private const MAX_TOKEN_AGE = HOUR_IN_SECONDS;
+	/**
+	 * Срок годности токена формы, сек (защита от reuse старых меток).
+	 * 4 часа: на очной подаче форму открывают в начале урока, а отправляют позже.
+	 */
+	private const MAX_TOKEN_AGE = 4 * HOUR_IN_SECONDS;
 
 	/** Имя honeypot-поля в разметке формы. */
 	private const HONEYPOT_FIELD = 'fs_company';

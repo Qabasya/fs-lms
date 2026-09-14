@@ -107,12 +107,12 @@ foreach ( $subjectRepo->readAll() as $dto ) {
 					}
 				}
 
-				// Формируем HTML для ячеек (предметы через <br><br>, группы аналогично)
+				// Формируем HTML для ячеек: предметы через <br><br>, группы одного предмета — одной строкой через запятую
 				$subjectParts = array();
 				$groupParts   = array();
 				foreach ( $subjectGroups as $data ) {
 					$subjectParts[] = esc_html( $data['name'] );
-					$groupParts[]   = implode( '<br>', array_map( 'esc_html', $data['groups'] ) );
+					$groupParts[]   = implode( ', ', array_map( 'esc_html', $data['groups'] ) );
 				}
 				$subjectHtml = implode( '<br><br>', $subjectParts );
 				$groupHtml   = implode( '<br><br>', $groupParts );

@@ -35,6 +35,29 @@ readonly class PluginConfig {
 		return (string) ( $this->repository->get()['otp_bypass_code'] ?? '' );
 	}
 
+	/**
+	 * Белые IP (статический адрес сети, откуда подают заявки очно) — для них повышены IP-лимиты.
+	 *
+	 * Только константа `FS_LMS_TRUSTED_IPS` в wp-config.php, без опции в БД: адрес меняется
+	 * редко, а правка из админки расширила бы круг тех, кто может ослабить защиту.
+	 * Формат — точные адреса через запятую (или массив); маски подсетей не поддерживаются.
+	 *
+	 * @return string[]
+	 */
+	public function trustedIps(): array {
+		if ( ! defined( 'FS_LMS_TRUSTED_IPS' ) ) {
+			return array();
+		}
+
+		$raw  = FS_LMS_TRUSTED_IPS;
+		$list = is_array( $raw ) ? $raw : explode( ',', (string) $raw );
+
+		return array_values( array_filter(
+			array_map( static fn( $ip ): string => trim( (string) $ip ), $list ),
+			static fn( string $ip ): bool => false !== filter_var( $ip, FILTER_VALIDATE_IP )
+		) );
+	}
+
 	/** Attachment ID логотипа кабинета; 0 — не задан. */
 	public function brandLogoId(): int {
 		return (int) ( $this->repository->get()['brand_logo_id'] ?? 0 );

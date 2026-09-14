@@ -47,6 +47,9 @@ readonly class StudentDataDTO {
 	 * @param string $inn          ИНН ученика (12 цифр)
 	 * @param string $username     Логин для входа в личный кабинет
 	 * @param string $loginPassword Пароль для входа (plaintext внутри зашифрованного student_data_enc)
+	 *
+	 * Логин и пароль — без значений по умолчанию: пересборка DTO при правке заявки без них
+	 * молча стирала учётные данные ученика, и при зачислении логином становился email.
 	 */
 	public function __construct(
 		public string $lastName,
@@ -60,8 +63,8 @@ readonly class StudentDataDTO {
 		public string $docType,
 		public string $docNumber,
 		public string $inn,
-		public string $username = '',
-		public string $loginPassword = '',
+		public string $username,
+		public string $loginPassword,
 	) {}
 
 	public function fullName(): string {

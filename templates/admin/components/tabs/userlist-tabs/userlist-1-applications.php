@@ -341,7 +341,7 @@ $statusLabels = array_combine(
 					   data-phone="<?php echo esc_attr( $studentPhone ); ?>"
 					   data-school="<?php echo esc_attr( $studentSchool ); ?>"
 					   data-grade="<?php echo esc_attr( $studentGrade ); ?>"
-					   data-login="<?php echo esc_attr( $studentEmail ); ?>"
+					   data-login="<?php echo esc_attr( $sd['username'] ?? '' ); ?>"
 					   data-password="<?php echo esc_attr( $sd['login_password'] ?? '' ); ?>">
 						<?php esc_html_e( 'Изменить', 'fs-lms' ); ?>
 					</a>

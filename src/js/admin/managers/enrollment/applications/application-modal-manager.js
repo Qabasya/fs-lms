@@ -107,6 +107,9 @@ export const ApplicationModalManager = {
             phone:          data.phone,
             school:         data.school,
             grade:          data.grade,
+            // Пустое значение сервер трактует как «оставить прежнее».
+            login:          data.login,
+            password:       data.password,
         } )
             .done( ( res ) => {
                 // res - это ответ от сервера в формате { success: true/false, data: {...} }

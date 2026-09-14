@@ -24,7 +24,8 @@ require_once FS_LMS_PATH . 'templates/admin/components/UI/ui_renderers.php';
 	<table class="wp-list-table widefat fixed striped fs-table fs-table--taxonomy js-taxonomy-table">
 		<thead>
 		<tr>
-			<th class=" column-primary tw-30">Название</th>
+			<th class="column-primary tw-25">Название</th>
+			<th class="column-slug tw-20">Слаг</th>
 			<th class="">Тип отображения</th>
 			<th class="">Обязательна</th>
 			<th class="">В статьях</th>
@@ -54,6 +55,10 @@ require_once FS_LMS_PATH . 'templates/admin/components/UI/ui_renderers.php';
 					<?php if ( $has_no_terms ) : ?>
 						<span class="dashicons dashicons-warning fs-dashicon fs-dashicon--danger" title="Нет термов — задания нельзя публиковать"></span>
 					<?php endif; ?>
+				</td>
+
+				<td class="column-slug">
+					<?php render_fs_badge( $tax->slug, 'blue' ); ?>
 				</td>
 
 				<td>
@@ -103,7 +108,7 @@ require_once FS_LMS_PATH . 'templates/admin/components/UI/ui_renderers.php';
 
 		<tfoot>
 		<tr class="fs-add-row-tr">
-			<td colspan="5">
+			<td colspan="6">
 				<button type="button" class="button-link scss-add-item js-add-taxonomy" title="Добавить таксономию">
 					<span class="dashicons dashicons-plus"></span>
 				</button>

@@ -22,6 +22,7 @@ use Inc\Managers\Person\UserManager;
 use Inc\Services\Person\ConsentService;
 use Inc\Services\Email\EmailOtpService;
 use Inc\Contracts\ClockInterface;
+use Inc\Services\Security\CredentialsPolicy;
 use Inc\Services\Security\PiiCryptoService;
 use Inc\Shared\Traits\RequestContextProvider;
 use Inc\Shared\Traits\TransactionRunner;
@@ -61,6 +62,7 @@ readonly class ApplicationService {
 	 * @param ConsentService             $consentService        Сервис согласий
 	 * @param LogEventDispatcherInterface $logEvents            Диспетчер событий логирования
 	 * @param EmailOtpService            $emailOtpService       Сервис OTP-кодов
+	 * @param CredentialsPolicy          $credentials           Правила логина и пароля
 	 */
 	public function __construct(
 		private ApplicationRepository       $applicationRepository,
@@ -71,6 +73,7 @@ readonly class ApplicationService {
 		private EmailOtpService             $emailOtpService,
 		private ClockInterface              $clock,
 		private UserManager                 $userManager,
+		private CredentialsPolicy           $credentials,
 	) {}
 
 	/**
@@ -79,11 +82,15 @@ readonly class ApplicationService {
 	 * @param ApplicationInputDTO $input Данные формы
 	 *
 	 * @throws RuntimeException   Если OTP-код неверен или истёк
-	 * @throws DomainException    Если уже есть незавершённая заявка с таким email
+	 * @throws DomainException    Если уже есть незавершённая заявка с таким email или логин/пароль не по правилам
 	 *
 	 * @return ApplicationCreatedDTO
 	 */
 	public function createApplication( ApplicationInputDTO $input ): ApplicationCreatedDTO {
+		// До verify(): успешная проверка гасит код, и из-за опечатки в пароле пришлось бы запрашивать новый.
+		$this->credentials->assertLogin( $input->username );
+		$this->credentials->assertPassword( $input->password );
+
 		// verify() — проверка OTP-кода
 		if ( ! $this->emailOtpService->verify( $input->email, $input->otpCode ) ) {
 			throw new RuntimeException( 'Неверный или истёкший код подтверждения.' );
@@ -199,7 +206,7 @@ readonly class ApplicationService {
 		$parentDataEnc = $this->crypto->encrypt( (string) wp_json_encode( $parentDto->toArray() ) );
 
 		// Слияние с исходными данными ученика (email, phone, school, grade сохраняются)
-		$existingStudentDto = new StudentDataDTO( '', '', '', '', '', '', 0, '', '', '', '' );
+		$existingStudentDto = StudentDataDTO::fromArray( array() );
 		if ( ! empty( $app->studentDataEnc ) ) {
 			try {
 				$existingStudentDto = StudentDataDTO::fromArray(

@@ -29,6 +29,7 @@ use Inc\Services\Security\FormGuardService;
 use Inc\Services\Security\PiiCryptoService;
 use Inc\Services\Security\RateLimitService;
 use Inc\Services\Shared\PluginConfig;
+use Inc\Shared\Traits\RequestContextProvider;
 use Inc\Shared\Traits\Sanitizer;
 
 /**
@@ -53,6 +54,8 @@ use Inc\Shared\Traits\Sanitizer;
 class ApplicationCallbacks extends BaseController {
 
 	use Sanitizer;
+	// IP — как у входа (с учётом fs_lms_trusted_proxies), чтобы лимиты и белые IP видели один адрес.
+	use RequestContextProvider;
 
 	/**
 	 * Конструктор коллбеков.
@@ -92,7 +95,7 @@ class ApplicationCallbacks extends BaseController {
 	 * @return bool
 	 */
 	public function prepareJoinPage(): bool {
-		$ip   = (string) ( $_SERVER['REMOTE_ADDR'] ?? '' );
+		$ip   = $this->requestContext()->ip;
 		// get_query_var() — получает кастомный параметр из URL
 		$code = get_query_var( 'fs_lms_join_code', '' );
 
@@ -242,7 +245,7 @@ class ApplicationCallbacks extends BaseController {
 	public function ajaxSendOtpCode(): void {
 		Nonce::Apply->verify();
 
-		$ip = (string) ( $_SERVER['REMOTE_ADDR'] ?? '' );
+		$ip = $this->requestContext()->ip;
 
 		// Дешёвая бот-защита: honeypot + тайминг формы — до траты бюджета на капчу/письма.
 		$honeypot   = $this->sanitizeText( $this->formGuard->honeypotField() );
@@ -251,8 +254,8 @@ class ApplicationCallbacks extends BaseController {
 			$this->error( 'Не удалось подтвердить отправку формы. Обновите страницу и попробуйте снова.' );
 		}
 
-		// Ограничение частоты запросов по IP
-		if ( ! $this->rateLimitService->allowApplicationCreation( $ip ) ) {
+		// Ограничение частоты запросов по IP (свой счётчик — не общий с созданием заявки)
+		if ( ! $this->rateLimitService->allowOtpSend( $ip ) ) {
 			$this->error( 'Слишком много запросов. Попробуйте позже.' );
 		}
 
@@ -293,7 +296,7 @@ class ApplicationCallbacks extends BaseController {
 	public function ajaxCreateApplication(): void {
 		Nonce::VerifyOtp->verify();
 
-		$ip = (string) ( $_SERVER['REMOTE_ADDR'] ?? '' );
+		$ip = $this->requestContext()->ip;
 
 		if ( ! $this->rateLimitService->allowApplicationCreation( $ip ) ) {
 			$this->error( 'Слишком много запросов. Попробуйте позже.' );
@@ -310,8 +313,13 @@ class ApplicationCallbacks extends BaseController {
 		$birthDate  = $this->requireText( 'birth_date' );
 		$otpCode    = $this->requireText( 'otp_code' );
 		$username   = $this->requireText( 'username' );
-		$password   = $this->requireText( 'password' );
-		$ua         = (string) ( $_SERVER['HTTP_USER_AGENT'] ?? '' );
+		// Без sanitize_text_field: она вырезает «%» с двумя hex-цифрами за ним (Pass%12ab → Passab).
+		// Допустимые символы проверяет CredentialsPolicy в ApplicationService.
+		$password   = $this->unslashRawString( 'password' );
+		if ( '' === $password ) {
+			$this->error( 'Поле обязательно для заполнения' );
+		}
+		$ua         = $this->requestContext()->userAgent;
 
 		// Направление: обязательное поле формы, ключ должен существовать среди активных предметов.
 		$subjectKey = $this->requireKey( 'subject_key', 'POST', 'Выберите направление.' );
@@ -377,7 +385,7 @@ class ApplicationCallbacks extends BaseController {
 	public function ajaxSubmitParentData(): void {
 		Nonce::ParentSubmit->verify();
 
-		$ip = (string) ( $_SERVER['REMOTE_ADDR'] ?? '' );
+		$ip = $this->requestContext()->ip;
 
 		if ( ! $this->rateLimitService->allowParentSubmit( $ip ) ) {
 			$this->error( 'Слишком много запросов. Попробуйте позже.' );
@@ -427,7 +435,7 @@ class ApplicationCallbacks extends BaseController {
 	public function ajaxCheckUsernameAvailable(): void {
 		Nonce::CheckUsernameAvailable->verify();
 
-		$ip = (string) ( $_SERVER['REMOTE_ADDR'] ?? '' );
+		$ip = $this->requestContext()->ip;
 
 		// Нонс общий для всех посетителей страницы — от перебора защищает только лимит по IP.
 		if ( ! $this->rateLimitService->allowUsernameCheck( $ip ) ) {
@@ -446,7 +454,7 @@ class ApplicationCallbacks extends BaseController {
 	public function ajaxCheckEmailAvailable(): void {
 		Nonce::CheckEmailAvailable->verify();
 
-		$ip = (string) ( $_SERVER['REMOTE_ADDR'] ?? '' );
+		$ip = $this->requestContext()->ip;
 
 		// Ответ подтверждает факт регистрации по email (ПД) — лимит жёстче, чем у логина.
 		if ( ! $this->rateLimitService->allowEmailCheck( $ip ) ) {

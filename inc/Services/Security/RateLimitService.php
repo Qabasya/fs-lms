@@ -30,9 +30,16 @@ use Inc\Services\Shared\PluginConfig;
  * двукратным запасом, чтобы WP не вытеснил его раньше истечения окна.
  * Это обеспечивает фиксированное (не скользящее) окно в 1 час.
  *
+ * ### Белые IP:
+ *
+ * Для адресов из `PluginConfig::trustedIps()` (константа FS_LMS_TRUSTED_IPS) все IP-лимиты
+ * умножаются на TRUSTED_IP_MULTIPLIER: за таким адресом очно подаёт заявки целый класс.
+ * Лимиты по email, по паре IP + пользователь и по user_id от общего IP не зависят и не меняются.
+ *
  * ### Ключи transient-ов:
  *
- * - Заявки:      fs_lms_rl_apply_{ipHash}
+ * - Отправка кода заявки: fs_lms_rl_apply_otp_{ipHash}
+ * - Создание заявки:      fs_lms_rl_apply_{ipHash}
  * - JOIN-ссылки: fs_lms_rl_join_{ipHash}
  * - Submit-ы:    fs_lms_rl_parent_{ipHash}
  * - PII reveal:  fs_lms_rl_pii_{userId}
@@ -65,6 +72,26 @@ readonly class RateLimitService {
 	public const LIMIT_LOGIN  = 3;
 	public const LOGIN_WINDOW = 15 * MINUTE_IN_SECONDS;
 
+	// Во сколько раз IP-лимиты выше для белых адресов. Не безлимит: заражённое устройство
+	// в той же сети не должно слать запросы без ограничений. 20 учеников в час укладываются
+	// с запасом: до 5 отправок кода и до 6 попыток создания на ученика — 100 и 120 из 200.
+	private const TRUSTED_IP_MULTIPLIER = 10;
+
+	/**
+	 * Проверяет и фиксирует отправку кода подтверждения заявки с данного IP.
+	 *
+	 * Отдельный счётчик от создания заявки: на общем счётчике каждый ученик тратил минимум
+	 * две единицы (код + создание), и класс упирался в лимит на середине.
+	 *
+	 * @param string $ip IP-адрес клиента
+	 *
+	 * @return bool false если лимит превышен
+	 */
+	public function allowOtpSend( string $ip ): bool {
+		if ( $this->pluginConfig->isTestEnv() ) { return true; }
+		return $this->checkIp( 'apply_otp', $ip, self::LIMIT_APPLICATION );
+	}
+
 	/**
 	 * Проверяет и фиксирует попытку создания заявки с данного IP.
 	 *
@@ -74,7 +101,7 @@ readonly class RateLimitService {
 	 */
 	public function allowApplicationCreation( string $ip ): bool {
 		if ( $this->pluginConfig->isTestEnv() ) { return true; }
-		return $this->check( $this->ipKey( 'apply', $ip ), self::LIMIT_APPLICATION );
+		return $this->checkIp( 'apply', $ip, self::LIMIT_APPLICATION );
 	}
 
 	/**
@@ -101,7 +128,7 @@ readonly class RateLimitService {
 	 */
 	public function allowJoinAttempt( string $ip ): bool {
 		if ( $this->pluginConfig->isTestEnv() ) { return true; }
-		return $this->check( $this->ipKey( 'join', $ip ), self::LIMIT_JOIN );
+		return $this->checkIp( 'join', $ip, self::LIMIT_JOIN );
 	}
 
 	/**
@@ -113,7 +140,7 @@ readonly class RateLimitService {
 	 */
 	public function allowParentSubmit( string $ip ): bool {
 		if ( $this->pluginConfig->isTestEnv() ) { return true; }
-		return $this->check( $this->ipKey( 'parent', $ip ), self::LIMIT_PARENT );
+		return $this->checkIp( 'parent', $ip, self::LIMIT_PARENT );
 	}
 
 	/**
@@ -128,7 +155,7 @@ readonly class RateLimitService {
 	 */
 	public function allowUsernameCheck( string $ip ): bool {
 		if ( $this->pluginConfig->isTestEnv() ) { return true; }
-		return $this->check( $this->ipKey( 'unamechk', $ip ), self::LIMIT_USERNAME_CHECK );
+		return $this->checkIp( 'unamechk', $ip, self::LIMIT_USERNAME_CHECK );
 	}
 
 	/**
@@ -143,7 +170,7 @@ readonly class RateLimitService {
 	 */
 	public function allowEmailCheck( string $ip ): bool {
 		if ( $this->pluginConfig->isTestEnv() ) { return true; }
-		return $this->check( $this->ipKey( 'emailchk', $ip ), self::LIMIT_EMAIL_CHECK );
+		return $this->checkIp( 'emailchk', $ip, self::LIMIT_EMAIL_CHECK );
 	}
 
 	/**
@@ -309,6 +336,21 @@ readonly class RateLimitService {
 		$hash = hash( 'sha256', strtolower( trim( $email ) ) . $salt );
 
 		return "fs_lms_rl_{$prefix}_{$hash}";
+	}
+
+	/**
+	 * IP-счётчик с учётом белых адресов.
+	 *
+	 * @param string $prefix Префикс действия (см. ipKey())
+	 * @param string $ip     IP-адрес клиента
+	 * @param int    $limit  Лимит для обычного адреса
+	 *
+	 * @return bool
+	 */
+	private function checkIp( string $prefix, string $ip, int $limit ): bool {
+		$isTrusted = '' !== $ip && in_array( $ip, $this->pluginConfig->trustedIps(), true );
+
+		return $this->check( $this->ipKey( $prefix, $ip ), $isTrusted ? $limit * self::TRUSTED_IP_MULTIPLIER : $limit );
 	}
 
 	/**

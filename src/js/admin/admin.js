@@ -57,11 +57,16 @@ import { LegacyTaskImport } from './services/legacy-task-import.js';
 
     $(document).ready(function () {
         setTimeout(() => {
-            // Флеш-уведомления гасим через 5с, но НЕ структурные плашки-пустышки
-            // («Вы ещё не создали ни одного предмета» и т.п. — .fs-table__no-items):
-            // они постоянные, а не временные сообщения (#3).
-            $('.notice-success, .notice-warning, .notice-info')
-                .not('.notice-error, .fs-table__no-items')
+            // Через 5с гасим только флеш-сообщения о результате действия («Запись обновлена»,
+            // «Настройки сохранены»). Не трогаем:
+            // - структурные плашки-пустышки (.fs-table__no-items, #3) и .inline-блоки в модалках —
+            //   они постоянные, а скрытые ещё покажет свой JS (предупреждение экспорта пакета);
+            // - предупреждения и info чужих плагинов — их закрывают крестиком;
+            // - скрытые уведомления: fadeTo() сначала делает .show(), и невидимый блок
+            //   (напр. #notice-corrupt-rest-api.hidden) на миг выталкивал таблицу вниз.
+            $('#message, .notice.updated, .notice-success')
+                .not('.notice-error, .error, .fs-table__no-items, .inline')
+                .filter(':visible')
                 .each(function () {
                     const $n = $(this);
                     $n.fadeTo(100, 0, () => $n.slideUp(100, () => $n.remove()));
