@@ -49,8 +49,8 @@ readonly class RateLimitService {
 	) {}
 	private const TRANSIENT_TTL = self::WINDOW * 2;
 
-	private const LIMIT_APPLICATION = 5;
-	private const LIMIT_JOIN        = 10;
+	private const LIMIT_APPLICATION = 20;
+	private const LIMIT_JOIN        = 30;
 	private const LIMIT_PARENT      = 3;
 	private const LIMIT_PII_REVEAL  = 100;
 	private const LIMIT_OTP_EMAIL   = 5;
@@ -58,7 +58,7 @@ readonly class RateLimitService {
 	// Публичные проверки занятости (лимит по IP; email жёстче — это проверка ПД).
 	// IP за школьным NAT общий на класс — ниже 20/час не опускать.
 	private const LIMIT_USERNAME_CHECK = 20;
-	private const LIMIT_EMAIL_CHECK    = 10;
+	private const LIMIT_EMAIL_CHECK    = 20;
 
 	// Неудачные входы: счётчик на пару IP + пользователь. Лимита по одному IP нет —
 	// с одного адреса выходят около 20 человек (перебор логинов сдерживает капча).
