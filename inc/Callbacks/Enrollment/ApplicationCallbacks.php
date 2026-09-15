@@ -22,6 +22,7 @@ use Inc\Repositories\WPDBRepositories\ApplicationRepository;
 use Inc\Repositories\WPDBRepositories\PersonDocumentsRepository;
 use Inc\Services\Application\ApplicationService;
 use Inc\Services\Application\JoinCodeService;
+use Inc\Services\Application\LoginAvailabilityService;
 use Inc\Services\Captcha\CaptchaService;
 use Inc\Services\Email\EmailOtpService;
 use Inc\Services\Log\AuthLogWriter;
@@ -84,6 +85,7 @@ class ApplicationCallbacks extends BaseController {
 		private readonly FormGuardService             $formGuard,
 		private readonly PersonDocumentsRepository    $personDocumentsRepository,
 		private readonly SubjectRepository            $subjects,
+		private readonly LoginAvailabilityService     $logins,
 	) {
 		parent::__construct();
 	}
@@ -448,7 +450,8 @@ class ApplicationCallbacks extends BaseController {
 			$this->error( 'Логин не указан.' );
 		}
 
-		$this->success( array( 'available' => ! username_exists( $username ) ) );
+		// Занят и учёткой, и логином другой незавершённой заявки — иначе вторая заявка упадёт при зачислении.
+		$this->success( array( 'available' => ! $this->logins->isTaken( $username ) ) );
 	}
 
 	public function ajaxCheckEmailAvailable(): void {

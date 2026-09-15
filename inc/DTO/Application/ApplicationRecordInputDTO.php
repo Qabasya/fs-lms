@@ -18,6 +18,7 @@ readonly class ApplicationRecordInputDTO {
 		public ?string $parentSubmittedIp  = null,
 		public ?int    $studentPersonId    = null,
 		public ?string $subjectKey         = null,
+		public ?string $usernameHash       = null,
 	) {}
 
 	public function toArray(): array {
@@ -42,6 +43,9 @@ readonly class ApplicationRecordInputDTO {
 		}
 		if ( null !== $this->subjectKey && '' !== $this->subjectKey ) {
 			$data['subject_key'] = $this->subjectKey;
+		}
+		if ( null !== $this->usernameHash ) {
+			$data['username_hash'] = $this->usernameHash;
 		}
 
 		return $data;

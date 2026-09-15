@@ -27,6 +27,7 @@ readonly class AdminScreenContext {
 	 * @param bool   $course     Экран CPT курсов
 	 * @param bool   $problems   Экран банка задач
 	 * @param bool   $article    Экран CPT статей
+	 * @param string $base       База экрана WP: `post` — редактирование записи, `edit` — список
 	 */
 	private function __construct(
 		public string $page,
@@ -39,7 +40,14 @@ readonly class AdminScreenContext {
 		public bool   $course,
 		public bool   $problems,
 		public bool   $article,
+		public string $base = '',
 	) {}
+
+	/** Скрытая страница конструктора курса (`CourseBuilderController::PAGE_SLUG`): у экрана нет CPT. */
+	private const COURSE_BUILDER_PAGE = 'fs_lms_course_builder';
+
+	/** Страница настроек плагина: загрузка логотипа кабинета через медиатеку. */
+	private const SETTINGS_PAGE = 'fs_lms_settings';
 
 	/**
 	 * Считывает признаки текущего экрана админки.
@@ -51,6 +59,7 @@ readonly class AdminScreenContext {
 		$postType = (string) ( $screen->post_type ?? '' );
 
 		return new self(
+			base:       (string) ( $screen->base ?? '' ),
 			page:       $page,
 			postType:   $postType,
 			// str_starts_with() — проверяет начало строки (PHP 8.0)
@@ -88,16 +97,45 @@ readonly class AdminScreenContext {
 	}
 
 	/**
-	 * Нужен ли inline-редактор задач (Phase F, Этап 6).
+	 * Экран редактирования записи (post.php / post-new.php), а не список.
 	 */
-	public function needsTaskEditor(): bool {
-		return $this->task || $this->lesson || $this->work || $this->course || $this->isSubjectPage();
+	public function isEditScreen(): bool {
+		return 'post' === $this->base;
 	}
 
 	/**
-	 * Нужен ли полный стек TinyMCE (редактор шагов в уроках и курсах).
+	 * Страница конструктора курса.
+	 */
+	public function isCourseBuilderPage(): bool {
+		return self::COURSE_BUILDER_PAGE === $this->page;
+	}
+
+	/**
+	 * Нужна ли медиатека WordPress (`wp.media`).
+	 *
+	 * Её используют поля задания (`task-fields.js`), редактор шагов урока и конструктор курса
+	 * (`step-editors/`) и логотип в настройках. На экранах списков медиатека не нужна, а стоила
+	 * ~25 скриптов и ~80 КБ HTML-шаблонов (см. .docs/Tasks.md, С4).
+	 */
+	public function needsMedia(): bool {
+		$contentEdit = $this->isEditScreen()
+			&& ( $this->task || $this->lesson || $this->work || $this->assessment || $this->course || $this->problems || $this->article );
+
+		return $contentEdit || $this->isCourseBuilderPage() || self::SETTINGS_PAGE === $this->page;
+	}
+
+	/**
+	 * Нужен ли inline-редактор задач: данные `fs_lms_task_editor_vars` — только там, где работает
+	 * редактор шагов (урок, курс, конструктор курса), а не на каждом экране CPT.
+	 */
+	public function needsTaskEditor(): bool {
+		return $this->needsEditor();
+	}
+
+	/**
+	 * Нужен ли полный стек TinyMCE (`wp.editor`, Quicktags) — редактор шагов урока и курса.
 	 */
 	public function needsEditor(): bool {
-		return $this->lesson || $this->course;
+		return ( $this->isEditScreen() && ( $this->lesson || $this->course ) ) || $this->isCourseBuilderPage();
 	}
 }

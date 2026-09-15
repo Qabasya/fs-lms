@@ -4,8 +4,9 @@
  * Доступна только по прямому адресу admin.php?page=fs_lms_legacy_task_import
  * (аналогично Boilerplate Manager) — в боковом меню не отображается.
  *
- * @var \Inc\DTO\Subject\SubjectDTO[] $subjects   Активные предметы.
- * @var int                           $batch_size Записей в одном AJAX-запросе.
+ * @var \Inc\DTO\Subject\SubjectDTO[]                                      $subjects   Активные предметы.
+ * @var array<string, array<int, array{slug: string, name: string}>>     $taxonomies Таксономии по ключу предмета.
+ * @var int                                                              $batch_size Записей в одном AJAX-запросе.
  */
 
 declare( strict_types=1 );
@@ -45,7 +46,7 @@ defined( 'ABSPATH' ) || exit;
 		<tr>
 			<th scope="row"><label for="fs-legacy-import-subject">Предмет</label></th>
 			<td>
-				<select id="fs-legacy-import-subject">
+				<select id="fs-legacy-import-subject" data-taxonomies="<?php echo esc_attr( (string) wp_json_encode( $taxonomies ) ); ?>">
 					<?php foreach ( $subjects as $subject ) : ?>
 						<option value="<?php echo esc_attr( $subject->key ); ?>">
 							<?php echo esc_html( $subject->name ); ?> (<?php echo esc_html( $subject->key ); ?>)
@@ -54,27 +55,24 @@ defined( 'ABSPATH' ) || exit;
 				</select>
 			</td>
 		</tr>
-		<tr>
-			<th scope="row"><label for="fs-legacy-import-author-tax">Таксономия автора</label></th>
-			<td>
-				<input type="text" id="fs-legacy-import-author-tax" class="regular-text" placeholder="{ключ}_author">
-				<p class="description">Пусто — будет использован слаг «{ключ_предмета}_author».</p>
-			</td>
-		</tr>
-		<tr>
-			<th scope="row"><label for="fs-legacy-import-year-tax">Таксономия года</label></th>
-			<td>
-				<input type="text" id="fs-legacy-import-year-tax" class="regular-text" placeholder="{ключ}_year">
-				<p class="description">Пусто — будет использован слаг «{ключ_предмета}_year».</p>
-			</td>
-		</tr>
-		<tr>
-			<th scope="row"><label for="fs-legacy-import-level-tax">Таксономия сложности</label></th>
-			<td>
-				<input type="text" id="fs-legacy-import-level-tax" class="regular-text" placeholder="{ключ}_level">
-				<p class="description">Пусто — будет использован слаг «{ключ_предмета}_level».</p>
-			</td>
-		</tr>
+		<?php
+		// Списки заполняет legacy-task-import.js из data-taxonomies выбранного предмета;
+		// data-suffix — хвост слага, который выбирается по умолчанию ({ключ}_author и т.д.).
+		$legacy_tax_fields = array(
+			'author' => 'Таксономия автора',
+			'year'   => 'Таксономия года',
+			'level'  => 'Таксономия сложности',
+		);
+		?>
+		<?php foreach ( $legacy_tax_fields as $suffix => $label ) : ?>
+			<tr>
+				<th scope="row"><label for="fs-legacy-import-<?php echo esc_attr( $suffix ); ?>-tax"><?php echo esc_html( $label ); ?></label></th>
+				<td>
+					<select id="fs-legacy-import-<?php echo esc_attr( $suffix ); ?>-tax" class="js-legacy-import-tax" data-suffix="<?php echo esc_attr( $suffix ); ?>"></select>
+					<p class="description">«По умолчанию» — слаг «{ключ_предмета}_<?php echo esc_html( $suffix ); ?>». Если у предмета нет выбранной таксономии, это поле при переносе пропускается.</p>
+				</td>
+			</tr>
+		<?php endforeach; ?>
 		</tbody>
 	</table>
 

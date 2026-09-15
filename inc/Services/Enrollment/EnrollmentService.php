@@ -13,7 +13,6 @@ use Inc\DTO\Enrollment\RemoveParentResultDTO;
 use Inc\DTO\Enrollment\RestoreResultDTO;
 use Inc\DTO\Enrollment\StudentRecordInputDTO;
 use Inc\DTO\Person\ParentDataDTO;
-use Inc\DTO\Person\PersonInputDTO;
 use Inc\DTO\Person\UserInputDTO;
 use Inc\DTO\Enrollment\StudentDataDTO;
 use Inc\Enums\Enrollment\ApplicationStatus;
@@ -34,7 +33,6 @@ use Inc\Enums\Log\LogEvent;
 use Inc\Enums\Log\OperationType;
 use Inc\Services\Person\ConsentService;
 use Inc\Services\Email\EmailService;
-use Inc\Services\Security\PasswordGeneratorService;
 use Inc\Services\Person\PersonService;
 use Inc\Contracts\ClockInterface;
 use Inc\Services\Security\PiiCryptoService;
@@ -59,14 +57,14 @@ readonly class EnrollmentService {
 		private JoinCodeService              $joinCodeService,
 		private ConsentService               $consentService,
 		private UserManager                  $userManager,
-		private PasswordGeneratorService     $passwordGenerator,
 		private EmailService                 $emailService,
 		private PiiCryptoService             $crypto,
 		private ClockInterface               $clock,
 		private LogEventDispatcherInterface  $logEvents,
 		private EnrollmentPersonResolver     $personResolver,
 		private EnrollmentTransaction        $transaction,
-		private AccountProvisioningService   $provisioning,
+		private EnrollmentAccountsService    $accounts,
+		private FamilyEmailPolicy            $familyEmails,
 	) {}
 
 	/**
@@ -79,7 +77,7 @@ readonly class EnrollmentService {
 	 * 3. Атомарная запись ({@see EnrollmentTransaction}): физлица + запись о
 	 *    зачислении + согласия.
 	 * 4. После COMMIT — то, что транзакцией не откатывается: WP-учётки
-	 *    ({@see AccountProvisioningService}), удаление заявки, письмо.
+	 *    ({@see EnrollmentAccountsService}), удаление заявки, письмо.
 	 *
 	 * Падение шага 4 не отменяет зачисление: заявка помечается `converted`,
 	 * учётки досоздаёт `RecoveryService` (cron), а вызывающему возвращается
@@ -88,8 +86,8 @@ readonly class EnrollmentService {
 	 * @param EnrollmentInputDTO $input Параметры зачисления
 	 *
 	 * @throws InvalidArgumentException Заявка не найдена
-	 * @throws DomainException          Заявка не в статусе enrolling, email родителя занят,
-	 *                                  ученик уже зачислен в эту группу
+	 * @throws DomainException          Заявка не в статусе enrolling, email родителя занят или совпадает
+	 *                                  с email ученика, ученик уже зачислен в эту группу
 	 */
 	public function enroll( EnrollmentInputDTO $input ): EnrollmentResultDTO {
 		$app = $this->applicationRepository->find( $input->applicationId );
@@ -108,6 +106,10 @@ readonly class EnrollmentService {
 		$parentDto  = ParentDataDTO::fromArray(
 			json_decode( $this->crypto->decrypt( (string) $app->parentDataEnc ), true ) ?? array()
 		);
+
+		// До транзакции: с одним email на двоих учётка родителя привязалась бы к учётке ученика.
+		// Анкета родителя это уже не пропускает, проверка здесь — для заявок, поданных раньше правила.
+		$this->familyEmails->assertDistinct( $studentDto->email, $parentDto->email );
 
 		$existingStudent  = $this->personResolver->resolveStudent( $app, $studentDto );
 		$existingGuardian = $this->personResolver->resolveGuardian( $app, $parentDto );
@@ -138,13 +140,8 @@ readonly class EnrollmentService {
 		do_action( 'fs_lms_student_enrolled', $recordId, $studentPersonId );
 
 		try {
-			$student  = $this->provisioning->provisionStudent(
-				$studentPersonId,
-				$this->studentAccountData( $studentDto ),
-				$this->studentLogin( $studentDto, $studentPersonId ),
-				'' !== $studentDto->loginPassword ? $studentDto->loginPassword : $this->passwordGenerator->generatePlain()
-			);
-			$guardian = $this->provisioning->provisionParent( $guardianPersonId, $parentDto );
+			$student  = $this->accounts->provisionStudent( $studentDto, $studentPersonId );
+			$guardian = $this->accounts->provisionGuardian( $parentDto, $guardianPersonId );
 
 			$this->applicationRepository->forceDelete( $app->id );
 
@@ -184,35 +181,6 @@ readonly class EnrollmentService {
 
 			return new EnrollmentResultDTO( $recordId, 0, 0, null, null, null, null, true, $e->getMessage() );
 		}
-	}
-
-	/**
-	 * Данные ученика для провизии учётки (email + ФИО).
-	 *
-	 * @param StudentDataDTO $student Данные ученика из заявки
-	 */
-	private function studentAccountData( StudentDataDTO $student ): PersonInputDTO {
-		return new PersonInputDTO(
-			lastName:  $student->lastName,
-			firstName: $student->firstName,
-			docNumber: $student->docNumber,
-			isStudent: true,
-			email:     '' !== $student->email ? $student->email : null,
-		);
-	}
-
-	/**
-	 * Логин новой учётки ученика: явный из заявки → email → служебный по ID физлица.
-	 *
-	 * @param StudentDataDTO $student  Данные ученика
-	 * @param int            $personId Физлицо ученика
-	 */
-	private function studentLogin( StudentDataDTO $student, int $personId ): string {
-		if ( '' !== $student->username ) {
-			return $student->username;
-		}
-
-		return '' !== $student->email ? $student->email : 'student_' . $personId;
 	}
 
 	public function restoreFromArchive( int $recordId, bool $withParent = false ): RestoreResultDTO {

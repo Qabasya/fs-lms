@@ -28,6 +28,12 @@ namespace Inc\Services\Subject\Bundle;
  *
  * `strtr()` с массивом выбирает самое длинное совпадение и не применяет замены
  * повторно к уже заменённому — поэтому порядок ключей значения не имеет.
+ *
+ * ### ID в атрибутах шорткодов
+ *
+ * `[vc_single_image image="143"]` подстрокой не заменить: `image="143"` встречается и у чужих
+ * записей, а в `images="143,150"` ID стоят списком. Для них отдельная карта «старый ID → новый»
+ * ({@see buildIdMap()}), замену делает {@see ShortcodeMediaRefs::rewrite()}.
  */
 final class MediaUrlRewriter {
 
@@ -35,6 +41,13 @@ final class MediaUrlRewriter {
 	 * Поля записи, в которых переписываются ссылки помимо меты.
 	 */
 	private const array REWRITTEN_POST_FIELDS = array( 'post_content', 'post_excerpt' );
+
+	/**
+	 * @param ShortcodeMediaRefs $shortcodes Ссылки на вложения в атрибутах шорткодов
+	 */
+	public function __construct(
+		private readonly ShortcodeMediaRefs $shortcodes = new ShortcodeMediaRefs(),
+	) {}
 
 	/**
 	 * Строит таблицу замен по разделу `media[]` манифеста.
@@ -72,23 +85,47 @@ final class MediaUrlRewriter {
 	}
 
 	/**
-	 * Применяет таблицу замен к представлению записи.
+	 * Карта ID вложений для атрибутов шорткодов по разделу `media[]` манифеста.
+	 *
+	 * @param array      $media Раздел `media[]` манифеста
+	 * @param MediaIdMap $idMap Карта `_export_id` → новый attachment ID
+	 *
+	 * @return array<int, int> ID на источнике → ID на целевом сайте
+	 */
+	public function buildIdMap( array $media, MediaIdMap $idMap ): array {
+		$ids = array();
+
+		foreach ( $media as $entry ) {
+			$sourceId = (int) ( $entry['source_id'] ?? 0 );
+			$newId    = $idMap->resolve( (string) ( $entry['export_id'] ?? '' ) );
+
+			if ( $sourceId > 0 && null !== $newId && $newId > 0 ) {
+				$ids[ $sourceId ] = $newId;
+			}
+		}
+
+		return $ids;
+	}
+
+	/**
+	 * Применяет таблицу замен и карту ID к представлению записи.
 	 *
 	 * @param array<string, mixed>  $post         Представление записи из манифеста
-	 * @param array<string, string> $replacements Таблица замен
+	 * @param array<string, string> $replacements Таблица замен подстрок ({@see buildMap()})
+	 * @param array<int, int>       $idMap        ID вложений для шорткодов ({@see buildIdMap()})
 	 *
 	 * @return array<string, mixed> Представление с переписанными ссылками
 	 */
-	public function rewritePost( array $post, array $replacements ): array {
-		if ( array() === $replacements ) {
+	public function rewritePost( array $post, array $replacements, array $idMap = array() ): array {
+		if ( array() === $replacements && array() === $idMap ) {
 			return $post;
 		}
 
-		$post['meta'] = $this->rewriteValue( (array) ( $post['meta'] ?? array() ), $replacements );
+		$post['meta'] = $this->rewriteValue( (array) ( $post['meta'] ?? array() ), $replacements, $idMap );
 
 		foreach ( self::REWRITTEN_POST_FIELDS as $field ) {
 			if ( isset( $post[ $field ] ) && is_string( $post[ $field ] ) ) {
-				$post[ $field ] = strtr( $post[ $field ], $replacements );
+				$post[ $field ] = $this->rewriteText( $post[ $field ], $replacements, $idMap );
 			}
 		}
 
@@ -96,16 +133,34 @@ final class MediaUrlRewriter {
 	}
 
 	/**
+	 * Переписывает одну строку: сначала подстроки, затем ID в атрибутах шорткодов.
+	 *
+	 * @param string                $text         Текст
+	 * @param array<string, string> $replacements Таблица замен подстрок
+	 * @param array<int, int>       $idMap        ID вложений для шорткодов
+	 *
+	 * @return string
+	 */
+	private function rewriteText( string $text, array $replacements, array $idMap ): string {
+		if ( array() !== $replacements ) {
+			$text = strtr( $text, $replacements );
+		}
+
+		return $this->shortcodes->rewrite( $text, $idMap );
+	}
+
+	/**
 	 * Рекурсивно переписывает строки внутри структуры меты.
 	 *
 	 * @param mixed                 $value        Узел меты
 	 * @param array<string, string> $replacements Таблица замен
+	 * @param array<int, int>       $idMap        ID вложений для шорткодов
 	 *
 	 * @return mixed Узел с переписанными строками
 	 */
-	private function rewriteValue( mixed $value, array $replacements ): mixed {
+	private function rewriteValue( mixed $value, array $replacements, array $idMap ): mixed {
 		if ( is_string( $value ) ) {
-			return strtr( $value, $replacements );
+			return $this->rewriteText( $value, $replacements, $idMap );
 		}
 
 		if ( ! is_array( $value ) ) {
@@ -113,7 +168,7 @@ final class MediaUrlRewriter {
 		}
 
 		foreach ( $value as $key => $item ) {
-			$value[ $key ] = $this->rewriteValue( $item, $replacements );
+			$value[ $key ] = $this->rewriteValue( $item, $replacements, $idMap );
 		}
 
 		return $value;

@@ -11,7 +11,7 @@ use Inc\Shared\Traits\Sanitizer;
  * Class AdminAssets
  *
  * Ассеты админки: гейт по экрану (AdminScreenContext), медиатека/редактор,
- * базовый стек (Font Awesome + common + admin) и локализация window-переменных
+ * базовый стек (common + admin) и локализация window-переменных
  * из реестра AdminLocalizations.
  *
  * Выделен из Core\Enqueue (Т14.4).
@@ -46,11 +46,13 @@ class AdminAssets extends BaseController {
 			return;
 		}
 
-		// wp_enqueue_media() — подключает медиа-библиотеку WordPress (для загрузки изображений)
-		wp_enqueue_media();
+		// Медиатека — только там, где её открывают: на списках она стоила ~25 скриптов и ~80 КБ HTML.
+		if ( $ctx->needsMedia() ) {
+			wp_enqueue_media();
+		}
 
-		// На страницах CPT уроков и курсов нужен полный стек TinyMCE для wp.editor.initialize()
-		// в редакторе шагов. wp_enqueue_editor() гарантирует загрузку tinymce + wp-tinymce.
+		// Редактор шагов урока и конструктор курса: wp.editor.initialize() и Quicktags.
+		// wp_enqueue_editor() подключает tinymce, wp-tinymce, editor и quicktags.
 		if ( $ctx->needsEditor() ) {
 			wp_enqueue_editor();
 		}
@@ -71,19 +73,18 @@ class AdminAssets extends BaseController {
 	}
 
 	/**
-	 * Базовый стек админки: шрифт иконок, общий и админский бандлы.
+	 * Базовый стек админки: общий и админский бандлы.
 	 *
-	 * filemtime() — версионирование (кеш-бастинг).
+	 * filemtime() — версионирование (кеш-бастинг). Font Awesome не подключается: иконки —
+	 * `Inc\Enums\Ui\Icon` и `src/js/common/icons.js`, а блокирующий CSS с CDN грузился впустую.
 	 *
 	 * @return void
 	 */
 	private function enqueueAdminBase(): void {
-		$this->bundles->enqueueFontAwesome();
-
 		wp_enqueue_style(
 			'fs-lms-common-style',
 			$this->url( 'assets/css/common.min.css' ),
-			array( 'fs-lms-fontawesome' ),
+			array(),
 			filemtime( $this->path( 'assets/css/common.min.css' ) )
 		);
 
@@ -102,10 +103,12 @@ class AdminAssets extends BaseController {
 			true
 		);
 
+		// Только jQuery: `wp.api` и `wp.i18n` в src/js не используются, а editor/quicktags
+		// подключает wp_enqueue_editor() на экранах редактора шагов (AdminScreenContext::needsEditor()).
 		wp_enqueue_script(
 			self::ADMIN_SCRIPT_HANDLE,
 			$this->url( 'assets/js/admin.min.js' ),
-			array( 'jquery', 'wp-api', 'wp-i18n', 'editor', 'quicktags' ),
+			array( 'jquery' ),
 			filemtime( $this->path( 'assets/js/admin.min.js' ) ),
 			true
 		);

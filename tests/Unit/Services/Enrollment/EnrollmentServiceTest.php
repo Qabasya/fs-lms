@@ -81,7 +81,6 @@ class EnrollmentServiceTest extends TestCase {
 			$this->joinCodeService,
 			$consentService,
 			$this->userManager,
-			$this->passwordGenerator,
 			$this->createMock( EmailService::class ),
 			$this->crypto,
 			$this->clock,
@@ -90,7 +89,11 @@ class EnrollmentServiceTest extends TestCase {
 			// поведение всего потока, а не изоляцию EnrollmentService.
 			new EnrollmentPersonResolver( $this->personRepo, $this->personService, $this->crypto ),
 			new EnrollmentTransaction( $this->studentRecordRepo, $this->personService, $consentService, $this->clock ),
-			new AccountProvisioningService( $this->userManager, $this->passwordGenerator, $this->personRepo, $this->logEvents ),
+			new \Inc\Services\Enrollment\EnrollmentAccountsService(
+				new AccountProvisioningService( $this->userManager, $this->passwordGenerator, $this->personRepo, $this->logEvents ),
+				$this->passwordGenerator
+			),
+			new \Inc\Services\Enrollment\FamilyEmailPolicy(),
 		);
 	}
 
@@ -238,6 +241,27 @@ class EnrollmentServiceTest extends TestCase {
 		$this->userManager->method( 'findByEmail' )->willReturn( new \WP_User() );
 
 		$this->expectException( DomainException::class );
+		$this->service->enroll( $this->makeInput() );
+	}
+
+	public function test_enroll_throws_before_transaction_when_parent_email_equals_student_email(): void {
+		$this->crypto->method( 'decrypt' )->willReturn( (string) json_encode( array(
+			'last_name' => 'Иванов', 'first_name' => 'Иван', 'email' => 'Family@Test.com ',
+		) ) );
+		$this->appRepo->method( 'find' )->willReturn( new ApplicationDTO(
+			id: 1, studentPersonId: null, parentPersonId: null,
+			status: ApplicationStatus::Enrolling,
+			joinCodeHash: null, joinCodeEnc: null, joinCodeExpiresAt: null,
+			studentEmailHash: null, studentDataEnc: 'student_enc', parentDataEnc: 'parent_enc',
+			convertedRecordId: null, parentSubmittedIp: null, parentSubmittedUa: null,
+			reviewedByUserId: null, createdAt: '2024-01-01', updatedAt: '2024-01-01',
+		) );
+
+		$this->personService->expects( $this->never() )->method( 'createOrFindBy' );
+		$this->userManager->expects( $this->never() )->method( 'create' );
+
+		$this->expectException( DomainException::class );
+		$this->expectExceptionMessage( \Inc\Services\Enrollment\FamilyEmailPolicy::MESSAGE );
 		$this->service->enroll( $this->makeInput() );
 	}
 

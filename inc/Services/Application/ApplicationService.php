@@ -18,10 +18,10 @@ use Inc\Enums\Log\AuditAction;
 use Inc\Enums\Log\LogEvent;
 use Inc\Repositories\WPDBRepositories\ApplicationRepository;
 use Inc\Shared\PluginLogger;
-use Inc\Managers\Person\UserManager;
 use Inc\Services\Person\ConsentService;
 use Inc\Services\Email\EmailOtpService;
 use Inc\Contracts\ClockInterface;
+use Inc\Services\Enrollment\FamilyEmailPolicy;
 use Inc\Services\Security\CredentialsPolicy;
 use Inc\Services\Security\PiiCryptoService;
 use Inc\Shared\Traits\RequestContextProvider;
@@ -72,8 +72,9 @@ readonly class ApplicationService {
 		private LogEventDispatcherInterface $logEvents,
 		private EmailOtpService             $emailOtpService,
 		private ClockInterface              $clock,
-		private UserManager                 $userManager,
+		private LoginAvailabilityService    $logins,
 		private CredentialsPolicy           $credentials,
+		private FamilyEmailPolicy           $familyEmails,
 	) {}
 
 	/**
@@ -103,7 +104,8 @@ readonly class ApplicationService {
 			throw new DomainException( 'Незавершённая заявка уже существует.' );
 		}
 
-		if ( '' !== $input->username && null !== $this->userManager->findByLogin( $input->username ) ) {
+		// Учётка WordPress или другая незавершённая заявка: логин заявки станет учёткой только при зачислении.
+		if ( $this->logins->isTaken( $input->username ) ) {
 			throw new DomainException( 'Этот логин уже занят.' );
 		}
 
@@ -144,6 +146,7 @@ readonly class ApplicationService {
 				studentEmailHash:   $emailHash,
 				parentSubmittedIp:  $ctx->ip,
 				subjectKey:         '' !== $input->subjectKey ? $input->subjectKey : null,
+				usernameHash:       $this->logins->hash( $input->username ),
 			) );
 
 			// Фиксация согласия на обработку ПД (сам ученик)
@@ -173,7 +176,7 @@ readonly class ApplicationService {
 	 *
 	 * @param ParentSubmissionInputDTO $input Данные формы родителя
 	 *
-	 * @throws DomainException Если заявка не найдена или недоступна
+	 * @throws DomainException Если заявка не найдена или недоступна, email родителя совпадает с email ученика
 	 *
 	 * @return void
 	 */
@@ -186,7 +189,8 @@ readonly class ApplicationService {
 			throw new DomainException( 'Заявка не найдена или недоступна.' );
 		}
 
-		$ctx = $this->requestContext();
+		$ctx          = $this->requestContext();
+		$hasPreParent = null !== $app->parentPersonId;
 
 		// Шифрование данных родителя
 		$parentDto = new ParentDataDTO(
@@ -217,6 +221,11 @@ readonly class ApplicationService {
 			}
 		}
 
+		// Назначенного заранее родителя форма не меняет — его email уже проверен при назначении.
+		if ( ! $hasPreParent ) {
+			$this->familyEmails->assertDistinct( $existingStudentDto->email, $input->email );
+		}
+
 		$updatedStudentDto = new StudentDataDTO(
 			lastName:      $input->studentLastName,
 			firstName:     $input->studentFirstName,
@@ -234,8 +243,7 @@ readonly class ApplicationService {
 		);
 		$studentDataEnc = $this->crypto->encrypt( (string) wp_json_encode( $updatedStudentDto->toArray() ) );
 
-		$appId        = $app->id;
-		$hasPreParent = null !== $app->parentPersonId;
+		$appId = $app->id;
 
 		$this->inTransaction( function () use ( $appId, $parentDataEnc, $studentDataEnc, $ctx, $hasPreParent ): void {
 			$updates = array(

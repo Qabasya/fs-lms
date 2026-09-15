@@ -12,8 +12,8 @@
 /assets/css/maps/
 *.map
 *.LICENSE.txt
-# FontAwesome грузится с CDN (BundleLoader::enqueueFontAwesome) — локальные копии
-# не нужны, если случайно окажутся на диске при сборке.
+# FontAwesome больше не подключается (с 1.0.8) — локальные копии, если случайно
+# окажутся на диске при сборке, в пакет не попадают.
 /assets/css/all.min.css
 /assets/css/fontawesome.min.css
 /assets/css/solid.min.css

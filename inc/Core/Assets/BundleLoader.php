@@ -13,8 +13,8 @@ use Inc\Services\Profile\ProfileViewResolver;
  * Class BundleLoader
  *
  * Общие примитивы подключения ассетов + изолированные SPA-бандлы
- * (profile / player / assessment / kege): шрифт интерфейса, Font Awesome,
- * MathJax, скелет style+script+localize.
+ * (profile / player / assessment / kege): шрифт интерфейса, MathJax,
+ * скелет style+script+localize.
  *
  * Выделен из Core\Enqueue (Т14.4). Правило «wp_localize_script — только в слое
  * Core/Assets» сохраняется: все вызовы живут здесь, в AdminAssets и FrontendAssets.
@@ -58,21 +58,6 @@ class BundleLoader extends BaseController {
 		wp_enqueue_style(
 			'fs-lms-ubuntu',
 			'https://fonts.googleapis.com/css2?family=Ubuntu:wght@400;500;700&display=swap',
-			array(),
-			null
-		);
-	}
-
-	/**
-	 * Font Awesome — иконки интерфейса (общий для admin- и frontend-базы; Т14.4:
-	 * дедуп задублированного блока из Enqueue).
-	 *
-	 * @return void
-	 */
-	public function enqueueFontAwesome(): void {
-		wp_enqueue_style(
-			'fs-lms-fontawesome',
-			'https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.7.2/css/all.min.css',
 			array(),
 			null
 		);

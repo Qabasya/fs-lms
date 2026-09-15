@@ -85,6 +85,11 @@ const webpackConfig = {
     },
     output: {
         filename: '[name].min.js',
+        // Чанки динамических import() (конструкторы админки): хэш в имени вместо ?ver= — хостинг
+        // кеширует статику на неделю, а URL чанка webpack строит сам.
+        chunkFilename: '[name].[contenthash:8].chunk.js',
+        // Каталог чанков — тот же, откуда загружен бандл (document.currentScript).
+        publicPath: 'auto',
     },
     devtool: 'source-map'
 };

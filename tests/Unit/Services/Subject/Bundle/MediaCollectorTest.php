@@ -80,6 +80,24 @@ class MediaCollectorTest extends TestCase {
 		$this->assertSame( array( 21 ), ( new MediaCollector() )->collectIds( $posts ) );
 	}
 
+	// ── Картинки статей из WPBakery ──────────────────────────────────
+
+	public function test_collects_wpbakery_images_from_article_content(): void {
+		$GLOBALS['_fs_test_post_types'][143] = 'attachment';
+		$GLOBALS['_fs_test_post_types'][150] = 'attachment';
+		// 151 — не вложение (удалено и ID занят записью): в пакет не попадает.
+		$GLOBALS['_fs_test_post_types'][151] = 'inf_ege_tasks';
+
+		$posts = array(
+			array(
+				'post_content' => '[vc_row][vc_column][vc_single_image image="143"][vc_gallery images="150,151"][/vc_column][/vc_row]',
+				'meta'         => array(),
+			),
+		);
+
+		$this->assertSame( array( 143, 150 ), ( new MediaCollector() )->collectIds( $posts ) );
+	}
+
 	// ── Чего собирать не надо ────────────────────────────────────────
 
 	public function test_ignores_foreign_domain_links(): void {

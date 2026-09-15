@@ -8,7 +8,7 @@
 > **Статус: не реализовано.** `ModuleInterface`/`ModuleManager`/`Kernel/` (§3.1, §3.5) — план,
 > не текущий код: `Init::getServices()` к релизу 1.0.0 остаётся плоским списком (см.
 > `basic_doc.md`). Реально изолированы по паттерну «лист» пока только опциональные модули из
-> `inc/Modules/` (`AdSync`, `EgeComputer`, `DaData`, `SmartCaptcha`, `VideoLibrary`) — без
+> `inc/Modules/` (`AdSync`, `EgeComputer`, `DaData`, `SmartCaptcha`, `VideoLibrary`, `ArticleBlocks`) — без
 > отдельного `ModuleInterface`, каждый регистрируется одной строкой в `Init::getServices()` и
 > вырезается удалением каталога + этой строки. `SocialAuth`, упоминавшийся здесь ранее как
 > пример листа, из плагина удалён вместе со свободными ролями внешних пользователей (решение

@@ -195,6 +195,50 @@ class AccountProvisioningServiceTest extends TestCase {
 		$this->assertFalse( $result->created );
 	}
 
+	public function test_provision_parent_refuses_student_account_with_same_email(): void {
+		$this->personRepository->method( 'find' )->willReturn( $this->makePerson( 20, null ) );
+
+		$student        = new WP_User();
+		$student->ID    = 777;
+		$student->roles = array( 'lms_student' );
+		$this->userManager->method( 'findByEmail' )->willReturn( $student );
+
+		$this->passwordGenerator->expects( $this->never() )->method( 'generateAndSet' );
+		$this->personRepository->expects( $this->never() )->method( 'setWpUser' );
+
+		$this->expectException( RuntimeException::class );
+		$this->service->provisionParent( 20, $this->parentInput() );
+	}
+
+	public function test_provision_student_refuses_parent_account_with_same_email(): void {
+		$this->personRepository->method( 'find' )->willReturn( $this->makePerson( 10, null ) );
+
+		$parent        = new WP_User();
+		$parent->ID    = 888;
+		$parent->roles = array( 'lms_parent' );
+		$this->userManager->method( 'findByEmail' )->willReturn( $parent );
+
+		$this->passwordGenerator->expects( $this->never() )->method( 'setFromPlain' );
+
+		$this->expectException( RuntimeException::class );
+		$this->service->provisionStudent( 10, $this->studentInput(), 'ivanov', 'Passw0rd!' );
+	}
+
+	public function test_provision_parent_links_teacher_account_found_by_email(): void {
+		$this->personRepository->method( 'find' )->willReturn( $this->makePerson( 20, null ) );
+
+		$teacher             = new WP_User();
+		$teacher->ID         = 999;
+		$teacher->user_login = 'teacher';
+		$teacher->roles      = array( 'lms_teacher' );
+		$this->userManager->method( 'findByEmail' )->willReturn( $teacher );
+		$this->passwordGenerator->method( 'generateAndSet' )->willReturn( 'GenPass9' );
+
+		$this->personRepository->expects( $this->once() )->method( 'setWpUser' )->with( 20, 999 );
+
+		$this->assertSame( 999, $this->service->provisionParent( 20, $this->parentInput() )->userId );
+	}
+
 	public function test_provision_parent_accepts_parent_data_dto(): void {
 		$this->personRepository->method( 'find' )->willReturn( $this->makePerson( 20, null ) );
 		$this->userManager->method( 'findByEmail' )->willReturn( null );

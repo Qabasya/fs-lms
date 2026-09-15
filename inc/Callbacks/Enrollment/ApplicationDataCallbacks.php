@@ -15,8 +15,9 @@ use Inc\Enums\Access\Capability;
 use Inc\Enums\Person\DocumentType;
 use Inc\Enums\Log\LogEvent;
 use Inc\Enums\Wp\Nonce;
-use Inc\Managers\Person\UserManager;
 use Inc\Repositories\WPDBRepositories\ApplicationRepository;
+use Inc\Services\Application\LoginAvailabilityService;
+use Inc\Services\Enrollment\FamilyEmailPolicy;
 use Inc\Services\Security\CredentialsPolicy;
 use Inc\Services\Security\PiiCryptoService;
 use Inc\Shared\Traits\Authorizer;
@@ -42,8 +43,9 @@ class ApplicationDataCallbacks extends BaseController {
 		private readonly ApplicationRepository       $applicationRepository,
 		private readonly PiiCryptoService            $crypto,
 		private readonly LogEventDispatcherInterface $logEvents,
-		private readonly UserManager                 $userManager,
+		private readonly LoginAvailabilityService    $logins,
 		private readonly CredentialsPolicy           $credentials,
+		private readonly FamilyEmailPolicy           $familyEmails,
 	) {
 		parent::__construct();
 	}
@@ -76,7 +78,10 @@ class ApplicationDataCallbacks extends BaseController {
 
 		$email = $this->requireText( 'email' );
 
-		[ $username, $loginPassword ] = $this->resolveCredentials( $existingStudentDto );
+		// Родитель уже есть в заявке (назначен заранее) — новый email ученика не должен совпасть с его.
+		$this->assertFamilyEmails( $email, $this->parentEmail( $app->parentDataEnc ) );
+
+		[ $username, $loginPassword ] = $this->resolveCredentials( $existingStudentDto, $id );
 
 		$updatedStudentDto = new StudentDataDTO(
 			lastName:      $this->requireText( 'last_name' ),
@@ -105,6 +110,7 @@ class ApplicationDataCallbacks extends BaseController {
 		$this->applicationRepository->update( $id, array(
 			'student_data_enc'   => $newStudentDataEnc,
 			'student_email_hash' => $emailHash,
+			'username_hash'      => '' !== $username ? $this->logins->hash( $username ) : null,
 			'updated_at'         => current_time( 'mysql', true ),
 		) );
 
@@ -174,6 +180,8 @@ class ApplicationDataCallbacks extends BaseController {
 			phone:         $this->sanitizeText( 'parent_phone' ),
 			email:         $this->sanitizeText( 'parent_email' ),
 		);
+
+		$this->assertFamilyEmails( $existingStudentDto->email, $updatedParentDto->email );
 
 		try {
 			$newStudentDataEnc = $this->crypto->encrypt( (string) wp_json_encode( $updatedStudentDto->toArray() ) );
@@ -245,6 +253,37 @@ class ApplicationDataCallbacks extends BaseController {
 	}
 
 	/**
+	 * Email родителя из данных заявки ('' — родителя нет или данные не читаются).
+	 *
+	 * @param string|null $parentDataEnc Зашифрованные данные родителя
+	 */
+	private function parentEmail( ?string $parentDataEnc ): string {
+		if ( empty( $parentDataEnc ) ) {
+			return '';
+		}
+
+		try {
+			return ParentDataDTO::fromArray( json_decode( $this->crypto->decrypt( $parentDataEnc ), true ) ?? array() )->email;
+		} catch ( \Throwable ) {
+			return '';
+		}
+	}
+
+	/**
+	 * Email ученика и родителя должны различаться; иначе — JSON-ошибка.
+	 *
+	 * @param string $studentEmail Email ученика
+	 * @param string $parentEmail  Email родителя
+	 */
+	private function assertFamilyEmails( string $studentEmail, string $parentEmail ): void {
+		try {
+			$this->familyEmails->assertDistinct( $studentEmail, $parentEmail );
+		} catch ( \DomainException $e ) {
+			$this->error( $e->getMessage() );
+		}
+	}
+
+	/**
 	 * Логин и пароль из модалки правки заявки.
 	 *
 	 * Пустое поле — оставить прежнее значение. Правила и уникальность проверяются только
@@ -253,11 +292,12 @@ class ApplicationDataCallbacks extends BaseController {
 	 *
 	 * Отказ — JSON-ошибка через $this->error(), выполнение прерывается.
 	 *
-	 * @param StudentDataDTO $existing Данные ученика до правки
+	 * @param StudentDataDTO $existing      Данные ученика до правки
+	 * @param int            $applicationId Заявка (её собственный логин занятым не считается)
 	 *
 	 * @return array{0: string, 1: string} [логин, пароль]
 	 */
-	private function resolveCredentials( StudentDataDTO $existing ): array {
+	private function resolveCredentials( StudentDataDTO $existing, int $applicationId ): array {
 		$username = trim( $this->unslashRawString( 'login' ) );
 		// Пароль — без sanitize_text_field: она вырезает «%» с двумя hex-цифрами за ним.
 		$password = $this->unslashRawString( 'password' );
@@ -273,7 +313,7 @@ class ApplicationDataCallbacks extends BaseController {
 			if ( $username !== $existing->username ) {
 				$this->credentials->assertLogin( $username );
 
-				if ( null !== $this->userManager->findByLogin( $username ) ) {
+				if ( $this->logins->isTaken( $username, $applicationId ) ) {
 					$this->error( 'Этот логин уже занят.' );
 				}
 			}

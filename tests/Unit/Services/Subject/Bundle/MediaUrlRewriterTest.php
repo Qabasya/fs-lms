@@ -135,6 +135,32 @@ class MediaUrlRewriterTest extends TestCase {
 		$this->assertSame( $original, $post['meta']['task_condition'] );
 	}
 
+	public function test_rewrites_wpbakery_image_id_in_article_content(): void {
+		[ $media, $map ] = $this->bundle();
+
+		$rewriter = new MediaUrlRewriter();
+
+		$post = $rewriter->rewritePost(
+			array(
+				'post_content' => '[vc_row][vc_column][vc_single_image image="143" img_size="large"][/vc_column][/vc_row]',
+				'meta'         => array(),
+			),
+			$rewriter->buildMap( $media, $map ),
+			$rewriter->buildIdMap( $media, $map )
+		);
+
+		$this->assertSame(
+			'[vc_row][vc_column][vc_single_image image="700" img_size="large"][/vc_column][/vc_row]',
+			$post['post_content']
+		);
+	}
+
+	public function test_id_map_skips_files_missing_in_package(): void {
+		$rewriter = new MediaUrlRewriter();
+
+		$this->assertSame( array(), $rewriter->buildIdMap( $this->bundle()[0], new MediaIdMap() ) );
+	}
+
 	public function test_old_package_without_source_urls_is_harmless(): void {
 		// Пакет формата 1.0.0: source_id/source_urls нет — замен просто нет.
 		$map = new MediaIdMap();

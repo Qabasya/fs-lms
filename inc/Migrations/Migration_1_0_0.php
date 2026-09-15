@@ -146,6 +146,7 @@ class Migration_1_0_0 implements MigrationInterface {
 			join_code_enc        blob                                                                      DEFAULT NULL,
 			join_code_expires_at datetime                                                                  DEFAULT NULL,
 			student_email_hash   char(64)                                                                  DEFAULT NULL,
+			username_hash        char(64)                                                                  DEFAULT NULL,
 			student_data_enc     longblob                                                                  DEFAULT NULL,
 			parent_data_enc      longblob                                                                  DEFAULT NULL,
 			converted_record_id  int unsigned                                                              DEFAULT NULL,
@@ -160,7 +161,8 @@ class Migration_1_0_0 implements MigrationInterface {
 			KEY status (status),
 			KEY subject_key (subject_key),
 			KEY join_code_hash (join_code_hash),
-			KEY student_email_hash (student_email_hash)
+			KEY student_email_hash (student_email_hash),
+			KEY username_hash (username_hash)
 		) $cc;"
 		);
 

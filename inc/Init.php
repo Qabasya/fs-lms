@@ -7,6 +7,7 @@ namespace Inc;
 use Inc\Contracts\ServiceInterface;
 use Inc\Enums\Settings\OptionName;
 use Inc\Modules\AdSync\AdSyncModule;
+use Inc\Modules\ArticleBlocks\ArticleBlocksModule;
 use Inc\Modules\DaData\DaDataModule;
 use Inc\Modules\EgeComputer\EgeComputerModule;
 use Inc\Modules\SmartCaptcha\SmartCaptchaModule;
@@ -92,6 +93,7 @@ use Inc\Contracts\LogEventDispatcherInterface;
 use Inc\Core\Container;
 use Inc\Core\Enqueue;
 use Inc\Migrations\Migration_1_0_0;
+use Inc\Migrations\Migration_1_0_8;
 use Inc\Migrations\MigrationRunner;
 use Inc\Services\Log\LogEventDispatcher;
 use Inc\Services\Shared\WpClock;
@@ -210,6 +212,7 @@ final class Init {
 			DaDataModule::class,              // Inc\Modules\DaData — автодополнение DaData на /lms/join (флаг-гейт)
 			SmartCaptchaModule::class,        // Inc\Modules\SmartCaptcha — капча Yandex на /lms/apply и /sign-in/ (флаг-гейт)
 			VideoLibraryModule::class,        // Inc\Modules\VideoLibrary — видеозаписи занятий S3 + REST (флаг-гейт)
+			ArticleBlocksModule::class,       // Inc\Modules\ArticleBlocks — блоки статей для WPBakery (флаг-гейт редактора)
 		);
 	}
 
@@ -255,6 +258,7 @@ final class Init {
 		// нечего), поэтому безопасно вызывать на каждом запросе.
 		$migrationRunner = new MigrationRunner();
 		$migrationRunner->register( new Migration_1_0_0() );
+		$migrationRunner->register( new Migration_1_0_8() );
 		$migrationRunner->run();
 	}
 }

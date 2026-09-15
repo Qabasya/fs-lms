@@ -256,8 +256,10 @@ class SubjectBundleImportService {
 
 		// Ссылки на медиа, вкраплённые в текст (картинка условия, URL-поля файлов),
 		// переписываются подстрокой — ID-ремапом их не взять.
+		// ID вложений в атрибутах шорткодов (картинки WPBakery) — отдельной картой: подстрокой их не заменить.
 		$urlRewriter = new MediaUrlRewriter();
 		$urlMap      = $urlRewriter->buildMap( (array) ( $manifest['media'] ?? array() ), $mediaMap );
+		$mediaIdMap  = $urlRewriter->buildIdMap( (array) ( $manifest['media'] ?? array() ), $mediaMap );
 
 		// Пересчёт term_count после каждой вставки — самая дорогая часть импорта
 		// на сотнях записей; откладываем до конца всех разделов.
@@ -273,7 +275,7 @@ class SubjectBundleImportService {
 
 					// Ссылки резолвятся ПЕРЕД вставкой: все предыдущие уровни уже в карте.
 					$post['meta'] = $remapper->toPostIds( (array) ( $post['meta'] ?? array() ), $mapper, $mediaMap );
-					$post         = $urlRewriter->rewritePost( $post, $urlMap );
+					$post         = $urlRewriter->rewritePost( $post, $urlMap, $mediaIdMap );
 
 					if ( $section->isGlobal() ) {
 						$postId = $this->restoreProblem( $post, $sourceSite, $exportId, $section, $created );

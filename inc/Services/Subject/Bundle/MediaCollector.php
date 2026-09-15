@@ -29,6 +29,8 @@ use Inc\Shared\PluginLogger;
  *    сканируются на `wp-image-{id}` и на URL внутри своего `uploads`. Без этого
  *    файл не попадал в пакет, а на целевом сайте ссылка продолжала указывать на
  *    сайт-источник.
+ * 3. **По атрибутам шорткодов** — картинка статьи из WPBakery хранится как
+ *    `[vc_single_image image="143"]` ({@see ShortcodeMediaRefs}).
  *
  * Найденные по строкам вложения переносятся вместе с картой старых URL
  * ({@see describe()}), по которой импорт переписывает ссылки
@@ -69,6 +71,13 @@ class MediaCollector {
 	 * Базовый URL каталога загрузок (без схемы), вычисляется один раз.
 	 */
 	private ?string $uploadsBase = null;
+
+	/**
+	 * @param ShortcodeMediaRefs $shortcodes Ссылки на вложения в атрибутах шорткодов
+	 */
+	public function __construct(
+		private readonly ShortcodeMediaRefs $shortcodes = new ShortcodeMediaRefs(),
+	) {}
 
 	/**
 	 * Собирает уникальные ID вложений из записей: мета + контент.
@@ -203,7 +212,7 @@ class MediaCollector {
 	}
 
 	/**
-	 * Ищет вложения в тексте: класс `wp-image-{id}` и URL внутри своего uploads.
+	 * Ищет вложения в тексте: атрибуты шорткодов, класс `wp-image-{id}` и URL внутри своего uploads.
 	 *
 	 * @param string $text Строковое значение меты или контент записи
 	 * @param int[]  $ids  Аккумулятор (по ссылке)
@@ -213,6 +222,10 @@ class MediaCollector {
 	private function scanText( string $text, array &$ids ): void {
 		if ( '' === $text ) {
 			return;
+		}
+
+		foreach ( $this->shortcodes->extractIds( $text ) as $candidate ) {
+			$this->pushAttachment( $candidate, $ids );
 		}
 
 		$base = $this->uploadsBase();

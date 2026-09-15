@@ -61,6 +61,7 @@ class Activate {
 
 		$migration_runner = new MigrationRunner();
 		$migration_runner->register( new Migration_1_0_0() );
+		$migration_runner->register( new \Inc\Migrations\Migration_1_0_8() );
 		$migration_runner->run();
 
 		// Автоматическое создание страниц входа, регистрации и профиля

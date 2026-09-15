@@ -46,8 +46,9 @@ class ApplicationDataCallbacksTest extends TestCase {
 			$this->repository,
 			$this->crypto,
 			$this->createStub( LogEventDispatcherInterface::class ),
-			$this->users,
+			new \Inc\Services\Application\LoginAvailabilityService( $this->users, $this->repository, $this->crypto ),
 			new CredentialsPolicy(),
+			new \Inc\Services\Enrollment\FamilyEmailPolicy(),
 		);
 	}
 
@@ -152,6 +153,20 @@ class ApplicationDataCallbacksTest extends TestCase {
 		self::assertTrue( $r->success );
 		self::assertSame( 'ivanov_new', $this->savedStudent()['username'] );
 		self::assertSame( 'New№#@1', $this->savedStudent()['login_password'] );
+		// Хэш логина обновлён — по нему другие заявки узнают, что логин занят.
+		self::assertSame( $this->crypto->hash( 'ivanov_new' ), $this->saved['username_hash'] );
+	}
+
+	public function test_rejects_login_taken_by_another_application(): void {
+		$this->givenApplication( $this->studentBlob() );
+		$this->users->method( 'findByLogin' )->willReturn( null );
+		$this->repository->method( 'existsActiveByUsernameHash' )->willReturn( true );
+		$this->postEditForm( array( 'login' => 'petrov_2010' ) );
+
+		$r = fs_test_capture_json( fn() => $this->cb->ajaxUpdateApplicationData() );
+
+		self::assertFalse( $r->success );
+		self::assertNull( $this->saved );
 	}
 
 	public function test_rejects_taken_login(): void {
@@ -188,6 +203,24 @@ class ApplicationDataCallbacksTest extends TestCase {
 	}
 
 	// ── ajaxUpdateReviewData ──────────────────────────────────────────────────────
+
+	public function test_review_update_rejects_parent_email_equal_to_student_email(): void {
+		$this->givenApplication( $this->studentBlob(), ApplicationStatus::ReadyForReview );
+		$_POST = array(
+			'application_id'     => '7',
+			'student_last_name'  => 'Иванов',
+			'student_first_name' => 'Иван',
+			'parent_last_name'   => 'Иванова',
+			'parent_first_name'  => 'Мария',
+			'parent_email'       => 'IVAN@mail.ru',
+		);
+
+		$r = fs_test_capture_json( fn() => $this->cb->ajaxUpdateReviewData() );
+
+		self::assertFalse( $r->success );
+		self::assertSame( \Inc\Services\Enrollment\FamilyEmailPolicy::MESSAGE, $r->payload );
+		self::assertNull( $this->saved );
+	}
 
 	public function test_review_update_keeps_login_and_password(): void {
 		$this->givenApplication( $this->studentBlob(), ApplicationStatus::ReadyForReview );

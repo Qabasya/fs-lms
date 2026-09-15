@@ -29,12 +29,41 @@ export const LegacyTaskImport = {
         }
 
         this.$file     = $( '#fs-legacy-import-file' );
+        this.$subject  = $( '#fs-legacy-import-subject' );
         this.$status   = $( '#fs-legacy-import-status' );
         this.$progress = $( '#fs-legacy-import-progress' );
         this.$report   = $( '#fs-legacy-import-report' );
         this.batchSize = Number( this.$start.data( 'batch-size' ) ) || 15;
 
         this.$start.on( 'click', () => this.start() );
+        this.$subject.on( 'change', () => this.fillTaxonomySelects() );
+        this.fillTaxonomySelects();
+    },
+
+    /**
+     * Заполняет списки таксономий автора/года/сложности таксономиями выбранного предмета.
+     * По умолчанию выбирается таксономия со слагом «{ключ}_{суффикс}», если она у предмета есть.
+     */
+    fillTaxonomySelects() {
+        const subjectKey = this.$subject.val() || '';
+        const all        = this.$subject.data( 'taxonomies' ) || {};
+        const taxonomies = Array.isArray( all[ subjectKey ] ) ? all[ subjectKey ] : [];
+
+        $( '.js-legacy-import-tax' ).each( ( _, select ) => {
+            const suffix   = String( $( select ).data( 'suffix' ) || '' );
+            const expected = `${ subjectKey }_${ suffix }`;
+            const options  = [ `<option value="">По умолчанию (${ escapeHtml( expected ) })</option>` ];
+
+            taxonomies.forEach( ( tax ) => {
+                options.push( `<option value="${ escapeHtml( tax.slug ) }">${ escapeHtml( tax.name ) } (${ escapeHtml( tax.slug ) })</option>` );
+            } );
+
+            $( select ).html( options.join( '' ) );
+
+            if ( taxonomies.some( ( tax ) => tax.slug === expected ) ) {
+                $( select ).val( expected );
+            }
+        } );
     },
 
     /** Запускает перенос: читает файл, затем гонит батчи по очереди. */
@@ -92,10 +121,10 @@ export const LegacyTaskImport = {
      */
     readParams() {
         return {
-            subject_key: $( '#fs-legacy-import-subject' ).val(),
-            author_taxonomy: $( '#fs-legacy-import-author-tax' ).val().trim(),
-            year_taxonomy: $( '#fs-legacy-import-year-tax' ).val().trim(),
-            level_taxonomy: $( '#fs-legacy-import-level-tax' ).val().trim(),
+            subject_key: this.$subject.val(),
+            author_taxonomy: $( '#fs-legacy-import-author-tax' ).val() || '',
+            year_taxonomy: $( '#fs-legacy-import-year-tax' ).val() || '',
+            level_taxonomy: $( '#fs-legacy-import-level-tax' ).val() || '',
         };
     },
 

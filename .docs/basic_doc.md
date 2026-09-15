@@ -4,9 +4,8 @@
 > от запуска окружения и архитектуры ядра — через данные, админку и публичную часть —
 > к системе обучения, SPA-конструктору курса и SPA личного кабинета `/profile/`.
 >
-> Состояние: ветка `stage_11`, включая незакоммиченную работу (preview-плеер, посещаемость,
-> замены, кабинеты, индивидуальные занятия). Детальные спеки соседних подсистем — в конце,
-> раздел «Карта остальной документации».
+> Состояние: релиз 1.0.7 и изменения после него (сводка — §43). Детальные спеки соседних
+> подсистем — в конце, раздел «Карта остальной документации».
 
 ---
 
@@ -71,6 +70,7 @@
 **Часть IX. Практика**
 41. [Troubleshooting](#41-troubleshooting)
 42. [Карта остальной документации](#42-карта-остальной-документации)
+43. [Изменения после релиза 1.0.7](#43-изменения-после-релиза-107)
 
 ---
 
@@ -203,6 +203,8 @@ php -r "echo base64_encode(random_bytes(32)) . PHP_EOL;"   # генерация 
 | `FS_LMS_EGE_COMPUTER` | Модуль EgeComputer (не задана → включён) |
 | `FS_LMS_DADATA`, `FS_LMS_SMART_CAPTCHA` | Жёсткое вкл/выкл соответствующих модулей |
 | `FS_LMS_VIDEO_LIBRARY`, `FS_LMS_VIDEO_HMAC_SECRET` | Модуль VideoLibrary (по умолчанию выкл.) + секрет HMAC для push-REST |
+| `FS_LMS_ARTICLE_BLOCKS` | Жёсткое вкл/выкл редактора модуля ArticleBlocks (по умолчанию вкл., §26) |
+| `FS_LMS_TRUSTED_IPS` | Белые IP (точные адреса через запятую): IP-лимиты публичных форм ×10 (§21). **Двойника в БД нет** — только wp-config |
 
 ### Отладка
 
@@ -762,16 +764,27 @@ class RoomRepository {
 
 ## 11. Миграции
 
-**Файлы:** `inc/Migrations/MigrationRunner.php` + `inc/Migrations/Migration_1_0_0.php` —
-сейчас миграция **одна, консолидированная** (отдельные файлы `1_0_1`, `1_0_2`… упразднены).
+**Файлы:** `inc/Migrations/MigrationRunner.php` + `inc/Migrations/Migration_1_0_0.php`
+(консолидированная схема) + версионные миграции для живых установок, начиная с
+`Migration_1_0_8.php`.
 
 Как работает:
 
 - версия схемы — `wp_options['fs_lms_schema_version']` (`OptionName::SchemaVersion`), дефолт `0.0.0`;
 - `MigrationRunner::run()` сортирует зарегистрированные миграции по `version_compare` и
   применяет те, что новее текущей версии; в конце обновляет опцию;
-- запускается **только при активации плагина** (`Activate::activate()`), не на каждой загрузке;
+- миграции регистрируются и в `Activate::activate()`, и в конце `Init::run()` — на обычной загрузке
+  `run()` при актуальной версии ограничивается одним `get_option`, а версия выше сохранённой
+  накатывается на первом же запросе после деплоя;
 - `reset()` сбрасывает версию в `0.0.0` (dev), `rollback()` откатывает `down()`.
+
+**`Migration_1_0_8`** — колонка `username_hash` (+ индекс) в `fs_lms_applications` и заполнение
+хэша логина у существующих заявок (§22). Идемпотентна: колонка добавляется, только если её нет.
+
+**Колонка, которая должна доехать до живых установок:** добавь её в `CREATE TABLE`
+`Migration_1_0_0` (новые установки) **и** заведи версионную миграцию по образцу `Migration_1_0_8`
+(проверка `SHOW COLUMNS` → `ALTER TABLE`), зарегистрировав её в `Init::run()` и `Activate`.
+Сброс версии схемы (ниже) годится только для dev.
 
 `Migration_1_0_0::up()` состоит из трёх частей:
 
@@ -950,7 +963,7 @@ src/js/
 │   ├── icons.js               # ЕДИНСТВЕННЫЙ источник SVG-иконок всех бандлов (см. ниже)
 │   ├── validation-manager.js  # §17
 │   ├── input-masks.js         # маски: телефон, паспорт, ИНН
-│   ├── validators/            # 9 валидаторов (§17)
+│   ├── validators/            # валидаторы полей (§17)
 │   └── components/            # badge, toggle, toggle-secret, copy-button, confirm-dialog, toast, tooltip
 │
 ├── admin/                     # бандл admin (jQuery)
@@ -1043,14 +1056,30 @@ export function openModal( $modal ) { … }
   2. залогинен и на `/profile/` → **только** бандл `profile`;
   3. иначе — общий стек `common` + `frontend`.
 
+Фактически подключение разнесено по `inc/Core/Assets/` (`AdminAssets`, `AdminLocalizations`,
+`FrontendAssets`, `BundleLoader`, признаки экрана — `AdminScreenContext`). Правила после 1.0.7:
+
+- **Версия ассетов — `filemtime()` везде** (и во фронтовом стеке): хостинг кеширует статику на
+  неделю, и постоянный `?ver=` оставлял у посетителей старый бандл после деплоя.
+- **Медиатека и редактор — по экрану, а не по CPT:** `wp_enqueue_media()` — только при
+  `AdminScreenContext::needsMedia()` (редактирование контента, конструктор курса, настройки),
+  `wp_enqueue_editor()` — при `needsEditor()` (редактирование урока/курса, конструктор курса).
+  Экраны списков их не получают.
+- **`admin.min.js` зависит только от `jquery`.** `editor`/`quicktags` приходят с `wp_enqueue_editor()`.
+- **Font Awesome не подключается** — иконки только из `icons.js` / enum `Icon`.
+- **Конструкторы — отдельными чанками:** `admin.js` грузит урок/работу/контрольную/курс через
+  динамический `import()` (`loadBuilder()`), только если их разметка есть на странице. Чанки
+  (`[name].[contenthash].chunk.js`) лежат рядом с `admin.min.js`, путь webpack определяет сам
+  (`publicPath: 'auto'` в `gulpfile.js`). Общие модули остаются в основном бандле — новые
+  конструкторы подключай так же, а не статическим импортом.
+
 ### Window-глобалы (все локализации)
 
 | Переменная | Где доступна | Что внутри |
 |---|---|---|
 | `fs_lms_vars` | все админ-страницы плагина | `ajaxurl`, `ajax_actions` (все 189 из `AjaxHook::toJsArray()`), `nonces{subject, manager, expulsion, deleteGroup, deletePeriod, hardDeleteStudent, config, authorLesson, authorWork, authorAssessment, authorCourse, room}`, `coursePreviewUrl` |
 | `fs_lms_task_data` | CPT задания/работы, страницы `fs_subject_*` | `ajax_url`, `security`, `subject_key`, `post_type`, `required_taxonomies` |
-| `fs_lms_lesson_vars` | CPT урока | `ajax_url`, `subject_key`, `nonces.authorLesson` |
-| `fs_lms_task_editor_vars` | task/lesson/work/course CPT + `fs_subject_*` | `schema` (все схемы шаблонов задач), `actions{saveTaskContent, getTaskEditorForm}`, `nonces.taskContent` |
+| `fs_lms_task_editor_vars` | экраны редактора шагов (редактирование урока/курса, конструктор курса) | `schema` (все схемы шаблонов задач), `actions{saveTaskContent, getTaskEditorForm}`, `nonces.taskContent` |
 | `fs_lms_applications_vars` | страница `fs_lms_userlist` | `nonces{trash, edit, review, enroll, manager, revealPii, updatePerson, exportPii, deletePii, restoreFromArchive, selectExistingParent, removeParentAssignment}` |
 | `fs_lms_apply_vars` | `/apply/` | `ajax_url`, `hp_field`, `form_token`, `actions`, `nonces` (+ `captcha_key` дописывает модуль SmartCaptcha через фильтр `fs_lms_apply_vars`) |
 | `fs_lms_join_vars` | маршрут `fs_lms_page=join` | `actions{submit_parent, check_email}`, `nonces` (+ `dadata_token` — модуль DaData, фильтр `fs_lms_join_vars`) |
@@ -1104,6 +1133,7 @@ Z-index стек (переменные в `src/scss/admin/_variables.scss`):
 | `address` | `AddressValidator` | адресные символы |
 | `schoolName` | `SchoolNameValidator` | название школы |
 | `latinOnly` | `LatinOnlyValidator` | латиница, цифры, `_` |
+| `password` | `PasswordValidator` | пароль заявки: латиница, цифры и `_ % * ? ! № # @`; зеркало серверного `CredentialsPolicy` |
 | `passportSN` | `PassportSeriesNumberValidator` | `4507 123456` |
 | `inn` | `InnValidator` | 10/12 цифр |
 
@@ -1263,7 +1293,8 @@ current_user_can( Capability::ViewPII->value );                     // в шаб
 1. **Nonce** (`Nonce::Apply`);
 2. **`FormGuardService`** (`Services/Security/`) — honeypot + тайминг: `honeypotField()`
    (скрытое поле-ловушка в `.fs-hp`), `timestampToken()` (`{ts}.{hmac}` на `FS_LMS_HASH_SALT`),
-   `isHuman($honeypot, $token)` — поле пусто и прошло от 3 сек до 1 часа;
+   `isHuman($honeypot, $token)` — поле пусто и прошло от 3 сек до 4 часов (форму открывают
+   в начале урока, а отправляют позже);
 3. **Rate-limit по IP** (`RateLimitService` — fixed-window на transients; IP/email хранятся
    только хэшами);
 4. **Капча** (если включён модуль SmartCaptcha; при недоступности провайдера — fail-open);
@@ -1271,6 +1302,19 @@ current_user_can( Capability::ViewPII->value );                     // в шаб
 6. **OTP-cooldown** (60 сек) и **attempt-cap** — после 5 неверных вводов код инвалидируется.
 
 В тестовом окружении (`FS_LMS_TEST_ENV`) слои 2–4 пропускаются, письмо не шлётся.
+
+**Лимиты по IP (в час):** отправка кода (`apply_otp`) и создание заявки (`apply`) — **раздельные**
+счётчики по 20 (раньше один общий, и каждый ученик тратил две единицы); открытие JOIN-ссылки — 30;
+анкета родителя — 3; проверки логина и email — по 20. За одним школьным NAT подаёт заявки целый
+класс, поэтому для адресов из `FS_LMS_TRUSTED_IPS` (`PluginConfig::trustedIps()`, только
+wp-config) все IP-лимиты ×10 — не безлимит. Лимиты по email, по паре IP+пользователь (вход)
+и по user_id от белого IP не зависят. IP берётся через `RequestContextProvider`
+(`requestContext()->ip`, учитывает `fs_lms_trusted_proxies`) — так же, как у входа.
+
+**Логин и пароль заявки** проверяет сервер (`CredentialsPolicy`): логин — латиница, цифры, `_`,
+3–20; пароль — латиница, цифры и `_ % * ? ! № # @`, 3–16. Пароль читается **без**
+`sanitize_text_field` (`unslashRawString()`), иначе `%` с двумя hex-цифрами вырезается.
+Проверка идёт до `EmailOtpService::verify()`: успешная проверка гасит код. Занятость логина — §22.
 
 Чтобы защитить новую публичную форму: honeypot-`<input>` в шаблон → `hp_field` + `form_token`
 в локализацию (через `FormGuardService` в `Enqueue`) → форвард обоих значений в JS-сабмите →
@@ -1288,7 +1332,10 @@ current_user_can( Capability::ViewPII->value );                     // в шаб
 
 - **Заявка** — `fs_lms_applications`. Статусы (`ApplicationStatus`, конечный автомат
   `canTransitionTo()`): `pending_parent → ready_for_review → enrolling → converted`;
-  терминальные `expired`, `trash`.
+  терминальные `expired`, `trash`. Данные ученика (включая логин и пароль, которые он задал) —
+  в зашифрованном `student_data_enc`; для поиска без расшифровки — `student_email_hash` и
+  `username_hash`. Успешное зачисление заявку **удаляет**; `converted` в таблице означает, что
+  учётки не созданы и их досоздаст cron (ниже).
 - **Человек** — `fs_lms_persons` (несекретное: ФИО, школа, класс) +
   `fs_lms_person_documents` (весь PII зашифрован libsodium: email/телефон/документ/ИНН/адрес,
   рядом sha256-хэши для поиска без расшифровки).
@@ -1305,6 +1352,12 @@ current_user_can( Capability::ViewPII->value );                     // в шаб
 | `PersonReader` (`Person/`) | **Единственный** путь чтения PII: `read(personId, fields, reason)` — каждое чтение логируется в `pii_access_log`. Прямое чтение `*_enc`-колонок бессмысленно (вернётся шифроблоб) |
 | `EmailOtpService` (`Email/`) | OTP-коды подтверждения email: отправка, cooldown, verify c attempt-cap, bypass-код из конфига |
 | `RateLimitService` (`Security/`) | Лимиты действий по IP/email/user (см. §21) |
+| `CredentialsPolicy` (`Security/`) | Правила логина и пароля заявки (§21); используют подача заявки и правка заявки в админке |
+| `LoginAvailabilityService` (`Application/`) | Занят ли логин: учётка WP **или** незавершённая заявка (`pending_parent`/`ready_for_review`/`enrolling`/`converted`) по `username_hash` |
+| `FamilyEmailPolicy` (`Enrollment/`) | Email родителя ≠ email ученика: проверка в анкете родителя, модалках правки заявки и в `EnrollmentService::enroll()` до транзакции |
+| `EnrollmentAccountsService` (`Enrollment/`) | Учётки WP по данным заявки (логин/пароль ученика, логин родителя = email) — общий для зачисления и восстановления |
+| `RecoveryService` (`Enrollment/`) | Cron `RecoveryTick` (15 мин): зависшее `enrolling` (60 мин) → назад в проверку или в `converted`; `converted` → создаёт **недостающие** учётки через `EnrollmentAccountsService` и удаляет заявку (письмо не отправляет) |
+| `AccountProvisioningService` (`Enrollment/`) | Создание/привязка WP-учётки физлица; отказывается привязать родителя к учётке с ролью ученика и наоборот |
 | `PasswordGeneratorService` (`Security/`) | Пароли LMS-пользователей: `user_pass` + зашифрованная копия в usermeta `fs_lms_enc_password` для «Раскрыть учётные данные»; при ручной смене пароля копия автоматически удаляется (`profile_update`-хук) |
 | `CsvExportService` (`Export/`) | CSV + одноразовые ссылки скачивания (Column Projection: колонки описывает вызывающий код) |
 
@@ -1356,6 +1409,10 @@ current_user_can( Capability::ViewPII->value );                     // в шаб
 - Аудит-записи (`audit_log`) не содержат PII — только ID и типы операций.
 - Согласие фиксируется до любых операций с ПД.
 - Читать PII — только через `PersonReader::read()` с указанием `reason`.
+- Пересобирая `StudentDataDTO` (правка заявки), передавай `username` и `loginPassword` явно —
+  значений по умолчанию у них нет специально: их потеря превращала логин ученика в email.
+- Время заявок пишется в UTC (`current_time( 'mysql', true )`); выборки по времени сравнивают с
+  порогом, посчитанным в PHP в UTC, а не с `NOW()` сервера БД — часовой пояс БД может быть любым.
 
 Троблшутинг типовых проблем зачисления — §41.
 
@@ -1485,6 +1542,15 @@ UI — вкладка «Конфигурация» в Настройках: по
 | `DaData` | Автодополнение ФИО/адреса на `/lms/join` | `FS_LMS_DADATA`, `DADATA_API_TOKEN` | `fs_lms_dadata` (выкл.) | фильтр `fs_lms_join_vars` |
 | `SmartCaptcha` | Невидимая Yandex SmartCaptcha на `/apply/` и `/sign-in/` | `FS_LMS_SMART_CAPTCHA`, ключи капчи | `fs_lms_smart_captcha` (выкл.) | фильтры `fs_lms_captcha_provider`, `fs_lms_apply_vars`, `fs_lms_login_vars` |
 | `VideoLibrary` | Видеозаписи занятий: S3 Beget + push-REST от `fs-video-uploader` + presigned-выдача в плеер | `FS_LMS_VIDEO_LIBRARY`, `FS_LMS_VIDEO_HMAC_SECRET` | `fs_lms_video_library` (выкл.) | фильтр `fs_lms_recording_url`; публичный `GroupLessonRepository` |
+| `ArticleBlocks` | Блоки статей для WPBakery: «Код», «Таблица», «Изображение», «Заголовок» (шорткоды `fs_article_*`) + кнопка «Код» в текстовом блоке статей | `FS_LMS_ARTICLE_BLOCKS` | `fs_lms_article_blocks` (**вкл.**) | семантическая разметка, которую оформляет `ArticleContentService`; фильтр `fs_lms_bundle_shortcode_media_attrs` (перенос картинок блока) |
+
+**Исключение ArticleBlocks из правила «выключен — ноль хуков».** Тумблер гасит только редактор
+(элементы WPBakery, тип поля, кнопку «Код»). Шорткоды и фильтр переноса регистрируются всегда: это
+данные опубликованных статей, и выключение не должно показывать `[fs_article_code …]` текстом.
+Код и таблица хранятся в атрибутах в base64 (`fsb64:`, собственный тип поля
+`fs_lms_encoded_text` + `assets/editor-fields.js`): штатный `textarea_safe` WPBakery кодирует не
+всегда, а переносы строк в атрибуте ломает `wpautop`. WPBakery не пишет в шорткод пустые атрибуты —
+поэтому у блока «Таблица» галочка «Без строки заголовка», а не «С заголовком».
 
 ### Устройство модуля
 
@@ -1650,6 +1716,10 @@ public function register(): void {
 - **`task-editor.js` + `task-fields.js`** — inline-редактор задания (§18, §33).
 - **`work-builder.js`**, **`assessment-builder.js`**, **`slot-builder.js`** — конструкторы
   работы/контрольной/слотов на их CPT-экранах.
+
+Конструкторы курса, урока, работы и контрольной (вместе с `step-editor.js` и `slot-builder.js`)
+не входят в `admin.min.js`: `admin.js` подгружает их чанками через `import()`, когда на странице
+есть их корневой элемент (§15). Инициализация поэтому асинхронная; при сбое загрузки — тост.
 
 ### Как добавить AJAX-действие конструктора
 
@@ -2216,4 +2286,85 @@ docker compose run --rm wpcli wp option get fs_lms_schema_version
 | `CLAUDE.md` | Правила кодовой базы для AI-ассистента (совпадают с правилами этого документа) |
 
 > Если этот документ противоречит коду — прав код; поправь документ в том же PR.
+
+## 43. Изменения после релиза 1.0.7
+
+Сводка работ с коммита «Версия 1.0.7» (`4463e79b`, 2026-09-13). Разборы первопричин, замеры и
+проверки после деплоя — в `.docs/Tasks.md` (пункты Б0–Б7, С1–С11); подробности подсистем — в
+разделах, указанных в скобках.
+
+### Требует действий при деплое
+
+- **Миграция схемы 1.0.8** накатывается сама на первой загрузке после деплоя (§11). Проверка:
+  `fs_lms_schema_version = 1.0.8`, у `fs_lms_applications` есть `username_hash`.
+- **Белый IP сети очной подачи** — `define( 'FS_LMS_TRUSTED_IPS', '<адрес>' );` в `wp-config.php`
+  прода, когда адрес станет статическим (§21).
+- **Сборка:** `npx gulp build` создаёт чанки конструкторов `assets/js/*.chunk.js` — выкладывать
+  их вместе с `admin.min.js`.
+- **Пакеты переноса предметов**, собранные до изменений, не содержат картинок из WPBakery —
+  пересобрать.
+- WPBakery: если в «Менеджере ролей» ограничен список элементов — разрешить новые элементы
+  категории «Статьи FS LMS».
+
+### Исправления с прода
+
+- **Вход после деплоя** — фронтовые скрипты и стили версионируются `filemtime()`: с постоянным
+  `?ver=0.0.1` у посетителей оставался закешированный бандл без капчи входа, и вход отклонялся
+  с «Не удалось пройти проверку» (§15).
+- **Пароль заявки** принимает `_ % * ? ! № # @`; сервер больше не вырезает `%XX` и проверяет
+  состав логина и пароля (`CredentialsPolicy`, `PasswordValidator`) (§17, §21).
+- **Логин в заявке:** модалка «Изменить» показывала email вместо логина (шаблон). Рядом —
+  скрытый дефект: `ApplicationDataCallbacks` пересобирал данные ученика без логина и пароля, и
+  первое же сохранение заявки в админке стёрло бы их. Логин и пароль теперь можно править в модалке
+  (с проверкой правил и занятости). Удалён мёртвый `Callbacks/Enrollment/EnrollmentCallbacks.php`,
+  в который по ошибке попадало прежнее исправление (§22).
+- **Лимиты очной подачи:** раздельные счётчики кода и создания заявки, белые IP ×10, IP через
+  `requestContext()`, срок формы 4 часа, повторная проверка логина кешируется в `apply-form.js`
+  (§21). Базовые лимиты подняты раньше: заявка 5→20, JOIN-ссылка 10→30, проверка email 10→20.
+- **Прыжок таблицы в админке через 5 с:** автоскрытие уведомлений в `admin.js` делало видимым
+  скрытое чужое уведомление (`fadeTo()` вызывает `.show()`). Теперь гаснут только видимые
+  флеш-сообщения (`#message`, `.updated`, `.notice-success`), не `.inline`-блоки модалок и не
+  чужие предупреждения.
+- «Преподаватели»: группы одного предмета — через запятую; таблица таксономий предмета снова
+  показывает слаг; форма заявки прокручивается наверх при смене этапа и к ошибке, фокус — в поле кода.
+- Ширины колонок таблиц журналов (IP не помещался).
+- **Номер задания** выдаёт `TaskNumberService` (наименьший свободный, дыры переиспользуются) —
+  и в модалке, и при переносе легаси-заданий; до первой публикации `SubjectValidationCallbacks`
+  проверяет, что номер соответствует номеру задания и не занят, а при сорванной публикации черновику
+  возвращается исходный номер (ядро успевает переименовать его в `5002-2`). `PostManager::findBySlug()`.
+
+### Зачисление и учётки (§22)
+
+- Логин уникален среди учёток WP **и** незавершённых заявок (`LoginAvailabilityService`,
+  `username_hash`, `Migration_1_0_8`): раньше вторая заявка с тем же логином падала при зачислении.
+- Email родителя обязан отличаться от email ученика (`FamilyEmailPolicy`); провизия не привязывает
+  родителя к учётке ученика и наоборот — раньше родитель получал учётку ребёнка со сменённым паролем.
+- Восстановление после сбоя создания учёток работает: `RecoveryService` обрабатывает `converted`,
+  создаёт недостающие учётки с логином и паролем из заявки (`EnrollmentAccountsService`) вместо
+  служебного `student_{id}` со случайным паролем; порог зависшего `enrolling` — 60 минут.
+- Время в `ApplicationRepository`: выборки зависших и истёкших заявок сравнивают с UTC-порогом из
+  PHP, статус и `converted` пишутся в UTC.
+
+### Статьи и перенос предмета
+
+- Модуль **ArticleBlocks** — блоки «Код», «Таблица» (вставка диапазона из Calc/Excel), «Изображение»,
+  «Заголовок» для WPBakery и кнопка «Код» в текстовом блоке статей (§26).
+- Перенос предмета находит и переписывает ID картинок в атрибутах шорткодов
+  (`vc_single_image`, `vc_gallery`, `vc_images_carousel`, `fs_article_image`) —
+  `Bundle/ShortcodeMediaRefs`, фильтр `fs_lms_bundle_shortcode_media_attrs`
+  (`inc/Services/Subject/Bundle/CLAUDE.md`).
+
+### Админка: вес экранов (§15, §30)
+
+- Медиатека и редактор — только на экранах, где их открывают; `admin.min.js` зависит только от
+  jQuery; удалена неиспользуемая локализация `fs_lms_lesson_vars`, `fs_lms_task_editor_vars` — только
+  на экранах редактора шагов. Локальный замер списка уроков: 442 → 320 КБ HTML, `<script>` 87 → 61.
+- Конструкторы вынесены в чанки: `admin.min.js` 236 → 176 КБ.
+- Font Awesome (блокирующий CSS с jsDelivr) больше не подключается — классы `fa-*` не использовались.
+- Импорт легаси-заданий: таксономии автора/года/сложности выбираются списком из таксономий предмета.
+
+### Известное и отложенное
+
+- `TaskEditor.openModal()` и `AjaxHook::GetTaskEditorForm` не имеют вызывающих — решить, удалять ли.
+- Несколько шорткодов `fs_article_*` в одной строке вне колонок WPBakery дают пустой `<p>` перед ними.
 

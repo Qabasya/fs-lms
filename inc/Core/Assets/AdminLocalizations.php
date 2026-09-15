@@ -16,7 +16,7 @@ use Inc\Services\Template\TemplateRegistry;
  * Class AdminLocalizations
  *
  * Реестр window-переменных админки: какие данные на каком экране локализуются
- * к админскому бандлу (fs_lms_vars, fs_lms_task_data, fs_lms_lesson_vars и др.).
+ * к админскому бандлу (fs_lms_vars, fs_lms_task_data, fs_lms_task_editor_vars и др.).
  *
  * Выделен из Core\Enqueue (Т14.4): только сборка данных, сами вызовы
  * wp_localize_script делает AdminAssets.
@@ -40,9 +40,9 @@ class AdminLocalizations {
 	 */
 	public function registry( AdminScreenContext $ctx ): array {
 		return array(
-			'fs_lms_lesson_vars'       => $ctx->lesson ? $this->lessonVars( $ctx ) : null,
 			// На экране работ нужен task-modal для создания задания.
 			'fs_lms_task_data'         => $this->taskDataVars( $ctx ),
+			// Схемы полей всех шаблонов заданий — только на экранах редактора шагов, не на списках.
 			'fs_lms_task_editor_vars'  => $ctx->needsTaskEditor() ? $this->taskEditorVars() : null,
 			// Экран статьи: обязательные для статей таксономии — для клиентского гарда публикации.
 			'fs_lms_article_data'      => $ctx->article ? $this->articleDataVars( $ctx ) : null,
@@ -85,23 +85,6 @@ class AdminLocalizations {
 		return array(
 			'subject_key'         => $subjectKey,
 			'required_taxonomies' => $taxonomies,
-		);
-	}
-
-	/**
-	 * Переменные экрана CPT уроков.
-	 *
-	 * @param AdminScreenContext $ctx Признаки экрана
-	 *
-	 * @return array<string, mixed>
-	 */
-	private function lessonVars( AdminScreenContext $ctx ): array {
-		return array(
-			'ajax_url'    => admin_url( 'admin-ajax.php' ),
-			'subject_key' => PostTypeResolver::subjectFromLessonPostType( $ctx->postType ),
-			'nonces'      => array(
-				'authorLesson' => Nonce::AuthorLesson->create(),
-			),
 		);
 	}
 

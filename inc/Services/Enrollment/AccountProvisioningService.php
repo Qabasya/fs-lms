@@ -70,6 +70,8 @@ readonly class AccountProvisioningService {
 		$existingUser = '' !== $email ? $this->userManager->findByEmail( $email ) : null;
 
 		if ( null !== $existingUser ) {
+			$this->assertNotRole( $existingUser, UserRole::FSParent, 'Email ученика занят учётной записью родителя — укажите ученику другой email.' );
+
 			$this->passwordGenerator->setFromPlain( $existingUser->ID, $password );
 			$this->linkPerson( $personId, $existingUser->ID );
 			return new AccountCredentialsDTO( $existingUser->ID, $existingUser->user_login, $password, false );
@@ -113,6 +115,9 @@ readonly class AccountProvisioningService {
 		$existingUser = '' !== $email ? $this->userManager->findByEmail( $email ) : null;
 
 		if ( null !== $existingUser ) {
+			// Иначе родитель привязался бы к учётке ребёнка с тем же email и сменил ей пароль.
+			$this->assertNotRole( $existingUser, UserRole::FSStudent, 'Email родителя занят учётной записью ученика — укажите родителю другой email.' );
+
 			$password = $this->applyPassword( $existingUser->ID, $password );
 			$this->linkPerson( $personId, $existingUser->ID );
 			return new AccountCredentialsDTO( $existingUser->ID, $existingUser->user_login, $password, false );
@@ -129,6 +134,24 @@ readonly class AccountProvisioningService {
 		$this->linkPerson( $personId, $userId );
 
 		return new AccountCredentialsDTO( $userId, $login, $password, true );
+	}
+
+	/**
+	 * Запрещает привязку физлица к учётке «противоположной» роли, найденной по email.
+	 *
+	 * Учителя, администраторы и пользователи без ролей плагина по-прежнему привязываются:
+	 * преподаватель может быть и родителем ученика.
+	 *
+	 * @param \WP_User $user    Пользователь, найденный по email
+	 * @param UserRole $role    Роль, привязка к которой запрещена
+	 * @param string   $message Текст ошибки
+	 *
+	 * @throws \RuntimeException Пользователь с запрещённой ролью
+	 */
+	private function assertNotRole( \WP_User $user, UserRole $role, string $message ): void {
+		if ( in_array( $role->value, (array) $user->roles, true ) ) {
+			throw new \RuntimeException( $message );
+		}
 	}
 
 	/**

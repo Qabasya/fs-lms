@@ -128,6 +128,36 @@ class ApplicationRepository {
 	}
 
 	/**
+	 * Занят ли логин другой незавершённой заявкой.
+	 *
+	 * Учитываются заявки, чей логин ещё станет учёткой: ожидание родителя, проверка, зачисление
+	 * и `converted` (учётки не созданы). Истёкшие и удалённые логин освобождают.
+	 *
+	 * @param string   $usernameHash Хэш логина ({@see \Inc\Services\Security\PiiCryptoService::hash()})
+	 * @param int|null $exceptId     Заявка, которую не учитывать (правка её же логина)
+	 */
+	public function existsActiveByUsernameHash( string $usernameHash, ?int $exceptId = null ): bool {
+		$statuses = array(
+			ApplicationStatus::PendingParent->value,
+			ApplicationStatus::ReadyForReview->value,
+			ApplicationStatus::Enrolling->value,
+			ApplicationStatus::Converted->value,
+		);
+
+		$placeholders = implode( ', ', array_fill( 0, count( $statuses ), '%s' ) );
+
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$found = $this->wpdb->get_var(
+			$this->wpdb->prepare(
+				"SELECT id FROM %i WHERE username_hash = %s AND status IN ($placeholders) AND id <> %d LIMIT 1",
+				array_merge( array( $this->table, $usernameHash ), $statuses, array( (int) $exceptId ) )
+			)
+		);
+
+		return null !== $found;
+	}
+
+	/**
 	 * Получает постраничный отфильтрованный список заявок для админ-панели.
 	 *
 	 * @param array $filters Ассоциативный массив фильтров (status, date_from, date_to)
@@ -273,12 +303,12 @@ class ApplicationRepository {
 			throw new \InvalidArgumentException( "Заявка с ID {$id} не найдена." );
 		}
 
-		// current_time() — возвращает текущее время в формате MySQL
+		// Время в UTC, как у остальных записей заявки: выборки по времени сравнивают с UTC.
 		return $this->update(
 			$id,
 			array(
 				'status'     => $status->value,
-				'updated_at' => current_time( 'mysql' ),
+				'updated_at' => current_time( 'mysql', true ),
 			)
 		);
 	}
@@ -297,13 +327,35 @@ class ApplicationRepository {
 			array(
 				'status'              => ApplicationStatus::Converted->value,
 				'converted_record_id' => $recordId,
-				'updated_at'          => current_time( 'mysql' ),
+				'updated_at'          => current_time( 'mysql', true ),
 			)
 		);
 	}
 
 	/**
+	 * Заявки `converted`: зачисление прошло, а учётки не созданы (успешное зачисление заявку удаляет).
+	 *
+	 * @return array<int, ApplicationDTO>
+	 */
+	public function findConverted(): array {
+		$rows = $this->wpdb->get_results(
+			$this->wpdb->prepare(
+				'SELECT * FROM %i WHERE status = %s',
+				$this->table,
+				ApplicationStatus::Converted->value
+			),
+			ARRAY_A
+		);
+
+		return array_map( static fn( array $row ): ApplicationDTO => ApplicationDTO::fromArray( $row ), is_array( $rows ) ? $rows : array() );
+	}
+
+	/**
 	 * Находит заявки, «зависшие» в процессе транзакции зачисления.
+	 *
+	 * Порог считается в PHP в UTC, а не через `NOW()`: `updated_at` пишется в UTC, а часовой пояс
+	 * сервера БД может быть любым — с `NOW()` в московском времени любая заявка в `enrolling`
+	 * считалась бы зависшей сразу.
 	 *
 	 * @param int $minMinutes Таймаут в минутах
 	 *
@@ -312,10 +364,10 @@ class ApplicationRepository {
 	public function findStuckEnrolling( int $minMinutes ): array {
 		$rows = $this->wpdb->get_results(
 			$this->wpdb->prepare(
-				'SELECT * FROM %i WHERE status = %s AND updated_at < DATE_SUB(NOW(), INTERVAL %d MINUTE)',
+				'SELECT * FROM %i WHERE status = %s AND updated_at < %s',
 				$this->table,
 				ApplicationStatus::Enrolling->value,
-				$minMinutes
+				gmdate( 'Y-m-d H:i:s', time() - $minMinutes * MINUTE_IN_SECONDS )
 			),
 			ARRAY_A
 		);
@@ -403,8 +455,9 @@ class ApplicationRepository {
 		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$rows = $this->wpdb->get_results(
 			$this->wpdb->prepare(
-				"SELECT * FROM %i WHERE status IN ($placeholders) AND join_code_expires_at < NOW()",
-				array_merge( array( $this->table ), $statuses )
+				// Срок JOIN-кода пишется в UTC (ApplicationService), сравниваем тоже с UTC, а не с NOW() сервера БД.
+				"SELECT * FROM %i WHERE status IN ($placeholders) AND join_code_expires_at < %s",
+				array_merge( array( $this->table ), $statuses, array( gmdate( 'Y-m-d H:i:s' ) ) )
 			),
 			ARRAY_A
 		);

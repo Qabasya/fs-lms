@@ -19,11 +19,8 @@ import { HardDeleteStudentService } from './services/hard-delete-student-service
 import { ArchiveTable } from './services/tables/archive-table.js';
 import { ImportCsv } from './services/import-csv.js';
 import { RefSelector } from './services/ref-selector.js';
-import { LessonStepEditor } from './services/lesson-step-editor.js';
-import { WorkBuilder } from './services/work-builder.js';
-import { AssessmentBuilder } from './services/assessment-builder.js';
-import { CourseBuilder } from './services/course-builder.js';
 import { TaskTemplateType } from './services/task-template-type.js';
+import { showToast } from './modules/toast.js';
 import { ProblemBankFields, ProblemBankFilters } from './services/problem-bank-fields.js';
 import { ModuleToggle } from './services/module-toggle.js';
 import { TaskFields } from './services/task-fields.js';
@@ -51,6 +48,18 @@ import { TeacherViewModal } from './modals/enrollment/teacher-view-modal.js';
 import { AlertModal } from './modals/alert-modal.js';
 import { RolesSettings } from './services/roles-settings.js';
 import { LegacyTaskImport } from './services/legacy-task-import.js';
+
+/**
+ * Инициализирует конструктор из отдельного чанка.
+ *
+ * @param {Promise<Object>} chunk      Результат import() модуля конструктора
+ * @param {string}          exportName Имя экспортируемого объекта с init()
+ */
+function loadBuilder( chunk, exportName ) {
+    chunk
+        .then( ( module ) => module[ exportName ].init() )
+        .catch( () => showToast( 'Не удалось загрузить конструктор. Обновите страницу.', 'error' ) );
+}
 
 (function ($) {
     'use strict';
@@ -170,20 +179,23 @@ import { LegacyTaskImport } from './services/legacy-task-import.js';
             ImportCsv.init();
         }
 
+        // Конструкторы (урок, работа, контрольная, курс) — отдельными чанками: вместе с редактором
+        // шагов это самая тяжёлая часть бандла, а нужна она только на экранах редактирования.
+        // Общие модули (ConfirmModal, тосты, пикер) остаются в admin.min.js и не дублируются.
         if ( $( '.fs-lms-step-builder' ).length ) {
-            LessonStepEditor.init();
+            loadBuilder( import( /* webpackChunkName: "admin-lesson-steps" */ './services/lesson-step-editor.js' ), 'LessonStepEditor' );
         }
 
         if ( $( '.fs-lms-work-builder' ).length ) {
-            WorkBuilder.init();
+            loadBuilder( import( /* webpackChunkName: "admin-work-builder" */ './services/work-builder.js' ), 'WorkBuilder' );
         }
 
         if ( $( '.fs-lms-assessment-builder' ).length ) {
-            AssessmentBuilder.init();
+            loadBuilder( import( /* webpackChunkName: "admin-assessment-builder" */ './services/assessment-builder.js' ), 'AssessmentBuilder' );
         }
 
         if ( document.getElementById( 'fs-lms-course-builder' ) ) {
-            CourseBuilder.init();
+            loadBuilder( import( /* webpackChunkName: "admin-course-builder" */ './services/course-builder.js' ), 'CourseBuilder' );
         }
 
         TaskTemplateType.init();

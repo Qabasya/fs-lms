@@ -78,7 +78,7 @@ class FrontendAssets extends BaseController {
 	}
 
 	/**
-	 * Базовый публичный стек: шрифт иконок, общий и фронтовый бандлы.
+	 * Базовый публичный стек: шрифт интерфейса, общий и фронтовый бандлы.
 	 *
 	 * Версия — filemtime(), как в админке: хостинг кеширует статику на неделю, и с
 	 * постоянным `?ver=` браузер после деплоя продолжал бы отдавать старый бандл.
@@ -87,12 +87,11 @@ class FrontendAssets extends BaseController {
 	 */
 	private function enqueueFrontendBase(): void {
 		$this->bundles->enqueueUiFont();
-		$this->bundles->enqueueFontAwesome();
 
 		wp_enqueue_style(
 			'fs-lms-common-style',
 			$this->url( 'assets/css/common.min.css' ),
-			array( 'fs-lms-fontawesome' ),
+			array(),
 			filemtime( $this->path( 'assets/css/common.min.css' ) )
 		);
 
