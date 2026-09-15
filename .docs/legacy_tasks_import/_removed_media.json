@@ -1,0 +1,1523 @@
+{
+  "1": [
+    {
+      "legacy_number": 100,
+      "variant_label": "Открытый вариант",
+      "file_url": "",
+      "images": [
+        "https://future-step.ru/wp-content/uploads/2025/02/Задание-1-1-1-e1738669567100-1300x392.png"
+      ]
+    },
+    {
+      "legacy_number": 101,
+      "variant_label": "ЕГКР",
+      "file_url": "",
+      "images": [
+        "https://future-step.ru/wp-content/uploads/2025/02/Задание-1-3re-1300x460.png"
+      ]
+    },
+    {
+      "legacy_number": 102,
+      "variant_label": "Демоверсия",
+      "file_url": "",
+      "images": [
+        "https://future-step.ru/wp-content/uploads/2025/02/Задание-1-7-1300x479.png"
+      ]
+    },
+    {
+      "legacy_number": 103,
+      "variant_label": "ЕГКР",
+      "file_url": "",
+      "images": [
+        "https://future-step.ru/wp-content/uploads/2025/02/Задание-1-5-1300x562.png"
+      ]
+    },
+    {
+      "legacy_number": 104,
+      "variant_label": "Авторские варианты",
+      "file_url": "",
+      "images": [
+        "https://future-step.ru/wp-content/uploads/2025/02/Задание-1-9-1300x479.png"
+      ]
+    },
+    {
+      "legacy_number": 105,
+      "variant_label": "ЕГКР",
+      "file_url": "",
+      "images": [
+        "https://future-step.ru/wp-content/uploads/2025/03/Задание-1-11-1300x479.png"
+      ]
+    },
+    {
+      "legacy_number": 106,
+      "variant_label": "Апробация",
+      "file_url": "",
+      "images": [
+        "https://future-step.ru/wp-content/uploads/2025/03/Задание-1-12-1300x479.png"
+      ]
+    },
+    {
+      "legacy_number": 107,
+      "variant_label": "Авторские варианты",
+      "file_url": "",
+      "images": [
+        "https://future-step.ru/wp-content/uploads/2025/03/Задание-1-13-wm-1300x434.png"
+      ]
+    },
+    {
+      "legacy_number": 108,
+      "variant_label": "Досрочная волна",
+      "file_url": "",
+      "images": [
+        "https://future-step.ru/wp-content/uploads/2025/04/Задание-1-14-1300x450.png"
+      ]
+    },
+    {
+      "legacy_number": 109,
+      "variant_label": "ЕГКР",
+      "file_url": "",
+      "images": [
+        "https://future-step.ru/wp-content/uploads/2025/04/Задание-1-15-1300x434.png"
+      ]
+    },
+    {
+      "legacy_number": 110,
+      "variant_label": "Открытый вариант",
+      "file_url": "",
+      "images": [
+        "https://future-step.ru/wp-content/uploads/2025/07/Задание-1-16-1300x396.png"
+      ]
+    },
+    {
+      "legacy_number": 111,
+      "variant_label": "Типовые варианты",
+      "file_url": "",
+      "images": [
+        "https://future-step.ru/wp-content/uploads/2025/05/Задание-1-17-1300x396.png"
+      ]
+    },
+    {
+      "legacy_number": 112,
+      "variant_label": "Типовые варианты",
+      "file_url": "",
+      "images": [
+        "https://future-step.ru/wp-content/uploads/2025/05/Задание-1-18-1300x409.png"
+      ]
+    },
+    {
+      "legacy_number": 113,
+      "variant_label": "Типовые варианты",
+      "file_url": "",
+      "images": [
+        "https://future-step.ru/wp-content/uploads/2025/05/Задание-1-19-1300x434.png"
+      ]
+    },
+    {
+      "legacy_number": 114,
+      "variant_label": "Основная волна",
+      "file_url": "",
+      "images": [
+        "https://future-step.ru/wp-content/uploads/2025/07/Задание-1-20-1300x434.png"
+      ]
+    },
+    {
+      "legacy_number": 115,
+      "variant_label": "Основная волна",
+      "file_url": "",
+      "images": [
+        "https://future-step.ru/wp-content/uploads/2025/07/Задание-1-21-1300x434.png"
+      ]
+    },
+    {
+      "legacy_number": 116,
+      "variant_label": "Основная волна",
+      "file_url": "",
+      "images": [
+        "https://future-step.ru/wp-content/uploads/2025/07/Задание-1-22-1300x396.png"
+      ]
+    },
+    {
+      "legacy_number": 117,
+      "variant_label": "Демоверсия",
+      "file_url": "",
+      "images": [
+        "https://future-step.ru/wp-content/uploads/2025/08/Задание-1-23-1300x434.png"
+      ]
+    },
+    {
+      "legacy_number": 118,
+      "variant_label": "Типовые варианты",
+      "file_url": "",
+      "images": [
+        "https://future-step.ru/wp-content/uploads/2025/11/Задание-1-24-1300x453.png"
+      ]
+    },
+    {
+      "legacy_number": 119,
+      "variant_label": "ЕГКР",
+      "file_url": "",
+      "images": [
+        "https://future-step.ru/wp-content/uploads/2025/12/Задание-1-25-1300x434.png"
+      ]
+    }
+  ],
+  "2": [
+    {
+      "legacy_number": 200,
+      "variant_label": "Основная волна",
+      "file_url": "",
+      "images": [
+        "https://future-step.ru/wp-content/uploads/2025/02/Задание-2-1-1300x283.png"
+      ]
+    },
+    {
+      "legacy_number": 201,
+      "variant_label": "Основная волна",
+      "file_url": "",
+      "images": [
+        "https://future-step.ru/wp-content/uploads/2025/02/Задание-2-2-1300x283.png"
+      ]
+    },
+    {
+      "legacy_number": 202,
+      "variant_label": "Основная волна",
+      "file_url": "",
+      "images": [
+        "https://future-step.ru/wp-content/uploads/2025/02/Задание-2-3-1300x283.png"
+      ]
+    },
+    {
+      "legacy_number": 203,
+      "variant_label": "ЕГКР",
+      "file_url": "",
+      "images": [
+        "https://future-step.ru/wp-content/uploads/2025/02/Задание-2-4-1300x283.png"
+      ]
+    },
+    {
+      "legacy_number": 204,
+      "variant_label": "ЕГКР",
+      "file_url": "",
+      "images": [
+        "https://future-step.ru/wp-content/uploads/2025/02/Задание-2-5-1300x283.png"
+      ]
+    },
+    {
+      "legacy_number": 205,
+      "variant_label": "Демоверсия",
+      "file_url": "",
+      "images": [
+        "https://future-step.ru/wp-content/uploads/2025/02/Задание-2-6-1300x283.png"
+      ]
+    },
+    {
+      "legacy_number": 206,
+      "variant_label": "ЕГКР",
+      "file_url": "",
+      "images": [
+        "https://future-step.ru/wp-content/uploads/2025/03/Задание-2-7-1300x283.png"
+      ]
+    },
+    {
+      "legacy_number": 207,
+      "variant_label": "Апробация",
+      "file_url": "",
+      "images": [
+        "https://future-step.ru/wp-content/uploads/2025/03/Задание-2-8-1300x283.png"
+      ]
+    },
+    {
+      "legacy_number": 208,
+      "variant_label": "Апробация",
+      "file_url": "",
+      "images": [
+        "https://future-step.ru/wp-content/uploads/2025/03/Задание-2-9-1300x283.png"
+      ]
+    },
+    {
+      "legacy_number": 209,
+      "variant_label": "Авторские варианты",
+      "file_url": "",
+      "images": [
+        "https://future-step.ru/wp-content/uploads/2025/03/Задание-2-10-1300x342.png"
+      ]
+    },
+    {
+      "legacy_number": 210,
+      "variant_label": "Досрочная волна",
+      "file_url": "",
+      "images": [
+        "https://future-step.ru/wp-content/uploads/2025/04/Задание-2-11-1300x283.png"
+      ]
+    },
+    {
+      "legacy_number": 211,
+      "variant_label": "ЕГКР",
+      "file_url": "",
+      "images": [
+        "https://future-step.ru/wp-content/uploads/2025/04/Задание-2-12-1300x283.png"
+      ]
+    },
+    {
+      "legacy_number": 212,
+      "variant_label": "Открытый вариант",
+      "file_url": "",
+      "images": [
+        "https://future-step.ru/wp-content/uploads/2025/04/Задание-2-13-1300x283.png"
+      ]
+    },
+    {
+      "legacy_number": 213,
+      "variant_label": "Типовые варианты",
+      "file_url": "",
+      "images": [
+        "https://future-step.ru/wp-content/uploads/2025/04/Задание-2-13-1300x283.png"
+      ]
+    },
+    {
+      "legacy_number": 214,
+      "variant_label": "Типовые варианты",
+      "file_url": "",
+      "images": [
+        "https://future-step.ru/wp-content/uploads/2025/05/Задание-2-15-1300x283.png"
+      ]
+    },
+    {
+      "legacy_number": 215,
+      "variant_label": "Типовые варианты",
+      "file_url": "",
+      "images": [
+        "https://future-step.ru/wp-content/uploads/2025/05/Задание-2-16-1300x283.png"
+      ]
+    },
+    {
+      "legacy_number": 216,
+      "variant_label": "Основная волна",
+      "file_url": "",
+      "images": [
+        "https://future-step.ru/wp-content/uploads/2025/07/Задание-2-17-1300x283.png"
+      ]
+    },
+    {
+      "legacy_number": 217,
+      "variant_label": "Основная волна",
+      "file_url": "",
+      "images": [
+        "https://future-step.ru/wp-content/uploads/2025/07/Задание-2-18-1300x283.png"
+      ]
+    },
+    {
+      "legacy_number": 218,
+      "variant_label": "Основная волна",
+      "file_url": "",
+      "images": [
+        "https://future-step.ru/wp-content/uploads/2025/07/Задание-2-19-1300x283.png"
+      ]
+    },
+    {
+      "legacy_number": 219,
+      "variant_label": "Демоверсия",
+      "file_url": "",
+      "images": [
+        "https://future-step.ru/wp-content/uploads/2025/08/Задание-2-20-1300x283.png"
+      ]
+    },
+    {
+      "legacy_number": 220,
+      "variant_label": "Типовые варианты",
+      "file_url": "",
+      "images": [
+        "https://future-step.ru/wp-content/uploads/2025/11/Задание-2-21-1300x283.png"
+      ]
+    },
+    {
+      "legacy_number": 221,
+      "variant_label": "ЕГКР",
+      "file_url": "",
+      "images": [
+        "https://future-step.ru/wp-content/uploads/2025/12/Задание-2-22-1300x283.png"
+      ]
+    }
+  ],
+  "3": [
+    {
+      "legacy_number": 300,
+      "variant_label": "Демоверсия",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/03/300.xlsx",
+      "images": [
+        "https://future-step.ru/wp-content/uploads/2025/03/Задание-3-2-1300x134.png",
+        "https://future-step.ru/wp-content/uploads/2025/03/Задание-3-3-1300x134.png",
+        "https://future-step.ru/wp-content/uploads/2025/03/Задание-3-4-1300x134.png",
+        "https://future-step.ru/wp-content/uploads/2025/03/Задание-3-1-1300x715.png"
+      ]
+    },
+    {
+      "legacy_number": 301,
+      "variant_label": "ЕГКР",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/03/301.xlsx",
+      "images": [
+        "https://future-step.ru/wp-content/uploads/2025/03/Задание-3-2-1300x134.png",
+        "https://future-step.ru/wp-content/uploads/2025/03/Задание-3-3-1300x134.png",
+        "https://future-step.ru/wp-content/uploads/2025/03/Задание-3-4-1300x134.png",
+        "https://future-step.ru/wp-content/uploads/2025/03/Задание-3-1-1300x715.png"
+      ]
+    },
+    {
+      "legacy_number": 302,
+      "variant_label": "Апробация",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/03/302.xlsx",
+      "images": [
+        "https://future-step.ru/wp-content/uploads/2025/03/Задание-3-2-1300x134.png",
+        "https://future-step.ru/wp-content/uploads/2025/03/Задание-3-3-1300x134.png",
+        "https://future-step.ru/wp-content/uploads/2025/03/Задание-3-4-1300x134.png",
+        "https://future-step.ru/wp-content/uploads/2025/03/Задание-3-1-1300x715.png"
+      ]
+    },
+    {
+      "legacy_number": 303,
+      "variant_label": "Основная волна",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/03/303.xlsx",
+      "images": [
+        "https://future-step.ru/wp-content/uploads/2025/03/Задание-3-2-1300x134.png",
+        "https://future-step.ru/wp-content/uploads/2025/03/Задание-3-3-1300x134.png",
+        "https://future-step.ru/wp-content/uploads/2025/03/Задание-3-4-1300x134.png",
+        "https://future-step.ru/wp-content/uploads/2025/03/Задание-3-1-1300x715.png"
+      ]
+    },
+    {
+      "legacy_number": 304,
+      "variant_label": "Авторские варианты",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/03/304.xlsx",
+      "images": [
+        "https://future-step.ru/wp-content/uploads/2025/03/Задание-3-2-wm-1300x134.png",
+        "https://future-step.ru/wp-content/uploads/2025/03/Задание-3-3-wm-1300x134.png",
+        "https://future-step.ru/wp-content/uploads/2025/03/Задание-3-4-wm-1300x134.png",
+        "https://future-step.ru/wp-content/uploads/2025/03/Задание-3-1-wm-1300x715.png"
+      ]
+    },
+    {
+      "legacy_number": 305,
+      "variant_label": "Досрочная волна",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/04/305.xlsx",
+      "images": [
+        "https://future-step.ru/wp-content/uploads/2025/03/Задание-3-2-1300x134.png",
+        "https://future-step.ru/wp-content/uploads/2025/03/Задание-3-3-1300x134.png",
+        "https://future-step.ru/wp-content/uploads/2025/03/Задание-3-4-1300x134.png",
+        "https://future-step.ru/wp-content/uploads/2025/03/Задание-3-1-1300x715.png"
+      ]
+    },
+    {
+      "legacy_number": 306,
+      "variant_label": "ЕГКР",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/04/306.xlsx",
+      "images": [
+        "https://future-step.ru/wp-content/uploads/2025/03/Задание-3-2-1300x134.png",
+        "https://future-step.ru/wp-content/uploads/2025/03/Задание-3-3-1300x134.png",
+        "https://future-step.ru/wp-content/uploads/2025/03/Задание-3-4-1300x134.png",
+        "https://future-step.ru/wp-content/uploads/2025/03/Задание-3-1-1300x715.png"
+      ]
+    },
+    {
+      "legacy_number": 307,
+      "variant_label": "Открытый вариант",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/04/307.xlsx",
+      "images": [
+        "https://future-step.ru/wp-content/uploads/2025/03/Задание-3-2-1300x134.png",
+        "https://future-step.ru/wp-content/uploads/2025/03/Задание-3-3-1300x134.png",
+        "https://future-step.ru/wp-content/uploads/2025/03/Задание-3-4-1300x134.png",
+        "https://future-step.ru/wp-content/uploads/2025/03/Задание-3-1-1300x715.png"
+      ]
+    },
+    {
+      "legacy_number": 308,
+      "variant_label": "Типовые варианты",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/05/308.xlsx",
+      "images": [
+        "https://future-step.ru/wp-content/uploads/2025/05/Задание-3-2-1-1300x134.png",
+        "https://future-step.ru/wp-content/uploads/2025/05/Задание-3-2-2-1300x134.png",
+        "https://future-step.ru/wp-content/uploads/2025/05/Задание-3-2-3-1300x134.png",
+        "https://future-step.ru/wp-content/uploads/2025/05/Задание-3-2-4-1300x800.png"
+      ]
+    },
+    {
+      "legacy_number": 309,
+      "variant_label": "Типовые варианты",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/05/308.xlsx",
+      "images": [
+        "https://future-step.ru/wp-content/uploads/2025/05/Задание-3-2-1-1300x134.png",
+        "https://future-step.ru/wp-content/uploads/2025/05/Задание-3-2-2-1300x134.png",
+        "https://future-step.ru/wp-content/uploads/2025/05/Задание-3-2-3-1300x134.png",
+        "https://future-step.ru/wp-content/uploads/2025/05/Задание-3-2-4-1300x800.png"
+      ]
+    },
+    {
+      "legacy_number": 310,
+      "variant_label": "Основная волна",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/07/310.xlsx",
+      "images": [
+        "https://future-step.ru/wp-content/uploads/2025/03/Задание-3-2-1300x134.png",
+        "https://future-step.ru/wp-content/uploads/2025/03/Задание-3-3-1300x134.png",
+        "https://future-step.ru/wp-content/uploads/2025/03/Задание-3-4-1300x134.png",
+        "https://future-step.ru/wp-content/uploads/2025/03/Задание-3-1-1300x715.png"
+      ]
+    },
+    {
+      "legacy_number": 311,
+      "variant_label": "Основная волна",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/07/311.xlsx",
+      "images": [
+        "https://future-step.ru/wp-content/uploads/2025/03/Задание-3-2-1300x134.png",
+        "https://future-step.ru/wp-content/uploads/2025/03/Задание-3-3-1300x134.png",
+        "https://future-step.ru/wp-content/uploads/2025/03/Задание-3-4-1300x134.png",
+        "https://future-step.ru/wp-content/uploads/2025/03/Задание-3-1-1300x715.png"
+      ]
+    },
+    {
+      "legacy_number": 312,
+      "variant_label": "Основная волна",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/07/312.xlsx",
+      "images": [
+        "https://future-step.ru/wp-content/uploads/2025/03/Задание-3-2-1300x134.png",
+        "https://future-step.ru/wp-content/uploads/2025/03/Задание-3-3-1300x134.png",
+        "https://future-step.ru/wp-content/uploads/2025/03/Задание-3-4-1300x134.png",
+        "https://future-step.ru/wp-content/uploads/2025/03/Задание-3-1-1300x715.png"
+      ]
+    },
+    {
+      "legacy_number": 313,
+      "variant_label": "Демоверсия",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/08/313.ods",
+      "images": [
+        "https://future-step.ru/wp-content/uploads/2025/03/Задание-3-2-1300x134.png",
+        "https://future-step.ru/wp-content/uploads/2025/03/Задание-3-3-1300x134.png",
+        "https://future-step.ru/wp-content/uploads/2025/03/Задание-3-4-1300x134.png",
+        "https://future-step.ru/wp-content/uploads/2025/03/Задание-3-1-1300x715.png"
+      ]
+    },
+    {
+      "legacy_number": 314,
+      "variant_label": "Типовые варианты",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/11/314.ods",
+      "images": [
+        "https://future-step.ru/wp-content/uploads/2025/11/Задание-3-3-1-1300x134.png",
+        "https://future-step.ru/wp-content/uploads/2025/11/Задание-3-3-2-1300x134.png",
+        "https://future-step.ru/wp-content/uploads/2025/11/Задание-3-3-3-1300x134.png",
+        "https://future-step.ru/wp-content/uploads/2025/11/Задание-3-3-4-1300x489.png"
+      ]
+    },
+    {
+      "legacy_number": 315,
+      "variant_label": "ЕГКР",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/12/315.ods",
+      "images": [
+        "https://future-step.ru/wp-content/uploads/2025/12/Задание-3-3-5-1300x633.png"
+      ]
+    }
+  ],
+  "4": [
+    {
+      "legacy_number": 401,
+      "variant_label": "Демоверсия",
+      "file_url": "",
+      "images": [
+        "https://future-step.ru/wp-content/uploads/2025/01/Задание-4-13-1300x457.png"
+      ]
+    },
+    {
+      "legacy_number": 402,
+      "variant_label": "ЕГКР",
+      "file_url": "",
+      "images": [
+        "https://future-step.ru/wp-content/uploads/2025/03/Задание-4-2-1-1300x457.png"
+      ]
+    },
+    {
+      "legacy_number": 403,
+      "variant_label": "Апробация",
+      "file_url": "",
+      "images": [
+        "https://future-step.ru/wp-content/uploads/2025/03/Задание-4-3-1-1300x457.png"
+      ]
+    },
+    {
+      "legacy_number": 405,
+      "variant_label": "Досрочная волна",
+      "file_url": "",
+      "images": [
+        "https://future-step.ru/wp-content/uploads/2025/04/Задание-4-5-1300x457.png"
+      ]
+    },
+    {
+      "legacy_number": 407,
+      "variant_label": "Открытый вариант",
+      "file_url": "",
+      "images": [
+        "https://future-step.ru/wp-content/uploads/2025/04/Задание-4-7-1-1300x323.png"
+      ]
+    },
+    {
+      "legacy_number": 414,
+      "variant_label": "Типовые варианты",
+      "file_url": "",
+      "images": [
+        "https://future-step.ru/wp-content/uploads/2025/11/Задание-4-9-1-1300x390.png"
+      ]
+    }
+  ],
+  "9": [
+    {
+      "legacy_number": 900,
+      "variant_label": "Демоверсия",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/03/900.xlsx",
+      "images": []
+    },
+    {
+      "legacy_number": 901,
+      "variant_label": "ЕГКР",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/03/901.xlsx",
+      "images": []
+    },
+    {
+      "legacy_number": 902,
+      "variant_label": "Основная волна",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/03/902.xlsx",
+      "images": []
+    },
+    {
+      "legacy_number": 903,
+      "variant_label": "Основная волна",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/03/903.xlsx",
+      "images": []
+    },
+    {
+      "legacy_number": 904,
+      "variant_label": "Авторские варианты",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/03/904.xlsx",
+      "images": []
+    },
+    {
+      "legacy_number": 905,
+      "variant_label": "Досрочная волна",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/04/905.xlsx",
+      "images": []
+    },
+    {
+      "legacy_number": 906,
+      "variant_label": "ЕГКР",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/04/906.xlsx",
+      "images": []
+    },
+    {
+      "legacy_number": 907,
+      "variant_label": "Открытый вариант",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/05/907.xlsx",
+      "images": []
+    },
+    {
+      "legacy_number": 908,
+      "variant_label": "Типовые варианты",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/05/908.xlsx",
+      "images": []
+    },
+    {
+      "legacy_number": 909,
+      "variant_label": "Типовые варианты",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/05/909.xlsx",
+      "images": []
+    },
+    {
+      "legacy_number": 910,
+      "variant_label": "Типовые варианты",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/05/910.xlsx",
+      "images": []
+    },
+    {
+      "legacy_number": 911,
+      "variant_label": "Основная волна",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/07/911.xlsx",
+      "images": []
+    },
+    {
+      "legacy_number": 912,
+      "variant_label": "Основная волна",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/07/912.xlsx",
+      "images": []
+    },
+    {
+      "legacy_number": 913,
+      "variant_label": "Основная волна",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/07/913.xlsx",
+      "images": []
+    },
+    {
+      "legacy_number": 914,
+      "variant_label": "Демоверсия",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/10/914.ods",
+      "images": []
+    },
+    {
+      "legacy_number": 915,
+      "variant_label": "Основная волна",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/10/915.txt",
+      "images": []
+    },
+    {
+      "legacy_number": 916,
+      "variant_label": "Основная волна",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/10/916.txt",
+      "images": []
+    },
+    {
+      "legacy_number": 917,
+      "variant_label": "Типовые варианты",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/11/917.ods",
+      "images": []
+    },
+    {
+      "legacy_number": 918,
+      "variant_label": "ЕГКР",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/12/918.ods",
+      "images": []
+    },
+    {
+      "legacy_number": 919,
+      "variant_label": "Типовые варианты",
+      "file_url": "https://future-step.ru/wp-content/uploads/2026/02/919.txt",
+      "images": []
+    },
+    {
+      "legacy_number": 920,
+      "variant_label": "Типовые варианты",
+      "file_url": "https://future-step.ru/wp-content/uploads/2026/02/920.txt",
+      "images": []
+    },
+    {
+      "legacy_number": 921,
+      "variant_label": "Типовые варианты",
+      "file_url": "https://future-step.ru/wp-content/uploads/2026/02/921.txt",
+      "images": []
+    },
+    {
+      "legacy_number": 922,
+      "variant_label": "Типовые варианты",
+      "file_url": "https://future-step.ru/wp-content/uploads/2026/02/922.txt",
+      "images": []
+    },
+    {
+      "legacy_number": 923,
+      "variant_label": "Типовые варианты",
+      "file_url": "https://future-step.ru/wp-content/uploads/2026/02/923.txt",
+      "images": []
+    },
+    {
+      "legacy_number": 924,
+      "variant_label": "Типовые варианты",
+      "file_url": "https://future-step.ru/wp-content/uploads/2026/02/924.txt",
+      "images": []
+    },
+    {
+      "legacy_number": 925,
+      "variant_label": "Типовые варианты",
+      "file_url": "https://future-step.ru/wp-content/uploads/2026/02/925.txt",
+      "images": []
+    },
+    {
+      "legacy_number": 926,
+      "variant_label": "Типовые варианты",
+      "file_url": "https://future-step.ru/wp-content/uploads/2026/02/926.txt",
+      "images": []
+    },
+    {
+      "legacy_number": 927,
+      "variant_label": "Типовые варианты",
+      "file_url": "https://future-step.ru/wp-content/uploads/2026/02/927.txt",
+      "images": []
+    },
+    {
+      "legacy_number": 928,
+      "variant_label": "Типовые варианты",
+      "file_url": "https://future-step.ru/wp-content/uploads/2026/02/928.txt",
+      "images": []
+    },
+    {
+      "legacy_number": 929,
+      "variant_label": "Типовые варианты",
+      "file_url": "https://future-step.ru/wp-content/uploads/2026/02/929.txt",
+      "images": []
+    },
+    {
+      "legacy_number": 930,
+      "variant_label": "Типовые варианты",
+      "file_url": "https://future-step.ru/wp-content/uploads/2026/02/930.txt",
+      "images": []
+    },
+    {
+      "legacy_number": 931,
+      "variant_label": "Авторские варианты",
+      "file_url": "https://future-step.ru/wp-content/uploads/2026/02/931.txt",
+      "images": []
+    }
+  ],
+  "17": [
+    {
+      "legacy_number": 1700,
+      "variant_label": "Демоверсия",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/03/1700.txt",
+      "images": []
+    },
+    {
+      "legacy_number": 1701,
+      "variant_label": "ЕГКР",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/03/1701.txt",
+      "images": []
+    },
+    {
+      "legacy_number": 1702,
+      "variant_label": "Основная волна",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/03/1702.txt",
+      "images": []
+    },
+    {
+      "legacy_number": 1703,
+      "variant_label": "ЕГКР",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/03/1703.txt",
+      "images": []
+    },
+    {
+      "legacy_number": 1704,
+      "variant_label": "Основная волна",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/03/1704.txt",
+      "images": []
+    },
+    {
+      "legacy_number": 1705,
+      "variant_label": "Апробация",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/03/1705.txt",
+      "images": []
+    },
+    {
+      "legacy_number": 1706,
+      "variant_label": "Авторские варианты",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/03/1706.txt",
+      "images": []
+    },
+    {
+      "legacy_number": 1707,
+      "variant_label": "Досрочная волна",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/04/1707.txt",
+      "images": []
+    },
+    {
+      "legacy_number": 1708,
+      "variant_label": "ЕГКР",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/04/1708.txt",
+      "images": []
+    },
+    {
+      "legacy_number": 1710,
+      "variant_label": "Типовые варианты",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/05/1710.txt",
+      "images": []
+    },
+    {
+      "legacy_number": 1711,
+      "variant_label": "Типовые варианты",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/05/1711.txt",
+      "images": []
+    },
+    {
+      "legacy_number": 1712,
+      "variant_label": "Типовые варианты",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/05/1712.txt",
+      "images": []
+    },
+    {
+      "legacy_number": 1713,
+      "variant_label": "Основная волна",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/07/1713.txt",
+      "images": []
+    },
+    {
+      "legacy_number": 1714,
+      "variant_label": "Основная волна",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/07/1714.txt",
+      "images": []
+    },
+    {
+      "legacy_number": 1715,
+      "variant_label": "Основная волна",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/07/1715.txt",
+      "images": []
+    },
+    {
+      "legacy_number": 1716,
+      "variant_label": "Демоверсия",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/09/1716.txt",
+      "images": []
+    },
+    {
+      "legacy_number": 1717,
+      "variant_label": "Типовые варианты",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/11/1717.txt",
+      "images": []
+    },
+    {
+      "legacy_number": 1718,
+      "variant_label": "ЕГКР",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/12/1718.txt",
+      "images": []
+    },
+    {
+      "legacy_number": 1719,
+      "variant_label": "Типовые варианты",
+      "file_url": "https://future-step.ru/wp-content/uploads/2026/02/1719.txt",
+      "images": []
+    },
+    {
+      "legacy_number": 1720,
+      "variant_label": "Типовые варианты",
+      "file_url": "https://future-step.ru/wp-content/uploads/2026/02/1720.txt",
+      "images": []
+    },
+    {
+      "legacy_number": 1721,
+      "variant_label": "Типовые варианты",
+      "file_url": "https://future-step.ru/wp-content/uploads/2026/02/1721.txt",
+      "images": []
+    },
+    {
+      "legacy_number": 1722,
+      "variant_label": "Типовые варианты",
+      "file_url": "https://future-step.ru/wp-content/uploads/2026/02/1722.txt",
+      "images": []
+    },
+    {
+      "legacy_number": 1723,
+      "variant_label": "Типовые варианты",
+      "file_url": "https://future-step.ru/wp-content/uploads/2026/02/1723.txt",
+      "images": []
+    },
+    {
+      "legacy_number": 1724,
+      "variant_label": "Типовые варианты",
+      "file_url": "https://future-step.ru/wp-content/uploads/2026/02/1724.txt",
+      "images": []
+    },
+    {
+      "legacy_number": 1725,
+      "variant_label": "Типовые варианты",
+      "file_url": "https://future-step.ru/wp-content/uploads/2026/02/1725.txt",
+      "images": []
+    },
+    {
+      "legacy_number": 1726,
+      "variant_label": "Типовые варианты",
+      "file_url": "https://future-step.ru/wp-content/uploads/2026/02/1726.txt",
+      "images": []
+    }
+  ],
+  "18": [
+    {
+      "legacy_number": 1800,
+      "variant_label": "Демоверсия",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/03/1800.xlsx",
+      "images": []
+    },
+    {
+      "legacy_number": 1801,
+      "variant_label": "ЕГКР",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/03/1801.xlsx",
+      "images": []
+    },
+    {
+      "legacy_number": 1802,
+      "variant_label": "Апробация",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/03/1802.xlsx",
+      "images": []
+    },
+    {
+      "legacy_number": 1803,
+      "variant_label": "Основная волна",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/03/1803.xlsx",
+      "images": []
+    },
+    {
+      "legacy_number": 1804,
+      "variant_label": "Авторские варианты",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/03/1804.xlsx",
+      "images": []
+    },
+    {
+      "legacy_number": 1805,
+      "variant_label": "Досрочная волна",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/04/1805.xlsx",
+      "images": []
+    },
+    {
+      "legacy_number": 1806,
+      "variant_label": "ЕГКР",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/04/1806.xlsx",
+      "images": []
+    },
+    {
+      "legacy_number": 1807,
+      "variant_label": "Открытый вариант",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/05/1807.xlsx",
+      "images": []
+    },
+    {
+      "legacy_number": 1808,
+      "variant_label": "Типовые варианты",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/05/1808.xlsx",
+      "images": []
+    },
+    {
+      "legacy_number": 1809,
+      "variant_label": "Типовые варианты",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/05/1809.xlsx",
+      "images": []
+    },
+    {
+      "legacy_number": 1810,
+      "variant_label": "Типовые варианты",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/05/1810.xlsx",
+      "images": []
+    },
+    {
+      "legacy_number": 1811,
+      "variant_label": "Основная волна",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/07/1811.xlsx",
+      "images": []
+    },
+    {
+      "legacy_number": 1812,
+      "variant_label": "Основная волна",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/07/1812.xlsx",
+      "images": []
+    },
+    {
+      "legacy_number": 1813,
+      "variant_label": "Основная волна",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/07/1813.xlsx",
+      "images": []
+    },
+    {
+      "legacy_number": 1814,
+      "variant_label": "Демоверсия",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/08/1814.ods",
+      "images": []
+    },
+    {
+      "legacy_number": 1815,
+      "variant_label": "Типовые варианты",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/11/1815.ods",
+      "images": []
+    },
+    {
+      "legacy_number": 1816,
+      "variant_label": "ЕГКР",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/12/1816.ods",
+      "images": []
+    }
+  ],
+  "22": [
+    {
+      "legacy_number": 2200,
+      "variant_label": "Демоверсия",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/03/2200.xlsx",
+      "images": [
+        "https://future-step.ru/wp-content/uploads/2025/03/Задание-22-1-1300x390.png"
+      ]
+    },
+    {
+      "legacy_number": 2201,
+      "variant_label": "ЕГКР",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/03/2201.xlsx",
+      "images": [
+        "https://future-step.ru/wp-content/uploads/2025/03/Задание-22-1-1300x390.png"
+      ]
+    },
+    {
+      "legacy_number": 2202,
+      "variant_label": "Апробация",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/03/2202.xlsx",
+      "images": [
+        "https://future-step.ru/wp-content/uploads/2025/03/Задание-22-1-1300x390.png"
+      ]
+    },
+    {
+      "legacy_number": 2203,
+      "variant_label": "Основная волна",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/03/2203.xlsx",
+      "images": [
+        "https://future-step.ru/wp-content/uploads/2025/03/Задание-22-1-1300x390.png"
+      ]
+    },
+    {
+      "legacy_number": 2204,
+      "variant_label": "Авторские варианты",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/03/2204.xlsx",
+      "images": [
+        "https://future-step.ru/wp-content/uploads/2025/03/Задание-22-1-1300x390.png"
+      ]
+    },
+    {
+      "legacy_number": 2205,
+      "variant_label": "Досрочная волна",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/04/2205.xlsx",
+      "images": [
+        "https://future-step.ru/wp-content/uploads/2025/03/Задание-22-1-1300x390.png"
+      ]
+    },
+    {
+      "legacy_number": 2206,
+      "variant_label": "ЕГКР",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/04/2206.xlsx",
+      "images": [
+        "https://future-step.ru/wp-content/uploads/2025/03/Задание-22-1-1300x390.png"
+      ]
+    },
+    {
+      "legacy_number": 2207,
+      "variant_label": "Открытый вариант",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/05/2207.xlsx",
+      "images": [
+        "https://future-step.ru/wp-content/uploads/2025/03/Задание-22-1-1300x390.png"
+      ]
+    },
+    {
+      "legacy_number": 2208,
+      "variant_label": "Типовые варианты",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/05/2208.xlsx",
+      "images": [
+        "https://future-step.ru/wp-content/uploads/2025/03/Задание-22-1-1300x390.png"
+      ]
+    },
+    {
+      "legacy_number": 2209,
+      "variant_label": "Типовые варианты",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/05/2209.xlsx",
+      "images": [
+        "https://future-step.ru/wp-content/uploads/2025/03/Задание-22-1-1300x390.png"
+      ]
+    },
+    {
+      "legacy_number": 2210,
+      "variant_label": "Типовые варианты",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/05/2210.xlsx",
+      "images": [
+        "https://future-step.ru/wp-content/uploads/2025/05/Задание-22-2-wm-1300x390.png"
+      ]
+    },
+    {
+      "legacy_number": 2211,
+      "variant_label": "Основная волна",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/07/2211.xlsx",
+      "images": [
+        "https://future-step.ru/wp-content/uploads/2025/07/Задание-22-3-wm-1300x524.png"
+      ]
+    },
+    {
+      "legacy_number": 2212,
+      "variant_label": "Основная волна",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/07/2212.xlsx",
+      "images": [
+        "https://future-step.ru/wp-content/uploads/2025/07/Задание-22-3-wm-1300x524.png"
+      ]
+    },
+    {
+      "legacy_number": 2213,
+      "variant_label": "Основная волна",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/07/2213.xlsx",
+      "images": [
+        "https://future-step.ru/wp-content/uploads/2025/07/Задание-22-3-wm-1300x524.png"
+      ]
+    },
+    {
+      "legacy_number": 2214,
+      "variant_label": "Демоверсия",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/08/2214.ods",
+      "images": [
+        "https://future-step.ru/wp-content/uploads/2025/03/Задание-22-1-1300x390.png"
+      ]
+    },
+    {
+      "legacy_number": 2215,
+      "variant_label": "Типовые варианты",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/11/2215.ods",
+      "images": []
+    },
+    {
+      "legacy_number": 2216,
+      "variant_label": "ЕГКР",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/12/2216.ods",
+      "images": [
+        "https://future-step.ru/wp-content/uploads/2025/07/Задание-22-3-wm-1300x524.png"
+      ]
+    }
+  ],
+  "24": [
+    {
+      "legacy_number": 2400,
+      "variant_label": "Основная волна",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/03/2400.txt",
+      "images": []
+    },
+    {
+      "legacy_number": 2401,
+      "variant_label": "Основная волна",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/03/2401.txt",
+      "images": []
+    },
+    {
+      "legacy_number": 2402,
+      "variant_label": "Апробация",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/03/2402.txt",
+      "images": []
+    },
+    {
+      "legacy_number": 2403,
+      "variant_label": "Основная волна",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/03/2403.txt",
+      "images": []
+    },
+    {
+      "legacy_number": 2404,
+      "variant_label": "Демоверсия",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/03/2404.txt",
+      "images": []
+    },
+    {
+      "legacy_number": 2405,
+      "variant_label": "ЕГКР",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/03/2405.txt",
+      "images": []
+    },
+    {
+      "legacy_number": 2406,
+      "variant_label": "Демоверсия",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/03/2406.txt",
+      "images": []
+    },
+    {
+      "legacy_number": 2407,
+      "variant_label": "ЕГКР",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/03/2407.txt",
+      "images": []
+    },
+    {
+      "legacy_number": 2408,
+      "variant_label": "Типовые варианты",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/03/2408.txt",
+      "images": []
+    },
+    {
+      "legacy_number": 2409,
+      "variant_label": "Типовые варианты",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/03/2409.txt",
+      "images": []
+    },
+    {
+      "legacy_number": 2410,
+      "variant_label": "Типовые варианты",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/03/2410.txt",
+      "images": []
+    },
+    {
+      "legacy_number": 2411,
+      "variant_label": "Типовые варианты",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/03/2411.txt",
+      "images": []
+    },
+    {
+      "legacy_number": 2412,
+      "variant_label": "Основная волна",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/03/2412.txt",
+      "images": []
+    },
+    {
+      "legacy_number": 2413,
+      "variant_label": "Типовые варианты",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/03/2413.txt",
+      "images": []
+    },
+    {
+      "legacy_number": 2414,
+      "variant_label": "Апробация",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/03/2414.txt",
+      "images": []
+    },
+    {
+      "legacy_number": 2415,
+      "variant_label": "Основная волна",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/03/2415.txt",
+      "images": []
+    },
+    {
+      "legacy_number": 2416,
+      "variant_label": "Основная волна",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/03/2416.txt",
+      "images": []
+    },
+    {
+      "legacy_number": 2417,
+      "variant_label": "Досрочная волна",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/03/2417.txt",
+      "images": []
+    },
+    {
+      "legacy_number": 2418,
+      "variant_label": "Авторские варианты",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/03/2418.txt",
+      "images": []
+    },
+    {
+      "legacy_number": 2419,
+      "variant_label": "Авторские варианты",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/04/2419.txt",
+      "images": []
+    },
+    {
+      "legacy_number": 2420,
+      "variant_label": "Авторские варианты",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/04/2420.txt",
+      "images": []
+    },
+    {
+      "legacy_number": 2421,
+      "variant_label": "Авторские варианты",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/04/2421.txt",
+      "images": []
+    },
+    {
+      "legacy_number": 2422,
+      "variant_label": "Досрочная волна",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/04/2422.txt",
+      "images": []
+    },
+    {
+      "legacy_number": 2423,
+      "variant_label": "ЕГКР",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/04/2423.txt",
+      "images": []
+    },
+    {
+      "legacy_number": 2424,
+      "variant_label": "Открытый вариант",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/05/2424.txt",
+      "images": []
+    },
+    {
+      "legacy_number": 2425,
+      "variant_label": "Типовые варианты",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/05/2425.txt",
+      "images": []
+    },
+    {
+      "legacy_number": 2426,
+      "variant_label": "Типовые варианты",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/05/2426.txt",
+      "images": []
+    },
+    {
+      "legacy_number": 2427,
+      "variant_label": "Основная волна",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/07/2427.txt",
+      "images": []
+    },
+    {
+      "legacy_number": 2428,
+      "variant_label": "Основная волна",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/07/2428.txt",
+      "images": []
+    },
+    {
+      "legacy_number": 2429,
+      "variant_label": "Основная волна",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/07/2429.txt",
+      "images": []
+    },
+    {
+      "legacy_number": 2430,
+      "variant_label": "Демоверсия",
+      "file_url": "https://future-step.ru/wp-content/uploads/2026/03/2430.txt",
+      "images": []
+    },
+    {
+      "legacy_number": 2431,
+      "variant_label": "Типовые варианты",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/11/2431.txt",
+      "images": []
+    },
+    {
+      "legacy_number": 2432,
+      "variant_label": "ЕГКР",
+      "file_url": "https://future-step.ru/wp-content/uploads/2026/03/2432.txt",
+      "images": []
+    },
+    {
+      "legacy_number": 2433,
+      "variant_label": "Основная волна",
+      "file_url": "https://future-step.ru/wp-content/uploads/2026/03/2433.txt",
+      "images": []
+    },
+    {
+      "legacy_number": 2434,
+      "variant_label": "Типовые варианты",
+      "file_url": "https://future-step.ru/wp-content/uploads/2026/03/2434.txt",
+      "images": []
+    }
+  ],
+  "26": [
+    {
+      "legacy_number": 2600,
+      "variant_label": "Авторские варианты",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/03/2600.txt",
+      "images": []
+    },
+    {
+      "legacy_number": 2601,
+      "variant_label": "Досрочная волна",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/04/2601.txt",
+      "images": []
+    },
+    {
+      "legacy_number": 2602,
+      "variant_label": "Апробация",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/04/2602.txt",
+      "images": []
+    },
+    {
+      "legacy_number": 2603,
+      "variant_label": "Основная волна",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/04/2603.txt",
+      "images": []
+    },
+    {
+      "legacy_number": 2604,
+      "variant_label": "Демоверсия",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/04/2604.txt",
+      "images": []
+    },
+    {
+      "legacy_number": 2605,
+      "variant_label": "Основная волна",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/04/2605.txt",
+      "images": []
+    },
+    {
+      "legacy_number": 2606,
+      "variant_label": "Основная волна",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/04/2606.txt",
+      "images": []
+    },
+    {
+      "legacy_number": 2607,
+      "variant_label": "Открытый вариант",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/04/2607.txt",
+      "images": []
+    },
+    {
+      "legacy_number": 2608,
+      "variant_label": "Основная волна",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/04/2608.txt",
+      "images": []
+    },
+    {
+      "legacy_number": 2609,
+      "variant_label": "Демоверсия",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/04/2609.txt",
+      "images": []
+    },
+    {
+      "legacy_number": 2610,
+      "variant_label": "Типовые варианты",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/04/2610.txt",
+      "images": []
+    },
+    {
+      "legacy_number": 2611,
+      "variant_label": "ЕГКР",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/04/2611.txt",
+      "images": []
+    },
+    {
+      "legacy_number": 2612,
+      "variant_label": "Открытый вариант",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/05/2612.txt",
+      "images": []
+    },
+    {
+      "legacy_number": 2613,
+      "variant_label": "Типовые варианты",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/05/2613.txt",
+      "images": []
+    },
+    {
+      "legacy_number": 2614,
+      "variant_label": "Типовые варианты",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/05/2614.txt",
+      "images": []
+    },
+    {
+      "legacy_number": 2615,
+      "variant_label": "Типовые варианты",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/05/2615.txt",
+      "images": []
+    },
+    {
+      "legacy_number": 2616,
+      "variant_label": "Типовые варианты",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/05/2616.txt",
+      "images": []
+    },
+    {
+      "legacy_number": 2617,
+      "variant_label": "Типовые варианты",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/05/2617.txt",
+      "images": []
+    },
+    {
+      "legacy_number": 2618,
+      "variant_label": "Типовые варианты",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/05/2618.txt",
+      "images": []
+    },
+    {
+      "legacy_number": 2619,
+      "variant_label": "Основная волна",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/07/2619.txt",
+      "images": []
+    },
+    {
+      "legacy_number": 2620,
+      "variant_label": "Основная волна",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/07/2620.txt",
+      "images": []
+    },
+    {
+      "legacy_number": 2621,
+      "variant_label": "Основная волна",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/07/2621.txt",
+      "images": []
+    },
+    {
+      "legacy_number": 2622,
+      "variant_label": "Демоверсия",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/08/2622.txt",
+      "images": []
+    },
+    {
+      "legacy_number": 2623,
+      "variant_label": "Типовые варианты",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/11/2623.txt",
+      "images": []
+    },
+    {
+      "legacy_number": 2624,
+      "variant_label": "ЕГКР",
+      "file_url": "https://future-step.ru/wp-content/uploads/2025/12/2624.txt",
+      "images": []
+    }
+  ]
+}
