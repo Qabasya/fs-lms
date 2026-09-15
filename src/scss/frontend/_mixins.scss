@@ -420,13 +420,13 @@
   max-width: 100%;
   overflow-x: auto;
   border-collapse: collapse;
-  font-size: $font-size-base;
+  font-size: inherit;
   line-height: $line-height-tight;
 
   th,
   td {
     padding: $spacing-sm $spacing-md;
-    border: 1px solid $color-border;
+    border: 1px solid currentColor;
     text-align: left;
     vertical-align: top;
   }
