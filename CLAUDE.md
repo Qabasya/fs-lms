@@ -340,7 +340,9 @@ SVG-иконки) — `src/js/CLAUDE.md`, грузится при работе �
 - Страница статьи (`{subject}_articles`) — `ArticlePageController` → `Callbacks\Article\TemplateCallbacks`
   → `single-article.php`. Спец-разметку внутри текста автор НЕ размечает: классы врезкам,
   иллюстрациям и листингам, якоря заголовкам (для оглавления) и карточку задания вместо
-  абзаца-ссылки на задание делает пост-обработка `ArticleContentService`
+  абзаца-ссылки на задание делает пост-обработка `ArticleContentService`. Элемент WPBakery
+  «Задание» (`[fs_article_task task="ID"]`, модуль `ArticleBlocks`) выводит ровно такой абзац
+  с `data-id` — отдельной разметки карточки у модуля нет
 
 ### ThemeCompatService — обязательно для всех публичных шаблонов
 

@@ -7,7 +7,9 @@ namespace Inc\Modules\ArticleBlocks\Controllers;
 use Inc\Core\BaseController;
 use Inc\Modules\ArticleBlocks\Builders\ElementMapBuilder;
 use Inc\Modules\ArticleBlocks\Registrars\VcElementRegistrar;
+use Inc\Modules\ArticleBlocks\Enums\ArticleBlock;
 use Inc\Modules\ArticleBlocks\Services\EditorFieldRenderer;
+use Inc\Modules\ArticleBlocks\Services\TaskSuggestions;
 use Inc\Services\Subject\PostTypeResolver;
 
 /**
@@ -30,6 +32,7 @@ class ArticleBlocksEditorController extends BaseController {
 		private readonly ElementMapBuilder   $elements,
 		private readonly VcElementRegistrar  $registrar,
 		private readonly EditorFieldRenderer $fields,
+		private readonly TaskSuggestions     $tasks,
 	) {
 		parent::__construct();
 	}
@@ -38,6 +41,11 @@ class ArticleBlocksEditorController extends BaseController {
 		// Хук есть только у активного WPBakery — без него элементы просто не регистрируются.
 		add_action( 'vc_before_init', array( $this, 'mapElements' ) );
 		add_filter( 'mce_buttons', array( $this, 'addCodeButton' ) );
+
+		// Поле выбора задания: поиск идёт AJAX-запросом WPBakery, подпись — при открытии формы.
+		$task = 'vc_autocomplete_' . ArticleBlock::Task->value . '_task';
+		add_filter( $task . '_callback', array( $this->tasks, 'search' ) );
+		add_filter( $task . '_render', array( $this->tasks, 'label' ) );
 	}
 
 	/**

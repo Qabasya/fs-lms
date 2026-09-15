@@ -15,6 +15,11 @@ namespace Inc\Modules\ArticleBlocks\Services {
 			return htmlspecialchars( $text, ENT_QUOTES, 'UTF-8' );
 		}
 	}
+	if ( ! function_exists( 'Inc\Modules\ArticleBlocks\Services\wp_strip_all_tags' ) ) {
+		function wp_strip_all_tags( string $text ): string {
+			return strip_tags( $text );
+		}
+	}
 	if ( ! function_exists( 'Inc\Modules\ArticleBlocks\Services\wp_attachment_is_image' ) ) {
 		function wp_attachment_is_image( int $id ): bool {
 			return in_array( $id, $GLOBALS['_fs_test_images'] ?? array(), true );
@@ -43,6 +48,7 @@ namespace Unit\Modules\ArticleBlocks {
 	use Inc\Modules\ArticleBlocks\Services\BlockValueCodec;
 	use Inc\Modules\ArticleBlocks\Services\ImageSizeOptions;
 	use Inc\Modules\ArticleBlocks\Services\TableTextParser;
+	use Inc\Modules\ArticleBlocks\Services\TaskSuggestions;
 	use PHPUnit\Framework\TestCase;
 
 	/**
@@ -52,12 +58,14 @@ namespace Unit\Modules\ArticleBlocks {
 
 		private ArticleBlockRenderer $renderer;
 		private BlockValueCodec $codec;
+		private TaskSuggestions&\PHPUnit\Framework\MockObject\Stub $tasks;
 
 		protected function setUp(): void {
 			parent::setUp();
 
 			$this->codec    = new BlockValueCodec();
-			$this->renderer = new ArticleBlockRenderer( $this->codec, new TableTextParser(), new ImageSizeOptions() );
+			$this->tasks    = $this->createStub( TaskSuggestions::class );
+			$this->renderer = new ArticleBlockRenderer( $this->codec, new TableTextParser(), new ImageSizeOptions(), $this->tasks );
 
 			$GLOBALS['_fs_test_images']     = array( 42 );
 			$GLOBALS['_fs_test_image_size'] = null;
@@ -151,6 +159,32 @@ namespace Unit\Modules\ArticleBlocks {
 			$this->assertSame( '<h3>&lt;Шаг&gt;</h3>', $this->renderer->render( ArticleBlock::Heading, array( 'text' => '<Шаг>', 'level' => 'h3' ) ) );
 			$this->assertSame( '<h2>x</h2>', $this->renderer->render( ArticleBlock::Heading, array( 'text' => 'x', 'level' => 'h1' ) ) );
 			$this->assertSame( '', $this->renderer->render( ArticleBlock::Heading, array( 'text' => '  ' ) ) );
+		}
+
+		// ── Задание ──────────────────────────────────────────────────────
+
+		public function test_task_block_is_link_paragraph_for_card_post_processing(): void {
+			$post             = new \WP_Post();
+			$post->ID         = 7;
+			$post->post_title = '№ 5001. <b>Вариант</b> & ко';
+
+			$GLOBALS['_fs_test_posts'][7] = $post;
+
+			$this->tasks->method( 'publishedTask' )->willReturn( $post );
+
+			$this->assertSame(
+				'<p><a href="http://example.com/?p=7" data-id="7">№ 5001. Вариант &amp; ко</a></p>',
+				$this->renderer->render( ArticleBlock::Task, array( 'task' => '7' ) )
+			);
+
+			unset( $GLOBALS['_fs_test_posts'][7] );
+		}
+
+		public function test_task_block_is_empty_for_unpublished_or_missing_task(): void {
+			$this->tasks->method( 'publishedTask' )->willReturn( null );
+
+			$this->assertSame( '', $this->renderer->render( ArticleBlock::Task, array( 'task' => '7' ) ) );
+			$this->assertSame( '', $this->renderer->render( ArticleBlock::Task, '' ) );
 		}
 	}
 }

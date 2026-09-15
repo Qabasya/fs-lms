@@ -19,6 +19,7 @@ enum ArticleBlock: string {
 	case Table   = 'fs_article_table';
 	case Image   = 'fs_article_image';
 	case Heading = 'fs_article_heading';
+	case Task    = 'fs_article_task';
 
 	/**
 	 * Название элемента в панели «Добавить элемент» WPBakery.
@@ -29,6 +30,7 @@ enum ArticleBlock: string {
 			self::Table   => 'Таблица',
 			self::Image   => 'Изображение',
 			self::Heading => 'Заголовок',
+			self::Task    => 'Задание',
 		};
 	}
 
@@ -41,6 +43,7 @@ enum ArticleBlock: string {
 			self::Table   => 'Таблица из диапазона LibreOffice Calc / Excel',
 			self::Image   => 'Иллюстрация заданного размера с подписью',
 			self::Heading => 'Заголовок раздела — попадает в оглавление',
+			self::Task    => 'Карточка опубликованного задания из тренажёра',
 		};
 	}
 
@@ -53,6 +56,7 @@ enum ArticleBlock: string {
 			self::Table   => 'dashicons dashicons-editor-table',
 			self::Image   => 'dashicons dashicons-format-image',
 			self::Heading => 'dashicons dashicons-heading',
+			self::Task    => 'dashicons dashicons-welcome-learn-more',
 		};
 	}
 }

@@ -1,4 +1,5 @@
 @use '../../variables' as *;
+@use '../../mixins' as *;
 
 // Текст статьи
 .fs-article-page {
@@ -75,6 +76,13 @@
       border: 0;
       background: $color-border;
     }
+
+    // Таблицы и код — кеглем текста статьи: шкала темы привязана к экрану,
+    // собственные токены на разных ширинах округлялись бы до разных пикселей.
+    .fs-article-table,
+    .fs-article-mono,
+    .fs-code-gutter,
+    .fs-code-highlight { font-size: inherit; }
   }
 
   .fs-article-lead {
@@ -122,26 +130,7 @@
   }
 
   // Таблица
-  .fs-article-table {
-    display: block;
-    width: 100%;
-    overflow-x: auto;
-    border-collapse: collapse;
-    font-size: $font-size-base;
-
-    th,
-    td {
-      padding: rem(9) rem(12);
-      border: 1px solid $color-border-light;
-      text-align: left;
-    }
-
-    th {
-      background: $color-surface-2;
-      color: $color-text;
-      font-weight: $font-semibold;
-    }
-  }
+  .fs-article-table { @include fs-content-table; }
 
   // ── Вертикальный ритм
   .fs-article-prose > * + * { margin-top: $spacing-2xl; }

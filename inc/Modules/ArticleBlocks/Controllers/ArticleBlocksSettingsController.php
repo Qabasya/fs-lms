@@ -37,7 +37,7 @@ class ArticleBlocksSettingsController {
 		$modules[] = array(
 			'id'           => self::MODULE_ID,
 			'title'        => 'Блоки статей для WPBakery',
-			'description'  => 'Элементы «Код», «Таблица», «Изображение» и «Заголовок» в WPBakery и кнопка «Код» в текстовом блоке статей. Выключение убирает только элементы из редактора: уже вставленные блоки на страницах статей продолжают отображаться.',
+			'description'  => 'Элементы «Код», «Таблица», «Изображение», «Заголовок» и «Задание» в WPBakery и кнопка «Код» в текстовом блоке статей. Выключение убирает только элементы из редактора: уже вставленные блоки на страницах статей продолжают отображаться.',
 			'enabled'      => $this->config->isEnabled(),
 			'const_locked' => defined( ArticleBlocksConfig::TOGGLE_CONSTANT ),
 			'const_key'    => ArticleBlocksConfig::TOGGLE_CONSTANT,
