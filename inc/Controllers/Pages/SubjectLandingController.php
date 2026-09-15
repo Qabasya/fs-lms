@@ -162,7 +162,9 @@ class SubjectLandingController extends BaseController implements ServiceInterfac
 			SubjectPageType::Trainer  => array(
 				'page_data' => $this->tasks->getPageData( $subject->key, $this->taskFilters->fromRequest( 'GET' ) ),
 			),
-			SubjectPageType::Articles => array( 'page_data' => $this->articles->getPageData( $subject->key ) ),
+			SubjectPageType::Articles => array(
+				'page_data' => $this->articles->getPageData( $subject->key, $this->taskFilters->fromRequest( 'GET' ) ),
+			),
 			SubjectPageType::Courses  => array( 'courses' => $this->courses->getCourses( $subject->key, self::COURSES_LIMIT ) ),
 			default                   => array(),
 		};

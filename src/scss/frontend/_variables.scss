@@ -9,6 +9,7 @@
 	$font-size-md, $font-size-lead, $font-size-xl,
 	$font-regular, $font-semibold, $font-bold, $color-danger;
 @use '../shared/tokens' as t;
+@use 'sass:color';
 @use 'sass:math';
 
 // ═══════════════════════════════════════════════════════════════════
@@ -18,12 +19,29 @@
 // основного цвета: сетка серых у макета своя и в альфу не раскладывается.
 // ═══════════════════════════════════════════════════════════════════
 
+// ── Фирменные цвета (руководство по фирменному стилю «Шаг в будущее»)
+// Остальные оттенки выводятся из них: подложки — подмешиванием белого,
+// читаемый текст светлых цветов — подмешиванием основного цвета текста.
+$brand-yellow: #f8e300;
+$brand-amber: #f0b300;
+$brand-lime: #bcd555;
+$brand-green: #4aac6f;
+$brand-blue: #029ae5;
+$brand-navy: #2657a6;
+
+// Подложка (мягкая заливка чипа/плашки) и рамка поверх неё
+$tint-soft: 12%;
+$tint-line: 30%;
+
+// Доля фирменного цвета в тексте поверх его подложки
+$ink-share: 55%;
+
 // ── Акцент
-$color-accent: #3b5bdb;
-$color-accent-600: #364fc7; // ховер заливной кнопки
-$color-accent-700: #2f44b3; // акцентный текст на светлом
-$color-accent-soft: #edf0fe; // подложка чипа/активной опции
-$color-accent-soft-2: #dde3fb; // рамка поверх мягкой подложки
+$color-accent: $brand-navy;
+$color-accent-600: color.mix($brand-navy, #000, 90%); // ховер заливной кнопки
+$color-accent-700: color.mix($brand-navy, #000, 80%); // акцентный текст на светлом
+$color-accent-soft: color.mix($brand-navy, #fff, 9%); // подложка чипа/активной опции
+$color-accent-soft-2: color.mix($brand-navy, #fff, 17%); // рамка поверх мягкой подложки
 
 // ── Поверхности и текст
 $color-bg: #f3f4f7;        // фон страницы под карточками
@@ -43,17 +61,18 @@ $color-separator: $color-border-light;
 $color-bg-subtle: $color-surface-2;
 
 // ── Семантика (статусы, теги, иконки файлов)
-$color-ok: #2f9e44;
-$color-ok-soft: #e9f7ee;
-$color-ok-line: #c4e8d1;
+// Красного в фирменном стиле нет — ошибка остаётся цветом макета.
+$color-ok: $brand-green;
+$color-ok-soft: color.mix($brand-green, #fff, $tint-soft);
+$color-ok-line: color.mix($brand-green, #fff, $tint-line);
 $color-err: #e03131;
 $color-err-soft: #fdecec;
 $color-err-line: #f5c9c9;
-$color-wait: #b36b00;
-$color-wait-soft: #fdf3e3;
-$color-wait-line: #f3ddb5;
-$color-info: #1c7ed6;
-$color-info-soft: #e7f2fd;
+$color-wait: $brand-amber; // только заливки и иконки: текстом на белом не читается
+$color-wait-soft: color.mix($brand-amber, #fff, $tint-soft);
+$color-wait-line: color.mix($brand-amber, #fff, $tint-line);
+$color-info: $brand-blue;
+$color-info-soft: color.mix($brand-blue, #fff, $tint-soft);
 $color-success: $color-ok;
 
 // Ошибка в формах (apply/join/auth) — та же семантика, что и err макета.
@@ -66,10 +85,16 @@ $color-error-border: $color-err-line;
 // её COLORS обязана совпадать с длиной этого списка). Каждая ступень — пара
 // «текст, подложка» из палитры макета: чип залит целиком, поэтому оттенок
 // текста и фона задаётся явно, а не альфой.
-// Первая ступень — акцент проекта: её получает номер задания.
-$tag-palette: ($color-accent, $color-accent-soft), ($color-wait, $color-wait-soft),
-	($color-ok, $color-ok-soft), ($color-info, $color-info-soft),
-	($color-err, $color-err-soft), ($color-muted, #f0f1f4);
+// Первая ступень — акцент проекта: её получает номер задания. Остальные —
+// фирменные цвета; текст светлых оттенков затемнён, иначе на подложке не читается.
+// Соседние ступени контрастны по тону (жёлтый и зелёный — сразу за синим):
+// у задания обычно два-три тега, и два синих подряд не различались.
+$tag-palette: ($color-accent, $color-accent-soft),
+	(color.mix($brand-amber, $color-text, $ink-share), $color-wait-soft),
+	(color.mix($brand-green, $color-text, $ink-share), $color-ok-soft),
+	(color.mix($brand-blue, $color-text, $ink-share), $color-info-soft),
+	(color.mix($brand-yellow, $color-text, $ink-share), color.mix($brand-yellow, #fff, $tint-soft)),
+	(color.mix($brand-lime, $color-text, $ink-share), color.mix($brand-lime, #fff, $tint-soft));
 
 // ── Подсветка кода (светлая тема, редактор в _code-block.scss)
 $code-header-bg: $color-surface-2;
@@ -114,6 +139,9 @@ $font-medium: 500;
 $max-width: t.rem(1200);
 $sidebar-width: t.rem(300);
 $layout-gap: t.rem(22);
+
+// Отступ колонки контента от левого края сетки (сайдбар + зазор)
+$content-offset: $sidebar-width + $layout-gap;
 
 // Ширина карточки
 $subject-card-width: math.div( $max-width - $sidebar-width - $layout-gap - 2 * t.$spacing-lg, 3 );

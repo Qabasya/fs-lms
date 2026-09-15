@@ -44,7 +44,7 @@ ThemeCompatService::header();
 
 			<!-- ===================== ЛЕВЫЙ САЙДБАР ===================== -->
 			<?php if ( $has_sidebar ) : ?>
-			<aside class="fs-task-sidebar">
+			<aside class="fs-task-sidebar js-scroll-sticky">
 
 				<?php
 				// Курсы предмета — общий партиал; нет опубликованных курсов, нет блока.

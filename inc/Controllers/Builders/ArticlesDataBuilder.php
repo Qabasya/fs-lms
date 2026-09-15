@@ -52,10 +52,11 @@ readonly class ArticlesDataBuilder {
 	 * Полный DTO каталога учебника.
 	 *
 	 * @param string $subject_key Ключ предмета.
+	 * @param array  $selected    Предвыбранные фильтры из URL: [taxonomy => term_slugs].
 	 *
 	 * @return ArticlesPageDTO
 	 */
-	public function getPageData( string $subject_key ): ArticlesPageDTO {
+	public function getPageData( string $subject_key, array $selected = array() ): ArticlesPageDTO {
 		$subject      = $this->subject_repository->getByKey( $subject_key );
 		$subject_name = $subject?->name ?? $subject_key;
 
@@ -78,7 +79,7 @@ readonly class ArticlesDataBuilder {
 
 		return new ArticlesPageDTO(
 			breadcrumbs: $this->breadcrumbs_builder->forArticles( $subject_name, $links ),
-			filters:     $this->buildFilters( $subject_key, $number_tax, $taxonomies ),
+			filters:     $this->buildFilters( $subject_key, $number_tax, $taxonomies, $selected ),
 			sections:    $this->buildSections( $cards, $number_tax ),
 			total:       count( $cards ),
 			trainer_url: $links->trainer,
@@ -175,10 +176,12 @@ readonly class ArticlesDataBuilder {
 	 * @param string            $subject_key Ключ предмета.
 	 * @param string            $number_tax  Таксономия номеров заданий.
 	 * @param TaxonomyDataDTO[] $taxonomies  Таксономии статей предмета.
+	 * @param array             $selected    Предвыбранные фильтры: [taxonomy => term_slugs].
+	 *                                       Отмечаются в сайдбаре, срез применяет клиент.
 	 *
 	 * @return array<int, array<string, mixed>>
 	 */
-	private function buildFilters( string $subject_key, string $number_tax, array $taxonomies ): array {
+	private function buildFilters( string $subject_key, string $number_tax, array $taxonomies, array $selected ): array {
 		$post_type = PostTypeResolver::articles( $subject_key );
 		$sources   = array( array( $number_tax, 'Тип задания', true ) );
 
@@ -190,7 +193,7 @@ readonly class ArticlesDataBuilder {
 
 		foreach ( $sources as [ $tax_slug, $name, $is_type ] ) {
 			$counts = $this->term_manager->countPostsByType( $tax_slug, $post_type );
-			$terms  = $this->filter_groups->options( $tax_slug, $counts, array(), $tax_slug === $number_tax );
+			$terms  = $this->filter_groups->options( $tax_slug, $counts, $selected[ $tax_slug ] ?? array(), $tax_slug === $number_tax );
 			$group  = $this->filter_groups->group( $tax_slug, $name, $terms, $is_type );
 
 			// Ни одной статьи с терминами этой таксономии — фильтровать нечем.

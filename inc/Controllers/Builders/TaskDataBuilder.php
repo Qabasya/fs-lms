@@ -24,6 +24,7 @@ use Inc\Services\Subject\ArticleService;
 use Inc\Services\Subject\PostTypeResolver;
 use Inc\Services\Subject\SubjectPagesService;
 use Inc\Services\Subject\TagPaletteService;
+use Inc\Services\Task\TaskFilterParser;
 use Inc\Services\Task\TaskMetaService;
 
 /**
@@ -70,6 +71,7 @@ readonly class TaskDataBuilder {
 		private PublicCourseService $course_service,
 		private TagPaletteService $tag_palette,
 		private SubjectPagesService $subject_pages,
+		private TaskFilterParser $task_filters,
 	) {}
 
 	/**
@@ -209,7 +211,7 @@ readonly class TaskDataBuilder {
 				taxonomy_name: '',
 				term_id:       $current_task_type->id,
 				slug:          $current_task_type->slug,
-				url:           $this->filterUrl( $trainer_url,$current_task_type->taxonomy, $current_task_type->slug ),
+				url:           $this->task_filters->url( $trainer_url, $current_task_type->taxonomy, $current_task_type->slug ),
 				color:         $this->tag_palette->colorIndex( $subject_key, $current_task_type->taxonomy ),
 			);
 		}
@@ -238,34 +240,13 @@ readonly class TaskDataBuilder {
 					taxonomy_name: $taxonomy_dto->name,
 					term_id:       $term->id,
 					slug:          $term->slug,
-					url:           $this->filterUrl( $trainer_url,$taxonomy_dto->slug, $term->slug ),
+					url:           $this->task_filters->url( $trainer_url, $taxonomy_dto->slug, $term->slug ),
 					color:         $this->tag_palette->colorIndex( $subject_key, $taxonomy_dto->slug ),
 				);
 			}
 		}
 
 		return $tags;
-	}
-
-	/**
-	 * Ссылка на тренажёр с предвыбранным фильтром.
-	 *
-	 * Формат параметра тот же, что у AJAX-подгрузки списка:
-	 * `filters[<taxonomy_slug>][]=<term_slug>` — страница разбирает его на SSR
-	 * и отмечает опцию в сайдбаре как активную.
-	 *
-	 * @param string $trainer_url Ссылка на тренажёр предмета.
-	 * @param string $taxonomy    Слаг таксономии.
-	 * @param string $term_slug   Слаг термина.
-	 *
-	 * @return string Пустая строка, если раздел или термин неизвестны.
-	 */
-	private function filterUrl( string $trainer_url, string $taxonomy, string $term_slug ): string {
-		if ( '' === $trainer_url || '' === $taxonomy || '' === $term_slug ) {
-			return '';
-		}
-
-		return add_query_arg( array( 'filters' => array( $taxonomy => array( $term_slug ) ) ), $trainer_url );
 	}
 
 	/**
@@ -316,7 +297,7 @@ readonly class TaskDataBuilder {
 		?TermViewDTO $current_task_type,
 	): NavigationDTO {
 		$term_url = $current_task_type
-			? $this->filterUrl( $links->trainer, $current_task_type->taxonomy, $current_task_type->slug )
+			? $this->task_filters->url( $links->trainer, $current_task_type->taxonomy, $current_task_type->slug )
 			: '';
 
 		$taxonomy = $current_task_type?->taxonomy ?? '';

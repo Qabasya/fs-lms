@@ -1,7 +1,7 @@
 import { initTabs }             from './components/task-tabs.js';
 import { initCarousel }         from './components/article-carousel.js';
 import { initArticleToc }       from './components/article-toc.js';
-import { initArticleAside }     from './components/article-aside.js';
+import { initScrollSticky }     from './components/scroll-sticky.js';
 import { initArticleTaskCards } from './components/article-task-card.js';
 import { initArticleNav }       from './components/article-nav.js';
 import { initArticleCatalog }   from './components/article-catalog.js';
@@ -20,7 +20,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initTabs();
     initCarousel();
     initArticleToc();
-    initArticleAside();
+    initScrollSticky();
     initArticleTaskCards();
     initArticleNav();
     initArticleCatalog();

@@ -4,6 +4,7 @@ import { buildTaskCard }  from '../components/task-card.js';
 import { bindAnswerToggle } from '../modules/answer-toggle.js';
 import { initTaskConditions } from '../modules/task-condition.js';
 import { renderSidebarArticles } from '../components/sidebar-articles.js';
+import { readActiveFilters, syncFilterUrl } from '../modules/filter-url.js';
 import { pluralRu }       from '../../common/plural.js';
 
 /**
@@ -26,7 +27,7 @@ export class AllTasksPage {
 
         // Состояние берём из разметки: фильтры могли прийти в URL (клик по тегу
         // на странице задания) и уже отрисованы сервером как активные опции.
-        this._filters  = { search: '', taxonomies: this._readSelectedFilters() };
+        this._filters  = { search: '', taxonomies: readActiveFilters(this._root) };
         this._offset   = this._root.querySelectorAll('.js-task-cards .task-card-row').length;
         this._loading  = false;
 
@@ -62,27 +63,6 @@ export class AllTasksPage {
         this._sideClear   = this._root.querySelector('.filters-side-clear');
         this._searchInput = this._root.querySelector('.js-search-input');
         this._articles    = this._root.querySelector('.js-articles-block');
-    }
-
-    /**
-     * Собирает активные опции сайдбара (SSR-разметка) в карту состояния
-     * {таксономия: [слаги]} — без неё выбор из URL потерялся бы при первом же
-     * запросе к серверу.
-     *
-     * @returns {Object<string, string[]>}
-     */
-    _readSelectedFilters() {
-        const selected = {};
-
-        this._root.querySelectorAll('.js-filter-option.is-active').forEach(btn => {
-            const key   = btn.dataset.filter;
-            const value = btn.dataset.value;
-            if (!key || !value) return;
-
-            (selected[key] = selected[key] || []).push(value);
-        });
-
-        return selected;
     }
 
     // ── Filter sections ───────────────────────────────────────
@@ -132,31 +112,8 @@ export class AllTasksPage {
         }
 
         this._syncClearBtns();
-        this._syncUrl();
+        syncFilterUrl(Object.entries(this._filters.taxonomies));
         this._reload();
-    }
-
-    /**
-     * Держит адрес страницы в соответствии с выбранными фильтрами
-     * (`filters[<taxonomy>][]=<term>` — тот же формат, что понимает SSR).
-     * Благодаря этому обновление страницы сохраняет выбор, а снятый фильтр
-     * не возвращается из старой ссылки.
-     *
-     * @returns {void}
-     */
-    _syncUrl() {
-        const params = new URLSearchParams(window.location.search);
-
-        [...params.keys()]
-            .filter(key => key.startsWith('filters['))
-            .forEach(key => params.delete(key));
-
-        Object.entries(this._filters.taxonomies).forEach(([taxonomy, terms]) => {
-            terms.forEach(term => params.append(`filters[${taxonomy}][]`, term));
-        });
-
-        const query = params.toString();
-        window.history.replaceState({}, '', query ? `${window.location.pathname}?${query}` : window.location.pathname);
     }
 
     // ── Теги-фильтры на карточках ──────────────────────────────
@@ -208,7 +165,7 @@ export class AllTasksPage {
         if (this._searchInput) this._searchInput.value = '';
         this._filterSections.forEach(s => s.reset());
         this._syncClearBtns();
-        this._syncUrl();
+        syncFilterUrl(Object.entries(this._filters.taxonomies));
         this._reload();
     }
 

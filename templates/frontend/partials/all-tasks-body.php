@@ -67,7 +67,7 @@ $has_selected = (bool) array_sum( array_column( $page_data->filters, 'active' ) 
 		<div class="layout">
 
 			<!-- ===================== САЙДБАР / ФИЛЬТРЫ ===================== -->
-			<aside class="sidebar" aria-label="Фильтры">
+			<aside class="sidebar js-scroll-sticky" aria-label="Фильтры">
 
 				<section class="side-card filters-side">
 					<div class="filters-side-head">
@@ -75,36 +75,8 @@ $has_selected = (bool) array_sum( array_column( $page_data->filters, 'active' ) 
 						<button class="filters-side-clear js-filters-clear" <?php echo $has_selected ? '' : 'disabled'; ?>>Сбросить</button>
 					</div>
 
-					<?php foreach ( $page_data->filters as $group ) : $group_active = (int) ( $group['active'] ?? 0 ); ?>
-						<div class="filter-sec js-filter-sec" data-section="<?php echo esc_attr( $group['taxonomy'] ); ?>" <?php echo empty( $group['available'] ) ? 'hidden' : ''; ?>>
-							<button class="filter-sec-head" aria-expanded="<?php echo $group_active ? 'true' : 'false'; ?>">
-								<span class="filter-sec-title"><?php echo esc_html( $group['name'] ); ?></span>
-								<span class="filter-sec-right">
-									<?php if ( $group_active ) : ?><span class="filter-sec-badge"><?php echo esc_html( (string) $group_active ); ?></span><?php endif; ?>
-									<span class="filter-sec-summary" <?php echo $group_active ? 'hidden' : ''; ?>><?php echo esc_html( $group['summary'] ); ?></span>
-									<span class="filter-sec-chev<?php echo $group_active ? ' is-open' : ''; ?>" aria-hidden="true">
-										<?php echo Icon::ChevronRight->svg( 14 ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
-									</span>
-								</span>
-							</button>
-							<div class="filter-sec-body" <?php echo $group_active ? '' : 'hidden'; ?>>
-								<div class="filter-options">
-									<?php foreach ( $group['terms'] as $term ) : ?>
-										<button class="filter-option js-filter-option<?php echo ! empty( $term['selected'] ) ? ' is-active' : ''; ?>"
-											data-filter="<?php echo esc_attr( $group['taxonomy'] ); ?>"
-											data-value="<?php echo esc_attr( $term['slug'] ); ?>"
-											<?php echo empty( $term['available'] ) ? 'hidden' : ''; ?>>
-											<span class="filter-option-label"><?php echo esc_html( $term['name'] ); ?></span>
-											<span class="filter-option-count"><?php echo esc_html( (string) $term['count'] ); ?></span>
-											<span class="filter-option-check" aria-hidden="true">
-												<?php // 10px: бокс галочки 14px с рамкой 1.5 даёт 11px внутри — иконка 14 в него не помещалась. ?>
-												<?php echo Icon::Check->svg( 10 ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
-											</span>
-										</button>
-									<?php endforeach; ?>
-								</div>
-							</div>
-						</div>
+					<?php foreach ( $page_data->filters as $group ) : ?>
+						<?php include __DIR__ . '/filter-group.php'; ?>
 					<?php endforeach; ?>
 				</section>
 

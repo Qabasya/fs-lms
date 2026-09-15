@@ -1,5 +1,6 @@
 import { FilterSection } from './filter-section.js';
 import { pluralRu }      from '../../common/plural.js';
+import { readActiveFilters, syncFilterUrl } from '../modules/filter-url.js';
 
 /** Сколько секций (номеров заданий) показывать до подгрузки следующей порции. */
 const SECTIONS_PER_PAGE = 5;
@@ -33,8 +34,11 @@ export function initArticleCatalog() {
     const sentinel = root.querySelector('.js-infinite-sentinel');
     const listEnd  = root.querySelector('.js-infinite-end');
 
-    // Выбранные значения: таксономия → Set слагов терминов.
-    const selected = new Map();
+    // Выбранные значения: таксономия → Set слагов терминов. Стартовый выбор
+    // пришёл в URL и отмечен сервером (ссылка «Все статьи темы»).
+    const selected = new Map(
+        Object.entries(readActiveFilters(root)).map(([key, values]) => [key, new Set(values)])
+    );
     let   query    = '';
 
     // Секции текущего среза и размер показанного окна.
@@ -103,6 +107,7 @@ export function initArticleCatalog() {
         clears.forEach(btn => { btn.disabled = !active; });
 
         refreshFacets();
+        syncFilterUrl(selected);
     };
 
     /**

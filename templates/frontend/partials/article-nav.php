@@ -41,13 +41,12 @@ $nav_labels = array(
 		<?php endif; ?>
 	</div>
 
-	<div class="fs-article-nav__pair">
+	<?php
+	// В серии из двух статей переход один — карточка занимает всю ширину.
+	$nav_sides = $navigation->sides();
+	?>
+	<div class="fs-article-nav__pair<?php echo 1 === count( $nav_sides ) ? ' fs-article-nav__pair--single' : ''; ?>">
 		<?php
-		$nav_sides = array(
-			'prev' => $navigation->prev,
-			'next' => $navigation->next,
-		);
-
 		foreach ( $nav_sides as $nav_key => $nav_article ) :
 			$is_next   = 'next' === $nav_key;
 			$nav_label = $nav_labels[ $nav_key ][ $nav_article->wrapped ? 1 : 0 ];
