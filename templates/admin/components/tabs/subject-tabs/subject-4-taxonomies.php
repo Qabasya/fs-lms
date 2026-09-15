@@ -24,11 +24,11 @@ require_once FS_LMS_PATH . 'templates/admin/components/UI/ui_renderers.php';
 	<table class="wp-list-table widefat fixed striped fs-table fs-table--taxonomy js-taxonomy-table">
 		<thead>
 		<tr>
-			<th class="column-primary tw-25">Название</th>
-			<th class="column-slug tw-20">Слаг</th>
+			<th class="column-primary tw-20">Название</th>
+			<th class="column-slug tw-15">Слаг</th>
 			<th class="">Тип отображения</th>
-			<th class="">Обязательна</th>
-			<th class="">В статьях</th>
+			<th class="tw-10">Обязательна</th>
+			<th class="tw-10">В статьях</th>
 			<th class="">Действия</th>
 		</tr>
 		</thead>
