@@ -35,6 +35,7 @@ final readonly class ArticleBlockRenderer {
 		private BlockValueCodec $codec,
 		private TableTextParser $tables,
 		private ImageSizeOptions $sizes,
+		private TaskSuggestions $tasks,
 	) {}
 
 	/**
@@ -53,6 +54,7 @@ final readonly class ArticleBlockRenderer {
 			ArticleBlock::Table   => $this->table( $atts ),
 			ArticleBlock::Image   => $this->image( $atts ),
 			ArticleBlock::Heading => $this->heading( $atts ),
+			ArticleBlock::Task    => $this->task( $atts ),
 		};
 	}
 
@@ -137,6 +139,26 @@ final readonly class ArticleBlockRenderer {
 		$level = 'h3' === ( $atts['level'] ?? '' ) ? 'h3' : 'h2';
 
 		return "<{$level}>" . esc_html( $text ) . "</{$level}>";
+	}
+
+	/**
+	 * Абзац из одной ссылки на задание — страница статьи сама заменяет его карточкой.
+	 *
+	 * Карточку здесь не собираем: её разметка, условие и раскрытие уже живут в пост-обработке статьи,
+	 * а `data-id` она читает раньше href. Снятое с публикации задание не выводим вовсе — иначе
+	 * на странице осталась бы ссылка в никуда.
+	 *
+	 * @param array<string, string> $atts `task` (ID задания)
+	 */
+	private function task( array $atts ): string {
+		$post = $this->tasks->publishedTask( absint( $atts['task'] ?? 0 ) );
+
+		if ( null === $post ) {
+			return '';
+		}
+
+		return '<p><a href="' . esc_url( (string) get_permalink( $post ) ) . '" data-id="' . $post->ID . '">'
+			. esc_html( wp_strip_all_tags( get_the_title( $post ) ) ) . '</a></p>';
 	}
 
 	/**

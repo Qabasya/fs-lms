@@ -53,6 +53,7 @@ final readonly class ElementMapBuilder {
 				ArticleBlock::Table   => $this->tableParams(),
 				ArticleBlock::Image   => $this->imageParams(),
 				ArticleBlock::Heading => $this->headingParams(),
+				ArticleBlock::Task    => $this->taskParams(),
 			},
 		);
 	}
@@ -161,6 +162,30 @@ final readonly class ElementMapBuilder {
 					'H3 — подраздел' => 'h3',
 				),
 				'std'        => 'h2',
+			),
+		);
+	}
+
+	/**
+	 * Выбор задания: подсказки и подпись выбранного — {@see \Inc\Modules\ArticleBlocks\Services\TaskSuggestions}.
+	 *
+	 * @return array<int, array<string, mixed>>
+	 */
+	private function taskParams(): array {
+		return array(
+			array(
+				'type'        => 'autocomplete',
+				'heading'     => 'Задание',
+				'param_name'  => 'task',
+				'admin_label' => true,
+				'settings'    => array(
+					'multiple'       => false,
+					'sortable'       => false,
+					'min_length'     => 1,
+					'unique_values'  => true,
+					'display_inline' => true,
+				),
+				'description' => 'Начните вводить номер или название задания. В подсказках — только опубликованные задания.',
 			),
 		);
 	}
