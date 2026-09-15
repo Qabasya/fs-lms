@@ -39,7 +39,7 @@ ThemeCompatService::header();
 <div class="fs-page-wrapper fs-article-page">
 	<div class="shell">
 
-		<div class="crumbs-row">
+		<div class="crumbs-row<?php echo $has_sidebar ? ' crumbs-row--offset' : ''; ?>">
 			<?php
 			$crumbs = $article_data->breadcrumbs;
 			include __DIR__ . '/partials/breadcrumbs.php';
@@ -50,7 +50,7 @@ ThemeCompatService::header();
 
 			<!-- ===================== САЙДБАР: СОДЕРЖАНИЕ + КУРСЫ ===================== -->
 			<?php if ( $has_sidebar ) : ?>
-				<aside class="fs-article-aside js-article-aside">
+				<aside class="fs-article-aside js-scroll-sticky">
 
 					<?php if ( ! empty( $headings ) ) : ?>
 						<nav class="fs-article-toc js-article-toc" aria-label="Содержание статьи">

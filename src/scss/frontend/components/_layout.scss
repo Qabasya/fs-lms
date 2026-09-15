@@ -1,8 +1,25 @@
 @use '../variables' as *;
 @use '../mixins' as *;
 
+// Страница плагина не короче окна: при пустом содержимом полоса растягивается,
+// и подвал темы остаётся внизу, а не подъезжает под шапку. Админ-бар WP
+// сдвигает документ отступом у <html> — его высоту вычитаем, иначе пустая
+// страница прокручивалась бы ровно на неё.
+body:has(> .fs-page-wrapper) {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+
+  &.admin-bar { min-height: calc(100dvh - #{$wp-admin-bar-height}); }
+
+  @media screen and (max-width: 782px) {
+    &.admin-bar { min-height: calc(100dvh - #{$wp-admin-bar-height-mobile}); }
+  }
+}
+
 // Фон страницы — серый макета: карточки-поверхности читаются только на нём.
 .fs-page-wrapper {
+  flex-grow: 1;
   background: $color-bg;
 
   @include fs-page-pad;
@@ -31,8 +48,9 @@
 
   .fs-task-page { grid-template-columns: 1fr; }
 
-  // Сброс липкости
+  // Сброс липкости: статичный сайдбар — сигнал scroll-sticky.js, что вести нечего.
   .fs-task-sidebar {
+    position: static;
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: $spacing-md;

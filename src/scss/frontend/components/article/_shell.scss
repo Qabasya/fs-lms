@@ -10,7 +10,9 @@
 
   .shell { max-width: $max-width; margin: 0 auto; }
 
+  // Крошки — от колонки текста, как в каталоге учебника.
   .crumbs-row { margin-bottom: rem(12); }
+  .crumbs-row--offset { padding-left: $content-offset; }
 
   .layout {
     display: grid;
@@ -31,10 +33,6 @@
     align-content: start;
     align-self: start;
     min-width: 0;
-
-    // Класс и переменную ставит article-aside.js в одном вызове, поэтому
-    // фолбэк не нужен: сайдбар выше экрана едет вместе с текстом.
-    &.is-scroll-sticky { top: var(--fs-aside-top); }
   }
 
   .fs-article-title {
@@ -65,7 +63,9 @@
     .layout,
     .layout--solo { grid-template-columns: minmax(0, 1fr); }
 
-    // Статичный сайдбар — сигнал для article-aside.js: вести его не нужно.
+    .crumbs-row--offset { padding-left: 0; }
+
+    // Статичный сайдбар — сигнал для scroll-sticky.js: вести его не нужно.
     .fs-article-aside { position: static; }
 
     .fs-article-title { font-size: $font-size-2xl; }

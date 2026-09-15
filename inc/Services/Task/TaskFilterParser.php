@@ -9,7 +9,8 @@ use Inc\Shared\Traits\Sanitizer;
 /**
  * Class TaskFilterParser
  *
- * Разбирает карту фильтров тренажёра `filters[<taxonomy>][]=<term>`.
+ * Разбирает и собирает карту фильтров `filters[<taxonomy>][]=<term>`
+ * (тренажёр и учебник).
  *
  * @package Inc\Services\Task
  *
@@ -52,5 +53,25 @@ readonly class TaskFilterParser {
 		}
 
 		return $result;
+	}
+
+	/**
+	 * Ссылка на раздел (тренажёр, учебник) с предвыбранным фильтром.
+	 *
+	 * Обратная сторона fromRequest(): страница разбирает параметр на SSR
+	 * и отмечает опцию в сайдбаре как активную.
+	 *
+	 * @param string $section_url Ссылка на раздел предмета.
+	 * @param string $taxonomy    Слаг таксономии.
+	 * @param string $term_slug   Слаг термина.
+	 *
+	 * @return string Пустая строка, если раздел или термин неизвестны.
+	 */
+	public function url( string $section_url, string $taxonomy, string $term_slug ): string {
+		if ( '' === $section_url || '' === $taxonomy || '' === $term_slug ) {
+			return '';
+		}
+
+		return add_query_arg( array( 'filters' => array( $taxonomy => array( $term_slug ) ) ), $section_url );
 	}
 }

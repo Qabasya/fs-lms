@@ -400,6 +400,9 @@
 
 // ── Липкий блок с отступом от верха окна.
 // Учитывает фиксированный админ-бар WP: без сдвига залипший блок уходит под него.
+// Блок выше экрана ведёт scroll-sticky.js: класс и переменную он ставит одним
+// вызовом, поэтому фолбэк не нужен. Правило — последним и с админ-баром в
+// селекторе: иначе его перебил бы сдвиг под админ-бар.
 @mixin fs-sticky($gap: rem(28)) {
   position: sticky;
   top: $gap;
@@ -410,6 +413,9 @@
   @media screen and (min-width: 601px) and (max-width: 782px) {
     .admin-bar & { top: calc(#{$gap} + #{$wp-admin-bar-height-mobile}); }
   }
+
+  &.is-scroll-sticky,
+  .admin-bar &.is-scroll-sticky { top: var(--fs-sticky-top); }
 }
 
 // ── Контентная таблица (блок «Таблица» WPBakery и таблицы текстового блока).

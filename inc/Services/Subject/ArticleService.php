@@ -14,6 +14,7 @@ use Inc\Managers\Wp\PostManager;
 use Inc\Managers\Wp\TermManager;
 use Inc\Managers\Wp\TransientManager;
 use Inc\Repositories\OptionsRepositories\ArticleRepository;
+use Inc\Services\Task\TaskFilterParser;
 
 /**
  * Class ArticleService
@@ -53,6 +54,7 @@ class ArticleService {
 		private readonly TermManager $term_manager,
 		private readonly PostManager $post_manager,
 		private readonly TransientManager $transients,
+		private readonly TaskFilterParser $task_filters,
 	) {}
 
 	/**
@@ -339,10 +341,14 @@ class ArticleService {
 			return new ArticleNavigationDTO();
 		}
 
+		// Кольцо — только с трёх статей: в паре замыкание повторило бы соседа
+		// с другой стороны, и остаётся единственный переход.
+		$is_ring = $total > ArticleNavigationDTO::MIN_SERIES;
+
 		return new ArticleNavigationDTO(
-			prev:         $this->adjacentArticle( $posts, $index - 1, $total - 1 ),
-			next:         $this->adjacentArticle( $posts, $index + 1, 0 ),
-			articles_url: $articles_url,
+			prev:         $this->adjacentArticle( $posts, $index - 1, $is_ring ? $total - 1 : null ),
+			next:         $this->adjacentArticle( $posts, $index + 1, $is_ring ? 0 : null ),
+			articles_url: $this->task_filters->url( $articles_url, $taxonomy, $term->slug ),
 			position:     $index + 1,
 			total:        $total,
 		);
@@ -353,13 +359,13 @@ class ArticleService {
 	 *
 	 * @param \WP_Post[] $posts      Статьи серии в порядке чтения.
 	 * @param int        $index      Позиция соседа.
-	 * @param int        $wrap_index Позиция, к которой сторона замыкается за краем.
+	 * @param int|null   $wrap_index Позиция, к которой сторона замыкается за краем; null — не замыкается.
 	 *
-	 * @return AdjacentArticleDTO|null Null — на месте замыкания не оказалось записи.
+	 * @return AdjacentArticleDTO|null Null — за краем нет перехода либо записи.
 	 */
-	private function adjacentArticle( array $posts, int $index, int $wrap_index ): ?AdjacentArticleDTO {
+	private function adjacentArticle( array $posts, int $index, ?int $wrap_index ): ?AdjacentArticleDTO {
 		$wrapped = ! isset( $posts[ $index ] );
-		$post    = $posts[ $index ] ?? $posts[ $wrap_index ] ?? null;
+		$post    = $posts[ $index ] ?? ( null === $wrap_index ? null : $posts[ $wrap_index ] ?? null );
 
 		if ( ! $post instanceof \WP_Post ) {
 			return null;

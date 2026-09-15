@@ -53,7 +53,7 @@ use Inc\Services\Shared\Pluralizer;
 		<div class="layout">
 
 			<!-- ===================== САЙДБАР / ФИЛЬТРЫ ===================== -->
-			<aside class="sidebar" aria-label="Фильтры">
+			<aside class="sidebar js-scroll-sticky" aria-label="Фильтры">
 
 				<?php if ( ! empty( $page_data->filters ) ) : ?>
 					<section class="side-card filters-side">
@@ -62,37 +62,8 @@ use Inc\Services\Shared\Pluralizer;
 							<button class="filters-side-clear js-filters-clear" disabled>Сбросить</button>
 						</div>
 
-						<?php // Недоступные под текущий срез опции остаются в разметке скрытыми: их возвращает JS при снятии фильтра. ?>
 						<?php foreach ( $page_data->filters as $group ) : ?>
-							<div class="filter-sec js-filter-sec"
-								data-section="<?php echo esc_attr( $group['taxonomy'] ); ?>"
-								<?php echo ! empty( $group['is_type'] ) ? 'data-is-type="1"' : ''; ?>>
-								<button class="filter-sec-head" aria-expanded="false">
-									<span class="filter-sec-title"><?php echo esc_html( $group['name'] ); ?></span>
-									<span class="filter-sec-right">
-										<span class="filter-sec-summary"><?php echo esc_html( $group['summary'] ); ?></span>
-										<span class="filter-sec-chev" aria-hidden="true">
-											<?php echo Icon::ChevronRight->svg( 14 ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
-										</span>
-									</span>
-								</button>
-								<div class="filter-sec-body" hidden>
-									<div class="filter-options">
-										<?php foreach ( $group['terms'] as $term ) : ?>
-											<button class="filter-option js-filter-option"
-												data-filter="<?php echo esc_attr( $group['taxonomy'] ); ?>"
-												data-value="<?php echo esc_attr( $term['slug'] ); ?>"
-												<?php echo empty( $term['available'] ) ? 'hidden' : ''; ?>>
-												<span class="filter-option-label"><?php echo esc_html( $term['name'] ); ?></span>
-												<span class="filter-option-count"><?php echo esc_html( (string) $term['count'] ); ?></span>
-												<span class="filter-option-check" aria-hidden="true">
-													<?php echo Icon::Check->svg( 10 ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
-												</span>
-											</button>
-										<?php endforeach; ?>
-									</div>
-								</div>
-							</div>
+							<?php include __DIR__ . '/../partials/filter-group.php'; ?>
 						<?php endforeach; ?>
 					</section>
 				<?php endif; ?>
