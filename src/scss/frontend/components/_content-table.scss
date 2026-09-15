@@ -1,0 +1,6 @@
+@use '../variables' as *;
+@use '../mixins' as *;
+
+// Таблицы из WPBakery вне страницы статьи (описание предмета и прочие страницы конструктора).
+// На странице статьи обёртки WPBakery разворачиваются, таблицу оформляет `.fs-article-table`.
+.wpb_wrapper table { @include fs-content-table; }

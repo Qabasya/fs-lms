@@ -411,3 +411,29 @@
     .admin-bar & { top: calc(#{$gap} + #{$wp-admin-bar-height-mobile}); }
   }
 }
+
+// ── Контентная таблица (блок «Таблица» WPBakery и таблицы текстового блока).
+// Шапка — фоном страницы: на белой карточке читается как её продолжение, без нового цвета.
+@mixin fs-content-table {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+  font-size: $font-size-base;
+  line-height: $line-height-tight;
+
+  th,
+  td {
+    padding: $spacing-sm $spacing-md;
+    border: 1px solid $color-border;
+    text-align: left;
+    vertical-align: top;
+  }
+
+  th {
+    background: $color-bg;
+    color: $color-text;
+    font-weight: $font-bold;
+  }
+}
