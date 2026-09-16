@@ -64,6 +64,15 @@ class BatchSubmissionCallbacks extends BaseController {
 			return;
 		}
 
+		// Работу сдаёт только ученик занятия: преподаватель открывает тот же урок
+		// в teacher-режиме плеера, и его «Завершить работу» уходит в dry-run
+		// (PreviewCheckWork) — но ручка обязана держаться и сама.
+		$groupLesson = $this->groupLessons->find( $groupLessonId );
+		if ( ! $groupLesson || ! $this->guard->isMemberEver( $groupLesson->groupId, $person->id ) ) {
+			$this->error( 'Работу на этом занятии сдают только его ученики.' );
+			return;
+		}
+
 		try {
 			$aggregate = $this->submissionService->submitBatch(
 				$person->id,

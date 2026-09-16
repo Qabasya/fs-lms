@@ -5,6 +5,7 @@ declare( strict_types=1 );
 namespace Inc\MetaBoxes\Templates;
 
 use Inc\MetaBoxes\Fields\GapTextField;
+use Inc\MetaBoxes\Fields\ConditionField;
 
 /**
  * Class FillTaskTemplate
@@ -22,6 +23,13 @@ class FillTaskTemplate extends BaseTemplate {
 			'task_gap_text' => array(
 				'label'  => 'Текст с пропусками',
 				'object' => new GapTextField(),
+			),
+			// Авторское решение: видит преподаватель в плеере («Показать решение»)
+			// и посетитель страницы задания в тренажёре. Заполняется по желанию.
+			'task_text' => array(
+				'label'    => 'Решение',
+				'object'   => new ConditionField(),
+				'optional' => true,
 			),
 		);
 	}

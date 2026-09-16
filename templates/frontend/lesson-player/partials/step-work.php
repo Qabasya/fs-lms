@@ -7,7 +7,8 @@
  * @var array  $step       Шаг из LessonPlayerService::buildView.
  * @var array  $render     Render-данные шага (LessonPlayerService::renderWorkData).
  * @var bool   $is_preview Признак preview-плеера курса (Фаза 5) — блокирует «Завершить работу».
- * @var bool|null $is_teacher Teacher-режим: блок «Показать решение» у каждой задачи работы.
+ * @var bool|null $is_teacher Teacher-режим занятия (бейдж в топбаре). Эталон задачи работы
+ *                           подключается по наличию tasks[].solution, а не по флагу.
  * @var string $edit_url   Ссылка «Редактировать» в конструктор (#15-E), пусто вне preview.
  *
  * @package FS LMS
@@ -85,6 +86,8 @@ $work_meta_line = sprintf(
 
 		<?php if ( ! empty( $is_preview ) ) : ?>
 			<p class="step-muted pv-note"><?php esc_html_e( 'Это предпросмотр — ответы не сохраняются.', 'fs-lms' ); ?></p>
+		<?php elseif ( ! empty( $is_teacher ) ) : ?>
+			<p class="step-muted pv-note"><?php esc_html_e( 'Режим преподавателя — ответы проверяются, но не сохраняются.', 'fs-lms' ); ?></p>
 		<?php endif; ?>
 
 		<?php if ( ! empty( $render['instructions'] ) ) : ?>
@@ -130,8 +133,8 @@ $work_meta_line = sprintf(
 							?>
 						</span>
 						<?php
-						// Эталон преподавателю (teacher-режим) — по задаче работы.
-						if ( ! empty( $is_teacher ) && ! empty( $work_task['solution'] ) ) :
+						// Эталон по задаче работы; кому он достаётся — решает сервер (см. step-task.php).
+						if ( ! empty( $work_task['solution'] ) ) :
 							$teacher_solution = $work_task['solution'];
 							include __DIR__ . '/teacher-solution.php';
 						endif;

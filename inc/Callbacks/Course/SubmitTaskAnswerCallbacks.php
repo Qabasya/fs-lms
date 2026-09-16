@@ -15,6 +15,7 @@ use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Repositories\WPDBRepositories\TaskAttemptRepository;
 use Inc\Services\Course\EffectiveStepSettingsResolver;
+use Inc\Services\Course\GroupAccessGuard;
 use Inc\Services\Course\LessonProgressService;
 use Inc\Services\Task\CorrectAnswerResolver;
 use Inc\Services\Task\TaskCheckerRegistry;
@@ -45,6 +46,7 @@ class SubmitTaskAnswerCallbacks extends BaseController {
 		private readonly TemplateResolver             $resolver,
 		private readonly EffectiveStepSettingsResolver $settingsResolver,
 		private readonly CorrectAnswerResolver        $correctAnswers,
+		private readonly GroupAccessGuard             $guard,
 	) {
 		parent::__construct();
 	}
@@ -74,6 +76,15 @@ class SubmitTaskAnswerCallbacks extends BaseController {
 		$groupLesson = $this->groupLessons->find( $groupLessonId );
 		if ( ! $groupLesson || ! $groupLesson->lessonId ) {
 			$this->error( 'Занятие не найдено.' );
+			return;
+		}
+
+		// Сдаёт только ученик группы. Преподаватель открывает тот же урок в
+		// teacher-режиме плеера, и без этой проверки его нажатие «Ответить»
+		// писало попытку на его собственный person — плеер для него уходит
+		// в dry-run (PreviewCheckTask), но ручка обязана держаться сама.
+		if ( ! $this->guard->isMemberEver( $groupLesson->groupId, $person->id ) ) {
+			$this->error( 'Ответы на этом занятии сдают только его ученики.' );
 			return;
 		}
 

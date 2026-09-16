@@ -19,6 +19,7 @@ use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Repositories\WPDBRepositories\TaskAttemptRepository;
 use Inc\Services\Course\EffectiveStepSettingsResolver;
 use Inc\Services\Course\LessonProgressService;
+use Inc\Services\Course\GroupAccessGuard;
 use Inc\Services\Task\CorrectAnswerResolver;
 use Inc\Services\Task\TaskCheckerRegistry;
 use Inc\Services\Template\TemplateResolver;
@@ -40,7 +41,11 @@ class SubmitTaskAnswerCallbacksTest extends TestCase {
 	private TemplateResolver              $resolver;
 	private EffectiveStepSettingsResolver $settingsResolver;
 	private CorrectAnswerResolver         $correctAnswers;
+	private GroupAccessGuard              $guard;
 	private SubmitTaskAnswerCallbacks     $cb;
+
+	/** Ученик ли отправитель: ответ на занятии сдаёт только член группы. */
+	private bool $isMember = true;
 
 	protected function setUp(): void {
 		parent::setUp();
@@ -56,6 +61,10 @@ class SubmitTaskAnswerCallbacksTest extends TestCase {
 		$this->resolver         = $this->createMock( TemplateResolver::class );
 		$this->settingsResolver = $this->createMock( EffectiveStepSettingsResolver::class );
 		$this->correctAnswers   = $this->createMock( CorrectAnswerResolver::class );
+		$this->guard            = $this->createMock( GroupAccessGuard::class );
+		$this->isMember         = true;
+
+		$this->guard->method( 'isMemberEver' )->willReturnCallback( fn(): bool => $this->isMember );
 
 		$this->cb = new SubmitTaskAnswerCallbacks(
 			$this->persons,
@@ -66,7 +75,8 @@ class SubmitTaskAnswerCallbacksTest extends TestCase {
 			$this->progress,
 			$this->resolver,
 			$this->settingsResolver,
-			$this->correctAnswers
+			$this->correctAnswers,
+			$this->guard
 		);
 	}
 
@@ -179,6 +189,15 @@ class SubmitTaskAnswerCallbacksTest extends TestCase {
 		self::assertTrue( $r->success );
 		self::assertSame( 'available', $r->payload['step_status'] );
 		self::assertArrayNotHasKey( 'correct_answer', $r->payload );
+	}
+
+	/** Преподаватель в teacher-режиме плеера попытку на себя не записывает. */
+	public function test_non_member_is_rejected(): void {
+		$this->arrange( 3, array(), CheckResultDTO::correct( 2.0 ) );
+		$this->isMember = false;
+		$this->taskAttempts->expects( $this->never() )->method( 'create' );
+
+		self::assertFalse( fs_test_capture_json( fn() => $this->cb->ajaxSubmitTaskAnswer() )->success );
 	}
 
 	public function test_guest_is_rejected(): void {

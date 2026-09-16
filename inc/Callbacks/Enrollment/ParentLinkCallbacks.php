@@ -8,6 +8,7 @@ use Inc\Core\BaseController;
 use Inc\Enums\Access\Capability;
 use Inc\Enums\Wp\MetaKeys;
 use Inc\Enums\Wp\Nonce;
+use Inc\Services\Application\ApplicationService;
 use Inc\Services\Enrollment\EnrollmentService;
 use Inc\Shared\Traits\Authorizer;
 use Inc\Shared\Traits\Sanitizer;
@@ -28,7 +29,8 @@ class ParentLinkCallbacks extends BaseController {
 	use Sanitizer;
 
 	public function __construct(
-		private readonly EnrollmentService $enrollmentService,
+		private readonly EnrollmentService  $enrollmentService,
+		private readonly ApplicationService $applications,
 	) {
 		parent::__construct();
 	}
@@ -65,6 +67,29 @@ class ParentLinkCallbacks extends BaseController {
 		} catch ( \DomainException $e ) {
 			$this->error( $e->getMessage() );
 		}
+	}
+
+	/**
+	 * AJAX: ссылку скопировали — счётчик её жизни идёт заново (72 часа).
+	 * Повторное копирование сбрасывает его. Params: application_id.
+	 */
+	public function ajaxTouchJoinLink(): void {
+		$this->authorize( Nonce::Manager, Capability::ManageApplications );
+
+		$applicationId = $this->requireInt( 'application_id', error: 'Не указан ID заявки.' );
+
+		try {
+			$expiresAt = $this->applications->refreshJoinExpiry( $applicationId );
+		} catch ( \InvalidArgumentException | \DomainException $e ) {
+			$this->error( $e->getMessage() );
+			return;
+		}
+
+		$this->success( array(
+			'expires_at' => $expiresAt,
+			// Локальное время для подписи под кнопкой: срок хранится в UTC.
+			'expires_at_local' => get_date_from_gmt( $expiresAt, 'j F, H:i' ),
+		) );
 	}
 
 	/**

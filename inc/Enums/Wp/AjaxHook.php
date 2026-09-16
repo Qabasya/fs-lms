@@ -143,6 +143,8 @@ enum AjaxHook: string {
 	case RestoreFromArchive          = 'restore_from_archive';
 	case BulkRestoreFromArchive      = 'bulk_restore_from_archive';
 	case SearchParents               = 'search_parents';
+	// params: application_id — копирование JOIN-ссылки заводит её срок заново (72 ч)
+	case TouchJoinLink               = 'touch_join_link';
 	case CheckUsernameAvailable      = 'check_username_available';
 	case CheckEmailAvailable         = 'check_email_available';
 
@@ -233,6 +235,7 @@ enum AjaxHook: string {
 	case ReflowSchedule          = 'reflow_schedule';    // params: group_id — авто-распределение тем по слотам периода
 	case UnscheduleGroup         = 'unschedule_group';   // params: group_id — отменить распределение, вернуть темы в пул
 	case PinLesson               = 'pin_lesson';         // params: group_lesson_id, scheduled_at — закрепить тему на дату
+	case UnpinLesson             = 'unpin_lesson';       // params: group_lesson_id — вернуть тему в пул, хвост сдвинуть на её место
 	case GetGroupCalendar        = 'get_group_calendar'; // params: group_id — слоты периода + выходные + размещённые темы
 	case GetWorkDeadlines        = 'get_work_deadlines';  // params: group_lesson_id — работы занятия + текущие per-work дедлайны (T12.3, D13)
 	case SaveWorkDeadlines       = 'save_work_deadlines'; // params: group_lesson_id, deadlines (JSON {work_id:'Y-m-d H:i:s'|''}) — не блокируется lock КТП (T12.3, D13)

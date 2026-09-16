@@ -190,6 +190,133 @@ readonly class ScheduleReflowService {
 	}
 
 	/**
+	 * Возвращает тему в пул «Темы курса» (drag размещённой темы обратно в банк) и
+	 * подтягивает хвост: занятия, стоявшие после снятой даты, сдвигаются на одно
+	 * окно вперёд — освободившаяся дата занимается следующей темой, её дата —
+	 * темой за ней и так далее. Календарь занятий (какие дни заняты) не меняется,
+	 * меняется только то, какая тема на каком дне.
+	 *
+	 * Сдвиг идёт до первого якоря — проведённого (`held`), закреплённого вручную
+	 * (`is_pinned`) или отменённого/перенесённого занятия: дальше него хвост не
+	 * едет, иначе тема перепрыгнула бы якорь по дате. Индивидуальные занятия в
+	 * сдвиге не участвуют вовсе — у них своя дата, к последовательности курса
+	 * они не относятся.
+	 *
+	 * Здесь НЕ годится `reflow()`: `applySlots()` раскладывает все непиннутые
+	 * строки по `position` с начала периода и вернул бы дату строке, которую мы
+	 * только что отправили в пул.
+	 *
+	 * @param int $groupLessonId ID строки программы
+	 * @param int $actorUserId   Автор изменения
+	 *
+	 * @return int Сколько занятий сдвинулось следом.
+	 *
+	 * @throws \InvalidArgumentException Если строка не найдена или занятие уже проведено
+	 */
+	public function returnToPool( int $groupLessonId, int $actorUserId ): int {
+		$row = $this->requireRow( $groupLessonId );
+
+		if ( LessonStatus::Held === LessonStatus::fromValueOrDefault( $row->status ) ) {
+			throw new \InvalidArgumentException( 'Проведённое занятие нельзя вернуть в пул — это исторический факт.' );
+		}
+
+		if ( null === $row->scheduledAt ) {
+			return 0;
+		}
+
+		$allRows   = $this->groupLessons->listByGroup( $row->groupId );
+		$freeSlots = array( $this->slotOf( $row ) );
+
+		$this->groupLessons->clearSchedule( $groupLessonId );
+
+		// T12.6: вторая часть темы без первой висела бы в календаре разрозненно —
+		// продолжения уходят в пул вместе с оригиналом, их окна тоже освобождаются.
+		foreach ( $allRows as $r ) {
+			if ( $r->continuedFromId === $groupLessonId && null !== $r->scheduledAt ) {
+				$freeSlots[] = $this->slotOf( $r );
+				$this->groupLessons->clearSchedule( $r->id );
+			}
+		}
+
+		usort( $freeSlots, static fn( $a, $b ) => strcmp( $a['scheduled_at'], $b['scheduled_at'] ) );
+
+		// Хвост считаем от самого раннего освободившегося окна: часть темы могла
+		// стоять и раньше оригинала, и эта дырка тоже должна закрыться.
+		$shifted = $this->shiftTail( $allRows, $freeSlots[0]['scheduled_at'], $freeSlots, $groupLessonId );
+
+		$this->events->lessonChanged( $row->groupId, $groupLessonId, $actorUserId );
+
+		return $shifted;
+	}
+
+	/**
+	 * Сдвигает занятия, стоящие после освободившейся даты, на одно окно вперёд.
+	 * Каждая сдвигаемая строка забирает самое раннее свободное окно и отдаёт в
+	 * очередь своё — так «дырка» едет по календарю до конца хвоста.
+	 *
+	 * Сдвиг останавливается на первом якоре: закреплённом вручную (`is_pinned`),
+	 * проведённом (`held`) или отменённом/перенесённом занятии. Иначе тема из-за
+	 * якоря перепрыгнула бы его по дате, и порядок курса разошёлся бы с порядком
+	 * дат — а закреплённая дата перестала бы что-либо значить.
+	 *
+	 * @param \Inc\DTO\Course\GroupLessonDTO[]                                     $rows      Все строки группы
+	 * @param string                                                               $freedFrom Дата, которая освободилась первой
+	 * @param array<int, array{scheduled_at:string, ends_at:?string, room_id:?int}> $freeSlots Стартовая очередь окон
+	 * @param int                                                                  $skipId    Строка, ушедшая в пул
+	 *
+	 * @return int Количество сдвинутых строк.
+	 */
+	private function shiftTail( array $rows, string $freedFrom, array $freeSlots, int $skipId ): int {
+		$tail = array_values( array_filter(
+			$rows,
+			static fn( $r ) => $r->id !== $skipId
+				&& $r->continuedFromId !== $skipId
+				&& null !== $r->scheduledAt
+				&& $r->scheduledAt > $freedFrom
+				&& ! $r->kind->isIndividual()
+		) );
+		usort( $tail, static fn( $a, $b ) => strcmp( (string) $a->scheduledAt, (string) $b->scheduledAt ) );
+
+		$shifted = 0;
+		foreach ( $tail as $r ) {
+			$status = LessonStatus::fromValueOrDefault( $r->status );
+			if ( $r->isPinned || LessonStatus::Held === $status || $status->freesSlot() ) {
+				break;
+			}
+			if ( array() === $freeSlots ) {
+				break;
+			}
+
+			$vacated = $this->slotOf( $r );
+			$this->groupLessons->moveToSlot( $r->id, array_shift( $freeSlots ) );
+
+			// Очередь обязана оставаться отсортированной: при возврате в пул темы
+			// с продолжением освобождается больше одного окна, и только что
+			// освобождённое может оказаться раньше уже лежащего в очереди.
+			$freeSlots[] = $vacated;
+			usort( $freeSlots, static fn( $a, $b ) => strcmp( $a['scheduled_at'], $b['scheduled_at'] ) );
+
+			++$shifted;
+		}
+
+		return $shifted;
+	}
+
+	/**
+	 * Окно занятия строки: начало, конец и кабинет. Кабинет принадлежит дню
+	 * расписания, поэтому едет вместе с датой (см. {@see GroupLessonRepository::moveToSlot()}).
+	 *
+	 * @return array{scheduled_at:string, ends_at:?string, room_id:?int}
+	 */
+	private function slotOf( \Inc\DTO\Course\GroupLessonDTO $row ): array {
+		return array(
+			'scheduled_at' => (string) $row->scheduledAt,
+			'ends_at'      => $row->endsAt,
+			'room_id'      => $row->roomId,
+		);
+	}
+
+	/**
 	 * Конец занятия для даты закрепления: слот периода даёт готовый `ends_at`;
 	 * день без слота (Этап 4, урок вне расписания) — начало плюс длительность
 	 * встречи того же дня недели (при нескольких встречах в день — первая

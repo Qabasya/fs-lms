@@ -40,6 +40,13 @@ class FileTaskTemplate extends BaseTemplate {
 				'label'  => 'Файл задания',
 				'object' => new LinkField(),         // Поле для ссылки на файл
 			),
+			// Авторское решение: видит преподаватель в плеере («Показать решение»)
+			// и посетитель страницы задания в тренажёре. Заполняется по желанию.
+			'task_text'      => array(
+				'label'    => 'Решение',
+				'object'   => new ConditionField(),
+				'optional' => true,
+			),
 		);
 	}
 

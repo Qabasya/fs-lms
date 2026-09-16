@@ -12,7 +12,7 @@
  * всех типов, включая drag-ordering) и прячется сама.
  */
 import { initTaskWidget } from '../frontend/components/task-widget.js';
-import { getCore, onPanelShow, isPreview } from './core.js';
+import { getCore, onPanelShow, isPreview, isTeacherMode } from './core.js';
 import { esc, ICO } from './icons.js';
 
 const vars = window.fs_lms_player_vars;
@@ -144,10 +144,12 @@ async function submit( ctx ) {
 	if ( ! widget || submitBtn.disabled ) { return; }
 	submitBtn.disabled = true;
 
-	const core    = getCore();
-	const preview = isPreview();
-	const fd      = new FormData();
-	if ( preview ) {
+	const core = getCore();
+	// Teacher-режим проверяет так же, как предпросмотр: преподаватель прорешивает
+	// задачу при классе, но попытка не его — сохранять её некуда и некому.
+	const dryRun = isPreview() || isTeacherMode();
+	const fd     = new FormData();
+	if ( dryRun ) {
 		// #5: dry-run проверка — по ref задания, без занятия и без сохранения.
 		fd.append( 'action', vars.actions.previewCheckTask );
 		fd.append( 'security', vars.nonces.previewSolve );

@@ -13,6 +13,7 @@ use Inc\Managers\Assessment\AssessmentManager;
 use Inc\Managers\Course\CourseManager;
 use Inc\Managers\Course\LessonManager;
 use Inc\Managers\Course\WorkManager;
+use Inc\Services\Task\TaskSolutionService;
 
 /**
  * Class CoursePreviewService
@@ -33,6 +34,7 @@ class CoursePreviewService {
 		private readonly WorkManager         $works,
 		private readonly AssessmentManager   $assessments,
 		private readonly StepContentRenderer $stepRenderer,
+		private readonly TaskSolutionService $solutions,
 	) {}
 
 	/**
@@ -173,7 +175,7 @@ class CoursePreviewService {
 			);
 		}
 
-		return array(
+		$data = array(
 			// #5: ref нужен клиенту для dry-run проверки (PreviewCheckTask).
 			'ref'            => $taskId,
 			'auto_grade'     => $bundle['auto_grade'],
@@ -187,6 +189,16 @@ class CoursePreviewService {
 			'attempts_used'  => 0,
 			'reveal_hint'    => false,
 		);
+
+		// Эталон в предпросмотре («Показать решение», как в teacher-режиме занятия):
+		// сюда пускает только `CoursePreviewAccessGuard` — сотрудник или преподаватель
+		// курса, ученика на этом маршруте нет по построению.
+		$solution = $this->solutions->forTask( $taskId, $bundle['meta'] );
+		if ( null !== $solution ) {
+			$data['solution'] = $solution;
+		}
+
+		return $data;
 	}
 
 	/**
@@ -210,7 +222,14 @@ class CoursePreviewService {
 			if ( ! $bundle['auto_grade'] ) {
 				$bundle['widget_data'] = array( 'type' => 'text_answer' );
 			}
+
+			// Эталон каждой задачи работы — как у task-шага (см. renderTaskData()).
+			$solution = $this->solutions->forTask( (int) $taskId, $bundle['meta'] );
 			unset( $bundle['meta'] );
+			if ( null !== $solution ) {
+				$bundle['solution'] = $solution;
+			}
+
 			$tasks[] = $bundle;
 		}
 

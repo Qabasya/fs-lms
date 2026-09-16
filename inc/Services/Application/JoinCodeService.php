@@ -31,6 +31,9 @@ use Inc\Services\Security\PiiCryptoService;
  */
 readonly class JoinCodeService {
 
+	/** Срок жизни выданной ссылки, часы (см. {@see self::expiresAt()}). */
+	public const TTL_HOURS = 72;
+
 	private const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 	private const FORMAT_REGEX = '/^JOIN-[A-Z2-9]{4}-[A-Z2-9]{4}-[A-Z2-9]{4}$/';
 	private const SEGMENT_LENGTH = 4;
@@ -94,5 +97,19 @@ readonly class JoinCodeService {
 	 */
 	public function isValidFormat( string $code ): bool {
 		return (bool) preg_match( self::FORMAT_REGEX, $code );
+	}
+
+	/**
+	 * Срок жизни выданной родителю ссылки: 72 часа с момента, когда её
+	 * скопировали (копирование в таблице заявок сбрасывает счётчик заново —
+	 * {@see \Inc\Services\Application\ApplicationService::refreshJoinExpiry()}).
+	 *
+	 * Заявка, поданная учеником, живёт дольше (14 дней) — это срок ожидания
+	 * самой заявки, а не выданной ссылки; он задаётся в `createApplication()`.
+	 *
+	 * @return string 'Y-m-d H:i:s' в UTC — сравнение сроков в репозитории тоже идёт по UTC.
+	 */
+	public function expiresAt(): string {
+		return gmdate( 'Y-m-d H:i:s', time() + self::TTL_HOURS * HOUR_IN_SECONDS );
 	}
 }

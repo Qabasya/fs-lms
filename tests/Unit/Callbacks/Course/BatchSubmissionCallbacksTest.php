@@ -24,12 +24,17 @@ use PHPUnit\Framework\TestCase;
  */
 class BatchSubmissionCallbacksTest extends TestCase {
 
+	use \Tests\Support\GroupLessonFixtures;
+
 	private SubmissionService        $service;
 	private PersonRepository         $persons;
 	private SubmissionRepository     $submissionRepo;
 	private GroupLessonRepository    $groupLessons;
 	private GroupAccessGuard         $guard;
 	private BatchSubmissionCallbacks $cb;
+
+	/** Ученик ли отправитель: сдавать работу может только член группы занятия. */
+	private bool $isMember = true;
 
 	protected function setUp(): void {
 		parent::setUp();
@@ -41,7 +46,11 @@ class BatchSubmissionCallbacksTest extends TestCase {
 		$this->submissionRepo = $this->createMock( SubmissionRepository::class );
 		$this->groupLessons   = $this->createMock( GroupLessonRepository::class );
 		$this->guard          = $this->createMock( GroupAccessGuard::class );
-		$this->cb             = new BatchSubmissionCallbacks(
+		$this->isMember       = true;
+
+		$this->guard->method( 'isMemberEver' )->willReturnCallback( fn(): bool => $this->isMember );
+
+		$this->cb = new BatchSubmissionCallbacks(
 			$this->service, $this->persons, $this->submissionRepo, $this->groupLessons, $this->guard
 		);
 	}
@@ -73,6 +82,8 @@ class BatchSubmissionCallbacksTest extends TestCase {
 		$this->persons->method( 'findByWpUserId' )->with( 7 )
 			->willReturn( PersonDTO::fromArray( array( 'id' => 99, 'created_at' => '2024-01-01 00:00:00', 'updated_at' => '2024-01-01 00:00:00' ) ) );
 
+		$this->groupLessons->method( 'find' )->with( 5 )->willReturn( $this->makeRow( 5 ) );
+
 		$verdicts = '{"71":{"verdict":"correct","score":1,"maxScore":1},"72":{"verdict":"pending","score":0,"maxScore":1}}';
 		$this->service->method( 'submitBatch' )
 			->with( 99, 5, 55, array( '71' => array( 'o2' ), '72' => 'текст' ) )
@@ -99,6 +110,7 @@ class BatchSubmissionCallbacksTest extends TestCase {
 		$this->persons->method( 'findByWpUserId' )->willReturn(
 			PersonDTO::fromArray( array( 'id' => 99, 'created_at' => '2024-01-01 00:00:00', 'updated_at' => '2024-01-01 00:00:00' ) )
 		);
+		$this->groupLessons->method( 'find' )->with( 5 )->willReturn( $this->makeRow( 5 ) );
 		$this->service->method( 'submitBatch' )->willReturn( $this->aggregate( 'не json', 0.0, 2.0 ) );
 
 		$_POST = array( 'group_lesson_id' => '5', 'work_id' => '55', 'answers' => '{}' );
@@ -109,6 +121,22 @@ class BatchSubmissionCallbacksTest extends TestCase {
 		self::assertSame( array(), $r->payload['per_task'] );
 	}
 
+	/** Преподаватель в teacher-режиме плеера ученической сдачи не создаёт. */
+	public function test_submit_batch_rejects_non_member(): void {
+		$this->isMember = false;
+		$this->groupLessons->method( 'find' )->with( 5 )->willReturn( $this->makeRow( 5 ) );
+		$this->persons->method( 'findByWpUserId' )->willReturn(
+			PersonDTO::fromArray( array( 'id' => 99, 'created_at' => '2024-01-01 00:00:00', 'updated_at' => '2024-01-01 00:00:00' ) )
+		);
+		$this->service->expects( $this->never() )->method( 'submitBatch' );
+
+		$_POST = array( 'group_lesson_id' => '5', 'work_id' => '55', 'answers' => '{}' );
+
+		$r = fs_test_capture_json( fn() => $this->cb->ajaxSubmitBatchWork() );
+
+		self::assertFalse( $r->success );
+	}
+
 	public function test_submit_batch_invalid_answers_errors(): void {
 		$this->service->expects( $this->never() )->method( 'submitBatch' );
 		$_POST = array( 'group_lesson_id' => '5', 'work_id' => '55', 'answers' => 'мусор' );
@@ -117,6 +145,7 @@ class BatchSubmissionCallbacksTest extends TestCase {
 	}
 
 	public function test_submit_batch_access_violation_errors(): void {
+		$this->groupLessons->method( 'find' )->with( 5 )->willReturn( $this->makeRow( 5 ) );
 		$this->persons->method( 'findByWpUserId' )->willReturn(
 			PersonDTO::fromArray( array( 'id' => 99, 'created_at' => '2024-01-01 00:00:00', 'updated_at' => '2024-01-01 00:00:00' ) )
 		);

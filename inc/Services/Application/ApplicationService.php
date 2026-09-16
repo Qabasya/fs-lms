@@ -109,7 +109,10 @@ readonly class ApplicationService {
 			throw new DomainException( 'Этот логин уже занят.' );
 		}
 
-		// Генерация JOIN-кода и срока его действия
+		// Генерация JOIN-кода и срока его действия. 14 дней — срок ожидания самой
+		// заявки, поданной учеником; выданная родителю ссылка живёт короче
+		// (`JoinCodeService::TTL_HOURS`), отсчёт стартует с копирования ссылки
+		// в таблице заявок ({@see self::refreshJoinExpiry()}).
 		$joinCode      = $this->joinCodeService->generate();
 		$joinCodeHash  = $this->joinCodeService->hash( $joinCode );
 		$joinCodeEnc   = $this->crypto->encrypt( $joinCode );
@@ -277,6 +280,42 @@ readonly class ApplicationService {
 
 		// Триггер для внешних действий (например, уведомление администратора)
 		do_action( 'fs_lms_application_ready', $appId );
+	}
+
+	/**
+	 * Заново заводит счётчик жизни JOIN-ссылки: 72 часа с этого момента
+	 * (`JoinCodeService::TTL_HOURS`). Зовётся, когда сотрудник копирует ссылку
+	 * в таблице заявок — отсчёт идёт от передачи ссылки родителю, а не от подачи
+	 * заявки; повторное копирование сбрасывает счётчик.
+	 *
+	 * Срок может и укоротиться: у свежей заявки он 14 дней, и первое копирование
+	 * сводит его к 72 часам — так и задумано, ссылка живёт ровно с момента выдачи.
+	 *
+	 * @param int $applicationId ID заявки
+	 *
+	 * @throws \InvalidArgumentException Заявка не найдена
+	 * @throws DomainException           Заявка уже не ждёт родителя (ссылка неактуальна)
+	 *
+	 * @return string Новый срок 'Y-m-d H:i:s' (UTC)
+	 */
+	public function refreshJoinExpiry( int $applicationId ): string {
+		$app = $this->applicationRepository->find( $applicationId );
+		if ( null === $app ) {
+			throw new \InvalidArgumentException( 'Заявка не найдена.' );
+		}
+
+		if ( ! in_array( $app->status, array( ApplicationStatus::PendingParent, ApplicationStatus::ReadyForReview ), true ) ) {
+			throw new DomainException( 'По этой заявке ссылка уже не действует.' );
+		}
+
+		$expiresAt = $this->joinCodeService->expiresAt();
+
+		$this->applicationRepository->update( $applicationId, array(
+			'join_code_expires_at' => $expiresAt,
+			'updated_at'           => $this->clock->now( 'mysql', true ),
+		) );
+
+		return $expiresAt;
 	}
 
 	/**

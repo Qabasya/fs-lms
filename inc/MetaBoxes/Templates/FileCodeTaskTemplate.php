@@ -47,6 +47,13 @@ class FileCodeTaskTemplate extends BaseTemplate {
 				'label'  => 'Листинг кода (Python)',
 				'object' => new CodeField(),         // Поле для ввода кода
 			),
+			// Авторское решение: видит преподаватель в плеере («Показать решение»)
+			// и посетитель страницы задания в тренажёре. Заполняется по желанию.
+			'task_text'      => array(
+				'label'    => 'Решение',
+				'object'   => new ConditionField(),
+				'optional' => true,
+			),
 		);
 	}
 

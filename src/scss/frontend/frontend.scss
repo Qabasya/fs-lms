@@ -7,7 +7,7 @@
 @use 'components/nav';
 @use 'components/answer';
 @use 'components/tabs';
-@use 'components/code-block';
+@use '../shared/code-block';
 @use 'components/carousel';
 @use 'components/auth-page';
 @use 'components/apply-form';

@@ -127,6 +127,28 @@ class GroupLessonRepository {
 	}
 
 	/**
+	 * Переносит строку на освободившееся окно занятия целиком: начало, конец и
+	 * кабинет того занятия, которое это окно освободило. В отличие от
+	 * {@see updateSchedule()} кабинет тоже едет за датой — окно принадлежит дню
+	 * расписания, а не строке программы (сдвиг хвоста после возврата темы в пул,
+	 * {@see \Inc\Services\Group\ScheduleReflowService::returnToPool()}).
+	 *
+	 * @param array{scheduled_at:string, ends_at:?string, room_id:?int} $slot Освободившееся окно
+	 */
+	public function moveToSlot( int $id, array $slot ): bool {
+		$result = $this->wpdb->update(
+			$this->table,
+			array(
+				'scheduled_at' => $slot['scheduled_at'],
+				'ends_at'      => $slot['ends_at'],
+				'room_id'      => $slot['room_id'],
+			),
+			array( 'id' => $id )
+		);
+		return false !== $result;
+	}
+
+	/**
 	 * Снимает дату/закрепление/кабинет со строки — возвращает тему в пул «Темы
 	 * курса». Используется при вытеснении занятой даты (Этап 3: строгая замена)
 	 * и обнулении хвоста сверх слотов (Этап 1: {@see applySlots()}).

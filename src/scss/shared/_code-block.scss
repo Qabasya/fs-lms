@@ -1,0 +1,141 @@
+// Блок кода (read-only листинг) — ОБЩИЙ для всех бандлов, где встречается
+// `<pre><code class="js-code">`: страница задания тренажёра, статья и плеер
+// курса («Показать решение» преподавателю). Разметку — шапку с языком и
+// кнопкой копирования, гаттер с номерами строк и подсвеченное тело — строит
+// один и тот же `frontend/components/code-block.js`, поэтому и стиль обязан
+// быть один: без него гаттер печатается сплошной строкой цифр, а кнопка
+// копирования остаётся голой.
+// Поверхности берутся из темы бандла (`--surface`, `--ink`, `--mono` темы
+// кабинета); бандл без неё (публичные страницы) получает фолбэк-ступени из
+// shared/_tokens. Подсветка синтаксиса общая и темой не переопределяется.
+
+@use 'tokens' as t;
+
+:root {
+  --code-surface: var(--surface, #{t.$code-surface});
+  --code-surface-2: var(--surface-2, #{t.$code-surface-2});
+  --code-ink: var(--ink, #{t.$code-ink});
+  --code-muted: var(--muted, #{t.$code-muted});
+  --code-gutter-ink: var(--muted-2, #{t.$code-muted-2});
+  --code-line: var(--line, #{t.$code-line});
+  --code-line-2: var(--line-2, #{t.$code-line-2});
+  --code-selection: var(--accent-soft, #{t.$code-selection});
+  --code-font: var(--mono, #{t.$font-code});
+  --hl-keyword: #{t.$hl-keyword};
+  --hl-builtin: #{t.$hl-builtin};
+  --hl-function: #{t.$hl-function};
+  --hl-string: #{t.$hl-string};
+  --hl-number: #{t.$hl-number};
+  --hl-comment: #{t.$hl-comment};
+}
+
+$code-pad-y: t.rem(16);
+$code-pad-x: t.rem(18);
+
+.fs-code-editor {
+  margin: t.rem(4) 0;
+  overflow: hidden;
+  font-family: var(--code-font);
+  background: var(--code-surface);
+  border: 1px solid var(--code-line);
+  border-radius: t.$border-radius-lg;
+}
+
+// ── Шапка ──
+.fs-code-editor__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: t.rem(8) t.rem(12);
+  background: var(--code-surface-2);
+  border-bottom: 1px solid var(--code-line);
+}
+
+.fs-code-editor__lang {
+  font-family: t.$font-ui;
+  font-size: t.$font-size-xs;
+  font-weight: t.$font-medium;
+  color: var(--code-muted);
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+
+.fs-code-editor__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: t.rem(28);
+  height: t.rem(28);
+  padding: 0;
+  color: var(--code-muted);
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+  border-radius: t.$border-radius-md;
+  transition: color t.$transition-fast, background t.$transition-fast;
+
+  &:hover {
+    color: var(--code-ink);
+    background: var(--code-line-2);
+  }
+
+  &.is-copied { color: t.$hl-string; }
+
+  svg { display: block; }
+}
+
+// ── Тело ──
+.fs-code-editor__body {
+  display: flex;
+  overflow: hidden;
+  background: var(--code-surface-2);
+}
+
+.fs-code-gutter {
+  flex: 0 0 auto;
+  padding: $code-pad-y t.rem(10);
+  font-size: t.$font-size-base;
+  line-height: t.$code-line-height;
+  color: var(--code-gutter-ink);
+  text-align: right;
+  user-select: none;
+  background: var(--code-surface-2);
+  border-right: 1px solid var(--code-line-2);
+
+  // Номер строки — своей строкой; без этого гаттер печатается «1234567891011».
+  span { display: block; }
+}
+
+.fs-code-area {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.fs-code-highlight {
+  margin: 0;
+  padding: $code-pad-y $code-pad-x;
+  overflow-x: auto;
+  font-family: var(--code-font);
+  font-size: t.$font-size-base;
+  line-height: t.$code-line-height;
+  tab-size: 4;
+  white-space: pre;
+  color: var(--code-ink);
+
+  &::selection,
+  *::selection { background: var(--code-selection); }
+}
+
+// ── Токены подсветки (Python) ──
+.fs-hl-keyword  { color: var(--hl-keyword); }
+.fs-hl-builtin  { color: var(--hl-builtin); }
+.fs-hl-function { color: var(--hl-function); font-weight: t.$font-medium; }
+.fs-hl-string   { color: var(--hl-string); }
+.fs-hl-number   { color: var(--hl-number); }
+.fs-hl-comment  { color: var(--hl-comment); font-style: italic; }
+
+@media (max-width: t.$bp-mobile) {
+  .fs-code-highlight { padding: t.rem(12) t.rem(14); }
+
+  .fs-code-gutter { padding: t.rem(12) t.rem(8); }
+}

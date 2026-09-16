@@ -105,6 +105,7 @@ final class TeacherProfileView implements ProfileViewInterface {
 					'reflow'        => AjaxHook::ReflowSchedule->jsAction(),
 					'unschedule'    => AjaxHook::UnscheduleGroup->jsAction(),
 					'pin'           => AjaxHook::PinLesson->jsAction(),
+					'unpin'         => AjaxHook::UnpinLesson->jsAction(),
 					'getProgram'    => AjaxHook::GetGroupProgram->jsAction(),
 					'publish'       => AjaxHook::PublishProgram->jsAction(),
 					'unpublish'     => AjaxHook::UnpublishProgram->jsAction(),

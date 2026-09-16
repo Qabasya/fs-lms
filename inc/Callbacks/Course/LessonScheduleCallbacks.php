@@ -124,6 +124,29 @@ class LessonScheduleCallbacks extends BaseController {
 	}
 
 	/**
+	 * Возвращает тему в пул «Темы курса» (drag размещённой темы обратно в банк):
+	 * дата снимается, а занятия, стоявшие после неё, сдвигаются на одно окно
+	 * вперёд. Params: group_lesson_id
+	 */
+	public function ajaxUnpinLesson(): void {
+		$this->authorize( Nonce::SaveSchedule, Capability::ManageLmsTeaching );
+		$groupLessonId = $this->requireInt( 'group_lesson_id' );
+		$userId        = get_current_user_id();
+
+		$row = $this->requireProgramRow( $groupLessonId );
+		$this->denyIfProgramLocked( $row->groupId );
+
+		try {
+			$shifted = $this->schedule->returnToPool( $groupLessonId, $userId );
+		} catch ( \InvalidArgumentException $e ) {
+			$this->error( $e->getMessage() );
+			return;
+		}
+
+		$this->success( array( 'shifted' => $shifted ) );
+	}
+
+	/**
 	 * Календарь КТП группы: слоты периода, выходные и размещённые темы.
 	 * Params: group_id
 	 */

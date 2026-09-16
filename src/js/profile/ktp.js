@@ -138,7 +138,7 @@ function render() {
                     <div class="kal-month" id="ktpMonth"></div>
                     <button class="prof-icon-ghost" id="ktpNext">${icoChevronRight(18)}</button>
                     <span class="prof-spacer"></span>
-                    <span class="kal-hint" id="ktpHint">${locked ? 'КТП опубликована — редактирование заблокировано' : 'Перетащите тему на дату, чтобы закрепить'}</span>
+                    <span class="kal-hint" id="ktpHint">${locked ? 'КТП опубликована — редактирование заблокировано' : 'Перетащите тему на дату, чтобы закрепить · обратно в «Темы курса» — чтобы снять, следующие сдвинутся на её место'}</span>
                 </div>
                 <div class="kal-grid-wrap">
                     <div class="kal-dow">${DOW_RU.map(d => `<span>${d}</span>`).join('')}</div>
@@ -237,7 +237,11 @@ function renderBank() {
         const placed = groups.filter(g => g.every(t => t.scheduled_at)).length;
         count.textContent = `${placed} / ${groups.length} распределено`;
     }
-    if (!isLocked()) bank.querySelectorAll('.prof-theme-card').forEach(attachDrag);
+    if (!isLocked()) {
+        bank.querySelectorAll('.prof-theme-card').forEach(attachDrag);
+        // Обратный drag: карточка занятия из календаря → банк (вернуть тему в пул).
+        attachBankDrop(bank.closest('.prof-theme-bank') || bank);
+    }
 }
 
 function renderCalendar() {
@@ -364,12 +368,15 @@ async function doUnpublish() {
 function attachDrag(el) {
     el.addEventListener('dragstart', e => {
         state.dragGlid = el.dataset.glid;
+        // Откуда тянут: из календаря — можно вернуть в пул, из банка — только на дату.
+        state.dragFromCalendar = el.classList.contains('placed-theme');
         el.classList.add('dragging');
         e.dataTransfer.effectAllowed = 'move';
         e.dataTransfer.setData('text/plain', state.dragGlid);
     });
     el.addEventListener('dragend', () => {
         state.dragGlid = null;
+        state.dragFromCalendar = false;
         el.classList.remove('dragging');
         document.querySelectorAll('.drop-ok').forEach(n => n.classList.remove('drop-ok'));
     });
@@ -410,6 +417,43 @@ async function doPin(glid, day, scheduledAt, endsAt) {
     } catch (err) {
         toast(err.message, 'error');
     }
+}
+
+/**
+ * Обратный drag: тема из календаря возвращается в пул «Темы курса», а занятия,
+ * стоявшие после неё, сдвигаются на одно окно вперёд (сервер, returnToPool).
+ * Сдвиг останавливается на первом закреплённом/проведённом занятии — об этом
+ * говорит `shifted` в ответе, поэтому число берём оттуда, а не считаем на клиенте.
+ */
+async function doUnpin(glid) {
+    const dragged = (state.data.themes || []).find(t => String(t.group_lesson_id) === String(glid));
+    try {
+        const res = await api('unpin', { group_lesson_id: glid });
+        const shifted = res && res.shifted ? +res.shifted : 0;
+        const label = dragged ? `Тема ${dragged.n}` : 'Тема';
+        toast(shifted
+            ? `${label} возвращена в пул · ${shifted} ${plural(shifted, 'занятие сдвинулось', 'занятия сдвинулись', 'занятий сдвинулись')}`
+            : `${label} возвращена в пул`);
+        await loadCalendar();
+    } catch (err) {
+        toast(err.message, 'error');
+    }
+}
+
+function attachBankDrop(bank) {
+    bank.addEventListener('dragover', e => {
+        // Тема из банка в банк — не операция: подсветку показываем только для календаря.
+        if (!state.dragFromCalendar) return;
+        e.preventDefault();
+        bank.classList.add('drop-ok');
+    });
+    bank.addEventListener('dragleave', () => bank.classList.remove('drop-ok'));
+    bank.addEventListener('drop', e => {
+        if (!state.dragFromCalendar || !state.dragGlid) return;
+        e.preventDefault();
+        bank.classList.remove('drop-ok');
+        doUnpin(state.dragGlid);
+    });
 }
 
 function attachDrop(cell) {

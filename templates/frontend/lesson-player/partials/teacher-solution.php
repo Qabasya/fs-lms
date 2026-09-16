@@ -4,9 +4,11 @@
  *
  * Раскрывающийся блок: правильный ответ + авторское решение + листинг кода
  * (у шаблонов с полем «Код», `TaskTemplate::hasCodeField()`). Данные собирает
- * `LessonPlayerService::solutionFor()` и кладёт в `render.solution` (task-шаг)
- * или в `tasks[].solution` (задачи work-шага) — ТОЛЬКО при `$is_teacher`.
- * Ученику этот партиал не подключается ни при каких статусах шага.
+ * `TaskSolutionService::forTask()`; в `render.solution` (task-шаг) и
+ * `tasks[].solution` (задачи work-шага) их кладут `LessonPlayerService` —
+ * только в teacher-режиме — и `CoursePreviewService` — в предпросмотре курса,
+ * куда пускает лишь `CoursePreviewAccessGuard`. В ученическом view ключа
+ * `solution` не бывает, поэтому партиал ему не подключается никогда.
  *
  * @var array{answer:string, html:string, code:string} $teacher_solution
  *
@@ -41,7 +43,8 @@ use Inc\Enums\Ui\Icon;
 			</div>
 		<?php endif; ?>
 		<?php if ( '' !== (string) ( $teacher_solution['code'] ?? '' ) ) : ?>
-			<div class="fs-solution__row">
+			<?php // Листинг разворачивает code-block.js в собственный редактор с рамкой — строке своя плашка не нужна. ?>
+			<div class="fs-solution__row fs-solution__row--code">
 				<span class="fs-solution__label"><?php esc_html_e( 'Код', 'fs-lms' ); ?></span>
 				<pre><code class="js-code" data-lang="Python"><?php echo esc_html( (string) $teacher_solution['code'] ); ?></code></pre>
 			</div>

@@ -72,6 +72,13 @@
   background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
   box-shadow: var(--shadow-sm); display: flex; flex-direction: column; min-height: 0;
   min-width: 0;
+  transition: border-color $tr, background $tr;
+}
+
+/* Обратный drag: тему из календаря тянут в банк, чтобы вернуть в пул. Та же
+   пунктирная акцентная подсветка, что у ячейки-приёмника календаря. */
+.prof-theme-bank.drop-ok {
+  border-color: var(--accent); border-style: dashed; background: var(--accent-soft);
 }
 .tb-head { padding: rem(14) rem(16); border-bottom: 1px solid var(--line-2); display: flex; align-items: center; gap: rem(8); }
 .tb-head h3 { font-size: rem(14); font-weight: 700; }

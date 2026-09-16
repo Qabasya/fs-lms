@@ -5,7 +5,7 @@
  * вердиктами (без эталонов — D19) и кнопкой «Пройти заново».
  */
 import { initTaskWidget } from '../frontend/components/task-widget.js';
-import { getCore, onPanelShow, isPreview } from './core.js';
+import { getCore, onPanelShow, isPreview, isTeacherMode } from './core.js';
 import { esc, ICO } from './icons.js';
 import { toast } from './shell.js';
 
@@ -158,14 +158,15 @@ function mountWork( panel, root ) {
 
 	// ── Сдача одной кнопкой (SubmitBatchWork) ─────────────────────────────
 	async function submit() {
-		const preview = isPreview();
+		// Teacher-режим сдаёт так же, как предпросмотр: проверка есть, записи нет.
+		const dryRun  = isPreview() || isTeacherMode();
 		const answers = {};
 		widgets.forEach( ( widget, taskId ) => {
 			answers[ taskId ] = parseAnswer( widget.collectAnswer() ) ?? '';
 		} );
 
 		const fd = new FormData();
-		if ( preview ) {
+		if ( dryRun ) {
 			// #5: dry-run проверка — работа или контрольная (по типу шага), без сохранения.
 			const isAssessment = 'assessment' === panel.dataset.stepType;
 			fd.append( 'action', isAssessment ? vars.actions.previewCheckAssessment : vars.actions.previewCheckWork );

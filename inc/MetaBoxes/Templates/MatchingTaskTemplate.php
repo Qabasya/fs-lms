@@ -26,6 +26,13 @@ class MatchingTaskTemplate extends BaseTemplate {
 				'label'  => 'Пары для сопоставления',
 				'object' => new PairsField(),
 			),
+			// Авторское решение: видит преподаватель в плеере («Показать решение»)
+			// и посетитель страницы задания в тренажёре. Заполняется по желанию.
+			'task_text' => array(
+				'label'    => 'Решение',
+				'object'   => new ConditionField(),
+				'optional' => true,
+			),
 		);
 	}
 

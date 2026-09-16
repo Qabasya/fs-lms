@@ -7,7 +7,10 @@
 	$border-radius-sm, $border-radius-md, $border-radius-lg, $border-radius-xl,
 	$font-size-2xs, $font-size-code, $font-size-xs, $font-size-sm, $font-size-base,
 	$font-size-md, $font-size-lead, $font-size-xl,
-	$font-regular, $font-semibold, $font-bold, $color-danger;
+	$font-regular, $font-medium, $font-semibold, $font-bold, $color-danger,
+	// Моноширинный листингов публичных страниц: ступень общая с ядром, потому что
+	// тот же блок кода рендерится и в плеере (shared/_code-block.scss).
+	$font-code;
 @use '../shared/tokens' as t;
 @use 'sass:color';
 @use 'sass:math';
@@ -96,23 +99,11 @@ $tag-palette: ($color-accent, $color-accent-soft),
 	(color.mix($brand-yellow, $color-text, $ink-share), color.mix($brand-yellow, #fff, $tint-soft)),
 	(color.mix($brand-lime, $color-text, $ink-share), color.mix($brand-lime, #fff, $tint-soft));
 
-// ── Подсветка кода (светлая тема, редактор в _code-block.scss)
-$code-header-bg: $color-surface-2;
-$code-body-bg: $color-surface-2;
-$code-gutter-text: $color-muted-2;
-$code-selection-bg: rgba($color-accent, .18);
-$hl-keyword: t.$hue-violet-dk;              // def, return, if, for…
-$hl-builtin: #2563eb;                       // print, len, range…
-$hl-function: #1d4ed8;                      // имя функции после def
-$hl-string: #15803d;                        // строковые литералы
-$hl-number: #0e7490;                        // числа
-$hl-comment: $color-muted;                  // комментарии
+// Подсветка кода и поверхности листинга — в ядре (`shared/_tokens.scss`,
+// секция «Блок кода»): один и тот же редактор рендерится и в плеере курса.
 
 // ── Типографика (крупные ступени — только на публичных страницах)
 $font-family: t.$font-ui; // тот же шрифт, что в кабинете и плеере
-
-// Моноширинный публичных страниц — намеренно НЕ ядровый $font-mono (кабинет/плеер).
-$font-code: 'Courier New', courier, monospace;
 $font-size-2xl: t.rem(28);
 
 // Верхняя ступень лестницы: заголовок статьи
@@ -129,10 +120,9 @@ $task-condition-lines: 4;
 // Обычный вес: тема (TT5) ставит body{font-weight:300}, и UA-шный bolder у b/strong
 // от 300 даёт лишь 400 — жирный пропадает. Контентные блоки задают вес абсолютно.
 $font-normal: 400;
-$font-medium: 500;
 
-// 600/700 макета форвардятся из ядра ($font-semibold/$font-bold): на них держится
-// вся иерархия — номер задания, заголовки карточек, чипы, кнопки.
+// 500/600/700 макета форвардятся из ядра ($font-medium/$font-semibold/$font-bold):
+// на них держится вся иерархия — номер задания, заголовки карточек, чипы, кнопки.
 
 // ── Компоновка
 // = layout.contentSize/wideSize темы (theme.json, 75rem): контент плагина по краям шапки.

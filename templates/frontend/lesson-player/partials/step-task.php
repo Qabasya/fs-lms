@@ -6,7 +6,9 @@
  * @var array $step       Шаг из LessonPlayerService::buildView.
  * @var array $render     Render-данные шага.
  * @var bool  $is_preview Признак preview-плеера курса (Фаза 5) — блокирует «Ответить».
- * @var bool|null $is_teacher Teacher-режим: блок «Показать решение» (render.solution).
+ * @var bool|null $is_teacher Teacher-режим занятия (бейдж в топбаре). Эталон подключается
+ *                           по наличию render.solution, а не по этому флагу: тот же блок
+ *                           нужен и в предпросмотре курса.
  * @var string $edit_url  Ссылка «Редактировать» в конструктор (#15-E), пусто вне preview.
  *
  * @package FS LMS
@@ -101,13 +103,21 @@ use Inc\Enums\Ui\Icon;
 				<button type="button"
 					class="b b-pri fs-task-submit"
 					data-step="<?php echo esc_attr( $step['key'] ); ?>"
-					<?php echo ! empty( $is_preview ) && ! empty( $render['ref'] ) ? 'data-preview-ref="' . esc_attr( (string) $render['ref'] ) . '"' : ''; ?>
+					<?php
+					// Ref задачи для dry-run проверки: и предпросмотр, и teacher-режим
+					// проверяют ответ, ничего не сохраняя (step-task.js).
+					echo ( ! empty( $is_preview ) || ! empty( $is_teacher ) ) && ! empty( $render['ref'] )
+						? 'data-preview-ref="' . esc_attr( (string) $render['ref'] ) . '"'
+						: '';
+					?>
 					<?php echo $task_is_done ? 'disabled' : ''; ?>>
 					<?php esc_html_e( 'Ответить', 'fs-lms' ); ?>
 				</button>
 				<div class="fs-task-result" aria-live="polite"></div>
 				<?php if ( ! empty( $is_preview ) ) : ?>
 					<p class="step-muted pv-note"><?php esc_html_e( 'Это предпросмотр — ответ не сохраняется.', 'fs-lms' ); ?></p>
+				<?php elseif ( ! empty( $is_teacher ) ) : ?>
+					<p class="step-muted pv-note"><?php esc_html_e( 'Режим преподавателя — ответ проверяется, но не сохраняется.', 'fs-lms' ); ?></p>
 				<?php endif; ?>
 			</div>
 
@@ -121,8 +131,10 @@ use Inc\Enums\Ui\Icon;
 		<?php endif; ?>
 
 		<?php
-		// Эталон преподавателю (teacher-режим): ответ + решение под «Показать решение».
-		if ( ! empty( $is_teacher ) && ! empty( $render['solution'] ) ) :
+		// Эталон под «Показать решение». Кому его показывать, решает сервер: ключ
+		// `solution` есть только в teacher-режиме занятия и в предпросмотре курса,
+		// в ученическом view его не бывает ни при каком статусе шага.
+		if ( ! empty( $render['solution'] ) ) :
 			$teacher_solution = $render['solution'];
 			include __DIR__ . '/teacher-solution.php';
 		endif;

@@ -32,6 +32,13 @@ class AudioTaskTemplate extends BaseTemplate {
 				'label'  => 'Правильный ответ',
 				'object' => new TextareaField(), // Многострочный текст (переносы сохраняются)
 			),
+			// Авторское решение: видит преподаватель в плеере («Показать решение»)
+			// и посетитель страницы задания в тренажёре. Заполняется по желанию.
+			'task_text' => array(
+				'label'    => 'Решение',
+				'object'   => new ConditionField(),
+				'optional' => true,
+			),
 		);
 	}
 

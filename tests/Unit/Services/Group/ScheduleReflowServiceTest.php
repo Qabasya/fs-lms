@@ -368,4 +368,146 @@ class ScheduleReflowServiceTest extends TestCase {
 
 		$this->service->pinToDate( 42, '2026-05-20 11:00:00', 1 );
 	}
+
+	/* ── Возврат темы в пул (drag из календаря в банк) + сдвиг хвоста ────── */
+
+	/** Размещённая строка с полным окном занятия (дата/конец/кабинет). */
+	private function placedRow(
+		int $id,
+		string $scheduledAt,
+		string $status = 'scheduled',
+		bool $isPinned = false,
+		?int $roomId = null,
+		?int $continuedFromId = null,
+		string $kind = 'group'
+	): \Inc\DTO\Course\GroupLessonDTO {
+		return new \Inc\DTO\Course\GroupLessonDTO(
+			id: $id, groupId: 5, lessonId: 10, position: 0, workIdsSnapshot: null, extraWorkIds: array(),
+			scheduledAt: $scheduledAt, endsAt: substr( $scheduledAt, 0, 11 ) . '11:30:00', isPinned: $isPinned,
+			teacherUserId: null, visibility: 'hidden', openedAt: null, homeworkDueAt: null, allowLate: true,
+			recordingUrl: null, createdByUserId: null, updatedByUserId: null,
+			kind: \Inc\Enums\Course\LessonKind::fromValueOrDefault( $kind ), status: $status,
+			roomId: $roomId, continuedFromId: $continuedFromId,
+		);
+	}
+
+	/** Снятая тема уходит в пул, следующие занимают освободившиеся окна по цепочке. */
+	public function test_return_to_pool_shifts_tail_into_freed_windows(): void {
+		$dragged = $this->placedRow( 1, '2026-09-03 10:00:00', roomId: 7 );
+		$second  = $this->placedRow( 2, '2026-09-10 10:00:00', roomId: 8 );
+		$third   = $this->placedRow( 3, '2026-09-17 10:00:00', roomId: 9 );
+
+		$this->groupLessons->method( 'find' )->willReturn( $dragged );
+		$this->groupLessons->method( 'listByGroup' )->with( 5 )->willReturn( array( $dragged, $second, $third ) );
+
+		$this->groupLessons->expects( self::once() )->method( 'clearSchedule' )->with( 1 );
+
+		$moves = array();
+		$this->groupLessons->method( 'moveToSlot' )->willReturnCallback(
+			function ( int $id, array $slot ) use ( &$moves ) {
+				$moves[ $id ] = $slot;
+				return true;
+			}
+		);
+
+		self::assertSame( 2, $this->service->returnToPool( 1, 99 ) );
+		self::assertSame( '2026-09-03 10:00:00', $moves[2]['scheduled_at'] );
+		self::assertSame( '2026-09-03 11:30:00', $moves[2]['ends_at'] );
+		// Кабинет принадлежит дню расписания и едет вместе с окном.
+		self::assertSame( 7, $moves[2]['room_id'] );
+		self::assertSame( '2026-09-10 10:00:00', $moves[3]['scheduled_at'] );
+		self::assertSame( 8, $moves[3]['room_id'] );
+	}
+
+	/** Закреплённая вручную тема — якорь: хвост за ней не едет. */
+	public function test_return_to_pool_stops_shift_at_pinned_anchor(): void {
+		$dragged = $this->placedRow( 1, '2026-09-03 10:00:00' );
+		$pinned  = $this->placedRow( 2, '2026-09-10 10:00:00', isPinned: true );
+		$third   = $this->placedRow( 3, '2026-09-17 10:00:00' );
+
+		$this->groupLessons->method( 'find' )->willReturn( $dragged );
+		$this->groupLessons->method( 'listByGroup' )->willReturn( array( $dragged, $pinned, $third ) );
+
+		$this->groupLessons->expects( self::once() )->method( 'clearSchedule' )->with( 1 );
+		$this->groupLessons->expects( self::never() )->method( 'moveToSlot' );
+
+		self::assertSame( 0, $this->service->returnToPool( 1, 99 ) );
+	}
+
+	/** Проведённое занятие — тоже якорь: сдвиг останавливается на нём. */
+	public function test_return_to_pool_stops_shift_at_held_lesson(): void {
+		$dragged = $this->placedRow( 1, '2026-09-03 10:00:00' );
+		$held    = $this->placedRow( 2, '2026-09-10 10:00:00', 'held' );
+
+		$this->groupLessons->method( 'find' )->willReturn( $dragged );
+		$this->groupLessons->method( 'listByGroup' )->willReturn( array( $dragged, $held ) );
+
+		$this->groupLessons->expects( self::never() )->method( 'moveToSlot' );
+
+		self::assertSame( 0, $this->service->returnToPool( 1, 99 ) );
+	}
+
+	/** Индивидуальные занятия к последовательности курса не относятся — не двигаются. */
+	public function test_return_to_pool_ignores_individual_lessons(): void {
+		$dragged    = $this->placedRow( 1, '2026-09-03 10:00:00' );
+		$individual = $this->placedRow( 2, '2026-09-04 10:00:00', kind: 'individual' );
+
+		$this->groupLessons->method( 'find' )->willReturn( $dragged );
+		$this->groupLessons->method( 'listByGroup' )->willReturn( array( $dragged, $individual ) );
+
+		$this->groupLessons->expects( self::never() )->method( 'moveToSlot' );
+
+		self::assertSame( 0, $this->service->returnToPool( 1, 99 ) );
+	}
+
+	/** T12.6: продолжение уходит в пул вместе с оригиналом, хвост едет на два окна. */
+	public function test_return_to_pool_frees_continuation_window_too(): void {
+		$origin       = $this->placedRow( 1, '2026-09-03 10:00:00' );
+		$between      = $this->placedRow( 2, '2026-09-10 10:00:00' );
+		$continuation = $this->placedRow( 3, '2026-09-17 10:00:00', continuedFromId: 1 );
+		$tail         = $this->placedRow( 4, '2026-09-24 10:00:00' );
+
+		$this->groupLessons->method( 'find' )->willReturn( $origin );
+		$this->groupLessons->method( 'listByGroup' )->willReturn( array( $origin, $between, $continuation, $tail ) );
+
+		$cleared = array();
+		$this->groupLessons->method( 'clearSchedule' )->willReturnCallback(
+			function ( int $id ) use ( &$cleared ) {
+				$cleared[] = $id;
+				return true;
+			}
+		);
+
+		$moves = array();
+		$this->groupLessons->method( 'moveToSlot' )->willReturnCallback(
+			function ( int $id, array $slot ) use ( &$moves ) {
+				$moves[ $id ] = $slot['scheduled_at'];
+				return true;
+			}
+		);
+
+		self::assertSame( 2, $this->service->returnToPool( 1, 99 ) );
+		self::assertSame( array( 1, 3 ), $cleared );
+		self::assertSame( '2026-09-03 10:00:00', $moves[2] );
+		// Второе окно освободило продолжение — хвост поднимается на него, а не через него.
+		self::assertSame( '2026-09-10 10:00:00', $moves[4] );
+	}
+
+	/** Проведённое занятие в пул не возвращается — это факт, а не план. */
+	public function test_return_to_pool_rejects_held_row(): void {
+		$this->groupLessons->method( 'find' )->willReturn( $this->placedRow( 1, '2026-09-03 10:00:00', 'held' ) );
+		$this->groupLessons->expects( self::never() )->method( 'clearSchedule' );
+
+		$this->expectException( \InvalidArgumentException::class );
+		$this->service->returnToPool( 1, 99 );
+	}
+
+	/** Тема и так в пуле — no-op, событие не дёргаем. */
+	public function test_return_to_pool_is_noop_for_row_without_date(): void {
+		$this->groupLessons->method( 'find' )->willReturn( $this->makeRow( 1, 'group' ) );
+		$this->groupLessons->expects( self::never() )->method( 'clearSchedule' );
+		$this->dispatcher->expects( self::never() )->method( 'dispatch' );
+
+		self::assertSame( 0, $this->service->returnToPool( 1, 99 ) );
+	}
 }

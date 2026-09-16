@@ -16,6 +16,7 @@ use Inc\Managers\Course\LessonManager;
 use Inc\Managers\Course\WorkManager;
 use Inc\Repositories\WPDBRepositories\TaskAttemptRepository;
 use Inc\Services\Task\CorrectAnswerResolver;
+use Inc\Services\Task\TaskSolutionService;
 
 /**
  * Class LessonPlayerService
@@ -38,6 +39,7 @@ class LessonPlayerService {
 		private readonly TaskAttemptRepository        $taskAttempts,
 		private readonly EffectiveStepSettingsResolver $settingsResolver,
 		private readonly CorrectAnswerResolver        $correctAnswers,
+		private readonly TaskSolutionService          $solutions,
 		private readonly WorkManager                  $works,
 		private readonly SubmissionService            $submissionService,
 		private readonly StepContentRenderer          $stepRenderer,
@@ -179,34 +181,6 @@ class LessonPlayerService {
 	}
 
 	/**
-	 * Эталон задачи для teacher-режима плеера: человекочитаемый правильный ответ
-	 * (`CorrectAnswerResolver`) + авторское решение (`task_text`) + листинг кода
-	 * (`task_code`, только у шаблонов `TaskTemplate::hasCodeField()`). Отдаётся
-	 * ТОЛЬКО преподавателю (`$isTeacher`) — на клиент ученика правильные ответы
-	 * уходят лишь после исчерпания попыток (D20, см. {@see self::renderTaskData()}).
-	 *
-	 * @param array<string, mixed> $meta          Мета задачи из `StepContentRenderer::taskBundle()`.
-	 * @param string               $templateValue Значение `TaskTemplate` задачи (`bundle['template']`).
-	 *
-	 * @return array{answer:string, html:string, code:string}|null null — эталона нет (ручной шаблон без решения).
-	 */
-	private function solutionFor( int $taskId, array $meta, string $templateValue ): ?array {
-		$answer = (string) ( $this->correctAnswers->resolve( $taskId ) ?? '' );
-		$html   = SafeHtml::post( (string) ( $meta['task_text'] ?? '' ) );
-		$code   = TaskTemplate::from( $templateValue )->hasCodeField() ? (string) ( $meta['task_code'] ?? '' ) : '';
-
-		if ( '' === $answer && '' === $html && '' === $code ) {
-			return null;
-		}
-
-		return array(
-			'answer' => $answer,
-			'html'   => $html,
-			'code'   => $code,
-		);
-	}
-
-	/**
 	 * Данные work-шага для прохождения в плеере (D19, T14.9): задачи работы
 	 * (условия + виджеты БЕЗ ответов, как task-шаги), мета работы и текущая
 	 * сдача (агрегат + пооответные вердикты/баллы/фидбек).
@@ -244,7 +218,7 @@ class LessonPlayerService {
 			}
 
 			// Эталон каждой задачи работы — только преподавателю («Показать решение»).
-			$solution = $isTeacher ? $this->solutionFor( (int) $taskId, $bundle['meta'], $bundle['template'] ) : null;
+			$solution = $isTeacher ? $this->solutions->forTask( (int) $taskId, $bundle['meta'] ) : null;
 			unset( $bundle['meta'] );
 			if ( null !== $solution ) {
 				$bundle['solution'] = $solution;
@@ -380,7 +354,11 @@ class LessonPlayerService {
 		// Teacher-режим: эталон доступен всегда, но за кнопкой «Показать решение» —
 		// преподаватель демонстрирует урок классу, ответ не должен светиться сразу.
 		if ( $isTeacher ) {
-			$solution = $this->solutionFor( $taskId, $meta, $bundle['template'] );
+			// Ref задачи нужен клиенту для dry-run проверки (PreviewCheckTask):
+			// «Ответить» у преподавателя проверяет ответ, ничего не сохраняя.
+			$data['ref'] = $taskId;
+
+			$solution = $this->solutions->forTask( $taskId, $meta );
 			if ( null !== $solution ) {
 				$data['solution'] = $solution;
 			}

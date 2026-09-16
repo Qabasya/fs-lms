@@ -24,6 +24,7 @@ use Inc\Services\Course\StepContentRenderer;
 use Inc\Services\Course\SubmissionService;
 use Inc\Services\Task\CorrectAnswerResolver;
 use Inc\Services\Task\TaskCheckerRegistry;
+use Inc\Services\Task\TaskSolutionService;
 use Inc\Services\Template\TemplateResolver;
 use PHPUnit\Framework\TestCase;
 
@@ -76,6 +77,9 @@ class LessonPlayerServiceTest extends TestCase {
 			$this->taskAttempts,
 			$this->settingsResolver,
 			$this->correctAnswers,
+			// Эталон собирает отдельный сервис (общий с предпросмотром курса) —
+			// берём реальный поверх того же мока правильных ответов.
+			new TaskSolutionService( $this->correctAnswers ),
 			$this->works,
 			$this->submissionService,
 			$this->stepRenderer,

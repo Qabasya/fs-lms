@@ -226,7 +226,10 @@ readonly class EnrollmentService {
 		$joinCode       = $this->joinCodeService->generate();
 		$joinHash       = $this->joinCodeService->hash( $joinCode );
 		$joinEnc        = $this->crypto->encrypt( $joinCode );
-		$expiresAt      = gmdate( 'Y-m-d H:i:s', strtotime( '+48 hours' ) );
+		// Срок — общий для всех выданных ссылок (JoinCodeService::TTL_HOURS), в UTC:
+		// сравнивает его `findExpiredPending()` тоже по UTC. Прежний strtotime()
+		// считал в зоне сервера и расходился с этим сравнением на её смещение.
+		$expiresAt      = $this->joinCodeService->expiresAt();
 		$studentDataEnc = $this->crypto->encrypt( (string) wp_json_encode( $studentData ) );
 
 		$now   = $this->clock->now( 'mysql', true );
@@ -339,12 +342,15 @@ readonly class EnrollmentService {
 		$newHash = $this->joinCodeService->hash( $newCode );
 		$newEnc  = $this->crypto->encrypt( $newCode );
 
+		// Код заменён — срок считаем заново от выдачи новой ссылки, иначе она
+		// унаследовала бы остаток срока старой (вплоть до уже истёкшего).
 		$this->applicationRepository->update( $applicationId, array(
-			'parent_person_id' => $parentPersonId,
-			'parent_data_enc'  => $parentDataEnc,
-			'join_code_hash'   => $newHash,
-			'join_code_enc'    => $newEnc,
-			'updated_at'       => $this->clock->now( 'mysql', true ),
+			'parent_person_id'     => $parentPersonId,
+			'parent_data_enc'      => $parentDataEnc,
+			'join_code_hash'       => $newHash,
+			'join_code_enc'        => $newEnc,
+			'join_code_expires_at' => $this->joinCodeService->expiresAt(),
+			'updated_at'           => $this->clock->now( 'mysql', true ),
 		) );
 
 		return new ParentAssignmentResultDTO(
@@ -372,12 +378,14 @@ readonly class EnrollmentService {
 		$newHash = $this->joinCodeService->hash( $newCode );
 		$newEnc  = $this->crypto->encrypt( $newCode );
 
+		// Код заменён — срок новой ссылки считаем заново (см. selectExistingParent()).
 		$this->applicationRepository->update( $applicationId, array(
-			'parent_person_id' => null,
-			'parent_data_enc'  => null,
-			'join_code_hash'   => $newHash,
-			'join_code_enc'    => $newEnc,
-			'updated_at'       => $this->clock->now( 'mysql', true ),
+			'parent_person_id'     => null,
+			'parent_data_enc'      => null,
+			'join_code_hash'       => $newHash,
+			'join_code_enc'        => $newEnc,
+			'join_code_expires_at' => $this->joinCodeService->expiresAt(),
+			'updated_at'           => $this->clock->now( 'mysql', true ),
 		) );
 
 		return new RemoveParentResultDTO( joinUrl: home_url( '/lms/join/' . $newCode ) );
