@@ -112,6 +112,7 @@
 
     strong {
       color: $color-text;
+      overflow-wrap: anywhere; // длинный email не распирает карточку на узком экране
     }
   }
 
@@ -195,11 +196,25 @@
   to { transform: rotate( 360deg ); }
 }
 
-// ── Мобильный (Фаза 5): компактные поля страницы и карточки
+// ── Мобильный: форма во всю ширину экрана. Страница живёт внутри контента темы
+// с боковыми отступами — full-bleed выносит её за них до краёв вьюпорта.
 @media (max-width: $bp-mobile) {
-  .fs-lms-apply-page { padding: rem(20) rem(12) rem(40); }
+  .fs-lms-apply-page {
+    margin-inline: calc(50% - 50vw);
+    padding: $spacing-xl 0 $spacing-4xl;
+  }
 
-  .fs-apply-card { padding: rem(20) rem(16); }
+  .fs-apply-card {
+    max-width: none;
+    padding: $spacing-xl $spacing-lg;
+    border-inline: none;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .fs-apply-card__status {
+    flex-direction: column;
+  }
 }
 
 /* Плавное появление шага формы (kейфрейм — в _reset). */

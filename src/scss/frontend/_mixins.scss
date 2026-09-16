@@ -137,10 +137,14 @@
 }
 
 @mixin fs-form-success-icon {
+  // У .dashicons ядро WP фиксирует бокс 20×20 — без размеров глиф 48px вылезал
+  // из него и налезал на заголовок успеха.
+  width: rem(48);
+  height: rem(48);
   font-size: rem(48);
   color: $color-accent;
   display: block;
-  margin-bottom: $spacing-md;
+  margin: 0 auto $spacing-md;
 }
 
 // ── Первичная кнопка (accent); hover-opacity отличается (.85/.88) → параметр
