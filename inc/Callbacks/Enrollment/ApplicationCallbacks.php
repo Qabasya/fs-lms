@@ -137,6 +137,11 @@ class ApplicationCallbacks extends BaseController {
 			return false;
 		}
 
+		// Просроченную ссылку закрываем сразу, не дожидаясь тика `ExpireApplications`.
+		if ( $this->joinCodeService->isExpired( $app->joinCodeExpiresAt ) ) {
+			return false;
+		}
+
 		try {
 			// Расшифровка и декодирование данных ученика
 			$decoded = json_decode( $this->crypto->decrypt( $app->studentDataEnc ), true ) ?? array();

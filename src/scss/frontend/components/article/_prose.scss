@@ -1,5 +1,6 @@
 @use '../../variables' as *;
 @use '../../mixins' as *;
+@use '../../../shared/content-lists' as *;
 
 // Текст статьи
 .fs-article-page {
@@ -53,13 +54,13 @@
       &:hover { text-decoration: underline; }
     }
 
-    ul,
-    ol {
-      display: grid;
-      gap: $spacing-sm;
-      padding-left: rem(22);
-      list-style: revert;
-    }
+    // Списки — общее правило с условием задания и текст-шагом курса.
+    // Просвет между пунктами прежний ($spacing-sm), только держится на
+    // margin, а не на grid-gap: вложенному списку нужен свой, меньший.
+    @include fs-content-lists($item-gap: $spacing-sm);
+
+    li > ul,
+    li > ol { margin-top: $spacing-xs; }
 
     li::marker { color: $color-muted-2; }
 

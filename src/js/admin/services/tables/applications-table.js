@@ -123,6 +123,51 @@ export const ApplicationsTable = {
         setTimeout(() => {
             btn.textContent = originalText;
         }, 2000);
+
+        this.touchJoinLink(btn);
+    },
+
+    /**
+     * Перезапуск счётчика жизни JOIN-ссылки: срок отсчитывается от момента,
+     * когда ссылку отдали родителю, а не от подачи заявки. Повторное копирование
+     * сбрасывает таймер заново — поэтому запрос идёт на каждое копирование.
+     *
+     * Ошибку сервера показываем, но копирование уже состоялось и не отменяется:
+     * ссылка в буфере рабочая, просто её срок остался прежним.
+     *
+     * @param {HTMLElement} btn - DOM-элемент кнопки копирования.
+     */
+    touchJoinLink(btn) {
+        const applicationId = $(btn).closest('tr').data('appId');
+
+        if (!applicationId) {
+            return;
+        }
+
+        $.post(vars.ajaxurl, {
+            action: vars.ajax_actions.touchJoinLink,
+            security: appVars.nonces.manager,
+            application_id: applicationId,
+        })
+            .done((response) => {
+                if (response.success) {
+                    showNotice(
+                        `Ссылка скопирована · действует до ${response.data.expires_at_local}`,
+                        'success',
+                        $(btn).closest('.wrap')
+                    );
+                    return;
+                }
+
+                showNotice(
+                    response.data?.message || response.data || 'Не удалось обновить срок ссылки.',
+                    'error',
+                    $(btn).closest('.wrap')
+                );
+            })
+            .fail(() => {
+                showNotice('Не удалось обновить срок ссылки — проверьте соединение.', 'error', $(btn).closest('.wrap'));
+            });
     },
 
     /**

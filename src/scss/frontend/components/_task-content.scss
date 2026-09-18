@@ -1,5 +1,6 @@
 @use '../variables' as *;
 @use '../mixins' as *;
+@use '../../shared/content-lists' as *;
 
 .fs-task-page .fs-task-title {
   font-size: $font-size-2xl;
@@ -48,6 +49,14 @@
   * { color: inherit; }
   b, strong { font-weight: $font-semibold; color: $color-text; }
   p + p  { margin-top: rem(11); }
+
+  // Публичный reset глушит list-style у всех ul/ol — в условии возвращаем
+  // маркеры и лесенку уровней (общее правило с лекцией и статьёй).
+  @include fs-content-lists;
+
+  li::marker { color: $color-muted-2; }
+
+  ul, ol { margin-top: rem(11); }
   img    { display: block; max-width: 100%; height: auto; margin-inline: auto; }
   table  { border-collapse: collapse; margin: $spacing-md 0; }
   td, th { border: 1px solid $color-border; padding: rem(5) rem(10); font-size: $font-size-base; }

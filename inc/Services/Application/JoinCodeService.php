@@ -112,4 +112,23 @@ readonly class JoinCodeService {
 	public function expiresAt(): string {
 		return gmdate( 'Y-m-d H:i:s', time() + self::TTL_HOURS * HOUR_IN_SECONDS );
 	}
+
+	/**
+	 * Истёк ли срок выданной ссылки.
+	 *
+	 * Проверяется в момент использования ссылки, а не только cron-ом
+	 * `ExpireApplications`: между тиками просроченная ссылка иначе продолжала
+	 * бы работать. Сравнение — в UTC, как и запись в `join_code_expires_at`.
+	 *
+	 * @param string|null $expiresAt Срок из БД ('Y-m-d H:i:s', UTC) или null
+	 *
+	 * @return bool true, если срок задан и уже прошёл
+	 */
+	public function isExpired( ?string $expiresAt ): bool {
+		if ( null === $expiresAt || '' === $expiresAt ) {
+			return false;
+		}
+
+		return $expiresAt < gmdate( 'Y-m-d H:i:s' );
+	}
 }

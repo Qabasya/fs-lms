@@ -87,6 +87,7 @@ class EnrollmentController extends AjaxController {
 			array( AjaxHook::SelectExistingParent, $this->parents ),
 			array( AjaxHook::RemoveParentAssignment, $this->parents ),
 			array( AjaxHook::SearchParents, $this->parents ),
+			array( AjaxHook::TouchJoinLink, $this->parents ),
 
 			// ── Учётные данные ──
 			array( AjaxHook::RevealUserCredentials, $this->credentials ),

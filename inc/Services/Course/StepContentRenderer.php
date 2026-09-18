@@ -310,6 +310,18 @@ class StepContentRenderer {
 	 * ({@see \Inc\Services\Course\CoursePreviewService}), Р2.3. Новый инлайн-тип
 	 * добавляется правкой только этого метода. Для не-инлайн типов — пустой массив.
 	 *
+	 * Текст лекции проходит штатный конвейер `the_content`
+	 * ({@see PostManager::renderContent()}) — так же, как условие задания
+	 * ({@see \Inc\Services\Task\TaskMetaService}) и текст статьи. Без него не
+	 * отрабатывают ни `wpautop`, ни шорткоды, ни oEmbed, ни сторонние плагины
+	 * контента (QuickLaTeX и подобные): формулы на шаге «Лекция» оставались
+	 * набором долларов, хотя в статье и задании работали.
+	 *
+	 * Описание видео-шага через конвейер НЕ идёт: это plain-text поле
+	 * (`sanitizeStep()` чистит его `sanitize_text_field`, шаблон печатает
+	 * `esc_html` внутри `<p>`) — `wpautop` вложил бы абзац в абзац, а теги
+	 * вышли бы наружу текстом.
+	 *
 	 * @param StepDTO     $step         Шаг урока
 	 * @param string|null $recordingUrl Ссылка записи занятия для `broadcast` (плеер —
 	 *                                  через фильтр `fs_lms_recording_url`; preview — null)
@@ -318,7 +330,7 @@ class StepContentRenderer {
 	 */
 	public function renderInlineData( StepDTO $step, ?string $recordingUrl = null ): array {
 		return match ( $step->type->value ) {
-			'text'      => array( 'content' => (string) ( $step->payload['content'] ?? '' ) ),
+			'text'      => array( 'content' => $this->posts->renderContent( (string) ( $step->payload['content'] ?? '' ) ) ),
 			'video'     => $this->renderVideoData( $step ),
 			'broadcast' => $this->renderBroadcastData( $step, $recordingUrl ),
 			default     => array(),

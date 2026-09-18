@@ -165,7 +165,7 @@ drop-зоной (`attachBankDrop()` в `ktp.js`, подсветка `.prof-theme
 лишь авто-привязка записи, `VideoRegistrationService:137`), ручного «открыть урок классу сейчас»
 (видимость открывается лениво по `scheduled_at`) и живой картины класса. В текущий багфикс не входит.
 
-## 4. JOIN-ссылка родителя: 72 часа от копирования
+## 4. JOIN-ссылка родителя: 72 часа от копирования — СДЕЛАНО
 
 **Диагноз**
 - Сроки сейчас: 14 дней при подаче заявки (`ApplicationService:116`) — **остаётся как есть**;
@@ -200,3 +200,119 @@ drop-зоной (`attachBankDrop()` в `ktp.js`, подсветка `.prof-theme
    и `ApplicationService::submitParentData()` сверять `join_code_expires_at` с `gmdate()` → 404 / ошибка.
 6. Проверка: скопировать ссылку → в БД `join_code_expires_at` = +72 ч (UTC); скопировать повторно —
    срок сдвинулся; отодвинуть дату в прошлое руками → `/lms/join/{code}` отдаёт 404.
+
+**Что сделано** (пп. 1–3 были готовы раньше, доделано 2026-09-18):
+- `AjaxHook::TouchJoinLink` зарегистрирован в `EnrollmentController::ajaxActions()` — до этого
+  ручка `ParentLinkCallbacks::ajaxTouchJoinLink()` существовала, но на хук никто её не вешал.
+- `applications-table.js`: после успешного копирования — `touchJoinLink()` (нонс `appVars.nonces.manager`,
+  `application_id` из `data-app-id` строки) и нотис «Ссылка скопирована · действует до …».
+  Ошибка запроса копирование не отменяет: ссылка в буфере рабочая, у неё просто остался прежний срок.
+- `JoinCodeService::isExpired( ?string )` — сравнение с `gmdate()` в UTC; пустой срок = бессрочно.
+- Срок проверяется в момент использования, не дожидаясь cron `ExpireApplications`:
+  `ApplicationCallbacks::prepareJoinPage()` → 404, `ApplicationService::submitParentData()` → `DomainException`.
+- Тесты: `tests/Unit/Services/Application/JoinCodeServiceTest.php` (3). Полный прогон — 1554 зелёных,
+  `npm run lint:js` чист, `npx gulp scripts` пересобран.
+
+# Новые задачи
+1. Проверь поддержку latex. У меня есть плагин quicklatex он работает на страницах, статьях, задачах. Но не работает на шаге "Лекция" в курсе. 
+2. Добавь к задачам поддержку двухуровневых списков (обычно у меня нумерованный, а внутри маркированный)
+
+---
+
+## 5. QuickLaTeX на шаге «Лекция» — СДЕЛАНО
+
+**Диагноз**
+- Причина ровно одна: контент текст-шага до вывода не проходит конвейер `the_content`.
+  `StepContentRenderer::renderInlineData()` (`:321`) отдаёт `'content' => $step->payload['content']`
+  сырым, а `templates/frontend/lesson-player/partials/step-text.php` печатает его через
+  `SafeHtml::post()`. QuickLaTeX — фильтр `the_content`, поэтому его тут никто не зовёт:
+  ни формулы, ни `wpautop`, ни шорткоды, ни oEmbed.
+- Почему в остальных местах работает: страница и статья идут штатно (статья —
+  `ArticleContentService:63` → `PostManager::renderContent()`), задание —
+  `TaskMetaService:35` прогоняет условие через `apply_filters( 'the_content', … )`.
+  То есть в плагине уже есть ровно тот приём, которого не хватает шагу.
+- Тот же пробел у соседних полей, приезжающих из редактора: `description` видео-шага
+  (`renderVideoData():341`) и текст шага-трансляции. Их чиним заодно — иначе «в лекции
+  формулы есть, под видео нет».
+
+**Шаги**
+1. `StepContentRenderer` — зависимость `PostManager` в конструктор (DI уже autowiring).
+2. `renderInlineData()`: `'text' => array( 'content' => $this->post_manager->renderContent( … ) )`;
+   то же для `description` видео-шага. `renderContent()` — существующая обёртка над
+   `apply_filters( 'the_content' )`, новых прямых вызовов WP API не появляется.
+3. `step-text.php`: снять `SafeHtml::post()` с уже отфильтрованного HTML и выводить сырым —
+   как это делает `single-article.php:126` (там же и обоснование: `wp_kses_post()` после
+   `the_content` режет `<iframe>` oEmbed и часть атрибутов картинок QuickLaTeX).
+   Контент лекции пишет автор курса (`Capability::AuthorLmsCourses`), доверие то же, что у статьи.
+4. Проверить кеш QuickLaTeX: он привязывает картинки формул к ID текущей записи, а плеер
+   рендерится на странице `/lesson/`. Если кеш начнёт мазать формулы разных уроков —
+   оборачивать вызов в подмену `$GLOBALS['post']` на запись курса; проверять на живом сайте,
+   локально плагина нет.
+5. Проверка на проде: шаг «Лекция» с `[latexpage]`/`$$…$$`, шаг «Видео» с формулой в описании,
+   плюс регресс: абзацы лекции не разъехались (появился `wpautop`), шорткоды не сломали вёрстку.
+
+**Оговорка:** плагин `quicklatex` в этом окружении не установлен (`wp-content/plugins/` —
+akismet, classic-editor, fs-lms, wp-file-manager), проверка формул только на живом сайте.
+
+**Что сделано (2026-09-18)**
+- `StepContentRenderer::renderInlineData()`: текст лекции идёт через
+  `PostManager::renderContent()` (обёртка над `apply_filters( 'the_content' )`) — новых
+  прямых вызовов WP API не появилось, зависимость `PostManager` в классе уже была.
+- `step-text.php` печатает уже отфильтрованный HTML сырым (прецедент `single-article.php:126`).
+  Обоснование то же: шаг сохраняется через `LessonAuthoringService::sanitizeStep()`, где
+  `content` чистится kses, поэтому второй прогон `wp_kses_post()` только срезал бы
+  `<iframe>` oEmbed и атрибуты картинок-формул.
+- **Описание видео-шага намеренно не трогали** (в плане было): это plain-text поле —
+  `sanitizeStep()` чистит его `sanitize_text_field`, шаблон печатает `esc_html` внутри `<p>`.
+  `wpautop` вложил бы абзац в абзац, а теги вышли бы наружу текстом.
+- Тесты: `StepContentRendererInlineTest` (3) — лекция идёт через конвейер, пустой контент
+  не падает, описание видео конвейер не трогает.
+- **Не проверено локально:** сами формулы и кеш QuickLaTeX (он привязывает картинки к ID
+  текущей записи, а плеер живёт на `/lesson/`) — плагина в этом окружении нет. Если кеш
+  начнёт мазать формулы разных уроков, оборачивать вызов подменой `$GLOBALS['post']`.
+
+## 6. Двухуровневые списки в заданиях — СДЕЛАНО
+
+**Диагноз**
+- Разметка не теряется: `wp_kses_post()` вложенные `<ol>/<ul>` пропускает, TinyMCE их и создаёт
+  кнопкой отступа. Ломается только отображение.
+- Фронт (`/{key}/trainer/{номер}/`): `src/scss/frontend/components/_reset.scss:47` глушит
+  `ul, ol { list-style: none; margin: 0; padding: 0 }` глобально, а `.fs-task-condition`
+  (`_task-content.scss:39`) списки обратно не поднимает — у задания пропадают и маркеры,
+  и нумерация, и лесенка вложенности. У статьи это уже починено точечно:
+  `article/_prose.scss:56` возвращает `list-style: revert` + `padding-left`.
+- Плеер (`.wpc`, `player/components/_step-text.scss:47`): маркеры на месте, но `margin-top: rem(16)`
+  бьёт по любому `ul/ol`, включая вложенный, — внутренний список отваливается от своего пункта.
+- Оценивание (`assessment`) типографику берёт у `.wpc` — чинится тем же правилом.
+
+**Шаги**
+1. `_task-content.scss`, внутри `.fs-task-condition`: `ul, ol { list-style: revert; padding-left: rem(22); }`,
+   `li + li { margin-top: rem(4) }`, вложенному списку — `ul ul, ol ul, ol ol, ul ol { margin-top: rem(4) }`.
+   Отступы — токенами/`rem()`, как требует `src/scss/CLAUDE.md`.
+2. Там же задать типы маркеров, чтобы уровни различались: `ol { list-style-type: decimal }`,
+   вложенный `ul { list-style-type: disc }` (сценарий пользователя — нумерованный с маркированным внутри).
+3. `_step-text.scss` (`.wpc`): исключить вложенные списки из общего `margin-top: rem(16)` —
+   `:where(li) > :where(ul, ol) { margin-top: rem(4) }`.
+4. Правило одно и то же в трёх бандлах → вынести миксин `fs-content-lists` в `shared/`
+   и подключить из `_task-content.scss`, `_step-text.scss`, `article/_prose.scss`,
+   чтобы списки в задании, лекции и статье не разъезжались впредь.
+5. `npx gulp styles:frontend styles:player styles:common`, `npm run lint:css`; проверка:
+   задание с `<ol><li>…<ul><li>` на странице тренажёра, в плеере (шаг «Задача»/«Работа»)
+   и в разборе попытки.
+
+**Что сделано (2026-09-18)**
+- Новый `src/scss/shared/_content-lists.scss` — миксин `fs-content-lists($indent, $item-gap)`:
+  возвращает `list-style`, задаёт типы уровней (`ol` → decimal, вложенный `ul` → disc,
+  `ul ul` → circle, `ol ol` → lower-alpha) и прижимает вложенный список к своему пункту
+  (`li > ul/ol`), чтобы он не брал `margin-top` блочного элемента. Цвет и кегль миксин
+  не трогает — они у задания, лекции и статьи свои.
+- Подключён в трёх точках: `.fs-task-condition` (`frontend/components/_task-content.scss`,
+  там же `li::marker` и блочный отступ списка), `.wpc` (`player/components/_step-text.scss` —
+  через него же assessment-бандл, он `@use`-ит этот файл) и `.fs-article-prose`
+  (`frontend/components/article/_prose.scss`).
+- У статьи `display: grid; gap` заменён на `margin`-ритм миксина: просвет между пунктами
+  прежний (`$spacing-sm`), но вложенному списку нужен свой, меньший — grid-gap так не умеет.
+- Специфичность проверена: `.fs-task-condition ul` (0,1,1) перебивает
+  `.fs-task-page ul` из `_reset.scss` за счёт порядка подключения в `frontend.scss`.
+- `npm run lint:css` — 0 ошибок (124 прежних предупреждения про `!important`);
+  пересобраны `frontend`, `player`, `assessment`, `common`.

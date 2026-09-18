@@ -192,6 +192,12 @@ readonly class ApplicationService {
 			throw new DomainException( 'Заявка не найдена или недоступна.' );
 		}
 
+		// Срок ссылки проверяем здесь, а не полагаемся на cron `ExpireApplications`:
+		// между его тиками просроченная ссылка иначе принимала бы данные родителя.
+		if ( $this->joinCodeService->isExpired( $app->joinCodeExpiresAt ) ) {
+			throw new DomainException( 'Срок действия ссылки истёк. Запросите новую.' );
+		}
+
 		$ctx          = $this->requestContext();
 		$hasPreParent = null !== $app->parentPersonId;
 

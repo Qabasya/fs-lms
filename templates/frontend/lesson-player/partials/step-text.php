@@ -29,6 +29,13 @@ use Inc\Enums\Course\StepType;
 	<h1><?php echo esc_html( $step['title'] ); ?></h1>
 
 	<div class="gap16">
-		<div class="wpc"><?php echo \Inc\Shared\SafeHtml::post( (string) ( $render['content'] ?? '' ) ); ?></div>
+		<?php
+		// Контент лекции выводится сырым — как это делает the_content() в ядре.
+		// Он уже прошёл kses при сохранении шага (LessonAuthoringService::sanitizeStep)
+		// и конвейер the_content в StepContentRenderer. Второй прогон через kses
+		// срезал бы результат работы плагинов контента: <iframe> oEmbed и атрибуты
+		// картинок-формул QuickLaTeX.
+		?>
+		<div class="wpc"><?php echo $render['content'] ?? ''; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></div>
 	</div>
 </div>
