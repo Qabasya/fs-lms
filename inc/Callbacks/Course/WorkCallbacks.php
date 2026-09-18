@@ -88,7 +88,7 @@ class WorkCallbacks extends BaseController {
 		if ( ! in_array( $scope, array( 'mine', 'subject' ), true ) ) {
 			$scope = 'mine';
 		}
-		if ( ! in_array( $source, array( 'subject', 'all' ), true ) ) {
+		if ( ! in_array( $source, array( 'subject', 'all', 'public' ), true ) ) {
 			$source = 'subject';
 		}
 

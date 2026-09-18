@@ -11,6 +11,7 @@ declare( strict_types=1 );
 use Inc\Enums\Enrollment\ApplicationStatus;
 use Inc\Enums\Access\Capability;
 use Inc\Enums\Wp\Nonce;
+use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Repositories\WPDBRepositories\ApplicationRepository;
 use Inc\Services\Security\PiiCryptoService;
 
@@ -37,6 +38,13 @@ $total = $repo->count( $filters );
 $pages = (int) ceil( $total / $perPage );
 
 $trashNonce = wp_create_nonce( Nonce::TrashApplication->value );
+
+// Направление заявки хранится ключом предмета; в таблице нужно название.
+// Карта читается один раз на всю страницу — не по запросу на строку.
+$subjectNames = array();
+foreach ( ( new SubjectRepository() )->readAll() as $subject ) {
+	$subjectNames[ $subject->key ] = $subject->name;
+}
 
 $statusLabels = array_combine(
 	array_map( fn( $s ) => $s->value, ApplicationStatus::cases() ),
@@ -83,6 +91,10 @@ $statusLabels = array_combine(
             </th>
 
             <th class=" column-title">
+                <?php esc_html_e( 'Направление', 'fs-lms' ); ?>
+            </th>
+
+            <th class=" column-title">
                 <?php esc_html_e( 'Статус', 'fs-lms' ); ?>
             </th>
 
@@ -103,7 +115,7 @@ $statusLabels = array_combine(
         <tbody id="the-list">
         <?php if ( empty( $apps ) ) : ?>
             <tr>
-                <td colspan="6">
+                <td colspan="7">
                     <div class="notice notice-info inline fs-table__no-items">
                         <p><?php esc_html_e( 'Заявок пока нет.', 'fs-lms' ); ?></p>
                     </div>
@@ -214,6 +226,17 @@ $statusLabels = array_combine(
 				<td class="column-title">
 
                     <?php echo esc_html( $parentName ); ?></td>
+
+				<td class="column-title">
+					<?php if ( null !== $app->subjectKey && isset( $subjectNames[ $app->subjectKey ] ) ) : ?>
+						<?php echo esc_html( $subjectNames[ $app->subjectKey ] ); ?>
+					<?php elseif ( null !== $app->subjectKey && '' !== $app->subjectKey ) : ?>
+						<?php // Предмет удалён или переименован — ключ всё равно информативнее прочерка. ?>
+						<?php echo esc_html( $app->subjectKey ); ?>
+					<?php else : ?>
+						<span class="fs-table__empty-value">—</span>
+					<?php endif; ?>
+				</td>
 
 				<td>
 					<span class="fs-lms-status <?php echo esc_attr( $statusClass ); ?>">

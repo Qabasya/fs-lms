@@ -4,6 +4,7 @@
    ══════════════════════════════════════════════════════════════════════ */
 @use '../variables' as *;
 @use '../../shared/content-lists' as *;
+@use '../../shared/content-tables' as *;
 
 .wpc {
   font-size: rem(14.5);
@@ -98,31 +99,18 @@
   }
 
   /* таблицы */
-  table {
-    border-collapse: collapse;
-    width: 100%;
-    font-size: rem(13.5);
-    border: 1px solid var(--line);
-    border-radius: rem(12);
-    overflow: hidden;
-  }
+  // Таблицы — общее правило с условием задания, карточкой тренажёра и
+  // статьёй: авторская таблица в лекции и в условии обязана выглядеть
+  // одинаково, а не как элемент интерфейса кабинета.
+  @include fs-content-tables;
 
   th,
   td {
-    padding: rem(10) rem(14);
-    border-bottom: 1px solid var(--line-2);
+    font-size: rem(13.5);
     text-align: left;
   }
 
-  th {
-    background: var(--surface-2);
-    font: 600 rem(12) var(--font);
-    letter-spacing: 0.03em;
-    text-transform: uppercase;
-    color: var(--muted);
-  }
-
-  tr:last-child td { border-bottom: none; }
+  th { background: var(--surface-2); }
 
   img {
     max-width: 100%;

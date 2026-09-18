@@ -19,8 +19,11 @@ import { escapeHtml as esc } from '../../common/utils.js';
  *                                     упрощает поиск (по умолчанию список сужен до предмета), не
  *                                     запрещает выбор остального (оно и так находится через поиск).
  *                                     Без опции пункт не показывается (обратная совместимость).
+ * @param {string}     [opts.scope='subject'] Стартовый scope, с которым уходит первый запрос.
+ *                                     Пикер «Выбрать из публичных задач» открывается сразу в
+ *                                     'public' — иначе он ничем не отличался бы от общего.
  */
-export function openPicker( anchor, { placeholder = 'Поиск…', emptyText = 'Ничего не найдено', fetchFn, onPick, placement = 'below', browseAllLabel = '' } ) {
+export function openPicker( anchor, { placeholder = 'Поиск…', emptyText = 'Ничего не найдено', fetchFn, onPick, placement = 'below', browseAllLabel = '', scope: initialScope = 'subject' } ) {
 	const pop = document.createElement( 'div' );
 	pop.className = 'fs-cb-popover fs-cb-picker';
 	pop.innerHTML = `<input type="text" class="field-input" data-search placeholder="${ esc( placeholder ) }"><div class="fs-cb-pick-results" data-results></div>`;
@@ -36,7 +39,7 @@ export function openPicker( anchor, { placeholder = 'Поиск…', emptyText =
 	const results = pop.querySelector( '[data-results]' );
 	const search  = pop.querySelector( '[data-search]' );
 	let t = null;
-	let scope = 'subject';
+	let scope = initialScope;
 	const run = () => {
 		const query = search.value.trim();
 		return Promise.resolve( fetchFn( query, scope ) )
@@ -74,4 +77,23 @@ export function openPicker( anchor, { placeholder = 'Поиск…', emptyText =
 	setTimeout( () => document.addEventListener( 'click', function once( ev ) {
 		if ( ! pop.contains( ev.target ) ) { pop.remove(); } else { document.addEventListener( 'click', once, { once: true } ); }
 	}, { once: true } ), 0 );
+}
+
+/**
+ * Источник кандидатов для эндпоинтов выбора задачи по scope пикера и строке поиска.
+ *
+ * 'public' — пикер «Выбрать из публичных задач»: источник держится и при поиске,
+ * иначе первый же введённый символ увёл бы список обратно в банк. Остальные
+ * scope сохраняют прежнее поведение: пустой поиск сужен до предмета, непустой
+ * ищет по всему (предмет + банк).
+ *
+ * @param {string} search Строка поиска (может быть пустой).
+ * @param {string} scope  Scope пикера: 'subject' | 'all' | 'public'.
+ * @returns {string} Значение параметра `source` для AJAX-запроса.
+ */
+export function candidateSource( search, scope ) {
+	if ( 'public' === scope ) {
+		return 'public';
+	}
+	return search ? 'all' : ( scope || 'subject' );
 }

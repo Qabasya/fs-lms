@@ -147,7 +147,9 @@ $has_selected = (bool) array_sum( array_column( $page_data->filters, 'active' ) 
 							<?php if ( ! empty( $task->files ) ) : ?>
 								<div class="tcr-files">
 									<?php foreach ( $task->files as $file ) : ?>
-										<a class="tcr-file" href="<?php echo esc_url( $file['url'] ); ?>">
+										<?php // download — то же поведение, что у чипа на странице задания. ?>
+										<a class="tcr-file" href="<?php echo esc_url( $file['url'] ); ?>"
+											download="<?php echo esc_attr( $file['name'] ); ?>">
 											<span class="tcr-file-icon" aria-hidden="true">
 												<?php echo Icon::File->svg( 17 ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
 											</span>
@@ -163,8 +165,13 @@ $has_selected = (bool) array_sum( array_column( $page_data->filters, 'active' ) 
 								</div>
 							<?php endif; ?>
 
+							<?php
+							// Ответа нет у заданий с ручной проверкой — там приглашение
+							// на консультацию (ConsultationNoticeService).
+							$answer_block = '' !== $task->answer || null !== $task->consultation;
+							?>
 							<footer class="tcr-foot">
-								<?php if ( $task->answer ) : ?>
+								<?php if ( $answer_block ) : ?>
 									<button type="button" class="fs-answer-toggle js-answer-toggle" aria-expanded="false"
 										aria-controls="fs-answer-<?php echo esc_attr( (string) $task->id ); ?>">Показать ответ</button>
 								<?php endif; ?>
@@ -176,10 +183,19 @@ $has_selected = (bool) array_sum( array_column( $page_data->filters, 'active' ) 
 								</div>
 							</footer>
 
-							<?php if ( $task->answer ) : ?>
+							<?php if ( $answer_block ) : ?>
 								<div id="fs-answer-<?php echo esc_attr( (string) $task->id ); ?>" class="fs-answer js-answer-panel" hidden>
-									<div class="fs-answer-label">Правильный ответ:</div>
-									<div class="fs-answer-value"><?php echo esc_html( $task->answer ); ?></div>
+									<?php if ( '' !== $task->answer ) : ?>
+										<div class="fs-answer-label">Правильный ответ:</div>
+										<div class="fs-answer-value"><?php echo esc_html( $task->answer ); ?></div>
+									<?php else : ?>
+										<div class="fs-answer-note">
+											<?php echo esc_html( $task->consultation['text'] ); ?>
+											<a href="<?php echo esc_url( $task->consultation['url'] ); ?>">
+												<?php echo esc_html( $task->consultation['label'] ); ?>
+											</a>
+										</div>
+									<?php endif; ?>
 								</div>
 							<?php endif; ?>
 						</article>

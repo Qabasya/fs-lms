@@ -1,5 +1,6 @@
 import '../_types.js';
 import { createSlotBuilder, post } from './slot-builder.js';
+import { candidateSource } from '../modules/picker.js';
 
 /* global fs_lms_vars */
 
@@ -37,7 +38,7 @@ function mount( el ) {
 		search: ( q, index, scope ) => post( acts.getWorkItemCandidates, nonces.authorWork, {
 			subject_key: subject,
 			search:      q,
-			source:      q ? 'all' : ( scope || 'subject' ),
+			source:      candidateSource( q, scope ),
 		} ),
 
 		// Превью задачи переиспользует общий эндпоинт банка задач (нонс контрольной).

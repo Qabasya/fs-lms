@@ -3,7 +3,7 @@ import { stepIcon, icoPlus, icoDuplicate, icoX } from '../../common/icons.js';
 import { escapeHtml as esc } from '../../common/utils.js';
 import { showToast } from '../modules/toast.js';
 import { ConfirmModal } from '../modals/confirm-modal.js';
-import { openPicker } from '../modules/picker.js';
+import { openPicker, candidateSource } from '../modules/picker.js';
 import { ajax, acts, tmpKey } from './step-ajax.js';
 import { inlineEditor, destroyTiny } from './step-editors/inline-editor.js';
 import { refEditor } from './step-editors/ref-editor.js';
@@ -362,17 +362,28 @@ export function createStepEditor( opts ) {
 	}
 
 	// ── library picker (reuse GetStepCandidates) ──
-	function openLibraryPicker( e, kind, onPick ) {
+	/**
+	 * @param {Event}    e
+	 * @param {string}   kind   task | work | assessment
+	 * @param {Function} onPick
+	 * @param {string}   [scope='subject'] 'public' — пикер «Выбрать из публичных задач»:
+	 *                                     только опубликованные задачи предмета, без банка.
+	 */
+	function openLibraryPicker( e, kind, onPick, scope = 'subject' ) {
 		e.stopPropagation();
 		closePopover();
+		const isPublic = 'public' === scope;
 		// Дропдаун по умолчанию сужен до предмета (как в билдерах работы/контрольной) —
 		// «Все задания» переключает на предмет + весь банк; непустой поиск — тоже без сужения.
+		// В публичном пикере переключателя нет: он на то и отдельный, чтобы не смешивать.
 		openPicker( e.currentTarget, {
-			placeholder:     'Поиск в библиотеке…',
-			browseAllLabel:  'task' === kind ? 'Все задания' : '',
-			fetchFn:         ( search, scope ) => ajax(
+			placeholder:     isPublic ? 'Поиск по публичным задачам…' : 'Поиск в библиотеке…',
+			emptyText:       isPublic ? 'Публичные задачи не найдены' : 'Ничего не найдено',
+			scope,
+			browseAllLabel:  ( 'task' === kind && ! isPublic ) ? 'Все задания' : '',
+			fetchFn:         ( search, pickerScope ) => ajax(
 				acts().getStepCandidates,
-				{ subject_key: subjectKey, kind, source: search ? 'all' : ( scope || 'subject' ), search }
+				{ subject_key: subjectKey, kind, source: candidateSource( search, pickerScope ), search }
 			),
 			onPick,
 		} );

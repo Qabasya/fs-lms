@@ -48,6 +48,7 @@ use Inc\Controllers\Enrollment\RecoveryController;
 use Inc\Controllers\Group\StudentGroupController;
 use Inc\Controllers\Subject\SubjectController;
 use Inc\Controllers\Task\TaskCreationController;
+use Inc\Controllers\Task\TaskEditorButtonsController;
 use Inc\Controllers\Pages\AllTasksPageController;
 use Inc\Controllers\Article\ArticleMetaBoxController;
 use Inc\Controllers\Article\ArticleSlugController;
@@ -149,6 +150,7 @@ final class Init {
 			ProblemsController::class,       // CPT fs_lms_problems + problem_tag + шаблон
 			ContentDeletionGuard::class,     // Гейт удаления / архивации банков
 			TaskCreationController::class, // Создание заданий
+			TaskEditorButtonsController::class, // Кнопки таблицы/кода/формулы на панели TinyMCE
 			TaskPageController::class,       // Frontend-страница задания
 			AllTasksPageController::class,   // Frontend-страница «Все задания» (тренажёр)
 			ArticleMetaBoxController::class, // Метабокс краткого описания статьи

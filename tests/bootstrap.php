@@ -332,10 +332,14 @@ if (!function_exists('get_posts')) {
         $type       = $args['post_type'] ?? '';
         $statuses   = (array) ($args['post_status'] ?? ['publish']);
         $meta_query = $args['meta_query'] ?? [];
+        // 'author' => 0 в WP означает «без фильтра» — так же трактуют его вызывающие
+        // (WorkAuthoringService::getTaskCandidates передаёт 0 для scope != 'mine').
+        $author     = (int) ($args['author'] ?? 0);
         $out        = [];
         foreach ($GLOBALS['_fs_test_posts'] as $post) {
             if ($type && $post->post_type !== $type) { continue; }
             if (!in_array('any', $statuses, true) && !in_array($post->post_status, $statuses, true)) { continue; }
+            if ($author && (int) $post->post_author !== $author) { continue; }
             // Простое AND по равенству — покрывает bankNumberQuery()/bankSubjectQuery()
             // (LessonAuthoringService/WorkAuthoringService): пары ['key' => ..., 'value' => ...].
             $meta_ok = true;
@@ -488,6 +492,24 @@ if (!function_exists('sanitize_key')) {
 }
 if (!function_exists('absint')) {
     function absint(mixed $n): int { return abs((int) $n); }
+}
+if (!function_exists('get_current_screen')) {
+    // Экран админки: тесты подставляют объект в $GLOBALS['_fs_test_screen'].
+    function get_current_screen(): ?object { return $GLOBALS['_fs_test_screen'] ?? null; }
+}
+if (!function_exists('esc_url_raw')) {
+    function esc_url_raw(string $url): string { return trim($url); }
+}
+if (!function_exists('wp_kses_allowed_html')) {
+    // Достаточно набора тегов, которые встречаются в условиях заданий: список
+    // нужен LegacyTaskRowDTO, чтобы отличить тег от голого `<` в формуле.
+    function wp_kses_allowed_html(string $context = 'post'): array {
+        return array_fill_keys(
+            ['p', 'div', 'span', 'b', 'strong', 'i', 'em', 'u', 'br', 'img', 'a', 'ul', 'ol', 'li',
+             'table', 'thead', 'tbody', 'tr', 'th', 'td', 'pre', 'code', 'sub', 'sup', 'h1', 'h2', 'h3', 'h4'],
+            []
+        );
+    }
 }
 if (!function_exists('wp_kses_post')) {
     function wp_kses_post(string $content): string { return $content; }

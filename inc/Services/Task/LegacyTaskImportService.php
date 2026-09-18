@@ -142,6 +142,19 @@ class LegacyTaskImportService {
 		$existing = $this->postManager->getMeta( $postId, PostMetaName::Meta->value );
 		$existing = is_array( $existing ) ? $existing : array();
 
+		// Составное задание (связка 19-21): подпункты идут в свои поля шаблона,
+		// а общее `task_condition` не заполняется — иначе условие подпункта 19
+		// попало бы на страницу дважды (`TaskMetaService::getCombinedCondition()`
+		// собирает ВСЕ поля с `_condition` в ключе).
+		foreach ( $row->subparts as $key => $part ) {
+			if ( '' !== $part['condition'] ) {
+				$existing[ "task_{$key}_condition" ] = $part['condition'];
+			}
+			if ( '' !== $part['answer'] ) {
+				$existing[ "task_{$key}_answer" ] = $part['answer'];
+			}
+		}
+
 		if ( '' !== $row->conditionHtml ) {
 			$existing['task_condition'] = $row->conditionHtml;
 		}
@@ -187,7 +200,7 @@ class LegacyTaskImportService {
 		$hasCode = '' !== $row->codePython;
 		$hasFile = '' !== $row->fileUrl;
 
-		if ( ! $hasCode && ! $hasFile ) {
+		if ( ! $hasCode && ! $hasFile && array() === $row->subparts ) {
 			return null;
 		}
 
@@ -206,6 +219,15 @@ class LegacyTaskImportService {
 		}
 		if ( $hasFile && ! isset( $fields['file'] ) ) {
 			$missing[] = 'файл задания';
+		}
+
+		// Подпункты (связка 19-21) видны только у составного шаблона: если номеру
+		// назначен обычный, три условия молча осядут в мете и автор решит, что
+		// задание импортировалось пустым.
+		foreach ( array_keys( $row->subparts ) as $key ) {
+			if ( ! isset( $fields[ "task_{$key}_condition" ] ) ) {
+				$missing[] = "условие подпункта №{$key}";
+			}
 		}
 
 		if ( array() === $missing ) {

@@ -26,6 +26,7 @@ export function refEditor( ed, step, ctx ) {
 			ed.innerHTML =
 				'<div class="fs-cb-task-pick">' +
 				'<button type="button" class="button" data-pick>Выбрать существующую</button>' +
+				'<button type="button" class="button" data-pick-public>Выбрать из публичных задач</button>' +
 				'<button type="button" class="button button-primary" data-create>Добавить новую</button>' +
 				'</div>';
 		} else {
@@ -36,6 +37,7 @@ export function refEditor( ed, step, ctx ) {
 				'<span class="fs-cb-ref-title">' + esc( step._title || step.title ) + '</span>' +
 				'<a class="button" href="' + adminBase + 'post.php?post=' + refId + '&action=edit" target="_blank" rel="noopener">Редактировать ↗</a>' +
 				'<button type="button" class="button fs-sb-btn-danger" data-pick>' + icoReplace( 13 ) + ' Заменить</button>' +
+				'<button type="button" class="button" data-pick-public>' + icoReplace( 13 ) + ' Из публичных</button>' +
 				'</div>' +
 				'<div class="fs-cb-task-preview" data-task-preview></div>' +
 				'<div class="fs-cb-step-attempts">' +
@@ -76,21 +78,32 @@ export function refEditor( ed, step, ctx ) {
 			loadTaskPreview( ed, refId );
 		}
 
+		// Один обработчик пика на оба пикера: выбранная задача ложится в шаг
+		// одинаково, различается только источник кандидатов.
+		const applyPick = ( id, title, source, item ) => {
+			// Связка 19-21: parent разворачивается в 3 отдельных шага вместо ref = parent.
+			if ( item && Array.isArray( item.bundle_children ) && item.bundle_children.length ) {
+				expandStepToBundle( step, item.bundle_children );
+				return;
+			}
+			step.payload.ref    = id;
+			step._title         = title;
+			step.title          = title;
+			step.payload.source = 'bank' === source ? 'bank' : 'subject';
+			delete step.payload.needs_review;
+			renderStepsRow(); renderStepBody(); saveSteps();
+		};
+
 		const pickBtn = ed.querySelector( '[data-pick]' );
 		if ( pickBtn ) {
-			pickBtn.addEventListener( 'click', ( e ) => openLibraryPicker( e, candKind, ( id, title, source, item ) => {
-				// Связка 19-21: parent разворачивается в 3 отдельных шага вместо ref = parent.
-				if ( item && Array.isArray( item.bundle_children ) && item.bundle_children.length ) {
-					expandStepToBundle( step, item.bundle_children );
-					return;
-				}
-				step.payload.ref    = id;
-				step._title         = title;
-				step.title          = title;
-				step.payload.source = 'bank' === source ? 'bank' : 'subject';
-				delete step.payload.needs_review;
-				renderStepsRow(); renderStepBody(); saveSteps();
-			} ) );
+			pickBtn.addEventListener( 'click', ( e ) => openLibraryPicker( e, candKind, applyPick ) );
+		}
+
+		// Публичные задачи предмета — те, что опубликованы в тренажёре. Отдельная
+		// кнопка, а не пункт внутри общего списка: там они тонут в банке.
+		const pickPublicBtn = ed.querySelector( '[data-pick-public]' );
+		if ( pickPublicBtn ) {
+			pickPublicBtn.addEventListener( 'click', ( e ) => openLibraryPicker( e, candKind, applyPick, 'public' ) );
 		}
 
 		const createBtn = ed.querySelector( '[data-create]' );

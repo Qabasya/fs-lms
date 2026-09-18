@@ -408,6 +408,15 @@ export function createSlotBuilder( el, config ) {
 		const actions = document.createElement( 'div' );
 		actions.className = 'fs-sb-task-actions';
 
+		// config.onPick (опц.) — перехват пика до дефолтного assignPicked(); должен
+		// вернуть true, если сам обработал присвоение (EGE-связка, задача C).
+		const handlePick = ( id, title, source, item ) => {
+			if ( typeof config.onPick === 'function' && config.onPick( index, id, title, item ) ) {
+				return;
+			}
+			assignPicked( index, id, title, item );
+		};
+
 		const pickBtn = document.createElement( 'button' );
 		pickBtn.type      = 'button';
 		pickBtn.className = 'button';
@@ -422,17 +431,28 @@ export function createSlotBuilder( el, config ) {
 				// Дропдаун по умолчанию сужен до предмета (упрощение поиска, не запрет) —
 				// «Все задания» переключает на полный список (предмет + банк).
 				browseAllLabel: 'Все задания',
-				// config.onPick (опц.) — перехват пика до дефолтного assignPicked(); должен
-				// вернуть true, если сам обработал присвоение (EGE-связка, задача C).
-				onPick:      ( id, title, source, item ) => {
-					if ( typeof config.onPick === 'function' && config.onPick( index, id, title, item ) ) {
-						return;
-					}
-					assignPicked( index, id, title, item );
-				},
+				onPick:      handlePick,
 			} );
 		} );
 		actions.appendChild( pickBtn );
+
+		// Публичные задачи предмета (опубликованные в тренажёре) — отдельный пикер
+		// с тем же поиском: в общем списке они идут вперемешку с банком и, если их
+		// сотня-другая, теряются за лимитом выдачи.
+		const pickPublicBtn = document.createElement( 'button' );
+		pickPublicBtn.type      = 'button';
+		pickPublicBtn.className = 'button';
+		pickPublicBtn.innerHTML = icoImport( 13 ) + ' Выбрать из публичных задач ' + icoCaret( 10 );
+		pickPublicBtn.addEventListener( 'click', () => {
+			openPicker( pickPublicBtn, {
+				placeholder: 'Поиск по публичным задачам…',
+				emptyText:   'Публичные задачи не найдены',
+				scope:       'public',
+				fetchFn:     ( q, scope ) => config.search( q, index, scope ),
+				onPick:      handlePick,
+			} );
+		} );
+		actions.appendChild( pickPublicBtn );
 
 		if ( ! slot.taskId ) {
 			const createBtn = document.createElement( 'button' );

@@ -33,6 +33,9 @@ class WorkAuthoringService {
 	 * @param int    $collectionTermId 0 = все коллекции
 	 * @param string $scope            'mine' | 'subject'
 	 * @param string $search
+	 * @param bool   $onlyPublished    true — только опубликованные задачи (источник
+	 *                                 «публичные задачи»: то, что автор видит в
+	 *                                 тренажёре); по умолчанию идут и черновики.
 	 * @return array<int, array{id: int, title: string, author: int}>
 	 */
 	public function getTaskCandidates(
@@ -40,7 +43,8 @@ class WorkAuthoringService {
 		int    $taskTypeTermId   = 0,
 		int    $collectionTermId = 0,
 		string $scope            = 'mine',
-		string $search           = ''
+		string $search           = '',
+		bool   $onlyPublished    = false
 	): array {
 		$tax_query = array();
 		if ( $taskTypeTermId > 0 ) {
@@ -60,14 +64,19 @@ class WorkAuthoringService {
 			$tax_query['relation'] = 'AND';
 		}
 
-		$posts = $this->posts->search( PostTypeResolver::tasks( $subjectKey ), array(
+		$args = array(
 			'limit'     => 50,
 			'author'    => 'mine' === $scope ? get_current_user_id() : 0,
 			'search'    => $search,
 			'tax_query' => $tax_query,
 			'orderby'   => 'date',
 			'order'     => 'DESC',
-		) );
+		);
+		if ( $onlyPublished ) {
+			$args['status'] = array( 'publish' );
+		}
+
+		$posts = $this->posts->search( PostTypeResolver::tasks( $subjectKey ), $args );
 
 		return array_map( fn( \WP_Post $post ): array => $this->withBundleChildren( array(
 			'id'     => $post->ID,
@@ -105,13 +114,16 @@ class WorkAuthoringService {
 	 * напр. предмет без своего CPT-банка, Эпик 18) — привязку задаёт мета
 	 * {@see PostMetaName::BankTaskSubject}, выставляемая на странице банка.
 	 * `$source` 'subject' — {key}_tasks + банк, помеченный ЭТИМ предметом;
-	 * 'all' — {key}_tasks + весь банк без сужения.
+	 * 'all' — {key}_tasks + весь банк без сужения; 'public' — только
+	 * опубликованные задачи предмета, без банка и без сужения по автору
+	 * (источник «Выбрать из публичных задач»: каталог тренажёра целиком,
+	 * независимо от того, кто задачу завёл).
 	 *
 	 * @param string $subjectKey
 	 * @param int    $collectionTermId 0 = все коллекции (только для task)
 	 * @param string $scope            'mine' | 'subject'
 	 * @param string $search
-	 * @param string $source           'subject' | 'all'
+	 * @param string $source           'subject' | 'all' | 'public'
 	 * @return array<int, array{id: int, title: string, author: int, type: string}>
 	 */
 	public function getItemCandidates(
@@ -121,6 +133,10 @@ class WorkAuthoringService {
 		string $search           = '',
 		string $source           = 'subject'
 	): array {
+		if ( 'public' === $source ) {
+			return $this->getTaskCandidates( $subjectKey, 0, $collectionTermId, 'subject', $search, true );
+		}
+
 		$tasks    = $this->getTaskCandidates( $subjectKey, 0, $collectionTermId, $scope, $search );
 		$problems = $this->getProblemCandidates( $search, 'all' === $source ? '' : $subjectKey );
 

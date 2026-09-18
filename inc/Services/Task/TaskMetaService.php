@@ -18,6 +18,12 @@ class TaskMetaService {
 	/**
 	 * Собирает все поля с суффиксом '_condition' из fs_lms_meta в один блок контента.
 	 *
+	 * Части разделяются: у «Двух условий на выбор» (ОГЭ №13) это два
+	 * самостоятельных варианта задания, и склеенные встык они читались как одно
+	 * сплошное условие. Обёртка — та же по смыслу, что `.fs-attempt-subcondition`
+	 * на странице контрольной ({@see \Inc\Services\Assessment\AttemptTaskViewBuilder}).
+	 * Для шаблонов с одним условием обёртка ничего не меняет.
+	 *
 	 * @param array $meta Массив мета-полей из fs_lms_meta
 	 *
 	 * @return string
@@ -32,11 +38,58 @@ class TaskMetaService {
 
 		foreach ( $meta as $key => $value ) {
 			if ( str_contains( $key, '_condition' ) ) {
-				$condition_parts[] = apply_filters( 'the_content', $value );
+				$html = (string) apply_filters( 'the_content', $value );
+
+				if ( '' !== trim( $html ) ) {
+					$condition_parts[] = $html;
+				}
 			}
 		}
 
-		return implode( '', $condition_parts );
+		if ( count( $condition_parts ) < 2 ) {
+			return implode( '', $condition_parts );
+		}
+
+		return implode( '', array_map(
+			static fn( string $part ): string => '<div class="fs-task-subcondition">' . $part . '</div>',
+			$condition_parts
+		) );
+	}
+
+	/**
+	 * Материалы задания «Развёрнутый ответ» — вложения медиатеки из поля
+	 * «Материалы задания (видны ученику)» (`task_materials[attachment_ids]`).
+	 *
+	 * У файловых шаблонов (File/FileCode) материалы лежат прямыми ссылками в
+	 * `file`/`file_primary`/`file_secondary` и разбираются {@see getTaskFiles()};
+	 * у «Развёрнутого ответа» и «Двух условий на выбор» — это ID вложений, и
+	 * плоский разбор их не видел: на публичной странице задания исходники
+	 * (данные, шаблон презентации) просто не показывались, хотя в контрольной
+	 * те же файлы отдаёт {@see \Inc\Services\Assessment\AttemptTaskViewBuilder}.
+	 *
+	 * @param array $meta
+	 *
+	 * @return array<int, array{name: string, url: string, size: string}>
+	 */
+	public function getTaskMaterials( array $meta ): array {
+		$materials = array();
+
+		foreach ( (array) ( $meta['task_materials']['attachment_ids'] ?? array() ) as $attachmentId ) {
+			$attachmentId = (int) $attachmentId;
+			$url          = $attachmentId ? (string) wp_get_attachment_url( $attachmentId ) : '';
+
+			if ( '' === $url ) {
+				continue;
+			}
+
+			$materials[] = array(
+				'name' => get_the_title( $attachmentId ) ?: "Файл #{$attachmentId}",
+				'url'  => $url,
+				'size' => $this->getFileSize( $url ),
+			);
+		}
+
+		return $materials;
 	}
 
 	/**

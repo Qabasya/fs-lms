@@ -40,6 +40,14 @@ readonly class LegacyTaskRowDTO {
 	 * @param string $answer        Правильный ответ
 	 * @param string $codePython    Код решения
 	 * @param string $fileUrl       Ссылка на файл задания
+	 * @param array<int|string, array{condition: string, answer: string}> $subparts
+	 *        Подпункты составного задания, ключ — номер задания (19, 20, 21;
+	 *        числовые ключи PHP хранит целыми, и поля шаблона собираются
+	 *        одинаково хоть из int, хоть из строки).
+	 *        Пусто у обычных заданий; непусто у связки 19-21, где старый сайт
+	 *        держал все три подпункта в одном условии, а шаблон
+	 *        {@see \Inc\MetaBoxes\Templates\ThreeInOneTemplate} ждёт их
+	 *        по отдельным полям `task_{N}_condition` / `task_{N}_answer`.
 	 */
 	public function __construct(
 		public int $legacyNumber,
@@ -52,6 +60,7 @@ readonly class LegacyTaskRowDTO {
 		public string $answer,
 		public string $codePython,
 		public string $fileUrl,
+		public array $subparts = array(),
 	) {}
 
 	/**
@@ -77,7 +86,41 @@ readonly class LegacyTaskRowDTO {
 			answer:        trim( sanitize_textarea_field( $string( 'answer' ) ) ),
 			codePython:    trim( $string( 'code_python' ) ),
 			fileUrl:       esc_url_raw( trim( $string( 'file_url' ) ) ),
+			subparts:      self::parseSubparts( $row['subparts'] ?? null ),
 		);
+	}
+
+	/**
+	 * Разбирает подпункты составного задания. Санитизация — та же, что у
+	 * корневых полей: условие через `SafeHtml` с экранированием голых `<`,
+	 * ответ — как текст.
+	 *
+	 * @param mixed $raw Значение ключа `subparts` записи JSON
+	 *
+	 * @return array<int|string, array{condition: string, answer: string}>
+	 */
+	private static function parseSubparts( mixed $raw ): array {
+		if ( ! is_array( $raw ) ) {
+			return array();
+		}
+
+		$subparts = array();
+
+		foreach ( $raw as $key => $part ) {
+			if ( ! is_array( $part ) ) {
+				continue;
+			}
+
+			$condition = is_scalar( $part['condition_html'] ?? null ) ? (string) $part['condition_html'] : '';
+			$answer    = is_scalar( $part['answer'] ?? null ) ? (string) $part['answer'] : '';
+
+			$subparts[ sanitize_key( (string) $key ) ] = array(
+				'condition' => trim( SafeHtml::post( self::escapeBareLessThan( $condition ) ) ),
+				'answer'    => trim( sanitize_textarea_field( $answer ) ),
+			);
+		}
+
+		return $subparts;
 	}
 
 	/**

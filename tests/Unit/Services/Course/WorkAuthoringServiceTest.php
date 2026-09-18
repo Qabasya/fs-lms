@@ -83,4 +83,40 @@ class WorkAuthoringServiceTest extends TestCase {
 
 		self::assertSame( array( 1, 2 ), $ids );
 	}
+
+	/**
+	 * Источник «публичные задачи» (кнопка «Выбрать из публичных задач» в работе
+	 * и экзамене): только опубликованные задачи предмета, без банка.
+	 */
+	public function test_item_candidates_source_public_returns_only_published_subject_tasks(): void {
+		fs_test_seed_post( array( 'ID' => 1, 'post_type' => 'inf_tasks', 'post_title' => 'Опубликованная', 'post_status' => 'publish' ) );
+		fs_test_seed_post( array( 'ID' => 2, 'post_type' => 'inf_tasks', 'post_title' => 'Черновик', 'post_status' => 'draft' ) );
+		fs_test_seed_post(
+			array( 'ID' => 3, 'post_type' => 'fs_lms_problems', 'post_title' => 'Банк предмета', 'post_status' => 'publish' ),
+			array( \Inc\Enums\Wp\PostMetaName::BankTaskSubject->value => 'inf' )
+		);
+
+		$ids = array_column( $this->service->getItemCandidates( 'inf', 0, 'mine', '', 'public' ), 'id' );
+
+		self::assertSame( array( 1 ), $ids );
+	}
+
+	/**
+	 * Публичный источник не сужается по автору, хотя scope пришёл 'mine':
+	 * каталог тренажёра общий, и задачу, заведённую коллегой, автор курса
+	 * обязан видеть — иначе кнопка бессмысленна на любой непустой команде.
+	 */
+	public function test_item_candidates_source_public_ignores_author_scope(): void {
+		$GLOBALS['_fs_test_user_id'] = 7;
+		fs_test_seed_post( array( 'ID' => 1, 'post_type' => 'inf_tasks', 'post_title' => 'Чужая', 'post_status' => 'publish', 'post_author' => 42 ) );
+
+		try {
+			$ids = array_column( $this->service->getItemCandidates( 'inf', 0, 'mine', '', 'public' ), 'id' );
+		} finally {
+			$GLOBALS['_fs_test_user_id'] = 0;
+		}
+
+		// Со scope='mine' запрос ушёл бы с author=7 и задачу автора 42 не нашёл.
+		self::assertSame( array( 1 ), $ids );
+	}
 }

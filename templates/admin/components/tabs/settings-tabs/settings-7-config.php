@@ -21,6 +21,7 @@ $salt_set = (bool) ( $config['hash_salt_set'] ?? false );
 $logo     = $config['brand_logo'] ?? array( 'id' => 0, 'url' => '' );
 $logo_id  = (int) ( $logo['id'] ?? 0 );
 $logo_url = (string) ( $logo['url'] ?? '' );
+$consultation_url = (string) ( $config['consultation_url'] ?? '' );
 ?>
 
 <div id="tab-config" class="tab-pane active">
@@ -77,6 +78,27 @@ $logo_url = (string) ( $logo['url'] ?? '' );
 						/>
 					</div>
 					<p class="fs-field__desc">Универсальный код для обхода OTP-проверки (для поддержки учеников без доступа к email).</p>
+				</div>
+
+				<div class="fs-field">
+					<label for="fs-config-consultation-url" class="fs-field__label">
+						Ссылка на запись на консультацию
+					</label>
+					<div class="fs-field__control">
+						<input
+							type="url"
+							id="fs-config-consultation-url"
+							name="consultation_url"
+							class="regular-text"
+							placeholder="https://example.com/#hero-form"
+							value="<?php echo esc_attr( $consultation_url ); ?>"
+						/>
+					</div>
+					<p class="fs-field__desc">
+						Показывается в тренажёре по кнопке «Показать ответ» у заданий с ручной проверкой
+						(развёрнутый ответ, два условия на выбор) — у них правильного ответа нет.
+						Пусто — приглашение не показывается.
+					</p>
 				</div>
 
 			</div>

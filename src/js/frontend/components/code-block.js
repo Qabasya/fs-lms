@@ -26,8 +26,12 @@ const TOKEN_RE = /[brfuBRFU]{0,2}(?:"""[\s\S]*?"""|'''[\s\S]*?''')|[brfuBRFU]{0,
 
 // ── Точка входа ──────────────────────────────────────────────────────────────
 
-// Хук — класс .js-code на <code>: разметку печатает шаблон (сырой листинг из
-// TaskContentDTO), редактор с подсветкой собирается здесь.
+// Два входа, и это разные вещи:
+//   * `code.js-code` — листинг решения, который печатает шаблон: разворачивается
+//     в полноценный редактор (шапка с языком, кнопка копирования, номера строк);
+//   * `pre.fs-code-highlight` — блок кода, который автор вставил кнопкой прямо в
+//     условии задания: подсветка и палитра те же, но ни шапки, ни гаттера у него
+//     нет — внутри текста задания они только мешают.
 export function initCodeBlocks() {
     document.querySelectorAll('code.js-code').forEach(code => {
         const block = code.closest('pre') || code;
@@ -35,6 +39,21 @@ export function initCodeBlocks() {
         const lang  = code.dataset.lang || 'Python';
 
         block.replaceWith(buildEditor(text, lang));
+    });
+
+    initInlineHighlights();
+}
+
+// Подсветка «на месте». Блоки внутри .fs-code-editor пропускаем: их содержимое
+// уже прошло tokenize() выше, второй проход съел бы разметку токенов. Признак
+// обработки — data-атрибут: initCodeBlocks() может вызываться повторно (плеер
+// перерисовывает шаг), и подсвечивать уже подсвеченное нельзя.
+function initInlineHighlights() {
+    document.querySelectorAll('pre.fs-code-highlight').forEach(block => {
+        if (block.closest('.fs-code-editor') || block.dataset.fsHighlighted) return;
+
+        block.innerHTML = tokenize(normalize(block.textContent));
+        block.dataset.fsHighlighted = '1';
     });
 }
 

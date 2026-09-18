@@ -158,7 +158,9 @@ ThemeCompatService::header();
 						<?php if ( ! empty( $files ) ) : ?>
 							<div class="fs-task-files">
 								<?php foreach ( $files as $file ) : ?>
-									<a href="<?php echo esc_url( $file['url'] ); ?>" class="fs-file-link">
+									<?php // download: браузер иначе открывает .txt/.pdf во вкладке вместо скачивания. ?>
+									<a href="<?php echo esc_url( $file['url'] ); ?>" class="fs-file-link"
+										download="<?php echo esc_attr( $file['name'] ); ?>">
 										<span class="fs-file-icon" aria-hidden="true">
 											<?php echo Icon::File->svg( 17 ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
 										</span>
@@ -177,12 +179,17 @@ ThemeCompatService::header();
 					</div>
 
 					<!-- Табы -->
-					<?php if ( ! empty( $tabs ) || '' !== $content->answer ) : ?>
+					<?php
+					// У заданий с ручной проверкой правильного ответа нет — вместо него
+					// приглашение на консультацию (ConsultationNoticeService).
+					$answer_block = '' !== $content->answer || null !== $content->consultation;
+					?>
+					<?php if ( ! empty( $tabs ) || $answer_block ) : ?>
 						<?php ?>
 						<div class="fs-task-tabs">
 							<div class="fs-tabs-toolbar">
 								<?php ?>
-								<?php if ( '' !== $content->answer ) : ?>
+								<?php if ( $answer_block ) : ?>
 									<button type="button" class="fs-answer-toggle js-answer-toggle"
 										aria-expanded="false" aria-controls="fs-answer-<?php echo esc_attr( (string) ( $task_post?->id ?? 0 ) ); ?>">Показать ответ</button>
 								<?php endif; ?>
@@ -203,10 +210,19 @@ ThemeCompatService::header();
 								</div>
 								<?php endif; ?>
 							</div>
-							<?php if ( '' !== $content->answer ) : ?>
+							<?php if ( $answer_block ) : ?>
 								<div id="fs-answer-<?php echo esc_attr( (string) ( $task_post?->id ?? 0 ) ); ?>" class="fs-answer js-answer-panel" hidden>
-									<div class="fs-answer-label">Правильный ответ:</div>
-									<div class="fs-answer-value"><?php echo esc_html( $content->answer ); ?></div>
+									<?php if ( '' !== $content->answer ) : ?>
+										<div class="fs-answer-label">Правильный ответ:</div>
+										<div class="fs-answer-value"><?php echo esc_html( $content->answer ); ?></div>
+									<?php else : ?>
+										<div class="fs-answer-note">
+											<?php echo esc_html( $content->consultation['text'] ); ?>
+											<a href="<?php echo esc_url( $content->consultation['url'] ); ?>">
+												<?php echo esc_html( $content->consultation['label'] ); ?>
+											</a>
+										</div>
+									<?php endif; ?>
 								</div>
 							<?php endif; ?>
 

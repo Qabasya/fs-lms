@@ -31,6 +31,7 @@ class ConfigCallbacks extends BaseController {
 			'test_env'        => $this->sanitizeBool( 'test_env' ),
 			'otp_bypass_code' => $this->sanitizeText( 'otp_bypass_code' ),
 			'brand_logo_id'   => $this->sanitizeInt( 'brand_logo_id' ),
+			'consultation_url' => esc_url_raw( $this->sanitizeText( 'consultation_url' ) ),
 		) );
 
 		$this->success( array( 'message' => 'Настройки сохранены.' ) );

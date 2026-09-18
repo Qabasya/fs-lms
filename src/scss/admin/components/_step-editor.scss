@@ -152,7 +152,9 @@
 
 	// пустой UI задачи (нет ref) — только 2 кнопки
 	.fs-cb-task-pick {
-		display: flex; gap: $spacing-md; padding: $spacing-lg 0;
+		// Кнопок в ряду три («Выбрать существующую» / «Из публичных задач» /
+		// «Добавить новую») — в узкой колонке шага они обязаны переноситься.
+		display: flex; flex-wrap: wrap; gap: $spacing-md; padding: $spacing-lg 0;
 	}
 
 	// попытки под превью задачи

@@ -15,7 +15,10 @@ export function buildTaskCard(task) {
     // Кнопка и панель ответа — общий блок со страницей одного задания:
     // панель находится по aria-controls, поэтому id обязан быть уникальным.
     const answerId  = `fs-answer-${esc(task.id)}`;
-    const answerBtn = task.answer
+    // У заданий с ручной проверкой ответа нет — вместо него приглашение на
+    // консультацию, текст и адрес приходят с сервера (ConsultationNoticeService).
+    const hasAnswerBlock = Boolean(task.answer || task.consultation);
+    const answerBtn = hasAnswerBlock
         ? `<button type="button" class="fs-answer-toggle js-answer-toggle" aria-expanded="false" aria-controls="${answerId}">Показать ответ</button>`
         : '';
 
@@ -38,7 +41,7 @@ export function buildTaskCard(task) {
                 </a>
             </div>
         </footer>
-        ${_buildAnswerPanel(task.answer, answerId)}
+        ${_buildAnswerPanel(task, answerId)}
     </article>`;
 }
 
@@ -88,7 +91,7 @@ function _buildFiles(files) {
     if (!files.length) return '';
 
     const items = files.map(f => `
-        <a class="tcr-file" href="${esc(f.url)}">
+        <a class="tcr-file" href="${esc(f.url)}" download="${esc(f.name)}">
             <span class="tcr-file-icon" aria-hidden="true">${icoFile(17)}</span>
             <span class="tcr-file-name">${esc(f.name)}</span>
             ${f.size ? `<span class="tcr-file-size">${esc(f.size)}</span>` : ''}
@@ -98,12 +101,18 @@ function _buildFiles(files) {
     return `<div class="tcr-files">${items}</div>`;
 }
 
-function _buildAnswerPanel(answer, id) {
-    if (!answer) return '';
+function _buildAnswerPanel(task, id) {
+    if (!task.answer && !task.consultation) return '';
+
+    const body = task.answer
+        ? `<div class="fs-answer-label">Правильный ответ:</div>
+        <div class="fs-answer-value">${esc(task.answer)}</div>`
+        : `<div class="fs-answer-note">${esc(task.consultation.text)}
+            <a href="${esc(task.consultation.url)}">${esc(task.consultation.label)}</a>
+        </div>`;
 
     return `
     <div id="${id}" class="fs-answer js-answer-panel" hidden>
-        <div class="fs-answer-label">Правильный ответ:</div>
-        <div class="fs-answer-value">${esc(answer)}</div>
+        ${body}
     </div>`;
 }

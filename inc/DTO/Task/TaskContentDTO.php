@@ -23,6 +23,9 @@ readonly class TaskContentDTO {
 	 * @param string $code      Листинг решения — сырой текст, без HTML.
 	 * @param string $code_lang Язык листинга для бейджа редактора.
 	 * @param string $text      Пояснение/разбор (HTML).
+	 * @param array{text: string, url: string, label: string}|null $consultation
+	 *        Приглашение на консультацию вместо ответа у заданий с ручной
+	 *        проверкой ({@see \Inc\Services\Task\ConsultationNoticeService}).
 	 */
 	public function __construct(
 		public string $condition = '',
@@ -30,5 +33,6 @@ readonly class TaskContentDTO {
 		public string $code = '',
 		public string $code_lang = '',
 		public string $text = '',
+		public ?array $consultation = null,
 	) {}
 }

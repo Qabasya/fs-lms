@@ -30,6 +30,9 @@ readonly class TaskListItemDTO {
 	 * @param string $condition            Условие задания (HTML).
 	 * @param string $answer               Правильный ответ.
 	 * @param array  $files                Файлы задания: [{name, url, size}].
+	 * @param array{text: string, url: string, label: string}|null $consultation
+	 *        Приглашение на консультацию вместо ответа у заданий с ручной
+	 *        проверкой ({@see \Inc\Services\Task\ConsultationNoticeService}).
 	 */
 	public function __construct(
 		public int    $id,
@@ -44,6 +47,7 @@ readonly class TaskListItemDTO {
 		public string $condition,
 		public string $answer,
 		public array  $files,
+		public ?array $consultation = null,
 	) {}
 
 	/**
@@ -64,6 +68,7 @@ readonly class TaskListItemDTO {
 			'tags'                 => $this->tags,
 			'condition'     => $this->condition,
 			'answer'        => $this->answer,
+			'consultation'  => $this->consultation,
 			'files'         => $this->files,
 		);
 	}

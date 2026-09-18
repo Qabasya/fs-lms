@@ -58,6 +58,16 @@ readonly class PluginConfig {
 		) );
 	}
 
+	/**
+	 * Ссылка на форму записи на консультацию. Показывается в блоке «Показать
+	 * ответ» у заданий, которые проверяет преподаватель: автоматического ответа
+	 * у них нет ({@see \Inc\Enums\Subject\TaskTemplate::isFileAnswerShape()}).
+	 * Пусто — блок не показывается вовсе.
+	 */
+	public function consultationUrl(): string {
+		return (string) ( $this->repository->get()['consultation_url'] ?? '' );
+	}
+
 	/** Attachment ID логотипа кабинета; 0 — не задан. */
 	public function brandLogoId(): int {
 		return (int) ( $this->repository->get()['brand_logo_id'] ?? 0 );
@@ -109,6 +119,7 @@ readonly class PluginConfig {
 				'id'  => $this->brandLogoId(),
 				'url' => $this->brandLogoUrl(),
 			),
+			'consultation_url' => $this->consultationUrl(),
 		);
 	}
 }

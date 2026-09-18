@@ -1,5 +1,7 @@
 @use '../../variables' as *;
 @use '../../mixins' as *;
+@use '../../../shared/content-lists' as *;
+@use '../../../shared/content-tables' as *;
 
 .fs-all-tasks-page {
 
@@ -41,6 +43,18 @@
   }
 
   .tcr-body { padding: 0; margin-top: rem(18); }
+
+  // Условие в карточке — тот же авторский HTML, что на странице задания, но
+  // своих стилей контента у карточки не было: таблицы выходили без рамок,
+  // а списки — без маркеров (их глушит публичный reset).
+  .tcr-condition {
+    @include fs-content-tables;
+    @include fs-content-lists;
+
+    li::marker { color: $color-muted-2; }
+
+    td, th { font-size: $font-size-base; }
+  }
 
   // ── Сворачивание длинного условия ─────────────────────────────
   .tcr-body.is-clamped .tcr-condition {

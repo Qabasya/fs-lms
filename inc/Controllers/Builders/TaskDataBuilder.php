@@ -14,6 +14,7 @@ use Inc\DTO\Task\TabDTO;
 use Inc\DTO\Task\TagDTO;
 use Inc\DTO\Task\TaskContentDTO;
 use Inc\DTO\Task\TaskPageDTO;
+use Inc\Enums\Subject\TaskTemplate;
 use Inc\Enums\Wp\PostMetaName;
 use Inc\Managers\Wp\PostManager;
 use Inc\Managers\Wp\TermManager;
@@ -24,6 +25,7 @@ use Inc\Services\Subject\ArticleService;
 use Inc\Services\Subject\PostTypeResolver;
 use Inc\Services\Subject\SubjectPagesService;
 use Inc\Services\Subject\TagPaletteService;
+use Inc\Services\Task\ConsultationNoticeService;
 use Inc\Services\Task\TaskFilterParser;
 use Inc\Services\Task\TaskMetaService;
 
@@ -72,6 +74,7 @@ readonly class TaskDataBuilder {
 		private TagPaletteService $tag_palette,
 		private SubjectPagesService $subject_pages,
 		private TaskFilterParser $task_filters,
+		private ConsultationNoticeService $consultation,
 	) {}
 
 	/**
@@ -117,7 +120,10 @@ readonly class TaskDataBuilder {
 		?TermViewDTO $current_task_type
 	): TaskPageDTO {
 		$subject_name = $subject ? $subject->name : $subject_key;
-		$content      = $this->buildContentData( $meta );
+		$template     = TaskTemplate::fromDatabase(
+			(string) $this->post_manager->getMeta( $post->id, PostMetaName::TemplateType->value )
+		);
+		$content      = $this->buildContentData( $meta, $template );
 		$links        = $this->subject_pages->links( $subject_key );
 
 		return new TaskPageDTO(
@@ -125,7 +131,7 @@ readonly class TaskDataBuilder {
 			subject_key:  $subject_key,
 			subject_name: $subject_name,
 			content:      $content,
-			files:        $this->task_meta_service->getTaskFiles( $meta ),
+			files:        $this->buildFiles( $meta, $template ),
 			tags:         $this->buildTags( $post->id, $subject_key, $current_task_type, $links->trainer ),
 			articles:     $this->buildArticles( $subject_key, $current_task_type, $links->articles ),
 			courses:      $this->course_service->getSidebarCourses( $subject_key ),
@@ -145,16 +151,41 @@ readonly class TaskDataBuilder {
 	 *
 	 * @return TaskContentDTO
 	 */
-	private function buildContentData( array $meta ): TaskContentDTO {
-		$code = (string) ( $meta['task_code'] ?? '' );
+	private function buildContentData( array $meta, TaskTemplate $template ): TaskContentDTO {
+		// У «Развёрнутого ответа» и «Двух условий на выбор» поля `task_code` и
+		// `solution_text` подписаны «Решение для проверяющего, ученику не видно»:
+		// проверка там ручная, и эталон — рабочий материал преподавателя. Плеер
+		// отдаёт его только учителю ({@see \Inc\Services\Task\TaskSolutionService}),
+		// а публичная страница печатала его вкладкой «Решение» всем подряд.
+		$code   = $template->isFileAnswerShape() ? '' : (string) ( $meta['task_code'] ?? '' );
+		$answer = (string) ( $meta['task_answer'] ?? '' );
 
 		return new TaskContentDTO(
-			condition: $this->task_meta_service->getCombinedCondition( $meta ),
-			answer:    (string) ( $meta['task_answer'] ?? '' ),
-			code:      $code,
-			code_lang: '' !== $code ? self::CODE_LANG : '',
-			text:      (string) ( $meta['task_text'] ?? '' ),
+			condition:    $this->task_meta_service->getCombinedCondition( $meta ),
+			answer:       $answer,
+			code:         $code,
+			code_lang:    '' !== $code ? self::CODE_LANG : '',
+			text:         (string) ( $meta['task_text'] ?? '' ),
+			consultation: $this->consultation->forTask( $template, $answer ),
 		);
+	}
+
+	/**
+	 * Файлы, приложенные к заданию: у «Развёрнутого ответа» — вложения медиатеки
+	 * («Материалы задания»), у остальных — прямые ссылки файловых полей.
+	 * Источник выбирается по шаблону, как в разборе попытки контрольной
+	 * ({@see \Inc\Services\Assessment\AttemptTaskViewBuilder::materials()}):
+	 * читать оба подряд нельзя — пересечение имён полей ничем не запрещено.
+	 *
+	 * @param array        $meta     Мета-данные задания.
+	 * @param TaskTemplate $template Шаблон задания.
+	 *
+	 * @return array<int, array{name: string, url: string, size: string}>
+	 */
+	private function buildFiles( array $meta, TaskTemplate $template ): array {
+		return $template->isFileAnswerShape()
+			? $this->task_meta_service->getTaskMaterials( $meta )
+			: $this->task_meta_service->getTaskFiles( $meta );
 	}
 
 	/**

@@ -19,6 +19,8 @@ use Inc\Services\Subject\FilterGroupService;
 use Inc\Services\Subject\PostTypeResolver;
 use Inc\Services\Subject\SubjectPagesService;
 use Inc\Services\Subject\TagPaletteService;
+use Inc\Enums\Subject\TaskTemplate;
+use Inc\Services\Task\ConsultationNoticeService;
 use Inc\Services\Task\TaskMetaService;
 use Inc\Shared\PluginLogger;
 
@@ -62,6 +64,7 @@ readonly class AllTasksDataBuilder {
 		private TagPaletteService  $tag_palette,
 		private SubjectPagesService $subject_pages,
 		private FilterGroupService $filter_groups,
+		private ConsultationNoticeService $consultation,
 	) {}
 
 	/**
@@ -256,6 +259,11 @@ readonly class AllTasksDataBuilder {
 		$number_tax  = PostTypeResolver::getTaskTaxonomy( $subject_key );
 		$number_term = $this->term_manager->getPostTerms( $post->ID, $number_tax )[0] ?? null;
 
+		$template = TaskTemplate::fromDatabase(
+			(string) $this->post_manager->getMeta( $post->ID, PostMetaName::TemplateType->value )
+		);
+		$answer   = (string) ( $meta['task_answer'] ?? '' );
+
 		return new TaskListItemDTO(
 			id:            $post->ID,
 			title:         (string) get_the_title( $post->ID ),
@@ -267,8 +275,14 @@ readonly class AllTasksDataBuilder {
 			task_number_color:    $this->tag_palette->colorIndex( $subject_key, $number_tax ),
 			tags:                 $this->buildTags( $post->ID, $subject_key, $taxonomies ),
 			condition:     $this->task_meta_service->getCombinedCondition( $meta ),
-			answer:        (string) ( $meta['task_answer'] ?? '' ),
-			files:         $this->task_meta_service->getTaskFiles( $meta ),
+			answer:        $answer,
+			// Материалы «развёрнутого ответа» — вложения медиатеки, а не ссылки
+			// файловых полей: источник выбирается по шаблону, как на странице
+			// задания ({@see \Inc\Controllers\Builders\TaskDataBuilder::buildFiles()}).
+			files:         $template->isFileAnswerShape()
+				? $this->task_meta_service->getTaskMaterials( $meta )
+				: $this->task_meta_service->getTaskFiles( $meta ),
+			consultation:  $this->consultation->forTask( $template, $answer ),
 		);
 	}
 

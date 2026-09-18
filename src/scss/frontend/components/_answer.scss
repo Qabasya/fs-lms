@@ -42,6 +42,24 @@
     white-space: pre-wrap;
   }
 
+  // Приглашение на консультацию вместо ответа (задания с ручной проверкой):
+  // обычный текст со ссылкой, а не моноширинное значение ответа.
+  .fs-answer-note {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-size: $font-size-base;
+    line-height: $line-height-relaxed;
+    color: $color-text;
+
+    a {
+      color: $color-accent;
+      font-weight: $font-semibold;
+      text-decoration: none;
+
+      &:hover { text-decoration: underline; }
+    }
+  }
+
   @media (max-width: $bp-md) {
     .fs-answer { flex-direction: column; align-items: stretch; gap: rem(6); }
   }

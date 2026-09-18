@@ -12,6 +12,10 @@ readonly class PluginConfigRepository {
 		'test_env'        => false,
 		'otp_bypass_code' => '',
 		'brand_logo_id'   => 0, // attachment ID логотипа кабинета (0 — дефолтный BrandMark)
+		// Куда ведёт «Записаться» в блоке ответа у заданий с ручной проверкой
+		// (13–16 ОГЭ и т.п.): у них правильного ответа нет, вместо него —
+		// приглашение на консультацию. Пусто — приглашение не показывается.
+		'consultation_url' => '',
 	);
 
 	public function get(): array {

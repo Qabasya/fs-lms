@@ -111,9 +111,16 @@ $code-pad-x: t.rem(18);
   min-width: 0;
 }
 
+// Блок кода сам по себе: автор вставляет его кнопкой прямо в условие задания.
+// Палитра и подсветка те же, что в листинге решения, но ни шапки с языком, ни
+// номеров строк здесь нет — в тексте задания они только мешают, поэтому корпус
+// (фон, рамку, радиус) несёт сам блок.
 .fs-code-highlight {
-  margin: 0;
+  margin: t.rem(16) 0;
   padding: $code-pad-y $code-pad-x;
+  background: var(--code-surface-2);
+  border: 1px solid var(--code-line);
+  border-radius: t.$border-radius-lg;
   overflow-x: auto;
   font-family: var(--code-font);
   font-size: t.$font-size-base;
@@ -124,6 +131,15 @@ $code-pad-x: t.rem(18);
 
   &::selection,
   *::selection { background: var(--code-selection); }
+}
+
+// Внутри редактора тот же элемент — только текстовый слой: корпус там на
+// .fs-code-editor, а рамка с фоном поверх неё дали бы вторую рамку внутри.
+.fs-code-area > .fs-code-highlight {
+  margin: 0;
+  background: none;
+  border: 0;
+  border-radius: 0;
 }
 
 // ── Токены подсветки (Python) ──

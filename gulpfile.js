@@ -43,6 +43,9 @@ const paths = {
         player: './src/js/player/player.js',
         assessment: './src/js/assessment/assessment.js',
         kege: './src/js/kege/kege.js',
+        // Плагин панели TinyMCE (редактор задания). Не бандл страницы: файл
+        // подключает сам редактор через mce_external_plugins.
+        'task-editor-buttons': './src/js/tinymce/task-editor-buttons.js',
         watch: './src/js/**/*.js'
     },
     output: {
@@ -269,7 +272,7 @@ function stylesCheck() {
  * ОБРАБОТКА JS (AdminController & Frontend)
  */
 function scripts() {
-    return gulp.src([paths.js.admin, paths.js.frontend, paths.js.common, paths.js.profile, paths.js.player, paths.js.assessment, paths.js.kege])
+    return gulp.src([paths.js.admin, paths.js.frontend, paths.js.common, paths.js.profile, paths.js.player, paths.js.assessment, paths.js.kege, paths.js['task-editor-buttons']])
         .pipe(guard())
         .pipe(named())
         .pipe(webpack(webpackConfig))

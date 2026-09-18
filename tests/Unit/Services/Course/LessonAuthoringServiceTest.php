@@ -165,6 +165,35 @@ class LessonAuthoringServiceTest extends TestCase {
 	}
 
 	/**
+	 * Источник «публичные задачи» (кнопка «Выбрать из публичных задач» в шаге,
+	 * работе и экзамене): только опубликованные задачи предмета. Черновики и
+	 * банк — даже помеченный этим предметом — в список не идут: смысл источника
+	 * в том, чтобы выбрать из каталога тренажёра, не просеивая всё остальное.
+	 */
+	public function test_step_candidates_task_source_public_returns_only_published_subject_tasks(): void {
+		fs_test_seed_post( array( 'ID' => 1, 'post_type' => 'inf_tasks', 'post_title' => 'Опубликованная', 'post_status' => 'publish' ) );
+		fs_test_seed_post( array( 'ID' => 2, 'post_type' => 'inf_tasks', 'post_title' => 'Черновик', 'post_status' => 'draft' ) );
+		fs_test_seed_post(
+			array( 'ID' => 3, 'post_type' => 'fs_lms_problems', 'post_title' => 'Банк, помечен предметом', 'post_status' => 'publish' ),
+			array( \Inc\Enums\Wp\PostMetaName::BankTaskSubject->value => 'inf' )
+		);
+
+		$candidates = $this->service->getStepCandidates( 'inf', 'task', 'public' );
+
+		self::assertSame( array( 1 ), array_column( $candidates, 'id' ) );
+	}
+
+	public function test_step_candidates_source_public_marks_origin_as_subject(): void {
+		// Бейдж пикера и payload.source шага читают это поле: публичная задача
+		// живёт в {key}_tasks, то есть для шага она «предметная», а не банковская.
+		fs_test_seed_post( array( 'ID' => 1, 'post_type' => 'inf_tasks', 'post_title' => 'Задача', 'post_status' => 'publish' ) );
+
+		$candidates = $this->service->getStepCandidates( 'inf', 'task', 'public' );
+
+		self::assertSame( 'subject', $candidates[0]['source'] );
+	}
+
+	/**
 	 * Задача может физически лежать в глобальном банке (fs_lms_problems), оставаясь
 	 * «предметной» — привязку задаёт мета BankTaskSubject (страница банка задач,
 	 * см. ProblemsController). Дефолтный дропдаун конструктора (source=subject)

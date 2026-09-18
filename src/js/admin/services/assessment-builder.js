@@ -1,5 +1,6 @@
 import '../_types.js';
 import { createSlotBuilder, post } from './slot-builder.js';
+import { candidateSource } from '../modules/picker.js';
 import { showToast } from '../modules/toast.js';
 
 /* global fs_lms_vars */
@@ -162,7 +163,7 @@ function mount( el ) {
 		search: ( q, index, scope ) => post( acts.getStepCandidates, nonces.authorLesson, {
 			subject_key: subject,
 			kind:        'task',
-			source:      q ? 'all' : ( scope || 'subject' ),
+			source:      candidateSource( q, scope ),
 			search:      q,
 			position:    isEge( prevKind ) && 'number' === typeof index ? String( index + 1 ) : '',
 		} ),

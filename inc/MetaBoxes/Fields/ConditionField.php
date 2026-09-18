@@ -4,6 +4,8 @@ declare( strict_types=1 );
 
 namespace Inc\MetaBoxes\Fields;
 
+use Inc\Services\Task\LatexPageShortcodeService;
+
 /**
  * Class ConditionField
  *
@@ -75,7 +77,10 @@ class ConditionField extends BaseField {
 	 * @return string Очищенный HTML-контент
 	 */
 	public function sanitize( mixed $value ): mixed {
-		return $this->sanitizeHtmlValue( $value );
+		// `[latexpage]` включает разбор формул QuickLaTeX на всей странице и
+		// ставится один раз, а не вокруг каждой формулы — поэтому его дописывает
+		// сохранение поля, а не кнопка «Вставить формулу» в редакторе.
+		return ( new LatexPageShortcodeService() )->ensure( $this->sanitizeHtmlValue( $value ) );
 	}
 
 	public function editorType(): string {

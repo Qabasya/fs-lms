@@ -105,10 +105,12 @@ class LessonAuthoringService {
 	 *
 	 * @param string $subjectKey
 	 * @param string $kind     work|task|assessment|article|lesson
-	 * @param string $source   subject|bank|all — источник задачи (для kind=task):
+	 * @param string $source   subject|bank|public|all — источник задачи (для kind=task):
 	 *                         subject = {key}_tasks + банк, СУЖЕННЫЙ до задач этого предмета
 	 *                         (задача может физически лежать в банке, оставаясь «предметной» —
 	 *                         Эпик 18, предмет без своего CPT); bank = только банк без сужения;
+	 *                         public = только опубликованные задачи предмета ({key}_tasks) —
+	 *                         те, что живут в тренажёре; банк не подмешивается;
 	 *                         all = {key}_tasks + весь банк без сужения.
 	 * @param string $search
 	 * @param string $position Номер позиции экзамена (для kind=task в конструкторе ЕГЭ/ОГЭ) — фильтрует
@@ -148,6 +150,20 @@ class LessonAuthoringService {
 	private function getTaskStepCandidates( string $subjectKey, string $source, string $search, string $position ): array {
 		if ( 'bank' === $source ) {
 			return $this->candidatesFrom( PostTypeResolver::problems(), $search, 'bank', true, $this->bankNumberQuery( $subjectKey, $position ), $position );
+		}
+
+		// Только опубликованные задачи предмета — те, что автор видит в тренажёре.
+		// Банк сюда не подмешивается: смысл источника в том, чтобы выбрать из
+		// публичного каталога, а не искать его вперемешку с черновиками банка.
+		if ( 'public' === $source ) {
+			return $this->candidatesFrom(
+				PostTypeResolver::tasks( $subjectKey ),
+				$search,
+				'subject',
+				true,
+				array_merge( $this->taskNumberQuery( $subjectKey, $position ), array( 'status' => array( 'publish' ) ) ),
+				$position
+			);
 		}
 
 		$subjectTasks = $this->candidatesFrom( PostTypeResolver::tasks( $subjectKey ), $search, 'subject', true, $this->taskNumberQuery( $subjectKey, $position ), $position );

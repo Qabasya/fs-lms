@@ -1,4 +1,5 @@
 @use 'variables' as *;
+@use '../shared/content-tables' as *;
 
 // ── Круглая кнопка-иконка с hover-акцентом
 @mixin circle-btn($size: rem(42)) {
@@ -424,26 +425,25 @@
 
 // ── Контентная таблица (блок «Таблица» WPBakery и таблицы текстового блока).
 // Шапка — фоном страницы: на белой карточке читается как её продолжение, без нового цвета.
+// Таблица статьи/WPBakery. Селектор здесь — сама таблица (миксин вешается на
+// `table`), а общий слой описывает её вместе с ячейками, поэтому оформление
+// ячеек берём из `fs-content-tables`, а сюда добавляем только то, что
+// специфично для статьи: подложка и выключка шапки.
 @mixin fs-content-table {
+  @include fs-content-tables;
+
   display: block;
   width: 100%;
   max-width: 100%;
   overflow-x: auto;
-  border-collapse: collapse;
   font-size: inherit;
   line-height: $line-height-tight;
 
   th,
-  td {
-    padding: $spacing-sm $spacing-md;
-    border: 1px solid currentcolor;
-    text-align: left;
-    vertical-align: top;
-  }
+  td { text-align: left; }
 
   th {
     background: $color-bg;
     color: $color-text;
-    font-weight: $font-bold;
   }
 }
