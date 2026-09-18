@@ -260,12 +260,15 @@ class PersonRepository {
 	 * @param int    $perPage Количество записей на странице
 	 * @param string $orderby Поле сортировки: 'name' (ФИО родителя) | 'child_name' (ФИО ребёнка)
 	 * @param string $order   Направление: ASC|DESC
+	 * @param string $search  Поиск по ФИО родителя или его ребёнка ({@see searchParentsClause()})
 	 *
 	 * @return PersonDTO[]
 	 */
-	public function listParents( int $page = 1, int $perPage = 20, string $orderby = 'name', string $order = 'ASC' ): array {
+	public function listParents( int $page = 1, int $perPage = 20, string $orderby = 'name', string $order = 'ASC', string $search = '' ): array {
 		$offset = ( max( 1, $page ) - 1 ) * $perPage;
 		$order  = 'DESC' === strtoupper( $order ) ? 'DESC' : 'ASC';
+
+		[ $searchSql, $searchArgs ] = $this->searchParentsClause( $search );
 
 		if ( 'child_name' === $orderby ) {
 			$sql = "SELECT p.*, (
@@ -277,13 +280,17 @@ class PersonRepository {
 					LIMIT 1
 				) AS child_name
 				FROM %i p
-				WHERE p.is_student = 0 AND p.expelled_at IS NULL
+				WHERE p.is_student = 0 AND p.expelled_at IS NULL {$searchSql}
 				ORDER BY child_name {$order}
 				LIMIT %d OFFSET %d";
-			$args = array( TableName::StudentRecords->prefixed(), $this->table, $this->table, $perPage, $offset );
+			$args = array_merge(
+				array( TableName::StudentRecords->prefixed(), $this->table, $this->table ),
+				$searchArgs,
+				array( $perPage, $offset )
+			);
 		} else {
-			$sql  = "SELECT * FROM %i WHERE is_student = 0 AND expelled_at IS NULL ORDER BY last_name {$order}, first_name {$order} LIMIT %d OFFSET %d";
-			$args = array( $this->table, $perPage, $offset );
+			$sql  = "SELECT p.* FROM %i p WHERE p.is_student = 0 AND p.expelled_at IS NULL {$searchSql} ORDER BY p.last_name {$order}, p.first_name {$order} LIMIT %d OFFSET %d";
+			$args = array_merge( array( $this->table ), $searchArgs, array( $perPage, $offset ) );
 		}
 
 		// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
@@ -295,15 +302,59 @@ class PersonRepository {
 	/**
 	 * Количество родителей (is_student=false, не удалённых).
 	 *
+	 * @param string $search Тот же поиск, что у {@see listParents()} — иначе
+	 *                       пагинация считалась бы по полному списку.
+	 *
 	 * @return int
 	 */
-	public function countParents(): int {
-		return (int) $this->wpdb->get_var(
-			$this->wpdb->prepare(
-				'SELECT COUNT(*) FROM %i WHERE is_student = 0 AND expelled_at IS NULL',
-				$this->table
-			)
-		);
+	public function countParents( string $search = '' ): int {
+		[ $searchSql, $searchArgs ] = $this->searchParentsClause( $search );
+
+		$sql  = "SELECT COUNT(*) FROM %i p WHERE p.is_student = 0 AND p.expelled_at IS NULL {$searchSql}";
+		$args = array_merge( array( $this->table ), $searchArgs );
+
+		// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+		return (int) $this->wpdb->get_var( $this->wpdb->prepare( $sql, ...$args ) );
+	}
+
+	/**
+	 * Условие поиска родителя: совпадение либо с его собственным ФИО, либо с
+	 * ФИО кого-то из его учеников — в таблице «Родители» есть обе колонки, и
+	 * ищут по любой из них.
+	 *
+	 * Сравнивается собранная строка «Фамилия Имя Отчество», а не отдельные
+	 * колонки: вводят ФИО целиком, а по колонкам такой запрос не совпал бы
+	 * ни с одной из них.
+	 *
+	 * Плейсхолдеры возвращаются в том порядке, в каком идут в SQL, — вызывающий
+	 * метод вставляет их аргументы ровно на место `{$searchSql}` в своём списке.
+	 *
+	 * @param string $search Строка поиска
+	 *
+	 * @return array{0: string, 1: array<int, string>} SQL-хвост WHERE и его аргументы
+	 */
+	private function searchParentsClause( string $search ): array {
+		$search = trim( $search );
+
+		if ( '' === $search ) {
+			return array( '', array() );
+		}
+
+		$like = '%' . $this->wpdb->esc_like( $search ) . '%';
+
+		$sql = " AND (
+				CONCAT_WS(' ', p.last_name, p.first_name, p.middle_name) LIKE %s
+				OR EXISTS (
+					SELECT 1
+					FROM %i srs
+					INNER JOIN %i cps ON cps.id = srs.student_person_id
+					WHERE srs.parent_person_id = p.id
+						AND srs.status = 'active'
+						AND CONCAT_WS(' ', cps.last_name, cps.first_name, cps.middle_name) LIKE %s
+				)
+			)";
+
+		return array( $sql, array( $like, TableName::StudentRecords->prefixed(), $this->table, $like ) );
 	}
 
 	/**

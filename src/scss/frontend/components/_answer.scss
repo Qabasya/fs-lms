@@ -33,7 +33,7 @@
   .fs-answer-value {
     flex: 1 1 auto;
     min-width: 0;
-    font-family: $font-code;
+    font-family: $font-family;
     font-size: $font-size-base;
     font-weight: $font-semibold;
     line-height: $line-height-relaxed;
@@ -43,7 +43,7 @@
   }
 
   // Приглашение на консультацию вместо ответа (задания с ручной проверкой):
-  // обычный текст со ссылкой, а не моноширинное значение ответа.
+  // текст со ссылкой, а не значение ответа.
   .fs-answer-note {
     flex: 1 1 auto;
     min-width: 0;

@@ -1,11 +1,22 @@
 import { renderChapterRows, renderAttachmentRows } from './video-editor.js';
+import { registerBlockButtons } from '../../../tinymce/editor-blocks.js';
 
 /**
  * inline-editor.js — тело инлайнового шага (text / video / broadcast):
- * TinyMCE/wp.editor с кнопками LaTeX, поля видео-шага, ссылка трансляции.
- * Вынесено из step-editor.js без изменения поведения: связки с инстансом
- * редактора передаются через `ctx` — `tinyState` (держатель id активного
- * TinyMCE, общий с destroyTiny), `scheduleSave`, `clearReviewFlag`.
+ * TinyMCE/wp.editor с кнопками блоков и LaTeX, поля видео-шага, ссылка
+ * трансляции. Вынесено из step-editor.js без изменения поведения: связки с
+ * инстансом редактора передаются через `ctx` — `tinyState` (держатель id
+ * активного TinyMCE, общий с destroyTiny), `scheduleSave`, `clearReviewFlag`.
+ *
+ * Таблица, блок кода и формула — общие с редактором задания кнопки
+ * (`tinymce/editor-blocks.js`). Регистрируются прямо в `setup`, а не внешним
+ * плагином: редактор шага поднимает `wp.editor.initialize()` из JS, и
+ * `mce_external_plugins` до него не доезжает. Плагин `table` из комплекта
+ * TinyMCE не используется — в сборке WordPress его нет, а с CDN он терялся
+ * вместе с кнопкой.
+ *
+ * Делимитеры формулы здесь мэтджаксовые (`\(…\)` / `\[…\]`): шаг урока
+ * рендерит MathJax, настроенный в `Core\Assets\BundleLoader`.
  */
 
 /**
@@ -82,9 +93,11 @@ export function inlineEditor( ed, step, ctx ) {
 			scheduleSave();
 		}
 
-		// Добавляет кнопки LaTeX в тулбар TinyMCE 4.
-		// Кнопки оборачивают выделение (или вставляют placeholder) в \(...\) / \[...\].
-		function setupLatexButtons( editor ) {
+		// Добавляет кнопки плагина в тулбар TinyMCE 4: блоки (таблица, код,
+		// формула) — общие с редактором задания, остальное — своё.
+		function setupButtons( editor ) {
+			registerBlockButtons( editor, { latex: 'mathjax' } );
+
 			editor.addButton( 'code_inline', {
 				text   : '</>',
 				tooltip: 'Инлайн-код',
@@ -100,22 +113,6 @@ export function inlineEditor( ed, step, ctx ) {
 				editor.formatter.register( 'code_inline', { inline: 'code' } );
 				ed.classList.remove( 'fs-rte-loading' );
 			} );
-			editor.addButton( 'latex_inline', {
-				text    : '\\(…\\)',
-				tooltip : 'Инлайн-формула LaTeX',
-				onclick() {
-					const sel = editor.selection.getContent( { format: 'text' } ).trim();
-					editor.selection.setContent( '\\(' + ( sel || '  ' ) + '\\)' );
-				},
-			} );
-			editor.addButton( 'latex_block', {
-				text    : '\\[…\\]',
-				tooltip : 'Блочная формула LaTeX',
-				onclick() {
-					const sel = editor.selection.getContent( { format: 'text' } ).trim();
-					editor.selection.setContent( '\\[' + ( sel || '  ' ) + '\\]' );
-				},
-			} );
 			editor.addButton( 'fs_media', {
 				icon   : 'image',
 				tooltip: 'Добавить медиафайл',
@@ -127,40 +124,38 @@ export function inlineEditor( ed, step, ctx ) {
 			editor.on( 'keyup paste cut', () => clearReviewFlag( step ) );
 		}
 
-		const cdnBase = 'https://cdn.jsdelivr.net/npm/tinymce@4.9.11/plugins';
-		const externalPlugins = {
-			table        : cdnBase + '/table/plugin.min.js',
-			searchreplace: cdnBase + '/searchreplace/plugin.min.js',
-			anchor       : cdnBase + '/anchor/plugin.min.js',
-		};
+		// TinyMCE вычищает класс у `<pre>` и `<table>` при переключении вкладок
+		// «Визуально»/«Текст», а без него блок кода на фронте остаётся
+		// неподсвеченным (`frontend/components/code-block.js` ищет именно класс).
+		const extendedElements = 'pre[class|id|style],table[class|id|style]';
 
 		if ( window.wp?.editor ) {
 			window.wp.editor.initialize( tid, {
 				tinymce: {
-					wpautop          : true,
-					plugins          : 'charmap colorpicker fullscreen hr lists paste tabfocus textcolor wordpress wpautoresize wpeditimage wplink wptextpattern',
-					external_plugins : externalPlugins,
-					toolbar1         : 'bold italic underline strikethrough code_inline | formatselect | forecolor | bullist numlist | blockquote hr | alignleft aligncenter alignright | link unlink | fs_media | table | removeformat | undo redo | fullscreen',
-					toolbar2         : 'charmap | anchor searchreplace | latex_inline latex_block',
-					height           : 400,
-					paste_postprocess: ( plugin, args ) => cleanPastedNode( args.node ),
-					setup            : setupLatexButtons,
+					wpautop                : true,
+					plugins                : 'charmap colorpicker fullscreen hr lists paste tabfocus textcolor wordpress wpautoresize wpeditimage wplink wptextpattern',
+					toolbar1               : 'bold italic underline strikethrough code_inline | formatselect | forecolor | bullist numlist | blockquote hr | alignleft aligncenter alignright | link unlink | fs_media | removeformat | undo redo | fullscreen',
+					toolbar2               : 'fs_table fs_code_block fs_formula | charmap',
+					height                 : 400,
+					extended_valid_elements: extendedElements,
+					paste_postprocess      : ( plugin, args ) => cleanPastedNode( args.node ),
+					setup                  : setupButtons,
 				},
 				quicktags   : { buttons: 'strong,em,link,ul,ol,li,code,close' },
 				mediaButtons: false,
 			} );
 		} else if ( window.tinymce ) {
 			window.tinymce.init( {
-				selector         : '#' + tid,
-				external_plugins : externalPlugins,
-				toolbar          : 'bold italic underline strikethrough code_inline | formatselect | bullist numlist | blockquote hr | alignleft aligncenter alignright | link | charmap | table | anchor searchreplace | removeformat | undo redo | fullscreen | latex_inline latex_block',
-				menubar          : false,
-				statusbar        : false,
-				plugins          : 'link lists hr charmap fullscreen',
-				height           : 400,
-				skin_url         : window.tinymce?.baseURL + '/skins/lightgray',
-				paste_postprocess: ( plugin, args ) => cleanPastedNode( args.node ),
-				setup            : setupLatexButtons,
+				selector               : '#' + tid,
+				toolbar                : 'bold italic underline strikethrough code_inline | formatselect | bullist numlist | blockquote hr | alignleft aligncenter alignright | link | charmap | fs_table fs_code_block fs_formula | removeformat | undo redo | fullscreen',
+				menubar                : false,
+				statusbar              : false,
+				plugins                : 'link lists hr charmap fullscreen',
+				height                 : 400,
+				skin_url               : window.tinymce?.baseURL + '/skins/lightgray',
+				extended_valid_elements: extendedElements,
+				paste_postprocess      : ( plugin, args ) => cleanPastedNode( args.node ),
+				setup                  : setupButtons,
 			} );
 		} else {
 			const area = ed.querySelector( '#' + tid );

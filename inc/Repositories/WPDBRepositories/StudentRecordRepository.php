@@ -467,7 +467,7 @@ class StudentRecordRepository {
 	/**
 	 * Возвращает уникальные student_person_id с пагинацией и сортировкой.
 	 *
-	 * @param array  $filters Массив фильтров (status, group_id, subject_key)
+	 * @param array  $filters Массив фильтров (status, group_id, subject_key, student_name)
 	 * @param int    $page    Номер страницы
 	 * @param int    $perPage Количество записей на странице
 	 * @param string $orderby Поле сортировки: student_name|enrolled_at
@@ -479,13 +479,12 @@ class StudentRecordRepository {
 		$offset = ( max( 1, $page ) - 1 ) * $perPage;
 		[ $where, $args ] = $this->buildWhereClause( $filters, 'sr.' );
 
-		$order       = 'ASC' === strtoupper( $order ) ? 'ASC' : 'DESC';
-		$joinPersons = 'student_name' === $orderby;
-		$orderExpr   = $joinPersons ? 'MIN(p.last_name), MIN(p.first_name)' : 'MAX(sr.enrolled_at)';
+		$order     = 'ASC' === strtoupper( $order ) ? 'ASC' : 'DESC';
+		$orderExpr = 'student_name' === $orderby ? 'MIN(p.last_name), MIN(p.first_name)' : 'MAX(sr.enrolled_at)';
 
 		$joinsSql = 'LEFT JOIN %i g ON g.id = sr.group_id';
 		$joinArgs = array( TableName::Groups->prefixed() );
-		if ( $joinPersons ) {
+		if ( $this->needsPersonsJoin( $filters, $orderby ) ) {
 			$joinsSql  .= ' LEFT JOIN %i p ON p.id = sr.student_person_id';
 			$joinArgs[] = TableName::Persons->prefixed();
 		}
@@ -529,12 +528,34 @@ class StudentRecordRepository {
 	 */
 	public function countDistinctStudents( array $filters = array() ): int {
 		[ $where, $args ] = $this->buildWhereClause( $filters, 'sr.' );
-		$sqlArgs = array_merge( array( $this->table, TableName::Groups->prefixed() ), array_slice( $args, 1 ) );
+
+		$joinsSql = 'LEFT JOIN %i g ON g.id = sr.group_id';
+		$joinArgs = array( TableName::Groups->prefixed() );
+		if ( $this->needsPersonsJoin( $filters ) ) {
+			$joinsSql  .= ' LEFT JOIN %i p ON p.id = sr.student_person_id';
+			$joinArgs[] = TableName::Persons->prefixed();
+		}
+
+		$sqlArgs = array_merge( array( $this->table ), $joinArgs, array_slice( $args, 1 ) );
 
 		// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
 		return (int) $this->wpdb->get_var(
-			$this->wpdb->prepare( "SELECT COUNT(DISTINCT sr.student_person_id) FROM %i sr LEFT JOIN %i g ON g.id = sr.group_id {$where}", ...$sqlArgs )
+			$this->wpdb->prepare( "SELECT COUNT(DISTINCT sr.student_person_id) FROM %i sr {$joinsSql} {$where}", ...$sqlArgs )
 		);
+	}
+
+	/**
+	 * Нужен ли JOIN таблицы лиц: по ней идёт и сортировка по ФИО, и поиск.
+	 * Счётчик и выборка обязаны решать это одинаково, иначе номера страниц
+	 * считаются по одному набору строк, а показывается другой.
+	 *
+	 * @param array  $filters Фильтры выборки
+	 * @param string $orderby Поле сортировки (у счётчика сортировки нет)
+	 *
+	 * @return bool
+	 */
+	private function needsPersonsJoin( array $filters, string $orderby = '' ): bool {
+		return 'student_name' === $orderby || '' !== trim( (string) ( $filters['student_name'] ?? '' ) );
 	}
 
 	/**
@@ -622,6 +643,16 @@ class StudentRecordRepository {
 		if ( ! empty( $filters['subject_key'] ) ) {
 			$where  .= ' AND g.subject_key = %s';
 			$args[] = (string) $filters['subject_key'];
+		}
+
+		// Поиск по ФИО ученика — по строке «Фамилия Имя Отчество» целиком, а не
+		// по отдельным колонкам: в таблице показано именно оно, и вводят его же.
+		// Требует JOIN лиц как `p` на стороне вызывающего метода
+		// ({@see needsPersonsJoin()}).
+		$studentName = trim( (string) ( $filters['student_name'] ?? '' ) );
+		if ( '' !== $studentName ) {
+			$where .= " AND CONCAT_WS(' ', p.last_name, p.first_name, p.middle_name) LIKE %s";
+			$args[] = '%' . $this->wpdb->esc_like( $studentName ) . '%';
 		}
 
 		// Фильтр по причине отчисления (совпадение по префиксу — учитывает "Другое:<текст>")

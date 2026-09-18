@@ -36,6 +36,7 @@ $perPage = 20;
 
 $subjectFilter = sanitize_key( wp_unslash( $_GET['subject_key'] ?? '' ) );
 $groupFilter   = (int) ( $_GET['group_id'] ?? 0 );
+$nameFilter    = trim( sanitize_text_field( wp_unslash( $_GET['student_name'] ?? '' ) ) );
 $orderby       = 'student_name' === sanitize_key( wp_unslash( $_GET['orderby'] ?? '' ) ) ? 'student_name' : 'enrolled_at';
 $order         = 'asc' === sanitize_key( wp_unslash( $_GET['order'] ?? '' ) ) ? 'ASC' : 'DESC';
 
@@ -45,6 +46,9 @@ if ( '' !== $subjectFilter ) {
 }
 if ( $groupFilter > 0 ) {
 	$filters['group_id'] = $groupFilter;
+}
+if ( '' !== $nameFilter ) {
+	$filters['student_name'] = $nameFilter;
 }
 
 $studentIds = $recordRepo->listDistinctStudentIds( $filters, $page, $perPage, $orderby, $order );
@@ -64,8 +68,9 @@ foreach ( $groupRepo->findAll() as $g ) {
 $pageSlug      = sanitize_key( $_GET['page'] ?? '' );
 $baseUrl       = add_query_arg( array( 'page' => $pageSlug, 'tab' => 'tab-2' ), admin_url( 'admin.php' ) );
 $activeFilters = array_filter( array(
-	'subject_key' => $subjectFilter,
-	'group_id'    => $groupFilter ?: '',
+	'subject_key'  => $subjectFilter,
+	'group_id'     => $groupFilter ?: '',
+	'student_name' => $nameFilter,
 ) );
 $sortUrl    = add_query_arg( $activeFilters, $baseUrl );
 $sortParams = 'student_name' === $orderby
@@ -92,6 +97,12 @@ $filterUrl  = add_query_arg( array_merge( $activeFilters, $sortParams ), $baseUr
 	<form method="get" action="<?php echo esc_url( admin_url( 'admin.php' ) ); ?>" class="fs-logs-filters">
 		<input type="hidden" name="page" value="<?php echo esc_attr( $pageSlug ); ?>">
 		<input type="hidden" name="tab"  value="tab-2">
+
+		<?php // Поиск по ФИО целиком: в таблице показано «Фамилия Имя Отчество», его же и вводят. ?>
+		<label for="fs-students-search" class="screen-reader-text">Поиск по ФИО ученика</label>
+		<input type="search" id="fs-students-search" name="student_name"
+			value="<?php echo esc_attr( $nameFilter ); ?>"
+			placeholder="ФИО ученика">
 
 		<?php render_fs_select( array(
 			'name'      => 'subject_key',

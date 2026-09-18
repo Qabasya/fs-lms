@@ -158,9 +158,15 @@ ThemeCompatService::header();
 						<?php if ( ! empty( $files ) ) : ?>
 							<div class="fs-task-files">
 								<?php foreach ( $files as $file ) : ?>
-									<?php // download: браузер иначе открывает .txt/.pdf во вкладке вместо скачивания. ?>
+									<?php
+									// download: браузер иначе открывает .txt/.pdf во вкладке вместо скачивания.
+									// target: у файла с чужого домена (поле «Файл задания» принимает любую
+									// прямую ссылку) браузер атрибут download игнорирует — без новой вкладки
+									// клик уводил бы со страницы задания.
+									?>
 									<a href="<?php echo esc_url( $file['url'] ); ?>" class="fs-file-link"
-										download="<?php echo esc_attr( $file['name'] ); ?>">
+										download="<?php echo esc_attr( $file['name'] ); ?>"
+										target="_blank" rel="noopener">
 										<span class="fs-file-icon" aria-hidden="true">
 											<?php echo Icon::File->svg( 17 ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
 										</span>

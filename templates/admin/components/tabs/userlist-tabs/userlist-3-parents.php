@@ -31,15 +31,19 @@ $perPage = 20;
 $orderby = 'child_name' === sanitize_key( wp_unslash( $_GET['orderby'] ?? '' ) ) ? 'child_name' : 'name';
 $order   = 'desc' === sanitize_key( wp_unslash( $_GET['order'] ?? '' ) ) ? 'DESC' : 'ASC';
 
-$total         = $personRepo->countParents();
+$searchFilter = trim( sanitize_text_field( wp_unslash( $_GET['parent_search'] ?? '' ) ) );
+
+$total         = $personRepo->countParents( $searchFilter );
 $pages         = $total > 0 ? (int) ceil( $total / $perPage ) : 1;
-$parentPersons = $personRepo->listParents( $page, $perPage, $orderby, $order );
+$parentPersons = $personRepo->listParents( $page, $perPage, $orderby, $order, $searchFilter );
 
 $pageSlug  = sanitize_key( $_GET['page'] ?? '' );
 $baseUrl   = add_query_arg( array( 'page' => $pageSlug, 'tab' => 'tab-3' ), admin_url( 'admin.php' ) );
-$sortUrl   = $baseUrl;
-$sortParams = array( 'orderby' => $orderby, 'order' => strtolower( $order ) );
-$filterUrl  = add_query_arg( $sortParams, $baseUrl );
+// Поиск должен пережить и сортировку по колонке, и переход по страницам.
+$activeFilters = array_filter( array( 'parent_search' => $searchFilter ) );
+$sortUrl       = add_query_arg( $activeFilters, $baseUrl );
+$sortParams    = array( 'orderby' => $orderby, 'order' => strtolower( $order ) );
+$filterUrl     = add_query_arg( array_merge( $activeFilters, $sortParams ), $baseUrl );
 
 ?>
 
@@ -55,6 +59,28 @@ $filterUrl  = add_query_arg( $sortParams, $baseUrl );
 			<button type="button" id="js-parents-bulk-apply" class="button action">Применить</button>
 		</div>
 	</div>
+
+	<form method="get" action="<?php echo esc_url( admin_url( 'admin.php' ) ); ?>" class="fs-logs-filters">
+		<input type="hidden" name="page" value="<?php echo esc_attr( $pageSlug ); ?>">
+		<input type="hidden" name="tab"  value="tab-3">
+
+		<?php // Поиск по ФИО целиком — и по родителю, и по его ученику: в таблице показано и то, и другое. ?>
+		<label for="fs-parents-search" class="screen-reader-text">Поиск по ФИО родителя или ученика</label>
+		<input type="search" id="fs-parents-search" name="parent_search"
+			value="<?php echo esc_attr( $searchFilter ); ?>"
+			placeholder="ФИО родителя или ученика">
+
+		<button type="submit" class="button">Применить</button>
+
+		<?php if ( '' !== $searchFilter ) : ?>
+			<a href="<?php echo esc_url( $baseUrl ); ?>" class="button">Сбросить</a>
+		<?php endif; ?>
+	</form>
+
+	<p class="fs-logs-summary">
+		Найдено родителей: <strong><?php echo number_format_i18n( $total ); ?></strong>
+		<?php if ( '' !== $searchFilter ) : ?><em>(с поиском)</em><?php endif; ?>
+	</p>
 
 	<table class="wp-list-table widefat fixed striped fs-table fs-table--applications">
 

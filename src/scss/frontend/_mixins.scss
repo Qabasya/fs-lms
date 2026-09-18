@@ -149,8 +149,8 @@
 }
 
 // ── Первичная кнопка (accent); hover-opacity отличается (.85/.88) → параметр
-@mixin fs-btn-primary($hover-opacity) {
-  background: $color-accent;
+@mixin fs-btn-primary($hover-opacity, $background: $color-accent) {
+  background: $background;
   color: $color-white;
   border: none;
   border-radius: $border-radius-sm;
@@ -164,8 +164,10 @@
 }
 
 // ── Кнопка отправки карточки-формы (!important сохранён); box-sizing/margin задаются на месте
-@mixin fs-form-submit($padding) {
-  @include fs-btn-primary(0.88);
+// `$background` — для форм, стоящих на обычной странице темы (заявка, join):
+// их кнопка берёт акцент темы, а не фирменный навы макета банка заданий.
+@mixin fs-form-submit($padding, $background: $color-accent) {
+  @include fs-btn-primary(0.88, $background);
 
   width: 100% !important;
   padding: $padding !important;
@@ -424,26 +426,13 @@
 }
 
 // ── Контентная таблица (блок «Таблица» WPBakery и таблицы текстового блока).
-// Шапка — фоном страницы: на белой карточке читается как её продолжение, без нового цвета.
-// Таблица статьи/WPBakery. Селектор здесь — сама таблица (миксин вешается на
-// `table`), а общий слой описывает её вместе с ячейками, поэтому оформление
-// ячеек берём из `fs-content-tables`, а сюда добавляем только то, что
-// специфично для статьи: подложка и выключка шапки.
+// Селектор здесь — сама таблица (миксин вешается на `table`), поэтому берём
+// «поштучные» половинки общего слоя, а не его блочную обёртку; своего у
+// статьи остаётся только типографика — кегль и интерлиньяж текста статьи.
 @mixin fs-content-table {
-  @include fs-content-tables;
+  @include fs-content-table-box;
+  @include fs-content-table-parts;
 
-  display: block;
-  width: 100%;
-  max-width: 100%;
-  overflow-x: auto;
   font-size: inherit;
   line-height: $line-height-tight;
-
-  th,
-  td { text-align: left; }
-
-  th {
-    background: $color-bg;
-    color: $color-text;
-  }
 }

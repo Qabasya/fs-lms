@@ -63,7 +63,7 @@
     border-top: 1px solid $color-border-light;
   }
 
-  li::marker { color: $color-muted-2; }
+  li::marker { color: inherit; }
 
   ul, ol { margin-top: rem(11); }
   img    { display: block; max-width: 100%; height: auto; margin-inline: auto; }

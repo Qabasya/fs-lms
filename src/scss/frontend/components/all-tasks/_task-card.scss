@@ -51,7 +51,7 @@
     @include fs-content-tables;
     @include fs-content-lists;
 
-    li::marker { color: $color-muted-2; }
+    li::marker { color: inherit; }
 
     td, th { font-size: $font-size-base; }
   }

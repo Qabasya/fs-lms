@@ -3,45 +3,91 @@
 // тренажёре), статья, шаг курса, страница контрольной.
 
 // Таблица в условии — часть самого условия (кодовая таблица, соответствия,
-// данные), а не декоративный блок интерфейса: её рамка обязана быть видимой
-// и одинаковой везде, иначе одно и то же задание читается по-разному в
+// данные), а не декоративный блок интерфейса: оформление обязано быть
+// одинаковым везде, иначе одно и то же задание читается по-разному в
 // тренажёре, в уроке и на контрольной.
 
-// Цвет рамки — «чернила» контента: бандл с темой кабинета отдаёт свой --ink,
-// публичные страницы получают ту же ступень фолбэком из shared/_tokens.
+// Поверхности и линии — «чернила» контента: бандл с темой кабинета отдаёт
+// свои --surface/--line/--ink, публичные страницы получают те же ступени
+// фолбэком из shared/_tokens.
+
+// Миксин разделён надвое, потому что вешают его по-разному: на блок контента
+// (`.fs-task-condition`, где таблицы ищутся внутри) и на саму таблицу
+// (`.fs-article-table`, `.wpb_wrapper table`). Свойства таблицы и её частей
+// от этого не меняются — меняется только точка включения.
 
 @use 'tokens' as t;
 
-/// @param {Length} $width — толщина рамки ячейки
-@mixin fs-content-tables($width: t.$table-border-width) {
-	table {
-		width: auto;
-		max-width: 100%;
-		border-collapse: collapse;
-		margin: t.$spacing-md 0;
+/// Свойства самой таблицы. Включается НА элемент `table`.
+@mixin fs-content-table-box {
+	// Своя рамка перебивает презентационный `border="1"`, который вешают
+	// атрибутом и редактор, и вставка из Word/Excel: без неё браузер рисовал
+	// вокруг всего блока собственную outset-рамку поверх оформления.
+	background: var(--surface, #{t.$surface});
+	border: 1px solid var(--line, #{t.$line});
+	border-radius: t.$border-radius-xl;
+	box-shadow: t.$shadow-card;
+	color: var(--ink, #{t.$ink});
+	border-collapse: collapse;
+	border-spacing: 0;
 
-		// Широкая таблица не должна рвать колонку текста: на узком экране
-		// прокручивается сама, а не растягивает страницу.
-		display: block;
-		overflow-x: auto;
-	}
+	// Блок-обёртка: широкая таблица прокручивается сама, а не растягивает
+	// колонку текста. `fit-content` + `auto`-поля держат её по центру колонки
+	// и не растягивают узкую кодовую таблицу на всю ширину.
+	display: block;
+	width: fit-content;
+	max-width: 100%;
+	margin: t.$spacing-3xl auto;
+	overflow-x: auto;
+}
 
+/// Ячейки, шапка и строки. Селекторы отсчитываются от таблицы, поэтому
+/// включается там же, где {@see fs-content-table-box}.
+@mixin fs-content-table-parts {
 	th,
 	td {
-		padding: t.$spacing-sm t.$spacing-md;
-		border: $width solid var(--ink, #{t.$ink});
+		padding: t.$spacing-md t.$spacing-lg;
+		text-align: left;
+		border: 0;
+		border-bottom: 1px solid var(--line-2, #{t.$line-2});
 		vertical-align: middle;
 	}
 
-	th { font-weight: t.$font-bold; }
+	// Вертикальные разделители — только между колонками: крайние линии уже
+	// нарисованы рамкой самой таблицы.
+	th + th,
+	td + td { border-left: 1px solid var(--line-2, #{t.$line-2}); }
 
-	// Таблица, вставленная кнопкой редактора: по центру колонки и с выключкой
-	// ячеек по центру — так набирают кодовые таблицы условий. Авторские таблицы
-	// статей это не трогает: класс ставит только кнопка.
-	table.fs-table-center {
-		margin-inline: auto;
+	th {
+		background: var(--surface-2, #{t.$surface-2});
+		font-weight: t.$font-semibold;
+	}
 
+	tbody tr { transition: background-color t.$transition-fast; }
+	tbody tr:hover { background: var(--surface-2, #{t.$surface-2}); }
+
+	// Нижняя граница последней строки совпала бы с рамкой таблицы.
+	tbody tr:last-child td { border-bottom: 0; }
+
+	// Первый столбец таблицы соответствий — подпись строки, а не данные.
+	tbody td:first-child { font-weight: t.$font-medium; }
+
+	// Таблица, вставленная кнопкой редактора: выключка ячеек по центру —
+	// так набирают кодовые таблицы условий. Авторские таблицы статей это
+	// не трогает: класс ставит только кнопка.
+	&.fs-table-center th,
+	&.fs-table-center td { text-align: center; }
+
+	@media (max-width: t.$bp-mobile) {
 		th,
-		td { text-align: center; }
+		td { padding: t.$spacing-sm t.$spacing-md; }
+	}
+}
+
+/// Блок контента целиком: таблицы ищутся внутри.
+@mixin fs-content-tables {
+	table {
+		@include fs-content-table-box;
+		@include fs-content-table-parts;
 	}
 }

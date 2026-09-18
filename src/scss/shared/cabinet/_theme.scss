@@ -15,7 +15,7 @@
 
 :root {
   // ── Акцент
-  --accent:        #3b5bdb;
+  --accent:        #{t.$hue-indigo};
   --accent-600:    #364fc7;
   --accent-700:    #2f44b3;
   --accent-soft:   #edf0fe;

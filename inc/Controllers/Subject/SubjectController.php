@@ -6,6 +6,7 @@ namespace Inc\Controllers\Subject;
 
 use Inc\Controllers\System\AjaxController;
 
+use Inc\Controllers\Builders\SubjectTaskListFilters;
 use Inc\Callbacks\Subject\SubjectBundleCallbacks;
 use Inc\Callbacks\Subject\SubjectCrudCallbacks;
 use Inc\Callbacks\Subject\SubjectDataCallbacks;
@@ -29,6 +30,7 @@ use Inc\Services\Subject\ContentCacheService;
 use Inc\Services\Subject\PostTypeResolver;
 use Inc\Services\Subject\TaskNumberTermGuard;
 use Inc\Shared\Traits\NumericSorter;
+use Inc\Shared\Traits\TemplateRenderer;
 
 /**
  * Class SubjectController
@@ -51,6 +53,7 @@ use Inc\Shared\Traits\NumericSorter;
  */
 class SubjectController extends AjaxController {
 	use NumericSorter;
+	use TemplateRenderer;
 
 	/**
 	 * Конструктор.
@@ -70,6 +73,7 @@ class SubjectController extends AjaxController {
 	 * @param TemplateCallbacks            $task_page_callbacks      Коллбеки фронтенда заданий
 	 * @param TaskNumberTermGuard          $task_number_guard        Валидация терминов таксономии "Номера заданий"
 	 * @param SubjectBundleCallbacks       $bundle_callbacks         Коллбеки полного пакета переноса предмета
+	 * @param SubjectTaskListFilters       $task_list_filters        Фильтры нативной таблицы заданий предмета
 	 */
 	public function __construct(
 		private readonly SubjectRepository $subjects,
@@ -88,6 +92,7 @@ class SubjectController extends AjaxController {
 		private readonly LogEventDispatcherInterface $logEvents,
 		private readonly TaskNumberTermGuard $task_number_guard,
 		private readonly SubjectBundleCallbacks $bundle_callbacks,
+		private readonly SubjectTaskListFilters $task_list_filters,
 	) {
 		parent::__construct();
 	}
@@ -148,8 +153,31 @@ class SubjectController extends AjaxController {
 		// 'template_include' — фильтр для подмены шаблона темы
 		add_filter( 'template_include', array( $this->task_page_callbacks, 'loadTaskFrontendTemplate' ) );
 
+		// Фильтры над нативной таблицей заданий предмета.
+		add_action( 'restrict_manage_posts', array( $this, 'renderTaskListFilters' ), 10, 2 );
+
 		// Кастомный статус «В архиве» для банков контента (жизненный цикл, T1.27).
 		add_action( 'init', array( $this, 'registerArchivedStatus' ) );
+	}
+
+	/**
+	 * Фильтры над таблицей заданий предмета (хук restrict_manage_posts).
+	 *
+	 * Отбор по выбранным значениям делает сам WordPress: таксономии предмета
+	 * зарегистрированы с `query_var`, а `author` — штатный параметр экрана
+	 * `edit.php`. Поэтому своего `pre_get_posts` тут нет.
+	 *
+	 * @param string $post_type CPT экрана
+	 * @param string $which     Позиция панели: top|bottom
+	 *
+	 * @return void
+	 */
+	public function renderTaskListFilters( string $post_type, string $which = 'top' ): void {
+		if ( 'top' !== $which || ! PostTypeResolver::isTaskPostType( $post_type ) ) {
+			return;
+		}
+
+		$this->render( 'admin/subject/task-filters', $this->task_list_filters->data( $post_type ) );
 	}
 
 	/**

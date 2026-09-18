@@ -105,12 +105,7 @@
   @include fs-content-tables;
 
   th,
-  td {
-    font-size: rem(13.5);
-    text-align: left;
-  }
-
-  th { background: var(--surface-2); }
+  td { font-size: rem(13.5); }
 
   img {
     max-width: 100%;

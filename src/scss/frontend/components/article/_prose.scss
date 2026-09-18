@@ -62,7 +62,7 @@
     li > ul,
     li > ol { margin-top: $spacing-xs; }
 
-    li::marker { color: $color-muted-2; }
+    li::marker { color: inherit; }
 
     img {
       max-width: 100%;

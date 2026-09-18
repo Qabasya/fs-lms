@@ -99,7 +99,7 @@
   }
 
   &__submit {
-    @include fs-form-submit(rem(10) rem(16));
+    @include fs-form-submit(rem(10) rem(16), $color-accent-theme);
 
     box-sizing: border-box;
   }

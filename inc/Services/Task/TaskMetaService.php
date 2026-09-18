@@ -83,13 +83,44 @@ class TaskMetaService {
 			}
 
 			$materials[] = array(
-				'name' => get_the_title( $attachmentId ) ?: "Файл #{$attachmentId}",
+				'name' => $this->getAttachmentFileName( $attachmentId, $url ),
 				'url'  => $url,
 				'size' => $this->getFileSize( $url ),
 			);
 		}
 
 		return $materials;
+	}
+
+	/**
+	 * Имя вложения для чипа файла — оно же значение атрибута `download`.
+	 *
+	 * Заголовок вложения в медиатеке расширения не содержит: WordPress делает
+	 * его из имени файла, срезая расширение, а автор и вовсе пишет что угодно.
+	 * Браузер сохраняет файл ровно под значением `download`, поэтому по чипу
+	 * скачивался файл без расширения — система не знала, чем его открыть.
+	 * Расширение дописываем из самого файла.
+	 *
+	 * @param int    $attachmentId ID вложения медиатеки
+	 * @param string $url          Ссылка на файл вложения
+	 *
+	 * @return string
+	 */
+	private function getAttachmentFileName( int $attachmentId, string $url ): string {
+		$file_name = $this->getFileNameFromUrl( $url );
+		$title     = trim( (string) get_the_title( $attachmentId ) );
+
+		if ( '' === $title ) {
+			return $file_name;
+		}
+
+		$extension = pathinfo( $file_name, PATHINFO_EXTENSION );
+
+		if ( '' === $extension || str_ends_with( strtolower( $title ), '.' . strtolower( $extension ) ) ) {
+			return $title;
+		}
+
+		return $title . '.' . $extension;
 	}
 
 	/**
