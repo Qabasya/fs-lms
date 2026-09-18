@@ -57,6 +57,9 @@ if (!class_exists('WP_User')) {
 }
 
 // WP function stubs
+if (!function_exists('wp_basename')) {
+    function wp_basename(string $path, string $suffix = ''): string { return basename($path, $suffix); }
+}
 if (!function_exists('get_current_user_id')) {
     // Управляется $GLOBALS['_fs_test_user_id'] (сбрасывается в fs_test_reset_ajax).
     function get_current_user_id(): int { return $GLOBALS['_fs_test_user_id'] ?? 0; }

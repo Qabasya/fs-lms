@@ -130,7 +130,9 @@ class TaskBundleServiceTest extends TestCase {
 			'task_21_condition' => 'Условие 21',
 			'task_21_answer'    => 'Ответ 21',
 		) );
-		$this->posts->method( 'getMeta' )->willReturn( array() );
+		$this->posts->method( 'getMeta' )->willReturnCallback(
+			static fn ( int $id, string $key ) => PostMetaName::BankTaskSubject->value === $key ? 'inf' : array()
+		);
 
 		$insertedTypes = array();
 		$this->posts->method( 'insertBypassingHooks' )
