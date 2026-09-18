@@ -61,7 +61,7 @@ class SubjectDataCallbacks extends BaseController {
 	 * @return void
 	 */
 	public function ajaxGetPostsTable(): void {
-		$this->authorize( Nonce::Subject, Capability::Admin );
+		$this->authorize( Nonce::Subject, Capability::ManageSubjects );
 
 		// Санитизация параметров запроса
 		$subject_key = $this->sanitizeKey( 'subject_key' );
@@ -112,7 +112,7 @@ class SubjectDataCallbacks extends BaseController {
 	 * @return void
 	 */
 	public function ajaxGetTasksByNumber(): void {
-		$this->authorize( Nonce::Subject, Capability::Admin );
+		$this->authorize( Nonce::Subject, Capability::ManageSubjects );
 
 		$subject_key = $this->requireKey( 'subject_key' );
 		$term_id    = $this->sanitizeInt( 'term_id' );
@@ -147,7 +147,7 @@ class SubjectDataCallbacks extends BaseController {
 	 * @return void
 	 */
 	public function ajaxGetRecentTasks(): void {
-		$this->authorize( Nonce::Subject, Capability::Admin );
+		$this->authorize( Nonce::Subject, Capability::ManageSubjects );
 
 		$subject_key = $this->requireKey( 'subject_key' );
 
@@ -183,7 +183,7 @@ class SubjectDataCallbacks extends BaseController {
 	 * @return void
 	 */
 	public function ajaxGetRecentArticles(): void {
-		$this->authorize( Nonce::Subject, Capability::Admin );
+		$this->authorize( Nonce::Subject, Capability::ManageSubjects );
 
 		$subject_key = $this->requireKey( 'subject_key' );
 

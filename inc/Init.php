@@ -243,7 +243,7 @@ final class Init {
 
 		// Синхронизация capabilities администратора при несоответствии версии.
 		// Запись в БД происходит только один раз при смене FS_LMS_CAPS_VERSION.
-		$capsVersion = '5.5'; // 5.5: − роль «Маркетолог» (lms_market), нерабочая (см. Tasks.md)
+		$capsVersion = '5.6'; // 5.6: + ManageSubjects (раздел «Предметы» методисту и офису)
 		if ( get_option( OptionName::CapsVersion->value ) !== $capsVersion ) {
 			$roleManager = $container->get( \Inc\Managers\Person\RoleManager::class );
 			$roleManager->registerAll();

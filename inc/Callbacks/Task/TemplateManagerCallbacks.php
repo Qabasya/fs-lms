@@ -7,6 +7,7 @@ namespace Inc\Callbacks\Task;
 use Inc\Core\BaseController;
 use Inc\DTO\Task\TaskTemplateAssignmentDTO;
 use Inc\DTO\Task\TaskTypeBoilerplateDTO;
+use Inc\Enums\Access\Capability;
 use Inc\Enums\Wp\Nonce;
 use Inc\Enums\Subject\TaskTemplate;
 use Inc\Managers\Wp\PostManager;
@@ -63,7 +64,7 @@ class TemplateManagerCallbacks extends BaseController {
 	 * @return void
 	 */
 	public function ajaxUpdateTermTemplate(): void {
-		$this->authorize( Nonce::Subject );
+		$this->authorize( Nonce::Subject, Capability::ManageSubjects );
 
 		$term_id     = $this->requireInt( 'term_id', error: 'Недостаточно данных для обновления' );
 		$template_id = $this->requireText( 'template', error: 'Недостаточно данных для обновления' );
@@ -100,7 +101,7 @@ class TemplateManagerCallbacks extends BaseController {
 	 * @return void
 	 */
 	public function ajaxGetTemplateStructure(): void {
-		$this->authorize( Nonce::Subject );
+		$this->authorize( Nonce::Subject, Capability::ManageSubjects );
 
 		$subject_key = $this->requireKey( 'subject_key', 'GET', 'Недостаточно данных. Error code: #TMC108' );
 		$term_slug   = $this->requireKey( 'term_slug', 'GET', 'Недостаточно данных. Error code: #TMC108' );
@@ -150,7 +151,7 @@ class TemplateManagerCallbacks extends BaseController {
 	 * @return void
 	 */
 	public function ajaxSaveTaskBoilerplate(): void {
-		$this->authorize( Nonce::Subject );
+		$this->authorize( Nonce::Subject, Capability::ManageSubjects );
 
 		$subject_key = $this->requireKey( 'subject_key', error: 'Недостаточно данных. Error code: #TMC172' );
 		$term_slug   = $this->requireKey( 'term_slug', error: 'Недостаточно данных. Error code: #TMC173' );
@@ -180,7 +181,7 @@ class TemplateManagerCallbacks extends BaseController {
 	 * @return void
 	 */
 	public function ajaxGetTaskBoilerplate(): void {
-		$this->authorize( Nonce::Subject );
+		$this->authorize( Nonce::Subject, Capability::ManageSubjects );
 
 		$subject_key = $this->requireKey( 'subject_key', 'GET', 'Недостаточно данных. Error code: #TMC206' );
 		$term_slug   = $this->requireKey( 'term_slug', 'GET', 'Недостаточно данных. Error code: #TMC207' );

@@ -4,6 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\Registrars;
 
+use Inc\Enums\Access\Capability;
 use Inc\Managers\Wp\TaxonomyManager;
 
 /**
@@ -104,8 +105,32 @@ class SubjectTaxonomyRegistrar {
 				'show_admin_column' => true,
 				'show_in_rest'      => true,
 				'rewrite'           => array( 'slug' => $slug ),
+				'capabilities'      => self::termCapabilities(),
 				'meta_box_cb'       => $this->buildMetaBoxCallback( $display_type ),
 			)
+		);
+	}
+
+	/**
+	 * Права управления термами таксономий предмета.
+	 *
+	 * По умолчанию `register_taxonomy()` требует `manage_categories` — штатное
+	 * право рубрик блога, которого нет ни у методиста, ни у офиса. Из-за этого
+	 * раздел «Предметы» открывался, а добавить номер задания или терм своей
+	 * таксономии было нечем. Управление термами приравнено к праву самого
+	 * раздела ({@see Capability::ManageSubjects}), а назначение терма записи —
+	 * к праву редактировать банк (`edit_fs_lms_contents`, тот же
+	 * `capability_type`, что у заданий): термы проставляет тот, кто правит
+	 * задание, и отдельного права для этого заводить незачем.
+	 *
+	 * @return array<string, string>
+	 */
+	private static function termCapabilities(): array {
+		return array(
+			'manage_terms' => Capability::ManageSubjects->value,
+			'edit_terms'   => Capability::ManageSubjects->value,
+			'delete_terms' => Capability::ManageSubjects->value,
+			'assign_terms' => 'edit_fs_lms_contents',
 		);
 	}
 
@@ -214,6 +239,7 @@ class SubjectTaxonomyRegistrar {
 				'query_var'         => true,
 				'rewrite'           => array( 'slug' => $slug ),
 				'show_in_rest'      => true, // Важно для корректной работы современных запросов
+				'capabilities'      => self::termCapabilities(),
 			),
 			$extra_args
 		);

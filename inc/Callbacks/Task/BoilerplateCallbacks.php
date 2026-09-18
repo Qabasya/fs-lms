@@ -10,6 +10,7 @@ use Inc\DTO\Log\Events\EntityChangedEvent;
 use Inc\DTO\Task\TaskTypeBoilerplateDTO;
 use Inc\Enums\Log\EntityType;
 use Inc\Enums\Log\LogEvent;
+use Inc\Enums\Access\Capability;
 use Inc\Enums\Wp\Nonce;
 use Inc\Enums\Log\OperationType;
 use Inc\Repositories\OptionsRepositories\BoilerplateRepository;
@@ -60,7 +61,7 @@ class BoilerplateCallbacks extends BaseController {
 	public function ajaxSaveBoilerplate(): void {
 		// authorize() — метод трейта Authorizer
 		// Проверяет nonce (wp_verify_nonce) и права текущего пользователя
-		$this->authorize( Nonce::SaveBoilerplate );
+		$this->authorize( Nonce::SaveBoilerplate, Capability::ManageSubjects );
 
 		// requireKey() — требует наличия непустого ключа в POST-данных
 		$subject_key = $this->requireKey( 'subject_key', error: 'Предмет и тип задания обязательны' );
@@ -122,7 +123,7 @@ class BoilerplateCallbacks extends BaseController {
 	 */
 	public function ajaxDeleteBoilerplate(): void {
 		// Проверка прав доступа
-		$this->authorize( Nonce::SaveBoilerplate );
+		$this->authorize( Nonce::SaveBoilerplate, Capability::ManageSubjects );
 
 		// sanitizeKey() — очищает строку для использования в качестве ключа/слага
 		$subject_key = $this->sanitizeKey( 'subject_key' );

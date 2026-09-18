@@ -101,7 +101,10 @@ class DeletionCallbacks extends BaseController {
 	 * @return void
 	 */
 	public function ajaxCheckSubjectDeletion(): void {
-		$this->authorize( Nonce::Subject, Capability::Admin );
+		// Право раздела «Предметы», а не `Admin`: проверку зовёт вкладка предмета
+		// перед удалением, и снос выполняет `SubjectCrudCallbacks::ajaxDeleteSubject()`
+		// с тем же правом — разъедься они, кнопка «Удалить» упиралась бы в 403.
+		$this->authorize( Nonce::Subject, Capability::ManageSubjects );
 
 		$subjectKey = $this->sanitizeKey( 'subject_key' );
 

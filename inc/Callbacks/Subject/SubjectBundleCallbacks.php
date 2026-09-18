@@ -58,7 +58,7 @@ class SubjectBundleCallbacks extends BaseController {
 	 * @return void
 	 */
 	public function ajaxExportSubjectBundle(): void {
-		$this->authorize( Nonce::SubjectBundle, Capability::Admin );
+		$this->authorize( Nonce::SubjectBundle, Capability::ManageSubjects );
 
 		$key     = $this->requireKey( 'key', error: 'Не выбран предмет для экспорта.' );
 		// phpcs:ignore WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput -- нонс проверен в authorize() выше; каждое поле санитизирует BundleOptionsDTO::fromRequest().
@@ -82,7 +82,7 @@ class SubjectBundleCallbacks extends BaseController {
 	 * @return void
 	 */
 	public function ajaxPreviewSubjectBundle(): void {
-		$this->authorize( Nonce::SubjectBundle, Capability::Admin );
+		$this->authorize( Nonce::SubjectBundle, Capability::ManageSubjects );
 
 		try {
 			$report = $this->packager->preview( $this->uploadedArchivePath() );
@@ -100,7 +100,7 @@ class SubjectBundleCallbacks extends BaseController {
 	 * @return void
 	 */
 	public function ajaxImportSubjectBundle(): void {
-		$this->authorize( Nonce::SubjectBundle, Capability::Admin );
+		$this->authorize( Nonce::SubjectBundle, Capability::ManageSubjects );
 
 		try {
 			$report = $this->packager->unpack( $this->uploadedArchivePath() );

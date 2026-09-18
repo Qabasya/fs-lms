@@ -5,6 +5,7 @@ declare( strict_types=1 );
 namespace Inc\Callbacks\Subject;
 
 use Inc\Core\BaseController;
+use Inc\Enums\Access\Capability;
 use Inc\Enums\Wp\Nonce;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Services\Log\ExportLogWriter;
@@ -58,7 +59,7 @@ class SubjectImportExportCallbacks extends BaseController {
 	 */
 	public function ajaxExportSubject(): void {
 		// Проверка прав доступа и nonce
-		$this->authorize( Nonce::Subject );
+		$this->authorize( Nonce::Subject, Capability::ManageSubjects );
 
 		// Получение и проверка существования предмета
 		$key     = $this->requireKey( 'key', error: 'ID предмета обязателен' );
@@ -84,7 +85,7 @@ class SubjectImportExportCallbacks extends BaseController {
 	 * @return void
 	 */
 	public function ajaxPreviewSubjectImport(): void {
-		$this->authorize( Nonce::Subject );
+		$this->authorize( Nonce::Subject, Capability::ManageSubjects );
 
 		$data = $this->decodeImportPayload();
 
@@ -105,7 +106,7 @@ class SubjectImportExportCallbacks extends BaseController {
 	 */
 	public function ajaxImportSubject(): void {
 		// Проверка прав доступа
-		$this->authorize( Nonce::Subject );
+		$this->authorize( Nonce::Subject, Capability::ManageSubjects );
 
 		$data = $this->decodeImportPayload();
 

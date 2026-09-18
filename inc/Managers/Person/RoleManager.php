@@ -25,6 +25,7 @@ use Inc\Enums\Access\UserRole;
  * | Capability            | admin | lms_office | lms_methodist | lms_teacher |
  * |-----------------------|-------|------------|---------------|-------------|
  * | ManageLmsPlatform     |   ✓   |     ✓      |               |             |
+ * | ManageSubjects        |   ✓   |     ✓      |       ✓       |             |
  * | ManageLmsRoles        |   ✓   |            |               |             |
  * | AuthorLmsCourses      |   ✓   |     ✓      |       ✓       |             |
  * | ManageLmsArticles     |   ✓   |     ✓      |               |             |
@@ -94,6 +95,7 @@ class RoleManager {
 		$admin = get_role( 'administrator' );
 		if ( null !== $admin ) {
 			$admin->add_cap( Capability::ManageLmsPlatform->value );
+			$admin->add_cap( Capability::ManageSubjects->value );
 			$admin->add_cap( Capability::ManageLmsRoles->value );
 			$admin->add_cap( Capability::AuthorLmsCourses->value );
 			$admin->add_cap( Capability::ManageLmsArticles->value );

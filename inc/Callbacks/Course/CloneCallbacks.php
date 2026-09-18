@@ -14,6 +14,11 @@ use Inc\Services\Course\ContentCloneService;
  *
  * AJAX-обработчики клонирования / форка контента (T1.5.11).
  *
+ * Право — `AuthorLmsCourses`, как у форка урока для группы ниже: клонирование
+ * урока, работы, контрольной и курса это авторинг, а не администрирование.
+ * Раньше здесь стоял `Admin` (`manage_options`), и методист — единственная
+ * роль, чья работа и есть авторинг, — не мог размножить даже собственный урок.
+ *
  * @package Inc\Callbacks\Course
  */
 class CloneCallbacks extends BaseController {
@@ -25,7 +30,7 @@ class CloneCallbacks extends BaseController {
 	}
 
 	public function ajaxCloneLesson(): void {
-		$this->authorize( Nonce::Subject, Capability::Admin );
+		$this->authorize( Nonce::Subject, Capability::AuthorLmsCourses );
 
 		$id    = $this->requireInt( 'lesson_id' );
 		$newId = $this->cloneService->cloneLesson( $id );
@@ -39,7 +44,7 @@ class CloneCallbacks extends BaseController {
 	}
 
 	public function ajaxCloneWork(): void {
-		$this->authorize( Nonce::Subject, Capability::Admin );
+		$this->authorize( Nonce::Subject, Capability::AuthorLmsCourses );
 
 		$id    = $this->requireInt( 'work_id' );
 		$newId = $this->cloneService->cloneWork( $id );
@@ -53,7 +58,7 @@ class CloneCallbacks extends BaseController {
 	}
 
 	public function ajaxCloneAssessment(): void {
-		$this->authorize( Nonce::Subject, Capability::Admin );
+		$this->authorize( Nonce::Subject, Capability::AuthorLmsCourses );
 
 		$id    = $this->requireInt( 'assessment_id' );
 		$newId = $this->cloneService->cloneAssessment( $id );
@@ -67,7 +72,7 @@ class CloneCallbacks extends BaseController {
 	}
 
 	public function ajaxCloneCourse(): void {
-		$this->authorize( Nonce::Subject, Capability::Admin );
+		$this->authorize( Nonce::Subject, Capability::AuthorLmsCourses );
 
 		$id   = $this->requireInt( 'course_id' );
 		$mode = $this->sanitizeKey( 'mode' );

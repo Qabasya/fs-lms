@@ -69,7 +69,7 @@ class SubjectCrudCallbacks extends BaseController {
 	 */
 	public function ajaxStoreSubject(): void {
 		// Проверка прав доступа и nonce
-		$this->authorize( Nonce::Subject );
+		$this->authorize( Nonce::Subject, Capability::ManageSubjects );
 
 		// Валидация входных данных
 		$key   = $this->requireKey( 'key', error: 'ID предмета обязателен' );
@@ -121,7 +121,7 @@ class SubjectCrudCallbacks extends BaseController {
 	 * @return void
 	 */
 	public function ajaxUpdateSubject(): void {
-		$this->authorize( Nonce::Subject );
+		$this->authorize( Nonce::Subject, Capability::ManageSubjects );
 
 		$key  = $this->requireKey( 'key', error: 'ID предмета обязателен' );
 		$name = $this->requireText( 'name', error: 'Название предмета обязательно' );
@@ -166,7 +166,7 @@ class SubjectCrudCallbacks extends BaseController {
 	 * @return void
 	 */
 	public function ajaxDeleteSubject(): void {
-		$this->authorize( Nonce::Subject, Capability::Admin );
+		$this->authorize( Nonce::Subject, Capability::ManageSubjects );
 
 		$key = $this->requireKey( 'key', error: 'ID предмета обязателен' );
 
@@ -196,7 +196,7 @@ class SubjectCrudCallbacks extends BaseController {
 	 * @return void
 	 */
 	public function ajaxToggleSubjectArchive(): void {
-		$this->authorize( Nonce::Subject, Capability::Admin );
+		$this->authorize( Nonce::Subject, Capability::ManageSubjects );
 
 		$key     = $this->requireKey( 'key', error: 'ID предмета обязателен' );
 		$subject = $this->subjects->getByKey( $key );

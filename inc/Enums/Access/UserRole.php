@@ -197,6 +197,7 @@ enum UserRole: string {
 		return match ( $this ) {
 			self::FSOffice => array(
 				Capability::ManageLmsPlatform->value    => true,
+				Capability::ManageSubjects->value       => true,
 				Capability::ViewLMSStats->value         => true,
 				Capability::ExportPII->value            => true,
 				Capability::AuthorLmsCourses->value     => true,
@@ -210,6 +211,10 @@ enum UserRole: string {
 			),
 			self::FSMethodist => array(
 				Capability::AuthorLmsCourses->value => true,
+				// Раздел «Предметы» целиком: таксономии, типовые условия и шаблоны
+				// заданий, CRUD предмета, импорт/экспорт и перенос пакетом. Без
+				// `ManageLmsPlatform`: заявки, ПД и зачисление методисту не нужны.
+				Capability::ManageSubjects->value   => true,
 			),
 			self::FSTeacher => array(
 				Capability::ViewLMSStats->value      => true,

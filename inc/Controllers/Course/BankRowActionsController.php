@@ -53,7 +53,11 @@ class BankRowActionsController extends BaseController implements ServiceInterfac
 			default                                                    => '',
 		};
 
-		if ( '' === $type || ! current_user_can( Capability::Admin->value ) ) {
+		// Право то же, что у обработчика клонирования ({@see \Inc\Callbacks\Course\CloneCallbacks}):
+		// кнопка и ручка обязаны сходиться, иначе одна из сторон бессмысленна.
+		// Прямой current_user_can() здесь легален: это фильтр `*_row_actions`,
+		// а не AJAX — authorize() слал бы JSON и ломал рендер таблицы.
+		if ( '' === $type || ! current_user_can( Capability::AuthorLmsCourses->value ) ) {
 			return $actions;
 		}
 
