@@ -197,11 +197,14 @@ class AdminController extends BaseController implements ServiceInterface {
 
 		// Скрытая страница управления типовыми условиями (не отображается в боковом меню) BoilerplateManager
 		// parent_slug' => 'options.php' делает страницу доступной только по прямому PageRoutes
+		// Право — как у самого раздела «Предметы» ({@see Capability::ManageSubjects}):
+		// типовые условия ведёт методист, и ручки их сохранения
+		// ({@see \Inc\Callbacks\Task\BoilerplateCallbacks}) проверяют то же право.
 		$subpages[] = array(
 			'parent_slug' => Menu::_Options->value,
 			'page_title'  => Menu::BoilerplateManager->page_title(),
 			'menu_title'  => Menu::BoilerplateManager->menu_title(),
-			'capability'  => Capability::ManageLmsPlatform->value,
+			'capability'  => Capability::ManageSubjects->value,
 			'menu_slug'   => Menu::BoilerplateManager->value,
 			'callback'    => array( $this->callbacks, Menu::BoilerplateManager->callback() ),
 		);
