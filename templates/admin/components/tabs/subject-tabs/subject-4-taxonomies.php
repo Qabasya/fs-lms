@@ -25,7 +25,7 @@ require_once FS_LMS_PATH . 'templates/admin/components/UI/ui_renderers.php';
 		<thead>
 		<tr>
 			<th class="column-primary tw-20">Название</th>
-			<th class="column-slug tw-15">Слаг</th>
+<!--			<th class="column-slug tw-15">Слаг</th> заебали слаги -->
 			<th class="">Тип отображения</th>
 			<th class="tw-10">Обязательна</th>
 			<th class="tw-10">В статьях</th>
