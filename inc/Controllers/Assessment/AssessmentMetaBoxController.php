@@ -17,6 +17,7 @@ use Inc\Registrars\MetaBoxRegistrar;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Services\Assessment\EgeCompletenessChecker;
 use Inc\Services\Subject\PostTypeResolver;
+use Inc\Services\Task\TaskBundleService;
 use Inc\Services\Task\TaskPublishGuard;
 use Inc\Shared\Traits\Authorizer;
 use Inc\Shared\Traits\Sanitizer;
@@ -61,6 +62,7 @@ class AssessmentMetaBoxController extends BaseController implements ServiceInter
 		private readonly AssessmentManager     $assessmentManager,
 		private readonly TaskPublishGuard      $guard,
 		private readonly EgeCompletenessChecker $completeness,
+		private readonly TaskBundleService      $bundles,
 	) {
 		parent::__construct();
 	}
@@ -284,19 +286,6 @@ class AssessmentMetaBoxController extends BaseController implements ServiceInter
 		$task_ids    = null !== $assessment ? $assessment->taskIds : array();
 		$task_points = null !== $assessment ? $assessment->taskPoints : array();
 
-		$steps = array();
-		foreach ( $task_ids as $i => $id ) {
-			$id      = (int) $id;
-			$steps[] = array(
-				'key'     => 'slot_' . $i,
-				'type'    => 'task',
-				'payload' => array( 'ref' => $id > 0 ? $id : 0 ),
-				'_title'  => $id > 0 ? get_the_title( $id ) : '',
-			);
-		}
-		$json        = wp_json_encode( $steps, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT );
-		$points_json = wp_json_encode( $task_points, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT );
-
 		// Число позиций зависит от ВИДА экзамена, не только от предмета: ЕГЭ по
 		// информатике — все термы таксономии номеров (обычно 27), ОГЭ — фиксированные
 		// 16 (см. .docs/Tasks.md §2 и Inc\Modules\EgeComputer\Config\OgeScaleConfig —
@@ -313,6 +302,30 @@ class AssessmentMetaBoxController extends BaseController implements ServiceInter
 			) ),
 			AssessmentKind::OgeComputer->value => 16,
 		);
+
+		// Раскладка по позициям: сохранённая; иначе (экзамен сохранён до её появления)
+		// задания встают на позицию своего номера, а связка 19-21 разворачивается в три слота.
+		$slot_total = null !== $assessment ? (int) ( $ege_slots_by_kind[ $assessment->kind->value ] ?? 0 ) : 0;
+		$layout     = $this->assessmentManager->slotLayout( $post->ID );
+		if ( array() === $layout ) {
+			$layout = $slot_total > 0
+				? $this->layoutByPosition( $task_ids, $assessment->taskNumbers, $subject, $slot_total )
+				: $task_ids;
+		}
+
+		$steps = array();
+		foreach ( $layout as $i => $id ) {
+			$id      = (int) $id;
+			$steps[] = array(
+				'key'     => 'slot_' . $i,
+				'type'    => 'task',
+				'payload' => array( 'ref' => $id > 0 ? $id : 0 ),
+				'_title'  => $id > 0 ? get_the_title( $id ) : '',
+			);
+		}
+		$json        = wp_json_encode( $steps, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT );
+		$points_json = wp_json_encode( $task_points, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT );
+
 		$ege_slots_json = wp_json_encode( $ege_slots_by_kind );
 
 		$ege_kinds_json = wp_json_encode( AssessmentKind::weightedScoreValues() );
@@ -338,6 +351,68 @@ class AssessmentMetaBoxController extends BaseController implements ServiceInter
 			),
 			'json'       => (string) $json,
 		) );
+	}
+
+	/**
+	 * Раскладка заданий по позициям экзамена (слот i = номер i+1) для экзамена, у которого
+	 * сохранённой раскладки ещё нет. Задание встаёт на позицию своего номера (терм
+	 * `{subject}_task_number` либо ручной номер банковского задания); связка 19-21
+	 * (parent) заменяется тремя детьми на их номерах — раньше в слоте оставался parent,
+	 * и №20/№21 не появлялись. Не нашедшее места — в первый свободный слот.
+	 *
+	 * @param int[]                $taskIds     Плотный список заданий экзамена
+	 * @param array<int, string>   $taskNumbers Снапшот номеров банковских заданий (task_id => номер)
+	 * @param string               $subject     Ключ предмета
+	 * @param int                  $total       Число позиций экзамена
+	 *
+	 * @return int[] Раскладка длиной не меньше $total; 0 — пустая позиция
+	 */
+	private function layoutByPosition( array $taskIds, array $taskNumbers, string $subject, int $total ): array {
+		// Связки → дети с их номерами (позиции 19/20/21).
+		$entries = array();
+		foreach ( $taskIds as $id ) {
+			$id       = (int) $id;
+			$children = $this->bundles->childrenSummary( $id );
+			if ( array() === $children ) {
+				$entries[] = array( 'id' => $id, 'number' => $this->positionOf( $id, $taskNumbers, $subject ) );
+				continue;
+			}
+			foreach ( $children as $child ) {
+				$entries[] = array( 'id' => (int) $child['id'], 'number' => (int) $child['number'] );
+			}
+		}
+
+		$layout   = array_fill( 0, $total, 0 );
+		$leftover = array();
+		foreach ( $entries as $entry ) {
+			$index = $entry['number'] - 1;
+			if ( $index >= 0 && $index < $total && 0 === $layout[ $index ] ) {
+				$layout[ $index ] = $entry['id'];
+			} else {
+				$leftover[] = $entry['id'];
+			}
+		}
+
+		foreach ( $leftover as $id ) {
+			$free = array_search( 0, $layout, true );
+			if ( false === $free ) {
+				$layout[] = $id;
+			} else {
+				$layout[ $free ] = $id;
+			}
+		}
+
+		return $layout;
+	}
+
+	/** Номер позиции задания: терм таксономии номеров, иначе ручной номер банковского; 0 — неизвестен. */
+	private function positionOf( int $taskId, array $taskNumbers, string $subject ): int {
+		$terms = wp_get_post_terms( $taskId, $subject . '_task_number', array( 'fields' => 'names' ) );
+		if ( ! is_wp_error( $terms ) && ! empty( $terms ) ) {
+			return (int) $terms[0];
+		}
+
+		return (int) ( $taskNumbers[ $taskId ] ?? 0 );
 	}
 
 	public function handleAssessmentSave( int $post_id ): void {

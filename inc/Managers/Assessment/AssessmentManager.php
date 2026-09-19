@@ -60,7 +60,7 @@ class AssessmentManager {
 	 *                                   null (по умолчанию) — вычисляется из меты банковских
 	 *                                   задач ({@see deriveTaskNumbers()}), обычный путь сохранения из конструктора.
 	 */
-	public function setItemIds( int $assessmentId, array $itemIds, array $taskPoints = [], ?array $taskNumbers = null ): bool {
+	public function setItemIds( int $assessmentId, array $itemIds, array $taskPoints = [], ?array $taskNumbers = null, ?array $slotLayout = null ): bool {
 		$post = get_post( $assessmentId );
 		if ( ! $post instanceof \WP_Post || ! PostTypeResolver::isAssessmentPostType( $post->post_type ) ) {
 			return false;
@@ -78,8 +78,35 @@ class AssessmentManager {
 		$meta['task_points']  = $taskPoints;
 		$meta['task_numbers'] = $taskNumbers ?? $this->deriveTaskNumbers( $ids, PostTypeResolver::subjectFromAssessmentPostType( $post->post_type ) );
 
+		// Раскладка по позициям (с пустыми слотами): `task_ids` плотный, и без неё после
+		// перезагрузки задания «съезжали» бы к началу списка, а слот №20 оказывался
+		// занятым заданием №22. Принимаем, только если она согласована с `task_ids`.
+		$layout = null === $slotLayout ? array() : array_map( 'intval', $slotLayout );
+		$filled = array_values( array_filter( $layout ) );
+		if ( $filled === $ids ) {
+			$meta['task_slots'] = $layout;
+		} else {
+			unset( $meta['task_slots'] );
+		}
+
 		$this->posts->updateMeta( $assessmentId, PostMetaName::Meta->value, $meta );
 		return true;
+	}
+
+	/**
+	 * Сохранённая раскладка слотов конструктора (`task_slots`: id задания или 0 на пустой позиции).
+	 * Пусто — раскладки нет (экзамен сохранён до её появления) либо она разошлась с `task_ids`.
+	 *
+	 * @return int[]
+	 */
+	public function slotLayout( int $assessmentId ): array {
+		$meta = $this->posts->getMeta( $assessmentId, PostMetaName::Meta->value, true );
+		$meta = is_array( $meta ) ? $meta : array();
+
+		$layout = array_map( 'intval', (array) ( $meta['task_slots'] ?? array() ) );
+		$ids    = array_values( array_filter( array_map( 'intval', (array) ( $meta['task_ids'] ?? array() ) ) ) );
+
+		return array_values( array_filter( $layout ) ) === $ids ? $layout : array();
 	}
 
 	/**

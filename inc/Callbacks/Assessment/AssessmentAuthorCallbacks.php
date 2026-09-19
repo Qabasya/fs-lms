@@ -44,6 +44,8 @@ class AssessmentAuthorCallbacks extends BaseController {
 
 		$assessment_id = $this->requireInt( 'assessment_id' );
 		$item_ids      = $this->sanitizeIntList( 'item_ids' );
+		// Раскладка по позициям вместе с пустыми слотами (нули) — см. AssessmentManager::slotLayout().
+		$slot_ids      = $this->sanitizeIntList( 'slot_ids' );
 
 		$raw_points  = $this->unslashArray( 'task_points' );
 		$task_points = array();
@@ -55,7 +57,7 @@ class AssessmentAuthorCallbacks extends BaseController {
 			}
 		}
 
-		if ( ! $this->assessmentManager->setItemIds( $assessment_id, $item_ids, $task_points ) ) {
+		if ( ! $this->assessmentManager->setItemIds( $assessment_id, $item_ids, $task_points, null, $slot_ids ) ) {
 			$this->error( 'Экзамен не найден.' );
 			return;
 		}

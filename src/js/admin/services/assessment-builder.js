@@ -166,6 +166,9 @@ function mount( el ) {
 		persist: ( slots ) => post( acts.saveAssessmentItems, nonces.authorAssessment, {
 			assessment_id: assessmentId,
 			item_ids:      slots.filter( ( s ) => s.taskId > 0 ).map( ( s ) => s.taskId ),
+			// Раскладка по позициям вместе с пустыми слотами (0): без неё после
+			// перезагрузки задания съезжают к началу списка (см. AssessmentManager::slotLayout()).
+			slot_ids:      slots.map( ( s ) => s.taskId ),
 			task_points:   buildTaskPoints( slots ),
 		} ),
 
@@ -202,17 +205,34 @@ function mount( el ) {
 		// без splice — иначе слоты 20+ сместились бы (задача C, .docs/Tasks.md).
 		// Возврат true отменяет дефолтный assignPicked() в slot-builder.js.
 		onPick: ( index, id, title, item ) => {
-			if ( ! builderApi || ! isEge( prevKind ) || ! item || ! item.bundle_siblings ) {
+			if ( ! builderApi || ! isEge( prevKind ) || ! item ) {
+				return false;
+			}
+
+			// Ребёнок связки несёт сиблингов (`bundle_siblings`: номер → {id, title}),
+			// сама связка (parent) — детей (`bundle_children`: [{id, title, number}]).
+			// Оба случая раскладываются по позициям своих номеров, без splice: иначе
+			// слоты 20+ сместились бы, а parent остался бы в слоте один и №20/№21
+			// не появились.
+			const bundle = item.bundle_siblings
+				? Object.keys( item.bundle_siblings ).map( ( number ) => ( {
+					number: parseInt( number, 10 ),
+					id:     item.bundle_siblings[ number ].id,
+					title:  item.bundle_siblings[ number ].title,
+				} ) )
+				: ( Array.isArray( item.bundle_children ) ? item.bundle_children.map( ( c ) => ( {
+					number: parseInt( c.number, 10 ),
+					id:     c.id,
+					title:  c.title,
+				} ) ) : [] );
+
+			if ( ! bundle.length ) {
 				return false;
 			}
 
 			const total = egeSlots( prevKind );
-			const pairs = Object.keys( item.bundle_siblings )
-				.map( ( number ) => ( {
-					index:  parseInt( number, 10 ) - 1,
-					taskId: item.bundle_siblings[ number ].id,
-					title:  item.bundle_siblings[ number ].title,
-				} ) )
+			const pairs = bundle
+				.map( ( b ) => ( { index: b.number - 1, taskId: b.id, title: b.title } ) )
 				.filter( ( p ) => p.index >= 0 && p.index < total );
 
 			if ( ! pairs.length ) { return false; }
