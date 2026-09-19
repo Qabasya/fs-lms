@@ -5,7 +5,7 @@
  * Разметка та же, что у остальных блоков сайдбара (`_sidebar.scss`)
  *
  * @var string $sidebar_trainer_url   Раздел заданий предмета; '' — блока нет.
- * @var int    $sidebar_trainer_total Сколько заданий опубликовано в банке.
+ * @var int    $sidebar_trainer_total Сколько заданий опубликовано в банке (блок показывается, только если они есть).
  *
  * @package FS LMS
  */
@@ -14,8 +14,6 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-use Inc\Services\Shared\Pluralizer;
-
 $sidebar_trainer_url   = (string) ( $sidebar_trainer_url ?? '' );
 $sidebar_trainer_total = (int) ( $sidebar_trainer_total ?? 0 );
 
@@ -23,10 +21,7 @@ if ( '' === $sidebar_trainer_url || $sidebar_trainer_total < 1 ) {
 	return;
 }
 
-$sidebar_trainer_text = sprintf(
-	'После теории — %s с фильтрами.',
-	Pluralizer::withNumber( $sidebar_trainer_total, 'задание', 'задания', 'заданий' )
-);
+$sidebar_trainer_text = 'Для закрепления теории предлагаем решить задания по изучаемой теме в нашем тренажёре';
 ?>
 <section class="fs-sidebar-block fs-sidebar-trainer">
 	<div class="fs-sidebar-head">
