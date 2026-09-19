@@ -49,7 +49,21 @@ abstract class BaseTemplate {
 			'label'    => 'Общее условие (необязательно):',
 			'object'   => new ConditionField(),
 			'optional' => true,
+			// Рисуется отдельным метабоксом «Общее условие» ({@see self::separateFieldIds()}):
+			// его можно свернуть/скрыть через «Настройки экрана» и оно не лезет в начало основной формы.
+			'separate' => true,
 		);
+	}
+
+	/**
+	 * Поля шаблона, которые выносятся в отдельный метабокс (флаг `separate`).
+	 * Основная форма ({@see self::render()}) их пропускает; сохраняются они как обычно —
+	 * через {@see self::get_fields()}.
+	 *
+	 * @return string[]
+	 */
+	public function separateFieldIds(): array {
+		return array_keys( array_filter( $this->get_fields(), static fn( array $config ): bool => ! empty( $config['separate'] ) ) );
 	}
 
 	/**
@@ -105,6 +119,10 @@ abstract class BaseTemplate {
 		echo '<div class="fs-lms-template-wrapper" id="template-' . esc_attr( $this->get_id() ) . '">';
 
 		foreach ( $this->get_fields() as $field_id => $config ) {
+			if ( ! empty( $config['separate'] ) ) {
+				continue;
+			}
+
 			$field = $config['object'];
 			$value = $values[ $field_id ] ?? '';
 			$field->render( $post, $field_id, $config['label'], $value );
