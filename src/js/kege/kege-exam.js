@@ -7,7 +7,7 @@
  */
 import { saveAnswer, debounce, startCountdown } from '../frontend/services/assessment.js';
 import { disableCopying } from '../common/utils.js';
-import { clearKegeState, kegeBr, kegeKim, loadKegeState, setKegeAnswers, setKegeStage, setKegeTask } from './kege-state.js';
+import { clearKegeState, kegeBr, kegeKim, loadKegeState, setKegeAnswers, setKegeOvertime, setKegeStage, setKegeTask } from './kege-state.js';
 import { renderKegeSheet } from './kege-entry.js';
 
 function toast( msg ) {
@@ -31,7 +31,7 @@ function toast( msg ) {
  */
 function tableShapeFor( taskNumber ) {
 	if ( 25 === taskNumber ) {
-		return { cols: [ 'Число', 'Результат деления' ], rows: 5, growable: true };
+		return { cols: [ 'Число', 'Результат деления' ], rows: 10, growable: true };
 	}
 	if ( [ 17, 18, 20, 26 ].includes( taskNumber ) ) {
 		return { cols: [ '1', '2' ], rows: [ '1' ] };
@@ -107,6 +107,22 @@ export function initKegeExam() {
 	syncHead();
 
 	const timerEl = document.getElementById( 'kegeTimer' );
+
+	/**
+	 * Время вышло. Настоящая попытка завершается сама: сервер после дедлайна ответы
+	 * всё равно не принимает. Без попытки в БД (публичный экзамен, предпросмотр)
+	 * ограничивать нечем — спрашиваем, завершить или дорешивать; сделавшего выбор
+	 * «продолжить» повторно не спрашиваем даже после перезагрузки страницы.
+	 */
+	const handleExpire = () => {
+		if ( ! sandbox ) {
+			void submitAttempt( true );
+			return;
+		}
+		if ( loadKegeState().overtime ) { return; }
+		askAfterExpiry();
+	};
+
 	if ( sandbox ) {
 		const limit = Number( app.dataset.timeLimit || 0 );
 
@@ -142,18 +158,14 @@ export function initKegeExam() {
 			const deadlineTs = loadKegeState().deadlineTs;
 			if ( ! deadlineTs ) { return; }
 			publicTimerOn = true;
-			startCountdown( timerEl, fmtLocal( deadlineTs ), {
-				onExpire: () => { void submitAttempt( true ); },
-			} );
+			startCountdown( timerEl, fmtLocal( deadlineTs ), { onExpire: handleExpire } );
 		};
 		document.addEventListener( 'fs-kege-preview-start', beginPublicTimer );
 
 		document.getElementById( 'kegePreviewTimerToggle' )?.addEventListener( 'click', ( e ) => {
 			e.target.disabled = true;
 			e.target.textContent = 'Отсчёт идёт';
-			startCountdown( timerEl, localDeadline( limit ), {
-				onExpire: () => { void submitAttempt( true ); },
-			} );
+			startCountdown( timerEl, localDeadline( limit ), { onExpire: handleExpire } );
 		} );
 
 		// Ритуал входа проходится уже после инициализации экрана — обновляем шапку.
@@ -461,9 +473,7 @@ export function initKegeExam() {
 
 			const head = document.createElement( 'div' );
 			head.className = 'kege-ap-head';
-			head.textContent = growable
-				? 'Введите значения в таблицу — можно набрать вручную или вставить весь ответ в любую ячейку первого столбца (по строке на пару значений)'
-				: 'Введите значения в таблицу';
+			head.textContent = 'Введите или скопируйте свой ответ в поля таблицы';
 			panelWrap.appendChild( head );
 
 			const table = document.createElement( 'table' );
@@ -867,6 +877,38 @@ export function initKegeExam() {
 			submitting = false;
 			if ( ! auto ) { toast( 'Сетевая ошибка при отправке.' ); }
 		}
+	}
+
+	function askAfterExpiry() {
+		const ovl = document.createElement( 'div' );
+		ovl.className = 'kege-ovl';
+
+		const card = document.createElement( 'div' );
+		card.className = 'kege-mcard';
+
+		const h4 = document.createElement( 'h4' );
+		h4.textContent = 'Время экзамена истекло';
+		const p = document.createElement( 'p' );
+		p.textContent = 'Завершить экзамен или всё равно продолжить решение? После завершения изменить ответы будет невозможно.';
+
+		const row = document.createElement( 'div' );
+		row.className = 'kege-m-row';
+		const keep = document.createElement( 'button' );
+		keep.type = 'button';
+		keep.className = 'kege-m-ghost';
+		keep.textContent = 'Всё равно продолжить';
+		const finish = document.createElement( 'button' );
+		finish.type = 'button';
+		finish.className = 'kege-btn kege-btn--red';
+		finish.textContent = 'Завершить экзамен';
+
+		row.append( keep, finish );
+		card.append( h4, p, row );
+		ovl.appendChild( card );
+		document.body.appendChild( ovl );
+
+		keep.addEventListener( 'click', () => { setKegeOvertime(); ovl.remove(); } );
+		finish.addEventListener( 'click', () => { ovl.remove(); void submitAttempt( true ); } );
 	}
 
 	async function confirmFinish() {
