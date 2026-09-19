@@ -6,12 +6,17 @@
  */
 import { initKegeEntry, initPreviewRestart } from './kege-entry.js';
 import { initKegeExam } from './kege-exam.js';
+import { resolvePublicResume } from './kege-resume.js';
 import { useKegeAssessment } from './kege-state.js';
 
-document.addEventListener( 'DOMContentLoaded', () => {
+document.addEventListener( 'DOMContentLoaded', async () => {
 	// Состояние в localStorage — своё на каждую контрольную; область задаём один
 	// раз здесь, до любого чтения (см. kege-state.js).
 	useKegeAssessment( document.getElementById( 'kegeApp' )?.dataset.assessmentId );
+
+	// Публичный экзамен: незавершённая попытка в этом браузере — спрашиваем до
+	// того, как экраны прочтут состояние (общий компьютер, см. kege-resume.js).
+	await resolvePublicResume();
 
 	// Экзамен инициализируется первым: в предпросмотре ритуал может сразу раскрыть
 	// экран экзамена (восстановленная стадия 'exam') и тут же отправить

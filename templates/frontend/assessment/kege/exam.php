@@ -44,7 +44,7 @@ foreach ( $taskViews as $view ) {
 	}
 }
 ?>
-<div class="kege-ex" id="kegeExam"<?php echo $previewMode ? ' hidden' : ''; ?>>
+<div class="kege-ex" id="kegeExam"<?php echo ( $previewMode || $publicMode ) ? ' hidden' : ''; ?>>
 	<div class="kege-ex-head">
 		<?php if ( $assessment->timeLimit > 0 ) : ?>
 			<span class="kege-timer-chip" id="kegeTimer">—:—:—</span>
@@ -54,8 +54,11 @@ foreach ( $taskViews as $view ) {
 				<button type="button" class="kege-head-link" id="kegePreviewTimerToggle">Запустить отсчёт</button>
 			<?php endif; ?>
 		<?php endif; ?>
-		<span class="kege-kim-t" id="kegeHeadKim"></span>
-		<span class="kege-kim-t" id="kegeHeadBr"></span>
+		<?php // Экраны ритуала скрыты — номеров КИМ и бланка не существует. ?>
+		<?php if ( ! $assessment->hideIntro ) : ?>
+			<span class="kege-kim-t" id="kegeHeadKim"></span>
+			<span class="kege-kim-t" id="kegeHeadBr"></span>
+		<?php endif; ?>
 		<span class="kege-hd-sp"></span>
 		<button type="button" class="kege-head-link" id="kegeFinishEarly">Завершить экзамен досрочно</button>
 	</div>

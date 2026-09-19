@@ -36,6 +36,13 @@ class AssessmentMetaBoxController extends BaseController implements ServiceInter
 
 	use Authorizer, Sanitizer, TidiesCoreMetaBoxes;
 
+	/**
+	 * WP filter: доменная ошибка публикации от модулей (`?string` — текст ошибки,
+	 * `null` — всё в порядке). Ядро о модулях не знает: публичные экзамены, например,
+	 * требуют год. Аргументы: `$error`, `int $postId`, `array $postedMeta`.
+	 */
+	public const PUBLISH_ERROR_FILTER = 'fs_lms_assessment_publish_error';
+
 	/** Префикс транзиента предупреждения о неукомплектованной КЕГЭ (см. {@see resolveCompletenessError()}). */
 	private const COMPLETENESS_WARNING_PREFIX = 'fs_lms_assessment_completeness_warning_';
 
@@ -87,7 +94,7 @@ class AssessmentMetaBoxController extends BaseController implements ServiceInter
 			$data,
 			'fs_lms_assessment_publish_error_',
 			'Укажите название контрольной.',
-			fn(): ?string => $this->resolveCompletenessError( $postId )
+			fn(): ?string => $this->resolveCompletenessError( $postId ) ?? $this->resolveModuleError( $postId )
 		);
 	}
 
@@ -131,6 +138,17 @@ class AssessmentMetaBoxController extends BaseController implements ServiceInter
 		}
 
 		return 'Работа не укомплектована — ' . $result->summary() . '.';
+	}
+
+	/** Ошибка публикации от модулей ({@see self::PUBLISH_ERROR_FILTER}); работает по присланной форме. */
+	private function resolveModuleError( int $postId ): ?string {
+		if ( $postId <= 0 ) {
+			return null;
+		}
+
+		$error = apply_filters( self::PUBLISH_ERROR_FILTER, null, $postId, $this->unslashArray( PostMetaName::Meta->value ) );
+
+		return is_string( $error ) && '' !== $error ? $error : null;
 	}
 
 	/** Только тестовое окружение и только станции ЕГЭ/ОГЭ — см. {@see resolveCompletenessError()}. */
@@ -186,6 +204,13 @@ class AssessmentMetaBoxController extends BaseController implements ServiceInter
 		)->register();
 
 		$this->registrar->add(
+			'fs_lms_assessment_station',
+			'Экраны и доступ',
+			array( $this, 'renderStationContent' ),
+			$assessment_post_types
+		)->register();
+
+		$this->registrar->add(
 			'fs_lms_assessment_builder',
 			'Конструктор контрольной',
 			array( $this, 'renderBuilderContent' ),
@@ -227,6 +252,21 @@ class AssessmentMetaBoxController extends BaseController implements ServiceInter
 			'template'      => $this->template,
 			'values'        => $this->postManager->taskMeta( $post->ID ),
 			'field_ids'     => self::SETTINGS_FIELD_IDS,
+		) );
+	}
+
+	/**
+	 * «Экраны и доступ» — только для станции ЕГЭ (JS: `assessment-builder.js::toggleKindFields()`
+	 * скрывает весь бокс для остальных видов). Состав — флажок ядра плюс поля модулей
+	 * ({@see AssessmentTemplate::FIELDS_FILTER}).
+	 */
+	public function renderStationContent( \WP_Post $post ): void {
+		$this->render( 'admin/metaboxes/fields-subset', array(
+			'wrapper_class' => 'fs-lms-assessment-station',
+			'post'          => $post,
+			'template'      => $this->template,
+			'values'        => $this->postManager->taskMeta( $post->ID ),
+			'field_ids'     => $this->template->stationFieldIds(),
 		) );
 	}
 

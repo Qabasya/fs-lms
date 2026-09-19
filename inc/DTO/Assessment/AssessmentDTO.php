@@ -34,6 +34,8 @@ readonly class AssessmentDTO {
 		public array          $taskNumbers = [],
 		/** Per-work WYSIWYG-описание для интро-шага (D16.4); пусто → дефолты AssessmentIntroConfig. */
 		public string         $introHtml = '',
+		/** Станция ЕГЭ: пропустить экраны ритуала (бланк → инструкция → КИМ → активация), сразу к первому заданию. */
+		public bool           $hideIntro = false,
 	) {}
 
 	public static function fromPost( \WP_Post $post, array $meta ): self {
@@ -84,6 +86,7 @@ readonly class AssessmentDTO {
 			scoreMap        : $scoreMap,
 			taskNumbers     : $taskNumbers,
 			introHtml       : is_string( $meta['intro_html'] ?? null ) ? $meta['intro_html'] : '',
+			hideIntro       : in_array( $meta['hide_intro'] ?? null, array( 1, '1', true ), true ),
 		);
 	}
 

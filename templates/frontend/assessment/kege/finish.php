@@ -49,15 +49,17 @@ $kegeTables = $kegeHalf > 0 ? array_chunk( $kegeSheet->rows, $kegeHalf ) : array
 /** Балл строки: «—», пока задание не оценено (ручная проверка или пропуск). */
 $kegeScore = static fn( ?float $score ): string => null === $score ? '—' : (string) round( $score, 2 );
 ?>
-<div class="kege-fin" id="kegeFinish" data-attempt-id="<?php echo esc_attr( (string) ( $lastAttempt->id ?? 0 ) ); ?>"<?php echo $previewMode ? ' hidden' : ''; ?>>
+<div class="kege-fin" id="kegeFinish" data-attempt-id="<?php echo esc_attr( (string) ( $lastAttempt->id ?? 0 ) ); ?>"<?php echo ( $previewMode || $publicMode ) ? ' hidden' : ''; ?>>
 	<div class="kege-fin-head"><?php echo esc_html( $examTitle ); ?> · <b><?php echo esc_html( $assessment->title ); ?></b></div>
 
 	<div class="kege-fin-body">
 		<?php // Тренажёрные номера ритуала входа — подставляет kege-entry.js. ?>
-		<div class="kege-fin-kim">
-			<span id="kegeFinKim">КИМ № —</span>
-			<span id="kegeFinBr">БР № —</span>
-		</div>
+		<?php if ( ! $assessment->hideIntro ) : ?>
+			<div class="kege-fin-kim">
+				<span id="kegeFinKim">КИМ № —</span>
+				<span id="kegeFinBr">БР № —</span>
+			</div>
+		<?php endif; ?>
 
 		<?php if ( ! $kegeSheet->revealed ) : ?>
 			<?php

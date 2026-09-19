@@ -13,6 +13,7 @@ use Inc\Enums\Wp\SubjectPageType;
 use Inc\Repositories\OptionsRepositories\SubjectPagesRepository;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Services\Course\PublicCourseService;
+use Inc\Services\Subject\SubjectPagesService;
 use Inc\Services\Task\TaskFilterParser;
 use Inc\Shared\Traits\TemplateRenderer;
 
@@ -31,6 +32,9 @@ class SubjectLandingController extends BaseController implements ServiceInterfac
 
 	use TemplateRenderer;
 
+	/** WP filter: группы экзаменов раздела «Экзамены» (`year => [ {title, url} ]`); отвечает модуль. */
+	public const EXAMS_GROUPS_FILTER = 'fs_lms_subject_exams_groups';
+
 	/** Сколько курсов показывает витрина курсов. */
 	private const COURSES_LIMIT = 24;
 
@@ -41,6 +45,7 @@ class SubjectLandingController extends BaseController implements ServiceInterfac
 		private readonly TaskFilterParser       $taskFilters,
 		private readonly ArticlesDataBuilder    $articles,
 		private readonly PublicCourseService    $courses,
+		private readonly SubjectPagesService     $subjectPages,
 	) {
 		parent::__construct();
 	}
@@ -81,6 +86,11 @@ class SubjectLandingController extends BaseController implements ServiceInterfac
 			return $template;
 		}
 
+		// Модуль публичных экзаменов выключен — раздел «Экзамены» не отдаём.
+		if ( SubjectPageType::Exams === $type && ! $this->subjectPages->examsEnabled() ) {
+			return $template;
+		}
+
 		$subject = $this->subjects->getByKey( $location['key'] );
 
 		if ( null === $subject ) {
@@ -111,6 +121,10 @@ class SubjectLandingController extends BaseController implements ServiceInterfac
 	public function renderSection( array|string $atts = array(), ?string $content = null, string $tag = '' ): string {
 		$type    = SubjectPageType::fromShortcode( $tag );
 		$subject = $this->resolveSubject( $atts );
+
+		if ( SubjectPageType::Exams === $type && ! $this->subjectPages->examsEnabled() ) {
+			return '';
+		}
 
 		return null === $type || null === $subject ? '' : $this->renderType( $type, $subject );
 	}
@@ -166,6 +180,8 @@ class SubjectLandingController extends BaseController implements ServiceInterfac
 				'page_data' => $this->articles->getPageData( $subject->key, $this->taskFilters->fromRequest( 'GET' ) ),
 			),
 			SubjectPageType::Courses  => array( 'courses' => $this->courses->getCourses( $subject->key, self::COURSES_LIMIT ) ),
+			// Содержимое раздела «Экзамены» отдаёт модуль: год => карточки.
+			SubjectPageType::Exams    => array( 'groups' => (array) apply_filters( self::EXAMS_GROUPS_FILTER, array(), $subject->key ) ),
 			default                   => array(),
 		};
 	}

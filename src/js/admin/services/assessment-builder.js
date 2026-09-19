@@ -67,6 +67,11 @@ function mount( el ) {
 		const settingsBox = document.getElementById( 'fs_lms_assessment_settings' );
 		if ( settingsBox ) { settingsBox.hidden = isStation; }
 
+		// «Экраны и доступ» (пропуск ритуала, публичность) — только у ЕГЭ: ритуал
+		// и лист ответов есть лишь у этой станции.
+		const stationBox = document.getElementById( 'fs_lms_assessment_station' );
+		if ( stationBox ) { stationBox.hidden = 'ege_computer' !== kind; }
+
 		if ( statusBar ) { statusBar.hidden = ! isStation; }
 		if ( ! isStation ) { gatePublish( true ); }
 	}
@@ -108,6 +113,23 @@ function mount( el ) {
 		statusBar.innerHTML = chips.join( '' );
 
 		gatePublish( !! verdict.isComplete || allowsIncomplete( prevKind ) );
+	}
+
+	/**
+	 * Публичный экзамен по умолчанию идёт без приветственных экранов: пока автор
+	 * не трогал флажок «Скрыть приветственные экраны» сам, он повторяет «Публичный».
+	 * Поле «Публичный» добавляет модуль — если его нет, ничего не делаем.
+	 */
+	function bindHideIntroDefault() {
+		const isPublic  = document.getElementById( 'is_public' );
+		const hideIntro = document.getElementById( 'hide_intro' );
+		if ( ! isPublic || ! hideIntro ) { return; }
+
+		let touched = false;
+		hideIntro.addEventListener( 'change', () => { touched = true; } );
+		isPublic.addEventListener( 'change', () => {
+			if ( ! touched ) { hideIntro.checked = isPublic.checked; }
+		} );
 	}
 
 	function buildTaskPoints( slots ) {
@@ -202,6 +224,7 @@ function mount( el ) {
 
 		onReady: ( api ) => {
 			builderApi = api;
+			bindHideIntroDefault();
 			if ( kindSelect ) {
 				toggleKindFields( prevKind );
 

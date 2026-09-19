@@ -41,6 +41,13 @@ enum SubjectPageType: string {
 	case Courses = 'courses';
 
 	/**
+	 * Экзамены `/{key}/exams/` — публичные экзамены по годам. Раздел заводится
+	 * только при включённом модуле PublicExams (фильтр {@see SubjectPagesService::EXAMS_FILTER}):
+	 * ядро о модуле не знает, состав и содержимое раздела ему отдаёт модуль.
+	 */
+	case Exams = 'exams';
+
+	/**
 	 * Слаг страницы (post_name): у корневой — ключ предмета, у разделов —
 	 * собственный; полный путь даёт иерархия страниц.
 	 *
@@ -77,6 +84,7 @@ enum SubjectPageType: string {
 			self::Trainer  => "{$subjectName} — тренажёр",
 			self::Articles => "{$subjectName} — учебник",
 			self::Courses  => "{$subjectName} — курсы",
+			self::Exams    => "{$subjectName} — экзамены",
 		};
 	}
 
@@ -92,6 +100,7 @@ enum SubjectPageType: string {
 			self::Trainer  => ShortCode::SubjectTrainer,
 			self::Articles => ShortCode::SubjectArticles,
 			self::Courses  => ShortCode::SubjectCourses,
+			self::Exams    => ShortCode::SubjectExams,
 		};
 	}
 
@@ -118,22 +127,24 @@ enum SubjectPageType: string {
 	 * @return bool
 	 */
 	public function requiresBank(): bool {
-		return in_array( $this, array( self::Trainer, self::Articles ), true );
+		return in_array( $this, array( self::Trainer, self::Articles, self::Exams ), true );
 	}
 
 	/**
 	 * Состав лендинга предмета: корневая и курсы — всегда, тренажёр и учебник —
 	 * только у предмета с банком (без банка CPT заданий/статей не существует).
 	 *
-	 * @param bool $hasBank Есть ли у предмета собственный банк.
+	 * @param bool $hasBank   Есть ли у предмета собственный банк.
+	 * @param bool $withExams Включён ли модуль публичных экзаменов (раздел «Экзамены»).
 	 *
 	 * @return self[]
 	 */
-	public static function forSubject( bool $hasBank ): array {
+	public static function forSubject( bool $hasBank, bool $withExams = false ): array {
 		return array_values(
 			array_filter(
 				self::cases(),
-				static fn( self $type ): bool => $hasBank || ! $type->requiresBank()
+				static fn( self $type ): bool => ( $hasBank || ! $type->requiresBank() )
+					&& ( $withExams || self::Exams !== $type )
 			)
 		);
 	}

@@ -69,6 +69,21 @@ class AssessmentPageController extends BaseController implements ServiceInterfac
 	public const ROUTE_FILTER = 'fs_lms_is_assessment_route';
 
 	/**
+	 * WP filter: открыт ли экзамен всем посетителям без авторизации (публичные
+	 * экзамены). Ядро о модуле не знает — решает модуль:
+	 *   add_filter('fs_lms_assessment_public_access', fn(bool $open, AssessmentDTO $assessment) => …, 10, 2)
+	 * Публичный экзамен идёт тем же путём, что предпросмотр автора: без ученика и
+	 * попытки в БД ({@see AttemptPageService::buildPublic()}).
+	 */
+	public const PUBLIC_ACCESS_FILTER = 'fs_lms_assessment_public_access';
+
+	/**
+	 * WP filter: куда ведёт «Завершить экзамен» на публичном экзамене (по умолчанию —
+	 * главная): модуль отдаёт страницу раздела «Экзамены» предмета.
+	 */
+	public const PUBLIC_BACK_URL_FILTER = 'fs_lms_assessment_public_back_url';
+
+	/**
 	 * WP filter: признак «страница станции КЕГЭ» — свой bare-документ
 	 * (см. templates/frontend/assessment/ege-computer.php), собственный
 	 * изолированный бандл (Enqueue::enqueue_kege_assets()). Визуально не
@@ -106,18 +121,23 @@ class AssessmentPageController extends BaseController implements ServiceInterfac
 
 		// Гард доступа: контрольная остаётся publicly_queryable ради плеера, поэтому
 		// доступ закрываем здесь. Гость → логин с возвратом на эту же ссылку.
-		$userId = get_current_user_id();
-		if ( ! $userId ) {
+		$userId   = get_current_user_id();
+		$isPublic = (bool) apply_filters( self::PUBLIC_ACCESS_FILTER, false, $assessment );
+		if ( ! $userId && ! $isPublic ) {
 			// Логин-URL внутренний и доверенный — редиректим как в LessonPlayerController.
 			wp_redirect( wp_login_url( get_permalink( $post->ID ) ?: home_url( '/' ) ) );
 			exit;
 		}
 
-		// Нет ученика или доступа → предпросмотр автора, иначе 404 (постороннему
-		// наличие контрольной не раскрываем).
-		$page = $this->pageService->build( $assessment, $userId );
+		// Доступ по курсу — обычная попытка; иначе автор смотрит вхолостую (предпросмотр);
+		// иначе публичный экзамен открыт всем (в т.ч. залогиненному без доступа по курсу);
+		// иначе 404 (постороннему наличие контрольной не раскрываем).
+		$page = $userId ? $this->pageService->build( $assessment, $userId ) : null;
+		if ( null === $page && $isPublic && ! ( $userId && $this->access->canPreview( $userId, $assessment->id ) ) ) {
+			$page = $this->pageService->buildPublic( $assessment );
+		}
 		if ( null === $page ) {
-			if ( ! $this->access->canPreview( $userId, $assessment->id ) ) {
+			if ( ! $userId || ! $this->access->canPreview( $userId, $assessment->id ) ) {
 				global $wp_query;
 				$wp_query->set_404();
 				status_header( 404 );
@@ -132,8 +152,11 @@ class AssessmentPageController extends BaseController implements ServiceInterfac
 			$page = $this->pageService->buildPreview( $assessment );
 		}
 
-		// Остаётся открытой по пермалинку — запрещаем индексацию.
-		header( 'X-Robots-Tag: noindex, nofollow', true );
+		// Остаётся открытой по пермалинку — запрещаем индексацию (публичный экзамен
+		// для того и выложен, чтобы его находили).
+		if ( ! $page->publicMode ) {
+			header( 'X-Robots-Tag: noindex, nofollow', true );
+		}
 
 		// Переменные шаблонов прохождения (attempt.php, интро, шелл).
 		$person         = $page->person;
@@ -147,12 +170,15 @@ class AssessmentPageController extends BaseController implements ServiceInterfac
 		$canRetry       = $page->canRetry;
 		$now            = $page->now;
 		$previewMode    = $page->previewMode;
+		$publicMode     = $page->publicMode;
 		$attemptsUsed   = $page->attemptsUsed;
 
 		$defaultTemplate = $this->path( 'templates/frontend/assessment/attempt.php' );
 		$template        = $this->resolveRenderer( $assessment, $defaultTemplate );
 		$introTemplate   = $this->resolveIntro( $assessment );
-		$backUrl       = $this->resolveBackUrl();
+		$backUrl       = $publicMode
+			? (string) apply_filters( self::PUBLIC_BACK_URL_FILTER, home_url( '/' ), $assessment )
+			: $this->resolveBackUrl();
 
 		// T15.1: дефолтный рендерер получает générique bare-шелл плеера (см. ROUTE_FILTER).
 		if ( $defaultTemplate === $template ) {

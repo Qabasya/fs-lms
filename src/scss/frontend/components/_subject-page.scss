@@ -131,3 +131,15 @@
   align-self: flex-start;
   margin-top: auto;
 }
+
+// Блоки раздела «Экзамены»: год — заголовок, под ним сетка карточек.
+.fs-subject-group + .fs-subject-group { margin-top: $spacing-4xl; }
+
+.fs-subject-group-title {
+  margin: 0 0 $spacing-xl;
+  font-size: $font-size-xl;
+  font-weight: $font-bold;
+  line-height: $line-height-tight;
+  letter-spacing: -.02em;
+  color: $color-text;
+}

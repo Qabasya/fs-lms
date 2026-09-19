@@ -101,6 +101,30 @@ readonly class AttemptPageService {
 	}
 
 	/**
+	 * Состояние страницы публичного экзамена: как предпросмотр — ни ученика, ни
+	 * попытки, в БД ничего не пишется (ответы живут в браузере), — но без
+	 * авторской плашки. Доступ решает модуль публичных экзаменов
+	 * ({@see \Inc\Controllers\Pages\AssessmentPageController::PUBLIC_ACCESS_FILTER}).
+	 *
+	 * @param AssessmentDTO $assessment Экзамен
+	 */
+	public function buildPublic( AssessmentDTO $assessment ): AttemptPageDTO {
+		return new AttemptPageDTO(
+			person:         null,
+			activeAttempt:  null,
+			lastAttempt:    null,
+			examInProgress: false,
+			taskViews:      $this->taskViews->build( $assessment->taskIds, $assessment->subjectKey, $assessment->kind ),
+			resultPerTask:  array(),
+			outcome:        '',
+			outcomeState:   'fail',
+			canRetry:       false,
+			now:            $this->clock->now(),
+			publicMode:     true,
+		);
+	}
+
+	/**
 	 * Холостое состояние страницы для предпросмотра автора: заданий столько же,
 	 * сколько увидит ученик, но ученика нет, попытка не заводится и в БД ничего
 	 * не пишется — станция рисуется «вхолостую» (см. AssessmentPageController).

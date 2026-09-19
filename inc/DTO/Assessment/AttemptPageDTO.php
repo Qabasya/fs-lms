@@ -28,6 +28,7 @@ readonly class AttemptPageDTO {
 	 * @param string                    $now            Текущее время (mysql)
 	 * @param bool                      $previewMode    Предпросмотр автора: ученика и попытки нет, ответы не сохраняются
 	 * @param int                       $attemptsUsed   Сколько попыток ученик уже израсходовал (Tasks.md, п. 8)
+	 * @param bool                      $publicMode     Публичный экзамен: тот же режим «без попытки в БД», что и предпросмотр, но для любого посетителя
 	 */
 	public function __construct(
 		public ?PersonDTO            $person,
@@ -42,5 +43,6 @@ readonly class AttemptPageDTO {
 		public string                $now,
 		public bool                  $previewMode = false,
 		public int                   $attemptsUsed = 0,
+		public bool                  $publicMode = false,
 	) {}
 }
