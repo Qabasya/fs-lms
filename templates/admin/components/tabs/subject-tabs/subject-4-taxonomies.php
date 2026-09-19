@@ -25,7 +25,8 @@ require_once FS_LMS_PATH . 'templates/admin/components/UI/ui_renderers.php';
 		<thead>
 		<tr>
 			<th class="column-primary tw-20">Название</th>
-<!--			<th class="column-slug tw-15">Слаг</th> заебали слаги -->
+			<?php // Колонка «Слаг» временно скрыта — вместе с ячейкой ниже. ?>
+			<?php /* <th class="column-slug tw-15">Слаг</th> */ ?>
 			<th class="">Тип отображения</th>
 			<th class="tw-10">Обязательна</th>
 			<th class="tw-10">В статьях</th>
@@ -57,9 +58,11 @@ require_once FS_LMS_PATH . 'templates/admin/components/UI/ui_renderers.php';
 					<?php endif; ?>
 				</td>
 
+				<?php /* Скрыто вместе с колонкой «Слаг» в шапке:
 				<td class="column-slug">
 					<?php render_fs_badge( $tax->slug, 'blue' ); ?>
 				</td>
+				*/ ?>
 
 				<td>
 					<?php render_fs_badge( $display_text, 'gray' ); ?>
@@ -108,7 +111,7 @@ require_once FS_LMS_PATH . 'templates/admin/components/UI/ui_renderers.php';
 
 		<tfoot>
 		<tr class="fs-add-row-tr">
-			<td colspan="6">
+			<td colspan="5">
 				<button type="button" class="button-link scss-add-item js-add-taxonomy" title="Добавить таксономию">
 					<span class="dashicons dashicons-plus"></span>
 				</button>
