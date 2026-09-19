@@ -44,7 +44,8 @@ foreach ( $taskViews as $view ) {
 	}
 }
 ?>
-<div class="kege-ex" id="kegeExam"<?php echo ( $previewMode || $publicMode ) ? ' hidden' : ''; ?>>
+<?php // Без ритуала экран экзамена виден сразу (первой открыта вкладка «i») — иначе на миг мелькает вход. ?>
+<div class="kege-ex" id="kegeExam"<?php echo ( ( $previewMode || $publicMode ) && ! $assessment->hideIntro ) ? ' hidden' : ''; ?>>
 	<div class="kege-ex-head">
 		<?php if ( $assessment->timeLimit > 0 ) : ?>
 			<span class="kege-timer-chip" id="kegeTimer">—:—:—</span>

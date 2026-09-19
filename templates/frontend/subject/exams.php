@@ -28,7 +28,7 @@ $groups = (array) ( $groups ?? array() );
 
 					<div class="fs-subject-grid">
 						<?php foreach ( $exams as $exam ) : ?>
-							<article class="fs-subject-card">
+							<article class="fs-subject-card fs-subject-card--exam">
 								<span class="fs-subject-card-body">
 									<strong class="fs-subject-card-title"><?php echo esc_html( $exam['title'] ); ?></strong>
 									<a class="fs-subject-card-btn" href="<?php echo esc_url( $exam['url'] ); ?>">Приступить к экзамену</a>

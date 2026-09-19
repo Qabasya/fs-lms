@@ -143,3 +143,17 @@
   letter-spacing: -.02em;
   color: $color-text;
 }
+
+// Карточка экзамена: название и кнопка по центру.
+.fs-subject-card--exam {
+  .fs-subject-card-body {
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+  }
+
+  .fs-subject-card-btn {
+    align-self: center;
+    margin-top: $spacing-md;
+  }
+}

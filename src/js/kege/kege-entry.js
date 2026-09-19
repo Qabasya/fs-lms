@@ -450,6 +450,8 @@ export function initKegeEntry() {
 		startPreviewExam( root, state, persist );
 	} else if ( 'done' === state.stage && finishScreen ) {
 		root.hidden = true;
+		// Без ритуала экран экзамена отрисован видимым (см. kege/exam.php) — убираем его.
+		if ( examScreen ) { examScreen.hidden = true; }
 		finishScreen.removeAttribute( 'hidden' );
 	} else if ( hideIntro && sandbox && examScreen ) {
 		// «Скрыть приветственные экраны»: ритуал пропускаем целиком — сразу к заданию.
@@ -462,8 +464,12 @@ export function initKegeEntry() {
 
 		// Курс: попытка настоящая, поэтому сама стартует без ритуала (ошибка старта
 		// оставляет обычный экран входа — ученик не остаётся перед пустой страницей).
-		if ( hideIntro && ! sandbox && kegeVars && ! root.hidden ) {
-			void requestStartAttempt( kegeVars, assessmentId );
+		// Вход при скрытых экранах отрисован скрытым (kege/entry.php) — «завершено» определяем по листу.
+		if ( hideIntro && ! sandbox && kegeVars && ( ! finishScreen || finishScreen.hidden ) ) {
+			void requestStartAttempt( kegeVars, assessmentId ).then( ( started ) => {
+				// Старт не удался (лимит попыток и т.п.) — показываем обычный вход, а не пустую страницу.
+				if ( ! started ) { root.hidden = false; }
+			} );
 		}
 	}
 
