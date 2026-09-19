@@ -436,3 +436,15 @@
   font-size: inherit;
   line-height: $line-height-tight;
 }
+
+// ── Несколько условий в одном задании (связка 19-21, «Два условия на выбор»,
+// ОГЭ №13): `TaskMetaService::getCombinedCondition()` оборачивает каждое в
+// `.fs-task-subcondition`. Встык они читаются как одно условие — и на
+// странице задания, и в карточке тренажёра.
+@mixin fs-task-subconditions {
+  .fs-task-subcondition + .fs-task-subcondition {
+    margin-top: $spacing-lg;
+    padding-top: $spacing-lg;
+    border-top: 1px solid $color-border-light;
+  }
+}

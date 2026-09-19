@@ -41,6 +41,11 @@
   h3 { font-size: rem(24); }
   h4 { font-size: rem(20); }
 
+  // Текст по умолчанию — по ширине. Явная выключка автора из редактора
+  // (inline `text-align`) перебивает это правило сама.
+  p,
+  li { text-align: justify; }
+
   b,
   strong { color: var(--ink); }
 
@@ -111,6 +116,14 @@
     max-width: 100%;
     height: auto;
     border-radius: rem(12);
+  }
+
+  // Картинка — по центру колонки, даже внутри абзаца (редактор кладёт её в
+  // `<p>`, и она наследовала его выключку). Явные alignleft/alignright автора
+  // и строчные картинки-формулы QuickLaTeX/смайлы остаются в строке.
+  img:not(.alignleft, .alignright, .emoji, .wp-smiley, [class*='ql-img-inline']) {
+    display: block;
+    margin-inline: auto;
   }
 }
 

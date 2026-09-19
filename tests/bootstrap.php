@@ -385,7 +385,8 @@ if (!function_exists('wp_update_post')) {
 }
 if (!function_exists('update_post_meta')) {
     function update_post_meta(int $id, string $key, mixed $value): bool {
-        $GLOBALS['_fs_test_meta'][$id][$key] = $value;
+        // Как в ядре: update_metadata() снимает слэши со значения.
+        $GLOBALS['_fs_test_meta'][$id][$key] = wp_unslash($value);
         return true;
     }
 }
@@ -470,8 +471,17 @@ if (!function_exists('term_exists')) {
         return $GLOBALS['_fs_test_terms'][$taxonomy][(string) $term] ?? 0;
     }
 }
+if (!function_exists('wp_slash')) {
+    function wp_slash(mixed $value): mixed {
+        if (is_array($value)) { return array_map('wp_slash', $value); }
+        return is_string($value) ? addslashes($value) : $value;
+    }
+}
 if (!function_exists('wp_unslash')) {
-    function wp_unslash(mixed $value): mixed { return is_string($value) ? stripslashes($value) : $value; }
+    function wp_unslash(mixed $value): mixed {
+        if (is_array($value)) { return array_map('wp_unslash', $value); }
+        return is_string($value) ? stripslashes($value) : $value;
+    }
 }
 if (!function_exists('wp_check_invalid_utf8')) {
     // Тестовый ввод всегда валидный UTF-8 — пропускаем как есть (реальная функция

@@ -128,7 +128,39 @@
   }
   .filter-option.is-active .filter-option-check { background: $color-accent; border-color: $color-accent; color: $color-white; }
 
+  // Кнопка сворачивания — только на узком экране (см. ниже).
+  .filters-side-toggle { display: none; }
+
+  // ── Узкий экран: фильтры над списком, свёрнуты под кнопку ──────
+  // Сайдбар распадается на карточки (`display: contents`): карточка фильтров
+  // остаётся над списком, остальные (курсы, статьи, тренажёр) уходят под него.
   @media (max-width: $bp-md) {
-    .sidebar { position: static; order: 2; }
+    .sidebar { display: contents; }
+    .sidebar > :not(.filters-side) { order: 1; }
+
+    .filters-side-title { display: none; }
+
+    .filters-side-toggle {
+      display: inline-flex; align-items: center;
+      gap: rem(8);
+      padding: 0;
+      background: none; border: 0;
+      font-family: inherit; font-size: $font-size-md; font-weight: $font-bold;
+      letter-spacing: -.01em; color: $color-text;
+      cursor: pointer;
+    }
+
+    .filters-side-toggle-chev {
+      display: flex;
+      color: $color-muted-2;
+      transition: transform $transition;
+    }
+
+    .filters-side.is-open .filters-side-toggle-chev { transform: rotate(180deg); }
+
+    .filters-side:not(.is-open) {
+      .filters-side-head { border-bottom: 0; }
+      .filters-side-body { display: none; }
+    }
   }
 }

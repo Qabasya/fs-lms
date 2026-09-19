@@ -94,7 +94,7 @@ $filterUrl  = add_query_arg( array_merge( $activeFilters, $sortParams ), $baseUr
 		</div>
 	</div>
 
-	<form method="get" action="<?php echo esc_url( admin_url( 'admin.php' ) ); ?>" class="fs-logs-filters">
+	<form method="get" action="<?php echo esc_url( admin_url( 'admin.php' ) ); ?>" class="fs-logs-filters fs-logs-filters--wide">
 		<input type="hidden" name="page" value="<?php echo esc_attr( $pageSlug ); ?>">
 		<input type="hidden" name="tab"  value="tab-2">
 
@@ -174,17 +174,13 @@ $filterUrl  = add_query_arg( array_merge( $activeFilters, $sortParams ), $baseUr
 				$firstRecord = $studentRecords[0];
 				$person      = $personRepo->find( $studentPersonId );
 
-				// Имя ученика
+				// Имя ученика — ФИО персоны (с отчеством, как у родителей);
+				// display_name учётки отчества не содержит и нужен только фолбэком.
 				$studentName = '—';
 				$wpUser      = null;
 				if ( $person !== null ) {
-					$studentName = $person->fullName() ?: '—';
-					if ( $person->wpUserId ) {
-						$wpUser = get_userdata( $person->wpUserId );
-						if ( $wpUser ) {
-							$studentName = $wpUser->display_name ?: $studentName;
-						}
-					}
+					$wpUser      = $person->wpUserId ? get_userdata( $person->wpUserId ) : null;
+					$studentName = $person->fullName() ?: ( $wpUser ? $wpUser->display_name : '' ) ?: '—';
 				}
 
 				// Имя родителя из первой записи
@@ -193,7 +189,7 @@ $filterUrl  = add_query_arg( array_merge( $activeFilters, $sortParams ), $baseUr
 					$parentPerson = $personRepo->find( $firstRecord->parentPersonId );
 					if ( $parentPerson !== null ) {
 						$parentWpUser = $parentPerson->wpUserId ? get_userdata( $parentPerson->wpUserId ) : null;
-						$parentName   = $parentWpUser ? $parentWpUser->display_name : $parentPerson->fullName();
+						$parentName   = $parentPerson->fullName() ?: ( $parentWpUser ? $parentWpUser->display_name : '' );
 					}
 				}
 

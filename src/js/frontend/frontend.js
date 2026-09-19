@@ -9,6 +9,7 @@ import { initCodeBlocks }       from './components/code-block.js';
 import { initLessonCountdown }  from './components/lesson-countdown.js';
 import { initSearchBox }        from './components/search-box.js';
 import { initScrollTop }        from './components/scroll-top.js';
+import { initFiltersToggle }    from './components/filters-toggle.js';
 import { initApplyForm }        from './services/apply-form.js';
 import { initLoginForm }        from './services/login-form.js';
 import { initJoinForm }         from './services/join-form.js';
@@ -28,6 +29,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initLessonCountdown();
     initSearchBox();
     initScrollTop();
+    initFiltersToggle();
     initApplyForm();
     initLoginForm();
     initJoinForm();

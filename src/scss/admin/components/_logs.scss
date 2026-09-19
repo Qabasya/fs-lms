@@ -26,6 +26,15 @@
     }
   }
 
+  // Списки людей: ФИО и названия предметов/групп длинные — поля одной ширины.
+  .fs-logs-filters--wide {
+    input[type="search"],
+    select {
+      width: $filter-control-width;
+      max-width: 100%;
+    }
+  }
+
   .fs-logs-summary {
     color: $color-text-secondary;
     font-size: $font-size-base;

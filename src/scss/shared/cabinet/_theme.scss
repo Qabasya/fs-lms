@@ -26,6 +26,7 @@
   --bg:          #f3f4f7;
   --surface:     #fff;
   --surface-2:   #fafbfc;
+  --surface-head: #{t.$surface-head}; // шапка таблицы контента
   --ink:         #181b23;
   --ink-2:       #3c424e;
   --ink-inverse: #fff;

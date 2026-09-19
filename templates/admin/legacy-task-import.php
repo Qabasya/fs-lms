@@ -73,6 +73,16 @@ defined( 'ABSPATH' ) || exit;
 				</td>
 			</tr>
 		<?php endforeach; ?>
+		<tr>
+			<th scope="row">Повторный перенос</th>
+			<td>
+				<label for="fs-legacy-import-refill">
+					<input type="checkbox" id="fs-legacy-import-refill">
+					Обновить уже импортированные задания
+				</label>
+				<p class="description">Записи, чей legacy_number уже переносился, не пропускаются: условия, ответы, код и файл перезаписываются из файла. Новые задания создаются как обычно.</p>
+			</td>
+		</tr>
 		</tbody>
 	</table>
 

@@ -61,6 +61,7 @@ $cb-pane-px: rem(22); // горизонтальный padding правой па�
 $input-height: rem(40);
 $input-height-sm: rem(35);  // компактная высота полей: модальный form-input, editable-field, fs-pfield
 $field-max-width: rem(320);
+$filter-control-width: rem(310); // поля фильтров списков «Ученики» / «Родители»
 $settings-max-width: rem(860); // единая ширина для страниц настроек
 
 $size-icon-xl: rem(48); // крупная иконка-заглушка: empty-state, modal redirect-box провайдер

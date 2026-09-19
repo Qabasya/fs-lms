@@ -69,16 +69,11 @@ $has_selected = (bool) array_sum( array_column( $page_data->filters, 'active' ) 
 			<!-- ===================== САЙДБАР / ФИЛЬТРЫ ===================== -->
 			<aside class="sidebar js-scroll-sticky" aria-label="Фильтры">
 
-				<section class="side-card filters-side">
-					<div class="filters-side-head">
-						<span class="filters-side-title">Фильтры</span>
-						<button class="filters-side-clear js-filters-clear" <?php echo $has_selected ? '' : 'disabled'; ?>>Сбросить</button>
-					</div>
-
-					<?php foreach ( $page_data->filters as $group ) : ?>
-						<?php include __DIR__ . '/filter-group.php'; ?>
-					<?php endforeach; ?>
-				</section>
+				<?php
+				$filters_groups   = $page_data->filters;
+				$filters_selected = (bool) $has_selected;
+				include __DIR__ . '/filters-side.php';
+				?>
 
 				<?php
 				// Курсы предмета — общий со страницей задания партиал; нет курсов, нет блока.

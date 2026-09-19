@@ -56,16 +56,11 @@ use Inc\Services\Shared\Pluralizer;
 			<aside class="sidebar js-scroll-sticky" aria-label="Фильтры">
 
 				<?php if ( ! empty( $page_data->filters ) ) : ?>
-					<section class="side-card filters-side">
-						<div class="filters-side-head">
-							<span class="filters-side-title">Фильтры</span>
-							<button class="filters-side-clear js-filters-clear" disabled>Сбросить</button>
-						</div>
-
-						<?php foreach ( $page_data->filters as $group ) : ?>
-							<?php include __DIR__ . '/../partials/filter-group.php'; ?>
-						<?php endforeach; ?>
-					</section>
+					<?php
+					$filters_groups   = $page_data->filters;
+					$filters_selected = false;
+					include __DIR__ . '/../partials/filters-side.php';
+					?>
 				<?php endif; ?>
 
 				<?php

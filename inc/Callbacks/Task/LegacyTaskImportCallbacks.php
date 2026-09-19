@@ -63,7 +63,8 @@ class LegacyTaskImportCallbacks extends BaseController {
 				array_map( array( LegacyTaskRowDTO::class, 'fromArray' ), $rows ),
 				$authorTaxonomy,
 				$yearTaxonomy,
-				$levelTaxonomy
+				$levelTaxonomy,
+				$this->sanitizeBool( 'refill' )
 			);
 		} catch ( \Throwable $e ) {
 			$this->error( $e->getMessage() );

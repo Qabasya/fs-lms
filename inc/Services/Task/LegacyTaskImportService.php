@@ -13,6 +13,7 @@ use Inc\Managers\Wp\TermManager;
 use Inc\Repositories\OptionsRepositories\MetaBoxRepository;
 use Inc\Services\Subject\PostTypeResolver;
 use Inc\Services\Template\TemplateRegistry;
+use Inc\Services\Template\TemplateResolver;
 
 /**
  * Class LegacyTaskImportService
@@ -46,6 +47,8 @@ class LegacyTaskImportService {
 		private readonly PostManager $postManager,
 		private readonly MetaBoxRepository $metaboxes,
 		private readonly TemplateRegistry $templates,
+		private readonly TemplateResolver $resolver,
+		private readonly TaskBundleService $taskBundles,
 	) {}
 
 	/**
@@ -54,8 +57,10 @@ class LegacyTaskImportService {
 	 * @param string             $subjectKey Ключ предмета
 	 * @param int                $offset     Позиция первой записи батча в файле — только для нумерации строк в предупреждениях
 	 * @param LegacyTaskRowDTO[] $rows       Записи батча в порядке файла
+	 * @param bool               $refill     Перезаполнить уже импортированные задания
+	 *                                       (по legacy_number) вместо пропуска
 	 *
-	 * @return array{created:int, skipped:int, warnings:string[]}
+	 * @return array{created:int, updated:int, skipped:int, warnings:string[]}
 	 */
 	public function importBatch(
 		string $subjectKey,
@@ -63,7 +68,8 @@ class LegacyTaskImportService {
 		array $rows,
 		string $authorTaxonomy,
 		string $yearTaxonomy,
-		string $levelTaxonomy
+		string $levelTaxonomy,
+		bool $refill = false
 	): array {
 		$numberTaxonomy = "{$subjectKey}_task_number";
 		if ( ! taxonomy_exists( $numberTaxonomy ) ) {
@@ -73,6 +79,7 @@ class LegacyTaskImportService {
 		$postType = PostTypeResolver::tasks( $subjectKey );
 
 		$created  = 0;
+		$updated  = 0;
 		$skipped  = 0;
 		$warnings = array();
 
@@ -80,10 +87,20 @@ class LegacyTaskImportService {
 			$rowIndex = $offset + $i;
 
 			// Дедуп: повторный запуск (после сбоя сети/повторного клика) не должен
-			// плодить дубли — строка с уже импортированным legacy_number пропускается.
-			if ( $row->legacyNumber > 0 && $this->alreadyImported( $postType, $row->legacyNumber ) ) {
-				$warnings[] = "Строка {$rowIndex}: legacy_number {$row->legacyNumber} уже импортирован ранее — пропущена.";
-				++$skipped;
+			// плодить дубли — строка с уже импортированным legacy_number пропускается,
+			// а в режиме перезаполнения обновляет контент найденного задания (так
+			// дозаливаются записи, перенесённые до поддержки нового поля файла).
+			$existingId = $row->legacyNumber > 0 ? $this->findImported( $postType, $row->legacyNumber ) : 0;
+			if ( $existingId > 0 ) {
+				if ( ! $refill ) {
+					$warnings[] = "Строка {$rowIndex}: legacy_number {$row->legacyNumber} уже импортирован ранее — пропущена.";
+					++$skipped;
+					continue;
+				}
+
+				$this->fillContent( $existingId, $row );
+				$this->syncBundle( $existingId );
+				++$updated;
 				continue;
 			}
 
@@ -115,6 +132,7 @@ class LegacyTaskImportService {
 			}
 
 			$this->fillContent( $postId, $row );
+			$this->syncBundle( $postId );
 			$this->assignTerm( $postId, $authorTaxonomy, $row->author );
 			$this->assignTerm( $postId, $yearTaxonomy, $row->year );
 			$this->assignTerm( $postId, $levelTaxonomy, $row->level );
@@ -129,6 +147,7 @@ class LegacyTaskImportService {
 
 		return array(
 			'created'  => $created,
+			'updated'  => $updated,
 			'skipped'  => $skipped,
 			'warnings' => $warnings,
 		);
@@ -171,8 +190,21 @@ class LegacyTaskImportService {
 		$this->postManager->updateMeta( $postId, PostMetaName::Meta->value, $existing );
 	}
 
-	/** Уже есть задание с этим legacy_number (повторный/прерванный запуск переноса). */
-	private function alreadyImported( string $postType, int $legacyNumber ): bool {
+	/**
+	 * Материализует children связки 19-21. Обычное сохранение делает это в
+	 * {@see \Inc\Controllers\Task\MetaBoxController}, импорт пишет мету мимо
+	 * метабокса — без явного вызова подзадания 19/20/21 оставались пустыми, пока
+	 * автор не пересохранит связку вручную.
+	 */
+	private function syncBundle( int $postId ): void {
+		$post = $this->postManager->get( $postId );
+		if ( $post && TaskTemplate::Triple->value === $this->resolver->resolveId( $post ) ) {
+			$this->taskBundles->syncChildren( $postId );
+		}
+	}
+
+	/** ID задания с этим legacy_number (повторный/прерванный запуск переноса), 0 — не импортировалось. */
+	private function findImported( string $postType, int $legacyNumber ): int {
 		$existing = $this->postManager->search(
 			$postType,
 			array(
@@ -188,7 +220,7 @@ class LegacyTaskImportService {
 			)
 		);
 
-		return array() !== $existing;
+		return array() === $existing ? 0 : (int) $existing[0]->ID;
 	}
 
 	/**

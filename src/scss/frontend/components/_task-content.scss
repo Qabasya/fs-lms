@@ -9,11 +9,6 @@
   line-height: 1.2;
   letter-spacing: -.02em;
   margin: rem(14) 0 rem(18);
-
-  // Мобильный кегль
-  @media (max-width: $bp-sm) {
-    font-size: $font-size-md;
-  }
 }
 
 .fs-task-tags {
@@ -54,14 +49,7 @@
   // Публичный reset глушит list-style у всех ul/ol — в условии возвращаем
   // маркеры и лесенку уровней (общее правило с лекцией и статьёй).
   @include fs-content-lists;
-
-  // Несколько условий в одном задании («Два условия на выбор», ОГЭ №13):
-  // варианты — самостоятельные части, встык они читаются как одно условие.
-  .fs-task-subcondition + .fs-task-subcondition {
-    margin-top: $spacing-lg;
-    padding-top: $spacing-lg;
-    border-top: 1px solid $color-border-light;
-  }
+  @include fs-task-subconditions;
 
   li::marker { color: inherit; }
 

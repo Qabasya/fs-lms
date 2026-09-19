@@ -494,10 +494,14 @@ class PostManager {
 	 * @param string $key     Ключ мета-поля
 	 * @param mixed  $value   Значение мета-поля
 	 *
+	 * Ядро снимает слэши со значения (`update_metadata()` → `wp_unslash()`),
+	 * а сюда оно приходит уже очищенным (Sanitizer::unslashArray()). Без
+	 * `wp_slash()` второй unslash срезал `\` из LaTeX (`\cdot` → `cdot`) и кода.
+	 *
 	 * @return void
 	 */
 	public function updateMeta( int $post_id, string $key, mixed $value ): void {
-		update_post_meta( $post_id, $key, $value );
+		update_post_meta( $post_id, $key, wp_slash( $value ) );
 	}
 
 	/**

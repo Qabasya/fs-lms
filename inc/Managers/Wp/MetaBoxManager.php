@@ -162,8 +162,9 @@ class MetaBoxManager {
 			return;
 		}
 
-		// Сохраняем мета-данные
-		update_post_meta( $post_id, $meta_key, $value );
+		// wp_slash — ядро само снимает слэши, а значение уже без них: иначе
+		// теряются `\` в LaTeX и коде (см. PostManager::updateMeta()).
+		update_post_meta( $post_id, $meta_key, wp_slash( $value ) );
 	}
 
 	/**

@@ -80,27 +80,6 @@ $consultation_url = (string) ( $config['consultation_url'] ?? '' );
 					<p class="fs-field__desc">Универсальный код для обхода OTP-проверки (для поддержки учеников без доступа к email).</p>
 				</div>
 
-				<div class="fs-field">
-					<label for="fs-config-consultation-url" class="fs-field__label">
-						Ссылка на запись на консультацию
-					</label>
-					<div class="fs-field__control">
-						<input
-							type="url"
-							id="fs-config-consultation-url"
-							name="consultation_url"
-							class="regular-text"
-							placeholder="https://example.com/#hero-form"
-							value="<?php echo esc_attr( $consultation_url ); ?>"
-						/>
-					</div>
-					<p class="fs-field__desc">
-						Показывается в тренажёре по кнопке «Показать ответ» у заданий с ручной проверкой
-						(развёрнутый ответ, два условия на выбор) — у них правильного ответа нет.
-						Пусто — приглашение не показывается.
-					</p>
-				</div>
-
 			</div>
 		</div>
 
@@ -126,15 +105,35 @@ $consultation_url = (string) ( $config['consultation_url'] ?? '' );
 					</div>
 					<p class="fs-field__desc">Показывается в шапке личного кабинета вместо стандартного знака. Пусто — используется знак по умолчанию.</p>
 				</div>
-			</div>
-			<?php if ( $otp['editable'] || $test_env['editable'] ) : ?>
-				<div class="fs-card__footer">
-					<button type="submit" id="fs-config-save" class="button button-primary">
-						Сохранить настройки
-					</button>
-					<span class="fs-config-status" id="fs-config-status"></span>
+
+				<div class="fs-field">
+					<label for="fs-config-consultation-url" class="fs-field__label">
+						Ссылка на запись на консультацию
+					</label>
+					<div class="fs-field__control">
+						<input
+							type="url"
+							id="fs-config-consultation-url"
+							name="consultation_url"
+							class="regular-text"
+							placeholder="https://example.com/#hero-form"
+							value="<?php echo esc_attr( $consultation_url ); ?>"
+						/>
+					</div>
+					<p class="fs-field__desc">
+						Показывается в тренажёре по кнопке «Показать ответ» у заданий с ручной проверкой
+						(развёрнутый ответ, два условия на выбор) — у них правильного ответа нет.
+						Пусто — приглашение не показывается.
+					</p>
 				</div>
-			<?php endif; ?>
+			</div>
+			<?php // Кнопка — всегда: оформление сохраняется, даже если тестовые параметры заданы в wp-config.php. ?>
+			<div class="fs-card__footer">
+				<button type="submit" id="fs-config-save" class="button button-primary">
+					Сохранить настройки
+				</button>
+				<span class="fs-config-status" id="fs-config-status"></span>
+			</div>
 		</div>
 	</form>
 

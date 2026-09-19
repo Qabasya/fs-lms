@@ -58,13 +58,12 @@
 	th + th,
 	td + td { border-left: 1px solid var(--line-2, #{t.$line-2}); }
 
+	// Цвет — только у настоящей шапки: первая строка `tbody` (таблица из
+	// Word без `<thead>`) остаётся данными.
 	th {
-		background: var(--surface-2, #{t.$surface-2});
+		background: var(--surface-head, #{t.$surface-head});
 		font-weight: t.$font-semibold;
 	}
-
-	tbody tr { transition: background-color t.$transition-fast; }
-	tbody tr:hover { background: var(--surface-2, #{t.$surface-2}); }
 
 	// Нижняя граница последней строки совпала бы с рамкой таблицы.
 	tbody tr:last-child td { border-bottom: 0; }
@@ -77,6 +76,19 @@
 	// не трогает: класс ставит только кнопка.
 	&.fs-table-center th,
 	&.fs-table-center td { text-align: center; }
+
+	// Таблица кнопки редактора — на 90% колонки текста, столбцы поровну.
+	// `table-layout: fixed` работает только у `display: table`, поэтому
+	// блок-обёртка с прокруткой здесь снимается: узкие ячейки переносят
+	// содержимое, а не распирают таблицу.
+	&.fs-table-center {
+		display: table;
+		width: 90%;
+		table-layout: fixed;
+	}
+
+	&.fs-table-center th,
+	&.fs-table-center td { overflow-wrap: anywhere; }
 
 	@media (max-width: t.$bp-mobile) {
 		th,

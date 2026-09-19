@@ -50,6 +50,7 @@
   .tcr-condition {
     @include fs-content-tables;
     @include fs-content-lists;
+    @include fs-task-subconditions;
 
     li::marker { color: inherit; }
 
@@ -152,6 +153,10 @@
   @media (max-width: $bp-md) {
     .task-card-row { padding: rem(18) rem(16) rem(16); }
     .tcr-condition { font-size: $font-size-base; }
+
+    // «Показать ответ» и «Смотреть решение» — друг под другом по центру.
+    .tcr-foot { flex-direction: column; justify-content: center; }
+    .tcr-actions { margin-left: 0; }
   }
 }
 

@@ -60,7 +60,7 @@ $filterUrl     = add_query_arg( array_merge( $activeFilters, $sortParams ), $bas
 		</div>
 	</div>
 
-	<form method="get" action="<?php echo esc_url( admin_url( 'admin.php' ) ); ?>" class="fs-logs-filters">
+	<form method="get" action="<?php echo esc_url( admin_url( 'admin.php' ) ); ?>" class="fs-logs-filters fs-logs-filters--wide">
 		<input type="hidden" name="page" value="<?php echo esc_attr( $pageSlug ); ?>">
 		<input type="hidden" name="tab"  value="tab-3">
 

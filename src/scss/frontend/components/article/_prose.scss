@@ -142,3 +142,17 @@
   .fs-article-prose h2 + h3,
   .fs-article-prose h3 + h4 { margin-top: $spacing-lg; }
 }
+
+// Узкий экран: колонка текста короткая, рваный правый край бросается в
+// глаза — выключка по ширине. Переносы (`hyphens`) браузер расставляет по
+// словарю языка страницы (`<html lang="ru-RU">`), без них justify разгонял
+// бы пробелы между длинными русскими словами.
+@media (max-width: $bp-sm) {
+  .fs-article-page .fs-article-prose {
+    p,
+    li {
+      text-align: justify;
+      hyphens: auto;
+    }
+  }
+}

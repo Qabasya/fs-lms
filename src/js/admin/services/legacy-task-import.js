@@ -94,7 +94,7 @@ export const LegacyTaskImport = {
                 }
 
                 this.$progress.prop( { max: rows.length, hidden: false } );
-                this.runBatch( this.readParams(), rows, 0, { created: 0, skipped: 0, warnings: [] } );
+                this.runBatch( this.readParams(), rows, 0, { created: 0, updated: 0, skipped: 0, warnings: [] } );
             } )
             .catch( () => this.fail( 'Не удалось прочитать файл.' ) );
     },
@@ -117,7 +117,7 @@ export const LegacyTaskImport = {
     /**
      * Собирает параметры предмета/таксономий из формы.
      *
-     * @return {{subject_key:string, author_taxonomy:string, year_taxonomy:string, level_taxonomy:string}}
+     * @return {{subject_key:string, author_taxonomy:string, year_taxonomy:string, level_taxonomy:string, refill:number}}
      */
     readParams() {
         return {
@@ -125,6 +125,7 @@ export const LegacyTaskImport = {
             author_taxonomy: $( '#fs-legacy-import-author-tax' ).val() || '',
             year_taxonomy: $( '#fs-legacy-import-year-tax' ).val() || '',
             level_taxonomy: $( '#fs-legacy-import-level-tax' ).val() || '',
+            refill: $( '#fs-legacy-import-refill' ).is( ':checked' ) ? 1 : 0,
         };
     },
 
@@ -134,7 +135,7 @@ export const LegacyTaskImport = {
      * @param {Object} params Параметры предмета/таксономий.
      * @param {Array}  rows   Все записи файла.
      * @param {number} offset Позиция первой записи батча.
-     * @param {{created:number, skipped:number, warnings:string[]}} totals Накопленный итог.
+     * @param {{created:number, updated:number, skipped:number, warnings:string[]}} totals Накопленный итог.
      */
     runBatch( params, rows, offset, totals ) {
         const batch = rows.slice( offset, offset + this.batchSize );
@@ -154,6 +155,7 @@ export const LegacyTaskImport = {
 
                 const report = response.data;
                 totals.created += Number( report.created ) || 0;
+                totals.updated += Number( report.updated ) || 0;
                 totals.skipped += Number( report.skipped ) || 0;
                 totals.warnings.push( ...( Array.isArray( report.warnings ) ? report.warnings : [] ) );
 
@@ -173,7 +175,7 @@ export const LegacyTaskImport = {
     /**
      * Завершает перенос успешно: рендерит итоговый отчёт.
      *
-     * @param {{created:number, skipped:number, warnings:string[]}} totals Итог по всем батчам.
+     * @param {{created:number, updated:number, skipped:number, warnings:string[]}} totals Итог по всем батчам.
      */
     finish( totals ) {
         this.unlock();
@@ -185,7 +187,7 @@ export const LegacyTaskImport = {
      * Прерывает перенос из-за ошибки: показывает уведомление и то, что успело накопиться.
      *
      * @param {string} message Текст ошибки.
-     * @param {{created:number, skipped:number, warnings:string[]}} [totals] Итог, накопленный до сбоя.
+     * @param {{created:number, updated:number, skipped:number, warnings:string[]}} [totals] Итог, накопленный до сбоя.
      */
     fail( message, totals = null ) {
         this.unlock();
@@ -207,12 +209,13 @@ export const LegacyTaskImport = {
     /**
      * Рендерит отчёт переноса: создано/пропущено + список предупреждений.
      *
-     * @param {{created:number, skipped:number, warnings:string[]}} totals Итог.
+     * @param {{created:number, updated:number, skipped:number, warnings:string[]}} totals Итог.
      */
     renderReport( totals ) {
         let html = '<h2 class="fs-import-report__title">Перенос завершён</h2>';
         html += '<ul class="fs-import-report__summary">';
         html += '<li>Создано: <strong>' + totals.created + '</strong></li>';
+        html += '<li>Обновлено: <strong>' + totals.updated + '</strong></li>';
         html += '<li>Пропущено: <strong>' + totals.skipped + '</strong></li>';
         html += '</ul>';
 
