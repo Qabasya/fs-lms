@@ -46,6 +46,7 @@ class AssessmentStationFieldsGateTest extends TestCase {
 			new TaskPublishGuard(),
 			$this->createMock( EgeCompletenessChecker::class ),
 			$this->createMock( \Inc\Services\Task\TaskBundleService::class ),
+			$this->createMock( \Inc\Services\Assessment\AssessmentSlugService::class ),
 		);
 	}
 

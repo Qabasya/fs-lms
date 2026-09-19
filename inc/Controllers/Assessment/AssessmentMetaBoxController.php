@@ -15,6 +15,7 @@ use Inc\Managers\Wp\PostManager;
 use Inc\MetaBoxes\Templates\AssessmentTemplate;
 use Inc\Registrars\MetaBoxRegistrar;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
+use Inc\Services\Assessment\AssessmentSlugService;
 use Inc\Services\Assessment\EgeCompletenessChecker;
 use Inc\Services\Subject\PostTypeResolver;
 use Inc\Services\Task\TaskBundleService;
@@ -63,6 +64,7 @@ class AssessmentMetaBoxController extends BaseController implements ServiceInter
 		private readonly TaskPublishGuard      $guard,
 		private readonly EgeCompletenessChecker $completeness,
 		private readonly TaskBundleService      $bundles,
+		private readonly AssessmentSlugService  $slugs,
 	) {
 		parent::__construct();
 	}
@@ -71,6 +73,8 @@ class AssessmentMetaBoxController extends BaseController implements ServiceInter
 		add_action( 'add_meta_boxes', array( $this, 'handleAddMetaBoxes' ) );
 		add_action( 'add_meta_boxes', array( $this, 'handleTidyMetaBoxes' ), 20 );
 		add_action( 'save_post', array( $this, 'handleAssessmentSave' ) );
+		// Адрес экзамена — его ID, а не название (кириллица в ссылке): ID известен только после вставки.
+		add_action( 'wp_after_insert_post', array( $this, 'handleAssessmentSlug' ), 10, 2 );
 		// #10: не даём опубликовать контрольную без названия (откат в draft + notice).
 		add_filter( 'wp_insert_post_data', array( $this, 'validateAssessmentTitle' ), 10, 2 );
 		add_action( 'admin_notices', array( $this, 'showPublishError' ) );
@@ -218,6 +222,11 @@ class AssessmentMetaBoxController extends BaseController implements ServiceInter
 			array( $this, 'renderBuilderContent' ),
 			$assessment_post_types
 		)->register();
+	}
+
+	/** Слаг экзамена = ID ({@see AssessmentSlugService}); срабатывает после сохранения поста и его меты. */
+	public function handleAssessmentSlug( int $postId, \WP_Post $post ): void {
+		$this->slugs->ensure( $post );
 	}
 
 	public function handleTidyMetaBoxes(): void {

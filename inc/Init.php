@@ -277,5 +277,7 @@ final class Init {
 		// баллы первой сдачи работ (без них карточки рисовали крестики).
 		$container->get( \Inc\Migrations\CommonTemplateMigration::class )->run();
 		$container->get( \Inc\Migrations\SubmissionScoreBackfillMigration::class )->run();
+		// Адреса экзаменов — по ID вместо названия (кириллица в ссылке).
+		$container->get( \Inc\Migrations\AssessmentSlugMigration::class )->run();
 	}
 }
