@@ -8,8 +8,8 @@ use Inc\Core\BaseController;
 use Inc\Enums\Wp\Nonce;
 use Inc\Managers\Assessment\AssessmentManager;
 use Inc\Modules\EgeComputer\Services\KegeResultSheetService;
+use Inc\Modules\EgeComputer\Services\KegeSheetResponseBuilder;
 use Inc\Services\Assessment\AssessmentAccessPolicy;
-use Inc\Services\Assessment\AttemptTaskViewBuilder;
 use Inc\Shared\Traits\AjaxResponse;
 use Inc\Shared\Traits\Sanitizer;
 
@@ -21,7 +21,8 @@ use Inc\Shared\Traits\Sanitizer;
  * ответы (`kege-exam.js`, Map `savedAnswers`) отправляются сюда напрямую, когда
  * автор жмёт «Завершить экзамен». Расчёт баллов и сличение с эталоном идут тем
  * же кодом, что и для настоящей попытки ({@see KegeResultSheetService::buildFromAnswers()}),
- * только источник ответов другой — сама попытка нигде не сохраняется.
+ * только источник ответов другой — сама попытка нигде не сохраняется. Сборку листа
+ * делит с публичным экзаменом {@see KegeSheetResponseBuilder}.
  *
  * @package Inc\Modules\EgeComputer\Callbacks
  */
@@ -34,10 +35,9 @@ class PreviewResultCallbacks extends BaseController {
 	public const ACTION = 'fs_lms_kege_preview_result';
 
 	public function __construct(
-		private readonly AssessmentManager      $assessments,
-		private readonly AssessmentAccessPolicy $access,
-		private readonly AttemptTaskViewBuilder $taskViews,
-		private readonly KegeResultSheetService $resultSheet,
+		private readonly AssessmentManager        $assessments,
+		private readonly AssessmentAccessPolicy   $access,
+		private readonly KegeSheetResponseBuilder $sheetBuilder,
 	) {
 		parent::__construct();
 	}
@@ -62,25 +62,6 @@ class PreviewResultCallbacks extends BaseController {
 			return;
 		}
 
-		$answerText = array();
-		foreach ( $this->unslashArray( 'answers' ) as $taskId => $value ) {
-			$taskId = absint( $taskId );
-			if ( $taskId > 0 ) {
-				$answerText[ $taskId ] = $this->sanitizeAnswerTextValue( $value );
-			}
-		}
-
-		$taskViews = $this->taskViews->build( $assessment->taskIds, $assessment->subjectKey, $assessment->kind );
-		$sheet     = $this->resultSheet->buildFromAnswers( $assessment, $answerText, $taskViews );
-
-		$this->success( array(
-			'rows'          => $sheet->rows,
-			'answered'      => $sheet->answered,
-			'total'         => $sheet->total(),
-			'primary'       => $sheet->primary,
-			'primary_max'   => $sheet->primaryMax,
-			'secondary'     => $sheet->secondary,
-			'secondary_max' => $sheet->secondaryMax,
-		) );
+		$this->success( $this->sheetBuilder->fromRequest( $assessment ) );
 	}
 }

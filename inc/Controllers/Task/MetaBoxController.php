@@ -81,7 +81,7 @@ class MetaBoxController extends BaseController implements ServiceInterface {
 	public function register(): void {
 		// add_action() — регистрирует функцию-обработчик на указанное событие WordPress
 		// 'add_meta_boxes' — хук, срабатывающий перед добавлением метабоксов
-		add_action( 'add_meta_boxes', array( $this, 'handleAddMetaBoxes' ) );
+		add_action( 'add_meta_boxes', array( $this, 'handleAddMetaBoxes' ), 10, 2 );
 		add_action( 'save_post', array( $this, 'handleMetaSave' ) );
 		add_action( 'transition_post_status', array( $this, 'handleBundleStatusTransition' ), 10, 3 );
 		add_filter( 'fs_lms_get_templates', array( $this, 'getTemplatesList' ) );
@@ -93,7 +93,7 @@ class MetaBoxController extends BaseController implements ServiceInterface {
 	 *
 	 * @return void
 	 */
-	public function handleAddMetaBoxes(): void {
+	public function handleAddMetaBoxes( string $post_type = '', mixed $post = null ): void {
 		// Получение всех предметов из БД
 		$all_subjects = $this->subjects->readAll();
 		if ( empty( $all_subjects ) ) {
@@ -123,6 +123,17 @@ class MetaBoxController extends BaseController implements ServiceInterface {
 			array( $this, 'renderMetaboxContent' ),
 			array( PostTypeResolver::problems() )
 		)->register();
+
+		// «Общее условие» — отдельный метабокс, только у шаблонов с таким полем: его можно
+		// свернуть или скрыть через «Настройки экрана», и он не занимает начало основной формы.
+		if ( $post instanceof \WP_Post && $this->commonConditionTemplate( $post ) ) {
+			$this->registrar->add(
+				'fs_lms_task_common_condition',
+				'Общее условие',
+				array( $this, 'renderCommonConditionMetabox' ),
+				array( $post->post_type )
+			)->register();
+		}
 
 		$this->registrar->add(
 			'fs_lms_task_hint',
@@ -160,6 +171,34 @@ class MetaBoxController extends BaseController implements ServiceInterface {
 			'post'          => $post,
 			'template'      => $template,
 			'values'        => $this->postManager->taskMeta( $post->ID ),
+		) );
+	}
+
+	/**
+	 * Шаблон поста, если у него есть вынесенное поле общего условия; иначе null (бокса не будет).
+	 */
+	private function commonConditionTemplate( \WP_Post $post ): ?\Inc\MetaBoxes\Templates\BaseTemplate {
+		$template = $this->registry->get( $this->resolver->resolveId( $post ) );
+
+		return $template && array() !== $template->separateFieldIds() ? $template : null;
+	}
+
+	/**
+	 * Метабокс «Общее условие»: только вынесенные поля шаблона. Nonce формы печатает
+	 * основной метабокс, а скрытый через «Настройки экрана» бокс всё равно уходит в POST.
+	 */
+	public function renderCommonConditionMetabox( \WP_Post $post ): void {
+		$template = $this->commonConditionTemplate( $post );
+		if ( null === $template ) {
+			return;
+		}
+
+		$this->render( 'admin/metaboxes/fields-subset', array(
+			'wrapper_class' => 'fs-lms-metabox-wrapper',
+			'post'          => $post,
+			'template'      => $template,
+			'values'        => $this->postManager->taskMeta( $post->ID ),
+			'field_ids'     => $template->separateFieldIds(),
 		) );
 	}
 

@@ -15,8 +15,10 @@ use Inc\Managers\Wp\PostManager;
 use Inc\MetaBoxes\Templates\AssessmentTemplate;
 use Inc\Registrars\MetaBoxRegistrar;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
+use Inc\Services\Assessment\AssessmentSlugService;
 use Inc\Services\Assessment\EgeCompletenessChecker;
 use Inc\Services\Subject\PostTypeResolver;
+use Inc\Services\Task\TaskBundleService;
 use Inc\Services\Task\TaskPublishGuard;
 use Inc\Shared\Traits\Authorizer;
 use Inc\Shared\Traits\Sanitizer;
@@ -36,6 +38,13 @@ class AssessmentMetaBoxController extends BaseController implements ServiceInter
 
 	use Authorizer, Sanitizer, TidiesCoreMetaBoxes;
 
+	/**
+	 * WP filter: доменная ошибка публикации от модулей (`?string` — текст ошибки,
+	 * `null` — всё в порядке). Ядро о модулях не знает: публичные экзамены, например,
+	 * требуют год. Аргументы: `$error`, `int $postId`, `array $postedMeta`.
+	 */
+	public const PUBLISH_ERROR_FILTER = 'fs_lms_assessment_publish_error';
+
 	/** Префикс транзиента предупреждения о неукомплектованной КЕГЭ (см. {@see resolveCompletenessError()}). */
 	private const COMPLETENESS_WARNING_PREFIX = 'fs_lms_assessment_completeness_warning_';
 
@@ -54,6 +63,8 @@ class AssessmentMetaBoxController extends BaseController implements ServiceInter
 		private readonly AssessmentManager     $assessmentManager,
 		private readonly TaskPublishGuard      $guard,
 		private readonly EgeCompletenessChecker $completeness,
+		private readonly TaskBundleService      $bundles,
+		private readonly AssessmentSlugService  $slugs,
 	) {
 		parent::__construct();
 	}
@@ -62,6 +73,8 @@ class AssessmentMetaBoxController extends BaseController implements ServiceInter
 		add_action( 'add_meta_boxes', array( $this, 'handleAddMetaBoxes' ) );
 		add_action( 'add_meta_boxes', array( $this, 'handleTidyMetaBoxes' ), 20 );
 		add_action( 'save_post', array( $this, 'handleAssessmentSave' ) );
+		// Адрес экзамена — его ID, а не название (кириллица в ссылке): ID известен только после вставки.
+		add_action( 'wp_after_insert_post', array( $this, 'handleAssessmentSlug' ), 10, 2 );
 		// #10: не даём опубликовать контрольную без названия (откат в draft + notice).
 		add_filter( 'wp_insert_post_data', array( $this, 'validateAssessmentTitle' ), 10, 2 );
 		add_action( 'admin_notices', array( $this, 'showPublishError' ) );
@@ -87,7 +100,7 @@ class AssessmentMetaBoxController extends BaseController implements ServiceInter
 			$data,
 			'fs_lms_assessment_publish_error_',
 			'Укажите название контрольной.',
-			fn(): ?string => $this->resolveCompletenessError( $postId )
+			fn(): ?string => $this->resolveCompletenessError( $postId ) ?? $this->resolveModuleError( $postId )
 		);
 	}
 
@@ -131,6 +144,17 @@ class AssessmentMetaBoxController extends BaseController implements ServiceInter
 		}
 
 		return 'Работа не укомплектована — ' . $result->summary() . '.';
+	}
+
+	/** Ошибка публикации от модулей ({@see self::PUBLISH_ERROR_FILTER}); работает по присланной форме. */
+	private function resolveModuleError( int $postId ): ?string {
+		if ( $postId <= 0 ) {
+			return null;
+		}
+
+		$error = apply_filters( self::PUBLISH_ERROR_FILTER, null, $postId, $this->unslashArray( PostMetaName::Meta->value ) );
+
+		return is_string( $error ) && '' !== $error ? $error : null;
 	}
 
 	/** Только тестовое окружение и только станции ЕГЭ/ОГЭ — см. {@see resolveCompletenessError()}. */
@@ -186,11 +210,23 @@ class AssessmentMetaBoxController extends BaseController implements ServiceInter
 		)->register();
 
 		$this->registrar->add(
+			'fs_lms_assessment_station',
+			'Экраны и доступ',
+			array( $this, 'renderStationContent' ),
+			$assessment_post_types
+		)->register();
+
+		$this->registrar->add(
 			'fs_lms_assessment_builder',
 			'Конструктор контрольной',
 			array( $this, 'renderBuilderContent' ),
 			$assessment_post_types
 		)->register();
+	}
+
+	/** Слаг экзамена = ID ({@see AssessmentSlugService}); срабатывает после сохранения поста и его меты. */
+	public function handleAssessmentSlug( int $postId, \WP_Post $post ): void {
+		$this->slugs->ensure( $post );
 	}
 
 	public function handleTidyMetaBoxes(): void {
@@ -230,6 +266,21 @@ class AssessmentMetaBoxController extends BaseController implements ServiceInter
 		) );
 	}
 
+	/**
+	 * «Экраны и доступ» — только для станции ЕГЭ (JS: `assessment-builder.js::toggleKindFields()`
+	 * скрывает весь бокс для остальных видов). Состав — флажок ядра плюс поля модулей
+	 * ({@see AssessmentTemplate::FIELDS_FILTER}).
+	 */
+	public function renderStationContent( \WP_Post $post ): void {
+		$this->render( 'admin/metaboxes/fields-subset', array(
+			'wrapper_class' => 'fs-lms-assessment-station',
+			'post'          => $post,
+			'template'      => $this->template,
+			'values'        => $this->postManager->taskMeta( $post->ID ),
+			'field_ids'     => $this->template->stationFieldIds(),
+		) );
+	}
+
 	public function renderBuilderContent( \WP_Post $post ): void {
 		// Тот же гейт, что открывает станцию вхолостую по прямой ссылке
 		// (AssessmentAccessPolicy::canPreview()) — прямой путь из конструктора,
@@ -243,19 +294,6 @@ class AssessmentMetaBoxController extends BaseController implements ServiceInter
 		$assessment  = $this->assessmentManager->get( $post->ID );
 		$task_ids    = null !== $assessment ? $assessment->taskIds : array();
 		$task_points = null !== $assessment ? $assessment->taskPoints : array();
-
-		$steps = array();
-		foreach ( $task_ids as $i => $id ) {
-			$id      = (int) $id;
-			$steps[] = array(
-				'key'     => 'slot_' . $i,
-				'type'    => 'task',
-				'payload' => array( 'ref' => $id > 0 ? $id : 0 ),
-				'_title'  => $id > 0 ? get_the_title( $id ) : '',
-			);
-		}
-		$json        = wp_json_encode( $steps, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT );
-		$points_json = wp_json_encode( $task_points, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT );
 
 		// Число позиций зависит от ВИДА экзамена, не только от предмета: ЕГЭ по
 		// информатике — все термы таксономии номеров (обычно 27), ОГЭ — фиксированные
@@ -273,6 +311,30 @@ class AssessmentMetaBoxController extends BaseController implements ServiceInter
 			) ),
 			AssessmentKind::OgeComputer->value => 16,
 		);
+
+		// Раскладка по позициям: сохранённая; иначе (экзамен сохранён до её появления)
+		// задания встают на позицию своего номера, а связка 19-21 разворачивается в три слота.
+		$slot_total = null !== $assessment ? (int) ( $ege_slots_by_kind[ $assessment->kind->value ] ?? 0 ) : 0;
+		$layout     = $this->assessmentManager->slotLayout( $post->ID );
+		if ( array() === $layout ) {
+			$layout = $slot_total > 0
+				? $this->layoutByPosition( $task_ids, $assessment->taskNumbers, $subject, $slot_total )
+				: $task_ids;
+		}
+
+		$steps = array();
+		foreach ( $layout as $i => $id ) {
+			$id      = (int) $id;
+			$steps[] = array(
+				'key'     => 'slot_' . $i,
+				'type'    => 'task',
+				'payload' => array( 'ref' => $id > 0 ? $id : 0 ),
+				'_title'  => $id > 0 ? get_the_title( $id ) : '',
+			);
+		}
+		$json        = wp_json_encode( $steps, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT );
+		$points_json = wp_json_encode( $task_points, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT );
+
 		$ege_slots_json = wp_json_encode( $ege_slots_by_kind );
 
 		$ege_kinds_json = wp_json_encode( AssessmentKind::weightedScoreValues() );
@@ -298,6 +360,68 @@ class AssessmentMetaBoxController extends BaseController implements ServiceInter
 			),
 			'json'       => (string) $json,
 		) );
+	}
+
+	/**
+	 * Раскладка заданий по позициям экзамена (слот i = номер i+1) для экзамена, у которого
+	 * сохранённой раскладки ещё нет. Задание встаёт на позицию своего номера (терм
+	 * `{subject}_task_number` либо ручной номер банковского задания); связка 19-21
+	 * (parent) заменяется тремя детьми на их номерах — раньше в слоте оставался parent,
+	 * и №20/№21 не появлялись. Не нашедшее места — в первый свободный слот.
+	 *
+	 * @param int[]                $taskIds     Плотный список заданий экзамена
+	 * @param array<int, string>   $taskNumbers Снапшот номеров банковских заданий (task_id => номер)
+	 * @param string               $subject     Ключ предмета
+	 * @param int                  $total       Число позиций экзамена
+	 *
+	 * @return int[] Раскладка длиной не меньше $total; 0 — пустая позиция
+	 */
+	private function layoutByPosition( array $taskIds, array $taskNumbers, string $subject, int $total ): array {
+		// Связки → дети с их номерами (позиции 19/20/21).
+		$entries = array();
+		foreach ( $taskIds as $id ) {
+			$id       = (int) $id;
+			$children = $this->bundles->childrenSummary( $id );
+			if ( array() === $children ) {
+				$entries[] = array( 'id' => $id, 'number' => $this->positionOf( $id, $taskNumbers, $subject ) );
+				continue;
+			}
+			foreach ( $children as $child ) {
+				$entries[] = array( 'id' => (int) $child['id'], 'number' => (int) $child['number'] );
+			}
+		}
+
+		$layout   = array_fill( 0, $total, 0 );
+		$leftover = array();
+		foreach ( $entries as $entry ) {
+			$index = $entry['number'] - 1;
+			if ( $index >= 0 && $index < $total && 0 === $layout[ $index ] ) {
+				$layout[ $index ] = $entry['id'];
+			} else {
+				$leftover[] = $entry['id'];
+			}
+		}
+
+		foreach ( $leftover as $id ) {
+			$free = array_search( 0, $layout, true );
+			if ( false === $free ) {
+				$layout[] = $id;
+			} else {
+				$layout[ $free ] = $id;
+			}
+		}
+
+		return $layout;
+	}
+
+	/** Номер позиции задания: терм таксономии номеров, иначе ручной номер банковского; 0 — неизвестен. */
+	private function positionOf( int $taskId, array $taskNumbers, string $subject ): int {
+		$terms = wp_get_post_terms( $taskId, $subject . '_task_number', array( 'fields' => 'names' ) );
+		if ( ! is_wp_error( $terms ) && ! empty( $terms ) ) {
+			return (int) $terms[0];
+		}
+
+		return (int) ( $taskNumbers[ $taskId ] ?? 0 );
 	}
 
 	public function handleAssessmentSave( int $post_id ): void {

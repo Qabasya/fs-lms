@@ -67,6 +67,11 @@ function mount( el ) {
 		const settingsBox = document.getElementById( 'fs_lms_assessment_settings' );
 		if ( settingsBox ) { settingsBox.hidden = isStation; }
 
+		// «Экраны и доступ» (пропуск ритуала, публичность) — только у ЕГЭ: ритуал
+		// и лист ответов есть лишь у этой станции.
+		const stationBox = document.getElementById( 'fs_lms_assessment_station' );
+		if ( stationBox ) { stationBox.hidden = 'ege_computer' !== kind; }
+
 		if ( statusBar ) { statusBar.hidden = ! isStation; }
 		if ( ! isStation ) { gatePublish( true ); }
 	}
@@ -110,6 +115,23 @@ function mount( el ) {
 		gatePublish( !! verdict.isComplete || allowsIncomplete( prevKind ) );
 	}
 
+	/**
+	 * Публичный экзамен по умолчанию идёт без приветственных экранов: пока автор
+	 * не трогал флажок «Скрыть приветственные экраны» сам, он повторяет «Публичный».
+	 * Поле «Публичный» добавляет модуль — если его нет, ничего не делаем.
+	 */
+	function bindHideIntroDefault() {
+		const isPublic  = document.getElementById( 'is_public' );
+		const hideIntro = document.getElementById( 'hide_intro' );
+		if ( ! isPublic || ! hideIntro ) { return; }
+
+		let touched = false;
+		hideIntro.addEventListener( 'change', () => { touched = true; } );
+		isPublic.addEventListener( 'change', () => {
+			if ( ! touched ) { hideIntro.checked = isPublic.checked; }
+		} );
+	}
+
 	function buildTaskPoints( slots ) {
 		const map = {};
 		slots.forEach( ( s ) => {
@@ -144,6 +166,9 @@ function mount( el ) {
 		persist: ( slots ) => post( acts.saveAssessmentItems, nonces.authorAssessment, {
 			assessment_id: assessmentId,
 			item_ids:      slots.filter( ( s ) => s.taskId > 0 ).map( ( s ) => s.taskId ),
+			// Раскладка по позициям вместе с пустыми слотами (0): без неё после
+			// перезагрузки задания съезжают к началу списка (см. AssessmentManager::slotLayout()).
+			slot_ids:      slots.map( ( s ) => s.taskId ),
 			task_points:   buildTaskPoints( slots ),
 		} ),
 
@@ -180,17 +205,34 @@ function mount( el ) {
 		// без splice — иначе слоты 20+ сместились бы (задача C, .docs/Tasks.md).
 		// Возврат true отменяет дефолтный assignPicked() в slot-builder.js.
 		onPick: ( index, id, title, item ) => {
-			if ( ! builderApi || ! isEge( prevKind ) || ! item || ! item.bundle_siblings ) {
+			if ( ! builderApi || ! isEge( prevKind ) || ! item ) {
+				return false;
+			}
+
+			// Ребёнок связки несёт сиблингов (`bundle_siblings`: номер → {id, title}),
+			// сама связка (parent) — детей (`bundle_children`: [{id, title, number}]).
+			// Оба случая раскладываются по позициям своих номеров, без splice: иначе
+			// слоты 20+ сместились бы, а parent остался бы в слоте один и №20/№21
+			// не появились.
+			const bundle = item.bundle_siblings
+				? Object.keys( item.bundle_siblings ).map( ( number ) => ( {
+					number: parseInt( number, 10 ),
+					id:     item.bundle_siblings[ number ].id,
+					title:  item.bundle_siblings[ number ].title,
+				} ) )
+				: ( Array.isArray( item.bundle_children ) ? item.bundle_children.map( ( c ) => ( {
+					number: parseInt( c.number, 10 ),
+					id:     c.id,
+					title:  c.title,
+				} ) ) : [] );
+
+			if ( ! bundle.length ) {
 				return false;
 			}
 
 			const total = egeSlots( prevKind );
-			const pairs = Object.keys( item.bundle_siblings )
-				.map( ( number ) => ( {
-					index:  parseInt( number, 10 ) - 1,
-					taskId: item.bundle_siblings[ number ].id,
-					title:  item.bundle_siblings[ number ].title,
-				} ) )
+			const pairs = bundle
+				.map( ( b ) => ( { index: b.number - 1, taskId: b.id, title: b.title } ) )
 				.filter( ( p ) => p.index >= 0 && p.index < total );
 
 			if ( ! pairs.length ) { return false; }
@@ -202,6 +244,7 @@ function mount( el ) {
 
 		onReady: ( api ) => {
 			builderApi = api;
+			bindHideIntroDefault();
 			if ( kindSelect ) {
 				toggleKindFields( prevKind );
 

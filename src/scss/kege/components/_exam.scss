@@ -245,6 +245,10 @@
   background: var(--kege-surface);
   display: flex;
   align-items: center;
+
+  // Поле ответа и кнопка — всегда справа, ссылки на файлы — слева
+  // (`.kege-files { margin-right: auto }`); у табличных заданий поле уходит в правую панель.
+  justify-content: flex-end;
   gap: rem(14);
   min-height: rem(62);
 }

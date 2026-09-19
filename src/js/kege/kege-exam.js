@@ -7,7 +7,7 @@
  */
 import { saveAnswer, debounce, startCountdown } from '../frontend/services/assessment.js';
 import { disableCopying } from '../common/utils.js';
-import { kegeBr, kegeKim, loadKegeState, setKegeAnswers, setKegeStage, setKegeTask } from './kege-state.js';
+import { clearKegeState, kegeBr, kegeKim, loadKegeState, setKegeAnswers, setKegeOvertime, setKegeStage, setKegeTask } from './kege-state.js';
 import { renderKegeSheet } from './kege-entry.js';
 
 function toast( msg ) {
@@ -31,7 +31,7 @@ function toast( msg ) {
  */
 function tableShapeFor( taskNumber ) {
 	if ( 25 === taskNumber ) {
-		return { cols: [ 'Число', 'Результат деления' ], rows: 5, growable: true };
+		return { cols: [ 'Число', 'Результат деления' ], rows: 10, growable: true };
 	}
 	if ( [ 17, 18, 20, 26 ].includes( taskNumber ) ) {
 		return { cols: [ '1', '2' ], rows: [ '1' ] };
@@ -85,6 +85,10 @@ export function initKegeExam() {
 	// Предпросмотр автора: попытки нет — ответы никуда не уходят, отсчёт не идёт,
 	// «завершить» просто показывает финальный экран (см. ege-computer.php).
 	const preview      = '1' === app.dataset.preview;
+	// Публичный экзамен: как предпросмотр — попытки в БД нет, ответы живут в
+	// браузере, а лист считает сервер по присланным ответам. `sandbox` — оба режима.
+	const isPublic     = '1' === app.dataset.public;
+	const sandbox      = preview || isPublic;
 	let   ritual       = loadKegeState();
 
 	if ( ! preview ) {
@@ -103,7 +107,23 @@ export function initKegeExam() {
 	syncHead();
 
 	const timerEl = document.getElementById( 'kegeTimer' );
-	if ( preview ) {
+
+	/**
+	 * Время вышло. Настоящая попытка завершается сама: сервер после дедлайна ответы
+	 * всё равно не принимает. Без попытки в БД (публичный экзамен, предпросмотр)
+	 * ограничивать нечем — спрашиваем, завершить или дорешивать; сделавшего выбор
+	 * «продолжить» повторно не спрашиваем даже после перезагрузки страницы.
+	 */
+	const handleExpire = () => {
+		if ( ! sandbox ) {
+			void submitAttempt( true );
+			return;
+		}
+		if ( loadKegeState().overtime ) { return; }
+		askAfterExpiry();
+	};
+
+	if ( sandbox ) {
 		const limit = Number( app.dataset.timeLimit || 0 );
 
 		// Статичный лимит вместо обратного отсчёта по умолчанию — предпросмотр не
@@ -118,19 +138,34 @@ export function initKegeExam() {
 
 		// По местным часам браузера, без серверного `now` (в предпросмотре его нет):
 		// оба конца отсчёта — локальный клок, расхождение поясов здесь не возникает.
-		const localDeadline = ( minutes ) => {
-			const d = new Date( Date.now() + minutes * 60 * 1000 );
+		const fmtLocal = ( ts ) => {
+			const d = new Date( ts );
 			const pad = ( n ) => String( n ).padStart( 2, '0' );
 			return `${ d.getFullYear() }-${ pad( d.getMonth() + 1 ) }-${ pad( d.getDate() ) } `
 				+ `${ pad( d.getHours() ) }:${ pad( d.getMinutes() ) }:${ pad( d.getSeconds() ) }`;
 		};
+		const localDeadline = ( minutes ) => fmtLocal( Date.now() + minutes * 60 * 1000 );
+
+		/**
+		 * Публичный экзамен: отсчёт идёт от сохранённого в браузере момента окончания
+		 * (kege-state.js: deadlineTs), а не от загрузки страницы — закрытый браузер
+		 * время не замораживает. По нулю — автозавершение и экран результатов
+		 * (для уже истёкшего срока это происходит на первом же тике).
+		 */
+		let publicTimerOn = false;
+		const beginPublicTimer = () => {
+			if ( publicTimerOn || ! isPublic || limit <= 0 ) { return; }
+			const deadlineTs = loadKegeState().deadlineTs;
+			if ( ! deadlineTs ) { return; }
+			publicTimerOn = true;
+			startCountdown( timerEl, fmtLocal( deadlineTs ), { onExpire: handleExpire } );
+		};
+		document.addEventListener( 'fs-kege-preview-start', beginPublicTimer );
 
 		document.getElementById( 'kegePreviewTimerToggle' )?.addEventListener( 'click', ( e ) => {
 			e.target.disabled = true;
 			e.target.textContent = 'Отсчёт идёт';
-			startCountdown( timerEl, localDeadline( limit ), {
-				onExpire: () => { void submitAttempt( true ); },
-			} );
+			startCountdown( timerEl, localDeadline( limit ), { onExpire: handleExpire } );
 		} );
 
 		// Ритуал входа проходится уже после инициализации экрана — обновляем шапку.
@@ -207,7 +242,7 @@ export function initKegeExam() {
 	const persistAnswer = ( taskId, text, statusEl ) => {
 		saveChain = saveChain
 			.then( () => {
-				if ( preview ) {
+				if ( sandbox ) {
 					if ( statusEl ) { statusEl.textContent = '✓'; }
 					return true;
 				}
@@ -262,9 +297,29 @@ export function initKegeExam() {
 	 * там ответы восстанавливает getAttemptResult.
 	 */
 	function rememberPreviewAnswers() {
-		if ( ! preview ) { return; }
+		if ( ! sandbox ) { return; }
 		setKegeAnswers( Object.fromEntries( savedAnswers ) );
 	}
+
+	/**
+	 * Публичный экзамен: набранное, но ещё не «сохранённое» дебаунсом, тоже должно
+	 * пережить закрытие вкладки/браузера — снимаем значение поля синхронно и пишем
+	 * в localStorage (записи в сеть здесь нет).
+	 */
+	function rememberOpenField() {
+		if ( ! sandbox || null === binding ) { return; }
+		const text = binding.collect();
+		if ( text ) {
+			savedAnswers.set( String( binding.taskId ), text );
+		} else {
+			savedAnswers.delete( String( binding.taskId ) );
+		}
+		rememberPreviewAnswers();
+	}
+	window.addEventListener( 'pagehide', rememberOpenField );
+	document.addEventListener( 'visibilitychange', () => {
+		if ( 'hidden' === document.visibilityState ) { rememberOpenField(); }
+	} );
 
 	// Автосохранение по ходу ввода — как на générique-странице попытки. Кнопка
 	// «Сохранить ответ» остаётся (её ждёт ученик), но ответ больше не зависит от
@@ -277,7 +332,7 @@ export function initKegeExam() {
 	 * тем же экшеном и нонсом, что и обычный autosave.
 	 */
 	window.addEventListener( 'pagehide', () => {
-		if ( preview || ! kegeVars || ! navigator.sendBeacon || ! isDirty() ) { return; }
+		if ( sandbox || ! kegeVars || ! navigator.sendBeacon || ! isDirty() ) { return; }
 
 		const fd = new FormData();
 		fd.append( 'action', kegeVars.actions.saveAttemptAnswer );
@@ -418,9 +473,7 @@ export function initKegeExam() {
 
 			const head = document.createElement( 'div' );
 			head.className = 'kege-ap-head';
-			head.textContent = growable
-				? 'Введите значения в таблицу — можно набрать вручную или вставить весь ответ в любую ячейку первого столбца (по строке на пару значений)'
-				: 'Введите значения в таблицу';
+			head.textContent = 'Введите или скопируйте свой ответ в поля таблицы';
 			panelWrap.appendChild( head );
 
 			const table = document.createElement( 'table' );
@@ -730,7 +783,7 @@ export function initKegeExam() {
 	 *                              модулем/выключен, сеть недоступна, доступ запрещён)
 	 */
 	async function fetchPreviewSheet() {
-		const action = kegeVars?.actions?.previewResult;
+		const action = isPublic ? kegeVars?.actions?.publicResult : kegeVars?.actions?.previewResult;
 		if ( ! action ) { return null; }
 
 		try {
@@ -754,7 +807,7 @@ export function initKegeExam() {
 		if ( submitting ) { return; }
 		submitting = true;
 
-		if ( preview ) {
+		if ( sandbox ) {
 			// Досохраняем последний ввод — как и в реальной сдаче, иначе набранный,
 			// но ещё не отправленный ответ не попадёт в лист.
 			try { await flushAnswer(); } catch ( e ) { /* лист не блокируем */ }
@@ -774,6 +827,27 @@ export function initKegeExam() {
 			// Лист ответов инициализирован до ритуала (страница не перезагружается),
 			// поэтому просим kege-entry.js обновить шапку номерами КИМ/бланка.
 			document.dispatchEvent( new CustomEvent( 'fs-kege-preview-finish' ) );
+
+			if ( isPublic ) {
+				// События для внешней статистики (Метрика — отдельный плагин).
+				document.dispatchEvent( new CustomEvent( 'fs-lms:public-exam-finish', {
+					detail: {
+						assessmentId:  Number( assessmentId ),
+						primary:       sheet?.primary ?? null,
+						primaryMax:    sheet?.primary_max ?? null,
+						secondary:     sheet?.secondary ?? null,
+						secondaryMax:  sheet?.secondary_max ?? null,
+						answered:      sheet?.answered ?? savedAnswers.size,
+						total:         sheet?.total ?? null,
+						autoFinished:  !! auto,
+					},
+				} ) );
+
+				// Общий компьютер (школа): результат показан — чужие ответы и КИМ не
+				// должны достаться следующему. Не удался расчёт (sheet == null) — состояние
+				// остаётся, и обновление страницы повторит попытку.
+				if ( sheet ) { clearKegeState(); }
+			}
 			submitting = false;
 			return;
 		}
@@ -803,6 +877,38 @@ export function initKegeExam() {
 			submitting = false;
 			if ( ! auto ) { toast( 'Сетевая ошибка при отправке.' ); }
 		}
+	}
+
+	function askAfterExpiry() {
+		const ovl = document.createElement( 'div' );
+		ovl.className = 'kege-ovl';
+
+		const card = document.createElement( 'div' );
+		card.className = 'kege-mcard';
+
+		const h4 = document.createElement( 'h4' );
+		h4.textContent = 'Время экзамена истекло';
+		const p = document.createElement( 'p' );
+		p.textContent = 'Завершить экзамен или всё равно продолжить решение? После завершения изменить ответы будет невозможно.';
+
+		const row = document.createElement( 'div' );
+		row.className = 'kege-m-row';
+		const keep = document.createElement( 'button' );
+		keep.type = 'button';
+		keep.className = 'kege-m-ghost';
+		keep.textContent = 'Всё равно продолжить';
+		const finish = document.createElement( 'button' );
+		finish.type = 'button';
+		finish.className = 'kege-btn kege-btn--red';
+		finish.textContent = 'Завершить экзамен';
+
+		row.append( keep, finish );
+		card.append( h4, p, row );
+		ovl.appendChild( card );
+		document.body.appendChild( ovl );
+
+		keep.addEventListener( 'click', () => { setKegeOvertime(); ovl.remove(); } );
+		finish.addEventListener( 'click', () => { ovl.remove(); void submitAttempt( true ); } );
 	}
 
 	async function confirmFinish() {
@@ -847,7 +953,7 @@ export function initKegeExam() {
 	/* ── Предзагрузка сохранённых ответов (T15.10): переиспользуем getAttemptResult, ── */
 	/* чтобы боковые «сохранено»-индикаторы и поля не были пустыми после перезагрузки. */
 	( async () => {
-		if ( preview || ! kegeVars?.actions?.getAttemptResult ) { return; }
+		if ( sandbox || ! kegeVars?.actions?.getAttemptResult ) { return; }
 		try {
 			const fd = new FormData();
 			fd.append( 'action', kegeVars.actions.getAttemptResult );
@@ -881,7 +987,7 @@ export function initKegeExam() {
 	/* ── Предпросмотр: восстановление после обновления страницы ── */
 	/* Ответы поднимаем из localStorage ДО первого showPanel, чтобы панель ответа */
 	/* строилась уже с набранным значением, а не пустой.                          */
-	if ( preview ) {
+	if ( sandbox ) {
 		Object.entries( ritual.answers ).forEach( ( [ taskId, text ] ) => {
 			if ( ! text ) { return; }
 			savedAnswers.set( String( taskId ), text );
@@ -896,6 +1002,7 @@ export function initKegeExam() {
 				const sheet = await fetchPreviewSheet();
 				if ( sheet ) { renderKegeSheet( sheet ); }
 				document.dispatchEvent( new CustomEvent( 'fs-kege-preview-finish' ) );
+				if ( isPublic && sheet ) { clearKegeState(); }
 			} )();
 		}
 	}

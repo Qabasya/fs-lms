@@ -9,7 +9,7 @@
  * персистятся в localStorage, чтобы пережить перезагрузку страницы.
  */
 
-import { KEGE_RITUAL_STAGES, clearKegeState, kegeBr, kegeKim, loadKegeState, saveKegeState } from './kege-state.js';
+import { KEGE_RITUAL_STAGES, clearKegeState, kegeBr, kegeKim, loadKegeState, saveKegeState, setKegeDeadline } from './kege-state.js';
 
 function toast( msg ) {
 	const el = document.getElementById( 'kegeToast' );
@@ -202,10 +202,52 @@ function startPreviewExam( root, state, persist ) {
 	if ( ! exam ) { return; }
 	state.stage = 'exam';
 	persist();
+
+	// Публичный экзамен: момент окончания фиксируем один раз, в самый первый старт —
+	// повторный вход (обновление страницы, закрытый браузер) время не продлевает.
+	const app = document.getElementById( 'kegeApp' );
+	if ( '1' === app?.dataset.public && ! loadKegeState().deadlineTs ) {
+		const limit = Number( app.dataset.timeLimit || 0 );
+		if ( limit > 0 ) { setKegeDeadline( Date.now() + limit * 60 * 1000 ); }
+		document.dispatchEvent( new CustomEvent( 'fs-lms:public-exam-start', {
+			detail: { assessmentId: Number( app.dataset.assessmentId || 0 ) },
+		} ) );
+	}
 	root.hidden = true;
 	document.getElementById( 'kegeFinish' )?.setAttribute( 'hidden', '' );
 	exam.hidden = false;
 	document.dispatchEvent( new CustomEvent( 'fs-kege-preview-start' ) );
+}
+
+/**
+ * Старт настоящей попытки (AJAX StartAttempt). Успех — перезагрузка страницы:
+ * сервер отдаёт экран экзамена с активной попыткой. Ошибка — тост, `false`.
+ *
+ * @returns {Promise<boolean>} Попытка создана (страница перезагружается)
+ */
+async function requestStartAttempt( kegeVars, assessmentId ) {
+	try {
+		const fd = new FormData();
+		fd.append( 'action', kegeVars.actions.startAttempt );
+		fd.append( 'security', kegeVars.nonces.startAttempt );
+		fd.append( 'assessment_id', String( assessmentId ) );
+		// Задача 5: контекст группы/занятия из URL (from_gid/from_gl) — привязка попытки.
+		const kegeQs   = new URLSearchParams( window.location.search );
+		const kegeGid  = kegeQs.get( 'from_gid' );
+		const kegeGl   = kegeQs.get( 'from_gl' );
+		if ( kegeGid ) { fd.append( 'group_id', kegeGid ); }
+		if ( kegeGl ) { fd.append( 'group_lesson_id', kegeGl ); }
+		const res  = await fetch( kegeVars.ajax_url, { method: 'POST', body: fd } );
+		const json = await res.json();
+		if ( json.success ) {
+			window.location.reload();
+			return true;
+		}
+		toast( json.data || 'Не удалось начать экзамен.' );
+	} catch ( e ) {
+		toast( 'Сетевая ошибка.' );
+	}
+	return false;
 }
 
 function initActStage( root, state, persist, kegeVars, assessmentId, preview ) {
@@ -237,29 +279,7 @@ function initActStage( root, state, persist, kegeVars, assessmentId, preview ) {
 		}
 		if ( ! kegeVars ) { return; }
 		start.disabled = true;
-		try {
-			const fd = new FormData();
-			fd.append( 'action', kegeVars.actions.startAttempt );
-			fd.append( 'security', kegeVars.nonces.startAttempt );
-			fd.append( 'assessment_id', String( assessmentId ) );
-			// Задача 5: контекст группы/занятия из URL (from_gid/from_gl) — привязка попытки.
-			const kegeQs   = new URLSearchParams( window.location.search );
-			const kegeGid  = kegeQs.get( 'from_gid' );
-			const kegeGl   = kegeQs.get( 'from_gl' );
-			if ( kegeGid ) { fd.append( 'group_id', kegeGid ); }
-			if ( kegeGl ) { fd.append( 'group_lesson_id', kegeGl ); }
-			const res  = await fetch( kegeVars.ajax_url, { method: 'POST', body: fd } );
-			const json = await res.json();
-			if ( json.success ) {
-				window.location.reload();
-			} else {
-				toast( json.data || 'Не удалось начать экзамен.' );
-				start.disabled = false;
-			}
-		} catch ( e ) {
-			toast( 'Сетевая ошибка.' );
-			start.disabled = false;
-		}
+		if ( ! await requestStartAttempt( kegeVars, assessmentId ) ) { start.disabled = false; }
 	};
 
 	start.addEventListener( 'click', doStart );
@@ -400,6 +420,9 @@ export function initKegeEntry() {
 	const assessmentId = app.dataset.assessmentId;
 	const kegeVars      = window.fs_lms_kege_vars;
 	const preview       = '1' === app.dataset.preview;
+	// Публичный экзамен идёт тем же путём, что предпросмотр: без попытки в БД.
+	const sandbox       = preview || '1' === app.dataset.public;
+	const hideIntro     = '1' === app.dataset.hideIntro;
 
 	const state = loadKegeState();
 	// Пишем только свои ключи: открытое задание ведёт kege-exam.js, и запись
@@ -427,12 +450,27 @@ export function initKegeEntry() {
 		startPreviewExam( root, state, persist );
 	} else if ( 'done' === state.stage && finishScreen ) {
 		root.hidden = true;
+		// Без ритуала экран экзамена отрисован видимым (см. kege/exam.php) — убираем его.
+		if ( examScreen ) { examScreen.hidden = true; }
 		finishScreen.removeAttribute( 'hidden' );
+	} else if ( hideIntro && sandbox && examScreen ) {
+		// «Скрыть приветственные экраны»: ритуал пропускаем целиком — сразу к заданию.
+		startPreviewExam( root, state, persist );
 	} else {
 		const stage = KEGE_RITUAL_STAGES.includes( state.stage ) ? state.stage : ritualFallback( state );
 		showStage( root, stage );
 		if ( 'reg' === stage ) { populateRegStage( state, persist ); }
 		if ( 'act' === stage ) { populateActStage( state, persist ); }
+
+		// Курс: попытка настоящая, поэтому сама стартует без ритуала (ошибка старта
+		// оставляет обычный экран входа — ученик не остаётся перед пустой страницей).
+		// Вход при скрытых экранах отрисован скрытым (kege/entry.php) — «завершено» определяем по листу.
+		if ( hideIntro && ! sandbox && kegeVars && ( ! finishScreen || finishScreen.hidden ) ) {
+			void requestStartAttempt( kegeVars, assessmentId ).then( ( started ) => {
+				// Старт не удался (лимит попыток и т.п.) — показываем обычный вход, а не пустую страницу.
+				if ( ! started ) { root.hidden = false; }
+			} );
+		}
 	}
 
 	initEntryStage( root, state, persist );

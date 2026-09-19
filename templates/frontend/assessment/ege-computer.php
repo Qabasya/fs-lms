@@ -30,7 +30,10 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 use Inc\Enums\Assessment\AttemptStatus;
 
-if ( ! $person && ! $previewMode ) {
+// Публичный экзамен ({$publicMode}) — тот же режим «без попытки», но для любого посетителя.
+$sandbox = $previewMode || $publicMode;
+
+if ( ! $person && ! $sandbox ) {
 	wp_redirect( wp_login_url( get_permalink() ) );
 	exit;
 }
@@ -38,8 +41,8 @@ if ( ! $person && ! $previewMode ) {
 // Предпросмотр: все три стадии станции отрендерены сразу и переключаются на
 // клиенте (kege-entry.js/kege-exam.js), потому что настоящей попытки — а с ней
 // и серверного состояния «идёт экзамен» / «сдано» — здесь не существует.
-$isRunning  = ! $previewMode && $activeAttempt && AttemptStatus::InProgress === $activeAttempt->status;
-$isFinished = ! $previewMode && ! $isRunning && null !== $lastAttempt;
+$isRunning  = ! $sandbox && $activeAttempt && AttemptStatus::InProgress === $activeAttempt->status;
+$isFinished = ! $sandbox && ! $isRunning && null !== $lastAttempt;
 
 // «kege»/«Станция КЕГЭ» в именах файлов/классов/бандла — служебное имя
 // станции-платформы (общей для ЕГЭ и ОГЭ), не аббревиатура конкретного
@@ -54,7 +57,9 @@ $stationLabel = \Inc\Enums\Assessment\AssessmentKind::OgeComputer === $assessmen
 	<meta charset="<?php bloginfo( 'charset' ); ?>">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<title><?php echo esc_html( $assessment->title ); ?> — <?php echo esc_html( $stationLabel ); ?></title>
-	<meta name="robots" content="noindex, nofollow">
+	<?php if ( ! $publicMode ) : ?>
+		<meta name="robots" content="noindex, nofollow">
+	<?php endif; ?>
 	<link rel="preconnect" href="https://fonts.googleapis.com">
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 	<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
@@ -71,6 +76,12 @@ $stationLabel = \Inc\Enums\Assessment\AssessmentKind::OgeComputer === $assessmen
 	<?php if ( $previewMode ) : ?>
 		data-preview="1"
 	<?php endif; ?>
+	<?php if ( $publicMode ) : ?>
+		data-public="1"
+	<?php endif; ?>
+	<?php if ( $assessment->hideIntro ) : ?>
+		data-hide-intro="1"
+	<?php endif; ?>
 	<?php if ( $isRunning ) : ?>
 		data-attempt-id="<?php echo esc_attr( (string) $activeAttempt->id ); ?>"
 		<?php if ( $assessment->timeLimit > 0 ) : ?>
@@ -82,11 +93,13 @@ $stationLabel = \Inc\Enums\Assessment\AssessmentKind::OgeComputer === $assessmen
 	<?php endif; ?>
 >
 
-<?php if ( $previewMode ) : ?>
+<?php if ( $sandbox ) : ?>
+	<?php if ( $previewMode ) : ?>
 	<div class="kege-preview-flag">
 		<span>Предпросмотр · от лица автора — попытка нигде не сохраняется, лимит попыток и время не учитываются</span>
 		<button type="button" class="kege-preview-flag__restart" id="kegePreviewRestart">Начать заново</button>
 	</div>
+	<?php endif; ?>
 	<?php include __DIR__ . '/kege/exam.php'; ?>
 	<?php include __DIR__ . '/kege/finish.php'; ?>
 	<?php include __DIR__ . '/kege/entry.php'; ?>

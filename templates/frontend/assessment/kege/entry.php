@@ -30,7 +30,8 @@ $slides     = $isOge ? OgeSlidesConfig::slides() : KegeSlidesConfig::slides();
 $blankHint  = KegeSlidesConfig::blankHint();
 $examTitle  = $isOge ? 'Основной государственный экзамен' : 'Единый государственный экзамен';
 ?>
-<div class="kege-entry" id="kegeEntry"<?php echo ! empty( $isFinished ) ? ' hidden' : ''; ?>>
+<?php // «Скрыть приветственные экраны»: ритуал не рисуем вовсе — иначе он мигает до старта скрипта. ?>
+<div class="kege-entry" id="kegeEntry"<?php echo ( ! empty( $isFinished ) || $assessment->hideIntro ) ? ' hidden' : ''; ?>>
 
 	<!-- Этап: вход (номер бланка регистрации) -->
 	<section class="kege-stage" data-kege-stage="entry">

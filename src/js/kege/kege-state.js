@@ -37,7 +37,7 @@ export function useKegeAssessment( assessmentId ) {
 }
 
 function defaults() {
-	return { stage: 'entry', br: [ '', '', '' ], slide: 0, kim: null, code: null, task: '', taskAttempt: '', answers: {} };
+	return { stage: 'entry', br: [ '', '', '' ], slide: 0, kim: null, code: null, task: '', taskAttempt: '', answers: {}, deadlineTs: 0, overtime: false };
 }
 
 /**
@@ -57,6 +57,8 @@ function normalize( raw ) {
 	if ( 'string' === typeof raw.code ) { state.code = raw.code; }
 	if ( 'string' === typeof raw.task ) { state.task = raw.task; }
 	if ( 'string' === typeof raw.taskAttempt ) { state.taskAttempt = raw.taskAttempt; }
+	if ( Number.isFinite( raw.deadlineTs ) && raw.deadlineTs > 0 ) { state.deadlineTs = raw.deadlineTs; }
+	if ( true === raw.overtime ) { state.overtime = true; }
 	if ( raw.answers && 'object' === typeof raw.answers && ! Array.isArray( raw.answers ) ) {
 		Object.entries( raw.answers ).forEach( ( [ taskId, text ] ) => {
 			if ( 'string' === typeof text ) { state.answers[ String( taskId ) ] = text; }
@@ -118,6 +120,26 @@ export function setKegeTask( task, attemptId ) {
  */
 export function setKegeAnswers( answers ) {
 	saveKegeState( { answers } );
+}
+
+/**
+ * Публичный экзамен: абсолютный момент окончания (мс с эпохи). Хранится в
+ * браузере, а не считается от загрузки страницы — тогда закрытая вкладка или
+ * браузер не «замораживают» время: вернувшийся видит честный остаток либо,
+ * если время вышло, сразу экран результатов.
+ *
+ * @param {number} deadlineTs Момент окончания, мс
+ */
+export function setKegeDeadline( deadlineTs ) {
+	saveKegeState( { deadlineTs } );
+}
+
+/**
+ * Время вышло, а участник выбрал «Всё равно продолжить»: по возвращении (обновление
+ * страницы, закрытый браузер) не спрашиваем снова — он уже решил.
+ */
+export function setKegeOvertime() {
+	saveKegeState( { overtime: true } );
 }
 
 export function clearKegeState() {

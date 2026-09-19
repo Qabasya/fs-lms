@@ -34,6 +34,12 @@ use Inc\Shared\PluginLogger;
  */
 readonly class SubjectPagesService {
 
+	/**
+	 * WP filter: включён ли раздел «Экзамены» лендинга (модуль PublicExams).
+	 * Ядро о модуле не знает — модуль отвечает `true`, пока включён.
+	 */
+	public const EXAMS_FILTER = 'fs_lms_subject_exams_enabled';
+
 	/** Тип записи страниц лендинга — штатные страницы WP. */
 	private const POST_TYPE = 'page';
 
@@ -57,7 +63,7 @@ readonly class SubjectPagesService {
 		$pageIds = array();
 		$parent  = 0;
 
-		foreach ( SubjectPageType::forSubject( $subject->hasBank ) as $type ) {
+		foreach ( SubjectPageType::forSubject( $subject->hasBank, $this->examsEnabled() ) as $type ) {
 			$pageId = $this->resolvePage( $subject, $type, $stored[ $type->value ] ?? 0, $parent );
 
 			if ( 0 === $pageId ) {
@@ -156,7 +162,13 @@ readonly class SubjectPagesService {
 			trainer:  $trainer,
 			articles: $this->url( $subjectKey, SubjectPageType::Articles ),
 			courses:  $this->url( $subjectKey, SubjectPageType::Courses ),
+			exams:    $this->examsEnabled() ? $this->url( $subjectKey, SubjectPageType::Exams ) : '',
 		);
+	}
+
+	/** Включён ли раздел «Экзамены» (решает модуль публичных экзаменов). */
+	public function examsEnabled(): bool {
+		return (bool) apply_filters( self::EXAMS_FILTER, false );
 	}
 
 	/**

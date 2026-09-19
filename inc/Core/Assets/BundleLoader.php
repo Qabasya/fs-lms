@@ -224,6 +224,12 @@ class BundleLoader extends BaseController {
 	public const KEGE_PREVIEW_RESULT_FILTER = 'fs_lms_kege_preview_result_action';
 
 	/**
+	 * WP filter: имя AJAX-экшена листа ответов публичного экзамена (модуль
+	 * PublicExams) — публикуется ядру тем же приёмом, что и предпросмотр.
+	 */
+	public const KEGE_PUBLIC_RESULT_FILTER = 'fs_lms_kege_public_result_action';
+
+	/**
 	 * Подключение изолированного бандла станции КЕГЭ (T15.10) — bare-документ
 	 * на токенах плеера, свой JS/CSS. Модуль EgeComputer (опциональный, см.
 	 * inc/Modules/EgeComputer/) взводит fs_lms_is_kege_route в
@@ -250,6 +256,8 @@ class BundleLoader extends BaseController {
 					// файл вообще не пытался никуда уйти.
 					'uploadAnswerFile'  => AjaxHook::UploadAnswerFile->jsAction(),
 					'previewResult'     => (string) apply_filters( self::KEGE_PREVIEW_RESULT_FILTER, '' ),
+					// Публичный экзамен: тот же лист, но для любого посетителя (модуль PublicExams).
+					'publicResult'      => (string) apply_filters( self::KEGE_PUBLIC_RESULT_FILTER, '' ),
 				),
 				'nonces'   => array(
 					'startAttempt'     => Nonce::StartAttempt->create(),

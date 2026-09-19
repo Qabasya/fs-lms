@@ -23,11 +23,13 @@ readonly class SubjectLinksDTO {
 	 * @param string $trainer  Тренажёр — задания предмета (фолбэк — архив заданий).
 	 * @param string $articles Учебник — статьи предмета (фолбэк — архив статей).
 	 * @param string $courses  Витрина курсов; '' — раздела нет, ссылку не выводим.
+	 * @param string $exams    Публичные экзамены; '' — раздела нет (модуль выключен), ссылку не выводим.
 	 */
 	public function __construct(
 		public string $subject = '',
 		public string $trainer = '',
 		public string $articles = '',
 		public string $courses = '',
+		public string $exams = '',
 	) {}
 }

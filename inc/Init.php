@@ -10,6 +10,7 @@ use Inc\Modules\AdSync\AdSyncModule;
 use Inc\Modules\ArticleBlocks\ArticleBlocksModule;
 use Inc\Modules\DaData\DaDataModule;
 use Inc\Modules\EgeComputer\EgeComputerModule;
+use Inc\Modules\PublicExams\PublicExamsModule;
 use Inc\Modules\SmartCaptcha\SmartCaptchaModule;
 use Inc\Modules\VideoLibrary\VideoLibraryModule;
 use Inc\Controllers\Enrollment\ApplicationController;
@@ -213,6 +214,7 @@ final class Init {
 			// ==== Опциональные модули (изолированы, вырезаются удалением каталога + этой строки) ====
 			AdSyncModule::class,              // Inc\Modules\AdSync — синхронизация заявок с AD (флаг-гейт)
 			EgeComputerModule::class,         // Inc\Modules\EgeComputer — плеер ЕГЭ (Компьютер) (флаг-гейт, T7.20)
+			PublicExamsModule::class,         // Inc\Modules\PublicExams — публичные экзамены ЕГЭ без авторизации (флаг-гейт)
 			DaDataModule::class,              // Inc\Modules\DaData — автодополнение DaData на /lms/join (флаг-гейт)
 			SmartCaptchaModule::class,        // Inc\Modules\SmartCaptcha — капча Yandex на /lms/apply и /sign-in/ (флаг-гейт)
 			VideoLibraryModule::class,        // Inc\Modules\VideoLibrary — видеозаписи занятий S3 + REST (флаг-гейт)
@@ -275,5 +277,7 @@ final class Init {
 		// баллы первой сдачи работ (без них карточки рисовали крестики).
 		$container->get( \Inc\Migrations\CommonTemplateMigration::class )->run();
 		$container->get( \Inc\Migrations\SubmissionScoreBackfillMigration::class )->run();
+		// Адреса экзаменов — по ID вместо названия (кириллица в ссылке).
+		$container->get( \Inc\Migrations\AssessmentSlugMigration::class )->run();
 	}
 }

@@ -115,6 +115,7 @@ class EgeComputerModule implements ServiceInterface {
 			scoreMap      : $settings['scoreMap'],
 			taskNumbers   : $dto->taskNumbers,
 			introHtml     : $dto->introHtml,
+			hideIntro     : $dto->hideIntro,
 		);
 	}
 
