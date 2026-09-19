@@ -189,12 +189,17 @@ export function createSlotBuilder( el, config ) {
 		save();
 	}
 
+	/**
+	 * @returns {boolean} Слот изменён (false — задача уже стоит в другом слоте)
+	 */
 	function assignTask( index, taskId, title ) {
 		// Запрет дублей: одна и та же задача не может стоять в двух слотах (задача 6).
-		const dup = slots.some( ( slot, i ) => i !== index && slot.taskId === taskId );
+		// Пустой слот (taskId 0) — не задача: «Очистить» при другом пустом слоте
+		// раньше упиралось в «дубль» и одновременно рапортовало об удалении.
+		const dup = taskId > 0 && slots.some( ( slot, i ) => i !== index && slot.taskId === taskId );
 		if ( dup ) {
 			showToast( 'Эта задача уже добавлена', 'error' );
-			return;
+			return false;
 		}
 		slots[ index ].taskId = taskId;
 		slots[ index ].title  = title;
@@ -202,6 +207,7 @@ export function createSlotBuilder( el, config ) {
 		renderLeft();
 		renderCenter();
 		save();
+		return true;
 	}
 
 	/**
@@ -506,7 +512,9 @@ export function createSlotBuilder( el, config ) {
 			clearBtn.type      = 'button';
 			clearBtn.className = 'button fs-sb-btn-danger';
 			clearBtn.innerHTML = icoTrash( 13 ) + ' Очистить';
-			clearBtn.addEventListener( 'click', () => { assignTask( index, 0, '' ); showToast( 'Задача удалена', 'success' ); } );
+			clearBtn.addEventListener( 'click', () => {
+				if ( assignTask( index, 0, '' ) ) { showToast( 'Задача удалена', 'success' ); }
+			} );
 			actions.appendChild( clearBtn );
 		}
 
