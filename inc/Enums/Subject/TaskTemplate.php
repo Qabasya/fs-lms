@@ -8,7 +8,6 @@ use Inc\MetaBoxes\Templates\AlternativeConditionsTemplate;
 use Inc\MetaBoxes\Templates\AudioTaskTemplate;
 use Inc\MetaBoxes\Templates\ChoiceTaskTemplate;
 use Inc\MetaBoxes\Templates\CodeTaskTemplate;
-use Inc\MetaBoxes\Templates\CommonConditionTemplate;
 use Inc\MetaBoxes\Templates\FileAnswerTaskTemplate;
 use Inc\MetaBoxes\Templates\FileCodeTaskTemplate;
 use Inc\MetaBoxes\Templates\FileTaskTemplate;
@@ -42,11 +41,6 @@ enum TaskTemplate: string {
 	 * Задание "Три в одном" (для ЕГЭ 19-21).
 	 */
 	case Triple = 'triple_task';
-
-	/**
-	 * Задание с общим (неизменяемым) условием.
-	 */
-	case Common = 'common_standard_task';
 
 	case Code        = 'code_task';
 	case FileCode    = 'file_code_task';
@@ -108,7 +102,7 @@ enum TaskTemplate: string {
 			return $tryCase;
 		}
 
-		// Если это не Triple и не Common — считаем стандартным визуальным редактором
+		// Неизвестный id (в т.ч. удалённый common_standard_task из старых экспортов) — Standard
 		return self::Standard;
 	}
 
@@ -124,7 +118,6 @@ enum TaskTemplate: string {
 		return match ( $this ) {
 			self::Standard => StandardTaskTemplate::class,
 			self::Triple => ThreeInOneTemplate::class,
-			self::Common => CommonConditionTemplate::class,
 
 			self::Code        => CodeTaskTemplate::class,
 			self::FileCode    => FileCodeTaskTemplate::class,
@@ -151,7 +144,6 @@ enum TaskTemplate: string {
 		return match ( $this ) {
 			self::Standard     => 'Стандартное задание',
 			self::Triple       => 'Три в одном (ЕГЭ 19-21)',
-			self::Common       => 'Общее условие',
 			self::Code         => 'Задание с кодом',
 			self::FileCode     => 'Задание с файлом и кодом',
 			self::File         => 'Задание с файлом',

@@ -10,6 +10,7 @@ use Inc\Managers\Assessment\AssessmentManager;
 use Inc\Managers\Wp\PostManager;
 use Inc\Services\Course\StepContentRenderer;
 use Inc\Services\Task\TaskCheckerRegistry;
+use Inc\Services\Task\TaskMetaService;
 use Inc\Services\Template\TemplateResolver;
 use PHPUnit\Framework\TestCase;
 
@@ -27,6 +28,7 @@ class StepContentRendererInlineTest extends TestCase {
 			$this->createMock( TemplateResolver::class ),
 			$this->createMock( TaskCheckerRegistry::class ),
 			$this->createMock( AssessmentManager::class ),
+			new TaskMetaService(),
 		);
 	}
 

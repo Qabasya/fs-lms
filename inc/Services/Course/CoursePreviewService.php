@@ -159,7 +159,7 @@ class CoursePreviewService {
 	 */
 	private function renderTaskData( StepDTO $step ): array {
 		$taskId = (int) ( $step->payload['ref'] ?? 0 );
-		$bundle = $this->stepRenderer->taskBundle( $taskId );
+		$bundle = $this->stepRenderer->taskBundle( $taskId, false, true );
 		if ( null === $bundle ) {
 			return array(
 				'ref'            => $taskId,
@@ -215,7 +215,7 @@ class CoursePreviewService {
 
 		$tasks = array();
 		foreach ( $work->itemIds as $taskId ) {
-			$bundle = $this->stepRenderer->taskBundle( (int) $taskId );
+			$bundle = $this->stepRenderer->taskBundle( (int) $taskId, false, true );
 			if ( null === $bundle ) {
 				continue;
 			}

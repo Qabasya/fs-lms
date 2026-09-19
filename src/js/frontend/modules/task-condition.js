@@ -43,6 +43,8 @@ export function initTaskConditions(container) {
         measure(body);
         bindImages(body);
         body.addEventListener('click', e => onBodyClick(body, e));
+        // `toggle` у <details> не всплывает — ловим на фазе захвата.
+        body.addEventListener('toggle', e => onCommonToggle(body, e), true);
     });
 
     bindGlobals();
@@ -111,6 +113,26 @@ function onBodyClick(body, e) {
     if (String(window.getSelection())) return;
 
     setExpanded(body, true);
+}
+
+/**
+ * Раскрытие/закрытие общего (типового) условия меняет высоту текста: в свёрнутой
+ * карточке раскрытое общее условие было бы обрезано, поэтому карточка
+ * разворачивается; при закрытии высота пересчитывается.
+ *
+ * @param {Element} body - Блок условия (.js-condition).
+ * @param {Event}   e    - Событие toggle от <details class="fs-common-cond">.
+ *
+ * @returns {void}
+ */
+function onCommonToggle(body, e) {
+    if (!e.target.classList || !e.target.classList.contains('fs-common-cond')) return;
+
+    if (e.target.open && body.classList.contains(CLAMPED)) {
+        setExpanded(body, true);
+    }
+
+    measure(body);
 }
 
 /**

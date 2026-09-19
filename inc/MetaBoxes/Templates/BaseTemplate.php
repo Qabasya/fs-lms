@@ -5,6 +5,7 @@ declare( strict_types=1 );
 namespace Inc\MetaBoxes\Templates;
 
 use Inc\Enums\Subject\TemplateCategory;
+use Inc\MetaBoxes\Fields\ConditionField;
 
 /**
  * Class BaseTemplate
@@ -35,6 +36,21 @@ abstract class BaseTemplate {
 	 * @var array<string, array{label: string, object: object}>
 	 */
 	public array $fields = array();
+
+	/**
+	 * Необязательное общее (типовое) условие — первое поле шаблонов Standard/Code/File/FileCode.
+	 * Ключ `common_condition` стоит раньше `task_condition`, поэтому при сборке условия
+	 * (`ksort` в TaskMetaService) общая часть идёт первой; в тренажёре и курсе она свёрнута.
+	 *
+	 * @return array{label: string, object: ConditionField, optional: bool}
+	 */
+	protected function commonConditionField(): array {
+		return array(
+			'label'    => 'Общее условие (необязательно):',
+			'object'   => new ConditionField(),
+			'optional' => true,
+		);
+	}
 
 	/**
 	 * Возвращает уникальное имя (ID) шаблона.

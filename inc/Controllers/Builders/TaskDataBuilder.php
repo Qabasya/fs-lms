@@ -161,7 +161,7 @@ readonly class TaskDataBuilder {
 		$answer = (string) ( $meta['task_answer'] ?? '' );
 
 		return new TaskContentDTO(
-			condition:    $this->task_meta_service->getCombinedCondition( $meta ),
+			condition:    $this->task_meta_service->getCombinedCondition( $meta, true ),
 			answer:       $answer,
 			code:         $code,
 			code_lang:    '' !== $code ? self::CODE_LANG : '',

@@ -57,6 +57,38 @@ class TaskMetaServiceTest extends TestCase {
 		self::assertStringNotContainsString( 'fs-task-subcondition', $html );
 	}
 
+	public function test_common_condition_goes_first_and_collapses_on_request(): void {
+		$meta = array(
+			'task_condition'   => 'Своя часть',
+			'common_condition' => 'Типовая часть',
+		);
+
+		$html = $this->service->getCombinedCondition( $meta, true );
+
+		self::assertStringContainsString( '<details class="fs-common-cond">', $html );
+		self::assertLessThan( strpos( $html, 'Своя часть' ), strpos( $html, 'Типовая часть' ) );
+		self::assertStringNotContainsString( 'fs-task-subcondition', $html );
+	}
+
+	public function test_common_condition_is_static_by_default(): void {
+		$html = $this->service->getCombinedCondition( array(
+			'task_condition'   => 'Своя часть',
+			'common_condition' => 'Типовая часть',
+		) );
+
+		self::assertStringNotContainsString( '<details', $html );
+		self::assertStringContainsString( 'fs-common-cond--static', $html );
+	}
+
+	public function test_empty_common_condition_adds_no_block(): void {
+		$html = $this->service->getCombinedCondition( array(
+			'task_condition'   => 'Своя часть',
+			'common_condition' => '  ',
+		), true );
+
+		self::assertStringNotContainsString( 'fs-common-cond', $html );
+	}
+
 	public function test_materials_are_read_from_attachment_ids(): void {
 		$GLOBALS['_fs_test_home_url'] = 'https://example.com';
 		fs_test_seed_post( array( 'ID' => 55, 'post_type' => 'attachment', 'post_title' => 'Исходные данные.xlsx' ) );

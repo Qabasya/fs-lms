@@ -207,7 +207,7 @@ class LessonPlayerService {
 
 		$tasks = array();
 		foreach ( $work->itemIds as $taskId ) {
-			$bundle = $this->stepRenderer->taskBundle( (int) $taskId );
+			$bundle = $this->stepRenderer->taskBundle( (int) $taskId, false, true );
 			if ( null === $bundle ) {
 				continue;
 			}
@@ -320,7 +320,7 @@ class LessonPlayerService {
 			return $empty;
 		}
 
-		$bundle = $this->stepRenderer->taskBundle( $taskId );
+		$bundle = $this->stepRenderer->taskBundle( $taskId, false, true );
 		if ( null === $bundle ) {
 			return $empty;
 		}

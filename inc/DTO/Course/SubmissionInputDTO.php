@@ -19,10 +19,13 @@ readonly class SubmissionInputDTO {
 		public ?string $submittedAt  = null,
 		/** Момент завершения проверки; у автопроверенной сдачи совпадает со сдачей. */
 		public ?string $gradedAt     = null,
+		/** Балл автопроверки; без него `graded`-строка читается как «0 из 1». */
+		public ?float  $score        = null,
+		public ?float  $maxScore     = null,
 	) {}
 
 	public function toArray(): array {
-		return array(
+		$row = array(
 			'student_person_id' => $this->studentPersonId,
 			'group_lesson_id'   => $this->groupLessonId,
 			'work_id'           => $this->workId,
@@ -35,5 +38,14 @@ readonly class SubmissionInputDTO {
 			'submitted_at'      => $this->submittedAt,
 			'graded_at'         => $this->gradedAt,
 		);
+
+		if ( null !== $this->score ) {
+			$row['score'] = $this->score;
+		}
+		if ( null !== $this->maxScore ) {
+			$row['max_score'] = $this->maxScore;
+		}
+
+		return $row;
 	}
 }

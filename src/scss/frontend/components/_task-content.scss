@@ -1,6 +1,7 @@
 @use '../variables' as *;
 @use '../mixins' as *;
 @use '../../shared/content-lists' as *;
+@use '../../shared/common-condition' as *;
 @use '../../shared/content-tables' as *;
 
 .fs-task-page .fs-task-title {
@@ -59,6 +60,7 @@
   // Таблицы — общее правило с карточкой тренажёра, статьёй, шагом курса
   // и контрольной: рамка цветом текста, одинаковая толщина везде.
   @include fs-content-tables;
+  @include fs-common-condition;
 
   td, th { font-size: $font-size-base; }
 

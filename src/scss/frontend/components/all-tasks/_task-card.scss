@@ -1,6 +1,7 @@
 @use '../../variables' as *;
 @use '../../mixins' as *;
 @use '../../../shared/content-lists' as *;
+@use '../../../shared/common-condition' as *;
 @use '../../../shared/content-tables' as *;
 
 .fs-all-tasks-page {
@@ -49,6 +50,7 @@
   // а списки — без маркеров (их глушит публичный reset).
   .tcr-condition {
     @include fs-content-tables;
+    @include fs-common-condition;
     @include fs-content-lists;
     @include fs-task-subconditions;
 

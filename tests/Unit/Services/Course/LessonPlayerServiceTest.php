@@ -24,6 +24,7 @@ use Inc\Services\Course\StepContentRenderer;
 use Inc\Services\Course\SubmissionService;
 use Inc\Services\Task\CorrectAnswerResolver;
 use Inc\Services\Task\TaskCheckerRegistry;
+use Inc\Services\Task\TaskMetaService;
 use Inc\Services\Task\TaskSolutionService;
 use Inc\Services\Template\TemplateResolver;
 use PHPUnit\Framework\TestCase;
@@ -68,6 +69,7 @@ class LessonPlayerServiceTest extends TestCase {
 			$this->templateResolver,
 			$this->checkerRegistry,
 			$this->assessments,
+			new TaskMetaService(),
 		);
 
 		$this->service = new LessonPlayerService(

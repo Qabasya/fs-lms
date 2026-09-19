@@ -185,6 +185,8 @@ class SubmissionService {
 					status          : $taskStatus,
 					submittedAt     : $now,
 					gradedAt        : $taskGradedAt,
+					score           : (float) $taskResult['score'],
+					maxScore        : (float) $taskResult['maxScore'],
 				) );
 			}
 		}

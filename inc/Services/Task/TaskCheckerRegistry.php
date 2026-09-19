@@ -46,7 +46,6 @@ class TaskCheckerRegistry {
 			// Текстовый ответ (`task_answer`) — сверяется строка ответа.
 			// Код/файловые шаблоны: сам код/файл НЕ автопроверяется, только ответ.
 			TaskTemplate::Standard->value     => $text,
-			TaskTemplate::Common->value       => $text,
 			TaskTemplate::Audio->value        => $text,
 			TaskTemplate::Code->value         => $text,
 			TaskTemplate::FileCode->value     => $text,

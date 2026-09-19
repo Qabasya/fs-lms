@@ -31,6 +31,7 @@ class FileCodeTaskTemplate extends BaseTemplate {
 	 */
 	public function __construct() {
 		$this->fields = array(
+			'common_condition' => $this->commonConditionField(),
 			'task_condition' => array(
 				'label'  => 'Условие задания',
 				'object' => new ConditionField(),     // Многострочный текст

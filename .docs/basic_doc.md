@@ -1828,7 +1828,7 @@ work/assessment-шагов **не хранятся** здесь — резолв
 
 Значение кейса — `template_type` в мете задания. Автопроверяемые: `standard_task`,
 `triple_task` (шаблон `ThreeInOneTemplate` — три поля ответа; на ЕГЭ разворачивается
-в отдельные под-задания), `common_standard_task`, `choice_task`, `matching_task`,
+в отдельные под-задания), `choice_task`, `matching_task`,
 `ordering_task`, `fill_task` (пропуски `[[ответ|синоним]]`), `audio_task`; ручные:
 `code_task`, `file_code_task`, `file_task`, `text_task`,
 `file_answer_task`.

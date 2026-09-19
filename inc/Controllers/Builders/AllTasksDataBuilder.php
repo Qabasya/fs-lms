@@ -274,7 +274,7 @@ readonly class AllTasksDataBuilder {
 			task_number_slug:     $number_term ? $number_term->slug : '',
 			task_number_color:    $this->tag_palette->colorIndex( $subject_key, $number_tax ),
 			tags:                 $this->buildTags( $post->ID, $subject_key, $taxonomies ),
-			condition:     $this->task_meta_service->getCombinedCondition( $meta ),
+			condition:     $this->task_meta_service->getCombinedCondition( $meta, true ),
 			answer:        $answer,
 			// Материалы «развёрнутого ответа» — вложения медиатеки, а не ссылки
 			// файловых полей: источник выбирается по шаблону, как на странице

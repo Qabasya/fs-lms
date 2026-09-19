@@ -90,7 +90,8 @@ class WorkMarksService {
 				$marks[] = self::PENDING;
 				continue;
 			}
-			if ( null !== $row && SubmissionStatus::Graded === $row->status ) {
+			// Строки первой сдачи прошлых версий лежат без баллов — вердикт тогда из снапшота.
+			if ( null !== $row && SubmissionStatus::Graded === $row->status && null !== $row->score ) {
 				$marks[] = ( $row->score ?? 0.0 ) >= ( $row->maxScore ?? 1.0 ) ? self::CORRECT : self::INCORRECT;
 				continue;
 			}

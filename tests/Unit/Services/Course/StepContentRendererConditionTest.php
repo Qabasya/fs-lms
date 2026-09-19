@@ -9,6 +9,7 @@ use Inc\Managers\Assessment\AssessmentManager;
 use Inc\Managers\Wp\PostManager;
 use Inc\Services\Course\StepContentRenderer;
 use Inc\Services\Task\TaskCheckerRegistry;
+use Inc\Services\Task\TaskMetaService;
 use Inc\Services\Template\TemplateResolver;
 use PHPUnit\Framework\TestCase;
 
@@ -30,6 +31,7 @@ class StepContentRendererConditionTest extends TestCase {
 			$this->createMock( TemplateResolver::class ),
 			$this->createMock( TaskCheckerRegistry::class ),
 			$this->createMock( AssessmentManager::class ),
+			new TaskMetaService(),
 		);
 	}
 
@@ -47,6 +49,23 @@ class StepContentRendererConditionTest extends TestCase {
 		self::assertArrayHasKey( '2', $html );
 		self::assertStringContainsString( 'Условие варианта 1', $html['1'] );
 		self::assertStringContainsString( 'Условие варианта 2', $html['2'] );
+	}
+
+	public function test_common_condition_collapses_only_when_asked(): void {
+		$meta = array(
+			'common_condition' => 'Типовая часть',
+			'task_condition'   => 'Своя часть',
+		);
+
+		foreach ( array( TaskTemplate::Standard, TaskTemplate::Code, TaskTemplate::File, TaskTemplate::FileCode ) as $template ) {
+			$collapsed = $this->renderer->buildConditionHtml( $meta, $template, true );
+			$full      = $this->renderer->buildConditionHtml( $meta, $template );
+
+			self::assertStringContainsString( '<details', $collapsed );
+			self::assertStringNotContainsString( '<details', $full );
+			self::assertStringContainsString( 'Типовая часть', $full );
+			self::assertStringContainsString( 'Своя часть', $full );
+		}
 	}
 
 	public function test_missing_fields_give_empty_strings_not_error(): void {

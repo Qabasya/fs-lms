@@ -12,6 +12,7 @@ use Inc\Managers\Assessment\AssessmentManager;
 use Inc\Managers\Wp\PostManager;
 use Inc\Services\Task\FillTextParser;
 use Inc\Services\Task\TaskCheckerRegistry;
+use Inc\Services\Task\TaskMetaService;
 use Inc\Services\Template\TemplateResolver;
 
 /**
@@ -31,6 +32,7 @@ class StepContentRenderer {
 		private readonly TemplateResolver    $templateResolver,
 		private readonly TaskCheckerRegistry $checkerRegistry,
 		private readonly AssessmentManager   $assessments,
+		private readonly TaskMetaService     $taskMeta,
 	) {}
 
 	/** Заголовок шага: инлайн — из payload/типа, ссылочный — из связанной сущности. */
@@ -87,7 +89,7 @@ class StepContentRenderer {
 	 *
 	 * @return array{task_id:int, title:string, template:string, auto_grade:bool, condition_html:string|array<string,string>, widget_data:array<string,mixed>, files:array<int,array{name:string,url:string}>, meta:array<string,mixed>}|null
 	 */
-	public function taskBundle( int $taskId, bool $shuffle = false ): ?array {
+	public function taskBundle( int $taskId, bool $shuffle = false, bool $collapseCommon = false ): ?array {
 		$post = $this->posts->get( $taskId );
 		if ( ! $post ) {
 			return null;
@@ -103,7 +105,7 @@ class StepContentRenderer {
 			'title'          => $post->post_title,
 			'template'       => $template->value,
 			'auto_grade'     => $autoGrade,
-			'condition_html' => $this->buildConditionHtml( $meta, $template ),
+			'condition_html' => $this->buildConditionHtml( $meta, $template, $collapseCommon ),
 			'widget_data'    => $autoGrade ? $this->buildWidgetData( $meta, $template, $shuffle ) : array(),
 			'files'          => $this->buildFiles( $meta ),
 			'meta'           => $meta,
@@ -148,7 +150,7 @@ class StepContentRenderer {
 	 *
 	 * @return string|array<string, string>
 	 */
-	public function buildConditionHtml( array $meta, TaskTemplate $template ): string|array {
+	public function buildConditionHtml( array $meta, TaskTemplate $template, bool $collapseCommon = false ): string|array {
 		if ( TaskTemplate::Triple === $template ) {
 			return array(
 				'19' => $this->conditionHtml( $meta['task_19_condition'] ?? '' ),
@@ -172,16 +174,12 @@ class StepContentRenderer {
 			return '';
 		}
 
-		$condition = $this->conditionHtml( $meta['task_condition'] ?? '' );
+		// Общее условие — необязательное поле любого одиночного шаблона: сверху,
+		// свёрнутым в тренажёре/курсе и целиком в контрольных ($collapseCommon = false).
+		$common = $this->conditionHtml( $meta[ TaskMetaService::COMMON_KEY ] ?? '' );
 
-		if ( TaskTemplate::Common === $template ) {
-			$common = $this->conditionHtml( $meta['common_condition'] ?? '' );
-			if ( '' !== $common ) {
-				return $common . $condition;
-			}
-		}
-
-		return $condition;
+		return $this->taskMeta->wrapCommon( $common, $collapseCommon )
+			. $this->conditionHtml( $meta['task_condition'] ?? '' );
 	}
 
 	/**
@@ -210,7 +208,7 @@ class StepContentRenderer {
 	 */
 	public function buildWidgetData( array $meta, TaskTemplate $template, bool $shuffle ): array {
 		return match ( $template ) {
-			TaskTemplate::Standard, TaskTemplate::Common =>
+			TaskTemplate::Standard =>
 				array( 'type' => 'text_answer' ),
 
 			TaskTemplate::Audio =>

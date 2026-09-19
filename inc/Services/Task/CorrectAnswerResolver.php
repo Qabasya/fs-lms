@@ -44,7 +44,6 @@ class CorrectAnswerResolver {
 			// (см. TaskCheckerRegistry): у код/файловых не автопроверяется сам код
 			// или файл, но короткий ответ у них есть и эталон для него существует.
 			TaskTemplate::Standard,
-			TaskTemplate::Common,
 			TaskTemplate::Audio,
 			TaskTemplate::Code,
 			TaskTemplate::FileCode,

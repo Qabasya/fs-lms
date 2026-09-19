@@ -4,6 +4,7 @@
    ══════════════════════════════════════════════════════════════════════ */
 @use '../variables' as *;
 @use '../../shared/content-lists' as *;
+@use '../../shared/common-condition' as *;
 @use '../../shared/content-tables' as *;
 
 .wpc {
@@ -108,6 +109,7 @@
   // статьёй: авторская таблица в лекции и в условии обязана выглядеть
   // одинаково, а не как элемент интерфейса кабинета.
   @include fs-content-tables;
+  @include fs-common-condition;
 
   th,
   td { font-size: rem(13.5); }

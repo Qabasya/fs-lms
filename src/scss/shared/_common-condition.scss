@@ -1,0 +1,62 @@
+// Общее (типовое) условие задания — `TaskMetaService::wrapCommon()`.
+// Свёрнутый вариант — нативный <details>: закрыт → видна одна строка-переключатель
+// и изменяемая часть условия ниже; открыт → общее условие раскрывается сверху.
+// Статичный (`--static`) — контрольные и экзамены, там условие всегда целиком.
+// Стрелка — CSS-бордер, а не <svg>: разметка проходит `wp_kses_post()`,
+// который инлайновый svg вырезает. Общий миксин для всех мест вывода условия:
+// страница задания, карточка тренажёра, шаг курса (публичные и кабинетный бандлы).
+// Цвета — «чернила» контента с фолбэком на shared/_tokens, как в content-tables.
+
+@use 'tokens' as t;
+
+@mixin fs-common-condition {
+	.fs-common-cond {
+		margin-bottom: t.$spacing-lg;
+		border: 1px solid var(--line, #{t.$line});
+		border-radius: t.$border-radius-xl;
+		background: var(--surface-2, #{t.$surface-2});
+		text-align: left;
+	}
+
+	.fs-common-cond--static { padding: t.$spacing-md t.$spacing-lg; }
+
+	.fs-common-cond__toggle {
+		display: flex;
+		align-items: center;
+		gap: t.$spacing-sm;
+		padding: t.$spacing-md t.$spacing-lg;
+		font-size: t.$font-size-sm;
+		font-weight: t.$font-semibold;
+		color: var(--muted, #{t.$muted});
+		cursor: pointer;
+		list-style: none;
+
+		&::-webkit-details-marker { display: none; }
+
+		&::after {
+			content: '';
+			width: t.$spacing-sm;
+			height: t.$spacing-sm;
+			margin-left: auto;
+			border-right: 2px solid currentcolor;
+			border-bottom: 2px solid currentcolor;
+			transform: translateY(-25%) rotate(45deg);
+		}
+
+		&:hover { color: var(--ink, #{t.$ink}); }
+	}
+
+	.fs-common-cond[open] > .fs-common-cond__toggle {
+		border-bottom: 1px solid var(--line-2, #{t.$line-2});
+
+		&::after { transform: translateY(25%) rotate(-135deg); }
+	}
+
+	// Подпись зависит от состояния: показ/скрытие — только CSS.
+	.fs-common-cond__lbl--hide,
+	.fs-common-cond[open] .fs-common-cond__lbl--show { display: none; }
+
+	.fs-common-cond[open] .fs-common-cond__lbl--hide { display: inline; }
+
+	.fs-common-cond__body { padding: t.$spacing-md t.$spacing-lg; }
+}

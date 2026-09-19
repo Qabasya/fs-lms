@@ -270,5 +270,10 @@ final class Init {
 		// и атрибут download игнорируется. Гейт — собственная опция, поэтому на
 		// уже мигрированной установке это одно чтение опции.
 		$container->get( \Inc\Migrations\TaskFileSchemeMigration::class )->run();
+
+		// Data-миграции: удалённый шаблон «с общим условием» → Стандартное;
+		// баллы первой сдачи работ (без них карточки рисовали крестики).
+		$container->get( \Inc\Migrations\CommonTemplateMigration::class )->run();
+		$container->get( \Inc\Migrations\SubmissionScoreBackfillMigration::class )->run();
 	}
 }

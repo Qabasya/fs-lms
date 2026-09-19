@@ -15,6 +15,10 @@ namespace Inc\Services\Task;
  * @package Inc\Services
  */
 class TaskMetaService {
+
+	/** Ключ меты общего (типового) условия. */
+	public const COMMON_KEY = 'common_condition';
+
 	/**
 	 * Собирает все поля с суффиксом '_condition' из fs_lms_meta в один блок контента.
 	 *
@@ -24,36 +28,75 @@ class TaskMetaService {
 	 * на странице контрольной ({@see \Inc\Services\Assessment\AttemptTaskViewBuilder}).
 	 * Для шаблонов с одним условием обёртка ничего не меняет.
 	 *
-	 * @param array $meta Массив мета-полей из fs_lms_meta
+	 * Общее условие (`common_condition`) идёт первым отдельным блоком
+	 * ({@see self::wrapCommon()}).
+	 *
+	 * @param array $meta           Массив мета-полей из fs_lms_meta
+	 * @param bool  $collapseCommon Сворачивать общее условие (тренажёр); иначе оно всегда видно
 	 *
 	 * @return string
 	 */
-	public function getCombinedCondition( array $meta ): string {
+	public function getCombinedCondition( array $meta, bool $collapseCommon = false ): string {
 		if ( empty( $meta ) ) {
 			return '';
 		}
 
 		ksort( $meta );
+		$common          = '';
 		$condition_parts = array();
 
 		foreach ( $meta as $key => $value ) {
-			if ( str_contains( $key, '_condition' ) ) {
-				$html = (string) apply_filters( 'the_content', $value );
+			if ( ! str_contains( $key, '_condition' ) ) {
+				continue;
+			}
 
-				if ( '' !== trim( $html ) ) {
-					$condition_parts[] = $html;
-				}
+			$html = (string) apply_filters( 'the_content', $value );
+			if ( '' === trim( $html ) ) {
+				continue;
+			}
+
+			if ( self::COMMON_KEY === $key ) {
+				$common = $html;
+			} else {
+				$condition_parts[] = $html;
 			}
 		}
 
-		if ( count( $condition_parts ) < 2 ) {
-			return implode( '', $condition_parts );
+		$own = count( $condition_parts ) < 2
+			? implode( '', $condition_parts )
+			: implode( '', array_map(
+				static fn( string $part ): string => '<div class="fs-task-subcondition">' . $part . '</div>',
+				$condition_parts
+			) );
+
+		return $this->wrapCommon( $common, $collapseCommon ) . $own;
+	}
+
+	/**
+	 * Разметка общего (типового) условия. Свёрнутый вариант — нативный `<details>`
+	 * (без JS): пока закрыт, видна только изменяемая часть условия. Стрелку рисует CSS —
+	 * `wp_kses_post()` в шаблонах вырезал бы инлайновый `<svg>`. Несвёрнутый —
+	 * обычный блок: контрольные и экзамены всегда показывают условие целиком.
+	 *
+	 * @param string $html        Готовый безопасный HTML общего условия ('' → блока нет)
+	 * @param bool   $collapsible Сворачиваемый блок или статичный
+	 */
+	public function wrapCommon( string $html, bool $collapsible ): string {
+		if ( '' === trim( $html ) ) {
+			return '';
 		}
 
-		return implode( '', array_map(
-			static fn( string $part ): string => '<div class="fs-task-subcondition">' . $part . '</div>',
-			$condition_parts
-		) );
+		if ( ! $collapsible ) {
+			return '<div class="fs-common-cond fs-common-cond--static">' . $html . '</div>';
+		}
+
+		return '<details class="fs-common-cond">'
+			. '<summary class="fs-common-cond__toggle">'
+			. '<span class="fs-common-cond__lbl fs-common-cond__lbl--show">Показать типовое условие</span>'
+			. '<span class="fs-common-cond__lbl fs-common-cond__lbl--hide">Скрыть типовое условие</span>'
+			. '</summary>'
+			. '<div class="fs-common-cond__body">' . $html . '</div>'
+			. '</details>';
 	}
 
 	/**
