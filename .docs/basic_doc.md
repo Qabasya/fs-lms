@@ -109,7 +109,7 @@ FS LMS — WordPress-плагин, реализующий полноценную
 | Обучение | Программа группы, плеер, сдачи, автопроверка, журнал, КТП | §27–35 |
 | Личные кабинеты | SPA `/profile/` (препод/офис/ученик/родитель) + плеер урока | §36–40 |
 | Служебные | Логи и аудит (9 каналов), email-шаблоны, конфигурация, CSV-экспорт | §23–25 |
-| Опциональные модули | AdSync, EgeComputer, DaData, SmartCaptcha, VideoLibrary | §26 |
+| Опциональные модули | AdSync, EgeComputer, PublicExams, DaData, SmartCaptcha, VideoLibrary | §26 |
 
 Термины, которые встречаются постоянно:
 
@@ -201,6 +201,7 @@ php -r "echo base64_encode(random_bytes(32)) . PHP_EOL;"   # генерация 
 | `FS_LMS_CAPTCHA_SITE_KEY` / `FS_LMS_CAPTCHA_SERVER_KEY` | Ключи Yandex SmartCaptcha (модуль SmartCaptcha) |
 | `FS_LMS_AD_SYNC`, `FS_LMS_AD_HMAC_SECRET` | Модуль AdSync + секрет HMAC для REST |
 | `FS_LMS_EGE_COMPUTER` | Модуль EgeComputer (не задана → включён) |
+| `FS_LMS_PUBLIC_EXAMS` | Модуль PublicExams (не задана → включён, если включён EgeComputer; `false` — выкл.) |
 | `FS_LMS_DADATA`, `FS_LMS_SMART_CAPTCHA` | Жёсткое вкл/выкл соответствующих модулей |
 | `FS_LMS_VIDEO_LIBRARY`, `FS_LMS_VIDEO_HMAC_SECRET` | Модуль VideoLibrary (по умолчанию выкл.) + секрет HMAC для push-REST |
 | `FS_LMS_ARTICLE_BLOCKS` | Жёсткое вкл/выкл редактора модуля ArticleBlocks (по умолчанию вкл., §26) |
@@ -1539,6 +1540,7 @@ UI — вкладка «Конфигурация» в Настройках: по
 |---|---|---|---|---|
 | `AdSync` | Провижининг учёток в Active Directory (outbox-очередь + REST для Python-поллера) | `FS_LMS_AD_SYNC`, `FS_LMS_AD_HMAC_SECRET` | `fs_lms_ad_sync` (выкл.) | события заявок; REST `GET /ad/jobs`, `POST /ad/ack`; своя таблица через `AdSchema::ensure()` |
 | `EgeComputer` | Альтернативные плеер-станции контрольной «ЕГЭ (компьютерный)» и «ОГЭ (компьютерный)» (общий движок рендера/попыток, свои конфиги времени/попыток/шкалы `StationExamConfig`) | `FS_LMS_EGE_COMPUTER` (не задана → вкл.) | — | фильтр `fs_lms_assessment_renderer` (§34) |
+| `PublicExams` | Публичные экзамены: ЕГЭ (Компьютер), открытый всем без авторизации (без записи в БД), раздел `/{key}/exams/` по годам | `FS_LMS_PUBLIC_EXAMS` (не задана → вкл., при включённом EgeComputer) | — | фильтры `fs_lms_assessment_public_access`, `fs_lms_assessment_template_fields`, `fs_lms_subject_exams_enabled` и др. (§34) |
 | `DaData` | Автодополнение ФИО/адреса на `/lms/join` | `FS_LMS_DADATA`, `DADATA_API_TOKEN` | `fs_lms_dadata` (выкл.) | фильтр `fs_lms_join_vars` |
 | `SmartCaptcha` | Невидимая Yandex SmartCaptcha на `/apply/` и `/sign-in/` | `FS_LMS_SMART_CAPTCHA`, ключи капчи | `fs_lms_smart_captcha` (выкл.) | фильтры `fs_lms_captcha_provider`, `fs_lms_apply_vars`, `fs_lms_login_vars` |
 | `VideoLibrary` | Видеозаписи занятий: S3 Beget + push-REST от `fs-video-uploader` + presigned-выдача в плеер | `FS_LMS_VIDEO_LIBRARY`, `FS_LMS_VIDEO_HMAC_SECRET` | `fs_lms_video_library` (выкл.) | фильтр `fs_lms_recording_url`; публичный `GroupLessonRepository` |
@@ -1915,6 +1917,92 @@ JS красит виджет (зелёный/красный, пофрагмен�
 Оба станционных вида используют один и тот же рендер-код (`ege-computer.php` + `kege/{entry,exam,finish}.php`)
 с kind-ветвлением внутри, а не форк в параллельные шаблоны — решение зафиксировано при добавлении
 ОГЭ (см. `.docs/Tasks.md`, «Компьютерный ОГЭ», вопрос 8).
+
+### Публичные экзамены (модуль `PublicExams`)
+
+ЕГЭ (Компьютер), который автор открыл всем: гость решает его без входа и в конце получает лист
+как на станции (номер, балл, ответ, эталон) — **сразу с правильными ответами**, без утверждения
+учителем. Ничего не пишется ни в БД, ни в логи: ни попыток, ни IP, ни лимитов и защиты от накрутки.
+Статистику собирает внешний плагин Метрики по DOM-событиям (ниже).
+
+**Механика — «предпросмотр автора для всех».** Режим без попытки уже существует
+(`AttemptPageService::buildPreview()`): ответы копятся в `localStorage` (`fsKegeSimV2:{assessment_id}`),
+по «Завершить экзамен» уходят на эндпоинт, который сличает их с эталоном
+(`KegeSheetResponseBuilder` → `KegeResultSheetService::buildFromAnswers()`). Публичный режим —
+тот же путь для любого посетителя: `AttemptPageService::buildPublic()` (`AttemptPageDTO::publicMode`),
+без плашки «Предпросмотр». Общая сборка листа для предпросмотра и публичного режима —
+`KegeSheetResponseBuilder` (модуль EgeComputer).
+
+**Кто какой путь получает** (`AssessmentPageController::loadTemplate()`): доступ по курсу → обычная
+попытка в БД (ответы скрыты до утверждения, `AttemptRevealPolicy`); иначе автор/преподаватель группы →
+предпросмотр; иначе публичный экзамен → публичный режим (в т.ч. залогиненному без доступа по курсу);
+иначе гость → логин, посторонний → 404. У публичного экзамена снят `noindex`
+(заголовок `X-Robots-Tag` и `<meta name="robots">` в `ege-computer.php`).
+
+**Решение «открыт всем» — `PublicExamPolicy::isPublic()`** (единственная точка): статус `publish`,
+`kind = ege_computer`, флажок `is_public` в мете. По ней же работает и AJAX: непубличный или
+черновик получает отказ — эндпоинт отдаёт эталонные ответы.
+
+**Поля конструктора** (метабокс «Экраны и доступ», виден только у `ege_computer`,
+`assessment-builder.js::toggleKindFields()`; хранение — `fs_lms_meta`):
+
+| Поле | Чьё | Смысл |
+|---|---|---|
+| `hide_intro` | ядро (`AssessmentTemplate`, `AssessmentDTO::hideIntro`) | «Скрыть приветственные экраны»: ритуал станции (бланк → инструкция → КИМ → активация) пропускается, сразу первое задание; КИМ/БР в шапке и на листе скрываются. Работает и в курсе (там попытка стартует сама). Старые экзамены — `false` (экраны на месте). В конструкторе при включении «Публичный» галка ставится сама, пока автор не менял её руками (`bindHideIntroDefault()`) |
+| `is_public` | модуль | «Публичный экзамен» |
+| `exam_year` | модуль | «Год» — 4 цифры, подсказки `<datalist>` из уже введённых годов предмета; обязателен, чтобы опубликовать публичный экзамен (`PublicExamsModule::requireYear()`) |
+
+Поля модуля добавляются в шаблон фильтром `AssessmentTemplate::FIELDS_FILTER`
+(`fs_lms_assessment_template_fields`): выключен модуль — их нет ни в форме, ни при сохранении.
+Ошибку публикации от модулей ядро принимает фильтром `AssessmentMetaBoxController::PUBLISH_ERROR_FILTER`.
+Чекбокс — `CheckboxField` (скрытый `0` перед флажком: снятый флажок в POST не приходит).
+
+**Станция на клиенте** (`src/js/kege/`, режим `data-public="1"`):
+
+- **Таймер** — обратный отсчёт от `time_limit`; абсолютный дедлайн `deadlineTs` лежит в
+  `localStorage`, а не считается от загрузки страницы (`setKegeDeadline()`), первый старт фиксирует
+  его один раз. По нулю — автозавершение и экран результатов (`startCountdown(..., { onExpire })`);
+  вернувшийся после срока сразу получает результат по сохранённым ответам.
+- **Закрытый браузер** — набранное, но не «сохранённое» дебаунсом, пишется в `localStorage` на
+  `pagehide`/`visibilitychange` (`rememberOpenField()`).
+- **Общий компьютер (школа)** — после показа результата состояние стирается (`clearKegeState()`),
+  чужие ответы и КИМ следующему не достаются; при заходе с незавершённой попыткой спрашиваем
+  «Продолжить / Начать заново» (`kege-resume.js`, только при живом дедлайне). Не удался расчёт листа —
+  состояние остаётся, обновление страницы повторит попытку.
+- **События для Метрики** (`document`, отдельный плагин): `fs-lms:public-exam-start`
+  (`detail: { assessmentId }`) и `fs-lms:public-exam-finish`
+  (`detail: { assessmentId, primary, primaryMax, secondary, secondaryMax, answered, total, autoFinished }`).
+- «Завершить экзамен» ведёт в раздел «Экзамены» предмета (`fs_lms_assessment_public_back_url`).
+
+**AJAX** — `PublicResultCallbacks::ACTION` (`fs_lms_public_exam_result`, `wp_ajax_` и `wp_ajax_nopriv_`,
+вне core `AjaxHook`); нонс — `Nonce::StartAttempt` (гостю выдаётся в `fs_lms_kege_vars`; страница за
+кеш-плагином отдаст гостю чужой нонс — сейчас кеш-плагина нет, при появлении проверить). Имя
+экшена ядро получает фильтром `BundleLoader::KEGE_PUBLIC_RESULT_FILTER` → `kegeVars.actions.publicResult`.
+
+**Раздел `/{key}/exams/`.** `SubjectPageType::Exams` (слаг `exams`, шорткод `[fs_lms_subject_exams]`,
+шаблон `templates/frontend/subject/exams.php`, только у предмета с банком). Заводится и показывается,
+только пока модуль включён (`SubjectPagesService::EXAMS_FILTER`); выключен — раздел не создаётся, шорткод
+пуст, шаблон не подменяется. Для предметов, заведённых раньше, страницы добираются один раз при первом
+заходе после включения (`PublicExamsModule::ensurePages()`, опция `fs_lms_public_exams_pages`).
+Содержимое отдаёт модуль фильтром `SubjectLandingController::EXAMS_GROUPS_FILTER`
+(`PublicExamCatalog::groups()`): блок на каждый год (свежие сверху), в блоке карточки «название +
+Приступить к экзамену». Ссылка на раздел — `SubjectPagesService::links()->exams` (пуста при выключенном модуле).
+
+**Точки связи ядро ↔ модуль** (все — фильтры, ядро классов модуля не импортирует):
+
+| Фильтр | Кто применяет | Что решает модуль |
+|---|---|---|
+| `fs_lms_assessment_template_fields` | `AssessmentTemplate` | поля «Публичный» и «Год» |
+| `fs_lms_assessment_publish_error` | `AssessmentMetaBoxController` | «нужен год» при публикации |
+| `fs_lms_assessment_public_access` | `AssessmentPageController` | экзамен открыт всем |
+| `fs_lms_assessment_public_back_url` | `AssessmentPageController` | куда ведёт «Завершить экзамен» |
+| `fs_lms_kege_public_result_action` | `BundleLoader::enqueueKege()` | имя AJAX-экшена листа |
+| `fs_lms_subject_exams_enabled` | `SubjectPagesService` | раздел «Экзамены» включён |
+| `fs_lms_subject_exams_groups` | `SubjectLandingController` | год → карточки раздела |
+
+Тесты: `tests/Unit/Modules/PublicExams/PublicExamsTest.php` (политика, каталог, год, состав лендинга,
+`hideIntro`). Проверить руками: гость проходит ЕГЭ до листа, автозавершение и восстановление после
+закрытия браузера, курсовой путь не изменился.
 
 ### Score map (перевод первичных баллов ЕГЭ)
 
