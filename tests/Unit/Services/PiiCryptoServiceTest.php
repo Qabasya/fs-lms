@@ -49,7 +49,9 @@ class PiiCryptoServiceTest extends TestCase {
 
 	public function test_decrypt_throws_on_tampered_ciphertext(): void {
 		$blob    = $this->service->encrypt( 'original' );
-		$tampered = substr_replace( $blob, "\xff", -1 ); // Меняем последний байт
+		// Инвертируем последний байт: замена на фиксированный "\xff" была
+		// no-op, когда случайный шифротекст уже кончался на 0xff (1 из 256 прогонов).
+		$tampered = substr_replace( $blob, $blob[-1] ^ "\xff", -1 );
 		$this->expectException( RuntimeException::class );
 		$this->service->decrypt( $tampered );
 	}
