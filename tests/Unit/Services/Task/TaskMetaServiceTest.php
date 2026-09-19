@@ -24,6 +24,11 @@ class TaskMetaServiceTest extends TestCase {
 		$this->service = new TaskMetaService();
 	}
 
+	protected function tearDown(): void {
+		unset( $GLOBALS['_fs_test_home_url'] );
+		parent::tearDown();
+	}
+
 	public function test_single_condition_is_returned_as_is(): void {
 		$html = $this->service->getCombinedCondition( array( 'task_condition' => 'Одно условие' ) );
 
@@ -53,6 +58,7 @@ class TaskMetaServiceTest extends TestCase {
 	}
 
 	public function test_materials_are_read_from_attachment_ids(): void {
+		$GLOBALS['_fs_test_home_url'] = 'https://example.com';
 		fs_test_seed_post( array( 'ID' => 55, 'post_type' => 'attachment', 'post_title' => 'Исходные данные.xlsx' ) );
 		$GLOBALS['_fs_test_attachment_urls'][55] = 'https://example.com/data.xlsx';
 
@@ -74,5 +80,31 @@ class TaskMetaServiceTest extends TestCase {
 
 	public function test_task_without_materials_field_gives_empty_list(): void {
 		self::assertSame( array(), $this->service->getTaskMaterials( array( 'task_condition' => 'Условие' ) ) );
+	}
+
+	public function test_own_file_link_is_marked_downloadable(): void {
+		$files = $this->service->getTaskFiles( array( 'file' => 'http://example.com/2026/09/900.txt' ) );
+
+		self::assertTrue( $files[0]['download'] );
+	}
+
+	public function test_foreign_file_link_is_not_downloadable(): void {
+		// Атрибут download действует только для своего origin — чужую ссылку
+		// чип открывает во вкладке, иначе клик уводит со страницы задания.
+		$files = $this->service->getTaskFiles( array( 'file' => 'https://drive.example.org/file.pdf' ) );
+
+		self::assertFalse( $files[0]['download'] );
+		self::assertSame( 'https://drive.example.org/file.pdf', $files[0]['url'] );
+	}
+
+	public function test_own_file_link_follows_site_scheme(): void {
+		// Сайт переехал на HTTPS позже, и часть ссылок осталась с http://.
+		// Для браузера это ЧУЖОЙ origin, и download молча игнорируется.
+		$GLOBALS['_fs_test_home_url'] = 'https://example.com';
+
+		$files = $this->service->getTaskFiles( array( 'file' => 'http://example.com/2026/09/900.txt' ) );
+
+		self::assertSame( 'https://example.com/2026/09/900.txt', $files[0]['url'] );
+		self::assertTrue( $files[0]['download'] );
 	}
 }

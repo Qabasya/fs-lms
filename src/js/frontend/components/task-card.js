@@ -91,7 +91,7 @@ function _buildFiles(files) {
     if (!files.length) return '';
 
     const items = files.map(f => `
-        <a class="tcr-file" href="${esc(f.url)}" download="${esc(f.name)}" target="_blank" rel="noopener">
+        <a class="tcr-file" href="${esc(f.url)}" ${f.download === false ? 'target="_blank" rel="noopener"' : `download="${esc(f.name)}"`}>
             <span class="tcr-file-icon" aria-hidden="true">${icoFile(17)}</span>
             <span class="tcr-file-name">${esc(f.name)}</span>
             ${f.size ? `<span class="tcr-file-size">${esc(f.size)}</span>` : ''}

@@ -86,6 +86,7 @@ use Inc\Controllers\Course\LessonPlayerController;
 use Inc\Controllers\Course\LessonProgressController;
 use Inc\Controllers\Course\SubmissionController;
 use Inc\Cli\SubjectBundleCommand;
+use Inc\Cli\TaskFileSchemeCommand;
 use Inc\Controllers\Import\ImportController;
 use Inc\Controllers\Person\UserController;
 use Inc\Services\Export\ExportServiceBootstrap;
@@ -177,6 +178,7 @@ final class Init {
 			ImportController::class,   // Импорт учеников из CSV
 			LegacyTaskImportController::class, // AJAX разового переноса заданий со старой версии сайта
 			SubjectBundleCommand::class, // WP-CLI: перенос предмета пакетом (регистрируется только под WP_CLI)
+			TaskFileSchemeCommand::class, // WP-CLI: http:// → https:// в ссылках на файлы заданий
 			ConfigController::class,
 			SettingsController::class,
 			GithubReleaseUpdater::class, // Индикатор «Доступно обновление» из GitHub Releases (Qabasya/fs-lms)
@@ -262,5 +264,11 @@ final class Init {
 		$migrationRunner->register( new Migration_1_0_0() );
 		$migrationRunner->register( new Migration_1_0_8() );
 		$migrationRunner->run();
+
+		// Data-миграция (не схема): ссылки на файлы заданий со старой схемой
+		// http:// ломают скачивание по кнопке — для браузера это чужой origin,
+		// и атрибут download игнорируется. Гейт — собственная опция, поэтому на
+		// уже мигрированной установке это одно чтение опции.
+		$container->get( \Inc\Migrations\TaskFileSchemeMigration::class )->run();
 	}
 }

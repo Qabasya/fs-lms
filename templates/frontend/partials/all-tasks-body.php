@@ -147,10 +147,14 @@ $has_selected = (bool) array_sum( array_column( $page_data->filters, 'active' ) 
 							<?php if ( ! empty( $task->files ) ) : ?>
 								<div class="tcr-files">
 									<?php foreach ( $task->files as $file ) : ?>
-										<?php // download + target — то же поведение, что у чипа на странице задания. ?>
+										<?php // То же поведение, что у чипа на странице задания. ?>
 										<a class="tcr-file" href="<?php echo esc_url( $file['url'] ); ?>"
-											download="<?php echo esc_attr( $file['name'] ); ?>"
-											target="_blank" rel="noopener">
+											<?php if ( ! empty( $file['download'] ) ) : ?>
+												download="<?php echo esc_attr( $file['name'] ); ?>"
+											<?php else : ?>
+												target="_blank" rel="noopener"
+											<?php endif; ?>
+											>
 											<span class="tcr-file-icon" aria-hidden="true">
 												<?php echo Icon::File->svg( 17 ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
 											</span>

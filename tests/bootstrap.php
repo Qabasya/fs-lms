@@ -80,7 +80,16 @@ if (!function_exists('wp_json_encode')) {
 }
 if (!function_exists('home_url')) {
     function home_url(string $path = '', string $scheme = 'http'): string {
-        return 'http://example.com' . $path;
+        // Тесты подменяют адрес сайта, чтобы проверить http→https нормализацию.
+        return ($GLOBALS['_fs_test_home_url'] ?? 'http://example.com') . $path;
+    }
+}
+if (!function_exists('set_url_scheme')) {
+    // Упрощённая версия ядра: схему берём из home_url(), как это делает WordPress
+    // для внутренних ссылок (тестам хватает http/https).
+    function set_url_scheme(string $url, ?string $scheme = null): string {
+        $scheme = $scheme ?? (str_starts_with(home_url(), 'https://') ? 'https' : 'http');
+        return preg_replace('#^\w+://#', $scheme . '://', $url) ?? $url;
     }
 }
 if (!function_exists('wp_create_nonce')) {
@@ -732,6 +741,12 @@ if (!function_exists('wp_timezone')) {
 if (!function_exists('update_option')) {
     function update_option(string $option, mixed $value, mixed $autoload = null): bool {
         $GLOBALS['_test_options'][$option] = $value;
+        return true;
+    }
+}
+if (!function_exists('delete_option')) {
+    function delete_option(string $option): bool {
+        unset($GLOBALS['_test_options'][$option]);
         return true;
     }
 }

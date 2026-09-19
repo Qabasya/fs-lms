@@ -69,7 +69,7 @@ class TaskMetaService {
 	 *
 	 * @param array $meta
 	 *
-	 * @return array<int, array{name: string, url: string, size: string}>
+	 * @return array<int, array{name: string, url: string, size: string, download: bool}>
 	 */
 	public function getTaskMaterials( array $meta ): array {
 		$materials = array();
@@ -82,10 +82,13 @@ class TaskMetaService {
 				continue;
 			}
 
+			$url = $this->normalizeScheme( $url );
+
 			$materials[] = array(
-				'name' => $this->getAttachmentFileName( $attachmentId, $url ),
-				'url'  => $url,
-				'size' => $this->getFileSize( $url ),
+				'name'     => $this->getAttachmentFileName( $attachmentId, $url ),
+				'url'      => $url,
+				'size'     => $this->getFileSize( $url ),
+				'download' => $this->isSameOrigin( $url ),
 			);
 		}
 
@@ -124,11 +127,58 @@ class TaskMetaService {
 	}
 
 	/**
+	 * Приводит ссылку на файл к схеме самого сайта.
+	 *
+	 * Поле «Файл задания» хранит адрес так, как его вставил автор, и у части
+	 * заданий там `http://` — сайт переехал на HTTPS позже. Для браузера
+	 * `http://сайт/…` на HTTPS-странице это ЧУЖОЙ origin (схема входит в
+	 * origin), поэтому атрибут `download` у чипа молча игнорируется и файл
+	 * открывается во вкладке вместо скачивания.
+	 *
+	 * Трогаем только свой домен: чужие ссылки переписывать нельзя — там может
+	 * не быть HTTPS вовсе.
+	 *
+	 * @param string $url Адрес из меты задания или медиатеки
+	 *
+	 * @return string
+	 */
+	/**
+	 * Скачается ли файл по клику. `download` действует только для файлов своего
+	 * origin; для чужой ссылки браузер атрибут игнорирует, и чип обязан
+	 * открываться в новой вкладке, иначе клик уводит со страницы задания.
+	 *
+	 * @param string $url Адрес файла (уже приведённый к схеме сайта)
+	 *
+	 * @return bool
+	 */
+	private function isSameOrigin( string $url ): bool {
+		$host = (string) wp_parse_url( $url, PHP_URL_HOST );
+
+		// Относительная ссылка («/wp-content/…») — тот же сайт по определению.
+		if ( '' === $host ) {
+			return true;
+		}
+
+		return $host === (string) wp_parse_url( home_url(), PHP_URL_HOST );
+	}
+
+	private function normalizeScheme( string $url ): string {
+		$host = (string) wp_parse_url( $url, PHP_URL_HOST );
+		$site = (string) wp_parse_url( home_url(), PHP_URL_HOST );
+
+		if ( '' === $host || $host !== $site ) {
+			return $url;
+		}
+
+		return (string) set_url_scheme( $url );
+	}
+
+	/**
 	 * Возвращает файлы задания из мета-данных.
 	 *
 	 * @param array $meta
 	 *
-	 * @return array Список файлов в формате name/url/size.
+	 * @return array Список файлов в формате name/url/size/download.
 	 */
 	public function getTaskFiles( array $meta ): array {
 		$file_keys = array(
@@ -146,10 +196,13 @@ class TaskMetaService {
 				continue;
 			}
 
+			$url = $this->normalizeScheme( $url );
+
 			$files[] = array(
-				'name' => $this->getFileNameFromUrl( $url ),
-				'url'  => $url,
-				'size' => $this->getFileSize( $url ),
+				'name'     => $this->getFileNameFromUrl( $url ),
+				'url'      => $url,
+				'size'     => $this->getFileSize( $url ),
+				'download' => $this->isSameOrigin( $url ),
 			);
 
 			if ( count( $files ) === 2 ) {

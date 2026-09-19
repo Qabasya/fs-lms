@@ -160,13 +160,18 @@ ThemeCompatService::header();
 								<?php foreach ( $files as $file ) : ?>
 									<?php
 									// download: браузер иначе открывает .txt/.pdf во вкладке вместо скачивания.
-									// target: у файла с чужого домена (поле «Файл задания» принимает любую
-									// прямую ссылку) браузер атрибут download игнорирует — без новой вкладки
-									// клик уводил бы со страницы задания.
+									// Атрибут действует только для файлов своего origin, поэтому чужую
+									// ссылку (поле «Файл задания» принимает любую прямую) открываем во
+									// вкладке — иначе клик уводил бы со страницы задания.
+									$is_download = ! empty( $file['download'] );
 									?>
 									<a href="<?php echo esc_url( $file['url'] ); ?>" class="fs-file-link"
-										download="<?php echo esc_attr( $file['name'] ); ?>"
-										target="_blank" rel="noopener">
+										<?php if ( $is_download ) : ?>
+											download="<?php echo esc_attr( $file['name'] ); ?>"
+										<?php else : ?>
+											target="_blank" rel="noopener"
+										<?php endif; ?>
+										>
 										<span class="fs-file-icon" aria-hidden="true">
 											<?php echo Icon::File->svg( 17 ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
 										</span>

@@ -26,6 +26,9 @@ class FakeWpdb extends \wpdb {
 	/** @var array<int, array> Очередь возвратов для get_results(). */
 	private array $resultsReturns = array();
 
+	/** @var array<int, array> Очередь возвратов для get_col(). */
+	private array $colReturns = array();
+
 	/** @var array<int, array{table:string,data:array}> */
 	public array $inserts = array();
 
@@ -51,6 +54,11 @@ class FakeWpdb extends \wpdb {
 
 	public function queueVar( mixed $var ): self {
 		$this->varReturns[] = $var;
+		return $this;
+	}
+
+	public function queueCol( array $values ): self {
+		$this->colReturns[] = $values;
 		return $this;
 	}
 
@@ -104,6 +112,11 @@ class FakeWpdb extends \wpdb {
 	public function get_results( string $query, string $output = 'OBJECT' ): array {
 		$this->queries[] = $query;
 		return array_shift( $this->resultsReturns ) ?? array();
+	}
+
+	public function get_col( string $query, int $x = 0 ): array {
+		$this->queries[] = $query;
+		return array_shift( $this->colReturns ) ?? array();
 	}
 
 	public function insert( string $table, array $data, ?array $format = null ): int|false {
