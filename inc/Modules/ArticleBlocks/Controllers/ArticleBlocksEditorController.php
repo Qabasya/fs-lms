@@ -25,6 +25,9 @@ class ArticleBlocksEditorController extends BaseController {
 	/** JS поля `fs_lms_encoded_text` (self-contained, вне core-бандла). */
 	private const FIELD_SCRIPT = 'inc/Modules/ArticleBlocks/assets/editor-fields.js';
 
+	/** JS контекста статьи для поиска в элементе «Задание» (self-contained, вне core-бандла). */
+	private const TASK_CONTEXT_SCRIPT = 'inc/Modules/ArticleBlocks/assets/task-context.js';
+
 	/** Кнопка TinyMCE «Код» (команда WP_Code есть в редакторе WordPress, но на панель не выведена). */
 	private const CODE_BUTTON = 'wp_code';
 
@@ -46,6 +49,35 @@ class ArticleBlocksEditorController extends BaseController {
 		$task = 'vc_autocomplete_' . ArticleBlock::Task->value . '_task';
 		add_filter( $task . '_callback', array( $this->tasks, 'search' ) );
 		add_filter( $task . '_render', array( $this->tasks, 'label' ) );
+		add_action( 'admin_enqueue_scripts', array( $this, 'enqueueTaskContext' ) );
+	}
+
+	/**
+	 * Скрипт, дописывающий к поиску заданий ID статьи и выбранный номер задания, —
+	 * только на экране редактирования статьи.
+	 *
+	 * @return void
+	 */
+	public function enqueueTaskContext(): void {
+		$screen = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
+
+		if ( null === $screen || ! PostTypeResolver::isArticlePostType( (string) $screen->post_type ) ) {
+			return;
+		}
+
+		$path = $this->path( self::TASK_CONTEXT_SCRIPT );
+		wp_enqueue_script(
+			'fs-lms-article-task-context',
+			$this->url( self::TASK_CONTEXT_SCRIPT ),
+			array( 'jquery' ),
+			file_exists( $path ) ? (string) filemtime( $path ) : $this->plugin_version,
+			true
+		);
+		wp_localize_script( 'fs-lms-article-task-context', 'fsLmsArticleTaskContext', array(
+			'shortcode'   => ArticleBlock::Task->value,
+			'postParam'   => TaskSuggestions::POST_PARAM,
+			'numberParam' => TaskSuggestions::NUMBER_PARAM,
+		) );
 	}
 
 	/**

@@ -124,9 +124,14 @@ class MetaBoxController extends BaseController implements ServiceInterface {
 			array( PostTypeResolver::problems() )
 		)->register();
 
-		// «Общее условие» — отдельный метабокс, только у шаблонов с таким полем: его можно
-		// свернуть или скрыть через «Настройки экрана», и он не занимает начало основной формы.
-		if ( $post instanceof \WP_Post && $this->commonConditionTemplate( $post ) ) {
+		// «Общее условие» — отдельный метабокс, только у заданий предмета с таким полем в
+		// шаблоне: его можно свернуть или скрыть через «Настройки экрана», и он не занимает
+		// начало основной формы. Хук `add_meta_boxes` срабатывает для ЛЮБОГО типа записи, а
+		// резолвер у записи без номера задания отдаёт «Стандартное» — без проверки типа бокс
+		// вылезал у статей, страниц и задач банка.
+		if ( $post instanceof \WP_Post
+			&& PostTypeResolver::isTaskPostType( $post->post_type )
+			&& $this->commonConditionTemplate( $post ) ) {
 			$this->registrar->add(
 				'fs_lms_task_common_condition',
 				'Общее условие',

@@ -1,5 +1,7 @@
 @use '../../variables' as *;
 @use '../../mixins' as *;
+@use '../../../shared/common-condition' as *;
+@use '../../../shared/content-tables' as *;
 
 // Карточка задания внутри текста статьи
 .fs-article-page {
@@ -110,6 +112,13 @@
     font-size: $font-size-md;
     line-height: $line-height-relaxed;
     color: $color-text-secondary;
+
+    // Карточка подставляется в текст уже после разметки статьи, класс
+    // `fs-article-table` её таблицы не получают — оформление то же, что на
+    // странице задания в тренажёре.
+    @include fs-content-tables;
+    @include fs-common-condition;
+    @include fs-task-subconditions;
 
     p { margin: 0; }
     

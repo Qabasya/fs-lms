@@ -61,7 +61,7 @@ class FileAnswerFieldsTest extends TestCase {
 
 		self::assertSame( 'file_answer_task', $tpl->get_id() );
 		self::assertSame(
-			array( 'task_condition', 'task_materials', 'solution_text', 'task_code', 'task_criteria' ),
+			array( 'common_condition', 'task_condition', 'task_materials', 'solution_text', 'task_code', 'task_criteria' ),
 			array_keys( $tpl->get_fields() )
 		);
 	}

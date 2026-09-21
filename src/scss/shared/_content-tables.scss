@@ -24,39 +24,54 @@
 	// атрибутом и редактор, и вставка из Word/Excel: без неё браузер рисовал
 	// вокруг всего блока собственную outset-рамку поверх оформления.
 	background: var(--surface, #{t.$surface});
-	border: 1px solid var(--line, #{t.$line});
+	border: 1px solid var(--table-line, #{t.$table-line});
 	border-radius: t.$border-radius-xl;
 	box-shadow: t.$shadow-card;
 	color: var(--ink, #{t.$ink});
-	border-collapse: collapse;
+
+	// `separate`, а не `collapse`: у схлопнутых границ браузер не рисует
+	// скругление углов. Двойных линий нет — ячейка рисует только правую и
+	// нижнюю, крайние даёт рамка самой таблицы.
+	border-collapse: separate;
 	border-spacing: 0;
 
-	// Блок-обёртка: широкая таблица прокручивается сама, а не растягивает
-	// колонку текста. `fit-content` + `auto`-поля держат её по центру колонки
-	// и не растягивают узкую кодовую таблицу на всю ширину.
-	display: block;
-	width: fit-content;
+	// Все таблицы — во всю колонку текста, столбцы поровну: и вставленные
+	// кнопкой редактора (`fs-table-center`), и старые задания без класса.
+	// `table-layout: fixed` работает только у `display: table`; узкие ячейки
+	// переносят содержимое, а не распирают таблицу.
+	display: table;
+	width: 100%;
 	max-width: 100%;
+	table-layout: fixed;
 	margin: t.$spacing-3xl auto;
-	overflow-x: auto;
 }
 
 /// Ячейки, шапка и строки. Селекторы отсчитываются от таблицы, поэтому
 /// включается там же, где {@see fs-content-table-box}.
 @mixin fs-content-table-parts {
+	// Внутренний радиус угловых ячеек — радиус рамки минус её толщина: иначе
+	// фон шапки выступает за скруглённый угол.
+	$inner-radius: calc(#{t.$border-radius-xl} - 1px);
+
 	th,
 	td {
 		padding: t.$spacing-md t.$spacing-lg;
-		text-align: left;
+		text-align: center;
 		border: 0;
-		border-bottom: 1px solid var(--line-2, #{t.$line-2});
+		border-right: 1px solid var(--table-line, #{t.$table-line});
+		border-bottom: 1px solid var(--table-line, #{t.$table-line});
 		vertical-align: middle;
+		overflow-wrap: anywhere;
 	}
 
-	// Вертикальные разделители — только между колонками: крайние линии уже
-	// нарисованы рамкой самой таблицы.
-	th + th,
-	td + td { border-left: 1px solid var(--line-2, #{t.$line-2}); }
+	// Крайние линии уже нарисованы рамкой самой таблицы.
+	tr > :last-child { border-right: 0; }
+	> :last-child > tr:last-child > * { border-bottom: 0; }
+
+	> :first-child > tr:first-child > :first-child { border-top-left-radius: $inner-radius; }
+	> :first-child > tr:first-child > :last-child { border-top-right-radius: $inner-radius; }
+	> :last-child > tr:last-child > :first-child { border-bottom-left-radius: $inner-radius; }
+	> :last-child > tr:last-child > :last-child { border-bottom-right-radius: $inner-radius; }
 
 	// Цвет — только у настоящей шапки: первая строка `tbody` (таблица из
 	// Word без `<thead>`) остаётся данными.
@@ -65,30 +80,11 @@
 		font-weight: t.$font-semibold;
 	}
 
-	// Нижняя граница последней строки совпала бы с рамкой таблицы.
-	tbody tr:last-child td { border-bottom: 0; }
-
 	// Первый столбец таблицы соответствий — подпись строки, а не данные.
 	tbody td:first-child { font-weight: t.$font-medium; }
 
-	// Таблица, вставленная кнопкой редактора: выключка ячеек по центру —
-	// так набирают кодовые таблицы условий. Авторские таблицы статей это
-	// не трогает: класс ставит только кнопка.
-	&.fs-table-center th,
-	&.fs-table-center td { text-align: center; }
-
-	// Таблица кнопки редактора — на 90% колонки текста, столбцы поровну.
-	// `table-layout: fixed` работает только у `display: table`, поэтому
-	// блок-обёртка с прокруткой здесь снимается: узкие ячейки переносят
-	// содержимое, а не распирают таблицу.
-	&.fs-table-center {
-		display: table;
-		width: 90%;
-		table-layout: fixed;
-	}
-
-	&.fs-table-center th,
-	&.fs-table-center td { overflow-wrap: anywhere; }
+	// Класс `fs-table-center` (кнопка редактора) отдельного оформления больше
+	// не несёт: выключка по центру и равные столбцы — у всех таблиц.
 
 	@media (max-width: t.$bp-mobile) {
 		th,

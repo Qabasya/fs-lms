@@ -146,6 +146,12 @@ if (!function_exists('wp_get_post_terms')) {
         return $GLOBALS['_fs_test_post_terms'][$postId][$taxonomy] ?? [];
     }
 }
+if (!function_exists('wp_strip_all_tags')) {
+    function wp_strip_all_tags(string $text): string { return trim(strip_tags($text)); }
+}
+if (!function_exists('remove_meta_box')) {
+    function remove_meta_box(string $id, string|array $screen, string $context): void {}
+}
 if (!function_exists('apply_filters')) {
     // Passthrough по умолчанию; тест может подменить результат конкретного хука
     // через $GLOBALS['_fs_test_filter_returns'][$hook] — нужно там, где код

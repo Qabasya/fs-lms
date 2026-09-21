@@ -38,7 +38,7 @@ abstract class BaseTemplate {
 	public array $fields = array();
 
 	/**
-	 * Необязательное общее (типовое) условие — первое поле шаблонов Standard/Code/File/FileCode.
+	 * Необязательное общее (типовое) условие — первое поле шаблонов Standard/Code/File/FileCode/FileAnswer.
 	 * Ключ `common_condition` стоит раньше `task_condition`, поэтому при сборке условия
 	 * (`ksort` в TaskMetaService) общая часть идёт первой; в тренажёре и курсе она свёрнута.
 	 *
