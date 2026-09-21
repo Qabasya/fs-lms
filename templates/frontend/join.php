@@ -233,7 +233,7 @@ ThemeCompatService::header();
                     </div>
 
                     <div class="fs-join-card__field-group fs-form-group">
-                        <label for="fs_student_inn"><?php esc_html_e( 'ИНН ученика', 'fs-lms' ); ?> <span aria-hidden="true">*</span></label>
+                        <label for="fs_student_inn"><?php esc_html_e( 'ИНН ученика', 'fs-lms' ); ?> <span aria-hidden="true">*</span> <a href="https://service.nalog.ru/static/personal-data.html?svc=inn&amp;from=%2Finn.do" class="fs-join-card__inn-link" target="_blank" rel="noopener noreferrer"><?php esc_html_e( 'Узнать ИНН', 'fs-lms' ); ?></a></label>
                         <div class="fs-field-control">
                             <span class="dashicons dashicons-awards" aria-hidden="true"></span>
                             <input
@@ -443,7 +443,7 @@ ThemeCompatService::header();
                     </div>
 
                     <div class="fs-join-card__field-group fs-form-group">
-                        <label for="fs_inn"><?php esc_html_e( 'ИНН', 'fs-lms' ); ?><?php if ( ! $p_locked ) : ?> <span aria-hidden="true">*</span><?php endif; ?></label>
+                        <label for="fs_inn"><?php esc_html_e( 'ИНН', 'fs-lms' ); ?><?php if ( ! $p_locked ) : ?> <span aria-hidden="true">*</span><?php endif; ?> <a href="https://service.nalog.ru/static/personal-data.html?svc=inn&amp;from=%2Finn.do" class="fs-join-card__inn-link" target="_blank" rel="noopener noreferrer"><?php esc_html_e( 'Узнать ИНН', 'fs-lms' ); ?></a></label>
                         <div class="fs-field-control">
                             <span class="dashicons dashicons-awards" aria-hidden="true"></span>
                             <input

@@ -107,6 +107,16 @@
     }
   }
 
+  &__inn-link {
+    margin-left: $spacing-xs;
+    font-size: $font-size-sm;
+    font-weight: normal;
+    color: $color-accent;
+    text-decoration: none;
+
+    &:hover { text-decoration: underline; }
+  }
+
   &__submit {
     @include fs-form-submit(rem(10) rem(16), $color-accent-theme);
 
