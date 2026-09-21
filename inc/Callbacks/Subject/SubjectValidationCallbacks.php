@@ -90,7 +90,15 @@ class SubjectValidationCallbacks extends BaseController {
 		}
 
 		$postId = (int) ( $postarr['ID'] ?? 0 );
-		$slug   = $this->desiredSlug( $data, $postarr, $postId );
+
+		// Служебный ребёнок связки 19-21: контент, номер и статус ему задаёт parent
+		// ({@see \Inc\Services\Task\TaskBundleService}), проверять его как
+		// самостоятельное задание не по чему — слаг у него не номер серии.
+		if ( $postId > 0 && (int) $this->posts->getMeta( $postId, PostMetaName::TaskBundleParentId->value ) > 0 ) {
+			return $data;
+		}
+
+		$slug = $this->desiredSlug( $data, $postarr, $postId );
 
 		$result = $this->guard->enforce(
 			$data,

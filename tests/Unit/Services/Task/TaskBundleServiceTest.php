@@ -181,12 +181,15 @@ class TaskBundleServiceTest extends TestCase {
 			->with( 100, PostMetaName::TaskBundleChildIds->value, true )
 			->willReturn( array( 201, 202, 203 ) );
 
+		// Без хуков сохранения: иначе служебный ребёнок проходил бы проверку
+		// публикации как самостоятельное задание.
+		$this->posts->expects( self::never() )->method( 'updateStatus' );
 		$this->posts->expects( self::exactly( 3 ) )
-			->method( 'updateStatus' )
+			->method( 'updateBypassingHooks' )
 			->willReturnMap( array(
-				array( 201, 'trash', true ),
-				array( 202, 'trash', true ),
-				array( 203, 'trash', true ),
+				array( 201, array( 'post_status' => 'trash' ), true ),
+				array( 202, array( 'post_status' => 'trash' ), true ),
+				array( 203, array( 'post_status' => 'trash' ), true ),
 			) );
 
 		$this->service->cascadeStatus( 100, 'trash' );

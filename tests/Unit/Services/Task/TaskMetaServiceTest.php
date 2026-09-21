@@ -4,6 +4,7 @@ declare( strict_types=1 );
 
 namespace Unit\Services\Task;
 
+use Inc\Enums\Subject\TaskTemplate;
 use Inc\Services\Task\TaskMetaService;
 use PHPUnit\Framework\TestCase;
 
@@ -138,5 +139,22 @@ class TaskMetaServiceTest extends TestCase {
 
 		self::assertSame( 'https://example.com/2026/09/900.txt', $files[0]['url'] );
 		self::assertTrue( $files[0]['download'] );
+	}
+
+	public function test_bundle_answers_are_listed_per_subpart(): void {
+		$meta = array(
+			'task_19_answer' => '25',
+			'task_20_answer' => '21 24',
+			'task_21_answer' => '20',
+		);
+
+		self::assertSame(
+			"Ответ на 19: 25\nОтвет на 20: 21 24\nОтвет на 21: 20",
+			$this->service->getDisplayAnswer( $meta, TaskTemplate::Triple )
+		);
+	}
+
+	public function test_regular_task_answer_is_returned_as_is(): void {
+		self::assertSame( '42', $this->service->getDisplayAnswer( array( 'task_answer' => '42' ), TaskTemplate::Standard ) );
 	}
 }

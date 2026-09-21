@@ -6,6 +6,7 @@ namespace Unit\Callbacks\Subject;
 
 use Inc\Callbacks\Subject\SubjectValidationCallbacks;
 use Inc\DTO\Subject\TaxonomyDataDTO;
+use Inc\Enums\Wp\PostMetaName;
 use Inc\Managers\Wp\PostManager;
 use Inc\Managers\Wp\TermManager;
 use Inc\Repositories\OptionsRepositories\TaxonomyRepository;
@@ -120,7 +121,10 @@ class SubjectValidationCallbacksTest extends TestCase {
 	}
 
 	public function test_form_data_wins_over_stored_state(): void {
-		$this->posts->expects( $this->never() )->method( 'getMeta' );
+		// Из сохранённой меты читается только признак ребёнка связки.
+		$this->posts->method( 'getMeta' )
+			->with( 15, PostMetaName::TaskBundleParentId->value )
+			->willReturn( '' );
 		$this->posts->expects( $this->never() )->method( 'taskMeta' );
 		$this->taxonomies->method( 'getBySubject' )->willReturn( array() );
 
@@ -278,6 +282,18 @@ class SubjectValidationCallbacksTest extends TestCase {
 			->method( 'publishError' )
 			->with( 'inf_tasks', 15, '5003', 5 )
 			->willReturn( null );
+
+		$data = $this->cb->validateRequiredTaxonomies( $this->postData(), array( 'ID' => 15 ) );
+
+		self::assertSame( 'publish', $data['post_status'] );
+	}
+
+	public function test_bundle_child_is_not_validated(): void {
+		$this->posts->method( 'getMeta' )
+			->with( 15, PostMetaName::TaskBundleParentId->value )
+			->willReturn( 100 );
+		$this->validator->expects( $this->never() )->method( 'getBlockingError' );
+		$this->validator->expects( $this->never() )->method( 'getSoftError' );
 
 		$data = $this->cb->validateRequiredTaxonomies( $this->postData(), array( 'ID' => 15 ) );
 

@@ -100,6 +100,10 @@ class LegacyTaskImportService {
 
 				$this->fillContent( $existingId, $row );
 				$this->syncBundle( $existingId );
+				// Метаданные тоже: перезаливают как раз записи, перенесённые из
+				// прежней версии файла, и без этого год/автор/сложность из новой
+				// так и не доезжали до задания.
+				$this->assignMetaTerms( $existingId, $row, $authorTaxonomy, $yearTaxonomy, $levelTaxonomy );
 				++$updated;
 				continue;
 			}
@@ -133,9 +137,7 @@ class LegacyTaskImportService {
 
 			$this->fillContent( $postId, $row );
 			$this->syncBundle( $postId );
-			$this->assignTerm( $postId, $authorTaxonomy, $row->author );
-			$this->assignTerm( $postId, $yearTaxonomy, $row->year );
-			$this->assignTerm( $postId, $levelTaxonomy, $row->level );
+			$this->assignMetaTerms( $postId, $row, $authorTaxonomy, $yearTaxonomy, $levelTaxonomy );
 
 			$mismatch = $this->fieldMismatchWarning( $subjectKey, $numberTaxonomy, $termId, $row );
 			if ( null !== $mismatch ) {
@@ -165,6 +167,13 @@ class LegacyTaskImportService {
 		// а общее `task_condition` не заполняется — иначе условие подпункта 19
 		// попало бы на страницу дважды (`TaskMetaService::getCombinedCondition()`
 		// собирает ВСЕ поля с `_condition` в ключе).
+		// Перезаливка записи, перенесённой раньше обычным заданием: её корневые
+		// условие и ответ (все три подпункта одним блоком) остались бы рядом с
+		// подпунктами и задвоили бы условие на странице.
+		if ( array() !== $row->subparts ) {
+			unset( $existing['task_condition'], $existing['task_answer'] );
+		}
+
 		foreach ( $row->subparts as $key => $part ) {
 			if ( '' !== $part['condition'] ) {
 				$existing[ "task_{$key}_condition" ] = $part['condition'];
@@ -272,6 +281,13 @@ class LegacyTaskImportService {
 		}
 
 		return 'у назначенного шаблона нет поля «' . implode( '», «', $missing ) . '» — данные сохранены в мете, но не видны в метабоксе; смените шаблон номера или перенесите вручную.';
+	}
+
+	/** Автор, год и сложность записи. */
+	private function assignMetaTerms( int $postId, LegacyTaskRowDTO $row, string $authorTaxonomy, string $yearTaxonomy, string $levelTaxonomy ): void {
+		$this->assignTerm( $postId, $authorTaxonomy, $row->author );
+		$this->assignTerm( $postId, $yearTaxonomy, $row->year );
+		$this->assignTerm( $postId, $levelTaxonomy, $row->level );
 	}
 
 	/** Проставляет термин по названию, если таксономия зарегистрирована и название непусто. */

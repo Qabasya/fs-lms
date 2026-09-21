@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Inc\Services\Task;
 
+use Inc\Enums\Subject\TaskTemplate;
+
 /**
  * Class TaskMetaService
  *
@@ -70,6 +72,35 @@ class TaskMetaService {
 			) );
 
 		return $this->wrapCommon( $common, $collapseCommon ) . $own;
+	}
+
+	/**
+	 * Правильный ответ для публичных страниц (тренажёр, «Все задания»).
+	 *
+	 * У связки 19-21 общего `task_answer` нет: ответы лежат по подпунктам, и
+	 * каждый идёт своей строкой «Ответ на 19: …» (блок ответа — `pre-wrap`).
+	 *
+	 * @param array        $meta     Массив мета-полей из fs_lms_meta
+	 * @param TaskTemplate $template Шаблон задания
+	 *
+	 * @return string
+	 */
+	public function getDisplayAnswer( array $meta, TaskTemplate $template ): string {
+		if ( TaskTemplate::Triple !== $template ) {
+			return (string) ( $meta['task_answer'] ?? '' );
+		}
+
+		$lines = array();
+
+		foreach ( TaskBundleService::NUMBERS as $number ) {
+			$answer = trim( (string) ( $meta[ "task_{$number}_answer" ] ?? '' ) );
+
+			if ( '' !== $answer ) {
+				$lines[] = "Ответ на {$number}: {$answer}";
+			}
+		}
+
+		return implode( "\n", $lines );
 	}
 
 	/**

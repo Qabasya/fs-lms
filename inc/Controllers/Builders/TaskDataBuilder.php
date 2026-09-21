@@ -28,6 +28,7 @@ use Inc\Services\Subject\TagPaletteService;
 use Inc\Services\Task\ConsultationNoticeService;
 use Inc\Services\Task\TaskFilterParser;
 use Inc\Services\Task\TaskMetaService;
+use Inc\Services\Template\TemplateResolver;
 
 /**
  * Class TaskDataBuilder
@@ -75,6 +76,7 @@ readonly class TaskDataBuilder {
 		private SubjectPagesService $subject_pages,
 		private TaskFilterParser $task_filters,
 		private ConsultationNoticeService $consultation,
+		private TemplateResolver $template_resolver,
 	) {}
 
 	/**
@@ -97,8 +99,11 @@ readonly class TaskDataBuilder {
 		$subject           = $this->subject_repository->getByKey( $subject_key );
 		$post_view         = PostViewDTO::normalizePost( $post );
 		$current_task_type = $this->getCurrentTaskType( $post_id, $subject_key );
+		// Шаблон — резолвером, как в метабоксе: привязка к номеру задания важнее
+		// постметы (у перезалитой связки в постмете остался прежний шаблон).
+		$template          = $this->template_resolver->resolveEnum( $post );
 
-		return $this->buildTaskData( $post_view, $subject_key, $meta, $subject, $current_task_type );
+		return $this->buildTaskData( $post_view, $subject_key, $meta, $subject, $current_task_type, $template );
 	}
 
 	/**
@@ -109,6 +114,7 @@ readonly class TaskDataBuilder {
 	 * @param array            $meta              Мета-данные задания.
 	 * @param SubjectDTO|null  $subject           DTO предмета.
 	 * @param TermViewDTO|null $current_task_type DTO текущего типа задания.
+	 * @param TaskTemplate     $template          Шаблон задания.
 	 *
 	 * @return TaskPageDTO
 	 */
@@ -117,12 +123,10 @@ readonly class TaskDataBuilder {
 		string $subject_key,
 		array $meta,
 		?SubjectDTO $subject,
-		?TermViewDTO $current_task_type
+		?TermViewDTO $current_task_type,
+		TaskTemplate $template
 	): TaskPageDTO {
 		$subject_name = $subject ? $subject->name : $subject_key;
-		$template     = TaskTemplate::fromDatabase(
-			(string) $this->post_manager->getMeta( $post->id, PostMetaName::TemplateType->value )
-		);
 		$content      = $this->buildContentData( $meta, $template );
 		$links        = $this->subject_pages->links( $subject_key );
 
@@ -158,7 +162,7 @@ readonly class TaskDataBuilder {
 		// отдаёт его только учителю ({@see \Inc\Services\Task\TaskSolutionService}),
 		// а публичная страница печатала его вкладкой «Решение» всем подряд.
 		$code   = $template->isFileAnswerShape() ? '' : (string) ( $meta['task_code'] ?? '' );
-		$answer = (string) ( $meta['task_answer'] ?? '' );
+		$answer = $this->task_meta_service->getDisplayAnswer( $meta, $template );
 
 		return new TaskContentDTO(
 			condition:    $this->task_meta_service->getCombinedCondition( $meta, true ),

@@ -183,6 +183,12 @@ class TaskBundleService {
 	 * Переносит статус parent-поста на все его children (draft/publish/trash).
 	 * Не создаёт children, если их ещё нет — это делает только {@see syncChildren()}.
 	 *
+	 * Без хуков сохранения, как и {@see upsertChild()}: каскад идёт внутри
+	 * сохранения parent, и полный `wp_update_post()` гонял детей через проверку
+	 * публикации (слаг служебного ребёнка — не номер серии, и публикация parent
+	 * падала с «Постоянная ссылка задания не подходит к заданию №21») и через
+	 * сохранение метабокса, которое писало в ребёнка форму parent.
+	 *
 	 * @param int    $parentId ID parent-поста
 	 * @param string $status   Новый статус (см. {@see \Inc\Managers\Wp\PostManager::updateStatus()})
 	 */
@@ -195,7 +201,7 @@ class TaskBundleService {
 		foreach ( $childIds as $childId ) {
 			$childId = (int) $childId;
 			if ( $childId > 0 ) {
-				$this->posts->updateStatus( $childId, $status );
+				$this->posts->updateBypassingHooks( $childId, array( 'post_status' => $status ) );
 			}
 		}
 	}

@@ -19,7 +19,7 @@ use Inc\Services\Subject\FilterGroupService;
 use Inc\Services\Subject\PostTypeResolver;
 use Inc\Services\Subject\SubjectPagesService;
 use Inc\Services\Subject\TagPaletteService;
-use Inc\Enums\Subject\TaskTemplate;
+use Inc\Services\Template\TemplateResolver;
 use Inc\Services\Task\ConsultationNoticeService;
 use Inc\Services\Task\TaskMetaService;
 use Inc\Shared\PluginLogger;
@@ -65,6 +65,7 @@ readonly class AllTasksDataBuilder {
 		private SubjectPagesService $subject_pages,
 		private FilterGroupService $filter_groups,
 		private ConsultationNoticeService $consultation,
+		private TemplateResolver $template_resolver,
 	) {}
 
 	/**
@@ -259,10 +260,8 @@ readonly class AllTasksDataBuilder {
 		$number_tax  = PostTypeResolver::getTaskTaxonomy( $subject_key );
 		$number_term = $this->term_manager->getPostTerms( $post->ID, $number_tax )[0] ?? null;
 
-		$template = TaskTemplate::fromDatabase(
-			(string) $this->post_manager->getMeta( $post->ID, PostMetaName::TemplateType->value )
-		);
-		$answer   = (string) ( $meta['task_answer'] ?? '' );
+		$template = $this->template_resolver->resolveEnum( $post );
+		$answer   = $this->task_meta_service->getDisplayAnswer( $meta, $template );
 
 		return new TaskListItemDTO(
 			id:            $post->ID,
