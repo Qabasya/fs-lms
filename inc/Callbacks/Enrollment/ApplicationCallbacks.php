@@ -270,7 +270,7 @@ class ApplicationCallbacks extends BaseController {
 		if ( ! $this->pluginConfig->isTestEnv() ) {
 			$captchaToken = $this->sanitizeText( 'captcha_token' );
 			if ( ! $this->captchaService->validate( $captchaToken, $ip ) ) {
-				$this->error( 'Проверка капчи не пройдена.' );
+				$this->error( 'Проверка капчи не пройдена. Попробуйте отключить VPN' );
 			}
 		}
 
