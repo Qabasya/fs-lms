@@ -40,6 +40,55 @@ class PostManager {
 	private const TERM_POSTS_CAP = 1000;
 
 	/**
+	 * Условие `meta_query`, отсекающее дочерние задания связки 19-21
+	 * ({@see \Inc\Services\Task\TaskBundleService}). Дети — служебные записи
+	 * для разворота связки в три слота работы/экзамена: в списках банка, счётчиках
+	 * и поиске они не показываются, связка там одна — под своим номером.
+	 *
+	 * @return array<int, array{key: string, compare: string}>
+	 */
+	public function bundleChildExclusion(): array {
+		return array(
+			array(
+				'key'     => PostMetaName::TaskBundleParentId->value,
+				'compare' => 'NOT EXISTS',
+			),
+		);
+	}
+
+	/**
+	 * Число дочерних заданий связки по статусам — чтобы вычесть их из
+	 * `wp_count_posts()` (ссылки «Все | Опубликованные | …» таблицы и счётчик банка).
+	 *
+	 * @param string $post_type Тип записи
+	 *
+	 * @return array<string, int> статус => количество
+	 */
+	public function countBundleChildrenByStatus( string $post_type ): array {
+		global $wpdb;
+
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT p.post_status AS status, COUNT(p.ID) AS total
+				 FROM {$wpdb->posts} p
+				 INNER JOIN {$wpdb->postmeta} pm ON pm.post_id = p.ID AND pm.meta_key = %s
+				 WHERE p.post_type = %s
+				 GROUP BY p.post_status",
+				PostMetaName::TaskBundleParentId->value,
+				$post_type
+			),
+			ARRAY_A
+		);
+
+		$counts = array();
+		foreach ( $rows ?: array() as $row ) {
+			$counts[ (string) $row['status'] ] = (int) $row['total'];
+		}
+
+		return $counts;
+	}
+
+	/**
 	 * Возвращает массив ID постов указанного типа.
 	 *
 	 * @param string $post_type Тип поста (например, "math_tasks")
@@ -172,6 +221,7 @@ class PostManager {
 						'terms'    => $term_id,
 					),
 				),
+				'meta_query'     => $this->bundleChildExclusion(),
 			)
 		);
 
@@ -214,9 +264,14 @@ class PostManager {
 				 INNER JOIN {$wpdb->term_relationships} tr ON tr.term_taxonomy_id = tt.term_taxonomy_id
 				 INNER JOIN {$wpdb->posts} p ON p.ID = tr.object_id
 				 WHERE tt.taxonomy = %s AND p.post_type = %s AND p.post_status = 'publish'
+				 AND NOT EXISTS (
+				     SELECT 1 FROM {$wpdb->postmeta} pm
+				     WHERE pm.post_id = p.ID AND pm.meta_key = %s
+				 )
 				 GROUP BY tt.term_id",
 				$taxonomy,
-				$post_type
+				$post_type,
+				PostMetaName::TaskBundleParentId->value
 			),
 			ARRAY_A
 		);
@@ -566,6 +621,7 @@ class PostManager {
 				'post_status'    => 'publish',
 				'orderby'        => 'date',
 				'order'          => 'DESC',
+				'meta_query'     => $this->bundleChildExclusion(),
 			)
 		);
 

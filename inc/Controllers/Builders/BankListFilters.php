@@ -88,6 +88,15 @@ class BankListFilters {
 	 */
 	public function apply( \WP_Query $query ): void {
 		$postType = $query->get( 'post_type' );
+		if ( ! is_string( $postType ) ) {
+			return;
+		}
+
+		if ( PostTypeResolver::isTaskPostType( $postType ) || PostTypeResolver::isProblemPostType( $postType ) ) {
+			$this->excludeBundleChildren( $query );
+
+			return;
+		}
 
 		if ( PostTypeResolver::isWorkPostType( $postType ) ) {
 			$this->applyMeta( $query, PostMetaName::WorkType->value, $this->sanitizeGetKey( 'fs_work_type' ) );
@@ -118,6 +127,43 @@ class BankListFilters {
 				fn(): array => $this->usage->coursesByLesson( PostTypeResolver::subjectFromLessonPostType( $postType ) )
 			);
 		}
+	}
+
+	/**
+	 * Вычитает дочерние задания связки 19-21 из `wp_count_posts()` (хук
+	 * `wp_count_posts`): иначе ссылки «Все | Опубликованные» таблицы и счётчик
+	 * банка считали бы одну связку за четыре задания.
+	 *
+	 * @param object $counts   Счётчики по статусам
+	 * @param string $postType Тип записи
+	 *
+	 * @return object
+	 */
+	public function withoutBundleChildren( object $counts, string $postType ): object {
+		if ( ! PostTypeResolver::isTaskPostType( $postType ) && ! PostTypeResolver::isProblemPostType( $postType ) ) {
+			return $counts;
+		}
+
+		$counts = clone $counts;
+		foreach ( $this->posts->countBundleChildrenByStatus( $postType ) as $status => $children ) {
+			if ( isset( $counts->{$status} ) ) {
+				$counts->{$status} = max( 0, (int) $counts->{$status} - $children );
+			}
+		}
+
+		return $counts;
+	}
+
+	/**
+	 * Скрывает из таблицы дочерние задания связки 19-21: в банке связка — одна
+	 * запись под своим номером, дети лишь разворачивают её в три слота работы.
+	 *
+	 * @param \WP_Query $query Запрос
+	 */
+	private function excludeBundleChildren( \WP_Query $query ): void {
+		$metaQuery   = (array) $query->get( 'meta_query' );
+		$metaQuery[] = $this->posts->bundleChildExclusion()[0];
+		$query->set( 'meta_query', $metaQuery );
 	}
 
 	/**

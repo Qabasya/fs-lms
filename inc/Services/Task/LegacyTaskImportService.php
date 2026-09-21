@@ -195,6 +195,11 @@ class LegacyTaskImportService {
 	 * {@see \Inc\Controllers\Task\MetaBoxController}, импорт пишет мету мимо
 	 * метабокса — без явного вызова подзадания 19/20/21 оставались пустыми, пока
 	 * автор не пересохранит связку вручную.
+	 *
+	 * Задание в банке при этом одно — связка под номером 19: дети служебные,
+	 * нужны только для разворота в три оцениваемых слота работы/экзамена, и из
+	 * списков, счётчиков и поиска банка отсекаются
+	 * ({@see PostManager::bundleChildExclusion()}).
 	 */
 	private function syncBundle( int $postId ): void {
 		$post = $this->postManager->get( $postId );

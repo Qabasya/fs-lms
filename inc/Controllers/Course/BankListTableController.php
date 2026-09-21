@@ -36,6 +36,9 @@ class BankListTableController extends BaseController implements ServiceInterface
 		add_action( 'restrict_manage_posts', array( $this, 'renderTypeFilter' ), 10, 2 );
 		add_action( 'pre_get_posts', array( $this, 'applyTypeFilter' ) );
 
+		// Дети связки 19-21 — служебные записи, в счётчиках статусов их нет.
+		add_filter( 'wp_count_posts', array( $this, 'filterPostCounts' ), 10, 2 );
+
 		// «Незавершённая» вместо стандартного «Черновик» для задач банка.
 		add_filter( 'display_post_states', array( $this, 'filterTaskDraftState' ), 10, 2 );
 	}
@@ -84,5 +87,17 @@ class BankListTableController extends BaseController implements ServiceInterface
 		}
 
 		$this->filters->apply( $query );
+	}
+
+	/**
+	 * Счётчики статусов без дочерних заданий связки (хук wp_count_posts).
+	 *
+	 * @param object $counts   Счётчики по статусам
+	 * @param string $postType Тип записи
+	 *
+	 * @return object
+	 */
+	public function filterPostCounts( object $counts, string $postType ): object {
+		return $this->filters->withoutBundleChildren( $counts, $postType );
 	}
 }

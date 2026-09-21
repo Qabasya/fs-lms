@@ -55,9 +55,10 @@ class TaskSuggestions {
 			$posts = $this->posts->search(
 				PostTypeResolver::tasks( $subject->key ),
 				array(
-					'status' => 'publish',
-					'search' => $query,
-					'limit'  => self::LIMIT,
+					'status'     => 'publish',
+					'search'     => $query,
+					'limit'      => self::LIMIT,
+					'meta_query' => $this->posts->bundleChildExclusion(),
 				)
 			);
 
