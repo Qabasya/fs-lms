@@ -86,15 +86,18 @@
 	// «Зебра» — по строкам ДАННЫХ: шапка в счёт не идёт. Редактор кладёт шапку
 	// строкой `th` первой в `tbody`, тогда чётные строки данных — нечётные в
 	// `tbody`; у таблиц без шапки и с `<thead>` счёт прямой.
-	> tbody:has(> tr:first-child > th) > tr:nth-child(odd):not(:first-child) > td,
-	> tbody:not(:has(> tr:first-child > th)) > tr:nth-child(even) > td {
+	// Условия счёта — в `:where()`: без них `:has`/`:nth-child` поднимали
+	// специфичность «зебры» выше `td.is-dash`, и прочерк в чётной строке
+	// оставался цвета полосы.
+	> tbody:where(:has(> tr:first-child > th)) > tr:where(:nth-child(odd):not(:first-child)) > td,
+	> tbody:where(:not(:has(> tr:first-child > th))) > tr:where(:nth-child(even)) > td {
 		background: var(--surface-stripe, #{t.$surface-stripe});
 	}
 
 	// Ячейка-прочерк: знак «-» / «–» / «—» автора убирает
 	// `frontend/modules/table-dash-cells.js`, ячейка заливается тоном шапки.
-	// Стоит после «зебры», чтобы перебивать её.
-	td.is-dash { background: var(--surface-head, #{t.$surface-head}); }
+	// Специфичность выше «зебры» — перебивает её в любой строке.
+	> tbody > tr > td.is-dash { background: var(--surface-head, #{t.$surface-head}); }
 
 	// Класс `fs-table-center` (кнопка редактора) отдельного оформления больше
 	// не несёт: выключка по центру и равные столбцы — у всех таблиц.
