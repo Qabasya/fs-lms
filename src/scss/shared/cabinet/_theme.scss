@@ -27,6 +27,7 @@
   --surface:     #fff;
   --surface-2:   #fafbfc;
   --surface-head: #{t.$surface-head}; // шапка таблицы контента
+  --surface-stripe: #{t.$surface-stripe}; // чётные строки данных таблицы контента
   --table-line:   #{t.$table-line}; // рамка и сетка таблицы контента
   --ink:         #181b23;
   --ink-2:       #3c424e;

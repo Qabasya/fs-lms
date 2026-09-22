@@ -121,7 +121,13 @@
     @include fs-task-subconditions;
 
     p { margin: 0; }
-    
+
+    // Код — кеглем условия: и блок кнопки редактора, и старый голый `<pre>`
+    // (его тема набирает своим мелким кеглем).
+    pre,
+    pre code,
+    .fs-code-highlight { font-size: inherit; }
+
     img {
       display: block;
       max-width: 100%;

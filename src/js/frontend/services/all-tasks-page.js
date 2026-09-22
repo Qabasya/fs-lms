@@ -3,6 +3,8 @@ import { FilterSection }  from '../components/filter-section.js';
 import { buildTaskCard }  from '../components/task-card.js';
 import { bindAnswerToggle } from '../modules/answer-toggle.js';
 import { initTaskConditions } from '../modules/task-condition.js';
+import { initDashCells }   from '../modules/table-dash-cells.js';
+import { initCodeBlocks }  from '../components/code-block.js';
 import { renderSidebarArticles } from '../components/sidebar-articles.js';
 import { readActiveFilters, syncFilterUrl } from '../modules/filter-url.js';
 import { pluralRu }       from '../../common/plural.js';
@@ -216,6 +218,11 @@ export class AllTasksPage {
                 this._offset += tasks.length;
 
                 bindAnswerToggle(this._cardsWrap);
+                // Карточки приходят по AJAX уже после DOMContentLoaded: подсветку
+                // кода и прочерки таблиц доводим здесь — до замера высоты
+                // условия, они её меняют.
+                initCodeBlocks();
+                initDashCells(this._cardsWrap);
                 initTaskConditions(this._cardsWrap);
                 this._updateCountEl(total);
                 this._toggleEmpty(this._offset === 0);
