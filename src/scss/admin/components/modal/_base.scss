@@ -163,6 +163,11 @@ html.modal-open {
     display: none !important;
   }
 
+  // WP-core .button задаёт display: inline-block и перебивает атрибут hidden
+  .fs-lms-modal-footer .button[hidden] {
+    display: none !important;
+  }
+
   .fs-lms-modal-footer,
   .fs-modal-footer {
     border-top: 1px solid $color-border-footer;

@@ -35,4 +35,23 @@ class JoinCodeServiceTest extends TestCase {
 		$this->assertTrue( $service->isExpired( gmdate( 'Y-m-d H:i:s', time() - HOUR_IN_SECONDS ) ) );
 		$this->assertFalse( $service->isExpired( gmdate( 'Y-m-d H:i:s', time() + HOUR_IN_SECONDS ) ) );
 	}
+
+	public function test_application_lives_20_days_in_utc(): void {
+		$expected = gmdate( 'Y-m-d H:i:s', time() + 20 * DAY_IN_SECONDS );
+
+		$this->assertLessThanOrEqual( 1, abs( strtotime( $this->service()->applicationExpiresAt() ) - strtotime( $expected ) ) );
+	}
+
+	public function test_link_never_outlives_application(): void {
+		$applicationEnds = gmdate( 'Y-m-d H:i:s', time() + DAY_IN_SECONDS );
+
+		$this->assertSame( $applicationEnds, $this->service()->expiresAt( $applicationEnds ) );
+	}
+
+	public function test_distant_application_expiry_keeps_72_hour_link(): void {
+		$expected = gmdate( 'Y-m-d H:i:s', time() + JoinCodeService::TTL_HOURS * HOUR_IN_SECONDS );
+		$actual   = $this->service()->expiresAt( gmdate( 'Y-m-d H:i:s', time() + 20 * DAY_IN_SECONDS ) );
+
+		$this->assertLessThanOrEqual( 1, abs( strtotime( $actual ) - strtotime( $expected ) ) );
+	}
 }

@@ -158,15 +158,15 @@ class ApplicationRepository {
 	}
 
 	/**
-	 * Получает постраничный отфильтрованный список заявок для админ-панели.
+	 * Получает отфильтрованный список заявок для админ-панели.
 	 *
 	 * @param array $filters Ассоциативный массив фильтров (status, date_from, date_to)
 	 * @param int   $page    Номер страницы
-	 * @param int   $perPage Количество элементов на страницу
+	 * @param int   $perPage Количество элементов на страницу; 0 — все строки (таблица заявок без пагинации)
 	 *
 	 * @return array<int, ApplicationDTO>
 	 */
-	public function list( array $filters, int $page, int $perPage ): array {
+	public function list( array $filters, int $page = 1, int $perPage = 0 ): array {
 		$offset     = ( $page - 1 ) * $perPage;
 		$conditions = array( '1=1' );
 		$bindings   = array();
@@ -193,14 +193,17 @@ class ApplicationRepository {
 		}
 
 		$whereStr = implode( ' AND ', $conditions );
+		$limit    = '';
 
-		// Добавляем биндинги для LIMIT и OFFSET
-		$bindings[] = $perPage;
-		$bindings[] = $offset;
+		if ( $perPage > 0 ) {
+			$limit      = ' LIMIT %d OFFSET %d';
+			$bindings[] = $perPage;
+			$bindings[] = $offset;
+		}
 
 		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$query = $this->wpdb->prepare(
-			"SELECT * FROM %i WHERE $whereStr ORDER BY id DESC LIMIT %d OFFSET %d",
+			"SELECT * FROM %i WHERE $whereStr ORDER BY id DESC$limit",
 			array_merge( array( $this->table ), $bindings )
 		);
 
@@ -440,24 +443,21 @@ class ApplicationRepository {
 	}
 
 	/**
-	 * Находит просроченные заявки на этапе ожидания заполнения родителем.
+	 * Находит заявки, которые не дождались родителя за срок заявки (`expires_at`).
+	 *
+	 * Срок JOIN-ссылки (`join_code_expires_at`) здесь не участвует: истёкшую ссылку
+	 * выдают заново, заявку она не закрывает.
 	 *
 	 * @return array<int, ApplicationDTO>
 	 */
 	public function findExpiredPending(): array {
-		$statuses = array(
-			ApplicationStatus::PendingParent->value,
-			ApplicationStatus::ReadyForReview->value,
-		);
-
-		$placeholders = implode( ', ', array_fill( 0, count( $statuses ), '%s' ) );
-
-		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$rows = $this->wpdb->get_results(
 			$this->wpdb->prepare(
-				// Срок JOIN-кода пишется в UTC (ApplicationService), сравниваем тоже с UTC, а не с NOW() сервера БД.
-				"SELECT * FROM %i WHERE status IN ($placeholders) AND join_code_expires_at < %s",
-				array_merge( array( $this->table ), $statuses, array( gmdate( 'Y-m-d H:i:s' ) ) )
+				// Срок пишется в UTC (JoinCodeService), сравниваем тоже с UTC, а не с NOW() сервера БД.
+				'SELECT * FROM %i WHERE status = %s AND expires_at IS NOT NULL AND expires_at < %s',
+				$this->table,
+				ApplicationStatus::PendingParent->value,
+				gmdate( 'Y-m-d H:i:s' )
 			),
 			ARRAY_A
 		);

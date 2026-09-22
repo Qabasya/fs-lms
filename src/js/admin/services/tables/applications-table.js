@@ -151,6 +151,11 @@ export const ApplicationsTable = {
         })
             .done((response) => {
                 if (response.success) {
+                    // Колонка «Срок» нарисована сервером до копирования — обновляем строку ссылки.
+                    $(btn).closest('tr').find('.column-term .fs-lms-term').first()
+                        .removeClass('fs-text-danger fs-text-warning')
+                        .text(`Ссылка: до ${response.data.expires_at_local}`);
+
                     showNotice(
                         `Ссылка скопирована · действует до ${response.data.expires_at_local}`,
                         'success',

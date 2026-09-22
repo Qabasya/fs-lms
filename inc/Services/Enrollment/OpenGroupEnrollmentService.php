@@ -105,7 +105,8 @@ class OpenGroupEnrollmentService {
 
 		// Родитель и снапшоты ФИО/школы — из последней записи ученика; документы не нужны (NULL).
 		$latest = $this->studentRecords->findByStudent( $studentPersonId )[0] ?? null;
-		if ( null === $latest ) {
+		// Ученик с одним лишь временным доступом ещё не зачислен: родителя, которого копировать, нет.
+		if ( null === $latest || $latest->isTrial ) {
 			return null;
 		}
 

@@ -76,6 +76,10 @@ enum AuditAction: string {
 	/** Просмотр JOIN-ссылки */
 	case ViewJoinLink = 'view_join_link';
 
+	/** Временный доступ ученика до зачисления (выдан / снят) */
+	case GrantTrialAccess  = 'grant_trial_access';
+	case RevokeTrialAccess = 'revoke_trial_access';
+
 	/** Экспорт записи архива отчисленных */
 	case ExpelledArchiveExported = 'expelled_archive_exported';
 	case StudentExported         = 'student_exported';
@@ -117,7 +121,7 @@ enum AuditAction: string {
 			self::CopyJoinLink           => 'Ссылка для родителя скопирована',
 			self::AddParent              => 'Назначен родитель',
 			self::ViewApplication        => 'Просмотр заявки',
-			self::ExpireApplication      => 'Время действие ссылки истекло',
+			self::ExpireApplication      => 'Истёк срок заявки',
 
 			self::EnrollStudent          => 'Зачислен ученик',
 			self::EnrollStudentFailed    => 'Ошибка зачисления',
@@ -140,6 +144,8 @@ enum AuditAction: string {
 			self::RestoreFromArchive     => 'Восстановление из архива',
 			self::StudentRestored        => 'Ученик восстановлен',
 			self::ViewJoinLink           => 'Открытие JOIN-ссылки',
+			self::GrantTrialAccess       => 'Выдан временный доступ',
+			self::RevokeTrialAccess      => 'Снят временный доступ',
 
 			self::ExpelledArchiveExported => 'Экспортированы записи архива',
 			self::StudentExported         => 'Экспортированы данные ученика(ов)',

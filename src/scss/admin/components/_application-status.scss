@@ -26,4 +26,11 @@
   &--trash {
     @include badge-colors($wp-admin-red-bg, $wp-admin-red-text, $wp-admin-red);
   }
+
+  // Не статус заявки, а пометка рядом с ним: ученику выдан временный доступ до зачисления
+  &--trial {
+    @include badge-colors($wp-admin-purple-bg, $wp-admin-purple-text, $wp-admin-purple);
+
+    margin-top: $spacing-xs;
+  }
 }

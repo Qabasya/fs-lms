@@ -97,11 +97,19 @@ readonly class ExpulsionService {
 			}
 		} else {
 			// Отчисление из первой активной записи
-			$records = $this->studentRecordRepository->findActiveByStudent( $studentPerson->id );
+			$records = array_values( array_filter(
+				$this->studentRecordRepository->findActiveByStudent( $studentPerson->id ),
+				static fn( StudentRecordDTO $r ): bool => ! $r->isTrial
+			) );
 			if ( empty( $records ) ) {
 				throw new RuntimeException( 'Активная запись ученика не найдена.' );
 			}
 			$record = $records[0];
+		}
+
+		// Временный доступ — не обучение: в архив отчисленных ему не место, снимается в заявке.
+		if ( $record->isTrial ) {
+			throw new RuntimeException( 'У ученика временный доступ до зачисления — снимите его в таблице заявок.' );
 		}
 
 		// Поиск родителя (если есть)

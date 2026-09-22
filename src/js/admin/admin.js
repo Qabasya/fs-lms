@@ -37,6 +37,7 @@ import {HelpModalManager} from "./managers/help-modal-manager";
 import { ApplicationModalManager } from './managers/enrollment/applications/application-modal-manager.js';
 import { ApplicationReviewModalManager } from './managers/enrollment/applications/application-review-modal-manager.js';
 import { ApplicationEnrollmentModalManager } from './managers/enrollment/applications/application-enrollment-modal-manager.js';
+import { TrialAccessModalManager } from './managers/enrollment/applications/trial-access-modal-manager.js';
 import { StudentPersonModalManager } from './managers/enrollment/person/student-person-modal-manager.js';
 import { ParentPersonModalManager } from './managers/enrollment/person/parent-person-modal-manager.js';
 import { ExpelModalManager } from './managers/enrollment/expel-modal-manager.js';
@@ -143,6 +144,7 @@ function loadBuilder( chunk, exportName ) {
             ApplicationModalManager.init();
             ApplicationReviewModalManager.init();
             ApplicationEnrollmentModalManager.init();
+            TrialAccessModalManager.init();
             ApplicationViewModal.init();
             SelectParentModal.init();
         }

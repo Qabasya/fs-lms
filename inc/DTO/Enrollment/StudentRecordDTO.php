@@ -30,6 +30,7 @@ readonly class StudentRecordDTO {
 		public ?string        $expelReason,
 		public string         $createdAt,
 		public string         $updatedAt,
+		public bool           $isTrial = false,
 	) {}
 
 	public function isActive(): bool {
@@ -63,6 +64,7 @@ readonly class StudentRecordDTO {
 			expelReason:      isset( $data['expel_reason'] ) ? (string) $data['expel_reason'] : null,
 			createdAt:        (string) ( $data['created_at'] ?? '' ),
 			updatedAt:        (string) ( $data['updated_at'] ?? '' ),
+			isTrial:          ! empty( $data['is_trial'] ),
 		);
 	}
 }

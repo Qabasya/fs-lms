@@ -27,6 +27,7 @@ readonly class StudentRecordInputDTO {
 		public ?string $expelledAt          = null,
 		public ?string $expelReason         = null,
 		public ?int    $expelledByUserId    = null,
+		public bool    $isTrial             = false,
 	) {}
 
 	public function toArray(): array {
@@ -51,6 +52,7 @@ readonly class StudentRecordInputDTO {
 			'expelled_by_user_id'  => $this->expelledByUserId,
 			'created_at'           => $this->createdAt,
 			'updated_at'           => $this->updatedAt,
+			'is_trial'             => $this->isTrial ? 1 : 0,
 		);
 	}
 }

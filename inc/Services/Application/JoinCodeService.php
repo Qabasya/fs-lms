@@ -18,6 +18,7 @@ use Inc\Services\Security\PiiCryptoService;
  * 1. **Генерация кода** — криптографически случайный код формата JOIN-XXXX-XXXX-XXXX.
  * 2. **Хэширование** — делегирует в PiiCryptoService::hash() для searchable-хранения.
  * 3. **Валидация формата** — проверяет входящие коды перед обработкой.
+ * 4. **Сроки** — срок выданной ссылки (72 ч) и срок самой заявки (20 дней).
  *
  * ### Архитектурная роль:
  *
@@ -33,6 +34,9 @@ readonly class JoinCodeService {
 
 	/** Срок жизни выданной ссылки, часы (см. {@see self::expiresAt()}). */
 	public const TTL_HOURS = 72;
+
+	/** Срок жизни заявки, дни (см. {@see self::applicationExpiresAt()}). */
+	public const APPLICATION_TTL_DAYS = 20;
 
 	private const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 	private const FORMAT_REGEX = '/^JOIN-[A-Z2-9]{4}-[A-Z2-9]{4}-[A-Z2-9]{4}$/';
@@ -104,17 +108,36 @@ readonly class JoinCodeService {
 	 * скопировали (копирование в таблице заявок сбрасывает счётчик заново —
 	 * {@see \Inc\Services\Application\ApplicationService::refreshJoinExpiry()}).
 	 *
-	 * Заявка, поданная учеником, живёт дольше (14 дней) — это срок ожидания
-	 * самой заявки, а не выданной ссылки; он задаётся в `createApplication()`.
+	 * Ссылка не живёт дольше самой заявки. Истёкшая ссылка заявку не закрывает:
+	 * срок заявки ({@see self::applicationExpiresAt()}) идёт отдельно, и ссылку
+	 * можно выдать заново.
+	 *
+	 * @param string|null $applicationExpiresAt Срок заявки (UTC) — потолок срока ссылки
 	 *
 	 * @return string 'Y-m-d H:i:s' в UTC — сравнение сроков в репозитории тоже идёт по UTC.
 	 */
-	public function expiresAt(): string {
-		return gmdate( 'Y-m-d H:i:s', time() + self::TTL_HOURS * HOUR_IN_SECONDS );
+	public function expiresAt( ?string $applicationExpiresAt = null ): string {
+		$expiresAt = gmdate( 'Y-m-d H:i:s', time() + self::TTL_HOURS * HOUR_IN_SECONDS );
+
+		if ( null !== $applicationExpiresAt && '' !== $applicationExpiresAt && $applicationExpiresAt < $expiresAt ) {
+			return $applicationExpiresAt;
+		}
+
+		return $expiresAt;
 	}
 
 	/**
-	 * Истёк ли срок выданной ссылки.
+	 * Срок жизни заявки: 20 дней с подачи (или с восстановления из корзины/архива).
+	 * Пока он не вышел, заявка ждёт родителя и держит временный доступ ученика.
+	 *
+	 * @return string 'Y-m-d H:i:s' в UTC
+	 */
+	public function applicationExpiresAt(): string {
+		return gmdate( 'Y-m-d H:i:s', time() + self::APPLICATION_TTL_DAYS * DAY_IN_SECONDS );
+	}
+
+	/**
+	 * Истёк ли срок (выданной ссылки или заявки).
 	 *
 	 * Проверяется в момент использования ссылки, а не только cron-ом
 	 * `ExpireApplications`: между тиками просроченная ссылка иначе продолжала

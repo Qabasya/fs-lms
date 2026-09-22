@@ -145,6 +145,9 @@ enum AjaxHook: string {
 	case SearchParents               = 'search_parents';
 	// params: application_id — копирование JOIN-ссылки заводит её срок заново (72 ч)
 	case TouchJoinLink               = 'touch_join_link';
+	// Временный доступ ученика до зачисления. params: application_id, group_id / application_id
+	case GrantTrialAccess            = 'grant_trial_access';
+	case RevokeTrialAccess           = 'revoke_trial_access';
 	case CheckUsernameAvailable      = 'check_username_available';
 	case CheckEmailAvailable         = 'check_email_available';
 

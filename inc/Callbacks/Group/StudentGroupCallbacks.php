@@ -195,7 +195,7 @@ class StudentGroupCallbacks extends BaseController {
 			return array(
 				'name'        => trim( $record->snapshotLastName . ' ' . $record->snapshotFirstName . ' ' . ( $record->snapshotMiddleName ?? '' ) ),
 				'parent_name' => $parent ? $parent->fullName() : '—',
-				'status'      => $record->status->label(),
+				'status'      => $record->isTrial ? 'Временный доступ' : $record->status->label(),
 				'status_key'  => $record->status->value,
 				'contract_no' => $record->contractNo ?? '—',
 			);

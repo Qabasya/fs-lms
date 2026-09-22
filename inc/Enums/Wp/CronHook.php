@@ -5,7 +5,7 @@ declare( strict_types=1 );
 namespace Inc\Enums\Wp;
 
 enum CronHook: string {
-	/** Истечение stale-заявок (pending_parent / ready_for_review с истёкшим join_code_expires_at) */
+	/** Истечение заявок, не дождавшихся родителя (pending_parent с истёкшим expires_at) */
 	case ExpireApplications = 'fs_lms_expire_applications';
 
 	/** Retention-очистка: анонимизация persons, purge старых заявок и логов */

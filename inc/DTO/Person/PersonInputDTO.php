@@ -4,6 +4,8 @@ declare( strict_types=1 );
 
 namespace Inc\DTO\Person;
 
+use Inc\DTO\Enrollment\StudentDataDTO;
+
 /**
  * Class PersonInputDTO
  *
@@ -80,6 +82,28 @@ readonly class PersonInputDTO {
 		public ?string $email        = null,
 		public ?int    $wpUserId     = null,
 	) {}
+
+	/**
+	 * Физлицо ученика по данным заявки (зачисление, временный доступ).
+	 *
+	 * @param StudentDataDTO $student Данные ученика из заявки
+	 */
+	public static function fromStudentData( StudentDataDTO $student ): self {
+		return new self(
+			lastName:   $student->lastName,
+			firstName:  $student->firstName,
+			docNumber:  $student->docNumber,
+			isStudent:  true,
+			middleName: $student->middleName,
+			docType:    $student->docType,
+			birthDate:  $student->birthDate,
+			inn:        $student->inn,
+			phone:      $student->phone,
+			school:     $student->school,
+			grade:      (string) $student->grade,
+			email:      '' !== $student->email ? $student->email : null,
+		);
+	}
 
 	/**
 	 * Возвращает полное имя в формате "Фамилия Имя Отчество".

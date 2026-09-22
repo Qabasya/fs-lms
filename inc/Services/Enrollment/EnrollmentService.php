@@ -118,7 +118,8 @@ readonly class EnrollmentService {
 			throw new DomainException( 'Email родителя уже занят другим пользователем.' );
 		}
 
-		if ( null !== $existingStudent && $this->studentRecordRepository->existsActive( $existingStudent->id, $input->groupId ) ) {
+		// Временный доступ в ту же группу не мешает: транзакция заменит его настоящей записью.
+		if ( null !== $existingStudent && $this->studentRecordRepository->existsActive( $existingStudent->id, $input->groupId, false ) ) {
 			throw new DomainException( 'Ученик уже зачислен в эту группу.' );
 		}
 
@@ -242,6 +243,7 @@ readonly class EnrollmentService {
 			createdAt:         $now,
 			updatedAt:         $now,
 			studentPersonId:   $record->studentPersonId,
+			expiresAt:         $this->joinCodeService->applicationExpiresAt(),
 		) );
 
 		if ( 0 === $appId ) {

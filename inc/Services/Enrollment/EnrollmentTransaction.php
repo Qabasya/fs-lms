@@ -71,6 +71,15 @@ readonly class EnrollmentTransaction {
 			$studentPersonId  = $existingStudent?->id ?? $this->people->createOrFindBy( $this->studentInput( $student ) );
 			$guardianPersonId = $existingParent?->id ?? $this->people->createOrFindBy( $this->parentInput( $parent ) );
 
+			// Физлицо завёл временный доступ по данным одного ученика — документы и ИНН
+			// приехали позже, с анкетой родителя.
+			if ( $app->trialOwner && null !== $existingStudent ) {
+				$this->people->update( $studentPersonId, $this->studentChanges( $student ), get_current_user_id() );
+			}
+
+			// Временный доступ своё отработал: дальше ученик учится по записи зачисления.
+			$this->records->deleteTrialByStudent( $studentPersonId );
+
 			$recordId = $this->records->create( $this->recordInput( $input, $student, $studentPersonId, $guardianPersonId, $now ) );
 
 			$this->consents->bindToPersons( $app->id, array(
@@ -88,20 +97,31 @@ readonly class EnrollmentTransaction {
 	 * @param StudentDataDTO $student Данные ученика из заявки
 	 */
 	private function studentInput( StudentDataDTO $student ): PersonInputDTO {
-		return new PersonInputDTO(
-			lastName:   $student->lastName,
-			firstName:  $student->firstName,
-			docNumber:  $student->docNumber,
-			isStudent:  true,
-			middleName: $student->middleName,
-			docType:    $student->docType,
-			birthDate:  $student->birthDate,
-			inn:        $student->inn,
-			phone:      $student->phone,
-			school:     $student->school,
-			grade:      (string) $student->grade,
-			email:      '' !== $student->email ? $student->email : null,
-		);
+		return PersonInputDTO::fromStudentData( $student );
+	}
+
+	/**
+	 * Данные ученика для обновления физлица, заведённого временным доступом.
+	 * Пустые значения не пишутся — не затираем то, что уже есть.
+	 *
+	 * @param StudentDataDTO $student Данные ученика из заявки
+	 *
+	 * @return array<string, string>
+	 */
+	private function studentChanges( StudentDataDTO $student ): array {
+		return array_filter( array(
+			'last_name'   => $student->lastName,
+			'first_name'  => $student->firstName,
+			'middle_name' => $student->middleName,
+			'birth_date'  => $student->birthDate,
+			'school'      => $student->school,
+			'grade'       => $student->grade ? (string) $student->grade : '',
+			'email'     => $student->email,
+			'phone'       => $student->phone,
+			'doc_type'    => $student->docType,
+			'doc_number'  => $student->docNumber,
+			'inn'         => $student->inn,
+		), static fn( string $value ): bool => '' !== $value );
 	}
 
 	/**

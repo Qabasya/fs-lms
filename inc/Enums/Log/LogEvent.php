@@ -82,6 +82,8 @@ enum LogEvent: string {
 	case EnrollmentCanceled   = 'enrollment.canceled';
 	case StudentExpelled      = 'enrollment.student_expelled';
 	case StudentRestored      = 'enrollment.student_restored';
+	case TrialAccessGranted   = 'enrollment.trial_access_granted';
+	case TrialAccessRevoked   = 'enrollment.trial_access_revoked';
 
 	// ===== Канал: PiiAccess — доступ к персональным данным =====
 

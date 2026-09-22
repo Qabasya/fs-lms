@@ -18,6 +18,7 @@ use Inc\Enums\Wp\Nonce;
 use Inc\Repositories\WPDBRepositories\ApplicationRepository;
 use Inc\Services\Application\LoginAvailabilityService;
 use Inc\Services\Enrollment\FamilyEmailPolicy;
+use Inc\Services\Enrollment\TrialAccessService;
 use Inc\Services\Security\CredentialsPolicy;
 use Inc\Services\Security\PiiCryptoService;
 use Inc\Shared\Traits\Authorizer;
@@ -46,6 +47,7 @@ class ApplicationDataCallbacks extends BaseController {
 		private readonly LoginAvailabilityService    $logins,
 		private readonly CredentialsPolicy           $credentials,
 		private readonly FamilyEmailPolicy           $familyEmails,
+		private readonly TrialAccessService          $trialAccess,
 	) {
 		parent::__construct();
 	}
@@ -113,6 +115,11 @@ class ApplicationDataCallbacks extends BaseController {
 			'username_hash'      => '' !== $username ? $this->logins->hash( $username ) : null,
 			'updated_at'         => current_time( 'mysql', true ),
 		) );
+
+		// Ученик с временным доступом входит по данным заявки — учётка должна поменяться вместе с ней.
+		if ( $username !== $existingStudentDto->username || $loginPassword !== $existingStudentDto->loginPassword ) {
+			$this->trialAccess->syncCredentials( $id, $username, $loginPassword );
+		}
 
 		$this->logEvents->dispatch( LogEvent::ApplicationUpdated, new ApplicationStatusEvent(
 			get_current_user_id(), AuditAction::UpdateApplicationData, $id

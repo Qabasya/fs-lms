@@ -49,6 +49,7 @@ class ApplicationDataCallbacksTest extends TestCase {
 			new \Inc\Services\Application\LoginAvailabilityService( $this->users, $this->repository, $this->crypto ),
 			new CredentialsPolicy(),
 			new \Inc\Services\Enrollment\FamilyEmailPolicy(),
+			$this->createStub( \Inc\Services\Enrollment\TrialAccessService::class ),
 		);
 	}
 

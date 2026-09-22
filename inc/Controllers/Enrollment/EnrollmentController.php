@@ -10,6 +10,7 @@ use Inc\Callbacks\Enrollment\ApplicationDataCallbacks;
 use Inc\Callbacks\Enrollment\ApplicationTrashCallbacks;
 use Inc\Callbacks\Enrollment\EnrollmentLifecycleCallbacks;
 use Inc\Callbacks\Enrollment\ParentLinkCallbacks;
+use Inc\Callbacks\Enrollment\TrialAccessCallbacks;
 use Inc\Callbacks\Enrollment\UserCredentialsCallbacks;
 use Inc\Enums\Wp\AjaxHook;
 
@@ -28,8 +29,9 @@ use Inc\Enums\Wp\AjaxHook;
  * ### Архитектурная роль:
  *
  * Наследует AjaxController для регистрации AJAX-хуков. После распила Т14.2
- * делегирует пяти доменным Callbacks-классам: жизненный цикл зачисления,
- * данные заявки (PII), корзина, связка с родителями, учётные данные.
+ * делегирует доменным Callbacks-классам: жизненный цикл зачисления,
+ * данные заявки (PII), корзина, связка с родителями, учётные данные,
+ * временный доступ до зачисления (снимается хуками истечения и корзины заявки).
  *
  * ### Примечания:
  *
@@ -43,6 +45,7 @@ class EnrollmentController extends AjaxController {
 		private readonly ApplicationTrashCallbacks    $trash,
 		private readonly ParentLinkCallbacks          $parents,
 		private readonly UserCredentialsCallbacks     $credentials,
+		private readonly TrialAccessCallbacks         $trial,
 	) {
 		parent::__construct();
 	}
@@ -55,6 +58,10 @@ class EnrollmentController extends AjaxController {
 	public function register(): void {
 		// Регистрация AJAX-обработчиков (унаследовано из AjaxController)
 		parent::register();
+
+		// Временный доступ живёт не дольше заявки: истекла или ушла в корзину — снимаем.
+		add_action( 'fs_lms_application_expired', array( $this->trial, 'onApplicationClosed' ) );
+		add_action( 'fs_lms_application_trashed', array( $this->trial, 'onApplicationClosed' ) );
 	}
 
 	/**
@@ -88,6 +95,10 @@ class EnrollmentController extends AjaxController {
 			array( AjaxHook::RemoveParentAssignment, $this->parents ),
 			array( AjaxHook::SearchParents, $this->parents ),
 			array( AjaxHook::TouchJoinLink, $this->parents ),
+
+			// ── Временный доступ до зачисления ──
+			array( AjaxHook::GrantTrialAccess, $this->trial ),
+			array( AjaxHook::RevokeTrialAccess, $this->trial ),
 
 			// ── Учётные данные ──
 			array( AjaxHook::RevealUserCredentials, $this->credentials ),

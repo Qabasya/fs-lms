@@ -109,14 +109,14 @@ readonly class ApplicationService {
 			throw new DomainException( 'Этот логин уже занят.' );
 		}
 
-		// Генерация JOIN-кода и срока его действия. 14 дней — срок ожидания самой
-		// заявки, поданной учеником; выданная родителю ссылка живёт короче
-		// (`JoinCodeService::TTL_HOURS`), отсчёт стартует с копирования ссылки
-		// в таблице заявок ({@see self::refreshJoinExpiry()}).
+		// Генерация JOIN-кода. Заявка живёт `JoinCodeService::APPLICATION_TTL_DAYS`;
+		// ссылка, которую ученик получил сам, действует столько же. Выданная сотрудником
+		// ссылка живёт короче (`JoinCodeService::TTL_HOURS`), отсчёт стартует с копирования
+		// в таблице заявок ({@see self::refreshJoinExpiry()}) — на срок заявки это не влияет.
 		$joinCode      = $this->joinCodeService->generate();
 		$joinCodeHash  = $this->joinCodeService->hash( $joinCode );
 		$joinCodeEnc   = $this->crypto->encrypt( $joinCode );
-		$expiresAt     = gmdate( 'Y-m-d H:i:s', time() + 14 * DAY_IN_SECONDS );
+		$expiresAt     = $this->joinCodeService->applicationExpiresAt();
 
 		// Шифрование данных ученика
 		$studentDataEnc = $this->crypto->encrypt( (string) wp_json_encode( array(
@@ -150,6 +150,7 @@ readonly class ApplicationService {
 				parentSubmittedIp:  $ctx->ip,
 				subjectKey:         '' !== $input->subjectKey ? $input->subjectKey : null,
 				usernameHash:       $this->logins->hash( $input->username ),
+				expiresAt:          $expiresAt,
 			) );
 
 			// Фиксация согласия на обработку ПД (сам ученик)
@@ -196,6 +197,11 @@ readonly class ApplicationService {
 		// между его тиками просроченная ссылка иначе принимала бы данные родителя.
 		if ( $this->joinCodeService->isExpired( $app->joinCodeExpiresAt ) ) {
 			throw new DomainException( 'Срок действия ссылки истёк. Запросите новую.' );
+		}
+
+		// То же для срока самой заявки: cron `ExpireApplications` ходит раз в сутки.
+		if ( $this->joinCodeService->isExpired( $app->expiresAt ) ) {
+			throw new DomainException( 'Срок заявки истёк. Подайте заявку заново.' );
 		}
 
 		$ctx          = $this->requestContext();
@@ -290,12 +296,12 @@ readonly class ApplicationService {
 
 	/**
 	 * Заново заводит счётчик жизни JOIN-ссылки: 72 часа с этого момента
-	 * (`JoinCodeService::TTL_HOURS`). Зовётся, когда сотрудник копирует ссылку
-	 * в таблице заявок — отсчёт идёт от передачи ссылки родителю, а не от подачи
-	 * заявки; повторное копирование сбрасывает счётчик.
+	 * (`JoinCodeService::TTL_HOURS`), но не дольше срока самой заявки. Зовётся,
+	 * когда сотрудник копирует ссылку в таблице заявок — отсчёт идёт от передачи
+	 * ссылки родителю; повторное копирование сбрасывает счётчик.
 	 *
-	 * Срок может и укоротиться: у свежей заявки он 14 дней, и первое копирование
-	 * сводит его к 72 часам — так и задумано, ссылка живёт ровно с момента выдачи.
+	 * Срок заявки (`expires_at`) при этом не меняется: истёкшая ссылка заявку
+	 * не закрывает, её просто выдают заново.
 	 *
 	 * @param int $applicationId ID заявки
 	 *
@@ -310,11 +316,12 @@ readonly class ApplicationService {
 			throw new \InvalidArgumentException( 'Заявка не найдена.' );
 		}
 
-		if ( ! in_array( $app->status, array( ApplicationStatus::PendingParent, ApplicationStatus::ReadyForReview ), true ) ) {
+		// Родитель уже заполнил анкету — ссылка своё отработала, продлевать нечего.
+		if ( ApplicationStatus::PendingParent !== $app->status ) {
 			throw new DomainException( 'По этой заявке ссылка уже не действует.' );
 		}
 
-		$expiresAt = $this->joinCodeService->expiresAt();
+		$expiresAt = $this->joinCodeService->expiresAt( $app->expiresAt );
 
 		$this->applicationRepository->update( $applicationId, array(
 			'join_code_expires_at' => $expiresAt,
@@ -326,6 +333,10 @@ readonly class ApplicationService {
 
 	/**
 	 * Переводит просроченные заявки в статус Expired.
+	 *
+	 * Истекают только заявки, которые ждут родителя: заполненная родителем заявка
+	 * ждёт сотрудника, и её срок уже ничего не ограничивает. Временный доступ
+	 * ученика снимают подписчики хука `fs_lms_application_expired`.
 	 *
 	 * @return int Количество обработанных заявок
 	 */
@@ -380,6 +391,36 @@ readonly class ApplicationService {
 		}
 
 		return $this->applicationRepository->setStatus( $id, $status );
+	}
+
+	/**
+	 * Возвращает заявку из корзины: в ReadyForReview, если родитель её заполнил,
+	 * иначе в PendingParent — со свежим сроком заявки, иначе давно поданная заявка
+	 * истекла бы на ближайшем тике cron.
+	 *
+	 * @param int $id ID заявки
+	 *
+	 * @throws \InvalidArgumentException Заявка не найдена или не в корзине
+	 */
+	public function restoreFromTrash( int $id ): void {
+		$app = $this->applicationRepository->find( $id );
+
+		if ( null === $app ) {
+			throw new \InvalidArgumentException( "Заявка с ID {$id} не найдена." );
+		}
+
+		$target = ! empty( $app->parentDataEnc )
+			? ApplicationStatus::ReadyForReview
+			: ApplicationStatus::PendingParent;
+
+		$this->changeStatus( $id, $target );
+
+		if ( ApplicationStatus::PendingParent === $target ) {
+			$this->applicationRepository->update( $id, array(
+				'expires_at' => $this->joinCodeService->applicationExpiresAt(),
+				'updated_at' => $this->clock->now( 'mysql', true ),
+			) );
+		}
 	}
 
 	/**

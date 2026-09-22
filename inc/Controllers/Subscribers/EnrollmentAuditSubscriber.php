@@ -38,6 +38,7 @@ use Inc\Services\Log\EnrollmentAuditLogWriter;
  * - EnrollmentFailed — ошибка при зачислении
  * - StudentExpelled — студент отчислен
  * - StudentRestored — студент восстановлен
+ * - TrialAccessGranted / TrialAccessRevoked — временный доступ до зачисления
  * - EnrollmentStarted — процесс зачисления начат (application-level)
  * - EnrollmentCanceled — процесс зачисления отменён
  * - ApplicationCreated / ApplicationUpdated / ApplicationViewed — действия с заявкой
@@ -71,6 +72,8 @@ class EnrollmentAuditSubscriber implements ServiceInterface {
 		$this->logEvents->subscribe( LogEvent::StudentExpelled,    $handler );
 		$this->logEvents->subscribe( LogEvent::StudentRestored,    $handler );
 		$this->logEvents->subscribe( LogEvent::EnrollmentCanceled, $handler );
+		$this->logEvents->subscribe( LogEvent::TrialAccessGranted, $handler );
+		$this->logEvents->subscribe( LogEvent::TrialAccessRevoked, $handler );
 
 		$this->logEvents->subscribe( LogEvent::ApplicationCreated,  $appHandler );
 		$this->logEvents->subscribe( LogEvent::ApplicationUpdated,  $appHandler );

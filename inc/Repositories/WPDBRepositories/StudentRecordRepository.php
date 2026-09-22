@@ -249,18 +249,24 @@ class StudentRecordRepository {
 		// Получаем список студентов и родителей в группе
 		$rows = $this->wpdb->get_results(
 			$this->wpdb->prepare(
-				'SELECT student_person_id, parent_person_id FROM %i WHERE group_id = %d',
+				'SELECT student_person_id, parent_person_id FROM %i WHERE group_id = %d AND is_trial = 0',
 				$this->table,
 				$groupId
 			),
 			ARRAY_A
 		);
 
+		// Ученики с временным доступом в сироты не идут: их физлицом и учёткой владеет
+		// заявка (каскад удаления ученика снёс бы и её) — снимается доступ вместе с ней.
 		$studentIds = array_values( array_unique( array_column( $rows ?: array(), 'student_person_id' ) ) );
-		$parentIds  = array_values( array_unique( array_column( $rows ?: array(), 'parent_person_id' ) ) );
+		$parentIds  = array_values( array_unique( array_filter( array_column( $rows ?: array(), 'parent_person_id' ) ) ) );
+
+		$hasTrial = 0 < (int) $this->wpdb->get_var(
+			$this->wpdb->prepare( 'SELECT COUNT(*) FROM %i WHERE group_id = %d AND is_trial = 1', $this->table, $groupId )
+		);
 
 		// Удаляем все записи группы
-		if ( ! empty( $rows ) ) {
+		if ( ! empty( $rows ) || $hasTrial ) {
 			// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
 			$this->wpdb->query(
 				$this->wpdb->prepare( 'DELETE FROM %i WHERE group_id = %d', $this->table, $groupId )
@@ -317,20 +323,89 @@ class StudentRecordRepository {
 	 * Проверяет наличие активной записи студента в группе.
 	 *
 	 * @param int $studentPersonId ID студента
-	 * @param int $groupId         ID группы
+	 * @param int  $groupId         ID группы
+	 * @param bool $includeTrial    Учитывать запись временного доступа (зачисление её заменяет — там false)
 	 *
 	 * @return bool
 	 */
-	public function existsActive( int $studentPersonId, int $groupId ): bool {
+	public function existsActive( int $studentPersonId, int $groupId, bool $includeTrial = true ): bool {
 		return 0 < (int) $this->wpdb->get_var(
 				$this->wpdb->prepare(
-					'SELECT COUNT(*) FROM %i WHERE student_person_id = %d AND group_id = %d AND status = %s',
+					'SELECT COUNT(*) FROM %i WHERE student_person_id = %d AND group_id = %d AND status = %s AND is_trial <= %d',
 					$this->table,
 					$studentPersonId,
 					$groupId,
-					EnrollmentStatus::Active->value
+					EnrollmentStatus::Active->value,
+					$includeTrial ? 1 : 0
 				)
 			);
+	}
+
+	/**
+	 * Записи временного доступа ученика (до зачисления, без родителя и договора).
+	 *
+	 * @param int $studentPersonId ID ученика
+	 *
+	 * @return StudentRecordDTO[]
+	 */
+	public function findTrialByStudent( int $studentPersonId ): array {
+		$rows = $this->wpdb->get_results(
+			$this->wpdb->prepare(
+				'SELECT * FROM %i WHERE student_person_id = %d AND is_trial = 1 ORDER BY id',
+				$this->table,
+				$studentPersonId
+			),
+			ARRAY_A
+		);
+
+		return array_map( fn( array $r ) => StudentRecordDTO::fromArray( $r ), $rows ?: array() );
+	}
+
+	/**
+	 * Записи временного доступа нескольких учеников одним запросом (таблица заявок).
+	 *
+	 * @param int[] $studentPersonIds ID учеников
+	 *
+	 * @return array<int, StudentRecordDTO> ученик → его запись временного доступа
+	 */
+	public function findTrialByStudents( array $studentPersonIds ): array {
+		$ids = array_values( array_unique( array_filter( array_map( 'intval', $studentPersonIds ) ) ) );
+		if ( empty( $ids ) ) {
+			return array();
+		}
+
+		$placeholders = implode( ', ', array_fill( 0, count( $ids ), '%d' ) );
+
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$rows = $this->wpdb->get_results(
+			$this->wpdb->prepare(
+				"SELECT * FROM %i WHERE is_trial = 1 AND student_person_id IN ($placeholders) ORDER BY id",
+				array_merge( array( $this->table ), $ids )
+			),
+			ARRAY_A
+		);
+
+		$result = array();
+		foreach ( $rows ?: array() as $row ) {
+			$record                              = StudentRecordDTO::fromArray( $row );
+			$result[ $record->studentPersonId ] ??= $record;
+		}
+
+		return $result;
+	}
+
+	/**
+	 * Удаляет записи временного доступа ученика: они не история обучения,
+	 * а допуск до зачисления, поэтому не отчисляются, а стираются.
+	 *
+	 * @param int $studentPersonId ID ученика
+	 *
+	 * @return int Количество удалённых записей
+	 */
+	public function deleteTrialByStudent( int $studentPersonId ): int {
+		return (int) $this->wpdb->query(
+			$this->wpdb->prepare( 'DELETE FROM %i WHERE student_person_id = %d AND is_trial = 1', $this->table, $studentPersonId )
+		);
 	}
 
 	/**

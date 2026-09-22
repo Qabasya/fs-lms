@@ -242,6 +242,14 @@
   .fs-table__empty-value {
     color: $color-secondary;
   }
+
+  // Остаток срока ссылки/заявки и подпись группы временного доступа — строкой под строкой.
+  // Кегль — обычный, как у ячейки; мелкую подпись группы уменьшает .fs-code-sm.
+  .fs-lms-term {
+    display: block;
+    margin-top: $spacing-xs;
+    white-space: nowrap;
+  }
 }
 
 // ── UTILITY: пустая строка таблицы

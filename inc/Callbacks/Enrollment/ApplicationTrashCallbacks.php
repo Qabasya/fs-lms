@@ -77,12 +77,12 @@ class ApplicationTrashCallbacks extends BaseController {
 			$this->error( 'Заявка не найдена.' );
 		}
 
-		// Определение целевого статуса: ReadyForReview (заполнена родителем) или PendingParent
-		$target = ! empty( $app->parentDataEnc )
-			? ApplicationStatus::ReadyForReview
-			: ApplicationStatus::PendingParent;
-
-		$this->applications->changeStatus( $id, $target );
+		// ReadyForReview (заполнена родителем) или PendingParent со свежим сроком
+		try {
+			$this->applications->restoreFromTrash( $id );
+		} catch ( \InvalidArgumentException $e ) {
+			$this->error( $e->getMessage() );
+		}
 
 		$this->logEvents->dispatch( LogEvent::ApplicationRestored, new ApplicationStatusEvent(
 			get_current_user_id(), AuditAction::RestoreFromTrash, $id
@@ -124,11 +124,7 @@ class ApplicationTrashCallbacks extends BaseController {
 		$this->authorize( Nonce::TrashApplication, Capability::ManageApplications );
 
 		// Получение всех заявок в корзине
-		$trashApps = $this->applicationRepository->list(
-			array( 'status' => ApplicationStatus::Trash->value ),
-			1,
-			9999
-		);
+		$trashApps = $this->applicationRepository->list( array( 'status' => ApplicationStatus::Trash->value ) );
 
 		$count = 0;
 

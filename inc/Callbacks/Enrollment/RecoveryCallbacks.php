@@ -67,9 +67,8 @@ class RecoveryCallbacks extends BaseController {
 
 	/**
 	 * Задача cron: истечение просроченных заявок.
-	 * Находит заявки в статусах PendingParent и ReadyForReview,
-	 * у которых истёк срок действия join_code_expires_at,
-	 * и переводит их в статус Expired.
+	 * Находит заявки в статусе PendingParent, у которых истёк срок
+	 * заявки (expires_at), и переводит их в статус Expired.
 	 *
 	 * @return void
 	 */

@@ -152,6 +152,10 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
 					<button type="button" class="button fs-lms-modal-cancel">
 						<?php esc_html_e( 'Закрыть', 'fs-lms' ); ?>
 					</button>
+					<?php // Показывает TrialAccessModalManager, если временного доступа по заявке ещё нет. ?>
+					<button type="button" class="button js-grant-trial" hidden>
+						<?php esc_html_e( 'Временный доступ', 'fs-lms' ); ?>
+					</button>
 					<button type="submit" class="button button-primary" id="app-modal-save-btn">
 						<?php esc_html_e( 'Сохранить', 'fs-lms' ); ?>
 					</button>

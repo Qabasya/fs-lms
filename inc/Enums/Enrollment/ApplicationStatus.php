@@ -34,7 +34,8 @@ enum ApplicationStatus: string {
 	public function canTransitionTo( self $next ): bool {
 		return match ( $this ) {
 			self::PendingParent  => in_array( $next, [ self::ReadyForReview, self::Expired, self::Trash ], true ),
-			self::ReadyForReview => in_array( $next, [ self::Enrolling, self::Expired, self::Trash ], true ),
+			// Заполненная родителем заявка не истекает: она ждёт сотрудника, а не семью
+			self::ReadyForReview => in_array( $next, [ self::Enrolling, self::Trash ], true ),
 			self::Enrolling      => in_array( $next, [ self::Converted, self::ReadyForReview ], true ),
 			self::Expired        => self::Trash === $next,
 			// Trash восстанавливается в PendingParent или ReadyForReview

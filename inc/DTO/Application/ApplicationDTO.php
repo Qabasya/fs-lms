@@ -26,6 +26,8 @@ readonly class ApplicationDTO {
 		public string            $createdAt,
 		public string            $updatedAt,
 		public ?string           $subjectKey = null,
+		public ?string           $expiresAt = null,
+		public bool              $trialOwner = false,
 	) {}
 
 	public static function fromArray( array $row ): static {
@@ -47,6 +49,8 @@ readonly class ApplicationDTO {
 			createdAt:         (string) $row['created_at'],
 			updatedAt:         (string) $row['updated_at'],
 			subjectKey:        isset( $row['subject_key'] ) ? (string) $row['subject_key'] : null,
+			expiresAt:         isset( $row['expires_at'] ) ? (string) $row['expires_at'] : null,
+			trialOwner:        ! empty( $row['trial_owner'] ),
 		);
 	}
 
@@ -69,6 +73,8 @@ readonly class ApplicationDTO {
 			'created_at'          => $this->createdAt,
 			'updated_at'          => $this->updatedAt,
 			'subject_key'         => $this->subjectKey,
+			'expires_at'          => $this->expiresAt,
+			'trial_owner'         => $this->trialOwner ? 1 : 0,
 		);
 	}
 }
