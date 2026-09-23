@@ -214,11 +214,11 @@ $termTone = static function ( ?string $expiresAtUtc, int $dangerBelow, int $warn
                 <?php echo LogNameResolver::sortableHeader( 'Срок', 'term', $orderby, $order, $sortUrl ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
             </th>
 
-            <th class="column-title tw-10">
+            <th class="column-title tw-7">
                 <?php echo LogNameResolver::sortableHeader( 'Создана', 'created', $orderby, $order, $sortUrl ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
             </th>
 
-            <th class="column-title tw-10">
+            <th class="column-title tw-15">
                 <?php esc_html_e( 'Действия', 'fs-lms' ); ?>
             </th>
         </tr>
