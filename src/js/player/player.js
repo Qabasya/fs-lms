@@ -13,7 +13,6 @@ import { initStepWork } from './step-work.js';
 import { initStepVideo } from './step-video.js';
 import { initLessonCountdown } from '../frontend/components/lesson-countdown.js';
 import { initCodeBlocks } from '../frontend/components/code-block.js';
-import { initDashCells } from '../frontend/modules/table-dash-cells.js';
 
 document.addEventListener( 'DOMContentLoaded', () => {
 	initShell();
@@ -32,5 +31,4 @@ document.addEventListener( 'DOMContentLoaded', () => {
 	initStepWork();
 	initStepVideo();
 	initCodeBlocks();
-	initDashCells();
 } );

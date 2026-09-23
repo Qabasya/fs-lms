@@ -1,12 +1,14 @@
 {
   "name": "fs-lms",
-  "version": "1.0.33",
+  "version": "1.0.34",
   "description": "",
   "license": "GPL-2.0+",
   "author": "kelechek, qabasya",
   "type": "commonjs",
   "main": "index.js",
-  "sideEffects": ["*.scss"],
+  "sideEffects": [
+    "*.scss"
+  ],
   "browserslist": [
     "> 0.5%",
     "last 2 versions",
