@@ -25,6 +25,7 @@ readonly class WorkDTO {
 	 * @param string   $instructions = post_content (описание/инструкция перед началом; ранее жила в мете)
 	 * @param int      $authorId
 	 * @param string   $status
+	 * @param int      $maxAttempts  Лимит сдач работы учеником; 0 — без ограничений (мета `max_attempts`)
 	 */
 	public function __construct(
 		public int      $id,
@@ -35,6 +36,7 @@ readonly class WorkDTO {
 		public string   $instructions,
 		public int      $authorId,
 		public string   $status,
+		public int      $maxAttempts = 0,
 	) {}
 
 	public static function fromPost( \WP_Post $post, array $meta ): self {
@@ -47,6 +49,7 @@ readonly class WorkDTO {
 			instructions: $post->post_content,
 			authorId    : (int) $post->post_author,
 			status      : $post->post_status,
+			maxAttempts : max( 0, (int) ( $meta['max_attempts'] ?? 0 ) ),
 		);
 	}
 
@@ -60,6 +63,7 @@ readonly class WorkDTO {
 			instructions: (string) ( $data['instructions'] ?? '' ),
 			authorId    : (int) ( $data['author_id'] ?? 0 ),
 			status      : (string) ( $data['status'] ?? 'draft' ),
+			maxAttempts : max( 0, (int) ( $data['max_attempts'] ?? 0 ) ),
 		);
 	}
 
@@ -73,6 +77,7 @@ readonly class WorkDTO {
 			'instructions' => $this->instructions,
 			'author_id'    => $this->authorId,
 			'status'       => $this->status,
+			'max_attempts' => $this->maxAttempts,
 		);
 	}
 

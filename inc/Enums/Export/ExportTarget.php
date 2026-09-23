@@ -20,6 +20,7 @@ enum ExportTarget: string {
 	case LogConsentChange  = 'log_consent_change';
 	case LogEmail          = 'log_email';
 	case LogAuth           = 'log_auth';
+	case LogErrors         = 'log_errors';
 
 	public function label(): string {
 		return match( $this ) {
@@ -35,6 +36,7 @@ enum ExportTarget: string {
 			self::LogConsentChange   => 'Лог: согласия',
 			self::LogEmail           => 'Лог: письма',
 			self::LogAuth            => 'Лог: аутентификация',
+			self::LogErrors          => 'Лог: ошибки',
 		};
 	}
 }

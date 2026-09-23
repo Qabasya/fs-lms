@@ -107,6 +107,7 @@ class ContentCloneService {
 				itemIds     : $work->itemIds,
 				authorId    : get_current_user_id(),
 				status      : 'draft',
+				maxAttempts : $work->maxAttempts,
 			)
 		);
 	}

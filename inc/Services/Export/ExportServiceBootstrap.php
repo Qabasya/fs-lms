@@ -10,6 +10,7 @@ use Inc\Services\Export\Log\AuthLogExportProvider;
 use Inc\Services\Export\Log\ConsentChangeLogExportProvider;
 use Inc\Services\Export\Log\DataChangeLogExportProvider;
 use Inc\Services\Export\Log\EmailLogExportProvider;
+use Inc\Services\Export\Log\ErrorLogExportProvider;
 use Inc\Services\Export\Log\EnrollmentAuditLogExportProvider;
 use Inc\Services\Export\Log\EntityAuditLogExportProvider;
 use Inc\Services\Export\Log\ExportLogExportProvider;
@@ -79,6 +80,7 @@ class ExportServiceBootstrap implements ServiceInterface {
 		private readonly ConsentChangeLogExportProvider $consentChange,
 		private readonly EmailLogExportProvider        $email,
 		private readonly AuthLogExportProvider         $auth,
+		private readonly ErrorLogExportProvider        $errors,
 	) {}
 
 	/**
@@ -102,5 +104,6 @@ class ExportServiceBootstrap implements ServiceInterface {
 		$this->registry->register( ExportTarget::LogConsentChange, $this->consentChange );
 		$this->registry->register( ExportTarget::LogEmail,        $this->email );
 		$this->registry->register( ExportTarget::LogAuth,         $this->auth );
+		$this->registry->register( ExportTarget::LogErrors,       $this->errors );
 	}
 }

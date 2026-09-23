@@ -46,9 +46,11 @@ $work_state     = array(
 	'work_id'       => (int) $render['ref'],
 	'submission'    => $render['submission'] ?? null,
 	'task_results'  => $render['task_results'] ?? array(),
-	// Tasks.md, п. 8: жёсткий лимит пересдач — предупреждения и блок «Пройти заново».
-	'attempts_used' => (int) ( $render['attempts_used'] ?? 0 ),
-	'max_attempts'  => (int) ( $render['max_attempts'] ?? 0 ),
+	// Лимит сдач (настройка работы, 0 — без ограничений): предупреждения и блок «Пройти заново».
+	'attempts_used'   => (int) ( $render['attempts_used'] ?? 0 ),
+	'max_attempts'    => (int) ( $render['max_attempts'] ?? 0 ),
+	// Засчитанные задания: при пересдаче ответ остаётся, правка закрыта.
+	'locked_task_ids' => array_map( 'intval', (array) ( $render['locked_task_ids'] ?? array() ) ),
 );
 $work_meta_line = sprintf(
 	/* translators: 1: work type label, 2: task count, 3: total points */

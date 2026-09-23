@@ -157,6 +157,9 @@
 
   svg { color: var(--toast-ok); }
 
+  // Ошибка: крестик вместо галочки (JS toast( msg, 'error' ))
+  &.is-error svg { color: var(--err); }
+
   &.show {
     opacity: 1;
     transform: translateX(-50%) translateY(0);

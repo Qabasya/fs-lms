@@ -43,6 +43,7 @@ const CHANNEL_ACTIONS = {
 	consent_change: 'exportConsentChangeLog',
 	email:          'exportEmailLog',
 	auth:           'exportAuthLog',
+	errors:         'exportErrorLog',
 };
 
 /**

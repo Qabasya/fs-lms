@@ -117,6 +117,7 @@ Subjects are stored in `wp_options` (key: `fs_lms_subjects_list`) as `['subject_
 
 **`AjaxResponse`** — `$this->success($data)` / `$this->error($message)` wrap `wp_send_json_*` and log in `WP_DEBUG` mode.
 **Required in all Callback classes. Inherited via `BaseController` — do not re-declare unless the class does not extend `BaseController`.**
+Каждый `error()` пишется в журнал «Ошибки» (`LogChannel::Errors`) кодом `E-AJAX`. Где пользователю нужен код для скриншота — `$this->fail( ErrorCode::X, $message, $context )`: ответ `{message, code, ref}`, `ref` — номер инцидента в журнале. Сервис сообщает код через `Inc\Shared\CodedException`. Плеер разбирает ответы через `src/js/player/request.js` (`playerPost()`).
 
 **`ErrorHandler`** — `$this->sendError(code, message, status)` auto-detects context (`wp_doing_ajax()`) and responds with either `wp_send_json_error()` or `wp_die()`.
 **Allowed only in Controllers that handle both AJAX and standard HTTP flows (currently: `AuthController` only). Do NOT use in Callback classes — they are AJAX-only; `AjaxResponse` is sufficient.**

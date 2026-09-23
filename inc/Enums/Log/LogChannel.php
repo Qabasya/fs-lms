@@ -25,6 +25,7 @@ enum LogChannel: string {
 	case ConsentChange   = 'consent_change';
 	case Email           = 'email';
 	case Auth            = 'auth';
+	case Errors          = 'errors';
 	case LearningEvents  = 'learning_events';
 
 	/** Короткая метка канала — заголовок вкладки на странице «Журналы». */
@@ -38,6 +39,7 @@ enum LogChannel: string {
 			self::ConsentChange   => 'Согласия',
 			self::Email           => 'Письма',
 			self::Auth            => 'Аутентификация',
+			self::Errors          => 'Ошибки',
 			self::LearningEvents  => 'События обучения',
 		};
 	}
@@ -53,6 +55,7 @@ enum LogChannel: string {
 			self::ConsentChange   => TableName::ConsentChangeLog,
 			self::Email           => TableName::EmailLog,
 			self::Auth            => TableName::AuthLog,
+			self::Errors          => TableName::ErrorLog,
 			self::LearningEvents  => TableName::LearningEvents,
 		};
 	}
@@ -82,6 +85,7 @@ enum LogChannel: string {
 			self::ConsentChange   => array( 'id' => 'tab-5', 'partial' => 'logs-5-consent-change' ),
 			self::Email           => array( 'id' => 'tab-6', 'partial' => 'logs-6-email' ),
 			self::Auth            => array( 'id' => 'tab-8', 'partial' => 'logs-8-auth' ),
+			self::Errors          => array( 'id' => 'tab-9', 'partial' => 'logs-9-errors' ),
 			self::LearningEvents  => array( 'id' => '', 'partial' => '' ),
 		};
 	}

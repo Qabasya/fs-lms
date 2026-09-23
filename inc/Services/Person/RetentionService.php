@@ -12,6 +12,7 @@ use Inc\Repositories\WPDBRepositories\ApplicationRepository;
 use Inc\Repositories\WPDBRepositories\Log\AuditLogRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Repositories\WPDBRepositories\Log\PiiAccessLogRepository;
+use Inc\Repositories\WPDBRepositories\Log\ErrorLogRepository;
 use Inc\Services\Person\PersonService;
 
 class RetentionService {
@@ -24,6 +25,7 @@ class RetentionService {
 		private readonly LogEventDispatcherInterface $logEvents,
 		private readonly UserManager                 $userManager,
 		private readonly PersonService               $personService,
+		private readonly ErrorLogRepository          $errorLogRepository,
 	) {}
 
 	public function anonymizeDeletedPersons(): int {
@@ -58,5 +60,10 @@ class RetentionService {
 
 	public function purgeOldPiiAccessLogs(): int {
 		return $this->piiAccessLogRepository->purgeOlderThan( 5 * 365 );
+	}
+
+	/** Журнал «Ошибки» — оперативный: полгода хватает разобрать любую жалобу. */
+	public function purgeOldErrorLogs(): int {
+		return $this->errorLogRepository->purgeOlderThan( 180 );
 	}
 }

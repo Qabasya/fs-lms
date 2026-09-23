@@ -3,11 +3,16 @@
  * виджетами, чипы «Ответ сохранён / Нет ответа», черновики в localStorage,
  * модалка подтверждения → SubmitBatchWork; экран результатов с per-task
  * вердиктами (без эталонов — D19) и кнопкой «Пройти заново».
+ *
+ * Пересдача (.docs/Tasks.md, п. 1): ответы прошлой сдачи остаются в полях,
+ * засчитанные задания закрыты для правки — ученик исправляет только неверные
+ * и нерешённые. Лимит сдач — настройка работы (0 — без ограничений).
  */
 import { initTaskWidget } from '../frontend/components/task-widget.js';
 import { getCore, onPanelShow, isPreview, isTeacherMode } from './core.js';
 import { esc, ICO } from './icons.js';
 import { toast } from './shell.js';
+import { playerPost, PlayerRequestError } from './request.js';
 
 const vars = window.fs_lms_player_vars;
 const mounted = new WeakSet();
@@ -37,10 +42,11 @@ function mountWork( panel, root ) {
 
 	let state;
 	try { state = JSON.parse( root.dataset.state || '{}' ); } catch { state = {}; }
-	state.task_results  = state.task_results || {};
-	// Tasks.md, п. 8: жёсткий лимит пересдач (0 = без ограничения).
-	state.attempts_used = Number( state.attempts_used ) || 0;
-	state.max_attempts  = Number( state.max_attempts ) || 0;
+	state.task_results    = state.task_results || {};
+	// Лимит сдач работы (0 = без ограничения).
+	state.attempts_used   = Number( state.attempts_used ) || 0;
+	state.max_attempts    = Number( state.max_attempts ) || 0;
+	state.locked_task_ids = Array.isArray( state.locked_task_ids ) ? state.locked_task_ids : [];
 
 	const progressRoot = root.querySelector( '[data-work-progress-root]' );
 	const resultsRoot  = root.querySelector( '[data-work-results-root]' );
@@ -74,9 +80,17 @@ function mountWork( panel, root ) {
 	const answeredCount = () =>
 		Array.from( widgets.values() ).filter( ( w ) => w.hasAnswer() ).length;
 
+	/** Засчитанные задания прошлой сдачи — при пересдаче закрыты для правки. */
+	const lockedIds = () => new Set( state.locked_task_ids.map( String ) );
+
 	function updateChip( card, widget ) {
 		const chip = card.querySelector( '[data-task-chip]' );
 		if ( ! chip ) { return; }
+		if ( card.classList.contains( 'is-locked' ) ) {
+			chip.className = 'stc stc-saved';
+			chip.innerHTML = `${ ICO.check( 11 ) }<span>Засчитано</span>`;
+			return;
+		}
 		const has = widget.hasAnswer();
 		chip.className = `stc ${ has ? 'stc-saved' : 'stc-none' }`;
 		chip.innerHTML = has ? `${ ICO.check( 11 ) }<span>Ответ сохранён</span>` : 'Нет ответа';
@@ -95,9 +109,15 @@ function mountWork( panel, root ) {
 	root.querySelector( '[data-work-finish]' )?.addEventListener( 'click', openConfirm );
 
 	// ── Лимит пересдач (Tasks.md, п. 8) ───────────────────────────────────
-	/** Осталось сдач; Infinity — лимита нет (или работа одноразовая: предупреждать не о чем). */
+	/** Осталось сдач; Infinity — лимита нет. */
 	function attemptsLeft() {
-		return state.max_attempts > 1 ? Math.max( 0, state.max_attempts - state.attempts_used ) : Infinity;
+		return state.max_attempts > 0 ? Math.max( 0, state.max_attempts - state.attempts_used ) : Infinity;
+	}
+
+	/** Пересдавать нечего: все задания засчитаны. */
+	function allLocked() {
+		const locked = lockedIds();
+		return cards.length > 0 && cards.every( ( card ) => locked.has( card.dataset.taskId ) );
 	}
 
 	/** Предупреждение перед сдачей: предпоследняя / последняя попытка. */
@@ -110,7 +130,7 @@ function mountWork( panel, root ) {
 
 	/** Строка счётчика попыток для воркбара и экрана результатов. */
 	function attemptsMeta() {
-		return state.max_attempts > 1
+		return state.max_attempts > 0
 			? `Попытка ${ Math.min( state.attempts_used + 1, state.max_attempts ) } из ${ state.max_attempts }`
 			: '';
 	}
@@ -181,23 +201,20 @@ function mountWork( panel, root ) {
 			fd.append( 'answers', JSON.stringify( answers ) );
 		}
 
-		let res;
+		let d;
 		try {
-			const r = await fetch( vars.ajax_url, { method: 'POST', body: fd } );
-			res     = await r.json();
-		} catch {
-			toast( 'Не удалось отправить работу. Попробуйте ещё раз.' );
+			d = await playerPost( fd );
+		} catch ( err ) {
+			const text = err instanceof PlayerRequestError
+				? err.toUserText()
+				: 'Не удалось отправить работу. Попробуйте ещё раз.';
+			toast( `Работа не отправлена. ${ text }`, 'error' );
 			return;
 		}
 
-		if ( ! res?.success ) {
-			toast( res?.data?.message || 'Не удалось отправить работу.' );
-			return;
-		}
-
-		const d = res.data;
 		if ( undefined !== d.attempts_used ) { state.attempts_used = Number( d.attempts_used ) || 0; }
 		if ( undefined !== d.max_attempts ) { state.max_attempts = Number( d.max_attempts ) || 0; }
+		if ( Array.isArray( d.locked_task_ids ) ) { state.locked_task_ids = d.locked_task_ids; }
 		state.submission = {
 			status      : d.status,
 			status_label: d.status_label,
@@ -250,13 +267,14 @@ function mountWork( panel, root ) {
 		} );
 		h += '</div>';
 
-		// Tasks.md, п. 8: пересдача — только пока остались попытки; когда лимит
-		// исчерпан, вместо кнопки объясняем почему (иначе клик молча падал бы
-		// на серверной проверке).
-		const left = attemptsLeft();
+		// Пересдача — только пока остались попытки и есть что исправлять; когда
+		// лимит исчерпан, вместо кнопки объясняем почему (иначе клик молча падал
+		// бы на серверной проверке).
+		const left     = attemptsLeft();
+		const canRetry = left > 0 && ! allLocked();
 		h += '<div class="work-resfoot">' +
-			( left > 0
-				? '<button type="button" class="b" data-work-retry>Пройти заново</button>'
+			( canRetry
+				? '<button type="button" class="b" data-work-retry>Исправить и сдать заново</button>'
 				: '' ) +
 			( Infinity !== left
 				? `<span class="work-attempts-note">${ esc( left > 0
@@ -324,17 +342,20 @@ function mountWork( panel, root ) {
 			'</div>';
 	}
 
-	// ── «Пройти заново» (полностью новая попытка, БЕЗ переноса старых ответов —
-	// предыдущая сдача остаётся в истории попыток педагога нетронутой, см.
-	// .docs/Tasks.md). Виджеты пересоздаются с нуля (тот же приём, что
-	// step-task.js::retry()), а не просто очищаются — это универсально работает
-	// для всех типов (Choice/Matching/Ordering/Fill), не только текстовых.
+	// ── «Исправить и сдать заново» (.docs/Tasks.md, п. 1) ─────────────────
+	// Ответы прошлой сдачи остаются в полях; засчитанные задания (верные и
+	// оценённые преподавателем) закрыты — сервер их всё равно не перепроверит.
+	// Виджеты пересоздаются с нуля (тот же приём, что step-task.js::retry()):
+	// это универсально работает для всех типов (Choice/Matching/Ordering/Fill).
 	function retry() {
-		if ( 0 === attemptsLeft() ) { toast( 'Попытки сдачи исчерпаны' ); return; }
+		if ( 0 === attemptsLeft() ) { toast( 'Попытки сдачи исчерпаны', 'error' ); return; }
+		if ( allLocked() ) { toast( 'Все задания уже засчитаны' ); return; }
 
 		resultsRoot.hidden  = true;
 		progressRoot.hidden = false;
 		renderAttemptsMeta();
+
+		const locked = lockedIds();
 
 		cards.forEach( ( card ) => {
 			const taskId    = card.dataset.taskId;
@@ -347,6 +368,16 @@ function mountWork( panel, root ) {
 			const widget = initTaskWidget( card );
 			if ( ! widget ) { return; }
 			widgets.set( taskId, widget );
+
+			const previous = parseAnswer( state.task_results[ taskId ]?.answer );
+			if ( undefined !== previous && null !== previous && '' !== previous ) { widget.setAnswer( previous ); }
+
+			card.classList.toggle( 'is-locked', locked.has( taskId ) );
+			if ( locked.has( taskId ) ) {
+				widget.lock();
+				updateChip( card, widget );
+				return;
+			}
 
 			widget.onChange( () => {
 				drafts[ taskId ] = parseAnswer( widget.collectAnswer() );
@@ -361,7 +392,7 @@ function mountWork( panel, root ) {
 		clearDrafts( draftKey );
 
 		updateProgress();
-		toast( 'Работа сброшена — решите её заново' );
+		toast( locked.size ? 'Засчитанные задания закрыты — исправьте остальные' : 'Исправьте ответы и сдайте работу заново' );
 	}
 
 

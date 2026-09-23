@@ -47,3 +47,9 @@
 .fs-logs__export-btn {
   margin-left: auto;
 }
+
+// Пояснение под значением ячейки: расшифровка кода, путь страницы (журнал «Ошибки»)
+.fs-logs__subline {
+  display: block;
+  margin-top: $spacing-xs;
+}

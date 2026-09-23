@@ -62,6 +62,7 @@ use Inc\Controllers\Settings\ConfigController;
 use Inc\Controllers\Settings\SettingsController;
 use Inc\Services\Update\GithubReleaseUpdater;
 use Inc\Controllers\Subscribers\AuthLogController; // логирует общие WP-события (wp_login, wp_login_failed)
+use Inc\Controllers\Subscribers\ErrorLogController;
 use Inc\Controllers\Subscribers\EntityAuditSubscriber;
 use Inc\Controllers\Subscribers\PostEntityAuditController;
 use Inc\Controllers\Subscribers\EnrollmentAuditSubscriber;
@@ -98,6 +99,7 @@ use Inc\Core\Enqueue;
 use Inc\Migrations\Migration_1_0_0;
 use Inc\Migrations\Migration_1_0_8;
 use Inc\Migrations\Migration_1_0_32;
+use Inc\Migrations\Migration_1_0_33;
 use Inc\Migrations\MigrationRunner;
 use Inc\Services\Log\LogEventDispatcher;
 use Inc\Services\Shared\WpClock;
@@ -186,6 +188,7 @@ final class Init {
 			GithubReleaseUpdater::class, // Индикатор «Доступно обновление» из GitHub Releases (Qabasya/fs-lms)
 			LogsController::class,
 			AuthLogController::class,
+			ErrorLogController::class, // журнал «Ошибки»: отказы AJAX, истёкшие сессии, сбои из браузера
 			EntityAuditSubscriber::class,
 			PostEntityAuditController::class,
 			EnrollmentAuditSubscriber::class,
@@ -267,6 +270,7 @@ final class Init {
 		$migrationRunner->register( new Migration_1_0_0() );
 		$migrationRunner->register( new Migration_1_0_8() );
 		$migrationRunner->register( new Migration_1_0_32() );
+		$migrationRunner->register( new Migration_1_0_33() );
 		$migrationRunner->run();
 
 		// Data-миграция (не схема): ссылки на файлы заданий со старой схемой

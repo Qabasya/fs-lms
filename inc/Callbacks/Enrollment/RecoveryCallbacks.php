@@ -100,6 +100,8 @@ class RecoveryCallbacks extends BaseController {
 			$this->retentionService->purgeOldAuditLogs();
 			// Очистка старых записей доступа к PII
 			$this->retentionService->purgeOldPiiAccessLogs();
+			// Журнал ошибок пользователей
+			$this->retentionService->purgeOldErrorLogs();
 		} catch ( \Throwable $e ) {
 			PluginLogger::exception( 'RetentionCleanup', $e, array(), true );
 		}

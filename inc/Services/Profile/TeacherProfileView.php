@@ -14,7 +14,6 @@ use Inc\Enums\Wp\PageRoutes;
 use Inc\Managers\Course\CourseManager;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
-use Inc\Services\Course\SubmissionService;
 
 /**
  * Class TeacherProfileView
@@ -172,8 +171,6 @@ final class TeacherProfileView implements ProfileViewInterface {
 			// Деталь работы + оценивание (нонс GradeWork) для «Сводки по ученику» (T10.9).
 			'review'   => array(
 				'nonce'   => Nonce::GradeWork->create(),
-				// Tasks.md п. 8: жёсткий лимит сдач работы — счётчик попыток на экране проверки.
-				'maxAttempts' => SubmissionService::MAX_WORK_ATTEMPTS,
 				'actions' => array(
 					'getDetail'         => AjaxHook::GetWorkDetail->jsAction(),
 					'saveGrade'         => AjaxHook::SaveGrade->jsAction(),

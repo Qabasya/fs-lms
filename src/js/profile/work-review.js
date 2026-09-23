@@ -113,7 +113,7 @@ function render(d, history = []) {
 
     // «Пройти заново» (.docs/Tasks.md): выбор попытки — только когда их больше одной.
     const currentRound = history.length ? Math.max(...history.map(h => h.round)) : null;
-    const picker = attemptPickerBlock(history, currentRound);
+    const picker = attemptPickerBlock(history, currentRound, Number(d.max_attempts) || 0);
 
     wrRoot.innerHTML = `
         <div class="wr-screen">
@@ -158,7 +158,7 @@ function render(d, history = []) {
 /* «Пройти заново»: выбор раунда сдачи (Tasks.md п. 8 — вместо строки пилюль,
    которая расползалась на десяток попыток). Последний раунд всегда «текущий» —
    то, что и так показывает экран. */
-function attemptPickerBlock(history, currentRound) {
+function attemptPickerBlock(history, currentRound, maxAttempts) {
     if (history.length < 2) { return ''; }
 
     const options = history.slice().reverse().map(h => {
@@ -172,15 +172,14 @@ function attemptPickerBlock(history, currentRound) {
     return `<div class="wr-attempts">
         <label class="wr-attempts-label" for="wrAttemptPick">Попытка</label>
         <select class="wk-select wr-attempt-select" id="wrAttemptPick">${options}</select>
-        <span class="wr-attempts-count">${esc(attemptsCountText(history.length))}</span>
+        <span class="wr-attempts-count">${esc(attemptsCountText(history.length, maxAttempts))}</span>
     </div>`;
 }
 
-/* Счётчик попыток в шапке выбора: жёсткий лимит сдач один на всю платформу
-   (SubmissionService::MAX_WORK_ATTEMPTS, приезжает в конфиге экрана) — учителю
-   важно видеть, сколько у ученика осталось, прежде чем сбрасывать попытки. */
-function attemptsCountText(used) {
-    const max = Number(window.fsProfile?.review?.maxAttempts) || 0;
+/* Счётчик попыток в шапке выбора: лимит сдач — настройка работы (max_attempts
+   в детали работы, 0 — без ограничений). Учителю важно видеть, сколько у ученика
+   осталось, прежде чем сбрасывать попытки. */
+function attemptsCountText(used, max) {
     return max > 0 ? `${used} из ${max}` : `${used}`;
 }
 

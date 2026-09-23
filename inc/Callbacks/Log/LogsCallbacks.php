@@ -211,6 +211,16 @@ class LogsCallbacks extends BaseController {
 	}
 
 	/**
+	 * Экспорт журнала ошибок пользователей (error_log).
+	 */
+	public function ajaxExportErrorLog(): void {
+		$this->authorize( Nonce::Manager, Capability::ManageLmsPlatform );
+		$filters = $this->logFilters( array( 'code', 'ref', 'user_id', 'source', 'date_from', 'date_to' ) );
+		$url     = $this->exportService->run( ExportTarget::LogErrors, $filters );
+		$this->success( array( 'url' => $url ) );
+	}
+
+	/**
 	 * Собирает ненулевые фильтры из $_POST по списку ключей.
 	 *
 	 * @param string[] $keys Список ключей для извлечения
@@ -230,6 +240,10 @@ class LogsCallbacks extends BaseController {
 			'email_type'    => fn() => $this->sanitizeKey( 'email_type' ),
 			'status'        => fn() => $this->sanitizeKey( 'status' ),
 			'result'        => fn() => $this->sanitizeKey( 'result' ),
+			'code'          => fn() => strtoupper( $this->sanitizeText( 'code' ) ),
+			'ref'           => fn() => strtoupper( $this->sanitizeText( 'ref' ) ),
+			'user_id'       => fn() => $this->sanitizeInt( 'user_id' ) ?: null,
+			'source'        => fn() => $this->sanitizeKey( 'source' ),
 			'date_from'     => fn() => $this->sanitizeText( 'date_from' ),
 			'date_to'       => fn() => $this->sanitizeText( 'date_to' ),
 		);

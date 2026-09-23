@@ -28,6 +28,8 @@ readonly class SubmissionDTO {
 		public ?string           $gradedAt,
 		public string            $createdAt,
 		public string            $updatedAt,
+		/** Сколько раз работа сдана — только у агрегатной строки (task_id = null). */
+		public int               $attemptCount = 0,
 	) {}
 
 	public function isLate(): bool {
@@ -57,6 +59,7 @@ readonly class SubmissionDTO {
 			gradedAt        : $row['graded_at'] ?? null,
 			createdAt       : (string) ( $row['created_at'] ?? '' ),
 			updatedAt       : (string) ( $row['updated_at'] ?? '' ),
+			attemptCount    : (int) ( $row['attempt_count'] ?? 0 ),
 		);
 	}
 }

@@ -384,6 +384,9 @@ class Migration_1_0_0 implements MigrationInterface {
 		) $cc;"
 		);
 
+		// ===== 14a. error_log — журнал ошибок пользователей (Migration_1_0_33) =====
+		dbDelta( Migration_1_0_33::errorLogDdl( $cc ) );
+
 		// ===== 15. group_lessons — программа группы (Этап 2) =====
 		$group_lessons = TableName::GroupLessons->prefixed();
 		dbDelta(
@@ -464,6 +467,7 @@ class Migration_1_0_0 implements MigrationInterface {
 			graded_by_user_id   bigint unsigned      DEFAULT NULL,
 			submitted_at        datetime             DEFAULT NULL,
 			graded_at           datetime             DEFAULT NULL,
+			attempt_count       smallint unsigned    NOT NULL DEFAULT 0,
 			created_at          datetime             NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			updated_at          datetime             NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 			PRIMARY KEY  (id),
@@ -661,6 +665,7 @@ class Migration_1_0_0 implements MigrationInterface {
 			TableName::Submissions->prefixed(),
 			TableName::LearningEvents->prefixed(),
 			TableName::GroupLessons->prefixed(),
+			TableName::ErrorLog->prefixed(),
 			TableName::AuthLog->prefixed(),
 			TableName::EmailLog->prefixed(),
 			TableName::ConsentChangeLog->prefixed(),

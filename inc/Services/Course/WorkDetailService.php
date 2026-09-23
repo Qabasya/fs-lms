@@ -137,12 +137,17 @@ class WorkDetailService {
 		$work    = $this->works->get( $sub->workId );
 		$itemIds = $work?->itemIds ? array_map( 'intval', $work->itemIds ) : array();
 
+		// Засчитанное задание при пересдаче не перепроверяется, и в позднем раунде
+		// его попытки нет — показываем последнюю прежнюю (ответ в силе и сейчас).
+		$lastByTask = array();
+
 		$result = array();
 		foreach ( $rounds as $round => $roundAttempts ) {
-			$byTask = array();
+			$byTask = $lastByTask;
 			foreach ( $roundAttempts as $a ) {
 				$byTask[ $a->taskId ] = $a;
 			}
+			$lastByTask = $byTask;
 
 			$orderedTaskIds = $itemIds ?: array_keys( $byTask );
 			$submittedAt    = $roundAttempts[0]->createdAt;
@@ -362,6 +367,8 @@ class WorkDetailService {
 		return array(
 			'kind'            => 'work',
 			'title'           => $work?->title ?? 'Работа',
+			// Лимит сдач работы (0 — без ограничений) — счётчик попыток на экране проверки.
+			'max_attempts'    => $work?->maxAttempts ?? 0,
 			'status'          => $sub->status->value,
 			'score'           => $sub->score,
 			'max_score'       => $sub->maxScore,

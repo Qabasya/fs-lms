@@ -156,12 +156,15 @@ class BundleLoader extends BaseController {
 					'previewCheckTask'       => AjaxHook::PreviewCheckTask->jsAction(),
 					'previewCheckWork'       => AjaxHook::PreviewCheckWork->jsAction(),
 					'previewCheckAssessment' => AjaxHook::PreviewCheckAssessment->jsAction(),
+					// Журнал «Ошибки»: сбой, которого сервер не видел (ответ не JSON, нет сети).
+					'reportClientError'      => AjaxHook::ReportClientError->jsAction(),
 				),
 				'nonces'   => array(
-					'markStep'        => Nonce::MarkStepProgress->create(),
-					'submitTask'      => Nonce::SubmitTaskAnswer->create(),
-					'submitBatchWork' => Nonce::SubmitBatchWork->create(),
-					'previewSolve'    => Nonce::PreviewSolve->create(),
+					'markStep'          => Nonce::MarkStepProgress->create(),
+					'submitTask'        => Nonce::SubmitTaskAnswer->create(),
+					'submitBatchWork'   => Nonce::SubmitBatchWork->create(),
+					'previewSolve'      => Nonce::PreviewSolve->create(),
+					'reportClientError' => Nonce::ReportClientError->create(),
 				),
 			)
 		);

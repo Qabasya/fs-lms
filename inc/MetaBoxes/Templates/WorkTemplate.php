@@ -5,12 +5,13 @@ declare( strict_types=1 );
 namespace Inc\MetaBoxes\Templates;
 
 use Inc\MetaBoxes\Fields\InputField;
+use Inc\MetaBoxes\Fields\NumberInputField;
 use Inc\MetaBoxes\Fields\WorkTypeField;
 
 /**
  * Class WorkTemplate
  *
- * Метабокс работы: тип работы + неизменяемый префикс нумерации заданий.
+ * Метабокс работы: тип работы, неизменяемый префикс нумерации заданий и лимит сдач.
  * Описание/инструкция — нативный редактор (`post_content`). Состав заданий —
  * степ-лист «только задачи» (`item_ids` через AJAX).
  *
@@ -27,6 +28,11 @@ class WorkTemplate extends BaseTemplate {
 			'task_number_prefix' => array(
 				'label'  => 'Префикс нумерации заданий',
 				'object' => new InputField(),
+			),
+			// Сколько раз ученик может сдать работу; 0 — без ограничений.
+			'max_attempts' => array(
+				'label'  => 'Максимум попыток сдачи (0 — без ограничений)',
+				'object' => new NumberInputField(),
 			),
 		);
 	}

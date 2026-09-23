@@ -113,8 +113,9 @@ class WorkManager {
 	private function saveMeta( int $workId, WorkDTO $dto ): void {
 		// instructions схлопнут в post_content (см. create/update) — в мете не дублируем.
 		$this->posts->updateMeta( $workId, PostMetaName::Meta->value, array(
-			'work_type' => $dto->workType->value,
-			'item_ids'  => $dto->itemIds,
+			'work_type'    => $dto->workType->value,
+			'item_ids'     => $dto->itemIds,
+			'max_attempts' => $dto->maxAttempts,
 		) );
 		// Плоский ключ для фильтрации в list table (meta_query не умеет в сериализованные массивы).
 		$this->posts->updateMeta( $workId, PostMetaName::WorkType->value, $dto->workType->value );

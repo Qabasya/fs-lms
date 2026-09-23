@@ -76,6 +76,13 @@
   box-shadow: var(--shadow-sm);
   padding: rem(22) rem(28);
 
+  /* Засчитанное задание при пересдаче: ответ виден, правка закрыта. Не все
+     виджеты умеют lock() до конца (перетаскивание, аудио) — страхует pointer-events. */
+  &.is-locked .fs-task-widget {
+    pointer-events: none;
+    opacity: 0.75;
+  }
+
   .th {
     display: flex;
     align-items: center;

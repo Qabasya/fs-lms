@@ -13,24 +13,16 @@ use Inc\DTO\Course\SubmissionInputDTO;
 use Inc\DTO\Log\Events\LearningEvent;
 use Inc\Enums\Course\AttemptSource;
 use Inc\Enums\Course\SubmissionStatus;
+use Inc\Enums\Log\ErrorCode;
 use Inc\Enums\Log\LogEvent;
 use Inc\Managers\Wp\MediaManager;
 use Inc\Managers\Course\WorkManager;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\SubmissionRepository;
 use Inc\Repositories\WPDBRepositories\TaskAttemptRepository;
+use Inc\Shared\CodedException;
 
 class SubmissionService {
-
-	/**
-	 * Жёсткий потолок числа сдач одной работы одним учеником (Tasks.md, п. 8).
-	 *
-	 * У работы нет настройки попыток (в отличие от задачи-шага, где их задаёт
-	 * `StepSettingsDTO::maxAttempts`), а «Пройти заново» перезаписывает сдачу —
-	 * без потолка ученик может перебирать ответы бесконечно. Считаем раунды по
-	 * `fs_lms_task_attempts` (там копится история пересдач, см. {@see recordWorkAttempt()}).
-	 */
-	public const int MAX_WORK_ATTEMPTS = 10;
 
 	public function __construct(
 		private readonly SubmissionRepository        $submissions,
@@ -89,10 +81,17 @@ class SubmissionService {
 	/**
 	 * Ученик сдаёт работу пакетом (все ответы одной кнопкой).
 	 *
+	 * ### Пересдача (.docs/Tasks.md, п. 1)
+	 *
+	 * Засчитанные задания ({@see self::lockedTaskIds()}) не перепроверяются: их строки,
+	 * вердикты и оценки преподавателя остаются как есть, а ответы на них из запроса
+	 * игнорируются. Проверяются только незачтённые — итог работы собирается из
+	 * прежних вердиктов закрытых заданий и новых по остальным.
+	 *
 	 * @param  array<int, mixed> $answers task_id => ответ (строка или массив для сложных типов)
 	 * @param  array<int, float> $taskPoints task_id => вес (пусто → 1 на задачу)
 	 * @return SubmissionDTO Агрегатная строка (task_id=null).
-	 * @throws \InvalidArgumentException При нарушении правил доступа.
+	 * @throws CodedException При нарушении правил доступа, сроков и лимита попыток.
 	 */
 	public function submitBatch(
 		int   $studentPersonId,
@@ -102,51 +101,58 @@ class SubmissionService {
 		array $taskPoints = [],
 	): SubmissionDTO {
 		if ( ! $this->accessPolicy->canSubmit( $studentPersonId, $groupLessonId ) ) {
-			throw new \InvalidArgumentException( 'Сдача недоступна для данного ученика и урока.' );
+			throw new CodedException( ErrorCode::WorkAccess, 'Сдача недоступна для данного ученика и урока.' );
 		}
 
 		$row = $this->groupLessons->find( $groupLessonId );
 		if ( ! $row ) {
-			throw new \InvalidArgumentException( 'Строка программы не найдена.' );
+			throw new CodedException( ErrorCode::WorkNoLesson, 'Строка программы не найдена.' );
 		}
 
 		$effectiveWorks = $this->worksResolver->resolve( $row );
 		$workIds        = array_map( fn( $w ) => $w->id, $effectiveWorks );
 		if ( ! in_array( $workId, $workIds, true ) ) {
-			throw new \InvalidArgumentException( 'Работа не входит в эффективный набор урока.' );
+			throw new CodedException( ErrorCode::WorkNotInLesson, 'Работа не входит в эффективный набор урока.' );
 		}
 
 		$work = $this->workManager->get( $workId );
 		if ( ! $work ) {
-			throw new \InvalidArgumentException( 'Работа не найдена.' );
+			throw new CodedException( ErrorCode::WorkNotFound, 'Работа не найдена.' );
 		}
 
 		// T12.2 (D13): дедлайн per-work, иначе legacy homeworkDueAt занятия.
 		$dueAt = $row->deadlineForWork( $workId );
 		if ( ! $row->allowLate && null !== $dueAt && $this->clock->now() > $dueAt ) {
-			throw new \InvalidArgumentException( 'Срок сдачи истёк.' );
+			throw new CodedException( ErrorCode::WorkDeadline, 'Срок сдачи истёк.' );
 		}
 
-		// Tasks.md, п. 8: жёсткий потолок пересдач. Проверяем ДО записи попыток —
+		$aggregate    = $this->submissions->findAggregate( $studentPersonId, $groupLessonId, $workId );
+		$attemptsUsed = $this->attemptsUsedFrom( $aggregate, $studentPersonId, $groupLessonId, $workId );
+
+		// Лимит — настройка работы (0 = без ограничений). Проверяем ДО записи попыток —
 		// иначе лимит превышался бы ровно на одну сдачу.
-		if ( $this->workAttemptsUsed( $studentPersonId, $groupLessonId, $workId ) >= self::MAX_WORK_ATTEMPTS ) {
-			throw new \InvalidArgumentException(
-				sprintf( 'Исчерпан лимит попыток сдачи (%d). Обратитесь к преподавателю.', self::MAX_WORK_ATTEMPTS )
+		if ( $work->maxAttempts > 0 && $attemptsUsed >= $work->maxAttempts ) {
+			throw new CodedException(
+				ErrorCode::WorkLimit,
+				sprintf( 'Исчерпан лимит попыток сдачи (%d). Обратитесь к преподавателю.', $work->maxAttempts )
 			);
 		}
 
-		$result  = $this->batchChecker->check( $answers, $taskPoints );
-		$now     = $this->clock->now();
-		// Работа без ручных заданий проверена целиком автопроверкой — учителю в
-		// ней делать нечего, поэтому сразу `graded`. Раньше такая сдача уходила
-		// в `submitted` и застревала: в очереди проверки закрыть её было нечем
-		// (кнопки нет), а в журнал/«Сводку по ученику» она не попадала вовсе —
-		// те берут только оценённые строки (Tasks.md, п. 3 и 6).
-		$status = $result->hasManual
-			? SubmissionStatus::PendingReview->value
-			: SubmissionStatus::Graded->value;
+		$previousVerdicts = $this->snapshotVerdicts( $aggregate );
+		$locked           = null !== $aggregate
+			? $this->lockedFrom( $previousVerdicts, $studentPersonId, $groupLessonId, $workId )
+			: array();
 
-		foreach ( $answers as $taskId => $answer ) {
+		// Ответы на засчитанные задания не принимаем: их итог уже зафиксирован.
+		$toCheck = array_diff_key( $answers, array_flip( $locked ) );
+		if ( null !== $aggregate && array() === $toCheck ) {
+			throw new CodedException( ErrorCode::WorkNothing, 'Все задания уже засчитаны — пересдавать нечего.' );
+		}
+
+		$result = $this->batchChecker->check( $toCheck, $taskPoints );
+		$now    = $this->clock->now();
+
+		foreach ( $toCheck as $taskId => $answer ) {
 			$taskId     = (int) $taskId;
 			$taskResult = $result->perTask[ $taskId ] ?? [ 'verdict' => 'pending', 'score' => 0.0, 'maxScore' => 1.0 ];
 			$taskStatus = 'pending' === $taskResult['verdict']
@@ -157,7 +163,7 @@ class SubmissionService {
 
 			// История пересдач: строка submissions ниже перезапишется, поэтому
 			// каждая попытка отдельно копится в task_attempts (D-хвост Tasks.md).
-			$this->recordWorkAttempt( $studentPersonId, $groupLessonId, $workId, $taskId, $answer, $taskResult );
+			$this->recordWorkAttempt( $studentPersonId, $groupLessonId, $workId, $taskId, $answer, $taskResult, $attemptsUsed + 1 );
 
 			// Автопроверенное задание закрыто прямо сейчас; ручное ждёт учителя —
 			// прошлая отметка о проверке (пересдача уже проверенной работы) снимается.
@@ -166,12 +172,15 @@ class SubmissionService {
 			$existing = $this->submissions->findForWork( $studentPersonId, $groupLessonId, $workId, $taskId );
 			if ( $existing ) {
 				$this->submissions->update( $existing->id, [
-					'answer_text'  => $answerStored,
-					'score'        => $taskResult['score'],
-					'max_score'    => $taskResult['maxScore'],
-					'status'       => $taskStatus,
-					'submitted_at' => $now,
-					'graded_at'    => $taskGradedAt,
+					'answer_text'       => $answerStored,
+					'score'             => $taskResult['score'],
+					'max_score'         => $taskResult['maxScore'],
+					'status'            => $taskStatus,
+					'submitted_at'      => $now,
+					'graded_at'         => $taskGradedAt,
+					// Новый ответ — прежняя оценка и отзыв преподавателя к нему не относятся.
+					'graded_by_user_id' => null,
+					'feedback'          => null,
 				] );
 			} else {
 				$this->submissions->create( new SubmissionInputDTO(
@@ -191,19 +200,31 @@ class SubmissionService {
 			}
 		}
 
-		$aggregate = $this->submissions->findAggregate( $studentPersonId, $groupLessonId, $workId );
-		$verdicts  = wp_json_encode( $result->perTask );
+		// Итог работы: прежние вердикты засчитанных заданий + свежие по остальным.
+		$perTask = array_intersect_key( $previousVerdicts, array_flip( $locked ) ) + $result->perTask;
+		ksort( $perTask );
 
+		$correctCount = count( array_filter( $perTask, static fn( $v ) => 'correct' === ( $v['verdict'] ?? '' ) ) );
+		$hasPending   = array() !== array_filter( $perTask, static fn( $v ) => 'pending' === ( $v['verdict'] ?? '' ) );
+
+		// Работа без ручных заданий проверена целиком автопроверкой — учителю в
+		// ней делать нечего, поэтому сразу `graded`. Раньше такая сдача уходила
+		// в `submitted` и застревала: в очереди проверки закрыть её было нечем
+		// (кнопки нет), а в журнал/«Сводку по ученику» она не попадала вовсе —
+		// те берут только оценённые строки (Tasks.md, п. 3 и 6).
+		$status   = $hasPending ? SubmissionStatus::PendingReview->value : SubmissionStatus::Graded->value;
 		$gradedAt = SubmissionStatus::Graded->value === $status ? $now : null;
+		$verdicts = wp_json_encode( $perTask );
 
 		if ( $aggregate ) {
 			$this->submissions->update( $aggregate->id, [
-				'answer_text'  => $verdicts,
-				'score'        => (float) $result->correctCount,
-				'max_score'    => (float) $result->totalCount,
-				'status'       => $status,
-				'submitted_at' => $now,
-				'graded_at'    => $gradedAt,
+				'answer_text'   => $verdicts,
+				'score'         => (float) $correctCount,
+				'max_score'     => (float) count( $perTask ),
+				'status'        => $status,
+				'submitted_at'  => $now,
+				'graded_at'     => $gradedAt,
+				'attempt_count' => $attemptsUsed + 1,
 			] );
 			$aggregateId = $aggregate->id;
 		} else {
@@ -220,8 +241,9 @@ class SubmissionService {
 				gradedAt        : $gradedAt,
 			) );
 			$this->submissions->update( $aggregateId, [
-				'score'     => (float) $result->correctCount,
-				'max_score' => (float) $result->totalCount,
+				'score'         => (float) $correctCount,
+				'max_score'     => (float) count( $perTask ),
+				'attempt_count' => $attemptsUsed + 1,
 			] );
 		}
 
@@ -247,23 +269,88 @@ class SubmissionService {
 	}
 
 	/**
-	 * Сколько раз ученик уже сдавал эту работу (Tasks.md, п. 8). Плеер читает
-	 * это же число, чтобы предупредить о предпоследней и последней попытке.
+	 * Сколько раз ученик уже сдавал эту работу. Плеер читает это же число, чтобы
+	 * предупредить о предпоследней и последней попытке.
 	 */
 	public function workAttemptsUsed( int $studentPersonId, int $groupLessonId, int $workId ): int {
-		return $this->attempts->maxAttemptNumberByStep(
+		return $this->attemptsUsedFrom(
+			$this->submissions->findAggregate( $studentPersonId, $groupLessonId, $workId ),
 			$studentPersonId,
 			$groupLessonId,
-			AttemptSource::workStepKey( $workId )
+			$workId
 		);
+	}
+
+	/**
+	 * Задания работы, закрытые для пересдачи:
+	 *
+	 * - засчитанные (вердикт «верно» — автопроверкой или преподавателем);
+	 * - оценённые преподавателем (ручное задание проверено, автозадание пересчитано вручную):
+	 *   иначе пересдача сбросила бы его оценку.
+	 *
+	 * @return int[] task_id
+	 */
+	public function lockedTaskIds( int $studentPersonId, int $groupLessonId, int $workId ): array {
+		$aggregate = $this->submissions->findAggregate( $studentPersonId, $groupLessonId, $workId );
+		if ( null === $aggregate ) {
+			return array();
+		}
+
+		return $this->lockedFrom( $this->snapshotVerdicts( $aggregate ), $studentPersonId, $groupLessonId, $workId );
+	}
+
+	/**
+	 * @param array<int, array<string, mixed>> $verdicts Снимок вердиктов агрегата
+	 *
+	 * @return int[]
+	 */
+	private function lockedFrom( array $verdicts, int $studentPersonId, int $groupLessonId, int $workId ): array {
+		$locked = array();
+
+		foreach ( $verdicts as $taskId => $verdict ) {
+			if ( 'correct' === ( $verdict['verdict'] ?? '' ) ) {
+				$locked[] = (int) $taskId;
+			}
+		}
+
+		foreach ( $this->submissions->listPerTaskByStudentWorkLesson( $studentPersonId, $groupLessonId, $workId ) as $taskRow ) {
+			if ( null !== $taskRow->taskId && SubmissionStatus::Graded === $taskRow->status && null !== $taskRow->gradedByUserId ) {
+				$locked[] = $taskRow->taskId;
+			}
+		}
+
+		return array_values( array_unique( $locked ) );
+	}
+
+	/**
+	 * Счётчик сдач агрегата; у сдач до появления счётчика — номер последней попытки
+	 * по истории заданий.
+	 */
+	private function attemptsUsedFrom( ?SubmissionDTO $aggregate, int $studentPersonId, int $groupLessonId, int $workId ): int {
+		return max(
+			$aggregate?->attemptCount ?? 0,
+			$this->attempts->maxAttemptNumberByStep( $studentPersonId, $groupLessonId, AttemptSource::workStepKey( $workId ) )
+		);
+	}
+
+	/**
+	 * @return array<int, array<string, mixed>> task_id => вердикт из JSON-снимка агрегата
+	 */
+	private function snapshotVerdicts( ?SubmissionDTO $aggregate ): array {
+		$decoded = null !== $aggregate ? json_decode( (string) $aggregate->answerText, true ) : null;
+
+		return is_array( $decoded ) ? $decoded : array();
 	}
 
 	/**
 	 * Пишет попытку по задаче работы в общую историю попыток.
 	 *
-	 * Номер считается ПО ЗАДАЧЕ, а не по работе целиком: в одной сдаче задач
-	 * несколько, и сквозная нумерация давала бы задаче №2 номера 2, 4, 6…
+	 * Номер попытки — номер сдачи работы (раунд), общий для всех заданий сдачи:
+	 * при пересдаче перепроверяются только незачтённые задания, и у закрытого
+	 * задания в поздних раундах записи нет — история преподавателя
+	 * ({@see WorkDetailService::attemptHistory()}) подставляет его прежнюю попытку.
 	 *
+	 * @param int                                                    $round      Номер сдачи работы
 	 * @param array{verdict: string, score: float, maxScore: float} $taskResult Итог проверки задачи
 	 */
 	private function recordWorkAttempt(
@@ -272,16 +359,15 @@ class SubmissionService {
 		int   $workId,
 		int   $taskId,
 		mixed $answer,
-		array $taskResult
+		array $taskResult,
+		int   $round
 	): void {
-		$stepKey = AttemptSource::workStepKey( $workId );
-
 		$this->attempts->create(
 			studentPersonId: $studentPersonId,
 			groupLessonId  : $groupLessonId,
-			stepKey        : $stepKey,
+			stepKey        : AttemptSource::workStepKey( $workId ),
 			taskId         : $taskId,
-			attemptNumber  : $this->attempts->countByStepTask( $studentPersonId, $groupLessonId, $stepKey, $taskId ) + 1,
+			attemptNumber  : $round,
 			answer         : $answer,
 			isCorrect      : 'correct' === $taskResult['verdict'],
 			score          : (float) $taskResult['score'],

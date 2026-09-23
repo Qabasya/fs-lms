@@ -66,6 +66,8 @@ readonly class RateLimitService {
 	// IP за школьным NAT общий на класс — ниже 20/час не опускать.
 	private const LIMIT_USERNAME_CHECK = 20;
 	private const LIMIT_EMAIL_CHECK    = 20;
+	/** Отчёты о сбоях из браузера (журнал «Ошибки»): защита таблицы от засева. */
+	private const LIMIT_CLIENT_ERROR   = 30;
 
 	// Неудачные входы: счётчик на пару IP + пользователь. Лимита по одному IP нет —
 	// с одного адреса выходят около 20 человек (перебор логинов сдерживает капча).
@@ -141,6 +143,15 @@ readonly class RateLimitService {
 	public function allowParentSubmit( string $ip ): bool {
 		if ( $this->pluginConfig->isTestEnv() ) { return true; }
 		return $this->checkIp( 'parent', $ip, self::LIMIT_PARENT );
+	}
+
+	/**
+	 * Отчёт о сбое из браузера в журнал «Ошибки».
+	 *
+	 * @param string $ip IP-адрес клиента
+	 */
+	public function allowClientErrorReport( string $ip ): bool {
+		return $this->checkIp( 'clienterr', $ip, self::LIMIT_CLIENT_ERROR );
 	}
 
 	/**

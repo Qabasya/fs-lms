@@ -180,7 +180,8 @@ class SubmissionServiceTest extends TestCase {
 	 */
 	public function test_submit_batch_records_attempt_history(): void {
 		$this->arrangeBatch( $this->makeRow() );
-		$this->taskAttempts->method( 'countByStepTask' )->willReturn( 1 );
+		// Одна сдача уже была — эта вторая: номер попытки = номер сдачи работы.
+		$this->taskAttempts->method( 'maxAttemptNumberByStep' )->willReturn( 1 );
 		$this->taskAttempts->expects( $this->once() )
 			->method( 'create' )
 			->with(
@@ -188,7 +189,7 @@ class SubmissionServiceTest extends TestCase {
 				5,
 				AttemptSource::workStepKey( 3 ),
 				1,
-				2,               // предыдущая попытка была одна → эта вторая
+				2,               // предыдущая сдача была одна → эта вторая
 				'a',
 				true,
 				1.0,
@@ -369,5 +370,155 @@ class SubmissionServiceTest extends TestCase {
 			->with( LogEvent::SubmissionReturned );
 
 		$this->service->returnForRework( 7, 'Needs revision', 99 );
+	}
+
+	// ===== Пересдача (.docs/Tasks.md, п. 1) и лимит сдач работы =====
+
+	/** Общая обвязка пересдачи: доступ, работа с лимитом, агрегат прошлой сдачи. */
+	private function arrangeResubmit( SubmissionDTO $aggregate, int $maxAttempts = 0, array $perTaskRows = array() ): void {
+		$this->policy->method( 'canSubmit' )->willReturn( true );
+		$this->groupLessons->method( 'find' )->willReturn( $this->makeRow() );
+		$this->resolver->method( 'resolve' )->willReturn( [ $this->makeWork( 3 ) ] );
+		$this->workManager->method( 'get' )->willReturn( new WorkDTO(
+			id          : 3,
+			subjectKey  : 'inf',
+			title       : 'Work #3',
+			workType    : WorkType::Practice,
+			itemIds     : [ 1, 2 ],
+			instructions: '',
+			authorId    : 1,
+			status      : 'publish',
+			maxAttempts : $maxAttempts,
+		) );
+		$this->submissions->method( 'findAggregate' )->willReturn( $aggregate );
+		$this->submissions->method( 'listPerTaskByStudentWorkLesson' )->willReturn( $perTaskRows );
+		$this->submissions->method( 'findForWork' )->willReturn( null );
+	}
+
+	private function aggregateAfter( int $attempts, array $verdicts ): SubmissionDTO {
+		$base = $this->makeAggregateWithVerdicts( 1, $verdicts );
+
+		return SubmissionDTO::fromArray( array(
+			'id'                => $base->id,
+			'student_person_id' => 10,
+			'group_lesson_id'   => 5,
+			'work_id'           => 3,
+			'work_type'         => 'practice',
+			'task_id'           => null,
+			'answer_text'       => $base->answerText,
+			'status'            => 'graded',
+			'created_at'        => '2024-01-01 00:00:00',
+			'updated_at'        => '2024-01-01 00:00:00',
+			'attempt_count'     => $attempts,
+		) );
+	}
+
+	public function test_resubmit_rechecks_only_not_credited_tasks(): void {
+		$this->arrangeResubmit( $this->aggregateAfter( 1, array(
+			1 => array( 'verdict' => 'correct', 'score' => 1.0, 'maxScore' => 1.0 ),
+			2 => array( 'verdict' => 'incorrect', 'score' => 0.0, 'maxScore' => 1.0 ),
+		) ) );
+
+		$this->batchChecker->expects( $this->once() )->method( 'check' )
+			->with( array( 2 => 'исправлено' ) )
+			->willReturn( new BatchCheckResultDTO(
+				perTask         : [ 2 => [ 'verdict' => 'correct', 'score' => 1.0, 'maxScore' => 1.0 ] ],
+				correctCount    : 1,
+				totalCount      : 1,
+				weightedScore   : 1.0,
+				maxWeightedScore: 1.0,
+				hasManual       : false,
+			) );
+
+		$aggregateUpdate = null;
+		$this->submissions->method( 'update' )->willReturnCallback(
+			function ( int $id, array $data ) use ( &$aggregateUpdate ): bool {
+				if ( array_key_exists( 'attempt_count', $data ) ) {
+					$aggregateUpdate = $data;
+				}
+				return true;
+			}
+		);
+
+		// Ответ на засчитанное задание 1 из запроса игнорируется.
+		$this->service->submitBatch( 10, 5, 3, array( 1 => 'подмена', 2 => 'исправлено' ) );
+
+		self::assertSame( 2, $aggregateUpdate['attempt_count'] );
+		self::assertSame( 2.0, $aggregateUpdate['score'] );
+		self::assertSame( 2.0, $aggregateUpdate['max_score'] );
+		self::assertSame( 'graded', $aggregateUpdate['status'] );
+	}
+
+	public function test_task_graded_by_teacher_is_locked(): void {
+		$graded = SubmissionDTO::fromArray( array(
+			'id'                => 20,
+			'student_person_id' => 10,
+			'group_lesson_id'   => 5,
+			'work_id'           => 3,
+			'work_type'         => 'practice',
+			'task_id'           => 2,
+			'status'            => 'graded',
+			'score'             => 0.5,
+			'max_score'         => 1.0,
+			'graded_by_user_id' => 99,
+			'created_at'        => '2024-01-01 00:00:00',
+			'updated_at'        => '2024-01-01 00:00:00',
+		) );
+		$this->arrangeResubmit(
+			$this->aggregateAfter( 1, array(
+				1 => array( 'verdict' => 'correct', 'score' => 1.0, 'maxScore' => 1.0 ),
+				2 => array( 'verdict' => 'incorrect', 'score' => 0.5, 'maxScore' => 1.0 ),
+			) ),
+			0,
+			array( $graded )
+		);
+
+		self::assertSame( array( 1, 2 ), $this->service->lockedTaskIds( 10, 5, 3 ) );
+	}
+
+	public function test_resubmit_with_everything_credited_is_rejected(): void {
+		$this->arrangeResubmit( $this->aggregateAfter( 1, array(
+			1 => array( 'verdict' => 'correct', 'score' => 1.0, 'maxScore' => 1.0 ),
+		) ) );
+		$this->batchChecker->expects( $this->never() )->method( 'check' );
+
+		try {
+			$this->service->submitBatch( 10, 5, 3, array( 1 => 'a' ) );
+			self::fail( 'Ожидался отказ' );
+		} catch ( \Inc\Shared\CodedException $e ) {
+			self::assertSame( \Inc\Enums\Log\ErrorCode::WorkNothing, $e->errorCode );
+		}
+	}
+
+	public function test_work_attempt_limit_blocks_submission(): void {
+		$this->arrangeResubmit(
+			$this->aggregateAfter( 2, array( 1 => array( 'verdict' => 'incorrect', 'score' => 0.0, 'maxScore' => 1.0 ) ) ),
+			2
+		);
+		$this->batchChecker->expects( $this->never() )->method( 'check' );
+
+		try {
+			$this->service->submitBatch( 10, 5, 3, array( 1 => 'a' ) );
+			self::fail( 'Ожидался отказ' );
+		} catch ( \Inc\Shared\CodedException $e ) {
+			self::assertSame( \Inc\Enums\Log\ErrorCode::WorkLimit, $e->errorCode );
+		}
+	}
+
+	public function test_zero_limit_means_unlimited(): void {
+		$this->arrangeResubmit(
+			$this->aggregateAfter( 50, array( 1 => array( 'verdict' => 'incorrect', 'score' => 0.0, 'maxScore' => 1.0 ) ) ),
+			0
+		);
+		$this->batchChecker->method( 'check' )->willReturn( new BatchCheckResultDTO(
+			perTask         : [ 1 => [ 'verdict' => 'incorrect', 'score' => 0.0, 'maxScore' => 1.0 ] ],
+			correctCount    : 0,
+			totalCount      : 1,
+			weightedScore   : 0.0,
+			maxWeightedScore: 1.0,
+			hasManual       : false,
+		) );
+
+		self::assertInstanceOf( SubmissionDTO::class, $this->service->submitBatch( 10, 5, 3, array( 1 => 'a' ) ) );
 	}
 }

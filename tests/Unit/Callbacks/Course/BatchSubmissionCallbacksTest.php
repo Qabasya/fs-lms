@@ -51,7 +51,8 @@ class BatchSubmissionCallbacksTest extends TestCase {
 		$this->guard->method( 'isMemberEver' )->willReturnCallback( fn(): bool => $this->isMember );
 
 		$this->cb = new BatchSubmissionCallbacks(
-			$this->service, $this->persons, $this->submissionRepo, $this->groupLessons, $this->guard
+			$this->service, $this->persons, $this->submissionRepo, $this->groupLessons, $this->guard,
+			$this->createStub( \Inc\Managers\Course\WorkManager::class )
 		);
 	}
 
@@ -135,6 +136,9 @@ class BatchSubmissionCallbacksTest extends TestCase {
 		$r = fs_test_capture_json( fn() => $this->cb->ajaxSubmitBatchWork() );
 
 		self::assertFalse( $r->success );
+		// Код и номер инцидента — их ученик видит в тосте, по ним запись ищется в журнале «Ошибки».
+		self::assertSame( 'W-NOT-MEMBER', $r->payload['code'] );
+		self::assertMatchesRegularExpression( '/^[0-9A-F]{6}$/', $r->payload['ref'] );
 	}
 
 	public function test_submit_batch_invalid_answers_errors(): void {
