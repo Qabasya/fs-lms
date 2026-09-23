@@ -66,6 +66,7 @@ class AttemptServiceTest extends TestCase {
 			$this->access,
 			$this->completeness,
 			$this->revealPolicy,
+			$this->createMock( \Inc\Repositories\WPDBRepositories\PersonRepository::class ),
 		);
 	}
 

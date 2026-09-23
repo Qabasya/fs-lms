@@ -15,6 +15,7 @@ use Inc\Managers\Assessment\AssessmentManager;
 use Inc\Managers\Wp\PostManager;
 use Inc\Repositories\WPDBRepositories\AssessmentAnswerRepository;
 use Inc\Repositories\WPDBRepositories\AssessmentAttemptRepository;
+use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Services\Course\BatchCheckService;
 use Inc\Services\Template\TemplateRegistry;
 use Inc\Services\Template\TemplateResolver;
@@ -30,7 +31,13 @@ class AutoGradeService {
 		private readonly AssessmentManager           $assessments,
 		private readonly BatchCheckService           $batchCheck,
 		private readonly TemplateRegistry            $templates,
+		private readonly PersonRepository            $persons,
 	) {}
+
+	/** В ленту пишется WP-пользователь, а не персона (actor_user_id резолвится через get_userdata()). */
+	private function actorUserId( int $studentPersonId ): int {
+		return $this->persons->find( $studentPersonId )?->wpUserId ?? 0;
+	}
 
 	/**
 	 * Пересчитывает итоговый балл и статус попытки на основе текущих ответов.
@@ -240,7 +247,7 @@ class AutoGradeService {
 				LogEvent::AttemptGraded,
 				new LearningEvent(
 					event      : LogEvent::AttemptGraded,
-					actorUserId: $attempt->studentPersonId,
+					actorUserId: $this->actorUserId( $attempt->studentPersonId ),
 					groupId    : $attempt->groupId,
 					entityType : 'attempt',
 					entityId   : (string) $attempt->id,

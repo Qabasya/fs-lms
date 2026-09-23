@@ -12,6 +12,8 @@ use Inc\DTO\Course\GroupLessonDTO;
 use Inc\DTO\Course\SubmissionDTO;
 use Inc\DTO\Course\SubmissionInputDTO;
 use Inc\DTO\Course\WorkDTO;
+use Inc\DTO\Log\Events\LearningEvent;
+use Inc\DTO\Person\PersonDTO;
 use Inc\Enums\Log\LogEvent;
 use Inc\Enums\Course\AttemptSource;
 use Inc\Enums\Course\SubmissionStatus;
@@ -19,6 +21,7 @@ use Inc\Enums\Course\WorkType;
 use Inc\Managers\Wp\MediaManager;
 use Inc\Managers\Course\WorkManager;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
+use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Repositories\WPDBRepositories\SubmissionRepository;
 use Inc\Repositories\WPDBRepositories\TaskAttemptRepository;
 use Inc\Services\Course\BatchCheckService;
@@ -39,6 +42,7 @@ class SubmissionServiceTest extends TestCase {
 	private BatchCheckService&\PHPUnit\Framework\MockObject\MockObject $batchChecker;
 	private ClockInterface&\PHPUnit\Framework\MockObject\MockObject $clock;
 	private TaskAttemptRepository&\PHPUnit\Framework\MockObject\MockObject $taskAttempts;
+	private PersonRepository&\PHPUnit\Framework\MockObject\MockObject $persons;
 	private SubmissionService $service;
 
 	protected function setUp(): void {
@@ -54,6 +58,7 @@ class SubmissionServiceTest extends TestCase {
 		$this->clock        = $this->createMock( ClockInterface::class );
 		$this->clock->method( 'now' )->willReturn( '2024-06-01 12:00:00' );
 		$this->taskAttempts = $this->createMock( TaskAttemptRepository::class );
+		$this->persons      = $this->createMock( PersonRepository::class );
 
 		$this->service = new SubmissionService(
 			$this->submissions,
@@ -66,6 +71,7 @@ class SubmissionServiceTest extends TestCase {
 			$this->dispatcher,
 			$this->clock,
 			$this->taskAttempts,
+			$this->persons,
 		);
 	}
 
@@ -195,6 +201,21 @@ class SubmissionServiceTest extends TestCase {
 				1.0,
 				1.0,
 				array()
+			);
+
+		$this->service->submitBatch( 10, 5, 3, array( 1 => 'a' ) );
+	}
+
+	/** В ленту «Активность» уходит WP-пользователь ученика, а не ID его персоны. */
+	public function test_submit_batch_event_actor_is_wp_user_not_person(): void {
+		$this->arrangeBatch( $this->makeRow() );
+		$this->persons->method( 'find' )->with( 10 )->willReturn(
+			new PersonDTO( 10, 77, 'Иванов', 'Иван', null, null, true, null, null, null, '', '' )
+		);
+		$this->dispatcher->expects( $this->once() )->method( 'dispatch' )
+			->with(
+				LogEvent::SubmissionMade,
+				$this->callback( fn( LearningEvent $e ) => 77 === $e->actorUserId )
 			);
 
 		$this->service->submitBatch( 10, 5, 3, array( 1 => 'a' ) );

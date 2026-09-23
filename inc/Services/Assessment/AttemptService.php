@@ -15,6 +15,7 @@ use Inc\Enums\Log\LogEvent;
 use Inc\Managers\Assessment\AssessmentManager;
 use Inc\Repositories\WPDBRepositories\AssessmentAnswerRepository;
 use Inc\Repositories\WPDBRepositories\AssessmentAttemptRepository;
+use Inc\Repositories\WPDBRepositories\PersonRepository;
 
 class AttemptService {
 
@@ -28,7 +29,13 @@ class AttemptService {
 		private readonly AssessmentAccessPolicy      $access,
 		private readonly EgeCompletenessChecker      $completeness,
 		private readonly AttemptRevealPolicy         $revealPolicy,
+		private readonly PersonRepository            $persons,
 	) {}
+
+	/** В ленту пишется WP-пользователь, а не персона (actor_user_id резолвится через get_userdata()). */
+	private function actorUserId( int $studentPersonId ): int {
+		return $this->persons->find( $studentPersonId )?->wpUserId ?? 0;
+	}
 
 	/**
 	 * Старт попытки.
@@ -96,7 +103,7 @@ class AttemptService {
 			LogEvent::AttemptStarted,
 			new LearningEvent(
 				event      : LogEvent::AttemptStarted,
-				actorUserId: $studentPersonId,
+				actorUserId: $this->actorUserId( $studentPersonId ),
 				groupId    : $groupId,
 				entityType : 'attempt',
 				entityId   : (string) $id,
@@ -149,7 +156,7 @@ class AttemptService {
 			LogEvent::AttemptSubmitted,
 			new LearningEvent(
 				event      : LogEvent::AttemptSubmitted,
-				actorUserId: $studentPersonId,
+				actorUserId: $this->actorUserId( $studentPersonId ),
 				groupId    : $attempt->groupId,
 				entityType : 'attempt',
 				entityId   : (string) $attempt->id,
@@ -181,7 +188,7 @@ class AttemptService {
 			LogEvent::AttemptExpired,
 			new LearningEvent(
 				event      : LogEvent::AttemptExpired,
-				actorUserId: $attempt->studentPersonId,
+				actorUserId: $this->actorUserId( $attempt->studentPersonId ),
 				groupId    : $attempt->groupId,
 				entityType : 'attempt',
 				entityId   : (string) $attempt->id,

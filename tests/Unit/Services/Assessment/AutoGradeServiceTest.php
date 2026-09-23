@@ -61,6 +61,7 @@ class AutoGradeServiceTest extends TestCase {
 			$this->assessments,
 			$this->batchCheck,
 			$this->templates,
+			$this->createMock( \Inc\Repositories\WPDBRepositories\PersonRepository::class ),
 		);
 
 		// Нет сохранённых ответов — оцениваем по полному составу работы.

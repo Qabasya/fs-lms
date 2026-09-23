@@ -18,6 +18,7 @@ use Inc\Enums\Log\LogEvent;
 use Inc\Managers\Wp\MediaManager;
 use Inc\Managers\Course\WorkManager;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
+use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Repositories\WPDBRepositories\SubmissionRepository;
 use Inc\Repositories\WPDBRepositories\TaskAttemptRepository;
 use Inc\Shared\CodedException;
@@ -35,7 +36,13 @@ class SubmissionService {
 		private readonly LogEventDispatcherInterface $dispatcher,
 		private readonly ClockInterface              $clock,
 		private readonly TaskAttemptRepository       $attempts,
+		private readonly PersonRepository            $persons,
 	) {}
+
+	/** В ленту пишется WP-пользователь, а не персона (actor_user_id резолвится через get_userdata()). */
+	private function actorUserId( int $studentPersonId ): int {
+		return $this->persons->find( $studentPersonId )?->wpUserId ?? 0;
+	}
 
 
 	/** Преподаватель оценивает сдачу. */
@@ -255,7 +262,7 @@ class SubmissionService {
 			LogEvent::SubmissionMade,
 			new LearningEvent(
 				event      : LogEvent::SubmissionMade,
-				actorUserId: $studentPersonId,
+				actorUserId: $this->actorUserId( $studentPersonId ),
 				groupId    : $row->groupId,
 				entityType : 'submission',
 				entityId   : (string) $aggregateId,

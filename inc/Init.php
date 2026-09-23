@@ -285,5 +285,7 @@ final class Init {
 		$container->get( \Inc\Migrations\SubmissionScoreBackfillMigration::class )->run();
 		// Адреса экзаменов — по ID вместо названия (кириллица в ссылке).
 		$container->get( \Inc\Migrations\AssessmentSlugMigration::class )->run();
+		// Лента «Активность»: события ученика писали ID персоны вместо WP-пользователя.
+		$container->get( \Inc\Migrations\LearningEventActorMigration::class )->run();
 	}
 }
