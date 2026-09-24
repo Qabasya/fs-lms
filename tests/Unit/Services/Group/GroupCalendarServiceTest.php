@@ -45,6 +45,7 @@ class GroupCalendarServiceTest extends TestCase {
 			$this->lessonManager,
 			$this->groups,
 			new ScheduleEventPublisher( $this->createMock( LogEventDispatcherInterface::class ) ),
+			$this->createMock( \Inc\Services\Group\ScheduleReflowService::class ),
 		);
 
 		$this->service = new GroupCalendarService(
@@ -54,6 +55,7 @@ class GroupCalendarServiceTest extends TestCase {
 			$this->calendar,
 			$this->createMock( EffectiveTeacherResolver::class ),
 			$program,
+			$this->lessonManager,
 		);
 	}
 

@@ -97,6 +97,19 @@ class AttendanceService {
 	}
 
 	/**
+	 * Дата первой отметки посещаемости занятия ('Y-m-d H:i:s') или null — когда
+	 * занятие реально прошло, если в КТП у него даты нет.
+	 */
+	public function firstMarkedAt( int $groupLessonId ): ?string {
+		$marks = array_map(
+			static fn( $a ): string => $a->markedAt,
+			$this->attendance->listByGroupLesson( $groupLessonId )
+		);
+
+		return array() === $marks ? null : min( $marks );
+	}
+
+	/**
 	 * Матрица посещаемости группы для журнала.
 	 *
 	 * @return array<int, array<int, bool>> groupLessonId => [studentPersonId => isPresent]

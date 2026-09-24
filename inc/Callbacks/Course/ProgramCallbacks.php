@@ -128,17 +128,17 @@ class ProgramCallbacks extends BaseController {
 	}
 
 	/**
-	 * Продолжает тему на вторую дату (T12.6, D14): новая связанная строка в банке
-	 * тем (непристроена, пиннута) — пользователь перетаскивает её на целевую дату
-	 * тем же drag-flow, что и обычную тему. Params: group_lesson_id.
+	 * Продолжает тему на вторую дату (T12.6, D14): связанная строка встаёт сразу
+	 * за исходной и занимает следующее занятие, непроведённый хвост сдвигается.
+	 * Разрешено и в опубликованной КТП (T1.8): тему не хватило одного урока —
+	 * это ход учебного года, а не пересборка программы. Params: group_lesson_id.
 	 */
 	public function ajaxContinueProgramLesson(): void {
 		$this->authorize( Nonce::SaveSchedule, Capability::ManageLmsTeaching );
 		$groupLessonId = $this->requireInt( 'group_lesson_id' );
 		$userId        = get_current_user_id();
 
-		$row = $this->requireProgramRow( $groupLessonId );
-		$this->denyIfProgramLocked( $row->groupId );
+		$this->requireProgramRow( $groupLessonId );
 
 		$id = $this->program->continueLesson( $groupLessonId, $userId );
 		if ( 0 === $id ) {

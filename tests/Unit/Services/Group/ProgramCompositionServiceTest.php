@@ -11,6 +11,7 @@ use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Services\Group\ProgramCompositionService;
 use Inc\Services\Group\ScheduleEventPublisher;
+use Inc\Services\Group\ScheduleReflowService;
 use PHPUnit\Framework\TestCase;
 use Tests\Support\GroupLessonFixtures;
 
@@ -25,6 +26,7 @@ class ProgramCompositionServiceTest extends TestCase {
 	private LessonManager&\PHPUnit\Framework\MockObject\MockObject $lessonManager;
 	private GroupsRepository&\PHPUnit\Framework\MockObject\MockObject $groups;
 	private LogEventDispatcherInterface&\PHPUnit\Framework\MockObject\MockObject $dispatcher;
+	private ScheduleReflowService&\PHPUnit\Framework\MockObject\MockObject $schedule;
 	private ProgramCompositionService $service;
 
 	protected function setUp(): void {
@@ -33,12 +35,14 @@ class ProgramCompositionServiceTest extends TestCase {
 		$this->lessonManager = $this->createMock( LessonManager::class );
 		$this->groups        = $this->createMock( GroupsRepository::class );
 		$this->dispatcher    = $this->createMock( LogEventDispatcherInterface::class );
+		$this->schedule      = $this->createMock( ScheduleReflowService::class );
 
 		$this->service = new ProgramCompositionService(
 			$this->groupLessons,
 			$this->lessonManager,
 			$this->groups,
 			new ScheduleEventPublisher( $this->dispatcher ),
+			$this->schedule,
 		);
 	}
 
@@ -66,15 +70,34 @@ class ProgramCompositionServiceTest extends TestCase {
 		self::assertSame( $row, $program[0]['row'] );
 	}
 
-	public function test_continue_lesson_creates_pinned_row_with_link(): void {
-		$this->groupLessons->method( 'find' )->willReturn( $this->makeRow( 42, 'group', null, null, 10 ) );
-		$this->groupLessons->method( 'nextPosition' )->willReturn( 3 );
+	public function test_continue_lesson_inserts_unpinned_row_right_after_origin(): void {
+		$this->groupLessons->method( 'find' )->willReturn( $this->makeRow( 42, 'group', null, null, 10 ) ); // position 0
 		$this->lessonManager->method( 'get' )->willReturn( $this->makeLesson( 'inf' ) );
+
+		$this->groupLessons->expects( self::once() )->method( 'shiftPositions' )->with( 5, 1 );
 		$this->groupLessons->expects( self::once() )->method( 'add' )
 			->with( self::callback(
-				static fn( $dto ) => true === $dto->isPinned && 42 === $dto->continuedFromId && null === $dto->scheduledAt
+				static fn( $dto ) => false === $dto->isPinned && 42 === $dto->continuedFromId
+					&& 1 === $dto->position && null === $dto->scheduledAt
 			) )
 			->willReturn( 43 );
+		// Исходная тема без даты — продолжение ждёт в пуле вместе с ней.
+		$this->schedule->expects( self::never() )->method( 'placeInserted' );
+
+		self::assertSame( 43, $this->service->continueLesson( 42, 99 ) );
+	}
+
+	public function test_continue_scheduled_lesson_takes_next_session(): void {
+		$origin = new \Inc\DTO\Course\GroupLessonDTO(
+			id: 42, groupId: 5, lessonId: 10, position: 6, workIdsSnapshot: null, extraWorkIds: array(),
+			scheduledAt: '2026-10-08 10:00:00', endsAt: null, isPinned: false, teacherUserId: null,
+			visibility: 'hidden', openedAt: null, homeworkDueAt: null, allowLate: true, recordingUrl: null,
+			createdByUserId: null, updatedByUserId: null,
+		);
+		$this->groupLessons->method( 'find' )->willReturn( $origin );
+		$this->groupLessons->method( 'add' )->willReturn( 43 );
+
+		$this->schedule->expects( self::once() )->method( 'placeInserted' )->with( 43, 99 );
 
 		self::assertSame( 43, $this->service->continueLesson( 42, 99 ) );
 	}

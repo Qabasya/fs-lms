@@ -69,21 +69,25 @@ class JournalService {
 		// программы (посещаемость в таком журнале не ведётся).
 		$isOpen = $group && AccessMode::Open === AccessMode::fromValueOrDefault( (string) ( $group->access_mode ?? '' ) );
 
-		// Столбцы-занятия (в обычной группе — только датированные).
+		// Столбцы-занятия (в обычной группе — датированные). Занятие с отметками
+		// посещаемости попадает в журнал всегда, даже если в КТП у него сняли дату:
+		// журнал — отчёт о реальных занятиях, а не о плане.
 		$lessons = array();
 		foreach ( $this->groupLessons->listByGroup( $groupId ) as $row ) {
 			// Индивидуальные (на одного ученика) не образуют столбец группового журнала.
 			if ( $row->kind->isIndividual() ) {
 				continue;
 			}
-			if ( ! $row->scheduledAt && ! $isOpen ) {
+			if ( ! $row->scheduledAt && ! $isOpen && ! $row->isFact() ) {
 				continue;
 			}
 			$lesson    = $row->lessonId ? $this->lessons->get( $row->lessonId ) : null;
 			$effRoomId = ! empty( $row->roomId ) ? (int) $row->roomId : $groupRoomId;
+			// Занятие без даты в КТП, но с отметками — в журнал идёт день первой отметки.
+			$heldAt    = $row->scheduledAt ?? ( $isOpen ? null : $this->attendance->firstMarkedAt( $row->id ) );
 			$lessons[] = array(
 				'group_lesson_id' => $row->id,
-				'date'            => $row->scheduledAt ? substr( $row->scheduledAt, 0, 10 ) : '',
+				'date'            => $heldAt ? substr( $heldAt, 0, 10 ) : '',
 				'topic'           => $lesson?->topic ?? ( $row->label ?? '' ),
 				'room'            => ( $effRoomId && isset( $roomNames[ $effRoomId ] ) ) ? $roomNames[ $effRoomId ] : '',
 				// T12.6 (D14): продолжение темы — второй столбец той же темы, помечается «(прод.)».

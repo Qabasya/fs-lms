@@ -12,6 +12,12 @@ use Inc\Enums\Settings\TableName;
 
 class GroupLessonRepository {
 
+	/**
+	 * Вычисляемый флаг «по занятию отмечена посещаемость» для выборок с алиасом
+	 * `gl`; первым плейсхолдером запроса идёт таблица посещаемости.
+	 */
+	private const HAS_ATTENDANCE = 'EXISTS( SELECT 1 FROM %i a WHERE a.group_lesson_id = gl.id ) AS has_attendance';
+
 	private \wpdb  $wpdb;
 	private string $table;
 
@@ -20,11 +26,17 @@ class GroupLessonRepository {
 		$this->table = TableName::GroupLessons->prefixed();
 	}
 
-	/** @return GroupLessonDTO[] */
+	/**
+	 * Строки программы группы по порядку. Каждая несёт `has_attendance` —
+	 * отмечена ли по занятию посещаемость ({@see GroupLessonDTO::isFact()}).
+	 *
+	 * @return GroupLessonDTO[]
+	 */
 	public function listByGroup( int $groupId ): array {
 		$rows = $this->wpdb->get_results(
 			$this->wpdb->prepare(
-				'SELECT * FROM %i WHERE group_id = %d ORDER BY position ASC',
+				'SELECT gl.*, ' . self::HAS_ATTENDANCE . ' FROM %i gl WHERE gl.group_id = %d ORDER BY gl.position ASC',
+				TableName::Attendance->prefixed(),
 				$this->table,
 				$groupId
 			),
@@ -67,7 +79,8 @@ class GroupLessonRepository {
 	public function find( int $id ): ?GroupLessonDTO {
 		$row = $this->wpdb->get_row(
 			$this->wpdb->prepare(
-				'SELECT * FROM %i WHERE id = %d LIMIT 1',
+				'SELECT gl.*, ' . self::HAS_ATTENDANCE . ' FROM %i gl WHERE gl.id = %d LIMIT 1',
+				TableName::Attendance->prefixed(),
 				$this->table,
 				$id
 			),
@@ -92,6 +105,21 @@ class GroupLessonRepository {
 		return null === $max ? 0 : (int) $max + 1;
 	}
 
+	/**
+	 * Освобождает позицию под вставку в середину программы: строки группы с
+	 * `position >= $fromPosition` сдвигаются на одну вниз.
+	 */
+	public function shiftPositions( int $groupId, int $fromPosition ): void {
+		$this->wpdb->query(
+			$this->wpdb->prepare(
+				'UPDATE %i SET position = position + 1 WHERE group_id = %d AND position >= %d',
+				$this->table,
+				$groupId,
+				$fromPosition
+			)
+		);
+	}
+
 	/** Bulk-update position по упорядоченному массиву ID. */
 	public function reorder( int $groupId, array $orderedIds ): void {
 		foreach ( $orderedIds as $pos => $id ) {
@@ -107,10 +135,13 @@ class GroupLessonRepository {
 	public function updateSchedule( int $id, ?string $scheduledAt, ?int $teacherUserId, ?string $endsAt = null ): bool {
 		$result = $this->wpdb->update(
 			$this->table,
-			array(
-				'scheduled_at'    => $scheduledAt,
-				'ends_at'         => $endsAt,
-				'teacher_user_id' => $teacherUserId,
+			array_merge(
+				array(
+					'scheduled_at'    => $scheduledAt,
+					'ends_at'         => $endsAt,
+					'teacher_user_id' => $teacherUserId,
+				),
+				$this->deadlinesFollowing( $this->find( $id ), $scheduledAt )
 			),
 			array( 'id' => $id )
 		);
@@ -138,14 +169,51 @@ class GroupLessonRepository {
 	public function moveToSlot( int $id, array $slot ): bool {
 		$result = $this->wpdb->update(
 			$this->table,
-			array(
-				'scheduled_at' => $slot['scheduled_at'],
-				'ends_at'      => $slot['ends_at'],
-				'room_id'      => $slot['room_id'],
+			array_merge(
+				array(
+					'scheduled_at' => $slot['scheduled_at'],
+					'ends_at'      => $slot['ends_at'],
+					'room_id'      => $slot['room_id'],
+				),
+				$this->deadlinesFollowing( $this->find( $id ), $slot['scheduled_at'] )
 			),
 			array( 'id' => $id )
 		);
 		return false !== $result;
+	}
+
+	/**
+	 * Дедлайны работ едут вместе с занятием: при переносе с одной даты на другую
+	 * per-work дедлайны и legacy `homework_due_at` сдвигаются на ту же разницу —
+	 * «сдать к следующему занятию» остаётся ровно таким. Первая постановка на
+	 * дату (строка была в пуле) и снятие даты дедлайнов не касаются: сдвигать
+	 * не от чего.
+	 *
+	 * @return array<string, string|null> Поля для UPDATE (пусто — менять нечего).
+	 */
+	private function deadlinesFollowing( ?GroupLessonDTO $row, ?string $newStart ): array {
+		if ( null === $row || null === $row->scheduledAt || null === $newStart || $row->scheduledAt === $newStart ) {
+			return array();
+		}
+		if ( array() === $row->workDeadlines && null === $row->homeworkDueAt ) {
+			return array();
+		}
+
+		$delta = ( new \DateTimeImmutable( $newStart ) )->getTimestamp()
+			- ( new \DateTimeImmutable( $row->scheduledAt ) )->getTimestamp();
+		$shift = static fn( string $at ): string => ( new \DateTimeImmutable( $at ) )
+			->modify( sprintf( '%+d seconds', $delta ) )
+			->format( 'Y-m-d H:i:s' );
+
+		$fields = array();
+		if ( array() !== $row->workDeadlines ) {
+			$fields['work_deadlines'] = wp_json_encode( array_map( $shift, $row->workDeadlines ) );
+		}
+		if ( null !== $row->homeworkDueAt ) {
+			$fields['homework_due_at'] = $shift( $row->homeworkDueAt );
+		}
+
+		return $fields;
 	}
 
 	/**
@@ -185,9 +253,10 @@ class GroupLessonRepository {
 				continue;
 			}
 			$status = LessonStatus::fromValueOrDefault( $row->status );
-			// T11.6: проведённое занятие фиксирует свою дату (факт), но ЗАНИМАЕТ слот
-			// в последовательности — нерассказанный хвост раскладывается после него.
-			if ( LessonStatus::Held === $status ) {
+			// T11.6: состоявшееся занятие (проведено или отмечена посещаемость) фиксирует
+			// свою дату — это факт журнала, но ЗАНИМАЕТ слот в последовательности —
+			// нерассказанный хвост раскладывается после него.
+			if ( $row->isFact() ) {
 				++$i;
 				continue;
 			}
@@ -207,11 +276,14 @@ class GroupLessonRepository {
 			}
 			$this->wpdb->update(
 				$this->table,
-				array(
-					'scheduled_at' => $slots[ $i ]['scheduled_at'],
-					'ends_at'      => $slots[ $i ]['ends_at'],
-					// Кабинет дня недели (Эпик 10): переносится из расписания в занятие.
-					'room_id'      => ! empty( $slots[ $i ]['room'] ) ? (int) $slots[ $i ]['room'] : null,
+				array_merge(
+					array(
+						'scheduled_at' => $slots[ $i ]['scheduled_at'],
+						'ends_at'      => $slots[ $i ]['ends_at'],
+						// Кабинет дня недели (Эпик 10): переносится из расписания в занятие.
+						'room_id'      => ! empty( $slots[ $i ]['room'] ) ? (int) $slots[ $i ]['room'] : null,
+					),
+					$this->deadlinesFollowing( $row, $slots[ $i ]['scheduled_at'] )
 				),
 				array( 'id' => $row->id )
 			);
@@ -221,8 +293,9 @@ class GroupLessonRepository {
 
 	/**
 	 * Отменяет распределение группы: снимает дату/закрепление/кабинет со всех
-	 * непроведённых групповых занятий (индивидуальные и уже проведённые — не трогаем,
-	 * это исторический факт). Темы возвращаются в пул «Темы курса».
+	 * непроведённых групповых занятий (индивидуальные, проведённые и с отмеченной
+	 * посещаемостью — не трогаем, это исторический факт журнала). Темы возвращаются
+	 * в пул «Темы курса».
 	 *
 	 * @return int Количество затронутых строк.
 	 */
@@ -230,11 +303,13 @@ class GroupLessonRepository {
 		// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
 		return (int) $this->wpdb->query(
 			$this->wpdb->prepare(
-				"UPDATE %i SET scheduled_at = NULL, ends_at = NULL, room_id = NULL, is_pinned = 0, status = 'scheduled'
-				 WHERE group_id = %d AND kind != %s AND status != 'held'",
+				"UPDATE %i gl SET gl.scheduled_at = NULL, gl.ends_at = NULL, gl.room_id = NULL, gl.is_pinned = 0, gl.status = 'scheduled'
+				 WHERE gl.group_id = %d AND gl.kind != %s AND gl.status != 'held'
+				   AND NOT EXISTS( SELECT 1 FROM %i a WHERE a.group_lesson_id = gl.id )",
 				$this->table,
 				$groupId,
-				LessonKind::Individual->value
+				LessonKind::Individual->value,
+				TableName::Attendance->prefixed()
 			)
 		);
 	}
@@ -325,7 +400,8 @@ class GroupLessonRepository {
 	public function listByGroupAndDay( int $groupId, string $day ): array {
 		$rows = $this->wpdb->get_results(
 			$this->wpdb->prepare(
-				'SELECT * FROM %i WHERE group_id = %d AND DATE(scheduled_at) = %s ORDER BY scheduled_at ASC',
+				'SELECT gl.*, ' . self::HAS_ATTENDANCE . ' FROM %i gl WHERE gl.group_id = %d AND DATE(gl.scheduled_at) = %s ORDER BY gl.scheduled_at ASC',
+				TableName::Attendance->prefixed(),
 				$this->table,
 				$groupId,
 				$day

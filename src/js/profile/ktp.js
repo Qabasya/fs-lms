@@ -297,13 +297,14 @@ function renderCalendar() {
     grid.querySelectorAll('.pt-deadlines').forEach(el => attachDeadlinesClick(el, api));
     // Индикатор записи занятия — тоже ведёт в плеер (Этап 2, ★); тоже delivery, доступен даже при lock КТП.
     grid.querySelectorAll('.pt-recording').forEach(el => attachRecordingClick(el, api, loadCalendar));
+    // T12.6: «Продолжить на другую дату» доступно и при lock КТП — теме не хватило
+    // урока, продолжение встаёт следующим занятием, хвост сдвигается сервером.
+    grid.querySelectorAll('.pt-more').forEach(el => attachThemeActionsClick(el, api, loadCalendar));
     if (!isLocked()) {
         // Этап 4: drop доступен на любой день периода (кроме выходных), не только
         // на дни со штатным слотом — attachDrop() сам разруливает slot/off-schedule.
         grid.querySelectorAll('.kal-cell[data-day]:not(.holiday)').forEach(attachDrop);
         grid.querySelectorAll('.placed-theme[draggable="true"]').forEach(attachDrag);
-        // T12.6: «Продолжить на другую дату» — структурное изменение, блокируется lock КТП.
-        grid.querySelectorAll('.pt-more').forEach(el => attachThemeActionsClick(el, api, loadCalendar));
     }
 }
 

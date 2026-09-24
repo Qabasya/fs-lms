@@ -6,6 +6,7 @@ namespace Inc\Services\Course;
 
 use Inc\Contracts\ClockInterface;
 use Inc\Contracts\LogEventDispatcherInterface;
+use Inc\DTO\Course\GroupLessonDTO;
 use Inc\DTO\Course\GroupLessonInputDTO;
 use Inc\DTO\Log\Events\LearningEvent;
 use Inc\Enums\Course\AccessMode;
@@ -16,6 +17,8 @@ use Inc\Managers\Course\CourseManager;
 use Inc\Managers\Course\LessonManager;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
+use Inc\Services\Group\ScheduleEventPublisher;
+use Inc\Services\Group\ScheduleReflowService;
 
 class CourseAssignmentService {
 
@@ -28,6 +31,8 @@ class CourseAssignmentService {
 		private readonly ClockInterface              $clock,
 		private readonly OpenCourseValidator         $openCourseValidator,
 		private readonly GroupLessonUsageGuard       $usageGuard,
+		private readonly ScheduleReflowService       $schedule,
+		private readonly ScheduleEventPublisher      $events,
 	) {}
 
 	/**
@@ -49,7 +54,7 @@ class CourseAssignmentService {
 	/**
 	 * Снапшотит уроки курса в программу группы.
 	 *
-	 * @param AssignmentPolicy $policy Append — дописать; Replace — заменить (удаляет текущие строки).
+	 * @param AssignmentPolicy $policy Append — дописать; Replace — заменить (удаляет текущие строки без данных учеников).
 	 * @return int  Число добавленных строк.
 	 */
 	public function assign( int $groupId, int $courseId, int $actorUserId, AssignmentPolicy $policy = AssignmentPolicy::Append ): int {
@@ -66,7 +71,7 @@ class CourseAssignmentService {
 		$openMode = $this->isOpenGroup( $group );
 
 		if ( AssignmentPolicy::Replace === $policy ) {
-			$this->groupLessons->deleteAllByGroup( $groupId );
+			$this->removeSafeRows( $groupId );
 		}
 
 		$position = $this->groupLessons->nextPosition( $groupId );
@@ -114,14 +119,19 @@ class CourseAssignmentService {
 	}
 
 	/**
-	 * НБ-7: дописывает НОВЫЕ уроки курса в КТП уже назначенных групп.
+	 * НБ-7: доставляет НОВЫЕ уроки курса в КТП уже назначенных групп — курс
+	 * живой, КТП всегда повторяет его состав.
 	 *
-	 * Курс — снапшот-источник: строки group_lessons создаются в момент assign().
-	 * Урок, добавленный в курс позже, сам в КТП не попадает. Метод по каждой
-	 * НЕзаблокированной группе с этим курсом дописывает недостающие lesson_id в
-	 * конец программы (без scheduled_at — расстановку сделает reflow/«Распределить»),
-	 * дедуплицируя по уже присутствующим урокам. Опубликованные (заблокированные)
-	 * КТП не трогаем. Вызывается после добавления/дублирования урока в конструкторе.
+	 * Урок встаёт в программу туда же, где стоит в курсе: сразу за последней
+	 * строкой предыдущего урока курса (с учётом продолжений темы), а не в конец.
+	 * Если план уже распределён, урок сразу получает дату, а непроведённый хвост
+	 * сдвигается на одно занятие ({@see ScheduleReflowService::placeInserted()}):
+	 * урок, дописанный в конец курса, встаёт следующим занятием после последнего.
+	 *
+	 * Опубликованные (заблокированные) КТП синхронизируются тоже: публикация
+	 * запрещает ручные правки плана, но не доставку изменений курса (T1.8).
+	 * Открытая группа получает только опубликованные уроки — строка там сразу
+	 * открыта ученикам; черновик доедет, когда его опубликуют.
 	 *
 	 * @return int Число добавленных строк group_lessons.
 	 */
@@ -131,35 +141,35 @@ class CourseAssignmentService {
 			return 0;
 		}
 
-		$courseLessonIds = $course->lessonIds();
+		$courseLessonIds = array_map( 'intval', $course->lessonIds() );
 		if ( empty( $courseLessonIds ) ) {
 			return 0;
 		}
 
 		$added = 0;
 		foreach ( $this->groups->findByCourse( $courseId ) as $group ) {
-			// Опубликованную (заблокированную) КТП не трогаем.
-			if ( ! empty( $group->program_locked_at ) ) {
-				continue;
-			}
-
 			$groupId  = (int) $group->id;
 			$openMode = $this->isOpenGroup( $group );
-			$existing = array();
-			foreach ( $this->groupLessons->listByGroup( $groupId ) as $row ) {
-				if ( null !== $row->lessonId ) {
-					$existing[ (int) $row->lessonId ] = true;
-				}
-			}
+			$rows     = $this->programRows( $groupId );
 
-			$position = $this->groupLessons->nextPosition( $groupId );
-			foreach ( $courseLessonIds as $lessonId ) {
-				if ( isset( $existing[ (int) $lessonId ] ) ) {
+			foreach ( $courseLessonIds as $index => $lessonId ) {
+				if ( $this->rowsOfLesson( $rows, $lessonId ) ) {
 					continue;
 				}
-				$this->groupLessons->add( $this->programRow( $groupId, $lessonId, $position, $actorUserId, $openMode ) );
-				$existing[ (int) $lessonId ] = true;
-				$position++;
+				if ( $openMode && ! $this->lessonManager->isPublished( $lessonId ) ) {
+					continue;
+				}
+
+				$position = $this->insertPosition( $groupId, $rows, $courseLessonIds, $index );
+				$this->groupLessons->shiftPositions( $groupId, $position );
+				$rowId = $this->groupLessons->add( $this->programRow( $groupId, $lessonId, $position, $actorUserId, $openMode ) );
+
+				$this->events->lessonAdded( $groupId, $lessonId, $course->subjectKey, $actorUserId );
+				if ( ! $openMode ) {
+					$this->schedule->placeInserted( $rowId, $actorUserId );
+				}
+
+				$rows = $this->programRows( $groupId );
 				$added++;
 			}
 		}
@@ -168,11 +178,63 @@ class CourseAssignmentService {
 	}
 
 	/**
+	 * Позиция вставки урока курса в программу: за последней строкой ближайшего
+	 * предыдущего урока курса, уже стоящего в программе; нет такого — перед
+	 * первой строкой ближайшего следующего; нет и его — в конец.
+	 *
+	 * @param GroupLessonDTO[] $rows            Групповые строки программы
+	 * @param int[]            $courseLessonIds Уроки курса по порядку
+	 */
+	private function insertPosition( int $groupId, array $rows, array $courseLessonIds, int $index ): int {
+		for ( $i = $index - 1; $i >= 0; $i-- ) {
+			$prev = $this->rowsOfLesson( $rows, $courseLessonIds[ $i ] );
+			if ( $prev ) {
+				return max( array_map( static fn( GroupLessonDTO $r ): int => $r->position, $prev ) ) + 1;
+			}
+		}
+
+		$count = count( $courseLessonIds );
+		for ( $i = $index + 1; $i < $count; $i++ ) {
+			$next = $this->rowsOfLesson( $rows, $courseLessonIds[ $i ] );
+			if ( $next ) {
+				return min( array_map( static fn( GroupLessonDTO $r ): int => $r->position, $next ) );
+			}
+		}
+
+		return $this->groupLessons->nextPosition( $groupId );
+	}
+
+	/**
+	 * Групповые строки программы (индивидуальные занятия к курсу не относятся,
+	 * даже если к ним привязан урок курса).
+	 *
+	 * @return GroupLessonDTO[]
+	 */
+	private function programRows( int $groupId ): array {
+		return array_values( array_filter(
+			$this->groupLessons->listByGroup( $groupId ),
+			static fn( GroupLessonDTO $r ): bool => ! $r->kind->isIndividual()
+		) );
+	}
+
+	/**
+	 * @param GroupLessonDTO[] $rows
+	 *
+	 * @return GroupLessonDTO[]
+	 */
+	private function rowsOfLesson( array $rows, int $lessonId ): array {
+		return array_values( array_filter(
+			$rows,
+			static fn( GroupLessonDTO $r ): bool => (int) $r->lessonId === $lessonId
+		) );
+	}
+
+	/**
 	 * D17.3: полная синхронизация КТП групп с составом курса — дописать недостающие
 	 * уроки ({@see syncCourseLessons()}) И удалить осиротевшие строки доставки для
-	 * уроков, которых больше нет в курсе. Удаляем ТОЛЬКО в незаблокированных группах
-	 * и ТОЛЬКО строки без вовлечённости ученика (guard) — иначе за строкой стоят
-	 * данные журнала (реально проведённый урок), и её нельзя трогать.
+	 * уроков, которых больше нет в курсе. Удаляем ТОЛЬКО строки без вовлечённости
+	 * ученика (guard) — иначе за строкой стоят данные журнала (реально проведённый
+	 * урок), и её нельзя трогать.
 	 *
 	 * Вызывается при сохранении структуры курса (урок убрали из курса) — чинит
 	 * ложный блок удаления и фантомный урок в КТП/журнале.
@@ -188,7 +250,8 @@ class CourseAssignmentService {
 
 	/**
 	 * Удаляет осиротевшие строки доставки: уроки, которых больше нет в курсе, из
-	 * КТП незаблокированных групп этого курса — только строки без вовлечённости.
+	 * КТП групп этого курса (включая опубликованные) — только строки без
+	 * вовлечённости: за строкой с данными журнала стоит проведённый урок.
 	 *
 	 * @return int Число удалённых строк.
 	 */
@@ -202,11 +265,6 @@ class CourseAssignmentService {
 
 		$removed = 0;
 		foreach ( $this->groups->findByCourse( $courseId ) as $group ) {
-			// Опубликованную (заблокированную) КТП не трогаем — доставка заморожена.
-			if ( ! empty( $group->program_locked_at ) ) {
-				continue;
-			}
-
 			foreach ( $this->groupLessons->listByGroup( (int) $group->id ) as $row ) {
 				$lessonId = (int) ( $row->lessonId ?? 0 );
 				if ( $lessonId <= 0 || $row->kind->isIndividual() ) {
@@ -225,6 +283,20 @@ class CourseAssignmentService {
 		}
 
 		return $removed;
+	}
+
+	/**
+	 * Замена курса убирает из программы только строки без данных учеников:
+	 * занятия с посещаемостью, прогрессом, сдачами и попытками остаются в КТП
+	 * и журнале — это отчётность, а не план. Индивидуальные занятия к курсу не
+	 * относятся и не трогаются.
+	 */
+	private function removeSafeRows( int $groupId ): void {
+		foreach ( $this->programRows( $groupId ) as $row ) {
+			if ( $this->usageGuard->isSafeToRemove( $row->id ) ) {
+				$this->groupLessons->remove( $row->id );
+			}
+		}
 	}
 
 	private function isOpenGroup( object $group ): bool {

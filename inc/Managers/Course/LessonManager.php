@@ -64,6 +64,18 @@ class LessonManager {
 	}
 
 	/**
+	 * Опубликован ли урок (без чтения шагов из меты — дешёвая проверка для
+	 * гейта видимости, который зовётся на каждую строку программы).
+	 */
+	public function isPublished( int $lessonId ): bool {
+		$post = $this->posts->get( $lessonId );
+
+		return null !== $post
+			&& PostTypeResolver::isLessonPostType( $post->post_type )
+			&& 'publish' === $post->post_status;
+	}
+
+	/**
 	 * Уроки банка предмета (опубликованные + черновики).
 	 *
 	 * @param string $subjectKey

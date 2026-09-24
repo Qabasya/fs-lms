@@ -154,7 +154,10 @@ class CourseBuilderCallbacks extends BaseController {
 	}
 
 	/**
-	 * Обновляет заголовок/публикацию урока. Params: lesson_id, title, published
+	 * Обновляет заголовок/публикацию урока. Params: lesson_id, title, published, course_id?
+	 *
+	 * Опубликованный урок доезжает до открытых групп курса: черновики туда не
+	 * синхронизируются, строка открытой группы сразу видна ученикам.
 	 */
 	public function ajaxUpdateLessonMeta(): void {
 		$this->authorize( Nonce::AuthorCourse, Capability::AuthorLmsCourses );
@@ -162,8 +165,12 @@ class CourseBuilderCallbacks extends BaseController {
 		$lesson_id = $this->requireInt( 'lesson_id' );
 		$title     = $this->sanitizeText( 'title' );
 		$published = $this->sanitizeBool( 'published' );
+		$course_id = $this->sanitizeInt( 'course_id' );
 
 		if ( $this->builder->updateLessonMeta( $lesson_id, $title, $published ) ) {
+			if ( $published && $course_id > 0 ) {
+				$this->syncCourseToGroups( $course_id );
+			}
 			$this->success( array( 'saved' => true ) );
 		} else {
 			$this->error( 'Урок не найден.' );
@@ -193,6 +200,10 @@ class CourseBuilderCallbacks extends BaseController {
 		}
 
 		if ( $this->builder->updateCourseMeta( $course_id, $title, $status, $author_id, $thumbnail_id ) ) {
+			// Публикация курса публикует все его уроки — открытые группы их получают.
+			if ( 'publish' === $status ) {
+				$this->syncCourseToGroups( $course_id );
+			}
 			$this->success( array( 'saved' => true ) );
 		} else {
 			$this->error( 'Курс не найден.' );

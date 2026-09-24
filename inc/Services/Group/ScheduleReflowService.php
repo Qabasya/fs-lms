@@ -4,6 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Group;
 
+use Inc\Contracts\ClockInterface;
 use Inc\DTO\Course\ScheduleReflowResultDTO;
 use Inc\Enums\Course\LessonStatus;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
@@ -29,6 +30,7 @@ readonly class ScheduleReflowService {
 	 * @param SessionCalendarService  $calendar         Раскладка по слотам периода
 	 * @param RoomAvailabilityService $roomAvailability Занятость кабинетов
 	 * @param ScheduleEventPublisher  $events           Публикация событий обучения
+	 * @param ClockInterface          $clock            Текущее время (граница «прошедших» занятий)
 	 */
 	public function __construct(
 		private GroupLessonRepository   $groupLessons,
@@ -36,6 +38,7 @@ readonly class ScheduleReflowService {
 		private SessionCalendarService  $calendar,
 		private RoomAvailabilityService $roomAvailability,
 		private ScheduleEventPublisher  $events,
+		private ClockInterface          $clock,
 	) {}
 
 	/**
@@ -130,7 +133,7 @@ readonly class ScheduleReflowService {
 	 * @throws \InvalidArgumentException Если строка не найдена, дата вне периода/выходной,
 	 *                                   кабинет занят, время пересекается с индивидуальным
 	 *                                   занятием группы в этот день, либо на дате уже стоит
-	 *                                   проведённое (`held`) занятие
+	 *                                   состоявшееся занятие (`held` или с посещаемостью)
 	 */
 	public function pinToDate( int $groupLessonId, string $scheduledAt, int $actorUserId, ?string $endsAt = null ): void {
 		$row = $this->requireRow( $groupLessonId );
@@ -148,11 +151,11 @@ readonly class ScheduleReflowService {
 		) );
 
 		foreach ( $displaced as $d ) {
-			if ( LessonStatus::Held === LessonStatus::fromValueOrDefault( $d->status ) ) {
-				// Проведённое занятие — исторический факт, drop отклоняется целиком:
-				// перетаскиваемая тема ничего не получает, чтобы не создать видимость
-				// успеха при частичном откате.
-				throw new \InvalidArgumentException( 'На эту дату уже поставлено проведённое занятие — заменить его нельзя.' );
+			if ( $d->isFact() ) {
+				// Состоявшееся занятие — исторический факт журнала, drop отклоняется
+				// целиком: перетаскиваемая тема ничего не получает, чтобы не создать
+				// видимость успеха при частичном откате.
+				throw new \InvalidArgumentException( 'На эту дату уже стоит состоявшееся занятие (проведено или отмечена посещаемость) — заменить его нельзя.' );
 			}
 		}
 
@@ -180,7 +183,7 @@ readonly class ScheduleReflowService {
 			// обе вместе (продолжение без даты «оригинала» рядом смотрелось бы разрозненно).
 			$allRows ??= $this->groupLessons->listByGroup( $row->groupId );
 			foreach ( $allRows as $r ) {
-				if ( $r->continuedFromId === $d->id && null !== $r->scheduledAt ) {
+				if ( $r->continuedFromId === $d->id && null !== $r->scheduledAt && ! $r->isFact() ) {
 					$this->groupLessons->clearSchedule( $r->id );
 				}
 			}
@@ -196,7 +199,7 @@ readonly class ScheduleReflowService {
 	 * темой за ней и так далее. Календарь занятий (какие дни заняты) не меняется,
 	 * меняется только то, какая тема на каком дне.
 	 *
-	 * Сдвиг идёт до первого якоря — проведённого (`held`), закреплённого вручную
+	 * Сдвиг идёт до первого якоря — состоявшегося (`held` или с посещаемостью), закреплённого вручную
 	 * (`is_pinned`) или отменённого/перенесённого занятия: дальше него хвост не
 	 * едет, иначе тема перепрыгнула бы якорь по дате. Индивидуальные занятия в
 	 * сдвиге не участвуют вовсе — у них своя дата, к последовательности курса
@@ -216,8 +219,8 @@ readonly class ScheduleReflowService {
 	public function returnToPool( int $groupLessonId, int $actorUserId ): int {
 		$row = $this->requireRow( $groupLessonId );
 
-		if ( LessonStatus::Held === LessonStatus::fromValueOrDefault( $row->status ) ) {
-			throw new \InvalidArgumentException( 'Проведённое занятие нельзя вернуть в пул — это исторический факт.' );
+		if ( $row->isFact() ) {
+			throw new \InvalidArgumentException( 'Занятие уже состоялось (проведено или отмечена посещаемость) — вернуть его в пул нельзя, это факт журнала.' );
 		}
 
 		if ( null === $row->scheduledAt ) {
@@ -232,7 +235,7 @@ readonly class ScheduleReflowService {
 		// T12.6: вторая часть темы без первой висела бы в календаре разрозненно —
 		// продолжения уходят в пул вместе с оригиналом, их окна тоже освобождаются.
 		foreach ( $allRows as $r ) {
-			if ( $r->continuedFromId === $groupLessonId && null !== $r->scheduledAt ) {
+			if ( $r->continuedFromId === $groupLessonId && null !== $r->scheduledAt && ! $r->isFact() ) {
 				$freeSlots[] = $this->slotOf( $r );
 				$this->groupLessons->clearSchedule( $r->id );
 			}
@@ -250,12 +253,122 @@ readonly class ScheduleReflowService {
 	}
 
 	/**
+	 * Ставит на дату строку, только что вставленную в программу (новый урок курса
+	 * или продолжение темы), и раздвигает хвост: вставленная тема забирает окно
+	 * первого будущего занятия после неё по порядку курса, то — окно следующего и
+	 * так далее; последнему достаётся ближайший свободный слот периода после
+	 * хвоста. Слотов не хватило — последняя тема уходит в пул «Темы курса».
+	 * Вставка в конец (хвоста нет) — тема просто встаёт на ближайший свободный
+	 * слот после последнего занятия.
+	 *
+	 * Не двигаются: состоявшиеся (проведено или отмечена посещаемость),
+	 * отменённые/перенесённые, закреплённые вручную
+	 * (`is_pinned`), индивидуальные и прошедшие занятия — у них своя дата, окна
+	 * хвоста текут мимо них. Программа ещё не распределена (ни одной даты) —
+	 * тема остаётся в пуле: даты расставит «Распределить».
+	 *
+	 * В отличие от {@see pinToDate()} работает и на опубликованной КТП — это
+	 * доставка изменений курса, а не ручная правка расписания.
+	 *
+	 * @param int $groupLessonId ID вставленной строки
+	 * @param int $actorUserId   Автор изменения
+	 *
+	 * @return int Сколько занятий сдвинулось следом.
+	 */
+	public function placeInserted( int $groupLessonId, int $actorUserId ): int {
+		$row = $this->groupLessons->find( $groupLessonId );
+		if ( ! $row || $row->kind->isIndividual() || null !== $row->scheduledAt ) {
+			return 0;
+		}
+
+		$rows  = array_values( array_filter(
+			$this->groupLessons->listByGroup( $row->groupId ),
+			static fn( $r ) => $r->id !== $groupLessonId && ! $r->kind->isIndividual()
+		) );
+		$dated = array_values( array_filter( $rows, static fn( $r ) => null !== $r->scheduledAt ) );
+		if ( array() === $dated ) {
+			return 0;
+		}
+
+		$now     = $this->clock->now();
+		$movable = array_values( array_filter(
+			$dated,
+			static function ( $r ) use ( $row, $now ): bool {
+				$status = LessonStatus::fromValueOrDefault( $r->status );
+				return $r->position > $row->position
+					&& $r->scheduledAt > $now
+					&& ! $r->isPinned
+					&& ! $r->isFact()
+					&& ! $status->freesSlot();
+			}
+		) );
+		usort( $movable, static fn( $a, $b ) => strcmp( (string) $a->scheduledAt, (string) $b->scheduledAt ) );
+
+		$windows = array_map( fn( $r ) => $this->slotOf( $r ), $movable );
+
+		$after = array() !== $movable
+			? (string) end( $movable )->scheduledAt
+			: max( $now, max( array_map( static fn( $r ) => (string) $r->scheduledAt, $dated ) ) );
+		$extra = $this->nextFreeSlot( $row->groupId, $after, $dated );
+		if ( null !== $extra ) {
+			$windows[] = $extra;
+		}
+
+		$targets = array_merge( array( $row ), $movable );
+		foreach ( $targets as $i => $target ) {
+			if ( isset( $windows[ $i ] ) ) {
+				$this->groupLessons->moveToSlot( $target->id, $windows[ $i ] );
+			} else {
+				$this->groupLessons->clearSchedule( $target->id );
+			}
+		}
+
+		$this->events->groupChanged( $row->groupId, $actorUserId );
+
+		return count( $movable );
+	}
+
+	/**
+	 * Ближайший слот периода строго после `$after`, день которого не занят другим
+	 * групповым занятием. Кабинет, занятый в это время другой группой, снимается —
+	 * как в {@see SessionCalendarService::reflow()}.
+	 *
+	 * @param \Inc\DTO\Course\GroupLessonDTO[] $dated Размещённые групповые строки
+	 *
+	 * @return array{scheduled_at:string, ends_at:?string, room_id:?int}|null
+	 */
+	private function nextFreeSlot( int $groupId, string $after, array $dated ): ?array {
+		$busyDays = array();
+		foreach ( $dated as $r ) {
+			$busyDays[ substr( (string) $r->scheduledAt, 0, 10 ) ] = true;
+		}
+
+		foreach ( $this->calendar->generate( $groupId ) as $slot ) {
+			if ( $slot['scheduled_at'] <= $after || isset( $busyDays[ substr( $slot['scheduled_at'], 0, 10 ) ] ) ) {
+				continue;
+			}
+			$roomId = (int) ( $slot['room'] ?? 0 );
+			if ( $roomId > 0 && ! $this->roomAvailability->isFree( $roomId, $slot['scheduled_at'], $slot['ends_at'], 0, $groupId ) ) {
+				$roomId = 0;
+			}
+
+			return array(
+				'scheduled_at' => $slot['scheduled_at'],
+				'ends_at'      => $slot['ends_at'],
+				'room_id'      => $roomId > 0 ? $roomId : null,
+			);
+		}
+
+		return null;
+	}
+
+	/**
 	 * Сдвигает занятия, стоящие после освободившейся даты, на одно окно вперёд.
 	 * Каждая сдвигаемая строка забирает самое раннее свободное окно и отдаёт в
 	 * очередь своё — так «дырка» едет по календарю до конца хвоста.
 	 *
 	 * Сдвиг останавливается на первом якоре: закреплённом вручную (`is_pinned`),
-	 * проведённом (`held`) или отменённом/перенесённом занятии. Иначе тема из-за
+	 * состоявшемся (`held` или с посещаемостью) или отменённом/перенесённом занятии. Иначе тема из-за
 	 * якоря перепрыгнула бы его по дате, и порядок курса разошёлся бы с порядком
 	 * дат — а закреплённая дата перестала бы что-либо значить.
 	 *
@@ -280,7 +393,7 @@ readonly class ScheduleReflowService {
 		$shifted = 0;
 		foreach ( $tail as $r ) {
 			$status = LessonStatus::fromValueOrDefault( $r->status );
-			if ( $r->isPinned || LessonStatus::Held === $status || $status->freesSlot() ) {
+			if ( $r->isPinned || $r->isFact() || $status->freesSlot() ) {
 				break;
 			}
 			if ( array() === $freeSlots ) {

@@ -5,6 +5,7 @@ declare( strict_types=1 );
 namespace Inc\DTO\Course;
 
 use Inc\Enums\Course\LessonKind;
+use Inc\Enums\Course\LessonStatus;
 
 readonly class GroupLessonDTO {
 
@@ -65,6 +66,11 @@ readonly class GroupLessonDTO {
 		public array   $workDeadlines = array(),
 		/** Продолжение темы (T12.6, D14): id исходной строки, либо null для «родной». */
 		public ?int    $continuedFromId = null,
+		/**
+		 * По занятию отмечена посещаемость (вычисляемое поле выборок
+		 * {@see \Inc\Repositories\WPDBRepositories\GroupLessonRepository}, не колонка).
+		 */
+		public bool    $hasAttendance = false,
 	) {}
 
 	public static function fromArray( array $row ): self {
@@ -98,7 +104,19 @@ readonly class GroupLessonDTO {
 			roomId          : isset( $row['room_id'] ) && '' !== $row['room_id'] ? (int) $row['room_id'] : null,
 			workDeadlines   : self::jsonDeadlines( $row['work_deadlines'] ?? null ),
 			continuedFromId : isset( $row['continued_from_id'] ) && '' !== $row['continued_from_id'] ? (int) $row['continued_from_id'] : null,
+			hasAttendance   : ! empty( $row['has_attendance'] ),
 		);
+	}
+
+	/**
+	 * Занятие состоялось — это факт журнала, а не пункт плана: проведено
+	 * (`held`) или по нему отмечена посещаемость. Операции КТП (раскладка,
+	 * возврат в пул, вытеснение, сдвиг хвоста) дату такого занятия не меняют
+	 * и не снимают — иначе отметки журнала уехали бы на другое число или
+	 * пропали из него вместе со столбцом.
+	 */
+	public function isFact(): bool {
+		return LessonStatus::Held === LessonStatus::fromValueOrDefault( $this->status ) || $this->hasAttendance;
 	}
 
 	public function isPublished(): bool {

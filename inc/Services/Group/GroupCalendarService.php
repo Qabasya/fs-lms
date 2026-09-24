@@ -6,6 +6,7 @@ namespace Inc\Services\Group;
 
 use Inc\Enums\Course\AccessMode;
 use Inc\Enums\Wp\PageRoutes;
+use Inc\Managers\Course\LessonManager;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\WPDBRepositories\RoomRepository;
 use Inc\Services\Course\EffectiveTeacherResolver;
@@ -31,6 +32,7 @@ readonly class GroupCalendarService {
 	 * @param SessionCalendarService    $calendar         Метаданные периода и слотов
 	 * @param EffectiveTeacherResolver  $effectiveTeacher Эффективный преподаватель занятия
 	 * @param ProgramCompositionService $program          Состав и нумерация тем
+	 * @param LessonManager             $lessonManager    Статус публикации уроков курса
 	 */
 	public function __construct(
 		private GroupsRepository          $groups,
@@ -39,6 +41,7 @@ readonly class GroupCalendarService {
 		private SessionCalendarService    $calendar,
 		private EffectiveTeacherResolver  $effectiveTeacher,
 		private ProgramCompositionService $program,
+		private LessonManager             $lessonManager,
 	) {}
 
 	/**
@@ -124,6 +127,8 @@ readonly class GroupCalendarService {
 				'recording_url'   => $row->recordingUrl,
 				'status'          => $row->status,
 				'player_url'      => $hasContent ? PageRoutes::LessonPlayer->lessonUrl( $groupId, $row->id ) : '',
+				// Урок курса ещё черновик — по дате ученикам не откроется, пока его не опубликуют.
+				'lesson_draft'    => $hasContent && ! $this->lessonManager->isPublished( (int) $row->lessonId ),
 			);
 		}
 

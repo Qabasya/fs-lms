@@ -33,20 +33,26 @@ readonly class ProgramCompositionService {
 	 * @param LessonManager          $lessonManager Банк уроков
 	 * @param GroupsRepository       $groups       Группы
 	 * @param ScheduleEventPublisher $events       Публикация событий обучения
+	 * @param ScheduleReflowService  $schedule     Даты: постановка вставленной темы
 	 */
 	public function __construct(
 		private GroupLessonRepository  $groupLessons,
 		private LessonManager          $lessonManager,
 		private GroupsRepository       $groups,
 		private ScheduleEventPublisher $events,
+		private ScheduleReflowService  $schedule,
 	) {}
 
 	/**
-	 * Продолжает тему на вторую дату (T12.6, D14): новая ПИННУТАЯ непристроенная
-	 * строка (дата — заново, вручную через drag) со связью `continuedFromId` →
-	 * исходная. Связь сохраняется: КТП считает обе строки ОДНОЙ темой
-	 * (общий номер, части «1/2 · 2/2»), журнал получает второй столбец с меткой.
+	 * Продолжает тему на вторую дату (T12.6, D14): новая строка со связью
+	 * `continuedFromId` → исходная. Связь сохраняется: КТП считает обе строки ОДНОЙ
+	 * темой (общий номер, части «1/2 · 2/2»), журнал получает второй столбец с меткой.
 	 * Разрешено только для «родных» строк — цепочки из 3+ дат не поддерживаются.
+	 *
+	 * Продолжение встаёт в программу сразу за исходной строкой, а не в конец: если
+	 * исходная тема уже на дате, вторая часть занимает следующее занятие, а
+	 * непроведённый хвост сдвигается на одно окно ({@see ScheduleReflowService::placeInserted()}).
+	 * Исходная без даты — продолжение ждёт в пуле вместе с ней.
 	 *
 	 * @param int $groupLessonId ID исходной строки
 	 * @param int $actorUserId   Автор изменения
@@ -59,12 +65,14 @@ readonly class ProgramCompositionService {
 			return 0;
 		}
 
+		$position = $row->position + 1;
+		$this->groupLessons->shiftPositions( $row->groupId, $position );
+
 		$newId = $this->groupLessons->add( new GroupLessonInputDTO(
 			groupId         : $row->groupId,
 			lessonId        : $row->lessonId,
-			position        : $this->groupLessons->nextPosition( $row->groupId ),
+			position        : $position,
 			extraWorkIds    : $row->extraWorkIds,
-			isPinned        : true,
 			teacherUserId   : $row->teacherUserId,
 			createdByUserId : $actorUserId,
 			label           : $row->label,
@@ -72,6 +80,10 @@ readonly class ProgramCompositionService {
 		) );
 
 		$this->events->lessonAdded( $row->groupId, $row->lessonId, $this->subjectOf( $row->lessonId ), $actorUserId );
+
+		if ( null !== $row->scheduledAt ) {
+			$this->schedule->placeInserted( $newId, $actorUserId );
+		}
 
 		return $newId;
 	}

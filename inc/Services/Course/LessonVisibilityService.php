@@ -29,6 +29,10 @@ class LessonVisibilityService {
 	 * возвращает 'open' (lazy auto-open по времени занятия, T2.34).
 	 * Ручное переключение visibility='archived' или явное 'open' не перебивается.
 	 *
+	 * Урок курса в статусе черновика сам не открывается: курс дописывается по ходу
+	 * года, и заготовка, до которой не дошли руки к дате занятия, не должна уйти
+	 * ученикам пустой. Откроется, как только урок опубликуют.
+	 *
 	 * @param \Inc\DTO\Course\GroupLessonDTO $row
 	 * @return string
 	 */
@@ -37,6 +41,7 @@ class LessonVisibilityService {
 			LessonVisibility::Hidden->value === $row->visibility
 			&& null !== $row->scheduledAt
 			&& $this->clock->now() >= $row->scheduledAt
+			&& ( ! $row->lessonId || $this->lessonManager->isPublished( $row->lessonId ) )
 		) {
 			return LessonVisibility::Open->value;
 		}

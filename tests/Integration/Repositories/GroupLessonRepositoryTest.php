@@ -25,8 +25,9 @@ class GroupLessonRepositoryTest extends TestCase {
 
 		$this->repo->listByGroup( 3 );
 
-		self::assertStringContainsString( 'ORDER BY position ASC', $this->wpdb->lastQuery() );
+		self::assertStringContainsString( 'ORDER BY gl.position ASC', $this->wpdb->lastQuery() );
 		self::assertStringContainsString( 'group_id = 3', $this->wpdb->lastQuery() );
+		self::assertStringContainsString( 'AS has_attendance', $this->wpdb->lastQuery() );
 	}
 
 	public function test_list_open_by_group_filters_visibility(): void {
@@ -219,6 +220,49 @@ class GroupLessonRepositoryTest extends TestCase {
 		self::assertSame( '2026-09-03 10:00:00', $this->wpdb->updates[0]['data']['scheduled_at'] );
 	}
 
+	/** Занятие с отмеченной посещаемостью — факт журнала: дата не переписывается, слот занят. */
+	public function test_apply_slots_keeps_date_of_lesson_with_attendance(): void {
+		$this->wpdb->queueResults( [
+			$this->slotRow( 1, 0, [ 'scheduled_at' => '2026-08-28 10:00:00', 'has_attendance' => 1 ] ),
+			$this->slotRow( 2, 1 ),
+		] );
+
+		$this->repo->applySlots( 5, [ $this->slot( '2026-09-01 10:00:00' ), $this->slot( '2026-09-03 10:00:00' ) ] );
+
+		self::assertCount( 1, $this->wpdb->updates );
+		self::assertSame( 2, $this->wpdb->updates[0]['where']['id'] );
+		self::assertSame( '2026-09-03 10:00:00', $this->wpdb->updates[0]['data']['scheduled_at'] );
+	}
+
+	/** Раскладка переносит занятие — дедлайны его работ едут на ту же разницу. */
+	public function test_apply_slots_shifts_deadlines_with_lesson(): void {
+		$this->wpdb->queueResults( [
+			$this->slotRow( 1, 0, [
+				'scheduled_at'    => '2026-09-01 10:00:00',
+				'work_deadlines'  => '{"50":"2026-09-07 23:59:00"}',
+				'homework_due_at' => '2026-09-08 10:00:00',
+			] ),
+		] );
+
+		$this->repo->applySlots( 5, [ $this->slot( '2026-09-08 10:00:00' ) ] );
+
+		$data = $this->wpdb->updates[0]['data'];
+		self::assertSame( '2026-09-08 10:00:00', $data['scheduled_at'] );
+		self::assertSame( array( 50 => '2026-09-14 23:59:00' ), json_decode( $data['work_deadlines'], true ) );
+		self::assertSame( '2026-09-15 10:00:00', $data['homework_due_at'] );
+	}
+
+	/** Первая постановка на дату (строка была в пуле) — дедлайны не трогаются. */
+	public function test_apply_slots_first_placement_keeps_deadlines(): void {
+		$this->wpdb->queueResults( [
+			$this->slotRow( 1, 0, [ 'scheduled_at' => null, 'work_deadlines' => '{"50":"2026-09-07 23:59:00"}' ] ),
+		] );
+
+		$this->repo->applySlots( 5, [ $this->slot( '2026-09-08 10:00:00' ) ] );
+
+		self::assertArrayNotHasKey( 'work_deadlines', $this->wpdb->updates[0]['data'] );
+	}
+
 	/** cancelled/moved освобождают слот — хвост сдвигается вперёд (слот не тратится). */
 	public function test_apply_slots_freed_status_shifts_tail_forward(): void {
 		$this->wpdb->queueResults( [
@@ -332,6 +376,7 @@ class GroupLessonRepositoryTest extends TestCase {
 		self::assertStringContainsString( 'group_id = 5', $q );
 		self::assertStringContainsString( "kind != 'individual'", $q );
 		self::assertStringContainsString( "status != 'held'", $q );
+		self::assertStringContainsString( 'NOT EXISTS( SELECT 1 FROM `wp_fs_lms_attendance`', $q );
 		self::assertStringContainsString( 'scheduled_at = NULL', $q );
 		self::assertStringContainsString( 'is_pinned = 0', $q );
 	}
@@ -345,7 +390,7 @@ class GroupLessonRepositoryTest extends TestCase {
 
 		$q = $this->wpdb->lastQuery();
 		self::assertStringContainsString( 'group_id = 3', $q );
-		self::assertStringContainsString( "DATE(scheduled_at) = '2026-07-08'", $q );
+		self::assertStringContainsString( "DATE(gl.scheduled_at) = '2026-07-08'", $q );
 	}
 
 	public function test_list_individual_by_teacher_and_day_uses_effective_teacher(): void {

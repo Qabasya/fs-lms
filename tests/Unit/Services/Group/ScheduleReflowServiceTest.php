@@ -4,6 +4,7 @@ declare( strict_types=1 );
 
 namespace Unit\Services\Group;
 
+use Inc\Contracts\ClockInterface;
 use Inc\Contracts\LogEventDispatcherInterface;
 use Inc\DTO\Course\ScheduleReflowResultDTO;
 use Inc\Enums\Log\LogEvent;
@@ -29,6 +30,7 @@ class ScheduleReflowServiceTest extends TestCase {
 	private RoomAvailabilityService&\PHPUnit\Framework\MockObject\MockObject $roomAvailability;
 	private LogEventDispatcherInterface&\PHPUnit\Framework\MockObject\MockObject $dispatcher;
 	private ScheduleReflowService $service;
+	private ClockInterface $clock;
 
 	protected function setUp(): void {
 		parent::setUp();
@@ -37,6 +39,8 @@ class ScheduleReflowServiceTest extends TestCase {
 		$this->calendar         = $this->createMock( SessionCalendarService::class );
 		$this->roomAvailability = $this->createMock( RoomAvailabilityService::class );
 		$this->dispatcher       = $this->createMock( LogEventDispatcherInterface::class );
+		$this->clock            = $this->createStub( ClockInterface::class );
+		$this->clock->method( 'now' )->willReturn( '2026-09-01 00:00:00' );
 		// Широкий период по умолчанию — большинство тестов проверяют не границы периода,
 		// а логику вытеснения/ends_at; тест assertWithinPeriod() переопределяет явно.
 		$this->calendar->method( 'periodMeta' )->willReturn( array(
@@ -52,6 +56,7 @@ class ScheduleReflowServiceTest extends TestCase {
 			$this->calendar,
 			$this->roomAvailability,
 			new ScheduleEventPublisher( $this->dispatcher ),
+			$this->clock,
 		);
 	}
 
@@ -271,6 +276,7 @@ class ScheduleReflowServiceTest extends TestCase {
 		$service = new ScheduleReflowService(
 			$this->groupLessons, $this->groups, $this->calendar, $this->roomAvailability,
 			new ScheduleEventPublisher( $this->dispatcher ),
+			$this->clock,
 		);
 		$this->groupLessons->method( 'find' )->willReturn( $this->makeRow( 42, 'group' ) );
 		$this->groupLessons->expects( self::never() )->method( 'updateSchedule' );
@@ -289,6 +295,7 @@ class ScheduleReflowServiceTest extends TestCase {
 		$service = new ScheduleReflowService(
 			$this->groupLessons, $this->groups, $this->calendar, $this->roomAvailability,
 			new ScheduleEventPublisher( $this->dispatcher ),
+			$this->clock,
 		);
 		$this->groupLessons->method( 'find' )->willReturn( $this->makeRow( 42, 'group' ) );
 		$this->groupLessons->expects( self::never() )->method( 'updateSchedule' );
@@ -306,6 +313,7 @@ class ScheduleReflowServiceTest extends TestCase {
 		$service = new ScheduleReflowService(
 			$this->groupLessons, $this->groups, $this->calendar, $this->roomAvailability,
 			new ScheduleEventPublisher( $this->dispatcher ),
+			$this->clock,
 		);
 		$this->groupLessons->method( 'find' )->willReturn( $this->makeRow( 42, 'group' ) );
 
@@ -379,10 +387,11 @@ class ScheduleReflowServiceTest extends TestCase {
 		bool $isPinned = false,
 		?int $roomId = null,
 		?int $continuedFromId = null,
-		string $kind = 'group'
+		string $kind = 'group',
+		int $position = 0
 	): \Inc\DTO\Course\GroupLessonDTO {
 		return new \Inc\DTO\Course\GroupLessonDTO(
-			id: $id, groupId: 5, lessonId: 10, position: 0, workIdsSnapshot: null, extraWorkIds: array(),
+			id: $id, groupId: 5, lessonId: 10, position: $position, workIdsSnapshot: null, extraWorkIds: array(),
 			scheduledAt: $scheduledAt, endsAt: substr( $scheduledAt, 0, 11 ) . '11:30:00', isPinned: $isPinned,
 			teacherUserId: null, visibility: 'hidden', openedAt: null, homeworkDueAt: null, allowLate: true,
 			recordingUrl: null, createdByUserId: null, updatedByUserId: null,
@@ -509,5 +518,180 @@ class ScheduleReflowServiceTest extends TestCase {
 		$this->dispatcher->expects( self::never() )->method( 'dispatch' );
 
 		self::assertSame( 0, $this->service->returnToPool( 1, 99 ) );
+	}
+
+	// --- placeInserted(): вставка темы в распределённый план ---
+
+	private function unplacedRow( int $id, int $position ): \Inc\DTO\Course\GroupLessonDTO {
+		return new \Inc\DTO\Course\GroupLessonDTO(
+			id: $id, groupId: 5, lessonId: 10, position: $position, workIdsSnapshot: null, extraWorkIds: array(),
+			scheduledAt: null, endsAt: null, isPinned: false, teacherUserId: null, visibility: 'hidden',
+			openedAt: null, homeworkDueAt: null, allowLate: true, recordingUrl: null,
+			createdByUserId: null, updatedByUserId: null,
+		);
+	}
+
+	/** @param string[] $dates */
+	private function slots( array $dates ): array {
+		return array_map(
+			static fn( string $d ): array => array( 'scheduled_at' => $d . ' 10:00:00', 'ends_at' => $d . ' 11:30:00', 'room' => 0 ),
+			$dates
+		);
+	}
+
+	/** @var array<int, array{0:int, 1:string}> Вызовы moveToSlot(): [rowId, scheduled_at] */
+	private array $moves = array();
+
+	private function recordMoves(): void {
+		$this->groupLessons->method( 'moveToSlot' )->willReturnCallback(
+			function ( int $id, array $slot ): bool {
+				$this->moves[] = array( $id, $slot['scheduled_at'] );
+				return true;
+			}
+		);
+	}
+
+	/** Тема вставлена после 2-го урока: берёт окно 3-го, хвост едет на слот вперёд, прошедшее не трогается. */
+	public function test_place_inserted_takes_next_window_and_pushes_tail(): void {
+		$new = $this->unplacedRow( 99, 2 );
+		$this->groupLessons->method( 'find' )->willReturn( $new );
+		$this->groupLessons->method( 'listByGroup' )->willReturn( array(
+			$this->placedRow( 1, '2026-08-27 10:00:00', position: 0 ),
+			$this->placedRow( 2, '2026-09-03 10:00:00', position: 1 ),
+			$new,
+			$this->placedRow( 3, '2026-09-10 10:00:00', position: 3 ),
+			$this->placedRow( 4, '2026-09-17 10:00:00', position: 4 ),
+		) );
+		$this->calendar->method( 'generate' )->willReturn(
+			$this->slots( array( '2026-08-27', '2026-09-03', '2026-09-10', '2026-09-17', '2026-09-24', '2026-10-01' ) )
+		);
+		$this->recordMoves();
+		$this->groupLessons->expects( self::never() )->method( 'clearSchedule' );
+
+		self::assertSame( 2, $this->service->placeInserted( 99, 1 ) );
+		self::assertSame(
+			array(
+				array( 99, '2026-09-10 10:00:00' ),
+				array( 3, '2026-09-17 10:00:00' ),
+				array( 4, '2026-09-24 10:00:00' ),
+			),
+			$this->moves
+		);
+	}
+
+	/** Слоты периода закончились — последняя тема хвоста уходит в пул. */
+	public function test_place_inserted_sends_last_to_pool_when_period_full(): void {
+		$new = $this->unplacedRow( 99, 1 );
+		$this->groupLessons->method( 'find' )->willReturn( $new );
+		$this->groupLessons->method( 'listByGroup' )->willReturn( array(
+			$this->placedRow( 1, '2026-09-03 10:00:00', position: 0 ),
+			$new,
+			$this->placedRow( 2, '2026-09-10 10:00:00', position: 2 ),
+		) );
+		$this->calendar->method( 'generate' )->willReturn( $this->slots( array( '2026-09-03', '2026-09-10' ) ) );
+		$this->recordMoves();
+
+		$this->groupLessons->expects( self::once() )->method( 'clearSchedule' )->with( 2 );
+
+		$this->service->placeInserted( 99, 1 );
+		self::assertSame( array( array( 99, '2026-09-10 10:00:00' ) ), $this->moves );
+	}
+
+	/** Урок дописан в конец курса — встаёт на ближайший свободный слот после последнего занятия. */
+	public function test_place_inserted_appends_after_last_lesson(): void {
+		$new = $this->unplacedRow( 99, 2 );
+		$this->groupLessons->method( 'find' )->willReturn( $new );
+		$this->groupLessons->method( 'listByGroup' )->willReturn( array(
+			$this->placedRow( 1, '2026-09-03 10:00:00', position: 0 ),
+			$this->placedRow( 2, '2026-09-10 10:00:00', position: 1 ),
+			$new,
+		) );
+		$this->calendar->method( 'generate' )->willReturn(
+			$this->slots( array( '2026-09-03', '2026-09-10', '2026-09-17' ) )
+		);
+		$this->recordMoves();
+
+		self::assertSame( 0, $this->service->placeInserted( 99, 1 ) );
+		self::assertSame( array( array( 99, '2026-09-17 10:00:00' ) ), $this->moves );
+	}
+
+	/** Закреплённое занятие остаётся на своей дате, хвост течёт мимо него. */
+	public function test_place_inserted_keeps_pinned_lesson_in_place(): void {
+		$new = $this->unplacedRow( 99, 1 );
+		$this->groupLessons->method( 'find' )->willReturn( $new );
+		$this->groupLessons->method( 'listByGroup' )->willReturn( array(
+			$this->placedRow( 1, '2026-09-03 10:00:00', position: 0 ),
+			$new,
+			$this->placedRow( 2, '2026-09-10 10:00:00', isPinned: true, position: 2 ),
+			$this->placedRow( 3, '2026-09-17 10:00:00', position: 3 ),
+		) );
+		$this->calendar->method( 'generate' )->willReturn(
+			$this->slots( array( '2026-09-03', '2026-09-10', '2026-09-17', '2026-09-24' ) )
+		);
+		$this->recordMoves();
+
+		$this->service->placeInserted( 99, 1 );
+		self::assertSame(
+			array(
+				array( 99, '2026-09-17 10:00:00' ),
+				array( 3, '2026-09-24 10:00:00' ),
+			),
+			$this->moves
+		);
+	}
+
+	/** План ещё не распределён — тема ждёт «Распределить» в пуле. */
+	public function test_place_inserted_leaves_unscheduled_program_alone(): void {
+		$new = $this->unplacedRow( 99, 1 );
+		$this->groupLessons->method( 'find' )->willReturn( $new );
+		$this->groupLessons->method( 'listByGroup' )->willReturn( array( $this->unplacedRow( 1, 0 ), $new ) );
+
+		$this->groupLessons->expects( self::never() )->method( 'moveToSlot' );
+		$this->dispatcher->expects( self::never() )->method( 'dispatch' );
+
+		self::assertSame( 0, $this->service->placeInserted( 99, 1 ) );
+	}
+
+	private function attendedRow( int $id, string $scheduledAt, int $position ): \Inc\DTO\Course\GroupLessonDTO {
+		return new \Inc\DTO\Course\GroupLessonDTO(
+			id: $id, groupId: 5, lessonId: 10, position: $position, workIdsSnapshot: null, extraWorkIds: array(),
+			scheduledAt: $scheduledAt, endsAt: null, isPinned: false, teacherUserId: null, visibility: 'hidden',
+			openedAt: null, homeworkDueAt: null, allowLate: true, recordingUrl: null,
+			createdByUserId: null, updatedByUserId: null, hasAttendance: true,
+		);
+	}
+
+	/** Занятие с отмеченной посещаемостью — факт журнала: в пул не возвращается. */
+	public function test_return_to_pool_rejects_lesson_with_attendance(): void {
+		$this->groupLessons->method( 'find' )->willReturn( $this->attendedRow( 1, '2026-09-10 10:00:00', 0 ) );
+		$this->groupLessons->expects( self::never() )->method( 'clearSchedule' );
+
+		$this->expectException( \InvalidArgumentException::class );
+		$this->service->returnToPool( 1, 99 );
+	}
+
+	/** Вставка темы не сдвигает занятие, по которому уже отмечена посещаемость. */
+	public function test_place_inserted_keeps_lesson_with_attendance(): void {
+		$new = $this->unplacedRow( 99, 1 );
+		$this->groupLessons->method( 'find' )->willReturn( $new );
+		$this->groupLessons->method( 'listByGroup' )->willReturn( array(
+			$this->placedRow( 1, '2026-09-03 10:00:00', position: 0 ),
+			$new,
+			$this->attendedRow( 2, '2026-09-10 10:00:00', 2 ),
+			$this->placedRow( 3, '2026-09-17 10:00:00', position: 3 ),
+		) );
+		$this->calendar->method( 'generate' )->willReturn(
+			$this->slots( array( '2026-09-03', '2026-09-10', '2026-09-17', '2026-09-24' ) )
+		);
+		$this->recordMoves();
+
+		$this->service->placeInserted( 99, 1 );
+		self::assertSame(
+			array(
+				array( 99, '2026-09-17 10:00:00' ),
+				array( 3, '2026-09-24 10:00:00' ),
+			),
+			$this->moves
+		);
 	}
 }

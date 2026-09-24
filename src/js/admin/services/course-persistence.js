@@ -78,7 +78,7 @@ export function createPersistence( { courseId, mount, state, onPublishToggle } )
 		setStatus( 'Изменения…' );
 		clearTimeout( lessonMetaTimer );
 		lessonMetaTimer = setTimeout( () => {
-			ajax( acts().updateLessonMeta, { lesson_id: lesson.id, title: lesson.title, published: lesson.published ? '1' : '' } )
+			ajax( acts().updateLessonMeta, { lesson_id: lesson.id, course_id: courseId, title: lesson.title, published: lesson.published ? '1' : '' } )
 				.then( () => setStatus( 'Все изменения сохранены' ) )
 				.catch( ( msg ) => { setStatus( 'Ошибка сохранения' ); showToast( msg, 'error' ); } );
 		}, 800 );
@@ -87,7 +87,7 @@ export function createPersistence( { courseId, mount, state, onPublishToggle } )
 	function togglePublish( lesson ) {
 		lesson.published = ! lesson.published;
 		if ( onPublishToggle ) { onPublishToggle(); }
-		ajax( acts().updateLessonMeta, { lesson_id: lesson.id, title: lesson.title, published: lesson.published ? '1' : '' } )
+		ajax( acts().updateLessonMeta, { lesson_id: lesson.id, course_id: courseId, title: lesson.title, published: lesson.published ? '1' : '' } )
 			.then( () => showToast( lesson.published ? 'Урок опубликован' : 'Урок снят с публикации', 'success' ) )
 			.catch( ( msg ) => showToast( msg, 'error' ) );
 	}

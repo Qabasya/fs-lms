@@ -125,8 +125,22 @@ class LessonVisibilityServiceTest extends TestCase {
 			openedAt: null, homeworkDueAt: null, allowLate: true, recordingUrl: null,
 			createdByUserId: null, updatedByUserId: null,
 		);
+		$this->lessonManager->method( 'isPublished' )->willReturn( true );
 
 		self::assertSame( 'open', $this->service->effectiveVisibility( $row ) );
+	}
+
+	/** Урок курса — черновик: дата наступила, но ученикам он сам не открывается. */
+	public function test_effective_visibility_keeps_draft_lesson_hidden_after_time(): void {
+		$row = new GroupLessonDTO(
+			id: 1, groupId: 5, lessonId: 10, position: 0, workIdsSnapshot: null, extraWorkIds: array(),
+			scheduledAt: '2024-06-01 09:00:00', endsAt: null, isPinned: false, teacherUserId: null,
+			visibility: 'hidden', openedAt: null, homeworkDueAt: null, allowLate: true, recordingUrl: null,
+			createdByUserId: null, updatedByUserId: null,
+		);
+		$this->lessonManager->method( 'isPublished' )->with( 10 )->willReturn( false );
+
+		self::assertSame( 'hidden', $this->service->effectiveVisibility( $row ) );
 	}
 
 	/** Та же строка, но время ещё не наступило — остаётся hidden. */

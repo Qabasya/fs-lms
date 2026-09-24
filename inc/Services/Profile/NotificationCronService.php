@@ -8,12 +8,14 @@ use DateTimeImmutable;
 use Inc\Contracts\ClockInterface;
 use Inc\DTO\Course\GroupLessonDTO;
 use Inc\DTO\Course\WorkDTO;
+use Inc\Enums\Course\LessonVisibility;
 use Inc\Enums\Profile\NotificationType;
 use Inc\Enums\Wp\PageRoutes;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\NotificationRepository;
 use Inc\Repositories\WPDBRepositories\SubmissionRepository;
 use Inc\Services\Course\EffectiveWorksResolver;
+use Inc\Services\Course\LessonVisibilityService;
 use Inc\Services\Group\SessionCalendarService;
 
 /**
@@ -42,6 +44,7 @@ readonly class NotificationCronService {
 		private NotificationService      $notifications,
 		private ClockInterface           $clock,
 		private SessionCalendarService   $calendar,
+		private LessonVisibilityService  $visibility,
 	) {}
 
 	public function tick(): void {
@@ -101,6 +104,10 @@ readonly class NotificationCronService {
 
 		foreach ( $this->groupLessons->listRecentlyOpened( $since, $now ) as $lesson ) {
 			if ( ! $this->isOffSchedule( $lesson ) ) {
+				continue;
+			}
+			// Урок-черновик по дате не открывается — и уведомлять о нём не о чем.
+			if ( LessonVisibility::Open->value !== $this->visibility->effectiveVisibility( $lesson ) ) {
 				continue;
 			}
 

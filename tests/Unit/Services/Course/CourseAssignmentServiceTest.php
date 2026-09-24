@@ -20,6 +20,8 @@ use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Services\Course\CourseAssignmentService;
 use Inc\Services\Course\GroupLessonUsageGuard;
 use Inc\Services\Course\OpenCourseValidator;
+use Inc\Services\Group\ScheduleEventPublisher;
+use Inc\Services\Group\ScheduleReflowService;
 use PHPUnit\Framework\TestCase;
 
 class CourseAssignmentServiceTest extends TestCase {
@@ -33,6 +35,8 @@ class CourseAssignmentServiceTest extends TestCase {
 	private LessonManager&\PHPUnit\Framework\MockObject\MockObject $lessonManager;
 	private OpenCourseValidator&\PHPUnit\Framework\MockObject\MockObject $openCourseValidator;
 	private GroupLessonUsageGuard&\PHPUnit\Framework\MockObject\MockObject $usageGuard;
+	private ScheduleReflowService&\PHPUnit\Framework\MockObject\MockObject $schedule;
+	private ScheduleEventPublisher&\PHPUnit\Framework\MockObject\MockObject $events;
 	private CourseAssignmentService $service;
 
 	protected function setUp(): void {
@@ -44,6 +48,8 @@ class CourseAssignmentServiceTest extends TestCase {
 		$this->lessonManager       = $this->createMock( LessonManager::class );
 		$this->openCourseValidator = $this->createMock( OpenCourseValidator::class );
 		$this->usageGuard          = $this->createMock( GroupLessonUsageGuard::class );
+		$this->schedule            = $this->createMock( ScheduleReflowService::class );
+		$this->events              = $this->createMock( ScheduleEventPublisher::class );
 
 		$clock = $this->createMock( ClockInterface::class );
 		$clock->method( 'now' )->willReturn( self::NOW );
@@ -57,6 +63,8 @@ class CourseAssignmentServiceTest extends TestCase {
 			$clock,
 			$this->openCourseValidator,
 			$this->usageGuard,
+			$this->schedule,
+			$this->events,
 		);
 	}
 
@@ -96,18 +104,24 @@ class CourseAssignmentServiceTest extends TestCase {
 		$this->setupGroupAndCourse( lessonIds: [ 10 ] );
 		$this->groupLessons->method( 'nextPosition' )->willReturn( 0 );
 
-		$this->groupLessons->expects( self::never() )->method( 'deleteAllByGroup' );
+		$this->groupLessons->expects( self::never() )->method( 'remove' );
 
 		$this->service->assign( 1, 5, 99, AssignmentPolicy::Append );
 	}
 
-	public function test_assign_replace_deletes_existing_first(): void {
+	/** Замена курса убирает только строки без данных учеников — журнал не теряет занятий. */
+	public function test_assign_replace_keeps_rows_with_student_data(): void {
 		$this->setupGroupAndCourse( lessonIds: [ 10 ] );
-		$this->groupLessons->method( 'nextPosition' )->willReturn( 0 );
+		$this->groupLessons->method( 'nextPosition' )->willReturn( 2 );
+		$this->groupLessons->method( 'listByGroup' )->willReturn( array(
+			$this->glRow( id: 100, lessonId: 7 ),
+			$this->glRow( id: 200, lessonId: 8 ),
+			$this->glRow( id: 300, lessonId: 9, kind: 'individual' ),
+		) );
+		$this->usageGuard->method( 'isSafeToRemove' )->willReturnCallback( static fn( int $id ) => 200 === $id );
 
-		$this->groupLessons->expects( self::once() )
-			->method( 'deleteAllByGroup' )
-			->with( 1 );
+		$this->groupLessons->expects( self::never() )->method( 'deleteAllByGroup' );
+		$this->groupLessons->expects( self::once() )->method( 'remove' )->with( 200 );
 
 		$this->service->assign( 1, 5, 99, AssignmentPolicy::Replace );
 	}
@@ -264,24 +278,119 @@ class CourseAssignmentServiceTest extends TestCase {
 		self::assertSame( 0, $res['removed'] );
 	}
 
-	public function test_reconcile_skips_locked_program(): void {
+	public function test_reconcile_cleans_locked_program_too(): void {
 		$this->courseManager->method( 'get' )->willReturn( $this->makeCourse( lessonIds: [ 10 ] ) );
 		$group = (object) array( 'id' => 1, 'access_mode' => 'scheduled', 'program_locked_at' => '2026-01-01 00:00:00' );
 		$this->groups->method( 'findByCourse' )->with( 5 )->willReturn( array( $group ) );
+		$this->groupLessons->method( 'listByGroup' )->with( 1 )->willReturn( array(
+			$this->glRow( id: 100, lessonId: 10 ),
+			$this->glRow( id: 200, lessonId: 99 ),
+		) );
+		$this->usageGuard->method( 'isSafeToRemove' )->with( 200 )->willReturn( true );
 
-		// Заблокированную КТП вообще не читаем и не трогаем.
-		$this->groupLessons->expects( self::never() )->method( 'remove' );
+		// Публикация КТП не замораживает доставку курса: сирота без данных журнала уходит.
+		$this->groupLessons->expects( self::once() )->method( 'remove' )->with( 200 )->willReturn( true );
 
 		$res = $this->service->reconcileCourseLessons( 5, 99 );
 
-		self::assertSame( 0, $res['removed'] );
+		self::assertSame( 1, $res['removed'] );
+	}
+
+	// --- Живой курс: новые уроки встают в КТП на своё место ---
+
+	public function test_sync_inserts_new_lesson_right_after_previous_course_lesson(): void {
+		// Курс: 10, 15 (новый), 20. В КТП: 10 (две части темы) и 20.
+		$this->courseManager->method( 'get' )->willReturn( $this->makeCourse( lessonIds: [ 10, 15, 20 ] ) );
+		$group = (object) array( 'id' => 1, 'access_mode' => 'scheduled', 'program_locked_at' => null );
+		$this->groups->method( 'findByCourse' )->willReturn( array( $group ) );
+		$this->groupLessons->method( 'listByGroup' )->willReturn( array(
+			$this->glRow( id: 100, lessonId: 10, position: 0 ),
+			$this->glRow( id: 101, lessonId: 10, position: 1 ),
+			$this->glRow( id: 200, lessonId: 20, position: 2 ),
+		) );
+
+		$this->groupLessons->expects( self::once() )->method( 'shiftPositions' )->with( 1, 2 );
+		$this->groupLessons->expects( self::once() )->method( 'add' )
+			->with( self::callback( fn( GroupLessonInputDTO $d ) => 15 === $d->lessonId && 2 === $d->position ) )
+			->willReturn( 300 );
+		$this->schedule->expects( self::once() )->method( 'placeInserted' )->with( 300, 99 );
+		$this->events->expects( self::once() )->method( 'lessonAdded' )->with( 1, 15, 'inf', 99 );
+
+		self::assertSame( 1, $this->service->syncCourseLessons( 5, 99 ) );
+	}
+
+	public function test_sync_appends_lesson_added_to_course_end(): void {
+		$this->courseManager->method( 'get' )->willReturn( $this->makeCourse( lessonIds: [ 10, 20 ] ) );
+		$group = (object) array( 'id' => 1, 'access_mode' => 'scheduled', 'program_locked_at' => null );
+		$this->groups->method( 'findByCourse' )->willReturn( array( $group ) );
+		$this->groupLessons->method( 'listByGroup' )->willReturn( array(
+			$this->glRow( id: 100, lessonId: 10, position: 0 ),
+		) );
+
+		$this->groupLessons->expects( self::once() )->method( 'add' )
+			->with( self::callback( fn( GroupLessonInputDTO $d ) => 20 === $d->lessonId && 1 === $d->position ) )
+			->willReturn( 300 );
+		$this->schedule->expects( self::once() )->method( 'placeInserted' )->with( 300, 99 );
+
+		self::assertSame( 1, $this->service->syncCourseLessons( 5, 99 ) );
+	}
+
+	public function test_sync_delivers_to_locked_program(): void {
+		$this->courseManager->method( 'get' )->willReturn( $this->makeCourse( lessonIds: [ 10, 20 ] ) );
+		$group = (object) array( 'id' => 1, 'access_mode' => 'scheduled', 'program_locked_at' => '2026-01-01 00:00:00' );
+		$this->groups->method( 'findByCourse' )->willReturn( array( $group ) );
+		$this->groupLessons->method( 'listByGroup' )->willReturn( array(
+			$this->glRow( id: 100, lessonId: 10, position: 0 ),
+		) );
+
+		$this->groupLessons->expects( self::once() )->method( 'add' )->willReturn( 300 );
+
+		self::assertSame( 1, $this->service->syncCourseLessons( 5, 99 ) );
+	}
+
+	public function test_sync_ignores_individual_row_with_course_lesson(): void {
+		$this->courseManager->method( 'get' )->willReturn( $this->makeCourse( lessonIds: [ 10 ] ) );
+		$group = (object) array( 'id' => 1, 'access_mode' => 'scheduled', 'program_locked_at' => null );
+		$this->groups->method( 'findByCourse' )->willReturn( array( $group ) );
+		$this->groupLessons->method( 'listByGroup' )->willReturn( array(
+			$this->glRow( id: 100, lessonId: 10, kind: 'individual' ),
+		) );
+
+		$this->groupLessons->expects( self::once() )->method( 'add' )->willReturn( 300 );
+
+		self::assertSame( 1, $this->service->syncCourseLessons( 5, 99 ) );
+	}
+
+	public function test_sync_skips_draft_lesson_for_open_group(): void {
+		$this->courseManager->method( 'get' )->willReturn( $this->makeCourse( lessonIds: [ 10 ] ) );
+		$group = (object) array( 'id' => 1, 'access_mode' => 'open', 'program_locked_at' => null );
+		$this->groups->method( 'findByCourse' )->willReturn( array( $group ) );
+		$this->groupLessons->method( 'listByGroup' )->willReturn( array() );
+		$this->lessonManager->method( 'isPublished' )->with( 10 )->willReturn( false );
+
+		$this->groupLessons->expects( self::never() )->method( 'add' );
+
+		self::assertSame( 0, $this->service->syncCourseLessons( 5, 99 ) );
+	}
+
+	public function test_sync_open_group_gets_published_lesson_without_dates(): void {
+		$this->courseManager->method( 'get' )->willReturn( $this->makeCourse( lessonIds: [ 10 ] ) );
+		$group = (object) array( 'id' => 1, 'access_mode' => 'open', 'program_locked_at' => null );
+		$this->groups->method( 'findByCourse' )->willReturn( array( $group ) );
+		$this->groupLessons->method( 'listByGroup' )->willReturn( array() );
+		$this->lessonManager->method( 'isPublished' )->willReturn( true );
+
+		$this->groupLessons->expects( self::once() )->method( 'add' )->willReturn( 300 );
+		$this->schedule->expects( self::never() )->method( 'placeInserted' );
+
+		self::assertSame( 1, $this->service->syncCourseLessons( 5, 99 ) );
 	}
 
 	// --- helpers ---
 
-	private function glRow( int $id, int $lessonId, string $kind = 'group' ): GroupLessonDTO {
+	private function glRow( int $id, int $lessonId, string $kind = 'group', int $position = 0 ): GroupLessonDTO {
 		return new GroupLessonDTO(
-			id: $id, groupId: 1, lessonId: $lessonId, position: 0, workIdsSnapshot: null, extraWorkIds: array(),
+			id: $id, groupId: 1, lessonId: $lessonId, position: $position, workIdsSnapshot: null, extraWorkIds: array(),
 			scheduledAt: null, endsAt: null, isPinned: false, teacherUserId: null, visibility: 'hidden',
 			openedAt: null, homeworkDueAt: null, allowLate: true, recordingUrl: null,
 			createdByUserId: null, updatedByUserId: null, label: null, kind: LessonKind::fromValueOrDefault( $kind ),

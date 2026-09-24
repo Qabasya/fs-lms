@@ -125,12 +125,30 @@ class JournalServiceTest extends TestCase {
 		self::assertSame( '2026-09-05', $result['lessons'][0]['date'] );
 	}
 
-	private function glRow( int $id, int $lessonId, ?string $scheduledAt = null, bool $isPinned = false ): GroupLessonDTO {
+	/** Журнал — отчёт о реальных занятиях: отметки не пропадают, даже если в КТП сняли дату. */
+	public function test_lesson_with_attendance_stays_in_journal_without_date(): void {
+		$this->groups->method( 'findById' )->willReturn( (object) array( 'access_mode' => 'scheduled' ) );
+		$this->records->method( 'findActiveByGroupId' )->willReturn( array( $this->studentRecord( 1 ) ) );
+		$this->groupLessons->method( 'listByGroup' )->willReturn( array(
+			$this->glRow( 10, 20, hasAttendance: true ),
+			$this->glRow( 11, 21 ),
+		) );
+		$this->attendance->method( 'matrixForGroup' )->willReturn( array( 10 => array( 1 => true ) ) );
+		$this->attendance->method( 'firstMarkedAt' )->with( 10 )->willReturn( '2026-09-10 17:05:00' );
+
+		$result = $this->service->forGroup( 5 );
+
+		self::assertCount( 1, $result['lessons'] );
+		self::assertSame( 10, $result['lessons'][0]['group_lesson_id'] );
+		self::assertSame( '2026-09-10', $result['lessons'][0]['date'] );
+	}
+
+	private function glRow( int $id, int $lessonId, ?string $scheduledAt = null, bool $isPinned = false, bool $hasAttendance = false ): GroupLessonDTO {
 		return new GroupLessonDTO(
 			id: $id, groupId: 5, lessonId: $lessonId, position: 0, workIdsSnapshot: null, extraWorkIds: array(),
 			scheduledAt: $scheduledAt, endsAt: null, isPinned: $isPinned, teacherUserId: null, visibility: 'open',
 			openedAt: '2026-01-01 00:00:00', homeworkDueAt: null, allowLate: true, recordingUrl: null,
-			createdByUserId: null, updatedByUserId: null,
+			createdByUserId: null, updatedByUserId: null, hasAttendance: $hasAttendance,
 		);
 	}
 

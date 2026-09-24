@@ -109,9 +109,9 @@ function openRecordingPopover(glid, anchorEl, currentUrl, api, reload) {
 }
 
 /* ── Продолжение темы на вторую дату (T12.6, D14) ─────────────────────────
-   «⋮» на размещённой теме → «Продолжить на другую дату» → в банке появляется
-   связанная непристроенная копия — перетащите её на целевую дату тем же
-   drag-flow, что и обычную тему. */
+   «⋮» на размещённой теме → «Продолжить на другую дату» → вторая часть темы
+   встаёт следующим занятием, непроведённые темы после неё сдвигаются на одно
+   занятие вперёд (сервер, ScheduleReflowService::placeInserted). */
 export function attachThemeActionsClick(btn, api, reload) {
     btn.addEventListener('click', e => {
         e.stopPropagation(); // не открывать поповер дедлайнов родительской темы
@@ -133,7 +133,7 @@ function openThemeActionsMenu(glid, anchorEl, api, reload) {
         closeCtxMenu();
         try {
             await api('continue', { group_lesson_id: glid });
-            toast('Тема продолжена — перетащите копию из банка тем на вторую дату');
+            toast('Тема продолжена на следующее занятие — следующие темы сдвинуты');
             await reload();
         } catch (e) { toast(e.message, 'error'); }
     });
