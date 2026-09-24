@@ -70,6 +70,7 @@ class AssessmentGradeSource implements GradeSourceInterface {
 				badge           : $assessment ? GradeBadge::fromAssessmentKind( $assessment->kind ) : null,
 				groupKey        : 'assessment:' . $attempt->assessmentId,
 				submittedAt     : $attempt->submittedAt,
+				durationSec     : $attempt->actualDurationSeconds(),
 			);
 		}
 		return $entries;

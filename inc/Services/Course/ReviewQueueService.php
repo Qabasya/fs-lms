@@ -145,7 +145,7 @@ class ReviewQueueService {
 	 * по заданиям: карточка сдачи показывает форму результата ещё до открытия
 	 * детали.
 	 *
-	 * @return array<int, array{source_type:string, source_id:int, student_name:string, group_id:int, group_name:string, submitted_at:?string, badge:?string, marks:string[]}>
+	 * @return array<int, array{source_type:string, source_id:int, student_name:string, group_id:int, group_name:string, submitted_at:?string, duration_sec:?int, badge:?string, marks:string[]}>
 	 */
 	public function submissionsFor( string $sourceType, int $sourceId, int $userId, bool $allGroups, string $tab ): array {
 		$groupIds = $this->teacherGroups->idsFor( $userId, $allGroups );
@@ -172,6 +172,7 @@ class ReviewQueueService {
 					'group_id'     => $gl->groupId,
 					'group_name'   => $group->name ?? '',
 					'submitted_at' => $sub->submittedAt,
+					'duration_sec' => $sub->durationSec,
 					'badge'        => GradeBadge::fromWorkType( $sub->workType )->badge(),
 					'marks'        => $this->marks->marksFor( 'submission', $sub->id ),
 				);
@@ -194,6 +195,7 @@ class ReviewQueueService {
 					'group_id'     => $attempt->groupId ?? 0,
 					'group_name'   => $group->name ?? '',
 					'submitted_at' => $attempt->submittedAt,
+					'duration_sec' => $attempt->actualDurationSeconds(),
 					'badge'        => $assessment ? GradeBadge::fromAssessmentKind( $assessment->kind )->badge() : null,
 					'marks'        => $this->marks->marksFor( 'attempt', $attempt->id ),
 				);

@@ -213,6 +213,7 @@ function subRow(s) {
         marks:      s.marks,
         subtitle:   s.group_name,
         date:       s.submitted_at,
+        duration:   s.duration_sec,
         sourceType: s.source_type,
         sourceId:   s.source_id,
         rowClass:   'wk-sub-row',

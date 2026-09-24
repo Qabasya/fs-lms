@@ -171,6 +171,7 @@
 .sum-task { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: rem(12) rem(14); }
 .sum-task-head { display: flex; align-items: center; gap: rem(10); margin-bottom: rem(8); }
 .st-n { font-size: rem(13); font-weight: 700; color: var(--ink); }
+.st-time { font-size: rem(12); color: var(--muted-2); white-space: nowrap; }
 .st-score { margin-left: auto; font-size: rem(12.5); font-weight: 700; color: var(--ink-2); }
 .sum-verdict { font-size: rem(11); font-weight: 700; padding: 1px rem(8); border-radius: 999px; }
 .sv-correct   { background: var(--ok); color: var(--ink-inverse); }

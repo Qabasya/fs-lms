@@ -1,6 +1,6 @@
 // Общие утилиты живут в common/utils.js — здесь только реэкспорт под привычными
 // именами кабинета (esc ≡ escapeHtml) и профиль-специфика (тост, чипы, шкалы).
-export { fmtDate, fmtDayMonth, fmtDateTime, todayIso, initials, debounce } from '../common/utils.js';
+export { fmtDate, fmtDayMonth, fmtDateTime, fmtDuration, todayIso, initials, debounce } from '../common/utils.js';
 
 // esc импортируется, а не реэкспортируется: `export ... from` не создаёт
 // локального имени, а esc нужен здесь же — в emptyState() и openCtxMenuRaw().

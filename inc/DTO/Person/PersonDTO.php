@@ -77,6 +77,20 @@ readonly class PersonDTO {
 	}
 
 	/**
+	 * Короткое имя «Фамилия И. О.» — для тесных мест (ячейки календаря).
+	 */
+	public function shortName(): string {
+		$initials = '';
+		foreach ( array( $this->firstName, (string) $this->middleName ) as $part ) {
+			$part = trim( $part );
+			if ( '' !== $part ) {
+				$initials .= ' ' . mb_strtoupper( mb_substr( $part, 0, 1 ) ) . '.';
+			}
+		}
+		return trim( $this->lastName . $initials );
+	}
+
+	/**
 	 * Создаёт DTO из массива данных (например, из результата SQL-запроса).
 	 *
 	 * @param array<string, mixed> $row Ассоциативный массив с полями таблицы

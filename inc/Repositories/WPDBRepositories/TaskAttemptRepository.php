@@ -38,6 +38,8 @@ class TaskAttemptRepository {
 		float  $score,
 		float  $maxScore,
 		array  $itemFeedback,
+		?int    $durationSec = null,
+		?string $answeredAt = null,
 	): int {
 		$this->wpdb->insert( $this->table, array(
 			'student_person_id' => $studentPersonId,
@@ -50,6 +52,8 @@ class TaskAttemptRepository {
 			'score'             => $score,
 			'max_score'         => $maxScore,
 			'item_feedback'     => wp_json_encode( $itemFeedback ),
+			'duration_sec'      => $durationSec,
+			'answered_at'       => $answeredAt,
 		) );
 
 		return (int) $this->wpdb->insert_id;

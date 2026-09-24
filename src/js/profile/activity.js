@@ -1,8 +1,10 @@
 /* ══════════════════════════════════════════════════════════════════════
-   Активность группы — две вкладки на одном экране:
+   Активность группы — три вкладки на одном экране:
 
-   • «Лента событий» — журнал обучения (fs_lms_learning_events): кто начал/сдал
-     работу, кому поставили оценку, как менялось расписание. Постранично.
+   • «Лента событий» — журнал обучения (fs_lms_learning_events), срез работы
+     учеников: сдачи работ, попытки контрольных, их оценки. Постранично.
+   • «Действия с курсом» — тот же журнал, срез программы группы: назначение
+     курса, темы, расписание. Срезы задаёт сервер (Inc\Enums\Log\ActivityFeed).
    • «Решения задач» — история попыток занятия тремя блоками: задания урока,
      задачи работ и контрольные. Задания и работы приходят из task_attempts
      (у работ ключ `work:{id}` — строка submissions при пересдаче
@@ -30,13 +32,23 @@ const EVENT_LABELS = {
     'learning.attempt_started':   'Начата попытка',
     'learning.attempt_submitted': 'Отправлена попытка',
     'learning.attempt_graded':    'Оценена попытка',
+    'learning.attempt_expired':   'Истекла попытка',
     'learning.submission_made':   'Сдана работа',
     'learning.submission_graded': 'Оценена работа',
+    'learning.submission_returned': 'Работа возвращена на доработку',
     'learning.schedule_changed':  'Изменено расписание',
     'learning.course_assigned':   'Назначен курс',
     'learning.lesson_added':      'Добавлена тема',
+    'learning.lesson_removed':    'Удалена тема',
+    'learning.extra_works_changed': 'Изменены доп. работы',
     'learning.lesson_published':  'Тема открыта',
     'learning.lesson_hidden':     'Тема скрыта',
+};
+
+/** Вкладки-ленты журнала: ключ = параметр `feed` запроса. */
+const FEEDS = {
+    events: { title: 'Лента событий',     empty: 'По этой группе событий пока нет.' },
+    course: { title: 'Действия с курсом', empty: 'С курсом группы пока ничего не делали.' },
 };
 
 let root = null;
@@ -55,7 +67,7 @@ export function renderActivity(r) {
         cfg,
         groupId: (p.groups && p.groups[0]) ? p.groups[0].id : null,
         tab:     'events',
-        events:  null,   // { events, total, page }
+        feeds:   {},     // feed → { events, total, page }
         lessons: null,   // строки программы для селекта занятий
         lessonId: null,
         attempts: null,  // { steps }
@@ -80,8 +92,8 @@ async function loadTab() {
     render(`<div class="rev-loading">Загрузка…</div>`);
 
     try {
-        if ('events' === state.tab) {
-            state.events = await apiEvents('getEvents', { group_id: state.groupId, page: 1 });
+        if (FEEDS[state.tab]) {
+            state.feeds[state.tab] = await apiEvents('getEvents', { group_id: state.groupId, feed: state.tab, page: 1 });
         } else {
             await loadLessons();
         }
@@ -121,13 +133,14 @@ function pickDefaultLesson() {
 }
 
 async function loadMoreEvents() {
-    if (state.loading || !state.events) { return; }
+    const feed = state.feeds[state.tab];
+    if (state.loading || !feed) { return; }
     state.loading = true;
 
     try {
-        const next = await apiEvents('getEvents', { group_id: state.groupId, page: state.events.page + 1 });
-        state.events = {
-            events: state.events.events.concat(next.events || []),
+        const next = await apiEvents('getEvents', { group_id: state.groupId, feed: state.tab, page: feed.page + 1 });
+        state.feeds[state.tab] = {
+            events: feed.events.concat(next.events || []),
             total:  next.total,
             page:   next.page,
         };
@@ -158,7 +171,9 @@ function group() { return state.groups.find(g => g.id === state.groupId) || stat
 
 function render(inner) {
     const g = group();
-    const body = inner ?? ('events' === state.tab ? eventsBody() : attemptsBody());
+    const body = inner ?? (FEEDS[state.tab] ? eventsBody() : attemptsBody());
+    const tab  = (key, label) =>
+        `<button class="act-tab${key === state.tab ? ' is-active' : ''}" data-tab="${key}">${label}</button>`;
 
     root.innerHTML = `
     <div class="prof-activity">
@@ -168,8 +183,9 @@ function render(inner) {
                 ${icoCaret(12)}
             </button>
             <div class="act-tabs">
-                <button class="act-tab${'events' === state.tab ? ' is-active' : ''}" data-tab="events">Лента событий</button>
-                <button class="act-tab${'attempts' === state.tab ? ' is-active' : ''}" data-tab="attempts">Решения задач</button>
+                ${tab('events', FEEDS.events.title)}
+                ${tab('attempts', 'Решения задач')}
+                ${tab('course', FEEDS.course.title)}
             </div>
         </div>
         ${body}
@@ -179,9 +195,10 @@ function render(inner) {
 }
 
 function eventsBody() {
-    const data = state.events;
+    const feed = FEEDS[state.tab];
+    const data = state.feeds[state.tab];
     if (!data || !data.events.length) {
-        return `<div class="prof-card"><div class="rev-empty">По этой группе событий пока нет.</div></div>`;
+        return `<div class="prof-card"><div class="rev-empty">${esc(feed.empty)}</div></div>`;
     }
 
     const shown = data.events.length;
@@ -192,7 +209,7 @@ function eventsBody() {
     return `
     <div class="prof-card">
         <div class="prof-card-head">
-            <h3>Лента событий</h3>
+            <h3>${esc(feed.title)}</h3>
             <span class="ch-sub">${shown} из ${data.total}</span>
         </div>
         <div class="act-feed">${data.events.map(eventRow).join('')}</div>
@@ -351,7 +368,7 @@ function wire() {
     if (btn) {
         btn.addEventListener('click', () => openGroupPicker(btn, state.groups, state.groupId, id => {
             state.groupId = id;
-            state.events  = null;
+            state.feeds   = {};
             state.lessons = null;
             loadTab();
         }));
@@ -361,7 +378,7 @@ function wire() {
         if (tab.dataset.tab === state.tab) { return; }
         state.tab = tab.dataset.tab;
         // Данные вкладки могли не грузиться ни разу — тогда тянем, иначе рисуем из состояния.
-        const loaded = 'events' === state.tab ? state.events : state.lessons;
+        const loaded = FEEDS[state.tab] ? state.feeds[state.tab] : state.lessons;
         if (loaded) { render(); } else { loadTab(); }
     }));
 

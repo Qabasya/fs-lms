@@ -46,6 +46,8 @@ readonly class GradebookEntryDTO {
 		public ?string $groupKey = null,
 		/** Когда ученик сдал работу (в отличие от `gradedAt` — когда её проверили). */
 		public ?string $submittedAt = null,
+		/** Сколько секунд ученик потратил: от открытия работы/начала попытки до сдачи. */
+		public ?int    $durationSec = null,
 	) {}
 
 	/** Форматированное значение для отображения в журнале. */

@@ -66,6 +66,26 @@ export function fmtDateTime( iso ) {
 }
 
 /**
+ * Длительность в секундах → «меньше минуты» / «42 мин» / «1 ч 05 мин» / «2 д 3 ч».
+ *
+ * @param {number|null} sec Секунды.
+ * @return {string} Пустая строка, если значения нет.
+ */
+export function fmtDuration( sec ) {
+    if ( null === sec || undefined === sec || '' === sec || Number.isNaN( Number( sec ) ) ) { return ''; }
+
+    const min = Math.floor( Number( sec ) / 60 );
+    if ( min < 1 ) { return 'меньше минуты'; }
+    if ( min < 60 ) { return `${ min } мин`; }
+
+    const hours = Math.floor( min / 60 );
+    if ( hours < 24 ) { return `${ hours } ч ${ String( min % 60 ).padStart( 2, '0' ) } мин`; }
+
+    const rest = hours % 24;
+    return `${ Math.floor( hours / 24 ) } д${ rest ? ` ${ rest } ч` : '' }`;
+}
+
+/**
  * Сегодняшняя дата в формате 'YYYY-MM-DD'.
  *
  * @return {string} Дата.

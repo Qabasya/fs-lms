@@ -27,6 +27,8 @@ readonly class TaskAttemptDTO {
 	 * @param float|null $maxScore
 	 * @param array|null $itemFeedback    Подробная обратная связь по позициям/пунктам.
 	 * @param string     $createdAt
+	 * @param int|null    $durationSec     Работа: секунд от открытия до сдачи этого раунда.
+	 * @param string|null $answeredAt      Работа: когда ученик последний раз менял ответ.
 	 */
 	public function __construct(
 		public int     $id,
@@ -41,6 +43,8 @@ readonly class TaskAttemptDTO {
 		public ?float  $maxScore,
 		public ?array  $itemFeedback,
 		public string  $createdAt,
+		public ?int    $durationSec = null,
+		public ?string $answeredAt = null,
 	) {}
 
 	public static function fromArray( array $row ): self {
@@ -57,6 +61,8 @@ readonly class TaskAttemptDTO {
 			maxScore       : isset( $row['max_score'] ) ? (float) $row['max_score'] : null,
 			itemFeedback   : isset( $row['item_feedback'] ) ? json_decode( (string) $row['item_feedback'], true ) : null,
 			createdAt      : (string) $row['created_at'],
+			durationSec    : isset( $row['duration_sec'] ) ? (int) $row['duration_sec'] : null,
+			answeredAt     : $row['answered_at'] ?? null,
 		);
 	}
 }

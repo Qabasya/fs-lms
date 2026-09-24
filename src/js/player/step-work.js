@@ -7,6 +7,11 @@
  * Пересдача (.docs/Tasks.md, п. 1): ответы прошлой сдачи остаются в полях,
  * засчитанные задания закрыты для правки — ученик исправляет только неверные
  * и нерешённые. Лимит сдач — настройка работы (0 — без ограничений).
+ *
+ * Замер времени: отсчёт идёт с открытия шага (или «Пройти заново») до сдачи,
+ * плюс момент последней правки ответа на каждое задание. Хранится рядом с
+ * черновиком, поэтому перезагрузка страницы отсчёт не сбрасывает. На сервер
+ * уходят секунды ДО сдачи — сервер откладывает их от своих часов.
  */
 import { initTaskWidget } from '../frontend/components/task-widget.js';
 import { getCore, onPanelShow, isPreview, isTeacherMode } from './core.js';
@@ -52,6 +57,35 @@ function mountWork( panel, root ) {
 	const resultsRoot  = root.querySelector( '[data-work-results-root]' );
 	const cards        = Array.from( root.querySelectorAll( '.a-task[data-task-id]' ) );
 	const draftKey     = `fsWorkDraft:${ core.groupLessonId }:${ workId }`;
+	const timingKey    = `fsWorkTiming:${ core.groupLessonId }:${ workId }`;
+
+	// ── Замер времени: { started: ms, answered: { taskId: ms } } ──────────
+	let timing = null;
+
+	/** fresh — новый раунд («Пройти заново»): прошлый замер не продолжаем. */
+	function startTiming( fresh ) {
+		if ( isPreview() || isTeacherMode() ) { return; }
+		const saved = fresh ? null : readDrafts( timingKey );
+		timing = saved && saved.started
+			? { started: saved.started, answered: saved.answered || {} }
+			: { started: Date.now(), answered: {} };
+		writeDrafts( timingKey, timing );
+	}
+
+	function markAnswered( taskId ) {
+		if ( ! timing ) { return; }
+		timing.answered[ taskId ] = Date.now();
+		writeDrafts( timingKey, timing );
+	}
+
+	function timingPayload() {
+		if ( ! timing ) { return '{}'; }
+		const now  = Date.now();
+		const ago  = ( ms ) => Math.max( 0, Math.round( ( now - ms ) / 1000 ) );
+		const answered = {};
+		Object.entries( timing.answered ).forEach( ( [ taskId, ms ] ) => { answered[ taskId ] = ago( ms ); } );
+		return JSON.stringify( { elapsed: ago( timing.started ), answered } );
+	}
 
 	// ── Виджеты + восстановление ответов (черновик > прошлая сдача) ──────
 	const drafts  = readDrafts( draftKey );
@@ -71,6 +105,7 @@ function mountWork( panel, root ) {
 		widget.onChange( () => {
 			drafts[ taskId ] = parseAnswer( widget.collectAnswer() );
 			writeDrafts( draftKey, drafts );
+			markAnswered( taskId );
 			updateChip( card, widget );
 			updateProgress();
 		} );
@@ -199,6 +234,7 @@ function mountWork( panel, root ) {
 			fd.append( 'group_lesson_id', core.groupLessonId );
 			fd.append( 'work_id', workId );
 			fd.append( 'answers', JSON.stringify( answers ) );
+			fd.append( 'timing', timingPayload() );
 		}
 
 		let d;
@@ -230,6 +266,8 @@ function mountWork( panel, root ) {
 			);
 		} );
 		clearDrafts( draftKey );
+		clearDrafts( timingKey );
+		timing = null;
 
 		const idx = core.panels.indexOf( panel );
 		core.setStatus( idx, 'completed' );
@@ -382,6 +420,7 @@ function mountWork( panel, root ) {
 			widget.onChange( () => {
 				drafts[ taskId ] = parseAnswer( widget.collectAnswer() );
 				writeDrafts( draftKey, drafts );
+				markAnswered( taskId );
 				updateChip( card, widget );
 				updateProgress();
 			} );
@@ -390,14 +429,15 @@ function mountWork( panel, root ) {
 
 		Object.keys( drafts ).forEach( ( k ) => delete drafts[ k ] );
 		clearDrafts( draftKey );
+		startTiming( true );
 
 		updateProgress();
 		toast( locked.size ? 'Засчитанные задания закрыты — исправьте остальные' : 'Исправьте ответы и сдайте работу заново' );
 	}
 
 
-	// Уже сдана (перезагрузка) — сразу результаты.
-	if ( state.submission ) { renderResults(); }
+	// Уже сдана (перезагрузка) — сразу результаты; иначе ученик на форме — идёт отсчёт.
+	if ( state.submission ) { renderResults(); } else { startTiming( false ); }
 }
 
 /* ── Вспомогательные ──────────────────────────────────────────────────── */

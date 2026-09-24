@@ -1,14 +1,23 @@
 /* ══════════════════════════════════════════════════════════════════════
    Главная кабинета — реальные данные через AJAX (Эпик 6).
    Источник: window.fsProfile.dashboard:{nonce,actions}. Кросс-групповой агрегат:
-   расписание сегодня/неделя, ворклист «заполнить»/«проверить», стат-плитки,
+   расписание сегодня/неделя/месяц, ворклист «заполнить»/«проверить», стат-плитки,
    маркеры замен (Эпик 5). Демо-слой (data.js) убран.
+
+   «Требует внимания» и «Мои группы» — аккордеоны над расписанием; раскрытость
+   каждого запоминается в браузере преподавателя.
    ══════════════════════════════════════════════════════════════════════ */
 
 import { esc, plural, fmtDayMonth, todayIso, chipBg, chipBorder, groupSubjectKey, shortName, emptyState } from './utils.js';
-import { icoCalendar, icoCheck, icoAlert, icoMapPin, icoBookmark, icoShield, icoChevronRight, icoHome } from '../common/icons.js';
+import { icoCalendar, icoCheck, icoAlert, icoMapPin, icoBookmark, icoShield, icoChevronRight, icoChevronDown, icoHome } from '../common/icons.js';
 import { createApi } from './api.js';
-import { DOW_JS } from './constants.js';
+import { DOW_JS, DOW_RU } from './constants.js';
+
+/** Сколько недель показывает режим «Месяц» (по ряду на неделю). */
+const MONTH_WEEKS = 4;
+
+/** Ключ запомненной раскрытости аккордеонов главной. */
+const ACC_KEY = 'fsProfDashAcc';
 
 let root = null;
 let state = null;
@@ -19,7 +28,7 @@ export function renderDashboard(r, handlers) {
     root = r;
     nav = Object.assign(nav, handlers || {});
     const p = window.fsProfile || {};
-    state = { cfg: p.dashboard || null, data: null, weekOffset: 0 };
+    state = { cfg: p.dashboard || null, data: null, weekOffset: 0, monthOffset: 0 };
     if (!state.cfg) { root.innerHTML = emptyHtml('Главная недоступна', 'Нет данных кабинета.'); return; }
     api = createApi(state.cfg);
     load();
@@ -58,35 +67,25 @@ function render() {
             ${statTile('Не заполнено', String(s.to_fill), 'журналов посещаемости', '#e03131', 'alert')}
         </div>
 
+        <div class="prof-dash-grid2">
+            ${accordion('attention', 'Требует внимания', `${attnCount} ${plural(attnCount, 'задача', 'задачи', 'задач')}`, `
+                ${d.worklist.to_fill.map(fillRow).join('')}
+                ${d.worklist.to_review.map(reviewRow).join('')}
+                ${attnCount ? '' : '<div class="rev-empty">Всё в порядке — журналы заполнены, работы проверены.</div>'}`)}
+            ${accordion('groups', 'Мои группы', `${d.groups.length} ${plural(d.groups.length, 'группа', 'группы', 'групп')}`,
+                d.groups.length ? d.groups.map(grpCard).join('') : '<div class="rev-empty">Нет групп.</div>')}
+        </div>
+
         <div class="prof-card prof-sched-card">
             <div class="prof-card-head">
                 <h3>Расписание</h3>
                 <div class="prof-seg ch-act" id="profSchedToggle">
                     <button class="on" data-mode="today">Сегодня</button>
                     <button data-mode="week">Неделя</button>
+                    <button data-mode="month">Месяц</button>
                 </div>
             </div>
             <div id="profSchedBody"></div>
-        </div>
-
-        <div class="prof-dash-grid2">
-            <div class="prof-card">
-                <div class="prof-card-head">
-                    <h3>Требует внимания</h3>
-                    <span class="ch-sub">${attnCount} ${plural(attnCount, 'задача', 'задачи', 'задач')}</span>
-                </div>
-                <div>
-                    ${d.worklist.to_fill.map(fillRow).join('')}
-                    ${d.worklist.to_review.map(reviewRow).join('')}
-                    ${attnCount ? '' : '<div class="rev-empty">Всё в порядке — журналы заполнены, работы проверены.</div>'}
-                </div>
-            </div>
-            <div class="prof-card">
-                <div class="prof-card-head"><h3>Мои группы</h3></div>
-                <div>
-                    ${d.groups.length ? d.groups.map(grpCard).join('') : '<div class="rev-empty">Нет групп.</div>'}
-                </div>
-            </div>
         </div>
     </div>`;
 
@@ -96,9 +95,13 @@ function render() {
     toggle.querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
         toggle.querySelectorAll('button').forEach(x => x.classList.remove('on'));
         b.classList.add('on');
-        state.weekOffset = 0; // каждый вход в режим — текущая неделя
+        state.weekOffset  = 0; // каждый вход в режим — текущая неделя / текущий месяц
+        state.monthOffset = 0;
         renderSched(b.dataset.mode);
     }));
+
+    root.querySelectorAll('details[data-acc]').forEach(el =>
+        el.addEventListener('toggle', () => saveAccOpen(el.dataset.acc, el.open)));
 
     // НБ-11: расписание перерисовывается (смена режима, пагинация недель) —
     // делегируем клик на контейнере, чтобы переходы в журнал переживали ре-рендер.
@@ -119,24 +122,14 @@ function renderSched(mode) {
     if (!body) return;
     const d = state.data;
 
-    if (mode === 'week') {
-        const byDate = {};
-        d.week.forEach(it => { (byDate[it.date] = byDate[it.date] || []).push(it); });
+    if (mode === 'month') {
+        renderMonth(body);
+    } else if (mode === 'week') {
+        const byDate = itemsByDate();
 
         // #18 + НБ-11: 7 дней недели (Пн–Вс), даже пустые. Опорный понедельник —
-        // текущая неделя со сдвигом state.weekOffset (пагинация ‹ ›). Формат дат
-        // локальный (без сдвига часового пояса, как у toISOString).
-        const fmtIso = dt => `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
-        const monday = new Date();
-        monday.setHours(0, 0, 0, 0);
-        monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7) + state.weekOffset * 7);
-
-        const weekDates = [];
-        for (let i = 0; i < 7; i++) {
-            const dt = new Date(monday);
-            dt.setDate(monday.getDate() + i);
-            weekDates.push(fmtIso(dt));
-        }
+        // текущая неделя со сдвигом state.weekOffset (пагинация ‹ ›).
+        const weekDates = datesFrom(state.weekOffset, 7);
 
         const grid = `<div class="prof-week-grid">${weekDates.map(date => {
             const items = byDate[date] || [];
@@ -163,13 +156,132 @@ function renderSched(mode) {
     }
 }
 
+/**
+ * «Месяц»: MONTH_WEEKS рядов по неделе (Пн–Вс), начиная с текущей недели;
+ * ‹ › листают сразу на MONTH_WEEKS недель. В ячейке — все занятия дня (группа,
+ * преподаватель, кабинет, тема), ряд растягивается по самому загруженному дню;
+ * клик по дате открывает эту неделю в режиме «Неделя».
+ */
+function renderMonth(body) {
+    const byDate = itemsByDate();
+    const days   = datesFrom(state.monthOffset * MONTH_WEEKS, MONTH_WEEKS * 7);
+    const today  = todayIso();
+
+    const cells = days.map(date => {
+        const items = (byDate[date] || []).map(monthItem).join('');
+
+        return `<div class="prof-month-cell${date === today ? ' is-today' : ''}${date < today ? ' is-past' : ''}">
+            <button type="button" class="pmc-day" data-day="${date}" aria-label="Открыть неделю ${esc(fmtDayMonth(date))}">${esc(dayLabel(date))}</button>
+            ${items}
+        </div>`;
+    }).join('');
+
+    body.innerHTML = schedNav('mnav', 'Предыдущий месяц', 'Следующий месяц', days[0], days[days.length - 1])
+        + `<div class="prof-month-grid">
+            ${DOW_RU.map(dow => `<div class="prof-month-dow">${dow}</div>`).join('')}
+            ${cells}
+        </div>`;
+
+    body.querySelectorAll('.pwn-arrow[data-mnav]').forEach(btn =>
+        btn.addEventListener('click', () => { state.monthOffset += +btn.dataset.mnav; renderSched('month'); }));
+    body.querySelectorAll('[data-day]').forEach(btn => btn.addEventListener('click', () => openWeekOf(btn.dataset.day)));
+}
+
+/** Занятие в ячейке месяца: время и группа, преподаватель и кабинет, тема. */
+function monthItem(it) {
+    const who  = it.kind === 'individual' && it.student_name ? it.student_name : it.group_name;
+    const meta = [it.teacher, it.room].filter(Boolean).map(esc).join(' · ');
+    const tags = (it.is_substitute ? ' <span class="prof-sub-tag">замена</span>' : '')
+        + (it.kind === 'individual' ? ' <span class="prof-sub-tag indi">инд.</span>' : '');
+
+    return `<div class="prof-month-item ${it.kind === 'individual' ? 'chip-bd-indi' : chipBorder(groupSubjectKey(it.group_id))}" data-grp="${it.group_id}">
+        <div class="pmi-head"><span class="pmi-time">${esc(it.start)}</span><span class="pmi-grp">${esc(who)}</span>${tags}</div>
+        ${meta ? `<div class="pmi-meta">${meta}</div>` : ''}
+        ${it.topic ? `<div class="pmi-topic" title="${esc(it.topic)}">${esc(it.topic)}</div>` : ''}
+    </div>`;
+}
+
+/** Переключает расписание на «Неделю», в которой лежит дата. */
+function openWeekOf(date) {
+    const days = (new Date(date + 'T00:00:00') - mondayOf(0)) / 86400000;
+    state.weekOffset = Math.floor(Math.round(days) / 7);
+
+    const toggle = root.querySelector('#profSchedToggle');
+    toggle.querySelectorAll('button').forEach(x => x.classList.toggle('on', 'week' === x.dataset.mode));
+    renderSched('week');
+}
+
+/** Первое число месяца подписываем месяцем — иначе в сетке теряется граница. */
+function dayLabel(date) {
+    return '01' === date.slice(8, 10) ? fmtDayMonth(date) : String(+date.slice(8, 10));
+}
+
+/** Всё расписание, разложенное по датам. */
+function itemsByDate() {
+    const byDate = {};
+    state.data.week.forEach(it => { (byDate[it.date] = byDate[it.date] || []).push(it); });
+    return byDate;
+}
+
+/** Понедельник текущей недели со сдвигом на weekOffset недель. */
+function mondayOf(weekOffset) {
+    const monday = new Date();
+    monday.setHours(0, 0, 0, 0);
+    monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7) + weekOffset * 7);
+    return monday;
+}
+
+/**
+ * count дат подряд от понедельника недели со сдвигом weekOffset. Формат дат
+ * локальный (без сдвига часового пояса, как у toISOString).
+ */
+function datesFrom(weekOffset, count) {
+    const monday = mondayOf(weekOffset);
+    const fmtIso = dt => `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+
+    return Array.from({ length: count }, (_, i) => {
+        const dt = new Date(monday);
+        dt.setDate(monday.getDate() + i);
+        return fmtIso(dt);
+    });
+}
+
 /** НБ-11: пагинатор недели (‹ диапазон ›) над сеткой расписания. */
 function weekNav(fromIso, toIso) {
+    return schedNav('wnav', 'Предыдущая неделя', 'Следующая неделя', fromIso, toIso);
+}
+
+function schedNav(attr, prevLabel, nextLabel, fromIso, toIso) {
     return `<div class="prof-week-nav">
-        <button type="button" class="pwn-arrow" data-wnav="-1" aria-label="Предыдущая неделя">‹</button>
+        <button type="button" class="pwn-arrow" data-${attr}="-1" aria-label="${prevLabel}">‹</button>
         <div class="pwn-label">${esc(fmtDayMonth(fromIso))} – ${esc(fmtDayMonth(toIso))}</div>
-        <button type="button" class="pwn-arrow" data-wnav="1" aria-label="Следующая неделя">›</button>
+        <button type="button" class="pwn-arrow" data-${attr}="1" aria-label="${nextLabel}">›</button>
     </div>`;
+}
+
+/**
+ * Карточка-аккордеон главной. Изначально свёрнута, дальше — как оставил
+ * преподаватель.
+ */
+function accordion(key, title, sub, bodyHtml) {
+    const open = true === readAccOpen()[key];
+
+    return `<details class="prof-card prof-acc" data-acc="${key}"${open ? ' open' : ''}>
+        <summary class="prof-card-head prof-acc-head">
+            <h3>${esc(title)}</h3>
+            <span class="ch-sub">${esc(sub)}</span>
+            <span class="prof-acc-chev">${icoChevronDown(14)}</span>
+        </summary>
+        <div class="prof-acc-body">${bodyHtml}</div>
+    </details>`;
+}
+
+function readAccOpen() {
+    try { return JSON.parse(localStorage.getItem(ACC_KEY) || '{}') || {}; } catch { return {}; }
+}
+
+function saveAccOpen(key, open) {
+    try { localStorage.setItem(ACC_KEY, JSON.stringify(Object.assign(readAccOpen(), { [key]: open }))); } catch { /* браузер без хранилища — просто не запомним */ }
 }
 
 function statTile(label, val, delta, color, ico) {

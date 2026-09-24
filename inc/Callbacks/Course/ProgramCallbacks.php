@@ -7,6 +7,7 @@ namespace Inc\Callbacks\Course;
 use Inc\Core\BaseController;
 use Inc\Enums\Access\Capability;
 use Inc\Enums\Course\AssignmentPolicy;
+use Inc\Enums\Log\ActivityFeed;
 use Inc\Enums\Wp\Nonce;
 use Inc\Repositories\WPDBRepositories\Log\LearningEventRepository;
 use Inc\Services\Course\CourseAssignmentService;
@@ -162,10 +163,11 @@ class ProgramCallbacks extends BaseController {
 		$this->authorize( Nonce::GroupActivity, Capability::ManageLmsTeaching );
 		$groupId = $this->requireInt( 'group_id' );
 		$page    = max( 1, $this->sanitizeInt( 'page' ) );
+		$actions = ActivityFeed::fromValueOrDefault( $this->sanitizeKey( 'feed' ) )->actions();
 
 		$this->requireGroupAccess( $groupId );
 
-		$events = $this->eventRepo->listByGroup( $groupId, $page, 20 );
+		$events = $this->eventRepo->listByGroup( $groupId, $page, 20, $actions );
 
 		$this->success( array(
 			'events' => array_map( fn( $e ) => array(
@@ -174,7 +176,7 @@ class ProgramCallbacks extends BaseController {
 				'created_at' => $e->createdAt,
 				'is_public'  => $e->isPublic,
 			), $events ),
-			'total'  => $this->eventRepo->countByGroup( $groupId ),
+			'total'  => $this->eventRepo->countByGroup( $groupId, $actions ),
 			'page'   => $page,
 		) );
 	}

@@ -10,6 +10,7 @@ use Inc\DTO\Course\BatchCheckResultDTO;
 use Inc\DTO\Course\GradeDTO;
 use Inc\DTO\Course\SubmissionDTO;
 use Inc\DTO\Course\SubmissionInputDTO;
+use Inc\DTO\Course\WorkTimingDTO;
 use Inc\DTO\Log\Events\LearningEvent;
 use Inc\Enums\Course\AttemptSource;
 use Inc\Enums\Course\SubmissionStatus;
@@ -97,6 +98,7 @@ class SubmissionService {
 	 *
 	 * @param  array<int, mixed> $answers task_id => ответ (строка или массив для сложных типов)
 	 * @param  array<int, float> $taskPoints task_id => вес (пусто → 1 на задачу)
+	 * @param  WorkTimingDTO|null $timing  Замер времени от плеера (затраченное время раунда, моменты ответов)
 	 * @return SubmissionDTO Агрегатная строка (task_id=null).
 	 * @throws CodedException При нарушении правил доступа, сроков и лимита попыток.
 	 */
@@ -106,7 +108,10 @@ class SubmissionService {
 		int   $workId,
 		array $answers,
 		array $taskPoints = [],
+		?WorkTimingDTO $timing = null,
 	): SubmissionDTO {
+		$timing ??= new WorkTimingDTO();
+
 		if ( ! $this->accessPolicy->canSubmit( $studentPersonId, $groupLessonId ) ) {
 			throw new CodedException( ErrorCode::WorkAccess, 'Сдача недоступна для данного ученика и урока.' );
 		}
@@ -170,7 +175,17 @@ class SubmissionService {
 
 			// История пересдач: строка submissions ниже перезапишется, поэтому
 			// каждая попытка отдельно копится в task_attempts (D-хвост Tasks.md).
-			$this->recordWorkAttempt( $studentPersonId, $groupLessonId, $workId, $taskId, $answer, $taskResult, $attemptsUsed + 1 );
+			$this->recordWorkAttempt(
+				$studentPersonId,
+				$groupLessonId,
+				$workId,
+				$taskId,
+				$answer,
+				$taskResult,
+				$attemptsUsed + 1,
+				$timing->elapsedSec,
+				$timing->answeredAt( $taskId, $now ),
+			);
 
 			// Автопроверенное задание закрыто прямо сейчас; ручное ждёт учителя —
 			// прошлая отметка о проверке (пересдача уже проверенной работы) снимается.
@@ -232,6 +247,7 @@ class SubmissionService {
 				'submitted_at'  => $now,
 				'graded_at'     => $gradedAt,
 				'attempt_count' => $attemptsUsed + 1,
+				'duration_sec'  => $timing->elapsedSec,
 			] );
 			$aggregateId = $aggregate->id;
 		} else {
@@ -251,6 +267,7 @@ class SubmissionService {
 				'score'         => (float) $correctCount,
 				'max_score'     => (float) count( $perTask ),
 				'attempt_count' => $attemptsUsed + 1,
+				'duration_sec'  => $timing->elapsedSec,
 			] );
 		}
 
@@ -367,7 +384,9 @@ class SubmissionService {
 		int   $taskId,
 		mixed $answer,
 		array $taskResult,
-		int   $round
+		int   $round,
+		?int    $durationSec,
+		?string $answeredAt,
 	): void {
 		$this->attempts->create(
 			studentPersonId: $studentPersonId,
@@ -380,6 +399,8 @@ class SubmissionService {
 			score          : (float) $taskResult['score'],
 			maxScore       : (float) $taskResult['maxScore'],
 			itemFeedback   : array(),
+			durationSec    : $durationSec,
+			answeredAt     : $answeredAt,
 		);
 	}
 

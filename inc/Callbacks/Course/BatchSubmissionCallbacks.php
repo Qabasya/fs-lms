@@ -5,6 +5,7 @@ declare( strict_types=1 );
 namespace Inc\Callbacks\Course;
 
 use Inc\Core\BaseController;
+use Inc\DTO\Course\WorkTimingDTO;
 use Inc\Enums\Access\Capability;
 use Inc\Enums\Log\ErrorCode;
 use Inc\Enums\Wp\Nonce;
@@ -54,6 +55,7 @@ class BatchSubmissionCallbacks extends BaseController {
 		$groupLessonId = $this->requireInt( 'group_lesson_id' );
 		$workId        = $this->requireInt( 'work_id' );
 		$answersRaw    = $this->sanitizeAnswerText( 'answers' );
+		$timingRaw     = json_decode( $this->sanitizeText( 'timing' ), true );
 
 		// Подробности для журнала «Ошибки»: по ним отказ находится без расспросов ученика.
 		$logContext = array(
@@ -89,6 +91,7 @@ class BatchSubmissionCallbacks extends BaseController {
 				$groupLessonId,
 				$workId,
 				$answers,
+				timing: WorkTimingDTO::fromArray( is_array( $timingRaw ) ? $timingRaw : array() ),
 			);
 
 			// T14.11: пооответные вердикты батч-проверки (агрегатная строка хранит

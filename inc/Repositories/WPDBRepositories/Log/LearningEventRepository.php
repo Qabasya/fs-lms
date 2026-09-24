@@ -23,16 +23,16 @@ class LearningEventRepository {
 		return (int) $this->wpdb->insert_id;
 	}
 
-	/** @return LearningEventDTO[] */
-	public function listByGroup( int $groupId, int $page, int $perPage ): array {
+	/**
+	 * @param string[] $actions Фильтр по событиям (вкладка «Активности»); пустой — все события группы
+	 * @return LearningEventDTO[]
+	 */
+	public function listByGroup( int $groupId, int $page, int $perPage, array $actions = array() ): array {
 		$offset = ( $page - 1 ) * $perPage;
 		$rows   = $this->wpdb->get_results(
 			$this->wpdb->prepare(
-				'SELECT * FROM %i WHERE group_id = %d ORDER BY created_at DESC LIMIT %d OFFSET %d',
-				$this->table,
-				$groupId,
-				$perPage,
-				$offset
+				'SELECT * FROM %i WHERE group_id = %d' . $this->actionsClause( $actions ) . ' ORDER BY created_at DESC LIMIT %d OFFSET %d',
+				array_merge( array( $this->table, $groupId ), $actions, array( $perPage, $offset ) )
 			),
 			ARRAY_A
 		);
@@ -73,14 +73,21 @@ class LearningEventRepository {
 		return array_map( [ LearningEventDTO::class, 'fromArray' ], $rows ?: array() );
 	}
 
-	public function countByGroup( int $groupId ): int {
+	/** @param string[] $actions Тот же фильтр, что у {@see listByGroup()} */
+	public function countByGroup( int $groupId, array $actions = array() ): int {
 		return (int) $this->wpdb->get_var(
 			$this->wpdb->prepare(
-				'SELECT COUNT(*) FROM %i WHERE group_id = %d',
-				$this->table,
-				$groupId
+				'SELECT COUNT(*) FROM %i WHERE group_id = %d' . $this->actionsClause( $actions ),
+				array_merge( array( $this->table, $groupId ), $actions )
 			)
 		);
+	}
+
+	/** `AND action IN (%s, …)` под список событий; пустой список — без условия. */
+	private function actionsClause( array $actions ): string {
+		return $actions
+			? ' AND action IN (' . implode( ', ', array_fill( 0, count( $actions ), '%s' ) ) . ')'
+			: '';
 	}
 
 	/** Журнал неизменяем. */

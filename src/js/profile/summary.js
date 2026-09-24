@@ -165,6 +165,7 @@ function workCard(w) {
         marks:      w.marks,
         subtitle:   status,
         date:       w.submitted_at,
+        duration:   w.duration_sec,
         sourceType: w.source_type,
         sourceId:   w.source_id,
         rowClass:   'sum-work-card',

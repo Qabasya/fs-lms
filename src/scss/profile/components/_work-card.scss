@@ -75,11 +75,27 @@
 .wmark--incorrect { background: var(--err-soft); color: var(--err); }
 .wmark--pending   { background: var(--surface-2); color: var(--muted-2); }
 
-.wcard-date {
+.wcard-when {
   flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: rem(4);
+}
+
+.wcard-date {
   font-size: rem(12.5);
   color: var(--muted);
   text-align: right;
+  white-space: nowrap;
+}
+
+.wcard-dur {
+  display: inline-flex;
+  align-items: center;
+  gap: rem(4);
+  font-size: rem(12);
+  color: var(--muted-2);
   white-space: nowrap;
 }
 
@@ -102,5 +118,6 @@
 
 @media (max-width: $breakpoint-mobile) {
   .wcard { flex-wrap: wrap; }
-  .wcard-date { width: 100%; text-align: left; }
+  .wcard-when { width: 100%; flex-direction: row; align-items: center; gap: rem(10); }
+  .wcard-date { text-align: left; }
 }

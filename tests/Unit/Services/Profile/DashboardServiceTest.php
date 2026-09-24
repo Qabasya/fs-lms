@@ -11,6 +11,7 @@ use Inc\Managers\Course\LessonManager;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
+use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Repositories\WPDBRepositories\RoomRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 use Inc\Repositories\WPDBRepositories\SubmissionRepository;
@@ -28,6 +29,7 @@ class DashboardServiceTest extends TestCase {
 	private $records;
 	private $submissions;
 	private $substitutions;
+	private $persons;
 	private $rooms;
 	private $clock;
 	private DashboardService $service;
@@ -41,13 +43,15 @@ class DashboardServiceTest extends TestCase {
 		$this->records       = $this->createMock( StudentRecordRepository::class );
 		$this->submissions   = $this->createMock( SubmissionRepository::class );
 		$this->substitutions = $this->createMock( SubstitutionRepository::class );
+		$this->persons       = $this->createMock( PersonRepository::class );
 		$this->rooms         = $this->createMock( RoomRepository::class );
 		$this->rooms->method( 'findAll' )->willReturn( array() );
 		$this->clock         = $this->createMock( ClockInterface::class );
 		$this->service       = new DashboardService(
 			$this->groups, $this->groupLessons, $this->lessons, $this->attendance,
 			$this->records, $this->submissions, $this->substitutions, $this->rooms, $this->clock,
-			$this->createMock( SubjectRepository::class )
+			$this->createMock( SubjectRepository::class ),
+			$this->persons,
 		);
 		$this->clock->method( 'now' )->willReturn( '2026-05-20 10:00:00' );
 	}
@@ -77,6 +81,32 @@ class DashboardServiceTest extends TestCase {
 		self::assertSame( 'done', $d['today'][0]['state'] );
 		self::assertCount( 3, $d['week'] );                 // НБ-11: week = всё расписание (окно недели режет клиент)
 		self::assertSame( 1, $d['worklist']['to_review'][0]['count'] );
+	}
+
+	/** Преподаватель занятия в расписании — «Фамилия И. О.»; в дни замены — заместитель. */
+	public function test_schedule_items_carry_effective_teacher_short_name(): void {
+		$this->groups->method( 'findByTeacherId' )
+			->willReturn( array( (object) array( 'id' => 1, 'name' => 'Г1', 'subject_key' => 'inf', 'teacher_id' => 99 ) ) );
+		$this->substitutions->method( 'findUpcomingOrActiveBySubstitute' )->willReturn( array() );
+		$this->substitutions->method( 'listByGroup' )->willReturn( array(
+			new \Inc\DTO\Course\SubstitutionDTO( 1, 1, 99, 55, '2026-05-25', '2026-05-31', null, 3, '2026-05-01 00:00:00' ),
+		) );
+		$this->attendance->method( 'matrixForGroup' )->willReturn( array() );
+		$this->submissions->method( 'listQueueByGroup' )->willReturn( array() );
+		$this->groupLessons->method( 'listByGroup' )->willReturn( array(
+			$this->row( 10, '2026-05-20 09:00:00', '2026-05-20 09:45:00' ),
+			$this->row( 12, '2026-05-26 09:00:00', '2026-05-26 09:45:00' ),
+		) );
+		$this->persons->method( 'findByWpUserId' )->willReturnCallback( fn( int $id ) => \Inc\DTO\Person\PersonDTO::fromArray( array(
+			'id' => $id, 'wp_user_id' => $id, 'last_name' => 99 === $id ? 'Иванова' : 'Петров',
+			'first_name' => 99 === $id ? 'Анна' : 'Олег', 'middle_name' => 99 === $id ? 'Сергеевна' : null,
+			'created_at' => '', 'updated_at' => '',
+		) ) );
+
+		$d = $this->service->build( 99, false );
+
+		self::assertSame( 'Иванова А. С.', $d['week'][0]['teacher'] );
+		self::assertSame( 'Петров О.', $d['week'][1]['teacher'] );
 	}
 
 	public function test_marks_group_covered_by_substitute(): void {

@@ -108,8 +108,9 @@ class WorkDetailService {
 	 * @return array<int, array{
 	 *   round: int,
 	 *   submitted_at: string,
+	 *   duration_sec: ?int,
 	 *   is_current: bool,
-	 *   tasks: array<int, array{n:int, condition:string, answer:?string, code:?string, correct:?string, verdict:string, score:?float, max_score:?float}>
+	 *   tasks: array<int, array{n:int, condition:string, answer:?string, code:?string, correct:?string, verdict:string, score:?float, max_score:?float, answered_at:?string}>
 	 * }>|null null, если сдача не найдена
 	 */
 	public function attemptHistory( int $submissionId ): ?array {
@@ -151,6 +152,8 @@ class WorkDetailService {
 
 			$orderedTaskIds = $itemIds ?: array_keys( $byTask );
 			$submittedAt    = $roundAttempts[0]->createdAt;
+			// Замер пишется одинаковым во все строки раунда; у сдач до замера — null.
+			$durationSec    = $roundAttempts[0]->durationSec;
 			$tasks          = array();
 			$n              = 0;
 
@@ -177,12 +180,14 @@ class WorkDetailService {
 					'verdict'   => true === $a->isCorrect ? 'correct' : ( false === $a->isCorrect ? 'incorrect' : 'pending' ),
 					'score'     => $a->score,
 					'max_score' => $a->maxScore,
+					'answered_at' => $a->answeredAt,
 				);
 			}
 
 			$result[] = array(
 				'round'        => $round,
 				'submitted_at' => $submittedAt,
+				'duration_sec' => $durationSec,
 				'is_current'   => $round === $maxRound,
 				'tasks'        => $tasks,
 			);
@@ -243,6 +248,8 @@ class WorkDetailService {
 			}
 		}
 
+		$answeredAt = $this->lastAnsweredAt( $sub->studentPersonId, $sub->groupLessonId, $sub->workId );
+
 		$itemIds  = $work?->itemIds ?: array_map( 'intval', array_keys( $perTask ) );
 		$tasks    = array();
 		$n        = 0;
@@ -295,6 +302,7 @@ class WorkDetailService {
 					'gradable'           => true,
 					'task_submission_id' => $row->id,
 					'manually_graded'    => null !== $row->gradedByUserId,
+					'answered_at'        => $answeredAt[ $taskId ] ?? null,
 				);
 				continue;
 			}
@@ -329,6 +337,7 @@ class WorkDetailService {
 				'gradable'           => $gradable,
 				'task_submission_id' => $row?->id,
 				'manually_graded'    => $manuallyGraded,
+				'answered_at'        => $answeredAt[ $taskId ] ?? null,
 			);
 		}
 
@@ -376,6 +385,8 @@ class WorkDetailService {
 			'gradable'        => $wholeSubmissionGradable,
 			'submission_id'   => $sub->id,
 			'tasks'           => $tasks,
+			'submitted_at'    => $sub->submittedAt,
+			'duration_sec'    => $sub->durationSec,
 			// T12.2 (D13): дедлайн работы (снимок на момент сдачи) + постоянная метка «Просрочено».
 			'due_at'          => $sub->dueAt,
 			'is_late'         => $sub->isLate(),
@@ -485,6 +496,8 @@ class WorkDetailService {
 			'submission_id' => null,
 			'attempt_id'      => $attemptId,
 			'tasks'           => $tasks,
+			'submitted_at'    => $attempt->submittedAt,
+			'duration_sec'    => $attempt->actualDurationSeconds(),
 			'group_id'        => $attempt->groupId ?? 0,
 			// D18: «Утвердить работу» — для kind без ручной проверки заданий (ЕГЭ
 			// компьютерный) Graded наступает сразу при сдаче и не значит «учитель
@@ -492,6 +505,23 @@ class WorkDetailService {
 			'assessment_kind' => $assessment?->kind->value,
 			'approved_at'     => $attempt->approvedAt,
 		);
+	}
+
+	/**
+	 * Момент последнего ответа ученика на каждое задание работы — из истории
+	 * попыток: засчитанное задание при пересдаче не перепроверяется, поэтому его
+	 * время остаётся от того раунда, где ответ был принят.
+	 *
+	 * @return array<int, string> taskId → answered_at
+	 */
+	private function lastAnsweredAt( int $studentPersonId, int $groupLessonId, int $workId ): array {
+		$out = array();
+		foreach ( $this->taskAttempts->listByStep( $studentPersonId, $groupLessonId, AttemptSource::workStepKey( $workId ) ) as $a ) {
+			if ( null !== $a->answeredAt ) {
+				$out[ $a->taskId ] = $a->answeredAt;
+			}
+		}
+		return $out;
 	}
 
 	/** Условие задания хранится в мете (`task_condition` и составные шаблоны), не в `post_content`. */

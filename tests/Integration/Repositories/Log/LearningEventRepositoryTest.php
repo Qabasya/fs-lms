@@ -92,6 +92,23 @@ class LearningEventRepositoryTest extends TestCase {
 		self::assertStringContainsString( 'OFFSET 0', $this->wpdb->lastQuery() );
 	}
 
+	public function test_list_by_group_filters_by_actions(): void {
+		$this->wpdb->queueResults( [] );
+
+		$this->repo->listByGroup( 3, page: 1, perPage: 20, actions: [ 'learning.submission_made', 'learning.attempt_graded' ] );
+
+		$q = $this->wpdb->lastQuery();
+		self::assertStringContainsString( "action IN ('learning.submission_made', 'learning.attempt_graded')", $q );
+		self::assertStringContainsString( 'LIMIT 20', $q );
+	}
+
+	public function test_count_by_group_filters_by_actions(): void {
+		$this->wpdb->queueVar( '2' );
+
+		self::assertSame( 2, $this->repo->countByGroup( 3, [ 'learning.schedule_changed' ] ) );
+		self::assertStringContainsString( "action IN ('learning.schedule_changed')", $this->wpdb->lastQuery() );
+	}
+
 	public function test_count_by_group_returns_int(): void {
 		$this->wpdb->queueVar( '7' );
 

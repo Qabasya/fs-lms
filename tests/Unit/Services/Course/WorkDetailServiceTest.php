@@ -543,6 +543,33 @@ class WorkDetailServiceTest extends TestCase {
 		self::assertSame( 'второй ответ', $history[1]['tasks'][0]['answer'] );
 	}
 
+	/** Каждый раунд отдаёт своё затраченное время, задача — момент ответа; у старых сдач — null. */
+	public function test_attempt_history_exposes_round_duration_and_answered_at(): void {
+		$this->submissions->method( 'find' )->willReturn( $this->sub( null ) );
+		$this->works->method( 'get' )->willReturn( $this->workWithItems( array( 42 ) ) );
+		$this->posts->method( 'getMeta' )->willReturn( 'standard_task' );
+		$this->posts->method( 'taskMeta' )->willReturn( array() );
+
+		$timed = new \Inc\DTO\Task\TaskAttemptDTO(
+			id: 242, studentPersonId: 10, groupLessonId: 5,
+			stepKey: \Inc\Enums\Course\AttemptSource::workStepKey( 3 ), taskId: 42,
+			attemptNumber: 2, answer: 'второй', isCorrect: true, score: 1.0, maxScore: 1.0,
+			itemFeedback: null, createdAt: '2026-08-26 19:15:00',
+			durationSec: 1500, answeredAt: '2026-08-26 19:10:00',
+		);
+		$this->taskAttempts->method( 'listByStep' )->willReturn( array(
+			$this->taskAttempt( 1, 42, 'первый', false, '2026-08-21 14:02:00' ),
+			$timed,
+		) );
+
+		$history = $this->service->attemptHistory( 7 );
+
+		self::assertNull( $history[0]['duration_sec'] );
+		self::assertNull( $history[0]['tasks'][0]['answered_at'] );
+		self::assertSame( 1500, $history[1]['duration_sec'] );
+		self::assertSame( '2026-08-26 19:10:00', $history[1]['tasks'][0]['answered_at'] );
+	}
+
 	/** Код-шаблоны (TaskTemplate::hasCodeField()) отдают код отдельным полем в истории. */
 	public function test_attempt_history_splits_code_field_for_code_templates(): void {
 		$this->submissions->method( 'find' )->willReturn( $this->sub( null ) );

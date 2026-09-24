@@ -7,7 +7,7 @@
    openWorkReview(), app.js держит его секцию в DOM всегда.
    ══════════════════════════════════════════════════════════════════════ */
 
-import { esc, toast, fmtNum, fmtDateTime } from './utils.js';
+import { esc, toast, fmtNum, fmtDateTime, fmtDuration } from './utils.js';
 import { icoChevronLeft } from '../common/icons.js';
 import { createApi } from './api.js';
 import { confirmDialog } from '../common/components/confirm-dialog.js';
@@ -121,7 +121,7 @@ function render(d, history = []) {
                 <button class="wr-back">${icoChevronLeft(16)} Назад</button>
                 <div class="wr-head-main">
                     <div class="smh-title">${esc(d.title)}</div>
-                    <div class="smh-meta" id="smhMeta">${d.kind === 'exam' ? 'Экзамен' : 'Работа'} · ${esc(STATUS_LABEL[d.status] || d.status)} · ${esc(scoreLine)}${d.is_late ? ' · <span class="smh-late">Просрочено</span>' : ''}</div>
+                    <div class="smh-meta" id="smhMeta">${d.kind === 'exam' ? 'Экзамен' : 'Работа'} · ${esc(STATUS_LABEL[d.status] || d.status)} · ${esc(scoreLine)}${durationMeta(d.duration_sec)}${d.is_late ? ' · <span class="smh-late">Просрочено</span>' : ''}</div>
                 </div>
                 <div class="smh-actions">
                     ${canApprove ? '<button class="prof-btn prof-btn-sm prof-btn-primary sum-approve">Утвердить работу</button>' : ''}
@@ -164,8 +164,9 @@ function attemptPickerBlock(history, currentRound, maxAttempts) {
     const options = history.slice().reverse().map(h => {
         const ok = h.tasks.filter(t => 'correct' === t.verdict).length;
         const cur = h.round === currentRound ? ' · текущая' : '';
+        const dur = fmtDuration(h.duration_sec);
         return `<option value="${h.round}"${h.round === currentRound ? ' selected' : ''}>` +
-            esc(`Попытка ${h.round} · ${fmtDateTime(h.submitted_at)} · ${ok}/${h.tasks.length}${cur}`) +
+            esc(`Попытка ${h.round} · ${fmtDateTime(h.submitted_at)}${dur ? ' · ' + dur : ''} · ${ok}/${h.tasks.length}${cur}`) +
             '</option>';
     }).join('');
 
@@ -209,6 +210,17 @@ function wireAttemptPicker(root, history, currentRound, liveTasksHtml, wireLiveT
     });
 }
 
+/* Затраченное на работу время в шапке; у сдач до появления замера его нет. */
+function durationMeta(sec) {
+    const text = fmtDuration(sec);
+    return text ? ` · ${esc(text)}` : '';
+}
+
+/* Момент, когда ученик последний раз правил ответ на задание. */
+function answeredAtHtml(at) {
+    return at ? `<span class="st-time" title="Время ответа">ответ ${esc(fmtDateTime(at))}</span>` : '';
+}
+
 /* Read-only карточка задачи прошлой попытки — без контролов оценки. */
 function historyTaskBlock(t) {
     const score = (t.score !== null && t.score !== undefined)
@@ -219,6 +231,7 @@ function historyTaskBlock(t) {
             <div class="sum-task-head">
                 <span class="st-n">Задача ${t.n}</span>
                 <span class="sum-verdict sv-${esc(t.verdict)}">${esc(VERDICT_LABEL[t.verdict] || t.verdict)}</span>
+                ${answeredAtHtml(t.answered_at)}
                 ${score}
             </div>
             <div class="sum-task-cond">${t.condition || '<i>условие недоступно</i>'}</div>
@@ -363,6 +376,7 @@ function taskBlock(t, d) {
             <div class="sum-task-head">
                 <span class="st-n">Задача ${t.n}</span>
                 <span class="sum-verdict sv-${esc(t.verdict)}">${esc(VERDICT_LABEL[t.verdict] || t.verdict)}</span>
+                ${answeredAtHtml(t.answered_at)}
                 ${score}
                 ${t.manually_graded ? '<span class="sum-manual-mark">Оценено преподавателем</span>' : ''}
             </div>

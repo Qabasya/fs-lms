@@ -10,6 +10,7 @@ use Inc\Managers\Course\LessonManager;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
+use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Repositories\WPDBRepositories\RoomRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 use Inc\Repositories\WPDBRepositories\SubmissionRepository;
@@ -37,7 +38,11 @@ class DashboardService {
 		private readonly RoomRepository          $rooms,
 		private readonly ClockInterface          $clock,
 		private readonly SubjectRepository       $subjects,
+		private readonly PersonRepository        $persons,
 	) {}
+
+	/** @var array<int, string> Кэш коротких имён преподавателей: WP user id → «Фамилия И. О.». */
+	private array $teacherNames = array();
 
 	/** Человекочитаемое имя предмета (fallback — слаг), как в LearnerService (#12). */
 	private function subjectName( string $key ): string {
@@ -80,12 +85,17 @@ class DashboardService {
 				$studentNames[ $rec->studentPersonId ] = trim( $rec->snapshotLastName . ' ' . $rec->snapshotFirstName );
 			}
 
+			// Замены группы — одним запросом: преподаватель нужен каждому занятию
+			// расписания, а оно отдаётся целиком (см. $weekItems ниже).
+			$groupSubs = $this->substitutions->listByGroup( $gid );
+
 			foreach ( $this->groupLessons->listByGroup( $gid ) as $row ) {
 				if ( ! $row->scheduledAt ) {
 					continue;
 				}
 				$date = substr( $row->scheduledAt, 0, 10 );
 				$item = $this->lessonItem( $row, $gid, $g, $isCovering, $roomNames, $studentNames );
+				$item['teacher'] = $this->teacherShortName( $this->lessonTeacher( $row, $g, $groupSubs, $date ) );
 
 				if ( $date === $today ) {
 					$item['state'] = $this->stateOf( (string) $row->scheduledAt, $row->endsAt, $now );
@@ -249,6 +259,39 @@ class DashboardService {
 	private function roomName( \Inc\DTO\Course\GroupLessonDTO $row, object $group, array $roomNames ): string {
 		$rid = $row->roomId ?? ( isset( $group->room_id ) && $group->room_id ? (int) $group->room_id : null );
 		return $rid ? ( $roomNames[ $rid ] ?? '' ) : '';
+	}
+
+	/**
+	 * Фактический преподаватель занятия — то же правило, что у
+	 * {@see \Inc\Services\Course\EffectiveTeacherResolver::forLesson()}
+	 * (разовый › замена › препод группы), но по заранее загруженным заменам.
+	 *
+	 * @param \Inc\DTO\Course\SubstitutionDTO[] $groupSubs
+	 */
+	private function lessonTeacher( \Inc\DTO\Course\GroupLessonDTO $row, object $group, array $groupSubs, string $date ): ?int {
+		if ( null !== $row->teacherUserId ) {
+			return $row->teacherUserId;
+		}
+		foreach ( $groupSubs as $sub ) {
+			if ( $sub->isActiveOn( $date ) ) {
+				return $sub->substituteTeacherId;
+			}
+		}
+		return isset( $group->teacher_id ) && $group->teacher_id ? (int) $group->teacher_id : null;
+	}
+
+	/** «Фамилия И. О.» из карточки персоны; без неё — имя WP-пользователя как есть. */
+	private function teacherShortName( ?int $userId ): string {
+		if ( ! $userId ) {
+			return '';
+		}
+		if ( ! isset( $this->teacherNames[ $userId ] ) ) {
+			$person = $this->persons->findByWpUserId( $userId );
+			$this->teacherNames[ $userId ] = $person
+				? $person->shortName()
+				: (string) ( get_userdata( $userId )->display_name ?? '' );
+		}
+		return $this->teacherNames[ $userId ];
 	}
 
 	private function topicOf( \Inc\DTO\Course\GroupLessonDTO $row ): string {

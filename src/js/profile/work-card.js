@@ -3,10 +3,11 @@
    сдач в «Работах» (шаг 2, .wk-sub-list) и вкладка «Работы» в «Сводке по
    ученику». Слева цветной бейдж типа (СР/ПР/ДЗ/КР/ЭКЗ), затем название,
    под ним полоска вердиктов по заданиям (галочка / крестик / часы), справа
-   дата и время сдачи. Стили — profile/components/_work-card.scss.
+   дата и время сдачи и сколько ученик потратил на работу. Стили —
+   profile/components/_work-card.scss.
    ══════════════════════════════════════════════════════════════════════ */
 
-import { esc, fmtDateTime } from './utils.js';
+import { esc, fmtDateTime, fmtDuration } from './utils.js';
 import { icoCheck, icoCross, icoClock } from '../common/icons.js';
 
 /** Бейдж → модификатор цвета (палитра — _work-card.scss). */
@@ -27,6 +28,7 @@ const MARK_TITLE = { correct: 'Решено', incorrect: 'Не решено', pe
  * @param {string[]}[card.marks]      Вердикты заданий: correct | incorrect | pending
  * @param {string}  [card.subtitle]   Строка под заголовком (группа, статус и т.п.)
  * @param {string}  [card.date]       ISO-дата сдачи
+ * @param {number}  [card.duration]   Секунд от открытия работы до сдачи (нет замера — не выводится)
  * @param {string}   card.sourceType  submission | attempt — для перехода в деталь
  * @param {number}   card.sourceId
  * @param {string}  [card.rowClass]   Класс строки (совместимость со старыми обработчиками)
@@ -43,8 +45,19 @@ export function workCardHtml(card) {
             ${card.subtitle ? `<div class="wcard-sub">${esc(card.subtitle)}</div>` : ''}
             ${marksHtml(card.marks)}
         </div>
-        <span class="wcard-date">${card.date ? esc(fmtDateTime(card.date)) : '—'}</span>
+        <div class="wcard-when">
+            <span class="wcard-date">${card.date ? esc(fmtDateTime(card.date)) : '—'}</span>
+            ${durationHtml(card.duration)}
+        </div>
     </div>`;
+}
+
+/** Затраченное время: у сдач до появления замера его нет — тогда ничего. */
+function durationHtml(sec) {
+    const text = fmtDuration(sec);
+    return text
+        ? `<span class="wcard-dur" title="Затрачено на работу">${icoClock(12)}${esc(text)}</span>`
+        : '';
 }
 
 /** Полоска заданий: по значку на задание, в порядке работы. */

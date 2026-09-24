@@ -104,6 +104,7 @@ class StudentSummaryService {
 				// и время сдачи — без них карточка была бы просто строкой таблицы.
 				'marks'        => $this->marks->marksFor( $entry->sourceType, $entry->sourceId ),
 				'submitted_at' => $entry->submittedAt,
+				'duration_sec' => $entry->durationSec,
 			);
 		}
 

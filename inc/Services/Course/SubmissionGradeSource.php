@@ -67,6 +67,7 @@ class SubmissionGradeSource implements GradeSourceInterface {
 				isLate          : $sub->isLate(),
 				groupKey        : 'work:' . $sub->workId,
 				submittedAt     : $sub->submittedAt,
+				durationSec     : $sub->durationSec,
 			);
 		}
 		return $entries;

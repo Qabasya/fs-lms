@@ -12,6 +12,7 @@ use Inc\DTO\Course\GroupLessonDTO;
 use Inc\DTO\Course\SubmissionDTO;
 use Inc\DTO\Course\SubmissionInputDTO;
 use Inc\DTO\Course\WorkDTO;
+use Inc\DTO\Course\WorkTimingDTO;
 use Inc\DTO\Log\Events\LearningEvent;
 use Inc\DTO\Person\PersonDTO;
 use Inc\Enums\Log\LogEvent;
@@ -222,6 +223,34 @@ class SubmissionServiceTest extends TestCase {
 	}
 
 	/** Общая обвязка успешного пути submitBatch: доступ, работа, пустой вердикт. */
+	/** Замер плеера: длительность раунда — в агрегат и в историю, момент ответа — в историю. */
+	public function test_submit_batch_records_timing(): void {
+		$this->arrangeBatch( $this->makeRow() );
+
+		$this->taskAttempts->expects( $this->once() )->method( 'create' )->with(
+			$this->anything(), $this->anything(), $this->anything(), 1, 1, 'a', true, 1.0, 1.0, array(),
+			600,
+			'2024-06-01 11:58:00',
+		);
+		$this->submissions->expects( $this->once() )->method( 'update' )->with(
+			1,
+			$this->callback( static fn( array $data ): bool => 600 === $data['duration_sec'] )
+		);
+
+		$this->service->submitBatch( 10, 5, 3, [ 1 => 'a' ], timing: new WorkTimingDTO( 600, [ 1 => 120 ] ) );
+	}
+
+	/** Без замера (старый плеер) колонки остаются пустыми. */
+	public function test_submit_batch_without_timing_stores_nulls(): void {
+		$this->arrangeBatch( $this->makeRow() );
+
+		$this->taskAttempts->expects( $this->once() )->method( 'create' )->with(
+			$this->anything(), $this->anything(), $this->anything(), 1, 1, 'a', true, 1.0, 1.0, array(), null, null,
+		);
+
+		$this->service->submitBatch( 10, 5, 3, [ 1 => 'a' ] );
+	}
+
 	private function arrangeBatch( GroupLessonDTO $row ): void {
 		$this->policy->method( 'canSubmit' )->willReturn( true );
 		$this->groupLessons->method( 'find' )->willReturn( $row );

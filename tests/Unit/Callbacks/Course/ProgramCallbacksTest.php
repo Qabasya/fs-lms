@@ -107,6 +107,16 @@ class ProgramCallbacksTest extends TestCase {
 		self::assertSame( 1, $r->payload['page'] );
 	}
 
+	public function test_get_group_activity_filters_by_feed(): void {
+		$this->guard->method( 'canManage' )->willReturn( true );
+		$actions = \Inc\Enums\Log\ActivityFeed::Course->actions();
+		$this->events->expects( $this->once() )->method( 'listByGroup' )->with( 5, 1, 20, $actions )->willReturn( array() );
+		$this->events->expects( $this->once() )->method( 'countByGroup' )->with( 5, $actions )->willReturn( 0 );
+		$_POST = array( 'group_id' => '5', 'feed' => 'course' );
+
+		self::assertTrue( fs_test_capture_json( fn() => $this->cb->ajaxGetGroupActivity() )->success );
+	}
+
 	/* ── Lock КТП (T1.8) ─────────────────────────────────────────────────── */
 
 	public function test_publish_program_delegates_and_returns_locked(): void {
