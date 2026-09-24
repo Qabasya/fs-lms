@@ -165,7 +165,8 @@
 
 /* #16: тема — жирная, в стиле бывшего номера (pt-num); закреплённая — акцентная. */
 .placed-theme .pt-title { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 700; color: var(--ok); }
-.placed-theme.pinned .pt-title { color: var(--accent-700); }
+.placed-theme.pinned .pt-title { color: var(--accent-700); padding-right: rem(12); }
+.placed-theme.pinned.off-schedule .pt-title { padding-right: rem(26); } // + маркер «вне расписания»
 
 /* Урок курса — черновик: по дате ученикам не откроется, пока его не опубликуют. */
 .placed-theme.is-draft { border-left-style: dashed; }

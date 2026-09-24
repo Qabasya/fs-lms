@@ -171,11 +171,10 @@ function visibleItems() {
 
 function itemRow(it) {
     return `<div class="wk-row" data-src-type="${esc(it.source_type)}" data-src-id="${it.source_id}">
-        <span class="wk-badge wk-badge-${it.source_type === 'assessment' ? 'exam' : 'work'}">${esc(it.label)}</span>
-        <div class="wk-row-main">
-            <div class="wk-row-title">${esc(it.title)}</div>
-            <div class="wk-row-meta">${it.count} ${pluralSubmissions(it.count)}${it.latest_at ? ' · ' + esc(fmtDateTime(it.latest_at)) : ''}</div>
-        </div>
+        <span class="wk-type"><span class="wk-badge wk-badge-${it.source_type === 'assessment' ? 'exam' : 'work'}">${esc(it.label)}</span></span>
+        <span class="wk-row-title" title="${esc(it.title)}">${esc(it.title)}</span>
+        <span class="wk-row-count">${it.count} ${pluralSubmissions(it.count)}</span>
+        <span class="wk-row-date">${it.latest_at ? esc(fmtDateTime(it.latest_at)) : '—'}</span>
         <button type="button" class="prof-btn prof-btn-sm">Открыть</button>
     </div>`;
 }

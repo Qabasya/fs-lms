@@ -1,10 +1,12 @@
 /* ══════════════════════════════════════════════════════════════════════
    Карточка работы (Tasks.md, п. 7) — одна вёрстка на два экрана: список
    сдач в «Работах» (шаг 2, .wk-sub-list) и вкладка «Работы» в «Сводке по
-   ученику». Слева цветной бейдж типа (СР/ПР/ДЗ/КР/ЭКЗ), затем название,
-   под ним полоска вердиктов по заданиям (галочка / крестик / часы), справа
-   дата и время сдачи и сколько ученик потратил на работу. Стили —
-   profile/components/_work-card.scss.
+   ученику». Одна строка: цветной бейдж типа (СР/ПР/ДЗ/КР/ЭКЗ), заголовок с
+   подписью (ученик · группа или работа · статус), полоска вердиктов по
+   заданиям (галочка / крестик / часы; до 27 в ряд, размер тянется по месту),
+   справа дата и время сдачи и сколько ученик потратил на работу. Колонки
+   фиксированной ширины — отметки у всех карточек списка стоят друг под другом.
+   Стили — profile/components/_work-card.scss.
    ══════════════════════════════════════════════════════════════════════ */
 
 import { esc, fmtDateTime, fmtDuration } from './utils.js';
@@ -39,12 +41,12 @@ export function workCardHtml(card) {
 
     return `<div class="wcard${card.rowClass ? ' ' + card.rowClass : ''}" role="button" tabindex="0"
         data-src-type="${esc(card.sourceType)}" data-src-id="${card.sourceId}">
-        ${card.badge ? `<span class="wcard-badge wcard-badge--${mod}">${esc(card.badge)}</span>` : ''}
-        <div class="wcard-main">
-            <div class="wcard-title">${esc(card.title || '—')}</div>
-            ${card.subtitle ? `<div class="wcard-sub">${esc(card.subtitle)}</div>` : ''}
-            ${marksHtml(card.marks)}
+        <span class="wcard-type">${card.badge ? `<span class="wcard-badge wcard-badge--${mod}">${esc(card.badge)}</span>` : ''}</span>
+        <div class="wcard-main" title="${esc([card.title, card.subtitle].filter(Boolean).join(' · '))}">
+            <span class="wcard-title">${esc(card.title || '—')}</span>
+            ${card.subtitle ? `<span class="wcard-sub">${esc(card.subtitle)}</span>` : ''}
         </div>
+        ${marksHtml(card.marks)}
         <div class="wcard-when">
             <span class="wcard-date">${card.date ? esc(fmtDateTime(card.date)) : '—'}</span>
             ${durationHtml(card.duration)}
@@ -62,7 +64,8 @@ function durationHtml(sec) {
 
 /** Полоска заданий: по значку на задание, в порядке работы. */
 function marksHtml(marks) {
-    if (!Array.isArray(marks) || !marks.length) { return ''; }
+    // Пустой контейнер тоже нужен: он держит колонку, иначе дата съедет влево.
+    if (!Array.isArray(marks) || !marks.length) { return '<div class="wcard-marks"></div>'; }
 
     return `<div class="wcard-marks">${marks.map((m, i) => {
         const kind = MARK_ICON[m] ? m : 'pending';

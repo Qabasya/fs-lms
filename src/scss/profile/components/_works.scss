@@ -70,8 +70,11 @@
   gap: rem(8);
 }
 
+/* Одна строка: тип (200px) · название · сдачи · дата и время · «Открыть».
+   Колонки фиксированной ширины — одинаковые во всех строках списка. */
 .wk-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: rem(200) minmax(0, 1fr) rem(76) rem(118) auto;
   align-items: center;
   gap: rem(14);
   padding: rem(12) rem(16);
@@ -94,9 +97,27 @@
 }
 .wk-badge-exam { background: var(--accent-soft); color: var(--accent-700); }
 
-.wk-row-main { flex: 1 1 auto; min-width: 0; }
-.wk-row-title { font-size: rem(14.5); font-weight: 600; color: var(--ink); }
-.wk-row-meta { font-size: rem(12.5); color: var(--muted); margin-top: rem(2); }
+.wk-type { display: flex; min-width: 0; }
+.wk-type .wk-badge { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.wk-row-title {
+  font-size: rem(14.5);
+  font-weight: 600;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wk-row-count,
+.wk-row-date {
+  font-size: rem(12.5);
+  color: var(--muted);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.wk-row-count { text-align: right; }
 
 .wk-loading {
   padding: rem(40);
@@ -144,5 +165,4 @@
 @media (max-width: $breakpoint-mobile) {
   .prof-works { padding: rem(16) rem(14) rem(32); }
   .wk-filters .kp-btn { max-width: none; width: 100%; }
-  .wk-row { flex-wrap: wrap; }
 }

@@ -232,17 +232,17 @@ function lessonCard(l) {
             </span>`).join('')}</div>`
         : '<div class="sum-works sum-works-empty">Работ нет</div>';
 
+    // Посещаемость — только цветом полоски слева (подпись — во всплывающей подсказке).
+    const stripTitle = 'individual' === st ? KIND_LABEL.individual : (open ? '' : ATT_LABEL[st]);
+
     return `
     <div class="sum-card">
-        <span class="sum-strip sum-strip-${esc(st)}" title="${esc(ATT_LABEL[st] || KIND_LABEL[l.kind] || '')}"></span>
+        <span class="sum-strip sum-strip-${esc(st)}" title="${esc(stripTitle || '')}"></span>
         <div class="sum-card-body">
-            <div class="sum-card-top">
-                ${l.date ? `<span class="sum-date">${esc(fmtDate(l.date))}</span>` : ''}
-                <span class="sum-kind sum-kind-${esc(l.kind)}">${esc(KIND_LABEL[l.kind] || l.kind)}</span>
-                ${l.kind !== 'individual' && !open ? `<span class="sum-att sum-att-${esc(l.attendance)}">${esc(ATT_LABEL[l.attendance])}</span>` : ''}
-                ${progressBadge(l.progress)}
-            </div>
-            <div class="sum-topic">${esc(l.topic || '—')}</div>
+            <span class="sum-date">${l.date ? esc(fmtDate(l.date)) : ''}</span>
+            <span class="sum-kind sum-kind-${esc(l.kind)}">${esc(KIND_LABEL[l.kind] || l.kind)}</span>
+            <span class="sum-prog-cell">${progressBadge(l.progress)}</span>
+            <div class="sum-topic" title="${esc(l.topic || '')}">${esc(l.topic || '—')}</div>
             ${works}
         </div>
     </div>`;

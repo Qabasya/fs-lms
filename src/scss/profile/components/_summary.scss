@@ -83,17 +83,25 @@
 .sum-strip-individual { background: var(--t-zachet); }
 .sum-strip-none       { background: var(--line-2); }
 
-.sum-card-body { flex: 1 1 auto; min-width: 0; padding: rem(12) rem(16); }
-
-.sum-card-top {
-  display: flex;
+/* Одна строка с равными отступами: дата · тип · прогресс · тема · работы.
+   Ширины первых колонок фиксированы, тема забирает остаток, работы прижаты
+   вправо — поэтому их правые края стоят друг под другом при любой длине темы. */
+.sum-card-body {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: rem(84) rem(118) rem(44) minmax(0, 1fr) auto;
   align-items: center;
-  gap: rem(10);
-  flex-wrap: wrap;
+  gap: rem(16);
+  padding: rem(12) rem(16);
 }
-.sum-date { font-size: rem(14); font-weight: 700; color: var(--ink); }
 
+.sum-date { font-size: rem(14); font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
+
+/* Одна ширина под «Групповое» и «Индивидуальное». */
 .sum-kind {
+  justify-self: stretch;
+  text-align: center;
   font-size: rem(11);
   font-weight: 600;
   padding: 1px rem(8);
@@ -103,22 +111,22 @@
 }
 .sum-kind-individual { background: var(--surface-2); color: var(--t-zachet); }
 
-.sum-att {
-  font-size: rem(11.5);
-  font-weight: 600;
-  margin-left: auto;
-}
-.sum-att-present { color: var(--ok); }
-.sum-att-absent  { color: var(--err); }
-.sum-att-none    { color: var(--muted-2); }
+.sum-prog-cell { display: flex; }
 
-.sum-topic { font-size: rem(13.5); color: var(--ink-2); margin-top: rem(4); }
+.sum-topic {
+  font-size: rem(13.5);
+  color: var(--ink-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
 .sum-works {
   display: flex;
   flex-wrap: wrap;
+  justify-content: flex-end;
   gap: rem(6);
-  margin-top: rem(8);
+  max-width: rem(420);
 }
 .sum-works-empty { font-size: rem(12); color: var(--muted-2); }
 

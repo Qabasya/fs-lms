@@ -6,7 +6,8 @@
 @use '../variables' as *;
 
 .wcard {
-  display: flex;
+  display: grid;
+  grid-template-columns: rem(40) rem(240) minmax(0, 1fr) rem(190);
   align-items: center;
   gap: rem(14);
   padding: rem(12) rem(16);
@@ -40,47 +41,68 @@
 .wcard-badge--kr { background: var(--err-soft); color: var(--err-ink); }
 .wcard-badge--ex { background: var(--indi-bg); color: var(--indi-ink); }
 
-.wcard-main { flex: 1 1 auto; min-width: 0; }
+.wcard-type { display: flex; }
+
+/* Заголовок и подпись — одной строкой, лишнее обрезается (полный текст — в title). */
+.wcard-main {
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: rem(8);
+  overflow: hidden;
+  white-space: nowrap;
+}
 
 .wcard-title {
+  flex: 0 1 auto;
+  min-width: 0;
   font-size: rem(14.5);
   font-weight: 600;
   color: var(--ink);
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
-.wcard-sub { font-size: rem(12.5); color: var(--muted); margin-top: rem(2); }
+.wcard-sub {
+  flex: 0 1 auto;
+  min-width: 0;
+  font-size: rem(12.5);
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 
-/* Полоска заданий: решённые — галочка, нерешённые — крестик, ручные — часы. */
+/* Полоска заданий: решённые — галочка, нерешённые — крестик, ручные — часы.
+   27 колонок одной ширины: ячейка тянется по свободному месту (на 1280 —
+   ~17px, шире экран — крупнее, до предела max-width), 28-е задание уходит
+   на следующий ряд. Колонка ячейки не зависит от числа заданий — отметки
+   разных карточек стоят друг под другом. */
 .wcard-marks {
-  display: flex;
-  flex-wrap: wrap;
-  gap: rem(4);
-  margin-top: rem(8);
+  display: grid;
+  grid-template-columns: repeat(27, minmax(0, 1fr));
+  gap: rem(3);
+  max-width: rem(27 * 26 + 26 * 3);
 }
 
 .wmark {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   justify-content: center;
-  width: rem(20);
-  height: rem(20);
-  border-radius: rem(6);
-  flex: none;
+  aspect-ratio: 1;
+  border-radius: rem(5);
+  min-width: 0;
 }
 
 .wmark--correct   { background: var(--ok-soft); color: var(--ok); }
 .wmark--incorrect { background: var(--err-soft); color: var(--err); }
 .wmark--pending   { background: var(--surface-2); color: var(--muted-2); }
 
+/* Дата и затраченное время — одной строкой, прижаты вправо. */
 .wcard-when {
-  flex: none;
   display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: rem(4);
+  align-items: center;
+  justify-content: flex-end;
+  gap: rem(10);
 }
 
 .wcard-date {
@@ -115,9 +137,3 @@
 
 .swg-topic { font-size: rem(14); font-weight: 700; color: var(--ink); }
 .swg-date  { font-size: rem(12.5); color: var(--muted); }
-
-@media (max-width: $breakpoint-mobile) {
-  .wcard { flex-wrap: wrap; }
-  .wcard-when { width: 100%; flex-direction: row; align-items: center; gap: rem(10); }
-  .wcard-date { text-align: left; }
-}
