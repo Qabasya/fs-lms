@@ -96,7 +96,7 @@ function render() {
             ${courseBlockHtml()}
         </div>
         ${tabsHtml()}
-        <div class="sum-body">${'works' === state.tab ? worksHtml() : lessonsHtml()}</div>
+        <div class="sum-body prof-swap">${'works' === state.tab ? worksHtml() : lessonsHtml()}</div>
     </div>`;
 
     wireHead();

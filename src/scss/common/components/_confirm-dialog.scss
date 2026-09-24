@@ -9,9 +9,11 @@
   align-items: center;
   justify-content: center;
   padding: $spacing-lg;
+  animation: fs-confirm-fade $transition-fast;
 }
 
 .fs-confirm-dialog {
+  animation: fs-confirm-pop $transition-fast;
   background: $color-bg-modal;
   border-radius: $border-radius-md;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.24);
@@ -63,4 +65,23 @@
       border-color: $color-primary-hover;
     }
   }
+}
+
+@keyframes fs-confirm-fade {
+  from { opacity: 0; }
+
+  to { opacity: 1; }
+}
+
+@keyframes fs-confirm-pop {
+  from { opacity: 0; transform: translateY(rem(8)) scale(0.97); }
+
+  to { opacity: 1; transform: none; }
+}
+
+// Бандл общий (админка, фронт, кабинет) — глобального reduced-motion правила
+// у админки и фронта нет, поэтому гасим здесь.
+@media (prefers-reduced-motion: reduce) {
+  .fs-confirm-overlay,
+  .fs-confirm-dialog { animation: none; }
 }

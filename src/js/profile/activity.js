@@ -188,7 +188,7 @@ function render(inner) {
                 ${tab('course', FEEDS.course.title)}
             </div>
         </div>
-        ${body}
+        <div class="prof-swap">${body}</div>
     </div>`;
 
     wire();

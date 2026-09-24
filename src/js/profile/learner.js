@@ -317,7 +317,7 @@ function scRenderProgram(courses) {
                 <span class="sc-mcnt">${done} из ${m.lessons.length}</span>
                 <span class="sc-mmini"><span style="width:${pct}%"></span></span>
             </div>
-            <div class="sc-mbody">${rows.map(scRowHtml).join('')}</div>
+            <div class="sc-mbody prof-fold"><div class="prof-fold-inner">${rows.map(scRowHtml).join('')}</div></div>
         </div>`;
     }).join('') || '<div class="sc-empty">Ничего не найдено.</div>';
 
@@ -348,8 +348,9 @@ function scSyncExpand(courses) {
     btn.textContent = anyClosed ? 'Развернуть все' : 'Свернуть все';
     btn.onclick = () => {
         const exp = (scState.expand[c.id] = scState.expand[c.id] || {});
-        mods.forEach(m => { exp[+m.dataset.mi] = anyClosed; });
-        scRenderProgram(courses);
+        // Классом, а не перерисовкой — чтобы модули раскрылись/свернулись анимацией.
+        mods.forEach(m => { exp[+m.dataset.mi] = anyClosed; m.classList.toggle('open', anyClosed); });
+        scSyncExpand(courses);
     };
 }
 
@@ -373,8 +374,7 @@ function renderGrades(root, d) {
             e.preventDefault();
             e.stopPropagation();
             const group = chev.closest('.prof-grade-group');
-            const more  = group ? group.querySelector('.prof-grade-more') : null;
-            if (more) { more.hidden = !more.hidden; chev.classList.toggle('open'); }
+            if (group) { group.classList.toggle('is-open'); }
         });
     });
 }
@@ -417,7 +417,7 @@ function gradeGroupHtml(gr) {
     </${tag}>`;
 
     const moreHtml = expandable
-        ? `<div class="prof-grade-more" hidden>${more.map((a, i) => gradeAttemptRow(a, gr.attempts.length - 1 - i)).join('')}</div>`
+        ? `<div class="prof-grade-more prof-fold"><div class="prof-fold-inner">${more.map((a, i) => gradeAttemptRow(a, gr.attempts.length - 1 - i)).join('')}</div></div>`
         : '';
 
     return `<div class="prof-grade-group">${main}${moreHtml}</div>`;

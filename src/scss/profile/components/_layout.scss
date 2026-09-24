@@ -98,7 +98,7 @@ body.prof-menu-off .prof-mtoggle { display: flex; }
   display: flex; align-items: center; justify-content: space-between;
   cursor: pointer; user-select: none;
 }
-.pnl-caret { display: flex; transition: transform $tr; color: var(--muted-2); }
+.pnl-caret { display: flex; transition: transform $tr-collapse; color: var(--muted-2); }
 .pnl-caret.collapsed { transform: rotate(-90deg); }
 
 .prof-side-search { padding: rem(4) rem(10) rem(8); }

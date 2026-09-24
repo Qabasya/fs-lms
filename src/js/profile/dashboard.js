@@ -13,9 +13,6 @@ import { icoCalendar, icoCheck, icoAlert, icoMapPin, icoBookmark, icoShield, ico
 import { createApi } from './api.js';
 import { DOW_JS, DOW_RU } from './constants.js';
 
-/** Сколько недель показывает режим «Месяц» (по ряду на неделю). */
-const MONTH_WEEKS = 4;
-
 /** Ключ запомненной раскрытости аккордеонов главной. */
 const ACC_KEY = 'fsProfDashAcc';
 
@@ -85,7 +82,7 @@ function render() {
                     <button data-mode="month">Месяц</button>
                 </div>
             </div>
-            <div id="profSchedBody"></div>
+            <div id="profSchedBody" class="prof-swap"></div>
         </div>
     </div>`;
 
@@ -100,8 +97,14 @@ function render() {
         renderSched(b.dataset.mode);
     }));
 
-    root.querySelectorAll('details[data-acc]').forEach(el =>
-        el.addEventListener('toggle', () => saveAccOpen(el.dataset.acc, el.open)));
+    root.querySelectorAll('.prof-acc[data-acc]').forEach(acc => {
+        const head = acc.querySelector('.prof-acc-head');
+        head.addEventListener('click', () => {
+            const open = acc.classList.toggle('is-open');
+            head.setAttribute('aria-expanded', String(open));
+            saveAccOpen(acc.dataset.acc, open);
+        });
+    });
 
     // НБ-11: расписание перерисовывается (смена режима, пагинация недель) —
     // делегируем клик на контейнере, чтобы переходы в журнал переживали ре-рендер.
@@ -134,11 +137,7 @@ function renderSched(mode) {
         const grid = `<div class="prof-week-grid">${weekDates.map(date => {
             const items = byDate[date] || [];
             const cards = items.length
-                ? items.map(it => `<div class="prof-week-card ${it.kind === 'individual' ? 'chip-bd-indi' : chipBorder(groupSubjectKey(it.group_id))}" data-grp="${it.group_id}">
-                        <div class="wc-time">${esc(it.start)}</div>
-                        <div class="wc-grp">${esc(it.kind === 'individual' && it.student_name ? it.student_name : it.group_name)}${it.is_substitute ? ' <span class="prof-sub-tag">замена</span>' : ''}${it.kind === 'individual' ? ' <span class="prof-sub-tag indi">инд.</span>' : ''}</div>
-                        <div class="wc-topic">${esc(it.topic || '—')}</div>
-                    </div>`).join('')
+                ? items.map(it => lessonCard(it, 'prof-week-card')).join('')
                 : `<div class="prof-week-empty">Занятий нет</div>`;
             return `<div class="prof-week-col">
                     <div class="prof-week-dow">${DOW_JS[new Date(date + 'T00:00:00').getDay()]} ${date.slice(8, 10)}.${date.slice(5, 7)}</div>
@@ -157,26 +156,41 @@ function renderSched(mode) {
 }
 
 /**
- * «Месяц»: MONTH_WEEKS рядов по неделе (Пн–Вс), начиная с текущей недели;
- * ‹ › листают сразу на MONTH_WEEKS недель. В ячейке — все занятия дня (группа,
- * преподаватель, кабинет, тема), ряд растягивается по самому загруженному дню;
- * клик по дате открывает эту неделю в режиме «Неделя».
+ * «Месяц»: календарный месяц (с 1-го по последнее число) рядами по неделе Пн–Вс;
+ * хвосты соседних месяцев в крайних рядах — пустые клетки. ‹ › листают месяцы.
+ * В ячейке — все занятия дня ({@link lessonCard}), ряд растягивается по самому
+ * загруженному дню; клик по дате открывает эту неделю в режиме «Неделя».
  */
 function renderMonth(body) {
     const byDate = itemsByDate();
-    const days   = datesFrom(state.monthOffset * MONTH_WEEKS, MONTH_WEEKS * 7);
     const today  = todayIso();
+    const first  = new Date();
+    first.setHours(0, 0, 0, 0);
+    first.setDate(1);
+    first.setMonth(first.getMonth() + state.monthOffset);
 
-    const cells = days.map(date => {
-        const items = (byDate[date] || []).map(monthItem).join('');
+    const year     = first.getFullYear();
+    const month    = first.getMonth();
+    const daysIn   = new Date(year, month + 1, 0).getDate();
+    const lead     = (first.getDay() + 6) % 7;             // пустые клетки до 1-го (неделя с Пн)
+    const trail    = (7 - ((lead + daysIn) % 7)) % 7;      // и после последнего числа
+    const prefix   = `${year}-${String(month + 1).padStart(2, '0')}-`;
 
-        return `<div class="prof-month-cell${date === today ? ' is-today' : ''}${date < today ? ' is-past' : ''}">
-            <button type="button" class="pmc-day" data-day="${date}" aria-label="Открыть неделю ${esc(fmtDayMonth(date))}">${esc(dayLabel(date))}</button>
-            ${items}
-        </div>`;
-    }).join('');
+    const cells = [
+        ...Array.from({ length: lead }, () => '<div class="prof-month-cell is-out"></div>'),
+        ...Array.from({ length: daysIn }, (_, i) => {
+            const date  = prefix + String(i + 1).padStart(2, '0');
+            const items = (byDate[date] || []).map(it => lessonCard(it, 'prof-month-item')).join('');
 
-    body.innerHTML = schedNav('mnav', 'Предыдущий месяц', 'Следующий месяц', days[0], days[days.length - 1])
+            return `<div class="prof-month-cell${date === today ? ' is-today' : ''}${date < today ? ' is-past' : ''}">
+                <button type="button" class="pmc-day" data-day="${date}" aria-label="Открыть неделю ${esc(fmtDayMonth(date))}">${i + 1}</button>
+                ${items}
+            </div>`;
+        }),
+        ...Array.from({ length: trail }, () => '<div class="prof-month-cell is-out"></div>'),
+    ].join('');
+
+    body.innerHTML = schedNav('mnav', 'Предыдущий месяц', 'Следующий месяц', monthLabel(first))
         + `<div class="prof-month-grid">
             ${DOW_RU.map(dow => `<div class="prof-month-dow">${dow}</div>`).join('')}
             ${cells}
@@ -187,17 +201,29 @@ function renderMonth(body) {
     body.querySelectorAll('[data-day]').forEach(btn => btn.addEventListener('click', () => openWeekOf(btn.dataset.day)));
 }
 
-/** Занятие в ячейке месяца: время и группа, преподаватель и кабинет, тема. */
-function monthItem(it) {
-    const who  = it.kind === 'individual' && it.student_name ? it.student_name : it.group_name;
-    const meta = [it.teacher, it.room].filter(Boolean).map(esc).join(' · ');
-    const tags = (it.is_substitute ? ' <span class="prof-sub-tag">замена</span>' : '')
-        + (it.kind === 'individual' ? ' <span class="prof-sub-tag indi">инд.</span>' : '');
+/** «Сентябрь 2026». */
+function monthLabel(date) {
+    const name = date.toLocaleDateString('ru-RU', { month: 'long' });
+    return `${name.charAt(0).toUpperCase()}${name.slice(1)} ${date.getFullYear()}`;
+}
 
-    return `<div class="prof-month-item ${it.kind === 'individual' ? 'chip-bd-indi' : chipBorder(groupSubjectKey(it.group_id))}" data-grp="${it.group_id}">
-        <div class="pmi-head"><span class="pmi-time">${esc(it.start)}</span><span class="pmi-grp">${esc(who)}</span>${tags}</div>
-        ${meta ? `<div class="pmi-meta">${meta}</div>` : ''}
-        ${it.topic ? `<div class="pmi-topic" title="${esc(it.topic)}">${esc(it.topic)}</div>` : ''}
+/**
+ * Карточка занятия в «Неделе» и «Месяце»: 1) время, группа, кабинет;
+ * 2) преподаватель («Сахаров Д.С.») и метки замены/инд.; 3) тема — сколько влезет.
+ */
+function lessonCard(it, cls) {
+    const who  = it.kind === 'individual' && it.student_name ? it.student_name : it.group_name;
+    const tags = (it.is_substitute ? '<span class="prof-sub-tag">замена</span>' : '')
+        + (it.kind === 'individual' ? '<span class="prof-sub-tag indi">инд.</span>' : '');
+
+    return `<div class="${cls} lcard ${it.kind === 'individual' ? 'chip-bd-indi' : chipBorder(groupSubjectKey(it.group_id))}" data-grp="${it.group_id}">
+        <div class="lc-row">
+            <span class="lc-time">${esc(it.start)}</span>
+            <span class="lc-grp">${esc(who)}</span>
+            ${it.room ? `<span class="lc-room">${esc(it.room)}</span>` : ''}
+        </div>
+        ${it.teacher || tags ? `<div class="lc-row lc-teacher"><span class="lc-name">${esc(it.teacher || '')}</span>${tags}</div>` : ''}
+        <div class="lc-topic" title="${esc(it.topic || '')}">${esc(it.topic || '—')}</div>
     </div>`;
 }
 
@@ -209,11 +235,6 @@ function openWeekOf(date) {
     const toggle = root.querySelector('#profSchedToggle');
     toggle.querySelectorAll('button').forEach(x => x.classList.toggle('on', 'week' === x.dataset.mode));
     renderSched('week');
-}
-
-/** Первое число месяца подписываем месяцем — иначе в сетке теряется граница. */
-function dayLabel(date) {
-    return '01' === date.slice(8, 10) ? fmtDayMonth(date) : String(+date.slice(8, 10));
 }
 
 /** Всё расписание, разложенное по датам. */
@@ -248,13 +269,13 @@ function datesFrom(weekOffset, count) {
 
 /** НБ-11: пагинатор недели (‹ диапазон ›) над сеткой расписания. */
 function weekNav(fromIso, toIso) {
-    return schedNav('wnav', 'Предыдущая неделя', 'Следующая неделя', fromIso, toIso);
+    return schedNav('wnav', 'Предыдущая неделя', 'Следующая неделя', `${fmtDayMonth(fromIso)} – ${fmtDayMonth(toIso)}`);
 }
 
-function schedNav(attr, prevLabel, nextLabel, fromIso, toIso) {
+function schedNav(attr, prevLabel, nextLabel, label) {
     return `<div class="prof-week-nav">
         <button type="button" class="pwn-arrow" data-${attr}="-1" aria-label="${prevLabel}">‹</button>
-        <div class="pwn-label">${esc(fmtDayMonth(fromIso))} – ${esc(fmtDayMonth(toIso))}</div>
+        <div class="pwn-label">${esc(label)}</div>
         <button type="button" class="pwn-arrow" data-${attr}="1" aria-label="${nextLabel}">›</button>
     </div>`;
 }
@@ -266,14 +287,16 @@ function schedNav(attr, prevLabel, nextLabel, fromIso, toIso) {
 function accordion(key, title, sub, bodyHtml) {
     const open = true === readAccOpen()[key];
 
-    return `<details class="prof-card prof-acc" data-acc="${key}"${open ? ' open' : ''}>
-        <summary class="prof-card-head prof-acc-head">
+    return `<div class="prof-card prof-acc${open ? ' is-open' : ''}" data-acc="${key}">
+        <button type="button" class="prof-card-head prof-acc-head" aria-expanded="${open}" aria-controls="profAcc-${key}">
             <h3>${esc(title)}</h3>
             <span class="ch-sub">${esc(sub)}</span>
             <span class="prof-acc-chev">${icoChevronDown(14)}</span>
-        </summary>
-        <div class="prof-acc-body">${bodyHtml}</div>
-    </details>`;
+        </button>
+        <div class="prof-acc-body prof-fold" id="profAcc-${key}">
+            <div class="prof-fold-inner">${bodyHtml}</div>
+        </div>
+    </div>`;
 }
 
 function readAccOpen() {

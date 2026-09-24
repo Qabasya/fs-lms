@@ -41,7 +41,7 @@ class DashboardService {
 		private readonly PersonRepository        $persons,
 	) {}
 
-	/** @var array<int, string> Кэш коротких имён преподавателей: WP user id → «Фамилия И. О.». */
+	/** @var array<int, string> Кэш коротких имён преподавателей: WP user id → «Фамилия И.О.». */
 	private array $teacherNames = array();
 
 	/** Человекочитаемое имя предмета (fallback — слаг), как в LearnerService (#12). */
@@ -280,7 +280,7 @@ class DashboardService {
 		return isset( $group->teacher_id ) && $group->teacher_id ? (int) $group->teacher_id : null;
 	}
 
-	/** «Фамилия И. О.» из карточки персоны; без неё — имя WP-пользователя как есть. */
+	/** «Фамилия И.О.» из карточки персоны; без неё — имя WP-пользователя как есть. */
 	private function teacherShortName( ?int $userId ): string {
 		if ( ! $userId ) {
 			return '';

@@ -3,6 +3,7 @@
    Явное разделение курсов (дизайн Student Courses). Классы sc-*.
    ══════════════════════════════════════════════════════════════════════ */
 @use '../variables' as *;
+@use 'motion' as *;
 
 // Ширину/паддинги даёт .prof-dash (max-width:1320 + padding:24 → контент 1272),
 // как на остальных страницах кабинета — свой max-width не задаём.
@@ -82,7 +83,7 @@
 .sc-mhead:hover { background: var(--surface-2); }
 .sc-mhead.static { cursor: default; }
 .sc-mhead.static:hover { background: transparent; }
-.sc-caret { color: var(--muted-2); flex-shrink: 0; display: flex; transition: transform .15s; }
+.sc-caret { color: var(--muted-2); flex-shrink: 0; display: flex; transition: transform $tr-collapse; }
 .sc-mod.open .sc-caret { transform: rotate(90deg); }
 .sc-mnum { font-size: rem(11); font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--muted-2); width: rem(66); flex-shrink: 0; }
 .sc-mname { font-size: rem(14); font-weight: 600; flex: 1; min-width: 0; }
@@ -91,8 +92,8 @@
 .sc-mmini { width: rem(72); height: rem(5); border-radius: rem(3); background: var(--line-2); overflow: hidden; flex-shrink: 0; }
 .sc-mmini span { display: block; height: 100%; background: var(--accent); border-radius: rem(3); }
 .sc-mod.done .sc-mmini span { background: var(--ok); }
-.sc-mbody { display: none; }
-.sc-mod.open .sc-mbody { display: block; padding-bottom: rem(6); }
+.sc-mod.open > .sc-mbody { @include collapse-open; }
+.sc-mbody .prof-fold-inner > :last-child { margin-bottom: rem(6); }
 
 /* ── Строка урока ────────────────────────────────────────────────────── */
 .sc-row { display: flex; align-items: center; gap: rem(13); padding: rem(10) rem(18) rem(10) rem(24); transition: background $tr; }

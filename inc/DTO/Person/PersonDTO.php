@@ -77,17 +77,17 @@ readonly class PersonDTO {
 	}
 
 	/**
-	 * Короткое имя «Фамилия И. О.» — для тесных мест (ячейки календаря).
+	 * Короткое имя «Фамилия И.О.» — для тесных мест (карточки расписания).
 	 */
 	public function shortName(): string {
 		$initials = '';
 		foreach ( array( $this->firstName, (string) $this->middleName ) as $part ) {
 			$part = trim( $part );
 			if ( '' !== $part ) {
-				$initials .= ' ' . mb_strtoupper( mb_substr( $part, 0, 1 ) ) . '.';
+				$initials .= mb_strtoupper( mb_substr( $part, 0, 1 ) ) . '.';
 			}
 		}
-		return trim( $this->lastName . $initials );
+		return trim( $this->lastName . ( '' !== $initials ? ' ' . $initials : '' ) );
 	}
 
 	/**

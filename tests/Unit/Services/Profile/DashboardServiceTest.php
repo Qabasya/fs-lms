@@ -83,7 +83,7 @@ class DashboardServiceTest extends TestCase {
 		self::assertSame( 1, $d['worklist']['to_review'][0]['count'] );
 	}
 
-	/** Преподаватель занятия в расписании — «Фамилия И. О.»; в дни замены — заместитель. */
+	/** Преподаватель занятия в расписании — «Фамилия И.О.»; в дни замены — заместитель. */
 	public function test_schedule_items_carry_effective_teacher_short_name(): void {
 		$this->groups->method( 'findByTeacherId' )
 			->willReturn( array( (object) array( 'id' => 1, 'name' => 'Г1', 'subject_key' => 'inf', 'teacher_id' => 99 ) ) );
@@ -105,7 +105,7 @@ class DashboardServiceTest extends TestCase {
 
 		$d = $this->service->build( 99, false );
 
-		self::assertSame( 'Иванова А. С.', $d['week'][0]['teacher'] );
+		self::assertSame( 'Иванова А.С.', $d['week'][0]['teacher'] );
 		self::assertSame( 'Петров О.', $d['week'][1]['teacher'] );
 	}
 

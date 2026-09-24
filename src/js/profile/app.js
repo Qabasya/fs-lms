@@ -149,11 +149,19 @@ function openCoursePreview(courseId, lessonId) {
 /* #15-C: заголовок секции сайдбара со стрелкой сворачивания. */
 function sectionHeader(label, stateKey) {
     const collapsed = sidebarState[stateKey];
-    return `<div class="prof-nav-label prof-nav-label--toggle" data-toggle-section="${stateKey}">
+    return `<div class="prof-nav-label prof-nav-label--toggle" data-toggle-section="${stateKey}" role="button" tabindex="0" aria-expanded="${!collapsed}">
         ${esc(label)}
         <span class="pnl-caret${collapsed ? ' collapsed' : ''}">
             ${icoCaret(10)}
         </span>
+    </div>`;
+}
+
+/* Тело секции рендерится всегда: свёртка — класс на .prof-fold, чтобы
+   список уезжал анимацией, а не пропадал при пересборке сайдбара. */
+function sectionBody(stateKey, html) {
+    return `<div class="prof-fold${sidebarState[stateKey] ? '' : ' is-open'}" data-section-body="${stateKey}">
+        <div class="prof-fold-inner">${html}</div>
     </div>`;
 }
 
@@ -189,28 +197,24 @@ function buildSidebar() {
 
     if (cfg.groups && cfg.groups.length) {
         html += sectionHeader('Мои группы', 'groupsCollapsed');
-        if (!sidebarState.groupsCollapsed) {
-            html += cfg.groups.map(g => `
+        html += sectionBody('groupsCollapsed', cfg.groups.map(g => `
                 <div class="prof-group-item" data-grp="${g.id}">
                     <span class="prof-group-chip ${chipBg(g.subject_key || g.subject)}">${esc(shortName(g.name))}</span>
                     <div class="prof-group-meta">
                         <div class="prof-group-name">${esc(g.name)}</div>
                         <div class="prof-group-sub">${esc(g.subject)}</div>
                     </div>
-                </div>`).join('');
-        }
+                </div>`).join(''));
     }
 
     if (cfg.coursesTaught && cfg.coursesTaught.length) {
         html += sectionHeader('Мои курсы', 'coursesCollapsed');
-        if (!sidebarState.coursesCollapsed) {
-            if (cfg.coursesTaught.length > COURSE_SEARCH_THRESHOLD) {
-                html += `<div class="prof-side-search">
+        const search = cfg.coursesTaught.length > COURSE_SEARCH_THRESHOLD
+            ? `<div class="prof-side-search">
                     <input type="text" id="profCourseFilter" placeholder="Поиск курса…" value="${esc(sidebarState.courseFilter)}">
-                </div>`;
-            }
-            html += `<div id="profCoursesList">${courseItemsHtml()}</div>`;
-        }
+                </div>`
+            : '';
+        html += sectionBody('coursesCollapsed', `${search}<div id="profCoursesList">${courseItemsHtml()}</div>`);
     }
     if (nav) nav.innerHTML = html;
 
@@ -280,12 +284,20 @@ function wire() {
         el.addEventListener('click', () => openGroupsFor(el.dataset.grp)));
     wireCourseItems();
 
-    document.querySelectorAll('[data-toggle-section]').forEach(el =>
-        el.addEventListener('click', () => {
-            sidebarState[el.dataset.toggleSection] = !sidebarState[el.dataset.toggleSection];
-            buildSidebar();
-            wire();
-        }));
+    document.querySelectorAll('[data-toggle-section]').forEach(el => {
+        const toggle = () => {
+            const key       = el.dataset.toggleSection;
+            const collapsed = !sidebarState[key];
+            sidebarState[key] = collapsed;
+            el.setAttribute('aria-expanded', String(!collapsed));
+            el.querySelector('.pnl-caret')?.classList.toggle('collapsed', collapsed);
+            document.querySelector(`[data-section-body="${key}"]`)?.classList.toggle('is-open', !collapsed);
+        };
+        el.addEventListener('click', toggle);
+        el.addEventListener('keydown', e => {
+            if ('Enter' === e.key || ' ' === e.key) { e.preventDefault(); toggle(); }
+        });
+    });
 
     const courseFilter = document.getElementById('profCourseFilter');
     if (courseFilter) {

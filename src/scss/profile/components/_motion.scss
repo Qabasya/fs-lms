@@ -1,0 +1,41 @@
+/* ══════════════════════════════════════════════════════════════════════
+   Движение кабинета: общие примитивы анимаций. Состояния — только классами
+   (JS стилей не задаёт); reduced-motion гасит всё глобальным правилом cab-reset.
+   ══════════════════════════════════════════════════════════════════════ */
+@use '../variables' as *;
+@use '../../shared/cabinet/ui' as *;
+
+/* ── Раскрытие ────────────────────────────────────────────────────────────
+   Высота анимируется через grid-template-rows 0fr → 1fr: работает для любой
+   высоты содержимого без замеров в JS, и всё, что ниже, съезжает плавно.
+   Разметка: .prof-fold > .prof-fold-inner; открытое состояние
+   включает контекст (@include collapse-open) — у каждого аккордеона свой класс.
+   visibility прячет свёрнутое от Tab и скринридера, но только ПОСЛЕ анимации. */
+.prof-fold {
+  display: grid;
+  grid-template-rows: 0fr;
+  visibility: hidden;
+  transition: grid-template-rows $tr-collapse, visibility 0s linear $tr-collapse-dur;
+}
+
+.prof-fold-inner {
+  min-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  transition: opacity $tr-collapse;
+}
+
+@mixin collapse-open {
+  grid-template-rows: 1fr;
+  visibility: visible;
+  transition: grid-template-rows $tr-collapse, visibility 0s;
+
+  > .prof-fold-inner { opacity: 1; }
+}
+
+.prof-fold.is-open { @include collapse-open; }
+
+/* ── Смена содержимого ────────────────────────────────────────────────────
+   Контейнер, чьё содержимое перерисовывается целиком (вкладка, режим
+   расписания, листание периода): новые дочерние узлы появляются fade-up. */
+.prof-swap > * { @include cab-enter($tr-swap); }

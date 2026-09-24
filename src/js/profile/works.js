@@ -104,7 +104,7 @@ function render() {
     root.innerHTML = `
     <div class="prof-works">
         ${tabsHtml()}
-        ${state.selected ? stepTwoHtml() : stepOneHtml()}
+        <div class="prof-swap">${state.selected ? stepTwoHtml() : stepOneHtml()}</div>
     </div>`;
 
     wireTabs();

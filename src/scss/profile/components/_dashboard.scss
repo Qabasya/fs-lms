@@ -2,6 +2,7 @@
    Главная кабинета: приветствие, стат-плитки, расписание, ворклист, группы
    ══════════════════════════════════════════════════════════════════════ */
 @use '../variables' as *;
+@use 'motion' as *;
 
 .prof-dash { padding: rem(24); max-width: rem(1320); margin: 0 auto; }
 
@@ -61,28 +62,34 @@
 .prof-dash-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: rem(18); align-items: start; margin-bottom: rem(18); }
 .prof-sched-card { margin-bottom: rem(18); }
 
-/* «Требует внимания» / «Мои группы» — аккордеоны на <details>. */
+/* «Требует внимания» / «Мои группы» — аккордеоны: шапка-кнопка + .prof-fold. */
 .prof-acc-head {
+  width: 100%;
+  border: none;
+  border-bottom: 1px solid transparent;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
   cursor: pointer;
-  list-style: none;
-  user-select: none;
-  transition: background $tr;
+  transition: background $tr, border-color $tr-collapse;
 
-  &::-webkit-details-marker { display: none; }
   &:hover { background: var(--surface-2); }
 }
 
-.prof-acc:not([open]) .prof-acc-head { border-bottom: none; }
+.prof-acc { overflow: hidden; }
+.prof-acc.is-open .prof-acc-head { border-bottom-color: var(--line-2); }
+.prof-acc.is-open .prof-acc-body { @include collapse-open; }
 
 .prof-acc-chev {
   margin-left: auto;
   display: flex;
   align-items: center;
   color: var(--muted-2);
-  transition: transform $tr;
+  transition: transform $tr-collapse;
 }
 
-.prof-acc[open] .prof-acc-chev { transform: rotate(180deg); }
+.prof-acc.is-open .prof-acc-chev { transform: rotate(180deg); }
 
 /* «Месяц»: строка дней недели + 4 ряда по неделе. */
 .prof-month-grid {
@@ -101,6 +108,7 @@
   display: flex; flex-direction: column; gap: rem(4); min-width: 0;
 }
 .prof-month-cell.is-past { background: var(--surface-2); }
+.prof-month-cell.is-out { background: var(--surface-2); min-height: 0; }
 
 .prof-month-cell .pmc-day {
   align-self: flex-end; padding: rem(1) rem(6); border: none; border-radius: rem(10);
@@ -113,22 +121,16 @@
 .prof-month-cell.is-today .pmc-day { background: var(--accent); color: var(--ink-inverse); }
 
 .prof-month-item {
-  display: flex; flex-direction: column; gap: rem(2); min-width: 0;
   border-left: rem(3) solid var(--accent); background: var(--surface-2);
   border-radius: rem(5); padding: rem(4) rem(6); cursor: pointer; transition: background $tr;
 }
 .prof-month-item:hover { background: var(--accent-soft); }
 .prof-month-cell.is-past .prof-month-item { background: var(--surface); }
-.pmi-head { display: flex; align-items: baseline; gap: rem(5); min-width: 0; }
-.pmi-time { font-size: rem(11); font-weight: 700; font-variant-numeric: tabular-nums; flex: none; }
-.pmi-grp { font-size: rem(11.5); font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.pmi-head .prof-sub-tag { margin-left: 0; flex: none; }
-.pmi-meta { font-size: rem(11); color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.prof-month-item .lc-time { font-size: rem(11); }
+.prof-month-item .lc-grp { font-size: rem(11.5); }
 
-.pmi-topic {
-  font-size: rem(11); color: var(--muted-2); line-height: 1.3;
-  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
-}
+.prof-month-item .lc-teacher,
+.prof-month-item .lc-topic { font-size: rem(11); }
 
 /* НБ-11: пагинатор недели (‹ диапазон ›) над сеткой расписания. */
 .prof-week-nav { display: flex; align-items: center; justify-content: center; gap: rem(10); padding: rem(10) 0 rem(14); }
@@ -168,9 +170,17 @@
   border-radius: rem(7); padding: rem(8) rem(10); cursor: pointer; transition: background $tr;
 }
 .prof-week-card:hover { background: var(--accent-soft); }
-.wc-time { font-size: rem(12); font-weight: 700; font-variant-numeric: tabular-nums; }
-.wc-grp { font-size: rem(12.5); font-weight: 600; margin-top: 1px; }
-.wc-topic { font-size: rem(11.5); color: var(--muted); margin-top: 1px; line-height: 1.3; }
+
+/* Карточка занятия «Недели»/«Месяца» (lessonCard() в dashboard.js). */
+.lcard { display: flex; flex-direction: column; gap: rem(2); min-width: 0; }
+.lc-row { display: flex; align-items: baseline; gap: rem(5); min-width: 0; }
+.lc-time { font-size: rem(12); font-weight: 700; font-variant-numeric: tabular-nums; flex: none; }
+.lc-grp { font-size: rem(12.5); font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lc-room { margin-left: auto; flex: none; font-size: rem(11); color: var(--muted); white-space: nowrap; }
+.lc-teacher { font-size: rem(11.5); color: var(--muted); }
+.lc-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lc-row .prof-sub-tag { margin-left: 0; flex: none; }
+.lc-topic { font-size: rem(11.5); color: var(--muted-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .prof-lesson-row {
   display: flex; align-items: stretch; gap: rem(12); padding: rem(12) rem(18);
@@ -244,11 +254,14 @@ a.prof-lesson-go, a.prof-work-item, a.prof-grade-attempt { text-decoration: none
 
 .prof-grade-chev {
   flex-shrink: 0; color: var(--muted-2); display: flex; align-items: center;
-  transition: transform $tr;
+  transition: transform $tr-collapse;
 }
-.prof-work-item.open .prof-grade-chev { transform: rotate(180deg); }
+.prof-grade-group.is-open .prof-grade-chev { transform: rotate(180deg); }
+.prof-grade-group.is-open .prof-grade-more { @include collapse-open; }
 
-.prof-grade-more { background: var(--surface-2); padding: rem(2) 0; }
+.prof-grade-more .prof-fold-inner { background: var(--surface-2); }
+.prof-grade-more .prof-fold-inner > :first-child { margin-top: rem(2); }
+.prof-grade-more .prof-fold-inner > :last-child { margin-bottom: rem(2); }
 
 .prof-grade-attempt {
   display: flex; align-items: center; justify-content: space-between; gap: rem(12);

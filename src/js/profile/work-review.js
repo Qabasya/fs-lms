@@ -132,7 +132,7 @@ function render(d, history = []) {
             </div>
             ${picker}
             <div class="wr-body">
-                <div class="wr-tasks" data-wr-tasks>${liveTasksHtml}</div>
+                <div class="wr-tasks prof-swap" data-wr-tasks>${liveTasksHtml}</div>
                 ${d.attachment_url ? attachmentBlock(d) : ''}
                 ${d.feedback ? `<div class="sum-fb"><b>Комментарий:</b> ${esc(d.feedback)}</div>` : ''}
             </div>
