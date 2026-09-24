@@ -7,8 +7,10 @@ namespace Inc\Controllers\Subscribers;
 use Inc\Contracts\LogEventDispatcherInterface;
 use Inc\Contracts\ServiceInterface;
 use Inc\DTO\Course\SubmissionDTO;
+use Inc\DTO\Log\Events\EnrollmentStatusEvent;
 use Inc\DTO\Log\Events\LearningEvent;
 use Inc\Enums\Course\SubmissionStatus;
+use Inc\Enums\Course\WorkType;
 use Inc\Enums\Log\LogEvent;
 use Inc\Enums\Profile\NotificationType;
 use Inc\Enums\Wp\PageRoutes;
@@ -61,6 +63,7 @@ class NotificationSubscriber implements ServiceInterface {
 		$this->logEvents->subscribe( LogEvent::SubmissionReturned, array( $this, 'handleSubmissionReturned' ) );
 		$this->logEvents->subscribe( LogEvent::AttemptGraded,      array( $this, 'handleAttemptGraded' ) );
 		$this->logEvents->subscribe( LogEvent::SubmissionMade,     array( $this, 'handleSubmissionMade' ) );
+		$this->logEvents->subscribe( LogEvent::StudentEnrolled,    array( $this, 'handleStudentEnrolled' ) );
 
 		add_action( 'fs_lms_recording_attached', array( $this, 'handleRecordingAttached' ) );
 	}
@@ -156,10 +159,21 @@ class NotificationSubscriber implements ServiceInterface {
 		);
 	}
 
-	/** Сдана работа — учителю, только если есть часть без автопроверки. */
+	/**
+	 * Сдана работа — учителю. Домашняя работа — всегда (одна плитка на ученика и
+	 * работу: поштучная сдача задач не плодит уведомлений), остальные типы —
+	 * только если есть часть без автопроверки.
+	 */
 	public function handleSubmissionMade( LearningEvent $event ): void {
 		$sub = $this->submissions->find( (int) $event->entityId );
-		if ( null === $sub || ! $this->needsReview( $sub ) ) {
+		if ( null === $sub ) {
+			return;
+		}
+		if ( WorkType::Homework === $sub->workType ) {
+			$this->notifyHomeworkSubmitted( $sub );
+			return;
+		}
+		if ( ! $this->needsReview( $sub ) ) {
 			return;
 		}
 
@@ -186,6 +200,59 @@ class NotificationSubscriber implements ServiceInterface {
 			$lesson->groupId,
 			'submission',
 			$sub->id
+		);
+	}
+
+	private function notifyHomeworkSubmitted( SubmissionDTO $sub ): void {
+		$lesson = $this->groupLessons->find( $sub->groupLessonId );
+		if ( null === $lesson ) {
+			return;
+		}
+
+		$teacherUserId = $this->notifications->lessonTeacherUserId( $lesson );
+		if ( null === $teacherUserId ) {
+			return;
+		}
+
+		$this->notifications->push(
+			array( $teacherUserId ),
+			NotificationType::HomeworkSubmitted,
+			"hw_sub:{$lesson->id}:{$sub->workId}:{$sub->studentPersonId}",
+			array(
+				'student_name' => $this->notifications->studentSnapshotName( $sub->studentPersonId, $lesson->groupId ),
+				'topic'        => $this->notifications->lessonTopic( $lesson ),
+				'group_name'   => $this->notifications->groupName( $lesson->groupId ),
+			),
+			(string) add_query_arg( array( 'screen' => 'summary' ), PageRoutes::UserProfile->url() ),
+			$lesson->groupId,
+			'submission',
+			$sub->id
+		);
+	}
+
+	/** Зачислен ученик — основному преподавателю группы. */
+	public function handleStudentEnrolled( EnrollmentStatusEvent $event ): void {
+		if ( null === $event->groupId ) {
+			return;
+		}
+
+		$teacherUserId = $this->notifications->groupTeacherUserId( $event->groupId );
+		if ( null === $teacherUserId ) {
+			return;
+		}
+
+		$this->notifications->push(
+			array( $teacherUserId ),
+			NotificationType::StudentJoined,
+			"joined:{$event->groupId}:{$event->studentPersonId}",
+			array(
+				'student_name' => $this->notifications->studentSnapshotName( $event->studentPersonId, $event->groupId ),
+				'group_name'   => $this->notifications->groupName( $event->groupId ),
+			),
+			PageRoutes::UserProfile->url(),
+			$event->groupId,
+			'student_record',
+			$event->studentRecordId
 		);
 	}
 

@@ -111,6 +111,7 @@ class JournalService {
 			$badge = $entry->badge->badge();
 			$cellWorks[ $entry->groupLessonId ][ $entry->studentPersonId ][] = array(
 				'badge'   => $badge,
+				'title'   => $entry->title,
 				'value'   => $entry->displayValue(),
 				'display' => $entry->displayType,
 				// T12.2 (D13): постоянная метка «Просрочено» — сдано после дедлайна работы.

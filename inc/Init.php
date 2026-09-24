@@ -287,5 +287,7 @@ final class Init {
 		$container->get( \Inc\Migrations\AssessmentSlugMigration::class )->run();
 		// Лента «Активность»: события ученика писали ID персоны вместо WP-пользователя.
 		$container->get( \Inc\Migrations\LearningEventActorMigration::class )->run();
+		// Уроки-черновики больше не открываются по дате — уже открытые фиксируем в БД.
+		$container->get( \Inc\Migrations\DraftLessonOpenMigration::class )->run();
 	}
 }

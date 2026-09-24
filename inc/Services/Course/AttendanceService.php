@@ -46,6 +46,15 @@ class AttendanceService {
 	}
 
 	/**
+	 * Снять отметку ученика (ошибочная отметка). Уже отправленное «пропущено
+	 * занятие» по ней отзывается — отметки больше нет.
+	 */
+	public function clear( int $groupLessonId, int $studentPersonId ): void {
+		$this->attendance->delete( $groupLessonId, $studentPersonId );
+		$this->retractMissed( $groupLessonId, $studentPersonId );
+	}
+
+	/**
 	 * Отметить всех активных учеников группы на занятии (паттерн «всем present → флипнуть»).
 	 */
 	public function markAll( int $groupLessonId, bool $present, int $actorUserId ): void {
@@ -64,35 +73,78 @@ class AttendanceService {
 		}
 	}
 
+	/** Сколько пропусков подряд — уже повод тревожить родителя («более 2 занятий»). */
+	private const ABSENCE_STREAK = 3;
+
 	/**
-	 * Уведомление родителя: пропуск занятия (present=false) или отзыв ошибочной
-	 * отметки при исправлении на present=true ({@see NotificationService::retract()}).
+	 * Уведомления по отметке. Сама Н сразу не уведомляет: «пропущено занятие»
+	 * уходит, когда началось следующее занятие, а ученик так и не открыл урок и
+	 * не сдал домашнюю работу ({@see \Inc\Services\Profile\NotificationCronService}).
+	 * Здесь — только серия пропусков подряд (родителю) и отзыв уже отправленного
+	 * «пропущено» при исправлении ошибочной Н.
 	 */
 	private function notifyAttendance( GroupLessonDTO $lesson, int $studentPersonId, string $studentName, bool $present ): void {
-		$dedupeKey   = "att:{$lesson->id}:{$studentPersonId}";
-		$guardianIds = $this->notifications->guardianUserIds( $studentPersonId );
-		if ( empty( $guardianIds ) ) {
+		if ( $present ) {
+			$this->retractMissed( $lesson->id, $studentPersonId );
 			return;
 		}
 
-		if ( $present ) {
-			$this->notifications->retract( $guardianIds, $dedupeKey );
+		$this->notifyAbsenceStreak( $lesson->groupId, $studentPersonId, $studentName );
+	}
+
+	/** Отзывает «пропущено занятие» у ученика и родителей. */
+	private function retractMissed( int $groupLessonId, int $studentPersonId ): void {
+		$studentUserId = $this->notifications->studentUserId( $studentPersonId );
+		$this->notifications->retract(
+			array_merge(
+				$this->notifications->guardianUserIds( $studentPersonId ),
+				null !== $studentUserId ? array( $studentUserId ) : array()
+			),
+			"att:{$groupLessonId}:{$studentPersonId}"
+		);
+	}
+
+	/**
+	 * Родителю — ученик пропустил подряд {@see self::ABSENCE_STREAK} и больше
+	 * занятий группы (по последним отметкам в журнале). Одна плитка на серию:
+	 * ключ — первое занятие серии, следующие пропуски той же серии не дублируют.
+	 */
+	private function notifyAbsenceStreak( int $groupId, int $studentPersonId, string $studentName ): void {
+		$dates = array();
+		foreach ( $this->groupLessons->listByGroup( $groupId ) as $row ) {
+			if ( ! $row->kind->isIndividual() && null !== $row->scheduledAt ) {
+				$dates[ $row->id ] = $row->scheduledAt;
+			}
+		}
+
+		$marks = array_values( array_filter(
+			$this->attendance->listByStudent( $studentPersonId ),
+			static fn( $a ): bool => isset( $dates[ $a->groupLessonId ] )
+		) );
+		usort( $marks, static fn( $a, $b ): int => strcmp( $dates[ $b->groupLessonId ], $dates[ $a->groupLessonId ] ) );
+
+		$streak = array();
+		foreach ( $marks as $mark ) {
+			if ( $mark->isPresent ) {
+				break;
+			}
+			$streak[] = $mark->groupLessonId;
+		}
+		if ( count( $streak ) < self::ABSENCE_STREAK ) {
 			return;
 		}
 
 		$this->notifications->push(
-			$guardianIds,
-			NotificationType::AttendanceMissed,
-			$dedupeKey,
+			$this->notifications->guardianUserIds( $studentPersonId ),
+			NotificationType::AbsenceStreak,
+			sprintf( 'absent_streak:%d:%d', $studentPersonId, end( $streak ) ),
 			array(
 				'student_name' => $studentName,
-				'topic'        => $this->notifications->lessonTopic( $lesson ),
-				'date'         => $lesson->scheduledAt ? substr( $lesson->scheduledAt, 0, 10 ) : '',
+				'count'        => count( $streak ),
+				'group_name'   => $this->notifications->groupName( $groupId ),
 			),
 			(string) add_query_arg( array( 'screen' => 'learner-attendance' ), PageRoutes::UserProfile->url() ),
-			$lesson->groupId,
-			'group_lesson',
-			$lesson->id
+			$groupId
 		);
 	}
 

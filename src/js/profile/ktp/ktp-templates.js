@@ -11,12 +11,19 @@ function partLabel(t) {
     return (t.total_parts && t.total_parts > 1) ? ` · ${t.part}/${t.total_parts}` : '';
 }
 
+/* Урок курса ещё черновик: по дате ученикам не откроется, пока его не опубликуют. */
+function draftBadge(t) {
+    return t.lesson_draft
+        ? '<span class="tc-draft" title="Урок курса не опубликован — ученикам не откроется, пока его не опубликуют">черновик</span>'
+        : '';
+}
+
 export function themeCardHtml(t) {
     return `<div class="prof-theme-card" draggable="true" data-glid="${t.group_lesson_id}">
         <span class="tc-num">${t.n}${partLabel(t)}</span>
         <div class="tc-body">
             <div class="tc-title">${esc(t.topic || 'Без названия')}</div>
-            <div class="tc-meta">${t.is_pinned ? '<span class="tc-pinned">закреплено</span>' : ''}</div>
+            <div class="tc-meta">${t.is_pinned ? '<span class="tc-pinned">закреплено</span>' : ''}${draftBadge(t)}</div>
         </div>
         <span class="tc-grip">${icoGrip(14)}</span>
     </div>`;
@@ -44,6 +51,7 @@ function recordingIconHtml(t, videoEnabled) {
 export function placedThemeHtml(t, videoEnabled) {
     const pinned = t.is_pinned ? ' pinned' : '';
     const offSchedule = t.off_schedule ? ' off-schedule' : '';
+    const draft = t.lesson_draft ? ' is-draft' : '';
     const roomTip = t.room ? ` · ${t.room}` : '';
     // T12.6: «Продолжить» доступно только для «родных» строк (part 1) — не для уже-продолжений.
     const canContinue = 1 === t.part;
@@ -53,11 +61,12 @@ export function placedThemeHtml(t, videoEnabled) {
     // кликабельна, только если у занятия есть контент (player_url из getCalendar).
     // Этап 4: урок вне расписания (нет штатного слота в этот день) — иначе неотличим
     // от планового занятия.
-    return `<div class="placed-theme${pinned}${offSchedule}" draggable="true" data-glid="${t.group_lesson_id}" title="${esc(t.topic)}${esc(roomTip)}">
+    return `<div class="placed-theme${pinned}${offSchedule}${draft}" draggable="true" data-glid="${t.group_lesson_id}" title="${esc(t.topic)}${esc(roomTip)}">
         <span class="pt-pin">${icoPinFilled(11)}</span>
         ${t.off_schedule ? `<span class="pt-off-schedule" title="Урок вне расписания — открывается ученикам отдельно">${icoAlert(11)}</span>` : ''}
         <button type="button" class="pt-deadlines" data-glid="${t.group_lesson_id}" title="Дедлайны работ" aria-label="Дедлайны работ">${icoCalendar(12)}</button>
         <span class="pt-title">${esc(t.topic || 'Без названия')}${partLabel(t)}</span>
+        ${draftBadge(t)}
         ${t.room ? `<span class="pt-meta">${esc(t.room)}</span>` : ''}
         ${t.teacher ? `<span class="pt-meta">${esc(t.teacher)}</span>` : ''}
         ${recordingIconHtml(t, videoEnabled)}

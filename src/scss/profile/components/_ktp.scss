@@ -102,6 +102,7 @@
 .tc-title { font-size: rem(13); font-weight: 600; line-height: 1.3; }
 .tc-meta { font-size: rem(11); color: var(--muted-2); margin-top: rem(2); display: flex; gap: rem(8); }
 .tc-pinned { color: var(--accent); font-weight: 600; }
+.tc-draft { color: var(--wait-ink); font-weight: 600; }
 .tc-grip { color: var(--muted-2); display: flex; cursor: grab; }
 
 /* min-width: 0 — грид-ребёнок 1fr не должен распираться контентом календаря
@@ -165,6 +166,10 @@
 /* #16: тема — жирная, в стиле бывшего номера (pt-num); закреплённая — акцентная. */
 .placed-theme .pt-title { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 700; color: var(--ok); }
 .placed-theme.pinned .pt-title { color: var(--accent-700); }
+
+/* Урок курса — черновик: по дате ученикам не откроется, пока его не опубликуют. */
+.placed-theme.is-draft { border-left-style: dashed; }
+.placed-theme .tc-draft { display: block; font-size: rem(9); }
 
 /* #16: мета-строки карточки урока (кабинет + преподаватель), друг под другом. */
 .placed-theme .pt-meta { display: block; font-size: rem(9); color: var(--muted); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

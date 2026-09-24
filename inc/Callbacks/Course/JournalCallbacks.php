@@ -77,6 +77,25 @@ class JournalCallbacks extends BaseController {
 	}
 
 	/**
+	 * Снять отметку ученика (ошибочная отметка, Del в журнале). Params: group_lesson_id, student_person_id
+	 */
+	public function ajaxClearAttendance(): void {
+		$this->authorize( Nonce::SaveSchedule, Capability::ManageLmsTeaching );
+		$groupLessonId = $this->requireInt( 'group_lesson_id' );
+		$personId      = $this->requireInt( 'student_person_id' );
+		$userId        = get_current_user_id();
+
+		$row = $this->groupLessons->find( $groupLessonId );
+		if ( ! $row || ! $this->guard->canWriteJournal( $row->groupId, $userId ) ) {
+			$this->error( __( 'Нет доступа к группе.', 'fs-lms' ) );
+		}
+		$this->guardNotFuture( $row );
+
+		$this->attendance->clear( $groupLessonId, $personId );
+		$this->success();
+	}
+
+	/**
 	 * Отметить всех учеников занятия present/absent. Params: group_lesson_id, is_present
 	 */
 	public function ajaxBulkAttendance(): void {

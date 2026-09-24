@@ -13,12 +13,15 @@ use Inc\Enums\Course\AccessMode;
 use Inc\Enums\Course\AssignmentPolicy;
 use Inc\Enums\Course\LessonVisibility;
 use Inc\Enums\Log\LogEvent;
+use Inc\Enums\Profile\NotificationType;
+use Inc\Enums\Wp\PageRoutes;
 use Inc\Managers\Course\CourseManager;
 use Inc\Managers\Course\LessonManager;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Services\Group\ScheduleEventPublisher;
 use Inc\Services\Group\ScheduleReflowService;
+use Inc\Services\Profile\NotificationService;
 
 class CourseAssignmentService {
 
@@ -33,6 +36,7 @@ class CourseAssignmentService {
 		private readonly GroupLessonUsageGuard       $usageGuard,
 		private readonly ScheduleReflowService       $schedule,
 		private readonly ScheduleEventPublisher      $events,
+		private readonly NotificationService         $notifications,
 	) {}
 
 	/**
@@ -170,6 +174,7 @@ class CourseAssignmentService {
 				}
 
 				$rows = $this->programRows( $groupId );
+				$this->notifyProgramUpdated( $groupId, added: 1 );
 				$added++;
 			}
 		}
@@ -277,12 +282,34 @@ class CourseAssignmentService {
 					continue; // за строкой есть данные журнала — не трогаем.
 				}
 				if ( $this->groupLessons->remove( (int) $row->id ) ) {
+					$this->notifyProgramUpdated( (int) $group->id, removed: 1 );
 					$removed++;
 				}
 			}
 		}
 
 		return $removed;
+	}
+
+	/**
+	 * Преподавателю группы — курс изменился, КТП подтянула изменения. Одна
+	 * накопительная плитка на группу в день: курс правят урок за уроком.
+	 */
+	private function notifyProgramUpdated( int $groupId, int $added = 0, int $removed = 0 ): void {
+		$teacherUserId = $this->notifications->groupTeacherUserId( $groupId );
+		if ( null === $teacherUserId ) {
+			return;
+		}
+
+		$this->notifications->pushAccumulated(
+			$teacherUserId,
+			NotificationType::ProgramUpdated,
+			sprintf( 'program:%d:%s', $groupId, substr( $this->clock->now(), 0, 10 ) ),
+			array( 'added' => $added, 'removed' => $removed ),
+			array( 'group_name' => $this->notifications->groupName( $groupId ) ),
+			(string) add_query_arg( array( 'screen' => 'ktp' ), PageRoutes::UserProfile->url() ),
+			$groupId
+		);
 	}
 
 	/**

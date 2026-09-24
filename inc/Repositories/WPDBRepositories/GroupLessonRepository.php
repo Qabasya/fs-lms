@@ -550,22 +550,73 @@ class GroupLessonRepository {
 	}
 
 	/**
-	 * Занятия, у которых `scheduled_at` уже прошёл, но в базе они всё ещё числятся
-	 * `hidden` (Этап 5, Tasks.md) — кандидаты уведомления «Открыт урок». `visibility`
-	 * в БД не переписывается автопереходом hidden→open (тот ленивый, только на чтение,
-	 * {@see \Inc\Services\Course\LessonVisibilityService::effectiveVisibility()}), поэтому
-	 * такая строка продолжает попадать в выборку на каждом тике сколько угодно — сервис
-	 * различает «уже уведомляли» через `dedupe_key`, а не через эту выборку.
+	 * Занятия, открывшиеся ученикам в интервале ($since, $until] — кандидаты
+	 * уведомления «Открыт урок»: либо открыты явно (`visibility = open`,
+	 * `opened_at` в окне — ручное открытие, строка открытой группы), либо
+	 * открываются лениво по дате (`hidden`, `scheduled_at` в окне; `visibility`
+	 * в БД при этом не переписывается —
+	 * {@see \Inc\Services\Course\LessonVisibilityService::effectiveVisibility()}),
+	 * поэтому сервис различает «уже уведомляли» через `dedupe_key`, а не выборку.
 	 *
 	 * @return GroupLessonDTO[]
 	 */
 	public function listRecentlyOpened( string $since, string $until ): array {
 		$rows = $this->wpdb->get_results(
 			$this->wpdb->prepare(
-				"SELECT * FROM %i WHERE visibility = 'hidden' AND scheduled_at > %s AND scheduled_at <= %s",
+				"SELECT * FROM %i
+				 WHERE ( visibility = 'hidden' AND scheduled_at > %s AND scheduled_at <= %s )
+				    OR ( visibility = 'open' AND opened_at > %s AND opened_at <= %s )",
 				$this->table,
 				$since,
+				$until,
+				$since,
 				$until
+			),
+			ARRAY_A
+		);
+		return array_map( [ GroupLessonDTO::class, 'fromArray' ], $rows ?: array() );
+	}
+
+	/**
+	 * Групповые занятия, начавшиеся в интервале ($from, $to] и не отменённые —
+	 * момент «пришло следующее занятие»: дедлайн домашней работы прошлого
+	 * занятия и проверка пропуска.
+	 *
+	 * @return GroupLessonDTO[]
+	 */
+	public function listGroupBeganBetween( string $from, string $to ): array {
+		$rows = $this->wpdb->get_results(
+			$this->wpdb->prepare(
+				"SELECT * FROM %i WHERE kind != %s AND status IN ('scheduled','held') AND scheduled_at > %s AND scheduled_at <= %s",
+				$this->table,
+				LessonKind::Individual->value,
+				$from,
+				$to
+			),
+			ARRAY_A
+		);
+		return array_map( [ GroupLessonDTO::class, 'fromArray' ], $rows ?: array() );
+	}
+
+	/**
+	 * Групповые занятия, закончившиеся в интервале ($from, $to], с флагом
+	 * отметок посещаемости — кандидаты «не заполнен журнал». Без `ends_at`
+	 * конец — час от начала.
+	 *
+	 * @return GroupLessonDTO[]
+	 */
+	public function listGroupEndedBetween( string $from, string $to ): array {
+		$rows = $this->wpdb->get_results(
+			$this->wpdb->prepare(
+				"SELECT gl.*, " . self::HAS_ATTENDANCE . " FROM %i gl
+				 WHERE gl.kind != %s AND gl.status IN ('scheduled','held') AND gl.scheduled_at IS NOT NULL
+				   AND COALESCE( gl.ends_at, DATE_ADD( gl.scheduled_at, INTERVAL 60 MINUTE ) ) > %s
+				   AND COALESCE( gl.ends_at, DATE_ADD( gl.scheduled_at, INTERVAL 60 MINUTE ) ) <= %s",
+				TableName::Attendance->prefixed(),
+				$this->table,
+				LessonKind::Individual->value,
+				$from,
+				$to
 			),
 			ARRAY_A
 		);

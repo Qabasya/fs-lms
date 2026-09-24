@@ -155,14 +155,15 @@ class ProgramCallbacksTest extends TestCase {
 		self::assertFalse( fs_test_capture_json( fn() => $this->cb->ajaxContinueProgramLesson() )->success );
 	}
 
-	public function test_continue_program_lesson_blocked_when_program_locked(): void {
+	/** Теме не хватило урока — продлить можно и в опубликованной КТП. */
+	public function test_continue_program_lesson_allowed_when_program_locked(): void {
 		$this->program->method( 'getProgramRow' )->willReturn( $this->programRow() );
 		$this->guard->method( 'canManage' )->willReturn( true );
 		$this->program->method( 'isProgramLocked' )->willReturn( true );
-		$this->program->expects( $this->never() )->method( 'continueLesson' );
+		$this->program->expects( $this->once() )->method( 'continueLesson' )->willReturn( 43 );
 		$_POST = array( 'group_lesson_id' => '42' );
 
-		self::assertFalse( fs_test_capture_json( fn() => $this->cb->ajaxContinueProgramLesson() )->success );
+		self::assertTrue( fs_test_capture_json( fn() => $this->cb->ajaxContinueProgramLesson() )->success );
 	}
 
 	public function test_continue_program_lesson_errors_when_service_returns_zero(): void {

@@ -135,6 +135,7 @@ final class TeacherProfileView implements ProfileViewInterface {
 					'getJournal'     => AjaxHook::GetGroupJournal->jsAction(),
 					'saveAttendance' => AjaxHook::SaveAttendance->jsAction(),
 					'bulkAttendance' => AjaxHook::BulkAttendance->jsAction(),
+					'clearAttendance' => AjaxHook::ClearAttendance->jsAction(),
 				),
 			),
 			// Экран «Группы» (ростер + создание индивидуальных занятий, T10.7).

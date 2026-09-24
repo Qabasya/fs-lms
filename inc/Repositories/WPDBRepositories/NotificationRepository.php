@@ -90,6 +90,53 @@ class NotificationRepository {
 		return array_map( array( NotificationDTO::class, 'fromArray' ), $rows ?: array() );
 	}
 
+	/**
+	 * Новые (ещё не увиденные в колокольчике) уведомления с id больше `$afterId`,
+	 * старые сверху — источник браузерных уведомлений между поллингами.
+	 *
+	 * @return NotificationDTO[]
+	 */
+	public function listUnseenAfter( int $userId, int $afterId, int $limit = 5 ): array {
+		$rows = $this->wpdb->get_results(
+			$this->wpdb->prepare(
+				'SELECT * FROM %i WHERE recipient_user_id = %d AND seen_at IS NULL AND id > %d ORDER BY id ASC LIMIT %d',
+				$this->table,
+				$userId,
+				$afterId,
+				$limit
+			),
+			ARRAY_A
+		);
+
+		return array_map( array( NotificationDTO::class, 'fromArray' ), $rows ?: array() );
+	}
+
+	/** Самый свежий id уведомлений получателя (0 — нет ни одного). */
+	public function latestId( int $userId ): int {
+		return (int) $this->wpdb->get_var(
+			$this->wpdb->prepare(
+				'SELECT MAX(id) FROM %i WHERE recipient_user_id = %d',
+				$this->table,
+				$userId
+			)
+		);
+	}
+
+	/** Уведомление получателя по dedupe-ключу (накопительные плитки). */
+	public function findByDedupe( int $userId, string $dedupeKey ): ?NotificationDTO {
+		$row = $this->wpdb->get_row(
+			$this->wpdb->prepare(
+				'SELECT * FROM %i WHERE recipient_user_id = %d AND dedupe_key = %s LIMIT 1',
+				$this->table,
+				$userId,
+				$dedupeKey
+			),
+			ARRAY_A
+		);
+
+		return $row ? NotificationDTO::fromArray( $row ) : null;
+	}
+
 	public function unseenCount( int $userId ): int {
 		return (int) $this->wpdb->get_var(
 			$this->wpdb->prepare(

@@ -8,15 +8,18 @@ use DateTimeImmutable;
 use Inc\Contracts\ClockInterface;
 use Inc\DTO\Course\GroupLessonDTO;
 use Inc\DTO\Course\WorkDTO;
+use Inc\Enums\Course\LessonStatus;
 use Inc\Enums\Course\LessonVisibility;
+use Inc\Enums\Course\WorkType;
 use Inc\Enums\Profile\NotificationType;
 use Inc\Enums\Wp\PageRoutes;
+use Inc\Repositories\WPDBRepositories\AttendanceRepository;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
+use Inc\Repositories\WPDBRepositories\LessonProgressRepository;
 use Inc\Repositories\WPDBRepositories\NotificationRepository;
 use Inc\Repositories\WPDBRepositories\SubmissionRepository;
 use Inc\Services\Course\EffectiveWorksResolver;
 use Inc\Services\Course\LessonVisibilityService;
-use Inc\Services\Group\SessionCalendarService;
 
 /**
  * Class NotificationCronService
@@ -43,14 +46,18 @@ readonly class NotificationCronService {
 		private NotificationRepository   $notificationRepository,
 		private NotificationService      $notifications,
 		private ClockInterface           $clock,
-		private SessionCalendarService   $calendar,
 		private LessonVisibilityService  $visibility,
+		private AttendanceRepository     $attendance,
+		private LessonProgressRepository $progress,
 	) {}
 
 	public function tick(): void {
 		$this->lessonSoon();
 		$this->lessonOpened();
 		$this->deadlines();
+		$this->homeworkBeforeNextLesson();
+		$this->nextLessonBegan();
+		$this->journalNotFilled();
 		$this->purge();
 	}
 
@@ -89,10 +96,9 @@ readonly class NotificationCronService {
 	}
 
 	/**
-	 * Уроки вне расписания (Этап 4, Tasks.md), открывшиеся ученикам лениво: занятия
-	 * в этот день нет — `LessonSoon` не отправлялся (плановой встречи не было), и
-	 * без этого уведомления ученик о новом уроке не узнает никак. Плановые занятия
-	 * не дублируем — LessonSoon уже предупредил за 30 минут.
+	 * Открыт новый урок — ученикам: по дате занятия (ленивое открытие), вручную
+	 * или сразу при появлении в открытой группе. Урок-черновик по дате не
+	 * открывается — о нём не уведомляем.
 	 *
 	 * `visibility` в БД не переписывается автопереходом hidden→open (тот ленивый,
 	 * только на чтение), поэтому окно смотрит назад с запасом, а не «ровно этот
@@ -103,10 +109,6 @@ readonly class NotificationCronService {
 		$since = $this->shift( $now, '-24 hours' );
 
 		foreach ( $this->groupLessons->listRecentlyOpened( $since, $now ) as $lesson ) {
-			if ( ! $this->isOffSchedule( $lesson ) ) {
-				continue;
-			}
-			// Урок-черновик по дате не открывается — и уведомлять о нём не о чем.
 			if ( LessonVisibility::Open->value !== $this->visibility->effectiveVisibility( $lesson ) ) {
 				continue;
 			}
@@ -132,16 +134,6 @@ readonly class NotificationCronService {
 				$lesson->id
 			);
 		}
-	}
-
-	/** День занятия не входит в штатное расписание группы (Этап 4: урок вне расписания). */
-	private function isOffSchedule( GroupLessonDTO $lesson ): bool {
-		if ( null === $lesson->scheduledAt ) {
-			return false;
-		}
-		$lessonDays = $this->calendar->periodMeta( $lesson->groupId )['lessonDays'];
-
-		return ! in_array( substr( $lesson->scheduledAt, 0, 10 ), $lessonDays, true );
 	}
 
 	/**
@@ -234,6 +226,218 @@ readonly class NotificationCronService {
 			'group_lesson',
 			$lesson->id
 		);
+	}
+
+	/**
+	 * Домашняя работа без явного дедлайна сдаётся к следующему занятию: за 24 часа
+	 * до его начала — «скоро сдача» ученикам, которые её ещё не сдали. Работы с
+	 * явным дедлайном идут своим путём ({@see deadlines()}).
+	 */
+	private function homeworkBeforeNextLesson(): void {
+		$now = $this->clock->now();
+
+		foreach ( $this->groupLessons->listStartingBetween( $now, $this->shift( $now, '+24 hours' ) ) as $next ) {
+			if ( $next->kind->isIndividual() ) {
+				continue;
+			}
+			$previous = $this->previousLesson( $next );
+			if ( null === $previous ) {
+				continue;
+			}
+
+			foreach ( $this->homeworkDueAtNextLesson( $previous ) as $work ) {
+				$pending = $this->studentsWithoutSubmission( $previous, $work->id );
+				if ( ! empty( $pending ) ) {
+					$this->notifyDeadline( NotificationType::DeadlineSoon, 'dl_soon', $previous, $work, $pending, false );
+				}
+			}
+		}
+	}
+
+	/**
+	 * Началось следующее занятие — итоги прошлого:
+	 * - домашняя работа без явного дедлайна не сдана — «пропущена сдача» ученику
+	 *   и родителю;
+	 * - ученик отсутствовал (Н в журнале), урок так и не открыл и домашнюю работу
+	 *   (если была) не сдал — «пропущено занятие» ученику и родителю. Одна Н без
+	 *   последствий — не повод тревожить: ученик мог нагнать урок сам.
+	 */
+	private function nextLessonBegan(): void {
+		$now = $this->clock->now();
+
+		foreach ( $this->groupLessons->listGroupBeganBetween( $this->shift( $now, '-24 hours' ), $now ) as $next ) {
+			$previous = $this->previousLesson( $next );
+			if ( null === $previous ) {
+				continue;
+			}
+
+			foreach ( $this->homeworkDueAtNextLesson( $previous ) as $work ) {
+				$pending = $this->studentsWithoutSubmission( $previous, $work->id );
+				if ( ! empty( $pending ) ) {
+					$this->notifyDeadline( NotificationType::DeadlineMissed, 'dl_miss', $previous, $work, $pending, true );
+				}
+			}
+
+			$this->notifyMissedLesson( $previous );
+		}
+	}
+
+	private function notifyMissedLesson( GroupLessonDTO $lesson ): void {
+		$absent = array();
+		foreach ( $this->attendance->listByGroupLesson( $lesson->id ) as $mark ) {
+			if ( ! $mark->isPresent ) {
+				$absent[] = $mark->studentPersonId;
+			}
+		}
+		if ( empty( $absent ) ) {
+			return;
+		}
+
+		$viewed = array();
+		foreach ( $this->progress->listByGroupLesson( $lesson->id ) as $step ) {
+			$viewed[ $step->studentPersonId ] = true;
+		}
+
+		$homeworkIds = array_map(
+			static fn( WorkDTO $w ): int => $w->id,
+			array_filter( $this->worksResolver->resolve( $lesson ), static fn( WorkDTO $w ): bool => WorkType::Homework === $w->workType )
+		);
+
+		$topic = $this->notifications->lessonTopic( $lesson );
+		$group = $this->notifications->groupName( $lesson->groupId );
+
+		foreach ( array_unique( $absent ) as $personId ) {
+			if ( isset( $viewed[ $personId ] ) ) {
+				continue;
+			}
+			$submitted = array_map(
+				static fn( $s ) => $s->workId,
+				$this->submissions->listByStudentAndGroupLesson( $personId, $lesson->id )
+			);
+			if ( ! empty( $homeworkIds ) && empty( array_diff( $homeworkIds, $submitted ) ) ) {
+				continue; // домашняя работа сдана — урок фактически нагнан.
+			}
+
+			$payload = array(
+				'student_name' => $this->notifications->studentSnapshotName( $personId, $lesson->groupId ),
+				'topic'        => $topic,
+				'group_name'   => $group,
+			);
+			$dedupe = "att:{$lesson->id}:{$personId}";
+
+			$studentUserId = $this->notifications->studentUserId( $personId );
+			if ( null !== $studentUserId ) {
+				$this->notifications->push(
+					array( $studentUserId ),
+					NotificationType::AttendanceMissed,
+					$dedupe,
+					$payload,
+					PageRoutes::LessonPlayer->lessonUrl( $lesson->groupId, $lesson->id ),
+					$lesson->groupId,
+					'group_lesson',
+					$lesson->id
+				);
+			}
+
+			$this->notifications->push(
+				$this->notifications->guardianUserIds( $personId ),
+				NotificationType::AttendanceMissed,
+				$dedupe,
+				$payload,
+				(string) add_query_arg( array( 'screen' => 'learner-attendance' ), PageRoutes::UserProfile->url() ),
+				$lesson->groupId,
+				'group_lesson',
+				$lesson->id
+			);
+		}
+	}
+
+	/**
+	 * Через час после окончания занятия посещаемость не отмечена — преподавателю.
+	 * Открытые группы журнал посещаемости не ведут; группа без учеников — не повод.
+	 */
+	private function journalNotFilled(): void {
+		$now = $this->clock->now();
+
+		foreach ( $this->groupLessons->listGroupEndedBetween( $this->shift( $now, '-25 hours' ), $this->shift( $now, '-1 hour' ) ) as $lesson ) {
+			if ( $lesson->hasAttendance || $this->notifications->isOpenGroup( $lesson->groupId ) ) {
+				continue;
+			}
+			if ( empty( $this->notifications->lessonStudentPersonIds( $lesson ) ) ) {
+				continue;
+			}
+
+			$teacherUserId = $this->notifications->lessonTeacherUserId( $lesson );
+			if ( null === $teacherUserId ) {
+				continue;
+			}
+
+			$this->notifications->push(
+				array( $teacherUserId ),
+				NotificationType::JournalNotFilled,
+				"journal:{$lesson->id}",
+				array(
+					'topic'      => $this->notifications->lessonTopic( $lesson ),
+					'group_name' => $this->notifications->groupName( $lesson->groupId ),
+				),
+				(string) add_query_arg( array( 'screen' => 'journal' ), PageRoutes::UserProfile->url() ),
+				$lesson->groupId,
+				'group_lesson',
+				$lesson->id
+			);
+		}
+	}
+
+	/**
+	 * Прошлое групповое занятие перед `$next`: последнее по дате, не отменённое
+	 * и не перенесённое.
+	 */
+	private function previousLesson( GroupLessonDTO $next ): ?GroupLessonDTO {
+		$previous = null;
+		foreach ( $this->groupLessons->listByGroup( $next->groupId ) as $row ) {
+			if (
+				$row->kind->isIndividual()
+				|| null === $row->scheduledAt
+				|| $row->scheduledAt >= (string) $next->scheduledAt
+				|| LessonStatus::fromValueOrDefault( $row->status )->freesSlot()
+			) {
+				continue;
+			}
+			if ( null === $previous || $row->scheduledAt > $previous->scheduledAt ) {
+				$previous = $row;
+			}
+		}
+
+		return $previous;
+	}
+
+	/**
+	 * Домашние работы занятия, которые сдаются к следующему занятию: без явного
+	 * дедлайна и только если урок открыт ученикам.
+	 *
+	 * @return WorkDTO[]
+	 */
+	private function homeworkDueAtNextLesson( GroupLessonDTO $lesson ): array {
+		if ( LessonVisibility::Hidden->value === $this->visibility->effectiveVisibility( $lesson ) ) {
+			return array();
+		}
+
+		return array_values( array_filter(
+			$this->worksResolver->resolve( $lesson ),
+			static fn( WorkDTO $w ): bool => WorkType::Homework === $w->workType && null === $lesson->deadlineForWork( $w->id )
+		) );
+	}
+
+	/** @return int[] Person id учеников занятия, не сдавших работу. */
+	private function studentsWithoutSubmission( GroupLessonDTO $lesson, int $workId ): array {
+		return array_values( array_filter(
+			$this->notifications->lessonStudentPersonIds( $lesson ),
+			fn( int $personId ): bool => ! in_array(
+				$workId,
+				array_map( static fn( $s ) => $s->workId, $this->submissions->listByStudentAndGroupLesson( $personId, $lesson->id ) ),
+				true
+			)
+		) );
 	}
 
 	private function purge(): void {

@@ -1,5 +1,8 @@
 /* ══════════════════════════════════════════════════════════════════════
-   Колокольчик уведомлений кабинета — поповер с плитками, badge-поллинг.
+   Колокольчик уведомлений кабинета — поповер с плитками, badge-поллинг,
+   браузерные уведомления: новая плитка во время поллинга — тост, если
+   вкладка на виду, иначе системное уведомление (Notification API, по
+   разрешению пользователя из поповера).
    Источник: window.fsProfile.notifications:{nonce,actions}. Своя dropdown-
    панель (#profNotifPop), НЕ переиспользует общий prof-ctx-menu (там
    выпадашки select-подобные, тут — отдельная лента с собственной шириной
@@ -9,7 +12,7 @@
    ══════════════════════════════════════════════════════════════════════ */
 
 import { esc, toast } from './utils.js';
-import { icoBell, icoCamera, icoClock, icoAlert, icoCheck, icoReplace, icoDocCheck, icoSwap, icoEye, icoMapPin } from '../common/icons.js';
+import { icoBell, icoCamera, icoClock, icoAlert, icoCheck, icoReplace, icoDocCheck, icoSwap, icoEye, icoMapPin, icoCalendarBoard, icoUsers, icoJournal } from '../common/icons.js';
 import { createApi } from './api.js';
 
 const POLL_MS = 60000;
@@ -30,7 +33,29 @@ const TYPE_ICON = {
     substitute_assigned_student: icoSwap,
     room_changed:        icoMapPin,
     attempt_reset:       icoReplace,
+    homework_submitted:  icoDocCheck,
+    program_updated:     icoCalendarBoard,
+    student_joined:      icoUsers,
+    journal_not_filled:  icoJournal,
+    absence_streak:      icoAlert,
 };
+
+/* Последнее уведомление, уже показанное в браузере. Общее для всех вкладок
+   (localStorage): новую плитку показывает та вкладка, что опросила сервер
+   первой, — без дублей по числу открытых вкладок. */
+const LAST_ID_KEY = 'fsLmsNotifLastId';
+
+function readLastId() {
+    try { return Number(window.localStorage.getItem(LAST_ID_KEY)) || 0; } catch { return 0; }
+}
+
+function writeLastId(id) {
+    try { window.localStorage.setItem(LAST_ID_KEY, String(id)); } catch { /* приватный режим — без памяти */ }
+}
+
+function browserNotificationsSupported() {
+    return 'Notification' in window;
+}
 
 let api = null;
 let isOpen = false;
@@ -43,7 +68,9 @@ export function initNotifications() {
     api = createApi(cfg);
 
     refreshCount();
-    setInterval(() => { if (!document.hidden) { refreshCount(); } }, POLL_MS);
+    // Опрос идёт и в фоновой вкладке: иначе системное уведомление не придёт,
+    // пока пользователь на другой вкладке (браузер сам разрежает фоновые таймеры).
+    setInterval(refreshCount, POLL_MS);
     document.addEventListener('visibilitychange', () => {
         if (!document.hidden) { refreshCount(); }
     });
@@ -78,11 +105,37 @@ function setBadge(count) {
 
 async function refreshCount() {
     try {
-        const data = await api('count');
+        const lastId = readLastId();
+        const data = await api('count', lastId ? { after: lastId } : {});
         setBadge(Number(data?.unseen) || 0);
+
+        const fresh = Array.isArray(data?.fresh) ? data.fresh : [];
+        const latestId = Number(data?.latest_id) || 0;
+        // Другая вкладка могла успеть показать эти же плитки, пока шёл запрос.
+        if (readLastId() !== lastId) { return; }
+        writeLastId(Math.max(lastId, latestId));
+        if (lastId) { fresh.forEach(announce); }
     } catch {
         /* фоновый поллинг — тихо, тост не нужен */
     }
+}
+
+/** Новая плитка: вкладка на виду — тост, в фоне — системное уведомление браузера. */
+function announce(n) {
+    const text = n.body ? `${n.title}: ${n.body}` : n.title;
+    if (!document.hidden) {
+        toast(text, 'error' === n.tone ? 'error' : 'ok');
+        return;
+    }
+    if (!browserNotificationsSupported() || 'granted' !== Notification.permission) { return; }
+
+    const note = new Notification(n.title || 'Уведомление', { body: n.body || '', tag: `fs-lms-${n.id}` });
+    note.onclick = () => {
+        window.focus();
+        api('markRead', { id: n.id }).catch(() => {});
+        if (n.url) { window.location.href = n.url; }
+        note.close();
+    };
 }
 
 /* ── Поповер ───────────────────────────────────────────────────────────── */
@@ -112,20 +165,44 @@ async function openPop() {
     }
 }
 
+/* Разрешение на системные уведомления спрашиваем только по клику — браузеры
+   блокируют запрос без жеста пользователя. Решение принято (granted/denied) —
+   плашки нет. */
+function permissionPromptHtml() {
+    if (!browserNotificationsSupported() || 'default' !== Notification.permission) { return ''; }
+    return '<div class="prof-notif-permission">'
+        + '<span>Показывать уведомления, даже когда кабинет в другой вкладке?</span>'
+        + '<button type="button" class="prof-notif-allow">Включить</button></div>';
+}
+
+function wirePermissionPrompt(pop) {
+    const btn = pop.querySelector('.prof-notif-allow');
+    if (!btn) { return; }
+    btn.addEventListener('click', async () => {
+        const result = await Notification.requestPermission();
+        pop.querySelector('.prof-notif-permission')?.remove();
+        if ('granted' === result) { toast('Уведомления в браузере включены'); }
+    });
+}
+
 function renderList(pop, items) {
     if (!items.length) {
-        pop.innerHTML = `<div class="prof-notif-empty">${icoBell(32)}<p>Пока нет уведомлений</p></div>`;
+        pop.innerHTML = `${permissionPromptHtml()}<div class="prof-notif-empty">${icoBell(32)}<p>Пока нет уведомлений</p></div>`;
+        wirePermissionPrompt(pop);
         return;
     }
 
     let html = '<div class="prof-notif-head"><span>Уведомления</span>'
         + '<button type="button" class="prof-notif-readall">Прочитать все</button></div>';
+    html += permissionPromptHtml();
     html += '<div class="prof-notif-list">';
     for (const [label, group] of groupByDay(items)) {
         html += `<div class="prof-notif-section">${esc(label)}</div>${group.map(tileHtml).join('')}`;
     }
     html += '</div>';
     pop.innerHTML = html;
+
+    wirePermissionPrompt(pop);
 
     const readAllBtn = pop.querySelector('.prof-notif-readall');
     if (readAllBtn) { readAllBtn.addEventListener('click', () => markAllRead(pop)); }

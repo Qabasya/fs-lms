@@ -92,24 +92,46 @@ table.jgrid { border-collapse: separate; border-spacing: 0; width: max-content; 
   background: repeating-linear-gradient(45deg, transparent, transparent rem(4), var(--surface-2) rem(4), var(--surface-2) rem(8));
 }
 
-/* T10.5: ячейка = посещаемость + результаты работ по типам + фильтры */
+/* Ячейка = отметка посещаемости + маркер «есть результаты работ»; сами
+   результаты — во всплывашке .j-works-tip при наведении/фокусе. */
 .jgrid .gc.att { vertical-align: middle; }
-.jgrid .gc.att.has-works { vertical-align: top; padding-top: rem(4); }
-.cell-att { text-align: center; }
 
-.cell-works {
-  display: flex; flex-wrap: wrap; gap: rem(2); justify-content: center; margin-top: rem(3);
+/* Клавиатурная навигация: фокус ячейки виден так же явно, как в мокапе. */
+.jgrid td.gc:focus { outline: none; box-shadow: inset 0 0 0 2px var(--accent); }
+.jgrid td.gc:focus:not(.absent) { background: var(--accent-soft); }
+
+.cw-dot {
+  display: inline-block; width: rem(6); height: rem(6); border-radius: 50%; background: var(--accent);
+  flex-shrink: 0;
+}
+.cw-dot--warn { background: var(--wait); }
+.gc .cw-dot { position: absolute; top: rem(4); right: rem(4); }
+
+.j-legend-bottom kbd {
+  display: inline-block; padding: 0 rem(5); border: 1px solid var(--line); border-bottom-width: 2px;
+  border-radius: rem(4); background: var(--surface-2); font: inherit; font-size: rem(12);
 }
 
-.cell-works .cw {
-  font-size: rem(9); line-height: 1.3; padding: 0 rem(3); border-radius: rem(3);
-  background: var(--surface-2); color: var(--ink-2); white-space: nowrap;
+.j-works-tip {
+  position: fixed; z-index: $z-ctx + 1; min-width: rem(200); max-width: rem(320); padding: rem(10) rem(12);
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-pop); pointer-events: none;
 }
-.cell-works .cw b { color: var(--accent); font-weight: 700; }
-.cell-works .cw.pending b { color: var(--muted-2); }
+
+.jwt-head { font-size: rem(11); font-weight: 600; color: var(--muted-2); margin-bottom: rem(6); }
+
+.jwt-row {
+  display: flex; align-items: baseline; gap: rem(8); padding: rem(3) 0;
+  font-size: rem(12); color: var(--ink-2);
+}
+
+.jwt-badge { font-weight: 700; color: var(--accent); flex-shrink: 0; }
+.jwt-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.jwt-val { font-weight: 700; color: var(--ink); flex-shrink: 0; }
+.jwt-val.pending { font-weight: 500; color: var(--muted-2); }
 
 /* T12.2 (D13): постоянная метка «Просрочено» — сдано после дедлайна работы. */
-.cell-works .cw.overdue { background: var(--err-soft); box-shadow: inset 2px 0 0 var(--err); padding-left: rem(4); }
+.jwt-late { font-size: rem(11); font-weight: 600; color: var(--err); flex-shrink: 0; }
 
 .j-filters { display: flex; align-items: center; gap: rem(6); margin-left: auto; flex-wrap: wrap; }
 .jf-label { font-size: rem(11); color: var(--muted); }

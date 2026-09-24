@@ -305,6 +305,7 @@ enum AjaxHook: string {
 	case GetGroupJournal         = 'get_group_journal';  // params: group_id — ростер × (занятия+работы)
 	case SaveAttendance          = 'save_attendance';    // params: group_lesson_id, student_person_id, is_present
 	case BulkAttendance          = 'bulk_attendance';    // params: group_lesson_id, is_present — всем в занятии
+	case ClearAttendance         = 'clear_attendance';   // params: group_lesson_id, student_person_id — снять отметку (Del в журнале)
 
 	// ==== Клонирование / форк контента (T1.5.11) ====
 	case CloneLesson         = 'clone_lesson';

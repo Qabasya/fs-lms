@@ -43,6 +43,19 @@
 }
 .prof-notif-readall:hover { color: var(--accent-600); }
 
+/* Плашка «включить уведомления в браузере» — до решения пользователя. */
+.prof-notif-permission {
+  display: flex; align-items: center; gap: rem(10); flex-shrink: 0;
+  padding: rem(10) rem(14); border-bottom: 1px solid var(--line);
+  background: var(--accent-soft); font-size: rem(12.5); color: var(--ink);
+}
+
+.prof-notif-allow {
+  flex-shrink: 0; border: none; background: none; padding: 0; cursor: pointer;
+  font: inherit; font-weight: 600; color: var(--accent);
+}
+.prof-notif-allow:hover { color: var(--accent-600); }
+
 .prof-notif-loading { padding: rem(28) rem(16); text-align: center; font-size: rem(13); color: var(--muted); }
 
 .prof-notif-list { overflow-y: auto; }

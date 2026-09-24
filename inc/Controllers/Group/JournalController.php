@@ -28,6 +28,7 @@ class JournalController extends AjaxController {
 			array( AjaxHook::GetGroupJournal, $this->callbacks ),
 			array( AjaxHook::SaveAttendance,  $this->callbacks ),
 			array( AjaxHook::BulkAttendance,  $this->callbacks ),
+			array( AjaxHook::ClearAttendance, $this->callbacks ),
 		);
 	}
 }

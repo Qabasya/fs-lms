@@ -6,6 +6,7 @@ namespace Inc\Services\Profile;
 
 use Inc\DTO\Course\GroupLessonDTO;
 use Inc\DTO\Profile\NotificationDTO;
+use Inc\Enums\Course\AccessMode;
 use Inc\Enums\Profile\NotificationType;
 use Inc\Enums\Wp\PageRoutes;
 use Inc\Managers\Course\LessonManager;
@@ -102,6 +103,32 @@ readonly class NotificationService {
 	}
 
 	/**
+	 * Накопительная плитка: если по ключу уже есть уведомление, числовые поля
+	 * `$counters` складываются с прежними, и плитка перевыпускается свежей
+	 * непрочитанной. Одна плитка на ключ вместо ленты однотипных (курс правят
+	 * урок за уроком — преподавателю приходит «добавлено уроков: 3»).
+	 *
+	 * @param array<string,int>   $counters Приращения счётчиков
+	 * @param array<string,mixed> $payload  Остальные поля плитки
+	 */
+	public function pushAccumulated(
+		int              $userId,
+		NotificationType $type,
+		string           $dedupeKey,
+		array            $counters,
+		array            $payload = array(),
+		string           $url = '',
+		?int             $groupId = null
+	): void {
+		$previous = $this->notifications->findByDedupe( $userId, $dedupeKey )?->payload ?? array();
+		foreach ( $counters as $key => $increment ) {
+			$payload[ $key ] = (int) ( $previous[ $key ] ?? 0 ) + $increment;
+		}
+
+		$this->pushFresh( array( $userId ), $type, $dedupeKey, $payload, $url, $groupId );
+	}
+
+	/**
 	 * Отзывает уведомление по dedupe-ключу (например, исправление ошибочной
 	 * отметки «отсутствовал» на «присутствовал»).
 	 *
@@ -184,6 +211,23 @@ readonly class NotificationService {
 	/** Фактический преподаватель занятия (разовый override › замена › препод группы). */
 	public function lessonTeacherUserId( GroupLessonDTO $lesson ): ?int {
 		return $this->effectiveTeacher->forLesson( $lesson );
+	}
+
+	/**
+	 * Основной преподаватель группы (`groups.teacher_id`) — адресат событий уровня
+	 * группы (состав КТП, новые ученики): замена временна, группу ведёт он.
+	 */
+	public function groupTeacherUserId( int $groupId ): ?int {
+		$teacherId = $this->groups->findById( $groupId )?->teacher_id;
+
+		return null !== $teacherId && (int) $teacherId > 0 ? (int) $teacherId : null;
+	}
+
+	/** Открытая группа (Эпик 15): расписания и журнала посещаемости там нет. */
+	public function isOpenGroup( int $groupId ): bool {
+		return AccessMode::Open === AccessMode::fromValueOrDefault(
+			(string) ( $this->groups->findById( $groupId )?->access_mode ?? '' )
+		);
 	}
 
 	/** Тема занятия для текста плитки: заголовок урока, иначе `label` строки (паттерн {@see \Inc\Services\Profile\LearnerService}). */
@@ -294,6 +338,8 @@ readonly class NotificationService {
 				: sprintf( '%s%s', $this->renderScore( $p ), $tail ),
 
 			NotificationType::ReviewNeeded,
+			NotificationType::HomeworkSubmitted,
+			NotificationType::StudentJoined,
 			NotificationType::AttendanceMissed => sprintf(
 				'%s%s',
 				(string) ( $p['student_name'] ?? '' ),
@@ -318,6 +364,26 @@ readonly class NotificationService {
 				sprintf( '%s → %s', (string) ( $p['old_room'] ?? '—' ), (string) ( $p['new_room'] ?? '—' ) ),
 				$tail
 			) ),
+
+			NotificationType::ProgramUpdated => trim( sprintf(
+				'%s%s',
+				implode( ', ', array_filter( array(
+					(int) ( $p['added'] ?? 0 ) > 0 ? sprintf( 'добавлено уроков: %d', (int) $p['added'] ) : '',
+					(int) ( $p['removed'] ?? 0 ) > 0 ? sprintf( 'убрано уроков: %d', (int) $p['removed'] ) : '',
+				) ) ),
+				$tail
+			) ),
+
+			NotificationType::JournalNotFilled => '' !== $topic
+				? sprintf( 'Отметьте посещаемость: «%s»%s', $topic, $tail )
+				: trim( 'Отметьте посещаемость' . $tail ),
+
+			NotificationType::AbsenceStreak => sprintf(
+				'%s — пропущено подряд занятий: %d%s',
+				(string) ( $p['student_name'] ?? '' ),
+				(int) ( $p['count'] ?? 0 ),
+				$tail
+			),
 
 			NotificationType::AttemptReset => '' !== $topic
 				? "Можете решить «{$topic}» заново{$tail}"

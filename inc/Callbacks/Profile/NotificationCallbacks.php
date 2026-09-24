@@ -50,7 +50,12 @@ class NotificationCallbacks extends BaseController {
 		$this->success( array( 'items' => $items, 'unseen' => 0 ) );
 	}
 
-	/** Счётчик непрочитанных для поллинга badge (раз в 60 с). */
+	/**
+	 * Поллинг колокольчика (раз в 60 с). Params: after? — id последнего уведомления,
+	 * уже показанного в браузере. С `after` отдаёт и свежие плитки после него —
+	 * для браузерных уведомлений; без него (первый опрос вкладки) — только
+	 * `latest_id`, чтобы не вывалить всю историю разом.
+	 */
 	public function ajaxGetNotificationsCount(): void {
 		Nonce::Notifications->verify();
 		if ( ! is_user_logged_in() ) {
@@ -58,7 +63,17 @@ class NotificationCallbacks extends BaseController {
 			return;
 		}
 
-		$this->success( array( 'unseen' => $this->notifications->unseenCount( get_current_user_id() ) ) );
+		$userId = get_current_user_id();
+		$after  = $this->sanitizeInt( 'after' );
+		$fresh  = $after > 0
+			? array_map( fn( $n ) => $this->service->toClientArray( $n ), $this->notifications->listUnseenAfter( $userId, $after ) )
+			: array();
+
+		$this->success( array(
+			'unseen'    => $this->notifications->unseenCount( $userId ),
+			'latest_id' => $this->notifications->latestId( $userId ),
+			'fresh'     => $fresh,
+		) );
 	}
 
 	/** Клик по плитке — гасит точку непрочитанного. Params: id. */

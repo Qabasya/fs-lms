@@ -70,7 +70,7 @@ class NotificationSubscriberTest extends TestCase {
 			'student_person_id'  => 10,
 			'group_lesson_id'    => 100,
 			'work_id'            => 50,
-			'work_type'          => 'homework',
+			'work_type'          => 'practice',
 			'task_id'            => null,
 			'status'             => 'submitted',
 			'created_at'         => '2026-01-01 00:00:00',
@@ -87,12 +87,13 @@ class NotificationSubscriberTest extends TestCase {
 	}
 
 	public function test_register_subscribes_to_bus_events_and_recording_hook(): void {
-		$this->logEvents->expects( $this->exactly( 4 ) )->method( 'subscribe' )->with(
+		$this->logEvents->expects( $this->exactly( 5 ) )->method( 'subscribe' )->with(
 			self::logicalOr(
 				LogEvent::SubmissionGraded,
 				LogEvent::SubmissionReturned,
 				LogEvent::AttemptGraded,
 				LogEvent::SubmissionMade,
+				LogEvent::StudentEnrolled,
 			),
 			$this->anything()
 		);
@@ -305,5 +306,33 @@ class NotificationSubscriberTest extends TestCase {
 		$this->notifications->expects( $this->never() )->method( 'push' );
 
 		$this->subscriber->handleRecordingAttached( 999 );
+	}
+
+	/** Домашняя работа — преподавателю всегда, одна плитка на ученика и работу. */
+	public function test_homework_submission_notifies_teacher(): void {
+		$this->submissions->method( 'find' )->willReturn( $this->submission( array( 'work_type' => 'homework', 'task_id' => 42 ) ) );
+		$this->groupLessons->method( 'find' )->willReturn( $this->lesson() );
+		$this->notifications->method( 'lessonTeacherUserId' )->willReturn( 55 );
+
+		$this->notifications->expects( $this->once() )
+			->method( 'push' )
+			->with( array( 55 ), NotificationType::HomeworkSubmitted, 'hw_sub:100:50:10', $this->anything(), $this->anything(), 5, 'submission', 1 );
+
+		$this->subscriber->handleSubmissionMade( new LearningEvent(
+			event: LogEvent::SubmissionMade, actorUserId: 10, entityId: '1'
+		) );
+	}
+
+	public function test_student_enrolled_notifies_group_teacher(): void {
+		$this->notifications->method( 'groupTeacherUserId' )->with( 5 )->willReturn( 55 );
+		$this->notifications->method( 'studentSnapshotName' )->willReturn( 'Иванов Иван' );
+
+		$this->notifications->expects( $this->once() )
+			->method( 'push' )
+			->with( array( 55 ), NotificationType::StudentJoined, 'joined:5:10', $this->anything(), $this->anything(), 5, 'student_record', 7 );
+
+		$this->subscriber->handleStudentEnrolled( new \Inc\DTO\Log\Events\EnrollmentStatusEvent(
+			1, \Inc\Enums\Log\AuditAction::EnrollStudent, 10, 7, 5
+		) );
 	}
 }

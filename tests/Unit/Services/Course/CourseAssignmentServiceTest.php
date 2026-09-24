@@ -22,6 +22,7 @@ use Inc\Services\Course\GroupLessonUsageGuard;
 use Inc\Services\Course\OpenCourseValidator;
 use Inc\Services\Group\ScheduleEventPublisher;
 use Inc\Services\Group\ScheduleReflowService;
+use Inc\Services\Profile\NotificationService;
 use PHPUnit\Framework\TestCase;
 
 class CourseAssignmentServiceTest extends TestCase {
@@ -37,6 +38,7 @@ class CourseAssignmentServiceTest extends TestCase {
 	private GroupLessonUsageGuard&\PHPUnit\Framework\MockObject\MockObject $usageGuard;
 	private ScheduleReflowService&\PHPUnit\Framework\MockObject\MockObject $schedule;
 	private ScheduleEventPublisher&\PHPUnit\Framework\MockObject\MockObject $events;
+	private NotificationService&\PHPUnit\Framework\MockObject\MockObject $notifications;
 	private CourseAssignmentService $service;
 
 	protected function setUp(): void {
@@ -50,6 +52,7 @@ class CourseAssignmentServiceTest extends TestCase {
 		$this->usageGuard          = $this->createMock( GroupLessonUsageGuard::class );
 		$this->schedule            = $this->createMock( ScheduleReflowService::class );
 		$this->events              = $this->createMock( ScheduleEventPublisher::class );
+		$this->notifications       = $this->createMock( NotificationService::class );
 
 		$clock = $this->createMock( ClockInterface::class );
 		$clock->method( 'now' )->willReturn( self::NOW );
@@ -65,6 +68,7 @@ class CourseAssignmentServiceTest extends TestCase {
 			$this->usageGuard,
 			$this->schedule,
 			$this->events,
+			$this->notifications,
 		);
 	}
 
@@ -333,6 +337,22 @@ class CourseAssignmentServiceTest extends TestCase {
 		$this->schedule->expects( self::once() )->method( 'placeInserted' )->with( 300, 99 );
 
 		self::assertSame( 1, $this->service->syncCourseLessons( 5, 99 ) );
+	}
+
+	/** Преподавателю — накопительная плитка «Курс обновился в КТП» на группу в день. */
+	public function test_sync_notifies_group_teacher_about_program_update(): void {
+		$this->courseManager->method( 'get' )->willReturn( $this->makeCourse( lessonIds: [ 10, 20 ] ) );
+		$group = (object) array( 'id' => 1, 'access_mode' => 'scheduled', 'program_locked_at' => null );
+		$this->groups->method( 'findByCourse' )->willReturn( array( $group ) );
+		$this->groupLessons->method( 'listByGroup' )->willReturn( array( $this->glRow( id: 100, lessonId: 10 ) ) );
+		$this->groupLessons->method( 'add' )->willReturn( 300 );
+		$this->notifications->method( 'groupTeacherUserId' )->with( 1 )->willReturn( 55 );
+
+		$this->notifications->expects( self::once() )
+			->method( 'pushAccumulated' )
+			->with( 55, \Inc\Enums\Profile\NotificationType::ProgramUpdated, 'program:1:2024-06-01', array( 'added' => 1, 'removed' => 0 ) );
+
+		$this->service->syncCourseLessons( 5, 99 );
 	}
 
 	public function test_sync_delivers_to_locked_program(): void {

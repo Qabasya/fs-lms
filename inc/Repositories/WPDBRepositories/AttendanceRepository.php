@@ -44,6 +44,15 @@ class AttendanceRepository {
 		);
 	}
 
+	/** Снимает отметку (занятие, ученик). */
+	public function delete( int $groupLessonId, int $studentPersonId ): void {
+		$this->wpdb->delete(
+			$this->table,
+			array( 'group_lesson_id' => $groupLessonId, 'student_person_id' => $studentPersonId ),
+			array( '%d', '%d' )
+		);
+	}
+
 	/** @return AttendanceDTO[] */
 	public function listByGroupLesson( int $groupLessonId ): array {
 		$rows = $this->wpdb->get_results(

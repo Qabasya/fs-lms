@@ -32,6 +32,16 @@ enum NotificationType: string {
 	case RoomChanged        = 'room_changed';
 	/** Ученику — преподаватель сбросил его попытки/сдачи по работе/экзамену (2026-08-21). */
 	case AttemptReset       = 'attempt_reset';
+	/** Преподавателю — ученик сдал домашнюю работу (только тип «домашнее задание»). */
+	case HomeworkSubmitted  = 'homework_submitted';
+	/** Преподавателю — изменения курса доехали до КТП группы (уроки добавлены/убраны). */
+	case ProgramUpdated     = 'program_updated';
+	/** Преподавателю — в группу зачислен новый ученик. */
+	case StudentJoined      = 'student_joined';
+	/** Преподавателю — через час после окончания занятия посещаемость так и не отмечена. */
+	case JournalNotFilled   = 'journal_not_filled';
+	/** Родителю — ученик пропустил подряд больше двух занятий. */
+	case AbsenceStreak      = 'absence_streak';
 
 	/** Заголовок плитки уведомления. */
 	public function title(): string {
@@ -50,6 +60,11 @@ enum NotificationType: string {
 			self::SubstituteAssignedStudent => 'Замена преподавателя',
 			self::RoomChanged        => 'Изменился кабинет',
 			self::AttemptReset       => 'Попытка сброшена',
+			self::HomeworkSubmitted  => 'Сдана домашняя работа',
+			self::ProgramUpdated     => 'Курс обновился в КТП',
+			self::StudentJoined      => 'Новый ученик в группе',
+			self::JournalNotFilled   => 'Не заполнен журнал',
+			self::AbsenceStreak      => 'Ученик не посещает занятия!',
 		};
 	}
 
@@ -57,10 +72,12 @@ enum NotificationType: string {
 	public function tone(): string {
 		return match ( $this ) {
 			self::VideoUploaded, self::LessonSoon, self::SubstituteAssigned, self::LessonOpened,
-			self::SubstituteAssignedStudent, self::RoomChanged, self::AttemptReset => 'info',
-			self::WorkGraded, self::AttemptGraded                          => 'ok',
-			self::DeadlineSoon, self::WorkReturned, self::ReviewNeeded      => 'warn',
-			self::DeadlineMissed, self::AttendanceMissed                   => 'err',
+			self::SubstituteAssignedStudent, self::RoomChanged, self::AttemptReset,
+			self::ProgramUpdated, self::StudentJoined                      => 'info',
+			self::WorkGraded, self::AttemptGraded, self::HomeworkSubmitted => 'ok',
+			self::DeadlineSoon, self::WorkReturned, self::ReviewNeeded,
+			self::JournalNotFilled                                         => 'warn',
+			self::DeadlineMissed, self::AttendanceMissed, self::AbsenceStreak => 'err',
 		};
 	}
 }

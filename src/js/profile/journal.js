@@ -4,6 +4,10 @@
    по типам (СР/ПР/ДЗ/КР/ЭКЗ, `GradeBadge`), с фильтрами. Отдельных столбцов-работ нет.
    D11: занятия с датой > сегодня недоступны для отметки. Создание индивидуальных
    занятий перенесено в экран «Группы» (T10.7).
+   Результаты работ в ячейке не печатаются — ячейка несёт только отметку и точку
+   «есть результаты», сами результаты — во всплывашке при наведении/фокусе.
+   Клавиатура: стрелки — по ячейкам, пробел — был, Н — отсутствовал (после
+   отметки фокус уходит на следующего ученика того же занятия), Del — снять отметку.
    ══════════════════════════════════════════════════════════════════════ */
 
 import { esc, toast, initials, avaColor, todayIso, emptyState, openCtxMenuRaw, closeCtxMenu, openGradePopPositioned, closeGradePop } from './utils.js';
@@ -143,11 +147,21 @@ function render() {
                     <span class="cn-name">${esc(s.name)}</span>
                 </div>
             </td>
-            ${lessons.map(l => attCell(s.person_id, l)).join('')}
+            ${lessons.map((l, c) => attCell(s.person_id, l, i, c)).join('')}
         </tr>`).join('')}</tbody>`;
 
     root.innerHTML = wrap(g, `<div class="j-scroll" id="jScroll"><table class="jgrid">${head}${body}</table></div>`);
-    root.querySelector('.jgrid').addEventListener('click', onGridClick);
+    const grid = root.querySelector('.jgrid');
+    grid.addEventListener('click', onGridClick);
+    grid.addEventListener('keydown', onGridKey);
+    grid.addEventListener('mouseover', onCellHover);
+    grid.addEventListener('mouseleave', hideWorksTip);
+    grid.addEventListener('focusin', onCellHover);
+    grid.addEventListener('focusout', hideWorksTip);
+    root.querySelector('#jScroll').addEventListener('scroll', hideWorksTip, { passive: true });
+    // Вход с клавиатуры: Tab попадает в первую ячейку, дальше — стрелки.
+    const first = grid.querySelector('td.gc[data-r="0"][data-c="0"]');
+    if (first) first.tabIndex = 0;
     bindChrome();
 }
 
@@ -188,8 +202,13 @@ function wrap(g, inner) {
             <span class="jl"><span class="jl-sw jl-sw--present"></span>Присутствовал</span>
             <span class="jl"><span class="jl-sw jl-sw--absent"></span>Отсутствовал</span>`}
             <span class="jlb-label">Работы:</span>
-            <span class="jl">СР/ПР/ДЗ/КР/ЭКЗ — сырые баллы за занятие</span>
+            <span class="jl"><span class="cw-dot"></span>есть результаты — наведите на ячейку</span>
+            <span class="jl"><span class="cw-dot cw-dot--warn"></span>на проверке или просрочено</span>
+            ${d.open ? '' : `
+            <span class="jlb-label">Клавиши:</span>
+            <span class="jl"><kbd>←↑↓→</kbd> перемещение · <kbd>пробел</kbd> был · <kbd>Н</kbd> отсутствовал · <kbd>Del</kbd> снять</span>`}
         </div>
+        <div class="j-works-tip" id="jWorksTip" hidden></div>
     </div>`;
 }
 
@@ -242,7 +261,7 @@ function worksFor(glid, pid) {
     return all.filter(w => state.filters.has(w.badge));
 }
 
-function attCell(pid, l) {
+function attCell(pid, l, r, c) {
     const glid = l.group_lesson_id;
     const open = !!state.data.open;
     // Эпик 15 (продолжение): открытая группа — учитель посещаемость не отмечает
@@ -261,14 +280,55 @@ function attCell(pid, l) {
         else if (st === 'absent') { cls.push('absent'); att = '<span class="g-val att-n">Н</span>'; }
     }
 
+    // Результаты работ — только маркер: сами баллы во всплывашке (worksTipHtml).
     const works = worksFor(glid, pid);
-    if (works.length) cls.push('has-works');
-    const worksHtml = works.length
-        ? `<div class="cell-works">${works.map(w =>
-            `<span class="cw${w.display === 'pending' ? ' pending' : ''}${w.overdue ? ' overdue' : ''}"${w.overdue ? ' title="Сдано после дедлайна"' : ''}><b>${esc(w.badge)}</b>${w.display === 'pending' ? '' : ' ' + esc(w.value)}</span>`).join('')}</div>`
-        : '';
+    const needsAttention = works.some(w => w.display === 'pending' || w.overdue);
+    const dot = works.length ? `<span class="cw-dot${needsAttention ? ' cw-dot--warn' : ''}"></span>` : '';
 
-    return `<td class="${cls.join(' ')}" data-glid="${glid}" data-pid="${pid}">${att ? `<div class="cell-att">${att}</div>` : ''}${worksHtml}</td>`;
+    return `<td class="${cls.join(' ')}" data-glid="${glid}" data-pid="${pid}" data-r="${r}" data-c="${c}" tabindex="-1">${att}${dot}</td>`;
+}
+
+/* ── Всплывашка результатов работ ─────────────────────────────────────── */
+function onCellHover(e) {
+    const td = e.target.closest('td.gc[data-glid]');
+    if (!td) { hideWorksTip(); return; }
+    const works = worksFor(+td.dataset.glid, +td.dataset.pid);
+    if (!works.length) { hideWorksTip(); return; }
+
+    const tip = document.getElementById('jWorksTip');
+    if (!tip || tip.dataset.cell === `${td.dataset.glid}:${td.dataset.pid}` && !tip.hidden) return;
+    tip.dataset.cell = `${td.dataset.glid}:${td.dataset.pid}`;
+    tip.innerHTML = worksTipHtml(+td.dataset.glid, +td.dataset.pid, works);
+    tip.hidden = false;
+
+    // Позиция — от ячейки (как у openGradePopPositioned): под ней, у нижнего края — над ней.
+    const r = td.getBoundingClientRect();
+    let left = r.left + r.width / 2 - tip.offsetWidth / 2;
+    left = Math.max(10, Math.min(left, window.innerWidth - tip.offsetWidth - 10));
+    let top = r.bottom + 6;
+    if (top + tip.offsetHeight > window.innerHeight - 10) top = r.top - tip.offsetHeight - 6;
+    tip.style.left = left + 'px';
+    tip.style.top = top + 'px';
+}
+
+function hideWorksTip() {
+    const tip = document.getElementById('jWorksTip');
+    if (tip) { tip.hidden = true; tip.dataset.cell = ''; }
+}
+
+function worksTipHtml(glid, pid, works) {
+    const student = state.data.students.find(s => s.person_id === pid);
+    const lesson = state.data.lessons.find(l => l.group_lesson_id === glid);
+    const date = lesson && lesson.date ? lesson.date.split('-').reverse().slice(0, 2).join('.') : '';
+    const head = [student ? student.name : '', date].filter(Boolean).join(' · ');
+
+    return `<div class="jwt-head">${esc(head)}</div>
+        ${works.map(w => `<div class="jwt-row">
+            <span class="jwt-badge">${esc(w.badge)}</span>
+            <span class="jwt-name">${esc(w.title || '')}</span>
+            <span class="jwt-val${w.display === 'pending' ? ' pending' : ''}">${esc(w.value)}</span>
+            ${w.overdue ? '<span class="jwt-late">просрочено</span>' : ''}
+        </div>`).join('')}`;
 }
 
 /* ── Interactions ─────────────────────────────────────────────────────── */
@@ -290,6 +350,7 @@ function onGridClick(e) {
 function openAttPopover(glid, pid, td) {
     const pop = document.getElementById('profGradePop');
     if (!pop) return;
+    hideWorksTip();
     const st = attState(glid, pid);
     const student = state.data.students.find(s => s.person_id === pid);
     const first = student ? student.name.split(' ').slice(-1)[0] : '';
@@ -299,19 +360,82 @@ function openAttPopover(glid, pid, td) {
         <div class="gp-row">
             <button class="prof-btn prof-btn-sm ${st === 'present' ? 'prof-btn-primary' : ''}" data-att="1">Был</button>
             <button class="prof-btn prof-btn-sm ${st === 'absent' ? 'prof-btn-danger' : ''}" data-att="0">Н</button>
+            ${st !== 'none' ? '<button class="prof-btn prof-btn-sm" data-att="" title="Снять отметку">—</button>' : ''}
         </div>`;
 
-    pop.querySelectorAll('[data-att]').forEach(b => b.addEventListener('click', async () => {
-        const present = b.dataset.att === '1';
+    pop.querySelectorAll('[data-att]').forEach(b => b.addEventListener('click', () => {
         closeGradePop();
-        try {
-            await api('saveAttendance', { group_lesson_id: glid, student_person_id: pid, is_present: present ? '1' : '0' });
-            (state.data.attendance[glid] = state.data.attendance[glid] || {})[pid] = present;
-            refreshAttCell(glid, pid);
-        } catch (err) { toast(err.message, 'error'); }
+        markAttendance(glid, pid, '' === b.dataset.att ? null : b.dataset.att === '1');
     }));
 
     openGradePopPositioned(pop, td);
+}
+
+/**
+ * Отметка посещаемости: ячейка обновляется сразу, запрос — следом; сервер
+ * отказал — отметка откатывается. Так клавиатурная отметка подряд не ждёт сеть.
+ * `present === null` — снять отметку.
+ */
+async function markAttendance(glid, pid, present) {
+    const row = state.data.attendance[glid] = state.data.attendance[glid] || {};
+    const had = pid in row;
+    const before = row[pid];
+    if (null === present && !had) return;
+    if (null === present) { delete row[pid]; } else { row[pid] = present; }
+    refreshAttCell(glid, pid);
+    try {
+        await (null === present
+            ? api('clearAttendance', { group_lesson_id: glid, student_person_id: pid })
+            : api('saveAttendance', { group_lesson_id: glid, student_person_id: pid, is_present: present ? '1' : '0' }));
+    } catch (err) {
+        if (had) { row[pid] = before; } else { delete row[pid]; }
+        refreshAttCell(glid, pid);
+        toast(err.message, 'error');
+    }
+}
+
+/* ── Клавиатура (как в мокапе журнала) ────────────────────────────────── */
+const MOVES = { ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1] };
+
+function onGridKey(e) {
+    const td = e.target.closest('td.gc[data-r]');
+    if (!td || e.ctrlKey || e.metaKey || e.altKey) return;
+    const r = +td.dataset.r, c = +td.dataset.c;
+
+    if (MOVES[e.key]) {
+        e.preventDefault();
+        focusCell(r + MOVES[e.key][0], c + MOVES[e.key][1]);
+        return;
+    }
+    if (state.data.open) return; // открытая группа: посещаемость не ведётся
+
+    const glid = +td.dataset.glid, pid = +td.dataset.pid;
+
+    // Del/Backspace — снять отметку; фокус остаётся на ячейке.
+    if ('Delete' === e.key || 'Backspace' === e.key) {
+        e.preventDefault();
+        if (isFutureLesson(glid)) return;
+        markAttendance(glid, pid, null);
+        return;
+    }
+
+    // Н — по физической клавише (KeyY), чтобы работало и в латинской раскладке.
+    const present = ' ' === e.key ? true : ('KeyY' === e.code || 'н' === e.key.toLowerCase() ? false : null);
+    if (null === present) return;
+    e.preventDefault();
+
+    if (isFutureLesson(glid)) { toast('Занятие ещё не прошло', 'error'); return; }
+    markAttendance(glid, pid, present);
+    if (!focusCell(r + 1, c)) focusCell(r, c);
+}
+
+/** Фокус на ячейку (строка, столбец текущего месяца); false — такой нет. */
+function focusCell(r, c) {
+    const td = root.querySelector(`td.gc[data-r="${r}"][data-c="${c}"]`);
+    if (!td) return false;
+    td.focus();
+    td.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    return true;
 }
 
 function openColumnMenu(glid, th) {
@@ -344,7 +468,16 @@ function refreshAttCell(glid, pid) {
     const td = root.querySelector(`td.gc.att[data-glid="${glid}"][data-pid="${pid}"]`);
     if (!td) return;
     const l = state.data.lessons.find(x => x.group_lesson_id === glid);
-    if (l) td.outerHTML = attCell(pid, l);
+    if (!l) return;
+    // Ячейка перерисовывается на месте — фокус (клавиатурная навигация) и
+    // tabindex входа сохраняются.
+    const focused = document.activeElement === td;
+    const tabIndex = td.tabIndex;
+    td.outerHTML = attCell(pid, l, +td.dataset.r, +td.dataset.c);
+    const fresh = root.querySelector(`td.gc.att[data-glid="${glid}"][data-pid="${pid}"]`);
+    if (!fresh) return;
+    fresh.tabIndex = tabIndex;
+    if (focused) fresh.focus();
 }
 
 /* ── Helpers ──────────────────────────────────────────────────────────── */
