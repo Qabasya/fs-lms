@@ -147,6 +147,8 @@
 
 /* T12.2 (D13): постоянная метка «Просрочено» — сдано после дедлайна работы. */
 .sum-work.overdue { background: var(--err-soft); border-color: var(--err); }
+.sum-work.missed { background: var(--err-soft); border-color: var(--err); color: var(--err); }
+.sum-work.missed b { color: inherit; }
 .sum-work-late { color: var(--err); font-weight: 700; font-size: rem(10.5); text-transform: uppercase; letter-spacing: .02em; }
 
 @media (max-width: $breakpoint-mobile) {

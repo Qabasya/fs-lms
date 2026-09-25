@@ -8,6 +8,7 @@ import { esc, fmtDayMonth, fmtDate, emptyState, chipBg, chipText, chipSoft, shor
 import { toggleVisible } from '../common/utils.js';
 import { icoCalendar, icoCheck, icoAlert, icoSearch, icoChevronRight, icoChevronDown, icoClock, icoStar, icoHome, icoLock } from '../common/icons.js';
 import { createApi } from './api.js';
+import { workCardHtml, workChipHtml, workStatusText } from './work-card.js';
 
 const RENDERERS = {
     'learner-home': renderHome,
@@ -354,84 +355,75 @@ function scSyncExpand(courses) {
     };
 }
 
-/* ── Grades (дневник, сырые баллы) ────────────────────────────────────── */
+/* ── Grades: работы по занятиям ─────────────────────────────────────────
+   Занятие — строка-аккордеон (группа · дата · тема · чипы результатов), внутри
+   карточки работ той же вёрстки, что у преподавателя (work-card.js). Клик по
+   карточке — сама работа: шаг плеера или страница контрольной. */
 function renderGrades(root, d) {
-    const groups = groupGrades(d.grades || []);
+    const groups = gradesByLesson(d.grades || []);
     root.innerHTML = `
     <div class="prof-dash">
         ${childBar()}
-        <div class="prof-dash-hello"><h1>Мои оценки</h1><p>Решённые задачи и баллы за экзамены.</p></div>
+        <div class="prof-dash-hello"><h1>Мои оценки</h1><p>Работы и контрольные по занятиям.</p></div>
         <div class="prof-card">
-            <div class="prof-card-head"><h3>Работы и контрольные</h3><span class="ch-sub">${groups.length}</span></div>
-            <div>${groups.length ? groups.map(gradeGroupHtml).join('') : empty('Оценок пока нет.')}</div>
+            <div class="prof-card-head"><h3>Занятия</h3><span class="ch-sub">${groups.length}</span></div>
+            <div>${groups.length ? groups.map(gradeLessonHtml).join('') : empty('Оценок пока нет.')}</div>
         </div>
     </div>`;
     wireChild(root);
-    // Аккордеон попыток: клик по шеврону разворачивает прошлые попытки, не переходя
-    // по ссылке строки (та теперь ведёт на страницу работы/контрольной).
-    root.querySelectorAll('[data-grade-toggle]').forEach((chev) => {
-        chev.addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            const group = chev.closest('.prof-grade-group');
-            if (group) { group.classList.toggle('is-open'); }
+    root.querySelectorAll('.lrn-grade-head').forEach((head) => {
+        head.addEventListener('click', () => {
+            const open = head.closest('.lrn-grade').classList.toggle('is-open');
+            head.setAttribute('aria-expanded', String(open));
         });
     });
 }
 
-/** Группировка оценок по работе/контрольной (source_type:source_id); попытки — последняя первой. */
-function groupGrades(grades) {
+/** Работы по занятиям: свежие занятия сверху, работы вне занятия — отдельной группой в конце. */
+function gradesByLesson(grades) {
     const map = new Map();
     grades.forEach((g) => {
-        const key = g.group_key || g.title;
-        if (!map.has(key)) { map.set(key, { title: g.title, type: g.type || '', group_name: g.group_name || '', attempts: [] }); }
-        map.get(key).attempts.push(g);
+        const key = g.group_lesson_id || 0;
+        if (!map.has(key)) {
+            map.set(key, {
+                topic:      key ? (g.lesson_topic || '—') : 'Работы вне занятий',
+                date:       g.lesson_date || '',
+                group_name: g.group_name || '',
+                works:      [],
+            });
+        }
+        map.get(key).works.push(g);
     });
-    const groups = [...map.values()];
-    const byDateDesc = (a, b) => String(b.graded_at || '').localeCompare(String(a.graded_at || ''));
-    groups.forEach((gr) => gr.attempts.sort(byDateDesc));
-    groups.sort((a, b) => byDateDesc(a.attempts[0] || {}, b.attempts[0] || {}));
+    // Внутри занятия — последняя сдача сверху; несданное ДЗ — по сроку.
+    const when = (w) => String(w.submitted_at || w.graded_at || w.due_at || '');
+    const groups = [...map.entries()].map(([key, g]) => ({ ...g, key }));
+    groups.forEach((g) => g.works.sort((a, b) => when(b).localeCompare(when(a))));
+    groups.sort((a, b) => (!a.key - !b.key) || String(b.date).localeCompare(String(a.date)));
     return groups;
 }
 
-function gradeGroupHtml(gr) {
-    const latest     = gr.attempts[0];
-    const more       = gr.attempts.slice(1);
-    const expandable = more.length > 0;
-    const pending    = latest.display === 'pending';
-    const typeTag    = gr.type ? `<span class="prof-type-tag">${esc(gr.type)}</span>` : '';
-    const cnt        = expandable ? ` · попыток: ${gr.attempts.length}` : '';
-    const sub        = [ esc(gr.group_name), fmtDateTime(latest.graded_at) ].filter(Boolean).join(' · ') + cnt;
+function gradeLessonHtml(g) {
+    const cards = g.works.map((w) => workCardHtml({
+        title:    w.title,
+        badge:    w.badge,
+        marks:    w.marks,
+        subtitle: workStatusText(w),
+        date:     w.submitted_at,
+        duration: w.duration_sec,
+        url:      w.url,
+        rowClass: 'sum-work-card',
+    })).join('');
 
-    // Bug: клик по строке ведёт на реальную страницу работы/контрольной — тот же
-    // URL, что открывает плеер курса (permalink контрольной или шаг плеера для
-    // обычной работы, см. LearnerPerformanceSection::workUrl); шеврон (если есть
-    // прошлые попытки) разворачивает аккордеон, не переходя по ссылке.
-    const tag  = latest.url ? 'a' : 'div';
-    const href = latest.url ? ` href="${esc(latest.url)}"` : '';
-    const main = `<${tag} class="prof-work-item${latest.url ? ' is-clickable' : ''}"${href}>
-        <div class="prof-work-ico grade">${icoStar(18)}</div>
-        <div class="prof-work-main"><div class="prof-work-title">${esc(gr.title)}${typeTag}</div><div class="prof-work-sub">${sub}</div></div>
-        <span class="prof-work-count${pending ? ' prof-work-count--pending' : ''}">${esc(latest.value)}</span>
-        ${expandable ? `<span class="prof-grade-chev" data-grade-toggle>${icoChevronDown(16)}</span>` : ''}
-    </${tag}>`;
-
-    const moreHtml = expandable
-        ? `<div class="prof-grade-more prof-fold"><div class="prof-fold-inner">${more.map((a, i) => gradeAttemptRow(a, gr.attempts.length - 1 - i)).join('')}</div></div>`
-        : '';
-
-    return `<div class="prof-grade-group">${main}${moreHtml}</div>`;
-}
-
-/** Строка прошлой попытки в аккордеоне. n — номер попытки (1 = самая ранняя). */
-function gradeAttemptRow(a, n) {
-    const pending = a.display === 'pending';
-    const tag  = a.url ? 'a' : 'div';
-    const href = a.url ? ` href="${esc(a.url)}"` : '';
-    return `<${tag} class="prof-grade-attempt${a.url ? ' is-clickable' : ''}"${href}>
-        <span class="prof-grade-att-label">Попытка ${n}${a.graded_at ? ' · ' + esc(fmtDateTime(a.graded_at)) : ''}</span>
-        <span class="prof-work-count${pending ? ' prof-work-count--pending' : ''}">${esc(a.value)}</span>
-    </${tag}>`;
+    return `<div class="lrn-grade">
+        <button type="button" class="lrn-grade-head lrn-row" aria-expanded="false">
+            <span class="lrn-chev">${icoChevronDown(16)}</span>
+            <span class="lrn-group" title="${esc(g.group_name)}">${esc(g.group_name)}</span>
+            <span class="lrn-date">${g.date ? esc(fmtDate(g.date)) : '—'}</span>
+            <span class="lrn-topic" title="${esc(g.topic)}">${esc(g.topic)}</span>
+            <span class="sum-works">${g.works.map((w) => workChipHtml(w)).join('')}</span>
+        </button>
+        <div class="prof-fold lrn-grade-body"><div class="prof-fold-inner"><div class="wk-sub-list">${cards}</div></div></div>
+    </div>`;
 }
 
 /* ── Attendance ───────────────────────────────────────────────────────── */
@@ -529,12 +521,18 @@ function gradeRow(g) {
 }
 
 
+/* Строка занятия — те же колонки, что в «Моих оценках»: отметка · группа · дата ·
+   тема · работы. Ширины фиксированы, поэтому текст строк стоит друг под другом. */
 function attRow(r) {
-    // #14: к названию занятия добавляем название курса (тот же текст, что во вкладке «Мои курсы»).
-    const sub = [ r.course, fmtDayMonth(r.date) ].filter(Boolean).map(esc).join(' · ');
-    return `<div class="prof-work-item">
-        <div class="prof-work-main"><div class="prof-work-title">${esc(r.topic || '—')}</div><div class="prof-work-sub">${sub}</div></div>
-        <span class="prof-att-mark ${r.present ? 'p' : 'a'}">${r.present ? 'Был' : 'Н'}</span>
+    const works = (r.works || []).length
+        ? (r.works || []).map((w) => (w.url ? workChipHtml(w, `href="${esc(w.url)}"`, 'a') : workChipHtml(w))).join('')
+        : '<span class="sum-works-empty">Работ нет</span>';
+    return `<div class="lrn-row">
+        <span class="prof-att-mark ${r.present ? 'p' : 'a'}" title="${r.present ? 'Присутствовал' : 'Отсутствовал'}">${r.present ? 'Был' : 'Н'}</span>
+        <span class="lrn-group" title="${esc(r.group_name || '')}">${esc(r.group_name || '')}</span>
+        <span class="lrn-date">${r.date ? esc(fmtDate(r.date)) : '—'}</span>
+        <span class="lrn-topic" title="${esc(r.topic || '')}">${esc(r.topic || '—')}</span>
+        <span class="sum-works">${works}</span>
     </div>`;
 }
 

@@ -62,21 +62,28 @@ class LessonPlayerController extends BaseController implements ServiceInterface 
 		$person    = $this->persons->findByWpUserId( $userId );
 		$isStudent = null !== $person && $this->guard->isMemberEver( $row->groupId, $person->id );
 		$isTeacher = false;
+		$isParent  = false;
 
 		if ( ! $isStudent ) {
 			// Преподаватель группы — смотрит урок СВОЕЙ группы в teacher-режиме
 			// плеера (Этап 2, ★): без прогресса ученика, все гейты открыты.
-			// Постороннему не раскрываем наличие урока (404).
-			if ( ! $this->guard->canManage( $row->groupId, $userId ) ) {
+			// Родитель ученика группы — видит страницу урока, но контент закрыт
+			// оверлеем «только для ученика» (ссылки на уроки есть в его кабинете,
+			// 404 там выглядел как поломка). Постороннему наличие урока не раскрываем (404).
+			if ( $this->guard->canManage( $row->groupId, $userId ) ) {
+				$isTeacher = true;
+			} elseif ( null !== $person && $this->guard->isParentOf( $row->groupId, $person->id ) ) {
+				$isParent = true;
+			} else {
 				return $this->notFound();
 			}
-			$isTeacher = true;
 		}
 
-		// Teacher-режим: personId=0 — нет ученика, прогресс не читается. Вся сборка
-		// данных (view/shell/tree + расчёт блокировки) — в сервисе (Р2.7).
-		$personId = $isTeacher ? 0 : $person->id;
-		$data     = $this->player->buildRouteView( $personId, $row, $isTeacher );
+		// Teacher-режим и родитель: personId=0 — нет ученика, прогресс не читается.
+		// Родителю вид собирается как преподавателю (без гейтов), но шаги не выводятся:
+		// шаблон в режиме блокировки их не рендерит. Вся сборка данных — в сервисе (Р2.7).
+		$personId = ( $isTeacher || $isParent ) ? 0 : $person->id;
+		$data     = $this->player->buildRouteView( $personId, $row, $isTeacher || $isParent );
 
 		// Урок без контента (нет уроков-шагов) — прежний themed-фолбэк.
 		if ( null === $data ) {
@@ -91,10 +98,11 @@ class LessonPlayerController extends BaseController implements ServiceInterface 
 		// размытым контентом и оверлеем (+ таймер D-4); реальные шаги при $locked не
 		// рендерятся (см. player.php) — контент не утекает раньше даты.
 		$view             = $data['view'];
-		$locked           = $data['locked'];
+		$locked           = $data['locked'] || $isParent;
 		$locked_scheduled = $data['locked_scheduled'];
-		$locked_seconds   = $data['locked_seconds'];
-		$locked_soon      = $data['locked_soon'];
+		$locked_seconds   = $isParent ? null : $data['locked_seconds'];
+		$locked_soon      = ! $isParent && $data['locked_soon'];
+		$locked_parent    = $isParent;
 		$groupId          = $row->groupId;
 		$active_step      = $this->sanitizeGetKey( 'step' );
 		$is_teacher       = $isTeacher;

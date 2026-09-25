@@ -73,18 +73,23 @@ class SubmissionServiceTest extends TestCase {
 			$this->clock,
 			$this->taskAttempts,
 			$this->persons,
+			new \Inc\Services\Course\HomeworkDeadlineService(
+				$this->resolver,
+				$this->createStub( \Inc\Services\Course\LessonVisibilityService::class ),
+				$this->groupLessons,
+			),
 		);
 	}
 
-	private function makeRow( int $workId = 3, bool $allowLate = true, ?string $dueAt = null, array $workDeadlines = [] ): GroupLessonDTO {
+	private function makeRow( int $workId = 3, bool $allowLate = true, ?string $dueAt = null, array $workDeadlines = [], ?string $scheduledAt = null, int $id = 5 ): GroupLessonDTO {
 		return new GroupLessonDTO(
-			id              : 5,
+			id              : $id,
 			groupId         : 1,
 			lessonId        : 10,
 			position        : 0,
 			workIdsSnapshot : null,
 			extraWorkIds    : [],
-			scheduledAt     : null,
+			scheduledAt     : $scheduledAt,
 			endsAt          : null,
 			isPinned        : false,
 			teacherUserId   : null,
@@ -151,27 +156,49 @@ class SubmissionServiceTest extends TestCase {
 		$this->service->submitBatch( 10, 5, 3, [ 1 => 'a' ] );
 	}
 
-	/** D13: просроченный дедлайн занятия закрывает сдачу, если allow_late выключен. */
-	public function test_submit_batch_throws_when_late_and_allow_late_false(): void {
+	/** Срок сдачи не запрещает: работу после него принимаем (даже с allow_late = false), срок уходит в снапшот. */
+	public function test_submit_batch_accepts_late_work_and_snapshots_deadline(): void {
+		$dueAt = $this->captureDueAt();
 		$this->arrangeBatch( $this->makeRow( 3, false, '2000-01-01 00:00:00' ) );
 
-		$this->expectException( \InvalidArgumentException::class );
-		$this->service->submitBatch( 10, 5, 3, [ 1 => 'a' ] );
-	}
-
-	public function test_submit_batch_succeeds_when_late_and_allow_late_true(): void {
-		$this->arrangeBatch( $this->makeRow( 3, true, '2000-01-01 00:00:00' ) );
-
 		self::assertInstanceOf( SubmissionDTO::class, $this->service->submitBatch( 10, 5, 3, [ 1 => 'a' ] ) );
+		self::assertSame( '2000-01-01 00:00:00', $dueAt->value );
 	}
 
 	/** D13: per-work дедлайн важнее legacy homework_due_at занятия. */
 	public function test_submit_batch_uses_per_work_deadline_over_legacy_due_at(): void {
-		// Занятие без просрочки, но у работы свой дедлайн в прошлом.
-		$this->arrangeBatch( $this->makeRow( 3, false, null, [ 3 => '2000-01-01 00:00:00' ] ) );
+		$dueAt = $this->captureDueAt();
+		$this->arrangeBatch( $this->makeRow( 3, false, '2030-01-01 00:00:00', [ 3 => '2000-01-01 00:00:00' ] ) );
 
-		$this->expectException( \InvalidArgumentException::class );
 		$this->service->submitBatch( 10, 5, 3, [ 1 => 'a' ] );
+
+		self::assertSame( '2000-01-01 00:00:00', $dueAt->value );
+	}
+
+	/** ДЗ без дедлайна: срок — начало следующего занятия группы (метка «Просрочено» — от него). */
+	public function test_homework_without_deadline_snapshots_next_lesson_start(): void {
+		$dueAt = $this->captureDueAt();
+		$row   = $this->makeRow( 3, true, null, [], '2024-05-01 10:00:00' );
+		$this->groupLessons->method( 'listByGroup' )->willReturn( [
+			$row,
+			$this->makeRow( 3, true, null, [], '2024-05-08 10:00:00', 6 ),
+		] );
+		$this->arrangeBatch( $row, WorkType::Homework );
+
+		$this->service->submitBatch( 10, 5, 3, [ 1 => 'a' ] );
+
+		self::assertSame( '2024-05-08 10:00:00', $dueAt->value );
+	}
+
+	/** Срок, записанный в per-task строку сдачи (заполняется при create). */
+	private function captureDueAt(): \stdClass {
+		$box = new \stdClass();
+		$box->value = 'not-set';
+		$this->submissions->method( 'create' )->willReturnCallback( static function ( $dto ) use ( $box ): int {
+			$box->value = $dto->dueAt;
+			return 1;
+		} );
+		return $box;
 	}
 
 	public function test_submit_batch_per_work_deadline_in_future_bypasses_expired_legacy_block(): void {
@@ -251,11 +278,11 @@ class SubmissionServiceTest extends TestCase {
 		$this->service->submitBatch( 10, 5, 3, [ 1 => 'a' ] );
 	}
 
-	private function arrangeBatch( GroupLessonDTO $row ): void {
+	private function arrangeBatch( GroupLessonDTO $row, WorkType $type = WorkType::Practice ): void {
 		$this->policy->method( 'canSubmit' )->willReturn( true );
 		$this->groupLessons->method( 'find' )->willReturn( $row );
-		$this->resolver->method( 'resolve' )->willReturn( [ $this->makeWork( 3 ) ] );
-		$this->workManager->method( 'get' )->willReturn( $this->makeWork( 3 ) );
+		$this->resolver->method( 'resolve' )->willReturn( [ $this->makeWork( 3, $type ) ] );
+		$this->workManager->method( 'get' )->willReturn( $this->makeWork( 3, $type ) );
 		$this->batchChecker->method( 'check' )->willReturn(
 			new BatchCheckResultDTO(
 				perTask         : [ 1 => [ 'verdict' => 'correct', 'score' => 1.0, 'maxScore' => 1.0 ] ],

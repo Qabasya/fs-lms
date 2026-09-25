@@ -38,6 +38,7 @@ class SubmissionService {
 		private readonly ClockInterface              $clock,
 		private readonly TaskAttemptRepository       $attempts,
 		private readonly PersonRepository            $persons,
+		private readonly HomeworkDeadlineService     $deadlines,
 	) {}
 
 	/** В ленту пишется WP-пользователь, а не персона (actor_user_id резолвится через get_userdata()). */
@@ -132,11 +133,10 @@ class SubmissionService {
 			throw new CodedException( ErrorCode::WorkNotFound, 'Работа не найдена.' );
 		}
 
-		// T12.2 (D13): дедлайн per-work, иначе legacy homeworkDueAt занятия.
-		$dueAt = $row->deadlineForWork( $workId );
-		if ( ! $row->allowLate && null !== $dueAt && $this->clock->now() > $dueAt ) {
-			throw new CodedException( ErrorCode::WorkDeadline, 'Срок сдачи истёк.' );
-		}
+		// Срок сдачи не запрещает: после него работу всё так же принимаем, а снапшот
+		// срока в сдаче даёт ей постоянную метку «Просрочено» (T12.2, D13). Срок —
+		// per-work дедлайн, иначе legacy homeworkDueAt, у ДЗ — начало следующего занятия.
+		$dueAt = $this->deadlines->deadlineForRow( $row, $work );
 
 		$aggregate    = $this->submissions->findAggregate( $studentPersonId, $groupLessonId, $workId );
 		$attemptsUsed = $this->attemptsUsedFrom( $aggregate, $studentPersonId, $groupLessonId, $workId );

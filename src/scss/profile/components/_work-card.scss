@@ -18,7 +18,7 @@
   transition: border-color $tr, box-shadow $tr;
 }
 
-.wcard:hover { border-color: var(--line-2); box-shadow: var(--shadow-sm); }
+.wcard:not(.wcard--static):hover { border-color: var(--line-2); box-shadow: var(--shadow-sm); }
 
 .wcard:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
@@ -97,6 +97,11 @@
 .wmark--incorrect { background: var(--err-soft); color: var(--err); }
 .wmark--pending   { background: var(--surface-2); color: var(--muted-2); }
 
+/* ДЗ не сдано к дедлайну: красная плашка с прочерком — сдачи не было, разбирать нечего. */
+.wmark--missed    { background: var(--err-soft); color: var(--err); font-weight: 700; line-height: 1; }
+.wcard--static    { cursor: default; }
+a.wcard           { color: inherit; text-decoration: none; }
+
 /* Дата и затраченное время — одной строкой, прижаты вправо. */
 .wcard-when {
   display: flex;
@@ -160,3 +165,22 @@
 
 .swg-topic { font-size: rem(14); font-weight: 700; color: var(--ink); }
 .swg-date  { font-size: rem(12.5); color: var(--muted); }
+
+/* Узкий экран (кабинет ученика с телефона): бейдж и заголовок — первой строкой,
+   отметки и дата сдачи — под ними на всю ширину. */
+@media (max-width: $breakpoint-mobile) {
+  .sum-work-card {
+    grid-template-columns: rem(40) minmax(0, 1fr);
+    row-gap: rem(10);
+    padding: rem(12) rem(14);
+  }
+
+  .sum-work-card .wcard-marks,
+  .sum-work-card .wcard-when {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+    max-width: none;
+  }
+
+  .sum-work-card .wcard-main { flex-wrap: wrap; }
+}

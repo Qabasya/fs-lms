@@ -8,6 +8,7 @@ use Inc\DTO\Profile\LearnerContextDTO;
 use Inc\Managers\Course\LessonManager;
 use Inc\Repositories\WPDBRepositories\SubmissionRepository;
 use Inc\Services\Course\EffectiveWorksResolver;
+use Inc\Services\Course\HomeworkDeadlineService;
 
 /**
  * Class LearnerScheduleSection
@@ -22,9 +23,10 @@ use Inc\Services\Course\EffectiveWorksResolver;
 class LearnerScheduleSection {
 
 	public function __construct(
-		private readonly SubmissionRepository   $submissions,
-		private readonly EffectiveWorksResolver $worksResolver,
-		private readonly LessonManager          $lessons,
+		private readonly SubmissionRepository    $submissions,
+		private readonly EffectiveWorksResolver  $worksResolver,
+		private readonly LessonManager           $lessons,
+		private readonly HomeworkDeadlineService $homeworkDeadlines,
 	) {}
 
 	/**
@@ -60,6 +62,7 @@ class LearnerScheduleSection {
 	 */
 	public function deadlines( LearnerContextDTO $ctx, int $personId ): array {
 		$deadlines = array();
+		$next      = $this->homeworkDeadlines->nextLessonStarts( $ctx->rawRows );
 
 		foreach ( $ctx->rawRows as $glid => $row ) {
 			$submittedWorkIds = array();
@@ -77,7 +80,8 @@ class LearnerScheduleSection {
 					continue;
 				}
 
-				$due = $row->deadlineForWork( $work->id );
+				// ДЗ без явного дедлайна — к началу следующего занятия.
+				$due = $this->homeworkDeadlines->deadlineFor( $row, $work, $next[ $glid ] ?? null );
 				if ( null === $due ) {
 					continue;
 				}
@@ -98,7 +102,14 @@ class LearnerScheduleSection {
 			}
 		}
 
-		usort( $deadlines, static fn( $a, $b ) => strcmp( $a['due_at'], $b['due_at'] ) );
+		// Сначала предстоящие (ближайший сверху), за ними просроченные (свежий сверху):
+		// иначе давние несданные ДЗ — особенно у пришедшего в середине курса —
+		// вытеснили бы из топа то, что ещё можно успеть.
+		usort(
+			$deadlines,
+			static fn( $a, $b ) => ( $a['overdue'] <=> $b['overdue'] )
+				?: ( $a['overdue'] ? strcmp( $b['due_at'], $a['due_at'] ) : strcmp( $a['due_at'], $b['due_at'] ) )
+		);
 
 		return $deadlines;
 	}

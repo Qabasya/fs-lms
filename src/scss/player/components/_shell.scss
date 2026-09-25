@@ -262,6 +262,12 @@
     line-height: 1.5;
   }
 
+  .lock-actions {
+    margin-top: rem(20);
+    display: flex;
+    justify-content: center;
+  }
+
   .lock-countdown {
     margin-top: rem(18);
     font: 700 rem(34) var(--mono);

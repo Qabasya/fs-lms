@@ -78,10 +78,14 @@ class LearnerServiceTest extends TestCase {
 			$this->subjects, $this->rooms, $this->clock, $this->effectiveTeacher,
 			$this->progress, $this->gate,
 		);
+$visibility = $this->createStub( \Inc\Services\Course\LessonVisibilityService::class );
+		$visibility->method( 'effectiveVisibility' )->willReturnCallback( static fn( $row ) => $row->visibility );
+		$homework = new \Inc\Services\Course\HomeworkDeadlineService( $this->worksResolver, $visibility, $this->groupLessons );
+
 		$this->service = new LearnerService(
 			$contextBuilder,
-			new \Inc\Services\Profile\Learner\LearnerScheduleSection( $this->submissions, $this->worksResolver, $this->lessons ),
-			new \Inc\Services\Profile\Learner\LearnerPerformanceSection( $this->gradebook, $this->attendance, $this->submissions, $this->attempts, $this->lessons ),
+			new \Inc\Services\Profile\Learner\LearnerScheduleSection( $this->submissions, $this->worksResolver, $this->lessons, $homework ),
+			new \Inc\Services\Profile\Learner\LearnerPerformanceSection( $this->gradebook, $this->attendance, $this->submissions, $this->attempts, $this->lessons, $homework, $this->createStub( \Inc\Services\Course\WorkMarksService::class ) ),
 			new \Inc\Services\Profile\Learner\LearnerCoursesSection(
 				$this->courses, $this->lessons, $this->progress, $this->examLock, $contextBuilder,
 			),
@@ -184,6 +188,48 @@ class LearnerServiceTest extends TestCase {
 		$d = $this->service->build( 9001 )->toArray();
 
 		self::assertSame( array(), $d['deadlines'] );
+	}
+
+	public function test_build_lists_missed_homework_due_at_next_lesson(): void {
+		$this->records->method( 'findActiveByStudent' )->willReturn( array(
+			(object) array( 'groupId' => 1 ),
+		) );
+		$this->groups->method( 'findById' )
+			->willReturn( (object) array( 'id' => 1, 'name' => 'Г1', 'subject_key' => 'inf' ) );
+		// now = '2026-05-20 10:00:00': ДЗ занятия 10-го без дедлайна — срок к занятию 17-го.
+		$this->groupLessons->method( 'listByGroup' )->willReturn( array(
+			$this->row( 10, '2026-05-10 09:00:00' ),
+			$this->row( 11, '2026-05-17 09:00:00' ),
+		) );
+		$this->lessons->method( 'get' )->willReturn( null );
+		$this->gradebook->method( 'forStudent' )->willReturn( array() );
+		$this->attendance->method( 'listByStudent' )->willReturn( array( $this->att( 10, false ) ) );
+
+		$work = new \Inc\DTO\Course\WorkDTO(
+			id: 501, subjectKey: 'inf', title: 'ДЗ №1', workType: \Inc\Enums\Course\WorkType::Homework,
+			itemIds: array( 1, 2 ), instructions: '', authorId: 1, status: 'publish',
+		);
+		$this->worksResolver->method( 'resolve' )->willReturnCallback(
+			static fn( $row ) => 10 === $row->id ? array( $work ) : array()
+		);
+
+		$d = $this->service->build( 9001 )->toArray();
+
+		self::assertCount( 1, $d['grades'] );
+		self::assertSame( 'missed', $d['grades'][0]['display'] );
+		self::assertSame( '2026-05-17 09:00:00', $d['grades'][0]['due_at'] );
+		self::assertSame( '2026-05-17 09:00:00', $d['deadlines'][0]['due_at'] );
+		self::assertTrue( $d['deadlines'][0]['overdue'] );
+		self::assertSame( array(), $d['recent'] );
+
+		// «Мои оценки» группируют по занятию, карточка — с прочерками по заданиям.
+		self::assertSame( 10, $d['grades'][0]['group_lesson_id'] );
+		self::assertSame( 'ДЗ', $d['grades'][0]['badge'] );
+		self::assertSame( array( 'missed', 'missed' ), $d['grades'][0]['marks'] );
+
+		// Строка посещаемости несёт группу и работы занятия.
+		self::assertSame( 'Г1', $d['attendance']['rows'][0]['group_name'] );
+		self::assertSame( 'missed', $d['attendance']['rows'][0]['works'][0]['display'] );
 	}
 
 	private function submission( int $workId ): \Inc\DTO\Course\SubmissionDTO {

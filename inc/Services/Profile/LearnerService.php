@@ -60,7 +60,7 @@ class LearnerService {
 			recent:     array_slice( $this->performance->recentGrades( $grades ), 0, 5 ),
 			lessons:    $ctx->allLessons,
 			grades:     $grades,
-			attendance: $this->performance->attendance( $ctx, $personId ),
+			attendance: $this->performance->attendance( $ctx, $personId, $grades ),
 		);
 	}
 }

@@ -8,6 +8,7 @@
  */
 import { renderStrip } from './strip.js';
 import { typeMeta } from './icons.js';
+import { toast } from './shell.js';
 
 // Только текст/видео/трансляция отмечаются «viewed» при показе (авто-грейд задач — через submit).
 const INLINE = [ 'text', 'video', 'broadcast' ];
@@ -192,7 +193,13 @@ export function initCore() {
 	const deepStep = app.dataset.activeStep || '';
 	if ( deepStep ) {
 		const di = panels.findIndex( ( p ) => p.dataset.step === deepStep );
-		if ( di >= 0 && isAvailable( di ) ) { start = di; }
+		if ( di >= 0 && isAvailable( di ) ) {
+			start = di;
+		} else if ( di >= 0 ) {
+			// Ссылка вела к работе (из «Моих оценок», дедлайнов), но шаг закрыт гейтом —
+			// без пояснения ученик не понял бы, почему открылось начало урока.
+			toast( 'Эта работа откроется после предыдущих шагов урока.', 'error' );
+		}
 	}
 	active = start >= 0 ? start : 0;
 	panels[ active ].hidden = false;

@@ -39,6 +39,7 @@ enum ErrorCode: string {
 	case WorkNoLesson    = 'W-NO-LESSON';
 	case WorkNotInLesson = 'W-NOT-IN-LESSON';
 	case WorkNotFound    = 'W-NOT-FOUND';
+	/** Больше не выдаётся (сдача после срока разрешена) — кейс держит подпись старых записей журнала. */
 	case WorkDeadline    = 'W-DEADLINE';
 	case WorkLimit       = 'W-LIMIT';
 	case WorkNothing     = 'W-NOTHING';

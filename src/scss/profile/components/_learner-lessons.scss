@@ -1,0 +1,78 @@
+/* ══════════════════════════════════════════════════════════════════════
+   Кабинет ученика: строки занятий в «Посещаемости» и «Моих оценках».
+   Одна сетка на оба экрана: метка (отметка / шеврон) · группа · дата · тема ·
+   работы. Ширины колонок фиксированы, тема забирает остаток, чипы работ
+   прижаты вправо — текст соседних строк стоит друг под другом. Чипы и
+   карточки работ — общие с «Сводкой по ученику» (.sum-work, .wcard).
+   ══════════════════════════════════════════════════════════════════════ */
+@use '../variables' as *;
+@use 'motion' as *;
+
+.lrn-row {
+  display: grid;
+  grid-template-columns: rem(44) rem(150) rem(84) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: rem(16);
+  padding: rem(12) rem(18);
+  border-bottom: 1px solid var(--line-2);
+}
+
+.lrn-row:last-child { border-bottom: none; }
+
+.lrn-group,
+.lrn-topic {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lrn-group { font-size: rem(12.5); color: var(--muted); }
+.lrn-date  { font-size: rem(13.5); font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
+.lrn-topic { font-size: rem(13.5); color: var(--ink-2); }
+
+a.sum-work { text-decoration: none; }
+a.sum-work:hover { border-color: var(--accent); color: var(--accent-700); }
+
+/* «Мои оценки»: занятие — шапка-аккордеон, внутри карточки работ. */
+.lrn-grade { border-bottom: 1px solid var(--line-2); }
+.lrn-grade:last-child { border-bottom: none; }
+
+.lrn-grade-head {
+  width: 100%;
+  border: none;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background $tr;
+
+  &:hover { background: var(--surface-2); }
+}
+
+.lrn-grade .lrn-grade-head { border-bottom: none; }
+
+.lrn-chev {
+  display: flex;
+  justify-content: center;
+  color: var(--muted-2);
+  transition: transform $tr-collapse;
+}
+
+.lrn-grade.is-open .lrn-chev { transform: rotate(180deg); }
+.lrn-grade.is-open .lrn-grade-body { @include collapse-open; }
+
+.lrn-grade-body .wk-sub-list { padding: rem(4) rem(18) rem(16); }
+
+/* Узкий экран: метка слева на всю высоту, остальное — стопкой справа. */
+@media (max-width: $breakpoint-mobile) {
+  .lrn-row {
+    grid-template-columns: rem(44) minmax(0, 1fr);
+    row-gap: rem(4);
+    padding: rem(12) rem(14);
+  }
+
+  .lrn-row > * { grid-column: 2; }
+  .lrn-row > :first-child { grid-column: 1; grid-row: 1 / span 4; align-self: start; }
+  .lrn-row .sum-works { justify-content: flex-start; margin-top: rem(4); }
+}

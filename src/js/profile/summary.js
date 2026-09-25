@@ -13,7 +13,7 @@ import { esc, emptyState, fmtDate } from './utils.js';
 import { icoDocCheck } from '../common/icons.js';
 import { createApi } from './api.js';
 import { groupPickerBtnHtml, studentPickerBtnHtml, openGroupPicker, openStudentPicker } from './picker.js';
-import { workCardHtml } from './work-card.js';
+import { workCardHtml, workChipHtml, workStatusText } from './work-card.js';
 
 const KIND_LABEL = { group: 'Групповое', individual: 'Индивидуальное' };
 const ATT_LABEL  = { present: 'Присутствовал', absent: 'Отсутствовал', none: 'Не отмечено' };
@@ -158,12 +158,11 @@ function worksHtml() {
 }
 
 function workCard(w) {
-    const status = 'pending' === w.display ? 'На проверке' : (w.overdue ? `Просрочено · ${w.value}` : w.value);
     return workCardHtml({
         title:      w.title,
         badge:      w.badge,
         marks:      w.marks,
-        subtitle:   status,
+        subtitle:   workStatusText(w),
         date:       w.submitted_at,
         duration:   w.duration_sec,
         sourceType: w.source_type,
@@ -225,11 +224,10 @@ function lessonCard(l) {
     const open = !!(state.data && state.data.open);
     const st = strip(l);
     const works = l.works.length
-        ? `<div class="sum-works">${l.works.map(w => `
-            <span class="sum-work${'pending' === w.display ? ' pending' : ''}${w.overdue ? ' overdue' : ''}" role="button" tabindex="0"
-                data-src-type="${esc(w.source_type)}" data-src-id="${w.source_id}" title="${esc(w.title)}${w.overdue ? ' — сдано после дедлайна' : ''} — открыть">
-                ${w.badge ? `<b>${esc(w.badge)}</b> ` : ''}${'pending' === w.display ? 'на проверке' : esc(w.value)}${w.overdue ? ' <span class="sum-work-late">просрочено</span>' : ''}
-            </span>`).join('')}</div>`
+        // Несданное ДЗ открывать нечего — у его чипа нет действия.
+        ? `<div class="sum-works">${l.works.map(w => workChipHtml(w, w.source_id
+            ? `role="button" tabindex="0" data-src-type="${esc(w.source_type)}" data-src-id="${w.source_id}"`
+            : '')).join('')}</div>`
         : '<div class="sum-works sum-works-empty">Работ нет</div>';
 
     // Посещаемость — только цветом полоски слева (подпись — во всплывающей подсказке).

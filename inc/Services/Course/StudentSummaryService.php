@@ -4,8 +4,12 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Course;
 
+use Inc\Contracts\ClockInterface;
+use Inc\DTO\Course\WorkDTO;
 use Inc\Enums\Course\AccessMode;
+use Inc\Enums\Course\GradeBadge;
 use Inc\Enums\Course\ProgressStatus;
+use Inc\Enums\Course\WorkSourceType;
 use Inc\Managers\Course\LessonManager;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
@@ -22,14 +26,19 @@ use Inc\Repositories\WPDBRepositories\GroupsRepository;
  */
 class StudentSummaryService {
 
+	/** Вердикт задания несданной работы — прочерк на красном в полоске карточки. */
+	private const string MISSED = 'missed';
+
 	public function __construct(
-		private readonly GroupLessonRepository $groupLessons,
-		private readonly LessonManager         $lessons,
-		private readonly AttendanceService     $attendance,
-		private readonly GradebookService      $gradebook,
-		private readonly GroupsRepository      $groups,
-		private readonly LessonProgressService $progress,
-		private readonly WorkMarksService      $marks,
+		private readonly GroupLessonRepository   $groupLessons,
+		private readonly LessonManager           $lessons,
+		private readonly AttendanceService       $attendance,
+		private readonly GradebookService        $gradebook,
+		private readonly GroupsRepository        $groups,
+		private readonly LessonProgressService   $progress,
+		private readonly WorkMarksService        $marks,
+		private readonly HomeworkDeadlineService $deadlines,
+		private readonly ClockInterface          $clock,
 	) {}
 
 	/**
@@ -41,6 +50,7 @@ class StudentSummaryService {
 	 */
 	public function forStudent( int $groupId, int $personId ): array {
 		$lessons = array();
+		$rows    = array();
 
 		// Эпик 15: открытая группа — занятия не датируются, включаем всю программу
 		// (порядок программы), посещаемость не показывается.
@@ -55,6 +65,7 @@ class StudentSummaryService {
 			if ( ! $gl->scheduledAt && ! $isOpen ) {
 				continue;
 			}
+			$rows[ $gl->id ]     = $gl;
 			$lesson              = $gl->lessonId ? $this->lessons->get( $gl->lessonId ) : null;
 			$lessons[ $gl->id ] = array(
 				'group_lesson_id' => $gl->id,
@@ -78,12 +89,17 @@ class StudentSummaryService {
 		unset( $row );
 
 		// Работы ученика, разложенные по занятию (badge + сырой балл).
+		$submitted = array();
 		foreach ( $this->gradebook->forGroup( $groupId ) as $entry ) {
 			if ( $entry->studentPersonId !== $personId || null === $entry->groupLessonId ) {
 				continue;
 			}
 			if ( ! isset( $lessons[ $entry->groupLessonId ] ) ) {
 				continue;
+			}
+			// Ключ сдачи работы — `work:{id}` ({@see SubmissionGradeSource}).
+			if ( WorkSourceType::Submission->value === $entry->sourceType ) {
+				$submitted[ $entry->groupLessonId ][ (int) substr( (string) $entry->groupKey, 5 ) ] = true;
 			}
 			$lessons[ $entry->groupLessonId ]['works'][] = array(
 				'badge'       => $entry->badge?->badge(),
@@ -108,6 +124,12 @@ class StudentSummaryService {
 			);
 		}
 
+		foreach ( $this->deadlines->missed( $rows, $submitted, $this->clock->now() ) as $glid => $missed ) {
+			foreach ( $missed as $m ) {
+				$lessons[ $glid ]['works'][] = $this->missedCard( $m['work'], $m['due_at'] );
+			}
+		}
+
 		$out = array_values( $lessons );
 		if ( $isOpen ) {
 			// Открытая группа: дат нет — сохраняем порядок программы (position).
@@ -118,6 +140,32 @@ class StudentSummaryService {
 		usort( $out, static fn( array $a, array $b ): int => strcmp( $b['date'], $a['date'] ) );
 
 		return array( 'lessons' => $out, 'open' => false );
+	}
+
+	/**
+	 * Карточка ДЗ, не сданного к сроку: остаётся в «Работах», все задания — прочерком.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function missedCard( WorkDTO $work, string $dueAt ): array {
+		return array(
+			'badge'        => GradeBadge::Homework->badge(),
+			'value'        => 'Не сдано',
+			'display'      => self::MISSED,
+			'title'        => $work->title,
+			'source_type'  => '',
+			'source_id'    => 0,
+			'overdue'      => false,
+			'category'     => $work->workType->value,
+			'score'        => null,
+			'max_score'    => (float) count( $work->itemIds ),
+			'graded_at'    => null,
+			'group_key'    => 'work:' . $work->id,
+			'marks'        => array_fill( 0, count( $work->itemIds ), self::MISSED ),
+			'submitted_at' => null,
+			'duration_sec' => null,
+			'due_at'       => $dueAt,
+		);
 	}
 
 	/**

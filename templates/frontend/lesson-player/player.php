@@ -15,6 +15,8 @@
  * @var bool|null $is_teacher Teacher-режим (Этап 2): преподаватель просматривает
  *                             урок своей группы без ученика/прогресса. Ставит
  *                             только LessonPlayerController; для ученика не задаётся.
+ * @var bool|null $locked_parent Урок открыл родитель ученика группы: контент закрыт
+ *                             оверлеем «только для ученика». Ставит только LessonPlayerController.
  *
  * @package FS LMS
  */
@@ -51,6 +53,8 @@ $locked           = ! empty( $locked );
 $locked_scheduled = $locked_scheduled ?? null;
 $locked_seconds   = $locked_seconds ?? null;
 $locked_soon      = ! empty( $locked_soon );
+// Родитель: та же блокировка, но оверлей объясняет, что материалы — только для ученика.
+$locked_parent    = $locked && ! empty( $locked_parent );
 
 // Прогресс урока для топбара: пройденные шаги (completed; failed закрывает
 // шаг, но в прогресс не зачитывается — как в ProgressStatus::isComplete()).
@@ -119,6 +123,8 @@ $next_url    = null !== $next_lesson
 				<?php endif; ?>
 				<?php if ( $is_teacher ) : ?>
 					<span class="pv-banner"><?php esc_html_e( 'Режим преподавателя', 'fs-lms' ); ?></span>
+				<?php elseif ( $locked_parent ) : ?>
+					<span class="pv-banner"><?php esc_html_e( 'Просмотр родителя', 'fs-lms' ); ?></span>
 				<?php else : ?>
 					<div class="s-prog">
 						<span class="sp-txt" id="fsProgTxt">
@@ -240,12 +246,18 @@ $next_url    = null !== $next_lesson
 
 			<?php if ( $locked ) : ?>
 			<div class="lock-overlay">
-				<div class="lock-modal">
+				<div class="lock-modal" role="dialog" aria-modal="true" aria-labelledby="fsLockTitle">
 					<div class="lock-ico">
 						<?php echo Icon::Lock->svg( 28 ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
 					</div>
-					<?php if ( $locked_soon ) : ?>
-						<div class="lock-title"><?php esc_html_e( 'Занятие скоро начнётся', 'fs-lms' ); ?></div>
+					<?php if ( $locked_parent ) : ?>
+						<div class="lock-title" id="fsLockTitle"><?php esc_html_e( 'Материалы курса доступны только ученику', 'fs-lms' ); ?></div>
+						<p class="lock-sub"><?php esc_html_e( 'Уроки и задания открываются в личном кабинете обучающегося. Успеваемость, оценки и посещаемость ребёнка вы можете посмотреть в своём кабинете.', 'fs-lms' ); ?></p>
+						<div class="lock-actions">
+							<a class="b b-pri" href="<?php echo esc_url( $profile_url ); ?>"><?php esc_html_e( 'Перейти в кабинет', 'fs-lms' ); ?></a>
+						</div>
+					<?php elseif ( $locked_soon ) : ?>
+						<div class="lock-title" id="fsLockTitle"><?php esc_html_e( 'Занятие скоро начнётся', 'fs-lms' ); ?></div>
 						<p class="lock-sub">
 							<?php
 							printf(
@@ -259,7 +271,7 @@ $next_url    = null !== $next_lesson
 							<span data-countdown-value><?php echo esc_html( sprintf( '%02d:%02d', intdiv( $locked_seconds, 60 ), $locked_seconds % 60 ) ); ?></span>
 						</div>
 					<?php elseif ( null !== $locked_seconds && $locked_seconds > 0 ) : ?>
-						<div class="lock-title"><?php esc_html_e( 'Урок ещё не доступен', 'fs-lms' ); ?></div>
+						<div class="lock-title" id="fsLockTitle"><?php esc_html_e( 'Урок ещё не доступен', 'fs-lms' ); ?></div>
 						<p class="lock-sub">
 							<?php
 							printf(
@@ -271,7 +283,7 @@ $next_url    = null !== $next_lesson
 							?>
 						</p>
 					<?php else : ?>
-						<div class="lock-title"><?php esc_html_e( 'Урок ещё не доступен', 'fs-lms' ); ?></div>
+						<div class="lock-title" id="fsLockTitle"><?php esc_html_e( 'Урок ещё не доступен', 'fs-lms' ); ?></div>
 						<p class="lock-sub"><?php esc_html_e( 'Он откроется по дате или после выполнения предыдущих шагов.', 'fs-lms' ); ?></p>
 					<?php endif; ?>
 				</div>

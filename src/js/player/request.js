@@ -27,7 +27,7 @@ export class PlayerRequestError extends Error {
 		this.ref  = ref;
 	}
 
-	/** «Срок сдачи истёк. Код W-DEADLINE · #A1B2C3» */
+	/** «Исчерпан лимит попыток сдачи (3). Код W-LIMIT · #A1B2C3» */
 	toUserText() {
 		return `${ this.message } Код ${ this.code }${ this.ref ? ` · #${ this.ref }` : '' }`;
 	}
