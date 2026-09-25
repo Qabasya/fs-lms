@@ -50,7 +50,7 @@ class AttendanceServiceTest extends TestCase {
 	public function test_mark_absent_does_not_notify_immediately(): void {
 		$this->groupLessons->method( 'find' )->with( 100 )->willReturn( $this->lesson() );
 		$this->groupLessons->method( 'listByGroup' )->willReturn( array( $this->lesson() ) );
-		$this->attendance->method( 'listByStudent' )->willReturn( array( $this->mark( 100, false ) ) );
+		$this->attendance->method( 'listByGroup' )->willReturn( array( $this->mark( 100, false ) ) );
 		$this->notifications->method( 'guardianUserIds' )->willReturn( array( 88 ) );
 
 		$this->attendance->expects( self::once() )->method( 'upsert' )->with( 100, 10, false, 3 );
@@ -59,8 +59,8 @@ class AttendanceServiceTest extends TestCase {
 		$this->service->mark( 100, 10, false, 3 );
 	}
 
-	/** Третья Н подряд — родителю «Ученик не посещает занятия!», ключ — начало серии. */
-	public function test_third_absence_in_a_row_notifies_guardian(): void {
+	/** Третья Н подряд — родителю «Ученик не посещает занятия!» (администратор узнал раньше), ключ — начало серии. */
+	public function test_third_absence_in_a_row_notifies_guardian_and_admins(): void {
 		$this->groupLessons->method( 'find' )->willReturn( $this->lesson( array( 'id' => 103 ) ) );
 		$this->groupLessons->method( 'listByGroup' )->willReturn( array(
 			$this->lesson( array( 'id' => 100, 'scheduled_at' => '2026-05-01 10:00:00' ) ),
@@ -68,40 +68,67 @@ class AttendanceServiceTest extends TestCase {
 			$this->lesson( array( 'id' => 102, 'scheduled_at' => '2026-05-15 10:00:00' ) ),
 			$this->lesson( array( 'id' => 103, 'scheduled_at' => '2026-05-22 10:00:00' ) ),
 		) );
-		$this->attendance->method( 'listByStudent' )->willReturn( array(
+		$this->attendance->method( 'listByGroup' )->willReturn( array(
 			$this->mark( 100, true ),
 			$this->mark( 101, false ),
 			$this->mark( 102, false ),
 			$this->mark( 103, false ),
 		) );
 		$this->notifications->method( 'guardianUserIds' )->willReturn( array( 88 ) );
+		$this->notifications->method( 'adminUserIds' )->willReturn( array( 2 ) );
 		$this->notifications->method( 'studentSnapshotName' )->willReturn( 'Иванов Иван' );
 
-		$this->notifications->expects( self::once() )
-			->method( 'push' )
-			->with(
-				array( 88 ),
-				NotificationType::AbsenceStreak,
-				'absent_streak:10:101',
-				self::callback( static fn( $p ) => 3 === $p['count'] && 'Иванов Иван' === $p['student_name'] ),
-				self::anything(),
-				5
-			);
+		$pushed = array();
+		$this->notifications->method( 'push' )->willReturnCallback(
+			function ( array $users, NotificationType $type, string $key, array $payload ) use ( &$pushed ): void {
+				$pushed[] = array( $users, $type, $key, $payload['count'], $payload['student_name'] );
+			}
+		);
 
 		$this->service->mark( 103, 10, false, 3 );
+
+		self::assertSame(
+			array(
+				array( array( 2 ), NotificationType::AbsenceStreak, 'absent_streak_admin:10:101', 3, 'Иванов Иван' ),
+				array( array( 88 ), NotificationType::AbsenceStreak, 'absent_streak:10:101', 3, 'Иванов Иван' ),
+			),
+			$pushed
+		);
 	}
 
-	public function test_two_absences_in_a_row_are_not_a_streak(): void {
+	/** Две Н подряд — уже сигнал администратору, но родителю ещё нет. */
+	public function test_two_absences_in_a_row_notify_only_admins(): void {
 		$this->groupLessons->method( 'find' )->willReturn( $this->lesson( array( 'id' => 102 ) ) );
 		$this->groupLessons->method( 'listByGroup' )->willReturn( array(
 			$this->lesson( array( 'id' => 101, 'scheduled_at' => '2026-05-08 10:00:00' ) ),
 			$this->lesson( array( 'id' => 102, 'scheduled_at' => '2026-05-15 10:00:00' ) ),
 		) );
-		$this->attendance->method( 'listByStudent' )->willReturn( array( $this->mark( 101, false ), $this->mark( 102, false ) ) );
+		$this->attendance->method( 'listByGroup' )->willReturn( array( $this->mark( 101, false ), $this->mark( 102, false ) ) );
+		$this->notifications->method( 'adminUserIds' )->willReturn( array( 2 ) );
 
-		$this->notifications->expects( self::never() )->method( 'push' );
+		$this->notifications->expects( self::once() )
+			->method( 'push' )
+			->with( array( 2 ), NotificationType::AbsenceStreak, 'absent_streak_admin:10:101' );
 
 		$this->service->mark( 102, 10, false, 3 );
+	}
+
+	/** Серии считаются по всей группе: у каждого ученика — от свежего занятия до первого «был». */
+	public function test_absence_streaks_per_student(): void {
+		$this->groupLessons->method( 'listByGroup' )->willReturn( array(
+			$this->lesson( array( 'id' => 101, 'scheduled_at' => '2026-05-08 10:00:00' ) ),
+			$this->lesson( array( 'id' => 102, 'scheduled_at' => '2026-05-15 10:00:00' ) ),
+			$this->lesson( array( 'id' => 103, 'kind' => 'individual', 'scheduled_at' => '2026-05-16 10:00:00' ) ),
+		) );
+		$this->attendance->method( 'listByGroup' )->willReturn( array(
+			$this->mark( 101, false ),
+			$this->mark( 102, false ),
+			$this->mark( 103, true ), // индивидуальное — не в счёт
+			\Inc\DTO\Course\AttendanceDTO::fromArray( array( 'group_lesson_id' => 101, 'student_person_id' => 11, 'is_present' => 0 ) ),
+			\Inc\DTO\Course\AttendanceDTO::fromArray( array( 'group_lesson_id' => 102, 'student_person_id' => 11, 'is_present' => 1 ) ),
+		) );
+
+		self::assertSame( array( 10 => array( 102, 101 ) ), $this->service->absenceStreaks( 5 ) );
 	}
 
 	private function mark( int $groupLessonId, bool $present ): \Inc\DTO\Course\AttendanceDTO {

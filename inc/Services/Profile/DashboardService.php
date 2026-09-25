@@ -39,6 +39,7 @@ class DashboardService {
 		private readonly ClockInterface          $clock,
 		private readonly SubjectRepository       $subjects,
 		private readonly PersonRepository        $persons,
+		private readonly AdminAlertService       $adminAlerts,
 	) {}
 
 	/** @var array<int, string> Кэш коротких имён преподавателей: WP user id → «Фамилия И.О.». */
@@ -162,6 +163,9 @@ class DashboardService {
 			'worklist' => array(
 				'to_fill'   => $toFill,
 				'to_review' => $toReview,
+				// Сигналы администратору (журнал спустя сутки, серии пропусков и
+				// несданных ДЗ, непроверенные 48 часов работы) — только офису.
+				'alerts'    => $allGroups ? $this->adminAlerts->forDashboard() : array(),
 			),
 			'groups'   => $groupCards,
 			'covering' => array_map(

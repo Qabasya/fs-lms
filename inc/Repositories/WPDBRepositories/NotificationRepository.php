@@ -75,6 +75,26 @@ class NotificationRepository {
 		return (int) $this->wpdb->query( $sql ) > 0;
 	}
 
+	/**
+	 * Уведомления типа, созданные в окне [from, to) — у всех получателей.
+	 * Границы — GMT, как и `created_at`.
+	 *
+	 * @return NotificationDTO[]
+	 */
+	public function listByTypeCreatedBetween( string $type, string $fromGmt, string $toGmt ): array {
+		$rows = $this->wpdb->get_results(
+			$this->wpdb->prepare(
+				'SELECT * FROM %i WHERE type = %s AND created_at >= %s AND created_at < %s ORDER BY created_at ASC',
+				$this->table,
+				$type,
+				$fromGmt,
+				$toGmt
+			),
+			ARRAY_A
+		);
+		return array_map( array( NotificationDTO::class, 'fromArray' ), $rows ?: array() );
+	}
+
 	/** @return NotificationDTO[] Последние N уведомлений получателя, свежие сверху. */
 	public function listRecent( int $userId, int $limit = 30 ): array {
 		$rows = $this->wpdb->get_results(

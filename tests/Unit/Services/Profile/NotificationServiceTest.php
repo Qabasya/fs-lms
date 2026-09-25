@@ -26,6 +26,8 @@ class NotificationServiceTest extends TestCase {
 	private GroupsRepository&\PHPUnit\Framework\MockObject\MockObject         $groups;
 	private LessonManager&\PHPUnit\Framework\MockObject\MockObject            $lessons;
 	private EffectiveTeacherResolver&\PHPUnit\Framework\MockObject\MockObject $effectiveTeacher;
+	private \Inc\Repositories\OptionsRepositories\UserRepository&\PHPUnit\Framework\MockObject\MockObject $users;
+	private \Inc\Managers\Person\UserManager&\PHPUnit\Framework\MockObject\MockObject $userManager;
 	private NotificationService $service;
 
 	protected function setUp(): void {
@@ -38,6 +40,8 @@ class NotificationServiceTest extends TestCase {
 		$this->groups           = $this->createMock( GroupsRepository::class );
 		$this->lessons          = $this->createMock( LessonManager::class );
 		$this->effectiveTeacher = $this->createMock( EffectiveTeacherResolver::class );
+		$this->users            = $this->createMock( \Inc\Repositories\OptionsRepositories\UserRepository::class );
+		$this->userManager      = $this->createMock( \Inc\Managers\Person\UserManager::class );
 
 		$this->service = new NotificationService(
 			$this->notifications,
@@ -46,6 +50,8 @@ class NotificationServiceTest extends TestCase {
 			$this->groups,
 			$this->lessons,
 			$this->effectiveTeacher,
+			$this->users,
+			$this->userManager,
 		);
 	}
 
@@ -423,5 +429,42 @@ class NotificationServiceTest extends TestCase {
 		self::assertStringContainsString( 'Каб. 12', $out['body'] );
 		self::assertStringContainsString( 'Каб. 5', $out['body'] );
 		self::assertStringContainsString( 'ОГЭ-1', $out['body'] );
+	}
+
+	public function test_admin_user_ids_are_platform_administrators(): void {
+		$this->users->expects( self::once() )->method( 'getByRole' )
+			->with( \Inc\Enums\Access\UserRole::FSOffice )
+			->willReturn( array(
+				new \Inc\DTO\Person\UserDTO( 3, 'a@x.ru', 'Админ', \Inc\Enums\Access\UserRole::FSOffice ),
+				new \Inc\DTO\Person\UserDTO( 4, 'b@x.ru', 'Админ 2', \Inc\Enums\Access\UserRole::FSOffice ),
+			) );
+
+		self::assertSame( array( 3, 4 ), $this->service->adminUserIds() );
+	}
+
+	/** @return array<string, array{string, array<string, mixed>, string[]}> */
+	public static function adminBodies(): array {
+		return array(
+			'journal'  => array( 'journal_overdue', array( 'teacher_name' => 'Петров П.', 'topic' => 'Циклы', 'group_name' => 'КЕГЭ-1' ), array( 'Петров П.', '«Циклы»', 'КЕГЭ-1' ) ),
+			'homework' => array( 'homework_streak', array( 'student_name' => 'Иванов Иван', 'count' => 3, 'group_name' => 'КЕГЭ-1' ), array( 'Иванов Иван', 'домашних работ: 3' ) ),
+			'review'   => array( 'review_overdue', array( 'teacher_name' => 'Петров П.', 'student_name' => 'Иванов Иван', 'topic' => 'КР-1', 'group_name' => 'КЕГЭ-1' ), array( 'Петров П.: Иванов Иван', '«КР-1»' ) ),
+			'absent'   => array( 'teacher_absent', array( 'teacher_name' => 'Петров П.', 'topic' => 'Циклы', 'group_name' => 'КЕГЭ-1' ), array( 'Петров П.', '«Циклы»' ) ),
+		);
+	}
+
+	/**
+	 * @param array<string, mixed> $payload
+	 * @param string[]             $expected
+	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider( 'adminBodies' )]
+	public function test_to_client_array_renders_admin_alert_bodies( string $type, array $payload, array $expected ): void {
+		$out = $this->service->toClientArray( NotificationDTO::fromArray( array(
+			'id' => 1, 'recipient_user_id' => 3, 'type' => $type, 'group_id' => 1, 'entity_type' => null, 'entity_id' => null,
+			'payload' => wp_json_encode( $payload ), 'url' => '', 'created_at' => '2026-05-05 08:00:00', 'seen_at' => null, 'read_at' => null,
+		) ) );
+
+		foreach ( $expected as $needle ) {
+			self::assertStringContainsString( $needle, $out['body'] );
+		}
 	}
 }

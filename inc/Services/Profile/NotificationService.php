@@ -6,10 +6,13 @@ namespace Inc\Services\Profile;
 
 use Inc\DTO\Course\GroupLessonDTO;
 use Inc\DTO\Profile\NotificationDTO;
+use Inc\Enums\Access\UserRole;
 use Inc\Enums\Course\AccessMode;
 use Inc\Enums\Profile\NotificationType;
 use Inc\Enums\Wp\PageRoutes;
 use Inc\Managers\Course\LessonManager;
+use Inc\Managers\Person\UserManager;
+use Inc\Repositories\OptionsRepositories\UserRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\WPDBRepositories\NotificationRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
@@ -43,6 +46,8 @@ readonly class NotificationService {
 		private GroupsRepository          $groups,
 		private LessonManager             $lessons,
 		private EffectiveTeacherResolver  $effectiveTeacher,
+		private UserRepository            $users,
+		private UserManager               $userManager,
 	) {}
 
 	/**
@@ -136,6 +141,21 @@ readonly class NotificationService {
 	 */
 	public function retract( array $userIds, string $dedupeKey ): void {
 		$this->notifications->deleteByDedupe( $this->uniqueValidIds( $userIds ), $dedupeKey );
+	}
+
+	/**
+	 * Администраторы платформы (роль «LMS: Администратор платформы») — адресаты
+	 * сигналов о преподавателях и учениках, требующих вмешательства.
+	 *
+	 * @return int[]
+	 */
+	public function adminUserIds(): array {
+		return array_map( static fn( $user ): int => $user->id, $this->users->getByRole( UserRole::FSOffice ) );
+	}
+
+	/** Отображаемое имя пользователя (преподавателя) для текста плитки; пусто — учётки нет. */
+	public function userDisplayName( int $userId ): string {
+		return (string) ( $this->userManager->find( $userId )?->display_name ?? '' );
 	}
 
 	/** WP user id ученика по person id (null — не привязан к учётке). */
@@ -383,6 +403,27 @@ readonly class NotificationService {
 				(string) ( $p['student_name'] ?? '' ),
 				(int) ( $p['count'] ?? 0 ),
 				$tail
+			),
+
+			NotificationType::JournalOverdue,
+			NotificationType::TeacherAbsent => sprintf(
+				'%s%s',
+				(string) ( $p['teacher_name'] ?? '' ),
+				'' !== $topic ? " — «{$topic}»{$tail}" : $tail
+			),
+
+			NotificationType::HomeworkStreak => sprintf(
+				'%s — не сдано подряд домашних работ: %d%s',
+				(string) ( $p['student_name'] ?? '' ),
+				(int) ( $p['count'] ?? 0 ),
+				$tail
+			),
+
+			NotificationType::ReviewOverdue => sprintf(
+				'%s: %s%s',
+				(string) ( $p['teacher_name'] ?? '' ),
+				(string) ( $p['student_name'] ?? '' ),
+				'' !== $topic ? " — «{$topic}»{$tail}" : $tail
 			),
 
 			NotificationType::AttemptReset => '' !== $topic

@@ -9,6 +9,7 @@ use Inc\Core\BaseController;
 use Inc\Enums\Wp\CronHook;
 use Inc\Managers\Wp\CronManager;
 use Inc\Repositories\WPDBRepositories\AssessmentAttemptRepository;
+use Inc\Services\Profile\AdminAlertCronService;
 use Inc\Services\Profile\NotificationCronService;
 
 /**
@@ -36,6 +37,7 @@ class CronController extends BaseController implements ServiceInterface {
 		private readonly CronManager                 $cron_manager,
 		private readonly AssessmentAttemptRepository $attemptRepo,
 		private readonly NotificationCronService     $notificationCron,
+		private readonly AdminAlertCronService       $adminAlertCron,
 	) {
 		parent::__construct();
 	}
@@ -63,5 +65,6 @@ class CronController extends BaseController implements ServiceInterface {
 
 	public function handleNotificationsTick(): void {
 		$this->notificationCron->tick();
+		$this->adminAlertCron->tick();
 	}
 }

@@ -77,6 +77,12 @@ class AttendanceService {
 	private const ABSENCE_STREAK = 3;
 
 	/**
+	 * Сколько пропусков подряд — сигнал администратору. Меньше родительского:
+	 * администратор узнаёт раньше родителя и успевает вмешаться.
+	 */
+	public const ADMIN_ABSENCE_STREAK = 2;
+
+	/**
 	 * Уведомления по отметке. Сама Н сразу не уведомляет: «пропущено занятие»
 	 * уходит через 30 минут после отметки ({@see \Inc\Services\Profile\NotificationCronService}),
 	 * чтобы ошибочную Н успели исправить. Здесь — только серия пропусков подряд
@@ -104,31 +110,32 @@ class AttendanceService {
 	}
 
 	/**
-	 * Родителю — ученик пропустил подряд {@see self::ABSENCE_STREAK} и больше
-	 * занятий группы (по последним отметкам в журнале). Одна плитка на серию:
-	 * ключ — первое занятие серии, следующие пропуски той же серии не дублируют.
+	 * Серия пропусков ученика: {@see self::ADMIN_ABSENCE_STREAK} подряд —
+	 * администратору, {@see self::ABSENCE_STREAK} — родителю. Одна плитка на
+	 * серию: ключ — первое занятие серии, следующие пропуски той же серии не дублируют.
 	 */
 	private function notifyAbsenceStreak( int $groupId, int $studentPersonId, string $studentName ): void {
-		$dates = array();
-		foreach ( $this->groupLessons->listByGroup( $groupId ) as $row ) {
-			if ( ! $row->kind->isIndividual() && null !== $row->scheduledAt ) {
-				$dates[ $row->id ] = $row->scheduledAt;
-			}
+		$streak = $this->absenceStreaks( $groupId )[ $studentPersonId ] ?? array();
+		if ( count( $streak ) < self::ADMIN_ABSENCE_STREAK ) {
+			return;
 		}
 
-		$marks = array_values( array_filter(
-			$this->attendance->listByStudent( $studentPersonId ),
-			static fn( $a ): bool => isset( $dates[ $a->groupLessonId ] )
-		) );
-		usort( $marks, static fn( $a, $b ): int => strcmp( $dates[ $b->groupLessonId ], $dates[ $a->groupLessonId ] ) );
+		$payload = array(
+			'student_name' => $studentName,
+			'count'        => count( $streak ),
+			'group_name'   => $this->notifications->groupName( $groupId ),
+		);
+		$first = end( $streak );
 
-		$streak = array();
-		foreach ( $marks as $mark ) {
-			if ( $mark->isPresent ) {
-				break;
-			}
-			$streak[] = $mark->groupLessonId;
-		}
+		$this->notifications->push(
+			$this->notifications->adminUserIds(),
+			NotificationType::AbsenceStreak,
+			sprintf( 'absent_streak_admin:%d:%d', $studentPersonId, $first ),
+			$payload,
+			(string) add_query_arg( array( 'screen' => 'summary' ), PageRoutes::UserProfile->url() ),
+			$groupId
+		);
+
 		if ( count( $streak ) < self::ABSENCE_STREAK ) {
 			return;
 		}
@@ -136,15 +143,51 @@ class AttendanceService {
 		$this->notifications->push(
 			$this->notifications->guardianUserIds( $studentPersonId ),
 			NotificationType::AbsenceStreak,
-			sprintf( 'absent_streak:%d:%d', $studentPersonId, end( $streak ) ),
-			array(
-				'student_name' => $studentName,
-				'count'        => count( $streak ),
-				'group_name'   => $this->notifications->groupName( $groupId ),
-			),
+			sprintf( 'absent_streak:%d:%d', $studentPersonId, $first ),
+			$payload,
 			(string) add_query_arg( array( 'screen' => 'learner-attendance' ), PageRoutes::UserProfile->url() ),
 			$groupId
 		);
+	}
+
+	/**
+	 * Текущие серии пропусков группы: по последним отметкам ученика в журнале,
+	 * от самого свежего занятия назад до первого «был». Учитываются групповые
+	 * занятия с датой; ученик без серии в ответ не попадает.
+	 *
+	 * @return array<int, int[]> person id → id занятий серии, свежие первыми
+	 */
+	public function absenceStreaks( int $groupId ): array {
+		$dates = array();
+		foreach ( $this->groupLessons->listByGroup( $groupId ) as $row ) {
+			if ( ! $row->kind->isIndividual() && null !== $row->scheduledAt ) {
+				$dates[ $row->id ] = $row->scheduledAt;
+			}
+		}
+
+		$byStudent = array();
+		foreach ( $this->attendance->listByGroup( $groupId ) as $mark ) {
+			if ( isset( $dates[ $mark->groupLessonId ] ) ) {
+				$byStudent[ $mark->studentPersonId ][] = $mark;
+			}
+		}
+
+		$streaks = array();
+		foreach ( $byStudent as $personId => $marks ) {
+			usort( $marks, static fn( $a, $b ): int => strcmp( $dates[ $b->groupLessonId ], $dates[ $a->groupLessonId ] ) );
+			$streak = array();
+			foreach ( $marks as $mark ) {
+				if ( $mark->isPresent ) {
+					break;
+				}
+				$streak[] = $mark->groupLessonId;
+			}
+			if ( ! empty( $streak ) ) {
+				$streaks[ $personId ] = $streak;
+			}
+		}
+
+		return $streaks;
 	}
 
 	/**

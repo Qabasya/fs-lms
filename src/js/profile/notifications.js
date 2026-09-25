@@ -38,6 +38,10 @@ const TYPE_ICON = {
     student_joined:      icoUsers,
     journal_not_filled:  icoJournal,
     absence_streak:      icoAlert,
+    journal_overdue:     icoJournal,
+    homework_streak:     icoAlert,
+    review_overdue:      icoDocCheck,
+    teacher_absent:      icoUsers,
 };
 
 /* Последнее уведомление, уже показанное в браузере. Общее для всех вкладок

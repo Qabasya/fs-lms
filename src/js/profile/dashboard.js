@@ -5,11 +5,13 @@
    маркеры замен (Эпик 5). Демо-слой (data.js) убран.
 
    «Требует внимания» и «Мои группы» — аккордеоны над расписанием; раскрытость
-   каждого запоминается в браузере преподавателя.
+   каждого запоминается в браузере преподавателя. Администратору в «Требует
+   внимания» идут и его сигналы (worklist.alerts): журнал не заполнен спустя
+   сутки, серии пропусков и несданных ДЗ, работы без проверки 48 часов.
    ══════════════════════════════════════════════════════════════════════ */
 
 import { esc, plural, fmtDayMonth, todayIso, chipBg, chipBorder, groupSubjectKey, shortName, emptyState } from './utils.js';
-import { icoCalendar, icoCheck, icoAlert, icoMapPin, icoBookmark, icoShield, icoChevronRight, icoChevronDown, icoHome } from '../common/icons.js';
+import { icoCalendar, icoCheck, icoAlert, icoMapPin, icoBookmark, icoShield, icoChevronRight, icoChevronDown, icoHome, icoJournal, icoUsers, icoDocCheck } from '../common/icons.js';
 import { createApi } from './api.js';
 import { DOW_JS, DOW_RU } from './constants.js';
 
@@ -19,7 +21,7 @@ const ACC_KEY = 'fsProfDashAcc';
 let root = null;
 let state = null;
 let api = null;
-let nav = { openJournalFor: () => {}, openReview: () => {} };
+let nav = { openJournalFor: () => {}, openReview: () => {}, openWorks: () => {}, openSummary: null };
 
 export function renderDashboard(r, handlers) {
     root = r;
@@ -47,7 +49,8 @@ function render() {
     const d = state.data;
     const s = d.stats;
     const name = window.fsProfile?.user?.name || 'преподаватель';
-    const attnCount = d.worklist.to_fill.length + d.worklist.to_review.length;
+    const alerts = d.worklist.alerts || [];
+    const attnCount = alerts.length + d.worklist.to_fill.length + d.worklist.to_review.length;
 
     root.innerHTML = `
     <div class="prof-dash">
@@ -66,6 +69,7 @@ function render() {
 
         <div class="prof-dash-grid2">
             ${accordion('attention', 'Требует внимания', `${attnCount} ${plural(attnCount, 'задача', 'задачи', 'задач')}`, `
+                ${alerts.map(alertRow).join('')}
                 ${d.worklist.to_fill.map(fillRow).join('')}
                 ${d.worklist.to_review.map(reviewRow).join('')}
                 ${attnCount ? '' : '<div class="rev-empty">Всё в порядке — журналы заполнены, работы проверены.</div>'}`)}
@@ -118,6 +122,13 @@ function render() {
         el.addEventListener('click', () => nav.openJournalFor(el.dataset.grp)));
     root.querySelectorAll('[data-review]').forEach(el =>
         el.addEventListener('click', () => nav.openReview()));
+    root.querySelectorAll('[data-alert-works]').forEach(el =>
+        el.addEventListener('click', () => nav.openWorks()));
+    root.querySelectorAll('[data-alert-pid]').forEach(el =>
+        el.addEventListener('click', () => {
+            if (nav.openSummary) nav.openSummary(+el.dataset.alertGrp, +el.dataset.alertPid);
+            else nav.openReview();
+        }));
 }
 
 function renderSched(mode) {
@@ -343,6 +354,49 @@ function schedRow(l) {
         return `<a class="prof-lesson-row prof-lesson-go ${l.state === 'now' ? 'is-now' : ''}" href="${esc(l.player_url)}">${inner}</a>`;
     }
     return `<div class="prof-lesson-row ${l.state === 'now' ? 'is-now' : ''}" data-grp="${l.group_id}">${inner}</div>`;
+}
+
+/* Сигнал администратору: журнал → в журнал группы, ученик → в его сводку,
+   непроверенная работа → в «Работы». */
+function alertRow(a) {
+    const n = +a.count || 0;
+    const view = {
+        journal: {
+            attrs: `data-grp="${a.group_id}"`,
+            ico: ['att', icoJournal(18)],
+            title: `Преподаватель не заполнил журнал · ${esc(a.group_name)}`,
+            sub: [a.teacher_name, a.topic, a.date ? fmtDayMonth(a.date) : ''].filter(Boolean).map(esc).join(' · '),
+        },
+        absence: {
+            attrs: `data-alert-grp="${a.group_id}" data-alert-pid="${a.person_id}"`,
+            ico: ['att', icoUsers(18)],
+            title: `Ученик не посещает занятия · ${esc(a.group_name)}`,
+            sub: `${esc(a.student_name)} — пропущено подряд: ${n}`,
+        },
+        homework: {
+            attrs: `data-alert-grp="${a.group_id}" data-alert-pid="${a.person_id}"`,
+            ico: ['att', icoAlert(18)],
+            title: `Ученик не сдаёт работы · ${esc(a.group_name)}`,
+            sub: `${esc(a.student_name)} — не сдано подряд ДЗ: ${n}`,
+        },
+        review: {
+            attrs: 'data-alert-works="1"',
+            ico: ['grade', icoDocCheck(18)],
+            title: `Работа не проверена 48 часов · ${esc(a.group_name)}`,
+            sub: `${esc(a.teacher_name)}: ${esc(a.student_name)}${a.topic ? ` — «${esc(a.topic)}»` : ''}`,
+        },
+    }[a.kind];
+    if (!view) return '';
+
+    return `<div class="prof-work-item is-clickable" ${view.attrs}>
+        <div class="prof-work-ico ${view.ico[0]}">${view.ico[1]}</div>
+        <div class="prof-work-main">
+            <div class="prof-work-title">${view.title}</div>
+            <div class="prof-work-sub">${view.sub}</div>
+        </div>
+        ${n ? `<span class="prof-work-count">${n}</span>` : ''}
+        ${icoChevronRight(18, 'var(--muted-2)')}
+    </div>`;
 }
 
 function fillRow(w) {

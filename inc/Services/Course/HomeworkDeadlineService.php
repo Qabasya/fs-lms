@@ -133,6 +133,40 @@ class HomeworkDeadlineService {
 		return $out;
 	}
 
+	/**
+	 * Все ДЗ занятий, срок которых уже наступил, по сроку от ранних к поздним —
+	 * серия несданных считается по ним ({@see \Inc\Services\Profile\AdminAlertService}).
+	 * Те же правила, что у {@see self::missed()}: скрытые, отменённые и
+	 * перенесённые занятия не в счёт.
+	 *
+	 * @param GroupLessonDTO[] $rows Занятия группы
+	 *
+	 * @return array<int, array{row: GroupLessonDTO, work: WorkDTO, due_at: string}>
+	 */
+	public function dueHomework( array $rows, string $now ): array {
+		$next = $this->nextLessonStarts( $rows );
+		$out  = array();
+
+		foreach ( $rows as $row ) {
+			if ( LessonVisibility::Hidden->value === $this->visibility->effectiveVisibility( $row ) || $this->freesSlot( $row ) ) {
+				continue;
+			}
+			foreach ( $this->worksResolver->resolve( $row ) as $work ) {
+				if ( WorkType::Homework !== $work->workType ) {
+					continue;
+				}
+				$dueAt = $this->deadlineFor( $row, $work, $next[ $row->id ] ?? null );
+				if ( null !== $dueAt && $dueAt <= $now ) {
+					$out[] = array( 'row' => $row, 'work' => $work, 'due_at' => $dueAt );
+				}
+			}
+		}
+
+		usort( $out, static fn( array $a, array $b ): int => strcmp( $a['due_at'], $b['due_at'] ) );
+
+		return $out;
+	}
+
 	private function freesSlot( GroupLessonDTO $row ): bool {
 		return LessonStatus::fromValueOrDefault( $row->status )->freesSlot();
 	}

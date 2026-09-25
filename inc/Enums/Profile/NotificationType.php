@@ -40,8 +40,16 @@ enum NotificationType: string {
 	case StudentJoined      = 'student_joined';
 	/** Преподавателю — через час после окончания занятия посещаемость так и не отмечена. */
 	case JournalNotFilled   = 'journal_not_filled';
-	/** Родителю — ученик пропустил подряд больше двух занятий. */
+	/** Родителю — ученик пропустил подряд больше двух занятий; администратору — уже два. */
 	case AbsenceStreak      = 'absence_streak';
+	/** Администратору — через сутки после занятия журнал посещаемости так и не заполнен. */
+	case JournalOverdue     = 'journal_overdue';
+	/** Администратору — ученик не сдал к сроку третью подряд домашнюю работу. */
+	case HomeworkStreak     = 'homework_streak';
+	/** Администратору — работа ждёт проверки 48 часов после «Сдана работа — нужна проверка». */
+	case ReviewOverdue      = 'review_overdue';
+	/** Администратору — преподаватель не заходил в систему во время своего занятия, замены нет. */
+	case TeacherAbsent      = 'teacher_absent';
 
 	/** Заголовок плитки уведомления. */
 	public function title(): string {
@@ -65,6 +73,10 @@ enum NotificationType: string {
 			self::StudentJoined      => 'Новый ученик в группе',
 			self::JournalNotFilled   => 'Не заполнен журнал',
 			self::AbsenceStreak      => 'Ученик не посещает занятия!',
+			self::JournalOverdue     => 'Преподаватель не заполнил журнал',
+			self::HomeworkStreak     => 'Ученик не сдаёт работы',
+			self::ReviewOverdue      => 'Работа не проверена 48 часов',
+			self::TeacherAbsent      => 'Преподавателя нет на месте',
 		};
 	}
 
@@ -76,8 +88,9 @@ enum NotificationType: string {
 			self::ProgramUpdated, self::StudentJoined                      => 'info',
 			self::WorkGraded, self::AttemptGraded, self::HomeworkSubmitted => 'ok',
 			self::DeadlineSoon, self::WorkReturned, self::ReviewNeeded,
-			self::JournalNotFilled                                         => 'warn',
-			self::DeadlineMissed, self::AttendanceMissed, self::AbsenceStreak => 'err',
+			self::JournalNotFilled, self::JournalOverdue, self::ReviewOverdue => 'warn',
+			self::DeadlineMissed, self::AttendanceMissed, self::AbsenceStreak,
+			self::HomeworkStreak, self::TeacherAbsent                      => 'err',
 		};
 	}
 }

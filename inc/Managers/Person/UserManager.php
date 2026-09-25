@@ -213,4 +213,15 @@ class UserManager {
 		update_user_meta( $userId, MetaKeys::UserStatus->value, $status );
 	}
 
+	/** Время последнего запроса пользователя к сайту ('Y-m-d H:i:s', местное) или null. */
+	public function getLastSeenAt( int $userId ): ?string {
+		$value = get_user_meta( $userId, MetaKeys::LastSeenAt->value, true );
+
+		return is_string( $value ) && '' !== $value ? $value : null;
+	}
+
+	public function setLastSeenAt( int $userId, string $datetime ): void {
+		update_user_meta( $userId, MetaKeys::LastSeenAt->value, $datetime );
+	}
+
 }

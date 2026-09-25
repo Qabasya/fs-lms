@@ -52,6 +52,7 @@ class DashboardServiceTest extends TestCase {
 			$this->records, $this->submissions, $this->substitutions, $this->rooms, $this->clock,
 			$this->createMock( SubjectRepository::class ),
 			$this->persons,
+			$this->createMock( \Inc\Services\Profile\AdminAlertService::class ),
 		);
 		$this->clock->method( 'now' )->willReturn( '2026-05-20 10:00:00' );
 	}

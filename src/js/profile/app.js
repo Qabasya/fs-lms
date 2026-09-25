@@ -14,7 +14,12 @@ import { initNotifications } from './notifications.js';
 
 /* ── Screen registry: key → renderer ─────────────────────────────────── */
 const SCREENS = {
-    dashboard:            (root) => renderDashboard(root, { openJournalFor, openReview: () => go('summary') }),
+    dashboard:            (root) => renderDashboard(root, {
+        openJournalFor,
+        openReview: () => go('summary'),
+        openWorks: () => go(cfg.screens.includes('works') ? 'works' : 'summary'),
+        ...summaryLink(),
+    }),
     groups:               (root) => renderGroups(root, { openJournal: openJournalFor, ...summaryLink() }),
     journal:              (root) => renderJournal(root, summaryLink()),
     works:                (root) => renderWorks(root, { openWorkReview: openWorkReviewFrom('works') }),
