@@ -3,7 +3,7 @@ import { icoHome, icoUsers, icoJournal, icoDocCheck, icoInbox, icoSwap, icoCalen
 import { renderDashboard } from './dashboard.js';
 import { renderJournal, setJournalGroup } from './journal.js';
 import { renderGroups, setGroupsGroup } from './groups.js';
-import { renderSummary } from './summary.js';
+import { renderSummary, openSummaryFor } from './summary.js';
 import { renderWorks } from './works.js';
 import { renderWorkReview, openWorkReview, getReturnTo } from './work-review.js';
 import { renderSubstitutions } from './substitutions.js';
@@ -15,8 +15,8 @@ import { initNotifications } from './notifications.js';
 /* ── Screen registry: key → renderer ─────────────────────────────────── */
 const SCREENS = {
     dashboard:            (root) => renderDashboard(root, { openJournalFor, openReview: () => go('summary') }),
-    groups:               (root) => renderGroups(root, { openJournal: openJournalFor }),
-    journal:              (root) => renderJournal(root),
+    groups:               (root) => renderGroups(root, { openJournal: openJournalFor, ...summaryLink() }),
+    journal:              (root) => renderJournal(root, summaryLink()),
     works:                (root) => renderWorks(root, { openWorkReview: openWorkReviewFrom('works') }),
     summary:              (root) => renderSummary(root, { openWorkReview: openWorkReviewFrom('summary') }),
     substitutions:        (root) => renderSubstitutions(root),
@@ -108,6 +108,18 @@ function openWorkReviewFrom(from) {
     return (sourceType, sourceId) => {
         openWorkReview(sourceType, sourceId, from);
         go('work-review');
+    };
+}
+
+/* Tasks.md п. 3: «Сводка» конкретного ученика — из карточки в «Группах» и
+   из имени в журнале. Только там, где экран сводки есть (преподаватель/офис). */
+function summaryLink() {
+    if (!cfg.screens.includes('summary')) return {};
+    return {
+        openSummary: (gid, pid) => {
+            go('summary');
+            openSummaryFor(gid, pid);
+        },
     };
 }
 

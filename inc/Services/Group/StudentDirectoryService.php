@@ -12,10 +12,10 @@ use Inc\Services\Course\TeacherGroupResolver;
 /**
  * Class StudentDirectoryService
  *
- * Read-модель стартового пикера «Сводки по ученику» (Tasks.md, п.1-2):
- * список всех активных учеников, доступных текущему пользователю (across
- * his groups), и курсы (группы) конкретного ученика в этом же разрезе
- * доступа — чтобы выбирать сначала ученика, а не группу.
+ * Read-модель пикера «Сводки по ученику» (Tasks.md, п. 2): группы, доступные
+ * текущему пользователю, с их направлением (предметом) и активные ученики этих
+ * групп. Каскад «направление → группа → ученик» и поиск по ФИО строит клиент —
+ * объём небольшой, AJAX на каждый шаг не нужен.
  *
  * @package Inc\Services\Group
  */
@@ -29,15 +29,32 @@ class StudentDirectoryService {
 	) {}
 
 	/**
-	 * Активные ученики всех групп, доступных пользователю, с привязкой к группам
-	 * (для клиентского фильтра по вводу — без AJAX-поиска, объём небольшой).
+	 * Группы с активными учениками и сами ученики (с привязкой к группам).
 	 *
-	 * @return array<int, array{person_id:int, name:string, groups:int[]}>
+	 * @return array{
+	 *     groups: array<int, array{id:int, name:string, subject_key:string, subject:string}>,
+	 *     students: array<int, array{person_id:int, name:string, groups:int[]}>
+	 * }
 	 */
 	public function forTeacher( int $userId, bool $allGroups ): array {
+		$groups   = array();
 		$students = array();
 		foreach ( $this->teacherGroups->idsFor( $userId, $allGroups ) as $groupId ) {
-			foreach ( $this->records->findActiveByGroupId( $groupId ) as $rec ) {
+			$records = $this->records->findActiveByGroupId( $groupId );
+			$group   = empty( $records ) ? null : $this->groups->findById( $groupId );
+			if ( null === $group ) {
+				continue;
+			}
+
+			$subjectKey = (string) $group->subject_key;
+			$groups[]   = array(
+				'id'          => $groupId,
+				'name'        => (string) $group->name,
+				'subject_key' => $subjectKey,
+				'subject'     => $this->subjects->getByKey( $subjectKey )?->name ?? $subjectKey,
+			);
+
+			foreach ( $records as $rec ) {
 				if ( ! isset( $students[ $rec->studentPersonId ] ) ) {
 					$students[ $rec->studentPersonId ] = array(
 						'person_id' => $rec->studentPersonId,
@@ -49,33 +66,11 @@ class StudentDirectoryService {
 			}
 		}
 
-		return array_values( $students );
-	}
+		usort( $groups, static fn( array $a, array $b ): int => strnatcasecmp( $a['name'], $b['name'] ) );
 
-	/**
-	 * Группы (курсы) ученика, пересечённые с группами, доступными пользователю.
-	 *
-	 * @return array<int, array{group_id:int, name:string, subject:string}>
-	 */
-	public function coursesForStudent( int $personId, int $userId, bool $allGroups ): array {
-		$accessible = array_flip( $this->teacherGroups->idsFor( $userId, $allGroups ) );
-
-		$out = array();
-		foreach ( $this->records->findActiveByStudent( $personId ) as $rec ) {
-			if ( isset( $out[ $rec->groupId ] ) || ! isset( $accessible[ $rec->groupId ] ) ) {
-				continue;
-			}
-			$group = $this->groups->findById( $rec->groupId );
-			if ( null === $group ) {
-				continue;
-			}
-			$out[ $rec->groupId ] = array(
-				'group_id' => $rec->groupId,
-				'name'     => $group->name,
-				'subject'  => $this->subjects->getByKey( (string) $group->subject_key )?->name ?? (string) $group->subject_key,
-			);
-		}
-
-		return array_values( $out );
+		return array(
+			'groups'   => $groups,
+			'students' => array_values( $students ),
+		);
 	}
 }

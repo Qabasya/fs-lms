@@ -37,6 +37,10 @@
 }
 .pr-row:hover { border-color: var(--line-2); box-shadow: var(--shadow-sm); }
 
+/* Tasks.md п. 3: карточка ученика открывает его «Сводку». */
+.pr-row--link { cursor: pointer; }
+.pr-row--link:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
 .pr-ava {
   flex: none;
   width: rem(38); height: rem(38);

@@ -8,12 +8,115 @@
   padding: rem(22) rem(26) rem(40);
 }
 
-/* T12.8: пикеры группы/ученика переиспользуют .prof-ktp-pick/.kp-btn/… из _ktp.scss. */
+/* T12.8: пикеры направления/группы/ученика переиспользуют .prof-ktp-pick/.kp-btn/…
+   из _ktp.scss; справа — поиск по ФИО (Tasks.md п. 2). */
 .sum-head {
   display: flex;
   flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
   gap: rem(16);
   margin-bottom: rem(18);
+}
+
+.sum-pickers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: rem(16);
+}
+
+/* Поиск ученика по ФИО: подсказки раскрываются под полем с первой буквы. */
+.stu-search {
+  position: relative;
+  width: rem(300);
+}
+
+.stu-search-ico {
+  position: absolute;
+  top: 50%;
+  left: rem(12);
+  display: flex;
+  color: var(--muted-2);
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.stu-search-input {
+  width: 100%;
+  height: rem(44);
+  padding: 0 rem(12) 0 rem(36);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  font: inherit;
+  font-size: rem(14);
+  color: var(--ink);
+  transition: border-color $tr;
+}
+
+.stu-search-input:focus { outline: none; border-color: var(--accent); }
+
+.stu-search-list {
+  position: absolute;
+  top: calc(100% + #{rem(6)});
+  left: 0;
+  right: 0;
+  z-index: $z-ctx + 1;
+  max-height: rem(14 * 36 + 12);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: rem(6);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-pop);
+}
+
+.stu-opt {
+  display: flex;
+  align-items: center;
+  gap: rem(10);
+  padding: rem(8) rem(10);
+  border-radius: var(--radius-xs);
+  font-size: rem(13);
+  color: var(--ink-2);
+  cursor: pointer;
+}
+
+.stu-opt.is-active { background: var(--surface-2); }
+
+.stu-opt-ava {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: rem(22);
+  height: rem(20);
+  border-radius: rem(5);
+  font-size: rem(10);
+  font-weight: 700;
+  color: var(--ink-inverse);
+}
+
+.stu-opt-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stu-opt-meta {
+  flex-shrink: 0;
+  font-size: rem(12);
+  color: var(--muted);
+}
+
+.stu-empty {
+  padding: rem(8) rem(10);
+  font-size: rem(13);
+  color: var(--muted);
 }
 
 /* Доработка Tasks.md: вкладки «Занятия и прогресс по урокам» / «Работы» —
@@ -154,7 +257,10 @@
 @media (max-width: $breakpoint-mobile) {
   .prof-summary { padding: rem(16) rem(14) rem(32); }
   .sum-head .kp-btn { max-width: none; width: 100%; }
-  .sum-head .prof-ktp-pick { flex: 1 1 100%; }
+
+  .sum-head .prof-ktp-pick,
+  .sum-pickers,
+  .stu-search { flex: 1 1 100%; }
 }
 
 /* Чипы работ — кликабельны (открывают деталь, T10.9) */

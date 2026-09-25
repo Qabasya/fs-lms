@@ -150,13 +150,12 @@ final class TeacherProfileView implements ProfileViewInterface {
 					'updateIndividual' => AjaxHook::UpdateIndividualLesson->jsAction(),
 				),
 			),
-			// «Сводка по ученику» (T10.8, D8) — ростер для выбора + занятия ученика.
+			// «Сводка по ученику» (T10.8, D8) — группы и ученики для выбора + занятия ученика.
 			'summary'  => array(
 				'nonce'   => Nonce::SaveSchedule->create(),
 				'actions' => array(
 					'getSummary'  => AjaxHook::GetStudentSummary->jsAction(),
 					'getStudents' => AjaxHook::GetTeacherStudents->jsAction(),
-					'getCourses'  => AjaxHook::GetStudentCourses->jsAction(),
 				),
 			),
 			// Вкладка «Работы» (D3): список работ/экзаменов на проверку по вкладке

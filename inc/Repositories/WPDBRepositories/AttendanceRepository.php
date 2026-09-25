@@ -90,6 +90,25 @@ class AttendanceRepository {
 		return array_map( array( AttendanceDTO::class, 'fromArray' ), $rows ?: array() );
 	}
 
+	/**
+	 * Отметки «отсутствовал», поставленные в окне [from, to) — для уведомления
+	 * «пропущено занятие» через час после Н. Границы — GMT, как и `marked_at`.
+	 *
+	 * @return AttendanceDTO[]
+	 */
+	public function listAbsentMarkedBetween( string $fromGmt, string $toGmt ): array {
+		$rows = $this->wpdb->get_results(
+			$this->wpdb->prepare(
+				'SELECT * FROM %i WHERE is_present = 0 AND marked_at >= %s AND marked_at < %s',
+				$this->table,
+				$fromGmt,
+				$toGmt
+			),
+			ARRAY_A
+		);
+		return array_map( array( AttendanceDTO::class, 'fromArray' ), $rows ?: array() );
+	}
+
 	/** Каскадная очистка при удалении занятия (GroupDeletionHandler). */
 	public function deleteAllByGroupLesson( int $groupLessonId ): int {
 		return (int) $this->wpdb->delete( $this->table, array( 'group_lesson_id' => $groupLessonId ) );

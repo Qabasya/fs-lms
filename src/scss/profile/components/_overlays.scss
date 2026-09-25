@@ -17,6 +17,9 @@
 }
 .prof-ctx-menu.open { display: block; animation: profCtxIn $tr ease; }
 
+/* Длинный список (больше 14 пунктов — utils.js CTX_SCROLL_AFTER): видно 14 строк, дальше прокрутка. */
+.prof-ctx-menu--scroll { max-height: rem(14 * 36 + 12); overflow-y: auto; overscroll-behavior: contain; }
+
 @keyframes profCtxIn { from { opacity: 0; transform: translateY(rem(-4)); } to { opacity: 1; transform: translateY(0); } }
 .ctx-item { display: flex; align-items: center; gap: rem(10); padding: rem(8) rem(10); border-radius: var(--radius-xs); font-size: rem(13); color: var(--ink-2); cursor: pointer; }
 .ctx-item:hover { background: var(--surface-2); }

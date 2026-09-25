@@ -1,16 +1,46 @@
-/* Пикер группы/ученика (kp-btn с чипом + контекстное меню) — общий паттерн
-   T12.8, используется в журнале, КТП и сводке. Раньше разметка и меню были
-   продублированы в каждом экране. */
+/* Пикер направления/группы/ученика (kp-btn с чипом + контекстное меню) — общий
+   паттерн T12.8, используется в журнале, КТП и сводке. Раньше разметка и меню
+   были продублированы в каждом экране. */
 
 import { esc, shortName, initials, chipBg, groupSubjectKey, avaColor, openCtxMenu } from './utils.js';
 import { icoCaret } from '../common/icons.js';
 
 const CARET = icoCaret(12, 'kp-caret');
 
+/** Цвет чипа группы: по её предмету; группы вне сайдбара (офис) — по subject_key из ответа. */
+function groupChipBg(group) {
+    return chipBg(group.subject_key || groupSubjectKey(group.id));
+}
+
+/** Кнопка выбора направления (предмета): чип цвета предмета + название. */
+export function subjectPickerBtnHtml(subject, btnId) {
+    return `<button type="button" class="kp-btn" id="${btnId}">
+        <span class="kp-chip ${chipBg(subject.key)}">${esc(shortName(subject.name))}</span>
+        <span class="kp-txt">${esc(subject.name)}</span>
+        ${CARET}
+    </button>`;
+}
+
+/** Меню выбора направления; onPick получает ключ предмета (только при смене). */
+export function openSubjectPicker(anchor, subjects, currentKey, onPick) {
+    if (!anchor) return;
+    openCtxMenu(
+        anchor,
+        subjects.map(s => ({
+            v: s.key,
+            label: s.name,
+            active: s.key === currentKey,
+            swatchClass: chipBg(s.key),
+            chip: shortName(s.name),
+        })),
+        v => { if (v !== currentKey) onPick(v); }
+    );
+}
+
 /** Кнопка выбора группы (чип с цветом группы + «Название · предмет»). */
 export function groupPickerBtnHtml(group, btnId) {
     return `<button type="button" class="kp-btn" id="${btnId}">
-        <span class="kp-chip ${chipBg(groupSubjectKey(group.id))}">${esc(shortName(group.name))}</span>
+        <span class="kp-chip ${groupChipBg(group)}">${esc(shortName(group.name))}</span>
         <span class="kp-txt">${esc(group.name)} · ${esc(group.subject)}</span>
         ${CARET}
     </button>`;
@@ -37,7 +67,7 @@ export function openGroupPicker(anchor, groups, currentId, onPick, extra = []) {
         v: String(g.id),
         label: `${g.name} · ${g.subject}`,
         active: g.id === currentId,
-        swatchClass: chipBg(groupSubjectKey(g.id)),
+        swatchClass: groupChipBg(g),
         chip: shortName(g.name),
     }));
     extra.forEach(e => items.push({ ...e, active: String(e.v) === String(currentId) }));

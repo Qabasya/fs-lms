@@ -30,7 +30,7 @@ class GroupRosterCallbacks extends BaseController {
 	 * @param GroupRosterService     $roster    Ростер группы
 	 * @param StudentSummaryService  $summary   Сводка по ученику
 	 * @param GroupAccessGuard       $guard     Доступ к группе
-	 * @param StudentDirectoryService $directory Стартовый пикер «ученик → курсы» (Tasks.md п.1-2)
+	 * @param StudentDirectoryService $directory Пикер «направление → группа → ученик» (Tasks.md п. 2)
 	 */
 	public function __construct(
 		private readonly GroupRosterService      $roster,
@@ -69,26 +69,14 @@ class GroupRosterCallbacks extends BaseController {
 	}
 
 	/**
-	 * Активные ученики всех групп, доступных текущему пользователю (Tasks.md п.2) —
-	 * для стартового пикера «Сводки по ученику»: сначала ученик, потом курс.
+	 * Пикер «Сводки по ученику» (Tasks.md п. 2): доступные пользователю группы
+	 * с направлением и их активные ученики — каскад и поиск строит клиент.
 	 */
 	public function ajaxGetTeacherStudents(): void {
 		$this->authorize( Nonce::SaveSchedule, Capability::ManageLmsTeaching );
 
 		$userId = get_current_user_id();
 		$this->success( $this->directory->forTeacher( $userId, $this->isOffice( $userId ) ) );
-	}
-
-	/**
-	 * Группы (курсы) ученика, доступные текущему пользователю (Tasks.md п.1).
-	 * Params: student_person_id.
-	 */
-	public function ajaxGetStudentCourses(): void {
-		$this->authorize( Nonce::SaveSchedule, Capability::ManageLmsTeaching );
-		$personId = $this->requireInt( 'student_person_id' );
-
-		$userId = get_current_user_id();
-		$this->success( $this->directory->coursesForStudent( $personId, $userId, $this->isOffice( $userId ) ) );
 	}
 
 	/**

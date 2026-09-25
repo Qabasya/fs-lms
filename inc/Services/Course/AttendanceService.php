@@ -78,10 +78,9 @@ class AttendanceService {
 
 	/**
 	 * Уведомления по отметке. Сама Н сразу не уведомляет: «пропущено занятие»
-	 * уходит, когда началось следующее занятие, а ученик так и не открыл урок и
-	 * не сдал домашнюю работу ({@see \Inc\Services\Profile\NotificationCronService}).
-	 * Здесь — только серия пропусков подряд (родителю) и отзыв уже отправленного
-	 * «пропущено» при исправлении ошибочной Н.
+	 * уходит через час после отметки ({@see \Inc\Services\Profile\NotificationCronService}),
+	 * чтобы ошибочную Н успели исправить. Здесь — только серия пропусков подряд
+	 * (родителю) и отзыв уже отправленного «пропущено» при исправлении Н.
 	 */
 	private function notifyAttendance( GroupLessonDTO $lesson, int $studentPersonId, string $studentName, bool $present ): void {
 		if ( $present ) {

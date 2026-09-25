@@ -110,11 +110,15 @@ export function emptyState(wrapClass, iconSvg, title, text, danger) {
 /* ── Context menu (shared) ─────────────────────────────────────── */
 let ctxOnClose = null;
 
+/** Больше стольких пунктов — меню получает прокрутку (Tasks.md п. 2: ученики группы). */
+const CTX_SCROLL_AFTER = 14;
+
 export function openCtxMenu(anchor, items, onPick) {
     const menu = document.getElementById('profCtxMenu');
     const backdrop = document.getElementById('profCtxBackdrop');
     if (!menu || !backdrop) return;
 
+    menu.classList.toggle('prof-ctx-menu--scroll', items.length > CTX_SCROLL_AFTER);
     menu.innerHTML = items.map(it => `<div class="ctx-item ${it.active ? 'on' : ''}" data-v="${esc(it.v)}">
         <span class="ctx-check">${it.active ? icoCheck(15) : ''}</span>
         ${it.swatch || it.swatchClass ? `<span class="ctx-sw${it.swatchClass ? ' ' + esc(it.swatchClass) : ''}"${it.swatch ? ` style="background:${it.swatch}"` : ''}>${esc(it.chip || '')}</span>` : ''}
@@ -138,6 +142,7 @@ export function openCtxMenuRaw(html, anchor, onClose, opts = {}) {
     const menu = document.getElementById('profCtxMenu');
     const backdrop = document.getElementById('profCtxBackdrop');
     if (!menu || !backdrop) return;
+    menu.classList.remove('prof-ctx-menu--scroll');
     menu.innerHTML = html;
     const r = anchor.getBoundingClientRect();
     menu.classList.add('open');

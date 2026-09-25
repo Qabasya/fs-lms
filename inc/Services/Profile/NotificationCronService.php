@@ -15,7 +15,6 @@ use Inc\Enums\Profile\NotificationType;
 use Inc\Enums\Wp\PageRoutes;
 use Inc\Repositories\WPDBRepositories\AttendanceRepository;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
-use Inc\Repositories\WPDBRepositories\LessonProgressRepository;
 use Inc\Repositories\WPDBRepositories\NotificationRepository;
 use Inc\Repositories\WPDBRepositories\SubmissionRepository;
 use Inc\Services\Course\EffectiveWorksResolver;
@@ -48,7 +47,6 @@ readonly class NotificationCronService {
 		private ClockInterface           $clock,
 		private LessonVisibilityService  $visibility,
 		private AttendanceRepository     $attendance,
-		private LessonProgressRepository $progress,
 	) {}
 
 	public function tick(): void {
@@ -57,6 +55,7 @@ readonly class NotificationCronService {
 		$this->deadlines();
 		$this->homeworkBeforeNextLesson();
 		$this->nextLessonBegan();
+		$this->absenceMarked();
 		$this->journalNotFilled();
 		$this->purge();
 	}
@@ -255,12 +254,8 @@ readonly class NotificationCronService {
 	}
 
 	/**
-	 * Началось следующее занятие — итоги прошлого:
-	 * - домашняя работа без явного дедлайна не сдана — «пропущена сдача» ученику
-	 *   и родителю;
-	 * - ученик отсутствовал (Н в журнале), урок так и не открыл и домашнюю работу
-	 *   (если была) не сдал — «пропущено занятие» ученику и родителю. Одна Н без
-	 *   последствий — не повод тревожить: ученик мог нагнать урок сам.
+	 * Началось следующее занятие — домашняя работа прошлого без явного дедлайна
+	 * не сдана: «пропущена сдача» ученику и родителю.
 	 */
 	private function nextLessonBegan(): void {
 		$now = $this->clock->now();
@@ -277,79 +272,66 @@ readonly class NotificationCronService {
 					$this->notifyDeadline( NotificationType::DeadlineMissed, 'dl_miss', $previous, $work, $pending, true );
 				}
 			}
-
-			$this->notifyMissedLesson( $previous );
 		}
 	}
 
-	private function notifyMissedLesson( GroupLessonDTO $lesson ): void {
-		$absent = array();
-		foreach ( $this->attendance->listByGroupLesson( $lesson->id ) as $mark ) {
-			if ( ! $mark->isPresent ) {
-				$absent[] = $mark->studentPersonId;
+	/**
+	 * Через час после Н в журнале — «пропущено занятие» ученику и родителю.
+	 * Час — на исправление ошибочной отметки: снятая или исправленная на «был»
+	 * Н в выборку уже не попадает, а отправленное позже отзывает
+	 * {@see \Inc\Services\Course\AttendanceService}. `marked_at` хранится в GMT,
+	 * поэтому окно считается в GMT; запас в сутки — на пропущенные тики WP-Cron,
+	 * дубли гасит `dedupe_key`.
+	 */
+	private function absenceMarked(): void {
+		$nowGmt = $this->clock->now( 'mysql', true );
+		$marks  = $this->attendance->listAbsentMarkedBetween( $this->shift( $nowGmt, '-25 hours' ), $this->shift( $nowGmt, '-1 hour' ) );
+
+		$lessons = array();
+		foreach ( $marks as $mark ) {
+			if ( ! array_key_exists( $mark->groupLessonId, $lessons ) ) {
+				$lessons[ $mark->groupLessonId ] = $this->groupLessons->find( $mark->groupLessonId );
 			}
-		}
-		if ( empty( $absent ) ) {
-			return;
-		}
-
-		$viewed = array();
-		foreach ( $this->progress->listByGroupLesson( $lesson->id ) as $step ) {
-			$viewed[ $step->studentPersonId ] = true;
-		}
-
-		$homeworkIds = array_map(
-			static fn( WorkDTO $w ): int => $w->id,
-			array_filter( $this->worksResolver->resolve( $lesson ), static fn( WorkDTO $w ): bool => WorkType::Homework === $w->workType )
-		);
-
-		$topic = $this->notifications->lessonTopic( $lesson );
-		$group = $this->notifications->groupName( $lesson->groupId );
-
-		foreach ( array_unique( $absent ) as $personId ) {
-			if ( isset( $viewed[ $personId ] ) ) {
+			$lesson = $lessons[ $mark->groupLessonId ];
+			if ( null === $lesson ) {
 				continue;
 			}
-			$submitted = array_map(
-				static fn( $s ) => $s->workId,
-				$this->submissions->listByStudentAndGroupLesson( $personId, $lesson->id )
-			);
-			if ( ! empty( $homeworkIds ) && empty( array_diff( $homeworkIds, $submitted ) ) ) {
-				continue; // домашняя работа сдана — урок фактически нагнан.
-			}
+			$this->notifyMissedLesson( $lesson, $mark->studentPersonId );
+		}
+	}
 
-			$payload = array(
-				'student_name' => $this->notifications->studentSnapshotName( $personId, $lesson->groupId ),
-				'topic'        => $topic,
-				'group_name'   => $group,
-			);
-			$dedupe = "att:{$lesson->id}:{$personId}";
+	private function notifyMissedLesson( GroupLessonDTO $lesson, int $personId ): void {
+		$payload = array(
+			'student_name' => $this->notifications->studentSnapshotName( $personId, $lesson->groupId ),
+			'topic'        => $this->notifications->lessonTopic( $lesson ),
+			'group_name'   => $this->notifications->groupName( $lesson->groupId ),
+		);
+		$dedupe = "att:{$lesson->id}:{$personId}";
 
-			$studentUserId = $this->notifications->studentUserId( $personId );
-			if ( null !== $studentUserId ) {
-				$this->notifications->push(
-					array( $studentUserId ),
-					NotificationType::AttendanceMissed,
-					$dedupe,
-					$payload,
-					PageRoutes::LessonPlayer->lessonUrl( $lesson->groupId, $lesson->id ),
-					$lesson->groupId,
-					'group_lesson',
-					$lesson->id
-				);
-			}
-
+		$studentUserId = $this->notifications->studentUserId( $personId );
+		if ( null !== $studentUserId ) {
 			$this->notifications->push(
-				$this->notifications->guardianUserIds( $personId ),
+				array( $studentUserId ),
 				NotificationType::AttendanceMissed,
 				$dedupe,
 				$payload,
-				(string) add_query_arg( array( 'screen' => 'learner-attendance' ), PageRoutes::UserProfile->url() ),
+				PageRoutes::LessonPlayer->lessonUrl( $lesson->groupId, $lesson->id ),
 				$lesson->groupId,
 				'group_lesson',
 				$lesson->id
 			);
 		}
+
+		$this->notifications->push(
+			$this->notifications->guardianUserIds( $personId ),
+			NotificationType::AttendanceMissed,
+			$dedupe,
+			$payload,
+			(string) add_query_arg( array( 'screen' => 'learner-attendance' ), PageRoutes::UserProfile->url() ),
+			$lesson->groupId,
+			'group_lesson',
+			$lesson->id
+		);
 	}
 
 	/**

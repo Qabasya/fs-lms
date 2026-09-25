@@ -20,7 +20,8 @@ let root = null;
 let state = null;
 let api = null;
 
-export function renderJournal(r) {
+/** @param {{ openSummary?: (groupId: number, personId: number) => void }} [handlers] */
+export function renderJournal(r, handlers = {}) {
     root = r;
     const p = window.fsProfile || {};
     state = {
@@ -31,6 +32,7 @@ export function renderJournal(r) {
         filters: null,
         months:  [],   // T11.5: список месяцев 'YYYY-MM', отсортированный
         monthIdx: 0,   // T11.5: индекс активного месяца в months
+        handlers,
     };
     api = createApi(state.cfg);
     if (!state.groups.length || !state.cfg) { root.innerHTML = emptyHtml('Нет групп', 'За вами не закреплены группы.'); return; }
@@ -141,12 +143,7 @@ function render() {
     const body = `<tbody>${d.students.map((s, i) => `
         <tr data-pid="${s.person_id}">
             <td class="col-idx cell-idx">${i + 1}</td>
-            <td class="col-name cell-name">
-                <div class="cn-wrap">
-                    <span class="cn-ava" style="background:${avaColor(d.students, s.person_id)}">${initials(s.name)}</span>
-                    <span class="cn-name">${esc(s.name)}</span>
-                </div>
-            </td>
+            <td class="col-name cell-name">${nameCell(d.students, s)}</td>
             ${lessons.map((l, c) => attCell(s.person_id, l, i, c)).join('')}
         </tr>`).join('')}</tbody>`;
 
@@ -332,7 +329,27 @@ function worksTipHtml(glid, pid, works) {
 }
 
 /* ── Interactions ─────────────────────────────────────────────────────── */
+/* Tasks.md п. 3: имя ученика ведёт в его «Сводку» по этой группе. Сентинел
+   индивидуальных занятий (-1) — не группа, сводки по нему нет. */
+function canOpenSummary() {
+    return 'function' === typeof state.handlers.openSummary && state.groupId > 0;
+}
+
+function nameCell(students, s) {
+    const inner = `
+        <span class="cn-ava" style="background:${avaColor(students, s.person_id)}">${initials(s.name)}</span>
+        <span class="cn-name">${esc(s.name)}</span>`;
+    return canOpenSummary()
+        ? `<button type="button" class="cn-wrap cn-link" data-summary-pid="${s.person_id}" title="Открыть сводку по ученику">${inner}</button>`
+        : `<div class="cn-wrap">${inner}</div>`;
+}
+
 function onGridClick(e) {
+    const nameBtn = e.target.closest('[data-summary-pid]');
+    if (nameBtn) {
+        state.handlers.openSummary(state.groupId, +nameBtn.dataset.summaryPid);
+        return;
+    }
     if (state.data.open) return; // открытая группа: посещаемость не ведётся
     const td = e.target.closest('td.gc.att');
     if (td) {

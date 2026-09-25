@@ -81,26 +81,15 @@ class GroupRosterCallbacksTest extends TestCase {
 	public function test_get_teacher_students_returns_directory(): void {
 		$this->directory->expects( $this->once() )
 			->method( 'forTeacher' )
-			->willReturn( array( array( 'person_id' => 9001, 'name' => 'Антонов Артём', 'groups' => array( 1 ) ) ) );
+			->willReturn( array(
+				'groups'   => array( array( 'id' => 1, 'name' => 'Группа А', 'subject_key' => 'math', 'subject' => 'Математика' ) ),
+				'students' => array( array( 'person_id' => 9001, 'name' => 'Антонов Артём', 'groups' => array( 1 ) ) ),
+			) );
 
 		$r = fs_test_capture_json( fn() => $this->cb->ajaxGetTeacherStudents() );
 
 		self::assertTrue( $r->success );
-		self::assertCount( 1, $r->payload );
-		self::assertSame( 9001, $r->payload[0]['person_id'] );
-	}
-
-	public function test_get_student_courses_returns_courses(): void {
-		$this->directory->expects( $this->once() )
-			->method( 'coursesForStudent' )
-			->with( 9001, self::isType( 'int' ), self::isType( 'bool' ) )
-			->willReturn( array( array( 'group_id' => 1, 'name' => 'Группа А', 'subject' => 'Математика' ) ) );
-		$_POST = array( 'student_person_id' => '9001' );
-
-		$r = fs_test_capture_json( fn() => $this->cb->ajaxGetStudentCourses() );
-
-		self::assertTrue( $r->success );
-		self::assertCount( 1, $r->payload );
-		self::assertSame( 1, $r->payload[0]['group_id'] );
+		self::assertSame( 'math', $r->payload['groups'][0]['subject_key'] );
+		self::assertSame( 9001, $r->payload['students'][0]['person_id'] );
 	}
 }

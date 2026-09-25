@@ -4,6 +4,7 @@
    Показывает активных учеников (PII-safe snapshot-имена) и их индивидуальные
    занятия; здесь же создаются индивидуальные занятия (перенос из журнала).
    Клик по группе в сайдбаре открывает этот экран (см. app.js openGroupsFor).
+   Клик по карточке ученика — его «Сводка» по этой группе (Tasks.md п. 3).
    ══════════════════════════════════════════════════════════════════════ */
 
 import { esc, toast, initials, firstWord, avaColor, emptyState, fmtDate } from './utils.js';
@@ -79,9 +80,20 @@ function render() {
 
     root.querySelectorAll('[data-add-indi]').forEach(b =>
         b.addEventListener('click', () => openIndiForm(+b.dataset.pid, b)));
+
+    if ('function' === typeof state.handlers.openSummary) {
+        root.querySelectorAll('.pr-row[data-pid]').forEach(row => {
+            const open = () => state.handlers.openSummary(state.groupId, +row.dataset.pid);
+            row.addEventListener('click', e => { if (!e.target.closest('[data-add-indi]')) open(); });
+            row.addEventListener('keydown', e => {
+                if (e.target === row && ('Enter' === e.key || ' ' === e.key)) { e.preventDefault(); open(); }
+            });
+        });
+    }
 }
 
 function studentRow(s) {
+    const linked = 'function' === typeof state.handlers.openSummary;
     const indis = s.individual.length
         ? `<div class="pr-indis">${s.individual.map(x => `
             <span class="pr-indi pr-indi-${esc(x.status)}" title="${esc(STATUS_LABEL[x.status] || x.status)}">
@@ -90,7 +102,7 @@ function studentRow(s) {
         : '<div class="pr-indis pr-indis-empty">Индивидуальных занятий нет</div>';
 
     return `
-    <div class="pr-row" data-pid="${s.person_id}">
+    <div class="pr-row${linked ? ' pr-row--link' : ''}" data-pid="${s.person_id}"${linked ? ' tabindex="0" title="Открыть сводку по ученику"' : ''}>
         <span class="pr-ava" style="background:${avaColor(state.data.students, s.person_id)}">${initials(s.name)}</span>
         <div class="pr-info">
             <div class="pr-name">${esc(s.name)}</div>

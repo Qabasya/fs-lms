@@ -1,18 +1,23 @@
 /* ══════════════════════════════════════════════════════════════════════
    «Сводка по ученику» (Эпик 10 T10.8, D8; доработка — .docs/Tasks.md).
    Источник: window.fsProfile.{summary:{nonce,actions}, ajax.url}.
-   Выбор идёт от ученика (все ученики, доступные пользователю) → его курс
-   (группа), если их больше одного → две вкладки: «Занятия и прогресс по
-   урокам» (карточки занятий: дата, тема, посещаемость, компактный прогресс
-   по шагам урока, работы) и «Работы» (карточки работ, сгруппированные по
-   занятиям — та же вёрстка, что в очереди проверки, Tasks.md п. 7).
+   Выбор — каскадом «направление → группа → ученик» (Tasks.md п. 2) плюс поиск
+   по ФИО справа: найденный ученик сам выставляет направление и группу. Сюда же
+   ведут карточка ученика в «Группах» и имя в журнале (openSummaryFor, п. 3).
+   Две вкладки: «Занятия и прогресс по урокам» (карточки занятий: дата, тема,
+   посещаемость, компактный прогресс по шагам урока, работы) и «Работы»
+   (карточки работ, сгруппированные по занятиям).
    Оценивание — в детали работы (T10.9), переход через openWorkReview.
    ══════════════════════════════════════════════════════════════════════ */
 
 import { esc, emptyState, fmtDate } from './utils.js';
 import { icoDocCheck } from '../common/icons.js';
 import { createApi } from './api.js';
-import { groupPickerBtnHtml, studentPickerBtnHtml, openGroupPicker, openStudentPicker } from './picker.js';
+import {
+    subjectPickerBtnHtml, groupPickerBtnHtml, studentPickerBtnHtml,
+    openSubjectPicker, openGroupPicker, openStudentPicker,
+} from './picker.js';
+import { studentSearchHtml, wireStudentSearch } from './student-search.js';
 import { workCardHtml, workChipHtml, workStatusText } from './work-card.js';
 
 const KIND_LABEL = { group: 'Групповое', individual: 'Индивидуальное' };
@@ -27,6 +32,8 @@ let root = null;
 let state = null;
 let api = null;
 let openWorkReviewCb = null;
+/** Промис загрузки справочника: переход «к ученику» может прийти раньше, чем он загрузился. */
+let directoryReady = null;
 
 /** @param {{ openWorkReview?: (sourceType: string, sourceId: number) => void }} [opts] */
 export function renderSummary(r, opts = {}) {
@@ -34,47 +41,65 @@ export function renderSummary(r, opts = {}) {
     openWorkReviewCb = typeof opts.openWorkReview === 'function' ? opts.openWorkReview : null;
     const p = window.fsProfile || {};
     state = {
-        cfg:      p.summary || null,
-        students: [],
-        personId: null,
-        courses:  [],
-        groupId:  null,
-        data:     null,
-        tab:      'lessons',
+        cfg:        p.summary || null,
+        groups:     [],
+        students:   [],
+        subjectKey: null,
+        groupId:    null,
+        personId:   null,
+        data:       null,
+        tab:        'lessons',
     };
     api = createApi(state.cfg);
-    if (!state.cfg) { root.innerHTML = empty('Сводка недоступна', 'Экран «Сводка по ученику» не настроен.'); return; }
-    loadStudents();
-}
-
-/* ── Data ─────────────────────────────────────────────────────────────── */
-async function loadStudents() {
-    try {
-        state.students = await api('getStudents', {});
-    } catch (e) {
-        root.innerHTML = empty('Не удалось загрузить учеников', e.message);
+    if (!state.cfg) {
+        directoryReady = Promise.resolve(false);
+        root.innerHTML = empty('Сводка недоступна', 'Экран «Сводка по ученику» не настроен.');
         return;
     }
-    state.personId = state.students.length ? state.students[0].person_id : null;
-    if (!state.personId) { state.data = { lessons: [] }; render(); return; }
-    loadCourses();
+    directoryReady = loadDirectory();
+    directoryReady.then(ok => { if (ok && null === state.personId) { selectSubject(subjects()[0]?.key ?? null); } });
 }
 
-async function loadCourses() {
-    try {
-        state.courses = await api('getCourses', { student_person_id: state.personId });
-    } catch (e) {
-        root.innerHTML = empty('Не удалось загрузить курсы ученика', e.message);
-        return;
-    }
-    state.groupId = state.courses.length ? state.courses[0].group_id : null;
-    if (!state.groupId) { state.data = { lessons: [] }; render(); return; }
+/**
+ * Открыть сводку конкретного ученика в конкретной группе (Tasks.md п. 3:
+ * карточка ученика в «Группах», имя в журнале).
+ */
+export async function openSummaryFor(groupId, personId) {
+    if (!directoryReady || !(await directoryReady)) { return; }
+    const g = state.groups.find(x => x.id === +groupId);
+    if (!g) { return; }
+    state.subjectKey = g.subject_key;
+    state.groupId = g.id;
+    state.personId = groupStudents().some(s => s.person_id === +personId) ? +personId : (groupStudents()[0]?.person_id ?? null);
+    state.tab = 'lessons';
     loadSummary();
 }
 
-async function loadSummary() {
+/* ── Data ─────────────────────────────────────────────────────────────── */
+async function loadDirectory() {
     try {
-        state.data = await api('getSummary', { group_id: state.groupId, student_person_id: state.personId });
+        const d = await api('getStudents', {});
+        state.groups = d.groups || [];
+        state.students = (d.students || []).slice().sort((a, b) => a.name.localeCompare(b.name, 'ru'));
+    } catch (e) {
+        root.innerHTML = empty('Не удалось загрузить учеников', e.message);
+        return false;
+    }
+    if (!state.groups.length) {
+        root.innerHTML = empty('Учеников нет', 'В ваших группах пока нет активных учеников.');
+        return false;
+    }
+    return true;
+}
+
+async function loadSummary() {
+    if (!state.groupId || !state.personId) { state.data = { lessons: [] }; render(); return; }
+    const key = `${state.groupId}:${state.personId}`;
+    try {
+        const data = await api('getSummary', { group_id: state.groupId, student_person_id: state.personId });
+        // Пока грузилось, выбор могли сменить — старый ответ не рисуем.
+        if (key !== `${state.groupId}:${state.personId}`) { return; }
+        state.data = data;
     } catch (e) {
         root.innerHTML = empty('Не удалось загрузить сводку', e.message);
         return;
@@ -82,18 +107,70 @@ async function loadSummary() {
     render();
 }
 
+/* ── Cascade: направление → группа → ученик ───────────────────────────── */
+
+/** Направления (предметы) из доступных групп, по алфавиту. */
+function subjects() {
+    const map = new Map();
+    state.groups.forEach(g => { if (!map.has(g.subject_key)) { map.set(g.subject_key, { key: g.subject_key, name: g.subject }); } });
+    return [...map.values()].sort((a, b) => a.name.localeCompare(b.name, 'ru'));
+}
+
+function subjectGroups() {
+    return state.groups.filter(g => g.subject_key === state.subjectKey);
+}
+
+function groupStudents() {
+    return state.students.filter(s => s.groups.includes(state.groupId));
+}
+
+function selectSubject(key) {
+    state.subjectKey = key;
+    selectGroup(subjectGroups()[0]?.id ?? null);
+}
+
+function selectGroup(id) {
+    state.groupId = id;
+    state.personId = groupStudents()[0]?.person_id ?? null;
+    state.tab = 'lessons';
+    loadSummary();
+}
+
+/** Ученик из поиска: остаёмся в текущей группе, если он в ней учится, иначе — его первая. */
+function selectFoundStudent(personId) {
+    const s = state.students.find(x => x.person_id === personId);
+    if (!s) { return; }
+    const gid = s.groups.includes(state.groupId)
+        ? state.groupId
+        : (state.groups.find(g => s.groups.includes(g.id)) || {}).id;
+    openSummaryFor(gid, personId);
+}
+
 /* ── Render ───────────────────────────────────────────────────────────── */
 function render() {
-    const student = state.students.find(s => s.person_id === state.personId);
+    const subject = subjects().find(x => x.key === state.subjectKey);
+    const group = state.groups.find(g => g.id === state.groupId);
+    const roster = groupStudents();
+    const student = roster.find(s => s.person_id === state.personId);
 
     root.innerHTML = `
     <div class="prof-summary">
         <div class="sum-head">
-            <div class="prof-ktp-pick">
-                <span class="kp-label">Ученик</span>
-                ${studentPickerBtnHtml(student, state.students, 'sumStudentBtn')}
+            <div class="sum-pickers">
+                ${subject ? `<div class="prof-ktp-pick">
+                    <span class="kp-label">Направление</span>
+                    ${subjectPickerBtnHtml(subject, 'sumSubjectBtn')}
+                </div>` : ''}
+                ${group ? `<div class="prof-ktp-pick">
+                    <span class="kp-label">Группа</span>
+                    ${groupPickerBtnHtml(group, 'sumGroupBtn')}
+                </div>` : ''}
+                <div class="prof-ktp-pick">
+                    <span class="kp-label">Ученик</span>
+                    ${studentPickerBtnHtml(student, roster, 'sumStudentBtn')}
+                </div>
             </div>
-            ${courseBlockHtml()}
+            ${studentSearchHtml('sumSearch')}
         </div>
         ${tabsHtml()}
         <div class="sum-body prof-swap">${'works' === state.tab ? worksHtml() : lessonsHtml()}</div>
@@ -102,25 +179,6 @@ function render() {
     wireHead();
     wireTabs();
     wireRows();
-}
-
-function courseBlockHtml() {
-    if (state.courses.length > 1) {
-        const c = state.courses.find(x => x.group_id === state.groupId) || state.courses[0];
-        const g = { id: c.group_id, name: c.name, subject: c.subject };
-        return `<div class="prof-ktp-pick">
-            <span class="kp-label">Курс</span>
-            ${groupPickerBtnHtml(g, 'sumCourseBtn')}
-        </div>`;
-    }
-    if (1 === state.courses.length) {
-        const c = state.courses[0];
-        return `<div class="prof-ktp-pick">
-            <span class="kp-label">Курс</span>
-            <span class="sum-course-label">${esc(c.name)} · ${esc(c.subject)}</span>
-        </div>`;
-    }
-    return '';
 }
 
 function tabsHtml() {
@@ -171,29 +229,34 @@ function workCard(w) {
     });
 }
 
-/* T12.8: дропдауны ученика/курса — общий пикер (picker.js). */
+/* T12.8: дропдауны — общий пикер (picker.js); поиск — student-search.js. */
 function wireHead() {
+    const subBtn = root.querySelector('#sumSubjectBtn');
+    if (subBtn) {
+        subBtn.addEventListener('click', () =>
+            openSubjectPicker(subBtn, subjects(), state.subjectKey, selectSubject));
+    }
+
+    const gBtn = root.querySelector('#sumGroupBtn');
+    if (gBtn) {
+        gBtn.addEventListener('click', () =>
+            openGroupPicker(gBtn, subjectGroups(), state.groupId, selectGroup));
+    }
+
     const sBtn = root.querySelector('#sumStudentBtn');
-    if (sBtn && state.students.length) { sBtn.addEventListener('click', openStudentMenu); }
+    if (sBtn && groupStudents().length) {
+        sBtn.addEventListener('click', () =>
+            openStudentPicker(sBtn, groupStudents(), state.personId, id => {
+                state.personId = id;
+                state.tab = 'lessons';
+                loadSummary();
+            }));
+    }
 
-    const cBtn = root.querySelector('#sumCourseBtn');
-    if (cBtn) { cBtn.addEventListener('click', openCourseMenu); }
-}
-
-function openStudentMenu() {
-    openStudentPicker(document.getElementById('sumStudentBtn'), state.students, state.personId, id => {
-        state.personId = id;
-        state.tab = 'lessons';
-        loadCourses();
-    });
-}
-
-function openCourseMenu() {
-    const groups = state.courses.map(c => ({ id: c.group_id, name: c.name, subject: c.subject }));
-    openGroupPicker(document.getElementById('sumCourseBtn'), groups, state.groupId, id => {
-        state.groupId = id;
-        loadSummary();
-    });
+    const search = root.querySelector('#sumSearch');
+    if (search) {
+        wireStudentSearch(search, state.students, gid => (state.groups.find(g => g.id === gid) || {}).name || '', selectFoundStudent);
+    }
 }
 
 function wireTabs() {

@@ -73,13 +73,13 @@
 }
 
 /* Полоска заданий: решённые — галочка, нерешённые — крестик, ручные — часы.
-   27 колонок одной ширины: ячейка тянется по свободному месту (на 1280 —
-   ~17px, шире экран — крупнее, до предела max-width), 28-е задание уходит
-   на следующий ряд. Колонка ячейки не зависит от числа заданий — отметки
-   разных карточек стоят друг под другом. */
+   До 27 колонок одной ширины: ячейка тянется по свободному месту (до предела
+   max-width), но не уже 20px — на 1280 лишние задания уходят на следующий ряд.
+   Ширина колонки у всех карточек списка одна, поэтому отметки разных карточек
+   стоят друг под другом. */
 .wcard-marks {
   display: grid;
-  grid-template-columns: repeat(27, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(max(#{rem(20)}, calc((100% - #{rem(26 * 3)}) / 27)), 1fr));
   gap: rem(3);
   max-width: rem(27 * 26 + 26 * 3);
 }
@@ -136,18 +136,31 @@ a.wcard           { color: inherit; text-decoration: none; }
   gap: rem(12);
 }
 
-/* «Сводка по ученику»: отметки занимают ровно своё место и прижаты к дате,
-   всё остальное отдаётся теме — при коротком списке заданий она видна целиком. */
-.sum-work-card { grid-template-columns: rem(40) minmax(rem(160), 1fr) auto rem(190); }
+/* «Сводка по ученику» и оценки ученика: тема и отметки делят место поровну,
+   отметки прижаты влево — первые квадратики всех карточек стоят друг под другом. */
+.sum-work-card { grid-template-columns: rem(40) minmax(rem(160), 1fr) minmax(0, 1fr) rem(190); }
 
 .sum-work-card .wcard-marks {
   display: flex;
   flex-wrap: wrap;
-  justify-content: flex-end;
   max-width: rem(27 * 20 + 26 * 3);
 }
 
 .sum-work-card .wmark { width: rem(20); }
+
+/* Ноутбук 1280: на отметки рядом с темой места мало — они уходят второй
+   строкой под тему, от её левого края. */
+@media (max-width: $breakpoint-laptop) {
+  .sum-work-card {
+    grid-template-columns: rem(40) minmax(0, 1fr) rem(190);
+    row-gap: rem(10);
+  }
+
+  .sum-work-card .wcard-marks {
+    grid-column: 2 / -1;
+    grid-row: 2;
+  }
+}
 
 /* Группировка карточек по занятиям («Сводка по ученику» → вкладка «Работы»). */
 .sum-work-groups {
