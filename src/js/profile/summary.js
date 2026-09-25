@@ -158,7 +158,7 @@ function worksHtml() {
 }
 
 function workCard(w) {
-    const status = 'pending' === w.display ? 'На проверке' : (w.overdue ? `Просрочено · ${w.value}` : `Оценено · ${w.value}`);
+    const status = 'pending' === w.display ? 'На проверке' : (w.overdue ? `Просрочено · ${w.value}` : w.value);
     return workCardHtml({
         title:      w.title,
         badge:      w.badge,

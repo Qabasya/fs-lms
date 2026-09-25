@@ -121,6 +121,29 @@
   white-space: nowrap;
 }
 
+/* Список сдач в «Работах»: ФИО одной ширины, группы — колонкой друг под
+   другом, дальше отметки как у всех карточек. */
+.wk-sub-row { grid-template-columns: rem(40) rem(300) minmax(0, 1fr) rem(190); }
+
+.wk-sub-row .wcard-main {
+  display: grid;
+  grid-template-columns: rem(180) minmax(0, 1fr);
+  gap: rem(12);
+}
+
+/* «Сводка по ученику»: отметки занимают ровно своё место и прижаты к дате,
+   всё остальное отдаётся теме — при коротком списке заданий она видна целиком. */
+.sum-work-card { grid-template-columns: rem(40) minmax(rem(160), 1fr) auto rem(190); }
+
+.sum-work-card .wcard-marks {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  max-width: rem(27 * 20 + 26 * 3);
+}
+
+.sum-work-card .wmark { width: rem(20); }
+
 /* Группировка карточек по занятиям («Сводка по ученику» → вкладка «Работы»). */
 .sum-work-groups {
   display: flex;
