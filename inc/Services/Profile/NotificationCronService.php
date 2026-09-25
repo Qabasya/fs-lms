@@ -276,8 +276,8 @@ readonly class NotificationCronService {
 	}
 
 	/**
-	 * Через час после Н в журнале — «пропущено занятие» ученику и родителю.
-	 * Час — на исправление ошибочной отметки: снятая или исправленная на «был»
+	 * Через 30 минут после Н в журнале — «пропущено занятие» ученику и родителю.
+	 * 30 минут — на исправление ошибочной отметки: снятая или исправленная на «был»
 	 * Н в выборку уже не попадает, а отправленное позже отзывает
 	 * {@see \Inc\Services\Course\AttendanceService}. `marked_at` хранится в GMT,
 	 * поэтому окно считается в GMT; запас в сутки — на пропущенные тики WP-Cron,
@@ -285,7 +285,7 @@ readonly class NotificationCronService {
 	 */
 	private function absenceMarked(): void {
 		$nowGmt = $this->clock->now( 'mysql', true );
-		$marks  = $this->attendance->listAbsentMarkedBetween( $this->shift( $nowGmt, '-25 hours' ), $this->shift( $nowGmt, '-1 hour' ) );
+		$marks  = $this->attendance->listAbsentMarkedBetween( $this->shift( $nowGmt, '-24 hours -30 minutes' ), $this->shift( $nowGmt, '-30 minutes' ) );
 
 		$lessons = array();
 		foreach ( $marks as $mark ) {

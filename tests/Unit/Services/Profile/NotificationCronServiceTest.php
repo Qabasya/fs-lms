@@ -386,15 +386,15 @@ class NotificationCronServiceTest extends TestCase {
 		self::assertNotContains( NotificationType::AttendanceMissed, array_column( $pushed, 0 ) );
 	}
 
-	/** Через час после Н — «пропущено занятие» ученику и родителю, без других условий. */
+	/** Через 30 минут после Н — «пропущено занятие» ученику и родителю, без других условий. */
 	public function test_absence_mark_older_than_hour_notifies_student_and_guardians(): void {
 		$this->stubLessons();
 		$this->groupLessons->method( 'listGroupBeganBetween' )->willReturn( array() );
 		$this->groupLessons->method( 'find' )->willReturn( $this->lesson( array( 'id' => 100 ) ) );
 		$this->attendance->expects( self::once() )->method( 'listAbsentMarkedBetween' )
-			->with( '2026-01-14 11:00:00', '2026-01-15 11:00:00' )
+			->with( '2026-01-14 11:30:00', '2026-01-15 11:30:00' )
 			->willReturn( array( \Inc\DTO\Course\AttendanceDTO::fromArray( array(
-				'id' => 1, 'group_lesson_id' => 100, 'student_person_id' => 10, 'is_present' => 0, 'marked_at' => '2026-01-15 10:30:00',
+				'id' => 1, 'group_lesson_id' => 100, 'student_person_id' => 10, 'is_present' => 0, 'marked_at' => '2026-01-15 11:00:00',
 			) ) ) );
 		$this->notifications->method( 'studentUserId' )->willReturn( 77 );
 		$this->notifications->method( 'guardianUserIds' )->willReturn( array( 88 ) );
