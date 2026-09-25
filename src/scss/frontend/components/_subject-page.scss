@@ -74,13 +74,14 @@
 .fs-subject-card-thumb {
   display: block;
   width: 100%;
-  height: rem(170);
-  flex: 0 0 rem(170);
+  height: auto;
+  flex: 0 0 auto;
+  aspect-ratio: 3 / 2;
   border-bottom: 1px solid $color-border-light;
   object-fit: cover;
 }
 
-// Обложки ещё нет — место держит заглушка той же высоты.
+// Обложки ещё нет — место держит заглушка тех же пропорций.
 .fs-subject-card-thumb--empty { @include fs-thumb-placeholder; }
 
 // Номер задания — первая ступень палитры чипов, как у карточки задания.
