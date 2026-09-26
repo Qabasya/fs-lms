@@ -46,7 +46,7 @@ readonly class ConsultationNoticeService {
 	 * @return array{text: string, url: string, label: string}|null
 	 */
 	public function forTask( TaskTemplate $template, string $answer ): ?array {
-		if ( '' !== trim( $answer ) || ! $template->isFileAnswerShape() ) {
+		if ( '' !== trim( $answer ) || ! $template->needsManualReview() ) {
 			return null;
 		}
 

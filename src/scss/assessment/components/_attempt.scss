@@ -35,6 +35,11 @@
    не защита (JS дополняет блокировкой событий copy/contextmenu). */
 .fs-no-copy {
   user-select: none;
+
+  // Поле ответа выделяется и правится как обычно: ученик вставляет туда код
+  // (Safari без этого может не дать работать с полем внутри user-select: none).
+  textarea,
+  input { user-select: text; }
 }
 
 .fs-assessment-title {
@@ -192,6 +197,12 @@
   &:focus {
     outline: none;
     border-color: var(--accent);
+  }
+
+  // Ответ «Задания Робо» — код программы
+  &--code {
+    font: #{rem(13)}/1.6 var(--mono);
+    tab-size: 4;
   }
 }
 

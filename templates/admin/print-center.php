@@ -44,6 +44,7 @@ $button_label = $first_available['button_label'] ?? $documents[0]['button_label'
 	<?php endif; ?>
 
 	<div class="fs-print-center__layout">
+		<div class="fs-print-center__column">
 		<form id="fs-print-center-form" class="fs-card fs-card--flat fs-print-center__form" autocomplete="off">
 			<div class="fs-card__header">
 				<h2 class="fs-card__title">Документ</h2>
@@ -99,7 +100,6 @@ $button_label = $first_available['button_label'] ?? $documents[0]['button_label'
 			</div>
 		</form>
 
-		<div class="fs-print-center__aside">
 		<section class="fs-card fs-card--flat" aria-labelledby="fs-print-programs-title">
 			<div class="fs-card__header">
 				<h2 class="fs-card__title" id="fs-print-programs-title">Программы и цены</h2>
@@ -141,6 +141,7 @@ $button_label = $first_available['button_label'] ?? $documents[0]['button_label'
 				</table>
 			</div>
 		</section>
+		</div>
 
 		<section class="fs-card fs-card--flat fs-print-center__fields" aria-labelledby="fs-print-fields-title">
 			<div class="fs-card__header">
@@ -153,7 +154,11 @@ $button_label = $first_available['button_label'] ?? $documents[0]['button_label'
 				</p>
 
 				<?php foreach ( $field_groups as $group_label => $fields ) : ?>
-					<h3 class="fs-print-center__group"><?php echo esc_html( $group_label ); ?></h3>
+					<details class="fs-print-center__group">
+					<summary class="fs-print-center__group-title">
+						<?php echo esc_html( $group_label ); ?>
+						<span class="fs-print-center__group-count"><?php echo (int) count( $fields ); ?></span>
+					</summary>
 					<table class="widefat striped fs-print-center__table">
 						<tbody>
 							<?php foreach ( $fields as $field ) : ?>
@@ -168,9 +173,9 @@ $button_label = $first_available['button_label'] ?? $documents[0]['button_label'
 							<?php endforeach; ?>
 						</tbody>
 					</table>
+					</details>
 				<?php endforeach; ?>
 			</div>
 		</section>
-		</div>
 	</div>
 </div>

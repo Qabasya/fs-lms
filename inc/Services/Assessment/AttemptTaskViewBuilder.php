@@ -101,7 +101,7 @@ readonly class AttemptTaskViewBuilder {
 	 * @return array<int, array{url: string, name: string}>
 	 */
 	private function materials( array $meta, TaskTemplate $template ): array {
-		if ( $template->isFileAnswerShape() ) {
+		if ( $template->hasTaskMaterials() ) {
 			return $this->attachments( $meta );
 		}
 

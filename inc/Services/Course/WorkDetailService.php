@@ -259,7 +259,7 @@ class WorkDetailService {
 			$pt       = $perTask[ $taskId ] ?? array();
 			$row      = $rowsByTask[ $taskId ] ?? null;
 			$template = $this->taskTemplate( $taskId );
-			$gradable = $template->isFileAnswerShape();
+			$gradable = $template->needsManualReview();
 			if ( $gradable ) {
 				$hasGradableTask = true;
 			}
@@ -444,8 +444,16 @@ class WorkDetailService {
 			// экране показываем только здесь; для авто-проверяемых задач эти поля
 			// никто не читает (итог считает AutoGradeService по task_checker'у), и
 			// показанная форма вводила в заблуждение — заполнялась, но не влияла.
-			$isManual = $template->isFileAnswerShape();
-			if ( $isManual ) {
+			$isManual = $template->needsManualReview();
+			$code     = null;
+			if ( $template->isCodeOnlyAnswer() ) {
+				// «Задание Робо»: ответ — только код ({text:"",code}; поле попытки
+				// может прислать и голый текст — тогда он и есть код).
+				$parsed     = $this->parseCodeAnswer( $ans->answerText );
+				$answerText = '';
+				$files      = array();
+				$code       = $parsed['code'] ?? ( '' !== $parsed['text'] ? $parsed['text'] : null );
+			} elseif ( $template->isFileAnswerShape() ) {
 				$parsed     = $this->parseFileAnswer( $ans->answerText );
 				$answerText = $parsed['text'];
 				$files      = $parsed['files'];
@@ -470,6 +478,7 @@ class WorkDetailService {
 				'task_id'    => $ans->taskId,
 				'condition'  => $this->condition( $ans->taskId ),
 				'answer'     => $answerText,
+				'code'       => $code,
 				'files'      => $files,
 				'correct'    => $this->correctAnswers->resolve( $ans->taskId ),
 				'verdict'    => $verdict,

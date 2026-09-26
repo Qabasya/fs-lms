@@ -28,6 +28,7 @@ use Inc\Services\Task\TaskMetaService;
 use Inc\Services\Task\TaskSolutionService;
 use Inc\Services\Template\TemplateResolver;
 use PHPUnit\Framework\TestCase;
+use Inc\Managers\Wp\MediaManager;
 
 class LessonPlayerServiceTest extends TestCase {
 
@@ -70,6 +71,7 @@ class LessonPlayerServiceTest extends TestCase {
 			$this->checkerRegistry,
 			$this->assessments,
 			new TaskMetaService(),
+			$this->createMock( MediaManager::class ),
 		);
 
 		$this->service = new LessonPlayerService(

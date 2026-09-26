@@ -96,7 +96,8 @@ export function inlineEditor( ed, step, ctx ) {
 		// Добавляет кнопки плагина в тулбар TinyMCE 4: блоки (таблица, код,
 		// формула) — общие с редактором задания, остальное — своё.
 		function setupButtons( editor ) {
-			registerBlockButtons( editor, { latex: 'mathjax' } );
+			// Код — листингом, как блок «Код» статьи: язык, копирование, номера строк.
+			registerBlockButtons( editor, { latex: 'mathjax', code: 'listing' } );
 
 			editor.addButton( 'code_inline', {
 				text   : '</>',
@@ -127,7 +128,8 @@ export function inlineEditor( ed, step, ctx ) {
 		// TinyMCE вычищает класс у `<pre>` и `<table>` при переключении вкладок
 		// «Визуально»/«Текст», а без него блок кода на фронте остаётся
 		// неподсвеченным (`frontend/components/code-block.js` ищет именно класс).
-		const extendedElements = 'pre[class|id|style],table[class|id|style]';
+		// У листинга класс и язык висят на `<code>` — их тоже бережём.
+		const extendedElements = 'pre[class|id|style],code[class|data-lang],table[class|id|style]';
 
 		if ( window.wp?.editor ) {
 			window.wp.editor.initialize( tid, {

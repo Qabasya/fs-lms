@@ -241,6 +241,23 @@ async function saveAll( form, attemptId ) {
 }
 
 /**
+ * Поле кода «Задания Робо»: Tab вставляет отступ в 4 пробела, а не уводит
+ * фокус (Shift+Tab — штатная навигация). `input` — чтобы сработал автосейв.
+ */
+function bindCodeAnswers( form ) {
+	form.querySelectorAll( '.fs-attempt-answer--code' ).forEach( ( area ) => {
+		area.addEventListener( 'keydown', ( e ) => {
+			if ( 'Tab' !== e.key || e.shiftKey ) { return; }
+			e.preventDefault();
+			const { selectionStart: from, selectionEnd: to, value } = area;
+			area.value = value.slice( 0, from ) + '    ' + value.slice( to );
+			area.selectionStart = area.selectionEnd = from + 4;
+			area.dispatchEvent( new Event( 'input', { bubbles: true } ) );
+		} );
+	} );
+}
+
+/**
  * Загрузка файлов ответа для задач «Развёрнутый ответ» (Эпик 13, D16):
  * двухшаговая — файл уходит на upload_answer_file (доступ по СВОЕЙ попытке),
  * attachment_id ложится чипом, ответ сохраняется как JSON через save_attempt_answer.
@@ -431,6 +448,7 @@ function initRunningAttempt() {
 
 	bindAutosave( form, attemptId );
 	bindFileAnswers( form, attemptId );
+	bindCodeAnswers( form );
 	bindUnloadBeacon( form, attemptId );
 
 	let submitting = false;

@@ -35,6 +35,7 @@ export function initTaskWidget( panel ) {
 
 	switch ( widgetData.type ) {
 		case 'text_answer': return buildTextAnswerWidget( container, isDone, !! widgetData.with_code );
+		case 'code_answer': return buildCodeAnswerWidget( container, isDone );
 		case 'audio':       return buildAudioWidget( container, widgetData, isDone );
 		case 'triple':      return buildTripleWidget( container, isDone );
 		case 'choice':      return buildChoiceWidget( container, widgetData, isDone );
@@ -120,6 +121,51 @@ function buildTextAnswerWidget( container, isDone, withCode ) {
 				}
 				textarea.value = 'string' === typeof v ? v : '';
 				if ( codeArea ) { codeArea.value = ''; }
+			},
+		}
+	);
+}
+
+// ── Code answer («Задание Робо»: только код, проверяет преподаватель) ───────
+
+/** Отступ по Tab в поле кода — как в редакторе кода статьи. */
+const TAB_INDENT = '    ';
+
+function buildCodeAnswerWidget( container, isDone ) {
+	// Без .txt: у .ansbox по умолчанию моноширинный шрифт — то, что нужно коду.
+	const codeArea = make( 'textarea', 'fs-widget-code fs-widget-code--answer ansbox' );
+	codeArea.rows        = 14;
+	codeArea.placeholder = 'Вставьте код программы — его проверит преподаватель';
+	codeArea.spellcheck  = false;
+	codeArea.setAttribute( 'aria-label', 'Код программы' );
+	if ( isDone ) { codeArea.disabled = true; }
+	container.appendChild( codeArea );
+
+	// Tab вставляет отступ, а не уводит фокус; Shift+Tab — штатная навигация.
+	codeArea.addEventListener( 'keydown', ( e ) => {
+		if ( 'Tab' !== e.key || e.shiftKey ) { return; }
+		e.preventDefault();
+		const { selectionStart: from, selectionEnd: to, value } = codeArea;
+		codeArea.value = value.slice( 0, from ) + TAB_INDENT + value.slice( to );
+		codeArea.selectionStart = codeArea.selectionEnd = from + TAB_INDENT.length;
+		codeArea.dispatchEvent( new Event( 'input' ) );
+	} );
+
+	return Object.assign(
+		// Тот же формат, что у поля «Код» заданий с кодом: {text, code} —
+		// экран проверки показывает его блоком «Код ученика».
+		inputsApi(
+			[ codeArea ],
+			() => JSON.stringify( { text: '', code: codeArea.value.replace( /\s+$/, '' ) } ),
+			() => '' !== codeArea.value.trim()
+		),
+		{
+			setAnswer: ( v ) => {
+				if ( v && 'object' === typeof v ) {
+					codeArea.value = 'string' === typeof v.code ? v.code : '';
+					return;
+				}
+				codeArea.value = 'string' === typeof v ? v : '';
 			},
 		}
 	);

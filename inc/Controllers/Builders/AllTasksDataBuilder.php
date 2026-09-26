@@ -278,7 +278,7 @@ readonly class AllTasksDataBuilder {
 			// Материалы «развёрнутого ответа» — вложения медиатеки, а не ссылки
 			// файловых полей: источник выбирается по шаблону, как на странице
 			// задания ({@see \Inc\Controllers\Builders\TaskDataBuilder::buildFiles()}).
-			files:         $template->isFileAnswerShape()
+			files:         $template->hasTaskMaterials()
 				? $this->task_meta_service->getTaskMaterials( $meta )
 				: $this->task_meta_service->getTaskFiles( $meta ),
 			consultation:  $this->consultation->forTask( $template, $answer ),

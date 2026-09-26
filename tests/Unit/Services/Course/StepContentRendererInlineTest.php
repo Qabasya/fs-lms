@@ -13,6 +13,7 @@ use Inc\Services\Task\TaskCheckerRegistry;
 use Inc\Services\Task\TaskMetaService;
 use Inc\Services\Template\TemplateResolver;
 use PHPUnit\Framework\TestCase;
+use Inc\Managers\Wp\MediaManager;
 
 /**
  * Текст шага «Лекция» обязан проходить конвейер `the_content`: на нём висят
@@ -29,6 +30,7 @@ class StepContentRendererInlineTest extends TestCase {
 			$this->createMock( TaskCheckerRegistry::class ),
 			$this->createMock( AssessmentManager::class ),
 			new TaskMetaService(),
+			$this->createMock( MediaManager::class ),
 		);
 	}
 

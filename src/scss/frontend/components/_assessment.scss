@@ -110,6 +110,12 @@
 		outline: none;
 		border-color: $color-accent;
 	}
+
+	// Ответ «Задания Робо» — код программы
+	&--code {
+		font-family: $font-code;
+		tab-size: 4;
+	}
 }
 
 .fs-save-status {

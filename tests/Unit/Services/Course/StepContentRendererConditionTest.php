@@ -12,6 +12,7 @@ use Inc\Services\Task\TaskCheckerRegistry;
 use Inc\Services\Task\TaskMetaService;
 use Inc\Services\Template\TemplateResolver;
 use PHPUnit\Framework\TestCase;
+use Inc\Managers\Wp\MediaManager;
 
 /**
  * `StepContentRenderer::buildConditionHtml()` для `TaskTemplate::AlternativeConditions`
@@ -24,6 +25,8 @@ class StepContentRendererConditionTest extends TestCase {
 
 	private StepContentRenderer $renderer;
 
+	private MediaManager $media;
+
 	protected function setUp(): void {
 		parent::setUp();
 		$this->renderer = new StepContentRenderer(
@@ -32,6 +35,34 @@ class StepContentRendererConditionTest extends TestCase {
 			$this->createMock( TaskCheckerRegistry::class ),
 			$this->createMock( AssessmentManager::class ),
 			new TaskMetaService(),
+			$this->media = $this->createMock( MediaManager::class ),
+		);
+	}
+
+	public function test_robo_gets_code_answer_widget(): void {
+		self::assertSame(
+			array( 'type' => 'code_answer' ),
+			$this->renderer->buildWidgetData( array(), TaskTemplate::Robo, false )
+		);
+	}
+
+	public function test_build_files_includes_task_materials_attachments(): void {
+		$this->media->method( 'url' )->willReturnMap( array(
+			array( 5, 'https://example.test/wp-content/uploads/scheme.png' ),
+			array( 6, '' ),
+		) );
+
+		$files = $this->renderer->buildFiles( array(
+			'file'           => 'https://example.test/data.txt',
+			'task_materials' => array( 'attachment_ids' => array( 5, 6 ) ),
+		) );
+
+		self::assertSame(
+			array(
+				array( 'name' => 'data.txt', 'url' => 'https://example.test/data.txt' ),
+				array( 'name' => 'scheme.png', 'url' => 'https://example.test/wp-content/uploads/scheme.png' ),
+			),
+			$files
 		);
 	}
 

@@ -174,6 +174,7 @@ export async function copyToClipboard( text ) {
  * дополнительно глушится само событие `copy`. `contextmenu` блокируется,
  * чтобы убрать «Копировать» из меню правой кнопки. Только фронтовый
  * UX-барьер, не защита: DevTools/просмотр исходника всё ещё доступны.
+ * Поля ввода под запрет не попадают — вставка и правка ответа работают как обычно.
  *
  * @param {Element|null} el Корневой элемент режима экзамена.
  * @return {void}
@@ -181,9 +182,13 @@ export async function copyToClipboard( text ) {
 export function disableCopying( el ) {
     if ( ! el ) { return; }
 
+    // Поля ответа — исключение: ученик вставляет туда код из своей среды
+    // разработки (в т.ч. через правый клик) и правит свой же ответ.
+    const isField = ( target ) => target instanceof Element && null !== target.closest( 'textarea, input' );
+
     el.classList.add( 'fs-no-copy' );
-    el.addEventListener( 'copy', ( e ) => e.preventDefault() );
-    el.addEventListener( 'contextmenu', ( e ) => e.preventDefault() );
+    el.addEventListener( 'copy', ( e ) => { if ( ! isField( e.target ) ) { e.preventDefault(); } } );
+    el.addEventListener( 'contextmenu', ( e ) => { if ( ! isField( e.target ) ) { e.preventDefault(); } } );
 }
 
 /**

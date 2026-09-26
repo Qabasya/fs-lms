@@ -172,9 +172,14 @@ class ProblemsController extends BaseController implements ServiceInterface {
 	 * Дефолтный тип шаблона по предмету (хардкод по решению пользователя,
 	 * 2026-08-28 — настройка «тип шаблона по умолчанию» на уровне предмета пока
 	 * не заведена в SubjectDTO). Расширять по мере появления новых предметов.
+	 * Робототехника (2026-09-26) — «Задание Робо»: ученик отправляет код преподавателю.
 	 */
 	private function defaultTemplateFor( string $subjectKey ): ?TaskTemplate {
-		return 'python' === $subjectKey ? TaskTemplate::Code : null;
+		return match ( $subjectKey ) {
+			'python' => TaskTemplate::Code,
+			'robo'   => TaskTemplate::Robo,
+			default  => null,
+		};
 	}
 
 	/**

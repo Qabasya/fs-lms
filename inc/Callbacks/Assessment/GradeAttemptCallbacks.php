@@ -78,7 +78,7 @@ class GradeAttemptCallbacks extends BaseController {
 		$isCredit = (bool) $this->sanitizeInt( 'credit' );
 		$isManual = TaskTemplate::fromDatabase(
 			(string) $this->posts->getMeta( $taskId, PostMetaName::TemplateType->value )
-		)->isFileAnswerShape();
+		)->needsManualReview();
 		if ( ! $isManual && ! $isCredit ) {
 			$this->error( 'Это задание проверяется автоматически — ручная оценка недоступна.' );
 			return;

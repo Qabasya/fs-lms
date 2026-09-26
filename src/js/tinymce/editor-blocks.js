@@ -12,7 +12,9 @@
  *
  * Разметка совпадает с тем, что ждёт фронт: `<pre class="fs-code-highlight">`
  * разбирает `frontend/components/code-block.js` (подсветка строится на клиенте,
- * в сохранённом HTML остаётся чистый текст), таблицу с классом
+ * в сохранённом HTML остаётся чистый текст); лекция вставляет вместо него
+ * листинг `<pre><code class="js-code" data-lang>` — тот же, что блок «Код»
+ * статьи, с плашкой языка, копированием и номерами строк, таблицу с классом
  * `fs-table-center` центрирует общий SCSS (`shared/_content-tables.scss`).
  *
  * Делимитеры формулы у поверхностей разные, и это не косметика: условие задания
@@ -23,6 +25,22 @@
 
 /** Класс блока кода — тот же, что читает подсветка на фронте. */
 const CODE_CLASS = 'fs-code-highlight';
+
+/**
+ * Класс листинга — как у блока «Код» статьи (`ArticleBlockRenderer::code()`):
+ * `code-block.js` разворачивает его в редактор с плашкой языка, копированием
+ * и номерами строк.
+ */
+const LISTING_CLASS = 'js-code';
+
+/**
+ * Языки плашки листинга — те же, что у блока статьи
+ * (`ArticleBlockRenderer::LANGUAGES`). Подсветка — только для Python.
+ */
+const LISTING_LANGUAGES = [ 'Python', 'C++', 'C#', 'Java', 'Pascal', 'JavaScript', 'SQL', 'Текст' ];
+
+/** Отступ по Tab в поле кода — как в редакторе блока статьи. */
+const TAB_INDENT = '    ';
 
 /** Класс таблицы, которой SCSS центрирует ячейки (вместо инлайновых стилей). */
 const TABLE_CLASS = 'fs-table-center';
@@ -156,37 +174,98 @@ function openTableDialog( editor ) {
 	} );
 }
 
-function openCodeDialog( editor ) {
-	// Выделенный текст — обычный сценарий: автор вставил код абзацем,
-	// выделил и нажал кнопку. Подставляем его в поле как заготовку.
-	const selected = editor.selection.getContent( { format: 'text' } );
+/**
+ * Блок кода под курсором (для правки уже вставленного), либо null.
+ *
+ * @param {Object} editor Экземпляр TinyMCE.
+ * @returns {HTMLElement|null}
+ */
+function currentCodeBlock( editor ) {
+	const pre = editor.dom.getParent( editor.selection.getNode(), 'pre' );
+	return pre && ( editor.dom.hasClass( pre, CODE_CLASS ) || pre.querySelector( 'code.' + LISTING_CLASS ) ) ? pre : null;
+}
 
-	editor.windowManager.open( {
-		title: 'Вставить код',
+/**
+ * Tab в многострочном поле диалога вставляет отступ, а не уводит фокус.
+ *
+ * @param {HTMLTextAreaElement} area Поле кода.
+ */
+function bindTabIndent( area ) {
+	area.addEventListener( 'keydown', ( e ) => {
+		if ( 'Tab' !== e.key || e.shiftKey ) {
+			return;
+		}
+		e.preventDefault();
+		const { selectionStart: from, selectionEnd: to, value } = area;
+		area.value = value.slice( 0, from ) + TAB_INDENT + value.slice( to );
+		area.selectionStart = area.selectionEnd = from + TAB_INDENT.length;
+	} );
+}
+
+/**
+ * Диалог блока кода.
+ *
+ * `listing` — листинг как в статье (язык, шапка, номера строк); иначе — простой
+ * блок с подсветкой, который уместен внутри текста условия задания.
+ *
+ * @param {Object}  editor  Экземпляр TinyMCE.
+ * @param {boolean} listing Вставлять листинг.
+ */
+function openCodeDialog( editor, listing ) {
+	// Курсор в уже вставленном блоке — правим его; иначе выделенный текст —
+	// обычный сценарий: автор вставил код абзацем, выделил и нажал кнопку.
+	const existing = currentCodeBlock( editor );
+	const lang     = existing?.querySelector( 'code' )?.dataset.lang || LISTING_LANGUAGES[ 0 ];
+	const initial  = existing ? existing.textContent : editor.selection.getContent( { format: 'text' } );
+
+	const body = [
+		{
+			type:        'textbox',
+			name:        'code',
+			multiline:   true,
+			minHeight:   260,
+			value:       initial || '',
+			placeholder: listing ? 'Вставьте код как есть — Tab добавляет отступ' : 'Код на Python',
+		},
+	];
+	if ( listing ) {
+		body.unshift( {
+			type:   'listbox',
+			name:   'lang',
+			label:  'Язык',
+			value:  LISTING_LANGUAGES.includes( lang ) ? lang : LISTING_LANGUAGES[ 0 ],
+			values: LISTING_LANGUAGES.map( ( l ) => ( { text: l, value: l } ) ),
+		} );
+	}
+
+	const win = editor.windowManager.open( {
+		title: existing ? 'Изменить код' : 'Вставить код',
 		width: 640,
-		height: 420,
-		body:  [
-			{
-				type:        'textbox',
-				name:        'code',
-				multiline:   true,
-				minHeight:   260,
-				value:       selected || '',
-				placeholder: 'Код на Python',
-			},
-		],
+		height: listing ? 460 : 420,
+		body,
 		onsubmit( e ) {
 			const code = String( e.data.code || '' ).replace( /\s+$/, '' );
-
 			if ( ! code ) {
 				return;
 			}
+			const encoded = editor.dom.encode( code );
+			const html    = listing
+				? '<pre><code class="' + LISTING_CLASS + '" data-lang="' + editor.dom.encode( e.data.lang ) + '">' + encoded + '</code></pre>'
+				: '<pre class="' + CODE_CLASS + '">' + encoded + '</pre>';
 
-			editor.insertContent(
-				'<pre class="' + CODE_CLASS + '">' + editor.dom.encode( code ) + '</pre><p>&nbsp;</p>'
-			);
+			if ( existing ) {
+				editor.undoManager.transact( () => editor.dom.setOuterHTML( existing, html ) );
+				editor.nodeChanged();
+				return;
+			}
+			editor.insertContent( html + '<p>&nbsp;</p>' );
 		},
 	} );
+
+	const area = win?.find( '#code' )[ 0 ]?.getEl();
+	if ( area ) {
+		bindTabIndent( area );
+	}
 }
 
 function openFormulaDialog( editor, wraps ) {
@@ -230,10 +309,14 @@ function openFormulaDialog( editor, wraps ) {
  * @param {Object}  editor        Экземпляр TinyMCE.
  * @param {Object}  [options]
  * @param {string}  [options.latex='quicklatex'] Движок формул: `quicklatex` или `mathjax`.
+ * @param {string}  [options.code='highlight']   Блок кода: `highlight` — простая подсветка
+ *                                                (условие задания), `listing` — листинг как
+ *                                                в статье, с языком и номерами строк (лекция).
  * @returns {void}
  */
 export function registerBlockButtons( editor, options ) {
-	const wraps = LATEX_WRAPS[ ( options && options.latex ) || 'quicklatex' ] || LATEX_WRAPS.quicklatex;
+	const wraps   = LATEX_WRAPS[ ( options && options.latex ) || 'quicklatex' ] || LATEX_WRAPS.quicklatex;
+	const listing = 'listing' === ( options && options.code );
 
 	editor.addButton( 'fs_table', {
 		icon:    'table',
@@ -245,9 +328,9 @@ export function registerBlockButtons( editor, options ) {
 
 	editor.addButton( 'fs_code_block', {
 		icon:    'code',
-		tooltip: 'Вставить код с подсветкой',
+		tooltip: listing ? 'Вставить листинг кода' : 'Вставить код с подсветкой',
 		onclick() {
-			openCodeDialog( editor );
+			openCodeDialog( editor, listing );
 		},
 	} );
 

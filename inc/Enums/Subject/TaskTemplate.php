@@ -14,6 +14,7 @@ use Inc\MetaBoxes\Templates\FileTaskTemplate;
 use Inc\MetaBoxes\Templates\FillTaskTemplate;
 use Inc\MetaBoxes\Templates\MatchingTaskTemplate;
 use Inc\MetaBoxes\Templates\OrderingTaskTemplate;
+use Inc\MetaBoxes\Templates\RoboTaskTemplate;
 use Inc\MetaBoxes\Templates\StandardTaskTemplate;
 use Inc\MetaBoxes\Templates\TaskTextSolution;
 use Inc\MetaBoxes\Templates\ThreeInOneTemplate;
@@ -79,6 +80,12 @@ enum TaskTemplate: string {
 	case AlternativeConditions = 'alternative_conditions_task';
 
 	/**
+	 * Задание Робо (Робототехника): поля ответа нет — ученик отправляет
+	 * преподавателю код, проверка только ручная (чекер не регистрируется).
+	 */
+	case Robo = 'robo_task';
+
+	/**
 	 * Умный конструктор Enum с фолбеком на Standard.
 	 *
 	 * Если в БД сохранён ID шаблона, которого нет в списке
@@ -130,6 +137,7 @@ enum TaskTemplate: string {
 			self::Audio    => AudioTaskTemplate::class,
 			self::FileAnswer => FileAnswerTaskTemplate::class,
 			self::AlternativeConditions => AlternativeConditionsTemplate::class,
+			self::Robo => RoboTaskTemplate::class,
 		};
 	}
 
@@ -155,6 +163,7 @@ enum TaskTemplate: string {
 			self::Audio        => 'Задание с аудио',
 			self::FileAnswer   => 'Развёрнутый ответ (файл, ручная проверка)',
 			self::AlternativeConditions => 'Два условия на выбор (ОГЭ №13)',
+			self::Robo         => 'Задание Робо (код преподавателю)',
 		};
 	}
 
@@ -177,13 +186,44 @@ enum TaskTemplate: string {
 	}
 
 	/**
-	 * Задания с кодом получают необязательное доп.поле «Код» рядом с обычным
-	 * текстовым ответом — авто-проверка (`TextAnswerChecker`) по-прежнему идёт
-	 * только по `task_answer`/`text`, код виден учителю чисто информационно.
+	 * Проверку выполняет только преподаватель: чекера в `TaskCheckerRegistry`
+	 * нет, ответ уходит в pending, балл ставится вручную. Шире, чем
+	 * {@see isFileAnswerShape()}: у «Задания Робо» ответ — код, а не файл.
+	 */
+	public function needsManualReview(): bool {
+		return match ( $this ) {
+			self::FileAnswer, self::AlternativeConditions, self::Robo => true,
+			default => false,
+		};
+	}
+
+	/**
+	 * Материалы для ученика лежат вложениями медиатеки в поле `task_materials`
+	 * («Материалы задания»), а не ссылками файловых полей File/FileCode.
+	 */
+	public function hasTaskMaterials(): bool {
+		return match ( $this ) {
+			self::FileAnswer, self::AlternativeConditions, self::Robo => true,
+			default => false,
+		};
+	}
+
+	/**
+	 * Ответ ученика — только код, без строки ответа («Задание Робо»).
+	 */
+	public function isCodeOnlyAnswer(): bool {
+		return self::Robo === $this;
+	}
+
+	/**
+	 * Ответ ученика хранится JSON `{"text","code"}`. У Code/FileCode код —
+	 * необязательное доп.поле рядом с обычным текстовым ответом: авто-проверка
+	 * (`TextAnswerChecker`) идёт только по `task_answer`/`text`, код виден учителю
+	 * информационно. У «Задания Робо» код — единственный ответ ({@see isCodeOnlyAnswer()}).
 	 */
 	public function hasCodeField(): bool {
 		return match ( $this ) {
-			self::Code, self::FileCode => true,
+			self::Code, self::FileCode, self::Robo => true,
 			default => false,
 		};
 	}

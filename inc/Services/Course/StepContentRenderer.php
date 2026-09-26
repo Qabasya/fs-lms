@@ -9,6 +9,7 @@ use Inc\DTO\Course\StepDTO;
 use Inc\Enums\Subject\TaskTemplate;
 use Inc\Enums\Wp\PostMetaName;
 use Inc\Managers\Assessment\AssessmentManager;
+use Inc\Managers\Wp\MediaManager;
 use Inc\Managers\Wp\PostManager;
 use Inc\Services\Task\FillTextParser;
 use Inc\Services\Task\TaskCheckerRegistry;
@@ -33,6 +34,7 @@ class StepContentRenderer {
 		private readonly TaskCheckerRegistry $checkerRegistry,
 		private readonly AssessmentManager   $assessments,
 		private readonly TaskMetaService     $taskMeta,
+		private readonly MediaManager        $media,
 	) {}
 
 	/** Заголовок шага: инлайн — из payload/типа, ссылочный — из связанной сущности. */
@@ -106,15 +108,18 @@ class StepContentRenderer {
 			'template'       => $template->value,
 			'auto_grade'     => $autoGrade,
 			'condition_html' => $this->buildConditionHtml( $meta, $template, $collapseCommon ),
-			'widget_data'    => $autoGrade ? $this->buildWidgetData( $meta, $template, $shuffle ) : array(),
+			// Ручные задания виджета не получают (ответ — файлы на отдельном флоу),
+			// кроме «Задания Робо»: его ответ — код, вводится прямо в карточке работы.
+			'widget_data'    => $autoGrade || $template->isCodeOnlyAnswer() ? $this->buildWidgetData( $meta, $template, $shuffle ) : array(),
 			'files'          => $this->buildFiles( $meta ),
 			'meta'           => $meta,
 		);
 	}
 
 	/**
-	 * Файлы-материалы задания (шаблоны File/FileCode) — имя + ссылка на
-	 * скачивание, выводятся в плеере сразу после условия.
+	 * Файлы-материалы задания — имя + ссылка на скачивание, выводятся в плеере
+	 * сразу после условия: ссылки File/FileCode и вложения поля «Материалы задания»
+	 * (`task_materials` — «Развёрнутый ответ», «Задание Робо»).
 	 *
 	 * @return array<int, array{name:string, url:string}>
 	 */
@@ -129,6 +134,19 @@ class StepContentRenderer {
 
 			$files[] = array(
 				'name' => $this->fileNameFromUrl( $url ),
+				'url'  => esc_url_raw( $url ),
+			);
+		}
+
+		foreach ( (array) ( $meta['task_materials']['attachment_ids'] ?? array() ) as $attachmentId ) {
+			$attachmentId = (int) $attachmentId;
+			$url          = $attachmentId ? $this->media->url( $attachmentId ) : '';
+			if ( '' === $url ) {
+				continue;
+			}
+
+			$files[] = array(
+				'name' => $this->posts->get( $attachmentId )?->post_title ?: $this->fileNameFromUrl( $url ),
 				'url'  => esc_url_raw( $url ),
 			);
 		}
@@ -238,6 +256,10 @@ class StepContentRenderer {
 			// информационное для учителя, в проверку не участвует.
 			TaskTemplate::Code, TaskTemplate::FileCode =>
 				array( 'type' => 'text_answer', 'with_code' => true ),
+
+			// «Задание Робо»: поля ответа нет — только код для преподавателя.
+			TaskTemplate::Robo =>
+				array( 'type' => 'code_answer' ),
 
 			// Эпик 13 (D16): FileAnswer здесь намеренно НЕ обрабатывается — шаговые
 			// задания урока (task_attempts) требуют авто-проверки (SubmitTaskAnswerCallbacks

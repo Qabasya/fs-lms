@@ -156,12 +156,12 @@ readonly class TaskDataBuilder {
 	 * @return TaskContentDTO
 	 */
 	private function buildContentData( array $meta, TaskTemplate $template ): TaskContentDTO {
-		// У «Развёрнутого ответа» и «Двух условий на выбор» поля `task_code` и
-		// `solution_text` подписаны «Решение для проверяющего, ученику не видно»:
+		// У ручных шаблонов («Развёрнутый ответ», «Два условия на выбор», «Задание
+		// Робо») `task_code` и `solution_text` подписаны «ученику не видно»:
 		// проверка там ручная, и эталон — рабочий материал преподавателя. Плеер
 		// отдаёт его только учителю ({@see \Inc\Services\Task\TaskSolutionService}),
 		// а публичная страница печатала его вкладкой «Решение» всем подряд.
-		$code   = $template->isFileAnswerShape() ? '' : (string) ( $meta['task_code'] ?? '' );
+		$code   = $template->needsManualReview() ? '' : (string) ( $meta['task_code'] ?? '' );
 		$answer = $this->task_meta_service->getDisplayAnswer( $meta, $template );
 
 		return new TaskContentDTO(
@@ -187,7 +187,7 @@ readonly class TaskDataBuilder {
 	 * @return array<int, array{name: string, url: string, size: string}>
 	 */
 	private function buildFiles( array $meta, TaskTemplate $template ): array {
-		return $template->isFileAnswerShape()
+		return $template->hasTaskMaterials()
 			? $this->task_meta_service->getTaskMaterials( $meta )
 			: $this->task_meta_service->getTaskFiles( $meta );
 	}

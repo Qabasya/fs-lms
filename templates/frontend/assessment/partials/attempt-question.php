@@ -18,7 +18,10 @@ if ( ! $task ) {
 }
 
 $taskView     = $taskViews[ (int) $taskId ] ?? array( 'template' => '', 'materials' => array(), 'condition' => '', 'subparts' => array() );
-$isFileAnswer = TaskTemplate::fromDatabase( (string) $taskView['template'] )->isFileAnswerShape();
+$fs_template  = TaskTemplate::fromDatabase( (string) $taskView['template'] );
+$isFileAnswer = $fs_template->isFileAnswerShape();
+// «Задание Робо»: ответ — только код, проверяет преподаватель.
+$isCodeAnswer = $fs_template->isCodeOnlyAnswer();
 $subparts     = is_array( $taskView['subparts'] ?? null ) ? $taskView['subparts'] : array();
 if ( ! isset( $fs_seq ) ) {
 	$fs_seq = 0;
@@ -63,7 +66,7 @@ if ( ! isset( $fs_seq ) ) {
 		<?php echo \Inc\Shared\SafeHtml::post( $taskView['condition'] ); ?>
 	</div>
 
-	<?php if ( $isFileAnswer && ! empty( $taskView['materials'] ) ) : ?>
+	<?php if ( $fs_template->hasTaskMaterials() && ! empty( $taskView['materials'] ) ) : ?>
 		<div class="fs-attempt-materials">
 			<div class="fs-attempt-materials__title">Материалы задания:</div>
 			<?php foreach ( $taskView['materials'] as $material ) : ?>
@@ -77,12 +80,23 @@ if ( ! isset( $fs_seq ) ) {
 	<?php endif; ?>
 
 	<div class="fs-form-group">
-		<textarea
-			class="fs-attempt-answer"
-			name="answer_<?php echo esc_attr( (string) $taskId ); ?>"
-			rows="<?php echo $isFileAnswer ? 5 : 3; ?>"
-			placeholder="<?php echo $isFileAnswer ? 'Текст решения (необязательно, если прикладываете файл)…' : 'Ваш ответ…'; ?>"
-		></textarea>
+		<?php if ( $isCodeAnswer ) : ?>
+			<textarea
+				class="fs-attempt-answer fs-attempt-answer--code"
+				name="answer_<?php echo esc_attr( (string) $taskId ); ?>"
+				rows="14"
+				spellcheck="false"
+				aria-label="Код программы"
+				placeholder="Вставьте код программы — его проверит преподаватель"
+			></textarea>
+		<?php else : ?>
+			<textarea
+				class="fs-attempt-answer"
+				name="answer_<?php echo esc_attr( (string) $taskId ); ?>"
+				rows="<?php echo $isFileAnswer ? 5 : 3; ?>"
+				placeholder="<?php echo $isFileAnswer ? 'Текст решения (необязательно, если прикладываете файл)…' : 'Ваш ответ…'; ?>"
+			></textarea>
+		<?php endif; ?>
 
 		<?php if ( $isFileAnswer ) : ?>
 			<div class="fs-attempt-files">

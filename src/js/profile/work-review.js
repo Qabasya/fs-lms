@@ -235,7 +235,7 @@ function historyTaskBlock(t) {
                 ${score}
             </div>
             <div class="sum-task-cond">${t.condition || '<i>условие недоступно</i>'}</div>
-            <div class="sum-task-ans"><span class="sta-label">Ответ ученика:</span> <span class="sta-val">${t.answer ? esc(t.answer) : '—'}</span></div>
+            ${t.answer || !t.code ? `<div class="sum-task-ans"><span class="sta-label">Ответ ученика:</span> <span class="sta-val">${t.answer ? esc(t.answer) : '—'}</span></div>` : ''}
             ${t.code ? codeBlock(t.code) : ''}
             ${t.correct && 'correct' !== t.verdict ? `<div class="sum-task-ans sum-task-correct"><span class="sta-label">Правильный ответ:</span> <span class="sta-val">${esc(t.correct)}</span></div>` : ''}
         </div>`;
@@ -321,7 +321,7 @@ function attachmentBlock(d) {
 function taskBlock(t, d) {
     const score = (t.score !== null && t.score !== undefined)
         ? `<span class="st-score">${fmtNum(t.score)}${t.max_score != null ? '/' + fmtNum(t.max_score) : ''}</span>` : '';
-    // t.manual — задача требует ручной проверки (TaskTemplate::isFileAnswerShape()
+    // t.manual — задача требует ручной проверки (TaskTemplate::needsManualReview()
     // на сервере); для авто-проверяемых задач баллы считает TaskCheckerRegistry
     // при сдаче, а не эта форма — балл/чекбокс/комментарий тут никто не читал
     // (заполнялись, но не влияли на итог), поэтому для них форма не рендерится
@@ -330,8 +330,8 @@ function taskBlock(t, d) {
     const hasCriteria = canGrade && Array.isArray(t.criteria) && t.criteria.length;
     const hasOgeRubric = canGrade && !hasCriteria && t.oge_rubric;
     // D4 (.docs/Tasks.md): submission-работы оцениваются поштучно, как экзамены —
-    // только для задач с t.gradable (file_answer_task/alternative_conditions_task,
-    // TaskTemplate::isFileAnswerShape()); авто-проверяемые задачи работы — только
+    // только для задач с t.gradable (file_answer_task/alternative_conditions_task/
+    // robo_task, TaskTemplate::needsManualReview()); авто-проверяемые задачи работы — только
     // condition/answer/correct, без input'ов (как non-gradable экзаменационные).
     const canGradeSubmissionTask = d.kind === 'work' && t.gradable && t.task_submission_id && batchGradeApi;
     // Эталон — только там, где он что-то объясняет: у решённой задачи он дублирует
@@ -381,7 +381,7 @@ function taskBlock(t, d) {
                 ${t.manually_graded ? '<span class="sum-manual-mark">Оценено преподавателем</span>' : ''}
             </div>
             <div class="sum-task-cond">${t.condition || '<i>условие недоступно</i>'}</div>
-            <div class="sum-task-ans"><span class="sta-label">Ответ ученика:</span> <span class="sta-val">${t.answer ? esc(t.answer) : '—'}</span></div>
+            ${t.answer || !t.code ? `<div class="sum-task-ans"><span class="sta-label">Ответ ученика:</span> <span class="sta-val">${t.answer ? esc(t.answer) : '—'}</span></div>` : ''}
             ${t.code ? codeBlock(t.code) : ''}
             ${t.files && t.files.length ? taskFilesBlock(t.files) : ''}
             ${showCorrect ? `<div class="sum-task-ans sum-task-correct"><span class="sta-label">Правильный ответ:</span> <span class="sta-val">${esc(t.correct)}</span></div>` : ''}
@@ -390,9 +390,9 @@ function taskBlock(t, d) {
         </div>`;
 }
 
-/* Необязательное поле «Код» у заданий Code/FileCode
-   (TaskTemplate::hasCodeField()) — код ученика показываем отдельным блоком,
-   моноширинным шрифтом, в проверке ответа не участвует. */
+/* Код ученика (TaskTemplate::hasCodeField()): у Code/FileCode — необязательное
+   поле рядом с ответом, в проверке не участвует; у «Задания Робо» — весь ответ
+   (строка «Ответ ученика» тогда не выводится). Моноширинным блоком. */
 function codeBlock(code) {
     return `<div class="sum-task-code">
         <span class="sta-label">Код ученика:</span>
