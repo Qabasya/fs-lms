@@ -117,8 +117,10 @@
   img {
     max-width: 100%;
     height: auto;
-    border-radius: rem(12);
   }
+
+  // Формулы QuickLaTeX (`ql-img-*`) — без скругления: оно срезает края символов.
+  img:not([class*='ql-img']) { border-radius: rem(12); }
 
   // Картинка — по центру колонки, даже внутри абзаца (редактор кладёт её в
   // `<p>`, и она наследовала его выключку). Явные alignleft/alignright автора

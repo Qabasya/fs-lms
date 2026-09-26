@@ -67,8 +67,10 @@
     img {
       max-width: 100%;
       height: auto;
-      border-radius: $border-radius-xl;
     }
+
+    // Формулы QuickLaTeX (`ql-img-*`) — без скругления: оно срезает края символов.
+    img:not([class*='ql-img']) { border-radius: $border-radius-xl; }
 
     > img { display: block; }
 
