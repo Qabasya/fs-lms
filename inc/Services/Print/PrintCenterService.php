@@ -27,7 +27,7 @@ use Inc\Services\Log\ExportLogWriter;
  * «Центр печати»: поиск ученика, его зачисления с родителем и сборка
  * документа по DOCX-шаблону.
  *
- * Шаблон формы — `templates/documents/{PrintDocument::value}.docx`. Родитель
+ * Шаблон формы — `templates/documents/{PrintDocument::value}.{docx|pdf}`. Родитель
  * берётся из зачисления (student_records.parent_person_id): у ученика в разных
  * группах могут быть разные договоры, поэтому документ собирается по зачислению,
  * а не по ученику. Готовый файл отдаётся одноразовой ссылкой; формирование
@@ -36,8 +36,6 @@ use Inc\Services\Log\ExportLogWriter;
  * @package Inc\Services\Print
  */
 class PrintCenterService {
-
-	private const string DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 
 	public function __construct(
 		private readonly PersonRepository        $persons,
@@ -50,6 +48,8 @@ class PrintCenterService {
 		private readonly ExportLogWriter         $exportLog,
 		private readonly PrintProgramsRepository $programs,
 		private readonly LogEventDispatcherInterface $logEvents,
+		private readonly PdfFormFiller           $pdfFiller,
+		private readonly TaxDeductionForm        $taxForm,
 		private readonly string                  $templatesDir = FS_LMS_PATH . 'templates/documents/',
 	) {}
 
@@ -57,7 +57,7 @@ class PrintCenterService {
 	 * Путь к шаблону формы.
 	 */
 	public function templatePath( PrintDocument $document ): string {
-		return $this->templatesDir . $document->value . '.docx';
+		return $this->templatesDir . $document->value . '.' . $document->extension();
 	}
 
 	/**
@@ -164,11 +164,14 @@ class PrintCenterService {
 	/**
 	 * Собирает документ и возвращает ссылку на скачивание.
 	 *
+	 * @param array{number?: string, year?: string, sum?: string} $input Данные со страницы
+	 *        для форм с {@see PrintDocument::needsInput()} (справка на вычет)
+	 *
 	 * @return array{url: string, filename: string, empty: string[]} `empty` — подписи полей шаблона, оставшихся пустыми
 	 *
-	 * @throws \DomainException Нет шаблона, зачисления, родителя или в шаблоне неизвестные поля.
+	 * @throws \DomainException Нет шаблона, зачисления, родителя, данных формы или в шаблоне неизвестные поля.
 	 */
-	public function generate( PrintDocument $document, int $studentId, int $recordId ): array {
+	public function generate( PrintDocument $document, int $studentId, int $recordId, array $input = array() ): array {
 		if ( ! $this->hasTemplate( $document ) ) {
 			throw new \DomainException( "Шаблон формы «{$document->label()}» ещё не загружен." );
 		}
@@ -184,6 +187,28 @@ class PrintCenterService {
 			throw new \DomainException( 'У зачисления не указан родитель — документ не на кого оформить.' );
 		}
 
+		[ $content, $empty ] = $document->needsInput()
+			? $this->buildPdfForm( $document, $student, $parent, $record, $input )
+			: $this->buildDocx( $document, $student, $parent, $record );
+
+		$filename = sprintf( '%s — %s — %s.%s', $document->filePrefix(), $student->shortName(), wp_date( 'd.m.Y' ), $document->extension() );
+		$url      = $this->downloads->forContent( $content, $filename, $document->mimeType() );
+
+		$this->exportLog->record( ExportTarget::PrintDocument->value, 'single', array( $student->id, $parent->id ) );
+		$this->logEvents->dispatch(
+			LogEvent::DocumentPrinted,
+			new EnrollmentStatusEvent( get_current_user_id(), $document->auditAction(), $student->id, $record->id, $record->groupId )
+		);
+
+		return array( 'url' => $url, 'filename' => $filename, 'empty' => $empty );
+	}
+
+	/**
+	 * DOCX по шаблону с полями `{{…}}`.
+	 *
+	 * @return array{0: string, 1: string[]} Содержимое и подписи пустых полей
+	 */
+	private function buildDocx( PrintDocument $document, PersonDTO $student, PersonDTO $parent, StudentRecordDTO $record ): array {
 		$path   = $this->templatePath( $document );
 		$keys   = $this->renderer->placeholders( $path );
 		$fields = array_filter( array_map( static fn( string $k ): ?PrintField => PrintField::tryFrom( $k ), $keys ) );
@@ -193,17 +218,7 @@ class PrintCenterService {
 			throw new \DomainException( 'В шаблоне неизвестные поля: {{' . implode( '}}, {{', $unknown ) . '}}.' );
 		}
 
-		$values  = $this->collector->collect( $fields, $student, $parent, $record );
-		$content = $this->renderer->render( $path, $values );
-
-		$filename = sprintf( '%s — %s — %s.docx', $document->filePrefix(), $student->shortName(), wp_date( 'd.m.Y' ) );
-		$url      = $this->downloads->forContent( $content, $filename, self::DOCX_MIME );
-
-		$this->exportLog->record( ExportTarget::PrintDocument->value, 'single', array( $student->id, $parent->id ) );
-		$this->logEvents->dispatch(
-			LogEvent::DocumentPrinted,
-			new EnrollmentStatusEvent( get_current_user_id(), $document->auditAction(), $student->id, $record->id, $record->groupId )
-		);
+		$values = $this->collector->collect( $fields, $student, $parent, $record );
 
 		$empty = array();
 		foreach ( $fields as $field ) {
@@ -212,7 +227,40 @@ class PrintCenterService {
 			}
 		}
 
-		return array( 'url' => $url, 'filename' => $filename, 'empty' => $empty );
+		return array( $this->renderer->render( $path, $values ), $empty );
+	}
+
+	/**
+	 * PDF-форма (справка на вычет): поля остаются редактируемыми.
+	 *
+	 * @param array{number?: string, year?: string, sum?: string} $input
+	 *
+	 * @return array{0: string, 1: string[]}
+	 */
+	private function buildPdfForm( PrintDocument $document, PersonDTO $student, PersonDTO $parent, StudentRecordDTO $record, array $input ): array {
+		$number = trim( (string) ( $input['number'] ?? '' ) );
+		$year   = trim( (string) ( $input['year'] ?? '' ) );
+		$sum    = trim( (string) ( $input['sum'] ?? '' ) );
+
+		if ( ! preg_match( '~^\d{1,12}$~', $number ) ) {
+			throw new \DomainException( 'Укажите номер справки — до 12 цифр.' );
+		}
+		if ( ! preg_match( '~^\d{4}$~', $year ) || (int) $year < 2000 || (int) $year > (int) wp_date( 'Y' ) ) {
+			throw new \DomainException( 'Укажите отчётный год.' );
+		}
+		if ( ! preg_match( '~^\d[\d\s]*([.,]\d{1,2})?$~u', $sum ) || (float) str_replace( array( ' ', ',' ), array( '', '.' ), $sum ) <= 0 ) {
+			throw new \DomainException( 'Укажите сумму расходов, например 120000 или 120000,50.' );
+		}
+
+		$form = $this->taxForm->build( $student, $parent, $record, array( 'number' => $number, 'year' => $year, 'sum' => $sum ) );
+
+		try {
+			$content = $this->pdfFiller->fill( $this->templatePath( $document ), $form['values'] );
+		} catch ( \RuntimeException $e ) {
+			throw new \DomainException( $e->getMessage(), 0, $e );
+		}
+
+		return array( $content, $form['empty'] );
 	}
 
 	/**

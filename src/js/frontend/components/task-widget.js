@@ -18,6 +18,7 @@
  */
 
 import { icoCheck, icoCross } from '../../common/icons.js';
+import { bindTabIndent } from '../../common/utils.js';
 
 const CHECK_SVG = icoCheck( 13 );
 const CROSS_SVG = icoCross( 12 );
@@ -128,9 +129,6 @@ function buildTextAnswerWidget( container, isDone, withCode ) {
 
 // ── Code answer («Задание Робо»: только код, проверяет преподаватель) ───────
 
-/** Отступ по Tab в поле кода — как в редакторе кода статьи. */
-const TAB_INDENT = '    ';
-
 function buildCodeAnswerWidget( container, isDone ) {
 	// Без .txt: у .ansbox по умолчанию моноширинный шрифт — то, что нужно коду.
 	const codeArea = make( 'textarea', 'fs-widget-code fs-widget-code--answer ansbox' );
@@ -141,15 +139,7 @@ function buildCodeAnswerWidget( container, isDone ) {
 	if ( isDone ) { codeArea.disabled = true; }
 	container.appendChild( codeArea );
 
-	// Tab вставляет отступ, а не уводит фокус; Shift+Tab — штатная навигация.
-	codeArea.addEventListener( 'keydown', ( e ) => {
-		if ( 'Tab' !== e.key || e.shiftKey ) { return; }
-		e.preventDefault();
-		const { selectionStart: from, selectionEnd: to, value } = codeArea;
-		codeArea.value = value.slice( 0, from ) + TAB_INDENT + value.slice( to );
-		codeArea.selectionStart = codeArea.selectionEnd = from + TAB_INDENT.length;
-		codeArea.dispatchEvent( new Event( 'input' ) );
-	} );
+	bindTabIndent( codeArea );
 
 	return Object.assign(
 		// Тот же формат, что у поля «Код» заданий с кодом: {text, code} —

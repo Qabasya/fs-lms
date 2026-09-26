@@ -125,6 +125,28 @@ export function debounce( fn, ms ) {
     };
 }
 
+/** Отступ, который вставляет Tab в поле кода, — 4 пробела, как в редакторе кода статьи. */
+const TAB_INDENT = '    ';
+
+/**
+ * Tab в поле кода вставляет отступ, а не уводит фокус; Shift+Tab — штатная
+ * навигация. После вставки шлёт `input` (всплывающий) — автосейв и черновики
+ * видят правку так же, как ввод с клавиатуры.
+ *
+ * @param {HTMLTextAreaElement} area Поле кода.
+ * @return {void}
+ */
+export function bindTabIndent( area ) {
+    area.addEventListener( 'keydown', ( e ) => {
+        if ( 'Tab' !== e.key || e.shiftKey || e.altKey || e.ctrlKey || e.metaKey ) { return; }
+        e.preventDefault();
+        const { selectionStart: from, selectionEnd: to, value } = area;
+        area.value = value.slice( 0, from ) + TAB_INDENT + value.slice( to );
+        area.selectionStart = area.selectionEnd = from + TAB_INDENT.length;
+        area.dispatchEvent( new Event( 'input', { bubbles: true } ) );
+    } );
+}
+
 /**
  * Копирует текст в буфер обмена.
  *

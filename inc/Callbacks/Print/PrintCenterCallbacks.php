@@ -56,7 +56,8 @@ class PrintCenterCallbacks extends BaseController {
 	}
 
 	/**
-	 * Сборка документа. Params: document, student_id, record_id.
+	 * Сборка документа. Params: document, student_id, record_id;
+	 * для справки на вычет — ещё tax_number, tax_year, tax_sum.
 	 */
 	public function ajaxGeneratePrintDocument(): void {
 		$this->authorizeAll( Nonce::Manager, array( Capability::ManageLmsPlatform, Capability::ExportPII ) );
@@ -71,7 +72,12 @@ class PrintCenterCallbacks extends BaseController {
 		$recordId  = $this->requireInt( 'record_id', error: 'Не выбрано зачисление.' );
 
 		try {
-			$this->success( $this->printCenter->generate( $document, $studentId, $recordId ) );
+			$input = array(
+				'number' => $this->sanitizeText( 'tax_number' ),
+				'year'   => $this->sanitizeText( 'tax_year' ),
+				'sum'    => $this->sanitizeText( 'tax_sum' ),
+			);
+			$this->success( $this->printCenter->generate( $document, $studentId, $recordId, $input ) );
 		} catch ( \DomainException | \RuntimeException $e ) {
 			$this->error( $e->getMessage() );
 		}

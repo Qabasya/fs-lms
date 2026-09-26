@@ -3,7 +3,7 @@
  * Pure-JS function pattern (no jQuery).
  */
 
-import { escapeHtml, debounce as debounceUtil, disableCopying } from '../../common/utils.js';
+import { escapeHtml, debounce as debounceUtil, disableCopying, bindTabIndent } from '../../common/utils.js';
 
 const vars = window.fs_lms_assessment_vars;
 
@@ -240,21 +240,9 @@ async function saveAll( form, attemptId ) {
 	await Promise.all( jobs );
 }
 
-/**
- * Поле кода «Задания Робо»: Tab вставляет отступ в 4 пробела, а не уводит
- * фокус (Shift+Tab — штатная навигация). `input` — чтобы сработал автосейв.
- */
+/** Поле кода «Задания Робо»: Tab — отступ (см. bindTabIndent). */
 function bindCodeAnswers( form ) {
-	form.querySelectorAll( '.fs-attempt-answer--code' ).forEach( ( area ) => {
-		area.addEventListener( 'keydown', ( e ) => {
-			if ( 'Tab' !== e.key || e.shiftKey ) { return; }
-			e.preventDefault();
-			const { selectionStart: from, selectionEnd: to, value } = area;
-			area.value = value.slice( 0, from ) + '    ' + value.slice( to );
-			area.selectionStart = area.selectionEnd = from + 4;
-			area.dispatchEvent( new Event( 'input', { bubbles: true } ) );
-		} );
-	} );
+	form.querySelectorAll( '.fs-attempt-answer--code' ).forEach( bindTabIndent );
 }
 
 /**

@@ -4,7 +4,7 @@
  *
  * Поведение — src/js/admin/services/print-center.js.
  *
- * @var array<int, array{value: string, label: string, button_label: string, has_template: bool}> $documents    Формы документов
+ * @var array<int, array{value: string, label: string, button_label: string, has_template: bool, needs_input: bool}> $documents Формы документов
  * @var array<string, \Inc\Enums\Print\PrintField[]>                                               $field_groups Справочник полей по разделам
  * @var array<int, array{key: string, name: string, program: string, price: string}>              $programs     Программа и цена по предметам
  * @var bool                                                                                        $can_export   Есть право выгружать ПД
@@ -44,7 +44,6 @@ $button_label = $first_available['button_label'] ?? $documents[0]['button_label'
 	<?php endif; ?>
 
 	<div class="fs-print-center__layout">
-		<div class="fs-print-center__column">
 		<form id="fs-print-center-form" class="fs-card fs-card--flat fs-print-center__form" autocomplete="off">
 			<div class="fs-card__header">
 				<h2 class="fs-card__title">Документ</h2>
@@ -81,12 +80,37 @@ $button_label = $first_available['button_label'] ?? $documents[0]['button_label'
 							<?php foreach ( $documents as $doc ) : ?>
 								<option value="<?php echo esc_attr( $doc['value'] ); ?>"
 									data-button-label="<?php echo esc_attr( $doc['button_label'] ); ?>"
+									data-needs-input="<?php echo $doc['needs_input'] ? '1' : '0'; ?>"
 									<?php disabled( ! $doc['has_template'] ); ?>
 									<?php selected( null !== $first_available && $first_available['value'] === $doc['value'] ); ?>>
 									<?php echo esc_html( $doc['label'] . ( $doc['has_template'] ? '' : ' — шаблон не загружен' ) ); ?>
 								</option>
 							<?php endforeach; ?>
 						</select>
+					</div>
+				</div>
+
+				<?php // Данные справки на вычет, которых нет в системе. ?>
+				<div class="fs-print-center__inputs" data-print-inputs hidden>
+					<div class="fs-field">
+						<label for="fs-print-tax-number" class="fs-field__label">Номер справки</label>
+						<div class="fs-field__control">
+							<input type="text" id="fs-print-tax-number" inputmode="numeric" maxlength="12" data-print-input="tax_number">
+						</div>
+					</div>
+					<div class="fs-field">
+						<label for="fs-print-tax-year" class="fs-field__label">Отчётный год</label>
+						<div class="fs-field__control">
+							<input type="number" id="fs-print-tax-year" min="2000" max="<?php echo esc_attr( wp_date( 'Y' ) ); ?>"
+								value="<?php echo esc_attr( (string) ( (int) wp_date( 'Y' ) - 1 ) ); ?>" data-print-input="tax_year">
+						</div>
+					</div>
+					<div class="fs-field">
+						<label for="fs-print-tax-sum" class="fs-field__label">Сумма расходов, руб.</label>
+						<div class="fs-field__control">
+							<input type="text" id="fs-print-tax-sum" inputmode="decimal" placeholder="120000,00" data-print-input="tax_sum">
+						</div>
+						<p class="fs-field__desc">Файл скачается PDF-формой: поля можно поправить от руки.</p>
 					</div>
 				</div>
 			</div>
@@ -99,49 +123,6 @@ $button_label = $first_available['button_label'] ?? $documents[0]['button_label'
 				<span class="fs-print-center__status" data-print-status role="status"></span>
 			</div>
 		</form>
-
-		<section class="fs-card fs-card--flat" aria-labelledby="fs-print-programs-title">
-			<div class="fs-card__header">
-				<h2 class="fs-card__title" id="fs-print-programs-title">Программы и цены</h2>
-			</div>
-			<div class="fs-card__body">
-				<p class="fs-card__desc">
-					Подставляются в договор по предмету группы: <code>{{program}}</code> — название программы,
-					<code>{{price}}</code> — стоимость месяца обучения (печатается как написано).
-				</p>
-				<table class="widefat striped fs-print-center__table fs-print-center__programs">
-					<thead>
-						<tr>
-							<th>Предмет</th>
-							<th>Программа</th>
-							<th>Цена в месяц</th>
-							<th><span class="screen-reader-text">Действие</span></th>
-						</tr>
-					</thead>
-					<tbody>
-						<?php foreach ( $programs as $row ) : ?>
-							<tr data-print-program="<?php echo esc_attr( $row['key'] ); ?>">
-								<td><?php echo esc_html( $row['name'] ); ?></td>
-								<td>
-									<input type="text" class="fs-print-center__program-input" data-field="program"
-										value="<?php echo esc_attr( $row['program'] ); ?>"
-										aria-label="<?php echo esc_attr( 'Программа: ' . $row['name'] ); ?>">
-								</td>
-								<td>
-									<input type="text" class="fs-print-center__price-input" data-field="price"
-										value="<?php echo esc_attr( $row['price'] ); ?>" placeholder="10 000 руб."
-										aria-label="<?php echo esc_attr( 'Цена: ' . $row['name'] ); ?>">
-								</td>
-								<td>
-									<button type="button" class="button" data-print-program-save disabled>Сохранить</button>
-								</td>
-							</tr>
-						<?php endforeach; ?>
-					</tbody>
-				</table>
-			</div>
-		</section>
-		</div>
 
 		<section class="fs-card fs-card--flat fs-print-center__fields" aria-labelledby="fs-print-fields-title">
 			<div class="fs-card__header">
@@ -175,6 +156,34 @@ $button_label = $first_available['button_label'] ?? $documents[0]['button_label'
 					</table>
 					</details>
 				<?php endforeach; ?>
+			</div>
+		</section>
+
+		<section class="fs-card fs-card--flat fs-print-center__programs-card" aria-labelledby="fs-print-programs-title">
+			<div class="fs-card__header">
+				<h2 class="fs-card__title" id="fs-print-programs-title">Программы и цены</h2>
+			</div>
+			<div class="fs-card__body">
+				<p class="fs-card__desc">
+					Подставляются в договор по предмету группы: <code>{{program}}</code> — название программы,
+					<code>{{price}}</code> — стоимость месяца обучения (печатается как написано).
+				</p>
+				<div class="fs-print-center__programs">
+					<?php foreach ( $programs as $row ) : ?>
+						<div class="fs-print-center__program" data-print-program="<?php echo esc_attr( $row['key'] ); ?>">
+							<span class="fs-print-center__program-name"><?php echo esc_html( $row['name'] ); ?></span>
+							<input type="text" class="fs-print-center__program-input" data-field="program"
+								value="<?php echo esc_attr( $row['program'] ); ?>" placeholder="Название программы"
+								aria-label="<?php echo esc_attr( 'Программа: ' . $row['name'] ); ?>">
+							<div class="fs-print-center__program-row">
+								<input type="text" class="fs-print-center__price-input" data-field="price"
+									value="<?php echo esc_attr( $row['price'] ); ?>" placeholder="10 000 руб."
+									aria-label="<?php echo esc_attr( 'Цена в месяц: ' . $row['name'] ); ?>">
+								<button type="button" class="button" data-print-program-save disabled>Сохранить</button>
+							</div>
+						</div>
+					<?php endforeach; ?>
+				</div>
 			</div>
 		</section>
 	</div>

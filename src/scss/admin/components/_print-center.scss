@@ -7,38 +7,51 @@
 .fs-print-center {
   &__layout {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+
+    // Документ · Поля для шаблона · Программы и цены — в один ряд
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: $spacing-xl;
     align-items: start;
-    max-width: $settings-max-width * 1.5;
     margin-top: $spacing-lg;
 
     // .fs-card + .fs-card — отступ для стопки, в сетке он лишний
     > .fs-card + .fs-card { margin-top: 0; }
 
-    @media (max-width: $breakpoint-mobile) {
+    @media (max-width: $breakpoint-builder) {
       grid-template-columns: minmax(0, 1fr);
     }
   }
 
-  // Левая колонка: документ и программы стопкой
-  &__column {
+  // ── Программы и цены: карточка на предмет (в трети ширины таблица тесна)
+  &__programs {
     display: flex;
     flex-direction: column;
-    gap: $spacing-xl;
-
-    > .fs-card + .fs-card { margin-top: 0; }
+    gap: $spacing-md;
   }
 
-  // ── Программы и цены
-  &__programs {
+  &__program {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-sm;
+    padding: $spacing-md;
+    border: 1px solid $color-border-input;
+    border-radius: $border-radius-sm;
+
     input[type='text'] { width: 100%; }
-
-    th:last-child,
-    td:last-child { width: 1%; }
   }
 
-  &__price-input { min-width: rem(110); }
+  &__program-name {
+    font-size: $font-size-sm;
+    font-weight: $font-semibold;
+    color: $color-text-primary;
+  }
+
+  &__program-row {
+    display: flex;
+    gap: $spacing-sm;
+
+    .button { flex-shrink: 0; }
+  }
 
   // ── Поиск ученика
   &__search {
@@ -172,7 +185,11 @@
     cursor: copy;
     text-align: left;
 
-    code { transition: $transition-default; }
+    // В трети ширины длинное поле ({{parent_doc_issued_date}}) иначе вылезает из ячейки
+    code {
+      overflow-wrap: anywhere;
+      transition: $transition-default;
+    }
 
     &:hover code,
     &:focus-visible code { background: $wp-admin-blue-bg-light; }

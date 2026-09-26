@@ -58,6 +58,7 @@ export const PrintCenter = {
         this.$doc     = $( '#fs-print-document' );
         this.$submit  = this.$form.find( '[data-print-submit]' );
         this.$status  = this.$form.find( '[data-print-status]' );
+        this.$inputs  = this.$form.find( '[data-print-inputs]' );
 
         this.bindSearch();
         this.bindForm();
@@ -223,8 +224,12 @@ export const PrintCenter = {
 
         this.$doc.on( 'change', () => {
             this.$submit.text( this.$doc.find( ':selected' ).data( 'buttonLabel' ) );
+            this.syncInputs();
             this.syncButton();
         } );
+
+        this.$inputs.on( 'input', '[data-print-input]', () => this.syncButton() );
+        this.syncInputs();
 
         this.$form.on( 'submit', ( e ) => {
             e.preventDefault();
@@ -232,10 +237,30 @@ export const PrintCenter = {
         } );
     },
 
+    /** Форме нужны данные со страницы (справка на вычет). */
+    needsInput() {
+        return '1' === String( this.$doc.find( ':selected' ).data( 'needsInput' ) );
+    },
+
+    syncInputs() {
+        this.$inputs.prop( 'hidden', ! this.needsInput() );
+    },
+
+    /** Введённые данные формы: { tax_number, tax_year, tax_sum }. */
+    inputValues() {
+        const values = {};
+        this.$inputs.find( '[data-print-input]' ).each( ( i, el ) => {
+            values[ el.dataset.printInput ] = String( el.value ).trim();
+        } );
+        return values;
+    },
+
     syncButton() {
         const record = this.currentRecord();
+        const filled = ! this.needsInput() || Object.values( this.inputValues() ).every( ( v ) => '' !== v );
         const ready  = this._studentId > 0
             && record?.parent
+            && filled
             && ! this.$doc.find( ':selected' ).prop( 'disabled' )
             && ! this.$submit.is( '[data-print-locked]' );
 
@@ -255,6 +280,7 @@ export const PrintCenter = {
             document:   this.$doc.val(),
             student_id: this._studentId,
             record_id:  record.id,
+            ...( this.needsInput() ? this.inputValues() : {} ),
         } ).then( ( res ) => {
             if ( ! res.success ) {
                 this.setStatus( '' );

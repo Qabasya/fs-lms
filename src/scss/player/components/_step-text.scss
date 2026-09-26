@@ -18,7 +18,7 @@
   // правило обязано работать вне зависимости от вложенности.
   :where(div, section) { margin: 0; padding: 0; }
 
-  :where(p, ul, ol, pre, blockquote, table, img, .video-embed) {
+  :where(p, ul, ol, pre, blockquote, table, img, figure, .video-embed) {
     margin-top: rem(16);
 
     &:first-child { margin-top: 0; }
@@ -117,6 +117,22 @@
   img {
     max-width: 100%;
     height: auto;
+  }
+
+  // Блок «Изображение» (как в статье): картинка по центру, подпись под ней.
+  figure {
+    margin-inline: 0;
+    margin-bottom: 0;
+
+    img { margin-top: 0; }
+  }
+
+  figcaption {
+    margin-top: rem(8);
+    font-size: rem(12.5);
+    line-height: 1.5;
+    text-align: center;
+    color: var(--muted);
   }
 
   // Формулы QuickLaTeX (`ql-img-*`) — без скругления: оно срезает края символов.

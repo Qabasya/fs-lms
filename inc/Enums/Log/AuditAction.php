@@ -109,6 +109,7 @@ enum AuditAction: string {
 	// ===== Центр печати =====
 
 	case ContractPrinted     = 'contract_printed';
+	case ConsentPrinted      = 'consent_printed';
 	case TaxDeductionPrinted = 'tax_deduction_printed';
 
 
@@ -168,6 +169,7 @@ enum AuditAction: string {
 			self::RecoveryCompleted      => 'Восстановление зависшего зачисления',
 
 			self::ContractPrinted        => 'Распечатан договор',
+			self::ConsentPrinted         => 'Распечатано согласие на обработку ПД',
 			self::TaxDeductionPrinted    => 'Распечатана справка на вычет',
 		};
 	}

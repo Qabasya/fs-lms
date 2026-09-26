@@ -5,6 +5,7 @@ declare( strict_types=1 );
 namespace Inc\Controllers\System;
 
 use Inc\Contracts\ServiceInterface;
+use Inc\Core\Assets\AdminScreenContext;
 use Inc\Core\BaseController;
 use Inc\Services\Subject\PostTypeResolver;
 use Inc\Shared\Traits\Sanitizer;
@@ -47,8 +48,21 @@ class AdminFooterModalsController extends BaseController implements ServiceInter
 		if ( file_exists( $alert_modal_path ) ) {
 			require $alert_modal_path;
 		}
+		// Блоки «Код» и «Изображение» редактора шага «Лекция» — там, где этот
+		// редактор есть.
+		if ( $this->hasLectureEditor() ) {
+			require_once $this->path( 'templates/admin/components/modals/lecture-code-modal.php' );
+			require_once $this->path( 'templates/admin/components/modals/lecture-image-modal.php' );
+		}
 	}
 
+	/**
+	 * Редактор шагов урока есть там же, где подключается TinyMCE для него
+	 * (экраны урока и курса, конструктор курса) — одно правило на оба места.
+	 */
+	private function hasLectureEditor(): bool {
+		return AdminScreenContext::from( get_current_screen(), $this->sanitizeText( 'page', 'GET' ) )->needsEditor();
+	}
 	/**
 	 * Плагинный экран админки: меню-страница (fs_/student_) или один из наших CPT.
 	 * Должно совпадать с условием подключения ассетов в AdminAssets::enqueue(),

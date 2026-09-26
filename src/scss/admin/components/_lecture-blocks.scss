@@ -1,0 +1,55 @@
+@use '../variables' as *;
+
+// =================================================================
+// Блоки «Код» и «Изображение» редактора шага «Лекция»
+// (модалки lecture-code-modal / lecture-image-modal)
+// =================================================================
+
+.fs-lecture-block {
+  // Поле кода: моноширинное, отступ Tab — 4 пробела, как в редакторе статьи.
+  // Высота — rows="14" (общие стили полей модалки ставят height: auto).
+  &__code {
+    width: 100%;
+    font-family: $font-mono;
+    font-size: $font-size-sm;
+    tab-size: 4;
+    white-space: pre;
+  }
+
+  // Подпись группы без <label> (у выбора картинки нет одного поля ввода)
+  &__label {
+    display: block;
+    margin-bottom: $spacing-sm;
+    font-size: $font-size-sm;
+    font-weight: $font-semibold;
+    color: $color-text-primary;
+  }
+
+  &__image {
+    display: flex;
+    align-items: center;
+    gap: $spacing-lg;
+  }
+
+  &__preview {
+    max-width: rem(160);
+    max-height: rem(120);
+    border: 1px solid $color-border-input;
+    border-radius: $border-radius-sm;
+    background: $wp-admin-gray-bg-light;
+    object-fit: contain;
+  }
+
+  &__image-actions {
+    display: flex;
+    align-items: center;
+    gap: $spacing-md;
+  }
+}
+
+// Медиатека WordPress открывается из модалки блока «Изображение» — её
+// z-index (160000) ниже нашей модалки, пока выбирают картинку, поднимаем её.
+body.fs-media-above-modal {
+  .media-modal { z-index: $z-modal-alert + 1; }
+  .media-modal-backdrop { z-index: $z-modal-alert; }
+}

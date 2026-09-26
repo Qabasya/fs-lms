@@ -304,6 +304,7 @@ class AdminCallbacks extends BaseController {
 				'label'        => $d->label(),
 				'button_label' => $d->buttonLabel(),
 				'has_template' => $this->printCenter->hasTemplate( $d ),
+				'needs_input'  => $d->needsInput(),
 			),
 			PrintDocument::cases()
 		);

@@ -1,5 +1,6 @@
 import { renderChapterRows, renderAttachmentRows } from './video-editor.js';
 import { registerBlockButtons } from '../../../tinymce/editor-blocks.js';
+import { registerLectureBlocks } from './lecture-blocks.js';
 
 /**
  * inline-editor.js — тело инлайнового шага (text / video / broadcast):
@@ -96,8 +97,10 @@ export function inlineEditor( ed, step, ctx ) {
 		// Добавляет кнопки плагина в тулбар TinyMCE 4: блоки (таблица, код,
 		// формула) — общие с редактором задания, остальное — своё.
 		function setupButtons( editor ) {
-			// Код — листингом, как блок «Код» статьи: язык, копирование, номера строк.
-			registerBlockButtons( editor, { latex: 'mathjax', code: 'listing' } );
+			// Таблица и формула — общие с заданием; «Код» и «Изображение» — блоки
+			// как в статье, со своими модалками (lecture-blocks.js).
+			registerBlockButtons( editor, { latex: 'mathjax', code: false } );
+			registerLectureBlocks( editor );
 
 			editor.addButton( 'code_inline', {
 				text   : '</>',
@@ -114,8 +117,10 @@ export function inlineEditor( ed, step, ctx ) {
 				editor.formatter.register( 'code_inline', { inline: 'code' } );
 				ed.classList.remove( 'fs-rte-loading' );
 			} );
+			// Медиатека целиком (файлы, видео, картинка «как есть»); картинку как в
+			// статье — с размером и подписью — вставляет кнопка «Изображение».
 			editor.addButton( 'fs_media', {
-				icon   : 'image',
+				icon   : 'dashicon dashicons-admin-media',
 				tooltip: 'Добавить медиафайл',
 				onclick() {
 					window.wp?.media?.editor?.open( editor.id );
@@ -128,8 +133,9 @@ export function inlineEditor( ed, step, ctx ) {
 		// TinyMCE вычищает класс у `<pre>` и `<table>` при переключении вкладок
 		// «Визуально»/«Текст», а без него блок кода на фронте остаётся
 		// неподсвеченным (`frontend/components/code-block.js` ищет именно класс).
-		// У листинга класс и язык висят на `<code>` — их тоже бережём.
-		const extendedElements = 'pre[class|id|style],code[class|data-lang],table[class|id|style]';
+		// У листинга класс и язык висят на `<code>`, у картинки — класс на `<figure>`:
+		// их тоже бережём.
+		const extendedElements = 'pre[class|id|style],code[class|data-lang],table[class|id|style],figure[class],figcaption';
 
 		if ( window.wp?.editor ) {
 			window.wp.editor.initialize( tid, {
@@ -137,7 +143,10 @@ export function inlineEditor( ed, step, ctx ) {
 					wpautop                : true,
 					plugins                : 'charmap colorpicker fullscreen hr lists paste tabfocus textcolor wordpress wpautoresize wpeditimage wplink wptextpattern',
 					toolbar1               : 'bold italic underline strikethrough code_inline | formatselect | forecolor | bullist numlist | blockquote hr | alignleft aligncenter alignright | link unlink | fs_media | removeformat | undo redo | fullscreen',
-					toolbar2               : 'fs_table fs_code_block fs_formula | charmap',
+					toolbar2               : 'fs_table fs_code_block fs_image fs_formula | charmap',
+					// Второй ряд WordPress прячет до нажатия «Показать/скрыть панель», а
+					// этой кнопки у нас нет — без флага блоки было не достать вовсе.
+					wordpress_adv_hidden   : false,
 					height                 : 400,
 					extended_valid_elements: extendedElements,
 					paste_postprocess      : ( plugin, args ) => cleanPastedNode( args.node ),
@@ -149,7 +158,7 @@ export function inlineEditor( ed, step, ctx ) {
 		} else if ( window.tinymce ) {
 			window.tinymce.init( {
 				selector               : '#' + tid,
-				toolbar                : 'bold italic underline strikethrough code_inline | formatselect | bullist numlist | blockquote hr | alignleft aligncenter alignright | link | charmap | fs_table fs_code_block fs_formula | removeformat | undo redo | fullscreen',
+				toolbar                : 'bold italic underline strikethrough code_inline | formatselect | bullist numlist | blockquote hr | alignleft aligncenter alignright | link | charmap | fs_table fs_code_block fs_image fs_formula | removeformat | undo redo | fullscreen',
 				menubar                : false,
 				statusbar              : false,
 				plugins                : 'link lists hr charmap fullscreen',
