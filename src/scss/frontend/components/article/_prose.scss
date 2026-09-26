@@ -72,7 +72,18 @@
     // Формулы QuickLaTeX (`ql-img-*`) — без скругления: оно срезает края символов.
     img:not([class*='ql-img']) { border-radius: $border-radius-xl; }
 
-    > img { display: block; }
+    // Картинка — всегда по центру колонки, даже внутри абзаца (редактор кладёт
+    // её в `<p>`, и она наследовала бы его выключку) и вопреки alignleft/alignright.
+    // В строке остаются только строчные формулы QuickLaTeX и смайлы.
+    img:not(.emoji, .wp-smiley, [class*='ql-img-inline']) {
+      display: block;
+      margin-inline: auto;
+      float: none;
+    }
+
+    // Выключка по ширине, без переносов слов.
+    p,
+    li { text-align: justify; }
 
     hr {
       height: 1px;
@@ -143,18 +154,4 @@
 
   .fs-article-prose h2 + h3,
   .fs-article-prose h3 + h4 { margin-top: $spacing-lg; }
-}
-
-// Узкий экран: колонка текста короткая, рваный правый край бросается в
-// глаза — выключка по ширине. Переносы (`hyphens`) браузер расставляет по
-// словарю языка страницы (`<html lang="ru-RU">`), без них justify разгонял
-// бы пробелы между длинными русскими словами.
-@media (max-width: $bp-sm) {
-  .fs-article-page .fs-article-prose {
-    p,
-    li {
-      text-align: justify;
-      hyphens: auto;
-    }
-  }
 }

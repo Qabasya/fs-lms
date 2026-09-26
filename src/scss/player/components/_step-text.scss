@@ -122,12 +122,13 @@
   // Формулы QuickLaTeX (`ql-img-*`) — без скругления: оно срезает края символов.
   img:not([class*='ql-img']) { border-radius: rem(12); }
 
-  // Картинка — по центру колонки, даже внутри абзаца (редактор кладёт её в
-  // `<p>`, и она наследовала его выключку). Явные alignleft/alignright автора
-  // и строчные картинки-формулы QuickLaTeX/смайлы остаются в строке.
-  img:not(.alignleft, .alignright, .emoji, .wp-smiley, [class*='ql-img-inline']) {
+  // Картинка — всегда по центру колонки, даже внутри абзаца (редактор кладёт
+  // её в `<p>`, и она наследовала бы его выключку) и вопреки alignleft/alignright.
+  // В строке остаются только строчные формулы QuickLaTeX и смайлы.
+  img:not(.emoji, .wp-smiley, [class*='ql-img-inline']) {
     display: block;
     margin-inline: auto;
+    float: none;
   }
 }
 
