@@ -49,6 +49,7 @@ import { TeacherViewModal } from './modals/enrollment/teacher-view-modal.js';
 import { AlertModal } from './modals/alert-modal.js';
 import { RolesSettings } from './services/roles-settings.js';
 import { LegacyTaskImport } from './services/legacy-task-import.js';
+import { PrintCenter } from './services/print-center.js';
 
 /**
  * Инициализирует конструктор из отдельного чанка.
@@ -214,6 +215,10 @@ function loadBuilder( chunk, exportName ) {
 
         if ( $( '#fs-legacy-import-start' ).length ) {
             LegacyTaskImport.init();
+        }
+
+        if ( $( '#fs-print-center-form' ).length ) {
+            PrintCenter.init();
         }
 
     });

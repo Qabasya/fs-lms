@@ -106,6 +106,11 @@ enum AuditAction: string {
 
 	case RecoveryCompleted = 'recovery_completed';
 
+	// ===== Центр печати =====
+
+	case ContractPrinted     = 'contract_printed';
+	case TaxDeductionPrinted = 'tax_deduction_printed';
+
 
 	/**
 	 * Возвращает человекочитаемое название действия
@@ -161,6 +166,9 @@ enum AuditAction: string {
 			self::HardDeletePeriod       => 'Жёсткое удаление периода',
 
 			self::RecoveryCompleted      => 'Восстановление зависшего зачисления',
+
+			self::ContractPrinted        => 'Распечатан договор',
+			self::TaxDeductionPrinted    => 'Распечатана справка на вычет',
 		};
 	}
 }

@@ -17,6 +17,7 @@ enum Menu: string
 	case Groups = 'fs_lms_groups';
 	case UserList = 'fs_lms_userlist';
 	case Logs = 'fs_lms_logs';
+	case PrintCenter = 'fs_lms_print_center';
 
 	// ===== Обучение: единое меню банков контента =====
 	case Learning         = 'fs_lms_learning';
@@ -40,6 +41,7 @@ enum Menu: string
 			self::Groups         => 'Управление группами',
 			self::UserList         => 'Список пользователей',
 			self::Logs         => 'Журналы',
+			self::PrintCenter  => 'Центр печати',
 			self::Learning         => 'Обучение',
 			self::LearningCourses  => 'Курсы',
 			self::LearningLessons  => 'Уроки',
@@ -61,6 +63,7 @@ enum Menu: string
 			self::Groups             => 'Группы',
 			self::UserList           => 'Пользователи',
 			self::Logs               => 'Журналы',
+			self::PrintCenter        => 'Центр печати',
 			self::Learning           => 'Обучение',
 			self::LearningCourses    => 'Курсы',
 			self::LearningLessons    => 'Уроки',
@@ -84,6 +87,7 @@ enum Menu: string
 			self::Groups             => 'groupsPage',
 			self::UserList           => 'userlistPage',
 			self::Logs               => 'logsPage',
+			self::PrintCenter        => 'printCenterPage',
 			self::Learning           => 'renderCourses',
 			self::LearningCourses    => 'renderCourses',
 			self::LearningLessons    => 'renderLessons',

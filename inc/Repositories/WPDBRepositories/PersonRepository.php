@@ -254,6 +254,35 @@ class PersonRepository {
 	}
 
 	/**
+	 * Ищет учеников по ФИО — собранной строке «Фамилия Имя Отчество», как и
+	 * {@see searchParentsClause()}: вводят ФИО целиком, а не по колонкам.
+	 * Мягко удалённые лица (expelled_at) не ищутся — их ПДн уже недоступны.
+	 *
+	 * @param string $search Строка поиска
+	 * @param int    $limit  Максимум результатов
+	 *
+	 * @return PersonDTO[]
+	 */
+	public function searchStudents( string $search, int $limit = 20 ): array {
+		$like = '%' . $this->wpdb->esc_like( trim( $search ) ) . '%';
+
+		$rows = $this->wpdb->get_results(
+			$this->wpdb->prepare(
+				"SELECT * FROM %i
+				WHERE is_student = 1 AND expelled_at IS NULL AND CONCAT_WS(' ', last_name, first_name, middle_name) LIKE %s
+				ORDER BY last_name, first_name, middle_name
+				LIMIT %d",
+				$this->table,
+				$like,
+				$limit
+			),
+			ARRAY_A
+		);
+
+		return array_map( fn( array $row ) => PersonDTO::fromArray( $row ), $rows ?: array() );
+	}
+
+	/**
 	 * Возвращает родителей (is_student=false) с пагинацией и сортировкой.
 	 *
 	 * @param int    $page    Номер страницы

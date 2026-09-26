@@ -250,6 +250,16 @@ class AdminController extends BaseController implements ServiceInterface {
 			'callback'    => array( $this->callbacks, Menu::Logs->callback() ),
 		);
 
+		// Центр печати PrintCenter
+		$subpages[] = array(
+			'parent_slug' => Menu::Main->value,
+			'page_title'  => Menu::PrintCenter->page_title(),
+			'menu_title'  => Menu::PrintCenter->menu_title(),
+			'capability'  => Capability::ManageLmsPlatform->value,
+			'menu_slug'   => Menu::PrintCenter->value,
+			'callback'    => array( $this->callbacks, Menu::PrintCenter->callback() ),
+		);
+
 		// Добавляем подстраницы предметов (каждый предмет — отдельная подстраница)
 		return array_merge( $subpages, $this->subjects_menu_builder->buildSubPages() );
 	}

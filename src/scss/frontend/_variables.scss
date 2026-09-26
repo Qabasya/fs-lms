@@ -141,6 +141,10 @@ $content-offset: $sidebar-width + $layout-gap;
 // Ширина карточки
 $subject-card-width: math.div( $max-width - $sidebar-width - $layout-gap - 2 * t.$spacing-lg, 3 );
 
+// Ширина карточки карусели на мобильном: в полторы раза уже, чтобы в кадр
+// помещалась не одна карточка
+$subject-card-width-sm: math.div( $subject-card-width, 1.5 );
+
 // Высота админ-бара WP — на неё сдвигаются липкие блоки (миксин fs-sticky)
 $wp-admin-bar-height: 32px;
 $wp-admin-bar-height-mobile: 46px;

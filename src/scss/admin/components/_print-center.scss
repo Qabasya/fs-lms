@@ -1,0 +1,139 @@
+@use '../variables' as *;
+
+// =================================================================
+// Центр печати (fs_lms_print_center)
+// =================================================================
+
+.fs-print-center {
+  &__layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: $spacing-xl;
+    align-items: start;
+    max-width: $settings-max-width * 1.5;
+    margin-top: $spacing-lg;
+
+    // .fs-card + .fs-card — отступ для стопки, в сетке он лишний
+    > .fs-card + .fs-card { margin-top: 0; }
+
+    @media (max-width: $breakpoint-mobile) {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+
+  // Правая колонка: программы и справочник полей стопкой
+  &__aside {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-xl;
+
+    > .fs-card + .fs-card { margin-top: 0; }
+  }
+
+  // ── Программы и цены
+  &__programs {
+    input[type='text'] { width: 100%; }
+
+    th:last-child,
+    td:last-child { width: 1%; }
+  }
+
+  &__price-input { min-width: rem(110); }
+
+  // ── Поиск ученика
+  &__search {
+    position: relative;
+    max-width: $field-max-width;
+
+    input[type='text'] { width: 100%; }
+  }
+
+  &__suggest {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    z-index: $z-tooltip;
+    margin: $spacing-xs 0 0;
+    padding: $spacing-xs 0;
+    list-style: none;
+    background: $color-bg-modal;
+    border: 1px solid $color-border-input;
+    border-radius: $border-radius-sm;
+    box-shadow: $shadow-modal;
+    max-height: rem(260);
+    overflow-y: auto;
+
+    &[hidden] { display: none; }
+  }
+
+  &__suggest-item {
+    display: flex;
+    flex-direction: column;
+    gap: rem(2);
+    margin: 0;
+    padding: $spacing-sm $spacing-md;
+    cursor: pointer;
+    transition: $transition-default;
+
+    &:hover,
+    &.is-active { background: $wp-admin-gray-bg; }
+  }
+
+  &__suggest-name {
+    font-size: $font-size-base;
+    color: $color-text-primary;
+  }
+
+  &__suggest-hint,
+  &__suggest-empty {
+    font-size: $font-size-sm;
+    color: $color-text-secondary;
+  }
+
+  &__suggest-empty {
+    margin: 0;
+    padding: $spacing-sm $spacing-md;
+  }
+
+  // ── Родитель
+  &__parent {
+    margin: 0;
+    font-size: $font-size-base;
+    color: $color-text-primary;
+
+    &.is-missing { color: $wp-admin-red-text; }
+  }
+
+  &__status {
+    font-size: $font-size-sm;
+    color: $color-text-secondary;
+  }
+
+  // ── Справочник полей
+  &__group {
+    margin: $spacing-xl 0 $spacing-sm;
+    font-size: $font-size-sm;
+    font-weight: $font-semibold;
+    color: $color-text-primary;
+
+    &:first-of-type { margin-top: 0; }
+  }
+
+  &__table td { vertical-align: middle; }
+
+  &__fields td:first-child { width: 55%; }
+
+  &__code {
+    padding: 0;
+    border: 0;
+    background: none;
+    cursor: copy;
+    text-align: left;
+
+    code { transition: $transition-default; }
+
+    &:hover code,
+    &:focus-visible code { background: $wp-admin-blue-bg-light; }
+  }
+}

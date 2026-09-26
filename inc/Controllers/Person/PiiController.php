@@ -154,7 +154,10 @@ class PiiController extends AjaxController {
 		$filename    = (string) ( $meta['filename']     ?? 'export' );
 		$contentType = (string) ( $meta['content_type'] ?? 'application/octet-stream' );
 
-		header( 'Content-Disposition: attachment; filename="' . $filename . '"' );
+		// filename* (RFC 5987) — для кириллицы в имени (документы «Центра печати»);
+		// filename — ASCII-запасной вариант для старых клиентов.
+		$asciiName = preg_replace( '/[^A-Za-z0-9._-]+/', '_', $filename );
+		header( 'Content-Disposition: attachment; filename="' . $asciiName . '"; filename*=UTF-8\'\'' . rawurlencode( $filename ) );
 		header( 'Content-Type: ' . $contentType );
 		nocache_headers();  // Запрет кеширования
 

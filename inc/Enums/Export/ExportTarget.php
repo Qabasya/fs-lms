@@ -11,6 +11,9 @@ enum ExportTarget: string {
 	case Parents  = 'parents';
 	case Archive  = 'archive';
 
+	// Центр печати: документ по шаблону (ID — ученик и родитель)
+	case PrintDocument = 'print_document';
+
 	// Лог-каналы
 	case LogEntityAudit    = 'log_entity_audit';
 	case LogEnrollment     = 'log_enrollment';
@@ -28,6 +31,7 @@ enum ExportTarget: string {
 			self::Students           => 'Ученики',
 			self::Parents            => 'Родители',
 			self::Archive            => 'Архив',
+			self::PrintDocument      => 'Центр печати: документ',
 			self::LogEntityAudit     => 'Лог: действия с сущностями',
 			self::LogEnrollment      => 'Лог: путь зачисления',
 			self::LogPiiAccess       => 'Лог: доступ к ПД',

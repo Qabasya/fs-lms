@@ -72,6 +72,26 @@
   .fs-subject-card { flex: 1; }
 }
 
+// Мобильный: карточка в полтора раза уже, край кадра гаснет короче —
+// иначе в кадре одна карточка, да и та под затуханием.
+@media (max-width: $bp-sm) {
+  .fs-carousel-row { gap: $spacing-sm; }
+
+  .fs-carousel-overflow {
+    mask-image: linear-gradient(
+      to right,
+      transparent 0,
+      #000 $spacing-lg,
+      #000 calc(100% - #{$spacing-lg}),
+      transparent 100%
+    );
+  }
+
+  .fs-carousel-item {
+    flex-basis: calc(#{$subject-card-width-sm} + #{$spacing-sm} * 2);
+  }
+}
+
 .fs-task-carousel .fs-carousel-btn {
   @include circle-btn(rem(38));
 

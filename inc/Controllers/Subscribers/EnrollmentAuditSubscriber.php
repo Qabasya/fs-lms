@@ -74,6 +74,7 @@ class EnrollmentAuditSubscriber implements ServiceInterface {
 		$this->logEvents->subscribe( LogEvent::EnrollmentCanceled, $handler );
 		$this->logEvents->subscribe( LogEvent::TrialAccessGranted, $handler );
 		$this->logEvents->subscribe( LogEvent::TrialAccessRevoked, $handler );
+		$this->logEvents->subscribe( LogEvent::DocumentPrinted,    $handler );
 
 		$this->logEvents->subscribe( LogEvent::ApplicationCreated,  $appHandler );
 		$this->logEvents->subscribe( LogEvent::ApplicationUpdated,  $appHandler );

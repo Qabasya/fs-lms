@@ -23,6 +23,9 @@ use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 use Inc\Repositories\WPDBRepositories\RoomRepository;
 use Inc\Services\Log\Pages\LogPageRegistry;
+use Inc\Services\Print\PrintCenterService;
+use Inc\Enums\Print\PrintDocument;
+use Inc\Enums\Print\PrintField;
 use Inc\Services\Shared\PluginConfig;
 use Inc\Shared\Traits\Authorizer;
 use Inc\Shared\Traits\Sanitizer;
@@ -79,6 +82,7 @@ class AdminCallbacks extends BaseController {
 		private readonly EmailTemplatesRepository $emailTemplates,
 		private readonly ConsentDefinitionsRepository $consentDefinitions,
 		private readonly LegacyTaskImportPageController $legacyTaskImportPageController,
+		private readonly PrintCenterService $printCenter,
 	) {
 		parent::__construct();
 	}
@@ -283,6 +287,34 @@ class AdminCallbacks extends BaseController {
 			array(
 				'subjects'         => $this->subjects->readAll(),
 				'academic_periods' => $this->periods->readAll(),
+			)
+		);
+	}
+
+	/**
+	 * Страница «Центр печати»: формы документов (с признаком загруженного
+	 * шаблона) и справочник полей для подстановки.
+	 *
+	 * @return void
+	 */
+	public function printCenterPage(): void {
+		$documents = array_map(
+			fn( PrintDocument $d ): array => array(
+				'value'        => $d->value,
+				'label'        => $d->label(),
+				'button_label' => $d->buttonLabel(),
+				'has_template' => $this->printCenter->hasTemplate( $d ),
+			),
+			PrintDocument::cases()
+		);
+
+		$this->render(
+			'admin/print-center',
+			array(
+				'documents'    => $documents,
+				'field_groups' => PrintField::grouped(),
+				'programs'     => $this->printCenter->programs(),
+				'can_export'   => current_user_can( Capability::ExportPII->value ),
 			)
 		);
 	}

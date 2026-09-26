@@ -63,4 +63,7 @@ enum OptionName: string {
 
 	/** Страницы лендинга предмета: [subject_key => [page_type => page_id]] */
 	case SubjectPages = 'fs_lms_subject_pages';
+
+	/** Центр печати — программа и цена предмета для договора: [subject_key => ['program' => ..., 'price' => ...]] */
+	case PrintPrograms = 'fs_lms_print_programs';
 }

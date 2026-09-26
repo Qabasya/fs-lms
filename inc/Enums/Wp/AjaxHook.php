@@ -89,6 +89,12 @@ enum AjaxHook: string {
 	case ExportParents  = 'export_parents';
 	case ExportArchive  = 'export_archive';
 
+	// ==================== PrintCenterController (Центр печати) ====================
+	case SearchPrintStudents   = 'search_print_students';   // params: query
+	case GetPrintStudentRecords = 'get_print_student_records'; // params: student_id — зачисления с родителем
+	case GeneratePrintDocument = 'generate_print_document'; // params: document, student_id, record_id
+	case SavePrintProgram      = 'save_print_program';      // params: subject_key, program, price
+
 	// ==================== Журналы ====================
 	case ExportEntityAuditLog  = 'export_entity_audit_log';
 	case ExportEnrollmentLog   = 'export_enrollment_log';
