@@ -38,6 +38,7 @@ class CourseController extends AjaxController {
 			array( AjaxHook::DuplicateLessonInModule,   $this->builderCallbacks ),
 			array( AjaxHook::UpdateLessonMeta,          $this->builderCallbacks ),
 			array( AjaxHook::SaveCourseMeta,            $this->builderCallbacks ),
+			array( AjaxHook::SetCourseVisibility,       $this->builderCallbacks ),
 			array( AjaxHook::CloneLesson,               $this->cloneCallbacks ),
 			array( AjaxHook::CloneWork,                 $this->cloneCallbacks ),
 			array( AjaxHook::CloneAssessment,           $this->cloneCallbacks ),

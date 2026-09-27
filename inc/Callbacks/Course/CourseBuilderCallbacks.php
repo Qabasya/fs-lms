@@ -211,6 +211,22 @@ class CourseBuilderCallbacks extends BaseController {
 	}
 
 	/**
+	 * Публичный / приватный курс. Params: course_id, is_public
+	 */
+	public function ajaxSetCourseVisibility(): void {
+		$this->authorize( Nonce::AuthorCourse, Capability::AuthorLmsCourses );
+
+		$course_id = $this->requireInt( 'course_id' );
+		$is_public = $this->sanitizeBool( 'is_public' );
+
+		if ( $this->builder->setVisibility( $course_id, $is_public ) ) {
+			$this->success( array( 'is_public' => $is_public ) );
+		} else {
+			$this->error( 'Курс не найден.' );
+		}
+	}
+
+	/**
 	 * Санитайз входного массива модулей (значения, не ключи $_POST).
 	 *
 	 * @param mixed $raw

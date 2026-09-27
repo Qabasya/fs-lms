@@ -53,6 +53,13 @@ enum PostMetaName: string {
 	case ArticleSlugLocked = 'fs_lms_article_slug_locked';
 
 	/**
+	 * Курс публичный ('1') или приватный ('0'): публичные выводятся на страницах
+	 * предмета (сайдбар тренажёра, раздел «Курсы»). Нет меты — публичный (курсы
+	 * до появления флага). См. {@see \Inc\Managers\Course\CourseManager::isPublic()}.
+	 */
+	case CoursePublic = 'fs_lms_course_public';
+
+	/**
 	 * На дочернем задании связки (19/20/21) — ID родительского поста triple_task.
 	 * См. {@see \Inc\Services\Task\TaskBundleService}.
 	 */

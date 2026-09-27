@@ -8,7 +8,9 @@
  *
  * @package FS LMS
  *
- * @var \Inc\DTO\Subject\SubjectDTO[] $subjects Активные предметы для селекта «Направление».
+ * @var \Inc\DTO\Subject\SubjectDTO[] $subjects         Активные предметы для селекта «Направление».
+ * @var string                        $selected_subject Направление курса, с которого пришли по «Записаться»
+ *                                                      (`?course=ID`); пусто — не выбрано.
  */
 
 use Inc\Enums\Wp\Nonce;
@@ -19,6 +21,13 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 // Текущая дата для ограничения выбора даты рождения (нельзя выбрать будущее)
 $max_birth_date = gmdate( 'Y-m-d' );
+
+// Предмет курса может быть не среди активных — тогда остаётся плейсхолдер,
+// иначе браузер сам выберет первый доступный пункт.
+$selected_subject = (string) ( $selected_subject ?? '' );
+if ( ! in_array( $selected_subject, array_map( static fn( $s ) => $s->key, $subjects ?? array() ), true ) ) {
+    $selected_subject = '';
+}
 ?>
 
 <!-- ЭТАП 1: Форма ввода данных -->
@@ -45,9 +54,9 @@ $max_birth_date = gmdate( 'Y-m-d' );
                         aria-required="true"
                         autocomplete="off"
                 >
-                    <option value="" disabled selected><?php esc_html_e( 'Выберите направление', 'fs-lms' ); ?></option>
+                    <option value="" disabled <?php selected( '', $selected_subject ); ?>><?php esc_html_e( 'Выберите направление', 'fs-lms' ); ?></option>
                     <?php foreach ( ( $subjects ?? array() ) as $subject ) : ?>
-                        <option value="<?php echo esc_attr( $subject->key ); ?>">
+                        <option value="<?php echo esc_attr( $subject->key ); ?>" <?php selected( $subject->key, $selected_subject ); ?>>
                             <?php echo esc_html( $subject->name ); ?>
                         </option>
                     <?php endforeach; ?>

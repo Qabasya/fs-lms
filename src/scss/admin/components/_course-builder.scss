@@ -66,6 +66,17 @@
 	.course-strip-actions { display: flex; gap: $spacing-sm; align-items: center; }
 	.course-strip-actions .button svg { vertical-align: rem(-2); margin-right: rem(4); }
 
+	// Тумблер «Публичный / Приватный» слева от «Просмотр»
+	.cs-visibility {
+		display: flex; align-items: center; gap: $spacing-sm;
+		margin-right: $spacing-sm;
+	}
+
+	.cs-visibility-label {
+		font-size: $font-size-xs; color: $color-text-secondary; cursor: pointer;
+		min-width: rem(72);
+	}
+
 	// создание курса
 	.fs-cb-create {
 		max-width: rem(460);

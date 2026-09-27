@@ -15,8 +15,9 @@ use Inc\Managers\Course\CourseManager;
  * Курсы предмета для публичных страниц (сайдбар «Все задания» и страницы задания).
  *
  * Показываются только опубликованные курсы: черновики и архив — внутренние
- * состояния конструктора. Если опубликованных нет, метод возвращает пустой
- * список, и блок сайдбара не выводится вовсе.
+ * состояния конструктора. Приватные курсы (тумблер «Публичный» в конструкторе,
+ * CourseManager::isPublic()) тоже не выводятся. Если подходящих нет, метод
+ * возвращает пустой список, и блок сайдбара не выводится вовсе.
  *
  * @package Inc\Services\Course
  */
@@ -48,14 +49,33 @@ class PublicCourseService {
 		$courses = $this->course_manager->getBankBySubject(
 			$subject_key,
 			array(
-				'status'  => 'publish',
-				'limit'   => $limit,
-				'orderby' => 'title',
-				'order'   => 'ASC',
+				'status'     => 'publish',
+				'limit'      => $limit,
+				'orderby'    => 'title',
+				'order'      => 'ASC',
+				'meta_query' => $this->course_manager->publicMetaQuery(),
 			)
 		);
 
 		return array_map( fn( CourseDTO $course ) => $this->toCard( $course ), $courses );
+	}
+
+	/**
+	 * Предмет опубликованного курса — направление, которое форма заявки
+	 * выбирает сама, когда посетитель пришёл по «Записаться» (`?course=ID`).
+	 *
+	 * @param int $course_id ID курса.
+	 *
+	 * @return string Ключ предмета; пустая строка — курса нет или он не опубликован.
+	 */
+	public function subjectOf( int $course_id ): string {
+		if ( $course_id < 1 ) {
+			return '';
+		}
+
+		$course = $this->course_manager->get( $course_id );
+
+		return null !== $course && 'publish' === $course->status ? $course->subjectKey : '';
 	}
 
 	/**

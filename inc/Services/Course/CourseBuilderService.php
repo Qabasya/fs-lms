@@ -96,6 +96,7 @@ class CourseBuilderService {
 			'title'        => $course->title,
 			'subject_key'  => $course->subjectKey,
 			'status'       => $course->status,
+			'is_public'    => $this->courses->isPublic( $course->id ),
 			'author_id'    => $course->authorId,
 			'author_name'  => $author_name,
 			'thumbnail'    => get_the_post_thumbnail_url( $course->id, 'medium' ) ?: '',
@@ -313,6 +314,20 @@ class CourseBuilderService {
 			$this->publishCourseLessons( $courseId );
 		}
 
+		return true;
+	}
+
+	/**
+	 * Публичность курса: публичные выводятся на страницах предмета, приватные — нет.
+	 *
+	 * @return bool false — курс не найден.
+	 */
+	public function setVisibility( int $courseId, bool $isPublic ): bool {
+		if ( null === $this->courses->get( $courseId ) ) {
+			return false;
+		}
+
+		$this->courses->setPublic( $courseId, $isPublic );
 		return true;
 	}
 

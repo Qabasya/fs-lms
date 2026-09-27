@@ -174,6 +174,26 @@ function createApp( mount ) {
 			window.open( url.toString(), '_blank' );
 		} );
 
+		// Strip: публичный / приватный курс — сохраняется сразу, откат при ошибке.
+		mount.querySelector( '[data-strip-public]' )?.addEventListener( 'change', ( e ) => {
+			const input    = e.currentTarget;
+			const isPublic = input.checked;
+			const label    = mount.querySelector( '[data-strip-public-label]' );
+			const paint    = ( on ) => { if ( label ) { label.textContent = on ? 'Публичный' : 'Приватный'; } };
+
+			paint( isPublic );
+			ajax( acts().setCourseVisibility, { course_id: courseId, is_public: isPublic ? '1' : '0' } )
+				.then( () => {
+					state.course.is_public = isPublic;
+					showToast( isPublic ? 'Курс публичный' : 'Курс приватный', 'success' );
+				} )
+				.catch( ( msg ) => {
+					input.checked = ! isPublic;
+					paint( ! isPublic );
+					showToast( msg, 'error' );
+				} );
+		} );
+
 		// Strip: "Опубликовать / Сохранить курс" → AJAX, без перезагрузки
 		mount.querySelector( '[data-strip-publish]' )?.addEventListener( 'click', () => {
 			const wasPublished = state.course.status === 'publish';
@@ -260,6 +280,15 @@ function createApp( mount ) {
 					</div>
 				</div>
 				<div class="course-strip-actions">
+					<div class="cs-visibility" title="Публичный курс выводится в сайдбаре тренажёра и в разделе «Курсы» предмета">
+						<div class="fs-toggle">
+							<input type="checkbox" id="fs-cb-course-public" data-strip-public ${ c.is_public ? 'checked' : '' }>
+							<label class="fs-toggle-switch" for="fs-cb-course-public">Публичный</label>
+						</div>
+						<label class="cs-visibility-label" for="fs-cb-course-public" data-strip-public-label>
+							${ c.is_public ? 'Публичный' : 'Приватный' }
+						</label>
+					</div>
 					<button type="button" class="button" data-strip-preview data-course-id="${ c.id }">
 						${ icoEye( 14 ) }Просмотр
 					</button>

@@ -80,6 +80,37 @@ class CourseManager {
 		}, $posts );
 	}
 
+	/**
+	 * Курс публичный: нет меты — публичный (курсы до появления флага).
+	 */
+	public function isPublic( int $courseId ): bool {
+		return '0' !== (string) $this->posts->getMeta( $courseId, PostMetaName::CoursePublic->value );
+	}
+
+	public function setPublic( int $courseId, bool $isPublic ): void {
+		$this->posts->updateMeta( $courseId, PostMetaName::CoursePublic->value, $isPublic ? '1' : '0' );
+	}
+
+	/**
+	 * Условие `meta_query` для выборки только публичных курсов (PostManager::search).
+	 *
+	 * @return array<int|string, mixed>
+	 */
+	public function publicMetaQuery(): array {
+		return array(
+			'relation' => 'OR',
+			array(
+				'key'     => PostMetaName::CoursePublic->value,
+				'compare' => 'NOT EXISTS',
+			),
+			array(
+				'key'     => PostMetaName::CoursePublic->value,
+				'value'   => '0',
+				'compare' => '!=',
+			),
+		);
+	}
+
 	public function delete( int $courseId ): bool {
 		$this->posts->delete( $courseId );
 		return true;

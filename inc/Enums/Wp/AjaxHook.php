@@ -186,6 +186,7 @@ enum AjaxHook: string {
 	case DuplicateLessonInModule = 'duplicate_lesson_in_module'; // params: course_id, module_id, lesson_id
 	case UpdateLessonMeta    = 'update_lesson_meta';    // params: lesson_id, title, published
 	case SaveCourseMeta      = 'save_course_meta';      // params: course_id, title, published
+	case SetCourseVisibility = 'set_course_visibility'; // params: course_id, is_public
 
 	// ==== Пошаговый плеер урока (Этап 1.5) ====
 	case MarkStepProgress = 'mark_step_progress'; // params: group_lesson_id, step_key, status (viewed|completed)
