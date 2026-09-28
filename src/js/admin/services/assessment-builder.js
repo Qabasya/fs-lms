@@ -27,7 +27,6 @@ function mount( el ) {
 	const egeSlotsByKind = JSON.parse( el.dataset.egeSlots || '{}' );
 	const egeSlots       = ( kind ) => parseInt( egeSlotsByKind[ kind ], 10 ) || 0;
 	const egeKinds      = JSON.parse( el.dataset.egeKinds || '[]' );
-	const allowIncompleteKinds = JSON.parse( el.dataset.allowIncompleteKinds || '[]' );
 	const taskPointsMap  = JSON.parse( el.dataset.taskPoints || '{}' );
 	const acts          = fs_lms_vars.ajax_actions;
 	const nonces        = fs_lms_vars.nonces;
@@ -36,10 +35,6 @@ function mount( el ) {
 	let prevKind     = kindSelect ? kindSelect.value : '';
 
 	const isEge        = ( kind ) => egeKinds.includes( kind );
-	// Тестовое окружение (см. AssessmentMetaBoxController::allowsIncompletePublish()) —
-	// сервер уже разрешает публиковать эти виды неукомплектованными, поэтому клиентский
-	// гейт (D16.5) их дизейблить не должен — только предупреждение остаётся видимым.
-	const allowsIncomplete = ( kind ) => allowIncompleteKinds.includes( kind );
 	const blankSlot    = ( i ) => ( { key: 'slot_' + i, taskId: 0, title: '', points: 1 } );
 	const buildEgeSlots = ( count ) => Array.from( { length: count }, ( _, i ) => blankSlot( i ) );
 
@@ -73,23 +68,13 @@ function mount( el ) {
 		if ( stationBox ) { stationBox.hidden = 'ege_computer' !== kind; }
 
 		if ( statusBar ) { statusBar.hidden = ! isStation; }
-		if ( ! isStation ) { gatePublish( true ); }
 	}
 
 	/**
-	 * Гейт публикации (D16.5): для неукомплектованной ЕГЭ-работы блокируем кнопку
-	 * «Опубликовать/Обновить». Черновик (Сохранить) остаётся доступен. Серверный
-	 * гард (T16.7) — жёсткая страховка; здесь мягкий UX-барьер.
+	 * Обновляет индикатор «Заполнено X/N» и подсветку пропусков/дублей/сирот.
+	 * Только справка для автора: станция публикуется с любым составом, и любое
+	 * задание может стоять на любой позиции.
 	 */
-	function gatePublish( ok ) {
-		const btn = document.getElementById( 'publish' );
-		if ( ! btn ) { return; }
-		btn.disabled = ! ok;
-		btn.classList.toggle( 'disabled', ! ok );
-		btn.setAttribute( 'aria-disabled', ok ? 'false' : 'true' );
-	}
-
-	/** Обновляет индикатор «Заполнено X/N» и подсветку пропусков/дублей/сирот. */
 	function renderCompleteness( verdict ) {
 		if ( ! statusBar || ! verdict ) { return; }
 
@@ -111,8 +96,6 @@ function mount( el ) {
 			chips.push( '<span class="fs-ege-status__ok">Работа укомплектована</span>' );
 		}
 		statusBar.innerHTML = chips.join( '' );
-
-		gatePublish( !! verdict.isComplete || allowsIncomplete( prevKind ) );
 	}
 
 	/**
@@ -172,16 +155,12 @@ function mount( el ) {
 			task_points:   buildTaskPoints( slots ),
 		} ),
 
-		// D16.5: ответ сохранения несёт строгий вердикт полноты (T16.10) —
-		// обновляем индикатор и гейт публикации.
+		// Ответ сохранения несёт вердикт полноты — обновляем индикатор.
 		onPersisted: ( data ) => {
 			if ( data && data.completeness ) { renderCompleteness( data.completeness ); }
 		},
 
-		// Позиция слота (1-based) = номер задания экзамена: для ЕГЭ/ОГЭ отдаём её
-		// бэкенду, чтобы выпадающий список показывал только подходящие по номеру
-		// задачи (предметные — по терму {subject}_task_number, банковские — по
-		// PostMetaName::BankTaskSubject/BankTaskNumber, см. LessonAuthoringService).
+		// Любое задание на любую позицию: список не сужается по номеру слота.
 		// Дропдаун по умолчанию (пустой поиск) — только задания предмета; «Все
 		// задания» (scope='all') или непустой поиск — предмет + глобальный банк
 		// (с бейджем источника).
@@ -190,7 +169,6 @@ function mount( el ) {
 			kind:        'task',
 			source:      candidateSource( q, scope ),
 			search:      q,
-			position:    isEge( prevKind ) && 'number' === typeof index ? String( index + 1 ) : '',
 		} ),
 
 		preview: ( taskId ) => post( acts.getTaskPreview, nonces.authorAssessment, {

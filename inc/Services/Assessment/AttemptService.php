@@ -27,7 +27,6 @@ class AttemptService {
 		private readonly LogEventDispatcherInterface $dispatcher,
 		private readonly ClockInterface              $clock,
 		private readonly AssessmentAccessPolicy      $access,
-		private readonly EgeCompletenessChecker      $completeness,
 		private readonly AttemptRevealPolicy         $revealPolicy,
 		private readonly PersonRepository            $persons,
 	) {}
@@ -58,15 +57,6 @@ class AttemptService {
 
 		$groupLessonId ??= $accessibleLesson->id;
 		$groupId       ??= $accessibleLesson->groupId;
-
-		// D16.3.б: незавершённую ЕГЭ/КЕГЭ-работу (нет биекции задание↔номер) нельзя
-		// начать. Control не касается. Опубликованная работа обычно уже прошла
-		// блок публикации (D16.3.а), но проверяем и здесь — на случай прямого старта.
-		if ( $assessment->kind->needsCompletenessCheck()
-			&& ! $this->completeness->validate( $assessment, $assessment->subjectKey )->isStrictlyComplete()
-		) {
-			throw new \RuntimeException( 'Работа не укомплектована — обратитесь к преподавателю.' );
-		}
 
 		if ( $assessment->attemptsAllowed > 0 ) {
 			$used = $this->attempts->countByAssessmentAndStudent( $assessmentId, $studentPersonId );

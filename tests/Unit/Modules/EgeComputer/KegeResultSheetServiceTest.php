@@ -84,6 +84,18 @@ class KegeResultSheetServiceTest extends TestCase {
 		self::assertSame( 2.0, $sheet->primaryMax );
 	}
 
+	/**
+	 * Задание стоит не на своей позиции: строка листа подписана позицией в работе
+	 * (как «Задание N» на станции), а форма ответа — по собственному номеру задания.
+	 */
+	public function test_row_label_is_position_while_answer_shape_follows_task_number(): void {
+		$dto   = $this->assessment( AssessmentKind::EgeComputer, [ 10, 20 ], [ 10 => '1', 20 => '26' ] );
+		$sheet = $this->service->buildFromAnswers( $dto, [], [] );
+
+		self::assertCount( 3, $sheet->rows );
+		self::assertSame( [ '1', '2', '2' ], array_column( $sheet->rows, 'number' ) );
+	}
+
 	public function test_oge_computer_always_gives_one_slot(): void {
 		$dto   = $this->assessment( AssessmentKind::OgeComputer, [ 10 ], [ 10 => '26' ] );
 		$sheet = $this->service->buildFromAnswers( $dto, [], [] );

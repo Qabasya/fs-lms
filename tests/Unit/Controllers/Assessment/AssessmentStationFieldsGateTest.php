@@ -11,7 +11,6 @@ use Inc\Managers\Wp\PostManager;
 use Inc\MetaBoxes\Templates\AssessmentTemplate;
 use Inc\Registrars\MetaBoxRegistrar;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
-use Inc\Services\Assessment\EgeCompletenessChecker;
 use Inc\Services\Task\TaskPublishGuard;
 use PHPUnit\Framework\TestCase;
 
@@ -44,7 +43,6 @@ class AssessmentStationFieldsGateTest extends TestCase {
 			$this->createMock( PostManager::class ),
 			$this->createMock( AssessmentManager::class ),
 			new TaskPublishGuard(),
-			$this->createMock( EgeCompletenessChecker::class ),
 			$this->createMock( \Inc\Services\Task\TaskBundleService::class ),
 			$this->createMock( \Inc\Services\Assessment\AssessmentSlugService::class ),
 		);

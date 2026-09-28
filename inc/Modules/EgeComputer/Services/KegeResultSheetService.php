@@ -133,7 +133,12 @@ readonly class KegeResultSheetService {
 
 		foreach ( $assessment->taskIds as $position => $taskId ) {
 			$taskId = (int) $taskId;
+			// Два номера: `$number` — собственный номер задания, от него форма ответа
+			// (сколько ячеек) и эталон; `$label` — позиция в работе, под ней строка
+			// листа, как «Задание N» на станции. Любое задание может стоять на любой
+			// позиции — за соответствием формы следит автор работы.
 			$number = $this->number( $assessment, $taskViews, $taskId, (int) $position );
+			$label  = (string) ( (int) $position + 1 );
 			$slots  = $this->answerSlots( $assessment->kind, (int) $number );
 
 			$given   = $this->slots( $this->studentAnswer( $answerText[ $taskId ] ?? '', $number ), $slots );
@@ -160,7 +165,7 @@ readonly class KegeResultSheetService {
 				}
 
 				$rows[] = array(
-					'number'  => $number,
+					'number'  => $label,
 					'score'   => $revealed ? $score : null,
 					'answer'  => $given[ $slot ],
 					'correct' => $revealed ? $correct[ $slot ] : '',

@@ -8,7 +8,6 @@ use Inc\Contracts\ClockInterface;
 use Inc\Contracts\LogEventDispatcherInterface;
 use Inc\DTO\Assessment\AssessmentDTO;
 use Inc\DTO\Assessment\AttemptDTO;
-use Inc\DTO\Assessment\EgeCompletenessResult;
 use Inc\Enums\Assessment\AssessmentKind;
 use Inc\Enums\Assessment\ScoringPolicy;
 use Inc\Managers\Assessment\AssessmentManager;
@@ -19,7 +18,6 @@ use Inc\Services\Assessment\AssessmentAccessPolicy;
 use Inc\Services\Assessment\AttemptRevealPolicy;
 use Inc\Services\Assessment\AttemptService;
 use Inc\Services\Assessment\AutoGradeService;
-use Inc\Services\Assessment\EgeCompletenessChecker;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 
@@ -35,7 +33,6 @@ class AttemptServiceTest extends TestCase {
 	private LogEventDispatcherInterface&MockObject $dispatcher;
 	private ClockInterface&MockObject              $clock;
 	private AssessmentAccessPolicy&MockObject      $access;
-	private EgeCompletenessChecker&MockObject      $completeness;
 	private AttemptRevealPolicy&MockObject         $revealPolicy;
 	private AttemptService                         $service;
 
@@ -48,7 +45,6 @@ class AttemptServiceTest extends TestCase {
 		$this->dispatcher   = $this->createMock( LogEventDispatcherInterface::class );
 		$this->clock        = $this->createMock( ClockInterface::class );
 		$this->access       = $this->createMock( AssessmentAccessPolicy::class );
-		$this->completeness = $this->createMock( EgeCompletenessChecker::class );
 		$this->revealPolicy = $this->createMock( AttemptRevealPolicy::class );
 
 		$this->clock->method( 'now' )->willReturn( '2026-06-01 10:00:00' );
@@ -64,7 +60,6 @@ class AttemptServiceTest extends TestCase {
 			$this->dispatcher,
 			$this->clock,
 			$this->access,
-			$this->completeness,
 			$this->revealPolicy,
 			$this->createMock( \Inc\Repositories\WPDBRepositories\PersonRepository::class ),
 		);
@@ -79,14 +74,6 @@ class AttemptServiceTest extends TestCase {
 		);
 	}
 
-	private function incomplete(): EgeCompletenessResult {
-		return new EgeCompletenessResult( array( '3' ), array(), array(), 27, 26 );
-	}
-
-	private function complete(): EgeCompletenessResult {
-		return new EgeCompletenessResult( array(), array(), array(), 1, 1 );
-	}
-
 	private function seededAttempt(): AttemptDTO {
 		return AttemptDTO::fromArray( array(
 			'id' => 5, 'assessment_id' => 1, 'student_person_id' => 99,
@@ -96,22 +83,9 @@ class AttemptServiceTest extends TestCase {
 		) );
 	}
 
-	public function test_ege_start_blocked_when_incomplete(): void {
+	/** Станция с любым составом (не все номера, не на своих местах) стартует как обычная работа. */
+	public function test_station_start_not_blocked_by_composition(): void {
 		$this->assessments->method( 'get' )->willReturn( $this->assessment( AssessmentKind::EgeComputer ) );
-		$this->completeness->method( 'validate' )->willReturn( $this->incomplete() );
-
-		// Попытка НЕ должна создаваться.
-		$this->attempts->expects( $this->never() )->method( 'create' );
-
-		$this->expectException( \RuntimeException::class );
-		$this->expectExceptionMessage( 'не укомплектована' );
-
-		$this->service->start( 99, 1, null );
-	}
-
-	public function test_ege_start_allowed_when_complete(): void {
-		$this->assessments->method( 'get' )->willReturn( $this->assessment( AssessmentKind::EgeComputer ) );
-		$this->completeness->method( 'validate' )->willReturn( $this->complete() );
 		$this->attempts->method( 'countByAssessmentAndStudent' )->willReturn( 0 );
 		$this->attempts->method( 'nextAttemptNumber' )->willReturn( 1 );
 		$this->attempts->method( 'create' )->willReturn( 5 );
@@ -122,10 +96,8 @@ class AttemptServiceTest extends TestCase {
 		$this->assertSame( 5, $attempt->id );
 	}
 
-	public function test_control_start_not_blocked_by_completeness(): void {
+	public function test_control_start(): void {
 		$this->assessments->method( 'get' )->willReturn( $this->assessment( AssessmentKind::Control ) );
-		// Для Control проверка укомплектованности не должна вызываться вовсе.
-		$this->completeness->expects( $this->never() )->method( 'validate' );
 		$this->attempts->method( 'countByAssessmentAndStudent' )->willReturn( 0 );
 		$this->attempts->method( 'nextAttemptNumber' )->willReturn( 1 );
 		$this->attempts->method( 'create' )->willReturn( 5 );

@@ -16,7 +16,6 @@ use Inc\MetaBoxes\Templates\AssessmentTemplate;
 use Inc\Registrars\MetaBoxRegistrar;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Services\Assessment\AssessmentSlugService;
-use Inc\Services\Assessment\EgeCompletenessChecker;
 use Inc\Services\Subject\PostTypeResolver;
 use Inc\Services\Task\TaskBundleService;
 use Inc\Services\Task\TaskPublishGuard;
@@ -45,9 +44,6 @@ class AssessmentMetaBoxController extends BaseController implements ServiceInter
 	 */
 	public const PUBLISH_ERROR_FILTER = 'fs_lms_assessment_publish_error';
 
-	/** Префикс транзиента предупреждения о неукомплектованной КЕГЭ (см. {@see resolveCompletenessError()}). */
-	private const COMPLETENESS_WARNING_PREFIX = 'fs_lms_assessment_completeness_warning_';
-
 	/**
 	 * Поля метабокса «Настройки контрольной» — видим только для `AssessmentKind::Control`
 	 * (`! kind->isStation()`), см. .docs/Tasks.md «тип экзамена — отдельный метабокс».
@@ -62,7 +58,6 @@ class AssessmentMetaBoxController extends BaseController implements ServiceInter
 		private readonly PostManager           $postManager,
 		private readonly AssessmentManager     $assessmentManager,
 		private readonly TaskPublishGuard      $guard,
-		private readonly EgeCompletenessChecker $completeness,
 		private readonly TaskBundleService      $bundles,
 		private readonly AssessmentSlugService  $slugs,
 	) {
@@ -78,7 +73,6 @@ class AssessmentMetaBoxController extends BaseController implements ServiceInter
 		// #10: не даём опубликовать контрольную без названия (откат в draft + notice).
 		add_filter( 'wp_insert_post_data', array( $this, 'validateAssessmentTitle' ), 10, 2 );
 		add_action( 'admin_notices', array( $this, 'showPublishError' ) );
-		add_action( 'admin_notices', array( $this, 'showCompletenessWarning' ) );
 	}
 
 	/**
@@ -100,50 +94,8 @@ class AssessmentMetaBoxController extends BaseController implements ServiceInter
 			$data,
 			'fs_lms_assessment_publish_error_',
 			'Укажите название контрольной.',
-			fn(): ?string => $this->resolveCompletenessError( $postId ) ?? $this->resolveModuleError( $postId )
+			fn(): ?string => $this->resolveModuleError( $postId )
 		);
-	}
-
-	/**
-	 * Доменная ошибка публикации (D16.3.а): для ЕГЭ/КЕГЭ запрещаем публиковать
-	 * неукомплектованную работу (строгая биекция задание↔номер). Тип берётся из
-	 * присланной формы (может меняться в этом же запросе) с фолбэком на сохранённый;
-	 * состав задач — из уже сохранённого meta (степ-лист автосейвится по AJAX).
-	 */
-	private function resolveCompletenessError( int $postId ): ?string {
-		if ( $postId <= 0 ) {
-			return null;
-		}
-
-		$assessment = $this->assessmentManager->get( $postId );
-		if ( null === $assessment ) {
-			return null;
-		}
-
-		// Ранний хук; фактический сейв c нонсом в handleAssessmentSave().
-		$postedMeta = $this->unslashArray( PostMetaName::Meta->value );
-		$rawKind    = $this->sanitizeKeyValue( $postedMeta['kind'] ?? '' );
-		$postedKind = '' !== $rawKind ? AssessmentKind::tryFrom( $rawKind ) : null;
-		$kind       = $postedKind ?? $assessment->kind;
-
-		if ( ! $kind->needsCompletenessCheck() ) {
-			return null;
-		}
-
-		$result = $this->completeness->validate( $assessment, $assessment->subjectKey );
-		if ( $result->isStrictlyComplete() ) {
-			return null;
-		}
-
-		// Тестовое окружение (WP_DEBUG): КЕГЭ разрешаем публиковать неукомплектованной —
-		// жёлтое предупреждение вместо блокировки, чтобы быстро проверять вёрстку без
-		// набора полного комплекта номеров заданий.
-		if ( $this->allowsIncompletePublish( $kind ) ) {
-			$this->guard->warn( self::COMPLETENESS_WARNING_PREFIX, 'Работа не укомплектована — ' . $result->summary() . '.' );
-			return null;
-		}
-
-		return 'Работа не укомплектована — ' . $result->summary() . '.';
 	}
 
 	/** Ошибка публикации от модулей ({@see self::PUBLISH_ERROR_FILTER}); работает по присланной форме. */
@@ -157,11 +109,6 @@ class AssessmentMetaBoxController extends BaseController implements ServiceInter
 		return is_string( $error ) && '' !== $error ? $error : null;
 	}
 
-	/** Только тестовое окружение и только станции ЕГЭ/ОГЭ — см. {@see resolveCompletenessError()}. */
-	private function allowsIncompletePublish( AssessmentKind $kind ): bool {
-		return ( defined( 'WP_DEBUG' ) && WP_DEBUG ) && $kind->isStation();
-	}
-
 	/** Выводит отложенную ошибку публикации контрольной на экране редактирования. */
 	public function showPublishError(): void {
 		$screen = get_current_screen();
@@ -171,14 +118,6 @@ class AssessmentMetaBoxController extends BaseController implements ServiceInter
 		$this->guard->renderDeferredError( 'fs_lms_assessment_publish_error_', __( 'Невозможно опубликовать контрольную', 'fs-lms' ) );
 	}
 
-	/** Выводит отложенное предупреждение о неукомплектованной публикации (тестовое окружение). */
-	public function showCompletenessWarning(): void {
-		$screen = get_current_screen();
-		if ( ! $screen || ! PostTypeResolver::isAssessmentPostType( $screen->post_type ) ) {
-			return;
-		}
-		$this->guard->renderDeferredWarning( self::COMPLETENESS_WARNING_PREFIX, __( 'Опубликовано неукомплектованным (тестовое окружение)', 'fs-lms' ) );
-	}
 
 	public function handleAddMetaBoxes(): void {
 		$all_subjects = $this->subjects->readAll();
@@ -339,15 +278,6 @@ class AssessmentMetaBoxController extends BaseController implements ServiceInter
 
 		$ege_kinds_json = wp_json_encode( AssessmentKind::weightedScoreValues() );
 
-		// Тот же тестовый гейт, что и на сервере (см. resolveCompletenessError()) — не
-		// дизейблим кнопку «Опубликовать» на клиенте для неукомплектованного КЕГЭ, чтобы
-		// клиентский гейт (D16.5) не блокировал то, что серверный уже разрешает.
-		$allow_incomplete_kinds = array_values( array_filter(
-			array_map( static fn( AssessmentKind $kind ) => $kind->value, AssessmentKind::cases() ),
-			fn( string $value ) => $this->allowsIncompletePublish( AssessmentKind::from( $value ) )
-		) );
-		$allow_incomplete_json = wp_json_encode( $allow_incomplete_kinds );
-
 		$this->render( 'admin/metaboxes/builder-shell', array(
 			'root_class' => 'fs-lms-assessment-builder',
 			'data'       => array(
@@ -355,7 +285,6 @@ class AssessmentMetaBoxController extends BaseController implements ServiceInter
 				'subject'               => $subject,
 				'ege-slots'             => $ege_slots_json ?: '{}',
 				'ege-kinds'             => $ege_kinds_json ?: '[]',
-				'allow-incomplete-kinds' => $allow_incomplete_json ?: '[]',
 				'task-points'           => $points_json ?: '{}',
 			),
 			'json'       => (string) $json,
