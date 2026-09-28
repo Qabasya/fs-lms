@@ -61,7 +61,8 @@ class AdOutboxRepository {
 	 * Помечает попытку неудачной: инкремент attempts, статус failed (или dead при превышении),
 	 * запись ошибки и времени следующей попытки (экспоненциальный backoff).
 	 */
-	public function markFailed( int $id, string $error, int $maxAttempts = 6 ): void {
+	/** @return bool Задание стало «мёртвым» (попытки кончились). */
+	public function markFailed( int $id, string $error, int $maxAttempts = 6 ): bool {
 		$row      = $this->find( $id );
 		$attempts = ( $row?->attempts ?? 0 ) + 1;
 		$dead     = $attempts >= $maxAttempts;
@@ -77,6 +78,8 @@ class AdOutboxRepository {
 			),
 			array( 'id' => $id )
 		);
+
+		return $dead;
 	}
 
 	/**

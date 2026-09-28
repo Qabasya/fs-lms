@@ -4,6 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Log;
 
+use Inc\Enums\Log\AuditAction;
 use Inc\Enums\Wp\MetaKeys;
 
 /**
@@ -32,8 +33,23 @@ use Inc\Enums\Wp\MetaKeys;
  * - postTitle() — ID поста → заголовок
  * - entityName() — универсальный метод для различных типов сущностей
  * - date() — форматирование даты
+ * - auditActionLabel() — действие журнала «Зачисления» → подпись
  */
 class LogNameResolver {
+
+	/**
+	 * Подпись действия журнала «Зачисления». Действия ядра — из {@see AuditAction};
+	 * модули пишут в журнал свои действия и отдают подписи фильтром
+	 * `fs_lms_audit_action_label` (ядро о модулях не знает). Неизвестное — как есть.
+	 */
+	public static function auditActionLabel( string $action ): string {
+		$core = AuditAction::tryFrom( $action );
+		if ( null !== $core ) {
+			return $core->label();
+		}
+
+		return (string) apply_filters( 'fs_lms_audit_action_label', $action, $action );
+	}
 
 	/**
 	 * Преобразует ID пользователя в отображаемое имя.

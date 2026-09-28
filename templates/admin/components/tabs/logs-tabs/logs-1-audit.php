@@ -3,7 +3,6 @@
 declare( strict_types=1 );
 
 use Inc\DTO\Log\AuditLogDTO;
-use Inc\Enums\Log\AuditAction;
 use Inc\Services\Log\LogNameResolver;
 
 defined( 'ABSPATH' ) || exit;
@@ -41,12 +40,10 @@ $sort_url    = add_query_arg( $audit_filters, $base_url );
         <select name="action">
             <option value="">Все действия</option>
 
-            <?php foreach ( $audit_actions ?? array() as $actionValue ) :
-                $action = AuditAction::tryFrom( $actionValue );
-                ?>
+            <?php foreach ( $audit_actions ?? array() as $actionValue ) : ?>
                 <option value="<?php echo esc_attr( $actionValue ); ?>"
                         <?php selected( $audit_filters['action'] ?? '', $actionValue ); ?>>
-                    <?php echo esc_html( $action?->label() ?? $actionValue ); ?>
+                    <?php echo esc_html( LogNameResolver::auditActionLabel( $actionValue ) ); ?>
                 </option>
             <?php endforeach; ?>
         </select>
@@ -103,8 +100,7 @@ $sort_url    = add_query_arg( $audit_filters, $base_url );
 			</thead>
 			<tbody>
 			<?php foreach ( $audit_rows as $row ) :
-				$auditAction = AuditAction::tryFrom( $row->action );
-				$actionLabel = $auditAction ? $auditAction->label() : $row->action;
+				$actionLabel = LogNameResolver::auditActionLabel( $row->action );
 
 				if ( 'application' === $row->targetType ) {
 					$subjectCell = 'Заявка №' . (int) $row->targetId;
@@ -114,13 +110,20 @@ $sort_url    = add_query_arg( $audit_filters, $base_url );
 
 				$details = $row->detailsJson ? json_decode( $row->detailsJson, true ) : array();
 				$groupId = $details['group_id'] ?? null;
+				// Пояснение к действию (итог в домене, текст ошибки) — строкой под подписью.
+				$note    = is_string( $details['note'] ?? null ) ? $details['note'] : '';
 				$groupCell = $groupId ? LogNameResolver::entityName( (int) $groupId, 'group' ) : '—';
 			?>
 				<tr>
 					<td><?php echo (int) $row->id; ?></td>
 					<td><?php echo esc_html( LogNameResolver::date( $row->createdAt ) ); ?></td>
 					<td><?php echo LogNameResolver::userName( $row->actorUserId); // phpcs:ignore ?></td>
-					<td><?php echo esc_html( $actionLabel ); ?>	</td>
+					<td>
+						<?php echo esc_html( $actionLabel ); ?>
+						<?php if ( '' !== $note ) : ?>
+							<br><span class="description"><?php echo esc_html( $note ); ?></span>
+						<?php endif; ?>
+					</td>
 					<td><?php echo $subjectCell; // phpcs:ignore ?></td>
 					<td><?php echo $groupCell; // phpcs:ignore ?></td>
 					<td><?php echo esc_html( $row->actorIp ); ?></td>

@@ -6,6 +6,7 @@ namespace Inc\Modules\AdSync;
 
 use Inc\Contracts\ServiceInterface;
 use Inc\Modules\AdSync\Config\AdSyncConfig;
+use Inc\Modules\AdSync\Controllers\AdAuditLabelController;
 use Inc\Modules\AdSync\Controllers\AdSyncController;
 use Inc\Modules\AdSync\Cli\AdSyncCommand;
 use Inc\Modules\AdSync\Controllers\AdSyncCronController;
@@ -39,11 +40,15 @@ class AdSyncModule implements ServiceInterface {
 		private readonly AdSyncCommand              $cli,
 		private readonly AdSchema                   $schema,
 		private readonly AdSyncConfig               $config,
+		private readonly AdAuditLabelController     $auditLabels,
 	) {}
 
 	public function register(): void {
 		// Admin-настройки (UI + сохранение) — всегда: чтобы можно было настроить и включить модуль.
 		$this->settings->register();
+
+		// Подписи действий модуля в журнале «Зачисления» — всегда: старые записи читаются и без модуля.
+		$this->auditLabels->register();
 
 		// Рантайм только при включённом флаге модуля. Привязка к направлению независима:
 		// включение модуля само по себе провижнит учётки; без привязки subject_key пустой —

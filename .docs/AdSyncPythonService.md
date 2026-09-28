@@ -88,9 +88,14 @@ hmac.new(b"topsecret", b'POST\n/v1/jobs\n1700000000\n{"a":1}', hashlib.sha256).h
 Ответ — **синхронный**, `200` с JSON:
 
 ```json
-{ "status": "done", "error": null }
-{ "status": "failed", "error": "учётная запись вне управляемой зоны" }
+{ "status": "done", "error": null, "outcome": "created" }
+{ "status": "failed", "error": "учётная запись вне управляемой зоны", "outcome": null }
 ```
+
+`outcome` — что сделано с учёткой, сайт пишет его в журнал «Зачисления»: `created`,
+`reactivated`, `updated` (provision), `deprovisioned`, `absent` — учётки в домене нет
+(deprovision), `password_changed`. У `failed` — `null`; итоговая неудача («мёртвое» задание)
+попадает в тот же журнал с текстом ошибки.
 
 | Ответ сервиса | Когда | Что делает сайт |
 |---|---|---|

@@ -1583,6 +1583,12 @@ public function register(): void {
 Карточка на Dashboard регистрируется фильтром `fs_lms_dashboard_modules`
 (поля: `id`, `title`, `description`, `enabled`, `const_locked`, `const_key`).
 
+Модуль может писать в журнал «Зачисления» свои действия (значения вне core `AuditAction`,
+с префиксом модуля — напр. `ad_account_created`) — подпись журнал берёт фильтром
+`fs_lms_audit_action_label( $label, $action )` через `LogNameResolver::auditActionLabel()`.
+Пояснение к строке — поле `note` в `details_json` (выводится под подписью действия).
+Фильтр регистрируется и при выключенном модуле, чтобы старые записи читались.
+
 Скрипты модуля: по умолчанию self-contained `assets/admin.js` (IIFE + `wp_enqueue_script`
 только на своей странице, с гейтом `isEnabled()`); в core-бандл — только если UI пересекается
 со страницами ядра. Стили аналогично; SCSS в core — с токенами из `_variables.scss`.

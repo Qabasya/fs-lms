@@ -8,6 +8,7 @@ use Inc\Modules\AdSync\DTO\AdOutboxItemDTO;
 use Inc\Modules\AdSync\DTO\AdServerResponseDTO;
 use Inc\Modules\AdSync\Repositories\AdOutboxRepository;
 use Inc\Modules\AdSync\Repositories\AdSyncStateRepository;
+use Inc\Modules\AdSync\Services\AdAuditLogger;
 use Inc\Modules\AdSync\Services\AdDeliveryService;
 use Inc\Modules\AdSync\Services\AdProvisioningService;
 use Inc\Modules\AdSync\Services\AdServerClient;
@@ -22,12 +23,14 @@ class AdDeliveryServiceTest extends TestCase {
 	private AdProvisioningService $provisioning;
 	private AdServerClient $client;
 	private AdSyncStateRepository $state;
+	private AdAuditLogger $audit;
 
 	protected function setUp(): void {
 		$this->outbox       = $this->createMock( AdOutboxRepository::class );
 		$this->provisioning = $this->createMock( AdProvisioningService::class );
 		$this->client       = $this->createMock( AdServerClient::class );
 		$this->state        = $this->createMock( AdSyncStateRepository::class );
+		$this->audit        = $this->createMock( AdAuditLogger::class );
 
 		$this->client->method( 'notReadyReason' )->willReturn( '' );
 		$this->state->method( 'acquireLock' )->willReturn( true );
@@ -37,7 +40,7 @@ class AdDeliveryServiceTest extends TestCase {
 	}
 
 	private function service(): AdDeliveryService {
-		return new AdDeliveryService( $this->outbox, $this->provisioning, $this->client, $this->state );
+		return new AdDeliveryService( $this->outbox, $this->provisioning, $this->client, $this->state, $this->audit );
 	}
 
 	private function row( int $id ): AdOutboxItemDTO {
@@ -70,12 +73,15 @@ class AdDeliveryServiceTest extends TestCase {
 	public function test_done_marks_sent_and_failed_spends_attempt(): void {
 		$this->outbox->method( 'listPending' )->willReturn( array( $this->row( 1 ), $this->row( 2 ) ) );
 		$this->client->method( 'request' )->willReturnOnConsecutiveCalls(
-			new AdServerResponseDTO( 200, array( 'status' => 'done' ) ),
+			new AdServerResponseDTO( 200, array( 'status' => 'done', 'outcome' => 'created' ) ),
 			new AdServerResponseDTO( 200, array( 'status' => 'failed', 'error' => 'OU not found' ) )
 		);
 
 		$this->outbox->expects( self::once() )->method( 'markSent' )->with( 1 );
-		$this->outbox->expects( self::once() )->method( 'markFailed' )->with( 2, 'HTTP 200: OU not found' );
+		$this->outbox->expects( self::once() )->method( 'markFailed' )->with( 2, 'HTTP 200: OU not found' )->willReturn( false );
+		// В журнал — выполненное; промежуточная ошибка (попытки ещё есть) — нет.
+		$this->audit->expects( self::once() )->method( 'done' )->with( self::anything(), 'created' );
+		$this->audit->expects( self::never() )->method( 'dead' );
 		$this->state->expects( self::once() )->method( 'releaseLock' );
 
 		$report = $this->service()->deliverPending();
@@ -103,8 +109,21 @@ class AdDeliveryServiceTest extends TestCase {
 
 		$this->client->expects( self::never() )->method( 'request' );
 		$this->outbox->expects( self::once() )->method( 'markDead' )->with( 3 );
+		$this->audit->expects( self::once() )->method( 'dead' );
 
 		self::assertSame( 1, $this->service()->deliverPending()['dead'] );
+	}
+
+	public function test_last_failed_attempt_is_logged_with_server_error(): void {
+		$this->outbox->method( 'listPending' )->willReturn( array( $this->row( 4 ) ) );
+		$this->client->method( 'request' )->willReturn(
+			new AdServerResponseDTO( 200, array( 'status' => 'failed', 'error' => 'учётная запись вне управляемой зоны' ) )
+		);
+		$this->outbox->method( 'markFailed' )->willReturn( true );
+
+		$this->audit->expects( self::once() )->method( 'dead' )->with( self::anything(), 'учётная запись вне управляемой зоны' );
+
+		$this->service()->deliverPending();
 	}
 
 	public function test_paused_delivery_is_skipped_unless_forced(): void {

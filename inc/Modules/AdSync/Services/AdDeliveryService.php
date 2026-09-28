@@ -28,6 +28,9 @@ use Inc\Modules\AdSync\Repositories\AdSyncStateRepository;
  * тратит попытки заданий. Отказ подписи (401/403) — это тоже не вина задания:
  * неверный секрет в wp-config, пока его не исправят, слать бессмысленно.
  *
+ * Итог — в журнал «Зачисления» ({@see AdAuditLogger}): выполненное задание и «мёртвое»;
+ * промежуточные ошибки с ретраем туда не пишутся.
+ *
  * Одновременно доставляет один процесс ({@see AdSyncStateRepository::acquireLock()}).
  *
  * @package Inc\Modules\AdSync\Services
@@ -48,6 +51,7 @@ class AdDeliveryService {
 		private readonly AdProvisioningService $provisioning,
 		private readonly AdServerClient        $client,
 		private readonly AdSyncStateRepository $state,
+		private readonly AdAuditLogger         $audit,
 	) {}
 
 	/**
@@ -79,7 +83,9 @@ class AdDeliveryService {
 			foreach ( $this->outbox->listPending( $limit ) as $item ) {
 				$payload = $this->provisioning->payloadFor( $item );
 				if ( null === $payload ) {
-					$this->outbox->markDead( $item->id, 'Нет данных для задания: заявка или ученик удалены, нет учётных данных или сохранённого пароля.' );
+					$error = 'Нет данных для задания: заявка или ученик удалены, нет учётных данных или сохранённого пароля.';
+					$this->outbox->markDead( $item->id, $error );
+					$this->audit->dead( $item, $error );
 					++$report['dead'];
 					continue;
 				}
@@ -96,11 +102,14 @@ class AdDeliveryService {
 				if ( self::DONE === $outcome ) {
 					$this->outbox->markSent( $item->id );
 					$this->state->markReachable( true );
+					$this->audit->done( $item, (string) ( $response->data['outcome'] ?? '' ) );
 					++$report['sent'];
 					continue;
 				}
 
-				$this->outbox->markFailed( $item->id, $response->describe() );
+				if ( $this->outbox->markFailed( $item->id, $response->describe() ) ) {
+					$this->audit->dead( $item, (string) ( $response->data['error'] ?? '' ) ?: $response->describe() );
+				}
 				$this->state->markReachable( false );
 				++$report['failed'];
 			}
