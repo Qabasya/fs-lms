@@ -68,6 +68,8 @@ readonly class RateLimitService {
 	private const LIMIT_EMAIL_CHECK    = 20;
 	/** Отчёты о сбоях из браузера (журнал «Ошибки»): защита таблицы от засева. */
 	private const LIMIT_CLIENT_ERROR   = 30;
+	/** События формы родителя (журнал «Зачисления»): на визит их единицы, лимит — от засева. */
+	private const LIMIT_JOIN_TRACK     = 60;
 
 	// Неудачные входы: счётчик на пару IP + пользователь. Лимита по одному IP нет —
 	// с одного адреса выходят около 20 человек (перебор логинов сдерживает капча).
@@ -152,6 +154,15 @@ readonly class RateLimitService {
 	 */
 	public function allowClientErrorReport( string $ip ): bool {
 		return $this->checkIp( 'clienterr', $ip, self::LIMIT_CLIENT_ERROR );
+	}
+
+	/**
+	 * Событие формы родителя из браузера в журнал «Зачисления».
+	 *
+	 * @param string $ip IP-адрес клиента
+	 */
+	public function allowJoinTrack( string $ip ): bool {
+		return $this->checkIp( 'jointrack', $ip, self::LIMIT_JOIN_TRACK );
 	}
 
 	/**

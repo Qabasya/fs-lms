@@ -80,6 +80,8 @@ class ApplicationController extends AjaxController {
 			array( AjaxHook::CheckUsernameAvailable, $this->callbacks ),
 			// Проверка доступности email (join-форма)
 			array( AjaxHook::CheckEmailAvailable, $this->callbacks ),
+			// События формы родителя — в журнал заявки
+			array( AjaxHook::TrackJoinForm, $this->callbacks ),
 		);
 	}
 

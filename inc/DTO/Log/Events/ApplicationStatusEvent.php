@@ -16,10 +16,14 @@ use Inc\Enums\Log\AuditAction;
  */
 readonly class ApplicationStatusEvent implements LogEventInterface {
 
+	/**
+	 * @param array<string, scalar> $details Доп. поля записи журнала (`note` — пояснение под действием)
+	 */
 	public function __construct(
 		public int         $actorUserId,
 		public AuditAction $action,
 		public int         $applicationId,
 		public ?int        $studentPersonId = null,
+		public array       $details = array(),
 	) {}
 }

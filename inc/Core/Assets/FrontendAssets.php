@@ -189,11 +189,14 @@ class FrontendAssets extends BaseController {
 			'actions'  => array(
 				'submit_parent' => AjaxHook::SubmitParentData->jsAction(),
 				'check_email'   => AjaxHook::CheckEmailAvailable->jsAction(),
+				'track'         => AjaxHook::TrackJoinForm->jsAction(),
 			),
 			'nonces'   => array(
 				'parent_submit' => Nonce::ParentSubmit->create(),
 				'check_email'   => Nonce::CheckEmailAvailable->create(),
+				'track'         => Nonce::JoinTrack->create(),
 			),
+			'visit'    => (string) get_query_var( 'fs_lms_join_visit', '' ),
 		) );
 	}
 }

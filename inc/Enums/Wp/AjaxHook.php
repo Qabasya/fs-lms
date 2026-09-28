@@ -156,6 +156,8 @@ enum AjaxHook: string {
 	case RevokeTrialAccess           = 'revoke_trial_access';
 	case CheckUsernameAvailable      = 'check_username_available';
 	case CheckEmailAvailable         = 'check_email_available';
+	// Публичный: события формы родителя (начал, ошибка, отказ сервера, ушёл) — в журнал заявки
+	case TrackJoinForm               = 'track_join_form';
 
 	// ==== Банки контента (работы / уроки / курсы) ====
 	case GetWorkTaskCandidates     = 'get_work_task_candidates';     // params: subject_key, task_type, collection, scope, search

@@ -76,6 +76,12 @@ enum AuditAction: string {
 	/** Просмотр JOIN-ссылки */
 	case ViewJoinLink = 'view_join_link';
 
+	/** Что было с формой родителя после открытия ({@see \Inc\Enums\Enrollment\JoinFormEvent}) */
+	case JoinFormStarted  = 'join_form_started';
+	case JoinFormInvalid  = 'join_form_invalid';
+	case JoinSubmitFailed = 'join_submit_failed';
+	case JoinFormLeft     = 'join_form_left';
+
 	/** Временный доступ ученика до зачисления (выдан / снят) */
 	case GrantTrialAccess  = 'grant_trial_access';
 	case RevokeTrialAccess = 'revoke_trial_access';
@@ -150,6 +156,10 @@ enum AuditAction: string {
 			self::RestoreFromArchive     => 'Восстановление из архива',
 			self::StudentRestored        => 'Ученик восстановлен',
 			self::ViewJoinLink           => 'Открытие JOIN-ссылки',
+			self::JoinFormStarted        => 'Родитель начал заполнять форму',
+			self::JoinFormInvalid        => 'Форма родителя не прошла проверку',
+			self::JoinSubmitFailed       => 'Отправка формы родителя не удалась',
+			self::JoinFormLeft           => 'Родитель ушёл, не отправив форму',
 			self::GrantTrialAccess       => 'Выдан временный доступ',
 			self::RevokeTrialAccess      => 'Снят временный доступ',
 

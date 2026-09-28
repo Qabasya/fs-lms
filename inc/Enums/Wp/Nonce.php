@@ -48,6 +48,7 @@ enum Nonce: string {
 	case RemoveParentAssignment        = 'fs_lms_remove_parent_assignment';
 	case CheckUsernameAvailable        = 'fs_lms_check_username';
 	case CheckEmailAvailable           = 'fs_lms_check_email';
+	case JoinTrack                     = 'fs_lms_join_track';
 	case RestoreFromArchive       = 'fs_lms_restore_from_archive';
 	case DeleteGroup              = 'fs_lms_delete_group';
 	case DeletePeriod             = 'fs_lms_delete_period';

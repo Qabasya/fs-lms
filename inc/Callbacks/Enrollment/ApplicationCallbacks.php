@@ -4,17 +4,15 @@ declare( strict_types=1 );
 
 namespace Inc\Callbacks\Enrollment;
 
-use Inc\Contracts\LogEventDispatcherInterface;
 use Inc\Core\BaseController;
 use Inc\DTO\Application\ApplicationInputDTO;
+use Inc\DTO\Application\JoinTrackInputDTO;
 use Inc\DTO\Enrollment\StudentDataDTO;
-use Inc\DTO\Log\Events\ApplicationStatusEvent;
 use Inc\DTO\Person\ParentSubmissionInputDTO;
 use Inc\Enums\Enrollment\ApplicationStatus;
-use Inc\Enums\Log\AuditAction;
+use Inc\Enums\Enrollment\JoinFormEvent;
 use Inc\Enums\Auth\AuthAction;
 use Inc\Enums\Auth\AuthResult;
-use Inc\Enums\Log\LogEvent;
 use Inc\Enums\Wp\Nonce;
 use Inc\Repositories\OptionsRepositories\ConsentDefinitionsRepository;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
@@ -22,6 +20,7 @@ use Inc\Repositories\WPDBRepositories\ApplicationRepository;
 use Inc\Repositories\WPDBRepositories\PersonDocumentsRepository;
 use Inc\Services\Application\ApplicationService;
 use Inc\Services\Application\JoinCodeService;
+use Inc\Services\Application\JoinFormTrackingService;
 use Inc\Services\Application\LoginAvailabilityService;
 use Inc\Services\Captcha\CaptchaService;
 use Inc\Services\Email\EmailOtpService;
@@ -68,7 +67,6 @@ class ApplicationCallbacks extends BaseController {
 	 * @param JoinCodeService      $joinCodeService       Сервис JOIN-кодов
 	 * @param ApplicationRepository $applicationRepository Репозиторий заявок
 	 * @param PiiCryptoService     $crypto                Сервис шифрования PII
-	 * @param LogEventDispatcherInterface $logEvents        Диспетчер событий логирования
 	 */
 	public function __construct(
 		private readonly ApplicationService           $applicationService,
@@ -78,7 +76,6 @@ class ApplicationCallbacks extends BaseController {
 		private readonly JoinCodeService              $joinCodeService,
 		private readonly ApplicationRepository        $applicationRepository,
 		private readonly PiiCryptoService             $crypto,
-		private readonly LogEventDispatcherInterface  $logEvents,
 		private readonly ConsentDefinitionsRepository $consentDefinitions,
 		private readonly AuthLogWriter                $authLog,
 		private readonly PluginConfig                 $pluginConfig,
@@ -86,6 +83,7 @@ class ApplicationCallbacks extends BaseController {
 		private readonly PersonDocumentsRepository    $personDocumentsRepository,
 		private readonly SubjectRepository            $subjects,
 		private readonly LoginAvailabilityService     $logins,
+		private readonly JoinFormTrackingService      $joinTracking,
 	) {
 		parent::__construct();
 	}
@@ -116,6 +114,7 @@ class ApplicationCallbacks extends BaseController {
 			set_query_var( 'fs_lms_consent_url',   $this->resolveConsentUrl( 'pd_processing' ) );
 			set_query_var( 'fs_lms_parent_data',   null );
 			set_query_var( 'fs_lms_parent_locked', false );
+			set_query_var( 'fs_lms_join_visit',    '' );
 			return true;
 		}
 
@@ -158,11 +157,9 @@ class ApplicationCallbacks extends BaseController {
 			return false;
 		}
 
-		// Логируем факт просмотра ссылки
-		$this->logEvents->dispatch(
-			LogEvent::ApplicationViewed,
-			new ApplicationStatusEvent( 0, AuditAction::ViewJoinLink, $app->id )
-		);
+		// Логируем факт просмотра ссылки; визит связывает его с событиями формы из браузера
+		$visit = $this->joinTracking->newVisit();
+		$this->joinTracking->recordOpened( $app->id, $visit, $this->requestContext()->userAgent );
 
 		// Если родитель уже назначен — расшифровываем его данные для предзаполнения формы
 		$parentData   = null;
@@ -183,8 +180,46 @@ class ApplicationCallbacks extends BaseController {
 		set_query_var( 'fs_lms_consent_url',   $this->resolveConsentUrl( 'pd_processing' ) );
 		set_query_var( 'fs_lms_parent_data',   $parentData );
 		set_query_var( 'fs_lms_parent_locked', $parentLocked );
+		set_query_var( 'fs_lms_join_visit',    $visit );
 
 		return true;
+	}
+
+	/**
+	 * Событие формы родителя от браузера (join-tracking.js) — в журнал «Зачисления».
+	 *
+	 * Ответ всегда успешный и пустой: трекинг не должен ничего сообщать о заявке
+	 * и ничего ломать на странице.
+	 *
+	 * @return void
+	 */
+	public function ajaxTrackJoinForm(): void {
+		Nonce::JoinTrack->verify();
+
+		$event = JoinFormEvent::tryFrom( $this->sanitizeKey( 'event' ) );
+		$code  = $this->sanitizeText( 'join_code' );
+
+		if (
+			null === $event
+			|| ! $this->joinCodeService->isValidFormat( $code )
+			|| ! $this->rateLimitService->allowJoinTrack( $this->requestContext()->ip )
+		) {
+			$this->success();
+		}
+
+		$this->joinTracking->track( new JoinTrackInputDTO(
+			joinCode: $code,
+			event:    $event,
+			visit:    substr( $this->sanitizeKey( 'visit' ), 0, 16 ),
+			fields:   array_slice( $this->sanitizeKeyList( 'fields' ), 0, 30 ),
+			filled:   max( 0, $this->sanitizeInt( 'filled' ) ),
+			total:    max( 0, $this->sanitizeInt( 'total' ) ),
+			seconds:  max( 0, $this->sanitizeInt( 'seconds' ) ),
+			submits:  max( 0, $this->sanitizeInt( 'submits' ) ),
+			message:  $this->joinTracking->clipMessage( $this->sanitizeText( 'message' ) ),
+		) );
+
+		$this->success();
 	}
 
 	/**

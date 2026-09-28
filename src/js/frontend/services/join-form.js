@@ -7,9 +7,11 @@ import { initFormValidation, renderFieldError, clearFieldError } from '../../com
 import { initDadataAddress } from './dadata-address.js';
 import { createDadataSuggest } from './dadata-suggest.js';
 import { bindPhoneMask, formatPassportSN } from '../../common/input-masks.js';
+import { createJoinTracker } from './join-tracking.js';
 
 let validateAll   = null;
 let _emailInput   = null;
+let tracker       = null;
 
 async function checkEmailAvailable( input ) {
     if ( ! input || input.readOnly ) { return true; }
@@ -210,12 +212,15 @@ function showSuccess() {
 
 async function handleJoinSubmit( e ) {
     e.preventDefault();
+    tracker.submitAttempt();
 
     if ( validateAll && ! validateAll() ) {
+        tracker.invalid();
         return;
     }
 
     if ( ! await checkEmailAvailable( _emailInput ) ) {
+        tracker.invalid( 'email уже зарегистрирован' );
         return;
     }
 
@@ -231,16 +236,20 @@ async function handleJoinSubmit( e ) {
     } catch {
         setLoading( btn, false );
         showError( form, 'Ошибка соединения. Попробуйте позже.' );
+        tracker.failed( 'ошибка соединения' );
         return;
     }
 
     setLoading( btn, false );
 
     if ( ! res?.success ) {
-        showError( form, extractError( res, 'Ошибка при отправке формы.' ) );
+        const message = extractError( res, 'Ошибка при отправке формы.' );
+        showError( form, message );
+        tracker.failed( message );
         return;
     }
 
+    tracker.succeeded();
     showSuccess();
 }
 
@@ -296,6 +305,7 @@ export function initJoinForm() {
     if ( ! form ) { return; }
 
     validateAll = initFormValidation( form );
+    tracker     = createJoinTracker( form );
 
     _emailInput = document.getElementById( 'fs_parent_email' );
     if ( _emailInput ) {

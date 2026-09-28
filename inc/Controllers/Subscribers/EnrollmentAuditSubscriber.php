@@ -113,8 +113,9 @@ class EnrollmentAuditSubscriber implements ServiceInterface {
 	 * @return void
 	 */
 	public function handleApplication( ApplicationStatusEvent $event ): void {
-		$details = array_filter( array(
-			'student_person_id' => $event->studentPersonId,
+		$details = array_filter( array_merge(
+			array( 'student_person_id' => $event->studentPersonId ),
+			$event->details
 		) );
 
 		if ( $event->actorUserId > 0 ) {
