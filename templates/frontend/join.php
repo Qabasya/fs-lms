@@ -551,9 +551,9 @@ ThemeCompatService::header();
             <div class="js-join-success-block fs-join-card__success" hidden>
                 <span class="dashicons dashicons-yes-alt fs-join-card__success-icon"></span>
                 <p class="fs-join-card__success-title">
-                    <?php esc_html_e( 'Регистрация успешно завершена!', 'fs-lms' ); ?>
+                    <?php esc_html_e( 'Данные успешно отправлены!', 'fs-lms' ); ?>
                 </p>
-                <p><?php esc_html_e( 'Договор сформирован. Логин и пароль для доступа в личный кабинет отправлен на указанный Email.', 'fs-lms' ); ?></p>
+                <p><?php esc_html_e( 'После проверки администратором вам поступит письмо на указанный Email с данными для входа. Оригиналы документов передадим обучающемуся на первом занятии', 'fs-lms' ); ?></p>
             </div>
         </div>
     </main>
