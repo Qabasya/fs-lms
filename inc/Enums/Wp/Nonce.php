@@ -4,6 +4,8 @@ declare( strict_types=1 );
 
 namespace Inc\Enums\Wp;
 
+use Inc\Enums\Log\ErrorCode;
+
 /**
  * Ключи безопасности (Nonce) плагина.
  */
@@ -123,12 +125,41 @@ enum Nonce: string {
 	// ==== RBAC — управление ролями (Этап 6) ====
 	case SaveRoles = 'fs_lms_save_roles';
 
+	/** Заголовок повтора с обновлённым токеном (ставит `src/js/common/nonce-refresh.js`). */
+	public const string RETRY_HEADER = 'HTTP_X_FS_NONCE_RETRY';
+
 	/**
 	 * Проверяет входящий запрос.
+	 *
+	 * Провал в AJAX — не голый `-1`, а 403 с кодом E-SESSION и свежим токеном того же
+	 * действия: перехватчик на клиенте подставит его и повторит запрос, пользователь
+	 * ничего не заметит (устаревшая вкладка, вход/выход в другой вкладке, кеш страницы).
+	 * Выдать токен тому, кто его прислал, безопасно: ответ читает только скрипт того же
+	 * сайта (CSRF-страница чужого сайта ответа не видит) — так же обновляет токены ядро WP.
 	 *
 	 * @param string $queryArg Ключ в массиве $_POST/$_REQUEST (обычно 'security' или 'nonce').
 	 */
 	public function verify( string $queryArg = 'security' ): void {
-		check_ajax_referer( $this->value, $queryArg );
+		if ( false !== check_ajax_referer( $this->value, $queryArg, false ) ) {
+			return;
+		}
+
+		if ( ! wp_doing_ajax() ) {
+			wp_die( '-1', 403 );
+		}
+
+		wp_send_json_error(
+			array(
+				'message' => 'Сессия устарела — обновите страницу.',
+				'code'    => ErrorCode::Session->value,
+				'nonce'   => array( 'field' => $queryArg, 'value' => $this->create() ),
+			),
+			403
+		);
+	}
+
+	/** Запрос — уже повтор с обновлённым токеном. */
+	public static function isRetry(): bool {
+		return ! empty( $_SERVER[ self::RETRY_HEADER ] );
 	}
 }

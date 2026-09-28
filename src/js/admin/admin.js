@@ -50,6 +50,10 @@ import { AlertModal } from './modals/alert-modal.js';
 import { RolesSettings } from './services/roles-settings.js';
 import { LegacyTaskImport } from './services/legacy-task-import.js';
 import { PrintCenter } from './services/print-center.js';
+import { installNonceRefresh } from '../common/nonce-refresh.js';
+
+// До любых запросов бандла: устаревший nonce обновляется и запрос повторяется сам.
+installNonceRefresh();
 
 /**
  * Инициализирует конструктор из отдельного чанка.

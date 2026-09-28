@@ -4,6 +4,10 @@ import { ToggleSecretComponent } from './components/toggle-secret.js';
 import { CopyButton } from './components/copy-button.js';
 import { TooltipComponent } from './components/tooltip.js';
 import { initFormValidation } from './validation-manager.js';
+import { installNonceRefresh } from './nonce-refresh.js';
+
+// До любых запросов бандла: устаревший nonce обновляется и запрос повторяется сам.
+installNonceRefresh();
 
 function initGlobalFormValidation() {
     const forms = document.querySelectorAll( 'form[data-fs-validate], .fs-lms-form' );

@@ -53,13 +53,17 @@ class ErrorLogCallbacks extends BaseController {
 	/**
 	 * Хук `check_ajax_referer`: провал nonce плагина = истёкшая сессия.
 	 *
+	 * Пишем только провал повтора: первый отказ клиент чинит сам, подставив свежий
+	 * токен ({@see Nonce::verify()}), — в журнал он не нужен. Кто не повторяет
+	 * (боты со старой копией страницы), журнал тоже не засоряет.
+	 *
 	 * Типы не сужаем: хук ядра, $action бывает и -1 (проверка без действия).
 	 *
 	 * @param mixed $action Nonce-действие
 	 * @param mixed $result Результат проверки (false — провал)
 	 */
 	public function onNonceCheck( mixed $action, mixed $result ): void {
-		if ( false !== $result || ! wp_doing_ajax() || ! is_string( $action ) || null === Nonce::tryFrom( $action ) ) {
+		if ( false !== $result || ! wp_doing_ajax() || ! Nonce::isRetry() || ! is_string( $action ) || null === Nonce::tryFrom( $action ) ) {
 			return;
 		}
 

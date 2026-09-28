@@ -16,6 +16,10 @@ import { initJoinForm }         from './services/join-form.js';
 import { initAssessment }       from './services/assessment.js';
 import { AllTasksPage }         from './services/all-tasks-page.js';
 import { bindAnswerToggle }     from './modules/answer-toggle.js';
+import { installNonceRefresh } from '../common/nonce-refresh.js';
+
+// До любых запросов бандла: устаревший nonce обновляется и запрос повторяется сам.
+installNonceRefresh();
 
 document.addEventListener('DOMContentLoaded', () => {
     initTabs();

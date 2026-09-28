@@ -6,6 +6,10 @@
  */
 import { initAssessment } from '../frontend/services/assessment.js';
 import { initEgeNavigator } from './ege-navigator.js';
+import { installNonceRefresh } from '../common/nonce-refresh.js';
+
+// До любых запросов бандла: устаревший nonce обновляется и запрос повторяется сам.
+installNonceRefresh();
 
 document.addEventListener( 'DOMContentLoaded', () => {
 	initAssessment();

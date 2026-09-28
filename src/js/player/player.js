@@ -13,6 +13,10 @@ import { initStepWork } from './step-work.js';
 import { initStepVideo } from './step-video.js';
 import { initLessonCountdown } from '../frontend/components/lesson-countdown.js';
 import { initCodeBlocks } from '../frontend/components/code-block.js';
+import { installNonceRefresh } from '../common/nonce-refresh.js';
+
+// До любых запросов бандла: устаревший nonce обновляется и запрос повторяется сам.
+installNonceRefresh();
 
 document.addEventListener( 'DOMContentLoaded', () => {
 	initShell();

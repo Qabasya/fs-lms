@@ -6,8 +6,8 @@
  *
  * - сервер отказал (`success: false`) — код и номер присылает сервер (`fail()`),
  *   у старых обработчиков (`error()`) их нет — тогда E-AJAX без номера;
- * - `-1` / `0` — не прошёл nonce: вкладка висела дольше суток или сменилась сессия (E-SESSION);
- *   сервер уже записал это в журнал сам;
+ * - не прошёл nonce (E-SESSION): перехватчик `common/nonce-refresh.js` уже повторил запрос
+ *   со свежим токеном — сюда доходит только провал повтора, сервер записал его сам;
  * - ответ не JSON — фатальная ошибка PHP или 5xx прокси (E-HTTP): сервер этого не видел,
  *   поэтому плеер отправляет отчёт сам;
  * - запрос не дошёл (E-NET).
@@ -66,6 +66,10 @@ export async function playerPost( fd ) {
 		const err = new PlayerRequestError( 'Сбой на сервере — попробуйте ещё раз чуть позже.', 'E-HTTP', newRef() );
 		report( err, action, response.status, text );
 		throw err;
+	}
+
+	if ( ! json.success && 'E-SESSION' === json.data?.code ) {
+		throw new PlayerRequestError( 'Сессия устарела — обновите страницу, введённые ответы сохранятся.', 'E-SESSION' );
 	}
 
 	if ( ! json.success ) {

@@ -650,11 +650,19 @@ if (!function_exists('wp_verify_nonce')) {
     }
 }
 if (!function_exists('check_ajax_referer')) {
-    // Управляется $GLOBALS['_fs_test_nonce_ok']; при невалидном — поведение WP (json error).
+    // Управляется $GLOBALS['_fs_test_nonce_ok']; при невалидном и $die — поведение WP (json error),
+    // без $die — false, как в ядре.
     function check_ajax_referer($action, $query_arg = false, $die = true) {
-        if (($GLOBALS['_fs_test_nonce_ok'] ?? true) === false) { wp_send_json_error('Неверный nonce'); }
+        if (($GLOBALS['_fs_test_nonce_ok'] ?? true) === false) {
+            if ($die) { wp_send_json_error('Неверный nonce'); }
+            return false;
+        }
         return 1;
     }
+}
+if (!function_exists('wp_doing_ajax')) {
+    // Управляется $GLOBALS['_fs_test_doing_ajax'] (по умолчанию — AJAX-запрос).
+    function wp_doing_ajax(): bool { return $GLOBALS['_fs_test_doing_ajax'] ?? true; }
 }
 
 /** Ответ AJAX-хендлера, перехваченный вместо wp_send_json_*()+exit. */

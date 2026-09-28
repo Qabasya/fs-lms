@@ -103,6 +103,12 @@ Subjects are stored in `wp_options` (key: `fs_lms_subjects_list`) as `['subject_
 
 **Usage in public/nopriv AJAX callbacks (no capability check):** `Nonce::X->verify()` directly, since `authorize()` requires a capability.
 
+**Устаревший nonce чинится сам:** провал `verify()` в AJAX — 403 `{code: 'E-SESSION', nonce: {field, value}}` со свежим
+токеном; перехватчик `src/js/common/nonce-refresh.js` (ставится в каждой точке входа бандла) подменяет токен
+в `fetch`/`jQuery.ajax` и повторяет запрос один раз с заголовком `X-FS-Nonce-Retry`. В журнал «Ошибки» идёт
+только провал повтора. Поэтому nonce проверять только через `Nonce::verify()`/`authorize()` — прямой
+`check_ajax_referer()` отдаст голый `-1` без обновления.
+
 ## Shared Traits
 
 **`Authorizer`** — `$this->authorize(Nonce::X, Capability::Y)` checks nonce + capability in one call and sends a JSON 403 on failure. Declare `use Authorizer;` + `use Inc\Shared\Traits\Authorizer;` in every Callback class that handles admin AJAX. Never call `check_ajax_referer()` or `current_user_can()` directly in Callback methods.

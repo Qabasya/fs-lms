@@ -8,6 +8,10 @@ import { initKegeEntry, initPreviewRestart } from './kege-entry.js';
 import { initKegeExam } from './kege-exam.js';
 import { resolvePublicResume } from './kege-resume.js';
 import { useKegeAssessment } from './kege-state.js';
+import { installNonceRefresh } from '../common/nonce-refresh.js';
+
+// До любых запросов бандла: устаревший nonce обновляется и запрос повторяется сам.
+installNonceRefresh();
 
 document.addEventListener( 'DOMContentLoaded', async () => {
 	// Состояние в localStorage — своё на каждую контрольную; область задаём один
