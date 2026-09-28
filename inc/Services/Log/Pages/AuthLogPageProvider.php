@@ -41,6 +41,7 @@ readonly class AuthLogPageProvider implements LogPageProviderInterface {
 				array(
 					'action' => $this->sanitizeGetKey( 'action' ),
 					'result' => $this->sanitizeGetKey( 'result' ),
+					'reason' => $this->sanitizeGetKey( 'reason' ),
 				),
 				$query->dateFilters()
 			)

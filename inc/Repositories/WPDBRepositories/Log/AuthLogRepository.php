@@ -51,6 +51,7 @@ class AuthLogRepository extends AbstractLogRepository {
 		return array(
 			'action' => array( 'action', LogFilterType::Text ),
 			'result' => array( 'result', LogFilterType::Text ),
+			'reason' => array( 'reason', LogFilterType::Text ),
 		);
 	}
 

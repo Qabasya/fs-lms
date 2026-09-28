@@ -5,6 +5,7 @@ declare( strict_types=1 );
 use Inc\DTO\Log\AuthLogDTO;
 use Inc\Enums\Auth\AuthAction;
 use Inc\Enums\Auth\AuthResult;
+use Inc\Enums\Auth\LoginFailReason;
 use Inc\Services\Log\LogNameResolver;
 require_once FS_LMS_PATH . 'templates/admin/components/UI/ui_renderers.php';
 
@@ -58,6 +59,15 @@ $sort_url    = add_query_arg( $auth_filters, $base_url );
 			<option value="failure" <?php selected( $auth_filters['result'] ?? '', 'failure' ); ?>>Неудача</option>
 		</select>
 
+		<select name="reason">
+			<option value="">Все причины</option>
+			<?php foreach ( LoginFailReason::cases() as $reason ) : ?>
+				<option value="<?php echo esc_attr( $reason->value ); ?>" <?php selected( $auth_filters['reason'] ?? '', $reason->value ); ?>>
+					<?php echo esc_html( $reason->label() ); ?>
+				</option>
+			<?php endforeach; ?>
+		</select>
+
 		<input type="date" name="date_from" value="<?php echo esc_attr( $auth_filters['date_from'] ?? '' ); ?>">
 		<span>—</span>
 		<input type="date" name="date_to"   value="<?php echo esc_attr( $auth_filters['date_to'] ?? '' ); ?>">
@@ -88,7 +98,8 @@ $sort_url    = add_query_arg( $auth_filters, $base_url );
 				<th class="tw-20">Логин</th>
 				<th>Действие</th>
 				<th class="tw-10" >Результат</th>
-                <th class="tw-10">IP</th
+				<th>Причина</th>
+                <th class="tw-10">IP</th>
 			</tr>
 			</thead>
 			<tbody>
@@ -114,6 +125,21 @@ $sort_url    = add_query_arg( $auth_filters, $base_url );
                         render_fs_badge( $badge_label, $badge_color );
                         ?>
                     </td>
+					<td>
+						<?php echo esc_html( $row->reasonLabel() ); ?>
+						<?php $detailLines = $row->detailLines(); ?>
+						<?php if ( ! empty( $detailLines ) ) : ?>
+							<details class="fs-code-sm">
+								<summary>Подробнее</summary>
+								<?php foreach ( $detailLines as $line ) : ?>
+									<div><?php echo esc_html( $line ); ?></div>
+								<?php endforeach; ?>
+								<?php if ( null !== $row->actorUa ) : ?>
+									<div class="fs-text-muted"><?php echo esc_html( $row->actorUa ); ?></div>
+								<?php endif; ?>
+							</details>
+						<?php endif; ?>
+					</td>
 					<td><?php echo esc_html( $row->actorIp ); ?></td>
 				</tr>
 			<?php endforeach; ?>

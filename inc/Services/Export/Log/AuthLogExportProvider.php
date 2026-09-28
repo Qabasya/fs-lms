@@ -67,6 +67,8 @@ class AuthLogExportProvider implements CsvExportProviderInterface {
 			new CsvColumn( 'Логин',      fn( $r ) => $r->loginIdentifier ?? '' ),
 			new CsvColumn( 'Действие',   fn( $r ) => AuthAction::tryFrom( $r->action )?->label() ?? $r->action ),
 			new CsvColumn( 'Результат',  fn( $r ) => AuthResult::tryFrom( $r->result )?->label() ?? $r->result ),
+			new CsvColumn( 'Причина',    fn( $r ) => $r->reasonLabel() ),
+			new CsvColumn( 'Подробности', fn( $r ) => implode( '; ', $r->detailLines() ) ),
 			new CsvColumn( 'IP',         fn( $r ) => $r->actorIp ),
 			new CsvColumn( 'Устройство', fn( $r ) => $r->actorUa ?? '' ),
 		);

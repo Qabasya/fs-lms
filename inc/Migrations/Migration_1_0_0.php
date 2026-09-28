@@ -375,6 +375,8 @@ class Migration_1_0_0 implements MigrationInterface {
 			login_identifier varchar(255) DEFAULT NULL,
 			action           varchar(50)  NOT NULL,
 			result           varchar(10)  NOT NULL,
+			reason           varchar(50)  DEFAULT NULL,
+			details          text         DEFAULT NULL,
 			actor_ip         varchar(45)  NOT NULL,
 			actor_ua         text         DEFAULT NULL,
 			created_at       datetime     NOT NULL DEFAULT CURRENT_TIMESTAMP,

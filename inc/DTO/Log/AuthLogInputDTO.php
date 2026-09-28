@@ -43,6 +43,8 @@ readonly class AuthLogInputDTO {
 	 * @param string      $actorIp         IP-адрес пользователя
 	 * @param string|null $actorUa         User-Agent браузера
 	 * @param string      $createdAt       Дата и время события (MySQL datetime)
+	 * @param string|null $reason          Причина отказа ({@see \Inc\Enums\Auth\LoginFailReason})
+	 * @param array|null  $details         Подробности попытки (без пароля)
 	 */
 	public function __construct(
 		public ?string $loginIdentifier,
@@ -51,6 +53,8 @@ readonly class AuthLogInputDTO {
 		public string  $actorIp,
 		public ?string $actorUa,
 		public string  $createdAt,
+		public ?string $reason = null,
+		public ?array  $details = null,
 	) {}
 
 	/**
@@ -66,6 +70,10 @@ readonly class AuthLogInputDTO {
 			'actor_ip'         => $this->actorIp,
 			'actor_ua'         => $this->actorUa,
 			'created_at'       => $this->createdAt,
+			'reason'           => $this->reason,
+			'details'          => null !== $this->details
+				? wp_json_encode( $this->details, JSON_UNESCAPED_UNICODE )
+				: null,
 		);
 	}
 }

@@ -103,6 +103,7 @@ use Inc\Migrations\Migration_1_0_8;
 use Inc\Migrations\Migration_1_0_32;
 use Inc\Migrations\Migration_1_0_33;
 use Inc\Migrations\Migration_1_0_37;
+use Inc\Migrations\Migration_1_0_54;
 use Inc\Migrations\MigrationRunner;
 use Inc\Services\Log\LogEventDispatcher;
 use Inc\Services\Shared\WpClock;
@@ -277,6 +278,7 @@ final class Init {
 		$migrationRunner->register( new Migration_1_0_32() );
 		$migrationRunner->register( new Migration_1_0_33() );
 		$migrationRunner->register( new Migration_1_0_37() );
+		$migrationRunner->register( new Migration_1_0_54() );
 		$migrationRunner->run();
 
 		// Data-миграция (не схема): ссылки на файлы заданий со старой схемой

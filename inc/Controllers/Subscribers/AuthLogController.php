@@ -5,9 +5,13 @@ declare( strict_types=1 );
 namespace Inc\Controllers\Subscribers;
 
 use Inc\Contracts\ServiceInterface;
+use Inc\DTO\Person\LoginAttemptDTO;
 use Inc\Enums\Auth\AuthAction;
 use Inc\Enums\Auth\AuthResult;
 use Inc\Services\Log\AuthLogWriter;
+use Inc\Services\Security\LoginDiagnosticsService;
+use Inc\Shared\Traits\Sanitizer;
+use WP_Error;
 
 /**
  * Class AuthLogController
@@ -31,13 +35,17 @@ use Inc\Services\Log\AuthLogWriter;
  */
 class AuthLogController implements ServiceInterface {
 
+	use Sanitizer;
+
 	/**
 	 * Конструктор контроллера.
 	 *
-	 * @param AuthLogWriter $authLog Райтер для записи логов аутентификации
+	 * @param AuthLogWriter           $authLog     Райтер для записи логов аутентификации
+	 * @param LoginDiagnosticsService $diagnostics Разбор причины неудачного входа
 	 */
 	public function __construct(
 		private readonly AuthLogWriter $authLog,
+		private readonly LoginDiagnosticsService $diagnostics,
 	) {}
 
 	/**
@@ -49,7 +57,7 @@ class AuthLogController implements ServiceInterface {
 		// 'wp_login' — хук, срабатывающий после успешного входа пользователя
 		add_action( 'wp_login',       array( $this, 'onLogin' ), 10, 2 );
 		// 'wp_login_failed' — хук, срабатывающий при неудачной попытке входа
-		add_action( 'wp_login_failed', array( $this, 'onLoginFailed' ), 10, 1 );
+		add_action( 'wp_login_failed', array( $this, 'onLoginFailed' ), 10, 2 );
 		// 'password_reset' — хук, срабатывающий после сброса пароля пользователя
 		add_action( 'password_reset',  array( $this, 'onPasswordReset' ), 10, 1 );
 	}
@@ -69,12 +77,25 @@ class AuthLogController implements ServiceInterface {
 	/**
 	 * Обработчик неудачной попытки входа.
 	 *
-	 * @param string $username Логин или email, введённый пользователем
+	 * @param string        $username Логин или email (после sanitize_user)
+	 * @param WP_Error|null $error    Причина отказа (с WP 5.4)
 	 *
 	 * @return void
 	 */
-	public function onLoginFailed( string $username ): void {
-		$this->authLog->record( $username, AuthAction::LoginFailed, AuthResult::Failure );
+	public function onLoginFailed( string $username, ?WP_Error $error = null ): void {
+		$attempt = new LoginAttemptDTO(
+			login:          $this->unslashRawString( 'log' ),
+			password:       $this->unslashRawString( 'pwd' ),
+			captchaToken:   $this->sanitizeText( 'captcha_token' ),
+			fromSignInPage: $this->sanitizeBool( 'fs_lms_login' ),
+		);
+
+		$this->authLog->record(
+			$username,
+			AuthAction::LoginFailed,
+			AuthResult::Failure,
+			$this->diagnostics->diagnose( $attempt, $username, $error )
+		);
 	}
 
 	/**

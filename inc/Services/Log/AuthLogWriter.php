@@ -6,6 +6,7 @@ namespace Inc\Services\Log;
 
 use Inc\Contracts\ClockInterface;
 use Inc\DTO\Log\AuthLogInputDTO;
+use Inc\DTO\Log\LoginDiagnosticsDTO;
 use Inc\Enums\Auth\AuthAction;
 use Inc\Enums\Auth\AuthResult;
 use Inc\Repositories\WPDBRepositories\Log\AuthLogRepository;
@@ -54,7 +55,12 @@ class AuthLogWriter {
 		private readonly ClockInterface    $clock,
 	) {}
 
-	public function record( ?string $loginIdentifier, AuthAction $action, AuthResult $result ): void {
+	public function record(
+		?string $loginIdentifier,
+		AuthAction $action,
+		AuthResult $result,
+		?LoginDiagnosticsDTO $diagnostics = null
+	): void {
 		$ctx = $this->requestContext();
 
 		$this->repository->create( new AuthLogInputDTO(
@@ -64,6 +70,8 @@ class AuthLogWriter {
 			actorIp:         $ctx->ip,
 			actorUa:         '' !== $ctx->userAgent ? $ctx->userAgent : null,
 			createdAt:       $this->clock->now( 'mysql', true ),
+			reason:          $diagnostics?->reason->value,
+			details:         $diagnostics?->details,
 		) );
 	}
 }

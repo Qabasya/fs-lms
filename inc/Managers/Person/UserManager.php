@@ -169,6 +169,13 @@ class UserManager {
 		return false !== $user ? $user : null;
 	}
 
+	/**
+	 * Совпадает ли пароль с хешем пользователя. Без побочных эффектов (рехеш — в ядре при входе).
+	 */
+	public function checkPassword( \WP_User $user, #[\SensitiveParameter] string $password ): bool {
+		return wp_check_password( $password, $user->user_pass, $user->ID );
+	}
+
 	public function exists( int $id ): bool {
 		return false !== get_userdata( $id );
 	}
