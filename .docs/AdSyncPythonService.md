@@ -178,6 +178,8 @@ DC недоступен — `503`. Используется кнопкой «П�
 | `HMAC_MAX_SKEW_SECONDS` | окно подписи по времени (300) |
 | `RECONCILE_MAX_DISABLE`, `RECONCILE_MAX_DISABLE_PCT`, `RECONCILE_GRACE_MINUTES` | предохранители сверки |
 | `LDAP_*`, `AD_UPN_SUFFIX`, `AD_OU_DISABLED`, `AD_OU_FALLBACK`, `SUBJECTS_FILE` | доступ к AD и карта направлений |
+| `AD_PROFILE_PATH_TEMPLATE` | путь к перемещаемому профилю, `{username}` — логин; в `.env` — в одинарных кавычках |
+| `AD_PASSWORD_NEVER_EXPIRES` | «Срок действия пароля не ограничен» (`true`); приводится при provision и password |
 
 ## 7. Наблюдение
 
