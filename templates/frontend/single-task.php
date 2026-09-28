@@ -49,7 +49,6 @@ ThemeCompatService::header();
 				<?php
 				// Курсы предмета — общий партиал; нет опубликованных курсов, нет блока.
 				$sidebar_courses     = $task_data->courses;
-				$sidebar_courses_url = $task_data->courses_url;
 				include __DIR__ . '/partials/sidebar-courses.php';
 				?>
 

@@ -6,13 +6,15 @@ namespace Inc\Services\Course;
 
 use Inc\DTO\Course\CourseCardDTO;
 use Inc\DTO\Course\CourseDTO;
+use Inc\Enums\Course\SidebarCoursePromo;
 use Inc\Enums\Wp\PageRoutes;
 use Inc\Managers\Course\CourseManager;
 
 /**
  * Class PublicCourseService
  *
- * Курсы предмета для публичных страниц (сайдбар «Все задания» и страницы задания).
+ * Курсы предмета для публичных страниц: витрина раздела «Курсы» лендинга и
+ * блок «Курсы» сайдбара тренажёра, задания и статьи (там — заглушка программы).
  *
  * Показываются только опубликованные курсы: черновики и архив — внутренние
  * состояния конструктора. Если опубликованных нет, метод возвращает пустой
@@ -21,9 +23,6 @@ use Inc\Managers\Course\CourseManager;
  * @package Inc\Services\Course
  */
 class PublicCourseService {
-
-	/** Сколько курсов показывает сайдбар. */
-	private const LIMIT = 2;
 
 	/**
 	 * @param CourseManager $course_manager Менеджер курсов (банк предмета).
@@ -59,15 +58,29 @@ class PublicCourseService {
 	}
 
 	/**
-	 * Опубликованные курсы предмета для сайдбара.
+	 * Блок «Курсы» сайдбара: не реальные курсы, а заглушка программы подготовки
+	 * ({@see SidebarCoursePromo}) со ссылкой на страницу предмета. Нет заглушки
+	 * для предмета или нет страницы — пусто, блок не выводится.
 	 *
 	 * @param string $subject_key Ключ предмета.
-	 * @param int    $limit       Сколько курсов вернуть.
+	 * @param string $subject_url Страница предмета — ссылка «Подробнее».
 	 *
 	 * @return CourseCardDTO[]
 	 */
-	public function getSidebarCourses( string $subject_key, int $limit = self::LIMIT ): array {
-		return $this->getCourses( $subject_key, $limit );
+	public function getSidebarCourses( string $subject_key, string $subject_url ): array {
+		$promo = SidebarCoursePromo::tryFrom( $subject_key );
+		if ( null === $promo || '' === $subject_url ) {
+			return array();
+		}
+
+		return array(
+			new CourseCardDTO(
+				id:      0,
+				title:   $promo->title(),
+				url:     $subject_url,
+				lessons: SidebarCoursePromo::LESSONS,
+			),
+		);
 	}
 
 	/**

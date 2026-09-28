@@ -138,8 +138,7 @@ readonly class TaskDataBuilder {
 			files:        $this->buildFiles( $meta, $template ),
 			tags:         $this->buildTags( $post->id, $subject_key, $current_task_type, $links->trainer ),
 			articles:     $this->buildArticles( $subject_key, $current_task_type, $links->articles ),
-			courses:      $this->course_service->getSidebarCourses( $subject_key ),
-			courses_url:  $links->courses,
+			courses:      $this->course_service->getSidebarCourses( $subject_key, $links->subject ),
 			navigation:   $this->buildNavigation( $post, $subject_name, $links, $current_task_type ),
 			tabs:         $this->buildTabs( $content ),
 		);

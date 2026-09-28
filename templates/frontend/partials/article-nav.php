@@ -35,7 +35,7 @@ $nav_labels = array(
 <nav class="fs-article-nav" aria-label="Навигация по статьям">
 	<div class="fs-article-nav__head">
 		<span class="fs-article-nav__counter"><?php echo esc_html( $nav_counter ); ?></span>
-		<?php // Стрелку рисует CSS (миксин fs-arrow-reveal) — как у «Все курсы» в сайдбаре. ?>
+		<?php // Стрелку рисует CSS (миксин fs-arrow-reveal) — как у «Все материалы» в сайдбаре. ?>
 		<?php if ( '' !== $navigation->articles_url ) : ?>
 			<a href="<?php echo esc_url( $navigation->articles_url ); ?>" class="fs-article-nav__all">Все статьи темы</a>
 		<?php endif; ?>

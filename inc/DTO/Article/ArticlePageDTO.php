@@ -20,8 +20,7 @@ readonly class ArticlePageDTO {
 	 * @param string                               $subject_key Ключ предмета.
 	 * @param ArticleContentDTO                    $content     Контент и оглавление.
 	 * @param array<int, array<string, mixed>>     $breadcrumbs Крошки для общего партиала.
-	 * @param \Inc\DTO\Course\CourseCardDTO[]      $courses     Курсы предмета для сайдбара.
-	 * @param string                               $courses_url Витрина курсов предмета; '' — ссылки нет.
+	 * @param \Inc\DTO\Course\CourseCardDTO[]      $courses     Блок «Курсы» сайдбара (заглушка программы).
 	 * @param array<int, array<string, mixed>>     $recommended Статьи блока «Читать далее».
 	 * @param string                               $thumbnail   URL обложки статьи; '' — обложки нет.
 	 * @param ArticleNavigationDTO                 $navigation  Соседние статьи серии и счётчик.
@@ -34,7 +33,6 @@ readonly class ArticlePageDTO {
 		public ArticleContentDTO $content,
 		public array $breadcrumbs,
 		public array $courses,
-		public string $courses_url,
 		public array $recommended,
 		public string $thumbnail = '',
 		public ArticleNavigationDTO $navigation = new ArticleNavigationDTO(),
@@ -63,7 +61,6 @@ readonly class ArticlePageDTO {
 			content:     new ArticleContentDTO(),
 			breadcrumbs: array(),
 			courses:     array(),
-			courses_url: '',
 			recommended: array(),
 		);
 	}

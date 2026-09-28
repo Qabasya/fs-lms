@@ -78,7 +78,6 @@ $has_selected = (bool) array_sum( array_column( $page_data->filters, 'active' ) 
 				<?php
 				// Курсы предмета — общий со страницей задания партиал; нет курсов, нет блока.
 				$sidebar_courses     = $page_data->courses;
-				$sidebar_courses_url = $page_data->courses_url;
 				include __DIR__ . '/sidebar-courses.php';
 				?>
 

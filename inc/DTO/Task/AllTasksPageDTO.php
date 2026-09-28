@@ -24,8 +24,7 @@ readonly class AllTasksPageDTO {
 	 * @param array  $filters      Группы фильтров-таксономий (см. описание класса).
 	 * @param array  $articles     Статьи сайдбара (подбор — ArticleService::getSidebarArticles).
 	 * @param string $articles_url Учебник предмета — ссылка «Все материалы».
-	 * @param array  $courses      Опубликованные курсы предмета: CourseCardDTO[]; пусто — блока нет.
-	 * @param string $courses_url  Витрина курсов предмета — ссылка «Все курсы»; '' — ссылки нет.
+	 * @param array  $courses      Блок «Курсы» сайдбара (заглушка программы): CourseCardDTO[]; пусто — блока нет.
 	 * @param array  $tasks        Первая страница: TaskListItemDTO[].
 	 * @param int    $total        Полное число заданий с учётом фильтров.
 	 * @param int    $per_page     Размер страницы.
@@ -40,7 +39,6 @@ readonly class AllTasksPageDTO {
 		public array  $articles,
 		public string $articles_url,
 		public array  $courses,
-		public string $courses_url,
 		public array  $tasks,
 		public int    $total,
 		public int    $per_page,

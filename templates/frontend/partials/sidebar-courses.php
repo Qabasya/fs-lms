@@ -2,12 +2,12 @@
 /**
  * Блок курсов в сайдбаре публичных страниц предмета.
  *
- * Общий партиал страницы задания и «Всех заданий»: одна разметка — одни стили
- * (`src/scss/frontend/components/_sidebar.scss`). Курсов нет — блока нет:
- * заглушку «Скоро появятся курсы» не показываем.
+ * Общий партиал страницы задания, «Всех заданий» и статьи: одна разметка — одни стили
+ * (`src/scss/frontend/components/_sidebar.scss`). Не реальные курсы, а программа
+ * подготовки направления со ссылкой на страницу предмета (PublicCourseService::getSidebarCourses()).
+ * Пусто — блока нет.
  *
- * @var \Inc\DTO\Course\CourseCardDTO[] $sidebar_courses     Опубликованные курсы предмета.
- * @var string                          $sidebar_courses_url Витрина курсов предмета (раздел лендинга).
+ * @var \Inc\DTO\Course\CourseCardDTO[] $sidebar_courses Карточки блока.
  *
  * @package FS LMS
  */
@@ -18,8 +18,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 use Inc\Services\Shared\Pluralizer;
 
-$sidebar_courses     = (array) ( $sidebar_courses ?? array() );
-$sidebar_courses_url = (string) ( $sidebar_courses_url ?? '' );
+$sidebar_courses = (array) ( $sidebar_courses ?? array() );
 
 if ( empty( $sidebar_courses ) ) {
 	return;
@@ -28,10 +27,6 @@ if ( empty( $sidebar_courses ) ) {
 <section class="fs-sidebar-block">
 	<div class="fs-sidebar-head">
 		<span class="fs-sidebar-title">Курсы</span>
-		<?php // Стрелку рисует CSS (миксин fs-arrow-reveal): в покое её нет, появляется по ховеру. ?>
-		<?php if ( '' !== $sidebar_courses_url ) : ?>
-			<a href="<?php echo esc_url( $sidebar_courses_url ); ?>" class="fs-sidebar-more">Все курсы</a>
-		<?php endif; ?>
 	</div>
 
 	<ul class="fs-sidebar-courses">
@@ -45,7 +40,7 @@ if ( empty( $sidebar_courses ) ) {
 						</span>
 					<?php endif; ?>
 					<?php // Не ссылка, а подпись внутри неё: вложенные <a> недопустимы. ?>
-					<span class="fs-sidebar-course-go">Записаться</span>
+					<span class="fs-sidebar-course-go">Подробнее</span>
 				</a>
 			</li>
 		<?php endforeach; ?>
