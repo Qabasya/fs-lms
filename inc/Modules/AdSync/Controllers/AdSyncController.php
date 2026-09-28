@@ -6,6 +6,7 @@ namespace Inc\Modules\AdSync\Controllers;
 
 use Inc\Enums\Wp\Nonce;
 use Inc\Modules\AdSync\Callbacks\AdSyncStatusCallbacks;
+use Inc\Modules\AdSync\Services\AdDeliveryService;
 use Inc\Modules\AdSync\Services\AdProvisioningService;
 use Inc\Modules\AdSync\Services\AdStatusTokenService;
 
@@ -13,7 +14,8 @@ use Inc\Modules\AdSync\Services\AdStatusTokenService;
  * Class AdSyncController
  *
  * Рантайм-хуки модуля (только при включённом флаге). Подписан на generic-сеймы ядра:
- * при создании заявки ставит задание провижна в очередь и вписывает в ответ apply generic-поля
+ * при создании заявки ставит задание провижна в очередь, отправляет его в офис сразу после
+ * ответа пользователю (см. {@see flushAfterResponse()}) и вписывает в ответ apply generic-поля
  * `notice` + `poll` (фронт покажет спиннер и опросит статус). Статус отдаёт nopriv-AJAX
  * `fs_lms_ad_status` (обработчик — AdSyncStatusCallbacks, адресация — токеном,
  * а не сырым ID заявки). Ядро о модуле не знает.
@@ -25,8 +27,14 @@ class AdSyncController {
 	/** Собственное имя nopriv-AJAX статуса провижна (вне core AjaxHook — изоляция). */
 	public const STATUS_ACTION = 'fs_lms_ad_status';
 
+	/** Сколько заданий отправить сразу после события (остальное — cron раз в минуту). */
+	private const int FLUSH_LIMIT = 5;
+
+	private bool $flushScheduled = false;
+
 	public function __construct(
 		private readonly AdProvisioningService $service,
+		private readonly AdDeliveryService     $delivery,
 		private readonly AdStatusTokenService  $tokens,
 		private readonly AdSyncStatusCallbacks $statusCallbacks,
 	) {}
@@ -42,22 +50,65 @@ class AdSyncController {
 		add_action( 'fs_lms_application_expired', array( $this, 'onApplicationExpired' ) );
 		add_action( 'fs_lms_application_trashed', array( $this, 'onApplicationTrashed' ) );
 		add_action( 'fs_lms_student_expelled', array( $this, 'onStudentExpelled' ), 10, 2 );
+
+		// Повторное зачисление — вернуть учётку из «Отчисленных» в OU нового направления;
+		// смена пароля администратором — тот же пароль в AD.
+		add_action( 'fs_lms_student_enrolled', array( $this, 'onStudentEnrolled' ), 10, 2 );
+		add_action( 'fs_lms_user_password_changed', array( $this, 'onPasswordChanged' ) );
 	}
 
 	public function onApplicationCreated( int $applicationId ): void {
 		$this->service->enqueueProvision( $applicationId );
+		$this->scheduleFlush();
 	}
 
 	public function onApplicationExpired( int $applicationId ): void {
 		$this->service->enqueueDeprovisionByApplication( $applicationId );
+		$this->scheduleFlush();
 	}
 
 	public function onApplicationTrashed( int $applicationId ): void {
 		$this->service->enqueueDeprovisionByApplication( $applicationId );
+		$this->scheduleFlush();
 	}
 
 	public function onStudentExpelled( int $recordId, int $personId ): void {
 		$this->service->enqueueDeprovisionByPerson( $personId );
+		$this->scheduleFlush();
+	}
+
+	public function onStudentEnrolled( int $recordId, int $personId ): void {
+		$this->service->enqueueReactivation( $recordId, $personId );
+		$this->scheduleFlush();
+	}
+
+	public function onPasswordChanged( int $userId ): void {
+		$this->service->enqueuePasswordChange( $userId );
+		$this->scheduleFlush();
+	}
+
+	/** Отправка в офис — один раз за запрос, в самом конце. */
+	private function scheduleFlush(): void {
+		if ( $this->flushScheduled ) {
+			return;
+		}
+		$this->flushScheduled = true;
+		add_action( 'shutdown', array( $this, 'flushAfterResponse' ), 100 );
+	}
+
+	/**
+	 * Сначала отдаём ответ пользователю (форма заявки не ждёт офис), потом шлём
+	 * задания. Без FastCGI/LiteSpeed ответ уйдёт после отправки — не дольше
+	 * таймаута одного задания; при простое офиса доставка на паузе и не ждёт вовсе.
+	 */
+	public function flushAfterResponse(): void {
+		if ( function_exists( 'fastcgi_finish_request' ) ) {
+			fastcgi_finish_request();
+		} elseif ( function_exists( 'litespeed_finish_request' ) ) {
+			litespeed_finish_request();
+		}
+
+		$this->delivery->deliverPending( self::FLUSH_LIMIT );
 	}
 
 	/**

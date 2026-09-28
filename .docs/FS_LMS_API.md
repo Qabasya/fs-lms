@@ -1,11 +1,11 @@
 # FS LMS — REST API (интеграции с Python-сервисами)
 
-> Публичный REST-контракт плагина (namespace `fs-lms/v1`) для внешних Python-сервисов.
-> Интеграции две, у каждой — свой модуль-лист (`inc/Modules/*`) и свой секрет; схема аутентификации общая (HMAC, §2):
+> Интеграции плагина с внешними Python-сервисами. У каждой — свой модуль-лист (`inc/Modules/*`)
+> и свой секрет HMAC:
 >
 > | Интеграция | Модуль | Модель | Разделы |
 > |---|---|---|---|
-> | Active Directory (учётки учеников) | `AdSync` | **pull** — Python на DC в локалке без белого IP сам опрашивает WP исходящим HTTPS; WordPress наружу не ходит | §3–6 |
+> | Active Directory (учётки учеников) | `AdSync` | **push** — сайт сам шлёт задания серверу AdSync в офисе (белый IP, проброс порта) и получает результат в том же ответе; входящих эндпоинтов на сайте нет | §3 (кратко), полный контракт — `AdSyncPythonService.md` |
 > | Видеозаписи занятий (S3 Beget) | `VideoLibrary` | **push** — сервис `fs-video-uploader` после загрузки видео в S3 шлёт регистрацию в WP | §7 |
 >
 > Связанные доки: AD — `AdSyncPythonService.md` (требования к Python-сервису, операции в AD,
@@ -16,30 +16,31 @@
 ## 1. База и доступность
 
 - **Base URL:** `https://<ваш-сайт>/wp-json/fs-lms/v1`
-- Эндпоинты каждого модуля регистрируются **только при включённом модуле**
-  (тумблер в «Настройки → Конфигурация», либо константа в `wp-config.php`:
-  `FS_LMS_AD_SYNC=true` для AdSync, `FS_LMS_VIDEO_LIBRARY=true` для VideoLibrary).
+- Эндпоинты модуля регистрируются **только при включённом модуле**
+  (тумблер в «Настройки → Конфигурация», либо константа `FS_LMS_VIDEO_LIBRARY=true` в `wp-config.php`).
   При выключенном модуле его маршрутов нет (404).
-- Требуется **HTTPS** (передаются учётные данные).
+- Требуется **HTTPS**.
 
 | Метод | Путь | Модуль | Назначение |
 |---|---|---|---|
-| `GET`  | `/ad/jobs` | AdSync | забрать задания на выполнение в AD |
-| `POST` | `/ad/ack`  | AdSync | отчитаться о выполнении задания |
-| `GET`  | `/ad/active-usernames` | AdSync | список логинов «кто должен жить» (сверка/«пылесос») |
 | `POST` | `/videos` | VideoLibrary | зарегистрировать загруженную в S3 видеозапись занятия |
+
+AdSync входящих эндпоинтов на сайте не имеет (с версии push-модели `/ad/jobs`, `/ad/ack`,
+`/ad/active-usernames` удалены): сайт сам обращается к серверу в офисе, см. §3.
 
 ---
 
 ## 2. Аутентификация (HMAC)
 
-Каждый запрос подписывается секретом **своего модуля** (задаётся в `wp-config.php` на стороне WP
-и в `.env` Python-сервиса — **одно и то же значение**; секреты модулей независимы, ротируются порознь):
+Входящие запросы к сайту (VideoLibrary) подписываются секретом модуля (`wp-config.php` на стороне
+WP и `.env` Python-сервиса — **одно и то же значение**):
 
 | Модуль | Константа wp-config | Env на стороне Python |
 |---|---|---|
-| AdSync | `FS_LMS_AD_HMAC_SECRET` | `FS_LMS_AD_HMAC_SECRET` (поллер AD) |
 | VideoLibrary | `FS_LMS_VIDEO_HMAC_SECRET` | `LMS_HMAC_SECRET` (fs-video-uploader) |
+
+AdSync подписывает **исходящие** запросы сайта своей схемой — с методом и путём в подписи
+(`FS_LMS_AD_HMAC_SECRET`, см. §3 и `AdSyncPythonService.md` §3).
 
 Заголовки на **каждом** запросе:
 
@@ -68,183 +69,20 @@ def sign(secret: str, body: str = "") -> dict[str, str]:
 
 ---
 
-## 3. Эндпоинты
+## 3. AdSync — сайт → сервер в офисе (push)
 
-### 3.1. `GET /ad/jobs`
+Полный контракт, требования к серверу и операции в AD — **`AdSyncPythonService.md`**. Кратко:
 
-Возвращает задания, готовые к выполнению (статус `pending` либо `failed` с наступившим временем ретрая).
+- Сайт шлёт подписанные HTTPS-запросы на `https://<белый IP офиса>:8443` (адрес — в настройках модуля).
+  Сертификат сервера самоподписанный с IP в SAN; сайт доверяет **только** ему (`FS_LMS_AD_SERVER_CERT`).
+- Эндпоинты сервера: `POST /v1/jobs` (одно задание, результат синхронно), `POST /v1/reconcile`
+  (сверка раз в сутки), `GET /v1/health` (кнопка «Проверить соединение»).
+- Подпись: `X-Fs-Timestamp` + `X-Fs-Signature = hex(hmac_sha256("METHOD\nPATH\nTIMESTAMP\nBODY", FS_LMS_AD_HMAC_SECRET))`.
+- Очередь (`fs_lms_ad_outbox`), бэкофф ретраев и «мёртвые» задания — на стороне сайта; при
+  недоступности офиса задания ждут в очереди и попыток не тратят.
 
-**Query:** `limit` (опц., 1–200, по умолчанию 50).
-
-**Ответ `200`:**
-```json
-{
-  "jobs": [
-    {
-      "id": 7,
-      "event": "provision",
-      "idempotency_key": "app:5",
-      "username": "i.petrov",
-      "password": "СекретУченика",
-      "first": "Иван",
-      "last": "Петров",
-      "subject_key": "inf"
-    },
-    { "id": 8, "event": "deprovision", "idempotency_key": "deprovision:app:9", "username": "a.sidorov" },
-    { "id": 9, "event": "deprovision", "idempotency_key": "deprovision:person:3", "username": "p.orlov" }
-  ]
-}
-```
-
-**Поля по типу задания (`event`):**
-
-| event | поля | что сделать в AD |
-|---|---|---|
-| `provision` | `username, password, first, last, subject_key` | создать учётку **сразу в целевой OU направления** (Python сам выбирает OU по `subject_key`), включить, задать пароль |
-| `deprovision` | `username` | отключить учётку (disable), перенести в `OU=Отчисленные` |
-
-> Стадии «зачислен» в OU-структуре нет — событие `promote` не используется. Учётка создаётся один раз
-> сразу в OU своего направления и остаётся там до отчисления.
->
-> `password` присутствует **только** у `provision`. Это постоянный пароль, заданный учеником в форме —
-> один и тот же для WordPress и для AD (без «сменить при входе»).
->
-> **OU направления решается на стороне Python:** WP отдаёт `subject_key` (стабильный слаг, напр. `inf`).
-> Карту `предмет → DN OU` (напр. ЕГЭ по информатике → `OU=КЕГЭ`) держите в конфиге Python — в WP она
-> не хранится.
->
-> **Чистка учёток** (брошенные заявки, отчисленные ученики, удалённые) — через `deprovision` (шлётся
-> и по заявке до зачисления, и по факту отчисления зачисленного ученика — обработка в AD одинаковая)
-> и регулярную сверку `GET /ad/active-usernames` (см. ниже). Авто-истечения по TTL на стороне WP нет.
-
----
-
-### 3.2. `POST /ad/ack`
-
-Отчёт о выполнении одного задания. Тело подписывается (body входит в подпись).
-
-**Тело:**
-```json
-{ "id": 7, "status": "done", "error": "", "sam_account_name": "i.petrov" }
-```
-| Поле | Обяз. | Описание |
-|---|---|---|
-| `id` | да | id задания из `/ad/jobs` |
-| `status` | да | `done` (успех) или `failed` (ошибка) |
-| `error` | нет | текст ошибки (для `failed`, попадёт в `last_error`) |
-| `sam_account_name` | нет | фактический логин в AD (для аудита) |
-
-**Ответ `200`:** `{ "ok": true }`
-
-- `done` → задание помечается `sent` и больше не выдаётся.
-- `failed` → инкремент попыток, экспоненциальный backoff (`next_attempt_at`), после 6 попыток → `dead`
-  (перестаёт выдаваться). До этого задание **снова появится** в `/ad/jobs` после наступления `next_attempt_at`.
-- Если Python не прислал `ack` вовсе (упал) — задание остаётся `pending` и выдаётся на следующем поллинге.
-
----
-
-### 3.3. `GET /ad/active-usernames`
-
-Авторитетный список логинов, которые **должны оставаться активными** в AD:
-активные зачисленные ученики + «живые» заявки (ещё не истёкшие/не отклонённые).
-
-**Ответ `200`:**
-```json
-{ "usernames": ["i.petrov", "a.sidorov", "p.orlov"] }
-```
-
-Используется для сверки-«пылесоса»: Python отключает в управляемой OU все учётки, которых **нет** в списке.
-Так закрывается случай «человека удалили из БД WP, а логин в домене остался».
-
----
-
-## 4. Коды ошибок
-
-| Код | Когда |
-|---|---|
-| `200` | успех |
-| `400` | некорректное тело (напр. `id <= 0` в `/ad/ack`) |
-| `401` | нет/неверная подпись, протухший timestamp, не задан секрет на стороне WP |
-| `404` | модуль выключен (маршруты не зарегистрированы) |
-
----
-
-## 5. Пример клиента на Python (поллер)
-
-Это **не FastAPI-сервер** (входящие соединения не нужны) — это клиент-поллер, который крутится в локальной
-сети. Зависимости: `requests` (или `httpx`), `ldap3`, планировщик (`APScheduler` или системный cron).
-
-```python
-import time, hmac, hashlib, json, requests
-# from ldap3 import Server, Connection, MODIFY_ADD, MODIFY_REPLACE  # см. §4.1 AdSyncPythonService.md
-
-BASE   = "https://example.com/wp-json/fs-lms/v1"
-SECRET = "СЕКРЕТ_КАК_В_wp-config"   # FS_LMS_AD_HMAC_SECRET
-
-def _headers(body: str = "") -> dict:
-    ts = str(int(time.time()))
-    sig = hmac.new(SECRET.encode(), f"{ts}.{body}".encode(), hashlib.sha256).hexdigest()
-    return {"X-Fs-Timestamp": ts, "X-Fs-Signature": sig, "Content-Type": "application/json"}
-
-def fetch_jobs(limit: int = 50) -> list[dict]:
-    r = requests.get(f"{BASE}/ad/jobs", params={"limit": limit}, headers=_headers(), timeout=15)
-    r.raise_for_status()
-    return r.json().get("jobs", [])
-
-def ack(job_id: int, ok: bool, error: str = "", sam: str = "") -> None:
-    body = json.dumps({"id": job_id, "status": "done" if ok else "failed",
-                       "error": error, "sam_account_name": sam}, ensure_ascii=False)
-    requests.post(f"{BASE}/ad/ack", data=body.encode("utf-8"), headers=_headers(body), timeout=15)
-
-def active_usernames() -> list[str]:
-    r = requests.get(f"{BASE}/ad/active-usernames", headers=_headers(), timeout=30)
-    r.raise_for_status()
-    return r.json().get("usernames", [])
-
-# --- AD-операции (заглушки; реализация через ldap3, см. §4.1 AdSyncPythonService.md) ---
-def ad_provision(job: dict) -> str: ...   # create user in OU по job["subject_key"], set password
-def ad_disable(username: str) -> None: ... # userAccountControl=514, move to OU=Отчисленные
-def ad_disable_absent(keep: list[str]) -> None: ...  # disable+move в OU=Отчисленные всё, чего нет в keep
-
-def run_jobs_once() -> None:
-    for job in fetch_jobs():
-        try:
-            if   job["event"] == "provision":   sam = ad_provision(job); ack(job["id"], True, sam=sam)
-            elif job["event"] == "deprovision": ad_disable(job["username"]); ack(job["id"], True)
-            else:                                ack(job["id"], False, error=f"unknown event {job['event']}")
-        except Exception as e:                   ack(job["id"], False, error=str(e))
-
-def run_reconcile_once() -> None:
-    ad_disable_absent(active_usernames())
-
-if __name__ == "__main__":
-    # быстрый цикл заданий + редкая сверка (упрощённо; в проде — APScheduler/cron)
-    last_reconcile = 0
-    while True:
-        run_jobs_once()
-        if time.time() - last_reconcile > 3600:      # раз в час
-            run_reconcile_once(); last_reconcile = time.time()
-        time.sleep(3)                                 # интервал поллинга заданий
-```
-
-> **AD-операции (ldap3):** bind сервис-аккаунтом (LDAPS:636), `unicodePwd` (UTF-16LE в кавычках),
-> `userAccountControl` (512/514), перенос между OU через `modify_dn`. Детали — `AdSyncPythonService.md`
-> §4.1 и §5 (парольная политика OU).
-
----
-
-## 6. Включение на стороне WP (памятка)
-
-1. Секрет: в секции «Синхронизация с доменом (AD)» нажать **«Сгенерировать»** у `FS_LMS_AD_HMAC_SECRET` →
-   скопировать строку `define( 'FS_LMS_AD_HMAC_SECRET', '...' );` в `wp-config.php`, а сам секрет — в `.env`
-   Python (одно и то же значение). Бейдж покажет «Задан». Опц.: `define( 'FS_LMS_AD_SYNC', true );` — жёстко включить.
-2. Направление ученик выбирает сам в форме заявки `/lms/apply` (обязательное поле) — `subject_key`
-   есть у каждой заявки. В секции **«Синхронизация с доменом (AD)»** отметить чекбоксами
-   **«Направления с доменными учётками»** (`provision_subjects`): provision-задания ставятся только
-   по заявкам этих направлений; ничего не отмечено — учётки не создаются ни для кого. Затем включить
-   модуль на Dashboard. (Карта `предмет → OU` и срок жизни учёток в WP не задаются — это на стороне
-   Python/reconcile.)
-3. Python-сервис в локалке настроить на `BASE` (адрес сайта) + секрет и запустить поллер.
+<!-- Разделы §4–6 (pull-эндпоинты AdSync и пример поллера) удалены вместе с pull-моделью;
+     номера §2 и §7 сохранены — на них ссылается код VideoLibrary. -->
 
 ---
 

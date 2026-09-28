@@ -93,6 +93,8 @@ class PasswordGeneratorService {
 			)
 		);
 
+		$this->announcePasswordChange( $user_id );
+
 		return $password;
 	}
 
@@ -162,6 +164,16 @@ class PasswordGeneratorService {
 			)
 		) );
 
+		$this->announcePasswordChange( $user_id );
+	}
+
+	/**
+	 * Generic-хук смены пароля (AdSync и др. модули): пароль уже установлен и его
+	 * зашифрованная копия сохранена — подписчик может прочитать её через getCredentials().
+	 * Ядро о подписчиках не знает; без них — no-op.
+	 */
+	private function announcePasswordChange( int $user_id ): void {
+		do_action( 'fs_lms_user_password_changed', $user_id );
 	}
 
 	/**

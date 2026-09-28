@@ -7,7 +7,8 @@ namespace Inc\Modules\AdSync;
 use Inc\Contracts\ServiceInterface;
 use Inc\Modules\AdSync\Config\AdSyncConfig;
 use Inc\Modules\AdSync\Controllers\AdSyncController;
-use Inc\Modules\AdSync\Controllers\AdSyncRestController;
+use Inc\Modules\AdSync\Cli\AdSyncCommand;
+use Inc\Modules\AdSync\Controllers\AdSyncCronController;
 use Inc\Modules\AdSync\Controllers\AdSyncSettingsController;
 use Inc\Modules\AdSync\Schema\AdSchema;
 
@@ -18,6 +19,9 @@ use Inc\Modules\AdSync\Schema\AdSchema;
  * Единственная точка входа модуля; регистрируется одной строкой в `Init::getServices()`.
  * Ядро о внутренностях модуля не знает — связь только через generic-хуки
  * (см. .docs/AdSyncPythonService.md, .docs/FS_LMS_API.md).
+ *
+ * Модель — push: сайт подписывает задание и шлёт его серверу AdSync в офисе
+ * (`POST /v1/jobs`), результат приходит в том же ответе.
  *
  * Уровни выключения (§2.3):
  *  1) тумблер в опции `fs_lms_ad_sync.enabled`;
@@ -31,7 +35,8 @@ class AdSyncModule implements ServiceInterface {
 	public function __construct(
 		private readonly AdSyncSettingsController   $settings,
 		private readonly AdSyncController           $runtime,
-		private readonly AdSyncRestController       $rest,
+		private readonly AdSyncCronController       $cron,
+		private readonly AdSyncCommand              $cli,
 		private readonly AdSchema                   $schema,
 		private readonly AdSyncConfig               $config,
 	) {}
@@ -53,8 +58,11 @@ class AdSyncModule implements ServiceInterface {
 		// Generic-сеймы ядра: provision-в-очередь при создании заявки + notice/poll в ответ apply + статус-AJAX.
 		$this->runtime->register();
 
-		// REST-эндпоинты для Python-сервиса (pull): GET /ad/jobs, POST /ad/ack.
-		// [Этап 3+: deprovision — fs_lms_student_expelled / fs_lms_application_expired / fs_lms_application_trashed]
-		$this->rest->register();
+		// Доставка в офис (push): раз в минуту — ретраи и хвост очереди, раз в сутки — сверка.
+		// Входящих REST-эндпоинтов у модуля нет: сайт сам шлёт задания серверу в офисе.
+		$this->cron->register();
+
+		// wp fs-lms ad … — ручной прогон очереди, проверка связи, сверка (только под WP-CLI).
+		$this->cli->register();
 	}
 }

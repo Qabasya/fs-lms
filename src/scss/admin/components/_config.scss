@@ -215,3 +215,47 @@
     &:hover { background: $wp-admin-gray-bg-light; }
   }
 }
+
+// Секция AdSync: состояние доставки в офис и действия над очередью.
+.fs-adsync-status {
+  margin: $spacing-lg 0;
+  padding: $spacing-lg;
+  border: 1px solid $color-border-input;
+  border-radius: $border-radius-sm;
+  background: $wp-admin-gray-bg-light;
+
+  &__list {
+    display: grid;
+    grid-template-columns: max-content minmax(0, 1fr);
+    gap: $spacing-xs $spacing-lg;
+    margin: 0 0 $spacing-md;
+
+    dt {
+      color: $color-text-secondary;
+      font-size: $font-size-sm;
+    }
+
+    dd {
+      margin: 0;
+      font-size: $font-size-sm;
+      font-weight: $font-semibold;
+      color: $color-text-primary;
+      overflow-wrap: anywhere;
+    }
+  }
+
+  &__warn { color: $wp-admin-red-text; }
+
+  &__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: $spacing-sm;
+  }
+
+  &__result {
+    margin: $spacing-sm 0 0;
+    font-size: $font-size-sm;
+
+    &:empty { display: none; }
+  }
+}

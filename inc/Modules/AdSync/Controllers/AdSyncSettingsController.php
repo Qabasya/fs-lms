@@ -8,6 +8,8 @@ use Inc\Core\BaseController;
 use Inc\Enums\Wp\Nonce;
 use Inc\Modules\AdSync\Callbacks\AdSyncSettingsCallbacks;
 use Inc\Modules\AdSync\Config\AdSyncConfig;
+use Inc\Modules\AdSync\Repositories\AdOutboxRepository;
+use Inc\Modules\AdSync\Repositories\AdSyncStateRepository;
 use Inc\Shared\Traits\Sanitizer;
 
 /**
@@ -19,7 +21,8 @@ use Inc\Shared\Traits\Sanitizer;
  * и собственный admin-JS (модуль self-contained, не лезет в core-бандл).
  *
  * Секция в Конфигурации показывается только когда модуль включён.
- * Enable-тумблер живёт на Dashboard — здесь только детальные настройки (HMAC).
+ * Enable-тумблер живёт на Dashboard — здесь детальные настройки (адрес сервера в офисе,
+ * направления, режим сверки), состояние доставки и действия над очередью.
  *
  * @package Inc\Modules\AdSync\Controllers
  */
@@ -28,17 +31,26 @@ class AdSyncSettingsController extends BaseController {
 	use Sanitizer;
 
 	/** Собственное имя AJAX-действия (вне core AjaxHook — изоляция). */
-	public const SAVE_ACTION = 'fs_lms_ad_sync_save';
+	public const SAVE_ACTION  = 'fs_lms_ad_sync_save';
+	public const CHECK_ACTION = 'fs_lms_ad_sync_check';
+	public const FLUSH_ACTION = 'fs_lms_ad_sync_flush';
+	public const RETRY_ACTION = 'fs_lms_ad_sync_retry_dead';
 
 	public function __construct(
 		private readonly AdSyncSettingsCallbacks    $callbacks,
 		private readonly AdSyncConfig               $config,
+		private readonly AdOutboxRepository         $outbox,
+		private readonly AdSyncStateRepository      $state,
+		private readonly AdSyncCronController       $cron,
 	) {
 		parent::__construct();
 	}
 
 	public function register(): void {
 		add_action( 'wp_ajax_' . self::SAVE_ACTION, array( $this->callbacks, 'ajaxSaveSettings' ) );
+		add_action( 'wp_ajax_' . self::CHECK_ACTION, array( $this->callbacks, 'ajaxCheckConnection' ) );
+		add_action( 'wp_ajax_' . self::FLUSH_ACTION, array( $this->callbacks, 'ajaxDeliverNow' ) );
+		add_action( 'wp_ajax_' . self::RETRY_ACTION, array( $this->callbacks, 'ajaxRetryDead' ) );
 		add_action( 'fs_lms_config_sections', array( $this, 'renderSection' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueueAssets' ) );
 		add_filter( 'fs_lms_dashboard_modules', array( $this, 'registerDashboardModule' ) );
@@ -56,7 +68,10 @@ class AdSyncSettingsController extends BaseController {
 			return;
 		}
 
-		$config = $this->config;
+		$config      = $this->config;
+		$counts      = $this->outbox->countByStatus();
+		$state       = $this->state->get();
+		$pausedUntil = $this->state->pausedUntil();
 		require $this->path( 'inc/Modules/AdSync/templates/settings-section.php' );
 	}
 
@@ -70,7 +85,7 @@ class AdSyncSettingsController extends BaseController {
 		$modules[] = array(
 			'id'           => 'ad_sync',
 			'title'        => 'Синхронизация с доменом (AD)',
-			'description'  => 'Создание учётных записей в Active Directory по заявкам. Python-сервис забирает задания с сайта (pull). При отключении исчезает секция «Синхронизация с доменом» в Конфигурации.',
+			'description'  => 'Создание учётных записей в Active Directory по заявкам. Сайт сам отправляет задания серверу в офисе (push). При отключении исчезает секция «Синхронизация с доменом» в Конфигурации.',
 			'enabled'      => $this->config->isEnabled(),
 			'const_locked' => $const_defined,
 			'const_key'    => 'FS_LMS_AD_SYNC',
@@ -81,6 +96,11 @@ class AdSyncSettingsController extends BaseController {
 
 	public function onToggle( bool $enabled ): void {
 		$this->config->save( array( 'enabled' => $enabled ) );
+
+		// Выключенный модуль не регистрирует обработчики — снимаем и события cron.
+		if ( ! $enabled ) {
+			$this->cron->unschedule();
+		}
 	}
 
 	public function enqueueAssets( string $hook ): void {
@@ -105,6 +125,11 @@ class AdSyncSettingsController extends BaseController {
 		wp_localize_script( 'fs-lms-ad-sync', 'fsLmsAdSync', array(
 			'ajaxurl' => admin_url( 'admin-ajax.php' ),
 			'action'  => self::SAVE_ACTION,
+			'actions' => array(
+				'check' => self::CHECK_ACTION,
+				'flush' => self::FLUSH_ACTION,
+				'retry' => self::RETRY_ACTION,
+			),
 			'nonce'   => Nonce::Config->create(),
 		) );
 	}

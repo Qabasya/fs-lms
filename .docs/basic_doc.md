@@ -199,7 +199,7 @@ php -r "echo base64_encode(random_bytes(32)) . PHP_EOL;"   # генерация 
 | `FS_LMS_OTP_BYPASS_CODE` | Постоянный bypass-код OTP (работает и без TEST_ENV) |
 | `DADATA_API_TOKEN` | Токен DaData (модуль DaData) |
 | `FS_LMS_CAPTCHA_SITE_KEY` / `FS_LMS_CAPTCHA_SERVER_KEY` | Ключи Yandex SmartCaptcha (модуль SmartCaptcha) |
-| `FS_LMS_AD_SYNC`, `FS_LMS_AD_HMAC_SECRET` | Модуль AdSync + секрет HMAC для REST |
+| `FS_LMS_AD_SYNC`, `FS_LMS_AD_HMAC_SECRET`, `FS_LMS_AD_SERVER_CERT` | Модуль AdSync, секрет подписи запросов к серверу в офисе, путь к его сертификату (`.crt`, выше `public_html`) |
 | `FS_LMS_EGE_COMPUTER` | Модуль EgeComputer (не задана → включён) |
 | `FS_LMS_PUBLIC_EXAMS` | Модуль PublicExams (не задана → включён, если включён EgeComputer; `false` — выкл.) |
 | `FS_LMS_DADATA`, `FS_LMS_SMART_CAPTCHA` | Жёсткое вкл/выкл соответствующих модулей |
@@ -1538,7 +1538,7 @@ UI — вкладка «Конфигурация» в Настройках: по
 
 | Модуль | Что даёт | Константа | Опция-тумблер (default) | Точка связи с ядром |
 |---|---|---|---|---|
-| `AdSync` | Провижининг учёток в Active Directory (outbox-очередь + REST для Python-поллера) | `FS_LMS_AD_SYNC`, `FS_LMS_AD_HMAC_SECRET` | `fs_lms_ad_sync` (выкл.) | события заявок; REST `GET /ad/jobs`, `POST /ad/ack`; своя таблица через `AdSchema::ensure()` |
+| `AdSync` | Провижининг учёток в Active Directory (outbox-очередь; сайт сам шлёт задания серверу в офисе — push) | `FS_LMS_AD_SYNC`, `FS_LMS_AD_HMAC_SECRET`, `FS_LMS_AD_SERVER_CERT` | `fs_lms_ad_sync` (выкл.), состояние доставки — `fs_lms_ad_sync_state` | события заявок, отчисления, повторного зачисления (`fs_lms_student_enrolled`) и смены пароля (generic-хук ядра `fs_lms_user_password_changed` из `PasswordGeneratorService`); cron `fs_lms_ad_delivery_tick` (раз в минуту) и `fs_lms_ad_reconcile_tick` (сутки); `wp fs-lms ad …`; своя таблица через `AdSchema::ensure()` |
 | `EgeComputer` | Альтернативные плеер-станции контрольной «ЕГЭ (компьютерный)» и «ОГЭ (компьютерный)» (общий движок рендера/попыток, свои конфиги времени/попыток/шкалы `StationExamConfig`) | `FS_LMS_EGE_COMPUTER` (не задана → вкл.) | — | фильтр `fs_lms_assessment_renderer` (§34) |
 | `PublicExams` | Публичные экзамены: ЕГЭ (Компьютер), открытый всем без авторизации (без записи в БД), раздел `/{key}/exams/` по годам | `FS_LMS_PUBLIC_EXAMS` (не задана → вкл., при включённом EgeComputer) | — | фильтры `fs_lms_assessment_public_access`, `fs_lms_assessment_template_fields`, `fs_lms_subject_exams_enabled` и др. (§34) |
 | `DaData` | Автодополнение ФИО/адреса на `/lms/join` | `FS_LMS_DADATA`, `DADATA_API_TOKEN` | `fs_lms_dadata` (выкл.) | фильтр `fs_lms_join_vars` |
@@ -2365,7 +2365,7 @@ docker compose run --rm wpcli wp option get fs_lms_schema_version
 | Файл | Что там |
 |---|---|
 | `.docs/Courses.md` | Спека этапа «Личные кабинеты»: доменная модель занятий/посещаемости/замен, экраны, развилки решений |
-| `.docs/FS_LMS_API.md` | §1–6 — REST-контракт модуля AdSync (HMAC, эндпоинты); §7 — контракт клиентского шва `FS_LMS_API` и план выноса кабинета |
+| `.docs/FS_LMS_API.md` | §1–2 — входящий REST (VideoLibrary) и HMAC; §3 — сводка AdSync (push, полный контракт — `AdSyncPythonService.md`); §7 — видео-реестр; §8 — клиентский шов `FS_LMS_API` |
 | `.docs/ModularArchitecture.md` | Целевая модульная архитектура (Kernel/Content/Enrollment/Lms + листья) и правила для нового кода |
 | `.docs/Roles.md` | Целевая модель ролей/прав (частично уже в коде: `AuthorLmsCourses`, `ManageLmsTeaching`…) |
 | `.docs/UI.md` | Дизайн-система админки: примитивы `.fs-btn`/`.fs-card`/`.fs-field`, правила токенизации, ход консолидации |

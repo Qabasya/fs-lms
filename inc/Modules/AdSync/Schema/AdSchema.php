@@ -16,7 +16,8 @@ namespace Inc\Modules\AdSync\Schema;
 class AdSchema {
 
 	private const VERSION_OPTION = 'fs_lms_ad_schema_version';
-	private const VERSION        = '2';
+	// 3: индекс по target — поиск последнего задания по логину (повторное зачисление, пароль).
+	private const VERSION        = '3';
 
 	/** Имя таблицы с префиксом WP. */
 	public static function table(): string {
@@ -52,7 +53,8 @@ class AdSchema {
 				sent_at         datetime            DEFAULT NULL,
 				PRIMARY KEY  (id),
 				KEY status (status),
-				KEY idempotency_key (idempotency_key)
+				KEY idempotency_key (idempotency_key),
+				KEY target (target)
 			) $collate;"
 		);
 

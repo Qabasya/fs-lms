@@ -14,7 +14,11 @@ use Inc\Modules\Shared\ModuleConfig;
  *
  * Флаг включения: константа `FS_LMS_AD_SYNC` в wp-config.php перекрывает тумблер из опции
  * (3 уровня выключения — см. .docs/AdSyncPythonService.md).
- * Секрет HMAC живёт в `FS_LMS_AD_HMAC_SECRET` (wp-config), не в опции.
+ *
+ * Секреты — только в wp-config, не в опции:
+ *  - `FS_LMS_AD_HMAC_SECRET` — секрет подписи запросов к серверу в офисе;
+ *  - `FS_LMS_AD_SERVER_CERT` — путь к `.crt` сервера (самоподписанный, IP в SAN):
+ *    сайт доверяет только ему. Файл кладётся выше public_html.
  *
  * @package Inc\Modules\AdSync\Config
  */
@@ -27,6 +31,10 @@ class AdSyncConfig extends ModuleConfig {
 		'enabled'            => false,
 		// Ключи предметов, по которым создаются доменные учётки. Пустой список = никого.
 		'provision_subjects' => array(),
+		// Адрес сервера AdSync в офисе: https://<белый IP>:<порт>, без хвостового «/».
+		'server_url'         => '',
+		// Сверка: false — сервер только пишет в журнал, кого отключил бы; true — отключает.
+		'reconcile_apply'    => false,
 	);
 
 	protected function option(): string {
@@ -54,9 +62,31 @@ class AdSyncConfig extends ModuleConfig {
 		return (bool) ( $this->get()['enabled'] ?? false );
 	}
 
-	/** Секрет HMAC из wp-config (для подписи запросов к Python). */
+	/** Секрет HMAC из wp-config (подпись запросов сайта к серверу в офисе). */
 	public function hmacSecret(): string {
 		return defined( 'FS_LMS_AD_HMAC_SECRET' ) ? (string) constant( 'FS_LMS_AD_HMAC_SECRET' ) : '';
+	}
+
+	/** Адрес сервера в офисе без хвостового «/» ('' — не задан). */
+	public function serverUrl(): string {
+		return rtrim( trim( (string) ( $this->get()['server_url'] ?? '' ) ), '/' );
+	}
+
+	/** Путь к сертификату сервера из wp-config ('' — константа не задана). */
+	public function serverCertPath(): string {
+		return defined( 'FS_LMS_AD_SERVER_CERT' ) ? (string) constant( 'FS_LMS_AD_SERVER_CERT' ) : '';
+	}
+
+	/** Сертификат сервера задан и читается. */
+	public function hasServerCert(): bool {
+		$path = $this->serverCertPath();
+
+		return '' !== $path && is_readable( $path );
+	}
+
+	/** Сверка отключает лишние учётки (иначе — только журнал на сервере). */
+	public function reconcileApply(): bool {
+		return (bool) ( $this->get()['reconcile_apply'] ?? false );
 	}
 
 	/** @return string[] Ключи предметов, по которым создаются доменные учётки. */

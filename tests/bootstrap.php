@@ -750,6 +750,9 @@ function get_the_post_thumbnail_url( int $post_id, string $size = 'post-thumbnai
 if (!function_exists('wp_parse_url')) {
     function wp_parse_url(string $url, int $component = -1): mixed { return parse_url($url, $component); }
 }
+if (!function_exists('wp_date')) {
+    function wp_date(string $format, ?int $timestamp = null): string { return gmdate($format, $timestamp ?? time()); }
+}
 if (!function_exists('wp_timezone')) {
     // Таймзона сайта; управляется $GLOBALS['_fs_test_timezone'] (по умолчанию UTC).
     function wp_timezone(): DateTimeZone { return new DateTimeZone($GLOBALS['_fs_test_timezone'] ?? 'UTC'); }

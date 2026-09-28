@@ -79,6 +79,52 @@ class AdOutboxRepository {
 		);
 	}
 
+	/**
+	 * Сразу «мёртвое»: отправлять нечего (заявку удалили, данных учётки нет) —
+	 * ретраи ничего не изменят.
+	 */
+	public function markDead( int $id, string $error ): void {
+		$this->wpdb->update(
+			$this->table,
+			array(
+				'status'          => AdOutboxStatus::Dead->value,
+				'last_error'      => mb_substr( $error, 0, 1000 ),
+				'next_attempt_at' => null,
+			),
+			array( 'id' => $id )
+		);
+	}
+
+	/**
+	 * «Мёртвые» — снова в очередь с чистым счётчиком попыток (кнопка в настройках).
+	 *
+	 * @return int Сколько заданий возвращено
+	 */
+	public function retryDead(): int {
+		return (int) $this->wpdb->query(
+			$this->wpdb->prepare(
+				"UPDATE {$this->table} SET status = %s, attempts = 0, next_attempt_at = NULL WHERE status = %s",
+				AdOutboxStatus::Pending->value,
+				AdOutboxStatus::Dead->value
+			)
+		);
+	}
+
+	/**
+	 * Число заданий по статусам (для страницы настроек).
+	 *
+	 * @return array<string, int> status => count
+	 */
+	public function countByStatus(): array {
+		$rows   = $this->wpdb->get_results( "SELECT status, COUNT(*) AS n FROM {$this->table} GROUP BY status" );
+		$counts = array_fill_keys( array_map( static fn( AdOutboxStatus $s ): string => $s->value, AdOutboxStatus::cases() ), 0 );
+		foreach ( $rows ?: array() as $row ) {
+			$counts[ (string) $row->status ] = (int) $row->n;
+		}
+
+		return $counts;
+	}
+
 	public function find( int $id ): ?AdOutboxItemDTO {
 		$row = $this->wpdb->get_row(
 			$this->wpdb->prepare( "SELECT * FROM {$this->table} WHERE id = %d LIMIT 1", $id )
@@ -87,7 +133,7 @@ class AdOutboxRepository {
 	}
 
 	/**
-	 * Задания, готовые к выдаче Python'у: pending, либо failed с наступившим next_attempt_at.
+	 * Задания, готовые к отправке в офис: pending, либо failed с наступившим next_attempt_at.
 	 *
 	 * @return AdOutboxItemDTO[]
 	 */
@@ -108,6 +154,20 @@ class AdOutboxRepository {
 		);
 
 		return array_map( static fn( $r ) => AdOutboxItemDTO::fromRow( $r ), $rows ?: array() );
+	}
+
+	/**
+	 * Последнее задание по логину учётки (`target`) — что сайт последним делал с учёткой:
+	 * `deprovision` значит, что она сейчас в «Отчисленных».
+	 */
+	public function latestByTarget( string $username ): ?AdOutboxItemDTO {
+		$row = $this->wpdb->get_row(
+			$this->wpdb->prepare(
+				"SELECT * FROM {$this->table} WHERE target = %s ORDER BY id DESC LIMIT 1",
+				$username
+			)
+		);
+		return $row ? AdOutboxItemDTO::fromRow( $row ) : null;
 	}
 
 	/** Последняя строка по заявке (для статус-поллинга фронта). */

@@ -4,47 +4,57 @@ declare( strict_types=1 );
 
 namespace Inc\Modules\AdSync\Services;
 
+use Inc\DTO\Enrollment\StudentRecordDTO;
 use Inc\Managers\Person\UserManager;
 use Inc\Modules\AdSync\Config\AdSyncConfig;
 use Inc\Modules\AdSync\DTO\AdOutboxItemDTO;
 use Inc\Modules\AdSync\Enums\AdSyncEvent;
 use Inc\Modules\AdSync\Repositories\AdOutboxRepository;
 use Inc\Repositories\WPDBRepositories\ApplicationRepository;
+use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
+use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
+use Inc\Services\Security\PasswordGeneratorService;
 use Inc\Services\Security\PiiCryptoService;
 
 /**
  * Class AdProvisioningService
  *
- * Логика синхронизации с AD в **pull-модели**: WP ставит задания в очередь, Python из локальной
- * сети сам забирает их (`pendingJobs()`) и отчитывается (`ack()`). WP наружу не ходит.
+ * Постановка заданий синхронизации с AD в очередь и сборка их тела. Доставку в офис
+ * (push: сайт сам шлёт задание серверу в офисе) делает {@see AdDeliveryService}.
  *
- * Идентификатор учётки в AD — `username` (sAMAccountName). Для provision он (и пароль) читаются из
- * зашифрованного блоба заявки в момент выдачи задания. Для deprovision `username` резолвится
- * **при enqueue** и кладётся в `target` (устойчиво к последующему удалению заявки/пользователя).
- * Пароль в очереди не хранится никогда.
+ * Идентификатор учётки в AD — `username` (sAMAccountName, он же логин WP). Логин резолвится
+ * **при enqueue** и кладётся в `target` — по нему видно, что сайт последним делал с учёткой
+ * ({@see AdOutboxRepository::latestByTarget()}). Пароль в очереди не хранится никогда: он
+ * читается в момент отправки — из заявки или из зашифрованной копии пароля пользователя.
  *
- * Учётка создаётся сразу в целевой OU направления (по `subject_key`, карту `subject_key → OU` держит
- * Python-сервис) — отдельной стадии «зачислен» в OU-структуре нет, `promote`-событий не существует.
- * `deprovision` переносит учётку в OU=Отчисленные: по истечении/удалению заявки (до зачисления,
- * см. {@see enqueueDeprovisionByApplication()}) либо по факту отчисления зачисленного ученика
- * (см. {@see enqueueDeprovisionByPerson()}).
+ * Жизненный цикл учётки:
+ *  - **заявка подана** (направление из provision_subjects) → `provision` в OU направления;
+ *  - **заявка истекла / в корзине** → `deprovision` (OU=Отчисленные);
+ *  - **отчислен** и не осталось других активных зачислений → `deprovision`;
+ *  - **снова зачислен** на направление с доменной учёткой, а учётка сейчас в «Отчисленных» →
+ *    `provision`: сервис в офисе реактивирует её и переносит в OU нового направления.
+ *    Восстановление из архива само по себе учётку не трогает — направление ещё не выбрано;
+ *  - **администратор сменил пароль** → `password`, тот же пароль ставится в AD.
  *
  * @package Inc\Modules\AdSync\Services
  */
 class AdProvisioningService {
 
 	public function __construct(
-		private readonly AdOutboxRepository    $outbox,
-		private readonly ApplicationRepository $applications,
-		private readonly PiiCryptoService      $crypto,
-		private readonly PersonRepository      $persons,
-		private readonly UserManager           $users,
-		private readonly AdSyncConfig          $config,
+		private readonly AdOutboxRepository       $outbox,
+		private readonly ApplicationRepository    $applications,
+		private readonly PiiCryptoService         $crypto,
+		private readonly PersonRepository         $persons,
+		private readonly UserManager              $users,
+		private readonly AdSyncConfig             $config,
+		private readonly StudentRecordRepository  $records,
+		private readonly GroupsRepository         $groups,
+		private readonly PasswordGeneratorService $passwords,
 	) {}
 
 	/**
-	 * Provision: задание создания учётки (логин/пароль читаются при выдаче из блоба заявки).
+	 * Provision по заявке: логин/пароль читаются при отправке из блоба заявки.
 	 * Ставится только для направлений из provision_subjects — остальным доменная учётка не нужна.
 	 */
 	public function enqueueProvision( int $applicationId ): void {
@@ -52,9 +62,11 @@ class AdProvisioningService {
 		if ( null === $app || ! $this->config->shouldProvision( $app->subjectKey ?? null ) ) {
 			return;
 		}
+		$username = $this->usernameFromApplication( $applicationId );
 		$this->outbox->enqueue( array(
 			'event'           => AdSyncEvent::Provision->value,
 			'application_id'  => $applicationId,
+			'target'          => '' !== $username ? $username : null,
 			'idempotency_key' => 'app:' . $applicationId,
 		) );
 	}
@@ -77,8 +89,18 @@ class AdProvisioningService {
 		) );
 	}
 
-	/** Deprovision по факту отчисления зачисленного ученика: username из WP-пользователя person'а. */
+	/**
+	 * Deprovision по факту отчисления — только если у ученика не осталось других активных
+	 * зачислений: отчисление с одного направления не должно отключать учётку, по которой он
+	 * продолжает учиться на другом.
+	 *
+	 * Хук отчисления срабатывает ПОСЛЕ мягкого удаления лица (когда зачислений не осталось),
+	 * поэтому логин берётся с учётом удалённых ({@see usernameFromPerson()}).
+	 */
 	public function enqueueDeprovisionByPerson( int $personId ): void {
+		if ( array() !== $this->activeRecords( $personId ) ) {
+			return;
+		}
 		$username = $this->usernameFromPerson( $personId );
 		if ( '' === $username ) {
 			return;
@@ -92,28 +114,56 @@ class AdProvisioningService {
 	}
 
 	/**
-	 * Готовые задания для Python (`/jobs`).
+	 * Повторное зачисление: учётка сейчас в «Отчисленных» (последним заданием по ней был
+	 * deprovision), а новое направление — с доменной учёткой → provision. Сервис в офисе
+	 * реактивирует учётку, переносит в OU нового направления и ставит текущий пароль.
 	 *
-	 * @return array<int, array<string, mixed>>
+	 * Первое зачисление после заявки сюда не попадает: учётка уже создана по заявке и активна.
 	 */
-	public function pendingJobs( int $limit = 50 ): array {
-		$jobs = array();
-		foreach ( $this->outbox->listPending( $limit ) as $row ) {
-			$payload = $this->buildPayload( $row );
-			if ( null !== $payload ) {
-				$jobs[] = $payload;
-			}
+	public function enqueueReactivation( int $recordId, int $personId ): void {
+		$record = $this->records->find( $recordId );
+		if ( null === $record || $record->isTrial || ! $this->config->shouldProvision( $this->subjectOf( $record ) ) ) {
+			return;
 		}
-		return $jobs;
+		$username = $this->usernameFromPerson( $personId );
+		if ( '' === $username || ! $this->isDeprovisioned( $username ) ) {
+			return;
+		}
+		$this->outbox->enqueue( array(
+			'event'           => AdSyncEvent::Provision->value,
+			'person_id'       => $personId,
+			'target'          => $username,
+			'idempotency_key' => 'reenroll:record:' . $recordId,
+		) );
 	}
 
-	/** Отчёт Python о выполнении (`/ack`). */
-	public function ack( int $id, bool $ok, string $error = '' ): void {
-		if ( $ok ) {
-			$this->outbox->markSent( $id );
-		} else {
-			$this->outbox->markFailed( $id, '' !== $error ? $error : 'ack: failed' );
+	/**
+	 * Администратор сменил пароль ученика → тот же пароль в AD. Только для учёток, которыми
+	 * управляет сайт: по логину уже были задания, либо ученик учится на направлении с
+	 * доменной учёткой. Учётка в «Отчисленных» пропускается — пароль уйдёт с reactivation.
+	 */
+	public function enqueuePasswordChange( int $wpUserId ): void {
+		$person   = $this->persons->findByWpUserId( $wpUserId );
+		$username = (string) ( $this->users->find( $wpUserId )?->user_login ?? '' );
+		if ( null === $person || '' === $username || $this->isDeprovisioned( $username ) ) {
+			return;
 		}
+
+		$managed = null !== $this->outbox->latestByTarget( $username );
+		foreach ( $this->activeRecords( $person->id ) as $record ) {
+			$managed = $managed || $this->config->shouldProvision( $this->subjectOf( $record ) );
+		}
+		if ( ! $managed ) {
+			return;
+		}
+
+		$this->outbox->enqueue( array(
+			'event'           => AdSyncEvent::Password->value,
+			'person_id'       => $person->id,
+			'target'          => $username,
+			// Каждая смена — своё задание: ключ журнала сервиса, не барьер.
+			'idempotency_key' => 'password:person:' . $person->id . ':' . time(),
+		) );
 	}
 
 	/** Статус провижна по заявке для статус-поллинга фронта: pending|done|failed|none. */
@@ -130,15 +180,23 @@ class AdProvisioningService {
 	}
 
 	/**
-	 * Собирает payload задания по типу события.
+	 * Тело задания для сервера в офисе (`POST /v1/jobs`) по типу события.
+	 * null — отправлять нечего: заявку/ученика удалили, данных учётки или пароля нет.
 	 *
 	 * @return array<string, mixed>|null
 	 */
-	private function buildPayload( AdOutboxItemDTO $row ): ?array {
-		if ( AdSyncEvent::Provision->value === $row->event ) {
-			return $this->provisionPayload( $row );
-		}
-		// deprovision — нужен только username (из target).
+	public function payloadFor( AdOutboxItemDTO $row ): ?array {
+		return match ( $row->event ) {
+			AdSyncEvent::Provision->value => null !== $row->applicationId
+				? $this->provisionPayload( $row )
+				: $this->reactivationPayload( $row ),
+			AdSyncEvent::Password->value  => $this->passwordPayload( $row ),
+			default                       => $this->deprovisionPayload( $row ),
+		};
+	}
+
+	/** @return array<string, mixed>|null */
+	private function deprovisionPayload( AdOutboxItemDTO $row ): ?array {
 		$username = (string) ( $row->target ?? '' );
 		if ( '' === $username ) {
 			return null;
@@ -153,11 +211,7 @@ class AdProvisioningService {
 
 	/** @return array<string, mixed>|null */
 	private function provisionPayload( AdOutboxItemDTO $row ): ?array {
-		$appId = $row->applicationId;
-		if ( null === $appId ) {
-			return null;
-		}
-		$app = $this->applications->find( $appId );
+		$app = $this->applications->find( (int) $row->applicationId );
 		if ( null === $app || empty( $app->studentDataEnc ) ) {
 			return null;
 		}
@@ -172,8 +226,86 @@ class AdProvisioningService {
 			'password'        => (string) ( $blob['login_password'] ?? '' ),
 			'first'           => (string) ( $blob['first_name'] ?? '' ),
 			'last'            => (string) ( $blob['last_name'] ?? '' ),
-			'subject_key'     => (string) ( $app->subjectKey ?? '' ), // Python выбирает группу по нему
+			'subject_key'     => (string) ( $app->subjectKey ?? '' ), // сервис выбирает OU направления по нему
 		);
+	}
+
+	/**
+	 * Provision повторного зачисления: ФИО — из лица, пароль — текущий (зашифрованная копия),
+	 * направление — действующее зачисление с доменной учёткой (свежее — первым).
+	 *
+	 * @return array<string, mixed>|null
+	 */
+	private function reactivationPayload( AdOutboxItemDTO $row ): ?array {
+		$person = null !== $row->personId ? $this->persons->findIncludingDeleted( $row->personId ) : null;
+		$creds  = null !== $person && null !== $person->wpUserId ? $this->passwords->getCredentials( $person->wpUserId ) : null;
+		if ( null === $person || null === $creds ) {
+			return null;
+		}
+
+		$subjectKey = '';
+		foreach ( $this->activeRecords( $person->id ) as $record ) {
+			$subject = $this->subjectOf( $record );
+			if ( $this->config->shouldProvision( $subject ) ) {
+				$subjectKey = (string) $subject;
+				break;
+			}
+		}
+		if ( '' === $subjectKey ) {
+			return null; // Зачисление успели отменить — возвращать учётку некуда.
+		}
+
+		return array(
+			'id'              => $row->id,
+			'event'           => $row->event,
+			'idempotency_key' => $row->idempotencyKey,
+			'username'        => $creds['login'],
+			'password'        => $creds['password'],
+			'first'           => $person->firstName,
+			'last'            => $person->lastName,
+			'subject_key'     => $subjectKey,
+		);
+	}
+
+	/** @return array<string, mixed>|null */
+	private function passwordPayload( AdOutboxItemDTO $row ): ?array {
+		$person = null !== $row->personId ? $this->persons->findIncludingDeleted( $row->personId ) : null;
+		$creds  = null !== $person && null !== $person->wpUserId ? $this->passwords->getCredentials( $person->wpUserId ) : null;
+		if ( null === $creds ) {
+			return null;
+		}
+
+		return array(
+			'id'              => $row->id,
+			'event'           => $row->event,
+			'idempotency_key' => $row->idempotencyKey,
+			'username'        => $creds['login'],
+			'password'        => $creds['password'],
+		);
+	}
+
+	/** Учётка сейчас в «Отчисленных»: последним заданием по логину был deprovision. */
+	private function isDeprovisioned( string $username ): bool {
+		return AdSyncEvent::Deprovision->value === $this->outbox->latestByTarget( $username )?->event;
+	}
+
+	/**
+	 * Действующие зачисления ученика без пробных доступов (временный доступ — не обучение).
+	 *
+	 * @return StudentRecordDTO[]
+	 */
+	private function activeRecords( int $personId ): array {
+		return array_values( array_filter(
+			$this->records->findActiveByStudent( $personId ),
+			static fn( StudentRecordDTO $r ): bool => ! $r->isTrial
+		) );
+	}
+
+	/** Ключ направления зачисления (по группе); null — группы нет. */
+	private function subjectOf( StudentRecordDTO $record ): ?string {
+		$group = $this->groups->findById( $record->groupId );
+
+		return null !== $group ? (string) $group->subject_key : null;
 	}
 
 	private function usernameFromApplication( int $applicationId ): string {
@@ -185,8 +317,9 @@ class AdProvisioningService {
 		return (string) ( $blob['username'] ?? '' );
 	}
 
+	/** Логин ученика; лицо ищется и среди мягко удалённых — хук отчисления приходит после удаления. */
 	private function usernameFromPerson( int $personId ): string {
-		$person = $this->persons->find( $personId );
+		$person = $this->persons->findIncludingDeleted( $personId );
 		if ( null === $person || empty( $person->wpUserId ) ) {
 			return '';
 		}

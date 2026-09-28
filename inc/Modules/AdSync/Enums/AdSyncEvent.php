@@ -12,4 +12,6 @@ namespace Inc\Modules\AdSync\Enums;
 enum AdSyncEvent: string {
 	case Provision   = 'provision';
 	case Deprovision = 'deprovision';
+	/** Администратор сменил пароль ученика на сайте — тот же пароль ставится в AD. */
+	case Password    = 'password';
 }

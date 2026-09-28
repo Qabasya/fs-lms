@@ -1,8 +1,10 @@
 /**
  * Admin-JS модуля AdSync (self-contained, вне core-бандла и вне ESLint src/js).
- * Сохранение настроек секции «Синхронизация с доменом (AD)» в табе «Конфигурация».
+ * Секция «Синхронизация с доменом (AD)» в табе «Конфигурация»: сохранение настроек
+ * и действия над доставкой в офис (проверить соединение, отправить сейчас, повторить мёртвые).
  *
- * Глобал fsLmsAdSync = { ajaxurl, action, nonce } — локализуется в AdSyncSettingsController.
+ * Глобал fsLmsAdSync = { ajaxurl, action, actions: {check, flush, retry}, nonce } —
+ * локализуется в AdSyncSettingsController.
  */
 ( function ( $ ) {
 	'use strict';
@@ -63,7 +65,45 @@
 
 		$( document ).on( 'click', closeSubjectsDropdown );
 
-		// Сохранение настроек секции (сейчас: список направлений с доменными учётками).
+		// Действия над доставкой: ответ — сообщение под кнопками, счётчики очереди обновляются.
+		var $result = $form.find( '[data-ad-result]' );
+
+		function renderCounts( counts ) {
+			if ( ! counts ) {
+				return;
+			}
+			$form.find( '[data-ad-count="pending"]' ).text( ( counts.pending || 0 ) + ( counts.failed || 0 ) );
+			$form.find( '[data-ad-count="dead"]' ).text( counts.dead || 0 );
+			$form.find( '[data-ad-action="retry"]' ).prop( 'disabled', ! counts.dead );
+		}
+
+		$form.on( 'click', '[data-ad-action]', function () {
+			var $btn   = $( this );
+			var action = window.fsLmsAdSync.actions[ $btn.data( 'adAction' ) ];
+
+			$btn.prop( 'disabled', true );
+			$result.text( 'Выполняется…' ).removeClass( 'fs-config-status--ok fs-config-status--err' );
+
+			$.post( window.fsLmsAdSync.ajaxurl, { action: action, security: window.fsLmsAdSync.nonce } )
+				.done( function ( res ) {
+					var data = res && res.data;
+					var text = ( data && data.message ) || data || ( res.success ? 'Готово.' : 'Ошибка.' );
+					$result.text( text ).addClass( res.success ? 'fs-config-status--ok' : 'fs-config-status--err' );
+					renderCounts( data && data.counts );
+				} )
+				.fail( function () {
+					$result.text( 'Ошибка сети.' ).addClass( 'fs-config-status--err' );
+					$btn.prop( 'disabled', false );
+				} )
+				.always( function () {
+					// «Повторить мёртвые» включает renderCounts — по числу оставшихся мёртвых.
+					if ( 'retry' !== $btn.data( 'adAction' ) ) {
+						$btn.prop( 'disabled', false );
+					}
+				} );
+		} );
+
+		// Сохранение настроек секции: направления, адрес сервера, режим сверки.
 		$form.on( 'submit', function ( e ) {
 			e.preventDefault();
 
@@ -81,6 +121,8 @@
 				action:             window.fsLmsAdSync.action,
 				security:           window.fsLmsAdSync.nonce,
 				provision_subjects: subjects,
+				server_url:         $form.find( '[name="server_url"]' ).val(),
+				reconcile_apply:    $form.find( '[name="reconcile_apply"]' ).is( ':checked' ) ? 1 : 0,
 			} )
 				.done( function ( res ) {
 					if ( res && res.success ) {

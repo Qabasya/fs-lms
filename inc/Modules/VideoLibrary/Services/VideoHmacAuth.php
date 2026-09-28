@@ -15,8 +15,9 @@ use Inc\Modules\VideoLibrary\Config\VideoLibraryConfig;
  *   X-Fs-Signature: hex( hmac_sha256( timestamp + "." + rawBody, FS_LMS_VIDEO_HMAC_SECRET ) )
  * Сервер проверяет свежесть timestamp (±300с, анти-replay) и подпись (constant-time).
  *
- * Класс — копия AdHmacAuth со своим секретом: листья не ссылаются друг на друга
- * (ModularArchitecture.md §3.3); при третьем потребителе — вынести общий HmacAuth в Kernel.
+ * Входящую подпись здесь проверяет только этот модуль: AdSync перешёл на push и сам
+ * подписывает исходящие запросы (у него своя схема — с методом и путём,
+ * {@see \Inc\Modules\AdSync\Services\AdRequestSigner}).
  *
  * @package Inc\Modules\VideoLibrary\Services
  */
