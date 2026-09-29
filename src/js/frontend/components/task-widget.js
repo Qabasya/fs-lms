@@ -82,10 +82,11 @@ function inputsApi( inputs, collectAnswer, hasAnswer ) {
 
 function buildTextAnswerWidget( container, isDone, withCode ) {
 	const textarea = make( 'textarea', 'fs-widget-text ansbox txt' );
-	textarea.rows        = 4;
+	textarea.rows        = 1;
 	textarea.placeholder = 'Введите ответ…';
 	if ( isDone ) { textarea.disabled = true; }
 	container.appendChild( textarea );
+	const fitText = autoGrow( textarea );
 
 	let codeArea = null;
 	if ( withCode ) {
@@ -118,10 +119,11 @@ function buildTextAnswerWidget( container, isDone, withCode ) {
 				if ( v && 'object' === typeof v ) {
 					textarea.value = 'string' === typeof v.text ? v.text : '';
 					if ( codeArea ) { codeArea.value = 'string' === typeof v.code ? v.code : ''; }
-					return;
+				} else {
+					textarea.value = 'string' === typeof v ? v : '';
+					if ( codeArea ) { codeArea.value = ''; }
 				}
-				textarea.value = 'string' === typeof v ? v : '';
-				if ( codeArea ) { codeArea.value = ''; }
+				fitText();
 			},
 		}
 	);
@@ -172,10 +174,11 @@ function buildAudioWidget( container, data, isDone ) {
 	}
 
 	const textarea       = make( 'textarea', 'fs-widget-text ansbox txt' );
-	textarea.rows        = 3;
+	textarea.rows        = 1;
 	textarea.placeholder = 'Введите ответ…';
 	if ( isDone ) { textarea.disabled = true; }
 	container.appendChild( textarea );
+	const fitText = autoGrow( textarea );
 
 	return Object.assign(
 		inputsApi(
@@ -183,7 +186,7 @@ function buildAudioWidget( container, data, isDone ) {
 			() => JSON.stringify( textarea.value.trim() ),
 			() => '' !== textarea.value.trim()
 		),
-		{ setAnswer: ( v ) => { textarea.value = 'string' === typeof v ? v : ''; } }
+		{ setAnswer: ( v ) => { textarea.value = 'string' === typeof v ? v : ''; fitText(); } }
 	);
 }
 
@@ -543,6 +546,51 @@ function buildFillWidget( container, data, isDone ) {
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
+
+/**
+ * Поле ответа высотой по содержимому: одна строка, пока ответ однострочный
+ * (обычно это одно число), и рост вниз, когда ученик переносит строки.
+ * Скроллбар появляется, только когда текст выше CSS `max-height`.
+ *
+ * Пересчёт — на ввод, при восстановлении ответа (возвращаемая функция) и
+ * при смене ширины: ResizeObserver ловит и перенос строк на узком экране,
+ * и момент, когда поле из скрытой панели шага становится видимым (пока
+ * поле скрыто, `scrollHeight` равен нулю и мерить нечего).
+ *
+ * @param {HTMLTextAreaElement} textarea
+ * @returns {Function} пересчитать высоту
+ */
+function autoGrow( textarea ) {
+	const fit = () => {
+		textarea.style.height = '';
+
+		if ( ! textarea.scrollHeight ) { return; }
+
+		const style  = getComputedStyle( textarea );
+		const height = textarea.scrollHeight + parseFloat( style.borderTopWidth ) + parseFloat( style.borderBottomWidth );
+
+		textarea.style.height    = `${ height }px`;
+		textarea.style.overflowY = height > parseFloat( style.maxHeight ) ? 'auto' : '';
+	};
+
+	textarea.addEventListener( 'input', fit );
+
+	if ( 'function' === typeof window.ResizeObserver ) {
+		let width = 0;
+
+		new window.ResizeObserver( ( [ entry ] ) => {
+			const next = entry.contentRect.width;
+
+			if ( next === width ) { return; }
+
+			width = next;
+			// rAF: высота меняется вне колбэка — без «ResizeObserver loop» в консоли.
+			window.requestAnimationFrame( fit );
+		} ).observe( textarea );
+	}
+
+	return fit;
+}
 
 function make( tag, className ) {
 	const el     = document.createElement( tag );
