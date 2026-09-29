@@ -7,7 +7,7 @@
   // Строка — не длиннее ~72 знаков: дальше глазу трудно найти начало
   // следующей; обложка и заголовок остаются во всю колонку.
   .fs-article-prose {
-    max-width: 72ch;
+    max-width: $article-measure;
     font-size: $font-size-md;
     line-height: $line-height-relaxed;
     color: $color-text-secondary;

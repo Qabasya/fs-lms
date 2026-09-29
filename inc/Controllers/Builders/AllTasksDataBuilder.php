@@ -20,6 +20,7 @@ use Inc\Services\Subject\PostTypeResolver;
 use Inc\Services\Subject\SubjectPagesService;
 use Inc\Services\Subject\TagPaletteService;
 use Inc\Services\Template\TemplateResolver;
+use Inc\Services\Shared\NbspTypographer;
 use Inc\Services\Task\ConsultationNoticeService;
 use Inc\Services\Task\TaskMetaService;
 use Inc\Shared\PluginLogger;
@@ -66,6 +67,7 @@ readonly class AllTasksDataBuilder {
 		private FilterGroupService $filter_groups,
 		private ConsultationNoticeService $consultation,
 		private TemplateResolver $template_resolver,
+		private NbspTypographer $typographer,
 	) {}
 
 	/**
@@ -264,7 +266,9 @@ readonly class AllTasksDataBuilder {
 
 		return new TaskListItemDTO(
 			id:            $post->ID,
-			title:         (string) get_the_title( $post->ID ),
+			// Карточки догружаются по AJAX мимо типографики страницы — неразрывные
+			// пробелы после предлогов ставятся здесь (TypographyController).
+			title:         $this->typographer->text( (string) get_the_title( $post->ID ) ),
 			url:           (string) get_permalink( $post->ID ),
 			task_number:          $number_term ? (int) $number_term->name : 0,
 			task_type_url:        $number_term ? $this->term_manager->getLink( $number_term->term_id, $number_tax ) : '',
@@ -272,7 +276,7 @@ readonly class AllTasksDataBuilder {
 			task_number_slug:     $number_term ? $number_term->slug : '',
 			task_number_color:    $this->tag_palette->colorIndex( $subject_key, $number_tax ),
 			tags:                 $this->buildTags( $post->ID, $subject_key, $taxonomies ),
-			condition:     $this->task_meta_service->getCombinedCondition( $meta, true ),
+			condition:     $this->typographer->html( $this->task_meta_service->getCombinedCondition( $meta, true ) ),
 			answer:        $answer,
 			// Материалы «развёрнутого ответа» — вложения медиатеки, а не ссылки
 			// файловых полей: источник выбирается по шаблону, как на странице

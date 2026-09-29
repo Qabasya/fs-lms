@@ -58,6 +58,7 @@ use Inc\Controllers\Pages\ArticlePageController;
 use Inc\Controllers\Pages\SubjectLandingController;
 use Inc\Controllers\Pages\AssessmentPageController;
 use Inc\Controllers\Pages\TaskPageController;
+use Inc\Controllers\Pages\TypographyController;
 use Inc\Controllers\Log\LogsController;
 use Inc\Controllers\Settings\ConfigController;
 use Inc\Controllers\Settings\SettingsController;
@@ -166,6 +167,7 @@ final class Init {
 			ArticleSlugController::class,    // Слаг статьи: article-task-{задание}-{номер}
 			ArticlePageController::class,    // Frontend-страница статьи
 			SubjectLandingController::class, // Разделы лендинга предмета (шорткоды страниц)
+			TypographyController::class,     // Неразрывные пробелы после предлогов на всех публичных страницах
 			AssessmentPageController::class, // Frontend-страница контрольной
 			BoilerplateController::class,  // Типовые условия (boilerplate)
 			UserController::class,

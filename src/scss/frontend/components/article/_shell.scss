@@ -45,9 +45,13 @@
     text-wrap: pretty;
   }
 
-  // Обложка статьи над текстом
+  // Обложка статьи над текстом — по ширине текста, а не всей колонки: иначе она
+  // выступала вправо над строками. Кегль — тот же, что у текста: от него
+  // считается `ch` в $article-measure.
   .fs-article-cover {
+    max-width: $article-measure;
     margin-bottom: rem(28.8);
+    font-size: $font-size-md;
     border: 1px solid $color-border-light;
     border-radius: $radius-card;
     overflow: hidden;
