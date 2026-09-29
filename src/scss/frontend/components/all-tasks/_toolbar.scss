@@ -79,7 +79,7 @@
 
   .toolbar-search-hint {
     max-width: rem(90);
-    font-size: $font-size-sm; white-space: nowrap;
+    font-size: max($font-size-sm, $font-floor-small); white-space: nowrap;
     opacity: 1; overflow: hidden;
     transition: max-width $transition-collapse, opacity $transition-collapse;
   }
@@ -92,7 +92,7 @@
   .toolbar-search-input {
     flex: 0 0 0; width: 0; min-width: 0; margin-left: 0; padding: 0;
     background: transparent; border: 0; outline: 0;
-    font-family: inherit; font-size: $font-size-sm; color: $color-text;
+    font-family: inherit; font-size: max($font-size-sm, $font-floor-small); color: $color-text;
     opacity: 0;
     transition: opacity $transition-collapse, padding-right $transition-collapse;
 
@@ -130,7 +130,7 @@
   .results-clear {
     padding: rem(5) rem(9);
     background: none; border: 0; border-radius: $border-radius-md;
-    font-family: inherit; font-size: $font-size-xs; font-weight: $font-semibold;
+    font-family: inherit; font-size: max($font-size-xs, $font-floor-small); font-weight: $font-semibold;
     color: $color-muted-2;
     cursor: pointer;
     transition: color $transition, background $transition;
@@ -143,7 +143,7 @@
   // раскрытия. Перенос строки и поиск во всю ширину — только на телефоне.
   @media (max-width: $bp-catalog) {
     .crumbs-row__inner { gap: rem(16); padding-left: 0; }
-    .toolbar-search.is-open { width: rem(220); }
+    .toolbar-search.is-open { width: max(#{$toolbar-search-open-width}, #{$toolbar-search-open-min-width}); }
   }
 
   // Верхний отступ врапера на узком экране другой (_layout: rem(16)) — подтяжка под него.

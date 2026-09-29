@@ -31,7 +31,7 @@
     padding: rem(5) rem(9);
     background: none;
     border: 0; border-radius: rem(7);
-    font-family: inherit; font-size: $font-size-xs; font-weight: $font-semibold;
+    font-family: inherit; font-size: max($font-size-xs, $font-floor-small); font-weight: $font-semibold;
     color: $color-muted-2;
     cursor: pointer;
     transition: background $transition, color $transition;
