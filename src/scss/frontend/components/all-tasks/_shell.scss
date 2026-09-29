@@ -16,7 +16,7 @@
   .layout { display: grid; grid-template-columns: $sidebar-width 1fr; gap: $layout-gap; align-items: start; }
   .main   { min-width: 0; }
 
-  @media (max-width: $bp-md) {
+  @media (max-width: $bp-catalog) {
     .layout { grid-template-columns: 1fr; }
   }
 }

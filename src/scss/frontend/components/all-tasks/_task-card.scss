@@ -136,7 +136,12 @@
   .tcr-file:hover .tcr-file-dl { color: $color-accent; }
 
   // ── Футер карточки ────────────────────────────────────────────
+  // Кнопки одной ширины ($task-card-action-width): «Показать ответ» слева,
+  // «Смотреть решение» справа. Друг под другом по центру — только когда обе с
+  // зазором не помещаются в строку: подвал — контейнер, порог считается от
+  // ширины самих кнопок, а не от окна (колонка карточки зависит и от сайдбара).
   .tcr-foot {
+    container-type: inline-size;
     display: flex; align-items: center; flex-wrap: wrap;
     gap: rem(12);
     margin-top: rem(20); padding: rem(18) 0 0;
@@ -144,6 +149,16 @@
     border-top: 1px solid $color-border-light;
   }
   .tcr-actions { display: inline-flex; align-items: center; gap: rem(8); margin-left: auto; }
+
+  .tcr-foot .fs-answer-toggle,
+  .tcr-btn-primary { width: $task-card-action-width; }
+
+  @container (max-width: #{2 * $task-card-action-width + rem(12)}) {
+    .fs-answer-toggle,
+    .tcr-actions { flex: 0 0 100%; justify-content: center; }
+    .tcr-actions { margin-left: 0; }
+    .fs-answer-toggle { max-width: $task-card-action-width; margin-inline: auto; }
+  }
 
   .tcr-btn-primary {
     @include fs-btn-accent;
@@ -155,10 +170,6 @@
   @media (max-width: $bp-md) {
     .task-card-row { padding: rem(18) rem(16) rem(16); }
     .tcr-condition { font-size: $font-size-base; }
-
-    // «Показать ответ» и «Смотреть решение» — друг под другом по центру.
-    .tcr-foot { flex-direction: column; justify-content: center; }
-    .tcr-actions { margin-left: 0; }
   }
 }
 

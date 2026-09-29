@@ -134,7 +134,7 @@
   // ── Узкий экран: фильтры над списком, свёрнуты под кнопку ──────
   // Сайдбар распадается на карточки (`display: contents`): карточка фильтров
   // остаётся над списком, остальные (курсы, статьи, тренажёр) уходят под него.
-  @media (max-width: $bp-md) {
+  @media (max-width: $bp-catalog) {
     .sidebar { display: contents; }
     .sidebar > :not(.filters-side) { order: 1; }
 

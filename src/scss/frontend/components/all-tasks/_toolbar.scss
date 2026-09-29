@@ -141,11 +141,14 @@
   // Сайдбар ушёл под контент (_shell.scss) — отступ под него больше не нужен.
   // Строка остаётся одной: цепочка сжимается многоточием, поиск — до узкого
   // раскрытия. Перенос строки и поиск во всю ширину — только на телефоне.
-  // Верхний отступ врапера на телефоне другой (_layout: rem(16)) — подтяжка под него.
-  @media (max-width: $bp-md) {
-    .crumbs-row       { margin-top: rem(-16); }
+  @media (max-width: $bp-catalog) {
     .crumbs-row__inner { gap: rem(16); padding-left: 0; }
     .toolbar-search.is-open { width: rem(220); }
+  }
+
+  // Верхний отступ врапера на узком экране другой (_layout: rem(16)) — подтяжка под него.
+  @media (max-width: $bp-md) {
+    .crumbs-row { margin-top: rem(-16); }
   }
 
   @media (max-width: $bp-sm) {
