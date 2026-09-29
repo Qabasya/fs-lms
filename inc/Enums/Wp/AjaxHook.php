@@ -297,7 +297,8 @@ enum AjaxHook: string {
 	case SetRoomOverride         = 'set_room_override';        // params: group_id, room_id|'', valid_from, valid_to — замена кабинета на период
 
 	// ==== «Главная» кабинета (ЛК преподавателя, Эпик 6) ====
-	case GetProfileDashboard     = 'get_profile_dashboard';    // без params — агрегат по всем группам текущего пользователя
+	case GetProfileDashboard    = 'get_profile_dashboard';    // без params — агрегат по всем группам текущего пользователя
+	case GetTaughtCourseProgram = 'get_taught_course_program'; // params: course_id — модули и уроки курса для страницы курса преподавателя (Tasks.md З4)
 
 	// ==== ЛК учащегося/родителя (Эпик 7) ====
 	case GetLearnerProfile       = 'get_learner_profile';      // [student_person_id] — родитель выбирает ребёнка; ученик игнорит

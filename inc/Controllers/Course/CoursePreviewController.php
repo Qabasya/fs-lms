@@ -72,7 +72,6 @@ class CoursePreviewController extends BaseController implements ServiceInterface
 		}
 
 		$view['shell'] = $this->preview->shell( $course, $lessonId );
-		$view['tree']  = $this->preview->tree( $course, $lessonId );
 
 		$groupId     = 0; // Предпросмотр не привязан к группе.
 		$active_step = $params['step'];

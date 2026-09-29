@@ -71,6 +71,12 @@ readonly class GroupLessonDTO {
 		 * {@see \Inc\Repositories\WPDBRepositories\GroupLessonRepository}, не колонка).
 		 */
 		public bool    $hasAttendance = false,
+		/**
+		 * Внешняя ссылка на запись (облако), которую вставил преподаватель. Отдельно от
+		 * `$recordingUrl` (указатель хранилища `s3://…`): это ещё и запасной вариант,
+		 * если запись из хранилища не открылась.
+		 */
+		public ?string $recordingLink = null,
 	) {}
 
 	public static function fromArray( array $row ): self {
@@ -105,6 +111,7 @@ readonly class GroupLessonDTO {
 			workDeadlines   : self::jsonDeadlines( $row['work_deadlines'] ?? null ),
 			continuedFromId : isset( $row['continued_from_id'] ) && '' !== $row['continued_from_id'] ? (int) $row['continued_from_id'] : null,
 			hasAttendance   : ! empty( $row['has_attendance'] ),
+			recordingLink   : isset( $row['recording_link'] ) && '' !== $row['recording_link'] ? (string) $row['recording_link'] : null,
 		);
 	}
 
@@ -117,6 +124,30 @@ readonly class GroupLessonDTO {
 	 */
 	public function isFact(): bool {
 		return LessonStatus::Held === LessonStatus::fromValueOrDefault( $this->status ) || $this->hasAttendance;
+	}
+
+	/** Есть хоть какая-то запись: указатель хранилища или внешняя ссылка. */
+	public function hasRecording(): bool {
+		return ( null !== $this->recordingUrl && '' !== $this->recordingUrl ) || null !== $this->recordingLink;
+	}
+
+	/**
+	 * Занятие закончилось: проведено, есть запись или прошло время окончания
+	 * (без `ends_at` — час от начала, как в {@see \Inc\Services\Course\RoomAssignmentService}).
+	 *
+	 * @param string $now Текущее время сайта 'Y-m-d H:i:s'
+	 */
+	public function isOver( string $now ): bool {
+		if ( $this->isFact() || $this->hasRecording() ) {
+			return true;
+		}
+		if ( null === $this->scheduledAt ) {
+			return false;
+		}
+
+		$end = $this->endsAt ?? ( new \DateTimeImmutable( $this->scheduledAt ) )->modify( '+60 minutes' )->format( 'Y-m-d H:i:s' );
+
+		return $end <= $now;
 	}
 
 	public function isPublished(): bool {

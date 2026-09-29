@@ -81,6 +81,7 @@ class CoursePreviewService {
 	 */
 	public function shell( CourseDTO $course, int $lessonId ): array {
 		return array(
+			'course_id'       => $course->id,
 			'course_title'    => $course->title,
 			'module_label'    => $this->moduleLabel( $course, $lessonId ),
 			'course_progress' => null,
@@ -91,44 +92,34 @@ class CoursePreviewService {
 	}
 
 	/**
-	 * Дерево курса для рейки (аналог `CourseNavService::tree()`): все уроки
-	 * "available"/"current" (никогда done/locked). ВАЖНО: поле `group_lesson_id`
-	 * каждого узла здесь хранит lesson_id, а не id занятия — `rail.php` в
-	 * preview-режиме читает его именно так (см. $is_preview-ветку $rail_lesson_url).
+	 * Программа курса для страницы курса преподавателя (Tasks.md З4): модули →
+	 * уроки со сквозной нумерацией. Без группы и прогресса — «Открыть» ведёт в
+	 * preview-плеер урока (`?course=&lesson=`).
 	 *
-	 * @return array{modules: array<int, array{number:int, title:string, state:string, lessons: array<int, array{group_lesson_id:int, number:int, title:string, state:string}>}>}
+	 * @return array<int, array{title:string, lessons: array<int, array{id:int, num:int, title:string}>}>
 	 */
-	public function tree( CourseDTO $course, int $currentLessonId ): array {
+	public function program( CourseDTO $course ): array {
 		$modules  = array();
 		$position = 0;
 
-		foreach ( $course->modules as $mi => $module ) {
-			$lessons  = array();
-			$hasCurrent = false;
-
+		foreach ( $course->modules as $module ) {
+			$lessons = array();
 			foreach ( $module->lessonIds as $lessonId ) {
 				++$position;
-				$lesson = $this->lessons->get( $lessonId );
-				$isCurrent = $lessonId === $currentLessonId;
-				$hasCurrent = $hasCurrent || $isCurrent;
-
 				$lessons[] = array(
-					'group_lesson_id' => $lessonId,
-					'number'          => $position,
-					'title'           => $lesson?->topic ?? '',
-					'state'           => $isCurrent ? 'current' : 'available',
+					'id'    => $lessonId,
+					'num'   => $position,
+					'title' => $this->lessons->get( $lessonId )?->topic ?? '',
 				);
 			}
 
 			$modules[] = array(
-				'number'  => $mi + 1,
 				'title'   => $module->title,
-				'state'   => $hasCurrent ? 'current' : 'available',
 				'lessons' => $lessons,
 			);
 		}
 
-		return array( 'modules' => $modules );
+		return $modules;
 	}
 
 	private function moduleLabel( CourseDTO $course, int $lessonId ): string {

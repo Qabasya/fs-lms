@@ -5,10 +5,11 @@
    ══════════════════════════════════════════════════════════════════════ */
 
 import { esc, fmtDayMonth, fmtDate, emptyState, chipBg, chipText, chipSoft, shortName } from './utils.js';
-import { toggleVisible } from '../common/utils.js';
+import { toggleVisible, applyProgress } from '../common/utils.js';
 import { icoCalendar, icoCheck, icoAlert, icoSearch, icoChevronRight, icoChevronDown, icoClock, icoStar, icoHome, icoLock } from '../common/icons.js';
 import { createApi } from './api.js';
 import { workCardHtml, workChipHtml, workStatusText } from './work-card.js';
+import { courseTabsShell, syncCourseTabs } from './course-tabs.js';
 
 const RENDERERS = {
     'learner-home': renderHome,
@@ -142,7 +143,7 @@ function renderLessons(root, d) {
             ${courses.length ? `<p>${courses.length} ${scPlural(courses.length, ['курс', 'курса', 'курсов'])}</p>` : ''}
         </div>
         ${courses.length ? `
-            <div class="sc-tabs" id="scTabs"></div>
+            ${courseTabsShell('scTabs')}
             <div class="prof-card sc-hero" id="scHero"></div>
             <div class="prof-card">
                 <div class="prof-card-head sc-prog-head">
@@ -161,7 +162,10 @@ function renderLessons(root, d) {
     if (!courses.length) { return; }
 
     if (!scState || !courses.some(c => c.id === scState.active)) {
-        scState = { active: courses[0].id, expand: {}, query: '' };
+        // «К курсу» из плеера урока ведёт сюда с ?group= — открываем тот же курс.
+        const wanted = Number(new URLSearchParams(window.location.search).get('group'));
+        const initial = courses.some(c => c.id === wanted) ? wanted : courses[0].id;
+        scState = { active: initial, expand: {}, query: '' };
     }
     scRenderAll(courses);
 
@@ -185,7 +189,7 @@ function scRenderTabs(courses) {
         return `<button class="sc-tab${c.id === scState.active ? ' on' : ''}" data-id="${c.id}">
             <span class="sc-chip ${chipBg(c.subject_key)}">${esc(shortName(c.title))}</span>
             <span class="sc-tb"><span class="sc-tname">${esc(c.title)}</span><span class="sc-tsub">${esc(sub)}</span></span>
-            <span class="sc-tbar"><span class="${chipBg(c.subject_key)}" style="width:${pct}%"></span></span>
+            <span class="sc-tbar"><span class="${chipBg(c.subject_key)}" data-progress="${pct}"></span></span>
         </button>`;
     }).join('');
     wrap.querySelectorAll('.sc-tab').forEach(b => b.addEventListener('click', () => {
@@ -193,6 +197,8 @@ function scRenderTabs(courses) {
         scState.query = '';
         scRenderAll(courses);
     }));
+    applyProgress(wrap);
+    syncCourseTabs(wrap);
 }
 
 function scRenderHero(courses) {
@@ -228,11 +234,12 @@ function scRenderHero(courses) {
                         <span class="sc-hpt">Пройдено ${c.passed} из ${c.total} ${scPlural(c.total, ['урока', 'уроков', 'уроков'])}</span>
                         <span class="sc-hpct ${chipText(c.subject_key)}">${pct}%</span>
                     </div>
-                    <div class="sc-hpbar"><span class="${chipBg(c.subject_key)}" style="width:${pct}%"></span></div>
+                    <div class="sc-hpbar"><span class="${chipBg(c.subject_key)}" data-progress="${pct}"></span></div>
                 </div>
             </div>
             <div class="sc-hact">${actions}</div>
         </div>`;
+    applyProgress(document.getElementById('scHero'));
 }
 
 function scRowHtml(l) {
@@ -316,7 +323,7 @@ function scRenderProgram(courses) {
                 <span class="sc-mname">${esc(m.name)}</span>
                 ${allDone ? '<span class="sc-mdone">✓</span>' : ''}
                 <span class="sc-mcnt">${done} из ${m.lessons.length}</span>
-                <span class="sc-mmini"><span style="width:${pct}%"></span></span>
+                <span class="sc-mmini"><span data-progress="${pct}"></span></span>
             </div>
             <div class="sc-mbody prof-fold"><div class="prof-fold-inner">${rows.map(scRowHtml).join('')}</div></div>
         </div>`;
@@ -331,6 +338,7 @@ function scRenderProgram(courses) {
         scSyncExpand(courses);
     }));
     scBindRows(body);
+    applyProgress(body);
     scSyncExpand(courses);
 }
 

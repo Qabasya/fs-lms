@@ -5,6 +5,7 @@ declare( strict_types=1 );
 namespace Inc\Core\Assets;
 
 use Inc\Core\BaseController;
+use Inc\Enums\Access\Capability;
 use Inc\Enums\Wp\AjaxHook;
 use Inc\Enums\Wp\Nonce;
 use Inc\Services\Profile\ProfileViewResolver;
@@ -128,6 +129,10 @@ class BundleLoader extends BaseController {
 	 * @return void
 	 */
 	public function enqueuePlayer(): void {
+		// Ссылку на запись занятия правит преподаватель прямо в шаге «Трансляция»
+		// (Tasks.md З1): токен и экшен — только тем, у кого есть право на КТП.
+		$canTeach = current_user_can( Capability::ManageLmsTeaching->value );
+
 		$this->enqueueBundle(
 			'player',
 			'fs_lms_player_vars',
@@ -143,6 +148,7 @@ class BundleLoader extends BaseController {
 					'previewCheckAssessment' => AjaxHook::PreviewCheckAssessment->jsAction(),
 					// Журнал «Ошибки»: сбой, которого сервер не видел (ответ не JSON, нет сети).
 					'reportClientError'      => AjaxHook::ReportClientError->jsAction(),
+					'setRecording'           => $canTeach ? AjaxHook::SetRecordingUrl->jsAction() : '',
 				),
 				'nonces'   => array(
 					'markStep'          => Nonce::MarkStepProgress->create(),
@@ -150,6 +156,7 @@ class BundleLoader extends BaseController {
 					'submitBatchWork'   => Nonce::SubmitBatchWork->create(),
 					'previewSolve'      => Nonce::PreviewSolve->create(),
 					'reportClientError' => Nonce::ReportClientError->create(),
+					'setRecording'      => $canTeach ? Nonce::SaveSchedule->create() : '',
 				),
 			)
 		);

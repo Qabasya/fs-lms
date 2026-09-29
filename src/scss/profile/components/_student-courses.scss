@@ -1,6 +1,7 @@
 /* ══════════════════════════════════════════════════════════════════════
    Экран «Мои курсы» (ученик) — вкладки курсов + карточка курса + программа.
-   Явное разделение курсов (дизайн Student Courses). Классы sc-*.
+   Явное разделение курсов (дизайн Student Courses). Классы sc-*. Те же
+   вкладки и программа (без прогресса) — у страницы курса преподавателя.
    ══════════════════════════════════════════════════════════════════════ */
 @use '../variables' as *;
 @use 'motion' as *;
@@ -9,9 +10,36 @@
 // как на остальных страницах кабинета — свой max-width не задаём.
 
 /* ── Вкладки курсов ──────────────────────────────────────────────────── */
-.sc-tabs { display: flex; gap: rem(10); margin-bottom: rem(16); flex-wrap: wrap; }
+
+/* Всегда в один ряд: не влезли — листаются, как карусель (course-tabs.js).
+   Отступ сверху/снизу — под тень и обводку активной вкладки, иначе их срежет overflow. */
+.sc-tabs-wrap { position: relative; margin-bottom: rem(12); }
+
+.sc-tabs {
+  position: relative; // offsetLeft вкладок считается от ленты (course-tabs.js)
+  display: flex; gap: rem(10); flex-wrap: nowrap;
+  overflow: auto hidden; scroll-snap-type: x proximity; scroll-behavior: smooth;
+  padding: rem(2) rem(2) rem(6);
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar { display: none; }
+}
+
+.sc-tabs-nav {
+  position: absolute; top: 50%; z-index: 1; transform: translateY(-50%);
+  width: rem(32); height: rem(32); border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow-md);
+  color: var(--ink-2); cursor: pointer;
+
+  &:hover { color: var(--accent-700); border-color: var(--accent); }
+  &.prev { left: rem(-10); }
+  &.next { right: rem(-10); }
+  &[hidden] { display: none; }
+}
 
 .sc-tab {
+  flex: 0 0 auto; scroll-snap-align: start;
   display: flex; align-items: center; gap: rem(11); text-align: left;
   padding: rem(11) rem(16) rem(15) rem(12); min-width: rem(240); position: relative;
   background: var(--surface); border: 1px solid var(--line);
@@ -40,7 +68,7 @@
   position: absolute; left: rem(12); right: rem(12); bottom: rem(6); height: rem(3);
   border-radius: 2px; background: var(--line-2); overflow: hidden;
 }
-.sc-tbar span { display: block; height: 100%; border-radius: rem(2); }
+.sc-tbar span { display: block; width: var(--progress, 0%); height: 100%; border-radius: rem(2); }
 
 /* ── Карточка выбранного курса ───────────────────────────────────────── */
 .sc-hero { margin-bottom: rem(16); }
@@ -59,7 +87,7 @@
 .sc-hpt { font-size: rem(13); font-weight: 600; color: var(--ink-2); }
 .sc-hpct { font-size: rem(12.5); font-weight: 700; font-variant-numeric: tabular-nums; }
 .sc-hpbar { height: rem(7); border-radius: rem(4); background: var(--line-2); overflow: hidden; }
-.sc-hpbar span { display: block; height: 100%; border-radius: rem(4); transition: width .3s; }
+.sc-hpbar span { display: block; width: var(--progress, 0%); height: 100%; border-radius: rem(4); transition: width .3s; }
 .sc-hact { display: flex; flex-direction: column; gap: rem(9); flex-shrink: 0; min-width: rem(210); }
 .sc-hbtn { justify-content: center; text-decoration: none; padding: rem(11) rem(18); font-size: rem(14); }
 .sc-dis { opacity: .55; cursor: default; }
@@ -90,7 +118,7 @@
 .sc-mdone { color: var(--ok); font-weight: 700; flex-shrink: 0; }
 .sc-mcnt { font-size: rem(12); color: var(--muted-2); white-space: nowrap; font-variant-numeric: tabular-nums; }
 .sc-mmini { width: rem(72); height: rem(5); border-radius: rem(3); background: var(--line-2); overflow: hidden; flex-shrink: 0; }
-.sc-mmini span { display: block; height: 100%; background: var(--accent); border-radius: rem(3); }
+.sc-mmini span { display: block; width: var(--progress, 0%); height: 100%; background: var(--accent); border-radius: rem(3); }
 .sc-mod.done .sc-mmini span { background: var(--ok); }
 .sc-mod.open > .sc-mbody { @include collapse-open; }
 .sc-mbody .prof-fold-inner > :last-child { margin-bottom: rem(6); }
@@ -144,5 +172,26 @@
 @media (max-width: $breakpoint-tablet) {
   .sc-hero-top { flex-direction: column; }
   .sc-hact { min-width: 0; }
-  .sc-tab { min-width: 0; flex: 1 1 rem(220); }
+  .sc-tab { min-width: rem(220); }
+}
+
+/* ── Телефон (Tasks.md З5): программа в одну колонку без обрезки названий ── */
+@media (max-width: $breakpoint-mobile) {
+  .sc-hero-top { padding: rem(16); }
+  .sc-hact { align-self: stretch; }
+
+  .sc-prog-head .sc-search { width: 100%; margin-left: 0; }
+
+  // Шапка модуля: «Модуль N» и счётчик — строкой над названием.
+  .sc-mhead { flex-wrap: wrap; row-gap: rem(4); padding: rem(12) rem(14); }
+  .sc-mnum { width: auto; }
+  .sc-mname { flex: 1 1 100%; order: 5; padding-left: rem(26); }
+  .sc-mcnt { margin-left: auto; }
+
+  // Строка урока: название на всю ширину, дата и статус — под ним.
+  .sc-row { flex-wrap: wrap; align-items: flex-start; column-gap: rem(10); row-gap: rem(4); padding: rem(10) rem(14); }
+  .sc-lb { flex: 1 1 calc(100% - #{rem(40)}); }
+  .sc-ltitle { white-space: normal; }
+  .sc-go { display: none; }
+  .sc-row .sc-pill { margin-left: rem(40); }
 }

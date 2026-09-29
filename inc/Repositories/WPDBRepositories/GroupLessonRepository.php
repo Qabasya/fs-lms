@@ -381,6 +381,15 @@ class GroupLessonRepository {
 		);
 	}
 
+	/** Внешняя ссылка на запись занятия (облако; вставляет преподаватель). */
+	public function setRecordingLink( int $id, ?string $url ): bool {
+		return false !== $this->wpdb->update(
+			$this->table,
+			array( 'recording_link' => $url ),
+			array( 'id' => $id )
+		);
+	}
+
 	/** План/факт занятия (V4: `held` при привязке записи фиксирует дату от reflow). */
 	public function setStatus( int $id, LessonStatus $status ): bool {
 		return false !== $this->wpdb->update(
@@ -412,7 +421,7 @@ class GroupLessonRepository {
 	}
 
 	/**
-	 * Проведённые занятия без записи (З3): `status = held`, `recording_url` пуст.
+	 * Проведённые занятия без записи (З3): `status = held`, пусты и `recording_url`, и `recording_link`.
 	 * Источник алёрта «запись не привязалась» в админке — авто-матч VideoLibrary
 	 * мог не сработать, ссылку вставляют вручную. Свежие сверху.
 	 *
@@ -421,7 +430,7 @@ class GroupLessonRepository {
 	public function listHeldWithoutRecording( int $limit = 50 ): array {
 		$rows = $this->wpdb->get_results(
 			$this->wpdb->prepare(
-				"SELECT * FROM %i WHERE status = 'held' AND ( recording_url IS NULL OR recording_url = '' )
+				"SELECT * FROM %i WHERE status = 'held' AND ( recording_url IS NULL OR recording_url = '' ) AND ( recording_link IS NULL OR recording_link = '' )
 				 ORDER BY scheduled_at DESC LIMIT %d",
 				$this->table,
 				$limit
@@ -435,7 +444,7 @@ class GroupLessonRepository {
 	public function countHeldWithoutRecording(): int {
 		return (int) $this->wpdb->get_var(
 			$this->wpdb->prepare(
-				"SELECT COUNT(*) FROM %i WHERE status = 'held' AND ( recording_url IS NULL OR recording_url = '' )",
+				"SELECT COUNT(*) FROM %i WHERE status = 'held' AND ( recording_url IS NULL OR recording_url = '' ) AND ( recording_link IS NULL OR recording_link = '' )",
 				$this->table
 			)
 		);

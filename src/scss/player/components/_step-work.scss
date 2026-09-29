@@ -6,7 +6,15 @@
 @use '../variables' as *;
 
 /* ── Воркбар ────────────────────────────────────────────────────────── */
+
+/* Липкий (Tasks.md З4): долистали до него — он встаёт под шапку и едет с
+   экраном; шапка спряталась прокруткой — поднимается к краю и сам ведёт
+   «К курсу» (.wb-back). Фон непрозрачный: задачи уезжают под него. */
 .a-workbar {
+  position: sticky;
+  top: $top-h;
+  z-index: $z-workbar;
+  transition: top $tr-top;
   display: flex;
   align-items: center;
   gap: rem(14);
@@ -31,6 +39,23 @@
 
   .wb-sp { flex: 1; }
 }
+
+.app.top-hidden .a-workbar { top: 0; }
+
+.wb-back {
+  display: none;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: rem(34);
+  height: rem(34);
+  border-radius: var(--radius-sm);
+  color: var(--ink-2);
+
+  &:hover { background: var(--surface-2); color: var(--accent-700); }
+}
+
+.app.top-hidden .wb-back { display: flex; }
 
 .a-prog {
   display: flex;
@@ -89,13 +114,13 @@
     gap: rem(12);
     margin-bottom: rem(14);
 
-    b { font-size: rem(15); font-weight: 700; flex: 1; }
+    b { font-size: $font-size-md; font-weight: 700; flex: 1; }
 
     .pts { font: 600 rem(12) var(--font); color: var(--muted-2); white-space: nowrap; }
   }
 
   .q {
-    font-size: rem(14);
+    font-size: $font-size-md;
     line-height: 1.65;
     color: var(--ink-2);
     margin-bottom: rem(14);
@@ -343,9 +368,35 @@
   svg { color: var(--muted-2); }
 }
 
-/* ── Мобильный (Фаза 5): воркбар и баннер результата складываются ────── */
+/* ── Мобильный (Фаза 5, Tasks.md З5): воркбар, шапка задачи и баннер
+   результата складываются в столбик ──────────────────────────────────── */
 @media (max-width: $bp-mobile) {
-  .a-workbar { flex-wrap: wrap; }
+  .a-workbar {
+    flex-wrap: wrap;
+    gap: rem(8) rem(10);
+    padding: rem(10) rem(12);
+    border-radius: 0 0 rem(14) rem(14);
+
+    .wb-t { flex: 1 1 calc(100% - #{rem(90)}); }
+
+    .wb-sp { display: none; }
+
+    [data-work-finish] { flex: 1 1 100%; }
+  }
+
+  .a-prog { flex: 1; }
+
+  .a-task { padding: rem(16) rem(14); }
+
+  // Шапка задачи: номер + название строкой, чип ответа и баллы — под ними.
+  .a-task .th {
+    flex-wrap: wrap;
+    row-gap: rem(6);
+
+    b { flex: 1 1 calc(100% - #{rem(44)}); }
+
+    .stc { margin-left: rem(42); }
+  }
 
   .res { flex-wrap: wrap; gap: rem(12); padding: rem(14) rem(16); }
 }

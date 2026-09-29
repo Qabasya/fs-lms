@@ -265,7 +265,11 @@ a.prof-lesson-go, a.prof-work-item, a.prof-grade-attempt { text-decoration: none
 
 /* ── Мобильный (Фаза 5): плитки в столбец, недельная сетка скроллится ── */
 @media (max-width: $breakpoint-mobile) {
-  .prof-stat-tiles { grid-template-columns: 1fr; gap: rem(10); }
+  // Три плитки в ряд, компактно: столбиком они занимали весь первый экран.
+  .prof-stat-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: rem(8); }
+  .prof-stat-tile { padding: rem(10) rem(8) rem(12); }
+  .prof-stat-tile .st-top { flex-direction: column; align-items: flex-start; gap: rem(6); font-size: rem(11); line-height: 1.25; hyphens: auto; }
+  .prof-stat-tile .st-val { font-size: rem(22); margin-top: rem(6); }
 
   .prof-week-grid {
     grid-template-columns: repeat(7, minmax(rem(132), 1fr));

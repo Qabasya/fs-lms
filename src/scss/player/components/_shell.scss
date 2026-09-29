@@ -1,30 +1,33 @@
 /* ══════════════════════════════════════════════════════════════════════
-   Оболочка плеера (D18): полноэкранный каркас без сайдбара кабинета —
-   топбар с кнопкой «Вернуться», крамбом/прогрессом, контейнеры рейки и
-   контента, тост. Порт cp-base.css + final.css из дизайн-хэндоффа.
+   Оболочка плеера урока (D18, Tasks.md З4): страница прокручивается целиком.
+   Шапка («К курсу», крамб, прогресс) липкая, но прячется при прокрутке вниз
+   и возвращается при прокрутке вверх (класс .top-hidden на .app — shell.js);
+   рейка шагов и воркбар работы встают на её место. Контейнеры рейки и
+   контента, конец урока, тост. Порт cp-base.css + final.css из хэндоффа.
    ══════════════════════════════════════════════════════════════════════ */
 @use '../variables' as *;
 @use '../../shared/cabinet/ui' as *;
 
+// Прокручивается документ, а не внутренний контейнер: иначе липкие шапка
+// и воркбар не работали бы от края экрана (общий cab-body прячет overflow).
+body.fs-player-page { overflow: visible; }
+
 .app {
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  min-height: 100vh;
 }
 
 /* ══ Топбар ══════════════════════════════════════════════════════════ */
-.s-main {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  min-height: 0;
-  flex: 1;
-}
-
 .s-top {
-  height: rem(60);
+  position: sticky;
+  top: 0;
+  z-index: $z-top;
+  height: $top-h;
   flex-shrink: 0;
-  background: rgba(255, 255, 255, 0.86);
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(8px);
+  transition: transform $tr-top;
   border-bottom: 1px solid var(--line);
   display: flex;
   align-items: center;
@@ -33,6 +36,8 @@
 
   > div { min-width: 0; }
 }
+
+.app.top-hidden .s-top { transform: translateY(-100%); }
 
 /* Кнопка «Вернуться» — единственный выход из плеера в кабинет (сайдбар
    кабинета в плеере не дублируется, см. решение по упрощению навигации). */
@@ -132,59 +137,19 @@
   &:hover { background: var(--surface-2); color: var(--ink); }
 }
 
-/* ── Плеер: рейка дерева + контент ──────────────────────────────────── */
+/* ── Плеер: рейка шагов + контент ──────────────────────────────────── */
 .player {
   flex: 1;
-  min-height: 0;
   display: flex;
-  padding: rem(18) rem(22) rem(18) rem(18);
+  align-items: flex-start;
+  padding: $rail-gap rem(22) $rail-gap $rail-gap;
   position: relative;
-}
-
-.railwrap {
-  width: rem(64);
-  flex-shrink: 0;
-  position: relative;
-  z-index: $z-rail;
-}
-
-.rail {
-  position: absolute;
-  top: 0;
-  left: 0;
-  bottom: 0;
-  width: rem(64);
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow-sm);
-  overflow: hidden;
-  transition: width $tr-rail, box-shadow $tr-rail;
 }
 
 .content {
   flex: 1;
   min-width: 0;
-  margin-left: rem(18);
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-}
-
-.cscroll {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  scrollbar-width: thin;
-  scrollbar-color: var(--line-3) transparent;
-
-  &::-webkit-scrollbar { width: rem(10); }
-
-  &::-webkit-scrollbar-thumb {
-    background: var(--line-3);
-    border-radius: rem(6);
-    border: rem(3) solid var(--bg);
-  }
+  margin-left: $rail-gap;
 }
 
 .col {
@@ -194,8 +159,51 @@
   padding-bottom: rem(28);
 }
 
+/* Конец урока: под последним шагом — выход к курсу / следующий урок. */
+.lesson-end {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: rem(12);
+  margin-top: rem(20);
+  padding: rem(16) rem(20);
+  border: 1px dashed var(--line);
+  border-radius: var(--radius);
+
+  .le-t { font-weight: 600; color: var(--ink-2); }
+
+  .le-actions { display: flex; flex-wrap: wrap; gap: rem(8); }
+
+  &[hidden] { display: none; }
+}
+
+/* Переход между шагами: панель въезжает по направлению (классы step-anim-*
+   ставит core.js show()); первый показ — мягкий fade-up. hidden-toggle
+   перезапускает анимацию. */
+.pstep:not([hidden]) { animation: step-in 0.2s ease; }
+
+.pstep.step-anim-fwd:not([hidden]) { animation: step-slide-fwd 0.28s cubic-bezier(0.2, 0.7, 0.3, 1); }
+
+.pstep.step-anim-back:not([hidden]) { animation: step-slide-back 0.28s cubic-bezier(0.2, 0.7, 0.3, 1); }
+
+@keyframes step-in {
+  from { opacity: 0; transform: translateY(rem(5)); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes step-slide-fwd {
+  from { opacity: 0; transform: translateX(rem(18)); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes step-slide-back {
+  from { opacity: 0; transform: translateX(rem(-18)); }
+  to { opacity: 1; transform: none; }
+}
+
 /* ── #3b: экран блокировки урока — размытый скелет контента + оверлей ── */
-.content.is-locked .cscroll {
+.content.is-locked .col {
   filter: blur(6px);
   pointer-events: none;
   user-select: none;
@@ -215,7 +223,7 @@
   .lsk-box { height: rem(220); border-radius: rem(14); background: var(--line-2); margin: rem(24) 0; }
 }
 
-/* Оверлей поверх .player (сайдбар и топбар остаются доступны — есть выход). */
+/* Оверлей поверх .player (топбар остаётся доступен — есть выход). */
 .lock-overlay {
   position: absolute;
   inset: 0;
@@ -289,21 +297,20 @@
 .toast { @include cab-toast($z-toast); }
 
 /* ── B4: адаптив ширины шага и жёлобов ───────────────────────────────────
-   База --colw:1402 (контент 1320). Колонка ограничена max-width:100%, поэтому
-   на узких экранах достаточно ужать жёлоба; на мобильном рейка сжимается до
-   узкой slim-полоски, дерево открывается тапом (rs-x → pin). */
+   База --colw:1282 (контент 1200). Колонка ограничена max-width:100%, поэтому
+   на узких экранах достаточно ужать жёлоба; на телефоне рейка уходит наверх
+   горизонтальной полосой (_rail.scss). */
 @media (max-width: $bp-shell-narrow) {
   .player { padding: rem(12) rem(14); }
   .content { margin-left: rem(12); }
 }
 
 @media (max-width: $bp-mobile) {
-  .player { padding: rem(8); }
-  .content { margin-left: rem(8); min-width: 0; }
+  .player { flex-direction: column; align-items: stretch; padding: 0 rem(8) rem(8); }
+  .content { margin-left: 0; }
 
-  /* Рейка сжимается до slim-полоски rem(44) — сами правила .rail* живут в
-     _rail.scss (он позже в каскаде); здесь — только ширина контейнера. */
-  .railwrap { width: rem(44); }
+  .lesson-end,
+  .lesson-end .le-actions { flex-direction: column; align-items: stretch; }
 
   /* Топбар: убираем второстепенное (крамб, колокольчик, текст прогресса),
      заголовок урока обрезается, прогресс — только полоска. */

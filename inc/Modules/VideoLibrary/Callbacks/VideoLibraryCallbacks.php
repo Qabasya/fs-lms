@@ -124,7 +124,16 @@ class VideoLibraryCallbacks extends BaseController {
 			return;
 		}
 
-		$this->groupLessons->setRecordingUrl( $groupLessonId, '' !== $url ? $url : null );
+		// Прямая ссылка (облако) — во внешнюю ссылку занятия, указатель хранилища —
+		// в recording_url; «снять» очищает оба (алерт считает занятие без записи).
+		if ( '' === $url ) {
+			$this->groupLessons->setRecordingUrl( $groupLessonId, null );
+			$this->groupLessons->setRecordingLink( $groupLessonId, null );
+		} elseif ( preg_match( '#^https?://#i', $url ) ) {
+			$this->groupLessons->setRecordingLink( $groupLessonId, esc_url_raw( $url ) );
+		} else {
+			$this->groupLessons->setRecordingUrl( $groupLessonId, $url );
+		}
 		if ( '' !== $url ) {
 			do_action( 'fs_lms_recording_attached', $groupLessonId );
 		}

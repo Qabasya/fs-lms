@@ -16,10 +16,11 @@ use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 /**
  * Class CourseNavService
  *
- * Навигационная read-модель плеера курса (Эпик 14): оболочка (T14.2, D18) и
- * дерево курса для рейки (T14.3) — модули курса группы → уроки программы со
- * статусами (пройден/текущий/закрыт). Данные ученика PII-safe: имя из снапшота
- * student_records, не из зашифрованных person_documents.
+ * Навигационная read-модель плеера урока (Эпик 14): оболочка (T14.2, D18) —
+ * курс, «Модуль N · тема», прогресс курса, следующий урок. Дерева курса в плеере
+ * больше нет (Tasks.md З4): по курсу ходят со страницы курса в кабинете.
+ * Данные ученика PII-safe: имя из снапшота student_records, не из зашифрованных
+ * person_documents.
  *
  * @package Inc\Services\Course
  */
@@ -32,7 +33,6 @@ class CourseNavService {
 		private readonly GroupsRepository        $groups,
 		private readonly GroupLessonRepository   $groupLessons,
 		private readonly CourseManager           $courses,
-		private readonly LessonManager           $lessons,
 		private readonly LessonProgressService   $progress,
 		private readonly LessonGateResolver      $gate,
 		private readonly StudentRecordRepository $records,
@@ -65,6 +65,7 @@ class CourseNavService {
 		$grade  = (string) ( $record->snapshotGrade ?? '' );
 
 		return array(
+			'course_id'       => (int) ( $course?->id ?? 0 ),
 			'course_title'    => $course?->title ?? (string) ( $group->name ?? '' ),
 			'module_label'    => null !== $course
 				? $this->moduleLabel( $course, (int) $groupLesson->lessonId )
@@ -102,125 +103,6 @@ class CourseNavService {
 		}
 
 		return null;
-	}
-
-	/**
-	 * Дерево курса для рейки (T14.3): модули курса → уроки программы со статусами
-	 * done / current / locked / available. Уроки программы вне модулей курса
-	 * собираются в псевдо-модуль «Дополнительно» (number = null). Шаги текущего
-	 * урока в дерево не входят — они уже есть в панелях плеера ($view['steps']).
-	 *
-	 * @return array{
-	 *     modules: array<int, array{
-	 *         number: int|null,
-	 *         title: string,
-	 *         state: string,
-	 *         lessons: array<int, array{group_lesson_id:int, number:int, title:string, state:string}>
-	 *     }>
-	 * }
-	 */
-	public function tree( int $studentPersonId, GroupLessonDTO $current ): array {
-		$group  = $this->groups->findById( $current->groupId );
-		$course = ( null !== $group && ! empty( $group->course_id ) )
-			? $this->courses->get( (int) $group->course_id )
-			: null;
-
-		$rows       = $this->programRows( $current->groupId );
-		// Teacher-режим (Этап 2): без ученика — прогресс не читаем вовсе.
-		$completion = 0 !== $studentPersonId ? $this->completionMap( $studentPersonId, $current->groupId ) : array();
-
-		// Урок программы → узел дерева; нумерация — сквозная позиция в программе.
-		$byLesson = array();
-		foreach ( array_values( $rows ) as $i => $row ) {
-			if ( null === $row->lessonId || isset( $byLesson[ $row->lessonId ] ) ) {
-				continue;
-			}
-			$byLesson[ $row->lessonId ] = $this->lessonNode( $row, $i + 1, $studentPersonId, $current, $completion );
-		}
-
-		$modules = array();
-		$used    = array();
-
-		foreach ( array_values( $course->modules ?? array() ) as $mi => $module ) {
-			$lessonNodes = array();
-			foreach ( $module->lessonIds as $lessonId ) {
-				if ( ! isset( $byLesson[ $lessonId ] ) ) {
-					continue;
-				}
-				$lessonNodes[]      = $byLesson[ $lessonId ];
-				$used[ $lessonId ] = true;
-			}
-			if ( array() === $lessonNodes ) {
-				continue; // модуль, ни один урок которого не попал в программу группы
-			}
-			$modules[] = array(
-				'number'  => $mi + 1,
-				'title'   => $module->title,
-				'state'   => $this->moduleState( $lessonNodes ),
-				'lessons' => $lessonNodes,
-			);
-		}
-
-		// Уроки программы, не входящие в модули курса (добавлены вручную).
-		$rest = array_values( array_diff_key( $byLesson, $used ) );
-		if ( array() !== $rest ) {
-			$modules[] = array(
-				'number'  => null,
-				'title'   => __( 'Дополнительно', 'fs-lms' ),
-				'state'   => $this->moduleState( $rest ),
-				'lessons' => $rest,
-			);
-		}
-
-		return array( 'modules' => $modules );
-	}
-
-	/**
-	 * Узел урока: сквозной номер, тема, статус для дерева/слим-рейки.
-	 *
-	 * @return array{group_lesson_id:int, number:int, title:string, state:string}
-	 */
-	private function lessonNode( GroupLessonDTO $row, int $number, int $studentPersonId, GroupLessonDTO $current, array $completion ): array {
-		if ( $row->id === $current->id ) {
-			$state = 'current';
-		} elseif ( 0 === $studentPersonId ) {
-			// Teacher-режим (Этап 2): без ученика — гейты открыты, прогресса нет.
-			$state = 'available';
-		} elseif ( $completion[ $row->id ] ?? false ) {
-			$state = 'done';
-		} else {
-			$state = $this->gate->resolveLesson( $studentPersonId, $row )->isAvailable() ? 'available' : 'locked';
-		}
-
-		$lesson = null !== $row->lessonId ? $this->lessons->get( $row->lessonId ) : null;
-
-		return array(
-			'group_lesson_id' => $row->id,
-			'number'          => $number,
-			'title'           => $lesson?->topic ?? ( $row->label ?? '' ),
-			'state'           => $state,
-		);
-	}
-
-	/**
-	 * Статус модуля по урокам: содержит текущий → current; все пройдены → done;
-	 * все закрыты → locked; иначе available.
-	 *
-	 * @param array<int, array{state:string}> $lessonNodes
-	 */
-	private function moduleState( array $lessonNodes ): string {
-		$states = array_column( $lessonNodes, 'state' );
-		if ( in_array( 'current', $states, true ) ) {
-			return 'current';
-		}
-		if ( array() === array_diff( $states, array( 'done' ) ) ) {
-			return 'done';
-		}
-		if ( array() === array_diff( $states, array( 'locked' ) ) ) {
-			return 'locked';
-		}
-
-		return 'available';
 	}
 
 	/**

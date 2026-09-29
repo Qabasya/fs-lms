@@ -10,6 +10,7 @@ use Inc\Managers\Assessment\AssessmentManager;
 use Inc\Managers\Course\WorkManager;
 use Inc\Managers\Wp\PostManager;
 use Inc\Services\Subject\PostTypeResolver;
+use Inc\Services\Task\TaskMetaService;
 
 /**
  * Class TaskPreviewService
@@ -26,6 +27,7 @@ class TaskPreviewService {
 		private readonly WorkManager       $workManager,
 		private readonly AssessmentManager $assessmentManager,
 		private readonly PostManager       $posts,
+		private readonly TaskMetaService   $taskMeta,
 	) {}
 
 	/**
@@ -101,14 +103,14 @@ class TaskPreviewService {
 
 		$common_html = '';
 		if ( ! empty( $meta['common_condition'] ) && is_string( $meta['common_condition'] ) ) {
-			$common_html = SafeHtml::post( $meta['common_condition'] );
+			$common_html = $this->taskMeta->cleanCondition( SafeHtml::post( $meta['common_condition'] ) );
 		}
 
 		// Условие — только task_condition (+ common_condition как префикс). task_text — это
 		// поле «Решение», не условие; problem_text/question_text/content в шаблонах не существуют.
 		$condition_html = '';
 		if ( ! empty( $meta['task_condition'] ) && is_string( $meta['task_condition'] ) ) {
-			$condition_html = SafeHtml::post( $meta['task_condition'] );
+			$condition_html = $this->taskMeta->cleanCondition( SafeHtml::post( $meta['task_condition'] ) );
 		}
 		if ( $common_html ) {
 			$condition_html = $common_html . ( $condition_html ? '<br>' . $condition_html : '' );
@@ -148,7 +150,7 @@ class TaskPreviewService {
 		// Подсказка (task_hint) — отдельная секция; раньше уезжала в блок «Решение».
 		$hint_html = '';
 		if ( ! empty( $meta['task_hint'] ) && is_string( $meta['task_hint'] ) ) {
-			$hint_html = SafeHtml::post( $meta['task_hint'] );
+			$hint_html = $this->taskMeta->cleanCondition( SafeHtml::post( $meta['task_hint'] ) );
 		}
 
 		$audio_url = '';

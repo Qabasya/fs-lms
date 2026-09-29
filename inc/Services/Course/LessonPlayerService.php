@@ -48,7 +48,7 @@ class LessonPlayerService {
 
 	/**
 	 * Полная сборка данных плеера для маршрута (Р2.7): view (ученик/teacher) +
-	 * оболочка + дерево курса + расчёт блокировки по времени. Контроллер отвечает
+	 * оболочка + расчёт блокировки по времени. Контроллер отвечает
 	 * только за авторизацию, выбор шаблона и include — вся сборка данных здесь.
 	 *
 	 * @param int            $personId  ID person ученика (0 в teacher-режиме)
@@ -65,7 +65,6 @@ class LessonPlayerService {
 		}
 
 		$view['shell'] = $this->nav->shell( $personId, $row );
-		$view['tree']  = $this->nav->tree( $personId, $row );
 
 		// Блокировка по времени/предусловию: teacher-режим всегда открыт (гейта нет).
 		$locked    = ! $isTeacher && GateState::Locked === $this->gate->resolveLesson( $personId, $row );
@@ -169,9 +168,13 @@ class LessonPlayerService {
 			'text', 'video' => $this->stepRenderer->renderInlineData( $step ),
 			// Generic-шов V4: модуль VideoLibrary подменяет указатель s3://… presigned-ссылкой.
 			// Фильтр дёргаем только для broadcast (не для каждого text/video-шага).
-			'broadcast'  => $this->stepRenderer->renderInlineData(
+			'broadcast'  => $this->stepRenderer->renderBroadcastData(
 				$step,
-				apply_filters( 'fs_lms_recording_url', $groupLesson->recordingUrl, $groupLesson )
+				null !== $groupLesson->recordingUrl
+					? apply_filters( 'fs_lms_recording_url', $groupLesson->recordingUrl, $groupLesson )
+					: null,
+				$groupLesson->recordingLink,
+				$groupLesson->isOver( current_time( 'mysql' ) )
 			),
 			'task'       => $this->renderTaskData( $step, $groupLesson, $studentPersonId, $isTeacher ),
 			'work'       => $this->renderWorkData( $step, $groupLesson, $studentPersonId, $isTeacher ),
@@ -338,7 +341,7 @@ class LessonPlayerService {
 		$attempts   = $this->taskAttempts->listByStep( $studentPersonId, $groupLesson->id, $step->key );
 		$usedCount  = count( $attempts );
 		$wrongCount = count( array_filter( $attempts, static fn( $a ) => false === $a->isCorrect ) );
-		$hintHtml   = SafeHtml::post( (string) ( $meta['task_hint'] ?? '' ) );
+		$hintHtml   = $this->stepRenderer->cleanHtml( (string) ( $meta['task_hint'] ?? '' ) );
 		$revealHint = '' !== $hintHtml && ( $settings->hintAfterErrors === 0 || $wrongCount >= $settings->hintAfterErrors );
 
 		$data = array(

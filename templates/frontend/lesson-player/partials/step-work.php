@@ -66,6 +66,12 @@ $work_meta_line = sprintf(
 
 	<div class="work-progress" data-work-progress-root <?php echo $work_has_sub ? 'hidden' : ''; ?>>
 		<div class="a-workbar">
+			<?php // «К курсу» внутри воркбара — видна, пока шапка плеера спрятана прокруткой (_step-work.scss). ?>
+			<?php if ( ! empty( $back_url ) ) : ?>
+				<a class="wb-back" href="<?php echo esc_url( $back_url ); ?>" title="<?php esc_attr_e( 'К курсу', 'fs-lms' ); ?>" aria-label="<?php esc_attr_e( 'К курсу', 'fs-lms' ); ?>">
+					<?php echo Icon::Back->svg(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+				</a>
+			<?php endif; ?>
 			<span class="tbadge" data-step-type="work"><?php echo esc_html( StepType::Work->label() ); ?></span>
 			<div class="wb-t">
 				<b><?php echo esc_html( (string) $render['title'] ); ?></b>

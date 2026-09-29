@@ -36,14 +36,14 @@ export function themeCardHtml(t) {
     способ добавить запись руками ровно тогда, когда хранилище недоступно (Tasks.md, п. 5) —
     флаг остался только в подсказке. */
 function recordingIconHtml(t, videoEnabled) {
-    if (t.recording_url) {
-        return `<button type="button" class="pt-recording pt-recording--ok" data-glid="${t.group_lesson_id}" data-url="${esc(t.recording_url)}" title="Есть запись занятия — изменить ссылку" aria-label="Запись занятия есть">${icoCamera(13, 'var(--ok)')}</button>`;
+    if (t.recording_url || t.recording_link) {
+        return `<button type="button" class="pt-recording pt-recording--ok" data-glid="${t.group_lesson_id}" data-url="${esc(t.recording_url || '')}" data-link="${esc(t.recording_link || '')}" title="Есть запись занятия — изменить ссылку" aria-label="Запись занятия есть">${icoCamera(13, 'var(--ok)')}</button>`;
     }
     if ('held' === t.status) {
         const hint = videoEnabled
             ? 'Занятие прошло, записи нет — дождитесь авто-привязки или добавьте ссылку вручную'
             : 'Занятие прошло, записи нет — добавить ссылку вручную';
-        return `<button type="button" class="pt-recording pt-recording--err" data-glid="${t.group_lesson_id}" data-url="" title="${esc(hint)}" aria-label="Записи нет">${icoCamera(13, 'var(--err)')}</button>`;
+        return `<button type="button" class="pt-recording pt-recording--err" data-glid="${t.group_lesson_id}" data-url="" data-link="" title="${esc(hint)}" aria-label="Записи нет">${icoCamera(13, 'var(--err)')}</button>`;
     }
     return '';
 }

@@ -49,7 +49,6 @@ class CourseNavServiceTest extends TestCase {
 			$this->groups,
 			$this->groupLessons,
 			$this->courses,
-			$this->lessons,
 			$this->progress,
 			$this->gate,
 			$this->records,
@@ -147,51 +146,6 @@ class CourseNavServiceTest extends TestCase {
 		self::assertNull( $this->service->shell( 9, $this->row( 4, 400 ) )['next_lesson'] );
 	}
 
-	/* ── tree() (T14.3) ──────────────────────────────────────────────────── */
-
-	public function test_tree_builds_modules_with_states_and_extra_bucket(): void {
-		$this->arrangeProgram();
-
-		$tree    = $this->service->tree( 9, $this->row( 2, 200 ) );
-		$modules = $tree['modules'];
-
-		self::assertCount( 3, $modules ); // 2 модуля курса + «Дополнительно»
-
-		// Модуль 1 содержит текущий урок → current; уроки: done + current.
-		self::assertSame( 1, $modules[0]['number'] );
-		self::assertSame( 'current', $modules[0]['state'] );
-		self::assertSame( 'done', $modules[0]['lessons'][0]['state'] );
-		self::assertSame( 'current', $modules[0]['lessons'][1]['state'] );
-
-		// Сквозная нумерация по программе.
-		self::assertSame( 1, $modules[0]['lessons'][0]['number'] );
-		self::assertSame( 2, $modules[0]['lessons'][1]['number'] );
-
-		// Модуль 2 закрыт целиком.
-		self::assertSame( 'locked', $modules[1]['state'] );
-
-		// Внемодульный урок — в псевдо-модуле без номера.
-		self::assertNull( $modules[2]['number'] );
-		self::assertSame( 400, $this->lessonIdOf( $modules[2]['lessons'][0] ) );
-	}
-
-	public function test_tree_without_course_puts_all_in_extra(): void {
-		$this->groups->method( 'findById' )->willReturn( (object) array( 'id' => 1, 'name' => 'Г1', 'course_id' => null ) );
-		$this->groupLessons->method( 'listByGroup' )->willReturn( array( $this->row( 1, 100 ) ) );
-		$this->lessons->method( 'get' )->willReturn( null );
-		$this->progress->method( 'isLessonCompleted' )->willReturn( false );
-
-		$tree = $this->service->tree( 9, $this->row( 1, 100 ) );
-
-		self::assertCount( 1, $tree['modules'] );
-		self::assertNull( $tree['modules'][0]['number'] );
-	}
-
-	/** Узел дерева хранит group_lesson_id; лестница к lessonId — через фикстуру (gl=4 → lesson 400). */
-	private function lessonIdOf( array $node ): int {
-		return 4 === $node['group_lesson_id'] ? 400 : 0;
-	}
-
 	/* ── Teacher-режим (Этап 2, ★): studentPersonId=0 — без ученика/прогресса ── */
 
 	/** Как arrangeProgram(), но БЕЗ стаба gate/progress — тест сам проверяет, что их не зовут. */
@@ -234,19 +188,5 @@ class CourseNavServiceTest extends TestCase {
 		// Teacher-режим: гейт всегда открыт — следующий урок доступен.
 		self::assertSame( 3, $shell['next_lesson']['group_lesson_id'] );
 		self::assertTrue( $shell['next_lesson']['available'] );
-	}
-
-	public function test_tree_teacher_mode_marks_non_current_lessons_available(): void {
-		$this->arrangeProgramWithoutGateOrProgressStub();
-		$this->progress->expects( $this->never() )->method( 'isLessonCompleted' );
-		$this->gate->expects( $this->never() )->method( 'resolveLesson' );
-
-		$tree    = $this->service->tree( 0, $this->row( 2, 200 ) );
-		$modules = $tree['modules'];
-
-		// Текущий урок — current; остальные — available (не locked, не done: без ученика прогресса нет).
-		self::assertSame( 'available', $modules[0]['lessons'][0]['state'] );
-		self::assertSame( 'current', $modules[0]['lessons'][1]['state'] );
-		self::assertSame( 'available', $modules[1]['state'] );
 	}
 }

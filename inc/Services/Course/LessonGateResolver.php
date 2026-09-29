@@ -6,7 +6,9 @@ namespace Inc\Services\Course;
 
 use Inc\Contracts\ClockInterface;
 use Inc\DTO\Course\GroupLessonDTO;
+use Inc\DTO\Course\StepDTO;
 use Inc\Enums\Course\GateState;
+use Inc\Enums\Course\StepType;
 use Inc\Managers\Course\LessonManager;
 use Inc\Services\Assessment\ExamLockService;
 
@@ -32,6 +34,7 @@ class LessonGateResolver {
 		private readonly LessonAccessPolicy    $accessPolicy,
 		private readonly ExamLockService       $examLock,
 		private readonly ClockInterface        $clock,
+		private readonly StepContentRenderer   $steps,
 	) {}
 
 	/**
@@ -92,16 +95,49 @@ class LessonGateResolver {
 		$gate = (string) ( $steps[ $index ]->payload['gate'] ?? 'none' );
 
 		if ( 'sequential' === $gate ) {
-			return 0 === $index
-				? GateState::Available
-				: $this->requireComplete( $statuses, $steps[ $index - 1 ]->key );
+			return $this->requireSolvedUpTo( $steps, $index - 1, $statuses );
 		}
 
 		if ( str_starts_with( $gate, 'after:' ) ) {
-			return $this->requireComplete( $statuses, substr( $gate, 6 ) );
+			$target = substr( $gate, 6 );
+			foreach ( $steps as $i => $s ) {
+				if ( $s->key === $target ) {
+					return $this->requireSolvedUpTo( $steps, $i, $statuses );
+				}
+			}
+
+			return $this->requireComplete( $statuses, $target );
 		}
 
 		return GateState::Available; // none / неизвестный конфиг — без гейта по выполнению
+	}
+
+	/**
+	 * Обязательны только шаги, которые сдаются кнопкой (задание с автопроверкой,
+	 * работа, контрольная; Tasks.md З4): лекция, видео, трансляция и ручное
+	 * задание гейт не держат.
+	 * Поэтому гейт смотрит на ближайший обязательный шаг не позже `$index` —
+	 * решено задание, и все следующие за ним шаги до очередного задания открыты.
+	 *
+	 * @param \Inc\DTO\Course\StepDTO[]                           $steps
+	 * @param array<string, \Inc\Enums\Course\ProgressStatus> $statuses
+	 */
+	private function requireSolvedUpTo( array $steps, int $index, array $statuses ): GateState {
+		for ( $i = $index; $i >= 0; $i-- ) {
+			if ( $this->isRequired( $steps[ $i ] ) ) {
+				return $this->requireComplete( $statuses, $steps[ $i ]->key );
+			}
+		}
+
+		return GateState::Available;
+	}
+
+	private function isRequired( StepDTO $step ): bool {
+		if ( $step->type->isInline() ) {
+			return false;
+		}
+
+		return StepType::Task !== $step->type || $this->steps->isAutoGradedTask( (int) ( $step->payload['ref'] ?? 0 ) );
 	}
 
 	/**

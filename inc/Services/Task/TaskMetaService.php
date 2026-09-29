@@ -21,6 +21,18 @@ class TaskMetaService {
 	/** Ключ меты общего (типового) условия. */
 	public const COMMON_KEY = 'common_condition';
 
+	public function __construct(
+		private readonly ConditionHtmlNormalizer $normalizer = new ConditionHtmlNormalizer(),
+	) {}
+
+	/**
+	 * Условие без пустых строк по краям и невидимого мусора — общая точка для
+	 * тренажёра, плеера курса и контрольных ({@see ConditionHtmlNormalizer}).
+	 */
+	public function cleanCondition( string $html ): string {
+		return $this->normalizer->normalize( $html );
+	}
+
 	/**
 	 * Собирает все поля с суффиксом '_condition' из fs_lms_meta в один блок контента.
 	 *
@@ -52,8 +64,8 @@ class TaskMetaService {
 				continue;
 			}
 
-			$html = (string) apply_filters( 'the_content', $value );
-			if ( '' === trim( $html ) ) {
+			$html = $this->cleanCondition( (string) apply_filters( 'the_content', $value ) );
+			if ( '' === $html ) {
 				continue;
 			}
 

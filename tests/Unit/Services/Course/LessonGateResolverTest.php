@@ -14,6 +14,7 @@ use Inc\Services\Assessment\ExamLockService;
 use Inc\Services\Course\LessonAccessPolicy;
 use Inc\Services\Course\LessonGateResolver;
 use Inc\Services\Course\LessonProgressService;
+use Inc\Services\Course\StepContentRenderer;
 use PHPUnit\Framework\TestCase;
 
 class LessonGateResolverTest extends TestCase {
@@ -23,6 +24,7 @@ class LessonGateResolverTest extends TestCase {
 	private LessonAccessPolicy    $access;
 	private ExamLockService       $examLock;
 	private ClockInterface        $clock;
+	private StepContentRenderer   $renderer;
 	private LessonGateResolver    $resolver;
 
 	protected function setUp(): void {
@@ -33,7 +35,10 @@ class LessonGateResolverTest extends TestCase {
 		$this->examLock  = $this->createMock( ExamLockService::class );
 		$this->clock     = $this->createMock( ClockInterface::class );
 		$this->examLock->method( 'isLocked' )->willReturn( false );
-		$this->resolver  = new LessonGateResolver( $this->progress, $this->lessons, $this->access, $this->examLock, $this->clock );
+		// Задание с ref 99 — ручное (без автопроверки), остальные — автопроверяемые.
+		$this->renderer  = $this->createMock( StepContentRenderer::class );
+		$this->renderer->method( 'isAutoGradedTask' )->willReturnCallback( static fn( int $ref ): bool => 99 !== $ref );
+		$this->resolver  = new LessonGateResolver( $this->progress, $this->lessons, $this->access, $this->examLock, $this->clock, $this->renderer );
 		$this->clock->method( 'now' )->willReturn( '2024-06-01 00:00:00' );
 	}
 
@@ -43,8 +48,8 @@ class LessonGateResolverTest extends TestCase {
 		) );
 	}
 
-	private function step( string $key, ?string $gate = null ): array {
-		return array( 'key' => $key, 'type' => 'text', 'payload' => null === $gate ? array() : array( 'gate' => $gate ) );
+	private function step( string $key, ?string $gate = null, string $type = 'task' ): array {
+		return array( 'key' => $key, 'type' => $type, 'payload' => null === $gate ? array() : array( 'gate' => $gate ) );
 	}
 
 	private function lessonWith( array $steps ): LessonDTO {
@@ -131,5 +136,55 @@ class LessonGateResolverTest extends TestCase {
 		$this->progress->method( 'getStepStatuses' )->willReturn( array() );
 
 		self::assertSame( GateState::Locked, $this->resolver->resolveStep( 9, $this->groupLesson(), 's_missing' ) );
+	}
+
+	// ── Tasks.md З4: гейт держат только задания/работы ──
+
+	public function test_sequential_skips_inline_steps_to_nearest_task(): void {
+		$this->access->method( 'canRead' )->willReturn( true );
+		$this->lessons->method( 'get' )->willReturn( $this->lessonWith( array(
+			$this->step( 's_a' ),
+			$this->step( 's_b', 'sequential', 'text' ),
+			$this->step( 's_c', 'sequential' ),
+		) ) );
+		// Лекцию не открывали, но задание перед ней решено — следующее задание открыто.
+		$this->progress->method( 'getStepStatuses' )->willReturn( array( 's_a' => ProgressStatus::Completed ) );
+
+		self::assertSame( GateState::Available, $this->resolver->resolveStep( 9, $this->groupLesson(), 's_c' ) );
+	}
+
+	public function test_inline_step_after_unsolved_task_is_locked(): void {
+		$this->access->method( 'canRead' )->willReturn( true );
+		$this->lessons->method( 'get' )->willReturn( $this->lessonWith( array(
+			$this->step( 's_a' ),
+			$this->step( 's_b', 'sequential', 'video' ),
+		) ) );
+		$this->progress->method( 'getStepStatuses' )->willReturn( array( 's_a' => ProgressStatus::Viewed ) );
+
+		self::assertSame( GateState::Locked, $this->resolver->resolveStep( 9, $this->groupLesson(), 's_b' ) );
+	}
+
+	public function test_manual_task_does_not_hold_gate(): void {
+		$this->access->method( 'canRead' )->willReturn( true );
+		$this->lessons->method( 'get' )->willReturn( $this->lessonWith( array(
+			$this->step( 's_a' ),
+			array( 'key' => 's_m', 'type' => 'task', 'payload' => array( 'ref' => 99, 'gate' => 'sequential' ) ),
+			$this->step( 's_c', 'sequential' ),
+		) ) );
+		// Ручное задание не открывали, но автопроверяемое перед ним решено.
+		$this->progress->method( 'getStepStatuses' )->willReturn( array( 's_a' => ProgressStatus::Completed ) );
+
+		self::assertSame( GateState::Available, $this->resolver->resolveStep( 9, $this->groupLesson(), 's_c' ) );
+	}
+
+	public function test_only_inline_steps_before_means_available(): void {
+		$this->access->method( 'canRead' )->willReturn( true );
+		$this->lessons->method( 'get' )->willReturn( $this->lessonWith( array(
+			$this->step( 's_a', null, 'text' ),
+			$this->step( 's_b', 'sequential' ),
+		) ) );
+		$this->progress->method( 'getStepStatuses' )->willReturn( array() );
+
+		self::assertSame( GateState::Available, $this->resolver->resolveStep( 9, $this->groupLesson(), 's_b' ) );
 	}
 }

@@ -97,6 +97,12 @@ $asm_preview = ! empty( $is_preview ) && ! empty( $render['assessment_found'] );
 
 				<div class="work-progress" data-work-progress-root>
 					<div class="a-workbar">
+						<?php // «К курсу» внутри воркбара — видна, пока шапка плеера спрятана прокруткой (_step-work.scss). ?>
+						<?php if ( ! empty( $back_url ) ) : ?>
+							<a class="wb-back" href="<?php echo esc_url( $back_url ); ?>" title="<?php esc_attr_e( 'К курсу', 'fs-lms' ); ?>" aria-label="<?php esc_attr_e( 'К курсу', 'fs-lms' ); ?>">
+								<?php echo Icon::Back->svg(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+							</a>
+						<?php endif; ?>
 						<span class="tbadge" data-step-type="assessment"><?php echo esc_html( StepType::fromValueOrDefault( $step['type'] )->label() ); ?></span>
 						<div class="wb-t">
 							<b><?php echo esc_html( $asm_title ); ?></b>

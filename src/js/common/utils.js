@@ -228,3 +228,18 @@ export function toggleVisible( el, visible ) {
         el.hidden = ! visible;
     }
 }
+
+/**
+ * Полосы прогресса из шаблонных строк: ширина приходит числом в `data-progress`
+ * (0–100) и уходит в CSS-переменную `--progress` — сама ширина задаётся в SCSS
+ * (`width: var(--progress, 0%)`), inline `style="width"` в разметке не пишем.
+ *
+ * @param {ParentNode} root Контейнер, внутри которого искать полосы.
+ * @return {void}
+ */
+export function applyProgress( root ) {
+    root.querySelectorAll( '[data-progress]' ).forEach( ( el ) => {
+        const pct = Math.max( 0, Math.min( 100, Number( el.dataset.progress ) || 0 ) );
+        el.style.setProperty( '--progress', `${ pct }%` );
+    } );
+}

@@ -7,7 +7,7 @@
 // контентной колонки и цвета типов шагов (значения — из единой палитры
 // shared/_tokens.scss $step-type-palette; JS-зеркало — player/icons.js TYPES).
 
-@forward '../shared/tokens' show rem, below, $bp-mobile, $bp-wp, $bp-tablet, $bp-wide;
+@forward '../shared/tokens' show rem, below, $bp-mobile, $bp-wp, $bp-tablet, $bp-wide, $font-size-base, $font-size-md, $font-size-xl;
 @use 'sass:map';
 @use '../shared/tokens' as t;
 
@@ -16,11 +16,13 @@ $bp-shell-narrow: 1100px;
 
 // ── Тайминги
 $tr: 0.12s;                          // быстрые ховеры
-$tr-rail: 0.24s cubic-bezier(0.2, 0.7, 0.3, 1); // разворот рейки
+$tr-top: 0.22s ease; // шапка прячется/возвращается при прокрутке
 
 // ── Z-index
-$z-rail: 45;  // рейка дерева поверх контента при hover/pin
-$z-rail-scrim: 44; // затемнение под деревом-оверлеем на мобильном (Tasks.md, п. 1)
+$z-rail: 45;  // липкая рейка шагов
+$z-workbar: 46; // липкий воркбар работы/контрольной — над контентом, под шапкой
+$z-top: 48;   // липкая шапка плеера
+$z-rail-pop: 49; // подсказка шага рейки — поверх шапки и воркбара
 $z-modal: 400; // модалка подтверждения (работа)
 $z-toast: 500;
 $z-teacher-panel: 450; // тич-редактор шагов (Этап 4) — drawer поверх плеера, ниже toast
@@ -40,8 +42,14 @@ $type-assessment: map.get(t.$step-type-palette, assessment);
 $type-assessment-soft: map.get(t.$step-type-palette-soft, assessment);
 
 // ── Геометрия плеера (bundle-специфика; тема — общая)
+$top-h: t.rem(60);   // высота шапки: на неё опираются липкие рейка и воркбар
+$rail-gap: t.rem(18); // отступ липких элементов от шапки/края экрана
+$rail-sq: t.rem(40); // квадрат шага в рейке
+$rail-w: t.rem(64);  // ширина рейки
+
 :root {
   // Ширина контентной колонки (B4: адаптив от экрана — в _shell.scss;
   // сайдбара в плеере нет, поэтому база — «широкий» вариант).
-  --colw: #{t.rem(1402)}; /* контент шага = colw − 82px (padding 40×2 + border 1×2) = 1320px */
+  // Tasks.md, З2: на 1920 контент ~1200px — задача работы помещается в экран ноутбука.
+  --colw: #{t.rem(1282)}; /* контент шага = colw − 82px (padding 40×2 + border 1×2) = 1200px */
 }

@@ -1,129 +1,125 @@
 /**
- * Рейка-дерево (T14.4): пин разворота (localStorage), дорисовка шагов
- * текущего урока в дерево из панелей плеера, переходы по шагам.
- * Slim/hover-механика — на CSS (.rail:hover / .rail.pin), см. _rail.scss.
+ * Рейка шагов урока (Tasks.md З4): квадраты-номера вместо ленты шагов и кнопок
+ * «Назад/Далее». Клик — переход к шагу (закрытый гейт — тост), наведение или
+ * фокус — подсказка с иконкой, типом и названием шага.
  *
- * Мобильный (Tasks.md, п. 1): дерево открывается тапом по rs-x и работает
- * оверлеем, поэтому закрывать его должно всё привычное — тап по затемнению
- * (свободному месту), свайп влево по самой рейке и Escape. Попадать пальцем в
- * маленькую булавку в шапке дерева для этого не нужно.
+ * Подсказка одна на рейку и позиционируется fixed по квадрату: рейка сама
+ * прокручивается (много шагов), и подсказка внутри неё обрезалась бы. JS
+ * выставляет только CSS-переменные координат — сами стили в _rail.scss.
+ *
+ * На телефоне рейка — горизонтальная полоса над контентом; наведения там нет,
+ * поэтому тип и название текущего шага пишутся строкой под полосой.
  */
 import { getCore, onRefresh } from './core.js';
 import { esc, ICO, typeIco, typeMeta } from './icons.js';
 import { toast } from './shell.js';
 
-const PIN_KEY = 'fsPlayerRailPin';
-
-/** Тот же порог, что $bp-mobile в SCSS: ниже него рейка — оверлей. */
-const MOBILE_QUERY = '(max-width: 640px)';
-
-/** Минимальный горизонтальный сдвиг свайпа, px; ниже — это тап или скролл. */
-const SWIPE_MIN = 45;
-
 export function initRail() {
 	const rail = document.getElementById( 'fsRail' );
-	if ( ! rail ) { return; }
+	const core = getCore();
+	if ( ! rail || ! core ) { return; }
 
-	let pinned = false;
-	try { pinned = '1' === localStorage.getItem( PIN_KEY ); } catch {}
+	const pop = document.getElementById( 'fsRailPop' );
+	const cur = document.getElementById( 'fsRailCur' );
 
-	const pinBtn = document.getElementById( 'fsRailPin' );
-	const scrim  = document.getElementById( 'fsRailScrim' );
-
-	const isMobile = () => window.matchMedia( MOBILE_QUERY ).matches;
-
-	const applyPin = () => {
-		rail.classList.toggle( 'pin', pinned );
-		if ( pinBtn ) { pinBtn.classList.toggle( 'on', pinned ); }
-		// Затемнение существует всегда, показывает его CSS только на мобильном.
-		if ( scrim ) { scrim.hidden = ! pinned; }
+	const render = () => {
+		// Перерисовка не должна выбивать фокус клавиатуры с квадрата.
+		const focused = rail.contains( document.activeElement ) ? document.activeElement.dataset.goto : null;
+		rail.innerHTML = core.panels.map( ( p, i ) => stepHtml( p, i, i === core.activeIndex() ) ).join( '' );
+		const active = core.panels[ core.activeIndex() ];
+		if ( cur && active ) {
+			cur.textContent = `${ core.activeIndex() + 1 }. ${ typeMeta( active.dataset.stepType ).label } · ${ active.dataset.title || '' }`;
+		}
+		keepVisible( rail, rail.querySelector( '.rs-step.cur' ) );
+		if ( null !== focused ) { rail.querySelector( `[data-goto="${ focused }"]` )?.focus(); }
 	};
 
-	const setPin = ( value ) => {
-		pinned = value;
-		try { localStorage.setItem( PIN_KEY, pinned ? '1' : '0' ); } catch {}
-		applyPin();
-	};
-
-	/** Закрыть дерево — только там, где оно перекрывает контент. */
-	const closeOnMobile = () => {
-		if ( pinned && isMobile() ) { setPin( false ); }
-	};
-
-	applyPin();
-
-	if ( pinBtn ) { pinBtn.addEventListener( 'click', () => setPin( ! pinned ) ); }
-
-	const expand = rail.querySelector( '.rs-x' );
-	if ( expand ) { expand.addEventListener( 'click', () => setPin( true ) ); }
-
-	if ( scrim ) { scrim.addEventListener( 'click', closeOnMobile ); }
-
-	document.addEventListener( 'keydown', ( e ) => {
-		if ( 'Escape' === e.key ) { closeOnMobile(); }
+	rail.addEventListener( 'click', ( e ) => {
+		const btn = e.target.closest( '[data-goto]' );
+		if ( ! btn ) { return; }
+		const i = parseInt( btn.dataset.goto, 10 );
+		if ( 'locked' === core.panels[ i ].dataset.gate ) {
+			toast( 'Шаг откроется, когда будет решено предыдущее задание' );
+			return;
+		}
+		core.show( i );
 	} );
 
-	attachSwipe( rail, closeOnMobile );
+	if ( pop ) { attachPopout( rail, pop, core ); }
 
-	renderRailSteps( closeOnMobile );
-	onRefresh( () => renderRailSteps( closeOnMobile ) );
+	render();
+	onRefresh( render );
+}
+
+function stepHtml( panel, i, isCurrent ) {
+	const type   = panel.dataset.stepType;
+	const done   = [ 'completed', 'failed' ].includes( panel.dataset.status );
+	const locked = 'locked' === panel.dataset.gate;
+	const cls    = [ 'rs-step', isCurrent ? 'cur' : '', done ? 'done' : '', locked ? 'lk' : '' ].filter( Boolean ).join( ' ' );
+	const label  = `Шаг ${ i + 1 }: ${ typeMeta( type ).label }${ panel.dataset.title ? ` — ${ panel.dataset.title }` : '' }`;
+
+	return `<button type="button" class="${ cls }" data-step-type="${ esc( type ) }" data-goto="${ i }"` +
+		` aria-label="${ esc( label ) }"${ isCurrent ? ' aria-current="step"' : '' }>` +
+		`<span class="rs-n">${ i + 1 }</span>` +
+		( done ? `<span class="rs-tick">${ ICO.check( 10 ) }</span>` : '' ) +
+		( locked && ! isCurrent ? `<span class="rs-lock">${ ICO.lock( 10 ) }</span>` : '' ) +
+		'</button>';
+}
+
+/** Подсказка «иконка · тип · название» у квадрата — по наведению и по фокусу с клавиатуры. */
+function attachPopout( rail, pop, core ) {
+	const show = ( btn ) => {
+		const panel = core.panels[ parseInt( btn.dataset.goto, 10 ) ];
+		if ( ! panel ) { return; }
+		const type = panel.dataset.stepType;
+		const meta = typeMeta( type );
+
+		pop.dataset.stepType = type;
+		pop.innerHTML = `<span class="rp-type">${ typeIco( type, meta.c, 16 ) }${ esc( meta.label ) }</span>` +
+			( panel.dataset.title ? `<span class="rp-title">${ esc( panel.dataset.title ) }</span>` : '' ) +
+			( 'locked' === panel.dataset.gate ? '<span class="rp-note">Откроется после решения предыдущего задания</span>' : '' );
+
+		const r = btn.getBoundingClientRect();
+		pop.style.setProperty( '--pop-x', `${ r.right }px` );
+		pop.style.setProperty( '--pop-y', `${ r.top + ( r.height / 2 ) }px` );
+		pop.hidden = false;
+	};
+	const hide = () => { pop.hidden = true; };
+
+	// Только там, где наведение есть: на тач-экране подсказку заменяет строка #fsRailCur.
+	if ( window.matchMedia( '(hover: hover)' ).matches ) {
+		rail.addEventListener( 'pointerover', ( e ) => {
+			const btn = e.target.closest( '[data-goto]' );
+			if ( btn ) { show( btn ); }
+		} );
+		rail.addEventListener( 'pointerleave', hide );
+	}
+	rail.addEventListener( 'focusin', ( e ) => {
+		const btn = e.target.closest( '[data-goto]' );
+		if ( btn && btn.matches( ':focus-visible' ) ) { show( btn ); }
+	} );
+	rail.addEventListener( 'focusout', hide );
+	rail.addEventListener( 'scroll', hide, { passive: true } );
+	window.addEventListener( 'scroll', hide, { passive: true } );
 }
 
 /**
- * Свайп влево по развёрнутой рейке закрывает дерево. Вертикальное движение
- * игнорируем — иначе жест конфликтовал бы со скроллом длинного дерева.
+ * Текущий квадрат — в видимой части рейки (прокрутка самой рейки, не страницы:
+ * scrollIntoView дёрнул бы и окно). Рейка — position: relative, поэтому
+ * offsetTop/offsetLeft квадрата считаются от неё.
  */
-function attachSwipe( rail, close ) {
-	let startX = 0;
-	let startY = 0;
-	let tracking = false;
-
-	rail.addEventListener( 'touchstart', ( e ) => {
-		const touch = e.touches[ 0 ];
-		if ( ! touch ) { return; }
-		startX   = touch.clientX;
-		startY   = touch.clientY;
-		tracking = true;
-	}, { passive: true } );
-
-	rail.addEventListener( 'touchend', ( e ) => {
-		if ( ! tracking ) { return; }
-		tracking = false;
-		const touch = e.changedTouches[ 0 ];
-		if ( ! touch ) { return; }
-		const dx = touch.clientX - startX;
-		const dy = touch.clientY - startY;
-		if ( dx < -SWIPE_MIN && Math.abs( dx ) > Math.abs( dy ) ) { close(); }
-	}, { passive: true } );
-}
-
-/** Шаги текущего урока в дереве: иконка типа, «N. Название», галка пройденного. */
-function renderRailSteps( closeOnMobile ) {
-	const host = document.getElementById( 'fsRailSteps' );
-	const core = getCore();
-	if ( ! host || ! core ) { return; }
-
-	host.innerHTML = core.panels.map( ( p, i ) => {
-		const type = p.dataset.stepType;
-		const on   = i === core.activeIndex();
-		const done = 'completed' === p.dataset.status;
-		return `<div class="t-step${ on ? ' on' : '' }" data-rail-step="${ i }">` +
-			`<span class="tsi">${ typeIco( type, typeMeta( type ).c, 15 ) }</span>` +
-			`<span class="txt">${ i + 1 }. ${ esc( p.dataset.title ) }</span>` +
-			( done ? `<span class="tick">${ ICO.check( 13 ) }</span>` : '' ) +
-			'</div>';
-	} ).join( '' );
-
-	host.querySelectorAll( '[data-rail-step]' ).forEach( ( el ) => {
-		el.addEventListener( 'click', () => {
-			const i = parseInt( el.dataset.railStep, 10 );
-			if ( 'locked' === core.panels[ i ].dataset.gate ) {
-				toast( 'Шаг откроется после предыдущего' );
-				return;
-			}
-			core.show( i );
-			// Шаг выбран — дерево-оверлей своё дело сделало и уступает контенту.
-			closeOnMobile();
-		} );
-	} );
+function keepVisible( rail, el ) {
+	if ( ! el ) { return; }
+	if ( rail.scrollHeight > rail.clientHeight ) {
+		const top = el.offsetTop;
+		if ( top < rail.scrollTop || top + el.offsetHeight > rail.scrollTop + rail.clientHeight ) {
+			rail.scrollTop = top - ( ( rail.clientHeight - el.offsetHeight ) / 2 );
+		}
+	}
+	if ( rail.scrollWidth > rail.clientWidth ) {
+		const left = el.offsetLeft;
+		if ( left < rail.scrollLeft || left + el.offsetWidth > rail.scrollLeft + rail.clientWidth ) {
+			rail.scrollLeft = left - ( ( rail.clientWidth - el.offsetWidth ) / 2 );
+		}
+	}
 }

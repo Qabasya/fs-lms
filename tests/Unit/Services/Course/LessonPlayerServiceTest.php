@@ -91,7 +91,7 @@ class LessonPlayerServiceTest extends TestCase {
 		);
 	}
 
-	private function makeGroupLesson( int $id = 1, int $lessonId = 10, ?string $recordingUrl = null ): GroupLessonDTO {
+	private function makeGroupLesson( int $id = 1, int $lessonId = 10, ?string $recordingUrl = null, ?string $recordingLink = null, string $status = 'scheduled' ): GroupLessonDTO {
 		return new GroupLessonDTO(
 			id               : $id,
 			groupId          : 5,
@@ -110,6 +110,8 @@ class LessonPlayerServiceTest extends TestCase {
 			recordingUrl     : $recordingUrl,
 			createdByUserId  : null,
 			updatedByUserId  : null,
+			status           : $status,
+			recordingLink    : $recordingLink,
 		);
 	}
 
@@ -162,7 +164,7 @@ class LessonPlayerServiceTest extends TestCase {
 
 	// ── buildRouteView (Р2.7) ────────────────────────────────────────────────
 
-	public function test_build_route_view_teacher_wraps_with_shell_tree_unlocked(): void {
+	public function test_build_route_view_teacher_wraps_with_shell_unlocked(): void {
 		$step   = $this->makeVideoStep( 's1', array( 'url' => 'https://example.com/v' ) );
 		$lesson = $this->makeLesson( 10, array( $step ) );
 		$this->lessons->method( 'get' )->willReturn( $lesson );
@@ -172,7 +174,6 @@ class LessonPlayerServiceTest extends TestCase {
 		self::assertNotNull( $data );
 		self::assertSame( 10, $data['view']['lesson_id'] );
 		self::assertArrayHasKey( 'shell', $data['view'] );
-		self::assertArrayHasKey( 'tree', $data['view'] );
 		self::assertFalse( $data['locked'] );      // teacher — блокировки по времени нет
 		self::assertNull( $data['locked_seconds'] );
 		self::assertFalse( $data['locked_soon'] );
@@ -184,52 +185,65 @@ class LessonPlayerServiceTest extends TestCase {
 		self::assertNull( $this->service->buildRouteView( 1, $this->makeGroupLesson(), false ) );
 	}
 
-	// ── broadcast-шаг (Этап 1): запись занятия / заглушка ────────────────────
+	// ── broadcast-шаг (Tasks.md З1): до занятия — эфир, после — запись ─────
 
-	public function test_broadcast_uses_recording_url_when_available(): void {
-		$step   = $this->makeBroadcastStep( 's1', array( 'stream_url' => 'https://stream.example.com/live' ) );
+	private function broadcastRender( GroupLessonDTO $groupLesson, array $payload = array() ): array {
+		$step   = $this->makeBroadcastStep( 's1', $payload );
 		$lesson = $this->makeLesson( 10, array( $step ) );
 		$this->lessons->method( 'get' )->willReturn( $lesson );
 		$this->stubGateAndProgress( $step );
 
-		$groupLesson = $this->makeGroupLesson( lessonId: 10, recordingUrl: 'https://s3.example.com/rec.mp4' );
-		$view        = $this->service->buildView( 1, $groupLesson );
-
-		$render = $view['steps'][0]['render'];
-		self::assertSame( 'https://s3.example.com/rec.mp4', $render['url'] );
-		self::assertSame( 'native', $render['mode'] );
-		self::assertSame( 'https://stream.example.com/live', $render['stream_url'] );
+		return $this->service->buildView( 1, $groupLesson )['steps'][0]['render'];
 	}
 
-	public function test_broadcast_returns_empty_url_when_no_recording(): void {
-		$step   = $this->makeBroadcastStep( 's1', array( 'stream_url' => 'https://stream.example.com/live' ) );
-		$lesson = $this->makeLesson( 10, array( $step ) );
-		$this->lessons->method( 'get' )->willReturn( $lesson );
-		$this->stubGateAndProgress( $step );
+	public function test_broadcast_before_lesson_shows_stream(): void {
+		$render = $this->broadcastRender(
+			$this->makeGroupLesson( lessonId: 10 ),
+			array( 'stream_url' => 'https://stream.example.com/live' )
+		);
 
-		$groupLesson = $this->makeGroupLesson( lessonId: 10, recordingUrl: null );
-		$view        = $this->service->buildView( 1, $groupLesson );
-
-		$render = $view['steps'][0]['render'];
-		self::assertSame( '', $render['url'] );
-		self::assertSame( 'none', $render['mode'] );
+		self::assertSame( 'live', $render['phase'] );
 		self::assertSame( 'https://stream.example.com/live', $render['stream_url'] );
+		self::assertSame( '', $render['video_url'] );
+	}
+
+	public function test_broadcast_after_lesson_plays_recording_file(): void {
+		$render = $this->broadcastRender(
+			$this->makeGroupLesson( lessonId: 10, recordingUrl: 'https://s3.example.com/rec.mp4', recordingLink: 'https://disk.example.com/rec' )
+		);
+
+		self::assertSame( 'after', $render['phase'] );
+		self::assertSame( 'https://s3.example.com/rec.mp4', $render['video_url'] );
+		// Внешняя ссылка остаётся запасным вариантом на случай сбоя хранилища.
+		self::assertSame( 'https://disk.example.com/rec', $render['record_link'] );
+	}
+
+	public function test_broadcast_after_lesson_with_link_only_is_not_embedded(): void {
+		$render = $this->broadcastRender(
+			$this->makeGroupLesson( lessonId: 10, recordingLink: 'https://disk.example.com/rec' )
+		);
+
+		self::assertSame( 'after', $render['phase'] );
+		self::assertSame( '', $render['video_url'] );
+		self::assertSame( 'https://disk.example.com/rec', $render['record_link'] );
+	}
+
+	public function test_broadcast_held_without_recording_is_after_phase(): void {
+		$render = $this->broadcastRender( $this->makeGroupLesson( lessonId: 10, status: 'held' ) );
+
+		self::assertSame( 'after', $render['phase'] );
+		self::assertSame( '', $render['video_url'] );
+		self::assertSame( '', $render['record_link'] );
 	}
 
 	public function test_broadcast_hides_non_http_recording_pointer(): void {
 		// Модуль VideoLibrary выключен: фильтр fs_lms_recording_url — passthrough,
 		// указатель s3://… дошёл до рендера — guard не отдаёт его в плеер.
-		$step   = $this->makeBroadcastStep( 's1' );
-		$lesson = $this->makeLesson( 10, array( $step ) );
-		$this->lessons->method( 'get' )->willReturn( $lesson );
-		$this->stubGateAndProgress( $step );
+		$render = $this->broadcastRender(
+			$this->makeGroupLesson( lessonId: 10, recordingUrl: 's3://bucket/videos/kege-1/rec.webm' )
+		);
 
-		$groupLesson = $this->makeGroupLesson( lessonId: 10, recordingUrl: 's3://bucket/videos/kege-1/rec.webm' );
-		$view        = $this->service->buildView( 1, $groupLesson );
-
-		$render = $view['steps'][0]['render'];
-		self::assertSame( '', $render['url'] );
-		self::assertSame( 'none', $render['mode'] );
+		self::assertSame( '', $render['video_url'] );
 	}
 
 	// ── видео-шаг (Этап 1): больше не подменяется записью занятия ───────────

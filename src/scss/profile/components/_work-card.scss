@@ -196,4 +196,9 @@ a.wcard           { color: inherit; text-decoration: none; }
   }
 
   .sum-work-card .wcard-main { flex-wrap: wrap; }
+
+  // Название и срок работы на телефоне переносятся, а не обрезаются многоточием.
+  .sum-work-card .wcard-main,
+  .sum-work-card .wcard-title,
+  .sum-work-card .wcard-sub { white-space: normal; }
 }

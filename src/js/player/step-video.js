@@ -54,7 +54,7 @@ function mountChrome( panel, root ) {
 	video.addEventListener( 'loadedmetadata', updateTime );
 	video.addEventListener( 'click', toggle );
 
-	// Просмотр до конца = шаг пройден (как «Далее», но без перехода).
+	// Просмотр до конца = шаг пройден (обычно он засчитан уже при открытии — core.js).
 	video.addEventListener( 'ended', () => {
 		const core = getCore();
 		if ( ! core ) { return; }
@@ -65,6 +65,16 @@ function mountChrome( panel, root ) {
 			core.unlockNext();
 		}
 	} );
+
+	// Трансляция: запись из хранилища не открылась (объекта нет, бакет недоступен) —
+	// вместо мёртвого плеера показываем запасную ссылку (Tasks.md З1).
+	const fallback = panel.querySelector( '[data-bc-fallback]' );
+	if ( fallback ) {
+		video.addEventListener( 'error', () => {
+			root.hidden = true;
+			fallback.hidden = false;
+		} );
+	}
 
 	bigBtn?.addEventListener( 'click', toggle );
 	root.querySelector( '[data-vp-toggle]' )?.addEventListener( 'click', toggle );

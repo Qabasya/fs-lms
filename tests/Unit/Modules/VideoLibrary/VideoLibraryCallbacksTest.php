@@ -75,6 +75,19 @@ class VideoLibraryCallbacksTest extends TestCase {
 		$this->groupLessons->method( 'find' )->with( 42 )->willReturn( $this->row() );
 		$this->groupLessons->expects( self::once() )
 			->method( 'setRecordingUrl' )
+			->with( 42, 's3://bucket/videos/rec.webm' );
+
+		$_POST = array( 'group_lesson_id' => '42', 'recording_url' => 's3://bucket/videos/rec.webm' );
+
+		self::assertTrue( fs_test_capture_json( fn() => $this->cb->ajaxSetLessonRecordingUrl() )->success );
+	}
+
+	/** Прямая ссылка (облако) — во внешнюю ссылку занятия, не в указатель хранилища. */
+	public function test_set_lesson_recording_url_routes_http_to_link(): void {
+		$this->groupLessons->method( 'find' )->with( 42 )->willReturn( $this->row() );
+		$this->groupLessons->expects( self::never() )->method( 'setRecordingUrl' );
+		$this->groupLessons->expects( self::once() )
+			->method( 'setRecordingLink' )
 			->with( 42, 'https://example.com/rec.mp4' );
 
 		$_POST = array( 'group_lesson_id' => '42', 'recording_url' => 'https://example.com/rec.mp4' );

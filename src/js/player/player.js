@@ -11,6 +11,7 @@ import { initRail } from './rail.js';
 import { initStepTask } from './step-task.js';
 import { initStepWork } from './step-work.js';
 import { initStepVideo } from './step-video.js';
+import { initStepBroadcast } from './step-broadcast.js';
 import { initLessonCountdown } from '../frontend/components/lesson-countdown.js';
 import { initCodeBlocks } from '../frontend/components/code-block.js';
 import { installNonceRefresh } from '../common/nonce-refresh.js';
@@ -34,5 +35,6 @@ document.addEventListener( 'DOMContentLoaded', () => {
 	initStepTask();
 	initStepWork();
 	initStepVideo();
+	initStepBroadcast();
 	initCodeBlocks();
 } );

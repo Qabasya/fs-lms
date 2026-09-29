@@ -1,16 +1,17 @@
 /**
  * Ядро плеера (T14.5): состояние шагов из серверных панелей (.pstep),
- * навигация prev/next/лента/клавиатура, deep-link ?step=, запись прогресса
- * viewed/completed через AJAX — перенос из frontend/services/lesson-player.js.
+ * переход по шагам (рейка, клавиатура ←/→), deep-link ?step=, запись
+ * прогресса через AJAX.
  *
- * «Далее» на инлайновых шагах (текст/видео/ручное задание) отмечает шаг
- * пройденным — отдельной кнопки «Отметить пройденным» больше нет (D18).
+ * Tasks.md З4: обязательны только шаги, которые сдаются кнопкой (задание с
+ * автопроверкой, работа, контрольная). Лекция, видео, трансляция и ручное
+ * задание засчитываются при открытии и ничего не блокируют; решённое задание
+ * открывает все следующие шаги до очередного обязательного — то же правило,
+ * что у сервера (LessonGateResolver::requireSolvedUpTo).
  */
-import { renderStrip } from './strip.js';
-import { typeMeta } from './icons.js';
 import { toast } from './shell.js';
 
-// Только текст/видео/трансляция отмечаются «viewed» при показе (авто-грейд задач — через submit).
+// Шаги без сдачи: гейт не держат (сервер пропускает их по типу).
 const INLINE = [ 'text', 'video', 'broadcast' ];
 
 const vars = window.fs_lms_player_vars;
@@ -53,14 +54,8 @@ export function initCore() {
 	if ( ! panels.length ) { return; }
 
 	const groupLessonId = app.dataset.groupLessonId;
-	// Навигация на следующий урок с последнего шага (задача 2): данные рендерятся
-	// в player.php на #fsPlayerApp (data-next-url / data-next-available).
-	const nextLessonUrl       = app.dataset.nextUrl || '';
-	const nextLessonAvailable = '1' === app.dataset.nextAvailable && '' !== nextLessonUrl;
-	const prevBtn = document.getElementById( 'fsNavPrev' );
-	const nextBtn = document.getElementById( 'fsNavNext' );
-	const posEl   = document.getElementById( 'fsNavPos' );
-	const scroll  = document.getElementById( 'fsScroll' );
+	const lessonEnd     = document.getElementById( 'fsLessonEnd' );
+	const player        = document.getElementById( 'fsPlayer' );
 
 	let active = 0;
 
@@ -85,11 +80,18 @@ export function initCore() {
 		panels[ i ].dataset.status = status;
 	}
 
-	function unlockNext() {
-		const n = active + 1;
-		if ( panels[ n ] && 'locked' === panels[ n ].dataset.gate ) {
-			panels[ n ].dataset.gate = 'available';
+	/** Шаг решён — открываем следующие за ним шаги до очередного обязательного включительно. */
+	function unlockAfter( i ) {
+		for ( let n = i + 1; n < panels.length; n++ ) {
+			if ( 'locked' === panels[ n ].dataset.gate ) {
+				panels[ n ].dataset.gate = 'available';
+			}
+			if ( ! isInlineLike( panels[ n ] ) ) { break; }
 		}
+	}
+
+	function unlockNext() {
+		unlockAfter( active );
 		refresh();
 	}
 
@@ -101,36 +103,20 @@ export function initCore() {
 		if ( bar ) { bar.style.setProperty( '--progress', `${ ( done / panels.length ) * 100 }%` ); }
 	}
 
-	function updateNav() {
-		const last = active === panels.length - 1;
-		prevBtn.disabled = 0 === active;
-		prevBtn.classList.toggle( 'b-dis', 0 === active );
-		// На последнем шаге кнопка активна, если доступен следующий урок (задача 2).
-		const nextOk = last
-			? nextLessonAvailable
-			: ( isAvailable( active + 1 ) || isInlineLike( panels[ active ] ) );
-		nextBtn.disabled = ! nextOk;
-		nextBtn.classList.toggle( 'b-dis', ! nextOk );
-		if ( posEl ) {
-			const p       = panels[ active ];
-			const title   = p.dataset.title ? ` · ${ p.dataset.title }` : '';
-			posEl.textContent = `Шаг ${ active + 1 } из ${ panels.length } · ${ typeMeta( p.dataset.stepType ).label }${ title }`;
-		}
-	}
-
 	function refresh() {
-		renderStrip( { panels, active, onGoto: show } );
-		updateNav();
+		// Конец урока (выход к курсу / следующий урок) — под последним шагом.
+		if ( lessonEnd ) { lessonEnd.hidden = active !== panels.length - 1; }
 		updateTopbar();
 		refreshListeners.forEach( ( cb ) => cb( core ) );
 	}
 
-	function markViewedIfInline() {
+	/** Шаг без сдачи засчитывается, как только его открыли. */
+	function completeIfInline() {
 		const panel = panels[ active ];
-		if ( INLINE.includes( panel.dataset.stepType ) && 'available' === panel.dataset.status ) {
-			setStatus( active, 'viewed' );
-			mark( panel.dataset.step, 'viewed' );
-		}
+		if ( ! isInlineLike( panel ) || isDone( active ) ) { return; }
+		setStatus( active, 'completed' );
+		mark( panel.dataset.step, 'completed' );
+		unlockAfter( active );
 	}
 
 	function show( i ) {
@@ -144,30 +130,14 @@ export function initCore() {
 		panel.classList.remove( 'step-anim-fwd', 'step-anim-back' );
 		panel.classList.add( 'step-anim-' + dir );
 		panel.hidden = false;
+		completeIfInline();
 		refresh();
-		if ( scroll ) { scroll.scrollTop = 0; }
-		markViewedIfInline();
+		// Новый шаг — с начала контента (шапка прокручивается вместе со страницей).
+		if ( player && window.scrollY > player.offsetTop ) {
+			window.scrollTo( { top: player.offsetTop } );
+		}
 		showListeners.forEach( ( cb ) => cb( panel, core ) );
 	}
-
-	prevBtn.addEventListener( 'click', () => show( active - 1 ) );
-
-	nextBtn.addEventListener( 'click', () => {
-		const panel = panels[ active ];
-		if ( isInlineLike( panel ) && ! isDone( active ) ) {
-			setStatus( active, 'completed' );
-			mark( panel.dataset.step, 'completed' );
-			unlockNext();
-		}
-		if ( active < panels.length - 1 ) {
-			show( active + 1 );
-		} else if ( nextLessonAvailable ) {
-			// Последний шаг + доступен следующий урок → переход к нему (первый шаг).
-			window.location.href = nextLessonUrl;
-		} else {
-			refresh();
-		}
-	} );
 
 	// Клавиатура ←/→ (не при фокусе в полях ввода и не под модалкой).
 	document.addEventListener( 'keydown', ( e ) => {
@@ -203,8 +173,8 @@ export function initCore() {
 	}
 	active = start >= 0 ? start : 0;
 	panels[ active ].hidden = false;
+	completeIfInline();
 	refresh();
-	markViewedIfInline();
 	showListeners.forEach( ( cb ) => cb( panels[ active ], core ) );
 
 	return core;

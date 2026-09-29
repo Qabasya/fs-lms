@@ -90,6 +90,7 @@ use Inc\Controllers\Course\LessonPlayerController;
 use Inc\Controllers\Course\LessonProgressController;
 use Inc\Controllers\Course\SubmissionController;
 use Inc\Cli\SubjectBundleCommand;
+use Inc\Cli\TaskConditionCleanupCommand;
 use Inc\Cli\TaskFileSchemeCommand;
 use Inc\Controllers\Import\ImportController;
 use Inc\Controllers\Print\PrintCenterController;
@@ -105,6 +106,7 @@ use Inc\Migrations\Migration_1_0_32;
 use Inc\Migrations\Migration_1_0_33;
 use Inc\Migrations\Migration_1_0_37;
 use Inc\Migrations\Migration_1_0_54;
+use Inc\Migrations\Migration_1_0_62;
 use Inc\Migrations\MigrationRunner;
 use Inc\Services\Log\LogEventDispatcher;
 use Inc\Services\Shared\WpClock;
@@ -191,6 +193,7 @@ final class Init {
 			LegacyTaskImportController::class, // AJAX разового переноса заданий со старой версии сайта
 			SubjectBundleCommand::class, // WP-CLI: перенос предмета пакетом (регистрируется только под WP_CLI)
 			TaskFileSchemeCommand::class, // WP-CLI: http:// → https:// в ссылках на файлы заданий
+			TaskConditionCleanupCommand::class, // WP-CLI: пустые строки по краям условий заданий
 			ConfigController::class,
 			SettingsController::class,
 			GithubReleaseUpdater::class, // Индикатор «Доступно обновление» из GitHub Releases (Qabasya/fs-lms)
@@ -281,6 +284,7 @@ final class Init {
 		$migrationRunner->register( new Migration_1_0_33() );
 		$migrationRunner->register( new Migration_1_0_37() );
 		$migrationRunner->register( new Migration_1_0_54() );
+		$migrationRunner->register( new Migration_1_0_62() );
 		$migrationRunner->run();
 
 		// Data-миграция (не схема): ссылки на файлы заданий со старой схемой

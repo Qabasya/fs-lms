@@ -4,6 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\DTO\Task;
 
+use Inc\Services\Task\ConditionHtmlNormalizer;
 use Inc\Shared\SafeHtml;
 
 /**
@@ -82,7 +83,7 @@ readonly class LegacyTaskRowDTO {
 			author:        sanitize_text_field( $string( 'author' ) ),
 			year:          sanitize_text_field( $string( 'year' ) ),
 			level:         sanitize_text_field( $string( 'level' ) ),
-			conditionHtml: trim( SafeHtml::post( self::escapeBareLessThan( $string( 'condition_html' ) ) ) ),
+			conditionHtml: self::cleanCondition( $string( 'condition_html' ) ),
 			answer:        trim( sanitize_textarea_field( $string( 'answer' ) ) ),
 			codePython:    trim( $string( 'code_python' ) ),
 			fileUrl:       esc_url_raw( trim( $string( 'file_url' ) ) ),
@@ -115,12 +116,20 @@ readonly class LegacyTaskRowDTO {
 			$answer    = is_scalar( $part['answer'] ?? null ) ? (string) $part['answer'] : '';
 
 			$subparts[ sanitize_key( (string) $key ) ] = array(
-				'condition' => trim( SafeHtml::post( self::escapeBareLessThan( $condition ) ) ),
+				'condition' => self::cleanCondition( $condition ),
 				'answer'    => trim( sanitize_textarea_field( $answer ) ),
 			);
 		}
 
 		return $subparts;
+	}
+
+	/**
+	 * Условие со старого сайта: санитизация, экранирование голых `<` и срез
+	 * пустых строк по краям (легаси-задания приезжали с хвостовыми `<p>&nbsp;</p>`).
+	 */
+	private static function cleanCondition( string $html ): string {
+		return ( new ConditionHtmlNormalizer() )->normalize( SafeHtml::post( self::escapeBareLessThan( $html ) ) );
 	}
 
 	/**

@@ -124,20 +124,56 @@ class LessonDeliveryCallbacks extends BaseController {
 	 * авто-матч VideoLibrary не привязал запись: методист/офис (а для своей группы —
 	 * преподаватель) вставляет ссылку руками. Ядро о модуле не знает — просто хранит
 	 * и отдаёт строку-указатель (`https://…` или `s3://bucket/key`).
-	 * Params: group_lesson_id, recording_url (пусто — снять ссылку)
+	 *
+	 * Два независимых поля (передаётся то, что правится; пусто — снять):
+	 * - `recording_url`  — указатель хранилища `s3://bucket/key`;
+	 * - `recording_link` — внешняя ссылка на запись (облако), её же вставляет
+	 *   преподаватель прямо в шаге «Трансляция» плеера.
+	 * `http(s)://`, пришедший в `recording_url` (старый попап), считается ссылкой.
+	 *
+	 * Params: group_lesson_id, recording_url?, recording_link?
 	 */
 	public function ajaxSetRecordingUrl(): void {
 		$this->authorize( Nonce::SaveSchedule, Capability::ManageLmsTeaching );
 		$groupLessonId = $this->requireInt( 'group_lesson_id' );
-		$url           = $this->sanitizeText( 'recording_url' );
 
 		$this->requireProgramRow( $groupLessonId );
 
-		$this->groupLessons->setRecordingUrl( $groupLessonId, '' !== $url ? $url : null );
-		if ( '' !== $url ) {
+		$pointer = $this->hasParam( 'recording_url' ) ? $this->sanitizeText( 'recording_url' ) : null;
+		$link    = $this->hasParam( 'recording_link' ) ? $this->sanitizeText( 'recording_link' ) : null;
+
+		if ( null !== $pointer && preg_match( '#^https?://#i', $pointer ) ) {
+			$link    = $pointer;
+			$pointer = null;
+		}
+
+		if ( null !== $pointer && '' !== $pointer && ! str_starts_with( $pointer, 's3://' ) ) {
+			$this->error( __( 'Запись в хранилище указывается как s3://бакет/ключ, ссылка на облако — как https://…', 'fs-lms' ) );
+		}
+		if ( null !== $link && '' !== $link ) {
+			$link = esc_url_raw( $link, array( 'http', 'https' ) );
+			if ( '' === $link ) {
+				$this->error( __( 'Ссылка на запись должна начинаться с https://', 'fs-lms' ) );
+			}
+		}
+
+		if ( null !== $pointer ) {
+			$this->groupLessons->setRecordingUrl( $groupLessonId, '' !== $pointer ? $pointer : null );
+		}
+		if ( null !== $link ) {
+			$this->groupLessons->setRecordingLink( $groupLessonId, '' !== $link ? $link : null );
+		}
+		if ( '' !== (string) $pointer || '' !== (string) $link ) {
 			do_action( 'fs_lms_recording_attached', $groupLessonId );
 		}
 
-		$this->success( array( 'saved' => true, 'recording_url' => '' !== $url ? $url : null ) );
+		// В ответе — то, что сохранили (null — поле снято или не менялось).
+		$this->success(
+			array(
+				'saved'          => true,
+				'recording_url'  => '' !== (string) $pointer ? $pointer : null,
+				'recording_link' => '' !== (string) $link ? $link : null,
+			)
+		);
 	}
 }

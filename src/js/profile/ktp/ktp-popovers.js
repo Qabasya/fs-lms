@@ -73,39 +73,45 @@ async function openDeadlinesPopover(glid, anchorEl, api) {
 export function attachRecordingClick(el, api, reload) {
     el.addEventListener('click', e => {
         e.stopPropagation(); // не запускать переход в плеер по клику на родительскую карточку
-        openRecordingPopover(el.dataset.glid, el, el.dataset.url || '', api, reload);
+        openRecordingPopover(el.dataset.glid, el, el.dataset.url || '', el.dataset.link || '', api, reload);
     });
 }
 
-function openRecordingPopover(glid, anchorEl, currentUrl, api, reload) {
+/* Два независимых поля: запись в хранилище (s3://, её ставит авто-привязка) и
+   ссылка на облако — она же запасной вариант, если запись из хранилища не откроется. */
+function openRecordingPopover(glid, anchorEl, currentUrl, currentLink, api, reload) {
     const html = `
         <div class="wd-pop rec-pop">
-            <div class="ctx-title">Ссылка на запись занятия</div>
-            <input type="text" class="wd-input rec-input" value="${esc(currentUrl)}" placeholder="https://… или s3://bucket/key">
+            <div class="ctx-title">Запись занятия</div>
+            <label class="rec-label" for="recLink">Ссылка на запись (облако)</label>
+            <input type="url" id="recLink" class="wd-input rec-input" data-rec="recording_link" value="${esc(currentLink)}" placeholder="https://…">
+            <label class="rec-label" for="recPointer">Запись в хранилище</label>
+            <input type="text" id="recPointer" class="wd-input rec-input" data-rec="recording_url" value="${esc(currentUrl)}" placeholder="s3://bucket/key">
             <div class="rec-actions">
                 <button type="button" class="prof-btn prof-btn-sm prof-btn-primary rec-save">Сохранить</button>
-                ${currentUrl ? '<button type="button" class="prof-btn prof-btn-sm rec-clear">Снять ссылку</button>' : ''}
+                ${currentUrl || currentLink ? '<button type="button" class="prof-btn prof-btn-sm rec-clear">Снять всё</button>' : ''}
             </div>
         </div>`;
     openCtxMenuRaw(html, anchorEl);
     const menu = document.getElementById('profCtxMenu');
-    const input = menu?.querySelector('.rec-input');
     const saveBtn = menu?.querySelector('.rec-save');
     const clearBtn = menu?.querySelector('.rec-clear');
     if (!saveBtn) return;
 
-    const save = async (url) => {
+    const save = async (clear) => {
+        const params = { group_lesson_id: glid };
+        menu.querySelectorAll('[data-rec]').forEach(input => { params[input.dataset.rec] = clear ? '' : input.value.trim(); });
         saveBtn.disabled = true;
         try {
-            await api('setRecordingUrl', { group_lesson_id: glid, recording_url: url });
-            toast(url ? 'Ссылка сохранена' : 'Ссылка снята');
+            await api('setRecordingUrl', params);
+            toast(clear ? 'Запись снята' : 'Сохранено');
             closeCtxMenu();
             await reload();
         } catch (e) { toast(e.message, 'error'); saveBtn.disabled = false; }
     };
 
-    saveBtn.addEventListener('click', () => save(input.value.trim()));
-    clearBtn?.addEventListener('click', () => save(''));
+    saveBtn.addEventListener('click', () => save(false));
+    clearBtn?.addEventListener('click', () => save(true));
 }
 
 /* ── Продолжение темы на вторую дату (T12.6, D14) ─────────────────────────

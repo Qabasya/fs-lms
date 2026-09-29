@@ -156,6 +156,33 @@ class LessonDeliveryCallbacksTest extends TestCase {
 		self::assertNull( $r->payload['recording_url'] );
 	}
 
+	/** Tasks.md З1: прямая ссылка на облако — во внешнюю ссылку, указатель хранилища не трогается. */
+	public function test_set_recording_url_routes_http_to_link(): void {
+		$this->program->method( 'getProgramRow' )->willReturn( $this->programRow() );
+		$this->guard->method( 'canManage' )->willReturn( true );
+		$this->groupLessons->expects( $this->never() )->method( 'setRecordingUrl' );
+		$this->groupLessons->expects( $this->once() )
+			->method( 'setRecordingLink' )
+			->with( 42, 'https://disk.example.com/rec' );
+
+		$_POST = array( 'group_lesson_id' => '42', 'recording_link' => 'https://disk.example.com/rec' );
+
+		$r = fs_test_capture_json( fn() => $this->cb->ajaxSetRecordingUrl() );
+
+		self::assertTrue( $r->success );
+		self::assertSame( 'https://disk.example.com/rec', $r->payload['recording_link'] );
+	}
+
+	public function test_set_recording_url_rejects_unknown_pointer_scheme(): void {
+		$this->program->method( 'getProgramRow' )->willReturn( $this->programRow() );
+		$this->guard->method( 'canManage' )->willReturn( true );
+		$this->groupLessons->expects( $this->never() )->method( 'setRecordingUrl' );
+
+		$_POST = array( 'group_lesson_id' => '42', 'recording_url' => 'ftp://example.com/rec' );
+
+		self::assertFalse( fs_test_capture_json( fn() => $this->cb->ajaxSetRecordingUrl() )->success );
+	}
+
 	public function test_set_recording_url_denied_for_foreign_group(): void {
 		$this->program->method( 'getProgramRow' )->willReturn( $this->programRow() );
 		$this->guard->method( 'canManage' )->willReturn( false );

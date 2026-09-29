@@ -1,11 +1,13 @@
 <?php
 /**
- * Плеер курса (Эпик 14, D18) — полноэкранный app-shell в оболочке ЛК ученика.
+ * Плеер урока (Эпик 14, D18; Tasks.md З4) — страница одного урока.
  *
- * Свой <html> (без темы сайта, как profile.php): сайдбар кабинета со ссылками
- * в /profile/, топбар (крамб, заголовок урока, прогресс), рейка дерева курса,
- * лента шагов. Шаги отрендерены сервером в скрытые панели; навигацию, ленту
- * и рейку строит бандл player.min.js (Enqueue грузит по fs_lms_is_player_route).
+ * Свой <html> (без темы сайта, как profile.php): шапка (крамб, заголовок урока,
+ * прогресс) прокручивается вместе со страницей, слева — липкая рейка шагов
+ * (квадраты-номера, подсказка с типом и названием по наведению). По курсу ходят
+ * со страницы курса в кабинете — дерева курса и кнопок «Назад/Далее» в плеере нет.
+ * Шаги отрендерены сервером в скрытые панели; рейку и переключение строит бандл
+ * player.min.js (Enqueue грузит по fs_lms_is_player_route).
  *
  * @var array    $view        {group_lesson_id, lesson_id, topic, steps[], shell?, preview?}
  * @var int      $groupId     0 в preview-режиме (курс не привязан к группе, Фаза 5).
@@ -45,6 +47,7 @@ $is_teacher      = ! empty( $is_teacher );
 $course_title    = (string) ( $shell['course_title'] ?? '' );
 $module_label    = (string) ( $shell['module_label'] ?? '' );
 $course_progress = is_array( $shell['course_progress'] ?? null ) ? $shell['course_progress'] : null;
+$course_id       = (int) ( $shell['course_id'] ?? $view['course_id'] ?? 0 );
 
 // #3b (редизайн): режим блокировки урока — сам плеер рендерится, но контент шага
 // заменён размытым скелетом + оверлеем «Урок ещё не доступен» (+ таймер D-4).
@@ -66,6 +69,17 @@ $steps_done  = count(
 	)
 );
 $lesson_pct  = $steps_total > 0 ? (int) round( $steps_done / $steps_total * 100 ) : 0;
+
+// «Вернуться» ведёт на страницу курса в кабинете: ученику — «Мои курсы» на этом
+// курсе (группе), преподавателю и предпросмотру — его страница курса. Родителю —
+// в кабинет: материалы урока ему закрыты.
+if ( $locked_parent ) {
+	$back_url = $profile_url;
+} elseif ( $is_teacher || $is_preview ) {
+	$back_url = add_query_arg( array_filter( array( 'screen' => 'teacher-courses', 'course' => $course_id ) ), $profile_url );
+} else {
+	$back_url = add_query_arg( array( 'screen' => 'learner-lessons', 'group' => $groupId ), $profile_url );
+}
 
 ?>
 <!DOCTYPE html>
@@ -96,197 +110,186 @@ $next_url    = null !== $next_lesson
 	data-active-step="<?php echo esc_attr( $active_step ?? '' ); ?>"
 	data-preview="<?php echo $is_preview ? '1' : '0'; ?>"
 	data-teacher="<?php echo $is_teacher ? '1' : '0'; ?>"
-	data-locked="<?php echo $locked ? '1' : '0'; ?>"
-	<?php echo '' !== $next_url ? 'data-next-url="' . esc_url( $next_url ) . '"' : ''; ?>
-	<?php echo null !== $next_lesson ? 'data-next-available="' . esc_attr( $next_lesson['available'] ? '1' : '0' ) . '"' : ''; ?>>
+	data-locked="<?php echo $locked ? '1' : '0'; ?>">
 
-	<!-- ══ Основная область (сайдбар кабинета в плеере не дублируется — только
-	     кнопка «Вернуться» в топбаре, см. ниже) ══ -->
-	<div class="s-main">
-		<header class="s-top">
-			<a class="s-back" href="<?php echo esc_url( $profile_url ); ?>">
-				<?php echo Icon::Back->svg(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
-				<?php esc_html_e( 'Вернуться', 'fs-lms' ); ?>
-			</a>
-			<div>
-				<div class="s-crumb">
-					<?php esc_html_e( 'Мои курсы', 'fs-lms' ); ?><?php if ( '' !== $course_title ) : ?> · <b><?php echo esc_html( $course_title ); ?></b><?php endif; ?><?php if ( '' !== $module_label ) : ?> · <?php echo esc_html( $module_label ); ?><?php endif; ?>
-				</div>
-				<div class="s-title"><?php echo esc_html( $view['topic'] ); ?></div>
+	<!-- Шапка — часть страницы: уезжает при прокрутке (липкий — только воркбар работы). -->
+	<header class="s-top">
+		<a class="s-back" href="<?php echo esc_url( $back_url ); ?>">
+			<?php echo Icon::Back->svg(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+			<?php esc_html_e( 'К курсу', 'fs-lms' ); ?>
+		</a>
+		<div>
+			<div class="s-crumb">
+				<?php esc_html_e( 'Мои курсы', 'fs-lms' ); ?><?php if ( '' !== $course_title ) : ?> · <b><?php echo esc_html( $course_title ); ?></b><?php endif; ?><?php if ( '' !== $module_label ) : ?> · <?php echo esc_html( $module_label ); ?><?php endif; ?>
 			</div>
-			<div class="s-right">
-				<?php if ( $is_preview ) : ?>
-					<span class="pv-banner"><?php esc_html_e( 'Предпросмотр курса', 'fs-lms' ); ?></span>
-				<?php endif; ?>
-				<?php if ( $is_teacher ) : ?>
-					<span class="pv-banner"><?php esc_html_e( 'Режим преподавателя', 'fs-lms' ); ?></span>
-				<?php elseif ( $locked_parent ) : ?>
-					<span class="pv-banner"><?php esc_html_e( 'Просмотр родителя', 'fs-lms' ); ?></span>
+			<div class="s-title"><?php echo esc_html( $view['topic'] ); ?></div>
+		</div>
+		<div class="s-right">
+			<?php if ( $is_preview ) : ?>
+				<span class="pv-banner"><?php esc_html_e( 'Предпросмотр курса', 'fs-lms' ); ?></span>
+			<?php endif; ?>
+			<?php if ( $is_teacher ) : ?>
+				<span class="pv-banner"><?php esc_html_e( 'Режим преподавателя', 'fs-lms' ); ?></span>
+			<?php elseif ( $locked_parent ) : ?>
+				<span class="pv-banner"><?php esc_html_e( 'Просмотр родителя', 'fs-lms' ); ?></span>
+			<?php else : ?>
+				<div class="s-prog">
+					<span class="sp-txt" id="fsProgTxt">
+						<?php
+						printf(
+							/* translators: 1: completed steps, 2: total steps */
+							esc_html__( 'Урок · %1$d из %2$d', 'fs-lms' ),
+							$steps_done,
+							$steps_total
+						);
+						?>
+					</span>
+					<span class="sp-bar"><span id="fsProgBar" data-width="<?php echo esc_attr( (string) $lesson_pct ); ?>"></span></span>
+				</div>
+			<?php endif; ?>
+			<button type="button" class="s-ibtn" data-toast="<?php esc_attr_e( 'Уведомлений нет', 'fs-lms' ); ?>">
+				<?php echo Icon::Bell->svg(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+			</button>
+		</div>
+	</header>
+
+	<!-- плеер: рейка шагов + контент -->
+	<div class="player" id="fsPlayer">
+		<?php if ( ! $locked ) : ?>
+			<?php include __DIR__ . '/partials/rail.php'; ?>
+		<?php endif; ?>
+		<div class="content<?php echo $locked ? ' is-locked' : ''; ?>">
+			<div class="col">
+				<?php if ( $locked ) : ?>
+				<div class="lock-skeleton" aria-hidden="true">
+					<div class="lsk lsk-title"></div>
+					<div class="lsk"></div>
+					<div class="lsk lsk-short"></div>
+					<div class="lsk-box"></div>
+					<div class="lsk"></div>
+					<div class="lsk lsk-short"></div>
+				</div>
 				<?php else : ?>
-					<div class="s-prog">
-						<span class="sp-txt" id="fsProgTxt">
+				<div class="steproot" id="fsStepRoot">
+					<?php foreach ( $view['steps'] as $i => $step ) : ?>
+						<?php
+						// Ручное задание сдавать нечем — как инлайн-шаг, оно засчитывается при открытии (core.js).
+						$is_manual_task = 'task' === $step['type'] && empty( $step['render']['auto_grade'] );
+
+						// Кнопка «Редактировать» (Фаза 5, #15-E) — только в preview для роли с
+						// правом редактирования курса. Ссылочные шаги (task/work/assessment) —
+						// по ref (post id, как и раньше); text/video — по стабильному step.key.
+						$edit_url = '';
+						if ( $can_edit ) {
+							$ref      = (int) ( $step['render']['ref'] ?? 0 );
+							$edit_url = admin_url( sprintf(
+								'admin.php?page=fs_lms_course_builder&course=%d&lesson=%d%s',
+								(int) ( $view['course_id'] ?? 0 ),
+								(int) $view['lesson_id'],
+								$ref > 0 ? '&step_ref=' . $ref : '&step_key=' . rawurlencode( $step['key'] )
+							) );
+						}
+						?>
+						<section
+							class="pstep"
+							data-step="<?php echo esc_attr( $step['key'] ); ?>"
+							data-index="<?php echo esc_attr( (string) $i ); ?>"
+							data-step-type="<?php echo esc_attr( $step['type'] ); ?>"
+							data-title="<?php echo esc_attr( $step['title'] ); ?>"
+							data-gate="<?php echo esc_attr( $step['gate'] ); ?>"
+							data-status="<?php echo esc_attr( $step['status'] ); ?>"
+							<?php echo $is_manual_task ? 'data-manual="1"' : ''; ?>
+							hidden
+						>
 							<?php
-							printf(
-								/* translators: 1: completed steps, 2: total steps */
-								esc_html__( 'Урок · %1$d из %2$d', 'fs-lms' ),
-								$steps_done,
-								$steps_total
-							);
+							$render = $step['render'] ?? array();
+							switch ( $step['type'] ) {
+								case 'text':
+									include __DIR__ . '/partials/step-text.php';
+									break;
+								case 'video':
+									include __DIR__ . '/partials/step-video.php';
+									break;
+								case 'broadcast':
+									include __DIR__ . '/partials/step-broadcast.php';
+									break;
+								case 'task':
+									include __DIR__ . '/partials/step-task.php';
+									break;
+								case 'work':
+									include __DIR__ . '/partials/step-work.php';
+									break;
+								case 'assessment':
+									include __DIR__ . '/partials/step-assessment.php';
+									break;
+							}
 							?>
-						</span>
-						<span class="sp-bar"><span id="fsProgBar" data-width="<?php echo esc_attr( (string) $lesson_pct ); ?>"></span></span>
-					</div>
-				<?php endif; ?>
-				<button type="button" class="s-ibtn" data-toast="<?php esc_attr_e( 'Уведомлений нет', 'fs-lms' ); ?>">
-					<?php echo Icon::Bell->svg(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
-				</button>
-			</div>
-		</header>
-
-		<!-- плеер: рейка дерева + контент -->
-		<div class="player">
-			<div class="railwrap">
-				<div class="rail" id="fsRail">
-					<?php include __DIR__ . '/partials/rail.php'; ?>
+						</section>
+					<?php endforeach; ?>
 				</div>
-			</div>
-			<?php // Мобильное затемнение под деревом-оверлеем: тап по нему закрывает дерево (rail.js). ?>
-			<div class="rail-scrim" id="fsRailScrim" hidden></div>
-			<div class="content<?php echo $locked ? ' is-locked' : ''; ?>">
-				<div class="cscroll" id="fsScroll">
-					<div class="col">
-						<?php if ( $locked ) : ?>
-						<div class="lock-skeleton" aria-hidden="true">
-							<div class="lsk lsk-title"></div>
-							<div class="lsk"></div>
-							<div class="lsk lsk-short"></div>
-							<div class="lsk-box"></div>
-							<div class="lsk"></div>
-							<div class="lsk lsk-short"></div>
-						</div>
-						<?php else : ?>
-						<div class="strip" id="fsStrip"></div>
 
-						<div class="cnav" id="fsNav">
-							<button type="button" class="b b-gh" id="fsNavPrev">
-								<?php echo Icon::ChevronLeft->svg(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
-								<?php esc_html_e( 'Назад', 'fs-lms' ); ?>
-							</button>
-							<span class="pos" id="fsNavPos"></span>
-							<button type="button" class="b b-pri" id="fsNavNext">
-								<?php esc_html_e( 'Далее', 'fs-lms' ); ?>
+				<?php // Конец урока: показывается на последнем шаге (core.js). Выход из урока, не навигация по шагам. ?>
+				<div class="lesson-end" id="fsLessonEnd" hidden>
+					<div class="le-t"><?php esc_html_e( 'Это последний шаг урока', 'fs-lms' ); ?></div>
+					<div class="le-actions">
+						<a class="b b-gh" href="<?php echo esc_url( $back_url ); ?>"><?php esc_html_e( 'Вернуться к курсу', 'fs-lms' ); ?></a>
+						<?php if ( '' !== $next_url && ! empty( $next_lesson['available'] ) ) : ?>
+							<a class="b b-pri" href="<?php echo esc_url( $next_url ); ?>">
+								<?php esc_html_e( 'Следующий урок', 'fs-lms' ); ?>
 								<?php echo Icon::ChevronRight->svg(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
-							</button>
-						</div>
-
-						<div class="steproot" id="fsStepRoot">
-							<?php foreach ( $view['steps'] as $i => $step ) : ?>
-								<?php
-								// Ручное задание проходится как инлайн-шаг: «Далее» отмечает его пройденным.
-								$is_manual_task = 'task' === $step['type'] && empty( $step['render']['auto_grade'] );
-
-								// Кнопка «Редактировать» (Фаза 5, #15-E) — только в preview для роли с
-								// правом редактирования курса. Ссылочные шаги (task/work/assessment) —
-								// по ref (post id, как и раньше); text/video — по стабильному step.key.
-								$edit_url = '';
-								if ( $can_edit ) {
-									$ref      = (int) ( $step['render']['ref'] ?? 0 );
-									$edit_url = admin_url( sprintf(
-										'admin.php?page=fs_lms_course_builder&course=%d&lesson=%d%s',
-										(int) ( $view['course_id'] ?? 0 ),
-										(int) $view['lesson_id'],
-										$ref > 0 ? '&step_ref=' . $ref : '&step_key=' . rawurlencode( $step['key'] )
-									) );
-								}
-								?>
-								<section
-									class="pstep"
-									data-step="<?php echo esc_attr( $step['key'] ); ?>"
-									data-index="<?php echo esc_attr( (string) $i ); ?>"
-									data-step-type="<?php echo esc_attr( $step['type'] ); ?>"
-									data-title="<?php echo esc_attr( $step['title'] ); ?>"
-									data-gate="<?php echo esc_attr( $step['gate'] ); ?>"
-									data-status="<?php echo esc_attr( $step['status'] ); ?>"
-									<?php echo $is_manual_task ? 'data-manual="1"' : ''; ?>
-									hidden
-								>
-									<?php
-									$render = $step['render'] ?? array();
-									switch ( $step['type'] ) {
-										case 'text':
-											include __DIR__ . '/partials/step-text.php';
-											break;
-										case 'video':
-											include __DIR__ . '/partials/step-video.php';
-											break;
-										case 'broadcast':
-											include __DIR__ . '/partials/step-broadcast.php';
-											break;
-										case 'task':
-											include __DIR__ . '/partials/step-task.php';
-											break;
-										case 'work':
-											include __DIR__ . '/partials/step-work.php';
-											break;
-										case 'assessment':
-											include __DIR__ . '/partials/step-assessment.php';
-											break;
-									}
-									?>
-								</section>
-							<?php endforeach; ?>
-						</div>
+							</a>
 						<?php endif; ?>
 					</div>
 				</div>
+				<?php endif; ?>
 			</div>
-
-			<?php if ( $locked ) : ?>
-			<div class="lock-overlay">
-				<div class="lock-modal" role="dialog" aria-modal="true" aria-labelledby="fsLockTitle">
-					<div class="lock-ico">
-						<?php echo Icon::Lock->svg( 28 ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
-					</div>
-					<?php if ( $locked_parent ) : ?>
-						<div class="lock-title" id="fsLockTitle"><?php esc_html_e( 'Материалы курса доступны только ученику', 'fs-lms' ); ?></div>
-						<p class="lock-sub"><?php esc_html_e( 'Уроки и задания открываются в личном кабинете обучающегося. Успеваемость, оценки и посещаемость ребёнка вы можете посмотреть в своём кабинете.', 'fs-lms' ); ?></p>
-						<div class="lock-actions">
-							<a class="b b-pri" href="<?php echo esc_url( $profile_url ); ?>"><?php esc_html_e( 'Перейти в кабинет', 'fs-lms' ); ?></a>
-						</div>
-					<?php elseif ( $locked_soon ) : ?>
-						<div class="lock-title" id="fsLockTitle"><?php esc_html_e( 'Занятие скоро начнётся', 'fs-lms' ); ?></div>
-						<p class="lock-sub">
-							<?php
-							printf(
-								/* translators: %s: время начала занятия (ЧЧ:ММ). */
-								esc_html__( 'Начало в %s — страница обновится автоматически.', 'fs-lms' ),
-								esc_html( mysql2date( 'H:i', $locked_scheduled ) )
-							);
-							?>
-						</p>
-						<div class="lock-countdown" data-lesson-countdown data-seconds="<?php echo esc_attr( (string) $locked_seconds ); ?>">
-							<span data-countdown-value><?php echo esc_html( sprintf( '%02d:%02d', intdiv( $locked_seconds, 60 ), $locked_seconds % 60 ) ); ?></span>
-						</div>
-					<?php elseif ( null !== $locked_seconds && $locked_seconds > 0 ) : ?>
-						<div class="lock-title" id="fsLockTitle"><?php esc_html_e( 'Урок ещё не доступен', 'fs-lms' ); ?></div>
-						<p class="lock-sub">
-							<?php
-							printf(
-								/* translators: 1: дата открытия, 2: время начала (ЧЧ:ММ). */
-								esc_html__( 'Откроется %1$s в %2$s.', 'fs-lms' ),
-								esc_html( mysql2date( 'j F', $locked_scheduled ) ),
-								esc_html( mysql2date( 'H:i', $locked_scheduled ) )
-							);
-							?>
-						</p>
-					<?php else : ?>
-						<div class="lock-title" id="fsLockTitle"><?php esc_html_e( 'Урок ещё не доступен', 'fs-lms' ); ?></div>
-						<p class="lock-sub"><?php esc_html_e( 'Он откроется по дате или после выполнения предыдущих шагов.', 'fs-lms' ); ?></p>
-					<?php endif; ?>
-				</div>
-			</div>
-			<?php endif; ?>
 		</div>
+
+		<?php if ( $locked ) : ?>
+		<div class="lock-overlay">
+			<div class="lock-modal" role="dialog" aria-modal="true" aria-labelledby="fsLockTitle">
+				<div class="lock-ico">
+					<?php echo Icon::Lock->svg( 28 ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+				</div>
+				<?php if ( $locked_parent ) : ?>
+					<div class="lock-title" id="fsLockTitle"><?php esc_html_e( 'Материалы курса доступны только ученику', 'fs-lms' ); ?></div>
+					<p class="lock-sub"><?php esc_html_e( 'Уроки и задания открываются в личном кабинете обучающегося. Успеваемость, оценки и посещаемость ребёнка вы можете посмотреть в своём кабинете.', 'fs-lms' ); ?></p>
+					<div class="lock-actions">
+						<a class="b b-pri" href="<?php echo esc_url( $profile_url ); ?>"><?php esc_html_e( 'Перейти в кабинет', 'fs-lms' ); ?></a>
+					</div>
+				<?php elseif ( $locked_soon ) : ?>
+					<div class="lock-title" id="fsLockTitle"><?php esc_html_e( 'Занятие скоро начнётся', 'fs-lms' ); ?></div>
+					<p class="lock-sub">
+						<?php
+						printf(
+							/* translators: %s: время начала занятия (ЧЧ:ММ). */
+							esc_html__( 'Начало в %s — страница обновится автоматически.', 'fs-lms' ),
+							esc_html( mysql2date( 'H:i', $locked_scheduled ) )
+						);
+						?>
+					</p>
+					<div class="lock-countdown" data-lesson-countdown data-seconds="<?php echo esc_attr( (string) $locked_seconds ); ?>">
+						<span data-countdown-value><?php echo esc_html( sprintf( '%02d:%02d', intdiv( $locked_seconds, 60 ), $locked_seconds % 60 ) ); ?></span>
+					</div>
+				<?php elseif ( null !== $locked_seconds && $locked_seconds > 0 ) : ?>
+					<div class="lock-title" id="fsLockTitle"><?php esc_html_e( 'Урок ещё не доступен', 'fs-lms' ); ?></div>
+					<p class="lock-sub">
+						<?php
+						printf(
+							/* translators: 1: дата открытия, 2: время начала (ЧЧ:ММ). */
+							esc_html__( 'Откроется %1$s в %2$s.', 'fs-lms' ),
+							esc_html( mysql2date( 'j F', $locked_scheduled ) ),
+							esc_html( mysql2date( 'H:i', $locked_scheduled ) )
+						);
+						?>
+					</p>
+				<?php else : ?>
+					<div class="lock-title" id="fsLockTitle"><?php esc_html_e( 'Урок ещё не доступен', 'fs-lms' ); ?></div>
+					<p class="lock-sub"><?php esc_html_e( 'Он откроется по дате или после выполнения предыдущих шагов.', 'fs-lms' ); ?></p>
+				<?php endif; ?>
+			</div>
+		</div>
+		<?php endif; ?>
 	</div>
 
 </div>

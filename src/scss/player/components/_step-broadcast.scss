@@ -1,31 +1,58 @@
 /* ══════════════════════════════════════════════════════════════════════
-   Трансляция без записи (Этап 1): плашка-заглушка вместо видео-хрома —
-   иконка, текст, кнопка-ссылка на stream_url (интеграция с плагином
-   трансляций — отдельный, более поздний этап). С записью — используется
-   тот же хром, что у видео (components/_step-video.scss, video-chrome.php).
+   Шаг «Трансляция» (Tasks.md З1): без плашки и фона — до занятия кнопка
+   «Подключиться к трансляции», после — плеер записи (общий хром видео,
+   _step-video.scss) или кнопка «Открыть запись трансляции». Ниже — форма
+   ссылки на запись в режиме преподавателя.
    ══════════════════════════════════════════════════════════════════════ */
 @use '../variables' as *;
 
-.broadcast-placeholder {
+.bc-body .step-muted { margin: 0; }
+
+.bc-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: rem(10);
+}
+
+.bc-fallback {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: rem(14);
-  padding: rem(48) rem(24);
-  border-radius: rem(14);
-  background: var(--video-canvas);
-  text-align: center;
+  gap: rem(10);
 
-  .bp-ico {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: rem(56);
-    height: rem(56);
-    border-radius: 50%;
-    background: var(--tcs);
-    color: var(--tc);
-  }
+  &[hidden] { display: none; }
+}
 
-  .step-muted { margin: 0; }
+/* ── Форма преподавателя ──────────────────────────────────────────────── */
+.bc-rec {
+  border-top: 1px dashed var(--line);
+  padding-top: rem(16);
+}
+
+.bc-rec-label {
+  display: block;
+  margin-bottom: rem(8);
+  font-size: $font-size-base;
+  color: var(--muted);
+}
+
+.bc-rec-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: rem(8);
+}
+
+.bc-rec-input {
+  flex: 1 1 rem(280);
+  min-width: 0;
+  height: rem(40);
+  padding: 0 rem(12);
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  font: inherit;
+  font-size: $font-size-base;
+  color: var(--ink);
+  outline: none;
+
+  &:focus { border-color: var(--accent); }
 }

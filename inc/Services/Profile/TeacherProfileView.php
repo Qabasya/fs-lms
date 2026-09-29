@@ -53,7 +53,8 @@ final class TeacherProfileView implements ProfileViewInterface {
 			array( 'key' => 'ktp',       'label' => 'КТП и расписание' ),
 			array( 'key' => 'activity',  'label' => 'Активность' ),
 		);
-		$screens = array( 'dashboard', 'groups', 'journal', 'works', 'summary', 'ktp', 'activity' );
+		// teacher-courses — страница курса (Tasks.md З4): вход кликом по курсу в сайдбаре, не из меню.
+		$screens = array( 'dashboard', 'groups', 'journal', 'works', 'summary', 'ktp', 'activity', 'teacher-courses' );
 
 		// Замены (кабинет + педагог) — офисный инструмент, препод не видит.
 		if ( UserRole::FSOffice === $context->role ) {
@@ -207,6 +208,13 @@ final class TeacherProfileView implements ProfileViewInterface {
 					'getDashboard' => AjaxHook::GetProfileDashboard->jsAction(),
 				),
 			),
+			// Страница курса преподавателя (Tasks.md З4): программа курса по клику в «Мои курсы».
+			'courses'   => array(
+				'nonce'   => Nonce::SaveSchedule->create(),
+				'actions' => array(
+					'getProgram' => AjaxHook::GetTaughtCourseProgram->jsAction(),
+				),
+			),
 			// Экран «Активность»: лента событий группы и история решений задач.
 			// Три под-блока, потому что домены разные и нонс у каждого свой —
 			// createApi() принимает ровно пару {nonce, actions}.
@@ -249,7 +257,7 @@ final class TeacherProfileView implements ProfileViewInterface {
 	 * могут вести один курс — в сайдбаре он должен быть одной строкой.
 	 *
 	 * @param object[] $rows Строки групп (raw stdClass, `GroupsRepository`).
-	 * @return array<int, array{id:int, title:string, subject_key:string, group_ids:int[], first_lesson_id:int}>
+	 * @return array<int, array{id:int, title:string, subject_key:string, group_ids:int[]}>
 	 */
 	private function coursesTaught( array $rows ): array {
 		$courses = array();
@@ -268,7 +276,6 @@ final class TeacherProfileView implements ProfileViewInterface {
 					'title'           => $course->title,
 					'subject_key'     => (string) $g->subject_key,
 					'group_ids'       => array(),
-					'first_lesson_id' => $course->lessonIds()[0] ?? 0,
 				);
 			}
 			$courses[ $courseId ]['group_ids'][] = (int) $g->id;

@@ -40,9 +40,6 @@ enum Icon: string {
 	case ChevronDown  = 'chevron_down';
 	case Lock         = 'lock';
 
-	/** Закрепить панель (рейка плеера). */
-	case Pin = 'pin';
-
 	case Clock = 'clock';
 
 	/** «Завершить работу/контрольную» (флажок). */
@@ -102,7 +99,6 @@ enum Icon: string {
 			self::ChevronRight    => 15,
 			self::ChevronDown     => 13,
 			self::Lock            => 13,
-			self::Pin             => 15,
 			self::Clock           => 14,
 			self::Flag            => 14,
 			self::Play,
@@ -137,7 +133,6 @@ enum Icon: string {
 			self::ChevronRight    => '<path d="M8 4.5 13.5 10 8 15.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>',
 			self::ChevronDown     => '<path d="M4.5 8 10 13.5 15.5 8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>',
 			self::Lock            => '<rect x="4.5" y="8.5" width="11" height="8" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M7 8.5V6.5a3 3 0 0 1 6 0v2" stroke="currentColor" stroke-width="1.5"/>',
-			self::Pin             => '<path d="M8 3h4l.6 5.2 2.4 2.3v1.5H5v-1.5l2.4-2.3L8 3zM10 12v5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>',
 			self::Clock           => '<circle cx="10" cy="10" r="7.5" stroke="currentColor" stroke-width="1.5"/><path d="M10 6v4.2l2.8 1.6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>',
 			self::Flag            => '<path d="M5 17V3.5M5 4h9.5l-2 3 2 3H5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>',
 			self::Play            => '<path d="M7 4.8v10.4L15.5 10 7 4.8z" fill="currentColor"/>',

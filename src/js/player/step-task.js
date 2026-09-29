@@ -31,7 +31,7 @@ function setup( panel ) {
 
 	const container = panel.querySelector( '.fs-task-widget' );
 	if ( ! container ) {
-		widgets.set( panel, null ); // ручное задание — проходится кнопкой «Далее»
+		widgets.set( panel, null ); // ручное задание — засчитывается при открытии (core.js)
 		return;
 	}
 

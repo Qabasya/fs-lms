@@ -11,6 +11,7 @@ import { renderKTP } from './ktp.js';
 import { renderActivity } from './activity.js';
 import { renderLearnerHome, renderLearnerLessons, renderLearnerGrades, renderLearnerAttendance } from './learner.js';
 import { initNotifications } from './notifications.js';
+import { renderTeacherCourses, openTeacherCourse } from './teacher-courses.js';
 
 /* ── Screen registry: key → renderer ─────────────────────────────────── */
 const SCREENS = {
@@ -27,6 +28,7 @@ const SCREENS = {
     substitutions:        (root) => renderSubstitutions(root),
     ktp:                  (root) => renderKTP(root),
     activity:             (root) => renderActivity(root),
+    'teacher-courses':    renderTeacherCourses,
     'learner-home':       renderLearnerHome,
     'learner-lessons':    renderLearnerLessons,
     'learner-grades':     renderLearnerGrades,
@@ -43,6 +45,7 @@ const TOPBAR = {
     substitutions:        { crumb: 'Офис',             title: 'Замены' },
     ktp:                  { crumb: 'Планирование',     title: 'КТП и расписание' },
     activity:             { crumb: 'Аналитика',       title: 'Активность' },
+    'teacher-courses':    { crumb: 'Обучение',         title: 'Мои курсы' },
     'learner-home':       { crumb: 'Личный кабинет',   title: 'Главная' },
     'learner-lessons':    { crumb: 'Обучение',         title: 'Мои курсы' },
     'learner-grades':     { crumb: 'Успеваемость',     title: 'Мои оценки' },
@@ -93,6 +96,9 @@ function go(screen) {
         s.classList.toggle('active', s.dataset.screen === screen));
     document.querySelectorAll('.prof-nav-item[data-go]').forEach(n =>
         n.classList.toggle('active', n.dataset.go === screen));
+    if ('teacher-courses' !== screen) {
+        document.querySelectorAll('.prof-course-item.active').forEach(el => el.classList.remove('active'));
+    }
     setTopbar(screen);
     closeMenuOnMobile();
     const act = document.querySelector(`.prof-screen[data-screen="${screen}"]`);
@@ -151,16 +157,16 @@ function openGroupsFor(gid) {
 
 function wireCourseItems() {
     document.querySelectorAll('.prof-course-item').forEach(el =>
-        el.addEventListener('click', () => openCoursePreview(el.dataset.course, el.dataset.lesson)));
+        el.addEventListener('click', () => openCoursePage(el.dataset.course)));
 }
 
-/* #15-B: клик по курсу в сайдбаре открывает preview-плеер курса (первый урок). */
-function openCoursePreview(courseId, lessonId) {
-    if (!cfg.coursePreviewUrl) return;
-    const url = new URL(cfg.coursePreviewUrl, window.location.origin);
-    url.searchParams.set('course', courseId);
-    if (lessonId && Number(lessonId) > 0) { url.searchParams.set('lesson', lessonId); }
-    window.location.href = url.toString();
+/* Tasks.md З4: клик по курсу в сайдбаре открывает страницу курса (модули и
+   уроки, как у ученика, без прогресса) — урок оттуда открывается в плеере. */
+function openCoursePage(courseId) {
+    document.querySelectorAll('.prof-course-item').forEach(el =>
+        el.classList.toggle('active', String(el.dataset.course) === String(courseId)));
+    go('teacher-courses');
+    openTeacherCourse(courseId);
 }
 
 /* #15-C: заголовок секции сайдбара со стрелкой сворачивания. */
@@ -193,7 +199,7 @@ function courseItemsHtml() {
     const list = filteredCourses();
     if (!list.length) { return '<div class="prof-side-empty">Ничего не найдено.</div>'; }
     return list.map(c => `
-        <div class="prof-course-item" data-course="${c.id}" data-lesson="${c.first_lesson_id || ''}">
+        <div class="prof-course-item" data-course="${c.id}">
             <span class="prof-group-chip ${chipBg(c.subject_key)}">${esc(shortName(c.title))}</span>
             <div class="prof-group-meta">
                 <div class="prof-group-name">${esc(c.title)}</div>
@@ -394,8 +400,12 @@ export function initProfile() {
     const params = new URLSearchParams(window.location.search);
     const wanted = params.get('screen');
     const gid = params.get('gid');
+    const course = params.get('course');
     if (gid && cfg.screens.includes('groups')) {
         openGroupsFor(gid);
+    } else if ('teacher-courses' === wanted && course && cfg.screens.includes(wanted)) {
+        // «К курсу» из плеера урока (Tasks.md З4) — страница этого курса.
+        openCoursePage(course);
     } else {
         go(wanted && cfg.screens.includes(wanted) ? wanted : cfg.screens[0]);
     }

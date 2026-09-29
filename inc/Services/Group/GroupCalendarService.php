@@ -125,6 +125,7 @@ readonly class GroupCalendarService {
 				'teacher'         => $teacherId ? ( $teacherNames[ $teacherId ] ?? '' ) : '',
 				// Индикатор записи занятия в КТП (модуль VideoLibrary или ручная ссылка).
 				'recording_url'   => $row->recordingUrl,
+				'recording_link'  => $row->recordingLink,
 				'status'          => $row->status,
 				'player_url'      => $hasContent ? PageRoutes::LessonPlayer->lessonUrl( $groupId, $row->id ) : '',
 				// Урок курса ещё черновик — по дате ученикам не откроется, пока его не опубликуют.

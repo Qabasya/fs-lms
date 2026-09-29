@@ -15,7 +15,7 @@
   border: 1.5px solid var(--line);
   border-radius: rem(12);
   background: var(--surface);
-  font-size: rem(14);
+  font-size: $font-size-md;
   color: var(--ink-2);
   cursor: pointer;
 
@@ -111,7 +111,7 @@
   gap: rem(12);
   padding: rem(14) rem(16);
   border-radius: rem(12);
-  font-size: rem(13.5);
+  font-size: $font-size-base;
   line-height: 1.55;
   margin-top: rem(14);
 
@@ -182,7 +182,7 @@
   border-radius: rem(12);
   background: var(--surface);
   padding: rem(13) rem(16);
-  font: #{rem(13)}/1.7 var(--mono);
+  font: #{$font-size-base}/1.7 var(--mono);
   color: var(--ink-2);
   width: 100%;
   display: block;
@@ -196,7 +196,7 @@
   white-space: pre-wrap;
 
   &.txt {
-    font: #{rem(14)}/1.65 var(--font);
+    font: #{$font-size-md}/1.65 var(--font);
     color: var(--ink-2);
   }
 
@@ -255,7 +255,7 @@
 
 .fs-widget-matching-row { display: contents; }
 
-.fs-widget-matching-left { font-size: rem(14); color: var(--ink-2); }
+.fs-widget-matching-left { font-size: $font-size-md; color: var(--ink-2); }
 
 .fs-widget-matching-select {
   border: 1.5px solid var(--line);
@@ -287,7 +287,7 @@
   border: 1.5px solid var(--line);
   border-radius: rem(12);
   background: var(--surface);
-  font-size: rem(14);
+  font-size: $font-size-md;
   color: var(--ink-2);
   cursor: grab;
 
@@ -304,7 +304,7 @@
 }
 
 .fs-widget-fill {
-  font-size: rem(14.5);
+  font-size: $font-size-md;
   line-height: 2.1;
   color: var(--ink-2);
 }
@@ -316,7 +316,7 @@
   border-radius: rem(6) rem(6) 0 0;
   margin: 0 rem(4);
   padding: rem(2) rem(8);
-  font: 600 rem(13.5) var(--mono);
+  font: 600 $font-size-base var(--mono);
   color: var(--accent-700);
   outline: none;
 
@@ -327,7 +327,7 @@
 .fs-task-subpart + .fs-task-subpart { margin-top: rem(8); }
 
 .fs-task-subpart__label {
-  font-size: rem(15);
+  font-size: $font-size-md;
   color: var(--ink);
   margin-bottom: rem(6);
 }

@@ -117,6 +117,17 @@ class StepContentRenderer {
 	}
 
 	/**
+	 * Задание проверяется автоматически (у шаблона есть чекер): только у такого
+	 * задания в плеере есть кнопка «Ответить», и только оно держит гейт следующих
+	 * шагов (Tasks.md З4). Ручное задание сдавать нечем — оно необязательное.
+	 */
+	public function isAutoGradedTask( int $taskId ): bool {
+		$post = $taskId > 0 ? $this->posts->get( $taskId ) : null;
+
+		return null !== $post && $this->checkerRegistry->has( $this->templateResolver->resolveEnum( $post ) );
+	}
+
+	/**
 	 * Файлы-материалы задания — имя + ссылка на скачивание, выводятся в плеере
 	 * сразу после условия: ссылки File/FileCode и вложения поля «Материалы задания»
 	 * (`task_materials` — «Развёрнутый ответ», «Задание Робо»).
@@ -214,9 +225,16 @@ class StepContentRenderer {
 	 * @param mixed $raw Сырое значение поля условия
 	 */
 	private function conditionHtml( mixed $raw ): string {
-		$html = SafeHtml::post( (string) $raw );
+		$html = $this->cleanHtml( (string) $raw );
 
-		return '' === trim( $html ) ? '' : wpautop( $html );
+		// Второй проход — по разметке после wpautop: строки из одних &nbsp;
+		// становятся пустыми абзацами только после разбивки.
+		return '' === $html ? '' : $this->taskMeta->cleanCondition( wpautop( $html ) );
+	}
+
+	/** Безопасный HTML поля задания (условие, подсказка) без пустых строк по краям. */
+	public function cleanHtml( string $raw ): string {
+		return $this->taskMeta->cleanCondition( SafeHtml::post( $raw ) );
 	}
 
 	/**
@@ -343,16 +361,18 @@ class StepContentRenderer {
 	 * вышли бы наружу текстом.
 	 *
 	 * @param StepDTO     $step         Шаг урока
-	 * @param string|null $recordingUrl Ссылка записи занятия для `broadcast` (плеер —
-	 *                                  через фильтр `fs_lms_recording_url`; preview — null)
+	 * Трансляция здесь — без занятия (preview курса): состояние «до занятия».
+	 * Плеер с занятием зовёт {@see self::renderBroadcastData()} сам.
+	 *
+	 * @param StepDTO $step Шаг урока
 	 *
 	 * @return array<string, mixed>
 	 */
-	public function renderInlineData( StepDTO $step, ?string $recordingUrl = null ): array {
+	public function renderInlineData( StepDTO $step ): array {
 		return match ( $step->type->value ) {
 			'text'      => array( 'content' => $this->posts->renderContent( (string) ( $step->payload['content'] ?? '' ) ) ),
 			'video'     => $this->renderVideoData( $step ),
-			'broadcast' => $this->renderBroadcastData( $step, $recordingUrl ),
+			'broadcast' => $this->renderBroadcastData( $step, null ),
 			default     => array(),
 		};
 	}
@@ -379,27 +399,38 @@ class StepContentRenderer {
 	}
 
 	/**
-	 * Данные шага-трансляции (Этап 1, `broadcast`): если у занятия есть запись
-	 * (через фильтр `fs_lms_recording_url`) — рендерится тем же видео-хромом, что
-	 * и video-шаг; иначе — плашка-заглушка со ссылкой `stream_url` (интеграция с
-	 * плагином трансляций — отдельный, более поздний этап). Описание/главы/
-	 * вложения для трансляции не поддерживаются.
+	 * Данные шага-трансляции (`broadcast`, Tasks.md З1). У шага два состояния:
 	 *
-	 * @param string|null $recordingUrl Запись занятия (`GroupLessonDTO::recordingUrl`
-	 *                                  через фильтр); `null` вне контекста занятия
-	 *                                  (preview курса, Фаза 5) — тогда рендерится заглушка.
+	 * - `live` — до и во время занятия: кнопка «Подключиться к трансляции» (`stream_url`);
+	 * - `after` — занятие прошло: плеер записи из хранилища (`video_url`, указатель
+	 *   `s3://…` через фильтр `fs_lms_recording_url`) и/или кнопка «Открыть запись
+	 *   трансляции» на внешнюю ссылку (`record_link`). Внешнюю запись не встраиваем;
+	 *   при записи в хранилище ссылка — запасной вариант, если видео не загрузится.
 	 *
-	 * @return array<string, mixed>
+	 * @param string|null $recordingUrl  Запись в хранилище после фильтра; `null` вне
+	 *                                   занятия (preview курса) и без записи.
+	 * @param string|null $recordingLink Внешняя ссылка на запись (`GroupLessonDTO::recordingLink`).
+	 * @param bool        $isOver        Занятие закончилось ({@see IncDTOCourseGroupLessonDTO::isOver()}).
+	 *
+	 * @return array{phase: string, stream_url: string, video_url: string, record_link: string}
 	 */
-	public function renderBroadcastData( StepDTO $step, ?string $recordingUrl ): array {
+	public function renderBroadcastData( StepDTO $step, ?string $recordingUrl, ?string $recordingLink = null, bool $isOver = false ): array {
 		// Graceful absence (V4): при выключенном модуле VideoLibrary указатель
 		// `s3://{bucket}/{key}` никто не превратил в presigned-ссылку — не рендерим.
-		$url = ( null !== $recordingUrl && str_starts_with( $recordingUrl, 'http' ) ) ? $recordingUrl : '';
+		$url  = ( null !== $recordingUrl && str_starts_with( $recordingUrl, 'http' ) ) ? $recordingUrl : '';
+		$link = (string) $recordingLink;
+
+		// Прямой файл — в плеер; прочая http-ссылка в поле хранилища — как внешняя.
+		if ( '' !== $url && 'native' !== $this->resolveVideoMode( $url ) ) {
+			$link = '' !== $link ? $link : $url;
+			$url  = '';
+		}
 
 		return array(
-			'url'        => $url,
-			'mode'       => $this->resolveVideoMode( $url ),
-			'stream_url' => (string) ( $step->payload['stream_url'] ?? '' ),
+			'phase'       => $isOver ? 'after' : 'live',
+			'stream_url'  => (string) ( $step->payload['stream_url'] ?? '' ),
+			'video_url'   => $url,
+			'record_link' => $link,
 		);
 	}
 

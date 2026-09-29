@@ -41,4 +41,40 @@ export function initShell() {
 	document.querySelectorAll( '[data-toast]' ).forEach( ( el ) => {
 		el.addEventListener( 'click', () => toast( el.dataset.toast ) );
 	} );
+
+	initHeadroom();
+}
+
+/** Сдвиг прокрутки, после которого шапка реагирует на направление, px. */
+const HEADROOM_DELTA = 8;
+
+/**
+ * Шапка плеера — как у сайта (Tasks.md З4): липкая, но прячется при прокрутке
+ * вниз и возвращается при прокрутке вверх, так что «К курсу» всегда в одном
+ * жесте. Класс на #fsPlayerApp двигает и шапку, и липкий воркбар работы
+ * (он встаёт на место шапки, пока та спрятана) — стили в _shell.scss/_step-work.scss.
+ */
+function initHeadroom() {
+	const app    = document.getElementById( 'fsPlayerApp' );
+	const header = app?.querySelector( '.s-top' );
+	if ( ! header ) { return; }
+
+	let last    = window.scrollY;
+	let pending = false;
+
+	const update = () => {
+		pending = false;
+		const y = window.scrollY;
+		if ( Math.abs( y - last ) < HEADROOM_DELTA ) { return; }
+		// Пока шапка в собственной высоте от верха — не прячем: прятать ещё нечего.
+		app.classList.toggle( 'top-hidden', y > last && y > header.offsetHeight );
+		last = y;
+	};
+
+	window.addEventListener( 'scroll', () => {
+		if ( ! pending ) {
+			pending = true;
+			window.requestAnimationFrame( update );
+		}
+	}, { passive: true } );
 }
