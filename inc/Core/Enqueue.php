@@ -35,7 +35,6 @@ class Enqueue implements ServiceInterface {
 	public function __construct(
 		private readonly AdminAssets    $admin,
 		private readonly FrontendAssets $frontend,
-		private readonly BundleLoader   $bundles,
 	) {}
 
 	/**
@@ -44,8 +43,6 @@ class Enqueue implements ServiceInterface {
 	 * @return void
 	 */
 	public function register(): void {
-		// preconnect к CDN шрифтов — до самой загрузки стиля (экономит RTT).
-		add_filter( 'wp_resource_hints', array( $this->bundles, 'fontResourceHints' ), 10, 2 );
 		// 'admin_enqueue_scripts' — хук для подключения ресурсов в админ-панели
 		add_action( 'admin_enqueue_scripts', array( $this->admin, 'enqueue' ) );
 		// 'wp_enqueue_scripts' — хук для подключения ресурсов на фронтенде

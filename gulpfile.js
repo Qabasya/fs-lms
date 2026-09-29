@@ -32,6 +32,8 @@ const paths = {
         player: './src/scss/player/player.scss',
         assessment: './src/scss/assessment/assessment.scss',
         kege: './src/scss/kege/kege.scss',
+        // Локальные @font-face (152-ФЗ, 2026-09-29) — см. src/scss/fonts/fonts.scss.
+        fonts: './src/scss/fonts/fonts.scss',
         watch: './src/scss/**/*.scss'
     },
     js: {
@@ -48,8 +50,11 @@ const paths = {
         'task-editor-buttons': './src/js/tinymce/task-editor-buttons.js',
         watch: './src/js/**/*.js'
     },
+    // woff2 шрифтов — копируются в assets/fonts/ без обработки (см. fontsCopy).
+    fonts: './src/fonts/*.woff2',
     output: {
         css: './assets/css/',
+        fonts: './assets/fonts/',
         js: './assets/js/',
         maps: './maps/'
     }
@@ -257,13 +262,36 @@ function stylesKege() {
 }
 
 /**
+ * Шрифты (@font-face на assets/fonts/*.woff2). Без fontScale() — кеглей в
+ * файле нет.
+ */
+function stylesFonts() {
+    return gulp.src(paths.scss.fonts)
+        .pipe(guard())
+        .pipe(sass())
+        .pipe(postcss([cssnano()]))
+        .pipe(rename('fonts.min.css'))
+        .pipe(gulp.dest(paths.output.css));
+}
+
+/**
+ * Сами woff2: src/fonts/ → assets/fonts/ (assets/ в .gitignore, релиз
+ * собирает CI). `encoding: false` — бинарники, иначе gulp 5 прогонит их
+ * через utf-8 и испортит.
+ */
+function fontsCopy() {
+    return gulp.src(paths.fonts, { encoding: false })
+        .pipe(gulp.dest(paths.output.fonts));
+}
+
+/**
  * GUARD: строгая проверка сборки всех SCSS-бандлов.
  * Без plumber/errorHandler — любая ошибка SASS роняет процесс (exit != 0),
  * чтобы CI/`npm run build:check` ловил поломки стилей (см. историю с _assessment.scss).
  * Вывод — во временный каталог (.scss-check, в .gitignore), реальные бандлы не трогаются.
  */
 function stylesCheck() {
-    return gulp.src([paths.scss.admin, paths.scss.frontend, paths.scss.common, paths.scss.profile, paths.scss.player, paths.scss.assessment, paths.scss.kege])
+    return gulp.src([paths.scss.admin, paths.scss.frontend, paths.scss.common, paths.scss.profile, paths.scss.player, paths.scss.assessment, paths.scss.kege, paths.scss.fonts])
         .pipe(sass({ includePaths: [paths.scss.common] }))
         .pipe(gulp.dest('./.scss-check'));
 }
@@ -286,13 +314,14 @@ function scripts() {
  */
 function watchFiles() {
     watching = true;
-    gulp.watch(paths.scss.watch, gulp.parallel(stylesAdmin, stylesFrontend, stylesProfile, stylesPlayer, stylesAssessment, stylesKege));
+    gulp.watch(paths.scss.watch, gulp.parallel(stylesAdmin, stylesFrontend, stylesProfile, stylesPlayer, stylesAssessment, stylesKege, stylesFonts));
     gulp.watch(paths.js.watch, scripts);
+    gulp.watch(paths.fonts, fontsCopy);
     console.log('Gulp is watching and building modules...');
 }
 
 // Экспорт задач
-const build = gulp.parallel(stylesCommon, stylesAdmin, stylesFrontend, stylesProfile, stylesPlayer, stylesAssessment, stylesKege, scripts);
+const build = gulp.parallel(stylesCommon, stylesAdmin, stylesFrontend, stylesProfile, stylesPlayer, stylesAssessment, stylesKege, stylesFonts, fontsCopy, scripts);
 
 exports['styles:common']     = stylesCommon;
 exports['styles:admin']      = stylesAdmin;
@@ -301,6 +330,8 @@ exports['styles:profile']    = stylesProfile;
 exports['styles:player']     = stylesPlayer;
 exports['styles:assessment'] = stylesAssessment;
 exports['styles:kege']       = stylesKege;
+exports['styles:fonts']      = stylesFonts;
+exports['fonts:copy']        = fontsCopy;
 exports['styles:check']      = stylesCheck;
 exports['scripts'] = scripts;
 exports.build = build;

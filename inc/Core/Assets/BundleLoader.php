@@ -30,36 +30,21 @@ class BundleLoader extends BaseController {
 	}
 
 	/**
-	 * Ранние подключения к CDN шрифтов для публичных страниц.
+	 * Шрифты плагина — один файл на все бандлы: Ubuntu ($font-ui), JetBrains
+	 * Mono ($font-mono), Roboto (станция КЕГЭ). См. src/scss/fonts/fonts.scss.
 	 *
-	 * @param string[] $hints    Текущие подсказки
-	 * @param string   $relation Тип отношения (preconnect/dns-prefetch/…)
-	 *
-	 * @return string[]
-	 */
-	public function fontResourceHints( array $hints, string $relation ): array {
-		if ( 'preconnect' === $relation && ! is_admin() ) {
-			$hints[] = 'https://fonts.googleapis.com';
-			$hints[] = array( 'href' => 'https://fonts.gstatic.com', 'crossorigin' => 'anonymous' );
-		}
-
-		return $hints;
-	}
-
-	/**
-	 * Шрифт интерфейса (Ubuntu, $font-ui) — один на все бандлы.
-	 *
-	 * Грузим стилем, а не CSS `@import`: последний блокирует рендер и не даёт
-	 * воспользоваться preconnect (см. fontResourceHints()).
+	 * 152-ФЗ (2026-09-29): отдаются с домена сайта, а не с Google Fonts — IP
+	 * посетителя не уходит за границу. @font-face без обращения к семейству
+	 * файлы не качает, поэтому Roboto на страницах без станции не грузится.
 	 *
 	 * @return void
 	 */
 	public function enqueueUiFont(): void {
 		wp_enqueue_style(
-			'fs-lms-ubuntu',
-			'https://fonts.googleapis.com/css2?family=Ubuntu:wght@400;500;700&display=swap',
+			'fs-lms-fonts',
+			$this->url( 'assets/css/fonts.min.css' ),
 			array(),
-			null
+			filemtime( $this->path( 'assets/css/fonts.min.css' ) )
 		);
 	}
 
