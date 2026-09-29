@@ -4,7 +4,12 @@
 
 // Текст статьи
 .fs-article-page {
+  // Текст — по левому краю (2026-09-29): выключка по ширине давала «реки»
+  // пробелов, особенно в узкой колонке на телефоне. Строка — не длиннее
+  // ~72 знаков: дальше глазу трудно найти начало следующей; обложка и
+  // заголовок остаются во всю колонку.
   .fs-article-prose {
+    max-width: 72ch;
     font-size: $font-size-md;
     line-height: $line-height-relaxed;
     color: $color-text-secondary;
@@ -16,20 +21,20 @@
       font-family: inherit;
       font-weight: $font-bold;
       text-wrap: pretty;
-      scroll-margin-top: rem(24);
+      scroll-margin-top: rem(28.8);
     }
 
     > :first-child { margin-top: 0; }
 
     h2 {
-      margin-top: rem(52);
+      margin-top: rem(62.4);
       font-size: $font-size-xl;
       line-height: 1.25;
       letter-spacing: -.02em;
     }
 
     h3 {
-      margin-top: rem(38);
+      margin-top: rem(45.6);
       font-size: $font-size-lead;
       line-height: 1.3;
       letter-spacing: -.01em;
@@ -81,10 +86,6 @@
       float: none;
     }
 
-    // Выключка по ширине, без переносов слов.
-    p,
-    li { text-align: justify; }
-
     hr {
       height: 1px;
       border: 0;
@@ -104,7 +105,7 @@
   }
 
   .fs-article-mono {
-    padding: rem(1) rem(5);
+    padding: rem(1.2) rem(6);
     background: $color-surface-2;
     border: 1px solid $color-border-light;
     border-radius: $border-radius-sm;
@@ -132,7 +133,7 @@
   // Иллюстрация с подписью.
   .fs-article-figure {
     display: grid;
-    gap: rem(9);
+    gap: rem(10.8);
     margin-inline: 0;
     margin-bottom: 0;
 

@@ -25,7 +25,7 @@
     align-items: start;
     gap: $spacing-lg;
     width: 100%;
-    padding: rem(18) rem(20);
+    padding: rem(21.6) rem(24);
     background: none;
     border: 0;
     font-family: inherit;
@@ -70,8 +70,8 @@
     display: grid;
     place-items: center;
     flex-shrink: 0;
-    width: rem(32);
-    height: rem(32);
+    width: rem(38.4);
+    height: rem(38.4);
     background: $color-white;
     border: 1px solid $color-border;
     border-radius: 50%;
@@ -99,16 +99,16 @@
 
   .fs-article-task__body-inner {
     min-height: 0;
-    padding: 0 rem(20);
+    padding: 0 rem(24);
     overflow: hidden;
     transition: padding $transition-medium;
   }
 
-  .fs-article-task.is-open .fs-article-task__body-inner { padding: rem(20); }
+  .fs-article-task.is-open .fs-article-task__body-inner { padding: rem(24); }
 
   .fs-article-task__stmt {
     display: grid;
-    gap: rem(11);
+    gap: rem(13.2);
     font-size: $font-size-md;
     line-height: $line-height-relaxed;
     color: $color-text-secondary;
@@ -142,7 +142,7 @@
     justify-content: flex-end;
     gap: $spacing-lg;
     flex-wrap: wrap;
-    margin-top: rem(18);
+    margin-top: rem(21.6);
   }
 
   .fs-article-prose .fs-article-task__open {

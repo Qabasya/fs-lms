@@ -5,9 +5,9 @@
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: rem(4) rem(8);
-  margin-bottom: rem(18);
-  font-size: max($font-size-sm, $font-floor-small);
+  gap: rem(4.8) rem(9.6);
+  margin-bottom: rem(21.6);
+  font-size: $font-size-sm;
   color: $color-muted;
 
   a {

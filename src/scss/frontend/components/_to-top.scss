@@ -10,10 +10,10 @@
 .fs-articles-page,
 .fs-article-page {
   .fs-to-top {
-    position: fixed; right: rem(28); bottom: rem(28);
+    position: fixed; right: rem(33.6); bottom: rem(33.6);
     z-index: 20;
     display: grid; place-items: center;
-    width: rem(44); height: rem(44);
+    width: rem(52.8); height: rem(52.8);
     background: $color-white;
     border: 1px solid $color-border; border-radius: 50%;
     box-shadow: $shadow-hover;
@@ -33,11 +33,11 @@
   }
 
   @media (max-width: $bp-md) {
-    .fs-to-top { right: rem(16); bottom: rem(16); }
+    .fs-to-top { right: rem(19.2); bottom: rem(19.2); }
   }
 }
 
 @keyframes fs-to-top-in {
-  from { opacity: 0; transform: translateY(rem(6)); }
+  from { opacity: 0; transform: translateY(rem(7.2)); }
   to   { opacity: 1; transform: translateY(0); }
 }

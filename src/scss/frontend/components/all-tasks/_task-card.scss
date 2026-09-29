@@ -6,10 +6,10 @@
 
 .fs-all-tasks-page {
 
-  .task-cards { display: flex; flex-direction: column; gap: rem(16); }
+  .task-cards { display: flex; flex-direction: column; gap: rem(19.2); }
 
   .task-card-row {
-    @include fs-surface-card($padding: rem(26) rem(30) rem(24));
+    @include fs-surface-card($padding: rem(31.2) rem(36) rem(28.8));
 
     transition: box-shadow $transition, border-color $transition;
 
@@ -34,17 +34,17 @@
   }
 
   .tcr-header { padding: 0; }
-  .tcr-header-inner { display: flex; align-items: flex-start; gap: rem(16); min-width: 0; }
-  .tcr-meta { display: flex; flex-wrap: wrap; gap: rem(8); flex: 1; min-width: 0; margin-top: rem(14); }
+  .tcr-header-inner { display: flex; align-items: flex-start; gap: rem(19.2); min-width: 0; }
+  .tcr-meta { display: flex; flex-wrap: wrap; gap: rem(9.6); flex: 1; min-width: 0; margin-top: rem(16.8); }
 
   .tcr-tag {
     @include fs-chip;
 
-    font-size: max($font-size-code, $font-floor-small);
+    font-size: $font-size-code;
     cursor: pointer;
   }
 
-  .tcr-body { padding: 0; margin-top: rem(18); }
+  .tcr-body { padding: 0; margin-top: rem(21.6); }
 
   // Условие в карточке — тот же авторский HTML, что на странице задания, но
   // своих стилей контента у карточки не было: таблицы выходили без рамок,
@@ -57,7 +57,7 @@
 
     li::marker { color: inherit; }
 
-    td, th { font-size: max($font-size-base, $font-floor-small); }
+    td, th { font-size: $font-size-base; }
   }
 
   // ── Сворачивание длинного условия ─────────────────────────────
@@ -69,7 +69,7 @@
     &::after {
       content: '';
       position: absolute; left: 0; right: 0; bottom: 0;
-      height: rem(42);
+      height: rem(50.4);
       background: linear-gradient(rgba($color-white, 0), $color-white);
       pointer-events: none;
     }
@@ -78,10 +78,10 @@
 
   .tcr-condition-toggle {
     display: inline-flex; align-items: center;
-    gap: rem(6);
-    margin-top: rem(4); padding: rem(12) rem(2) rem(2);
+    gap: rem(7.2);
+    margin-top: rem(4.8); padding: rem(14.4) rem(2.4) rem(2.4);
     background: none; border: 0;
-    font-family: inherit; font-size: max($font-size-sm, $font-floor-small); font-weight: $font-semibold;
+    font-family: inherit; font-size: $font-size-sm; font-weight: $font-semibold;
     color: $color-accent; cursor: pointer;
     transition: color $transition;
 
@@ -98,37 +98,36 @@
     position: relative;
     margin: 0;
     transition: max-height .45s cubic-bezier(.4, 0, .2, 1);
-    font-size: max($font-size-md, $font-floor-body); line-height: $line-height-relaxed;
+    font-size: $font-size-md; line-height: $line-height-relaxed;
     font-weight: $font-normal;
-    text-align: justify;
     color: $color-text-secondary;
 
     b, strong { font-weight: $font-semibold; color: $color-text; }
 
-    p + p { margin-top: rem(11); }
+    p + p { margin-top: rem(13.2); }
     
     img { display: block; max-width: 100%; height: auto; margin-inline: auto; }
 
     // Формула/значение внутри условия — плашка на второй поверхности.
     code, .m {
-      padding: rem(1) rem(5);
+      padding: rem(1.2) rem(6);
       background: $color-surface-2;
       border: 1px solid $color-border-light; border-radius: $border-radius-sm;
-      font-family: $font-code; font-size: max($font-size-sm, $font-floor-small);
+      font-family: $font-code; font-size: $font-size-sm;
       color: $color-text;
     }
 
     pre {
-      margin-top: rem(12); padding: rem(14) rem(16);
+      margin-top: rem(14.4); padding: rem(16.8) rem(19.2);
       background: $color-surface-2;
       border: 1px solid $color-border; border-radius: $radius-control;
-      font-family: $font-code; font-size: max($font-size-sm, $font-floor-small); line-height: 1.6;
+      font-family: $font-code; font-size: $font-size-sm; line-height: 1.6;
       overflow: auto;
     }
   }
 
   // ── Файлы ─────────────────────────────────────────────────────
-  .tcr-files { display: grid; gap: rem(10); padding: 0; margin-top: rem(18); }
+  .tcr-files { display: grid; gap: rem(12); padding: 0; margin-top: rem(21.6); }
   .tcr-file      { @include fs-file-chip; }
   .tcr-file-icon { @include fs-file-chip-icon; }
   .tcr-file-name { font-weight: $font-semibold; }
@@ -144,26 +143,23 @@
   .tcr-foot {
     container-type: inline-size;
     display: flex; align-items: center; flex-wrap: wrap;
-    gap: rem(12);
-    margin-top: rem(20); padding: rem(18) 0 0;
+    gap: rem(14.4);
+    margin-top: rem(24); padding: rem(21.6) 0 0;
     background: none;
     border-top: 1px solid $color-border-light;
   }
-  .tcr-actions { display: inline-flex; align-items: center; gap: rem(8); margin-left: auto; }
+  .tcr-actions { display: inline-flex; align-items: center; gap: rem(9.6); margin-left: auto; }
 
-  // Под `.tcr-foot`: кегль кнопок задают их миксины (fs-btn-base) в правилах
-  // той же специфичности, и `_answer.scss` подключается позже.
+  // Под `.tcr-foot`: `_answer.scss` подключается позже и задаёт кнопке ответа
+  // свой вид правилом той же специфичности.
   .tcr-foot .fs-answer-toggle,
-  .tcr-foot .tcr-btn-primary {
-    width: max($task-card-action-width, $task-card-action-min-width);
-    font-size: max($font-size-base, $font-floor-small);
-  }
+  .tcr-foot .tcr-btn-primary { width: $task-card-action-width; }
 
-  @container (max-width: calc(2 * max(#{$task-card-action-width}, #{$task-card-action-min-width}) + #{rem(12)})) {
+  @container (max-width: #{2 * $task-card-action-width + rem(14.4)}) {
     .fs-answer-toggle,
     .tcr-actions { flex: 0 0 100%; justify-content: center; }
     .tcr-actions { margin-left: 0; }
-    .fs-answer-toggle { max-width: max($task-card-action-width, $task-card-action-min-width); margin-inline: auto; }
+    .fs-answer-toggle { max-width: $task-card-action-width; margin-inline: auto; }
   }
 
   .tcr-btn-primary {
@@ -174,8 +170,8 @@
   }
 
   @media (max-width: $bp-md) {
-    .task-card-row { padding: rem(18) rem(16) rem(16); }
-    .tcr-condition { font-size: max($font-size-base, $font-floor-body); }
+    .task-card-row { padding: rem(21.6) rem(19.2) rem(19.2); }
+    .tcr-condition { font-size: $font-size-base; }
   }
 }
 

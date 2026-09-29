@@ -6,7 +6,7 @@
   .fs-article-toc {
     @include fs-surface-card;
 
-    padding: rem(14) 0;
+    padding: rem(16.8) 0;
     overflow: hidden;
   }
 
@@ -14,8 +14,8 @@
     display: flex;
     align-items: center;
     gap: $spacing-sm;
-    min-height: rem(26);
-    padding: 0 rem(12) 0 rem(18);
+    min-height: rem(31.2);
+    padding: 0 rem(14.4) 0 rem(21.6);
   }
 
   .fs-article-toc__title {
@@ -30,8 +30,8 @@
     display: grid;
     place-items: center;
     flex-shrink: 0;
-    width: rem(26);
-    height: rem(26);
+    width: rem(31.2);
+    height: rem(31.2);
     margin-left: auto;
     background: $color-white;
     border: 1px solid $color-border;
@@ -66,7 +66,7 @@
   }
 
   .fs-article-toc__link {
-    padding: $spacing-sm rem(18);
+    padding: $spacing-sm rem(21.6);
     border-left: 2px solid transparent;
     font-size: $font-size-base;
     line-height: 1.4;
@@ -90,24 +90,24 @@
   // Подзаголовок (h3)
   .fs-article-toc__link--sub {
     position: relative;
-    padding-left: rem(32);
+    padding-left: rem(38.4);
 
     &::before {
       content: '';
       position: absolute;
       top: calc(#{$spacing-sm} + .7em);
-      left: rem(18);
-      width: rem(8);
+      left: rem(21.6);
+      width: rem(9.6);
       border-top: 1px solid currentcolor;
     }
   }
 
-  .fs-article-toc__progress-row { padding: $spacing-md rem(18) 0; }
+  .fs-article-toc__progress-row { padding: $spacing-md rem(21.6) 0; }
 
   .fs-article-toc__progress {
     display: block;
     width: 100%;
-    height: rem(3);
+    height: rem(3.6);
     appearance: none;
     background: $color-border-light;
     border: 0;

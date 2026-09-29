@@ -30,7 +30,7 @@ body:has(> .fs-page-wrapper) {
 }
 
 .fs-page-shell {
-  max-width: $max-width;
+  max-width: $content-width;
   margin: 0 auto;
 }
 
@@ -48,8 +48,12 @@ body:has(> .fs-page-wrapper) {
 .fs-task-main { min-width: 0; }
 
 @media (max-width: $bp-md) {
-  .fs-page-wrapper { padding: rem(16) rem(16) rem(48); }
+  .fs-page-wrapper { padding: rem(19.2) rem(19.2) rem(57.6); }
+}
 
+// Страница задания — на том же пороге, что тренажёр ($bp-catalog): на 900–975px
+// колонка рядом с сайдбаром сжималась до ~520px, и навигация обрезала названия.
+@media (max-width: $bp-catalog) {
   .fs-task-page { grid-template-columns: 1fr; }
 
   // Сброс липкости: статичный сайдбар — сигнал scroll-sticky.js, что вести нечего.
@@ -67,7 +71,7 @@ body:has(> .fs-page-wrapper) {
 
 @media (max-width: $bp-sm) {
   // Мобильный кегль заголовка — в _task-content.scss, рядом с базовым правилом.
-  .fs-task-nav__info { max-width: rem(90); }
+  .fs-task-nav__info { max-width: rem(108); }
 
   .fs-task-nav__title {
     font-size: $font-size-xs;

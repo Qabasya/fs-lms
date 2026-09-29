@@ -12,7 +12,7 @@
   [hidden] { display: none !important; }
 
   // ── Оболочка / сетка (общие токены со страницей задания) ──────
-  .shell  { max-width: $max-width; margin: 0 auto; }
+  .shell  { max-width: $content-width; margin: 0 auto; }
   .layout { display: grid; grid-template-columns: $sidebar-width 1fr; gap: $layout-gap; align-items: start; }
   .main   { min-width: 0; }
 

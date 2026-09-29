@@ -2,7 +2,7 @@
 @use '../shared/content-tables' as *;
 
 // ── Круглая кнопка-иконка с hover-акцентом
-@mixin circle-btn($size: rem(42)) {
+@mixin circle-btn($size: rem(50.4)) {
   width: $size;
   height: $size;
   border-radius: 50%;
@@ -11,7 +11,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: rem(22);
+  font-size: rem(24);
   line-height: 1;
   transition: border-color $transition, color $transition;
 
@@ -50,7 +50,7 @@
 // ── Иконка-дэшиконка внутри поля формы (left:12px — намеренный инсет)
 @mixin fs-field-icon {
   position: absolute;
-  left: rem(12);
+  left: rem(14.4);
   top: 50%;
   transform: translateY(-50%);
   color: $color-muted;
@@ -68,9 +68,9 @@
   box-sizing: border-box;
 
   @if $important {
-    padding: rem(10) rem(12) rem(10) rem(38) !important;
+    padding: rem(12) rem(14.4) rem(12) rem(45.6) !important;
   } @else {
-    padding: rem(10) rem(12) rem(10) rem(38);
+    padding: rem(12) rem(14.4) rem(12) rem(45.6);
   }
 
   font-size: $font-size-base;
@@ -100,7 +100,7 @@
 // ── Кнопка показать/скрыть пароль (right:12px — намеренный инсет)
 @mixin fs-toggle-secret {
   position: absolute;
-  right: rem(12);
+  right: rem(14.4);
   top: 50%;
   transform: translateY(-50%);
   background: none;
@@ -140,9 +140,9 @@
 @mixin fs-form-success-icon {
   // У .dashicons ядро WP фиксирует бокс 20×20 — без размеров глиф 48px вылезал
   // из него и налезал на заголовок успеха.
-  width: rem(48);
-  height: rem(48);
-  font-size: rem(48);
+  width: rem(57.6);
+  height: rem(57.6);
+  font-size: rem(50);
   color: $color-accent;
   display: block;
   margin: 0 auto $spacing-md;
@@ -201,7 +201,7 @@
 
 // ── Базовый паддинг страницы-обёртки (макет: 22 сверху, 32 по бокам, 64 снизу)
 @mixin fs-page-pad {
-  padding: rem(22) $spacing-4xl rem(64);
+  padding: rem(26.4) $spacing-4xl rem(76.8);
 }
 
 // =================================================================
@@ -227,9 +227,9 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: rem(8);
-  height: rem(38);
-  padding: 0 rem(18);
+  gap: rem(9.6);
+  height: rem(45.6);
+  padding: 0 rem(21.6);
   border: 0;
   border-radius: $radius-control;
   font-family: inherit;
@@ -293,7 +293,7 @@
 @mixin fs-chip {
   display: inline-flex;
   align-items: center;
-  padding: rem(5) rem(11);
+  padding: rem(6) rem(13.2);
   background: $color-surface-2;
   border: 0;
   border-radius: $border-radius-pill;
@@ -320,15 +320,15 @@
     opacity: 0;
     overflow: hidden;
     line-height: 1;
-    transform: translateX(rem(-4));
+    transform: translateX(rem(-4.8));
     transition: opacity $transition, transform $transition, max-width $transition, margin-left $transition;
   }
 }
 
 @mixin fs-arrow-reveal-open {
   &::after {
-    max-width: rem(20);
-    margin-left: rem(6);
+    max-width: rem(24);
+    margin-left: rem(7.2);
     opacity: 1;
     transform: translateX(0);
   }
@@ -343,15 +343,15 @@
     margin-left: 0;
     opacity: 0;
     overflow: hidden;
-    transform: translateX(rem(-4));
+    transform: translateX(rem(-4.8));
     transition: opacity $transition, transform $transition, max-width $transition, margin-left $transition;
   }
 }
 
 @mixin fs-arrow-icon-reveal-open {
   svg {
-    max-width: rem(20);
-    margin-left: rem(8);
+    max-width: rem(24);
+    margin-left: rem(9.6);
     opacity: 1;
     transform: translateX(0);
   }
@@ -362,8 +362,8 @@
 @mixin fs-file-chip {
   display: flex;
   align-items: center;
-  gap: rem(14);
-  padding: rem(12) rem(16);
+  gap: rem(16.8);
+  padding: rem(14.4) rem(19.2);
   background: $color-white;
   border: 1px solid $color-border;
   border-radius: $border-radius-xl;
@@ -380,9 +380,9 @@
 @mixin fs-file-chip-icon {
   display: grid;
   place-items: center;
-  width: rem(38);
-  height: rem(38);
-  flex: 0 0 rem(38);
+  width: rem(45.6);
+  height: rem(45.6);
+  flex: 0 0 rem(45.6);
   background: $color-err-soft;
   border-radius: $radius-control;
   color: $color-err;
@@ -410,7 +410,7 @@
 // Блок выше экрана ведёт scroll-sticky.js: класс и переменную он ставит одним
 // вызовом, поэтому фолбэк не нужен. Правило — последним и с админ-баром в
 // селекторе: иначе его перебил бы сдвиг под админ-бар.
-@mixin fs-sticky($gap: rem(28)) {
+@mixin fs-sticky($gap: rem(33.6)) {
   position: sticky;
   top: $gap;
 

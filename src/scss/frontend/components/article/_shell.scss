@@ -8,10 +8,10 @@
 
   [hidden] { display: none !important; }
 
-  .shell { max-width: $max-width; margin: 0 auto; }
+  .shell { max-width: $content-width; margin: 0 auto; }
 
   // Крошки — от колонки текста, как в каталоге учебника.
-  .crumbs-row { margin-bottom: rem(12); }
+  .crumbs-row { margin-bottom: rem(14.4); }
   .crumbs-row--offset { padding-left: $content-offset; }
 
   .layout {
@@ -36,7 +36,7 @@
   }
 
   .fs-article-title {
-    margin: rem(6) 0 rem(18);
+    margin: rem(7.2) 0 rem(21.6);
     font-size: $font-size-3xl;
     font-weight: $font-bold;
     line-height: 1.15;
@@ -47,7 +47,7 @@
 
   // Обложка статьи над текстом
   .fs-article-cover {
-    margin-bottom: rem(24);
+    margin-bottom: rem(28.8);
     border: 1px solid $color-border-light;
     border-radius: $radius-card;
     overflow: hidden;

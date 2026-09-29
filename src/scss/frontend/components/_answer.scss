@@ -12,9 +12,9 @@
 
     display: flex;
     align-items: baseline;
-    gap: rem(14);
-    margin-top: rem(16);
-    padding: rem(14) rem(16);
+    gap: rem(16.8);
+    margin-top: rem(19.2);
+    padding: rem(16.8) rem(19.2);
     background: $color-surface-2;
     border: 1px solid $color-border-light;
     border-radius: $radius-control;
@@ -61,11 +61,11 @@
   }
 
   @media (max-width: $bp-md) {
-    .fs-answer { flex-direction: column; align-items: stretch; gap: rem(6); }
+    .fs-answer { flex-direction: column; align-items: stretch; gap: rem(7.2); }
   }
 }
 
 @keyframes fs-answer-in {
-  from { opacity: 0; transform: translateY(rem(-4)); }
+  from { opacity: 0; transform: translateY(rem(-4.8)); }
   to   { opacity: 1; transform: translateY(0); }
 }

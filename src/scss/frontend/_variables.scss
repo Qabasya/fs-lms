@@ -1,12 +1,14 @@
-// Общие с ядром ступени шкал НЕ переопределяются, а форвардятся: одно имя —
-// одно значение во всех бандлах. Здесь остаётся только фронтовая специфика
-// (свои цвета, шрифты, «просторный» line-height и крупные ступени макета).
+// Публичные страницы живут на теме fs-lms-theme и считают размеры в ЕЁ шкале
+// (2026-09-29): число в `rem()` — пиксели на сайте, корень темы 19.2px
+// (`fs-rem()` темы делит так же). Раньше фронт считал от 16px, как админка и
+// кабинет, и всё на сайте выходило ×1.2: `rem(1200)` давал 1440px против 1200
+// у темы. Кабинет и плеер (свои bare-шеллы, корень 16px) и общие с ними
+// партиалы `shared/*` (блок кода, списки, таблицы) остаются в шкале ядра.
+// Имена ступеней — те же, что в ядре (`shared/_tokens.scss`), значения — в px
+// сайта: кегли — целые пиксели шкалы темы (ядровые 13/14/16 → 15/16/19, как
+// их раньше округляла сборка), отступы и радиусы — ядровые ×1.2.
 @forward '../shared/tokens' show
-	rem, below, $bp-mobile, $bp-wp, $bp-tablet, $bp-wide,
-	$spacing-xs, $spacing-sm, $spacing-md, $spacing-lg, $spacing-xl,
-	$border-radius-sm, $border-radius-md, $border-radius-lg, $border-radius-xl,
-	$font-size-2xs, $font-size-code, $font-size-xs, $font-size-sm, $font-size-base,
-	$font-size-md, $font-size-lead, $font-size-xl,
+	below, $bp-mobile, $bp-wp, $bp-tablet, $bp-wide,
 	$font-regular, $font-medium, $font-semibold, $font-bold, $color-danger,
 	// Моноширинный листингов публичных страниц: ступень общая с ядром, потому что
 	// тот же блок кода рендерится и в плеере (shared/_code-block.scss).
@@ -14,6 +16,30 @@
 @use '../shared/tokens' as t;
 @use 'sass:color';
 @use 'sass:math';
+
+/// Пиксели сайта → `rem` темы (корень 19.2px). Брейкпоинты — в `px`: в
+/// медиазапросах `rem` считается от 16px браузера, а не от корня темы.
+@function rem($px) {
+	@return math.div($px, 19.2) * 1rem;
+}
+
+$spacing-xs: rem(4.8);
+$spacing-sm: rem(9.6);
+$spacing-md: rem(14.4);
+$spacing-lg: rem(19.2);
+$spacing-xl: rem(24);
+$border-radius-sm: rem(4.8);
+$border-radius-md: rem(7.2);
+$border-radius-lg: rem(9.6);
+$border-radius-xl: rem(14.4);
+$font-size-2xs: rem(12);
+$font-size-code: rem(13);
+$font-size-xs: rem(14);
+$font-size-sm: rem(15);
+$font-size-base: rem(16);
+$font-size-md: rem(19);
+$font-size-lead: rem(22);
+$font-size-xl: rem(26);
 
 // ═══════════════════════════════════════════════════════════════════
 // Палитра публичных страниц — макет «Шаг в будущее» (Claude Design
@@ -109,11 +135,11 @@ $tag-palette: ($color-accent, $color-accent-soft),
 
 // ── Типографика (крупные ступени — только на публичных страницах)
 $font-family: t.$font-ui; // тот же шрифт, что в кабинете и плеере
-$font-size-2xl: t.rem(28);
+$font-size-2xl: rem(30);
 
 // Верхняя ступень лестницы: заголовок статьи
-$font-size-3xl: t.rem(36);
-$font-size-lg: t.rem(22);
+$font-size-3xl: rem(38);
+$font-size-lg: rem(24);
 $line-height-relaxed: 1.62; // длинный текст макета: условие, описания
 $line-height-tight: 1.35;
 
@@ -130,22 +156,22 @@ $font-normal: 400;
 // на них держится вся иерархия — номер задания, заголовки карточек, чипы, кнопки.
 
 // ── Компоновка
-// = layout.contentSize/wideSize темы (theme.json, 62.5rem): контент плагина по
-// краям шапки — 1200px на мониторе 1920, 800px в окне 1280 и уже, как у главной.
-// rem(1000) = 62.5rem: `rem()` плагина считает от 16px, тема — от 19.2px, и
-// прежние rem(1200) давали 1440px против 1200 у страниц темы.
-$max-width: t.rem(1000);
+// = layout.contentSize/wideSize темы (theme.json, 62.5rem = 1200px): контент
+// плагина по краям шапки. Живое значение темы — `--wp--style--global--content-size`
+// (_layout.scss), это — запасное для сайта без темы.
+$max-width: rem(1200);
+// stylelint-disable-next-line custom-property-pattern -- переменная ядра WP
+$content-width: var(--wp--style--global--content-size, #{$max-width});
 
-// Сайдбар: 336px на 1920, 224px на 1280 — в карточке статьи рядом с миниатюрой
-// ещё помещается слово заголовка кеглем 14px.
-$sidebar-width: t.rem(280);
-$layout-gap: t.rem(22);
+// Сайдбар тренажёра, учебника, задания и статьи
+$sidebar-width: rem(336);
+$layout-gap: rem(26.4);
 
 // Отступ колонки контента от левого края сетки (сайдбар + зазор)
 $content-offset: $sidebar-width + $layout-gap;
 
 // Ширина карточки
-$subject-card-width: math.div( $max-width - $sidebar-width - $layout-gap - 2 * t.$spacing-lg, 3 );
+$subject-card-width: math.div( $max-width - $sidebar-width - $layout-gap - 2 * $spacing-lg, 3 );
 
 // Ширина карточки карусели на мобильном: в полторы раза уже, чтобы в кадр
 // помещалась не одна карточка
@@ -155,21 +181,21 @@ $subject-card-width-sm: math.div( $subject-card-width, 1.5 );
 $wp-admin-bar-height: 32px;
 $wp-admin-bar-height-mobile: 46px;
 
-// ── Отступы (крупные ступени макета; xs/sm/md/lg — из ядра)
-$spacing-2xl: t.rem(24);
-$spacing-4xl: t.rem(32);
+// ── Отступы (крупные ступени макета; xs…xl — выше)
+$spacing-2xl: rem(28.8);
+$spacing-4xl: rem(38.4);
 
-// ── Форма (мелкие радиусы — из ядра)
+// ── Форма (мелкие радиусы — выше)
 // Ступени макета: карточка 14, элемент управления 9. Ядровые -xl/-lg общие с
 // админкой и значат другие размеры, поэтому это отдельные фронтовые имена.
-$radius-card: t.rem(14);
-$radius-control: t.rem(9);
-$border-radius-2xl: t.rem(16);
+$radius-card: rem(16.8);
+$radius-control: rem(10.8);
+$border-radius-2xl: rem(19.2);
 $border-radius-pill: 999px; // «таблетка»: полное скругление
 
 // ── Тени макета (shadow-sm / shadow-md): холодный оттенок, два слоя
 $shadow-surface: 0 1px 2px rgba(16, 24, 40, .05), 0 1px 3px rgba(16, 24, 40, .05);
-$shadow-hover: 0 t.rem(4) t.rem(12) rgba(16, 24, 40, .08), 0 t.rem(2) t.rem(4) rgba(16, 24, 40, .04);
+$shadow-hover: 0 rem(4.8) rem(14.4) rgba(16, 24, 40, .08), 0 rem(2.4) rem(4.8) rgba(16, 24, 40, .04);
 
 // ── Анимации
 $transition: 0.15s ease;
@@ -184,30 +210,18 @@ $transition-slow: 0.6s cubic-bezier(0.4, 0, 0.2, 1);
 $transition-collapse: 0.8s cubic-bezier(0.4, 0, 0.2, 1);
 
 // ── Брейкпоинты
-$bp-md: t.rem(900);
-$bp-sm: t.rem(600);
+$bp-md: 900px;
+$bp-sm: 600px;
 
 // Тренажёр и каталог учебника: сайдбар уходит, фильтры — над списком, курсы и
 // статьи — под ним. Раньше общего $bp-md: окно на пол-экрана (~975px) — частый
 // сценарий, а колонка контента рядом с сайдбаром там уже тесная.
-$bp-catalog: t.rem(975);
+$bp-catalog: 975px;
 
 // Кнопки подвала карточки задания («Показать ответ», «Смотреть решение») —
 // одной ширины: по самой длинной подписи вместе с выезжающей по ховеру стрелкой.
-$task-card-action-width: t.rem(196);
-
-// Пол кегля: `font-size: max($font-size-X, $font-floor-Y)`. Тема на десктопе
-// в окне уже 1280px уменьшает корень до 80% — без пола текст карточек и
-// крошек уходил к 8–12px. На больших экранах и телефонах пол не срабатывает.
-$font-floor-body: 14px;
-$font-floor-small: 12px;
-
-// Пол ширины кнопок подвала — под подпись кеглем $font-floor-small со стрелкой
-// (при уменьшенном корне темы rem-ширина иначе впритык).
-$task-card-action-min-width: 172px;
+$task-card-action-width: rem(235.2);
 
 // Ширина раскрытого поиска в строке крошек на узком экране (до телефона):
-// подсказка «Номер или фрагмент условия…» целиком, вместе с иконкой и
-// крестиком. Пол в px — для кегля $font-floor-small при уменьшенном корне темы.
-$toolbar-search-open-width: t.rem(270);
-$toolbar-search-open-min-width: 270px;
+// подсказка «Номер или фрагмент условия…» целиком, вместе с иконкой и крестиком.
+$toolbar-search-open-width: rem(324);

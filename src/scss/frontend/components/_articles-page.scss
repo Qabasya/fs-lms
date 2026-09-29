@@ -11,7 +11,7 @@
 
 .fs-articles-page {
   // Отступ якоря: строка крошек липкая и перекрыла бы заголовок секции.
-  .fs-articles-sec { scroll-margin-top: rem(88); }
+  .fs-articles-sec { scroll-margin-top: rem(105.6); }
 
   .fs-articles-sec:not([hidden]) ~ .fs-articles-sec:not([hidden]) {
     margin-top: $spacing-4xl;
@@ -21,7 +21,7 @@
     display: flex;
     align-items: baseline;
     gap: $spacing-md;
-    padding-bottom: rem(14);
+    padding-bottom: rem(16.8);
     margin-bottom: $spacing-lg;
     border-bottom: 1px solid $color-border;
   }

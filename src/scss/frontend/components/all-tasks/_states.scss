@@ -5,12 +5,12 @@
 .fs-articles-page {
   .tasks-empty,
   .fs-articles-empty {
-    @include fs-surface-card($padding: rem(60) rem(24) rem(64));
+    @include fs-surface-card($padding: rem(72) rem(28.8) rem(76.8));
 
     text-align: center; color: $color-text-secondary;
 
-    h3 { margin: 0 0 rem(6); font-size: $font-size-md; font-weight: $font-bold; color: $color-text; }
-    p  { margin: 0 0 rem(14); font-size: $font-size-sm; color: $color-muted; }
+    h3 { margin: 0 0 rem(7.2); font-size: $font-size-md; font-weight: $font-bold; color: $color-text; }
+    p  { margin: 0 0 rem(16.8); font-size: $font-size-sm; color: $color-muted; }
 
     .results-clear {
       @include fs-btn-ghost;
@@ -21,17 +21,17 @@
 
   .infinite-sentinel {
     display: flex; align-items: center; justify-content: center;
-    gap: rem(10);
-    padding: rem(28) rem(12) rem(12);
+    gap: rem(12);
+    padding: rem(33.6) rem(14.4) rem(14.4);
     font-size: $font-size-sm; color: $color-muted;
   }
 
   .infinite-spinner {
-    width: rem(14); height: rem(14);
+    width: rem(16.8); height: rem(16.8);
     border: 2px solid $color-border; border-top-color: $color-accent; border-radius: 50%;
     animation: fs-at-spin .7s linear infinite;
   }
-  .infinite-end { padding: rem(22) rem(12) rem(4); text-align: center; font-size: $font-size-sm; color: $color-muted-2; }
+  .infinite-end { padding: rem(26.4) rem(14.4) rem(4.8); text-align: center; font-size: $font-size-sm; color: $color-muted-2; }
 }
 
 @keyframes fs-at-spin {

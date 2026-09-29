@@ -1,20 +1,20 @@
 @use '../../variables' as *;
 @use '../../mixins' as *;
 
-$nav-text-line: rem(18);
-$nav-text-gap: rem(3);
+$nav-text-line: rem(21.6);
+$nav-text-gap: rem(3.6);
 
 // Навигация по серии статей под текстом
 .fs-article-page .fs-article-nav {
-  margin-top: rem(44);
+  margin-top: rem(52.8);
   border-top: 1px solid $color-border;
 
   &__head {
     display: flex;
     flex-wrap: wrap;
     align-items: baseline;
-    gap: rem(6) rem(14);
-    padding: rem(18) 0 rem(12);
+    gap: rem(7.2) rem(16.8);
+    padding: rem(21.6) 0 rem(14.4);
   }
 
   &__counter {
@@ -46,7 +46,7 @@ $nav-text-gap: rem(3);
   &__pair {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: rem(12);
+    gap: rem(14.4);
     align-items: stretch;
 
     &--single { grid-template-columns: minmax(0, 1fr); }
@@ -56,8 +56,8 @@ $nav-text-gap: rem(3);
     display: grid;
     grid-template-columns: auto minmax(0, 1fr);
     align-items: center;
-    gap: rem(12);
-    padding: rem(10);
+    gap: rem(14.4);
+    padding: rem(12);
     background: $color-white;
     border: 1px solid $color-border;
     border-radius: $radius-card;
@@ -78,7 +78,7 @@ $nav-text-gap: rem(3);
     display: flex;
     align-items: center;
     flex-shrink: 0;
-    gap: rem(5);
+    gap: rem(6);
     height: $nav-text-line;
     font-size: $font-size-code;
     font-weight: $font-bold;
@@ -91,8 +91,8 @@ $nav-text-gap: rem(3);
   &__thumb {
     display: block;
     flex-shrink: 0;
-    width: rem(88);
-    height: rem(80);
+    width: rem(105.6);
+    height: rem(96);
     object-fit: cover;
     background: $color-surface-2;
     border: 1px solid $color-border-light;

@@ -2,7 +2,7 @@
 @use '../mixins' as *;
 
 .fs-auth-card {
-  @include fs-card-shell(rem(400), rem(30), $border-radius-sm, rem(40) auto);
+  @include fs-card-shell(rem(480), rem(36), $border-radius-sm, rem(48) auto);
 
   &__title {
     @include fs-card-title;
@@ -31,7 +31,7 @@
 
     .js-toggle-secret {
       @include fs-toggle-secret;
-      &:focus-visible { outline: rem(2) solid $color-accent; outline-offset: rem(2); }
+      &:focus-visible { outline: rem(2.4) solid $color-accent; outline-offset: rem(2.4); }
     }
   }
 
@@ -50,7 +50,7 @@
   }
 
   &__submit {
-    @include fs-form-submit(rem(6) rem(12));
+    @include fs-form-submit(rem(7.2) rem(14.4));
   }
 
   &__footer {
@@ -58,7 +58,7 @@
     font-size: $font-size-xs;
     color: $color-muted;
     line-height: $line-height-relaxed;
-    margin-top: rem(20);
+    margin-top: rem(24);
 
     a {
       color: $color-muted;
@@ -101,5 +101,5 @@ body:has(.fs-auth-card) {
 
 // ── Мобильный (Фаза 5): карточка входа во всю ширину, компактные поля
 @media (max-width: $bp-mobile) {
-  .fs-auth-card { margin: rem(16) auto; padding: rem(20) rem(16); }
+  .fs-auth-card { margin: rem(19.2) auto; padding: rem(24) rem(19.2); }
 }

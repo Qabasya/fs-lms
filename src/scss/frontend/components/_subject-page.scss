@@ -9,7 +9,7 @@
 // ═══════════════════════════════════════════════════════════════════
 
 .fs-subject-section {
-  max-width: $max-width;
+  max-width: $content-width;
   margin: 0 auto;
   font-family: $font-family;
 }
@@ -67,8 +67,8 @@
   display: flex;
   flex: 1;
   flex-direction: column;
-  gap: rem(9);
-  padding: rem(16) rem(18) rem(18);
+  gap: rem(10.8);
+  padding: rem(19.2) rem(21.6) rem(21.6);
 }
 
 .fs-subject-card-thumb {

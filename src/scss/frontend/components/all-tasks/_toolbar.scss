@@ -6,14 +6,14 @@
 .fs-articles-page {
   // ── Строка крошек: слева цепочка, справа свёрнутый поиск ──────
   // Полоса не липкая: прокручивается вместе со страницей.
-  .crumbs-row { margin-top: rem(-22); padding-block: rem(16); }
+  .crumbs-row { margin-top: rem(-26.4); padding-block: rem(19.2); }
 
   // Содержимое выровнено по колонке контента: та же ширина, что у .shell,
   // отступ слева — на ширину сайдбара.
   .crumbs-row__inner {
     display: flex; align-items: center;
-    gap: rem(40);
-    max-width: $max-width;
+    gap: rem(48);
+    max-width: $content-width;
     margin: 0 auto;
     padding-left: $content-offset;
 
@@ -42,9 +42,9 @@
   .toolbar-search {
     display: flex; align-items: center;
     flex: 0 0 auto;
-    width: rem(112); max-width: 100%;
+    width: rem(134.4); max-width: 100%;
     margin-left: auto;
-    height: rem(38);
+    height: rem(45.6);
     background: $color-white;
     border: 1px solid $color-border; border-radius: $border-radius-pill;
     box-shadow: $shadow-surface;
@@ -54,9 +54,9 @@
     &:hover { border-color: $color-accent-soft-2; }
 
     &.is-open {
-      width: rem(280);
+      width: rem(336);
       border-color: $color-accent-soft-2;
-      box-shadow: 0 0 0 rem(3) $color-accent-soft;
+      box-shadow: 0 0 0 rem(3.6) $color-accent-soft;
       transition: width $transition-slow, border-color $transition, box-shadow $transition;
     }
   }
@@ -64,22 +64,22 @@
   .toolbar-search-toggle {
     display: inline-flex; align-items: center;
     flex: 1 1 auto;
-    gap: rem(9);
-    height: 100%; padding: 0 rem(14);
+    gap: rem(10.8);
+    height: 100%; padding: 0 rem(16.8);
     color: $color-muted;
     transition: color $transition, padding-left $transition-collapse;
   }
   .toolbar-search:hover .toolbar-search-toggle { color: $color-accent-700; }
 
   .toolbar-search.is-open .toolbar-search-toggle {
-    flex: 0 0 auto; padding-left: rem(16);
+    flex: 0 0 auto; padding-left: rem(19.2);
     transition: color $transition, padding-left $transition-slow;
   }
-  .toolbar-search-icon { display: inline-flex; flex: 0 0 rem(15); color: $color-muted-2; }
+  .toolbar-search-icon { display: inline-flex; flex: 0 0 rem(18); color: $color-muted-2; }
 
   .toolbar-search-hint {
-    max-width: rem(90);
-    font-size: max($font-size-sm, $font-floor-small); white-space: nowrap;
+    max-width: rem(108);
+    font-size: $font-size-sm; white-space: nowrap;
     opacity: 1; overflow: hidden;
     transition: max-width $transition-collapse, opacity $transition-collapse;
   }
@@ -92,7 +92,7 @@
   .toolbar-search-input {
     flex: 0 0 0; width: 0; min-width: 0; margin-left: 0; padding: 0;
     background: transparent; border: 0; outline: 0;
-    font-family: inherit; font-size: max($font-size-sm, $font-floor-small); color: $color-text;
+    font-family: inherit; font-size: $font-size-sm; color: $color-text;
     opacity: 0;
     transition: opacity $transition-collapse, padding-right $transition-collapse;
 
@@ -103,7 +103,7 @@
 
   .toolbar-search.is-open .toolbar-search-input {
     flex: 1 1 0;
-    padding-right: rem(12);
+    padding-right: rem(14.4);
     opacity: 1;
     transition: opacity $transition-slow, padding-right $transition-slow;
   }
@@ -113,8 +113,8 @@
   .toolbar-search-clear {
     display: grid; place-items: center;
     flex: 0 0 auto;
-    width: rem(20); height: rem(20);
-    margin-right: rem(12); padding: 0;
+    width: rem(24); height: rem(24);
+    margin-right: rem(14.4); padding: 0;
     background: $color-surface-2;
     border: 0; border-radius: 50%;
     color: $color-muted-2;
@@ -128,9 +128,9 @@
   }
 
   .results-clear {
-    padding: rem(5) rem(9);
+    padding: rem(6) rem(10.8);
     background: none; border: 0; border-radius: $border-radius-md;
-    font-family: inherit; font-size: max($font-size-xs, $font-floor-small); font-weight: $font-semibold;
+    font-family: inherit; font-size: $font-size-xs; font-weight: $font-semibold;
     color: $color-muted-2;
     cursor: pointer;
     transition: color $transition, background $transition;
@@ -142,17 +142,17 @@
   // Строка остаётся одной: цепочка сжимается многоточием, поиск — до узкого
   // раскрытия. Перенос строки и поиск во всю ширину — только на телефоне.
   @media (max-width: $bp-catalog) {
-    .crumbs-row__inner { gap: rem(16); padding-left: 0; }
-    .toolbar-search.is-open { width: max(#{$toolbar-search-open-width}, #{$toolbar-search-open-min-width}); }
+    .crumbs-row__inner { gap: rem(19.2); padding-left: 0; }
+    .toolbar-search.is-open { width: $toolbar-search-open-width; }
   }
 
   // Верхний отступ врапера на узком экране другой (_layout: rem(16)) — подтяжка под него.
   @media (max-width: $bp-md) {
-    .crumbs-row { margin-top: rem(-16); }
+    .crumbs-row { margin-top: rem(-19.2); }
   }
 
   @media (max-width: $bp-sm) {
-    .crumbs-row__inner { flex-wrap: wrap; gap: rem(12); }
+    .crumbs-row__inner { flex-wrap: wrap; gap: rem(14.4); }
     .toolbar-search.is-open { width: 100%; margin-left: 0; }
   }
 }

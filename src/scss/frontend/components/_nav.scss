@@ -9,25 +9,25 @@
 
 // Навигация «предыдущее / центр / следующее»
 .fs-task-page .fs-task-nav {
-  @include fs-surface-card($padding: rem(12) rem(16));
+  @include fs-surface-card($padding: rem(14.4) rem(19.2));
 
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  gap: rem(18);
-  margin-bottom: rem(16);
+  gap: rem(21.6);
+  margin-bottom: rem(19.2);
   
   &--bottom {
-    margin-top: rem(28);
+    margin-top: rem(33.6);
     margin-bottom: 0;
   }
 
   &__side {
     display: flex;
     align-items: center;
-    gap: rem(12);
+    gap: rem(14.4);
     min-width: 0;
-    padding: rem(6) rem(8);
+    padding: rem(7.2) rem(9.6);
     border-radius: $radius-control;
 
     &--next {
@@ -59,8 +59,8 @@
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
-    width: rem(34);
-    height: rem(34);
+    width: rem(40.8);
+    height: rem(40.8);
     background: $color-white;
     border: 1px solid $color-border;
     border-radius: 50%;
@@ -92,7 +92,7 @@
   }
 
   &__title {
-    margin-top: rem(3);
+    margin-top: rem(3.6);
     font-size: $font-size-sm;
     font-weight: $font-semibold;
     color: $color-text;
@@ -107,9 +107,9 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: rem(5);
+    gap: rem(6);
     flex-shrink: 0;
-    padding: rem(10) rem(22);
+    padding: rem(12) rem(26.4);
     border-radius: $radius-control;
     color: $color-muted;
     transition: background $transition, color $transition;
@@ -119,11 +119,11 @@
 
   &__dots {
     display: flex;
-    gap: rem(3);
+    gap: rem(3.6);
 
     i {
-      width: rem(4);
-      height: rem(4);
+      width: rem(4.8);
+      height: rem(4.8);
       border-radius: 50%;
       background: $color-muted-2;
     }
@@ -140,6 +140,6 @@
 }
 
 @media (max-width: $bp-sm) {
-  .fs-task-page .fs-task-nav { gap: rem(10); }
+  .fs-task-page .fs-task-nav { gap: rem(12); }
   .fs-task-page .fs-task-nav__info { display: none; }
 }

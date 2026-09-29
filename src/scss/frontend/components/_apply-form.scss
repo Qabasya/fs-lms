@@ -3,14 +3,14 @@
 @use '../mixins' as *;
 
 .fs-lms-apply-page {
-  padding: rem(40) rem(16);
+  padding: rem(48) rem(19.2);
 }
 
 // Honeypot-ловушка: убрана из видимого потока и недоступна для людей,
 // но присутствует в DOM — примитивные боты её автозаполняют.
 .fs-hp {
   position: absolute;
-  left: rem(-9999);
+  left: rem(-11998.8);
   width: 1px;
   height: 1px;
   overflow: hidden;
@@ -26,7 +26,7 @@
 }
 
 .fs-apply-card {
-  @include fs-card-shell(rem(480), $spacing-4xl rem(30));
+  @include fs-card-shell(rem(576), $spacing-4xl rem(36));
 
   &__title {
     @include fs-card-title;
@@ -53,7 +53,7 @@
 
   &__field-group {
     position: relative;
-    margin-bottom: rem(14);
+    margin-bottom: rem(16.8);
 
     // #7: иконка/toggle позиционируются относительно .fs-field-control (тесная
     // обёртка вокруг инпута), поэтому центрируются по инпуту, а не по всей группе
@@ -95,11 +95,11 @@
   }
 
   &__captcha {
-    margin-bottom: rem(14);
+    margin-bottom: rem(16.8);
   }
 
   &__submit {
-    @include fs-form-submit(rem(10) rem(16), $color-accent-theme);
+    @include fs-form-submit(rem(12) rem(19.2), $color-accent-theme);
 
     box-sizing: border-box;
   }
@@ -118,7 +118,7 @@
 
   &__resend {
     text-align: center;
-    margin-top: rem(14);
+    margin-top: rem(16.8);
     font-size: $font-size-sm;
 
     .js-resend-otp {
@@ -176,8 +176,8 @@
 }
 
 .fs-apply-card__spinner {
-  width: rem(18);
-  height: rem(18);
+  width: rem(21.6);
+  height: rem(21.6);
   flex-shrink: 0;
   border: 2px solid $color-border;
   border-top-color: $color-accent;

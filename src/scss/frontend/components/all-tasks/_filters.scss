@@ -5,20 +5,20 @@
 .fs-all-tasks-page,
 .fs-articles-page {
   .sidebar {
-    @include fs-sticky(rem(16));
+    @include fs-sticky(rem(19.2));
 
     display: flex; flex-direction: column;
-    gap: rem(16);
+    gap: rem(19.2);
   }
 
-  .side-card { @include fs-surface-card($padding: rem(16) rem(18) rem(18)); }
+  .side-card { @include fs-surface-card($padding: rem(19.2) rem(21.6) rem(21.6)); }
 
   .filters-side { padding: 0; overflow: hidden; }
 
   .filters-side-head {
     display: flex; align-items: center; justify-content: space-between;
-    gap: rem(8);
-    padding: rem(16) rem(18);
+    gap: rem(9.6);
+    padding: rem(19.2) rem(21.6);
     border-bottom: 1px solid $color-border-light;
   }
 
@@ -28,10 +28,10 @@
   }
 
   .filters-side-clear {
-    padding: rem(5) rem(9);
+    padding: rem(6) rem(10.8);
     background: none;
-    border: 0; border-radius: rem(7);
-    font-family: inherit; font-size: max($font-size-xs, $font-floor-small); font-weight: $font-semibold;
+    border: 0; border-radius: rem(8.4);
+    font-family: inherit; font-size: $font-size-xs; font-weight: $font-semibold;
     color: $color-muted-2;
     cursor: pointer;
     transition: background $transition, color $transition;
@@ -50,9 +50,9 @@
 
   .filter-sec-head {
     display: flex; align-items: center; justify-content: space-between;
-    gap: rem(12);
+    gap: rem(14.4);
     width: 100%;
-    padding: rem(13) rem(18);
+    padding: rem(15.6) rem(21.6);
     background: transparent; border: 0;
     font-family: inherit; text-align: left;
     cursor: pointer;
@@ -66,7 +66,7 @@
     letter-spacing: .05em; text-transform: uppercase;
     color: $color-muted-2;
   }
-  .filter-sec-right { display: inline-flex; align-items: center; gap: rem(8); }
+  .filter-sec-right { display: inline-flex; align-items: center; gap: rem(9.6); }
 
   .filter-sec-summary {
     font-size: $font-size-sm; font-weight: $font-medium;
@@ -75,8 +75,8 @@
 
   .filter-sec-badge {
     display: inline-flex; align-items: center; justify-content: center;
-    min-width: rem(18); height: rem(18);
-    padding: 0 rem(6);
+    min-width: rem(21.6); height: rem(21.6);
+    padding: 0 rem(7.2);
     border-radius: $border-radius-pill;
     background: $color-accent-soft; color: $color-accent-700;
     font-size: $font-size-2xs; font-weight: $font-bold; font-variant-numeric: tabular-nums;
@@ -90,20 +90,20 @@
   }
 
   .filter-sec-body {
-    max-height: rem(240);
-    padding: 0 rem(12) rem(15);
+    max-height: rem(288);
+    padding: 0 rem(14.4) rem(18);
     overflow-y: auto; overscroll-behavior: contain;
     scrollbar-width: thin;
   }
 
   // ── Опции фильтра ─────────────────────────────────────────────
-  .filter-options { display: flex; flex-direction: column; gap: 1px; padding: rem(4) 0 rem(2); }
+  .filter-options { display: flex; flex-direction: column; gap: 1px; padding: rem(4.8) 0 rem(2.4); }
 
   .filter-option {
     display: flex; align-items: center;
-    gap: rem(10);
-    padding: rem(7) rem(8);
-    border-radius: rem(7);
+    gap: rem(12);
+    padding: rem(8.4) rem(9.6);
+    border-radius: rem(8.4);
     background: transparent; border: 0;
     font-family: inherit; font-size: $font-size-sm; color: $color-text-secondary;
     text-align: left; cursor: pointer;
@@ -119,7 +119,7 @@
 
   .filter-option-check {
     display: grid; place-items: center;
-    width: rem(14); height: rem(14); flex: 0 0 rem(14);
+    width: rem(16.8); height: rem(16.8); flex: 0 0 rem(16.8);
     border: 1.5px solid $color-border; border-radius: $border-radius-sm;
     color: transparent;
     transition: background $transition, border-color $transition, color $transition;
@@ -145,7 +145,7 @@
 
     .filters-side-toggle {
       display: inline-flex; align-items: center;
-      gap: rem(8);
+      gap: rem(9.6);
       padding: 0;
       background: none; border: 0;
       font-family: inherit; font-size: $font-size-md; font-weight: $font-bold;
