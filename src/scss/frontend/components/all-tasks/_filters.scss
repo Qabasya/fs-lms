@@ -140,6 +140,9 @@
 
     .filters-side-title { display: none; }
 
+    // Раскрывает клик по всей шапке (filters-toggle.js).
+    .filters-side-head { cursor: pointer; }
+
     .filters-side-toggle {
       display: inline-flex; align-items: center;
       gap: rem(8);

@@ -127,6 +127,14 @@ const webpackConfig = {
  * аргументом округляется так же. На десктопе в окне уже 1280px тема
  * уменьшает корень до 80%, и мелкие кегли уходили к 8–10px — пол держит
  * читаемый минимум, не трогая крупные экраны и телефоны.
+ *
+ * `fontScale({ floors: true })` (только frontend.min.css — публичные страницы
+ * на теме) ставит пол каждому `rem`-кеглю сам: `max(round(…), Npx)`, где N —
+ * 12px для подписей (до 16px макета), 14px для текста (до 20), 16px для
+ * подзаголовков (до 24), 18px крупнее. Пол не выше кегля при корне темы
+ * 19.2px — на мониторе от 1920px и на телефоне ничего не меняется, пол
+ * срабатывает только в узком окне десктопа. Кегли с явным `max()` в SCSS
+ * не трогаются.
  */
 const THEME_ROOT_PX = 19.2;
 const DESIGN_ROOT_PX = 16;
@@ -144,9 +152,20 @@ function themeFontSize(rem) {
     return `round(${targetRem}rem, 1px)`;
 }
 
+/** Кегль макета на корне темы 19.2px — та же шкала, что в themeFontSize(). */
+function themeRootPx(designPx) {
+    return designPx <= 19 ? Math.floor(designPx * 1.2 + .05) : Math.round(designPx) + 2;
+}
+
+function floorPx(designPx) {
+    const floor = designPx < 16 ? 12 : designPx < 20 ? 14 : designPx < 24 ? 16 : 18;
+
+    return Math.min(floor, themeRootPx(designPx));
+}
+
 // Повторный проход PostCSS по изменённой декларации ничего не трогает:
 // внутри `round(`/`calc(` перед числом стоит скобка, а не пробел.
-function fontScale() {
+function fontScale({ floors = false } = {}) {
     return {
         postcssPlugin: 'fs-lms-font-scale',
         Declaration(decl) {
@@ -154,7 +173,14 @@ function fontScale() {
                 return;
             }
 
-            decl.value = decl.value.replace(REM_TOKEN, (match, lead, value) => lead + themeFontSize(parseFloat(value)));
+            const withFloor = floors && !decl.value.includes('max(');
+
+            decl.value = decl.value.replace(REM_TOKEN, (match, lead, value) => {
+                const rem    = parseFloat(value);
+                const scaled = themeFontSize(rem);
+
+                return lead + (withFloor ? `max(${scaled}, ${floorPx(rem * DESIGN_ROOT_PX)}px)` : scaled);
+            });
         },
     };
 }
@@ -216,7 +242,7 @@ function stylesFrontend() {
         .pipe(guard())
         .pipe(sourcemaps.init())
         .pipe(sass({ includePaths: [paths.scss.common] }))
-        .pipe(postcss([fontScale(), autoprefixer(), cssnano()]))
+        .pipe(postcss([fontScale({ floors: true }), autoprefixer(), cssnano()]))
         .pipe(rename('frontend.min.css'))
         .pipe(sourcemaps.write(paths.output.maps))
         .pipe(gulp.dest(paths.output.css));

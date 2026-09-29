@@ -22,6 +22,10 @@ body:has(> .fs-page-wrapper) {
   flex-grow: 1;
   background: $color-bg;
 
+  // Страховка узких колонок: слово, которое не помещается в строку целиком
+  // (длинный термин, адрес, код без пробелов), переносится, а не выходит за карточку.
+  overflow-wrap: break-word;
+
   @include fs-page-pad;
 }
 

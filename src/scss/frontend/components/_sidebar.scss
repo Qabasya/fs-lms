@@ -141,6 +141,9 @@
 
 .fs-sidebar-article-title,
 .fs-sidebar-course-title {
+  // Узкая колонка рядом с миниатюрой: длинное слово («Информационные»)
+  // переносится по слогам, а не вылезает за карточку.
+  hyphens: auto;
   font-weight: $font-semibold;
   line-height: $line-height-tight;
   color: $color-text;
