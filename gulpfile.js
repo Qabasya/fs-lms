@@ -122,10 +122,15 @@ const webpackConfig = {
  * настроек браузера — `round()` лишь снимает дробь. Исходники SCSS и
  * `rem()` не меняются. `admin.min.css` не обрабатывается: там корень
  * WordPress (16px) и дробей нет.
+ *
+ * Кегль с полом — `max(Xrem, Ypx)` в SCSS (2026-09-29): `rem` первым
+ * аргументом округляется так же. На десктопе в окне уже 1280px тема
+ * уменьшает корень до 80%, и мелкие кегли уходили к 8–10px — пол держит
+ * читаемый минимум, не трогая крупные экраны и телефоны.
  */
 const THEME_ROOT_PX = 19.2;
 const DESIGN_ROOT_PX = 16;
-const REM_TOKEN = /(^|\s)(\d*\.?\d+)rem(?=$|[\s/])/g;
+const REM_TOKEN = /(^|\s|max\()(\d*\.?\d+)rem(?=$|[\s/,])/g;
 
 function themeFontSize(rem) {
     const designPx = rem * DESIGN_ROOT_PX;

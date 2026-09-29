@@ -7,7 +7,7 @@
   flex-wrap: wrap;
   gap: rem(4) rem(8);
   margin-bottom: rem(18);
-  font-size: $font-size-sm;
+  font-size: max($font-size-sm, $font-floor-small);
   color: $color-muted;
 
   a {
