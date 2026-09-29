@@ -127,6 +127,8 @@ const webpackConfig = {
  * шкале темы: `rem()` фронта делит на 19.2, и его кегли — уже целые px сайта.
  * Такие значения (`rem × 19.2` — целое) round() не оборачиваются; округление
  * остаётся для общих с кабинетом/плеером партиалов `shared/*` в шкале ядра.
+ * Мелким кеглям фронта (до 16px сайта) сборка ставит пол 12px: между 1280 и
+ * 1920 тема плавно уменьшает корень до 16px, и 12–14px макета ушли бы к 10.
  */
 const THEME_ROOT_PX = 19.2;
 const DESIGN_ROOT_PX = 16;
@@ -161,10 +163,18 @@ function fontScale({ themeScale = false } = {}) {
                 return;
             }
 
+            const withFloor = themeScale && !decl.value.includes('max(');
+
             decl.value = decl.value.replace(REM_TOKEN, (match, lead, value) => {
                 const rem = parseFloat(value);
 
-                return themeScale && isThemePx(rem) ? match : lead + themeFontSize(rem);
+                if (!themeScale || !isThemePx(rem)) {
+                    return lead + themeFontSize(rem);
+                }
+
+                // Мелкий кегль — не меньше 12px: между 1280 и 1920 тема
+                // плавно уменьшает корень до 16px (см. `html` в theme.scss).
+                return withFloor && Math.round(rem * THEME_ROOT_PX) < 16 ? `${lead}max(${rem}rem, 12px)` : match;
             });
         },
     };

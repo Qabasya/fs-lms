@@ -24,8 +24,9 @@
     padding: rem(19.2) rem(21.6);
   }
 
+  // Тот же кегль, что у описаний карточек учебника рядом.
   &__text {
-    font-size: $font-size-base;
+    font-size: $font-size-card-text;
     line-height: $line-height-relaxed;
     color: $color-muted;
   }
