@@ -33,7 +33,7 @@
 			border-radius: 50%; border: 1px solid $cb-danger-border-color; background: $color-bg-modal; color: $color-danger;
 			cursor: pointer; opacity: 0; transition: opacity 0.12s, background 0.12s;
 			svg { width: rem(10); height: rem(10); fill: currentcolor; }
-			&:hover, &:focus-visible { background: $cb-danger-hover-bg; }
+			&:hover, &:focus-visible { background: $color-bg-modal; border-color: $color-danger; box-shadow: $shadow-cb-chip-hover; }
 		}
 		&:hover .sc-del, .sc-del:focus-visible { opacity: 1; }
 

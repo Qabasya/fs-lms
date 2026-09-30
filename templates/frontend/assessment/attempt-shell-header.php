@@ -31,7 +31,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	<meta name="robots" content="noindex, nofollow">
 	<?php wp_head(); ?>
 </head>
-<body class="fs-player-page">
+<body class="fs-player-page<?php echo is_admin_bar_showing() ? ' admin-bar' : ''; ?>">
 <div class="app" id="fsAssessmentApp">
 	<div class="s-main">
 		<header class="s-top">

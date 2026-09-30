@@ -90,7 +90,7 @@ if ( $locked_parent ) {
 	<title><?php echo esc_html( $view['topic'] ); ?></title>
 	<?php wp_head(); ?>
 </head>
-<body class="fs-player-page">
+<body class="fs-player-page<?php echo is_admin_bar_showing() ? ' admin-bar' : ''; ?>">
 
 <?php
 $next_lesson = is_array( $shell['next_lesson'] ?? null ) ? $shell['next_lesson'] : null;
