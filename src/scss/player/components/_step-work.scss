@@ -12,7 +12,7 @@
    «К курсу» (.wb-back). Фон непрозрачный: задачи уезжают под него. */
 .a-workbar {
   position: sticky;
-  top: $top-h;
+  top: calc(#{$bar-h} + #{$top-h});
   z-index: $z-workbar;
   transition: top $tr-top;
   display: flex;
@@ -40,7 +40,7 @@
   .wb-sp { flex: 1; }
 }
 
-.app.top-hidden .a-workbar { top: 0; }
+.app.top-hidden .a-workbar { top: $bar-h; }
 
 .wb-back {
   display: none;

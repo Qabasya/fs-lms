@@ -1,5 +1,5 @@
 import '../_types.js';
-import { stepIcon, icoPlus, icoDuplicate, icoX } from '../../common/icons.js';
+import { stepIcon, icoPlus, icoX } from '../../common/icons.js';
 import { escapeHtml as esc } from '../../common/utils.js';
 import { showToast } from '../modules/toast.js';
 import { ConfirmModal } from '../modals/confirm-modal.js';
@@ -147,9 +147,10 @@ export function createStepEditor( opts ) {
 			chip.dataset.type = stepMeta( s ).ui;
 			chip.draggable = true;
 			chip.innerHTML = `
-				<div class="step-chip-box"><span class="sc-num">${ i + 1 }</span>${ iconForStep( s ) }${ s.payload && s.payload.needs_review ? '<span class="dashicons dashicons-warning fs-dashicon fs-dashicon--danger sc-warn" title="Дублированный шаг — измените контент"></span>' : '' }</div>
+				<div class="step-chip-box"><span class="sc-num">${ i + 1 }</span>${ iconForStep( s ) }${ s.payload && s.payload.needs_review ? '<span class="dashicons dashicons-warning fs-dashicon fs-dashicon--danger sc-warn" title="Дублированный шаг — измените контент"></span>' : '' }${ lesson.steps.length > 1 ? `<button type="button" class="sc-del" data-del title="Удалить этот шаг" aria-label="Удалить этот шаг">${ icoX( 10 ) }</button>` : '' }</div>
 				<span class="sc-type">${ esc( stepMeta( s ).name ) }</span>`;
 			chip.addEventListener( 'click', () => { activeKey = s.key; renderStepsRow(); renderStepBody(); } );
+			chip.querySelector( '[data-del]' )?.addEventListener( 'click', ( e ) => { e.stopPropagation(); delStep( s ); } );
 			attachStepDrag( chip, s );
 			row.appendChild( chip );
 		} );
@@ -198,10 +199,6 @@ export function createStepEditor( opts ) {
 			<div class="step-head" data-type="${ meta.ui }">
 				<span class="sh-badge">${ iconForStep( step ) } Шаг ${ index }: ${ esc( meta.name ) }</span>
 				${ meta.inline ? `<input class="field-input field-input--title" data-step-title value="${ esc( step.payload.title || step.title || '' ) }" placeholder="Название шага">` : '' }
-				<div class="sh-controls">
-					<button type="button" class="sh-btn sh-btn-dup" data-dup>${ icoDuplicate( 13 ) } Дублировать шаг</button>
-					<button type="button" class="sh-btn sh-btn-del" data-del>${ icoX( 13 ) } Удалить шаг</button>
-				</div>
 			</div>
 			<div class="step-editor" data-step-editor></div>`;
 
@@ -213,8 +210,6 @@ export function createStepEditor( opts ) {
 				scheduleSave();
 			} );
 		}
-		body.querySelector( '[data-dup]' ).addEventListener( 'click', () => dupStep( step ) );
-		body.querySelector( '[data-del]' ).addEventListener( 'click', () => delStep( step ) );
 
 		const ed = body.querySelector( '[data-step-editor]' );
 		if ( meta.inline ) {
@@ -244,22 +239,6 @@ export function createStepEditor( opts ) {
 			renderStepsRow();
 		}
 	}
-	function dupStep( step ) {
-		if ( lesson.steps.length >= MAX_STEPS ) {
-			showToast( `В уроке не может быть больше ${ MAX_STEPS } шагов`, 'error' );
-			return;
-		}
-		const i = lesson.steps.indexOf( step );
-		const copy = { key: tmpKey( 's' ), type: step.type, title: step.title, payload: Object.assign( {}, step.payload ) };
-		if ( copy.payload.title ) { copy.payload.title += ' (копия)'; }
-		copy.payload.needs_review = true;
-		lesson.steps.splice( i + 1, 0, copy );
-		activeKey = copy.key;
-		renderStepsRow(); renderStepBody(); onChange();
-		saveSteps();
-		showToast( 'Шаг дублирован', 'success' );
-	}
-
 	// Есть ли в шаге содержимое (для подтверждения удаления).
 	function stepHasContent( step ) {
 		const p = step.payload || {};

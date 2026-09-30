@@ -78,7 +78,7 @@ let cfg;
 
 /* #15-C: свёрнутость секций сайдбара + фильтр «Мои курсы» (module-level, как
    mod.collapsed в course-builder.js — флаг переживает re-render buildSidebar()). */
-const sidebarState = { groupsCollapsed: false, coursesCollapsed: false, courseFilter: '' };
+const sidebarState = { navCollapsed: false, groupsCollapsed: false, coursesCollapsed: false, courseFilter: '' };
 const COURSE_SEARCH_THRESHOLD = 6;
 
 /* ── Routing ─────────────────────────────────────────────────────────── */
@@ -211,12 +211,12 @@ function courseItemsHtml() {
 function buildSidebar() {
     const nav = document.getElementById('profNav');
 
-    let html = '<div class="prof-nav-label">Меню</div>';
-    html += cfg.nav.map(item => `
+    let html = sectionHeader('Меню', 'navCollapsed');
+    html += sectionBody('navCollapsed', cfg.nav.map(item => `
         <div class="prof-nav-item" data-go="${esc(item.key)}">
             <span class="ni-ico">${NAV_ICONS[item.key] || ''}</span>
             ${esc(item.label)}
-        </div>`).join('');
+        </div>`).join(''));
 
     if (cfg.groups && cfg.groups.length) {
         html += sectionHeader('Мои группы', 'groupsCollapsed');

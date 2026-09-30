@@ -9,6 +9,7 @@ import { toggleVisible, applyProgress } from '../common/utils.js';
 import { icoCalendar, icoCheck, icoAlert, icoSearch, icoChevronRight, icoChevronDown, icoClock, icoStar, icoHome, icoLock } from '../common/icons.js';
 import { createApi } from './api.js';
 import { workCardHtml, workChipHtml, workStatusText } from './work-card.js';
+import { learnerLayout, learnerFlat } from './program-window.js';
 import { courseTabsShell, syncCourseTabs } from './course-tabs.js';
 
 const RENDERERS = {
@@ -254,13 +255,12 @@ function scRowHtml(l) {
     </div>`;
 }
 
-function scDefaultOpen(cId, mi, done, total, hasOpen) {
+/* Раскрыт модуль с доступным сейчас уроком; пройденные свёрнуты. Если доступных
+   нет (курс пройден), раскрывается верхний — он же самый свежий. */
+function scDefaultOpen(cId, mi, hasOpen, fallback) {
     const ov = (scState.expand[cId] || {})[mi];
     if (ov !== undefined) { return ov; }
-    if (hasOpen) { return true; }          // модуль с текущим уроком раскрыт
-    if (done === total) { return false; }  // пройденный модуль свёрнут
-    if (done === 0) { return false; }      // будущий свёрнут
-    return true;
+    return hasOpen || fallback;
 }
 
 function scRenderProgram(courses) {
@@ -296,25 +296,29 @@ function scRenderProgram(courses) {
 
     // Плоский курс без модулей.
     if (!c.modules) {
-        const rows = (c.lessons || []).filter(match);
+        const rows = learnerFlat(c.lessons || []).filter(match);
         body.innerHTML = rows.map(scRowHtml).join('') || '<div class="sc-empty">Ничего не найдено.</div>';
         scBindRows(body);
         return;
     }
 
     // Модули.
-    let mods = c.modules.map((m, mi) => ({
-        m, mi,
-        done: m.lessons.filter(l => l.status === 'done').length,
-        hasOpen: m.lessons.some(l => l.status === 'available'),
-        found: m.lessons.filter(match),
+    // Ученику — только разблокированные уроки, новые сверху (program-window.js);
+    // счётчики модуля («N из M») считаются по всем урокам модуля.
+    let mods = learnerLayout(c.modules).map((x, i) => ({
+        ...x,
+        first: 0 === i,
+        done: x.m.lessons.filter(l => l.status === 'done').length,
+        hasOpen: x.m.lessons.some(l => l.status === 'available'),
+        found: x.rows.filter(match),
     }));
+    const anyOpen = mods.some(x => x.hasOpen);
     if (q) { mods = mods.filter(x => x.found.length); }
 
-    body.innerHTML = mods.map(({ m, mi, done, hasOpen, found }) => {
-        const open = q ? true : scDefaultOpen(c.id, mi, done, m.lessons.length, hasOpen);
+    body.innerHTML = mods.map(({ m, mi, done, hasOpen, found, first, rows: unlockedRows }) => {
+        const open = q ? true : scDefaultOpen(c.id, mi, hasOpen, first && !anyOpen);
         const allDone = m.lessons.length > 0 && done === m.lessons.length;
-        const rows = q ? found : m.lessons;
+        const rows = q ? found : unlockedRows;
         const pct = m.lessons.length ? Math.round(done / m.lessons.length * 100) : 0;
         return `<div class="sc-mod${open ? ' open' : ''}${allDone ? ' done' : ''}" data-mi="${mi}">
             <div class="sc-mhead" role="button">
@@ -327,7 +331,7 @@ function scRenderProgram(courses) {
             </div>
             <div class="sc-mbody prof-fold"><div class="prof-fold-inner">${rows.map(scRowHtml).join('')}</div></div>
         </div>`;
-    }).join('') || '<div class="sc-empty">Ничего не найдено.</div>';
+    }).join('') || `<div class="sc-empty">${q ? 'Ничего не найдено.' : 'Открытых уроков пока нет.'}</div>`;
 
     body.querySelectorAll('.sc-mhead[role="button"]').forEach(h => h.addEventListener('click', () => {
         const mod = h.closest('.sc-mod');

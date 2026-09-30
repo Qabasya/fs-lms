@@ -10,7 +10,7 @@
 
 .railwrap {
   position: sticky;
-  top: calc(#{$top-h} + #{$rail-gap});
+  top: calc(#{$bar-h} + #{$top-h} + #{$rail-gap});
   z-index: $z-rail;
   flex-shrink: 0;
   width: $rail-w;
@@ -18,7 +18,7 @@
 }
 
 // Шапка спряталась — рейка поднимается к краю экрана.
-.app.top-hidden .railwrap { top: $rail-gap; }
+.app.top-hidden .railwrap { top: calc(#{$bar-h} + #{$rail-gap}); }
 
 .rail {
   position: relative; // offsetTop квадратов считается от рейки (rail.js keepVisible)
@@ -26,7 +26,7 @@
   flex-direction: column;
   align-items: center;
   gap: rem(8);
-  max-height: calc(100vh - #{$top-h} - #{$rail-gap} * 2);
+  max-height: calc(100vh - #{$bar-h} - #{$top-h} - #{$rail-gap} * 2);
   padding: rem(12) 0;
   overflow-y: auto;
   background: var(--surface);

@@ -133,10 +133,6 @@ function createApp( mount ) {
 					</div>
 					<div class="tree-scroll" data-tree></div>
 					<div class="tree-add">
-						<button type="button" class="button button-primary tree-add-main" data-add-lesson>
-							${ icoPlus( 13 ) }
-							Добавить урок
-						</button>
 						<div class="tree-add-row">
 							<div class="import-wrap">
 								<button type="button" class="button" data-import-toggle>
@@ -155,7 +151,6 @@ function createApp( mount ) {
 				<div class="editor-pane" data-editor></div>
 			</div>`;
 
-		mount.querySelector( '[data-add-lesson]' ).addEventListener( 'click', addLesson );
 		mount.querySelector( '[data-add-module]' ).addEventListener( 'click', addModule );
 
 		mount.querySelector( '[data-import-toggle]' ).addEventListener( 'click', ( e ) => {
@@ -345,6 +340,13 @@ function createApp( mount ) {
 				attachLessonDrag( el, les, mod );
 				wrap.appendChild( el );
 			} );
+			// Плашка «Добавить урок» — на месте следующего урока модуля (в пустом модуле — единственная).
+			const add = document.createElement( 'button' );
+			add.type = 'button';
+			add.className = 'lesson-add';
+			add.innerHTML = `${ icoPlus( 13 ) }<span>Добавить урок</span>`;
+			add.addEventListener( 'click', () => addLesson( mod ) );
+			wrap.appendChild( add );
 			modEl.appendChild( wrap );
 			root.appendChild( modEl );
 		} );
@@ -586,9 +588,7 @@ function createApp( mount ) {
 	}
 
 	// ══════════ ADD lesson / module ══════════
-	function addLesson() {
-		const mod = targetModule();
-		if ( ! mod ) { showToast( 'Сначала добавьте модуль', 'error' ); return; }
+	function addLesson( mod ) {
 		// Модуль мог быть создан только что — ждём, пока структура доедет до сервера.
 		structureReady
 			.then( () => ajax( acts().createLessonInModule, { course_id: courseId, module_id: mod.id, title: 'Новый урок' } ) )

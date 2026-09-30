@@ -21,7 +21,7 @@ body.fs-player-page { overflow: visible; }
 /* ══ Топбар ══════════════════════════════════════════════════════════ */
 .s-top {
   position: sticky;
-  top: 0;
+  top: $bar-h;
   z-index: $z-top;
   height: $top-h;
   flex-shrink: 0;

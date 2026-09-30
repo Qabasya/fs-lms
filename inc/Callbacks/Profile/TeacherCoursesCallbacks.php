@@ -8,6 +8,7 @@ use Inc\Core\BaseController;
 use Inc\Enums\Access\Capability;
 use Inc\Enums\Wp\Nonce;
 use Inc\Managers\Course\CourseManager;
+use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Services\Course\CoursePreviewAccessGuard;
 use Inc\Services\Course\CoursePreviewService;
 use Inc\Shared\Traits\Authorizer;
@@ -15,7 +16,7 @@ use Inc\Shared\Traits\Sanitizer;
 
 /**
  * AJAX страницы курса преподавателя (Tasks.md З4): программа курса — модули и
- * уроки, как «Мои курсы» ученика, но без прогресса. Урок открывается в
+ * уроки, как «Мои курсы» ученика, но без прогресса (только признак `held` по дате занятий групп). Урок открывается в
  * preview-плеере, поэтому доступ — тот же гард, что у предпросмотра.
  *
  * @package Inc\Callbacks\Profile
@@ -29,6 +30,7 @@ class TeacherCoursesCallbacks extends BaseController {
 		private readonly CourseManager            $courses,
 		private readonly CoursePreviewService     $preview,
 		private readonly CoursePreviewAccessGuard $guard,
+		private readonly GroupLessonRepository    $groupLessons,
 	) {
 		parent::__construct();
 	}
@@ -44,6 +46,17 @@ class TeacherCoursesCallbacks extends BaseController {
 			$this->error( __( 'Курс недоступен.', 'fs-lms' ) );
 		}
 
-		$this->success( array( 'modules' => $this->preview->program( $course ) ) );
+		$held    = array_flip( $this->groupLessons->listHeldLessonIdsByCourse( $courseId, current_time( 'mysql' ) ) );
+		$modules = $this->preview->program( $course );
+
+		// `held` — урок проведён (по дате) хотя бы в одной группе курса: фронт сворачивает
+		// непроведённые, кроме двух ближайших.
+		foreach ( $modules as $mi => $module ) {
+			foreach ( $module['lessons'] as $li => $lesson ) {
+				$modules[ $mi ]['lessons'][ $li ]['held'] = isset( $held[ $lesson['id'] ] );
+			}
+		}
+
+		$this->success( array( 'modules' => $modules ) );
 	}
 }

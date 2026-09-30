@@ -11,7 +11,7 @@
 .fs-se {
 	// steps row
 	.steps-label { @include cb-eyebrow($font-size-code); margin-bottom: $spacing-sm; }
-	.steps-row { display: flex; align-items: flex-start; gap: $spacing-md; padding-top: $spacing-xs; padding-bottom: $spacing-lg; overflow-x: auto; }
+	.steps-row { display: flex; align-items: flex-start; gap: $spacing-md; padding: $spacing-sm $spacing-sm $spacing-lg 0; overflow-x: auto; }
 
 	.step-chip {
 		width: rem(60); flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: $spacing-xs; cursor: pointer;
@@ -23,8 +23,21 @@
 			transition: transform 0.12s, box-shadow 0.12s; color: inherit;
 			svg { width: rem(30); height: rem(30); fill: currentcolor; }
 			.sc-num { position: absolute; top: rem(3); left: rem(5); font-size: $font-size-2xs; font-weight: $font-bold; color: $color-secondary-hover; }
-			.sc-warn { position: absolute; top: 1px; right: rem(2); margin: 0; line-height: 1; text-shadow: 0 0 2px $color-bg-modal; }
+			.sc-warn { position: absolute; bottom: rem(1); right: rem(2); margin: 0; line-height: 1; text-shadow: 0 0 2px $color-bg-modal; }
 		}
+
+		// Удаление шага: белый кружок с красным крестиком у правого верхнего угла, по наведению.
+		.sc-del {
+			position: absolute; top: rem(-6); right: rem(-6); z-index: 1; width: rem(18); height: rem(18); padding: 0;
+			display: flex; align-items: center; justify-content: center;
+			border-radius: 50%; border: 1px solid $cb-danger-border-color; background: $color-bg-modal; color: $color-danger;
+			cursor: pointer; opacity: 0; transition: opacity 0.12s, background 0.12s;
+			svg { width: rem(10); height: rem(10); fill: currentcolor; }
+			&:hover, &:focus-visible { background: $cb-danger-hover-bg; }
+		}
+		&:hover .sc-del, .sc-del:focus-visible { opacity: 1; }
+
+		@media (hover: none) { .sc-del { opacity: 1; } }
 		.sc-type { font-size: $font-size-xs; color: $color-secondary-hover; line-height: 1; }
 		&:hover .step-chip-box { transform: translateY(rem(-2)); box-shadow: $shadow-cb-chip-hover; }
 
@@ -33,6 +46,7 @@
 		&.active {
 			.step-chip-box { border-color: currentcolor; background: currentcolor;
 				svg { fill: $color-text-inverse; }
+				.sc-del svg { fill: $color-danger; }
 				.sc-num { color: $cb-chip-num-active-color; }
 				.sc-warn { color: $color-text-inverse; text-shadow: none; } }
 			.sc-type { font-weight: $font-bold; color: currentcolor; }
@@ -49,18 +63,6 @@
 			@include cb-chip;
 
 			border: none; color: $color-text-inverse;
-		}
-
-		.sh-controls { margin-left: auto; display: flex; gap: rem(6);
-
-			.sh-btn {
-				@include cb-chip;
-
-				border: 1.5px solid currentcolor; background: transparent; cursor: pointer; transition: background 0.12s;
-				&:hover { background: rgba(0, 0, 0, 0.05); }
-			}
-			.sh-btn-dup { color: var(--color-primary); }
-			.sh-btn-del { color: $color-danger; }
 		}
 
 		@include step-type-colors(background, '.sh-badge');

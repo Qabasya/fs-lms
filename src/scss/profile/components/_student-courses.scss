@@ -123,6 +123,16 @@
 .sc-mod.open > .sc-mbody { @include collapse-open; }
 .sc-mbody .prof-fold-inner > :last-child { margin-bottom: rem(6); }
 
+/* Заглушка «Ещё N уроков впереди» (program-window.js): дальнее будущее свёрнуто над видимыми уроками. */
+.sc-more {
+  display: block; width: 100%; box-sizing: border-box;
+  padding: rem(8) rem(18) rem(8) rem(24);
+  border: none; border-bottom: 1px dashed var(--line-2); background: none;
+  font: inherit; font-size: rem(12.5); font-weight: 600; color: var(--muted);
+  text-align: left; cursor: pointer; transition: background $tr, color $tr;
+}
+.sc-more:hover { background: var(--surface-2); color: var(--ink-2); }
+
 /* ── Строка урока ────────────────────────────────────────────────────── */
 .sc-row { display: flex; align-items: center; gap: rem(13); padding: rem(10) rem(18) rem(10) rem(24); transition: background $tr; }
 .sc-row.click { cursor: pointer; }

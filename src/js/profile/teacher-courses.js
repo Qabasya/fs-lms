@@ -9,6 +9,7 @@
 import { esc, chipBg, shortName } from './utils.js';
 import { icoSearch, icoChevronRight } from '../common/icons.js';
 import { createApi } from './api.js';
+import { teacherLayout, moreHtml, bindMore } from './program-window.js';
 import { courseTabsShell, syncCourseTabs } from './course-tabs.js';
 
 let api = null;
@@ -123,10 +124,13 @@ async function renderProgram() {
     const match = (l) => !q || l.title.toLowerCase().includes(q) || String(l.num) === q;
     const expand = state.expand[courseId] || {};
 
-    const html = modules.map((m, mi) => {
-        const rows = m.lessons.filter(match);
-        if (q && !rows.length) { return ''; }
-        const open = q ? true : (expand[mi] ?? (0 === mi)); // по умолчанию раскрыт первый модуль
+    // Новые уроки сверху; от последнего проведённого (по дате, в любой группе)
+    // видны два ближайших, остальные будущие — под заглушкой «Ещё N уроков впереди».
+    const rowOf = (l) => rowHtml(courseId, l);
+    const html = teacherLayout(modules).map(({ m, mi, rows: windowRows, hidden, open: defaultOpen }) => {
+        const found = q ? m.lessons.filter(match).reverse() : windowRows;
+        if (q && !found.length) { return ''; }
+        const open = q ? true : (expand[mi] ?? defaultOpen);
         return `<div class="sc-mod${open ? ' open' : ''}" data-mi="${mi}">
             <div class="sc-mhead" role="button">
                 <span class="sc-caret">${icoChevronRight(14)}</span>
@@ -134,7 +138,7 @@ async function renderProgram() {
                 <span class="sc-mname">${esc(m.title)}</span>
                 <span class="sc-mcnt">${m.lessons.length} ${plural(m.lessons.length, ['урок', 'урока', 'уроков'])}</span>
             </div>
-            <div class="sc-mbody prof-fold"><div class="prof-fold-inner">${rows.map(l => rowHtml(courseId, l)).join('')}</div></div>
+            <div class="sc-mbody prof-fold"><div class="prof-fold-inner">${q ? '' : moreHtml(hidden, rowOf)}${found.map(rowOf).join('')}</div></div>
         </div>`;
     }).join('');
 
@@ -150,6 +154,7 @@ async function renderProgram() {
     body.querySelectorAll('.sc-row.click').forEach(r => r.addEventListener('click', () => {
         window.location.href = r.dataset.url;
     }));
+    bindMore(body);
     syncExpandBtn();
 }
 

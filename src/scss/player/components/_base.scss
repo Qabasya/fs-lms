@@ -8,3 +8,15 @@
 @include cab-reset;
 
 body.fs-player-page { @include cab-body; }
+
+// WP admin-bar: fixed 32px (46px ≤ $bp-wp); ниже 600px он position:absolute и
+// уезжает вместе со страницей — липким элементам смещение не нужно.
+body.fs-player-page.admin-bar { --fs-bar: #{rem(32)}; }
+
+@media screen and (max-width: $bp-wp) {
+  body.fs-player-page.admin-bar { --fs-bar: #{rem(46)}; }
+}
+
+@media screen and (max-width: 600px) {
+  body.fs-player-page.admin-bar { --fs-bar: 0px; }
+}

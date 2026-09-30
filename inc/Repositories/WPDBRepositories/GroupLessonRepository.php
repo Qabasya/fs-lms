@@ -533,6 +533,30 @@ class GroupLessonRepository {
 		return (int) $this->wpdb->delete( $this->table, array( 'group_id' => $groupId ) );
 	}
 
+	/**
+	 * ID уроков курса, у которых в любой из его групп групповое занятие уже наступило
+	 * по дате ($now включительно). Отменённые/перенесённые слоты не считаются.
+	 * Нужен странице курса преподавателя: «проведённые» уроки не сворачиваются.
+	 *
+	 * @return int[]
+	 */
+	public function listHeldLessonIdsByCourse( int $courseId, string $now ): array {
+		$ids = $this->wpdb->get_col(
+			$this->wpdb->prepare(
+				"SELECT DISTINCT gl.lesson_id FROM %i gl
+				 INNER JOIN %i g ON g.id = gl.group_id
+				 WHERE g.course_id = %d AND gl.kind = 'group' AND gl.lesson_id IS NOT NULL
+				   AND gl.status IN ('scheduled','held')
+				   AND gl.scheduled_at IS NOT NULL AND gl.scheduled_at <= %s",
+				$this->table,
+				TableName::Groups->prefixed(),
+				$courseId,
+				$now
+			)
+		);
+		return array_map( 'intval', $ids ?: array() );
+	}
+
 	/** Снимает ссылку на удаляемый кабинет со всех занятий (RoomAssignmentService). */
 	public function clearRoomId( int $roomId ): int {
 		return (int) $this->wpdb->update( $this->table, array( 'room_id' => null ), array( 'room_id' => $roomId ) );
