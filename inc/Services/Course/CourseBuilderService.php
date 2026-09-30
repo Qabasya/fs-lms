@@ -166,10 +166,11 @@ class CourseBuilderService {
 	 * @param int    $courseId
 	 * @param string $moduleId
 	 * @param string $title
+	 * @param int    $afterLessonId Урок модуля, после которого вставить новый; 0 или чужой — в конец.
 	 *
 	 * @return array<string, mixed>|null Нода урока для дерева, либо null.
 	 */
-	public function createLessonInModule( int $courseId, string $moduleId, string $title ): ?array {
+	public function createLessonInModule( int $courseId, string $moduleId, string $title, int $afterLessonId = 0 ): ?array {
 		$course = $this->courses->get( $courseId );
 		if ( null === $course ) {
 			return null;
@@ -195,8 +196,13 @@ class CourseBuilderService {
 		foreach ( $course->modules as $module ) {
 			$lessonIds = $module->lessonIds;
 			if ( $module->id === $moduleId ) {
-				$lessonIds[] = $lessonId;
-				$added       = true;
+				$pos = $afterLessonId > 0 ? array_search( $afterLessonId, $lessonIds, true ) : false;
+				if ( false === $pos ) {
+					$lessonIds[] = $lessonId;
+				} else {
+					array_splice( $lessonIds, $pos + 1, 0, array( $lessonId ) );
+				}
+				$added = true;
 			}
 			$modules[] = new ModuleDTO( $module->id, $module->title, $lessonIds, $module->description );
 		}

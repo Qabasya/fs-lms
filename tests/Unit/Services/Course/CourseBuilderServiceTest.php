@@ -107,6 +107,24 @@ class CourseBuilderServiceTest extends TestCase {
 		self::assertSame( array( $node['id'] ), $course->modules[0]->lessonIds );
 	}
 
+	public function test_create_lesson_in_module_inserts_after_given_lesson(): void {
+		$this->seedCourse( 1, 'inf', array( array( 'id' => 'm1', 'title' => 'M', 'lesson_ids' => array( 10, 20 ) ) ) );
+
+		$node = $this->service->createLessonInModule( 1, 'm1', 'Урок X', 10 );
+
+		self::assertNotNull( $node );
+		self::assertSame( array( 10, $node['id'], 20 ), $this->courses->get( 1 )->modules[0]->lessonIds );
+	}
+
+	public function test_create_lesson_in_module_appends_when_anchor_is_foreign(): void {
+		$this->seedCourse( 1, 'inf', array( array( 'id' => 'm1', 'title' => 'M', 'lesson_ids' => array( 10, 20 ) ) ) );
+
+		$node = $this->service->createLessonInModule( 1, 'm1', 'Урок X', 999 );
+
+		self::assertNotNull( $node );
+		self::assertSame( array( 10, 20, $node['id'] ), $this->courses->get( 1 )->modules[0]->lessonIds );
+	}
+
 	public function test_update_lesson_meta_changes_title_and_status(): void {
 		$this->seedLesson( 10, 'inf', array(), 'draft', 'Старое' );
 

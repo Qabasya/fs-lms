@@ -133,17 +133,18 @@ function createApp( mount ) {
 					</div>
 					<div class="tree-scroll" data-tree></div>
 					<div class="tree-add">
-						<div class="tree-add-row">
-							<div class="import-wrap">
-								<button type="button" class="button" data-import-toggle>
-									${ icoImport( 13 ) }
-									Импорт
-									${ icoCaret( 10, 'import-caret' ) }
-								</button>
+						<div class="add-wrap" data-add-wrap>
+							<div class="add-menu">
+								<div class="add-menu-box">
+									<button type="button" class="add-opt" data-add-kind="lesson">${ icoPlus( 13 ) }Урок</button>
+									<button type="button" class="add-opt" data-add-kind="module">${ icoModule( 13 ) }Модуль</button>
+									<button type="button" class="add-opt" data-add-kind="import">${ icoImport( 13 ) }Импорт урока</button>
+								</div>
 							</div>
-							<button type="button" class="button" data-add-module>
-								${ icoModule( 13 ) }
-								Модуль
+							<button type="button" class="button add-main" data-add-main>
+								${ icoPlus( 13 ) }
+								Добавить
+								${ icoCaret( 10, 'add-caret' ) }
 							</button>
 						</div>
 					</div>
@@ -151,10 +152,22 @@ function createApp( mount ) {
 				<div class="editor-pane" data-editor></div>
 			</div>`;
 
-		mount.querySelector( '[data-add-module]' ).addEventListener( 'click', addModule );
-
-		mount.querySelector( '[data-import-toggle]' ).addEventListener( 'click', ( e ) => {
-			importLessonFlow( e.currentTarget );
+		const addWrap = mount.querySelector( '[data-add-wrap]' );
+		const addMain = addWrap.querySelector( '[data-add-main]' );
+		// Меню раскрывается по :hover/:focus-within; после выбора прячем его до ухода курсора.
+		const closeAddMenu = () => {
+			addWrap.classList.add( 'is-closed' );
+			document.activeElement?.blur?.();
+			addWrap.addEventListener( 'mouseleave', () => addWrap.classList.remove( 'is-closed' ), { once: true } );
+		};
+		const addActions = {
+			lesson: addLesson,
+			module: addModule,
+			import: () => importLessonFlow( addMain ),
+		};
+		addMain.addEventListener( 'click', () => { closeAddMenu(); addActions.lesson(); } );
+		addWrap.querySelectorAll( '[data-add-kind]' ).forEach( ( btn ) => {
+			btn.addEventListener( 'click', () => { closeAddMenu(); addActions[ btn.dataset.addKind ](); } );
 		} );
 
 		// Блокируем нативный submit формы — сохранение только через AJAX
@@ -285,16 +298,21 @@ function createApp( mount ) {
 	function findModule( id ) {
 		return state.course.modules.find( ( m ) => m.id === id ) || null;
 	}
-	// Куда класть новый/импортируемый урок: открытая страница модуля →
-	// модуль активного урока → последний модуль курса (не первый).
-	function targetModule() {
-		const byPage = state.activeModuleId ? findModule( state.activeModuleId ) : null;
-		if ( byPage ) { return byPage; }
-
+	// Куда класть новый/импортируемый урок: открыт урок → в его модуль сразу после него;
+	// открыта страница модуля → в конец этого модуля; иначе — в конец последнего модуля.
+	function insertionPoint() {
 		const f = state.activeLessonId ? findLesson( state.activeLessonId ) : null;
-		if ( f ) { return f.module; }
+		if ( f ) { return { mod: f.module, afterId: f.lesson.id }; }
 
-		return state.course.modules[ state.course.modules.length - 1 ] || null;
+		const byPage = state.activeModuleId ? findModule( state.activeModuleId ) : null;
+		const mod    = byPage || state.course.modules[ state.course.modules.length - 1 ] || null;
+		return mod ? { mod, afterId: 0 } : null;
+	}
+
+	// Позиция вставки в mod.lessons: после урока afterId, а если его там нет — в конец.
+	function insertIndex( mod, afterId ) {
+		const i = afterId ? mod.lessons.findIndex( ( l ) => l.id === afterId ) : -1;
+		return i < 0 ? mod.lessons.length : i + 1;
 	}
 
 	// ══════════ TREE ══════════
@@ -340,13 +358,6 @@ function createApp( mount ) {
 				attachLessonDrag( el, les, mod );
 				wrap.appendChild( el );
 			} );
-			// Плашка «Добавить урок» — на месте следующего урока модуля (в пустом модуле — единственная).
-			const add = document.createElement( 'button' );
-			add.type = 'button';
-			add.className = 'lesson-add';
-			add.innerHTML = `${ icoPlus( 13 ) }<span>Добавить урок</span>`;
-			add.addEventListener( 'click', () => addLesson( mod ) );
-			wrap.appendChild( add );
 			modEl.appendChild( wrap );
 			root.appendChild( modEl );
 		} );
@@ -588,12 +599,15 @@ function createApp( mount ) {
 	}
 
 	// ══════════ ADD lesson / module ══════════
-	function addLesson( mod ) {
+	function addLesson() {
+		const point = insertionPoint();
+		if ( ! point ) { showToast( 'Сначала добавьте модуль', 'error' ); return; }
+		const { mod, afterId } = point;
 		// Модуль мог быть создан только что — ждём, пока структура доедет до сервера.
 		structureReady
-			.then( () => ajax( acts().createLessonInModule, { course_id: courseId, module_id: mod.id, title: 'Новый урок' } ) )
+			.then( () => ajax( acts().createLessonInModule, { course_id: courseId, module_id: mod.id, title: 'Новый урок', after_lesson_id: afterId } ) )
 			.then( ( node ) => {
-				mod.lessons.push( node );
+				mod.lessons.splice( insertIndex( mod, afterId ), 0, node );
 				mod.collapsed = false;
 				selectLesson( node.id );
 				showToast( 'Урок добавлен', 'success' );
@@ -664,17 +678,17 @@ function createApp( mount ) {
 
 	// ── импорт готового урока из библиотеки ──
 	function importLessonFlow( anchor ) {
-		const mod = targetModule();
-		if ( ! mod ) { showToast( 'Сначала добавьте модуль', 'error' ); return; }
-		openLessonPicker( anchor, ( lessonId ) => importLesson( mod, lessonId ) );
+		const point = insertionPoint();
+		if ( ! point ) { showToast( 'Сначала добавьте модуль', 'error' ); return; }
+		openLessonPicker( anchor, ( lessonId ) => importLesson( point.mod, lessonId, point.afterId ) );
 	}
 
-	function importLesson( mod, lessonId ) {
+	function importLesson( mod, lessonId, afterId = 0 ) {
 		if ( mod.lessons.some( ( l ) => l.id === lessonId ) ) {
 			showToast( 'Урок уже в этом модуле', 'info' );
 			return;
 		}
-		mod.lessons.push( { id: lessonId, title: '…', published: false, steps: [] } );
+		mod.lessons.splice( insertIndex( mod, afterId ), 0, { id: lessonId, title: '…', published: false, steps: [] } );
 		mod.collapsed = false;
 		renderTree();
 		ajax( acts().saveCourseStructure, { course_id: courseId, modules: persist.structurePayload() } )

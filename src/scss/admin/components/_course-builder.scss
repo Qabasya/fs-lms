@@ -112,34 +112,44 @@
 		padding: $spacing-sm rem(10);
 		display: flex; flex-direction: column; gap: $spacing-sm;
 
-		.tree-add-row { display: flex; gap: $spacing-sm; }
-
-		.import-wrap { position: relative; flex: 1;
-			> .button { width: 100%; justify-content: center; }
+		// «Добавить»: клик — урок, наведение/фокус — меню выбора (вверх). Меню вплотную к кнопке,
+		// чтобы курсор не «терял» hover по пути к пункту.
+		.add-wrap { position: relative;
+			> .add-main { width: 100%; justify-content: center; }
 		}
-		.import-caret { margin-left: auto; }
+		.add-caret { margin-left: auto; transform: rotate(180deg); }
 
-		.import-dropdown {
+		.add-menu {
 			position: absolute;
-			bottom: calc(100% + rem(4));
+			bottom: 100%;
 			left: 0; right: 0;
+			padding-bottom: rem(4);
+			z-index: 100;
+			visibility: hidden; opacity: 0;
+			transition: opacity 0.12s;
+		}
+
+		.add-wrap:not(.is-closed):hover .add-menu,
+		.add-wrap:not(.is-closed):focus-within .add-menu {
+			visibility: visible; opacity: 1;
+		}
+
+		.add-menu-box {
 			background: $color-bg-modal;
 			border: 1px solid $color-border-input;
 			border-radius: $border-radius-md;
 			box-shadow: $shadow-cb-popover;
 			overflow: hidden;
-			z-index: 100;
 		}
 
-		.import-opt {
+		.add-opt {
 			display: flex; align-items: center; gap: $spacing-sm;
 			padding: rem(8) $spacing-sm; width: 100%;
 			background: none; border: none; cursor: pointer;
 			font-size: $font-size-sm; color: $color-text-primary; text-align: left;
-			&:hover { background: $cb-bg-hover; }
+			svg { fill: currentcolor; flex-shrink: 0; }
+			&:hover, &:focus-visible { background: $cb-bg-hover; }
 		}
-
-		[data-add-module] { flex: 1; justify-content: center; }
 	}
 
 	// module
@@ -184,16 +194,6 @@
 		.les-num { font-size: $font-size-code; color: $color-secondary-hover; font-variant-numeric: tabular-nums; flex-shrink: 0; min-width: rem(24); }
 		.les-title { flex: 1; font-size: $font-size-sm; color: $color-text-primary; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 		.les-steps { font-size: $font-size-2xs; color: $color-secondary-hover; background: $cb-badge-bg; border-radius: rem(9); padding: 1px rem(6); flex-shrink: 0; }
-	}
-
-	// Плашка «Добавить урок» — по размеру строки урока, пунктиром (как «Добавить» у шагов).
-	.lesson-add {
-		display: flex; align-items: center; gap: rem(7); width: 100%; box-sizing: border-box;
-		margin: 1px 0; padding: rem(6) $spacing-sm; border-radius: rem(5);
-		border: 1.5px dashed var(--color-primary); background: transparent; color: var(--color-primary);
-		font-size: $font-size-sm; line-height: 1.3; cursor: pointer; transition: background 0.12s;
-		svg { fill: currentcolor; flex-shrink: 0; }
-		&:hover, &:focus-visible { background: $wp-admin-blue-bg-light; }
 	}
 
 	// drag states

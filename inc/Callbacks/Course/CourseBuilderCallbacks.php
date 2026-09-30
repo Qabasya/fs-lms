@@ -114,7 +114,7 @@ class CourseBuilderCallbacks extends BaseController {
 	}
 
 	/**
-	 * Создаёт урок в модуле. Params: course_id, module_id, title
+	 * Создаёт урок в модуле. Params: course_id, module_id, title, after_lesson_id (необязательно)
 	 */
 	public function ajaxCreateLessonInModule(): void {
 		$this->authorize( Nonce::AuthorCourse, Capability::AuthorLmsCourses );
@@ -122,8 +122,9 @@ class CourseBuilderCallbacks extends BaseController {
 		$course_id = $this->requireInt( 'course_id' );
 		$module_id = $this->requireKey( 'module_id' );
 		$title     = $this->sanitizeText( 'title' );
+		$after_id  = $this->sanitizeInt( 'after_lesson_id' );
 
-		$node = $this->builder->createLessonInModule( $course_id, $module_id, $title );
+		$node = $this->builder->createLessonInModule( $course_id, $module_id, $title, $after_id );
 		if ( null === $node ) {
 			$this->error( 'Не удалось создать урок.' );
 			return;
