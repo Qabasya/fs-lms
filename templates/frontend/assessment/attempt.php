@@ -35,7 +35,7 @@ declare( strict_types=1 );
 				data-assessment-id="<?php echo esc_attr( (string) $assessment->id ); ?>">
 
 				<?php
-				if ( \Inc\Enums\Assessment\AssessmentKind::Ege === $assessment->kind ) {
+				if ( $assessment->kind->isStation() ) {
 					require __DIR__ . '/partials/attempt-form-nav.php';
 				} else {
 					require __DIR__ . '/partials/attempt-form-list.php';

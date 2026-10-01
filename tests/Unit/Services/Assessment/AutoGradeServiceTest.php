@@ -62,6 +62,7 @@ class AutoGradeServiceTest extends TestCase {
 			$this->batchCheck,
 			$this->templates,
 			$this->createMock( \Inc\Repositories\WPDBRepositories\PersonRepository::class ),
+			new \Inc\Services\Assessment\ScoringUnits( $this->createMock( \Inc\Managers\Wp\TermManager::class ), new \Inc\Services\Assessment\ArchiveTaskNumber() ),
 		);
 
 		// Нет сохранённых ответов — оцениваем по полному составу работы.

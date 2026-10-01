@@ -8,10 +8,12 @@ use Inc\DTO\Course\GradebookEntryDTO;
 use Inc\DTO\Profile\LearnerContextDTO;
 use Inc\Enums\Course\GradeBadge;
 use Inc\Enums\Course\WorkSourceType;
+use Inc\Managers\Assessment\AssessmentManager;
 use Inc\Managers\Course\LessonManager;
 use Inc\Repositories\WPDBRepositories\AssessmentAttemptRepository;
 use Inc\Repositories\WPDBRepositories\AttendanceRepository;
 use Inc\Repositories\WPDBRepositories\SubmissionRepository;
+use Inc\Services\Assessment\AttemptRevealPolicy;
 use Inc\Services\Course\GradebookService;
 use Inc\Services\Course\HomeworkDeadlineService;
 use Inc\Services\Course\WorkMarksService;
@@ -36,6 +38,8 @@ class LearnerPerformanceSection {
 		private readonly LessonManager               $lessons,
 		private readonly HomeworkDeadlineService     $deadlines,
 		private readonly WorkMarksService            $marks,
+		private readonly AssessmentManager           $assessments,
+		private readonly AttemptRevealPolicy         $revealPolicy,
 	) {}
 
 	/**
@@ -75,6 +79,15 @@ class LearnerPerformanceSection {
 				'duration_sec' => $e->durationSec,
 				'overdue'      => $e->isLate,
 			);
+
+			// Экзамен станции до утверждения преподавателем: результат ученику ещё не открыт
+			// ({@see AttemptRevealPolicy}) — ни балла, ни крестиков по заданиям, только «На проверке».
+			$last = array_key_last( $grades );
+			if ( $this->isHiddenAttempt( $e ) ) {
+				$grades[ $last ]['value']   = GradebookEntryDTO::PENDING_LABEL;
+				$grades[ $last ]['display'] = 'pending';
+				$grades[ $last ]['marks']   = array_fill( 0, count( $grades[ $last ]['marks'] ), 'pending' );
+			}
 		}
 
 		foreach ( $this->deadlines->missed( $ctx->rawRows, $submitted, $ctx->now ) as $glid => $missed ) {
@@ -102,6 +115,20 @@ class LearnerPerformanceSection {
 		}
 
 		return $grades;
+	}
+
+	/**
+	 * Попытка станции, результат которой ученику ещё не открыт (ждёт утверждения).
+	 */
+	private function isHiddenAttempt( GradebookEntryDTO $e ): bool {
+		if ( WorkSourceType::Attempt->value !== $e->sourceType ) {
+			return false;
+		}
+
+		$attempt    = $this->attempts->find( $e->sourceId );
+		$assessment = null !== $attempt ? $this->assessments->get( $attempt->assessmentId ) : null;
+
+		return null !== $assessment && ! $this->revealPolicy->isRevealed( $assessment, $attempt );
 	}
 
 	/**
@@ -148,6 +175,12 @@ class LearnerPerformanceSection {
 		$url = get_permalink( $attempt->assessmentId );
 		if ( ! $url ) {
 			return '';
+		}
+
+		// Станция показывает результат именно этой попытки, а не последней (`?attempt=`).
+		$assessment = $this->assessments->get( $attempt->assessmentId );
+		if ( null !== $assessment && $assessment->kind->isStation() ) {
+			$url = (string) add_query_arg( array( 'attempt' => $attempt->id ), $url );
 		}
 
 		$gid = $e->groupId;

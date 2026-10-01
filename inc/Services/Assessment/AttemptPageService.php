@@ -6,10 +6,12 @@ namespace Inc\Services\Assessment;
 
 use Inc\Contracts\ClockInterface;
 use Inc\DTO\Assessment\AssessmentDTO;
+use Inc\DTO\Assessment\AttemptDTO;
 use Inc\DTO\Assessment\AttemptPageDTO;
 use Inc\Enums\Assessment\AttemptStatus;
 use Inc\Repositories\WPDBRepositories\AssessmentAttemptRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
+use Inc\Services\Course\GroupAccessGuard;
 
 /**
  * Class AttemptPageService
@@ -32,6 +34,7 @@ readonly class AttemptPageService {
 	 * @param AttemptOutcomeService       $outcome    Метка/состояние исхода
 	 * @param AttemptTaskViewBuilder      $taskViews  Per-task данные для шаблона
 	 * @param ClockInterface              $clock      Текущее время
+	 * @param GroupAccessGuard            $groupGuard Управляет ли пользователь группой попытки (просмотр чужой попытки)
 	 */
 	public function __construct(
 		private AssessmentAttemptRepository $attempts,
@@ -41,6 +44,7 @@ readonly class AttemptPageService {
 		private AttemptOutcomeService       $outcome,
 		private AttemptTaskViewBuilder      $taskViews,
 		private ClockInterface              $clock,
+		private GroupAccessGuard            $groupGuard,
 	) {}
 
 	/**
@@ -98,6 +102,62 @@ readonly class AttemptPageService {
 			now:            $now,
 			attemptsUsed:   $attemptsUsed,
 		);
+	}
+
+	/**
+	 * Просмотр конкретной попытки станции: экран результата (лист ответов) именно этой
+	 * попытки, `?attempt=ID`. Открыть может:
+	 *  - тот, кто управляет группой попытки (преподаватель группы, замена, автор курсов,
+	 *    админ) — результат ему открыт сразу, не дожидаясь «Утвердить работу»;
+	 *  - сам ученик — только свою попытку, и результат открывается по обычному правилу
+	 *    ({@see AttemptRevealPolicy}): до утверждения ему показывается «обрабатывается».
+	 *
+	 * Ничего не пишется. Незавершённая (идущая) попытка не показывается: у неё нет результата.
+	 *
+	 * @param AssessmentDTO $assessment Экзамен
+	 * @param int           $attemptId  Попытка
+	 * @param int           $userId     ID пользователя WP
+	 *
+	 * @return AttemptPageDTO|null null — попытки нет, она чужая или недоступна этому пользователю
+	 */
+	public function buildReview( AssessmentDTO $assessment, int $attemptId, int $userId ): ?AttemptPageDTO {
+		$attempt = $this->attempts->find( $attemptId );
+		if ( null === $attempt || $attempt->assessmentId !== $assessment->id || AttemptStatus::InProgress === $attempt->status ) {
+			return null;
+		}
+
+		$person  = $this->persons->findByWpUserId( $userId );
+		$isOwner = null !== $person && $person->id === $attempt->studentPersonId;
+		$manages = ! $isOwner && $this->canManageAttempt( $attempt, $assessment, $userId );
+		if ( ! $isOwner && ! $manages ) {
+			return null;
+		}
+
+		$student = $isOwner ? $person : $this->persons->find( $attempt->studentPersonId );
+
+		return new AttemptPageDTO(
+			person:         $student,
+			activeAttempt:  null,
+			lastAttempt:    $attempt,
+			examInProgress: false,
+			taskViews:      $this->taskViews->build( $assessment->taskIds, $assessment->subjectKey, $assessment->kind ),
+			resultPerTask:  $this->results->studentPerTask( $attempt->id, $attempt->studentPersonId ),
+			outcome:        $this->outcome->label( $attempt, $assessment ),
+			outcomeState:   $this->outcome->state( $attempt, $assessment ),
+			canRetry:       false,
+			now:            $this->clock->now(),
+			reviewMode:     true,
+			reviewReveal:   $manages,
+		);
+	}
+
+	/** Управляет ли пользователь группой попытки; попытка вне группы — только автор/сотрудник контрольной. */
+	private function canManageAttempt( AttemptDTO $attempt, AssessmentDTO $assessment, int $userId ): bool {
+		if ( null !== $attempt->groupId && $attempt->groupId > 0 ) {
+			return $this->groupGuard->canManage( $attempt->groupId, $userId );
+		}
+
+		return $this->access->canPreview( $userId, $assessment->id );
 	}
 
 	/**

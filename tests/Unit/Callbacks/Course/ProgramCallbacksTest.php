@@ -176,6 +176,38 @@ class ProgramCallbacksTest extends TestCase {
 		self::assertTrue( fs_test_capture_json( fn() => $this->cb->ajaxContinueProgramLesson() )->success );
 	}
 
+	/* ── Убрать продолжение ──────────────────────────────────────────────── */
+
+	public function test_remove_continuation_delegates_and_works_on_locked_program(): void {
+		$this->program->method( 'getProgramRow' )->willReturn( $this->programRow() );
+		$this->guard->method( 'canManage' )->willReturn( true );
+		$this->program->method( 'isProgramLocked' )->willReturn( true );
+		$this->program->expects( $this->once() )->method( 'removeContinuation' )->with( 42, $this->anything() );
+		$_POST = array( 'group_lesson_id' => '42' );
+
+		self::assertTrue( fs_test_capture_json( fn() => $this->cb->ajaxRemoveProgramContinuation() )->success );
+	}
+
+	public function test_remove_continuation_denied_when_not_manager(): void {
+		$this->program->method( 'getProgramRow' )->willReturn( $this->programRow() );
+		$this->guard->method( 'canManage' )->willReturn( false );
+		$this->program->expects( $this->never() )->method( 'removeContinuation' );
+		$_POST = array( 'group_lesson_id' => '42' );
+
+		self::assertFalse( fs_test_capture_json( fn() => $this->cb->ajaxRemoveProgramContinuation() )->success );
+	}
+
+	public function test_remove_continuation_reports_service_refusal(): void {
+		$this->program->method( 'getProgramRow' )->willReturn( $this->programRow() );
+		$this->guard->method( 'canManage' )->willReturn( true );
+		$this->program->method( 'removeContinuation' )->willThrowException( new \InvalidArgumentException( 'Занятие уже состоялось.' ) );
+		$_POST = array( 'group_lesson_id' => '42' );
+
+		$r = fs_test_capture_json( fn() => $this->cb->ajaxRemoveProgramContinuation() );
+
+		self::assertFalse( $r->success );
+	}
+
 	public function test_continue_program_lesson_errors_when_service_returns_zero(): void {
 		$this->program->method( 'getProgramRow' )->willReturn( $this->programRow() );
 		$this->guard->method( 'canManage' )->willReturn( true );

@@ -143,11 +143,33 @@ class ProgramCallbacks extends BaseController {
 
 		$id = $this->program->continueLesson( $groupLessonId, $userId );
 		if ( 0 === $id ) {
-			$this->error( __( 'Нельзя продолжить: тема не найдена или уже является продолжением.', 'fs-lms' ) );
+			$this->error( __( 'Нельзя продолжить: тема не найдена, уже является продолжением или уже продолжена.', 'fs-lms' ) );
 			return;
 		}
 
 		$this->success( array( 'group_lesson_id' => $id ) );
+	}
+
+	/**
+	 * Убирает продолжение темы — вторую дату, созданную «Продолжить на другую дату»:
+	 * окно освобождается, следующие темы подтягиваются назад. Как и само продолжение,
+	 * разрешено и в опубликованной КТП (T1.8). Нельзя, если занятие уже состоялось или
+	 * по нему есть данные учеников. Params: group_lesson_id.
+	 */
+	public function ajaxRemoveProgramContinuation(): void {
+		$this->authorize( Nonce::SaveSchedule, Capability::ManageLmsTeaching );
+		$groupLessonId = $this->requireInt( 'group_lesson_id' );
+
+		$this->requireProgramRow( $groupLessonId );
+
+		try {
+			$this->program->removeContinuation( $groupLessonId, get_current_user_id() );
+		} catch ( \InvalidArgumentException $e ) {
+			$this->error( $e->getMessage() );
+			return;
+		}
+
+		$this->success();
 	}
 
 	public function ajaxGetGroupProgram(): void {

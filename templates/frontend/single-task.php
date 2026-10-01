@@ -42,6 +42,16 @@ ThemeCompatService::header();
 	<div class="fs-page-shell">
 		<div class="fs-task-page<?php echo $has_sidebar ? '' : ' fs-task-page--solo'; ?>">
 
+			<!-- ===================== КРОШКИ И ЗАГОЛОВОК ===================== -->
+			<?php // Отдельная строка сетки над контентом: сайдбар и навигация начинаются под ней, на одной линии. ?>
+			<header class="fs-task-head">
+				<!-- Хлебные крошки (общий партиал со страницей «Все задания») -->
+				<?php include __DIR__ . '/partials/breadcrumbs.php'; ?>
+
+				<!-- Заголовок задания -->
+				<h1 class="fs-task-title"><?php echo esc_html( $task_post?->title ?? '' ); ?></h1>
+			</header>
+
 			<!-- ===================== ЛЕВЫЙ САЙДБАР ===================== -->
 			<?php if ( $has_sidebar ) : ?>
 			<aside class="fs-task-sidebar js-scroll-sticky">
@@ -64,12 +74,6 @@ ThemeCompatService::header();
 
 			<!-- ===================== ОСНОВНОЙ КОНТЕНТ ===================== -->
 			<main class="fs-task-main">
-
-				<!-- Хлебные крошки (общий партиал со страницей «Все задания») -->
-				<?php include __DIR__ . '/partials/breadcrumbs.php'; ?>
-
-				<!-- Заголовок задания -->
-				<h1 class="fs-task-title"><?php echo esc_html( $task_post?->title ?? '' ); ?></h1>
 
 				<!-- Навигация: предыдущее / все задания / следующее -->
 				<nav class="fs-task-nav">

@@ -9,6 +9,7 @@ use Inc\Enums\Log\LogEvent;
 use Inc\Managers\Course\LessonManager;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
+use Inc\Services\Course\GroupLessonUsageGuard;
 use Inc\Services\Group\ProgramCompositionService;
 use Inc\Services\Group\ScheduleEventPublisher;
 use Inc\Services\Group\ScheduleReflowService;
@@ -27,6 +28,7 @@ class ProgramCompositionServiceTest extends TestCase {
 	private GroupsRepository&\PHPUnit\Framework\MockObject\MockObject $groups;
 	private LogEventDispatcherInterface&\PHPUnit\Framework\MockObject\MockObject $dispatcher;
 	private ScheduleReflowService&\PHPUnit\Framework\MockObject\MockObject $schedule;
+	private GroupLessonUsageGuard&\PHPUnit\Framework\MockObject\MockObject $usage;
 	private ProgramCompositionService $service;
 
 	protected function setUp(): void {
@@ -36,6 +38,7 @@ class ProgramCompositionServiceTest extends TestCase {
 		$this->groups        = $this->createMock( GroupsRepository::class );
 		$this->dispatcher    = $this->createMock( LogEventDispatcherInterface::class );
 		$this->schedule      = $this->createMock( ScheduleReflowService::class );
+		$this->usage         = $this->createMock( GroupLessonUsageGuard::class );
 
 		$this->service = new ProgramCompositionService(
 			$this->groupLessons,
@@ -43,6 +46,7 @@ class ProgramCompositionServiceTest extends TestCase {
 			$this->groups,
 			new ScheduleEventPublisher( $this->dispatcher ),
 			$this->schedule,
+			$this->usage,
 		);
 	}
 
@@ -109,6 +113,19 @@ class ProgramCompositionServiceTest extends TestCase {
 		self::assertSame( 0, $this->service->continueLesson( 11, 99 ) );
 	}
 
+	/** Повторный клик не плодит вторую копию: у темы уже есть продолжение. */
+	public function test_continue_lesson_rejects_second_continuation_of_same_origin(): void {
+		$this->groupLessons->method( 'find' )->willReturn( $this->makeRow( 42, 'group' ) );
+		$this->groupLessons->method( 'listByGroup' )->willReturn( array(
+			$this->makeRow( 42, 'group' ),
+			$this->makeRow( 43, 'group', null, 42 ),
+		) );
+		$this->groupLessons->expects( self::never() )->method( 'add' );
+		$this->groupLessons->expects( self::never() )->method( 'shiftPositions' );
+
+		self::assertSame( 0, $this->service->continueLesson( 42, 99 ) );
+	}
+
 	public function test_continue_lesson_returns_zero_when_not_found(): void {
 		$this->groupLessons->method( 'find' )->willReturn( null );
 		$this->groupLessons->expects( self::never() )->method( 'add' );
@@ -128,6 +145,84 @@ class ProgramCompositionServiceTest extends TestCase {
 		self::assertSame( array( 1, 1, 2 ), array_column( $numbered, 'n' ) );
 		self::assertSame( array( 1, 2, 1 ), array_column( $numbered, 'part' ) );
 		self::assertSame( array( 2, 2, 1 ), array_column( $numbered, 'totalParts' ) );
+	}
+
+	/* ── Убрать продолжение ─────────────────────────────────────────────── */
+
+	private function factRow( int $id, ?int $continuedFromId ): \Inc\DTO\Course\GroupLessonDTO {
+		return new \Inc\DTO\Course\GroupLessonDTO(
+			id: $id, groupId: 5, lessonId: 10, position: 1, workIdsSnapshot: null, extraWorkIds: array(),
+			scheduledAt: '2026-10-08 10:00:00', endsAt: null, isPinned: false, teacherUserId: null,
+			visibility: 'hidden', openedAt: null, homeworkDueAt: null, allowLate: true, recordingUrl: null,
+			createdByUserId: null, updatedByUserId: null, continuedFromId: $continuedFromId, hasAttendance: true,
+		);
+	}
+
+	public function test_remove_continuation_frees_the_slot_then_deletes_the_row(): void {
+		$this->groupLessons->method( 'find' )->willReturn( $this->makeRow( 43, 'group', null, 42 ) );
+		$this->lessonManager->method( 'get' )->willReturn( $this->makeLesson( 'inf' ) );
+		$this->usage->method( 'isSafeToRemove' )->willReturn( true );
+
+		// Окно освобождается и хвост подтягивается ДО удаления строки.
+		$calls = array();
+		$this->schedule->expects( self::once() )->method( 'returnToPool' )->with( 43, 99 )
+			->willReturnCallback( function () use ( &$calls ): int { $calls[] = 'pool'; return 2; } );
+		$this->groupLessons->expects( self::once() )->method( 'remove' )->with( 43 )
+			->willReturnCallback( function () use ( &$calls ): bool { $calls[] = 'remove'; return true; } );
+		$this->dispatcher->expects( self::once() )->method( 'dispatch' )->with( LogEvent::LessonRemovedFromProgram, self::anything() );
+
+		$this->service->removeContinuation( 43, 99 );
+
+		self::assertSame( array( 'pool', 'remove' ), $calls );
+	}
+
+	public function test_remove_continuation_refuses_an_origin_row(): void {
+		$this->groupLessons->method( 'find' )->willReturn( $this->makeRow( 42, 'group' ) );
+		$this->groupLessons->expects( self::never() )->method( 'remove' );
+
+		$this->expectException( \InvalidArgumentException::class );
+		$this->service->removeContinuation( 42, 99 );
+	}
+
+	public function test_remove_continuation_refuses_a_held_lesson(): void {
+		$this->groupLessons->method( 'find' )->willReturn( $this->factRow( 43, 42 ) );
+		$this->groupLessons->expects( self::never() )->method( 'remove' );
+		$this->schedule->expects( self::never() )->method( 'returnToPool' );
+
+		$this->expectException( \InvalidArgumentException::class );
+		$this->service->removeContinuation( 43, 99 );
+	}
+
+	public function test_remove_continuation_refuses_when_students_already_have_data(): void {
+		$this->groupLessons->method( 'find' )->willReturn( $this->makeRow( 43, 'group', null, 42 ) );
+		$this->usage->method( 'isSafeToRemove' )->willReturn( false );
+		$this->groupLessons->expects( self::never() )->method( 'remove' );
+
+		$this->expectException( \InvalidArgumentException::class );
+		$this->service->removeContinuation( 43, 99 );
+	}
+
+	public function test_remove_continuation_refuses_unknown_row(): void {
+		$this->groupLessons->method( 'find' )->willReturn( null );
+
+		$this->expectException( \InvalidArgumentException::class );
+		$this->service->removeContinuation( 999, 99 );
+	}
+
+	/** Старые данные: у темы две продолжения — обе видны в программе, части нумеруются подряд. */
+	public function test_number_themes_keeps_every_continuation_of_one_origin(): void {
+		$entries = array(
+			array( 'row' => $this->makeRow( 10, 'group', null, null ), 'topic' => '', 'subject' => '' ),
+			array( 'row' => $this->makeRow( 11, 'group', null, 10 ), 'topic' => '', 'subject' => '' ),
+			array( 'row' => $this->makeRow( 12, 'group', null, 10 ), 'topic' => '', 'subject' => '' ),
+		);
+
+		$numbered = $this->service->numberThemes( $entries );
+
+		self::assertCount( 3, $numbered );
+		self::assertSame( array( 10, 11, 12 ), array_map( static fn( $e ) => $e['row']->id, $numbered ) );
+		self::assertSame( array( 1, 2, 3 ), array_column( $numbered, 'part' ) );
+		self::assertSame( array( 3, 3, 3 ), array_column( $numbered, 'totalParts' ) );
 	}
 
 	public function test_publish_program_locks_and_dispatches(): void {

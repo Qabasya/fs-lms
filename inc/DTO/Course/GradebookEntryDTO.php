@@ -51,10 +51,13 @@ readonly class GradebookEntryDTO {
 	) {}
 
 	/** Форматированное значение для отображения в журнале. */
+	/** Подпись результата, пока он не открыт ученику / не проверен. */
+	public const PENDING_LABEL = 'На проверке';
+
 	public function displayValue(): string {
 		return match ( $this->displayType ) {
 			'fraction' => (int) ( $this->score ?? 0 ) . '/' . (int) ( $this->maxScore ?? 0 ),
-			'pending'  => 'На проверке',
+			'pending'  => self::PENDING_LABEL,
 			default    => null !== $this->score ? (string) (int) $this->score : '—',
 		};
 	}

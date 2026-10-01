@@ -41,11 +41,32 @@ body:has(> .fs-page-wrapper) {
   align-items: start;
 }
 
-.fs-task-page--solo {
-  grid-template-columns: minmax(0, 1fr);
+// Три области: шапка (крошки + заголовок) в правой колонке, ниже — сайдбар слева и
+// контент справа. Белые карточки сайдбара и навигации так начинаются на одной линии,
+// какой бы длины ни был заголовок.
+.fs-task-head {
+  grid-column: 2;
+  grid-row: 1;
+  min-width: 0;
 }
 
-.fs-task-main { min-width: 0; }
+.fs-task-page > .fs-task-sidebar {
+  grid-column: 1;
+  grid-row: 2;
+}
+
+.fs-task-main {
+  grid-column: 2;
+  grid-row: 2;
+  min-width: 0;
+}
+
+.fs-task-page--solo {
+  grid-template-columns: minmax(0, 1fr);
+
+  > .fs-task-head,
+  > .fs-task-main { grid-column: 1; }
+}
 
 @media (max-width: $bp-md) {
   .fs-page-wrapper { padding: rem(19.2) rem(19.2) rem(57.6); }
@@ -55,6 +76,16 @@ body:has(> .fs-page-wrapper) {
 // колонка рядом с сайдбаром сжималась до ~520px, и навигация обрезала названия.
 @media (max-width: $bp-catalog) {
   .fs-task-page { grid-template-columns: 1fr; }
+
+  // Одна колонка: порядок — шапка, контент, сайдбар (порядок задаёт order, не сетка).
+  .fs-task-page > .fs-task-head,
+  .fs-task-page > .fs-task-sidebar,
+  .fs-task-page > .fs-task-main {
+    grid-column: 1;
+    grid-row: auto;
+  }
+
+  .fs-task-head { order: 0; }
 
   // Сброс липкости: статичный сайдбар — сигнал scroll-sticky.js, что вести нечего.
   .fs-task-sidebar {

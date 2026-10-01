@@ -124,6 +124,7 @@ function render(d, history = []) {
                     <div class="smh-meta" id="smhMeta">${d.kind === 'exam' ? 'Экзамен' : 'Работа'} · ${esc(STATUS_LABEL[d.status] || d.status)} · ${esc(scoreLine)}${durationMeta(d.duration_sec)}${d.is_late ? ' · <span class="smh-late">Просрочено</span>' : ''}</div>
                 </div>
                 <div class="smh-actions">
+                    ${d.review_url ? `<a class="prof-btn prof-btn-sm" href="${esc(d.review_url)}" target="_blank" rel="noopener">Лист результатов</a>` : ''}
                     ${canApprove ? '<button class="prof-btn prof-btn-sm prof-btn-primary sum-approve">Утвердить работу</button>' : ''}
                     ${isApproved ? '<span class="sum-approved-badge" title="Ответы открыты ученику">Утверждено</span>' : ''}
                     ${canComplete ? '<button class="prof-btn prof-btn-sm prof-btn-primary sum-complete">Проверка завершена</button>' : ''}

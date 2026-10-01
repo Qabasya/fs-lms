@@ -13,25 +13,28 @@ use Inc\Modules\EgeComputer\Config\KegeScaleConfig;
 use Inc\Modules\EgeComputer\Config\OgeScaleConfig;
 use Inc\Modules\EgeComputer\DTO\KegeSheetDTO;
 use Inc\Repositories\WPDBRepositories\AssessmentAnswerRepository;
+use Inc\Services\Assessment\ArchiveTaskNumber;
+use Inc\Services\Assessment\ScoringUnits;
 use Inc\Services\Assessment\SecondaryScoreService;
+use Inc\Services\Subject\PostTypeResolver;
 use Inc\Services\Task\CorrectAnswerResolver;
 use Inc\Shared\Traits\AnswerNormalizer;
 
 /**
  * Class KegeResultSheetService
  *
- * Лист ответов станции КЕГЭ: строка на каждую ПОЗИЦИЮ ответа (номер задания,
- * балл, ответ ученика, эталон) плюс сводка баллов. Строится по ПОЛНОМУ списку
- * заданий работы, а не по сохранённым ответам: пропущенное задание в реальном
- * листе тоже занимает строку — с пустой колонкой ответа.
+ * Лист ответов станции КЕГЭ: строка на каждое ЗАДАНИЕ работы (номер задания, балл,
+ * ответ ученика, эталон) плюс сводка баллов. Строится по ПОЛНОМУ списку заданий, а не
+ * по сохранённым ответам: пропущенное задание в реальном листе тоже занимает строку —
+ * с пустой колонкой ответа. Заданий может быть больше 27 (повторы типа, архивные
+ * варианты), а первичный балл при этом остаётся 29.
  *
- * Позиций больше, чем заданий: №26 и №27 требуют по два ответа
- * ({@see KegeScaleConfig::answerSlots()}), поэтому 27 заданий дают 29 строк и
- * 29 первичных баллов. Задание занимает ровно одну позицию на свой номер — в
- * том числе составное (Triple), из которого берётся подпункт, совпадающий с
- * номером задания в банке.
+ * Баллы: №26 и №27 — одна строка до двух баллов (два числа ответа в одной ячейке,
+ * {@see KegeScaleConfig::answerSlots()}); задания одного типа — одна единица зачёта
+ * ({@see \Inc\Services\Assessment\ScoringUnits}): балл типа стоит в первой его строке.
+ * Составное (Triple) задание даёт подпункт, совпадающий с номером задания в банке.
  *
- * Балл позиции считается здесь сличением ответа с эталоном, а не берётся из
+ * Балл строки считается здесь сличением ответа с эталоном, а не берётся из
  * попытки: у попытки один балл на весь task_id (и своя, авторская, шкала весов),
  * а лист показывает построчный разбор — иначе сумма колонки «Балл» не сходилась
  * бы с итогом экрана.
@@ -57,6 +60,8 @@ readonly class KegeResultSheetService {
 		private CorrectAnswerResolver      $correctAnswers,
 		private SecondaryScoreService      $secondaryScore,
 		private PostManager                $posts,
+		private ArchiveTaskNumber          $archive,
+		private ScoringUnits               $units,
 	) {}
 
 	/**
@@ -127,22 +132,27 @@ readonly class KegeResultSheetService {
 		$this->posts->primeMetaCache( $assessment->taskIds );
 		$this->posts->primePostCache( $assessment->taskIds );
 
-		$rows       = array();
-		$primary    = 0.0;
-		$primaryMax = 0.0;
+		$rows    = array();
+		$taskRef = array(); // task_id => ['max' => балл задания, 'row' => индекс его строки]
 
+		// Строка листа — задание (как на реальной станции): №26 и №27 стоят одной строкой,
+		// два числа ответа — в одной ячейке, балл строки — до двух. Позиции ответа нужны
+		// только для подсчёта частичного балла (одно из двух чисел верно).
 		foreach ( $assessment->taskIds as $position => $taskId ) {
 			$taskId = (int) $taskId;
-			// Два номера: `$number` — собственный номер задания, от него форма ответа
-			// (сколько ячеек) и эталон; `$label` — позиция в работе, под ней строка
-			// листа, как «Задание N» на станции. Любое задание может стоять на любой
-			// позиции — за соответствием формы следит автор работы.
+			// Два номера: `$number` — «живой» номер задания (архивное №117 → 17), от него
+			// форма ответа и эталон; `$label` — номер задания как он записан (архивное
+			// остаётся №117), под ним строка листа: так задание узнают, и три задания №14
+			// подряд подписаны тремя «14». Любое задание может стоять на любой позиции —
+			// за соответствием формы следит автор работы.
 			$number = $this->number( $assessment, $taskViews, $taskId, (int) $position );
-			$label  = (string) ( (int) $position + 1 );
+			$label  = $this->label( $assessment, $taskViews, $taskId, (int) $position );
 			$slots  = $this->answerSlots( $assessment->kind, (int) $number );
 
-			$given   = $this->slots( $this->studentAnswer( $answerText[ $taskId ] ?? '', $number ), $slots );
-			$correct = $this->slots( $this->correctAnswer( $taskId, $number ), $slots );
+			$givenPlain   = $this->studentAnswer( $answerText[ $taskId ] ?? '', $number );
+			$correctPlain = $this->correctAnswer( $taskId, $number );
+			$given        = $this->slots( $givenPlain, $slots );
+			$correct      = $this->slots( $correctPlain, $slots );
 
 			// Балл задания целиком (D18) — не всегда «1 на слот»: ручная проверка ОГЭ
 			// 13-16 стоит 2-3 балла на ОДИН слот (см. OgeCriteriaConfig::rubricFor()).
@@ -150,37 +160,57 @@ readonly class KegeResultSheetService {
 			// без неё (générique-предпросмотр) — фолбэк «1 балл на слот», как раньше.
 			$taskMax = isset( $assessment->taskPoints[ $taskId ] ) ? (float) $assessment->taskPoints[ $taskId ] : (float) $slots;
 			$slotMax = $slots > 0 ? $taskMax / $slots : 0.0;
-			$primaryMax += $taskMax;
 
-			for ( $slot = 0; $slot < $slots; $slot++ ) {
-				if ( array_key_exists( $taskId, $overridden ) ) {
-					// Зачёт преподавателя стоит на задании целиком — раскладываем его
-					// по позициям так же, как максимум ($slotMax = $taskMax / $slots).
-					$score = $slots > 0 ? $overridden[ $taskId ] / $slots : 0.0;
-				} else {
+			if ( array_key_exists( $taskId, $overridden ) ) {
+				// Зачёт преподавателя стоит на задании целиком и побеждает сличение с эталоном.
+				$score = $overridden[ $taskId ];
+			} else {
+				$score = null;
+				for ( $slot = 0; $slot < $slots; $slot++ ) {
 					// Ручная проверка (D18): эталона для сличения нет, балл — от учителя.
-					$score = ( '' === $correct[ $slot ] && array_key_exists( $taskId, $graded ) )
+					$slotScore = ( '' === $correct[ $slot ] && array_key_exists( $taskId, $graded ) )
 						? $graded[ $taskId ]
 						: $this->slotScore( $scored, $given[ $slot ], $correct[ $slot ], $slotMax );
+
+					if ( null !== $slotScore ) {
+						$score = ( $score ?? 0.0 ) + $slotScore;
+					}
 				}
-
-				$rows[] = array(
-					'number'  => $label,
-					'score'   => $revealed ? $score : null,
-					'answer'  => $given[ $slot ],
-					'correct' => $revealed ? $correct[ $slot ] : '',
-				);
-
-				$primary += (float) ( $score ?? 0.0 );
 			}
+
+			$taskRef[ $taskId ] = array( 'max' => $taskMax, 'row' => count( $rows ) );
+			$rows[]             = array(
+				'number'  => $label,
+				'score'   => $score,
+				'answer'  => $givenPlain,
+				'correct' => $correctPlain,
+				'url'     => $revealed ? $this->publicUrl( $taskId ) : '',
+			);
+		}
+
+		$primaryMax = $this->applyScoringUnits( $assessment, $taskRef, $rows );
+		if ( AssessmentKind::EgeComputer === $assessment->kind ) {
+			// Максимум КЕГЭ фиксирован — 29 первичных (в работе всегда есть все 27 типов),
+			// каким бы ни был состав заданий.
+			$primaryMax = (float) KegeScaleConfig::primaryMax();
+		}
+		$primary    = 0.0;
+		$answered   = 0;
+		foreach ( $rows as $i => $row ) {
+			$primary += (float) ( $row['score'] ?? 0.0 );
+			if ( '' !== $row['answer'] ) {
+				++$answered;
+			}
+
+			// D18: до подтверждения учителем ученик не видит ни баллов, ни эталона.
+			$rows[ $i ]['score']   = $revealed ? $row['score'] : null;
+			$rows[ $i ]['correct'] = $revealed ? $row['correct'] : '';
 		}
 
 		// Шкала перевода станции фиксирована (см. KegeScaleConfig/OgeScaleConfig) и
 		// зависит от вида станции: у КЕГЭ максимум вторичного балла — 100, у ОГЭ —
 		// отметка 2-5; авторская таблица работы её не меняет ни там, ни там.
 		$secondary = $this->secondaryScore->translate( $primary, $this->scale( $assessment->kind ) ) ?? 0;
-
-		$answered = count( array_filter( $rows, static fn( array $row ): bool => '' !== $row['answer'] ) );
 
 		return new KegeSheetDTO(
 			rows        : $rows,
@@ -381,8 +411,85 @@ readonly class KegeResultSheetService {
 	}
 
 	/**
-	 * Номер задания для колонки «№»: терм таксономии {key}_task_number, иначе
-	 * номер, проставленный на самой работе, иначе позиция в работе.
+	 * Задания одного типа — одна единица зачёта ({@see ScoringUnits}): верны все — полный
+	 * балл типа, ошибка в любом — 0, максимум работы от повторов не растёт (20 заданий
+	 * №1 весят как одно). Балл единицы стоит в первой её строке, у остальных «—»: сумма
+	 * строк сходится с итогом. Одиночные типы (и другие виды) не меняются.
+	 *
+	 * @param array<int, array{max: float, row: int}>                                                  $taskRef Строка и максимум каждого задания
+	 * @param list<array{number: string, score: ?float, answer: string, correct: string, url: string}> $rows    Строки листа (балл правится на месте)
+	 *
+	 * @return float Максимум первичного балла работы
+	 */
+	private function applyScoringUnits( AssessmentDTO $assessment, array $taskRef, array &$rows ): float {
+		if ( ! $assessment->kind->groupsEqualNumbers() ) {
+			return (float) array_sum( array_column( $taskRef, 'max' ) );
+		}
+
+		$keys   = $this->units->keysFor( $assessment );
+		$groups = array();
+		foreach ( $taskRef as $taskId => $ref ) {
+			$groups[ $keys[ $taskId ] ?? 't:' . $taskId ][] = $taskId;
+		}
+
+		$max = 0.0;
+		foreach ( $groups as $taskIds ) {
+			$unitMax = (float) max( array_map( static fn( int $id ): float => $taskRef[ $id ]['max'], $taskIds ) );
+			$max    += $unitMax;
+
+			if ( count( $taskIds ) < 2 ) {
+				continue;
+			}
+
+			$fraction = 1.0;
+			$scored   = false;
+			foreach ( $taskIds as $id ) {
+				$score    = $rows[ $taskRef[ $id ]['row'] ]['score'];
+				$scored   = $scored || null !== $score;
+				$fraction = min( $fraction, $taskRef[ $id ]['max'] > 0.0 ? min( 1.0, (float) ( $score ?? 0.0 ) / $taskRef[ $id ]['max'] ) : 0.0 );
+			}
+
+			// Без оценки (предпросмотр без ответов) баллы остаются пустыми.
+			foreach ( $taskIds as $n => $id ) {
+				$rows[ $taskRef[ $id ]['row'] ]['score'] = ( $scored && 0 === $n ) ? $unitMax * $fraction : null;
+			}
+		}
+
+		return $max;
+	}
+
+	/**
+	 * Подпись строки листа — номер задания как он записан (архивное №117 остаётся №117):
+	 * терм таксономии, иначе номер, проставленный на самой работе, иначе место в работе.
+	 */
+	private function label( AssessmentDTO $assessment, array $taskViews, int $taskId, int $position ): string {
+		$fromTaxonomy = (int) ( $taskViews[ $taskId ]['taskNumber'] ?? 0 );
+		if ( $fromTaxonomy > 0 ) {
+			return (string) $fromTaxonomy;
+		}
+
+		$fromAssessment = trim( (string) ( $assessment->taskNumbers[ $taskId ] ?? '' ) );
+
+		return '' !== $fromAssessment ? $fromAssessment : (string) ( $position + 1 );
+	}
+
+	/**
+	 * Ссылка на задание, если оно публичное — из предметного банка (trainer), а не из
+	 * закрытой базы: у такого задания есть адрес на сайте. Черновик и чужая запись — ''.
+	 */
+	private function publicUrl( int $taskId ): string {
+		$post = $this->posts->get( $taskId );
+		if ( ! $post || 'publish' !== $post->post_status || ! PostTypeResolver::isTaskPostType( $post->post_type ) ) {
+			return '';
+		}
+
+		return (string) get_permalink( $post );
+	}
+
+	/**
+	 * Номер задания для расчётов (форма ответа, число позиций): терм таксономии
+	 * {key}_task_number в «живом» виде (архивное №117 → 17), иначе номер, проставленный
+	 * на самой работе, иначе позиция в работе.
 	 *
 	 * @param AssessmentDTO $assessment Контрольная
 	 * @param array         $taskViews  Per-task view-данные страницы
@@ -390,12 +497,14 @@ readonly class KegeResultSheetService {
 	 * @param int           $position   Позиция задания в работе (с нуля)
 	 */
 	private function number( AssessmentDTO $assessment, array $taskViews, int $taskId, int $position ): string {
-		$fromTaxonomy = (int) ( $taskViews[ $taskId ]['taskNumber'] ?? 0 );
+		// Номер для расчётов (форма ответа, число позиций, подпункт составного
+		// блока): архивное №117 считается как №17, см. {@see ArchiveTaskNumber}.
+		$fromTaxonomy = (int) ( $taskViews[ $taskId ]['baseNumber'] ?? $taskViews[ $taskId ]['taskNumber'] ?? 0 );
 		if ( $fromTaxonomy > 0 ) {
 			return (string) $fromTaxonomy;
 		}
 
-		$fromAssessment = trim( (string) ( $assessment->taskNumbers[ $taskId ] ?? '' ) );
+		$fromAssessment = $this->archive->baseOf( (string) ( $assessment->taskNumbers[ $taskId ] ?? '' ) );
 
 		return '' !== $fromAssessment ? $fromAssessment : (string) ( $position + 1 );
 	}

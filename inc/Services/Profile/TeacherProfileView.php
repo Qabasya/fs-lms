@@ -113,6 +113,7 @@ final class TeacherProfileView implements ProfileViewInterface {
 					'saveDeadlines' => AjaxHook::SaveWorkDeadlines->jsAction(),
 					'setRecordingUrl' => AjaxHook::SetRecordingUrl->jsAction(),
 					'continue'      => AjaxHook::ContinueProgramLesson->jsAction(),
+					'removeContinuation' => AjaxHook::RemoveProgramContinuation->jsAction(),
 					'getIndividual'    => AjaxHook::GetIndividualSlots->jsAction(),
 					'lessonCandidates' => AjaxHook::GetLessonCandidates->jsAction(),
 					'assignLesson'     => AjaxHook::AssignIndividualLesson->jsAction(),

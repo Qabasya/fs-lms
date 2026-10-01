@@ -145,7 +145,10 @@ input.kege-dcell:focus { border-color: var(--kege-cyan); }
 // Фиксированная — станция занимает весь экран, в поток встраивать некуда.
 .kege-preview-flag {
   position: fixed;
-  top: 0;
+
+  // Под админ-панелью WordPress (у преподавателя/автора она есть) — иначе плашку не видно.
+  // stylelint-disable-next-line custom-property-pattern
+  top: var(--wp-admin--admin-bar--height, 0);
   left: 50%;
   transform: translateX(-50%);
   display: flex;

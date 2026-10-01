@@ -90,6 +90,19 @@ class KegeScaleConfig {
 		return self::SCALE;
 	}
 
+	/** Сколько типов заданий в КИМ КЕГЭ (номера 1–27); в работе их может быть больше — повторами типа. */
+	private const TASK_TYPES = 27;
+
+	/**
+	 * Максимальный первичный балл — всегда 29: по баллу за каждый из 27 типов и ещё по
+	 * одному за вторую позицию №26 и №27 ({@see self::MULTI_ANSWER}). Не зависит от числа
+	 * заданий в работе: задания одного типа считаются одной единицей зачёта
+	 * ({@see \Inc\Services\Assessment\ScoringUnits}), а в работе всегда есть все типы.
+	 */
+	public static function primaryMax(): int {
+		return self::TASK_TYPES + array_sum( self::MULTI_ANSWER ) - count( self::MULTI_ANSWER );
+	}
+
 	/** Максимальный вторичный балл — всегда 100. */
 	public static function secondaryMax(): int {
 		return max( self::SCALE );

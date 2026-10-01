@@ -7,12 +7,14 @@ namespace Unit\Modules\EgeComputer;
 use Inc\DTO\Assessment\AssessmentDTO;
 use Inc\Enums\Assessment\AssessmentKind;
 use Inc\Enums\Assessment\ScoringPolicy;
+use Inc\Modules\EgeComputer\Callbacks\KegeFilesZipCallbacks;
 use Inc\Modules\EgeComputer\Callbacks\PreviewResultCallbacks;
 use Inc\Modules\EgeComputer\Config\EgeComputerConfig;
 use Inc\Modules\EgeComputer\Config\KegeScaleConfig;
 use Inc\Modules\EgeComputer\Config\OgeScaleConfig;
 use Inc\Modules\EgeComputer\EgeComputerModule;
 use Inc\Modules\EgeComputer\Services\KegeResultSheetService;
+use Inc\Services\Assessment\ArchiveTaskNumber;
 use Inc\Services\Assessment\AttemptRevealPolicy;
 use PHPUnit\Framework\TestCase;
 
@@ -31,6 +33,8 @@ class EgeComputerModuleStationSettingsTest extends TestCase {
 			$this->createMock( KegeResultSheetService::class ),
 			$this->createMock( PreviewResultCallbacks::class ),
 			$this->createMock( AttemptRevealPolicy::class ),
+			new ArchiveTaskNumber(),
+			$this->createMock( KegeFilesZipCallbacks::class ),
 		);
 	}
 

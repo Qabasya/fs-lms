@@ -4,9 +4,9 @@
    расписание сегодня/неделя/месяц, ворклист «заполнить»/«проверить», стат-плитки,
    маркеры замен (Эпик 5). Демо-слой (data.js) убран.
 
-   Над расписанием — сетка 2×2: «Занятий сегодня» и «Требует внимания» сверху,
-   «На проверке» и «Не заполнено» снизу. «Требует внимания» — аккордеон; раскрытость
-   запоминается в браузере преподавателя. Администратору в «Требует
+   Над расписанием — две плитки: «Занятий сегодня» и «На проверке». «Требует внимания»
+   (с невыполненным: журналы не заполнены, работы без проверки, сигналы администратора)
+   — аккордеон под расписанием; раскрытость запоминается в браузере преподавателя. Администратору в «Требует
    внимания» идут и его сигналы (worklist.alerts): журнал не заполнен спустя
    сутки, серии пропусков и несданных ДЗ, работы без проверки 48 часов.
    ══════════════════════════════════════════════════════════════════════ */
@@ -62,15 +62,9 @@ function render() {
 
         ${d.covering.length ? coveringBanner(d.covering) : ''}
 
-        <div class="prof-dash-grid2">
+        <div class="prof-stat-tiles">
             ${statTile('Занятий сегодня', String(s.lessons_today), `${s.groups} ${plural(s.groups, 'группа', 'группы', 'групп')}${s.individual ? ` · ${s.individual} инд.` : ''}`, '#3b5bdb', 'cal')}
-            ${accordion('attention', 'Требует внимания', `${attnCount} ${plural(attnCount, 'задача', 'задачи', 'задач')}`, `
-                ${alerts.map(alertRow).join('')}
-                ${d.worklist.to_fill.map(fillRow).join('')}
-                ${d.worklist.to_review.map(reviewRow).join('')}
-                ${attnCount ? '' : '<div class="rev-empty">Всё в порядке — журналы заполнены, работы проверены.</div>'}`)}
             ${statTile('На проверке', String(s.to_review), 'работ ждут оценки', '#7048e8', 'check')}
-            ${statTile('Не заполнено', String(s.to_fill), 'журналов посещаемости', '#e03131', 'alert')}
         </div>
 
         <div class="prof-card prof-sched-card">
@@ -84,6 +78,12 @@ function render() {
             </div>
             <div id="profSchedBody" class="prof-swap"></div>
         </div>
+
+        ${accordion('attention', 'Требует внимания', `${attnCount} ${plural(attnCount, 'задача', 'задачи', 'задач')}`, `
+            ${alerts.map(alertRow).join('')}
+            ${d.worklist.to_fill.map(fillRow).join('')}
+            ${d.worklist.to_review.map(reviewRow).join('')}
+            ${attnCount ? '' : '<div class="rev-empty">Всё в порядке — журналы заполнены, работы проверены.</div>'}`, icoAlert)}
     </div>`;
 
     renderSched('today');
@@ -291,11 +291,12 @@ function schedNav(attr, prevLabel, nextLabel, label) {
  * Карточка-аккордеон главной. Изначально свёрнута, дальше — как оставил
  * преподаватель.
  */
-function accordion(key, title, sub, bodyHtml) {
+function accordion(key, title, sub, bodyHtml, icon = null) {
     const open = true === readAccOpen()[key];
 
     return `<div class="prof-card prof-acc${open ? ' is-open' : ''}" data-acc="${key}">
         <button type="button" class="prof-card-head prof-acc-head" aria-expanded="${open}" aria-controls="profAcc-${key}">
+            ${icon ? `<span class="prof-acc-ico">${icon(16)}</span>` : ''}
             <h3>${esc(title)}</h3>
             <span class="ch-sub">${esc(sub)}</span>
             <span class="prof-acc-chev">${icoChevronDown(14)}</span>

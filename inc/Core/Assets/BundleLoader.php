@@ -225,6 +225,12 @@ class BundleLoader extends BaseController {
 	public const KEGE_PUBLIC_RESULT_FILTER = 'fs_lms_kege_public_result_action';
 
 	/**
+	 * WP filter: имя AJAX-экшена архива «Скачать все файлы» станции (модуль
+	 * EgeComputer) — публикуется ядру тем же приёмом, что и лист предпросмотра.
+	 */
+	public const KEGE_FILES_ZIP_FILTER = 'fs_lms_kege_files_zip_action';
+
+	/**
 	 * Подключение изолированного бандла станции КЕГЭ (T15.10) — bare-документ
 	 * на токенах плеера, свой JS/CSS. Модуль EgeComputer (опциональный, см.
 	 * inc/Modules/EgeComputer/) взводит fs_lms_is_kege_route в
@@ -253,6 +259,8 @@ class BundleLoader extends BaseController {
 					'previewResult'     => (string) apply_filters( self::KEGE_PREVIEW_RESULT_FILTER, '' ),
 					// Публичный экзамен: тот же лист, но для любого посетителя (модуль PublicExams).
 					'publicResult'      => (string) apply_filters( self::KEGE_PUBLIC_RESULT_FILTER, '' ),
+					// «Скачать все файлы» одним ZIP (модуль EgeComputer).
+					'filesZip'          => (string) apply_filters( self::KEGE_FILES_ZIP_FILTER, '' ),
 				),
 				'nonces'   => array(
 					'startAttempt'     => Nonce::StartAttempt->create(),

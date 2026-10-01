@@ -513,7 +513,23 @@ class WorkDetailService {
 			// посмотрел»; approved_at — отдельный явный шаг (см. AttemptRevealPolicy).
 			'assessment_kind' => $assessment?->kind->value,
 			'approved_at'     => $attempt->approvedAt,
+			// Лист результата этой попытки (таблица, как у ученика) — только у станций ЕГЭ/ОГЭ.
+			'review_url'      => $this->reviewUrl( $attempt, $assessment ),
 		);
+	}
+
+	/**
+	 * Адрес листа результата конкретной попытки станции (`?attempt=ID`); '' — у вида
+	 * работы такого листа нет (контрольная) или адреса нет.
+	 */
+	private function reviewUrl( \Inc\DTO\Assessment\AttemptDTO $attempt, ?\Inc\DTO\Assessment\AssessmentDTO $assessment ): string {
+		if ( null === $assessment || ! $assessment->kind->isStation() ) {
+			return '';
+		}
+
+		$url = get_permalink( $attempt->assessmentId );
+
+		return $url ? (string) add_query_arg( array( 'attempt' => $attempt->id ), $url ) : '';
 	}
 
 	/**

@@ -11,6 +11,9 @@
 
 import { KEGE_RITUAL_STAGES, clearKegeState, kegeBr, kegeKim, loadKegeState, saveKegeState, setKegeDeadline } from './kege-state.js';
 
+/** Строк в одной таблице листа ответов — зеркало KegeSheetDTO::ROWS_PER_TABLE. */
+const ROWS_PER_TABLE = 18;
+
 function toast( msg ) {
 	const el = document.getElementById( 'kegeToast' );
 	if ( ! el ) { return; }
@@ -319,10 +322,10 @@ export function renderKegeSheet( sheet ) {
 	if ( ! tables ) { return; }
 	tables.innerHTML = '';
 
-	// Две таблицы рядом (макет): первая половина строк — левая, остаток — правая
-	// (зеркалит array_chunk() в finish.php).
-	const half   = Math.ceil( sheet.rows.length / 2 );
-	const chunks = half > 0 ? [ sheet.rows.slice( 0, half ), sheet.rows.slice( half ) ] : [];
+	// Таблицы рядом (макет): каждая заполняется до ROWS_PER_TABLE строк, остаток — в
+	// следующую (зеркалит KegeSheetDTO::tables()).
+	const count  = Math.ceil( sheet.rows.length / ROWS_PER_TABLE );
+	const chunks = Array.from( { length: count }, ( _, i ) => sheet.rows.slice( i * ROWS_PER_TABLE, ( i + 1 ) * ROWS_PER_TABLE ) );
 
 	chunks.forEach( ( chunk ) => {
 		const table = document.createElement( 'table' );
@@ -345,8 +348,18 @@ export function renderKegeSheet( sheet ) {
 			const tr = document.createElement( 'tr' );
 
 			const n = document.createElement( 'td' );
-			n.className   = 'kege-fin-tbl__n';
-			n.textContent = row.number;
+			n.className = 'kege-fin-tbl__n';
+			if ( row.url ) {
+				// Публичное задание (из предметного банка) — номер ведёт на его страницу.
+				const link = document.createElement( 'a' );
+				link.href        = row.url;
+				link.target      = '_blank';
+				link.rel         = 'noopener';
+				link.textContent = row.number;
+				n.appendChild( link );
+			} else {
+				n.textContent = row.number;
+			}
 
 			const score = document.createElement( 'td' );
 			score.textContent = kegeRowScore( row.score );
@@ -377,6 +390,9 @@ function initFinishScreen( state ) {
 	if ( ! finish ) { return; }
 
 	const attemptId = finish.dataset.attemptId || '0';
+	// Просмотр чужой работы (`?attempt=`): тренажёрные КИМ/бланк берутся из номера попытки,
+	// а не из ритуала в этом браузере — иначе у преподавателя в шапке стояли бы его номера.
+	if ( '1' === document.getElementById( 'kegeApp' )?.dataset.review ) { state = {}; }
 	const kimEl     = document.getElementById( 'kegeFinKim' );
 	const brEl      = document.getElementById( 'kegeFinBr' );
 

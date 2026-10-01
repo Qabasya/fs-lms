@@ -38,6 +38,20 @@ readonly class AssessmentDTO {
 		public bool           $hideIntro = false,
 	) {}
 
+	/**
+	 * Копия без экранов ритуала станции (бланк → инструкция → КИМ → активация): публичный
+	 * экзамен открывается сразу на заданиях, без входа и регистрации.
+	 */
+	public function withHiddenIntro(): self {
+		return new self(
+			id: $this->id, subjectKey: $this->subjectKey, title: $this->title, taskIds: $this->taskIds,
+			timeLimit: $this->timeLimit, attemptsAllowed: $this->attemptsAllowed, passScore: $this->passScore,
+			scoringPolicy: $this->scoringPolicy, status: $this->status, kind: $this->kind,
+			taskPoints: $this->taskPoints, scoreMap: $this->scoreMap, taskNumbers: $this->taskNumbers,
+			introHtml: $this->introHtml, hideIntro: true,
+		);
+	}
+
 	public static function fromPost( \WP_Post $post, array $meta ): self {
 		$policy = ScoringPolicy::tryFrom( (string) ( $meta['scoring_policy'] ?? '' ) ) ?? ScoringPolicy::Highest;
 		$kind   = AssessmentKind::fromValueOrDefault( (string) ( $meta['kind'] ?? '' ) );

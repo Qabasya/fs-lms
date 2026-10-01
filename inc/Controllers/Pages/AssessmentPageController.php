@@ -132,7 +132,16 @@ class AssessmentPageController extends BaseController implements ServiceInterfac
 		// Доступ по курсу — обычная попытка; иначе автор смотрит вхолостую (предпросмотр);
 		// иначе публичный экзамен открыт всем (в т.ч. залогиненному без доступа по курсу);
 		// иначе 404 (постороннему наличие контрольной не раскрываем).
-		$page = $userId ? $this->pageService->build( $assessment, $userId ) : null;
+		// `?attempt=ID` — результат конкретной попытки станции (преподаватель смотрит работу
+		// ученика, ученик — именно ту попытку, по карточке которой кликнул). Нет доступа или
+		// такой попытки — обычный путь, ничего не раскрывается.
+		$reviewAttemptId = $this->hasParam( 'attempt', 'GET' ) ? $this->sanitizeGetInt( 'attempt' ) : 0;
+		$page            = ( $userId && $reviewAttemptId > 0 && $assessment->kind->isStation() )
+			? $this->pageService->buildReview( $assessment, $reviewAttemptId, $userId )
+			: null;
+		if ( null === $page ) {
+			$page = $userId ? $this->pageService->build( $assessment, $userId ) : null;
+		}
 		if ( null === $page && $isPublic && ! ( $userId && $this->access->canPreview( $userId, $assessment->id ) ) ) {
 			$page = $this->pageService->buildPublic( $assessment );
 		}
@@ -171,14 +180,22 @@ class AssessmentPageController extends BaseController implements ServiceInterfac
 		$now            = $page->now;
 		$previewMode    = $page->previewMode;
 		$publicMode     = $page->publicMode;
+		$reviewMode     = $page->reviewMode;
+		$reviewReveal   = $page->reviewReveal;
 		$attemptsUsed   = $page->attemptsUsed;
+
+		// Публичный экзамен открывается сразу на заданиях — без экранов ритуала и входа,
+		// как реальная станция: настройка «скрыть вступление» здесь не обязательна.
+		if ( $publicMode && ! $assessment->hideIntro ) {
+			$assessment = $assessment->withHiddenIntro();
+		}
 
 		$defaultTemplate = $this->path( 'templates/frontend/assessment/attempt.php' );
 		$template        = $this->resolveRenderer( $assessment, $defaultTemplate );
 		$introTemplate   = $this->resolveIntro( $assessment );
 		$backUrl       = $publicMode
 			? (string) apply_filters( self::PUBLIC_BACK_URL_FILTER, home_url( '/' ), $assessment )
-			: $this->resolveBackUrl();
+			: $this->resolveBackUrl( $reviewMode );
 
 		// T15.1: дефолтный рендерер получает générique bare-шелл плеера (см. ROUTE_FILTER).
 		if ( $defaultTemplate === $template ) {
@@ -243,12 +260,20 @@ class AssessmentPageController extends BaseController implements ServiceInterfac
 	 * плеера, если контрольная была открыта из него (`?from_gid=&from_gl=`,
 	 * см. `partials/step-assessment.php`), иначе — на `/profile/`.
 	 */
-	private function resolveBackUrl(): string {
+	private function resolveBackUrl( bool $reviewMode = false ): string {
 		$fromGid = $this->sanitizeGetInt( 'from_gid' );
 		$fromGl  = $this->sanitizeGetInt( 'from_gl' );
 
 		if ( $fromGid > 0 && $fromGl > 0 ) {
 			return PageRoutes::LessonPlayer->lessonUrl( $fromGid, $fromGl );
+		}
+
+		// Просмотр результата открывают из кабинета (разбор работы, «Мои оценки») — туда же и возвращаем.
+		if ( $reviewMode ) {
+			$referer = wp_get_referer();
+			if ( $referer && wp_validate_redirect( $referer, '' ) ) {
+				return $referer;
+			}
 		}
 
 		return PageRoutes::UserProfile->url();

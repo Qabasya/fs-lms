@@ -4,6 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Task;
 
+use Inc\Services\Assessment\ArchiveTaskNumber;
 use Inc\Managers\Wp\TermManager;
 use Inc\Services\Subject\PostTypeResolver;
 use Inc\Services\Template\TemplateRegistry;
@@ -33,11 +34,13 @@ class CompositeSubItemResolver {
 	 * @param TemplateResolver $resolver  Шаблон задания по записи
 	 * @param TemplateRegistry $templates Реестр шаблонов заданий
 	 * @param TermManager      $terms     Термы записи
+	 * @param ArchiveTaskNumber $archive  Архивный номер → номер подпункта (103 → 3)
 	 */
 	public function __construct(
 		private readonly TemplateResolver $resolver,
 		private readonly TemplateRegistry $templates,
 		private readonly TermManager      $terms,
+		private readonly ArchiveTaskNumber $archive,
 	) {}
 
 	/**
@@ -86,6 +89,7 @@ class CompositeSubItemResolver {
 		$terms = $this->terms->getPostTerms( $post->ID, PostTypeResolver::getTaskTaxonomy( $subjectKey ) );
 		$first = reset( $terms );
 
-		return false === $first ? '' : trim( $first->name );
+		// Архивное задание (№119) — тот же подпункт, что и живое (№19).
+		return false === $first ? '' : $this->archive->baseOf( $first->name );
 	}
 }

@@ -29,11 +29,13 @@ readonly class AttemptTaskViewBuilder {
 	 * @param PostManager              $posts    Доступ к записям заданий
 	 * @param StepContentRenderer      $content  Канонический рендер условия задания
 	 * @param CompositeSubItemResolver $subItems Подпункты составного задания, за которые отвечает запись
+	 * @param ArchiveTaskNumber        $archive  Архивный номер → номер для расчётов (`baseNumber`)
 	 */
 	public function __construct(
 		private PostManager              $posts,
 		private StepContentRenderer      $content,
 		private CompositeSubItemResolver $subItems,
+		private ArchiveTaskNumber        $archive,
 	) {}
 
 	/**
@@ -48,7 +50,7 @@ readonly class AttemptTaskViewBuilder {
 	 * @param string              $subjectKey Ключ предмета (для таксономии номеров)
 	 * @param AssessmentKind|null $kind       Вид контрольной (ЕГЭ разворачивает составные)
 	 *
-	 * @return array<int, array{template: string, materials: array<int, array{url: string, name: string}>, taskNumber: int, bankNumber: string, condition: string, subparts: array}>
+	 * @return array<int, array{template: string, materials: array<int, array{url: string, name: string}>, taskNumber: int, baseNumber: int, bankNumber: string, condition: string, subparts: array}>
 	 */
 	public function build( array $taskIds, string $subjectKey = '', ?AssessmentKind $kind = null ): array {
 		// Задача 3: в режиме ЕГЭ составное задание (Triple 19-21) разворачивается в
@@ -70,10 +72,14 @@ readonly class AttemptTaskViewBuilder {
 			$metaRaw = $this->posts->getMeta( $taskId, PostMetaName::Meta->value );
 			$meta    = is_array( $metaRaw ) ? $metaRaw : array();
 
+			$taskNumber = $this->taskNumber( $taskId, $taxonomy );
+
 			$views[ $taskId ] = array(
 				'template'   => $template->value,
 				'materials'  => $this->materials( $meta, $template ),
-				'taskNumber' => $this->taskNumber( $taskId, $taxonomy ),
+				'taskNumber' => $taskNumber,
+				// Номер для расчётов: у архивного №117 — 17 (форма ответа, слоты листа).
+				'baseNumber' => $this->archive->base( $taskNumber ),
 				'bankNumber' => $this->bankNumber( $taskId ),
 				'condition'  => $this->condition( $taskId, $meta, $template ),
 				'subparts'   => $expandComposites

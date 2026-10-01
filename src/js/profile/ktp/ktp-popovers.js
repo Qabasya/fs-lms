@@ -5,7 +5,7 @@
    ══════════════════════════════════════════════════════════════════════ */
 
 import { esc, toast, openCtxMenuRaw, closeCtxMenu } from '../utils.js';
-import { icoContinue } from '../../common/icons.js';
+import { icoContinue, icoTrash } from '../../common/icons.js';
 import { toLocalInputValue, fromLocalInputValue } from './ktp-calendar-model.js';
 
 /* ── Дедлайны работ занятия (T12.3, D13) ─────────────────────────────────
@@ -117,29 +117,35 @@ function openRecordingPopover(glid, anchorEl, currentUrl, currentLink, api, relo
 /* ── Продолжение темы на вторую дату (T12.6, D14) ─────────────────────────
    «⋮» на размещённой теме → «Продолжить на другую дату» → вторая часть темы
    встаёт следующим занятием, непроведённые темы после неё сдвигаются на одно
-   занятие вперёд (сервер, ScheduleReflowService::placeInserted). */
+   занятие вперёд (сервер, ScheduleReflowService::placeInserted). У самого
+   продолжения «⋮» ведёт обратно — «Убрать продолжение»: дата освобождается, темы
+   после неё подтягиваются назад (ProgramCompositionService::removeContinuation). */
 export function attachThemeActionsClick(btn, api, reload) {
     btn.addEventListener('click', e => {
         e.stopPropagation(); // не открывать поповер дедлайнов родительской темы
-        openThemeActionsMenu(btn.dataset.glid, btn, api, reload);
+        openThemeActionsMenu(btn.dataset.glid, btn, api, reload, btn.dataset.kind);
     });
 }
 
-function openThemeActionsMenu(glid, anchorEl, api, reload) {
-    const html = `
-        <div class="ctx-item" data-act="continue">
-            ${icoContinue(16)}
-            Продолжить на другую дату
-        </div>`;
+function openThemeActionsMenu(glid, anchorEl, api, reload, kind) {
+    const remove = 'remove' === kind;
+    const html = remove
+        ? `<div class="ctx-item" data-act="remove">${icoTrash(16)}Убрать продолжение</div>`
+        : `<div class="ctx-item" data-act="continue">${icoContinue(16)}Продолжить на другую дату</div>`;
     openCtxMenuRaw(html, anchorEl);
     const menu = document.getElementById('profCtxMenu');
-    const item = menu?.querySelector('[data-act="continue"]');
+    const item = menu?.querySelector('[data-act]');
     if (!item) return;
     item.addEventListener('click', async () => {
         closeCtxMenu();
         try {
-            await api('continue', { group_lesson_id: glid });
-            toast('Тема продолжена на следующее занятие — следующие темы сдвинуты');
+            if (remove) {
+                await api('removeContinuation', { group_lesson_id: glid });
+                toast('Продолжение убрано — следующие темы подтянуты назад');
+            } else {
+                await api('continue', { group_lesson_id: glid });
+                toast('Тема продолжена на следующее занятие — следующие темы сдвинуты');
+            }
             await reload();
         } catch (e) { toast(e.message, 'error'); }
     });

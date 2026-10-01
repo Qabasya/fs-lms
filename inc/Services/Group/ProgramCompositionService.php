@@ -9,6 +9,7 @@ use Inc\DTO\Course\GroupLessonInputDTO;
 use Inc\Managers\Course\LessonManager;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
+use Inc\Services\Course\GroupLessonUsageGuard;
 
 /**
  * Class ProgramCompositionService
@@ -34,6 +35,7 @@ readonly class ProgramCompositionService {
 	 * @param GroupsRepository       $groups       Группы
 	 * @param ScheduleEventPublisher $events       Публикация событий обучения
 	 * @param ScheduleReflowService  $schedule     Даты: постановка вставленной темы
+	 * @param GroupLessonUsageGuard  $usage        Есть ли по занятию прогресс/сдачи (можно ли убрать строку)
 	 */
 	public function __construct(
 		private GroupLessonRepository  $groupLessons,
@@ -41,13 +43,16 @@ readonly class ProgramCompositionService {
 		private GroupsRepository       $groups,
 		private ScheduleEventPublisher $events,
 		private ScheduleReflowService  $schedule,
+		private GroupLessonUsageGuard  $usage,
 	) {}
 
 	/**
 	 * Продолжает тему на вторую дату (T12.6, D14): новая строка со связью
 	 * `continuedFromId` → исходная. Связь сохраняется: КТП считает обе строки ОДНОЙ
 	 * темой (общий номер, части «1/2 · 2/2»), журнал получает второй столбец с меткой.
-	 * Разрешено только для «родных» строк — цепочки из 3+ дат не поддерживаются.
+	 * Разрешено только для «родных» строк без продолжения — цепочки из 3+ дат не
+	 * поддерживаются, а повторный клик не должен плодить вторую копию.
+	 * Лишнее продолжение убирается через {@see removeContinuation()}.
 	 *
 	 * Продолжение встаёт в программу сразу за исходной строкой, а не в конец: если
 	 * исходная тема уже на дате, вторая часть занимает следующее занятие, а
@@ -57,11 +62,11 @@ readonly class ProgramCompositionService {
 	 * @param int $groupLessonId ID исходной строки
 	 * @param int $actorUserId   Автор изменения
 	 *
-	 * @return int ID новой строки или 0, если исходная не найдена / сама уже продолжение
+	 * @return int ID новой строки или 0, если исходная не найдена / сама продолжение / уже продолжена
 	 */
 	public function continueLesson( int $groupLessonId, int $actorUserId ): int {
 		$row = $this->groupLessons->find( $groupLessonId );
-		if ( ! $row || null !== $row->continuedFromId ) {
+		if ( ! $row || null !== $row->continuedFromId || $this->hasContinuation( $row ) ) {
 			return 0;
 		}
 
@@ -86,6 +91,55 @@ readonly class ProgramCompositionService {
 		}
 
 		return $newId;
+	}
+
+	/**
+	 * Убирает продолжение темы (обратная операция к {@see continueLesson()}): строка
+	 * исчезает из программы, окно, которое она занимала, освобождается, а занятия
+	 * после него подтягиваются на одно окно назад — так же, как при возврате темы в пул.
+	 *
+	 * Нельзя, если занятие уже состоялось (проведено или отмечена посещаемость) или по нему
+	 * есть прогресс учеников, сдачи, попытки заданий: удаление потеряло бы данные.
+	 *
+	 * @param int $groupLessonId ID строки-продолжения
+	 * @param int $actorUserId   Автор изменения
+	 *
+	 * @throws \InvalidArgumentException Если строка не найдена, не является продолжением или её нельзя убрать
+	 */
+	public function removeContinuation( int $groupLessonId, int $actorUserId ): void {
+		$row = $this->groupLessons->find( $groupLessonId );
+		if ( ! $row ) {
+			throw new \InvalidArgumentException( 'Занятие не найдено.' );
+		}
+
+		if ( null === $row->continuedFromId ) {
+			throw new \InvalidArgumentException( 'Это не продолжение темы — убрать можно только вторую дату.' );
+		}
+
+		if ( $row->isFact() ) {
+			throw new \InvalidArgumentException( 'Занятие уже состоялось (проведено или отмечена посещаемость) — убрать его нельзя, это факт журнала.' );
+		}
+
+		if ( ! $this->usage->isSafeToRemove( $groupLessonId ) ) {
+			throw new \InvalidArgumentException( 'По этому занятию уже есть прогресс или сдачи учеников — убрать его нельзя.' );
+		}
+
+		// Дата освобождается, хвост подтягивается (нет даты — строка просто ждала в пуле).
+		$this->schedule->returnToPool( $groupLessonId, $actorUserId );
+		$this->groupLessons->remove( $groupLessonId );
+
+		$this->events->lessonRemoved( $row->groupId, $row->lessonId, $this->subjectOf( $row->lessonId ), $actorUserId );
+	}
+
+	/** Есть ли у строки продолжение в программе группы. */
+	private function hasContinuation( GroupLessonDTO $row ): bool {
+		foreach ( $this->groupLessons->listByGroup( $row->groupId ) as $other ) {
+			if ( $other->continuedFromId === $row->id ) {
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	/**
@@ -129,7 +183,9 @@ readonly class ProgramCompositionService {
 	 * origin+continuation получает ОБЩИЙ `n` и части «1/2 · 2/2» — КТП считает
 	 * их одной темой. Порядок исходного списка (по `position`) сохраняется.
 	 * Продолжение с отсутствующим (удалённым) оригиналом трактуется как
-	 * самостоятельная тема (без падения) — цепочки из 3+ дат не поддерживаются.
+	 * самостоятельная тема (без падения). Если у темы по ошибке несколько продолжений
+	 * (старые данные до защиты от повторов), части нумеруются подряд: «1/3 · 2/3 · 3/3»,
+	 * и каждое можно убрать — ни одна строка не пропадает из программы.
 	 *
 	 * @param array<int,array{row: GroupLessonDTO, topic: string, subject: string}> $entries Строки программы
 	 *
@@ -141,11 +197,11 @@ readonly class ProgramCompositionService {
 			$existingIds[ $entry['row']->id ] = true;
 		}
 
-		$continuationByOriginId = array();
+		$continuationsByOriginId = array();
 		foreach ( $entries as $entry ) {
 			$parentId = $entry['row']->continuedFromId;
 			if ( null !== $parentId && isset( $existingIds[ $parentId ] ) ) {
-				$continuationByOriginId[ $parentId ] = $entry;
+				$continuationsByOriginId[ $parentId ][] = $entry;
 			}
 		}
 
@@ -158,17 +214,17 @@ readonly class ProgramCompositionService {
 				continue;
 			}
 			++$n;
-			$continuation = $continuationByOriginId[ $entry['row']->id ] ?? null;
-			$total        = $continuation ? 2 : 1;
+			$continuations = $continuationsByOriginId[ $entry['row']->id ] ?? array();
+			$total         = 1 + count( $continuations );
 
 			$entry['n']                    = $n;
 			$entry['part']                 = 1;
 			$entry['totalParts']           = $total;
 			$numbered[ $entry['row']->id ] = $entry;
 
-			if ( $continuation ) {
+			foreach ( $continuations as $i => $continuation ) {
 				$continuation['n']                    = $n;
-				$continuation['part']                 = 2;
+				$continuation['part']                 = $i + 2;
 				$continuation['totalParts']           = $total;
 				$numbered[ $continuation['row']->id ] = $continuation;
 			}

@@ -5,9 +5,12 @@
  * сводку баллов и построчный разбор: номер задания, балл, ответ ученика и
  * правильный ответ. Кнопка «Завершить экзамен» уводит со станции (kege-entry.js).
  *
- * Строка — позиция ответа, а не задание: №26 и №27 требуют по два ответа, и
- * 27 заданий работы дают 29 строк (см. KegeScaleConfig). Экран рассчитан на
- * один вид без прокрутки страницы — обе таблицы держат высоту тела (_finish.scss).
+ * Строка — задание работы: №26 и №27 стоят одной строкой (два числа ответа в одной
+ * ячейке, до двух баллов); повторы одного типа — отдельными строками, их балл
+ * «схлопнут» в единицу зачёта (ScoringUnits), так что максимум остаётся 29. Работа
+ * может быть любой длины: первая таблица заполняется до KegeSheetDTO::ROWS_PER_TABLE
+ * строк, остаток идёт в следующую. Экран рассчитан на один вид без прокрутки страницы
+ * (_finish.scss).
  *
  * Данные листа собирает модуль (сервису с репозиториями шаблон напрямую не
  * доступен) и отдаёт фильтром EgeComputerModule::SHEET_FILTER.
@@ -37,19 +40,35 @@ $examTitle = AssessmentKind::OgeComputer === $assessment->kind
 	? 'Основной государственный экзамен'
 	: 'Единый государственный экзамен';
 
-$kegeSheet = apply_filters( EgeComputerModule::SHEET_FILTER, null, $assessment, $lastAttempt, $taskViews );
+$kegeSheet = apply_filters( EgeComputerModule::SHEET_FILTER, null, $assessment, $lastAttempt, $taskViews, ! empty( $reviewReveal ) );
 if ( ! $kegeSheet instanceof KegeSheetDTO ) {
 	$kegeSheet = KegeSheetDTO::blank();
 }
 
-// Две таблицы рядом (макет): первая половина строк — левая, остаток — правая.
-$kegeHalf   = (int) ceil( $kegeSheet->total() / 2 );
-$kegeTables = $kegeHalf > 0 ? array_chunk( $kegeSheet->rows, $kegeHalf ) : array();
+// Таблицы рядом (макет): по ROWS_PER_TABLE строк, число таблиц — по длине работы.
+$kegeTables = $kegeSheet->tables();
 
 /** Балл строки: «—», пока задание не оценено (ручная проверка или пропуск). */
 $kegeScore = static fn( ?float $score ): string => null === $score ? '—' : (string) round( $score, 2 );
 ?>
+<?php
+// Просмотр чужой работы (`?attempt=ID`) тем, кто управляет группой: чья работа и что видит ученик.
+// Ученику, открывшему свою попытку, плашки нет.
+$kegeReviewBar = '';
+if ( ! empty( $reviewMode ) && ! empty( $reviewReveal ) && $lastAttempt && ! empty( $person ) ) {
+	$kegeReviewBar = 'Работа ученика: ' . $person->fullName();
+	if ( $lastAttempt->submittedAt ) {
+		$kegeReviewBar .= ' · сдана ' . mysql2date( 'd.m.Y H:i', $lastAttempt->submittedAt );
+	}
+	if ( AssessmentKind::EgeComputer === $assessment->kind && ! $lastAttempt->isApproved() ) {
+		$kegeReviewBar .= ' · ученик пока видит «На проверке» — результат откроется после «Утвердить работу»';
+	}
+}
+?>
 <div class="kege-fin" id="kegeFinish" data-attempt-id="<?php echo esc_attr( (string) ( $lastAttempt->id ?? 0 ) ); ?>"<?php echo ( $previewMode || $publicMode ) ? ' hidden' : ''; ?>>
+	<?php if ( '' !== $kegeReviewBar ) : ?>
+		<div class="kege-fin-review"><?php echo esc_html( $kegeReviewBar ); ?></div>
+	<?php endif; ?>
 	<div class="kege-fin-head"><?php echo esc_html( $examTitle ); ?> · <b><?php echo esc_html( $assessment->title ); ?></b></div>
 
 	<div class="kege-fin-body">
@@ -114,7 +133,8 @@ $kegeScore = static fn( ?float $score ): string => null === $score ? '—' : (st
 							<tbody>
 								<?php foreach ( $kegeChunk as $kegeRow ) : ?>
 									<tr>
-										<td class="kege-fin-tbl__n"><?php echo esc_html( $kegeRow['number'] ); ?></td>
+										<?php // Разметка ячейки в одну строку: у таблицы white-space: pre-line, любой перенос стал бы пустой строкой. ?>
+										<td class="kege-fin-tbl__n"><?php echo '' !== ( $kegeRow['url'] ?? '' ) ? '<a href="' . esc_url( $kegeRow['url'] ) . '" target="_blank" rel="noopener">' . esc_html( $kegeRow['number'] ) . '</a>' : esc_html( $kegeRow['number'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></td>
 										<td><?php echo esc_html( $kegeScore( $kegeRow['score'] ) ); ?></td>
 										<td class="kege-fin-tbl__ans"><?php echo esc_html( $kegeRow['answer'] ); ?></td>
 										<td class="kege-fin-tbl__ans"><?php echo esc_html( $kegeRow['correct'] ); ?></td>

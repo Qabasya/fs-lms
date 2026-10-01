@@ -76,6 +76,9 @@ $stationLabel = \Inc\Enums\Assessment\AssessmentKind::OgeComputer === $assessmen
 	<?php if ( $publicMode ) : ?>
 		data-public="1"
 	<?php endif; ?>
+	<?php if ( ! empty( $reviewMode ) ) : ?>
+		data-review="1"
+	<?php endif; ?>
 	<?php if ( $assessment->hideIntro ) : ?>
 		data-hide-intro="1"
 	<?php endif; ?>

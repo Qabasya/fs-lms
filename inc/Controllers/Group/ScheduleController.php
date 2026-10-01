@@ -35,6 +35,7 @@ class ScheduleController extends AjaxController {
 			array( AjaxHook::AssignCourse,            $this->program ),
 			array( AjaxHook::GetSubjectCourses,       $this->program ),
 			array( AjaxHook::ContinueProgramLesson,   $this->program ),
+			array( AjaxHook::RemoveProgramContinuation, $this->program ),
 			array( AjaxHook::GetGroupProgram,         $this->program ),
 			array( AjaxHook::GetGroupActivity,        $this->program ),
 			array( AjaxHook::PublishProgram,          $this->program ),

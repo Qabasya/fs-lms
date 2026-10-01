@@ -11,6 +11,7 @@ use Inc\DTO\Assessment\AssessmentDTO;
 use Inc\DTO\Assessment\AttemptDTO;
 use Inc\Enums\Assessment\AssessmentKind;
 use Inc\Managers\Assessment\AssessmentManager;
+use Inc\Modules\EgeComputer\Callbacks\KegeFilesZipCallbacks;
 use Inc\Modules\EgeComputer\Callbacks\PreviewResultCallbacks;
 use Inc\Modules\EgeComputer\Config\EgeComputerConfig;
 use Inc\Modules\EgeComputer\Config\KegeScaleConfig;
@@ -19,6 +20,7 @@ use Inc\Modules\EgeComputer\Config\OgeScaleConfig;
 use Inc\Modules\EgeComputer\Config\StationExamConfig;
 use Inc\Modules\EgeComputer\DTO\KegeSheetDTO;
 use Inc\Modules\EgeComputer\Services\KegeResultSheetService;
+use Inc\Services\Assessment\ArchiveTaskNumber;
 use Inc\Services\Assessment\AttemptRevealPolicy;
 use Inc\Services\Assessment\EgeCompletenessChecker;
 use Inc\Services\Course\WorkDetailService;
@@ -50,6 +52,8 @@ class EgeComputerModule implements ServiceInterface {
 		private readonly KegeResultSheetService $resultSheet,
 		private readonly PreviewResultCallbacks $previewResult,
 		private readonly AttemptRevealPolicy    $revealPolicy,
+		private readonly ArchiveTaskNumber      $archive,
+		private readonly KegeFilesZipCallbacks  $filesZip,
 	) {}
 
 	public function register(): void {
@@ -58,7 +62,7 @@ class EgeComputerModule implements ServiceInterface {
 		}
 
 		add_filter( AssessmentPageController::RENDERER_FILTER, [ $this, 'resolveRenderer' ], 10, 3 );
-		add_filter( self::SHEET_FILTER, [ $this, 'buildResultSheet' ], 10, 4 );
+		add_filter( self::SHEET_FILTER, [ $this, 'buildResultSheet' ], 10, 5 );
 		add_filter( AssessmentManager::STATION_SETTINGS_FILTER, [ $this, 'applyStationSettings' ] );
 		add_filter( WorkDetailService::OGE_RUBRIC_FILTER, [ $this, 'resolveOgeRubric' ], 10, 3 );
 		add_filter( WorkDetailService::TABLE_ANSWER_FILTER, [ $this, 'resolveTableAnswer' ], 10, 3 );
@@ -71,6 +75,12 @@ class EgeComputerModule implements ServiceInterface {
 		// живёт вне core AjaxHook, поэтому связь — фильтром, а не импортом класса
 		// модуля в core-слой (см. CLAUDE.md, «модуль публикует ядру фильтрами»).
 		add_filter( BundleLoader::KEGE_PREVIEW_RESULT_FILTER, static fn(): string => PreviewResultCallbacks::ACTION );
+
+		// «Скачать все файлы» одним ZIP: гостю публичного экзамена тоже (nopriv) —
+		// доступ проверяется в самом колбэке по доступу к работе.
+		add_action( 'wp_ajax_' . KegeFilesZipCallbacks::ACTION, [ $this->filesZip, 'ajaxFilesZip' ] );
+		add_action( 'wp_ajax_nopriv_' . KegeFilesZipCallbacks::ACTION, [ $this->filesZip, 'ajaxFilesZip' ] );
+		add_filter( BundleLoader::KEGE_FILES_ZIP_FILTER, static fn(): string => KegeFilesZipCallbacks::ACTION );
 	}
 
 	/**
@@ -80,11 +90,13 @@ class EgeComputerModule implements ServiceInterface {
 	 * @param AssessmentDTO   $assessment Контрольная
 	 * @param AttemptDTO|null $attempt    Последняя сданная попытка; null — предпросмотр автора
 	 * @param array           $taskViews  Per-task view-данные страницы
+	 * @param bool            $forceReveal Просмотр работы тем, кто управляет группой: результат открыт сразу
 	 */
-	public function buildResultSheet( mixed $sheet, AssessmentDTO $assessment, ?AttemptDTO $attempt, array $taskViews ): KegeSheetDTO {
+	public function buildResultSheet( mixed $sheet, AssessmentDTO $assessment, ?AttemptDTO $attempt, array $taskViews, bool $forceReveal = false ): KegeSheetDTO {
 		// D18: предпросмотр автора ($attempt === null) не гейтится — ответы видит
-		// сам автор, подтверждать нечего и не перед кем.
-		$revealed = null === $attempt || $this->revealPolicy->isRevealed( $assessment, $attempt );
+		// сам автор, подтверждать нечего и не перед кем. Преподаватель, открывший работу
+		// ученика на проверке, тоже видит результат до «Утвердить работу».
+		$revealed = $forceReveal || null === $attempt || $this->revealPolicy->isRevealed( $assessment, $attempt );
 
 		return $this->resultSheet->build( $assessment, $attempt, $taskViews, $revealed );
 	}
@@ -143,7 +155,7 @@ class EgeComputerModule implements ServiceInterface {
 			}
 
 			$points[ $taskId ] = (float) match ( $dto->kind ) {
-				AssessmentKind::EgeComputer => KegeScaleConfig::answerSlots( (int) $position ),
+				AssessmentKind::EgeComputer => KegeScaleConfig::answerSlots( $this->archive->base( (int) $position ) ),
 				AssessmentKind::OgeComputer => OgeScaleConfig::pointsForPosition( $position ),
 				default                     => 1,
 			};
@@ -231,7 +243,7 @@ class EgeComputerModule implements ServiceInterface {
 
 		$taxonomy = $assessment->subjectKey . '_task_number';
 		$position = $this->resolveTaskPosition( $taskId, $taxonomy, $assessment->taskNumbers );
-		if ( '' === $position || ! in_array( (int) $position, KegeScaleConfig::TABLE_TASK_NUMBERS, true ) ) {
+		if ( '' === $position || ! in_array( $this->archive->base( (int) $position ), KegeScaleConfig::TABLE_TASK_NUMBERS, true ) ) {
 			return $answerText;
 		}
 

@@ -239,6 +239,7 @@ enum AjaxHook: string {
 	// ==== Программа группы (Этап 2) ====
 	case AssignCourse            = 'assign_course';
 	case ContinueProgramLesson   = 'continue_program_lesson'; // params: group_lesson_id — продолжить тему на вторую дату (T12.6, D14)
+	case RemoveProgramContinuation = 'remove_program_continuation'; // params: group_lesson_id — убрать продолжение темы (вторую дату)
 	case SetLessonExtraWorks     = 'set_lesson_extra_works';
 	case GetGroupProgram         = 'get_group_program';
 	case GetGroupActivity        = 'get_group_activity';

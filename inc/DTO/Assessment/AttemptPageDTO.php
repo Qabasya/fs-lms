@@ -29,6 +29,8 @@ readonly class AttemptPageDTO {
 	 * @param bool                      $previewMode    Предпросмотр автора: ученика и попытки нет, ответы не сохраняются
 	 * @param int                       $attemptsUsed   Сколько попыток ученик уже израсходовал (Tasks.md, п. 8)
 	 * @param bool                      $publicMode     Публичный экзамен: тот же режим «без попытки в БД», что и предпросмотр, но для любого посетителя
+	 * @param bool                      $reviewMode     Просмотр конкретной попытки (`?attempt=ID`): лист результата без возможности что-либо менять
+	 * @param bool                      $reviewReveal   В просмотре результат открыт безусловно — смотрит тот, кто управляет группой (не ждёт «Утвердить работу»)
 	 */
 	public function __construct(
 		public ?PersonDTO            $person,
@@ -44,5 +46,7 @@ readonly class AttemptPageDTO {
 		public bool                  $previewMode = false,
 		public int                   $attemptsUsed = 0,
 		public bool                  $publicMode = false,
+		public bool                  $reviewMode = false,
+		public bool                  $reviewReveal = false,
 	) {}
 }

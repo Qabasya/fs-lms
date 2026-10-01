@@ -43,6 +43,19 @@ foreach ( $taskViews as $view ) {
 		$allMaterials[ $material['url'] ] = $material;
 	}
 }
+
+// Подписи заданий слева и в заголовке панели — НОМЕРА заданий, а не порядковые места:
+// у архивных заданий номер с 10 впереди (старое №3 → №103), и в старом экзамене на
+// третьем месте стоит «103». Правило то же, что в бланке результатов
+// ({@see \Inc\Modules\EgeComputer\Services\KegeResultSheetService}): номер из таксономии,
+// иначе номер, проставленный на самой работе, иначе место в работе. Ключи панелей
+// (data-kege-n / data-kege-panel) остаются порядковыми — на них держится kege-exam.js.
+$taskLabels = array();
+foreach ( $assessment->taskIds as $i => $taskId ) {
+	$fromTaxonomy = (int) ( $taskViews[ (int) $taskId ]['taskNumber'] ?? 0 );
+	$fromWork     = trim( (string) ( $assessment->taskNumbers[ $taskId ] ?? '' ) );
+	$taskLabels[ $i ] = $fromTaxonomy > 0 ? (string) $fromTaxonomy : ( '' !== $fromWork ? $fromWork : (string) ( $i + 1 ) );
+}
 ?>
 <?php // Без ритуала экран экзамена виден сразу (первой открыта вкладка «i») — иначе на миг мелькает вход. ?>
 <div class="kege-ex" id="kegeExam"<?php echo ( ( $previewMode || $publicMode ) && ! $assessment->hideIntro ) ? ' hidden' : ''; ?>>
@@ -72,7 +85,7 @@ foreach ( $taskViews as $view ) {
 			<div class="kege-nums" id="kegeNums">
 				<button type="button" class="kege-numb" data-kege-n="i">i</button>
 				<?php foreach ( $assessment->taskIds as $i => $taskId ) : ?>
-					<button type="button" class="kege-numb" data-kege-n="<?php echo esc_attr( (string) ( $i + 1 ) ); ?>"><?php echo esc_html( (string) ( $i + 1 ) ); ?></button>
+					<button type="button" class="kege-numb" data-kege-n="<?php echo esc_attr( (string) ( $i + 1 ) ); ?>"><?php echo esc_html( $taskLabels[ $i ] ); ?></button>
 				<?php endforeach; ?>
 			</div>
 			<button type="button" class="kege-sq-arrow" id="kegeScrDn" aria-label="Прокрутить вниз"><?php echo Icon::ArrowDown->svg(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></button>
@@ -116,6 +129,7 @@ foreach ( $taskViews as $view ) {
 						'template'   => '',
 						'materials'  => array(),
 						'taskNumber' => 0,
+						'baseNumber' => 0,
 						'bankNumber' => '',
 						'condition'  => '',
 						'subparts'   => array(),
@@ -125,7 +139,7 @@ foreach ( $taskViews as $view ) {
 					// Табличный ответ — особенность настоящего КЕГЭ; у ОГЭ таких позиций
 					// нет вовсе, поэтому проверка гасится по kind. Список номеров — единая
 					// точка {@see KegeScaleConfig::TABLE_TASK_NUMBERS}.
-					$isTable  = ! $isOge && ! $isTriple && in_array( $view['taskNumber'], KegeScaleConfig::TABLE_TASK_NUMBERS, true );
+					$isTable  = ! $isOge && ! $isTriple && in_array( $view['baseNumber'], KegeScaleConfig::TABLE_TASK_NUMBERS, true );
 					// Задания 13-16 ОГЭ — только загрузка файла, без текстового поля (решено
 					// с пользователем 2026-08-18): «Развёрнутый ответ» (14-16) и «Два условия
 					// на выбор» (№13, консолидация 13.1/13.2 в один пост) — общий предикат
@@ -150,11 +164,11 @@ foreach ( $taskViews as $view ) {
 						data-kege-panel="<?php echo esc_attr( (string) $n ); ?>"
 						data-task-id="<?php echo esc_attr( (string) $taskId ); ?>"
 						data-answer-shape="<?php echo esc_attr( $shape ); ?>"
-						data-task-number="<?php echo esc_attr( (string) $view['taskNumber'] ); ?>"
+						data-task-number="<?php echo esc_attr( (string) $view['baseNumber'] ); ?>"
 						<?php echo $isTriple ? 'data-triple-subs="' . esc_attr( implode( ',', array_map( static fn( $s ) => (string) $s['key'], $subparts ) ) ) . '"' : ''; ?>
 						hidden>
 						<div class="kege-t-head">
-							Задание <?php echo esc_html( (string) $n ); ?><?php echo '' !== $headNum ? ' (' . esc_html( $headNum ) . ')' : ''; ?>.
+							Задание <?php echo esc_html( $taskLabels[ $i ] ); ?><?php echo '' !== $headNum ? ' (' . esc_html( $headNum ) . ')' : ''; ?>.
 						</div>
 						<div class="kege-t-content">
 							<?php if ( $isTriple ) : ?>

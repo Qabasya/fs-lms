@@ -8,12 +8,24 @@
 // для низких окон, чтобы строки не обрезались молча.
 
 .kege-fin {
-  height: 100vh;
+  // Минус админ-панель WordPress (у сотрудника она над станцией): иначе кнопка «Выход» уезжает за экран.
+  // stylelint-disable-next-line custom-property-pattern
+  height: calc(100vh - var(--wp-admin--admin-bar--height, 0px));
   overflow: hidden;
   display: flex;
   flex-direction: column;
 
   &[hidden] { display: none; }
+}
+
+// Просмотр чужой работы: кто сдал и что видит ученик — отдельной строкой над шапкой станции.
+.kege-fin-review {
+  flex-shrink: 0;
+  background: var(--kege-navy-ink);
+  color: var(--kege-on);
+  padding: rem(6) rem(22);
+  font-size: rem(12.5);
+  text-align: center;
 }
 
 .kege-fin-head {
@@ -89,6 +101,10 @@
   align-items: flex-start;
   justify-content: center;
   gap: rem(14);
+
+  // Работа любой длины: таблиц может быть больше трёх — лишние переносятся
+  // на следующий ряд, прокрутка остаётся страховкой для низких окон.
+  flex-wrap: wrap;
   max-height: 100%;
   overflow: auto;
 }
@@ -120,7 +136,12 @@
     font-size: rem(12);
   }
 
-  &__n { color: var(--kege-link); font-weight: 500; }
+  &__n {
+    color: var(--kege-link);
+    font-weight: 500;
+
+    a { color: inherit; }
+  }
 
   &__ans {
     min-width: rem(104);

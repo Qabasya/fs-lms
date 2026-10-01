@@ -59,7 +59,7 @@
 .prof-dash-hello h1 { font-size: rem(24); font-weight: 700; letter-spacing: -.02em; }
 .prof-dash-hello p { color: var(--muted); font-size: rem(14); margin-top: rem(3); }
 
-.prof-dash-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: rem(18); align-items: start; margin-bottom: rem(18); }
+.prof-stat-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: rem(18); margin-bottom: rem(18); }
 .prof-sched-card { margin-bottom: rem(18); }
 
 /* «Требует внимания» — аккордеон: шапка-кнопка + .prof-fold. */
@@ -80,6 +80,19 @@
 .prof-acc { overflow: hidden; }
 .prof-acc.is-open .prof-acc-head { border-bottom-color: var(--line-2); }
 .prof-acc.is-open .prof-acc-body { @include collapse-open; }
+
+// Значок «внимание» в шапке — тот же восклицательный знак на красной плашке, что был у плитки «Не заполнено».
+.prof-acc-ico {
+  width: rem(28);
+  height: rem(28);
+  flex-shrink: 0;
+  border-radius: rem(8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--err-soft);
+  color: var(--err);
+}
 
 .prof-acc-chev {
   margin-left: auto;
@@ -251,9 +264,7 @@ a.prof-lesson-go, a.prof-work-item, a.prof-grade-attempt { text-decoration: none
 .prof-stat-tile .st-delta { font-size: rem(12); margin-top: rem(2); }
 
 @media (max-width: $breakpoint-wide) {
-  // Узко: три плитки в ряд, «Требует внимания» — на всю ширину под ними.
-  .prof-dash-grid2 { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: rem(8); }
-  .prof-dash-grid2 > .prof-acc { grid-column: 1 / -1; order: 1; }
+  .prof-stat-tiles { gap: rem(8); }
   .prof-week-col { min-height: rem(120); }
 }
 

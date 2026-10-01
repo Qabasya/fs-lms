@@ -53,8 +53,12 @@ export function placedThemeHtml(t, videoEnabled) {
     const offSchedule = t.off_schedule ? ' off-schedule' : '';
     const draft = t.lesson_draft ? ' is-draft' : '';
     const roomTip = t.room ? ` · ${t.room}` : '';
-    // T12.6: «Продолжить» доступно только для «родных» строк (part 1) — не для уже-продолжений.
-    const canContinue = 1 === t.part;
+    // T12.6: «Продолжить» — только у «родной» строки без продолжения (part 1 из 1); у самого
+    // продолжения (part 2+) в ⋮ другой пункт — «Убрать продолжение».
+    const total = t.total_parts || 1;
+    const canContinue = 1 === t.part && 1 === total;
+    const isContinuation = t.part > 1;
+    const moreKind = isContinuation ? 'remove' : 'continue';
     // #16: карточка урока = тема (жирная) / кабинет / преподаватель, друг под другом.
     // Номер убран; метка продолжения (part/total) прикреплена к теме.
     // Этап 2 (★): клик по карточке ведёт в плеер курса (teacher-режим) — карточка
@@ -70,7 +74,7 @@ export function placedThemeHtml(t, videoEnabled) {
         ${t.room ? `<span class="pt-meta">${esc(t.room)}</span>` : ''}
         ${t.teacher ? `<span class="pt-meta">${esc(t.teacher)}</span>` : ''}
         ${recordingIconHtml(t, videoEnabled)}
-        ${canContinue ? `<button type="button" class="pt-more" data-glid="${t.group_lesson_id}" aria-label="Действия">⋮</button>` : ''}
+        ${(canContinue || isContinuation) ? `<button type="button" class="pt-more" data-glid="${t.group_lesson_id}" data-kind="${moreKind}" aria-label="Действия">⋮</button>` : ''}
     </div>`;
 }
 

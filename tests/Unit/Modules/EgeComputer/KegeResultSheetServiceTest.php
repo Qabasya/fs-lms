@@ -15,7 +15,10 @@ use Inc\Modules\EgeComputer\Config\KegeScaleConfig;
 use Inc\Modules\EgeComputer\Config\OgeScaleConfig;
 use Inc\Modules\EgeComputer\Services\KegeResultSheetService;
 use Inc\Repositories\WPDBRepositories\AssessmentAnswerRepository;
+use Inc\Services\Assessment\ArchiveTaskNumber;
+use Inc\Services\Assessment\ScoringUnits;
 use Inc\Services\Assessment\SecondaryScoreService;
+use Inc\Managers\Wp\TermManager;
 use Inc\Services\Task\CorrectAnswerResolver;
 use PHPUnit\Framework\TestCase;
 
@@ -50,6 +53,8 @@ class KegeResultSheetServiceTest extends TestCase {
 			$correctAnswers,
 			new SecondaryScoreService(),
 			$this->posts,
+			new ArchiveTaskNumber(),
+			new ScoringUnits( $this->createMock( TermManager::class ), new ArchiveTaskNumber() ),
 		);
 	}
 
@@ -71,29 +76,55 @@ class KegeResultSheetServiceTest extends TestCase {
 	}
 
 	/**
-	 * Номер 26 у КЕГЭ занимает 2 позиции листа ({@see KegeScaleConfig::answerSlots()}) —
-	 * у ОГЭ таких заданий нет ({@see OgeScaleConfig::answerSlots()}), несмотря на тот же
-	 * номер (в текущей БД он не встречается у ОГЭ, но диспетчер должен различать kind,
-	 * а не полагаться на диапазон номеров).
+	 * Номер 26 у КЕГЭ — одна строка листа, но до двух баллов (два числа ответа,
+	 * {@see KegeScaleConfig::answerSlots()}); у ОГЭ таких заданий нет
+	 * ({@see OgeScaleConfig::answerSlots()}) — диспетчер должен различать kind.
 	 */
-	public function test_ege_computer_gives_two_slots_for_task_26(): void {
+	public function test_ege_computer_task_26_is_one_row_worth_two_points(): void {
 		$dto  = $this->assessment( AssessmentKind::EgeComputer, [ 10 ], [ 10 => '26' ] );
 		$sheet = $this->service->buildFromAnswers( $dto, [], [] );
 
-		self::assertCount( 2, $sheet->rows );
-		self::assertSame( 2.0, $sheet->primaryMax );
+		self::assertCount( 1, $sheet->rows );
+		self::assertSame( 29.0, $sheet->primaryMax, 'максимум КЕГЭ фиксирован — 29' );
+	}
+
+	/** Частичный балл №26: верно одно из двух чисел — 1 из 2, ответ в одной ячейке. */
+	public function test_task_26_gives_partial_score_and_shows_both_numbers_in_one_cell(): void {
+		$this->stubCorrectAnswers( array( 10 => array( 'task_26_answer' => '7 8' ) ) );
+		$dto = $this->assessment( AssessmentKind::EgeComputer, array( 10 ), array( 10 => '26' ) );
+
+		$sheet = $this->service->buildFromAnswers( $dto, array( 10 => '7 9' ), array() );
+
+		self::assertCount( 1, $sheet->rows );
+		self::assertSame( '7 9', $sheet->rows[0]['answer'] );
+		self::assertSame( '7 8', $sheet->rows[0]['correct'] );
+		self::assertSame( 1.0, $sheet->rows[0]['score'] );
+		self::assertSame( 1.0, $sheet->primary );
 	}
 
 	/**
-	 * Задание стоит не на своей позиции: строка листа подписана позицией в работе
-	 * (как «Задание N» на станции), а форма ответа — по собственному номеру задания.
+	 * Строка листа подписана номером задания (как в навигаторе станции), и форма ответа
+	 * — по нему же: задание №26 на 2-м месте — строка «26» на 2 балла.
 	 */
-	public function test_row_label_is_position_while_answer_shape_follows_task_number(): void {
+	public function test_row_label_is_task_number_and_answer_shape_follows_it(): void {
 		$dto   = $this->assessment( AssessmentKind::EgeComputer, [ 10, 20 ], [ 10 => '1', 20 => '26' ] );
 		$sheet = $this->service->buildFromAnswers( $dto, [], [] );
 
-		self::assertCount( 3, $sheet->rows );
-		self::assertSame( [ '1', '2', '2' ], array_column( $sheet->rows, 'number' ) );
+		self::assertCount( 2, $sheet->rows );
+		self::assertSame( [ '1', '26' ], array_column( $sheet->rows, 'number' ) );
+	}
+
+	/** Архивное №126 (и 1026) — те же два балла, что у живого №26. */
+	public function test_archive_task_number_is_worth_same_points_as_live_one(): void {
+		foreach ( array( '126', '1026' ) as $archive ) {
+			$sheet = $this->service->buildFromAnswers(
+				$this->assessment( AssessmentKind::EgeComputer, [ 10 ], [ 10 => $archive ] ),
+				[],
+				[]
+			);
+
+			self::assertCount( 1, $sheet->rows, $archive );
+		}
 	}
 
 	public function test_oge_computer_always_gives_one_slot(): void {
@@ -135,6 +166,72 @@ class KegeResultSheetServiceTest extends TestCase {
 
 		self::assertSame( 0, $ege->secondary );
 		self::assertSame( 2, $oge->secondary );
+	}
+
+	/* ── Одинаковые номера — одна единица зачёта ─────────────────────────── */
+
+	/** @param array<int, string> $metaByTask task_id => ['task_N_answer' => …] */
+	private function stubCorrectAnswers( array $metaByTask ): void {
+		$this->posts->method( 'getMeta' )->willReturnCallback(
+			static fn( int $id ): array => $metaByTask[ $id ] ?? array()
+		);
+	}
+
+	public function test_three_equal_numbers_are_one_unit_all_correct(): void {
+		$this->stubCorrectAnswers( array(
+			10 => array( 'task_14_answer' => '1' ), 20 => array( 'task_14_answer' => '2' ),
+			30 => array( 'task_14_answer' => '3' ), 40 => array( 'task_15_answer' => '9' ),
+		) );
+		$dto = $this->assessment( AssessmentKind::EgeComputer, array( 10, 20, 30, 40 ), array( 10 => '14', 20 => '14', 30 => '14', 40 => '15' ) );
+
+		$sheet = $this->service->buildFromAnswers( $dto, array( 10 => '1', 20 => '2', 30 => '3', 40 => '9' ), array() );
+
+		self::assertCount( 4, $sheet->rows );
+		self::assertSame( array( '14', '14', '14', '15' ), array_column( $sheet->rows, 'number' ) );
+		self::assertSame( 29.0, $sheet->primaryMax );
+		self::assertSame( 2.0, $sheet->primary, 'три №14 и №15 — два балла' );
+		// Балл типа стоит в первой его строке, у остальных «—»: сумма строк сходится с итогом.
+		self::assertSame( 1.0, $sheet->rows[0]['score'] );
+		self::assertNull( $sheet->rows[1]['score'] );
+		self::assertNull( $sheet->rows[2]['score'] );
+		self::assertSame( 4, $sheet->answered );
+	}
+
+	public function test_one_wrong_task_zeroes_the_whole_number(): void {
+		$this->stubCorrectAnswers( array(
+			10 => array( 'task_14_answer' => '1' ), 20 => array( 'task_14_answer' => '2' ),
+			30 => array( 'task_14_answer' => '3' ), 40 => array( 'task_15_answer' => '9' ),
+		) );
+		$dto = $this->assessment( AssessmentKind::EgeComputer, array( 10, 20, 30, 40 ), array( 10 => '14', 20 => '14', 30 => '14', 40 => '15' ) );
+
+		$sheet = $this->service->buildFromAnswers( $dto, array( 10 => '1', 20 => 'ошибка', 30 => '3', 40 => '9' ), array() );
+
+		self::assertSame( 29.0, $sheet->primaryMax );
+		self::assertSame( 1.0, $sheet->primary, 'засчитан только №15' );
+		self::assertSame( 0.0, $sheet->rows[0]['score'] );
+		self::assertSame( 1.0, $sheet->rows[3]['score'] );
+	}
+
+	/** Архивный номер подписан как есть, а форма и баллы — по «живому». */
+	public function test_archive_number_label_is_kept_while_slots_follow_live_number(): void {
+		$this->stubCorrectAnswers( array( 10 => array( 'task_26_answer' => '7 8' ) ) );
+		$dto = $this->assessment( AssessmentKind::EgeComputer, array( 10 ), array( 10 => '126' ) );
+
+		$sheet = $this->service->buildFromAnswers( $dto, array( 10 => '7 8' ), array() );
+
+		self::assertSame( array( '126' ), array_column( $sheet->rows, 'number' ) );
+		self::assertSame( 2.0, $sheet->primary );
+		self::assertSame( 29.0, $sheet->primaryMax );
+	}
+
+	/** Задание без публичного адреса (не из предметного банка) — без ссылки. */
+	public function test_row_has_no_url_for_non_public_task(): void {
+		$this->stubCorrectAnswers( array() );
+		$dto = $this->assessment( AssessmentKind::EgeComputer, array( 10 ), array( 10 => '1' ) );
+
+		$sheet = $this->service->buildFromAnswers( $dto, array(), array() );
+
+		self::assertSame( '', $sheet->rows[0]['url'] );
 	}
 
 	/* ── D18: гейт видимости + фикс ручного балла ОГЭ 13-16 ──────────────── */
@@ -267,8 +364,8 @@ class KegeResultSheetServiceTest extends TestCase {
 		self::assertSame( 0.0, $sheet->primary );
 	}
 
-	/** Зачёт задания на две позиции (№26) раскладывается по ним, как и максимум. */
-	public function test_teacher_credit_spreads_across_answer_slots(): void {
+	/** Зачёт преподавателя на №26 — один балл строки целиком (2 из 2). */
+	public function test_teacher_credit_is_the_whole_row_score(): void {
 		$this->answers->method( 'listByAttempt' )->willReturn( [
 			AttemptAnswerDTO::fromArray( [
 				'id' => 1, 'attempt_id' => 9, 'task_id' => 10, 'answer_text' => '1 2',
@@ -280,9 +377,32 @@ class KegeResultSheetServiceTest extends TestCase {
 		$dto   = $this->assessment( AssessmentKind::EgeComputer, [ 10 ], [ 10 => '26' ] );
 		$sheet = $this->service->build( $dto, $this->attempt(), [] );
 
-		self::assertCount( 2, $sheet->rows );
-		self::assertSame( 1.0, $sheet->rows[0]['score'] );
-		self::assertSame( 1.0, $sheet->rows[1]['score'] );
+		self::assertCount( 1, $sheet->rows );
+		self::assertSame( 2.0, $sheet->rows[0]['score'] );
 		self::assertSame( 2.0, $sheet->primary );
+	}
+
+	/** 20 заданий одного типа и по одному на остальные 26: 46 строк, но те же 29 баллов. */
+	public function test_many_tasks_of_one_type_still_sum_to_29(): void {
+		$ids     = range( 1, 46 );
+		$numbers = array();
+		$meta    = array();
+		$answers = array();
+		foreach ( $ids as $id ) {
+			$n               = $id <= 20 ? 1 : $id - 19;
+			$numbers[ $id ]  = (string) $n;
+			$meta[ $id ]     = array( "task_{$n}_answer" => in_array( $n, array( 26, 27 ), true ) ? '1 2' : '5' );
+			$answers[ $id ]  = in_array( $n, array( 26, 27 ), true ) ? '1 2' : '5';
+		}
+		$this->stubCorrectAnswers( $meta );
+		$dto = $this->assessment( AssessmentKind::EgeComputer, $ids, $numbers );
+
+		$sheet = $this->service->buildFromAnswers( $dto, $answers, array() );
+
+		self::assertCount( 46, $sheet->rows );
+		self::assertSame( 46, $sheet->answered );
+		self::assertSame( 29.0, $sheet->primaryMax );
+		self::assertSame( 29.0, $sheet->primary );
+		self::assertSame( 100, $sheet->secondary );
 	}
 }

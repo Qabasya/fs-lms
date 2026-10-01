@@ -32,6 +32,7 @@ class AutoGradeService {
 		private readonly BatchCheckService           $batchCheck,
 		private readonly TemplateRegistry            $templates,
 		private readonly PersonRepository            $persons,
+		private readonly ScoringUnits                $units,
 	) {}
 
 	/** В ленту пишется WP-пользователь, а не персона (actor_user_id резолвится через get_userdata()). */
@@ -53,6 +54,7 @@ class AutoGradeService {
 		$totalScore = 0.0;
 		$totalMax   = 0.0;
 		$hasManual  = false;
+		$perTask    = array();
 
 		foreach ( $answerList as $answer ) {
 			if ( null === $answer->isCorrect ) {
@@ -62,6 +64,19 @@ class AutoGradeService {
 				? ( ( $answer->score ?? 0.0 ) > 0.0 ? 1.0 : 0.0 )
 				: ( $answer->score ?? 0.0 );
 			$totalMax   += $binary ? 1.0 : ( $answer->maxScore ?? 0.0 );
+
+			$perTask[ (int) $answer->taskId ] = array(
+				'score'   => (float) ( $answer->score ?? 0.0 ),
+				'max'     => (float) ( $answer->maxScore ?? 0.0 ),
+				'pending' => null === $answer->isCorrect,
+			);
+		}
+
+		// Одинаковые номера — одна единица зачёта (станция КЕГЭ): итог считается по ним.
+		if ( null !== $assessment && $assessment->kind->groupsEqualNumbers() ) {
+			$totals     = $this->units->totals( $assessment, $perTask );
+			$totalScore = $totals['score'];
+			$totalMax   = $totals['max'];
 		}
 
 		return $this->persistTotals( $attempt, $totalScore, $totalMax, $hasManual );
@@ -108,6 +123,13 @@ class AutoGradeService {
 			}
 			$totalScore += $a['score'];
 			$totalMax   += $a['max'];
+		}
+
+		// Одинаковые номера — одна единица зачёта (станция КЕГЭ): итог считается по ним.
+		if ( null !== $assessment && $assessment->kind->groupsEqualNumbers() ) {
+			$totals     = $this->units->totals( $assessment, $result['perTask'] );
+			$totalScore = $totals['score'];
+			$totalMax   = $totals['max'];
 		}
 
 		return $this->persistTotals( $attempt, $totalScore, $totalMax, $hasManual );

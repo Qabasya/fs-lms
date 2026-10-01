@@ -71,6 +71,18 @@ enum AssessmentKind: string {
 		};
 	}
 
+	/**
+	 * Задания с одним номером — одна единица зачёта (три №14 дают как одно, верны
+	 * все три — полный балл, иначе 0): так считает реальная станция КЕГЭ, максимум
+	 * работы при этом остаётся 29 ({@see \Inc\Services\Assessment\ScoringUnits}).
+	 */
+	public function groupsEqualNumbers(): bool {
+		return match ( $this ) {
+			self::EgeComputer => true,
+			default           => false,
+		};
+	}
+
 	/** Показывает мягкое предупреждение при неполном покрытии {key}_task_number. */
 	public function needsCompletenessCheck(): bool {
 		return match ( $this ) {

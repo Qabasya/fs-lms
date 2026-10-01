@@ -758,15 +758,54 @@ export function initKegeExam() {
 	document.getElementById( 'kegeFsDown' )?.addEventListener( 'click', () => setFs( fsIdx - 1 ) );
 	document.getElementById( 'kegeFsReset' )?.addEventListener( 'click', () => setFs( FS_DEFAULT ) );
 
-	/* ── «Скачать все файлы» на вкладке «i»: раскрывает сводный список ссылок ── */
-	/* Кнопки и списка нет, когда у контрольной нет ни одного файла (см. exam.php). */
+	/* ── «Скачать все файлы» на вкладке «i»: один ZIP со всеми материалами работы ── */
+	/* Кнопки и списка нет, когда у контрольной нет ни одного файла (см. exam.php).
+	   Архив собирает сервер; если не вышло (нет экшена, сеть, нет локальных файлов),
+	   раскрывается список отдельных ссылок — как запасной путь. */
 	const dlBtn  = document.getElementById( 'kegeDlAll' );
 	const dlList = document.getElementById( 'kegeDlList' );
 	if ( dlBtn && dlList ) {
-		dlBtn.addEventListener( 'click', () => {
-			const open = dlList.hidden;
-			dlList.hidden = ! open;
-			dlBtn.setAttribute( 'aria-expanded', open ? 'true' : 'false' );
+		const showList = () => {
+			dlList.hidden = false;
+			dlBtn.setAttribute( 'aria-expanded', 'true' );
+		};
+
+		const requestZip = async () => {
+			const action = kegeVars?.actions?.filesZip;
+			if ( ! action ) { return ''; }
+
+			try {
+				const fd = new FormData();
+				fd.append( 'action', action );
+				fd.append( 'security', kegeVars.nonces.startAttempt );
+				fd.append( 'assessment_id', String( assessmentId ) );
+
+				const res  = await fetch( kegeVars.ajax_url, { method: 'POST', body: fd } );
+				const json = await res.json();
+				return json.success ? ( json.data?.url ?? '' ) : '';
+			} catch ( e ) {
+				return '';
+			}
+		};
+
+		const label = dlBtn.textContent;
+		dlBtn.addEventListener( 'click', async () => {
+			dlBtn.disabled    = true;
+			dlBtn.textContent = 'Готовим архив…';
+
+			const url = await requestZip();
+
+			dlBtn.disabled    = false;
+			dlBtn.textContent = label;
+
+			if ( ! url ) { showList(); return; }
+
+			const a = document.createElement( 'a' );
+			a.href = url;
+			a.download = '';
+			document.body.appendChild( a );
+			a.click();
+			a.remove();
 		} );
 	}
 
