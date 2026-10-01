@@ -40,6 +40,20 @@ defined( 'ABSPATH' ) || exit;
 				Без этой галочки в файл попадут только контактные и учебные данные —
 				пароли не расшифровываются и в выгрузку не пишутся.
 			</p>
+
+			<?php // Только для экспорта родителей (pii-export-modal.js: withDocuments). ?>
+			<div class="js-pii-export-documents-wrap" hidden>
+				<label class="fs-pii-export__option">
+					<input type="checkbox" class="js-pii-export-documents">
+					<span>Включить документы и ИНН (родителя и его детей)</span>
+				</label>
+
+				<p class="fs-pii-export__hint">
+					Дата рождения, паспорт или свидетельство (номер, кем и когда выдан), ИНН и адрес.
+					Данные детей идут в колонках «Ученик: …», значения нескольких детей — через «; »
+					в порядке колонки «ID ученика».
+				</p>
+			</div>
 		</div>
 		<div class="fs-lms-modal-footer">
 			<button type="button" class="fs-lms-modal-cancel button">Отмена</button>

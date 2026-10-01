@@ -25,25 +25,20 @@ if ( ! current_user_can( Capability::ManageApplications->value ) ) {
 $personRepo = new PersonRepository();
 $recordRepo = new StudentRecordRepository();
 
-$page    = max( 1, (int) ( $_GET['paged'] ?? 1 ) );
-$perPage = 20;
-
 $orderby = 'child_name' === sanitize_key( wp_unslash( $_GET['orderby'] ?? '' ) ) ? 'child_name' : 'name';
 $order   = 'desc' === sanitize_key( wp_unslash( $_GET['order'] ?? '' ) ) ? 'DESC' : 'ASC';
 
 $searchFilter = trim( sanitize_text_field( wp_unslash( $_GET['parent_search'] ?? '' ) ) );
 
+// Без пагинации: массовый экспорт работает по отмеченным строкам — все родители должны быть на странице.
 $total         = $personRepo->countParents( $searchFilter );
-$pages         = $total > 0 ? (int) ceil( $total / $perPage ) : 1;
-$parentPersons = $personRepo->listParents( $page, $perPage, $orderby, $order, $searchFilter );
+$parentPersons = $personRepo->listParents( 1, 0, $orderby, $order, $searchFilter );
 
 $pageSlug  = sanitize_key( $_GET['page'] ?? '' );
 $baseUrl   = add_query_arg( array( 'page' => $pageSlug, 'tab' => 'tab-3' ), admin_url( 'admin.php' ) );
 // Поиск должен пережить и сортировку по колонке, и переход по страницам.
 $activeFilters = array_filter( array( 'parent_search' => $searchFilter ) );
 $sortUrl       = add_query_arg( $activeFilters, $baseUrl );
-$sortParams    = array( 'orderby' => $orderby, 'order' => strtolower( $order ) );
-$filterUrl     = add_query_arg( array_merge( $activeFilters, $sortParams ), $baseUrl );
 
 ?>
 
@@ -191,7 +186,6 @@ $filterUrl     = add_query_arg( array_merge( $activeFilters, $sortParams ), $bas
 		</tbody>
 	</table>
 
-	<?php render_fs_pagination( $page, $pages, add_query_arg( 'paged', '%#%', $filterUrl ) ); ?>
 
 </div>
 

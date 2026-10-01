@@ -42,18 +42,22 @@ export const PiiExportModal = {
      *
      * @param {Object} [options] Параметры отображения.
      * @param {string} [options.summary] Строка «что именно выгружаем».
-     * @returns {Promise<{includePasswords: boolean}>} resolve — подтверждено,
+     * @param {boolean} [options.withDocuments] Показать галочку «документы и ИНН» (экспорт родителей).
+     * @returns {Promise<{includePasswords: boolean, includeDocuments: boolean}>} resolve — подтверждено,
      *          reject('cancel'|'close'|'esc') — отказ.
      */
-    confirm( { summary = '' } = {} ) {
+    confirm( { summary = '', withDocuments = false } = {} ) {
         // Модалки нет на странице (шаблон не подключён) — не блокируем сценарий,
         // но и не выгружаем пароли без явного согласия.
         if ( ! this.$modal || ! this.$modal.length ) {
-            return Promise.resolve( { includePasswords: false } );
+            return Promise.resolve( { includePasswords: false, includeDocuments: false } );
         }
 
         const $checkbox = this.$modal.find( '.js-pii-export-passwords' );
         $checkbox.prop( 'checked', false );
+        const $documents = this.$modal.find( '.js-pii-export-documents' );
+        $documents.prop( 'checked', false );
+        this.$modal.find( '.js-pii-export-documents-wrap' ).prop( 'hidden', ! withDocuments );
         this.$modal.find( '.js-pii-export-summary' ).text( summary );
 
         openModal( this.$modal );
@@ -63,8 +67,9 @@ export const PiiExportModal = {
                 .off( `click${ EVT }` )
                 .on( `click${ EVT }`, () => {
                     const includePasswords = $checkbox.prop( 'checked' ) === true;
+                    const includeDocuments = withDocuments && $documents.prop( 'checked' ) === true;
                     this._close();
-                    resolve( { includePasswords } );
+                    resolve( { includePasswords, includeDocuments } );
                 } );
 
             this.$modal.find( '.fs-lms-modal-cancel' )

@@ -4,8 +4,9 @@
    расписание сегодня/неделя/месяц, ворклист «заполнить»/«проверить», стат-плитки,
    маркеры замен (Эпик 5). Демо-слой (data.js) убран.
 
-   «Требует внимания» и «Мои группы» — аккордеоны над расписанием; раскрытость
-   каждого запоминается в браузере преподавателя. Администратору в «Требует
+   Над расписанием — сетка 2×2: «Занятий сегодня» и «Требует внимания» сверху,
+   «На проверке» и «Не заполнено» снизу. «Требует внимания» — аккордеон; раскрытость
+   запоминается в браузере преподавателя. Администратору в «Требует
    внимания» идут и его сигналы (worklist.alerts): журнал не заполнен спустя
    сутки, серии пропусков и несданных ДЗ, работы без проверки 48 часов.
    ══════════════════════════════════════════════════════════════════════ */
@@ -61,20 +62,15 @@ function render() {
 
         ${d.covering.length ? coveringBanner(d.covering) : ''}
 
-        <div class="prof-stat-tiles">
-            ${statTile('Занятий сегодня', String(s.lessons_today), `${s.groups} ${plural(s.groups, 'группа', 'группы', 'групп')}${s.individual ? ` · ${s.individual} инд.` : ''}`, '#3b5bdb', 'cal')}
-            ${statTile('На проверке', String(s.to_review), 'работ ждут оценки', '#7048e8', 'check')}
-            ${statTile('Не заполнено', String(s.to_fill), 'журналов посещаемости', '#e03131', 'alert')}
-        </div>
-
         <div class="prof-dash-grid2">
+            ${statTile('Занятий сегодня', String(s.lessons_today), `${s.groups} ${plural(s.groups, 'группа', 'группы', 'групп')}${s.individual ? ` · ${s.individual} инд.` : ''}`, '#3b5bdb', 'cal')}
             ${accordion('attention', 'Требует внимания', `${attnCount} ${plural(attnCount, 'задача', 'задачи', 'задач')}`, `
                 ${alerts.map(alertRow).join('')}
                 ${d.worklist.to_fill.map(fillRow).join('')}
                 ${d.worklist.to_review.map(reviewRow).join('')}
                 ${attnCount ? '' : '<div class="rev-empty">Всё в порядке — журналы заполнены, работы проверены.</div>'}`)}
-            ${accordion('groups', 'Мои группы', `${d.groups.length} ${plural(d.groups.length, 'группа', 'группы', 'групп')}`,
-                d.groups.length ? d.groups.map(grpCard).join('') : '<div class="rev-empty">Нет групп.</div>')}
+            ${statTile('На проверке', String(s.to_review), 'работ ждут оценки', '#7048e8', 'check')}
+            ${statTile('Не заполнено', String(s.to_fill), 'журналов посещаемости', '#e03131', 'alert')}
         </div>
 
         <div class="prof-card prof-sched-card">
@@ -118,7 +114,7 @@ function render() {
         if (el) nav.openJournalFor(el.dataset.grp);
     });
 
-    root.querySelectorAll('.prof-grp-card[data-grp], .prof-work-item[data-grp]').forEach(el =>
+    root.querySelectorAll('.prof-work-item[data-grp]').forEach(el =>
         el.addEventListener('click', () => nav.openJournalFor(el.dataset.grp)));
     root.querySelectorAll('[data-review]').forEach(el =>
         el.addEventListener('click', () => nav.openReview()));
@@ -421,23 +417,6 @@ function reviewRow(w) {
             <div class="prof-work-sub">в очереди на проверку</div>
         </div>
         <span class="prof-work-count">${w.count}</span>
-        ${icoChevronRight(18, 'var(--muted-2)')}
-    </div>`;
-}
-
-function grpCard(g) {
-    const isFuture = g.covering_from && g.covering_from > todayIso();
-    const badge = g.covering_until
-        ? ( isFuture
-            ? `<span class="prof-sub-tag">замещаете с ${fmtDayMonth(g.covering_from)}</span>`
-            : `<span class="prof-sub-tag">замещаете до ${fmtDayMonth(g.covering_until)}</span>` )
-        : ( g.covered_until ? `<span class="prof-sub-tag warn">замена до ${fmtDayMonth(g.covered_until)}</span>` : '' );
-    return `<div class="prof-grp-card" data-grp="${g.id}">
-        <span class="prof-group-chip ${chipBg(groupSubjectKey(g.id))}">${esc(shortName(g.name))}</span>
-        <div class="prof-group-meta">
-            <div class="prof-group-name">${esc(g.name)} · ${esc(g.subject)}</div>
-            <div class="prof-group-sub">${g.students} ${plural(g.students, 'ученик', 'ученика', 'учеников')} ${badge}</div>
-        </div>
         ${icoChevronRight(18, 'var(--muted-2)')}
     </div>`;
 }

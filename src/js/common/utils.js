@@ -66,7 +66,7 @@ export function fmtDateTime( iso ) {
 }
 
 /**
- * Длительность в секундах → «меньше минуты» / «42 мин» / «1 ч 05 мин» / «2 д 3 ч».
+ * Длительность в секундах → «< 1 мин» / «42 мин» / «1 ч 05 мин» / «2 д 3 ч».
  *
  * @param {number|null} sec Секунды.
  * @return {string} Пустая строка, если значения нет.
@@ -75,7 +75,7 @@ export function fmtDuration( sec ) {
     if ( null === sec || undefined === sec || '' === sec || Number.isNaN( Number( sec ) ) ) { return ''; }
 
     const min = Math.floor( Number( sec ) / 60 );
-    if ( min < 1 ) { return 'меньше минуты'; }
+    if ( min < 1 ) { return '< 1 мин'; }
     if ( min < 60 ) { return `${ min } мин`; }
 
     const hours = Math.floor( min / 60 );

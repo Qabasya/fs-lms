@@ -94,7 +94,9 @@ class LogsCallbacks extends BaseController {
 		$this->authorizeAll( Nonce::Manager, self::PII_EXPORT_CAPS );
 		$ids  = array_filter( $this->sanitizeIntList( 'ids' ) );
 		$mode = $ids ? 'single' : 'bulk';
-		$url  = $this->exportService->run( ExportTarget::Parents, $this->piiContext( $ids ), $mode );
+		// Документы и ИНН родителя и его детей — только по явной галочке (по умолчанию выключено).
+		$context = $this->piiContext( $ids ) + array( 'include_documents' => $this->sanitizeBool( 'include_documents' ) );
+		$url     = $this->exportService->run( ExportTarget::Parents, $context, $mode );
 		$this->success( array( 'url' => $url ) );
 	}
 

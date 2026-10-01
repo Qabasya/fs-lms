@@ -47,11 +47,27 @@ class CoursePreviewAccessGuardTest extends TestCase {
 		self::assertTrue( $this->guard->canPreview( 7, 999 ) );
 	}
 
-	public function test_teacher_can_preview_only_own_group_course(): void {
+	public function test_teacher_cannot_preview_even_own_group_course(): void {
+		// Предпросмотр — только для авторов курсов; преподаватель смотрит урок группы.
 		$this->teacherGroups( array( 12 ) );
 
-		self::assertTrue( $this->guard->canPreview( 7, 12 ) );
-		self::assertFalse( $this->guard->canPreview( 7, 13 ) );
+		self::assertFalse( $this->guard->canPreview( 7, 12 ) );
+	}
+
+	// ── canViewProgram ──────────────────────────────────────────────────────
+
+	public function test_teacher_views_program_only_of_own_group_course(): void {
+		$this->teacherGroups( array( 12 ) );
+
+		self::assertTrue( $this->guard->canViewProgram( 7, 12 ) );
+		self::assertFalse( $this->guard->canViewProgram( 7, 13 ) );
+	}
+
+	public function test_staff_views_any_program(): void {
+		$GLOBALS['_test_user_can'][7] = array( Capability::AuthorLmsCourses->value => true );
+		$this->groups->expects( self::never() )->method( 'findByTeacherId' );
+
+		self::assertTrue( $this->guard->canViewProgram( 7, 999 ) );
 	}
 
 	// ── canSolvePreview (З2) ────────────────────────────────────────────────

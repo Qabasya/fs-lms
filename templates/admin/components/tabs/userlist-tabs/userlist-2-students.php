@@ -31,9 +31,6 @@ $personRepo  = new PersonRepository();
 $groupRepo   = new GroupsRepository();
 $subjectRepo = new SubjectRepository();
 
-$page    = max( 1, (int) ( $_GET['paged'] ?? 1 ) );
-$perPage = 20;
-
 $subjectFilter = sanitize_key( wp_unslash( $_GET['subject_key'] ?? '' ) );
 $groupFilter   = (int) ( $_GET['group_id'] ?? 0 );
 $nameFilter    = trim( sanitize_text_field( wp_unslash( $_GET['student_name'] ?? '' ) ) );
@@ -51,9 +48,10 @@ if ( '' !== $nameFilter ) {
 	$filters['student_name'] = $nameFilter;
 }
 
-$studentIds = $recordRepo->listDistinctStudentIds( $filters, $page, $perPage, $orderby, $order );
+// Без пагинации: массовые действия («Экспортировать», «Отчислить») работают по
+// отмеченным строкам, и выбрать всех учеников можно только когда они все на странице.
+$studentIds = $recordRepo->listDistinctStudentIds( $filters, 1, 0, $orderby, $order );
 $total      = $recordRepo->countDistinctStudents( $filters );
-$pages      = (int) ceil( $total / $perPage );
 
 $allSubjects = array();
 foreach ( $subjectRepo->readAll() as $dto ) {
@@ -73,10 +71,6 @@ $activeFilters = array_filter( array(
 	'student_name' => $nameFilter,
 ) );
 $sortUrl    = add_query_arg( $activeFilters, $baseUrl );
-$sortParams = 'student_name' === $orderby
-	? array( 'orderby' => 'student_name', 'order' => strtolower( $order ) )
-	: array();
-$filterUrl  = add_query_arg( array_merge( $activeFilters, $sortParams ), $baseUrl );
 
 ?>
 
@@ -341,8 +335,6 @@ $filterUrl  = add_query_arg( array_merge( $activeFilters, $sortParams ), $baseUr
 		<?php endif; ?>
 		</tbody>
 	</table>
-
-	<?php render_fs_pagination( $page, $pages, add_query_arg( 'paged', '%#%', $filterUrl ) ); ?>
 
 </div>
 

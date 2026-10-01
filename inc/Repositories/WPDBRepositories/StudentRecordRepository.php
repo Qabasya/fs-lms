@@ -544,7 +544,7 @@ class StudentRecordRepository {
 	 *
 	 * @param array  $filters Массив фильтров (status, group_id, subject_key, student_name)
 	 * @param int    $page    Номер страницы
-	 * @param int    $perPage Количество записей на странице
+	 * @param int    $perPage Количество записей на странице; 0 — без пагинации (все)
 	 * @param string $orderby Поле сортировки: student_name|enrolled_at
 	 * @param string $order   Направление: ASC|DESC
 	 *
@@ -564,12 +564,14 @@ class StudentRecordRepository {
 			$joinArgs[] = TableName::Persons->prefixed();
 		}
 
-		$sqlArgs = array_merge( array( $this->table ), $joinArgs, array_slice( $args, 1 ), array( $perPage, $offset ) );
+		$limitSql  = $perPage > 0 ? 'LIMIT %d OFFSET %d' : '';
+		$limitArgs = $perPage > 0 ? array( $perPage, $offset ) : array();
+		$sqlArgs   = array_merge( array( $this->table ), $joinArgs, array_slice( $args, 1 ), $limitArgs );
 
 		// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
 		$rows = $this->wpdb->get_col(
 			$this->wpdb->prepare(
-				"SELECT sr.student_person_id FROM %i sr {$joinsSql} {$where} GROUP BY sr.student_person_id ORDER BY {$orderExpr} {$order} LIMIT %d OFFSET %d",
+				"SELECT sr.student_person_id FROM %i sr {$joinsSql} {$where} GROUP BY sr.student_person_id ORDER BY {$orderExpr} {$order} {$limitSql}",
 				...$sqlArgs
 			)
 		);

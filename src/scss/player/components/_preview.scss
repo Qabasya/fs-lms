@@ -13,6 +13,22 @@
   background: var(--wait-soft);
   color: var(--wait-ink);
   border: 1px solid var(--wait-line);
+  text-decoration: none;
+
+  // Режим преподавателя — зелёный, предпросмотр остаётся янтарным.
+  &--teacher {
+    background: var(--ok-soft);
+    color: var(--ok-ink);
+    border-color: var(--ok-line);
+  }
+
+  // Бейдж-переключатель режима (автору курса): кликабелен.
+  &--link {
+    cursor: pointer;
+    transition: box-shadow $tr;
+
+    &:hover { box-shadow: var(--shadow-sm); }
+  }
 }
 
 .pv-edit {

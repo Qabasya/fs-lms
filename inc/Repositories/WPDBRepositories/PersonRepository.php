@@ -286,7 +286,7 @@ class PersonRepository {
 	 * Возвращает родителей (is_student=false) с пагинацией и сортировкой.
 	 *
 	 * @param int    $page    Номер страницы
-	 * @param int    $perPage Количество записей на странице
+	 * @param int    $perPage Количество записей на странице; 0 — без пагинации (все)
 	 * @param string $orderby Поле сортировки: 'name' (ФИО родителя) | 'child_name' (ФИО ребёнка)
 	 * @param string $order   Направление: ASC|DESC
 	 * @param string $search  Поиск по ФИО родителя или его ребёнка ({@see searchParentsClause()})
@@ -294,8 +294,10 @@ class PersonRepository {
 	 * @return PersonDTO[]
 	 */
 	public function listParents( int $page = 1, int $perPage = 20, string $orderby = 'name', string $order = 'ASC', string $search = '' ): array {
-		$offset = ( max( 1, $page ) - 1 ) * $perPage;
-		$order  = 'DESC' === strtoupper( $order ) ? 'DESC' : 'ASC';
+		$offset    = ( max( 1, $page ) - 1 ) * $perPage;
+		$order     = 'DESC' === strtoupper( $order ) ? 'DESC' : 'ASC';
+		$limitSql  = $perPage > 0 ? 'LIMIT %d OFFSET %d' : '';
+		$limitArgs = $perPage > 0 ? array( $perPage, $offset ) : array();
 
 		[ $searchSql, $searchArgs ] = $this->searchParentsClause( $search );
 
@@ -311,15 +313,15 @@ class PersonRepository {
 				FROM %i p
 				WHERE p.is_student = 0 AND p.expelled_at IS NULL {$searchSql}
 				ORDER BY child_name {$order}
-				LIMIT %d OFFSET %d";
+				{$limitSql}";
 			$args = array_merge(
 				array( TableName::StudentRecords->prefixed(), $this->table, $this->table ),
 				$searchArgs,
-				array( $perPage, $offset )
+				$limitArgs
 			);
 		} else {
-			$sql  = "SELECT p.* FROM %i p WHERE p.is_student = 0 AND p.expelled_at IS NULL {$searchSql} ORDER BY p.last_name {$order}, p.first_name {$order} LIMIT %d OFFSET %d";
-			$args = array_merge( array( $this->table ), $searchArgs, array( $perPage, $offset ) );
+			$sql  = "SELECT p.* FROM %i p WHERE p.is_student = 0 AND p.expelled_at IS NULL {$searchSql} ORDER BY p.last_name {$order}, p.first_name {$order} {$limitSql}";
+			$args = array_merge( array( $this->table ), $searchArgs, $limitArgs );
 		}
 
 		// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared

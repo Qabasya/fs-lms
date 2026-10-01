@@ -78,7 +78,9 @@ let cfg;
 
 /* #15-C: свёрнутость секций сайдбара + фильтр «Мои курсы» (module-level, как
    mod.collapsed в course-builder.js — флаг переживает re-render buildSidebar()). */
-const sidebarState = { navCollapsed: false, groupsCollapsed: false, coursesCollapsed: false, courseFilter: '' };
+/* «Мои группы» и «Мои курсы» есть только у преподавателей/методистов/админов
+   (у учеников и родителей секций нет) — у них по умолчанию свёрнуты. */
+const sidebarState = { navCollapsed: false, groupsCollapsed: true, coursesCollapsed: true, courseFilter: '' };
 const COURSE_SEARCH_THRESHOLD = 6;
 
 /* ── Routing ─────────────────────────────────────────────────────────── */

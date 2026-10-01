@@ -100,7 +100,7 @@ export function workChipHtml(w, attrs = '', tag = 'span') {
 function durationHtml(sec) {
     const text = fmtDuration(sec);
     return text
-        ? `<span class="wcard-dur" title="Затрачено на работу">${icoClock(12)}${esc(text)}</span>`
+        ? `<span class="wcard-dur" title="Всего затрачено на работу (все попытки)">${icoClock(12)}${esc(text)}</span>`
         : '';
 }
 

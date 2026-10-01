@@ -62,7 +62,7 @@
 .prof-dash-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: rem(18); align-items: start; margin-bottom: rem(18); }
 .prof-sched-card { margin-bottom: rem(18); }
 
-/* «Требует внимания» / «Мои группы» — аккордеоны: шапка-кнопка + .prof-fold. */
+/* «Требует внимания» — аккордеон: шапка-кнопка + .prof-fold. */
 .prof-acc-head {
   width: 100%;
   border: none;
@@ -240,14 +240,6 @@ a.prof-lesson-go, a.prof-work-item, a.prof-grade-attempt { text-decoration: none
 }
 .prof-work-count--pending { font-size: rem(10); color: var(--muted); }
 
-.prof-grp-card {
-  display: flex; align-items: center; gap: rem(12); padding: rem(13) rem(18);
-  border-bottom: 1px solid var(--line-2); cursor: pointer; transition: background $tr;
-}
-.prof-grp-card:last-child { border-bottom: none; }
-.prof-grp-card:hover { background: var(--surface-2); }
-
-.prof-stat-tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: rem(14); margin-bottom: rem(18); }
 
 .prof-stat-tile {
   background: var(--surface); border: 1px solid var(--line);
@@ -259,14 +251,15 @@ a.prof-lesson-go, a.prof-work-item, a.prof-grade-attempt { text-decoration: none
 .prof-stat-tile .st-delta { font-size: rem(12); margin-top: rem(2); }
 
 @media (max-width: $breakpoint-wide) {
-  .prof-dash-grid2 { grid-template-columns: 1fr; }
+  // Узко: три плитки в ряд, «Требует внимания» — на всю ширину под ними.
+  .prof-dash-grid2 { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: rem(8); }
+  .prof-dash-grid2 > .prof-acc { grid-column: 1 / -1; order: 1; }
   .prof-week-col { min-height: rem(120); }
 }
 
 /* ── Мобильный (Фаза 5): плитки в столбец, недельная сетка скроллится ── */
 @media (max-width: $breakpoint-mobile) {
-  // Три плитки в ряд, компактно: столбиком они занимали весь первый экран.
-  .prof-stat-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: rem(8); }
+  // Плитки компактно: столбиком они занимали весь первый экран.
   .prof-stat-tile { padding: rem(10) rem(8) rem(12); }
   .prof-stat-tile .st-top { flex-direction: column; align-items: flex-start; gap: rem(6); font-size: rem(11); line-height: 1.25; hyphens: auto; }
   .prof-stat-tile .st-val { font-size: rem(22); margin-top: rem(6); }

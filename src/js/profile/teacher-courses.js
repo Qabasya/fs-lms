@@ -2,8 +2,10 @@
    Страница курса преподавателя/методиста/админа (Tasks.md З4): та же
    «Программа курса», что у ученика в «Моих курсах», но без прогресса —
    модули → уроки, поиск, «Развернуть всё». Курсы — вкладки sc-tabs
-   (карусель в один ряд, course-tabs.js). «Открыть» ведёт в плеер урока
-   в режиме предпросмотра. Вход — клик по курсу в сайдбаре кабинета.
+   (карусель в один ряд, course-tabs.js). «Открыть»: автору курсов (методист,
+   офис, админ) — плеер в режиме предпросмотра, рядовому преподавателю —
+   урок его группы в режиме преподавателя (если в группе он заведён).
+   Вход — клик по курсу в сайдбаре кабинета.
    ══════════════════════════════════════════════════════════════════════ */
 
 import { esc, chipBg, shortName } from './utils.js';
@@ -14,7 +16,7 @@ import { courseTabsShell, syncCourseTabs } from './course-tabs.js';
 
 let api = null;
 let root = null;
-const programs = new Map(); // courseId → Promise<modules>
+const programs = new Map(); // courseId → Promise<{modules, canPreview}>
 const state = { active: 0, query: '', expand: {} };
 
 function cfg() { return window.fsProfile || {}; }
@@ -93,8 +95,9 @@ function renderTabs() {
 
 function loadProgram(courseId) {
     if (!programs.has(courseId)) {
-        if (!api) { api = createApi(cfg().courses); }
-        const p = api('getProgram', { course_id: courseId }).then(d => d.modules || []);
+        if (!api) { api = createApi(cfg().taughtCourses); }
+        const p = api('getProgram', { course_id: courseId })
+            .then(d => ({ modules: d.modules || [], canPreview: !!d.can_preview }));
         p.catch(() => programs.delete(courseId)); // сбой — следующий показ попробует снова
         programs.set(courseId, p);
     }
@@ -107,9 +110,9 @@ async function renderProgram() {
     const body = root.querySelector('#tcBody');
     root.querySelector('#tcTitle').textContent = course ? course.title : 'Программа курса';
 
-    let modules;
+    let modules, canPreview;
     try {
-        modules = await loadProgram(courseId);
+        ({ modules, canPreview } = await loadProgram(courseId));
     } catch (e) {
         body.innerHTML = `<div class="sc-empty">${esc(e.message)}</div>`;
         return;
@@ -126,7 +129,7 @@ async function renderProgram() {
 
     // Новые уроки сверху; от последнего проведённого (по дате, в любой группе)
     // видны два ближайших, остальные будущие — под заглушкой «Ещё N уроков впереди».
-    const rowOf = (l) => rowHtml(courseId, l);
+    const rowOf = (l) => rowHtml(courseId, l, canPreview);
     const html = teacherLayout(modules).map(({ m, mi, rows: windowRows, hidden, open: defaultOpen }) => {
         const found = q ? m.lessons.filter(match).reverse() : windowRows;
         if (q && !found.length) { return ''; }
@@ -165,10 +168,15 @@ function lessonUrl(courseId, lessonId) {
     return url.toString();
 }
 
-function rowHtml(courseId, l) {
-    return `<div class="sc-row open click" data-url="${esc(lessonUrl(courseId, l.id))}">
+function rowHtml(courseId, l, canPreview) {
+    const url = canPreview ? lessonUrl(courseId, l.id) : l.teacher_url;
+    const title = `<span class="sc-lb"><span class="sc-ltitle">${esc(l.title || 'Без названия')}</span></span>`;
+    if (!url) {
+        return `<div class="sc-row open"><span class="sc-num">${l.num}</span>${title}</div>`;
+    }
+    return `<div class="sc-row open click" data-url="${esc(url)}">
         <span class="sc-num">${l.num}</span>
-        <span class="sc-lb"><span class="sc-ltitle">${esc(l.title || 'Без названия')}</span></span>
+        ${title}
         <span class="sc-go">Открыть →</span>
     </div>`;
 }

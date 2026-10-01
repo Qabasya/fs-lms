@@ -37,6 +37,7 @@ use Inc\Services\Security\PiiCryptoService;
  *
  * ### Данные в CSV:
  *
+ * - Ключи связи: ID ученика и ID родителя (для ВПР со сводной таблицей)
  * - Личные данные: ФИО, дата рождения, класс, школа
  * - Контакты: email, телефон
  * - Учётные данные: логин, пароль
@@ -88,6 +89,8 @@ class StudentsExportProvider implements CsvExportProviderInterface {
 	public function columns( array $context = array() ): array {
 		$columns = array(
 			new CsvColumn( 'ID ученика',   fn( $r ) => $r['person_id'] ),
+			// Ключ для ВПР со сводной таблицей: совпадает с «ID родителя» в экспорте родителей.
+			new CsvColumn( 'ID родителя',  fn( $r ) => $r['parent_ids'] ),
 			new CsvColumn( 'Фамилия',      fn( $r ) => $r['last_name'] ),
 			new CsvColumn( 'Имя',          fn( $r ) => $r['first_name'] ),
 			new CsvColumn( 'Отчество',     fn( $r ) => $r['middle_name'] ),
@@ -150,7 +153,11 @@ class StudentsExportProvider implements CsvExportProviderInterface {
 			// Сбор групп и предметов, в которых студент обучается
 			$groupNames   = array();
 			$subjectNames = array();
+			$parentIds    = array();
 			foreach ( $records as $rec ) {
+				if ( $rec->parentPersonId ) {
+					$parentIds[ $rec->parentPersonId ] = $rec->parentPersonId;
+				}
 				if ( $rec->groupId ) {
 					$group = $this->groups->findById( $rec->groupId );
 					if ( $group ) {
@@ -175,6 +182,7 @@ class StudentsExportProvider implements CsvExportProviderInterface {
 
 			yield array(
 				'person_id'   => $person->id,
+				'parent_ids'  => implode( '; ', $parentIds ),
 				'last_name'   => $person->lastName,
 				'first_name'  => $person->firstName,
 				'middle_name' => $person->middleName ?? '',

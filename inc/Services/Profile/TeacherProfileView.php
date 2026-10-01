@@ -209,7 +209,8 @@ final class TeacherProfileView implements ProfileViewInterface {
 				),
 			),
 			// Страница курса преподавателя (Tasks.md З4): программа курса по клику в «Мои курсы».
-			'courses'   => array(
+			// Ключ не `courses`: он занят курс-пикером КТП выше (дубль затирал getCourses).
+			'taughtCourses' => array(
 				'nonce'   => Nonce::SaveSchedule->create(),
 				'actions' => array(
 					'getProgram' => AjaxHook::GetTaughtCourseProgram->jsAction(),

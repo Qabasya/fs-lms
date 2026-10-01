@@ -199,6 +199,44 @@
   padding: 0;
 }
 
+// ── Выпадающий список подсказок под полем ввода (DaData, справочник школ).
+// Подключается к `.fs-dadata-suggestions` внутри карточки формы (join / apply).
+@mixin fs-suggest-list {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  background: $color-white;
+  border: 1px solid $color-border;
+  border-top: none;
+  border-radius: 0 0 $border-radius-sm $border-radius-sm;
+  box-shadow: $shadow-hover;
+
+  @include fs-list-reset;
+
+  max-height: rem(264);
+  overflow-y: auto;
+
+  &__item {
+    padding: rem(10.8) rem(14.4) rem(10.8) rem(45.6);
+    font-size: $font-size-base;
+    color: $color-text;
+    cursor: pointer;
+    line-height: $line-height-tight;
+    border-bottom: 1px solid $color-border-light;
+    transition: background-color $transition, color $transition;
+
+    &:last-child { border-bottom: none; }
+
+    &:hover,
+    &.is-active {
+      background: $color-bg-subtle;
+      color: $color-accent;
+    }
+  }
+}
+
 // ── Базовый паддинг страницы-обёртки (макет: 22 сверху, 32 по бокам, 64 снизу)
 @mixin fs-page-pad {
   padding: rem(26.4) $spacing-4xl rem(76.8);

@@ -11,6 +11,7 @@ use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Services\Course\GroupAccessGuard;
 use Inc\Services\Course\LessonPlayerService;
+use Inc\Services\Course\PlayerModeSwitchService;
 use Inc\Services\Shared\ThemeCompatService;
 use Inc\Shared\Traits\Sanitizer;
 
@@ -32,6 +33,7 @@ class LessonPlayerController extends BaseController implements ServiceInterface 
 		private readonly GroupAccessGuard      $guard,
 		private readonly GroupLessonRepository $groupLessons,
 		private readonly LessonPlayerService   $player,
+		private readonly PlayerModeSwitchService $modeSwitch,
 	) {
 		parent::__construct();
 	}
@@ -60,23 +62,26 @@ class LessonPlayerController extends BaseController implements ServiceInterface 
 		}
 
 		$person    = $this->persons->findByWpUserId( $userId );
-		$isStudent = null !== $person && $this->guard->isMemberEver( $row->groupId, $person->id );
 		$isTeacher = false;
 		$isParent  = false;
 
-		if ( ! $isStudent ) {
-			// Преподаватель группы — смотрит урок СВОЕЙ группы в teacher-режиме
-			// плеера (Этап 2, ★): без прогресса ученика, все гейты открыты.
-			// Родитель ученика группы — видит страницу урока, но контент закрыт
-			// оверлеем «только для ученика» (ссылки на уроки есть в его кабинете,
-			// 404 там выглядел как поломка). Постороннему наличие урока не раскрываем (404).
-			if ( $this->guard->canManage( $row->groupId, $userId ) ) {
-				$isTeacher = true;
-			} elseif ( null !== $person && $this->guard->isParentOf( $row->groupId, $person->id ) ) {
-				$isParent = true;
-			} else {
-				return $this->notFound();
-			}
+		// Роль управляющего приоритетнее членства: переход на урок откуда угодно
+		// (уведомление, карточка расписания, дашборд) открывает его в режиме
+		// преподавателя — в том числе тому, кто сам числится учеником этой группы
+		// (методист/админ с тестовой записью), иначе он попадал в ученический вид.
+		// Преподаватель группы — teacher-режим плеера (Этап 2, ★): без прогресса
+		// ученика, все гейты открыты. Родитель ученика группы — видит страницу урока,
+		// но контент закрыт оверлеем «только для ученика» (ссылки на уроки есть в его
+		// кабинете, 404 там выглядел как поломка). Постороннему наличие урока не
+		// раскрываем (404).
+		if ( $this->guard->canManage( $row->groupId, $userId ) ) {
+			$isTeacher = true;
+		} elseif ( null !== $person && $this->guard->isMemberEver( $row->groupId, $person->id ) ) {
+			// Ученик группы: плеер с его прогрессом ($personId ниже).
+		} elseif ( null !== $person && $this->guard->isParentOf( $row->groupId, $person->id ) ) {
+			$isParent = true;
+		} else {
+			return $this->notFound();
 		}
 
 		// Teacher-режим и родитель: personId=0 — нет ученика, прогресс не читается.
@@ -106,6 +111,10 @@ class LessonPlayerController extends BaseController implements ServiceInterface 
 		$groupId          = $row->groupId;
 		$active_step      = $this->sanitizeGetKey( 'step' );
 		$is_teacher       = $isTeacher;
+		// Бейдж «Режим преподавателя» ведёт в предпросмотр того же урока (только автору курса).
+		$mode_switch_url  = $isTeacher
+			? $this->modeSwitch->previewUrl( $userId, (int) ( $view['shell']['course_id'] ?? 0 ), (int) ( $view['lesson_id'] ?? 0 ), $row->id )
+			: '';
 
 		// Плеер — полноэкранный app-shell со своим <html> (Эпик 14, D18):
 		// без темы сайта; Enqueue по этому флагу грузит только бандл плеера.

@@ -44,6 +44,8 @@ $can_edit        = $is_preview && ! empty( $can_edit );
 // Teacher-режим (Этап 2): преподаватель смотрит урок своей группы без ученика —
 // прогресс-бар в топбаре заменяется бейджем, «Далее» не пишет прогресс (core.js).
 $is_teacher      = ! empty( $is_teacher );
+// Куда ведёт бейдж режима (переключение преподаватель ⇄ предпросмотр); '' — никуда.
+$mode_switch_url = (string) ( $mode_switch_url ?? '' );
 $course_title    = (string) ( $shell['course_title'] ?? '' );
 $module_label    = (string) ( $shell['module_label'] ?? '' );
 $course_progress = is_array( $shell['course_progress'] ?? null ) ? $shell['course_progress'] : null;
@@ -126,10 +128,18 @@ $next_url    = null !== $next_lesson
 		</div>
 		<div class="s-right">
 			<?php if ( $is_preview ) : ?>
-				<span class="pv-banner"><?php esc_html_e( 'Предпросмотр курса', 'fs-lms' ); ?></span>
+				<?php if ( '' !== $mode_switch_url ) : ?>
+					<a class="pv-banner pv-banner--link" href="<?php echo esc_url( $mode_switch_url ); ?>" title="<?php esc_attr_e( 'Переключить на режим преподавателя', 'fs-lms' ); ?>"><?php esc_html_e( 'Предпросмотр курса', 'fs-lms' ); ?></a>
+				<?php else : ?>
+					<span class="pv-banner"><?php esc_html_e( 'Предпросмотр курса', 'fs-lms' ); ?></span>
+				<?php endif; ?>
 			<?php endif; ?>
 			<?php if ( $is_teacher ) : ?>
-				<span class="pv-banner"><?php esc_html_e( 'Режим преподавателя', 'fs-lms' ); ?></span>
+				<?php if ( '' !== $mode_switch_url ) : ?>
+					<a class="pv-banner pv-banner--teacher pv-banner--link" href="<?php echo esc_url( $mode_switch_url ); ?>" title="<?php esc_attr_e( 'Переключить на предпросмотр курса', 'fs-lms' ); ?>"><?php esc_html_e( 'Режим преподавателя', 'fs-lms' ); ?></a>
+				<?php else : ?>
+					<span class="pv-banner pv-banner--teacher"><?php esc_html_e( 'Режим преподавателя', 'fs-lms' ); ?></span>
+				<?php endif; ?>
 			<?php elseif ( $locked_parent ) : ?>
 				<span class="pv-banner"><?php esc_html_e( 'Просмотр родителя', 'fs-lms' ); ?></span>
 			<?php else : ?>
@@ -232,7 +242,10 @@ $next_url    = null !== $next_lesson
 				<div class="lesson-end" id="fsLessonEnd" hidden>
 					<div class="le-t"><?php esc_html_e( 'Это последний шаг урока', 'fs-lms' ); ?></div>
 					<div class="le-actions">
-						<a class="b b-gh" href="<?php echo esc_url( $back_url ); ?>"><?php esc_html_e( 'Вернуться к курсу', 'fs-lms' ); ?></a>
+						<a class="b" href="<?php echo esc_url( $back_url ); ?>">
+							<?php echo Icon::Back->svg(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+							<?php esc_html_e( 'Вернуться к курсу', 'fs-lms' ); ?>
+						</a>
 						<?php if ( '' !== $next_url && ! empty( $next_lesson['available'] ) ) : ?>
 							<a class="b b-pri" href="<?php echo esc_url( $next_url ); ?>">
 								<?php esc_html_e( 'Следующий урок', 'fs-lms' ); ?>

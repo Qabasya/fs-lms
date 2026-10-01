@@ -247,7 +247,11 @@ class SubmissionService {
 				'submitted_at'  => $now,
 				'graded_at'     => $gradedAt,
 				'attempt_count' => $attemptsUsed + 1,
-				'duration_sec'  => $timing->elapsedSec,
+				// Суммарное время по всем попыткам: замер раунда — только его часть
+				// (по раундам оно лежит в task_attempts.duration_sec).
+				'duration_sec'  => null === $timing->elapsedSec
+					? $aggregate->durationSec
+					: ( $aggregate->durationSec ?? 0 ) + $timing->elapsedSec,
 			] );
 			$aggregateId = $aggregate->id;
 		} else {

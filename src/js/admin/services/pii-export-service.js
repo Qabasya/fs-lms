@@ -43,7 +43,7 @@ export const PiiExportService = {
      * @returns {Promise<void>}
      */
     exportStudents( ids ) {
-        return this._run( fs_lms_vars.ajax_actions.exportStudents, ids, 'учеников' );
+        return this._run( fs_lms_vars.ajax_actions.exportStudents, ids, 'учеников', false );
     },
 
     /**
@@ -53,7 +53,7 @@ export const PiiExportService = {
      * @returns {Promise<void>}
      */
     exportParents( ids ) {
-        return this._run( fs_lms_vars.ajax_actions.exportParents, ids, 'родителей' );
+        return this._run( fs_lms_vars.ajax_actions.exportParents, ids, 'родителей', true );
     },
 
     /**
@@ -63,20 +63,22 @@ export const PiiExportService = {
      * @param {string}   action Имя AJAX-действия WordPress.
      * @param {number[]} ids    Выбранные person ID.
      * @param {string}   noun   Родительный падеж для строки-описания («учеников»).
+     * @param {boolean}  withDocuments Предложить выгрузку документов и ИНН (только родители).
      * @returns {Promise<void>} Отказ пользователя не считается ошибкой.
      */
-    _run( action, ids, noun ) {
+    _run( action, ids, noun, withDocuments ) {
         const list    = Array.isArray( ids ) ? ids.filter( Boolean ) : [];
         const summary = list.length
             ? `Будут выгружены данные ${ noun }: ${ list.length } шт.`
             : `Будут выгружены данные всех ${ noun }.`;
 
-        return PiiExportModal.confirm( { summary } )
-            .then( ( { includePasswords } ) => new Promise( ( resolve ) => {
+        return PiiExportModal.confirm( { summary, withDocuments } )
+            .then( ( { includePasswords, includeDocuments } ) => new Promise( ( resolve ) => {
                 $.post( fs_lms_vars.ajaxurl, {
                     action,
                     ids:               list,
                     include_passwords: includePasswords ? 1 : 0,
+                    include_documents: includeDocuments ? 1 : 0,
                     security:          fs_lms_vars.nonces.manager,
                 } ).done( ( res ) => {
                     if ( res.success && res.data?.url ) {

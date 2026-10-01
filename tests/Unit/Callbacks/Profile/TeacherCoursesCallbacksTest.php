@@ -7,7 +7,9 @@ namespace Unit\Callbacks\Profile;
 use Inc\Callbacks\Profile\TeacherCoursesCallbacks;
 use Inc\DTO\Course\CourseDTO;
 use Inc\Managers\Course\CourseManager;
+use Inc\DTO\Course\GroupLessonDTO;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
+use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Services\Course\CoursePreviewAccessGuard;
 use Inc\Services\Course\CoursePreviewService;
 use PHPUnit\Framework\TestCase;
@@ -23,6 +25,7 @@ class TeacherCoursesCallbacksTest extends TestCase {
 	private CoursePreviewService&\PHPUnit\Framework\MockObject\MockObject $preview;
 	private CoursePreviewAccessGuard&\PHPUnit\Framework\MockObject\MockObject $guard;
 	private GroupLessonRepository&\PHPUnit\Framework\MockObject\MockObject $groupLessons;
+	private GroupsRepository&\PHPUnit\Framework\MockObject\MockObject $groups;
 	private TeacherCoursesCallbacks $cb;
 
 	protected function setUp(): void {
@@ -34,7 +37,8 @@ class TeacherCoursesCallbacksTest extends TestCase {
 		$this->preview      = $this->createMock( CoursePreviewService::class );
 		$this->guard        = $this->createMock( CoursePreviewAccessGuard::class );
 		$this->groupLessons = $this->createMock( GroupLessonRepository::class );
-		$this->cb           = new TeacherCoursesCallbacks( $this->courses, $this->preview, $this->guard, $this->groupLessons );
+		$this->groups       = $this->createMock( GroupsRepository::class );
+		$this->cb           = new TeacherCoursesCallbacks( $this->courses, $this->preview, $this->guard, $this->groupLessons, $this->groups );
 	}
 
 	private function course(): CourseDTO {
@@ -43,7 +47,7 @@ class TeacherCoursesCallbacksTest extends TestCase {
 
 	public function test_marks_lessons_held_in_any_group(): void {
 		$this->courses->method( 'get' )->willReturn( $this->course() );
-		$this->guard->method( 'canPreview' )->willReturn( true );
+		$this->guard->method( 'canViewProgram' )->willReturn( true );
 		$this->preview->method( 'program' )->willReturn( array(
 			array( 'title' => 'М1', 'lessons' => array(
 				array( 'id' => 10, 'num' => 1, 'title' => 'A' ),
@@ -68,10 +72,40 @@ class TeacherCoursesCallbacksTest extends TestCase {
 
 	public function test_denies_when_preview_not_allowed(): void {
 		$this->courses->method( 'get' )->willReturn( $this->course() );
-		$this->guard->method( 'canPreview' )->willReturn( false );
+		$this->guard->method( 'canViewProgram' )->willReturn( false );
 		$this->groupLessons->expects( $this->never() )->method( 'listHeldLessonIdsByCourse' );
 		$_POST = array( 'course_id' => '5' );
 
 		self::assertFalse( fs_test_capture_json( fn() => $this->cb->ajaxGetTaughtCourseProgram() )->success );
+	}
+
+	public function test_teacher_gets_own_group_lesson_url_and_no_preview(): void {
+		$this->courses->method( 'get' )->willReturn( $this->course() );
+		$this->guard->method( 'canViewProgram' )->willReturn( true );
+		$this->guard->method( 'canPreview' )->willReturn( false );
+		$this->preview->method( 'program' )->willReturn( array(
+			array( 'title' => 'М1', 'lessons' => array(
+				array( 'id' => 10, 'num' => 1, 'title' => 'A' ),
+				array( 'id' => 11, 'num' => 2, 'title' => 'B' ),
+			) ),
+		) );
+		$this->groupLessons->method( 'listHeldLessonIdsByCourse' )->willReturn( array() );
+		$this->groups->method( 'findByTeacherId' )->willReturn( array(
+			(object) array( 'id' => 3, 'course_id' => 5 ),
+			(object) array( 'id' => 4, 'course_id' => 99 ), // чужой курс — пропускается
+		) );
+		$this->groupLessons->expects( $this->once() )->method( 'listByGroup' )->with( 3 )->willReturn( array(
+			GroupLessonDTO::fromArray( array( 'id' => 31, 'group_id' => 3, 'lesson_id' => 10, 'position' => 1 ) ),
+		) );
+		$_POST = array( 'course_id' => '5' );
+
+		$res = fs_test_capture_json( fn() => $this->cb->ajaxGetTaughtCourseProgram() );
+
+		self::assertTrue( $res->success );
+		self::assertFalse( $res->payload['can_preview'] );
+		$lessons = $res->payload['modules'][0]['lessons'];
+		self::assertStringContainsString( 'gl=31', $lessons[0]['teacher_url'] );
+		self::assertStringContainsString( 'gid=3', $lessons[0]['teacher_url'] );
+		self::assertSame( '', $lessons[1]['teacher_url'] );
 	}
 }

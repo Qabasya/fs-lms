@@ -1,7 +1,10 @@
 import { debounce } from '../../common/utils.js';
 /**
- * Универсальный компонент автодополнения через DaData Suggestions API.
- * Инициализируется только при наличии токена — проверка на стороне вызывающего.
+ * Компонент автодополнения: выпадающий список под полем ввода.
+ *
+ * `createSuggest()` — общий (источник вариантов отдаёт вызывающий), `createDadataSuggest()` —
+ * источник DaData Suggestions API (инициализируется только при наличии токена — проверка на
+ * стороне вызывающего). Справочник школ формы заявки подключается через `createSuggest()`.
  */
 
 const DADATA_BASE = 'https://suggestions.dadata.ru/suggestions/api/4_1/rs/suggest/';
@@ -29,13 +32,13 @@ async function fetchSuggestions( endpoint, body, token ) {
 }
 
 /**
- * Подключает автодополнение DaData к полю ввода.
+ * Подключает выпадающий список подсказок к полю ввода.
  *
  * @param {HTMLInputElement} input
- * @param {{ endpoint: string, buildBody: (query: string) => object, getValue: (suggestion: object) => string }} config
- * @param {string} token  DaData API-токен (read-only)
+ * @param {{ getItems: (query: string) => string[]|Promise<string[]>, minChars?: number, debounceMs?: number }} config
+ *        getItems — варианты для введённого значения (строки, в порядке показа).
  */
-export function createDadataSuggest( input, { endpoint, buildBody, getValue }, token ) {
+export function createSuggest( input, { getItems, minChars = MIN_CHARS, debounceMs = DEBOUNCE_MS } ) {
 	const list = document.createElement( 'ul' );
 	list.className = 'fs-dadata-suggestions';
 	list.hidden    = true;
@@ -63,19 +66,18 @@ export function createDadataSuggest( input, { endpoint, buildBody, getValue }, t
 	};
 
 	const search = debounce( async ( query ) => {
-		if ( query.length < MIN_CHARS ) { close(); return; }
-		const suggestions = await fetchSuggestions( endpoint, buildBody( query ), token );
+		if ( query.length < minChars ) { close(); return; }
+		const values = await getItems( query );
 
 		list.innerHTML = '';
-		if ( ! suggestions.length ) { close(); return; }
+		if ( ! values.length ) { close(); return; }
 
 		// Полное совпадение введённого значения с вариантом — подсказки не нужны.
 		const normalized = query.toLowerCase();
-		const exactMatch = suggestions.some( ( s ) => getValue( s ).trim().toLowerCase() === normalized );
+		const exactMatch = values.some( ( v ) => v.trim().toLowerCase() === normalized );
 		if ( exactMatch ) { close(); return; }
 
-		suggestions.forEach( ( s ) => {
-			const value    = getValue( s );
+		values.forEach( ( value ) => {
 			const li       = document.createElement( 'li' );
 			li.className   = 'fs-dadata-suggestions__item';
 			li.textContent = value;
@@ -89,7 +91,7 @@ export function createDadataSuggest( input, { endpoint, buildBody, getValue }, t
 
 		list.hidden = false;
 		activeIndex = -1;
-	}, DEBOUNCE_MS );
+	}, debounceMs );
 
 	input.addEventListener( 'input',  ( e ) => search( e.target.value.trim() ) );
 	input.addEventListener( 'blur',   ()    => setTimeout( close, 150 ) );
@@ -114,5 +116,21 @@ export function createDadataSuggest( input, { endpoint, buildBody, getValue }, t
 		} else if ( e.key === 'Escape' ) {
 			close();
 		}
+	} );
+}
+
+/**
+ * Подключает автодополнение DaData к полю ввода.
+ *
+ * @param {HTMLInputElement} input
+ * @param {{ endpoint: string, buildBody: (query: string) => object, getValue: (suggestion: object) => string }} config
+ * @param {string} token  DaData API-токен (read-only)
+ */
+export function createDadataSuggest( input, { endpoint, buildBody, getValue }, token ) {
+	createSuggest( input, {
+		getItems: async ( query ) => {
+			const suggestions = await fetchSuggestions( endpoint, buildBody( query ), token );
+			return suggestions.map( getValue );
+		},
 	} );
 }

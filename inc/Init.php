@@ -297,6 +297,8 @@ final class Init {
 		// баллы первой сдачи работ (без них карточки рисовали крестики).
 		$container->get( \Inc\Migrations\CommonTemplateMigration::class )->run();
 		$container->get( \Inc\Migrations\SubmissionScoreBackfillMigration::class )->run();
+		// Время работы — суммой по всем попыткам, а не последней.
+		$container->get( \Inc\Migrations\SubmissionDurationTotalMigration::class )->run();
 		// Адреса экзаменов — по ID вместо названия (кириллица в ссылке).
 		$container->get( \Inc\Migrations\AssessmentSlugMigration::class )->run();
 		// Лента «Активность»: события ученика писали ID персоны вместо WP-пользователя.

@@ -1,6 +1,6 @@
 {
   "name": "fs-lms",
-  "version": "1.0.66",
+  "version": "1.0.67",
   "description": "",
   "license": "GPL-2.0+",
   "author": "kelechek, qabasya",
@@ -17,10 +17,11 @@
   ],
   "scripts": {
     "test": "vendor/bin/phpunit",
+    "test:js": "node --import ./tests/js/register.mjs --test \"tests/js/**/*.test.mjs\"",
     "lint:js": "eslint .",
     "fix:js": "eslint . --fix",
     "build:check": "gulp styles:check",
-    "ci": "npm run lint:js && npm run lint:css && npm run build:check && npm test",
+    "ci": "npm run lint:js && npm run lint:css && npm run build:check && npm test && npm run test:js",
     "lint:css": "stylelint \"src/scss/**/*.scss\"",
     "fix:css": "stylelint \"src/scss/**/*.scss\" --fix"
   },

@@ -10,6 +10,7 @@
 import { initFormValidation, renderFieldError, clearFieldError } from '../../common/validation-manager.js';
 import { bindPhoneMask } from '../../common/input-masks.js';
 import { getCaptchaToken, resetCaptcha } from './captcha.js';
+import { initSchoolSuggest } from './school-suggest.js';
 
 /** @type {{ ajax_url: string, captcha_key: string, hp_field: string, form_token: string, actions: { send_otp: string, create: string }, nonces: { apply: string, verify_otp: string } }} */
 const vars = window.fs_lms_apply_vars;
@@ -388,6 +389,7 @@ function bindFormBehaviors() {
         ?.addEventListener( 'click', handleResendOtp );
 
     bindPhoneMask( document.getElementById( 'fs_phone' ) );
+    initSchoolSuggest( document.getElementById( 'fs_school' ) );
 }
 
 /**

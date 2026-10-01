@@ -94,6 +94,11 @@
     }
   }
 
+  // Подсказки школ (справочник) — тот же выпадающий список, что у DaData на /join.
+  .fs-dadata-suggestions {
+    @include fs-suggest-list;
+  }
+
   &__captcha {
     margin-bottom: rem(16.8);
   }

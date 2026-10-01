@@ -11,6 +11,7 @@ use Inc\Enums\Wp\PageRoutes;
 use Inc\Managers\Course\CourseManager;
 use Inc\Services\Course\CoursePreviewAccessGuard;
 use Inc\Services\Course\CoursePreviewService;
+use Inc\Services\Course\PlayerModeSwitchService;
 use Inc\Shared\Traits\Sanitizer;
 
 /**
@@ -31,6 +32,7 @@ class CoursePreviewController extends BaseController implements ServiceInterface
 		private readonly CoursePreviewAccessGuard $access,
 		private readonly CoursePreviewService     $preview,
 		private readonly CourseManager            $courses,
+		private readonly PlayerModeSwitchService  $modeSwitch,
 	) {
 		parent::__construct();
 	}
@@ -76,6 +78,8 @@ class CoursePreviewController extends BaseController implements ServiceInterface
 		$groupId     = 0; // Предпросмотр не привязан к группе.
 		$active_step = $params['step'];
 		$can_edit    = current_user_can( Capability::AuthorLmsCourses->value );
+		// Бейдж «Предпросмотр» ведёт в режим преподавателя (если есть занятие, куда).
+		$mode_switch_url = $this->modeSwitch->teacherUrl( $userId, $lessonId, $params['gl'] );
 
 		// Плеер — полноэкранный app-shell со своим <html> (см. LessonPlayerController):
 		// Enqueue по этому флагу грузит бандл плеера вместо темы сайта.
@@ -90,13 +94,16 @@ class CoursePreviewController extends BaseController implements ServiceInterface
 	 * lesson === null — параметр не передан: фолбэк на первый урок курса делает
 	 * только loadTemplate(), ссылка возврата урок не дописывает.
 	 *
-	 * @return array{course: int, lesson: ?int, step: string}
+	 * `gl` — занятие, из режима преподавателя которого пришли (0 — не передано).
+	 *
+	 * @return array{course: int, lesson: ?int, step: string, gl: int}
 	 */
 	private function deepLinkParams(): array {
 		return array(
 			'course' => $this->sanitizeGetInt( 'course' ),
 			'lesson' => $this->hasParam( 'lesson', 'GET' ) ? $this->sanitizeGetInt( 'lesson' ) : null,
 			'step'   => $this->sanitizeGetKey( 'step' ),
+			'gl'     => $this->hasParam( 'gl', 'GET' ) ? $this->sanitizeGetInt( 'gl' ) : 0,
 		);
 	}
 
@@ -110,6 +117,9 @@ class CoursePreviewController extends BaseController implements ServiceInterface
 		}
 		if ( $this->hasParam( 'step', 'GET' ) ) {
 			$args['step'] = $params['step'];
+		}
+		if ( $params['gl'] > 0 ) {
+			$args['gl'] = $params['gl'];
 		}
 
 		return add_query_arg( $args, PageRoutes::CoursePreview->url() );

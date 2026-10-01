@@ -472,7 +472,7 @@ class SubmissionServiceTest extends TestCase {
 		$this->submissions->method( 'findForWork' )->willReturn( null );
 	}
 
-	private function aggregateAfter( int $attempts, array $verdicts ): SubmissionDTO {
+	private function aggregateAfter( int $attempts, array $verdicts, ?int $durationSec = null ): SubmissionDTO {
 		$base = $this->makeAggregateWithVerdicts( 1, $verdicts );
 
 		return SubmissionDTO::fromArray( array(
@@ -487,6 +487,7 @@ class SubmissionServiceTest extends TestCase {
 			'created_at'        => '2024-01-01 00:00:00',
 			'updated_at'        => '2024-01-01 00:00:00',
 			'attempt_count'     => $attempts,
+			'duration_sec'      => $durationSec,
 		) );
 	}
 
@@ -524,6 +525,37 @@ class SubmissionServiceTest extends TestCase {
 		self::assertSame( 2.0, $aggregateUpdate['score'] );
 		self::assertSame( 2.0, $aggregateUpdate['max_score'] );
 		self::assertSame( 'graded', $aggregateUpdate['status'] );
+	}
+
+	/** Время работы в агрегате — сумма по всем попыткам, а не замер последней. */
+	public function test_resubmit_accumulates_duration_across_attempts(): void {
+		$this->arrangeResubmit( $this->aggregateAfter( 1, array(
+			1 => array( 'verdict' => 'correct', 'score' => 1.0, 'maxScore' => 1.0 ),
+			2 => array( 'verdict' => 'incorrect', 'score' => 0.0, 'maxScore' => 1.0 ),
+		), 300 ) );
+
+		$this->batchChecker->method( 'check' )->willReturn( new BatchCheckResultDTO(
+			perTask         : [ 2 => [ 'verdict' => 'correct', 'score' => 1.0, 'maxScore' => 1.0 ] ],
+			correctCount    : 1,
+			totalCount      : 1,
+			weightedScore   : 1.0,
+			maxWeightedScore: 1.0,
+			hasManual       : false,
+		) );
+
+		$aggregateUpdate = null;
+		$this->submissions->method( 'update' )->willReturnCallback(
+			function ( int $id, array $data ) use ( &$aggregateUpdate ): bool {
+				if ( array_key_exists( 'attempt_count', $data ) ) {
+					$aggregateUpdate = $data;
+				}
+				return true;
+			}
+		);
+
+		$this->service->submitBatch( 10, 5, 3, array( 2 => 'x' ), timing: new WorkTimingDTO( 120, array() ) );
+
+		self::assertSame( 420, $aggregateUpdate['duration_sec'] );
 	}
 
 	public function test_task_graded_by_teacher_is_locked(): void {

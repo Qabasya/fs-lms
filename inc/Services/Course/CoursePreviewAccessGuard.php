@@ -10,10 +10,12 @@ use Inc\Repositories\WPDBRepositories\GroupsRepository;
 /**
  * Class CoursePreviewAccessGuard
  *
- * Кто может открыть preview-плеер курса (Фаза 5, D3/D4): офис/методист/админ —
- * всегда; рядовой FSTeacher — только для курсов, назначенных хотя бы одной из
- * его групп (тот же набор, что и `ProfileViewResolver::teacherConfig()`'s
- * `coursesTaught` — «что видно в сайдбаре» == «что можно открыть»).
+ * Кто что видит в курсе. ПРЕДПРОСМОТР курса (`/course-preview/`, без группы и ученика) —
+ * только у тех, кто пишет курсы: админ, офис, методист (`isStaffPreviewer()`). Рядовой
+ * FSTeacher смотрит уроки в режиме преподавателя — через группу (`/lesson/?gid=&gl=`);
+ * для него здесь остаётся лишь право видеть ПРОГРАММУ курса, назначенного его группе
+ * (`canViewProgram()` — тот же набор, что и `ProfileViewResolver::teacherConfig()`'s
+ * `coursesTaught`: «что видно в сайдбаре» == «что можно открыть»).
  *
  * @package Inc\Services\Course
  */
@@ -23,7 +25,13 @@ class CoursePreviewAccessGuard {
 		private readonly GroupsRepository $groups,
 	) {}
 
+	/** Открыть предпросмотр курса — только сотрудники с правом авторинга. */
 	public function canPreview( int $wpUserId, int $courseId ): bool {
+		return $this->isStaffPreviewer( $wpUserId );
+	}
+
+	/** Видеть программу курса в «Моих курсах»: автор курсов или преподаватель группы с этим курсом. */
+	public function canViewProgram( int $wpUserId, int $courseId ): bool {
 		if ( $this->isStaffPreviewer( $wpUserId ) ) {
 			return true;
 		}
