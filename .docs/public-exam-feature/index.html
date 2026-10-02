@@ -1,4 +1,35 @@
 <!doctype html>
-<html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Экзамены · Шаг в будущее</title><link rel="stylesheet" href="style.css"></head><body>
-<div class="prototype"><strong>Экзамены <span>· интерактивный макет</span></strong><nav id="screens" aria-label="Экраны макета"></nav><small>Демо-данные</small></div>
-<div id="app"></div><dialog id="modal"></dialog><div id="toast" role="status"></div><script src="app.js"></script></body></html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Экзамены · макет</title>
+<!--
+  Макет подключает НАСТОЯЩИЕ стили плагина и темы (сборка assets/ и тема fs-lms-theme),
+  а не свои копии: так проверяется, что экзамены собраны из существующих элементов.
+  Пути относительные — макет открывается локально из репозитория после `npx gulp build`.
+  Два набора стилей переключаются по экрану: кабинет (profile) и публичный сайт (frontend + тема):
+  в продукте это две разные страницы и два разных бандла, на одной странице они не живут.
+-->
+<link rel="stylesheet" href="../../assets/css/fonts.min.css">
+<link rel="stylesheet" data-set="site" href="site-inline.css">
+<link rel="stylesheet" data-set="site" href="../../assets/css/common.min.css">
+<link rel="stylesheet" data-set="site" href="../../../../../wp-includes/css/dashicons.min.css">
+<link rel="stylesheet" data-set="site" href="../../assets/css/frontend.min.css">
+<link rel="stylesheet" data-set="site" href="../../../../themes/fs-lms-theme/assets/css/fonts.min.css">
+<link rel="stylesheet" data-set="site" href="../../../../themes/fs-lms-theme/assets/css/theme.min.css">
+<link rel="stylesheet" data-set="cab" href="../../assets/css/profile.min.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app"></div>
+<div id="overlays"></div>
+<div class="mk-panel" id="mkPanel">
+  <button type="button" class="mk-panel-toggle" id="mkToggle" aria-expanded="false">Экраны макета</button>
+  <div class="mk-panel-body" id="mkBody" hidden></div>
+</div>
+<div class="mk-toast" id="mkToast" role="status"></div>
+<script src="real.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

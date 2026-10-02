@@ -1,83 +1,578 @@
-const routes=[['student','Ученик'],['calendar','Календарь'],['guests','Гости и ссылки'],['signup','Форма записи'],['result','Результат гостя'],['report','Отчёт школе'],['notifications','Уведомления'],['parent','Родитель'],['session','Проведение экзамена'],['teacher-review','Проверка'],['stats','Статистика'],['guest-entry','Вход гостя'],['invalid','Ссылка недействительна']];
-let route=location.hash.slice(1)||'student', booked=false,completed=false,slot=0,guestDone=false,practice=false,school='all',search='',selected=new Set([0,1,2]),reportIds=[0,1,2],reportCreated=false, bookingNotice='';
-const slots=[['12 октября','Понедельник','10:00','Осталось 6 мест'],['12 октября','Понедельник','15:00','Осталось 2 места'],['15 октября','Четверг','10:00','Мест нет'],['21 октября','Среда','15:00','Осталось 8 мест']];
-const people=[['Орлова Алина','Школа № 1','Елена Петрова',72,18,'12 окт., 10:00'],['Волков Артём','Школа № 1','Елена Петрова',80,21,'12 окт., 15:00'],['Морозова Анна','Школа № 1','Елена Петрова',62,14,'15 окт., 10:00'],['Козлов Илья','Гимназия № 4','Ольга Соколова',70,17,'21 окт., 15:00'],['Соколова Дарья','Самостоятельная запись','—',null,null,'21 окт., 15:00']];
-const topics=['Информационные модели','Таблицы истинности','Поиск информации в базе данных','Кодирование и декодирование','Анализ алгоритма','Программы с циклами'];
-const app=document.querySelector('#app'),modal=document.querySelector('#modal');
-const btn=(text,action,cls='')=>`<button type="button" class="${cls}" data-action="${action}">${text}</button>`;
-const badge=(text,cls='')=>`<span class="badge ${cls}">${text}</span>`;
-function toast(text){const el=document.querySelector('#toast');el.textContent=text;el.classList.add('show');clearTimeout(window.toastTimer);window.toastTimer=setTimeout(()=>el.classList.remove('show'),3200)}
-function go(to){location.hash=to;if(route===to)render()}
-window.addEventListener('hashchange',()=>{route=location.hash.slice(1);render();window.scrollTo(0,0)});
-function brand(){return '<div class="brand"><div class="brand-mark">ш</div><div><strong>Шаг в будущее</strong><small>Образовательный центр</small></div></div>'}
-function shell(body,teacher=false){return `<div class="shell"><aside class="sidebar">${brand()}<nav class="nav"><span>⌂ <span>Главная</span></span><span>▦ <span>Расписание</span></span><a href="#notifications">♧ <span>Уведомления</span></a>${teacher?`<span class="label">Мои группы <span>⌄</span></span><span class="sub">ЕГЭ · Информатика</span><span class="label">Мои экзамены <span>⌄</span></span><a class="sub ${route==='session'?'active':''}" href="#session">Проведение экзамена</a><a class="sub" href="#stats">Статистика</a><a class="sub ${route==='calendar'?'active':''}" href="#calendar">Назначить экзамен</a><a class="sub ${route==='guests'?'active':''}" href="#guests">Результаты</a>`:`<span class="label">Обучение</span><span>▤ <span>Мои курсы</span></span><a class="active" href="#student">▣ <span>Мои экзамены</span></a><span>▧ <span>Мои работы</span></span>`}</nav><div class="user"><span class="avatar">${teacher?'ЕК':'МА'}</span><div><strong>${teacher?'Екатерина Котова':'Мария Алексеева'}</strong><small>${teacher?'Преподаватель':'Ученица'}</small></div></div></aside><section><header class="topbar"><span>Личный кабинет / Мои экзамены</span><span>${teacher?'Преподаватель':'Ученик'}　 ◉</span></header><main class="content">${body}</main></section></div>`}
-function site(body){return `<header class="siteheader"><div class="siteinfo"><span>Помогаем сделать шаг в будущее</span><span>Образовательный центр · Подготовка к ЕГЭ и ОГЭ</span></div><div class="sitenav"><img src="assets/logo.png" alt="Шаг в будущее"><nav><span>О нас</span><span>Курсы</span><span>Учебник</span><span>Тренажёр</span></nav>${btn('Записаться на курс', 'cta', 'primary')}</div></header><main class="sitewrap">${body}</main><footer class="sitefooter"><span>Шаг в будущее · Образовательный центр</span><span>Информатика · ЕГЭ и ОГЭ</span></footer>`}
-function aside(){return `<aside class="sideblocks"><section class="card"><div class="pad"><h3>От пробника к уверенному результату</h3><p>Разберём ошибки и составим план подготовки к ЕГЭ по информатике.</p>${btn('Обсудить подготовку','cta','primary')}<small>Подберём подходящую группу</small></div></section><section class="card"><div class="cardhead"><h3>Подготовка к экзамену</h3></div><a class="sideitem" href="#result"><strong>ЕГЭ по информатике</strong><small>Занятия, практика и пробники</small></a><a class="sideitem" href="#result"><strong>Разбор сложных заданий</strong><small>Алгоритмы и программирование</small></a></section><section class="card pad"><h3>Ваша работа всегда под рукой</h3><p>Личную ссылку вам передаст преподаватель. По ней можно вернуться к результату и потренироваться дома.</p>${btn('Сохранить ссылку','personal','textbtn')}</section></aside>`}
-function slotGrid(carousel=false){const cards=`<div class="slots ${carousel?'slots-track':''}" ${carousel?'id="student-dates" tabindex="0" aria-label="Даты экзамена"':''}>${slots.map((s,i)=>`<button type="button" class="slot ${i===slot?'selected':''} ${i===2?'full':''}" data-slot="${i}" ${i===2?'disabled':''} aria-pressed="${i===slot}"><strong>${s[0]}</strong><small>${s[1]}</small><div class="time">${s[2]}</div><small>Очно · кабинет ${i===1?'205':'204'}</small><small>${s[3]}</small></button>`).join('')}</div>`;return carousel?`<div class="date-carousel" role="region" aria-label="Выбор сеанса экзамена"><div class="row between"><div class="row"><button type="button" data-date-scroll="-1" aria-controls="student-dates" aria-label="Предыдущие даты">‹</button><button type="button" data-date-scroll="1" aria-controls="student-dates" aria-label="Следующие даты">›</button></div></div>${cards}</div>`:cards}
-function taskRows(){return topics.map((t,i)=>`<div class="taskrow" role="button" tabindex="0" data-task="${i+1}"><span class="num">${i+1}</span><span class="grow">${t}</span>${badge(i===1?'Неверно':i===4?'Не решено':'Верно',i===1?'bad':i===4?'wait':'ok')}<strong>${i===1||i===4?'0':'1'} / 1</strong><span class="muted">›</span></div>`).join('')}
-function baseStudent(){return shell(`<div class="heading"><div><h1>Мои экзамены</h1><p>Запись, предстоящие экзамены и ваши результаты</p></div><div class="seg">${btn('Предстоящие','upcoming',!completed?'on':'')}${btn('Завершённые','completed',completed?'on':'')}</div></div>${bookingNotice&&!completed?`<div class="notice warm">${bookingNotice} Выберите другой сеанс ниже — при наличии свободных мест.</div>`:''}<div class="tiles"><button class="tile on"><span class="chip">ИНФ</span><span><strong>${completed?'Сентябрьский':'Октябрьский'} пробник</strong><small>${completed?'72 из 100 баллов':booked?`${slots[slot][0]} · ${slots[slot][2]}`:'Выберите удобную дату'}</small></span></button><button class="tile" data-action="${completed?'upcoming':'completed'}"><span class="chip">ИНФ</span><span><strong>${completed?'Октябрьский':'Сентябрьский'} пробник</strong><small>${completed?'Запись открыта':'72 из 100 баллов · завершён'}</small></span></button></div><section class="card"><div class="hero"><div>${badge('ЕГЭ · Информатика')}<h2>${completed?'Сентябрьский':'Октябрьский'} пробный экзамен</h2><p>${completed?'24 сентября 2026 · Очно · кабинет 204':'Период проведения: 12–21 октября 2026'}</p>${completed?`<div class="scoreline"><div class="row between"><strong>72 из 100 баллов</strong><small>18 из 29 первичных баллов</small></div><div class="progress"><span></span></div></div>`:`<p class="eyeline">27 заданий · 3 часа 55 минут · одна сдача</p>${badge(booked?'Вы записаны':'Открыта запись',booked?'ok':'')}`}</div><div class="actions">${completed?btn('Результаты','student-review','primary'):booked?'<button disabled>Приступить</button><small>Откроется '+slots[slot][0]+' в '+slots[slot][2]+'</small>':btn('Записаться','pick','primary')}</div></div><div class="infofoot">${completed?'Результат доступен. Разбор доступен по каждому заданию.':booked?`${slots[slot][0]}, ${slots[slot][2]} · Очно · кабинет ${slot===1?'205':'204'}`:'Выберите один сеанс. Дополнительную сдачу согласуйте с преподавателем.'}</div></section>${completed?`<section class="card"><div class="cardhead"><h3>Задания</h3><small>Показаны первые 6 из 27</small></div>${taskRows()}</section>`:booked?`<section class="card pad"><div class="row between"><div><h3>Ваша запись подтверждена</h3><p>Экзамен добавлен в расписание. Приходите за 15 минут до начала.</p></div><div class="row">${btn('Изменить запись','change')}${btn('Отменить запись','self-cancel')}</div></div><div class="notice" style="margin-top:18px">Если заболели или не можете приехать, свяжитесь с преподавателем. Он назначит отдельный допуск.</div></section>`:`<section class="card" id="pick"><div class="cardhead"><div><h3>Выберите дату и время</h3><p>Все сеансы относятся к одному пробнику. Смена и отмена записи доступны до начала выбранного сеанса.</p></div><small>Время центра</small></div><div class="pad">${slotGrid(true)}<div class="row between"><small>Место закрепляется после подтверждения записи</small>${btn('Подтвердить запись','book','primary')}</div></div></section>`}<p class="demo-note">Макет: переключите «Предстоящие / Завершённые», выберите сеанс или откройте задание.</p>`)}
-function calendar(){const days=Array.from({length:35},(_,i)=>{const n=i-2;return n<1||n>31?'<div class="month-day outside"></div>':`<div class="month-day" data-day="${n}"><span class="month-num">${n}</span>${n===12?'<button class="event" data-action="session"><b>10:00 · 14/20</b><span>Пробник № 2</span></button><button class="event" data-action="session"><b>15:00 · 18/20</b><span>Пробник № 2 · каб. 205</span></button>':n===15?'<button class="event" data-action="session"><b>10:00 · 20/20</b><span>Пробник № 2</span></button>':n===21?'<button class="event" data-action="session"><b>15:00 · 12/20</b><span>Пробник № 2</span></button>':n===23?'<button class="event" data-action="session"><b>15:00 · каб. 204</b><span>Дополнительная сдача</span></button>':''}${n>=12&&n<=21?'<button class="month-add" data-action="new-session" aria-label="Добавить сеанс">+</button>':''}</div>`}).join('');return shell(`<div class="heading"><div><h1>Назначить экзамен</h1><p>Октябрьский пробник · 12–21 октября 2026</p></div><div class="row">${btn('Настройки проведения','event-settings')}${btn('Опубликовать','publish','primary')}</div></div><div class="toolbar"><strong>Информатика</strong><small>Один предмет — без селектора</small><span style="flex:1"></span><strong>Октябрь 2026</strong>${btn('+ Сеанс','new-session')}</div><div class="calendar-layout"><aside class="bank"><div><h3>Экзаменационные работы</h3><p>Перетащите на нужную дату</p></div><div class="card" draggable="true"><h3>Пробник № 2</h3><p>27 единиц · 29 баллов</p><small>235 минут · КЕГЭ</small></div><div class="card" draggable="true"><h3>Другой вариант</h3><p>Для отдельного сеанса</p></div></aside><section class="card"><div class="month-head">${['Пн','Вт','Ср','Чт','Пт','Сб','Вс'].map(d=>`<span>${d}</span>`).join('')}</div><div class="month-grid">${days}</div><div class="infofoot">Календарь по месяцам, включая выходные. При разработке переиспользовать текущий календарь КТП.</div></section></div><p class="demo-note">Нажмите на сеанс, чтобы открыть день экзамена. Дополнительная дата после болезни относится к тому же проведению.</p>`,true)}
-function guests(){const rows=people.map((p,i)=>({p,i})).filter(({p})=>(school==='all'||p[1]==='Школа № 1')&&p[0].toLowerCase().includes(search.toLowerCase()));return shell(`<div class="heading"><div><h1>Участники и результаты</h1><p>Октябрьский пробник · 12–21 октября 2026</p></div>${btn('Открыть форму записи','signup')}</div><div class="seg">${btn('Гости · 5','noop','on')}${btn('Ученики центра · 52','students-info')}</div><div class="toolbar"><input id="search" type="search" placeholder="Найти участника" value="${search.replaceAll('"','&quot;')}" aria-label="Найти участника"><select id="school"><option value="all">Все школы и источники</option><option value="one" ${school==='one'?'selected':''}>Школа № 1 · Елена Петрова</option></select><span style="flex:1"></span>${btn('Ссылка для приглашения','invite')}</div><section class="card"><div class="tablewrap"><table><thead><tr><th><input id="select-all" type="checkbox" aria-label="Выбрать видимых участников" ${rows.every(({i})=>selected.has(i))?'checked':''}></th><th>Участник</th><th>Школа / преподаватель</th><th>Сеанс</th><th>Результат</th><th></th></tr></thead><tbody>${rows.map(({p,i})=>`<tr><td><input type="checkbox" data-person="${i}" aria-label="Выбрать ${p[0]}" ${selected.has(i)?'checked':''}></td><td><strong>${p[0]}</strong><small>Гость</small></td><td>${p[1]}<small>${p[2]}</small></td><td>${p[5]}</td><td>${p[3]===null?badge('Ожидает сдачи','gray'):`<strong>${p[3]} / 100</strong>`}</td><td><button class="textbtn" data-view="${i}">Работа</button><br><button class="textbtn" data-result-link="${i}" ${p[3]===null?'disabled':''}>Выдать личную ссылку</button></td></tr>`).join('')}</tbody></table></div><div class="selectionbar"><span>Выбрано: <strong>${selected.size}</strong> участника</span><div class="row"><button disabled title="Нужны права ManageLmsPlatform и ExportPII">CSV · для администратора</button>${btn('Сформировать ссылку','share','primary')}</div></div></section><section class="card"><div class="cardhead"><div><h3>Отчёты по ссылке</h3><p>Получатель видит только выбранных участников и опубликованные результаты</p></div></div><div class="pad row between"><div><strong>${reportCreated?'Школа № 1 · выбранные участники':'Школа № 1 · Елена Петрова'}</strong><p>${reportIds.length} участника · таблица, результаты и работы</p><small id="link-status">Доступ активен до 30 ноября 2026</small></div><div class="row">${btn('Открыть','report')}${btn('Отозвать','revoke')}</div></div></section><div class="notice" style="margin-top:18px">Пригласительная ссылка заранее подставляет школу и преподавателя в гостевую форму. Состав отчёта задаётся выбранными участниками и сам по себе не расширяется.</div>`,true)}
-function signup(){return site(`<div class="notice warm" style="margin-bottom:20px"><strong>Форма записи — на обсуждении.</strong> Состав полей, оформление и сценарий ещё не утверждены.</div><div class="crumbs">Главная / Информатика / Пробные экзамены / Запись</div><div class="publicgrid"><div><div class="eyeline">ЕГЭ по информатике · 12–21 октября 2026</div><h1>Запишитесь на пробный экзамен</h1><p class="lead">Пройдите экзамен в условиях, близких к настоящим. Сразу после сдачи сможете посмотреть свою работу и разбор заданий. Задания с ручной проверкой получат баллы после проверки.</p>${guestDone?`<section class="card success center"><div class="successmark">✓</div><h2>Вы записаны!</h2><p>${slots[slot][0]} в ${slots[slot][2]}<br>Очно · кабинет ${slot===1?'205':'204'}</p><div class="notice">Сохраните номер записи и покажите его на площадке. Ссылку на результат преподаватель передаст вам лично после экзамена.</div><small>Номер записи (не код входа)</small><div class="code">EX–1048</div><p>Приходите за 15 минут. На площадке преподаватель выдаст персональную ссылку на вход.</p>${btn('Посмотреть пример результата','result','primary')}</section>`:`<form class="card" id="guest-form"><div class="cardhead"><h3>Данные участника</h3>${badge('По приглашению школы № 1')}</div><div class="pad"><div class="formgrid"><label class="field">Фамилия<input name="surname" autocomplete="family-name" placeholder="Орлова" required></label><label class="field">Имя<input name="firstname" autocomplete="given-name" placeholder="Алина" required></label><label class="field">Мессенджер для личной связи<select name="messenger"><option>Telegram</option><option>Другой способ связи</option></select><small>Ссылку передаёт сотрудник лично</small></label><label class="field">Контакт для ручной передачи ссылки<input name="phone" placeholder="Телефон или @имя в мессенджере" required><small>Сотрудник использует его для личной связи</small></label><label class="field">Школа<input value="Школа № 1" readonly></label><label class="field">Класс<select><option>11 класс</option><option>10 класс</option></select></label></div><div class="notice" style="margin-top:20px">Вы пришли по приглашению Елены Петровой. Преподаватель сможет увидеть ваш результат и работу в подготовленном для него отчёте.</div></div><div class="cardhead"><div><h3>Дата и время</h3><p>Выберите один сеанс · время образовательного центра</p></div></div><div class="pad"><div id="guest-slots">${slotGrid(true)}</div><div class="stack"><label class="check"><input type="checkbox" required><span>Подтверждаю ознакомление с условиями участия и обработки данных.</span></label><div class="notice">Для несовершеннолетнего согласие подтверждает законный представитель. Если оно ещё не оформлено, сотрудник проверит его на площадке до выдачи допуска.</div><small>Финальный текст согласия и правила участия будут взяты из настроек сайта.</small><div class="row between"><small>Автоматические сообщения гостям не отправляются</small><button class="primary" type="submit">Подтвердить запись</button></div></div></div></form>`}</div>${aside()}</div>`)}
-function taskCard(i=2,training=false,readOnly=false){const data=i===26?{condition:'<p>Учебный пример табличного ответа №26: в первой ячейке указывается количество выбранных элементов, во второй — значение последнего элемента.</p>',answer:'12 | 40',correct:'12 | 45',solution:'Первый компонент ответа совпал с эталоном, второй — нет. За два компонента предусмотрено максимум 2 первичных балла; в примере получен 1.',verdict:'partial',label:'Частично верно',score:'1/2'}:i===27?{condition:'<p>Учебный пример №27: укажите два результата расчёта для файлов A и B. Каждый корректный компонент оценивается по действующему правилу КЕГЭ.</p>',answer:'100 | 200',correct:'120 | 240',solution:'Оба компонента не совпали с эталоном. Максимум задания — 2 первичных балла.',verdict:'incorrect',label:'Неверно',score:'0/2'}:i===1?{condition:'<p>Для кодирования 256 различных символов используются двоичные коды одинаковой длины. Какова минимальная длина одного кода в битах?</p>',answer:'8',correct:'8',solution:'Для n бит можно составить 2ⁿ различных кодов. 2⁸ = 256, поэтому достаточно 8 бит.',verdict:'correct',label:'Верно',score:'1/1'}:i===3?{condition:'<p>В таблице записаны результаты трёх участников: 52, 71 и 85 баллов. Сколько записей удовлетворяют условию «балл ≥ 70»?</p>',answer:'—',correct:'2',solution:'Условию соответствуют результаты 71 и 85. Всего две записи.',verdict:'unanswered',label:'Не решено',score:'0/1'}:{condition:'<p>Логическая функция F задаётся выражением:</p><p><strong>F = (x ∧ ¬y) ∨ (y ∧ z).</strong></p><p>Сколько наборов значений переменных x, y, z обращают функцию F в истину?</p>',answer:'3',correct:'4',solution:'Если y = 0, выражение равно x: подходят два набора с x = 1. Если y = 1, выражение равно z: подходят ещё два набора с z = 1. Итого 4 набора.',verdict:'incorrect',label:'Неверно',score:'0/1'};return `<article class="sum-task" id="task-${i}"><div class="sum-task-head"><span class="st-n">Задача ${i}</span><span class="sum-verdict sv-${training?'pending':data.verdict}">${training?'Тренировка':data.label}</span>${training?'':`${i===3?'':`<span class="st-time">ответ 12 окт., 10:${i===1?'12':'18'}</span>`}<span class="st-score">${data.score}</span>`}</div><div class="sum-task-cond">${data.condition}</div>${training?`<form id="practice-form"><div class="row"><label class="field">Ваш ответ<input name="answer" placeholder="Введите ответ" required></label><button type="submit" class="primary">Проверить</button></div><p id="practice-feedback"></p></form>`:`<div class="sum-task-ans"><span class="sta-label">Ответ участника:</span> <span class="sta-val">${i>=26?answerTable(data.answer):data.answer}</span></div>${data.verdict==='correct'?'':`<div class="sum-task-ans sum-task-correct"><span class="sta-label">Правильный ответ:</span> <span class="sta-val">${i>=26?answerTable(data.correct):data.correct}</span></div>`}`}<details class="sum-task-solution" ${training?'':'open'}><summary>Решение</summary><div>${data.solution}</div></details>${!training&&!readOnly?`<div class="task-practice">${btn('Решить самостоятельно','practice','textbtn')}</div>`:''}</article>`}
-let currentPerson=0;
-function result(){const p=people[currentPerson],score=p[3]??72;return site(`<div class="crumbs">Главная / Пробные экзамены / ${practice?'Тренировка':'Мой результат'}</div><div class="publicgrid"><div>${practice?`<div class="practicebar row between"><span><strong>Домашняя тренировка</strong><br>Экзаменационные баллы сохраняются: ${score} / 100</span>${btn('К результату','end-practice')}</div>`:''}<div class="heading"><div><div class="eyeline">${p[0]} · Октябрьский пробник</div><h1>${practice?'Разберите ошибки в своём темпе':'Ваш результат по информатике'}</h1></div></div>${!practice?`<section class="card"><div class="hero"><div>${badge('Результат доступен','ok')}<h2>ЕГЭ по информатике</h2><p>${p[5]} · Очно · пробник № 2</p><div class="scoreline"><div class="row between"><strong>${score} из 100 баллов</strong><small>${p[4]??18} / 29 первичных</small></div><div class="progress"><span style="width:${score}%"></span></div></div></div></div><div class="pillstats"><span>Ваша работа сохранена</span><span>Доступен разбор заданий</span></div></section><div class="toolbar">${btn('Перерешать всю работу','practice','primary')}${btn('Сохранить личную ссылку','personal')}</div><div class="notice">Перерешивание — отдельная тренировка. Исходные ответы и баллы пробника останутся в истории.</div>`:''}<div style="margin:24px 0 15px"><div class="row between"><h2>${practice?'Тренировка по заданиям':'Разбор заданий'}</h2><small>27 заданий</small></div><div class="tasknav">${Array.from({length:27},(_,i)=>`<button data-jump="${i+1}" class="${practice?'':i===1||i===26?'bad':i===2||i>=19?'wait':'ok'}">${i+1}</button>`).join('')}</div><small>${practice?'В макете доступен пример задания № 2':'Зелёный — верно · красный — неверно · жёлтый — не решено или частично верно'}</small></div><div class="wr-tasks">${practice?taskCard(2,true):[1,2,3,26,27].map(i=>taskCard(i)).join('')}</div><p class="demo-note">В макете показаны пять учебных примеров, включая №26 и №27. В продукте — все задания работы; оформление переиспользуется из раздела «Работы».</p></div>${aside()}</div>`)}
-function report(){const list=reportIds.map(i=>people[i]),graded=list.filter(p=>p[3]!==null),avg=graded.length?Math.round(graded.reduce((n,p)=>n+p[3],0)/graded.length):'—';return site(`<div class="crumbs">Пробные экзамены / Отчёт для преподавателя</div><div class="report-header"><div class="row between"><div>${badge('Доступ по ссылке','gray')}<h1>Результаты учеников школы № 1</h1><p>Октябрьский пробник · ЕГЭ по информатике · 12–21 октября 2026</p></div><small>Отчёт только для просмотра</small></div><div class="metrics"><section class="card metric"><b>${list.length}</b><span>участника в отчёте</span></section><section class="card metric"><b>${graded.length}</b><span>результата опубликовано</span></section><section class="card metric"><b>${avg}</b><span>средний вторичный балл</span></section></div><section class="card"><div class="cardhead"><div><h3>Ученики и работы</h3><p>Отчёт для Елены Петровой · доступны только включённые участники</p></div></div><div class="tablewrap"><table><thead><tr><th>Участник</th><th>Дата сдачи</th><th>Первичные</th><th>Из 100</th><th>Статус</th><th></th></tr></thead><tbody>${reportIds.map(i=>{const p=people[i];return `<tr><td><strong>${p[0]}</strong><small>${p[1]}</small></td><td>${p[5]}</td><td>${p[4]??'—'}</td><td><strong>${p[3]??'—'}</strong></td><td>${badge(p[3]===null?'Ожидает сдачи':'Опубликован',p[3]===null?'gray':'ok')}</td><td><button class="textbtn" data-report-view="${i}" ${p[3]===null?'disabled':''}>Результат и работа</button></td></tr>`}).join('')}</tbody></table></div></section>${reportPerson!==null&&reportIds.includes(reportPerson)?reportWork():''}<p class="demo-note">Доступ до 30 ноября 2026. Контакты участников и их личные ссылки в отчёте не показываются.</p></div>`)}
-function showModal(html){modal.innerHTML=`<button class="close" data-action="close" aria-label="Закрыть">×</button>${html}`;modal.showModal()}
-function sessionModal(exception=false){showModal(`<h2>${exception?'Индивидуальный допуск':'Сеанс экзамена'}</h2><p>Октябрьский пробник · Информатика</p><form id="session-form"><div class="formgrid">${exception?'<label class="field span2">Участник<select><option>Дмитрий Смирнов</option><option>Мария Алексеева</option></select></label>':''}<label class="field">Дата<input type="date" value="2026-10-${exception?'23':'12'}" required></label><label class="field">Начало<input type="time" value="15:00" required></label><label class="field">Кабинет<select><option>204 · 20 мест</option><option>205 · 20 мест</option></select></label><label class="field">${exception?'Основание':'Мест в кабинете'}<input value="${exception?'После болезни':'20'}" ${exception?'':'type="number" min="1"'} required></label><label class="field span2">Экзаменационная работа<select><option>${exception?'Другой вариант':'Пробник № 2'}</option></select></label></div><div class="notice">${exception?'Допуск относится к тому же проведению. При переносе прежняя запись отменяется. Если работа уже сдана, пересдача оформляется отдельным решением.':'Кабинет 204: максимум 20 мест. Вход до планового окончания; каждый начавший получает 235 минут. Помещение резервируется с учётом позднего старта.'}</div><div class="row"><button type="button" data-action="close">Отмена</button><button class="primary" type="submit">${exception?'Выдать допуск':'Сохранить сеанс'}</button></div></form>`)}
-function share(){if(!selected.size)return toast('Выберите хотя бы одного участника');showModal(`<h2>Отчёт по выбранным участникам</h2><p>${selected.size} участника · Октябрьский пробник</p><form id="share-form"><div class="formgrid"><label class="field span2">Название отчёта<input value="Школа № 1 · Елена Петрова" required></label><label class="field span2">Доступ до<input type="date" value="2026-11-30" required></label></div><div class="notice">По ссылке доступны общая таблица, результат каждого участника и его работа. Контакты и личные ссылки скрыты. Ссылку можно отозвать.</div><div class="row"><button class="primary" type="submit">Создать ссылку</button></div></form>`)}
-function csv(ids){const lines=['Участник;Школа;Преподаватель;Первичные;Вторичные;Сеанс',...ids.map(i=>{const p=people[i];return [p[0],p[1],p[2],p[4],p[3],p[5]].map(v=>v??'').join(';')})];const url=URL.createObjectURL(new Blob(['\ufeff'+lines.join('\r\n')],{type:'text/csv;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download='Результаты-пробника-демо.csv';a.click();URL.revokeObjectURL(url);toast('Скачана таблица с демонстрационными данными')}
-function render(){if(!routes.some(([r])=>r===route)&&!['review'].includes(route))route='student';document.querySelector('#screens').innerHTML=routes.map(([r,label])=>`<button data-route="${r}" class="${route===r?'on':''}">${label}</button>`).join('');app.innerHTML=({student,calendar,guests,signup,result,report,notifications,review,parent,session,'teacher-review':teacherReview,stats,'guest-entry':guestEntry,invalid})[route]();bindForms();bindCalendar();bindDateCarousel()}
-function bindForms(){document.querySelector('#guest-form')?.addEventListener('submit',e=>{e.preventDefault();guestDone=true;render()});document.querySelector('#practice-form')?.addEventListener('submit',e=>{e.preventDefault();document.querySelector('#practice-feedback').textContent=new FormData(e.target).get('answer').trim()==='4'?'Верно! Вы получили 1 из 1 в тренировке.':'Пока неверно. Попробуйте ещё раз или откройте решение.'});document.querySelector('#school')?.addEventListener('change',e=>{school=e.target.value;render()});document.querySelector('#search')?.addEventListener('input',e=>{search=e.target.value;const n=search.length;render();const input=document.querySelector('#search');input.focus();input.setSelectionRange(n,n)});document.querySelector('#select-all')?.addEventListener('change',e=>{document.querySelectorAll('[data-person]').forEach(input=>e.target.checked?selected.add(+input.dataset.person):selected.delete(+input.dataset.person));render()})}
-function bindCalendar(){document.querySelectorAll('[draggable]').forEach(el=>el.ondragstart=e=>e.dataTransfer.setData('text/plain','exam'));document.querySelectorAll('[data-day]').forEach(el=>{el.ondragover=e=>e.preventDefault();el.ondrop=e=>{e.preventDefault();sessionModal();modal.querySelector('input[type=date]').value='2026-10-'+el.dataset.day}})}
-document.addEventListener('change',e=>{if(e.target.matches('[data-person]')){e.target.checked?selected.add(+e.target.dataset.person):selected.delete(+e.target.dataset.person);render()}});
-document.addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&e.target.matches('[data-task]')){e.preventDefault();e.target.click()}});
-document.addEventListener('click',e=>{const el=e.target.closest('button,[data-task]');if(!el)return;if(el.dataset.route)return go(el.dataset.route);if(el.dataset.slot!==undefined){if(modal.open){transferSlot=+el.dataset.slot;modal.querySelectorAll('[data-slot]').forEach(x=>x.classList.toggle('selected',Number(x.dataset.slot)===transferSlot));return}slot=+el.dataset.slot;if(route==='signup'){document.querySelector('#guest-slots').innerHTML=slotGrid(true);bindDateCarousel()}else render();return}if(el.dataset.person!==undefined)return;if(el.dataset.task){reviewTask=Number(el.dataset.task);go('review');return}if(el.dataset.jump){if(![1,2,3,26,27].includes(Number(el.dataset.jump)))toast('В макете показаны задания №1–3, 26 и 27');document.querySelector('#task-'+([1,2,3,26,27].includes(Number(el.dataset.jump))?el.dataset.jump:2))?.scrollIntoView({behavior:'smooth',block:'center'});return}if(el.dataset.view!==undefined){currentPerson=+el.dataset.view;if(people[currentPerson][3]===null)return toast('Участник ещё не сдал экзамен');practice=false;go('result');return}if(el.dataset.reportView!==undefined){currentPerson=+el.dataset.reportView;reportPerson=currentPerson;render();document.querySelector('#report-work').scrollIntoView({behavior:'smooth',block:'start'});return}const a=el.dataset.action;if(!a)return;if(routes.some(([r])=>r===a)){go(a);return}if(a==='close'){modal.close();return}if(a==='completed'||a==='upcoming'){demoState='booking';completed=a==='completed';render();return}if(a==='pick'){document.querySelector('#pick').scrollIntoView({behavior:'smooth'});return}if(a==='book'){booked=true;bookingNotice='';render();toast('Вы записаны на '+slots[slot][0]+' в '+slots[slot][2]);return}if(a==='change'){transferSlot=slot;showModal(`<h2>Изменить запись</h2><p>Текущее место сохраняется до подтверждения нового.</p>${slotGrid()}<div class="row">${btn('Оставить прежнюю запись','close')}${btn('Подтвердить перенос','confirm-transfer','primary')}</div>`);return}if(a==='student-review'){reviewTask=0;go('review');return}if(a==='session'||a==='exception'){sessionModal(a==='exception');return}if(a==='share'){share();return}if(a==='csv'||a==='report-csv'){csv(a==='csv'?[...selected]:reportIds);return}if(a==='practice'){modal.close();practice=true;go('result');return}if(a==='end-practice'){practice=false;render();return}if(a==='personal'){showModal('<h2>Личная ссылка на результат</h2><p>Эту ссылку преподаватель копирует и отправляет гостю лично в мессенджере. Платформа не отправляет гостям уведомления.</p><div class="plainlink">school.example/exam/result/〈личный ключ〉</div><div class="notice">Это пример адреса. Мокап не создаёт действующих ссылок и не отправляет письма.</div>');return}if(a==='invite'){showModal('<h2>Приглашение от школы № 1</h2><p>Елена Петрова · Октябрьский пробник</p><div class="plainlink">school.example/exams/october/join/〈ключ приглашения〉</div><div class="notice">Школа и преподаватель подставятся автоматически. Каждый участник выбирает свой сеанс.</div><div class="row">'+btn('Открыть пример формы','invite-open','primary')+'</div>');return}if(a==='invite-open'){modal.close();go('signup');return}if(a==='revoke'){showModal('<h2>Отозвать доступ к отчёту?</h2><p>Преподаватель больше не сможет открыть эту ссылку. Личные результаты участников останутся доступны им.</p><div class="row">'+btn('Отмена','close')+btn('Отозвать','confirm-revoke','primary')+'</div>');return}if(a==='confirm-revoke'){modal.close();document.querySelector('#link-status').textContent='Доступ отозван · демонстрация';toast('В макете доступ отозван');return}if(a==='next-week'||a==='prev-week'){document.querySelectorAll('.late').forEach(x=>x.remove());document.querySelector('#week-label').textContent=a==='next-week'?'19–23 октября 2026':'12–16 октября 2026';document.querySelectorAll('[data-day]').forEach((day,i)=>{day.dataset.day=(a==='next-week'?19:12)+i;day.querySelector('.dayhead strong').textContent=day.dataset.day;day.querySelectorAll('.event').forEach(x=>x.hidden=a==='next-week')});if(a==='next-week'){document.querySelectorAll('[data-day]')[2].insertAdjacentHTML('beforeend','<button class="event late" data-action="session"><b>15:00</b><span>Пробник № 2</span><small>12 / 20 · кабинет 204</small></button>')}else document.querySelectorAll('.late').forEach(x=>x.remove());return}if(a==='settings'){showModal('<h2>Настройки проведения</h2><p>Период не ограничен неделей</p><div class="formgrid"><label class="field span2">Название<input value="Октябрьский пробник"></label><label class="field">Начало периода<input type="date" value="2026-10-12"></label><label class="field">Конец периода<input type="date" value="2026-10-21"></label><label class="field span2">Публикация решений<select><option>Ученикам — после утверждения работы</option><option>Гостям — сразу после сдачи</option></select></label></div><div class="notice">Гость получает разбор сразу. Ученик центра — после утверждения преподавателем. Ожидания окончания всех сеансов нет.</div><div class="row">'+btn('Готово','close','primary')+'</div>');return}if(a==='cta'){showModal('<h2>Подготовка к ЕГЭ по информатике</h2><p>Здесь откроется существующая форма заявки на курс вашего сайта. В макете заявки не отправляются.</p><div class="row">'+btn('Понятно','close','primary')+'</div>');return}if(a==='students-info')toast('В продукте здесь тот же список для учеников центра. В макете детализированы гости.')});
-document.addEventListener('submit',e=>{if(e.target.id==='session-form'){e.preventDefault();modal.close();toast('Демонстрация: сеанс сохранён. Изменения в LMS не отправляются.')}if(e.target.id==='share-form'){e.preventDefault();reportIds=[...selected];reportCreated=true;modal.close();render();showModal(`<h2>Отчёт подготовлен</h2><p>Включено участников: ${reportIds.length}</p><div class="plainlink">school.example/exam/report/〈ключ отчёта〉</div><small>В макете ссылка доступна через экран «Отчёт школе».</small><div class="row">${btn('Посмотреть отчёт','open-report','primary')}</div>`)}});
-document.addEventListener('click',e=>{if(e.target.closest('[data-action="open-report"]')){modal.close();go('report')}});
+/*
+  Интерактивный макет «Экзамены».
+  Разметка и классы — настоящие (из кабинета плагина и темы сайта, см. real.js и index.html).
+  Всё, чего нет в продукте, помечено в style.css как «НОВОЕ».
+*/
+'use strict';
 
-function notifications(){const items=[['Ваша запись аннулирована','Преподаватель отменил запись на 12 октября, 10:00. Причина: изменение состава сеанса. Вы можете выбрать другое время.','Сегодня, 12:40','Выбрать дату','cancel-demo','wait'],['Экзамен пропущен','Вы не начали экзамен до окончания сеанса в 13:55. Запись аннулирована. Если есть места, запишитесь на другой сеанс.','Сегодня, 13:55','Записаться заново','missed-demo','wait'],['Появились результаты','Сентябрьский пробник проверен. Ваш результат — 72 из 100 баллов. Доступны ответы и разбор заданий.','24 сентября, 18:30','Посмотреть результаты','student-results','ok'],['Скоро начало экзамена','Начинаем сегодня в 10:00. Очно, кабинет 204. Приходите за 15 минут.','12 октября, 09:00','Моя запись','student',''],['Завтра экзамен','Вы записаны на 12 октября, 10:00. Проверьте время и место проведения.','11 октября, 18:00','Моя запись','student',''],['Запись подтверждена','Ваш сеанс: 12 октября, 10:00. Экзамен добавлен в расписание.','1 октября, 14:25','Моя запись','student','ok'],['Открыта запись на экзамен','Октябрьский пробник по информатике пройдёт 12–21 октября. Выберите один удобный сеанс.','1 октября, 12:00','Выбрать дату','upcoming-notice','']];return shell(`<div class="heading"><div><h1>Уведомления об экзаменах</h1><p>Примеры событий на разных этапах — не история одного участника</p></div>${badge('Все изменения сопровождаются уведомлением')}</div><section class="card">${items.map(([title,text,time,action,key,color])=>`<div class="notification-item"><div class="notice-dot ${color}"></div><div class="grow"><div class="row between"><h3>${title}</h3><small>${time}</small></div><p>${text}</p>${btn(action,key,'textbtn')}</div></div>`).join('')}</section><div class="notice" style="margin-top:18px">Все уведомления — только в личном кабинете ученика и родителя. Гостям уведомления не отправляются. После отмены или переноса старые напоминания снимаются.</div>`)}
-function roster(){showModal(`<h2>Участники сеанса</h2><p>12 октября · 10:00 · кабинет 204</p><div class="notice" style="margin-top:18px">Сеанс 10:00–13:55. Если к 13:55 попытка не начата, запись автоматически аннулируется как неявка.</div><div style="margin-top:18px"><div class="taskrow"><div class="grow"><strong>Мария Алексеева</strong><p id="attendance-label">Записана · ученица центра</p></div>${badge('Не начат','gray')}</div><div class="row" style="justify-content:flex-start">${btn('Отменить запись','cancel-booking')}${btn('Показать неявку','missed-preview')}</div></div><p class="demo-note">В рабочем интерфейсе неявку ставит система после окончания сеанса. Кнопка здесь демонстрирует это состояние.</p>`)}
-document.addEventListener('click',e=>{const a=e.target.closest('[data-action]')?.dataset.action;if(a==='roster')roster();if(a==='arrived'){document.querySelector('#attendance-label').textContent='Пришла · автоматическая неявка не применяется';e.target.disabled=true;e.target.textContent='Пришла ✓'}if(a==='cancel-booking'){showModal(`<h2>Отменить запись Марии?</h2><p>12 октября, 10:00 · Октябрьский пробник</p><form id="cancel-booking-form"><label class="field" style="margin-top:20px">Причина отмены<input name="reason" placeholder="Например, перенос в другой сеанс" required></label><div class="notice" style="margin-top:18px">Мария получит уведомление «Ваша запись аннулирована» и сможет выбрать другую дату. Место освободится, история сохранится.</div><div class="row"><button type="button" data-action="close">Назад</button><button class="primary" type="submit">Отменить и уведомить</button></div></form>`)}if(a==='missed-preview'){modal.close();booked=false;completed=false;bookingNotice='Экзамен пропущен. Запись на 12 октября, 10:00 автоматически аннулирована.';go('student');toast('Участнику отправляется одно уведомление о неявке и аннулировании')}if(a==='cancel-demo'||a==='missed-demo'){booked=false;completed=false;bookingNotice=a==='cancel-demo'?'Преподаватель аннулировал вашу запись.':'Экзамен пропущен. Ваша запись аннулирована.';go('student')}if(a==='student-results'){completed=true;go('student')}if(a==='upcoming-notice'){completed=false;booked=false;go('student')}});
-document.addEventListener('submit',e=>{if(e.target.id==='cancel-booking-form'){e.preventDefault();booked=false;completed=false;bookingNotice='Преподаватель аннулировал вашу запись. Причина: '+new FormData(e.target).get('reason').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;');modal.close();go('student');toast('Демонстрация: запись отменена, уведомление создано')}});
+const R = window.REAL;
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
+/* ── Иконки (в продукте — common/icons.js и enum Icon) ──────────────── */
+const svg = (d, w = 18) => `<svg width="${w}" height="${w}" viewBox="0 0 20 20" fill="none" aria-hidden="true">${d}</svg>`;
+const P = (d) => `<path d="${d}" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>`;
+const ICON = {
+  calendar: svg('<rect x="3" y="4" width="14" height="13" rx="2" stroke="currentColor" stroke-width="1.6"/>' + P('M3 8h14M7 2.5v3M13 2.5v3')),
+  check: svg(P('M4 10.5l4 4 8-9')),
+  alert: svg(P('M10 6v5M10 14h.01') + '<circle cx="10" cy="10" r="7.2" stroke="currentColor" stroke-width="1.6"/>'),
+  exam: svg('<rect x="4" y="3" width="12" height="14" rx="2" stroke="currentColor" stroke-width="1.6"/>' + P('M7.5 8.5l1.5 1.5 3-3M7.5 13h5')),
+  bell: svg(P('M10 3a4 4 0 0 0-4 4c0 4-1.5 5-1.5 5h11S14 11 14 7a4 4 0 0 0-4-4zM8.5 15a1.5 1.5 0 0 0 3 0'), 32),
+  rub: svg(P('M7 16V4h4a3 3 0 0 1 0 6H7M5 13h7')),
+  chevron: svg(P('M8 4.5L13.5 10 8 15.5'), 18),
+};
 
-function answerTable(value){return '<span class="answer-cells">'+value.split('|').map(x=>'<span>'+x.trim()+'</span>').join('')+'</span>'}
-let reviewTask=0, reportPerson=null;
-function review(){setTimeout(()=>{if(reviewTask)document.querySelector('#task-'+Math.min(reviewTask,3))?.scrollIntoView({block:'center'})},30);return shell(`<div class="wr-head"><a class="wr-back" href="#student">‹ Назад</a><div><h1>Сентябрьский пробник</h1><p>Экзамен · Утверждено · 72 из 100 баллов</p></div></div><div class="wr-tasks">${[1,2,3,26,27].map(i=>taskCard(i,false,true)).join('')}</div><p class="demo-note">Полноценный экран разбора. Блоки задач повторяют существующие sum-task из «Работ»; решение добавляется тем же общим компонентом.</p>`)}
-function reportWork(){const p=people[reportPerson];return `<section id="report-work" class="report-detail"><div class="heading"><div><h2>${p[0]}</h2><p>Октябрьский пробник · ${p[3]} из 100 · ${p[4]} / 29 первичных</p></div>${badge('Только просмотр','gray')}</div><h3>Разбор заданий</h3><div class="tasknav">${Array.from({length:27},(_,i)=>`<button data-jump="${i+1}" class="${i===1||i===26?'bad':i===2||i>=19?'wait':'ok'}">${i+1}</button>`).join('')}</div><div class="wr-tasks">${[1,2,3,26,27].map(i=>taskCard(i,false,true)).join('')}</div><p class="demo-note">Пять демонстрационных заданий; в продукте здесь вся выбранная работа.</p></section>`}
+/* ── Данные макета ──────────────────────────────────────────────────── */
+const SLOTS = [
+  { d: 'пн', full: '12 октября', dow: 'понедельник', t: '10:00', room: 'каб. 204', left: 6 },
+  { d: 'пн', full: '12 октября', dow: 'понедельник', t: '15:00', room: 'каб. 205', left: 2 },
+  { d: 'чт', full: '15 октября', dow: 'четверг', t: '10:00', room: 'каб. 204', left: 0 },
+  { d: 'ср', full: '21 октября', dow: 'среда', t: '15:00', room: 'каб. 204', left: 8 },
+  { d: 'пт', full: '23 октября', dow: 'пятница', t: '15:00', room: 'каб. 204', left: 5 },
+];
+const slotWord = (n) => (n === 0 ? 'мест нет' : `осталось ${n} ${n === 1 ? 'место' : n < 5 ? 'места' : 'мест'}`);
 
+/* оплата / запись / допуск / попытка — отдельные состояния (SPEC §7) */
+const PEOPLE = [
+  { n: 'Орлова Алина', ini: 'ОА', src: 'Школа № 1', pay: ['оплачено', 'now'], reg: ['подтверждена', 'now'], adm: ['ссылка передана 09:48', 'now'], att: ['идёт, осталось 2:11', 'soon'] },
+  { n: 'Волков Артём', ini: 'ВА', src: 'Школа № 1', pay: ['оплачено купоном', 'now'], reg: ['подтверждена', 'now'], adm: ['не выдан', 'done'], att: ['не начата', 'done'] },
+  { n: 'Морозова Анна', ini: 'МА', src: 'Гимназия № 4', pay: ['ожидаем, бронь до 14:20', 'soon'], reg: ['бронь', 'soon'], adm: ['не выдан', 'done'], att: ['не начата', 'done'] },
+  { n: 'Козлов Илья', ini: 'КИ', src: 'Гимназия № 4', pay: ['оплачено, требуется помощь', 'warn'], reg: ['не подтверждена', 'warn'], adm: ['не выдан', 'done'], att: ['не начата', 'done'] },
+  { n: 'Мария Алексеева', ini: 'МА', src: 'Ученик центра', pay: ['—', 'done'], reg: ['подтверждена', 'now'], adm: ['открыт', 'now'], att: ['сдана', 'now'] },
+];
+const pill = (text, kind = 'done') => `<span class="prof-state-pill ${kind === 'warn' ? 'mk-warn' : kind === 'err' ? 'mk-err' : 'prof-state-' + kind}">${esc(text)}</span>`;
+const verdict = (text, kind) => `<span class="sum-verdict sv-${kind}">${esc(text)}</span>`;
+const btn = (text, action, cls = '', extra = '') => `<button type="button" class="prof-btn ${cls}" data-action="${action}" ${extra}>${text}</button>`;
 
-let demoState='booking',transferSlot=slot,parentChild=0,approvedDemo=false;
-function stateControl(){return `<div class="demo-states"><label>Состояние для просмотра <select id="demo-state">${[['booking','Выбор даты'],['booked','Записан'],['open','Можно начать'],['running','Идёт попытка'],['pending','Ждёт утверждения'],['done','Результат'],['missed','Неявка'],['cancelled','Запись отменена'],['full','Нет мест'],['closed','Запись закрыта']].map(([v,t])=>`<option value="${v}" ${demoState===v?'selected':''}>${t}</option>`).join('')}</select></label></div>`}
-function student(){if(demoState==='booking')return baseStudent().replace('<main class="content">','<main class="content">'+stateControl());if(demoState==='booked'){booked=true;return baseStudent().replace('<main class="content">','<main class="content">'+stateControl())}if(demoState==='done'){completed=true;return baseStudent().replace('<main class="content">','<main class="content">'+stateControl())}const config={open:['Можно приступать','Начать можно до 13:55. Длительность — 3 часа 55 минут от вашего старта.','Приступить','station'],running:['Экзамен выполняется','Начало в 11:00 · ваш дедлайн 14:55. Обновление страницы не меняет время.','Продолжить','station'],pending:['Работа сдана','Результат и разбор откроются после утверждения преподавателем.','',''],missed:['Экзамен пропущен','К окончанию сеанса в 13:55 работа не начата. Запись аннулирована.','Записаться заново','reset-state'],cancelled:['Ваша запись отменена','Причина: перенос в другой сеанс. Можно выбрать другую дату при наличии мест.','Выбрать дату','reset-state'],full:['Свободных мест нет','Сейчас все сеансы заполнены. Обратитесь к преподавателю. Автоматического листа ожидания нет.','',''],closed:['Запись закрыта','Для дополнительной сдачи обратитесь к преподавателю.','','']}[demoState];return shell(`${stateControl()}<div class="heading"><h1>Мои экзамены</h1></div><section class="card"><div class="hero"><div>${badge('ЕГЭ · Информатика')}<h2>Октябрьский пробник</h2><h3>${config[0]}</h3><p>${config[1]}</p></div>${config[2]?btn(config[2],config[3],'primary'):''}</div></section>`)}
-function parent(){const names=['Мария Алексеева','Алексей Алексеев'];return shell(`<div class="heading"><div><h1>Экзамены ребёнка</h1><p>Кабинет родителя · только просмотр</p></div><label class="field">Ребёнок<select id="parent-child">${names.map((n,i)=>`<option value="${i}" ${i===parentChild?'selected':''}>${n}</option>`).join('')}</select></label></div><div class="notice">Записывается, отменяет запись и начинает экзамен сам ученик. Родитель получает уведомления и видит результаты после утверждения.</div><section class="card" style="margin-top:18px"><div class="hero"><div>${badge(parentChild?'Нет записи':'Записана',parentChild?'gray':'ok')}<h2>Октябрьский пробник</h2><p>${names[parentChild]} · ${parentChild?'Пока не выбрана дата':'12 октября, 10:00 · кабинет 204'}</p></div></div></section><section class="card"><div class="hero"><div>${badge('Утверждено','ok')}<h2>Сентябрьский пробник</h2><p>72 / 100 вторичных · 18 / 29 первичных</p></div>${btn('Посмотреть работу','review','primary')}</div></section>`).replace('Личный кабинет / Мои экзамены','Личный кабинет родителя / Экзамены ребёнка').replace('<span>Ученик　 ◉</span>','<span>Родитель　 ◉</span>')}
-function session(){return shell(`<div class="heading"><div><h1>Проведение экзамена</h1><p>12 октября · вход 10:00–13:55 · кабинет 204 · ответственный: Екатерина Котова</p></div>${btn('+ Гость на месте','walk-in','primary')}</div><div class="notice">Длительность от старта — 235 минут. Начавшие до 13:55 продолжают до личного дедлайна. Неявка — только у не начавших к 13:55.</div><div class="toolbar">${btn('Выдать ссылку гостю','issue-entry')}${btn('Напечатать список','print-info')}<span style="flex:1"></span><small>Демо: текущее время 12:10</small></div><section class="card tablewrap"><table><thead><tr><th>Участник</th><th>Статус</th><th>Начал</th><th>Дедлайн</th><th>Осталось</th><th>Действие</th></tr></thead><tbody><tr><td>Мария Алексеева<small>Ученица центра</small></td><td>${badge('Выполняется')}</td><td>11:00</td><td id="deadline">14:55</td><td>2 ч 45 мин</td><td>${btn('Продлить','extend','textbtn')}</td></tr><tr><td>Алина Орлова<small>Гостья · школа № 1</small></td><td>${badge('Не начат','gray')}</td><td>—</td><td>После старта</td><td>—</td><td>${btn('Ссылка на вход','issue-entry','textbtn')}</td></tr><tr><td>Артём Волков<small>Гость · школа № 1</small></td><td>${badge('Сдано','ok')}</td><td>10:00</td><td>13:55</td><td>—</td><td>${btn('Работа','teacher-review','textbtn')}</td></tr></tbody></table></section><div class="toolbar">${btn('Отменить не начатую запись','cancel-booking')}${btn('Показать автоматическую неявку','missed-preview')}</div><p class="demo-note">Печать персональных данных и CSV доступны только при обоих экспортных правах. Неявка в продукте выставляется автоматически.</p>`,true)}
-function teacherReview(){return shell(`<div class="heading"><div><h1>Мария Алексеева · Октябрьский пробник</h1><p>18 / 29 первичных · 72 / 100 вторичных · работа сдана</p></div>${approvedDemo?badge('Утверждено','ok'):btn('Утвердить работу','approve','primary')}</div><div class="notice">${approvedDemo?'Результат и разбор открыты ученице и родителю. Уведомления созданы в кабинете.':'Ученица и родитель пока не видят баллы и разбор. Гостям разбор открывается сразу после сдачи.'}</div><div class="toolbar">${btn('Исправить результат','correct-result')}</div><div class="wr-tasks">${[1,2,3,26,27].map(i=>taskCard(i,false,true)).join('')}</div><p class="demo-note">В продукте это существующий экран «Работы» с общим рендером задач, критериями и контролами оценки по правам.</p>`,true)}
-function stats(){return shell(`<div class="heading"><div><h1>Статистика экзаменов</h1><p>Внутренний экран преподавателя · отдельный от отчёта школе</p></div></div><div class="toolbar"><select aria-label="Проведение"><option>Октябрьский пробник</option></select><select aria-label="Аудитория"><option>Ученики и гости</option></select><small>Иллюстративная выборка</small></div><div class="metrics"><div class="card metric"><b>57</b><span>записано</span></div><div class="card metric"><b>49</b><span>сдали</span></div><div class="card metric"><b>4</b><span>не явились</span></div></div><section class="card tablewrap"><table><thead><tr><th>Показатель</th><th>Значение</th><th>Выборка</th></tr></thead><tbody><tr><td>Средний первичный</td><td>18,2 / 29</td><td>45 проверенных работ</td></tr><tr><td>Средний вторичный</td><td>72,4 / 100</td><td>45 проверенных работ</td></tr><tr><td>Ожидают проверки</td><td>4</td><td>Из 49 сданных</td></tr><tr><td>Ещё не завершили / не начали</td><td>4</td><td>Из 57 записанных</td></tr></tbody></table></section><section class="card"><div class="cardhead"><h3>По заданиям</h3><small>Пример распределения по 45 проверенным работам</small></div><div class="tablewrap"><table><thead><tr><th>Номер</th><th>Максимум</th><th>Полностью верно</th><th>Частично</th><th>Ошибки</th><th>Пропуски</th></tr></thead><tbody><tr><td>1</td><td>1</td><td>36</td><td>0</td><td>7</td><td>2</td></tr><tr><td>26</td><td>2</td><td>18</td><td>12</td><td>10</td><td>5</td></tr><tr><td>27</td><td>2</td><td>12</td><td>10</td><td>15</td><td>8</td></tr></tbody></table></div></section>`,true)}
-function guestEntry(){return site(`<div class="crumbs">Экзамены / Персональный вход</div><section class="card access-card"><div class="pad"><h1>Вход на экзамен</h1><p class="lead">Ссылка выдана преподавателем на площадке</p><h2>Алина Орлова</h2><p>Октябрьский пробник · 12 октября · кабинет 204</p><div class="notice">Начать можно с 10:00 до 13:55. После начала у вас будет 3 часа 55 минут. Это персональная ссылка — не передавайте её другим.</div><label class="check" style="margin:20px 0"><input type="checkbox" id="identity-check">Это моя запись, данные верны</label><div class="row">${btn('Приступить','guest-start','primary')}${btn('Не получается войти','recover','textbtn')}</div></div></section><p class="demo-note">Демонстрация открытого допуска. В продукте доступ проверяется по секретному токену и серверному времени.</p>`)}
-function invalid(){return site(`<section class="card access-card center"><div class="pad"><h1>Ссылка недействительна</h1><p class="lead">Она могла истечь или быть отозвана. Обратитесь к преподавателю, чтобы получить новую ссылку.</p><p>Ваши ответы не удаляются при перевыпуске доступа.</p><div class="toolbar" style="justify-content:center">${btn('Как восстановить доступ','recover','primary')}</div></div></section>`)}
-function issueLink(kind){showModal(`<h2>${kind==='entry'?'Ссылка на вход':'Личная ссылка результата'}</h2><p>${people[currentPerson][0]} · Октябрьский пробник</p><div class="plainlink">https://school.example/exams/${kind}/〈персональный ключ〉</div><div class="notice">Скопируйте ссылку и передайте лично в мессенджере. Ничего автоматически не отправляется. При перевыпуске старая ссылка отзывается.</div><div class="row">${btn('Скопировать пример','copy-demo')}${btn('Открыть пример',kind==='entry'?'entry-preview':'result-preview','primary')}</div>`)}
-document.addEventListener('click',e=>{const b=e.target.closest('[data-result-link]');if(b){currentPerson=Number(b.dataset.resultLink);issueLink('result')}});
-document.addEventListener('change',e=>{if(e.target.id==='demo-state'){demoState=e.target.value;completed=demoState==='done';booked=demoState==='booked';render()}if(e.target.id==='parent-child'){parentChild=Number(e.target.value);render()}});
-document.addEventListener('click',e=>{const a=e.target.closest('[data-action]')?.dataset.action;if(a==='review')go(a);if(a==='station')toast('В LMS откроется существующая экзаменационная станция.');if(a==='reset-state'){demoState='booking';completed=false;booked=false;render()}if(a==='new-session')sessionModal();if(a==='publish')toast('Демо: проведение опубликовано, ученикам и родителям созданы уведомления');if(a==='issue-entry')issueLink('entry');if(a==='entry-preview'){modal.close();go('guest-entry')}if(a==='result-preview'){modal.close();go('result')}if(a==='copy-demo')toast('Это демонстрационный адрес. Настоящий ключ выдаётся только сервером LMS.');if(a==='guest-start'){if(!document.querySelector('#identity-check').checked)return toast('Подтвердите, что открыта ваша запись');toast('В LMS откроется существующая экзаменационная станция.')}if(a==='recover')showModal('<h2>Восстановить доступ</h2><p>Обратитесь к преподавателю на площадке. Он найдёт предварительную запись, проверит данные и выдаст новую персональную ссылку. Повторно записываться не нужно.</p><div class="row">'+btn('Понятно','close','primary')+'</div>');if(a==='approve'){approvedDemo=true;render();toast('Демо: работа утверждена, уведомление появилось в кабинете')};if(a==='print-info')showModal('<h2>Печать списка</h2><p>В продукте действие требует ManageLmsPlatform и ExportPII. Имена — в общем списке, персональные ссылки доступа — отдельными листками. Не печатать все ключи на общем листе.</p><div class="row">'+btn('Понятно','close')+'</div>');if(a==='extend')showModal('<h2>Продлить время</h2><p>Мария Алексеева · текущий дедлайн 14:55</p><form id="extend-form"><div class="formgrid"><label class="field">Добавить минут<input type="number" min="1" value="15" required></label><label class="field">Причина<input required placeholder="Технический сбой"></label></div><div class="notice">Новый дедлайн 15:10. Система проверит занятость кабинета и сохранит причину.</div><div class="row"><button class="primary" type="submit">Продлить и уведомить</button></div></form>');if(a==='correct-result')showModal('<h2>Исправить результат</h2><p>Исходные ответы участника сохраняются. Изменение баллов попадёт в журнал.</p><form id="correction-form"><div class="formgrid"><label class="field">Задача<select><option>№26 · 1 из 2</option></select></label><label class="field">Новый балл<input type="number" min="0" max="2" value="2" required></label><label class="field span2">Причина<input required placeholder="Итог разбора обращения ученика"></label></div><div class="row"><button class="primary" type="submit">Сохранить исправление</button></div></form>');if(a==='walk-in')showModal('<h2>Гость на месте</h2><p>Проверить наличие места и возможные дубли до создания записи.</p><form id="walkin-form"><div class="formgrid"><label class="field">Фамилия<input required></label><label class="field">Имя<input required></label><label class="field span2">Телефон или мессенджер<input required></label><label class="check span2"><input type="checkbox" required>Согласия участника/представителя проверены</label></div><div class="row"><button class="primary" type="submit">Добавить в сеанс</button></div></form>');if(a==='self-cancel')showModal('<h2>Отменить вашу запись?</h2><p>Место освободится. Повторная запись зависит от наличия мест и сроков.</p><div class="row">'+btn('Оставить запись','close')+btn('Отменить','confirm-self-cancel','primary')+'</div>');if(a==='confirm-self-cancel'){modal.close();booked=false;demoState='cancelled';render();toast('Демо: запись отменена, уведомление в кабинете')}if(a==='confirm-transfer'){slot=transferSlot;booked=true;demoState='booked';modal.close();render();toast('Демо: перенос подтверждён, прежняя бронь освобождена')}if(a==='event-settings')showModal('<h2>Настройки проведения</h2><form id="event-settings-form"><div class="formgrid"><label class="field span2">Название<input value="Октябрьский пробник"></label><label class="field">Период с<input type="date" value="2026-10-12"></label><label class="field">по<input type="date" value="2026-10-21"></label><label class="field">Открытие записи<input type="datetime-local" value="2026-10-01T12:00"></label><label class="field">Закрытие записи<input type="datetime-local" value="2026-10-21T14:00"></label></div><div class="notice">Аудитория: все активные ученики преподавателя по информатике. Гостевая форма включена. Управление: Екатерина Котова и администратор. Разбор: гостям после сдачи, ученикам после утверждения.</div><div class="row"><button class="primary" type="submit">Сохранить</button></div></form>')});
-document.addEventListener('submit',e=>{if(['extend-form','correction-form','walkin-form','event-settings-form'].includes(e.target.id)){e.preventDefault();const id=e.target.id;modal.close();if(id==='extend-form'){const d=document.querySelector('#deadline');if(d)d.textContent='15:10'}toast('Демонстрация: изменение сохранено, событие учтено')}});
+/* ── Состояние ──────────────────────────────────────────────────────── */
+const ROUTES = [
+  { id: 'student', label: 'Ученик · Мои экзамены', frame: 'cab', role: 'student', demo: [['booking', 'Выбор даты'], ['booked', 'Запись подтверждена'], ['waiting', 'Сдано, ждёт утверждения'], ['result', 'Результат утверждён'], ['empty', 'Нет проведений']] },
+  { id: 'parent', label: 'Родитель · Мои экзамены', frame: 'cab', role: 'parent', demo: [['booked', 'Запись подтверждена'], ['waiting', 'Сдано, ждёт утверждения'], ['result', 'Результат утверждён']] },
+  { id: 'calendar', label: 'Преподаватель · Назначить экзамен', frame: 'cab', role: 'teacher', demo: [['empty', 'Нет проведений'], ['filled', 'Есть проведение']] },
+  { id: 'session', label: 'Преподаватель · Проведение экзамена', frame: 'cab', role: 'teacher', demo: [['normal', 'Идёт сеанс'], ['approve', 'Выбор работ для утверждения']] },
+  { id: 'guests', label: 'Преподаватель · Результаты', frame: 'cab', role: 'teacher' },
+  { id: 'teacher-review', label: 'Преподаватель · Проверка работы', frame: 'cab', role: 'teacher' },
+  { id: 'stats', label: 'Преподаватель · Статистика', frame: 'cab', role: 'teacher' },
+  { id: 'payments', label: 'Администратор · Оплаты гостей', frame: 'cab', role: 'office', demo: [['help', 'Требуют помощи'], ['all', 'Все оплаты']] },
+  { id: 'notifications', label: 'Тексты уведомлений', frame: 'cab', role: 'office' },
+  { id: 'signup', label: 'Сайт · Форма записи гостя', frame: 'site', demo: [['form', 'Форма'], ['hold', 'Ожидаем оплату'], ['pending', 'Подтверждение не получено'], ['paid', 'Оплата получена']] },
+  { id: 'guest-entry', label: 'Сайт · Вход гостя', frame: 'site' },
+  { id: 'result', label: 'Сайт · Результат гостя', frame: 'site' },
+  { id: 'report', label: 'Сайт · Отчёт школе', frame: 'site' },
+];
+const S = {
+  route: (location.hash.slice(1) || 'student'),
+  demo: { student: 'booking', parent: 'booked', calendar: 'empty', session: 'normal', signup: 'form', payments: 'help' },
+  slot: 0,
+  notifRole: 'student',
+  hold: 19 * 60 + 42,
+  reportPerson: null,
+};
+const routeOf = (id) => ROUTES.find((r) => r.id === id) || ROUTES[0];
 
-render();
+/* ── Каркасы ────────────────────────────────────────────────────────── */
+const navItem = (go, label, icon, active) =>
+  `<div class="prof-nav-item${active ? ' active' : ''}" data-go="${go}"><span class="ni-ico">${icon}</span>${label}</div>`;
 
-function bindDateCarousel(){
- const track=document.querySelector('#student-dates');if(!track)return;
- const behavior=()=>matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth';
- const step=()=>track.querySelector('.slot').getBoundingClientRect().width+12;
- const sync=()=>{const max=track.scrollWidth-track.clientWidth;document.querySelector('[data-date-scroll="-1"]').disabled=track.scrollLeft<=2;document.querySelector('[data-date-scroll="1"]').disabled=track.scrollLeft>=max-2};
- track.addEventListener('scroll',sync,{passive:true});
- const active=track.querySelector('[aria-pressed="true"]');if(active)track.scrollLeft=Math.max(0,active.offsetLeft-2);
- document.querySelectorAll('[data-date-scroll]').forEach(b=>b.addEventListener('click',()=>track.scrollBy({left:Number(b.dataset.dateScroll)*step(),behavior:behavior()})));
- let drag=null,suppressClick=false;
- track.addEventListener('pointerdown',e=>{if(e.button!==0)return;suppressClick=false;drag={id:e.pointerId,x:e.clientX,left:track.scrollLeft,moved:false};});
- track.addEventListener('pointermove',e=>{if(!drag||e.pointerId!==drag.id)return;const dx=e.clientX-drag.x;if(!drag.moved&&Math.abs(dx)<6)return;if(!drag.moved){drag.moved=true;track.setPointerCapture(e.pointerId);track.classList.add('is-dragging')}track.scrollLeft=drag.left-dx;});
- const finish=e=>{if(!drag||e.pointerId!==drag.id)return;const moved=drag.moved;drag=null;track.classList.remove('is-dragging');if(track.hasPointerCapture(e.pointerId))track.releasePointerCapture(e.pointerId);if(moved){suppressClick=true;track.scrollTo({left:Math.round(track.scrollLeft/step())*step(),behavior:behavior()});setTimeout(()=>suppressClick=false,0)}};
- track.addEventListener('pointerup',finish);track.addEventListener('pointercancel',finish);track.addEventListener('lostpointercapture',finish);
- track.addEventListener('click',e=>{if(suppressClick){e.preventDefault();e.stopPropagation()}},true);
- track.addEventListener('dragstart',e=>e.preventDefault());requestAnimationFrame(sync);
+function sideFor(role, activeGo) {
+  let s = R.side[role].replace(/prof-nav-item active/g, 'prof-nav-item');
+  if (role === 'student' || role === 'parent') {
+    // «Мои экзамены» — рядом с «Мои курсы» в основном меню
+    s = s.replace(/(<div class="prof-nav-item[^"]*" data-go="learner-lessons">[\s\S]*?<\/div>)/, `$1${navItem('ex-student', 'Мои экзамены', ICON.exam, activeGo === 'ex-student')}`);
+  } else {
+    // для преподавателя и администратора — сворачиваемый раздел, как «Мои группы» / «Мои курсы»
+    const items = [
+      ['ex-calendar', 'Назначить экзамен', ICON.calendar],
+      ['ex-session', 'Проведение экзамена', ICON.exam],
+      ['ex-results', 'Результаты', ICON.check],
+      ['ex-stats', 'Статистика', ICON.exam],
+    ];
+    if (role === 'office') items.push(['ex-payments', 'Оплаты гостей', ICON.rub]);
+    const section = `<div class="prof-nav-label prof-nav-label--toggle" role="button" tabindex="0" aria-expanded="true">Мои экзамены<span class="pnl-caret"><svg width="10" height="10" viewBox="0 0 12 12"><path d="M3 4.5 6 8l3-3.5z" fill="currentColor"/></svg></span></div>`
+      + `<div class="prof-fold is-open"><div class="prof-fold-inner">${items.map(([go, l, i]) => navItem(go, l, i, go === activeGo)).join('')}</div></div>`;
+    s = s.replace(/(<\/div>\s*(?:<!--[^>]*-->\s*)?<div class="prof-side-user")/, `${section}$1`);
+  }
+  return s;
 }
+
+function topbarFor(crumb, title) {
+  return R.topbar
+    .replace(/(id="profTbCrumb">)[^<]*/, `$1${esc(crumb)}`)
+    .replace(/(id="profTbTitle">)[^<]*/, `$1${esc(title)}`)
+    .replace(/<span class="prof-bell-badge"[^>]*hidden=""><\/span>/, '<span class="prof-bell-badge" id="profBellBadge">2</span>');
+}
+
+function cabFrame({ role, go, crumb, title, body }) {
+  return `<div class="prof-app">${sideFor(role, go)}<div class="prof-main">${topbarFor(crumb, title)}<div class="prof-stage"><section class="prof-screen active">${body}</section></div></div></div>
+  <div class="prof-ctx-backdrop" id="profCtxBackdrop"></div><div class="prof-ctx-menu" id="profCtxMenu"></div><div class="prof-notif-pop" id="profNotifPop" hidden></div>`;
+}
+
+const crumbsRow = (items) => `<div class="crumbs-row"><div class="crumbs-row__inner"><nav class="fs-breadcrumbs" aria-label="Хлебные крошки">${items.map((t, i) => (i === items.length - 1 ? `<span class="fs-breadcrumbs__current" aria-current="page">${t}</span>` : `<a href="#">${t}</a><span class="fs-breadcrumbs__sep" aria-hidden="true">/</span>`)).join(' ')}</nav></div></div>`;
+function siteFrame(body, { aside = true, crumbs = null } = {}) {
+  const inner = aside
+    ? `<div class="fs-page-wrapper fs-all-tasks-page">${crumbs ? crumbsRow(crumbs) : ''}<div class="shell"><div class="layout">${R.siteAside}<main class="main">${body}</main></div></div></div>`
+    : `<div class="fs-page-wrapper">${body}</div>`;
+  return `${R.siteHeader}${inner}${R.siteFooter}`;
+}
+
+const emptyState = (title, text, action) => `<div class="prof-dash"><div class="prof-ktp-empty"><div class="ke-ico">${ICON.calendar}</div><h3>${esc(title)}</h3><p>${esc(text)}</p>${action || ''}</div></div>`;
+const dash = (title, sub, inner) => `<div class="prof-dash"><div class="prof-dash-hello"><h1>${esc(title)}</h1><p>${esc(sub)}</p></div>${inner}</div>`;
+
+/* ── Кабинет: ученик и родитель («Мои экзамены») ───────────────────── */
+/* Карусель выбора даты и времени — крупные карточки (общая для кабинета и сайта) */
+function slotCarousel() {
+  return `<div class="mk-slots-wrap"><button type="button" class="mk-slots-nav prev" data-action="slots-scroll" data-dir="-1" aria-label="Предыдущие даты" hidden>‹</button>
+    <div class="mk-slots" id="mkSlots">${SLOTS.map((s, i) => `<button type="button" class="mk-slot${i === S.slot ? ' on' : ''}" data-action="pick-slot" data-i="${i}" ${s.left === 0 ? 'disabled' : ''} aria-pressed="${i === S.slot}"><strong>${s.full}</strong><small>${s.dow}</small><span class="mk-time">${s.t}</span><small>очно · ${s.room}</small><small>${slotWord(s.left)}</small></button>`).join('')}</div>
+    <button type="button" class="mk-slots-nav next" data-action="slots-scroll" data-dir="1" aria-label="Следующие даты" hidden>›</button></div>`;
+}
+
+const examTabs = (done) => `<div class="sc-tabs-wrap" data-ready="1"><div class="sc-tabs">
+  <button type="button" class="sc-tab${done ? '' : ' on'}"><span class="sc-chip chip-c5">ЕГЭ</span><span class="sc-tb"><span class="sc-tname">Октябрьский пробник</span><span class="sc-tsub">12–21 октября · Информатика</span></span></button>
+  <button type="button" class="sc-tab${done ? ' on' : ''}"><span class="sc-chip chip-c3">ЕГЭ</span><span class="sc-tb"><span class="sc-tname">Сентябрьский пробник</span><span class="sc-tsub">завершён · 72 из 100</span></span></button></div></div>`;
+
+const TASKS = [['1', 'Информационные модели', 'ok'], ['2', 'Таблицы истинности', 'bad'], ['3', 'Поиск информации в базе данных', 'wait'], ['26', 'Обработка данных (2 балла)', 'part'], ['27', 'Программирование (2 балла)', 'bad']];
+const taskRows = () => TASKS.map(([n, t, v]) => `<div class="sc-row open click"><span class="sc-num">${n}</span><span class="sc-lb"><span class="sc-ltitle">${t}</span><span class="sc-lsub">${v === 'ok' ? '1 из 1' : v === 'part' ? '1 из 2' : v === 'wait' ? 'не решено' : '0 из ' + (n === '27' ? '2' : '1')}</span></span><span class="sc-go">Разбор →</span><span class="sc-pill ${{ ok: 'done', bad: 'mk-err', part: 'mk-warn', wait: 'lock' }[v]}">${v === 'ok' ? 'верно' : v === 'part' ? 'частично' : v === 'wait' ? 'не решено' : 'неверно'}</span></div>`).join('');
+
+function studentBody(isParent) {
+  const st = S.demo[isParent ? 'parent' : 'student'];
+  const child = isParent ? `<div class="prof-child-bar"><span class="prof-chip">Только просмотр</span><label class="prof-child-pick">Ученик: <select><option>Мария Алексеева</option><option>Алексей Алексеев</option></select></label></div>` : '';
+  if (st === 'empty') {
+    return `<div class="prof-dash">${child}<div class="prof-dash-hello"><h1>Мои экзамены</h1><p>Запись, предстоящие экзамены и результаты</p></div></div>`
+      + emptyState('Пока нет экзаменов', 'Когда преподаватель опубликует экзамен по вашему направлению, он появится здесь. Вопросы — к преподавателю.');
+  }
+  const done = st === 'result';
+  const slot = SLOTS[S.slot];
+  let hero; let below = '';
+  if (st === 'booking') {
+    hero = `<div class="sc-hact">${isParent ? '' : btn('Записаться', 'scroll-pick', 'prof-btn-primary sc-hbtn')}<div class="sc-hint">${isParent ? 'Записывается ученик в своём кабинете' : 'выберите сеанс ниже'}</div></div>`;
+    below = `<div class="prof-card" id="pickCard"><div class="prof-card-head"><div><h3>Выберите дату и время</h3><span class="ch-sub">Все сеансы — один пробник. Смена и отмена записи — до начала выбранного сеанса. Время центра.</span></div></div>
+      <div style="padding:0 1.125rem 1.125rem">${slotCarousel()}<div class="mk-row-actions" style="justify-content:space-between"><span class="ch-sub">Место закрепляется после подтверждения записи</span>${btn('Подтвердить запись', 'confirm-slot', 'prof-btn-primary')}</div></div></div>`;
+  } else if (st === 'booked') {
+    hero = `<div class="sc-hact">${isParent ? '' : '<button class="prof-btn sc-hbtn" disabled>Приступить</button>'}<div class="sc-hint">${isParent ? 'Экзамен начинает только ученик' : 'откроется ' + slot.full + ' в ' + slot.t}</div></div>`;
+    below = `<div class="prof-card"><div class="prof-card-head"><div><h3>Вы записаны</h3><span class="ch-sub">${slot.full}, ${slot.t} · очно · ${slot.room}. Экзамен добавлен в расписание.</span></div>${isParent ? '' : `<div class="mk-row-actions">${btn('Изменить запись', 'change-slot', 'prof-btn-sm')}${btn('Отменить запись', 'cancel-slot', 'prof-btn-sm prof-btn-danger')}</div>`}</div>
+      <div class="sc-notice">Начать можно с ${slot.t} до 13:55; после старта — 3 часа 55 минут. Если заболели — свяжитесь с преподавателем.</div></div>`;
+  } else if (st === 'waiting') {
+    hero = `<div class="sc-hact"><span class="sc-pill open">ожидает утверждения</span><div class="sc-hint">работа сохранена 12 окт., 13:41</div></div>`;
+    below = `<div class="prof-card"><div class="sc-notice">Работа сдана. Результат появится после утверждения преподавателем.</div></div>`;
+  } else {
+    hero = `<div class="sc-hact">${btn('Результаты', 'open-result', 'prof-btn-primary sc-hbtn')}<div class="sc-hint">72 из 100 · 18 из 29 первичных</div></div>`;
+    below = `<div class="prof-card"><div class="prof-card-head"><div><h3>Задания</h3><span class="ch-sub">Показаны первые 5 из 27</span></div></div>${taskRows()}</div>`;
+  }
+  return `<div class="prof-dash">${child}<div class="prof-dash-hello"><h1>Мои экзамены</h1><p>Запись, предстоящие экзамены и результаты</p></div>
+    ${examTabs(done)}
+    <div class="prof-card sc-hero"><div class="sc-hero-top"><div class="sc-hinfo"><span class="sc-code chip-soft-c5">ЕГЭ · Информатика</span><div class="sc-htitle">${done ? 'Сентябрьский' : 'Октябрьский'} пробный экзамен</div>
+      <div class="sc-hmeta">${done ? '24 сентября · очно · каб. 204' : 'Период 12–21 октября · 27 заданий · 3 ч 55 мин · одна сдача'}</div></div>${hero}</div></div>${below}</div>`;
+}
+
+/* ── Кабинет: преподаватель ────────────────────────────────────────── */
+function calendarBody() {
+  const filled = S.demo.calendar === 'filled';
+  if (!filled) {
+    return emptyState('Пока нет проведений', 'Создайте проведение: период, даты сеансов и экзаменационная работа. Ученики группы предмета увидят его после публикации.',
+      `<div style="margin-top:1rem">${btn('Добавить проведение', 'event-settings', 'prof-btn-primary')}</div>`);
+  }
+  const cells = [];
+  for (let i = 0; i < 3; i++) cells.push('<div class="kal-cell empty"></div>');
+  const ev = { 12: [['10:00 · 14/20', 'каб. 204'], ['15:00 · 18/20', 'каб. 205']], 15: [['10:00 · 20/20', 'каб. 204']], 21: [['15:00 · 12/20', 'каб. 204']], 23: [['15:00 · 3/20', 'доп. сдача']] };
+  for (let d = 1; d <= 31; d++) {
+    const inPeriod = d >= 12 && d <= 23;
+    cells.push(`<div class="kal-cell${inPeriod ? '' : ' no-lesson'}" data-day="${d}"><div class="kal-date"><span class="kd-num">${d}</span></div>${(ev[d] || []).map(([t, m]) => `<div class="placed-theme" draggable="true" data-action="open-session"><span class="pt-title">${t}</span><span class="pt-meta">Пробник № 2</span><span class="pt-meta">${m}</span></div>`).join('')}</div>`);
+  }
+  return `<div class="prof-ktp"><div class="prof-ktp-head"><div class="prof-ktp-pickers">
+      <div class="prof-ktp-pick"><span class="kp-label">Предмет</span><button type="button" class="kp-btn"><span class="kp-chip chip-c5">ЕГЭ</span><span class="kp-txt">Информатика</span></button></div>
+      <div class="prof-ktp-pick"><span class="kp-label">Проведение</span><button type="button" class="kp-btn"><span class="kp-chip chip-c5">ИНФ</span><span class="kp-txt">Октябрьский пробник · 12–23 октября</span></button></div></div>
+    <span class="prof-spacer"></span>
+    <div class="prof-ktp-legend"><span class="kl"><span class="prof-dot prof-dot-good"></span>Сеанс экзамена</span></div>
+    ${btn('Настройки проведения', 'event-settings', 'prof-btn-sm')}${btn('Опубликовать', 'publish', 'prof-btn-sm prof-btn-primary')}</div>
+    <div class="prof-ktp-grid"><div class="prof-theme-bank"><div class="tb-head"><h3>Экзаменационные работы</h3><span class="tbh-count">перетащите на дату</span></div>
+      <div class="prof-theme-list"><div class="prof-theme-card" draggable="true"><span class="tc-grip">⋮⋮</span><span class="tc-num">1</span><div class="tc-body"><div class="tc-title">Пробник № 2</div><div class="tc-meta"><span>27 единиц</span><span>29 баллов</span><span>235 мин</span></div></div></div>
+      <div class="prof-theme-card" draggable="true"><span class="tc-grip">⋮⋮</span><span class="tc-num">2</span><div class="tc-body"><div class="tc-title">Другой вариант</div><div class="tc-meta"><span>для отдельного сеанса</span></div></div></div></div></div>
+    <div class="prof-kal"><div class="kal-head"><button class="prof-icon-ghost" disabled>${svg(P('M12 4.5 6.5 10l5.5 5.5'), 16)}</button><div class="kal-month">Октябрь 2026</div><button class="prof-icon-ghost">${svg(P('M8 4.5 13.5 10 8 15.5'), 16)}</button><span class="prof-spacer"></span>${btn('+ Сеанс', 'new-session', 'prof-btn-sm')}</div>
+      <div class="kal-grid-wrap"><div class="kal-dow"><span>Пн</span><span>Вт</span><span>Ср</span><span>Чт</span><span>Пт</span><span>Сб</span><span>Вс</span></div><div class="kal-grid">${cells.join('')}</div></div></div></div></div>`;
+}
+
+function personRow(p, i, approve) {
+  const ready = i === 4;
+  return `<div class="pr-row${approve ? '' : ' pr-row--link'}">${approve ? `<input type="checkbox" ${ready ? 'checked' : 'disabled'} aria-label="Выбрать ${esc(p.n)}">` : ''}
+    <span class="pr-ava" style="background:linear-gradient(135deg,var(--ava-from),var(--ava-to))">${p.ini}</span>
+    <div class="pr-info"><div class="pr-name">${esc(p.n)}</div><div class="pr-sub">${esc(p.src)}${i < 4 ? ' · гость' : ''}</div>
+      <div class="mk-pills">${i < 4 ? pill('Оплата: ' + p.pay[0], p.pay[2] || p.pay[1]) : ''}${pill('Запись: ' + p.reg[0], p.reg[1])}${pill('Допуск: ' + p.adm[0], p.adm[1])}${pill('Попытка: ' + p.att[0], p.att[1])}</div></div>
+    ${approve ? (ready ? verdict('готова к утверждению', 'pending') : '') : `<button type="button" class="prof-btn prof-btn-sm prof-btn-ghost" data-action="row-menu" data-i="${i}">Действия ⋮</button>`}</div>`;
+}
+
+function sessionBody() {
+  const approve = S.demo.session === 'approve';
+  const tabs = `<div class="sc-tabs-wrap" data-ready="1"><div class="sc-tabs">
+    <button class="sc-tab on"><span class="sc-chip chip-c5">пн</span><span class="sc-tb"><span class="sc-tname">12 октября · 10:00</span><span class="sc-tsub">каб. 204 · записано 14 из 20</span></span></button>
+    <button class="sc-tab"><span class="sc-chip chip-c5">пн</span><span class="sc-tb"><span class="sc-tname">12 октября · 15:00</span><span class="sc-tsub">каб. 205 · записано 18 из 20</span></span></button>
+    <button class="sc-tab"><span class="sc-chip chip-c3">чт</span><span class="sc-tb"><span class="sc-tname">15 октября · 10:00</span><span class="sc-tsub">каб. 204 · записано 20 из 20</span></span></button></div></div>`;
+  const tiles = `<div class="prof-stat-tiles">${[['Записано', '14', 'из 20 мест'], ['Пришли', '11', 'начали сдачу'], ['Сдали', '1', 'ждёт утверждения 1'], ['Требуют помощи', '1', 'оплата без места']].map(([t, v, d]) => `<div class="prof-stat-tile"><div class="st-top">${t}</div><div class="st-val">${v}</div><div class="st-delta">${d}</div></div>`).join('')}</div>`;
+  const head = `<div class="prof-card-head"><div><h3>Участники</h3><span class="ch-sub">Вход 10:00–13:55 · после старта 3 ч 55 мин</span></div><div class="mk-row-actions ch-act">
+    ${approve ? `${btn('Отмена', 'approve-off', 'prof-btn-sm')}${btn('Утвердить все', 'approve-do', 'prof-btn-sm prof-btn-primary')}` : `${btn('Добавить гостя', 'add-guest', 'prof-btn-sm')}${btn('Утвердить работы', 'approve-on', 'prof-btn-sm prof-btn-primary')}`}</div></div>`;
+  return dash('Проведение экзамена', 'Октябрьский пробник · 12 октября', `${tabs}${tiles}<div class="prof-card">${head}<div class="pr-list" style="padding:.75rem 1.125rem 1.125rem">${PEOPLE.map((p, i) => personRow(p, i, approve)).join('')}</div></div>`);
+}
+
+function guestsBody() {
+  const rows = PEOPLE.map((p, i) => ({ p, i })).filter(({ i }) => i !== 2 && i !== 3);
+  const scores = ['72 / 100', '80 / 100', '', '', 'ждёт утверждения'];
+  return dash('Результаты', 'Октябрьский пробник · 12–23 октября', `<div class="prof-card"><div class="prof-card-head"><div><h3>Участники</h3><span class="ch-sub">Гости и ученики центра</span></div>
+    <div class="prof-seg ch-act"><button class="on">Все · 5</button><button>Гости · 4</button><button>Ученики · 1</button></div></div>
+    <div class="pr-list" style="padding:.75rem 1.125rem 1.125rem">${rows.map(({ p, i }) => `<div class="pr-row pr-row--link"><span class="pr-ava" style="background:linear-gradient(135deg,var(--ava-from),var(--ava-to))">${p.ini}</span><div class="pr-info"><div class="pr-name">${esc(p.n)}</div><div class="pr-sub">${esc(p.src)} · ${scores[i]}</div></div>${btn('Работа', 'open-review', 'prof-btn-sm prof-btn-ghost')}${i < 4 ? btn('Личная ссылка результата', 'issue-result', 'prof-btn-sm') : ''}</div>`).join('')}</div></div>
+    <div class="prof-card"><div class="prof-card-head"><div><h3>Отчёты школам</h3><span class="ch-sub">Получатель видит только выбранных участников</span></div>${btn('Создать отчёт', 'make-report', 'prof-btn-sm prof-btn-primary ch-act')}</div>
+      <div class="prof-work-item is-clickable" data-action="open-report"><div class="prof-work-ico rev">${ICON.check}</div><div class="prof-work-main"><div class="prof-work-title">Школа № 1 · выбранные участники</div><div class="prof-work-sub">3 участника · доступ до 30 ноября</div></div>${btn('Отозвать', 'revoke-report', 'prof-btn-sm')}</div></div>`);
+}
+
+function reviewBody() {
+  const t = (n, cond, ans, cor, v, lab, score) => `<article class="sum-task"><div class="sum-task-head"><span class="st-n">Задача ${n}</span>${verdict(lab, v)}<span class="st-score">${score}</span></div><div class="sum-task-cond">${cond}</div>
+    <div class="sum-task-ans"><span class="sta-label">Ответ участника:</span> <span class="sta-val">${ans}</span></div>${v === 'correct' ? '' : `<div class="sum-task-ans sum-task-correct"><span class="sta-label">Правильный ответ:</span> <span class="sta-val">${cor}</span></div>`}</article>`;
+  return `<div class="prof-dash"><div class="prof-dash-hello"><h1>Мария Алексеева · Октябрьский пробник</h1><p>Сдано 12 окт., 13:41 · 235 мин отведено · ожидает утверждения</p></div>
+    <div class="prof-card"><div class="prof-card-head"><div><h3>Разбор по заданиям</h3><span class="ch-sub">Тот же экран, что у «Работ»</span></div><div class="mk-row-actions">${btn('Лист результатов', 'noop', 'prof-btn-sm')}${btn('Утвердить работу', 'approve-one', 'prof-btn-sm prof-btn-primary')}</div></div>
+    <div style="padding:.75rem 1.125rem 1.125rem">${t(1, 'Для кодирования 256 символов используются коды одинаковой длины. Сколько бит нужно на один код?', '8', '8', 'correct', 'Верно', '1/1')}
+    ${t(2, 'Сколько наборов (x, y, z) обращают F = (x ∧ ¬y) ∨ (y ∧ z) в истину?', '3', '4', 'incorrect', 'Неверно', '0/1')}
+    ${t(26, 'Табличный ответ: количество элементов и значение последнего.', '12 | 40', '12 | 45', 'pending', 'Частично верно', '1/2')}</div></div></div>`;
+}
+
+function statsBody() {
+  const rows = [['1', 'Информационные модели', 92, 0, 8], ['2', 'Таблицы истинности', 61, 0, 39], ['26', 'Обработка данных', 30, 40, 30], ['27', 'Программирование', 12, 18, 70]];
+  return dash('Статистика экзаменов', 'Октябрьский пробник · выборка 18 работ', `<div class="prof-stat-tiles">${[['Записано', '52', 'из 60 мест'], ['Сдали', '18', 'утверждено 15'], ['Не явились', '2', '4%'], ['Средний балл', '68', 'из 100 · по 15 работам']].map(([t, v, d]) => `<div class="prof-stat-tile"><div class="st-top">${t}</div><div class="st-val">${v}</div><div class="st-delta">${d}</div></div>`).join('')}</div>
+    <div class="prof-card"><div class="prof-card-head"><div><h3>По заданиям</h3><span class="ch-sub">Полностью / частично / ошибки · №26 и №27 по 2 балла</span></div></div>
+    ${rows.map(([n, t, full, part, bad]) => `<div class="sc-row"><span class="sc-num">${n}</span><span class="sc-lb"><span class="sc-ltitle">${t}</span><span class="sc-lsub">${full}% полностью · ${part}% частично · ${bad}% ошибок</span></span><span class="sc-pill ${full > 50 ? 'done' : 'open'}">${full}%</span></div>`).join('')}</div>`);
+}
+
+/* ── Кабинет: администратор — оплаты гостей ────────────────────────── */
+function paymentsBody() {
+  const help = S.demo.payments === 'help';
+  const items = help
+    ? [['Козлов Илья · заказ #1248', 'Оплата получена 12:41 · сеанс 12 окт. 10:00 заполнен · место не удержано', 'att'], ['Лебедева Ольга · заказ #1252', 'Оплата получена 13:05 · бронь истекла, сеанс 15 окт. закрыт', 'att']]
+    : [['Орлова Алина · заказ #1240', 'Оплачено · запись подтверждена · 12 окт. 10:00', 'rev'], ['Волков Артём · заказ #1241', 'Оплачено купоном · запись подтверждена · 12 окт. 15:00', 'rev'], ['Морозова Анна · заказ #1250', 'Ожидаем оплату · бронь до 14:20', 'grade'], ['Козлов Илья · заказ #1248', 'Оплачено, требуется помощь', 'att']];
+  return dash('Оплаты гостей', 'Октябрьский пробник · оплата, запись, допуск и попытка — отдельные состояния', `<div class="prof-card"><div class="prof-card-head"><div><h3>${help ? 'Оплачено, требуется помощь' : 'Все оплаты'}</h3><span class="ch-sub">${help ? 'Уведомление о каждой такой заявке получают администраторы платформы' : 'Данные из заказов WooCommerce'}</span></div>
+    <div class="prof-seg ch-act"><button data-action="demo" data-v="help" class="${help ? 'on' : ''}">Требуют помощи · 2</button><button data-action="demo" data-v="all" class="${help ? '' : 'on'}">Все · 14</button></div></div>
+    ${items.map(([t, s, ico]) => `<div class="prof-work-item"><div class="prof-work-ico ${ico}">${ICON.rub}</div><div class="prof-work-main"><div class="prof-work-title">${t}</div><div class="prof-work-sub">${s}</div></div>
+      ${help ? `<div class="mk-row-actions">${btn('Выбрать сеанс', 'resolve-pick', 'prof-btn-sm prof-btn-primary')}${btn('Отметить возврат вне Woo', 'resolve-refund', 'prof-btn-sm')}</div>` : ''}</div>`).join('')}</div>
+    <p class="mk-note">Возврат денег выполняет сотрудник вне WooCommerce; здесь только отметка — LMS не вызывает возврат и не меняет заказ.</p>`);
+}
+
+/* ── Уведомления: тексты (экран для текста, стиль — как у колокольчика) ── */
+const NOTIF = {
+  student: [
+    ['calendar', 'Открыта запись на экзамен', 'Октябрьский пробник · 12–21 октября. Выберите сеанс', 'сегодня', 'info', 1],
+    ['check', 'Вы записаны на экзамен', '12 октября · 10:00 · каб. 204', 'сегодня', 'ok', 1],
+    ['calendar', 'Завтра экзамен', '12 октября · 10:00 · каб. 204', '1 дн', 'info', 0],
+    ['calendar', 'Экзамен начнётся через час', '10:00 · каб. 204', '1 дн', 'info', 0],
+    ['check', 'Можно приступить к экзамену', 'Начало до 13:55 · на работу 3 ч 55 мин', '1 дн', 'ok', 0],
+    ['calendar', 'Запись перенесена', 'Новый сеанс: 15 октября · 10:00', '2 дн', 'warn', 0],
+    ['alert', 'Запись отменена преподавателем', 'Причина: болезнь. Можно выбрать другой сеанс', '2 дн', 'warn', 0],
+    ['alert', 'Экзамен пропущен', 'Запись аннулирована. Можно записаться на другой сеанс', '3 дн', 'err', 0],
+    ['check', 'Работа сдана', 'Результат появится после утверждения преподавателем', '3 дн', 'info', 0],
+    ['check', 'Результат экзамена готов', '72 из 100 баллов', '4 дн', 'ok', 0],
+    ['alert', 'Результат исправлен', 'Причина: пересчитано задание 26', '4 дн', 'warn', 0],
+    ['calendar', 'Время экзамена продлено', 'Новый срок окончания: 15:10', '5 дн', 'info', 0],
+  ],
+  teacher: [
+    ['check', 'Экзамен сдан: Мария Алексеева', 'Октябрьский пробник · ждёт утверждения', 'сегодня', 'info', 1],
+    ['check', 'Экзамен сдан: Алина Орлова (гость)', 'Октябрьский пробник · часть заданий ждёт проверки', 'сегодня', 'info', 1],
+    ['alert', 'Много заявок по ссылке школы № 1', '60 активных броней · проверьте ссылку', '1 дн', 'warn', 0],
+  ],
+  office: [
+    ['alert', 'Оплата без места: Козлов Илья', 'Заказ #1248 · 12 октября 10:00 · мест нет', 'сегодня', 'err', 1],
+    ['alert', 'Оплата без места: Лебедева Ольга', 'Заказ #1252 · бронь истекла, сеанс закрыт', 'сегодня', 'err', 1],
+    ['alert', 'Не удалось сверить оплату', 'Заказ #1251 · проверьте статус в WooCommerce', '1 дн', 'warn', 0],
+    ['alert', 'Много заявок по ссылке школы № 1', '60 активных броней · проверьте ссылку', '1 дн', 'warn', 0],
+  ],
+};
+const notifItem = ([ico, title, sub, time, tone, unread]) => `<a class="prof-notif-item" href="#notifications" data-tone="${tone}"><span class="ni-ico">${ICON[ico]}</span><span class="ni-body"><span class="ni-title">${unread ? '<span class="ni-dot"></span>' : ''}${esc(title)}</span><span class="ni-sub">${esc(sub)}</span></span><span class="ni-time">${time}</span></a>`;
+function notificationsBody() {
+  const role = S.notifRole;
+  const label = { student: 'Ученик и родитель', teacher: 'Преподаватель', office: 'Администратор платформы' };
+  return dash('Уведомления по экзаменам', 'Тексты для разработки. Отображение — как у колокольчика: каждое уведомление целиком является ссылкой, кнопок внутри нет.', `<div class="mk-demo-bar"><div class="prof-seg">${Object.keys(label).map((k) => `<button class="${k === role ? 'on' : ''}" data-action="notif-role" data-v="${k}">${label[k]}</button>`).join('')}</div></div>
+    <div class="prof-card"><div class="prof-notif-list" style="max-height:none">${NOTIF[role].map(notifItem).join('')}</div></div>
+    <p class="mk-note">Родителю приходят те же тексты с именем ребёнка («Запись Марии подтверждена»). Гостям уведомлений нет — письма WooCommerce не меняются.</p>`);
+}
+
+/* ── Публичный сайт ─────────────────────────────────────────────────── */
+const fld = (label, icon, input, req = true) => `<div class="fs-join-card__field-group fs-form-group"><label>${label}${req ? ' <span aria-hidden="true">*</span>' : ''}</label><div class="fs-field-control"><span class="dashicons dashicons-${icon}" aria-hidden="true"></span>${input}</div></div>`;
+
+function summaryBlock() {
+  const s = SLOTS[S.slot];
+  return `<div class="mk-summary"><h3>Ваша запись</h3><dl><dt>Участник</dt><dd>Орлова Алина Сергеевна</dd><dt>Направление</dt><dd>ЕГЭ по информатике</dd><dt>Дата и время</dt><dd>${s.full} 2026, ${s.dow}, ${s.t} (время центра)</dd><dt>Место</dt><dd>г. Калининград, ул. Черняховского, 6, ${s.room}</dd><dt>Стоимость</dt><dd class="mk-price">1 500 ₽</dd></dl></div>`;
+}
+
+function signupBody() {
+  const st = S.demo.signup;
+  if (st === 'paid') {
+    return `<main class="fs-lms-join-page"><div class="fs-join-card"><div class="fs-apply-card__success" role="status"><span class="dashicons dashicons-yes-alt fs-apply-card__success-icon" aria-hidden="true"></span>
+      <p class="fs-apply-card__success-title">Оплата получена! Администратор скоро свяжется с вами</p></div></div></main>`;
+  }
+  if (st === 'hold' || st === 'pending') {
+    const m = Math.floor(S.hold / 60); const sec = String(S.hold % 60).padStart(2, '0');
+    return `<main class="fs-lms-join-page"><div class="fs-join-card"><h2 class="fs-join-card__title">${st === 'hold' ? 'Место удерживается' : 'Оплата ещё не подтверждена'}</h2>
+      ${summaryBlock()}
+      <div class="fs-apply-card__status"><span class="fs-apply-card__spinner" aria-hidden="true"></span><div>
+        ${st === 'hold'
+    ? `<p class="mk-hold">Ожидаем оплату. Место удерживается до 14:20 — осталось <b id="holdLeft">${m}:${sec}</b></p><p class="fs-apply-card__success-notice">Завершите оплату в корзине. Если закрыли страницу — вернитесь по ссылке из корзины.</p>`
+    : `<p class="mk-hold">Подтверждение оплаты ещё не получено</p><p class="fs-apply-card__success-notice">Не оплачивайте повторно. Если деньги списаны, запись подтвердится автоматически; администратор свяжется с вами.</p>`}</div></div>
+      <button type="button" class="fs-join-card__submit" data-action="${st === 'hold' ? 'go-cart' : 'check-status'}">${st === 'hold' ? 'Перейти в корзину' : 'Проверить статус'}</button></div></main>`;
+  }
+  return `<main class="fs-lms-join-page"><div class="fs-join-card"><h2 class="fs-join-card__title">Запись на пробный экзамен</h2>
+    <p class="fs-join-card__subtitle">ЕГЭ по информатике · 12–21 октября 2026. Сразу после сдачи вы увидите свою работу и разбор заданий.</p>
+    <form id="guestForm" novalidate>
+      <fieldset class="fs-join-card__section"><legend class="fs-join-card__section-title">Школа и класс</legend>
+        <p class="fs-join-card__locked-notice"><span class="dashicons dashicons-lock" aria-hidden="true"></span>Подставлены из вашей ссылки и не меняются.</p>
+        ${fld('Школа', 'building', '<input type="text" value="Школа № 1" readonly>', false)}
+        ${fld('Класс', 'list-view', '<input type="text" value="11 класс" readonly>', false)}
+      </fieldset>
+      <fieldset class="fs-join-card__section"><legend class="fs-join-card__section-title">Данные участника</legend>
+        ${fld('Фамилия', 'admin-users', '<input type="text" placeholder="Орлова" required>')}
+        ${fld('Имя', 'admin-users', '<input type="text" placeholder="Алина" required>')}
+        ${fld('Отчество', 'admin-users', '<input type="text" placeholder="Сергеевна">', false)}
+        ${fld('Номер телефона', 'phone', '<input type="tel" placeholder="+7 (999) 000-00-00" required>')}
+        ${fld('Связь через мессенджер', 'format-chat', '<input type="text" placeholder="@имя или телефон">', false)}
+      </fieldset>
+      <fieldset class="fs-join-card__section"><legend class="fs-join-card__section-title">Дата и время</legend>
+        ${slotCarousel()}
+        <p class="mk-hint">Место удерживается после перехода к оплате (20 минут).</p>
+      </fieldset>
+      <fieldset class="fs-join-card__section fs-join-card__section--consents"><div class="fs-join-card__consent"><label><input type="checkbox" required><span>Я даю согласие на обработку персональных данных. <a class="button-link" href="#">Прочитать</a></span></label></div></fieldset>
+      ${summaryBlock()}
+      <button type="submit" class="fs-join-card__submit">Перейти к оплате</button>
+    </form></div></main>`;
+}
+
+function entryBody() {
+  return `<main class="fs-lms-join-page"><div class="fs-join-card"><h2 class="fs-join-card__title">Вход на экзамен</h2>
+    <p class="fs-join-card__subtitle"><strong>Орлова Алина Сергеевна</strong><br>Октябрьский пробник · 12 октября · каб. 204</p>
+    <p class="mk-hint" style="font-size:.9rem">Начать можно с 10:00 до 13:55. После начала у вас будет 3 часа 55 минут. Ссылка персональная — не передавайте её другим.</p>
+    <button type="button" class="fs-join-card__submit" data-action="start-exam">Приступить</button></div></main>`;
+}
+
+const VERDICT_CLS = { 'Верно': 'tcr-tag--c3', 'Неверно': 'mk-err', 'Не решено': 'tcr-tag--c2' };
+/* Карточка задания — шаблон Тренажёра (task-card-row). Ответы показаны сразу, решение раскрывается снизу, как на странице задания. */
+const tcr = (n, cond, ans, cor, v, solution) => `<article class="task-card-row" id="t-${n}"><h2 class="tcr-title">Задание № ${n}</h2>
+  <header class="tcr-header"><div class="tcr-header-inner"><div class="tcr-meta"><span class="tcr-tag tcr-tag--c1">Задание №${n}</span><span class="tcr-tag ${VERDICT_CLS[v] || 'tcr-tag--c1'}">${v}</span></div></div></header>
+  <div class="tcr-body"><div class="tcr-condition">${cond}</div></div>
+  <div class="fs-answer"><div class="fs-answer-label">Ваш ответ:</div><div class="fs-answer-value">${ans}</div></div>
+  ${v === 'Верно' ? '' : `<div class="fs-answer"><div class="fs-answer-label">Правильный ответ:</div><div class="fs-answer-value">${cor}</div></div>`}
+  <footer class="tcr-foot"><button type="button" class="fs-answer-toggle" data-action="toggle-solution" aria-expanded="false">Показать решение</button></footer>
+  <div class="fs-answer mk-solution" hidden><div class="fs-answer-label">Решение:</div><div class="fs-answer-note">${solution}</div></div></article>`;
+
+const EX_TASKS = {
+  1: ['<p>Для кодирования 256 символов используются двоичные коды одинаковой длины. Сколько бит нужно на один код?</p>', '8', '8', 'Верно', '2⁸ = 256, поэтому достаточно 8 бит.'],
+  2: ['<p>Логическая функция F = (x ∧ ¬y) ∨ (y ∧ z). Сколько наборов (x, y, z) обращают F в истину?</p>', '3', '4', 'Неверно', 'При y = 0 подходят два набора с x = 1, при y = 1 — ещё два с z = 1. Итого 4.'],
+  3: ['<p>В таблице результаты трёх участников: 52, 71 и 85 баллов. Сколько записей удовлетворяют условию «балл ≥ 70»?</p>', '—', '2', 'Не решено', 'Подходят результаты 71 и 85 — две записи.'],
+  26: ['<p>Табличный ответ: количество выбранных элементов и значение последнего.</p>', '12 | 40', '12 | 45', 'Неверно', 'Первый компонент совпал с эталоном, второй — нет. За задание 2 первичных балла; получен 1.'],
+  27: ['<p>Укажите два результата расчёта для файлов A и B.</p>', '100 | 200', '120 | 240', 'Неверно', 'Оба компонента не совпали с эталоном. Максимум задания — 2 первичных балла.'],
+};
+const exTasks = (ids) => `<div class="task-cards">${ids.map((n) => tcr(n, ...EX_TASKS[n])).join('')}</div>`;
+/* квадратики отметок заданий (из прошлого макета): зелёный — верно, красный — неверно, жёлтый — не решено / частично */
+const tasknav = () => `<div class="mk-tasknav">${Array.from({ length: 27 }, (_, i) => `<button type="button" data-action="jump" data-n="${i + 1}" class="${i === 1 || i === 26 ? 'bad' : i === 2 || i >= 19 ? 'wait' : 'ok'}">${i + 1}</button>`).join('')}</div><p class="mk-hint">Зелёный — верно · красный — неверно · жёлтый — не решено или частично верно</p>`;
+
+function resultBody() {
+  return `<div class="mk-eyeline">Алина Орлова · Октябрьский пробник</div><h1 class="mk-h1">Ваш результат по информатике</h1>
+    <section class="side-card mk-hero"><div class="mk-hero-main"><span class="tcr-tag tcr-tag--c3">Результат доступен</span><h2 class="mk-h2">ЕГЭ по информатике</h2><p class="mk-lead" style="margin:.25rem 0 0">12 октября, 10:00 · очно · пробник № 2</p>
+      <div class="mk-score"><div class="mk-score-row"><strong>72 из 100 баллов</strong><small>18 / 29 первичных</small></div><div class="mk-progress"><span style="width:72%"></span></div></div></div>
+      <div class="mk-pillstats"><span>Ваша работа сохранена</span><span>Доступен разбор заданий</span><span>Часть заданий ждёт ручной проверки — итог предварительный</span></div></section>
+    <div class="mk-section-head"><h2 class="mk-h2">Разбор заданий</h2><small>27 заданий</small></div>${tasknav()}
+    ${exTasks([1, 2, 3, 26, 27])}
+    <p class="mk-note">В макете пять заданий, включая №26 и №27; в продукте — все задания работы.</p>
+    <p style="margin:1.25rem 0"><button type="button" class="fs-join-card__submit" style="max-width:16rem" data-action="end-session">Завершить сеанс</button></p>`;
+}
+
+function reportBody() {
+  const rows = [['Орлова Алина', 'Школа № 1', '12 окт., 10:00', '18', '72', true], ['Волков Артём', 'Школа № 1', '12 окт., 15:00', '21', '80', true], ['Морозова Анна', 'Школа № 1', '15 окт., 10:00', '14', '62', true], ['Соколова Дарья', 'Самостоятельная запись', '21 окт., 15:00', '—', '—', false]];
+  const open = S.reportPerson !== null ? rows[S.reportPerson] : null;
+  return `<div class="mk-report-head"><span class="tcr-tag mk-gray">Доступ по ссылке</span><h1 class="mk-h1" style="margin-top:.5rem">Результаты учеников школы № 1</h1><p class="mk-lead" style="margin:0">Октябрьский пробник · ЕГЭ по информатике · 12–21 октября 2026 · отчёт только для просмотра</p></div>
+    <div class="mk-metrics">${[['3', 'участника<br>в отчёте'], ['3', 'результата<br>опубликовано'], ['71', 'средний<br>балл из 100']].map(([b, t]) => `<section class="side-card"><b>${b}</b><span>${t}</span></section>`).join('')}</div>
+    <section class="side-card" style="padding:0;margin-bottom:1.25rem"><div class="mk-card-head"><div><h3>Ученики и работы</h3></div></div>
+    <div class="mk-tablewrap"><table class="mk-table"><thead><tr><th>Участник</th><th>Дата сдачи</th><th>Первичные</th><th>Из 100</th><th>Статус</th><th></th></tr></thead>
+    <tbody>${rows.map((r, i) => `<tr><td class="mk-td-name"><strong>${r[0]}</strong><small>${r[1]}</small></td><td data-label="Дата сдачи">${r[2]}</td><td data-label="Первичные">${r[3]}</td><td data-label="Из 100"><strong>${r[4]}</strong></td><td data-label="Статус"><span class="tcr-tag ${r[5] ? 'tcr-tag--c3' : 'mk-gray'}">${r[5] ? 'Опубликован' : 'Ожидает сдачи'}</span></td><td class="mk-td-act"><button type="button" class="mk-link" data-action="report-open" data-i="${i}" ${r[5] ? '' : 'disabled'}>Результат и работа</button></td></tr>`).join('')}</tbody></table></div></section>
+    ${open ? `<section id="report-work"><div class="mk-section-head"><div><h2 class="mk-h2">${open[0]}</h2><small>Октябрьский пробник · ${open[4]} из 100 · ${open[3]} / 29 первичных</small></div><span class="tcr-tag mk-gray">Только просмотр</span></div><h3 class="mk-h3">Разбор заданий</h3>${tasknav()}${exTasks([1, 2, 3, 26, 27])}<p class="mk-note">Пять демонстрационных заданий; в продукте здесь вся выбранная работа.</p></section>` : ''}
+    <p class="mk-note">Доступ до 30 ноября 2026. Контакты участников и их личные ссылки в отчёте не показываются.</p>`;
+}
+
+/* ── Поповеры и диалоги ─────────────────────────────────────────────── */
+const overlays = () => $('#overlays');
+function closePops() { overlays().innerHTML = ''; }
+function openPop(html) {
+  overlays().innerHTML = `<div class="prof-ctx-backdrop open" data-action="close" style="display:block;background:rgba(20,24,33,.35)"></div><div class="prof-grade-pop open mk-center"><div class="gp-form mk-form">${html}</div></div>`;
+}
+function openConfirm({ title, lines, ok, onOk }) {
+  overlays().innerHTML = `<div class="fs-confirm-overlay"><div class="fs-confirm-dialog" role="alertdialog"><div class="fs-confirm-message"><strong>${esc(title)}</strong><ul style="margin:.5rem 0 0 1rem;padding:0;text-align:left">${lines.map((l) => `<li>${esc(l)}</li>`).join('')}</ul></div>
+    <div class="fs-confirm-actions"><button type="button" class="prof-btn" data-action="close">Отмена</button><button type="button" class="prof-btn prof-btn-primary" data-action="confirm-ok">${esc(ok)}</button></div></div></div>`;
+  overlays()._onOk = onOk;
+}
+
+function eventSettings(isNew) {
+  openPop(`<div class="gp-title">${isNew ? 'Новое проведение' : 'Настройки проведения'}</div>
+    <label>Название<input value="${isNew ? '' : 'Октябрьский пробник'}" placeholder="Например, Октябрьский пробник"></label>
+    <div class="mk-two"><label>Предмет<input value="Информатика (ЕГЭ)" disabled></label><label>Основной вариант<select><option>Пробник № 2 · 27 единиц</option><option>Другой вариант</option></select></label></div>
+    <div class="mk-two"><label>Период: с<input type="date" value="2026-10-12"></label><label>по<input type="date" value="2026-10-23"></label></div>
+    <div class="mk-two"><label>Запись открывается<input type="date" value="2026-10-01"></label><label>Запись закрывается<input type="date" value="2026-10-11"></label></div>
+    <div class="gp-title" style="margin-top:.75rem">Ссылки для преподавателей</div>
+    <p class="mk-hint">Каждая ссылка подставляет школу и класс в гостевую форму. Доступ к результатам она не даёт.</p>
+    <div id="srcRows">${[['Школа № 1', '11', 'Елена Петрова'], ['Гимназия № 4', '11', 'Ольга Соколова']].map(([s, c, t], i) => srcRow(s, c, t, i)).join('')}</div>
+    <div class="gp-row" style="margin:.25rem 0 .75rem">${btn('+ Добавить ссылку', 'add-src', 'prof-btn-sm')}</div>
+    <div class="gp-row" style="justify-content:flex-end">${btn('Отмена', 'close', 'prof-btn-sm')}${btn(isNew ? 'Создать' : 'Сохранить', 'save-event', 'prof-btn-sm prof-btn-primary')}</div>`);
+}
+const srcRow = (s, c, t, i) => `<div class="mk-src-row"><label>Школа<input value="${s}"></label><label>Класс<select><option ${c === '9' ? 'selected' : ''}>9</option><option ${c === '11' ? 'selected' : ''}>11</option></select></label><label>ФИО учителя<input value="${t}"></label>
+  <div class="mk-row-actions">${btn('Копировать', 'copy-link', 'prof-btn-sm')}${btn('Перевыпустить', 'reissue', 'prof-btn-sm prof-btn-ghost', `data-school="${esc(s)}"`)}</div></div>`;
+
+/* ── Меню «Действия» строки участника ─────────────────────────────── */
+function rowMenu(anchor, i) {
+  const menu = $('#profCtxMenu'); const back = $('#profCtxBackdrop');
+  const guest = i < 4;
+  const items = [['Отметить приход', 'arrived'], ['Выдать ссылку на вход', 'issue-entry'], ...(guest ? [['Отметить «Ссылка передана»', 'handed'], ['Перенести в другой сеанс', 'transfer'], ['Отметить возврат вне Woo', 'resolve-refund']] : []), ['Продлить попытку', 'extend'], ['Отменить запись', 'cancel-reg', 'danger'], ['Открыть работу', 'open-review']];
+  menu.innerHTML = `<div class="ctx-title">${esc(PEOPLE[i].n)}</div>${items.map(([l, a, c]) => `<div class="ctx-item ${c || ''}" data-action="${a}" data-i="${i}"><span class="ctx-lbl">${l}</span></div>`).join('')}`;
+  const r = anchor.getBoundingClientRect();
+  menu.classList.add('open'); menu.style.left = Math.max(10, r.left - 190) + 'px'; menu.style.top = r.bottom + 6 + 'px'; back.classList.add('open'); back.style.display = 'block';
+}
+function closeMenu() { const m = $('#profCtxMenu'); const b = $('#profCtxBackdrop'); if (m) { m.classList.remove('open'); } if (b) { b.classList.remove('open'); b.style.display = ''; } }
+
+/* ── Отрисовка ──────────────────────────────────────────────────────── */
+function render() {
+  const route = routeOf(S.route); S.route = route.id;
+  $$('link[data-set]').forEach((l) => { l.disabled = l.dataset.set !== route.frame; });
+  document.body.className = route.frame === 'cab' ? 'fs-profile-page mk-cab' : 'mk-site';
+  // на телефоне меню кабинета по умолчанию свёрнуто (как в app.js кабинета)
+  if (route.frame === 'cab' && matchMedia('(max-width:720px)').matches) document.body.classList.add('prof-menu-off');
+  let html;
+  switch (route.id) {
+    case 'student': html = cabFrame({ role: 'student', go: 'ex-student', crumb: 'Обучение', title: 'Мои экзамены', body: studentBody(false) }); break;
+    case 'parent': html = cabFrame({ role: 'parent', go: 'ex-student', crumb: 'Обучение', title: 'Мои экзамены', body: studentBody(true) }); break;
+    case 'calendar': html = cabFrame({ role: 'teacher', go: 'ex-calendar', crumb: 'Мои экзамены', title: 'Назначить экзамен', body: calendarBody() }); break;
+    case 'session': html = cabFrame({ role: 'teacher', go: 'ex-session', crumb: 'Мои экзамены', title: 'Проведение экзамена', body: sessionBody() }); break;
+    case 'guests': html = cabFrame({ role: 'teacher', go: 'ex-results', crumb: 'Мои экзамены', title: 'Результаты', body: guestsBody() }); break;
+    case 'teacher-review': html = cabFrame({ role: 'teacher', go: 'ex-results', crumb: 'Проверка работ', title: 'Мария Алексеева', body: reviewBody() }); break;
+    case 'stats': html = cabFrame({ role: 'teacher', go: 'ex-stats', crumb: 'Мои экзамены', title: 'Статистика', body: statsBody() }); break;
+    case 'payments': html = cabFrame({ role: 'office', go: 'ex-payments', crumb: 'Мои экзамены', title: 'Оплаты гостей', body: paymentsBody() }); break;
+    case 'notifications': html = cabFrame({ role: 'office', go: '', crumb: 'Личный кабинет', title: 'Уведомления', body: notificationsBody() }); break;
+    case 'signup': html = siteFrame(signupBody()); break;
+    case 'guest-entry': html = siteFrame(entryBody(), { aside: false }); break;
+    case 'result': html = siteFrame(resultBody(), { crumbs: ['Главная', 'Пробные экзамены', 'Мой результат'] }); break;
+    case 'report': html = siteFrame(reportBody(), { crumbs: ['Пробные экзамены', 'Отчёт для преподавателя'] }); break;
+    default: html = '';
+  }
+  $$('body > [data-frame]').forEach((n) => n.remove());
+  const tpl = document.createElement('template'); tpl.innerHTML = html;
+  [...tpl.content.children].forEach((n) => { n.dataset.frame = '1'; });
+  document.body.prepend(tpl.content);
+  closePops(); renderPanel(); initCarousels();
+  if (route.id === 'signup' && S.demo.signup === 'hold') startHold();
+  window.scrollTo(0, 0);
+}
+
+/* Кнопки карусели: скрыты, если карточки помещаются; у краёв — неактивны */
+function initCarousels() {
+  $$('.mk-slots-wrap').forEach((wrap) => {
+    const track = $('.mk-slots', wrap); const [prev, next] = $$('.mk-slots-nav', wrap);
+    const update = () => {
+      prev.hidden = true; next.hidden = true;
+      const overflow = track.scrollWidth > track.clientWidth + 1;
+      prev.hidden = !overflow; next.hidden = !overflow;
+      if (overflow) { prev.disabled = track.scrollLeft <= 1; next.disabled = track.scrollLeft + track.clientWidth >= track.scrollWidth - 1; }
+    };
+    track.addEventListener('scroll', () => { if (!prev.hidden) { prev.disabled = track.scrollLeft <= 1; next.disabled = track.scrollLeft + track.clientWidth >= track.scrollWidth - 1; } });
+    window.addEventListener('resize', update);
+    update();
+  });
+}
+
+function renderPanel() {
+  const cur = routeOf(S.route);
+  const groups = [['Кабинет', (r) => r.frame === 'cab'], ['Публичный сайт', (r) => r.frame === 'site']];
+  $('#mkBody').innerHTML = groups.map(([g, f]) => `<h4>${g}</h4>${ROUTES.filter(f).map((r) => `<button class="${r.id === cur.id ? 'on' : ''}" data-route="${r.id}">${r.label}</button>`).join('')}`).join('')
+    + (cur.demo ? `<h4>Состояние экрана</h4>${cur.demo.map(([v, l]) => `<button class="${S.demo[cur.id] === v ? 'on' : ''}" data-action="demo" data-v="${v}">${l}</button>`).join('')}` : '');
+}
+
+let holdTimer;
+function startHold() {
+  clearInterval(holdTimer);
+  holdTimer = setInterval(() => {
+    S.hold = Math.max(0, S.hold - 1);
+    const el = $('#holdLeft'); if (!el) { clearInterval(holdTimer); return; }
+    el.textContent = `${Math.floor(S.hold / 60)}:${String(S.hold % 60).padStart(2, '0')}`;
+  }, 1000);
+}
+
+function toast(text) { const el = $('#mkToast'); el.textContent = text; el.classList.add('show'); clearTimeout(toast.t); toast.t = setTimeout(() => el.classList.remove('show'), 3200); }
+
+/* ── События ────────────────────────────────────────────────────────── */
+const NAV_ROUTE = { 'ex-student': 'student', 'ex-calendar': 'calendar', 'ex-session': 'session', 'ex-results': 'guests', 'ex-stats': 'stats', 'ex-payments': 'payments' };
+const ACTIONS = {
+  'pick-slot': (el) => { S.slot = +el.dataset.i; render(); },
+  'scroll-pick': () => $('#pickCard')?.scrollIntoView({ behavior: 'smooth', block: 'center' }),
+  'confirm-slot': () => { S.demo[S.route] = 'booked'; render(); toast('Вы записаны. Подтверждение — на экране; уведомление — в колокольчике.'); },
+  'change-slot': () => { S.demo.student = 'booking'; render(); toast('Текущее место сохраняется, пока вы не подтвердите новое.'); },
+  'cancel-slot': () => openConfirm({ title: 'Отменить запись?', lines: [`${SLOTS[S.slot].full}, ${SLOTS[S.slot].t} · ${SLOTS[S.slot].room}`, 'Место освободится. Записаться заново можно, пока есть места.'], ok: 'Отменить запись', onOk: () => { S.demo.student = 'booking'; render(); } }),
+  'open-result': () => toast('Откроется экран «Результаты» — тот же, что в «Работах».'),
+  'tabs-scroll': (el) => $('#slotTabs')?.scrollBy({ left: 300 * +el.dataset.dir, behavior: 'smooth' }),
+  'slots-scroll': (el) => $('#mkSlots')?.scrollBy({ left: 240 * +el.dataset.dir, behavior: 'smooth' }),
+  demo: (el) => { S.demo[S.route] = el.dataset.v; if (S.route === 'signup') S.hold = 19 * 60 + 42; render(); },
+  'notif-role': (el) => { S.notifRole = el.dataset.v; render(); },
+  'event-settings': () => eventSettings(S.demo.calendar === 'empty'),
+  'save-event': () => { S.demo.calendar = 'filled'; render(); toast('Проведение сохранено. Добавьте сеансы и опубликуйте.'); },
+  'new-session': () => toast('Сеанс добавляется перетаскиванием работы на дату или кнопкой — одна форма: время, кабинет, места.'),
+  publish: () => toast('Публикация: ученики групп предмета получат уведомление.'),
+  'open-session': () => { S.route = 'session'; location.hash = 'session'; },
+  'add-src': () => { $('#srcRows').insertAdjacentHTML('beforeend', srcRow('', '9', '', 9)); },
+  'copy-link': () => toast('Ссылка скопирована'),
+  reissue: (el) => openConfirm({ title: `Перевыпустить ссылку для «${el.dataset.school || 'школы'}»?`, lines: ['Старая ссылка перестанет работать сразу, открытые по ней формы потеряют доступ.', 'Оплаченные записи и действующие брони сохранятся.', 'Новую ссылку нужно отправить школе заново.'], ok: 'Перевыпустить', onOk: () => { eventSettings(false); toast('Ссылка перевыпущена и скопирована'); } }),
+  'row-menu': (el) => rowMenu(el, +el.dataset.i),
+  arrived: () => { closeMenu(); toast('Приход отмечен (на неявку не влияет).'); },
+  'issue-entry': () => { closeMenu(); toast('Ссылка на вход скопирована. Передайте участнику лично.'); },
+  handed: () => { closeMenu(); toast('Отмечено: ссылка передана, 09:48.'); },
+  transfer: () => { closeMenu(); resolvePick(); },
+  extend: () => { closeMenu(); toast('Продление в минутах — с причиной и автором.'); },
+  'cancel-reg': () => { closeMenu(); openConfirm({ title: 'Отменить запись участника?', lines: ['Участник освободит место.', 'Оплата гостя не меняется — вопрос возврата решает сотрудник вне WooCommerce.'], ok: 'Отменить запись', onOk: () => toast('Запись отменена') }); },
+  'open-review': () => { closeMenu(); S.route = 'teacher-review'; location.hash = 'teacher-review'; },
+  'add-guest': () => toast('Гость на месте проходит тот же платёжный поток: форма → бронь → оплата в WooCommerce.'),
+  'approve-on': () => { S.demo.session = 'approve'; render(); },
+  'approve-off': () => { S.demo.session = 'normal'; render(); },
+  'approve-do': () => { S.demo.session = 'normal'; render(); toast('Утверждено: 1. Ученику уйдёт одно уведомление.'); },
+  'approve-one': () => toast('Работа утверждена. Результат открыт ученику.'),
+  'issue-result': () => toast('Личная ссылка результата скопирована. Передайте лично.'),
+  'make-report': () => toast('Отчёт: выбор участников → срок → ссылка.'),
+  'open-report': () => { S.route = 'report'; location.hash = 'report'; },
+  'revoke-report': () => openConfirm({ title: 'Отозвать отчёт?', lines: ['Ссылка перестанет работать сразу.'], ok: 'Отозвать', onOk: () => toast('Отчёт отозван') }),
+  'resolve-pick': () => resolvePick(),
+  'resolve-refund': () => { closeMenu(); openPop(`<div class="gp-title">Отметка вне WooCommerce</div><label>Что сделано<select><option>Возврат выполнен вне WooCommerce</option><option>Перенесён на другой сеанс</option><option>Другое решение</option></select></label>
+    <div class="mk-two"><label>Дата<input type="date" value="2026-10-13"></label><label>Сумма, ₽<input value="1500"></label></div><label>Комментарий<input placeholder="Например, возврат на карту"></label>
+    <p class="mk-hint">Это только отметка. LMS не возвращает деньги и не меняет заказ WooCommerce.</p><div class="gp-row" style="justify-content:flex-end">${btn('Отмена', 'close', 'prof-btn-sm')}${btn('Сохранить отметку', 'close', 'prof-btn-sm prof-btn-primary')}</div>`); },
+  'start-exam': () => toast('Откроется существующая станция КЕГЭ; таймер стартует только сейчас.'),
+  'end-session': () => { toast('Сеанс завершён: доступ закрыт, кнопка «Назад» разбор не покажет.'); S.route = 'guest-entry'; location.hash = 'guest-entry'; },
+  'report-open': (el) => { S.reportPerson = +el.dataset.i; render(); },
+  'go-cart': () => toast('Дальше — существующая корзина WooCommerce (в макете не рисуется).'),
+  'check-status': () => toast('Оплата пока не подтверждена. Не оплачивайте повторно.'),
+  close: () => { closePops(); closeMenu(); },
+  'confirm-ok': () => { const f = overlays()._onOk; closePops(); if (f) f(); },
+  'toggle-solution': (el) => { const art = el.closest('.task-card-row'); const p = art.querySelector('.mk-solution'); p.hidden = !p.hidden; el.setAttribute('aria-expanded', String(!p.hidden)); el.textContent = p.hidden ? 'Показать решение' : 'Скрыть решение'; },
+  jump: (el) => { const t = document.getElementById('t-' + el.dataset.n); if (t) t.scrollIntoView({ behavior: 'smooth', block: 'center' }); else toast('В макете показаны задания 1, 2, 3, 26 и 27.'); },
+  noop: () => toast('Откроется существующий экран.'),
+};
+function resolvePick() {
+  openPop(`<div class="gp-title">Выбрать сеанс для оплаченного гостя</div><p class="mk-hint">Оплата сохраняется, нового чекаута нет. Показаны только сеансы со свободными местами.</p>
+    ${SLOTS.filter((s) => s.left > 0).map((s, i) => `<label style="flex-direction:row;align-items:center;gap:.5rem;color:var(--ink)"><input type="radio" name="slot" ${i === 0 ? 'checked' : ''}><span><b>${s.full}, ${s.t}</b> · ${s.room} · ${slotWord(s.left)}</span></label>`).join('')}
+    <div class="gp-row" style="justify-content:flex-end">${btn('Отмена', 'close', 'prof-btn-sm')}${btn('Перенести', 'close', 'prof-btn-sm prof-btn-primary')}</div>`);
+}
+
+document.addEventListener('click', (e) => {
+  const nav = e.target.closest('[data-go]');
+  if (nav) { const r = NAV_ROUTE[nav.dataset.go]; if (r) { S.route = r; location.hash = r; } else toast('Остальные разделы кабинета в этом макете не рисуются.'); return; }
+  const rt = e.target.closest('[data-route]');
+  if (rt) { S.route = rt.dataset.route; location.hash = rt.dataset.route; $('#mkBody').hidden = true; return; }
+  if (e.target.closest('#mkToggle')) { const b = $('#mkBody'); b.hidden = !b.hidden; return; }
+  if (e.target.closest('#profBell') && S.route !== 'notifications') {
+    const pop = $('#profNotifPop'); const role = routeOf(S.route).role === 'office' ? 'office' : routeOf(S.route).role === 'teacher' ? 'teacher' : 'student';
+    pop.innerHTML = `<div class="prof-notif-head"><span>Уведомления</span><button type="button" class="prof-notif-readall">Прочитать все</button></div><div class="prof-notif-list">${NOTIF[role].slice(0, 5).map(notifItem).join('')}</div>`;
+    pop.hidden = !pop.hidden; return;
+  }
+  const act = e.target.closest('[data-action]');
+  if (act && ACTIONS[act.dataset.action]) { e.preventDefault(); ACTIONS[act.dataset.action](act); }
+  const pop = $('#profNotifPop'); if (pop && !pop.hidden && !e.target.closest('#profNotifPop')) pop.hidden = true;
+  if (e.target.closest('.prof-notif-item')) { e.preventDefault(); toast('Уведомление целиком — ссылка на нужный экран.'); }
+});
+document.addEventListener('submit', (e) => {
+  if (e.target.id === 'guestForm') { e.preventDefault(); S.demo.signup = 'hold'; S.hold = 19 * 60 + 42; render(); toast('Место закреплено на 20 минут. Дальше — корзина WooCommerce.'); }
+});
+window.addEventListener('hashchange', () => { S.route = location.hash.slice(1) || 'student'; render(); });
+render();

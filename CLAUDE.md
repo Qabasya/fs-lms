@@ -173,6 +173,7 @@ Log format: `[FS LMS] CONTEXT: message | Context: {timestamp, user_id, ip, ...da
 - All data access → through Repositories/Managers
 - Use DI via Container only
 - Follow existing architecture, do not invent new layers
+- **Сначала существующее, потом новое.** Перед новым классом, сервисом, методом, JS-модулем, шаблоном или UI-элементом найти готовый аналог (поиск по `inc/Services`, `inc/Callbacks`, `inc/Repositories`, `src/js`, `src/scss`, `templates/`, реальным CSS-классам кабинета и сайта) и использовать его. Если аналог почти подходит — **доработать его** (параметр, enum-кейс, выделение общей части), а не писать параллельную копию с дублированием 70–80% кода. Новое допустимо только когда аналога нет; причину указать в описании задачи или коммита. Для UI новые элементы заносятся в список «новое» макета/спецификации
 
 ---
 
