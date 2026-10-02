@@ -6,8 +6,17 @@
  * @var string $error_message Уведомление после неудачного входа; '' — не показываем
  * @var string $prefill_login Логин из неудачной попытки
  * @var string $consent_url   URL согласия на обработку ПДн; '' — сноску не показываем
+ * @var string $logo_url      URL логотипа центра
  */
 ?>
+<div class="fs-auth-brand">
+	<img class="fs-auth-brand__logo" src="<?php echo esc_url( $logo_url ); ?>" alt="Шаг в будущее">
+	<p class="fs-auth-brand__name">
+		Образовательный центр «Шаг в будущее»
+		<span class="fs-auth-brand__city">Калининград</span>
+	</p>
+</div>
+
 <div class="fs-auth-card">
 	<h2 class="fs-auth-card__title">Войти в личный кабинет</h2>
 
@@ -16,8 +25,6 @@
 			<?php echo esc_html( $error_message ); ?>
 		</div>
 	<?php endif; ?>
-
-	<div class="fs-auth-card__error" id="fs-login-captcha-error" role="alert" hidden></div>
 
 	<!-- Стандартная форма авторизации WordPress -->
 	<form name="loginform" id="loginform" action="<?php echo esc_url( site_url( 'wp-login.php', 'login_post' ) ); ?>" method="post">
@@ -42,6 +49,8 @@
 		<?php // Слот невидимой капчи (модуль SmartCaptcha); токен пишет login-form.js. ?>
 		<div id="fs-captcha-slot" class="fs-auth-card__captcha" role="region" aria-label="Проверка безопасности"></div>
 		<input type="hidden" name="captcha_token" value="">
+		<?php // Причина, по которой капча не дошла до браузера (VPN, блокировщик); пишет login-form.js. ?>
+		<input type="hidden" name="captcha_unavailable" value="">
 
 		<button type="submit" name="wp-submit" id="wp-submit" class="fs-auth-card__submit">
 			Войти

@@ -4,12 +4,18 @@
  * Этап 1: валидация полей → (капча если настроена) → send_otp → переход на этап OTP
  * Этап 2: ввод OTP → create (ajaxCreateApplication) → экран успеха
  *
+ * Капча недоступна из части сетей (VPN, блокировщик): если она не загрузилась / не открылась
+ * вовремя, запрос уходит без токена с причиной в captcha_unavailable — сервер пропускает его
+ * по смягчённому правилу (CaptchaService::check()). Закрытое пользователем задание не пропускается.
+ * Что происходило с формой — apply-tracking.js (журнал «Аутентификация»).
+ *
  * Глобальные переменные: fs_lms_apply_vars (локализуются в Enqueue.php)
  */
 
 import { initFormValidation, renderFieldError, clearFieldError } from '../../common/validation-manager.js';
 import { bindPhoneMask } from '../../common/input-masks.js';
-import { getCaptchaToken, resetCaptcha } from './captcha.js';
+import { getCaptchaToken, resetCaptcha, captchaFailureOf, captchaFailureAllowsFallback } from './captcha.js';
+import { createApplyTracker, applyVisitId } from './apply-tracking.js';
 import { initSchoolSuggest } from './school-suggest.js';
 
 /** @type {{ ajax_url: string, captcha_key: string, hp_field: string, form_token: string, actions: { send_otp: string, create: string }, nonces: { apply: string, verify_otp: string } }} */
@@ -120,6 +126,7 @@ async function ajaxPost( action, data ) {
 // ── Переходы между этапами ───────────────────────────────────────────────────
 
 function showOtpStep( maskedEmail ) {
+    _tracker.stage( 'otp' );
     document.getElementById( 'apply-form' ).classList.remove( 'fs-apply-card__step--active' );
     document.getElementById( 'otp-step' ).classList.add( 'fs-apply-card__step--active' );
     document.querySelector( '.js-masked-email' ).textContent = maskedEmail;
@@ -134,6 +141,7 @@ function showOtpStep( maskedEmail ) {
 }
 
 function showSuccess( notice ) {
+    _tracker.succeeded();
     document.querySelector( '.js-otp-input-block' ).hidden  = true;
     document.querySelector( '.js-otp-success-block' ).hidden = false;
     scrollToTop();
@@ -201,8 +209,11 @@ async function handleOtpSubmit( e ) {
 
     clearError( form );
 
+    _tracker.submitAttempt();
+
     if ( ! otpCode ) {
         showError( form, 'Введите код подтверждения.' );
+        _tracker.invalid( 'не введён код' );
         return;
     }
 
@@ -218,13 +229,16 @@ async function handleOtpSubmit( e ) {
     } catch {
         setLoading( btn, false );
         showError( form, 'Ошибка соединения. Попробуйте позже.' );
+        _tracker.failed( 'ошибка соединения' );
         return;
     }
 
     setLoading( btn, false );
 
     if ( ! res?.success ) {
-        showError( form, extractError( res, 'Ошибка при подтверждении кода.' ) );
+        const message = extractError( res, 'Ошибка при подтверждении кода.' );
+        showError( form, message );
+        _tracker.failed( message );
         return;
     }
 
@@ -235,22 +249,14 @@ async function handleOtpSubmit( e ) {
 async function handleResendOtp() {
     if ( ! _formData ) { return; }
 
-    let captchaToken = '';
-    try {
-        captchaToken = await getCaptchaToken();
-    } catch {
+    const captcha = await obtainCaptcha();
+    if ( captcha.failure && ! captchaFailureAllowsFallback( captcha.failure ) ) {
         return;
     }
 
     let res;
     try {
-        res = await ajaxPost( vars.actions.send_otp, {
-            security:      vars.nonces.apply,
-            email:         _formData.email,
-            captcha_token: captchaToken,
-            form_token:    vars.form_token ?? '',
-            [ vars.hp_field || 'fs_company' ]: readHoneypot(),
-        } );
+        res = await ajaxPost( vars.actions.send_otp, otpRequestFields( captcha, _formData.email ) );
     } catch {
         resetCaptcha();
         return;
@@ -262,6 +268,7 @@ async function handleResendOtp() {
         startCountdown( btn, countdownEl );
     } else {
         resetCaptcha();
+        _tracker.failed( extractError( res, 'Ошибка при повторной отправке кода.' ) );
     }
 }
 
@@ -325,6 +332,7 @@ function bindFormBehaviors() {
     if ( ! applyForm ) { return; }
 
     const validateAll = initFormValidation( applyForm );
+    _tracker = createApplyTracker( applyForm );
 
     const usernameInput = document.getElementById( 'fs_username' );
     if ( usernameInput ) {
@@ -338,17 +346,23 @@ function bindFormBehaviors() {
         const data = collectFormData();
 
         clearError( applyForm );
+        _tracker.submitAttempt();
 
-        if ( ! validateAll() ) { return; }
+        if ( ! validateAll() ) {
+            _tracker.invalid();
+            return;
+        }
 
-        if ( usernameInput && ! await checkUsernameAvailable( usernameInput ) ) { return; }
+        if ( usernameInput && ! await checkUsernameAvailable( usernameInput ) ) {
+            _tracker.invalid( 'логин занят' );
+            return;
+        }
 
         setLoading( btn, true );
 
-        let captchaToken = '';
-        try {
-            captchaToken = await getCaptchaToken();
-        } catch {
+        const captcha = await obtainCaptcha();
+        if ( captcha.failure && ! captchaFailureAllowsFallback( captcha.failure ) ) {
+            // Пользователь сам закрыл задание — это не сбой доставки, не пропускаем.
             setLoading( btn, false );
             showError( applyForm, 'Проверка капчи не пройдена. Попробуйте ещё раз.' );
             return;
@@ -356,17 +370,12 @@ function bindFormBehaviors() {
 
         let res;
         try {
-            res = await ajaxPost( vars.actions.send_otp, {
-                security:      vars.nonces.apply,
-                email:         data.email,
-                captcha_token: captchaToken,
-                form_token:    vars.form_token ?? '',
-                [ vars.hp_field || 'fs_company' ]: readHoneypot(),
-            } );
+            res = await ajaxPost( vars.actions.send_otp, otpRequestFields( captcha, data.email ) );
         } catch {
             setLoading( btn, false );
             resetCaptcha();
             showError( applyForm, 'Ошибка соединения. Попробуйте позже.' );
+            _tracker.failed( 'ошибка соединения' );
             return;
         }
 
@@ -374,7 +383,9 @@ function bindFormBehaviors() {
 
         if ( ! res?.success ) {
             resetCaptcha();
-            showError( applyForm, extractError( res, 'Ошибка при отправке кода.' ) );
+            const message = extractError( res, 'Ошибка при отправке кода.' );
+            showError( applyForm, message );
+            _tracker.failed( message );
             return;
         }
 

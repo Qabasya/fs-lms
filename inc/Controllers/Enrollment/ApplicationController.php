@@ -82,6 +82,8 @@ class ApplicationController extends AjaxController {
 			array( AjaxHook::CheckEmailAvailable, $this->callbacks ),
 			// События формы родителя — в журнал заявки
 			array( AjaxHook::TrackJoinForm, $this->callbacks ),
+			// События формы заявки — в журнал «Аутентификация»
+			array( AjaxHook::TrackApplyForm, $this->callbacks ),
 		);
 	}
 

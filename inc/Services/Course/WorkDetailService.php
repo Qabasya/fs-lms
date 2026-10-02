@@ -17,6 +17,7 @@ use Inc\Managers\Wp\PostManager;
 use Inc\Repositories\WPDBRepositories\AssessmentAnswerRepository;
 use Inc\Repositories\WPDBRepositories\AssessmentAttemptRepository;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
+use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 use Inc\Repositories\WPDBRepositories\SubmissionRepository;
 use Inc\Repositories\WPDBRepositories\TaskAttemptRepository;
 use Inc\Services\Task\CorrectAnswerResolver;
@@ -78,6 +79,7 @@ class WorkDetailService {
 		private readonly MediaManager                $media,
 		private readonly TaskMetaService             $taskMeta,
 		private readonly TaskAttemptRepository       $taskAttempts,
+		private readonly StudentRecordRepository     $studentRecords,
 	) {}
 
 	/**
@@ -373,6 +375,8 @@ class WorkDetailService {
 			$attachmentMime = get_post_mime_type( $sub->attachmentId ) ?: null;
 		}
 
+		$groupId = $this->groupLessons->find( $sub->groupLessonId )?->groupId ?? 0;
+
 		return array(
 			'kind'            => 'work',
 			'title'           => $work?->title ?? 'Работа',
@@ -392,7 +396,8 @@ class WorkDetailService {
 			'is_late'         => $sub->isLate(),
 			'attachment_url'  => $attachmentUrl,
 			'attachment_mime' => $attachmentMime,
-			'group_id'        => $this->groupLessons->find( $sub->groupLessonId )?->groupId ?? 0,
+			'group_id'        => $groupId,
+			'student_name'    => $this->studentName( $sub->studentPersonId, $groupId ),
 		);
 	}
 
@@ -508,6 +513,7 @@ class WorkDetailService {
 			'submitted_at'    => $attempt->submittedAt,
 			'duration_sec'    => $attempt->actualDurationSeconds(),
 			'group_id'        => $attempt->groupId ?? 0,
+			'student_name'    => $this->studentName( $attempt->studentPersonId, $attempt->groupId ?? 0 ),
 			// D18: «Утвердить работу» — для kind без ручной проверки заданий (ЕГЭ
 			// компьютерный) Graded наступает сразу при сдаче и не значит «учитель
 			// посмотрел»; approved_at — отдельный явный шаг (см. AttemptRevealPolicy).
@@ -516,6 +522,19 @@ class WorkDetailService {
 			// Лист результата этой попытки (таблица, как у ученика) — только у станций ЕГЭ/ОГЭ.
 			'review_url'      => $this->reviewUrl( $attempt, $assessment ),
 		);
+	}
+
+	/**
+	 * ФИО ученика по снимку записи в группе (не из зашифрованных документов — как в очереди проверки).
+	 * '' — записи нет (экзамен вне группы).
+	 */
+	private function studentName( int $studentPersonId, int $groupId ): string {
+		$records = $groupId > 0 ? $this->studentRecords->findAllByStudentAndGroup( $studentPersonId, $groupId ) : array();
+		$record  = $records[0] ?? null;
+
+		return $record
+			? trim( $record->snapshotLastName . ' ' . $record->snapshotFirstName . ' ' . ( $record->snapshotMiddleName ?? '' ) )
+			: '';
 	}
 
 	/**

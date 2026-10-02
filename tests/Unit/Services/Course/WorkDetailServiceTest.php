@@ -6,7 +6,10 @@ namespace Unit\Services\Course;
 
 use Inc\DTO\Assessment\AttemptAnswerDTO;
 use Inc\DTO\Assessment\AttemptDTO;
+use Inc\DTO\Course\GroupLessonDTO;
 use Inc\DTO\Course\SubmissionDTO;
+use Inc\DTO\Enrollment\StudentRecordDTO;
+use Inc\Enums\Enrollment\EnrollmentStatus;
 use Inc\Enums\Course\SubmissionStatus;
 use Inc\Enums\Course\WorkType;
 use Inc\Enums\Wp\PostMetaName;
@@ -17,6 +20,7 @@ use Inc\Managers\Wp\PostManager;
 use Inc\Repositories\WPDBRepositories\AssessmentAnswerRepository;
 use Inc\Repositories\WPDBRepositories\AssessmentAttemptRepository;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
+use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 use Inc\Repositories\WPDBRepositories\SubmissionRepository;
 use Inc\Repositories\WPDBRepositories\TaskAttemptRepository;
 use Inc\Services\Course\WorkDetailService;
@@ -40,6 +44,7 @@ class WorkDetailServiceTest extends TestCase {
 	private MediaManager&\PHPUnit\Framework\MockObject\MockObject                $media;
 	private TaskAttemptRepository&\PHPUnit\Framework\MockObject\MockObject       $taskAttempts;
 	private CorrectAnswerResolver&\PHPUnit\Framework\MockObject\MockObject       $correctAnswers;
+	private StudentRecordRepository&\PHPUnit\Framework\MockObject\MockObject      $studentRecords;
 	private WorkDetailService $service;
 
 	protected function setUp(): void {
@@ -54,6 +59,7 @@ class WorkDetailServiceTest extends TestCase {
 		$this->assessments  = $this->createMock( AssessmentManager::class );
 		$this->media        = $this->createMock( MediaManager::class );
 		$this->taskAttempts   = $this->createMock( TaskAttemptRepository::class );
+		$this->studentRecords = $this->createMock( StudentRecordRepository::class );
 		$this->correctAnswers = $this->createMock( CorrectAnswerResolver::class );
 		$this->service = new WorkDetailService(
 			$this->submissions,
@@ -67,6 +73,7 @@ class WorkDetailServiceTest extends TestCase {
 			$this->media,
 			new TaskMetaService(),
 			$this->taskAttempts,
+			$this->studentRecords,
 		);
 	}
 
@@ -90,6 +97,38 @@ class WorkDetailServiceTest extends TestCase {
 
 		self::assertSame( 'https://example.test/wp-content/uploads/photo.jpg', $detail['attachment_url'] );
 		self::assertSame( 'image/jpeg', $detail['attachment_mime'] );
+	}
+
+	/** Экран проверки показывает в шапке ФИО сдавшего — по снимку записи в группе урока. */
+	public function test_from_submission_exposes_student_full_name_from_group_snapshot(): void {
+		$this->submissions->method( 'find' )->willReturn( $this->sub( null ) );
+		$this->submissions->method( 'listPerTaskByStudentWorkLesson' )->willReturn( array() );
+		$this->groupLessons->method( 'find' )->with( 5 )->willReturn( GroupLessonDTO::fromArray( array(
+			'id' => 5, 'group_id' => 7, 'position' => 1,
+		) ) );
+		$this->studentRecords->method( 'findAllByStudentAndGroup' )->with( 10, 7 )->willReturn( array(
+			new StudentRecordDTO(
+				id: 1, studentPersonId: 10, parentPersonId: 0, groupId: 7,
+				snapshotLastName: 'Иванов', snapshotFirstName: 'Пётр', snapshotMiddleName: 'Сергеевич',
+				snapshotSchool: null, snapshotGrade: null, contractNo: null, contractDate: null,
+				orderNo: null, orderDate: null, status: EnrollmentStatus::Active,
+				enrolledAt: '2026-01-01', enrolledByUserId: null, expelledAt: null,
+				expelledByUserId: null, expelReason: null, createdAt: '', updatedAt: '',
+			),
+		) );
+
+		$detail = $this->service->forWork( 'submission', 7 );
+
+		self::assertSame( 'Иванов Пётр Сергеевич', $detail['student_name'] );
+	}
+
+	public function test_from_submission_student_name_empty_without_group_record(): void {
+		$this->submissions->method( 'find' )->willReturn( $this->sub( null ) );
+		$this->submissions->method( 'listPerTaskByStudentWorkLesson' )->willReturn( array() );
+
+		$detail = $this->service->forWork( 'submission', 7 );
+
+		self::assertSame( '', $detail['student_name'] );
 	}
 
 	public function test_from_work_attachment_fields_null_when_no_attachment(): void {

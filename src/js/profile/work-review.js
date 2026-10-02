@@ -24,6 +24,7 @@ const OPEN_STATUSES = [ 'submitted', 'pending_review' ];
 
 let wrRoot   = null;
 let onBackCb = () => {};
+let onLoadedCb = () => {};
 let reviewApi = null;
 let attemptGradeApi = null;
 let batchGradeApi = null;
@@ -31,9 +32,10 @@ let returnTo = 'summary';
 let current  = null; // { sourceType, sourceId }
 
 /** Вызывается один раз при монтаже SPA (см. app.js) — только сохраняет root/колбэк. */
-export function renderWorkReview(root, { onBack } = {}) {
+export function renderWorkReview(root, { onBack, onLoaded } = {}) {
     wrRoot   = root;
     onBackCb = typeof onBack === 'function' ? onBack : () => {};
+    onLoadedCb = typeof onLoaded === 'function' ? onLoaded : () => {};
     const p = window.fsProfile || {};
     reviewApi       = p.review ? createApi(p.review) : null;
     attemptGradeApi = p.attemptGrade ? createApi(p.attemptGrade) : null;
@@ -75,6 +77,7 @@ export async function openWorkReview(sourceType, sourceId, from) {
     }
 
     render(d, history);
+    onLoadedCb(d);
 }
 
 function reload() {

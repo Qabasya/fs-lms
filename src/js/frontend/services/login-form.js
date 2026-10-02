@@ -5,33 +5,28 @@
  * перехватывается: запрашивается токен, пишется в captcha_token, и форма
  * отправляется повторно через requestSubmit( кнопка ) — чтобы в POST ушёл wp-submit.
  *
+ * Капча недоступна из части сетей (VPN, блокировщик): если она не загрузилась / не открылась
+ * вовремя, форма уходит без токена с причиной в captcha_unavailable — сервер пропускает такой вход
+ * по смягчённому правилу (CaptchaService::check()), пароль и лимит попыток проверяются как обычно.
+ * Закрытое пользователем задание не пропускается.
+ *
  * Глобальные переменные: fs_lms_login_vars (FrontendAssets::loginVars; captcha_key
  * дописывает модуль SmartCaptcha).
  */
 
-import { isCaptchaEnabled, isCaptchaReady, getCaptchaToken, resetCaptcha } from './captcha.js';
-
-/**
- * @param {HTMLElement|null} box
- * @param {string}           message
- */
-function showError( box, message ) {
-    if ( ! box ) { return; }
-    box.textContent = message;
-    box.hidden      = false;
-}
+import { isCaptchaEnabled, getCaptchaToken, resetCaptcha, captchaFailureOf, captchaFailureAllowsFallback } from './captcha.js';
 
 export function initLoginForm() {
     const form = document.getElementById( 'loginform' );
-    /** @type {{ captcha_key?: string, captcha_unavailable: string }|undefined} */
+    /** @type {{ captcha_key?: string }|undefined} */
     const vars = window.fs_lms_login_vars;
 
     if ( ! form || ! vars || ! isCaptchaEnabled() ) { return; }
 
-    const button     = form.querySelector( '#wp-submit' );
-    const tokenInput = form.querySelector( '[name="captcha_token"]' );
-    const errorBox   = document.getElementById( 'fs-login-captcha-error' );
-    let tokenReady   = false;
+    const button       = form.querySelector( '#wp-submit' );
+    const tokenInput   = form.querySelector( '[name="captcha_token"]' );
+    const failureInput = form.querySelector( '[name="captcha_unavailable"]' );
+    let tokenReady     = false;
 
     form.addEventListener( 'submit', async ( event ) => {
         // Повторный проход из requestSubmit — токен уже в форме.
@@ -39,22 +34,23 @@ export function initLoginForm() {
 
         event.preventDefault();
 
-        // Скрипт Яндекса не загрузился (блокировщик, сеть): без токена сервер вход отклонит.
-        if ( ! isCaptchaReady() ) {
-            showError( errorBox, vars.captcha_unavailable );
-            return;
-        }
-
-        if ( errorBox ) { errorBox.hidden = true; }
         button.disabled = true;
 
         try {
             tokenInput.value = await getCaptchaToken();
-        } catch {
-            // captcha-dismissed: пользователь закрыл задание, не решив.
-            button.disabled = false;
-            resetCaptcha();
-            return;
+        } catch ( error ) {
+            const failure = captchaFailureOf( error );
+
+            // Пользователь закрыл задание, не решив: вход не пропускаем.
+            if ( ! captchaFailureAllowsFallback( failure ) ) {
+                button.disabled = false;
+                resetCaptcha();
+                return;
+            }
+
+            // Капча не дошла (VPN, блокировщик, сеть): форма уходит без токена с причиной.
+            tokenInput.value = '';
+            if ( failureInput ) { failureInput.value = failure; }
         }
 
         tokenReady      = true;

@@ -5,6 +5,8 @@ declare( strict_types=1 );
 namespace Inc\Services\Security;
 
 use Inc\DTO\Person\LoginNoticeDTO;
+use Inc\Enums\Auth\CaptchaFailure;
+use Inc\Enums\Auth\CaptchaScope;
 use Inc\Enums\Auth\LoginNotice;
 use Inc\Managers\Person\UserManager;
 use Inc\Services\Captcha\CaptchaService;
@@ -51,10 +53,11 @@ readonly class LoginGuardService {
 	 * @param string                $captchaToken  Токен капчи из формы
 	 * @param string                $ip            IP клиента
 	 * @param bool                  $fromLoginForm POST на wp-login.php с полем `log` — капча обязательна
+	 * @param CaptchaFailure|null   $captchaFailure Почему браузер не получил токен (VPN/блокировщик) — см. {@see CaptchaService::check()}
 	 *
 	 * @return WP_User|WP_Error|null
 	 */
-	public function guard( mixed $user, string $login, string $captchaToken, string $ip, bool $fromLoginForm ): mixed {
+	public function guard( mixed $user, string $login, string $captchaToken, string $ip, bool $fromLoginForm, ?CaptchaFailure $captchaFailure = null ): mixed {
 		if ( '' === trim( $login ) ) {
 			return $user;
 		}
@@ -66,7 +69,11 @@ readonly class LoginGuardService {
 			return new WP_Error( self::CODE_LOCKED, LoginNotice::Locked->message( $wait ) );
 		}
 
-		if ( $fromLoginForm && $this->captchaRequired() && ! $this->captcha->validate( $captchaToken, $ip ) ) {
+		if (
+			$fromLoginForm
+			&& $this->captchaRequired()
+			&& ! $this->captcha->check( $captchaToken, $ip, CaptchaScope::Login, $captchaFailure, $login )->isAllowed()
+		) {
 			return new WP_Error( self::CODE_CAPTCHA, LoginNotice::Captcha->message() );
 		}
 

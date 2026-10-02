@@ -22,6 +22,10 @@ enum LoginFailReason: string {
 	case FirstLetterCase = 'first_letter_case';
 	case CaptchaMissing  = 'captcha_missing';
 	case CaptchaRejected = 'captcha_rejected';
+	case CaptchaNotLoaded = 'captcha_not_loaded';
+	case CaptchaTimeout   = 'captcha_timeout';
+	case CaptchaNetwork   = 'captcha_network';
+	case CaptchaDismissed = 'captcha_dismissed';
 	case Locked          = 'locked';
 	case Other           = 'other';
 
@@ -35,6 +39,10 @@ enum LoginFailReason: string {
 			self::FirstLetterCase => 'Пароль верный, кроме регистра первой буквы',
 			self::CaptchaMissing  => 'Капча: токен не пришёл с формы',
 			self::CaptchaRejected => 'Капча: токен отклонён сервисом',
+			self::CaptchaNotLoaded => 'Капча: не загрузилась (возможно, VPN или блокировщик)',
+			self::CaptchaTimeout   => 'Капча: не открылась вовремя (возможно, VPN)',
+			self::CaptchaNetwork   => 'Капча: ошибка сети при загрузке (возможно, VPN)',
+			self::CaptchaDismissed => 'Капча: задание закрыто, не решено',
 			self::Locked          => 'Вход закрыт после неудачных попыток',
 			self::Other           => 'Другая ошибка',
 		};

@@ -107,6 +107,12 @@ readonly class AuthLogDTO {
 		if ( ! empty( $d['error_code'] ) ) {
 			$lines[] = 'Код WP: ' . $d['error_code'];
 		}
+		if ( ! empty( $d['visit'] ) ) {
+			$lines[] = 'Визит: ' . $d['visit'];
+		}
+		if ( ! empty( $d['note'] ) ) {
+			$lines[] = (string) $d['note'];
+		}
 
 		return $lines;
 	}

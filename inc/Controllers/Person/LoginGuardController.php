@@ -5,6 +5,7 @@ declare( strict_types=1 );
 namespace Inc\Controllers\Person;
 
 use Inc\Contracts\ServiceInterface;
+use Inc\Enums\Auth\CaptchaFailure;
 use Inc\Services\Security\LoginGuardService;
 use Inc\Shared\Traits\RequestContextProvider;
 use Inc\Shared\Traits\Sanitizer;
@@ -57,7 +58,8 @@ class LoginGuardController implements ServiceInterface {
 			is_string( $username ) ? $username : '',
 			$this->sanitizeText( 'captcha_token' ),
 			$this->requestContext()->ip,
-			$fromLoginForm
+			$fromLoginForm,
+			CaptchaFailure::tryFrom( $this->sanitizeKey( 'captcha_unavailable' ) )
 		);
 	}
 

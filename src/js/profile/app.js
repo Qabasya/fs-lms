@@ -280,7 +280,16 @@ function mountScreens() {
     });
 
     const wrRoot = document.querySelector('.prof-screen[data-screen="work-review"]');
-    if (wrRoot) { renderWorkReview(wrRoot, { onBack: () => go(getReturnTo()) }); }
+    if (wrRoot) {
+        renderWorkReview(wrRoot, {
+            onBack: () => go(getReturnTo()),
+            // ФИО сдавшего — в шапку; деталь грузится асинхронно, ученик мог уже уйти с экрана.
+            onLoaded: (d) => {
+                if (!d.student_name || !wrRoot.classList.contains('active')) return;
+                setTopbar('work-review', { crumb: TOPBAR['work-review'].crumb, title: d.student_name });
+            },
+        });
+    }
 }
 
 /* ── Меню пользователя (шестерёнка) — dropdown вверх с «Выход» ────────── */
