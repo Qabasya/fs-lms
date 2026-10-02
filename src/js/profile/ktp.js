@@ -71,7 +71,8 @@ function hasScheduledThemes() { return (state.data.themes || []).some(t => t.sch
 function hasUnplacedThemes() { return (state.data.themes || []).some(t => !t.scheduled_at); }
 
 /* ── AJAX ─────────────────────────────────────────────────────────────── */
-async function loadCalendar() {
+async function loadCalendar(keepMonth = false) {
+    const shown = keepMonth && state.months[state.cursor];
     try {
         state.data = await api('getCalendar', { group_id: state.groupId });
     } catch (e) {
@@ -80,8 +81,15 @@ async function loadCalendar() {
     }
     state.months = computeMonths(state.data.period);
     state.cursor = initialCursor(state.data.themes, state.months);
+    if (shown) {
+        const idx = state.months.findIndex(mm => mm.y === shown.y && mm.m === shown.m);
+        if (idx >= 0) state.cursor = idx;
+    }
     render();
 }
+
+/* Перезагрузка после правки: остаёмся на открытом месяце, а не прыгаем к самой ранней теме. */
+const reloadCalendar = () => loadCalendar(true);
 
 /* ── Render ───────────────────────────────────────────────────────────── */
 function render() {
@@ -197,7 +205,7 @@ async function wireCoursePicker() {
             toast(warnings.length
                 ? `Курс назначен. Внимание: ${warnings.join('; ')}`
                 : 'Курс назначен', warnings.length ? 'error' : 'ok');
-            await loadCalendar();
+            await reloadCalendar();
         } catch (e) { toast(e.message, 'error'); btn.disabled = false; }
     });
 }
@@ -296,10 +304,10 @@ function renderCalendar() {
     // T12.3: дедлайны — delivery, не структура/расписание — доступны даже при lock КТП (T1.8).
     grid.querySelectorAll('.pt-deadlines').forEach(el => attachDeadlinesClick(el, api));
     // Индикатор записи занятия — тоже ведёт в плеер (Этап 2, ★); тоже delivery, доступен даже при lock КТП.
-    grid.querySelectorAll('.pt-recording').forEach(el => attachRecordingClick(el, api, loadCalendar));
+    grid.querySelectorAll('.pt-recording').forEach(el => attachRecordingClick(el, api, reloadCalendar));
     // T12.6: «Продолжить на другую дату» доступно и при lock КТП — теме не хватило
     // урока, продолжение встаёт следующим занятием, хвост сдвигается сервером.
-    grid.querySelectorAll('.pt-more').forEach(el => attachThemeActionsClick(el, api, loadCalendar));
+    grid.querySelectorAll('.pt-more').forEach(el => attachThemeActionsClick(el, api, reloadCalendar));
     if (!isLocked()) {
         // Этап 4: drop доступен на любой день периода (кроме выходных), не только
         // на дни со штатным слотом — attachDrop() сам разруливает slot/off-schedule.
@@ -330,7 +338,7 @@ async function doReflow() {
         if (unplaced > 0) parts.push(`${unplaced} ${plural(unplaced, 'тема', 'темы', 'тем')} не ${plural(unplaced, 'поместилась', 'поместились', 'поместились')} — откройте вне расписания`);
         if (conflicts > 0) parts.push(`кабинет снят с ${conflicts} занятий (был занят)`);
         toast(parts.join(' · '));
-        await loadCalendar();
+        await reloadCalendar();
     } catch (e) {
         toast(e.message, 'error');
     }
@@ -342,7 +350,7 @@ async function doUnschedule() {
     try {
         await api('unschedule', { group_id: state.groupId });
         toast('Распределение отменено — темы возвращены в пул');
-        await loadCalendar();
+        await reloadCalendar();
     } catch (e) {
         toast(e.message, 'error');
     }
@@ -353,7 +361,7 @@ async function doPublish() {
     try {
         await api('publish', { group_id: state.groupId });
         toast('КТП опубликована — редактирование заблокировано');
-        await loadCalendar();
+        await reloadCalendar();
     } catch (e) { toast(e.message, 'error'); }
 }
 
@@ -361,7 +369,7 @@ async function doUnpublish() {
     try {
         await api('unpublish', { group_id: state.groupId });
         toast('Публикация снята — редактирование доступно');
-        await loadCalendar();
+        await reloadCalendar();
     } catch (e) { toast(e.message, 'error'); }
 }
 
@@ -414,7 +422,7 @@ async function doPin(glid, day, scheduledAt, endsAt) {
         toast(displaced
             ? `${draggedLabel} закреплена на ${fmtDayMonth(day)} · тема ${displaced.n} возвращена в пул`
             : `${draggedLabel} закреплена на ${fmtDayMonth(day)}`);
-        await loadCalendar();
+        await reloadCalendar();
     } catch (err) {
         toast(err.message, 'error');
     }
@@ -435,7 +443,7 @@ async function doUnpin(glid) {
         toast(shifted
             ? `${label} возвращена в пул · ${shifted} ${plural(shifted, 'занятие сдвинулось', 'занятия сдвинулись', 'занятий сдвинулись')}`
             : `${label} возвращена в пул`);
-        await loadCalendar();
+        await reloadCalendar();
     } catch (err) {
         toast(err.message, 'error');
     }
