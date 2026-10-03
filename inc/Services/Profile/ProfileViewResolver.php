@@ -120,6 +120,25 @@ class ProfileViewResolver {
 					'getProfile' => AjaxHook::GetLearnerProfile->jsAction(),
 				),
 			);
+
+			// Экзамены (Этап 5): действия регистрации только для ученика
+			$config['exams'] = array(
+				'nonce'   => Nonce::ExamLearner->create(),
+				'actions' => array(
+					'getExams' => AjaxHook::GetLearnerExams->jsAction(),
+				),
+			);
+
+			if ( UserRole::FSStudent === $ctx->role ) {
+				$config['exams']['actions'] = array_merge(
+					$config['exams']['actions'],
+					array(
+						'register' => AjaxHook::RegisterForExam->jsAction(),
+						'change'   => AjaxHook::ChangeExamRegistration->jsAction(),
+						'cancel'   => AjaxHook::CancelExamRegistration->jsAction(),
+					)
+				);
+			}
 		}
 
 		return $config;

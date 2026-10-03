@@ -23,10 +23,11 @@ final class LearnerProfileView implements ProfileViewInterface {
 			'nav'     => array(
 				array( 'key' => 'learner-home',       'label' => 'Главная' ),
 				array( 'key' => 'learner-lessons',    'label' => 'Мои курсы' ),
+				array( 'key' => 'learner-exams',      'label' => 'Мои экзамены' ),
 				array( 'key' => 'learner-grades',     'label' => 'Мои оценки' ),
 				array( 'key' => 'learner-attendance', 'label' => 'Посещаемость' ),
 			),
-			'screens' => array( 'learner-home', 'learner-lessons', 'learner-grades', 'learner-attendance' ),
+			'screens' => array( 'learner-home', 'learner-lessons', 'learner-exams', 'learner-grades', 'learner-attendance' ),
 		);
 	}
 }

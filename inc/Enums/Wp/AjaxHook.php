@@ -352,6 +352,11 @@ enum AjaxHook: string {
 	case CreateExamResultLink   = 'create_exam_result_link';   // params: participation_id, days_valid
 	case CreateExamGuestLink    = 'create_exam_guest_link';    // params: source_id, days_valid
 
+	// ==== Публичные экзамены (Этап 5: Learner UI) ====
+	case GetLearnerExams        = 'get_learner_exams';        // params: student_person_id? (родитель); ответ: список карточек экзаменов
+	case RegisterForExam        = 'register_for_exam';        // params: session_id, request_key (ученик)
+	case ChangeExamRegistration = 'change_exam_registration'; // params: session_id (новый), request_key (ученик)
+
 	// ============================ ГЕНЕРАЦИЯ ИМЁН ============================ //
 
 	/**

@@ -10,6 +10,7 @@ import { renderSubstitutions } from './substitutions.js';
 import { renderKTP } from './ktp.js';
 import { renderActivity } from './activity.js';
 import { renderLearnerHome, renderLearnerLessons, renderLearnerGrades, renderLearnerAttendance } from './learner.js';
+import { renderLearnerExams, openLearnerExam } from './exams/learner-exams.js';
 import { initNotifications } from './notifications.js';
 import { renderTeacherCourses, openTeacherCourse } from './teacher-courses.js';
 
@@ -31,6 +32,7 @@ const SCREENS = {
     'teacher-courses':    renderTeacherCourses,
     'learner-home':       renderLearnerHome,
     'learner-lessons':    renderLearnerLessons,
+    'learner-exams':      renderLearnerExams,
     'learner-grades':     renderLearnerGrades,
     'learner-attendance': renderLearnerAttendance,
 };
@@ -48,6 +50,7 @@ const TOPBAR = {
     'teacher-courses':    { crumb: 'Обучение',         title: 'Мои курсы' },
     'learner-home':       { crumb: 'Личный кабинет',   title: 'Главная' },
     'learner-lessons':    { crumb: 'Обучение',         title: 'Мои курсы' },
+    'learner-exams':      { crumb: 'Обучение',         title: 'Мои экзамены' },
     'learner-grades':     { crumb: 'Успеваемость',     title: 'Мои оценки' },
     'learner-attendance': { crumb: 'Успеваемость',     title: 'Посещаемость' },
 };
@@ -63,6 +66,7 @@ const NAV_ICONS = {
     activity:             icoClock(19),
     'learner-home':       icoHome(19),
     'learner-lessons':    icoBook(19),
+    'learner-exams':      icoCalendarBoard(19),
     'learner-grades':     icoStar(19),
     'learner-attendance': icoCalendarBoard(19),
 };

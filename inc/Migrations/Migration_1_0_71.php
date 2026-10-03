@@ -4,6 +4,8 @@ declare( strict_types=1 );
 
 namespace Inc\Migrations;
 
+use Inc\Contracts\MigrationInterface;
+
 /**
  * Миграция 1.0.71: Схема публичных экзаменов (15 таблиц)
  *
