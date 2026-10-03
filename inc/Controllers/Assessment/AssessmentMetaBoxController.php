@@ -16,6 +16,7 @@ use Inc\MetaBoxes\Templates\AssessmentTemplate;
 use Inc\Registrars\MetaBoxRegistrar;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Services\Assessment\AssessmentSlugService;
+use Inc\Services\Exam\ExamFormatRegistry;
 use Inc\Services\Subject\PostTypeResolver;
 use Inc\Services\Task\TaskBundleService;
 use Inc\Services\Task\TaskPublishGuard;
@@ -51,15 +52,16 @@ class AssessmentMetaBoxController extends BaseController implements ServiceInter
 	private const SETTINGS_FIELD_IDS = array( 'time_limit_minutes', 'max_attempts', 'pass_score', 'intro_html' );
 
 	public function __construct(
-		private readonly SubjectRepository  $subjects,
-		private readonly MetaBoxRegistrar   $registrar,
-		private readonly MetaBoxManager     $metaBoxManager,
-		private readonly AssessmentTemplate $template,
-		private readonly PostManager           $postManager,
-		private readonly AssessmentManager     $assessmentManager,
-		private readonly TaskPublishGuard      $guard,
-		private readonly TaskBundleService      $bundles,
-		private readonly AssessmentSlugService  $slugs,
+		private readonly SubjectRepository    $subjects,
+		private readonly MetaBoxRegistrar     $registrar,
+		private readonly MetaBoxManager       $metaBoxManager,
+		private readonly AssessmentTemplate   $template,
+		private readonly PostManager          $postManager,
+		private readonly AssessmentManager    $assessmentManager,
+		private readonly TaskPublishGuard     $guard,
+		private readonly TaskBundleService    $bundles,
+		private readonly AssessmentSlugService $slugs,
+		private readonly ExamFormatRegistry   $formats,
 	) {
 		parent::__construct();
 	}
@@ -234,22 +236,26 @@ class AssessmentMetaBoxController extends BaseController implements ServiceInter
 		$task_ids    = null !== $assessment ? $assessment->taskIds : array();
 		$task_points = null !== $assessment ? $assessment->taskPoints : array();
 
-		// Число позиций зависит от ВИДА экзамена, не только от предмета: ЕГЭ по
-		// информатике — все термы таксономии номеров (обычно 27), ОГЭ — фиксированные
-		// 16 (см. .docs/Tasks.md §2 и Inc\Modules\EgeComputer\Config\OgeScaleConfig —
-		// авторитетный источник числа 16, здесь не импортируется: ядро не знает о
-		// модулях). Таксономия для ОГЭ ни при чём — позиции 13-16 резолвятся
-		// ручным номером на самом экзамене, а не термом (см. докблок OgeCriteriaConfig;
-		// «13» — один пост с двумя условиями на выбор, AlternativeConditionsTemplate).
-		// Карта kind => slots, а не одно число — раньше ОГЭ ошибочно наследовал
-		// число слотов ЕГЭ.
-		$ege_slots_by_kind = array(
-			AssessmentKind::EgeComputer->value => (int) wp_count_terms( array(
-				'taxonomy'   => $subject . '_task_number',
-				'hide_empty' => false,
-			) ),
-			AssessmentKind::OgeComputer->value => 16,
-		);
+		// Число позиций — из реестра форматов модуля EgeComputer (авторитетный источник).
+		// Фолбэк на термы — только если формат не задан (модуль выключен).
+		// Для каждого kind: если формат найден — его unitCount, иначе прежнее поведение.
+		$ege_slots_by_kind = array();
+		foreach ( array( AssessmentKind::EgeComputer, AssessmentKind::OgeComputer ) as $kind ) {
+			$unitCount = $this->formats->unitCount( $kind );
+			if ( $unitCount > 0 ) {
+				$ege_slots_by_kind[ $kind->value ] = $unitCount;
+			} else {
+				// Фолбэк: модуль отключен или формат не зарегистрирован.
+				if ( AssessmentKind::EgeComputer === $kind ) {
+					$ege_slots_by_kind[ $kind->value ] = (int) wp_count_terms( array(
+						'taxonomy'   => $subject . '_task_number',
+						'hide_empty' => false,
+					) );
+				} elseif ( AssessmentKind::OgeComputer === $kind ) {
+					$ege_slots_by_kind[ $kind->value ] = 16;
+				}
+			}
+		}
 
 		// Раскладка по позициям: сохранённая; иначе (экзамен сохранён до её появления)
 		// задания встают на позицию своего номера, а связка 19-21 разворачивается в три слота.

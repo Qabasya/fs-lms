@@ -5,9 +5,12 @@ declare( strict_types=1 );
 namespace Unit\Services\Assessment;
 
 use Inc\DTO\Assessment\AssessmentDTO;
+use Inc\DTO\Exam\ExamFormatDTO;
 use Inc\Enums\Assessment\AssessmentKind;
 use Inc\Enums\Assessment\ScoringPolicy;
+use Inc\Enums\Exam\ExamDirection;
 use Inc\Services\Assessment\EgeCompletenessChecker;
+use Inc\Services\Exam\ExamFormatRegistry;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -25,7 +28,7 @@ class EgeCompletenessCheckerTest extends TestCase {
 		$GLOBALS['_fs_test_terms']          = array();
 		$GLOBALS['_fs_test_post_terms']     = array();
 		$GLOBALS['_fs_test_filter_returns'] = array();
-		$this->checker                      = new EgeCompletenessChecker();
+		$this->checker                      = new EgeCompletenessChecker( new ExamFormatRegistry() );
 	}
 
 	/** Регистрирует N номеров-термов (1..N) в таксономии предмета. */
@@ -181,5 +184,114 @@ class EgeCompletenessCheckerTest extends TestCase {
 		$this->assertFalse( $result->isStrictlyComplete() );
 		$this->assertSame( array( '13', '14', '15', '16' ), $result->missing );
 		$this->assertSame( 16, $result->expectedCount );
+	}
+
+	public function test_expected_count_comes_from_format_not_terms(): void {
+		$this->seedNumbers( 36 );
+		$format = $this->createFormatDto(
+			kind      : AssessmentKind::EgeComputer,
+			unitCount : 27,
+		);
+		$GLOBALS['_fs_test_filter_returns']['fs_lms_exam_formats'] = [ $format ];
+
+		$taskIds = array( 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+			11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
+			21, 22, 23, 24, 25, 26, 27 );
+
+		$result = $this->checker->validate(
+			$this->assessment( $taskIds, AssessmentKind::EgeComputer ),
+			self::SUBJECT
+		);
+
+		$this->assertTrue( $result->isStrictlyComplete() );
+		$this->assertSame( 27, $result->expectedCount );
+	}
+
+	public function test_task_with_number_outside_format_is_orphan(): void {
+		$this->seedNumbers( 30 );
+		$format = $this->createFormatDto(
+			kind      : AssessmentKind::EgeComputer,
+			unitCount : 27,
+		);
+		$GLOBALS['_fs_test_filter_returns']['fs_lms_exam_formats'] = [ $format ];
+
+		$taskIds = array( 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+			11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
+			21, 22, 23, 24, 25, 26, 27, 28, 29, 30 );
+		$taskNumbers = array_fill_keys( $taskIds, '30' );
+
+		$result = $this->checker->validate(
+			new AssessmentDTO(
+				id            : 1,
+				subjectKey    : self::SUBJECT,
+				title         : 'Test',
+				taskIds       : $taskIds,
+				kind          : AssessmentKind::EgeComputer,
+				timeLimit     : 235,
+				attemptsAllowed: 1,
+				passScore     : 50,
+				scoringPolicy : ScoringPolicy::MaxScore,
+				taskPoints    : array_fill_keys( $taskIds, 1 ),
+				scoreMap      : [],
+				taskNumbers   : $taskNumbers,
+				introHtml     : '',
+				hideIntro     : false,
+				status        : 'publish',
+			),
+			self::SUBJECT
+		);
+
+		$this->assertFalse( $result->isStrictlyComplete() );
+		$this->assertContains( '30', $result->orphans );
+	}
+
+	public function test_falls_back_to_terms_when_format_missing(): void {
+		$this->seedNumbers( 27 );
+
+		$taskIds = array( 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+			11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
+			21, 22, 23, 24, 25, 26, 27 );
+
+		$result = $this->checker->validate(
+			$this->assessment( $taskIds, AssessmentKind::EgeComputer ),
+			self::SUBJECT
+		);
+
+		$this->assertTrue( $result->isStrictlyComplete() );
+		$this->assertSame( 27, $result->expectedCount );
+	}
+
+	public function test_oge_extra_positions_still_counted(): void {
+		$this->seedNumbers( 12 );
+		$format = $this->createFormatDto(
+			kind      : AssessmentKind::OgeComputer,
+			unitCount : 16,
+		);
+		$GLOBALS['_fs_test_filter_returns']['fs_lms_exam_formats'] = [ $format ];
+		$GLOBALS['_fs_test_filter_returns']['fs_lms_assessment_completeness_extra_positions'] = [ '13', '14', '15', '16' ];
+
+		$taskIds = array( 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 );
+
+		$result = $this->checker->validate(
+			$this->assessment( $taskIds, AssessmentKind::OgeComputer ),
+			self::SUBJECT
+		);
+
+		$this->assertTrue( $result->isStrictlyComplete() );
+		$this->assertSame( 16, $result->expectedCount );
+	}
+
+	private function createFormatDto( AssessmentKind $kind, int $unitCount ): ExamFormatDTO {
+		return new ExamFormatDTO(
+			kind          : $kind,
+			direction     : AssessmentKind::EgeComputer === $kind ? ExamDirection::Ege : ExamDirection::Oge,
+			unitCount     : $unitCount,
+			primaryMax    : AssessmentKind::EgeComputer === $kind ? 29 : 21,
+			secondaryMax  : AssessmentKind::EgeComputer === $kind ? 100 : null,
+			gradeMax      : AssessmentKind::EgeComputer === $kind ? 0 : 5,
+			durationMinutes: AssessmentKind::EgeComputer === $kind ? 235 : 150,
+			scale         : [],
+			unitMaxScores : [],
+		);
 	}
 }

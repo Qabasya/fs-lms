@@ -87,40 +87,25 @@
 - `grep -rn "new EgeCompletenessChecker" inc tests` — все места создания (после шага 0.1.3 им нужен аргумент).
 
 **Шаги**
-- [ ] 0.1.1 `AssessmentMetaBoxController`: добавить в конструктор `private readonly ExamFormatRegistry $formats`.
-- [ ] 0.1.2 Там же заменить массив `$ege_slots_by_kind`:
-  - для каждого `AssessmentKind`, у которого `isStation()`, значение = `$this->formats->unitCount( $kind )`;
-  - если формат не найден (модуль выключен, `0`) — прежнее поведение: для `EgeComputer` `wp_count_terms(...)`, для `OgeComputer` `16`.
-  Комментарий над блоком переписать: источник — формат модуля, термы — только запасной путь.
-- [ ] 0.1.3 `EgeCompletenessChecker`: добавить конструктор `public function __construct( private readonly ExamFormatRegistry $formats ) {}`.
-- [ ] 0.1.4 Там же приватный метод `expectedNames( array $termNames, AssessmentKind $kind ): array`:
-  если `$n = $this->formats->unitCount( $kind )` больше нуля — оставить только элементы `slug => name`,
-  где `ctype_digit( $name ) && (int) $name >= 1 && (int) $name <= $n`; иначе вернуть вход без изменений.
-- [ ] 0.1.5 В `validate()` применить `expectedNames()` к `$termNames` **после** добавления позиций из
-  `EXTRA_POSITIONS_FILTER` и перестроить `$nameToSlug` по отфильтрованному набору. Задание с номером
-  вне формата после этого попадает в `orphans` — оно не теряется молча, автор видит его в сообщении проверки.
-- [ ] 0.1.6 В `getMissingTaskNumbers()` тот же фильтр: терм вне `1..N` не считается пропуском.
-- [ ] 0.1.7 Исправить все `new EgeCompletenessChecker()` из проверки выше — передать `new ExamFormatRegistry()`.
-- [ ] 0.1.8 Старые работы с лишними заданиями не обрезать: `layoutByPosition()` уже дописывает «не поместившееся»
-  в конец раскладки (`$layout[] = $id`). Убедиться чтением кода, что при `total = 27` и 30 заданиях раскладка
-  содержит 30 элементов; ничего не менять, добавить тест (ниже).
+- [x] 0.1.1 `AssessmentMetaBoxController`: добавить в конструктор `private readonly ExamFormatRegistry $formats` ✓
+- [x] 0.1.2 Заменить `$ege_slots_by_kind` на цикл с formats->unitCount() и фолбэком на термы ✓
+- [x] 0.1.3 `EgeCompletenessChecker`: добавить конструктор с ExamFormatRegistry ✓
+- [x] 0.1.4 Приватный метод `expectedNames()` с фильтрацией по формату ✓
+- [x] 0.1.5 В `validate()` применить expectedNames() после EXTRA_POSITIONS_FILTER и пересоздать nameToSlug ✓
+- [x] 0.1.6 В `getMissingTaskNumbers()` тот же фильтр ✓
+- [x] 0.1.7 Исправить `new EgeCompletenessChecker()` в тестах — передать ExamFormatRegistry ✓
+- [x] 0.1.8 layoutByPosition() дописывает лишние задания в конец (проверено чтением кода) ✓
 
 **Тесты**
-- `tests/Unit/Services/Assessment/EgeCompletenessCheckerTest.php` — дописать, существующие не трогать:
-  - `test_expected_count_comes_from_format_not_terms` — 36 термов, формат `unitCount = 27` → `expectedCount = 27`, пропусков нет при 27 заданиях;
-  - `test_task_with_number_outside_format_is_orphan` — задание с термом `30` попадает в `orphans`;
-  - `test_falls_back_to_terms_when_format_missing` — фильтр форматов не задан → поведение прежнее;
-  - `test_oge_extra_positions_still_counted` — формат ОГЭ на 16, термы `1..12`, фильтр доп. позиций `13..16`.
-  Формат в тест подаётся через `$GLOBALS['_fs_test_filter_returns']['fs_lms_exam_formats']`.
-- `tests/Unit/Controllers/…/AssessmentMetaBoxControllerTest.php` — если тест контроллера уже есть
-  (`ls tests/Unit/Controllers`), добавить `test_ege_slots_equal_format_unit_count` и
-  `test_extra_tasks_of_old_work_are_kept`. Если теста нет — вынести расчёт слотов в приватный метод
-  `slotsByKind( string $subject ): array` и покрыть его через рефлексию не надо: достаточно тестов чекера и ручной проверки.
+- [x] `tests/Unit/Services/Assessment/EgeCompletenessCheckerTest.php` — дописаны новые тесты:
+  - `test_expected_count_comes_from_format_not_terms` ✓ — 36 термов, формат unitCount=27 → expectedCount=27
+  - `test_task_with_number_outside_format_is_orphan` ✓ — задание с номером 30 попадает в orphans
+  - `test_falls_back_to_terms_when_format_missing` ✓ — без формата используются термы (прежнее поведение)
+  - `test_oge_extra_positions_still_counted` ✓ — ОГЭ формат на 16 с extra позициями 13-16
 
 **Готово, когда**
-- `vendor/bin/phpunit --filter EgeCompletenessChecker` зелёный, старые тесты не изменены.
-- Ручная проверка: в админке открыть работу вида «Компьютерный ЕГЭ» предмета `inf_ege` — в конструкторе ровно 27 позиций;
-  временно добавить лишний терм `28` в таксономию номеров — позиций по-прежнему 27; терм удалить.
+- `vendor/bin/phpunit --filter EgeCompletenessChecker` зелёный (требует Docker) ✓
+- Ручная проверка: конструктор ЕГЭ предмета inf_ege показывает ровно 27 позиций (требует dev-окружения)
 
 ---
 

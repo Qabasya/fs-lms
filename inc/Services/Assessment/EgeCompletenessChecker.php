@@ -6,6 +6,8 @@ namespace Inc\Services\Assessment;
 
 use Inc\DTO\Assessment\AssessmentDTO;
 use Inc\DTO\Assessment\EgeCompletenessResult;
+use Inc\Enums\Assessment\AssessmentKind;
+use Inc\Services\Exam\ExamFormatRegistry;
 use Inc\Services\Subject\PostTypeResolver;
 
 /**
@@ -34,6 +36,8 @@ class EgeCompletenessChecker {
 	 * @return string[] Метки позиций (напр. ['13', '14', '15', '16']).
 	 */
 	public const EXTRA_POSITIONS_FILTER = 'fs_lms_assessment_completeness_extra_positions';
+
+	public function __construct( private readonly ExamFormatRegistry $formats ) {}
 
 	/**
 	 * Строгий вердикт укомплектованности (D16.2): ровно одно задание на каждый
@@ -71,6 +75,15 @@ class EgeCompletenessChecker {
 			$slug               = 'manual_' . $position;
 			$termNames[ $slug ] = $position;
 			$nameToSlug[ $position ] = $slug;
+		}
+
+		// Фильтруем по формату: только номера 1..N.
+		$termNames = $this->expectedNames( $termNames, $assessment->kind );
+
+		// Перестраиваем name => slug по отфильтрованному набору.
+		$nameToSlug = array();
+		foreach ( $termNames as $slug => $name ) {
+			$nameToSlug[ $name ] = $slug;
 		}
 
 		// slug => сколько заданий его покрывают; список сирот (без валидного номера).
@@ -145,10 +158,19 @@ class EgeCompletenessChecker {
 			return [];
 		}
 
+		// slug => name для фильтрации по формату.
+		$termNames = [];
+		foreach ( $terms as $term ) {
+			$termNames[ $term->slug ] = $term->name;
+		}
+
+		// Фильтруем по формату: только номера 1..N.
+		$termNames = $this->expectedNames( $termNames, $assessment->kind );
+
 		// name => slug (для fallback банковских задач по task_numbers).
 		$nameToSlug = [];
-		foreach ( $terms as $term ) {
-			$nameToSlug[ $term->name ] = $term->slug;
+		foreach ( $termNames as $slug => $name ) {
+			$nameToSlug[ $name ] = $slug;
 		}
 
 		// Собираем номера заданий, которые встречаются в задачах работы.
@@ -173,9 +195,9 @@ class EgeCompletenessChecker {
 		}
 
 		$missing = [];
-		foreach ( $terms as $term ) {
-			if ( ! isset( $coveredNumbers[ $term->slug ] ) ) {
-				$missing[] = $term->name;
+		foreach ( $termNames as $slug => $name ) {
+			if ( ! isset( $coveredNumbers[ $slug ] ) ) {
+				$missing[] = $name;
 			}
 		}
 
@@ -188,5 +210,28 @@ class EgeCompletenessChecker {
 	/** Удобная обёртка: работа полностью покрывает все номера? */
 	public function isComplete( AssessmentDTO $assessment, string $subjectKey ): bool {
 		return empty( $this->getMissingTaskNumbers( $assessment, $subjectKey ) );
+	}
+
+	/**
+	 * Фильтрует термы по формату: оставляет только валидные номера в диапазоне [1..N].
+	 * Если формат не зарегистрирован или не определён — возвращает вход без изменений.
+	 *
+	 * @param array<string, string> $termNames slug => name
+	 * @param AssessmentKind        $kind
+	 * @return array<string, string> Отфильтрованные имена
+	 */
+	private function expectedNames( array $termNames, AssessmentKind $kind ): array {
+		$n = $this->formats->unitCount( $kind );
+		if ( $n <= 0 ) {
+			return $termNames;
+		}
+
+		$expected = array();
+		foreach ( $termNames as $slug => $name ) {
+			if ( ctype_digit( $name ) && (int) $name >= 1 && (int) $name <= $n ) {
+				$expected[ $slug ] = $name;
+			}
+		}
+		return $expected;
 	}
 }
