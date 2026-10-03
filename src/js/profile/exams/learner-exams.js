@@ -232,6 +232,15 @@ function attachActionHandlers( cardElement, exam, api, isParent ) {
 					case 'cancel':
 						handleCancelAction( cardElement, exam, api );
 						break;
+					case 'start':
+						handleStartAttempt( exam, api );
+						break;
+					case 'resume':
+						handleResumeAttempt( exam, api );
+						break;
+					case 'results':
+						handleViewResults( exam, api );
+						break;
 				}
 			} catch ( error ) {
 				console.error( `Ошибка при выполнении ${action}:`, error );
@@ -505,6 +514,49 @@ function generateUUID() {
 		const v = c === 'x' ? r : ( r & 0x3 ) | 0x8;
 		return v.toString( 16 );
 	} );
+}
+
+/**
+ * Обработчик кнопки "Приступить" — запустить новую попытку (6.5).
+ * Перенаправляет на страницу попытки плеера.
+ */
+function handleStartAttempt( exam, api ) {
+	if ( ! exam.current_attempt_id ) {
+		console.error( 'Попытка не найдена' );
+		return;
+	}
+
+	// Перенаправить на страницу попытки плеера
+	window.location.href = exam.attempt_url || `/lms/attempt/${exam.current_attempt_id}/`;
+}
+
+/**
+ * Обработчик кнопки "Продолжить" — возобновить существующую попытку (6.5).
+ * Перенаправляет на страницу попытки плеера.
+ */
+function handleResumeAttempt( exam, api ) {
+	if ( ! exam.current_attempt_id ) {
+		console.error( 'Попытка не найдена' );
+		return;
+	}
+
+	// Перенаправить на страницу попытки плеера
+	window.location.href = exam.attempt_url || `/lms/attempt/${exam.current_attempt_id}/`;
+}
+
+/**
+ * Обработчик кнопки "Результаты" — открыть разбор результатов (6.5).
+ * Открывает результаты в work-review экране.
+ */
+function handleViewResults( exam, api ) {
+	if ( ! exam.current_attempt_id ) {
+		console.error( 'Попытка не найдена' );
+		return;
+	}
+
+	// Перенаправить на results страницу (можно использовать window.location или AJAX open)
+	// Для попыток результаты обычно открываются как деталь работы
+	window.location.href = `/lms/results/${exam.current_attempt_id}/`;
 }
 
 /**
