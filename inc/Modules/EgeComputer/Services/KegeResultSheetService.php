@@ -272,7 +272,7 @@ readonly class KegeResultSheetService {
 	 * (Tasks.md, п. 4).
 	 */
 	private function same( string $given, string $correct ): bool {
-		return '' !== $given && self::normalizeAnswer( $given ) === self::normalizeAnswer( $correct );
+		return '' !== $given && self::normalizeAnswer( $given ) === self::normalizeStoredAnswer( $correct );
 	}
 
 	/**

@@ -30,6 +30,10 @@ class AnswerNormalizerTest extends TestCase {
 			public function run( string $value ): string {
 				return self::normalizeAnswer( $value );
 			}
+
+			public function stored( string $value ): string {
+				return self::normalizeStoredAnswer( $value );
+			}
 		};
 	}
 
@@ -59,5 +63,10 @@ class AnswerNormalizerTest extends TestCase {
 
 	public function test_whitespace_only_becomes_empty(): void {
 		self::assertSame( '', $this->sut->run( "  \n\t " ) );
+	}
+
+	public function test_legacy_entity_in_stored_answer_matches_literal_student_symbol(): void {
+		self::assertSame( $this->sut->run( '<' ), $this->sut->stored( '&lt;' ) );
+		self::assertNotSame( $this->sut->run( '&lt;' ), $this->sut->stored( '&lt;' ) );
 	}
 }

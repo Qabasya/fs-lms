@@ -26,6 +26,10 @@ class CorrectAnswerResolverTest extends TestCase {
 		self::assertSame( '4', $this->resolver( array( 'task_answer' => '4' ), 'standard_task' )->resolve( 1 ) );
 	}
 
+	public function test_legacy_encoded_symbol_is_shown_as_answer(): void {
+		self::assertSame( '<', $this->resolver( array( 'task_answer' => '&lt;' ), 'standard_task' )->resolve( 1 ) );
+	}
+
 	public function test_choice_joins_correct_option_texts(): void {
 		$meta = array( 'task_options' => array( 'options' => array(
 			array( 'id' => '1', 'text' => '2', 'correct' => true ),

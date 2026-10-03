@@ -16,7 +16,7 @@ import { createApi } from './api.js';
 import { DOW_RU, MONTHS_RU } from './constants.js';
 import { groupPickerBtnHtml, openGroupPicker } from './picker.js';
 import { computeMonths, initialCursor, shiftMonth } from './ktp/ktp-calendar-model.js';
-import { themeCardHtml, placedThemeHtml, openProgramHtml, emptyStateHtml, noGroupsHtml, errorHtml } from './ktp/ktp-templates.js';
+import { themeCardHtml, placedThemeHtml, openProgramHtml, emptyStateHtml, changeCourseHtml, noGroupsHtml, errorHtml } from './ktp/ktp-templates.js';
 import { attachDeadlinesClick, attachPlacedThemeClick, attachRecordingClick, attachThemeActionsClick } from './ktp/ktp-popovers.js';
 import { INDI_ID, loadIndividual } from './ktp/ktp-individual.js';
 import { openOffScheduleModal } from './ktp/ktp-offschedule-modal.js';
@@ -36,6 +36,7 @@ export function renderKTP(r) {
         sched:   p.schedule || null,
         groupId: null,
         data:    null,
+        changeCourseOpen: false,
         months:  [],
         cursor:  0,
         dragGlid: null,
@@ -110,18 +111,20 @@ function render() {
                 </div>
             </div>
             <span class="prof-spacer"></span>
+            ${assigned ? `<button type="button" class="prof-btn prof-btn-sm" id="ktpChangeCourse" ${locked ? 'disabled title="Снимите публикацию КТП, чтобы сменить курс"' : ''}>Сменить курс</button>` : ''}
             ${assigned && !open ? `
                 <div class="prof-ktp-legend">
                     <span class="kl"><span class="prof-dot prof-dot-good"></span>Тема по плану</span>
                     <span class="kl"><span class="prof-dot prof-dot-accent"></span>Закреплено</span>
                     <span class="kl"><span class="prof-dot prof-dot-absent"></span>Выходной</span>
-                </div>
-                ${locked ? `
+                </div>` : ''}
+            ${assigned && locked ? `
                 <span class="ktp-lock-badge" title="Опубликовано${state.data.locked_at ? ' ' + esc(state.data.locked_at) : ''}">
                     ${icoLock(13)}
                     Опубликовано
                 </span>
-                <button class="prof-btn prof-btn-sm" id="ktpUnpublish">Снять публикацию</button>` : `
+                <button class="prof-btn prof-btn-sm" id="ktpUnpublish">Снять публикацию</button>` : ''}
+            ${assigned && !open && !locked ? `
                 ${hasUnplacedThemes() ? `
                 <button class="prof-btn prof-btn-sm prof-btn-primary" id="ktpReflow">
                     ${icoSwap(15)}
@@ -129,9 +132,10 @@ function render() {
                 </button>` : ''}
                 ${hasScheduledThemes() ? `
                 <button class="prof-btn prof-btn-sm" id="ktpUnschedule">Отменить распределение</button>` : ''}
-                <button class="prof-btn prof-btn-sm" id="ktpPublish">Опубликовать</button>`}` : ''}
+                <button class="prof-btn prof-btn-sm" id="ktpPublish">Опубликовать</button>` : ''}
         </div>
 
+        ${assigned && state.changeCourseOpen && !locked ? changeCourseHtml() : ''}
         ${assigned && !open ? overflowBannerHtml(state.data) : ''}
 
         ${assigned ? (open ? openProgramHtml(state.data.themes || []) : `
@@ -157,11 +161,19 @@ function render() {
     </div>`;
 
     document.getElementById('ktpGroupBtn').onclick = openGroupMenu;
+    const changeBtn = document.getElementById('ktpChangeCourse');
+    if (changeBtn && !locked) {
+        changeBtn.onclick = () => {
+            state.changeCourseOpen = !state.changeCourseOpen;
+            render();
+        };
+    }
+    if (assigned && locked) {
+        document.getElementById('ktpUnpublish').onclick = doUnpublish;
+    }
 
     if (assigned && !open) {
-        if (locked) {
-            document.getElementById('ktpUnpublish').onclick = doUnpublish;
-        } else {
+        if (!locked) {
             // Обе кнопки не альтернативны — могут стоять рядом (см. hasUnplacedThemes()).
             const reflowBtn = document.getElementById('ktpReflow');
             if (reflowBtn) reflowBtn.onclick = doReflow;
@@ -173,23 +185,30 @@ function render() {
         document.getElementById('ktpNext').onclick = () => shiftMonthBy(1);
         renderBank();
         renderCalendar();
+    }
+    if (assigned && state.changeCourseOpen && !locked) {
+        document.getElementById('ktpCancelChange').onclick = () => {
+            state.changeCourseOpen = false;
+            render();
+        };
+        wireCoursePicker(true);
     } else if (!assigned) {
-        wireCoursePicker();
+        wireCoursePicker(false);
     }
 }
 
-/* Курс-пикер в пустом состоянии (T11.1): список курсов предмета → назначить. */
-async function wireCoursePicker() {
+/* Курс-пикер: первое назначение или замена курса в уже заполненной КТП. */
+async function wireCoursePicker(replacing) {
     const sel = document.getElementById('ktpCourseSel');
     const btn = document.getElementById('ktpAssignBtn');
     if (!sel || !btn || !coursesApi) { return; }
 
     try {
         const d = await coursesApi('getCourses', { group_id: state.groupId });
-        const courses = (d && d.courses) || [];
+        const courses = ((d && d.courses) || []).filter(c => !replacing || Number(c.id) !== Number(state.data.course_id));
         sel.innerHTML = courses.length
             ? '<option value="">— выберите курс —</option>' + courses.map(c => `<option value="${c.id}">${esc(c.title)}</option>`).join('')
-            : '<option value="">Нет курсов по этому предмету</option>';
+            : `<option value="">${replacing ? 'Других курсов по этому предмету нет' : 'Нет курсов по этому предмету'}</option>`;
     } catch (e) {
         sel.innerHTML = '<option value="">Не удалось загрузить курсы</option>';
         toast(e.message, 'error');
@@ -198,13 +217,26 @@ async function wireCoursePicker() {
     sel.addEventListener('change', () => { btn.disabled = !sel.value; });
     btn.addEventListener('click', async () => {
         if (!sel.value) { return; }
+        if (replacing) {
+            const confirmed = await confirmDialog(
+                'Сменить курс? Темы без данных учеников будут заменены. Проведённые занятия, посещаемость и решения останутся в КТП и журнале.',
+                'Сменить курс',
+                'Не менять'
+            );
+            if (!confirmed) { return; }
+        }
         btn.disabled = true;
         try {
-            const res = await coursesApi('assignCourse', { group_id: state.groupId, course_id: sel.value });
+            const res = await coursesApi('assignCourse', {
+                group_id: state.groupId,
+                course_id: sel.value,
+                policy: replacing ? 'replace' : 'append',
+            });
             const warnings = (res && res.warnings) || [];
             toast(warnings.length
-                ? `Курс назначен. Внимание: ${warnings.join('; ')}`
-                : 'Курс назначен', warnings.length ? 'error' : 'ok');
+                ? `Курс ${replacing ? 'сменён' : 'назначен'}. Внимание: ${warnings.join('; ')}`
+                : `Курс ${replacing ? 'сменён' : 'назначен'}`, warnings.length ? 'error' : 'ok');
+            state.changeCourseOpen = false;
             await reloadCalendar();
         } catch (e) { toast(e.message, 'error'); btn.disabled = false; }
     });
@@ -325,6 +357,7 @@ function shiftMonthBy(d) {
 function openGroupMenu() {
     openGroupPicker(document.getElementById('ktpGroupBtn'), state.groups, state.groupId, id => {
         state.groupId = id;
+        state.changeCourseOpen = false;
         if (INDI_ID === id) { loadIndividual(indiCtx); } else { loadCalendar(); }
     }, [{ v: String(INDI_ID), label: 'Индивидуальные занятия', swatchClass: 'chip-indi', chip: 'Инд' }]);
 }

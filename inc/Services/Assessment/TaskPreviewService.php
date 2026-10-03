@@ -138,7 +138,7 @@ class TaskPreviewService {
 		// Ответ — только task_answer (answer/answer_text/correct_answer в шаблонах нет).
 		$answer_html = '';
 		if ( ! empty( $meta['task_answer'] ) && is_string( $meta['task_answer'] ) ) {
-			$answer_html = SafeHtml::post( $meta['task_answer'] );
+			$answer_html = nl2br( esc_html( html_entity_decode( $meta['task_answer'], ENT_QUOTES | ENT_HTML5, 'UTF-8' ) ) );
 		}
 
 		// Решение — поле «Решение/пояснение» (task_text, есть у TaskTextSolution).

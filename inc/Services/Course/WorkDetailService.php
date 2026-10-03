@@ -22,6 +22,7 @@ use Inc\Repositories\WPDBRepositories\SubmissionRepository;
 use Inc\Repositories\WPDBRepositories\TaskAttemptRepository;
 use Inc\Services\Task\CorrectAnswerResolver;
 use Inc\Services\Task\TaskMetaService;
+use Inc\Services\Task\TaskSolutionService;
 
 /**
  * Class WorkDetailService
@@ -80,6 +81,7 @@ class WorkDetailService {
 		private readonly TaskMetaService             $taskMeta,
 		private readonly TaskAttemptRepository       $taskAttempts,
 		private readonly StudentRecordRepository     $studentRecords,
+		private readonly TaskSolutionService         $solutions,
 	) {}
 
 	/**
@@ -112,7 +114,7 @@ class WorkDetailService {
 	 *   submitted_at: string,
 	 *   duration_sec: ?int,
 	 *   is_current: bool,
-	 *   tasks: array<int, array{n:int, condition:string, answer:?string, code:?string, correct:?string, verdict:string, score:?float, max_score:?float, answered_at:?string}>
+	 *   tasks: array<int, array{n:int, condition:string, answer:?string, code:?string, correct:?string, solution:?array, verdict:string, score:?float, max_score:?float, answered_at:?string}>
 	 * }>|null null, если сдача не найдена
 	 */
 	public function attemptHistory( int $submissionId ): ?array {
@@ -179,6 +181,7 @@ class WorkDetailService {
 					// снимок (`historyTaskBlock()`) показывает его по тому же
 					// правилу, что и текущая сдача — только у нерешённой задачи.
 					'correct'   => $this->correctAnswers->resolve( $taskId ),
+					'solution'  => $this->reviewSolution( $taskId ),
 					'verdict'   => true === $a->isCorrect ? 'correct' : ( false === $a->isCorrect ? 'incorrect' : 'pending' ),
 					'score'     => $a->score,
 					'max_score' => $a->maxScore,
@@ -297,6 +300,7 @@ class WorkDetailService {
 					'answer'             => $answer,
 					'code'               => $code,
 					'correct'            => $this->correctAnswers->resolve( $taskId ),
+					'solution'           => $this->reviewSolution( $taskId ),
 					'verdict'            => $verdict,
 					'score'              => $row->score,
 					'max_score'          => $row->maxScore,
@@ -332,6 +336,7 @@ class WorkDetailService {
 				'answer'             => $answer,
 				'code'               => $code,
 				'correct'            => $this->correctAnswers->resolve( $taskId ),
+				'solution'           => $this->reviewSolution( $taskId ),
 				'verdict'            => $verdict,
 				'score'              => $score,
 				'max_score'          => $maxScore,
@@ -488,6 +493,7 @@ class WorkDetailService {
 				'code'       => $code,
 				'files'      => $files,
 				'correct'    => $this->correctAnswers->resolve( $ans->taskId ),
+				'solution'   => $this->reviewSolution( $ans->taskId ),
 				'verdict'    => $verdict,
 				'score'      => $ans->score,
 				'max_score'  => $ans->maxScore,
@@ -573,6 +579,21 @@ class WorkDetailService {
 	/** Условие задания хранится в мете (`task_condition` и составные шаблоны), не в `post_content`. */
 	private function condition( int $taskId ): string {
 		return $this->taskMeta->getCombinedCondition( $this->posts->taskMeta( $taskId ) );
+	}
+
+	/**
+	 * Авторское решение для экрана преподавателя. Один лишь правильный ответ
+	 * не создаёт кнопку: она показывает только текст решения и/или листинг кода.
+	 *
+	 * @return array{html:string, code:string}|null
+	 */
+	private function reviewSolution( int $taskId ): ?array {
+		$solution = $this->solutions->forTask( $taskId, $this->posts->taskMeta( $taskId ) );
+		if ( null === $solution || ( '' === $solution['html'] && '' === $solution['code'] ) ) {
+			return null;
+		}
+
+		return array( 'html' => $solution['html'], 'code' => $solution['code'] );
 	}
 
 	/** Резолвит шаблон задания по его типу из меты. */

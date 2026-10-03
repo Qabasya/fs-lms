@@ -80,6 +80,11 @@ class TextAnswerCheckerTest extends TestCase {
 		self::assertFalse( $result->isCorrect );
 	}
 
+	public function test_legacy_encoded_less_than_answer_matches_literal_symbol(): void {
+		self::assertTrue( $this->checker->check( [ 'task_answer' => '&lt;' ], '<' )->isCorrect );
+		self::assertFalse( $this->checker->check( [ 'task_answer' => '&lt;' ], '>' )->isCorrect );
+	}
+
 	public function test_empty_correct_answer_is_never_correct(): void {
 		$result = $this->checker->check( [ 'task_answer' => '' ], '' );
 

@@ -11,6 +11,7 @@ import { esc, toast, fmtNum, fmtDateTime, fmtDuration } from './utils.js';
 import { icoChevronLeft } from '../common/icons.js';
 import { createApi } from './api.js';
 import { confirmDialog } from '../common/components/confirm-dialog.js';
+import { solutionBlock } from './work-review-solution.js';
 
 const VERDICT_LABEL = { correct: 'Верно', corrected: 'Верно с исправлением', incorrect: 'Неверно', pending: 'На проверке' };
 const STATUS_LABEL  = { submitted: 'Сдано', pending: 'На проверке', graded: 'Оценено', returned: 'Возвращено', in_progress: 'В процессе', expired: 'Просрочено' };
@@ -247,6 +248,7 @@ function historyTaskBlock(t) {
             ${t.answer || !t.code ? `<div class="sum-task-ans"><span class="sta-label">Ответ ученика:</span> <span class="sta-val">${t.answer ? esc(t.answer) : '—'}</span></div>` : ''}
             ${t.code ? codeBlock(t.code) : ''}
             ${t.correct && 'correct' !== t.verdict ? `<div class="sum-task-ans sum-task-correct"><span class="sta-label">Правильный ответ:</span> <span class="sta-val">${esc(t.correct)}</span></div>` : ''}
+            ${solutionBlock(t.solution)}
         </div>`;
 }
 
@@ -394,6 +396,7 @@ function taskBlock(t, d) {
             ${t.code ? codeBlock(t.code) : ''}
             ${t.files && t.files.length ? taskFilesBlock(t.files) : ''}
             ${showCorrect ? `<div class="sum-task-ans sum-task-correct"><span class="sta-label">Правильный ответ:</span> <span class="sta-val">${esc(t.correct)}</span></div>` : ''}
+            ${solutionBlock(t.solution)}
             ${grade}
             ${credit}
         </div>`;

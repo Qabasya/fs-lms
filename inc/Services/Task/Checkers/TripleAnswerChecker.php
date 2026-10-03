@@ -30,7 +30,7 @@ class TripleAnswerChecker implements TaskCheckerInterface {
 		$feedback  = array();
 
 		foreach ( self::KEYS as $n ) {
-			$correct = self::normalizeAnswer( (string) ( $content[ "task_{$n}_answer" ] ?? '' ) );
+			$correct = self::normalizeStoredAnswer( (string) ( $content[ "task_{$n}_answer" ] ?? '' ) );
 			$student = self::normalizeAnswer( (string) ( $submitted[ $n ] ?? '' ) );
 
 			$ok               = $correct !== '' && $correct === $student;

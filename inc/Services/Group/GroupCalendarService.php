@@ -75,7 +75,7 @@ readonly class GroupCalendarService {
 	 *
 	 * @param int $groupId ID группы
 	 *
-	 * @return array{assigned:bool, period:?array, holidays:string[], lessonDays:string[], lessonTimes:array<string,string>, slots_total:int, unplaced:int, themes:array<int,array<string,mixed>>}
+	 * @return array{assigned:bool, course_id:int, period:?array, holidays:string[], lessonDays:string[], lessonTimes:array<string,string>, slots_total:int, unplaced:int, themes:array<int,array<string,mixed>>}
 	 */
 	public function getCalendar( int $groupId ): array {
 		$group        = $this->groups->findById( $groupId );
@@ -135,6 +135,7 @@ readonly class GroupCalendarService {
 
 		return array(
 			'assigned'      => $group ? ! empty( $group->course_id ) : false,
+			'course_id'     => $group ? (int) ( $group->course_id ?? 0 ) : 0,
 			// Эпик 15: открытая группа — расписание не ведётся, фронт показывает
 			// программу списком вместо КТП-доски (reflow/publish неприменимы).
 			'open'          => $group && AccessMode::Open === AccessMode::fromValueOrDefault( (string) ( $group->access_mode ?? '' ) ),

@@ -48,7 +48,7 @@ class CorrectAnswerResolver {
 			TaskTemplate::Code,
 			TaskTemplate::FileCode,
 			TaskTemplate::File,
-			TaskTemplate::TextSolution => trim( (string) ( $meta['task_answer'] ?? '' ) ),
+			TaskTemplate::TextSolution => html_entity_decode( trim( (string) ( $meta['task_answer'] ?? '' ) ), ENT_QUOTES | ENT_HTML5, 'UTF-8' ),
 			TaskTemplate::Triple   => $this->triple( $meta ),
 			TaskTemplate::Choice   => $this->choice( $meta ),
 			TaskTemplate::Matching => $this->matching( $meta ),
@@ -247,7 +247,7 @@ class CorrectAnswerResolver {
 	private function triple( array $meta ): string {
 		$parts = array();
 		foreach ( array( '19', '20', '21' ) as $n ) {
-			$a = trim( (string) ( $meta[ "task_{$n}_answer" ] ?? '' ) );
+			$a = html_entity_decode( trim( (string) ( $meta[ "task_{$n}_answer" ] ?? '' ) ), ENT_QUOTES | ENT_HTML5, 'UTF-8' );
 			if ( '' !== $a ) {
 				$parts[] = "{$n}: {$a}";
 			}

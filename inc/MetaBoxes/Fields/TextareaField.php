@@ -40,7 +40,7 @@ class TextareaField extends BaseField {
 				<textarea id="<?php echo esc_attr( $id ); ?>"
 						name="<?php echo esc_attr( $this->get_field_name( $id ) ); ?>"
 						rows="5"
-						class="large-text fs-lms-input fs-lms-textarea"><?php echo esc_textarea( (string) $value ); ?></textarea>
+						class="large-text fs-lms-input fs-lms-textarea"><?php echo esc_textarea( html_entity_decode( (string) $value, ENT_QUOTES | ENT_HTML5, 'UTF-8' ) ); ?></textarea>
 			</div>
 		</div>
 		<?php
@@ -49,15 +49,16 @@ class TextareaField extends BaseField {
 	/**
 	 * Санитизация значения поля.
 	 *
-	 * sanitize_textarea_field() удаляет теги и спецсимволы, но, в отличие от
-	 * sanitize_text_field(), сохраняет переводы строк.
+	 * Эталон ответа — обычный текст, в котором `<` и `>` могут быть всем ответом.
+	 * Значение уже прошло wp_unslash() в вызывающем коллбеке, повторно снимать
+	 * слэши нельзя (пути и регулярные выражения тоже бывают ответом).
 	 *
 	 * @param mixed $value Сырое значение из POST-запроса
 	 *
 	 * @return string Очищенный многострочный текст
 	 */
 	public function sanitize( mixed $value ): mixed {
-		return $this->sanitizeMultilineTextValue( $value );
+		return $this->sanitizeAnswerTextValue( $value );
 	}
 
 	public function editorType(): string {
