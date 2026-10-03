@@ -10,15 +10,18 @@ use Inc\Shared\Traits\Sanitizer;
 use Inc\Enums\Nonce;
 use Inc\Enums\Log\ErrorCode;
 use Inc\Services\Profile\ProfileViewResolver;
+use Inc\Services\Exam\LearnerExamsService;
 
 class LearnerExamCallbacks extends BaseController {
 
 	use AjaxResponse, Sanitizer;
 
-	private ProfileViewResolver $resolver;
-
-	public function __construct( ?ProfileViewResolver $resolver = null ) {
-		$this->resolver = $resolver ?? new ProfileViewResolver();
+	public function __construct(
+		private ?ProfileViewResolver $resolver = null,
+		private ?LearnerExamsService $examsService = null
+	) {
+		$this->resolver ??= new ProfileViewResolver();
+		$this->examsService ??= new LearnerExamsService();
 	}
 
 	public function ajaxGetLearnerExams(): void {
@@ -39,8 +42,9 @@ class LearnerExamCallbacks extends BaseController {
 			return;
 		}
 
-		// Пока вернём пустой список; полная реализация в 5.2
-		$this->success( array( 'exams' => array() ) );
+		$readOnly = $ctx->readOnly;
+		$result = $this->examsService->build( $personId, $readOnly );
+		$this->success( $result );
 	}
 
 	public function ajaxRegisterForExam(): void {
