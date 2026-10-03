@@ -64,14 +64,12 @@ class RateLimitServiceTest extends TestCase {
 
 		self::assertSame( 200, $this->passesBeforeBlock( fn() => $service->allowOtpSend( '9.9.9.9' ) ) );
 		self::assertSame( 200, $this->passesBeforeBlock( fn() => $service->allowUsernameCheck( '9.9.9.9' ) ) );
-		self::assertSame( 30, $this->passesBeforeBlock( fn() => $service->allowParentSubmit( '9.9.9.9' ) ) );
 	}
 
 	public function test_other_ips_keep_default_limits_when_trusted_list_is_set(): void {
 		$service = $this->makeService( trustedIps: array( '9.9.9.9' ) );
 
 		self::assertSame( 20, $this->passesBeforeBlock( fn() => $service->allowOtpSend( '5.5.5.5' ) ) );
-		self::assertSame( 3, $this->passesBeforeBlock( fn() => $service->allowParentSubmit( '5.5.5.5' ) ) );
 	}
 
 	public function test_trusted_ip_does_not_raise_per_email_limit(): void {

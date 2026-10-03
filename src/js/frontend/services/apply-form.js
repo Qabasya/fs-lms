@@ -23,6 +23,7 @@ const vars = window.fs_lms_apply_vars;
 
 /** Данные формы этапа 1, сохраняются для передачи на этапе 2 */
 let _formData = null;
+let _tracker = null;
 
 /**
  * Читает значение honeypot-поля (должно быть пустым у людей).
@@ -41,7 +42,7 @@ function collectFormData() {
     const middleName = document.getElementById( 'fs_middle_name' )?.value.trim() ?? '';
 
     const rawPhone   = document.getElementById( 'fs_phone' )?.value.trim() ?? '';
-    const cleanPhone = rawPhone.replace( /[()\-]/g, '' );
+    const cleanPhone = '+7' + rawPhone.replace( /\D/g, '' ).slice( -10 );
 
     return {
         last_name:   lastName,
@@ -121,6 +122,27 @@ async function ajaxPost( action, data ) {
     const body = new URLSearchParams( { action, ...data } );
     const res  = await fetch( vars.ajax_url, { method: 'POST', body } );
     return res.json();
+}
+
+/** При сетевом сбое капчи сервер применяет отдельный лимит и проверку почты. */
+async function obtainCaptcha() {
+    try {
+        return { token: await getCaptchaToken(), failure: '' };
+    } catch ( error ) {
+        return { token: '', failure: captchaFailureOf( error ) };
+    }
+}
+
+function otpRequestFields( captcha, email ) {
+    return {
+        security:            vars.nonces.apply,
+        email,
+        captcha_token:       captcha.token,
+        captcha_unavailable: captcha.failure,
+        form_token:          vars.form_token ?? '',
+        visit:               applyVisitId(),
+        [ vars.hp_field || 'fs_company' ]: readHoneypot(),
+    };
 }
 
 // ── Переходы между этапами ───────────────────────────────────────────────────

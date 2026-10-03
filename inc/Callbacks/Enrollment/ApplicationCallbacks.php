@@ -101,7 +101,6 @@ class ApplicationCallbacks extends BaseController {
 	 * @return bool
 	 */
 	public function prepareJoinPage(): bool {
-		$ip   = $this->requestContext()->ip;
 		// get_query_var() — получает кастомный параметр из URL
 		$code = get_query_var( 'fs_lms_join_code', '' );
 
@@ -126,11 +125,6 @@ class ApplicationCallbacks extends BaseController {
 
 		// Проверка формата JOIN-кода
 		if ( '' === $code || ! $this->joinCodeService->isValidFormat( $code ) ) {
-			return false;
-		}
-
-		// Проверка лимита попыток ввода
-		if ( ! $this->rateLimitService->allowJoinAttempt( $ip ) ) {
 			return false;
 		}
 
@@ -471,12 +465,6 @@ class ApplicationCallbacks extends BaseController {
 	 */
 	public function ajaxSubmitParentData(): void {
 		Nonce::ParentSubmit->verify();
-
-		$ip = $this->requestContext()->ip;
-
-		if ( ! $this->rateLimitService->allowParentSubmit( $ip ) ) {
-			$this->error( 'Слишком много запросов. Попробуйте позже.' );
-		}
 
 		// Проверяем, назначен ли родитель заранее (поля родителя тогда не обязательны)
 		$joinCode     = $this->requireText( 'join_code' );

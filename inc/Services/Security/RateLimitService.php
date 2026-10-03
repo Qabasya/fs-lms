@@ -59,8 +59,6 @@ readonly class RateLimitService {
 	private const TRANSIENT_TTL = self::WINDOW * 2;
 
 	private const LIMIT_APPLICATION = 20;
-	private const LIMIT_JOIN        = 30;
-	private const LIMIT_PARENT      = 3;
 	private const LIMIT_PII_REVEAL  = 100;
 	private const LIMIT_OTP_EMAIL   = 5;
 
@@ -130,30 +128,6 @@ readonly class RateLimitService {
 	public function allowOtpSendForEmail( string $email ): bool {
 		if ( $this->pluginConfig->isTestEnv() ) { return true; }
 		return $this->check( $this->emailKey( 'otpmail', $email ), self::LIMIT_OTP_EMAIL, DAY_IN_SECONDS );
-	}
-
-	/**
-	 * Проверяет и фиксирует попытку открытия JOIN-ссылки с данного IP.
-	 *
-	 * @param string $ip IP-адрес клиента
-	 *
-	 * @return bool false если лимит превышен
-	 */
-	public function allowJoinAttempt( string $ip ): bool {
-		if ( $this->pluginConfig->isTestEnv() ) { return true; }
-		return $this->checkIp( 'join', $ip, self::LIMIT_JOIN );
-	}
-
-	/**
-	 * Проверяет и фиксирует попытку submit-а формы родителя с данного IP.
-	 *
-	 * @param string $ip IP-адрес клиента
-	 *
-	 * @return bool false если лимит превышен
-	 */
-	public function allowParentSubmit( string $ip ): bool {
-		if ( $this->pluginConfig->isTestEnv() ) { return true; }
-		return $this->checkIp( 'parent', $ip, self::LIMIT_PARENT );
 	}
 
 	/**
