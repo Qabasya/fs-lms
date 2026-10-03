@@ -249,6 +249,18 @@ class AssessmentAttemptRepository {
 		return $row ? AttemptDTO::fromArray( $row ) : null;
 	}
 
+	public function findLatestByParticipation( int $participationId ): ?AttemptDTO {
+		$row = $this->wpdb->get_row(
+			$this->wpdb->prepare(
+				'SELECT * FROM %i WHERE exam_participation_id = %d ORDER BY id DESC LIMIT 1',
+				$this->table,
+				$participationId
+			),
+			ARRAY_A
+		);
+		return $row ? AttemptDTO::fromArray( $row ) : null;
+	}
+
 	/** @return int[] Для каскадной очистки answers перед удалением попыток группы. */
 	public function listIdsByGroup( int $groupId ): array {
 		$ids = $this->wpdb->get_col(

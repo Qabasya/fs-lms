@@ -9,7 +9,8 @@ use Inc\Repositories\WPDBRepositories\ExamSessionRepository;
 use Inc\Repositories\WPDBRepositories\ExamParticipationRepository;
 use Inc\Repositories\WPDBRepositories\ExamRegistrationRepository;
 use Inc\Repositories\WPDBRepositories\AssessmentAttemptRepository;
-use Inc\Services\Subject\PostTypeResolver;
+use Inc\Repositories\WPDBRepositories\PersonRepository;
+use Inc\Repositories\WPDBRepositories\RoomRepository;
 use Inc\DTO\Exam\ExamEventDTO;
 
 class LearnerExamsService {
@@ -20,34 +21,137 @@ class LearnerExamsService {
 		private ExamParticipationRepository $participationRepo,
 		private ExamRegistrationRepository $registrationRepo,
 		private AssessmentAttemptRepository $attemptRepo,
+		private PersonRepository $personRepo,
+		private RoomRepository $roomRepo,
 		private ExamAudienceResolver $audienceResolver,
 		private ExamFormatRegistry $formatRegistry,
 	) {}
 
-	/**
-	 * Собирает список карточек экзаменов для ученика.
-	 *
-	 * @param int $personId ID ученика
-	 * @param bool $readOnly Режим только чтения (родитель)
-	 * @return array Список карточек экзаменов
-	 */
 	public function build( int $personId, bool $readOnly = false ): array {
 		$cards = array();
 
 		// Получить предметы ученика
 		$subjectKeys = $this->audienceResolver->subjectKeysForStudent( $personId );
+		if ( empty( $subjectKeys ) ) {
+			return array( 'exams' => $cards );
+		}
 
-		// TODO: Получить экзамены по этим предметам
-		// - проведения в статусах published, completed, cancelled
-		// - плюс проведения, где у ученика есть participation
+		// Получить экзамены: опубликованные + завершённые + отменённые
+		$events = $this->eventRepo->findBySubjectsAndStatuses(
+			$subjectKeys,
+			array( 'published', 'completed', 'cancelled' )
+		);
 
-		// Пока вернём пустой список
+		// Плюс экзамены, где у ученика есть participation (историческая запись)
+		$eventIdsWithParticipation = $this->participationRepo->findEventIdsForStudent( $personId );
+		if ( ! empty( $eventIdsWithParticipation ) ) {
+			$historicalEvents = $this->eventRepo->findByIds( $eventIdsWithParticipation );
+			$events = array_merge( $events, $historicalEvents );
+			// Удалить дубликаты
+			$seenIds = array();
+			$unique = array();
+			foreach ( $events as $event ) {
+				if ( ! in_array( $event->id, $seenIds, true ) ) {
+					$unique[] = $event;
+					$seenIds[] = $event->id;
+				}
+			}
+			$events = $unique;
+		}
+
+		// Собрать карточку для каждого события
+		foreach ( $events as $event ) {
+			$eventId = $event->id;
+
+			// Получить данные студента для этого события
+			$registration = $this->registrationRepo->findActiveByEventAndStudent( $eventId, $personId );
+			$participation = $this->participationRepo->findByEventAndStudent( $eventId, $personId );
+			$attempt = null;
+			if ( $participation ) {
+				$attempt = $this->attemptRepo->findLatestByParticipation( $participation->id );
+			}
+
+			// Получить сеансы события
+			$sessions = $this->buildSessionsList( $eventId, $registration );
+
+			// Определить состояние и действия
+			$stateInfo = $this->resolveState(
+				$event,
+				$registration,
+				$attempt ? $attempt->toArray() : null,
+				$sessions
+			);
+
+			// Собрать карточку
+			$card = array(
+				'event_id'                   => $eventId,
+				'title'                      => $event->title,
+				'description'                => $event->description,
+				'subject_key'                => $event->subject_key,
+				'direction'                  => $event->direction,
+				'state'                      => $stateInfo['state'],
+				'state_label'                => $this->getStateLabel( $stateInfo['state'] ),
+				'actions'                    => $readOnly ? array() : $stateInfo['actions'],
+				'period_from'                => $event->registration_opens_at,
+				'period_to'                  => $event->registration_closes_at,
+				'registration_opens_at'      => $event->registration_opens_at,
+				'registration_closes_at'     => $event->registration_closes_at,
+				'registration'               => $registration ? array(
+					'registration_id' => $registration->id,
+					'session_id'      => $registration->session_id,
+					'date'            => $registration->scheduled_at ? wp_date( 'Y-m-d', strtotime( $registration->scheduled_at ) ) : null,
+					'weekday'         => $registration->scheduled_at ? wp_date( 'l', strtotime( $registration->scheduled_at ) ) : null,
+					'time_start'      => $registration->scheduled_at ? wp_date( 'H:i', strtotime( $registration->scheduled_at ) ) : null,
+					'time_end'        => $registration->planned_end_at ? wp_date( 'H:i', strtotime( $registration->planned_end_at ) ) : null,
+					'room'            => $this->getRoomName( $registration->room_id ?? null ),
+				) : null,
+				'last_reason'                => $participation?->cancellation_reason,
+				'previous_date'              => null,
+				'sessions'                   => $sessions,
+				'teacher_name'               => $this->getTeacherName( $event->teacher_person_id ?? null ),
+				'format'                     => $this->formatRegistry->for( $event->subject_key, $event->direction )?->toArray(),
+			);
+
+			$cards[] = $card;
+		}
+
 		return array( 'exams' => $cards );
 	}
 
-	/**
-	 * Резолвит состояние карточки по условиям (5.2.2)
-	 */
+	private function buildSessionsList( int $eventId, ?array $registration ): array {
+		$now = current_time( 'mysql', true );
+		$sessions = array();
+
+		$dbSessions = $this->sessionRepo->findByEvent( $eventId );
+		foreach ( $dbSessions as $session ) {
+			if ( 'cancelled' === $session->status ) {
+				continue;
+			}
+
+			$scheduledAt = $session->scheduled_at;
+			if ( ! $scheduledAt || $now > $scheduledAt ) {
+				continue;
+			}
+
+			$free = max( 0, $session->capacity - $session->occupied_count );
+
+			$sessions[] = array(
+				'session_id'  => $session->id,
+				'date'        => wp_date( 'Y-m-d', strtotime( $scheduledAt ) ),
+				'weekday'     => wp_date( 'l', strtotime( $scheduledAt ) ),
+				'time_start'  => wp_date( 'H:i', strtotime( $scheduledAt ) ),
+				'time_end'    => wp_date( 'H:i', strtotime( $session->planned_end_at ) ),
+				'room'        => $this->getRoomName( $session->room_id ?? null ),
+				'free'        => $free,
+				'capacity'    => $session->capacity,
+				'selectable'  => $free > 0,
+				'is_current'  => $registration && $registration['session_id'] === $session->id,
+			);
+		}
+
+		return $sessions;
+	}
+
 	private function resolveState(
 		ExamEventDTO $event,
 		?array $registration,
@@ -101,7 +205,7 @@ class LearnerExamsService {
 			if ( $scheduledAt && $now >= $scheduledAt && $plannedEnd && $now < $plannedEnd ) {
 				return array(
 					'state'   => 'entry_open',
-					'actions' => array( 'start' ), // этап 6: будет активна
+					'actions' => array( 'start' ),
 				);
 			}
 
@@ -113,7 +217,7 @@ class LearnerExamsService {
 				);
 			}
 
-			// Сеанс закончился
+			// Сеанс закончился - пропущен или отменён
 			return array(
 				'state'   => 'missed',
 				'actions' => $this->canRegisterAgain( $event, $sessions ) ? array( 'register' ) : array(),
@@ -156,8 +260,7 @@ class LearnerExamsService {
 	private function hasFreeSlot( array $sessions ): bool {
 		foreach ( $sessions as $session ) {
 			if ( isset( $session['free'] ) && $session['free'] > 0 ) {
-				$scheduledAt = $session['scheduled_at'] ?? null;
-				if ( $scheduledAt && current_time( 'mysql', true ) < $scheduledAt ) {
+				if ( isset( $session['time_start'] ) ) {
 					return true;
 				}
 			}
@@ -166,7 +269,6 @@ class LearnerExamsService {
 	}
 
 	private function canRegisterAgain( ExamEventDTO $event, array $sessions ): bool {
-		// Можно записаться если запись открыта и есть места
 		$now = current_time( 'mysql', true );
 		if ( $now < $event->registration_opens_at || $now >= $event->registration_closes_at ) {
 			return false;
@@ -174,9 +276,48 @@ class LearnerExamsService {
 		return $this->hasFreeSlot( $sessions );
 	}
 
-	/**
-	 * Собирает список грядущих событий для расписания (5.5.1)
-	 */
+	private function getStateLabel( string $state ): string {
+		$labels = array(
+			'event_cancelled'   => 'Проведение отменено',
+			'not_open'          => 'Запись не открыта',
+			'open'              => 'Запись открыта',
+			'full'              => 'Свободных мест нет',
+			'closed'            => 'Запись закрыта',
+			'registered'        => 'Зарегистрирован',
+			'entry_open'        => 'Экзамен идёт',
+			'in_progress'       => 'Выполняется',
+			'awaiting_approval' => 'Ожидает утверждения',
+			'approved'          => 'Завершён',
+			'cancelled_by_staff' => 'Запись отменена',
+			'missed'            => 'Пропущен',
+		);
+		return $labels[ $state ] ?? $state;
+	}
+
+	private function getRoomName( ?int $roomId ): ?string {
+		if ( ! $roomId ) {
+			return null;
+		}
+		try {
+			$room = $this->roomRepo->findById( $roomId );
+			return $room?->name;
+		} catch ( \Exception $e ) {
+			return null;
+		}
+	}
+
+	private function getTeacherName( ?int $personId ): ?string {
+		if ( ! $personId ) {
+			return null;
+		}
+		try {
+			$person = $this->personRepo->findById( $personId );
+			return $person ? trim( $person->last_name . ' ' . $person->first_name ) : null;
+		} catch ( \Exception $e ) {
+			return null;
+		}
+	}
+
 	public function upcomingEvents( int $personId ): array {
 		$events = array();
 

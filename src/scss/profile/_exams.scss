@@ -1,0 +1,307 @@
+/**
+ * Стили для экрана "Мои экзамены" (этап 5)
+ */
+
+.learner-exams-container {
+	display: flex;
+	flex-direction: column;
+	gap: rem(32);
+}
+
+/* Плитки экзаменов - используем существующие классы */
+.exams-tabs {
+	&.sc-tabs {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+		gap: rem(16);
+		padding: 0;
+	}
+
+	.sc-tab {
+		cursor: pointer;
+		transition: all 0.2s ease;
+		border-radius: rem(8);
+		border: 1px solid var(--border-2);
+		background: var(--bg-secondary);
+		padding: rem(16);
+		position: relative;
+
+		&:hover {
+			border-color: var(--border-1);
+			box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+		}
+
+		&.sc-active {
+			border-color: var(--primary);
+			background: var(--primary-bg);
+		}
+	}
+}
+
+/* Пустое состояние */
+.exams-empty {
+	padding: rem(48) rem(24);
+	text-align: center;
+	color: var(--text-secondary);
+
+	.exams-empty-text {
+		margin: 0;
+		font-size: rem(14);
+		line-height: 1.5;
+	}
+}
+
+/* Карточка экзамена */
+.prof-card {
+	&.sc-hero {
+		padding: rem(24);
+		border-radius: rem(8);
+		border: 1px solid var(--border-2);
+		background: var(--bg-primary);
+
+		.prof-card-header {
+			display: flex;
+			justify-content: space-between;
+			align-items: flex-start;
+			margin-bottom: rem(20);
+			gap: rem(16);
+		}
+
+		.prof-card-title {
+			font-size: rem(20);
+			font-weight: 600;
+			margin: 0 0 rem(8) 0;
+			color: var(--text-primary);
+		}
+
+		.prof-card-info {
+			display: flex;
+			gap: rem(16);
+			font-size: rem(14);
+			color: var(--text-secondary);
+
+			span {
+				display: flex;
+				align-items: center;
+				gap: rem(4);
+			}
+		}
+
+		.prof-card-actions {
+			display: flex;
+			align-items: center;
+			gap: rem(12);
+		}
+	}
+}
+
+/* Пилюля состояния */
+.prof-state-pill {
+	display: inline-block;
+	padding: rem(6) rem(12);
+	border-radius: rem(16);
+	font-size: rem(12);
+	font-weight: 500;
+	white-space: nowrap;
+
+	&.state-gray {
+		background: var(--bg-muted);
+		color: var(--text-secondary);
+	}
+
+	&.state-green {
+		background: rgba(34, 197, 94, 0.1);
+		color: rgb(34, 197, 94);
+	}
+
+	&.state-red {
+		background: rgba(239, 68, 68, 0.1);
+		color: rgb(239, 68, 68);
+	}
+
+	&.state-blue {
+		background: rgba(59, 130, 246, 0.1);
+		color: rgb(59, 130, 246);
+	}
+
+	&.state-yellow {
+		background: rgba(245, 158, 11, 0.1);
+		color: rgb(245, 158, 11);
+	}
+}
+
+/* Информация о регистрации */
+.prof-card-registration {
+	background: var(--bg-secondary);
+	padding: rem(16);
+	border-radius: rem(6);
+	margin-bottom: rem(16);
+
+	.prof-card-label {
+		font-size: rem(12);
+		font-weight: 500;
+		text-transform: uppercase;
+		color: var(--text-secondary);
+		margin-bottom: rem(8);
+	}
+
+	.prof-card-date {
+		font-size: rem(16);
+		font-weight: 600;
+		color: var(--text-primary);
+		margin-bottom: rem(4);
+	}
+
+	.prof-card-time {
+		font-size: rem(14);
+		color: var(--text-secondary);
+		margin-bottom: rem(4);
+	}
+
+	.prof-card-room {
+		font-size: rem(14);
+		color: var(--text-secondary);
+	}
+}
+
+/* Хинт и предупреждение */
+.sc-hint {
+	padding: rem(12);
+	background: rgba(59, 130, 246, 0.05);
+	border-left: 3px solid rgb(59, 130, 246);
+	border-radius: rem(4);
+	font-size: rem(13);
+	line-height: 1.5;
+	color: var(--text-primary);
+	margin-bottom: rem(16);
+}
+
+.sc-notice {
+	padding: rem(12);
+	background: rgba(239, 68, 68, 0.05);
+	border-left: 3px solid rgb(239, 68, 68);
+	border-radius: rem(4);
+	font-size: rem(13);
+	line-height: 1.5;
+	color: var(--text-primary);
+	margin-bottom: rem(16);
+}
+
+/* Карусель сеансов */
+.exam-slots-carousel {
+	display: flex;
+	gap: rem(12);
+	overflow-x: auto;
+	padding: rem(12) 0;
+	margin-bottom: rem(16);
+
+	&::-webkit-scrollbar {
+		height: rem(6);
+	}
+
+	&::-webkit-scrollbar-track {
+		background: var(--bg-secondary);
+	}
+
+	&::-webkit-scrollbar-thumb {
+		background: var(--border-1);
+		border-radius: rem(3);
+	}
+}
+
+.exam-slot {
+	flex-shrink: 0;
+	width: rem(160);
+	padding: rem(12);
+	border: 2px solid var(--border-2);
+	border-radius: rem(6);
+	cursor: pointer;
+	transition: all 0.2s ease;
+	background: var(--bg-secondary);
+
+	&:hover {
+		border-color: var(--primary);
+	}
+
+	&.exam-slot-selected {
+		border-color: var(--primary);
+		background: var(--primary-bg);
+	}
+
+	.exam-slot-date {
+		font-size: rem(14);
+		font-weight: 600;
+		color: var(--text-primary);
+		margin-bottom: rem(4);
+	}
+
+	.exam-slot-weekday {
+		font-size: rem(12);
+		color: var(--text-secondary);
+		margin-bottom: rem(8);
+	}
+
+	.exam-slot-time {
+		font-size: rem(13);
+		font-weight: 500;
+		color: var(--text-primary);
+		margin-bottom: rem(4);
+	}
+
+	.exam-slot-room {
+		font-size: rem(12);
+		color: var(--text-secondary);
+		margin-bottom: rem(8);
+	}
+
+	.exam-slot-free {
+		font-size: rem(12);
+		color: rgb(34, 197, 94);
+		font-weight: 500;
+	}
+}
+
+/* Чипы предмета */
+.prof-card-chip {
+	display: inline-block;
+	padding: rem(4) rem(8);
+	border-radius: rem(4);
+	font-size: rem(11);
+	font-weight: 600;
+	text-transform: uppercase;
+	margin-bottom: rem(8);
+
+	&.chip-ege {
+		background: rgba(59, 130, 246, 0.1);
+		color: rgb(59, 130, 246);
+	}
+
+	&.chip-oge {
+		background: rgba(168, 85, 247, 0.1);
+		color: rgb(168, 85, 247);
+	}
+}
+
+/* Адаптивность */
+@media (max-width: 768px) {
+	.exams-tabs.sc-tabs {
+		grid-template-columns: 1fr;
+	}
+
+	.prof-card.sc-hero {
+		.prof-card-header {
+			flex-direction: column;
+		}
+	}
+
+	.exam-slots-carousel {
+		margin-left: rem(-12);
+		margin-right: rem(-12);
+		padding-left: rem(12);
+		padding-right: rem(12);
+	}
+
+	.exam-slot {
+		width: rem(140);
+	}
+}
