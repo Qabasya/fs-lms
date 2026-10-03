@@ -168,6 +168,11 @@ class AttemptService {
 			return false;
 		}
 
+		// Экзаменные попытки завершаются через ExamAttemptService (6.2)
+		if ( $attempt->isExam() ) {
+			return false;
+		}
+
 		if ( ! $attempt->isExpired( $this->clock->now() ) ) {
 			return false;
 		}
@@ -187,6 +192,48 @@ class AttemptService {
 		);
 
 		return true;
+	}
+
+	/**
+	 * Сохранение ответа без проверки владельца (для экзаменов 6.1).
+	 * ExamAttemptService проверяет контекст до вызова.
+	 */
+	public function saveAnswerFor( AttemptDTO $attempt, int $taskId, string $answerText ): void {
+		$assessment = $this->assessments->get( $attempt->assessmentId );
+		if ( ! $assessment || ! in_array( $taskId, array_map( 'intval', $assessment->taskIds ), true ) ) {
+			throw new \InvalidArgumentException( 'Задание не входит в эту работу.' );
+		}
+
+		$this->answers->upsert( $attempt->id, $taskId, [ 'answer_text' => $answerText ] );
+	}
+
+	/**
+	 * Финальная сдача без проверки владельца (для экзаменов 6.1).
+	 * ExamAttemptService проверяет контекст до вызова.
+	 */
+	public function submitFor( AttemptDTO $attempt ): AttemptDTO {
+		$now = $this->clock->now();
+		$this->attempts->update( $attempt->id, [
+			'status'       => AttemptStatus::Submitted->value,
+			'submitted_at' => $now,
+		] );
+
+		$submitted = $this->attempts->find( $attempt->id );
+		assert( $submitted !== null );
+
+		$this->dispatcher->dispatch(
+			LogEvent::AttemptSubmitted,
+			new LearningEvent(
+				event      : LogEvent::AttemptSubmitted,
+				actorUserId: $this->actorUserId( $attempt->studentPersonId ),
+				groupId    : $attempt->groupId,
+				entityType : 'attempt',
+				entityId   : (string) $attempt->id,
+				isPublic   : false,
+			)
+		);
+
+		return $this->autoGrade->gradeAttempt( $submitted );
 	}
 
 	/**
