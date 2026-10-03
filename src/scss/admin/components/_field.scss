@@ -23,6 +23,14 @@
     margin-bottom: $spacing-sm;
   }
 
+  // Подпись-чекбокс: label оборачивает input, нижний отступ подписи не нужен.
+  &--checkbox {
+    .fs-field__label {
+      margin-bottom: 0;
+      font-weight: $font-regular;
+    }
+  }
+
   &__control {
     input[type='text'],
     input[type='number'],

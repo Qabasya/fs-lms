@@ -127,6 +127,12 @@ enum Nonce: string {
 	// ==== RBAC — управление ролями (Этап 6) ====
 	case SaveRoles = 'fs_lms_save_roles';
 
+	// ==== Экзамены ====
+	case ExamManage = 'fs_lms_exam_manage';
+	case ExamLearner = 'fs_lms_exam_learner';
+	case ExamGuest = 'fs_lms_exam_guest';
+	case ExamPayments = 'fs_lms_exam_payments';
+
 	/** Заголовок повтора с обновлённым токеном (ставит `src/js/common/nonce-refresh.js`). */
 	public const string RETRY_HEADER = 'HTTP_X_FS_NONCE_RETRY';
 

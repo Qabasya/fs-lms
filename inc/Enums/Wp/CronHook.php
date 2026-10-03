@@ -19,4 +19,13 @@ enum CronHook: string {
 
 	/** Временны́е продюсеры in-app уведомлений: занятие скоро, дедлайны, purge */
 	case NotificationsTick = 'fs_lms_notifications_tick';
+
+	/** Автоистечение попыток экзамена с истёкшим deadline_at */
+	case ExamAutoExpireTick = 'fs_lms_exam_auto_expire_tick';
+
+	/** Освобождение истёкших бронь гостей и сверка платежей */
+	case ExamHoldReleaseTick = 'fs_lms_exam_hold_release_tick';
+
+	/** Worker событий экзамена: распределение уведомлений, синхронизация */
+	case ExamOutboxTick = 'fs_lms_exam_outbox_tick';
 }

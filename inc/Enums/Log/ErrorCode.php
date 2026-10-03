@@ -46,6 +46,20 @@ enum ErrorCode: string {
 	case WorkCheckLimit  = 'W-CHECK-LIMIT';
 	case WorkCheckKind   = 'W-CHECK-KIND';
 
+	// ===== Экзамены =====
+	case ExamFull     = 'X-FULL';
+	case ExamHeld     = 'X-HELD';
+	case ExamClosed   = 'X-CLOSED';
+	case ExamConflict = 'X-CONFLICT';
+	case ExamStarted  = 'X-STARTED';
+	case ExamStale    = 'X-STALE';
+	case ExamLink     = 'X-LINK';
+	case ExamConsent  = 'X-CONSENT';
+	case ExamAccess   = 'X-ACCESS';
+	case ExamNotOpen  = 'X-NOT-OPEN';
+	case ExamLimit    = 'X-LIMIT';
+	case ExamRoom     = 'X-ROOM';
+
 	/** Что означает код — подпись в журнале и фильтре. */
 	public function label(): string {
 		return match ( $this ) {
@@ -65,6 +79,18 @@ enum ErrorCode: string {
 			self::WorkNothing     => 'Работа: нечего пересдавать',
 			self::WorkCheckLimit  => 'Работа: проверки ответа исчерпаны',
 			self::WorkCheckKind   => 'Работа: задание не проверяется кнопкой',
+			self::ExamFull        => 'Экзамен: мест нет',
+			self::ExamHeld        => 'Экзамен: места заняты бронями',
+			self::ExamClosed      => 'Экзамен: запись закрыта',
+			self::ExamConflict    => 'Экзамен: пересечение с другим',
+			self::ExamStarted     => 'Экзамен: попытка уже начата',
+			self::ExamStale       => 'Экзамен: версия устарела',
+			self::ExamLink        => 'Экзамен: ключ недействителен',
+			self::ExamConsent     => 'Экзамен: нет согласия',
+			self::ExamAccess      => 'Экзамен: нет прав',
+			self::ExamNotOpen     => 'Экзамен: старт вне времени',
+			self::ExamLimit       => 'Экзамен: лимит по IP/источнику',
+			self::ExamRoom        => 'Экзамен: кабинет не подходит',
 		};
 	}
 

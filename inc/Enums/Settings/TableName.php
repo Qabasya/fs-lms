@@ -54,6 +54,23 @@ enum TableName: string {
 	// ==== In-app уведомления кабинета ====
 	case Notifications = 'fs_lms_notifications';
 
+	// ==== Экзамены (проведения, запись, гости) ====
+	case ExamEvents = 'fs_lms_exam_events';
+	case ExamSessions = 'fs_lms_exam_sessions';
+	case ExamParticipants = 'fs_lms_exam_participants';
+	case ExamParticipations = 'fs_lms_exam_participations';
+	case ExamRegistrations = 'fs_lms_exam_registrations';
+	case ExamSources = 'fs_lms_exam_sources';
+	case ExamAccessTokens = 'fs_lms_exam_access_tokens';
+	case ExamGuestSessions = 'fs_lms_exam_guest_sessions';
+	case ExamReports = 'fs_lms_exam_reports';
+	case ExamReportMembers = 'fs_lms_exam_report_members';
+	case ExamOutbox = 'fs_lms_exam_events_outbox';
+	case ExamOperationKeys = 'fs_lms_exam_operation_keys';
+	case ExamGuestApplications = 'fs_lms_exam_guest_applications';
+	case ExamPaymentLinks = 'fs_lms_exam_payment_links';
+	case ExamManualResolutions = 'fs_lms_exam_manual_resolutions';
+
 	public function prefixed(): string {
 		global $wpdb;
 		return $wpdb->prefix . $this->value;
