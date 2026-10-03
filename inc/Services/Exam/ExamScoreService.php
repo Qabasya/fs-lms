@@ -6,6 +6,7 @@ namespace Inc\Services\Exam;
 
 use Inc\DTO\Assessment\AttemptDTO;
 use Inc\DTO\Exam\ExamEventDTO;
+use Inc\Enums\Exam\TaskVerdict;
 use Inc\Managers\Assessment\AssessmentManager;
 use Inc\Services\Assessment\ScoringUnits;
 use Inc\Services\Assessment\SecondaryScoreService;
@@ -23,6 +24,7 @@ class ExamScoreService {
 		private readonly AssessmentManager $assessments,
 		private readonly ScoringUnits $scoringUnits,
 		private readonly SecondaryScoreService $secondaryScores,
+		private readonly ExamTaskVerdictService $verdictService,
 	) {}
 
 	/**
@@ -93,7 +95,7 @@ class ExamScoreService {
 	 * @param AttemptDTO $attempt Попытка
 	 * @param array $tasks Задачи из WorkDetailService
 	 *
-	 * @return array[] Массив с unit_key, number, score, max, status
+	 * @return array[] Массив с unit_key, number, score, max, verdict
 	 */
 	public function units( AttemptDTO $attempt, array $tasks ): array {
 		$byUnit = array();
@@ -110,7 +112,7 @@ class ExamScoreService {
 					'number'   => $task['number'] ?? '?',
 					'score'    => 0,
 					'max'      => 0,
-					'status'   => 'pending',
+					'tasks'    => array(),
 				);
 			}
 
@@ -118,14 +120,15 @@ class ExamScoreService {
 			$byUnit[ $key ]['score'] += (int) ( $task['score'] ?? 0 );
 			$byUnit[ $key ]['max']   += (int) ( $task['max_score'] ?? 0 );
 
-			// Худший статус (pending > unanswered/incorrect > partial > correct)
-			$statuses = array( 'pending' => 4, 'unanswered' => 3, 'incorrect' => 3, 'partial' => 2, 'correct' => 1 );
-			$taskStatus = $task['verdict'] ?? 'pending';
-			$taskLevel = $statuses[ $taskStatus ] ?? 0;
-			$currentLevel = $statuses[ $byUnit[ $key ]['status'] ] ?? 0;
-			if ( $taskLevel > $currentLevel ) {
-				$byUnit[ $key ]['status'] = $taskStatus;
-			}
+			// Собрать вердикты для этого блока
+			$verdict = TaskVerdict::tryFrom( $task['verdict'] ?? 'pending' ) ?? TaskVerdict::Pending;
+			$byUnit[ $key ]['tasks'][] = array( 'verdict' => $verdict );
+		}
+
+		// Вычислить итоговый статус блока по вердиктам задач
+		foreach ( $byUnit as &$unit ) {
+			$unit['verdict'] = $this->verdictService->statusForUnit( $unit['tasks'] )->value;
+			unset( $unit['tasks'] ); // Убрать временный массив
 		}
 
 		return array_values( $byUnit );
