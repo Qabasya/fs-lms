@@ -72,4 +72,18 @@ enum Capability: string {
 
 	/** Право управления данными о людях (создание, редактирование, удаление) */
 	case ManagePersons = 'manage_persons';
+
+	// ===== Экзамены =====
+
+	/** Право управления проведениями экзаменов (создание, публикация, результаты) */
+	case ManageExams = 'manage_lms_exams';
+
+	/** Право управления гостевыми заявками на экзамены */
+	case ManageExamGuests = 'manage_lms_exam_guests';
+
+	/** Право публикации результатов экзаменов */
+	case ShareExamResults = 'share_lms_exam_results';
+
+	/** Право разборки проблемных платежей гостей (очередь "Оплачено, требуется помощь") */
+	case ResolveExamPayments = 'resolve_lms_exam_payments';
 }

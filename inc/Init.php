@@ -225,6 +225,8 @@ final class Init {
 			LearningEventSubscriber::class,   // лента событий обучения
 			NotificationSubscriber::class,    // событийные продюсеры уведомлений кабинета
 			// ==== Этап 3 — сдача работ ====
+			WooExamController::class,        // Совместимость с HPOS WooCommerce (экзамены)
+
 			SubmissionController::class,       // AJAX сдачи / проверки / журнала
 			AssessmentController::class,       // AJAX попыток контрольных
 			// ==== Опциональные модули (изолированы, вырезаются удалением каталога + этой строки) ====
@@ -265,7 +267,7 @@ final class Init {
 
 		// Синхронизация capabilities администратора при несоответствии версии.
 		// Запись в БД происходит только один раз при смене FS_LMS_CAPS_VERSION.
-		$capsVersion = '5.6'; // 5.6: + ManageSubjects (раздел «Предметы» методисту и офису)
+		$capsVersion = '5.8'; // 5.7: + ManageExams, ManageExamGuests, ShareExamResults; 5.8: + ResolveExamPayments
 		if ( get_option( OptionName::CapsVersion->value ) !== $capsVersion ) {
 			$roleManager = $container->get( \Inc\Managers\Person\RoleManager::class );
 			$roleManager->registerAll();

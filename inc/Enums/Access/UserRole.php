@@ -208,17 +208,21 @@ enum UserRole: string {
 				Capability::ViewPII->value              => true,
 				Capability::ManagePersons->value        => true,
 				Capability::ManageSchedule->value       => true,
+				Capability::ResolveExamPayments->value  => true,
 			),
 			self::FSMethodist => array(
-				Capability::AuthorLmsCourses->value => true,
-				// Раздел «Предметы» целиком: таксономии, типовые условия и шаблоны
-				// заданий, CRUD предмета, импорт/экспорт и перенос пакетом. Без
-				// `ManageLmsPlatform`: заявки, ПД и зачисление методисту не нужны.
-				Capability::ManageSubjects->value   => true,
+				Capability::AuthorLmsCourses->value     => true,
+				Capability::ManageSubjects->value       => true,
+				Capability::ManageExams->value          => true,
+				Capability::ManageExamGuests->value     => true,
+				Capability::ShareExamResults->value     => true,
 			),
 			self::FSTeacher => array(
-				Capability::ViewLMSStats->value      => true,
-				Capability::ManageLmsTeaching->value => true,
+				Capability::ViewLMSStats->value         => true,
+				Capability::ManageLmsTeaching->value    => true,
+				Capability::ManageExams->value          => true,
+				Capability::ManageExamGuests->value     => true,
+				Capability::ShareExamResults->value     => true,
 			),
 			self::FSStudent, self::FSParent => array(),
 		};

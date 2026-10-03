@@ -107,6 +107,10 @@ class RoleManager {
 			$admin->add_cap( Capability::ExportPII->value );
 			$admin->add_cap( Capability::ManagePersons->value );
 			$admin->add_cap( Capability::ViewLMSStats->value );
+			$admin->add_cap( Capability::ManageExams->value );
+			$admin->add_cap( Capability::ManageExamGuests->value );
+			$admin->add_cap( Capability::ShareExamResults->value );
+			$admin->add_cap( Capability::ResolveExamPayments->value );
 			foreach ( self::lessonCaps() as $cap ) {
 				$admin->add_cap( $cap );
 			}
