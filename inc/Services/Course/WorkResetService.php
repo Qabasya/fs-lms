@@ -76,8 +76,17 @@ class WorkResetService {
 			return -1;
 		}
 
+		// Экзаменные попытки не удалять — их управление отдельное (этап 6)
+		if ( $attempt->isExam() ) {
+			return 0;
+		}
+
 		$deleted = 0;
 		foreach ( $this->attempts->listByStudentAndAssessment( $attempt->studentPersonId, $attempt->assessmentId ) as $a ) {
+			// Дополнительная страховка: listByStudentAndAssessment в 6.7 фильтрует экзамены
+			if ( $a->isExam() ) {
+				continue;
+			}
 			$this->answers->deleteByAttempt( $a->id );
 			if ( $this->attempts->delete( $a->id ) ) {
 				++$deleted;

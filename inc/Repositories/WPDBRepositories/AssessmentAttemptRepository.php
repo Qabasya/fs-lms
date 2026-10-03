@@ -69,6 +69,7 @@ class AssessmentAttemptRepository {
 				  AND assessment_id = %d
 				  AND status = 'in_progress'
 				  AND deadline_at > NOW()
+				  AND exam_participation_id IS NULL
 				ORDER BY id DESC
 				LIMIT 1",
 				$this->table,
@@ -88,6 +89,7 @@ class AssessmentAttemptRepository {
 				WHERE student_person_id = %d
 				  AND assessment_id = %d
 				  AND status IN ('submitted', 'graded')
+				  AND exam_participation_id IS NULL
 				ORDER BY id DESC
 				LIMIT 1",
 				$this->table,
@@ -109,7 +111,7 @@ class AssessmentAttemptRepository {
 	public function listByGroupLesson( int $groupLessonId ): array {
 		$rows = $this->wpdb->get_results(
 			$this->wpdb->prepare(
-				'SELECT * FROM %i WHERE group_lesson_id = %d ORDER BY assessment_id ASC, student_person_id ASC, attempt_number ASC',
+				'SELECT * FROM %i WHERE group_lesson_id = %d AND exam_participation_id IS NULL ORDER BY assessment_id ASC, student_person_id ASC, attempt_number ASC',
 				$this->table,
 				$groupLessonId,
 			),
@@ -122,7 +124,7 @@ class AssessmentAttemptRepository {
 	public function listByStudentAndAssessment( int $studentPersonId, int $assessmentId ): array {
 		$rows = $this->wpdb->get_results(
 			$this->wpdb->prepare(
-				'SELECT * FROM %i WHERE student_person_id = %d AND assessment_id = %d ORDER BY attempt_number ASC',
+				'SELECT * FROM %i WHERE student_person_id = %d AND assessment_id = %d AND exam_participation_id IS NULL ORDER BY attempt_number ASC',
 				$this->table,
 				$studentPersonId,
 				$assessmentId
@@ -150,7 +152,7 @@ class AssessmentAttemptRepository {
 		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$this->wpdb->query(
 			$this->wpdb->prepare(
-				"UPDATE %i SET status = 'expired', updated_at = NOW() WHERE status = 'in_progress' AND deadline_at < NOW()",
+				"UPDATE %i SET status = 'expired', updated_at = NOW() WHERE status = 'in_progress' AND deadline_at < NOW() AND exam_participation_id IS NULL",
 				$this->table
 			)
 		);
@@ -165,7 +167,7 @@ class AssessmentAttemptRepository {
 	public function listByGroupForGradebook( int $groupId ): array {
 		$rows = $this->wpdb->get_results(
 			$this->wpdb->prepare(
-				"SELECT * FROM %i WHERE group_id = %d AND status IN ('graded','submitted') ORDER BY id ASC",
+				"SELECT * FROM %i WHERE group_id = %d AND status IN ('graded','submitted') AND exam_participation_id IS NULL ORDER BY id ASC",
 				$this->table,
 				$groupId
 			),
@@ -190,7 +192,7 @@ class AssessmentAttemptRepository {
 		$placeholders = implode( ', ', array_fill( 0, count( $groupIds ), '%d' ) );
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$sql = $this->wpdb->prepare(
-			"SELECT * FROM %i WHERE group_id IN ($placeholders) AND status IN ('graded','submitted') ORDER BY id ASC",
+			"SELECT * FROM %i WHERE group_id IN ($placeholders) AND status IN ('graded','submitted') AND exam_participation_id IS NULL ORDER BY id ASC",
 			array_merge( array( $this->table ), $groupIds )
 		);
 		// phpcs:enable
@@ -207,7 +209,7 @@ class AssessmentAttemptRepository {
 	public function listByStudentForGradebook( int $studentPersonId ): array {
 		$rows = $this->wpdb->get_results(
 			$this->wpdb->prepare(
-				"SELECT * FROM %i WHERE student_person_id = %d AND status IN ('graded','submitted') ORDER BY id ASC",
+				"SELECT * FROM %i WHERE student_person_id = %d AND status IN ('graded','submitted') AND exam_participation_id IS NULL ORDER BY id ASC",
 				$this->table,
 				$studentPersonId
 			),
@@ -219,7 +221,7 @@ class AssessmentAttemptRepository {
 	public function countByAssessmentAndStudent( int $assessmentId, int $studentPersonId ): int {
 		$count = $this->wpdb->get_var(
 			$this->wpdb->prepare(
-				'SELECT COUNT(*) FROM %i WHERE assessment_id = %d AND student_person_id = %d',
+				'SELECT COUNT(*) FROM %i WHERE assessment_id = %d AND student_person_id = %d AND exam_participation_id IS NULL',
 				$this->table,
 				$assessmentId,
 				$studentPersonId
@@ -277,5 +279,66 @@ class AssessmentAttemptRepository {
 	/** Удаление одной попытки по id (задача 11: сброс попыток ученика преподавателем). */
 	public function delete( int $id ): bool {
 		return false !== $this->wpdb->delete( $this->table, array( 'id' => $id ) );
+	}
+
+	/**
+	 * Попытка экзамена по участию (6.1, 6.2).
+	 *
+	 * @return ?AttemptDTO
+	 */
+	public function findByParticipation( int $participationId ): ?AttemptDTO {
+		$row = $this->wpdb->get_row(
+			$this->wpdb->prepare(
+				'SELECT * FROM %i WHERE exam_participation_id = %d',
+				$this->table,
+				$participationId
+			),
+			ARRAY_A
+		);
+		return $row ? AttemptDTO::fromArray( $row ) : null;
+	}
+
+	/**
+	 * Попытки экзамена по нескольким участиям (для фильтра в картах экзаменов).
+	 *
+	 * @param int[] $participationIds
+	 *
+	 * @return AttemptDTO[]
+	 */
+	public function listByParticipations( array $participationIds ): array {
+		if ( empty( $participationIds ) ) {
+			return array();
+		}
+		$placeholders = implode( ', ', array_fill( 0, count( $participationIds ), '%d' ) );
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$sql = $this->wpdb->prepare(
+			"SELECT * FROM %i WHERE exam_participation_id IN ($placeholders)",
+			array_merge( array( $this->table ), $participationIds )
+		);
+		// phpcs:enable
+		$rows = $this->wpdb->get_results( $sql, ARRAY_A );
+
+		return array_map( [ AttemptDTO::class, 'fromArray' ], $rows ?: [] );
+	}
+
+	/**
+	 * ID просроченных активных экзаменных попыток для автоистечения (6.2).
+	 *
+	 * @param string $nowLocal Локальное время (формат MySQL)
+	 * @param int    $limit    Максимум результатов
+	 *
+	 * @return int[]
+	 */
+	public function listOverdueExamIds( string $nowLocal, int $limit = 200 ): array {
+		$ids = $this->wpdb->get_col(
+			$this->wpdb->prepare(
+				'SELECT id FROM %i WHERE status = %s AND deadline_at < %s AND exam_participation_id IS NOT NULL ORDER BY id ASC LIMIT %d',
+				$this->table,
+				'in_progress',
+				$nowLocal,
+				$limit
+			)
+		);
+		return array_map( 'intval', $ids ?: array() );
 	}
 }

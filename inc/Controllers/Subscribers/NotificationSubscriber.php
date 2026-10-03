@@ -135,6 +135,11 @@ class NotificationSubscriber implements ServiceInterface {
 			return;
 		}
 
+		// Экзаменные попытки уведомляются отдельно (этап 9)
+		if ( $attempt->isExam() ) {
+			return;
+		}
+
 		$studentUserId = $this->notifications->studentUserId( $attempt->studentPersonId );
 		$recipients    = array_merge(
 			null !== $studentUserId ? array( $studentUserId ) : array(),
