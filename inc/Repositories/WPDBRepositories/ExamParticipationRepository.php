@@ -84,4 +84,42 @@ class ExamParticipationRepository {
 	public function update( int $id, array $data ): bool {
 		return false !== $this->wpdb->update( $this->table, $data, [ 'id' => $id ] );
 	}
+
+	/**
+	 * Заблокировать участие для обновления (6.1).
+	 */
+	public function findForUpdate( int $id ): ?ExamParticipationDTO {
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$row = $this->wpdb->get_row(
+			$this->wpdb->prepare(
+				"SELECT * FROM %i WHERE id = %d FOR UPDATE",
+				$this->table,
+				$id
+			),
+			ARRAY_A
+		);
+		return $row ? ExamParticipationDTO::fromArray( $row ) : null;
+	}
+
+	/**
+	 * Установить текущую попытку (6.1).
+	 */
+	public function setCurrentAttempt( int $participationId, ?int $attemptId ): void {
+		$this->wpdb->update(
+			$this->table,
+			[ 'current_attempt_id' => $attemptId ],
+			[ 'id' => $participationId ]
+		);
+	}
+
+	/**
+	 * Установить активную запись (6.3).
+	 */
+	public function setActiveRegistration( int $participationId, ?int $registrationId ): void {
+		$this->wpdb->update(
+			$this->table,
+			[ 'active_slot' => $registrationId ],
+			[ 'id' => $participationId ]
+		);
+	}
 }
