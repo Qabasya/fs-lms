@@ -93,6 +93,26 @@
   gap: rem(12);
 }
 
+.wr-solution { margin-top: rem(12); }
+.wr-solution-toggle { list-style: none; cursor: pointer; }
+.wr-solution-toggle::-webkit-details-marker { display: none; }
+.wr-solution[open] .wr-solution-toggle { background: var(--accent-soft); color: var(--accent-700); }
+
+.wr-solution-body {
+  display: grid;
+  gap: rem(12);
+  margin-top: rem(8);
+  padding: rem(12);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+.wr-solution-text { min-width: 0; color: var(--ink-2); font-size: rem(13); line-height: 1.6; overflow-wrap: anywhere; }
+.wr-solution-text :is(p, ul, ol) { margin: 0 0 rem(8); }
+.wr-solution-text > :last-child { margin-bottom: 0; }
+.wr-solution-code { min-width: 0; font-size: rem(13); }
+.wr-solution-code .sum-task-code-pre { background: var(--surface); }
+
 .wr-foot {
   flex: none;
   border-top: 1px solid var(--line);

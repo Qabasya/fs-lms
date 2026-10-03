@@ -12,6 +12,7 @@
  * @var array  $step       Шаг из LessonPlayerService::buildView.
  * @var array  $render     Render-данные шага (renderAssessmentData).
  * @var bool   $is_preview Признак preview-плеера курса (Фаза 5).
+ * @var bool|null $is_teacher_view Режим преподавателя (не предпросмотр): только условия и «Показать решение».
  * @var string $edit_url   Ссылка «Редактировать» в конструктор (#15-E), пусто вне preview.
  *
  * @package FS LMS
@@ -43,6 +44,23 @@ if ( '' !== $asm_url && $asm_gid > 0 && $asm_gl > 0 ) {
 $asm_passed  = 'completed' === $step['status'];
 $asm_tasks   = is_array( $render['tasks'] ?? null ) ? $render['tasks'] : array();
 $asm_preview = ! empty( $is_preview ) && ! empty( $render['assessment_found'] );
+
+// Режим преподавателя: условия задач и «Показать решение», без полей ответа и попытки.
+if ( ! empty( $is_teacher_view ) && ! empty( $render['assessment_found'] ) ) {
+	$tw_type  = 'assessment';
+	$tw_title = $asm_title;
+	$tw_tasks = $asm_tasks;
+	$tw_meta  = implode( ' · ', array_filter( array(
+		/* translators: %d: task count */
+		sprintf( __( 'Задач: %d', 'fs-lms' ), count( $asm_tasks ) ),
+		/* translators: %d: minutes */
+		! empty( $render['time_limit_min'] ) ? sprintf( __( 'Лимит: %d мин', 'fs-lms' ), (int) $render['time_limit_min'] ) : '',
+		/* translators: %d: attempts count */
+		! empty( $render['max_attempts'] ) ? sprintf( __( 'Попыток: %d', 'fs-lms' ), (int) $render['max_attempts'] ) : '',
+	) ) );
+	include __DIR__ . '/teacher-work.php';
+	return;
+}
 ?>
 <div class="card16">
 	<div class="kick">
@@ -118,6 +136,9 @@ $asm_preview = ! empty( $is_preview ) && ! empty( $render['assessment_found'] );
 							</span>
 						</div>
 						<span class="wb-sp"></span>
+						<?php if ( ! empty( $edit_url ) ) : ?>
+							<a class="b b-gh b-sm pv-edit" href="<?php echo esc_url( $edit_url ); ?>" target="_blank" rel="noopener"><?php esc_html_e( 'Редактировать', 'fs-lms' ); ?></a>
+						<?php endif; ?>
 						<div class="a-prog">
 							<span class="ap-txt" data-work-prog-txt></span>
 							<span class="ap-bar"><span data-work-prog-bar></span></span>
@@ -156,6 +177,13 @@ $asm_preview = ! empty( $is_preview ) && ! empty( $render['assessment_found'] );
 									<div class="fs-task-widget"
 										data-template="<?php echo esc_attr( (string) $asm_task['template'] ); ?>"
 										data-widget='<?php echo esc_attr( (string) wp_json_encode( $asm_task['widget_data'] ?? array() ) ); ?>'></div>
+									<?php
+									// Эталон автору в предпросмотре («Показать решение»); ученику ключа `solution` не бывает.
+									if ( ! empty( $asm_task['solution'] ) ) :
+										$teacher_solution = $asm_task['solution'];
+										include __DIR__ . '/teacher-solution.php';
+									endif;
+									?>
 								</div>
 							</div>
 						<?php endforeach; ?>

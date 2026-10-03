@@ -151,14 +151,17 @@ class FrontendAssets extends BaseController {
 			'hp_field'   => $this->formGuard->honeypotField(),
 			'form_token' => $this->formGuard->timestampToken(),
 			'actions'    => array(
+				'session'        => AjaxHook::GetApplySession->jsAction(),
 				'send_otp'       => AjaxHook::SendOtpCode->jsAction(),
 				'create'         => AjaxHook::CreateApplication->jsAction(),
 				'check_username' => AjaxHook::CheckUsernameAvailable->jsAction(),
+				'track'          => AjaxHook::TrackApplyForm->jsAction(),
 			),
 			'nonces'     => array(
 				'apply'          => Nonce::Apply->create(),
 				'verify_otp'     => Nonce::VerifyOtp->create(),
 				'check_username' => Nonce::CheckUsernameAvailable->create(),
+				'track'          => Nonce::ApplyTrack->create(),
 			),
 		) );
 	}
@@ -171,9 +174,7 @@ class FrontendAssets extends BaseController {
 	 * @return array<string, mixed>
 	 */
 	private function loginVars(): array {
-		return (array) apply_filters( 'fs_lms_login_vars', array(
-			'captcha_unavailable' => 'Проверка безопасности не загрузилась — отключите блокировщик рекламы и обновите страницу.',
-		) );
+		return (array) apply_filters( 'fs_lms_login_vars', array() );
 	}
 
 	/**

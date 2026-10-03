@@ -41,6 +41,7 @@ use Inc\Enums\Settings\TableName;
  * - **assessment_answers**   — ответы на задания контрольной
  * - **lesson_progress**      — прохождение шагов урока
  * - **task_attempts**        — история попыток задания
+ * - **work_task_checks**     — проверки ответа кнопкой внутри работы (до сдачи)
  * - **attendance**           — посещаемость занятий
  * - **substitutions**        — замены преподавателя
  * - **rooms**                — кабинеты/аудитории
@@ -579,6 +580,25 @@ class Migration_1_0_0 implements MigrationInterface {
 		) $cc;"
 		);
 
+		// ===== 21а. work_task_checks — проверка ответа кнопкой внутри работы =====
+		$work_task_checks = TableName::WorkTaskChecks->prefixed();
+		dbDelta(
+			"CREATE TABLE $work_task_checks (
+			id                bigint unsigned  NOT NULL AUTO_INCREMENT,
+			student_person_id int unsigned     NOT NULL,
+			group_lesson_id   int unsigned     NOT NULL,
+			work_id           bigint unsigned  NOT NULL,
+			task_id           bigint unsigned  NOT NULL,
+			round             smallint unsigned NOT NULL DEFAULT 1,
+			answer            json             DEFAULT NULL,
+			is_correct        tinyint(1)       NOT NULL DEFAULT 0,
+			created_at        datetime         NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			PRIMARY KEY  (id),
+			KEY student_work (student_person_id, group_lesson_id, work_id),
+			KEY group_lesson_id (group_lesson_id)
+		) $cc;"
+		);
+
 		// ===== 22. attendance — посещаемость занятий (ЛК преподавателя, Эпик 2) =====
 		$attendance = TableName::Attendance->prefixed();
 		dbDelta(
@@ -664,6 +684,7 @@ class Migration_1_0_0 implements MigrationInterface {
 			TableName::Rooms->prefixed(),
 			TableName::Substitutions->prefixed(),
 			TableName::Attendance->prefixed(),
+			TableName::WorkTaskChecks->prefixed(),
 			TableName::TaskAttempts->prefixed(),
 			TableName::LessonProgress->prefixed(),
 			TableName::AssessmentAnswers->prefixed(),

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Unit\Services\Security;
 
+use Inc\Enums\Auth\CaptchaOutcome;
 use Inc\Enums\Auth\LoginNotice;
 use Inc\Managers\Person\UserManager;
 use Inc\Services\Captcha\CaptchaService;
@@ -49,7 +50,7 @@ class LoginGuardServiceTest extends TestCase {
 
 		$captcha = $this->createStub( CaptchaService::class );
 		$captcha->method( 'isConfigured' )->willReturn( $captchaConfigured );
-		$captcha->method( 'validate' )->willReturn( $captchaValid );
+		$captcha->method( 'check' )->willReturn( $captchaValid ? CaptchaOutcome::Passed : CaptchaOutcome::Rejected );
 
 		$users = $this->createStub( UserManager::class );
 		$users->method( 'findByLogin' )->willReturnCallback( static fn ( string $l ): ?WP_User => $logins[ $l ] ?? null );

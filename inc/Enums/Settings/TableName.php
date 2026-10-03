@@ -39,6 +39,9 @@ enum TableName: string {
 	// ==== Этап 6 — интерактивные задания ====
 	case TaskAttempts = 'fs_lms_task_attempts';
 
+	// ==== Проверка ответа кнопкой внутри работы (до сдачи) ====
+	case WorkTaskChecks = 'fs_lms_work_task_checks';
+
 	// ==== ЛК преподавателя — посещаемость (Эпик 2) ====
 	case Attendance = 'fs_lms_attendance';
 

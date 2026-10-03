@@ -52,9 +52,12 @@ const paths = {
     },
     // woff2 шрифтов — копируются в assets/fonts/ без обработки (см. fontsCopy).
     fonts: './src/fonts/*.woff2',
+    // Растровые/векторные картинки интерфейса — копируются в assets/img/ без обработки.
+    img: './src/img/*',
     output: {
         css: './assets/css/',
         fonts: './assets/fonts/',
+        img: './assets/img/',
         js: './assets/js/',
         maps: './maps/'
     }
@@ -311,6 +314,14 @@ function fontsCopy() {
 }
 
 /**
+ * Картинки интерфейса: src/img/ → assets/img/ (логотип на странице входа).
+ */
+function imagesCopy() {
+    return gulp.src(paths.img, { encoding: false })
+        .pipe(gulp.dest(paths.output.img));
+}
+
+/**
  * GUARD: строгая проверка сборки всех SCSS-бандлов.
  * Без plumber/errorHandler — любая ошибка SASS роняет процесс (exit != 0),
  * чтобы CI/`npm run build:check` ловил поломки стилей (см. историю с _assessment.scss).
@@ -343,11 +354,12 @@ function watchFiles() {
     gulp.watch(paths.scss.watch, gulp.parallel(stylesAdmin, stylesFrontend, stylesProfile, stylesPlayer, stylesAssessment, stylesKege, stylesFonts));
     gulp.watch(paths.js.watch, scripts);
     gulp.watch(paths.fonts, fontsCopy);
+    gulp.watch(paths.img, imagesCopy);
     console.log('Gulp is watching and building modules...');
 }
 
 // Экспорт задач
-const build = gulp.parallel(stylesCommon, stylesAdmin, stylesFrontend, stylesProfile, stylesPlayer, stylesAssessment, stylesKege, stylesFonts, fontsCopy, scripts);
+const build = gulp.parallel(stylesCommon, stylesAdmin, stylesFrontend, stylesProfile, stylesPlayer, stylesAssessment, stylesKege, stylesFonts, fontsCopy, imagesCopy, scripts);
 
 exports['styles:common']     = stylesCommon;
 exports['styles:admin']      = stylesAdmin;
@@ -358,6 +370,7 @@ exports['styles:assessment'] = stylesAssessment;
 exports['styles:kege']       = stylesKege;
 exports['styles:fonts']      = stylesFonts;
 exports['fonts:copy']        = fontsCopy;
+exports['images:copy']       = imagesCopy;
 exports['styles:check']      = stylesCheck;
 exports['scripts'] = scripts;
 exports.build = build;

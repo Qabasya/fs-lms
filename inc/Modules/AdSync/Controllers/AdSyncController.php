@@ -49,6 +49,8 @@ class AdSyncController {
 		// Этап 3: deprovision — заявка истекла/в корзину (до зачисления) либо ученик отчислен (после).
 		add_action( 'fs_lms_application_expired', array( $this, 'onApplicationExpired' ) );
 		add_action( 'fs_lms_application_trashed', array( $this, 'onApplicationTrashed' ) );
+		add_action( 'fs_lms_application_student_name_changed', array( $this, 'onStudentNameChanged' ) );
+		add_action( 'fs_lms_application_permanently_deleted', array( $this, 'onApplicationDeleted' ), 10, 2 );
 		add_action( 'fs_lms_student_expelled', array( $this, 'onStudentExpelled' ), 10, 2 );
 
 		// Повторное зачисление — вернуть учётку из «Отчисленных» в OU нового направления;
@@ -69,6 +71,16 @@ class AdSyncController {
 
 	public function onApplicationTrashed( int $applicationId ): void {
 		$this->service->enqueueDeprovisionByApplication( $applicationId );
+		$this->scheduleFlush();
+	}
+
+	public function onStudentNameChanged( int $applicationId ): void {
+		$this->service->enqueueNameUpdate( $applicationId );
+		$this->scheduleFlush();
+	}
+
+	public function onApplicationDeleted( int $applicationId, ?int $personId ): void {
+		$this->service->enqueueDeleteByApplication( $applicationId, $personId );
 		$this->scheduleFlush();
 	}
 

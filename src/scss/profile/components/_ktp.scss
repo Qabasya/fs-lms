@@ -211,6 +211,14 @@
 .ke-course-sel { min-width: rem(220); height: rem(38); padding: 0 rem(10); border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface); color: var(--ink); font: inherit; font-size: rem(13.5); cursor: pointer; }
 .ke-course-sel:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 
+.ktp-change-course {
+  padding: rem(12) rem(16); margin-bottom: rem(14); flex-shrink: 0;
+  border: 1px solid var(--line); border-radius: var(--radius);
+  background: var(--surface); color: var(--muted);
+  font-size: rem(13); line-height: 1.5;
+}
+.ktp-change-course .ke-assign { justify-content: flex-start; margin-top: rem(8); }
+
 /* ── НБ-9: режим «Индивидуальные занятия» ──────────────────────────────── */
 .prof-indi-list {
   flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: rem(10);

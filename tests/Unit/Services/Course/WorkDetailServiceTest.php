@@ -6,7 +6,10 @@ namespace Unit\Services\Course;
 
 use Inc\DTO\Assessment\AttemptAnswerDTO;
 use Inc\DTO\Assessment\AttemptDTO;
+use Inc\DTO\Course\GroupLessonDTO;
 use Inc\DTO\Course\SubmissionDTO;
+use Inc\DTO\Enrollment\StudentRecordDTO;
+use Inc\Enums\Enrollment\EnrollmentStatus;
 use Inc\Enums\Course\SubmissionStatus;
 use Inc\Enums\Course\WorkType;
 use Inc\Enums\Wp\PostMetaName;
@@ -17,11 +20,13 @@ use Inc\Managers\Wp\PostManager;
 use Inc\Repositories\WPDBRepositories\AssessmentAnswerRepository;
 use Inc\Repositories\WPDBRepositories\AssessmentAttemptRepository;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
+use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 use Inc\Repositories\WPDBRepositories\SubmissionRepository;
 use Inc\Repositories\WPDBRepositories\TaskAttemptRepository;
 use Inc\Services\Course\WorkDetailService;
 use Inc\Services\Task\CorrectAnswerResolver;
 use Inc\Services\Task\TaskMetaService;
+use Inc\Services\Task\TaskSolutionService;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -40,6 +45,7 @@ class WorkDetailServiceTest extends TestCase {
 	private MediaManager&\PHPUnit\Framework\MockObject\MockObject                $media;
 	private TaskAttemptRepository&\PHPUnit\Framework\MockObject\MockObject       $taskAttempts;
 	private CorrectAnswerResolver&\PHPUnit\Framework\MockObject\MockObject       $correctAnswers;
+	private StudentRecordRepository&\PHPUnit\Framework\MockObject\MockObject      $studentRecords;
 	private WorkDetailService $service;
 
 	protected function setUp(): void {
@@ -54,6 +60,7 @@ class WorkDetailServiceTest extends TestCase {
 		$this->assessments  = $this->createMock( AssessmentManager::class );
 		$this->media        = $this->createMock( MediaManager::class );
 		$this->taskAttempts   = $this->createMock( TaskAttemptRepository::class );
+		$this->studentRecords = $this->createMock( StudentRecordRepository::class );
 		$this->correctAnswers = $this->createMock( CorrectAnswerResolver::class );
 		$this->service = new WorkDetailService(
 			$this->submissions,
@@ -67,6 +74,8 @@ class WorkDetailServiceTest extends TestCase {
 			$this->media,
 			new TaskMetaService(),
 			$this->taskAttempts,
+			$this->studentRecords,
+			new TaskSolutionService( $this->correctAnswers ),
 		);
 	}
 
@@ -90,6 +99,38 @@ class WorkDetailServiceTest extends TestCase {
 
 		self::assertSame( 'https://example.test/wp-content/uploads/photo.jpg', $detail['attachment_url'] );
 		self::assertSame( 'image/jpeg', $detail['attachment_mime'] );
+	}
+
+	/** Экран проверки показывает в шапке ФИО сдавшего — по снимку записи в группе урока. */
+	public function test_from_submission_exposes_student_full_name_from_group_snapshot(): void {
+		$this->submissions->method( 'find' )->willReturn( $this->sub( null ) );
+		$this->submissions->method( 'listPerTaskByStudentWorkLesson' )->willReturn( array() );
+		$this->groupLessons->method( 'find' )->with( 5 )->willReturn( GroupLessonDTO::fromArray( array(
+			'id' => 5, 'group_id' => 7, 'position' => 1,
+		) ) );
+		$this->studentRecords->method( 'findAllByStudentAndGroup' )->with( 10, 7 )->willReturn( array(
+			new StudentRecordDTO(
+				id: 1, studentPersonId: 10, parentPersonId: 0, groupId: 7,
+				snapshotLastName: 'Иванов', snapshotFirstName: 'Пётр', snapshotMiddleName: 'Сергеевич',
+				snapshotSchool: null, snapshotGrade: null, contractNo: null, contractDate: null,
+				orderNo: null, orderDate: null, status: EnrollmentStatus::Active,
+				enrolledAt: '2026-01-01', enrolledByUserId: null, expelledAt: null,
+				expelledByUserId: null, expelReason: null, createdAt: '', updatedAt: '',
+			),
+		) );
+
+		$detail = $this->service->forWork( 'submission', 7 );
+
+		self::assertSame( 'Иванов Пётр Сергеевич', $detail['student_name'] );
+	}
+
+	public function test_from_submission_student_name_empty_without_group_record(): void {
+		$this->submissions->method( 'find' )->willReturn( $this->sub( null ) );
+		$this->submissions->method( 'listPerTaskByStudentWorkLesson' )->willReturn( array() );
+
+		$detail = $this->service->forWork( 'submission', 7 );
+
+		self::assertSame( '', $detail['student_name'] );
 	}
 
 	public function test_from_work_attachment_fields_null_when_no_attachment(): void {
@@ -117,6 +158,32 @@ class WorkDetailServiceTest extends TestCase {
 		$task = $this->service->forWork( 'submission', 7 )['tasks'][0];
 
 		self::assertSame( 'Условие из меты', $task['condition'] );
+	}
+
+	public function test_review_includes_authored_code_and_text_but_hides_empty_solution(): void {
+		$this->submissions->method( 'find' )->willReturn( $this->sub( null ) );
+		$this->submissions->method( 'listPerTaskByStudentWorkLesson' )->willReturn( array() );
+		$this->works->method( 'get' )->willReturn( $this->workWithItems( array( 42, 43, 44, 45 ) ) );
+		$this->posts->method( 'getMeta' )->willReturnCallback( static fn( int $taskId, string $key ) => match ( $taskId ) {
+			42 => 'code_task',
+			43 => 'standard_task',
+			44 => 'file_task',
+			default => 'text_task',
+		} );
+		$this->posts->method( 'taskMeta' )->willReturnCallback( static fn( int $taskId ) => match ( $taskId ) {
+			42 => array( 'task_code' => "if x < 2:\n    print(x)" ),
+			43 => array( 'task_text' => '<p>Решение по формуле</p>' ),
+			44 => array( 'task_text' => '<p>Решение с файлом</p>' ),
+			default => array(),
+		} );
+
+		$tasks = $this->service->forWork( 'submission', 7 )['tasks'];
+
+		self::assertSame( "if x < 2:\n    print(x)", $tasks[0]['solution']['code'] );
+		self::assertSame( '', $tasks[0]['solution']['html'] );
+		self::assertStringContainsString( 'Решение по формуле', $tasks[1]['solution']['html'] );
+		self::assertStringContainsString( 'Решение с файлом', $tasks[2]['solution']['html'] );
+		self::assertNull( $tasks[3]['solution'] );
 	}
 
 	/* ── D4 (.docs/Tasks.md): submission-работы оцениваются поштучно, как экзамены ── */
@@ -149,13 +216,14 @@ class WorkDetailServiceTest extends TestCase {
 		) );
 		$this->works->method( 'get' )->willReturn( $this->workWithItems( array( 42 ) ) );
 		$this->posts->method( 'getMeta' )->with( 42, PostMetaName::TemplateType->value )->willReturn( 'file_answer_task' );
-		$this->posts->method( 'taskMeta' )->willReturn( array() );
+		$this->posts->method( 'taskMeta' )->willReturn( array( 'solution_text' => '<p>Для проверяющего</p>' ) );
 
 		$task = $this->service->forWork( 'submission', 7 )['tasks'][0];
 
 		self::assertTrue( $task['gradable'] );
 		self::assertSame( 501, $task['task_submission_id'] );
 		self::assertSame( 'pending', $task['verdict'] );
+		self::assertStringContainsString( 'Для проверяющего', $task['solution']['html'] );
 	}
 
 	/* ── Tasks.md, п. 6: ручной зачёт задания работы ── */
@@ -493,6 +561,19 @@ class WorkDetailServiceTest extends TestCase {
 		self::assertNull( $task['oge_rubric'] );
 	}
 
+	public function test_exam_review_includes_reviewer_solution_for_file_answer_task(): void {
+		$this->attempts->method( 'find' )->willReturn( $this->attemptFixture() );
+		$this->answers->method( 'listByAttempt' )->willReturn( array(
+			AttemptAnswerDTO::fromArray( array( 'id' => 1, 'attempt_id' => 9, 'task_id' => 42, 'answer_text' => '{"text":"решение","files":[]}' ) ),
+		) );
+		$this->posts->method( 'getMeta' )->willReturn( 'file_answer_task' );
+		$this->posts->method( 'taskMeta' )->willReturn( array( 'solution_text' => '<p>Образец проверки</p>' ) );
+
+		$task = $this->service->forWork( 'attempt', 9 )['tasks'][0];
+
+		self::assertStringContainsString( 'Образец проверки', $task['solution']['html'] );
+	}
+
 	/* ── attemptHistory(): «Пройти заново» — история попыток педагогу ─────── */
 
 	private function taskAttempt( int $round, int $taskId, mixed $answer, ?bool $isCorrect, string $createdAt ): \Inc\DTO\Task\TaskAttemptDTO {
@@ -594,7 +675,7 @@ class WorkDetailServiceTest extends TestCase {
 		$this->submissions->method( 'find' )->willReturn( $this->sub( null ) );
 		$this->works->method( 'get' )->willReturn( $this->workWithItems( array( 42 ) ) );
 		$this->posts->method( 'getMeta' )->willReturn( 'standard_task' );
-		$this->posts->method( 'taskMeta' )->willReturn( array() );
+		$this->posts->method( 'taskMeta' )->willReturn( array( 'task_text' => '<p>Разбор прошлого раунда</p>' ) );
 		$this->correctAnswers->method( 'resolve' )->with( 42 )->willReturn( 'Макс: 2; 3' );
 		$this->taskAttempts->method( 'listByStep' )->willReturn( array(
 			$this->taskAttempt( 1, 42, 'первый ответ', false, '2026-08-21 14:02:00' ),
@@ -603,5 +684,6 @@ class WorkDetailServiceTest extends TestCase {
 		$task = $this->service->attemptHistory( 7 )[0]['tasks'][0];
 
 		self::assertSame( 'Макс: 2; 3', $task['correct'] );
+		self::assertStringContainsString( 'Разбор прошлого раунда', $task['solution']['html'] );
 	}
 }

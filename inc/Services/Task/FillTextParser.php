@@ -85,7 +85,7 @@ class FillTextParser {
 		$student = self::normalizeAnswer( $studentAnswer );
 
 		foreach ( $answers as $answer ) {
-			if ( $student === self::normalizeAnswer( $answer ) ) {
+			if ( $student === self::normalizeStoredAnswer( $answer ) ) {
 				return true;
 			}
 		}

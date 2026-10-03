@@ -8,7 +8,7 @@
 // сайта: кегли — целые пиксели шкалы темы (ядровые 13/14/16 → 15/16/19, как
 // их раньше округляла сборка), отступы и радиусы — ядровые ×1.2.
 @forward '../shared/tokens' show
-	below, $bp-mobile, $bp-wp, $bp-tablet, $bp-wide,
+	below, $bp-mobile, $bp-narrow, $bp-wp, $bp-tablet, $bp-wide,
 	$font-regular, $font-medium, $font-semibold, $font-bold, $color-danger,
 	// Моноширинный листингов публичных страниц: ступень общая с ядром, потому что
 	// тот же блок кода рендерится и в плеере (shared/_code-block.scss).

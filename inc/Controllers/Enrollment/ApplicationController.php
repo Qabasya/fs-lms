@@ -72,6 +72,8 @@ class ApplicationController extends AjaxController {
 		return array(
 			// Отправка OTP-кода на email (шаг A)
 			array( AjaxHook::SendOtpCode, $this->callbacks ),
+			// Метка и nonce из некешируемого AJAX для страницы заявки.
+			array( AjaxHook::GetApplySession, $this->callbacks ),
 			// Создание заявки после верификации OTP (шаг B)
 			array( AjaxHook::CreateApplication, $this->callbacks ),
 			// Отправка данных родителя по JOIN-ссылке
@@ -82,6 +84,8 @@ class ApplicationController extends AjaxController {
 			array( AjaxHook::CheckEmailAvailable, $this->callbacks ),
 			// События формы родителя — в журнал заявки
 			array( AjaxHook::TrackJoinForm, $this->callbacks ),
+			// События формы заявки — в журнал «Аутентификация»
+			array( AjaxHook::TrackApplyForm, $this->callbacks ),
 		);
 	}
 

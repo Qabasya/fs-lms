@@ -82,6 +82,18 @@ class PlayerModeSwitchServiceTest extends TestCase {
 		self::assertStringContainsString( 'gl=41', $this->service->teacherUrl( 7, 10, 0 ) );
 	}
 
+	/** Урок открыт из «Мои курсы»: админ/методист управляет группой, не будучи её преподавателем. */
+	public function test_teacher_url_falls_back_to_any_managed_group_lesson(): void {
+		$this->groups->method( 'findByTeacherId' )->willReturn( array() );
+		$this->groupLessons->method( 'listByLesson' )->with( 10 )->willReturn( array(
+			$this->row( 50, 5, 10 ),
+			$this->row( 51, 6, 10 ),
+		) );
+		$this->groupAccess->method( 'canManage' )->willReturnCallback( static fn( int $groupId ): bool => 6 === $groupId );
+
+		self::assertStringContainsString( 'gl=51', $this->service->teacherUrl( 1, 10, 0 ) );
+	}
+
 	public function test_teacher_url_is_empty_without_any_group_lesson(): void {
 		$this->groups->method( 'findByTeacherId' )->willReturn( array() );
 

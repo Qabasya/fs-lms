@@ -38,4 +38,9 @@ trait AnswerNormalizer {
 	protected static function normalizeAnswer( string $value ): string {
 		return mb_strtolower( (string) preg_replace( '/\s+/u', '', $value ) );
 	}
+
+	/** Старые эталоны после WP-санитизации содержат HTML-сущности вместо `<` и `>`. */
+	protected static function normalizeStoredAnswer( string $value ): string {
+		return self::normalizeAnswer( html_entity_decode( $value, ENT_QUOTES | ENT_HTML5, 'UTF-8' ) );
+	}
 }

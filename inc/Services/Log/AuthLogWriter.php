@@ -9,6 +9,7 @@ use Inc\DTO\Log\AuthLogInputDTO;
 use Inc\DTO\Log\LoginDiagnosticsDTO;
 use Inc\Enums\Auth\AuthAction;
 use Inc\Enums\Auth\AuthResult;
+use Inc\Enums\Auth\LoginFailReason;
 use Inc\Repositories\WPDBRepositories\Log\AuthLogRepository;
 use Inc\Shared\Traits\RequestContextProvider;
 
@@ -61,6 +62,33 @@ class AuthLogWriter {
 		AuthResult $result,
 		?LoginDiagnosticsDTO $diagnostics = null
 	): void {
+		$this->write( $loginIdentifier, $action, $result, $diagnostics?->reason, $diagnostics?->details );
+	}
+
+	/**
+	 * Событие без разбора входа: форма заявки, пропуск без капчи. Подробности — произвольные
+	 * (`visit`, `note`… — см. {@see \Inc\DTO\Log\AuthLogDTO::detailLines()}); пустой массив не пишется.
+	 *
+	 * @param AuthAction            $action          Что произошло
+	 * @param AuthResult            $result          Итог
+	 * @param LoginFailReason|null  $reason          Причина (для фильтра журнала)
+	 * @param array<string, mixed>  $details         Подробности
+	 * @param string|null           $loginIdentifier Логин/email, если он известен
+	 */
+	public function recordEvent(
+		AuthAction $action,
+		AuthResult $result,
+		?LoginFailReason $reason = null,
+		array $details = array(),
+		?string $loginIdentifier = null
+	): void {
+		$this->write( $loginIdentifier, $action, $result, $reason, array() !== $details ? $details : null );
+	}
+
+	/**
+	 * @param array<string, mixed>|null $details
+	 */
+	private function write( ?string $loginIdentifier, AuthAction $action, AuthResult $result, ?LoginFailReason $reason, ?array $details ): void {
 		$ctx = $this->requestContext();
 
 		$this->repository->create( new AuthLogInputDTO(
@@ -70,8 +98,8 @@ class AuthLogWriter {
 			actorIp:         $ctx->ip,
 			actorUa:         '' !== $ctx->userAgent ? $ctx->userAgent : null,
 			createdAt:       $this->clock->now( 'mysql', true ),
-			reason:          $diagnostics?->reason->value,
-			details:         $diagnostics?->details,
+			reason:          $reason?->value,
+			details:         $details,
 		) );
 	}
 }

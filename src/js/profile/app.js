@@ -27,7 +27,7 @@ const SCREENS = {
     summary:              (root) => renderSummary(root, { openWorkReview: openWorkReviewFrom('summary') }),
     substitutions:        (root) => renderSubstitutions(root),
     ktp:                  (root) => renderKTP(root),
-    activity:             (root) => renderActivity(root),
+    activity:             (root) => renderActivity(root, { openWorkReview: openWorkReviewFrom('activity') }),
     'teacher-courses':    renderTeacherCourses,
     'learner-home':       renderLearnerHome,
     'learner-lessons':    renderLearnerLessons,
@@ -93,7 +93,22 @@ function closeMenuOnMobile() {
     }
 }
 
+/* Адрес отражает текущий экран: перезагрузка возвращает на него же, а не на экран из
+   прошлой ссылки (?screen=…&course=… из плеера). `course`/`gid` живут только на своём
+   экране — go() их сбрасывает, нужный экран выставляет сам. Программные экраны вне
+   cfg.screens (деталь работы) адрес не меняют: при перезагрузке откроется экран-родитель. */
+function syncUrl(screen, extra) {
+    if (!cfg.screens.includes(screen)) return;
+    const url = new URL(window.location.href);
+    url.searchParams.set('screen', screen);
+    url.searchParams.delete('course');
+    url.searchParams.delete('gid');
+    Object.entries(extra || {}).forEach(([k, v]) => url.searchParams.set(k, v));
+    window.history.replaceState(window.history.state, '', url);
+}
+
 function go(screen) {
+    syncUrl(screen);
     document.querySelectorAll('.prof-screen').forEach(s =>
         s.classList.toggle('active', s.dataset.screen === screen));
     document.querySelectorAll('.prof-nav-item[data-go]').forEach(n =>
@@ -153,6 +168,7 @@ function openGroupsFor(gid) {
     document.querySelectorAll('.prof-group-item').forEach(el =>
         el.classList.toggle('active', String(el.dataset.grp) === String(gid)));
     go('groups');
+    if (g) syncUrl('groups', { gid: g.id });
     setTopbar('groups', { crumb: 'Группы', title: g ? `${g.name} · ${g.subject}` : 'Группы' });
     if (g) setGroupsGroup(g.id);
 }
@@ -280,7 +296,16 @@ function mountScreens() {
     });
 
     const wrRoot = document.querySelector('.prof-screen[data-screen="work-review"]');
-    if (wrRoot) { renderWorkReview(wrRoot, { onBack: () => go(getReturnTo()) }); }
+    if (wrRoot) {
+        renderWorkReview(wrRoot, {
+            onBack: () => go(getReturnTo()),
+            // ФИО сдавшего — в шапку; деталь грузится асинхронно, ученик мог уже уйти с экрана.
+            onLoaded: (d) => {
+                if (!d.student_name || !wrRoot.classList.contains('active')) return;
+                setTopbar('work-review', { crumb: TOPBAR['work-review'].crumb, title: d.student_name });
+            },
+        });
+    }
 }
 
 /* ── Меню пользователя (шестерёнка) — dropdown вверх с «Выход» ────────── */

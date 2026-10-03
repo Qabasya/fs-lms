@@ -53,7 +53,8 @@ class PlayerModeSwitchService {
 	/**
 	 * Из предпросмотра — в режим преподавателя. Сначала занятие, из которого пришли
 	 * (`$requestedGroupLessonId`, проверяется: тот же урок и право управлять группой),
-	 * иначе первое групповое занятие этого урока в группах самого преподавателя.
+	 * иначе первое групповое занятие этого урока в группах самого преподавателя, а затем —
+	 * в любой группе, которой пользователь управляет (админ, методист, замена).
 	 */
 	public function teacherUrl( int $userId, int $lessonId, int $requestedGroupLessonId ): string {
 		if ( $lessonId <= 0 ) {
@@ -76,6 +77,14 @@ class PlayerModeSwitchService {
 				if ( $row->lessonId === $lessonId && LessonKind::Group === $row->kind ) {
 					return PageRoutes::LessonPlayer->lessonUrl( $row->groupId, $row->id );
 				}
+			}
+		}
+
+		// Урок открыли из «Мои курсы», а не из группы, и своих групп с ним нет: администратор,
+		// методист и замещающий управляют группой, не будучи её постоянным преподавателем.
+		foreach ( $this->groupLessons->listByLesson( $lessonId ) as $row ) {
+			if ( LessonKind::Group === $row->kind && $this->groupAccess->canManage( $row->groupId, $userId ) ) {
+				return PageRoutes::LessonPlayer->lessonUrl( $row->groupId, $row->id );
 			}
 		}
 

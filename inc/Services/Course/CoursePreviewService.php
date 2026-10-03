@@ -241,8 +241,7 @@ class CoursePreviewService {
 
 	/**
 	 * Preview-рендер контрольной: как renderWorkData, но по AssessmentDTO —
-	 * набор тех же задач (fs_lms_problems), собранных через taskBundle (эталоны
-	 * в них не попадают). Позволяет автору прорешать контрольную в предпросмотре
+	 * набор тех же задач (fs_lms_problems), собранных через taskBundle. Позволяет автору прорешать контрольную в предпросмотре
 	 * инлайном, без attempt-флоу/таймера/сохранения (#5, D-2).
 	 *
 	 * @return array<string, mixed>
@@ -254,16 +253,14 @@ class CoursePreviewService {
 			return array( 'ref' => $asmId, 'assessment_found' => false );
 		}
 
+		// Эталон каждой задачи — как у задач работы: «Показать решение» для автора.
 		$tasks = array();
-		foreach ( $asm->taskIds as $taskId ) {
-			$bundle = $this->stepRenderer->taskBundle( (int) $taskId );
-			if ( null === $bundle ) {
-				continue;
-			}
-			if ( ! $bundle['auto_grade'] ) {
-				$bundle['widget_data'] = array( 'type' => 'text_answer' );
-			}
+		foreach ( $this->stepRenderer->assessmentTaskBundles( $asmId ) as $bundle ) {
+			$solution = $this->solutions->forTask( (int) $bundle['task_id'], $bundle['meta'] );
 			unset( $bundle['meta'] );
+			if ( null !== $solution ) {
+				$bundle['solution'] = $solution;
+			}
 			$tasks[] = $bundle;
 		}
 

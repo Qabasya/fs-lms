@@ -11,8 +11,9 @@ import { esc, toast, fmtNum, fmtDateTime, fmtDuration } from './utils.js';
 import { icoChevronLeft } from '../common/icons.js';
 import { createApi } from './api.js';
 import { confirmDialog } from '../common/components/confirm-dialog.js';
+import { solutionBlock } from './work-review-solution.js';
 
-const VERDICT_LABEL = { correct: 'Верно', incorrect: 'Неверно', pending: 'На проверке' };
+const VERDICT_LABEL = { correct: 'Верно', corrected: 'Верно с исправлением', incorrect: 'Неверно', pending: 'На проверке' };
 const STATUS_LABEL  = { submitted: 'Сдано', pending: 'На проверке', graded: 'Оценено', returned: 'Возвращено', in_progress: 'В процессе', expired: 'Просрочено' };
 /* D18: ответы/баллы скрыты от ученика до подтверждения — у ЕГЭ (без ручной
    проверки заданий) Graded наступает сразу при сдаче и не значит «учитель
@@ -24,6 +25,7 @@ const OPEN_STATUSES = [ 'submitted', 'pending_review' ];
 
 let wrRoot   = null;
 let onBackCb = () => {};
+let onLoadedCb = () => {};
 let reviewApi = null;
 let attemptGradeApi = null;
 let batchGradeApi = null;
@@ -31,9 +33,10 @@ let returnTo = 'summary';
 let current  = null; // { sourceType, sourceId }
 
 /** Вызывается один раз при монтаже SPA (см. app.js) — только сохраняет root/колбэк. */
-export function renderWorkReview(root, { onBack } = {}) {
+export function renderWorkReview(root, { onBack, onLoaded } = {}) {
     wrRoot   = root;
     onBackCb = typeof onBack === 'function' ? onBack : () => {};
+    onLoadedCb = typeof onLoaded === 'function' ? onLoaded : () => {};
     const p = window.fsProfile || {};
     reviewApi       = p.review ? createApi(p.review) : null;
     attemptGradeApi = p.attemptGrade ? createApi(p.attemptGrade) : null;
@@ -75,6 +78,7 @@ export async function openWorkReview(sourceType, sourceId, from) {
     }
 
     render(d, history);
+    onLoadedCb(d);
 }
 
 function reload() {
@@ -222,6 +226,11 @@ function answeredAtHtml(at) {
     return at ? `<span class="st-time" title="Время ответа">ответ ${esc(fmtDateTime(at))}</span>` : '';
 }
 
+/* Верно после ошибки в проверке кнопкой до сдачи — отдельный (жёлтый) вердикт. */
+function verdictKey(t) {
+    return t.corrected && 'correct' === t.verdict ? 'corrected' : t.verdict;
+}
+
 /* Read-only карточка задачи прошлой попытки — без контролов оценки. */
 function historyTaskBlock(t) {
     const score = (t.score !== null && t.score !== undefined)
@@ -239,6 +248,7 @@ function historyTaskBlock(t) {
             ${t.answer || !t.code ? `<div class="sum-task-ans"><span class="sta-label">Ответ ученика:</span> <span class="sta-val">${t.answer ? esc(t.answer) : '—'}</span></div>` : ''}
             ${t.code ? codeBlock(t.code) : ''}
             ${t.correct && 'correct' !== t.verdict ? `<div class="sum-task-ans sum-task-correct"><span class="sta-label">Правильный ответ:</span> <span class="sta-val">${esc(t.correct)}</span></div>` : ''}
+            ${solutionBlock(t.solution)}
         </div>`;
 }
 
@@ -376,7 +386,7 @@ function taskBlock(t, d) {
         <div class="sum-task">
             <div class="sum-task-head">
                 <span class="st-n">Задача ${t.n}</span>
-                <span class="sum-verdict sv-${esc(t.verdict)}">${esc(VERDICT_LABEL[t.verdict] || t.verdict)}</span>
+                <span class="sum-verdict sv-${esc(verdictKey(t))}">${esc(VERDICT_LABEL[verdictKey(t)] || t.verdict)}</span>
                 ${answeredAtHtml(t.answered_at)}
                 ${score}
                 ${t.manually_graded ? '<span class="sum-manual-mark">Оценено преподавателем</span>' : ''}
@@ -386,6 +396,7 @@ function taskBlock(t, d) {
             ${t.code ? codeBlock(t.code) : ''}
             ${t.files && t.files.length ? taskFilesBlock(t.files) : ''}
             ${showCorrect ? `<div class="sum-task-ans sum-task-correct"><span class="sta-label">Правильный ответ:</span> <span class="sta-val">${esc(t.correct)}</span></div>` : ''}
+            ${solutionBlock(t.solution)}
             ${grade}
             ${credit}
         </div>`;

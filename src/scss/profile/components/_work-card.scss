@@ -96,6 +96,7 @@
 }
 
 .wmark--correct   { background: var(--ok-soft); color: var(--ok); }
+.wmark--corrected { background: var(--wait-soft); color: var(--wait); }
 .wmark--incorrect { background: var(--err-soft); color: var(--err); }
 .wmark--pending   { background: var(--surface-2); color: var(--muted-2); }
 

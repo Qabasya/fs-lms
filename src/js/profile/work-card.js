@@ -17,18 +17,19 @@ const BADGE_MOD = { 'СР': 'sr', 'ПР': 'pr', 'ДЗ': 'dz', 'КР': 'kr', 'Э�
 
 const MARK_ICON = {
     correct:   () => icoCheck(12),
+    corrected: () => icoCheck(12),
     incorrect: () => icoCross(11),
     pending:   () => icoClock(12),
     missed:    () => '–',
 };
 
-const MARK_TITLE = { correct: 'Решено', incorrect: 'Не решено', pending: 'На проверке', missed: 'Не сдано' };
+const MARK_TITLE = { correct: 'Решено', corrected: 'Решено с исправлением', incorrect: 'Не решено', pending: 'На проверке', missed: 'Не сдано' };
 
 /**
  * @param {Object}   card
  * @param {string}   card.title       Заголовок карточки (название работы или ФИО ученика)
  * @param {string}  [card.badge]      Короткая метка типа работы (СР/ПР/ДЗ/КР/ЭКЗ)
- * @param {string[]}[card.marks]      Вердикты заданий: correct | incorrect | pending | missed
+ * @param {string[]}[card.marks]      Вердикты заданий: correct | corrected | incorrect | pending | missed
  * @param {string}  [card.subtitle]   Строка под заголовком (группа, статус и т.п.)
  * @param {string}  [card.date]       ISO-дата сдачи
  * @param {number}  [card.duration]   Секунд от открытия работы до сдачи (нет замера — не выводится)

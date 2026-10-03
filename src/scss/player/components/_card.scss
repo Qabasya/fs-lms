@@ -10,7 +10,11 @@
 
   padding: rem(34) rem(40);
 
-  @media (max-width: $bp-mobile) { padding: rem(20) rem(16); }
+  @media (max-width: $bp-mobile) {
+    padding: rem(20) rem(12);
+
+    .wpc p { font-size: rem(14); }
+  }
 
   h1,
   h2 {

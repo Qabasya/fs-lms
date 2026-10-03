@@ -32,6 +32,7 @@ class BatchSubmissionCallbacksTest extends TestCase {
 	private GroupLessonRepository    $groupLessons;
 	private GroupAccessGuard         $guard;
 	private BatchSubmissionCallbacks $cb;
+	private \Inc\Services\Course\WorkTaskCheckService $taskChecks;
 
 	/** Ученик ли отправитель: сдавать работу может только член группы занятия. */
 	private bool $isMember = true;
@@ -46,13 +47,15 @@ class BatchSubmissionCallbacksTest extends TestCase {
 		$this->submissionRepo = $this->createMock( SubmissionRepository::class );
 		$this->groupLessons   = $this->createMock( GroupLessonRepository::class );
 		$this->guard          = $this->createMock( GroupAccessGuard::class );
+		$this->taskChecks     = $this->createMock( \Inc\Services\Course\WorkTaskCheckService::class );
 		$this->isMember       = true;
 
 		$this->guard->method( 'isMemberEver' )->willReturnCallback( fn(): bool => $this->isMember );
 
 		$this->cb = new BatchSubmissionCallbacks(
 			$this->service, $this->persons, $this->submissionRepo, $this->groupLessons, $this->guard,
-			$this->createStub( \Inc\Managers\Course\WorkManager::class )
+			$this->createStub( \Inc\Managers\Course\WorkManager::class ),
+			$this->taskChecks
 		);
 	}
 

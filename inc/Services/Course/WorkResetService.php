@@ -15,6 +15,7 @@ use Inc\Repositories\WPDBRepositories\AssessmentAttemptRepository;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\SubmissionRepository;
 use Inc\Repositories\WPDBRepositories\TaskAttemptRepository;
+use Inc\Repositories\WPDBRepositories\WorkTaskCheckRepository;
 use Inc\Services\Profile\NotificationService;
 use Inc\Shared\PluginLogger;
 
@@ -39,6 +40,7 @@ class WorkResetService {
 		private readonly AssessmentAnswerRepository  $answers,
 		private readonly GroupLessonRepository       $groupLessons,
 		private readonly TaskAttemptRepository       $taskAttempts,
+		private readonly WorkTaskCheckRepository     $workTaskChecks,
 		private readonly NotificationService         $notifications,
 		private readonly AssessmentManager           $assessments,
 		private readonly WorkManager                 $works,
@@ -139,6 +141,7 @@ class WorkResetService {
 			$sub->groupLessonId,
 			AttemptSource::workStepKey( $sub->workId )
 		);
+		$this->workTaskChecks->deleteByStudentWork( $sub->studentPersonId, $sub->groupLessonId, $sub->workId );
 
 		PluginLogger::warning(
 			'WorkReset',

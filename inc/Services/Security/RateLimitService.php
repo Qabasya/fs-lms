@@ -4,6 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Security;
 
+use Inc\Enums\Auth\CaptchaScope;
 use Inc\Services\Shared\PluginConfig;
 
 /**
@@ -41,6 +42,7 @@ use Inc\Services\Shared\PluginConfig;
  * - Отправка кода заявки: fs_lms_rl_apply_otp_{ipHash}
  * - Создание заявки:      fs_lms_rl_apply_{ipHash}
  * - JOIN-ссылки: fs_lms_rl_join_{ipHash}
+ * - Пропуск без капчи: fs_lms_rl_captchafb_{apply|login}_{ipHash}
  * - Submit-ы:    fs_lms_rl_parent_{ipHash}
  * - PII reveal:  fs_lms_rl_pii_{userId}
  * - Логин-чек:   fs_lms_rl_unamechk_{ipHash}
@@ -57,8 +59,6 @@ readonly class RateLimitService {
 	private const TRANSIENT_TTL = self::WINDOW * 2;
 
 	private const LIMIT_APPLICATION = 20;
-	private const LIMIT_JOIN        = 30;
-	private const LIMIT_PARENT      = 3;
 	private const LIMIT_PII_REVEAL  = 100;
 	private const LIMIT_OTP_EMAIL   = 5;
 
@@ -70,6 +70,13 @@ readonly class RateLimitService {
 	private const LIMIT_CLIENT_ERROR   = 30;
 	/** События формы родителя (журнал «Зачисления»): на визит их единицы, лимит — от засева. */
 	private const LIMIT_JOIN_TRACK     = 60;
+	private const LIMIT_APPLY_TRACK    = 60;
+
+	// Пропуск формы без капчи, когда она не дошла до браузера (VPN, блокировщик). Лимит по IP
+	// на час: без капчи защита держится на нём, поэтому он тесный. Заявка — до 8 попыток
+	// (код + повторы), вход — 30 (за одним адресом VPN/школы бывает много человек).
+	private const LIMIT_CAPTCHA_FALLBACK_APPLY = 8;
+	private const LIMIT_CAPTCHA_FALLBACK_LOGIN = 30;
 
 	// Неудачные входы: счётчик на пару IP + пользователь. Лимита по одному IP нет —
 	// с одного адреса выходят около 20 человек (перебор логинов сдерживает капча).
@@ -124,30 +131,6 @@ readonly class RateLimitService {
 	}
 
 	/**
-	 * Проверяет и фиксирует попытку открытия JOIN-ссылки с данного IP.
-	 *
-	 * @param string $ip IP-адрес клиента
-	 *
-	 * @return bool false если лимит превышен
-	 */
-	public function allowJoinAttempt( string $ip ): bool {
-		if ( $this->pluginConfig->isTestEnv() ) { return true; }
-		return $this->checkIp( 'join', $ip, self::LIMIT_JOIN );
-	}
-
-	/**
-	 * Проверяет и фиксирует попытку submit-а формы родителя с данного IP.
-	 *
-	 * @param string $ip IP-адрес клиента
-	 *
-	 * @return bool false если лимит превышен
-	 */
-	public function allowParentSubmit( string $ip ): bool {
-		if ( $this->pluginConfig->isTestEnv() ) { return true; }
-		return $this->checkIp( 'parent', $ip, self::LIMIT_PARENT );
-	}
-
-	/**
 	 * Отчёт о сбое из браузера в журнал «Ошибки».
 	 *
 	 * @param string $ip IP-адрес клиента
@@ -163,6 +146,29 @@ readonly class RateLimitService {
 	 */
 	public function allowJoinTrack( string $ip ): bool {
 		return $this->checkIp( 'jointrack', $ip, self::LIMIT_JOIN_TRACK );
+	}
+
+	/**
+	 * Проверяет и фиксирует отчёт о событии формы заявки (трекинг из браузера).
+	 *
+	 * @param string $ip IP-адрес клиента
+	 */
+	public function allowApplyTrack( string $ip ): bool {
+		return $this->checkIp( 'applytrack', $ip, self::LIMIT_APPLY_TRACK );
+	}
+
+	/**
+	 * Проверяет и фиксирует пропуск формы без капчи (она не дошла до браузера).
+	 *
+	 * @param string       $ip    IP-адрес клиента
+	 * @param CaptchaScope $scope Форма
+	 */
+	public function allowCaptchaFallback( string $ip, CaptchaScope $scope ): bool {
+		return $this->checkIp(
+			'captchafb_' . $scope->value,
+			$ip,
+			CaptchaScope::Apply === $scope ? self::LIMIT_CAPTCHA_FALLBACK_APPLY : self::LIMIT_CAPTCHA_FALLBACK_LOGIN
+		);
 	}
 
 	/**

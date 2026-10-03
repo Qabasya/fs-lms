@@ -4,9 +4,9 @@ declare( strict_types=1 );
 
 namespace Inc\MetaBoxes\Templates;
 
+use Inc\MetaBoxes\Fields\AnswerInputField;
 use Inc\MetaBoxes\Fields\CodeField;
 use Inc\MetaBoxes\Fields\ConditionField;
-use Inc\MetaBoxes\Fields\InputField;
 
 /*
  * Это класс для 19-21 заданий ЕГЭ по информатике
@@ -28,7 +28,7 @@ class ThreeInOneTemplate extends BaseTemplate {
 			),
 			'task_19_answer'    => array(
 				'label'  => 'Ответ №19',
-				'object' => new InputField(),
+				'object' => new AnswerInputField(),
 			),
 
 			// 2. Задание 20
@@ -38,7 +38,7 @@ class ThreeInOneTemplate extends BaseTemplate {
 			),
 			'task_20_answer'    => array(
 				'label'  => 'Ответ №20',
-				'object' => new InputField(),
+				'object' => new AnswerInputField(),
 			),
 
 			// 3. Задание 21
@@ -48,7 +48,7 @@ class ThreeInOneTemplate extends BaseTemplate {
 			),
 			'task_21_answer'    => array(
 				'label'  => 'Ответ №21',
-				'object' => new InputField(),
+				'object' => new AnswerInputField(),
 			),
 
 			// 4. Программное решение (мб потом разделить на 3?)

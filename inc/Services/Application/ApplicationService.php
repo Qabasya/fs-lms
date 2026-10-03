@@ -444,6 +444,10 @@ readonly class ApplicationService {
 			);
 		}
 
-		return $this->applicationRepository->delete( $id );
+		$deleted = $this->applicationRepository->delete( $id );
+		if ( $deleted ) {
+			do_action( 'fs_lms_application_permanently_deleted', $id, $application->studentPersonId );
+		}
+		return $deleted;
 	}
 }

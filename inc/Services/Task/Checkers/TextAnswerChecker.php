@@ -37,7 +37,9 @@ class TextAnswerChecker implements TaskCheckerInterface {
 
 		// Пробелы и переносы строк в сверке не участвуют вообще (Tasks.md, п. 4) —
 		// см. AnswerNormalizer. Ответ ученика при этом хранится и показывается сырым.
-		$correct = self::normalizeAnswer( (string) ( $content['task_answer'] ?? '' ) );
+		// Старые эталоны проходили sanitize_textarea_field(): знак `<` сохранялся
+		// как &lt;. Сравниваем с исходным символом, не требуя пересохранить задание.
+		$correct = self::normalizeStoredAnswer( (string) ( $content['task_answer'] ?? '' ) );
 		$student = self::normalizeAnswer( (string) $studentAnswer );
 
 		if ( '' === $correct ) {

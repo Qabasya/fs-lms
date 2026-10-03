@@ -17,6 +17,9 @@ class AdAuditActionTest extends TestCase {
 		self::assertSame( AdAuditAction::AccountReactivated, AdAuditAction::fromOutcome( 'reactivated', 'provision' ) );
 		self::assertSame( AdAuditAction::AccountDisabled, AdAuditAction::fromOutcome( 'absent', 'deprovision' ) );
 		self::assertSame( AdAuditAction::PasswordChanged, AdAuditAction::fromOutcome( 'password_changed', 'password' ) );
+		self::assertSame( AdAuditAction::AccountRenamed, AdAuditAction::fromOutcome( 'renamed', 'rename' ) );
+		self::assertSame( AdAuditAction::AccountDeleted, AdAuditAction::fromOutcome( 'deleted', 'delete' ) );
+		self::assertSame( AdAuditAction::AccountDeleted, AdAuditAction::fromOutcome( 'delete_absent', 'delete' ) );
 	}
 
 	public function test_server_without_outcome_falls_back_to_event(): void {

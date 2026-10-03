@@ -14,4 +14,6 @@ enum AdSyncEvent: string {
 	case Deprovision = 'deprovision';
 	/** Администратор сменил пароль ученика на сайте — тот же пароль ставится в AD. */
 	case Password    = 'password';
+	case Rename      = 'rename';
+	case Delete      = 'delete';
 }

@@ -42,6 +42,11 @@
 
 .app.top-hidden .a-workbar { top: $bar-h; }
 
+@media (max-width: $bp-mobile) {
+  .a-workbar { transition: top $tr-top, transform $tr-top, opacity $tr-top; }
+  .app.top-hidden .a-workbar { transform: translateY(calc(-100% - #{$bar-h})); opacity: 0; pointer-events: none; }
+}
+
 .wb-back {
   display: none;
   flex-shrink: 0;
@@ -115,8 +120,6 @@
     margin-bottom: rem(14);
 
     b { font-size: $font-size-md; font-weight: 700; flex: 1; }
-
-    .pts { font: 600 rem(12) var(--font); color: var(--muted-2); white-space: nowrap; }
   }
 
   .q {
@@ -150,6 +153,9 @@
 
 .work-instructions { margin-bottom: rem(14); }
 
+/* Режим преподавателя: пропуск в тексте задачи — прочерк на месте поля ввода. */
+.fs-fill-blank { color: var(--muted-2); white-space: nowrap; }
+
 /* номер задачи */
 .tkn {
   width: rem(30);
@@ -173,6 +179,8 @@
   white-space: nowrap;
 
   &.stc-saved { background: var(--accent-soft); color: var(--accent-700); }
+  &.stc-ok    { background: var(--ok-soft); color: var(--ok-text); }
+  &.stc-no    { background: var(--err-soft); color: var(--err-text); }
 
   &.stc-none {
     background: var(--surface-2);

@@ -6,8 +6,21 @@
  * @var string $error_message Уведомление после неудачного входа; '' — не показываем
  * @var string $prefill_login Логин из неудачной попытки
  * @var string $consent_url   URL согласия на обработку ПДн; '' — сноску не показываем
+ * @var string $logo_url      URL логотипа центра
+ * @var string $home_url      URL главной сайта (логотип ведёт на неё)
+ * @var string $apply_url     URL страницы подачи заявки на обучение
  */
 ?>
+<div class="fs-auth-brand">
+	<a class="fs-auth-brand__home" href="<?php echo esc_url( $home_url ); ?>">
+		<img class="fs-auth-brand__logo" src="<?php echo esc_url( $logo_url ); ?>" alt="Шаг в будущее">
+	</a>
+	<p class="fs-auth-brand__name">
+		Образовательный центр «Шаг в будущее»
+		<span class="fs-auth-brand__city">Калининград</span>
+	</p>
+</div>
+
 <div class="fs-auth-card">
 	<h2 class="fs-auth-card__title">Войти в личный кабинет</h2>
 
@@ -16,8 +29,6 @@
 			<?php echo esc_html( $error_message ); ?>
 		</div>
 	<?php endif; ?>
-
-	<div class="fs-auth-card__error" id="fs-login-captcha-error" role="alert" hidden></div>
 
 	<!-- Стандартная форма авторизации WordPress -->
 	<form name="loginform" id="loginform" action="<?php echo esc_url( site_url( 'wp-login.php', 'login_post' ) ); ?>" method="post">
@@ -42,6 +53,8 @@
 		<?php // Слот невидимой капчи (модуль SmartCaptcha); токен пишет login-form.js. ?>
 		<div id="fs-captcha-slot" class="fs-auth-card__captcha" role="region" aria-label="Проверка безопасности"></div>
 		<input type="hidden" name="captcha_token" value="">
+		<?php // Причина, по которой капча не дошла до браузера (VPN, блокировщик); пишет login-form.js. ?>
+		<input type="hidden" name="captcha_unavailable" value="">
 
 		<button type="submit" name="wp-submit" id="wp-submit" class="fs-auth-card__submit">
 			Войти
@@ -54,8 +67,11 @@
 	<?php // Сноска — только когда согласие на обработку ПДн заведено: ссылка в никуда хуже её отсутствия. ?>
 	<?php if ( '' !== $consent_url ) : ?>
 		<div class="fs-auth-card__footer">
-			Входя в систему, вы соглашаетесь с<br>
-			<a href="<?php echo esc_url( $consent_url ); ?>">политикой обработки персональных данных</a>.
+			Входя в систему, вы соглашаетесь с <a href="<?php echo esc_url( $consent_url ); ?>">политикой обработки данных</a>.
 		</div>
 	<?php endif; ?>
 </div>
+
+<p class="fs-auth-apply">
+	В первый раз? <a href="<?php echo esc_url( $apply_url ); ?>">Подай заявку на обучение</a>
+</p>

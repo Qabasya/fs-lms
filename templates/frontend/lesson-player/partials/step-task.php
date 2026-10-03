@@ -9,6 +9,8 @@
  * @var bool|null $is_teacher Teacher-режим занятия (бейдж в топбаре). Эталон подключается
  *                           по наличию render.solution, а не по этому флагу: тот же блок
  *                           нужен и в предпросмотре курса.
+ * @var bool|null $is_teacher_view Режим преподавателя (не предпросмотр): только условие и
+ *                           «Показать решение», без виджета, попыток и кнопки «Ответить».
  * @var string $edit_url  Ссылка «Редактировать» в конструктор (#15-E), пусто вне preview.
  *
  * @package FS LMS
@@ -35,7 +37,13 @@ use Inc\Enums\Ui\Icon;
 	<h2><?php echo esc_html( $step['title'] ); ?></h2>
 
 	<div class="gap16">
-		<?php if ( ! empty( $render['auto_grade'] ) ) : ?>
+		<?php if ( ! empty( $is_teacher_view ) ) : ?>
+			<?php
+			$cond_task  = $render;
+			$cond_class = 'fs-task-condition wpc';
+			include __DIR__ . '/teacher-condition.php';
+			?>
+		<?php elseif ( ! empty( $render['auto_grade'] ) ) : ?>
 			<?php
 			$task_tmpl    = (string) ( $render['template'] ?? '' );
 			// data-done блокирует ВИДЖЕТ (task-widget.js) — в preview виджет должен
@@ -104,9 +112,9 @@ use Inc\Enums\Ui\Icon;
 					class="b b-pri fs-task-submit"
 					data-step="<?php echo esc_attr( $step['key'] ); ?>"
 					<?php
-					// Ref задачи для dry-run проверки: и предпросмотр, и teacher-режим
-					// проверяют ответ, ничего не сохраняя (step-task.js).
-					echo ( ! empty( $is_preview ) || ! empty( $is_teacher ) ) && ! empty( $render['ref'] )
+					// Ref задачи для dry-run проверки в предпросмотре: ответ проверяется,
+					// ничего не сохраняя (step-task.js).
+					echo ! empty( $is_preview ) && ! empty( $render['ref'] )
 						? 'data-preview-ref="' . esc_attr( (string) $render['ref'] ) . '"'
 						: '';
 					?>
@@ -116,8 +124,6 @@ use Inc\Enums\Ui\Icon;
 				<div class="fs-task-result" aria-live="polite"></div>
 				<?php if ( ! empty( $is_preview ) ) : ?>
 					<p class="step-muted pv-note"><?php esc_html_e( 'Это предпросмотр — ответ не сохраняется.', 'fs-lms' ); ?></p>
-				<?php elseif ( ! empty( $is_teacher ) ) : ?>
-					<p class="step-muted pv-note"><?php esc_html_e( 'Режим преподавателя — ответ проверяется, но не сохраняется.', 'fs-lms' ); ?></p>
 				<?php endif; ?>
 			</div>
 

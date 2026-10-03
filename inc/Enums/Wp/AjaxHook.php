@@ -130,6 +130,7 @@ enum AjaxHook: string {
 	case UpdatePerson                = 'update_person';
 	case RequestPiiDeletion          = 'request_pii_deletion';
 	case SendOtpCode                 = 'send_otp_code';
+	case GetApplySession             = 'get_apply_session';
 	case MoveApplicationToTrash      = 'move_application_to_trash';
 	case RestoreApplicationFromTrash = 'restore_application_from_trash';
 	case EmptyApplicationsTrash      = 'empty_applications_trash';
@@ -158,6 +159,8 @@ enum AjaxHook: string {
 	case CheckEmailAvailable         = 'check_email_available';
 	// Публичный: события формы родителя (начал, ошибка, отказ сервера, ушёл) — в журнал заявки
 	case TrackJoinForm               = 'track_join_form';
+	// Публичный: события формы заявки (начал, ошибка, капча, ушёл) — в журнал «Аутентификация»
+	case TrackApplyForm              = 'track_apply_form';
 
 	// ==== Банки контента (работы / уроки / курсы) ====
 	case GetWorkTaskCandidates     = 'get_work_task_candidates';     // params: subject_key, task_type, collection, scope, search
@@ -224,6 +227,7 @@ enum AjaxHook: string {
 
 	// ==== Пакетная сдача / ручная оценка (Этап 7) ====
 	case SubmitBatchWork = 'submit_batch_work'; // params: group_lesson_id, work_id, answers (JSON)
+	case CheckWorkTask   = 'check_work_task';   // params: group_lesson_id, work_id, task_id, answer (JSON)
 	// Журнал «Ошибки»: сбой, которого сервер не видел. params: code, message, ref, source_action, page_url, status, snippet
 	case ReportClientError = 'report_client_error';
 	case ExportErrorLog    = 'export_error_log';

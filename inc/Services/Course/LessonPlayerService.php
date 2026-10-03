@@ -44,6 +44,7 @@ class LessonPlayerService {
 		private readonly SubmissionService            $submissionService,
 		private readonly StepContentRenderer          $stepRenderer,
 		private readonly CourseNavService             $nav,
+		private readonly WorkTaskCheckService         $taskChecks,
 	) {}
 
 	/**
@@ -178,9 +179,38 @@ class LessonPlayerService {
 			),
 			'task'       => $this->renderTaskData( $step, $groupLesson, $studentPersonId, $isTeacher ),
 			'work'       => $this->renderWorkData( $step, $groupLesson, $studentPersonId, $isTeacher ),
-			'assessment' => $this->stepRenderer->renderAssessmentData( $step ),
+			'assessment' => $this->renderAssessmentData( $step, $isTeacher ),
 			default      => array( 'ref' => (int) ( $step->payload['ref'] ?? 0 ) ),
 		};
+	}
+
+	/**
+	 * Данные шага-контрольной. Ученику — ссылка на отдельную страницу попытки; в
+	 * teacher-режиме добавляются задачи с эталоном: преподаватель читает контрольную
+	 * прямо в плеере («Показать решение»), проходить её ему не нужно.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function renderAssessmentData( StepDTO $step, bool $isTeacher ): array {
+		$data = $this->stepRenderer->renderAssessmentData( $step );
+		if ( ! $isTeacher || empty( $data['title'] ) ) {
+			return $data;
+		}
+
+		$tasks = array();
+		foreach ( $this->stepRenderer->assessmentTaskBundles( (int) $data['ref'] ) as $bundle ) {
+			$solution = $this->solutions->forTask( (int) $bundle['task_id'], $bundle['meta'] );
+			unset( $bundle['meta'] );
+			if ( null !== $solution ) {
+				$bundle['solution'] = $solution;
+			}
+			$tasks[] = $bundle;
+		}
+
+		return $data + array(
+			'assessment_found' => true,
+			'tasks'            => $tasks,
+		);
 	}
 
 	/**
@@ -247,6 +277,9 @@ class LessonPlayerService {
 			'max_attempts'    => $work->maxAttempts,
 			// Засчитанные задания: при пересдаче их ответы остаются, но правке закрыты.
 			'locked_task_ids' => $this->submissionService->lockedTaskIds( $studentPersonId, $groupLesson->id, $workId ),
+			// Проверки ответа кнопкой в текущем раунде сдачи: состояние чипов после перезагрузки.
+			'checks'          => $this->taskChecks->state( $studentPersonId, $groupLesson->id, $workId ),
+			'checks_max'      => WorkTaskCheckService::MAX_CHECKS,
 		) + $this->currentSubmission( $studentPersonId, $groupLesson->id, $workId );
 	}
 

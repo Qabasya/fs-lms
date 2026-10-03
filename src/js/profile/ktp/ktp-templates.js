@@ -122,6 +122,17 @@ export function emptyStateHtml(g) {
     </div>`;
 }
 
+export function changeCourseHtml() {
+    return `<div class="ktp-change-course">
+        <p>Выберите новый курс. Темы без данных учеников будут заменены; занятия с посещаемостью и решениями останутся в КТП и журнале.</p>
+        <div class="ke-assign">
+            <select id="ktpCourseSel" class="ke-course-sel" aria-label="Новый курс"><option value="">— загрузка курсов… —</option></select>
+            <button type="button" class="prof-btn prof-btn-primary" id="ktpAssignBtn" disabled>Сменить курс</button>
+            <button type="button" class="prof-btn" id="ktpCancelChange">Отмена</button>
+        </div>
+    </div>`;
+}
+
 export function noGroupsHtml() {
     return emptyState('prof-ktp', icoCalendarBoard(34), 'Нет групп', 'За вами пока не закреплены группы.');
 }

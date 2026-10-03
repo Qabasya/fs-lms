@@ -6,19 +6,25 @@ namespace Inc\Callbacks\Enrollment;
 
 use Inc\Core\BaseController;
 use Inc\DTO\Application\ApplicationInputDTO;
+use Inc\DTO\Application\ApplyTrackInputDTO;
 use Inc\DTO\Application\JoinTrackInputDTO;
 use Inc\DTO\Enrollment\StudentDataDTO;
 use Inc\DTO\Person\ParentSubmissionInputDTO;
 use Inc\Enums\Enrollment\ApplicationStatus;
+use Inc\Enums\Enrollment\ApplyFormEvent;
 use Inc\Enums\Enrollment\JoinFormEvent;
+use Inc\Enums\Log\ErrorCode;
 use Inc\Enums\Auth\AuthAction;
 use Inc\Enums\Auth\AuthResult;
+use Inc\Enums\Auth\CaptchaFailure;
+use Inc\Enums\Auth\CaptchaScope;
 use Inc\Enums\Wp\Nonce;
 use Inc\Repositories\OptionsRepositories\ConsentDefinitionsRepository;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Repositories\WPDBRepositories\ApplicationRepository;
 use Inc\Repositories\WPDBRepositories\PersonDocumentsRepository;
 use Inc\Services\Application\ApplicationService;
+use Inc\Services\Application\ApplyFormTrackingService;
 use Inc\Services\Application\JoinCodeService;
 use Inc\Services\Application\JoinFormTrackingService;
 use Inc\Services\Application\LoginAvailabilityService;
@@ -84,6 +90,7 @@ class ApplicationCallbacks extends BaseController {
 		private readonly SubjectRepository            $subjects,
 		private readonly LoginAvailabilityService     $logins,
 		private readonly JoinFormTrackingService      $joinTracking,
+		private readonly ApplyFormTrackingService     $applyTracking,
 	) {
 		parent::__construct();
 	}
@@ -95,7 +102,6 @@ class ApplicationCallbacks extends BaseController {
 	 * @return bool
 	 */
 	public function prepareJoinPage(): bool {
-		$ip   = $this->requestContext()->ip;
 		// get_query_var() — получает кастомный параметр из URL
 		$code = get_query_var( 'fs_lms_join_code', '' );
 
@@ -120,11 +126,6 @@ class ApplicationCallbacks extends BaseController {
 
 		// Проверка формата JOIN-кода
 		if ( '' === $code || ! $this->joinCodeService->isValidFormat( $code ) ) {
-			return false;
-		}
-
-		// Проверка лимита попыток ввода
-		if ( ! $this->rateLimitService->allowJoinAttempt( $ip ) ) {
 			return false;
 		}
 
@@ -223,6 +224,38 @@ class ApplicationCallbacks extends BaseController {
 	}
 
 	/**
+	 * Событие формы заявки от браузера (apply-tracking.js) — в журнал «Аутентификация».
+	 *
+	 * Ответ всегда успешный и пустой: трекинг ничего не сообщает и ничего не ломает.
+	 *
+	 * @return void
+	 */
+	public function ajaxTrackApplyForm(): void {
+		Nonce::ApplyTrack->verify();
+
+		$event = ApplyFormEvent::tryFrom( $this->sanitizeKey( 'event' ) );
+
+		if ( null === $event || ! $this->rateLimitService->allowApplyTrack( $this->requestContext()->ip ) ) {
+			$this->success();
+		}
+
+		$this->applyTracking->track( new ApplyTrackInputDTO(
+			event:   $event,
+			visit:   substr( $this->sanitizeKey( 'visit' ), 0, 16 ),
+			stage:   'otp' === $this->sanitizeKey( 'stage' ) ? 'otp' : 'form',
+			fields:  array_slice( $this->sanitizeKeyList( 'fields' ), 0, 30 ),
+			filled:  max( 0, $this->sanitizeInt( 'filled' ) ),
+			total:   max( 0, $this->sanitizeInt( 'total' ) ),
+			seconds: max( 0, $this->sanitizeInt( 'seconds' ) ),
+			submits: max( 0, $this->sanitizeInt( 'submits' ) ),
+			message: $this->applyTracking->clipMessage( $this->sanitizeText( 'message' ) ),
+			captcha: CaptchaFailure::tryFrom( $this->sanitizeKey( 'captcha' ) ),
+		) );
+
+		$this->success();
+	}
+
+	/**
 	 * Накладывает актуальные PII ученика из person_documents поверх данных снапшота заявки.
 	 *
 	 * Снапшот (studentDataEnc) фиксируется в момент восстановления и может устареть,
@@ -279,6 +312,20 @@ class ApplicationCallbacks extends BaseController {
 		return $url ?: '';
 	}
 
+	/** Свежая метка формы и nonce вне кеша страниц; персональных данных в ответе нет. */
+	public function ajaxGetApplySession(): void {
+		nocache_headers();
+		$this->success( array(
+			'form_token' => $this->formGuard->timestampToken(),
+			'nonces'     => array(
+				'apply'          => Nonce::Apply->create(),
+				'verify_otp'     => Nonce::VerifyOtp->create(),
+				'check_username' => Nonce::CheckUsernameAvailable->create(),
+				'track'          => Nonce::ApplyTrack->create(),
+			),
+		) );
+	}
+
 	/**
 	 * Шаг A: проверяет капчу, отправляет OTP-код на email.
 	 *
@@ -292,8 +339,11 @@ class ApplicationCallbacks extends BaseController {
 		// Дешёвая бот-защита: honeypot + тайминг формы — до траты бюджета на капчу/письма.
 		$honeypot   = $this->sanitizeText( $this->formGuard->honeypotField() );
 		$formToken  = $this->sanitizeText( 'form_token' );
-		if ( ! $this->formGuard->isHuman( $honeypot, $formToken ) ) {
-			$this->error( 'Не удалось подтвердить отправку формы. Обновите страницу и попробуйте снова.' );
+		$guardReason = $this->formGuard->rejectionReason( $honeypot, $formToken );
+		if ( null !== $guardReason ) {
+			$visit = substr( $this->sanitizeKey( 'visit' ), 0, 16 );
+			$this->applyTracking->recordGuardFailure( $guardReason, $visit );
+			$this->fail( ErrorCode::Ajax, 'Не удалось подтвердить отправку формы. Попробуйте ещё раз.', array( 'guard_reason' => $guardReason ), array( 'auth_logged' => true ) );
 		}
 
 		// Ограничение частоты запросов по IP (свой счётчик — не общий с созданием заявки)
@@ -301,15 +351,22 @@ class ApplicationCallbacks extends BaseController {
 			$this->error( 'Слишком много запросов. Попробуйте позже.' );
 		}
 
+		$email = $this->sanitizeText( 'email' );
+		$visit = substr( $this->sanitizeKey( 'visit' ), 0, 16 );
+
 		// Капча пропускается только в тестовом окружении
 		if ( ! $this->pluginConfig->isTestEnv() ) {
-			$captchaToken = $this->sanitizeText( 'captcha_token' );
-			if ( ! $this->captchaService->validate( $captchaToken, $ip ) ) {
-				$this->error( 'Проверка капчи не пройдена. Попробуйте отключить VPN' );
+			$captchaToken   = $this->sanitizeText( 'captcha_token' );
+			$captchaFailure = CaptchaFailure::tryFrom( $this->sanitizeKey( 'captcha_unavailable' ) );
+
+			if ( ! $this->captchaService->check( $captchaToken, $ip, CaptchaScope::Apply, $captchaFailure, $email, $visit )->isAllowed() ) {
+				$this->error(
+					'' === $captchaToken && null !== $captchaFailure && $captchaFailure->allowsFallback()
+						? 'Слишком много попыток без проверки капчи. Отключите VPN или попробуйте позже.'
+						: 'Проверка капчи не пройдена. Попробуйте отключить VPN'
+				);
 			}
 		}
-
-		$email = $this->sanitizeText( 'email' );
 
 		// Ограничение отправок OTP на один адрес (анти-бомбинг, окно — сутки)
 		if ( ! $this->rateLimitService->allowOtpSendForEmail( $email ) ) {
@@ -323,7 +380,7 @@ class ApplicationCallbacks extends BaseController {
 
 		// Отправка OTP-кода
 		$this->emailOtpService->sendCode( $email );
-		$this->authLog->record( $email, AuthAction::OtpSent, AuthResult::Success );
+		$this->authLog->recordEvent( AuthAction::OtpSent, AuthResult::Success, null, array_filter( array( 'visit' => $visit ) ), $email );
 
 		// Маскирование email для отображения в интерфейсе
 		$masked = (string) preg_replace( '/(?<=.).(?=[^@]*@)/', '*', $email );
@@ -426,12 +483,6 @@ class ApplicationCallbacks extends BaseController {
 	 */
 	public function ajaxSubmitParentData(): void {
 		Nonce::ParentSubmit->verify();
-
-		$ip = $this->requestContext()->ip;
-
-		if ( ! $this->rateLimitService->allowParentSubmit( $ip ) ) {
-			$this->error( 'Слишком много запросов. Попробуйте позже.' );
-		}
 
 		// Проверяем, назначен ли родитель заранее (поля родителя тогда не обязательны)
 		$joinCode     = $this->requireText( 'join_code' );

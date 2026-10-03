@@ -58,16 +58,17 @@ trait AjaxResponse {
 	 *
 	 * @param ErrorCode            $code    Код ошибки
 	 * @param string               $message Текст для пользователя
-	 * @param array<string, mixed> $context Подробности для журнала (в ответ не уходят)
+	 * @param array<string, mixed> $context       Подробности для журнала (в ответ не уходят)
+	 * @param array<string, mixed> $responseExtra Безопасные дополнительные поля ответа
 	 */
-	protected function fail( ErrorCode $code, string $message, array $context = array() ): void {
+	protected function fail( ErrorCode $code, string $message, array $context = array(), array $responseExtra = array() ): void {
 		$ref = $this->reportError( $code, $message, $context );
 
 		wp_send_json_error( array(
 			'message' => $message,
 			'code'    => $code->value,
 			'ref'     => $ref,
-		) );
+		) + $responseExtra );
 	}
 
 	/**

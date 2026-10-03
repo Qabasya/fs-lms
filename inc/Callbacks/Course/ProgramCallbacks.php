@@ -193,10 +193,13 @@ class ProgramCallbacks extends BaseController {
 
 		$this->success( array(
 			'events' => array_map( fn( $e ) => array(
-				'action'     => $e->action,
-				'actor'      => $e->actorUserId ? ( get_userdata( $e->actorUserId )->display_name ?? '' ) : '',
-				'created_at' => $e->createdAt,
-				'is_public'  => $e->isPublic,
+				'action'      => $e->action,
+				'actor'       => $e->actorUserId ? ( get_userdata( $e->actorUserId )->display_name ?? '' ) : '',
+				'created_at'  => $e->createdAt,
+				'is_public'   => $e->isPublic,
+				// Сущность события — клиент по ней открывает саму работу/попытку.
+				'entity_type' => $e->entityType,
+				'entity_id'   => $e->entityId,
 			), $events ),
 			'total'  => $this->eventRepo->countByGroup( $groupId, $actions ),
 			'page'   => $page,

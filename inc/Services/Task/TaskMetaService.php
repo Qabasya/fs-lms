@@ -99,13 +99,13 @@ class TaskMetaService {
 	 */
 	public function getDisplayAnswer( array $meta, TaskTemplate $template ): string {
 		if ( TaskTemplate::Triple !== $template ) {
-			return (string) ( $meta['task_answer'] ?? '' );
+			return html_entity_decode( (string) ( $meta['task_answer'] ?? '' ), ENT_QUOTES | ENT_HTML5, 'UTF-8' );
 		}
 
 		$lines = array();
 
 		foreach ( TaskBundleService::NUMBERS as $number ) {
-			$answer = trim( (string) ( $meta[ "task_{$number}_answer" ] ?? '' ) );
+		$answer = html_entity_decode( trim( (string) ( $meta[ "task_{$number}_answer" ] ?? '' ) ), ENT_QUOTES | ENT_HTML5, 'UTF-8' );
 
 			if ( '' !== $answer ) {
 				$lines[] = "Ответ на {$number}: {$answer}";

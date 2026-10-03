@@ -17,10 +17,12 @@ use Inc\Managers\Wp\PostManager;
 use Inc\Repositories\WPDBRepositories\AssessmentAnswerRepository;
 use Inc\Repositories\WPDBRepositories\AssessmentAttemptRepository;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
+use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 use Inc\Repositories\WPDBRepositories\SubmissionRepository;
 use Inc\Repositories\WPDBRepositories\TaskAttemptRepository;
 use Inc\Services\Task\CorrectAnswerResolver;
 use Inc\Services\Task\TaskMetaService;
+use Inc\Services\Task\TaskSolutionService;
 
 /**
  * Class WorkDetailService
@@ -78,6 +80,8 @@ class WorkDetailService {
 		private readonly MediaManager                $media,
 		private readonly TaskMetaService             $taskMeta,
 		private readonly TaskAttemptRepository       $taskAttempts,
+		private readonly StudentRecordRepository     $studentRecords,
+		private readonly TaskSolutionService         $solutions,
 	) {}
 
 	/**
@@ -110,7 +114,7 @@ class WorkDetailService {
 	 *   submitted_at: string,
 	 *   duration_sec: ?int,
 	 *   is_current: bool,
-	 *   tasks: array<int, array{n:int, condition:string, answer:?string, code:?string, correct:?string, verdict:string, score:?float, max_score:?float, answered_at:?string}>
+	 *   tasks: array<int, array{n:int, condition:string, answer:?string, code:?string, correct:?string, solution:?array, verdict:string, score:?float, max_score:?float, answered_at:?string}>
 	 * }>|null null, если сдача не найдена
 	 */
 	public function attemptHistory( int $submissionId ): ?array {
@@ -177,6 +181,7 @@ class WorkDetailService {
 					// снимок (`historyTaskBlock()`) показывает его по тому же
 					// правилу, что и текущая сдача — только у нерешённой задачи.
 					'correct'   => $this->correctAnswers->resolve( $taskId ),
+					'solution'  => $this->reviewSolution( $taskId ),
 					'verdict'   => true === $a->isCorrect ? 'correct' : ( false === $a->isCorrect ? 'incorrect' : 'pending' ),
 					'score'     => $a->score,
 					'max_score' => $a->maxScore,
@@ -295,6 +300,7 @@ class WorkDetailService {
 					'answer'             => $answer,
 					'code'               => $code,
 					'correct'            => $this->correctAnswers->resolve( $taskId ),
+					'solution'           => $this->reviewSolution( $taskId ),
 					'verdict'            => $verdict,
 					'score'              => $row->score,
 					'max_score'          => $row->maxScore,
@@ -330,6 +336,7 @@ class WorkDetailService {
 				'answer'             => $answer,
 				'code'               => $code,
 				'correct'            => $this->correctAnswers->resolve( $taskId ),
+				'solution'           => $this->reviewSolution( $taskId ),
 				'verdict'            => $verdict,
 				'score'              => $score,
 				'max_score'          => $maxScore,
@@ -338,6 +345,8 @@ class WorkDetailService {
 				'task_submission_id' => $row?->id,
 				'manually_graded'    => $manuallyGraded,
 				'answered_at'        => $answeredAt[ $taskId ] ?? null,
+				// Верно после ошибки в проверке кнопкой до сдачи (жёлтая отметка).
+				'corrected'          => 'correct' === $verdict && ! $manuallyGraded && ! empty( $pt['corrected'] ),
 			);
 		}
 
@@ -373,6 +382,8 @@ class WorkDetailService {
 			$attachmentMime = get_post_mime_type( $sub->attachmentId ) ?: null;
 		}
 
+		$groupId = $this->groupLessons->find( $sub->groupLessonId )?->groupId ?? 0;
+
 		return array(
 			'kind'            => 'work',
 			'title'           => $work?->title ?? 'Работа',
@@ -392,7 +403,8 @@ class WorkDetailService {
 			'is_late'         => $sub->isLate(),
 			'attachment_url'  => $attachmentUrl,
 			'attachment_mime' => $attachmentMime,
-			'group_id'        => $this->groupLessons->find( $sub->groupLessonId )?->groupId ?? 0,
+			'group_id'        => $groupId,
+			'student_name'    => $this->studentName( $sub->studentPersonId, $groupId ),
 		);
 	}
 
@@ -481,6 +493,7 @@ class WorkDetailService {
 				'code'       => $code,
 				'files'      => $files,
 				'correct'    => $this->correctAnswers->resolve( $ans->taskId ),
+				'solution'   => $this->reviewSolution( $ans->taskId ),
 				'verdict'    => $verdict,
 				'score'      => $ans->score,
 				'max_score'  => $ans->maxScore,
@@ -508,6 +521,7 @@ class WorkDetailService {
 			'submitted_at'    => $attempt->submittedAt,
 			'duration_sec'    => $attempt->actualDurationSeconds(),
 			'group_id'        => $attempt->groupId ?? 0,
+			'student_name'    => $this->studentName( $attempt->studentPersonId, $attempt->groupId ?? 0 ),
 			// D18: «Утвердить работу» — для kind без ручной проверки заданий (ЕГЭ
 			// компьютерный) Graded наступает сразу при сдаче и не значит «учитель
 			// посмотрел»; approved_at — отдельный явный шаг (см. AttemptRevealPolicy).
@@ -516,6 +530,19 @@ class WorkDetailService {
 			// Лист результата этой попытки (таблица, как у ученика) — только у станций ЕГЭ/ОГЭ.
 			'review_url'      => $this->reviewUrl( $attempt, $assessment ),
 		);
+	}
+
+	/**
+	 * ФИО ученика по снимку записи в группе (не из зашифрованных документов — как в очереди проверки).
+	 * '' — записи нет (экзамен вне группы).
+	 */
+	private function studentName( int $studentPersonId, int $groupId ): string {
+		$records = $groupId > 0 ? $this->studentRecords->findAllByStudentAndGroup( $studentPersonId, $groupId ) : array();
+		$record  = $records[0] ?? null;
+
+		return $record
+			? trim( $record->snapshotLastName . ' ' . $record->snapshotFirstName . ' ' . ( $record->snapshotMiddleName ?? '' ) )
+			: '';
 	}
 
 	/**
@@ -552,6 +579,21 @@ class WorkDetailService {
 	/** Условие задания хранится в мете (`task_condition` и составные шаблоны), не в `post_content`. */
 	private function condition( int $taskId ): string {
 		return $this->taskMeta->getCombinedCondition( $this->posts->taskMeta( $taskId ) );
+	}
+
+	/**
+	 * Авторское решение для экрана преподавателя. Один лишь правильный ответ
+	 * не создаёт кнопку: она показывает только текст решения и/или листинг кода.
+	 *
+	 * @return array{html:string, code:string}|null
+	 */
+	private function reviewSolution( int $taskId ): ?array {
+		$solution = $this->solutions->forTask( $taskId, $this->posts->taskMeta( $taskId ) );
+		if ( null === $solution || ( '' === $solution['html'] && '' === $solution['code'] ) ) {
+			return null;
+		}
+
+		return array( 'html' => $solution['html'], 'code' => $solution['code'] );
 	}
 
 	/** Резолвит шаблон задания по его типу из меты. */

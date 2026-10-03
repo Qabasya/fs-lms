@@ -4,19 +4,28 @@
  * Этап 1: валидация полей → (капча если настроена) → send_otp → переход на этап OTP
  * Этап 2: ввод OTP → create (ajaxCreateApplication) → экран успеха
  *
+ * Капча недоступна из части сетей (VPN, блокировщик): если она не загрузилась / не открылась
+ * вовремя, запрос уходит без токена с причиной в captcha_unavailable — сервер пропускает его
+ * по смягчённому правилу (CaptchaService::check()). Закрытое пользователем задание не пропускается.
+ * Что происходило с формой — apply-tracking.js (журнал «Аутентификация»).
+ *
  * Глобальные переменные: fs_lms_apply_vars (локализуются в Enqueue.php)
  */
 
 import { initFormValidation, renderFieldError, clearFieldError } from '../../common/validation-manager.js';
 import { bindPhoneMask } from '../../common/input-masks.js';
-import { getCaptchaToken, resetCaptcha } from './captcha.js';
+import { getCaptchaToken, resetCaptcha, captchaFailureOf, captchaFailureAllowsFallback } from './captcha.js';
+import { createApplyTracker, applyVisitId } from './apply-tracking.js';
 import { initSchoolSuggest } from './school-suggest.js';
+import { createApplySession } from './apply-session.js';
 
 /** @type {{ ajax_url: string, captcha_key: string, hp_field: string, form_token: string, actions: { send_otp: string, create: string }, nonces: { apply: string, verify_otp: string } }} */
 const vars = window.fs_lms_apply_vars;
+const session = vars ? createApplySession( vars ) : null;
 
 /** Данные формы этапа 1, сохраняются для передачи на этапе 2 */
 let _formData = null;
+let _tracker = null;
 
 /**
  * Читает значение honeypot-поля (должно быть пустым у людей).
@@ -35,7 +44,7 @@ function collectFormData() {
     const middleName = document.getElementById( 'fs_middle_name' )?.value.trim() ?? '';
 
     const rawPhone   = document.getElementById( 'fs_phone' )?.value.trim() ?? '';
-    const cleanPhone = rawPhone.replace( /[()\-]/g, '' );
+    const cleanPhone = '+7' + rawPhone.replace( /\D/g, '' ).slice( -10 );
 
     return {
         last_name:   lastName,
@@ -58,6 +67,15 @@ function collectFormData() {
 function extractError( res, fallback ) {
     if ( typeof res?.data === 'string' ) { return res.data; }
     return res?.data?.message ?? fallback;
+}
+
+function requestFailureReason( error ) {
+    if ( error?.message === 'Не удалось обновить данные формы.' ) {
+        return 'Сервер не выдал новую защитную метку и ключи формы.';
+    }
+    return error instanceof SyntaxError
+        ? 'Сервер вернул ответ не в формате JSON (возможно, проверочная страница хостинга).'
+        : 'Не удалось связаться с сервером.';
 }
 
 // ── UI-утилиты ────────────────────────────────────────────────────────────────
@@ -117,9 +135,31 @@ async function ajaxPost( action, data ) {
     return res.json();
 }
 
+/** При сетевом сбое капчи сервер применяет отдельный лимит и проверку почты. */
+async function obtainCaptcha() {
+    try {
+        return { token: await getCaptchaToken(), failure: '' };
+    } catch ( error ) {
+        return { token: '', failure: captchaFailureOf( error ) };
+    }
+}
+
+function otpRequestFields( captcha, email ) {
+    return {
+        security:            vars.nonces.apply,
+        email,
+        captcha_token:       captcha.token,
+        captcha_unavailable: captcha.failure,
+        form_token:          vars.form_token ?? '',
+        visit:               applyVisitId(),
+        [ vars.hp_field || 'fs_company' ]: readHoneypot(),
+    };
+}
+
 // ── Переходы между этапами ───────────────────────────────────────────────────
 
 function showOtpStep( maskedEmail ) {
+    _tracker.stage( 'otp' );
     document.getElementById( 'apply-form' ).classList.remove( 'fs-apply-card__step--active' );
     document.getElementById( 'otp-step' ).classList.add( 'fs-apply-card__step--active' );
     document.querySelector( '.js-masked-email' ).textContent = maskedEmail;
@@ -134,6 +174,7 @@ function showOtpStep( maskedEmail ) {
 }
 
 function showSuccess( notice ) {
+    _tracker.succeeded();
     document.querySelector( '.js-otp-input-block' ).hidden  = true;
     document.querySelector( '.js-otp-success-block' ).hidden = false;
     scrollToTop();
@@ -201,8 +242,11 @@ async function handleOtpSubmit( e ) {
 
     clearError( form );
 
+    _tracker.submitAttempt();
+
     if ( ! otpCode ) {
         showError( form, 'Введите код подтверждения.' );
+        _tracker.invalid( 'не введён код' );
         return;
     }
 
@@ -210,21 +254,25 @@ async function handleOtpSubmit( e ) {
 
     let res;
     try {
+        await session.ensureFresh();
         res = await ajaxPost( vars.actions.create, {
             security: vars.nonces.verify_otp,
             ..._formData,
             otp_code: otpCode,
         } );
-    } catch {
+    } catch ( error ) {
         setLoading( btn, false );
         showError( form, 'Ошибка соединения. Попробуйте позже.' );
+        _tracker.failed( requestFailureReason( error ) );
         return;
     }
 
     setLoading( btn, false );
 
     if ( ! res?.success ) {
-        showError( form, extractError( res, 'Ошибка при подтверждении кода.' ) );
+        const message = extractError( res, 'Ошибка при подтверждении кода.' );
+        showError( form, message );
+        _tracker.failed( message );
         return;
     }
 
@@ -235,24 +283,22 @@ async function handleOtpSubmit( e ) {
 async function handleResendOtp() {
     if ( ! _formData ) { return; }
 
-    let captchaToken = '';
-    try {
-        captchaToken = await getCaptchaToken();
-    } catch {
+    const form = document.getElementById( 'fs-lms-otp-form' );
+    clearError( form );
+
+    const captcha = await obtainCaptcha();
+    if ( captcha.failure && ! captchaFailureAllowsFallback( captcha.failure ) ) {
         return;
     }
 
     let res;
     try {
-        res = await ajaxPost( vars.actions.send_otp, {
-            security:      vars.nonces.apply,
-            email:         _formData.email,
-            captcha_token: captchaToken,
-            form_token:    vars.form_token ?? '',
-            [ vars.hp_field || 'fs_company' ]: readHoneypot(),
-        } );
-    } catch {
+        await session.prepareOtp();
+        res = await ajaxPost( vars.actions.send_otp, otpRequestFields( captcha, _formData.email ) );
+    } catch ( error ) {
         resetCaptcha();
+        showError( form, 'Не удалось обновить данные формы. Проверьте соединение и попробуйте ещё раз.' );
+        _tracker.failed( requestFailureReason( error ) );
         return;
     }
 
@@ -262,6 +308,9 @@ async function handleResendOtp() {
         startCountdown( btn, countdownEl );
     } else {
         resetCaptcha();
+        if ( ! res?.data?.auth_logged ) {
+            _tracker.failed( extractError( res, 'Ошибка при повторной отправке кода.' ) );
+        }
     }
 }
 
@@ -283,6 +332,7 @@ async function checkUsernameAvailable( input ) {
     }
 
     try {
+        await session.ensureFresh();
         const body = new URLSearchParams( {
             action:   vars.actions.check_username,
             security: vars.nonces.check_username,
@@ -325,6 +375,8 @@ function bindFormBehaviors() {
     if ( ! applyForm ) { return; }
 
     const validateAll = initFormValidation( applyForm );
+    _tracker = createApplyTracker( applyForm );
+    session.ensureFresh().catch( () => {} );
 
     const usernameInput = document.getElementById( 'fs_username' );
     if ( usernameInput ) {
@@ -338,17 +390,33 @@ function bindFormBehaviors() {
         const data = collectFormData();
 
         clearError( applyForm );
+        _tracker.submitAttempt();
 
-        if ( ! validateAll() ) { return; }
-
-        if ( usernameInput && ! await checkUsernameAvailable( usernameInput ) ) { return; }
+        if ( ! validateAll() ) {
+            _tracker.invalid();
+            return;
+        }
 
         setLoading( btn, true );
 
-        let captchaToken = '';
         try {
-            captchaToken = await getCaptchaToken();
-        } catch {
+            await session.ensureFresh();
+        } catch ( error ) {
+            setLoading( btn, false );
+            showError( applyForm, 'Не удалось обновить данные формы. Проверьте соединение и попробуйте ещё раз.' );
+            _tracker.failed( requestFailureReason( error ) );
+            return;
+        }
+
+        if ( usernameInput && ! await checkUsernameAvailable( usernameInput ) ) {
+            setLoading( btn, false );
+            _tracker.invalid( 'логин занят' );
+            return;
+        }
+
+        const captcha = await obtainCaptcha();
+        if ( captcha.failure && ! captchaFailureAllowsFallback( captcha.failure ) ) {
+            // Пользователь сам закрыл задание — это не сбой доставки, не пропускаем.
             setLoading( btn, false );
             showError( applyForm, 'Проверка капчи не пройдена. Попробуйте ещё раз.' );
             return;
@@ -356,17 +424,13 @@ function bindFormBehaviors() {
 
         let res;
         try {
-            res = await ajaxPost( vars.actions.send_otp, {
-                security:      vars.nonces.apply,
-                email:         data.email,
-                captcha_token: captchaToken,
-                form_token:    vars.form_token ?? '',
-                [ vars.hp_field || 'fs_company' ]: readHoneypot(),
-            } );
-        } catch {
+            await session.prepareOtp();
+            res = await ajaxPost( vars.actions.send_otp, otpRequestFields( captcha, data.email ) );
+        } catch ( error ) {
             setLoading( btn, false );
             resetCaptcha();
             showError( applyForm, 'Ошибка соединения. Попробуйте позже.' );
+            _tracker.failed( requestFailureReason( error ) );
             return;
         }
 
@@ -374,7 +438,9 @@ function bindFormBehaviors() {
 
         if ( ! res?.success ) {
             resetCaptcha();
-            showError( applyForm, extractError( res, 'Ошибка при отправке кода.' ) );
+            const message = extractError( res, 'Ошибка при отправке кода.' );
+            showError( applyForm, message );
+            if ( ! res?.data?.auth_logged ) { _tracker.failed( message ); }
             return;
         }
 

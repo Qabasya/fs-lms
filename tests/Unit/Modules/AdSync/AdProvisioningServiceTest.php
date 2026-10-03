@@ -43,6 +43,48 @@ class AdProvisioningServiceTest extends TestCase {
 		) );
 	}
 
+	public function test_name_update_and_delete_have_correct_payloads(): void {
+		$m = $this->mocks();
+		$m['outbox']->method( 'latestByApplication' )->willReturn( $this->row( 'provision', array( 'app' => 5, 'target' => 'i.petrov' ) ) );
+		$m['apps']->method( 'find' )->willReturn( $this->app() );
+		$m['crypto']->method( 'decrypt' )->willReturn( $this->blobJson() );
+		$queued = array();
+		$m['outbox']->method( 'enqueue' )->willReturnCallback( static function ( array $data ) use ( &$queued ): int {
+			$queued[] = $data;
+			return count( $queued );
+		} );
+
+		$service = $this->service( $m );
+		$service->enqueueNameUpdate( 5 );
+		$service->enqueueDeleteByApplication( 5 );
+
+		self::assertSame( array( 'rename', 'delete' ), array_column( $queued, 'event' ) );
+		self::assertSame( 'i.petrov', $queued[1]['target'] );
+		self::assertArrayNotHasKey( 'first', $queued[0] );
+		self::assertArrayNotHasKey( 'password', $queued[1] );
+		$rename = $service->payloadFor( $this->row( 'rename', array( 'app' => 5, 'target' => 'i.petrov' ) ) );
+		self::assertSame( 'Петров', $rename['last'] );
+		$delete = $service->payloadFor( $this->row( 'delete', array( 'app' => 5, 'target' => 'i.petrov' ) ) );
+		self::assertSame( 'i.petrov', $delete['username'] );
+	}
+
+	public function test_deleting_old_application_keeps_account_reactivated_elsewhere(): void {
+		$m = $this->mocks();
+		$m['outbox']->method( 'latestByApplication' )->willReturn( $this->row( 'deprovision', array( 'app' => 5, 'target' => 'i.petrov' ) ) );
+		$m['outbox']->method( 'latestByTarget' )->willReturn( $this->row( 'provision', array( 'person' => 42, 'target' => 'i.petrov' ) ) );
+		$m['outbox']->expects( self::never() )->method( 'enqueue' );
+
+		$this->service( $m )->enqueueDeleteByApplication( 5 );
+	}
+
+	public function test_deleting_application_keeps_account_of_active_student(): void {
+		$m = $this->mocks();
+		$m['records']->method( 'findActiveByStudent' )->with( 42 )->willReturn( array( $this->record() ) );
+		$m['outbox']->expects( self::never() )->method( 'enqueue' );
+
+		$this->service( $m )->enqueueDeleteByApplication( 5, 42 );
+	}
+
 	private function row( string $event, array $o = array() ): AdOutboxItemDTO {
 		return new AdOutboxItemDTO(
 			id: $o['id'] ?? 7, event: $event,

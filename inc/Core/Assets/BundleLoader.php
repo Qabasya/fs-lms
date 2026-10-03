@@ -142,6 +142,7 @@ class BundleLoader extends BaseController {
 					'markStep'          => AjaxHook::MarkStepProgress->jsAction(),
 					'submitTask'        => AjaxHook::SubmitTaskAnswer->jsAction(),
 					'submitBatchWork'   => AjaxHook::SubmitBatchWork->jsAction(),
+					'checkWorkTask'     => AjaxHook::CheckWorkTask->jsAction(),
 					// #5: dry-run проверка в предпросмотре (гейт canSolvePreview в коллбеке).
 					'previewCheckTask'       => AjaxHook::PreviewCheckTask->jsAction(),
 					'previewCheckWork'       => AjaxHook::PreviewCheckWork->jsAction(),

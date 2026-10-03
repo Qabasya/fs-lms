@@ -1,8 +1,46 @@
 @use '../variables' as *;
 @use '../mixins' as *;
 
+.fs-auth-brand {
+  max-width: rem(576);
+  margin: rem(48) auto 0;
+  text-align: center;
+  font-family: $font-family;
+
+  // Логотип ведёт на главную: ссылка не должна менять вид картинки.
+  &__home {
+    display: block;
+    text-decoration: none;
+  }
+
+  &__logo {
+    display: block;
+    width: 60%;
+    height: auto;
+    margin: 0 auto;
+  }
+
+  &__name {
+    margin: $spacing-xl 0 0;
+    font-size: $font-size-lg;
+    font-weight: $font-medium;
+    line-height: $line-height-relaxed;
+    color: $color-text;
+  }
+
+  &__city {
+    display: block;
+    font-size: $font-size-md;
+    font-weight: normal;
+    color: $color-muted;
+  }
+
+  // Карточка входа идёт сразу под брендом: верхний отступ уже дан блоком выше.
+  + .fs-auth-card { margin-top: $spacing-xl; }
+}
+
 .fs-auth-card {
-  @include fs-card-shell(rem(480), rem(36), $border-radius-sm, rem(48) auto);
+  @include fs-card-shell(rem(576), rem(36), $border-radius-sm, rem(48) auto);
 
   &__title {
     @include fs-card-title;
@@ -59,6 +97,7 @@
     color: $color-muted;
     line-height: $line-height-relaxed;
     margin-top: rem(24);
+    overflow-wrap: break-word;
 
     a {
       color: $color-muted;
@@ -67,6 +106,24 @@
     }
   }
 } // <--- ЗДЕСЬ СКОБКА КАРТОЧКИ ЗАКРЫВАЕТСЯ. Всё, что ниже — самостоятельные стили!
+
+// «В первый раз?» — вне карточки, на 20px ниже неё: нижний отступ карточки обнуляем.
+.fs-auth-card:has(+ .fs-auth-apply) { margin-bottom: 0; }
+
+.fs-auth-apply {
+  max-width: rem(576);
+  margin: rem(20) auto $spacing-xl;
+  text-align: center;
+  font-family: $font-family;
+  font-size: $font-size-md;
+  color: $color-muted;
+
+  a {
+    color: $color-accent;
+    text-decoration: none;
+    &:hover { text-decoration: underline; }
+  }
+}
 
 // Исправленные правила очистки темы
 :has(> .fs-auth-card),
@@ -99,7 +156,17 @@ body:has(.fs-auth-card) {
   }
 }
 
-// ── Мобильный (Фаза 5): карточка входа во всю ширину, компактные поля
+// ── Мобильный (Фаза 5): поля по краям от блоков, название бренда в одну строку
 @media (max-width: $bp-mobile) {
-  .fs-auth-card { margin: rem(19.2) auto; padding: rem(24) rem(19.2); }
+  .fs-auth-brand { margin: $spacing-xl $spacing-lg 0; }
+  .fs-auth-brand__name { font-size: $font-size-xs; white-space: nowrap; }
+  .fs-auth-brand__city { font-size: $font-size-xs; }
+  .fs-auth-card { margin: $spacing-lg $spacing-lg $spacing-xl; padding: rem(24) $spacing-lg; }
+  .fs-auth-brand + .fs-auth-card { margin-top: $spacing-lg; }
+  .fs-auth-apply { margin-left: $spacing-lg; margin-right: $spacing-lg; font-size: $font-size-xs; }
+}
+
+@media (max-width: $bp-narrow) {
+  .fs-auth-brand__name { font-size: $font-size-code; }
+  .fs-auth-card__footer { font-size: $font-size-2xs; }
 }

@@ -5,6 +5,7 @@ declare( strict_types=1 );
 namespace Inc\Modules\AdSync\Services;
 
 use Inc\DTO\Enrollment\StudentRecordDTO;
+use Inc\Enums\Enrollment\ApplicationStatus;
 use Inc\Managers\Person\UserManager;
 use Inc\Modules\AdSync\Config\AdSyncConfig;
 use Inc\Modules\AdSync\DTO\AdOutboxItemDTO;
@@ -166,6 +167,50 @@ class AdProvisioningService {
 		) );
 	}
 
+	/** Обновление ФИО существующей доменной учётки после правки заявки. */
+	public function enqueueNameUpdate( int $applicationId ): void {
+		$previous = $this->outbox->latestByApplication( $applicationId );
+		if ( null === $previous || AdSyncEvent::Delete->value === $previous->event ) {
+			return;
+		}
+		$app = $this->applications->find( $applicationId );
+		if ( null === $app || ApplicationStatus::Trash === $app->status ) {
+			return;
+		}
+		$username = $this->usernameFromApplication( $applicationId );
+		if ( '' === $username ) {
+			return;
+		}
+		$this->outbox->enqueue( array(
+			'event'           => AdSyncEvent::Rename->value,
+			'application_id'  => $applicationId,
+			'target'          => $username,
+			'idempotency_key' => 'rename:app:' . $applicationId . ':' . bin2hex( random_bytes( 16 ) ),
+		) );
+	}
+
+	/** Заявка уже удалена; логин берём из последнего задания по ней. */
+	public function enqueueDeleteByApplication( int $applicationId, ?int $personId = null ): void {
+		if ( null !== $personId && array() !== $this->activeRecords( $personId ) ) {
+			return; // Заявка удалена, но ученик продолжает обучение.
+		}
+		$previous = $this->outbox->latestByApplication( $applicationId );
+		$username = (string) ( $previous?->target ?? '' );
+		if ( '' === $username || AdSyncEvent::Delete->value === $previous?->event ) {
+			return;
+		}
+		$latest = $this->outbox->latestByTarget( $username );
+		if ( AdSyncEvent::Provision->value === $latest?->event && $latest->applicationId !== $applicationId ) {
+			return; // Другой заявкой или повторным зачислением учётка уже активирована.
+		}
+		$this->outbox->enqueue( array(
+			'event'           => AdSyncEvent::Delete->value,
+			'application_id'  => $applicationId,
+			'target'          => $username,
+			'idempotency_key' => 'delete:app:' . $applicationId,
+		) );
+	}
+
 	/** Статус провижна по заявке для статус-поллинга фронта: pending|done|failed|none. */
 	public function statusForApplication( int $applicationId ): string {
 		$row = $this->outbox->latestByApplication( $applicationId );
@@ -191,8 +236,27 @@ class AdProvisioningService {
 				? $this->provisionPayload( $row )
 				: $this->reactivationPayload( $row ),
 			AdSyncEvent::Password->value  => $this->passwordPayload( $row ),
+			AdSyncEvent::Rename->value    => $this->renamePayload( $row ),
 			default                       => $this->deprovisionPayload( $row ),
 		};
+	}
+
+	/** @return array<string, mixed>|null */
+	private function renamePayload( AdOutboxItemDTO $row ): ?array {
+		$app = $this->applications->find( (int) $row->applicationId );
+		if ( null === $app || empty( $app->studentDataEnc ) || empty( $row->target ) ) {
+			return null;
+		}
+		$blob = json_decode( $this->crypto->decrypt( $app->studentDataEnc ), true ) ?? array();
+		return array(
+			'id'              => $row->id,
+			'event'           => $row->event,
+			'idempotency_key' => $row->idempotencyKey,
+			'username'        => $row->target,
+			'first'           => (string) ( $blob['first_name'] ?? '' ),
+			'last'            => (string) ( $blob['last_name'] ?? '' ),
+			'middle'          => (string) ( $blob['middle_name'] ?? '' ),
+		);
 	}
 
 	/** @return array<string, mixed>|null */

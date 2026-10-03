@@ -92,7 +92,7 @@ class BatchCheckService {
 					// Та же нормализация, что у чекеров (Tasks.md, п. 4): регистр и
 					// любые пробелы в сверке не участвуют.
 					$isCorrect = '' !== $correctAnswer
-						&& self::normalizeAnswer( $subAnswer ) === self::normalizeAnswer( $correctAnswer );
+						&& self::normalizeAnswer( $subAnswer ) === self::normalizeStoredAnswer( $correctAnswer );
 					$earned    = $isCorrect ? $subWeight : 0.0;
 
 					if ( $isCorrect ) {
