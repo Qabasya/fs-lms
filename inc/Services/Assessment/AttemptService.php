@@ -262,6 +262,28 @@ class AttemptService {
 
 		$answers = $this->answers->listByAttempt( $attemptId );
 		if ( ! $revealed ) {
+			// 7.5.2: Зачистить саму попытку если не раскрыта (не только ответы)
+			$attempt = new AttemptDTO(
+				id: $attempt->id,
+				assessmentId: $attempt->assessmentId,
+				studentPersonId: $attempt->studentPersonId,
+				wpUserId: $attempt->wpUserId,
+				status: $attempt->status,
+				startedAt: $attempt->startedAt,
+				deadline_at: $attempt->deadline_at,
+				submittedAt: $attempt->submittedAt,
+				totalScore: null,
+				maxScore: null,
+				perTaskScores: null,
+				attemptNumber: $attempt->attemptNumber,
+				groupId: $attempt->groupId,
+				groupLessonId: $attempt->groupLessonId,
+				examParticipationId: $attempt->examParticipationId,
+				examRegistrationId: $attempt->examRegistrationId,
+				resultVersion: $attempt->resultVersion,
+				updatedAt: $attempt->updatedAt,
+			);
+
 			$answers = array_map( static fn( AttemptAnswerDTO $a ): AttemptAnswerDTO => new AttemptAnswerDTO(
 				id            : $a->id,
 				attemptId     : $a->attemptId,

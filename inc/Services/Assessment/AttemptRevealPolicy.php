@@ -8,6 +8,7 @@ use Inc\DTO\Assessment\AssessmentDTO;
 use Inc\DTO\Assessment\AttemptDTO;
 use Inc\Enums\Assessment\AssessmentKind;
 use Inc\Enums\Assessment\AttemptStatus;
+use Inc\Repositories\WPDBRepositories\ExamParticipationRepository;
 
 /**
  * Class AttemptRevealPolicy
@@ -25,6 +26,8 @@ use Inc\Enums\Assessment\AttemptStatus;
  *    в разделе «Сводка по ученику», пишет `assessment_attempts.approved_at`
  *    ({@see \Inc\Repositories\WPDBRepositories\AssessmentAttemptRepository::approve()}).
  *
+ * **Экзамены (этап 7)**: ученик не получает баллы до утверждения работы; гость получает разбор сразу.
+ *
  * `Control` ответы ученику не отдаёт вообще ({@see AttemptResultService}) —
  * эта политика его не касается, метод для него всегда возвращает `true`.
  *
@@ -32,12 +35,48 @@ use Inc\Enums\Assessment\AttemptStatus;
  */
 class AttemptRevealPolicy {
 
+	private ?ExamParticipationRepository $participationRepo;
+
+	public function __construct( ?ExamParticipationRepository $participationRepo = null ) {
+		$this->participationRepo = $participationRepo;
+	}
+
 	/** Можно ли показывать ученику правильные ответы/критериальные баллы этой попытки. */
 	public function isRevealed( AssessmentDTO $assessment, AttemptDTO $attempt ): bool {
+		// Экзаменные попытки (7.5)
+		if ( $attempt->isExam() ) {
+			return $this->isExamRevealed( $attempt );
+		}
+
+		// Прежние попытки курса
 		return match ( $assessment->kind ) {
 			AssessmentKind::OgeComputer => AttemptStatus::Graded === $attempt->status,
 			AssessmentKind::EgeComputer => $attempt->isApproved(),
 			AssessmentKind::Control     => true,
 		};
+	}
+
+	/**
+	 * Раскрытие для экзаменной попытки (7.5.1).
+	 * Ученик (audience=student) видит после утверждения.
+	 * Гость (audience=guest) видит сразу после сдачи.
+	 */
+	private function isExamRevealed( AttemptDTO $attempt ): bool {
+		if ( ! $this->participationRepo || ! $attempt->examParticipationId ) {
+			return false;
+		}
+
+		$participation = $this->participationRepo->find( $attempt->examParticipationId );
+		if ( ! $participation ) {
+			return false;
+		}
+
+		// Гость: раскрыть сразу после сдачи
+		if ( 'guest' === $participation->audience ) {
+			return 'in_progress' !== $attempt->status;
+		}
+
+		// Ученик: раскрыть только после утверждения (ОГЭ тоже требует явного утверждения на экзаменах)
+		return $attempt->isApproved();
 	}
 }
