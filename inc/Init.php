@@ -93,6 +93,7 @@ use Inc\Controllers\Course\SubmissionController;
 use Inc\Cli\SubjectBundleCommand;
 use Inc\Cli\TaskConditionCleanupCommand;
 use Inc\Cli\TaskFileSchemeCommand;
+use Inc\Cli\ExamCommand;
 use Inc\Controllers\Import\ImportController;
 use Inc\Controllers\Print\PrintCenterController;
 use Inc\Controllers\Person\UserController;
@@ -196,6 +197,7 @@ final class Init {
 			SubjectBundleCommand::class, // WP-CLI: перенос предмета пакетом (регистрируется только под WP_CLI)
 			TaskFileSchemeCommand::class, // WP-CLI: http:// → https:// в ссылках на файлы заданий
 			TaskConditionCleanupCommand::class, // WP-CLI: пустые строки по краям условий заданий
+			ExamCommand::class, // WP-CLI: команды управления экзаменами
 			ConfigController::class,
 			SettingsController::class,
 			GithubReleaseUpdater::class, // Индикатор «Доступно обновление» из GitHub Releases (Qabasya/fs-lms)
