@@ -21,14 +21,16 @@ class AssessmentAttemptRepository {
 
 	public function create( AttemptInputDTO $dto ): int {
 		$this->wpdb->insert( $this->table, [
-			'assessment_id'     => $dto->assessmentId,
-			'student_person_id' => $dto->studentPersonId,
-			'group_id'          => $dto->groupId,
-			'group_lesson_id'   => $dto->groupLessonId,
-			'attempt_number'    => $dto->attemptNumber,
-			'started_at'        => $dto->startedAt,
-			'deadline_at'       => $dto->deadlineAt,
-			'status'            => $dto->status->value,
+			'assessment_id'        => $dto->assessmentId,
+			'student_person_id'    => $dto->studentPersonId,
+			'group_id'             => $dto->groupId,
+			'group_lesson_id'      => $dto->groupLessonId,
+			'attempt_number'       => $dto->attemptNumber,
+			'started_at'           => $dto->startedAt,
+			'deadline_at'          => $dto->deadlineAt,
+			'status'               => $dto->status->value,
+			'exam_participation_id' => $dto->examParticipationId,
+			'exam_registration_id'  => $dto->examRegistrationId,
 		] );
 		return (int) $this->wpdb->insert_id;
 	}

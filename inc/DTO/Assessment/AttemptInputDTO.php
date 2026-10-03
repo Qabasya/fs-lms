@@ -10,12 +10,14 @@ readonly class AttemptInputDTO {
 
 	public function __construct(
 		public int           $assessmentId,
-		public int           $studentPersonId,
+		public ?int          $studentPersonId,
 		public ?int          $groupId,
 		public int           $attemptNumber,
 		public string        $startedAt,
 		public string        $deadlineAt,
 		public AttemptStatus $status = AttemptStatus::InProgress,
 		public ?int          $groupLessonId = null,
+		public ?int          $examParticipationId = null,
+		public ?int          $examRegistrationId = null,
 	) {}
 }
