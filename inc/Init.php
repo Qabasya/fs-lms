@@ -84,6 +84,8 @@ use Inc\Controllers\Exam\WooExamController;
 use Inc\Controllers\Exam\ExamController;
 use Inc\Controllers\Exam\ExamGuestPageController;
 use Inc\Controllers\Exam\ExamResultPageController;
+use Inc\Controllers\Exam\ExamAttemptController;
+use Inc\Controllers\Exam\ExamPlayerSubscriber;
 use Inc\Services\Exam\ExamEventDispatcher;
 use Inc\Controllers\Profile\ProfileDashboardController;
 use Inc\Controllers\Profile\LearnerProfileController;
@@ -237,6 +239,10 @@ final class Init {
 			ExamGuestPageController::class,  // Гостевая форма входа на экзамен
 			ExamResultPageController::class, // Страница результатов экзамена
 			ExamEventDispatcher::class,      // Диспетчер событий экзаменов (cron minutely)
+
+			// ==== Этап 4 — интеграция с плеером попыток ====
+			ExamAttemptController::class,    // Перехватчик AJAX попыток для экзаменов
+			ExamPlayerSubscriber::class,     // Подписчик на события плеера
 
 			SubmissionController::class,       // AJAX сдачи / проверки / журнала
 			AssessmentController::class,       // AJAX попыток контрольных
