@@ -44,6 +44,9 @@ enum ShortCode: string {
 	/** Шорткод раздела «Экзамены» лендинга предмета (публичные экзамены, модуль PublicExams) */
 	case SubjectExams = 'fs_lms_subject_exams';
 
+	/** Шорткод формы входа гостя на публичный экзамен */
+	case ExamGuestEntry = 'fs_lms_exam_guest_entry';
+
 	/**
 	 * Возвращает строку шорткода в формате с квадратными скобками.
 	 *
