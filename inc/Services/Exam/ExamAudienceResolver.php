@@ -159,4 +159,37 @@ class ExamAudienceResolver {
 		sort( $ids );
 		return $ids;
 	}
+
+	/**
+	 * Разрешённые направления проведений для ученика (ОГЭ/ЕГЭ).
+	 * Определяется по направлению группы, в которой числится ученик.
+	 *
+	 * @param int $personId ID ученика
+	 *
+	 * @return string[] Уникальные направления ('oge', 'ege', и т.д.)
+	 */
+	public function allowedDirectionsForStudent( int $personId ): array {
+		$studentRecords = $this->records->findActiveByStudent( $personId );
+		$directions = array();
+
+		foreach ( $studentRecords as $record ) {
+			if ( $record->isTrial ) {
+				continue;
+			}
+
+			$group = $this->groups->findById( $record->groupId );
+			if ( null === $group || null !== $group->deleted_at ) {
+				continue;
+			}
+
+			// Получить направление из group metadata или use default
+			if ( ! empty( $group->direction ) ) {
+				$directions[ $group->direction ] = true;
+			}
+		}
+
+		$dirs = array_keys( $directions );
+		sort( $dirs );
+		return $dirs;
+	}
 }

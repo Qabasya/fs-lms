@@ -110,6 +110,12 @@ function render() {
     // делегируем клик на контейнере, чтобы переходы в журнал переживали ре-рендер.
     const schedBody = root.querySelector('#profSchedBody');
     if (schedBody) schedBody.addEventListener('click', e => {
+        const examEl = e.target.closest('[data-event-id]');
+        if (examEl) {
+            // Клик на экзамен — переход на экран Мои экзамены и открытие этого события
+            if (window.openExamFromSchedule) window.openExamFromSchedule(+examEl.dataset.eventId);
+            return;
+        }
         const el = e.target.closest('[data-grp]');
         if (el) nav.openJournalFor(el.dataset.grp);
     });
@@ -219,6 +225,18 @@ function monthLabel(date) {
  * 2) преподаватель («Сахаров Д.С.») и метки замены/инд.; 3) тема — сколько влезет.
  */
 function lessonCard(it, cls) {
+    // Экзамены и занятия рендерятся по-разному
+    if (it.kind === 'exam') {
+        return `<div class="${cls} lcard chip-bd-exam" data-event-id="${it.event_id}">
+            <div class="lc-row">
+                <span class="lc-time">${esc(it.start)}</span>
+                <span class="lc-grp">${esc(it.title)}</span>
+                ${it.room ? `<span class="lc-room">${esc(it.room)}</span>` : ''}
+            </div>
+            <div class="lc-topic" title="${esc(it.topic || '')}">${esc(it.topic || '—')}</div>
+        </div>`;
+    }
+
     const who  = it.kind === 'individual' && it.student_name ? it.student_name : it.group_name;
     const tags = (it.is_substitute ? '<span class="prof-sub-tag">замена</span>' : '')
         + (it.kind === 'individual' ? '<span class="prof-sub-tag indi">инд.</span>' : '');

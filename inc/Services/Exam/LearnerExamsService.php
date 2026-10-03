@@ -36,11 +36,21 @@ class LearnerExamsService {
 			return array( 'exams' => $cards );
 		}
 
+		// Получить разрешённые направления (ОГЭ/ЕГЭ)
+		$allowedDirections = $this->audienceResolver->allowedDirectionsForStudent( $personId );
+
 		// Получить экзамены: опубликованные + завершённые + отменённые
 		$events = $this->eventRepo->findBySubjectsAndStatuses(
 			$subjectKeys,
 			array( 'published', 'completed', 'cancelled' )
 		);
+
+		// Фильтровать события по разрешённым направлениям
+		if ( ! empty( $allowedDirections ) ) {
+			$events = array_filter( $events, function( $event ) use ( $allowedDirections ) {
+				return in_array( $event->direction, $allowedDirections, true );
+			} );
+		}
 
 		// Плюс экзамены, где у ученика есть participation (историческая запись)
 		$eventIdsWithParticipation = $this->participationRepo->findEventIdsForStudent( $personId );
@@ -318,11 +328,103 @@ class LearnerExamsService {
 		}
 	}
 
+	/**
+	 * Форматирует результат для отображения в зависимости от направления.
+	 * ОГЭ — оценка (2-5), ЕГЭ — баллы (0-100).
+	 *
+	 * @param ?array $attempt Данные попытки (может быть null)
+	 * @param string $direction Направление (oge, ege, и т.д.)
+	 *
+	 * @return ?string Форматированный результат или null
+	 */
+	public function resultCaption( ?array $attempt, string $direction ): ?string {
+		if ( ! $attempt || ! isset( $attempt['score'] ) ) {
+			return null;
+		}
+
+		$score = (int) $attempt['score'];
+
+		// ОГЭ: оценка (2-5)
+		if ( 'oge' === $direction ) {
+			$gradeMap = array( 2, 3, 4, 5 );
+			$grade = $gradeMap[ min( $score, 3 ) ] ?? 2;
+			return (string) $grade;
+		}
+
+		// ЕГЭ: баллы (0-100)
+		if ( 'ege' === $direction ) {
+			return (string) $score;
+		}
+
+		// По умолчанию просто баллы
+		return (string) $score;
+	}
+
 	public function upcomingEvents( int $personId ): array {
+		$now = current_time( 'mysql', true );
 		$events = array();
 
-		// TODO: Получить действующие записи на будущие сеансы
-		// Формат: array{ kind:'exam', event_id, title, date, start, end, room, state }
+		// Получить участия и их активные регистрации
+		$eventIdsWithParticipation = $this->participationRepo->findEventIdsForStudent( $personId );
+		if ( empty( $eventIdsWithParticipation ) ) {
+			return $events;
+		}
+
+		$events_db = $this->eventRepo->findByIds( $eventIdsWithParticipation );
+		foreach ( $events_db as $event ) {
+			// Получить активную регистрацию
+			$participation = $this->participationRepo->findByEventAndStudent( $event->id, $personId );
+			if ( ! $participation ) {
+				continue;
+			}
+
+			$registration = $this->registrationRepo->findActive( $participation->id );
+			if ( ! $registration ) {
+				continue;
+			}
+
+			// Получить сеанс
+			$session = $this->sessionRepo->find( $registration->session_id );
+			if ( ! $session || $session->scheduled_at <= $now ) {
+				continue; // Прошлый сеанс
+			}
+
+			// Получить попытку для определения состояния
+			$attempt = $this->attemptRepo->findLatestByParticipation( $participation->id );
+
+			// Определить состояние
+			$state = 'registered';
+			if ( $attempt ) {
+				$attemptArr = $attempt->toArray();
+				if ( 'in_progress' === $attemptArr['status'] ) {
+					$state = 'in_progress';
+				} elseif ( 'approved' === $attemptArr['status'] ) {
+					$state = 'approved';
+				}
+			}
+
+			$events[] = array(
+				'kind'        => 'exam',
+				'event_id'    => $event->id,
+				'title'       => $event->title,
+				'date'        => wp_date( 'Y-m-d', strtotime( $session->scheduled_at ) ),
+				'start'       => wp_date( 'H:i', strtotime( $session->scheduled_at ) ),
+				'end'         => wp_date( 'H:i', strtotime( $session->planned_end_at ) ),
+				'room'        => $this->getRoomName( $session->room_id ?? null ),
+				'state'       => $state,
+				'deadline'    => $attempt ? wp_date( 'H:i', strtotime( $attempt->deadline_at ?? $session->planned_end_at ) ) : null,
+				'group_name'  => 'Экзамен',
+				'topic'       => $event->title,
+				'room_name'   => $this->getRoomName( $session->room_id ?? null ),
+			);
+		}
+
+		// Отсортировать по дате и времени
+		usort( $events, function( $a, $b ) {
+			$aTime = strtotime( $a['date'] . ' ' . $a['start'] );
+			$bTime = strtotime( $b['date'] . ' ' . $b['start'] );
+			return $aTime - $bTime;
+		} );
 
 		return $events;
 	}

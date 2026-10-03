@@ -4,6 +4,7 @@
 
 let currentRequestKey = null;
 let currentSelectedSessionId = null;
+let pendingEventId = null; // Для открытия экзамена из расписания (5.5)
 
 export function renderLearnerExams( root ) {
 	const { createApi } = window.fsProfileApi;
@@ -31,8 +32,22 @@ export function renderLearnerExams( root ) {
 		.then( response => {
 			if ( response.exams && response.exams.length > 0 ) {
 				renderExamsTabs( root, response.exams, api, isParent() );
-				// Показать первый экзамен по умолчанию
-				if ( response.exams[0] ) {
+
+				// Если есть ожидающий eventId (клик из расписания), открыть его
+				if ( pendingEventId ) {
+					const eventId = pendingEventId;
+					pendingEventId = null; // Сбросить флаг
+					const exam = response.exams.find( e => e.event_id === eventId );
+					if ( exam ) {
+						renderExamCard( root, exam, api, isParent() );
+						// Скролить к карточке
+						setTimeout( () => {
+							const card = root.querySelector( '#exams-card' );
+							if ( card ) card.scrollIntoView( { behavior: 'smooth' } );
+						}, 100 );
+					}
+				} else if ( response.exams[0] ) {
+					// Показать первый экзамен по умолчанию
 					renderExamCard( root, response.exams[0], api, isParent() );
 				}
 			} else {
@@ -493,8 +508,10 @@ function generateUUID() {
 }
 
 /**
- * Открывает карточку экзамена по ID из расписания (5.5.3)
+ * Открывает карточку экзамена по ID из расписания (5.5)
+ * Сохраняет eventId, переходит на экран, и renderLearnerExams откроет нужную карточку
  */
 export function openLearnerExam( eventId ) {
-	// TODO: Реализация в 5.5
+	pendingEventId = eventId;
+	// Приложение (app.js) отвечает за переход на экран learner-exams
 }

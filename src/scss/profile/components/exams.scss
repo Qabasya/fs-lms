@@ -336,6 +336,12 @@
 	}
 }
 
+/* Класс для карточки экзамена в расписании */
+.chip-bd-exam {
+	border-left-color: rgb(59, 130, 246) !important;
+	background-color: rgba(59, 130, 246, 0.05) !important;
+}
+
 /* Адаптивность */
 @media (max-width: 768px) {
 	.exams-tabs.sc-tabs {

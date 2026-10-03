@@ -191,6 +191,12 @@ function openCoursePage(courseId) {
     openTeacherCourse(courseId);
 }
 
+/* 5.5: клик по экзамену в расписании открывает экран Мои экзамены с карточкой события */
+function openExamFromSchedule(eventId) {
+    go('learner-exams');
+    openLearnerExam(eventId);
+}
+
 /* #15-C: заголовок секции сайдбара со стрелкой сворачивания. */
 function sectionHeader(label, stateKey) {
     const collapsed = sidebarState[stateKey];
@@ -424,6 +430,9 @@ export function initProfile() {
     wire();
     initNotifications();
     initCollapse();
+
+    // Экспортируем функцию открытия экзамена для доступа из dashboard
+    window.openExamFromSchedule = openExamFromSchedule;
 
     // Deep-link на экран: /profile/?screen=learner-lessons (ссылки из плеера курса, T14.13).
     // С gid (?screen=groups&gid=2) — открыть «Группы» на конкретной группе, как клик

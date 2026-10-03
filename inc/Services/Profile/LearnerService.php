@@ -9,6 +9,7 @@ use Inc\Services\Profile\Learner\LearnerContextBuilder;
 use Inc\Services\Profile\Learner\LearnerCoursesSection;
 use Inc\Services\Profile\Learner\LearnerPerformanceSection;
 use Inc\Services\Profile\Learner\LearnerScheduleSection;
+use Inc\Services\Exam\LearnerExamsService;
 
 /**
  * Read-модель профиля учащегося (Эпик 7). Собирает по одному `student_person_id`
@@ -28,7 +29,9 @@ class LearnerService {
 		private readonly LearnerScheduleSection    $schedule,
 		private readonly LearnerPerformanceSection $performance,
 		private readonly LearnerCoursesSection     $coursesSection,
+		private readonly ?LearnerExamsService     $examsService = null,
 	) {}
+
 
 	/**
 	 * Собирает кабинет ученика: группы, расписание, дедлайны, оценки, посещаемость.
@@ -51,11 +54,24 @@ class LearnerService {
 
 		$grades = $this->performance->grades( $ctx, $personId );
 
+		// Слить события экзаменов с расписанием занятий
+		$upcomingEvents = $this->schedule->upcoming( $ctx );
+		if ( $this->examsService ) {
+			$examEvents = $this->examsService->upcomingEvents( $personId );
+			$upcomingEvents = array_merge( $upcomingEvents, $examEvents );
+			// Отсортировать по дате и времени
+			usort( $upcomingEvents, function( $a, $b ) {
+				$aTime = strtotime( ( $a['date'] ?? '0000-00-00' ) . ' ' . ( $a['start'] ?? '00:00' ) );
+				$bTime = strtotime( ( $b['date'] ?? '0000-00-00' ) . ' ' . ( $b['start'] ?? '00:00' ) );
+				return $aTime - $bTime;
+			} );
+		}
+
 		return new LearnerDashboardDTO(
 			examLock:   $this->coursesSection->examLock( $personId ),
 			groups:     $visibleGroups,
 			courses:    $this->coursesSection->buildCourses( $ctx->groups, $ctx->rawRows, $ctx->lessonMap, $ctx->roomNames, $personId ),
-			upcoming:   array_slice( $this->schedule->upcoming( $ctx ), 0, 6 ),
+			upcoming:   array_slice( $upcomingEvents, 0, 6 ),
 			deadlines:  array_slice( $this->schedule->deadlines( $ctx, $personId ), 0, 6 ),
 			recent:     array_slice( $this->performance->recentGrades( $grades ), 0, 5 ),
 			lessons:    $ctx->allLessons,
