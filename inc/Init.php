@@ -80,6 +80,7 @@ use Inc\Controllers\Assessment\AssessmentController;
 use Inc\Controllers\Group\ScheduleController;
 use Inc\Controllers\Group\SubstitutionController;
 use Inc\Controllers\Group\RoomController;
+use Inc\Controllers\Exam\WooExamController;
 use Inc\Controllers\Profile\ProfileDashboardController;
 use Inc\Controllers\Profile\LearnerProfileController;
 use Inc\Controllers\Profile\NotificationController;
