@@ -127,7 +127,19 @@ enum Nonce: string {
 	// ==== RBAC — управление ролями (Этап 6) ====
 	case SaveRoles = 'fs_lms_save_roles';
 
-	// ==== Экзамены ====
+	// ==== Экзамены (Этап 3) ====
+	case ExamSaveEvent = 'fs_lms_exam_save_event';
+	case ExamPublishEvent = 'fs_lms_exam_publish_event';
+	case ExamSaveSession = 'fs_lms_exam_save_session';
+	case ExamCreateRegistration = 'fs_lms_exam_create_registration';
+	case ExamCancelRegistration = 'fs_lms_exam_cancel_registration';
+	case ExamTransferRegistration = 'fs_lms_exam_transfer_registration';
+	case ExamGetParticipations = 'fs_lms_exam_get_participations';
+	case ExamGetSessions = 'fs_lms_exam_get_sessions';
+	case ExamApproveAttempt = 'fs_lms_exam_approve_attempt';
+	case ExamCreateResultLink = 'fs_lms_exam_create_result_link';
+	case ExamCreateGuestLink = 'fs_lms_exam_create_guest_link';
+	// Базовые nonce (сохранены для обратной совместимости)
 	case ExamManage = 'fs_lms_exam_manage';
 	case ExamLearner = 'fs_lms_exam_learner';
 	case ExamGuest = 'fs_lms_exam_guest';
