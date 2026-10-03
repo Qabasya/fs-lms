@@ -94,6 +94,7 @@ function renderExamCard( root, exam, api, isParent ) {
 	const actionButtons = renderActionButtons( exam, isParent );
 	const registrationInfo = exam.registration ? renderRegistrationInfo( exam.registration ) : '';
 	const hintText = getHintText( exam );
+	const parentNotice = isParent ? `<div class="sc-notice">Записывается и сдаёт экзамен сам ученик из своего кабинета.</div>` : '';
 
 	const html = `
 		<div class="prof-card-header">
@@ -110,6 +111,7 @@ function renderExamCard( root, exam, api, isParent ) {
 			</div>
 		</div>
 		${registrationInfo}
+		${parentNotice}
 		${hintText ? `<div class="sc-hint">${hintText}</div>` : ''}
 		<div id="sessions-carousel-wrapper" style="display:none;">
 			<!-- Карусель сеансов -->
@@ -120,8 +122,10 @@ function renderExamCard( root, exam, api, isParent ) {
 	cardContainer.style.display = 'block';
 	cardContainer.dataset.examId = exam.event_id;
 
-	// Привязать обработчики действий
-	attachActionHandlers( cardContainer, exam, api, isParent );
+	// Привязать обработчики действий (только для ученика)
+	if ( ! isParent ) {
+		attachActionHandlers( cardContainer, exam, api, isParent );
+	}
 }
 
 function renderActionButtons( exam, isParent ) {
