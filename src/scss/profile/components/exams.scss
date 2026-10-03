@@ -283,6 +283,59 @@
 	}
 }
 
+/* Действия регистрации */
+.exam-registration-actions {
+	display: flex;
+	gap: 0.75rem;
+	margin-top: 1rem;
+	padding-top: 1rem;
+	border-top: 1px solid var(--border-2);
+
+	button {
+		flex: 1;
+		padding: 0.75rem 1rem;
+		border-radius: 0.375rem;
+		font-size: 14px;
+		font-weight: 500;
+		cursor: pointer;
+		transition: all 0.2s ease;
+		border: none;
+
+		&.btn-primary {
+			background: var(--primary);
+			color: white;
+
+			&:disabled {
+				opacity: 0.5;
+				cursor: not-allowed;
+			}
+
+			&:not(:disabled):hover {
+				background: var(--primary-dark);
+			}
+		}
+
+		&.btn-secondary {
+			background: var(--bg-secondary);
+			color: var(--text-primary);
+			border: 1px solid var(--border-2);
+
+			&:hover {
+				border-color: var(--border-1);
+			}
+		}
+	}
+}
+
+/* Отключённые сеансы */
+.exam-slot {
+	&.exam-slot-disabled {
+		opacity: 0.6;
+		cursor: not-allowed;
+		pointer-events: none;
+	}
+}
+
 /* Адаптивность */
 @media (max-width: 768px) {
 	.exams-tabs.sc-tabs {
@@ -304,5 +357,13 @@
 
 	.exam-slot {
 		width: 8.75rem;
+	}
+
+	.exam-registration-actions {
+		flex-direction: column;
+
+		button {
+			width: 100%;
+		}
 	}
 }

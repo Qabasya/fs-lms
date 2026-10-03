@@ -11,17 +11,23 @@ use Inc\Enums\Nonce;
 use Inc\Enums\Log\ErrorCode;
 use Inc\Services\Profile\ProfileViewResolver;
 use Inc\Services\Exam\LearnerExamsService;
+use Inc\Services\Exam\ExamRegistrationService;
+use Inc\Shared\CodedException;
 
 class LearnerExamCallbacks extends BaseController {
 
 	use AjaxResponse, Sanitizer;
 
+	private ?ExamRegistrationService $registrationService = null;
+
 	public function __construct(
 		private ?ProfileViewResolver $resolver = null,
-		private ?LearnerExamsService $examsService = null
+		private ?LearnerExamsService $examsService = null,
+		?ExamRegistrationService $registrationService = null
 	) {
 		$this->resolver ??= new ProfileViewResolver();
 		$this->examsService ??= new LearnerExamsService();
+		$this->registrationService = $registrationService ?? new ExamRegistrationService();
 	}
 
 	public function ajaxGetLearnerExams(): void {
@@ -63,8 +69,25 @@ class LearnerExamCallbacks extends BaseController {
 			return;
 		}
 
-		// TODO: Реализация в 5.3.2
-		$this->success( array( 'registered' => true ) );
+		$sessionId = $this->sanitizeInt( 'session_id' );
+		$requestKey = $this->sanitizeKey( 'request_key' );
+
+		if ( ! $sessionId || ! $requestKey ) {
+			$this->error( 'Недостаточно данных для регистрации' );
+			return;
+		}
+
+		try {
+			$this->registrationService->registerParticipant( $ctx->personId, $sessionId, $requestKey );
+			// Собрать обновлённую карточку
+			$personId = $ctx->personId;
+			$exams = $this->examsService->build( $personId, false );
+			$this->success( $exams );
+		} catch ( CodedException $e ) {
+			$this->fail( $e->code(), $e->getMessage() );
+		} catch ( \Exception $e ) {
+			$this->error( $e->getMessage() );
+		}
 	}
 
 	public function ajaxChangeExamRegistration(): void {
@@ -83,8 +106,25 @@ class LearnerExamCallbacks extends BaseController {
 			return;
 		}
 
-		// TODO: Реализация в 5.3.2
-		$this->success( array( 'changed' => true ) );
+		$newSessionId = $this->sanitizeInt( 'session_id' );
+		$requestKey = $this->sanitizeKey( 'request_key' );
+
+		if ( ! $newSessionId || ! $requestKey ) {
+			$this->error( 'Недостаточно данных' );
+			return;
+		}
+
+		try {
+			$this->registrationService->transferRegistration( $ctx->personId, $newSessionId, $requestKey );
+			// Собрать обновлённую карточку
+			$personId = $ctx->personId;
+			$exams = $this->examsService->build( $personId, false );
+			$this->success( $exams );
+		} catch ( CodedException $e ) {
+			$this->fail( $e->code(), $e->getMessage() );
+		} catch ( \Exception $e ) {
+			$this->error( $e->getMessage() );
+		}
 	}
 
 	public function ajaxCancelExamRegistration(): void {
@@ -103,8 +143,25 @@ class LearnerExamCallbacks extends BaseController {
 			return;
 		}
 
-		// TODO: Реализация в 5.3.2
-		$this->success( array( 'cancelled' => true ) );
+		$eventId = $this->sanitizeInt( 'event_id' );
+		$requestKey = $this->sanitizeKey( 'request_key' );
+
+		if ( ! $eventId || ! $requestKey ) {
+			$this->error( 'Недостаточно данных' );
+			return;
+		}
+
+		try {
+			$this->registrationService->cancelBySelf( $ctx->personId, $eventId, $requestKey );
+			// Собрать обновлённую карточку
+			$personId = $ctx->personId;
+			$exams = $this->examsService->build( $personId, false );
+			$this->success( $exams );
+		} catch ( CodedException $e ) {
+			$this->fail( $e->code(), $e->getMessage() );
+		} catch ( \Exception $e ) {
+			$this->error( $e->getMessage() );
+		}
 	}
 
 	/**

@@ -2,6 +2,9 @@
  * Экран "Мои экзамены" для ученика и родителя (Этап 5)
  */
 
+let currentRequestKey = null;
+let currentSelectedSessionId = null;
+
 export function renderLearnerExams( root ) {
 	const { createApi } = window.fsProfileApi;
 	const { isParent, childId } = window.fsProfileUtils;
@@ -16,6 +19,9 @@ export function renderLearnerExams( root ) {
 			<div id="exams-card" class="prof-card sc-hero" style="display:none;">
 				<!-- Карточка текущего экзамена -->
 			</div>
+			<div id="confirm-dialog" class="confirm-dialog" style="display:none;">
+				<!-- Диалог подтверждения -->
+			</div>
 		</div>
 	`;
 
@@ -27,7 +33,7 @@ export function renderLearnerExams( root ) {
 				renderExamsTabs( root, response.exams, api, isParent() );
 				// Показать первый экзамен по умолчанию
 				if ( response.exams[0] ) {
-					renderExamCard( root, response.exams[0], api );
+					renderExamCard( root, response.exams[0], api, isParent() );
 				}
 			} else {
 				showEmptyState( root );
@@ -67,7 +73,7 @@ function renderExamsTabs( root, exams, api, isParent ) {
 			const exam = exams.find( e => e.event_id === eventId );
 			if ( exam ) {
 				updateTabSelection( tabsContainer, eventId );
-				renderExamCard( root, exam, api );
+				renderExamCard( root, exam, api, isParent );
 			}
 		} );
 	} );
@@ -80,14 +86,13 @@ function updateTabSelection( container, eventId ) {
 	} );
 }
 
-function renderExamCard( root, exam, api ) {
+function renderExamCard( root, exam, api, isParent ) {
 	const cardContainer = root.querySelector( '#exams-card' );
 	if ( ! cardContainer ) return;
 
 	const stateColor = getStateColor( exam.state );
-	const actionButtons = renderActionButtons( exam );
+	const actionButtons = renderActionButtons( exam, isParent );
 	const registrationInfo = exam.registration ? renderRegistrationInfo( exam.registration ) : '';
-	const sessionsList = renderSessionsList( exam.sessions, exam.state );
 	const hintText = getHintText( exam );
 
 	const html = `
@@ -106,21 +111,21 @@ function renderExamCard( root, exam, api ) {
 		</div>
 		${registrationInfo}
 		${hintText ? `<div class="sc-hint">${hintText}</div>` : ''}
-		${sessionsList}
+		<div id="sessions-carousel-wrapper" style="display:none;">
+			<!-- Карусель сеансов -->
+		</div>
 	`;
 
 	cardContainer.innerHTML = html;
 	cardContainer.style.display = 'block';
+	cardContainer.dataset.examId = exam.event_id;
 
 	// Привязать обработчики действий
-	const cardElement = cardContainer.querySelector( '.prof-card-header' );
-	if ( cardElement ) {
-		attachActionHandlers( cardElement, exam, api );
-	}
+	attachActionHandlers( cardContainer, exam, api, isParent );
 }
 
-function renderActionButtons( exam ) {
-	if ( ! exam.actions || exam.actions.length === 0 ) {
+function renderActionButtons( exam, isParent ) {
+	if ( isParent || ! exam.actions || exam.actions.length === 0 ) {
 		return '';
 	}
 
@@ -128,7 +133,7 @@ function renderActionButtons( exam ) {
 	exam.actions.forEach( action => {
 		const label = getActionLabel( action );
 		const isDisabled = exam.state === 'not_open' && action === 'register';
-		html += `<button class="btn btn-primary ${isDisabled ? 'sc-dis' : ''}" data-action="${action}" ${isDisabled ? 'disabled' : ''}>${label}</button>`;
+		html += `<button class="btn btn-primary ${isDisabled ? 'sc-dis' : ''}" data-action="${action}" data-event-id="${exam.event_id}" ${isDisabled ? 'disabled' : ''}>${label}</button>`;
 	} );
 	html += '</div>';
 	return html;
@@ -147,23 +152,19 @@ function renderRegistrationInfo( registration ) {
 	`;
 }
 
-function renderSessionsList( sessions, state ) {
+function renderSessionsList( sessions, state, currentSessionId ) {
 	if ( ! sessions || sessions.length === 0 ) {
 		return '';
 	}
 
-	// Только показываем при статусе open/registered/entry_open
-	if ( ! [ 'open', 'registered', 'entry_open', 'change' ].includes( state ) ) {
-		return '';
-	}
-
-	let html = `<div class="exam-slots-carousel" style="display:none;" data-carousel="sessions">`;
+	let html = `<div class="exam-slots-carousel" role="region" aria-label="Доступные сеансы">`;
 
 	sessions.forEach( session => {
 		const freeText = `осталось ${session.free} ${plural( session.free, 'место', 'места', 'мест' )}`;
-		const isSelected = session.is_current ? ' exam-slot-selected' : '';
+		const isSelected = session.session_id === currentSessionId ? ' exam-slot-selected' : '';
+		const isSelectable = session.selectable ? '' : ' exam-slot-disabled';
 		html += `
-			<div class="exam-slot${isSelected}" data-session-id="${session.session_id}">
+			<div class="exam-slot${isSelected}${isSelectable}" data-session-id="${session.session_id}" role="button" tabindex="0">
 				<div class="exam-slot-date">${formatDate( session.date )}</div>
 				<div class="exam-slot-weekday">${session.weekday}</div>
 				<div class="exam-slot-time">${session.time_start}</div>
@@ -194,9 +195,192 @@ function showEmptyState( root ) {
 	}
 }
 
+function attachActionHandlers( cardElement, exam, api, isParent ) {
+	const buttons = cardElement.querySelectorAll( '[data-action]' );
+	buttons.forEach( button => {
+		button.addEventListener( 'click', async () => {
+			const action = button.dataset.action;
+			const eventId = parseInt( button.dataset.eventId, 10 );
+
+			try {
+				switch ( action ) {
+					case 'register':
+						handleRegisterAction( cardElement, exam, api );
+						break;
+					case 'change':
+						handleChangeAction( cardElement, exam, api );
+						break;
+					case 'cancel':
+						handleCancelAction( cardElement, exam, api );
+						break;
+				}
+			} catch ( error ) {
+				console.error( `Ошибка при выполнении ${action}:`, error );
+			}
+		} );
+	} );
+}
+
+function handleRegisterAction( cardElement, exam, api ) {
+	// Генерируем request_key для dedup protection
+	currentRequestKey = generateUUID();
+	currentSelectedSessionId = null;
+
+	// Показываем карусель сеансов
+	const wrapper = cardElement.querySelector( '#sessions-carousel-wrapper' );
+	if ( wrapper ) {
+		wrapper.innerHTML = renderSessionsList( exam.sessions, exam.state, null ) + `
+			<div class="exam-registration-actions">
+				<button class="btn btn-primary" id="confirm-register" disabled>Подтвердить запись</button>
+				<button class="btn btn-secondary" id="cancel-register">Отмена</button>
+			</div>
+		`;
+		wrapper.style.display = 'block';
+
+		// Обработчики для сеансов
+		wrapper.querySelectorAll( '.exam-slot' ).forEach( slot => {
+			if ( slot.classList.contains( 'exam-slot-disabled' ) ) return;
+
+			slot.addEventListener( 'click', () => {
+				wrapper.querySelectorAll( '.exam-slot' ).forEach( s => s.classList.remove( 'exam-slot-selected' ) );
+				slot.classList.add( 'exam-slot-selected' );
+				currentSelectedSessionId = parseInt( slot.dataset.sessionId, 10 );
+				wrapper.querySelector( '#confirm-register' ).disabled = false;
+			} );
+		} );
+
+		// Кнопка подтверждения
+		wrapper.querySelector( '#confirm-register' ).addEventListener( 'click', async () => {
+			if ( ! currentSelectedSessionId ) return;
+
+			try {
+				const response = await api( 'register', {
+					session_id: currentSelectedSessionId,
+					request_key: currentRequestKey,
+				} );
+
+				// Перезагрузить все карточки
+				location.reload();
+			} catch ( error ) {
+				handleRegistrationError( wrapper, error, api );
+			}
+		} );
+
+		// Кнопка отмены
+		wrapper.querySelector( '#cancel-register' ).addEventListener( 'click', () => {
+			wrapper.style.display = 'none';
+			currentRequestKey = null;
+			currentSelectedSessionId = null;
+		} );
+	}
+}
+
+function handleChangeAction( cardElement, exam, api ) {
+	// Генерируем request_key
+	currentRequestKey = generateUUID();
+	currentSelectedSessionId = exam.registration?.session_id || null;
+
+	const wrapper = cardElement.querySelector( '#sessions-carousel-wrapper' );
+	if ( wrapper ) {
+		wrapper.innerHTML = renderSessionsList( exam.sessions, exam.state, currentSelectedSessionId ) + `
+			<div class="exam-registration-actions">
+				<button class="btn btn-primary" id="confirm-change">Подтвердить смену</button>
+				<button class="btn btn-secondary" id="cancel-change">Отмена выбора</button>
+			</div>
+		`;
+		wrapper.style.display = 'block';
+
+		// Обработчики для сеансов
+		wrapper.querySelectorAll( '.exam-slot' ).forEach( slot => {
+			if ( slot.classList.contains( 'exam-slot-disabled' ) ) return;
+
+			slot.addEventListener( 'click', () => {
+				wrapper.querySelectorAll( '.exam-slot' ).forEach( s => s.classList.remove( 'exam-slot-selected' ) );
+				slot.classList.add( 'exam-slot-selected' );
+				currentSelectedSessionId = parseInt( slot.dataset.sessionId, 10 );
+			} );
+		} );
+
+		// Кнопка подтверждения
+		wrapper.querySelector( '#confirm-change' ).addEventListener( 'click', async () => {
+			if ( ! currentSelectedSessionId ) return;
+			if ( currentSelectedSessionId === exam.registration?.session_id ) {
+				alert( 'Выберите другой сеанс' );
+				return;
+			}
+
+			if ( confirm( `Сменить запись на ${formatDate( exam.sessions.find( s => s.session_id === currentSelectedSessionId )?.date )}, ${exam.sessions.find( s => s.session_id === currentSelectedSessionId )?.time_start}?` ) ) {
+				try {
+					const response = await api( 'change', {
+						session_id: currentSelectedSessionId,
+						request_key: currentRequestKey,
+					} );
+
+					location.reload();
+				} catch ( error ) {
+					handleRegistrationError( wrapper, error, api );
+				}
+			}
+		} );
+
+		// Кнопка отмены выбора
+		wrapper.querySelector( '#cancel-change' ).addEventListener( 'click', () => {
+			wrapper.style.display = 'none';
+			currentRequestKey = null;
+			currentSelectedSessionId = null;
+		} );
+	}
+}
+
+function handleCancelAction( cardElement, exam, api ) {
+	currentRequestKey = generateUUID();
+
+	if ( confirm( 'Отменить запись на экзамен? Место освободится.' ) ) {
+		api( 'cancel', {
+			event_id: exam.event_id,
+			request_key: currentRequestKey,
+		} )
+			.then( () => location.reload() )
+			.catch( error => {
+				console.error( 'Ошибка при отмене:', error );
+				alert( `Ошибка: ${error.message}` );
+			} );
+	}
+}
+
+function handleRegistrationError( wrapper, error, api ) {
+	const code = error.code || '';
+	const message = error.message || 'Неизвестная ошибка';
+
+	let errorText = '';
+	switch ( code ) {
+		case 'X-FULL':
+			errorText = 'Это место только что заняли. Выберите другой сеанс.';
+			// Перезагрузить список
+			api( 'getExams', {} ).then( r => location.reload() );
+			break;
+		case 'X-HELD':
+			errorText = message || 'Часть мест удерживается до оплаты. Попробуйте позже.';
+			break;
+		case 'X-CLOSED':
+			errorText = message || 'Запись закрыта.';
+			location.reload();
+			break;
+		case 'X-CONFLICT':
+			errorText = message || 'Конфликт расписания.';
+			break;
+		default:
+			errorText = message;
+	}
+
+	const errorDiv = document.createElement( 'div' );
+	errorDiv.className = 'sc-notice';
+	errorDiv.textContent = errorText;
+	wrapper.insertBefore( errorDiv, wrapper.firstChild );
+}
+
 function getTabSubtitle( exam ) {
 	const state = exam.state;
-	const now = new Date();
 
 	switch ( state ) {
 		case 'not_open':
@@ -261,11 +445,10 @@ function getActionLabel( action ) {
 
 function getHintText( exam ) {
 	const state = exam.state;
-	const now = new Date();
 
 	switch ( state ) {
 		case 'not_open':
-			return `Запись откроется ${formatDate( exam.registration_opens_at )} в ${exam.registration_opens_at ? new Date( exam.registration_opens_at ).toLocaleTimeString( 'ru-RU', { hour: '2-digit', minute: '2-digit' } ) : ''}`;
+			return `Запись откроется ${formatDate( exam.registration_opens_at )}`;
 		case 'registered':
 			return `Кнопка станет активной в ${exam.registration ? exam.registration.time_start : ''}. Смена и отмена записи — до начала выбранного сеанса.`;
 		case 'entry_open':
@@ -283,30 +466,6 @@ function getHintText( exam ) {
 	}
 }
 
-function attachActionHandlers( cardElement, exam, api ) {
-	const buttons = cardElement.querySelectorAll( '[data-action]' );
-	buttons.forEach( button => {
-		button.addEventListener( 'click', async () => {
-			const action = button.dataset.action;
-			try {
-				switch ( action ) {
-					case 'register':
-						// TODO: Открыть карусель сеансов (5.3)
-						break;
-					case 'change':
-						// TODO: Смена сеанса (5.3)
-						break;
-					case 'cancel':
-						// TODO: Отмена записи (5.3)
-						break;
-				}
-			} catch ( error ) {
-				console.error( `Ошибка при выполнении ${action}:`, error );
-			}
-		} );
-	} );
-}
-
 function formatDate( dateStr ) {
 	if ( ! dateStr ) return '—';
 	const date = new Date( dateStr );
@@ -319,6 +478,14 @@ function plural( n, form1, form2, form5 ) {
 	if ( mod10 === 1 && mod100 !== 11 ) return form1;
 	if ( mod10 >= 2 && mod10 <= 4 && ( mod100 < 12 || mod100 > 14 ) ) return form2;
 	return form5;
+}
+
+function generateUUID() {
+	return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace( /[xy]/g, function( c ) {
+		const r = ( Math.random() * 16 ) | 0;
+		const v = c === 'x' ? r : ( r & 0x3 ) | 0x8;
+		return v.toString( 16 );
+	} );
 }
 
 /**
