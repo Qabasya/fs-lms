@@ -1,7 +1,7 @@
 # Экзамены: правила исполнителя и контракт имён
 
 Детализация плана `.docs/Tasks.md`. Один файл на этап: `stage-00.md` … `stage-13.md`
-(гостевой этап разбит на `stage-11a.md` и `stage-11b.md`). Источник требований — `../SPEC.md`,
+(гостевой этап разбит на `stage-11a.md` и `stage-11b.md`) — всего 15 файлов этапов. Источник требований — `../SPEC.md`,
 решения — `../DECISIONS.md`, тексты — `../TEXTS.md`. При расхождении действует SPEC.
 
 Этот файл читается **перед каждой задачей**. В нём то, что одинаково для всех этапов:
@@ -178,7 +178,7 @@ docker exec wp_db mariadb -u root -proot wordpress -e "SELECT …"
 | `ExamProgress` | `NotStarted`, `InProgress`, `Submitted`, `Missed` — вычисляемое состояние участника в таблице сеанса |
 | `GuestApplicationState` | `Hold`, `AwaitingPayment`, `PaymentPending`, `Confirmed`, `ExpiredUnpaid`, `Failed`, `PaidNeedsResolution`, `Cancelled`, `Missed` (значения — snake_case: `paid_needs_resolution`) |
 | `ExamPaymentState` | `Pending`, `Paid`, `Failed`, `Cancelled` |
-| `ExamTokenPurpose` | `Invitation`, `Entry`, `Result`, `Report` |
+| `ExamTokenPurpose` | `Invitation`, `Entry`, `Result`, `Report`, `Payment` (ссылка на оплату заявки, созданной сотрудником на месте, — 11a.7) |
 | `ManualResolutionKind` | `Pending`, `Transferred`, `RefundedOutside` (`refunded_outside`), `Other` |
 | `ExamOutboxEvent` | `EventPublished`, `RegistrationOpened`, `RegistrationConfirmed`, `RegistrationTransferred`, `RegistrationCancelled`, `ParticipantMissed`, `EntryOpened`, `AttemptStarted`, `AttemptSubmitted`, `AttemptApproved`, `ResultCorrected`, `AttemptExtended`, `SessionMoved`, `SessionCancelled`, `EventCancelled`, `PaidNeedsResolution`, `ReconcileFailed`, `SourceLimitExceeded` |
 
@@ -200,18 +200,19 @@ SPEC §11 называет UI-коды словами; в коде это кей
 | — | `ExamNotOpen` | `X-NOT-OPEN` | старт вне окна сеанса |
 | — | `ExamLimit` | `X-LIMIT` | превышен лимит по IP или источнику |
 | — | `ExamReplay` | `X-REPLAY` | тот же `request_key` с другими данными |
+| — | `ExamRoom` | `X-ROOM` | кабинет не подходит: нет вместимости, не разрешён предмет, неактивен |
 
 ### 7.4 Классы
 
 | Слой | Каталог | Классы |
 |---|---|---|
 | DTO | `inc/DTO/Exam/` | `ExamFormatDTO`, `ExamEventDTO`, `ExamSessionDTO`, `ExamParticipantDTO`, `ExamParticipationDTO`, `ExamRegistrationDTO`, `ExamSourceDTO`, `ExamAccessTokenDTO`, `GuestApplicationDTO`, `ExamPaymentLinkDTO`, `ExamReportDTO`, `AttemptContext`, `RegistrationResultDTO` |
-| Репозитории | `inc/Repositories/WPDBRepositories/Exam/` | `ExamEventRepository`, `ExamSessionRepository`, `ExamParticipantRepository`, `ExamParticipationRepository`, `ExamRegistrationRepository`, `ExamSourceRepository`, `ExamAccessTokenRepository`, `ExamGuestSessionRepository`, `ExamOutboxRepository`, `ExamOperationKeyRepository`, `GuestApplicationRepository`, `ExamPaymentLinkRepository`, `ExamManualResolutionRepository`, `ExamReportRepository` |
-| Сервисы | `inc/Services/Exam/` | `ExamFormatRegistry` (0.3), `ExamAudienceResolver` (1.1), `ExamAccessGuard` (1.2), `ExamTime` (2.3), `ExamEventService` (2.4), `ExamAccessTokenService` (2.5), `ExamTickLock` (2.6), `ExamRegistrationService` (3.1–3.3), `ExamHoldService` (3.4), `ExamOutbox` (3.1), `ExamRoomService` (4.4), `ExamSourceService` (4.6), `LearnerExamsService` (5), `ExamAttemptService` (6.1–6.2), `ExamNoShowService` (6.3), `ExamResultService` уже занят — новый называется `ExamReviewProjection` (7), `ExamConductService` (8.1–8.3), `ExamApprovalService` (8.5–8.6), `ExamOutboxWorker` и `ExamNotificationComposer` (9), `ExamStatsService` (10), `GuestApplicationService` и `ExamLaunchChecklist` (11a), `GuestSessionService` (11b), `ExamReportService` (12), `ExamVariantGuard` и `ExamRetentionService` (13) |
-| Оплата | `inc/Services/Exam/Payment/` | `WooExamAdapter`, `ExamPaymentReconciler` |
+| Репозитории | `inc/Repositories/WPDBRepositories/Exam/` | `AbstractExamRepository` (общая база: запись с разбором ошибок 1213/1205/1062), `RetryableDbException`, `DuplicateKeyException`, `ExamLockRepository` (именованная блокировка тиков), `ExamEventRepository`, `ExamSessionRepository`, `ExamParticipantRepository`, `ExamParticipationRepository`, `ExamRegistrationRepository`, `ExamSourceRepository`, `ExamAccessTokenRepository`, `ExamGuestSessionRepository`, `ExamOutboxRepository`, `ExamOperationKeyRepository`, `GuestApplicationRepository`, `ExamPaymentLinkRepository`, `ExamManualResolutionRepository`, `ExamReportRepository` |
+| Сервисы | `inc/Services/Exam/` | `ExamFormatRegistry` (0.3), `ExamAudienceResolver` (1.1), `ExamAccessGuard` (1.2), `ExamVariantPolicy` (1.3), `ExamTime` и `ExamOutbox` (2.3), `ExamEventService` и `ExamRoomService` (2.4; обратная проверка кабинета — 4.4), `ExamAccessTokenService` (2.5), `ExamTickLock` и `ExamTickService` (2.6), `ExamRegistrationService` (3.1–3.3), `ExamHoldService` (3.4), `ExamSourceService` (4.6), `LearnerExamsService` (5), `ExamAttemptService` (6.1–6.2), `ExamNoShowService` (6.3), `ExamReviewProjection` (7.1; имя `ExamResultService` уже занято в ядре), `ExamScoreService` (7.3), `ExamConductService` (8.1–8.3), `ExamApprovalService` (8.5–8.6), `ExamNotificationComposer`, `ExamOutboxWorker`, `ExamReminderService` (9), `ExamStatsService` (10), `GuestIdentity`, `GuestApplicationService`, `ExamLaunchChecklist` (11a), `GuestSessionService` (11a.2, 11b), `ExamReportService` (12), `ExamVariantGuard` и `ExamRetentionService` (13) |
+| Оплата | `inc/Services/Exam/Payment/` | `WooGateway` (единственная обёртка над функциями WooCommerce, мокается в тестах), `WooExamAdapter`, `ExamPaymentReconciler` |
 | Общие | `inc/Services/Shared/` | `CenterContactsService` (11a.6) |
-| Коллбеки | `inc/Callbacks/Exam/` | `ExamEventCallbacks`, `ExamSourceCallbacks`, `LearnerExamCallbacks`, `ExamConductCallbacks`, `ExamResultCallbacks`, `ExamStatsCallbacks`, `ExamPaymentQueueCallbacks`, `GuestApplicationCallbacks`, `GuestEntryCallbacks`, `ExamReportCallbacks` |
-| Контроллеры | `inc/Controllers/Exam/` | `ExamController` (все AJAX экзаменов), `ExamGuestPageController` (страницы гостя), `WooExamController` (хуки WooCommerce) |
+| Коллбеки | `inc/Callbacks/Exam/` | `ExamEventCallbacks`, `ExamSourceCallbacks`, `LearnerExamCallbacks`, `ExamConductCallbacks`, `ExamResultCallbacks`, `ExamStatsCallbacks`, `ExamPaymentQueueCallbacks`, `GuestApplicationCallbacks`, `GuestEntryCallbacks`, `ExamReportCallbacks`, `WooExamCallbacks` |
+| Контроллеры | `inc/Controllers/Exam/` | `ExamController` (все AJAX экзаменов), `ExamGuestPageController` (страницы гостя и отчёта), `WooExamController` (хуки WooCommerce), `ExamVariantGuardController` (хуки заморозки варианта, 13.2) |
 | CLI | `inc/Cli/` | `ExamCommand` (`wp fs-lms exam …`) |
 
 В ядре уже есть `Inc\Services\Assessment\ExamResultService` и `ExamLockService` — их не переименовывать
@@ -230,6 +231,12 @@ SPEC §11 называет UI-коды словами; в коде это кей
 | Cron: worker событий | `CronHook::ExamOutboxTick` | `fs_lms_exam_outbox_tick` |
 | Фильтр форматов | `ExamFormatRegistry::FILTER` | `fs_lms_exam_formats` |
 | Фильтр контактов центра | `CenterContactsService::FILTER` | `fs_lms_center_contacts` |
+| Транзиент синхронизации аудитории | `TransientKey::ExamAudienceSync` | `fs_lms_exam_audience_sync_` |
+| Страница формы гостя | `PageRoutes::ExamSignup`, `ShortCode::ExamSignup` | `exam-signup`, `fs_lms_exam_signup` |
+| Страница входа гостя | `PageRoutes::ExamEntry`, `ShortCode::ExamEntry` | `exam-entry`, `fs_lms_exam_entry` |
+| Страница результата гостя | `PageRoutes::ExamResult`, `ShortCode::ExamResult` | `exam-result`, `fs_lms_exam_result` |
+| Страница школьного отчёта | `PageRoutes::ExamReport`, `ShortCode::ExamReport` | `exam-report`, `fs_lms_exam_report` |
+| Кука приглашения / входа / результата / отчёта | — | `fs_exam_inv`, `fs_exam_guest`, `fs_exam_result`, `fs_exam_report` (все `HttpOnly`, сессионные) |
 
 ### 7.6 Экраны кабинета
 
@@ -263,3 +270,15 @@ JS-файлы экранов — `src/js/profile/exams/*.js`, стили — `sr
 7. **Чистый методист без роли преподавателя** сейчас не имеет витрины `/profile/` и уходит в wp-admin.
    Право `ManageExams` он получает, но экраны экзаменов живут в кабинете. До решения владельца
    методист работает с экзаменами только при второй роли (преподаватель или администратор). См. «Открыто» в `Tasks.md`.
+
+8. **Автоистечение экзаменной попытки = сдача по дедлайну с обычной проверкой** (`submitted_at = deadline_at`, 6.2), а не пометка `expired`
+   без проверки, как у попыток курса. Основание — SPEC §4: «принять уже сохранённые ответы, завершить и проверить».
+9. **Экзаменный ОГЭ ученика требует явного утверждения** (7.5.1), хотя ОГЭ в курсе раскрывается сразу после ручной проверки. Основание — SPEC §7.
+10. **Пробные записи (`isTrial`) в аудиторию не входят** (1.1.2): пробный доступ — не зачисление.
+11. **Глобальный охват по предметам** = право `ManageExams` + (`manage_options` или `ManageSubjects`) (1.2.2). Офис под это не попадает: у него нет `ManageExams`.
+12. **«Добавить гостя на месте» выдаёт ссылку на оплату** (`ExamTokenPurpose::Payment`, 11a.7): корзина привязана к браузеру, поэтому платит гость
+    со своего устройства по ссылке от сотрудника. Кнопки «отметить оплаченным» нет.
+13. **Последний вход гостя побеждает** (11b.1.5): открытие новой ссылки входа отзывает прежние сессии входа этого участия; попытка и ответы общие.
+14. **Строка школьного отчёта адресуется порядковым номером в отчёте** (`p=N`, 12.3.4), а не идентификатором участия или попытки.
+15. **Номер версионной миграции** в `stage-02.md` назван `Migration_1_0_71` условно. На момент детализации `master` уже на версии 1.0.72,
+    новых миграций после `Migration_1_0_70` нет — класс получит номер релиза, в котором выйдет этап 2 (спросить у владельца).
