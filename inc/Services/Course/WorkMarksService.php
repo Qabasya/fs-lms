@@ -27,8 +27,10 @@ use Inc\Repositories\WPDBRepositories\SubmissionRepository;
  */
 class WorkMarksService {
 
-	/** Вердикт задания: решено / не решено / ждёт ручной проверки. */
+	/** Вердикт задания: решено / решено с исправлением / не решено / ждёт ручной проверки. */
 	private const string CORRECT   = 'correct';
+	/** Верно в итоге, но проверка кнопкой до сдачи сначала показала ошибку. */
+	private const string CORRECTED = 'corrected';
 	private const string INCORRECT = 'incorrect';
 	private const string PENDING   = 'pending';
 
@@ -46,7 +48,7 @@ class WorkMarksService {
 	 * @param string $sourceType `submission` (работа) | `attempt` (контрольная)
 	 * @param int    $sourceId   ID агрегатной строки сдачи / попытки
 	 *
-	 * @return string[] Значения `correct` | `incorrect` | `pending`; пусто — разбора по заданиям нет
+	 * @return string[] Значения `correct` | `corrected` | `incorrect` | `pending`; пусто — разбора по заданиям нет
 	 */
 	public function marksFor( string $sourceType, int $sourceId ): array {
 		return match ( WorkSourceType::fromValueOrNull( $sourceType ) ) {
@@ -92,11 +94,14 @@ class WorkMarksService {
 			}
 			// Строки первой сдачи прошлых версий лежат без баллов — вердикт тогда из снапшота.
 			if ( null !== $row && SubmissionStatus::Graded === $row->status && null !== $row->score ) {
-				$marks[] = ( $row->score ?? 0.0 ) >= ( $row->maxScore ?? 1.0 ) ? self::CORRECT : self::INCORRECT;
+				$marks[] = ( $row->score ?? 0.0 ) >= ( $row->maxScore ?? 1.0 )
+					? $this->correctMark( $snapshot[ $taskId ] ?? array() )
+					: self::INCORRECT;
 				continue;
 			}
 
-			$marks[] = $this->normalize( $snapshot[ $taskId ]['verdict'] ?? null );
+			$verdict = $this->normalize( $snapshot[ $taskId ]['verdict'] ?? null );
+			$marks[] = self::CORRECT === $verdict ? $this->correctMark( $snapshot[ $taskId ] ) : $verdict;
 		}
 
 		return $marks;
@@ -138,6 +143,11 @@ class WorkMarksService {
 		}
 
 		return $marks;
+	}
+
+	/** Жёлтая отметка вместо зелёной, если в снапшоте задача помечена исправленной. */
+	private function correctMark( mixed $verdict ): string {
+		return is_array( $verdict ) && ! empty( $verdict['corrected'] ) ? self::CORRECTED : self::CORRECT;
 	}
 
 	/** Вердикт из снапшота автопроверки; неизвестное значение — «на проверке». */

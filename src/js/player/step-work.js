@@ -4,6 +4,11 @@
  * модалка подтверждения → SubmitBatchWork; экран результатов с per-task
  * вердиктами (без эталонов — D19) и кнопкой «Пройти заново».
  *
+ * «Проверить ответ» (.docs/Tasks.md, п. 3): у текстовых автозадач ученик может до сдачи
+ * проверить ответ (3 раза на задачу за раунд, CheckWorkTask). Верно — поле закрыто,
+ * чип «Решено верно»; неверно — чип «Решено неверно» до следующей правки ответа.
+ * Верный итог после неверной проверки на экране результатов получает жёлтую отметку.
+ *
  * Пересдача (.docs/Tasks.md, п. 1): ответы прошлой сдачи остаются в полях,
  * засчитанные задания закрыты для правки — ученик исправляет только неверные
  * и нерешённые. Лимит сдач — настройка работы (0 — без ограничений).
@@ -52,6 +57,10 @@ function mountWork( panel, root ) {
 	state.attempts_used   = Number( state.attempts_used ) || 0;
 	state.max_attempts    = Number( state.max_attempts ) || 0;
 	state.locked_task_ids = Array.isArray( state.locked_task_ids ) ? state.locked_task_ids : [];
+	// Проверки текущего раунда: taskId → { status: correct|wrong, used, answer }.
+	const checks    = state.checks && 'object' === typeof state.checks && ! Array.isArray( state.checks ) ? state.checks : {};
+	const checksMax = Number( state.checks_max ) || 0;
+	const checking  = new Set();
 
 	const progressRoot = root.querySelector( '[data-work-progress-root]' );
 	const resultsRoot  = root.querySelector( '[data-work-results-root]' );
@@ -97,10 +106,16 @@ function mountWork( panel, root ) {
 		if ( ! widget ) { return; }
 		widgets.set( taskId, widget );
 
-		const saved = drafts[ taskId ] !== undefined
+		// Приоритет: верная проверка > черновик > последняя проверка > прошлая сдача.
+		const check = checks[ taskId ];
+		let saved   = drafts[ taskId ] !== undefined
 			? drafts[ taskId ]
-			: parseAnswer( state.task_results[ taskId ]?.answer );
+			: ( check ? check.answer : parseAnswer( state.task_results[ taskId ]?.answer ) );
+		if ( check && 'correct' === check.status ) { saved = check.answer; }
 		if ( saved !== undefined && saved !== null ) { widget.setAnswer( saved ); }
+		if ( check && 'correct' === check.status ) { solveByCheck( card, widget ); }
+
+		card.querySelector( '[data-task-check]' )?.addEventListener( 'click', () => runCheck( card ) );
 
 		widget.onChange( () => {
 			drafts[ taskId ] = parseAnswer( widget.collectAnswer() );
@@ -118,12 +133,104 @@ function mountWork( panel, root ) {
 	/** Засчитанные задания прошлой сдачи — при пересдаче закрыты для правки. */
 	const lockedIds = () => new Set( state.locked_task_ids.map( String ) );
 
+	function sameAnswer( a, b ) {
+		return JSON.stringify( a ?? null ) === JSON.stringify( b ?? null );
+	}
+
+	/** Проверка, относящаяся к ответу в поле прямо сейчас (после правки ответа — null). */
+	function activeCheck( card, widget ) {
+		const check = checks[ card.dataset.taskId ];
+		if ( ! check ) { return null; }
+		return 'correct' === check.status || sameAnswer( check.answer, parseAnswer( widget.collectAnswer() ) ) ? check : null;
+	}
+
+	/** Верная проверка закрывает задачу так же, как зачёт при пересдаче. */
+	function solveByCheck( card, widget ) {
+		widget.lock();
+		card.classList.add( 'is-checked' );
+	}
+
+	function updateCheckButton( card, widget ) {
+		const btn = card.querySelector( '[data-task-check]' );
+		if ( ! btn ) { return; }
+
+		const taskId = card.dataset.taskId;
+		const used   = checks[ taskId ]?.used || 0;
+		const left   = Math.max( 0, checksMax - used );
+		const solved = 'correct' === checks[ taskId ]?.status;
+
+		btn.hidden = solved || card.classList.contains( 'is-locked' );
+		// Повторять проверку того же неверного ответа бессмысленно — тратит попытку впустую.
+		const blocked = ! widget.hasAnswer() || 0 === left || checking.has( taskId )
+			|| 'wrong' === activeCheck( card, widget )?.status;
+		btn.disabled = blocked;
+		btn.classList.toggle( 'b-dis', blocked );
+		btn.textContent = 0 === left
+			? 'Проверки закончились'
+			: ( used > 0 ? `Проверить ответ · осталось ${ left }` : 'Проверить ответ' );
+	}
+
+	async function runCheck( card ) {
+		const taskId = card.dataset.taskId;
+		const widget = widgets.get( taskId );
+		if ( ! widget || checking.has( taskId ) ) { return; }
+
+		const answer = widget.collectAnswer();
+		const fd     = new FormData();
+		fd.append( 'action', vars.actions.checkWorkTask );
+		fd.append( 'security', vars.nonces.submitBatchWork );
+		fd.append( 'group_lesson_id', core.groupLessonId );
+		fd.append( 'work_id', workId );
+		fd.append( 'task_id', taskId );
+		fd.append( 'answer', answer );
+
+		checking.add( taskId );
+		updateCheckButton( card, widget );
+
+		let d = null;
+		try {
+			d = await playerPost( fd );
+		} catch ( err ) {
+			const text = err instanceof PlayerRequestError
+				? err.toUserText()
+				: 'Не удалось проверить ответ. Попробуйте ещё раз.';
+			toast( text, 'error' );
+			// Сервер считает проверки точнее: если лимит там уже выбран — синхронизируем кнопку.
+			if ( err instanceof PlayerRequestError && 'W-CHECK-LIMIT' === err.code ) {
+				checks[ taskId ] = Object.assign( { status: 'wrong', answer: undefined }, checks[ taskId ], { used: checksMax } );
+			}
+		}
+		checking.delete( taskId );
+
+		if ( d ) {
+			checks[ taskId ] = {
+				status: d.is_correct ? 'correct' : 'wrong',
+				used  : Number( d.checks_used ) || ( ( checks[ taskId ]?.used || 0 ) + 1 ),
+				answer: parseAnswer( answer ),
+			};
+			if ( d.is_correct ) { solveByCheck( card, widget ); }
+		}
+
+		updateChip( card, widget );
+	}
+
 	function updateChip( card, widget ) {
+		updateCheckButton( card, widget );
+
 		const chip = card.querySelector( '[data-task-chip]' );
 		if ( ! chip ) { return; }
 		if ( card.classList.contains( 'is-locked' ) ) {
 			chip.className = 'stc stc-saved';
 			chip.innerHTML = `${ ICO.check( 11 ) }<span>Засчитано</span>`;
+			return;
+		}
+		const verdict = activeCheck( card, widget );
+		if ( verdict ) {
+			const ok       = 'correct' === verdict.status;
+			chip.className = `stc ${ ok ? 'stc-ok' : 'stc-no' }`;
+			chip.innerHTML = ok
+				? `${ ICO.check( 11 ) }<span>Решено верно</span>`
+				: `${ ICO.cross( 10 ) }<span>Решено неверно</span>`;
 			return;
 		}
 		const has = widget.hasAnswer();
@@ -268,6 +375,9 @@ function mountWork( panel, root ) {
 		clearDrafts( draftKey );
 		clearDrafts( timingKey );
 		timing = null;
+		// Новый раунд — проверки считаются заново; закрытое верной проверкой
+		// теперь закрывает сервер (зачёт), а не карточка.
+		Object.keys( checks ).forEach( ( k ) => delete checks[ k ] );
 
 		const idx = core.panels.indexOf( panel );
 		core.setStatus( idx, 'completed' );
@@ -360,6 +470,8 @@ function mountWork( panel, root ) {
 			vd = 'graded' === result?.status
 				? vdBlock( 'ok', `Проверено · ${ result.score ?? 0 } из ${ result.max_score ?? 1 }`, result?.feedback || '' )
 				: vdBlock( 'wait', 'На проверке у преподавателя', 'Оценка появится после проверки — обычно в течение пары дней.' );
+		} else if ( 'correct' === verdict.verdict && verdict.corrected ) {
+			vd = vdBlock( 'warn', `Верно · +${ verdict.score ?? 1 } балл`, 'Сначала проверка показала ошибку, потом ответ исправлен.' );
 		} else if ( 'correct' === verdict.verdict ) {
 			vd = vdBlock( 'ok', `Верно · +${ verdict.score ?? 1 } балл`, '' );
 		} else {
@@ -410,6 +522,7 @@ function mountWork( panel, root ) {
 			const previous = parseAnswer( state.task_results[ taskId ]?.answer );
 			if ( undefined !== previous && null !== previous && '' !== previous ) { widget.setAnswer( previous ); }
 
+			card.classList.remove( 'is-checked' );
 			card.classList.toggle( 'is-locked', locked.has( taskId ) );
 			if ( locked.has( taskId ) ) {
 				widget.lock();
@@ -443,7 +556,7 @@ function mountWork( panel, root ) {
 /* ── Вспомогательные ──────────────────────────────────────────────────── */
 
 function vdBlock( kind, title, body ) {
-	const icon = 'ok' === kind ? ICO.check( 13 ) : ( 'no' === kind ? ICO.cross( 11 ) : ICO.clock( 13 ) );
+	const icon = 'ok' === kind || 'warn' === kind ? ICO.check( 13 ) : ( 'no' === kind ? ICO.cross( 11 ) : ICO.clock( 13 ) );
 	return `<div class="vd vd-${ kind }"><span class="vi">${ icon }</span><div>` +
 		`<b>${ esc( title ) }</b>` + ( body ? `<span>${ esc( body ) }</span>` : '' ) +
 		'</div></div>';

@@ -291,6 +291,7 @@
 .st-score { margin-left: auto; font-size: rem(12.5); font-weight: 700; color: var(--ink-2); }
 .sum-verdict { font-size: rem(11); font-weight: 700; padding: 1px rem(8); border-radius: 999px; }
 .sv-correct   { background: var(--ok); color: var(--ink-inverse); }
+.sv-corrected { background: var(--wait); color: var(--ink-inverse); }
 .sv-incorrect { background: var(--err); color: var(--ink-inverse); }
 .sv-pending   { background: var(--surface-2); color: var(--muted); }
 .sum-task-cond { font-size: rem(13.5); color: var(--ink-2); line-height: 1.5; }

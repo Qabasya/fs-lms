@@ -173,6 +173,8 @@
   white-space: nowrap;
 
   &.stc-saved { background: var(--accent-soft); color: var(--accent-700); }
+  &.stc-ok    { background: var(--ok-soft); color: var(--ok-text); }
+  &.stc-no    { background: var(--err-soft); color: var(--err-text); }
 
   &.stc-none {
     background: var(--surface-2);

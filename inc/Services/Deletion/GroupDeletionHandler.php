@@ -18,6 +18,7 @@ use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 use Inc\Repositories\WPDBRepositories\SubmissionRepository;
 use Inc\Repositories\WPDBRepositories\SubstitutionRepository;
 use Inc\Repositories\WPDBRepositories\TaskAttemptRepository;
+use Inc\Repositories\WPDBRepositories\WorkTaskCheckRepository;
 use Inc\Services\Course\ContentCloneService;
 use Inc\Shared\Traits\TransactionRunner;
 
@@ -33,6 +34,7 @@ class GroupDeletionHandler {
 		private readonly SubmissionRepository $submissions,
 		private readonly LessonProgressRepository $lessonProgress,
 		private readonly TaskAttemptRepository $taskAttempts,
+		private readonly WorkTaskCheckRepository $workTaskChecks,
 		private readonly LearningEventRepository $learningEvents,
 		private readonly AssessmentAttemptRepository $assessmentAttempts,
 		private readonly AssessmentAnswerRepository $assessmentAnswers,
@@ -55,6 +57,7 @@ class GroupDeletionHandler {
 				$this->submissions->deleteAllByGroupLesson( $lesson->id );
 				$this->lessonProgress->deleteByGroupLesson( $lesson->id );
 				$this->taskAttempts->deleteAllByGroupLesson( $lesson->id );
+				$this->workTaskChecks->deleteAllByGroupLesson( $lesson->id );
 			}
 			// COW-форки уроков группы (Этап 5) — до удаления строк group_lessons,
 			// иначе форки уже не найти (deleteForksForGroup идёт по этим строкам).

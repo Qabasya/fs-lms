@@ -81,6 +81,8 @@ class AuthPageController extends BaseController implements ServiceInterface {
 				'prefill_login' => $this->sanitizeGetText( 'fs_user' ),
 				'consent_url'   => $this->consentUrl(),
 				'logo_url'      => $this->url( 'assets/img/logo.svg' ),
+				'home_url'      => home_url( '/' ),
+				'apply_url'     => PageRoutes::Apply->url(),
 			)
 		);
 

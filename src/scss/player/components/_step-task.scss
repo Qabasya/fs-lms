@@ -166,6 +166,16 @@
   b { color: var(--err-ink); }
 }
 
+.vd-warn {
+  background: var(--wait-soft);
+  border: 1px solid var(--wait-line);
+  color: var(--wait-text);
+
+  .vi { background: var(--wait-accent); }
+
+  b { color: var(--wait-text); }
+}
+
 .vd-wait {
   background: var(--wait-soft);
   border: 1px solid var(--wait-line);

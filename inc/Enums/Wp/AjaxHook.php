@@ -226,6 +226,7 @@ enum AjaxHook: string {
 
 	// ==== Пакетная сдача / ручная оценка (Этап 7) ====
 	case SubmitBatchWork = 'submit_batch_work'; // params: group_lesson_id, work_id, answers (JSON)
+	case CheckWorkTask   = 'check_work_task';   // params: group_lesson_id, work_id, task_id, answer (JSON)
 	// Журнал «Ошибки»: сбой, которого сервер не видел. params: code, message, ref, source_action, page_url, status, snippet
 	case ReportClientError = 'report_client_error';
 	case ExportErrorLog    = 'export_error_log';

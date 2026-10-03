@@ -340,6 +340,8 @@ class WorkDetailService {
 				'task_submission_id' => $row?->id,
 				'manually_graded'    => $manuallyGraded,
 				'answered_at'        => $answeredAt[ $taskId ] ?? null,
+				// Верно после ошибки в проверке кнопкой до сдачи (жёлтая отметка).
+				'corrected'          => 'correct' === $verdict && ! $manuallyGraded && ! empty( $pt['corrected'] ),
 			);
 		}
 

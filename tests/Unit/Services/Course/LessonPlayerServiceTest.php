@@ -88,6 +88,7 @@ class LessonPlayerServiceTest extends TestCase {
 			$this->submissionService,
 			$this->stepRenderer,
 			$this->createMock( CourseNavService::class ),
+			$this->createMock( \Inc\Services\Course\WorkTaskCheckService::class ),
 		);
 	}
 

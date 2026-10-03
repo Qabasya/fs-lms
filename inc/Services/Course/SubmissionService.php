@@ -22,6 +22,7 @@ use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Repositories\WPDBRepositories\SubmissionRepository;
 use Inc\Repositories\WPDBRepositories\TaskAttemptRepository;
+use Inc\Repositories\WPDBRepositories\WorkTaskCheckRepository;
 use Inc\Shared\CodedException;
 
 class SubmissionService {
@@ -39,6 +40,7 @@ class SubmissionService {
 		private readonly TaskAttemptRepository       $attempts,
 		private readonly PersonRepository            $persons,
 		private readonly HomeworkDeadlineService     $deadlines,
+		private readonly WorkTaskCheckRepository     $workTaskChecks,
 	) {}
 
 	/** В ленту пишется WP-пользователь, а не персона (actor_user_id резолвится через get_userdata()). */
@@ -223,7 +225,8 @@ class SubmissionService {
 		}
 
 		// Итог работы: прежние вердикты засчитанных заданий + свежие по остальным.
-		$perTask = array_intersect_key( $previousVerdicts, array_flip( $locked ) ) + $result->perTask;
+		$fresh   = $this->markCorrected( $result->perTask, $studentPersonId, $groupLessonId, $workId, $attemptsUsed + 1 );
+		$perTask = array_intersect_key( $previousVerdicts, array_flip( $locked ) ) + $fresh;
 		ksort( $perTask );
 
 		$correctCount = count( array_filter( $perTask, static fn( $v ) => 'correct' === ( $v['verdict'] ?? '' ) ) );
@@ -294,6 +297,32 @@ class SubmissionService {
 		$updated = $this->submissions->findAggregate( $studentPersonId, $groupLessonId, $workId );
 		assert( $updated !== null );
 		return $updated;
+	}
+
+	/**
+	 * Помечает `corrected` задания, верные в итоге, но проверенные кнопкой с
+	 * ошибкой раньше в этом же раунде сдачи — отметка «верно с исправлением».
+	 * Вердикт остаётся `correct`: засчитывание, блокировка и счётчики его не различают.
+	 *
+	 * @param array<int|string, array<string, mixed>> $verdicts Свежие вердикты батч-проверки
+	 *
+	 * @return array<int|string, array<string, mixed>>
+	 */
+	private function markCorrected( array $verdicts, int $studentPersonId, int $groupLessonId, int $workId, int $round ): array {
+		$wrong = array();
+		foreach ( $this->workTaskChecks->listByRound( $studentPersonId, $groupLessonId, $workId, $round ) as $check ) {
+			if ( ! $check->isCorrect ) {
+				$wrong[ $check->taskId ] = true;
+			}
+		}
+
+		foreach ( $verdicts as $taskId => $verdict ) {
+			if ( isset( $wrong[ $taskId ] ) && 'correct' === ( $verdict['verdict'] ?? '' ) ) {
+				$verdicts[ $taskId ]['corrected'] = true;
+			}
+		}
+
+		return $verdicts;
 	}
 
 	/**

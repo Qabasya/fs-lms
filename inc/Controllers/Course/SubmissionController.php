@@ -33,6 +33,7 @@ class SubmissionController extends AjaxController {
 			array( AjaxHook::GetWorkAttemptHistory, $this->gradingCallbacks ),
 			array( AjaxHook::ResetAttempts,         $this->gradingCallbacks ),
 			array( AjaxHook::SubmitBatchWork,       $this->batchCallbacks ),
+			array( AjaxHook::CheckWorkTask,         $this->batchCallbacks ),
 			array( AjaxHook::GradeBatchTask,        $this->batchCallbacks ),
 			array( AjaxHook::GetPendingWorks,       $this->reviewQueueCallbacks ),
 			array( AjaxHook::GetWorkSubmissions,    $this->reviewQueueCallbacks ),

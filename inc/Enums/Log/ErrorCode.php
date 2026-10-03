@@ -43,6 +43,8 @@ enum ErrorCode: string {
 	case WorkDeadline    = 'W-DEADLINE';
 	case WorkLimit       = 'W-LIMIT';
 	case WorkNothing     = 'W-NOTHING';
+	case WorkCheckLimit  = 'W-CHECK-LIMIT';
+	case WorkCheckKind   = 'W-CHECK-KIND';
 
 	/** Что означает код — подпись в журнале и фильтре. */
 	public function label(): string {
@@ -61,6 +63,8 @@ enum ErrorCode: string {
 			self::WorkDeadline    => 'Работа: срок сдачи истёк',
 			self::WorkLimit       => 'Работа: попытки исчерпаны',
 			self::WorkNothing     => 'Работа: нечего пересдавать',
+			self::WorkCheckLimit  => 'Работа: проверки ответа исчерпаны',
+			self::WorkCheckKind   => 'Работа: задание не проверяется кнопкой',
 		};
 	}
 

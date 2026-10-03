@@ -44,6 +44,7 @@ class LessonPlayerService {
 		private readonly SubmissionService            $submissionService,
 		private readonly StepContentRenderer          $stepRenderer,
 		private readonly CourseNavService             $nav,
+		private readonly WorkTaskCheckService         $taskChecks,
 	) {}
 
 	/**
@@ -220,6 +221,10 @@ class LessonPlayerService {
 				$bundle['widget_data'] = array( 'type' => 'text_answer' );
 			}
 
+			// Кнопка «Проверить ответ»: только текстовые автозадания.
+			$bundle['check_enabled'] = $bundle['auto_grade']
+				&& TaskTemplate::from( $bundle['template'] )->allowsInlineCheck();
+
 			// Эталон каждой задачи работы — только преподавателю («Показать решение»).
 			$solution = $isTeacher ? $this->solutions->forTask( (int) $taskId, $bundle['meta'] ) : null;
 			unset( $bundle['meta'] );
@@ -247,6 +252,9 @@ class LessonPlayerService {
 			'max_attempts'    => $work->maxAttempts,
 			// Засчитанные задания: при пересдаче их ответы остаются, но правке закрыты.
 			'locked_task_ids' => $this->submissionService->lockedTaskIds( $studentPersonId, $groupLesson->id, $workId ),
+			// Проверки ответа кнопкой в текущем раунде сдачи: состояние чипов после перезагрузки.
+			'checks'          => $this->taskChecks->state( $studentPersonId, $groupLesson->id, $workId ),
+			'checks_max'      => WorkTaskCheckService::MAX_CHECKS,
 		) + $this->currentSubmission( $studentPersonId, $groupLesson->id, $workId );
 	}
 

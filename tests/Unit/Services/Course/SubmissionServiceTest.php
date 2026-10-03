@@ -44,6 +44,7 @@ class SubmissionServiceTest extends TestCase {
 	private ClockInterface&\PHPUnit\Framework\MockObject\MockObject $clock;
 	private TaskAttemptRepository&\PHPUnit\Framework\MockObject\MockObject $taskAttempts;
 	private PersonRepository&\PHPUnit\Framework\MockObject\MockObject $persons;
+	private \Inc\Repositories\WPDBRepositories\WorkTaskCheckRepository&\PHPUnit\Framework\MockObject\MockObject $workTaskChecks;
 	private SubmissionService $service;
 
 	protected function setUp(): void {
@@ -60,6 +61,7 @@ class SubmissionServiceTest extends TestCase {
 		$this->clock->method( 'now' )->willReturn( '2024-06-01 12:00:00' );
 		$this->taskAttempts = $this->createMock( TaskAttemptRepository::class );
 		$this->persons      = $this->createMock( PersonRepository::class );
+		$this->workTaskChecks = $this->createMock( \Inc\Repositories\WPDBRepositories\WorkTaskCheckRepository::class );
 
 		$this->service = new SubmissionService(
 			$this->submissions,
@@ -78,6 +80,7 @@ class SubmissionServiceTest extends TestCase {
 				$this->createStub( \Inc\Services\Course\LessonVisibilityService::class ),
 				$this->groupLessons,
 			),
+			$this->workTaskChecks,
 		);
 	}
 
@@ -247,6 +250,51 @@ class SubmissionServiceTest extends TestCase {
 			);
 
 		$this->service->submitBatch( 10, 5, 3, array( 1 => 'a' ) );
+	}
+
+	/** Верно после неверной проверки кнопкой в этом раунде — вердикт помечается `corrected`. */
+	public function test_submit_batch_marks_corrected_after_wrong_check(): void {
+		$this->arrangeBatch( $this->makeRow() );
+		$this->workTaskChecks->expects( $this->once() )->method( 'listByRound' )
+			->with( 10, 5, 3, 1 )
+			->willReturn( array( new \Inc\DTO\Course\WorkTaskCheckDTO( 1, 1, 1, 'b', false ) ) );
+
+		$verdicts = null;
+		$this->submissions->method( 'create' )->willReturnCallback(
+			function ( $input ) use ( &$verdicts ): int {
+				if ( null === $input->taskId ) {
+					$verdicts = json_decode( (string) $input->answerText, true );
+				}
+				return 1;
+			}
+		);
+
+		$this->service->submitBatch( 10, 5, 3, array( 1 => 'a' ) );
+
+		self::assertSame( 'correct', $verdicts[1]['verdict'] );
+		self::assertTrue( $verdicts[1]['corrected'] );
+	}
+
+	/** Верная проверка без ошибок до неё — обычная зелёная отметка. */
+	public function test_submit_batch_without_wrong_check_is_not_corrected(): void {
+		$this->arrangeBatch( $this->makeRow() );
+		$this->workTaskChecks->method( 'listByRound' )->willReturn(
+			array( new \Inc\DTO\Course\WorkTaskCheckDTO( 1, 1, 1, 'a', true ) )
+		);
+
+		$verdicts = null;
+		$this->submissions->method( 'create' )->willReturnCallback(
+			function ( $input ) use ( &$verdicts ): int {
+				if ( null === $input->taskId ) {
+					$verdicts = json_decode( (string) $input->answerText, true );
+				}
+				return 1;
+			}
+		);
+
+		$this->service->submitBatch( 10, 5, 3, array( 1 => 'a' ) );
+
+		self::assertArrayNotHasKey( 'corrected', $verdicts[1] );
 	}
 
 	/** Общая обвязка успешного пути submitBatch: доступ, работа, пустой вердикт. */

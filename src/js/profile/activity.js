@@ -15,7 +15,7 @@
    ══════════════════════════════════════════════════════════════════════ */
 
 import { esc, emptyState, fmtDateTime, fmtDate, fmtNum, plural } from './utils.js';
-import { icoCaret, icoCheck, icoCross, icoJournal } from '../common/icons.js';
+import { icoCaret, icoCheck, icoChevronRight, icoCross, icoJournal } from '../common/icons.js';
 import { createApi } from './api.js';
 import { openGroupPicker } from './picker.js';
 
@@ -45,6 +45,20 @@ const EVENT_LABELS = {
     'learning.lesson_hidden':     'Тема скрыта',
 };
 
+/**
+ * События, у которых есть «сама сущность» — работа или попытка контрольной: по клику
+ * открывается её экран проверки. entity_type события → source_type экрана проверки.
+ * Начало попытки не в списке: сдавать там ещё нечего.
+ */
+const WORK_SOURCE = {
+    'learning.submission_made':     'submission',
+    'learning.submission_graded':   'submission',
+    'learning.submission_returned': 'submission',
+    'learning.attempt_submitted':   'attempt',
+    'learning.attempt_graded':      'attempt',
+    'learning.attempt_expired':     'attempt',
+};
+
 /** Вкладки-ленты журнала: ключ = параметр `feed` запроса. */
 const FEEDS = {
     events: { title: 'Лента событий',     empty: 'По этой группе событий пока нет.' },
@@ -56,9 +70,12 @@ let state = null;
 let apiEvents = null;
 let apiProgram = null;
 let apiAttempts = null;
+let openWorkReviewCb = null;
 
-export function renderActivity(r) {
+/** @param {{ openWorkReview?: (sourceType: string, sourceId: number) => void }} [opts] */
+export function renderActivity(r, opts = {}) {
     root = r;
+    openWorkReviewCb = typeof opts.openWorkReview === 'function' ? opts.openWorkReview : null;
     const p = window.fsProfile || {};
     const cfg = p.activity || null;
 
@@ -220,15 +237,23 @@ function eventsBody() {
 function eventRow(e) {
     const label = EVENT_LABELS[e.action] || e.action;
     const actor = e.actor ? esc(e.actor) : 'система';
-
-    return `
-    <div class="act-event">
+    const inner = `
         <div class="act-event-main">
             <span class="act-event-label">${esc(label)}</span>
             <span class="act-event-actor">${actor}</span>
         </div>
-        <time class="act-event-time">${esc(fmtDateTime(e.created_at))}</time>
-    </div>`;
+        <time class="act-event-time">${esc(fmtDateTime(e.created_at))}</time>`;
+
+    // Работа или попытка → строка ведёт на экран её проверки.
+    const srcType = WORK_SOURCE[e.action];
+    const srcId   = Number(e.entity_id);
+    if (openWorkReviewCb && srcType && srcType === e.entity_type && srcId > 0) {
+        return `<button type="button" class="act-event act-event--link" data-src-type="${srcType}" data-src-id="${srcId}" title="Открыть работу">
+            ${inner}${icoChevronRight(14)}
+        </button>`;
+    }
+
+    return `<div class="act-event">${inner}</div>`;
 }
 
 function attemptsBody() {
@@ -380,6 +405,10 @@ function wire() {
         // Данные вкладки могли не грузиться ни разу — тогда тянем, иначе рисуем из состояния.
         const loaded = FEEDS[state.tab] ? state.feeds[state.tab] : state.lessons;
         if (loaded) { render(); } else { loadTab(); }
+    }));
+
+    root.querySelectorAll('.act-event--link').forEach(row => row.addEventListener('click', () => {
+        if (openWorkReviewCb) { openWorkReviewCb(row.dataset.srcType, +row.dataset.srcId); }
     }));
 
     const more = root.querySelector('[data-act="more"]');

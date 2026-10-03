@@ -51,7 +51,12 @@ $work_state     = array(
 	'max_attempts'    => (int) ( $render['max_attempts'] ?? 0 ),
 	// Засчитанные задания: при пересдаче ответ остаётся, правка закрыта.
 	'locked_task_ids' => array_map( 'intval', (array) ( $render['locked_task_ids'] ?? array() ) ),
+	// Проверки ответа кнопкой в текущем раунде (чипы «Решено верно/неверно» после перезагрузки).
+	'checks'          => (object) ( $render['checks'] ?? array() ),
+	'checks_max'      => (int) ( $render['checks_max'] ?? 0 ),
 );
+// «Проверить ответ» — только ученику: в предпросмотре и teacher-режиме проверка идёт сдачей целиком.
+$work_can_check = empty( $is_preview ) && empty( $is_teacher );
 $work_meta_line = sprintf(
 	/* translators: 1: work type label, 2: task count, 3: total points */
 	__( '%1$s · задач: %2$d · баллов: %3$d · ответы можно менять до завершения', 'fs-lms' ),
@@ -106,6 +111,7 @@ $work_meta_line = sprintf(
 
 		<div class="wstack">
 			<?php foreach ( $work_tasks as $work_i => $work_task ) : ?>
+				<?php $work_task_checkable = $work_can_check && ! empty( $work_task['check_enabled'] ); ?>
 				<div class="a-task"
 					data-task-id="<?php echo esc_attr( (string) $work_task['task_id'] ); ?>"
 					data-auto="<?php echo esc_attr( $work_task['auto_grade'] ? '1' : '0' ); ?>"
@@ -114,7 +120,11 @@ $work_meta_line = sprintf(
 						<span class="tkn"><?php echo esc_html( (string) ( $work_i + 1 ) ); ?></span>
 						<b><?php echo esc_html( (string) $work_task['title'] ); ?></b>
 						<span class="stc stc-none" data-task-chip><?php esc_html_e( 'Нет ответа', 'fs-lms' ); ?></span>
-						<span class="pts"><?php esc_html_e( '1 балл', 'fs-lms' ); ?></span>
+						<?php if ( $work_task_checkable ) : ?>
+							<button type="button" class="b b-sm b-dis" data-task-check disabled><?php esc_html_e( 'Проверить ответ', 'fs-lms' ); ?></button>
+						<?php else : ?>
+							<span class="pts"><?php esc_html_e( '1 балл', 'fs-lms' ); ?></span>
+						<?php endif; ?>
 					</div>
 
 					<?php if ( ! empty( $work_task['condition_html'] ) && is_string( $work_task['condition_html'] ) ) : ?>
@@ -135,9 +145,19 @@ $work_meta_line = sprintf(
 							data-widget='<?php echo esc_attr( (string) wp_json_encode( $work_task['widget_data'] ?? array() ) ); ?>'></div>
 						<span class="wnote">
 							<?php
-							echo $work_task['auto_grade']
-								? esc_html__( 'Ответ сохраняется автоматически · правильность станет видна после завершения', 'fs-lms' )
-								: esc_html__( 'Развёрнутый ответ оценивает преподаватель после завершения работы', 'fs-lms' );
+							if ( $work_task_checkable ) {
+								echo esc_html(
+									sprintf(
+										/* translators: %d: сколько раз можно проверить ответ на задачу */
+										__( 'Ответ сохраняется автоматически · можно проверить до завершения (до %d раз)', 'fs-lms' ),
+										(int) ( $render['checks_max'] ?? 0 )
+									)
+								);
+							} elseif ( $work_task['auto_grade'] ) {
+								esc_html_e( 'Ответ сохраняется автоматически · правильность станет видна после завершения', 'fs-lms' );
+							} else {
+								esc_html_e( 'Развёрнутый ответ оценивает преподаватель после завершения работы', 'fs-lms' );
+							}
 							?>
 						</span>
 						<?php

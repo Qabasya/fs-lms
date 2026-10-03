@@ -186,6 +186,19 @@ enum TaskTemplate: string {
 	}
 
 	/**
+	 * Можно ли проверить ответ кнопкой «Проверить ответ» внутри работы, до сдачи.
+	 *
+	 * Только текстовые ответы с автопроверкой: выбор варианта, сопоставление и
+	 * сортировка перебираются за пару нажатий, а ручные шаблоны проверить нечем.
+	 */
+	public function allowsInlineCheck(): bool {
+		return ! $this->needsManualReview() && ! match ( $this ) {
+			self::Choice, self::Matching, self::Ordering => true,
+			default => false,
+		};
+	}
+
+	/**
 	 * Проверку выполняет только преподаватель: чекера в `TaskCheckerRegistry`
 	 * нет, ответ уходит в pending, балл ставится вручную. Шире, чем
 	 * {@see isFileAnswerShape()}: у «Задания Робо» ответ — код, а не файл.

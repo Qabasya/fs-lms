@@ -7,10 +7,14 @@
  * @var string $prefill_login Логин из неудачной попытки
  * @var string $consent_url   URL согласия на обработку ПДн; '' — сноску не показываем
  * @var string $logo_url      URL логотипа центра
+ * @var string $home_url      URL главной сайта (логотип ведёт на неё)
+ * @var string $apply_url     URL страницы подачи заявки на обучение
  */
 ?>
 <div class="fs-auth-brand">
-	<img class="fs-auth-brand__logo" src="<?php echo esc_url( $logo_url ); ?>" alt="Шаг в будущее">
+	<a class="fs-auth-brand__home" href="<?php echo esc_url( $home_url ); ?>">
+		<img class="fs-auth-brand__logo" src="<?php echo esc_url( $logo_url ); ?>" alt="Шаг в будущее">
+	</a>
 	<p class="fs-auth-brand__name">
 		Образовательный центр «Шаг в будущее»
 		<span class="fs-auth-brand__city">Калининград</span>
@@ -63,8 +67,11 @@
 	<?php // Сноска — только когда согласие на обработку ПДн заведено: ссылка в никуда хуже её отсутствия. ?>
 	<?php if ( '' !== $consent_url ) : ?>
 		<div class="fs-auth-card__footer">
-			Входя в систему, вы соглашаетесь с<br>
-			<a href="<?php echo esc_url( $consent_url ); ?>">политикой обработки персональных данных</a>.
+			Входя в систему, вы соглашаетесь с <a href="<?php echo esc_url( $consent_url ); ?>">политикой обработки данных</a>.
 		</div>
 	<?php endif; ?>
 </div>
+
+<p class="fs-auth-apply">
+	В первый раз? <a href="<?php echo esc_url( $apply_url ); ?>">Подай заявку на обучение</a>
+</p>

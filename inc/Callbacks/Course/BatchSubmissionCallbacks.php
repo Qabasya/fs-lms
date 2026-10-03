@@ -15,6 +15,7 @@ use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Repositories\WPDBRepositories\SubmissionRepository;
 use Inc\Services\Course\GroupAccessGuard;
 use Inc\Services\Course\SubmissionService;
+use Inc\Services\Course\WorkTaskCheckService;
 use Inc\Shared\CodedException;
 use Inc\Shared\Traits\Authorizer;
 use Inc\Shared\Traits\AjaxResponse;
@@ -40,6 +41,7 @@ class BatchSubmissionCallbacks extends BaseController {
 		private readonly GroupLessonRepository $groupLessons,
 		private readonly GroupAccessGuard      $guard,
 		private readonly WorkManager           $works,
+		private readonly WorkTaskCheckService  $taskChecks,
 	) {
 		parent::__construct();
 	}
@@ -118,6 +120,49 @@ class BatchSubmissionCallbacks extends BaseController {
 			$this->fail( $e->errorCode, $e->getMessage(), $logContext );
 		} catch ( \InvalidArgumentException $e ) {
 			$this->fail( ErrorCode::Ajax, $e->getMessage(), $logContext );
+		}
+	}
+
+	/**
+	 * Ученик проверяет один ответ кнопкой «Проверить ответ» — до сдачи работы.
+	 * Эталона в ответе нет, только вердикт и счётчик проверок.
+	 *
+	 * POST: group_lesson_id, work_id, task_id, answer (JSON), security
+	 */
+	public function ajaxCheckWorkTask(): void {
+		Nonce::SubmitBatchWork->verify();
+
+		$groupLessonId = $this->requireInt( 'group_lesson_id' );
+		$workId        = $this->requireInt( 'work_id' );
+		$taskId        = $this->requireInt( 'task_id' );
+		$rawAnswer     = $this->sanitizeAnswerText( 'answer' );
+
+		$logContext = array(
+			'group_lesson_id' => $groupLessonId,
+			'work_id'         => $workId,
+			'task_id'         => $taskId,
+		);
+
+		$person = $this->persons->findByWpUserId( get_current_user_id() );
+		if ( ! $person ) {
+			$this->fail( ErrorCode::WorkProfile, 'Профиль не найден.', $logContext );
+			return;
+		}
+
+		// Как и сдача: проверять ответ может только ученик занятия — преподаватель
+		// в teacher-режиме кнопки не видит, но ручка обязана держаться и сама.
+		$groupLesson = $this->groupLessons->find( $groupLessonId );
+		if ( ! $groupLesson || ! $this->guard->isMemberEver( $groupLesson->groupId, $person->id ) ) {
+			$this->fail( ErrorCode::WorkNotMember, 'Ответы на этом занятии проверяют только его ученики.', $logContext );
+			return;
+		}
+
+		try {
+			$this->success(
+				$this->taskChecks->check( $person->id, $groupLessonId, $workId, $taskId, json_decode( $rawAnswer, true ) ?? $rawAnswer )
+			);
+		} catch ( CodedException $e ) {
+			$this->fail( $e->errorCode, $e->getMessage(), $logContext );
 		}
 	}
 

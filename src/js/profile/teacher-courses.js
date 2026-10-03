@@ -75,6 +75,10 @@ export function renderTeacherCourses(screenRoot) {
 export function openTeacherCourse(courseId) {
     if (!root) { return; }
     state.active = Number(courseId);
+    // Адрес помнит открытый курс: после перезагрузки страница откроется на нём же.
+    const url = new URL(window.location.href);
+    url.searchParams.set('course', String(state.active));
+    window.history.replaceState(window.history.state, '', url);
     state.query = '';
     const search = root.querySelector('#tcSearch');
     if (search) { search.value = ''; }
