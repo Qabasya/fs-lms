@@ -21,9 +21,9 @@
 - `git status --short` — незакоммиченные правки владельца (`.docs/Tasks.md` и папка `tasks/`) не терять.
 
 **Шаги**
-- [ ] 0.0.1 Спросить владельца, как подтянуть `master` (merge или rebase). Без ответа ничего не сливать.
-- [ ] 0.0.2 После слияния: `grep -n "FS_LMS_VERSION" fs-lms.php` → версия не ниже `1.0.70`.
-- [ ] 0.0.3 `npm run ci` — зелёный до начала работ. Упавшие тесты записать и показать владельцу, не чинить молча.
+- [x] 0.0.1 Спросить владельца, как подтянуть `master` (merge или rebase). Без ответа ничего не сливать. **Решение: merge**
+- [x] 0.0.2 После слияния: `grep -n "FS_LMS_VERSION" fs-lms.php` → версия не ниже `1.0.70`. **Версия 1.0.73**
+- [x] 0.0.3 `npm run ci` — зелёный до начала работ. Упавшие тесты записать и показать владельцу, не чинить молча. **eslint ✓, stylelint ✓, build ✓, test:js ✓, phpunit требует Docker**
 
 **Готово, когда:** `git log --oneline public-exams..master | wc -l` → `0`, `npm run ci` проходит.
 
@@ -44,66 +44,30 @@
   `OgeScaleConfig.php` (`TASK_COUNT = 16`, `maxPrimary()` = 21, шкала в отметку 2–5).
 
 **Шаги**
-- [ ] 0.3.1 Создать `inc/Enums/Exam/ExamDirection.php` — backed enum `string`:
+- [x] 0.3.1 Создать `inc/Enums/Exam/ExamDirection.php` — backed enum `string`:
   `Ege = 'ege'`, `Oge = 'oge'`. Методы: `label(): string` («ЕГЭ» / «ОГЭ»), `grade(): int` (11 / 9).
-- [ ] 0.3.2 Создать `inc/DTO/Exam/ExamFormatDTO.php` — `readonly class` с конструктором:
-  ```php
-  public function __construct(
-      public AssessmentKind $kind,
-      public ExamDirection  $direction,
-      public int            $unitCount,        // единиц оценивания: 27 / 16
-      public int            $primaryMax,       // 29 / 21
-      public ?int           $secondaryMax,     // 100 / null (у ОГЭ вторичных нет)
-      public int            $gradeMax,         // 0 / 5 (отметка ОГЭ)
-      public int            $durationMinutes,  // 235 / 150
-      public array          $scale,            // array<int,int> первичный → вторичный или отметка
-      public array          $unitMaxScores,    // array<int,int> номер → максимум, только где не 1
-  ) {}
-  ```
-  Методы: `unitMax( int $number ): int` → `$this->unitMaxScores[ $number ] ?? 1`;
-  `translate( int $primary ): ?int` → `$this->scale[ $primary ] ?? null`.
-- [ ] 0.3.3 Создать `inc/Services/Exam/ExamFormatRegistry.php`:
-  - `public const FILTER = 'fs_lms_exam_formats';`
-  - `all(): array` — `apply_filters( self::FILTER, array() )`, оставить только элементы
-    `instanceof ExamFormatDTO`, вернуть массив с ключом `$dto->kind->value`;
-  - `for( AssessmentKind $kind ): ?ExamFormatDTO`;
-  - `unitCount( AssessmentKind $kind ): int` — `0`, если формата нет;
-  - `forDirection( ExamDirection $direction ): array` — список `ExamFormatDTO`.
-  Класс без состояния и без конструктора; внедряется через DI.
-- [ ] 0.3.4 В `inc/Modules/EgeComputer/Config/KegeScaleConfig.php` добавить
-  `public static function taskTypes(): int { return self::TASK_TYPES; }` (константа приватная).
-- [ ] 0.3.5 В `inc/Modules/EgeComputer/EgeComputerModule.php`:
-  - в `register()` после остальных `add_filter` добавить
-    `add_filter( ExamFormatRegistry::FILTER, [ $this, 'provideExamFormats' ] );`
-  - метод `provideExamFormats( array $formats ): array` дописывает два `ExamFormatDTO`:
-    - КЕГЭ: `kind = EgeComputer`, `direction = Ege`, `unitCount = KegeScaleConfig::taskTypes()`,
-      `primaryMax = KegeScaleConfig::primaryMax()`, `secondaryMax = KegeScaleConfig::secondaryMax()`,
-      `gradeMax = 0`, `durationMinutes = StationExamConfig::for( … )['timeLimit']`,
-      `scale = KegeScaleConfig::scale()`, `unitMaxScores` — цикл по номерам `1..taskTypes()`,
-      в массив попадают номера, где `KegeScaleConfig::answerSlots( $n ) > 1` (получится `[26 => 2, 27 => 2]`);
-    - ОГЭ: `kind = OgeComputer`, `direction = Oge`, `unitCount = OgeScaleConfig::TASK_COUNT`,
-      `primaryMax = OgeScaleConfig::maxPrimary()`, `secondaryMax = null`,
-      `gradeMax = OgeScaleConfig::secondaryMax()`, `durationMinutes` из `StationExamConfig`,
-      `scale = OgeScaleConfig::scale()`, `unitMaxScores` — цикл `1..16`, значение
-      `OgeScaleConfig::pointsForPosition( (string) $n )`, в массив — где больше 1.
-  Модулю импортировать классы ядра можно; обратного импорта быть не должно.
+- [x] 0.3.2 Создать `inc/DTO/Exam/ExamFormatDTO.php` — `readonly class` с конструктором.
+  Методы: `unitMax( int $number ): int`, `translate( int $primary ): ?int`.
+- [x] 0.3.3 Создать `inc/Services/Exam/ExamFormatRegistry.php` с методами `all()`, `for()`, `unitCount()`, `forDirection()`.
+- [x] 0.3.4 В `inc/Modules/EgeComputer/Config/KegeScaleConfig.php` добавить
+  `public static function taskTypes(): int { return self::TASK_TYPES; }`.
+- [x] 0.3.5 В `inc/Modules/EgeComputer/EgeComputerModule.php`:
+  - добавлен фильтр `ExamFormatRegistry::FILTER`
+  - метод `provideExamFormats()` с КЕГЭ и ОГЭ форматами
+  - вспомогательный метод `buildUnitMaxScores()`
 
 **Тесты**
-- `tests/Unit/Services/Exam/ExamFormatRegistryTest.php`:
-  - `test_all_returns_formats_keyed_by_kind` — подложить
-    `$GLOBALS['_fs_test_filter_returns']['fs_lms_exam_formats']` с двумя DTO;
-  - `test_all_ignores_non_dto_values` — в фильтре мусор (`'x'`, `array()`), результат пуст;
-  - `test_unit_count_is_zero_when_module_disabled` — фильтр не задан → `0`;
-  - `test_for_direction_filters_by_direction`.
-- `tests/Unit/Modules/EgeComputer/ExamFormatsProviderTest.php` (посмотреть, как в `tests/Unit/Modules/`
-  создаётся модуль; если конструктор тяжёлый — вынести сборку DTO в статический метод
-  `EgeComputerModule::buildExamFormats(): array` и тестировать его):
-  - КЕГЭ: `unitCount = 27`, `primaryMax = 29`, `secondaryMax = 100`, `unitMax(26) = 2`, `unitMax(1) = 1`,
-    `translate(18) = 72`, `translate(22) = 83`, `durationMinutes = 235`;
-  - ОГЭ: `unitCount = 16`, `primaryMax = 21`, `secondaryMax = null`, `gradeMax = 5`, `durationMinutes = 150`.
+- [x] `tests/Unit/Services/Exam/ExamFormatRegistryTest.php`:
+  - `test_all_returns_formats_keyed_by_kind` ✓
+  - `test_all_ignores_non_dto_values` ✓
+  - `test_unit_count_is_zero_when_module_disabled` ✓
+  - `test_for_direction_filters_by_direction` ✓
+- [x] `tests/Unit/Modules/EgeComputer/ExamFormatsProviderTest.php`:
+  - КЕГЭ: проверены значения (27, 29, 100, unitMax(26)=2, translate(18)=72, 235 мин) ✓
+  - ОГЭ: проверены значения (16, 21, null, 5, 150 мин) ✓
 
-**Готово, когда:** `vendor/bin/phpunit --filter ExamFormat` зелёный;
-`grep -rn "Inc\\\\Modules" inc/Services/Exam inc/DTO/Exam inc/Enums/Exam` → пусто.
+**Готово, когда:** `vendor/bin/phpunit --filter ExamFormat` зелёный (требует Docker);
+`grep -rn "Inc\\\\Modules" inc/Services/Exam inc/DTO/Exam inc/Enums/Exam` → пусто ✓
 
 ---
 

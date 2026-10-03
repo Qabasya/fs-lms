@@ -108,6 +108,11 @@ class KegeScaleConfig {
 		return max( self::SCALE );
 	}
 
+	/** Число типов заданий в КИМ КЕГЭ. */
+	public static function taskTypes(): int {
+		return self::TASK_TYPES;
+	}
+
 	/**
 	 * Сколько позиций ответа занимает задание в листе ответов. Оно же —
 	 * максимальный первичный балл задания: балл начисляется за каждый ответ.

@@ -9,7 +9,9 @@ use Inc\Controllers\Pages\AssessmentPageController;
 use Inc\Core\Assets\BundleLoader;
 use Inc\DTO\Assessment\AssessmentDTO;
 use Inc\DTO\Assessment\AttemptDTO;
+use Inc\DTO\Exam\ExamFormatDTO;
 use Inc\Enums\Assessment\AssessmentKind;
+use Inc\Enums\Exam\ExamDirection;
 use Inc\Managers\Assessment\AssessmentManager;
 use Inc\Modules\EgeComputer\Callbacks\KegeFilesZipCallbacks;
 use Inc\Modules\EgeComputer\Callbacks\PreviewResultCallbacks;
@@ -20,6 +22,7 @@ use Inc\Modules\EgeComputer\Config\OgeScaleConfig;
 use Inc\Modules\EgeComputer\Config\StationExamConfig;
 use Inc\Modules\EgeComputer\DTO\KegeSheetDTO;
 use Inc\Modules\EgeComputer\Services\KegeResultSheetService;
+use Inc\Services\Exam\ExamFormatRegistry;
 use Inc\Services\Assessment\ArchiveTaskNumber;
 use Inc\Services\Assessment\AttemptRevealPolicy;
 use Inc\Services\Assessment\EgeCompletenessChecker;
@@ -67,6 +70,7 @@ class EgeComputerModule implements ServiceInterface {
 		add_filter( WorkDetailService::OGE_RUBRIC_FILTER, [ $this, 'resolveOgeRubric' ], 10, 3 );
 		add_filter( WorkDetailService::TABLE_ANSWER_FILTER, [ $this, 'resolveTableAnswer' ], 10, 3 );
 		add_filter( EgeCompletenessChecker::EXTRA_POSITIONS_FILTER, [ $this, 'resolveExtraPositions' ], 10, 3 );
+		add_filter( ExamFormatRegistry::FILTER, [ $this, 'provideExamFormats' ] );
 
 		// Лист ответов предпросмотра (T15.10-preview): попытки в БД нет, поэтому
 		// накопленные в JS ответы приходят на этот эндпоинт напрямую — см. PreviewResultCallbacks.
@@ -271,5 +275,60 @@ class EgeComputerModule implements ServiceInterface {
 		add_filter( AssessmentPageController::KEGE_ROUTE_FILTER, '__return_true' );
 
 		return $resolved;
+	}
+
+	/**
+	 * Публикует ядру форматы экзаменов КЕГЭ и ОГЭ для проведений.
+	 */
+	public function provideExamFormats( array $formats ): array {
+		// КЕГЭ
+		$formats[] = new ExamFormatDTO(
+			kind          : AssessmentKind::EgeComputer,
+			direction     : ExamDirection::Ege,
+			unitCount     : KegeScaleConfig::taskTypes(),
+			primaryMax    : KegeScaleConfig::primaryMax(),
+			secondaryMax  : KegeScaleConfig::secondaryMax(),
+			gradeMax      : 0,
+			durationMinutes: StationExamConfig::for( AssessmentKind::EgeComputer )['timeLimit'],
+			scale         : KegeScaleConfig::scale(),
+			unitMaxScores : $this->buildUnitMaxScores(
+				KegeScaleConfig::taskTypes(),
+				static fn( int $n ): int => KegeScaleConfig::answerSlots( $n ),
+			),
+		);
+
+		// ОГЭ
+		$formats[] = new ExamFormatDTO(
+			kind          : AssessmentKind::OgeComputer,
+			direction     : ExamDirection::Oge,
+			unitCount     : OgeScaleConfig::TASK_COUNT,
+			primaryMax    : OgeScaleConfig::maxPrimary(),
+			secondaryMax  : null,
+			gradeMax      : OgeScaleConfig::secondaryMax(),
+			durationMinutes: StationExamConfig::for( AssessmentKind::OgeComputer )['timeLimit'],
+			scale         : OgeScaleConfig::scale(),
+			unitMaxScores : $this->buildUnitMaxScores(
+				OgeScaleConfig::TASK_COUNT,
+				static fn( int $n ): int => OgeScaleConfig::pointsForPosition( (string) $n ),
+			),
+		);
+
+		return $formats;
+	}
+
+	/**
+	 * Строит массив номер => максимум для позиций, где макс > 1.
+	 *
+	 * @param callable(int): int $maxFn Функция, возвращающая макс для номера
+	 */
+	private function buildUnitMaxScores( int $count, callable $maxFn ): array {
+		$scores = array();
+		for ( $i = 1; $i <= $count; ++$i ) {
+			$max = $maxFn( $i );
+			if ( $max > 1 ) {
+				$scores[ $i ] = $max;
+			}
+		}
+		return $scores;
 	}
 }
