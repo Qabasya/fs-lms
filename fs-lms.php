@@ -37,6 +37,9 @@ define( 'FS_LMS_PATH', plugin_dir_path( __FILE__ ) );
 // разборе чужого архива было видно, какой сборкой он выгружен.
 define( 'FS_LMS_VERSION', '1.0.73' );
 
+// Путь к главному файлу плагина — используется WooCommerce для декларации HPOS совместимости.
+define( 'FS_LMS_PLUGIN_FILE', __FILE__ );
+
 require_once FS_LMS_PATH . 'vendor/autoload.php';
 
 register_activation_hook( __FILE__, array( Activate::class, 'activate' ) );
