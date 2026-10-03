@@ -339,7 +339,18 @@ enum AjaxHook: string {
 	// ==== Разовый перенос заданий со старой версии сайта ====
 	case LegacyTaskImportBatch = 'legacy_task_import_batch'; // params: subject_key, offset, rows (JSON-массив записей батча), author_taxonomy?, year_taxonomy?, level_taxonomy?
 
-
+	// ==== Публичные экзамены (Этап 3) ====
+	case SaveExamEvent         = 'save_exam_event';         // params: event_id?, subject_key, title, period_from, period_to, ...
+	case PublishExamEvent      = 'publish_exam_event';      // params: event_id
+	case SaveExamSession       = 'save_exam_session';       // params: event_id, session_id?, scheduled_at, planned_end_at, room_id, assessment_id, ...
+	case CreateExamRegistration = 'create_exam_registration'; // params: event_id, session_id, student_person_id? (гость → null)
+	case CancelExamRegistration = 'cancel_exam_registration'; // params: registration_id
+	case TransferExamRegistration = 'transfer_exam_registration'; // params: registration_id, new_session_id
+	case GetExamParticipations  = 'get_exam_participations';   // params: event_id
+	case GetExamSessions        = 'get_exam_sessions';         // params: event_id
+	case ApproveExamAttempt     = 'approve_exam_attempt';      // params: attempt_id (утверждение попытки ученика)
+	case CreateExamResultLink   = 'create_exam_result_link';   // params: participation_id, days_valid
+	case CreateExamGuestLink    = 'create_exam_guest_link';    // params: source_id, days_valid
 
 	// ============================ ГЕНЕРАЦИЯ ИМЁН ============================ //
 
