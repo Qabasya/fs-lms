@@ -72,6 +72,8 @@ class ApplicationController extends AjaxController {
 		return array(
 			// Отправка OTP-кода на email (шаг A)
 			array( AjaxHook::SendOtpCode, $this->callbacks ),
+			// Метка и nonce из некешируемого AJAX для страницы заявки.
+			array( AjaxHook::GetApplySession, $this->callbacks ),
 			// Создание заявки после верификации OTP (шаг B)
 			array( AjaxHook::CreateApplication, $this->callbacks ),
 			// Отправка данных родителя по JOIN-ссылке

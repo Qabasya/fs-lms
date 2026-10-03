@@ -89,10 +89,21 @@ class ApplyFormTrackingServiceTest extends TestCase {
 			AuthAction::ApplySubmitFailed,
 			AuthResult::Failure,
 			null,
-			$this->callback( static fn( array $d ): bool => str_contains( $d['note'], 'ответ: «Неверный код»' ) && str_contains( $d['note'], 'этап: код из письма' ) )
+			$this->callback( static fn( array $d ): bool => 'Неверный код' === $d['failure_reason'] && str_contains( $d['note'], 'ответ: «Неверный код»' ) && str_contains( $d['note'], 'этап: код из письма' ) )
 		);
 
 		$this->service->track( $this->input( ApplyFormEvent::SubmitFailed, array( 'message' => 'Неверный код', 'stage' => 'otp', 'submits' => 2 ) ) );
+	}
+
+	public function test_guard_failure_has_exact_reason_in_visible_column(): void {
+		$this->authLog->expects( $this->once() )->method( 'recordEvent' )->with(
+			AuthAction::ApplySubmitFailed,
+			AuthResult::Failure,
+			null,
+			$this->callback( static fn( array $d ): bool => 'abc12345' === $d['visit'] && str_contains( $d['failure_reason'], 'устарела' ) )
+		);
+
+		$this->service->recordGuardFailure( 'token_expired', 'abc12345' );
 	}
 
 	public function test_clip_message_truncates_long_text(): void {

@@ -97,9 +97,7 @@
     color: $color-muted;
     line-height: $line-height-relaxed;
     margin-top: rem(24);
-
-    // Сноска — одной строкой: перенос ломает вид карточки, поэтому на узких экранах кегль меньше.
-    white-space: nowrap;
+    overflow-wrap: break-word;
 
     a {
       color: $color-muted;

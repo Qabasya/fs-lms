@@ -89,8 +89,7 @@ function renderHome(root, d) {
             <h1>Здравствуйте, ${esc(name)} 👋</h1>
             <p>${d.groups.map(g => esc(g.name) + ' · ' + esc(g.subject)).join(' · ') || 'Нет активных групп'}</p>
         </div>
-        <div class="prof-stat-tiles">
-            ${homeTile('Ближайших занятий', String(d.upcoming.length), '#3b5bdb', 'cal')}
+        <div class="prof-stat-tiles prof-stat-tiles--learner">
             ${homeTile('Дедлайнов', String(d.deadlines.length), '#f08c00', 'alert')}
             ${homeTile('Посещаемость', att.percent === null ? '—' : att.percent + '%', '#2f9e44', 'check')}
         </div>
@@ -445,7 +444,7 @@ function renderAttendance(root, d) {
     <div class="prof-dash">
         ${childBar()}
         <div class="prof-dash-hello"><h1>Посещаемость</h1></div>
-        <div class="prof-stat-tiles">
+        <div class="prof-stat-tiles prof-stat-tiles--learner prof-stat-tiles--attendance">
             ${homeTile('Посещаемость', a.percent === null ? '—' : a.percent + '%', '#2f9e44', 'check')}
             ${homeTile('Присутствовал', String(a.present), '#3b5bdb', 'cal')}
             ${homeTile('Пропущено', String(a.total - a.present), '#e03131', 'alert')}

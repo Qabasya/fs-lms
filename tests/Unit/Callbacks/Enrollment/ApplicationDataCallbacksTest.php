@@ -32,6 +32,7 @@ class ApplicationDataCallbacksTest extends TestCase {
 	protected function setUp(): void {
 		parent::setUp();
 		fs_test_reset_ajax();
+		$GLOBALS['_fs_test_actions'] = array();
 
 		$this->crypto     = new PiiCryptoService();
 		$this->repository = $this->createStub( ApplicationRepository::class );
@@ -131,6 +132,20 @@ class ApplicationDataCallbacksTest extends TestCase {
 		self::assertSame( 'ivan_2010', $student['username'] );
 		self::assertSame( 'Pass%12!', $student['login_password'] );
 		self::assertSame( 'Лицей 2', $student['school'] );
+		self::assertNotContains( 'fs_lms_application_student_name_changed', array_column( $GLOBALS['_fs_test_actions'], 'hook' ) );
+	}
+
+	public function test_name_change_emits_domain_sync_event(): void {
+		$this->givenApplication( $this->studentBlob() );
+		$this->postEditForm( array( 'last_name' => 'Петров' ) );
+
+		$r = fs_test_capture_json( fn() => $this->cb->ajaxUpdateApplicationData() );
+
+		self::assertTrue( $r->success );
+		self::assertContains(
+			array( 'hook' => 'fs_lms_application_student_name_changed', 'args' => array( 7 ) ),
+			$GLOBALS['_fs_test_actions']
+		);
 	}
 
 	public function test_empty_login_and_password_keep_previous_values(): void {

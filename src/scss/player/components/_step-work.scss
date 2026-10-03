@@ -42,6 +42,11 @@
 
 .app.top-hidden .a-workbar { top: $bar-h; }
 
+@media (max-width: $bp-mobile) {
+  .a-workbar { transition: top $tr-top, transform $tr-top, opacity $tr-top; }
+  .app.top-hidden .a-workbar { transform: translateY(calc(-100% - #{$bar-h})); opacity: 0; pointer-events: none; }
+}
+
 .wb-back {
   display: none;
   flex-shrink: 0;

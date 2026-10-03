@@ -151,6 +151,7 @@ class FrontendAssets extends BaseController {
 			'hp_field'   => $this->formGuard->honeypotField(),
 			'form_token' => $this->formGuard->timestampToken(),
 			'actions'    => array(
+				'session'        => AjaxHook::GetApplySession->jsAction(),
 				'send_otp'       => AjaxHook::SendOtpCode->jsAction(),
 				'create'         => AjaxHook::CreateApplication->jsAction(),
 				'check_username' => AjaxHook::CheckUsernameAvailable->jsAction(),

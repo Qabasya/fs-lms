@@ -115,6 +115,9 @@ class ApplicationDataCallbacks extends BaseController {
 			'username_hash'      => '' !== $username ? $this->logins->hash( $username ) : null,
 			'updated_at'         => current_time( 'mysql', true ),
 		) );
+		if ( $this->studentNameChanged( $existingStudentDto, $updatedStudentDto ) ) {
+			do_action( 'fs_lms_application_student_name_changed', $id );
+		}
 
 		// Ученик с временным доступом входит по данным заявки — учётка должна поменяться вместе с ней.
 		if ( $username !== $existingStudentDto->username || $loginPassword !== $existingStudentDto->loginPassword ) {
@@ -202,6 +205,9 @@ class ApplicationDataCallbacks extends BaseController {
 			'parent_data_enc'  => $newParentDataEnc,
 			'updated_at'       => current_time( 'mysql', true ),
 		) );
+		if ( $this->studentNameChanged( $existingStudentDto, $updatedStudentDto ) ) {
+			do_action( 'fs_lms_application_student_name_changed', $id );
+		}
 
 		$this->logEvents->dispatch( LogEvent::ApplicationUpdated, new ApplicationStatusEvent(
 			get_current_user_id(), AuditAction::UpdateReviewData, $id
@@ -264,6 +270,12 @@ class ApplicationDataCallbacks extends BaseController {
 	 *
 	 * @param string|null $parentDataEnc Зашифрованные данные родителя
 	 */
+	private function studentNameChanged( StudentDataDTO $before, StudentDataDTO $after ): bool {
+		return $before->firstName !== $after->firstName
+			|| $before->lastName !== $after->lastName
+			|| $before->middleName !== $after->middleName;
+	}
+
 	private function parentEmail( ?string $parentDataEnc ): string {
 		if ( empty( $parentDataEnc ) ) {
 			return '';

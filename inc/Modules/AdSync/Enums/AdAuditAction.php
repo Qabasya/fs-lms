@@ -17,6 +17,8 @@ enum AdAuditAction: string {
 	case AccountUpdated     = 'ad_account_updated';
 	case AccountDisabled    = 'ad_account_disabled';
 	case PasswordChanged    = 'ad_password_changed';
+	case AccountRenamed     = 'ad_account_renamed';
+	case AccountDeleted     = 'ad_account_deleted';
 	/** Задание так и не выполнено («мёртвое») — нужен администратор. */
 	case SyncFailed         = 'ad_sync_failed';
 
@@ -27,6 +29,8 @@ enum AdAuditAction: string {
 			self::AccountUpdated     => 'Домен: учётка обновлена',
 			self::AccountDisabled    => 'Домен: учётка отключена',
 			self::PasswordChanged    => 'Домен: пароль изменён',
+			self::AccountRenamed     => 'Домен: ФИО учётки обновлено',
+			self::AccountDeleted     => 'Домен: учётка удалена',
 			self::SyncFailed         => 'Домен: ошибка синхронизации',
 		};
 	}
@@ -43,9 +47,14 @@ enum AdAuditAction: string {
 			'deprovisioned',
 			'absent'           => self::AccountDisabled,
 			'password_changed' => self::PasswordChanged,
+			'renamed'          => self::AccountRenamed,
+			'deleted',
+			'delete_absent'    => self::AccountDeleted,
 			default            => match ( $event ) {
 				AdSyncEvent::Deprovision->value => self::AccountDisabled,
 				AdSyncEvent::Password->value    => self::PasswordChanged,
+				AdSyncEvent::Rename->value      => self::AccountRenamed,
+				AdSyncEvent::Delete->value      => self::AccountDeleted,
 				default                         => self::AccountUpdated,
 			},
 		};

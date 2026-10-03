@@ -13,6 +13,7 @@ use Inc\DTO\Person\ParentSubmissionInputDTO;
 use Inc\Enums\Enrollment\ApplicationStatus;
 use Inc\Enums\Enrollment\ApplyFormEvent;
 use Inc\Enums\Enrollment\JoinFormEvent;
+use Inc\Enums\Log\ErrorCode;
 use Inc\Enums\Auth\AuthAction;
 use Inc\Enums\Auth\AuthResult;
 use Inc\Enums\Auth\CaptchaFailure;
@@ -311,6 +312,20 @@ class ApplicationCallbacks extends BaseController {
 		return $url ?: '';
 	}
 
+	/** Свежая метка формы и nonce вне кеша страниц; персональных данных в ответе нет. */
+	public function ajaxGetApplySession(): void {
+		nocache_headers();
+		$this->success( array(
+			'form_token' => $this->formGuard->timestampToken(),
+			'nonces'     => array(
+				'apply'          => Nonce::Apply->create(),
+				'verify_otp'     => Nonce::VerifyOtp->create(),
+				'check_username' => Nonce::CheckUsernameAvailable->create(),
+				'track'          => Nonce::ApplyTrack->create(),
+			),
+		) );
+	}
+
 	/**
 	 * Шаг A: проверяет капчу, отправляет OTP-код на email.
 	 *
@@ -324,8 +339,11 @@ class ApplicationCallbacks extends BaseController {
 		// Дешёвая бот-защита: honeypot + тайминг формы — до траты бюджета на капчу/письма.
 		$honeypot   = $this->sanitizeText( $this->formGuard->honeypotField() );
 		$formToken  = $this->sanitizeText( 'form_token' );
-		if ( ! $this->formGuard->isHuman( $honeypot, $formToken ) ) {
-			$this->error( 'Не удалось подтвердить отправку формы. Обновите страницу и попробуйте снова.' );
+		$guardReason = $this->formGuard->rejectionReason( $honeypot, $formToken );
+		if ( null !== $guardReason ) {
+			$visit = substr( $this->sanitizeKey( 'visit' ), 0, 16 );
+			$this->applyTracking->recordGuardFailure( $guardReason, $visit );
+			$this->fail( ErrorCode::Ajax, 'Не удалось подтвердить отправку формы. Попробуйте ещё раз.', array( 'guard_reason' => $guardReason ), array( 'auth_logged' => true ) );
 		}
 
 		// Ограничение частоты запросов по IP (свой счётчик — не общий с созданием заявки)

@@ -130,6 +130,7 @@ enum AjaxHook: string {
 	case UpdatePerson                = 'update_person';
 	case RequestPiiDeletion          = 'request_pii_deletion';
 	case SendOtpCode                 = 'send_otp_code';
+	case GetApplySession             = 'get_apply_session';
 	case MoveApplicationToTrash      = 'move_application_to_trash';
 	case RestoreApplicationFromTrash = 'restore_application_from_trash';
 	case EmptyApplicationsTrash      = 'empty_applications_trash';

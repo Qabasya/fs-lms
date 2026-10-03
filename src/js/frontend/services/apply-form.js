@@ -17,9 +17,11 @@ import { bindPhoneMask } from '../../common/input-masks.js';
 import { getCaptchaToken, resetCaptcha, captchaFailureOf, captchaFailureAllowsFallback } from './captcha.js';
 import { createApplyTracker, applyVisitId } from './apply-tracking.js';
 import { initSchoolSuggest } from './school-suggest.js';
+import { createApplySession } from './apply-session.js';
 
 /** @type {{ ajax_url: string, captcha_key: string, hp_field: string, form_token: string, actions: { send_otp: string, create: string }, nonces: { apply: string, verify_otp: string } }} */
 const vars = window.fs_lms_apply_vars;
+const session = vars ? createApplySession( vars ) : null;
 
 /** Данные формы этапа 1, сохраняются для передачи на этапе 2 */
 let _formData = null;
@@ -65,6 +67,15 @@ function collectFormData() {
 function extractError( res, fallback ) {
     if ( typeof res?.data === 'string' ) { return res.data; }
     return res?.data?.message ?? fallback;
+}
+
+function requestFailureReason( error ) {
+    if ( error?.message === 'Не удалось обновить данные формы.' ) {
+        return 'Сервер не выдал новую защитную метку и ключи формы.';
+    }
+    return error instanceof SyntaxError
+        ? 'Сервер вернул ответ не в формате JSON (возможно, проверочная страница хостинга).'
+        : 'Не удалось связаться с сервером.';
 }
 
 // ── UI-утилиты ────────────────────────────────────────────────────────────────
@@ -243,15 +254,16 @@ async function handleOtpSubmit( e ) {
 
     let res;
     try {
+        await session.ensureFresh();
         res = await ajaxPost( vars.actions.create, {
             security: vars.nonces.verify_otp,
             ..._formData,
             otp_code: otpCode,
         } );
-    } catch {
+    } catch ( error ) {
         setLoading( btn, false );
         showError( form, 'Ошибка соединения. Попробуйте позже.' );
-        _tracker.failed( 'ошибка соединения' );
+        _tracker.failed( requestFailureReason( error ) );
         return;
     }
 
@@ -271,6 +283,9 @@ async function handleOtpSubmit( e ) {
 async function handleResendOtp() {
     if ( ! _formData ) { return; }
 
+    const form = document.getElementById( 'fs-lms-otp-form' );
+    clearError( form );
+
     const captcha = await obtainCaptcha();
     if ( captcha.failure && ! captchaFailureAllowsFallback( captcha.failure ) ) {
         return;
@@ -278,9 +293,12 @@ async function handleResendOtp() {
 
     let res;
     try {
+        await session.prepareOtp();
         res = await ajaxPost( vars.actions.send_otp, otpRequestFields( captcha, _formData.email ) );
-    } catch {
+    } catch ( error ) {
         resetCaptcha();
+        showError( form, 'Не удалось обновить данные формы. Проверьте соединение и попробуйте ещё раз.' );
+        _tracker.failed( requestFailureReason( error ) );
         return;
     }
 
@@ -290,7 +308,9 @@ async function handleResendOtp() {
         startCountdown( btn, countdownEl );
     } else {
         resetCaptcha();
-        _tracker.failed( extractError( res, 'Ошибка при повторной отправке кода.' ) );
+        if ( ! res?.data?.auth_logged ) {
+            _tracker.failed( extractError( res, 'Ошибка при повторной отправке кода.' ) );
+        }
     }
 }
 
@@ -312,6 +332,7 @@ async function checkUsernameAvailable( input ) {
     }
 
     try {
+        await session.ensureFresh();
         const body = new URLSearchParams( {
             action:   vars.actions.check_username,
             security: vars.nonces.check_username,
@@ -355,6 +376,7 @@ function bindFormBehaviors() {
 
     const validateAll = initFormValidation( applyForm );
     _tracker = createApplyTracker( applyForm );
+    session.ensureFresh().catch( () => {} );
 
     const usernameInput = document.getElementById( 'fs_username' );
     if ( usernameInput ) {
@@ -375,12 +397,22 @@ function bindFormBehaviors() {
             return;
         }
 
-        if ( usernameInput && ! await checkUsernameAvailable( usernameInput ) ) {
-            _tracker.invalid( 'логин занят' );
+        setLoading( btn, true );
+
+        try {
+            await session.ensureFresh();
+        } catch ( error ) {
+            setLoading( btn, false );
+            showError( applyForm, 'Не удалось обновить данные формы. Проверьте соединение и попробуйте ещё раз.' );
+            _tracker.failed( requestFailureReason( error ) );
             return;
         }
 
-        setLoading( btn, true );
+        if ( usernameInput && ! await checkUsernameAvailable( usernameInput ) ) {
+            setLoading( btn, false );
+            _tracker.invalid( 'логин занят' );
+            return;
+        }
 
         const captcha = await obtainCaptcha();
         if ( captcha.failure && ! captchaFailureAllowsFallback( captcha.failure ) ) {
@@ -392,12 +424,13 @@ function bindFormBehaviors() {
 
         let res;
         try {
+            await session.prepareOtp();
             res = await ajaxPost( vars.actions.send_otp, otpRequestFields( captcha, data.email ) );
-        } catch {
+        } catch ( error ) {
             setLoading( btn, false );
             resetCaptcha();
             showError( applyForm, 'Ошибка соединения. Попробуйте позже.' );
-            _tracker.failed( 'ошибка соединения' );
+            _tracker.failed( requestFailureReason( error ) );
             return;
         }
 
@@ -407,7 +440,7 @@ function bindFormBehaviors() {
             resetCaptcha();
             const message = extractError( res, 'Ошибка при отправке кода.' );
             showError( applyForm, message );
-            _tracker.failed( message );
+            if ( ! res?.data?.auth_logged ) { _tracker.failed( message ); }
             return;
         }
 

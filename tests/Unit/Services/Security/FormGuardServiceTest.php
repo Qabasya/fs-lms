@@ -90,4 +90,14 @@ class FormGuardServiceTest extends TestCase {
 		$service = $this->makeService( testEnv: true );
 		self::assertTrue( $service->isHuman( 'bot-value', 'garbage' ) );
 	}
+
+	public function test_rejection_reason_distinguishes_expired_token_from_other_failures(): void {
+		$service = $this->makeService();
+		self::assertSame( 'honeypot_filled', $service->rejectionReason( 'filled', $this->tokenFor( -10 ) ) );
+		self::assertSame( 'token_missing', $service->rejectionReason( '', '' ) );
+		self::assertSame( 'token_invalid', $service->rejectionReason( '', 'garbage' ) );
+		self::assertSame( 'too_fast', $service->rejectionReason( '', $this->tokenFor( 0 ) ) );
+		self::assertSame( 'token_expired', $service->rejectionReason( '', $this->tokenFor( -5 * 3600 ) ) );
+		self::assertNull( $service->rejectionReason( '', $this->tokenFor( -10 ) ) );
+	}
 }

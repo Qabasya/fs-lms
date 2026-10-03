@@ -60,6 +60,8 @@
 .prof-dash-hello p { color: var(--muted); font-size: rem(14); margin-top: rem(3); }
 
 .prof-stat-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: rem(18); margin-bottom: rem(18); }
+.prof-stat-tiles--attendance { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.prof-dash-grid2 { display: grid; grid-template-columns: minmax(0, 1fr); gap: rem(18); }
 .prof-sched-card { margin-bottom: rem(18); }
 
 /* «Требует внимания» — аккордеон: шапка-кнопка + .prof-fold. */
@@ -270,10 +272,14 @@ a.prof-lesson-go, a.prof-work-item, a.prof-grade-attempt { text-decoration: none
 
 /* ── Мобильный (Фаза 5): плитки в столбец, недельная сетка скроллится ── */
 @media (max-width: $breakpoint-mobile) {
-  // Плитки компактно: столбиком они занимали весь первый экран.
-  .prof-stat-tile { padding: rem(10) rem(8) rem(12); }
-  .prof-stat-tile .st-top { flex-direction: column; align-items: flex-start; gap: rem(6); font-size: rem(11); line-height: 1.25; hyphens: auto; }
-  .prof-stat-tile .st-val { font-size: rem(22); margin-top: rem(6); }
+  .prof-stat-tiles { grid-template-columns: minmax(0, 1fr); }
+
+  // Единый вид плиток во всех кабинетах: иконка и подпись в строке, число под подписью.
+  .prof-stat-tile { padding: rem(14) rem(16); }
+  .prof-stat-tile .st-top { gap: rem(10); font-size: rem(14); font-weight: 600; line-height: 1.35; }
+  .prof-stat-tile .st-ico { flex-shrink: 0; width: rem(30); height: rem(30); }
+  .prof-stat-tile .st-val { font-size: rem(26); margin-top: rem(6); margin-left: rem(40); line-height: 1.1; }
+  .prof-stat-tile .st-delta { margin-left: rem(40); }
 
   .prof-week-grid {
     grid-template-columns: repeat(7, minmax(rem(132), 1fr));

@@ -5,6 +5,7 @@ declare( strict_types=1 );
 namespace Inc\Services\Application;
 
 use Inc\DTO\Application\ApplyTrackInputDTO;
+use Inc\Enums\Auth\AuthAction;
 use Inc\Enums\Auth\AuthResult;
 use Inc\Enums\Enrollment\ApplyFormEvent;
 use Inc\Enums\Enrollment\ApplyFormField;
@@ -46,7 +47,34 @@ readonly class ApplyFormTrackingService {
 			array_filter( array(
 				'form'  => 'apply',
 				'visit' => $input->visit,
+				'failure_reason' => ApplyFormEvent::SubmitFailed === $input->event
+					? ( '' !== $input->message ? $input->message : 'Ответ сервера не получен' )
+					: '',
 				'note'  => $this->note( $input ),
+			) )
+		);
+	}
+
+	/** Отказ защиты формы фиксируется на сервере, даже если браузер не получил ответ. */
+	public function recordGuardFailure( string $reason, string $visit ): void {
+		$label = match ( $reason ) {
+			'honeypot_filled' => 'Заполнено скрытое поле формы (возможно, автозаполнение браузером)',
+			'token_missing'   => 'Защитная метка формы не передана',
+			'token_invalid'   => 'Защитная метка формы повреждена',
+			'too_fast'        => 'Форма отправлена менее чем через 3 секунды после получения метки',
+			'token_expired'   => 'Защитная метка формы устарела (кеш страницы или долго открытая вкладка)',
+			default           => 'Защита формы отклонила отправку',
+		};
+
+		$this->authLog->recordEvent(
+			AuthAction::ApplySubmitFailed,
+			AuthResult::Failure,
+			null,
+			array_filter( array(
+				'form'           => 'apply',
+				'visit'          => $visit,
+				'failure_reason' => $label,
+				'note'           => 'этап: данные · источник: проверка на сервере',
 			) )
 		);
 	}

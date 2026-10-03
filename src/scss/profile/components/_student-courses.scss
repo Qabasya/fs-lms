@@ -187,6 +187,9 @@
 
 /* ── Телефон (Tasks.md З5): программа в одну колонку без обрезки названий ── */
 @media (max-width: $breakpoint-mobile) {
+  #scTabs .sc-tab:only-child { flex: 1 1 auto; min-width: 0; }
+  .sc-tabs-wrap.is-at-start #scTabs ~ .sc-tabs-nav.next { display: none; }
+
   .sc-hero-top { padding: rem(16); }
   .sc-hact { align-self: stretch; }
 

@@ -5,6 +5,7 @@ declare( strict_types=1 );
 namespace Inc\DTO\Log;
 
 use Inc\Enums\Access\UserRole;
+use Inc\Enums\Auth\AuthAction;
 use Inc\Enums\Auth\LoginFailReason;
 
 /**
@@ -62,6 +63,20 @@ readonly class AuthLogDTO {
 	) {}
 
 	public function reasonLabel(): string {
+		if ( AuthAction::ApplySubmitFailed->value === $this->action ) {
+			if ( ! empty( $this->details['failure_reason'] ) ) {
+				return (string) $this->details['failure_reason'];
+			}
+			// Старые записи хранили ответ сервера только в раскрывающемся примечании.
+			$note = (string) ( $this->details['note'] ?? '' );
+			if ( preg_match( '/^ответ: «([^»]+)»/u', $note, $matches ) ) {
+				return $matches[1];
+			}
+			if ( str_starts_with( $note, 'без ответа сервера' ) ) {
+				return 'Ответ сервера не получен';
+			}
+		}
+
 		if ( null === $this->reason ) {
 			return '';
 		}
@@ -99,7 +114,11 @@ readonly class AuthLogDTO {
 				. ( ! empty( $d['password_cyrillic'] ) ? ', есть кириллица' : '' );
 		}
 		if ( isset( $d['form'] ) ) {
-			$lines[] = 'sign_in' === $d['form'] ? 'Форма: /sign-in/' : 'Форма: wp-login.php';
+			$lines[] = match ( $d['form'] ) {
+				'sign_in' => 'Форма: /sign-in/',
+				'apply'   => 'Форма: /apply/',
+				default   => 'Форма: wp-login.php',
+			};
 		}
 		if ( isset( $d['captcha_token'] ) ) {
 			$lines[] = $d['captcha_token'] ? 'Токен капчи: есть' : 'Токен капчи: нет';

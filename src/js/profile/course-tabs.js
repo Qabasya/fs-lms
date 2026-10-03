@@ -28,10 +28,27 @@ export function syncCourseTabs(tabs) {
     const prev = wrap.querySelector('[data-tabs-nav="-1"]');
     const next = wrap.querySelector('[data-tabs-nav="1"]');
 
+    // Кабинет может вызвать синхронизацию, пока экран скрыт (clientWidth = 0).
+    // Выравниваем активную вкладку только после появления реальной ширины.
+    wrap.dataset.alignPending = '1';
+
     const update = () => {
+        if (tabs.clientWidth > 0 && wrap.dataset.alignPending) {
+            const active = tabs.querySelector('.sc-tab.on');
+            if (active === tabs.firstElementChild) {
+                tabs.scrollTo({ left: 0, behavior: 'instant' });
+            } else if (active && (active.offsetLeft < tabs.scrollLeft || active.offsetLeft + active.offsetWidth > tabs.scrollLeft + tabs.clientWidth)) {
+                tabs.scrollTo({ left: Math.max(0, active.offsetLeft - (tabs.clientWidth - active.offsetWidth) / 2), behavior: 'instant' });
+            }
+            delete wrap.dataset.alignPending;
+        }
         const max = tabs.scrollWidth - tabs.clientWidth;
-        prev.hidden = tabs.scrollLeft <= 1;
-        next.hidden = tabs.scrollLeft >= max - 1;
+        // Лента имеет внутренний паддинг 2px: scroll-snap вправе сдвинуть её на
+        // эти пиксели, хотя первая карточка по-прежнему стоит у края.
+        const atStart = tabs.scrollLeft <= (tabs.firstElementChild?.offsetLeft ?? 0) + 1;
+        wrap.classList.toggle('is-at-start', atStart);
+        prev.hidden = atStart || max <= 1;
+        next.hidden = tabs.scrollLeft >= max - 1 || max <= 1;
     };
 
     if (!wrap.dataset.ready) {
@@ -45,9 +62,5 @@ export function syncCourseTabs(tabs) {
         new ResizeObserver(update).observe(tabs);
     }
 
-    const active = tabs.querySelector('.sc-tab.on');
-    if (active && (active.offsetLeft < tabs.scrollLeft || active.offsetLeft + active.offsetWidth > tabs.scrollLeft + tabs.clientWidth)) {
-        tabs.scrollLeft = active.offsetLeft - (tabs.clientWidth - active.offsetWidth) / 2;
-    }
     update();
 }

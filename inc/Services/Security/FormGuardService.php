@@ -72,16 +72,24 @@ readonly class FormGuardService {
 	 * @return bool true если проверки пройдены
 	 */
 	public function isHuman( string $honeypotValue, string $token ): bool {
+		return null === $this->rejectionReason( $honeypotValue, $token );
+	}
+
+	/** Причина отказа для журнала без значений полей и токена. */
+	public function rejectionReason( string $honeypotValue, string $token ): ?string {
 		if ( $this->pluginConfig->isTestEnv() ) {
-			return true;
+			return null;
 		}
 
-		// Honeypot заполнен — точно бот.
 		if ( '' !== trim( $honeypotValue ) ) {
-			return false;
+			return 'honeypot_filled';
 		}
 
-		return $this->isTimingValid( $token );
+		if ( '' === $token ) {
+			return 'token_missing';
+		}
+
+		return $this->timingRejectionReason( $token );
 	}
 
 	/**
@@ -89,24 +97,32 @@ readonly class FormGuardService {
 	 *
 	 * @param string $token Токен из timestampToken()
 	 *
-	 * @return bool
+	 * @return string|null
 	 */
-	private function isTimingValid( string $token ): bool {
+	private function timingRejectionReason( string $token ): ?string {
 		$parts = explode( '.', $token, 2 );
 		if ( 2 !== count( $parts ) ) {
-			return false;
+			return 'token_invalid';
 		}
 
 		[ $ts, $sig ] = $parts;
 
 		// ctype_digit + hash_equals — защита от подделки и timing attack.
 		if ( ! ctype_digit( $ts ) || ! hash_equals( $this->sign( $ts ), $sig ) ) {
-			return false;
+			return 'token_invalid';
 		}
 
 		$elapsed = time() - (int) $ts;
 
-		return $elapsed >= self::MIN_FILL_SECONDS && $elapsed <= self::MAX_TOKEN_AGE;
+		if ( $elapsed < self::MIN_FILL_SECONDS ) {
+			return 'too_fast';
+		}
+
+		if ( $elapsed > self::MAX_TOKEN_AGE ) {
+			return 'token_expired';
+		}
+
+		return null;
 	}
 
 	/**

@@ -31,7 +31,7 @@ $max_birth_date = gmdate( 'Y-m-d' );
         <?php /* Honeypot-ловушка для ботов (имя поля = FormGuardService::HONEYPOT_FIELD). Скрыто через CSS .fs-hp, люди не заполняют. */ ?>
         <div class="fs-hp" aria-hidden="true">
             <label for="fs_company"><?php esc_html_e( 'Компания', 'fs-lms' ); ?></label>
-            <input type="text" name="fs_company" id="fs_company" tabindex="-1" autocomplete="off">
+            <input type="text" name="fs_company" id="fs_company" tabindex="-1" autocomplete="off" readonly>
         </div>
 
         <div class="fs-apply-card__field-group fs-form-group">
