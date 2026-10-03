@@ -29,6 +29,12 @@ $active_subjects = $active_subjects ?? array();
                     <input type="text" id="room_name" placeholder="Введите название кабинета..." required>
                 </div>
 
+                <div class="fs-form-group">
+                    <label for="room_seats">Вместимость (мест)</label>
+                    <input type="number" id="room_seats" min="0" max="500" step="1" value="0">
+                    <p class="description">Используется как число мест в сеансе экзамена. 0 — вместимость не задана, кабинет нельзя выбрать для экзамена.</p>
+                </div>
+
                 <input type="hidden" id="room_id" value="">
 
                 <div class="fs-form-group">

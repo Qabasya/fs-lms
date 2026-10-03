@@ -39,6 +39,7 @@ require_once FS_LMS_PATH . 'templates/admin/components/UI/ui_renderers.php';
 			<thead>
 			<tr>
 				<th class=" column-title tw-30">Название кабинета</th>
+				<th class=" column-title">Мест</th>
 				<th class=" column-title column-primary">Группы</th>
 				<th class=" column-title column-primary">Действия</th>
 			</tr>
@@ -59,10 +60,15 @@ require_once FS_LMS_PATH . 'templates/admin/components/UI/ui_renderers.php';
 								href="#"
 								data-id="<?php echo $row_id; ?>"
 								data-name="<?php echo esc_attr( $row_name ); ?>"
+								data-seats="<?php echo (int) $room->seats; ?>"
 								data-subjects="<?php echo esc_attr( $row_subjects ); ?>">
 								<?php echo esc_html( $room->name ); ?>
 							</a>
 						</strong>
+					</td>
+
+					<td>
+						<?php echo $room->seats > 0 ? (int) $room->seats : '—'; ?>
 					</td>
 
 					<td>
@@ -82,6 +88,7 @@ require_once FS_LMS_PATH . 'templates/admin/components/UI/ui_renderers.php';
 									class="js-edit-room"
 									data-id="<?php echo $row_id; ?>"
 									data-name="<?php echo esc_attr( $row_name ); ?>"
+									data-seats="<?php echo (int) $room->seats; ?>"
 									data-subjects="<?php echo esc_attr( $row_subjects ); ?>">
 									Изменить
 								</a>
@@ -103,7 +110,7 @@ require_once FS_LMS_PATH . 'templates/admin/components/UI/ui_renderers.php';
 			<!-- Футер с плюсиком «Добавить кабинет» (по образцу периодов) -->
 			<tfoot>
 			<tr class="fs-add-row-tr">
-				<td colspan="3">
+				<td colspan="4">
 					<button type="button"
 							class="button-link scss-add-item js-add-room"
 							title="Добавить кабинет">

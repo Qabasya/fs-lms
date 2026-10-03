@@ -32,6 +32,7 @@ export const RoomModalManager = {
         RoomModal.open('edit', {
             id:       $link.data('id'),
             name:     $link.data('name'),
+            seats:    $link.data('seats'),
             subjects: $link.data('subjects'),
         });
     },
@@ -44,6 +45,7 @@ export const RoomModalManager = {
             security:         fs_lms_vars.nonces.room,
             room_id:          formData.id || 0,
             name:             formData.name,
+            seats:            formData.seats,
             is_active:        '1',
             allowed_subjects: formData.subjects,
         })
@@ -123,7 +125,7 @@ export const RoomModalManager = {
         if (!$list.length) { return; }
 
         if (!rooms.length) {
-            $list.html('<tr class="no-items"><td colspan="3">Кабинеты не заданы.</td></tr>');
+            $list.html('<tr class="no-items"><td colspan="4">Кабинеты не заданы.</td></tr>');
             return;
         }
 
@@ -140,15 +142,18 @@ export const RoomModalManager = {
                         <a class="row-title js-edit-room" href="#"
                             data-id="${room.id}"
                             data-name="${escapeHtml(room.name)}"
+                            data-seats="${Number(room.seats) || 0}"
                             data-subjects="${escapeHtml(subjects)}">${escapeHtml(room.name)}</a>
                     </strong>
                 </td>
+                <td>${Number(room.seats) > 0 ? room.seats : '—'}</td>
                 <td>${inRoom || '<span class="fs-dashicon fs-dashicon--muted">—</span>'}</td>
                 <td class="column-actions">
                     <div class="row-actions visible">
                         <span class="edit"><a href="#" class="js-edit-room"
                             data-id="${room.id}"
                             data-name="${escapeHtml(room.name)}"
+                            data-seats="${Number(room.seats) || 0}"
                             data-subjects="${escapeHtml(subjects)}">Изменить</a></span> |
                         <span class="trash"><a href="#" class="js-delete-room"
                             data-id="${room.id}"

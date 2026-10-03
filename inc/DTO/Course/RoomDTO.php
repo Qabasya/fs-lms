@@ -45,6 +45,11 @@ readonly class RoomDTO {
 		return array() === $this->allowedSubjects || in_array( $subjectKey, $this->allowedSubjects, true );
 	}
 
+	/** Определена ли вместимость кабинета. */
+	public function hasCapacity(): bool {
+		return $this->seats > 0;
+	}
+
 	/** @return array<string, mixed> */
 	public function toArray(): array {
 		return array(

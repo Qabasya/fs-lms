@@ -78,12 +78,16 @@ class RoomCallbacks extends BaseController {
 
 		$roomId   = $this->sanitizeInt( 'room_id' );
 		$name     = $this->requireText( 'name' );
-		$seats    = max( 0, $this->sanitizeInt( 'seats' ) );
 		// Модалка кабинета не содержит поля активности → по умолчанию активен.
 		$active   = ! $this->hasParam( 'is_active' ) || $this->sanitizeBool( 'is_active' );
 		$subjects = $this->sanitizeKeyList( 'allowed_subjects' );
 
-		$data = array( 'name' => $name, 'seats' => $seats, 'allowed_subjects' => $subjects, 'is_active' => $active );
+		$data = array( 'name' => $name, 'allowed_subjects' => $subjects, 'is_active' => $active );
+
+		// При правке без поля seats в запросе (старый клиент) не обнуляем значение.
+		if ( $this->hasParam( 'seats' ) ) {
+			$data['seats'] = max( 0, $this->sanitizeInt( 'seats' ) );
+		}
 
 		if ( $roomId > 0 ) {
 			$this->rooms->update( $roomId, $data );

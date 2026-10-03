@@ -17,6 +17,7 @@ export const RoomModal = {
     _initialized: false,
     $idInput: null,
     $nameInput: null,
+    $seatsInput: null,
     $saveBtn: null,
     $titleEl: null,
     $form: null,
@@ -28,6 +29,7 @@ export const RoomModal = {
         this._initialized = true;
         this.$idInput   = $('#room_id');
         this.$nameInput = $('#room_name');
+        this.$seatsInput = $('#room_seats');
         this.$saveBtn   = $('#room-submit-btn');
         this.$titleEl   = $('#room-modal-title');
         this.$form      = this.$modal.find('form');
@@ -51,7 +53,7 @@ export const RoomModal = {
 
     /**
      * @param {'add'|'edit'} action
-     * @param {{id?:string|number, name?:string, subjects?:string}} [data]
+     * @param {{id?:string|number, name?:string, seats?:number, subjects?:string}} [data]
      */
     open(action, data = {}) {
         const isUpdate = action === 'edit';
@@ -62,6 +64,7 @@ export const RoomModal = {
         if (isUpdate) {
             this.$idInput.val(data.id ?? '');
             this.$nameInput.val(data.name ?? '');
+            this.$seatsInput.val(data.seats ?? 0);
             const subs = String(data.subjects ?? '').split(',').map((s) => s.trim()).filter(Boolean);
             this.$modal.find('.room-subject-cb').each((i, el) => { el.checked = subs.includes(el.value); });
         }
@@ -87,6 +90,7 @@ export const RoomModal = {
     _resetForm() {
         this.$idInput.val('');
         this.$nameInput.val('');
+        this.$seatsInput.val(0);
         this.$modal.find('.room-subject-cb').prop('checked', false);
     },
 
@@ -95,6 +99,7 @@ export const RoomModal = {
         return {
             id:       this.$idInput.val().trim(),
             name:     this.$nameInput.val().trim(),
+            seats:    parseInt(this.$seatsInput.val(), 10) || 0,
             subjects: subjects,
         };
     },
