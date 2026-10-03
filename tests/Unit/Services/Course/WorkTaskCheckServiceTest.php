@@ -44,6 +44,7 @@ class WorkTaskCheckServiceTest extends TestCase {
 
 	private TaskTemplate $template = TaskTemplate::Standard;
 	private int $maxAttempts        = 0;
+	private WorkType $workType      = WorkType::Practice;
 
 	protected function setUp(): void {
 		parent::setUp();
@@ -66,7 +67,7 @@ class WorkTaskCheckServiceTest extends TestCase {
 
 	private function work( int $id ): WorkDTO {
 		return new WorkDTO(
-			id: $id, subjectKey: 'inf', title: 'W', workType: WorkType::Practice,
+			id: $id, subjectKey: 'inf', title: 'W', workType: $this->workType,
 			itemIds: array( 71, 72 ), instructions: '', authorId: 1, status: 'publish',
 			maxAttempts: $this->maxAttempts,
 		);
@@ -196,6 +197,22 @@ class WorkTaskCheckServiceTest extends TestCase {
 		$this->checks->expects( $this->never() )->method( 'create' );
 
 		$this->expectCode( ErrorCode::WorkLimit );
+	}
+
+	/** Самостоятельная и домашняя оцениваются по итогу сдачи — кнопки проверки в них нет. */
+	public function test_only_practice_allows_the_check(): void {
+		foreach ( array( WorkType::Independent, WorkType::Homework ) as $type ) {
+			self::assertFalse( $type->allowsInlineCheck(), $type->value );
+		}
+		self::assertTrue( WorkType::Practice->allowsInlineCheck() );
+	}
+
+	public function test_check_is_refused_in_homework(): void {
+		$this->workType = WorkType::Homework;
+		$this->arrange( true );
+		$this->checks->expects( $this->never() )->method( 'create' );
+
+		$this->expectCode( ErrorCode::WorkCheckKind );
 	}
 
 	public function test_task_outside_the_work_is_refused(): void {

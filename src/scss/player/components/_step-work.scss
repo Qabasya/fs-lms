@@ -115,8 +115,6 @@
     margin-bottom: rem(14);
 
     b { font-size: $font-size-md; font-weight: 700; flex: 1; }
-
-    .pts { font: 600 rem(12) var(--font); color: var(--muted-2); white-space: nowrap; }
   }
 
   .q {
@@ -149,6 +147,9 @@
 }
 
 .work-instructions { margin-bottom: rem(14); }
+
+/* Режим преподавателя: пропуск в тексте задачи — прочерк на месте поля ввода. */
+.fs-fill-blank { color: var(--muted-2); white-space: nowrap; }
 
 /* номер задачи */
 .tkn {

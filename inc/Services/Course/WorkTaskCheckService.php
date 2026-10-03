@@ -19,7 +19,7 @@ use Inc\Shared\CodedException;
  *
  * Проверка одного ответа кнопкой «Проверить ответ» внутри работы — до её сдачи.
  *
- * - Только текстовые автозадания ({@see \Inc\Enums\Subject\TaskTemplate::allowsInlineCheck()}):
+ * - Только в практике ({@see \Inc\Enums\Course\WorkType::allowsInlineCheck()}) и только текстовые автозадания ({@see \Inc\Enums\Subject\TaskTemplate::allowsInlineCheck()}):
  *   выбор/сопоставление/сортировка и ручные шаблоны кнопки не имеют.
  * - Три проверки на задачу в каждом раунде сдачи работы ({@see self::MAX_CHECKS}); после
  *   верной проверки задача закрыта, как засчитанная при пересдаче.
@@ -76,6 +76,9 @@ class WorkTaskCheckService {
 		$work = $this->works->get( $workId );
 		if ( ! $work ) {
 			throw new CodedException( ErrorCode::WorkNotFound, 'Работа не найдена.' );
+		}
+		if ( ! $work->workType->allowsInlineCheck() ) {
+			throw new CodedException( ErrorCode::WorkCheckKind, 'В работах этого типа ответ до сдачи не проверяется.' );
 		}
 		if ( ! in_array( $taskId, array_map( 'intval', $work->itemIds ), true ) ) {
 			throw new CodedException( ErrorCode::WorkNotInLesson, 'Задание не входит в работу.' );

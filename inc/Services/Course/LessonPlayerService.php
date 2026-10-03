@@ -179,9 +179,38 @@ class LessonPlayerService {
 			),
 			'task'       => $this->renderTaskData( $step, $groupLesson, $studentPersonId, $isTeacher ),
 			'work'       => $this->renderWorkData( $step, $groupLesson, $studentPersonId, $isTeacher ),
-			'assessment' => $this->stepRenderer->renderAssessmentData( $step ),
+			'assessment' => $this->renderAssessmentData( $step, $isTeacher ),
 			default      => array( 'ref' => (int) ( $step->payload['ref'] ?? 0 ) ),
 		};
+	}
+
+	/**
+	 * Данные шага-контрольной. Ученику — ссылка на отдельную страницу попытки; в
+	 * teacher-режиме добавляются задачи с эталоном: преподаватель читает контрольную
+	 * прямо в плеере («Показать решение»), проходить её ему не нужно.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function renderAssessmentData( StepDTO $step, bool $isTeacher ): array {
+		$data = $this->stepRenderer->renderAssessmentData( $step );
+		if ( ! $isTeacher || empty( $data['title'] ) ) {
+			return $data;
+		}
+
+		$tasks = array();
+		foreach ( $this->stepRenderer->assessmentTaskBundles( (int) $data['ref'] ) as $bundle ) {
+			$solution = $this->solutions->forTask( (int) $bundle['task_id'], $bundle['meta'] );
+			unset( $bundle['meta'] );
+			if ( null !== $solution ) {
+				$bundle['solution'] = $solution;
+			}
+			$tasks[] = $bundle;
+		}
+
+		return $data + array(
+			'assessment_found' => true,
+			'tasks'            => $tasks,
+		);
 	}
 
 	/**
@@ -220,10 +249,6 @@ class LessonPlayerService {
 			if ( ! $bundle['auto_grade'] ) {
 				$bundle['widget_data'] = array( 'type' => 'text_answer' );
 			}
-
-			// Кнопка «Проверить ответ»: только текстовые автозадания.
-			$bundle['check_enabled'] = $bundle['auto_grade']
-				&& TaskTemplate::from( $bundle['template'] )->allowsInlineCheck();
 
 			// Эталон каждой задачи работы — только преподавателю («Показать решение»).
 			$solution = $isTeacher ? $this->solutions->forTask( (int) $taskId, $bundle['meta'] ) : null;

@@ -89,7 +89,7 @@ class StepContentRenderer {
 	 * task-шагов (`LessonPlayerService::renderTaskData`/`CoursePreviewService`) и
 	 * задач внутри work-шага (`renderWorkData`). `null`, если пост задачи не найден.
 	 *
-	 * @return array{task_id:int, title:string, template:string, auto_grade:bool, condition_html:string|array<string,string>, widget_data:array<string,mixed>, files:array<int,array{name:string,url:string}>, meta:array<string,mixed>}|null
+	 * @return array{task_id:int, title:string, template:string, auto_grade:bool, condition_html:string|array<string,string>, widget_data:array<string,mixed>, files:array<int,array{name:string,url:string}>, check_enabled:bool, meta:array<string,mixed>}|null
 	 */
 	public function taskBundle( int $taskId, bool $shuffle = false, bool $collapseCommon = false ): ?array {
 		$post = $this->posts->get( $taskId );
@@ -112,8 +112,38 @@ class StepContentRenderer {
 			// кроме «Задания Робо»: его ответ — код, вводится прямо в карточке работы.
 			'widget_data'    => $autoGrade || $template->isCodeOnlyAnswer() ? $this->buildWidgetData( $meta, $template, $shuffle ) : array(),
 			'files'          => $this->buildFiles( $meta ),
+			// Кнопка «Проверить ответ» в работе: только текстовые автозадания.
+			'check_enabled'  => $autoGrade && $template->allowsInlineCheck(),
 			'meta'           => $meta,
 		);
+	}
+
+	/**
+	 * Задачи контрольной для инлайн-показа в плеере (предпросмотр курса — прорешать,
+	 * teacher-режим — прочитать с эталоном): те же `taskBundle()`, что у задач работы.
+	 * `meta` оставлена в бандлах — по ней вызывающий строит эталон и сам её убирает.
+	 *
+	 * @return array<int, array<string, mixed>> Пусто — контрольной нет или она не опубликована.
+	 */
+	public function assessmentTaskBundles( int $assessmentId ): array {
+		$assessment = $assessmentId ? $this->assessments->get( $assessmentId ) : null;
+		if ( null === $assessment || 'publish' !== $assessment->status ) {
+			return array();
+		}
+
+		$bundles = array();
+		foreach ( $assessment->taskIds as $taskId ) {
+			$bundle = $this->taskBundle( (int) $taskId );
+			if ( null === $bundle ) {
+				continue;
+			}
+			if ( ! $bundle['auto_grade'] ) {
+				$bundle['widget_data'] = array( 'type' => 'text_answer' );
+			}
+			$bundles[] = $bundle;
+		}
+
+		return $bundles;
 	}
 
 	/**

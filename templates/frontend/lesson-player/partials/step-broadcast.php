@@ -86,6 +86,17 @@ $bc_teacher  = ! empty( $is_teacher ) && empty( $is_preview );
 			<p class="step-muted"><?php esc_html_e( 'Запись занятия появится позже.', 'fs-lms' ); ?></p>
 		<?php endif; ?>
 
+		<?php if ( ! empty( $is_preview ) ) : ?>
+			<?php // Предпросмотр курса: занятия нет, значит и записи — показываем, где она появится у ученика. ?>
+			<div class="bc-actions">
+				<button type="button" class="b b-lg b-dis" disabled>
+					<?php echo Icon::Play->svg(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+					<?php esc_html_e( 'Открыть запись трансляции', 'fs-lms' ); ?>
+				</button>
+			</div>
+			<p class="step-muted"><?php esc_html_e( 'Ссылку на запись добавляет преподаватель в группе после занятия — в предпросмотре её нет.', 'fs-lms' ); ?></p>
+		<?php endif; ?>
+
 		<?php if ( $bc_teacher ) : ?>
 			<form class="bc-rec" data-recording-form data-group-lesson-id="<?php echo esc_attr( (string) ( $view['group_lesson_id'] ?? 0 ) ); ?>">
 				<label class="bc-rec-label" for="bcRecLink-<?php echo esc_attr( $step['key'] ); ?>"><?php esc_html_e( 'Ссылка на запись занятия (видна ученикам после занятия)', 'fs-lms' ); ?></label>

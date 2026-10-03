@@ -7,6 +7,7 @@
  * @var array  $step       Шаг из LessonPlayerService::buildView.
  * @var array  $render     Render-данные шага (LessonPlayerService::renderWorkData).
  * @var bool   $is_preview Признак preview-плеера курса (Фаза 5) — блокирует «Завершить работу».
+ * @var bool|null $is_teacher_view Режим преподавателя (не предпросмотр): только условия и «Показать решение».
  * @var bool|null $is_teacher Teacher-режим занятия (бейдж в топбаре). Эталон задачи работы
  *                           подключается по наличию tasks[].solution, а не по флагу.
  * @var string $edit_url   Ссылка «Редактировать» в конструктор (#15-E), пусто вне preview.
@@ -21,6 +22,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 use Inc\Enums\Course\StepType;
+use Inc\Enums\Course\WorkType;
 use Inc\Enums\Ui\Icon;
 
 if ( empty( $render['work_found'] ) ) : ?>
@@ -41,7 +43,26 @@ if ( empty( $render['work_found'] ) ) : ?>
 endif;
 
 $work_tasks     = is_array( $render['tasks'] ?? null ) ? $render['tasks'] : array();
+
+// Режим преподавателя: условия и «Показать решение», без полей ответа и сдачи.
+if ( ! empty( $is_teacher_view ) ) {
+	$tw_type  = 'work';
+	$tw_title = (string) $render['title'];
+	$tw_tasks = $work_tasks;
+	$tw_meta  = sprintf(
+		/* translators: 1: work type label, 2: task count, 3: total points */
+		__( '%1$s · задач: %2$d · баллов: %3$d', 'fs-lms' ),
+		$render['work_type_label'],
+		(int) $render['task_count'],
+		(int) $render['total_points']
+	);
+	include __DIR__ . '/teacher-work.php';
+	return;
+}
+
 $work_has_sub   = ! empty( $render['submission'] );
+// «Проверить ответ» — только в практике; в самостоятельной и домашней проверка идёт сдачей.
+$work_check_allowed = WorkType::fromValueOrDefault( (string) ( $render['work_type'] ?? '' ) )->allowsInlineCheck();
 $work_state     = array(
 	'work_id'       => (int) $render['ref'],
 	'submission'    => $render['submission'] ?? null,
@@ -55,8 +76,6 @@ $work_state     = array(
 	'checks'          => (object) ( $render['checks'] ?? array() ),
 	'checks_max'      => (int) ( $render['checks_max'] ?? 0 ),
 );
-// «Проверить ответ» — только ученику: в предпросмотре и teacher-режиме проверка идёт сдачей целиком.
-$work_can_check = empty( $is_preview ) && empty( $is_teacher );
 $work_meta_line = sprintf(
 	/* translators: 1: work type label, 2: task count, 3: total points */
 	__( '%1$s · задач: %2$d · баллов: %3$d · ответы можно менять до завершения', 'fs-lms' ),
@@ -99,8 +118,6 @@ $work_meta_line = sprintf(
 
 		<?php if ( ! empty( $is_preview ) ) : ?>
 			<p class="step-muted pv-note"><?php esc_html_e( 'Это предпросмотр — ответы не сохраняются.', 'fs-lms' ); ?></p>
-		<?php elseif ( ! empty( $is_teacher ) ) : ?>
-			<p class="step-muted pv-note"><?php esc_html_e( 'Режим преподавателя — ответы проверяются, но не сохраняются.', 'fs-lms' ); ?></p>
 		<?php endif; ?>
 
 		<?php if ( ! empty( $render['instructions'] ) ) : ?>
@@ -111,7 +128,8 @@ $work_meta_line = sprintf(
 
 		<div class="wstack">
 			<?php foreach ( $work_tasks as $work_i => $work_task ) : ?>
-				<?php $work_task_checkable = $work_can_check && ! empty( $work_task['check_enabled'] ); ?>
+				<?php // «Проверить ответ» — у ученика и в предпросмотре (там dry-run, без лимита и записи).
+				$work_task_checkable = $work_check_allowed && ! empty( $work_task['check_enabled'] ); ?>
 				<div class="a-task"
 					data-task-id="<?php echo esc_attr( (string) $work_task['task_id'] ); ?>"
 					data-auto="<?php echo esc_attr( $work_task['auto_grade'] ? '1' : '0' ); ?>"
@@ -122,8 +140,6 @@ $work_meta_line = sprintf(
 						<span class="stc stc-none" data-task-chip><?php esc_html_e( 'Нет ответа', 'fs-lms' ); ?></span>
 						<?php if ( $work_task_checkable ) : ?>
 							<button type="button" class="b b-sm b-dis" data-task-check disabled><?php esc_html_e( 'Проверить ответ', 'fs-lms' ); ?></button>
-						<?php else : ?>
-							<span class="pts"><?php esc_html_e( '1 балл', 'fs-lms' ); ?></span>
 						<?php endif; ?>
 					</div>
 
@@ -145,7 +161,7 @@ $work_meta_line = sprintf(
 							data-widget='<?php echo esc_attr( (string) wp_json_encode( $work_task['widget_data'] ?? array() ) ); ?>'></div>
 						<span class="wnote">
 							<?php
-							if ( $work_task_checkable ) {
+							if ( $work_task_checkable && (int) ( $render['checks_max'] ?? 0 ) > 0 ) {
 								echo esc_html(
 									sprintf(
 										/* translators: %d: сколько раз можно проверить ответ на задачу */
@@ -153,6 +169,8 @@ $work_meta_line = sprintf(
 										(int) ( $render['checks_max'] ?? 0 )
 									)
 								);
+							} elseif ( $work_task_checkable ) {
+								esc_html_e( 'Ответ сохраняется автоматически · можно проверить до завершения', 'fs-lms' );
 							} elseif ( $work_task['auto_grade'] ) {
 								esc_html_e( 'Ответ сохраняется автоматически · правильность станет видна после завершения', 'fs-lms' );
 							} else {

@@ -156,7 +156,8 @@ function mountWork( panel, root ) {
 
 		const taskId = card.dataset.taskId;
 		const used   = checks[ taskId ]?.used || 0;
-		const left   = Math.max( 0, checksMax - used );
+		// Лимита нет в предпросмотре (checks_max = 0): dry-run ничего не расходует.
+		const left   = checksMax > 0 ? Math.max( 0, checksMax - used ) : Infinity;
 		const solved = 'correct' === checks[ taskId ]?.status;
 
 		btn.hidden = solved || card.classList.contains( 'is-locked' );
@@ -167,7 +168,7 @@ function mountWork( panel, root ) {
 		btn.classList.toggle( 'b-dis', blocked );
 		btn.textContent = 0 === left
 			? 'Проверки закончились'
-			: ( used > 0 ? `Проверить ответ · осталось ${ left }` : 'Проверить ответ' );
+			: ( used > 0 && Infinity !== left ? `Проверить ответ · осталось ${ left }` : 'Проверить ответ' );
 	}
 
 	async function runCheck( card ) {
@@ -177,11 +178,18 @@ function mountWork( panel, root ) {
 
 		const answer = widget.collectAnswer();
 		const fd     = new FormData();
-		fd.append( 'action', vars.actions.checkWorkTask );
-		fd.append( 'security', vars.nonces.submitBatchWork );
-		fd.append( 'group_lesson_id', core.groupLessonId );
-		fd.append( 'work_id', workId );
-		fd.append( 'task_id', taskId );
+		if ( isPreview() ) {
+			// Предпросмотр: dry-run по ref задачи — без занятия, ученика и записи.
+			fd.append( 'action', vars.actions.previewCheckTask );
+			fd.append( 'security', vars.nonces.previewSolve );
+			fd.append( 'ref', taskId );
+		} else {
+			fd.append( 'action', vars.actions.checkWorkTask );
+			fd.append( 'security', vars.nonces.submitBatchWork );
+			fd.append( 'group_lesson_id', core.groupLessonId );
+			fd.append( 'work_id', workId );
+			fd.append( 'task_id', taskId );
+		}
 		fd.append( 'answer', answer );
 
 		checking.add( taskId );
@@ -205,6 +213,7 @@ function mountWork( panel, root ) {
 		if ( d ) {
 			checks[ taskId ] = {
 				status: d.is_correct ? 'correct' : 'wrong',
+				// Предпросмотр счётчика не возвращает — считаем сами (на лимит он не влияет).
 				used  : Number( d.checks_used ) || ( ( checks[ taskId ]?.used || 0 ) + 1 ),
 				answer: parseAnswer( answer ),
 			};
