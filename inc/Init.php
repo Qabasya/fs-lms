@@ -81,6 +81,7 @@ use Inc\Controllers\Group\ScheduleController;
 use Inc\Controllers\Group\SubstitutionController;
 use Inc\Controllers\Group\RoomController;
 use Inc\Controllers\Exam\WooExamController;
+use Inc\Services\Exam\ExamEventDispatcher;
 use Inc\Controllers\Profile\ProfileDashboardController;
 use Inc\Controllers\Profile\LearnerProfileController;
 use Inc\Controllers\Profile\NotificationController;
@@ -229,6 +230,7 @@ final class Init {
 			NotificationSubscriber::class,    // событийные продюсеры уведомлений кабинета
 			// ==== Этап 3 — сдача работ ====
 			WooExamController::class,        // Совместимость с HPOS WooCommerce (экзамены)
+			ExamEventDispatcher::class,      // Диспетчер событий экзаменов (cron minutely)
 
 			SubmissionController::class,       // AJAX сдачи / проверки / журнала
 			AssessmentController::class,       // AJAX попыток контрольных
