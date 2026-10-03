@@ -5,10 +5,12 @@ declare( strict_types=1 );
 namespace Inc\Callbacks\Exam;
 
 use Inc\Core\BaseController;
-use Inc\Enums\Nonce;
-use Inc\Enums\Capability;
+use Inc\Enums\Wp\Nonce;
+use Inc\Enums\Access\Capability;
 use Inc\Services\Exam\ExamReviewProjection;
 use Inc\Repositories\WPDBRepositories\AssessmentAttemptRepository;
+use Inc\Shared\Traits\Authorizer;
+use Inc\Shared\Traits\Sanitizer;
 
 /**
  * Интеграция разбора экзамена с work-review.js (7.4).
@@ -20,6 +22,9 @@ use Inc\Repositories\WPDBRepositories\AssessmentAttemptRepository;
  * @package Inc\Callbacks\Exam
  */
 class ExamReviewCallbacks extends BaseController {
+
+	use Authorizer;
+	use Sanitizer;
 
 	public function __construct(
 		private readonly ExamReviewProjection $projection,

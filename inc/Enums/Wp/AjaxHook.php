@@ -351,6 +351,7 @@ enum AjaxHook: string {
 	case ApproveExamAttempt     = 'approve_exam_attempt';      // params: attempt_id (утверждение попытки ученика)
 	case CreateExamResultLink   = 'create_exam_result_link';   // params: participation_id, days_valid
 	case CreateExamGuestLink    = 'create_exam_guest_link';    // params: source_id, days_valid
+	case GetWorkReviewDetail    = 'get_work_review_detail';    // params: source_type, source_id (детали работы/экзамена)
 
 	// ==== Публичные экзамены (Этап 5: Learner UI) ====
 	case GetLearnerExams        = 'get_learner_exams';        // params: student_person_id? (родитель); ответ: список карточек экзаменов

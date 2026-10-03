@@ -179,11 +179,12 @@ class LessonCallbacks extends BaseController {
 			return;
 		}
 
-		// 6.6: Блокировать изменение уроков во время активного экзамена
-		$userPerson = wp_get_current_user();
-		if ( $userPerson && $userPerson->ID ) {
-			// TODO: Получить personId по wpUserId и проверить экзаменный лок
-			// На этапе 6.6 добавить методу getCurrentPersonId или аналог
+		// 6.6: Блокировать изменение уроков во время активного экзамена (учитель не может менять контент пока идёт его экзамен)
+		$wpUser = wp_get_current_user();
+		if ( $wpUser && $wpUser->ID && current_user_can( Capability::AuthorLmsCourses->value ) ) {
+			// Учителя блокируем от редактирования урока только если он сам проводит экзамен
+			// (не студент, поэтому getActiveLockingAttempt нужен для его personId, если он в системе как person)
+			// На этом этапе пропускаем — требует PersonRepository интеграции для преподавателя
 		}
 
 		$sanitized = array_map( array( $this->authoringService, 'sanitizeStep' ), $raw_steps );

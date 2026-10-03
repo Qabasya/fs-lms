@@ -8,12 +8,14 @@ use Inc\Contracts\ServiceInterface;
 use Inc\Enums\Wp\AjaxHook;
 use Inc\Core\BaseController;
 use Inc\Callbacks\Exam\ExamCallbacks;
+use Inc\Callbacks\Exam\ExamReviewCallbacks;
 use Inc\Callbacks\Exam\LearnerExamCallbacks;
 
 class ExamController extends BaseController implements ServiceInterface {
 
 	public function __construct(
 		private ExamCallbacks $examCallbacks,
+		private ExamReviewCallbacks $reviewCallbacks,
 		private LearnerExamCallbacks $learnerCallbacks
 	) {}
 
@@ -34,6 +36,7 @@ class ExamController extends BaseController implements ServiceInterface {
 		add_action( 'wp_ajax_' . AjaxHook::ApproveExamAttempt->jsAction(), [ $this->examCallbacks, 'ajaxApproveExamAttempt' ] );
 		add_action( 'wp_ajax_' . AjaxHook::CreateExamResultLink->jsAction(), [ $this->examCallbacks, 'ajaxCreateExamResultLink' ] );
 		add_action( 'wp_ajax_' . AjaxHook::CreateExamGuestLink->jsAction(), [ $this->examCallbacks, 'ajaxCreateExamGuestLink' ] );
+		add_action( 'wp_ajax_' . AjaxHook::GetWorkReviewDetail->jsAction(), [ $this->reviewCallbacks, 'ajaxGetDetail' ] );
 	}
 
 	private function registerLearnerActions(): void {
