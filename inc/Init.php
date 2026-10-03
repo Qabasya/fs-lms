@@ -83,6 +83,7 @@ use Inc\Controllers\Group\RoomController;
 use Inc\Controllers\Exam\WooExamController;
 use Inc\Controllers\Exam\ExamController;
 use Inc\Controllers\Exam\ExamGuestPageController;
+use Inc\Controllers\Exam\ExamResultPageController;
 use Inc\Services\Exam\ExamEventDispatcher;
 use Inc\Controllers\Profile\ProfileDashboardController;
 use Inc\Controllers\Profile\LearnerProfileController;
@@ -234,6 +235,7 @@ final class Init {
 			WooExamController::class,        // Совместимость с HPOS WooCommerce (экзамены)
 			ExamController::class,           // AJAX контроллер управления экзаменами
 			ExamGuestPageController::class,  // Гостевая форма входа на экзамен
+			ExamResultPageController::class, // Страница результатов экзамена
 			ExamEventDispatcher::class,      // Диспетчер событий экзаменов (cron minutely)
 
 			SubmissionController::class,       // AJAX сдачи / проверки / журнала
