@@ -10,6 +10,7 @@ use Inc\Enums\Access\Capability;
 use Inc\Enums\Subject\TemplateCategory;
 use Inc\Enums\Wp\Nonce;
 use Inc\Managers\Course\LessonManager;
+use Inc\Services\Assessment\ExamLockService;
 use Inc\Services\Course\LessonAuthoringService;
 use Inc\Services\Course\LessonVisibilityService;
 use Inc\Shared\Traits\Authorizer;
@@ -31,6 +32,7 @@ class LessonCallbacks extends BaseController {
 		private readonly LessonAuthoringService  $authoringService,
 		private readonly LessonManager           $lessonManager,
 		private readonly LessonVisibilityService $visibilityService,
+		private readonly ExamLockService         $examLock,
 	) {
 		parent::__construct();
 	}
@@ -175,6 +177,13 @@ class LessonCallbacks extends BaseController {
 		if ( null === $lesson ) {
 			$this->error( 'Урок не найден.' );
 			return;
+		}
+
+		// 6.6: Блокировать изменение уроков во время активного экзамена
+		$userPerson = wp_get_current_user();
+		if ( $userPerson && $userPerson->ID ) {
+			// TODO: Получить personId по wpUserId и проверить экзаменный лок
+			// На этапе 6.6 добавить методу getCurrentPersonId или аналог
 		}
 
 		$sanitized = array_map( array( $this->authoringService, 'sanitizeStep' ), $raw_steps );
