@@ -17,6 +17,22 @@
 - Права проверяет сервер. Клиент лишь прячет недоступное.
 - Тексты кнопок и заголовков — без рода; даты и числа — подстановкой.
 
+
+## Статус (проверено 2026-10-04)
+
+**Сделано и проверено:** 4.1–4.7. Юнит-тесты — `ExamEventServiceTest`, `ExamPlanServiceTest`, `ExamRoomServiceTest`, `ExamSourceServiceTest`, `ExamEventCallbacksTest`, `ExamSourceCallbacksTest`,
+`RoomAvailabilityServiceTest`, `RoomAssignmentServiceTest`, `SessionCalendarServiceTest`, `IndividualLessonServiceTest`, `TeacherProfileViewTest`, `DashboardServiceTest`, `tests/js/ktp-month-cells.test.mjs`,
+`tests/js/exam-common.test.mjs`, `tests/js/exam-sources.test.mjs`; гонка за кабинет — стенд `room-race` (`created=1 conflict=49`).
+**Браузер (headless Chrome):** календарь (проведение на 4 и 10 дней через границу месяцев, форма проведения и сеанса, публикация, телефон 390 px без перетаскивания),
+блок экзаменов на «Главной» (клик ведёт на «Проведение экзамена»), секция «Ссылки для преподавателей» (добавить, создать, скопировать, перевыпустить через диалог с текстом последствий,
+отозвать; в списке нет ключа и хеша).
+
+**Что изменилось по сравнению с текстом этапа:**
+- Секция «Ссылки для преподавателей» на сервере **скрыта до этапа 11a** (`TeacherProfileView`: `guestSignupReady = false`, страницы `/exam-signup/` ещё нет); для проверки флаг включался в открытой странице.
+- `ExamRoomService::assertFree()` не дублирует проверку занятости, а зовёт `RoomAvailabilityService::isFree( …, $excludeExamSessionId )` — единая точка «свободен ли кабинет» (4.4.1–4.4.2); прямых вызовов `RoomRepository::isBusy()` вне неё нет.
+- Экраны `exam-conduct`, `exam-stats`, `exam-results`, `exam-payments` — заглушки по 4.1 (наполнение — этапы 8–12).
+- Репозиторий источников — `inc/Repositories/WPDBRepositories/ExamSourceRepository.php` (общий каталог слоя).
+
 ---
 
 ## 4.1 Раздел меню «Мои экзамены» у сотрудника
@@ -33,23 +49,23 @@
 - `grep -n "icoCalendar\|icoStar\|icoInbox\|icoDocCheck" src/js/common/icons.js` — какие иконки уже есть.
 
 **Шаги**
-- [ ] 4.1.1 `TeacherProfileView::build()`: вычислить `$canExams = user_can( $context->wpUserId, Capability::ManageExams->value )` и
+- [x] 4.1.1 `TeacherProfileView::build()`: вычислить `$canExams = user_can( $context->wpUserId, Capability::ManageExams->value )` и
   `$canPayments = user_can( …, Capability::ResolveExamPayments->value )`.
   - при `$canExams` — в `$screens` добавить `exam-conduct`, `exam-stats`, `exam-plan`, `exam-results`;
   - при `$canPayments` — `exam-payments`;
   - в возвращаемый массив добавить ключ `examNav` — список `array{key, label}` в порядке SPEC:
     «Проведение экзамена», «Статистика», «Назначить экзамен», «Результаты», и (при `$canPayments`) «Оплаты гостей».
   В общий `$nav` эти пункты **не добавлять**: у них своя секция сайдбара.
-- [ ] 4.1.2 Там же блок конфига `exams` (только при `$canExams || $canPayments`): `nonce => Nonce::ExamManage->create()`, `actions => array()`
+- [x] 4.1.2 Там же блок конфига `exams` (только при `$canExams || $canPayments`): `nonce => Nonce::ExamManage->create()`, `actions => array()`
   (наполняется в 4.2–4.6), `subjects` — список `array{key, name}` из `ExamAccessGuard::manageableSubjectKeys()`, `guestSignupReady => false`
   (станет `true` на этапе 11a). Внедрить `ExamAccessGuard` в конструктор витрины.
-- [ ] 4.1.3 `app.js`: в `sidebarState` добавить `examsCollapsed: false`; в `buildSidebar()` после «Меню» — секция
+- [x] 4.1.3 `app.js`: в `sidebarState` добавить `examsCollapsed: false`; в `buildSidebar()` после «Меню» — секция
   `sectionHeader( 'Мои экзамены', 'examsCollapsed' )` + `sectionBody( … )` с пунктами `cfg.examNav` (та же разметка `prof-nav-item` с `data-go`).
   Секции нет, если `cfg.examNav` пуст.
-- [ ] 4.1.4 `app.js`: добавить в `SCREENS`, `TOPBAR` (`crumb: 'Экзамены'`) и `NAV_ICONS` пять ключей. Рендереры — из новых файлов:
+- [x] 4.1.4 `app.js`: добавить в `SCREENS`, `TOPBAR` (`crumb: 'Экзамены'`) и `NAV_ICONS` пять ключей. Рендереры — из новых файлов:
   `src/js/profile/exams/exam-plan.js` (`renderExamPlan`), `exam-conduct.js`, `exam-results.js`, `exam-stats.js`, `exam-payments.js`.
   В четырёх последних пока заглушка: `root.innerHTML = emptyState( … )` с текстом «Раздел в разработке.» (`emptyState` — из `./utils.js`).
-- [ ] 4.1.5 Селектор предмета на экранах экзаменов скрыт, если предмет один; при нуле предметов — пустое состояние
+- [x] 4.1.5 Селектор предмета на экранах экзаменов скрыт, если предмет один; при нуле предметов — пустое состояние
   «Нет предметов, по которым можно назначить экзамен.» (SPEC §2). Вынести в общий помощник `src/js/profile/exams/exam-common.js`:
   `subjectPickerHtml( subjects, current )`, `currentSubject()`.
 
@@ -77,13 +93,13 @@
 - `tests/js/` — как устроены JS-тесты (`register.mjs`, `*.test.mjs`).
 
 **Шаги**
-- [ ] 4.2.1 Выделить сборку сетки в чистую функцию в `ktp-calendar-model.js`:
+- [x] 4.2.1 Выделить сборку сетки в чистую функцию в `ktp-calendar-model.js`:
   ```js
   /** @returns {Array<{type:'empty'}|{type:'day', date:string, day:number}>} ячейки месяца с ведущими пустыми */
   export function monthCells( year, month ) { … }
   ```
   `ktp.js::renderCalendar()` перевести на неё **без изменения разметки и поведения** (сравнить HTML сетки до и после на одной группе).
-- [ ] 4.2.2 Серверная часть. `inc/Callbacks/Exam/ExamEventCallbacks.php` (`extends BaseController`, `use Authorizer; use Sanitizer;`)
+- [x] 4.2.2 Серверная часть. `inc/Callbacks/Exam/ExamEventCallbacks.php` (`extends BaseController`, `use Authorizer; use Sanitizer;`)
   и `inc/Controllers/Exam/ExamController.php` (`extends AjaxController`, в `Init::getServices()`). Экшены (README §4.1):
   | `AjaxHook` | Параметры | Ответ |
   |---|---|---|
@@ -91,17 +107,17 @@
   Каждый метод: `$this->authorize( Nonce::ExamManage, Capability::ManageExams )`, затем `ExamAccessGuard::canManageSubject()` /
   `canManageEvent()`; отказ — `$this->fail( ErrorCode::ExamAccess, … )`. Времена в ответе — местные (`ExamTime::toLocal()`).
   Преподаватель видит в `events` **только свои** проведения, глобальный пользователь — все проведения предмета.
-- [ ] 4.2.3 `exam-plan.js`, экран в три зоны (как КТП): шапка (предмет, проведение, «Настройки проведения», «Опубликовать», легенда),
+- [x] 4.2.3 `exam-plan.js`, экран в три зоны (как КТП): шапка (предмет, проведение, «Настройки проведения», «Опубликовать», легенда),
   слева банк вариантов (`prof-theme-bank` + `prof-theme-card`), справа календарь (`prof-kal`).
   Месяцы — `computeMonths( { from: period_from, to: period_to } )`: календарь показывает **только месяцы периода**, выходные не скрываются,
   переход через месяц и год работает стрелками (`shiftMonth`).
-- [ ] 4.2.4 Ячейка дня: дни вне периода — класс `no-lesson` и без добавления; внутри периода — список сеансов дня (`placed-theme`: время,
+- [x] 4.2.4 Ячейка дня: дни вне периода — класс `no-lesson` и без добавления; внутри периода — список сеансов дня (`placed-theme`: время,
   вариант, кабинет, «занято N из M») и кнопка «+ Сеанс».
-- [ ] 4.2.5 Перетаскивание варианта из банка на день открывает **ту же форму сеанса** (4.3) с подставленными датой и вариантом.
+- [x] 4.2.5 Перетаскивание варианта из банка на день открывает **ту же форму сеанса** (4.3) с подставленными датой и вариантом.
   Само перетаскивание ничего не сохраняет и не публикует.
-- [ ] 4.2.6 Телефон (ширина ≤ 720 px): перетаскивания нет; сеанс добавляется кнопкой «+ Сеанс» в ячейке, вариант выбирается в форме.
+- [x] 4.2.6 Телефон (ширина ≤ 720 px): перетаскивания нет; сеанс добавляется кнопкой «+ Сеанс» в ячейке, вариант выбирается в форме.
   Кнопка есть и на компьютере — это равноправный способ.
-- [ ] 4.2.7 Пустые состояния: нет проведений — `prof-ktp-empty` с кнопкой «Создать проведение»; нет вариантов —
+- [x] 4.2.7 Пустые состояния: нет проведений — `prof-ktp-empty` с кнопкой «Создать проведение»; нет вариантов —
   «Нет опубликованных вариантов этого предмета.»; нет кабинетов с вместимостью — «Укажите вместимость кабинетов в „Настройки → Кабинеты“.»
 
 **Тесты**
@@ -125,14 +141,14 @@
 - `ExamEventService::saveSession()` и `deleteSession()` (2.4.6–2.4.7).
 
 **Шаги**
-- [ ] 4.3.1 Экшены в `ExamEventCallbacks`:
+- [x] 4.3.1 Экшены в `ExamEventCallbacks`:
   | `AjaxHook` | Параметры |
   |---|---|
   | `SaveExamSession` | `event_id`, `session_id?`, `date`, `time`, `assessment_id`, `room_id`, `version?` |
   | `DeleteExamSession` | `session_id` |
   Ввод — `requireInt()`, `requireText()`, `sanitizeInt()`. `CodedException` → `$this->fail( $e->errorCode, $e->getMessage() )`,
   `InvalidArgumentException` → `$this->error( … )`. Успех — обновлённый сеанс в местном времени.
-- [ ] 4.3.2 `src/js/profile/exams/exam-session-form.js` — `openSessionForm( { api, anchor, event, variants, rooms, fixed: { date?, assessmentId? }, edit?, onSaved } )`.
+- [x] 4.3.2 `src/js/profile/exams/exam-session-form.js` — `openSessionForm( { api, anchor, event, variants, rooms, fixed: { date?, assessmentId? }, edit?, onSaved } )`.
   Поля:
   | Поле | Вид |
   |---|---|
@@ -144,12 +160,12 @@
   | Мест | **только текст** — вместимость выбранного кабинета; поля ввода нет |
   | Ответственный | **только текст** — владелец проведения |
   Длительность формата приходит в `variants[].duration_minutes` (добавить в `ExamVariantPolicy::listForSubject()`).
-- [ ] 4.3.3 Сохранение: кнопка блокируется на время запроса; ошибка сервера показывается внутри формы (не только `toast`), форма не закрывается,
+- [x] 4.3.3 Сохранение: кнопка блокируется на время запроса; ошибка сервера показывается внутри формы (не только `toast`), форма не закрывается,
   введённое сохраняется; успех — закрыть, вызвать `onSaved()`, перерисовать календарь.
-- [ ] 4.3.4 Правка сеанса — клик по сеансу в ячейке открывает ту же форму в режиме правки с кнопкой «Удалить сеанс» (через `confirmDialog()` из
+- [x] 4.3.4 Правка сеанса — клик по сеансу в ячейке открывает ту же форму в режиме правки с кнопкой «Удалить сеанс» (через `confirmDialog()` из
   `src/js/common/components/confirm-dialog.js`). Если сеанс уже начат (`is_locked`) — поля варианта, даты, времени и кабинета недоступны,
   показан текст «Сеанс уже начат: общие параметры менять нельзя.»
-- [ ] 4.3.5 Конфликт версии (`X-STALE`): текст «Сеанс изменили в другой вкладке. Обновите календарь.» и кнопка «Обновить».
+- [x] 4.3.5 Конфликт версии (`X-STALE`): текст «Сеанс изменили в другой вкладке. Обновите календарь.» и кнопка «Обновить».
 
 **Тесты** — `ExamEventCallbacksTest.php`:
 - `test_save_session_passes_local_date_and_time_to_service`;
@@ -171,23 +187,23 @@
 - Поповер `prof-grade-pop` + `gp-form` (как в 4.3).
 
 **Шаги**
-- [ ] 4.5.1 Экшены в `ExamEventCallbacks`:
+- [x] 4.5.1 Экшены в `ExamEventCallbacks`:
   | `AjaxHook` | Параметры |
   |---|---|
   | `SaveExamEvent` | `event_id?`, `subject_key`, `title`, `description`, `period_from`, `period_to`, `registration_opens_at`, `registration_closes_at`, `default_assessment_id`, `guest_registration_enabled`, `version?` |
   | `PublishExamEvent` | `event_id`, `version` |
   | `CancelExamEvent` | `event_id`, `reason`, `version` |
-- [ ] 4.5.2 `src/js/profile/exams/exam-event-form.js` — `openEventForm( { api, anchor, subjectKey, event?, variants, onSaved } )`.
+- [x] 4.5.2 `src/js/profile/exams/exam-event-form.js` — `openEventForm( { api, anchor, subjectKey, event?, variants, onSaved } )`.
   Поля: название; описание для участника (`textarea`); период «с — по» (два `input type="date"`, любые дни, включая выходные и разные месяцы);
   «Запись открыта с» и «по» (`input type="datetime-local"`); основной вариант (`select`); переключатель «Запись гостей по ссылкам школ»
   (виден, только если `cfg.guestSignupReady`). Предмет в форме правки не меняется.
-- [ ] 4.5.3 Клиентская проверка до отправки (дублирует серверную, не заменяет): название не пусто; «с» ≤ «по»; открытие записи ≤ закрытие.
+- [x] 4.5.3 Клиентская проверка до отправки (дублирует серверную, не заменяет): название не пусто; «с» ≤ «по»; открытие записи ≤ закрытие.
   Ошибка — у поля, в существующей разметке ошибки `gp-form` (посмотреть в `indi-modal.js`, как показывается ошибка поля).
-- [ ] 4.5.4 Кнопка «Опубликовать» в шапке экрана: активна для черновика с хотя бы одним сеансом. Перед публикацией — `confirmDialog()`:
+- [x] 4.5.4 Кнопка «Опубликовать» в шапке экрана: активна для черновика с хотя бы одним сеансом. Перед публикацией — `confirmDialog()`:
   «После публикации ученики предмета увидят экзамен и смогут записываться с даты открытия записи.» Ошибку сервера
   («Добавьте хотя бы один сеанс в будущем.») показать `toast( …, 'err' )`.
-- [ ] 4.5.5 Статус проведения в шапке — пилюлей `prof-state-pill` с подписью из `ExamEventStatus::label()` (приходит с сервера строкой `status_label`).
-- [ ] 4.5.6 «Отменить проведение» — пункт меню действий (`openCtxMenu()` из `utils.js`), форма с обязательной причиной. Полная отмена с участниками —
+- [x] 4.5.5 Статус проведения в шапке — пилюлей `prof-state-pill` с подписью из `ExamEventStatus::label()` (приходит с сервера строкой `status_label`).
+- [x] 4.5.6 «Отменить проведение» — пункт меню действий (`openCtxMenu()` из `utils.js`), форма с обязательной причиной. Полная отмена с участниками —
   этап 8.3; до него кнопка доступна только для проведений без записей (сервер отвечает ошибкой, если записи есть — добавить проверку в `cancelEvent()`
   с пометкой `// TODO(8.3): снять ограничение`).
 
@@ -215,24 +231,24 @@
 - `RoomRepository::isBusy()` — запрос только по `group_lessons`.
 
 **Шаги**
-- [ ] 4.4.1 Сделать так, чтобы **единственная точка** «свободен ли кабинет» видела экзамены. В `RoomAvailabilityService` добавить зависимости
+- [x] 4.4.1 Сделать так, чтобы **единственная точка** «свободен ли кабинет» видела экзамены. В `RoomAvailabilityService` добавить зависимости
   `ExamSessionRepository` и `ExamTime`; в `isFree()` после проверки занятий добавить проверку сеансов:
   `! $this->examSessions->isRoomBusy( $roomId, toUtc( $start ), toUtc( $end ) )`. Параметры `isFree()` — местное время, как сейчас.
   `listFreeRooms()` использует `isFree()` и начинает учитывать экзамены автоматически.
-- [ ] 4.4.2 Пройти список из проверки. Каждый сервис, который вызывает `RoomRepository::isBusy()` **напрямую**, минуя `RoomAvailabilityService`,
+- [x] 4.4.2 Пройти список из проверки. Каждый сервис, который вызывает `RoomRepository::isBusy()` **напрямую**, минуя `RoomAvailabilityService`,
   перевести на `RoomAvailabilityService::isFree()`. Если прямой вызов нужен из-за параметра `excludeGroupId` — он уже есть у `isFree()`.
-- [ ] 4.4.3 Сериализация назначения. В `ExamEventService::saveSession()` внутри транзакции **перед** `assertFree()` заблокировать строку кабинета:
+- [x] 4.4.3 Сериализация назначения. В `ExamEventService::saveSession()` внутри транзакции **перед** `assertFree()` заблокировать строку кабинета:
   в `RoomRepository` добавить `lockForUpdate( int $roomId ): void` (`SELECT id FROM %i WHERE id = %d FOR UPDATE`).
   Два одновременных назначения одного кабинета выполняются по очереди, второе видит первое.
-- [ ] 4.4.4 Назначение занятия в кабинет тоже должно брать эту блокировку. Найти методы записи кабинета занятию
+- [x] 4.4.4 Назначение занятия в кабинет тоже должно брать эту блокировку. Найти методы записи кабинета занятию
   (`RoomAssignmentService::assignToLesson()`, `assignToGroup()`, `overrideForRange()`, создание индивидуального занятия) и обернуть
   «проверка + запись» в `inTransaction()` с `lockForUpdate()` в начале. Если метод уже в транзакции — только добавить блокировку.
   Поведение и тексты ошибок этих методов не менять.
-- [ ] 4.4.5 Предупреждение о позднем старте. В `ExamRoomService` добавить
+- [x] 4.4.5 Предупреждение о позднем старте. В `ExamRoomService` добавить
   `lateStartConflicts( ExamSessionDTO $session, string $latestDeadlineUtc ): array` — занятия и сеансы в этом кабинете в окне
   `( planned_end_at, latestDeadline ]`. Возвращает список `array{kind:'lesson'|'exam', title:string, start:string}`.
   Метод ничего не блокирует и не отменяет. Показ предупреждения — на экране «Проведение экзамена» (этап 8.1); здесь только метод и тест.
-- [ ] 4.4.6 Дополнительной брони после `planned_end_at` нет: поля `room_reserved_until` не вводить, `isRoomBusy()` считает окно строго
+- [x] 4.4.6 Дополнительной брони после `planned_end_at` нет: поля `room_reserved_until` не вводить, `isRoomBusy()` считает окно строго
   `[scheduled_at, planned_end_at]`.
 
 **Тесты**
@@ -265,9 +281,9 @@
 - Секция **скрыта**, пока `cfg.guestSignupReady === false` (до 11a). Серверная часть и тесты делаются сейчас.
 
 **Шаги**
-- [ ] 4.6.1 `inc/Repositories/WPDBRepositories/Exam/ExamSourceRepository.php`: `create`, `find`, `findForUpdate`, `update( …, int $expectedVersion )`,
+- [x] 4.6.1 `inc/Repositories/WPDBRepositories/ExamSourceRepository.php`: `create`, `find`, `findForUpdate`, `update( …, int $expectedVersion )`,
   `listByEvent( int $eventId ): array`, `bumpGeneration( int $id ): int` (`key_generation = key_generation + 1`, возвращает новое значение).
-- [ ] 4.6.2 `inc/Services/Exam/ExamSourceService.php`. Зависимости: репозиторий источников, проведений, `ExamAccessGuard`, `ExamAccessTokenService`,
+- [x] 4.6.2 `inc/Services/Exam/ExamSourceService.php`. Зависимости: репозиторий источников, проведений, `ExamAccessGuard`, `ExamAccessTokenService`,
   `ExamFormatRegistry`, `AssessmentManager`, `LogEventDispatcherInterface`, `ExamTime`. Методы (каждый начинает с `canManageEvent()` и права
   `ManageExamGuests`):
   - `save( int $actorUserId, int $eventId, array $input, ?int $sourceId, ?int $expectedVersion ): ExamSourceDTO` — `school_name` и `teacher_name`
@@ -281,19 +297,19 @@
   - `revokeLink( int $actorUserId, int $sourceId ): void` — отзыв без выпуска нового: `key_revoked_at = now`, новые заявки по ссылке невозможны;
     оплаченные записи и действующие брони не трогаются;
   - `setActive( int $actorUserId, int $sourceId, bool $active ): void`.
-- [ ] 4.6.3 URL формы: `home_url( '/exam-signup/' ) . '?k=' . $plain`. Адрес собирает один приватный метод `signupUrl( string $plain ): string`;
+- [x] 4.6.3 URL формы: `home_url( '/exam-signup/' ) . '?k=' . $plain`. Адрес собирает один приватный метод `signupUrl( string $plain ): string`;
   слаг вынести в `PageRoutes::ExamSignup = 'exam-signup'` (страницу создаёт этап 11a.2).
   **Открытый ключ после ответа нигде не остаётся**: повторно «Скопировать» можно только пока форма открыта (значение держит JS в памяти);
   после закрытия — только «Перевыпустить».
-- [ ] 4.6.4 `inc/Callbacks/Exam/ExamSourceCallbacks.php`, экшены (право `Capability::ManageExamGuests`, nonce `ExamManage`):
+- [x] 4.6.4 `inc/Callbacks/Exam/ExamSourceCallbacks.php`, экшены (право `Capability::ManageExamGuests`, nonce `ExamManage`):
   `GetExamSources` (`event_id`), `SaveExamSource`, `IssueExamSourceLink`, `ReissueExamSourceLink`, `RevokeExamSourceLink`, `ToggleExamSource`.
   В списке источников отдавать: поля источника, `has_link` (bool), `generation`, `active_holds` (число действующих броней — `0` до 11a).
   **Ни хеш, ни ключ в списке не отдаются.** Ответы выдачи и перевыпуска содержат `url` один раз.
   Выдача и копирование ссылок не требуют `ExportPII` и `ManageLmsPlatform` (SPEC §2).
-- [ ] 4.6.5 Интерфейс: секция «Ссылки для преподавателей» внутри формы «Настройки проведения» (`exam-event-form.js`), видна при
+- [x] 4.6.5 Интерфейс: секция «Ссылки для преподавателей» внутри формы «Настройки проведения» (`exam-event-form.js`), видна при
   `cfg.guestSignupReady` и включённом «Запись гостей». Повторяемые строки: школа, класс (значение фиксировано направлением — текстом),
   ФИО преподавателя, переключатель активности, кнопки «Создать ссылку» / «Скопировать» / «Перевыпустить». Вынести в `exam-sources.js`.
-- [ ] 4.6.6 «Перевыпустить» — только через `confirmDialog()` с текстом последствий (SPEC §6, дословно):
+- [x] 4.6.6 «Перевыпустить» — только через `confirmDialog()` с текстом последствий (SPEC §6, дословно):
   «Старая ссылка перестанет работать сразу, уже открытые по ней формы потеряют доступ; оплаченные записи и действующие брони сохраняются;
   новую ссылку нужно отправить школе заново.» Кнопка подтверждения — «Перевыпустить». «Скопировать» подтверждения не требует.
 
@@ -324,17 +340,17 @@
 - `ExamSessionRepository` — нужен метод выборки сеансов по ответственному и диапазону дат.
 
 **Шаги**
-- [ ] 4.7.1 `ExamSessionRepository::listForTeacherBetween( int $userId, bool $all, string $fromUtc, string $toUtc ): array` — сеансы (кроме `cancelled`)
+- [x] 4.7.1 `ExamSessionRepository::listForTeacherBetween( int $userId, bool $all, string $fromUtc, string $toUtc ): array` — сеансы (кроме `cancelled`)
   опубликованных проведений, где `responsible_user_id = $userId` (или все при `$all`), со статусом проведения и названием (JOIN с `exam_events`).
-- [ ] 4.7.2 `DashboardService::build()`: добавить ключ ответа `exams` — список на сегодня и неделю:
+- [x] 4.7.2 `DashboardService::build()`: добавить ключ ответа `exams` — список на сегодня и неделю:
   `array{ kind:'exam', session_id, event_id, title, date, time_start, time_end, room, occupied, capacity, state }`.
   Времена — местные. `state` — тем же правилом, что у занятий (`stateOf()`). Право: только если у пользователя есть `ManageExams`;
   офис без права экзамены на «Главной» не видит. В существующие массивы `today` и `week` экзамены **не подмешивать** — счётчики занятий не меняются.
-- [ ] 4.7.3 `dashboard.js`: в блоках «Сегодня» и «Неделя» выводить элементы `exams` вместе с занятиями, отсортированными по времени.
+- [x] 4.7.3 `dashboard.js`: в блоках «Сегодня» и «Неделя» выводить элементы `exams` вместе с занятиями, отсортированными по времени.
   Строка экзамена — та же разметка строки занятия с пометкой «Экзамен» (существующий `prof-chip`); клик → `opts.openExamConduct( sessionId )`.
-- [ ] 4.7.4 `app.js`: в `SCREENS.dashboard` передать `openExamConduct: ( sid ) => { go( 'exam-conduct' ); openExamConductFor( sid ); }`.
+- [x] 4.7.4 `app.js`: в `SCREENS.dashboard` передать `openExamConduct: ( sid ) => { go( 'exam-conduct' ); openExamConductFor( sid ); }`.
   `openExamConductFor` экспортирует `exam-conduct.js`; пока экран — заглушка, функция только запоминает ID сеанса.
-- [ ] 4.7.5 «Расписание преподавателя» — это блоки «Сегодня» и «Неделя» на «Главной». В календаре КТП (он по группе) сеансы экзаменов
+- [x] 4.7.5 «Расписание преподавателя» — это блоки «Сегодня» и «Неделя» на «Главной». В календаре КТП (он по группе) сеансы экзаменов
   не показываются; если владелец попросит — отдельная задача.
 
 **Тесты**
@@ -350,8 +366,8 @@
 
 ## Проверка этапа (SPEC §16: 9, 21)
 
-- [ ] PHPUnit: конфликты кабинета в обе стороны, включая «занятие после экзамена» и «экзамен после занятия».
-- [ ] e2e (headless CDP): проведение на 4 и на 10 дней, через границу месяцев; на телефонной ширине сеанс добавляется без перетаскивания.
-- [ ] КТП без регрессий после выделения `monthCells()`.
-- [ ] `npm run ci`, `npx gulp build` — зелёные.
-- [ ] Список новых CSS-классов этапа записан в `../QA.md` (раздел «Новое»), если они появились.
+- [x] PHPUnit: конфликты кабинета в обе стороны, включая «занятие после экзамена» и «экзамен после занятия». — `RoomAvailabilityServiceTest`, `RoomAssignmentServiceTest`, `ExamRoomServiceTest`; стенд `room-race`
+- [x] e2e (headless CDP): проведение на 4 и на 10 дней, через границу месяцев; на телефонной ширине сеанс добавляется без перетаскивания. — проведено; телефон 390 px — сеанс добавляется кнопкой «+ Сеанс»
+- [x] КТП без регрессий после выделения `monthCells()`. — `tests/js/ktp-month-cells.test.mjs`, экран КТП в браузере
+- [x] `npm run ci`, `npx gulp build` — зелёные. — по частям (2026-10-04): `eslint .` и `stylelint` без ошибок, `gulp styles:check` и `gulp build` успешны, PHPUnit в контейнере 2727 тестов без падений, `npm run test:js` 79 тестов; целиком `npm run ci` на Windows-хосте не идёт: `npm test` вызывает `vendor/bin/phpunit`, который хост не запускает
+- [x] Список новых CSS-классов этапа записан в `../QA.md` (раздел «Новое»), если они появились. — `QA.md`, раздел «Новые CSS-классы…»

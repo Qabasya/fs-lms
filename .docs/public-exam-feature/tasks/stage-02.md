@@ -9,6 +9,24 @@
 **Порядок:** 2.1 → 2.2 → 2.7 → 2.3 → 2.4 → 2.5 → 2.6. Пункт 2.7 (регистрация и проверка миграции) идёт сразу после DDL:
 репозитории проверяются на уже созданных таблицах.
 
+
+## Статус (проверено 2026-10-04)
+
+**Сделано и проверено:** 2.1–2.7 (кроме дампа 2.7.2, см. ниже). Миграция называется `Migration_1_0_71`, зарегистрирована в `Activate` и `Init`.
+- **Новая установка и откат** (временный префикс таблиц на dev-MariaDB): `Migration_1_0_0::up()` создаёт все 15 таблиц экзаменов (тем же `Migration_1_0_71::examDdl()`),
+  схема `assessment_attempts` совпадает с dev (`exam_participation_id`, `exam_registration_id`, `result_version`, `student_person_id DEFAULT NULL`,
+  уникальный `exam_participation`); `Migration_1_0_0::down()` удаляет всё; `Migration_1_0_71::down()` убирает 15 таблиц, индекс и три колонки попыток, `student_person_id` остаётся NULL-able.
+  Эти три пункта (2.1.6, 2.2.4, 2.2.5) были не сделаны и закрыты 2026-10-04; тесты — `ExamSchemaTest` (9).
+- **Повторяемость:** `up()` дважды подряд — без ошибок, `SHOW CREATE TABLE assessment_attempts` и число таблиц не изменились.
+- **`wp fs-lms exam selftest`** — 7 проверок OK на настоящей MariaDB, данные откатаны (`SELECT COUNT(*) FROM wp_fs_lms_exam_events` не растёт).
+- Минутные хуки `ExamAutoExpireTick`/`ExamHoldReleaseTick` на `every_minute`, блокировка тика — `ExamTickLock` (тест `ExamTickLockTest`, ручной запуск `wp fs-lms exam tick`).
+
+**Что изменилось по сравнению с текстом этапа (код — правда):** репозитории лежат в общем `inc/Repositories/WPDBRepositories/`, подкаталога `Exam/` нет; `ExamOutboxRepository` →
+`ExamOutboxEventRepository`; `ExamEventRepository::listBySubjects` → `findBySubjectsAndStatuses`; `ExamRegistrationRepository::findActiveByParticipation` → `findActive`;
+разбор ошибок БД вынесен в трейт `Shared\Traits\RaisesDbError`; `selftest` и команды стенда — в `ExamStandCommand` (регистрируются как `fs-lms exam …`), не в `ExamCommand`.
+
+**Не выполнялось:** 2.7.2 — дамп `before-exam-schema.sql` (схема накатана на dev до этого пункта; «дамп до миграции» теперь не воспроизвести).
+
 ---
 
 ## 2.1 DDL пятнадцати таблиц
@@ -29,9 +47,9 @@
   (`ConsentService::recordSelfConsent( null, … )` возвращает ID строки), ID согласий хранятся в `consent_refs`.
 
 **Шаги**
-- [ ] 2.1.1 Создать `inc/Migrations/Migration_1_0_71.php` (`implements MigrationInterface`) с публичным статическим методом
+- [x] 2.1.1 Создать `inc/Migrations/Migration_1_0_71.php` (`implements MigrationInterface`) с публичным статическим методом
   `examDdl( string $cc ): array` — массив из 15 строк `CREATE TABLE`. Имена таблиц — `TableName::X->prefixed()`.
-- [ ] 2.1.2 Вставить DDL ровно в этом виде (отступы колонок — табами, как в `Migration_1_0_0`):
+- [x] 2.1.2 Вставить DDL ровно в этом виде (отступы колонок — табами, как в `Migration_1_0_0`):
 
 ```sql
 CREATE TABLE {exam_events} (
@@ -320,7 +338,7 @@ CREATE TABLE {exam_manual_resolutions} (
 ) {cc};
 ```
 
-- [ ] 2.1.3 Пояснения записать докблоком класса миграции (исполнитель следующих этапов читает их там):
+- [x] 2.1.3 Пояснения записать докблоком класса миграции (исполнитель следующих этапов читает их там):
   - `exam_registrations.active_slot` = `1` только у действующей брони, `NULL` у отменённой, перенесённой, пропущенной.
     Уникальный индекс `(participation_id, active_slot)` не даёт двух действующих броней; `NULL` в уникальном индексе MariaDB не конфликтуют.
   - `exam_sessions.occupied_count` считает подтверждённые записи учеников **и** действующие брони гостей (`is_held = 1`).
@@ -329,10 +347,10 @@ CREATE TABLE {exam_manual_resolutions} (
   - `exam_participants.person_id` уникален для ненулевых; уникальности по телефону нет (один телефон — два ребёнка).
   - `exam_events.variant_snapshot` — JSON-объект с ключом `assessment_id`.
   - Хеш ключа приглашения живёт в `exam_access_tokens` (`purpose = invitation`, `target_id = source_id`), README §8 п. 1.
-- [ ] 2.1.4 `up()` миграции: `require_once ABSPATH . 'wp-admin/includes/upgrade.php';` и
+- [x] 2.1.4 `up()` миграции: `require_once ABSPATH . 'wp-admin/includes/upgrade.php';` и
   `foreach ( self::examDdl( $wpdb->get_charset_collate() ) as $sql ) { dbDelta( $sql ); }`.
-- [ ] 2.1.5 `down()` миграции: `DROP TABLE IF EXISTS` для 15 **новых** таблиц (только их).
-- [ ] 2.1.6 `Migration_1_0_0::up()`: в конец добавить блок `// ===== 26–40. Экзамены =====` с тем же циклом по
+- [x] 2.1.5 `down()` миграции: `DROP TABLE IF EXISTS` для 15 **новых** таблиц (только их).
+- [x] 2.1.6 `Migration_1_0_0::up()`: в конец добавить блок `// ===== 26–40. Экзамены =====` с тем же циклом по
   `Migration_1_0_71::examDdl( $cc )`. В `down()` добавить 15 таблиц в начало списка. Обновить докблок класса (число таблиц и перечень).
 
 **Тесты** — `tests/Unit/Migrations/ExamSchemaTest.php`:
@@ -360,28 +378,28 @@ CREATE TABLE {exam_manual_resolutions} (
 - `inc/Migrations/Migration_1_0_54.php` — образец идемпотентного `ADD COLUMN`.
 
 **Шаги**
-- [ ] 2.2.1 В `Migration_1_0_71::up()` после создания таблиц добавить колонки в `TableName::AssessmentAttempts` (каждую через
+- [x] 2.2.1 В `Migration_1_0_71::up()` после создания таблиц добавить колонки в `TableName::AssessmentAttempts` (каждую через
   проверку `SHOW COLUMNS … LIKE`):
   | Колонка | Определение |
   |---|---|
   | `exam_participation_id` | `int unsigned DEFAULT NULL AFTER group_lesson_id` |
   | `exam_registration_id` | `int unsigned DEFAULT NULL AFTER exam_participation_id` |
   | `result_version` | `int unsigned NOT NULL DEFAULT 0 AFTER approved_by_user_id` |
-- [ ] 2.2.2 Там же: `ALTER TABLE … MODIFY student_person_id int unsigned DEFAULT NULL` (повторное выполнение безвредно).
-- [ ] 2.2.3 Там же: уникальный индекс одной официальной попытки на участие. Перед созданием проверить
+- [x] 2.2.2 Там же: `ALTER TABLE … MODIFY student_person_id int unsigned DEFAULT NULL` (повторное выполнение безвредно).
+- [x] 2.2.3 Там же: уникальный индекс одной официальной попытки на участие. Перед созданием проверить
   `SHOW INDEX FROM … WHERE Key_name = 'exam_participation'`; если нет —
   `ALTER TABLE … ADD UNIQUE KEY exam_participation (exam_participation_id)`.
   У старых попыток значение `NULL`, уникальный индекс их не затрагивает.
-- [ ] 2.2.4 `Migration_1_0_0`: в DDL `assessment_attempts` внести те же три колонки, `student_person_id … DEFAULT NULL`
+- [x] 2.2.4 `Migration_1_0_0`: в DDL `assessment_attempts` внести те же три колонки, `student_person_id … DEFAULT NULL`
   и `UNIQUE KEY exam_participation (exam_participation_id)` — чтобы новая установка сразу получала итоговую схему.
-- [ ] 2.2.5 `down()` миграции: удалить индекс и три колонки (`DROP COLUMN IF EXISTS`). `student_person_id` обратно в `NOT NULL` не возвращать
+- [x] 2.2.5 `down()` миграции: удалить индекс и три колонки (`DROP COLUMN IF EXISTS`). `student_person_id` обратно в `NOT NULL` не возвращать
   (в таблице уже могут быть гостевые строки).
-- [ ] 2.2.6 `AttemptDTO`: `public ?int $studentPersonId`; новые поля в конце конструктора
+- [x] 2.2.6 `AttemptDTO`: `public ?int $studentPersonId`; новые поля в конце конструктора
   `public ?int $examParticipationId = null, public ?int $examRegistrationId = null, public int $resultVersion = 0`.
   В `fromArray()`: `isset( $row['student_person_id'] ) ? (int) … : null` и три новых поля. Метод `isExam(): bool` → `null !== $this->examParticipationId`.
-- [ ] 2.2.7 `AttemptInputDTO`: `public ?int $studentPersonId`, в конец — `public ?int $examParticipationId = null, public ?int $examRegistrationId = null`.
-- [ ] 2.2.8 `AssessmentAttemptRepository::create()` — писать два новых поля.
-- [ ] 2.2.9 Пройти список из проверки (`grep … studentPersonId`). Гостевые попытки (`null`) до этапа 11b не создаются,
+- [x] 2.2.7 `AttemptInputDTO`: `public ?int $studentPersonId`, в конец — `public ?int $examParticipationId = null, public ?int $examRegistrationId = null`.
+- [x] 2.2.8 `AssessmentAttemptRepository::create()` — писать два новых поля.
+- [x] 2.2.9 Пройти список из проверки (`grep … studentPersonId`). Гостевые попытки (`null`) до этапа 11b не создаются,
   а старые экраны на этапе 6.7 перестанут видеть экзаменные попытки. Поэтому сейчас достаточно, чтобы код **компилировался и тесты
   проходили**: там, где `studentPersonId` передаётся в параметр `int`, добавить явную защиту
   (`if ( null === $attempt->studentPersonId ) { return …; }`) с комментарием «гостевая попытка экзамена, этап 11b».
@@ -408,18 +426,18 @@ CREATE TABLE {exam_manual_resolutions} (
   `docker exec wp_db mariadb -u root -proot wordpress -N -e "SELECT option_value FROM wp_options WHERE option_name='fs_lms_schema_version'"`.
 
 **Шаги**
-- [ ] 2.7.1 Зарегистрировать `Migration_1_0_71` в `inc/Core/Activate.php` и в `inc/Init.php` (после `Migration_1_0_70`, с `use`).
+- [x] 2.7.1 Зарегистрировать `Migration_1_0_71` в `inc/Core/Activate.php` и в `inc/Init.php` (после `Migration_1_0_70`, с `use`).
 - [ ] 2.7.2 Сделать дамп: `docker exec wp_db mariadb-dump -u root -proot wordpress > .docs/db-backups/before-exam-schema.sql`.
-- [ ] 2.7.3 `docker restart wp_app`, открыть `http://localhost:8080/`. Проверить:
+- [x] 2.7.3 `docker restart wp_app`, открыть `http://localhost:8080/`. Проверить:
   ```bash
   docker exec wp_db mariadb -u root -proot wordpress -e "SHOW TABLES LIKE 'wp_fs_lms_exam_%'"            # 15 строк
   docker exec wp_db mariadb -u root -proot wordpress -e "SHOW COLUMNS FROM wp_fs_lms_assessment_attempts" # 3 новые колонки, student_person_id NULL = YES
   docker exec wp_db mariadb -u root -proot wordpress -e "SHOW INDEX FROM wp_fs_lms_assessment_attempts WHERE Key_name='exam_participation'"
   ```
-- [ ] 2.7.4 Повторяемость: записать число строк `SELECT COUNT(*) FROM wp_fs_lms_assessment_attempts`, затем выполнить `up()` второй раз
+- [x] 2.7.4 Повторяемость: записать число строк `SELECT COUNT(*) FROM wp_fs_lms_assessment_attempts`, затем выполнить `up()` второй раз
   `docker compose -f /Users/daniil/FS-LMS/docker-compose.yml run --rm wpcli wp eval '( new \Inc\Migrations\Migration_1_0_71() )->up(); echo "ok";'`
   — без ошибок, число строк прежнее, в `debug.log` (последние 15 строк) нет ошибок SQL.
-- [ ] 2.7.5 В `ExamCommand` (этап 1.4) добавить подкоманду `fs-lms exam selftest` — заготовку, которая открывает транзакцию,
+- [x] 2.7.5 В `ExamStandCommand` добавить подкоманду `fs-lms exam selftest` — заготовку, которая открывает транзакцию,
   выполняет проверки и **всегда** делает `ROLLBACK`. Сами проверки дописываются в 2.3 (шаг 2.3.9).
 
 **Тесты.** `tests/Unit/Migrations/ExamSchemaTest.php` — дописать `test_migration_version_matches_class_name`.
@@ -440,30 +458,30 @@ CREATE TABLE {exam_manual_resolutions} (
 - `grep -rn "FOR UPDATE" inc` — посмотреть, есть ли уже образец блокирующего чтения.
 
 **Шаги**
-- [ ] 2.3.1 `inc/Services/Exam/ExamTime.php` (зависимость: `ClockInterface`):
+- [x] 2.3.1 `inc/Services/Exam/ExamTime.php` (зависимость: `ClockInterface`):
   - `nowUtc(): string` — `$this->clock->now( 'mysql', true )`;
   - `nowLocal(): string` — `$this->clock->now()`;
   - `toUtc( string $local ): string` и `toLocal( string $utc ): string` — через `DateTimeImmutable` и `wp_timezone()`;
   - `addMinutes( string $datetime, int $minutes ): string`;
   - `endOfLocalDayUtc( string $date ): string` — `23:59:59` местного дня в UTC (для сравнения с периодом проведения).
-- [ ] 2.3.2 `inc/Repositories/WPDBRepositories/Exam/AbstractExamRepository.php` — общая база:
+- [x] 2.3.2 `inc/Repositories/WPDBRepositories/AbstractExamRepository.php` — общая база:
   конструктор `?\wpdb $wpdb = null`; `protected function write( string $sql ): int` — выполняет запрос и возвращает число
   затронутых строк; при `false` читает номер ошибки (`$this->wpdb->dbh instanceof \mysqli ? $this->wpdb->dbh->errno : 0`):
   `1213` или `1205` → `throw new RetryableDbException( $this->wpdb->last_error )`, иначе `throw new \RuntimeException( … )`.
-  Класс исключения — `inc/Repositories/WPDBRepositories/Exam/RetryableDbException.php` (`extends \RuntimeException`).
-- [ ] 2.3.3 DTO в `inc/DTO/Exam/` — по одному на таблицу, поля в camelCase один к одному с колонками, статусы — энумами из 0.5:
+  Класс исключения — `inc/Repositories/WPDBRepositories/RetryableDbException.php` (`extends \RuntimeException`).
+- [x] 2.3.3 DTO в `inc/DTO/Exam/` — по одному на таблицу, поля в camelCase один к одному с колонками, статусы — энумами из 0.5:
   `ExamEventDTO`, `ExamSessionDTO`, `ExamParticipantDTO`, `ExamParticipationDTO`, `ExamRegistrationDTO`, `ExamSourceDTO`, `ExamAccessTokenDTO`.
   У каждого `fromArray( array $row ): self`. Дополнительно:
   - `ExamEventDTO::snapshotFor( int $assessmentId ): ?array` — разбирает `variant_snapshot`;
   - `ExamSessionDTO::freeSeats(): int` → `max( 0, capacity − occupiedCount )`; `isLocked(): bool` → `null !== firstStartedAt`;
   - `ExamParticipationDTO::hasAttempt(): bool`.
-  DTO остальных таблиц (`GuestApplicationDTO`, `ExamPaymentLinkDTO`, `ExamReportDTO`) создаются на этапах 3.4, 11a, 12.
-- [ ] 2.3.4 `ExamEventRepository`: `create( array $data ): int`, `find( int $id ): ?ExamEventDTO`, `findForUpdate( int $id ): ?ExamEventDTO`
-  (`SELECT … FOR UPDATE`), `update( int $id, array $data, int $expectedVersion ): bool`, `listBySubjects( array $subjectKeys, array $statuses ): array`,
+  DTO остальных таблиц (`ExamGuestApplicationDTO`, `ExamPaymentLinkDTO`, `ExamReportDTO`) создаются на этапах 3.4, 11a, 12.
+- [x] 2.3.4 `ExamEventRepository`: `create( array $data ): int`, `find( int $id ): ?ExamEventDTO`, `findForUpdate( int $id ): ?ExamEventDTO`
+  (`SELECT … FOR UPDATE`), `update( int $id, array $data, int $expectedVersion ): bool`, `findBySubjectsAndStatuses( array $subjectKeys, array $statuses ): array`,
   `listByOwner( int $userId ): array`.
   **Правило `update()` для всех репозиториев с `version`:** `UPDATE … SET <поля>, version = version + 1, updated_at = %s WHERE id = %d AND version = %d`;
   `true`, только если затронута ровно одна строка. Вызывающий сервис при `false` бросает `CodedException( ErrorCode::ExamStale, … )`.
-- [ ] 2.3.5 `ExamSessionRepository`: `create`, `find`, `findForUpdate`, `update( …, int $expectedVersion )`, `listByEvent( int $eventId ): array`,
+- [x] 2.3.5 `ExamSessionRepository`: `create`, `find`, `findForUpdate`, `update( …, int $expectedVersion )`, `listByEvent( int $eventId ): array`,
   `lockInOrder( array $ids ): array` (`WHERE id IN (…) ORDER BY id ASC FOR UPDATE`),
   `occupySeat( int $id ): bool` и `releaseSeat( int $id ): bool`:
   ```sql
@@ -473,16 +491,16 @@ CREATE TABLE {exam_manual_resolutions} (
   (обе возвращают `true` при одной затронутой строке; `version` эти запросы не меняют),
   `isRoomBusy( int $roomId, string $startUtc, string $endUtc, int $excludeSessionId = 0 ): bool` — пересечение с сеансами
   не в статусе `cancelled`: `scheduled_at < %s(end) AND planned_end_at > %s(start)`.
-- [ ] 2.3.6 `ExamParticipantRepository`: `find`, `findByPersonId( int $personId )`, `getOrCreateForPerson( int $personId ): int`
+- [x] 2.3.6 `ExamParticipantRepository`: `find`, `findByPersonId( int $personId )`, `getOrCreateForPerson( int $personId ): int`
   (`INSERT IGNORE` по уникальному `person_id`, затем `SELECT id`), `create( array $data ): int`.
   `ExamParticipationRepository`: `find`, `findForUpdate`, `findByEventAndParticipant`, `getOrCreateLocked( int $eventId, int $participantId, ExamAudience $audience ): ExamParticipationDTO`
   (`INSERT IGNORE`, затем `SELECT … FOR UPDATE`), `setActiveRegistration( int $id, ?int $registrationId ): void`,
   `setCurrentAttempt( int $id, ?int $attemptId ): void`, `listByEvent( int $eventId ): array`.
-  `ExamRegistrationRepository`: `create( array $data ): int`, `find`, `findActiveByParticipation( int $participationId ): ?ExamRegistrationDTO`,
+  `ExamRegistrationRepository`: `create( array $data ): int`, `find`, `findActive( int $participationId ): ?ExamRegistrationDTO`,
   `listBySession( int $sessionId, array $statuses = array() ): array`, `listByParticipation( int $participationId ): array`,
   `deactivate( int $id, ExamRegistrationStatus $status, string $atUtc, ?string $reason, ?int $actorUserId ): bool`
   (ставит статус, `active_slot = NULL` и соответствующую отметку времени, только если `active_slot = 1`).
-- [ ] 2.3.7 `ExamOutboxRepository`: `insert( array $row ): void`, `leaseBatch( string $nowUtc, string $leaseUntilUtc, int $limit ): array`,
+- [x] 2.3.7 `ExamOutboxEventRepository`: `insert( array $row ): void`, `leaseBatch( string $nowUtc, string $leaseUntilUtc, int $limit ): array`,
   `markProcessed( int $id, string $atUtc ): void`, `markFailed( int $id, string $error, string $nextAvailableAtUtc ): void`.
   `ExamOperationKeyRepository`: `find( string $scope, string $operation, string $requestKey ): ?array`,
   `insert( … ): void`, `purgeExpired( string $nowUtc ): int`.
@@ -490,11 +508,11 @@ CREATE TABLE {exam_manual_resolutions} (
   `findActive( ExamTokenPurpose $purpose, int $targetId ): ?ExamAccessTokenDTO`, `maxGeneration( ExamTokenPurpose $purpose, int $targetId ): int`,
   `revokeByTarget( ExamTokenPurpose $purpose, int $targetId, string $atUtc ): int`, `markPassed( int $id, int $userId, string $atUtc ): void`.
   `ExamSourceRepository` — создаётся на этапе 4.6.
-- [ ] 2.3.8 `inc/Services/Exam/ExamOutbox.php` (зависимости: `ExamOutboxRepository`, `ExamTime`):
+- [x] 2.3.8 `inc/Services/Exam/ExamOutbox.php` (зависимости: `ExamOutboxEventRepository`, `ExamTime`):
   `add( ExamOutboxEvent $type, string $aggregateType, int $aggregateId, int $aggregateVersion, array $payload, ?string $availableAtUtc = null ): void`.
   `event_uuid` — `wp_generate_uuid4()` (если функции нет в `tests/bootstrap.php` — добавить заглушку). **В payload нельзя класть ключи доступа,
   ФИО, телефоны** — только идентификаторы. Метод вызывается внутри транзакции вызывающего сервиса и сам транзакций не открывает.
-- [ ] 2.3.9 `ExamCommand::selftest` (заготовка из 2.7.5) — проверки на настоящей базе внутри транзакции с откатом:
+- [x] 2.3.9 `ExamStandCommand::selftest` (заготовка из 2.7.5) — проверки на настоящей базе внутри транзакции с откатом:
   1. создать проведение и сеанс с `capacity = 1`;
   2. `occupySeat()` → `true`, второй вызов → `false`, `occupied_count = 1`;
   3. `releaseSeat()` → `true`, второй → `false`;
@@ -532,21 +550,21 @@ CREATE TABLE {exam_manual_resolutions} (
 - `RoomCallbacks::ajaxSaveRoom()` — место, куда встанет пересинхронизация вместимости (шаг 2.4.9).
 
 **Шаги**
-- [ ] 2.4.1 `ExamAccessGuard::canManageEvent( int $userId, ExamEventDTO $event ): bool` — `isGlobal()` **или**
+- [x] 2.4.1 `ExamAccessGuard::canManageEvent( int $userId, ExamEventDTO $event ): bool` — `isGlobal()` **или**
   (`$event->ownerUserId === $userId` **и** `canManageSubject( $userId, $event->subjectKey )`).
   Преподаватель того же предмета чужим проведением не управляет. Тест — в `ExamAccessGuardTest`.
-- [ ] 2.4.2 `inc/Services/Exam/ExamRoomService.php` (зависимости: `RoomRepository`, `ExamSessionRepository`, `ExamTime`):
+- [x] 2.4.2 `inc/Services/Exam/ExamRoomService.php` (зависимости: `RoomRepository`, `ExamSessionRepository`, `ExamTime`):
   `assertUsable( int $roomId, string $subjectKey ): RoomDTO` — кабинет существует, активен, `allowsSubject()`, `hasCapacity()`;
   иначе `CodedException( ErrorCode::ExamRoom, … )`. Текст для нулевой вместимости: «Укажите вместимость кабинета в „Настройки → Кабинеты“.»
   `assertFree( int $roomId, string $startUtc, string $endUtc, int $excludeSessionId = 0 ): void` — два условия:
   нет пересечения с другим сеансом (`ExamSessionRepository::isRoomBusy`) и с занятием
   (`RoomRepository::isBusy( $roomId, toLocal( $startUtc ), toLocal( $endUtc ) )`). Иначе `CodedException( ErrorCode::ExamConflict, 'Кабинет занят в это время.' )`.
   Обратное направление (занятие видит экзамен), сериализация и предупреждение о позднем старте — этап 4.4.
-- [ ] 2.4.3 `inc/Services/Exam/ExamEventService.php`, `use TransactionRunner;`. Зависимости: репозитории проведений и сеансов,
+- [x] 2.4.3 `inc/Services/Exam/ExamEventService.php`, `use TransactionRunner;`. Зависимости: репозитории проведений и сеансов,
   `ExamAccessGuard`, `ExamVariantPolicy`, `ExamRoomService`, `ExamFormatRegistry`, `AssessmentManager`, `ExamOutbox`, `ExamTime`.
   Каждый публичный метод первой строкой проверяет право (`canManageSubject` для создания, `canManageEvent` для остального),
   иначе `CodedException( ErrorCode::ExamAccess, 'Нет доступа к этому проведению.' )`.
-- [ ] 2.4.4 `createDraft( int $actorUserId, array $input ): ExamEventDTO`. Вход: `subject_key`, `title`, `description`, `period_from`, `period_to`
+- [x] 2.4.4 `createDraft( int $actorUserId, array $input ): ExamEventDTO`. Вход: `subject_key`, `title`, `description`, `period_from`, `period_to`
   (даты местные `Y-m-d`), `registration_opens_at`, `registration_closes_at` (местное время), `default_assessment_id`, `guest_registration_enabled`.
   Проверки и тексты:
   | Условие | Текст |
@@ -557,9 +575,9 @@ CREATE TABLE {exam_manual_resolutions} (
   | `closes` позже конца `period_to` | «Запись не может закрываться позже последнего дня проведения.» |
   | вариант не подходит | текст из `ExamVariantPolicy::check()` |
   Времена записи перевести в UTC. `owner_user_id = $actorUserId`, статус `draft`.
-- [ ] 2.4.5 `updateEvent( int $actorUserId, int $eventId, array $input, int $expectedVersion ): ExamEventDTO` — те же проверки;
+- [x] 2.4.5 `updateEvent( int $actorUserId, int $eventId, array $input, int $expectedVersion ): ExamEventDTO` — те же проверки;
   правка разрешена только при `status->isEditable()`; предмет после создания не меняется.
-- [ ] 2.4.6 `saveSession( int $actorUserId, int $eventId, array $input, ?int $sessionId, ?int $expectedVersion ): ExamSessionDTO`.
+- [x] 2.4.6 `saveSession( int $actorUserId, int $eventId, array $input, ?int $sessionId, ?int $expectedVersion ): ExamSessionDTO`.
   Вход: `date` (`Y-m-d`), `time` (`H:i`) — местные; `assessment_id`; `room_id`. Логика:
   1. `scheduled_at` = местные дата и время → UTC; дата внутри `[period_from, period_to]`, иначе «Дата сеанса вне периода проведения.»;
   2. длительность — `ExamFormatRegistry::for( $assessment->kind )->durationMinutes`; `planned_end_at = scheduled_at + длительность`.
@@ -571,9 +589,9 @@ CREATE TABLE {exam_manual_resolutions} (
      («Сеанс уже начат: изменить можно только индивидуально.»); если `occupied_count > новой capacity` — отказ
      («В сеансе уже занято N мест, в кабинете их меньше.», число — подстановкой).
   Всё внутри `inTransaction()`.
-- [ ] 2.4.7 `deleteSession( int $actorUserId, int $sessionId ): void` — только если в сеансе нет ни одной записи (`occupied_count = 0`
+- [x] 2.4.7 `deleteSession( int $actorUserId, int $sessionId ): void` — только если в сеансе нет ни одной записи (`occupied_count = 0`
   и `listBySession()` пуст). Иначе «В сеансе есть записи: используйте отмену сеанса.» (отмена с участниками — этап 8.3).
-- [ ] 2.4.8 `publish( int $actorUserId, int $eventId, int $expectedVersion ): ExamEventDTO`:
+- [x] 2.4.8 `publish( int $actorUserId, int $eventId, int $expectedVersion ): ExamEventDTO`:
   - статус должен быть `draft`;
   - есть хотя бы один сеанс `open` с `scheduled_at` в будущем, иначе «Добавьте хотя бы один сеанс в будущем.»;
   - заданы `registration_opens_at` и `registration_closes_at`;
@@ -582,13 +600,13 @@ CREATE TABLE {exam_manual_resolutions} (
     `secondary_max`, `scale`, `built_at` (UTC). Это небольшой конфиг, не копия банка (SPEC §12);
   - статус `published`, `published_at = nowUtc()`;
   - `ExamOutbox::add( ExamOutboxEvent::EventPublished, 'event', $eventId, $version, array( 'event_id' => … ) )` в той же транзакции.
-- [ ] 2.4.9 `rebuildSnapshot( int $actorUserId, int $eventId, int $assessmentId ): void` — пересборка снимка после правки опечатки.
+- [x] 2.4.9 `rebuildSnapshot( int $actorUserId, int $eventId, int $assessmentId ): void` — пересборка снимка после правки опечатки.
   Разрешена, только если **ни один сеанс этого варианта не идёт сейчас** (`scheduled_at <= now < planned_end_at`) и у варианта в этом
   проведении нет незавершённых попыток. Иначе «Идёт сеанс с этим вариантом: снимок менять нельзя.»
-- [ ] 2.4.10 `cancelEvent( int $actorUserId, int $eventId, string $reason, int $expectedVersion ): void` — причина обязательна
+- [x] 2.4.10 `cancelEvent( int $actorUserId, int $eventId, string $reason, int $expectedVersion ): void` — причина обязательна
   («Укажите причину отмены.»); статус `cancelled`, `cancel_reason`, `cancelled_at`; все сеансы `open` → `cancelled`;
   outbox `EventCancelled`. Отмена записей участников и уведомления — этап 8.3; здесь оставить `// TODO(8.3)` с номером задачи.
-- [ ] 2.4.11 `syncCapacityForRoom( int $roomId, int $newSeats ): void` — для будущих сеансов `open` этого кабинета:
+- [x] 2.4.11 `syncCapacityForRoom( int $roomId, int $newSeats ): void` — для будущих сеансов `open` этого кабинета:
   увеличение применяется всегда; уменьшение — только если `newSeats >= occupied_count` у каждого такого сеанса, иначе
   `CodedException( ErrorCode::ExamConflict, … )` с названием проведения и числом занятых мест. Метод зовёт
   `RoomCallbacks::ajaxSaveRoom()` **до** сохранения кабинета; при исключении кабинет не сохраняется, пользователь видит текст ошибки.
@@ -629,20 +647,20 @@ CREATE TABLE {exam_manual_resolutions} (
 - `ExamAccessTokenRepository` из 2.3.7.
 
 **Шаги**
-- [ ] 2.5.1 `inc/Services/Exam/ExamAccessTokenService.php`. Зависимости: `ExamAccessTokenRepository`, `PiiCryptoService`, `ExamTime`.
-- [ ] 2.5.2 `issue( ExamTokenPurpose $purpose, int $targetId, int $issuerUserId, ?string $expiresAtUtc = null ): string`:
+- [x] 2.5.1 `inc/Services/Exam/ExamAccessTokenService.php`. Зависимости: `ExamAccessTokenRepository`, `PiiCryptoService`, `ExamTime`.
+- [x] 2.5.2 `issue( ExamTokenPurpose $purpose, int $targetId, int $issuerUserId, ?string $expiresAtUtc = null ): string`:
   1. `revokeByTarget( $purpose, $targetId, nowUtc )` — прежние ключи этой цели перестают действовать;
   2. `$plain = bin2hex( random_bytes( 32 ) )` — 256 бит, 64 hex-символа;
   3. `generation = maxGeneration( … ) + 1`;
   4. вставить строку с `token_hash = PiiCryptoService::hash( $plain )`;
   5. вернуть `$plain`. Открытый ключ **нигде не сохраняется и не логируется**; показать его можно только в ответе на этот вызов.
-- [ ] 2.5.3 `exchange( ExamTokenPurpose $purpose, string $plain ): ?ExamAccessTokenDTO` — `null` при любой причине отказа (без различения):
+- [x] 2.5.3 `exchange( ExamTokenPurpose $purpose, string $plain ): ?ExamAccessTokenDTO` — `null` при любой причине отказа (без различения):
   формат не `/^[a-f0-9]{64}$/` (до обращения к базе); не найден; `purpose` не совпал; `revoked_at` задан; `expires_at` в прошлом.
-- [ ] 2.5.4 `revoke( ExamTokenPurpose $purpose, int $targetId ): int` — число отозванных.
-- [ ] 2.5.5 `currentGeneration( ExamTokenPurpose $purpose, int $targetId ): int` — поколение действующего ключа (`0`, если ключа нет).
+- [x] 2.5.4 `revoke( ExamTokenPurpose $purpose, int $targetId ): int` — число отозванных.
+- [x] 2.5.5 `currentGeneration( ExamTokenPurpose $purpose, int $targetId ): int` — поколение действующего ключа (`0`, если ключа нет).
   Гостевые сессии (этап 11a/11b) хранят поколение и сравнивают с текущим: перевыпуск делает старые куки недействительными.
-- [ ] 2.5.6 `markPassed( int $tokenId, int $actorUserId ): void` — ручная отметка «Ссылка передана». Копирование ссылки отметку не ставит.
-- [ ] 2.5.7 Проверка назначения цели (чей `target_id`) — забота вызывающего сервиса: токен `entry` не открывает `result` и наоборот.
+- [x] 2.5.6 `markPassed( int $tokenId, int $actorUserId ): void` — ручная отметка «Ссылка передана». Копирование ссылки отметку не ставит.
+- [x] 2.5.7 Проверка назначения цели (чей `target_id`) — забота вызывающего сервиса: токен `entry` не открывает `result` и наоборот.
 
 **Тесты** — `tests/Unit/Services/Exam/ExamAccessTokenServiceTest.php`:
 - `test_issue_returns_64_hex_chars_and_stores_only_hash` — в `insert()` нет открытого ключа;
@@ -670,25 +688,25 @@ CREATE TABLE {exam_manual_resolutions} (
 - `grep -rn "GET_LOCK" inc` → пусто.
 
 **Шаги**
-- [ ] 2.6.1 `inc/Repositories/WPDBRepositories/Exam/ExamLockRepository.php`: `acquire( string $name ): bool` —
+- [x] 2.6.1 `inc/Repositories/WPDBRepositories/ExamLockRepository.php`: `acquire( string $name ): bool` —
   `SELECT GET_LOCK( %s, 0 )` (`1` → `true`), `release( string $name ): void` — `SELECT RELEASE_LOCK( %s )`.
   Имя блокировки — с префиксом базы: `$this->wpdb->prefix . $name`.
-- [ ] 2.6.2 `inc/Services/Exam/ExamTickLock.php` (зависимость: `ExamLockRepository`):
+- [x] 2.6.2 `inc/Services/Exam/ExamTickLock.php` (зависимость: `ExamLockRepository`):
   `run( string $name, callable $fn ): bool` — взять блокировку; не получилось → `false` без выполнения;
   иначе выполнить `$fn` в `try { … } finally { release }` и вернуть `true`. Исключение из `$fn` логировать
   `PluginLogger::exception( 'ExamTick', $e, array( 'tick' => $name ), true )` и не пробрасывать (cron не должен падать).
-- [ ] 2.6.3 `CronController::register()`:
+- [x] 2.6.3 `CronController::register()`:
   - `$this->cron_manager->addCustomInterval( 'every_minute', 60, 'Every minute' );` рядом с 15-минутным;
   - `add_action( CronHook::ExamAutoExpireTick->value, array( $this, 'handleExamAutoExpireTick' ) );`
     `add_action( CronHook::ExamHoldReleaseTick->value, array( $this, 'handleExamHoldReleaseTick' ) );`
   - `$this->cron_manager->schedule( …->value, 'every_minute' );` для обоих.
-- [ ] 2.6.4 Два обработчика в `CronController` — только делегирование:
+- [x] 2.6.4 Два обработчика в `CronController` — только делегирование:
   `$this->tickLock->run( 'exam_auto_expire', fn() => $this->examTicks->autoExpire() );` и аналог для броней.
   Класс `inc/Services/Exam/ExamTickService.php` с методами `autoExpire(): void` и `releaseHolds(): void` — пока пустыми,
   с докблоком, какой этап что добавляет. В контроллере бизнес-логики быть не должно.
-- [ ] 2.6.5 Серверный cron на dev не настраивается. В `ExamCommand` добавить `fs-lms exam tick [--name=<auto-expire|hold-release>]`
+- [x] 2.6.5 Серверный cron на dev не настраивается. В `ExamCommand` добавить `fs-lms exam tick [--name=<auto-expire|hold-release>]`
   — ручной запуск тика для проверок на следующих этапах.
-- [ ] 2.6.6 Инструкцию серверного cron (раз в минуту `wp-cron.php`, `DISABLE_WP_CRON`) в этом пункте не писать — она входит в 13.7.
+- [x] 2.6.6 Инструкцию серверного cron (раз в минуту `wp-cron.php`, `DISABLE_WP_CRON`) в этом пункте не писать — она входит в 13.7.
 
 **Тесты**
 - `tests/Unit/Services/Exam/ExamTickLockTest.php`: `test_runs_callable_when_lock_acquired`,
@@ -704,8 +722,8 @@ CREATE TABLE {exam_manual_resolutions} (
 
 ## Проверка этапа
 
-- [ ] `npm run ci` зелёный.
-- [ ] `wp fs-lms exam selftest` — все проверки OK на настоящей MariaDB.
-- [ ] Миграция выполняется дважды без ошибок и без изменения существующих данных.
-- [ ] Минутные хуки запланированы, блокировка не даёт выполнить тик параллельно.
-- [ ] В `inc/Services/Exam` нет `$wpdb`; в `inc/Controllers` нет бизнес-логики тиков.
+- [x] `npm run ci` зелёный. — по частям (2026-10-04): `eslint .` и `stylelint` без ошибок, `gulp styles:check` и `gulp build` успешны, PHPUnit в контейнере 2727 тестов без падений, `npm run test:js` 79 тестов; целиком `npm run ci` на Windows-хосте не идёт: `npm test` вызывает `vendor/bin/phpunit`, который хост не запускает
+- [x] `wp fs-lms exam selftest` — все проверки OK на настоящей MariaDB. — 7 проверок OK
+- [x] Миграция выполняется дважды без ошибок и без изменения существующих данных. — схема и число таблиц не меняются
+- [x] Минутные хуки запланированы, блокировка не даёт выполнить тик параллельно. — `CronController`, `ExamTickLock`, `wp fs-lms exam tick`
+- [x] В `inc/Services/Exam` нет `$wpdb`; в `inc/Controllers` нет бизнес-логики тиков.

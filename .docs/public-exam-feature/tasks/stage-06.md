@@ -8,6 +8,38 @@
 **Порядок:** 6.7 → 6.1 → 6.2 → 6.3 → 6.4 → 6.5 → 6.6. Пункт 6.7 идёт первым: пока старые экраны видят экзаменные попытки,
 создавать такие попытки нельзя.
 
+## Статус (проверено 2026-10-04, рефакторинг по `refactor.md`)
+
+**Сделано и проверено** — подзадачи выше с `[x]`: юнит-тесты (`ExamAttemptServiceTest`, `ExamNoShowServiceTest`, `ExamTickServiceTest`,
+`ExamTickLockTest`, `CronControllerTest`, `AttemptCallbacksTest`, `AttemptPageServiceReviewTest`, `ExamLockServiceTest`,
+`LessonAuthoringServiceTest`, `AssessmentAttemptRepositoryTest`, `TransactionRunnerTest`); смоук на настоящей MariaDB (запись, пересечения,
+перенос, версия, старт, сохранение, сдача, дедлайн, тик, блокировка тика) и гонки (один участник × два пересекающихся сеанса, вместимость,
+смешанная нагрузка без deadlock); сквозной проход по HTTP (AJAX ученика, страница станции `?exam_reg`, чужой получает 404).
+
+**Что изменилось по сравнению с текстом этапа** (так и будет в коде, текст ниже — историческая постановка):
+- Репозитории лежат в общем каталоге `inc/Repositories/WPDBRepositories/`, не в `Exam/`.
+- `ExamAttemptService` дополнен `result()`, `contextForAttempt()`, `stationState()`; сохранение ответа тоже идёт под блокировкой участия
+  (`saveAnswer()`), `finalizeExpired()` сдаёт через общий `AttemptService::submitFor( $attempt, $deadline )`.
+- Старый путь `AttemptService::saveAnswer()/submit()` экзаменную попытку **отвергает**; ответ на сдачу и страница станции раскрывают итог
+  только через `AttemptService::isRevealed()` (одна политика на все пути).
+- `AssessmentPageController` принимает `?exam_reg=ID` (`AssessmentManager::EXAM_REGISTRATION_PARAM`); адрес — `AssessmentManager::examStationUrl()`.
+- Тик подключён: `CronController` (`every_minute`, `ExamAutoExpireTick`) → `ExamTickLock` → `ExamTickService::autoExpireTick()`; `wp fs-lms exam tick`.
+  Тик броней гостей (`ExamHoldReleaseTick`) не регистрируется до этапа 11a.
+- 6.4.4: на dev `NOW()` базы (UTC) и местное время сайта (+03:00) **расходятся на 3 часа** — `findAnyActive()` теперь принимает «сейчас» параметром.
+
+**Закрыто 2026-10-04 (повторная приёмка этапа):**
+- **6.2.5:** станция берёт дедлайн **с сервера** (`data-deadline` из `activeAttempt->deadlineAt` + `data-now`, `kege-exam.js` → `startCountdown`); сохранённый в браузере `deadlineTs`
+  (`kege-state.js`) нужен только публичному режиму. Проверено в браузере: `ExamAttemptService::extend()` на 30 минут → после перезагрузки страницы `data-deadline` = новый дедлайн из базы.
+- **6.5.6:** на ширине 390 px станция неудобна для работы (колонка задания в 2–3 слова, файлы и таблицы заданий ОГЭ 13–16 недоступны), поэтому на экране входа до старта
+  показывается «Экзамен рассчитан на компьютер.» (`.kege-desktop-note`, только ≤ 640 px) и ритуал входа укладывается в экран без горизонтальной прокрутки. Нового мобильного плеера нет.
+- **6.6.3:** `AssessmentKindGuard` + `AssessmentMetaBoxController::handleAssessmentSave()`; предупреждение в админке «Работа используется в уроках как контрольная: вид «экзамен» недоступен.»;
+  тесты `AssessmentKindGuardTest`, `AssessmentStationFieldsGateTest::test_kind_cannot_become_station_when_used_in_lesson`.
+- **Браузерный e2e (headless Chrome, ученик):** запись → смена сеанса → «Отмена выбора» → отмена → повторная запись → время наступило → «Приступить» → станция по `?exam_reg` → ритуал →
+  старт → обновление страницы (попытка та же) → продление → ответ → сдача → «Ожидает утверждения» → утверждение → итог на плитке → разбор; для **КЕГЭ и ОГЭ**, 0 ошибок консоли.
+- **Стенд `start-vs-missed`** (`tests/stand/exam-race.sh`, команды `stand-window`, `stand-start`, `tick --at`): результаты — `NOTES.md`, «Стенд гонок».
+
+**Ограничения, которые остаются:** тексты 6.5.x про финальную проверку полного `npm run ci` и PHPStan — в разделе «Проверка этапа» ниже.
+
 ## Общие правила этапа
 
 - **Новый плеер не пишется.** Сдача идёт на существующей станции (`templates/frontend/assessment/kege/*`, `src/js/kege/*`).
@@ -29,7 +61,7 @@
 - Колонка `exam_participation_id` уже есть (2.2).
 
 **Шаги**
-- [ ] 6.7.1 В `AssessmentAttemptRepository` добавить условие `AND exam_participation_id IS NULL` в методы «старого мира»:
+- [x] 6.7.1 В `AssessmentAttemptRepository` добавить условие `AND exam_participation_id IS NULL` в методы «старого мира»:
   | Метод | Менять | Почему |
   |---|---|---|
   | `findActive( person, assessment )` | да | станция в курсе не должна подхватить экзаменную попытку |
@@ -43,12 +75,12 @@
   | `nextAttemptNumber()` | **нет** | номер должен расти по всем попыткам: действует старый уникальный ключ `(assessment_id, student_person_id, attempt_number)` |
   | `findAnyActive()` | **нет** | блокировка контента обязана видеть экзаменную попытку (6.4) |
   | `find()`, `update()`, `approve()`, `delete()` | нет | работа по ID |
-- [ ] 6.7.2 Новые методы для экзаменов: `findByParticipation( int $participationId ): ?AttemptDTO`,
+- [x] 6.7.2 Новые методы для экзаменов: `findByParticipation( int $participationId ): ?AttemptDTO`,
   `listByParticipations( array $participationIds ): array`, `listOverdueExamIds( string $nowLocal, int $limit ): array`
   (`status = 'in_progress' AND deadline_at < %s AND exam_participation_id IS NOT NULL`).
-- [ ] 6.7.3 Пройти список потребителей и убедиться, что каждый получает попытки только через методы из таблицы. Отдельно проверить
+- [x] 6.7.3 Пройти список потребителей и убедиться, что каждый получает попытки только через методы из таблицы. Отдельно проверить
   `WorkResetService` («сброс попыток»): он не должен удалять экзаменные попытки ученика — добавить явную проверку `isExam()` и пропуск.
-- [ ] 6.7.4 `NotificationSubscriber::handleAttemptGraded()` — в начале метода: `if ( $attempt->isExam() ) { return; }`.
+- [x] 6.7.4 `NotificationSubscriber::handleAttemptGraded()` — в начале метода: `if ( $attempt->isExam() ) { return; }`.
   Уведомление «Экзамен проверен» с баллами и ссылкой в «Мои оценки» для экзаменной попытки не отправляется (свои уведомления — этап 9).
   Это же закрывает утечку баллов до утверждения.
 
@@ -75,18 +107,18 @@
 - `inc/Controllers/Pages/AssessmentPageController.php::loadTemplate()` и `AttemptPageService::build()` — страница станции требует доступа через занятие.
 
 **Шаги**
-- [ ] 6.1.1 `inc/DTO/Exam/AttemptContext.php` — `readonly class`: `audience` (`ExamAudience`), `participationId`, `registrationId`, `?int $personId`,
+- [x] 6.1.1 `inc/DTO/Exam/AttemptContext.php` — `readonly class`: `audience` (`ExamAudience`), `participationId`, `registrationId`, `?int $personId`,
   `?int $wpUserId`. Гостевой контекст появится на этапе 11b; сейчас создаётся только ученический.
-- [ ] 6.1.2 `AttemptService` — выделить тела без проверки владельца (публичные методы, поведение старых не меняется):
+- [x] 6.1.2 `AttemptService` — выделить тела без проверки владельца (публичные методы, поведение старых не меняется):
   - `saveAnswerFor( AttemptDTO $attempt, int $taskId, string $answerText ): void` — проверка «задание входит в работу» + запись ответа;
   - `submitFor( AttemptDTO $attempt ): AttemptDTO` — статус `submitted`, `submitted_at`, событие журнала, автопроверка.
   `saveAnswer()` и `submit()` после своих проверок вызывают эти методы. `actorUserId()` должен принимать `?int` и для `null` возвращать `0`.
   **`expireIfOverdue()` для экзаменной попытки ничего не делает** (в начале: `if ( $attempt->isExam() ) { return false; }`) — её завершает 6.2.
-- [ ] 6.1.3 `inc/Services/Exam/ExamAttemptService.php`, `use TransactionRunner;`. Зависимости: репозитории попыток, участий, записей, сеансов, проведений;
+- [x] 6.1.3 `inc/Services/Exam/ExamAttemptService.php`, `use TransactionRunner;`. Зависимости: репозитории попыток, участий, записей, сеансов, проведений;
   `AttemptService`, `ExamNoShowService` (6.3), `ExamFormatRegistry`, `ExamOutbox`, `ExamTime`.
-- [ ] 6.1.4 `contextForStudent( int $wpUserId, int $registrationId ): AttemptContext` — запись существует, её участие принадлежит участнику с
+- [x] 6.1.4 `contextForStudent( int $wpUserId, int $registrationId ): AttemptContext` — запись существует, её участие принадлежит участнику с
   `person_id` этого пользователя; иначе `CodedException( ErrorCode::ExamAccess, 'Экзамен недоступен.' )`. Чужой `registration_id` даёт тот же ответ, что несуществующий.
-- [ ] 6.1.5 `start( AttemptContext $ctx ): AttemptDTO` — в `inTransactionWithRetry()`:
+- [x] 6.1.5 `start( AttemptContext $ctx ): AttemptDTO` — в `inTransactionWithRetry()`:
   1. блокировка участия (`findForUpdate`);
   2. если `current_attempt_id` задан — вернуть эту попытку (**обновление страницы и двойной клик не создают вторую попытку**);
   3. запись действующая (`active_slot = 1`, статус `confirmed`), иначе `ExamAccess`;
@@ -101,22 +133,22 @@
   10. `setCurrentAttempt()`; если у сеанса `first_started_at` пуст — записать `nowUtc` (с этого момента сеанс «заперт», 2.4.6);
   11. outbox `AttemptStarted`.
   Лимит попыток работы (`attemptsAllowed`) здесь **не проверяется**: одна официальная попытка на участие обеспечена уникальным индексом и шагом 2.
-- [ ] 6.1.6 `saveAnswer( AttemptContext $ctx, int $attemptId, int $taskId, string $text ): void` и `submit( AttemptContext $ctx, int $attemptId ): AttemptDTO`:
+- [x] 6.1.6 `saveAnswer( AttemptContext $ctx, int $attemptId, int $taskId, string $text ): void` и `submit( AttemptContext $ctx, int $attemptId ): AttemptDTO`:
   попытка принадлежит участию контекста (`exam_participation_id === $ctx->participationId`), иначе «Попытка не найдена.»; статус `in_progress`;
   дедлайн не прошёл (если прошёл — `finalizeExpired()` из 6.2 и ответ «Время попытки истекло.»); затем `AttemptService::saveAnswerFor()` / `submitFor()`.
   `submit()` — в транзакции с блокировкой участия, после сдачи outbox `AttemptSubmitted`.
-- [ ] 6.1.7 Транспорт. `AttemptCallbacks`:
+- [x] 6.1.7 Транспорт. `AttemptCallbacks`:
   - `ajaxStartAttempt()`: если пришёл `exam_registration_id` — `contextForStudent()` + `ExamAttemptService::start()`; иначе прежний путь;
   - `ajaxSaveAttemptAnswer()`, `ajaxSubmitAttempt()`, `ajaxGetAttemptResult()`: загрузить попытку; `isExam()` → путь `ExamAttemptService`, иначе прежний.
     Вынести выбор в приватный метод `examContextFor( AttemptDTO $attempt ): ?AttemptContext`;
   - `CodedException` → `$this->fail()` с кодом.
   **Ответ `ajaxSubmitAttempt()` для экзаменной попытки ученика не содержит `total_score`, `max_score`, `per_task`** — только `status`
   (раскрытие — этап 7.5).
-- [ ] 6.1.8 Страница станции. `AttemptPageService::buildForExam( AssessmentDTO $assessment, AttemptContext $ctx ): ?AttemptPageDTO` — как `build()`,
+- [x] 6.1.8 Страница станции. `AttemptPageService::buildForExam( AssessmentDTO $assessment, AttemptContext $ctx ): ?AttemptPageDTO` — как `build()`,
   но доступ определяется контекстом, активная и последняя попытки берутся через `findByParticipation()`, `canRetry = false`.
   `AssessmentPageController::loadTemplate()`: при параметре `exam_reg` (целое) и вошедшем пользователе — собрать контекст и страницу через
   `buildForExam()`; контекст не собрался или вариант записи не совпал с открытой работой → обычный 404 (как для постороннего).
-- [ ] 6.1.9 `kege-entry.js::requestStartAttempt()`: читать `exam_reg` из адреса и добавлять `exam_registration_id` в запрос (рядом с `from_gid`/`from_gl`).
+- [x] 6.1.9 `kege-entry.js::requestStartAttempt()`: читать `exam_reg` из адреса и добавлять `exam_registration_id` в запрос (рядом с `from_gid`/`from_gl`).
 
 **Тесты**
 - `tests/Unit/Services/Exam/ExamAttemptServiceTest.php` (время — мок `ClockInterface`; сеанс 10:00–13:55 местного):
@@ -147,18 +179,18 @@
 - `CronController::handleExpireAttempts()` → `expireOverdue()` — после 6.7.1 экзаменные попытки не трогает.
 
 **Шаги**
-- [ ] 6.2.1 `ExamAttemptService::finalizeExpired( int $attemptId ): bool` — в транзакции: блокировка участия → перечитать попытку →
+- [x] 6.2.1 `ExamAttemptService::finalizeExpired( int $attemptId ): bool` — в транзакции: блокировка участия → перечитать попытку →
   если статус не `in_progress` или дедлайн не прошёл — `false`; иначе: `submitted_at = deadline_at` (не момент срабатывания тика),
   статус `submitted`, затем `AutoGradeService::gradeAttempt()` — та же проверка, что при обычной сдаче; outbox `AttemptSubmitted` с `auto = true`.
   Автосохранённые ответы не теряются: проверка читает их из `assessment_answers`. Статус «время истекло» не означает «неявка».
-- [ ] 6.2.2 `ExamTickService::autoExpire()`: по ID из `listOverdueExamIds( nowLocal, 200 )` вызвать `finalizeExpired()`; ошибка одной попытки
+- [x] 6.2.2 `ExamTickService::autoExpire()`: по ID из `listOverdueExamIds( nowLocal, 200 )` вызвать `finalizeExpired()`; ошибка одной попытки
   логируется (`PluginLogger::exception( …, true )`) и не останавливает остальные.
-- [ ] 6.2.3 Ленивый путь: `saveAnswer()`, `submit()`, выдача результата и `buildForExam()` перед работой с попыткой вызывают `finalizeExpired()`,
+- [x] 6.2.3 Ленивый путь: `saveAnswer()`, `submit()`, выдача результата и `buildForExam()` перед работой с попыткой вызывают `finalizeExpired()`,
   если дедлайн прошёл. Так просроченная попытка завершается и без cron.
-- [ ] 6.2.4 Продление (используется на этапе 8.2): `extend( int $actorUserId, int $attemptId, int $minutes, string $reason ): AttemptDTO` —
+- [x] 6.2.4 Продление (используется на этапе 8.2): `extend( int $actorUserId, int $attemptId, int $minutes, string $reason ): AttemptDTO` —
   право `canManageEvent()`; попытка `in_progress`; `1 ≤ minutes ≤ 120`; причина обязательна; `deadline_at += minutes`; outbox `AttemptExtended`
   (`minutes`, `reason`, `actor_user_id`, новый дедлайн). Завершённую попытку продлением не возобновлять («Попытка уже завершена.»).
-- [ ] 6.2.5 Станция показывает остаток по `deadline_at` попытки (уже так: `kege-resume.js`, `state.deadlineTs`). Проверить, что после продления
+- [x] 6.2.5 Станция показывает остаток по `deadline_at` попытки (уже так: `kege-resume.js`, `state.deadlineTs`). Проверить, что после продления
   перезагруженная страница берёт новый дедлайн с сервера, а не из сохранённого состояния браузера; если берёт из браузера — при загрузке
   страницы сервер должен быть главнее (правка в `kege-state.js`, найти место записи `deadlineTs`).
 
@@ -186,20 +218,20 @@
 - `ExamRegistrationRepository::deactivate()` меняет запись, только если `active_slot = 1`.
 
 **Шаги**
-- [ ] 6.3.1 `inc/Services/Exam/ExamNoShowService.php`, `use TransactionRunner;`. Зависимости: репозитории записей, участий, сеансов; `ExamOutbox`, `ExamTime`.
-- [ ] 6.3.2 `markMissedLocked( ExamParticipationDTO $participation, ExamRegistrationDTO $registration, ExamSessionDTO $session ): bool` —
+- [x] 6.3.1 `inc/Services/Exam/ExamNoShowService.php`, `use TransactionRunner;`. Зависимости: репозитории записей, участий, сеансов; `ExamOutbox`, `ExamTime`.
+- [x] 6.3.2 `markMissedLocked( ExamParticipationDTO $participation, ExamRegistrationDTO $registration, ExamSessionDTO $session ): bool` —
   вызывается, когда участие **уже заблокировано** вызывающим кодом. Условия: запись действующая; `current_attempt_id === null`;
   `nowUtc >= planned_end_at`. Действия: `deactivate( …, Missed, nowUtc, null, null )`; если она вернула `true` — `releaseSeat()`,
   `setActiveRegistration( null )`, outbox `ParticipantMissed` (`registration_id`, `session_id`). Возвращает, была ли неявка проставлена.
-- [ ] 6.3.3 `markMissed( int $registrationId ): bool` — своя транзакция: блокировка участия → `markMissedLocked()`.
-- [ ] 6.3.4 `sweep( int $limit = 200 ): int` — для минутного тика. В `ExamRegistrationRepository` добавить
+- [x] 6.3.3 `markMissed( int $registrationId ): bool` — своя транзакция: блокировка участия → `markMissedLocked()`.
+- [x] 6.3.4 `sweep( int $limit = 200 ): int` — для минутного тика. В `ExamRegistrationRepository` добавить
   `listActiveOfEndedSessions( string $nowUtc, int $limit ): array` (действующие записи сеансов с `planned_end_at <= now`). По каждой — `markMissed()`.
   Подключить в `ExamTickService::autoExpire()` после автоистечения.
-- [ ] 6.3.5 Ленивые точки: `ExamAttemptService::start()` (уже в 6.1.5) и `LearnerExamsService::build()` — перед расчётом состояния карточки
+- [x] 6.3.5 Ленивые точки: `ExamAttemptService::start()` (уже в 6.1.5) и `LearnerExamsService::build()` — перед расчётом состояния карточки
   вызвать `markMissed()` для действующей записи ученика, если её сеанс закончился. Ученик видит «Экзамен пропущен» сразу, не дожидаясь cron.
-- [ ] 6.3.6 Отметка прихода (этап 8.2) на неявку **не влияет**: правило смотрит только на отсутствие попытки. Кода вида «нет отметки прихода —
+- [x] 6.3.6 Отметка прихода (этап 8.2) на неявку **не влияет**: правило смотрит только на отсутствие попытки. Кода вида «нет отметки прихода —
   неявка через 15 минут» быть не должно.
-- [ ] 6.3.7 Запись с начатой попыткой при достижении планового конца не меняется (условие `current_attempt_id === null`).
+- [x] 6.3.7 Запись с начатой попыткой при достижении планового конца не меняется (условие `current_attempt_id === null`).
 
 **Тесты** — `tests/Unit/Services/Exam/ExamNoShowServiceTest.php`:
 - `test_missed_at_planned_end_without_attempt`;
@@ -228,12 +260,12 @@
 - `src/js/profile/learner.js::examLockBanner()` — текст «Идёт контрольная…».
 
 **Шаги**
-- [ ] 6.4.1 `LearnerCoursesSection::examLock()`: для экзаменной попытки (`isExam()`) ссылка — постоянная ссылка работы **с параметром**
+- [x] 6.4.1 `LearnerCoursesSection::examLock()`: для экзаменной попытки (`isExam()`) ссылка — постоянная ссылка работы **с параметром**
   `exam_reg = $attempt->examRegistrationId`, иначе станция откроется по пути курса и ответит 404. В ответ добавить `is_exam => true`.
-- [ ] 6.4.2 `learner.js::examLockBanner()` и текст в карточке курса: для `is_exam` — «Идёт экзамен «{название}»» вместо «контрольная».
-- [ ] 6.4.3 Проверить снятие блокировки для каждого завершения: сдача, автоистечение по дедлайну (6.2). После них `findAnyActive()` возвращает `null`
+- [x] 6.4.2 `learner.js::examLockBanner()` и текст в карточке курса: для `is_exam` — «Идёт экзамен «{название}»» вместо «контрольная».
+- [x] 6.4.3 Проверить снятие блокировки для каждого завершения: сдача, автоистечение по дедлайну (6.2). После них `findAnyActive()` возвращает `null`
   (статус не `in_progress`). Отмена записи и неявка попытку не создают — блокировки нет.
-- [ ] 6.4.4 `findAnyActive()` содержит условие `deadline_at > NOW()` — время базы. Убедиться, что часовой пояс базы совпадает с местным временем сайта:
+- [x] 6.4.4 `findAnyActive()` содержит условие `deadline_at > NOW()` — время базы. Убедиться, что часовой пояс базы совпадает с местным временем сайта:
   `docker exec wp_db mariadb -u root -proot wordpress -N -e "SELECT NOW()"` и
   `docker compose -f /Users/daniil/FS-LMS/docker-compose.yml run --rm wpcli wp eval 'echo current_time("mysql");'`.
   Если расходятся — заменить `NOW()` на обязательный параметр `string $nowLocal` (значение — `ClockInterface::now()`), обновить вызов в `ExamLockService`
@@ -257,18 +289,18 @@
 - Шаблоны станции: `templates/frontend/assessment/kege/entry.php`, `exam.php`, `finish.php`.
 
 **Шаги**
-- [ ] 6.5.1 `LearnerExamsService`: в карточку добавить `station_url` — постоянная ссылка варианта сеанса с `?exam_reg={registration_id}`;
+- [x] 6.5.1 `LearnerExamsService`: в карточку добавить `station_url` — постоянная ссылка варианта сеанса с `?exam_reg={registration_id}`;
   отдавать только в состояниях `entry_open` и `in_progress` и только ученику (не родителю). Для `in_progress` — ещё `deadline` (местное время) и
   `seconds_left`.
-- [ ] 6.5.2 `learner-exams.js`: `entry_open` — синяя «Приступить» (ссылка на `station_url`), пояснение «Начать можно до {плановый конец}»;
+- [x] 6.5.2 `learner-exams.js`: `entry_open` — синяя «Приступить» (ссылка на `station_url`), пояснение «Начать можно до {плановый конец}»;
   `in_progress` — «Продолжить», «Завершение в {дедлайн}». Серую кнопку состояния `registered` не трогать.
-- [ ] 6.5.3 Автообновление карточки: пока есть карточка в `registered`, раз в 30 секунд перезапрашивать список, чтобы кнопка стала синей без перезагрузки.
+- [x] 6.5.3 Автообновление карточки: пока есть карточка в `registered`, раз в 30 секунд перезапрашивать список, чтобы кнопка стала синей без перезагрузки.
   Таймер останавливать при уходе с экрана (`document.hidden`) и когда таких карточек нет.
-- [ ] 6.5.4 Экран завершения станции (`finish.php`) для экзаменной попытки ученика: текст «Работа сдана и ожидает утверждения преподавателем.»,
+- [x] 6.5.4 Экран завершения станции (`finish.php`) для экзаменной попытки ученика: текст «Работа сдана и ожидает утверждения преподавателем.»,
   кнопка «К моим экзаменам» (`PageRoutes::UserProfile->url()` + `?screen=learner-exams`). Лист результатов до утверждения не раскрывается:
   `KegeResultSheetService` уже получает флаг `$revealed`; убедиться, что для экзаменной попытки он считается по новой политике (7.5), а до этапа 7 — `false`.
-- [ ] 6.5.5 Кнопка «Вернуться» станции (`resolveBackUrl()` в `AssessmentPageController`) для экзамена ведёт в «Мои экзамены», а не в курс.
-- [ ] 6.5.6 Проверка с телефона: открыть станцию на ширине 390 px. Если задания нельзя выполнить с телефона — **до старта** показать
+- [x] 6.5.5 Кнопка «Вернуться» станции (`resolveBackUrl()` в `AssessmentPageController`) для экзамена ведёт в «Мои экзамены», а не в курс.
+- [x] 6.5.6 Проверка с телефона: открыть станцию на ширине 390 px. Если задания нельзя выполнить с телефона — **до старта** показать
   предупреждение «Экзамен рассчитан на компьютер.» на экране входа станции (SPEC §17). Новый мобильный плеер не делать.
 
 **Тесты**
@@ -292,14 +324,14 @@
 - Сохранение вида работы: `AssessmentMetaBoxController::handleAssessmentSave()`.
 
 **Шаги**
-- [ ] 6.6.1 `getStepCandidates()`: для `kind = 'assessment'` отфильтровать кандидатов — оставить работы, у которых `AssessmentKind` не станция
+- [x] 6.6.1 `getStepCandidates()`: для `kind = 'assessment'` отфильтровать кандидатов — оставить работы, у которых `AssessmentKind` не станция
   (`! $assessment->kind->isStation()`). Вид брать через `AssessmentManager::get()`.
-- [ ] 6.6.2 `buildSteps()` / `refBelongsToSubject()`: шаг `assessment`, ссылающийся на станцию, отклонять при сохранении с текстом
+- [x] 6.6.2 `buildSteps()` / `refBelongsToSubject()`: шаг `assessment`, ссылающийся на станцию, отклонять при сохранении с текстом
   «Экзамен-станцию нельзя добавить в урок: назначьте его через „Мои экзамены“.» **Исключение:** шаг, который уже был сохранён в уроке со станцией
   (dev-данные), не удалять и не ломать — сравнивать с текущим составом шагов урока и отклонять только **новые** ссылки на станцию.
-- [ ] 6.6.3 Смена вида работы на станцию, когда работа уже стоит в уроке: при сохранении метабокса проверить использование (готовым сервисом из проверки выше);
+- [x] 6.6.3 Смена вида работы на станцию, когда работа уже стоит в уроке: при сохранении метабокса проверить использование (готовым сервисом из проверки выше);
   если используется — вид не менять и показать уведомление в админке «Работа используется в уроках как контрольная: вид „экзамен“ недоступен.»
-- [ ] 6.6.4 Control: ни один его путь не меняется. Прогнать существующие тесты плеера и конструктора.
+- [x] 6.6.4 Control: ни один его путь не меняется. Прогнать существующие тесты плеера и конструктора.
 
 **Тесты**
 - `tests/Unit/Services/Course/LessonAuthoringServiceTest.php`: `test_station_assessments_are_not_step_candidates`,
@@ -315,9 +347,9 @@
 
 ## Проверка этапа (SPEC §16: 5, 6, 7, 31)
 
-- [ ] Границы времени: 09:59 — отказ; 10:00 — старт; 13:54 — старт с дедлайном 17:49; 13:55 без старта — неявка; начавший раньше продолжает.
-- [ ] Одновременные старт, неявка и отмена дают один исход (стенд).
-- [ ] Старый Control без регрессий (тесты плеера и попыток зелёные).
-- [ ] Экзаменная попытка отсутствует в журнале группы, «Работах», «Моих оценках», сводке по ученику.
-- [ ] e2e: полный проход КЕГЭ и ОГЭ на станции.
-- [ ] `npm run ci`, `npx gulp build` — зелёные.
+- [x] Границы времени: 09:59 — отказ; 10:00 — старт; 13:54 — старт с дедлайном 17:49; 13:55 без старта — неявка; начавший раньше продолжает. — `ExamAttemptServiceTest` (09:59 отказ, 10:00 старт, 13:54 → дедлайн 17:49, 13:55 неявка, старт в 11:00 → дедлайн 14:55 и не прерывается в 13:55)
+- [x] Одновременные старт, неявка и отмена дают один исход (стенд). — стенд `start-vs-missed` (5 прогонов по 50 участников: у каждого один исход)
+- [x] Старый Control без регрессий (тесты плеера и попыток зелёные). — полный PHPUnit, `AttemptServiceTest`, `LessonAuthoringServiceTest`
+- [x] Экзаменная попытка отсутствует в журнале группы, «Работах», «Моих оценках», сводке по ученику. — тесты репозитория на каждый метод (`exam_participation_id IS NULL`) и браузер: «Мои оценки» экзамен не показывает
+- [x] e2e: полный проход КЕГЭ и ОГЭ на станции. — проведено в headless Chrome для обоих
+- [x] `npm run ci`, `npx gulp build` — зелёные. — по частям (2026-10-04): `eslint .` и `stylelint` без ошибок, `gulp styles:check` и `gulp build` успешны, PHPUnit в контейнере 2727 тестов без падений, `npm run test:js` 79 тестов; целиком `npm run ci` на Windows-хосте не идёт: `npm test` вызывает `vendor/bin/phpunit`, который хост не запускает

@@ -21,6 +21,16 @@
 
 **Время** — `ExamTime::nowUtc()`. `time()`, `date()` и `current_time()` в сервисах этапа не использовать.
 
+
+## Статус (проверено 2026-10-04)
+
+**Сделано и проверено:** 3.1–3.5. Юнит-тесты поимённо по спецификации: `ExamRegistrationServiceTest` (58), `ExamHoldServiceTest` (34), `TransactionRunnerRetryTest`, `TransactionRunnerTest`.
+Стенд гонок на настоящей MariaDB — `tests/stand/exam-race.sh`, результаты и повторы — `NOTES.md`, раздел «Стенд гонок».
+
+**Что изменилось по сравнению с текстом этапа:** команды стенда лежат в `ExamStandCommand` (`fs-lms exam stand-seed|stand-register|stand-hold|stand-session|stand-report|stand-clean|stand-window|stand-start`),
+класс заявки гостя — `ExamGuestApplicationDTO`/`ExamGuestApplicationRepository`; `confirmHeld()`/`confirmLate()` своей транзакции не открывают (их зовёт `convert()` под блокировкой заявки);
+ключ идемпотентности — `exam_operation_keys` со сроком (`expires_at`), просроченный ключ считается новой операцией (тест `test_expired_operation_key_is_treated_as_new_operation`).
+
 ---
 
 ## 3.1 Запись с защитой от гонки, идемпотентность, outbox
@@ -35,24 +45,24 @@
 - `ExamAudienceResolver::isEligible()` (1.1), `ExamOutbox::add()` (2.3.8), `ExamOperationKeyRepository` (2.3.7).
 
 **Шаги**
-- [ ] 3.1.1 В трейт `TransactionRunner` добавить **новый** метод (существующий не трогать):
+- [x] 3.1.1 В трейт `TransactionRunner` добавить **новый** метод (существующий не трогать):
   ```php
   public function inTransactionWithRetry( callable $fn, int $maxAttempts = 3 ): mixed
   ```
   Цикл: `START TRANSACTION` → `$fn()` → `COMMIT`. При `RetryableDbException` — `ROLLBACK`, пауза `usleep( random_int( 20000, 80000 ) )`,
   следующая попытка; после последней — пробросить. Любое другое исключение — `ROLLBACK` и проброс без повтора.
-- [ ] 3.1.2 `inc/DTO/Exam/RegistrationResultDTO.php`: `registrationId`, `participationId`, `sessionId`, `status` (`ExamRegistrationStatus`),
+- [x] 3.1.2 `inc/DTO/Exam/RegistrationResultDTO.php`: `registrationId`, `participationId`, `sessionId`, `status` (`ExamRegistrationStatus`),
   `freeSeats`, `replayed` (bool — ответ взят по ключу идемпотентности), `warnings` (array). Методы `toArray()` и `fromArray()`
   (результат хранится в `exam_operation_keys.result_ref`).
-- [ ] 3.1.3 `inc/Services/Exam/ExamRegistrationService.php`, `use TransactionRunner;`. Зависимости: репозитории проведений, сеансов,
+- [x] 3.1.3 `inc/Services/Exam/ExamRegistrationService.php`, `use TransactionRunner;`. Зависимости: репозитории проведений, сеансов,
   участников, участий, записей, ключей операций; `ExamAudienceResolver`, `ExamOutbox`, `ExamTime`.
-- [ ] 3.1.4 Публичный метод ученика `register( int $personId, int $sessionId, string $requestKey ): RegistrationResultDTO`:
+- [x] 3.1.4 Публичный метод ученика `register( int $personId, int $sessionId, string $requestKey ): RegistrationResultDTO`:
   1. `$requestKey` — непустая строка до 64 символов, иначе `CodedException( ErrorCode::ExamReplay, 'Повторите действие.' )`;
   2. сеанс и проведение читаются без блокировки; проведение `published`, иначе `ExamClosed`;
   3. `isEligible( $personId, $event->subjectKey )`, иначе `ExamAccess` («Экзамен недоступен для этого ученика.»);
   4. `$participantId = getOrCreateForPerson( $personId )`;
   5. вызвать `registerParticipant( $participantId, ExamAudience::Student, $sessionId, $requestKey, null )`.
-- [ ] 3.1.5 Публичный метод ядра записи
+- [x] 3.1.5 Публичный метод ядра записи
   `registerParticipant( int $participantId, ExamAudience $audience, int $sessionId, string $requestKey, ?int $actorUserId ): RegistrationResultDTO`.
   Им пользуются `register()`, перенос сотрудником, конвертация брони гостя и стенд. Всё тело — в `inTransactionWithRetry()`:
   1. **блокировка 1:** `getOrCreateLocked( $eventId, $participantId, $audience )`;
@@ -67,7 +77,7 @@
   7. `ExamOutbox::add( RegistrationConfirmed, 'registration', $registrationId, 1, [ 'event_id', 'session_id', 'participation_id', 'audience' ] )`;
   8. сохранить результат в `exam_operation_keys` (`expires_at = now + 24 часа`);
   9. вернуть `RegistrationResultDTO` (`freeSeats` — из перечитанного сеанса).
-- [ ] 3.1.6 Уникальный индекс `(participation_id, active_slot)` — вторая линия защиты. Если вставка записи упала с ошибкой дубля
+- [x] 3.1.6 Уникальный индекс `(participation_id, active_slot)` — вторая линия защиты. Если вставка записи упала с ошибкой дубля
   (номер 1062), преобразовать в `CodedException( ErrorCode::ExamConflict, 'Запись на этот экзамен уже есть.' )`:
   в `AbstractExamRepository::write()` добавить для 1062 отдельное исключение `DuplicateKeyException`.
 
@@ -97,7 +107,7 @@
 - `ExamAccessGuard::canManageEvent()` (2.4.1).
 
 **Шаги**
-- [ ] 3.2.1 `change( int $personId, int $newSessionId, string $requestKey ): RegistrationResultDTO` — перенос учеником.
+- [x] 3.2.1 `change( int $personId, int $newSessionId, string $requestKey ): RegistrationResultDTO` — перенос учеником.
   Внутри `inTransactionWithRetry()`:
   1. заблокировать участие; затем идемпотентность (`operation = 'change'`, под блокировкой, как в 3.1.5);
   2. действующая запись обязана быть, иначе `ExamConflict` («Действующей записи нет.»);
@@ -107,22 +117,22 @@
   5. `occupySeat( новый )`. `false` → `ExamFull`. Транзакция откатывается — **старая бронь остаётся действующей**;
   6. `releaseSeat( старый )`; `deactivate( старая, Transferred, … )`; новая запись `confirmed`; `setActiveRegistration( новая )`;
   7. outbox `RegistrationTransferred` (`old_session_id`, `new_session_id`, `by = 'self'`).
-- [ ] 3.2.2 `cancelBySelf( int $personId, int $eventId, string $requestKey ): void` — блокировки участие → сеанс; разрешено при `now < scheduled_at`
+- [x] 3.2.2 `cancelBySelf( int $personId, int $eventId, string $requestKey ): void` — блокировки участие → сеанс; разрешено при `now < scheduled_at`
   своего сеанса и отсутствии попытки; `deactivate( …, Cancelled, …, null, null )`, `releaseSeat()`, `setActiveRegistration( null )`;
   outbox `RegistrationCancelled` (`by = 'self'`). Повторный вызов с тем же ключом — без ошибки и без второго освобождения места.
-- [ ] 3.2.3 `cancelByStaff( int $actorUserId, int $registrationId, string $reason ): void`:
+- [x] 3.2.3 `cancelByStaff( int $actorUserId, int $registrationId, string $reason ): void`:
   - `canManageEvent()`, иначе `ExamAccess`;
   - причина после `trim()` не пуста, иначе `InvalidArgumentException( 'Укажите причину отмены.' )`;
   - разрешено и после начала сеанса, **пока попытка не начата** (`current_attempt_id === null`), иначе `ExamStarted`
     («Попытка уже начата: запись отменить нельзя.»). Начатую и сданную попытку обычная отмена не стирает;
   - outbox `RegistrationCancelled` (`by = 'staff'`, `reason`).
-- [ ] 3.2.4 `transferByStaff( int $actorUserId, int $registrationId, int $newSessionId, string $reason ): RegistrationResultDTO` —
+- [x] 3.2.4 `transferByStaff( int $actorUserId, int $registrationId, int $newSessionId, string $reason ): RegistrationResultDTO` —
   как `change()`, но: право — `canManageEvent()`; причина обязательна; ограничение «до начала своего сеанса» не действует;
   окно записи не проверяется; попытки нет. Запись остаётся привязанной к тому же участию — связь с оплатой гостя (через
   `exam_guest_applications.participation_id`) сохраняется сама. Outbox `RegistrationTransferred` (`by = 'staff'`, `reason`).
-- [ ] 3.2.5 `history( int $participationId ): array` — все записи участия по возрастанию `created_at` (статус, сеанс, причина, кто, когда).
-  Строки не удаляются ни одной операцией этапа: `grep -n "delete" inc/Repositories/WPDBRepositories/Exam/ExamRegistrationRepository.php` → пусто.
-- [ ] 3.2.6 После `cancelled` и `missed` участие остаётся, `active_registration_id = NULL` — участник может записаться заново,
+- [x] 3.2.5 `history( int $participationId ): array` — все записи участия по возрастанию `created_at` (статус, сеанс, причина, кто, когда).
+  Строки не удаляются ни одной операцией этапа: `grep -n "delete" inc/Repositories/WPDBRepositories/ExamRegistrationRepository.php` → пусто.
+- [x] 3.2.6 После `cancelled` и `missed` участие остаётся, `active_registration_id = NULL` — участник может записаться заново,
   если окно записи открыто и есть места. Отдельного кода для этого не нужно: проверить тестом.
 
 **Тесты** — в `ExamRegistrationServiceTest.php`:
@@ -151,7 +161,7 @@
   какой метод даёт занятия группы на день. Время занятий местное.
 
 **Шаги**
-- [ ] 3.3.1 Приватный метод `assertCanRegister( ExamEventDTO $event, ExamSessionDTO $session, ExamParticipationDTO $participation, string $nowUtc, bool $byStaff ): void`.
+- [x] 3.3.1 Приватный метод `assertCanRegister( ExamEventDTO $event, ExamSessionDTO $session, ExamParticipationDTO $participation, string $nowUtc, bool $byStaff ): void`.
   Порядок проверок и ответы:
   | № | Условие отказа | Код | Текст |
   |---|---|---|---|
@@ -164,15 +174,15 @@
   | 7 | у участия есть попытка | `ExamStarted` | «Экзамен уже начат или сдан.» |
   | 8 | у участия есть действующая запись | `ExamConflict` | «Запись на этот экзамен уже есть.» |
   | 9 | действующая запись участника в **другом** проведении пересекается по времени | `ExamConflict` | «В это время уже есть запись на другой экзамен.» |
-- [ ] 3.3.2 Для правила 9 в `ExamRegistrationRepository` добавить
+- [x] 3.3.2 Для правила 9 в `ExamRegistrationRepository` добавить
   `hasOverlappingActive( int $participantId, string $startUtc, string $endUtc, int $excludeEventId ): bool` — соединение записей
   (`active_slot = 1`), участий и сеансов; условие пересечения `scheduled_at < %s(end) AND planned_end_at > %s(start)`.
-- [ ] 3.3.3 Сдача в другом проведении лимит этого проведения не расходует, даже при том же варианте: правило 7 смотрит только
+- [x] 3.3.3 Сдача в другом проведении лимит этого проведения не расходует, даже при том же варианте: правило 7 смотрит только
   на `current_attempt_id` **этого** участия. Проверить тестом.
-- [ ] 3.3.4 Пересечение с занятиями ученика — **предупреждение, не отказ**. Приватный метод `lessonOverlapWarning( int $personId, ExamSessionDTO $session ): bool`:
+- [x] 3.3.4 Пересечение с занятиями ученика — **предупреждение, не отказ**. Приватный метод `lessonOverlapWarning( int $personId, ExamSessionDTO $session ): bool`:
   активные группы ученика → занятия на день сеанса → сравнение с окном сеанса после `ExamTime::toLocal()`.
   При пересечении в `RegistrationResultDTO::$warnings` добавить `'lesson_overlap'`. Для гостя не вычисляется.
-- [ ] 3.3.5 Версия: операции над записью защищены блокировкой участия, отдельный `stale_version` для записи не нужен.
+- [x] 3.3.5 Версия: операции над записью защищены блокировкой участия, отдельный `stale_version` для записи не нужен.
   Код `ExamStale` возвращают операции с проведением и сеансом (этап 2.4) и исправление результата (этап 8.6).
 
 **Тесты** — в `ExamRegistrationServiceTest.php`, по одному на строку таблицы:
@@ -198,16 +208,16 @@
 - TTL брони по умолчанию — 20 минут; настройка появится в 11a.6. Сейчас значение приходит параметром метода.
 
 **Шаги**
-- [ ] 3.4.1 `inc/DTO/Exam/GuestApplicationDTO.php` (поля по колонкам, `state` — энум) и
-  `inc/Repositories/WPDBRepositories/Exam/GuestApplicationRepository.php`:
+- [x] 3.4.1 `inc/DTO/Exam/ExamGuestApplicationDTO.php` (поля по колонкам, `state` — энум) и
+  `inc/Repositories/WPDBRepositories/ExamGuestApplicationRepository.php`:
   `create( array $data ): int`, `find`, `findForUpdate`, `findBySourceAndRequestKey( int $sourceId, string $requestKey )`,
   `update( int $id, array $data ): void`,
   `releaseHeldFlag( int $id ): bool` — `UPDATE … SET is_held = 0 WHERE id = %d AND is_held = 1` (`true` при одной затронутой строке),
   `listExpiredHeldIds( string $nowUtc, int $limit ): array`, `listExpiredHeldIdsBySession( int $sessionId, string $nowUtc ): array`,
   `countHeldBySession( int $sessionId ): int`, `countHeldBySource( int $sourceId ): int`, `countHeldByIp( string $ipHash ): int`.
-- [ ] 3.4.2 `inc/Services/Exam/ExamHoldService.php`, `use TransactionRunner;`. Зависимости: репозитории заявок, сеансов, проведений,
+- [x] 3.4.2 `inc/Services/Exam/ExamHoldService.php`, `use TransactionRunner;`. Зависимости: репозитории заявок, сеансов, проведений,
   участников, участий; `ExamRegistrationService`, `ExamOutbox`, `ExamTime`.
-- [ ] 3.4.3 `capture( array $data, int $ttlMinutes ): GuestApplicationDTO`. `$data`: `event_id`, `session_id`, `source_id`, `identity_hash`,
+- [x] 3.4.3 `capture( array $data, int $ttlMinutes ): ExamGuestApplicationDTO`. `$data`: `event_id`, `session_id`, `source_id`, `identity_hash`,
   `request_key`, `draft_enc`, `source_snapshot`, `consent_refs`, `ip_hash`, `created_by_user_id`. В `inTransactionWithRetry()`:
   1. **идемпотентность:** `findBySourceAndRequestKey()` — заявка найдена → вернуть её без изменений (бронь не продлевается);
      если у найденной заявки другой `session_id` или `identity_hash` → `ExamReplay`;
@@ -220,7 +230,7 @@
   7. создать заявку: `state = hold`, `is_held = 1`, `active_slot = 1`.
   Нарушение уникального индекса `identity_active` (у личности уже есть активная заявка в проведении) →
   `CodedException( ErrorCode::ExamConflict, 'Заявка на этот экзамен уже оформлена.' )` — **без данных чужой заявки в тексте**.
-- [ ] 3.4.4 `convert( int $applicationId, ?int $actorUserId ): GuestApplicationDTO` — подтверждение после оплаты. Порядок блокировок:
+- [x] 3.4.4 `convert( int $applicationId, ?int $actorUserId ): ExamGuestApplicationDTO` — подтверждение после оплаты. Порядок блокировок:
   заявка (`findForUpdate`) → сеанс. Ветки:
   | Состояние заявки | Действие |
   |---|---|
@@ -232,17 +242,17 @@
   Для ветки без `occupySeat()` в `ExamRegistrationService` добавить метод
   `confirmHeld( int $participantId, int $sessionId, string $requestKey, int $sourceId ): RegistrationResultDTO` — те же шаги, что `registerParticipant()`,
   кроме шага «место» и проверок окна записи.
-- [ ] 3.4.5 Приватный `releaseLocked( int $applicationId, GuestApplicationState $newState ): bool` — вызывается под блокировкой сеанса:
+- [x] 3.4.5 Приватный `releaseLocked( int $applicationId, GuestApplicationState $newState ): bool` — вызывается под блокировкой сеанса:
   `releaseHeldFlag()` → только если вернул `true`: `releaseSeat()`, `state = $newState`, `active_slot = NULL`.
   Флаг `is_held` переключается один раз — это и есть гарантия «освобождается ровно один раз».
-- [ ] 3.4.6 `releaseExpired( int $limit = 100 ): int` — для минутного тика: по каждому ID из `listExpiredHeldIds()` отдельная транзакция:
+- [x] 3.4.6 `releaseExpired( int $limit = 100 ): int` — для минутного тика: по каждому ID из `listExpiredHeldIds()` отдельная транзакция:
   заявка `FOR UPDATE` → сеанс `FOR UPDATE` → повторная проверка `is_held = 1 AND hold_expires_at <= now` → `releaseLocked( …, ExpiredUnpaid )`.
   `release( int $applicationId, GuestApplicationState $newState ): bool` — то же для одной заявки (компенсация сбоя корзины, удаление позиции, отмена сотрудником).
   Данные заявки при освобождении **не удаляются**: поздняя оплата должна её найти.
-- [ ] 3.4.7 Различение «мест нет» для ученика: в `ExamRegistrationService::registerParticipant()` при `occupySeat() === false`:
+- [x] 3.4.7 Различение «мест нет» для ученика: в `ExamRegistrationService::registerParticipant()` при `occupySeat() === false`:
   `countHeldBySession() > 0` → `CodedException( ErrorCode::ExamHeld, 'Свободных мест сейчас нет: часть мест удерживается до оплаты. Попробуйте позже.' )`,
   иначе `ExamFull` («Свободных мест нет.»).
-- [ ] 3.4.8 Подключить тик: `ExamTickService::releaseHolds()` (2.6.4) вызывает `ExamHoldService::releaseExpired()`.
+- [x] 3.4.8 Подключить тик: `ExamTickService::releaseHolds()` (2.6.4) вызывает `ExamHoldService::releaseExpired()`.
 
 **Тесты** — `tests/Unit/Services/Exam/ExamHoldServiceTest.php`:
 - `test_capture_occupies_seat_and_sets_expiry_by_ttl`;
@@ -275,7 +285,7 @@
   запись идёт через `registerParticipant()`.
 
 **Шаги**
-- [ ] 3.5.1 Подкоманды `ExamCommand`:
+- [x] 3.5.1 Подкоманды `ExamStandCommand` (регистрируются как `fs-lms exam stand-*`):
   | Команда | Что делает |
   |---|---|
   | `fs-lms exam stand-seed --seats=<n> --participants=<m> [--sessions=<k>]` | создаёт проведение с названием `STAND <время>`, `k` сеансов в будущем с `capacity = n`, `m` участников; печатает ID сеансов и диапазон ID участников |
@@ -286,7 +296,7 @@
   Сеансу стенда нужен кабинет с вместимостью: взять первый кабинет с `seats > 0`; если такого нет — остановиться с подсказкой про 0.9.
   Вместимость сеанса стенда задаётся напрямую (`capacity = --seats`), минуя `ExamEventService` — это тестовая фикстура, и в докблоке
   команды так и написать.
-- [ ] 3.5.2 Скрипт `tests/stand/exam-race.sh` (исполняемый, `set -eu`), параметры — число мест и участников. Внутри одного контейнера
+- [x] 3.5.2 Скрипт `tests/stand/exam-race.sh` (исполняемый, `set -eu`), параметры — число мест и участников. Внутри одного контейнера
   запускает параллельные процессы:
   ```sh
   docker compose -f /Users/daniil/FS-LMS/docker-compose.yml run --rm wpcli sh -c '
@@ -297,7 +307,7 @@
   '
   ```
   Затем печатает `stand-report` и сам сравнивает числа; при расхождении — код выхода `1`.
-- [ ] 3.5.3 Сценарии (каждый — отдельная функция скрипта или параметр `--scenario=`):
+- [x] 3.5.3 Сценарии (каждый — отдельная функция скрипта или параметр `--scenario=`):
   | Сценарий | Вход | Ожидание |
   |---|---|---|
   | `last-seat` | 20 мест, 100 участников | ровно 20 `confirmed`, 80 `full`, `occupied_count = 20`, дублей нет, ни одного `error:` |
@@ -306,13 +316,13 @@
   | `two-sessions` | один участник одновременно в два сеанса одного проведения | одна действующая запись |
   | `guest-vs-student` | 1 место, параллельно 1 `stand-register` и 1 `stand-hold` | занято ровно одно место, один победитель |
   | `expired-hold` | бронь с TTL в прошлом, параллельно два `fs-lms exam tick --name=hold-release` | `occupied_count` уменьшился ровно на 1 |
-- [ ] 3.5.4 Для сценария `expired-hold` в `stand-hold` добавить флаг `--expired` (ставит `hold_expires_at` в прошлое).
-- [ ] 3.5.5 Результаты прогона (дата, версия MariaDB, числа по каждому сценарию, были ли повторы по deadlock) записать в
+- [x] 3.5.4 Для сценария `expired-hold` в `stand-hold` добавить флаг `--expired` (ставит `hold_expires_at` в прошлое).
+- [x] 3.5.5 Результаты прогона (дата, версия MariaDB, числа по каждому сценарию, были ли повторы по deadlock) записать в
   `.docs/public-exam-feature/NOTES.md`, раздел «Стенд гонок». Раздел пополняется на этапах 6 и 13.1.
-- [ ] 3.5.6 После прогона — `stand-clean`. Проверка: `SELECT COUNT(*) FROM wp_fs_lms_exam_events WHERE title LIKE 'STAND%'` → `0`.
+- [x] 3.5.6 После прогона — `stand-clean`. Проверка: `SELECT COUNT(*) FROM wp_fs_lms_exam_events WHERE title LIKE 'STAND%'` → `0`.
 
 **Тесты.** Сам стенд и есть проверка. Юнит-тест нужен только на разбор результата команды: если логика подсчёта вынесена в
-метод `ExamCommand::summarize( array $rows ): array` — покрыть его.
+метод `ExamStandCommand::summarize( array $rows ): array` — покрыть его.
 
 **Готово, когда:** все шесть сценариев проходят три прогона подряд; в выводе нет `error:`; `debug.log` (последние 15 строк) без ошибок SQL.
 
@@ -320,9 +330,9 @@
 
 ## Проверка этапа (SPEC §16: 1–4, 6, 32–35; §18: 39, 41)
 
-- [ ] 100 параллельных записей на 20 мест → ровно 20.
-- [ ] Ученик и гость на последнее место → один победитель.
-- [ ] Истёкшая бронь освобождается один раз.
-- [ ] Повтор запроса не дублирует место, участие и событие.
-- [ ] Неуспешный перенос сохраняет старую бронь.
-- [ ] `npm run ci` зелёный.
+- [x] 100 параллельных записей на 20 мест → ровно 20. — стенд `last-seat`: 20 `confirmed`, 80 `full`
+- [x] Ученик и гость на последнее место → один победитель. — стенд `guest-vs-student`
+- [x] Истёкшая бронь освобождается один раз. — стенд `expired-hold`
+- [x] Повтор запроса не дублирует место, участие и событие. — стенд `same-participant`, `two-sessions`; тесты идемпотентности
+- [x] Неуспешный перенос сохраняет старую бронь. — `test_failed_change_keeps_old_registration_active`
+- [x] `npm run ci` зелёный. — по частям (2026-10-04): `eslint .` и `stylelint` без ошибок, `gulp styles:check` и `gulp build` успешны, PHPUnit в контейнере 2727 тестов без падений, `npm run test:js` 79 тестов; целиком `npm run ci` на Windows-хосте не идёт: `npm test` вызывает `vendor/bin/phpunit`, который хост не запускает

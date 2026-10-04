@@ -7,6 +7,33 @@
 
 **Порядок:** 7.5 → 7.1 → 7.2 → 7.3 → 7.4. Пункт 7.5 первым: сначала закрыть утечки, потом открывать разбор.
 
+## Статус (проверено 2026-10-04, рефакторинг по `refactor.md`)
+
+**Сделано и проверено** — подзадачи выше с `[x]`: `tests/js/task-render.test.mjs`, `exam-result.test.mjs`; `ExamReviewProjectionTest`,
+`ExamScoreServiceTest`, `LearnerExamsServiceTest`, `LearnerExamCallbacksTest`, `AttemptRevealPolicyTest`, `AttemptServiceTest`;
+сквозной проход по HTTP: до утверждения в карточке нет `result`/`units`/`approved_at`, разбор отвечает `revealed: false` без заданий, `attempt_id` из
+запроса не принимается, чужой получает «Результат недоступен.»; после утверждения — итог, перечень (`number`, `status`, `anchor`) и разбор без идентификаторов оценивания.
+
+**Что изменилось по сравнению с текстом этапа:**
+- `task-render.js` — общий renderer (`renderTask( t, { mode, kind, canGradeAttempt, canGradeBatch } )`); `work-review.js` использует его и в «Работах»,
+  и для прошлых раундов сдачи (прежний `historyTaskBlock` — дубль read-only разметки — удалён).
+- Экран разбора — `exams/exam-review.js` (`renderExamReview`, `openExamReview( eventId, anchor )`), секция `exam-review` в `app.js` вне `cfg.screens`.
+  Общие для плитки и разбора `resultCaption`, `resultPercent`, `UNIT_STATUS` — `exams/exam-result.js`.
+- Родителю из действий доступны «Результаты» (разбор данных ребёнка); запись, перенос, отмена и запуск — только ученику.
+- `ExamReviewProjection` собирает проекцию одним `assemble()` для обоих входов и решает раскрытие через `AttemptService::isRevealed()`.
+- Направление (ЕГЭ/ОГЭ) в `ExamScoreService` берётся из `ExamFormatDTO::$direction`, а не из вида работы.
+
+**Закрыто 2026-10-04 (повторная приёмка этапа):**
+- **7.5.5:** `grep -rn "solution|answer_file|task_solution" templates/frontend/assessment inc/Services/Assessment inc/Modules/EgeComputer` находит только `TaskPreviewService`
+  (предпросмотр задания автором, `solution_html`) — лист станции и карточка ссылок на файлы решения/эталона не формируют; условие и приложенные к нему файлы доступны всегда.
+- Недостающие по спецификации тесты: `AttemptRevealPolicyTest::test_control_rule_unchanged` и `::test_course_oge_rule_unchanged`, `ExamReviewProjectionTest::test_oge_files_code_and_tables_are_kept_in_read_only`,
+  `LearnerExamsServiceTest::test_unapproved_card_has_no_result_keys`.
+- **Браузер:** карточка с итогом, перечень заданий, разбор — на 1440 и 390 px (снимки сняты; без горизонтальной прокрутки), 0 ошибок консоли; подпись плитки «N из M» для ЕГЭ и ОГЭ,
+  «из 100» для ОГЭ не используется; клик по заданию в перечне открывает разбор, прокрученный к этому заданию (7.4.5).
+
+**Остаётся за этапом 8:** 7.5.7 (режим `manage` сотрудника); сверка экрана «Работы» преподавателя со снимком «до» (7.1.3) — снимка «до» в репозитории нет, поведение «Работ» покрыто
+`task-render.test.mjs` и `WorkDetailServiceTest` без изменений.
+
 ## Общие правила этапа
 
 - Третьего дизайна задач не создаётся: разбор экзамена рисует тот же код, что экран «Работы».
@@ -30,7 +57,7 @@
 - 6.7.4 уже отключил уведомление «Экзамен проверен» для экзаменных попыток.
 
 **Шаги**
-- [ ] 7.5.1 `AttemptRevealPolicy::isRevealed()` — в начале метода ветка экзаменной попытки:
+- [x] 7.5.1 `AttemptRevealPolicy::isRevealed()` — в начале метода ветка экзаменной попытки:
   ```php
   if ( $attempt->isExam() ) {
       return $this->isExamRevealed( $attempt );
@@ -39,19 +66,19 @@
   `isExamRevealed()`: аудитория участия `student` → `$attempt->isApproved()` (**и для ОГЭ тоже**: экзаменный ОГЭ требует явного утверждения);
   аудитория `guest` → попытка сдана (статус не `in_progress`). Аудиторию читать из участия (`ExamParticipationRepository::find()`), добавив репозиторий
   в конструктор политики. Старые ветки (попытки курса) не менять.
-- [ ] 7.5.2 `AttemptService::getResult()`: при `! $revealed` кроме ответов зачистить и саму попытку — вернуть копию `AttemptDTO` с `totalScore = null`,
+- [x] 7.5.2 `AttemptService::getResult()`: при `! $revealed` кроме ответов зачистить и саму попытку — вернуть копию `AttemptDTO` с `totalScore = null`,
   `maxScore = null` (сейчас итог уходит ученику как есть). Изменение действует на все попытки с отложенным раскрытием; проверить, что экран
   станции не ломается от `null` (тест и ручная проверка КЕГЭ в курсе).
-- [ ] 7.5.3 `AttemptCallbacks::ajaxSubmitAttempt()`: для экзаменной попытки ответ без баллов уже сделан в 6.1.7. Для гостя (этап 11b) баллы отдаются —
+- [x] 7.5.3 `AttemptCallbacks::ajaxSubmitAttempt()`: для экзаменной попытки ответ без баллов уже сделан в 6.1.7. Для гостя (этап 11b) баллы отдаются —
   решение принимать через `AttemptRevealPolicy::isRevealed()`, а не по признаку «экзамен».
-- [ ] 7.5.4 `AttemptPageService::buildReview()` и `buildForExam()`: ученик, открывший `?attempt=ID` или `?exam_reg=ID` до утверждения, получает
+- [x] 7.5.4 `AttemptPageService::buildReview()` и `buildForExam()`: ученик, открывший `?attempt=ID` или `?exam_reg=ID` до утверждения, получает
   `reviewReveal = false`, пустой `resultPerTask`, пустые `outcome` и `outcomeState`. Проверить по коду, что `finish.php` при `false` не выводит
   ни баллы, ни правильные ответы, ни ссылки на решения (читать шаблон целиком).
-- [ ] 7.5.5 Файлы. Найти, отдаёт ли лист результата или карточка задания ссылки на файлы решения/эталона
+- [x] 7.5.5 Файлы. Найти, отдаёт ли лист результата или карточка задания ссылки на файлы решения/эталона
   (`grep -rn "solution\|answer_file\|task_solution" templates/frontend/assessment inc/Services/Assessment inc/Modules/EgeComputer`).
   Если такие ссылки есть — они формируются только при раскрытии. Исходные материалы задания (условие, прикреплённые к условию файлы) доступны
   во время попытки и после неё — это не эталон.
-- [ ] 7.5.6 Родитель: любые данные экзамена ребёнка идут через `LearnerExamsService` и `ExamReviewProjection` (7.1), где раскрытие проверяется так же,
+- [x] 7.5.6 Родитель: любые данные экзамена ребёнка идут через `LearnerExamsService` и `ExamReviewProjection` (7.1), где раскрытие проверяется так же,
   как для ученика. Отдельной «родительской» политики нет.
 - [ ] 7.5.7 Сотрудник с правом на проведение (`ExamAccessGuard::canManageEvent()`) видит результат сразу — это режим `manage`, политика раскрытия
   на него не распространяется.
@@ -84,14 +111,14 @@
 - Снимок экрана «Работы» с открытой работой КЕГЭ и ОГЭ **до** изменений — для сравнения.
 
 **Шаги**
-- [ ] 7.1.1 Создать `src/js/profile/task-render.js`. Перенести из `work-review.js` **без изменения разметки**: `taskBlock` → `export function renderTask( t, ctx )`,
+- [x] 7.1.1 Создать `src/js/profile/task-render.js`. Перенести из `work-review.js` **без изменения разметки**: `taskBlock` → `export function renderTask( t, ctx )`,
   а также `codeBlock`, `taskFilesBlock`, `criteriaGradeBlock`, `ogeRubricGradeBlock`, `answeredAtHtml`, `VERDICT_LABEL`.
   `ctx = { mode: 'manage' | 'read_only', kind: 'work' | 'exam', canGradeAttempt: bool, canGradeBatch: bool }`.
-- [ ] 7.1.2 Режимы: в `read_only` функция **не вызывает** блоки оценивания и зачёта (`grade`, `credit` — пустые строки) независимо от полей задачи.
+- [x] 7.1.2 Режимы: в `read_only` функция **не вызывает** блоки оценивания и зачёта (`grade`, `credit` — пустые строки) независимо от полей задачи.
   В `manage` поведение прежнее. Условие «показать эталон» (`showCorrect`) — общее для обоих режимов.
-- [ ] 7.1.3 `work-review.js`: импортировать `renderTask` и вызывать с `mode: 'manage'`; обработчики `wire*` остаются в `work-review.js`.
+- [x] 7.1.3 `work-review.js`: импортировать `renderTask` и вызывать с `mode: 'manage'`; обработчики `wire*` остаются в `work-review.js`.
   После правки — визуальное сравнение со снимком «до»: разметка задач совпадает.
-- [ ] 7.1.4 Серверная проекция. `inc/Services/Exam/ExamReviewProjection.php`. Зависимости: `WorkDetailService`, `AssessmentAttemptRepository`,
+- [x] 7.1.4 Серверная проекция. `inc/Services/Exam/ExamReviewProjection.php`. Зависимости: `WorkDetailService`, `AssessmentAttemptRepository`,
   `ExamParticipationRepository`, `AttemptRevealPolicy`, `ExamFormatRegistry`, `AssessmentManager`.
   Метод `forViewer( int $attemptId, string $mode ): ?array`:
   - берёт `WorkDetailService::forWork( 'attempt', $attemptId )`;
@@ -100,7 +127,7 @@
     `oge_rubric` (оставить текст выбранного уровня), `review_url`; из корня — `attempt_id`, `group_id`, `student_name`;
   - для `manage` — отдать как есть, добавив `result_version` попытки.
   Проверку прав вызывающий делает сам (7.4 — ученик, 8.4 — сотрудник); проекция прав не проверяет.
-- [ ] 7.1.5 Решение задания (текст разбора) — общее расширение блока `sum-task`: поле `solution` в задаче (HTML, если у задания есть разбор;
+- [x] 7.1.5 Решение задания (текст разбора) — общее расширение блока `sum-task`: поле `solution` в задаче (HTML, если у задания есть разбор;
   посмотреть, где хранится разбор задания: `grep -rn "solution" inc/Enums/Wp/PostMetaName.php inc/Services/Task`). В `renderTask()` — раскрываемый блок
   «Решение» под правильным ответом. В `read_only` до раскрытия поля нет вовсе. Если у заданий разбора в данных нет — блок не добавлять и записать это в `NOTES.md`.
 
@@ -126,7 +153,7 @@
 - `_summary.scss`: есть `sv-corrected` (жёлтый, токен `--wait`) — фон для «Частично» уже существует как токен.
 
 **Шаги**
-- [ ] 7.2.1 `WorkDetailService::fromAttempt()` — расчёт `verdict`:
+- [x] 7.2.1 `WorkDetailService::fromAttempt()` — расчёт `verdict`:
   | Условие | `verdict` |
   |---|---|
   | `is_correct === null` | `pending` |
@@ -137,13 +164,13 @@
   Порядок проверок — как в таблице. `pending` не превращается в 0, пустой ответ не считается «неверно».
   Задание работы, на которое **нет строки ответа** (ученик не открывал), сейчас в список не попадает — добавить такие задания по `assessment->taskIds`
   со статусом `unanswered`, баллом `0` и максимумом из формата.
-- [ ] 7.2.2 В каждую задачу добавить `unit_key` (из `ScoringUnits::keysFor()`), `number` (номер задания строкой, без префикса) и `anchor` —
+- [x] 7.2.2 В каждую задачу добавить `unit_key` (из `ScoringUnits::keysFor()`), `number` (номер задания строкой, без префикса) и `anchor` —
   `'u-' . md5( unit_key . ':' . task_id )` (устойчив к порядку и повторам номера). Поле `n` (порядковый счётчик) оставить для подписи «Задача N».
-- [ ] 7.2.3 `task-render.js`: `VERDICT_LABEL` дополнить `unanswered: 'Не решено'`, `partial: 'Частично'`; корневому `div.sum-task` — `id="${t.anchor}"`.
-- [ ] 7.2.4 `_summary.scss`: `.sv-partial` и `.sv-unanswered` — цвета токенами (`--wait` для обоих допустимо только если макет так показывает;
+- [x] 7.2.3 `task-render.js`: `VERDICT_LABEL` дополнить `unanswered: 'Не решено'`, `partial: 'Частично'`; корневому `div.sum-task` — `id="${t.anchor}"`.
+- [x] 7.2.4 `_summary.scss`: `.sv-partial` и `.sv-unanswered` — цвета токенами (`--wait` для обоих допустимо только если макет так показывает;
   иначе `unanswered` — нейтральный, как `sv-pending`). Свериться с `../student.png`: «Верно» зелёный, «Не решено» жёлтый, «Неверно» красный.
   «Частично верно» — новый вердикт (`../QA.md`, «Новое» п. 5).
-- [ ] 7.2.5 Повторы и составные задания: несколько заданий одного номера (`unit_key` совпадает) в перечне показываются отдельными строками, но с общим
+- [x] 7.2.5 Повторы и составные задания: несколько заданий одного номера (`unit_key` совпадает) в перечне показываются отдельными строками, но с общим
   номером; балл единицы считается по `ScoringUnits::totals()` (7.3), а не суммой строк.
 
 **Тесты**
@@ -167,7 +194,7 @@
 - `assessment_attempts.total_score` / `max_score` — уже посчитаны по единицам при проверке (`AutoGradeService`).
 
 **Шаги**
-- [ ] 7.3.1 `inc/Services/Exam/ExamScoreService.php` (добавить в README §7.4). Зависимости: `ExamFormatRegistry`, `ExamEventRepository`, `AssessmentManager`.
+- [x] 7.3.1 `inc/Services/Exam/ExamScoreService.php` (добавить в README §7.4). Зависимости: `ExamFormatRegistry`, `ExamEventRepository`, `AssessmentManager`.
   Метод `summarize( AttemptDTO $attempt, ExamEventDTO $event ): array`:
   ```php
   array(
@@ -183,11 +210,11 @@
   )
   ```
   Шкала и максимум — **из снимка проведения**; формат модуля — только запасной путь, когда снимка нет.
-- [ ] 7.3.2 При `pending = true` поля `secondary` и `grade` равны `null`: неподтверждённый итог окончательным не показывается (ручная часть ОГЭ).
+- [x] 7.3.2 При `pending = true` поля `secondary` и `grade` равны `null`: неподтверждённый итог окончательным не показывается (ручная часть ОГЭ).
   `primary` при этом — сумма уже проверенного, с пометкой на клиенте «предварительно».
-- [ ] 7.3.3 Баллы по единицам для перечня заданий: `units( AttemptDTO $attempt, array $tasks ): array` — по `unit_key`: `number`, `score`, `max`
+- [x] 7.3.3 Баллы по единицам для перечня заданий: `units( AttemptDTO $attempt, array $tasks ): array` — по `unit_key`: `number`, `score`, `max`
   (`unitMax( number )` из формата), `status` (худший из статусов заданий единицы: `pending` > `unanswered`/`incorrect` > `partial` > `correct`).
-- [ ] 7.3.4 Не писать в коде и текстах «22 первичных = 72»: значения получаются только из шкалы.
+- [x] 7.3.4 Не писать в коде и текстах «22 первичных = 72»: значения получаются только из шкалы.
 
 **Тесты** — `tests/Unit/Services/Exam/ExamScoreServiceTest.php`:
 - `test_kege_18_primary_is_72_secondary`, `test_kege_22_primary_is_83_secondary`, `test_kege_max_is_29_and_100`;
@@ -214,22 +241,22 @@
 - Существующие классы строки задания «Моих курсов»: `sc-row`, `sc-pill` (`learner.js::scRowHtml()`).
 
 **Шаги**
-- [ ] 7.4.1 `LearnerExamsService`: для состояния `approved` добавить в карточку `result` (`ExamScoreService::summarize()`), `approved_at`
+- [x] 7.4.1 `LearnerExamsService`: для состояния `approved` добавить в карточку `result` (`ExamScoreService::summarize()`), `approved_at`
   и `units` — перечень единиц: `number`, `status`, `anchor` (якорь первого задания единицы). **Только при раскрытии**; в остальных состояниях ключей нет.
-- [ ] 7.4.2 Экшен `GetExamReview` в `LearnerExamCallbacks` (`event_id`, `student_person_id?`; nonce `ExamLearner`): личность — через `ProfileContext`
+- [x] 7.4.2 Экшен `GetExamReview` в `LearnerExamCallbacks` (`event_id`, `student_person_id?`; nonce `ExamLearner`): личность — через `ProfileContext`
   (ученик — себя, родитель — своего ребёнка); попытка — `current_attempt_id` участия этой личности в проведении; ответ —
   `ExamReviewProjection::forViewer( $attemptId, 'read_only' )` + `result`. Чужой `event_id` или отсутствие участия — «Результат недоступен.» без подробностей.
   **`attempt_id` из запроса не принимается.**
-- [ ] 7.4.3 `learner-exams.js`, состояние `approved`: подпись плитки — `resultCaption()`; в карточке прогресс-бар (`sc-hprog`, доля `primary / primary_max`),
+- [x] 7.4.3 `learner-exams.js`, состояние `approved`: подпись плитки — `resultCaption()`; в карточке прогресс-бар (`sc-hprog`, доля `primary / primary_max`),
   справа кнопка «Результаты»; **на месте карусели сеансов — перечень заданий** строками `sc-row` с бейджем `sc-pill`:
   «Верно» (зелёный), «Не решено» (жёлтый), «Неверно» (красный), «Частично», «Проверяется».
-- [ ] 7.4.4 Экран `exam-review` — `src/js/profile/exams/exam-review.js`: `renderExamReview( root, { onBack } )`, `openExamReview( eventId, anchor? )`.
+- [x] 7.4.4 Экран `exam-review` — `src/js/profile/exams/exam-review.js`: `renderExamReview( root, { onBack } )`, `openExamReview( eventId, anchor? )`.
   Секция экрана добавляется в `buildStage()` так же, как `work-review` (вне меню). Шапка: название, дата сдачи, итог (`resultCaption`), кнопка «‹ Назад».
   Задачи — `renderTask( t, { mode: 'read_only', kind: 'exam' } )`. В шапке задачи: номер, вердикт, время ответа, балл/максимум справа.
-- [ ] 7.4.5 Клик по строке перечня → `openExamReview( eventId, anchor )` → после отрисовки `document.getElementById( anchor ).scrollIntoView()`.
+- [x] 7.4.5 Клик по строке перечня → `openExamReview( eventId, anchor )` → после отрисовки `document.getElementById( anchor ).scrollIntoView()`.
   Переход ведёт к фактическому заданию, а не всегда ко второму (критерий 22) — покрыть e2e.
-- [ ] 7.4.6 Родитель: тот же экран, те же данные ребёнка; кнопок запуска и оценивания нет (их нет и в `read_only`).
-- [ ] 7.4.7 Нет кнопок «Перерешать», «Решить самостоятельно», нет режима тренировки (SPEC §6). Проверка:
+- [x] 7.4.6 Родитель: тот же экран, те же данные ребёнка; кнопок запуска и оценивания нет (их нет и в `read_only`).
+- [x] 7.4.7 Нет кнопок «Перерешать», «Решить самостоятельно», нет режима тренировки (SPEC §6). Проверка:
   `grep -rn "practice\|Перерешать\|retry" src/js/profile/exams` → пусто.
 
 **Тесты**
@@ -246,8 +273,8 @@
 
 ## Проверка этапа (SPEC §16: 15, 19, 20, 24)
 
-- [ ] Тесты на утечку: до утверждения ни HTML, ни JSON, ни файлы не содержат баллов, эталонов и решений.
-- [ ] КЕГЭ: 27 единиц, 29/100, №26–27 по 2; 18→72, 22→83. ОГЭ: первичные из 21 и отметка.
-- [ ] Один renderer в «Работах» и в разборе ученика; у `read_only` нет скрытых кнопок оценивания (`grep` по HTML ответа).
-- [ ] Перерешивания и тренировочных экшенов нет.
-- [ ] `npm run ci`, `npx gulp build` — зелёные. Новые вердикты занесены в `../QA.md`.
+- [x] Тесты на утечку: до утверждения ни HTML, ни JSON, ни файлы не содержат баллов, эталонов и решений. — `LearnerExamsServiceTest`, `ExamReviewProjectionTest`, `AttemptPageServiceReviewTest`; сквозной проход в браузере и по HTTP
+- [x] КЕГЭ: 27 единиц, 29/100, №26–27 по 2; 18→72, 22→83. ОГЭ: первичные из 21 и отметка. — `ExamFormatsProviderTest`, `ExamScoreServiceTest` (18→72, 22→83); ОГЭ — первичные из 21 и отметка
+- [x] Один renderer в «Работах» и в разборе ученика; у `read_only` нет скрытых кнопок оценивания (`grep` по HTML ответа). — `task-render.js`, `tests/js/task-render.test.mjs`
+- [x] Перерешивания и тренировочных экшенов нет. — `grep "practice|Перерешать|retry" src/js/profile/exams` пусто
+- [x] `npm run ci`, `npx gulp build` — зелёные. Новые вердикты занесены в `../QA.md`. — по частям (2026-10-04): `eslint .` и `stylelint` без ошибок, `gulp styles:check` и `gulp build` успешны, PHPUnit в контейнере 2727 тестов без падений, `npm run test:js` 79 тестов; целиком `npm run ci` на Windows-хосте не идёт: `npm test` вызывает `vendor/bin/phpunit`, который хост не запускает

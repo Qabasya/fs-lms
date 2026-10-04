@@ -8,6 +8,25 @@
 **Порядок выполнения:** 0.0 → 0.3 → 0.1 → 0.2 → 0.5 → 0.4 → 0.6 → 0.9 → 0.8 → 0.7.
 Пункт 0.1 использует реестр форматов из 0.3, поэтому 0.3 идёт раньше.
 
+
+## Статус (проверено 2026-10-04)
+
+**Сделано и проверено:** 0.0, 0.1, 0.3–0.9.
+- Тесты: `ExamFormatRegistryTest`, `ExamFormatsProviderTest`, `EgeCompletenessCheckerTest`, `ExamEnumsTest`, `UserRoleTest`, `RoomCallbacksTest`, `RoomDTOTest`,
+  `WooExamControllerTest` — зелёные в контейнере.
+- Права на dev (`wp cap list`): `lms_teacher` и `lms_methodist` — три права экзаменов; `lms_office` — только `resolve_lms_exam_payments`, `manage_lms_exams` нет.
+- Конструктор работы КЕГЭ (вариант 723) показывает «Заполнено 27/27»; формат — единственный источник числа позиций.
+- 0.9.7 в браузере (headless Chrome, вход администратором): «Настройки → Кабинеты» — колонка «Мест»; 30 → 20 мест сохраняются и остаются после обновления страницы;
+  правка одного названия места не обнуляет (проверено по `wp_fs_lms_rooms`); исходные данные восстановлены.
+- 0.7: WooCommerce 11.1.2, HPOS включён без режима совместимости (`wp wc hpos status`: синхронизация выключена), страница оформления — шорткод
+  `[woocommerce_checkout]`, гостевое оформление включено, регистрация при оформлении выключена; товар 736 «Пробный экзамен» (1500 ₽), купон 737 `exam-free-dev` (100 %).
+  **0.7.8 проведён заново (прежняя запись в `NOTES.md` про `wc_get_order( 1 )` ничем не подтверждена):** гостевой заказ через форму оформления (headless Chrome,
+  тестовые значения) → заказ №738, итог 0,00 ₽, статус `processing`, `is_paid() = true`, `customer_id = 0`, купон применён.
+
+**Не закрыто — нужен владелец:** 0.2.2–0.2.3. Модификатор `.fs-field--checkbox` добавлен (0.2.1) и затрагивает только метабоксы с `CheckboxField` (`grep fs-field--checkbox` —
+единственное использование в `inc/MetaBoxes/Fields/CheckboxField.php`; поэтому экраны «Конфигурация», «Импорт», «Центр печати» из 0.2.4 не меняются — снимки «после» сняты).
+Снимка метабокса «до» в репозитории нет, а какой отступ владелец считает неверным, из задачи не следует: сравнение «до/после» и подтверждение отступа у обычных полей — за владельцем.
+
 ---
 
 ## 0.0 Ветка содержит master
@@ -123,7 +142,7 @@
   и получить подтверждение, какой именно отступ считается неверным**, если это не очевидно из снимка.
 
 **Шаги**
-- [ ] 0.2.1 В `_field.scss` добавить модификатор внутри блока `.fs-field`:
+- [x] 0.2.1 В `_field.scss` добавить модификатор внутри блока `.fs-field`:
   ```scss
   // Подпись-чекбокс: label оборачивает input, нижний отступ подписи не нужен.
   &--checkbox {
@@ -138,7 +157,7 @@
   а область метабокса: найти класс-обёртку шаблона (`grep -n "class=" inc/MetaBoxes/Templates/BaseTemplate.php`)
   и добавить правило вида `.ОБЁРТКА .fs-field { … }` в файл стилей метабоксов (`ls src/scss/admin/components | grep -i meta`).
 - [ ] 0.2.3 `npx gulp styles:admin`, снимок «после», сравнить со снимком «до».
-- [ ] 0.2.4 Открыть «Настройки → Конфигурация», «Настройки → Импорт», «Центр печати» — вид полей не изменился.
+- [x] 0.2.4 Открыть «Настройки → Конфигурация», «Настройки → Импорт», «Центр печати» — вид полей не изменился.
 
 **Тесты.** Автотестов нет. `npm run lint:css` обязан пройти.
 
@@ -157,8 +176,8 @@
 - Образец энума с `label()` — `inc/Enums/Assessment/AssessmentKind.php`.
 
 **Шаги**
-- [ ] 0.5.1 `inc/Enums/Settings/TableName.php` — 15 кейсов из README §7.1 под комментарием `// ==== Экзамены (проведения, запись, гости) ====`.
-- [ ] 0.5.2 `inc/Enums/Exam/` — файлы энумов из README §7.2 (кроме уже созданного `ExamDirection`):
+- [x] 0.5.1 `inc/Enums/Settings/TableName.php` — 15 кейсов из README §7.1 под комментарием `// ==== Экзамены (проведения, запись, гости) ====`.
+- [x] 0.5.2 `inc/Enums/Exam/` — файлы энумов из README §7.2 (кроме уже созданного `ExamDirection`):
   `ExamEventStatus`, `ExamSessionStatus`, `ExamRegistrationStatus`, `ExamAudience`, `ExamProgress`,
   `GuestApplicationState`, `ExamPaymentState`, `ExamTokenPurpose`, `ManualResolutionKind`, `ExamOutboxEvent`.
   В каждом — `label(): string`. Подписи без рода и без чисел, образцы:
@@ -175,16 +194,16 @@
   | `GuestApplicationState::ExpiredUnpaid` | «Время брони истекло» |
   | `GuestApplicationState::Failed` | «Оплата не подтверждена» |
   | `GuestApplicationState::PaidNeedsResolution` | «Оплачено, требуется помощь» |
-- [ ] 0.5.3 В `GuestApplicationState` добавить `holdsSeat(): bool` — `true` для `Hold`, `AwaitingPayment`, `PaymentPending`;
+- [x] 0.5.3 В `GuestApplicationState` добавить `holdsSeat(): bool` — `true` для `Hold`, `AwaitingPayment`, `PaymentPending`;
   `isTerminal(): bool` — `true` для `Confirmed`, `ExpiredUnpaid`, `Failed`, `Cancelled`, `Missed`.
-- [ ] 0.5.4 В `ExamEventStatus` добавить `isEditable(): bool` (`Draft`, `Published`) и
+- [x] 0.5.4 В `ExamEventStatus` добавить `isEditable(): bool` (`Draft`, `Published`) и
   `acceptsRegistration(): bool` (только `Published`).
-- [ ] 0.5.5 `inc/Enums/Log/ErrorCode.php` — 12 кейсов из README §7.3 под комментарием `// Экзамены`.
+- [x] 0.5.5 `inc/Enums/Log/ErrorCode.php` — 12 кейсов из README §7.3 под комментарием `// Экзамены`.
   Посмотреть, есть ли в энуме метод с подписями/описаниями кейсов (`grep -n "function" inc/Enums/Log/ErrorCode.php`);
   если есть `match` по всем кейсам — дополнить его, иначе PHP упадёт на непокрытом кейсе.
-- [ ] 0.5.6 `inc/Enums/Wp/Nonce.php` — 4 кейса из README §7.5.
-- [ ] 0.5.7 `inc/Enums/Wp/CronHook.php` — 3 кейса из README §7.5 с докблоками.
-- [ ] 0.5.8 Новые `OptionName` и `TransientKey` **не заводить**: настройки экзаменов хранятся в существующей
+- [x] 0.5.6 `inc/Enums/Wp/Nonce.php` — 4 кейса из README §7.5.
+- [x] 0.5.7 `inc/Enums/Wp/CronHook.php` — 3 кейса из README §7.5 с докблоками.
+- [x] 0.5.8 Новые `OptionName` и `TransientKey` **не заводить**: настройки экзаменов хранятся в существующей
   опции `PluginConfig` (этап 11a.6), счётчики лимитов — внутри `RateLimitService` со своим префиксом.
 
 **Тесты**
@@ -210,11 +229,11 @@
 - `sed -n 84,115p inc/Managers/Person/RoleManager.php` — блок `$admin->add_cap( … )`.
 
 **Шаги**
-- [ ] 0.4.1 `Capability.php` — раздел `// ===== Экзамены =====`, три кейса со значениями из README §6 и докблоками
+- [x] 0.4.1 `Capability.php` — раздел `// ===== Экзамены =====`, три кейса со значениями из README §6 и докблоками
   (что открывает право и почему оно не равно `ManageLmsTeaching`).
-- [ ] 0.4.2 `UserRole::capabilities()` — добавить три права в массивы `FSTeacher` и `FSMethodist`. В `FSOffice` **не добавлять**.
-- [ ] 0.4.3 `RoleManager::syncCapabilities()` — три `$admin->add_cap( … )`.
-- [ ] 0.4.4 `inc/Init.php` — `$capsVersion = '5.7'`, комментарий `// 5.7: + права экзаменов`.
+- [x] 0.4.2 `UserRole::capabilities()` — добавить три права в массивы `FSTeacher` и `FSMethodist`. В `FSOffice` **не добавлять**.
+- [x] 0.4.3 `RoleManager::syncCapabilities()` — три `$admin->add_cap( … )`.
+- [x] 0.4.4 `inc/Init.php` — `$capsVersion = '5.7'`, комментарий `// 5.7: + права экзаменов`.
 
 **Тесты** — `tests/Unit/Enums/UserRoleTest.php`:
 - `test_teacher_and_methodist_have_exam_caps`;
@@ -234,11 +253,11 @@
 **Проверить перед началом:** 0.4 выполнен.
 
 **Шаги**
-- [ ] 0.6.1 `Capability.php` — кейс `ResolveExamPayments = 'resolve_lms_exam_payments'` с докблоком: очередь
+- [x] 0.6.1 `Capability.php` — кейс `ResolveExamPayments = 'resolve_lms_exam_payments'` с докблоком: очередь
   «Оплачено, требуется помощь», перенос оплаченного гостя, отметка урегулирования; **без** создания и публикации проведений.
-- [ ] 0.6.2 `UserRole::capabilities()` — добавить право только в `FSOffice`.
-- [ ] 0.6.3 `RoleManager::syncCapabilities()` — `$admin->add_cap( Capability::ResolveExamPayments->value );`.
-- [ ] 0.6.4 `Init.php` — если 0.4 и 0.6 идут одной серией, оставить `'5.7'` и дополнить комментарий; если 0.4 уже
+- [x] 0.6.2 `UserRole::capabilities()` — добавить право только в `FSOffice`.
+- [x] 0.6.3 `RoleManager::syncCapabilities()` — `$admin->add_cap( Capability::ResolveExamPayments->value );`.
+- [x] 0.6.4 `Init.php` — если 0.4 и 0.6 идут одной серией, оставить `'5.7'` и дополнить комментарий; если 0.4 уже
   выкатывался отдельно — поднять до `'5.8'`.
 
 **Тесты** — `UserRoleTest.php`:
@@ -265,7 +284,7 @@
 - `tests/Unit/Callbacks/Course/RoomCallbacksTest.php` — существующие тесты.
 
 **Шаги**
-- [ ] 0.9.1 `room-modal.php` — после поля названия добавить блок:
+- [x] 0.9.1 `room-modal.php` — после поля названия добавить блок:
   ```php
   <div class="fs-form-group">
       <label for="room_seats">Вместимость (мест)</label>
@@ -273,24 +292,24 @@
       <p class="description">Используется как число мест в сеансе экзамена. 0 — вместимость не задана, кабинет нельзя выбрать для экзамена.</p>
   </div>
   ```
-- [ ] 0.9.2 `room-modal.js`: поле `$seatsInput = $('#room_seats')` в `init()`; в `open()` при правке — `this.$seatsInput.val( data.seats ?? 0 )`;
+- [x] 0.9.2 `room-modal.js`: поле `$seatsInput = $('#room_seats')` в `init()`; в `open()` при правке — `this.$seatsInput.val( data.seats ?? 0 )`;
   в `_resetForm()` — сброс в `0`; в `_collectFormData()` — `seats: parseInt( this.$seatsInput.val(), 10 ) || 0`.
   Обновить JSDoc `@param` у `open()`.
-- [ ] 0.9.3 `room-modal-manager.js`:
+- [x] 0.9.3 `room-modal-manager.js`:
   - `_handleEdit()` — передавать `seats: $link.data('seats')`;
   - `_handleSave()` — добавить в запрос `seats: formData.seats`;
   - `_renderRows()` — `data-seats="${Number(room.seats) || 0}"` на обеих ссылках `js-edit-room`, новая ячейка с числом мест
     (`room.seats > 0 ? room.seats : '—'`), `colspan="3"` у пустого состояния → `4`.
-- [ ] 0.9.4 `settings-9-rooms.php`: колонка `<th>Мест</th>` между «Название» и «Группы»; ячейка
+- [x] 0.9.4 `settings-9-rooms.php`: колонка `<th>Мест</th>` между «Название» и «Группы»; ячейка
   `<?php echo $room->seats > 0 ? (int) $room->seats : '—'; ?>`; `data-seats="<?php echo (int) $room->seats; ?>"` на обеих ссылках правки;
   `colspan="3"` в `tfoot` → `4`.
-- [ ] 0.9.5 `RoomCallbacks::ajaxSaveRoom()` — защита от обнуления старым клиентом: при правке (`$roomId > 0`) и
+- [x] 0.9.5 `RoomCallbacks::ajaxSaveRoom()` — защита от обнуления старым клиентом: при правке (`$roomId > 0`) и
   отсутствии параметра (`! $this->hasParam( 'seats' )`) ключ `seats` в `$data` не класть. Проверить, что
   `RoomRepository::update()` обновляет только переданные ключи (`sed -n 65,80p inc/Repositories/WPDBRepositories/RoomRepository.php`);
   если он требует все ключи — доработать его, а не обходить.
-- [ ] 0.9.6 `inc/DTO/Course/RoomDTO.php` — метод `hasCapacity(): bool { return $this->seats > 0; }`.
+- [x] 0.9.6 `inc/DTO/Course/RoomDTO.php` — метод `hasCapacity(): bool { return $this->seats > 0; }`.
   Проверку «кабинет без вместимости нельзя выбрать для сеанса» сам сеанс получит на этапе 2.4; здесь только метод и тест.
-- [ ] 0.9.7 `npx gulp scripts`, открыть «Настройки → Кабинеты»: задать 20 мест кабинету 315, сохранить, обновить страницу — значение на месте;
+- [x] 0.9.7 `npx gulp scripts`, открыть «Настройки → Кабинеты»: задать 20 мест кабинету 315, сохранить, обновить страницу — значение на месте;
   изменить только название — места не обнулились.
 
 **Тесты** — `tests/Unit/Callbacks/Course/RoomCallbacksTest.php`:
@@ -315,12 +334,12 @@
 - README §7.4: класс `Inc\Controllers\Exam\WooExamController`.
 
 **Шаги**
-- [ ] 0.8.1 Создать `inc/Controllers/Exam/WooExamController.php` — `extends BaseController implements ServiceInterface`.
+- [x] 0.8.1 Создать `inc/Controllers/Exam/WooExamController.php` — `extends BaseController implements ServiceInterface`.
   В `register()`:
   ```php
   add_action( 'before_woocommerce_init', array( $this, 'declareHposCompatibility' ) );
   ```
-- [ ] 0.8.2 Метод `declareHposCompatibility(): void`:
+- [x] 0.8.2 Метод `declareHposCompatibility(): void`:
   ```php
   if ( class_exists( \Automattic\WooCommerce\Utilities\FeaturesUtil::class ) ) {
       \Automattic\WooCommerce\Utilities\FeaturesUtil::declare_compatibility( 'custom_order_tables', FS_LMS_PLUGIN_FILE, true );
@@ -328,9 +347,9 @@
   ```
   Имя константы с путём главного файла плагина уточнить: `grep -n "define(" fs-lms.php`. Если константы файла нет —
   добавить её в `fs-lms.php` рядом с `FS_LMS_VERSION` (`define( 'FS_LMS_PLUGIN_FILE', __FILE__ );`).
-- [ ] 0.8.3 Метод `isWooActive(): bool { return class_exists( 'WooCommerce' ); }`. Все хуки оплаты (этап 11a.5)
+- [x] 0.8.3 Метод `isWooActive(): bool { return class_exists( 'WooCommerce' ); }`. Все хуки оплаты (этап 11a.5)
   будут регистрироваться в этом же `register()` **только** при `isWooActive()`. Сейчас — только объявление совместимости.
-- [ ] 0.8.4 Добавить `WooExamController::class` в `Init::getServices()` в блок ядра (не в блок модулей) с комментарием.
+- [x] 0.8.4 Добавить `WooExamController::class` в `Init::getServices()` в блок ядра (не в блок модулей) с комментарием.
 
 **Тесты** — `tests/Unit/Controllers/Exam/WooExamControllerTest.php`:
 - `test_register_does_not_fail_without_woocommerce` — `register()` отрабатывает, когда класса `WooCommerce` нет;
@@ -356,25 +375,25 @@
   `docker exec wp_db mariadb-dump -u root -proot wordpress > .docs/db-backups/before-woo-11.sql`.
 
 **Шаги**
-- [ ] 0.7.1 Обновить WooCommerce до версии прода: `… wp plugin update woocommerce --version=11.1.2`
+- [x] 0.7.1 Обновить WooCommerce до версии прода: `… wp plugin update woocommerce --version=11.1.2`
   (если точной версии нет в каталоге — ближайшая `11.1.x`; записать фактическую).
-- [ ] 0.7.2 Прогнать обновление базы магазина: `… wp wc update`.
-- [ ] 0.7.3 Включить HPOS **без** режима совместимости: в админке «WooCommerce → Настройки → Дополнительно → Возможности»
+- [x] 0.7.2 Прогнать обновление базы магазина: `… wp wc update`.
+- [x] 0.7.3 Включить HPOS **без** режима совместимости: в админке «WooCommerce → Настройки → Дополнительно → Возможности»
   выбрать «Высокопроизводительное хранилище заказов» и снять «Включить режим совместимости». Проверка:
   `… wp wc hpos status` — HPOS включён, синхронизация выключена.
-- [ ] 0.7.4 Оформление: страница «Оформление заказа» содержит шорткод `[woocommerce_checkout]`, а не блок
+- [x] 0.7.4 Оформление: страница «Оформление заказа» содержит шорткод `[woocommerce_checkout]`, а не блок
   (`… wp post list --post_type=page --fields=ID,post_title,post_name`, затем `… wp post get <ID> --field=post_content`).
   Блок заменить шорткодом.
-- [ ] 0.7.5 Гостевое оформление включено, регистрация при оформлении выключена:
+- [x] 0.7.5 Гостевое оформление включено, регистрация при оформлении выключена:
   `… wp option get woocommerce_enable_guest_checkout` → `yes`,
   `… wp option get woocommerce_enable_signup_and_login_from_checkout` → `no`.
-- [ ] 0.7.6 Товар-фикстура: `… wp wc product create --name="Пробный экзамен" --type=simple --virtual=true --regular_price=1500 --user=1`.
+- [x] 0.7.6 Товар-фикстура: `… wp wc product create --name="Пробный экзамен" --type=simple --virtual=true --regular_price=1500 --user=1`.
   Записать ID товара в `.docs/public-exam-feature/NOTES.md` (раздел «Dev-фикстуры»).
-- [ ] 0.7.7 Купон 100%: `… wp wc shop_coupon create --code=exam-free-dev --discount_type=percent --amount=100 --product_ids=<ID> --user=1`.
-- [ ] 0.7.8 Ручной прогон: добавить товар в корзину, применить купон, оформить заказ гостем. Заказ с нулевой суммой
+- [x] 0.7.7 Купон 100%: `… wp wc shop_coupon create --code=exam-free-dev --discount_type=percent --amount=100 --product_ids=<ID> --user=1`.
+- [x] 0.7.8 Ручной прогон: добавить товар в корзину, применить купон, оформить заказ гостем. Заказ с нулевой суммой
   должен получить статус «Обработка» или «Выполнен». Проверка через CRUD:
   `… wp eval 'var_dump( wc_get_order( <ID> )->is_paid() );'` → `bool(true)`.
-- [ ] 0.7.9 Записать в `NOTES.md`: фактическую версию WooCommerce, ID товара, код купона, статус нулевого заказа.
+- [x] 0.7.9 Записать в `NOTES.md`: фактическую версию WooCommerce, ID товара, код купона, статус нулевого заказа.
 
 **Тесты.** Автотестов нет — это окружение.
 
@@ -385,8 +404,8 @@
 
 ## Проверка этапа
 
-- [ ] `npm run ci` зелёный.
-- [ ] Тесты 0.1, 0.3, 0.4, 0.5, 0.6, 0.8, 0.9 зелёные; существующие тесты `EgeCompletenessChecker` и конструктора не изменены и зелёные.
-- [ ] Конструктор работы КЕГЭ предлагает ровно 27 позиций при любом числе термов.
-- [ ] `lms_office` имеет `ResolveExamPayments` и не имеет `ManageExams`.
-- [ ] Кабинет хранит вместимость, правка названия её не обнуляет.
+- [x] `npm run ci` зелёный.
+- [x] Тесты 0.1, 0.3, 0.4, 0.5, 0.6, 0.8, 0.9 зелёные; существующие тесты `EgeCompletenessChecker` и конструктора не изменены и зелёные.
+- [x] Конструктор работы КЕГЭ предлагает ровно 27 позиций при любом числе термов.
+- [x] `lms_office` имеет `ResolveExamPayments` и не имеет `ManageExams`.
+- [x] Кабинет хранит вместимость, правка названия её не обнуляет.

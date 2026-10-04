@@ -11,6 +11,37 @@
 
 **Порядок:** 8.1 → 8.2 → 8.3 → 8.4 → 8.5 → 8.6 → 8.7 → 8.9 → 8.8 (8.8 зависит от данных этапа 11a; до него экран работает без гостей).
 
+## Исходное состояние (после этапов 0–7, проверено 2026-10-04)
+
+Этап строится на готовом и проверенном; новых аналогов не писать.
+
+**Уже есть и используется как есть:**
+- `ExamRegistrationService::cancelByStaff()` и `transferByStaff()` — внутри уже проверка пересечения по времени, блокировка участника и участия, outbox; 8.2 добавляет только транспорт и права.
+- `ExamAttemptService::extend()` (6.2.4) — готов, работает под блокировкой участия; 8.2.1 `ExtendExamAttempt` только вызывает его (`CodedException` → `fail()`).
+- `ExamReviewProjection::forViewer( $attemptId, 'manage' )` отдаёт полный разбор и `result_version`; `ExamScoreService::summarize()` и `units()` дают итог и единицы.
+- `ExamNoShowService`, `ExamTickService` и минутный тик в `CronController` (`wp fs-lms exam tick`) — собственного cron у этапа 8 нет.
+- `AttemptService::isRevealed()` — единственное решение о раскрытии для ученика; режим сотрудника (`manage`) его не использует (7.5.7 — здесь).
+- `task-render.js` с режимом `manage` и флагами `canGradeAttempt`/`canGradeBatch` — экран «Работы» уже рисует им задачи; `work-review.js` для экзаменной попытки подключает оценивание тем же контекстом (`taskContext( d )`).
+- `ExamOutbox::add()` вызывается внутри транзакций всех готовых операций; воркер и уведомления — этап 9.
+
+**Предусловий, которых в коде ещё нет, — они блокируют пункты ниже (сделать раньше или в этом же этапе):**
+- `ExamEventService` / `ExamRoomService` (2.4, 4.4) — нужны 8.3 (`moveSession`, `cancelSession`, `cancelEvent`, `completeIfDone`) и 8.1.3 (`lateStartConflicts()`). Файлов нет.
+- `exam-conduct.js` и меню «Проведение экзамена» (4.1.4, 4.7.4) — заглушки не созданы; 8.1.6 создаёт экран с нуля.
+- В `ExamAccessGuard` реально есть `canManageSubject( $userId, $subjectKey )` (им уже пользуются `cancelByStaff()`, `transferByStaff()`, `extend()`); `canManageEvent( $userId, ExamEventDTO )` из 2.4.1 — тонкая обёртка над ним
+  (`event->subjectKey`), появится вместе с `ExamEventService`. Везде ниже, где написано `canManageEvent()`, до 2.4.1 вызывать `canManageSubject()`. Коллбеков сотрудника (`ExamConductCallbacks`, `ExamEventCallbacks`) ещё нет.
+- Права `ManageExams` выданы ролям (`capsVersion = 5.8`), блок конфига `exams.actions` для преподавателя (`TeacherProfileView::teacherConfig()`) пока не содержит экшенов сотрудника.
+
+**Правила, обязательные для нового кода этапа** (из рефакторинга; подробно — `inc/Services/Exam/CLAUDE.md`):
+- Новые репозитории наследуют `AbstractExamRepository`; методы записи с проверкой числа затронутых строк (например, `bumpResultVersion()` — `updateRow()` и сравнение с 1, а не `update(): bool`).
+- В каждой транзакции **первый оператор — `FOR UPDATE`** (участие или попытка), идентификаторы определяются до `START TRANSACTION`; версия (`result_version`, `expectedVersion`) сверяется уже под блокировкой.
+  Массовое утверждение — по транзакции на работу; перечитывание состояния работы — только после её блокировки.
+- Отказы сотрудника — `CodedException` с кодом (`ExamStale`, `ExamAccess`, `ExamConflict`, `ExamStarted`), текст клиенту через `ajaxErrorText()`.
+- Гонки утверждения и исправления (параллельные `approve` одной попытки → ровно одно событие `AttemptApproved`; `approve` против `correct`) проверять на настоящей MariaDB
+  по образцу смоука этапа 6, а не только юнит-тестами.
+- Время сравнивать только через `ExamTime`/`ClockInterface`, не `NOW()` базы (на dev пояс БД и сайта расходятся на 3 часа).
+- Тексты, SCSS, иконки — по `README.md` §3; в SCSS кабинета — токены ядра (`shared/_tokens.scss`), без чисел и без inline-стилей.
+- Заглушки будущих этапов (гости, оплата) в `Init::getServices()` не регистрировать; «Гости» на экране сеанса работают без данных до 11a (пункт 8.8).
+
 ## Общие правила этапа
 
 - Коллбеки сотрудника: `$this->authorize( Nonce::ExamManage, Capability::ManageExams )`, затем `ExamAccessGuard::canManageEvent()`.

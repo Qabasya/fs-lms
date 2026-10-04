@@ -8,6 +8,14 @@
 
 **Порядок:** 1.1 → 1.2 → 1.3 → 1.4.
 
+
+## Статус (проверено 2026-10-04)
+
+**Сделано и проверено:** 1.1–1.4. Тесты — `ExamAudienceResolverTest`, `ExamAccessGuardTest`, `ExamVariantPolicyTest` зелёные в контейнере.
+`wp fs-lms exam audience inf_oge --format=count` → `3`, прямой запрос по `student_records`/`groups` (активные, не пробные, предмет `inf_oge`) → `3`.
+В сервисах этапа нет `$wpdb`, `get_posts`, хуков и импортов из `Inc\Modules` (единственное упоминание `$wpdb` — комментарий в `ExamAudienceResolver`).
+`ExamAccessGuard::canManageEvent()` и `canManageEventGuests()` добавлены на этапах 2.4 и 4.6, как и предписывает 1.2.7.
+
 ---
 
 ## 1.1 `ExamAudienceResolver`
@@ -25,21 +33,21 @@
 - `grep -rn "ExamAudience" inc` — класса `ExamAudienceResolver` ещё нет (энум `ExamAudience` из 0.5 — другое).
 
 **Шаги**
-- [ ] 1.1.1 Создать `inc/Services/Exam/ExamAudienceResolver.php`. Зависимости конструктора: `GroupsRepository`, `StudentRecordRepository`.
-- [ ] 1.1.2 Метод `studentPersonIds( string $subjectKey ): array` — уникальные `int` ID учеников:
+- [x] 1.1.1 Создать `inc/Services/Exam/ExamAudienceResolver.php`. Зависимости конструктора: `GroupsRepository`, `StudentRecordRepository`.
+- [x] 1.1.2 Метод `studentPersonIds( string $subjectKey ): array` — уникальные `int` ID учеников:
   группы предмета (без удалённых) → по каждой `findActiveByGroupId()` → собрать `studentPersonId`.
   **Пробные записи (`isTrial === true`) не включать**: пробный доступ — не зачисление.
-- [ ] 1.1.3 Метод `isEligible( int $personId, string $subjectKey ): bool` — есть ли у ученика активная не пробная запись
+- [x] 1.1.3 Метод `isEligible( int $personId, string $subjectKey ): bool` — есть ли у ученика активная не пробная запись
   в группе этого предмета. Реализация через `findActiveByStudent( $personId )` + `GroupsRepository::findById()`
   (не перебирать всех учеников предмета).
-- [ ] 1.1.4 Метод `subjectKeysForStudent( int $personId ): array` — уникальные ключи предметов активных не пробных записей ученика.
+- [x] 1.1.4 Метод `subjectKeysForStudent( int $personId ): array` — уникальные ключи предметов активных не пробных записей ученика.
   Нужен «Моим экзаменам» (этап 5): ученик видит проведения только этих предметов.
-- [ ] 1.1.5 Метод `guardianPersonIds( int $studentPersonId, string $subjectKey ): array` — `parentPersonId` из активных записей
+- [x] 1.1.5 Метод `guardianPersonIds( int $studentPersonId, string $subjectKey ): array` — `parentPersonId` из активных записей
   ученика в группах предмета (без нулей и повторов). Родитель получает просмотр и уведомления.
-- [ ] 1.1.6 Никакого кеша и никакой сохранённой «аудитории»: состав вычисляется при каждом вызове. Поэтому зачисление,
+- [x] 1.1.6 Никакого кеша и никакой сохранённой «аудитории»: состав вычисляется при каждом вызове. Поэтому зачисление,
   выбытие и смена группы учитываются сразу. Требование SPEC «новые ученики получают приглашение один раз» закрывается
   на этапе 9 (уведомление с ключом дедупликации), здесь ничего не хранится.
-- [ ] 1.1.7 Докблок класса: аудитория записи (все ученики групп предмета) и право управления (свои предметы, 1.2) — разные понятия.
+- [x] 1.1.7 Докблок класса: аудитория записи (все ученики групп предмета) и право управления (свои предметы, 1.2) — разные понятия.
 
 **Тесты** — `tests/Unit/Services/Exam/ExamAudienceResolverTest.php` (репозитории — моки):
 - `test_student_in_two_groups_of_subject_listed_once`;
@@ -69,19 +77,19 @@
   у преподавателя его нет. Используем его как признак глобального охвата по предметам.
 
 **Шаги**
-- [ ] 1.2.1 Создать `inc/Services/Exam/ExamAccessGuard.php`. Зависимости: `GroupsRepository`.
-- [ ] 1.2.2 Метод `isGlobal( int $userId ): bool`:
+- [x] 1.2.1 Создать `inc/Services/Exam/ExamAccessGuard.php`. Зависимости: `GroupsRepository`.
+- [x] 1.2.2 Метод `isGlobal( int $userId ): bool`:
   `user_can( $userId, Capability::ManageExams->value )` **и** (`user_can( …, Capability::Admin->value )` **или** `user_can( …, Capability::ManageSubjects->value )`).
   Офис сюда не попадает: у него нет `ManageExams`.
-- [ ] 1.2.3 Метод `subjectKeysFor( int $userId ): array` — уникальные `subject_key` групп, где `teacher_id === $userId`
+- [x] 1.2.3 Метод `subjectKeysFor( int $userId ): array` — уникальные `subject_key` групп, где `teacher_id === $userId`
   (без удалённых групп). **Пустой результат остаётся пустым**, без запасного варианта «все предметы».
-- [ ] 1.2.4 Метод `canManageSubject( int $userId, string $subjectKey ): bool`:
+- [x] 1.2.4 Метод `canManageSubject( int $userId, string $subjectKey ): bool`:
   нет `ManageExams` → `false`; `isGlobal()` → `true`; иначе `in_array( $subjectKey, $this->subjectKeysFor( $userId ), true )`.
-- [ ] 1.2.5 Метод `manageableSubjectKeys( int $userId, array $allSubjectKeys ): array` — для селектора предмета:
+- [x] 1.2.5 Метод `manageableSubjectKeys( int $userId, array $allSubjectKeys ): array` — для селектора предмета:
   глобальному пользователю — все переданные ключи, остальным — пересечение с `subjectKeysFor()`.
-- [ ] 1.2.6 Активная замена преподавателя прав на экзамены **не даёт** (SPEC §3: другой преподаватель — только через
+- [x] 1.2.6 Активная замена преподавателя прав на экзамены **не даёт** (SPEC §3: другой преподаватель — только через
   передачу владения администратором). Записать это в докблоке; `SubstitutionRepository` не подключать.
-- [ ] 1.2.7 Метод `canManageEvent()` появится на этапе 2.4, когда будет `ExamEventDTO`. Здесь его не добавлять.
+- [x] 1.2.7 Метод `canManageEvent()` появится на этапе 2.4, когда будет `ExamEventDTO`. Здесь его не добавлять.
 
 **Тесты** — `tests/Unit/Services/Exam/ExamAccessGuardTest.php` (права — `$GLOBALS['_test_user_can'][ $userId ][ $cap ] = true`, заглушка `user_can()` в `tests/bootstrap.php`):
 - `test_teacher_manages_only_own_subjects`;
@@ -111,8 +119,8 @@
 - `AssessmentKind::isStation()` — признак станции.
 
 **Шаги**
-- [ ] 1.3.1 Создать `inc/Services/Exam/ExamVariantPolicy.php`. Зависимости: `AssessmentManager`, `ExamFormatRegistry`, `EgeCompletenessChecker`.
-- [ ] 1.3.2 Метод `check( int $assessmentId, string $subjectKey ): ?string` — `null`, если вариант годится, иначе текст причины:
+- [x] 1.3.1 Создать `inc/Services/Exam/ExamVariantPolicy.php`. Зависимости: `AssessmentManager`, `ExamFormatRegistry`, `EgeCompletenessChecker`.
+- [x] 1.3.2 Метод `check( int $assessmentId, string $subjectKey ): ?string` — `null`, если вариант годится, иначе текст причины:
   | Условие | Текст |
   |---|---|
   | работа не найдена | «Вариант не найден.» |
@@ -121,11 +129,11 @@
   | `formats->for( kind ) === null` | «Формат экзамена недоступен: модуль экзаменов выключен.» |
   | работа не опубликована (`status !== 'publish'`) | «Вариант не опубликован.» |
   | `! validate( … )->isStrictlyComplete()` | «Вариант не укомплектован: » + `summary()` |
-- [ ] 1.3.3 Метод `assert( int $assessmentId, string $subjectKey ): void` — при непустой причине
+- [x] 1.3.3 Метод `assert( int $assessmentId, string $subjectKey ): void` — при непустой причине
   `throw new CodedException( ErrorCode::ExamConflict, $reason )`.
-- [ ] 1.3.4 Метод `listForSubject( string $subjectKey ): array` — список `array{id:int, title:string, kind:string, direction:string}`
+- [x] 1.3.4 Метод `listForSubject( string $subjectKey ): array` — список `array{id:int, title:string, kind:string, direction:string}`
   опубликованных станций предмета, прошедших `check()`. Нужен банку вариантов в календаре (этап 4.2).
-- [ ] 1.3.5 Добавить класс в README §7.4 (строка «Сервисы»), если его там нет.
+- [x] 1.3.5 Добавить класс в README §7.4 (строка «Сервисы»), если его там нет.
 
 **Тесты** — `tests/Unit/Services/Exam/ExamVariantPolicyTest.php`:
 - `test_variant_of_same_subject_and_station_kind_passes`;
@@ -151,13 +159,13 @@
 - Имена в выводе — **только снимок ФИО из `student_records`** (`snapshotLastName`, `snapshotFirstName`), не расшифрованные документы.
 
 **Шаги**
-- [ ] 1.4.1 Создать `inc/Cli/ExamCommand.php`. Зависимости: `ExamAudienceResolver`, `StudentRecordRepository`, `GroupsRepository`.
+- [x] 1.4.1 Создать `inc/Cli/ExamCommand.php`. Зависимости: `ExamAudienceResolver`, `StudentRecordRepository`, `GroupsRepository`.
   В `register()`: `WP_CLI::add_command( 'fs-lms exam audience', array( $this, 'audience' ) );`
-- [ ] 1.4.2 Метод `audience( array $args, array $assoc ): void` — позиционный аргумент `<subject_key>`, флаг `[--format=<table|count>]`.
+- [x] 1.4.2 Метод `audience( array $args, array $assoc ): void` — позиционный аргумент `<subject_key>`, флаг `[--format=<table|count>]`.
   Вывод таблицей: `person_id`, `ФИО (снимок)`, `группы предмета`. В конце строка «Всего: N».
   Неизвестный предмет (нет групп) — `WP_CLI::warning( 'Групп предмета нет.' )` и «Всего: 0».
-- [ ] 1.4.3 Докблок метода в формате WP-CLI (`## OPTIONS`, `## EXAMPLES`) — по образцу `TaskFileSchemeCommand`.
-- [ ] 1.4.4 Добавить `ExamCommand::class` в `Init::getServices()` рядом с другими командами.
+- [x] 1.4.3 Докблок метода в формате WP-CLI (`## OPTIONS`, `## EXAMPLES`) — по образцу `TaskFileSchemeCommand`.
+- [x] 1.4.4 Добавить `ExamCommand::class` в `Init::getServices()` рядом с другими командами.
 
 **Тесты.** Юнит-теста на команду не нужно (логика в резолвере). Ручная проверка:
 
@@ -184,7 +192,7 @@ WHERE g.subject_key = 'inf_ege' AND sr.status = 'active' AND g.deleted_at IS NUL
 
 ## Проверка этапа
 
-- [ ] `vendor/bin/phpunit --filter "ExamAudienceResolver|ExamAccessGuard|ExamVariantPolicy"` зелёный.
-- [ ] `npm run ci` зелёный.
-- [ ] WP-CLI выводит аудиторию предмета, число совпадает с прямым запросом.
-- [ ] В новых сервисах нет `$wpdb`, `get_posts`, хуков и импортов из `Inc\Modules`.
+- [x] `vendor/bin/phpunit --filter "ExamAudienceResolver|ExamAccessGuard|ExamVariantPolicy"` зелёный. — зелёный (полный прогон в контейнере)
+- [x] `npm run ci` зелёный. — по частям (2026-10-04): `eslint .` и `stylelint` без ошибок, `gulp styles:check` и `gulp build` успешны, PHPUnit в контейнере 2727 тестов без падений, `npm run test:js` 79 тестов; целиком `npm run ci` на Windows-хосте не идёт: `npm test` вызывает `vendor/bin/phpunit`, который хост не запускает
+- [x] WP-CLI выводит аудиторию предмета, число совпадает с прямым запросом. — `inf_oge`: 3 = прямой запрос
+- [x] В новых сервисах нет `$wpdb`, `get_posts`, хуков и импортов из `Inc\Modules`.

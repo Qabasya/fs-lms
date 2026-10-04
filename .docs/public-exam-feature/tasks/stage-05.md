@@ -17,6 +17,23 @@
   `prof-child-bar`. Единственный новый элемент этапа — карточка сеанса в карусели (см. 5.3).
 - Баллы, эталоны и решения на этом этапе не отдаются вовсе: результат появится на этапе 7.
 
+
+## Статус (проверено 2026-10-04)
+
+**Сделано и проверено:** 5.1–5.6. Юнит-тесты поимённо по спецификации — `LearnerExamsServiceTest` (44), `LearnerExamCallbacksTest` (25), `LearnerProfileViewTest`, `ProfileViewResolverTest`, `LearnerServiceTest`,
+`tests/js/exam-slot-carousel.test.mjs`, `tests/js/exam-result.test.mjs`.
+**Браузер (headless Chrome), ученик ОГЭ и ЕГЭ:** все состояния карточки, запись, смена сеанса, «Отмена выбора», отмена и повторная запись; предупреждение `lesson_overlap`;
+перетаскивание карусели мышью не выбирает сеанс, обычный клик выбирает; строка экзамена в расписании «Главной» открывает карточку; ученик ОГЭ не видит проведение ЕГЭ.
+**Родитель:** панель ребёнка и чип «Только просмотр», пояснение, ни одной кнопки записи/сдачи, в конфиге нет действий записи, прямой POST на `register_for_exam`/`change_exam_registration`/`cancel_exam_registration` → `X-ACCESS`, записей в базе не прибавилось.
+
+**Что изменилось по сравнению с текстом этапа (код — правда):**
+- Ответ `RegisterForExam`/`ChangeExamRegistration`/`CancelExamRegistration` — список карточек `LearnerExamsService::build()` **и** `warnings` операции (раньше предупреждение формировал сервис, но до клиента оно не доходило — найдено и исправлено, тест `test_register_passes_lesson_overlap_warning_to_the_client`).
+- Кнопка подтверждения называется «Подтвердить запись» и в режиме смены, сворачивающая кнопка — «Отмена выбора» (по SPEC), а не «Подтвердить смену»/«Отмена».
+- Клик по экзамену в расписании: `learner.js` получает `openExam` колбэком из `app.js` (`openLearnerExam()` из `learner-exams.js`), прямого импорта экрана в экран нет.
+- Карусель живёт на общей оболочке `course-tabs.js` (`syncCourseTabs( …, { stepByCard } )`, перетаскивание мышью — у всех лент `.sc-tabs`); чистые функции `isDrag()`/`arrowStep()` покрыты JS-тестом.
+- `resultCaption( result )` — в `exam-result.js` (не в `exam-common.js`).
+- Найдено в браузере и исправлено: `#exNotice` с `hidden` оставался видимым пустым синим блоком (`.sc-notice { display: flex }` перебивал атрибут) — добавлено `.exam-notice[hidden] { display: none }`.
+
 ---
 
 ## 5.1 Пункт меню «Мои экзамены» и экран
@@ -32,23 +49,23 @@
   `$ctx->resolveSubjectPersonId( $this->sanitizeInt( 'student_person_id' ) )`.
 
 **Шаги**
-- [ ] 5.1.1 `LearnerProfileView::build()`: в `nav` после «Мои курсы» добавить `array( 'key' => 'learner-exams', 'label' => 'Мои экзамены' )`,
+- [x] 5.1.1 `LearnerProfileView::build()`: в `nav` после «Мои курсы» добавить `array( 'key' => 'learner-exams', 'label' => 'Мои экзамены' )`,
   в `screens` — `learner-exams`. Без условий: пункт виден всегда.
-- [ ] 5.1.2 `ProfileViewResolver::jsConfig()`: для ученика и родителя добавить блок
+- [x] 5.1.2 `ProfileViewResolver::jsConfig()`: для ученика и родителя добавить блок
   `exams => array( 'nonce' => Nonce::ExamLearner->create(), 'actions' => array( 'getExams' => AjaxHook::GetLearnerExams->jsAction(), … ) )`.
   Действия записи (`register`, `change`, `cancel`) отдавать **только ученику**; у родителя их в конфиге нет.
-- [ ] 5.1.3 `inc/Callbacks/Exam/LearnerExamCallbacks.php` (`extends BaseController`, `use Sanitizer;`), зарегистрировать в `ExamController::ajaxActions()`.
+- [x] 5.1.3 `inc/Callbacks/Exam/LearnerExamCallbacks.php` (`extends BaseController`, `use Sanitizer;`), зарегистрировать в `ExamController::ajaxActions()`.
   Первый экшен — `GetLearnerExams` (`student_person_id?`): nonce `ExamLearner`, вход обязателен, личность — через
   `ProfileViewResolver::context()` и `resolveSubjectPersonId()` (ученик получает себя, родитель — только своего ребёнка).
   Ответ — `LearnerExamsService::build( $personId )` (5.2).
-- [ ] 5.1.4 `src/js/profile/exams/learner-exams.js`: `export function renderLearnerExams( root )`. Загрузка —
+- [x] 5.1.4 `src/js/profile/exams/learner-exams.js`: `export function renderLearnerExams( root )`. Загрузка —
   `createApi( window.fsProfile.exams )( 'getExams', childId ? { student_person_id: childId } : {} )`.
   Переключатель ребёнка: вынести `childBar()`, `wireChild()`, `isParent()` и хранение `childId` из `learner.js` в
   `src/js/profile/learner-child.js` и использовать в обоих файлах (сейчас они приватные; копировать нельзя). Смена ребёнка перерисовывает
   и экраны `learner-*`, и «Мои экзамены».
-- [ ] 5.1.5 `app.js`: `SCREENS['learner-exams'] = renderLearnerExams`, `TOPBAR['learner-exams'] = { crumb: 'Обучение', title: 'Мои экзамены' }`,
+- [x] 5.1.5 `app.js`: `SCREENS['learner-exams'] = renderLearnerExams`, `TOPBAR['learner-exams'] = { crumb: 'Обучение', title: 'Мои экзамены' }`,
   иконка в `NAV_ICONS`.
-- [ ] 5.1.6 Пустое состояние (нет проведений): карточка «Экзаменов пока нет. Когда преподаватель назначит экзамен, он появится здесь.»
+- [x] 5.1.6 Пустое состояние (нет проведений): карточка «Экзаменов пока нет. Когда преподаватель назначит экзамен, он появится здесь.»
 
 **Тесты**
 - `tests/Unit/Services/Profile/LearnerProfileViewTest.php` (создать, если нет): `test_exams_item_always_present_for_student_and_parent`.
@@ -72,13 +89,13 @@
 - Формат проведения — `ExamFormatRegistry::for( kind основного варианта )`.
 
 **Шаги**
-- [ ] 5.2.1 `inc/Services/Exam/LearnerExamsService.php`. Зависимости: `ExamAudienceResolver`, репозитории проведений, сеансов, участников, участий,
+- [x] 5.2.1 `inc/Services/Exam/LearnerExamsService.php`. Зависимости: `ExamAudienceResolver`, репозитории проведений, сеансов, участников, участий,
   записей; `ExamFormatRegistry`, `AssessmentManager`, `RoomRepository`, `ExamTime`.
   Метод `build( int $personId ): array` — список карточек проведений:
   - проведения в статусах `published`, `completed`, `cancelled` по предметам `subjectKeysForStudent()`;
   - **плюс** проведения, где у ученика уже есть участие (историческая запись не исчезает при смене группы, SPEC §2);
   - черновики не показываются никогда.
-- [ ] 5.2.2 Состояние карточки — приватный метод `resolveState(...)`, одна ветка на строку:
+- [x] 5.2.2 Состояние карточки — приватный метод `resolveState(...)`, одна ветка на строку:
   | `state` | Условие | `actions` |
   |---|---|---|
   | `event_cancelled` | проведение `cancelled` | — |
@@ -95,12 +112,12 @@
   | `missed` | последняя запись `missed`, действующей нет | `register`, если запись открыта и есть места |
   Состояния `in_progress`, `awaiting_approval`, `approved` на этом этапе недостижимы (попыток нет), но ветки и тесты пишутся сейчас:
   читать `current_attempt_id` и статус попытки через `AssessmentAttemptRepository::find()`.
-- [ ] 5.2.3 Поля карточки: `event_id`, `title`, `description`, `subject_key`, `direction` (`ege` / `oge`), `state`, `state_label`, `actions`,
+- [x] 5.2.3 Поля карточки: `event_id`, `title`, `description`, `subject_key`, `direction` (`ege` / `oge`), `state`, `state_label`, `actions`,
   `period_from`, `period_to`, `registration_opens_at`, `registration_closes_at`, `registration` (если есть: `registration_id`, `session_id`,
   `date`, `weekday`, `time_start`, `time_end`, `room`), `last_reason` (причина отмены сотрудником или проведения), `previous_date`
   (дата пропущенного сеанса), `sessions` (см. 5.3), `teacher_name` (владелец проведения — для сообщения «обратитесь к преподавателю»).
   Все времена — местные. **Никаких баллов, эталонов, решений, списка заданий.**
-- [ ] 5.2.4 `learner-exams.js`: плитки — `courseTabsShell( 'exTabs' )` и разметка `sc-tab`: чип предмета, название, подпись.
+- [x] 5.2.4 `learner-exams.js`: плитки — `courseTabsShell( 'exTabs' )` и разметка `sc-tab`: чип предмета, название, подпись.
   Подпись плитки (для несданных — состояние и дата):
   | `state` | Подпись |
   |---|---|
@@ -115,7 +132,7 @@
   | `cancelled_by_staff` | «Запись отменена» |
   | `event_cancelled` | «Проведение отменено» |
   Подпись с итогом для `approved` — этап 7.4.
-- [ ] 5.2.5 Карточка — `prof-card sc-hero` (разметка как у `scRenderHero()`): название, строка даты/времени/места, справа блок действий.
+- [x] 5.2.5 Карточка — `prof-card sc-hero` (разметка как у `scRenderHero()`): название, строка даты/времени/места, справа блок действий.
   Действие и пояснение по состояниям:
   | `state` | Кнопка | Пояснение (`sc-hint` / `sc-notice`) |
   |---|---|---|
@@ -131,7 +148,7 @@
   | `missed` | «Записаться», если доступно | «Экзамен пропущен, запись на {дата} аннулирована.» |
   | `event_cancelled` | — | «Проведение отменено. Причина: {причина}» |
   Время в текстах — только подстановкой из ответа сервера.
-- [ ] 5.2.6 Отступы между `prof-card` и плитками на экране — токеном в `_exams.scss` (пункт 7 «Нового» в `../QA.md`).
+- [x] 5.2.6 Отступы между `prof-card` и плитками на экране — токеном в `_exams.scss` (пункт 7 «Нового» в `../QA.md`).
   Жёлтая пилюля статуса (пункт 4 `QA.md`) — модификатор существующего `prof-state-pill`, цвет токеном.
 
 **Тесты** — `tests/Unit/Services/Exam/LearnerExamsServiceTest.php`, по тесту на состояние:
@@ -160,9 +177,9 @@
 - Карусель «Моих курсов»: `course-tabs.js` (стрелки, скрытие стрелок на границах, прокрутка).
 
 **Шаги**
-- [ ] 5.3.1 `api.js`: при ошибке сохранять код — `const err = new Error( … ); err.code = json?.data?.code || ''; err.ref = json?.data?.ref || ''; throw err;`.
+- [x] 5.3.1 `api.js`: при ошибке сохранять код — `const err = new Error( … ); err.code = json?.data?.code || ''; err.ref = json?.data?.ref || ''; throw err;`.
   Существующие вызовы читают только `e.message` и не ломаются.
-- [ ] 5.3.2 `LearnerExamCallbacks` — три экшена (nonce `ExamLearner`):
+- [x] 5.3.2 `LearnerExamCallbacks` — три экшена (nonce `ExamLearner`):
   | `AjaxHook` | Параметры |
   |---|---|
   | `RegisterForExam` | `session_id`, `request_key` |
@@ -170,16 +187,16 @@
   | `CancelExamRegistration` | `event_id`, `request_key` |
   В каждом: вход обязателен; `$ctx = resolver->context( userId )`; **если `$ctx->readOnly` — `$this->fail( ErrorCode::ExamAccess, 'Запись доступна только самому ученику.' )`
   и выход**; личность — `$ctx->personId` (клиентский `student_person_id` не читать вовсе). `CodedException` → `fail()` с кодом.
-  Успех — заново собранная карточка проведения (`LearnerExamsService`), чтобы клиент перерисовал её одним ответом.
-- [ ] 5.3.3 `LearnerExamsService`: поле `sessions` карточки — будущие сеансы проведения (не `cancelled`):
+  Успех — заново собранный список карточек (`LearnerExamsService::build()`) плюс `warnings` операции (`lesson_overlap`), чтобы клиент перерисовал экран одним ответом.
+- [x] 5.3.3 `LearnerExamsService`: поле `sessions` карточки — будущие сеансы проведения (не `cancelled`):
   `session_id`, `date`, `weekday`, `time_start`, `time_end`, `room`, `free` (свободных мест), `capacity`, `selectable` (bool: есть место и сеанс в будущем),
   `is_current` (сеанс действующей записи). Заполненные сеансы остаются в списке с `selectable = false`.
-- [ ] 5.3.4 Карусель сеансов. Обёртка и стрелки — `courseTabsShell()` / `syncCourseTabs()` (без копии логики). Карточка сеанса — **новый элемент**
+- [x] 5.3.4 Карусель сеансов. Обёртка и стрелки — `courseTabsShell()` / `syncCourseTabs()` (без копии логики). Карточка сеанса — **новый элемент**
   (`../QA.md`, «Новое» п. 1): класс `exam-slot` в `_exams.scss`, крупно дата, день недели, время, кабинет, «осталось N мест»
   (склонение — `plural()` из `utils.js`). На компьютере видны три карточки и край четвёртой, на телефоне — одна и край следующей.
   Листание стрелками по одной карточке, перетаскивание мышью и касанием с доводкой; **перетаскивание не выбирает сеанс** (клик после сдвига
   больше нескольких пикселей игнорируется). Если все карточки помещаются — стрелок нет. Выбор доступен с клавиатуры (`button`, `aria-pressed`).
-- [ ] 5.3.5 Поведение:
+- [x] 5.3.5 Поведение:
   - «Записаться» раскрывает карусель под карточкой и кнопку «Подтвердить запись» (неактивна, пока сеанс не выбран);
   - клик по карточке сеанса только отмечает выбор; запрос не отправляется;
   - «Подтвердить запись» → `register` с `request_key` (генерируется один раз при раскрытии карусели: `crypto.randomUUID()`;
@@ -187,7 +204,7 @@
   - «Сменить сеанс» раскрывает ту же карусель с отмеченным текущим сеансом; появляются «Подтвердить запись» и **«Отмена выбора»**,
     которая сворачивает карусель и оставляет действующую запись; подтверждение — `confirmDialog( 'Сменить запись на {дата, время}?' )`, затем `change`;
   - «Отменить запись» — `confirmDialog( 'Отменить запись на экзамен? Место освободится.' )`, затем `cancel`.
-- [ ] 5.3.6 Ошибки по коду:
+- [x] 5.3.6 Ошибки по коду:
   | Код | Что делает клиент |
   |---|---|
   | `X-FULL` | перезагрузить список (`getExams`), сбросить выбор, показать у карусели «Это место только что заняли. Выберите другой сеанс.» Запись не создана |
@@ -195,7 +212,7 @@
   | `X-CLOSED` | перезагрузить карточку (состояние станет `closed`), показать текст сервера |
   | `X-CONFLICT` | показать текст сервера, выбор сохранить |
   | иное | текст сервера и код `ref` для скриншота |
-- [ ] 5.3.7 Предупреждение `lesson_overlap` из ответа (`warnings`) — `sc-notice` под карточкой: «В это время у вас занятие по расписанию.» Запись при этом создана.
+- [x] 5.3.7 Предупреждение `lesson_overlap` из ответа (`warnings`) — `sc-notice` под карточкой: «В это время у вас занятие по расписанию.» Запись при этом создана.
 
 **Тесты**
 - `tests/Unit/Callbacks/Exam/LearnerExamCallbacksTest.php`:
@@ -204,7 +221,7 @@
   `test_parent_cannot_register`, `test_parent_cannot_change`, `test_parent_cannot_cancel` — у каждого `code = X-ACCESS` и сервис записи **не вызван**;
   `test_guest_user_denied`.
 - `LearnerExamsServiceTest.php`: `test_sessions_list_marks_full_sessions_not_selectable`, `test_sessions_exclude_cancelled_and_past`.
-- `tests/js/exam-slot-carousel.test.mjs` — если логика «сдвиг больше порога — не клик» вынесена в чистую функцию `isDrag( dx )`.
+- `tests/js/exam-slot-carousel.test.mjs` — чистые функции `isDrag( dx )` и `arrowStep()` из `course-tabs.js` (общая оболочка вкладок и карусели; перетаскивание мышью работает и у вкладок курсов).
 
 **Готово, когда:** тесты зелёные; вручную: запись, смена сеанса, «Отмена выбора», отмена записи; в двух браузерах два ученика на последнее место —
 один записан, второй видит обновлённые плитки и сообщение.
@@ -218,13 +235,13 @@
 **Проверить перед началом:** 5.1–5.3 выполнены. Запреты в коллбеках уже стоят (5.3.2).
 
 **Шаги**
-- [ ] 5.4.1 `LearnerExamsService::build()` получает второй параметр `bool $readOnly`. При `true` в каждой карточке `actions = array()`,
+- [x] 5.4.1 `LearnerExamsService::build()` получает второй параметр `bool $readOnly`. При `true` в каждой карточке `actions = array()`,
   а `state` остаётся прежним. Коллбек передаёт `$ctx->readOnly`.
-- [ ] 5.4.2 `learner-exams.js`: при `isParent()` показывать `prof-child-bar` с чипом «Только просмотр» (уже есть в `childBar()`), кнопки действий
+- [x] 5.4.2 `learner-exams.js`: при `isParent()` показывать `prof-child-bar` с чипом «Только просмотр» (уже есть в `childBar()`), кнопки действий
   не рисовать (их и так нет в `actions`), под карточкой — `sc-notice`: «Записывается и сдаёт экзамен сам ученик из своего кабинета.»
-- [ ] 5.4.3 Родитель с двумя детьми: переключатель ребёнка перезагружает «Мои экзамены» для выбранного ребёнка; чужой `student_person_id`
+- [x] 5.4.3 Родитель с двумя детьми: переключатель ребёнка перезагружает «Мои экзамены» для выбранного ребёнка; чужой `student_person_id`
   в запросе заменяется ребёнком по умолчанию (`resolveSubjectPersonId()`), ошибок и чужих данных нет.
-- [ ] 5.4.4 Прямой POST от имени родителя на `register_for_exam`, `change_exam_registration`, `cancel_exam_registration` отклоняется
+- [x] 5.4.4 Прямой POST от имени родителя на `register_for_exam`, `change_exam_registration`, `cancel_exam_registration` отклоняется
   (проверка стоит до чтения параметров запроса).
 
 **Тесты**
@@ -249,17 +266,17 @@
 - `inc/DTO/Profile/LearnerDashboardDTO.php` — поля и `toArray()`.
 
 **Шаги**
-- [ ] 5.5.1 `LearnerExamsService::upcomingEvents( int $personId ): array` — действующие записи ученика на будущие (и идущие сейчас) сеансы:
+- [x] 5.5.1 `LearnerExamsService::upcomingEvents( int $personId ): array` — действующие записи ученика на будущие (и идущие сейчас) сеансы:
   `array{ kind:'exam', event_id, title, date, start, end, room, state }`, времена местные.
-- [ ] 5.5.2 `LearnerService::build()`: получить события экзаменов, слить с `upcoming` занятий, отсортировать по дате и времени, затем обрезать до 6.
+- [x] 5.5.2 `LearnerService::build()`: получить события экзаменов, слить с `upcoming` занятий, отсортировать по дате и времени, затем обрезать до 6.
   У элементов экзамена обязательны поля, которые читает `schedRow()`: `date`, `start`, `group_name` (сюда — «Экзамен»), `topic` (название проведения),
   `room_name`, `kind = 'exam'`, `event_id`.
-- [ ] 5.5.3 `learner.js::schedRow()`: для `l.kind === 'exam'` строка-кнопка с `data-exam-event="${l.event_id}"` и пометкой «Экзамен»
+- [x] 5.5.3 `learner.js::schedRow()`: для `l.kind === 'exam'` строка-кнопка с `data-exam-event="${l.event_id}"` и пометкой «Экзамен»
   (существующий `prof-sub-tag`); обработчик клика — `go( 'learner-exams' )` и выбор плитки этого проведения.
   Для перехода `learner-exams.js` экспортирует `openLearnerExam( eventId )`; `learner.js` получает его через колбэк из `app.js`
   (как `summaryLink()`), а не прямым импортом экрана в экран.
-- [ ] 5.5.4 Родитель: тот же клик открывает карточку ребёнка без кнопок запуска.
-- [ ] 5.5.5 После старта попытки (этап 6) строка показывает ещё и личный дедлайн («до {время}») — поле `deadline` добавить в 5.5.1 сейчас (`null`, пока попытки нет).
+- [x] 5.5.4 Родитель: тот же клик открывает карточку ребёнка без кнопок запуска.
+- [x] 5.5.5 После старта попытки (этап 6) строка показывает ещё и личный дедлайн («до {время}») — поле `deadline` добавить в 5.5.1 сейчас (`null`, пока попытки нет).
 
 **Тесты**
 - `LearnerExamsServiceTest.php`: `test_upcoming_events_include_only_active_registrations`, `test_upcoming_events_are_local_time`.
@@ -280,19 +297,19 @@
 - `ExamFormatDTO` ОГЭ: `secondaryMax = null`, `gradeMax = 5`, `primaryMax = 21`, длительность 150 минут.
 
 **Шаги**
-- [ ] 5.6.1 Пройти 4.2–4.5 и 5.1–5.5 на проведении ОГЭ: создать, опубликовать, записаться учеником группы `КОГЭ-1`, сменить сеанс, отменить.
+- [x] 5.6.1 Пройти 4.2–4.5 и 5.1–5.5 на проведении ОГЭ: создать, опубликовать, записаться учеником группы `КОГЭ-1`, сменить сеанс, отменить.
   Каждое расхождение с ЕГЭ записать и исправить в общем коде, без ветки `if ( oge )` в интерфейсе.
-- [ ] 5.6.2 Плановый конец сеанса ОГЭ = начало + 150 минут (берётся из формата, см. 2.4.6) — проверить в форме сеанса и в карточке.
-- [ ] 5.6.3 В карточку (5.2.3) добавить блок `format`: `direction`, `unit_count`, `primary_max`, `secondary_max`, `grade_max`, `duration_minutes`.
+- [x] 5.6.2 Плановый конец сеанса ОГЭ = начало + 150 минут (берётся из формата, см. 2.4.6) — проверить в форме сеанса и в карточке.
+- [x] 5.6.3 В карточку (5.2.3) добавить блок `format`: `direction`, `unit_count`, `primary_max`, `secondary_max`, `grade_max`, `duration_minutes`.
   Клиент использует его для подписей («{N} заданий», «{часы и минуты}») — числа только подстановкой.
-- [ ] 5.6.4 Подпись итога на плитке (значения появятся на этапе 7.4, шаблон заводится сейчас в `exam-common.js`):
-  `resultCaption( format, result )` → для ЕГЭ «{вторичный} из {secondary_max}», для ОГЭ «{первичный} из {primary_max}, отметка {отметка}».
+- [x] 5.6.4 Подпись итога на плитке (значения появились на этапе 7.4; функция живёт в `exam-result.js`, а не в `exam-common.js`):
+  `resultCaption( result )` (направление и максимумы — внутри `result`) → для ЕГЭ «{вторичный} из {secondary_max}», для ОГЭ «{первичный} из {primary_max}, отметка {отметка}».
   Формулировка «из 100» для ОГЭ не используется.
-- [ ] 5.6.5 Ученик ОГЭ не видит проведения ЕГЭ и наоборот (проверка аудитории — 1.1; здесь e2e).
+- [x] 5.6.5 Ученик ОГЭ не видит проведения ЕГЭ и наоборот (проверка аудитории — 1.1; здесь e2e).
 
 **Тесты**
 - `LearnerExamsServiceTest.php`: `test_oge_card_has_grade_format_and_no_secondary_max`.
-- `tests/js/exam-result-caption.test.mjs`: `resultCaption` для ЕГЭ и ОГЭ.
+- `tests/js/exam-result.test.mjs`: `resultCaption` для ЕГЭ и ОГЭ (отдельного файла `exam-result-caption.test.mjs` нет).
 - e2e: ученик `inf_ege` видит только проведения `inf_ege`, ученик `inf_oge` — только свои.
 
 **Готово, когда:** тесты и e2e пройдены; сценарий 5.6.1 на ОГЭ проходит без правок интерфейса под направление.
@@ -301,10 +318,10 @@
 
 ## Проверка этапа (SPEC §16: 10, 22)
 
-- [ ] PHPUnit на коллбеки (запись, отмена, родитель) и на все состояния карточки.
-- [ ] e2e: ученик видит только проведения своего предмета; двое на последнее место — один записан; родитель не может записать ни через интерфейс, ни прямым запросом.
-- [ ] Все состояния SPEC §5 (кроме зависящих от попытки) показаны на dev и имеют правильные действия.
-- [ ] `npm run ci`, `npx gulp build` — зелёные. Новые элементы занесены в `../QA.md`.
+- [x] PHPUnit на коллбеки (запись, отмена, родитель) и на все состояния карточки. — `LearnerExamCallbacksTest`, `LearnerExamsServiceTest`
+- [x] e2e: ученик видит только проведения своего предмета; двое на последнее место — один записан; родитель не может записать ни через интерфейс, ни прямым запросом. — проведено для ОГЭ и ЕГЭ; последнее место — стенд `last-seat`
+- [x] Все состояния SPEC §5 (кроме зависящих от попытки) показаны на dev и имеют правильные действия. — по тестам на каждое состояние и в браузере (open, registered, entry_open, in_progress, awaiting_approval, approved)
+- [x] `npm run ci`, `npx gulp build` — зелёные. Новые элементы занесены в `../QA.md`. — по частям (2026-10-04): `eslint .` и `stylelint` без ошибок, `gulp styles:check` и `gulp build` успешны, PHPUnit в контейнере 2727 тестов без падений, `npm run test:js` 79 тестов; целиком `npm run ci` на Windows-хосте не идёт: `npm test` вызывает `vendor/bin/phpunit`, который хост не запускает
 
 **Конец M1.** Выпускать запись без сдачи можно, только если все назначенные сеансы стоят после выпуска M2:
 иначе ученик записан, а кнопка «Приступить» не работает.
