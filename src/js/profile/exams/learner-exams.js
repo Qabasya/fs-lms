@@ -1,569 +1,488 @@
+/* ══════════════════════════════════════════════════════════════════════
+   Экран «Мои экзамены» ученика и родителя (этап 5).
+   Сервер отдаёт готовое состояние карточки и список разрешённых действий —
+   клиент ничего не вычисляет по датам. Родитель видит те же карточки: из
+   действий ему доступны только «Результаты» (запрет проверяется на сервере,
+   кнопки лишь не рисуются).
+   Разметка — из «Моих курсов»: sc-tabs / sc-tab / sc-hero / sc-hint / sc-notice /
+   sc-row / sc-pill. Карусель сеансов — та же оболочка, что у вкладок (course-tabs.js).
+   ══════════════════════════════════════════════════════════════════════ */
+
+import { esc, fmtDayMonth, chipBg, chipSoft, plural } from '../utils.js';
+import { applyProgress } from '../../common/utils.js';
+import { createApi } from '../api.js';
+import { courseTabsShell, syncCourseTabs } from '../course-tabs.js';
+import { confirmDialog } from '../../common/components/confirm-dialog.js';
+import { childBar, wireChild, getChildId, isParent, onChildChange } from '../learner-child.js';
+import { UNIT_STATUS, resultCaption, resultPercent } from './exam-result.js';
+
+const DIRECTION_LABEL = { ege: 'ЕГЭ', oge: 'ОГЭ' };
+
+const ACTION_LABEL = {
+    register: 'Записаться',
+    change: 'Сменить сеанс',
+    cancel: 'Отменить запись',
+    start: 'Приступить',
+    resume: 'Продолжить',
+    results: 'Результаты',
+};
+
+/* Состояния, при которых кнопка «Записаться»/«Сменить» раскрывает панель сеансов. */
+const SLOT_ACTIONS = ['register', 'change'];
+
+/* Отказы, после которых показанное устарело (место забрали, запись закрыли, вкладка отстала): список перечитывается. */
+const REFRESH_CODES = ['X-FULL', 'X-HELD', 'X-CLOSED', 'X-STALE', 'X-STARTED', 'X-NOT-OPEN'];
+
+/* Предупреждения операции записи (поле `warnings` ответа): запись создана, но ученику стоит знать. */
+const WARNING_TEXT = {
+    lesson_overlap: 'В это время у вас занятие по расписанию.',
+};
+
+/* Отказ «место заняли» читается одинаково при любом тексте сервера: выбор сброшен, нужен другой сеанс. */
+const FULL_TEXT = 'Это место только что заняли. Выберите другой сеанс.';
+
+/* Кнопка «Приступить» оживает сама: карточка в «registered» перезапрашивается, пока экран на виду. */
+const REFRESH_MS = 30000;
+
+let rootEl = null;
+let api = null;
+let openReviewCb = () => {};
+let exams = [];
+let activeId = null;
+let pendingEventId = null; // карточка, которую просили открыть из расписания (5.5)
+let requestKey = null;     // один ключ на одно намерение пользователя: повтор после обрыва идемпотентен
+let chosenSessionId = null;
+let panelMode = null;      // 'register' | 'change' | null
+let generation = 0;        // номер запроса списка: ответ устаревшего запроса экран не перерисовывает
+let refreshTimer = null;
+
+/** Ключ идемпотентности: ≤ 64 символов, только [a-z0-9-]. */
+function newRequestKey() {
+    if (window.crypto?.randomUUID) { return window.crypto.randomUUID(); }
+    return 'rk-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
+}
+
+/** Человекочитаемая дата: сервер отдаёт Y-m-d, показываем ДД.ММ. */
+function day(iso) { return fmtDayMonth(iso); }
+
 /**
- * Экран "Мои экзамены" для ученика и родителя (Этап 5)
+ * @param {HTMLElement} root
+ * @param {{openReview?: (eventId: number, anchor?: string) => void}} [options] `openReview` — открыть экран «Результаты».
  */
-
-let currentRequestKey = null;
-let currentSelectedSessionId = null;
-let pendingEventId = null; // Для открытия экзамена из расписания (5.5)
-
-export function renderLearnerExams( root ) {
-	const { createApi } = window.fsProfileApi;
-	const { isParent, childId } = window.fsProfileUtils;
-
-	const api = createApi( window.fsProfile.exams );
-
-	root.innerHTML = `
-		<div class="learner-exams-container">
-			<div id="exams-tabs" class="exams-tabs sc-tabs" role="tablist">
-				<!-- Плитки экзаменов генерируются JS -->
-			</div>
-			<div id="exams-card" class="prof-card sc-hero" style="display:none;">
-				<!-- Карточка текущего экзамена -->
-			</div>
-			<div id="confirm-dialog" class="confirm-dialog" style="display:none;">
-				<!-- Диалог подтверждения -->
-			</div>
-		</div>
-	`;
-
-	// Загружаем список экзаменов
-	const params = childId ? { student_person_id: childId } : {};
-	api( 'getExams', params )
-		.then( response => {
-			if ( response.exams && response.exams.length > 0 ) {
-				renderExamsTabs( root, response.exams, api, isParent() );
-
-				// Если есть ожидающий eventId (клик из расписания), открыть его
-				if ( pendingEventId ) {
-					const eventId = pendingEventId;
-					pendingEventId = null; // Сбросить флаг
-					const exam = response.exams.find( e => e.event_id === eventId );
-					if ( exam ) {
-						renderExamCard( root, exam, api, isParent() );
-						// Скролить к карточке
-						setTimeout( () => {
-							const card = root.querySelector( '#exams-card' );
-							if ( card ) card.scrollIntoView( { behavior: 'smooth' } );
-						}, 100 );
-					}
-				} else if ( response.exams[0] ) {
-					// Показать первый экзамен по умолчанию
-					renderExamCard( root, response.exams[0], api, isParent() );
-				}
-			} else {
-				showEmptyState( root );
-			}
-		} )
-		.catch( error => {
-			const container = root.querySelector( '#exams-tabs' );
-			if ( container ) {
-				container.innerHTML = `<p class="exams-error">Ошибка загрузки: ${error.message}</p>`;
-			}
-		} );
+export function renderLearnerExams(root, { openReview } = {}) {
+    rootEl = root;
+    openReviewCb = typeof openReview === 'function' ? openReview : () => {};
+    const cfg = window.fsProfile?.exams;
+    if (!cfg) {
+        root.innerHTML = `<div class="prof-dash"><div class="rev-empty">Данные экзаменов недоступны.</div></div>`;
+        return;
+    }
+    api = createApi(cfg);
+    root.innerHTML = `<div class="prof-dash"><div class="rev-loading">Загрузка…</div></div>`;
+    load();
 }
 
-function renderExamsTabs( root, exams, api, isParent ) {
-	const tabsContainer = root.querySelector( '#exams-tabs' );
-	if ( ! tabsContainer ) return;
-
-	let html = '';
-	exams.forEach( ( exam, index ) => {
-		const chipColor = getChipColor( exam.direction );
-		const subtitle = getTabSubtitle( exam );
-		html += `
-			<div class="sc-tab" role="tab" data-exam-id="${exam.event_id}" tabindex="${index === 0 ? 0 : -1}">
-				<div class="prof-card-chip ${chipColor}">${exam.direction === 'ege' ? 'ЕГЭ' : 'ОГЭ'}</div>
-				<div class="prof-card-title">${exam.title}</div>
-				<div class="prof-card-subtitle">${subtitle}</div>
-			</div>
-		`;
-	} );
-
-	tabsContainer.innerHTML = html;
-
-	// Обработчик клика по плитке
-	tabsContainer.querySelectorAll( '.sc-tab' ).forEach( tab => {
-		tab.addEventListener( 'click', () => {
-			const eventId = parseInt( tab.dataset.examId, 10 );
-			const exam = exams.find( e => e.event_id === eventId );
-			if ( exam ) {
-				updateTabSelection( tabsContainer, eventId );
-				renderExamCard( root, exam, api, isParent );
-			}
-		} );
-	} );
+/** Открыть карточку проведения (клик по экзамену в расписании): если экран ещё грузится — запомнить. */
+export function openLearnerExam(eventId) {
+    pendingEventId = Number(eventId);
+    if (rootEl && exams.some(e => e.event_id === pendingEventId)) {
+        select(pendingEventId);
+        pendingEventId = null;
+    }
 }
 
-function updateTabSelection( container, eventId ) {
-	container.querySelectorAll( '.sc-tab' ).forEach( tab => {
-		tab.classList.toggle( 'sc-active', parseInt( tab.dataset.examId, 10 ) === eventId );
-		tab.setAttribute( 'tabindex', parseInt( tab.dataset.examId, 10 ) === eventId ? 0 : -1 );
-	} );
+// Родитель переключил ребёнка — перечитать карточки именно его; ответ по прежнему ребёнку отбрасывается.
+onChildChange(() => { if (rootEl && api) { load(); } });
+document.addEventListener('visibilitychange', () => syncRefreshTimer());
+
+/** Параметры запроса списка: у родителя — выбранный ребёнок. */
+function listParams() {
+    const childId = getChildId();
+    return childId ? { student_person_id: childId } : {};
 }
 
-function renderExamCard( root, exam, api, isParent ) {
-	const cardContainer = root.querySelector( '#exams-card' );
-	if ( ! cardContainer ) return;
-
-	const stateColor = getStateColor( exam.state );
-	const actionButtons = renderActionButtons( exam, isParent );
-	const registrationInfo = exam.registration ? renderRegistrationInfo( exam.registration ) : '';
-	const hintText = getHintText( exam );
-	const parentNotice = isParent ? `<div class="sc-notice">Записывается и сдаёт экзамен сам ученик из своего кабинета.</div>` : '';
-
-	const html = `
-		<div class="prof-card-header">
-			<div>
-				<h2 class="prof-card-title">${exam.title}</h2>
-				<div class="prof-card-info">
-					<span>${exam.registration ? formatDate( exam.registration.date ) + ', ' + exam.registration.time_start : 'Дата не выбрана'}</span>
-					${exam.registration && exam.registration.room ? `<span>${exam.registration.room}</span>` : ''}
-				</div>
-			</div>
-			<div class="prof-card-actions">
-				<div class="prof-state-pill ${stateColor}">${exam.state_label}</div>
-				${actionButtons}
-			</div>
-		</div>
-		${registrationInfo}
-		${parentNotice}
-		${hintText ? `<div class="sc-hint">${hintText}</div>` : ''}
-		<div id="sessions-carousel-wrapper" style="display:none;">
-			<!-- Карусель сеансов -->
-		</div>
-	`;
-
-	cardContainer.innerHTML = html;
-	cardContainer.style.display = 'block';
-	cardContainer.dataset.examId = exam.event_id;
-
-	// Привязать обработчики действий (только для ученика)
-	if ( ! isParent ) {
-		attachActionHandlers( cardContainer, exam, api, isParent );
-	}
+/** Следующий номер запроса: всё, что вернётся по предыдущим, уже не актуально. */
+function nextGeneration() {
+    generation += 1;
+    return generation;
 }
 
-function renderActionButtons( exam, isParent ) {
-	if ( isParent || ! exam.actions || exam.actions.length === 0 ) {
-		return '';
-	}
-
-	let html = '<div class="prof-card-actions-list">';
-	exam.actions.forEach( action => {
-		const label = getActionLabel( action );
-		const isDisabled = exam.state === 'not_open' && action === 'register';
-		html += `<button class="btn btn-primary ${isDisabled ? 'sc-dis' : ''}" data-action="${action}" data-event-id="${exam.event_id}" ${isDisabled ? 'disabled' : ''}>${label}</button>`;
-	} );
-	html += '</div>';
-	return html;
+function load() {
+    const mine = nextGeneration();
+    return api('getExams', listParams())
+        .then(data => { if (mine === generation) { apply(data); } })
+        .catch(e => {
+            if (mine !== generation) { return; }
+            rootEl.innerHTML = `<div class="prof-dash">${childBar()}<div class="rev-empty">${esc(e.message)}</div></div>`;
+            wireChild(rootEl);
+        });
 }
 
-function renderRegistrationInfo( registration ) {
-	if ( ! registration ) return '';
-
-	return `
-		<div class="prof-card-registration">
-			<div class="prof-card-label">Ваша запись:</div>
-			<div class="prof-card-date">${formatDate( registration.date )} ${registration.weekday}</div>
-			<div class="prof-card-time">${registration.time_start}–${registration.time_end}</div>
-			${registration.room ? `<div class="prof-card-room">${registration.room}</div>` : ''}
-		</div>
-	`;
+/** Принять свежий список карточек и перерисовать экран, сохранив выбранное проведение. */
+function apply(data) {
+    exams = data?.exams || [];
+    if (pendingEventId && exams.some(e => e.event_id === pendingEventId)) {
+        activeId = pendingEventId;
+        pendingEventId = null;
+    } else if (!exams.some(e => e.event_id === activeId)) {
+        activeId = exams[0]?.event_id ?? null;
+    }
+    closePanel();
+    paint();
+    showNotice((data?.warnings || []).map(w => WARNING_TEXT[w]).filter(Boolean).join(' '));
 }
 
-function renderSessionsList( sessions, state, currentSessionId ) {
-	if ( ! sessions || sessions.length === 0 ) {
-		return '';
-	}
-
-	let html = `<div class="exam-slots-carousel" role="region" aria-label="Доступные сеансы">`;
-
-	sessions.forEach( session => {
-		const freeText = `осталось ${session.free} ${plural( session.free, 'место', 'места', 'мест' )}`;
-		const isSelected = session.session_id === currentSessionId ? ' exam-slot-selected' : '';
-		const isSelectable = session.selectable ? '' : ' exam-slot-disabled';
-		html += `
-			<div class="exam-slot${isSelected}${isSelectable}" data-session-id="${session.session_id}" role="button" tabindex="0">
-				<div class="exam-slot-date">${formatDate( session.date )}</div>
-				<div class="exam-slot-weekday">${session.weekday}</div>
-				<div class="exam-slot-time">${session.time_start}</div>
-				<div class="exam-slot-room">${session.room}</div>
-				<div class="exam-slot-free">${freeText}</div>
-			</div>
-		`;
-	} );
-
-	html += '</div>';
-	return html;
+function select(eventId) {
+    activeId = eventId;
+    closePanel();
+    paint();
+    rootEl.querySelector('#exHero')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
-function showEmptyState( root ) {
-	const tabsContainer = root.querySelector( '#exams-tabs' );
-	if ( tabsContainer ) {
-		tabsContainer.innerHTML = `
-			<div class="exams-empty">
-				<p class="exams-empty-text">
-					Экзаменов пока нет. Когда преподаватель назначит экзамен, он появится здесь.
-				</p>
-			</div>
-		`;
-	}
-	const cardContainer = root.querySelector( '#exams-card' );
-	if ( cardContainer ) {
-		cardContainer.style.display = 'none';
-	}
+function active() { return exams.find(e => e.event_id === activeId) || null; }
+
+/* ── Автообновление ───────────────────────────────────────────────────── */
+
+/** Экран «Мои экзамены» сейчас на виду (экраны кабинета смонтированы все сразу, видим один). */
+function screenActive() {
+    return !!rootEl?.closest('.prof-screen')?.classList.contains('active');
 }
 
-function attachActionHandlers( cardElement, exam, api, isParent ) {
-	const buttons = cardElement.querySelectorAll( '[data-action]' );
-	buttons.forEach( button => {
-		button.addEventListener( 'click', async () => {
-			const action = button.dataset.action;
-			const eventId = parseInt( button.dataset.eventId, 10 );
-
-			try {
-				switch ( action ) {
-					case 'register':
-						handleRegisterAction( cardElement, exam, api );
-						break;
-					case 'change':
-						handleChangeAction( cardElement, exam, api );
-						break;
-					case 'cancel':
-						handleCancelAction( cardElement, exam, api );
-						break;
-					case 'start':
-						handleStartAttempt( exam, api );
-						break;
-					case 'resume':
-						handleResumeAttempt( exam, api );
-						break;
-					case 'results':
-						handleViewResults( exam, api );
-						break;
-				}
-			} catch ( error ) {
-				console.error( `Ошибка при выполнении ${action}:`, error );
-			}
-		} );
-	} );
+/** Таймер нужен, пока есть карточка «registered», вкладка браузера на виду и никто не выбирает сеанс. */
+function syncRefreshTimer() {
+    const needed = !document.hidden && exams.some(e => e.state === 'registered');
+    if (needed && !refreshTimer) {
+        refreshTimer = setInterval(() => {
+            if (screenActive() && !panelMode) { load(); }
+        }, REFRESH_MS);
+    } else if (!needed && refreshTimer) {
+        clearInterval(refreshTimer);
+        refreshTimer = null;
+    }
 }
 
-function handleRegisterAction( cardElement, exam, api ) {
-	// Генерируем request_key для dedup protection
-	currentRequestKey = generateUUID();
-	currentSelectedSessionId = null;
+/* ── Отрисовка ────────────────────────────────────────────────────────── */
+function paint() {
+    if (!exams.length) {
+        rootEl.innerHTML = `<div class="prof-dash">${childBar()}
+            <div class="prof-card"><div class="sc-empty">Экзаменов пока нет. Когда преподаватель назначит экзамен, он появится здесь.</div></div>
+        </div>`;
+        wireChild(rootEl);
+        syncRefreshTimer();
+        return;
+    }
 
-	// Показываем карусель сеансов
-	const wrapper = cardElement.querySelector( '#sessions-carousel-wrapper' );
-	if ( wrapper ) {
-		wrapper.innerHTML = renderSessionsList( exam.sessions, exam.state, null ) + `
-			<div class="exam-registration-actions">
-				<button class="btn btn-primary" id="confirm-register" disabled>Подтвердить запись</button>
-				<button class="btn btn-secondary" id="cancel-register">Отмена</button>
-			</div>
-		`;
-		wrapper.style.display = 'block';
-
-		// Обработчики для сеансов
-		wrapper.querySelectorAll( '.exam-slot' ).forEach( slot => {
-			if ( slot.classList.contains( 'exam-slot-disabled' ) ) return;
-
-			slot.addEventListener( 'click', () => {
-				wrapper.querySelectorAll( '.exam-slot' ).forEach( s => s.classList.remove( 'exam-slot-selected' ) );
-				slot.classList.add( 'exam-slot-selected' );
-				currentSelectedSessionId = parseInt( slot.dataset.sessionId, 10 );
-				wrapper.querySelector( '#confirm-register' ).disabled = false;
-			} );
-		} );
-
-		// Кнопка подтверждения
-		wrapper.querySelector( '#confirm-register' ).addEventListener( 'click', async () => {
-			if ( ! currentSelectedSessionId ) return;
-
-			try {
-				const response = await api( 'register', {
-					session_id: currentSelectedSessionId,
-					request_key: currentRequestKey,
-				} );
-
-				// Перезагрузить все карточки
-				location.reload();
-			} catch ( error ) {
-				handleRegistrationError( wrapper, error, api );
-			}
-		} );
-
-		// Кнопка отмены
-		wrapper.querySelector( '#cancel-register' ).addEventListener( 'click', () => {
-			wrapper.style.display = 'none';
-			currentRequestKey = null;
-			currentSelectedSessionId = null;
-		} );
-	}
+    rootEl.innerHTML = `<div class="prof-dash">
+        ${childBar()}
+        ${courseTabsShell('exTabs')}
+        <div class="prof-card sc-hero" id="exHero"></div>
+        <div class="sc-notice exam-notice" id="exNotice" role="alert" hidden></div>
+        <div class="prof-card exam-panel" id="exPanel" hidden></div>
+        <div class="prof-card exam-units" id="exUnits" hidden></div>
+    </div>`;
+    wireChild(rootEl);
+    paintTabs();
+    paintHero();
+    paintUnits();
+    syncRefreshTimer();
 }
 
-function handleChangeAction( cardElement, exam, api ) {
-	// Генерируем request_key
-	currentRequestKey = generateUUID();
-	currentSelectedSessionId = exam.registration?.session_id || null;
-
-	const wrapper = cardElement.querySelector( '#sessions-carousel-wrapper' );
-	if ( wrapper ) {
-		wrapper.innerHTML = renderSessionsList( exam.sessions, exam.state, currentSelectedSessionId ) + `
-			<div class="exam-registration-actions">
-				<button class="btn btn-primary" id="confirm-change">Подтвердить смену</button>
-				<button class="btn btn-secondary" id="cancel-change">Отмена выбора</button>
-			</div>
-		`;
-		wrapper.style.display = 'block';
-
-		// Обработчики для сеансов
-		wrapper.querySelectorAll( '.exam-slot' ).forEach( slot => {
-			if ( slot.classList.contains( 'exam-slot-disabled' ) ) return;
-
-			slot.addEventListener( 'click', () => {
-				wrapper.querySelectorAll( '.exam-slot' ).forEach( s => s.classList.remove( 'exam-slot-selected' ) );
-				slot.classList.add( 'exam-slot-selected' );
-				currentSelectedSessionId = parseInt( slot.dataset.sessionId, 10 );
-			} );
-		} );
-
-		// Кнопка подтверждения
-		wrapper.querySelector( '#confirm-change' ).addEventListener( 'click', async () => {
-			if ( ! currentSelectedSessionId ) return;
-			if ( currentSelectedSessionId === exam.registration?.session_id ) {
-				alert( 'Выберите другой сеанс' );
-				return;
-			}
-
-			if ( confirm( `Сменить запись на ${formatDate( exam.sessions.find( s => s.session_id === currentSelectedSessionId )?.date )}, ${exam.sessions.find( s => s.session_id === currentSelectedSessionId )?.time_start}?` ) ) {
-				try {
-					const response = await api( 'change', {
-						session_id: currentSelectedSessionId,
-						request_key: currentRequestKey,
-					} );
-
-					location.reload();
-				} catch ( error ) {
-					handleRegistrationError( wrapper, error, api );
-				}
-			}
-		} );
-
-		// Кнопка отмены выбора
-		wrapper.querySelector( '#cancel-change' ).addEventListener( 'click', () => {
-			wrapper.style.display = 'none';
-			currentRequestKey = null;
-			currentSelectedSessionId = null;
-		} );
-	}
+function paintTabs() {
+    const wrap = rootEl.querySelector('#exTabs');
+    wrap.innerHTML = exams.map(e => `<button class="sc-tab${e.event_id === activeId ? ' on' : ''}" data-id="${e.event_id}">
+            <span class="sc-chip ${chipBg(e.subject_key)}">${esc(DIRECTION_LABEL[e.direction] || 'Экзамен')}</span>
+            <span class="sc-tb"><span class="sc-tname">${esc(e.title)}</span><span class="sc-tsub">${esc(tabSubtitle(e))}</span></span>
+        </button>`).join('');
+    wrap.querySelectorAll('.sc-tab').forEach(b => b.addEventListener('click', () => select(Number(b.dataset.id))));
+    syncCourseTabs(wrap);
 }
 
-function handleCancelAction( cardElement, exam, api ) {
-	currentRequestKey = generateUUID();
-
-	if ( confirm( 'Отменить запись на экзамен? Место освободится.' ) ) {
-		api( 'cancel', {
-			event_id: exam.event_id,
-			request_key: currentRequestKey,
-		} )
-			.then( () => location.reload() )
-			.catch( error => {
-				console.error( 'Ошибка при отмене:', error );
-				alert( `Ошибка: ${error.message}` );
-			} );
-	}
+function tabSubtitle(e) {
+    const reg = e.registration;
+    switch (e.state) {
+        case 'not_open':           return e.registration_opens_at ? `Запись с ${day(e.registration_opens_at)}` : 'Запись не открыта';
+        case 'open':               return 'Запись открыта';
+        case 'full':               return 'Свободных мест нет';
+        case 'closed':             return 'Запись закрыта';
+        case 'registered':
+        case 'entry_open':         return reg ? `${day(reg.date)}, ${reg.time_start}` : '';
+        case 'in_progress':        return 'Выполняется';
+        case 'awaiting_approval':  return 'Ожидает утверждения';
+        case 'approved':           return resultCaption(e.result) || 'Результат утверждён';
+        case 'missed':             return 'Экзамен пропущен';
+        case 'cancelled_by_staff': return 'Запись отменена';
+        case 'event_cancelled':    return 'Проведение отменено';
+        default:                   return '';
+    }
 }
 
-function handleRegistrationError( wrapper, error, api ) {
-	const code = error.code || '';
-	const message = error.message || 'Неизвестная ошибка';
+function paintHero() {
+    const e = active();
+    const hero = rootEl.querySelector('#exHero');
+    const reg = e.registration;
+    const meta = [
+        reg ? `${day(reg.date)}${reg.weekday ? ` (${reg.weekday})` : ''}, ${reg.time_start}–${reg.time_end}` : '',
+        reg?.room || '',
+    ].filter(Boolean).map(esc).join('<span class="sc-sep">·</span>');
 
-	let errorText = '';
-	switch ( code ) {
-		case 'X-FULL':
-			errorText = 'Это место только что заняли. Выберите другой сеанс.';
-			// Перезагрузить список
-			api( 'getExams', {} ).then( r => location.reload() );
-			break;
-		case 'X-HELD':
-			errorText = message || 'Часть мест удерживается до оплаты. Попробуйте позже.';
-			break;
-		case 'X-CLOSED':
-			errorText = message || 'Запись закрыта.';
-			location.reload();
-			break;
-		case 'X-CONFLICT':
-			errorText = message || 'Конфликт расписания.';
-			break;
-		default:
-			errorText = message;
-	}
+    const buttons = (e.actions || []).map(a => actionButton(e, a)).join('');
+    const parentNotice = isParent()
+        ? `<div class="sc-notice">Записывается и сдаёт экзамен сам ученик из своего кабинета.</div>` : '';
 
-	const errorDiv = document.createElement( 'div' );
-	errorDiv.className = 'sc-notice';
-	errorDiv.textContent = errorText;
-	wrapper.insertBefore( errorDiv, wrapper.firstChild );
+    hero.innerHTML = `
+        <div class="sc-hero-top">
+            <div class="sc-hinfo">
+                <span class="sc-code ${chipSoft(e.subject_key)}">${esc(DIRECTION_LABEL[e.direction] || 'Экзамен')}</span>
+                <div class="sc-htitle">${esc(e.title)}</div>
+                ${meta ? `<div class="sc-hmeta">${meta}</div>` : ''}
+                <div class="sc-hmeta"><span class="sc-pill ${statePillClass(e.state)}">${esc(e.state_label)}</span></div>
+                ${progressBlock(e)}
+            </div>
+            <div class="sc-hact">${buttons}${hint(e) ? `<div class="sc-hint">${esc(hint(e))}</div>` : ''}</div>
+        </div>
+        ${parentNotice}`;
+
+    applyProgress(hero);
+    hero.querySelectorAll('[data-action]').forEach(btn => btn.addEventListener('click', () => onAction(e, btn.dataset.action)));
 }
 
-function getTabSubtitle( exam ) {
-	const state = exam.state;
-
-	switch ( state ) {
-		case 'not_open':
-			return `Запись с ${formatDate( exam.registration_opens_at )}`;
-		case 'open':
-			return 'Запись открыта';
-		case 'full':
-			return 'Свободных мест нет';
-		case 'closed':
-			return 'Запись закрыта';
-		case 'registered':
-		case 'entry_open':
-			return exam.registration ? `${formatDate( exam.registration.date )}, ${exam.registration.time_start}` : '—';
-		case 'in_progress':
-			return 'Выполняется';
-		case 'awaiting_approval':
-			return 'Ожидает утверждения';
-		case 'missed':
-			return 'Экзамен пропущен';
-		case 'cancelled_by_staff':
-			return 'Запись отменена';
-		case 'event_cancelled':
-			return 'Проведение отменено';
-		default:
-			return '';
-	}
+/** Утверждённый результат: итог и полоса «первичный / максимум». Числа — только с сервера. */
+function progressBlock(e) {
+    if (!e.result) { return ''; }
+    const pct = resultPercent(e.result);
+    return `<div class="sc-hprog">
+        <div class="sc-hpl">
+            <span class="sc-hpt">${esc(resultCaption(e.result))}</span>
+            <span class="sc-hpct">${pct}%</span>
+        </div>
+        <div class="sc-hpbar"><span class="${chipBg(e.subject_key)}" data-progress="${pct}"></span></div>
+    </div>`;
 }
 
-function getChipColor( direction ) {
-	return direction === 'ege' ? 'chip-ege' : 'chip-oge';
+/** Перечень заданий утверждённого экзамена: клик ведёт к этому заданию на экране «Результаты». */
+function paintUnits() {
+    const e = active();
+    const box = rootEl.querySelector('#exUnits');
+    const units = e?.units || [];
+    if (!box || !units.length) { return; }
+
+    box.hidden = false;
+    box.innerHTML = `
+        <div class="exam-panel-head">
+            <div class="exam-panel-title">Задания</div>
+            <div class="exam-panel-sub">Нажмите на задание, чтобы открыть разбор.</div>
+        </div>
+        ${units.map(u => {
+            const st = UNIT_STATUS[u.status] || UNIT_STATUS.pending;
+            return `<div class="sc-row click" data-anchor="${esc(u.anchor)}" role="button" tabindex="0">
+                <span class="sc-num">${esc(u.number)}</span>
+                <span class="sc-lb"><span class="sc-ltitle">Задание ${esc(u.number)}</span></span>
+                <span class="sc-go">Открыть →</span>
+                <span class="sc-pill ${st.pill}">${esc(st.label)}</span>
+            </div>`;
+        }).join('')}`;
+
+    box.querySelectorAll('.sc-row').forEach(row => {
+        const open = () => openReviewCb(e.event_id, row.dataset.anchor);
+        row.addEventListener('click', open);
+        row.addEventListener('keydown', ev => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); open(); } });
+    });
 }
 
-function getStateColor( state ) {
-	const colorMap = {
-		'not_open': 'state-gray',
-		'open': 'state-green',
-		'full': 'state-red',
-		'closed': 'state-red',
-		'registered': 'state-blue',
-		'entry_open': 'state-yellow',
-		'in_progress': 'state-yellow',
-		'awaiting_approval': 'state-gray',
-		'approved': 'state-green',
-		'cancelled_by_staff': 'state-red',
-		'missed': 'state-red',
-		'event_cancelled': 'state-red',
-	};
-	return colorMap[ state ] || 'state-gray';
+function statePillClass(state) {
+    if (['approved'].includes(state)) { return 'done'; }
+    if (['open', 'registered', 'entry_open', 'in_progress'].includes(state)) { return 'open'; }
+    return 'lock';
 }
 
-function getActionLabel( action ) {
-	const labels = {
-		'register': 'Записаться',
-		'change': 'Сменить сеанс',
-		'cancel': 'Отменить запись',
-		'start': 'Приступить',
-		'resume': 'Продолжить',
-		'results': 'Результаты',
-	};
-	return labels[ action ] || action;
+function actionButton(e, action) {
+    // «Приступить»/«Продолжить» ведут на станцию по ссылке из ответа сервера; нет ссылки — кнопка неактивна.
+    const needsStation = action === 'start' || action === 'resume';
+    const disabled = (e.state === 'not_open' && action === 'register') || (needsStation && !e.station_url);
+    const primary = action === 'register' || action === 'start' || action === 'resume';
+    return `<button type="button" class="prof-btn${primary ? ' prof-btn-primary' : ''} sc-hbtn${disabled ? ' sc-dis' : ''}" data-action="${action}"${disabled ? ' disabled' : ''}>${esc(ACTION_LABEL[action] || action)}</button>`;
 }
 
-function getHintText( exam ) {
-	const state = exam.state;
-
-	switch ( state ) {
-		case 'not_open':
-			return `Запись откроется ${formatDate( exam.registration_opens_at )}`;
-		case 'registered':
-			return `Кнопка станет активной в ${exam.registration ? exam.registration.time_start : ''}. Смена и отмена записи — до начала выбранного сеанса.`;
-		case 'entry_open':
-			return 'Начать можно до конца экзамена';
-		case 'full':
-			return `Свободных мест нет. Обратитесь к преподавателю: ${exam.teacher_name}.`;
-		case 'closed':
-			return `Запись закрыта. Обратитесь к преподавателю: ${exam.teacher_name}.`;
-		case 'awaiting_approval':
-			return 'Работа сдана и ожидает утверждения преподавателем.';
-		case 'event_cancelled':
-			return `Проведение отменено. Причина: ${exam.last_reason || 'не указана'}.`;
-		default:
-			return '';
-	}
+function hint(e) {
+    const teacher = e.teacher_name || 'преподавателю';
+    switch (e.state) {
+        case 'not_open':           return e.registration_opens_at ? `Запись откроется ${day(e.registration_opens_at.slice(0, 10))}, ${e.registration_opens_at.slice(11, 16)}` : '';
+        case 'registered':         return `Кнопка станет активной в ${e.registration?.time_start || ''}. Смена и отмена записи — до начала выбранного сеанса.`;
+        case 'entry_open':         return e.registration?.time_end ? `Начать можно до ${e.registration.time_end}` : 'Начать можно до конца экзамена';
+        case 'in_progress':        return e.deadline ? `Завершение в ${e.deadline}` : '';
+        case 'full':               return `Свободных мест нет. Обратитесь к преподавателю: ${teacher}.`;
+        case 'closed':             return `Запись закрыта. Обратитесь к преподавателю: ${teacher}.`;
+        case 'awaiting_approval':  return 'Работа сдана и ожидает утверждения преподавателем.';
+        case 'cancelled_by_staff': return e.last_reason ? `Запись отменена. Причина: ${e.last_reason}` : 'Запись отменена.';
+        case 'missed':             return e.previous_date ? `Экзамен пропущен, запись на ${day(e.previous_date)} аннулирована.` : 'Экзамен пропущен.';
+        case 'event_cancelled':    return `Проведение отменено. Причина: ${e.last_reason || 'не указана'}.`;
+        default:                   return '';
+    }
 }
 
-function formatDate( dateStr ) {
-	if ( ! dateStr ) return '—';
-	const date = new Date( dateStr );
-	return date.toLocaleDateString( 'ru-RU', { day: 'numeric', month: 'long', year: 'numeric' } );
+/** Сообщение об ошибке над панелью: переживает закрытие панели и перерисовку списка. */
+function showNotice(text) {
+    const box = rootEl?.querySelector('#exNotice');
+    if (!box) { return; }
+    box.hidden = !text;
+    box.textContent = text || '';
 }
 
-function plural( n, form1, form2, form5 ) {
-	const mod10 = n % 10;
-	const mod100 = n % 100;
-	if ( mod10 === 1 && mod100 !== 11 ) return form1;
-	if ( mod10 >= 2 && mod10 <= 4 && ( mod100 < 12 || mod100 > 14 ) ) return form2;
-	return form5;
+/* ── Действия ─────────────────────────────────────────────────────────── */
+function onAction(e, action) {
+    showNotice('');
+    if (SLOT_ACTIONS.includes(action)) { return openPanel(e, action); }
+    if (action === 'cancel') { return cancel(e); }
+    if (action === 'results') { return openReviewCb(e.event_id); }
+    if ((action === 'start' || action === 'resume') && e.station_url) {
+        window.location.href = e.station_url;
+    }
 }
 
-function generateUUID() {
-	return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace( /[xy]/g, function( c ) {
-		const r = ( Math.random() * 16 ) | 0;
-		const v = c === 'x' ? r : ( r & 0x3 ) | 0x8;
-		return v.toString( 16 );
-	} );
+function openPanel(e, mode) {
+    panelMode = mode;
+    requestKey = newRequestKey();
+    chosenSessionId = null;
+    paintPanel(e);
+}
+
+function closePanel() {
+    panelMode = null;
+    requestKey = null;
+    chosenSessionId = null;
+}
+
+/** Карточка сеанса — крупная (дата, день недели, время, кабинет, места): «Новое» п. 1 в QA.md. */
+function slotCard(s, mode) {
+    const free = `осталось ${s.free} ${plural(s.free, 'место', 'места', 'мест')}`;
+    const isCurrent = mode === 'change' && s.is_current;
+    const disabled = !s.selectable || isCurrent;
+    const sub = [`до ${s.time_end}`, s.room].filter(Boolean).map(esc).join(' · ');
+    return `<button type="button" class="exam-slot${disabled ? ' off' : ''}" data-session="${s.session_id}" aria-pressed="false"${disabled ? ' disabled' : ''}>
+        <span class="exam-slot-date">${esc(day(s.date))}</span>
+        <span class="exam-slot-weekday">${esc(s.weekday)}</span>
+        <span class="exam-slot-time">${esc(s.time_start)}</span>
+        <span class="exam-slot-room">${sub}</span>
+        <span class="exam-slot-free">${isCurrent ? 'ваша запись' : esc(s.selectable ? free : 'мест нет')}</span>
+    </button>`;
+}
+
+function paintPanel(e) {
+    const panel = rootEl.querySelector('#exPanel');
+    if (!panel) { return; }
+    if (!panelMode) { panel.hidden = true; panel.innerHTML = ''; return; }
+
+    const slots = (e.sessions || []).map(s => slotCard(s, panelMode)).join('');
+
+    panel.hidden = false;
+    panel.innerHTML = `
+        <div class="exam-panel-head">
+            <div class="exam-panel-title">${panelMode === 'change' ? 'Выберите новый сеанс' : 'Выберите дату и время'}</div>
+            <div class="exam-panel-sub">Смена и отмена записи — до начала выбранного сеанса.</div>
+        </div>
+        ${slots ? courseTabsShell('exSlots', { prevLabel: 'Предыдущие сеансы', nextLabel: 'Следующие сеансы' }) : '<div class="sc-empty">Сеансов пока нет.</div>'}
+        <div class="exam-panel-actions">
+            <button type="button" class="prof-btn prof-btn-primary" id="exConfirm" disabled>Подтвердить запись</button>
+            <button type="button" class="prof-btn" id="exCancelPanel">Отмена выбора</button>
+        </div>`;
+
+    const strip = panel.querySelector('#exSlots');
+    if (strip) {
+        strip.innerHTML = slots;
+        strip.querySelectorAll('.exam-slot:not(.off)').forEach(btn => btn.addEventListener('click', () => chooseSlot(strip, Number(btn.dataset.session))));
+        syncCourseTabs(strip, { activeSelector: '.exam-slot.on', stepByCard: true });
+    }
+    panel.querySelector('#exCancelPanel').addEventListener('click', () => { closePanel(); paintPanel(e); showNotice(''); });
+    panel.querySelector('#exConfirm').addEventListener('click', () => confirmSlot(e));
+}
+
+/** Выбор карточки без перерисовки панели: положение ленты не сбрасывается. */
+function chooseSlot(strip, sessionId) {
+    chosenSessionId = sessionId;
+    strip.querySelectorAll('.exam-slot').forEach(btn => {
+        const on = Number(btn.dataset.session) === sessionId;
+        btn.classList.toggle('on', on);
+        btn.setAttribute('aria-pressed', String(on));
+    });
+    const confirmBtn = rootEl.querySelector('#exConfirm');
+    if (confirmBtn) { confirmBtn.disabled = false; }
+}
+
+async function confirmSlot(e) {
+    if (!chosenSessionId) { return; }
+    const slot = (e.sessions || []).find(s => s.session_id === chosenSessionId);
+    if (panelMode === 'change') {
+        const ok = await confirmDialog(`Сменить запись на ${day(slot?.date)}, ${slot?.time_start}?`, 'Сменить', 'Не менять');
+        if (!ok) { return; }
+    }
+    const confirmBtn = rootEl.querySelector('#exConfirm');
+    if (confirmBtn) { confirmBtn.disabled = true; }
+
+    showNotice('');
+    nextGeneration(); // идущая загрузка списка вернёт состояние до этой операции — отбросить
+    const params = { session_id: chosenSessionId, request_key: requestKey };
+    if (panelMode === 'change' && e.registration) { params.version = e.registration.version; }
+
+    try {
+        apply(await api(panelMode === 'change' ? 'change' : 'register', params));
+    } catch (err) {
+        await onFailure(err);
+    }
+}
+
+async function cancel(e) {
+    const ok = await confirmDialog('Отменить запись на экзамен? Место освободится.', 'Отменить запись', 'Не отменять');
+    if (!ok) { return; }
+
+    nextGeneration();
+    const params = { event_id: e.event_id, request_key: newRequestKey() };
+    if (e.registration) { params.version = e.registration.version; }
+
+    try {
+        apply(await api('cancel', params));
+    } catch (err) {
+        await onFailure(err);
+    }
 }
 
 /**
- * Обработчик кнопки "Приступить" — запустить новую попытку (6.5).
- * Перенаправляет на страницу попытки плеера.
+ * Отказ правила: причина — над панелью, видна и при закрытой панели. Если показанное устарело (место
+ * забрали, запись закрыли, вкладка отстала) — список перечитывается, а выбранный сеанс сбрасывается:
+ * кнопка подтверждения не должна оставаться активной для уже недоступного выбора.
  */
-function handleStartAttempt( exam, api ) {
-	if ( ! exam.current_attempt_id ) {
-		console.error( 'Попытка не найдена' );
-		return;
-	}
+async function onFailure(err) {
+    const text = err.code === 'X-FULL' ? FULL_TEXT : (err.message || 'Не удалось выполнить действие.');
 
-	// Перенаправить на страницу попытки плеера
-	window.location.href = exam.attempt_url || `/lms/attempt/${exam.current_attempt_id}/`;
+    if (REFRESH_CODES.includes(err.code)) {
+        chosenSessionId = null;
+        await refreshAfterFailure(text);
+        return;
+    }
+
+    showNotice(text);
+    const confirmBtn = rootEl.querySelector('#exConfirm');
+    if (confirmBtn) { confirmBtn.disabled = !chosenSessionId; }
 }
 
-/**
- * Обработчик кнопки "Продолжить" — возобновить существующую попытку (6.5).
- * Перенаправляет на страницу попытки плеера.
- */
-function handleResumeAttempt( exam, api ) {
-	if ( ! exam.current_attempt_id ) {
-		console.error( 'Попытка не найдена' );
-		return;
-	}
+async function refreshAfterFailure(text) {
+    const mine = nextGeneration();
+    let data;
+    try {
+        data = await api('getExams', listParams());
+    } catch {
+        showNotice(text);
+        return;
+    }
+    if (mine !== generation) { return; }
 
-	// Перенаправить на страницу попытки плеера
-	window.location.href = exam.attempt_url || `/lms/attempt/${exam.current_attempt_id}/`;
-}
+    const mode = panelMode;
+    exams = data?.exams || exams;
+    if (!exams.some(e => e.event_id === activeId)) { activeId = exams[0]?.event_id ?? null; }
+    closePanel();
+    paint();
 
-/**
- * Обработчик кнопки "Результаты" — открыть разбор результатов (6.5).
- * Открывает результаты в work-review экране.
- */
-function handleViewResults( exam, api ) {
-	if ( ! exam.current_attempt_id ) {
-		console.error( 'Попытка не найдена' );
-		return;
-	}
-
-	// Перенаправить на results страницу (можно использовать window.location или AJAX open)
-	// Для попыток результаты обычно открываются как деталь работы
-	window.location.href = `/lms/results/${exam.current_attempt_id}/`;
-}
-
-/**
- * Открывает карточку экзамена по ID из расписания (5.5)
- * Сохраняет eventId, переходит на экран, и renderLearnerExams откроет нужную карточку
- */
-export function openLearnerExam( eventId ) {
-	pendingEventId = eventId;
-	// Приложение (app.js) отвечает за переход на экран learner-exams
+    // Панель остаётся открытой, только если сервер всё ещё разрешает это действие; выбор — заново.
+    const fresh = active();
+    if (mode && fresh && (fresh.actions || []).includes(mode)) { openPanel(fresh, mode); }
+    showNotice(text);
 }

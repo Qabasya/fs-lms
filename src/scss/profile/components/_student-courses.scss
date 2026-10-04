@@ -23,6 +23,9 @@
   scrollbar-width: none;
 
   &::-webkit-scrollbar { display: none; }
+
+  // Тянем мышью (course-tabs.js): привязка и плавность мешают, текст не выделяется
+  &.is-dragging { scroll-snap-type: none; scroll-behavior: auto; cursor: grabbing; user-select: none; }
 }
 
 .sc-tabs-nav {
@@ -163,6 +166,10 @@
 .sc-pill.done { background: var(--good-bg); color: var(--ok); }
 .sc-pill.open { background: var(--accent-soft); color: var(--accent-700); }
 .sc-pill.lock { background: var(--surface-2); color: var(--muted-2); border: 1px solid var(--line); }
+
+/* «Новое» п. 4 (QA.md): жёлтый и красный варианты — статусы заданий экзамена («Не решено», «Неверно») */
+.sc-pill.wait { background: var(--wait-soft); color: var(--wait-text); }
+.sc-pill.err { background: var(--err-soft); color: var(--err-text); }
 
 /* ── Каталог открытых курсов (Эпик 15, П10): самозапись ─────────────────── */
 .sc-catalog { margin-top: rem(14); }

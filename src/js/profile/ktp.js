@@ -15,7 +15,7 @@ import { confirmDialog } from '../common/components/confirm-dialog.js';
 import { createApi } from './api.js';
 import { DOW_RU, MONTHS_RU } from './constants.js';
 import { groupPickerBtnHtml, openGroupPicker } from './picker.js';
-import { computeMonths, initialCursor, shiftMonth } from './ktp/ktp-calendar-model.js';
+import { computeMonths, initialCursor, shiftMonth, monthCells } from './ktp/ktp-calendar-model.js';
 import { themeCardHtml, placedThemeHtml, openProgramHtml, emptyStateHtml, changeCourseHtml, noGroupsHtml, errorHtml } from './ktp/ktp-templates.js';
 import { attachDeadlinesClick, attachPlacedThemeClick, attachRecordingClick, attachThemeActionsClick } from './ktp/ktp-popovers.js';
 import { INDI_ID, loadIndividual } from './ktp/ktp-individual.js';
@@ -302,14 +302,10 @@ function renderCalendar() {
         (byDate[ds] = byDate[ds] || []).push(t);
     });
 
-    const first = new Date(y, m, 1);
-    const offset = (first.getDay() + 6) % 7;
-    const last = new Date(y, m + 1, 0).getDate();
-
     let cells = '';
-    for (let i = 0; i < offset; i++) cells += `<div class="kal-cell empty"></div>`;
-    for (let d = 1; d <= last; d++) {
-        const ds = `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    for (const cell of monthCells(y, m)) {
+        if ('empty' === cell.type) { cells += `<div class="kal-cell empty"></div>`; continue; }
+        const { date: ds, day: d } = cell;
         const isHol = holidays.has(ds);
         const isLesson = lessonDays.has(ds);
         const dayThemes = byDate[ds] || [];

@@ -125,6 +125,22 @@ export function debounce( fn, ms ) {
     };
 }
 
+/**
+ * Текст ошибки из ответа AJAX: `wp_send_json_error( 'текст' )` (`AjaxResponse::error()`)
+ * или `{ message, code, ref }` (`AjaxResponse::fail()`). Объект целиком в тост не отдают.
+ *
+ * @param {{data?: (string|{message?: string})}|null|undefined} json     Ответ сервера.
+ * @param {string}                                              fallback Текст, если у ответа его нет.
+ * @return {string} Текст для пользователя.
+ */
+export function ajaxErrorText( json, fallback ) {
+    const data = json?.data;
+    if ( 'string' === typeof data && '' !== data ) {
+        return data;
+    }
+    return ( data && 'string' === typeof data.message && '' !== data.message ) ? data.message : fallback;
+}
+
 /** Отступ, который вставляет Tab в поле кода, — 4 пробела, как в редакторе кода статьи. */
 const TAB_INDENT = '    ';
 

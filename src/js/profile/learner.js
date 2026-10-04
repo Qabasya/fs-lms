@@ -11,6 +11,7 @@ import { createApi } from './api.js';
 import { workCardHtml, workChipHtml, workStatusText } from './work-card.js';
 import { learnerLayout, learnerFlat } from './program-window.js';
 import { courseTabsShell, syncCourseTabs } from './course-tabs.js';
+import { isParent, getChildId, childName, childBar, wireChild, onChildChange } from './learner-child.js';
 
 const RENDERERS = {
     'learner-home': renderHome,
@@ -21,15 +22,14 @@ const RENDERERS = {
 
 let api = null;
 let dataPromise = null;
-let childId = null;
+let openExamCb = () => {}; // клик по экзамену в расписании → «Мои экзамены» (колбэк из app.js, 5.5.3)
 
 function cfg() { return window.fsProfile?.learner || null; }
-function isParent() { return !!window.fsProfile?.readOnly; }
 
 function load(force) {
     if (!api) { const c = cfg(); if (!c) return Promise.reject(new Error('Профиль недоступен')); api = createApi(c); }
     if (!dataPromise || force) {
-        dataPromise = api('getProfile', childId ? { student_person_id: childId } : {});
+        dataPromise = api('getProfile', getChildId() ? { student_person_id: getChildId() } : {});
     }
     return dataPromise;
 }
@@ -51,31 +51,16 @@ function rerenderAll() {
     });
 }
 
-export function renderLearnerHome(root)       { screen(root, renderHome, 'Главная'); }
+export function renderLearnerHome(root, { openExam } = {}) {
+    if (typeof openExam === 'function') { openExamCb = openExam; }
+    screen(root, renderHome, 'Главная');
+}
 export function renderLearnerLessons(root)    { screen(root, renderLessons, 'Мои курсы'); }
 export function renderLearnerGrades(root)     { screen(root, renderGrades, 'Мои оценки'); }
 export function renderLearnerAttendance(root) { screen(root, renderAttendance, 'Посещаемость'); }
 
-/* ── Child switcher (parent) ──────────────────────────────────────────── */
-function childBar() {
-    const children = window.fsProfile?.children || [];
-    if (!isParent() || children.length < 1) { return ''; }
-    const cur = childId || (children[0] && children[0].personId);
-    return `<div class="prof-child-bar">
-        <span class="prof-chip">Только просмотр</span>
-        <label class="prof-child-pick">Ученик:
-            <select id="learnerChild">
-                ${children.map(c => `<option value="${c.personId}" ${String(c.personId) === String(cur) ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}
-            </select>
-        </label>
-    </div>`;
-}
-
-function wireChild(root) {
-    const sel = root.querySelector('#learnerChild');
-    if (!sel) return;
-    sel.addEventListener('change', () => { childId = sel.value; load(true); rerenderAll(); });
-}
+/* ── Child switcher (parent): общий для экранов learner-* — learner-child.js ── */
+onChildChange(() => { load(true); rerenderAll(); });
 
 /* ── Home ─────────────────────────────────────────────────────────────── */
 function renderHome(root, d) {
@@ -109,6 +94,7 @@ function renderHome(root, d) {
         </div>
     </div>`;
     wireChild(root);
+    wireExamRows(root);
 }
 
 /* ── Мои курсы (дизайн Student Courses) ───────────────────────────────────
@@ -208,8 +194,8 @@ function scRenderHero(courses) {
     let actions;
     if (scExamLock) {
         // Контент недоступен не по дате, а потому что идёт контрольная.
-        actions = `<a class="prof-btn prof-btn-primary sc-hbtn" href="${esc(scExamLock.url)}">Вернуться к контрольной</a>
-            <div class="sc-hint">курс недоступен, пока идёт контрольная</div>`;
+        actions = `<a class="prof-btn prof-btn-primary sc-hbtn" href="${esc(scExamLock.url)}">${scExamLock.is_exam ? 'Вернуться к экзамену' : 'Вернуться к контрольной'}</a>
+            <div class="sc-hint">курс недоступен, пока идёт ${examLockKind(scExamLock)}</div>`;
     } else if (c.not_started) {
         actions = `<span class="prof-btn sc-hbtn sc-dis">Старт ${c.start ? fmtDayMonth(c.start) : 'скоро'}</span>
             <div class="sc-hint">курс откроется после первого занятия</div>`;
@@ -468,7 +454,32 @@ function teacherTag(l) {
     return l.teacher ? ` · ${esc(l.teacher)}` : '';
 }
 
+/** Строки-экзамены расписания открывают карточку проведения (родителю — ту же, без кнопок запуска). */
+function wireExamRows(root) {
+    root.querySelectorAll('[data-exam-event]').forEach(row => {
+        const open = () => openExamCb(Number(row.dataset.examEvent));
+        row.addEventListener('click', open);
+        row.addEventListener('keydown', ev => {
+            if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); open(); }
+        });
+    });
+}
+
+/** Экзамен в расписании: пометка «Экзамен», время начала–конца, личный дедлайн идущей попытки. */
+function examSchedRow(l) {
+    const until = l.deadline ? ` <span class="prof-sub-tag warn">до ${esc(l.deadline)}</span>` : '';
+    return `<div class="prof-lesson-row" role="button" tabindex="0" data-exam-event="${Number(l.event_id)}">
+        <div class="prof-lesson-time"><div class="lt-start">${esc(l.start || '')}</div><div class="lt-end">${fmtDayMonth(l.date)}</div></div>
+        <div class="prof-lesson-bar"></div>
+        <div class="prof-lesson-body">
+            <div class="prof-lesson-grp">${esc(l.topic || '—')} <span class="prof-sub-tag">${esc(l.group_name || 'Экзамен')}</span>${until}</div>
+            <div class="prof-lesson-topic">${esc(l.start || '')}–${esc(l.end || '')}${roomTag(l)}</div>
+        </div>
+    </div>`;
+}
+
 function schedRow(l) {
+    if (l.kind === 'exam') { return examSchedRow(l); }
     const inner = `
         <div class="prof-lesson-time"><div class="lt-start">${esc(l.start || '')}</div><div class="lt-end">${fmtDayMonth(l.date)}</div></div>
         <div class="prof-lesson-bar"></div>
@@ -485,15 +496,20 @@ function schedRow(l) {
     return `<div class="prof-lesson-row">${inner}</div>`;
 }
 
-// Баннер «идёт контрольная»: весь контент кабинета недоступен, пока активна
+// Название запирающей работы: официальный экзамен (`is_exam`) — не «контрольная».
+function examLockKind(lock) {
+    return lock.is_exam ? 'экзамен' : 'контрольная';
+}
+
+// Баннер «идёт контрольная/экзамен»: весь контент кабинета недоступен, пока активна
 // запирающая попытка (ExamLockService). Явно объясняет причину (а не «по дате»)
-// и ведёт обратно на контрольную, чтобы её завершить.
+// и ведёт обратно на работу, чтобы её завершить.
 function examLockBanner(d) {
     if (!d.exam_lock) { return ''; }
     return `<a class="prof-exam-lock" href="${esc(d.exam_lock.url)}">
         <span class="prof-exam-lock__ico">${icoLock(20)}</span>
         <span class="prof-exam-lock__body">
-            <span class="prof-exam-lock__title">Идёт контрольная «${esc(d.exam_lock.title)}»</span>
+            <span class="prof-exam-lock__title">Идёт ${examLockKind(d.exam_lock)} «${esc(d.exam_lock.title)}»</span>
             <span class="prof-exam-lock__sub">Курс недоступен, пока вы её не завершите. Нажмите, чтобы вернуться к работе.</span>
         </span>
         ${icoChevronRight(18)}
@@ -556,12 +572,6 @@ function homeTile(label, val, color, ico) {
 }
 
 /* ── Helpers ──────────────────────────────────────────────────────────── */
-function childName() {
-    const children = window.fsProfile?.children || [];
-    const cur = childId || (children[0] && children[0].personId);
-    const c = children.find(x => String(x.personId) === String(cur));
-    return c ? c.name : '';
-}
 function fmtDateTime(s) { if (!s) return ''; return fmtDate(s) + ' ' + String(s).slice(11, 16); }
 function empty(t) { return `<div class="rev-empty">${esc(t)}</div>`; }
 function emptyCard(t) { return `<div class="prof-card"><div class="prof-card-empty">${esc(t)}</div></div>`; }

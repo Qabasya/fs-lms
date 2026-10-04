@@ -38,7 +38,12 @@ async function request(action, nonce, params) {
     });
     const json = await res.json().catch(() => ({ success: false }));
     if (!json || !json.success) {
-        throw new Error(json?.data?.message || json?.data || 'Ошибка запроса');
+        // Код и номер обращения (`ref`) нужны экранам, различающим причину отказа (X-FULL, X-CLOSED …);
+        // существующие вызовы читают только `message` и не ломаются.
+        const err = new Error(json?.data?.message || (typeof json?.data === 'string' ? json.data : '') || 'Ошибка запроса');
+        err.code = json?.data?.code || '';
+        err.ref = json?.data?.ref || '';
+        throw err;
     }
     return json.data;
 }

@@ -111,7 +111,8 @@
 .gp-offsched .gp-dash { flex: 0 0 auto; color: var(--muted-2); }
 
 /* Этап 4 (★): предупреждение в модалке урока вне расписания — «в этот день занятия нет». */
-.gp-offsched .gp-warn {
+.gp-offsched .gp-warn,
+.gp-exam .gp-warn {
   display: flex;
   align-items: flex-start;
   gap: rem(8);

@@ -11,6 +11,12 @@ import { renderKTP } from './ktp.js';
 import { renderActivity } from './activity.js';
 import { renderLearnerHome, renderLearnerLessons, renderLearnerGrades, renderLearnerAttendance } from './learner.js';
 import { renderLearnerExams, openLearnerExam } from './exams/learner-exams.js';
+import { renderExamPlan } from './exams/exam-plan.js';
+import { renderExamConduct, openExamConductFor } from './exams/exam-conduct.js';
+import { renderExamResults } from './exams/exam-results.js';
+import { renderExamStats } from './exams/exam-stats.js';
+import { renderExamPayments } from './exams/exam-payments.js';
+import { renderExamReview, openExamReview } from './exams/exam-review.js';
 import { initNotifications } from './notifications.js';
 import { renderTeacherCourses, openTeacherCourse } from './teacher-courses.js';
 
@@ -20,6 +26,8 @@ const SCREENS = {
         openJournalFor,
         openReview: () => go('summary'),
         openWorks: () => go(cfg.screens.includes('works') ? 'works' : 'summary'),
+        // Сеанс экзамена с «Главной» ведёт в «Проведение экзамена» этого сеанса (4.7); без права экранов экзаменов нет.
+        ...(cfg.screens.includes('exam-conduct') ? { openExamConduct: (sid) => { openExamConductFor(sid); go('exam-conduct'); } } : {}),
         ...summaryLink(),
     }),
     groups:               (root) => renderGroups(root, { openJournal: openJournalFor, ...summaryLink() }),
@@ -30,11 +38,16 @@ const SCREENS = {
     ktp:                  (root) => renderKTP(root),
     activity:             (root) => renderActivity(root, { openWorkReview: openWorkReviewFrom('activity') }),
     'teacher-courses':    renderTeacherCourses,
-    'learner-home':       renderLearnerHome,
+    'learner-home':       (root) => renderLearnerHome(root, { openExam: openLearnerExamFrom }),
     'learner-lessons':    renderLearnerLessons,
-    'learner-exams':      renderLearnerExams,
+    'learner-exams':      (root) => renderLearnerExams(root, { openReview: openExamReviewFrom }),
     'learner-grades':     renderLearnerGrades,
     'learner-attendance': renderLearnerAttendance,
+    'exam-conduct':       renderExamConduct,
+    'exam-stats':         renderExamStats,
+    'exam-plan':          renderExamPlan,
+    'exam-results':       renderExamResults,
+    'exam-payments':      renderExamPayments,
 };
 
 const TOPBAR = {
@@ -44,6 +57,7 @@ const TOPBAR = {
     works:                { crumb: 'Работы',           title: 'Работы' },
     summary:              { crumb: 'Успеваемость',      title: 'Сводка по ученику' },
     'work-review':        { crumb: 'Проверка работ',    title: 'Проверка работы' },
+    'exam-review':        { crumb: 'Мои экзамены',      title: 'Результаты экзамена' },
     substitutions:        { crumb: 'Офис',             title: 'Замены' },
     ktp:                  { crumb: 'Планирование',     title: 'КТП и расписание' },
     activity:             { crumb: 'Аналитика',       title: 'Активность' },
@@ -53,6 +67,11 @@ const TOPBAR = {
     'learner-exams':      { crumb: 'Обучение',         title: 'Мои экзамены' },
     'learner-grades':     { crumb: 'Успеваемость',     title: 'Мои оценки' },
     'learner-attendance': { crumb: 'Успеваемость',     title: 'Посещаемость' },
+    'exam-conduct':       { crumb: 'Экзамены',         title: 'Проведение экзамена' },
+    'exam-stats':         { crumb: 'Экзамены',         title: 'Статистика' },
+    'exam-plan':          { crumb: 'Экзамены',         title: 'Назначить экзамен' },
+    'exam-results':       { crumb: 'Экзамены',         title: 'Результаты' },
+    'exam-payments':      { crumb: 'Экзамены',         title: 'Оплаты гостей' },
 };
 
 const NAV_ICONS = {
@@ -69,6 +88,11 @@ const NAV_ICONS = {
     'learner-exams':      icoCalendarBoard(19),
     'learner-grades':     icoStar(19),
     'learner-attendance': icoCalendarBoard(19),
+    'exam-conduct':       icoUsers(19),
+    'exam-stats':         icoDocCheck(19),
+    'exam-plan':          icoCalendarBoard(19),
+    'exam-results':       icoStar(19),
+    'exam-payments':      icoInbox(19),
 };
 
 const ROLE_LABELS = {
@@ -84,7 +108,7 @@ let cfg;
    mod.collapsed в course-builder.js — флаг переживает re-render buildSidebar()). */
 /* «Мои группы» и «Мои курсы» есть только у преподавателей/методистов/админов
    (у учеников и родителей секций нет) — у них по умолчанию свёрнуты. */
-const sidebarState = { navCollapsed: false, groupsCollapsed: true, coursesCollapsed: true, courseFilter: '' };
+const sidebarState = { navCollapsed: false, examsCollapsed: false, groupsCollapsed: true, coursesCollapsed: true, courseFilter: '' };
 const COURSE_SEARCH_THRESHOLD = 6;
 
 /* ── Routing ─────────────────────────────────────────────────────────── */
@@ -143,6 +167,19 @@ function openWorkReviewFrom(from) {
     };
 }
 
+/* 5.5: клик по экзамену в расписании «Главной» — карточка этого проведения в «Моих экзаменах». */
+function openLearnerExamFrom(eventId) {
+    openLearnerExam(eventId);
+    go('learner-exams');
+}
+
+/* 7.4: разбор экзамена — тоже программный экран (не в cfg.screens): из карточки «Мои экзамены»,
+   кнопкой «Результаты» или по заданию в перечне (anchor — прокрутка к нему). */
+function openExamReviewFrom(eventId, anchor) {
+    openExamReview(eventId, anchor);
+    go('exam-review');
+}
+
 /* Tasks.md п. 3: «Сводка» конкретного ученика — из карточки в «Группах» и
    из имени в журнале. Только там, где экран сводки есть (преподаватель/офис). */
 function summaryLink() {
@@ -189,12 +226,6 @@ function openCoursePage(courseId) {
         el.classList.toggle('active', String(el.dataset.course) === String(courseId)));
     go('teacher-courses');
     openTeacherCourse(courseId);
-}
-
-/* 5.5: клик по экзамену в расписании открывает экран Мои экзамены с карточкой события */
-function openExamFromSchedule(eventId) {
-    go('learner-exams');
-    openLearnerExam(eventId);
 }
 
 /* #15-C: заголовок секции сайдбара со стрелкой сворачивания. */
@@ -246,6 +277,16 @@ function buildSidebar() {
             ${esc(item.label)}
         </div>`).join(''));
 
+    // «Мои экзамены» сотрудника: своя секция после «Меню»; пункты приходят по праву (cfg.examNav), без пунктов секции нет.
+    if (cfg.examNav && cfg.examNav.length) {
+        html += sectionHeader('Мои экзамены', 'examsCollapsed');
+        html += sectionBody('examsCollapsed', cfg.examNav.map(item => `
+            <div class="prof-nav-item" data-go="${esc(item.key)}">
+                <span class="ni-ico">${NAV_ICONS[item.key] || ''}</span>
+                ${esc(item.label)}
+            </div>`).join(''));
+    }
+
     if (cfg.groups && cfg.groups.length) {
         html += sectionHeader('Мои группы', 'groupsCollapsed');
         html += sectionBody('groupsCollapsed', cfg.groups.map(g => `
@@ -295,7 +336,8 @@ function buildStage() {
     // Сводки/«Работ»), но секция в DOM нужна всегда, наравне с остальными.
     stage.innerHTML = cfg.screens.map((key, i) =>
         `<section class="prof-screen ${i === 0 ? 'active' : ''}" data-screen="${esc(key)}"></section>`).join('')
-        + '<section class="prof-screen" data-screen="work-review"></section>';
+        + '<section class="prof-screen" data-screen="work-review"></section>'
+        + '<section class="prof-screen" data-screen="exam-review"></section>';
 }
 
 function mountScreens() {
@@ -304,6 +346,9 @@ function mountScreens() {
         const render = SCREENS[key];
         if (root && render) render(root);
     });
+
+    const examReviewRoot = document.querySelector('.prof-screen[data-screen="exam-review"]');
+    if (examReviewRoot) { renderExamReview(examReviewRoot, { onBack: () => go('learner-exams') }); }
 
     const wrRoot = document.querySelector('.prof-screen[data-screen="work-review"]');
     if (wrRoot) {
@@ -430,9 +475,6 @@ export function initProfile() {
     wire();
     initNotifications();
     initCollapse();
-
-    // Экспортируем функцию открытия экзамена для доступа из dashboard
-    window.openExamFromSchedule = openExamFromSchedule;
 
     // Deep-link на экран: /profile/?screen=learner-lessons (ссылки из плеера курса, T14.13).
     // С gid (?screen=groups&gid=2) — открыть «Группы» на конкретной группе, как клик

@@ -6,7 +6,7 @@
  * логику autosave/таймера, только адаптирует их под разметку станции.
  */
 import { saveAnswer, debounce, startCountdown } from '../frontend/services/assessment.js';
-import { disableCopying } from '../common/utils.js';
+import { ajaxErrorText, disableCopying } from '../common/utils.js';
 import { clearKegeState, kegeBr, kegeKim, loadKegeState, setKegeAnswers, setKegeOvertime, setKegeStage, setKegeTask } from './kege-state.js';
 import { renderKegeSheet } from './kege-entry.js';
 
@@ -911,7 +911,7 @@ export function initKegeExam() {
 				return;
 			}
 			submitting = false;
-			if ( ! auto ) { toast( json.data || 'Не удалось завершить экзамен.' ); }
+			if ( ! auto ) { toast( ajaxErrorText( json, 'Не удалось завершить экзамен.' ) ); }
 		} catch ( e ) {
 			submitting = false;
 			if ( ! auto ) { toast( 'Сетевая ошибка при отправке.' ); }

@@ -22,7 +22,7 @@ const ACC_KEY = 'fsProfDashAcc';
 let root = null;
 let state = null;
 let api = null;
-let nav = { openJournalFor: () => {}, openReview: () => {}, openWorks: () => {}, openSummary: null };
+let nav = { openJournalFor: () => {}, openReview: () => {}, openWorks: () => {}, openSummary: null, openExamConduct: null };
 
 export function renderDashboard(r, handlers) {
     root = r;
@@ -110,10 +110,10 @@ function render() {
     // делегируем клик на контейнере, чтобы переходы в журнал переживали ре-рендер.
     const schedBody = root.querySelector('#profSchedBody');
     if (schedBody) schedBody.addEventListener('click', e => {
-        const examEl = e.target.closest('[data-event-id]');
+        const examEl = e.target.closest('[data-exam-session]');
         if (examEl) {
-            // Клик на экзамен — переход на экран Мои экзамены и открытие этого события
-            if (window.openExamFromSchedule) window.openExamFromSchedule(+examEl.dataset.eventId);
+            // Сеанс экзамена ведёт в «Проведение экзамена» этого сеанса (4.7).
+            if (nav.openExamConduct) nav.openExamConduct(+examEl.dataset.examSession);
             return;
         }
         const el = e.target.closest('[data-grp]');
@@ -162,8 +162,10 @@ function renderSched(mode) {
         body.querySelectorAll('.pwn-arrow[data-wnav]').forEach(btn =>
             btn.addEventListener('click', () => { state.weekOffset += +btn.dataset.wnav; renderSched('week'); }));
     } else {
-        body.innerHTML = d.today.length
-            ? d.today.map(schedRow).join('')
+        const todayItems = [...d.today, ...examItems().filter(x => x.date === localToday())]
+            .sort((a, b) => String(a.start).localeCompare(String(b.start)));
+        body.innerHTML = todayItems.length
+            ? todayItems.map(schedRow).join('')
             : `<div class="rev-empty">Сегодня занятий нет.</div>`;
     }
 }
@@ -225,15 +227,16 @@ function monthLabel(date) {
  * 2) преподаватель («Сахаров Д.С.») и метки замены/инд.; 3) тема — сколько влезет.
  */
 function lessonCard(it, cls) {
-    // Экзамены и занятия рендерятся по-разному
+    // Сеанс экзамена — самостоятельное событие, не занятие группы: своя метка и переход в «Проведение экзамена».
     if (it.kind === 'exam') {
-        return `<div class="${cls} lcard chip-bd-exam" data-event-id="${it.event_id}">
+        return `<div class="${cls} lcard ${chipBorder('exam')}" data-exam-session="${it.session_id}">
             <div class="lc-row">
                 <span class="lc-time">${esc(it.start)}</span>
                 <span class="lc-grp">${esc(it.title)}</span>
                 ${it.room ? `<span class="lc-room">${esc(it.room)}</span>` : ''}
             </div>
-            <div class="lc-topic" title="${esc(it.topic || '')}">${esc(it.topic || '—')}</div>
+            <div class="lc-row lc-teacher"><span class="prof-chip">Экзамен</span></div>
+            <div class="lc-topic">записано ${it.occupied} из ${it.capacity}</div>
         </div>`;
     }
 
@@ -265,8 +268,20 @@ function openWeekOf(date) {
 /** Всё расписание, разложенное по датам. */
 function itemsByDate() {
     const byDate = {};
-    state.data.week.forEach(it => { (byDate[it.date] = byDate[it.date] || []).push(it); });
+    [...state.data.week, ...examItems()].forEach(it => { (byDate[it.date] = byDate[it.date] || []).push(it); });
+    Object.values(byDate).forEach(list => list.sort((a, b) => String(a.start).localeCompare(String(b.start))));
     return byDate;
+}
+
+/** Сеансы экзаменов в виде элементов расписания: `start`/`end` — как у занятий, чтобы сортировались вместе. */
+function examItems() {
+    return (state.data.exams || []).map(x => ({ ...x, kind: 'exam', start: x.time_start, end: x.time_end }));
+}
+
+/** Сегодняшняя дата по часам пользователя (`Y-m-d`): сеанс экзамена приходит в местном времени сайта. */
+function localToday() {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 }
 
 /** Понедельник текущей недели со сдвигом на weekOffset недель. */
@@ -346,6 +361,7 @@ function statTile(label, val, delta, color, ico) {
 }
 
 function schedRow(l) {
+    if (l.kind === 'exam') return examRow(l);
     const stateMap = {
         now:  '<span class="prof-state-pill prof-state-now">Идёт сейчас</span>',
         soon: '<span class="prof-state-pill prof-state-soon">Скоро</span>',
@@ -369,6 +385,28 @@ function schedRow(l) {
         return `<a class="prof-lesson-row prof-lesson-go ${l.state === 'now' ? 'is-now' : ''}" href="${esc(l.player_url)}">${inner}</a>`;
     }
     return `<div class="prof-lesson-row ${l.state === 'now' ? 'is-now' : ''}" data-grp="${l.group_id}">${inner}</div>`;
+}
+
+/* Строка сеанса экзамена в «Сегодня»: та же разметка, что у занятия, с пометкой «Экзамен»; клик — в «Проведение экзамена». */
+function examRow(x) {
+    const stateMap = {
+        now:  '<span class="prof-state-pill prof-state-now">Идёт сейчас</span>',
+        soon: '<span class="prof-state-pill prof-state-soon">Скоро</span>',
+        done: '<span class="prof-state-pill prof-state-done">Завершён</span>',
+    };
+    return `<div class="prof-lesson-row ${x.state === 'now' ? 'is-now' : ''}" data-exam-session="${x.session_id}" role="button" tabindex="0">
+        <div class="prof-lesson-time">
+            <div class="lt-start">${esc(x.start)}</div>
+            <div class="lt-end">${esc(x.end || '')}</div>
+        </div>
+        <div class="prof-lesson-bar ${chipBg('exam')}"></div>
+        <div class="prof-lesson-body">
+            <div class="prof-lesson-grp">${esc(x.title)} <span class="prof-chip">Экзамен</span></div>
+            <div class="prof-lesson-topic">записано ${x.occupied} из ${x.capacity}</div>
+            <div class="prof-lesson-meta">${x.room ? `<span class="lm">${icoMapPin(13)}${esc(x.room)}</span>` : ''}</div>
+        </div>
+        <div class="prof-lesson-state">${stateMap[x.state] || ''}</div>
+    </div>`;
 }
 
 /* Сигнал администратору: журнал → в журнал группы, ученик → в его сводку,

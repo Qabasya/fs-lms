@@ -18,6 +18,25 @@ export function computeMonths(period) {
     return months;
 }
 
+/**
+ * Ячейки месяца календаря: ведущие пустые (сдвиг первого дня на день недели, неделя с понедельника) и дни месяца.
+ * Общая для КТП и календаря экзаменов: сетка не зависит от того, что в ней стоит.
+ *
+ * @param {number} year  Год.
+ * @param {number} month Месяц, 0-based (как `m` в computeMonths).
+ * @returns {Array<{type:'empty'}|{type:'day', date:string, day:number}>}
+ */
+export function monthCells(year, month) {
+    const offset = (new Date(year, month, 1).getDay() + 6) % 7;
+    const days = new Date(year, month + 1, 0).getDate();
+    const cells = [];
+    for (let i = 0; i < offset; i++) cells.push({ type: 'empty' });
+    for (let d = 1; d <= days; d++) {
+        cells.push({ type: 'day', date: `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`, day: d });
+    }
+    return cells;
+}
+
 /** Стартовый курсор: месяц самой ранней размещённой темы (или 0). */
 export function initialCursor(themes, months) {
     const placed = (themes || []).filter(t => t.scheduled_at).map(t => t.scheduled_at.slice(0, 7));

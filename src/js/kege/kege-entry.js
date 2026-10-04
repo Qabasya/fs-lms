@@ -9,6 +9,7 @@
  * персистятся в localStorage, чтобы пережить перезагрузку страницы.
  */
 
+import { ajaxErrorText } from '../common/utils.js';
 import { KEGE_RITUAL_STAGES, clearKegeState, kegeBr, kegeKim, loadKegeState, saveKegeState, setKegeDeadline } from './kege-state.js';
 
 /** Строк в одной таблице листа ответов — зеркало KegeSheetDTO::ROWS_PER_TABLE. */
@@ -240,13 +241,16 @@ async function requestStartAttempt( kegeVars, assessmentId ) {
 		const kegeGl   = kegeQs.get( 'from_gl' );
 		if ( kegeGid ) { fd.append( 'group_id', kegeGid ); }
 		if ( kegeGl ) { fd.append( 'group_lesson_id', kegeGl ); }
+		// Официальный экзамен: запись, по которой открыта станция (`?exam_reg=`, AssessmentManager::EXAM_REGISTRATION_PARAM).
+		const kegeExamReg = kegeQs.get( 'exam_reg' );
+		if ( kegeExamReg ) { fd.append( 'exam_registration_id', kegeExamReg ); }
 		const res  = await fetch( kegeVars.ajax_url, { method: 'POST', body: fd } );
 		const json = await res.json();
 		if ( json.success ) {
 			window.location.reload();
 			return true;
 		}
-		toast( json.data || 'Не удалось начать экзамен.' );
+		toast( ajaxErrorText( json, 'Не удалось начать экзамен.' ) );
 	} catch ( e ) {
 		toast( 'Сетевая ошибка.' );
 	}

@@ -1,375 +1,116 @@
-/**
- * Стили для экрана "Мои экзамены" (этап 5)
- * @use '../variables' as v;
- */
+/* ══════════════════════════════════════════════════════════════════════
+   «Мои экзамены» ученика и родителя (этап 5, 7). Плитки, карточка, подсказки,
+   пилюли и строки заданий — существующие sc-* «Моих курсов» (_student-courses.scss);
+   лента с кнопками-стрелками — их же оболочка (course-tabs.js). Здесь только то,
+   чего там нет: заголовок панели и крупная карточка сеанса («Новое» п. 1, QA.md).
+   Размеры, отступы и веса — токены ядра (shared/_tokens.scss).
+   ══════════════════════════════════════════════════════════════════════ */
+@use '../variables' as *;
+@use '../../shared/tokens' as t;
 
-.learner-exams-container {
-	display: flex;
-	flex-direction: column;
-	gap: 2rem;
-}
+.exam-panel { padding: t.$spacing-lg t.$spacing-xl; margin-bottom: t.$spacing-lg; }
 
-/* Плитки экзаменов - используем существующие классы */
-.exams-tabs {
-	&.sc-tabs {
-		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-		gap: 1rem;
-		padding: 0;
-	}
+/* Перечень заданий утверждённого экзамена: строки sc-row идут вплотную к краям карточки */
+.exam-units { margin-bottom: t.$spacing-lg; padding-bottom: t.$spacing-sm; }
+.exam-units .exam-panel-head { padding: t.$spacing-lg t.$spacing-xl 0; }
 
-	.sc-tab {
-		cursor: pointer;
-		transition: all 0.2s ease;
-		border-radius: 0.5rem;
-		border: 1px solid var(--border-2);
-		background: var(--bg-secondary);
-		padding: 1rem;
-		position: relative;
+.exam-panel-head { margin-bottom: t.$spacing-md; }
+.exam-panel-title { font-size: t.$font-size-md; font-weight: t.$font-bold; color: var(--ink); }
+.exam-panel-sub { margin-top: t.$spacing-xs; font-size: t.$font-size-xs; color: var(--muted); }
 
-		&:hover {
-			border-color: var(--border-1);
-			box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-		}
+/* Ошибка операции — над панелью, видна и при закрытой панели */
+.exam-notice { margin: 0 0 t.$spacing-lg; }
+.exam-notice[hidden] { display: none; } // .sc-notice задаёт display: flex и перебивает атрибут hidden
 
-		&.sc-active {
-			border-color: var(--primary);
-			background: var(--primary-bg);
-		}
-	}
-}
-
-/* Пустое состояние */
-.exams-empty {
-	padding: 3rem 1.5rem;
-	text-align: center;
-	color: var(--text-secondary);
-
-	.exams-empty-text {
-		margin: 0;
-		font-size: 14px;
-		line-height: 1.5;
-	}
-}
-
-/* Карточка экзамена */
-.prof-card {
-	&.sc-hero {
-		padding: 1.5rem;
-		border-radius: 0.5rem;
-		border: 1px solid var(--border-2);
-		background: var(--bg-primary);
-
-		.prof-card-header {
-			display: flex;
-			justify-content: space-between;
-			align-items: flex-start;
-			margin-bottom: 1.25rem;
-			gap: 1rem;
-		}
-
-		.prof-card-title {
-			font-size: 1.25rem;
-			font-weight: 600;
-			margin: 0 0 0.5rem 0;
-			color: var(--text-primary);
-		}
-
-		.prof-card-info {
-			display: flex;
-			gap: 1rem;
-			font-size: 14px;
-			color: var(--text-secondary);
-
-			span {
-				display: flex;
-				align-items: center;
-				gap: 0.25rem;
-			}
-		}
-
-		.prof-card-actions {
-			display: flex;
-			align-items: center;
-			gap: 0.75rem;
-		}
-	}
-}
-
-/* Пилюля состояния */
-.prof-state-pill {
-	display: inline-block;
-	padding: 0.375rem 0.75rem;
-	border-radius: 1rem;
-	font-size: 12px;
-	font-weight: 500;
-	white-space: nowrap;
-
-	&.state-gray {
-		background: var(--bg-muted);
-		color: var(--text-secondary);
-	}
-
-	&.state-green {
-		background: rgba(34, 197, 94, 0.1);
-		color: rgb(34, 197, 94);
-	}
-
-	&.state-red {
-		background: rgba(239, 68, 68, 0.1);
-		color: rgb(239, 68, 68);
-	}
-
-	&.state-blue {
-		background: rgba(59, 130, 246, 0.1);
-		color: rgb(59, 130, 246);
-	}
-
-	&.state-yellow {
-		background: rgba(245, 158, 11, 0.1);
-		color: rgb(245, 158, 11);
-	}
-}
-
-/* Информация о регистрации */
-.prof-card-registration {
-	background: var(--bg-secondary);
-	padding: 1rem;
-	border-radius: 0.375rem;
-	margin-bottom: 1rem;
-
-	.prof-card-label {
-		font-size: 12px;
-		font-weight: 500;
-		text-transform: uppercase;
-		color: var(--text-secondary);
-		margin-bottom: 0.5rem;
-	}
-
-	.prof-card-date {
-		font-size: 1rem;
-		font-weight: 600;
-		color: var(--text-primary);
-		margin-bottom: 0.25rem;
-	}
-
-	.prof-card-time {
-		font-size: 14px;
-		color: var(--text-secondary);
-		margin-bottom: 0.25rem;
-	}
-
-	.prof-card-room {
-		font-size: 14px;
-		color: var(--text-secondary);
-	}
-}
-
-/* Хинт и предупреждение */
-.sc-hint {
-	padding: 0.75rem;
-	background: rgba(59, 130, 246, 0.05);
-	border-left: 3px solid rgb(59, 130, 246);
-	border-radius: 0.25rem;
-	font-size: 13px;
-	line-height: 1.5;
-	color: var(--text-primary);
-	margin-bottom: 1rem;
-}
-
-.sc-notice {
-	padding: 0.75rem;
-	background: rgba(239, 68, 68, 0.05);
-	border-left: 3px solid rgb(239, 68, 68);
-	border-radius: 0.25rem;
-	font-size: 13px;
-	line-height: 1.5;
-	color: var(--text-primary);
-	margin-bottom: 1rem;
-}
-
-/* Карусель сеансов */
-.exam-slots-carousel {
-	display: flex;
-	gap: 0.75rem;
-	overflow-x: auto;
-	padding: 0.75rem 0;
-	margin-bottom: 1rem;
-
-	&::-webkit-scrollbar {
-		height: 0.375rem;
-	}
-
-	&::-webkit-scrollbar-track {
-		background: var(--bg-secondary);
-	}
-
-	&::-webkit-scrollbar-thumb {
-		background: var(--border-1);
-		border-radius: 0.1875rem;
-	}
-}
-
+/* Карточка сеанса внутри ленты .sc-tabs: дата, день недели, время, кабинет, места */
 .exam-slot {
-	flex-shrink: 0;
-	width: 10rem;
-	padding: 0.75rem;
-	border: 2px solid var(--border-2);
-	border-radius: 0.375rem;
-	cursor: pointer;
-	transition: all 0.2s ease;
-	background: var(--bg-secondary);
+  flex: 0 0 auto; min-width: $exam-slot-width; scroll-snap-align: start;
+  display: flex; flex-direction: column; gap: t.$spacing-xs; align-items: flex-start;
+  padding: t.$spacing-md t.$spacing-lg; text-align: left;
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-sm);
+  color: var(--ink); font: inherit; cursor: pointer;
+  transition: border-color $tr, background $tr;
 
-	&:hover {
-		border-color: var(--primary);
-	}
+  &:hover:not(:disabled) { border-color: var(--line-3, var(--muted-2)); }
 
-	&.exam-slot-selected {
-		border-color: var(--primary);
-		background: var(--primary-bg);
-	}
+  &.on { border-color: var(--accent); background: var(--accent-soft); }
 
-	.exam-slot-date {
-		font-size: 14px;
-		font-weight: 600;
-		color: var(--text-primary);
-		margin-bottom: 0.25rem;
-	}
-
-	.exam-slot-weekday {
-		font-size: 12px;
-		color: var(--text-secondary);
-		margin-bottom: 0.5rem;
-	}
-
-	.exam-slot-time {
-		font-size: 13px;
-		font-weight: 500;
-		color: var(--text-primary);
-		margin-bottom: 0.25rem;
-	}
-
-	.exam-slot-room {
-		font-size: 12px;
-		color: var(--text-secondary);
-		margin-bottom: 0.5rem;
-	}
-
-	.exam-slot-free {
-		font-size: 12px;
-		color: rgb(34, 197, 94);
-		font-weight: 500;
-	}
+  &.off { cursor: default; background: var(--surface-2); color: var(--muted-2); }
 }
 
-/* Чипы предмета */
-.prof-card-chip {
-	display: inline-block;
-	padding: 0.25rem 0.5rem;
-	border-radius: 0.25rem;
-	font-size: 11px;
-	font-weight: 600;
-	text-transform: uppercase;
-	margin-bottom: 0.5rem;
+.exam-slot-date { font-size: t.$font-size-md; font-weight: t.$font-bold; }
+.exam-slot-weekday { font-size: t.$font-size-xs; color: var(--muted); text-transform: capitalize; }
+.exam-slot-time { font-size: t.$font-size-xl; font-weight: t.$font-bold; line-height: 1.1; }
+.exam-slot-room { font-size: t.$font-size-xs; color: var(--muted); }
+.exam-slot-free { margin-top: t.$spacing-xs; font-size: t.$font-size-xs; color: var(--muted-2); }
 
-	&.chip-ege {
-		background: rgba(59, 130, 246, 0.1);
-		color: rgb(59, 130, 246);
-	}
+.exam-panel-actions { display: flex; gap: t.$spacing-md; margin-top: t.$spacing-lg; }
 
-	&.chip-oge {
-		background: rgba(168, 85, 247, 0.1);
-		color: rgb(168, 85, 247);
-	}
+@media (max-width: $breakpoint-mobile) {
+  .exam-panel { padding: t.$spacing-md t.$spacing-lg; }
+  .exam-units .exam-panel-head { padding: t.$spacing-md t.$spacing-lg 0; }
+  .exam-slot { min-width: $exam-slot-width-mobile; }
+  .exam-panel-actions { flex-direction: column; }
 }
 
-/* Действия регистрации */
-.exam-registration-actions {
-	display: flex;
-	gap: 0.75rem;
-	margin-top: 1rem;
-	padding-top: 1rem;
-	border-top: 1px solid var(--border-2);
+/* ══════════════════════════════════════════════════════════════════════
+   «Назначить экзамен» (этап 4): календарь, форма сеанса, настройки проведения, источники.
+   Раскладка — существующая КТП (prof-ktp / prof-kal / placed-theme) и поповер gp-form (gp-indi);
+   здесь только то, чего там нет (QA.md → «Новое»).
+   ══════════════════════════════════════════════════════════════════════ */
 
-	button {
-		flex: 1;
-		padding: 0.75rem 1rem;
-		border-radius: 0.375rem;
-		font-size: 14px;
-		font-weight: 500;
-		cursor: pointer;
-		transition: all 0.2s ease;
-		border: none;
+/* Кнопка «+ Сеанс» в ячейке дня периода: добавление без перетаскивания — единственный способ на телефоне */
+.exam-add {
+  display: flex; align-items: center; justify-content: center; gap: t.$spacing-xs;
+  width: 100%; margin-top: t.$spacing-xs; padding: t.$spacing-xs;
+  background: transparent; color: var(--accent-700); font: inherit; font-size: t.$font-size-2xs; font-weight: t.$font-semibold;
+  border: 1px dashed var(--line); border-radius: t.$border-radius-sm; cursor: pointer;
+  transition: background $tr, border-color $tr;
 
-		&.btn-primary {
-			background: var(--primary);
-			color: white;
-
-			&:disabled {
-				opacity: 0.5;
-				cursor: not-allowed;
-			}
-
-			&:not(:disabled):hover {
-				background: var(--primary-dark);
-			}
-		}
-
-		&.btn-secondary {
-			background: var(--bg-secondary);
-			color: var(--text-primary);
-			border: 1px solid var(--border-2);
-
-			&:hover {
-				border-color: var(--border-1);
-			}
-		}
-	}
+  &:hover { background: var(--accent-soft); border-color: var(--accent); }
 }
 
-/* Отключённые сеансы */
-.exam-slot {
-	&.exam-slot-disabled {
-		opacity: 0.6;
-		cursor: not-allowed;
-		pointer-events: none;
-	}
+.exam-session { cursor: pointer; }
+
+/* Ошибка у поля формы или под ней: форма не закрывается, введённое остаётся */
+.gp-error {
+  margin: 0 0 t.$spacing-sm; padding: t.$spacing-sm t.$spacing-md;
+  color: var(--err); font-size: t.$font-size-xs; line-height: 1.4;
+  background: var(--err-soft, var(--surface-2)); border-radius: t.$border-radius-sm;
 }
 
-/* Класс для карточки экзамена в расписании */
-.chip-bd-exam {
-	border-left-color: rgb(59, 130, 246) !important;
-	background-color: rgba(59, 130, 246, 0.05) !important;
+/* Подписи многострочных полей и флажков в форме настроек проведения */
+.gp-exam .gp-field--top { align-items: flex-start; }
+
+.gp-exam textarea {
+  flex: 1 1 auto; width: auto; min-height: rem(72); padding: t.$spacing-sm; resize: vertical;
+  font: inherit; font-size: t.$font-size-sm; color: var(--ink);
+  background: var(--surface); border: 1px solid var(--line); border-radius: t.$border-radius-sm;
+
+  &:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 }
+.gp-exam .gp-field--check input { flex: 0 0 auto; width: auto; height: auto; }
+.gp-exam .gp-field--check span { flex: 1 1 auto; }
 
-/* Адаптивность */
-@media (max-width: 768px) {
-	.exams-tabs.sc-tabs {
-		grid-template-columns: 1fr;
-	}
+/* «Ссылки для преподавателей» внутри настроек проведения: строки источников и добавление */
+.gp-sources { margin: t.$spacing-lg 0; padding-top: t.$spacing-md; border-top: 1px solid var(--line-2); }
 
-	.prof-card.sc-hero {
-		.prof-card-header {
-			flex-direction: column;
-		}
-	}
+.exam-source {
+  display: flex; align-items: center; flex-wrap: wrap; gap: t.$spacing-md;
+  padding: t.$spacing-sm 0; border-bottom: 1px solid var(--line-2);
 
-	.exam-slots-carousel {
-		margin-left: -0.75rem;
-		margin-right: -0.75rem;
-		padding-left: 0.75rem;
-		padding-right: 0.75rem;
-	}
-
-	.exam-slot {
-		width: 8.75rem;
-	}
-
-	.exam-registration-actions {
-		flex-direction: column;
-
-		button {
-			width: 100%;
-		}
-	}
+  &.is-off .es-main { opacity: .55; }
 }
+.es-main { flex: 1 1 rem(180); min-width: 0; }
+.es-school { font-size: t.$font-size-sm; font-weight: t.$font-semibold; color: var(--ink); }
+.es-teacher { font-size: t.$font-size-xs; color: var(--muted); }
+.es-toggle { display: inline-flex; align-items: center; gap: t.$spacing-xs; font-size: t.$font-size-xs; color: var(--muted); }
+.es-actions { display: flex; flex-wrap: wrap; gap: t.$spacing-xs; }
+.es-empty { padding: t.$spacing-sm 0; font-size: t.$font-size-xs; color: var(--muted-2); }
+
+.es-add {
+  display: flex; align-items: center; flex-wrap: wrap; gap: t.$spacing-sm; margin-top: t.$spacing-md;
+
+  input { flex: 1 1 rem(140); height: rem(32); padding: 0 t.$spacing-sm; font: inherit; font-size: t.$font-size-sm; border: 1px solid var(--line); border-radius: t.$border-radius-sm; }
+}
+.es-grade { font-size: t.$font-size-xs; font-weight: t.$font-semibold; color: var(--muted); white-space: nowrap; }

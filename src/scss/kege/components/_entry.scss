@@ -38,6 +38,35 @@ $slide-chrome: rem(220);
   margin-top: rem(46);
 }
 
+// ── Телефон: станция рассчитана на компьютер (SPEC §17). До старта показываем предупреждение,
+// а ритуал входа укладываем в экран (без горизонтальной прокрутки); отдельного мобильного плеера нет.
+.kege-desktop-note {
+  display: none;
+  margin: 0 0 $spacing-lg;
+  padding: $spacing-md $spacing-lg;
+  border-left: 3px solid var(--kege-red);
+  background: var(--kege-surface);
+  color: var(--kege-text);
+  font-size: $font-size-base;
+}
+
+@include below($bp-mobile) {
+  .kege-desktop-note { display: block; }
+
+  .kege-stage { padding: $spacing-lg $spacing-lg rem(90); }
+  .kege-stage__title { font-size: $font-size-lead; margin-bottom: $spacing-lg; }
+
+  .kege-entry-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: $spacing-3xl;
+    margin-top: $spacing-lg;
+  }
+
+  .kege-dbox { gap: $spacing-sm; }
+  .kege-dbox .kege-w1 { width: rem(44); flex: none; }
+  .kege-dbox .kege-w6 { width: auto; flex: 1 1 0; min-width: 0; }
+}
+
 .kege-blank-shot {
   display: block;
   width: 100%;

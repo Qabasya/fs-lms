@@ -294,6 +294,10 @@
 .sv-corrected { background: var(--wait); color: var(--ink-inverse); }
 .sv-incorrect { background: var(--err); color: var(--ink-inverse); }
 .sv-pending   { background: var(--surface-2); color: var(--muted); }
+
+/* Вердикты экзамена: «Не решено» — жёлтый, «Частично» («Новое» п. 5, QA.md) — тот же тон с рамкой */
+.sv-unanswered { background: var(--wait-soft); color: var(--wait-text); }
+.sv-partial    { background: var(--wait-soft); color: var(--wait-text); box-shadow: inset 0 0 0 1px var(--wait-line); }
 .sum-task-cond { font-size: rem(13.5); color: var(--ink-2); line-height: 1.5; }
 .sum-task-cond :is(p, ul, ol) { margin: 0 0 rem(6); }
 .sum-task-ans { margin-top: rem(8); font-size: rem(13); }
