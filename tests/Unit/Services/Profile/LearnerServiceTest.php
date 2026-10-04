@@ -46,6 +46,9 @@ class LearnerServiceTest extends TestCase {
 	private $effectiveTeacher;
 	private $examLock;
 	private LearnerService $service;
+	private \Inc\Services\Exam\LearnerExamsService $examsService;
+	/** @var array<int, array<string, mixed>> События экзаменов, которые отдаёт сервис «Моих экзаменов». */
+	private array $examEvents = array();
 
 	protected function setUp(): void {
 		parent::setUp();
@@ -82,13 +85,16 @@ $visibility = $this->createStub( \Inc\Services\Course\LessonVisibilityService::c
 		$visibility->method( 'effectiveVisibility' )->willReturnCallback( static fn( $row ) => $row->visibility );
 		$homework = new \Inc\Services\Course\HomeworkDeadlineService( $this->worksResolver, $visibility, $this->groupLessons );
 
+		$this->examsService = $this->createStub( \Inc\Services\Exam\LearnerExamsService::class );
+		$this->examsService->method( 'upcomingEvents' )->willReturnCallback( fn (): array => $this->examEvents );
 		$this->service = new LearnerService(
 			$contextBuilder,
 			new \Inc\Services\Profile\Learner\LearnerScheduleSection( $this->submissions, $this->worksResolver, $this->lessons, $homework ),
-			new \Inc\Services\Profile\Learner\LearnerPerformanceSection( $this->gradebook, $this->attendance, $this->submissions, $this->attempts, $this->lessons, $homework, $this->createStub( \Inc\Services\Course\WorkMarksService::class ), $this->createStub( \Inc\Managers\Assessment\AssessmentManager::class ), new \Inc\Services\Assessment\AttemptRevealPolicy() ),
+			new \Inc\Services\Profile\Learner\LearnerPerformanceSection( $this->gradebook, $this->attendance, $this->submissions, $this->attempts, $this->lessons, $homework, $this->createStub( \Inc\Services\Course\WorkMarksService::class ), $this->createStub( \Inc\Managers\Assessment\AssessmentManager::class ), new \Inc\Services\Assessment\AttemptRevealPolicy( $this->createStub( \Inc\Repositories\WPDBRepositories\ExamParticipationRepository::class ) ) ),
 			new \Inc\Services\Profile\Learner\LearnerCoursesSection(
-				$this->courses, $this->lessons, $this->progress, $this->examLock, $contextBuilder,
+				$this->courses, $this->lessons, $this->progress, $this->examLock, $contextBuilder, $this->createStub( \Inc\Managers\Assessment\AssessmentManager::class ),
 			),
+			$this->examsService,
 		);
 	}
 
@@ -251,6 +257,60 @@ $visibility = $this->createStub( \Inc\Services\Course\LessonVisibilityService::c
 		);
 	}
 
+	/** Ученик с одной группой и занятиями в указанные даты (время 09:00). @param string[] $dates */
+	private function arrangeFutureLessons( array $dates ): void {
+		$this->records->method( 'findActiveByStudent' )->willReturn( array( (object) array( 'groupId' => 1 ) ) );
+		$this->groups->method( 'findById' )->willReturn( (object) array( 'id' => 1, 'name' => 'Г1', 'subject_key' => 'inf' ) );
+		$id   = 10;
+		$rows = array();
+		foreach ( $dates as $date ) {
+			$rows[] = $this->row( $id++, $date . ' 09:00:00' );
+		}
+		$this->groupLessons->method( 'listByGroup' )->willReturn( $rows );
+		$this->lessons->method( 'get' )->willReturn( null );
+		$this->gradebook->method( 'forStudent' )->willReturn( array() );
+		$this->attendance->method( 'listByStudent' )->willReturn( array() );
+	}
+
+	/** @return array<string, mixed> */
+	private function examEvent( int $eventId, string $date, string $start ): array {
+		return array(
+			'kind' => 'exam', 'event_id' => $eventId, 'title' => 'Пробный ЕГЭ', 'date' => $date, 'start' => $start, 'end' => '13:55',
+			'room' => null, 'room_name' => null, 'state' => 'registered', 'deadline' => null, 'group_name' => 'Экзамен', 'topic' => 'Пробный ЕГЭ',
+		);
+	}
+
+	public function test_exam_event_is_merged_into_upcoming_in_time_order(): void {
+		$this->arrangeFutureLessons( array( '2026-05-21', '2026-05-23' ) );
+		$this->examEvents = array( $this->examEvent( 5, '2026-05-22', '10:00' ) );
+
+		$upcoming = $this->service->build( 9001 )->toArray()['upcoming'];
+
+		self::assertSame( array( '2026-05-21', '2026-05-22', '2026-05-23' ), array_column( $upcoming, 'date' ) );
+		self::assertSame( 'exam', $upcoming[1]['kind'] );
+		self::assertSame( 5, $upcoming[1]['event_id'] );
+		self::assertSame( 'Экзамен', $upcoming[1]['group_name'], 'Поля, которые читает строка расписания, на месте.' );
+	}
+
+	public function test_exam_and_lesson_on_one_day_are_ordered_by_start_time(): void {
+		$this->arrangeFutureLessons( array( '2026-05-22' ) ); // занятие в 09:00
+		$this->examEvents = array( $this->examEvent( 5, '2026-05-22', '08:30' ) );
+
+		$upcoming = $this->service->build( 9001 )->toArray()['upcoming'];
+
+		self::assertSame( array( 'exam', 'group' ), array( $upcoming[0]['kind'], $upcoming[1]['kind'] ?? null ), 'Экзамен в 08:30 раньше занятия в 09:00.' );
+	}
+
+	public function test_upcoming_still_limited_to_six(): void {
+		$this->arrangeFutureLessons( array( '2026-05-21', '2026-05-22', '2026-05-23', '2026-05-24', '2026-05-25', '2026-05-26', '2026-05-27' ) );
+		$this->examEvents = array( $this->examEvent( 5, '2026-05-20', '15:00' ), $this->examEvent( 6, '2026-05-28', '10:00' ) );
+
+		$upcoming = $this->service->build( 9001 )->toArray()['upcoming'];
+
+		self::assertCount( 6, $upcoming, 'Слияние не раздувает ленту сверх шести.' );
+		self::assertSame( 'exam', $upcoming[0]['kind'], 'Ближайшее событие — экзамен 20 мая.' );
+		self::assertNotContains( '2026-05-28', array_column( $upcoming, 'date' ), 'Дальний экзамен вытеснен обрезкой после сортировки, а не до неё.' );
+	}
 	/* ── T14.13: вход в плеер из «Мои курсы» ─────────────────────────────── */
 
 	public function test_build_lessons_carry_player_url_and_status(): void {

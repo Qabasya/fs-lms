@@ -32,7 +32,8 @@ class LessonCallbacksTest extends TestCase {
 				$posts,
 				$this->lessons,
 				new \Inc\Services\Template\TemplateRegistry(),
-				new TaskBundleService( $posts, $this->createMock( TermManager::class ) )
+				new TaskBundleService( $posts, $this->createMock( TermManager::class ) ),
+				new \Inc\Managers\Assessment\AssessmentManager( $posts )
 			),
 			$this->lessons,
 			$this->createMock( LessonVisibilityService::class ),

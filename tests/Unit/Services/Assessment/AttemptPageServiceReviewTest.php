@@ -7,17 +7,23 @@ namespace Unit\Services\Assessment;
 use Inc\Contracts\ClockInterface;
 use Inc\DTO\Assessment\AssessmentDTO;
 use Inc\DTO\Assessment\AttemptDTO;
+use Inc\DTO\Exam\AttemptContext;
 use Inc\DTO\Person\PersonDTO;
 use Inc\Enums\Assessment\AssessmentKind;
 use Inc\Enums\Assessment\ScoringPolicy;
+use Inc\Enums\Exam\ExamAudience;
+use Inc\Enums\Log\ErrorCode;
 use Inc\Repositories\WPDBRepositories\AssessmentAttemptRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Services\Assessment\AssessmentAccessPolicy;
 use Inc\Services\Assessment\AttemptOutcomeService;
 use Inc\Services\Assessment\AttemptPageService;
 use Inc\Services\Assessment\AttemptResultService;
+use Inc\Services\Assessment\AttemptService;
 use Inc\Services\Assessment\AttemptTaskViewBuilder;
 use Inc\Services\Course\GroupAccessGuard;
+use Inc\Services\Exam\ExamAttemptService;
+use Inc\Shared\CodedException;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 
@@ -31,6 +37,10 @@ class AttemptPageServiceReviewTest extends TestCase {
 	private PersonRepository&MockObject $persons;
 	private AssessmentAccessPolicy&MockObject $access;
 	private GroupAccessGuard&MockObject $guard;
+	private AttemptResultService&MockObject $results;
+	private AttemptOutcomeService&MockObject $outcome;
+	private AttemptService&MockObject $attemptService;
+	private ExamAttemptService&MockObject $examAttempts;
 	private AttemptPageService $service;
 
 	protected function setUp(): void {
@@ -40,6 +50,10 @@ class AttemptPageServiceReviewTest extends TestCase {
 		$this->persons  = $this->createMock( PersonRepository::class );
 		$this->access   = $this->createMock( AssessmentAccessPolicy::class );
 		$this->guard    = $this->createMock( GroupAccessGuard::class );
+		$this->results        = $this->createMock( AttemptResultService::class );
+		$this->outcome        = $this->createMock( AttemptOutcomeService::class );
+		$this->attemptService = $this->createMock( AttemptService::class );
+		$this->examAttempts   = $this->createMock( ExamAttemptService::class );
 		$clock          = $this->createMock( ClockInterface::class );
 		$clock->method( 'now' )->willReturn( '2026-10-01 10:00:00' );
 
@@ -47,11 +61,13 @@ class AttemptPageServiceReviewTest extends TestCase {
 			$this->attempts,
 			$this->persons,
 			$this->access,
-			$this->createMock( AttemptResultService::class ),
-			$this->createMock( AttemptOutcomeService::class ),
+			$this->results,
+			$this->outcome,
 			$this->createMock( AttemptTaskViewBuilder::class ),
 			$clock,
 			$this->guard,
+			$this->attemptService,
+			$this->examAttempts,
 		);
 	}
 
@@ -141,5 +157,122 @@ class AttemptPageServiceReviewTest extends TestCase {
 		$this->access->method( 'canPreview' )->with( 51, 9 )->willReturn( true );
 
 		self::assertTrue( $this->service->buildReview( $this->assessment(), 5, 51 )?->reviewReveal );
+	}
+
+	/* ── Политика раскрытия: итог и разбор только раскрытым попыткам ── */
+
+	public function test_student_review_of_unapproved_exam_attempt_has_no_scores(): void {
+		$this->attempts->method( 'find' )->willReturn( $this->attempt( 11 ) );
+		$this->persons->method( 'findByWpUserId' )->willReturn( $this->person( 11 ) );
+		$this->attemptService->method( 'isRevealed' )->willReturn( false );
+		$this->results->expects( self::never() )->method( 'studentPerTask' );
+		$this->outcome->expects( self::never() )->method( 'label' );
+
+		$page = $this->service->buildReview( $this->assessment(), 5, 102 );
+
+		self::assertNotNull( $page );
+		self::assertSame( array(), $page->resultPerTask );
+		self::assertSame( '', $page->outcome );
+		self::assertFalse( $page->reviewReveal );
+	}
+
+	public function test_student_review_of_revealed_attempt_keeps_results(): void {
+		$this->attempts->method( 'find' )->willReturn( $this->attempt( 11 ) );
+		$this->persons->method( 'findByWpUserId' )->willReturn( $this->person( 11 ) );
+		$this->attemptService->method( 'isRevealed' )->willReturn( true );
+		$this->results->method( 'studentPerTask' )->willReturn( array( array( 'n' => 1 ) ) );
+		$this->outcome->method( 'label' )->willReturn( '72' );
+
+		$page = $this->service->buildReview( $this->assessment(), 5, 102 );
+
+		self::assertSame( array( array( 'n' => 1 ) ), $page->resultPerTask );
+		self::assertSame( '72', $page->outcome );
+	}
+
+	public function test_manager_review_gets_results_even_when_not_revealed(): void {
+		$this->attempts->method( 'find' )->willReturn( $this->attempt() );
+		$this->persons->method( 'findByWpUserId' )->willReturn( $this->person( 77 ) );
+		$this->persons->method( 'find' )->willReturn( $this->person( 11 ) );
+		$this->guard->method( 'canManage' )->willReturn( true );
+		$this->attemptService->method( 'isRevealed' )->willReturn( false );
+		$this->results->method( 'studentPerTask' )->willReturn( array( array( 'n' => 1 ) ) );
+
+		self::assertSame( array( array( 'n' => 1 ) ), $this->service->buildReview( $this->assessment(), 5, 51 )->resultPerTask );
+	}
+
+	/* ── Страница станции экзамена: ?exam_reg=ID ── */
+
+	private function examContext(): AttemptContext {
+		return new AttemptContext( ExamAudience::Student, 4, 6, 11, 102 );
+	}
+
+	private function examAttempt( string $status ): AttemptDTO {
+		return AttemptDTO::fromArray( array(
+			'id' => 5, 'assessment_id' => 9, 'student_person_id' => 11, 'group_id' => null,
+			'attempt_number' => 1, 'status' => $status, 'started_at' => '2026-10-01 09:00:00',
+			'deadline_at' => '2026-10-01 12:55:00', 'exam_participation_id' => 4, 'exam_registration_id' => 6,
+		) );
+	}
+
+	public function test_exam_page_for_foreign_registration_is_refused(): void {
+		$this->examAttempts->method( 'contextForStudent' )->willThrowException( new CodedException( ErrorCode::ExamAccess, 'Экзамен недоступен.' ) );
+
+		self::assertNull( $this->service->buildForExam( $this->assessment(), 102, 6 ) );
+	}
+
+	public function test_exam_page_for_variant_of_another_session_is_refused(): void {
+		$this->examAttempts->method( 'contextForStudent' )->willReturn( $this->examContext() );
+		$this->examAttempts->method( 'stationState' )->willReturn( array( 'assessment_id' => 123, 'attempt' => null ) );
+		$this->persons->method( 'find' )->willReturn( $this->person( 11 ) );
+
+		self::assertNull( $this->service->buildForExam( $this->assessment(), 102, 6 ) );
+	}
+
+	public function test_exam_page_for_closed_registration_without_attempt_is_refused(): void {
+		$this->examAttempts->method( 'contextForStudent' )->willReturn( $this->examContext() );
+		$this->examAttempts->method( 'stationState' )->willReturn( null );
+		$this->persons->method( 'find' )->willReturn( $this->person( 11 ) );
+
+		self::assertNull( $this->service->buildForExam( $this->assessment(), 102, 6 ) );
+	}
+
+	public function test_exam_page_before_start_has_no_attempt_and_no_retry(): void {
+		$this->examAttempts->method( 'contextForStudent' )->willReturn( $this->examContext() );
+		$this->examAttempts->method( 'stationState' )->willReturn( array( 'assessment_id' => 9, 'attempt' => null ) );
+		$this->persons->method( 'find' )->willReturn( $this->person( 11 ) );
+
+		$page = $this->service->buildForExam( $this->assessment(), 102, 6 );
+
+		self::assertNotNull( $page );
+		self::assertNull( $page->activeAttempt );
+		self::assertNull( $page->lastAttempt );
+		self::assertFalse( $page->canRetry );
+	}
+
+	public function test_exam_page_with_running_attempt_exposes_it_as_active(): void {
+		$this->examAttempts->method( 'contextForStudent' )->willReturn( $this->examContext() );
+		$this->examAttempts->method( 'stationState' )->willReturn( array( 'assessment_id' => 9, 'attempt' => $this->examAttempt( 'in_progress' ) ) );
+		$this->persons->method( 'find' )->willReturn( $this->person( 11 ) );
+
+		$page = $this->service->buildForExam( $this->assessment(), 102, 6 );
+
+		self::assertSame( 5, $page->activeAttempt->id );
+		self::assertNull( $page->lastAttempt );
+		self::assertTrue( $page->examInProgress );
+	}
+
+	public function test_exam_page_of_unapproved_attempt_has_no_scores(): void {
+		$this->examAttempts->method( 'contextForStudent' )->willReturn( $this->examContext() );
+		$this->examAttempts->method( 'stationState' )->willReturn( array( 'assessment_id' => 9, 'attempt' => $this->examAttempt( 'submitted' ) ) );
+		$this->persons->method( 'find' )->willReturn( $this->person( 11 ) );
+		$this->attemptService->method( 'isRevealed' )->willReturn( false );
+		$this->results->expects( self::never() )->method( 'studentPerTask' );
+
+		$page = $this->service->buildForExam( $this->assessment(), 102, 6 );
+
+		self::assertSame( 5, $page->lastAttempt->id );
+		self::assertSame( array(), $page->resultPerTask );
+		self::assertSame( '', $page->outcome );
+		self::assertFalse( $page->reviewReveal );
 	}
 }

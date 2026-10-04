@@ -59,4 +59,40 @@ class UserRoleTest extends TestCase {
 	public function test_teacher_does_not_manage_subjects_section(): void {
 		self::assertArrayNotHasKey( Capability::ManageSubjects->value, UserRole::FSTeacher->capabilities() );
 	}
+	public function test_teacher_and_methodist_have_exam_caps(): void {
+		foreach ( array( UserRole::FSTeacher, UserRole::FSMethodist ) as $role ) {
+			$caps = $role->capabilities();
+			self::assertArrayHasKey( Capability::ManageExams->value, $caps, $role->value );
+			self::assertArrayHasKey( Capability::ManageExamGuests->value, $caps, $role->value );
+			self::assertArrayHasKey( Capability::ShareExamResults->value, $caps, $role->value );
+		}
+	}
+
+	public function test_office_has_no_exam_management_caps(): void {
+		$caps = UserRole::FSOffice->capabilities();
+
+		self::assertArrayNotHasKey( Capability::ManageExams->value, $caps );
+		self::assertArrayNotHasKey( Capability::ManageExamGuests->value, $caps );
+		self::assertArrayNotHasKey( Capability::ShareExamResults->value, $caps );
+	}
+
+	public function test_student_and_parent_have_no_exam_caps(): void {
+		foreach ( array( UserRole::FSStudent, UserRole::FSParent ) as $role ) {
+			foreach ( array( Capability::ManageExams, Capability::ManageExamGuests, Capability::ShareExamResults, Capability::ResolveExamPayments ) as $cap ) {
+				self::assertArrayNotHasKey( $cap->value, $role->capabilities(), $role->value . ' / ' . $cap->value );
+			}
+		}
+	}
+
+	public function test_office_has_only_payment_resolution_among_exam_caps(): void {
+		$caps = UserRole::FSOffice->capabilities();
+
+		self::assertArrayHasKey( Capability::ResolveExamPayments->value, $caps );
+		self::assertArrayNotHasKey( Capability::ManageExams->value, $caps );
+	}
+
+	public function test_teacher_has_no_payment_resolution(): void {
+		self::assertArrayNotHasKey( Capability::ResolveExamPayments->value, UserRole::FSTeacher->capabilities() );
+		self::assertArrayNotHasKey( Capability::ResolveExamPayments->value, UserRole::FSMethodist->capabilities() );
+	}
 }

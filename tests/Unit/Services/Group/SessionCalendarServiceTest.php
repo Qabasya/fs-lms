@@ -30,7 +30,12 @@ class SessionCalendarServiceTest extends TestCase {
 		$this->periods      = $this->createMock( AcademicPeriodRepository::class );
 		$this->rooms        = $this->createMock( RoomRepository::class );
 		$this->service       = new SessionCalendarService(
-			$this->groups, $this->groupLessons, $this->periods, $this->rooms,
+			$this->groups, $this->groupLessons, $this->periods,
+			new \Inc\Services\Course\RoomAvailabilityService(
+				$this->rooms,
+				$this->createMock( \Inc\Repositories\WPDBRepositories\ExamSessionRepository::class ),
+				new \Inc\Services\Exam\ExamTime( $this->createMock( \Inc\Contracts\ClockInterface::class ) )
+			),
 		);
 	}
 

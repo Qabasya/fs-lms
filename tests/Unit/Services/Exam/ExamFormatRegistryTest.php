@@ -14,7 +14,8 @@ class ExamFormatRegistryTest extends TestCase {
 
 	protected function setUp(): void {
 		parent::setUp();
-		$this->registry = new ExamFormatRegistry();
+		$GLOBALS['_fs_test_filter_returns'] = array();
+		$this->registry                    = new ExamFormatRegistry();
 	}
 
 	public function test_all_returns_formats_keyed_by_kind(): void {
@@ -48,8 +49,8 @@ class ExamFormatRegistryTest extends TestCase {
 		$all = $this->registry->all();
 
 		$this->assertCount( 2, $all );
-		$this->assertArrayHasKey( 'ege', $all );
-		$this->assertArrayHasKey( 'oge', $all );
+		$this->assertArrayHasKey( 'ege_computer', $all );
+		$this->assertArrayHasKey( 'oge_computer', $all );
 	}
 
 	public function test_all_ignores_non_dto_values(): void {

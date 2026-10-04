@@ -17,6 +17,9 @@ class FakeWpdb extends \wpdb {
 	/** @var string[] Все выполненные SELECT-запросы (после prepare). */
 	public array $queries = array();
 
+	/** Сколько строк затронул последний UPDATE/DELETE (у настоящего wpdb заполняет сама база). */
+	public int $rows_affected = 0;
+
 	/** @var array<int, mixed> Очередь возвратов для get_row(). */
 	private array $rowReturns = array();
 

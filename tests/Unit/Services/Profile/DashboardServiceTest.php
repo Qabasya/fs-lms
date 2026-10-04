@@ -5,6 +5,10 @@ declare( strict_types=1 );
 namespace Unit\Services\Profile;
 
 use Inc\Contracts\ClockInterface;
+use Inc\Enums\Access\Capability;
+use Inc\Repositories\WPDBRepositories\ExamSessionRepository;
+use Inc\Services\Exam\ExamAccessGuard;
+use Inc\Services\Exam\ExamTime;
 use Inc\DTO\Course\GroupLessonDTO;
 use Inc\DTO\Course\LessonDTO;
 use Inc\Managers\Course\LessonManager;
@@ -32,6 +36,8 @@ class DashboardServiceTest extends TestCase {
 	private $persons;
 	private $rooms;
 	private $clock;
+	private $examSessions;
+	private $examGuard;
 	private DashboardService $service;
 
 	protected function setUp(): void {
@@ -47,14 +53,26 @@ class DashboardServiceTest extends TestCase {
 		$this->rooms         = $this->createMock( RoomRepository::class );
 		$this->rooms->method( 'findAll' )->willReturn( array() );
 		$this->clock         = $this->createMock( ClockInterface::class );
+		$this->examSessions  = $this->createMock( ExamSessionRepository::class );
+		$this->examGuard     = $this->createMock( ExamAccessGuard::class );
+		$GLOBALS['_fs_test_timezone'] = 'Europe/Moscow';
+		$GLOBALS['_test_user_can']     = array();
 		$this->service       = new DashboardService(
 			$this->groups, $this->groupLessons, $this->lessons, $this->attendance,
 			$this->records, $this->submissions, $this->substitutions, $this->rooms, $this->clock,
 			$this->createMock( SubjectRepository::class ),
 			$this->persons,
 			$this->createMock( \Inc\Services\Profile\AdminAlertService::class ),
+			$this->examSessions,
+			$this->examGuard,
+			new ExamTime( $this->clock ),
 		);
 		$this->clock->method( 'now' )->willReturn( '2026-05-20 10:00:00' );
+	}
+
+	protected function tearDown(): void {
+		unset( $GLOBALS['_fs_test_timezone'], $GLOBALS['_test_user_can'] );
+		parent::tearDown();
 	}
 
 	public function test_aggregates_schedule_worklist_and_stats(): void {
@@ -160,5 +178,99 @@ class DashboardServiceTest extends TestCase {
 			openedAt: null, homeworkDueAt: null, allowLate: true, recordingUrl: null,
 			createdByUserId: null, updatedByUserId: null,
 		);
+	}
+	// ---- сеансы экзаменов (4.7) -----------------------------------------------------------------------------------------------
+
+	/** Строка сеанса из `ExamSessionRepository::listForTeacherBetween()`: время — UTC (МСК = UTC+3). */
+	private function examRow( array $override = array() ): array {
+		return array_merge( array(
+			'id' => '71', 'event_id' => '3', 'event_title' => 'Пробный ЕГЭ', 'scheduled_at' => '2026-05-20 07:00:00', 'planned_end_at' => '2026-05-20 10:55:00',
+			'room_id' => '2', 'capacity' => '12', 'occupied_count' => '5',
+		), $override );
+	}
+
+	private function arrangeNoGroups(): void {
+		$this->groups->method( 'findByTeacherId' )->willReturn( array() );
+		$this->substitutions->method( 'findUpcomingOrActiveBySubstitute' )->willReturn( array() );
+	}
+
+	public function test_exam_sessions_listed_for_responsible_teacher(): void {
+		$this->arrangeNoGroups();
+		$GLOBALS['_test_user_can'][99][ Capability::ManageExams->value ] = true;
+		$this->examGuard->method( 'isGlobal' )->willReturn( false );
+		$this->examSessions->expects( $this->once() )->method( 'listForTeacherBetween' )->with( 99, false, $this->anything(), $this->anything() )->willReturn( array( $this->examRow() ) );
+
+		$d = $this->service->build( 99, false );
+
+		self::assertCount( 1, $d['exams'] );
+		self::assertSame( 'exam', $d['exams'][0]['kind'] );
+		self::assertSame( 71, $d['exams'][0]['session_id'] );
+		self::assertSame( 3, $d['exams'][0]['event_id'] );
+		self::assertSame( 'Пробный ЕГЭ', $d['exams'][0]['title'] );
+		self::assertSame( 5, $d['exams'][0]['occupied'] );
+		self::assertSame( 12, $d['exams'][0]['capacity'] );
+	}
+
+	public function test_global_access_asks_for_all_sessions(): void {
+		$this->arrangeNoGroups();
+		$GLOBALS['_test_user_can'][99][ Capability::ManageExams->value ] = true;
+		$this->examGuard->method( 'isGlobal' )->willReturn( true );
+		$this->examSessions->expects( $this->once() )->method( 'listForTeacherBetween' )->with( 99, true, $this->anything(), $this->anything() )->willReturn( array() );
+
+		$this->service->build( 99, true );
+	}
+
+	public function test_exam_sessions_hidden_without_manage_exams(): void {
+		$this->arrangeNoGroups();
+		$this->examSessions->expects( $this->never() )->method( 'listForTeacherBetween' );
+
+		self::assertSame( array(), $this->service->build( 99, true )['exams'], 'Офис без права экзамены на «Главной» не видит.' );
+	}
+
+	public function test_exam_times_are_local(): void {
+		$this->arrangeNoGroups();
+		$GLOBALS['_test_user_can'][99][ Capability::ManageExams->value ] = true;
+		$this->examSessions->method( 'listForTeacherBetween' )->willReturn( array( $this->examRow() ) );
+
+		$exam = $this->service->build( 99, false )['exams'][0];
+
+		self::assertSame( '2026-05-20', $exam['date'] );
+		self::assertSame( '10:00', $exam['time_start'], '07:00 UTC = 10:00 МСК.' );
+		self::assertSame( '13:55', $exam['time_end'] );
+		self::assertSame( 'now', $exam['state'], 'Сейчас 10:00 местного — сеанс идёт.' );
+	}
+
+	public function test_exam_state_follows_the_same_rule_as_lessons(): void {
+		$this->arrangeNoGroups();
+		$GLOBALS['_test_user_can'][99][ Capability::ManageExams->value ] = true;
+		$this->examSessions->method( 'listForTeacherBetween' )->willReturn( array(
+			$this->examRow( array( 'scheduled_at' => '2026-05-20 11:00:00', 'planned_end_at' => '2026-05-20 14:55:00' ) ),
+			$this->examRow( array( 'scheduled_at' => '2026-05-19 07:00:00', 'planned_end_at' => '2026-05-19 10:55:00' ) ),
+		) );
+
+		$exams = $this->service->build( 99, false )['exams'];
+
+		self::assertSame( 'soon', $exams[0]['state'] );
+		self::assertSame( 'done', $exams[1]['state'] );
+	}
+
+	public function test_lesson_counters_unchanged_by_exams(): void {
+		$GLOBALS['_test_user_can'][99][ Capability::ManageExams->value ] = true;
+		$this->groups->method( 'findByTeacherId' )->willReturn( array( (object) array( 'id' => 1, 'name' => 'Г1', 'subject_key' => 'inf', 'teacher_id' => 99 ) ) );
+		$this->substitutions->method( 'findUpcomingOrActiveBySubstitute' )->willReturn( array() );
+		$this->substitutions->method( 'findActiveForGroup' )->willReturn( null );
+		$this->attendance->method( 'matrixForGroup' )->willReturn( array() );
+		$this->lessons->method( 'get' )->willReturn( $this->lesson() );
+		$this->submissions->method( 'listQueueByGroup' )->willReturn( array() );
+		$this->groupLessons->method( 'listByGroup' )->willReturn( array( $this->row( 10, '2026-05-20 09:00:00', '2026-05-20 09:45:00' ) ) );
+		$this->examSessions->method( 'listForTeacherBetween' )->willReturn( array( $this->examRow(), $this->examRow( array( 'id' => '72' ) ) ) );
+
+		$d = $this->service->build( 99, false );
+
+		self::assertSame( 1, $d['stats']['lessons_today'] );
+		self::assertCount( 1, $d['today'] );
+		self::assertCount( 1, $d['week'] );
+		self::assertCount( 2, $d['exams'] );
+		self::assertNotContains( 'exam', array_column( $d['today'], 'kind' ) );
 	}
 }

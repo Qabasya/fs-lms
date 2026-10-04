@@ -162,6 +162,22 @@ class NotificationSubscriberTest extends TestCase {
 		) );
 	}
 
+	public function test_attempt_graded_is_skipped_for_exam_attempt(): void {
+		// Экзаменная попытка: ни «Экзамен проверен», ни баллов в уведомлении до утверждения (свои уведомления — отдельным этапом).
+		$this->attempts->method( 'find' )->with( 9 )->willReturn( AttemptDTO::fromArray( array(
+			'id' => 9, 'assessment_id' => 3, 'student_person_id' => 10, 'group_id' => null,
+			'attempt_number' => 1, 'started_at' => '2026-01-01 00:00:00', 'deadline_at' => '2026-01-01 01:00:00',
+			'status' => 'graded', 'total_score' => 8, 'max_score' => 10,
+			'exam_participation_id' => 7, 'exam_registration_id' => 6,
+		) ) );
+		$this->notifications->expects( $this->never() )->method( 'studentUserId' );
+		$this->notifications->expects( $this->never() )->method( 'guardianUserIds' );
+		$this->notifications->expects( $this->never() )->method( 'pushFresh' );
+
+		$this->subscriber->handleAttemptGraded( new LearningEvent(
+			event: LogEvent::AttemptGraded, actorUserId: 999, entityId: '9'
+		) );
+	}
 	public function test_attempt_graded_skips_when_no_recipients(): void {
 		$this->attempts->method( 'find' )->willReturn( AttemptDTO::fromArray( array(
 			'id' => 9, 'assessment_id' => 3, 'student_person_id' => 10, 'group_id' => 5,

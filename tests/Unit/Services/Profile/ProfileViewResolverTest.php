@@ -4,6 +4,7 @@ declare( strict_types=1 );
 
 namespace Unit\Services\Profile;
 
+use Inc\DTO\Profile\ProfileContext;
 use Inc\Enums\Access\UserRole;
 use Inc\Managers\Course\CourseManager;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
@@ -12,6 +13,7 @@ use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 use Inc\Services\Profile\LearnerProfileView;
 use Inc\Services\Profile\ProfileViewResolver;
+use Inc\Services\Exam\ExamAccessGuard;
 use Inc\Services\Profile\TeacherProfileView;
 use PHPUnit\Framework\TestCase;
 
@@ -34,6 +36,7 @@ class ProfileViewResolverTest extends TestCase {
 				$this->createMock( GroupsRepository::class ),
 				$this->createMock( CourseManager::class ),
 				$this->createMock( SubjectRepository::class ),
+				$this->createMock( ExamAccessGuard::class ),
 			),
 			new LearnerProfileView(),
 			$this->createMock( SubjectRepository::class ),
@@ -48,6 +51,62 @@ class ProfileViewResolverTest extends TestCase {
 	public function test_learner_roles_get_learner_view(): void {
 		self::assertInstanceOf( LearnerProfileView::class, $this->resolver->viewFor( UserRole::FSStudent ) );
 		self::assertInstanceOf( LearnerProfileView::class, $this->resolver->viewFor( UserRole::FSParent ) );
+	}
+
+	/** Резолвер с заранее известным контекстом пользователя (роль и «только чтение»). */
+	private function resolverFor( UserRole $role ): ProfileViewResolver {
+		$user             = new \WP_User();
+		$user->ID         = 21;
+		$user->roles      = array( $role->value );
+		$user->user_login = 'u21';
+		$GLOBALS['_fs_test_userdata'] = array( 21 => $user );
+
+		$people = $this->createMock( PersonRepository::class );
+		$people->method( 'findByWpUserId' )->willReturn( null );
+
+		return new ProfileViewResolver(
+			$people,
+			$this->createMock( StudentRecordRepository::class ),
+			$this->createMock( GroupsRepository::class ),
+			new TeacherProfileView(
+				$this->createMock( GroupsRepository::class ),
+				$this->createMock( CourseManager::class ),
+				$this->createMock( SubjectRepository::class ),
+				$this->createMock( ExamAccessGuard::class ),
+			),
+			new LearnerProfileView(),
+			$this->createMock( SubjectRepository::class ),
+		);
+	}
+
+	public function test_parent_config_has_no_mutating_exam_actions(): void {
+		$config = $this->resolverFor( UserRole::FSParent )->jsConfig( 21 );
+		unset( $GLOBALS['_fs_test_userdata'] );
+
+		self::assertArrayHasKey( 'getExams', $config['exams']['actions'] );
+		self::assertArrayHasKey( 'getReview', $config['exams']['actions'] );
+		foreach ( array( 'register', 'change', 'cancel' ) as $action ) {
+			self::assertArrayNotHasKey( $action, $config['exams']['actions'], "У родителя нет действия {$action}." );
+		}
+		self::assertNotSame( '', $config['exams']['nonce'] );
+	}
+
+	public function test_student_config_has_register_change_cancel(): void {
+		$config = $this->resolverFor( UserRole::FSStudent )->jsConfig( 21 );
+		unset( $GLOBALS['_fs_test_userdata'] );
+
+		foreach ( array( 'getExams', 'getReview', 'register', 'change', 'cancel' ) as $action ) {
+			self::assertArrayHasKey( $action, $config['exams']['actions'], "У ученика есть действие {$action}." );
+		}
+		self::assertSame( 'register_for_exam', $config['exams']['actions']['register'] );
+	}
+
+	public function test_teacher_config_has_no_learner_exam_block(): void {
+		$config = $this->resolverFor( UserRole::FSTeacher )->jsConfig( 21 );
+		unset( $GLOBALS['_fs_test_userdata'] );
+
+		self::assertArrayNotHasKey( 'learner', $config );
+		self::assertArrayNotHasKey( 'exams', $config, 'Блок «exams» ученика преподавателю не выдаётся (у него свой — в витрине).' );
 	}
 
 	public function test_back_office_roles_have_no_front_cabinet(): void {
@@ -81,6 +140,7 @@ class ProfileViewResolverTest extends TestCase {
 				$groups,
 				$this->createMock( CourseManager::class ),
 				$this->createMock( SubjectRepository::class ),
+				$this->createMock( ExamAccessGuard::class ),
 			),
 			new LearnerProfileView(),
 			$this->createMock( SubjectRepository::class ),

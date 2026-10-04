@@ -46,6 +46,7 @@ class WorkDetailServiceTest extends TestCase {
 	private TaskAttemptRepository&\PHPUnit\Framework\MockObject\MockObject       $taskAttempts;
 	private CorrectAnswerResolver&\PHPUnit\Framework\MockObject\MockObject       $correctAnswers;
 	private StudentRecordRepository&\PHPUnit\Framework\MockObject\MockObject      $studentRecords;
+	private \Inc\Services\Assessment\ScoringUnits&\PHPUnit\Framework\MockObject\MockObject $scoringUnits;
 	private WorkDetailService $service;
 
 	protected function setUp(): void {
@@ -62,6 +63,7 @@ class WorkDetailServiceTest extends TestCase {
 		$this->taskAttempts   = $this->createMock( TaskAttemptRepository::class );
 		$this->studentRecords = $this->createMock( StudentRecordRepository::class );
 		$this->correctAnswers = $this->createMock( CorrectAnswerResolver::class );
+		$this->scoringUnits   = $this->createMock( \Inc\Services\Assessment\ScoringUnits::class );
 		$this->service = new WorkDetailService(
 			$this->submissions,
 			$this->works,
@@ -76,6 +78,7 @@ class WorkDetailServiceTest extends TestCase {
 			$this->taskAttempts,
 			$this->studentRecords,
 			new TaskSolutionService( $this->correctAnswers ),
+			$this->scoringUnits,
 		);
 	}
 
@@ -685,5 +688,98 @@ class WorkDetailServiceTest extends TestCase {
 
 		self::assertSame( 'Макс: 2; 3', $task['correct'] );
 		self::assertStringContainsString( 'Разбор прошлого раунда', $task['solution']['html'] );
+	}
+	/* ── 7.2: вердикты, задания без ответа, якоря ── */
+
+	private function examAssessment( array $taskIds, array $taskPoints = array() ): \Inc\DTO\Assessment\AssessmentDTO {
+		return new \Inc\DTO\Assessment\AssessmentDTO(
+			id: 1, subjectKey: 'inf', title: 'ЕГЭ', taskIds: $taskIds,
+			timeLimit: 0, attemptsAllowed: 0, passScore: 0.0,
+			scoringPolicy: \Inc\Enums\Assessment\ScoringPolicy::Highest, status: 'publish',
+			kind: \Inc\Enums\Assessment\AssessmentKind::EgeComputer, taskPoints: $taskPoints, scoreMap: array(),
+		);
+	}
+
+	/** @param array<int, array<string, mixed>> $rows */
+	private function arrangeAttempt( \Inc\DTO\Assessment\AssessmentDTO $assessment, array $rows ): void {
+		$this->attempts->method( 'find' )->willReturn( $this->attemptFixture() );
+		$this->assessments->method( 'get' )->willReturn( $assessment );
+		$this->answers->method( 'listByAttempt' )->willReturn( array_map(
+			static fn( array $r ): AttemptAnswerDTO => AttemptAnswerDTO::fromArray( array_merge( array( 'id' => 1, 'attempt_id' => 9 ), $r ) ),
+			$rows
+		) );
+		$this->posts->method( 'getMeta' )->willReturnCallback( static fn( int $postId, string $key ) => PostMetaName::TemplateType->value === $key ? 'standard_task' : array() );
+	}
+
+	public function test_verdict_unanswered_for_empty_answer(): void {
+		$this->arrangeAttempt( $this->examAssessment( array( 42 ) ), array(
+			array( 'task_id' => 42, 'answer_text' => '   ', 'is_correct' => 0, 'score' => 0, 'max_score' => 1 ),
+		) );
+
+		self::assertSame( 'unanswered', $this->service->forWork( 'attempt', 9 )['tasks'][0]['verdict'] );
+	}
+
+	public function test_verdict_partial_for_fractional_score(): void {
+		$this->arrangeAttempt( $this->examAssessment( array( 42 ) ), array(
+			array( 'task_id' => 42, 'answer_text' => 'x', 'is_correct' => 0, 'score' => 1, 'max_score' => 2 ),
+		) );
+
+		self::assertSame( 'partial', $this->service->forWork( 'attempt', 9 )['tasks'][0]['verdict'] );
+	}
+
+	public function test_verdict_pending_is_not_zeroed(): void {
+		$this->arrangeAttempt( $this->examAssessment( array( 42 ) ), array(
+			array( 'task_id' => 42, 'answer_text' => 'x' ),
+		) );
+
+		$task = $this->service->forWork( 'attempt', 9 )['tasks'][0];
+
+		self::assertSame( 'pending', $task['verdict'] );
+		self::assertNull( $task['score'] );
+	}
+
+	public function test_verdict_correct_and_incorrect_follow_is_correct(): void {
+		$this->arrangeAttempt( $this->examAssessment( array( 42, 43 ) ), array(
+			array( 'task_id' => 42, 'answer_text' => 'x', 'is_correct' => 1, 'score' => 1, 'max_score' => 1 ),
+			array( 'task_id' => 43, 'answer_text' => 'y', 'is_correct' => 0, 'score' => 0, 'max_score' => 1 ),
+		) );
+
+		$tasks = $this->service->forWork( 'attempt', 9 )['tasks'];
+
+		self::assertSame( 'correct', $tasks[0]['verdict'] );
+		self::assertSame( 'incorrect', $tasks[1]['verdict'] );
+	}
+
+	public function test_task_without_answer_row_is_listed_as_unanswered(): void {
+		$this->arrangeAttempt( $this->examAssessment( array( 42, 43 ), array( 43 => 2 ) ), array(
+			array( 'task_id' => 42, 'answer_text' => 'x', 'is_correct' => 1, 'score' => 1, 'max_score' => 1 ),
+		) );
+
+		$tasks = $this->service->forWork( 'attempt', 9 )['tasks'];
+
+		self::assertCount( 2, $tasks );
+		self::assertSame( 43, $tasks[1]['task_id'] );
+		self::assertSame( 'unanswered', $tasks[1]['verdict'] );
+		self::assertSame( 0.0, $tasks[1]['score'] );
+		self::assertEquals( 2, $tasks[1]['max_score'] );
+		self::assertSame( '', $tasks[1]['answer'] );
+	}
+
+	public function test_anchor_is_stable_and_unique_for_repeated_numbers(): void {
+		$assessment = $this->examAssessment( array( 42, 43 ) );
+		$this->scoringUnits->method( 'keysFor' )->willReturn( array( 42 => 'n:14', 43 => 'n:14' ) );
+		$this->arrangeAttempt( $assessment, array(
+			array( 'task_id' => 42, 'answer_text' => 'x', 'is_correct' => 1, 'score' => 1, 'max_score' => 1 ),
+			array( 'task_id' => 43, 'answer_text' => 'y', 'is_correct' => 1, 'score' => 1, 'max_score' => 1 ),
+		) );
+
+		$first  = $this->service->forWork( 'attempt', 9 )['tasks'];
+		$second = $this->service->forWork( 'attempt', 9 )['tasks'];
+
+		self::assertSame( 'n:14', $first[0]['unit_key'] );
+		self::assertSame( '14', $first[0]['number'] );
+		self::assertNotSame( $first[0]['anchor'], $first[1]['anchor'] );
+		self::assertSame( $first[0]['anchor'], $second[0]['anchor'] );
+		self::assertSame( 'u-' . md5( 'n:14:42' ), $first[0]['anchor'] );
 	}
 }

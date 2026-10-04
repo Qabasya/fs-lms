@@ -9,6 +9,8 @@ use Inc\DTO\Assessment\AttemptDTO;
 use Inc\Enums\Assessment\AssessmentKind;
 use Inc\Enums\Assessment\AttemptStatus;
 use Inc\Enums\Assessment\ScoringPolicy;
+use Inc\DTO\Exam\ExamParticipationDTO;
+use Inc\Repositories\WPDBRepositories\ExamParticipationRepository;
 use Inc\Services\Assessment\AttemptRevealPolicy;
 use PHPUnit\Framework\TestCase;
 
@@ -19,9 +21,12 @@ class AttemptRevealPolicyTest extends TestCase {
 
 	private AttemptRevealPolicy $policy;
 
+	private ExamParticipationRepository $participations;
+
 	protected function setUp(): void {
 		parent::setUp();
-		$this->policy = new AttemptRevealPolicy();
+		$this->participations = $this->createMock( ExamParticipationRepository::class );
+		$this->policy         = new AttemptRevealPolicy( $this->participations );
 	}
 
 	private function assessment( AssessmentKind $kind ): AssessmentDTO {
@@ -43,14 +48,14 @@ class AttemptRevealPolicyTest extends TestCase {
 		);
 	}
 
-	public function test_control_is_always_revealed(): void {
+	public function test_control_rule_unchanged(): void {
 		self::assertTrue( $this->policy->isRevealed(
 			$this->assessment( AssessmentKind::Control ),
 			$this->attempt( AttemptStatus::Submitted )
 		) );
 	}
 
-	public function test_oge_is_revealed_when_graded(): void {
+	public function test_course_oge_rule_unchanged(): void {
 		self::assertTrue( $this->policy->isRevealed(
 			$this->assessment( AssessmentKind::OgeComputer ),
 			$this->attempt( AttemptStatus::Graded )
@@ -88,6 +93,67 @@ class AttemptRevealPolicyTest extends TestCase {
 		self::assertFalse( $this->policy->isRevealed(
 			$this->assessment( AssessmentKind::OgeComputer ),
 			$this->attempt( AttemptStatus::Submitted, '2026-01-01 12:00:00' )
+		) );
+	}
+	private function examAttempt( AttemptStatus $status, ?string $approvedAt = null ): AttemptDTO {
+		return new AttemptDTO(
+			id: 1, assessmentId: 1, studentPersonId: 1, groupId: null, attemptNumber: 1,
+			startedAt: '2026-01-01 10:00:00', deadlineAt: '2026-01-01 11:00:00', submittedAt: null,
+			status: $status, totalScore: null, maxScore: null, gradedByUserId: null,
+			createdAt: '2026-01-01 10:00:00', updatedAt: '2026-01-01 10:00:00',
+			approvedAt: $approvedAt, examParticipationId: 7, examRegistrationId: 3,
+		);
+	}
+
+	private function participation( string $audience ): void {
+		$this->participations->method( 'find' )->willReturn( ExamParticipationDTO::fromArray( array(
+			'id' => 7, 'event_id' => 1, 'participant_id' => 1, 'audience' => $audience, 'transfer_allowed' => 0,
+			'version' => 1, 'created_at' => '2026-01-01 00:00:00', 'updated_at' => '2026-01-01 00:00:00',
+		) ) );
+	}
+
+	public function test_exam_student_ege_hidden_until_approved(): void {
+		$this->participation( 'student' );
+		self::assertFalse( $this->policy->isRevealed(
+			$this->assessment( AssessmentKind::EgeComputer ),
+			$this->examAttempt( AttemptStatus::Graded )
+		) );
+		self::assertTrue( $this->policy->isRevealed(
+			$this->assessment( AssessmentKind::EgeComputer ),
+			$this->examAttempt( AttemptStatus::Graded, '2026-01-01 12:00:00' )
+		) );
+	}
+
+	/** Экзаменный ОГЭ, в отличие от курсового, требует явного утверждения. */
+	public function test_exam_student_oge_hidden_until_approved_even_when_graded(): void {
+		$this->participation( 'student' );
+		self::assertFalse( $this->policy->isRevealed(
+			$this->assessment( AssessmentKind::OgeComputer ),
+			$this->examAttempt( AttemptStatus::Graded )
+		) );
+	}
+
+	public function test_exam_guest_revealed_after_submit(): void {
+		$this->participation( 'guest' );
+		self::assertTrue( $this->policy->isRevealed(
+			$this->assessment( AssessmentKind::EgeComputer ),
+			$this->examAttempt( AttemptStatus::Submitted )
+		) );
+	}
+
+	public function test_exam_guest_hidden_while_in_progress(): void {
+		$this->participation( 'guest' );
+		self::assertFalse( $this->policy->isRevealed(
+			$this->assessment( AssessmentKind::EgeComputer ),
+			$this->examAttempt( AttemptStatus::InProgress )
+		) );
+	}
+
+	public function test_exam_without_participation_row_is_hidden(): void {
+		$this->participations->method( 'find' )->willReturn( null );
+		self::assertFalse( $this->policy->isRevealed(
+			$this->assessment( AssessmentKind::EgeComputer ),
+			$this->examAttempt( AttemptStatus::Graded, '2026-01-01 12:00:00' )
 		) );
 	}
 }

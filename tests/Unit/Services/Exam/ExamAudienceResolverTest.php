@@ -8,10 +8,12 @@ use Inc\Services\Exam\ExamAudienceResolver;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 use Inc\DTO\Enrollment\StudentRecordDTO;
-use Inc\DTO\Course\GroupDTO;
 use Inc\Enums\Enrollment\EnrollmentStatus;
 use PHPUnit\Framework\TestCase;
 
+/**
+ * Группы приходят из `$wpdb` как `stdClass` со строковыми колонками — фикстуры такие же (на реальной базе `findActiveByGroupId( '2' )` падал TypeError).
+ */
 class ExamAudienceResolverTest extends TestCase {
 
 	private GroupsRepository $groups;
@@ -39,8 +41,8 @@ class ExamAudienceResolverTest extends TestCase {
 	}
 
 	public function test_student_in_two_groups_of_subject_listed_once(): void {
-		$group1 = new GroupDTO( 1, 1, 'G1', 'inf_ege', 1, null, false, '' );
-		$group2 = new GroupDTO( 2, 1, 'G2', 'inf_ege', 1, null, false, '' );
+		$group1 = (object) array( 'id' => '1', 'teacher_id' => 1, 'name' => 'G1', 'subject_key' => 'inf_ege', 'deleted_at' => null );
+		$group2 = (object) array( 'id' => '2', 'teacher_id' => 1, 'name' => 'G2', 'subject_key' => 'inf_ege', 'deleted_at' => null );
 
 		$this->groups->method( 'findBySubjectKey' )->with( 'inf_ege' )->willReturn( array( $group1, $group2 ) );
 
@@ -57,7 +59,7 @@ class ExamAudienceResolverTest extends TestCase {
 	}
 
 	public function test_expelled_student_is_not_in_audience(): void {
-		$group = new GroupDTO( 1, 1, 'G1', 'inf_ege', 1, null, false, '' );
+		$group = (object) array( 'id' => '1', 'teacher_id' => 1, 'name' => 'G1', 'subject_key' => 'inf_ege', 'deleted_at' => null );
 		$this->groups->method( 'findBySubjectKey' )->with( 'inf_ege' )->willReturn( array( $group ) );
 
 		$this->records->method( 'findActiveByGroupId' )->with( 1 )->willReturn( array() );
@@ -68,8 +70,8 @@ class ExamAudienceResolverTest extends TestCase {
 	}
 
 	public function test_group_of_other_subject_is_ignored(): void {
-		$egeGroup = new GroupDTO( 1, 1, 'G1', 'inf_ege', 1, null, false, '' );
-		$ogeGroup = new GroupDTO( 2, 1, 'G2', 'inf_oge', 1, null, false, '' );
+		$egeGroup = (object) array( 'id' => '1', 'teacher_id' => 1, 'name' => 'G1', 'subject_key' => 'inf_ege', 'deleted_at' => null );
+		$ogeGroup = (object) array( 'id' => '2', 'teacher_id' => 1, 'name' => 'G2', 'subject_key' => 'inf_oge', 'deleted_at' => null );
 
 		$this->groups->method( 'findBySubjectKey' )->with( 'inf_ege' )->willReturn( array( $egeGroup, $ogeGroup ) );
 
@@ -85,7 +87,7 @@ class ExamAudienceResolverTest extends TestCase {
 	}
 
 	public function test_ege_and_oge_subjects_do_not_mix(): void {
-		$egeGroup = new GroupDTO( 1, 1, 'КЕГЭ-1', 'inf_ege', 1, null, false, '' );
+		$egeGroup = (object) array( 'id' => '1', 'teacher_id' => 1, 'name' => 'КЕГЭ-1', 'subject_key' => 'inf_ege', 'deleted_at' => null );
 
 		$this->groups->method( 'findBySubjectKey' )->with( 'inf_ege' )->willReturn( array( $egeGroup ) );
 		$this->records->method( 'findActiveByGroupId' )->with( 1 )->willReturn( array() );
@@ -98,7 +100,7 @@ class ExamAudienceResolverTest extends TestCase {
 	public function test_trial_record_is_not_eligible(): void {
 		$record = $this->createStudentRecord( 1, 10, 20, 1, true );
 
-		$group = new GroupDTO( 1, 1, 'G1', 'inf_ege', 1, null, false, '' );
+		$group = (object) array( 'id' => '1', 'teacher_id' => 1, 'name' => 'G1', 'subject_key' => 'inf_ege', 'deleted_at' => null );
 		$this->groups->method( 'findBySubjectKey' )->with( 'inf_ege' )->willReturn( array( $group ) );
 		$this->records->method( 'findActiveByGroupId' )->with( 1 )->willReturn( array( $record ) );
 
@@ -108,8 +110,8 @@ class ExamAudienceResolverTest extends TestCase {
 	}
 
 	public function test_deleted_group_is_ignored(): void {
-		$activeGroup = new GroupDTO( 1, 1, 'G1', 'inf_ege', 1, null, false, '' );
-		$deletedGroup = new GroupDTO( 2, 1, 'G2', 'inf_ege', 1, '2026-01-01 00:00:00', false, '' );
+		$activeGroup = (object) array( 'id' => '1', 'teacher_id' => 1, 'name' => 'G1', 'subject_key' => 'inf_ege', 'deleted_at' => null );
+		$deletedGroup = (object) array( 'id' => '2', 'teacher_id' => 1, 'name' => 'G2', 'subject_key' => 'inf_ege', 'deleted_at' => '2026-01-01 00:00:00' );
 
 		$this->groups->method( 'findBySubjectKey' )->with( 'inf_ege' )->willReturn( array( $activeGroup, $deletedGroup ) );
 
@@ -128,8 +130,8 @@ class ExamAudienceResolverTest extends TestCase {
 
 		$this->records->method( 'findActiveByStudent' )->with( 10 )->willReturn( array( $record1, $record2 ) );
 
-		$group1 = new GroupDTO( 1, 1, 'G1', 'inf_ege', 1, null, false, '' );
-		$group2 = new GroupDTO( 2, 1, 'G2', 'inf_ege', 1, null, false, '' );
+		$group1 = (object) array( 'id' => '1', 'teacher_id' => 1, 'name' => 'G1', 'subject_key' => 'inf_ege', 'deleted_at' => null );
+		$group2 = (object) array( 'id' => '2', 'teacher_id' => 1, 'name' => 'G2', 'subject_key' => 'inf_ege', 'deleted_at' => null );
 
 		$this->groups->method( 'findById' )
 			->willReturnCallback( fn( $id ) => $id === 1 ? $group1 : $group2 );
@@ -147,7 +149,7 @@ class ExamAudienceResolverTest extends TestCase {
 
 		$this->records->method( 'findActiveByStudent' )->with( 10 )->willReturn( array( $record1, $record2, $record3 ) );
 
-		$group = new GroupDTO( 1, 1, 'G1', 'inf_ege', 1, null, false, '' );
+		$group = (object) array( 'id' => '1', 'teacher_id' => 1, 'name' => 'G1', 'subject_key' => 'inf_ege', 'deleted_at' => null );
 		$this->groups->method( 'findById' )->willReturn( $group );
 
 		$result = $this->resolver->guardianPersonIds( 10, 'inf_ege' );

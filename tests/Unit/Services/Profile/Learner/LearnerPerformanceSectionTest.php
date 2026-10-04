@@ -54,7 +54,7 @@ class LearnerPerformanceSectionTest extends TestCase {
 			$deadlines,
 			$this->marks,
 			$this->assessments,
-			new AttemptRevealPolicy(),
+			new AttemptRevealPolicy( $this->createStub( \Inc\Repositories\WPDBRepositories\ExamParticipationRepository::class ) ),
 		);
 	}
 

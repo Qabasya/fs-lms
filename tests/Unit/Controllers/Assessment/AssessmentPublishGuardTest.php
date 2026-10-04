@@ -41,6 +41,8 @@ class AssessmentPublishGuardTest extends TestCase {
 			new TaskPublishGuard(),
 			$this->createMock( \Inc\Services\Task\TaskBundleService::class ),
 			$this->createMock( \Inc\Services\Assessment\AssessmentSlugService::class ),
+			new \Inc\Services\Exam\ExamFormatRegistry(),
+			$this->createMock( \Inc\Services\Assessment\AssessmentKindGuard::class ),
 		);
 	}
 

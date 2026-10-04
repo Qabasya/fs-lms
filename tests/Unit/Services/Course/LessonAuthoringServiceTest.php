@@ -26,7 +26,8 @@ class LessonAuthoringServiceTest extends TestCase {
 			$posts,
 			$this->lessons,
 			new \Inc\Services\Template\TemplateRegistry(),
-			new TaskBundleService( $posts, $this->createMock( TermManager::class ) )
+			new TaskBundleService( $posts, $this->createMock( TermManager::class ) ),
+			new \Inc\Managers\Assessment\AssessmentManager( $posts )
 		);
 	}
 
@@ -146,6 +147,55 @@ class LessonAuthoringServiceTest extends TestCase {
 		self::assertSame( 0, $steps[0]->payload['ref'] );
 	}
 
+	private function seedAssessment( int $id, string $kind ): void {
+		fs_test_seed_post(
+			array( 'ID' => $id, 'post_type' => 'inf_assessments', 'post_title' => 'Работа ' . $id ),
+			array( 'fs_lms_meta' => array( 'kind' => $kind ) )
+		);
+	}
+
+	public function test_station_assessments_are_not_step_candidates(): void {
+		$this->seedAssessment( 21, 'ege_computer' );
+		$this->seedAssessment( 22, 'oge_computer' );
+
+		self::assertSame( array(), $this->service->getStepCandidates( 'inf', 'assessment' ) );
+	}
+
+	public function test_control_assessments_are_step_candidates(): void {
+		$this->seedAssessment( 23, 'control' );
+		$this->seedAssessment( 24, 'ege_computer' );
+
+		$candidates = $this->service->getStepCandidates( 'inf', 'assessment' );
+
+		self::assertCount( 1, $candidates );
+		self::assertSame( 23, $candidates[0]['id'] );
+	}
+
+	public function test_new_step_with_station_is_rejected(): void {
+		$this->seedAssessment( 25, 'ege_computer' );
+
+		$this->expectException( \InvalidArgumentException::class );
+		$this->expectExceptionMessage( 'Экзамен-станцию нельзя добавить в урок' );
+
+		$this->service->buildSteps( array( array( 'type' => 'assessment', 'payload' => array( 'ref' => 25 ) ) ), 'inf' );
+	}
+
+	public function test_existing_step_with_station_is_kept(): void {
+		// Данные до запрета (dev): шаг, уже стоящий в уроке, не удаляется и не ломается при очередном сохранении.
+		$this->seedAssessment( 26, 'oge_computer' );
+
+		$steps = $this->service->buildSteps( array( array( 'type' => 'assessment', 'payload' => array( 'ref' => 26 ) ) ), 'inf', array( 26 ) );
+
+		self::assertSame( 26, $steps[0]->payload['ref'] );
+	}
+
+	public function test_new_step_with_control_is_accepted(): void {
+		$this->seedAssessment( 27, 'control' );
+
+		$steps = $this->service->buildSteps( array( array( 'type' => 'assessment', 'payload' => array( 'ref' => 27 ) ) ), 'inf' );
+
+		self::assertSame( 27, $steps[0]->payload['ref'] );
+	}
 	public function test_step_candidates_work(): void {
 		fs_test_seed_post( array( 'ID' => 1, 'post_type' => 'inf_works', 'post_title' => 'ДЗ' ) );
 

@@ -194,9 +194,10 @@ class EgeCompletenessCheckerTest extends TestCase {
 		);
 		$GLOBALS['_fs_test_filter_returns']['fs_lms_exam_formats'] = [ $format ];
 
-		$taskIds = array( 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
-			11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
-			21, 22, 23, 24, 25, 26, 27 );
+		$taskIds = range( 1, 27 );
+		foreach ( $taskIds as $i ) {
+			$this->tagTask( $i, (string) $i );
+		}
 
 		$result = $this->checker->validate(
 			$this->assessment( $taskIds, AssessmentKind::EgeComputer ),
@@ -209,48 +210,33 @@ class EgeCompletenessCheckerTest extends TestCase {
 
 	public function test_task_with_number_outside_format_is_orphan(): void {
 		$this->seedNumbers( 30 );
-		$format = $this->createFormatDto(
-			kind      : AssessmentKind::EgeComputer,
-			unitCount : 27,
+		$GLOBALS['_fs_test_filter_returns']['fs_lms_exam_formats'] = array(
+			$this->createFormatDto( kind: AssessmentKind::EgeComputer, unitCount: 27 ),
 		);
-		$GLOBALS['_fs_test_filter_returns']['fs_lms_exam_formats'] = [ $format ];
 
-		$taskIds = array( 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
-			11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
-			21, 22, 23, 24, 25, 26, 27, 28, 29, 30 );
-		$taskNumbers = array_fill_keys( $taskIds, '30' );
+		$taskIds = range( 1, 30 );
+		foreach ( $taskIds as $i ) {
+			$this->tagTask( $i, (string) $i );
+		}
 
 		$result = $this->checker->validate(
-			new AssessmentDTO(
-				id            : 1,
-				subjectKey    : self::SUBJECT,
-				title         : 'Test',
-				taskIds       : $taskIds,
-				kind          : AssessmentKind::EgeComputer,
-				timeLimit     : 235,
-				attemptsAllowed: 1,
-				passScore     : 50,
-				scoringPolicy : ScoringPolicy::MaxScore,
-				taskPoints    : array_fill_keys( $taskIds, 1 ),
-				scoreMap      : [],
-				taskNumbers   : $taskNumbers,
-				introHtml     : '',
-				hideIntro     : false,
-				status        : 'publish',
-			),
+			$this->assessment( $taskIds, AssessmentKind::EgeComputer ),
 			self::SUBJECT
 		);
 
 		$this->assertFalse( $result->isStrictlyComplete() );
-		$this->assertContains( '30', $result->orphans );
+		// Номера 28–30 вне формата: их задания не находят терма в пределах 1..27 и становятся сиротами (в списке — ID заданий).
+		$this->assertSame( array( 28, 29, 30 ), $result->orphans );
+		$this->assertSame( 27, $result->expectedCount );
 	}
 
 	public function test_falls_back_to_terms_when_format_missing(): void {
 		$this->seedNumbers( 27 );
 
-		$taskIds = array( 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
-			11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
-			21, 22, 23, 24, 25, 26, 27 );
+		$taskIds = range( 1, 27 );
+		foreach ( $taskIds as $i ) {
+			$this->tagTask( $i, (string) $i );
+		}
 
 		$result = $this->checker->validate(
 			$this->assessment( $taskIds, AssessmentKind::EgeComputer ),
@@ -270,10 +256,18 @@ class EgeCompletenessCheckerTest extends TestCase {
 		$GLOBALS['_fs_test_filter_returns']['fs_lms_exam_formats'] = [ $format ];
 		$GLOBALS['_fs_test_filter_returns']['fs_lms_assessment_completeness_extra_positions'] = [ '13', '14', '15', '16' ];
 
-		$taskIds = array( 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 );
+		$taskIds     = range( 1, 16 );
+		$taskNumbers = array();
+		foreach ( $taskIds as $i ) {
+			if ( $i <= 12 ) {
+				$this->tagTask( $i, (string) $i );
+			} else {
+				$taskNumbers[ $i ] = (string) $i; // позиции 13–16 вне таксономии: номер задан вручную
+			}
+		}
 
 		$result = $this->checker->validate(
-			$this->assessment( $taskIds, AssessmentKind::OgeComputer ),
+			$this->assessment( $taskIds, AssessmentKind::OgeComputer, $taskNumbers ),
 			self::SUBJECT
 		);
 
@@ -281,6 +275,68 @@ class EgeCompletenessCheckerTest extends TestCase {
 		$this->assertSame( 16, $result->expectedCount );
 	}
 
+	public function test_format_position_without_term_is_missing_even_when_all_existing_terms_are_covered(): void {
+		// Формат на 27 позиций, а в таксономии заведены только 1..26: набор из 26 заданий не может считаться полным.
+		$this->seedNumbers( 26 );
+		$GLOBALS['_fs_test_filter_returns']['fs_lms_exam_formats'] = array(
+			$this->createFormatDto( kind: AssessmentKind::EgeComputer, unitCount: 27 ),
+		);
+
+		$taskIds = range( 1, 26 );
+		foreach ( $taskIds as $i ) {
+			$this->tagTask( $i, (string) $i );
+		}
+
+		$result = $this->checker->validate( $this->assessment( $taskIds ), self::SUBJECT );
+
+		$this->assertFalse( $result->isStrictlyComplete() );
+		$this->assertSame( array( '27' ), $result->missing );
+		$this->assertSame( 27, $result->expectedCount );
+	}
+
+	public function test_banked_task_numbered_by_snapshot_closes_position_without_term(): void {
+		$this->seedNumbers( 26 );
+		$GLOBALS['_fs_test_filter_returns']['fs_lms_exam_formats'] = array(
+			$this->createFormatDto( kind: AssessmentKind::EgeComputer, unitCount: 27 ),
+		);
+
+		$taskIds = range( 1, 27 );
+		foreach ( range( 1, 26 ) as $i ) {
+			$this->tagTask( $i, (string) $i );
+		}
+		$this->tagTask( 27, null );
+
+		$result = $this->checker->validate( $this->assessment( $taskIds, AssessmentKind::EgeComputer, array( 27 => '27' ) ), self::SUBJECT );
+
+		$this->assertTrue( $result->isStrictlyComplete() );
+		$this->assertSame( 27, $result->expectedCount );
+	}
+
+	public function test_soft_layer_reports_position_without_term(): void {
+		$this->seedNumbers( 26 );
+		$GLOBALS['_fs_test_filter_returns']['fs_lms_exam_formats'] = array(
+			$this->createFormatDto( kind: AssessmentKind::EgeComputer, unitCount: 27 ),
+		);
+
+		$taskIds = range( 1, 26 );
+		foreach ( $taskIds as $i ) {
+			$this->tagTask( $i, (string) $i );
+		}
+
+		$this->assertSame( array( '27' ), $this->checker->getMissingTaskNumbers( $this->assessment( $taskIds ), self::SUBJECT ) );
+		$this->assertFalse( $this->checker->isComplete( $this->assessment( $taskIds ), self::SUBJECT ) );
+	}
+
+	public function test_format_without_any_terms_reports_every_position_missing(): void {
+		$GLOBALS['_fs_test_filter_returns']['fs_lms_exam_formats'] = array(
+			$this->createFormatDto( kind: AssessmentKind::EgeComputer, unitCount: 3 ),
+		);
+
+		$result = $this->checker->validate( $this->assessment( array() ), self::SUBJECT );
+
+		$this->assertFalse( $result->isStrictlyComplete() );
+		$this->assertSame( array( '1', '2', '3' ), $result->missing );
+	}
 	private function createFormatDto( AssessmentKind $kind, int $unitCount ): ExamFormatDTO {
 		return new ExamFormatDTO(
 			kind          : $kind,

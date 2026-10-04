@@ -4,16 +4,18 @@ declare( strict_types=1 );
 
 namespace Tests\Unit\Services\Exam;
 
-use Inc\Services\Exam\ExamVariantPolicy;
-use Inc\Services\Exam\ExamFormatRegistry;
-use Inc\Managers\Assessment\AssessmentManager;
-use Inc\Services\Assessment\EgeCompletenessChecker;
 use Inc\DTO\Assessment\AssessmentDTO;
+use Inc\DTO\Assessment\EgeCompletenessResult;
 use Inc\DTO\Exam\ExamFormatDTO;
 use Inc\Enums\Assessment\AssessmentKind;
+use Inc\Enums\Assessment\ScoringPolicy;
 use Inc\Enums\Exam\ExamDirection;
-use Inc\Shared\CodedException;
 use Inc\Enums\Log\ErrorCode;
+use Inc\Managers\Assessment\AssessmentManager;
+use Inc\Services\Assessment\EgeCompletenessChecker;
+use Inc\Services\Exam\ExamFormatRegistry;
+use Inc\Services\Exam\ExamVariantPolicy;
+use Inc\Shared\CodedException;
 use PHPUnit\Framework\TestCase;
 
 class ExamVariantPolicyTest extends TestCase {
@@ -24,119 +26,102 @@ class ExamVariantPolicyTest extends TestCase {
 	private ExamVariantPolicy $policy;
 
 	protected function setUp(): void {
-		$this->assessments = $this->createMock( AssessmentManager::class );
-		$this->formats = $this->createMock( ExamFormatRegistry::class );
+		parent::setUp();
+		$this->assessments  = $this->createMock( AssessmentManager::class );
+		$this->formats      = $this->createMock( ExamFormatRegistry::class );
 		$this->completeness = $this->createMock( EgeCompletenessChecker::class );
-		$this->policy = new ExamVariantPolicy( $this->assessments, $this->formats, $this->completeness );
+		$this->policy       = new ExamVariantPolicy( $this->assessments, $this->formats, $this->completeness );
+	}
+
+	private function assessment( string $subject = 'inf_ege', AssessmentKind $kind = AssessmentKind::EgeComputer, string $status = 'publish' ): AssessmentDTO {
+		return new AssessmentDTO(
+			id: 1, subjectKey: $subject, title: 'Вариант 1', taskIds: array( 1, 2, 3 ),
+			timeLimit: 235, attemptsAllowed: 1, passScore: 0.0,
+			scoringPolicy: ScoringPolicy::Highest, status: $status,
+			kind: $kind, taskPoints: array(), scoreMap: array(),
+		);
+	}
+
+	private function format( AssessmentKind $kind = AssessmentKind::EgeComputer ): ExamFormatDTO {
+		return new ExamFormatDTO(
+			kind: $kind, direction: ExamDirection::Ege, unitCount: 27, primaryMax: 29,
+			secondaryMax: 100, gradeMax: 0, durationMinutes: 235, scale: array(), unitMaxScores: array(),
+		);
+	}
+
+	private function completenessResult( array $missing = array() ): EgeCompletenessResult {
+		return new EgeCompletenessResult(
+			missing: $missing, duplicated: array(), orphans: array(), expectedCount: 27, actualCount: 27 - count( $missing ),
+		);
 	}
 
 	public function test_variant_of_same_subject_and_station_kind_passes(): void {
-		$assessment = new AssessmentDTO(
-			1, 'inf_ege', AssessmentKind::Kege, 'publish', array( 1, 2, 3 ),
-			'Вариант 1', false, '', null, null, '', ''
-		);
+		$this->assessments->method( 'get' )->with( 1 )->willReturn( $this->assessment() );
+		$this->formats->method( 'for' )->with( AssessmentKind::EgeComputer )->willReturn( $this->format() );
+		$this->completeness->method( 'validate' )->willReturn( $this->completenessResult() );
 
-		$this->assessments->method( 'get' )->with( 1 )->willReturn( $assessment );
+		self::assertNull( $this->policy->check( 1, 'inf_ege' ) );
+	}
 
-		$format = new ExamFormatDTO(
-			AssessmentKind::Kege, ExamDirection::Ege, 27, 29, 100, null, 235,
-			array(), array()
-		);
-		$this->formats->method( 'for' )->with( AssessmentKind::Kege )->willReturn( $format );
+	public function test_missing_variant_is_rejected(): void {
+		$this->assessments->method( 'get' )->willReturn( null );
 
-		$result = $this->createMock( \Inc\DTO\Assessment\EgeCompletenessResult::class );
-		$result->method( 'isStrictlyComplete' )->willReturn( true );
-		$this->completeness->method( 'validate' )->willReturn( $result );
-
-		$reason = $this->policy->check( 1, 'inf_ege' );
-
-		$this->assertNull( $reason );
+		self::assertSame( 'Вариант не найден.', $this->policy->check( 1, 'inf_ege' ) );
 	}
 
 	public function test_variant_of_other_subject_is_rejected(): void {
-		$assessment = new AssessmentDTO(
-			1, 'inf_oge', AssessmentKind::Kege, 'publish', array( 1, 2, 3 ),
-			'Вариант 1', false, '', null, null, '', ''
-		);
+		$this->assessments->method( 'get' )->willReturn( $this->assessment( 'inf_oge' ) );
 
-		$this->assessments->method( 'get' )->with( 1 )->willReturn( $assessment );
-
-		$reason = $this->policy->check( 1, 'inf_ege' );
-
-		$this->assertStringContainsString( 'другому предмету', $reason );
+		self::assertStringContainsString( 'другому предмету', (string) $this->policy->check( 1, 'inf_ege' ) );
 	}
 
 	public function test_control_kind_is_rejected(): void {
-		$assessment = new AssessmentDTO(
-			1, 'inf_ege', AssessmentKind::Control, 'publish', array( 1, 2, 3 ),
-			'Контрольная', false, '', null, null, '', ''
-		);
+		$this->assessments->method( 'get' )->willReturn( $this->assessment( 'inf_ege', AssessmentKind::Control ) );
 
-		$this->assessments->method( 'get' )->with( 1 )->willReturn( $assessment );
-
-		$reason = $this->policy->check( 1, 'inf_ege' );
-
-		$this->assertStringContainsString( 'только работа формата экзамена', $reason );
+		self::assertStringContainsString( 'только работа формата экзамена', (string) $this->policy->check( 1, 'inf_ege' ) );
 	}
 
 	public function test_rejected_when_format_registry_empty(): void {
-		$assessment = new AssessmentDTO(
-			1, 'inf_ege', AssessmentKind::Kege, 'publish', array( 1, 2, 3 ),
-			'Вариант 1', false, '', null, null, '', ''
-		);
+		$this->assessments->method( 'get' )->willReturn( $this->assessment() );
+		$this->formats->method( 'for' )->willReturn( null );
 
-		$this->assessments->method( 'get' )->with( 1 )->willReturn( $assessment );
-		$this->formats->method( 'for' )->with( AssessmentKind::Kege )->willReturn( null );
-
-		$reason = $this->policy->check( 1, 'inf_ege' );
-
-		$this->assertStringContainsString( 'модуль экзаменов выключен', $reason );
+		self::assertStringContainsString( 'модуль экзаменов выключен', (string) $this->policy->check( 1, 'inf_ege' ) );
 	}
 
 	public function test_draft_variant_is_rejected(): void {
-		$assessment = new AssessmentDTO(
-			1, 'inf_ege', AssessmentKind::Kege, 'draft', array( 1, 2, 3 ),
-			'Вариант 1', false, '', null, null, '', ''
-		);
+		$this->assessments->method( 'get' )->willReturn( $this->assessment( 'inf_ege', AssessmentKind::EgeComputer, 'draft' ) );
+		$this->formats->method( 'for' )->willReturn( $this->format() );
 
-		$this->assessments->method( 'get' )->with( 1 )->willReturn( $assessment );
-
-		$reason = $this->policy->check( 1, 'inf_ege' );
-
-		$this->assertStringContainsString( 'не опубликован', $reason );
+		self::assertStringContainsString( 'не опубликован', (string) $this->policy->check( 1, 'inf_ege' ) );
 	}
 
-	public function test_incomplete_variant_is_rejected(): void {
-		$assessment = new AssessmentDTO(
-			1, 'inf_ege', AssessmentKind::Kege, 'publish', array( 1, 2, 3 ),
-			'Вариант 1', false, '', null, null, '', ''
-		);
+	public function test_incomplete_variant_is_rejected_with_reason(): void {
+		$this->assessments->method( 'get' )->willReturn( $this->assessment() );
+		$this->formats->method( 'for' )->willReturn( $this->format() );
+		$this->completeness->method( 'validate' )->willReturn( $this->completenessResult( array( '5', '6' ) ) );
 
-		$this->assessments->method( 'get' )->with( 1 )->willReturn( $assessment );
+		$reason = (string) $this->policy->check( 1, 'inf_ege' );
 
-		$format = new ExamFormatDTO(
-			AssessmentKind::Kege, ExamDirection::Ege, 27, 29, 100, null, 235,
-			array(), array()
-		);
-		$this->formats->method( 'for' )->with( AssessmentKind::Kege )->willReturn( $format );
+		self::assertStringContainsString( 'не укомплектован', $reason );
+	}
 
-		$result = $this->createMock( \Inc\DTO\Assessment\EgeCompletenessResult::class );
-		$result->method( 'isStrictlyComplete' )->willReturn( false );
-		$result->method( 'summary' )->willReturn( 'тип 1: 0/5' );
-		$this->completeness->method( 'validate' )->willReturn( $result );
+	public function test_completeness_is_checked_for_the_assessment_and_subject(): void {
+		$assessment = $this->assessment();
+		$this->assessments->method( 'get' )->willReturn( $assessment );
+		$this->formats->method( 'for' )->willReturn( $this->format() );
+		$this->completeness->expects( self::once() )->method( 'validate' )->with( $assessment, 'inf_ege' )->willReturn( $this->completenessResult() );
 
-		$reason = $this->policy->check( 1, 'inf_ege' );
-
-		$this->assertStringContainsString( 'не укомплектован', $reason );
-		$this->assertStringContainsString( 'тип 1: 0/5', $reason );
+		$this->policy->check( 1, 'inf_ege' );
 	}
 
 	public function test_assert_throws_coded_exception_with_exam_conflict(): void {
-		$this->assessments->method( 'get' )->with( 1 )->willReturn( null );
+		$this->assessments->method( 'get' )->willReturn( null );
 
-		$this->expectException( CodedException::class );
-		$this->expectExceptionCode( ErrorCode::ExamConflict->value );
-
-		$this->policy->assert( 1, 'inf_ege' );
+		try {
+			$this->policy->assert( 1, 'inf_ege' );
+			self::fail( 'Ожидалось исключение.' );
+		} catch ( CodedException $e ) {
+			self::assertSame( ErrorCode::ExamConflict, $e->errorCode );
+		}
 	}
 }

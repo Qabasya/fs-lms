@@ -4,6 +4,7 @@ declare( strict_types=1 );
 
 namespace Unit\Services\Assessment;
 
+use Inc\Contracts\ClockInterface;
 use Inc\DTO\Assessment\AssessmentDTO;
 use Inc\DTO\Assessment\AttemptDTO;
 use Inc\Enums\Assessment\AssessmentKind;
@@ -26,7 +27,9 @@ class ExamLockServiceTest extends TestCase {
 	protected function setUp(): void {
 		$this->attempts    = $this->createMock( AssessmentAttemptRepository::class );
 		$this->assessments = $this->createMock( AssessmentManager::class );
-		$this->svc         = new ExamLockService( $this->attempts, $this->assessments );
+		$clock            = $this->createMock( ClockInterface::class );
+		$clock->method( 'now' )->willReturn( '2024-01-01 10:30:00' );
+		$this->svc         = new ExamLockService( $this->attempts, $this->assessments, $clock );
 	}
 
 	private function attempt( int $assessmentId ): AttemptDTO {
@@ -107,5 +110,57 @@ class ExamLockServiceTest extends TestCase {
 		$this->assessments->method( 'get' )->willReturn( null );
 
 		self::assertFalse( $this->svc->isLocked( 10 ) );
+	}
+
+	private function examAttempt( int $assessmentId ): AttemptDTO {
+		return AttemptDTO::fromArray( array(
+			'id' => 2, 'assessment_id' => $assessmentId, 'student_person_id' => 10, 'group_id' => null,
+			'attempt_number' => 1, 'started_at' => '2024-01-01 10:00:00', 'deadline_at' => '2024-01-01 11:00:00',
+			'status' => 'in_progress', 'exam_participation_id' => 7, 'exam_registration_id' => 3,
+		) );
+	}
+
+	public function test_exam_attempt_outside_course_locks_content(): void {
+		$this->attempts->method( 'findAnyActive' )->willReturn( $this->examAttempt( 5 ) );
+		$this->assessments->method( 'get' )->willReturn( $this->assessment( AssessmentKind::EgeComputer ) );
+
+		self::assertTrue( $this->svc->isLocked( 10 ) );
+		self::assertTrue( $this->svc->getActiveLockingAttempt( 10 )->isExam() );
+	}
+
+	public function test_lock_released_after_submit(): void {
+		// Сдача переводит попытку из in_progress — запрос активной попытки возвращает null.
+		$this->attempts->method( 'findAnyActive' )->willReturn( null );
+
+		self::assertFalse( $this->svc->isLocked( 10 ) );
+	}
+
+	/**
+	 * Репозиторий отдаёт активной только попытку `in_progress` с дедлайном позже «сейчас»; «сейчас» — местное время сайта из часов.
+	 * Поэтому блокировка снимается и когда дедлайн просто прошёл (до того, как cron завершил попытку), и после её завершения.
+	 */
+	public function test_lock_released_after_deadline_finalize(): void {
+		$stored = $this->examAttempt( 5 ); // дедлайн 11:00, часы теста — 10:30
+		$this->attempts->method( 'findAnyActive' )->willReturnCallback(
+			static fn ( int $person, string $nowLocal ): ?AttemptDTO => 'in_progress' === $stored->status->value && $stored->deadlineAt > $nowLocal ? $stored : null
+		);
+		$this->assessments->method( 'get' )->willReturn( $this->assessment( AssessmentKind::EgeComputer ) );
+		self::assertTrue( $this->svc->isLocked( 10 ), 'До дедлайна экзамен запирает контент.' );
+
+		$late     = new ExamLockService( $this->attempts, $this->assessments, $this->clockAt( '2024-01-01 11:00:01' ) );
+		self::assertFalse( $late->isLocked( 10 ), 'Дедлайн прошёл — лока нет, даже если попытка ещё не помечена завершённой.' );
+	}
+
+	private function clockAt( string $local ): ClockInterface {
+		$clock = $this->createMock( ClockInterface::class );
+		$clock->method( 'now' )->willReturn( $local );
+
+		return $clock;
+	}
+
+	public function test_lock_lookup_uses_local_site_time_from_clock(): void {
+		$this->attempts->expects( self::once() )->method( 'findAnyActive' )->with( 10, '2024-01-01 10:30:00' )->willReturn( null );
+
+		$this->svc->isLocked( 10 );
 	}
 }

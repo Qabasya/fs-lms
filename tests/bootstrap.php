@@ -189,6 +189,18 @@ if (!function_exists('add_action')) {
         return true;
     }
 }
+if (!function_exists('wp_next_scheduled')) {
+    // WP-cron: расписание запоминается в $GLOBALS['_fs_test_scheduled'][хук] — тест проверяет интервал.
+    function wp_next_scheduled(string $hook): int|false {
+        return $GLOBALS['_fs_test_scheduled'][$hook]['ts'] ?? false;
+    }
+}
+if (!function_exists('wp_schedule_event')) {
+    function wp_schedule_event(int $timestamp, string $recurrence, string $hook, array $args = []): bool {
+        $GLOBALS['_fs_test_scheduled'][$hook] = ['ts' => $timestamp, 'recurrence' => $recurrence];
+        return true;
+    }
+}
 if (!function_exists('has_filter')) {
     // add_filter() выше не запоминает регистрации — по умолчанию считаем «не подписан»
     // (модуль выключен/не настроен); тест может переопределить через $GLOBALS.
@@ -274,6 +286,7 @@ if (!function_exists('wp_remote_retrieve_body')) {
 require_once __DIR__ . '/Support/FakeWpdb.php';
 require_once __DIR__ . '/Support/GroupLessonFixtures.php';
 require_once __DIR__ . '/Support/ProgramRowFixtures.php';
+require_once __DIR__ . '/Support/ExamFixtures.php';
 
 // Global wpdb instance used by TransactionRunner trait
 $GLOBALS['wpdb'] = new wpdb();
@@ -646,8 +659,11 @@ if (!function_exists('plugin_dir_url'))  { function plugin_dir_url(string $f): s
 if (!function_exists('plugin_basename')) { function plugin_basename(string $f): string { return basename($f); } }
 
 if (!function_exists('current_user_can')) {
-    // Управляется $GLOBALS['_fs_test_can'] (по умолчанию — есть права).
-    function current_user_can(string $cap): bool { return $GLOBALS['_fs_test_can'] ?? true; }
+    // Управляется $GLOBALS['_fs_test_can'] (по умолчанию — есть права); $GLOBALS['_fs_test_can_callback'] решает по конкретному праву.
+    function current_user_can(string $cap): bool {
+        if ( isset( $GLOBALS['_fs_test_can_callback'] ) ) { return (bool) ( $GLOBALS['_fs_test_can_callback'] )( $cap ); }
+        return $GLOBALS['_fs_test_can'] ?? true;
+    }
 }
 if (!function_exists('wp_verify_nonce')) {
     // Тем же флагом, что и check_ajax_referer: сохранение метабоксов ходит через wp_verify_nonce.
@@ -766,6 +782,11 @@ if (!function_exists('wp_parse_url')) {
 }
 if (!function_exists('wp_date')) {
     function wp_date(string $format, ?int $timestamp = null): string { return gmdate($format, $timestamp ?? time()); }
+}
+if (!function_exists('wp_generate_uuid4')) {
+    function wp_generate_uuid4(): string {
+        return sprintf('%08x-%04x-4%03x-%04x-%012x', random_int(0, 0xffffffff), random_int(0, 0xffff), random_int(0, 0xfff), random_int(0x8000, 0xbfff), random_int(0, 0xffffffffffff));
+    }
 }
 if (!function_exists('wp_timezone')) {
     // Таймзона сайта; управляется $GLOBALS['_fs_test_timezone'] (по умолчанию UTC).

@@ -212,4 +212,108 @@ class AttemptServiceTest extends TestCase {
 			createdByUserId: null, updatedByUserId: null, workDeadlines: array(),
 		);
 	}
+
+	private function examAttempt( string $status = 'in_progress', string $deadline = '2026-06-01 11:00:00' ): AttemptDTO {
+		return AttemptDTO::fromArray( array(
+			'id' => 5, 'assessment_id' => 1, 'student_person_id' => 99, 'group_id' => null, 'attempt_number' => 1,
+			'started_at' => '2026-06-01 10:00:00', 'deadline_at' => $deadline, 'status' => $status,
+			'total_score' => 18, 'max_score' => 29, 'exam_participation_id' => 7, 'exam_registration_id' => 3,
+		) );
+	}
+
+	/** Обход дедлайна: по старому маршруту официальную попытку сохранять и сдавать нельзя вовсе. */
+	public function test_save_answer_refuses_exam_attempt_on_the_legacy_path(): void {
+		$this->attempts->method( 'find' )->willReturn( $this->examAttempt() );
+		$this->answers->expects( self::never() )->method( 'upsert' );
+
+		$this->expectException( \RuntimeException::class );
+
+		$this->service->saveAnswer( 5, 10, 'ответ', 99 );
+	}
+
+	public function test_submit_refuses_exam_attempt_on_the_legacy_path_even_after_deadline(): void {
+		$this->attempts->method( 'find' )->willReturn( $this->examAttempt( 'in_progress', '2026-06-01 09:00:00' ) );
+		$this->attempts->expects( self::never() )->method( 'update' );
+
+		$this->expectException( \RuntimeException::class );
+
+		$this->service->submit( 5, 99 );
+	}
+
+	public function test_expire_if_overdue_ignores_exam_attempt(): void {
+		$this->attempts->method( 'find' )->willReturn( $this->examAttempt( 'in_progress', '2026-06-01 09:00:00' ) );
+		$this->attempts->expects( self::never() )->method( 'update' );
+
+		self::assertFalse( $this->service->expireIfOverdue( 5 ) );
+	}
+
+	public function test_save_answer_for_rejects_task_outside_assessment(): void {
+		$this->assessments->method( 'get' )->willReturn( $this->assessment( AssessmentKind::EgeComputer ) );
+		$this->answers->expects( self::never() )->method( 'upsert' );
+
+		$this->expectException( \InvalidArgumentException::class );
+
+		$this->service->saveAnswerFor( $this->examAttempt(), 999, 'ответ' );
+	}
+
+	public function test_submit_for_writes_given_submission_time_and_grades(): void {
+		$attempt = $this->examAttempt();
+		$graded  = $this->examAttempt( 'graded' );
+		$this->attempts->expects( self::once() )->method( 'update' )
+			->with( 5, array( 'status' => 'submitted', 'submitted_at' => '2026-06-01 11:00:00' ) )
+			->willReturn( true );
+		$this->attempts->method( 'find' )->willReturn( $this->examAttempt( 'submitted' ) );
+		$this->autoGrade->expects( self::once() )->method( 'gradeAttempt' )->willReturn( $graded );
+
+		self::assertSame( $graded, $this->service->submitFor( $attempt, '2026-06-01 11:00:00' ) );
+	}
+
+	public function test_submit_for_defaults_to_clock_time(): void {
+		$this->attempts->expects( self::once() )->method( 'update' )
+			->with( 5, array( 'status' => 'submitted', 'submitted_at' => '2026-06-01 10:00:00' ) )
+			->willReturn( true );
+		$this->attempts->method( 'find' )->willReturn( $this->examAttempt( 'submitted' ) );
+		$this->autoGrade->method( 'gradeAttempt' )->willReturn( $this->examAttempt( 'graded' ) );
+
+		$this->service->submitFor( $this->examAttempt() );
+	}
+
+	public function test_submit_for_fails_loudly_when_status_was_not_written(): void {
+		$this->attempts->method( 'update' )->willReturn( false );
+		$this->autoGrade->expects( self::never() )->method( 'gradeAttempt' );
+		$this->dispatcher->expects( self::never() )->method( 'dispatch' );
+
+		$this->expectException( \RuntimeException::class );
+
+		$this->service->submitFor( $this->examAttempt() );
+	}
+
+	public function test_get_result_hides_totals_when_not_revealed(): void {
+		$this->attempts->method( 'find' )->willReturn( $this->examAttempt( 'submitted' ) );
+		$this->assessments->method( 'get' )->willReturn( $this->assessment( AssessmentKind::EgeComputer ) );
+		$this->answers->method( 'listByAttempt' )->willReturn( array() );
+		$this->revealPolicy->method( 'isRevealed' )->willReturn( false );
+
+		$attempt = $this->service->getResult( 5, 99 )['attempt'];
+
+		self::assertNull( $attempt->totalScore );
+		self::assertNull( $attempt->maxScore );
+	}
+
+	public function test_get_result_keeps_totals_when_revealed(): void {
+		$this->attempts->method( 'find' )->willReturn( $this->examAttempt( 'submitted' ) );
+		$this->assessments->method( 'get' )->willReturn( $this->assessment( AssessmentKind::EgeComputer ) );
+		$this->answers->method( 'listByAttempt' )->willReturn( array() );
+		$this->revealPolicy->method( 'isRevealed' )->willReturn( true );
+
+		self::assertSame( 18.0, $this->service->getResult( 5, 99 )['attempt']->totalScore );
+	}
+
+	public function test_is_revealed_delegates_to_policy_and_fails_closed_without_assessment(): void {
+		$this->assessments->method( 'get' )->willReturnOnConsecutiveCalls( $this->assessment( AssessmentKind::Control ), null );
+		$this->revealPolicy->expects( self::once() )->method( 'isRevealed' )->willReturn( true );
+
+		self::assertTrue( $this->service->isRevealed( $this->examAttempt( 'submitted' ) ) );
+		self::assertFalse( $this->service->isRevealed( $this->examAttempt( 'submitted' ) ), 'нет работы — не раскрываем' );
+	}
 }
