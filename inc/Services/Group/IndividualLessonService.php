@@ -13,6 +13,8 @@ use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\WPDBRepositories\RoomRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
+use Inc\Services\Course\RoomAvailabilityService;
+use Inc\Shared\Traits\TransactionRunner;
 
 /**
  * Class IndividualLessonService
@@ -27,6 +29,8 @@ use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
  */
 readonly class IndividualLessonService {
 
+	use TransactionRunner;
+
 	/**
 	 * @param GroupLessonRepository   $groupLessons  Строки программы/занятий
 	 * @param GroupsRepository        $groups        Группы
@@ -35,6 +39,7 @@ readonly class IndividualLessonService {
 	 * @param LessonManager           $lessonManager Банк уроков
 	 * @param CourseManager           $courses       Курсы (уроки назначенного курса)
 	 * @param ScheduleEventPublisher  $events        Публикация событий обучения
+	 * @param RoomAvailabilityService $roomAvailability Занятость кабинетов (занятия и сеансы экзаменов)
 	 */
 	public function __construct(
 		private GroupLessonRepository   $groupLessons,
@@ -44,6 +49,7 @@ readonly class IndividualLessonService {
 		private LessonManager           $lessonManager,
 		private CourseManager           $courses,
 		private ScheduleEventPublisher  $events,
+		private RoomAvailabilityService $roomAvailability,
 	) {}
 
 	/**
@@ -82,6 +88,21 @@ readonly class IndividualLessonService {
 
 		$this->assertMember( $groupId, $studentPersonId );
 
+		if ( null !== $roomId && $roomId > 0 ) {
+			return $this->inTransaction( function () use ( $groupId, $studentPersonId, $scheduledAt, $endsAt, $lessonId, $label, $teacherUserId, $actorUserId, $roomId ): int {
+				// Кабинет занимается под блокировкой: сеанс экзамена, назначаемый параллельно, видит это занятие, а занятие — сеанс.
+				$this->rooms->lockForUpdate( $roomId );
+				$this->assertNoExamInRoom( $roomId, $scheduledAt, $endsAt );
+
+				return $this->insertIndividual( $groupId, $studentPersonId, $scheduledAt, $endsAt, $lessonId, $label, $teacherUserId, $actorUserId, $roomId );
+			} );
+		}
+
+		return $this->insertIndividual( $groupId, $studentPersonId, $scheduledAt, $endsAt, $lessonId, $label, $teacherUserId, $actorUserId, $roomId );
+	}
+
+	/** Вставка индивидуального занятия и событие обучения. */
+	private function insertIndividual( int $groupId, int $studentPersonId, string $scheduledAt, ?string $endsAt, ?int $lessonId, ?string $label, ?int $teacherUserId, int $actorUserId, ?int $roomId ): int {
 		$id = $this->groupLessons->add( new GroupLessonInputDTO(
 			groupId         : $groupId,
 			lessonId        : $lessonId,
@@ -250,12 +271,21 @@ readonly class IndividualLessonService {
 	): void {
 		$row = $this->requireIndividual( $groupLessonId );
 
-		if ( null !== $scheduledAt && '' !== $scheduledAt ) {
-			$this->groupLessons->updateSchedule( $groupLessonId, $scheduledAt, $row->teacherUserId, $endsAt );
-		}
-
-		if ( null !== $roomId ) {
-			$this->groupLessons->setRoom( $groupLessonId, $roomId > 0 ? $roomId : null );
+		// Кабинет после правки — новый или прежний, если время сдвинулось: в обоих случаях проверка и запись идут под его блокировкой.
+		$effectiveRoom = null !== $roomId ? $roomId : ( $row->roomId ?? 0 );
+		$timeChanged   = null !== $scheduledAt && '' !== $scheduledAt;
+		if ( $effectiveRoom > 0 && ( $timeChanged || ( null !== $roomId && $roomId > 0 ) ) ) {
+			$this->inTransaction( function () use ( $groupLessonId, $row, $scheduledAt, $endsAt, $roomId, $effectiveRoom, $timeChanged ): void {
+				$this->rooms->lockForUpdate( $effectiveRoom );
+				$start = $timeChanged ? (string) $scheduledAt : (string) $row->scheduledAt;
+				$end   = $timeChanged ? $endsAt : $row->endsAt;
+				if ( '' !== $start ) {
+					$this->assertNoExamInRoom( $effectiveRoom, $start, $end );
+				}
+				$this->writeSchedule( $groupLessonId, $row, $scheduledAt, $endsAt, $roomId );
+			} );
+		} else {
+			$this->writeSchedule( $groupLessonId, $row, $scheduledAt, $endsAt, $roomId );
 		}
 
 		if ( null !== $studentPersonId && $studentPersonId > 0 ) {
@@ -269,6 +299,32 @@ readonly class IndividualLessonService {
 		}
 
 		$this->events->groupChanged( $row->groupId, $actorUserId );
+	}
+
+	/** Запись даты/времени и кабинета правки занятия. */
+	private function writeSchedule( int $groupLessonId, GroupLessonDTO $row, ?string $scheduledAt, ?string $endsAt, ?int $roomId ): void {
+		if ( null !== $scheduledAt && '' !== $scheduledAt ) {
+			$this->groupLessons->updateSchedule( $groupLessonId, $scheduledAt, $row->teacherUserId, $endsAt );
+		}
+
+		if ( null !== $roomId ) {
+			$this->groupLessons->setRoom( $groupLessonId, $roomId > 0 ? $roomId : null );
+		}
+	}
+
+	/**
+	 * Кабинет не занят сеансом экзамена в окне занятия (занятие без конца — час, как в `RoomRepository::isBusy()`).
+	 *
+	 * @throws \InvalidArgumentException
+	 */
+	private function assertNoExamInRoom( int $roomId, string $scheduledAt, ?string $endsAt ): void {
+		$end = ( null !== $endsAt && '' !== $endsAt )
+			? $endsAt
+			: ( new \DateTimeImmutable( $scheduledAt ) )->modify( '+60 minutes' )->format( 'Y-m-d H:i:s' );
+
+		if ( $this->roomAvailability->hasExamConflict( $roomId, $scheduledAt, $end ) ) {
+			throw new \InvalidArgumentException( 'Кабинет занят экзаменом в это время.' );
+		}
 	}
 
 	/**

@@ -10,7 +10,6 @@ use Inc\Enums\Access\Capability;
 use Inc\Enums\Subject\TemplateCategory;
 use Inc\Enums\Wp\Nonce;
 use Inc\Managers\Course\LessonManager;
-use Inc\Services\Assessment\ExamLockService;
 use Inc\Services\Course\LessonAuthoringService;
 use Inc\Services\Course\LessonVisibilityService;
 use Inc\Shared\Traits\Authorizer;
@@ -32,7 +31,6 @@ class LessonCallbacks extends BaseController {
 		private readonly LessonAuthoringService  $authoringService,
 		private readonly LessonManager           $lessonManager,
 		private readonly LessonVisibilityService $visibilityService,
-		private readonly ExamLockService         $examLock,
 	) {
 		parent::__construct();
 	}
@@ -179,18 +177,15 @@ class LessonCallbacks extends BaseController {
 			return;
 		}
 
-		// 6.6: Блокировать изменение уроков во время активного экзамена (учитель не может менять контент пока идёт его экзамен)
-		$wpUser = wp_get_current_user();
-		if ( $wpUser && $wpUser->ID && current_user_can( Capability::AuthorLmsCourses->value ) ) {
-			// Учителя блокируем от редактирования урока только если он сам проводит экзамен
-			// (не студент, поэтому getActiveLockingAttempt нужен для его personId, если он в системе как person)
-			// На этом этапе пропускаем — требует PersonRepository интеграции для преподавателя
-		}
-
 		$sanitized = array_map( array( $this->authoringService, 'sanitizeStep' ), $raw_steps );
 		// Предмет берём из самого урока (тип поста), а не из клиентского subject_key —
 		// чтобы проверка принадлежности ref не опиралась на подделываемый ввод (Р0.7).
-		$steps     = $this->authoringService->buildSteps( $sanitized, $lesson->subjectKey );
+		try {
+			$steps = $this->authoringService->buildSteps( $sanitized, $lesson->subjectKey, $lesson->assessmentIds() );
+		} catch ( \InvalidArgumentException $e ) {
+			$this->error( $e->getMessage() );
+			return;
+		}
 
 		if ( count( $steps ) > LessonAuthoringService::MAX_STEPS_PER_LESSON ) {
 			$this->error( sprintf( 'В одном уроке не может быть больше %d шагов.', LessonAuthoringService::MAX_STEPS_PER_LESSON ) );

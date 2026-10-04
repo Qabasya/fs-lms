@@ -20,6 +20,7 @@ use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 use Inc\Repositories\WPDBRepositories\SubmissionRepository;
 use Inc\Repositories\WPDBRepositories\TaskAttemptRepository;
+use Inc\Services\Assessment\ScoringUnits;
 use Inc\Services\Task\CorrectAnswerResolver;
 use Inc\Services\Task\TaskMetaService;
 use Inc\Services\Task\TaskSolutionService;
@@ -82,6 +83,7 @@ class WorkDetailService {
 		private readonly TaskAttemptRepository       $taskAttempts,
 		private readonly StudentRecordRepository     $studentRecords,
 		private readonly TaskSolutionService         $solutions,
+		private readonly ScoringUnits                $scoringUnits,
 	) {}
 
 	/**
@@ -417,39 +419,44 @@ class WorkDetailService {
 
 		$rows = $this->answers->listByAttempt( $attemptId );
 
-		// ID заданий приходят из таблицы ответов, не из WP_Query — прогреваем
+		// ID заданий приходят из таблицы ответов и состава работы, не из WP_Query — прогреваем
 		// мета-кэш одним запросом (в цикле по два чтения меты на задание).
-		$this->posts->primeMetaCache( array_map( static fn( $a ) => $a->taskId, $rows ) );
+		$this->posts->primeMetaCache( array_merge(
+			array_map( static fn( $a ) => $a->taskId, $rows ),
+			array_map( 'intval', $assessment?->taskIds ?? array() )
+		) );
 
 		// Строки ответов идут в порядке вставки (когда ученик отвечал), а не в
 		// порядке позиций экзамена — «Задача 1» рендерилась бы тем заданием,
 		// которое сохранилось первым (нередко №25/№27, набранные не по порядку).
-		// Перекладываем в порядок assessment->taskIds — как уже делает
-		// KegeResultSheetService::assemble() для листа результатов.
+		// Идём по составу работы — как KegeResultSheetService::assemble() для листа
+		// результатов; задание, на которое ответа нет вовсе (ученик не открывал),
+		// остаётся в списке без строки ответа.
 		$byTaskId = array();
 		foreach ( $rows as $ans ) {
 			$byTaskId[ $ans->taskId ] = $ans;
 		}
-		$orderedRows = array();
+		$entries = array();
 		foreach ( $assessment?->taskIds ?? array() as $taskId ) {
-			if ( isset( $byTaskId[ (int) $taskId ] ) ) {
-				$orderedRows[] = $byTaskId[ (int) $taskId ];
-				unset( $byTaskId[ (int) $taskId ] );
-			}
+			$taskId    = (int) $taskId;
+			$entries[] = array( $taskId, $byTaskId[ $taskId ] ?? null );
+			unset( $byTaskId[ $taskId ] );
 		}
 		// Остаток (ответ на задание, которого больше нет в task_ids контрольной) —
 		// в хвост, как и раньше, чтобы ни одна сдача не потерялась молча.
-		$orderedRows = array_merge( $orderedRows, array_values( $byTaskId ) );
+		foreach ( $byTaskId as $taskId => $ans ) {
+			$entries[] = array( (int) $taskId, $ans );
+		}
+
+		$unitKeys = null !== $assessment ? $this->scoringUnits->keysFor( $assessment ) : array();
 
 		$tasks = array();
 		$n     = 0;
-		foreach ( $orderedRows as $ans ) {
-			$verdict = null === $ans->isCorrect ? 'pending' : ( $ans->isCorrect ? 'correct' : 'incorrect' );
-
+		foreach ( $entries as [ $taskId, $ans ] ) {
 			// Эпик 13 (D16/D17): «Развёрнутый ответ» — ответ закодирован как JSON
 			// {"text","files":[attachment_ids]}; плюс опциональные критерии оценивания.
 			$template = TaskTemplate::fromDatabase(
-				(string) $this->posts->getMeta( $ans->taskId, PostMetaName::TemplateType->value )
+				(string) $this->posts->getMeta( $taskId, PostMetaName::TemplateType->value )
 			);
 			// Ручная проверка нужна ТОЛЬКО этой форме ответа (TaskCheckerRegistry не
 			// умеет её проверить автоматически) — балл/чекбокс/комментарий учителя на
@@ -461,21 +468,21 @@ class WorkDetailService {
 			if ( $template->isCodeOnlyAnswer() ) {
 				// «Задание Робо»: ответ — только код ({text:"",code}; поле попытки
 				// может прислать и голый текст — тогда он и есть код).
-				$parsed     = $this->parseCodeAnswer( $ans->answerText );
+				$parsed     = $this->parseCodeAnswer( $ans?->answerText );
 				$answerText = '';
 				$files      = array();
 				$code       = $parsed['code'] ?? ( '' !== $parsed['text'] ? $parsed['text'] : null );
 			} elseif ( $template->isFileAnswerShape() ) {
-				$parsed     = $this->parseFileAnswer( $ans->answerText );
+				$parsed     = $this->parseFileAnswer( $ans?->answerText );
 				$answerText = $parsed['text'];
 				$files      = $parsed['files'];
 			} else {
-				$answerText = (string) ( $ans->answerText ?? '' );
+				$answerText = (string) ( $ans?->answerText ?? '' );
 				$files      = array();
 
 				// Структурные шаблоны (choice/matching/ordering/fill/triple) хранят
 				// ответ JSON-ом — приводим к человекочитаемому виду (Tasks.md, п. 5).
-				$readable = $this->correctAnswers->formatStudentAnswer( $ans->taskId, $answerText );
+				$readable = $this->correctAnswers->formatStudentAnswer( $taskId, $answerText );
 				if ( null !== $readable ) {
 					$answerText = $readable;
 				}
@@ -483,30 +490,40 @@ class WorkDetailService {
 			// Табличные задания станции (№17/18/20/25/26/27) кодируют ответ одной
 			// строкой (`|` между столбцами, `\n` между строками таблицы) — без
 			// фильтра здесь остался бы сырой вид с `|`.
-			$answerText = (string) apply_filters( self::TABLE_ANSWER_FILTER, $answerText, $assessment, $ans->taskId );
+			$answerText = (string) apply_filters( self::TABLE_ANSWER_FILTER, $answerText, $assessment, $taskId );
+
+			$score    = $ans?->score ?? ( null === $ans ? 0.0 : null );
+			$maxScore = $ans?->maxScore ?? ( null === $ans ? ( $assessment?->taskPoints[ $taskId ] ?? null ) : null );
+			$empty    = '' === trim( $answerText ) && array() === $files && ( null === $code || '' === trim( $code ) );
+			$verdict  = null === $ans ? 'unanswered' : $this->verdictFor( $ans->isCorrect, $score, $maxScore, $empty );
+
+			$unitKey = $unitKeys[ $taskId ] ?? 't:' . $taskId;
 
 			$tasks[] = array(
 				'n'          => ++$n,
-				'task_id'    => $ans->taskId,
-				'condition'  => $this->condition( $ans->taskId ),
+				'task_id'    => $taskId,
+				'unit_key'   => $unitKey,
+				'number'     => str_starts_with( $unitKey, 'n:' ) ? substr( $unitKey, 2 ) : '',
+				// Устойчив к порядку и повторам номера: не индекс строки, а единица + задание.
+				'anchor'     => 'u-' . md5( $unitKey . ':' . $taskId ),
+				'condition'  => $this->condition( $taskId ),
 				'answer'     => $answerText,
 				'code'       => $code,
 				'files'      => $files,
-				'correct'    => $this->correctAnswers->resolve( $ans->taskId ),
-				'solution'   => $this->reviewSolution( $ans->taskId ),
+				'correct'    => $this->correctAnswers->resolve( $taskId ),
+				'solution'   => $this->reviewSolution( $taskId ),
 				'verdict'    => $verdict,
-				'score'      => $ans->score,
-				'max_score'  => $ans->maxScore,
+				'score'      => $score,
+				'max_score'  => $maxScore,
 				'manual'     => $isManual,
 				// Балл мог быть выставлен/зачтён преподавателем вручную (Tasks.md,
 				// п. 6) — авто-оценка `graded_by_user_id` не пишет.
-				'manually_graded' => null !== $ans->gradedByUserId,
-				'feedback'   => $ans->graderNote,
-				'criteria'   => $this->criteriaFor( $ans->taskId, $ans->criteriaScores ),
-				'oge_rubric' => $assessment ? apply_filters( self::OGE_RUBRIC_FILTER, null, $assessment, $ans->taskId ) : null,
+				'manually_graded' => null !== $ans?->gradedByUserId,
+				'feedback'   => $ans?->graderNote,
+				'criteria'   => $this->criteriaFor( $taskId, $ans?->criteriaScores ),
+				'oge_rubric' => $assessment ? apply_filters( self::OGE_RUBRIC_FILTER, null, $assessment, $taskId ) : null,
 			);
 		}
-
 		return array(
 			'kind'          => 'exam',
 			'title'         => $assessment?->title ?? 'Экзамен',
@@ -533,10 +550,30 @@ class WorkDetailService {
 	}
 
 	/**
+	 * Вердикт задания экзамена — порядок проверок как в таблице спецификации 7.2.1.
+	 * `pending` не превращается в 0, пустой ответ не считается «неверно».
+	 */
+	private function verdictFor( ?bool $isCorrect, ?float $score, ?float $maxScore, bool $emptyAnswer ): string {
+		if ( null === $isCorrect ) {
+			return 'pending';
+		}
+		if ( $emptyAnswer && ( null === $score || $score <= 0.0 ) ) {
+			return 'unanswered';
+		}
+		if ( null !== $score && null !== $maxScore && $score > 0.0 && $score < $maxScore ) {
+			return 'partial';
+		}
+		return $isCorrect ? 'correct' : 'incorrect';
+	}
+
+	/**
 	 * ФИО ученика по снимку записи в группе (не из зашифрованных документов — как в очереди проверки).
 	 * '' — записи нет (экзамен вне группы).
 	 */
-	private function studentName( int $studentPersonId, int $groupId ): string {
+	private function studentName( ?int $studentPersonId, int $groupId ): string {
+		if ( null === $studentPersonId ) {
+			return '';
+		}
 		$records = $groupId > 0 ? $this->studentRecords->findAllByStudentAndGroup( $studentPersonId, $groupId ) : array();
 		$record  = $records[0] ?? null;
 

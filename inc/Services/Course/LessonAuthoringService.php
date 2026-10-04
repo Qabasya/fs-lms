@@ -10,6 +10,7 @@ use Inc\Enums\Wp\PostMetaName;
 use Inc\Enums\Course\StepType;
 use Inc\Enums\Course\WorkType;
 use Inc\Enums\Subject\TemplateCategory;
+use Inc\Managers\Assessment\AssessmentManager;
 use Inc\Managers\Course\LessonManager;
 use Inc\Managers\Wp\PostManager;
 use Inc\Services\Subject\PostTypeResolver;
@@ -39,6 +40,7 @@ class LessonAuthoringService {
 		private readonly LessonManager    $lessons,
 		private readonly TemplateRegistry $templates,
 		private readonly TaskBundleService $taskBundles,
+		private readonly AssessmentManager $assessments,
 	) {}
 
 	/**
@@ -137,7 +139,17 @@ class LessonAuthoringService {
 			return array();
 		}
 
-		return $this->candidatesFrom( $post_type, $search );
+		$candidates = $this->candidatesFrom( $post_type, $search );
+
+		// Экзамен-станция (ЕГЭ/ОГЭ) — отдельный путь через «Мои экзамены», шагом курса она не бывает (SPEC §0, §14).
+		if ( 'assessment' === $kind ) {
+			$candidates = array_values( array_filter(
+				$candidates,
+				fn ( array $candidate ): bool => ! $this->isStation( $candidate['id'] )
+			) );
+		}
+
+		return $candidates;
 	}
 
 	/**
@@ -337,10 +349,14 @@ class LessonAuthoringService {
 	 * @param array<int, mixed> $rawSteps
 	 * @param string            $subjectKey Предмет урока — для проверки принадлежности ref
 	 *                                       (пусто = без проверки, обратная совместимость)
+	 * @param int[]             $keptAssessmentIds Работы, уже стоящие шагами в этом уроке: ссылка на станцию среди них
+	 *                                       (данные, сохранённые до запрета) остаётся, новая — отклоняется
 	 *
 	 * @return StepDTO[]
+	 *
+	 * @throws \InvalidArgumentException Новый шаг ссылается на экзамен-станцию.
 	 */
-	public function buildSteps( array $rawSteps, string $subjectKey = '' ): array {
+	public function buildSteps( array $rawSteps, string $subjectKey = '', array $keptAssessmentIds = array() ): array {
 		$steps = array();
 		foreach ( $rawSteps as $raw ) {
 			if ( ! is_array( $raw ) ) {
@@ -369,10 +385,22 @@ class LessonAuthoringService {
 				$payload['ref'] = 0;
 			}
 
+			$ref = (int) ( $payload['ref'] ?? 0 );
+			if ( StepType::Assessment === $type && $ref > 0 && ! in_array( $ref, $keptAssessmentIds, true ) && $this->isStation( $ref ) ) {
+				throw new \InvalidArgumentException( 'Экзамен-станцию нельзя добавить в урок: назначьте его через «Мои экзамены».' );
+			}
+
 			$steps[] = new StepDTO( '' !== $key ? $key : $this->generateStepKey(), $type, $payload );
 		}
 
 		return $steps;
+	}
+
+	/** Работа — экзамен-станция (вид берётся у менеджера, а не из поста: модуль станции подменяет настройки). */
+	private function isStation( int $assessmentId ): bool {
+		$assessment = $this->assessments->get( $assessmentId );
+
+		return null !== $assessment && $assessment->kind->isStation();
 	}
 
 	/**

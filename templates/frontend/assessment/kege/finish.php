@@ -40,6 +40,9 @@ $examTitle = AssessmentKind::OgeComputer === $assessment->kind
 	? 'Основной государственный экзамен'
 	: 'Единый государственный экзамен';
 
+// Официальная попытка экзамена: выход ведёт в «Мои экзамены» (backUrl задаёт контроллер страницы).
+$isExamAttempt = null !== $lastAttempt && $lastAttempt->isExam();
+
 $kegeSheet = apply_filters( EgeComputerModule::SHEET_FILTER, null, $assessment, $lastAttempt, $taskViews, ! empty( $reviewReveal ) );
 if ( ! $kegeSheet instanceof KegeSheetDTO ) {
 	$kegeSheet = KegeSheetDTO::blank();
@@ -91,7 +94,10 @@ if ( ! empty( $reviewMode ) && ! empty( $reviewReveal ) && $lastAttempt && ! emp
 			<div class="kege-fin-pending">
 				<div class="kege-fin-pending__title">Работа сдана и обрабатывается</div>
 				<p class="kege-fin-pending__text">
-					<?php if ( AssessmentKind::OgeComputer === $assessment->kind ) : ?>
+					<?php if ( $isExamAttempt ) : ?>
+						<?php // Официальный экзамен: и ЕГЭ, и ОГЭ раскрывает только явное утверждение (README §8, п. 9). ?>
+						Работа сдана и ожидает утверждения преподавателем.
+					<?php elseif ( AssessmentKind::OgeComputer === $assessment->kind ) : ?>
 						Задания 13-16 проверяются вручную. Ответы и баллы появятся здесь, как только
 						преподаватель завершит проверку.
 					<?php else : ?>
@@ -147,6 +153,6 @@ if ( ! empty( $reviewMode ) && ! empty( $reviewReveal ) && $lastAttempt && ! emp
 			</div>
 		<?php endif; ?>
 
-		<button type="button" class="kege-btn kege-btn--cyan kege-fin-done" id="kegeFinishBtn">Выход</button>
+		<button type="button" class="kege-btn kege-btn--cyan kege-fin-done" id="kegeFinishBtn"><?php echo $isExamAttempt ? 'К моим экзаменам' : 'Выход'; ?></button>
 	</div>
 </div>

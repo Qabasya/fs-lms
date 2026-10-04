@@ -4,6 +4,8 @@ declare( strict_types=1 );
 
 namespace Inc\DTO\Exam;
 
+use Inc\Enums\Exam\ExamAudience;
+
 /**
  * Контекст участника для старта попытки экзамена (6.1).
  * Собирается один раз и переиспользуется для всех операций со сдачей.

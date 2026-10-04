@@ -43,4 +43,14 @@ readonly class ExamSessionDTO {
 			updatedAt           : (string) $row['updated_at'],
 		);
 	}
+
+	/** Свободные места: вместимость минус занятые (брони гостей входят в занятые). */
+	public function freeSeats(): int {
+		return max( 0, $this->capacity - $this->occupiedCount );
+	}
+
+	/** Сеанс «заперт»: уже была начата хотя бы одна попытка — общие параметры менять нельзя. */
+	public function isLocked(): bool {
+		return null !== $this->firstStartedAt;
+	}
 }

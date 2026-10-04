@@ -6,6 +6,7 @@ namespace Inc\Services\Profile\Learner;
 
 use Inc\DTO\Course\GroupLessonDTO;
 use Inc\Enums\Course\LessonKind;
+use Inc\Managers\Assessment\AssessmentManager;
 use Inc\Managers\Course\CourseManager;
 use Inc\Managers\Course\LessonManager;
 use Inc\Services\Assessment\ExamLockService;
@@ -29,6 +30,7 @@ class LearnerCoursesSection {
 		private readonly LessonProgressService $progress,
 		private readonly ExamLockService       $examLock,
 		private readonly LearnerContextBuilder $contextBuilder,
+		private readonly AssessmentManager     $assessments,
 	) {}
 
 	/**
@@ -39,7 +41,9 @@ class LearnerCoursesSection {
 	 *
 	 * @param int $personId Физлицо ученика
 	 *
-	 * @return array{title: string, url: string}|null
+	 * Для официальной попытки экзамена ссылка ведёт на станцию по записи (`?exam_reg=`) — по пути курса она открылась бы 404.
+	 *
+	 * @return array{title: string, url: string, is_exam: bool}|null
 	 */
 	public function examLock( int $personId ): ?array {
 		$lockAttempt = $this->examLock->getActiveLockingAttempt( $personId );
@@ -49,8 +53,11 @@ class LearnerCoursesSection {
 		}
 
 		return array(
-			'title' => get_the_title( $lockAttempt->assessmentId ) ?: 'Экзамен',
-			'url'   => (string) get_permalink( $lockAttempt->assessmentId ),
+			'title'   => get_the_title( $lockAttempt->assessmentId ) ?: 'Экзамен',
+			'url'     => null !== $lockAttempt->examRegistrationId
+				? $this->assessments->examStationUrl( $lockAttempt->assessmentId, $lockAttempt->examRegistrationId )
+				: (string) get_permalink( $lockAttempt->assessmentId ),
+			'is_exam' => $lockAttempt->isExam(),
 		);
 	}
 

@@ -6,151 +6,139 @@ namespace Inc\Services\Exam;
 
 use Inc\DTO\Assessment\AttemptDTO;
 use Inc\DTO\Exam\ExamEventDTO;
-use Inc\Enums\Exam\TaskVerdict;
+use Inc\Enums\Assessment\AssessmentKind;
+use Inc\Enums\Exam\ExamDirection;
 use Inc\Managers\Assessment\AssessmentManager;
+use Inc\Repositories\WPDBRepositories\AssessmentAnswerRepository;
 use Inc\Services\Assessment\ScoringUnits;
 use Inc\Services\Assessment\SecondaryScoreService;
 
 /**
- * Вычисление баллов КЕГЭ и ОГЭ (7.3).
+ * Баллы КЕГЭ и ОГЭ (7.3). Клиент получает готовые числа и ничего не считает сам.
  *
- * @package Inc\Services\Exam
+ * Шкала и максимум берутся **из снимка проведения** — история не пересчитывается при смене
+ * конфигурации модуля; формат модуля — запасной путь, когда снимка нет.
  */
 class ExamScoreService {
 
+	/** Худший статус единицы: чем больше число, тем «хуже». */
+	private const STATUS_SEVERITY = array(
+		'pending'    => 4,
+		'unanswered' => 3,
+		'incorrect'  => 3,
+		'partial'    => 2,
+		'correct'    => 1,
+	);
+
 	public function __construct(
-		private readonly ExamFormatRegistry $formatRegistry,
-		private readonly ExamEventRepository $eventRepo,
+		private readonly ExamFormatRegistry $formats,
 		private readonly AssessmentManager $assessments,
+		private readonly AssessmentAnswerRepository $answers,
 		private readonly ScoringUnits $scoringUnits,
 		private readonly SecondaryScoreService $secondaryScores,
-		private readonly ExamTaskVerdictService $verdictService,
 	) {}
 
 	/**
-	 * Итоговые баллы попытки (7.3.1).
-	 *
-	 * @param AttemptDTO $attempt Попытка
-	 * @param ExamEventDTO $event Проведение
+	 * Итог попытки.
 	 *
 	 * @return array{
-	 *     direction: 'ege'|'oge',
-	 *     primary: int,
-	 *     primary_max: int,
-	 *     secondary: ?int,
-	 *     secondary_max: ?int,
-	 *     grade: ?int,
-	 *     grade_max: ?int,
-	 *     pending: bool,
-	 *     final: bool
+	 *   direction: string, primary: int, primary_max: int, secondary: ?int, secondary_max: ?int,
+	 *   grade: ?int, grade_max: ?int, pending: bool, final: bool
 	 * }
 	 */
 	public function summarize( AttemptDTO $attempt, ExamEventDTO $event ): array {
-		$snapshot = $this->eventRepo->snapshotFor( $event->id );
-		$primaryMax = $snapshot['primary_max'] ?? $this->getPrimaryMax( $event );
-
-		// Первичный балл (округленный total_score)
-		$primary = (int) round( $attempt->totalScore ?? 0 );
-
-		// Есть ли ещё задания на ручной проверке
+		$snapshot   = $event->snapshotFor( $attempt->assessmentId );
 		$assessment = $this->assessments->get( $attempt->assessmentId );
-		$pending = $assessment && $assessment->hasManual;
+		$kind       = AssessmentKind::tryFrom( (string) ( $snapshot['kind'] ?? '' ) ) ?? $assessment?->kind;
+		$format     = null !== $kind ? $this->formats->for( $kind ) : null;
 
-		// Вторичный балл и отметка
-		$secondary = null;
-		$secondaryMax = null;
-		$grade = null;
-		$gradeMax = null;
+		// Направление — свойство формата, а не конкретного модуля; без формата (модуль выключен) проведений нет.
+		$direction = $format->direction ?? ExamDirection::Ege;
+		$scale     = (array) ( $snapshot['scale'] ?? $format->scale ?? array() );
+		$primary   = (int) round( $attempt->totalScore ?? 0.0 );
+		$pending   = $this->answers->hasPendingAnswers( $attempt->id );
 
-		if ( 'oge' === $event->direction ) {
-			$gradeMax = 5;
-			// ОГЭ: отметка из первичных баллов
-			if ( ! $pending && isset( $snapshot['grade_scale'] ) ) {
-				$grade = $this->translateOgeGrade( $primary, $snapshot['grade_scale'] );
-			}
-		} else {
-			// ЕГЭ: вторичный балл из шкалы
-			$secondaryMax = 100;
-			if ( isset( $snapshot['scale'] ) ) {
-				$secondary = $this->secondaryScores->translate( $primary, $snapshot['scale'] );
-			}
-		}
+		// Неподтверждённый итог окончательным не показывается: вторичный балл и отметка — только без ручной части.
+		$converted = $pending ? null : $this->secondaryScores->translate( (float) $primary, $scale );
+		$isEge     = ExamDirection::Ege === $direction;
 
 		return array(
-			'direction'     => $event->direction,
+			'direction'     => $direction->value,
 			'primary'       => $primary,
-			'primary_max'   => $primaryMax,
-			'secondary'     => $secondary,
-			'secondary_max' => $secondaryMax,
-			'grade'         => $grade,
-			'grade_max'     => $gradeMax,
+			'primary_max'   => (int) ( $snapshot['primary_max'] ?? $format->primaryMax ?? round( $attempt->maxScore ?? 0.0 ) ),
+			'secondary'     => $isEge ? $converted : null,
+			'secondary_max' => $isEge ? ( isset( $snapshot['secondary_max'] ) ? (int) $snapshot['secondary_max'] : $format?->secondaryMax ) : null,
+			'grade'         => $isEge ? null : $converted,
+			'grade_max'     => $isEge ? null : ( $format?->gradeMax ?: 5 ),
 			'pending'       => $pending,
 			'final'         => ! $pending,
 		);
 	}
 
 	/**
-	 * Баллы по единицам (7.3.3).
+	 * Единицы оценивания для перечня заданий: несколько заданий одного номера — одна единица.
 	 *
-	 * @param AttemptDTO $attempt Попытка
-	 * @param array $tasks Задачи из WorkDetailService
+	 * @param array<int, array<string, mixed>> $tasks Задания из WorkDetailService (`unit_key`, `number`, `anchor`, `verdict`, `score`, `max_score`, `task_id`).
 	 *
-	 * @return array[] Массив с unit_key, number, score, max, verdict
+	 * @return list<array{unit_key: string, number: string, score: float, max: float, status: string, anchor: string}>
 	 */
 	public function units( AttemptDTO $attempt, array $tasks ): array {
-		$byUnit = array();
+		$assessment = $this->assessments->get( $attempt->assessmentId );
 
+		$groups = array();
 		foreach ( $tasks as $task ) {
-			$key = $task['unit_key'] ?? null;
-			if ( ! $key ) {
-				continue;
-			}
-
-			if ( ! isset( $byUnit[ $key ] ) ) {
-				$byUnit[ $key ] = array(
-					'unit_key' => $key,
-					'number'   => $task['number'] ?? '?',
-					'score'    => 0,
-					'max'      => 0,
-					'tasks'    => array(),
-				);
-			}
-
-			// Аккумулировать баллы
-			$byUnit[ $key ]['score'] += (int) ( $task['score'] ?? 0 );
-			$byUnit[ $key ]['max']   += (int) ( $task['max_score'] ?? 0 );
-
-			// Собрать вердикты для этого блока
-			$verdict = TaskVerdict::tryFrom( $task['verdict'] ?? 'pending' ) ?? TaskVerdict::Pending;
-			$byUnit[ $key ]['tasks'][] = array( 'verdict' => $verdict );
+			$groups[ (string) ( $task['unit_key'] ?? 't:' . ( $task['task_id'] ?? 0 ) ) ][] = $task;
 		}
 
-		// Вычислить итоговый статус блока по вердиктам задач
-		foreach ( $byUnit as &$unit ) {
-			$unit['verdict'] = $this->verdictService->statusForUnit( $unit['tasks'] )->value;
-			unset( $unit['tasks'] ); // Убрать временный массив
+		$units = array();
+		foreach ( $groups as $unitKey => $members ) {
+			$totals = $this->unitTotals( $assessment, $members );
+
+			$status = 'correct';
+			foreach ( $members as $member ) {
+				$verdict = (string) ( $member['verdict'] ?? 'pending' );
+				if ( ( self::STATUS_SEVERITY[ $verdict ] ?? 0 ) > ( self::STATUS_SEVERITY[ $status ] ?? 0 ) ) {
+					$status = $verdict;
+				}
+			}
+
+			$units[] = array(
+				'unit_key' => $unitKey,
+				'number'   => (string) ( $members[0]['number'] ?? '' ),
+				'score'    => (float) $totals['score'],
+				'max'      => (float) $totals['max'],
+				'status'   => $status,
+				'anchor'   => (string) ( $members[0]['anchor'] ?? '' ),
+			);
 		}
 
-		return array_values( $byUnit );
+		return $units;
 	}
 
 	/**
-	 * Максимум первичных баллов для направления.
+	 * Балл единицы — по тем же правилам, что и итог попытки (`ScoringUnits::totals()`), а не суммой строк.
+	 *
+	 * @param array<int, array<string, mixed>> $members
+	 *
+	 * @return array{score: float|int, max: float|int}
 	 */
-	private function getPrimaryMax( ExamEventDTO $event ): int {
-		$format = $this->formatRegistry->for( $event->subject_key, $event->direction );
-		return $format ? $format->primaryMax : 21; // ОГЭ по умолчанию
-	}
-
-	/**
-	 * Перевод первичных баллов в отметку ОГЭ.
-	 */
-	private function translateOgeGrade( int $primary, array $scale ): ?int {
-		foreach ( $scale as $threshold => $grade ) {
-			if ( $primary >= $threshold ) {
-				return (int) $grade;
-			}
+	private function unitTotals( ?\Inc\DTO\Assessment\AssessmentDTO $assessment, array $members ): array {
+		if ( null === $assessment ) {
+			return array(
+				'score' => array_sum( array_map( static fn ( array $m ): float => (float) ( $m['score'] ?? 0.0 ), $members ) ),
+				'max'   => array_sum( array_map( static fn ( array $m ): float => (float) ( $m['max_score'] ?? 0.0 ), $members ) ),
+			);
 		}
-		return null;
+
+		$perTask = array();
+		foreach ( $members as $member ) {
+			$perTask[ (int) ( $member['task_id'] ?? 0 ) ] = array(
+				'score'   => (float) ( $member['score'] ?? 0.0 ),
+				'max'     => (float) ( $member['max_score'] ?? 0.0 ),
+				'pending' => 'pending' === ( $member['verdict'] ?? '' ),
+			);
+		}
+
+		return $this->scoringUnits->totals( $assessment, $perTask );
 	}
 }

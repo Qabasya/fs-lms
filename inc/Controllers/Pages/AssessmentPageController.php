@@ -135,30 +135,40 @@ class AssessmentPageController extends BaseController implements ServiceInterfac
 		// `?attempt=ID` — результат конкретной попытки станции (преподаватель смотрит работу
 		// ученика, ученик — именно ту попытку, по карточке которой кликнул). Нет доступа или
 		// такой попытки — обычный путь, ничего не раскрывается.
-		$reviewAttemptId = $this->hasParam( 'attempt', 'GET' ) ? $this->sanitizeGetInt( 'attempt' ) : 0;
-		$page            = ( $userId && $reviewAttemptId > 0 && $assessment->kind->isStation() )
-			? $this->pageService->buildReview( $assessment, $reviewAttemptId, $userId )
-			: null;
-		if ( null === $page ) {
-			$page = $userId ? $this->pageService->build( $assessment, $userId ) : null;
-		}
-		if ( null === $page && $isPublic && ! ( $userId && $this->access->canPreview( $userId, $assessment->id ) ) ) {
-			$page = $this->pageService->buildPublic( $assessment );
-		}
-		if ( null === $page ) {
-			if ( ! $userId || ! $this->access->canPreview( $userId, $assessment->id ) ) {
-				global $wp_query;
-				$wp_query->set_404();
-				status_header( 404 );
-				nocache_headers();
-				return get_404_template();
+		// `?exam_reg=ID` — официальная попытка экзамена по записи ученика (минуя занятие курса). Запись
+		// чужая, закрыта или её вариант не эта работа — обычный 404, как для постороннего: на курсовой
+		// путь и предпросмотр такой адрес не откатывается.
+		$examRegistrationId = $this->hasParam( AssessmentManager::EXAM_REGISTRATION_PARAM, 'GET' )
+			? $this->sanitizeGetInt( AssessmentManager::EXAM_REGISTRATION_PARAM )
+			: 0;
+		$isExamPage         = $userId && $examRegistrationId > 0 && $assessment->kind->isStation();
+		if ( $isExamPage ) {
+			$page = $this->pageService->buildForExam( $assessment, $userId, $examRegistrationId );
+			if ( null === $page ) {
+				return $this->notFoundTemplate();
 			}
+		} else {
+			$reviewAttemptId = $this->hasParam( 'attempt', 'GET' ) ? $this->sanitizeGetInt( 'attempt' ) : 0;
+			$page            = ( $userId && $reviewAttemptId > 0 && $assessment->kind->isStation() )
+				? $this->pageService->buildReview( $assessment, $reviewAttemptId, $userId )
+				: null;
+			if ( null === $page ) {
+				$page = $userId ? $this->pageService->build( $assessment, $userId ) : null;
+			}
+			if ( null === $page && $isPublic && ! ( $userId && $this->access->canPreview( $userId, $assessment->id ) ) ) {
+				$page = $this->pageService->buildPublic( $assessment );
+			}
+			if ( null === $page ) {
+				if ( ! $userId || ! $this->access->canPreview( $userId, $assessment->id ) ) {
+					return $this->notFoundTemplate();
+				}
 
-			// Автор/методист/офис — и преподаватель, в чьих группах эта контрольная
-			// стоит в занятии — смотрит станцию вхолостую: без ученика, без попытки
-			// в БД, без сохранения ответов и обратного отсчёта
-			// (см. AttemptPageService::buildPreview()).
-			$page = $this->pageService->buildPreview( $assessment );
+				// Автор/методист/офис — и преподаватель, в чьих группах эта контрольная
+				// стоит в занятии — смотрит станцию вхолостую: без ученика, без попытки
+				// в БД, без сохранения ответов и обратного отсчёта
+				// (см. AttemptPageService::buildPreview()).
+				$page = $this->pageService->buildPreview( $assessment );
+			}
 		}
 
 		// Остаётся открытой по пермалинку — запрещаем индексацию (публичный экзамен
@@ -195,7 +205,7 @@ class AssessmentPageController extends BaseController implements ServiceInterfac
 		$introTemplate   = $this->resolveIntro( $assessment );
 		$backUrl       = $publicMode
 			? (string) apply_filters( self::PUBLIC_BACK_URL_FILTER, home_url( '/' ), $assessment )
-			: $this->resolveBackUrl( $reviewMode );
+			: ( $isExamPage ? PageRoutes::UserProfile->screenUrl( 'learner-exams' ) : $this->resolveBackUrl( $reviewMode ) );
 
 		// T15.1: дефолтный рендерер получает générique bare-шелл плеера (см. ROUTE_FILTER).
 		if ( $defaultTemplate === $template ) {
@@ -218,6 +228,15 @@ class AssessmentPageController extends BaseController implements ServiceInterfac
 		include $template;
 		ThemeCompatService::footer();
 		exit;
+	}
+
+	/** Обычный 404 — постороннему наличие контрольной не раскрываем. */
+	private function notFoundTemplate(): string {
+		global $wp_query;
+		$wp_query->set_404();
+		status_header( 404 );
+		nocache_headers();
+		return get_404_template();
 	}
 
 	/**

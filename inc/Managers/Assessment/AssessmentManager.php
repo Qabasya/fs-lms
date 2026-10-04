@@ -30,9 +30,20 @@ class AssessmentManager {
 	 */
 	public const STATION_SETTINGS_FILTER = 'fs_lms_assessment_station_settings';
 
+	/**
+	 * Параметр адреса станции: запись на экзамен, по которой открыта работа (`?exam_reg=ID`).
+	 * Читает его страница станции, дописывает в запрос старта `kege-entry.js` (то же имя).
+	 */
+	public const EXAM_REGISTRATION_PARAM = 'exam_reg';
+
 	public function __construct(
 		private readonly PostManager $posts,
 	) {}
+
+	/** Адрес станции для официальной попытки по записи на экзамен — единый формат для карточки, баннера и редиректов. */
+	public function examStationUrl( int $assessmentId, int $registrationId ): string {
+		return (string) add_query_arg( array( self::EXAM_REGISTRATION_PARAM => $registrationId ), (string) get_permalink( $assessmentId ) );
+	}
 
 	public function get( int $assessmentId ): ?AssessmentDTO {
 		$post = get_post( $assessmentId );

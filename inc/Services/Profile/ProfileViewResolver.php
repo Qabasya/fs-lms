@@ -125,7 +125,8 @@ class ProfileViewResolver {
 			$config['exams'] = array(
 				'nonce'   => Nonce::ExamLearner->create(),
 				'actions' => array(
-					'getExams' => AjaxHook::GetLearnerExams->jsAction(),
+					'getExams'  => AjaxHook::GetLearnerExams->jsAction(),
+					'getReview' => AjaxHook::GetExamReview->jsAction(),
 				),
 			);
 

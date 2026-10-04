@@ -15,6 +15,7 @@ use Inc\Managers\Wp\PostManager;
 use Inc\MetaBoxes\Templates\AssessmentTemplate;
 use Inc\Registrars\MetaBoxRegistrar;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
+use Inc\Services\Assessment\AssessmentKindGuard;
 use Inc\Services\Assessment\AssessmentSlugService;
 use Inc\Services\Exam\ExamFormatRegistry;
 use Inc\Services\Subject\PostTypeResolver;
@@ -45,6 +46,9 @@ class AssessmentMetaBoxController extends BaseController implements ServiceInter
 	 */
 	public const PUBLISH_ERROR_FILTER = 'fs_lms_assessment_publish_error';
 
+	/** Префикс транзиента предупреждения «вид «экзамен» недоступен» (по пользователю, как у ошибок публикации). */
+	private const KIND_BLOCKED_PREFIX = 'fs_lms_assessment_kind_blocked_';
+
 	/**
 	 * Поля метабокса «Настройки контрольной» — видим только для `AssessmentKind::Control`
 	 * (`! kind->isStation()`), см. .docs/Tasks.md «тип экзамена — отдельный метабокс».
@@ -62,6 +66,7 @@ class AssessmentMetaBoxController extends BaseController implements ServiceInter
 		private readonly TaskBundleService    $bundles,
 		private readonly AssessmentSlugService $slugs,
 		private readonly ExamFormatRegistry   $formats,
+		private readonly AssessmentKindGuard  $kindGuard,
 	) {
 		parent::__construct();
 	}
@@ -118,6 +123,7 @@ class AssessmentMetaBoxController extends BaseController implements ServiceInter
 			return;
 		}
 		$this->guard->renderDeferredError( 'fs_lms_assessment_publish_error_', __( 'Невозможно опубликовать контрольную', 'fs-lms' ) );
+		$this->guard->renderDeferredWarning( self::KIND_BLOCKED_PREFIX, __( 'Вид работы не изменён', 'fs-lms' ) );
 	}
 
 
@@ -381,7 +387,14 @@ class AssessmentMetaBoxController extends BaseController implements ServiceInter
 		// AssessmentManager::STATION_SETTINGS_FILTER, .docs/Tasks.md §3.2). Даже если
 		// что-то из этого пришло в $_POST — не сохраняем.
 		$kind           = sanitize_key( $data['kind'] ?? '' );
-		$assessmentKind = AssessmentKind::fromValueOrDefault( $kind );
+		$requestedKind  = AssessmentKind::fromValueOrDefault( $kind );
+		$assessmentKind = $this->kindGuard->allowedKind( $post_id, $requestedKind );
+		if ( $assessmentKind !== $requestedKind ) {
+			// Работа уже стоит в уроке контрольной — станцией (вне курса) ей не стать; прежний вид остаётся.
+			$kind         = $assessmentKind->value;
+			$data['kind'] = $kind;
+			$this->guard->warn( self::KIND_BLOCKED_PREFIX, AssessmentKindGuard::BLOCKED_MESSAGE );
+		}
 		if ( $assessmentKind->isStation() ) {
 			foreach ( [ 'time_limit_minutes', 'max_attempts', 'pass_score', 'intro_html' ] as $stationField ) {
 				unset( $data[ $stationField ] );

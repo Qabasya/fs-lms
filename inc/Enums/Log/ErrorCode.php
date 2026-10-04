@@ -59,6 +59,7 @@ enum ErrorCode: string {
 	case ExamNotOpen  = 'X-NOT-OPEN';
 	case ExamLimit    = 'X-LIMIT';
 	case ExamRoom     = 'X-ROOM';
+	case ExamReplay   = 'X-REPLAY';
 
 	/** Что означает код — подпись в журнале и фильтре. */
 	public function label(): string {
@@ -91,6 +92,7 @@ enum ErrorCode: string {
 			self::ExamNotOpen     => 'Экзамен: старт вне времени',
 			self::ExamLimit       => 'Экзамен: лимит по IP/источнику',
 			self::ExamRoom        => 'Экзамен: кабинет не подходит',
+			self::ExamReplay      => 'Экзамен: тот же ключ с другими данными',
 		};
 	}
 

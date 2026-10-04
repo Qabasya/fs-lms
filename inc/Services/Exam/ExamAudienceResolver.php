@@ -46,7 +46,8 @@ class ExamAudienceResolver {
 				continue;
 			}
 
-			$records = $this->records->findActiveByGroupId( $group->id );
+			// $wpdb отдаёт все колонки строками: идентификатор приводим к int (репозиторий строго типизирован).
+			$records = $this->records->findActiveByGroupId( (int) $group->id );
 
 			foreach ( $records as $record ) {
 				// Пропускаем пробные записи
@@ -72,25 +73,7 @@ class ExamAudienceResolver {
 	 * @return bool
 	 */
 	public function isEligible( int $personId, string $subjectKey ): bool {
-		$studentRecords = $this->records->findActiveByStudent( $personId );
-
-		foreach ( $studentRecords as $record ) {
-			// Пропускаем пробные записи
-			if ( $record->isTrial ) {
-				continue;
-			}
-
-			$group = $this->groups->findById( $record->groupId );
-			if ( null === $group || null !== $group->deleted_at ) {
-				continue;
-			}
-
-			if ( $group->subject_key === $subjectKey ) {
-				return true;
-			}
-		}
-
-		return false;
+		return isset( $this->eligibleSubjects( $personId )[ $subjectKey ] );
 	}
 
 	/**
@@ -103,11 +86,48 @@ class ExamAudienceResolver {
 	 * @return string[] Ключи предметов (уникальные, отсортированные)
 	 */
 	public function subjectKeysForStudent( int $personId ): array {
-		$studentRecords = $this->records->findActiveByStudent( $personId );
-		$subjectKeys = array();
+		$keys = array_map( 'strval', array_keys( $this->eligibleSubjects( $personId ) ) );
+		sort( $keys );
+		return $keys;
+	}
 
-		foreach ( $studentRecords as $record ) {
-			// Пропускаем пробные записи
+	/**
+	 * Единый отбор допустимых предметов ученика: активная, не пробная запись в неудалённой группе.
+	 * Им пользуются и проверка допуска, и список предметов — правило не может разойтись.
+	 *
+	 * @return array<string, true> Ключ — ключ предмета.
+	 */
+	private function eligibleSubjects( int $personId ): array {
+		$subjects = array();
+
+		foreach ( $this->eligibleGroups( $personId ) as $group ) {
+			$subjects[ $group->subject_key ] = true;
+		}
+
+		return $subjects;
+	}
+
+	/**
+	 * ID групп, где ученик учится сейчас (активная не пробная запись, группа не удалена) — для проверки пересечения
+	 * сеанса экзамена с его занятиями. Правило отбора то же, что у допуска к предмету.
+	 *
+	 * @return int[] Уникальные ID по возрастанию.
+	 */
+	public function groupIdsForStudent( int $personId ): array {
+		$ids = array_values( array_unique( array_map( static fn ( object $g ): int => (int) $g->id, $this->eligibleGroups( $personId ) ) ) );
+		sort( $ids );
+		return $ids;
+	}
+
+	/**
+	 * Неудалённые группы активных не пробных записей ученика.
+	 *
+	 * @return list<object>
+	 */
+	private function eligibleGroups( int $personId ): array {
+		$result = array();
+
+		foreach ( $this->records->findActiveByStudent( $personId ) as $record ) {
 			if ( $record->isTrial ) {
 				continue;
 			}
@@ -117,12 +137,10 @@ class ExamAudienceResolver {
 				continue;
 			}
 
-			$subjectKeys[ $group->subject_key ] = true;
+			$result[] = $group;
 		}
 
-		$keys = array_keys( $subjectKeys );
-		sort( $keys );
-		return $keys;
+		return $result;
 	}
 
 	/**
@@ -141,7 +159,7 @@ class ExamAudienceResolver {
 		$guardianIds = array();
 
 		foreach ( $studentRecords as $record ) {
-			if ( 0 === $record->parentPersonId || null === $record->parentPersonId ) {
+			if ( 0 === $record->parentPersonId ) {
 				continue;
 			}
 
@@ -160,36 +178,4 @@ class ExamAudienceResolver {
 		return $ids;
 	}
 
-	/**
-	 * Разрешённые направления проведений для ученика (ОГЭ/ЕГЭ).
-	 * Определяется по направлению группы, в которой числится ученик.
-	 *
-	 * @param int $personId ID ученика
-	 *
-	 * @return string[] Уникальные направления ('oge', 'ege', и т.д.)
-	 */
-	public function allowedDirectionsForStudent( int $personId ): array {
-		$studentRecords = $this->records->findActiveByStudent( $personId );
-		$directions = array();
-
-		foreach ( $studentRecords as $record ) {
-			if ( $record->isTrial ) {
-				continue;
-			}
-
-			$group = $this->groups->findById( $record->groupId );
-			if ( null === $group || null !== $group->deleted_at ) {
-				continue;
-			}
-
-			// Получить направление из group metadata или use default
-			if ( ! empty( $group->direction ) ) {
-				$directions[ $group->direction ] = true;
-			}
-		}
-
-		$dirs = array_keys( $directions );
-		sort( $dirs );
-		return $dirs;
-	}
 }

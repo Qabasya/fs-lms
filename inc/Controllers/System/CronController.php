@@ -9,6 +9,8 @@ use Inc\Core\BaseController;
 use Inc\Enums\Wp\CronHook;
 use Inc\Managers\Wp\CronManager;
 use Inc\Repositories\WPDBRepositories\AssessmentAttemptRepository;
+use Inc\Services\Exam\ExamTickLock;
+use Inc\Services\Exam\ExamTickService;
 use Inc\Services\Profile\AdminAlertCronService;
 use Inc\Services\Profile\NotificationCronService;
 
@@ -22,7 +24,7 @@ use Inc\Services\Profile\NotificationCronService;
  *
  * ### Основные обязанности:
  *
- * 1. **Регистрация кастомных интервалов** — добавляет every_15_minutes через фильтр cron_schedules.
+ * 1. **Регистрация кастомных интервалов** — добавляет every_15_minutes и every_minute (экзамены: автоистечение и брони) через фильтр cron_schedules.
  * 2. **Регистрация cron-экшенов** — подключает callback-классы к хукам CronHook.
  *
  * ### Архитектурная роль:
@@ -33,17 +35,26 @@ use Inc\Services\Profile\NotificationCronService;
  */
 class CronController extends BaseController implements ServiceInterface {
 
+	/** Имя блокировки минутного тика экзаменов — общее с `wp fs-lms exam tick`. */
+	public const EXAM_AUTO_EXPIRE_LOCK = 'exam_auto_expire';
+
+	/** Имя блокировки тика броней гостей — общее с `wp fs-lms exam tick --name=hold-release`. */
+	public const EXAM_HOLD_RELEASE_LOCK = 'exam_hold_release';
+
 	public function __construct(
 		private readonly CronManager                 $cron_manager,
 		private readonly AssessmentAttemptRepository $attemptRepo,
 		private readonly NotificationCronService     $notificationCron,
 		private readonly AdminAlertCronService       $adminAlertCron,
+		private readonly ExamTickLock                $examTickLock,
+		private readonly ExamTickService             $examTicks,
 	) {
 		parent::__construct();
 	}
 
 	public function register(): void {
 		$this->cron_manager->addCustomInterval( 'every_15_minutes', 900, 'Every 15 minutes' );
+		$this->cron_manager->addCustomInterval( 'every_minute', 60, 'Every minute' );
 		add_filter( 'cron_schedules', array( $this->cron_manager, 'filterCronSchedules' ) );
 
 		add_action( CronHook::ExpireAttempts->value, array( $this, 'handleExpireAttempts' ) );
@@ -55,12 +66,29 @@ class CronController extends BaseController implements ServiceInterface {
 		add_action( CronHook::NotificationsTick->value, array( $this, 'handleNotificationsTick' ) );
 		$this->cron_manager->schedule( CronHook::NotificationsTick->value, 'every_15_minutes' );
 
+		// Экзамены: минутный тик (автоистечение попыток + неявки). Расписание NotificationsTick не меняется (README §8, п. 2).
+		// Тик доставки событий (`ExamOutboxTick`) появится вместе с воркером outbox.
+		add_action( CronHook::ExamAutoExpireTick->value, array( $this, 'handleExamAutoExpireTick' ) );
+		$this->cron_manager->schedule( CronHook::ExamAutoExpireTick->value, 'every_minute' );
+		add_action( CronHook::ExamHoldReleaseTick->value, array( $this, 'handleExamHoldReleaseTick' ) );
+		$this->cron_manager->schedule( CronHook::ExamHoldReleaseTick->value, 'every_minute' );
+
 		// ExpireApplications / RetentionCleanup / RecoveryTick подключает
 		// RecoveryController (их расписание ставит Activate) — здесь не дублируем.
 	}
 
 	public function handleExpireAttempts(): void {
 		$this->attemptRepo->expireOverdue();
+	}
+
+	/** Только делегирование: тело — {@see ExamTickService}, защита от параллельного запуска — {@see ExamTickLock}. */
+	public function handleExamAutoExpireTick(): void {
+		$this->examTickLock->run( self::EXAM_AUTO_EXPIRE_LOCK, fn() => $this->examTicks->autoExpireTick() );
+	}
+
+	/** Освобождение истёкших броней гостей — тоже только делегирование под своей блокировкой. */
+	public function handleExamHoldReleaseTick(): void {
+		$this->examTickLock->run( self::EXAM_HOLD_RELEASE_LOCK, fn() => $this->examTicks->releaseHolds() );
 	}
 
 	public function handleNotificationsTick(): void {

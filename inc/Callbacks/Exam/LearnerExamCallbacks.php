@@ -5,170 +5,174 @@ declare( strict_types=1 );
 namespace Inc\Callbacks\Exam;
 
 use Inc\Core\BaseController;
-use Inc\Shared\Traits\AjaxResponse;
-use Inc\Shared\Traits\Sanitizer;
-use Inc\Enums\Nonce;
+use Inc\DTO\Exam\RegistrationResultDTO;
 use Inc\Enums\Log\ErrorCode;
-use Inc\Services\Profile\ProfileViewResolver;
-use Inc\Services\Exam\LearnerExamsService;
+use Inc\Enums\Wp\Nonce;
 use Inc\Services\Exam\ExamRegistrationService;
+use Inc\Services\Exam\ExamReviewProjection;
+use Inc\Services\Exam\LearnerExamsService;
+use Inc\Services\Profile\ProfileViewResolver;
 use Inc\Shared\CodedException;
+use Inc\Shared\PluginLogger;
+use Inc\Shared\Traits\Sanitizer;
 
+/**
+ * AJAX экзаменов в кабинете ученика и родителя.
+ *
+ * Без capability (у ученика и родителя нет LMS-прав): доступ — нонс + владелец данных.
+ * Ученик видит и меняет только себя, родитель — только читает данные своих детей
+ * (`ProfileContext::resolveSubjectPersonId()`); записаться, перенести или отменить может
+ * только сам ученик.
+ */
 class LearnerExamCallbacks extends BaseController {
 
-	use AjaxResponse, Sanitizer;
-
-	private ?ExamRegistrationService $registrationService = null;
+	use Sanitizer;
 
 	public function __construct(
-		private ?ProfileViewResolver $resolver = null,
-		private ?LearnerExamsService $examsService = null,
-		?ExamRegistrationService $registrationService = null
+		private readonly ProfileViewResolver $resolver,
+		private readonly LearnerExamsService $exams,
+		private readonly ExamRegistrationService $registration,
+		private readonly ExamReviewProjection $reviews,
 	) {
-		$this->resolver ??= new ProfileViewResolver();
-		$this->examsService ??= new LearnerExamsService();
-		$this->registrationService = $registrationService ?? new ExamRegistrationService();
+		parent::__construct();
 	}
 
 	public function ajaxGetLearnerExams(): void {
 		Nonce::ExamLearner->verify();
 
 		if ( ! is_user_logged_in() ) {
-			$this->error( 'Требуется вход в кабинет' );
+			$this->error( 'Требуется вход в кабинет.' );
 			return;
 		}
 
-		$ctx = $this->resolver->context( get_current_user_id() );
-		$personId = $this->resolveSubjectPersonId( $this->sanitizeInt( 'student_person_id' ) );
-
-		// Если personId null или не входит в доступные ученику (родитель → только свой ребёнок),
-		// выход с ошибкой
+		$ctx      = $this->resolver->context( get_current_user_id() );
+		$personId = $ctx->resolveSubjectPersonId( $this->sanitizeInt( 'student_person_id' ) );
 		if ( null === $personId ) {
-			$this->error( 'Не удалось определить ученика' );
+			$this->error( 'Профиль учащегося не найден.' );
 			return;
 		}
 
-		$readOnly = $ctx->readOnly;
-		$result = $this->examsService->build( $personId, $readOnly );
-		$this->success( $result );
+		$this->success( $this->exams->build( $personId, $ctx->readOnly ) );
 	}
 
 	public function ajaxRegisterForExam(): void {
-		Nonce::ExamLearner->verify();
-
-		if ( ! is_user_logged_in() ) {
-			$this->error( 'Требуется вход в кабинет' );
+		$personId = $this->writablePersonId();
+		if ( null === $personId ) {
 			return;
 		}
 
-		$ctx = $this->resolver->context( get_current_user_id() );
-
-		// Родитель не может записываться
-		if ( $ctx->readOnly ) {
-			$this->fail( ErrorCode::ExamAccess, 'Запись доступна только самому ученику.' );
-			return;
-		}
-
-		$sessionId = $this->sanitizeInt( 'session_id' );
+		$sessionId  = $this->sanitizeInt( 'session_id' );
 		$requestKey = $this->sanitizeKey( 'request_key' );
-
-		if ( ! $sessionId || ! $requestKey ) {
-			$this->error( 'Недостаточно данных для регистрации' );
+		if ( 0 === $sessionId || '' === $requestKey ) {
+			$this->error( 'Недостаточно данных для записи.' );
 			return;
 		}
 
-		try {
-			$this->registrationService->registerParticipant( $ctx->personId, $sessionId, $requestKey );
-			// Собрать обновлённую карточку
-			$personId = $ctx->personId;
-			$exams = $this->examsService->build( $personId, false );
-			$this->success( $exams );
-		} catch ( CodedException $e ) {
-			$this->fail( $e->code(), $e->getMessage() );
-		} catch ( \Exception $e ) {
-			$this->error( $e->getMessage() );
-		}
+		$this->run( $personId, fn () => $this->registration->register( $personId, $sessionId, $requestKey ) );
 	}
 
 	public function ajaxChangeExamRegistration(): void {
-		Nonce::ExamLearner->verify();
-
-		if ( ! is_user_logged_in() ) {
-			$this->error( 'Требуется вход в кабинет' );
+		$personId = $this->writablePersonId();
+		if ( null === $personId ) {
 			return;
 		}
 
-		$ctx = $this->resolver->context( get_current_user_id() );
-
-		// Родитель не может менять запись
-		if ( $ctx->readOnly ) {
-			$this->fail( ErrorCode::ExamAccess, 'Запись доступна только самому ученику.' );
-			return;
-		}
-
-		$newSessionId = $this->sanitizeInt( 'session_id' );
+		$sessionId  = $this->sanitizeInt( 'session_id' );
 		$requestKey = $this->sanitizeKey( 'request_key' );
-
-		if ( ! $newSessionId || ! $requestKey ) {
-			$this->error( 'Недостаточно данных' );
+		if ( 0 === $sessionId || '' === $requestKey ) {
+			$this->error( 'Недостаточно данных для переноса.' );
 			return;
 		}
 
-		try {
-			$this->registrationService->transferRegistration( $ctx->personId, $newSessionId, $requestKey );
-			// Собрать обновлённую карточку
-			$personId = $ctx->personId;
-			$exams = $this->examsService->build( $personId, false );
-			$this->success( $exams );
-		} catch ( CodedException $e ) {
-			$this->fail( $e->code(), $e->getMessage() );
-		} catch ( \Exception $e ) {
-			$this->error( $e->getMessage() );
-		}
+		$version = $this->sanitizeIntOrNull( 'version' );
+
+		$this->run( $personId, fn () => $this->registration->change( $personId, $sessionId, $requestKey, $version ) );
 	}
 
 	public function ajaxCancelExamRegistration(): void {
-		Nonce::ExamLearner->verify();
-
-		if ( ! is_user_logged_in() ) {
-			$this->error( 'Требуется вход в кабинет' );
+		$personId = $this->writablePersonId();
+		if ( null === $personId ) {
 			return;
 		}
 
-		$ctx = $this->resolver->context( get_current_user_id() );
-
-		// Родитель не может отменять запись
-		if ( $ctx->readOnly ) {
-			$this->fail( ErrorCode::ExamAccess, 'Запись доступна только самому ученику.' );
-			return;
-		}
-
-		$eventId = $this->sanitizeInt( 'event_id' );
+		$eventId    = $this->sanitizeInt( 'event_id' );
 		$requestKey = $this->sanitizeKey( 'request_key' );
-
-		if ( ! $eventId || ! $requestKey ) {
-			$this->error( 'Недостаточно данных' );
+		if ( 0 === $eventId || '' === $requestKey ) {
+			$this->error( 'Недостаточно данных для отмены.' );
 			return;
 		}
 
-		try {
-			$this->registrationService->cancelBySelf( $ctx->personId, $eventId, $requestKey );
-			// Собрать обновлённую карточку
-			$personId = $ctx->personId;
-			$exams = $this->examsService->build( $personId, false );
-			$this->success( $exams );
-		} catch ( CodedException $e ) {
-			$this->fail( $e->code(), $e->getMessage() );
-		} catch ( \Exception $e ) {
-			$this->error( $e->getMessage() );
-		}
+		$version = $this->sanitizeIntOrNull( 'version' );
+
+		$this->run( $personId, fn () => $this->registration->cancelBySelf( $personId, $eventId, $requestKey, $version ) );
 	}
 
 	/**
-	 * Резолвит person_id: ученик получает себя, родитель — только своего ребёнка.
+	 * Разбор результата: ученик — своего, родитель — своего ребёнка. Попытка определяется участием
+	 * этого человека в этом проведении; `attempt_id` из запроса не принимается вовсе.
 	 */
-	private function resolveSubjectPersonId( ?int $clientPersonId ): ?int {
+	public function ajaxGetExamReview(): void {
+		Nonce::ExamLearner->verify();
+
+		if ( ! is_user_logged_in() ) {
+			$this->error( 'Требуется вход в кабинет.' );
+			return;
+		}
+
+		$ctx      = $this->resolver->context( get_current_user_id() );
+		$personId = $ctx->resolveSubjectPersonId( $this->sanitizeInt( 'student_person_id' ) );
+		$eventId  = $this->sanitizeInt( 'event_id' );
+
+		$review = null !== $personId && 0 !== $eventId ? $this->reviews->forStudent( $personId, $eventId ) : null;
+		if ( null === $review ) {
+			// Чужое проведение и отсутствие участия отвечают одинаково и без подробностей.
+			$this->fail( ErrorCode::ExamAccess, 'Результат недоступен.' );
+			return;
+		}
+
+		$this->success( $review );
+	}
+
+	/**
+	 * Person-id ученика для операций записи. Родитель и чужие роли отвечают отказом:
+	 * записывается, переносит и отменяет только сам ученик.
+	 */
+	private function writablePersonId(): ?int {
+		Nonce::ExamLearner->verify();
+
+		if ( ! is_user_logged_in() ) {
+			$this->error( 'Требуется вход в кабинет.' );
+			return null;
+		}
+
 		$ctx = $this->resolver->context( get_current_user_id() );
-		return $ctx->resolveSubjectPersonId( $clientPersonId );
+		if ( $ctx->readOnly || null === $ctx->personId ) {
+			$this->fail( ErrorCode::ExamAccess, 'Записываться и менять запись может только сам ученик.' );
+			return null;
+		}
+
+		return $ctx->personId;
+	}
+
+	/**
+	 * Выполняет операцию записи и отвечает обновлённым списком карточек; предупреждения операции
+	 * (`lesson_overlap`: сеанс пришёлся на занятие) идут рядом с карточками, запись при этом создана.
+	 * Отказ правила — код и текст сервиса; любой другой сбой — общий текст, подробности в журнал.
+	 */
+	private function run( int $personId, callable $operation ): void {
+		try {
+			$result = $operation();
+		} catch ( CodedException $e ) {
+			$this->fail( $e->errorCode, $e->getMessage() );
+			return;
+		} catch ( \Throwable $e ) {
+			PluginLogger::exception( 'LearnerExamCallbacks', $e, array( 'person_id' => $personId ), true );
+			$this->error( 'Не удалось выполнить действие. Попробуйте ещё раз.' );
+			return;
+		}
+
+		$warnings = $result instanceof RegistrationResultDTO ? $result->warnings : array();
+
+		$this->success( $this->exams->build( $personId, false ) + array( 'warnings' => $warnings ) );
 	}
 }

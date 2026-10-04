@@ -4,6 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Assessment;
 
+use Inc\Contracts\ClockInterface;
 use Inc\DTO\Assessment\AttemptDTO;
 use Inc\Enums\Assessment\AssessmentKind;
 use Inc\Managers\Assessment\AssessmentManager;
@@ -23,6 +24,7 @@ class ExamLockService {
 	public function __construct(
 		private readonly AssessmentAttemptRepository $attempts,
 		private readonly AssessmentManager           $assessments,
+		private readonly ClockInterface              $clock,
 	) {}
 
 	/**
@@ -30,7 +32,7 @@ class ExamLockService {
 	 * Запирающий — если AssessmentKind::locksContent() === true.
 	 */
 	public function getActiveLockingAttempt( int $studentPersonId ): ?AttemptDTO {
-		$attempt = $this->attempts->findAnyActive( $studentPersonId );
+		$attempt = $this->attempts->findAnyActive( $studentPersonId, $this->clock->now() );
 		if ( null === $attempt ) {
 			return null;
 		}

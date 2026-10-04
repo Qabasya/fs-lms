@@ -12,6 +12,7 @@ use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\WPDBRepositories\RoomRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 use Inc\Services\Profile\NotificationService;
+use Inc\Shared\Traits\TransactionRunner;
 
 /**
  * Назначение кабинетов группам и занятиям (Эпик 9, R1/R2).
@@ -24,12 +25,15 @@ use Inc\Services\Profile\NotificationService;
  */
 class RoomAssignmentService {
 
+	use TransactionRunner;
+
 	public function __construct(
 		private readonly RoomRepository            $rooms,
 		private readonly GroupsRepository          $groups,
 		private readonly GroupLessonRepository     $groupLessons,
 		private readonly StudentRecordRepository   $records,
 		private readonly NotificationService       $notifications,
+		private readonly RoomAvailabilityService   $roomAvailability,
 	) {}
 
 	/**
@@ -70,6 +74,20 @@ class RoomAssignmentService {
 	 * @throws \InvalidArgumentException занятие/кабинет не найдены; конфликт по времени.
 	 */
 	public function assignToLesson( int $groupLessonId, ?int $roomId ): void {
+		if ( null === $roomId ) {
+			$this->assignToLessonLocked( $groupLessonId, null );
+			return;
+		}
+
+		// «Проверка + запись» идут под блокировкой кабинета: два одновременных назначения (занятия и сеанса экзамена) выполняются по очереди.
+		$this->inTransaction( function () use ( $groupLessonId, $roomId ): void {
+			$this->rooms->lockForUpdate( $roomId );
+			$this->assignToLessonLocked( $groupLessonId, $roomId );
+		} );
+	}
+
+	/** Тело {@see assignToLesson()}: вызывается под блокировкой кабинета (или без кабинета — снятие). */
+	private function assignToLessonLocked( int $groupLessonId, ?int $roomId ): void {
 		$lesson = $this->groupLessons->find( $groupLessonId );
 		if ( ! $lesson ) {
 			throw new \InvalidArgumentException( 'Занятие не найдено.' );
@@ -83,7 +101,7 @@ class RoomAssignmentService {
 			if ( $lesson->scheduledAt ) {
 				$end = $lesson->endsAt ?? ( new \DateTimeImmutable( $lesson->scheduledAt ) )
 					->modify( '+60 minutes' )->format( 'Y-m-d H:i:s' );
-				if ( $this->rooms->isBusy( $roomId, $lesson->scheduledAt, $end, $groupLessonId ) ) {
+				if ( ! $this->roomAvailability->isFree( $roomId, $lesson->scheduledAt, $end, $groupLessonId ) ) {
 					throw new \InvalidArgumentException( 'Кабинет занят другим занятием в это время.' );
 				}
 			}
@@ -107,6 +125,24 @@ class RoomAssignmentService {
 	 * @throws \InvalidArgumentException кабинет не найден / не для предмета группы.
 	 */
 	public function overrideForRange( int $groupId, ?int $roomId, string $from, string $to ): array {
+		if ( null === $roomId ) {
+			return $this->overrideForRangeLocked( $groupId, null, $from, $to );
+		}
+
+		// Занятость проверяется под блокировкой кабинета — как при назначении одного занятия.
+		return $this->inTransaction( function () use ( $groupId, $roomId, $from, $to ): array {
+			$this->rooms->lockForUpdate( $roomId );
+
+			return $this->overrideForRangeLocked( $groupId, $roomId, $from, $to );
+		} );
+	}
+
+	/**
+	 * Тело {@see overrideForRange()}: вызывается под блокировкой кабинета (или без кабинета — снятие override).
+	 *
+	 * @return array{applied:int, skipped:int, warnings:string[]}
+	 */
+	private function overrideForRangeLocked( int $groupId, ?int $roomId, string $from, string $to ): array {
 		if ( null !== $roomId ) {
 			$room = $this->rooms->find( $roomId );
 			if ( ! $room ) {
@@ -131,7 +167,7 @@ class RoomAssignmentService {
 			if ( null !== $roomId ) {
 				$end = $lesson->endsAt ?? ( new \DateTimeImmutable( $lesson->scheduledAt ) )
 					->modify( '+60 minutes' )->format( 'Y-m-d H:i:s' );
-				if ( $this->rooms->isBusy( $roomId, $lesson->scheduledAt, $end, $lesson->id ) ) {
+				if ( ! $this->roomAvailability->isFree( $roomId, $lesson->scheduledAt, $end, $lesson->id ) ) {
 					$skipped[] = $date;
 					continue;
 				}

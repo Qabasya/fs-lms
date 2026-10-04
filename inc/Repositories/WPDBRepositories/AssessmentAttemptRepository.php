@@ -232,31 +232,25 @@ class AssessmentAttemptRepository {
 
 	/**
 	 * Находит любую активную (in_progress, не просроченную) попытку ученика.
-	 * Используется ExamLockService для блокировки контента на время экзамена.
+	 * Используется ExamLockService для блокировки контента на время экзамена и стартом экзамена.
+	 *
+	 * `deadline_at` хранится в местном времени сайта, поэтому «сейчас» приходит параметром (`ClockInterface::now()`),
+	 * а не `NOW()` базы: часовой пояс сервера БД с поясом сайта может расходиться (на dev — на 3 часа).
+	 *
+	 * @param string $nowLocal Текущее местное время сайта (формат MySQL)
 	 */
-	public function findAnyActive( int $studentPersonId ): ?AttemptDTO {
+	public function findAnyActive( int $studentPersonId, string $nowLocal ): ?AttemptDTO {
 		$row = $this->wpdb->get_row(
 			$this->wpdb->prepare(
 				"SELECT * FROM %i
 				WHERE student_person_id = %d
 				  AND status = 'in_progress'
-				  AND deadline_at > NOW()
+				  AND deadline_at > %s
 				ORDER BY id DESC
 				LIMIT 1",
 				$this->table,
-				$studentPersonId
-			),
-			ARRAY_A
-		);
-		return $row ? AttemptDTO::fromArray( $row ) : null;
-	}
-
-	public function findLatestByParticipation( int $participationId ): ?AttemptDTO {
-		$row = $this->wpdb->get_row(
-			$this->wpdb->prepare(
-				'SELECT * FROM %i WHERE exam_participation_id = %d ORDER BY id DESC LIMIT 1',
-				$this->table,
-				$participationId
+				$studentPersonId,
+				$nowLocal
 			),
 			ARRAY_A
 		);
@@ -319,6 +313,22 @@ class AssessmentAttemptRepository {
 		$rows = $this->wpdb->get_results( $sql, ARRAY_A );
 
 		return array_map( [ AttemptDTO::class, 'fromArray' ], $rows ?: [] );
+	}
+
+	/**
+	 * Сколько незавершённых экзаменных попыток этого варианта в проведении (участие → проведение).
+	 * Пока они есть, снимок варианта пересобирать нельзя: у идущих попыток уже зафиксированы состав и длительность.
+	 */
+	public function countInProgressExamByEvent( int $eventId, int $assessmentId ): int {
+		return (int) $this->wpdb->get_var( $this->wpdb->prepare(
+			'SELECT COUNT(*) FROM %i a INNER JOIN %i p ON p.id = a.exam_participation_id
+			 WHERE p.event_id = %d AND a.assessment_id = %d AND a.status = %s',
+			$this->table,
+			TableName::ExamParticipations->prefixed(),
+			$eventId,
+			$assessmentId,
+			AttemptStatus::InProgress->value
+		) );
 	}
 
 	/**

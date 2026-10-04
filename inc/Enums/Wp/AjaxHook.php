@@ -339,24 +339,26 @@ enum AjaxHook: string {
 	// ==== Разовый перенос заданий со старой версии сайта ====
 	case LegacyTaskImportBatch = 'legacy_task_import_batch'; // params: subject_key, offset, rows (JSON-массив записей батча), author_taxonomy?, year_taxonomy?, level_taxonomy?
 
-	// ==== Публичные экзамены (Этап 3) ====
-	case SaveExamEvent         = 'save_exam_event';         // params: event_id?, subject_key, title, period_from, period_to, ...
-	case PublishExamEvent      = 'publish_exam_event';      // params: event_id
-	case SaveExamSession       = 'save_exam_session';       // params: event_id, session_id?, scheduled_at, planned_end_at, room_id, assessment_id, ...
-	case CreateExamRegistration = 'create_exam_registration'; // params: event_id, session_id, student_person_id? (гость → null)
-	case CancelExamRegistration = 'cancel_exam_registration'; // params: registration_id
-	case TransferExamRegistration = 'transfer_exam_registration'; // params: registration_id, new_session_id
-	case GetExamParticipations  = 'get_exam_participations';   // params: event_id
-	case GetExamSessions        = 'get_exam_sessions';         // params: event_id
-	case ApproveExamAttempt     = 'approve_exam_attempt';      // params: attempt_id (утверждение попытки ученика)
-	case CreateExamResultLink   = 'create_exam_result_link';   // params: participation_id, days_valid
-	case CreateExamGuestLink    = 'create_exam_guest_link';    // params: source_id, days_valid
-	case GetWorkReviewDetail    = 'get_work_review_detail';    // params: source_type, source_id (детали работы/экзамена)
-
-	// ==== Публичные экзамены (Этап 5: Learner UI) ====
+	// ==== Экзамены: кабинет ученика и родителя ====
 	case GetLearnerExams        = 'get_learner_exams';        // params: student_person_id? (родитель); ответ: список карточек экзаменов
 	case RegisterForExam        = 'register_for_exam';        // params: session_id, request_key (ученик)
-	case ChangeExamRegistration = 'change_exam_registration'; // params: session_id (новый), request_key (ученик)
+	case ChangeExamRegistration = 'change_exam_registration'; // params: session_id (новый), request_key, version? (версия участия из карточки) (ученик)
+	case CancelExamRegistration = 'cancel_exam_registration'; // params: event_id, request_key, version? (версия участия из карточки) (ученик)
+	case GetExamReview          = 'get_exam_review';          // params: event_id, student_person_id? (родитель); ответ: разбор по правилам раскрытия (attempt_id не принимается)
+
+	// ==== Экзамены: планирование сотрудником (этап 4) ====
+	case GetExamPlan            = 'get_exam_plan';            // params: subject_key, event_id?; ответ: events, event (с сеансами), variants, rooms
+	case SaveExamSession        = 'save_exam_session';        // params: event_id, session_id?, date, time, assessment_id, room_id, version?
+	case DeleteExamSession      = 'delete_exam_session';      // params: session_id
+	case SaveExamEvent          = 'save_exam_event';          // params: event_id?, subject_key, title, description, period_from, period_to, registration_opens_at, registration_closes_at, default_assessment_id, guest_registration_enabled, version?
+	case PublishExamEvent       = 'publish_exam_event';       // params: event_id, version
+	case CancelExamEvent        = 'cancel_exam_event';        // params: event_id, reason, version
+	case GetExamSources         = 'get_exam_sources';         // params: event_id; ответ: источники без ключей и хешей
+	case SaveExamSource         = 'save_exam_source';         // params: event_id, source_id?, school_name, teacher_name, grade, version?
+	case IssueExamSourceLink    = 'issue_exam_source_link';   // params: source_id; ответ: url (один раз)
+	case ReissueExamSourceLink  = 'reissue_exam_source_link'; // params: source_id; ответ: url (один раз)
+	case RevokeExamSourceLink   = 'revoke_exam_source_link';  // params: source_id
+	case ToggleExamSource       = 'toggle_exam_source';       // params: source_id, active
 
 	// ============================ ГЕНЕРАЦИЯ ИМЁН ============================ //
 

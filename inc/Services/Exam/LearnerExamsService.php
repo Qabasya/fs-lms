@@ -4,428 +4,492 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Exam;
 
+use Inc\DTO\Assessment\AttemptDTO;
+use Inc\DTO\Exam\ExamEventDTO;
+use Inc\DTO\Exam\ExamParticipationDTO;
+use Inc\DTO\Exam\ExamRegistrationDTO;
+use Inc\DTO\Exam\ExamSessionDTO;
+use Inc\Enums\Assessment\AttemptStatus;
+use Inc\Enums\Exam\ExamEventStatus;
+use Inc\Enums\Exam\ExamRegistrationStatus;
+use Inc\Enums\Exam\ExamSessionStatus;
+use Inc\Managers\Assessment\AssessmentManager;
+use Inc\Repositories\WPDBRepositories\AssessmentAttemptRepository;
 use Inc\Repositories\WPDBRepositories\ExamEventRepository;
-use Inc\Repositories\WPDBRepositories\ExamSessionRepository;
 use Inc\Repositories\WPDBRepositories\ExamParticipationRepository;
 use Inc\Repositories\WPDBRepositories\ExamRegistrationRepository;
-use Inc\Repositories\WPDBRepositories\AssessmentAttemptRepository;
-use Inc\Repositories\WPDBRepositories\PersonRepository;
+use Inc\Repositories\WPDBRepositories\ExamSessionRepository;
 use Inc\Repositories\WPDBRepositories\RoomRepository;
-use Inc\DTO\Exam\ExamEventDTO;
+use Inc\Shared\PluginLogger;
 
+/**
+ * Карточки «Моих экзаменов» ученика и родителя (этап 5).
+ *
+ * Сервер отдаёт готовое состояние и список разрешённых действий; клиент ничего не вычисляет по датам.
+ * Баллы, эталоны и решения здесь не отдаются вообще: результат раскрывает только ExamReviewProjection.
+ * Адрес станции (`station_url`) — только ученику и только в состояниях «Приступить»/«Продолжить»: родитель сдавать не может,
+ * из действий ему остаётся «Результаты».
+ * Все времена в ответе — местные; в таблицах `exam_*` они хранятся в UTC.
+ */
 class LearnerExamsService {
 
 	public function __construct(
-		private ExamEventRepository $eventRepo,
-		private ExamSessionRepository $sessionRepo,
-		private ExamParticipationRepository $participationRepo,
-		private ExamRegistrationRepository $registrationRepo,
-		private AssessmentAttemptRepository $attemptRepo,
-		private PersonRepository $personRepo,
-		private RoomRepository $roomRepo,
-		private ExamAudienceResolver $audienceResolver,
-		private ExamFormatRegistry $formatRegistry,
+		private readonly ExamAudienceResolver $audience,
+		private readonly ExamEventRepository $events,
+		private readonly ExamSessionRepository $sessions,
+		private readonly ExamParticipationRepository $participations,
+		private readonly ExamRegistrationRepository $registrations,
+		private readonly AssessmentAttemptRepository $attempts,
+		private readonly AssessmentManager $assessments,
+		private readonly RoomRepository $rooms,
+		private readonly ExamFormatRegistry $formats,
+		private readonly ExamNoShowService $noShow,
+		private readonly ExamTime $time,
+		private readonly ExamReviewProjection $reviews,
 	) {}
 
+	/**
+	 * @return array{exams: list<array<string, mixed>>}
+	 */
 	public function build( int $personId, bool $readOnly = false ): array {
-		$cards = array();
+		$nowUtc = $this->time->nowUtc();
+		$cards  = array();
 
-		// Получить предметы ученика
-		$subjectKeys = $this->audienceResolver->subjectKeysForStudent( $personId );
-		if ( empty( $subjectKeys ) ) {
-			return array( 'exams' => $cards );
-		}
-
-		// Получить разрешённые направления (ОГЭ/ЕГЭ)
-		$allowedDirections = $this->audienceResolver->allowedDirectionsForStudent( $personId );
-
-		// Получить экзамены: опубликованные + завершённые + отменённые
-		$events = $this->eventRepo->findBySubjectsAndStatuses(
-			$subjectKeys,
-			array( 'published', 'completed', 'cancelled' )
-		);
-
-		// Фильтровать события по разрешённым направлениям
-		if ( ! empty( $allowedDirections ) ) {
-			$events = array_filter( $events, function( $event ) use ( $allowedDirections ) {
-				return in_array( $event->direction, $allowedDirections, true );
-			} );
-		}
-
-		// Плюс экзамены, где у ученика есть participation (историческая запись)
-		$eventIdsWithParticipation = $this->participationRepo->findEventIdsForStudent( $personId );
-		if ( ! empty( $eventIdsWithParticipation ) ) {
-			$historicalEvents = $this->eventRepo->findByIds( $eventIdsWithParticipation );
-			$events = array_merge( $events, $historicalEvents );
-			// Удалить дубликаты
-			$seenIds = array();
-			$unique = array();
-			foreach ( $events as $event ) {
-				if ( ! in_array( $event->id, $seenIds, true ) ) {
-					$unique[] = $event;
-					$seenIds[] = $event->id;
-				}
-			}
-			$events = $unique;
-		}
-
-		// Собрать карточку для каждого события
-		foreach ( $events as $event ) {
-			$eventId = $event->id;
-
-			// Получить данные студента для этого события
-			$registration = $this->registrationRepo->findActiveByEventAndStudent( $eventId, $personId );
-			$participation = $this->participationRepo->findByEventAndStudent( $eventId, $personId );
-			$attempt = null;
-			if ( $participation ) {
-				$attempt = $this->attemptRepo->findLatestByParticipation( $participation->id );
-			}
-
-			// Получить сеансы события
-			$sessions = $this->buildSessionsList( $eventId, $registration );
-
-			// Определить состояние и действия
-			$stateInfo = $this->resolveState(
-				$event,
-				$registration,
-				$attempt ? $attempt->toArray() : null,
-				$sessions
-			);
-
-			// Собрать карточку
-			$card = array(
-				'event_id'                   => $eventId,
-				'title'                      => $event->title,
-				'description'                => $event->description,
-				'subject_key'                => $event->subject_key,
-				'direction'                  => $event->direction,
-				'state'                      => $stateInfo['state'],
-				'state_label'                => $this->getStateLabel( $stateInfo['state'] ),
-				'actions'                    => $readOnly ? array() : $stateInfo['actions'],
-				'period_from'                => $event->registration_opens_at,
-				'period_to'                  => $event->registration_closes_at,
-				'registration_opens_at'      => $event->registration_opens_at,
-				'registration_closes_at'     => $event->registration_closes_at,
-				'registration'               => $registration ? array(
-					'registration_id' => $registration->id,
-					'session_id'      => $registration->session_id,
-					'date'            => $registration->scheduled_at ? wp_date( 'Y-m-d', strtotime( $registration->scheduled_at ) ) : null,
-					'weekday'         => $registration->scheduled_at ? wp_date( 'l', strtotime( $registration->scheduled_at ) ) : null,
-					'time_start'      => $registration->scheduled_at ? wp_date( 'H:i', strtotime( $registration->scheduled_at ) ) : null,
-					'time_end'        => $registration->planned_end_at ? wp_date( 'H:i', strtotime( $registration->planned_end_at ) ) : null,
-					'room'            => $this->getRoomName( $registration->room_id ?? null ),
-				) : null,
-				'last_reason'                => $participation?->cancellation_reason,
-				'previous_date'              => null,
-				'sessions'                   => $sessions,
-				'teacher_name'               => $this->getTeacherName( $event->teacher_person_id ?? null ),
-				'format'                     => $this->formatRegistry->for( $event->subject_key, $event->direction )?->toArray(),
-			);
-
-			$cards[] = $card;
+		foreach ( $this->visibleEvents( $personId ) as $event ) {
+			$cards[] = $this->card( $event, $personId, $readOnly, $nowUtc );
 		}
 
 		return array( 'exams' => $cards );
 	}
 
-	private function buildSessionsList( int $eventId, ?array $registration ): array {
-		$now = current_time( 'mysql', true );
-		$sessions = array();
+	/**
+	 * Действующие записи ученика на идущие и будущие сеансы — для расписания.
+	 *
+	 * @return list<array<string, mixed>>
+	 */
+	public function upcomingEvents( int $personId ): array {
+		$nowUtc = $this->time->nowUtc();
+		$result = array();
 
-		$dbSessions = $this->sessionRepo->findByEvent( $eventId );
-		foreach ( $dbSessions as $session ) {
-			if ( 'cancelled' === $session->status ) {
+		foreach ( $this->events->findByIds( $this->participations->findEventIdsForPerson( $personId ) ) as $event ) {
+			if ( ExamEventStatus::Published->value !== $event->status ) {
 				continue;
 			}
 
-			$scheduledAt = $session->scheduled_at;
-			if ( ! $scheduledAt || $now > $scheduledAt ) {
+			$participation = $this->participations->findByEventAndPerson( $event->id, $personId );
+			$registration  = null !== $participation ? $this->registrations->findActive( $participation->id ) : null;
+			$session       = null !== $registration ? $this->sessions->find( $registration->sessionId ) : null;
+			if ( null === $participation || null === $registration || null === $session || $nowUtc >= $session->plannedEndAt ) {
 				continue;
 			}
 
-			$free = max( 0, $session->capacity - $session->occupied_count );
+			$attempt = $this->currentAttempt( $participation );
+			$start   = $this->local( $session->scheduledAt );
+			$room    = $this->roomName( $session->roomId );
 
-			$sessions[] = array(
-				'session_id'  => $session->id,
-				'date'        => wp_date( 'Y-m-d', strtotime( $scheduledAt ) ),
-				'weekday'     => wp_date( 'l', strtotime( $scheduledAt ) ),
-				'time_start'  => wp_date( 'H:i', strtotime( $scheduledAt ) ),
-				'time_end'    => wp_date( 'H:i', strtotime( $session->planned_end_at ) ),
-				'room'        => $this->getRoomName( $session->room_id ?? null ),
-				'free'        => $free,
-				'capacity'    => $session->capacity,
-				'selectable'  => $free > 0,
-				'is_current'  => $registration && $registration['session_id'] === $session->id,
+			$result[] = array(
+				'kind'       => 'exam',
+				'event_id'   => $event->id,
+				'title'      => $event->title,
+				'date'       => $start['date'],
+				'start'      => $start['time'],
+				'end'        => $this->local( $session->plannedEndAt )['time'],
+				'room'       => $room,
+				'room_name'  => $room,
+				'state'      => $this->resolveState( $event, $participation, $registration, null, $attempt, $session, $nowUtc, false )['state'],
+				'deadline'   => null !== $attempt && AttemptStatus::InProgress === $attempt->status ? substr( $attempt->deadlineAt, 11, 5 ) : null,
+				'group_name' => 'Экзамен',
+				'topic'      => $event->title,
 			);
 		}
 
-		return $sessions;
-	}
-
-	private function resolveState(
-		ExamEventDTO $event,
-		?array $registration,
-		?array $attempt,
-		array $sessions
-	): array {
-		$now = current_time( 'mysql', true );
-
-		// event_cancelled
-		if ( 'cancelled' === $event->status ) {
-			return array(
-				'state'   => 'event_cancelled',
-				'actions' => array(),
-			);
-		}
-
-		// Проверить есть ли активная запись
-		$hasActiveRegistration = null !== $registration;
-		$hasAttempt = null !== $attempt;
-
-		// Есть попытка в процессе
-		if ( $hasAttempt && 'in_progress' === $attempt['status'] ) {
-			return array(
-				'state'   => 'in_progress',
-				'actions' => array( 'resume' ),
-			);
-		}
-
-		// Есть попытка, ожидает утверждения
-		if ( $hasAttempt && 'pending' === $attempt['status'] ) {
-			return array(
-				'state'   => 'awaiting_approval',
-				'actions' => array(),
-			);
-		}
-
-		// Попытка утверждена
-		if ( $hasAttempt && 'approved' === $attempt['status'] ) {
-			return array(
-				'state'   => 'approved',
-				'actions' => array( 'results' ),
-			);
-		}
-
-		// Есть запись
-		if ( $hasActiveRegistration ) {
-			$scheduledAt = $registration['scheduled_at'] ?? null;
-			$plannedEnd = $registration['planned_end_at'] ?? null;
-
-			// Сеанс начался
-			if ( $scheduledAt && $now >= $scheduledAt && $plannedEnd && $now < $plannedEnd ) {
-				return array(
-					'state'   => 'entry_open',
-					'actions' => array( 'start' ),
-				);
-			}
-
-			// Сеанс ещё не начался
-			if ( $scheduledAt && $now < $scheduledAt ) {
-				return array(
-					'state'   => 'registered',
-					'actions' => array( 'change', 'cancel' ),
-				);
-			}
-
-			// Сеанс закончился - пропущен или отменён
-			return array(
-				'state'   => 'missed',
-				'actions' => $this->canRegisterAgain( $event, $sessions ) ? array( 'register' ) : array(),
-			);
-		}
-
-		// Нет записи - проверить может ли записаться
-
-		// Запись закрыта
-		if ( $now >= $event->registration_closes_at ) {
-			return array(
-				'state'   => 'closed',
-				'actions' => array(),
-			);
-		}
-
-		// Запись ещё не открыта
-		if ( $now < $event->registration_opens_at ) {
-			return array(
-				'state'   => 'not_open',
-				'actions' => array(),
-			);
-		}
-
-		// Есть свободное место
-		if ( $this->hasFreeSlot( $sessions ) ) {
-			return array(
-				'state'   => 'open',
-				'actions' => array( 'register' ),
-			);
-		}
-
-		// Мест нет
-		return array(
-			'state'   => 'full',
-			'actions' => array(),
+		usort(
+			$result,
+			static fn ( array $a, array $b ): int => strcmp( $a['date'] . ' ' . $a['start'], $b['date'] . ' ' . $b['start'] )
 		);
-	}
 
-	private function hasFreeSlot( array $sessions ): bool {
-		foreach ( $sessions as $session ) {
-			if ( isset( $session['free'] ) && $session['free'] > 0 ) {
-				if ( isset( $session['time_start'] ) ) {
-					return true;
-				}
-			}
-		}
-		return false;
-	}
-
-	private function canRegisterAgain( ExamEventDTO $event, array $sessions ): bool {
-		$now = current_time( 'mysql', true );
-		if ( $now < $event->registration_opens_at || $now >= $event->registration_closes_at ) {
-			return false;
-		}
-		return $this->hasFreeSlot( $sessions );
-	}
-
-	private function getStateLabel( string $state ): string {
-		$labels = array(
-			'event_cancelled'   => 'Проведение отменено',
-			'not_open'          => 'Запись не открыта',
-			'open'              => 'Запись открыта',
-			'full'              => 'Свободных мест нет',
-			'closed'            => 'Запись закрыта',
-			'registered'        => 'Зарегистрирован',
-			'entry_open'        => 'Экзамен идёт',
-			'in_progress'       => 'Выполняется',
-			'awaiting_approval' => 'Ожидает утверждения',
-			'approved'          => 'Завершён',
-			'cancelled_by_staff' => 'Запись отменена',
-			'missed'            => 'Пропущен',
-		);
-		return $labels[ $state ] ?? $state;
-	}
-
-	private function getRoomName( ?int $roomId ): ?string {
-		if ( ! $roomId ) {
-			return null;
-		}
-		try {
-			$room = $this->roomRepo->findById( $roomId );
-			return $room?->name;
-		} catch ( \Exception $e ) {
-			return null;
-		}
-	}
-
-	private function getTeacherName( ?int $personId ): ?string {
-		if ( ! $personId ) {
-			return null;
-		}
-		try {
-			$person = $this->personRepo->findById( $personId );
-			return $person ? trim( $person->last_name . ' ' . $person->first_name ) : null;
-		} catch ( \Exception $e ) {
-			return null;
-		}
+		return $result;
 	}
 
 	/**
-	 * Форматирует результат для отображения в зависимости от направления.
-	 * ОГЭ — оценка (2-5), ЕГЭ — баллы (0-100).
+	 * Проведения предметов ученика (опубликованные, завершённые, отменённые) плюс те, где у него уже есть участие:
+	 * историческая запись не исчезает при смене группы. Черновики не показываются никогда.
 	 *
-	 * @param ?array $attempt Данные попытки (может быть null)
-	 * @param string $direction Направление (oge, ege, и т.д.)
-	 *
-	 * @return ?string Форматированный результат или null
+	 * @return ExamEventDTO[]
 	 */
-	public function resultCaption( ?array $attempt, string $direction ): ?string {
-		if ( ! $attempt || ! isset( $attempt['score'] ) ) {
-			return null;
+	private function visibleEvents( int $personId ): array {
+		$statuses = array(
+			ExamEventStatus::Published->value,
+			ExamEventStatus::Completed->value,
+			ExamEventStatus::Cancelled->value,
+		);
+
+		$bySubject  = $this->events->findBySubjectsAndStatuses( $this->audience->subjectKeysForStudent( $personId ), $statuses );
+		$historical = $this->events->findByIds( $this->participations->findEventIdsForPerson( $personId ) );
+
+		$unique = array();
+		foreach ( array_merge( $bySubject, $historical ) as $event ) {
+			if ( ExamEventStatus::Draft->value === $event->status ) {
+				continue;
+			}
+			$unique[ $event->id ] = $event;
 		}
 
-		$score = (int) $attempt['score'];
-
-		// ОГЭ: оценка (2-5)
-		if ( 'oge' === $direction ) {
-			$gradeMap = array( 2, 3, 4, 5 );
-			$grade = $gradeMap[ min( $score, 3 ) ] ?? 2;
-			return (string) $grade;
-		}
-
-		// ЕГЭ: баллы (0-100)
-		if ( 'ege' === $direction ) {
-			return (string) $score;
-		}
-
-		// По умолчанию просто баллы
-		return (string) $score;
+		return array_values( $unique );
 	}
 
-	public function upcomingEvents( int $personId ): array {
-		$now = current_time( 'mysql', true );
-		$events = array();
+	/** @return array<string, mixed> */
+	private function card( ExamEventDTO $event, int $personId, bool $readOnly, string $nowUtc ): array {
+		$participation = $this->participations->findByEventAndPerson( $event->id, $personId );
+		$registration  = null !== $participation ? $this->registrations->findActive( $participation->id ) : null;
 
-		// Получить участия и их активные регистрации
-		$eventIdsWithParticipation = $this->participationRepo->findEventIdsForStudent( $personId );
-		if ( empty( $eventIdsWithParticipation ) ) {
-			return $events;
+		// Ленивая неявка: ученик видит «пропущено» сразу, не дожидаясь cron.
+		if ( null !== $participation && null !== $registration ) {
+			$registration = $this->settleMissed( $participation, $registration, $nowUtc );
+			$participation = $this->participations->find( $participation->id ) ?? $participation;
 		}
 
-		$events_db = $this->eventRepo->findByIds( $eventIdsWithParticipation );
-		foreach ( $events_db as $event ) {
-			// Получить активную регистрацию
-			$participation = $this->participationRepo->findByEventAndStudent( $event->id, $personId );
-			if ( ! $participation ) {
-				continue;
-			}
+		$sessions    = $this->sessions->findByEvent( $event->id );
+		$session     = null !== $registration ? $this->sessionById( $sessions, $registration->sessionId ) : null;
+		$attempt     = null !== $participation ? $this->currentAttempt( $participation ) : null;
+		$last        = null !== $participation && null === $registration ? $this->lastClosedRegistration( $participation ) : null;
+		$futureList  = $this->futureSessions( $sessions, $registration, $nowUtc );
+		$stateInfo   = $this->resolveState( $event, $participation, $registration, $last, $attempt, $session, $nowUtc, array() !== $this->freeSessions( $futureList ), $futureList );
 
-			$registration = $this->registrationRepo->findActive( $participation->id );
-			if ( ! $registration ) {
-				continue;
-			}
+		$lastSession = null !== $last ? $this->sessionById( $sessions, $last->sessionId ) : null;
 
-			// Получить сеанс
-			$session = $this->sessionRepo->find( $registration->session_id );
-			if ( ! $session || $session->scheduled_at <= $now ) {
-				continue; // Прошлый сеанс
-			}
+		$card = array(
+			'event_id'               => $event->id,
+			'title'                  => $event->title,
+			'description'            => $event->description,
+			'subject_key'            => $event->subjectKey,
+			'direction'              => $this->format( $event, $sessions )?->direction->value ?? '',
+			'state'                  => $stateInfo['state'],
+			'state_label'            => $this->stateLabel( $stateInfo['state'] ),
+			'actions'                => $readOnly ? $this->readOnlyActions( $stateInfo['actions'] ) : $stateInfo['actions'],
+			'period_from'            => $event->periodFrom,
+			'period_to'              => $event->periodTo,
+			'registration_opens_at'  => null !== $event->registrationOpensAt ? $this->time->toLocal( $event->registrationOpensAt ) : null,
+			'registration_closes_at' => null !== $event->registrationClosesAt ? $this->time->toLocal( $event->registrationClosesAt ) : null,
+			'registration'           => null !== $registration && null !== $session && null !== $participation ? $this->registrationBlock( $registration, $session, $participation ) : null,
+			'last_reason'            => $this->lastReason( $event, $last ),
+			'previous_date'          => null !== $lastSession && ExamRegistrationStatus::Missed->value === $last->status ? $this->local( $lastSession->scheduledAt )['date'] : null,
+			'sessions'               => $futureList,
+			'teacher_name'           => $this->ownerName( $event->ownerUserId ),
+			'format'                 => $this->formatBlock( $event, $sessions ),
+		);
 
-			// Получить попытку для определения состояния
-			$attempt = $this->attemptRepo->findLatestByParticipation( $participation->id );
+		if ( ! $readOnly ) {
+			$card += $this->stationBlock( $stateInfo['state'], $registration, $session, $attempt );
+		}
 
-			// Определить состояние
-			$state = 'registered';
-			if ( $attempt ) {
-				$attemptArr = $attempt->toArray();
-				if ( 'in_progress' === $attemptArr['status'] ) {
-					$state = 'in_progress';
-				} elseif ( 'approved' === $attemptArr['status'] ) {
-					$state = 'approved';
-				}
-			}
+		return 'approved' === $stateInfo['state'] && null !== $participation
+			? $card + $this->approvedResult( $personId, $event->id )
+			: $card;
+	}
 
-			$events[] = array(
-				'kind'        => 'exam',
-				'event_id'    => $event->id,
-				'title'       => $event->title,
-				'date'        => wp_date( 'Y-m-d', strtotime( $session->scheduled_at ) ),
-				'start'       => wp_date( 'H:i', strtotime( $session->scheduled_at ) ),
-				'end'         => wp_date( 'H:i', strtotime( $session->planned_end_at ) ),
-				'room'        => $this->getRoomName( $session->room_id ?? null ),
-				'state'       => $state,
-				'deadline'    => $attempt ? wp_date( 'H:i', strtotime( $attempt->deadline_at ?? $session->planned_end_at ) ) : null,
-				'group_name'  => 'Экзамен',
-				'topic'       => $event->title,
-				'room_name'   => $this->getRoomName( $session->room_id ?? null ),
+	/**
+	 * Родитель только читает: запись, перенос, отмена и сдача — за учеником; результат ребёнка он смотрит.
+	 *
+	 * @param string[] $actions
+	 *
+	 * @return string[]
+	 */
+	private function readOnlyActions( array $actions ): array {
+		return array_values( array_intersect( $actions, array( 'results' ) ) );
+	}
+
+	/**
+	 * Запуск и продолжение попытки: адрес станции по записи, а для идущей попытки — личный дедлайн.
+	 * В остальных состояниях ключей нет. Время — местное.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function stationBlock( string $state, ?ExamRegistrationDTO $registration, ?ExamSessionDTO $session, ?AttemptDTO $attempt ): array {
+		if ( 'in_progress' === $state && null !== $attempt && null !== $attempt->examRegistrationId ) {
+			return array(
+				'station_url'  => $this->assessments->examStationUrl( $attempt->assessmentId, $attempt->examRegistrationId ),
+				'deadline'     => substr( $attempt->deadlineAt, 11, 5 ),
+				'seconds_left' => $this->time->secondsUntil( $this->time->nowLocal(), $attempt->deadlineAt ),
 			);
 		}
 
-		// Отсортировать по дате и времени
-		usort( $events, function( $a, $b ) {
-			$aTime = strtotime( $a['date'] . ' ' . $a['start'] );
-			$bTime = strtotime( $b['date'] . ' ' . $b['start'] );
-			return $aTime - $bTime;
-		} );
+		if ( 'entry_open' === $state && null !== $registration && null !== $session ) {
+			return array( 'station_url' => $this->assessments->examStationUrl( $session->assessmentId, $registration->id ) );
+		}
 
-		return $events;
+		return array();
+	}
+
+	/**
+	 * Итог и перечень единиц — только для раскрытого результата; в остальных состояниях ключей нет.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function approvedResult( int $personId, int $eventId ): array {
+		$review = $this->reviews->forStudent( $personId, $eventId );
+		if ( null === $review || true !== ( $review['revealed'] ?? false ) ) {
+			return array();
+		}
+
+		return array(
+			'result'      => $review['result'],
+			'approved_at' => $review['approved_at'] ?? null,
+			'units'       => array_map(
+				static fn ( array $unit ): array => array(
+					'number' => $unit['number'],
+					'status' => $unit['status'],
+					'anchor' => $unit['anchor'],
+				),
+				$review['units']
+			),
+		);
+	}
+
+	/**
+	 * Состояние карточки и разрешённые действия — по таблице спецификации 5.2.2.
+	 *
+	 * @param list<array<string, mixed>> $futureList
+	 *
+	 * @return array{state: string, actions: string[]}
+	 */
+	private function resolveState(
+		ExamEventDTO $event,
+		?ExamParticipationDTO $participation,
+		?ExamRegistrationDTO $registration,
+		?ExamRegistrationDTO $last,
+		?AttemptDTO $attempt,
+		?ExamSessionDTO $session,
+		string $nowUtc,
+		bool $hasFreeSeat,
+		array $futureList = array(),
+	): array {
+		if ( ExamEventStatus::Cancelled->value === $event->status ) {
+			return array( 'state' => 'event_cancelled', 'actions' => array() );
+		}
+
+		if ( null !== $attempt ) {
+			if ( AttemptStatus::InProgress === $attempt->status ) {
+				return array( 'state' => 'in_progress', 'actions' => array( 'resume' ) );
+			}
+			return $attempt->isApproved()
+				? array( 'state' => 'approved', 'actions' => array( 'results' ) )
+				: array( 'state' => 'awaiting_approval', 'actions' => array() );
+		}
+
+		$windowOpen = $this->registrationWindowOpen( $event, $nowUtc );
+
+		if ( null !== $registration && null !== $session ) {
+			if ( $nowUtc < $session->scheduledAt ) {
+				return array( 'state' => 'registered', 'actions' => $windowOpen ? array( 'change', 'cancel' ) : array() );
+			}
+			if ( $nowUtc < $session->plannedEndAt ) {
+				return array( 'state' => 'entry_open', 'actions' => array( 'start' ) );
+			}
+		}
+
+		$canRegister = $windowOpen && $hasFreeSeat;
+
+		if ( null !== $last ) {
+			if ( ExamRegistrationStatus::Missed->value === $last->status ) {
+				return array( 'state' => 'missed', 'actions' => $canRegister ? array( 'register' ) : array() );
+			}
+			if ( ExamRegistrationStatus::Cancelled->value === $last->status && null !== $last->actorUserId ) {
+				return array( 'state' => 'cancelled_by_staff', 'actions' => $canRegister ? array( 'register' ) : array() );
+			}
+		}
+
+		if ( null !== $event->registrationOpensAt && $nowUtc < $event->registrationOpensAt ) {
+			return array( 'state' => 'not_open', 'actions' => array() );
+		}
+		if ( ( null !== $event->registrationClosesAt && $nowUtc >= $event->registrationClosesAt ) || array() === $futureList ) {
+			return array( 'state' => 'closed', 'actions' => array() );
+		}
+
+		return $hasFreeSeat
+			? array( 'state' => 'open', 'actions' => array( 'register' ) )
+			: array( 'state' => 'full', 'actions' => array() );
+	}
+
+	private function registrationWindowOpen( ExamEventDTO $event, string $nowUtc ): bool {
+		return ( null === $event->registrationOpensAt || $nowUtc >= $event->registrationOpensAt )
+			&& ( null === $event->registrationClosesAt || $nowUtc < $event->registrationClosesAt );
+	}
+
+	/** Сеанс закончился, попытки нет — проставить неявку и перечитать запись. */
+	private function settleMissed( ExamParticipationDTO $participation, ExamRegistrationDTO $registration, string $nowUtc ): ?ExamRegistrationDTO {
+		$session = $this->sessions->find( $registration->sessionId );
+		if ( null === $session || null !== $participation->currentAttemptId || $nowUtc < $session->plannedEndAt ) {
+			return $registration;
+		}
+
+		try {
+			$this->noShow->markMissed( $registration->id );
+		} catch ( \Throwable $e ) {
+			PluginLogger::exception( 'LearnerExamsService', $e, array( 'registration_id' => $registration->id ), true );
+			return $registration;
+		}
+
+		return $this->registrations->findActive( $participation->id );
+	}
+
+	private function currentAttempt( ExamParticipationDTO $participation ): ?AttemptDTO {
+		return null !== $participation->currentAttemptId ? $this->attempts->find( $participation->currentAttemptId ) : null;
+	}
+
+	/** Последняя закрытая запись участия (для состояний «пропущено» и «отменена сотрудником»). */
+	private function lastClosedRegistration( ExamParticipationDTO $participation ): ?ExamRegistrationDTO {
+		$all = $this->registrations->findByParticipation( $participation->id );
+		return array() !== $all ? $all[ array_key_last( $all ) ] : null;
+	}
+
+	/**
+	 * Будущие открытые сеансы для карусели.
+	 *
+	 * @param ExamSessionDTO[] $sessions
+	 *
+	 * @return list<array<string, mixed>>
+	 */
+	private function futureSessions( array $sessions, ?ExamRegistrationDTO $registration, string $nowUtc ): array {
+		$result = array();
+		foreach ( $sessions as $session ) {
+			if ( ExamSessionStatus::Open->value !== $session->status || $nowUtc >= $session->scheduledAt ) {
+				continue;
+			}
+
+			$free  = max( 0, $session->capacity - $session->occupiedCount );
+			$start = $this->local( $session->scheduledAt );
+
+			$result[] = array(
+				'session_id' => $session->id,
+				'date'       => $start['date'],
+				'weekday'    => $start['weekday'],
+				'time_start' => $start['time'],
+				'time_end'   => $this->local( $session->plannedEndAt )['time'],
+				'room'       => $this->roomName( $session->roomId ),
+				'free'       => $free,
+				'capacity'   => $session->capacity,
+				'selectable' => $free > 0,
+				'is_current' => null !== $registration && $registration->sessionId === $session->id,
+			);
+		}
+		return $result;
+	}
+
+	/**
+	 * @param list<array<string, mixed>> $futureList
+	 *
+	 * @return list<array<string, mixed>>
+	 */
+	private function freeSessions( array $futureList ): array {
+		return array_values( array_filter( $futureList, static fn ( array $s ): bool => $s['free'] > 0 && empty( $s['is_current'] ) ) );
+	}
+
+	/** @return array<string, mixed> */
+	private function registrationBlock( ExamRegistrationDTO $registration, ExamSessionDTO $session, ExamParticipationDTO $participation ): array {
+		$start = $this->local( $session->scheduledAt );
+
+		return array(
+			'registration_id' => $registration->id,
+			'version'         => $participation->version, // клиент возвращает её при переносе и отмене (`ExamStale`)
+			'session_id'      => $session->id,
+			'date'            => $start['date'],
+			'weekday'         => $start['weekday'],
+			'time_start'      => $start['time'],
+			'time_end'        => $this->local( $session->plannedEndAt )['time'],
+			'room'            => $this->roomName( $session->roomId ),
+		);
+	}
+
+	private function lastReason( ExamEventDTO $event, ?ExamRegistrationDTO $last ): ?string {
+		if ( ExamEventStatus::Cancelled->value === $event->status ) {
+			return $event->cancelReason;
+		}
+		return null !== $last && null !== $last->actorUserId ? $last->reason : null;
+	}
+
+	/** @param ExamSessionDTO[] $sessions */
+	private function sessionById( array $sessions, int $id ): ?ExamSessionDTO {
+		foreach ( $sessions as $session ) {
+			if ( $session->id === $id ) {
+				return $session;
+			}
+		}
+		return $this->sessions->find( $id );
+	}
+
+	/**
+	 * Формат проведения — по основному варианту (или по варианту первого сеанса).
+	 *
+	 * @param ExamSessionDTO[] $sessions
+	 */
+	private function format( ExamEventDTO $event, array $sessions ): ?\Inc\DTO\Exam\ExamFormatDTO {
+		$assessmentId = $event->defaultAssessmentId ?? ( $sessions[0]->assessmentId ?? null );
+		$assessment   = null !== $assessmentId ? $this->assessments->get( $assessmentId ) : null;
+
+		return null !== $assessment ? $this->formats->for( $assessment->kind ) : null;
+	}
+
+	/**
+	 * @param ExamSessionDTO[] $sessions
+	 *
+	 * @return array<string, mixed>|null
+	 */
+	private function formatBlock( ExamEventDTO $event, array $sessions ): ?array {
+		$format = $this->format( $event, $sessions );
+		if ( null === $format ) {
+			return null;
+		}
+
+		return array(
+			'direction'        => $format->direction->value,
+			'unit_count'       => $format->unitCount,
+			'primary_max'      => $format->primaryMax,
+			'secondary_max'    => $format->secondaryMax,
+			'grade_max'        => $format->gradeMax,
+			'duration_minutes' => $format->durationMinutes,
+		);
+	}
+
+	private function stateLabel( string $state ): string {
+		return match ( $state ) {
+			'event_cancelled'    => 'Проведение отменено',
+			'not_open'           => 'Запись не открыта',
+			'open'               => 'Запись открыта',
+			'full'               => 'Свободных мест нет',
+			'closed'             => 'Запись закрыта',
+			'registered'         => 'Запись подтверждена',
+			'entry_open'         => 'Экзамен идёт',
+			'in_progress'        => 'Выполняется',
+			'awaiting_approval'  => 'Ожидает утверждения',
+			'approved'           => 'Завершён',
+			'cancelled_by_staff' => 'Запись отменена',
+			'missed'             => 'Экзамен пропущен',
+			default              => $state,
+		};
+	}
+
+	private function roomName( int $roomId ): ?string {
+		return $roomId > 0 ? $this->rooms->find( $roomId )?->name : null;
+	}
+
+	private function ownerName( int $userId ): ?string {
+		$user = $userId > 0 ? get_userdata( $userId ) : false;
+		return false !== $user ? (string) $user->display_name : null;
+	}
+
+	/**
+	 * UTC → местные дата, время и день недели.
+	 *
+	 * @return array{date: string, time: string, weekday: string}
+	 */
+	private function local( string $utc ): array {
+		$local = $this->time->toLocal( $utc );
+
+		return array(
+			'date'    => substr( $local, 0, 10 ),
+			'time'    => substr( $local, 11, 5 ),
+			'weekday' => wp_date( 'l', ( new \DateTimeImmutable( $utc, new \DateTimeZone( 'UTC' ) ) )->getTimestamp() ),
+		);
 	}
 }

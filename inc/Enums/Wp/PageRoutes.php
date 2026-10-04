@@ -33,6 +33,9 @@ enum PageRoutes: string {
 	/** Страница подачи заявки на обучение */
 	case Apply = 'apply';
 
+	/** Форма записи гостя на экзамен по ссылке школы (страницу создаёт этап 11a; здесь только слаг для адреса ссылки) */
+	case ExamSignup = 'exam-signup';
+
 	/** Страница личного кабинета пользователя */
 	case UserProfile = 'profile';
 
@@ -72,6 +75,18 @@ enum PageRoutes: string {
 			),
 			$this->url()
 		);
+	}
+
+	/**
+	 * Deep-link на экран кабинета: `/profile/?screen=<ключ>` (ключи — `src/js/profile/app.js`, список экранов).
+	 * Осмысленно для {@see self::UserProfile}.
+	 *
+	 * @param string $screen Ключ экрана, напр. `learner-exams`
+	 *
+	 * @return string
+	 */
+	public function screenUrl( string $screen ): string {
+		return (string) add_query_arg( array( 'screen' => $screen ), $this->url() );
 	}
 
 	/**

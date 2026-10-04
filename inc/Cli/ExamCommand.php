@@ -5,7 +5,10 @@ declare( strict_types=1 );
 namespace Inc\Cli;
 
 use Inc\Contracts\ServiceInterface;
+use Inc\Controllers\System\CronController;
 use Inc\Services\Exam\ExamAudienceResolver;
+use Inc\Services\Exam\ExamTickLock;
+use Inc\Services\Exam\ExamTickService;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use WP_CLI;
@@ -21,6 +24,8 @@ class ExamCommand implements ServiceInterface {
 		private readonly ExamAudienceResolver     $audience,
 		private readonly StudentRecordRepository  $records,
 		private readonly GroupsRepository         $groups,
+		private readonly ExamTickLock             $tickLock,
+		private readonly ExamTickService          $ticks,
 	) {}
 
 	public function register(): void {
@@ -29,6 +34,74 @@ class ExamCommand implements ServiceInterface {
 		}
 
 		WP_CLI::add_command( 'fs-lms exam audience', array( $this, 'audience' ) );
+		WP_CLI::add_command( 'fs-lms exam tick', array( $this, 'tick' ) );
+	}
+
+	/**
+	 * Выполнить минутный тик экзаменов вручную: автоистечение попыток и неявки либо освобождение истёкших броней гостей.
+	 *
+	 * Тот же код и та же блокировка, что у cron: второй одновременный запуск не выполняется.
+	 *
+	 * ## OPTIONS
+	 *
+	 * [--name=<name>]
+	 * : Какой тик запускать.
+	 * ---
+	 * default: auto-expire
+	 * options:
+	 *   - auto-expire
+	 *   - hold-release
+	 * ---
+	 *
+	 * [--at=<unix>]
+	 * : Подождать до этого момента (секунды Unix) и только потом запустить тик — для стенда start-vs-missed.
+	 *
+	 * ## EXAMPLES
+	 *
+	 *     wp fs-lms exam tick
+	 *     wp fs-lms exam tick --name=auto-expire
+	 *     wp fs-lms exam tick --name=hold-release
+	 *
+	 * @param array $args       Позиционные аргументы
+	 * @param array $assoc_args Именованные аргументы
+	 */
+	public function tick( array $args, array $assoc_args ): void {
+		$name   = (string) ( $assoc_args['name'] ?? 'auto-expire' );
+		$result = null;
+
+		// Стенд: все процессы загружают WordPress заранее и стартуют в одну секунду.
+		$at = (float) ( $assoc_args['at'] ?? 0 );
+		if ( $at > microtime( true ) ) {
+			usleep( (int) ( ( $at - microtime( true ) ) * 1_000_000 ) );
+		}
+
+		if ( 'hold-release' === $name ) {
+			$lock = CronController::EXAM_HOLD_RELEASE_LOCK;
+			$run  = function () use ( &$result ): void {
+				$result = sprintf( 'Освобождено броней: %d.', $this->ticks->releaseHolds() );
+			};
+		} elseif ( 'auto-expire' === $name ) {
+			$lock = CronController::EXAM_AUTO_EXPIRE_LOCK;
+			$run  = function () use ( &$result ): void {
+				$counts = $this->ticks->autoExpireTick();
+				$result = sprintf( 'Завершено попыток: %d, проставлено неявок: %d.', $counts['expired'], $counts['missed'] );
+			};
+		} else {
+			WP_CLI::error( sprintf( 'Неизвестный тик «%s»: допустимы auto-expire и hold-release.', $name ) );
+			return;
+		}
+
+		if ( ! $this->tickLock->run( $lock, $run ) ) {
+			WP_CLI::warning( 'Тик уже выполняется.' );
+			return;
+		}
+
+		if ( null === $result ) {
+			// Исключение тика поглощено ExamTickLock (cron не должен падать) и записано в журнал.
+			WP_CLI::error( 'Тик завершился с ошибкой — подробности в журнале.' );
+		}
+
+		WP_CLI::success( $result );
 	}
 
 	/**

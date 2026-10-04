@@ -4,6 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Exam;
 
+use Inc\DTO\Exam\ExamEventDTO;
 use Inc\Enums\Access\Capability;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
 
@@ -96,6 +97,27 @@ class ExamAccessGuard {
 
 		// Иначе только свои предметы
 		return in_array( $subjectKey, $this->subjectKeysFor( $userId ), true );
+	}
+
+	/**
+	 * Может ли пользователь управлять конкретным проведением.
+	 *
+	 * Глобальный доступ — любым. Преподаватель — только своим (владелец проведения) и только пока предмет проведения
+	 * остаётся его предметом: учитель того же предмета чужим проведением не управляет (SPEC §3).
+	 */
+	public function canManageEvent( int $userId, ExamEventDTO $event ): bool {
+		if ( $this->isGlobal( $userId ) ) {
+			return true;
+		}
+
+		return $event->ownerUserId === $userId && $this->canManageSubject( $userId, $event->subjectKey );
+	}
+
+	/**
+	 * Может ли пользователь управлять гостевой записью проведения (источники и ссылки приглашений): право на гостей плюс право на проведение.
+	 */
+	public function canManageEventGuests( int $userId, ExamEventDTO $event ): bool {
+		return user_can( $userId, Capability::ManageExamGuests->value ) && $this->canManageEvent( $userId, $event );
 	}
 
 	/**

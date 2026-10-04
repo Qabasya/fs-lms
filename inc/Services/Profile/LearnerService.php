@@ -29,9 +29,8 @@ class LearnerService {
 		private readonly LearnerScheduleSection    $schedule,
 		private readonly LearnerPerformanceSection $performance,
 		private readonly LearnerCoursesSection     $coursesSection,
-		private readonly ?LearnerExamsService     $examsService = null,
+		private readonly LearnerExamsService      $examsService,
 	) {}
-
 
 	/**
 	 * Собирает кабинет ученика: группы, расписание, дедлайны, оценки, посещаемость.
@@ -54,18 +53,12 @@ class LearnerService {
 
 		$grades = $this->performance->grades( $ctx, $personId );
 
-		// Слить события экзаменов с расписанием занятий
-		$upcomingEvents = $this->schedule->upcoming( $ctx );
-		if ( $this->examsService ) {
-			$examEvents = $this->examsService->upcomingEvents( $personId );
-			$upcomingEvents = array_merge( $upcomingEvents, $examEvents );
-			// Отсортировать по дате и времени
-			usort( $upcomingEvents, function( $a, $b ) {
-				$aTime = strtotime( ( $a['date'] ?? '0000-00-00' ) . ' ' . ( $a['start'] ?? '00:00' ) );
-				$bTime = strtotime( ( $b['date'] ?? '0000-00-00' ) . ' ' . ( $b['start'] ?? '00:00' ) );
-				return $aTime - $bTime;
-			} );
-		}
+		// События экзаменов сливаются с занятиями и сортируются по дате и времени до обрезки до 6.
+		$upcomingEvents = array_merge( $this->schedule->upcoming( $ctx ), $this->examsService->upcomingEvents( $personId ) );
+		usort(
+			$upcomingEvents,
+			static fn ( array $a, array $b ): int => strcmp( ( $a['date'] ?? '' ) . ' ' . ( $a['start'] ?? '' ), ( $b['date'] ?? '' ) . ' ' . ( $b['start'] ?? '' ) )
+		);
 
 		return new LearnerDashboardDTO(
 			examLock:   $this->coursesSection->examLock( $personId ),

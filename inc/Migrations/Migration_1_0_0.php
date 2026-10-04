@@ -46,6 +46,9 @@ use Inc\Enums\Settings\TableName;
  * - **substitutions**        — замены преподавателя
  * - **rooms**                — кабинеты/аудитории
  * - **notifications**        — in-app уведомления кабинета
+ * - **exam_\***              — 15 таблиц экзаменов вне курса: проведения, сеансы, участники, участия, записи, источники,
+ *                              ключи доступа, гостевые сессии, отчёты школе, outbox, ключи операций, заявки гостей, оплаты,
+ *                              ручные разборы. Схема — `Migration_1_0_71::examDdl()` (одна на установку с нуля и на апгрейд)
  */
 class Migration_1_0_0 implements MigrationInterface {
 
@@ -492,9 +495,11 @@ class Migration_1_0_0 implements MigrationInterface {
 			"CREATE TABLE $assessment_attempts (
 			id                  int unsigned         NOT NULL AUTO_INCREMENT,
 			assessment_id       bigint unsigned      NOT NULL,
-			student_person_id   int unsigned         NOT NULL,
+			student_person_id   int unsigned         DEFAULT NULL,
 			group_id            smallint unsigned    DEFAULT NULL,
 			group_lesson_id     int unsigned         DEFAULT NULL,
+			exam_participation_id int unsigned       DEFAULT NULL,
+			exam_registration_id  int unsigned       DEFAULT NULL,
 			attempt_number      smallint unsigned    NOT NULL,
 			started_at          datetime             NOT NULL,
 			deadline_at         datetime             NOT NULL,
@@ -505,10 +510,12 @@ class Migration_1_0_0 implements MigrationInterface {
 			graded_by_user_id   bigint unsigned      DEFAULT NULL,
 			approved_at         datetime             DEFAULT NULL,
 			approved_by_user_id bigint unsigned      DEFAULT NULL,
+			result_version      int unsigned         NOT NULL DEFAULT 0,
 			created_at          datetime             NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			updated_at          datetime             NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 			PRIMARY KEY  (id),
 			UNIQUE KEY attempt (assessment_id, student_person_id, attempt_number),
+			UNIQUE KEY exam_participation (exam_participation_id),
 			KEY assessment_id (assessment_id),
 			KEY student_person_id (student_person_id),
 			KEY status (status)
@@ -674,12 +681,33 @@ class Migration_1_0_0 implements MigrationInterface {
 			KEY recipient_seen (recipient_user_id, seen_at)
 		) $cc;"
 		);
+
+		// ===== 26–40. Экзамены вне курса (15 таблиц) — схема одна на все пути: Migration_1_0_71::examDdl() =====
+		foreach ( Migration_1_0_71::examDdl( $cc ) as $sql ) {
+			dbDelta( $sql );
+		}
 	}
 
 	public function down(): void {
 		global $wpdb;
 
 		$tables = array(
+			// Экзамены — первыми: дочерние таблицы раньше родительских.
+			TableName::ExamManualResolutions->prefixed(),
+			TableName::ExamPaymentLinks->prefixed(),
+			TableName::ExamGuestApplications->prefixed(),
+			TableName::ExamOperationKeys->prefixed(),
+			TableName::ExamOutbox->prefixed(),
+			TableName::ExamReportMembers->prefixed(),
+			TableName::ExamReports->prefixed(),
+			TableName::ExamGuestSessions->prefixed(),
+			TableName::ExamAccessTokens->prefixed(),
+			TableName::ExamSources->prefixed(),
+			TableName::ExamRegistrations->prefixed(),
+			TableName::ExamParticipations->prefixed(),
+			TableName::ExamParticipants->prefixed(),
+			TableName::ExamSessions->prefixed(),
+			TableName::ExamEvents->prefixed(),
 			TableName::Notifications->prefixed(),
 			TableName::Rooms->prefixed(),
 			TableName::Substitutions->prefixed(),

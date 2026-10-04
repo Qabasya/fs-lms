@@ -41,4 +41,9 @@ readonly class ExamParticipationDTO {
 			updatedAt           : (string) $row['updated_at'],
 		);
 	}
+
+	/** Есть ли у участия официальная попытка (начатая или сданная). */
+	public function hasAttempt(): bool {
+		return null !== $this->currentAttemptId;
+	}
 }

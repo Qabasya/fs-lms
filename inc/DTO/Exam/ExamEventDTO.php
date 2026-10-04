@@ -53,4 +53,21 @@ readonly class ExamEventDTO {
 			updatedAt               : (string) $row['updated_at'],
 		);
 	}
+
+	/**
+	 * Снимок варианта проведения (`variant_snapshot`: объект с ключом — ID работы).
+	 * Нет снимка или он не разобрался — null; тогда вызывающий берёт значения из формата.
+	 *
+	 * @return array<string, mixed>|null
+	 */
+	public function snapshotFor( int $assessmentId ): ?array {
+		if ( null === $this->variantSnapshot || '' === $this->variantSnapshot ) {
+			return null;
+		}
+
+		$decoded = json_decode( $this->variantSnapshot, true );
+		$entry   = is_array( $decoded ) ? ( $decoded[ (string) $assessmentId ] ?? null ) : null;
+
+		return is_array( $entry ) ? $entry : null;
+	}
 }

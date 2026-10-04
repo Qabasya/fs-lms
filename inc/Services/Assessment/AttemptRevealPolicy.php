@@ -8,6 +8,7 @@ use Inc\DTO\Assessment\AssessmentDTO;
 use Inc\DTO\Assessment\AttemptDTO;
 use Inc\Enums\Assessment\AssessmentKind;
 use Inc\Enums\Assessment\AttemptStatus;
+use Inc\Enums\Exam\ExamAudience;
 use Inc\Repositories\WPDBRepositories\ExamParticipationRepository;
 
 /**
@@ -35,11 +36,9 @@ use Inc\Repositories\WPDBRepositories\ExamParticipationRepository;
  */
 class AttemptRevealPolicy {
 
-	private ?ExamParticipationRepository $participationRepo;
-
-	public function __construct( ?ExamParticipationRepository $participationRepo = null ) {
-		$this->participationRepo = $participationRepo;
-	}
+	public function __construct(
+		private readonly ExamParticipationRepository $participations,
+	) {}
 
 	/** Можно ли показывать ученику правильные ответы/критериальные баллы этой попытки. */
 	public function isRevealed( AssessmentDTO $assessment, AttemptDTO $attempt ): bool {
@@ -62,18 +61,18 @@ class AttemptRevealPolicy {
 	 * Гость (audience=guest) видит сразу после сдачи.
 	 */
 	private function isExamRevealed( AttemptDTO $attempt ): bool {
-		if ( ! $this->participationRepo || ! $attempt->examParticipationId ) {
+		if ( null === $attempt->examParticipationId ) {
 			return false;
 		}
 
-		$participation = $this->participationRepo->find( $attempt->examParticipationId );
-		if ( ! $participation ) {
+		$participation = $this->participations->find( $attempt->examParticipationId );
+		if ( null === $participation ) {
 			return false;
 		}
 
 		// Гость: раскрыть сразу после сдачи
-		if ( 'guest' === $participation->audience ) {
-			return 'in_progress' !== $attempt->status;
+		if ( ExamAudience::Guest->value === $participation->audience ) {
+			return AttemptStatus::InProgress !== $attempt->status;
 		}
 
 		// Ученик: раскрыть только после утверждения (ОГЭ тоже требует явного утверждения на экзаменах)

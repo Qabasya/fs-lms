@@ -4,6 +4,8 @@ declare( strict_types=1 );
 
 namespace Inc\Shared\Traits;
 
+use Inc\Repositories\WPDBRepositories\RetryableDbException;
+
 /**
  * Trait TransactionRunner
  *
@@ -47,15 +49,67 @@ trait TransactionRunner {
 	public function inTransaction( callable $fn ): mixed {
 		global $wpdb;
 
-		$wpdb->query( 'START TRANSACTION' );
+		$this->transactionControl( 'START TRANSACTION' );
 
 		try {
 			$result = $fn();
-			$wpdb->query( 'COMMIT' );
+			$this->transactionControl( 'COMMIT' );
 			return $result;
 		} catch ( \Throwable $e ) {
 			$wpdb->query( 'ROLLBACK' );
 			throw $e;
+		}
+	}
+
+	/**
+	 * Как {@see inTransaction()}, но повторяет транзакцию при взаимной блокировке (1213)
+	 * или таймауте блокировки (1205). Любое другое исключение — ROLLBACK и проброс без повтора.
+	 *
+	 * @param callable $fn          Тело транзакции; должно быть безопасным для повторного запуска.
+	 * @param int      $maxAttempts Сколько раз пробовать всего.
+	 *
+	 * @throws \Throwable
+	 *
+	 * @return mixed
+	 */
+	public function inTransactionWithRetry( callable $fn, int $maxAttempts = 3 ): mixed {
+		global $wpdb;
+
+		$attempt = 0;
+		while ( true ) {
+			++$attempt;
+			$this->transactionControl( 'START TRANSACTION' );
+
+			try {
+				$result = $fn();
+				$this->transactionControl( 'COMMIT' );
+				return $result;
+			} catch ( RetryableDbException $e ) {
+				$wpdb->query( 'ROLLBACK' );
+				if ( $attempt >= $maxAttempts ) {
+					throw $e;
+				}
+				usleep( random_int( 20000, 80000 ) );
+			} catch ( \Throwable $e ) {
+				$wpdb->query( 'ROLLBACK' );
+				throw $e;
+			}
+		}
+	}
+
+	/**
+	 * Граница транзакции с проверкой результата: провал `START TRANSACTION` или `COMMIT`
+	 * не должен выглядеть как успех — иначе тело транзакции пишется вне неё или теряется.
+	 *
+	 * @param 'START TRANSACTION'|'COMMIT' $statement
+	 *
+	 * @throws \RuntimeException Если база отказала в выполнении.
+	 */
+	private function transactionControl( string $statement ): void {
+		global $wpdb;
+
+		if ( false === $wpdb->query( $statement ) ) {
+			throw new \RuntimeException( sprintf( 'Не удалось выполнить %s: %s', $statement, (string) $wpdb->last_error ) );
 		}
 	}
 }

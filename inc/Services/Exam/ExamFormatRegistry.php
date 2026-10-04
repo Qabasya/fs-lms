@@ -29,7 +29,7 @@ class ExamFormatRegistry {
 
 	public function unitCount( AssessmentKind $kind ): int {
 		$format = $this->for( $kind );
-		return $format?->unitCount ?? 0;
+		return $format->unitCount ?? 0;
 	}
 
 	public function forDirection( ExamDirection $direction ): array {

@@ -6,6 +6,7 @@ namespace Inc\Services\Profile;
 
 use Inc\Contracts\ProfileViewInterface;
 use Inc\DTO\Profile\ProfileContext;
+use Inc\Enums\Access\Capability;
 use Inc\Enums\Access\UserRole;
 use Inc\Enums\Course\AccessMode;
 use Inc\Enums\Wp\AjaxHook;
@@ -14,6 +15,7 @@ use Inc\Enums\Wp\PageRoutes;
 use Inc\Managers\Course\CourseManager;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
+use Inc\Services\Exam\ExamAccessGuard;
 
 /**
  * Class TeacherProfileView
@@ -21,6 +23,8 @@ use Inc\Repositories\WPDBRepositories\GroupsRepository;
  * Витрина преподавателя: его инструменты — Главная, Журнал, КТП.
  * Группы препода рендерятся в сайдбаре отдельным блоком (фронт).
  * Офис (`FSOffice`) дополнительно получает экран «Замены» (Эпики 5+9).
+ * Раздел «Мои экзамены» показывается **по праву** (`ManageExams`, `ResolveExamPayments`), а не по роли: администратор WordPress
+ * без LMS-роли получает витрину офиса, но обязан видеть экзамены; офис без `ManageExams` видит только «Оплаты гостей».
  *
  * @package Inc\Services\Profile
  *
@@ -39,6 +43,7 @@ final class TeacherProfileView implements ProfileViewInterface {
 		private readonly GroupsRepository  $groups,
 		private readonly CourseManager     $courses,
 		private readonly SubjectRepository $subjects,
+		private readonly ExamAccessGuard   $examGuard,
 	) {}
 
 	public function build( ProfileContext $context ): array {
@@ -62,9 +67,67 @@ final class TeacherProfileView implements ProfileViewInterface {
 			$screens[] = 'substitutions';
 		}
 
-		return array_merge(
-			array( 'nav' => $nav, 'screens' => $screens ),
+		// «Мои экзамены» — своя секция сайдбара, в общий `nav` пункты не попадают.
+		$canExams    = user_can( $context->wpUserId, Capability::ManageExams->value );
+		$canPayments = user_can( $context->wpUserId, Capability::ResolveExamPayments->value );
+		$examNav     = array();
+		if ( $canExams ) {
+			$examNav = array(
+				array( 'key' => 'exam-conduct', 'label' => 'Проведение экзамена' ),
+				array( 'key' => 'exam-stats',   'label' => 'Статистика' ),
+				array( 'key' => 'exam-plan',    'label' => 'Назначить экзамен' ),
+				array( 'key' => 'exam-results', 'label' => 'Результаты' ),
+			);
+		}
+		if ( $canPayments ) {
+			$examNav[] = array( 'key' => 'exam-payments', 'label' => 'Оплаты гостей' );
+		}
+		$screens = array_merge( $screens, array_column( $examNav, 'key' ) );
+
+		$config = array_merge(
+			array( 'nav' => $nav, 'screens' => $screens, 'examNav' => $examNav ),
 			$this->teacherConfig( $context )
+		);
+		if ( $canExams || $canPayments ) {
+			$config['exams'] = $this->examsConfig( $context );
+		}
+
+		return $config;
+	}
+
+	/**
+	 * Блок конфига экранов экзаменов: nonce сотрудника, экшены, предметы, по которым он может назначать, готовность гостевой записи.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function examsConfig( ProfileContext $context ): array {
+		$all     = array_map( static fn ( $subject ): string => (string) $subject->key, $this->subjects->readActive() );
+		$allowed = $this->examGuard->manageableSubjectKeys( $context->wpUserId, $all );
+
+		$subjects = array();
+		foreach ( $allowed as $key ) {
+			$subjects[] = array( 'key' => (string) $key, 'name' => $this->subjectName( (string) $key ) );
+		}
+
+		return array(
+			'nonce'            => Nonce::ExamManage->create(),
+			'actions'          => array(
+				'getPlan'           => AjaxHook::GetExamPlan->jsAction(),
+				'saveSession'       => AjaxHook::SaveExamSession->jsAction(),
+				'deleteSession'     => AjaxHook::DeleteExamSession->jsAction(),
+				'saveEvent'         => AjaxHook::SaveExamEvent->jsAction(),
+				'publishEvent'      => AjaxHook::PublishExamEvent->jsAction(),
+				'cancelEvent'       => AjaxHook::CancelExamEvent->jsAction(),
+				'getSources'        => AjaxHook::GetExamSources->jsAction(),
+				'saveSource'        => AjaxHook::SaveExamSource->jsAction(),
+				'issueSourceLink'   => AjaxHook::IssueExamSourceLink->jsAction(),
+				'reissueSourceLink' => AjaxHook::ReissueExamSourceLink->jsAction(),
+				'revokeSourceLink'  => AjaxHook::RevokeExamSourceLink->jsAction(),
+				'toggleSource'      => AjaxHook::ToggleExamSource->jsAction(),
+			),
+			'subjects'         => $subjects,
+			// Станет true на этапе 11a, когда появится форма гостя: до тех пор секция «Ссылки для преподавателей» скрыта.
+			'guestSignupReady' => false,
 		);
 	}
 

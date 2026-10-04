@@ -37,6 +37,9 @@ $examTitle  = $isOge ? 'Основной государственный экза
 	<section class="kege-stage" data-kege-stage="entry">
 		<div class="kege-stage__title"><?php echo esc_html( $examTitle ); ?> · <?php echo esc_html( $assessment->title ); ?></div>
 
+		<?php // Станция рассчитана на компьютер (SPEC §17): на телефоне предупреждаем до старта; на широком экране заметка скрыта стилями. ?>
+		<p class="kege-desktop-note" role="note">Экзамен рассчитан на компьютер.</p>
+
 		<div class="kege-entry-grid">
 			<div>
 				<div class="kege-field-label">Введите номер вашего бланка регистрации</div>

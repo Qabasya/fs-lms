@@ -25,6 +25,7 @@ enum EntityType: string {
 	case Parent         = 'parent';
 	case Teacher        = 'teacher';
 	case User           = 'user';
+	case ExamSource     = 'exam_source';
 
 	public function label(): string {
 		return match ( $this ) {
@@ -41,6 +42,7 @@ enum EntityType: string {
 			self::Parent         => 'Родитель',
 			self::Teacher        => 'Преподаватель',
 			self::User           => 'Пользователь',
+			self::ExamSource     => 'Источник приглашений на экзамен',
 		};
 	}
 

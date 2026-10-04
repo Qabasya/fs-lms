@@ -5,374 +5,479 @@ declare( strict_types=1 );
 namespace Inc\Services\Exam;
 
 use Inc\DTO\Assessment\AttemptDTO;
+use Inc\DTO\Assessment\AttemptInputDTO;
 use Inc\DTO\Exam\AttemptContext;
-use Inc\Enums\Auth\ErrorCode;
+use Inc\DTO\Exam\ExamParticipationDTO;
+use Inc\Enums\Assessment\AttemptStatus;
+use Inc\Enums\Exam\ExamAudience;
+use Inc\Enums\Exam\ExamEventStatus;
+use Inc\Enums\Exam\ExamOutboxEvent;
+use Inc\Enums\Exam\ExamRegistrationStatus;
+use Inc\Enums\Exam\ExamSessionStatus;
+use Inc\Enums\Log\ErrorCode;
+use Inc\Managers\Assessment\AssessmentManager;
 use Inc\Repositories\WPDBRepositories\AssessmentAttemptRepository;
 use Inc\Repositories\WPDBRepositories\ExamEventRepository;
+use Inc\Repositories\WPDBRepositories\ExamParticipantRepository;
 use Inc\Repositories\WPDBRepositories\ExamParticipationRepository;
 use Inc\Repositories\WPDBRepositories\ExamRegistrationRepository;
 use Inc\Repositories\WPDBRepositories\ExamSessionRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Services\Assessment\AttemptService;
-use Inc\Services\Assessment\AutoGradeService;
 use Inc\Shared\CodedException;
-use Inc\Shared\TransactionRunner;
+use Inc\Shared\Traits\TransactionRunner;
 
 /**
- * Управление попытками экзамена: старт, продолжение, сохранение, сдача (6.1–6.2).
+ * Попытка экзамена вне курса: старт, сохранение, сдача, автоистечение, продление (6.1–6.2).
+ *
+ * Весь экзаменный путь попытки идёт здесь; старый `AttemptService::start()` через занятие курса
+ * для экзамена не подходит, а старый путь сохранения и сдачи экзаменную попытку отвергает
+ * ({@see AttemptService}). Допуск проверяется на сервере в момент каждого запроса, а старт, сохранение
+ * ответа, сдача, автоистечение, отмена записи и неявка сериализуются блокировкой одной и той же строки участия.
+ *
+ * **Первый оператор каждой транзакции — блокировка участия** (`FOR UPDATE`), а идентификатор участия определяется до
+ * `START TRANSACTION`: под REPEATABLE READ снимок данных создаёт первое же обычное чтение транзакции, и перечитывание
+ * попытки «под блокировкой» после более раннего чтения вернуло бы устаревшее состояние.
+ *
+ * Время в `assessment_attempts` — местное, в `exam_sessions` — UTC; переводит только `ExamTime`.
  */
 class ExamAttemptService {
 
+	use TransactionRunner;
+
+	private const MAX_EXTENSION_MINUTES = 120;
+
 	public function __construct(
-		private readonly TransactionRunner $transactionRunner,
-		private readonly ExamParticipationRepository $participationRepo,
-		private readonly ExamRegistrationRepository $registrationRepo,
-		private readonly ExamSessionRepository $sessionRepo,
-		private readonly ExamEventRepository $eventRepo,
-		private readonly AssessmentAttemptRepository $attemptRepo,
-		private readonly PersonRepository $personRepo,
+		private readonly ExamParticipationRepository $participations,
+		private readonly ExamParticipantRepository $participants,
+		private readonly ExamRegistrationRepository $registrations,
+		private readonly ExamSessionRepository $sessions,
+		private readonly ExamEventRepository $events,
+		private readonly AssessmentAttemptRepository $attempts,
+		private readonly PersonRepository $persons,
+		private readonly AssessmentManager $assessments,
 		private readonly AttemptService $attemptService,
-		private readonly AutoGradeService $autoGradeService,
-		private readonly ExamNoShowService $noShowService,
-		private readonly ExamFormatRegistry $formatRegistry,
+		private readonly ExamNoShowService $noShow,
+		private readonly ExamFormatRegistry $formats,
+		private readonly ExamAccessGuard $accessGuard,
 		private readonly ExamOutbox $outbox,
 		private readonly ExamTime $time,
 	) {}
 
 	/**
-	 * Контекст участника для старта попытки (6.1.4).
+	 * Контекст ученика: запись существует, а её участие принадлежит участнику с `person_id`
+	 * этого пользователя. Чужая запись отвечает так же, как несуществующая.
 	 *
-	 * @param int $wpUserId WP-пользователь
-	 * @param int $registrationId ID записи (из URL)
-	 *
-	 * @return AttemptContext
 	 * @throws CodedException
 	 */
 	public function contextForStudent( int $wpUserId, int $registrationId ): AttemptContext {
-		$registration = $this->registrationRepo->find( $registrationId );
-		if ( ! $registration ) {
+		$registration  = $this->registrations->find( $registrationId );
+		$participation = null !== $registration ? $this->participations->find( $registration->participationId ) : null;
+		$participant   = null !== $participation ? $this->participants->find( $participation->participantId ) : null;
+		$person        = $this->persons->findByWpUserId( $wpUserId );
+
+		if ( null === $registration || null === $participation || null === $participant || null === $person
+			|| $participant->personId !== $person->id ) {
 			throw new CodedException( ErrorCode::ExamAccess, 'Экзамен недоступен.' );
 		}
 
-		$participation = $this->participationRepo->find( $registration->participation_id );
-		if ( ! $participation ) {
-			throw new CodedException( ErrorCode::ExamAccess, 'Экзамен недоступен.' );
-		}
-
-		// Проверить что участие принадлежит пользователю
-		$person = $this->personRepo->findByUserId( $wpUserId );
-		if ( ! $person || $participation->student_person_id !== $person->id ) {
-			throw new CodedException( ErrorCode::ExamAccess, 'Экзамен недоступен.' );
-		}
-
-		return new AttemptContext(
-			audience: new ExamAudience( $participation->id ),
-			participationId: $participation->id,
-			registrationId: $registrationId,
-			personId: $participation->student_person_id,
-			wpUserId: $wpUserId
-		);
+		return new AttemptContext( ExamAudience::Student, $participation->id, $registration->id, $person->id, $wpUserId );
 	}
 
 	/**
-	 * Старт попытки экзамена (6.1.5).
+	 * Старт попытки. Повторный вызов (обновление страницы, двойной клик) возвращает ту же попытку.
 	 *
-	 * @param AttemptContext $ctx Контекст участника
-	 *
-	 * @return AttemptDTO
 	 * @throws CodedException
 	 */
 	public function start( AttemptContext $ctx ): AttemptDTO {
-		return $this->transactionRunner->inTransactionWithRetry( function () use ( $ctx ): AttemptDTO {
-			// 1. Блокировка участия
-			$participation = $this->participationRepo->findForUpdate( $ctx->participationId );
-			if ( ! $participation ) {
-				throw new CodedException( ErrorCode::ExamAccess, 'Экзамен недоступен.' );
+		$result = $this->inTransactionWithRetry( fn (): AttemptDTO|true => $this->startLocked( $ctx ) );
+
+		// Неявка зафиксирована внутри транзакции и должна сохраниться, поэтому отказ — после COMMIT.
+		if ( true === $result ) {
+			throw new CodedException( ErrorCode::ExamNotOpen, 'Время начала истекло.' );
+		}
+
+		return $result;
+	}
+
+	/** @return AttemptDTO|true `true` — время старта истекло, неявка проставлена. */
+	private function startLocked( AttemptContext $ctx ): AttemptDTO|true {
+		if ( null === $ctx->personId ) {
+			throw new CodedException( ErrorCode::ExamAccess, 'Экзамен недоступен.' );
+		}
+
+		$participation = $this->participations->findForUpdate( $ctx->participationId );
+		if ( null === $participation ) {
+			throw new CodedException( ErrorCode::ExamAccess, 'Экзамен недоступен.' );
+		}
+
+		if ( null !== $participation->currentAttemptId ) {
+			$existing = $this->attempts->find( $participation->currentAttemptId );
+			if ( null !== $existing ) {
+				return $existing;
 			}
+		}
 
-			// 2. Если уже есть текущая попытка — вернуть её
-			if ( $participation->current_attempt_id ) {
-				$attempt = $this->attemptRepo->find( $participation->current_attempt_id );
-				if ( $attempt && $attempt->isExam() ) {
-					return $attempt;
-				}
-			}
+		$registration = $this->registrations->find( $ctx->registrationId );
+		if ( null === $registration || $registration->participationId !== $participation->id
+			|| 1 !== $registration->activeSlot || ExamRegistrationStatus::Confirmed->value !== $registration->status ) {
+			throw new CodedException( ErrorCode::ExamAccess, 'Экзамен недоступен.' );
+		}
 
-			// 3. Запись должна быть действующей
-			$registration = $this->registrationRepo->find( $ctx->registrationId );
-			if ( ! $registration || ! $registration->active_slot ) {
-				throw new CodedException( ErrorCode::ExamAccess, 'Экзамен недоступен.' );
-			}
+		$session = $this->sessions->find( $registration->sessionId );
+		$event   = null !== $session ? $this->events->find( $session->eventId ) : null;
+		if ( null === $session || null === $event
+			|| ExamSessionStatus::Cancelled->value === $session->status
+			|| ExamEventStatus::Cancelled->value === $event->status ) {
+			throw new CodedException( ErrorCode::ExamAccess, 'Экзамен недоступен.' );
+		}
 
-			// 4. Сеанс и проведение не отменены
-			$session = $this->sessionRepo->find( $registration->session_id );
-			if ( ! $session || 'cancelled' === $session->status ) {
-				throw new CodedException( ErrorCode::ExamAccess, 'Экзамен недоступен.' );
-			}
+		$nowUtc = $this->time->nowUtc();
+		if ( $nowUtc < $session->scheduledAt ) {
+			throw new CodedException( ErrorCode::ExamNotOpen, 'Экзамен ещё не начался.' );
+		}
+		if ( $nowUtc >= $session->plannedEndAt ) {
+			$this->noShow->markMissedLocked( $participation, $registration, $session );
+			return true;
+		}
 
-			$event = $this->eventRepo->find( $session->event_id );
-			if ( ! $event || 'cancelled' === $event->status ) {
-				throw new CodedException( ErrorCode::ExamAccess, 'Экзамен недоступен.' );
-			}
+		$startedAt = $this->time->nowLocal();
+		if ( null !== $this->attempts->findAnyActive( $ctx->personId, $startedAt ) ) {
+			throw new CodedException( ErrorCode::ExamConflict, 'Сначала завершите начатую работу.' );
+		}
 
-			$nowUtc = $this->time->nowUtc();
-			$nowLocal = $this->time->nowLocal();
+		$assessmentId = $session->assessmentId;
+		$deadlineAt   = $this->time->addMinutes( $startedAt, $this->durationMinutes( $event->snapshotFor( $assessmentId ), $assessmentId ) );
 
-			// 5. Проверить что сеанс начался
-			if ( $nowUtc < $session->scheduled_at ) {
-				throw new CodedException( ErrorCode::ExamNotOpen, 'Экзамен ещё не начался.' );
-			}
+		// Плановый конец сеанса дедлайн не обрезает: начавший получает полную длительность.
+		// Лимит попыток работы здесь не проверяется: официальная попытка одна на участие
+		// (шаг выше + уникальный индекс).
+		$attemptId = $this->attempts->create( new AttemptInputDTO(
+			assessmentId       : $assessmentId,
+			studentPersonId    : $ctx->personId,
+			groupId            : null,
+			attemptNumber      : $this->attempts->nextAttemptNumber( $ctx->personId, $assessmentId ),
+			startedAt          : $startedAt,
+			deadlineAt         : $deadlineAt,
+			groupLessonId      : null,
+			examParticipationId: $participation->id,
+			examRegistrationId : $registration->id,
+		) );
+		if ( 0 === $attemptId ) {
+			throw new \RuntimeException( 'Не удалось создать попытку экзамена.' );
+		}
 
-			// 6. Если сеанс закончился — неявка
-			if ( $nowUtc >= $session->planned_end_at ) {
-				$this->noShowService->markMissedLocked( $participation, $registration, $session );
-				throw new CodedException( ErrorCode::ExamNotOpen, 'Время начала истекло.' );
-			}
+		$this->participations->setCurrentAttempt( $participation->id, $attemptId );
+		$this->sessions->markFirstStarted( $session->id, $nowUtc );
+		$this->outbox->add(
+			ExamOutboxEvent::AttemptStarted,
+			'participation',
+			$participation->id,
+			$participation->version,
+			array(
+				'attempt_id'      => $attemptId,
+				'registration_id' => $registration->id,
+				'session_id'      => $session->id,
+			)
+		);
 
-			// 7. Нет другой активной попытки
-			$otherActive = $this->attemptRepo->findAnyActive( $ctx->personId );
-			if ( $otherActive ) {
-				throw new CodedException( ErrorCode::ExamConflict, 'Сначала завершите начатую работу.' );
-			}
-
-			// 8. Получить вариант и длительность
-			$assessmentId = $session->assessment_id;
-			$durationMinutes = $this->getDuration( $event, $session );
-
-			// 9. Создать попытку
-			$deadlineLocal = date( 'Y-m-d H:i:s', strtotime( "+{$durationMinutes} minutes", strtotime( $nowLocal ) ) );
-
-			$attempt = new AttemptDTO(
-				id: 0,
-				assessmentId: $assessmentId,
-				studentPersonId: $ctx->personId,
-				wpUserId: $ctx->wpUserId,
-				status: 'in_progress',
-				startedAt: $nowLocal,
-				deadline_at: $deadlineLocal,
-				submittedAt: null,
-				totalScore: null,
-				maxScore: null,
-				perTaskScores: null,
-				attemptNumber: $this->attemptRepo->nextAttemptNumber( $ctx->personId, $assessmentId ),
-				groupId: null,
-				groupLessonId: null,
-				examParticipationId: $ctx->participationId,
-				examRegistrationId: $ctx->registrationId,
-				resultVersion: 1,
-				updatedAt: $nowLocal,
-			);
-
-			$attemptId = $this->attemptRepo->create( $attempt );
-			$attempt = $attempt->withId( $attemptId );
-
-			// 10. Установить текущую попытку в участии
-			$this->participationRepo->setCurrentAttempt( $participation->id, $attemptId );
-
-			// Записать first_started_at сеанса если пуст
-			if ( ! $session->first_started_at ) {
-				$this->sessionRepo->update(
-					$session->id,
-					array( 'first_started_at' => $nowUtc )
-				);
-			}
-
-			// 11. Отправить событие
-			$this->outbox->append( 'AttemptStarted', array(
-				'attempt_id' => $attemptId,
-				'participation_id' => $ctx->participationId,
-				'registration_id' => $ctx->registrationId,
-			) );
-
-			return $attempt;
-		} );
+		$attempt = $this->attempts->find( $attemptId );
+		if ( null === $attempt ) {
+			throw new \RuntimeException( 'Созданная попытка экзамена не найдена.' );
+		}
+		return $attempt;
 	}
 
 	/**
-	 * Завершить просроченную попытку (6.2.1).
+	 * Длительность — из снимка проведения; нет снимка — из формата варианта.
 	 *
-	 * @param int $attemptId ID попытки
+	 * @param array<string, mixed>|null $snapshot
+	 */
+	private function durationMinutes( ?array $snapshot, int $assessmentId ): int {
+		$fromSnapshot = (int) ( $snapshot['duration_minutes'] ?? 0 );
+		if ( $fromSnapshot > 0 ) {
+			return $fromSnapshot;
+		}
+
+		$assessment = $this->assessments->get( $assessmentId );
+		$format     = null !== $assessment ? $this->formats->for( $assessment->kind ) : null;
+		if ( null === $format || $format->durationMinutes <= 0 ) {
+			throw new CodedException( ErrorCode::ExamAccess, 'У варианта экзамена не задана длительность.' );
+		}
+		return $format->durationMinutes;
+	}
+
+
+	/**
+	 * Завершает просроченную попытку: `submitted_at = deadline_at` (а не момент срабатывания тика),
+	 * затем обычная автопроверка по сохранённым ответам. Идемпотентно.
 	 *
-	 * @return bool Была ли попытка завершена
+	 * @return bool true — попытка завершена этим вызовом.
 	 */
 	public function finalizeExpired( int $attemptId ): bool {
-		return $this->transactionRunner->inTransactionWithRetry( function () use ( $attemptId ): bool {
-			$attempt = $this->attemptRepo->find( $attemptId );
-			if ( ! $attempt || ! $attempt->isExam() ) {
+		// Участие определяем до транзакции: внутри неё первым оператором должна быть блокировка.
+		$participationId = $this->attempts->find( $attemptId )?->examParticipationId;
+		if ( null === $participationId ) {
+			return false;
+		}
+
+		return (bool) $this->inTransactionWithRetry( function () use ( $attemptId, $participationId ): bool {
+			$participation = $this->participations->findForUpdate( $participationId );
+			$attempt       = $this->attempts->find( $attemptId );
+			if ( null === $participation || null === $attempt
+				|| AttemptStatus::InProgress !== $attempt->status
+				|| ! $attempt->isExpired( $this->time->nowLocal() ) ) {
 				return false;
 			}
 
-			// Блокировка участия
-			$participation = $this->participationRepo->findForUpdate( $attempt->examParticipationId );
-			if ( ! $participation ) {
-				return false;
-			}
-
-			// Перечитать попытку
-			$attempt = $this->attemptRepo->find( $attemptId );
-			if ( ! $attempt || 'in_progress' !== $attempt->status ) {
-				return false;
-			}
-
-			// Проверить что дедлайн прошёл
-			$nowLocal = $this->time->nowLocal();
-			if ( $nowLocal < $attempt->deadline_at ) {
-				return false;
-			}
-
-			// Завершить попытку с подстановкой дедлайна в submitted_at
-			$this->attemptRepo->update( $attempt->id, array(
-				'status' => 'submitted',
-				'submitted_at' => $attempt->deadline_at,
-			) );
-
-			// Оценить
-			$this->autoGradeService->gradeAttempt( $attempt->id );
-
-			// Событие
-			$this->outbox->append( 'AttemptSubmitted', array(
-				'attempt_id' => $attempt->id,
-				'auto' => true,
-			) );
-
+			$this->attemptService->submitFor( $attempt, $attempt->deadlineAt );
+			$this->outbox->add(
+				ExamOutboxEvent::AttemptSubmitted,
+				'participation',
+				$participation->id,
+				$participation->version,
+				array(
+					'attempt_id' => $attempt->id,
+					'auto'       => true,
+				)
+			);
 			return true;
 		} );
 	}
 
 	/**
-	 * Сохранить ответ (6.1.6).
-	 *
-	 * @param AttemptContext $ctx Контекст
-	 * @param int            $attemptId ID попытки
-	 * @param int            $taskId ID задания
-	 * @param string         $text Ответ
+	 * Сохранение ответа. Состояние и дедлайн проверяются и ответ пишется под той же блокировкой участия,
+	 * что у сдачи и автоистечения: без неё автосохранение, проверившее `in_progress`, могло дописать ответ
+	 * уже после сдачи и оценивания, и итог перестал бы соответствовать сохранённому ответу.
 	 *
 	 * @throws CodedException
 	 */
 	public function saveAnswer( AttemptContext $ctx, int $attemptId, int $taskId, string $text ): void {
-		$attempt = $this->attemptRepo->find( $attemptId );
-		if ( ! $attempt || $attempt->examParticipationId !== $ctx->participationId ) {
-			throw new CodedException( ErrorCode::AttemptNotFound, 'Попытка не найдена.' );
-		}
+		// Просроченную попытку завершает ленивый путь — со своей транзакцией, поэтому до открытия нашей.
+		$this->activeAttemptOf( $ctx, $attemptId );
 
-		$nowLocal = $this->time->nowLocal();
-
-		// Проверить дедлайн
-		if ( $nowLocal >= $attempt->deadline_at ) {
-			$this->finalizeExpired( $attemptId );
-			throw new CodedException( ErrorCode::AttemptExpired, 'Время попытки истекло.' );
-		}
-
-		// Сохранить через основной сервис
-		$this->attemptService->saveAnswerFor( $attempt, $taskId, $text );
-	}
-
-	/**
-	 * Сдать попытку (6.1.6).
-	 *
-	 * @param AttemptContext $ctx Контекст
-	 * @param int            $attemptId ID попытки
-	 *
-	 * @return AttemptDTO
-	 * @throws CodedException
-	 */
-	public function submit( AttemptContext $ctx, int $attemptId ): AttemptDTO {
-		return $this->transactionRunner->inTransactionWithRetry( function () use ( $ctx, $attemptId ): AttemptDTO {
-			// Блокировка участия
-			$participation = $this->participationRepo->findForUpdate( $ctx->participationId );
-			if ( ! $participation ) {
-				throw new CodedException( ErrorCode::AttemptNotFound, 'Попытка не найдена.' );
-			}
-
-			$attempt = $this->attemptRepo->find( $attemptId );
-			if ( ! $attempt || $attempt->examParticipationId !== $ctx->participationId ) {
-				throw new CodedException( ErrorCode::AttemptNotFound, 'Попытка не найдена.' );
-			}
-
-			$nowLocal = $this->time->nowLocal();
-
-			// Проверить дедлайн и завершить если истёк
-			if ( $nowLocal >= $attempt->deadline_at ) {
-				$this->finalizeExpired( $attemptId );
-				throw new CodedException( ErrorCode::AttemptExpired, 'Время попытки истекло.' );
-			}
-
-			// Сдать
-			$attempt = $this->attemptService->submitFor( $attempt );
-
-			// События
-			$this->outbox->append( 'AttemptSubmitted', array(
-				'attempt_id' => $attempt->id,
-				'auto' => false,
-			) );
-
-			return $attempt;
+		$this->inTransactionWithRetry( function () use ( $ctx, $attemptId, $taskId, $text ): void {
+			$this->lockParticipation( $ctx );
+			$this->attemptService->saveAnswerFor( $this->writableAttempt( $ctx, $attemptId ), $taskId, $text );
 		} );
 	}
 
 	/**
-	 * Продлить попытку (6.2.4).
+	 * @throws CodedException
+	 */
+	public function submit( AttemptContext $ctx, int $attemptId ): AttemptDTO {
+		$this->activeAttemptOf( $ctx, $attemptId );
+
+		return $this->inTransactionWithRetry( function () use ( $ctx, $attemptId ): AttemptDTO {
+			$participation = $this->lockParticipation( $ctx );
+			$attempt       = $this->writableAttempt( $ctx, $attemptId );
+
+			$submitted = $this->attemptService->submitFor( $attempt );
+			$this->outbox->add(
+				ExamOutboxEvent::AttemptSubmitted,
+				'participation',
+				$participation->id,
+				$participation->version,
+				array(
+					'attempt_id' => $attempt->id,
+					'auto'       => false,
+				)
+			);
+			return $submitted;
+		} );
+	}
+
+	/**
+	 * Результат своей попытки: просроченная завершается здесь же, затем применяется общая политика раскрытия.
 	 *
-	 * @param int    $actorUserId Администратор
-	 * @param int    $attemptId ID попытки
-	 * @param int    $minutes Минут (1–120)
-	 * @param string $reason Причина
+	 * @return array{attempt: AttemptDTO, answers: list<\Inc\DTO\Assessment\AttemptAnswerDTO>}
 	 *
-	 * @return AttemptDTO
+	 * @throws CodedException
+	 */
+	public function result( AttemptContext $ctx, int $attemptId ): array {
+		$attempt = $this->ownedAttempt( $ctx, $attemptId );
+		if ( AttemptStatus::InProgress === $attempt->status && $attempt->isExpired( $this->time->nowLocal() ) ) {
+			$this->finalizeExpired( $attempt->id );
+		}
+
+		return $this->attemptService->getResult( $attemptId, (int) $ctx->personId );
+	}
+
+	/**
+	 * Контекст ученика для попытки: null — попытка не экзаменная (обычный путь курса).
+	 * Чужая экзаменная попытка отвечает как несуществующая запись.
+	 *
+	 * @throws CodedException
+	 */
+	public function contextForAttempt( int $wpUserId, int $attemptId ): ?AttemptContext {
+		$attempt = $this->attempts->find( $attemptId );
+		if ( null === $attempt || ! $attempt->isExam() ) {
+			return null;
+		}
+		if ( null === $attempt->examRegistrationId ) {
+			throw new CodedException( ErrorCode::ExamAccess, 'Экзамен недоступен.' );
+		}
+
+		return $this->contextForStudent( $wpUserId, $attempt->examRegistrationId );
+	}
+
+	/**
+	 * Состояние станции по записи: вариант и текущая попытка. Просроченная попытка завершается здесь же
+	 * (ленивый путь 6.2.3), поэтому страница станции никогда не показывает идущую попытку с истёкшим дедлайном.
+	 *
+	 * @return array{assessment_id: int, attempt: ?AttemptDTO}|null null — записи нет, либо она закрыта и попытки не было.
+	 */
+	public function stationState( AttemptContext $ctx ): ?array {
+		$registration = $this->registrations->find( $ctx->registrationId );
+		$session      = null !== $registration ? $this->sessions->find( $registration->sessionId ) : null;
+		if ( null === $registration || null === $session || $registration->participationId !== $ctx->participationId ) {
+			return null;
+		}
+
+		$participation = $this->participations->find( $ctx->participationId );
+		$attempt       = null !== $participation && null !== $participation->currentAttemptId
+			? $this->attempts->find( $participation->currentAttemptId )
+			: null;
+
+		if ( null !== $attempt && AttemptStatus::InProgress === $attempt->status && $attempt->isExpired( $this->time->nowLocal() ) ) {
+			$this->finalizeExpired( $attempt->id );
+			$attempt = $this->attempts->find( $attempt->id );
+		}
+
+		// Закрытая запись (отмена, неявка, перенос) без попытки станцию не открывает.
+		if ( null === $attempt && 1 !== $registration->activeSlot ) {
+			return null;
+		}
+
+		return array(
+			'assessment_id' => $attempt->assessmentId ?? $session->assessmentId,
+			'attempt'       => $attempt,
+		);
+	}
+
+	/**
+	 * Продление личного дедлайна сотрудником с правом на проведение.
+	 *
 	 * @throws CodedException
 	 */
 	public function extend( int $actorUserId, int $attemptId, int $minutes, string $reason ): AttemptDTO {
-		if ( $minutes < 1 || $minutes > 120 ) {
-			throw new CodedException( ErrorCode::InvalidInput, 'Продление на 1–120 минут.' );
+		if ( $minutes < 1 || $minutes > self::MAX_EXTENSION_MINUTES ) {
+			throw new CodedException( ErrorCode::ExamConflict, sprintf( 'Продлить можно на срок от 1 до %d минут.', self::MAX_EXTENSION_MINUTES ) );
+		}
+		$reason = trim( $reason );
+		if ( '' === $reason ) {
+			throw new CodedException( ErrorCode::ExamConflict, 'Укажите причину продления.' );
 		}
 
-		if ( empty( trim( $reason ) ) ) {
-			throw new CodedException( ErrorCode::InvalidInput, 'Причина обязательна.' );
+		// Участие определяем до транзакции: внутри неё первым оператором должна быть блокировка.
+		$participationId = $this->attempts->find( $attemptId )?->examParticipationId;
+		if ( null === $participationId ) {
+			throw new CodedException( ErrorCode::ExamAccess, 'Попытка не найдена.' );
 		}
 
-		$attempt = $this->attemptRepo->find( $attemptId );
-		if ( ! $attempt || ! $attempt->isExam() ) {
-			throw new CodedException( ErrorCode::AttemptNotFound, 'Попытка не найдена.' );
+		return $this->inTransactionWithRetry( function () use ( $actorUserId, $attemptId, $minutes, $reason, $participationId ): AttemptDTO {
+			$participation = $this->participations->findForUpdate( $participationId );
+			$event         = null !== $participation ? $this->events->find( $participation->eventId ) : null;
+			if ( null === $participation || null === $event || ! $this->accessGuard->canManageSubject( $actorUserId, $event->subjectKey ) ) {
+				throw new CodedException( ErrorCode::ExamAccess, 'Попытка не найдена.' );
+			}
+
+			$attempt = $this->attempts->find( $attemptId );
+			if ( null === $attempt || AttemptStatus::InProgress !== $attempt->status ) {
+				throw new CodedException( ErrorCode::ExamStarted, 'Попытка уже завершена.' );
+			}
+
+			$newDeadline = $this->time->addMinutes( $attempt->deadlineAt, $minutes );
+			if ( ! $this->attempts->update( $attempt->id, array( 'deadline_at' => $newDeadline ) ) ) {
+				throw new \RuntimeException( 'Не удалось продлить попытку экзамена.' );
+			}
+			$this->outbox->add(
+				ExamOutboxEvent::AttemptExtended,
+				'participation',
+				$participation->id,
+				$participation->version,
+				array(
+					'attempt_id'    => $attempt->id,
+					'minutes'       => $minutes,
+					'reason'        => $reason,
+					'actor_user_id' => $actorUserId,
+					'deadline_at'   => $newDeadline,
+				)
+			);
+
+			$updated = $this->attempts->find( $attempt->id );
+			if ( null === $updated ) {
+				throw new \RuntimeException( 'Попытка экзамена не найдена после продления.' );
+			}
+			return $updated;
+		} );
+	}
+
+	/**
+	 * Попытка существует и принадлежит участию контекста; чужая отвечает как несуществующая.
+	 *
+	 * @throws CodedException
+	 */
+	private function ownedAttempt( AttemptContext $ctx, int $attemptId ): AttemptDTO {
+		$attempt = $this->attempts->find( $attemptId );
+		if ( null === $attempt || $attempt->examParticipationId !== $ctx->participationId ) {
+			throw new CodedException( ErrorCode::ExamAccess, 'Попытка не найдена.' );
 		}
+		return $attempt;
+	}
 
-		if ( 'in_progress' !== $attempt->status ) {
-			throw new CodedException( ErrorCode::InvalidInput, 'Попытка уже завершена.' );
+	/**
+	 * Блокирует участие контекста: общая точка сериализации сохранения, сдачи, автоистечения, старта и неявки.
+	 *
+	 * @throws CodedException Участия нет.
+	 */
+	private function lockParticipation( AttemptContext $ctx ): ExamParticipationDTO {
+		$participation = $this->participations->findForUpdate( $ctx->participationId );
+		if ( null === $participation ) {
+			throw new CodedException( ErrorCode::ExamAccess, 'Экзамен недоступен.' );
 		}
+		return $participation;
+	}
 
-		$newDeadline = date( 'Y-m-d H:i:s', strtotime( "+{$minutes} minutes", strtotime( $attempt->deadline_at ) ) );
+	/**
+	 * Попытка, в которую сейчас можно писать: свежее состояние под блокировкой участия, статус `in_progress`,
+	 * дедлайн не наступил. Общее для сохранения ответа и сдачи — одни условия и одни тексты.
+	 *
+	 * @throws CodedException
+	 */
+	private function writableAttempt( AttemptContext $ctx, int $attemptId ): AttemptDTO {
+		$attempt = $this->ownedAttempt( $ctx, $attemptId );
 
-		$this->attemptRepo->update( $attempt->id, array(
-			'deadline_at' => $newDeadline,
-		) );
-
-		$attempt = $attempt->withDeadline( $newDeadline );
-
-		$this->outbox->append( 'AttemptExtended', array(
-			'attempt_id' => $attemptId,
-			'minutes' => $minutes,
-			'reason' => $reason,
-			'actor_user_id' => $actorUserId,
-			'new_deadline' => $newDeadline,
-		) );
+		if ( AttemptStatus::InProgress !== $attempt->status ) {
+			throw new CodedException( ErrorCode::ExamStarted, 'Попытка уже завершена.' );
+		}
+		if ( $attempt->isExpired( $this->time->nowLocal() ) ) {
+			// Дедлайн наступил между проверкой до транзакции и блокировкой: завершит тик или следующий запрос.
+			throw new CodedException( ErrorCode::ExamStarted, 'Время попытки истекло.' );
+		}
 
 		return $attempt;
 	}
 
 	/**
-	 * Получить длительность попытки в минутах.
+	 * Попытка принадлежит участию контекста и ещё идёт; просроченную — завершает и отказывает.
+	 * Своя транзакция только у `finalizeExpired()`: вызывать вне чужой транзакции.
+	 *
+	 * @throws CodedException
 	 */
-	private function getDuration( object $event, object $session ): int {
-		$format = $this->formatRegistry->for( $event->subject_key, $event->direction );
-		$snapshot = $this->eventRepo->snapshotFor( $event->id );
+	private function activeAttemptOf( AttemptContext $ctx, int $attemptId ): AttemptDTO {
+		$attempt = $this->ownedAttempt( $ctx, $attemptId );
 
-		if ( $snapshot && isset( $snapshot['duration_minutes'] ) ) {
-			return (int) $snapshot['duration_minutes'];
+		if ( AttemptStatus::InProgress !== $attempt->status ) {
+			throw new CodedException( ErrorCode::ExamStarted, 'Попытка уже завершена.' );
 		}
 
-		if ( $format ) {
-			return $format->durationMinutes;
+		if ( $attempt->isExpired( $this->time->nowLocal() ) ) {
+			// Ленивый путь: просроченная попытка завершается и без cron.
+			$this->finalizeExpired( $attempt->id );
+			throw new CodedException( ErrorCode::ExamStarted, 'Время попытки истекло.' );
 		}
 
-		return 180; // Фолбэк: 3 часа
+		return $attempt;
 	}
 }

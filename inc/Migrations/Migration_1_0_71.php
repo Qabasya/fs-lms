@@ -72,6 +72,16 @@ class Migration_1_0_71 implements MigrationInterface {
 		foreach ( $tables as $table ) {
 			$wpdb->query( "DROP TABLE IF EXISTS $table" );
 		}
+
+		// Попытки: убрать индекс и три колонки экзамена. `student_person_id` обратно в NOT NULL не возвращается —
+		// в таблице уже могут лежать гостевые строки без ученика.
+		$attempts = $wpdb->prefix . 'fs_lms_assessment_attempts';
+		if ( ! empty( $wpdb->get_results( "SHOW INDEX FROM $attempts WHERE Key_name = 'exam_participation'" ) ) ) {
+			$wpdb->query( "ALTER TABLE $attempts DROP INDEX exam_participation" );
+		}
+		foreach ( array( 'exam_participation_id', 'exam_registration_id', 'result_version' ) as $column ) {
+			$wpdb->query( "ALTER TABLE $attempts DROP COLUMN IF EXISTS $column" );
+		}
 	}
 
 	/**

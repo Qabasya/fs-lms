@@ -84,4 +84,30 @@ readonly class AttemptDTO {
 	public function isExam(): bool {
 		return null !== $this->examParticipationId;
 	}
+
+	/** Копия без итога: баллы не уходят ученику, пока работа не раскрыта (7.5.2). */
+	public function withoutTotals(): self {
+		return new self(
+			id                : $this->id,
+			assessmentId      : $this->assessmentId,
+			studentPersonId   : $this->studentPersonId,
+			groupId           : $this->groupId,
+			attemptNumber     : $this->attemptNumber,
+			startedAt         : $this->startedAt,
+			deadlineAt        : $this->deadlineAt,
+			submittedAt       : $this->submittedAt,
+			status            : $this->status,
+			totalScore        : null,
+			maxScore          : null,
+			gradedByUserId    : $this->gradedByUserId,
+			createdAt         : $this->createdAt,
+			updatedAt         : $this->updatedAt,
+			groupLessonId     : $this->groupLessonId,
+			approvedAt        : $this->approvedAt,
+			approvedByUserId  : $this->approvedByUserId,
+			examParticipationId: $this->examParticipationId,
+			examRegistrationId: $this->examRegistrationId,
+			resultVersion     : $this->resultVersion,
+		);
+	}
 }

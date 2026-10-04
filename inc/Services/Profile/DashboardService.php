@@ -5,10 +5,12 @@ declare( strict_types=1 );
 namespace Inc\Services\Profile;
 
 use Inc\Contracts\ClockInterface;
+use Inc\Enums\Access\Capability;
 use Inc\Enums\Wp\PageRoutes;
 use Inc\Managers\Course\LessonManager;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
+use Inc\Repositories\WPDBRepositories\ExamSessionRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Repositories\WPDBRepositories\RoomRepository;
@@ -16,6 +18,8 @@ use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 use Inc\Repositories\WPDBRepositories\SubmissionRepository;
 use Inc\Repositories\WPDBRepositories\SubstitutionRepository;
 use Inc\Services\Course\AttendanceService;
+use Inc\Services\Exam\ExamAccessGuard;
+use Inc\Services\Exam\ExamTime;
 
 /**
  * Read-модель «Главной» кабинета преподавателя (Эпик 6): кросс-групповая
@@ -40,6 +44,9 @@ class DashboardService {
 		private readonly SubjectRepository       $subjects,
 		private readonly PersonRepository        $persons,
 		private readonly AdminAlertService       $adminAlerts,
+		private readonly ExamSessionRepository   $examSessions,
+		private readonly ExamAccessGuard         $examGuard,
+		private readonly ExamTime                $examTime,
 	) {}
 
 	/** @var array<int, string> Кэш коротких имён преподавателей: WP user id → «Фамилия И.О.». */
@@ -160,6 +167,8 @@ class DashboardService {
 			),
 			'today'    => $todayItems,
 			'week'     => $weekItems,
+			// Сеансы экзаменов — отдельным списком: в `today`/`week` их нет, счётчики занятий не меняются.
+			'exams'    => $this->examItems( $userId, $now, $today, $roomNames ),
 			'worklist' => array(
 				'to_fill'   => $toFill,
 				'to_review' => $toReview,
@@ -178,6 +187,51 @@ class DashboardService {
 				array_keys( $covering )
 			),
 		);
+	}
+
+	/**
+	 * Сеансы экзаменов «Главной»: опубликованные проведения, где пользователь ответственный (глобальный доступ — все).
+	 * Без права `ManageExams` экзаменов нет — офис без права их не видит. Окно — две недели назад и два месяца вперёд:
+	 * клиент, как и для занятий, сам вырезает неделю. Времена — местные.
+	 *
+	 * @param array<int,string> $roomNames
+	 *
+	 * @return list<array<string, mixed>>
+	 */
+	private function examItems( int $userId, string $now, string $today, array $roomNames ): array {
+		if ( ! user_can( $userId, Capability::ManageExams->value ) ) {
+			return array();
+		}
+
+		$base = new \DateTimeImmutable( $today );
+		$rows = $this->examSessions->listForTeacherBetween(
+			$userId,
+			$this->examGuard->isGlobal( $userId ),
+			$this->examTime->toUtc( $base->modify( '-14 days' )->format( 'Y-m-d' ) . ' 00:00:00' ),
+			$this->examTime->toUtc( $base->modify( '+60 days' )->format( 'Y-m-d' ) . ' 00:00:00' )
+		);
+
+		$items = array();
+		foreach ( $rows as $row ) {
+			$start = $this->examTime->toLocal( (string) $row['scheduled_at'] );
+			$end   = $this->examTime->toLocal( (string) $row['planned_end_at'] );
+
+			$items[] = array(
+				'kind'       => 'exam',
+				'session_id' => (int) $row['id'],
+				'event_id'   => (int) $row['event_id'],
+				'title'      => (string) $row['event_title'],
+				'date'       => substr( $start, 0, 10 ),
+				'time_start' => substr( $start, 11, 5 ),
+				'time_end'   => substr( $end, 11, 5 ),
+				'room'       => $roomNames[ (int) $row['room_id'] ] ?? '',
+				'occupied'   => (int) $row['occupied_count'],
+				'capacity'   => (int) $row['capacity'],
+				'state'      => $this->stateOf( $start, $end, $now ),
+			);
+		}
+
+		return $items;
 	}
 
 	/**

@@ -4,47 +4,47 @@ declare( strict_types=1 );
 
 namespace Inc\Controllers\Exam;
 
-use Inc\Contracts\ServiceInterface;
-use Inc\Enums\Wp\AjaxHook;
-use Inc\Core\BaseController;
-use Inc\Callbacks\Exam\ExamCallbacks;
-use Inc\Callbacks\Exam\ExamReviewCallbacks;
+use Inc\Callbacks\Exam\ExamEventCallbacks;
+use Inc\Callbacks\Exam\ExamSourceCallbacks;
 use Inc\Callbacks\Exam\LearnerExamCallbacks;
+use Inc\Controllers\System\AjaxController;
+use Inc\Enums\Wp\AjaxHook;
 
-class ExamController extends BaseController implements ServiceInterface {
+/**
+ * AJAX экзаменов. Все действия — для вошедших пользователей (ученик, родитель, сотрудник):
+ * доступ к данным проверяют сами коллбеки (нонс + владелец данных / право + область).
+ */
+class ExamController extends AjaxController {
 
 	public function __construct(
-		private ExamCallbacks $examCallbacks,
-		private ExamReviewCallbacks $reviewCallbacks,
-		private LearnerExamCallbacks $learnerCallbacks
-	) {}
-
-	public function register(): void {
-		$this->registerAdminActions();
-		$this->registerLearnerActions();
+		private readonly LearnerExamCallbacks $learner,
+		private readonly ExamEventCallbacks $events,
+		private readonly ExamSourceCallbacks $sources,
+	) {
+		parent::__construct();
 	}
 
-	private function registerAdminActions(): void {
-		add_action( 'wp_ajax_' . AjaxHook::SaveExamEvent->jsAction(), [ $this->examCallbacks, 'ajaxSaveExamEvent' ] );
-		add_action( 'wp_ajax_' . AjaxHook::PublishExamEvent->jsAction(), [ $this->examCallbacks, 'ajaxPublishExamEvent' ] );
-		add_action( 'wp_ajax_' . AjaxHook::SaveExamSession->jsAction(), [ $this->examCallbacks, 'ajaxSaveExamSession' ] );
-		add_action( 'wp_ajax_' . AjaxHook::CreateExamRegistration->jsAction(), [ $this->examCallbacks, 'ajaxCreateExamRegistration' ] );
-		add_action( 'wp_ajax_' . AjaxHook::CancelExamRegistration->jsAction(), [ $this->examCallbacks, 'ajaxCancelExamRegistration' ] );
-		add_action( 'wp_ajax_' . AjaxHook::TransferExamRegistration->jsAction(), [ $this->examCallbacks, 'ajaxTransferExamRegistration' ] );
-		add_action( 'wp_ajax_' . AjaxHook::GetExamParticipations->jsAction(), [ $this->examCallbacks, 'ajaxGetExamParticipations' ] );
-		add_action( 'wp_ajax_' . AjaxHook::GetExamSessions->jsAction(), [ $this->examCallbacks, 'ajaxGetExamSessions' ] );
-		add_action( 'wp_ajax_' . AjaxHook::ApproveExamAttempt->jsAction(), [ $this->examCallbacks, 'ajaxApproveExamAttempt' ] );
-		add_action( 'wp_ajax_' . AjaxHook::CreateExamResultLink->jsAction(), [ $this->examCallbacks, 'ajaxCreateExamResultLink' ] );
-		add_action( 'wp_ajax_' . AjaxHook::CreateExamGuestLink->jsAction(), [ $this->examCallbacks, 'ajaxCreateExamGuestLink' ] );
-		add_action( 'wp_ajax_' . AjaxHook::GetWorkReviewDetail->jsAction(), [ $this->reviewCallbacks, 'ajaxGetDetail' ] );
-	}
+	protected function ajaxActions(): array {
+		return array(
+			array( AjaxHook::GetLearnerExams, $this->learner ),
+			array( AjaxHook::RegisterForExam, $this->learner ),
+			array( AjaxHook::ChangeExamRegistration, $this->learner ),
+			array( AjaxHook::CancelExamRegistration, $this->learner ),
+			array( AjaxHook::GetExamReview, $this->learner ),
 
-	private function registerLearnerActions(): void {
-		add_action( 'wp_ajax_' . AjaxHook::GetLearnerExams->jsAction(), [ $this->learnerCallbacks, 'ajaxGetLearnerExams' ] );
-		add_action( 'wp_ajax_nopriv_' . AjaxHook::GetLearnerExams->jsAction(), [ $this->learnerCallbacks, 'ajaxGetLearnerExams' ] );
+			array( AjaxHook::GetExamPlan, $this->events ),
+			array( AjaxHook::SaveExamSession, $this->events ),
+			array( AjaxHook::DeleteExamSession, $this->events ),
+			array( AjaxHook::SaveExamEvent, $this->events ),
+			array( AjaxHook::PublishExamEvent, $this->events ),
+			array( AjaxHook::CancelExamEvent, $this->events ),
 
-		add_action( 'wp_ajax_' . AjaxHook::RegisterForExam->jsAction(), [ $this->learnerCallbacks, 'ajaxRegisterForExam' ] );
-		add_action( 'wp_ajax_' . AjaxHook::ChangeExamRegistration->jsAction(), [ $this->learnerCallbacks, 'ajaxChangeExamRegistration' ] );
-		add_action( 'wp_ajax_' . AjaxHook::CancelExamRegistration->jsAction(), [ $this->learnerCallbacks, 'ajaxCancelExamRegistration' ] );
+			array( AjaxHook::GetExamSources, $this->sources ),
+			array( AjaxHook::SaveExamSource, $this->sources ),
+			array( AjaxHook::IssueExamSourceLink, $this->sources ),
+			array( AjaxHook::ReissueExamSourceLink, $this->sources ),
+			array( AjaxHook::RevokeExamSourceLink, $this->sources ),
+			array( AjaxHook::ToggleExamSource, $this->sources ),
+		);
 	}
 }

@@ -56,7 +56,7 @@ class ExamVariantPolicy {
 			return 'Вариант не опубликован.';
 		}
 
-		$result = $this->completeness->validate( $assessment->kind, $assessment->taskIds );
+		$result = $this->completeness->validate( $assessment, $subjectKey );
 		if ( ! $result->isStrictlyComplete() ) {
 			return 'Вариант не укомплектован: ' . $result->summary();
 		}
@@ -87,7 +87,7 @@ class ExamVariantPolicy {
 	 *
 	 * @param string $subjectKey Ключ предмета
 	 *
-	 * @return array[] Массив вариантов: `{id: int, title: string, kind: string, direction: string}`
+	 * @return array[] Массив вариантов: `{id: int, title: string, kind: string, direction: string, duration_minutes: int}`
 	 */
 	public function listForSubject( string $subjectKey ): array {
 		$assessments = $this->assessments->getBankBySubject( $subjectKey, array( 'status' => 'publish' ) );
@@ -103,13 +103,13 @@ class ExamVariantPolicy {
 				continue;
 			}
 
-			$direction = $this->formats->for( $assessment->kind )->direction ?? null;
-
+			$format     = $this->formats->for( $assessment->kind );
 			$variants[] = array(
-				'id'        => $assessment->id,
-				'title'     => $assessment->title,
-				'kind'      => $assessment->kind->value,
-				'direction' => $direction?->value ?? '',
+				'id'               => $assessment->id,
+				'title'            => $assessment->title,
+				'kind'             => $assessment->kind->value,
+				'direction'        => $format?->direction->value ?? '',
+				'duration_minutes' => $format->durationMinutes ?? 0,
 			);
 		}
 

@@ -82,12 +82,6 @@ use Inc\Controllers\Group\SubstitutionController;
 use Inc\Controllers\Group\RoomController;
 use Inc\Controllers\Exam\WooExamController;
 use Inc\Controllers\Exam\ExamController;
-use Inc\Controllers\Exam\ExamGuestPageController;
-use Inc\Controllers\Exam\ExamResultPageController;
-use Inc\Controllers\Exam\ExamAttemptController;
-use Inc\Controllers\Exam\ExamPlayerSubscriber;
-use Inc\Controllers\Exam\WooExamPaymentController;
-use Inc\Services\Exam\ExamEventDispatcher;
 use Inc\Controllers\Profile\ProfileDashboardController;
 use Inc\Controllers\Profile\LearnerProfileController;
 use Inc\Controllers\Profile\NotificationController;
@@ -101,6 +95,7 @@ use Inc\Cli\SubjectBundleCommand;
 use Inc\Cli\TaskConditionCleanupCommand;
 use Inc\Cli\TaskFileSchemeCommand;
 use Inc\Cli\ExamCommand;
+use Inc\Cli\ExamStandCommand;
 use Inc\Controllers\Import\ImportController;
 use Inc\Controllers\Print\PrintCenterController;
 use Inc\Controllers\Person\UserController;
@@ -206,6 +201,7 @@ final class Init {
 			TaskFileSchemeCommand::class, // WP-CLI: http:// → https:// в ссылках на файлы заданий
 			TaskConditionCleanupCommand::class, // WP-CLI: пустые строки по краям условий заданий
 			ExamCommand::class, // WP-CLI: команды управления экзаменами
+			ExamStandCommand::class, // WP-CLI: самопроверка схемы и стенд параллельных запросов (только dev)
 			ConfigController::class,
 			SettingsController::class,
 			GithubReleaseUpdater::class, // Индикатор «Доступно обновление» из GitHub Releases (Qabasya/fs-lms)
@@ -238,17 +234,6 @@ final class Init {
 			// ==== Этап 3 — сдача работ ====
 			WooExamController::class,        // Совместимость с HPOS WooCommerce (экзамены)
 			ExamController::class,           // AJAX контроллер управления экзаменами
-			ExamGuestPageController::class,  // Гостевая форма входа на экзамен
-			ExamResultPageController::class, // Страница результатов экзамена
-			ExamEventDispatcher::class,      // Диспетчер событий экзаменов (cron minutely)
-
-			// ==== Этап 4 — интеграция с плеером попыток ====
-			ExamAttemptController::class,    // Перехватчик AJAX попыток для экзаменов
-			ExamPlayerSubscriber::class,     // Подписчик на события плеера
-
-			// ==== Этап 5 — фронтенд и интеграция ====
-			WooExamPaymentController::class, // Интеграция оплаты с WooCommerce
-
 			SubmissionController::class,       // AJAX сдачи / проверки / журнала
 			AssessmentController::class,       // AJAX попыток контрольных
 			// ==== Опциональные модули (изолированы, вырезаются удалением каталога + этой строки) ====

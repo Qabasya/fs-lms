@@ -32,7 +32,10 @@ class AttemptService {
 	) {}
 
 	/** В ленту пишется WP-пользователь, а не персона (actor_user_id резолвится через get_userdata()). */
-	private function actorUserId( int $studentPersonId ): int {
+	private function actorUserId( ?int $studentPersonId ): int {
+		if ( null === $studentPersonId ) {
+			return 0;
+		}
 		return $this->persons->find( $studentPersonId )?->wpUserId ?? 0;
 	}
 
@@ -111,17 +114,7 @@ class AttemptService {
 	 * @throws \RuntimeException Если попытка просрочена или уже завершена.
 	 */
 	public function saveAnswer( int $attemptId, int $taskId, string $answerText, int $studentPersonId ): void {
-		$attempt = $this->requireActiveAttempt( $attemptId, $studentPersonId );
-
-		// Задание обязано входить в саму работу: task_id приходит из запроса, и без
-		// проверки в попытку можно было дописать ответ на постороннее задание —
-		// лист ответов и авто-проверка идут по составу работы и такую строку не видят.
-		$assessment = $this->assessments->get( $attempt->assessmentId );
-		if ( ! $assessment || ! in_array( $taskId, array_map( 'intval', $assessment->taskIds ), true ) ) {
-			throw new \InvalidArgumentException( 'Задание не входит в эту работу.' );
-		}
-
-		$this->answers->upsert( $attempt->id, $taskId, [ 'answer_text' => $answerText ] );
+		$this->saveAnswerFor( $this->requireActiveAttempt( $attemptId, $studentPersonId ), $taskId, $answerText );
 	}
 
 	/**
@@ -131,30 +124,7 @@ class AttemptService {
 	 * @throws \RuntimeException Если попытка просрочена.
 	 */
 	public function submit( int $attemptId, int $studentPersonId ): AttemptDTO {
-		$attempt = $this->requireActiveAttempt( $attemptId, $studentPersonId );
-
-		$now = $this->clock->now();
-		$this->attempts->update( $attempt->id, [
-			'status'       => AttemptStatus::Submitted->value,
-			'submitted_at' => $now,
-		] );
-
-		$submitted = $this->attempts->find( $attempt->id );
-		assert( $submitted !== null );
-
-		$this->dispatcher->dispatch(
-			LogEvent::AttemptSubmitted,
-			new LearningEvent(
-				event      : LogEvent::AttemptSubmitted,
-				actorUserId: $this->actorUserId( $studentPersonId ),
-				groupId    : $attempt->groupId,
-				entityType : 'attempt',
-				entityId   : (string) $attempt->id,
-				isPublic   : false,
-			)
-		);
-
-		return $this->autoGrade->gradeAttempt( $submitted );
+		return $this->submitFor( $this->requireActiveAttempt( $attemptId, $studentPersonId ) );
 	}
 
 	/**
@@ -195,8 +165,14 @@ class AttemptService {
 	}
 
 	/**
-	 * Сохранение ответа без проверки владельца (для экзаменов 6.1).
-	 * ExamAttemptService проверяет контекст до вызова.
+	 * Сохранение ответа без проверки владельца и состояния попытки (общее тело и для курса, и для экзаменов 6.1).
+	 * Вызывающий уже проверил, чья это попытка, идёт ли она и не истёк ли дедлайн.
+	 *
+	 * Задание обязано входить в саму работу: task_id приходит из запроса, и без проверки в попытку
+	 * можно было дописать ответ на постороннее задание — лист ответов и авто-проверка идут по составу
+	 * работы и такую строку не видят.
+	 *
+	 * @throws \InvalidArgumentException Если задание не входит в работу.
 	 */
 	public function saveAnswerFor( AttemptDTO $attempt, int $taskId, string $answerText ): void {
 		$assessment = $this->assessments->get( $attempt->assessmentId );
@@ -208,18 +184,27 @@ class AttemptService {
 	}
 
 	/**
-	 * Финальная сдача без проверки владельца (для экзаменов 6.1).
-	 * ExamAttemptService проверяет контекст до вызова.
+	 * Завершение попытки: статус, момент сдачи, событие журнала, автопроверка. Общее тело и для
+	 * сдачи учеником, и для сдачи по дедлайну; владельца и состояние проверил вызывающий.
+	 *
+	 * @param string|null $submittedAt Момент сдачи (местное время); null — сейчас. Автоистечение экзамена
+	 *                                 передаёт дедлайн: сдача считается в момент, когда он наступил.
+	 *
+	 * @throws \RuntimeException Если запись статуса не удалась.
 	 */
-	public function submitFor( AttemptDTO $attempt ): AttemptDTO {
-		$now = $this->clock->now();
-		$this->attempts->update( $attempt->id, [
+	public function submitFor( AttemptDTO $attempt, ?string $submittedAt = null ): AttemptDTO {
+		$written = $this->attempts->update( $attempt->id, [
 			'status'       => AttemptStatus::Submitted->value,
-			'submitted_at' => $now,
+			'submitted_at' => $submittedAt ?? $this->clock->now(),
 		] );
+		if ( ! $written ) {
+			throw new \RuntimeException( 'Не удалось сохранить сдачу попытки.' );
+		}
 
 		$submitted = $this->attempts->find( $attempt->id );
-		assert( $submitted !== null );
+		if ( null === $submitted ) {
+			throw new \RuntimeException( 'Сданная попытка не найдена.' );
+		}
 
 		$this->dispatcher->dispatch(
 			LogEvent::AttemptSubmitted,
@@ -257,32 +242,9 @@ class AttemptService {
 		$attempt = $this->attempts->find( $attemptId );
 		assert( $attempt !== null );
 
-		$assessment = $this->assessments->get( $attempt->assessmentId );
-		$revealed   = null !== $assessment && $this->revealPolicy->isRevealed( $assessment, $attempt );
-
 		$answers = $this->answers->listByAttempt( $attemptId );
-		if ( ! $revealed ) {
-			// 7.5.2: Зачистить саму попытку если не раскрыта (не только ответы)
-			$attempt = new AttemptDTO(
-				id: $attempt->id,
-				assessmentId: $attempt->assessmentId,
-				studentPersonId: $attempt->studentPersonId,
-				wpUserId: $attempt->wpUserId,
-				status: $attempt->status,
-				startedAt: $attempt->startedAt,
-				deadline_at: $attempt->deadline_at,
-				submittedAt: $attempt->submittedAt,
-				totalScore: null,
-				maxScore: null,
-				perTaskScores: null,
-				attemptNumber: $attempt->attemptNumber,
-				groupId: $attempt->groupId,
-				groupLessonId: $attempt->groupLessonId,
-				examParticipationId: $attempt->examParticipationId,
-				examRegistrationId: $attempt->examRegistrationId,
-				resultVersion: $attempt->resultVersion,
-				updatedAt: $attempt->updatedAt,
-			);
+		if ( ! $this->isRevealed( $attempt ) ) {
+			$attempt = $attempt->withoutTotals();
 
 			$answers = array_map( static fn( AttemptAnswerDTO $a ): AttemptAnswerDTO => new AttemptAnswerDTO(
 				id            : $a->id,
@@ -305,11 +267,27 @@ class AttemptService {
 		];
 	}
 
+	/**
+	 * Можно ли отдавать ученику итог и разбор этой попытки. Единственная точка принятия решения для всех
+	 * ответов API: результат, сдача, страница станции — иначе один из путей рано или поздно обойдёт политику.
+	 */
+	public function isRevealed( AttemptDTO $attempt ): bool {
+		$assessment = $this->assessments->get( $attempt->assessmentId );
+		return null !== $assessment && $this->revealPolicy->isRevealed( $assessment, $attempt );
+	}
+
 	/** Валидирует, что попытка активна и принадлежит студенту. */
 	private function requireActiveAttempt( int $attemptId, int $studentPersonId ): AttemptDTO {
 		$attempt = $this->attempts->find( $attemptId );
 		if ( ! $attempt || $attempt->studentPersonId !== $studentPersonId ) {
 			throw new \InvalidArgumentException( 'Попытка не найдена.' );
+		}
+
+		// Официальную попытку экзамена ведёт только ExamAttemptService: здесь нет ни блокировки участия,
+		// ни проверки дедлайна (`expireIfOverdue()` экзамен пропускает) — по этому пути её можно было бы
+		// сохранить и сдать после времени.
+		if ( $attempt->isExam() ) {
+			throw new \RuntimeException( 'Попытка экзамена обрабатывается отдельным путём.' );
 		}
 
 		if ( $attempt->status !== AttemptStatus::InProgress ) {

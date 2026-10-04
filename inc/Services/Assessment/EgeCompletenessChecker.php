@@ -154,7 +154,11 @@ class EgeCompletenessChecker {
 			'fields'     => 'all',
 		] );
 
-		if ( is_wp_error( $terms ) || empty( $terms ) ) {
+		$terms = ( is_wp_error( $terms ) || ! is_array( $terms ) ) ? [] : $terms;
+
+		// Без термов и без формата сверять не с чем (комплектность по-старому). С форматом обязательные позиции
+		// известны и без таксономии — пропуски считаются от них.
+		if ( [] === $terms && $this->formats->unitCount( $assessment->kind ) <= 0 ) {
 			return [];
 		}
 
@@ -213,12 +217,17 @@ class EgeCompletenessChecker {
 	}
 
 	/**
-	 * Фильтрует термы по формату: оставляет только валидные номера в диапазоне [1..N].
-	 * Если формат не зарегистрирован или не определён — возвращает вход без изменений.
+	 * Обязательные позиции работы по формату: номера 1..N, где N — число позиций формата, независимо от того,
+	 * сколько термов реально заведено в таксономии. Терм с таким именем даёт позиции свой slug; позиция
+	 * без терма получает синтетический slug `position_<номер>` и считается пропущенной, пока её не закроет
+	 * задание. Иначе формат на 27 позиций при термах 1..26 «выглядел» бы полным набором из 26.
+	 *
+	 * Если формат не зарегистрирован (модуль выключен) — возвращает термы без изменений: комплектность
+	 * по-старому, по таксономии (README §8, п. 5).
 	 *
 	 * @param array<string, string> $termNames slug => name
 	 * @param AssessmentKind        $kind
-	 * @return array<string, string> Отфильтрованные имена
+	 * @return array<string, string> slug => имя позиции
 	 */
 	private function expectedNames( array $termNames, AssessmentKind $kind ): array {
 		$n = $this->formats->unitCount( $kind );
@@ -226,11 +235,17 @@ class EgeCompletenessChecker {
 			return $termNames;
 		}
 
-		$expected = array();
+		// Имя терма «01» — позиция 1.
+		$slugByNumber = array();
 		foreach ( $termNames as $slug => $name ) {
-			if ( ctype_digit( $name ) && (int) $name >= 1 && (int) $name <= $n ) {
-				$expected[ $slug ] = $name;
+			if ( ctype_digit( $name ) ) {
+				$slugByNumber[ (string) (int) $name ] = $slug;
 			}
+		}
+
+		$expected = array();
+		for ( $number = 1; $number <= $n; ++$number ) {
+			$expected[ $slugByNumber[ (string) $number ] ?? 'position_' . $number ] = (string) $number;
 		}
 		return $expected;
 	}

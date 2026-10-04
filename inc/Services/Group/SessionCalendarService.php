@@ -9,7 +9,7 @@ use Inc\Enums\Course\LessonStatus;
 use Inc\Repositories\OptionsRepositories\AcademicPeriodRepository;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
-use Inc\Repositories\WPDBRepositories\RoomRepository;
+use Inc\Services\Course\RoomAvailabilityService;
 use Inc\Shared\PluginLogger;
 
 /**
@@ -24,7 +24,7 @@ class SessionCalendarService {
 		private readonly GroupsRepository        $groups,
 		private readonly GroupLessonRepository   $groupLessons,
 		private readonly AcademicPeriodRepository $periods,
-		private readonly RoomRepository          $rooms,
+		private readonly RoomAvailabilityService $roomAvailability,
 	) {}
 
 	/**
@@ -114,7 +114,7 @@ class SessionCalendarService {
 			);
 		}
 
-		// T11.4: если кабинет слота занят ДРУГОЙ группой в это время — снимаем его
+		// T11.4: если кабинет слота занят ДРУГОЙ группой или сеансом экзамена в это время — снимаем его
 		// (исключаем свою группу, чтобы не считать собственные переносимые занятия).
 		$conflicts = 0;
 		foreach ( $slots as $i => $slot ) {
@@ -122,7 +122,7 @@ class SessionCalendarService {
 			if ( $roomId <= 0 ) {
 				continue;
 			}
-			if ( $this->rooms->isBusy( $roomId, $slot['scheduled_at'], $slot['ends_at'], 0, $groupId ) ) {
+			if ( ! $this->roomAvailability->isFree( $roomId, $slot['scheduled_at'], $slot['ends_at'], 0, $groupId ) ) {
 				$slots[ $i ]['room'] = 0;
 				++$conflicts;
 			}

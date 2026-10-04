@@ -12,6 +12,8 @@ use Inc\Enums\Assessment\AttemptStatus;
 use Inc\Repositories\WPDBRepositories\AssessmentAttemptRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Services\Course\GroupAccessGuard;
+use Inc\Services\Exam\ExamAttemptService;
+use Inc\Shared\CodedException;
 
 /**
  * Class AttemptPageService
@@ -23,18 +25,23 @@ use Inc\Services\Course\GroupAccessGuard;
  *
  * Доступ решает {@see AssessmentAccessPolicy}; HTTP-побочки (редирект гостя, 404,
  * заголовки, выбор рендерера) остаются в контроллере страницы.
+ *
+ * Итог и разбор по заданиям попадают на страницу только по политике раскрытия
+ * ({@see AttemptService::isRevealed()}) — одно правило для всех путей: курс, просмотр попытки, экзамен.
  */
 readonly class AttemptPageService {
 
 	/**
-	 * @param AssessmentAttemptRepository $attempts   Попытки прохождения
-	 * @param PersonRepository            $persons    Физлица (ученик по user_id)
-	 * @param AssessmentAccessPolicy      $access     Гейт доступа к контрольной
-	 * @param AttemptResultService        $results    Результаты по заданиям
-	 * @param AttemptOutcomeService       $outcome    Метка/состояние исхода
-	 * @param AttemptTaskViewBuilder      $taskViews  Per-task данные для шаблона
-	 * @param ClockInterface              $clock      Текущее время
-	 * @param GroupAccessGuard            $groupGuard Управляет ли пользователь группой попытки (просмотр чужой попытки)
+	 * @param AssessmentAttemptRepository $attempts        Попытки прохождения
+	 * @param PersonRepository            $persons         Физлица (ученик по user_id)
+	 * @param AssessmentAccessPolicy      $access          Гейт доступа к контрольной
+	 * @param AttemptResultService        $results         Результаты по заданиям
+	 * @param AttemptOutcomeService       $outcome         Метка/состояние исхода
+	 * @param AttemptTaskViewBuilder      $taskViews       Per-task данные для шаблона
+	 * @param ClockInterface              $clock           Текущее время
+	 * @param GroupAccessGuard            $groupGuard      Управляет ли пользователь группой попытки (просмотр чужой попытки)
+	 * @param AttemptService              $attemptService  Политика раскрытия результата попытки
+	 * @param ExamAttemptService          $examAttempts    Официальная попытка экзамена: контекст и состояние станции
 	 */
 	public function __construct(
 		private AssessmentAttemptRepository $attempts,
@@ -45,6 +52,8 @@ readonly class AttemptPageService {
 		private AttemptTaskViewBuilder      $taskViews,
 		private ClockInterface              $clock,
 		private GroupAccessGuard            $groupGuard,
+		private AttemptService              $attemptService,
+		private ExamAttemptService          $examAttempts,
 	) {}
 
 	/**
@@ -72,16 +81,12 @@ readonly class AttemptPageService {
 			&& ! $activeAttempt->isExpired( $now );
 
 		// T13.7: нет активной попытки — показываем результат последней сданной.
-		$lastAttempt   = null;
-		$resultPerTask = array();
-		$outcomeLabel  = '';
-		$outcomeState  = 'fail';
+		$lastAttempt = null;
+		$result      = $this->emptyResult();
 		if ( ! $activeAttempt ) {
 			$lastAttempt = $this->attempts->findLastSubmitted( $person->id, $assessment->id );
 			if ( $lastAttempt ) {
-				$resultPerTask = $this->results->studentPerTask( $lastAttempt->id, $person->id );
-				$outcomeLabel  = $this->outcome->label( $lastAttempt, $assessment );
-				$outcomeState  = $this->outcome->state( $lastAttempt, $assessment );
+				$result = $this->resultFor( $lastAttempt, $assessment, $person->id, false );
 			}
 		}
 
@@ -95,12 +100,59 @@ readonly class AttemptPageService {
 			lastAttempt:    $lastAttempt,
 			examInProgress: $examInProgress,
 			taskViews:      $this->taskViews->build( $assessment->taskIds, $assessment->subjectKey, $assessment->kind ),
-			resultPerTask:  $resultPerTask,
-			outcome:        $outcomeLabel,
-			outcomeState:   $outcomeState,
+			resultPerTask:  $result['per_task'],
+			outcome:        $result['outcome'],
+			outcomeState:   $result['state'],
 			canRetry:       $assessment->attemptsAllowed <= 0 || $attemptsUsed < $assessment->attemptsAllowed,
 			now:            $now,
 			attemptsUsed:   $attemptsUsed,
+		);
+	}
+
+	/**
+	 * Страница станции для официальной попытки экзамена: `?exam_reg=ID`. Доступ определяет не занятие курса,
+	 * а запись ученика на экзамен ({@see ExamAttemptService::contextForStudent()}); вариант записи обязан
+	 * совпадать с открытой работой. Просроченная попытка завершается до сборки страницы.
+	 *
+	 * Ученик до утверждения работы не получает ни итога, ни разбора: `resultPerTask`, `outcome` пусты,
+	 * `reviewReveal = false`; повтор невозможен.
+	 *
+	 * @param AssessmentDTO $assessment     Работа, открытая по адресу
+	 * @param int           $userId         ID пользователя WP
+	 * @param int           $registrationId ID записи на экзамен из адреса
+	 *
+	 * @return AttemptPageDTO|null null — запись чужая, закрыта или её вариант не эта работа (контроллер отдаёт 404)
+	 */
+	public function buildForExam( AssessmentDTO $assessment, int $userId, int $registrationId ): ?AttemptPageDTO {
+		try {
+			$ctx = $this->examAttempts->contextForStudent( $userId, $registrationId );
+		} catch ( CodedException ) {
+			return null;
+		}
+
+		$state  = $this->examAttempts->stationState( $ctx );
+		$person = null !== $ctx->personId ? $this->persons->find( $ctx->personId ) : null;
+		if ( null === $state || null === $person || $state['assessment_id'] !== $assessment->id ) {
+			return null;
+		}
+
+		$now     = $this->clock->now();
+		$attempt = $state['attempt'];
+		$active  = null !== $attempt && AttemptStatus::InProgress === $attempt->status ? $attempt : null;
+		$last    = null !== $attempt && null === $active ? $attempt : null;
+		$result  = null !== $last ? $this->resultFor( $last, $assessment, $person->id, false ) : $this->emptyResult();
+
+		return new AttemptPageDTO(
+			person:         $person,
+			activeAttempt:  $active,
+			lastAttempt:    $last,
+			examInProgress: null !== $active && ! $active->isExpired( $now ),
+			taskViews:      $this->taskViews->build( $assessment->taskIds, $assessment->subjectKey, $assessment->kind ),
+			resultPerTask:  $result['per_task'],
+			outcome:        $result['outcome'],
+			outcomeState:   $result['state'],
+			canRetry:       false,
+			now:            $now,
 		);
 	}
 
@@ -133,7 +185,8 @@ readonly class AttemptPageService {
 			return null;
 		}
 
-		$student = $isOwner ? $person : $this->persons->find( $attempt->studentPersonId );
+		$student = $isOwner ? $person : $this->persons->find( (int) $attempt->studentPersonId );
+		$result  = $this->resultFor( $attempt, $assessment, (int) $attempt->studentPersonId, $manages );
 
 		return new AttemptPageDTO(
 			person:         $student,
@@ -141,13 +194,40 @@ readonly class AttemptPageService {
 			lastAttempt:    $attempt,
 			examInProgress: false,
 			taskViews:      $this->taskViews->build( $assessment->taskIds, $assessment->subjectKey, $assessment->kind ),
-			resultPerTask:  $this->results->studentPerTask( $attempt->id, $attempt->studentPersonId ),
-			outcome:        $this->outcome->label( $attempt, $assessment ),
-			outcomeState:   $this->outcome->state( $attempt, $assessment ),
+			resultPerTask:  $result['per_task'],
+			outcome:        $result['outcome'],
+			outcomeState:   $result['state'],
 			canRetry:       false,
 			now:            $this->clock->now(),
 			reviewMode:     true,
 			reviewReveal:   $manages,
+		);
+	}
+
+	/**
+	 * Результат попытки для страницы: разбор по заданиям, метка и состояние исхода — только если политика
+	 * раскрытия разрешает (или смотрит управляющий: ему открыто сразу). Иначе пусто: ни баллов, ни вердиктов.
+	 *
+	 * @return array{per_task: array, outcome: string, state: string}
+	 */
+	private function resultFor( AttemptDTO $attempt, AssessmentDTO $assessment, int $studentPersonId, bool $forceReveal ): array {
+		if ( ! $forceReveal && ! $this->attemptService->isRevealed( $attempt ) ) {
+			return $this->emptyResult();
+		}
+
+		return array(
+			'per_task' => $this->results->studentPerTask( $attempt->id, $studentPersonId ),
+			'outcome'  => $this->outcome->label( $attempt, $assessment ),
+			'state'    => $this->outcome->state( $attempt, $assessment ),
+		);
+	}
+
+	/** @return array{per_task: array, outcome: string, state: string} */
+	private function emptyResult(): array {
+		return array(
+			'per_task' => array(),
+			'outcome'  => '',
+			'state'    => 'fail',
 		);
 	}
 

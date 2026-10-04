@@ -29,7 +29,7 @@ enum ExamOutboxEvent: string {
 			self::RegistrationConfirmed => 'Запись подтверждена',
 			self::RegistrationTransferred => 'Запись перенесена',
 			self::RegistrationCancelled => 'Запись отменена',
-			self::ParticipantMissed => 'Участник не явился',
+			self::ParticipantMissed => 'Неявка участника',
 			self::EntryOpened => 'Вход открыт',
 			self::AttemptStarted => 'Попытка начата',
 			self::AttemptSubmitted => 'Попытка сдана',

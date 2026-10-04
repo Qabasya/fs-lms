@@ -60,6 +60,9 @@ enum LogEvent: string {
 	case PeriodUpdated    = 'period.updated';
 	case PeriodDeleted    = 'period.deleted';
 
+	case ExamSourceCreated = 'exam_source.created';
+	case ExamSourceUpdated = 'exam_source.updated';
+
 	case UserCreated      = 'user.created';
 	case UserUpdated      = 'user.updated';
 	case UserDeleted      = 'user.deleted';

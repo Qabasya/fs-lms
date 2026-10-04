@@ -11,6 +11,8 @@ use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\WPDBRepositories\RoomRepository;
 use Inc\Services\Course\RoomAssignmentService;
+use Inc\Services\Exam\ExamEventService;
+use Inc\Shared\CodedException;
 use Inc\Shared\Traits\AjaxResponse;
 use Inc\Shared\Traits\Authorizer;
 use Inc\Shared\Traits\Sanitizer;
@@ -31,6 +33,7 @@ class RoomCallbacks extends BaseController {
 		private readonly RoomAssignmentService $assignment,
 		private readonly GroupsRepository      $groups,
 		private readonly SubjectRepository     $subjects,
+		private readonly ExamEventService      $exams,
 	) {
 		parent::__construct();
 	}
@@ -86,13 +89,28 @@ class RoomCallbacks extends BaseController {
 
 		// При правке без поля seats в запросе (старый клиент) не обнуляем значение.
 		if ( $this->hasParam( 'seats' ) ) {
-			$data['seats'] = max( 0, $this->sanitizeInt( 'seats' ) );
+			// Отрицательное число — это 0 («вместимость не задана»), а не его модуль: absint() превратил бы -5 в 5.
+			$data['seats'] = max( 0, (int) $this->sanitizeText( 'seats' ) );
 		}
 
-		if ( $roomId > 0 ) {
-			$this->rooms->update( $roomId, $data );
-		} else {
-			$roomId = $this->rooms->create( $data );
+		$persist = function () use ( &$roomId, $data ): void {
+			if ( $roomId > 0 ) {
+				$this->rooms->update( $roomId, $data );
+			} else {
+				$roomId = $this->rooms->create( $data );
+			}
+		};
+
+		try {
+			if ( $roomId > 0 && isset( $data['seats'] ) ) {
+				// Вместимость будущих сеансов экзаменов меняется вместе с кабинетом одной транзакцией; отказ — кабинет не сохраняется.
+				$this->exams->syncCapacityForRoom( $roomId, $data['seats'], $persist );
+			} else {
+				$persist();
+			}
+		} catch ( CodedException $e ) {
+			$this->fail( $e->errorCode, $e->getMessage() );
+			return;
 		}
 
 		$this->success( array( 'room_id' => $roomId ) );

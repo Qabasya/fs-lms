@@ -6,6 +6,7 @@ namespace Inc\Repositories\WPDBRepositories;
 
 use Inc\DTO\Course\RoomDTO;
 use Inc\Enums\Settings\TableName;
+use Inc\Shared\Traits\RaisesDbError;
 
 /**
  * Справочник кабинетов (fs_lms_rooms, Эпик 9) + запросы занятости по времени.
@@ -17,6 +18,8 @@ use Inc\Enums\Settings\TableName;
  * @package Inc\Repositories\WPDBRepositories
  */
 class RoomRepository {
+
+	use RaisesDbError;
 
 	private \wpdb  $wpdb;
 	private string $table;
@@ -127,6 +130,47 @@ class RoomRepository {
 		return (bool) $this->wpdb->get_var(
 			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 			$this->wpdb->prepare( $sql, $roomId, $excludeGroupLessonId, $excludeGroupId, $end, $start )
+		);
+	}
+
+	/**
+	 * Блокирует строку кабинета до конца транзакции. Назначения кабинета (занятие или сеанс экзамена) выполняются по очереди:
+	 * проверка «свободен ли» и запись идут под этой блокировкой, поэтому второе назначение видит первое. Вызывать первым оператором
+	 * транзакции. Ошибка базы — исключение (`RetryableDbException` при взаимной блокировке), а не «кабинета нет».
+	 */
+	public function lockForUpdate( int $roomId ): void {
+		$this->wpdb->get_var( $this->wpdb->prepare( 'SELECT id FROM %i WHERE id = %d FOR UPDATE', $this->table, $roomId ) );
+		if ( '' !== (string) $this->wpdb->last_error ) {
+			$this->raiseDbError();
+		}
+	}
+
+	/**
+	 * Занятия, пересекающие окно (`start`, `end`) в кабинете, — для предупреждения о позднем старте экзамена.
+	 * Условие пересечения то же, что в {@see isBusy()}.
+	 *
+	 * @param string $start 'Y-m-d H:i:s', местное время.
+	 * @param string $end   'Y-m-d H:i:s', местное время.
+	 *
+	 * @return list<array{title: string, start: string}> Название занятия и начало (местное время), по возрастанию начала.
+	 */
+	public function listLessonsInWindow( int $roomId, string $start, string $end ): array {
+		$sql  = "SELECT gl.label AS title, gl.scheduled_at AS lesson_start FROM {$this->glTable} gl
+				LEFT JOIN {$this->groupsTable} g ON g.id = gl.group_id
+				WHERE COALESCE(gl.room_id, g.room_id) = %d
+				  AND gl.scheduled_at IS NOT NULL
+				  AND gl.scheduled_at < %s
+				  AND COALESCE(gl.ends_at, gl.scheduled_at + INTERVAL 60 MINUTE) > %s
+				ORDER BY gl.scheduled_at ASC, gl.id ASC";
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$rows = $this->wpdb->get_results( $this->wpdb->prepare( $sql, $roomId, $end, $start ), ARRAY_A );
+		if ( '' !== (string) $this->wpdb->last_error ) {
+			$this->raiseDbError();
+		}
+
+		return array_map(
+			static fn ( array $row ): array => array( 'title' => (string) ( $row['title'] ?? '' ), 'start' => (string) $row['lesson_start'] ),
+			is_array( $rows ) ? $rows : array()
 		);
 	}
 }

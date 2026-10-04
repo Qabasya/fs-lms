@@ -7,87 +7,87 @@ namespace Inc\Services\Exam;
 use Inc\DTO\Exam\ExamParticipationDTO;
 use Inc\DTO\Exam\ExamRegistrationDTO;
 use Inc\DTO\Exam\ExamSessionDTO;
-use Inc\Enums\Exam\RegistrationStatus;
+use Inc\Enums\Exam\ExamOutboxEvent;
+use Inc\Enums\Exam\ExamRegistrationStatus;
 use Inc\Repositories\WPDBRepositories\ExamParticipationRepository;
 use Inc\Repositories\WPDBRepositories\ExamRegistrationRepository;
 use Inc\Repositories\WPDBRepositories\ExamSessionRepository;
-use Inc\Shared\TransactionRunner;
+use Inc\Shared\Traits\TransactionRunner;
 
 /**
- * Управление неявками на экзамене (6.3).
+ * Неявка (6.3): если к плановому концу сеанса попытка не начата, действующая запись становится
+ * «пропущено», место освобождается, и участник снова может записаться.
  *
- * @package Inc\Services\Exam
+ * Старт, отмена и неявка блокируют одну и ту же строку участия — поэтому у участника
+ * всегда ровно один исход. Отметка прихода на неявку не влияет.
  */
 class ExamNoShowService {
 
+	use TransactionRunner;
+
 	public function __construct(
-		private readonly TransactionRunner $transactionRunner,
-		private readonly ExamParticipationRepository $participationRepo,
-		private readonly ExamRegistrationRepository $registrationRepo,
-		private readonly ExamSessionRepository $sessionRepo,
+		private readonly ExamParticipationRepository $participations,
+		private readonly ExamRegistrationRepository $registrations,
+		private readonly ExamSessionRepository $sessions,
 		private readonly ExamOutbox $outbox,
 		private readonly ExamTime $time,
 	) {}
 
 	/**
-	 * Отметить неявку (вызывается внутри транзакции, участие заблокировано) (6.3.2).
+	 * Проставляет неявку. Участие уже заблокировано вызывающим кодом.
 	 *
-	 * @param ExamParticipationDTO $participation Участие (заблокировано)
-	 * @param ExamRegistrationDTO  $registration Запись
-	 * @param ExamSessionDTO       $session Сеанс
-	 *
-	 * @return bool Была ли неявка отмечена
+	 * @return bool true — неявка проставлена этим вызовом; повторный вызов вернёт false.
 	 */
 	public function markMissedLocked( ExamParticipationDTO $participation, ExamRegistrationDTO $registration, ExamSessionDTO $session ): bool {
-		// Условия: запись действующая, нет попытки, сеанс закончился
-		if ( ! $registration->active_slot || $participation->current_attempt_id ) {
+		if ( 1 !== $registration->activeSlot || null !== $participation->currentAttemptId ) {
 			return false;
 		}
 
-		$nowUtc = $this->time->nowUtc();
-		if ( $nowUtc < $session->planned_end_at ) {
+		$now = $this->time->nowUtc();
+		if ( $now < $session->plannedEndAt ) {
 			return false;
 		}
 
-		// Отменить запись
-		if ( ! $this->registrationRepo->deactivate( $registration->id, RegistrationStatus::Missed, $nowUtc ) ) {
+		if ( ! $this->registrations->deactivate( $registration->id, ExamRegistrationStatus::Missed, $now ) ) {
 			return false;
 		}
 
-		// Освободить место и сбросить активную запись
-		$this->registrationRepo->releaseSeat( $registration->session_id );
-		$this->participationRepo->setActiveRegistration( $participation->id, null );
-
-		// Событие
-		$this->outbox->append( 'ParticipantMissed', array(
-			'registration_id' => $registration->id,
-			'session_id' => $registration->session_id,
-		) );
+		$this->sessions->releaseSeat( $session->id );
+		$this->participations->setActiveRegistration( $participation->id, null );
+		$this->outbox->add(
+			ExamOutboxEvent::ParticipantMissed,
+			'participation',
+			$participation->id,
+			$participation->version,
+			array(
+				'registration_id' => $registration->id,
+				'session_id'      => $session->id,
+			)
+		);
 
 		return true;
 	}
 
 	/**
-	 * Отметить неявку (собственная транзакция) (6.3.3).
-	 *
-	 * @param int $registrationId ID записи
-	 *
-	 * @return bool Была ли неявка отмечена
+	 * То же в собственной транзакции: блокировка участия, затем перечитывание под блокировкой.
+	 * Участие определяется до транзакции — первым её оператором должна быть блокировка (иначе под REPEATABLE READ
+	 * перечитывание вернёт состояние до блокировки).
 	 */
 	public function markMissed( int $registrationId ): bool {
-		return $this->transactionRunner->inTransactionWithRetry( function () use ( $registrationId ): bool {
-			$registration = $this->registrationRepo->find( $registrationId );
-			if ( ! $registration ) {
+		$participationId = $this->registrations->find( $registrationId )?->participationId;
+		if ( null === $participationId ) {
+			return false;
+		}
+
+		return (bool) $this->inTransactionWithRetry( function () use ( $registrationId, $participationId ): bool {
+			$participation = $this->participations->findForUpdate( $participationId );
+			$registration  = $this->registrations->find( $registrationId );
+			if ( null === $participation || null === $registration ) {
 				return false;
 			}
 
-			$participation = $this->participationRepo->findForUpdate( $registration->participation_id );
-			if ( ! $participation ) {
-				return false;
-			}
-
-			$session = $this->sessionRepo->find( $registration->session_id );
-			if ( ! $session ) {
+			$session = $this->sessions->find( $registration->sessionId );
+			if ( null === $session ) {
 				return false;
 			}
 
