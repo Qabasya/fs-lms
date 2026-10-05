@@ -87,7 +87,8 @@ class TaskManager {
 				'post_name'    => $customSlug,
 				'post_type'    => PostTypeResolver::tasks( $subjectKey ),
 				'post_status'  => 'draft',    // Задание создаётся как черновик
-				'post_content' => $this->prepareContentForEditor( $taskText ),
+				// wp_insert_post() сам снимает слэши — без wp_slash() из условия пропал бы `\` (LaTeX, код)
+				'post_content' => wp_slash( $this->prepareContentForEditor( $taskText ) ),
 			)
 		);
 
@@ -143,14 +144,15 @@ class TaskManager {
 	/**
 	 * Преобразует JSON из boilerplate в массив для мета-поля.
 	 *
+	 * Контент приходит из репозитория уже без WP-слэшей: `wp_unslash()` здесь срезал бы
+	 * экранирование самого JSON (`\r\n` → `rn`, `\"` → `"`) и ломал разбор.
+	 *
 	 * @param string $text JSON-строка
 	 *
 	 * @return array
 	 */
 	private function parseBoilerplateToMeta( string $text ): array {
-		// wp_unslash() — удаляет экранирование слешей
-		$clean   = wp_unslash( $text );
-		$decoded = json_decode( $clean, true );
+		$decoded = json_decode( $text, true );
 
 		// json_last_error() === JSON_ERROR_NONE — проверка успешного декодирования
 		if ( json_last_error() === JSON_ERROR_NONE && is_array( $decoded ) ) {
@@ -159,7 +161,7 @@ class TaskManager {
 		}
 
 		return array(
-			'task_condition' => $clean,
+			'task_condition' => $text,
 			'task_answer'    => '',
 		);
 	}
@@ -176,11 +178,10 @@ class TaskManager {
 			return '';
 		}
 
-		$clean   = wp_unslash( $text );
-		$decoded = json_decode( $clean, true );
+		$decoded = json_decode( $text, true );
 
 		// Если JSON валидный — объединяем значения через два переноса строки
-		return is_array( $decoded ) ? implode( "\n\n", $decoded ) : $clean;
+		return is_array( $decoded ) ? implode( "\n\n", $decoded ) : $text;
 	}
 
 	/**
