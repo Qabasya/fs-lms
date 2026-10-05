@@ -91,7 +91,7 @@ export const SubjectModalManager = {
                     SubjectModal.setKeyError(res.data.message);
                     SubjectModal.setSaveState(false);
                 } else {
-                    showNotice(res.data?.message || res.data || 'Ошибка сохранения', 'error', SubjectModal.$modal);
+                    showNotice(res.data?.message || res.data || 'Ошибка сохранения', 'error', SubjectModal.$modal.find('.fs-lms-modal-body'));
                     SubjectModal.setSaveState(false);
                 }
             })
@@ -414,7 +414,7 @@ export const SubjectModalManager = {
                 if (res.success) {
                     location.reload();
                 } else {
-                    showNotice(res.data || 'Не удалось изменить статус', 'error', $btn.closest('td'));
+                    showNotice(res.data || 'Не удалось изменить статус', 'error');
                     toggleButton($btn, false);
                 }
             })
@@ -460,7 +460,7 @@ export const SubjectModalManager = {
 
         SubjectTransferApi.exportJson(key)
             .then((data) => SubjectTransferApi.downloadJson(data, `subject_${key}_export.json`))
-            .catch((err) => showNotice(err.message, 'error', $btn.closest('td')))
+            .catch((err) => showNotice(err.message, 'error'))
             .then(() => {
                 toggleButton($btn, false);
                 if (typeof onComplete === 'function') {
@@ -501,7 +501,7 @@ export const SubjectModalManager = {
                     });
                 } else {
                     toggleButton($btn, false);
-                    showNotice(res.data || 'Ошибка удаления', 'error', $btn.closest('td'));
+                    showNotice(res.data || 'Ошибка удаления', 'error');
                 }
             })
             .fail(() => {

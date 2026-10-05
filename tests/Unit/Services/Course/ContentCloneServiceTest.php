@@ -203,6 +203,25 @@ class ContentCloneServiceTest extends TestCase {
 		self::assertNotContains( 2, $newLessonIds );
 	}
 
+	public function test_clone_course_keeps_module_description_in_both_modes(): void {
+		fs_test_seed_post(
+			array( 'ID' => 1, 'post_type' => 'inf_lessons', 'post_title' => 'Урок 1', 'post_status' => 'publish' ),
+			array( PostMetaName::Meta->value => array( 'steps' => array() ) )
+		);
+		fs_test_seed_post(
+			array( 'ID' => 100, 'post_type' => 'inf_courses', 'post_title' => 'Курс', 'post_status' => 'publish' ),
+			array( PostMetaName::Meta->value => array( 'modules' => array(
+				array( 'id' => 'm1', 'title' => 'Модуль 1', 'lesson_ids' => array( 1 ), 'description' => 'О чём модуль' ),
+			) ) )
+		);
+
+		foreach ( array( 'shallow', 'deep' ) as $mode ) {
+			$cloned = $this->courses->get( $this->service->cloneCourse( 100, $mode ) );
+
+			self::assertSame( 'О чём модуль', $cloned->modules[0]->description, $mode );
+		}
+	}
+
 	// ── forkLessonForGroup ──────────────────────────────────────────────────
 
 	private function queueGroupLessonRow( int $id, int $groupId, int $lessonId ): void {

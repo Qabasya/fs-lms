@@ -54,7 +54,8 @@ export const ContentClone = {
         if ( ! cfg || ! id ) { return; }
 
         // Для курса режим влияет на объём копирования — спрашиваем явно.
-        // confirm() резолвится на «С уроками» и реджектится на «Только структуру».
+        // confirm() резолвится на «С уроками»; реджект с причиной 'cancel' — кнопка
+        // «Только структуру». Крестик, фон и Esc ('close' / 'esc') — отказ от дублирования.
         if ( 'course' === type ) {
             ConfirmModal.confirm( {
                 title:       'Дублировать курс',
@@ -64,7 +65,9 @@ export const ContentClone = {
                 isDanger:    false,
             } ).then(
                 () => this.request( $link, cfg, id, 'deep' ),
-                () => this.request( $link, cfg, id, 'shallow' )
+                ( reason ) => {
+                    if ( 'cancel' === reason ) { this.request( $link, cfg, id, 'shallow' ); }
+                }
             );
 
             return;
@@ -96,14 +99,32 @@ export const ContentClone = {
         $.post( fs_lms_vars.ajaxurl, data )
             .done( ( res ) => {
                 if ( ! res || ! res.success ) {
-                    showNotice( ( res && res.data ) || 'Не удалось дублировать запись.', 'error' );
+                    // data — строка от error() либо объект { message, … } (отказ по nonce, fail()).
+                    showNotice( res?.data?.message || ( 'string' === typeof res?.data && res.data ) || 'Не удалось дублировать запись.', 'error' );
                     return;
                 }
 
                 // Копия создаётся черновиком — сразу открываем её на редактирование.
                 window.location.href = `post.php?post=${ res.data.id }&action=edit`;
             } )
-            .fail( () => showNotice( 'Ошибка сети при дублировании.', 'error' ) )
+            .fail( ( xhr ) => showNotice( this.failMessage( xhr ), 'error' ) )
             .always( () => toggleButton( $link, false, 'Дублировать' ) );
+    },
+
+    /**
+     * Текст для отказа запроса. «Ошибка сети» — только когда сеть и правда недоступна:
+     * отказ по правам (403) и сбой сервера (5xx) называем своими именами.
+     *
+     * @param {jqXHR} xhr Ответ.
+     * @return {string}
+     */
+    failMessage( xhr ) {
+        const data = xhr?.responseJSON?.data;
+        const text = data?.message || ( 'string' === typeof data && data );
+
+        if ( text ) { return text; }
+        if ( ! xhr?.status ) { return 'Нет связи с сервером — проверьте соединение и повторите.'; }
+
+        return `Сервер не смог выполнить дублирование (код ${ xhr.status }). Запись об ошибке — в журнале «Ошибки».`;
     },
 };

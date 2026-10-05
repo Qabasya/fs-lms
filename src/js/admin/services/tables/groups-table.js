@@ -50,8 +50,6 @@ export const GroupsTable = {
             this.$studentsModal.on('change', '.js-add-student-cb', () => this._syncSubmitState());
             this.$studentsModal.on('click', '.js-add-students-submit', () => this._submitAddStudents());
         }
-
-        this._bindPeriodFilter();
     },
 
     _handleViewStudents(e) {

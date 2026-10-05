@@ -368,9 +368,10 @@ class ContentCloneService {
 				}
 			}
 			$modules[] = new ModuleDTO(
-				id       : $module->id,
-				title    : $module->title,
-				lessonIds: $newLessonIds,
+				id         : $module->id,
+				title      : $module->title,
+				lessonIds  : $newLessonIds,
+				description: $module->description,
 			);
 		}
 

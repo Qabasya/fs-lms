@@ -8,6 +8,8 @@ use Inc\Core\BaseController;
 use Inc\Enums\Access\Capability;
 use Inc\Enums\Wp\Nonce;
 use Inc\Services\Course\ContentCloneService;
+use Inc\Shared\Traits\Authorizer;
+use Inc\Shared\Traits\Sanitizer;
 
 /**
  * Class CloneCallbacks
@@ -22,6 +24,9 @@ use Inc\Services\Course\ContentCloneService;
  * @package Inc\Callbacks\Course
  */
 class CloneCallbacks extends BaseController {
+
+	use Authorizer;
+	use Sanitizer;
 
 	public function __construct(
 		private readonly ContentCloneService $cloneService,

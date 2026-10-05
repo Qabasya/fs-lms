@@ -5,6 +5,7 @@ declare( strict_types=1 );
 namespace Inc\Shared\Traits;
 
 use Inc\Enums\Access\Capability;
+use Inc\Enums\Log\ErrorCode;
 use Inc\Enums\Wp\Nonce;
 
 /**
@@ -49,7 +50,7 @@ trait Authorizer {
 		// current_user_can() — WordPress-функция, проверяет, имеет ли пользователь указанное право
 		// 403 — HTTP-статус "Forbidden" (доступ запрещён)
 		if ( ! current_user_can( $capability->value ) ) {
-			wp_send_json_error( 'У вас недостаточно прав', 403 );
+			$this->denyCapability( $capability );
 		}
 	}
 
@@ -75,9 +76,20 @@ trait Authorizer {
 
 		foreach ( $capabilities as $capability ) {
 			if ( ! current_user_can( $capability->value ) ) {
-				wp_send_json_error( 'У вас недостаточно прав', 403 );
+				$this->denyCapability( $capability );
 			}
 		}
+	}
+
+	/**
+	 * Отказ по правам: 403 + запись в журнал «Ошибки» — иначе по скриншоту
+	 * «недостаточно прав» не понять, какого права не хватило.
+	 */
+	private function denyCapability( Capability $capability ): void {
+		$message = 'У вас недостаточно прав';
+
+		ErrorCode::Ajax->report( $message, array( 'capability' => $capability->value ) );
+		wp_send_json_error( $message, 403 );
 	}
 
 	/**
