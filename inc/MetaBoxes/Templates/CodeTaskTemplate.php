@@ -37,6 +37,7 @@ class CodeTaskTemplate extends BaseTemplate {
 			'task_answer'    => array(
 				'label'  => 'Правильный ответ',
 				'object' => new TextareaField(), // Многострочный текст (переносы сохраняются)
+				'answer' => true,
 			),
 			'task_code'      => array(
 				'label'  => 'Листинг кода (Python)',

@@ -1,10 +1,11 @@
 /**
- * @fileoverview Дублирование записи банка контента из строки таблицы.
+ * @fileoverview Дублирование записи банка контента — из строки таблицы и из редактора задания.
  *
  * @module admin/services/content-clone
- * @description Кнопку «Дублировать» ставит LearningMenuController::addCloneRowAction();
+ * @description Кнопку «Дублировать» ставит BankRowActionsController (строка таблицы —
+ * addCloneRowAction(), блок «Опубликовать» в редакторе задания — renderCloneTaskButton());
  * здесь — вызов соответствующего AJAX-хука (`clone_lesson`/`clone_work`/
- * `clone_assessment`/`clone_course`) и переход к редактированию копии.
+ * `clone_assessment`/`clone_course`/`clone_task`) и переход к редактированию копии.
  *
  * Для курса спрашиваем режим: `shallow` — копия структуры со ссылками на те же
  * уроки, `deep` — с копиями уроков (так же, как понимает CloneCallbacks).
@@ -24,6 +25,7 @@ const CLONE_MAP = {
     work:       { action: 'cloneWork',       param: 'work_id' },
     assessment: { action: 'cloneAssessment', param: 'assessment_id' },
     course:     { action: 'cloneCourse',     param: 'course_id' },
+    task:       { action: 'cloneTask',       param: 'task_id' },
 };
 
 export const ContentClone = {

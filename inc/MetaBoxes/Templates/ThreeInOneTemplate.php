@@ -29,6 +29,7 @@ class ThreeInOneTemplate extends BaseTemplate {
 			'task_19_answer'    => array(
 				'label'  => 'Ответ №19',
 				'object' => new AnswerInputField(),
+				'answer' => true,
 			),
 
 			// 2. Задание 20
@@ -39,6 +40,7 @@ class ThreeInOneTemplate extends BaseTemplate {
 			'task_20_answer'    => array(
 				'label'  => 'Ответ №20',
 				'object' => new AnswerInputField(),
+				'answer' => true,
 			),
 
 			// 3. Задание 21
@@ -49,6 +51,7 @@ class ThreeInOneTemplate extends BaseTemplate {
 			'task_21_answer'    => array(
 				'label'  => 'Ответ №21',
 				'object' => new AnswerInputField(),
+				'answer' => true,
 			),
 
 			// 4. Программное решение (мб потом разделить на 3?)

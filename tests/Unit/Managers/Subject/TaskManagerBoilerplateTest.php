@@ -12,6 +12,8 @@ use Inc\Managers\Wp\TermManager;
 use Inc\Repositories\OptionsRepositories\BoilerplateRepository;
 use Inc\Repositories\OptionsRepositories\MetaBoxRepository;
 use Inc\Services\Task\TaskNumberService;
+use Inc\Services\Template\TemplateRegistry;
+use Inc\Services\Template\TemplateResolver;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -95,6 +97,8 @@ class TaskManagerBoilerplateTest extends TestCase {
 			$this->createStub( MetaBoxRepository::class ),
 			$boilerplates,
 			$numbers,
+			$this->createStub( TemplateResolver::class ),
+			new TemplateRegistry(),
 		);
 	}
 }

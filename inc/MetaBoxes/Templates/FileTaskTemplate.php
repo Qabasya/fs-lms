@@ -36,6 +36,7 @@ class FileTaskTemplate extends BaseTemplate {
 			'task_answer'    => array(
 				'label'  => 'Правильный ответ',
 				'object' => new TextareaField(), // Многострочный текст (переносы сохраняются)
+				'answer' => true,
 			),
 			'file'           => array(
 				'label'  => 'Файл задания',

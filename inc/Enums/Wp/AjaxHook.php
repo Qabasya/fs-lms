@@ -325,6 +325,7 @@ enum AjaxHook: string {
 	case CloneWork           = 'clone_work';
 	case CloneAssessment     = 'clone_assessment';
 	case CloneCourse         = 'clone_course';
+	case CloneTask           = 'clone_task';           // params: task_id — копия задания предмета: новый номер, без ответа
 	case ForkLessonForGroup  = 'fork_lesson_for_group';
 
 

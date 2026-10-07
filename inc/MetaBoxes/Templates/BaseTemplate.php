@@ -67,6 +67,35 @@ abstract class BaseTemplate {
 	}
 
 	/**
+	 * Поля с эталонным ответом (флаг `answer`) — строка ответа, с которой сверяет чекер.
+	 *
+	 * @return string[]
+	 */
+	public function answerFieldIds(): array {
+		return array_keys( array_filter( $this->get_fields(), static fn( array $config ): bool => ! empty( $config['answer'] ) ) );
+	}
+
+	/**
+	 * Мета задания без эталонного ответа — для копии задания ({@see \Inc\Managers\Subject\TaskManager::duplicate()}).
+	 * Шаблоны, где ответ — не отдельное поле, а часть структуры, переопределяют метод
+	 * ({@see ChoiceTaskTemplate}). У сопоставления, порядка и пропусков ответ и есть
+	 * условие — там снимать нечего.
+	 *
+	 * @param array<string, mixed> $meta Мета задания (PostMetaName::Meta)
+	 *
+	 * @return array<string, mixed>
+	 */
+	public function stripAnswer( array $meta ): array {
+		foreach ( $this->answerFieldIds() as $field_id ) {
+			if ( array_key_exists( $field_id, $meta ) ) {
+				$meta[ $field_id ] = '';
+			}
+		}
+
+		return $meta;
+	}
+
+	/**
 	 * Возвращает уникальное имя (ID) шаблона.
 	 *
 	 * Используется для идентификации шаблона в системе.

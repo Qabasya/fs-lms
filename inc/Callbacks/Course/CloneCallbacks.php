@@ -7,6 +7,7 @@ namespace Inc\Callbacks\Course;
 use Inc\Core\BaseController;
 use Inc\Enums\Access\Capability;
 use Inc\Enums\Wp\Nonce;
+use Inc\Managers\Subject\TaskManager;
 use Inc\Services\Course\ContentCloneService;
 use Inc\Shared\Traits\Authorizer;
 use Inc\Shared\Traits\Sanitizer;
@@ -30,6 +31,7 @@ class CloneCallbacks extends BaseController {
 
 	public function __construct(
 		private readonly ContentCloneService $cloneService,
+		private readonly TaskManager         $taskManager,
 	) {
 		parent::__construct();
 	}
@@ -89,6 +91,25 @@ class CloneCallbacks extends BaseController {
 
 		if ( $newId <= 0 ) {
 			$this->error( __( 'Не удалось клонировать курс.', 'fs-lms' ) );
+			return;
+		}
+
+		$this->success( array( 'id' => $newId ) );
+	}
+
+	/**
+	 * Копия задания предмета (кнопка «Дублировать задание» в редакторе задания):
+	 * новый номер в серии, те же поля, эталонный ответ не переносится.
+	 */
+	public function ajaxCloneTask(): void {
+		$this->authorize( Nonce::Subject, Capability::AuthorLmsCourses );
+
+		$id = $this->requireInt( 'task_id' );
+
+		try {
+			$newId = $this->taskManager->duplicate( $id );
+		} catch ( \RuntimeException $e ) {
+			$this->error( $e->getMessage() );
 			return;
 		}
 

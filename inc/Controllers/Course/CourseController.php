@@ -42,6 +42,7 @@ class CourseController extends AjaxController {
 			array( AjaxHook::CloneWork,                 $this->cloneCallbacks ),
 			array( AjaxHook::CloneAssessment,           $this->cloneCallbacks ),
 			array( AjaxHook::CloneCourse,               $this->cloneCallbacks ),
+			array( AjaxHook::CloneTask,                 $this->cloneCallbacks ),
 			array( AjaxHook::ForkLessonForGroup,        $this->cloneCallbacks ),
 		);
 	}

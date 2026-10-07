@@ -37,6 +37,28 @@ class ChoiceTaskTemplate extends BaseTemplate {
 		);
 	}
 
+	/**
+	 * Ответ здесь — отметки «верный» у вариантов: сами варианты остаются, отметки снимаются.
+	 *
+	 * @param array<string, mixed> $meta Мета задания
+	 *
+	 * @return array<string, mixed>
+	 */
+	public function stripAnswer( array $meta ): array {
+		$options = $meta['task_options']['options'] ?? null;
+		if ( ! is_array( $options ) ) {
+			return $meta;
+		}
+
+		foreach ( $options as $i => $option ) {
+			if ( is_array( $option ) ) {
+				$meta['task_options']['options'][ $i ]['correct'] = false;
+			}
+		}
+
+		return $meta;
+	}
+
 	public function get_id(): string {
 		return 'choice_task';
 	}

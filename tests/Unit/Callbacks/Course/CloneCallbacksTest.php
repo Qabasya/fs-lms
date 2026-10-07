@@ -7,6 +7,7 @@ namespace Unit\Callbacks\Course;
 use Inc\Callbacks\Course\CloneCallbacks;
 use Inc\Enums\Access\Capability;
 use Inc\Enums\Log\ErrorCode;
+use Inc\Managers\Subject\TaskManager;
 use Inc\Services\Course\ContentCloneService;
 use PHPUnit\Framework\TestCase;
 
@@ -19,13 +20,15 @@ class CloneCallbacksTest extends TestCase {
 
 	private CloneCallbacks $callbacks;
 	private $cloneService;
+	private $taskManager;
 
 	protected function setUp(): void {
 		parent::setUp();
 		fs_test_reset_ajax();
 		$GLOBALS['_fs_test_actions'] = array();
 		$this->cloneService          = $this->createMock( ContentCloneService::class );
-		$this->callbacks             = new CloneCallbacks( $this->cloneService );
+		$this->taskManager           = $this->createMock( TaskManager::class );
+		$this->callbacks             = new CloneCallbacks( $this->cloneService, $this->taskManager );
 	}
 
 	public function test_clone_course_defaults_to_shallow(): void {
@@ -96,6 +99,23 @@ class CloneCallbacksTest extends TestCase {
 
 		$_POST = array( 'assessment_id' => '5' );
 		self::assertSame( 50, fs_test_capture_json( fn() => $this->callbacks->ajaxCloneAssessment() )->payload['id'] );
+	}
+
+	public function test_clone_task_returns_copy_id(): void {
+		$this->taskManager->expects( $this->once() )->method( 'duplicate' )->with( 6 )->willReturn( 60 );
+		$_POST = array( 'task_id' => '6' );
+
+		self::assertSame( 60, fs_test_capture_json( fn() => $this->callbacks->ajaxCloneTask() )->payload['id'] );
+	}
+
+	public function test_clone_task_reports_why_it_cannot_be_copied(): void {
+		$this->taskManager->method( 'duplicate' )->willThrowException( new \RuntimeException( 'У задания не выбран номер задания.' ) );
+		$_POST = array( 'task_id' => '6' );
+
+		$r = fs_test_capture_json( fn() => $this->callbacks->ajaxCloneTask() );
+
+		self::assertFalse( $r->success );
+		self::assertSame( 'У задания не выбран номер задания.', $r->payload );
 	}
 
 	public function test_fork_lesson_for_group_returns_fork_id(): void {

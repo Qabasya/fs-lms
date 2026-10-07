@@ -199,6 +199,17 @@ class TermManager {
 	}
 
 	/**
+	 * Таксономии, зарегистрированные для типа записи.
+	 *
+	 * @param string $post_type Тип записи
+	 *
+	 * @return string[] Слаги таксономий
+	 */
+	public function taxonomiesOf( string $post_type ): array {
+		return get_object_taxonomies( $post_type );
+	}
+
+	/**
 	 * Возвращает массив слагов терминов, привязанных к посту.
 	 *
 	 * @param int    $post_id  ID поста

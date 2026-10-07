@@ -13,6 +13,8 @@ use Inc\Repositories\OptionsRepositories\BoilerplateRepository;
 use Inc\Repositories\OptionsRepositories\MetaBoxRepository;
 use Inc\Services\Subject\PostTypeResolver;
 use Inc\Services\Task\TaskNumberService;
+use Inc\Services\Template\TemplateRegistry;
+use Inc\Services\Template\TemplateResolver;
 
 /**
  * Class TaskManager
@@ -24,6 +26,7 @@ use Inc\Services\Task\TaskNumberService;
  * ### Основные обязанности:
  *
  * 1. **Создание задания** — комплексный процесс создания задания (генерация номера, применение шаблона, импорт условий).
+ *    **Дублирование** — копия задания с новым номером и без эталонного ответа.
  * 2. **Генерация уникального слага** — автоматическое создание номера задания на основе префикса и счётчика.
  * 3. **Синхронизация мета-данных** — сохранение типа шаблона и контента условий в мета-поля поста.
  *
@@ -41,6 +44,8 @@ class TaskManager {
 		private readonly MetaBoxRepository $metaboxes,
 		private readonly BoilerplateRepository $boilerplates,
 		private readonly TaskNumberService $numbers,
+		private readonly TemplateResolver $resolver,
+		private readonly TemplateRegistry $templates,
 	) {}
 
 	/**
@@ -101,6 +106,89 @@ class TaskManager {
 
 		// 6. Настройка мета-данных задания (шаблон и поля)
 		$this->syncTaskMetadata( $postId, $subjectKey, $termSlug, $taskText );
+
+		return $postId;
+	}
+
+	/**
+	 * Дублирует задание: то же условие, те же поля и термы, новый номер в серии — и без
+	 * эталонного ответа ({@see \Inc\MetaBoxes\Templates\BaseTemplate::stripAnswer()}).
+	 *
+	 * Копируется сохранённая версия задания; копия — черновик текущего пользователя.
+	 * Мета переносится выборочно (шаблон + поля): служебные ключи вроде списка детей
+	 * связки 19–21 привязаны к исходной записи и в копии были бы ложью.
+	 *
+	 * @param int $taskId ID исходного задания
+	 *
+	 * @return int ID копии
+	 *
+	 * @throws \RuntimeException Если задание нельзя продублировать
+	 */
+	public function duplicate( int $taskId ): int {
+		$source = $this->postManager->get( $taskId );
+		if ( ! $source || ! PostTypeResolver::isTaskPostType( $source->post_type ) ) {
+			throw new \RuntimeException( 'Задание не найдено.' );
+		}
+
+		// Часть связки собирается из родителя при каждом его сохранении — своей жизни у неё нет.
+		if ( $this->postManager->getMeta( $taskId, PostMetaName::TaskBundleParentId->value ) ) {
+			throw new \RuntimeException( 'Это часть связки заданий — дублируйте саму связку.' );
+		}
+
+		$subjectKey = PostTypeResolver::subjectFromTaskPostType( $source->post_type );
+		$number     = $this->termManager->getPostTerms( $taskId, "{$subjectKey}_task_number" )[0] ?? null;
+		if ( null === $number ) {
+			throw new \RuntimeException( 'У задания не выбран номер задания — укажите его и сохраните задание.' );
+		}
+
+		$customSlug = $this->numbers->build(
+			$source->post_type,
+			$this->extractNumberFromSlug( (string) $number->slug ) ?: (int) $number->term_id
+		);
+
+		// «№ 3001. Авторские задания» → «№ 3002. Авторские задания»
+		$title = (string) preg_replace( '/^№\s*\d+\.\s*/u', '', $source->post_title );
+
+		$postId = $this->postManager->insert(
+			array(
+				// wp_insert_post() сам снимает слэши — значения из базы надо экранировать заново
+				'post_title'   => wp_slash( "№ {$customSlug}. {$title}" ),
+				'post_name'    => $customSlug,
+				'post_type'    => $source->post_type,
+				'post_status'  => 'draft',
+				'post_author'  => get_current_user_id(),
+				'post_content' => wp_slash( $source->post_content ),
+			)
+		);
+
+		if ( ! $postId ) {
+			throw new \RuntimeException( 'Не удалось сохранить копию задания в базу данных.' );
+		}
+
+		foreach ( $this->termManager->taxonomiesOf( $source->post_type ) as $taxonomy ) {
+			$termIds = array_map(
+				static fn( \WP_Term $term ): int => (int) $term->term_id,
+				$this->termManager->getPostTerms( $taskId, $taxonomy )
+			);
+
+			if ( $termIds ) {
+				$this->termManager->setPostTerms( $postId, $termIds, $taxonomy );
+			}
+		}
+
+		$templateType = $this->postManager->getMeta( $taskId, PostMetaName::TemplateType->value );
+		if ( ! empty( $templateType ) ) {
+			$this->postManager->updateMeta( $postId, PostMetaName::TemplateType->value, $templateType );
+		}
+
+		$meta     = $this->postManager->taskMeta( $taskId );
+		$template = $this->templates->get( $this->resolver->resolveId( $source ) );
+
+		$this->postManager->updateMeta(
+			$postId,
+			PostMetaName::Meta->value,
+			$template ? $template->stripAnswer( $meta ) : $meta
+		);
 
 		return $postId;
 	}
