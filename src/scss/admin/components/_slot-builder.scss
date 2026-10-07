@@ -36,6 +36,10 @@
 		gap: $spacing-sm;
 		flex-wrap: wrap;
 		.button { flex: 1; justify-content: center; }
+
+		// «Добавить задачу» с меню (работа): та же кнопка-сплит, что «Добавить» в конструкторе курса.
+		@include cb-add-split;
+		.add-wrap { flex: 1; }
 	}
 
 	// slot row

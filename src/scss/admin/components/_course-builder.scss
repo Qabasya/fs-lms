@@ -112,44 +112,8 @@
 		padding: $spacing-sm rem(10);
 		display: flex; flex-direction: column; gap: $spacing-sm;
 
-		// «Добавить»: клик — урок, наведение/фокус — меню выбора (вверх). Меню вплотную к кнопке,
-		// чтобы курсор не «терял» hover по пути к пункту.
-		.add-wrap { position: relative;
-			> .add-main { width: 100%; justify-content: center; }
-		}
-		.add-caret { margin-left: auto; transform: rotate(180deg); }
-
-		.add-menu {
-			position: absolute;
-			bottom: 100%;
-			left: 0; right: 0;
-			padding-bottom: rem(4);
-			z-index: 100;
-			visibility: hidden; opacity: 0;
-			transition: opacity 0.12s;
-		}
-
-		.add-wrap:not(.is-closed):hover .add-menu,
-		.add-wrap:not(.is-closed):focus-within .add-menu {
-			visibility: visible; opacity: 1;
-		}
-
-		.add-menu-box {
-			background: $color-bg-modal;
-			border: 1px solid $color-border-input;
-			border-radius: $border-radius-md;
-			box-shadow: $shadow-cb-popover;
-			overflow: hidden;
-		}
-
-		.add-opt {
-			display: flex; align-items: center; gap: $spacing-sm;
-			padding: rem(8) $spacing-sm; width: 100%;
-			background: none; border: none; cursor: pointer;
-			font-size: $font-size-sm; color: $color-text-primary; text-align: left;
-			svg { fill: currentcolor; flex-shrink: 0; }
-			&:hover, &:focus-visible { background: $cb-bg-hover; }
-		}
+		// «Добавить»: клик — урок, наведение/фокус — меню выбора (вверх).
+		@include cb-add-split;
 	}
 
 	// module

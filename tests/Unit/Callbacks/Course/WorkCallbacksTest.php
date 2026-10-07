@@ -40,6 +40,27 @@ class WorkCallbacksTest extends TestCase {
 		self::assertFalse( fs_test_capture_json( fn() => $this->cb->ajaxGetWorkTaskCandidates() )->success );
 	}
 
+	public function test_item_candidates_pass_source_and_page(): void {
+		$this->auth->expects( $this->once() )->method( 'getItemCandidates' )
+			->with( 'inf', 0, 'mine', 'дроби', 'public', 3 )
+			->willReturn( array( array( 'id' => 9, 'title' => 'Дроби' ) ) );
+		$_POST = array( 'subject_key' => 'inf', 'search' => 'дроби', 'source' => 'public', 'page' => '3' );
+
+		$r = fs_test_capture_json( fn() => $this->cb->ajaxGetWorkItemCandidates() );
+
+		self::assertTrue( $r->success );
+		self::assertSame( 9, $r->payload[0]['id'] );
+	}
+
+	public function test_item_candidates_default_to_first_page(): void {
+		$this->auth->expects( $this->once() )->method( 'getItemCandidates' )
+			->with( 'inf', 0, 'mine', '', 'subject', 1 )
+			->willReturn( array() );
+		$_POST = array( 'subject_key' => 'inf' );
+
+		self::assertTrue( fs_test_capture_json( fn() => $this->cb->ajaxGetWorkItemCandidates() )->success );
+	}
+
 	public function test_create_work_draft_returns_id_and_title(): void {
 		$this->manager->expects( $this->once() )->method( 'create' )->willReturn( 5 );
 		$_POST = array( 'subject_key' => 'inf', 'title' => 'Моя работа', 'work_type' => 'homework' );

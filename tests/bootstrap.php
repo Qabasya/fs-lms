@@ -369,6 +369,13 @@ if (!function_exists('get_posts')) {
             if (!$meta_ok) { continue; }
             $out[] = $post;
         }
+        // Постраничная выдача (WorkAuthoringService: кандидаты по 50): как в ядре,
+        // numberposts <= 0 — без лимита, offset — сколько записей пропустить.
+        $offset = (int) ($args['offset'] ?? 0);
+        $limit  = (int) ($args['numberposts'] ?? 0);
+        if ($offset > 0 || $limit > 0) {
+            $out = array_slice($out, $offset, $limit > 0 ? $limit : null);
+        }
         // 'fields' => 'ids' — как в реальном WP, возвращаем массив ID вместо объектов
         // (нужно PostManager::getIds()/countByTerm()).
         if ('ids' === ($args['fields'] ?? '')) {

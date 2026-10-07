@@ -97,3 +97,39 @@ export function candidateSource( search, scope ) {
 	}
 	return search ? 'all' : ( scope || 'subject' );
 }
+
+/**
+ * Раскладывает выбранных кандидатов в плоский список заданий к добавлению.
+ *
+ * Связка 19–21 (`bundle_children`) заменяется своими подзаданиями — так же, как при
+ * одиночном выборе в слот. Задания, которые уже стоят в работе, и повторы внутри
+ * самого выбора отбрасываются: одна задача не может занимать два слота.
+ *
+ * @param {Object[]} items    Кандидаты `{id, title, bundle_children?}`.
+ * @param {number[]} takenIds ID заданий, уже стоящих в работе.
+ * @returns {{fresh: {id: number, title: string}[], skipped: number}}
+ *          `fresh` — что добавлять, в порядке выбора; `skipped` — сколько отброшено.
+ */
+export function expandPicked( items, takenIds ) {
+	const taken = new Set( takenIds );
+	const fresh = [];
+	let skipped = 0;
+
+	items.forEach( ( item ) => {
+		const tasks = Array.isArray( item.bundle_children ) && item.bundle_children.length
+			? item.bundle_children
+			: [ item ];
+
+		tasks.forEach( ( task ) => {
+			const id = parseInt( task.id, 10 );
+			if ( ! id || taken.has( id ) ) {
+				skipped += 1;
+				return;
+			}
+			taken.add( id );
+			fresh.push( { id, title: String( task.title || '' ) } );
+		} );
+	} );
+
+	return { fresh, skipped };
+}

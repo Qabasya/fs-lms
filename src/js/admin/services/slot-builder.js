@@ -1,10 +1,11 @@
 import '../_types.js';
 import { icoPlus, icoX, icoReplace, icoImport, icoCaret, icoTrash } from '../../common/icons.js';
 import { escapeHtml as esc } from '../modules/utils.js';
-import { openPicker } from '../modules/picker.js';
+import { openPicker, expandPicked } from '../modules/picker.js';
 import { readSteps } from './step-editor.js';
 import { showToast } from '../modules/toast.js';
 import { ConfirmModal } from '../modals/confirm-modal.js';
+import { BulkTaskModal } from '../modals/bulk-task-modal.js';
 
 /* global jQuery, fs_lms_vars */
 const $ = jQuery;
@@ -102,6 +103,10 @@ const defaultNewSlot = ( i ) => ( { key: 'slot_' + i, taskId: 0, title: '' } );
  * @param {string}      config.emptyText                Текст пустого редактора.
  * @param {Function}    config.persist  (slots) => Promise              Сохранение item_ids.
  * @param {Function}    config.search   (query) => Promise<{id,title}[]>
+ * @param {Function}   [config.bulkSearch] (query, scope, page) => Promise<Object[]>  Страница кандидатов
+ *                                            для окна «Массовое добавление заданий». Задан — кнопка
+ *                                            «Добавить задачу» получает меню с этим пунктом (как
+ *                                            «Добавить» в конструкторе курса); не задан — обычная кнопка.
  * @param {Function}    config.preview  (taskId) => Promise<Object>
  * @param {string}     [config.subjectKey]    Предмет — прокидывается в URL «Создать задачу»
  *                                            (post-new.php?fs_lms_subject=…), чтобы новый
@@ -124,6 +129,8 @@ export function createSlotBuilder( el, config ) {
 	let slots       = initialSteps.map( mapSlot );
 	let activeIndex = slots.length ? 0 : -1;
 
+	const canBulkAdd = typeof config.bulkSearch === 'function';
+
 	el.innerHTML = `
 		<div class="fs-sb-builder">
 			<div class="fs-sb-tree">
@@ -132,8 +139,21 @@ export function createSlotBuilder( el, config ) {
 					<span class="fs-sb-th-count" data-slot-count></span>
 				</div>
 				<div class="fs-sb-tree-scroll" data-slot-list></div>
-				<div class="fs-sb-tree-add">
-					<button type="button" class="button button-primary" data-add-slot>${ icoPlus( 13 ) } Добавить задачу</button>
+				<div class="fs-sb-tree-add">${ canBulkAdd ? `
+					<div class="add-wrap" data-add-wrap>
+						<div class="add-menu">
+							<div class="add-menu-box">
+								<button type="button" class="add-opt" data-add-slot>${ icoPlus( 13 ) }Задача</button>
+								<button type="button" class="add-opt" data-add-bulk>${ icoImport( 13 ) }Массовое добавление заданий</button>
+							</div>
+						</div>
+						<button type="button" class="button button-primary add-main" data-add-slot>
+							${ icoPlus( 13 ) }
+							Добавить задачу
+							${ icoCaret( 10, 'add-caret' ) }
+						</button>
+					</div>` : `
+					<button type="button" class="button button-primary" data-add-slot>${ icoPlus( 13 ) } Добавить задачу</button>` }
 				</div>
 			</div>
 			<div class="fs-sb-editor" data-editor></div>
@@ -146,7 +166,20 @@ export function createSlotBuilder( el, config ) {
 	const countEl    = el.querySelector( '[data-slot-count]' );
 	const statusEl   = el.querySelector( '[data-status]' );
 
-	el.querySelector( '[data-add-slot]' ).addEventListener( 'click', addSlot );
+	// Меню «Добавить задачу» раскрывается по :hover/:focus-within; после выбора прячем
+	// его до ухода курсора — иначе оно осталось бы висеть над открытым окном.
+	const addWrap      = el.querySelector( '[data-add-wrap]' );
+	const closeAddMenu = () => {
+		if ( ! addWrap ) { return; }
+		addWrap.classList.add( 'is-closed' );
+		document.activeElement?.blur?.();
+		addWrap.addEventListener( 'mouseleave', () => addWrap.classList.remove( 'is-closed' ), { once: true } );
+	};
+
+	el.querySelectorAll( '[data-add-slot]' ).forEach( ( btn ) => {
+		btn.addEventListener( 'click', () => { closeAddMenu(); addSlot(); } );
+	} );
+	el.querySelector( '[data-add-bulk]' )?.addEventListener( 'click', () => { closeAddMenu(); openBulkAdd(); } );
 
 	const api = {
 		getSlots:     () => slots,
@@ -171,6 +204,56 @@ export function createSlotBuilder( el, config ) {
 		activeIndex = slots.length - 1;
 		render();
 		save();
+	}
+
+	/**
+	 * «Массовое добавление заданий»: окно со списком и чекбоксами, выбранное
+	 * добавляется в работу одним сохранением.
+	 */
+	function openBulkAdd() {
+		BulkTaskModal.open( {
+			fetchFn:  config.bulkSearch,
+			takenIds: slots.filter( ( s ) => s.taskId > 0 ).map( ( s ) => s.taskId ),
+		} ).then( addMany, () => {} );
+	}
+
+	/**
+	 * Добавляет набор заданий: сначала занимает пустые слоты, остальное дописывает
+	 * в конец. Связка 19–21 раскладывается на подзадания, как при одиночном выборе
+	 * ({@link assignPicked}); задания, уже стоящие в работе, пропускаются.
+	 *
+	 * @param {Object[]} items Элементы кандидатов из окна выбора.
+	 */
+	function addMany( items ) {
+		const { fresh, skipped } = expandPicked(
+			items,
+			slots.filter( ( s ) => s.taskId > 0 ).map( ( s ) => s.taskId )
+		);
+
+		if ( ! fresh.length ) {
+			showToast( 'Выбранные задания уже есть в работе', 'error' );
+			return;
+		}
+
+		let firstIndex = -1;
+		fresh.forEach( ( task ) => {
+			let index = slots.findIndex( ( s ) => ! s.taskId );
+			if ( index < 0 ) {
+				slots.push( newSlot( slots.length ) );
+				index = slots.length - 1;
+			}
+			slots[ index ].taskId = task.id;
+			slots[ index ].title  = task.title;
+			if ( firstIndex < 0 ) { firstIndex = index; }
+		} );
+
+		activeIndex = firstIndex;
+		render();
+		save();
+		showToast(
+			`Добавлено заданий: ${ fresh.length }` + ( skipped ? `, уже были в работе: ${ skipped }` : '' ),
+			'success'
+		);
 	}
 
 	async function removeSlot( index ) {

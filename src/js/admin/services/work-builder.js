@@ -41,6 +41,15 @@ function mount( el ) {
 			source:      candidateSource( q, scope ),
 		} ),
 
+		// Окно «Массовое добавление заданий»: тот же эндпоинт, но постранично. Источник
+		// выбирает окно — 'subject' (приватный банк, как «Выбрать из банка») или 'public'.
+		bulkSearch: ( q, scope, page ) => post( acts.getWorkItemCandidates, nonces.authorWork, {
+			subject_key: subject,
+			search:      q,
+			source:      candidateSource( q, scope ),
+			page,
+		} ),
+
 		// Превью задачи переиспользует общий эндпоинт банка задач (нонс контрольной).
 		preview: ( taskId ) => post( acts.getTaskPreview, nonces.authorAssessment, {
 			task_id:     taskId,

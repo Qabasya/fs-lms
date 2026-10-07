@@ -783,6 +783,7 @@ class PostManager {
 	 *     search?: string,
 	 *     tax_query?: array,
 	 *     limit?: int,
+	 *     offset?: int,
 	 *     orderby?: string,
 	 *     order?: string
 	 * } $opts Параметры выборки.
@@ -812,6 +813,9 @@ class PostManager {
 		}
 		if ( ! empty( $opts['meta_query'] ) ) {
 			$args['meta_query'] = $opts['meta_query'];
+		}
+		if ( ! empty( $opts['offset'] ) ) {
+			$args['offset'] = (int) $opts['offset'];
 		}
 
 		$posts = get_posts( $args );
