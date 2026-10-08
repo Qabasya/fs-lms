@@ -401,8 +401,14 @@ readonly class ArticleContentService {
 			return null;
 		}
 
-		$meta      = $this->post_manager->getMeta( $post_id, PostMetaName::Meta->value );
-		$condition = $this->task_meta_service->getCombinedCondition( is_array( $meta ) ? $meta : array() );
+		$meta = $this->post_manager->getMeta( $post_id, PostMetaName::Meta->value );
+		$meta = is_array( $meta ) ? $meta : array();
+
+		// Типовое условие в карточке не показываем вовсе: статья разбирает само
+		// задание, а общая часть доступна на странице задания.
+		unset( $meta[ TaskMetaService::COMMON_KEY ] );
+
+		$condition = $this->task_meta_service->getCombinedCondition( $meta );
 
 		return new ArticleTaskCardDTO(
 			id:        $post_id,

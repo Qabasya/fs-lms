@@ -1,6 +1,5 @@
 @use '../../variables' as *;
 @use '../../mixins' as *;
-@use '../../../shared/common-condition' as *;
 @use '../../../shared/content-tables' as *;
 
 // Карточка задания внутри текста статьи
@@ -117,7 +116,6 @@
     // `fs-article-table` её таблицы не получают — оформление то же, что на
     // странице задания в тренажёре.
     @include fs-content-tables;
-    @include fs-common-condition($color-accent-700);
     @include fs-task-subconditions;
 
     p { margin: 0; }
