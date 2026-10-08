@@ -129,22 +129,22 @@ $sortUrl    = add_query_arg( $activeFilters, $baseUrl );
 		<thead>
 		<tr>
 			<th class="column-cb check-column"><input type="checkbox" id="js-select-all-students"></th>
-			<th class="column-title column-primary">
+			<th class="column-title column-primary tw-15">
 				<?php echo LogNameResolver::sortableHeader( 'ФИО ученика', 'student_name', $orderby, strtolower( $order ), $sortUrl ); // phpcs:ignore ?>
 			</th>
-			<th class="column-title">
+			<th class="column-title tw-10">
 				<?php esc_html_e( 'Предмет', 'fs-lms' ); ?>
 			</th>
-			<th class="column-title">
+			<th class="column-title tw-10">
 				<?php esc_html_e( 'Группа', 'fs-lms' ); ?>
 			</th>
 			<th class="column-title">
 				<?php esc_html_e( 'Расписание', 'fs-lms' ); ?>
 			</th>
-			<th class="column-title">
+			<th class="column-title tw-7">
 				<?php esc_html_e( 'Номер договора', 'fs-lms' ); ?>
 			</th>
-			<th class="column-title">
+			<th class="column-title tw-10">
 				<?php esc_html_e( 'Действия', 'fs-lms' ); ?>
 			</th>
 		</tr>

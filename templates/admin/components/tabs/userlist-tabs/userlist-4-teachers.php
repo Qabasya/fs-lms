@@ -64,7 +64,7 @@ foreach ( $subjectRepo->readAll() as $dto ) {
 
 		<thead>
 		<tr>
-			<th class="column-title column-primary">
+			<th class="column-title column-primary tw-20">
 				<?php esc_html_e( 'ФИО', 'fs-lms' ); ?>
 			</th>
 			<th class="column-title">
@@ -73,7 +73,7 @@ foreach ( $subjectRepo->readAll() as $dto ) {
 			<th class="column-title">
 				<?php esc_html_e( 'Группы', 'fs-lms' ); ?>
 			</th>
-			<th class="column-title">
+			<th class="column-title tw-10">
 				<?php esc_html_e( 'Действия', 'fs-lms' ); ?>
 			</th>
 		</tr>

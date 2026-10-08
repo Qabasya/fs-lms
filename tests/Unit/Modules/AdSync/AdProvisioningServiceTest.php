@@ -85,6 +85,50 @@ class AdProvisioningServiceTest extends TestCase {
 		$this->service( $m )->enqueueDeleteByApplication( 5, 42 );
 	}
 
+	/** Учётки по заявке ещё нет — сотрудник может создать её кнопкой в окне заявки. */
+	public function test_account_is_creatable_until_a_job_exists(): void {
+		$m = $this->mocks();
+		$m['apps']->method( 'find' )->willReturn( $this->app() );
+		$m['outbox']->method( 'latestByApplication' )->willReturn( null );
+
+		self::assertSame( 'creatable', $this->service( $m )->accountStateForApplication( 5 ) );
+	}
+
+	public function test_account_state_follows_the_provision_job(): void {
+		foreach ( array( 'pending' => 'pending', 'sent' => 'done', 'dead' => 'failed' ) as $status => $expected ) {
+			$m = $this->mocks();
+			$m['apps']->method( 'find' )->willReturn( $this->app() );
+			$m['outbox']->method( 'latestByApplication' )->willReturn( $this->row( 'provision', array( 'app' => 5, 'status' => $status ) ) );
+
+			self::assertSame( $expected, $this->service( $m )->accountStateForApplication( 5 ) );
+		}
+	}
+
+	/** Кнопки нет: направление без доменных учёток, заявка закрыта либо учётку сайт уже отключил. */
+	public function test_account_button_is_hidden_when_account_is_not_due(): void {
+		$m = $this->mocks();
+		$m['apps']->method( 'find' )->willReturn( null );
+		self::assertSame( 'none', $this->service( $m )->accountStateForApplication( 5 ) );
+
+		$m     = $this->mocks();
+		$other = $this->createMock( AdSyncConfig::class );
+		$other->method( 'shouldProvision' )->willReturn( false );
+		$m['config'] = $other;
+		$m['apps']->method( 'find' )->willReturn( $this->app() );
+		self::assertSame( 'none', $this->service( $m )->accountStateForApplication( 5 ) );
+
+		$m = $this->mocks();
+		$m['apps']->method( 'find' )->willReturn( ApplicationDTO::fromArray( array(
+			'id' => 5, 'status' => 'trash', 'created_at' => '2026-01-01 00:00:00', 'updated_at' => '2026-01-01 00:00:00', 'subject_key' => 'inf',
+		) ) );
+		self::assertSame( 'none', $this->service( $m )->accountStateForApplication( 5 ) );
+
+		$m = $this->mocks();
+		$m['apps']->method( 'find' )->willReturn( $this->app() );
+		$m['outbox']->method( 'latestByApplication' )->willReturn( $this->row( 'deprovision', array( 'app' => 5, 'status' => 'sent' ) ) );
+		self::assertSame( 'none', $this->service( $m )->accountStateForApplication( 5 ) );
+	}
+
 	private function row( string $event, array $o = array() ): AdOutboxItemDTO {
 		return new AdOutboxItemDTO(
 			id: $o['id'] ?? 7, event: $event,

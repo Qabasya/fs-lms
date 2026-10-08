@@ -376,7 +376,7 @@ readonly class RateLimitService {
 	 * @return bool
 	 */
 	private function checkIp( string $prefix, string $ip, int $limit ): bool {
-		$isTrusted = '' !== $ip && in_array( $ip, $this->pluginConfig->trustedIps(), true );
+		$isTrusted = $this->pluginConfig->isTrustedIp( $ip );
 
 		return $this->check( $this->ipKey( $prefix, $ip ), $isTrusted ? $limit * self::TRUSTED_IP_MULTIPLIER : $limit );
 	}

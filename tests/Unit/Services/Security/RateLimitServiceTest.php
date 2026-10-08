@@ -20,6 +20,9 @@ class RateLimitServiceTest extends TestCase {
 		$config = $this->createStub( PluginConfig::class );
 		$config->method( 'isTestEnv' )->willReturn( $testEnv );
 		$config->method( 'trustedIps' )->willReturn( $trustedIps );
+		$config->method( 'isTrustedIp' )->willReturnCallback(
+			static fn( string $ip ): bool => in_array( $ip, $trustedIps, true )
+		);
 		return new RateLimitService( $config );
 	}
 

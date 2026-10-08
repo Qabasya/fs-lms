@@ -284,6 +284,13 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
 					<button type="button" class="button js-grant-trial" hidden>
 						<?php esc_html_e( 'Временный доступ', 'fs-lms' ); ?>
 					</button>
+					<?php
+					/**
+					 * Кнопки опциональных модулей в подвале окна заявки — между «Временным доступом»
+					 * и «Сохранить» (напр. «Создать учётку» модуля AdSync). Без подписчиков — no-op.
+					 */
+					do_action( 'fs_lms_application_modal_actions' );
+					?>
 					<button type="submit" class="button button-primary" id="review-modal-save-btn">
 						<?php esc_html_e( 'Сохранить', 'fs-lms' ); ?>
 					</button>
