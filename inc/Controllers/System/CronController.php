@@ -41,6 +41,9 @@ class CronController extends BaseController implements ServiceInterface {
 	/** Имя блокировки тика броней гостей — общее с `wp fs-lms exam tick --name=hold-release`. */
 	public const EXAM_HOLD_RELEASE_LOCK = 'exam_hold_release';
 
+	/** Имя блокировки тика доставки событий outbox в ленту уведомлений. */
+	public const EXAM_OUTBOX_LOCK = 'exam_outbox';
+
 	public function __construct(
 		private readonly CronManager                 $cron_manager,
 		private readonly AssessmentAttemptRepository $attemptRepo,
@@ -67,11 +70,12 @@ class CronController extends BaseController implements ServiceInterface {
 		$this->cron_manager->schedule( CronHook::NotificationsTick->value, 'every_15_minutes' );
 
 		// Экзамены: минутный тик (автоистечение попыток + неявки). Расписание NotificationsTick не меняется (README §8, п. 2).
-		// Тик доставки событий (`ExamOutboxTick`) появится вместе с воркером outbox.
 		add_action( CronHook::ExamAutoExpireTick->value, array( $this, 'handleExamAutoExpireTick' ) );
 		$this->cron_manager->schedule( CronHook::ExamAutoExpireTick->value, 'every_minute' );
 		add_action( CronHook::ExamHoldReleaseTick->value, array( $this, 'handleExamHoldReleaseTick' ) );
 		$this->cron_manager->schedule( CronHook::ExamHoldReleaseTick->value, 'every_minute' );
+		add_action( CronHook::ExamOutboxTick->value, array( $this, 'handleExamOutboxTick' ) );
+		$this->cron_manager->schedule( CronHook::ExamOutboxTick->value, 'every_minute' );
 
 		// ExpireApplications / RetentionCleanup / RecoveryTick подключает
 		// RecoveryController (их расписание ставит Activate) — здесь не дублируем.
@@ -89,6 +93,11 @@ class CronController extends BaseController implements ServiceInterface {
 	/** Освобождение истёкших броней гостей — тоже только делегирование под своей блокировкой. */
 	public function handleExamHoldReleaseTick(): void {
 		$this->examTickLock->run( self::EXAM_HOLD_RELEASE_LOCK, fn() => $this->examTicks->releaseHolds() );
+	}
+
+	/** Доставка событий outbox в ленту уведомлений — делегирование под своей блокировкой. */
+	public function handleExamOutboxTick(): void {
+		$this->examTickLock->run( self::EXAM_OUTBOX_LOCK, fn() => $this->examTicks->deliverEvents() );
 	}
 
 	public function handleNotificationsTick(): void {

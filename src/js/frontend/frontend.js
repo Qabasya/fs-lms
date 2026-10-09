@@ -13,6 +13,8 @@ import { initFiltersToggle }    from './components/filters-toggle.js';
 import { initApplyForm }        from './services/apply-form.js';
 import { initLoginForm }        from './services/login-form.js';
 import { initJoinForm }         from './services/join-form.js';
+import { initExamSignup }       from './services/exam-signup.js';
+import { initExamGuest }        from './services/exam-guest.js';
 import { initAssessment }       from './services/assessment.js';
 import { AllTasksPage }         from './services/all-tasks-page.js';
 import { bindAnswerToggle }     from './modules/answer-toggle.js';
@@ -37,6 +39,8 @@ document.addEventListener('DOMContentLoaded', () => {
     initApplyForm();
     initLoginForm();
     initJoinForm();
+    initExamSignup();
+    initExamGuest();
     initAssessment();
     // Кнопка ответа есть и на странице одного задания; повторная привязка на
     // «Всех заданиях» безвредна — bindAnswerToggle идемпотентен.

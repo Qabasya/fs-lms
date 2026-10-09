@@ -74,6 +74,36 @@ class ExamReviewProjection {
 			return null;
 		}
 
+		return $this->readOnlyWithResult( $attempt, $event );
+	}
+
+	/**
+	 * Разбор для гостя по участию из его гостевой сессии: попытка — текущая попытка этого участия, номер из запроса не принимается.
+	 * Гостю разбор раскрыт сразу после сдачи ({@see AttemptService::isRevealed()}); до сдачи — `revealed = false`.
+	 *
+	 * @return array<string, mixed>|null null — участия или попытки нет.
+	 */
+	public function forGuest( int $participationId ): ?array {
+		$participation = $this->participations->find( $participationId );
+		$event         = null !== $participation ? $this->events->find( $participation->eventId ) : null;
+		if ( null === $participation || null === $event || null === $participation->currentAttemptId ) {
+			return null;
+		}
+
+		$attempt = $this->attempts->find( $participation->currentAttemptId );
+		if ( null === $attempt || $attempt->examParticipationId !== $participation->id ) {
+			return null;
+		}
+
+		return $this->readOnlyWithResult( $attempt, $event );
+	}
+
+	/**
+	 * Очищенный разбор + итог и единицы, если работа раскрыта.
+	 *
+	 * @return array<string, mixed>|null
+	 */
+	private function readOnlyWithResult( AttemptDTO $attempt, \Inc\DTO\Exam\ExamEventDTO $event ): ?array {
 		$assembled = $this->assemble( $attempt, self::MODE_READ_ONLY );
 		if ( null === $assembled ) {
 			return null;

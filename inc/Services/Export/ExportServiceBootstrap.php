@@ -72,6 +72,7 @@ class ExportServiceBootstrap implements ServiceInterface {
 		private readonly StudentsExportProvider        $students,
 		private readonly ParentsExportProvider         $parents,
 		private readonly ArchiveExportProvider         $archive,
+		private readonly ExamParticipantsExportProvider $examParticipants,
 		private readonly EntityAuditLogExportProvider  $entityAudit,
 		private readonly EnrollmentAuditLogExportProvider $enrollment,
 		private readonly PiiAccessLogExportProvider    $piiAccess,
@@ -94,6 +95,7 @@ class ExportServiceBootstrap implements ServiceInterface {
 		$this->registry->register( ExportTarget::Students, $this->students );
 		$this->registry->register( ExportTarget::Parents,  $this->parents );
 		$this->registry->register( ExportTarget::Archive,  $this->archive );
+		$this->registry->register( ExportTarget::ExamParticipants, $this->examParticipants );
 
 		// Журналы аудита
 		$this->registry->register( ExportTarget::LogEntityAudit,  $this->entityAudit );

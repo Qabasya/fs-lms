@@ -19,8 +19,11 @@ use Inc\Repositories\WPDBRepositories\AssessmentAttemptRepository;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 use Inc\Repositories\WPDBRepositories\SubmissionRepository;
+use Inc\Repositories\WPDBRepositories\ExamParticipantRepository;
+use Inc\Repositories\WPDBRepositories\ExamParticipationRepository;
 use Inc\Repositories\WPDBRepositories\TaskAttemptRepository;
 use Inc\Services\Assessment\ScoringUnits;
+use Inc\Services\Exam\GuestParticipantMaterializer;
 use Inc\Services\Task\CorrectAnswerResolver;
 use Inc\Services\Task\TaskMetaService;
 use Inc\Services\Task\TaskSolutionService;
@@ -84,6 +87,9 @@ class WorkDetailService {
 		private readonly StudentRecordRepository     $studentRecords,
 		private readonly TaskSolutionService         $solutions,
 		private readonly ScoringUnits                $scoringUnits,
+		private readonly ExamParticipationRepository $examParticipations,
+		private readonly ExamParticipantRepository   $examParticipants,
+		private readonly GuestParticipantMaterializer $guestData,
 	) {}
 
 	/**
@@ -538,7 +544,7 @@ class WorkDetailService {
 			'submitted_at'    => $attempt->submittedAt,
 			'duration_sec'    => $attempt->actualDurationSeconds(),
 			'group_id'        => $attempt->groupId ?? 0,
-			'student_name'    => $this->studentName( $attempt->studentPersonId, $attempt->groupId ?? 0 ),
+			'student_name'    => $this->studentName( $attempt->studentPersonId, $attempt->groupId ?? 0, $attempt->examParticipationId ),
 			// D18: «Утвердить работу» — для kind без ручной проверки заданий (ЕГЭ
 			// компьютерный) Graded наступает сразу при сдаче и не значит «учитель
 			// посмотрел»; approved_at — отдельный явный шаг (см. AttemptRevealPolicy).
@@ -570,9 +576,13 @@ class WorkDetailService {
 	 * ФИО ученика по снимку записи в группе (не из зашифрованных документов — как в очереди проверки).
 	 * '' — записи нет (экзамен вне группы).
 	 */
-	private function studentName( ?int $studentPersonId, int $groupId ): string {
+	private function studentName( ?int $studentPersonId, int $groupId, ?int $examParticipationId = null ): string {
 		if ( null === $studentPersonId ) {
-			return '';
+			// Гость экзамена: Person нет, имя — из его заявки (как в таблице сеанса).
+			$participation = null !== $examParticipationId ? $this->examParticipations->find( $examParticipationId ) : null;
+			$participant   = null !== $participation ? $this->examParticipants->find( $participation->participantId ) : null;
+
+			return null !== $participant ? ( $this->guestData->displayName( $participant ) ?? sprintf( 'Гость #%d', $participant->id ) ) : '';
 		}
 		$records = $groupId > 0 ? $this->studentRecords->findAllByStudentAndGroup( $studentPersonId, $groupId ) : array();
 		$record  = $records[0] ?? null;

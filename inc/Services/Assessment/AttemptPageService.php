@@ -157,6 +157,45 @@ readonly class AttemptPageService {
 	}
 
 	/**
+	 * Страница станции для гостя без входа в WordPress: `?exam_reg=ID`. Доступ — только гостевая сессия входа, и запись из адреса обязана
+	 * совпасть с записью сессии (чужую подставить нельзя); вариант записи — эта работа. Ученика и учётки нет: `person = null`.
+	 * Разбор гость получает сразу после сдачи ({@see \Inc\Services\Assessment\AttemptRevealPolicy}).
+	 *
+	 * @return AttemptPageDTO|null null — сессии нет, запись чужая или закрыта (контроллер отдаёт 404)
+	 */
+	public function buildForGuestExam( AssessmentDTO $assessment, int $registrationId ): ?AttemptPageDTO {
+		$ctx = $this->examAttempts->contextForGuest();
+		if ( null === $ctx || $ctx->registrationId !== $registrationId ) {
+			return null;
+		}
+
+		$state = $this->examAttempts->stationState( $ctx );
+		if ( null === $state || $state['assessment_id'] !== $assessment->id ) {
+			return null;
+		}
+
+		$now     = $this->clock->now();
+		$attempt = $state['attempt'];
+		$active  = null !== $attempt && AttemptStatus::InProgress === $attempt->status ? $attempt : null;
+		$last    = null !== $attempt && null === $active ? $attempt : null;
+		$result  = null !== $last ? $this->resultFor( $last, $assessment, null, false ) : $this->emptyResult();
+
+		return new AttemptPageDTO(
+			person:         null,
+			activeAttempt:  $active,
+			lastAttempt:    $last,
+			examInProgress: null !== $active && ! $active->isExpired( $now ),
+			taskViews:      $this->taskViews->build( $assessment->taskIds, $assessment->subjectKey, $assessment->kind ),
+			resultPerTask:  $result['per_task'],
+			outcome:        $result['outcome'],
+			outcomeState:   $result['state'],
+			canRetry:       false,
+			now:            $now,
+			guestMode:      true,
+		);
+	}
+
+	/**
 	 * Просмотр конкретной попытки станции: экран результата (лист ответов) именно этой
 	 * попытки, `?attempt=ID`. Открыть может:
 	 *  - тот, кто управляет группой попытки (преподаватель группы, замена, автор курсов,
@@ -210,13 +249,16 @@ readonly class AttemptPageService {
 	 *
 	 * @return array{per_task: array, outcome: string, state: string}
 	 */
-	private function resultFor( AttemptDTO $attempt, AssessmentDTO $assessment, int $studentPersonId, bool $forceReveal ): array {
+	private function resultFor( AttemptDTO $attempt, AssessmentDTO $assessment, ?int $studentPersonId, bool $forceReveal ): array {
 		if ( ! $forceReveal && ! $this->attemptService->isRevealed( $attempt ) ) {
 			return $this->emptyResult();
 		}
 
 		return array(
-			'per_task' => $this->results->studentPerTask( $attempt->id, $studentPersonId ),
+			// Гость: `student_person_id` пуст, владение попыткой проверено по участию из его сессии.
+			'per_task' => null === $studentPersonId
+				? $this->results->examPerTask( $attempt->id )
+				: $this->results->studentPerTask( $attempt->id, $studentPersonId ),
 			'outcome'  => $this->outcome->label( $attempt, $assessment ),
 			'state'    => $this->outcome->state( $attempt, $assessment ),
 		);

@@ -126,7 +126,9 @@ class ExamHoldServiceTest extends TestCase {
 		$clock = $this->createMock( ClockInterface::class );
 		$clock->method( 'now' )->willReturnCallback( static fn ( string $type = 'mysql', bool $gmt = false ): string => $gmt ? '2026-03-10 07:00:00' : '2026-03-10 10:00:00' );
 
-		return new ExamHoldService( $this->applications, $this->sessions, $this->events, $this->participants, $this->registrations, $this->outbox, new ExamTime( $clock ) );
+		return new ExamHoldService( $this->applications, $this->sessions, $this->events, $this->participants, $this->registrations, $this->outbox, new ExamTime( $clock ),
+			new \Inc\Services\Exam\GuestParticipantMaterializer( $this->participants, $this->createMock( \Inc\Services\Security\PiiCryptoService::class ), $this->createMock( \Inc\Services\Exam\GuestIdentity::class ), new ExamTime( $clock ) )
+		);
 	}
 
 	/** @param array<string, mixed> $override @return array<string, mixed> */

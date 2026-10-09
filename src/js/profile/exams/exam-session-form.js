@@ -12,10 +12,12 @@
 import { esc, toast, openGradePopPositioned, closeGradePop, fmtDate, plural } from '../utils.js';
 import { confirmDialog } from '../../common/components/confirm-dialog.js';
 import { endTime } from './exam-common.js';
+import { openMoveSessionForm, openCancelSessionForm } from './exam-session-actions.js';
 
 const DEFAULT_TIME = '10:00';
 const STALE_CODE = 'X-STALE';
 const LOCKED_TEXT = 'Сеанс уже начат: общие параметры менять нельзя.';
+const PEOPLE_TEXT = 'В сеансе есть участники: перенос и отмена — с причиной, участники получат уведомление.';
 const STALE_TEXT = 'Сеанс изменили в другой вкладке. Обновите календарь.';
 
 function variantOptions(variants, selectedId) {
@@ -55,6 +57,7 @@ export function openSessionForm(o) {
         <div class="gp-form gp-indi gp-exam">
         <div class="gp-title">${edit ? 'Правка сеанса' : 'Сеанс экзамена'}</div>
         ${locked ? `<div class="gp-warn">${esc(LOCKED_TEXT)}</div>` : ''}
+        ${hasPeople ? `<div class="gp-warn">${esc(PEOPLE_TEXT)}</div>` : ''}
         ${dateFixed
             ? `<div class="gp-field"><span>Дата</span><b class="gp-fixed">${esc(fmtDate(initDate))}</b><input type="hidden" id="esDate" value="${esc(initDate)}"></div>`
             : `<label class="gp-field"><span>Дата</span><input type="date" id="esDate" value="${esc(initDate)}" min="${esc(event.period_from)}" max="${esc(event.period_to)}"${lockAttr}></label>`}
@@ -66,9 +69,10 @@ export function openSessionForm(o) {
         <div class="gp-field"><span>Ответственный</span><b class="gp-fixed">${esc(event.owner_name || '—')}</b></div>
         <div class="gp-error" id="esError" role="alert" hidden></div>
         <div class="gp-row">
-            ${locked ? '' : `<button type="button" class="prof-btn prof-btn-sm prof-btn-primary" data-es="save">${edit ? 'Сохранить' : 'Добавить'}</button>`}
-            ${edit && !locked ? '<button type="button" class="prof-btn prof-btn-sm" data-es="delete">Удалить сеанс</button>' : ''}
-            <button type="button" class="prof-btn prof-btn-sm" data-es="cancel">${locked ? 'Закрыть' : 'Отмена'}</button>
+            ${frozen ? '' : `<button type="button" class="prof-btn prof-btn-sm prof-btn-primary" data-es="save">${edit ? 'Сохранить' : 'Добавить'}</button>`}
+            ${hasPeople ? '<button type="button" class="prof-btn prof-btn-sm prof-btn-primary" data-es="move">Перенести сеанс</button><button type="button" class="prof-btn prof-btn-sm" data-es="cancel-session">Отменить сеанс</button>' : ''}
+            ${edit && !frozen ? '<button type="button" class="prof-btn prof-btn-sm" data-es="delete">Удалить сеанс</button>' : ''}
+            <button type="button" class="prof-btn prof-btn-sm" data-es="cancel">${frozen ? 'Закрыть' : 'Отмена'}</button>
         </div>
         </div>`;
 
@@ -105,6 +109,10 @@ export function openSessionForm(o) {
     refreshDerived();
 
     $('[data-es="cancel"]').addEventListener('click', closeGradePop);
+
+    const peopleAction = (selector, open) => $(selector)?.addEventListener('click', () => open({ api, anchor: o.anchor, session: edit, rooms, onDone: onSaved }));
+    peopleAction('[data-es="move"]', openMoveSessionForm);
+    peopleAction('[data-es="cancel-session"]', openCancelSessionForm);
 
     const save = $('[data-es="save"]');
     if (save) {

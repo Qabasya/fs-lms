@@ -426,10 +426,82 @@ readonly class NotificationService {
 				'' !== $topic ? " — «{$topic}»{$tail}" : $tail
 			),
 
+			NotificationType::ExamRegistrationOpened => $this->examTitle( $p ),
+
+			NotificationType::ExamRegistrationConfirmed,
+			NotificationType::ExamRegistrationChanged,
+			NotificationType::ExamTomorrow,
+			NotificationType::ExamSoon,
+			NotificationType::ExamEntryOpened => $this->examTitle( $p ) . $this->examWhen( $p ) . $this->examRoom( $p ),
+
+			NotificationType::ExamRegistrationCancelled,
+			NotificationType::ExamSessionCancelled => $this->examTitle( $p ) . $this->examReason( $p ),
+
+			NotificationType::ExamMissed => $this->examTitle( $p ) . $this->examWhen( $p ),
+
+			NotificationType::ExamWorkAccepted => $this->examTitle( $p ) . '. Работа ожидает утверждения преподавателем.',
+
+			NotificationType::ExamWorkSubmitted => sprintf( 'Экзамен сдан: %s · %s', (string) ( $p['participant_name'] ?? '' ), $this->examTitle( $p ) ),
+
+			NotificationType::ExamApproved => $this->examTitle( $p ) . ': ' . (string) ( $p['score_caption'] ?? '' ),
+
+			NotificationType::ExamResultCorrected => $this->examTitle( $p ) . $this->examReason( $p ),
+
+			NotificationType::ExamExtended => $this->examTitle( $p )
+				. ( '' !== (string) ( $p['time_end'] ?? '' ) ? '. Новое время завершения: ' . (string) $p['time_end'] : '' )
+				. $this->examReason( $p ),
+
+			NotificationType::ExamSessionMoved => $this->examTitle( $p )
+				. ( '' !== (string) ( $p['date'] ?? '' ) ? '. Новая дата: ' . (string) $p['date'] . ( '' !== (string) ( $p['time'] ?? '' ) ? ', ' . (string) $p['time'] : '' ) : '' )
+				. $this->examRoom( $p )
+				. $this->examReason( $p ),
+
+			NotificationType::ExamPaymentNeedsHelp,
+			NotificationType::ExamReconcileFailed => sprintf(
+				'Заказ №%s · %s · %s',
+				(string) ( $p['order_number'] ?? '' ),
+				$this->examTitle( $p ),
+				(string) ( $p['participant_name'] ?? '' )
+			),
+
+			NotificationType::ExamSourceLimit => $this->examTitle( $p ) . ' · ' . (string) ( $p['source_label'] ?? '' ),
+
 			NotificationType::AttemptReset => '' !== $topic
 				? "Можете решить «{$topic}» заново{$tail}"
 				: trim( "Можете пройти заново{$tail}" ),
 		};
+	}
+
+	/** «Название проведения» в кавычках; пусто, если названия нет. @param array<string,mixed> $p */
+	private function examTitle( array $p ): string {
+		$title = (string) ( $p['event_title'] ?? '' );
+
+		return '' !== $title ? "«{$title}»" : '';
+	}
+
+	/** « · 12.03, 10:00» — дата и время сеанса. @param array<string,mixed> $p */
+	private function examWhen( array $p ): string {
+		$date = (string) ( $p['date'] ?? '' );
+		$time = (string) ( $p['time'] ?? '' );
+		if ( '' === $date ) {
+			return '';
+		}
+
+		return ' · ' . $date . ( '' !== $time ? ', ' . $time : '' );
+	}
+
+	/** « · кабинет» или пусто. @param array<string,mixed> $p */
+	private function examRoom( array $p ): string {
+		$room = (string) ( $p['room'] ?? '' );
+
+		return '' !== $room ? ' · ' . $room : '';
+	}
+
+	/** «. Причина: …» или пусто (без причины — только название). @param array<string,mixed> $p */
+	private function examReason( array $p ): string {
+		$reason = trim( (string) ( $p['reason'] ?? '' ) );
+
+		return '' !== $reason ? '. Причина: ' . $reason : '';
 	}
 
 	/** @param array<string,mixed> $p */

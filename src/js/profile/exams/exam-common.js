@@ -4,7 +4,8 @@
    Сеть — только через createApi(window.fsProfile.exams) в самих экранах.
    ══════════════════════════════════════════════════════════════════════ */
 
-import { esc, emptyState } from '../utils.js';
+import { esc, emptyState, toast } from '../utils.js';
+import { ajaxErrorText } from '../../common/utils.js';
 import { subjectPickerBtnHtml, openSubjectPicker } from '../picker.js';
 import { icoCalendarBoard } from '../../common/icons.js';
 
@@ -120,4 +121,113 @@ export function validateEventForm(v) {
         errors.registration_opens_at = 'Открытие записи позже её закрытия.';
     }
     return errors;
+}
+
+
+/* ── Утверждение работ (8.5): общее для «Проведения экзамена» и «Результатов» ───────────────── */
+
+/** Причины, по которым строку нельзя отметить для утверждения: ключ — `result_status`/признак строки. */
+const APPROVAL_BLOCKED = {
+    guest: 'Гостю утверждение не требуется',
+    approved: 'Уже утверждена',
+    pending_review: 'Проверка не завершена',
+    none: 'Работа не сдана',
+};
+
+/**
+ * Можно ли утвердить строку и почему нет.
+ *
+ * @param {{audience: string, result_status: string}} row Строка доски сеанса или списка результатов.
+ * @returns {string} Пустая строка — строку можно выбрать; иначе подсказка для неактивного чекбокса.
+ */
+export function approvalBlockReason(row) {
+    if ('guest' === row.audience) { return APPROVAL_BLOCKED.guest; }
+    return 'ready' === row.result_status ? '' : (APPROVAL_BLOCKED[row.result_status] || APPROVAL_BLOCKED.none);
+}
+
+/** Строки, которые утверждению подлежат. */
+export function approvableRows(rows) {
+    return (rows || []).filter(r => '' === approvalBlockReason(r) && r.attempt_id);
+}
+
+/** Подпись кнопки подтверждения: ничего не выбрано — «Утвердить все», иначе «Утвердить выбранные (N)». */
+export function approveButtonLabel(selectedCount) {
+    return selectedCount > 0 ? `Утвердить выбранные (${selectedCount})` : 'Утвердить все';
+}
+
+/**
+ * Элементы запроса массового утверждения: выбранные строки, а при пустом выборе — все готовые.
+ *
+ * @param {Array} rows
+ * @param {Set<number>} selected ID попыток.
+ * @returns {Array<{attempt_id:number, result_version:number}>}
+ */
+export function approvalItems(rows, selected) {
+    const ready = approvableRows(rows);
+    const chosen = selected.size ? ready.filter(r => selected.has(r.attempt_id)) : ready;
+    return chosen.map(r => ({ attempt_id: r.attempt_id, result_version: r.result_version }));
+}
+
+/** Текст итога массового утверждения для тоста. */
+export function approvalSummaryText(result) {
+    return `Утверждено: ${result.approved}. Пропущено: ${(result.skipped || []).length}.`;
+}
+
+/** Список пропущенных с причинами (HTML) или пустая строка; имена подставляет вызывающий по `attempt_id`. */
+export function skippedListHtml(skipped, nameOf) {
+    if (!skipped || !skipped.length) { return ''; }
+    return `<div class="sc-notice exam-notice"><ul class="exam-skipped">${skipped.map(x =>
+        `<li>${esc(nameOf(x.attempt_id) || ('Работа №' + x.attempt_id))} — ${esc(x.reason_label)}</li>`).join('')}</ul></div>`;
+}
+
+
+/* ── Выгрузка и печать списка участников (8.9): только при обоих экспортных правах ─────────── */
+
+/** Кнопки «CSV» и «Печать списка»; без права `canExportPii` не рисуются (сервер всё равно проверит оба права). */
+export function exportButtonsHtml() {
+    const cfg = examConfig();
+    if (!cfg || !cfg.canExportPii) { return ''; }
+    return '<button type="button" class="prof-btn prof-btn-sm" data-export="csv">CSV</button>'
+        + '<button type="button" class="prof-btn prof-btn-sm" data-export="print">Печать списка</button>';
+}
+
+/**
+ * Вешает кнопки выгрузки внутри `container`.
+ *
+ * @param {HTMLElement} container
+ * @param {Function} api createApi(...)
+ * @param {() => Object} params Выборка: `{ session_id }` или `{ participation_ids: [...] }`.
+ */
+export function wireExportButtons(container, api, params) {
+    container.querySelector('[data-export="csv"]')?.addEventListener('click', async () => {
+        try {
+            const { url } = await api('exportParticipants', params());
+            window.location.assign(url);
+        } catch (err) { toast(ajaxErrorText(err, 'Не удалось выгрузить список'), 'error'); }
+    });
+    container.querySelector('[data-export="print"]')?.addEventListener('click', async () => {
+        try {
+            const { rows } = await api('printList', params());
+            printList(rows);
+        } catch (err) { toast(ajaxErrorText(err, 'Не удалось подготовить список'), 'error'); }
+    });
+}
+
+/** Печать списка: лист вставляется в страницу, остальной кабинет на печати скрыт стилями; после печати лист убирается. */
+export function printList(rows) {
+    const sheet = document.createElement('div');
+    sheet.className = 'exam-print-sheet';
+    sheet.innerHTML = `<table class="exam-print-table">
+        <thead><tr><th>ФИО</th><th>Источник</th><th>Сеанс</th></tr></thead>
+        <tbody>${rows.map(r => `<tr><td>${esc(r.name)}</td><td>${esc(r.source)}</td><td>${esc(r.session)}</td></tr>`).join('')}</tbody>
+    </table>`;
+    document.body.appendChild(sheet);
+    document.body.classList.add('is-printing-exam');
+    const cleanup = () => {
+        sheet.remove();
+        document.body.classList.remove('is-printing-exam');
+        window.removeEventListener('afterprint', cleanup);
+    };
+    window.addEventListener('afterprint', cleanup);
+    window.print();
 }

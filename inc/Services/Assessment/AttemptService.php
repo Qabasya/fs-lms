@@ -237,6 +237,31 @@ class AttemptService {
 			throw new \InvalidArgumentException( 'Попытка не найдена.' );
 		}
 
+		return $this->resultOf( $attemptId );
+	}
+
+	/**
+	 * Результат экзаменной попытки по её номеру — без сверки ученика. Владение уже проверено вызывающим по участию
+	 * ({@see \Inc\Services\Exam\ExamAttemptService::ownedAttempt()}): у гостя `student_person_id` пуст, сверять не с чем.
+	 *
+	 * @return array{attempt: AttemptDTO, answers: list<AttemptAnswerDTO>}
+	 *
+	 * @throws \InvalidArgumentException Попытки нет.
+	 */
+	public function getExamResult( int $attemptId ): array {
+		if ( null === $this->attempts->find( $attemptId ) ) {
+			throw new \InvalidArgumentException( 'Попытка не найдена.' );
+		}
+
+		return $this->resultOf( $attemptId );
+	}
+
+	/**
+	 * Просроченная попытка завершается, затем итог и ответы выдаются по политике раскрытия.
+	 *
+	 * @return array{attempt: AttemptDTO, answers: list<AttemptAnswerDTO>}
+	 */
+	private function resultOf( int $attemptId ): array {
 		$this->expireIfOverdue( $attemptId );
 
 		$attempt = $this->attempts->find( $attemptId );

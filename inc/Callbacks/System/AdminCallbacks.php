@@ -26,6 +26,8 @@ use Inc\Services\Log\Pages\LogPageRegistry;
 use Inc\Services\Print\PrintCenterService;
 use Inc\Enums\Print\PrintDocument;
 use Inc\Enums\Print\PrintField;
+use Inc\Services\Exam\ExamLaunchChecklist;
+use Inc\Services\Exam\Payment\WooGateway;
 use Inc\Services\Shared\PluginConfig;
 use Inc\Shared\Traits\Authorizer;
 use Inc\Shared\Traits\Sanitizer;
@@ -83,6 +85,8 @@ class AdminCallbacks extends BaseController {
 		private readonly ConsentDefinitionsRepository $consentDefinitions,
 		private readonly LegacyTaskImportPageController $legacyTaskImportPageController,
 		private readonly PrintCenterService $printCenter,
+		private readonly WooGateway $woo,
+		private readonly ExamLaunchChecklist $examChecklist,
 	) {
 		parent::__construct();
 	}
@@ -153,6 +157,10 @@ class AdminCallbacks extends BaseController {
 				'rooms'               => $rooms,
 				'rooms_groups'        => $rooms_groups,
 				'config'              => $this->pluginConfig->viewState(),
+				// Секция «Экзамены для гостей»: виртуальные товары магазина и чек-лист запуска (только если WooCommerce активен).
+				'exam_products'       => $this->woo->virtualProducts(),
+				'exam_woo_active'     => $this->woo->isActive(),
+				'exam_checklist'      => $this->examChecklist->check(),
 				// Данные вкладок настроек — из репозиториев: партиалы не читают опции сами.
 				'saved_templates'     => $this->emailTemplates->readAll(),
 				'consent_definitions' => $this->consentDefinitions->readAll(),

@@ -91,6 +91,18 @@ class UserRepository {
 	}
 
 	/**
+	 * Пользователи, обладающие правом (роль или прямая выдача).
+	 *
+	 * @return UserDTO[]
+	 */
+	public function getByCapability( \Inc\Enums\Access\Capability $capability ): array {
+		return array_map(
+			fn( \WP_User $user ) => UserDTO::fromWPUser( $user ),
+			get_users( array( 'capability' => $capability->value ) )
+		);
+	}
+
+	/**
 	 * Поиск пользователей роли по имени/email/логину (для пикеров).
 	 *
 	 * @param UserRole $role  Роль пользователя

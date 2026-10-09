@@ -18,12 +18,16 @@ use Inc\Enums\Log\ErrorCode;
 use Inc\Managers\Assessment\AssessmentManager;
 use Inc\Repositories\WPDBRepositories\AssessmentAttemptRepository;
 use Inc\Repositories\WPDBRepositories\ExamEventRepository;
+use Inc\Repositories\WPDBRepositories\ExamGuestApplicationRepository;
 use Inc\Repositories\WPDBRepositories\ExamRegistrationRepository;
 use Inc\Repositories\WPDBRepositories\ExamSessionRepository;
 use Inc\Repositories\WPDBRepositories\RoomRepository;
 use Inc\Services\Exam\ExamAccessGuard;
 use Inc\Services\Exam\ExamEventService;
 use Inc\Services\Exam\ExamFormatRegistry;
+use Inc\Services\Exam\ExamHoldService;
+use Inc\Services\Exam\ExamLaunchChecklist;
+use Inc\Services\Exam\ExamRegistrationService;
 use Inc\Services\Exam\ExamOutbox;
 use Inc\Services\Exam\ExamRoomService;
 use Inc\Services\Exam\ExamTime;
@@ -62,6 +66,10 @@ class ExamEventServiceTest extends TestCase {
 	private RoomRepository&MockObject $rooms;
 	private AssessmentManager&MockObject $assessments;
 	private ExamOutbox&MockObject $outbox;
+	private ExamRegistrationService&MockObject $registrationService;
+	private ExamHoldService&MockObject $holds;
+	private ExamGuestApplicationRepository&MockObject $guestApplications;
+	private ExamLaunchChecklist&MockObject $checklist;
 	private ExamEventService $service;
 	private object $db;
 	private \wpdb $originalWpdb;
@@ -112,6 +120,12 @@ class ExamEventServiceTest extends TestCase {
 		$this->rooms         = $this->createMock( RoomRepository::class );
 		$this->assessments   = $this->createMock( AssessmentManager::class );
 		$this->outbox        = $this->createMock( ExamOutbox::class );
+
+		$this->registrationService = $this->createMock( ExamRegistrationService::class );
+		$this->holds               = $this->createMock( ExamHoldService::class );
+		$this->guestApplications   = $this->createMock( ExamGuestApplicationRepository::class );
+		$this->checklist           = $this->createMock( ExamLaunchChecklist::class );
+		$this->checklist->method( 'isReady' )->willReturn( true );
 
 		$this->guard->method( 'canManageSubject' )->willReturn( true );
 		$this->guard->method( 'canManageEvent' )->willReturn( true );
@@ -174,6 +188,7 @@ class ExamEventServiceTest extends TestCase {
 		return new ExamEventService(
 			$this->events, $this->sessions, $this->registrations, $this->attempts, $guard ?? $this->guard, $this->variants,
 			new ExamRoomService( $this->rooms, $this->sessions, $time, new \Inc\Services\Course\RoomAvailabilityService( $this->rooms, $this->sessions, $time ) ), $formats, $this->assessments, $this->outbox, $time,
+			$this->registrationService, $this->holds, $this->guestApplications, $this->checklist,
 		);
 	}
 
@@ -463,7 +478,7 @@ class ExamEventServiceTest extends TestCase {
 
 		$this->assertRefusal(
 			ErrorCode::ExamConflict,
-			'В сеансе уже есть записи: вариант, дату, время и кабинет менять нельзя.',
+			'В сеансе есть участники: используйте перенос с причиной.',
 			fn () => $this->service->saveSession( self::ACTOR, self::EVENT, $this->sessionInput( array( 'time' => '12:00' ) ), self::SESSION, 1 )
 		);
 	}
@@ -670,17 +685,177 @@ class ExamEventServiceTest extends TestCase {
 			array( 'status' => 'cancelled', 'cancel_reason' => 'Нет места', 'cancelled_at' => '2026-03-01 07:00:00' ),
 			1
 		);
-		$this->outbox->expects( self::once() )->method( 'add' )->with( ExamOutboxEvent::EventCancelled, 'event', self::EVENT, 2, array( 'event_id' => self::EVENT ) );
+		$this->outbox->expects( self::once() )->method( 'add' )->with( ExamOutboxEvent::EventCancelled, 'event', self::EVENT, 2, array( 'event_id' => self::EVENT, 'reason' => 'Нет места' ) );
 
 		$this->service->cancelEvent( self::ACTOR, self::EVENT, '  Нет места ', 1 );
 	}
 
-	public function test_cancel_is_refused_while_event_has_active_registrations(): void {
-		$this->registrations->method( 'countActiveByEvent' )->with( self::EVENT )->willReturn( 2 );
+	public function test_cancel_event_cancels_all_unstarted_sessions(): void {
+		$other             = $this->examSession( array( 'id' => '8' ) );
+		$this->sessionList = array( $this->session, $other );
+		$this->sessions->method( 'cancelOpenByEvent' )->willReturn( 2 );
+		$this->registrations->method( 'listBySession' )->willReturnCallback( fn ( int $sessionId ): array => 7 === $sessionId
+			? array( $this->registration( 20 ), $this->registration( 21 ) )
+			: array() );
+
+		$cancelled = array();
+		$this->registrationService->method( 'cancelByStaff' )->willReturnCallback( static function ( int $actor, int $registrationId, string $reason ) use ( &$cancelled ): void {
+			$cancelled[] = array( $registrationId, $reason );
+		} );
+
+		$this->service->cancelEvent( self::ACTOR, self::EVENT, 'Нет места', 1 );
+
+		self::assertSame( array( array( 20, 'Нет места' ), array( 21, 'Нет места' ) ), $cancelled );
+	}
+
+	public function test_cancel_event_denied_when_any_attempt_started(): void {
+		$this->sessionList = array( $this->examSession( array( 'first_started_at' => '2026-03-10 07:05:00' ) ) );
 		$this->sessions->expects( self::never() )->method( 'cancelOpenByEvent' );
 		$this->events->expects( self::never() )->method( 'update' );
 
-		$this->assertRefusal( ErrorCode::ExamConflict, 'В проведении есть записи: отмена с участниками пока недоступна.', fn () => $this->service->cancelEvent( self::ACTOR, self::EVENT, 'Причина', 1 ) );
+		$this->assertRefusal( ErrorCode::ExamStarted, 'Экзамен уже начат: отмена невозможна.', fn () => $this->service->cancelEvent( self::ACTOR, self::EVENT, 'Причина', 1 ) );
+	}
+
+	public function test_move_session_requires_reason_and_writes_outbox(): void {
+		$this->assertRefusal( ErrorCode::ExamConflict, 'Укажите причину переноса.', fn () => $this->service->moveSession( self::ACTOR, self::SESSION, $this->moveInput(), '  ', 1 ) );
+
+		$this->session = $this->examSession( array( 'occupied_count' => '3' ) );
+		$this->sessions->expects( self::once() )->method( 'update' )->with(
+			self::SESSION,
+			array( 'scheduled_at' => '2026-03-11 09:00:00', 'planned_end_at' => '2026-03-11 12:55:00', 'room_id' => 2, 'capacity' => 12 ),
+			1
+		)->willReturn( true );
+		$this->outbox->expects( self::once() )->method( 'add' )->with(
+			ExamOutboxEvent::SessionMoved,
+			'session',
+			self::SESSION,
+			2,
+			array(
+				'session_id'       => self::SESSION,
+				'event_id'         => self::EVENT,
+				'old_scheduled_at' => '2026-03-10 07:00:00',
+				'new_scheduled_at' => '2026-03-11 09:00:00',
+				'old_room_id'      => 2,
+				'new_room_id'      => 2,
+				'reason'           => 'Болезнь преподавателя',
+			)
+		);
+
+		$this->service->moveSession( self::ACTOR, self::SESSION, $this->moveInput(), ' Болезнь преподавателя ', 1 );
+	}
+
+	public function test_move_locked_session_is_denied(): void {
+		$this->session = $this->examSession( array( 'first_started_at' => '2026-03-10 07:05:00', 'occupied_count' => '3' ) );
+		$this->sessions->expects( self::never() )->method( 'update' );
+
+		$this->assertRefusal( ErrorCode::ExamStarted, 'Сеанс уже начат: перенести его нельзя.', fn () => $this->service->moveSession( self::ACTOR, self::SESSION, $this->moveInput(), 'Причина', 1 ) );
+	}
+
+	public function test_save_session_with_participants_is_denied_without_move(): void {
+		$this->session = $this->examSession( array( 'occupied_count' => '3' ) );
+
+		$this->assertRefusal(
+			ErrorCode::ExamConflict,
+			'В сеансе есть участники: используйте перенос с причиной.',
+			fn () => $this->service->saveSession( self::ACTOR, self::EVENT, $this->sessionInput( array( 'date' => '2026-03-11' ) ), self::SESSION, 1 )
+		);
+	}
+
+	public function test_cancel_session_cancels_registrations_and_releases_holds(): void {
+		$this->session = $this->examSession( array( 'occupied_count' => '3' ) );
+		$this->sessions->expects( self::once() )->method( 'update' )->with( self::SESSION, array( 'status' => 'cancelled', 'cancel_reason' => 'Авария' ), 1 )->willReturn( true );
+		$this->outbox->expects( self::once() )->method( 'add' )->with( ExamOutboxEvent::SessionCancelled, 'session', self::SESSION, 2, $this->anything() );
+		$this->registrations->method( 'listBySession' )->willReturn( array( $this->registration( 20 ) ) );
+		$this->guestApplications->method( 'listHeldIdsBySession' )->willReturn( array( 90, 91 ) );
+
+		$this->registrationService->expects( self::once() )->method( 'cancelByStaff' )->with( self::ACTOR, 20, 'Авария' );
+		$released = array();
+		$this->holds->method( 'release' )->willReturnCallback( static function ( int $id, $state ) use ( &$released ): bool {
+			$released[] = array( $id, $state->value );
+			return true;
+		} );
+
+		$this->service->cancelSession( self::ACTOR, self::SESSION, 'Авария', 1 );
+
+		self::assertSame( array( array( 90, 'cancelled' ), array( 91, 'cancelled' ) ), $released );
+	}
+
+	public function test_cancel_session_with_started_attempt_is_denied(): void {
+		$this->session = $this->examSession( array( 'first_started_at' => '2026-03-10 07:05:00' ) );
+		$this->sessions->expects( self::never() )->method( 'update' );
+		$this->registrationService->expects( self::never() )->method( 'cancelByStaff' );
+
+		$this->assertRefusal( ErrorCode::ExamStarted, 'Сеанс уже начат.', fn () => $this->service->cancelSession( self::ACTOR, self::SESSION, 'Причина', 1 ) );
+	}
+
+	public function test_cancel_session_requires_reason(): void {
+		$this->assertRefusal( ErrorCode::ExamConflict, 'Укажите причину отмены.', fn () => $this->service->cancelSession( self::ACTOR, self::SESSION, ' ', 1 ) );
+	}
+
+	public function test_cancelled_session_only_finishes_remaining_registrations(): void {
+		$this->session = $this->examSession( array( 'status' => 'cancelled' ) );
+		$this->sessions->expects( self::never() )->method( 'update' );
+		$this->registrations->method( 'listBySession' )->willReturn( array( $this->registration( 21 ) ) );
+		$this->registrationService->expects( self::once() )->method( 'cancelByStaff' )->with( self::ACTOR, 21, 'Авария' );
+
+		$this->service->cancelSession( self::ACTOR, self::SESSION, 'Авария', 1 );
+	}
+
+	public function test_complete_when_all_sessions_ended_and_no_active_attempts(): void {
+		$this->event       = $this->examEvent( array( 'status' => 'published' ) );
+		$this->now         = array( 'utc' => '2026-03-10 12:00:00', 'local' => '2026-03-10 15:00:00' );
+		$this->sessionList = array( $this->session );
+		$this->registrations->method( 'countActiveByEvent' )->willReturn( 0 );
+		$this->attempts->method( 'countInProgressExamByEventAll' )->willReturn( 0 );
+		$this->sessions->expects( self::once() )->method( 'completeEndedByEvent' )->with( self::EVENT, '2026-03-10 12:00:00' );
+		$this->events->expects( self::once() )->method( 'update' )->with(
+			self::EVENT,
+			array( 'status' => 'completed', 'completed_at' => '2026-03-10 12:00:00' ),
+			1
+		)->willReturn( true );
+
+		self::assertTrue( $this->service->completeIfDone( self::EVENT ) );
+	}
+
+	public function test_not_completed_while_attempt_in_progress(): void {
+		$this->event       = $this->examEvent( array( 'status' => 'published' ) );
+		$this->now         = array( 'utc' => '2026-03-10 12:00:00', 'local' => '2026-03-10 15:00:00' );
+		$this->sessionList = array( $this->session );
+		$this->registrations->method( 'countActiveByEvent' )->willReturn( 0 );
+		$this->attempts->method( 'countInProgressExamByEventAll' )->willReturn( 1 );
+		$this->events->expects( self::never() )->method( 'update' );
+
+		self::assertFalse( $this->service->completeIfDone( self::EVENT ) );
+	}
+
+	public function test_not_completed_while_a_session_has_not_ended(): void {
+		$this->event       = $this->examEvent( array( 'status' => 'published' ) );
+		$this->now         = array( 'utc' => '2026-03-10 09:00:00', 'local' => '2026-03-10 12:00:00' );
+		$this->sessionList = array( $this->session );
+		$this->events->expects( self::never() )->method( 'update' );
+
+		self::assertFalse( $this->service->completeIfDone( self::EVENT ) );
+	}
+
+	public function test_not_completed_with_active_registration_without_outcome(): void {
+		$this->event       = $this->examEvent( array( 'status' => 'published' ) );
+		$this->now         = array( 'utc' => '2026-03-10 12:00:00', 'local' => '2026-03-10 15:00:00' );
+		$this->sessionList = array( $this->session );
+		$this->registrations->method( 'countActiveByEvent' )->willReturn( 1 );
+		$this->events->expects( self::never() )->method( 'update' );
+
+		self::assertFalse( $this->service->completeIfDone( self::EVENT ) );
+	}
+
+	/** @return array<string, mixed> */
+	private function moveInput( array $override = array() ): array {
+		return array_merge( array( 'date' => '2026-03-11', 'time' => '12:00', 'room_id' => 2 ), $override );
+	}
+
+	private function registration( int $id ): \Inc\DTO\Exam\ExamRegistrationDTO {
+		return \Inc\DTO\Exam\ExamRegistrationDTO::fromArray( array(
+			'id' => $id, 'participation_id' => 1, 'session_id' => self::SESSION, 'status' => 'confirmed', 'active_slot' => 1, 'created_at' => '2026-03-01 00:00:00',
+		) );
 	}
 
 	public function test_cancel_with_stale_version_fails(): void {
@@ -809,5 +984,33 @@ class ExamEventServiceTest extends TestCase {
 		} );
 
 		self::assertTrue( $persisted );
+	}
+
+	public function test_guest_event_publish_blocked_until_checklist_ready(): void {
+		$this->event       = $this->examEvent( array( 'guest_registration_enabled' => '1' ) );
+		$this->sessionList = array( $this->session );
+		$checklist         = $this->createMock( ExamLaunchChecklist::class );
+		$checklist->method( 'isReady' )->willReturn( false );
+		$checklist->method( 'failedSummary' )->willReturn( 'Включите WooCommerce.' );
+		$this->checklist = $checklist;
+		$this->events->expects( self::never() )->method( 'update' );
+
+		$this->assertRefusal(
+			ErrorCode::ExamConflict,
+			'Запись гостей недоступна: настройки запуска не завершены. Включите WooCommerce.',
+			fn () => $this->makeService()->publish( self::ACTOR, self::EVENT, 1 )
+		);
+	}
+
+	public function test_non_guest_event_ignores_checklist(): void {
+		$this->event       = $this->examEvent( array( 'guest_registration_enabled' => '0' ) );
+		$this->sessionList = array( $this->session );
+		$checklist         = $this->createMock( ExamLaunchChecklist::class );
+		$checklist->expects( self::never() )->method( 'isReady' );
+		$this->checklist = $checklist;
+
+		$this->makeService()->publish( self::ACTOR, self::EVENT, 1 );
+
+		self::addToAssertionCount( 1 );
 	}
 }

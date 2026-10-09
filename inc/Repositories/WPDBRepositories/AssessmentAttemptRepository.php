@@ -60,6 +60,26 @@ class AssessmentAttemptRepository {
 		] );
 	}
 
+	/**
+	 * Увеличивает версию результата, если она ещё равна ожидаемой (защита от двух проверяющих, 8.4.5).
+	 * Условный `UPDATE`: затронута ровно одна строка — версия поднята; иначе кто-то уже изменил результат.
+	 *
+	 * @throws \RuntimeException Сбой запроса — это не «версия устарела».
+	 */
+	public function bumpResultVersion( int $id, int $expected ): bool {
+		$affected = $this->wpdb->query( $this->wpdb->prepare(
+			'UPDATE %i SET result_version = result_version + 1 WHERE id = %d AND result_version = %d',
+			$this->table,
+			$id,
+			$expected
+		) );
+		if ( false === $affected ) {
+			throw new \RuntimeException( 'Не удалось обновить версию результата попытки.' );
+		}
+
+		return 1 === (int) $affected;
+	}
+
 	/** Активная (in_progress, не просроченная) попытка студента по контрольной. */
 	public function findActive( int $studentPersonId, int $assessmentId ): ?AttemptDTO {
 		$row = $this->wpdb->get_row(
@@ -327,6 +347,17 @@ class AssessmentAttemptRepository {
 			TableName::ExamParticipations->prefixed(),
 			$eventId,
 			$assessmentId,
+			AttemptStatus::InProgress->value
+		) );
+	}
+
+	/** Сколько незавершённых экзаменных попыток во всём проведении (любой вариант). */
+	public function countInProgressExamByEventAll( int $eventId ): int {
+		return (int) $this->wpdb->get_var( $this->wpdb->prepare(
+			'SELECT COUNT(*) FROM %i a INNER JOIN %i p ON p.id = a.exam_participation_id WHERE p.event_id = %d AND a.status = %s',
+			$this->table,
+			TableName::ExamParticipations->prefixed(),
+			$eventId,
 			AttemptStatus::InProgress->value
 		) );
 	}

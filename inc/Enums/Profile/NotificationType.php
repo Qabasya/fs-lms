@@ -51,6 +51,26 @@ enum NotificationType: string {
 	/** Администратору — преподаватель не заходил в систему во время своего занятия, замены нет. */
 	case TeacherAbsent      = 'teacher_absent';
 
+	// ===== Экзамены вне курса (этап 9): только кабинет, письма не отправляются =====
+	case ExamRegistrationOpened = 'exam_registration_opened';
+	case ExamRegistrationConfirmed = 'exam_registration_confirmed';
+	case ExamRegistrationChanged = 'exam_registration_changed';
+	case ExamRegistrationCancelled = 'exam_registration_cancelled';
+	case ExamMissed = 'exam_missed';
+	case ExamTomorrow = 'exam_tomorrow';
+	case ExamSoon = 'exam_soon';
+	case ExamEntryOpened = 'exam_entry_opened';
+	case ExamWorkAccepted = 'exam_work_accepted';
+	case ExamWorkSubmitted = 'exam_work_submitted';
+	case ExamApproved = 'exam_approved';
+	case ExamResultCorrected = 'exam_result_corrected';
+	case ExamExtended = 'exam_extended';
+	case ExamSessionMoved = 'exam_session_moved';
+	case ExamSessionCancelled = 'exam_session_cancelled';
+	case ExamPaymentNeedsHelp = 'exam_payment_needs_help';
+	case ExamReconcileFailed = 'exam_reconcile_failed';
+	case ExamSourceLimit = 'exam_source_limit';
+
 	/** Заголовок плитки уведомления. */
 	public function title(): string {
 		return match ( $this ) {
@@ -77,6 +97,24 @@ enum NotificationType: string {
 			self::HomeworkStreak     => 'Ученик не сдаёт работы',
 			self::ReviewOverdue      => 'Работа не проверена 48 часов',
 			self::TeacherAbsent      => 'Преподавателя нет на месте',
+			self::ExamRegistrationOpened => 'Открыта запись на экзамен',
+			self::ExamRegistrationConfirmed => 'Запись на экзамен подтверждена',
+			self::ExamRegistrationChanged => 'Запись на экзамен изменена',
+			self::ExamRegistrationCancelled => 'Запись на экзамен отменена',
+			self::ExamMissed => 'Экзамен пропущен, запись аннулирована',
+			self::ExamTomorrow => 'Завтра экзамен',
+			self::ExamSoon => 'Экзамен скоро начнётся',
+			self::ExamEntryOpened => 'Вход на экзамен открыт',
+			self::ExamWorkAccepted => 'Работа принята',
+			self::ExamWorkSubmitted => 'Экзамен сдан — нужна проверка',
+			self::ExamApproved => 'Работа утверждена',
+			self::ExamResultCorrected => 'Результат исправлен',
+			self::ExamExtended => 'Время экзамена продлено',
+			self::ExamSessionMoved => 'Сеанс экзамена перенесён',
+			self::ExamSessionCancelled => 'Сеанс экзамена отменён',
+			self::ExamPaymentNeedsHelp => 'Оплачено, требуется помощь',
+			self::ExamReconcileFailed => 'Сбой сверки оплаты',
+			self::ExamSourceLimit => 'Превышен лимит заявок по ссылке',
 		};
 	}
 
@@ -91,6 +129,10 @@ enum NotificationType: string {
 			self::JournalNotFilled, self::JournalOverdue, self::ReviewOverdue => 'warn',
 			self::DeadlineMissed, self::AttendanceMissed, self::AbsenceStreak,
 			self::HomeworkStreak, self::TeacherAbsent                      => 'err',
+			self::ExamRegistrationOpened, self::ExamRegistrationChanged, self::ExamTomorrow, self::ExamEntryOpened, self::ExamResultCorrected, self::ExamExtended => 'info',
+			self::ExamRegistrationConfirmed, self::ExamWorkAccepted, self::ExamApproved => 'ok',
+			self::ExamRegistrationCancelled, self::ExamSoon, self::ExamWorkSubmitted, self::ExamSessionMoved, self::ExamSourceLimit => 'warn',
+			self::ExamMissed, self::ExamSessionCancelled, self::ExamPaymentNeedsHelp, self::ExamReconcileFailed => 'err',
 		};
 	}
 }

@@ -5,10 +5,14 @@ declare( strict_types=1 );
 namespace Inc\Cli;
 
 use Inc\Contracts\ServiceInterface;
+use Inc\DTO\Assessment\AttemptInputDTO;
 use Inc\DTO\Exam\AttemptContext;
+use Inc\Enums\Assessment\AttemptStatus;
 use Inc\Enums\Exam\ExamAudience;
 use Inc\Enums\Exam\ExamRegistrationStatus;
 use Inc\Enums\Log\ErrorCode;
+use Inc\Repositories\WPDBRepositories\AssessmentAnswerRepository;
+use Inc\Repositories\WPDBRepositories\AssessmentAttemptRepository;
 use Inc\Repositories\WPDBRepositories\DuplicateKeyException;
 use Inc\Repositories\WPDBRepositories\ExamEventRepository;
 use Inc\Repositories\WPDBRepositories\ExamGuestApplicationRepository;
@@ -18,6 +22,7 @@ use Inc\Repositories\WPDBRepositories\ExamRegistrationRepository;
 use Inc\Repositories\WPDBRepositories\ExamSessionRepository;
 use Inc\Repositories\WPDBRepositories\ExamSourceRepository;
 use Inc\Repositories\WPDBRepositories\RoomRepository;
+use Inc\Services\Exam\ExamApprovalService;
 use Inc\Services\Exam\ExamAttemptService;
 use Inc\Services\Exam\ExamEventService;
 use Inc\Services\Exam\ExamHoldService;
@@ -60,6 +65,9 @@ class ExamStandCommand implements ServiceInterface {
 		private readonly ExamEventService $eventService,
 		private readonly ExamAttemptService $attemptService,
 		private readonly ExamTime $time,
+		private readonly AssessmentAttemptRepository $attempts,
+		private readonly AssessmentAnswerRepository $answers,
+		private readonly ExamApprovalService $approvals,
 	) {}
 
 	public function register(): void {
@@ -75,6 +83,10 @@ class ExamStandCommand implements ServiceInterface {
 		WP_CLI::add_command( 'fs-lms exam stand-report', array( $this, 'standReport' ) );
 		WP_CLI::add_command( 'fs-lms exam stand-window', array( $this, 'standWindow' ) );
 		WP_CLI::add_command( 'fs-lms exam stand-start', array( $this, 'standStart' ) );
+		WP_CLI::add_command( 'fs-lms exam stand-attempts', array( $this, 'standAttempts' ) );
+		WP_CLI::add_command( 'fs-lms exam stand-approve', array( $this, 'standApprove' ) );
+		WP_CLI::add_command( 'fs-lms exam stand-approve-all', array( $this, 'standApproveAll' ) );
+		WP_CLI::add_command( 'fs-lms exam stand-correct', array( $this, 'standCorrect' ) );
 		WP_CLI::add_command( 'fs-lms exam stand-clean', array( $this, 'standClean' ) );
 	}
 
@@ -490,6 +502,173 @@ class ExamStandCommand implements ServiceInterface {
 			} );
 		} catch ( \Throwable $e ) {
 			WP_CLI::line( 'error:' . $this->oneLine( $e->getMessage() ) );
+		}
+	}
+
+	/**
+	 * Сданные попытки для записанных участников сеанса стенда (для проверки утверждения): статус «оценена», один ответ с баллом 1 из 2.
+	 * Попытки пишутся напрямую в таблицы — это фикстура, а не путь, по которому попытки создаются в работе.
+	 *
+	 * ## OPTIONS
+	 *
+	 * --session=<id>
+	 * : ID сеанса стенда.
+	 *
+	 * [--n=<count>]
+	 * : Сколько попыток создать.
+	 * ---
+	 * default: 50
+	 * ---
+	 *
+	 * @param array $args       Позиционные аргументы
+	 * @param array $assoc_args Именованные аргументы
+	 */
+	public function standAttempts( array $args, array $assoc_args ): void {
+		$session = $this->sessions->find( (int) ( $assoc_args['session'] ?? 0 ) );
+		if ( null === $session ) {
+			WP_CLI::error( 'Сеанс не найден.' );
+		}
+
+		$limit   = max( 1, (int) ( $assoc_args['n'] ?? 50 ) );
+		$created = array();
+		foreach ( $this->registrations->listBySession( $session->id, array( ExamRegistrationStatus::Confirmed ) ) as $registration ) {
+			if ( count( $created ) >= $limit ) {
+				break;
+			}
+			$participation = $this->participations->find( $registration->participationId );
+			if ( null === $participation || $participation->hasAttempt() ) {
+				continue;
+			}
+
+			$attemptId = $this->attempts->create( new AttemptInputDTO(
+				assessmentId       : $session->assessmentId,
+				studentPersonId    : 900000 + $participation->participantId,
+				groupId            : null,
+				attemptNumber      : 1,
+				startedAt          : $this->time->toLocal( $session->scheduledAt ),
+				deadlineAt         : $this->time->toLocal( $session->plannedEndAt ),
+				status             : AttemptStatus::Graded,
+				examParticipationId: $participation->id,
+				examRegistrationId : $registration->id,
+			) );
+			$this->attempts->update( $attemptId, array( 'total_score' => 1, 'max_score' => 2, 'submitted_at' => $this->time->toLocal( $session->plannedEndAt ) ) );
+			$this->answers->upsert( $attemptId, 1, array( 'answer_text' => 'стенд', 'is_correct' => 0, 'score' => 1, 'max_score' => 2 ) );
+			$this->participations->setCurrentAttempt( $participation->id, $attemptId );
+			$created[] = $attemptId;
+		}
+
+		WP_CLI::line( 'attempts=' . ( array() === $created ? '-' : implode( ',', $created ) ) );
+	}
+
+	/**
+	 * Одно утверждение попытки стенда (для гонки параллельных процессов). Печатает одно слово: approved или skipped:<причина>.
+	 *
+	 * ## OPTIONS
+	 *
+	 * --attempt=<id>
+	 * : ID попытки.
+	 *
+	 * [--version=<n>]
+	 * : Ожидаемая версия результата (по умолчанию текущая).
+	 *
+	 * [--actor=<user_id>]
+	 * : Кто утверждает.
+	 * ---
+	 * default: 1
+	 * ---
+	 *
+	 * [--at=<unix>]
+	 * : Подождать до этого момента (секунды Unix) и только потом утверждать.
+	 *
+	 * @param array $args       Позиционные аргументы
+	 * @param array $assoc_args Именованные аргументы
+	 */
+	public function standApprove( array $args, array $assoc_args ): void {
+		$attemptId = (int) ( $assoc_args['attempt'] ?? 0 );
+		$version   = isset( $assoc_args['version'] ) ? (int) $assoc_args['version'] : (int) ( $this->attempts->find( $attemptId )?->resultVersion ?? 0 );
+		$this->waitUntil( (float) ( $assoc_args['at'] ?? 0 ) );
+
+		try {
+			$result = $this->approvals->approve( max( 1, (int) ( $assoc_args['actor'] ?? 1 ) ), $attemptId, $version );
+			WP_CLI::line( 'approved' === $result['status'] ? 'approved' : 'skipped:' . ( $result['reason'] ?? '' ) );
+		} catch ( \Throwable $e ) {
+			WP_CLI::line( 'error:' . $this->oneLine( $e->getMessage() ) );
+		}
+	}
+
+	/**
+	 * Массовое утверждение всех попыток сеанса стенда одним вызовом; печатает число утверждённых, пропущенных и время в миллисекундах.
+	 *
+	 * ## OPTIONS
+	 *
+	 * --session=<id>
+	 * : ID сеанса стенда.
+	 *
+	 * @param array $args       Позиционные аргументы
+	 * @param array $assoc_args Именованные аргументы
+	 */
+	public function standApproveAll( array $args, array $assoc_args ): void {
+		$items = array();
+		foreach ( $this->registrations->listBySession( (int) ( $assoc_args['session'] ?? 0 ) ) as $registration ) {
+			$participation = $this->participations->find( $registration->participationId );
+			$attempt       = null !== $participation && null !== $participation->currentAttemptId ? $this->attempts->find( $participation->currentAttemptId ) : null;
+			if ( null !== $attempt ) {
+				$items[] = array( 'attempt_id' => $attempt->id, 'result_version' => $attempt->resultVersion );
+			}
+		}
+
+		$started = microtime( true );
+		$result  = $this->approvals->approveMany( 1, $items );
+
+		WP_CLI::line( sprintf( 'approved=%d skipped=%d ms=%d', $result['approved'], count( $result['skipped'] ), (int) round( ( microtime( true ) - $started ) * 1000 ) ) );
+	}
+
+	/**
+	 * Одно исправление результата утверждённой попытки стенда (для гонки двух проверяющих). Печатает: corrected или error:<код>.
+	 *
+	 * ## OPTIONS
+	 *
+	 * --attempt=<id>
+	 * : ID попытки.
+	 *
+	 * --version=<n>
+	 * : Версия результата, которую «видел» проверяющий.
+	 *
+	 * [--score=<n>]
+	 * : Новый балл за задание 1.
+	 * ---
+	 * default: 2
+	 * ---
+	 *
+	 * [--at=<unix>]
+	 * : Подождать до этого момента (секунды Unix).
+	 *
+	 * @param array $args       Позиционные аргументы
+	 * @param array $assoc_args Именованные аргументы
+	 */
+	public function standCorrect( array $args, array $assoc_args ): void {
+		$this->waitUntil( (float) ( $assoc_args['at'] ?? 0 ) );
+
+		try {
+			$this->approvals->correct(
+				1,
+				(int) ( $assoc_args['attempt'] ?? 0 ),
+				array( array( 'task_id' => 1, 'score' => (float) ( $assoc_args['score'] ?? 2 ) ) ),
+				'Стенд: исправление',
+				(int) ( $assoc_args['version'] ?? 0 )
+			);
+			WP_CLI::line( 'corrected' );
+		} catch ( CodedException $e ) {
+			WP_CLI::line( 'error:' . $e->errorCode->value );
+		} catch ( \Throwable $e ) {
+			WP_CLI::line( 'error:' . $this->oneLine( $e->getMessage() ) );
+		}
+	}
+
+	private function waitUntil( float $at ): void {
+		$wait = $at - microtime( true );
+		if ( $at > 0 && $wait > 0 ) {
+			usleep( (int) ( $wait * 1_000_000 ) );
 		}
 	}
 

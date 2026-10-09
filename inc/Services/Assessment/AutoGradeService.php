@@ -36,8 +36,9 @@ class AutoGradeService {
 	) {}
 
 	/** В ленту пишется WP-пользователь, а не персона (actor_user_id резолвится через get_userdata()). */
-	private function actorUserId( int $studentPersonId ): int {
-		return $this->persons->find( $studentPersonId )?->wpUserId ?? 0;
+	private function actorUserId( ?int $studentPersonId ): int {
+		// У гостя экзамена Person нет, а значит и пользователя WordPress: в ленту пишется 0.
+		return null === $studentPersonId ? 0 : ( $this->persons->find( $studentPersonId )?->wpUserId ?? 0 );
 	}
 
 	/**

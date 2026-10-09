@@ -8,6 +8,7 @@ use Inc\Core\BaseController;
 use Inc\DTO\Assessment\AttemptDTO;
 use Inc\DTO\Exam\AttemptContext;
 use Inc\DTO\Person\PersonDTO;
+use Inc\Enums\Log\ErrorCode;
 use Inc\Enums\Wp\Nonce;
 use Inc\Managers\Assessment\AssessmentManager;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
@@ -49,6 +50,11 @@ class AttemptCallbacks extends BaseController {
 		$groupLessonId      = $this->sanitizeInt( 'group_lesson_id' ) ?: null;
 		$examRegistrationId = $this->sanitizeInt( 'exam_registration_id' );
 
+		if ( $this->isGuestRequest() ) {
+			$this->startAsGuest( $examRegistrationId );
+			return;
+		}
+
 		$person = $this->currentPerson();
 		if ( null === $person ) {
 			return;
@@ -78,17 +84,22 @@ class AttemptCallbacks extends BaseController {
 		$taskId     = $this->requireInt( 'task_id' );
 		$answerText = $this->sanitizeAnswerText( 'answer_text' );
 
-		$person = $this->currentPerson();
-		if ( null === $person ) {
+		$guest = $this->guestContext();
+		if ( $this->isGuestRequest() && null === $guest ) {
+			return;
+		}
+
+		$person = null === $guest ? $this->currentPerson() : null;
+		if ( null === $guest && null === $person ) {
 			return;
 		}
 
 		try {
-			$examContext = $this->examContext( $attemptId );
+			$examContext = $guest ?? $this->examContext( $attemptId );
 			if ( null !== $examContext ) {
 				$this->examAttempts->saveAnswer( $examContext, $attemptId, $taskId, $answerText );
 			} else {
-				$this->attemptService->saveAnswer( $attemptId, $taskId, $answerText, $person->id );
+				$this->attemptService->saveAnswer( $attemptId, $taskId, $answerText, (int) $person?->id );
 			}
 			$this->success( [] );
 		} catch ( CodedException $e ) {
@@ -103,18 +114,23 @@ class AttemptCallbacks extends BaseController {
 
 		$attemptId = $this->requireInt( 'attempt_id' );
 
-		$person = $this->currentPerson();
-		if ( null === $person ) {
+		$guest = $this->guestContext();
+		if ( $this->isGuestRequest() && null === $guest ) {
+			return;
+		}
+
+		$person = null === $guest ? $this->currentPerson() : null;
+		if ( null === $guest && null === $person ) {
 			return;
 		}
 
 		try {
-			$examContext = $this->examContext( $attemptId );
+			$examContext = $guest ?? $this->examContext( $attemptId );
 			$attempt     = null !== $examContext
 				? $this->examAttempts->submit( $examContext, $attemptId )
-				: $this->attemptService->submit( $attemptId, $person->id );
+				: $this->attemptService->submit( $attemptId, (int) $person?->id );
 
-			$this->success( $this->submissionPayload( $attempt, $person->id ) );
+			$this->success( $this->submissionPayload( $attempt, $person?->id ) );
 		} catch ( CodedException $e ) {
 			$this->fail( $e->errorCode, $e->getMessage() );
 		} catch ( \RuntimeException | \InvalidArgumentException $e ) {
@@ -127,16 +143,21 @@ class AttemptCallbacks extends BaseController {
 
 		$attemptId = $this->requireInt( 'attempt_id' );
 
-		$person = $this->currentPerson();
-		if ( null === $person ) {
+		$guest = $this->guestContext();
+		if ( $this->isGuestRequest() && null === $guest ) {
+			return;
+		}
+
+		$person = null === $guest ? $this->currentPerson() : null;
+		if ( null === $guest && null === $person ) {
 			return;
 		}
 
 		try {
-			$examContext = $this->examContext( $attemptId );
+			$examContext = $guest ?? $this->examContext( $attemptId );
 			$result      = null !== $examContext
 				? $this->examAttempts->result( $examContext, $attemptId )
-				: $this->attemptService->getResult( $attemptId, $person->id );
+				: $this->attemptService->getResult( $attemptId, (int) $person?->id );
 
 			$this->success( $result );
 		} catch ( CodedException $e ) {
@@ -199,14 +220,17 @@ class AttemptCallbacks extends BaseController {
 	 *
 	 * @return array<string, mixed>
 	 */
-	private function submissionPayload( AttemptDTO $attempt, int $personId ): array {
+	private function submissionPayload( AttemptDTO $attempt, ?int $personId ): array {
 		$payload = array( 'status' => $attempt->status->value );
 
 		if ( $this->attemptService->isRevealed( $attempt ) ) {
 			$payload += array(
 				'total_score' => $attempt->totalScore,
 				'max_score'   => $attempt->maxScore,
-				'per_task'    => $this->resultService->studentPerTask( $attempt->id, $personId ),
+				// У гостя `student_person_id` пуст: владение попыткой уже проверено по участию.
+				'per_task'    => null === $personId
+					? $this->resultService->examPerTask( $attempt->id )
+					: $this->resultService->studentPerTask( $attempt->id, $personId ),
 			);
 		}
 
@@ -220,6 +244,51 @@ class AttemptCallbacks extends BaseController {
 	 */
 	private function examContext( int $attemptId ): ?AttemptContext {
 		return $this->examAttempts->contextForAttempt( get_current_user_id(), $attemptId );
+	}
+
+	/** Запрос без входа в WordPress: единственный допустимый путь — гостевая сессия экзамена. */
+	private function isGuestRequest(): bool {
+		return ! is_user_logged_in();
+	}
+
+	/**
+	 * Гостевой контекст для невошедшего запроса. Нет сессии — ответ-ошибка уже отправлен (кода доступа, без подробностей), вернётся null.
+	 * Для вошедшего пользователя всегда null: его путь — профиль ученика.
+	 */
+	private function guestContext(): ?AttemptContext {
+		if ( ! $this->isGuestRequest() ) {
+			return null;
+		}
+
+		$ctx = $this->examAttempts->contextForGuest();
+		if ( null === $ctx ) {
+			$this->fail( ErrorCode::ExamAccess, 'Экзамен недоступен.' );
+		}
+
+		return $ctx;
+	}
+
+	/** Старт официальной попытки гостя: запись берётся из сессии, а не из запроса (чужую запись подставить нельзя). */
+	private function startAsGuest( int $examRegistrationId ): void {
+		$ctx = $this->guestContext();
+		if ( null === $ctx ) {
+			return;
+		}
+		if ( $examRegistrationId > 0 && $examRegistrationId !== $ctx->registrationId ) {
+			$this->fail( ErrorCode::ExamAccess, 'Экзамен недоступен.' );
+			return;
+		}
+
+		try {
+			$attempt = $this->examAttempts->start( $ctx );
+			$this->success( array(
+				'attempt_id'  => $attempt->id,
+				'deadline_at' => $attempt->deadlineAt,
+				'status'      => $attempt->status->value,
+			) );
+		} catch ( CodedException $e ) {
+			$this->fail( $e->errorCode, $e->getMessage() );
+		}
 	}
 
 	/** Профиль текущего пользователя; нет профиля — ответ-ошибка уже отправлен, вернётся null. */

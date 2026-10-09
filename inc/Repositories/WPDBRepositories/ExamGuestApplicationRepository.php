@@ -101,6 +101,11 @@ class ExamGuestApplicationRepository extends AbstractExamRepository {
 		) );
 	}
 
+	/** @return int[] ID заявок сеанса, которые сейчас удерживают место (отмена сеанса освобождает их все). */
+	public function listHeldIdsBySession( int $sessionId ): array {
+		return $this->readInts( $this->wpdb->prepare( 'SELECT id FROM %i WHERE session_id = %d AND is_held = 1 ORDER BY id ASC', $this->table, $sessionId ) );
+	}
+
 	/** Сколько мест сеанса сейчас удерживается бронями гостей. */
 	public function countHeldBySession( int $sessionId ): int {
 		return $this->readInt( $this->wpdb->prepare( 'SELECT COUNT(*) FROM %i WHERE session_id = %d AND is_held = 1', $this->table, $sessionId ) );

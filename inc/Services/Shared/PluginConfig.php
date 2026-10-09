@@ -85,6 +85,66 @@ readonly class PluginConfig {
 		return $url ?: '';
 	}
 
+	/** Товар WooCommerce для экзамена класса (9 или 11); 0 — не задан. Один товар может обслуживать оба класса. */
+	public function examProductId( int $grade ): int {
+		$key = 9 === $grade ? 'exam_product_9' : 'exam_product_11';
+
+		return max( 0, (int) ( $this->repository->get()[ $key ] ?? 0 ) );
+	}
+
+	/** Срок временной брони, мин: 5…120, по умолчанию 20. */
+	public function examHoldMinutes(): int {
+		return $this->bounded( 'exam_hold_minutes', 20, 5, 120 );
+	}
+
+	/** Одновременно активных броней с одного IP (по умолчанию 40: за общим адресом школы ~20 человек). */
+	public function examIpActiveHoldsLimit(): int {
+		return $this->bounded( 'exam_ip_active_holds', 40, 1, 10000 );
+	}
+
+	/** Созданий брони в час с одного IP. */
+	public function examIpHourlyLimit(): int {
+		return $this->bounded( 'exam_ip_hourly', 60, 1, 10000 );
+	}
+
+	/** Одновременно активных броней на источник-ссылку (школу). */
+	public function examSourceActiveHoldsLimit(): int {
+		return $this->bounded( 'exam_source_active_holds', 60, 1, 10000 );
+	}
+
+	/** Сколько дней хранятся данные гостей после завершения проведения. */
+	public function examGuestRetentionDays(): int {
+		return $this->bounded( 'exam_guest_retention_days', 365, 1, 3650 );
+	}
+
+	/** Сколько дней хранятся заявки без оплаты. */
+	public function examUnpaidRetentionDays(): int {
+		return $this->bounded( 'exam_unpaid_retention_days', 30, 1, 3650 );
+	}
+
+	/**
+	 * Запасные контакты центра: работают, пока тема не подписалась на `fs_lms_center_contacts`.
+	 *
+	 * @return array{phone: string, email: string, hours: string, address: string}
+	 */
+	public function centerContactsFallback(): array {
+		$data = $this->repository->get();
+
+		return array(
+			'phone'   => (string) ( $data['center_phone'] ?? '' ),
+			'email'   => (string) ( $data['center_email'] ?? '' ),
+			'hours'   => (string) ( $data['center_hours'] ?? '' ),
+			'address' => (string) ( $data['center_address'] ?? '' ),
+		);
+	}
+
+	/** Число из настроек, приведённое к границам; нечисловое — значение по умолчанию. */
+	private function bounded( string $key, int $default, int $min, int $max ): int {
+		$value = $this->repository->get()[ $key ] ?? $default;
+
+		return max( $min, min( $max, is_numeric( $value ) ? (int) $value : $default ) );
+	}
+
 	public function isEncKeySet(): bool {
 		return defined( 'FS_LMS_ENC_KEY' ) && '' !== FS_LMS_ENC_KEY;
 	}
@@ -120,6 +180,17 @@ readonly class PluginConfig {
 				'url' => $this->brandLogoUrl(),
 			),
 			'consultation_url' => $this->consultationUrl(),
+			'exams'            => array(
+				'product_9'            => $this->examProductId( 9 ),
+				'product_11'           => $this->examProductId( 11 ),
+				'hold_minutes'         => $this->examHoldMinutes(),
+				'ip_active_holds'      => $this->examIpActiveHoldsLimit(),
+				'ip_hourly'            => $this->examIpHourlyLimit(),
+				'source_active_holds'  => $this->examSourceActiveHoldsLimit(),
+				'guest_retention_days' => $this->examGuestRetentionDays(),
+				'unpaid_retention_days' => $this->examUnpaidRetentionDays(),
+				'contacts'             => $this->centerContactsFallback(),
+			),
 		);
 	}
 }

@@ -33,6 +33,15 @@ export const ConfigSettings = {
 		$( document ).on( 'click', '.js-brand-logo-clear', () => this.clearBrandLogo() );
 	},
 
+	/** Поля секции «Экзамены для гостей»: присутствуют в форме только при активном WooCommerce (имена — `exam_*`, `center_*`). */
+	examFields( $form ) {
+		const fields = {};
+		$form.find( '[data-exam-field]' ).each( ( _, el ) => {
+			fields[ el.name ] = $( el ).val();
+		} );
+		return fields;
+	},
+
 	saveConfig() {
 		const $form   = $( '#fs-config-form' );
 		const $status = $( '#fs-config-status' );
@@ -48,6 +57,7 @@ export const ConfigSettings = {
 			test_env:      $form.find( '[name=test_env]' ).is( ':checked' ) ? 1 : 0,
 			brand_logo_id: $form.find( '[name=brand_logo_id]' ).val() || 0,
 			consultation_url: $form.find( '[name=consultation_url]' ).val() || '',
+			...this.examFields( $form ),
 		} )
 			.done( ( res ) => {
 				if ( res.success ) {

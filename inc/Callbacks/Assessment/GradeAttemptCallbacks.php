@@ -6,13 +6,17 @@ namespace Inc\Callbacks\Assessment;
 
 use Inc\Contracts\ClockInterface;
 use Inc\Core\BaseController;
+use Inc\DTO\Assessment\AttemptDTO;
 use Inc\Enums\Access\Capability;
+use Inc\Enums\Log\ErrorCode;
 use Inc\Enums\Subject\TaskTemplate;
 use Inc\Enums\Wp\Nonce;
 use Inc\Enums\Wp\PostMetaName;
 use Inc\Managers\Wp\PostManager;
 use Inc\Services\Assessment\AutoGradeService;
 use Inc\Services\Course\GroupAccessGuard;
+use Inc\Services\Exam\ExamApprovalService;
+use Inc\Services\Exam\ExamConductService;
 use Inc\Repositories\WPDBRepositories\AssessmentAnswerRepository;
 use Inc\Repositories\WPDBRepositories\AssessmentAttemptRepository;
 use Inc\Shared\Traits\Authorizer;
@@ -32,6 +36,8 @@ class GradeAttemptCallbacks extends BaseController {
 		private readonly ClockInterface              $clock,
 		private readonly GroupAccessGuard            $guard,
 		private readonly PostManager                 $posts,
+		private readonly ExamConductService          $examConduct,
+		private readonly ExamApprovalService         $examApproval,
 	) {
 		parent::__construct();
 	}
@@ -57,10 +63,14 @@ class GradeAttemptCallbacks extends BaseController {
 			return;
 		}
 
-		// Per-group scoping: попытка, привязанная к группе, — только для её ФАКТИЧЕСКОГО
-		// преподавателя (T11.9); в период замены оригинал — read-only (T5.7).
-		if ( $attempt->groupId && ! $this->guard->canWriteJournal( (int) $attempt->groupId, get_current_user_id() ) ) {
-			$this->error( 'Нет доступа к этой группе.' );
+		if ( ! $this->canGrade( $attempt, get_current_user_id() ) ) {
+			$this->error( $attempt->isExam() ? 'Нет доступа к этому проведению.' : 'Нет доступа к этой группе.' );
+			return;
+		}
+
+		// Экзаменная попытка: оценка меняет версию результата, чтобы два проверяющих не перезаписали друг друга (8.4.5).
+		// Утверждённая работа правится только исправлением результата (с причиной и журналом), не обычной оценкой.
+		if ( $attempt->isExam() && ! $this->claimExamVersion( $attempt ) ) {
 			return;
 		}
 
@@ -101,10 +111,7 @@ class GradeAttemptCallbacks extends BaseController {
 			) );
 
 			$updated = $this->autoGrade->finalize( $attempt );
-			$this->success( array(
-				'attempt_status' => $updated->status->value,
-				'total_score'    => $updated->totalScore,
-			) );
+			$this->success( $this->gradePayload( $updated ) );
 			return;
 		}
 
@@ -152,10 +159,7 @@ class GradeAttemptCallbacks extends BaseController {
 		}
 
 		$updated = $this->autoGrade->finalize( $attempt );
-		$this->success( [
-			'attempt_status' => $updated->status->value,
-			'total_score'    => $updated->totalScore,
-		] );
+		$this->success( $this->gradePayload( $updated ) );
 	}
 
 	/**
@@ -178,13 +182,89 @@ class GradeAttemptCallbacks extends BaseController {
 			return;
 		}
 
-		if ( $attempt->groupId && ! $this->guard->canWriteJournal( (int) $attempt->groupId, get_current_user_id() ) ) {
-			$this->error( 'Нет доступа к этой группе.' );
+		if ( ! $this->canGrade( $attempt, get_current_user_id() ) ) {
+			$this->error( $attempt->isExam() ? 'Нет доступа к этому проведению.' : 'Нет доступа к этой группе.' );
+			return;
+		}
+
+		// Экзамен утверждает отдельный сервис: версия результата, блокировка участия, событие в outbox (8.5).
+		if ( $attempt->isExam() ) {
+			$result = $this->examApproval->approve( get_current_user_id(), $attemptId, $this->sanitizeInt( 'result_version' ) );
+			if ( ExamApprovalService::STATUS_APPROVED !== $result['status'] ) {
+				$reason = (string) ( $result['reason'] ?? '' );
+				$this->fail(
+					ExamApprovalService::REASON_STALE === $reason ? ErrorCode::ExamStale : ErrorCode::ExamConflict,
+					$this->approvalRefusal( $reason )
+				);
+				return;
+			}
+
+			$this->success();
 			return;
 		}
 
 		$this->attempts->approve( $attemptId, get_current_user_id(), $this->clock->now() );
 
 		$this->success();
+	}
+
+	/**
+	 * Вправе ли пользователь оценивать и утверждать попытку.
+	 *
+	 * Экзаменная попытка группы не имеет — решает проведение (его владелец или глобальный доступ, право `ManageExams`).
+	 * Попытка курса — фактический преподаватель её группы (T11.9; в период замены оригинал read-only, T5.7).
+	 * Попытка без группы и без экзаменного контекста не принадлежит никому — отказ.
+	 */
+	private function canGrade( AttemptDTO $attempt, int $userId ): bool {
+		if ( $attempt->isExam() ) {
+			return $this->examConduct->canManageAttempt( $userId, $attempt );
+		}
+
+		return null !== $attempt->groupId && $this->guard->canWriteJournal( (int) $attempt->groupId, $userId );
+	}
+
+	/**
+	 * Занимает версию результата экзаменной попытки перед записью оценки. Отвечает клиенту сам, если оценивать нельзя.
+	 *
+	 * @return bool true — версия занята, оценку можно писать.
+	 */
+	private function claimExamVersion( AttemptDTO $attempt ): bool {
+		if ( $attempt->isApproved() ) {
+			$this->error( 'Работа утверждена: исправьте результат с указанием причины.' );
+			return false;
+		}
+
+		$expected = $this->sanitizeInt( 'result_version' );
+		if ( ! $this->attempts->bumpResultVersion( $attempt->id, $expected ) ) {
+			$this->fail( ErrorCode::ExamStale, 'Работу уже изменил другой проверяющий. Обновите страницу.' );
+			return false;
+		}
+
+		return true;
+	}
+
+	/** @return array<string, mixed> */
+	private function gradePayload( AttemptDTO $updated ): array {
+		$payload = array(
+			'attempt_status' => $updated->status->value,
+			'total_score'    => $updated->totalScore,
+		);
+		if ( $updated->isExam() ) {
+			// Свежая версия нужна клиенту для следующей оценки в этой же работе без перезагрузки экрана.
+			$payload['result_version'] = $this->attempts->find( $updated->id )?->resultVersion ?? $updated->resultVersion;
+		}
+
+		return $payload;
+	}
+
+	private function approvalRefusal( string $reason ): string {
+		return match ( $reason ) {
+			ExamApprovalService::REASON_PENDING_REVIEW   => 'Проверка не завершена.',
+			ExamApprovalService::REASON_NOT_SUBMITTED    => 'Работа не сдана.',
+			ExamApprovalService::REASON_STALE            => 'Работу уже изменил другой проверяющий. Обновите страницу.',
+			ExamApprovalService::REASON_ALREADY_APPROVED => 'Работа уже утверждена.',
+			ExamApprovalService::REASON_GUEST            => 'Гостю утверждение не требуется.',
+			default                                      => 'Не удалось утвердить работу.',
+		};
 	}
 }

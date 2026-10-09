@@ -7,13 +7,17 @@ namespace Inc\Callbacks\Course;
 use Inc\Core\BaseController;
 use Inc\DTO\Course\GradeDTO;
 use Inc\Enums\Access\Capability;
+use Inc\Enums\Course\WorkSourceType;
 use Inc\Enums\Wp\Nonce;
+use Inc\Repositories\WPDBRepositories\AssessmentAttemptRepository;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\SubmissionRepository;
 use Inc\Services\Course\GroupAccessGuard;
 use Inc\Services\Course\SubmissionService;
 use Inc\Services\Course\WorkDetailService;
 use Inc\Services\Course\WorkResetService;
+use Inc\Services\Exam\ExamConductService;
+use Inc\Shared\CodedException;
 use Inc\Shared\Traits\AjaxResponse;
 use Inc\Shared\Traits\Authorizer;
 use Inc\Shared\Traits\Sanitizer;
@@ -31,6 +35,8 @@ class GradingCallbacks extends BaseController {
 		private readonly GroupLessonRepository $groupLessons,
 		private readonly WorkDetailService     $workDetail,
 		private readonly WorkResetService      $workReset,
+		private readonly AssessmentAttemptRepository $attempts,
+		private readonly ExamConductService    $examConduct,
 	) {
 		parent::__construct();
 	}
@@ -44,6 +50,15 @@ class GradingCallbacks extends BaseController {
 
 		$sourceType = $this->sanitizeText( 'source_type' );
 		$sourceId   = $this->requireInt( 'source_id' );
+
+		// Экзаменная попытка группы не имеет: доступ решает проведение, разбор строит проекция режима `manage` (8.4.2).
+		if ( WorkSourceType::Attempt->value === $sourceType ) {
+			$attempt = $this->attempts->find( $sourceId );
+			if ( null !== $attempt && $attempt->isExam() ) {
+				$this->sendExamDetail( $attempt );
+				return;
+			}
+		}
 
 		$detail = $this->workDetail->forWork( $sourceType, $sourceId );
 		if ( null === $detail ) {
@@ -101,6 +116,12 @@ class GradingCallbacks extends BaseController {
 
 		$sourceType = $this->sanitizeText( 'source_type' );
 		$sourceId   = $this->requireInt( 'source_id' );
+
+		// Административный сброс экзаменной попытки — не обычная отмена брони: этого пути у экзамена нет (SPEC §7).
+		if ( WorkSourceType::Attempt->value === $sourceType && $this->attempts->find( $sourceId )?->isExam() ) {
+			$this->error( 'Экзаменную попытку сбросить нельзя.' );
+			return;
+		}
 
 		$groupId = $this->workReset->groupIdFor( $sourceType, $sourceId );
 		if ( null === $groupId ) {
@@ -200,5 +221,20 @@ class GradingCallbacks extends BaseController {
 		$this->success( array( 'submission_id' => $submissionId ) );
 	}
 
+	/** Разбор экзаменной попытки для экрана проверки; нет права на проведение — как «не найдена». */
+	private function sendExamDetail( \Inc\DTO\Assessment\AttemptDTO $attempt ): void {
+		try {
+			$detail = $this->examConduct->reviewFor( get_current_user_id(), $attempt );
+		} catch ( CodedException $e ) {
+			$this->fail( $e->errorCode, $e->getMessage() );
+			return;
+		}
 
+		if ( null === $detail ) {
+			$this->error( 'Работа не найдена.' );
+			return;
+		}
+
+		$this->success( $detail );
+	}
 }

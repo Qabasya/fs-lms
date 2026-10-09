@@ -46,6 +46,7 @@ class ExamHoldService {
 		private readonly ExamRegistrationService $registrations,
 		private readonly ExamOutbox $outbox,
 		private readonly ExamTime $time,
+		private readonly GuestParticipantMaterializer $materializer,
 	) {}
 
 	/**
@@ -231,6 +232,26 @@ class ExamHoldService {
 	}
 
 	/**
+	 * Продвигает заявку по пути оплаты (`hold` → `awaiting_payment` → `payment_pending`) без изменения брони: место и срок прежние.
+	 * Только вперёд и только из перечисленных состояний — повторный вызов и опоздавший хук ничего не откатывают.
+	 *
+	 * @param list<GuestApplicationState> $from
+	 *
+	 * @return bool true — состояние сменено этим вызовом.
+	 */
+	public function transition( int $applicationId, array $from, GuestApplicationState $to ): bool {
+		return (bool) $this->inTransactionWithRetry( function () use ( $applicationId, $from, $to ): bool {
+			$application = $this->applications->findForUpdate( $applicationId );
+			$state       = null !== $application ? GuestApplicationState::tryFrom( $application->state ) : null;
+			if ( null === $application || null === $state || ! in_array( $state, $from, true ) ) {
+				return false;
+			}
+
+			return $this->applications->update( $application->id, array( 'state' => $to->value ), $application->version );
+		} );
+	}
+
+	/**
 	 * Для минутного тика: освобождает просроченные брони, каждую в своей транзакции. Ошибка одной заявки логируется
 	 * и не останавливает остальные.
 	 *
@@ -327,32 +348,9 @@ class ExamHoldService {
 		return $this->reload( $application->id );
 	}
 
-	/**
-	 * Участник гостевой заявки. Школа и класс берутся из снимка источника; зашифрованные ФИО, телефон и мессенджер из
-	 * `draft_enc` заполняет шаг 11a.1.4 (`GuestApplicationService::materializeParticipant()`), который заменит этот метод.
-	 */
+	/** Участник гостевой заявки: ФИО, телефон и мессенджер — из зашифрованного черновика, школа и класс — из снимка источника. */
 	private function createParticipant( ExamGuestApplicationDTO $application ): int {
-		$snapshot = null !== $application->sourceSnapshot ? json_decode( $application->sourceSnapshot, true ) : null;
-		$snapshot = is_array( $snapshot ) ? $snapshot : array();
-		$now      = $this->time->nowUtc();
-
-		$row = array( 'created_at' => $now, 'updated_at' => $now );
-		if ( isset( $snapshot['school_name'] ) && '' !== (string) $snapshot['school_name'] ) {
-			$row['school_name'] = (string) $snapshot['school_name'];
-		}
-		if ( isset( $snapshot['school_key'] ) && '' !== (string) $snapshot['school_key'] ) {
-			$row['school_key'] = (string) $snapshot['school_key'];
-		}
-		if ( isset( $snapshot['grade'] ) && (int) $snapshot['grade'] > 0 ) {
-			$row['grade'] = (int) $snapshot['grade'];
-		}
-
-		$id = $this->participants->insert( $row );
-		if ( 0 === $id ) {
-			throw new \RuntimeException( 'Не удалось создать участника экзамена.' );
-		}
-
-		return $id;
+		return $this->materializer->materialize( $application );
 	}
 
 	/**

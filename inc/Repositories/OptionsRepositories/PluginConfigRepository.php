@@ -16,6 +16,19 @@ readonly class PluginConfigRepository {
 		// (13–16 ОГЭ и т.п.): у них правильного ответа нет, вместо него —
 		// приглашение на консультацию. Пусто — приглашение не показывается.
 		'consultation_url' => '',
+		// Экзамены для гостей (этап 11a.6): товары WooCommerce по классу, срок брони, лимиты, хранение, запасные контакты центра.
+		'exam_product_9'           => 0,
+		'exam_product_11'          => 0,
+		'exam_hold_minutes'        => 20,
+		'exam_ip_active_holds'     => 40,
+		'exam_ip_hourly'           => 60,
+		'exam_source_active_holds' => 60,
+		'exam_guest_retention_days' => 365,
+		'exam_unpaid_retention_days' => 30,
+		'center_phone'             => '',
+		'center_email'             => '',
+		'center_hours'             => '',
+		'center_address'           => '',
 	);
 
 	public function get(): array {

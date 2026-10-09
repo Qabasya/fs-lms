@@ -10,6 +10,7 @@ use Inc\Enums\Wp\Nonce;
 use Inc\Managers\Wp\MediaManager;
 use Inc\Repositories\WPDBRepositories\AssessmentAttemptRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
+use Inc\Services\Exam\GuestSessionService;
 use Inc\Shared\Traits\AjaxResponse;
 use Inc\Shared\Traits\Sanitizer;
 
@@ -22,6 +23,7 @@ class SubmissionCallbacks extends BaseController {
 		private readonly PersonRepository            $personRepository,
 		private readonly MediaManager                $media,
 		private readonly AssessmentAttemptRepository $attempts,
+		private readonly GuestSessionService         $guestSessions,
 	) {
 		parent::__construct();
 	}
@@ -38,17 +40,26 @@ class SubmissionCallbacks extends BaseController {
 	public function ajaxUploadAnswerFile(): void {
 		Nonce::UploadAnswerFile->verify();
 
-		$person = $this->personRepository->findByWpUserId( get_current_user_id() );
-		if ( ! $person ) {
-			$this->error( 'Профиль не найден.' );
-			return;
-		}
-
 		$attemptId = $this->requireInt( 'attempt_id' );
 		$attempt   = $this->attempts->find( $attemptId );
-		if ( ! $attempt || $attempt->studentPersonId !== $person->id ) {
-			$this->error( 'Нет доступа к попытке.' );
-			return;
+
+		if ( ! is_user_logged_in() ) {
+			// Гость экзамена: попытка должна принадлежать участию из его сессии.
+			$guest = $this->guestSessions->current();
+			if ( ! $attempt || null === $guest || $attempt->examParticipationId !== $guest->participationId ) {
+				$this->error( 'Нет доступа к попытке.' );
+				return;
+			}
+		} else {
+			$person = $this->personRepository->findByWpUserId( get_current_user_id() );
+			if ( ! $person ) {
+				$this->error( 'Профиль не найден.' );
+				return;
+			}
+			if ( ! $attempt || $attempt->studentPersonId !== $person->id ) {
+				$this->error( 'Нет доступа к попытке.' );
+				return;
+			}
 		}
 
 		// Попытка уже сдана/истекла — файл к ответу больше не приложить: он не

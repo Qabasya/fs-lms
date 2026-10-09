@@ -1,0 +1,195 @@
+@use '../variables' as *;
+
+// Запись гостя на экзамен (этап 11a.3): карточка — существующая fs-join-card, здесь только то, чего в ней нет:
+// карусель сеансов, резюме перед оплатой, honeypot, состояния без формы.
+
+.fs-exam-signup {
+  &__state {
+    text-align: center;
+    font-size: $font-size-base;
+    color: $color-muted;
+    line-height: $line-height-relaxed;
+  }
+
+  &__hint {
+    margin-bottom: $spacing-md;
+    text-align: left;
+  }
+
+  &__login {
+    margin: $spacing-md 0 0;
+    font-size: $font-size-base;
+    color: $color-muted;
+
+    a {
+      color: $color-accent;
+    }
+  }
+
+  // Ловушка для ботов: людям не видна, но и не display:none (простые боты такие поля пропускают)
+  &__hp {
+    position: absolute;
+    left: -9999px;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+  }
+
+  &__status {
+    margin: $spacing-md 0 0;
+    text-align: center;
+    font-size: $font-size-base;
+    color: $color-muted;
+
+    &.is-loading::before {
+      content: '';
+      display: inline-block;
+      width: rem(14);
+      height: rem(14);
+      margin-right: $spacing-sm;
+      vertical-align: middle;
+      border: 2px solid $color-border-light;
+      border-top-color: $color-accent;
+      border-radius: 50%;
+      animation: fs-exam-spin 0.8s linear infinite;
+    }
+  }
+}
+
+@keyframes fs-exam-spin {
+  to { transform: rotate(360deg); }
+}
+
+// ── Карусель сеансов: три карточки и край четвёртой, на телефоне — одна и край следующей ──────────
+.fs-exam-carousel {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: $spacing-sm;
+
+  &__track {
+    display: flex;
+    gap: $spacing-md;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+    padding: $spacing-xs 0;
+
+    &::-webkit-scrollbar { display: none; }
+  }
+
+  &__arrow {
+    display: grid;
+    place-items: center;
+    width: rem(36);
+    height: rem(36);
+    padding: 0;
+    cursor: pointer;
+    color: $color-accent;
+    background: transparent;
+    border: 1px solid $color-border-light;
+    border-radius: 50%;
+
+    &:disabled {
+      cursor: default;
+      opacity: 0.35;
+    }
+  }
+}
+
+.fs-exam-slot {
+  flex: 0 0 calc((100% - #{$spacing-md * 3}) / 3.35);
+  scroll-snap-align: start;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: $spacing-xs;
+  padding: $spacing-md;
+  cursor: pointer;
+  text-align: left;
+  color: $color-text;
+  background: $color-bg-subtle;
+  border: 1px solid $color-border-light;
+  border-radius: $border-radius-md;
+
+  &[aria-checked='true'] {
+    border-color: $color-accent;
+    box-shadow: 0 0 0 1px $color-accent;
+  }
+
+  &.is-full {
+    cursor: default;
+    color: $color-muted;
+    opacity: 0.6;
+  }
+
+  &__date { font-weight: $font-medium; }
+
+  &__weekday,
+  &__room { font-size: $font-size-sm; color: $color-muted; }
+  &__time { font-size: $font-size-md; font-weight: $font-medium; }
+}
+
+@media (max-width: 640px) {
+  .fs-exam-slot {
+    flex-basis: 78%;
+  }
+}
+
+// ── Резюме перед оплатой: «ключ — значение» ───────────────────────────────────────────────────────
+.fs-exam-summary {
+  margin: $spacing-lg 0;
+  padding: $spacing-lg;
+  background: $color-bg-subtle;
+  border-radius: $border-radius-md;
+
+  &__title {
+    margin: 0 0 $spacing-md;
+    font-size: $font-size-md;
+    font-weight: $font-medium;
+  }
+
+  &__list {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: $spacing-xs $spacing-lg;
+    margin: 0;
+
+    dt { color: $color-muted; }
+    dd { margin: 0; color: $color-text; }
+  }
+
+  &__note {
+    margin: $spacing-md 0 0;
+    font-size: $font-size-sm;
+    color: $color-muted;
+  }
+}
+
+// ── Корзина и оформление: обратный отсчёт брони; страница «Спасибо»: статус записи ────────────────
+.fs-exam-hold {
+  margin: $spacing-md 0;
+  padding: $spacing-md $spacing-lg;
+  font-size: $font-size-base;
+  background: $color-bg-subtle;
+  border-left: rem(3.6) solid $color-accent;
+  border-radius: 0 $border-radius-md $border-radius-md 0;
+
+  &.is-expired { border-left-color: $color-muted; color: $color-muted; }
+}
+
+.fs-exam-order-status {
+  margin: $spacing-lg 0;
+
+  &__item {
+    padding: $spacing-lg;
+    margin-bottom: $spacing-md;
+    background: $color-bg-subtle;
+    border-radius: $border-radius-md;
+
+    &.is-confirmed { border-left: rem(3.6) solid $color-accent; }
+  }
+
+  &__title { margin: 0 0 $spacing-sm; font-weight: $font-medium; }
+  &__line { margin: 0 0 $spacing-xs; color: $color-muted; }
+}

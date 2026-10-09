@@ -25,6 +25,17 @@ class ExamRegistrationRepository extends AbstractExamRepository {
 		return $this->insertRow( $this->table, $data );
 	}
 
+	/**
+	 * Отметка прихода (операционная): время и автор. `null` снимает отметку. Статус записи и допуск не затрагиваются.
+	 */
+	public function setArrival( int $id, ?string $arrivedAtUtc, ?int $byUserId ): void {
+		$this->updateRow(
+			$this->table,
+			array( 'arrived_at' => $arrivedAtUtc, 'arrived_by_user_id' => $byUserId ),
+			array( 'id' => $id )
+		);
+	}
+
 	public function find( int $id ): ?ExamRegistrationDTO {
 		return $this->hydrate( $this->readRow( $this->wpdb->prepare( 'SELECT * FROM %i WHERE id = %d', $this->table, $id ) ) );
 	}
@@ -70,6 +81,28 @@ class ExamRegistrationRepository extends AbstractExamRepository {
 				$this->wpdb->prepare( "SELECT * FROM %i WHERE session_id = %d AND status IN ( {$placeholders} ) ORDER BY id ASC", $this->table, $sessionId, ...$values )
 			);
 		}
+		return array_map( array( ExamRegistrationDTO::class, 'fromArray' ), $rows );
+	}
+
+	/**
+	 * Действующие записи на открытые сеансы, начинающиеся в окне `[fromUtc, toUtc]` (для напоминаний).
+	 *
+	 * @return ExamRegistrationDTO[]
+	 */
+	public function listConfirmedStartingBetween( string $fromUtc, string $toUtc, int $limit = 1000 ): array {
+		$rows = $this->readRows( $this->wpdb->prepare(
+			'SELECT r.* FROM %i r INNER JOIN %i s ON s.id = r.session_id
+			 WHERE r.active_slot = 1 AND r.status = %s AND s.status = %s AND s.scheduled_at >= %s AND s.scheduled_at <= %s
+			 ORDER BY s.scheduled_at ASC, r.id ASC LIMIT %d',
+			$this->table,
+			TableName::ExamSessions->prefixed(),
+			ExamRegistrationStatus::Confirmed->value,
+			ExamSessionStatus::Open->value,
+			$fromUtc,
+			$toUtc,
+			$limit
+		) );
+
 		return array_map( array( ExamRegistrationDTO::class, 'fromArray' ), $rows );
 	}
 

@@ -123,7 +123,12 @@ class AssessmentPageController extends BaseController implements ServiceInterfac
 		// доступ закрываем здесь. Гость → логин с возвратом на эту же ссылку.
 		$userId   = get_current_user_id();
 		$isPublic = (bool) apply_filters( self::PUBLIC_ACCESS_FILTER, false, $assessment );
-		if ( ! $userId && ! $isPublic ) {
+		// Гость экзамена (11b.2.4): без входа в WordPress, но с `?exam_reg=` и гостевой сессией — станция вместо логина.
+		$examRegistrationId = $this->hasParam( AssessmentManager::EXAM_REGISTRATION_PARAM, 'GET' )
+			? $this->sanitizeGetInt( AssessmentManager::EXAM_REGISTRATION_PARAM )
+			: 0;
+		$isGuestExam        = ! $userId && $examRegistrationId > 0 && $assessment->kind->isStation();
+		if ( ! $userId && ! $isPublic && ! $isGuestExam ) {
 			// Логин-URL внутренний и доверенный — редиректим как в LessonPlayerController.
 			wp_redirect( wp_login_url( get_permalink( $post->ID ) ?: home_url( '/' ) ) );
 			exit;
@@ -138,14 +143,18 @@ class AssessmentPageController extends BaseController implements ServiceInterfac
 		// `?exam_reg=ID` — официальная попытка экзамена по записи ученика (минуя занятие курса). Запись
 		// чужая, закрыта или её вариант не эта работа — обычный 404, как для постороннего: на курсовой
 		// путь и предпросмотр такой адрес не откатывается.
-		$examRegistrationId = $this->hasParam( AssessmentManager::EXAM_REGISTRATION_PARAM, 'GET' )
-			? $this->sanitizeGetInt( AssessmentManager::EXAM_REGISTRATION_PARAM )
-			: 0;
-		$isExamPage         = $userId && $examRegistrationId > 0 && $assessment->kind->isStation();
+		$isExamPage = ( $userId || $isGuestExam ) && $examRegistrationId > 0 && $assessment->kind->isStation();
 		if ( $isExamPage ) {
-			$page = $this->pageService->buildForExam( $assessment, $userId, $examRegistrationId );
+			$page = $isGuestExam
+				? $this->pageService->buildForGuestExam( $assessment, $examRegistrationId )
+				: $this->pageService->buildForExam( $assessment, $userId, $examRegistrationId );
 			if ( null === $page ) {
 				return $this->notFoundTemplate();
+			}
+			if ( $isGuestExam ) {
+				// Страница гостя не кешируется и не отдаёт адрес в Referer.
+				nocache_headers();
+				header( 'Referrer-Policy: no-referrer', true );
 			}
 		} else {
 			$reviewAttemptId = $this->hasParam( 'attempt', 'GET' ) ? $this->sanitizeGetInt( 'attempt' ) : 0;
@@ -192,6 +201,7 @@ class AssessmentPageController extends BaseController implements ServiceInterfac
 		$publicMode     = $page->publicMode;
 		$reviewMode     = $page->reviewMode;
 		$reviewReveal   = $page->reviewReveal;
+		$guestMode      = $page->guestMode;
 		$attemptsUsed   = $page->attemptsUsed;
 
 		// Публичный экзамен открывается сразу на заданиях — без экранов ритуала и входа,
@@ -205,7 +215,7 @@ class AssessmentPageController extends BaseController implements ServiceInterfac
 		$introTemplate   = $this->resolveIntro( $assessment );
 		$backUrl       = $publicMode
 			? (string) apply_filters( self::PUBLIC_BACK_URL_FILTER, home_url( '/' ), $assessment )
-			: ( $isExamPage ? PageRoutes::UserProfile->screenUrl( 'learner-exams' ) : $this->resolveBackUrl( $reviewMode ) );
+			: ( $isGuestExam ? ( null !== $page->lastAttempt ? PageRoutes::ExamResult->url() : PageRoutes::ExamEntry->url() ) : ( $isExamPage ? PageRoutes::UserProfile->screenUrl( 'learner-exams' ) : $this->resolveBackUrl( $reviewMode ) ) );
 
 		// T15.1: дефолтный рендерер получает générique bare-шелл плеера (см. ROUTE_FILTER).
 		if ( $defaultTemplate === $template ) {

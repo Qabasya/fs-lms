@@ -45,6 +45,7 @@ class ExamSourceService {
 		private readonly AssessmentManager $assessments,
 		private readonly LogEventDispatcherInterface $logEvents,
 		private readonly ExamTime $time,
+		private readonly GuestSessionService $guestSessions,
 	) {}
 
 	/**
@@ -175,6 +176,7 @@ class ExamSourceService {
 		$this->inTransactionWithRetry( function () use ( $actorUserId, $sourceId, $eventId ): void {
 			$source = $this->lockSource( $sourceId, $eventId );
 			$this->tokens->revoke( ExamTokenPurpose::Invitation, $sourceId );
+			$this->guestSessions->revokeBySource( $sourceId );
 			$this->sources->setKeyRevokedAt( $sourceId, $this->time->nowUtc() );
 			$this->audit( $actorUserId, OperationType::Update, LogEvent::ExamSourceUpdated, $sourceId, $source->schoolName . ': ссылка отозвана' );
 		} );
@@ -199,6 +201,8 @@ class ExamSourceService {
 	private function publishKey( int $actorUserId, ExamSourceDTO $source, string $auditNote ): string {
 		$event = $this->events->find( $source->eventId );
 		$plain = $this->tokens->issue( ExamTokenPurpose::Invitation, $source->id, $actorUserId, $event?->registrationClosesAt );
+		// Открытые по прежней ссылке формы после обновления страницы дают 404.
+		$this->guestSessions->revokeBySource( $source->id );
 		$this->sources->bumpGeneration( $source->id );
 		$this->sources->setKeyRevokedAt( $source->id, null );
 		$this->audit( $actorUserId, OperationType::Update, LogEvent::ExamSourceUpdated, $source->id, $source->schoolName . ': ' . $auditNote );

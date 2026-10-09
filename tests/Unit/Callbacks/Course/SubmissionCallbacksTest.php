@@ -25,7 +25,7 @@ class SubmissionCallbacksTest extends TestCase {
 		$this->persons  = $this->createMock( PersonRepository::class );
 		$this->media    = $this->createMock( MediaManager::class );
 		$this->attempts = $this->createMock( AssessmentAttemptRepository::class );
-		$this->cb       = new SubmissionCallbacks( $this->persons, $this->media, $this->attempts );
+		$this->cb       = new SubmissionCallbacks( $this->persons, $this->media, $this->attempts, $this->createMock( \Inc\Services\Exam\GuestSessionService::class ) );
 	}
 
 	private function person( int $id ): PersonDTO {

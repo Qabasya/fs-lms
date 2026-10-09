@@ -128,4 +128,9 @@ class ExamSchemaTest extends TestCase {
 		}
 		self::assertStringNotContainsString( 'MODIFY student_person_id', $down, 'student_person_id обратно в NOT NULL не возвращается.' );
 	}
+
+	public function test_consent_version_column_fits_sha256_hash(): void {
+		self::assertSame( '1.0.72', ( new \Inc\Migrations\Migration_1_0_72() )->version() );
+		self::assertStringContainsString( 'version              varchar(64)', (string) file_get_contents( dirname( __DIR__, 3 ) . '/inc/Migrations/Migration_1_0_0.php' ) );
+	}
 }

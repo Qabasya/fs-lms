@@ -83,6 +83,7 @@ class ExamTokenOutboxSourceRepositoriesTest extends TestCase {
 
 		$sql = $this->wpdb->queries[0];
 		self::assertStringContainsString( 'processed_at IS NULL', $sql );
+		self::assertStringContainsString( 'attempts < 10', $sql, 'После десяти неудач строка больше не берётся.' );
 		self::assertStringContainsString( "available_at <= '2026-03-10 07:00:00'", $sql );
 		self::assertStringContainsString( "leased_until < '2026-03-10 07:00:00'", $sql );
 		self::assertStringNotContainsString( 'NOW()', $sql, 'Время — параметром UTC, а не поясом сервера базы.' );

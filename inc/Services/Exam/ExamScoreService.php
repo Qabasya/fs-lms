@@ -76,6 +76,26 @@ class ExamScoreService {
 	}
 
 	/**
+	 * Подпись итога: ЕГЭ — «{вторичный} из {макс}», ОГЭ — «{первичный} из {макс}, отметка {N}». Неокончательный итог (ручная часть
+	 * ещё проверяется) — первичным баллом. Единственное место формата: кабинет (`resultCaption()` в JS) и страница гостя совпадают.
+	 *
+	 * @param array<string, mixed> $summary Результат {@see summarize()}.
+	 */
+	public function caption( array $summary ): string {
+		if ( array() === $summary ) {
+			return '';
+		}
+
+		$primary = sprintf( '%s из %s', $summary['primary'], $summary['primary_max'] );
+		$final   = ! empty( $summary['final'] );
+		if ( ExamDirection::Oge->value === ( $summary['direction'] ?? '' ) ) {
+			return $final && null !== ( $summary['grade'] ?? null ) ? sprintf( '%s, отметка %s', $primary, $summary['grade'] ) : $primary;
+		}
+
+		return $final && null !== ( $summary['secondary'] ?? null ) ? sprintf( '%s из %s', $summary['secondary'], $summary['secondary_max'] ) : $primary;
+	}
+
+	/**
 	 * Единицы оценивания для перечня заданий: несколько заданий одного номера — одна единица.
 	 *
 	 * @param array<int, array<string, mixed>> $tasks Задания из WorkDetailService (`unit_key`, `number`, `anchor`, `verdict`, `score`, `max_score`, `task_id`).

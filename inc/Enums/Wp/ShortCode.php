@@ -26,6 +26,15 @@ enum ShortCode: string {
 	/** Шорткод формы авторизации (входа в личный кабинет) */
 	case LoginForm    = 'fs_lms_login_form';
 
+	/** Шорткод формы записи гостя на экзамен (по ссылке школы) */
+	case ExamSignup   = 'fs_lms_exam_signup';
+
+	/** Шорткод страницы входа гостя на экзамен */
+	case ExamEntry    = 'fs_lms_exam_entry';
+
+	/** Шорткод страницы результата гостя */
+	case ExamResult   = 'fs_lms_exam_result';
+
 	/** Шорткод личного кабинета пользователя */
 	case Profile      = 'fs_lms_profile';
 

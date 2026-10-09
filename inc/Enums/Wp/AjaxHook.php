@@ -352,7 +352,32 @@ enum AjaxHook: string {
 	case DeleteExamSession      = 'delete_exam_session';      // params: session_id
 	case SaveExamEvent          = 'save_exam_event';          // params: event_id?, subject_key, title, description, period_from, period_to, registration_opens_at, registration_closes_at, default_assessment_id, guest_registration_enabled, version?
 	case PublishExamEvent       = 'publish_exam_event';       // params: event_id, version
+	case MoveExamSession        = 'move_exam_session';        // params: session_id, date, time, room_id, reason, version (сеанс с участниками)
+	case CancelExamSession      = 'cancel_exam_session';      // params: session_id, reason, version
 	case CancelExamEvent        = 'cancel_exam_event';        // params: event_id, reason, version
+	// ==== Экзамены: проведение сеанса сотрудником (этап 8) ====
+	case GetExamConduct                 = 'get_exam_conduct';                   // params: session_id?, event_id?; ответ: доска сеанса (без параметров — идущий или ближайший сеанс)
+	case CancelExamRegistrationByStaff  = 'cancel_exam_registration_by_staff';  // params: session_id (для доски), registration_id, reason; ответ: доска
+	case TransferExamRegistration       = 'transfer_exam_registration';         // params: session_id (для доски), registration_id, target_session_id, reason; ответ: доска
+	case ExtendExamAttempt              = 'extend_exam_attempt';                // params: session_id (для доски), attempt_id, minutes (1…120), reason; ответ: доска
+	case ApproveExamAttempts            = 'approve_exam_attempts';              // params: session_id? (для доски), items[][attempt_id, result_version]; ответ: approved, skipped[], board?
+	case CorrectExamResult              = 'correct_exam_result';                // params: attempt_id, changes[][task_id, score, feedback?], reason, result_version; ответ: result_version
+	case ExportExamParticipants         = 'export_exam_participants';           // params: session_id | participation_ids[]; ответ: url (CSV без контактов; ManageLmsPlatform + ExportPII)
+	case GetExamPrintList               = 'get_exam_print_list';                // params: session_id | participation_ids[]; ответ: title, rows (ФИО, источник, сеанс; без контактов; ManageLmsPlatform + ExportPII)
+	case AddExamGuestOnSite             = 'add_exam_guest_on_site';             // params: session_id, source_id, last_name, first_name, middle_name?, phone, messenger?, consents[], request_key, confirmed? (0/1); ответ: status created (pay_url — один раз) | needs_confirmation (candidates)
+	case IssueExamResultLink            = 'issue_exam_result_link';             // params: participation_id; ответ: url (один раз, прежний ключ отзывается)
+	case RevokeExamResultLink           = 'revoke_exam_result_link';            // params: participation_id, session_id; ответ: board
+	case EndExamGuestSession            = 'end_exam_guest_session';             // публичный (nonce ExamGuest): отзыв гостевой сессии и удаление куки; ответ: url нейтральной страницы
+	case AdmitExamGuest                 = 'admit_exam_guest';                   // params: participation_id, admitted (0|1); ответ: board
+	case IssueExamEntryLink             = 'issue_exam_entry_link';              // params: participation_id; ответ: url (один раз, прежний ключ отзывается)
+	case IssueExamGuestPayLink          = 'issue_exam_guest_pay_link';          // params: application_id; ответ: pay_url (один раз, прежний ключ отзывается)
+	case MarkExamArrival                = 'mark_exam_arrival';                  // params: session_id (для доски), registration_id, arrived (0/1); ответ: доска
+
+	case GetExamResults         = 'get_exam_results';         // params: subject_key, event_id?, session_id?, status? (pending_review|ready|approved|all), audience? (student|guest|all), source_id?; ответ: filters, items
+	case GetExamStats           = 'get_exam_stats';           // params: subject_key, event_id?, session_id?, audience? (student|guest|all); ответ: filters, format, kpi, tasks
+	// ==== Экзамены: гость (публичные, nonce ExamGuest, 11a) ====
+	case SubmitExamGuestApplication = 'submit_exam_guest_application'; // params: поля формы, session_id, consents[], request_key, honeypot, form_token; ответ: redirect, hold_expires_at, seconds_left
+	case CheckExamApplicationStatus = 'check_exam_application_status'; // params: order_id, key; ответ: статус записи (только владельцу заказа)
 	case GetExamSources         = 'get_exam_sources';         // params: event_id; ответ: источники без ключей и хешей
 	case SaveExamSource         = 'save_exam_source';         // params: event_id, source_id?, school_name, teacher_name, grade, version?
 	case IssueExamSourceLink    = 'issue_exam_source_link';   // params: source_id; ответ: url (один раз)

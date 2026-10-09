@@ -12,6 +12,8 @@ use Inc\Repositories\WPDBRepositories\AssessmentAnswerRepository;
 use Inc\Repositories\WPDBRepositories\AssessmentAttemptRepository;
 use Inc\Services\Assessment\AutoGradeService;
 use Inc\Services\Course\GroupAccessGuard;
+use Inc\Services\Exam\ExamApprovalService;
+use Inc\Services\Exam\ExamConductService;
 use PHPUnit\Framework\TestCase;
 
 class GradeAttemptCallbacksTest extends TestCase {
@@ -21,6 +23,8 @@ class GradeAttemptCallbacksTest extends TestCase {
 	private AutoGradeService            $autoGrade;
 	private GroupAccessGuard            $guard;
 	private PostManager                 $posts;
+	private ExamConductService          $examConduct;
+	private ExamApprovalService         $examApproval;
 	private GradeAttemptCallbacks       $cb;
 
 	protected function setUp(): void {
@@ -31,6 +35,8 @@ class GradeAttemptCallbacksTest extends TestCase {
 		$this->autoGrade = $this->createMock( AutoGradeService::class );
 		$this->guard     = $this->createMock( GroupAccessGuard::class );
 		$this->posts     = $this->createMock( PostManager::class );
+		$this->examConduct  = $this->createMock( ExamConductService::class );
+		$this->examApproval = $this->createMock( ExamApprovalService::class );
 		$this->cb        = new GradeAttemptCallbacks(
 			$this->attempts,
 			$this->answers,
@@ -38,6 +44,8 @@ class GradeAttemptCallbacksTest extends TestCase {
 			$this->createMock( ClockInterface::class ),
 			$this->guard,
 			$this->posts,
+			$this->examConduct,
+			$this->examApproval,
 		);
 	}
 
@@ -284,5 +292,115 @@ class GradeAttemptCallbacksTest extends TestCase {
 		$_POST = array( 'attempt_id' => '5' );
 
 		self::assertTrue( fs_test_capture_json( fn() => $this->cb->ajaxApproveAttempt() )->success );
+	}
+
+	/* ── Этап 8.4: экзаменная попытка ────────────────────────────────────── */
+
+	/** @param array<string, mixed> $override */
+	private function examAttempt( array $override = array() ): AttemptDTO {
+		return AttemptDTO::fromArray( array_merge( array(
+			'id' => 5, 'assessment_id' => 1, 'student_person_id' => 9001, 'attempt_number' => 1,
+			'started_at' => '2026-01-01 00:00:00', 'deadline_at' => '2026-01-01 01:00:00', 'status' => 'submitted',
+			'exam_participation_id' => 70, 'exam_registration_id' => 20, 'result_version' => 4,
+		), $override ) );
+	}
+
+	private function manualTask(): void {
+		$this->posts->method( 'getMeta' )->willReturnMap( array(
+			array( 7, 'fs_lms_template_type', 'file_answer_task' ),
+			array( 7, 'fs_lms_meta', array() ),
+		) );
+	}
+
+	public function test_exam_attempt_grading_requires_event_scope(): void {
+		$this->attempts->method( 'find' )->willReturn( $this->examAttempt() );
+		$this->examConduct->expects( self::once() )->method( 'canManageAttempt' )->willReturn( true );
+		$this->guard->expects( self::never() )->method( 'canWriteJournal' );
+		$this->attempts->method( 'bumpResultVersion' )->willReturn( true );
+		$this->autoGrade->method( 'finalize' )->willReturn( $this->examAttempt() );
+		$this->manualTask();
+		$_POST = array( 'attempt_id' => '5', 'task_id' => '7', 'score' => '2', 'is_correct' => '1', 'result_version' => '4' );
+
+		self::assertTrue( fs_test_capture_json( fn() => $this->cb->ajaxGradeAttempt() )->success );
+	}
+
+	public function test_teacher_of_other_subject_cannot_grade_exam_attempt(): void {
+		$this->attempts->method( 'find' )->willReturn( $this->examAttempt() );
+		$this->examConduct->method( 'canManageAttempt' )->willReturn( false );
+		$this->attempts->expects( self::never() )->method( 'bumpResultVersion' );
+		$this->answers->expects( self::never() )->method( 'upsert' );
+		$_POST = array( 'attempt_id' => '5', 'task_id' => '7', 'score' => '2', 'is_correct' => '1', 'result_version' => '4' );
+
+		self::assertFalse( fs_test_capture_json( fn() => $this->cb->ajaxGradeAttempt() )->success );
+	}
+
+	public function test_attempt_without_group_and_exam_context_is_denied(): void {
+		$attempt = AttemptDTO::fromArray( array(
+			'id' => 5, 'assessment_id' => 1, 'student_person_id' => 9001, 'attempt_number' => 1,
+			'started_at' => '2026-01-01 00:00:00', 'deadline_at' => '2026-01-01 01:00:00', 'status' => 'submitted',
+		) );
+		$this->attempts->method( 'find' )->willReturn( $attempt );
+		$this->guard->expects( self::never() )->method( 'canWriteJournal' );
+		$this->answers->expects( self::never() )->method( 'upsert' );
+		$_POST = array( 'attempt_id' => '5', 'task_id' => '7', 'score' => '2', 'is_correct' => '1' );
+
+		self::assertFalse( fs_test_capture_json( fn() => $this->cb->ajaxGradeAttempt() )->success );
+	}
+
+	public function test_grade_with_stale_result_version_is_rejected(): void {
+		$this->attempts->method( 'find' )->willReturn( $this->examAttempt() );
+		$this->examConduct->method( 'canManageAttempt' )->willReturn( true );
+		$this->attempts->expects( self::once() )->method( 'bumpResultVersion' )->with( 5, 3 )->willReturn( false );
+		$this->answers->expects( self::never() )->method( 'upsert' );
+		$this->manualTask();
+		$_POST = array( 'attempt_id' => '5', 'task_id' => '7', 'score' => '2', 'is_correct' => '1', 'result_version' => '3' );
+
+		$r = fs_test_capture_json( fn() => $this->cb->ajaxGradeAttempt() );
+
+		self::assertFalse( $r->success );
+	}
+
+	public function test_approved_exam_attempt_is_not_graded_as_usual(): void {
+		$this->attempts->method( 'find' )->willReturn( $this->examAttempt( array( 'approved_at' => '2026-01-02 10:00:00' ) ) );
+		$this->examConduct->method( 'canManageAttempt' )->willReturn( true );
+		$this->attempts->expects( self::never() )->method( 'bumpResultVersion' );
+		$this->answers->expects( self::never() )->method( 'upsert' );
+		$_POST = array( 'attempt_id' => '5', 'task_id' => '7', 'score' => '2', 'is_correct' => '1', 'result_version' => '4' );
+
+		self::assertFalse( fs_test_capture_json( fn() => $this->cb->ajaxGradeAttempt() )->success );
+	}
+
+	public function test_course_attempt_grading_unchanged(): void {
+		$this->attempts->method( 'find' )->willReturn( $this->attemptFixture() );
+		$this->guard->method( 'canWriteJournal' )->willReturn( true );
+		$this->examConduct->expects( self::never() )->method( 'canManageAttempt' );
+		$this->attempts->expects( self::never() )->method( 'bumpResultVersion' );
+		$this->autoGrade->method( 'finalize' )->willReturn( $this->attemptFixture() );
+		$this->manualTask();
+		$_POST = array( 'attempt_id' => '5', 'task_id' => '7', 'score' => '2', 'is_correct' => '1' );
+
+		$r = fs_test_capture_json( fn() => $this->cb->ajaxGradeAttempt() );
+
+		self::assertTrue( $r->success );
+		self::assertArrayNotHasKey( 'result_version', $r->payload );
+	}
+
+	public function test_exam_attempt_approval_goes_through_approval_service(): void {
+		$this->attempts->method( 'find' )->willReturn( $this->examAttempt() );
+		$this->examConduct->method( 'canManageAttempt' )->willReturn( true );
+		$this->attempts->expects( self::never() )->method( 'approve' );
+		$this->examApproval->expects( self::once() )->method( 'approve' )->with( self::anything(), 5, 4 )->willReturn( array( 'status' => 'approved' ) );
+		$_POST = array( 'attempt_id' => '5', 'result_version' => '4' );
+
+		self::assertTrue( fs_test_capture_json( fn() => $this->cb->ajaxApproveAttempt() )->success );
+	}
+
+	public function test_exam_attempt_approval_refusal_is_reported(): void {
+		$this->attempts->method( 'find' )->willReturn( $this->examAttempt() );
+		$this->examConduct->method( 'canManageAttempt' )->willReturn( true );
+		$this->examApproval->method( 'approve' )->willReturn( array( 'status' => 'skipped', 'reason' => 'pending_review' ) );
+		$_POST = array( 'attempt_id' => '5', 'result_version' => '4' );
+
+		self::assertFalse( fs_test_capture_json( fn() => $this->cb->ajaxApproveAttempt() )->success );
 	}
 }

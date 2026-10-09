@@ -80,6 +80,7 @@ use Inc\Controllers\Assessment\AssessmentController;
 use Inc\Controllers\Group\ScheduleController;
 use Inc\Controllers\Group\SubstitutionController;
 use Inc\Controllers\Group\RoomController;
+use Inc\Controllers\Exam\ExamGuestPageController;
 use Inc\Controllers\Exam\WooExamController;
 use Inc\Controllers\Exam\ExamController;
 use Inc\Controllers\Profile\ProfileDashboardController;
@@ -113,6 +114,7 @@ use Inc\Migrations\Migration_1_0_54;
 use Inc\Migrations\Migration_1_0_62;
 use Inc\Migrations\Migration_1_0_70;
 use Inc\Migrations\Migration_1_0_71;
+use Inc\Migrations\Migration_1_0_72;
 use Inc\Migrations\MigrationRunner;
 use Inc\Services\Log\LogEventDispatcher;
 use Inc\Services\Shared\WpClock;
@@ -234,6 +236,7 @@ final class Init {
 			// ==== Этап 3 — сдача работ ====
 			WooExamController::class,        // Совместимость с HPOS WooCommerce (экзамены)
 			ExamController::class,           // AJAX контроллер управления экзаменами
+			ExamGuestPageController::class,  // Публичные страницы гостя: запись по ссылке школы, вход, результат
 			SubmissionController::class,       // AJAX сдачи / проверки / журнала
 			AssessmentController::class,       // AJAX попыток контрольных
 			// ==== Опциональные модули (изолированы, вырезаются удалением каталога + этой строки) ====
@@ -297,6 +300,7 @@ final class Init {
 		$migrationRunner->register( new Migration_1_0_62() );
 		$migrationRunner->register( new Migration_1_0_70() );
 		$migrationRunner->register( new Migration_1_0_71() );
+		$migrationRunner->register( new Migration_1_0_72() );
 		$migrationRunner->run();
 
 		// Data-миграция (не схема): ссылки на файлы заданий со старой схемой
@@ -317,5 +321,6 @@ final class Init {
 		$container->get( \Inc\Migrations\LearningEventActorMigration::class )->run();
 		// Уроки-черновики больше не открываются по дате — уже открытые фиксируем в БД.
 		$container->get( \Inc\Migrations\DraftLessonOpenMigration::class )->run();
+		$container->get( \Inc\Migrations\ExamPagesMigration::class )->run();
 	}
 }

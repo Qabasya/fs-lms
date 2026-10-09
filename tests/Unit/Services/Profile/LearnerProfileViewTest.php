@@ -33,9 +33,9 @@ class LearnerProfileViewTest extends TestCase {
 		self::assertSame( 'Мои экзамены', array_column( $built['nav'], 'label', 'key' )['learner-exams'] );
 	}
 
-	public function test_exams_item_goes_right_after_my_courses(): void {
+	public function test_exams_item_is_last_in_menu(): void {
 		$keys = array_column( ( new LearnerProfileView() )->build( new ProfileContext( 1, 5, UserRole::FSStudent, 5, false, array() ) )['nav'], 'key' );
 
-		self::assertSame( array_search( 'learner-lessons', $keys, true ) + 1, array_search( 'learner-exams', $keys, true ) );
+		self::assertSame( 'learner-exams', end( $keys ) );
 	}
 }

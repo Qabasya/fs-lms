@@ -217,7 +217,7 @@ class Migration_1_0_0 implements MigrationInterface {
 			person_id            int unsigned        DEFAULT NULL,
 			subject_role         varchar(20)         NOT NULL,
 			consent_type         varchar(50)         NOT NULL,
-			version              varchar(20)         NOT NULL,
+			version              varchar(64)         NOT NULL,
 			document_hash        varchar(64)         NOT NULL DEFAULT '',
 			ip_address           varchar(45)         NOT NULL,
 			user_agent           varchar(500)        NOT NULL DEFAULT '',

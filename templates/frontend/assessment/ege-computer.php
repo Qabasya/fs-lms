@@ -33,7 +33,8 @@ use Inc\Enums\Assessment\AttemptStatus;
 // Публичный экзамен ({$publicMode}) — тот же режим «без попытки», но для любого посетителя.
 $sandbox = $previewMode || $publicMode;
 
-if ( ! $person && ! $sandbox ) {
+// Гость экзамена вне курса ({$guestMode}) — без ученика и учётки: личность подтверждена гостевой сессией страницы.
+if ( ! $person && ! $sandbox && empty( $guestMode ) ) {
 	wp_redirect( wp_login_url( get_permalink() ) );
 	exit;
 }

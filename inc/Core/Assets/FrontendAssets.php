@@ -134,6 +134,46 @@ class FrontendAssets extends BaseController {
 			// данные попытки из единого провайдера BundleLoader::assessmentVars().
 			'fs_lms_assessment_vars' => $isAssessment ? $this->bundles->assessmentVars() : null,
 			'fs_lms_join_vars'       => 'join' === get_query_var( 'fs_lms_page' ) ? $this->joinVars() : null,
+			'fs_lms_exam_signup_vars' => $this->isExamShopOrSignupPage() ? $this->examSignupVars() : null,
+			'fs_lms_exam_guest_vars'  => PageRoutes::ExamEntry->isCurrent() || PageRoutes::ExamResult->isCurrent() ? $this->examGuestVars() : null,
+		);
+	}
+
+	/** Страница записи гостя либо страницы магазина, где работают отсчёт брони и «Проверить статус» (корзина, оформление, «Спасибо»). */
+	private function isExamShopOrSignupPage(): bool {
+		if ( PageRoutes::ExamSignup->isCurrent() ) {
+			return true;
+		}
+
+		return function_exists( 'is_cart' ) && ( is_cart() || is_checkout() );
+	}
+
+	/**
+	 * Страницы входа и результата гостя (этап 11b.4): «Завершить сеанс» — публичный экшен под nonce `ExamGuest`.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function examGuestVars(): array {
+		return array(
+			'ajax_url' => admin_url( 'admin-ajax.php' ),
+			'actions'  => array( 'end_session' => AjaxHook::EndExamGuestSession->jsAction() ),
+			'nonce'    => Nonce::ExamGuest->create(),
+		);
+	}
+
+	/**
+	 * Запись гостя на экзамен и статус заказа (этап 11a): публичные экшены под nonce `ExamGuest`.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function examSignupVars(): array {
+		return array(
+			'ajax_url' => admin_url( 'admin-ajax.php' ),
+			'actions'  => array(
+				'submit'       => AjaxHook::SubmitExamGuestApplication->jsAction(),
+				'check_status' => AjaxHook::CheckExamApplicationStatus->jsAction(),
+			),
+			'nonce'    => Nonce::ExamGuest->create(),
 		);
 	}
 

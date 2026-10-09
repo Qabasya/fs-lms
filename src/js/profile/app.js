@@ -43,10 +43,10 @@ const SCREENS = {
     'learner-exams':      (root) => renderLearnerExams(root, { openReview: openExamReviewFrom }),
     'learner-grades':     renderLearnerGrades,
     'learner-attendance': renderLearnerAttendance,
-    'exam-conduct':       renderExamConduct,
+    'exam-conduct':       (root) => renderExamConduct(root, { openWorkReview: openWorkReviewFrom('exam-conduct') }),
     'exam-stats':         renderExamStats,
     'exam-plan':          renderExamPlan,
-    'exam-results':       renderExamResults,
+    'exam-results':       (root) => renderExamResults(root, { openWorkReview: openWorkReviewFrom('exam-results') }),
     'exam-payments':      renderExamPayments,
 };
 
@@ -277,16 +277,6 @@ function buildSidebar() {
             ${esc(item.label)}
         </div>`).join(''));
 
-    // «Мои экзамены» сотрудника: своя секция после «Меню»; пункты приходят по праву (cfg.examNav), без пунктов секции нет.
-    if (cfg.examNav && cfg.examNav.length) {
-        html += sectionHeader('Мои экзамены', 'examsCollapsed');
-        html += sectionBody('examsCollapsed', cfg.examNav.map(item => `
-            <div class="prof-nav-item" data-go="${esc(item.key)}">
-                <span class="ni-ico">${NAV_ICONS[item.key] || ''}</span>
-                ${esc(item.label)}
-            </div>`).join(''));
-    }
-
     if (cfg.groups && cfg.groups.length) {
         html += sectionHeader('Мои группы', 'groupsCollapsed');
         html += sectionBody('groupsCollapsed', cfg.groups.map(g => `
@@ -308,6 +298,16 @@ function buildSidebar() {
             : '';
         html += sectionBody('coursesCollapsed', `${search}<div id="profCoursesList">${courseItemsHtml()}</div>`);
     }
+    // «Мои экзамены» сотрудника: своя секция последней в сайдбаре (после групп и курсов); пункты приходят по праву (cfg.examNav), без пунктов секции нет.
+    if (cfg.examNav && cfg.examNav.length) {
+        html += sectionHeader('Мои экзамены', 'examsCollapsed');
+        html += sectionBody('examsCollapsed', cfg.examNav.map(item => `
+            <div class="prof-nav-item" data-go="${esc(item.key)}">
+                <span class="ni-ico">${NAV_ICONS[item.key] || ''}</span>
+                ${esc(item.label)}
+            </div>`).join(''));
+    }
+
     if (nav) nav.innerHTML = html;
 
     const user = document.getElementById('profUser');
@@ -488,6 +488,14 @@ export function initProfile() {
     } else if ('teacher-courses' === wanted && course && cfg.screens.includes(wanted)) {
         // «К курсу» из плеера урока (Tasks.md З4) — страница этого курса.
         openCoursePage(course);
+    } else if ('learner-exams' === wanted && params.get('event') && cfg.screens.includes(wanted)) {
+        // Уведомление об экзамене: карточка этого проведения (9.1.4).
+        openLearnerExam(params.get('event'));
+        go(wanted);
+    } else if ('exam-conduct' === wanted && params.get('session') && cfg.screens.includes(wanted)) {
+        // Уведомление сотруднику: доска этого сеанса (9.1.4).
+        openExamConductFor(params.get('session'));
+        go(wanted);
     } else {
         go(wanted && cfg.screens.includes(wanted) ? wanted : cfg.screens[0]);
     }

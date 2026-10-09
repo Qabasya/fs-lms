@@ -43,6 +43,29 @@ class ExamPaymentLinkRepository extends AbstractExamRepository {
 		return array_map( array( ExamPaymentLinkDTO::class, 'fromArray' ), $rows );
 	}
 
+	/** @return ExamPaymentLinkDTO[] Связи заказа (по одной на экзаменную позицию). */
+	public function listByOrder( int $orderId ): array {
+		$rows = $this->readRows( $this->wpdb->prepare( 'SELECT * FROM %i WHERE wc_order_id = %d ORDER BY id ASC', $this->table, $orderId ) );
+		return array_map( array( ExamPaymentLinkDTO::class, 'fromArray' ), $rows );
+	}
+
+	/**
+	 * Неподтверждённые связи, не сверявшиеся с `$olderThanUtc` (для минутной сверки).
+	 *
+	 * @return ExamPaymentLinkDTO[]
+	 */
+	public function listPendingForReconcile( string $olderThanUtc, int $limit = 50 ): array {
+		$rows = $this->readRows( $this->wpdb->prepare(
+			'SELECT * FROM %i WHERE payment_state = %s AND created_at <= %s AND ( last_reconciled_at IS NULL OR last_reconciled_at <= %s ) ORDER BY id ASC LIMIT %d',
+			$this->table,
+			'pending',
+			$olderThanUtc,
+			$olderThanUtc,
+			$limit
+		) );
+		return array_map( array( ExamPaymentLinkDTO::class, 'fromArray' ), $rows );
+	}
+
 	/**
 	 * @param array<string, mixed> $data
 	 *

@@ -32,6 +32,9 @@ enum TransientKey: string {
 	/** Кэш ответа GitHub Releases API (суффикс — фиксированная метка 'latest', сущность одна на сайт). */
 	case GithubRelease = 'fs_lms_github_release_';
 
+	/** Время последнего прогона рассылки «открыта запись» новым ученикам аудитории (суффикс — фиксированная метка). */
+	case ExamAudienceSync = 'fs_lms_exam_audience_sync_';
+
 	/**
 	 * Полный ключ транзиента.
 	 *

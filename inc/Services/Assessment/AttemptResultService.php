@@ -5,6 +5,7 @@ declare( strict_types=1 );
 namespace Inc\Services\Assessment;
 
 use Inc\DTO\Assessment\AssessmentDTO;
+use Inc\DTO\Assessment\AttemptDTO;
 use Inc\Enums\Subject\TaskTemplate;
 use Inc\Enums\Wp\PostMetaName;
 use Inc\Managers\Assessment\AssessmentManager;
@@ -70,6 +71,29 @@ class AttemptResultService {
 			throw new \InvalidArgumentException( 'Попытка не найдена.' );
 		}
 
+		return $this->perTaskOf( $attempt );
+	}
+
+	/**
+	 * Разбор по заданиям экзаменной попытки без сверки ученика (владение проверено по участию; у гостя `student_person_id` пуст).
+	 * Вызывать только после политики раскрытия.
+	 *
+	 * @return list<array<string, mixed>>
+	 *
+	 * @throws \InvalidArgumentException Попытки нет.
+	 */
+	public function examPerTask( int $attemptId ): array {
+		$attempt = $this->attempts->find( $attemptId );
+		if ( ! $attempt || ! $attempt->isExam() ) {
+			throw new \InvalidArgumentException( 'Попытка не найдена.' );
+		}
+
+		return $this->perTaskOf( $attempt );
+	}
+
+	/** @return list<array<string, mixed>> */
+	private function perTaskOf( AttemptDTO $attempt ): array {
+		$attemptId  = $attempt->id;
 		$rows       = $this->answers->listByAttempt( $attemptId );
 		$assessment = $this->assessments->get( $attempt->assessmentId );
 		$rows       = $this->orderByTaskPosition( $rows, array_map( 'intval', $assessment?->taskIds ?? array() ) );

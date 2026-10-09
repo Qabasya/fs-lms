@@ -153,6 +153,6 @@ if ( ! empty( $reviewMode ) && ! empty( $reviewReveal ) && $lastAttempt && ! emp
 			</div>
 		<?php endif; ?>
 
-		<button type="button" class="kege-btn kege-btn--cyan kege-fin-done" id="kegeFinishBtn"><?php echo $isExamAttempt ? 'К моим экзаменам' : 'Выход'; ?></button>
+		<button type="button" class="kege-btn kege-btn--cyan kege-fin-done" id="kegeFinishBtn"><?php echo $isExamAttempt ? ( null === ( $person ?? null ) && empty( $reviewMode ) ? 'Посмотреть результат' : 'К моим экзаменам' ) : 'Выход'; ?></button>
 	</div>
 </div>

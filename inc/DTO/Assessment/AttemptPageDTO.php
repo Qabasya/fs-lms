@@ -30,6 +30,7 @@ readonly class AttemptPageDTO {
 	 * @param int                       $attemptsUsed   Сколько попыток ученик уже израсходовал (Tasks.md, п. 8)
 	 * @param bool                      $publicMode     Публичный экзамен: тот же режим «без попытки в БД», что и предпросмотр, но для любого посетителя
 	 * @param bool                      $reviewMode     Просмотр конкретной попытки (`?attempt=ID`): лист результата без возможности что-либо менять
+	 * @param bool                      $guestMode      Гость экзамена вне курса: ни ученика, ни учётки WordPress, личность — гостевая сессия
 	 * @param bool                      $reviewReveal   В просмотре результат открыт безусловно — смотрит тот, кто управляет группой (не ждёт «Утвердить работу»)
 	 */
 	public function __construct(
@@ -48,5 +49,6 @@ readonly class AttemptPageDTO {
 		public bool                  $publicMode = false,
 		public bool                  $reviewMode = false,
 		public bool                  $reviewReveal = false,
+		public bool                  $guestMode = false,
 	) {}
 }

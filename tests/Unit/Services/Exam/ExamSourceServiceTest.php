@@ -54,6 +54,7 @@ class ExamSourceServiceTest extends TestCase {
 	private ExamAccessTokenService&MockObject $tokens;
 	private LogEventDispatcherInterface&MockObject $log;
 	private ExamSourceService $service;
+	private \Inc\Services\Exam\GuestSessionService&\PHPUnit\Framework\MockObject\MockObject $guestSessions;
 	private object $db;
 	private \wpdb $originalWpdb;
 
@@ -86,6 +87,7 @@ class ExamSourceServiceTest extends TestCase {
 		$this->applications = $this->createMock( ExamGuestApplicationRepository::class );
 		$this->guard        = $this->createMock( ExamAccessGuard::class );
 		$this->tokens       = $this->createMock( ExamAccessTokenService::class );
+		$this->guestSessions = $this->createMock( \Inc\Services\Exam\GuestSessionService::class );
 		$this->log          = $this->createMock( LogEventDispatcherInterface::class );
 
 		$this->guard->method( 'canManageEventGuests' )->willReturn( true );
@@ -131,7 +133,7 @@ class ExamSourceServiceTest extends TestCase {
 		) );
 
 		return new ExamSourceService(
-			$this->sources, $this->events, $this->applications, $guard ?? $this->guard, $this->tokens, $formats, $assessments, $this->log, new ExamTime( $clock )
+			$this->sources, $this->events, $this->applications, $guard ?? $this->guard, $this->tokens, $formats, $assessments, $this->log, new ExamTime( $clock ), $this->guestSessions
 		);
 	}
 

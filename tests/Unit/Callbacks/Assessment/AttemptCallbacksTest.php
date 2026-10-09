@@ -289,4 +289,76 @@ class AttemptCallbacksTest extends TestCase {
 
 		self::assertTrue( fs_test_capture_json( fn() => $this->cb->ajaxGetAttemptResult() )->success );
 	}
+
+	/* ── Гость экзамена без входа в WordPress (11b.2.3) ── */
+
+	private function guestCtx(): AttemptContext {
+		return new AttemptContext( ExamAudience::Guest, 5, 6, null, null );
+	}
+
+	protected function tearDown(): void {
+		unset( $GLOBALS['_test_logged_in'] );
+		parent::tearDown();
+	}
+
+	public function test_anonymous_without_guest_session_is_denied(): void {
+		$GLOBALS['_test_logged_in'] = false;
+		$_POST                      = array( 'attempt_id' => '5', 'task_id' => '7', 'answer_text' => 'x' );
+		$this->examAttempts->method( 'contextForGuest' )->willReturn( null );
+		$this->examAttempts->expects( $this->never() )->method( 'saveAnswer' );
+		$this->service->expects( $this->never() )->method( 'saveAnswer' );
+
+		$r = fs_test_capture_json( fn() => $this->cb->ajaxSaveAttemptAnswer() );
+
+		$this->assertFalse( $r->success );
+		$this->assertSame( ErrorCode::ExamAccess->value, $r->payload['code'] );
+	}
+
+	public function test_anonymous_with_guest_session_starts_exam_attempt(): void {
+		$GLOBALS['_test_logged_in'] = false;
+		$_POST                      = array( 'assessment_id' => '1', 'exam_registration_id' => '6' );
+		$this->examAttempts->method( 'contextForGuest' )->willReturn( $this->guestCtx() );
+		$this->examAttempts->expects( $this->once() )->method( 'start' )->with( $this->guestCtx() )->willReturn( $this->submittedAttempt( 7, 0 ) );
+		$this->service->expects( $this->never() )->method( 'start' );
+
+		$r = fs_test_capture_json( fn() => $this->cb->ajaxStartAttempt() );
+
+		$this->assertTrue( $r->success );
+	}
+
+	public function test_guest_cannot_start_foreign_registration(): void {
+		$GLOBALS['_test_logged_in'] = false;
+		$_POST                      = array( 'assessment_id' => '1', 'exam_registration_id' => '99' );
+		$this->examAttempts->method( 'contextForGuest' )->willReturn( $this->guestCtx() );
+		$this->examAttempts->expects( $this->never() )->method( 'start' );
+
+		$this->assertFalse( fs_test_capture_json( fn() => $this->cb->ajaxStartAttempt() )->success );
+	}
+
+	public function test_guest_cannot_touch_course_attempt_by_id(): void {
+		$GLOBALS['_test_logged_in'] = false;
+		$_POST                      = array( 'attempt_id' => '5', 'task_id' => '7', 'answer_text' => 'x' );
+		$this->examAttempts->method( 'contextForGuest' )->willReturn( $this->guestCtx() );
+		// Попытка курса: сервис экзамена отвечает как на несуществующую; путь курса для гостя не открывается никогда.
+		$this->examAttempts->method( 'saveAnswer' )->willThrowException( new CodedException( ErrorCode::ExamAccess, 'Попытка не найдена.' ) );
+		$this->service->expects( $this->never() )->method( 'saveAnswer' );
+
+		$this->assertFalse( fs_test_capture_json( fn() => $this->cb->ajaxSaveAttemptAnswer() )->success );
+	}
+
+	public function test_guest_submit_returns_exam_breakdown_without_person(): void {
+		$GLOBALS['_test_logged_in'] = false;
+		$_POST                      = array( 'attempt_id' => '7' );
+		$attempt                    = $this->submittedAttempt( 7, 0 );
+		$this->examAttempts->method( 'contextForGuest' )->willReturn( $this->guestCtx() );
+		$this->examAttempts->method( 'submit' )->willReturn( $attempt );
+		$this->service->method( 'isRevealed' )->willReturn( true );
+		$this->resultService->expects( $this->once() )->method( 'examPerTask' )->with( 7 )->willReturn( array( array( 'n' => 1 ) ) );
+		$this->resultService->expects( $this->never() )->method( 'studentPerTask' );
+
+		$r = fs_test_capture_json( fn() => $this->cb->ajaxSubmitAttempt() );
+
+		$this->assertTrue( $r->success );
+		$this->assertSame( array( array( 'n' => 1 ) ), $r->payload['per_task'] );
+	}
 }

@@ -457,6 +457,7 @@ class ExamRegistrationService {
 		$this->participations->setActiveRegistration( $participation->id, $registrationId );
 
 		$payload = array(
+			'old_registration_id' => $current->id,
 			'old_session_id' => $oldSession->id,
 			'new_session_id' => $newSession->id,
 			'by'             => $byStaff ? 'staff' : 'self',

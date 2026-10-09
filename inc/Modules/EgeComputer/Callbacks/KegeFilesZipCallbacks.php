@@ -11,6 +11,7 @@ use Inc\Managers\Assessment\AssessmentManager;
 use Inc\Modules\EgeComputer\Services\KegeMaterialsZipService;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Services\Assessment\AssessmentAccessPolicy;
+use Inc\Services\Exam\ExamAttemptService;
 use Inc\Shared\Traits\AjaxResponse;
 use Inc\Shared\Traits\Sanitizer;
 
@@ -18,7 +19,8 @@ use Inc\Shared\Traits\Sanitizer;
  * Class KegeFilesZipCallbacks
  *
  * «Скачать все файлы» станции одним ZIP. Доступ — как у самой страницы работы: публичный
- * экзамен (фильтр {@see AssessmentPageController::PUBLIC_ACCESS_FILTER}, гость тоже),
+ * экзамен (фильтр {@see AssessmentPageController::PUBLIC_ACCESS_FILTER}, гость тоже), гость экзамена вне курса
+ * (вариант его записи, по гостевой сессии),
  * автор/преподаватель в предпросмотре либо ученик с доступом к работе. Эндпоинт
  * отдаёт только адрес архива из материалов, которые и так показаны на панелях заданий.
  *
@@ -37,6 +39,7 @@ class KegeFilesZipCallbacks extends BaseController {
 		private readonly AssessmentAccessPolicy  $access,
 		private readonly PersonRepository        $persons,
 		private readonly KegeMaterialsZipService $zip,
+		private readonly ExamAttemptService      $examAttempts,
 	) {
 		parent::__construct();
 	}
@@ -72,7 +75,11 @@ class KegeFilesZipCallbacks extends BaseController {
 
 		$userId = get_current_user_id();
 		if ( ! $userId ) {
-			return false;
+			// Гость экзамена: только вариант своей записи (его станция открыта по гостевой сессии).
+			$guest = $this->examAttempts->contextForGuest();
+			$state = null !== $guest ? $this->examAttempts->stationState( $guest ) : null;
+
+			return null !== $state && $state['assessment_id'] === $assessmentId;
 		}
 
 		if ( $this->access->canPreview( $userId, $assessmentId ) ) {

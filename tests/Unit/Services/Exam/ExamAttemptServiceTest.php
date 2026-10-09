@@ -60,6 +60,7 @@ class ExamAttemptServiceTest extends TestCase {
 	private ExamNoShowService&MockObject $noShow;
 	private ExamOutbox&MockObject $outbox;
 	private ExamAccessGuard&MockObject $accessGuard;
+	private \Inc\Services\Exam\GuestSessionService&MockObject $guestSessions;
 	private ExamAttemptService $service;
 
 	/** @var array{utc: string, local: string} Текущее время теста. */
@@ -79,6 +80,7 @@ class ExamAttemptServiceTest extends TestCase {
 		$this->noShow         = $this->createMock( ExamNoShowService::class );
 		$this->outbox         = $this->createMock( ExamOutbox::class );
 		$this->accessGuard    = $this->createMock( ExamAccessGuard::class );
+		$this->guestSessions  = $this->createMock( \Inc\Services\Exam\GuestSessionService::class );
 
 		$clock = $this->createMock( ClockInterface::class );
 		$clock->method( 'now' )->willReturnCallback( fn ( string $type = 'mysql', bool $gmt = false ): string => $gmt ? $this->now['utc'] : $this->now['local'] );
@@ -87,6 +89,7 @@ class ExamAttemptServiceTest extends TestCase {
 			$this->participations, $this->participants, $this->registrations, $this->sessions, $this->events, $this->attempts,
 			$this->persons, $this->createMock( AssessmentManager::class ), $this->attemptService, $this->noShow,
 			$this->createMock( ExamFormatRegistry::class ), $this->accessGuard, $this->outbox, new ExamTime( $clock ),
+			$this->guestSessions,
 		);
 	}
 
@@ -599,6 +602,7 @@ class ExamAttemptServiceTest extends TestCase {
 			$this->participations, $this->participants, $this->createMock( ExamRegistrationRepository::class ), $this->sessions, $this->events, $this->attempts,
 			$this->persons, $this->createMock( AssessmentManager::class ), $this->attemptService, $this->noShow,
 			$this->createMock( ExamFormatRegistry::class ), $this->accessGuard, $this->outbox, new ExamTime( $this->createMock( ClockInterface::class ) ),
+			$this->guestSessions,
 		);
 		try {
 			$missing->contextForStudent( 42, 999 );
@@ -677,5 +681,93 @@ class ExamAttemptServiceTest extends TestCase {
 
 		self::assertSame( 'attempt', $order[0], 'участие определяется до транзакции' );
 		self::assertSame( 'lock', $order[1], 'первый оператор транзакции — блокировка участия' );
+	}
+
+	/* ── Гость (11b.2) ── */
+
+	private function guestCtx(): AttemptContext {
+		return new AttemptContext( ExamAudience::Guest, self::PARTICIPATION, self::REGISTRATION, null, null );
+	}
+
+	private function guestParticipation( ?string $admittedAt = '2026-03-12 06:30:00', ?int $currentAttemptId = null ): ExamParticipationDTO {
+		return ExamParticipationDTO::fromArray( array(
+			'id' => self::PARTICIPATION, 'event_id' => 1, 'participant_id' => 4, 'audience' => 'guest', 'current_attempt_id' => $currentAttemptId,
+			'transfer_allowed' => 0, 'admitted_at' => $admittedAt, 'version' => 7, 'created_at' => '2026-03-01 00:00:00', 'updated_at' => '2026-03-01 00:00:00',
+		) );
+	}
+
+	public function test_guest_start_requires_admission(): void {
+		$this->setNow( '2026-03-12 07:10:00', '2026-03-12 10:10:00' );
+		$this->arrangeStart( $this->guestParticipation( null ) );
+		$this->attempts->expects( self::never() )->method( 'create' );
+
+		$this->expectException( CodedException::class );
+		$this->service->start( $this->guestCtx() );
+	}
+
+	public function test_guest_attempt_has_null_person_and_number_one(): void {
+		$this->setNow( '2026-03-12 07:10:00', '2026-03-12 10:10:00' );
+		$this->arrangeStart( $this->guestParticipation() );
+		$this->attempts->expects( self::never() )->method( 'findAnyActive' );
+		$this->attempts->expects( self::never() )->method( 'nextAttemptNumber' );
+		$captured = null;
+		$this->attempts->method( 'create' )->willReturnCallback( function ( AttemptInputDTO $dto ) use ( &$captured ): int {
+			$captured = $dto;
+			return 9;
+		} );
+		$this->attempts->method( 'find' )->willReturn( $this->attempt( 'in_progress', '2026-03-12 14:05:00' ) );
+		$this->guestSessions->expects( self::once() )->method( 'extendForAttempt' )->with( self::PARTICIPATION, self::isType( 'string' ) );
+
+		$this->service->start( $this->guestCtx() );
+
+		self::assertNull( $captured->studentPersonId );
+		self::assertSame( 1, $captured->attemptNumber );
+	}
+
+	public function test_guest_cannot_use_foreign_registration(): void {
+		$this->setNow( '2026-03-12 07:10:00', '2026-03-12 10:10:00' );
+		// Контекст гостя не может открыть участие ученика: аудитории не совпадают.
+		$this->arrangeStart( $this->participation() );
+		$this->attempts->expects( self::never() )->method( 'create' );
+
+		try {
+			$this->service->start( $this->guestCtx() );
+			self::fail( 'Гость не стартует по участию ученика.' );
+		} catch ( CodedException $e ) {
+			self::assertSame( ErrorCode::ExamAccess, $e->errorCode );
+		}
+	}
+
+	public function test_student_cannot_start_guest_participation(): void {
+		$this->setNow( '2026-03-12 07:10:00', '2026-03-12 10:10:00' );
+		$this->arrangeStart( $this->guestParticipation() );
+		$this->attempts->expects( self::never() )->method( 'create' );
+
+		$this->expectException( CodedException::class );
+		$this->service->start( $this->ctx() );
+	}
+
+	public function test_guest_save_and_submit_by_session_participation(): void {
+		$this->attempts->method( 'find' )->willReturn( $this->attempt() );
+		$this->participations->method( 'findForUpdate' )->willReturn( $this->guestParticipation() );
+		$this->attemptService->expects( self::once() )->method( 'saveAnswerFor' );
+		$this->attemptService->expects( self::once() )->method( 'submitFor' )->willReturn( $this->attempt( 'submitted' ) );
+
+		$this->service->saveAnswer( $this->guestCtx(), 9, 3, 'ответ' );
+		$this->service->submit( $this->guestCtx(), 9 );
+	}
+
+	public function test_guest_result_uses_exam_result_without_person_check(): void {
+		$this->attempts->method( 'find' )->willReturn( $this->attempt( 'submitted' ) );
+		$this->attemptService->expects( self::never() )->method( 'getResult' );
+		$this->attemptService->expects( self::once() )->method( 'getExamResult' )->with( 9 )->willReturn( array( 'attempt' => $this->attempt( 'submitted' ), 'answers' => array() ) );
+
+		$this->service->result( $this->guestCtx(), 9 );
+	}
+
+	public function test_context_for_guest_comes_from_guest_session(): void {
+		$this->guestSessions->expects( self::once() )->method( 'current' )->willReturn( $this->guestCtx() );
+
+		self::assertNull( $this->service->contextForGuest()->personId );
 	}
 }

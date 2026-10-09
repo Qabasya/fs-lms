@@ -38,7 +38,7 @@ class ExamCommand implements ServiceInterface {
 	}
 
 	/**
-	 * Выполнить минутный тик экзаменов вручную: автоистечение попыток и неявки либо освобождение истёкших броней гостей.
+	 * Выполнить минутный тик экзаменов вручную: автоистечение попыток, неявки и напоминания; либо освобождение истёкших броней гостей; либо доставка событий в ленту уведомлений.
 	 *
 	 * Тот же код и та же блокировка, что у cron: второй одновременный запуск не выполняется.
 	 *
@@ -51,6 +51,7 @@ class ExamCommand implements ServiceInterface {
 	 * options:
 	 *   - auto-expire
 	 *   - hold-release
+	 *   - outbox
 	 * ---
 	 *
 	 * [--at=<unix>]
@@ -61,6 +62,7 @@ class ExamCommand implements ServiceInterface {
 	 *     wp fs-lms exam tick
 	 *     wp fs-lms exam tick --name=auto-expire
 	 *     wp fs-lms exam tick --name=hold-release
+	 *     wp fs-lms exam tick --name=outbox
 	 *
 	 * @param array $args       Позиционные аргументы
 	 * @param array $assoc_args Именованные аргументы
@@ -80,14 +82,19 @@ class ExamCommand implements ServiceInterface {
 			$run  = function () use ( &$result ): void {
 				$result = sprintf( 'Освобождено броней: %d.', $this->ticks->releaseHolds() );
 			};
+		} elseif ( 'outbox' === $name ) {
+			$lock = CronController::EXAM_OUTBOX_LOCK;
+			$run  = function () use ( &$result ): void {
+				$result = sprintf( 'Доставлено событий: %d.', $this->ticks->deliverEvents() );
+			};
 		} elseif ( 'auto-expire' === $name ) {
 			$lock = CronController::EXAM_AUTO_EXPIRE_LOCK;
 			$run  = function () use ( &$result ): void {
 				$counts = $this->ticks->autoExpireTick();
-				$result = sprintf( 'Завершено попыток: %d, проставлено неявок: %d.', $counts['expired'], $counts['missed'] );
+				$result = sprintf( 'Завершено попыток: %d, проставлено неявок: %d, завершено проведений: %d, напоминаний: %d.', $counts['expired'], $counts['missed'], $counts['completed'], $counts['reminders'] );
 			};
 		} else {
-			WP_CLI::error( sprintf( 'Неизвестный тик «%s»: допустимы auto-expire и hold-release.', $name ) );
+			WP_CLI::error( sprintf( 'Неизвестный тик «%s»: допустимы auto-expire, hold-release и outbox.', $name ) );
 			return;
 		}
 

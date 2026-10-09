@@ -25,7 +25,6 @@ class SubmissionController extends AjaxController {
 
 	protected function ajaxActions(): array {
 		return array(
-			array( AjaxHook::UploadAnswerFile,      $this->submissionCallbacks ),
 			array( AjaxHook::SaveGrade,             $this->gradingCallbacks ),
 			array( AjaxHook::ReturnSubmission,      $this->gradingCallbacks ),
 			array( AjaxHook::CompleteReview,        $this->gradingCallbacks ),
@@ -37,6 +36,13 @@ class SubmissionController extends AjaxController {
 			array( AjaxHook::GradeBatchTask,        $this->batchCallbacks ),
 			array( AjaxHook::GetPendingWorks,       $this->reviewQueueCallbacks ),
 			array( AjaxHook::GetWorkSubmissions,    $this->reviewQueueCallbacks ),
+		);
+	}
+
+	/** Файл ответа ОГЭ у гостя экзамена: владелец файла — его попытка (проверяется по гостевой сессии). */
+	protected function publicAjaxActions(): array {
+		return array(
+			array( AjaxHook::UploadAnswerFile, $this->submissionCallbacks ),
 		);
 	}
 }

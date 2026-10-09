@@ -11,6 +11,46 @@
 
 **Порядок:** 8.1 → 8.2 → 8.3 → 8.4 → 8.5 → 8.6 → 8.7 → 8.9 → 8.8 (8.8 зависит от данных этапа 11a; до него экран работает без гостей).
 
+## Статус (2026-10-09)
+
+**Сделано и проверено — 8.1–8.7 и 8.9** (подзадачи выше с `[x]`; пункт 8.8 ждёт этап 11a, его подзадачи не отмечены).
+
+Проверено: PHPUnit (2823 теста), `npx eslint src/js`, `npx stylelint "src/scss/profile/**/*.scss"`, `npx gulp build`, загрузка DI для всех сервисов `Init::getServices()`,
+стенд на настоящей MariaDB (`wp fs-lms exam stand-attempts|stand-approve|stand-approve-all|stand-correct`), сквозные запросы по HTTP и браузерный проход (headless Chrome по CDP):
+- 8 параллельных `approve` одной попытки → 1 `approved` + 7 `already_approved`, в outbox одно событие `attempt_approved`;
+- 50 попыток: «Утвердить все» — `approved=49 skipped=1` (одна уже утверждена гонкой) за 29 мс на сервисе; повтор — `approved=0 skipped=50`; в outbox ровно 50 событий;
+- два проверяющих исправляют одну работу с одной версией → 1 `corrected` + 1 `X-STALE`; `answer_text` не тронут, версия 0→1, в журнале изменений «Итог 1→2; №1: 1→2. Причина: …»;
+- по HTTP: доска сеанса, список печати (без контактов), CSV (одноразовая ссылка, шесть колонок, без контактов), «Результаты» с фильтрами; в браузере: доска (50 строк, плитки, меню действий),
+  «Открыть работу» → экран проверки с кнопкой «Исправить результат» и панелью исправления, возврат «‹ Назад» на доску, меню сеанса («Перенести сеанс», «Отменить сеанс»), ошибок JS и ответов ≥ 400 нет.
+
+**Не проверено (прямо):**
+- PHPStan уровня 5: `vendor/bin/phpstan` в проекте отсутствует.
+- Сохранение исправления и массовое утверждение кликом в браузере (подтверждающий диалог, тост): на стенде у заданий попытки нет соответствующих строк в условиях работы; серверная часть и HTTP проверены, клиентская логика — только сборкой и линтерами.
+- Ручные пункты «Готово, когда» 8.2 и 8.3 («ученик видит причину отмены в „Моих экзаменах“», «карточка ученика показывает новую дату после переноса», «станция показывает новый остаток после продления») — на реальном ученике не прогонялись.
+- Гонка «`approve` против `correct`» параллельными процессами; `moveSession`/`cancelSession` на настоящей базе (только юнит-тесты на моках).
+- Размер бандла `profile.min.js` теперь 246 КиБ — предупреждение webpack о лимите 244 КиБ (не ошибка сборки).
+
+**Что изменилось по сравнению с текстом этапа:**
+- `ExamConductService` — доска, результаты (`results()`), строки для CSV/печати (`exportRows()`), решение «можно ли работать с экзаменной попыткой» (`canManageAttempt()`) и разбор для экрана проверки (`reviewFor()`).
+  `ExamAccessGuard::canManageEvent()` уже существовал — вызывается напрямую.
+- `ExamApprovalService` (`approve`, `approveMany`, `correct`) — зависит от `AutoGradeService` и `LogEventDispatcherInterface`. Журнал исправления — `LogEvent::ExamResultCorrected` / `EntityType::ExamAttempt`
+  (метка до 255 знаков: причина и пары «было → стало»); полный перечень пар — в событии outbox `ResultCorrected` (`changes`, `old_total`, `new_total`).
+- `ExamEventService` получил `moveSession`, `cancelSession`, `cancelEvent` с отменой записей и броней, `completeIfDone`, `completionCandidates`; зависит от `ExamRegistrationService`, `ExamHoldService`, `ExamGuestApplicationRepository`.
+  Отмена сеанса и проведения **сначала закрывает сеанс/проведение** (новые записи и старты невозможны), затем отменяет записи по одной в своих транзакциях; повторный вызов `cancelSession` доводит оставшиеся.
+- `ExamTickService::autoExpireTick()` теперь возвращает ещё `completed` и завершает проведения после неявок; `wp fs-lms exam tick` печатает и это число.
+- Новые экшены: `GetExamConduct`, `CancelExamRegistrationByStaff`, `TransferExamRegistration`, `ExtendExamAttempt`, `MarkExamArrival`, `ApproveExamAttempts`, `CorrectExamResult`, `ExportExamParticipants`, `GetExamPrintList`,
+  `GetExamResults`, `MoveExamSession`, `CancelExamSession`; все под nonce `ExamManage`.
+- Выгрузка и печать списка: права `ManageLmsPlatform` + `ExportPII` (`authorizeAll`) **с nonce `ExamManage`** (nonce `Manager` в кабинете преподавателя нет) и `canManageEvent()`; в конфиг добавлен `canExportPii`.
+  **Печать не через `PrintDocument`:** «Центр печати» формирует DOCX/PDF по одному ученику и для списка не подходит — список печатается страницей кабинета (`window.print()` + `@media print`), данные отдаёт `GetExamPrintList`.
+- `CsvExportService::neutralizeFormula()` — для всех выгрузок. Номера вида `+7999…` теперь получают ведущий апостроф (число — только `-?\d+([.,]\d+)?`). Попутно `fputcsv` получил явный параметр `escape` (устаревание PHP 8.4+).
+- Закрыта дыра: `GradeAttemptCallbacks` больше не пропускает проверку при `group_id = NULL` — попытка без группы и без экзаменного контекста отклоняется; экзаменная проверяется по проведению.
+  Утверждённую экзаменную попытку обычной оценкой не править (`error`): только «Исправить результат» с причиной.
+- `ResetAttempts` для экзаменной попытки отвечает отказом; кнопка «Сбросить попытки» на экране проверки экзамена не рисуется.
+- Переключатель сеансов на доске — `prof-seg`, а не `sc-tabs` (сеансов немного, лента со стрелками не нужна).
+- Тест-заготовка `test_oge_exam_attempt_requires_explicit_approval` проверяет, что готовая работа сама не утверждается (отдельного ОГЭ-сценария на моках нет: правило одно для обоих направлений).
+
+---
+
 ## Исходное состояние (после этапов 0–7, проверено 2026-10-04)
 
 Этап строится на готовом и проверенном; новых аналогов не писать.
@@ -65,12 +105,12 @@
 - `NotificationService::studentSnapshotName( int $studentPersonId, int $groupId )` — снимок имени требует группу; для экзамена нужен вариант без группы.
 
 **Шаги**
-- [ ] 8.1.1 `inc/Services/Exam/ExamConductService.php`. Зависимости: репозитории проведений, сеансов, записей, участий, участников, попыток;
+- [x] 8.1.1 `inc/Services/Exam/ExamConductService.php`. Зависимости: репозитории проведений, сеансов, записей, участий, участников, попыток;
   `StudentRecordRepository`, `ExamRoomService`, `ExamScoreService`, `ExamAccessGuard`, `ExamTime`.
-- [ ] 8.1.2 `participantName( ExamParticipantDTO $p ): string` — для `person_id`: фамилия и имя из последней активной записи `student_records`
+- [x] 8.1.2 `participantName( ExamParticipantDTO $p ): string` — для `person_id`: фамилия и имя из последней активной записи `student_records`
   (`findActiveByStudentFirst()`; если активной нет — из любой, `findByStudent()`); для гостя — расшифровка `name_enc` (сервис расшифровки появится в 11a;
   до него — «Гость #{id}»).
-- [ ] 8.1.3 `sessionBoard( int $actorUserId, int $sessionId ): array`:
+- [x] 8.1.3 `sessionBoard( int $actorUserId, int $sessionId ): array`:
   - `session`: id, название проведения, дата, время начала и планового конца, кабинет, `capacity`, `occupied`, статус, `is_locked`, `version`;
   - `tiles`: записано, начали, сдали, не явились, ожидают проверки (числа);
   - `rows` — по одной на участие с записью в этом сеансе (действующей **или** исторической `missed`/`cancelled` этого сеанса):
@@ -81,14 +121,14 @@
     стоит {занятие или экзамен} в {время}.» Только информация, ничего не блокируется;
   - `sessions` — сеансы этого проведения для переключателя.
   Баллы в строках: `score` (итог `ExamScoreService::summarize()`) — сотруднику видны сразу.
-- [ ] 8.1.4 `result_status`: нет попытки → `none`; сдана, есть задания на ручной проверке → `pending_review`; проверка завершена, не утверждена → `ready`;
+- [x] 8.1.4 `result_status`: нет попытки → `none`; сдана, есть задания на ручной проверке → `pending_review`; проверка завершена, не утверждена → `ready`;
   утверждена → `approved`. Для гостя утверждение не требуется: `ready` и `approved` для него равнозначны, подпись — «Результат выдан».
-- [ ] 8.1.5 `inc/Callbacks/Exam/ExamConductCallbacks.php`, экшен `GetExamConduct` (`session_id?`, `event_id?`): без параметров — ближайший сеанс
+- [x] 8.1.5 `inc/Callbacks/Exam/ExamConductCallbacks.php`, экшен `GetExamConduct` (`session_id?`, `event_id?`): без параметров — ближайший сеанс
   пользователя (идущий сейчас, иначе следующий); зарегистрировать в `ExamController`, действия — в блок `exams.actions` (`TeacherProfileView`).
-- [ ] 8.1.6 `exam-conduct.js`: переключатель сеансов (`sc-tabs`), плитки (`prof-stat-tiles`), строки (`pr-row`) с пилюлями состояния, меню действий
+- [x] 8.1.6 `exam-conduct.js`: переключатель сеансов (`sc-tabs`), плитки (`prof-stat-tiles`), строки (`pr-row`) с пилюлями состояния, меню действий
   в конце строки. Автообновление — повторный запрос раз в 30 секунд, пока экран активен и вкладка видима; между запросами «остаток» уменьшается
   таймером на клиенте от `seconds_left`. Перезагрузка страницы ничего не продлевает: дедлайн хранится на сервере.
-- [ ] 8.1.7 Пустые состояния: нет проведений — «Экзамены не назначены.» со ссылкой на «Назначить экзамен»; в сеансе нет записей — «На этот сеанс пока никто не записан.»
+- [x] 8.1.7 Пустые состояния: нет проведений — «Экзамены не назначены.» со ссылкой на «Назначить экзамен»; в сеансе нет записей — «На этот сеанс пока никто не записан.»
 
 **Тесты**
 - `tests/Unit/Services/Exam/ExamConductServiceTest.php`: `test_board_tiles_count_registered_started_submitted_missed`,
@@ -110,7 +150,7 @@
 - Колонки `exam_registrations.arrived_at`, `arrived_by_user_id`.
 
 **Шаги**
-- [ ] 8.2.1 Экшены в `ExamConductCallbacks`:
+- [x] 8.2.1 Экшены в `ExamConductCallbacks`:
   | `AjaxHook` | Параметры | Сервис |
   |---|---|---|
   | `CancelExamRegistrationByStaff` | `registration_id`, `reason` | `cancelByStaff()` |
@@ -118,9 +158,9 @@
   | `ExtendExamAttempt` | `attempt_id`, `minutes`, `reason` | `ExamAttemptService::extend()` |
   | `MarkExamArrival` | `registration_id`, `arrived` (0/1) | `ExamConductService::markArrival()` |
   Ответ каждого — обновлённая доска сеанса (`sessionBoard()`), чтобы клиент перерисовал экран одним ответом.
-- [ ] 8.2.2 `ExamConductService::markArrival( int $actorUserId, int $registrationId, bool $arrived ): void` — запись действующая; ставит или снимает
+- [x] 8.2.2 `ExamConductService::markArrival( int $actorUserId, int $registrationId, bool $arrived ): void` — запись действующая; ставит или снимает
   `arrived_at`/`arrived_by_user_id`. Атрибут операционный: на неявку и допуск **не влияет**. Outbox не пишется (уведомлений нет).
-- [ ] 8.2.3 Разрешённые действия строки (`actions` в 8.1.3):
+- [x] 8.2.3 Разрешённые действия строки (`actions` в 8.1.3):
   | Действие | Когда доступно |
   |---|---|
   | `cancel` | запись действующая, попытки нет |
@@ -129,12 +169,12 @@
   | `arrival` | запись действующая, попытки нет |
   | `open_work` | попытка сдана |
   Для гостя перенос сохраняет оплату: запись остаётся у того же участия (3.2.4), нового оформления нет.
-- [ ] 8.2.4 Формы действий — поповер `prof-grade-pop` + `gp-form`: «Отменить запись» (обязательная причина), «Назначить другой сеанс»
+- [x] 8.2.4 Формы действий — поповер `prof-grade-pop` + `gp-form`: «Отменить запись» (обязательная причина), «Назначить другой сеанс»
   (список сеансов с датой, временем, свободными местами + обязательная причина), «Продлить» (минуты `1…120`, обязательная причина; показать новый дедлайн
   после ответа сервера). Подтверждение отмены — `confirmDialog()`.
-- [ ] 8.2.5 Продление проверяет кабинет: если новый дедлайн выходит за плановый конец и кабинет занят — сервер не отказывает, а возвращает
+- [x] 8.2.5 Продление проверяет кабинет: если новый дедлайн выходит за плановый конец и кабинет занят — сервер не отказывает, а возвращает
   предупреждение в `warnings` доски (см. 8.1.3).
-- [ ] 8.2.6 Действие кнопки называется «Отметить приход» (не «Пришёл»): тексты без рода (`../TEXTS.md` §4).
+- [x] 8.2.6 Действие кнопки называется «Отметить приход» (не «Пришёл»): тексты без рода (`../TEXTS.md` §4).
 
 **Тесты**
 - `ExamConductCallbacksTest.php`: `test_cancel_requires_reason`, `test_cancel_delegates_and_returns_board`,
@@ -158,23 +198,23 @@
 - `ExamSessionDTO::isLocked()` (`first_started_at`).
 
 **Шаги**
-- [ ] 8.3.1 `ExamEventService::moveSession( int $actorUserId, int $sessionId, array $input, string $reason, int $expectedVersion ): ExamSessionDTO` —
+- [x] 8.3.1 `ExamEventService::moveSession( int $actorUserId, int $sessionId, array $input, string $reason, int $expectedVersion ): ExamSessionDTO` —
   перенос сеанса **с участниками**: причина обязательна; сеанс не заперт (ни одной попытки); новые дата/время/кабинет проходят те же проверки, что в
   `saveSession()`; записи участников остаются на сеансе; outbox `SessionMoved` (`old_scheduled_at`, `new_scheduled_at`, `old_room_id`, `new_room_id`, `reason`).
   Сеанс **без** записей по-прежнему правится обычным `saveSession()` без причины.
-- [ ] 8.3.2 `saveSession()` — если у сеанса есть действующие записи и меняются дата, время или кабинет, отказ: «В сеансе есть участники: используйте перенос с причиной.»
-- [ ] 8.3.3 `cancelSession( int $actorUserId, int $sessionId, string $reason, int $expectedVersion ): void` — причина обязательна; сеанс не заперт;
+- [x] 8.3.2 `saveSession()` — если у сеанса есть действующие записи и меняются дата, время или кабинет, отказ: «В сеансе есть участники: используйте перенос с причиной.»
+- [x] 8.3.3 `cancelSession( int $actorUserId, int $sessionId, string $reason, int $expectedVersion ): void` — причина обязательна; сеанс не заперт;
   статус `cancelled`; каждая действующая запись отменяется через `ExamRegistrationService::cancelByStaff()` с той же причиной (место освобождается,
   участник может записаться на другой сеанс); брони гостей этого сеанса освобождаются (`ExamHoldService::release( …, Cancelled )`); outbox `SessionCancelled`.
   Сеанс с начатыми попытками отменить нельзя: «Сеанс уже начат.»
-- [ ] 8.3.4 `cancelEvent()` — снять ограничение `TODO(8.3)`: отменить все сеансы без попыток через `cancelSession()`; сеансы с начатыми попытками
+- [x] 8.3.4 `cancelEvent()` — снять ограничение `TODO(8.3)`: отменить все сеансы без попыток через `cancelSession()`; сеансы с начатыми попытками
   не отменяются — если такие есть, проведение отменить нельзя («Экзамен уже начат: отмена невозможна.»). Outbox `EventCancelled` (причина).
   После отмены активных входов и повторной записи в это проведение нет (состояние карточки `event_cancelled`, 5.2.2).
-- [ ] 8.3.5 Завершение. `completeIfDone( int $eventId ): bool` — проведение `published`; все сеансы закончились (`planned_end_at <= now`) или отменены;
+- [x] 8.3.5 Завершение. `completeIfDone( int $eventId ): bool` — проведение `published`; все сеансы закончились (`planned_end_at <= now`) или отменены;
   нет действующих записей без исхода; нет попыток `in_progress`. Тогда статус `completed`, `completed_at`. Сеансы → `completed`.
   Вызывать из `ExamTickService::autoExpire()` после неявок (по проведениям, у которых что-то изменилось в этом тике). Завершённое проведение остаётся
   доступным для проверки, утверждения и исправления результатов.
-- [ ] 8.3.6 Экшены в `ExamEventCallbacks`: `MoveExamSession`, `CancelExamSession`; в интерфейсе — пункты меню сеанса на экране «Назначить экзамен» и
+- [x] 8.3.6 Экшены в `ExamEventCallbacks`: `MoveExamSession`, `CancelExamSession`; в интерфейсе — пункты меню сеанса на экране «Назначить экзамен» и
   «Проведение экзамена» с формой причины. Кнопка «Отменить проведение» (4.5.6) теперь доступна и для проведений с записями.
 
 **Тесты** — `ExamEventServiceTest.php`:
@@ -206,20 +246,20 @@
 - `ExamReviewProjection::forViewer( …, 'manage' )` (7.1.4).
 
 **Шаги**
-- [ ] 8.4.1 Закрыть дыру: общий приватный метод в `GradeAttemptCallbacks` — `canGrade( AttemptDTO $attempt, int $userId ): bool`:
+- [x] 8.4.1 Закрыть дыру: общий приватный метод в `GradeAttemptCallbacks` — `canGrade( AttemptDTO $attempt, int $userId ): bool`:
   экзаменная попытка (`isExam()`) → `ExamAccessGuard::canManageEvent()` по проведению участия **и** право `ManageExams`; иначе — прежняя проверка группы.
   Использовать в `ajaxGradeAttempt()` и `ajaxApproveAttempt()`. Для попытки без группы и без экзаменного контекста — отказ.
-- [ ] 8.4.2 `GradingCallbacks::ajaxGetWorkDetail()`: если источник — попытка и она экзаменная, доступ решает `canManageEvent()`,
+- [x] 8.4.2 `GradingCallbacks::ajaxGetWorkDetail()`: если источник — попытка и она экзаменная, доступ решает `canManageEvent()`,
   ответ строит `ExamReviewProjection::forViewer( $attemptId, 'manage' )` + `result` (`ExamScoreService::summarize()`) + `participant_name`.
-- [ ] 8.4.3 `work-review.js`: параметр возврата `from = 'exam-conduct' | 'exam-results'` (кнопка «‹ Назад» возвращает на экран экзаменов);
+- [x] 8.4.3 `work-review.js`: параметр возврата `from = 'exam-conduct' | 'exam-results'` (кнопка «‹ Назад» возвращает на экран экзаменов);
   шапка для экзамена — итог через `resultCaption()` (5.6.4) вместо «балл/максимум»; при `pending` — «Проверка не завершена», без вторичного балла и отметки.
-- [ ] 8.4.4 Ручная часть ОГЭ (№13–16) — существующие блоки `ogeRubricGradeBlock()` / `criteriaGradeBlock()`; сохранение — существующий `GradeAttempt`.
+- [x] 8.4.4 Ручная часть ОГЭ (№13–16) — существующие блоки `ogeRubricGradeBlock()` / `criteriaGradeBlock()`; сохранение — существующий `GradeAttempt`.
   После оценки последнего ручного задания статус результата на доске становится `ready`.
-- [ ] 8.4.5 Каждое сохранение оценки увеличивает `assessment_attempts.result_version` (в `AssessmentAttemptRepository` — метод
+- [x] 8.4.5 Каждое сохранение оценки увеличивает `assessment_attempts.result_version` (в `AssessmentAttemptRepository` — метод
   `bumpResultVersion( int $id, int $expected ): bool`: `UPDATE … SET result_version = result_version + 1 WHERE id = %d AND result_version = %d`).
   `ajaxGradeAttempt()` для экзаменной попытки принимает `result_version`; при несовпадении — `fail( ErrorCode::ExamStale, 'Работу уже изменил другой проверяющий. Обновите страницу.' )`.
   Для попыток курса параметр необязателен, поведение прежнее.
-- [ ] 8.4.6 Сброс попыток (`ResetAttempts`) и «Пройти заново» для экзаменной попытки недоступны: кнопки не показывать, сервер отклоняет
+- [x] 8.4.6 Сброс попыток (`ResetAttempts`) и «Пройти заново» для экзаменной попытки недоступны: кнопки не показывать, сервер отклоняет
   (SPEC §7: административный сброс — не обычная отмена брони).
 
 **Тесты**
@@ -243,7 +283,7 @@
 - `work-review.js::wireApprove()` — кнопка «Утвердить работу» показывается для `APPROVABLE_KIND = 'ege_computer'`.
 
 **Шаги**
-- [ ] 8.5.1 `inc/Services/Exam/ExamApprovalService.php`, `use TransactionRunner;`. Зависимости: репозитории попыток, участий, проведений;
+- [x] 8.5.1 `inc/Services/Exam/ExamApprovalService.php`, `use TransactionRunner;`. Зависимости: репозитории попыток, участий, проведений;
   `ExamAccessGuard`, `ExamOutbox`, `ClockInterface`.
   `approve( int $actorUserId, int $attemptId, int $expectedVersion ): array` → `array{ status: 'approved'|'skipped', reason?: string }`. Причины пропуска:
   | Условие | `reason` |
@@ -256,20 +296,20 @@
   | `result_version` не совпал | `stale` |
   | уже утверждена | `already_approved` (не ошибка, уведомление повторно не создаётся) |
   Успех — в транзакции: `approve()` попытки, outbox `AttemptApproved` (`attempt_id`, `participation_id`, `result_version`).
-- [ ] 8.5.2 `approveMany( int $actorUserId, array $items ): array` — `$items` = список `array{attempt_id, result_version}`; каждая работа — **своя транзакция**;
+- [x] 8.5.2 `approveMany( int $actorUserId, array $items ): array` — `$items` = список `array{attempt_id, result_version}`; каждая работа — **своя транзакция**;
   ответ: `approved` (число), `skipped` (список `array{attempt_id, reason, reason_label}`). Ошибка одной работы не откатывает остальные.
-- [ ] 8.5.3 Экшен `ApproveExamAttempts` в `ExamConductCallbacks` (`items` — массив; читать через `unslashArray()` + `sanitizeIntValue()`).
+- [x] 8.5.3 Экшен `ApproveExamAttempts` в `ExamConductCallbacks` (`items` — массив; читать через `unslashArray()` + `sanitizeIntValue()`).
   Ответ — результат `approveMany()` и обновлённая доска. Одиночное утверждение на экране проверки для экзаменной попытки идёт через этот же сервис
   (`ajaxApproveAttempt()` при `isExam()` делегирует в `ExamApprovalService::approve()`).
-- [ ] 8.5.4 `work-review.js`: кнопку «Утвердить работу» показывать для экзаменной попытки ученика любого формата (ЕГЭ и ОГЭ), когда `result_status = ready`;
+- [x] 8.5.4 `work-review.js`: кнопку «Утвердить работу» показывать для экзаменной попытки ученика любого формата (ЕГЭ и ОГЭ), когда `result_status = ready`;
   для гостя кнопки нет.
-- [ ] 8.5.5 Массовое утверждение на экране сеанса (`exam-conduct.js`):
+- [x] 8.5.5 Массовое утверждение на экране сеанса (`exam-conduct.js`):
   - кнопка «Утвердить работы» переводит таблицу в режим выбора: у строк с `result_status = ready` появляются чекбоксы, рядом — «Отмена»;
   - у остальных строк чекбокс неактивен с подсказкой («Проверка не завершена», «Работа не сдана», «Уже утверждена», «Гостю утверждение не требуется»);
   - ничего не выбрано → кнопка подтверждения «Утвердить все»; выбрано N → «Утвердить выбранные (N)» (число — подстановкой);
   - «Утвердить все» отправляет все готовые работы сеанса;
   - после ответа — `toast`: «Утверждено: {a}. Пропущено: {b}.» и список пропущенных с причинами; режим выбора закрывается.
-- [ ] 8.5.6 До утверждения ученик и родитель не видят итог, баллы и решения ни в одном ответе (уже обеспечено 7.5) — после утверждения карточка
+- [x] 8.5.6 До утверждения ученик и родитель не видят итог, баллы и решения ни в одном ответе (уже обеспечено 7.5) — после утверждения карточка
   ученика переходит в `approved` без перезагрузки кабинета при следующем автообновлении.
 
 **Тесты**
@@ -296,7 +336,7 @@
 - `result_version` (2.2) и `bumpResultVersion()` (8.4.5).
 
 **Шаги**
-- [ ] 8.6.1 `ExamApprovalService::correct( int $actorUserId, int $attemptId, array $changes, string $reason, int $expectedVersion ): AttemptDTO`.
+- [x] 8.6.1 `ExamApprovalService::correct( int $actorUserId, int $attemptId, array $changes, string $reason, int $expectedVersion ): AttemptDTO`.
   `$changes` — список `array{task_id, score, feedback?}`. В транзакции:
   1. право на проведение; попытка экзаменная и **утверждена** (до утверждения правки — обычная проверка 8.4);
   2. причина обязательна («Укажите причину исправления.»);
@@ -308,11 +348,11 @@
      (диспатчер — как в проверке выше; если нужного типа цели нет в `AuditTargetType`/`EntityType` — добавить кейс);
   7. outbox `ResultCorrected` (`attempt_id`, `participation_id`, `reason`, новая версия).
   Исправление сразу действует на опубликованный результат; повторного утверждения не требуется.
-- [ ] 8.6.2 Экшен `CorrectExamResult` в `ExamConductCallbacks` (`attempt_id`, `changes[]`, `reason`, `result_version`).
-- [ ] 8.6.3 `work-review.js`: для утверждённой экзаменной попытки — кнопка «Исправить результат». Режим исправления: поля балла у заданий,
+- [x] 8.6.2 Экшен `CorrectExamResult` в `ExamConductCallbacks` (`attempt_id`, `changes[]`, `reason`, `result_version`).
+- [x] 8.6.3 `work-review.js`: для утверждённой экзаменной попытки — кнопка «Исправить результат». Режим исправления: поля балла у заданий,
   обязательное поле причины, «Сохранить исправление» → `confirmDialog( 'Исправить результат? Ученик получит уведомление с причиной.' )`.
   При `X-STALE` — сообщение и кнопка «Обновить».
-- [ ] 8.6.4 Апелляции как отдельного процесса нет: это разговор с преподавателем и запись причины исправления.
+- [x] 8.6.4 Апелляции как отдельного процесса нет: это разговор с преподавателем и запись причины исправления.
 
 **Тесты** — `ExamApprovalServiceTest.php`:
 - `test_correct_requires_reason`, `test_correct_requires_approved_attempt`;
@@ -338,17 +378,17 @@
 - Экран «Работы» (`works.js`) — образец списка с вкладками и переходом в проверку.
 
 **Шаги**
-- [ ] 8.7.1 `inc/Callbacks/Exam/ExamResultCallbacks.php`, экшен `GetExamResults`: параметры `subject_key`, `event_id?`, `session_id?`,
+- [x] 8.7.1 `inc/Callbacks/Exam/ExamResultCallbacks.php`, экшен `GetExamResults`: параметры `subject_key`, `event_id?`, `session_id?`,
   `status?` (`pending_review` / `ready` / `approved` / `all`), `audience?` (`student` / `guest` / `all`), `source_id?`.
   Ответ: `filters` (проведения предмета, сеансы выбранного проведения, источники) и `items` — строки как в 8.1.3 (`name`, `audience_label`, `source`,
   сеанс, `result_status`, итог, `attempt_id`). Только проведения, доступные пользователю (`canManageEvent()`).
   Выборку вынести в `ExamConductService::results( int $actorUserId, array $filters ): array`.
-- [ ] 8.7.2 `exam-results.js`: сегменты статуса (`prof-seg`): «На проверке» (по умолчанию — очередь `pending_review`), «Готовы к утверждению»,
+- [x] 8.7.2 `exam-results.js`: сегменты статуса (`prof-seg`): «На проверке» (по умолчанию — очередь `pending_review`), «Готовы к утверждению»,
   «Утверждены», «Все»; селекторы проведения и сеанса; переключатель «ученики / гости / все»; селектор источника (если есть гости).
   Клик по строке → `openWorkReview( 'attempt', attemptId, 'exam-results' )`.
-- [ ] 8.7.3 В очереди «Готовы к утверждению» — те же «Утвердить выбранные (N)» / «Утвердить все» (переиспользовать функции режима выбора из
+- [x] 8.7.3 В очереди «Готовы к утверждению» — те же «Утвердить выбранные (N)» / «Утвердить все» (переиспользовать функции режима выбора из
   `exam-conduct.js`, вынеся их в `exam-common.js`).
-- [ ] 8.7.4 Пустые состояния для каждого сегмента.
+- [x] 8.7.4 Пустые состояния для каждого сегмента.
 
 **Тесты**
 - `ExamConductServiceTest.php`: `test_results_filter_by_status`, `test_results_filter_by_audience_and_source`,
@@ -371,20 +411,20 @@
 - `inc/Enums/Export/ExportTarget.php` — перечень целей экспорта.
 
 **Шаги**
-- [ ] 8.9.1 Защита от формул — в **общем** `CsvExportService` (выиграют все выгрузки): перед записью строкового значения, которое после удаления
+- [x] 8.9.1 Защита от формул — в **общем** `CsvExportService` (выиграют все выгрузки): перед записью строкового значения, которое после удаления
   ведущих пробелов и управляющих символов начинается с `=`, `+`, `-`, `@`, табуляции или возврата каретки, дописать в начало апостроф `'`.
   Числовые значения (`is_int`, `is_float`, строка-число вида `-12.5`) не трогать. Вынести в метод `neutralizeFormula( mixed $value ): mixed`.
-- [ ] 8.9.2 `inc/Services/Export/ExamParticipantsExportProvider.php` (`implements CsvExportProviderInterface`), цель `ExportTarget::ExamParticipants`.
+- [x] 8.9.2 `inc/Services/Export/ExamParticipantsExportProvider.php` (`implements CsvExportProviderInterface`), цель `ExportTarget::ExamParticipants`.
   Контекст: `session_id` **или** список `participation_ids` (выборка экспорта = выбранные участия, не все гости).
   Колонки: ФИО, источник (школа), сеанс (дата и время), статус, первичный балл / максимум, вторичный балл / максимум **или** отметка.
   **Без телефона, мессенджера и ссылок.** Зарегистрировать в `ExportServiceBootstrap`.
-- [ ] 8.9.3 Права: `authorizeAll( Nonce::…, array( Capability::ManageLmsPlatform, Capability::ExportPII ) )` (nonce — тот, что используют существующие выгрузки ПД)
+- [x] 8.9.3 Права: `authorizeAll( Nonce::…, array( Capability::ManageLmsPlatform, Capability::ExportPII ) )` (nonce — тот, что используют существующие выгрузки ПД)
   **и** `ExamAccessGuard::canManageEvent()`. Преподаватель без двух прав кнопку не видит и получает отказ на прямой запрос.
   Использовать существующий механизм одноразовой ссылки (`OneTimeDownloadService`), как у остальных выгрузок ПД; событие — в журнал экспорта.
-- [ ] 8.9.4 Печать: кнопка «Печать списка» при тех же правах открывает страницу печати со списком (ФИО, источник, сеанс) без контактов.
+- [x] 8.9.4 Печать: кнопка «Печать списка» при тех же правах открывает страницу печати со списком (ФИО, источник, сеанс) без контактов.
   Посмотреть, есть ли готовый механизм печатных документов (`inc/Enums/Print/PrintDocument.php`, `inc/Services/Print`) и добавить документ туда;
   отдельную страницу печати не изобретать. **Ссылки входа и результата печатью не раздаются.**
-- [ ] 8.9.5 В блок конфига `exams` добавить флаг `canExportPii` (оба права); кнопки «CSV» и «Печать списка» на экране сеанса и в «Результатах» —
+- [x] 8.9.5 В блок конфига `exams` добавить флаг `canExportPii` (оба права); кнопки «CSV» и «Печать списка» на экране сеанса и в «Результатах» —
   только при `true`.
 
 **Тесты**
@@ -414,7 +454,7 @@
 - [ ] 8.8.1 `sessionBoard()`: для гостей в строке — **отдельные поля** `payment` (`ExamPaymentState` + подпись), `registration_status`, `admission`
   (`admitted_at` задан или нет), `progress`. В таблице — четыре пилюли, не одна «галочка». Колонки видны, только если в сеансе есть гости.
   В доску добавить и гостей с действующей бронью без записи (строка «Место удерживается до {время}»).
-- [ ] 8.8.2 Допуск: `ExamConductService::admit( int $actorUserId, int $participationId, bool $admitted ): void` (право `ManageExamGuests`) —
+- [x] 8.8.2 Допуск: `ExamConductService::admit( int $actorUserId, int $participationId, bool $admitted ): void` (право `ManageExamGuests`) —
   ставит `admitted_at`/`admitted_by_user_id`. Сотрудник отмечает допуск после личной проверки данных и согласия представителя на площадке.
   Экшен `AdmitExamGuest`. Выдача ссылки входа (11b.1) возможна только при допуске и подтверждённой записи.
 - [ ] 8.8.3 Очередь «Оплачено, требуется помощь». `inc/Callbacks/Exam/ExamPaymentQueueCallbacks.php`
@@ -449,9 +489,9 @@
 
 ## Проверка этапа (SPEC §16: 6, 8, 16, 27, 28, 29)
 
-- [ ] Продление и отмена работают; отмена требует причины; начатую попытку отмена не стирает.
-- [ ] Массовое утверждение на 50 работах; повтор не дублирует событие.
-- [ ] Одновременное исправление двумя проверяющими — второй получает отказ по версии.
-- [ ] CSV с именами `=…`, `+…`, `@…` не выполняет формулу; выгрузка и печать недоступны без двух экспортных прав.
-- [ ] Преподаватель другого предмета не может открыть, оценить и утвердить экзаменную попытку.
-- [ ] `npm run ci`, `npx gulp build` — зелёные.
+- [x] Продление и отмена работают; отмена требует причины; начатую попытку отмена не стирает. (юнит-тесты; руками на ученике не прогонялось)
+- [x] Массовое утверждение на 50 работах; повтор не дублирует событие. (стенд на MariaDB)
+- [x] Одновременное исправление двумя проверяющими — второй получает отказ по версии. (стенд на MariaDB: два процесса)
+- [x] CSV с именами `=…`, `+…`, `@…` не выполняет формулу; выгрузка и печать недоступны без двух экспортных прав. (юнит-тесты; CSV по HTTP)
+- [x] Преподаватель другого предмета не может открыть, оценить и утвердить экзаменную попытку. (юнит-тесты коллбеков)
+- [x] `npm run ci`, `npx gulp build` — зелёные (2026-10-09; пункт 8.8 не сделан — ждёт этап 11a).

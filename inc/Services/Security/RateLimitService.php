@@ -83,6 +83,10 @@ readonly class RateLimitService {
 	public const LIMIT_LOGIN  = 3;
 	public const LOGIN_WINDOW = 15 * MINUTE_IN_SECONDS;
 
+	// Ключ приглашения экзамена: только неудачные проверки, успешные открытия не считаются (за общим адресом школы их десятки).
+	public const LIMIT_INVITATION_FAILURES = 20;
+	public const INVITATION_WINDOW         = 15 * MINUTE_IN_SECONDS;
+
 	// Во сколько раз IP-лимиты выше для белых адресов. Не безлимит: заражённое устройство
 	// в той же сети не должно слать запросы без ограничений. 20 учеников в час укладываются
 	// с запасом: до 5 отправок кода и до 6 попыток создания на ученика — 100 и 120 из 200.
@@ -210,6 +214,34 @@ readonly class RateLimitService {
 	 */
 	public function allowPiiReveal( int $userId ): bool {
 		return $this->check( $this->userKey( 'pii', $userId ), self::LIMIT_PII_REVEAL );
+	}
+
+	/**
+	 * Учитывает неудачную проверку ключа приглашения экзамена с IP (неверный, отозванный, чужого назначения).
+	 * Успешные открытия не считаются; тестовое окружение лимит не отключает — как у входа.
+	 */
+	public function registerInvitationFailure( string $ip ): void {
+		$this->check( $this->ipKey( 'examkey', $ip ), self::LIMIT_INVITATION_FAILURES, self::INVITATION_WINDOW );
+	}
+
+	/** Закрыта ли проверка ключей приглашения для IP: 20 неудач за 15 минут. Счётчик не увеличивает. */
+	public function isInvitationLocked( string $ip ): bool {
+		$data = $this->peek( $this->ipKey( 'examkey', $ip ) );
+
+		return (int) ( $data['count'] ?? 0 ) >= self::LIMIT_INVITATION_FAILURES;
+	}
+
+	/**
+	 * Создание брони экзамена: не больше `$hourlyLimit` в час с IP (белые адреса — с множителем). Фиксирует и проверяет.
+	 */
+	public function allowExamHoldCreation( string $ip, int $hourlyLimit ): bool {
+		if ( $this->pluginConfig->isTestEnv() ) { return true; }
+		return $this->checkIp( 'examhold', $ip, max( 1, $hourlyLimit ) );
+	}
+
+	/** Хеш IP для хранения в таблице заявок (сырой IP в базу не пишется): тот же алгоритм, что у ключей счётчиков. */
+	public function ipHash( string $ip ): string {
+		return hash( 'sha256', $ip . ( defined( 'FS_LMS_HASH_SALT' ) ? FS_LMS_HASH_SALT : '' ) );
 	}
 
 	/**

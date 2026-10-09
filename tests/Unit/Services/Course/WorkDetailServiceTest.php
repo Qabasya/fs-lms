@@ -79,6 +79,9 @@ class WorkDetailServiceTest extends TestCase {
 			$this->studentRecords,
 			new TaskSolutionService( $this->correctAnswers ),
 			$this->scoringUnits,
+			$this->createMock( \Inc\Repositories\WPDBRepositories\ExamParticipationRepository::class ),
+			$this->createMock( \Inc\Repositories\WPDBRepositories\ExamParticipantRepository::class ),
+			$this->createMock( \Inc\Services\Exam\GuestParticipantMaterializer::class ),
 		);
 	}
 

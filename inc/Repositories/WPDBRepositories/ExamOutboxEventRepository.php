@@ -35,11 +35,15 @@ class ExamOutboxEventRepository extends AbstractExamRepository {
 	 *
 	 * @return ExamOutboxEventDTO[] Захваченные события в порядке `available_at`.
 	 */
+	/** После стольких неудач строка остаётся необработанной с `last_error` и больше не берётся в работу. */
+	public const MAX_ATTEMPTS = 10;
+
 	public function leaseBatch( string $nowUtc, string $leaseUntilUtc, int $limit = 100 ): array {
 		$ids = $this->readInts( $this->wpdb->prepare(
-			'SELECT id FROM %i WHERE processed_at IS NULL AND available_at <= %s AND ( leased_until IS NULL OR leased_until < %s )
+			'SELECT id FROM %i WHERE processed_at IS NULL AND attempts < %d AND available_at <= %s AND ( leased_until IS NULL OR leased_until < %s )
 			 ORDER BY available_at ASC, id ASC LIMIT %d',
 			$this->table,
+			self::MAX_ATTEMPTS,
 			$nowUtc,
 			$nowUtc,
 			$limit

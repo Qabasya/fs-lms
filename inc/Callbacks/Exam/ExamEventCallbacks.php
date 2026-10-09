@@ -109,6 +109,37 @@ class ExamEventCallbacks extends BaseController {
 		$this->run( fn (): array => array( 'event' => $this->plans->eventPayload( $this->events->publish( get_current_user_id(), $eventId, $version ) ) ) );
 	}
 
+	public function ajaxMoveExamSession(): void {
+		$this->authorize( Nonce::ExamManage, Capability::ManageExams );
+
+		$sessionId = $this->requireInt( 'session_id' );
+		$reason    = $this->sanitizeMultilineText( 'reason' );
+		$version   = $this->sanitizeInt( 'version' );
+		$input     = array(
+			'date'    => $this->sanitizeText( 'date' ),
+			'time'    => $this->sanitizeText( 'time' ),
+			'room_id' => $this->sanitizeInt( 'room_id' ),
+		);
+
+		$this->run( fn (): array => array(
+			'session' => $this->plans->sessionPayload( $this->events->moveSession( get_current_user_id(), $sessionId, $input, $reason, $version ) ),
+		) );
+	}
+
+	public function ajaxCancelExamSession(): void {
+		$this->authorize( Nonce::ExamManage, Capability::ManageExams );
+
+		$sessionId = $this->requireInt( 'session_id' );
+		$reason    = $this->sanitizeMultilineText( 'reason' );
+		$version   = $this->sanitizeInt( 'version' );
+
+		$this->run( function () use ( $sessionId, $reason, $version ): array {
+			$this->events->cancelSession( get_current_user_id(), $sessionId, $reason, $version );
+
+			return array( 'session_id' => $sessionId );
+		} );
+	}
+
 	public function ajaxCancelExamEvent(): void {
 		$this->authorize( Nonce::ExamManage, Capability::ManageExams );
 

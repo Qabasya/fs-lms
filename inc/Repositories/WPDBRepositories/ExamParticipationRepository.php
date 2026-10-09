@@ -118,6 +118,16 @@ class ExamParticipationRepository extends AbstractExamRepository {
 		$this->setNullableInt( 'active_registration_id', $participationId, $registrationId );
 	}
 
+	/** Допуск гостя на площадке: отметка и автор; `null` снимает допуск. `version` не меняет — допуск не указатель вкладки. */
+	public function setAdmission( int $participationId, ?string $atUtc, ?int $byUserId ): void {
+		if ( null === $atUtc ) {
+			$sql = $this->wpdb->prepare( 'UPDATE %i SET admitted_at = NULL, admitted_by_user_id = NULL, updated_at = %s WHERE id = %d', $this->table, gmdate( 'Y-m-d H:i:s' ), $participationId );
+		} else {
+			$sql = $this->wpdb->prepare( 'UPDATE %i SET admitted_at = %s, admitted_by_user_id = %d, updated_at = %s WHERE id = %d', $this->table, $atUtc, (int) $byUserId, gmdate( 'Y-m-d H:i:s' ), $participationId );
+		}
+		$this->write( $sql );
+	}
+
 	/**
 	 * Источник приглашения, по которому гость записан. Пишется один раз при подтверждении заявки; `version` не меняет:
 	 * источник — не указатель, по которому вкладка проверяет устаревшее состояние.

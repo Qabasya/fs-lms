@@ -62,6 +62,7 @@ class ExamAttemptService {
 		private readonly ExamAccessGuard $accessGuard,
 		private readonly ExamOutbox $outbox,
 		private readonly ExamTime $time,
+		private readonly GuestSessionService $guestSessions,
 	) {}
 
 	/**
@@ -85,6 +86,14 @@ class ExamAttemptService {
 	}
 
 	/**
+	 * Контекст гостя по куке входа: `personId = null`, `wpUserId = null`, аудитория `guest`. Нет сессии, она отозвана или запись не действует — null.
+	 * Гость не пользователь WordPress; единственная личность — гостевая сессия ({@see GuestSessionService::current()}).
+	 */
+	public function contextForGuest(): ?AttemptContext {
+		return $this->guestSessions->current();
+	}
+
+	/**
 	 * Старт попытки. Повторный вызов (обновление страницы, двойной клик) возвращает ту же попытку.
 	 *
 	 * @throws CodedException
@@ -102,12 +111,17 @@ class ExamAttemptService {
 
 	/** @return AttemptDTO|true `true` — время старта истекло, неявка проставлена. */
 	private function startLocked( AttemptContext $ctx ): AttemptDTO|true {
-		if ( null === $ctx->personId ) {
+		$isGuest = ExamAudience::Guest === $ctx->audience;
+		if ( ! $isGuest && null === $ctx->personId ) {
 			throw new CodedException( ErrorCode::ExamAccess, 'Экзамен недоступен.' );
 		}
 
 		$participation = $this->participations->findForUpdate( $ctx->participationId );
-		if ( null === $participation ) {
+		if ( null === $participation || $isGuest !== ( ExamAudience::Guest->value === $participation->audience ) ) {
+			throw new CodedException( ErrorCode::ExamAccess, 'Экзамен недоступен.' );
+		}
+		// Гость садится за станцию только после допуска сотрудника на площадке.
+		if ( $isGuest && null === $participation->admittedAt ) {
 			throw new CodedException( ErrorCode::ExamAccess, 'Экзамен недоступен.' );
 		}
 
@@ -142,7 +156,8 @@ class ExamAttemptService {
 		}
 
 		$startedAt = $this->time->nowLocal();
-		if ( null !== $this->attempts->findAnyActive( $ctx->personId, $startedAt ) ) {
+		// У гостя нет Person, а значит и другой его активной попытки: «одна на участие» держит уникальный индекс.
+		if ( ! $isGuest && null !== $this->attempts->findAnyActive( (int) $ctx->personId, $startedAt ) ) {
 			throw new CodedException( ErrorCode::ExamConflict, 'Сначала завершите начатую работу.' );
 		}
 
@@ -156,7 +171,7 @@ class ExamAttemptService {
 			assessmentId       : $assessmentId,
 			studentPersonId    : $ctx->personId,
 			groupId            : null,
-			attemptNumber      : $this->attempts->nextAttemptNumber( $ctx->personId, $assessmentId ),
+			attemptNumber      : $isGuest ? 1 : $this->attempts->nextAttemptNumber( (int) $ctx->personId, $assessmentId ),
 			startedAt          : $startedAt,
 			deadlineAt         : $deadlineAt,
 			groupLessonId      : null,
@@ -184,6 +199,10 @@ class ExamAttemptService {
 		$attempt = $this->attempts->find( $attemptId );
 		if ( null === $attempt ) {
 			throw new \RuntimeException( 'Созданная попытка экзамена не найдена.' );
+		}
+		if ( $isGuest ) {
+			// Сессия живёт до личного дедлайна + время на просмотр результата.
+			$this->guestSessions->extendForAttempt( $participation->id, $this->time->toUtc( $attempt->deadlineAt ) );
 		}
 		return $attempt;
 	}
@@ -273,6 +292,9 @@ class ExamAttemptService {
 			$attempt       = $this->writableAttempt( $ctx, $attemptId );
 
 			$submitted = $this->attemptService->submitFor( $attempt );
+			if ( ExamAudience::Guest->value === $participation->audience ) {
+				$this->guestSessions->closeAfterSubmit( $participation->id );
+			}
 			$this->outbox->add(
 				ExamOutboxEvent::AttemptSubmitted,
 				'participation',
@@ -300,7 +322,9 @@ class ExamAttemptService {
 			$this->finalizeExpired( $attempt->id );
 		}
 
-		return $this->attemptService->getResult( $attemptId, (int) $ctx->personId );
+		return null === $ctx->personId
+			? $this->attemptService->getExamResult( $attemptId )
+			: $this->attemptService->getResult( $attemptId, $ctx->personId );
 	}
 
 	/**
@@ -408,6 +432,9 @@ class ExamAttemptService {
 			$updated = $this->attempts->find( $attempt->id );
 			if ( null === $updated ) {
 				throw new \RuntimeException( 'Попытка экзамена не найдена после продления.' );
+			}
+			if ( ExamAudience::Guest->value === $participation->audience ) {
+				$this->guestSessions->extendForAttempt( $participation->id, $this->time->toUtc( $updated->deadlineAt ) );
 			}
 			return $updated;
 		} );

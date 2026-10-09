@@ -1,0 +1,208 @@
+@use '../variables' as *;
+
+// Страницы гостя после записи (этап 11b): вход на экзамен и результат. Карточка входа — существующая fs-join-card;
+// здесь только подпись окна старта и подсказки, а для результата — шапка, показатели, навигация и карточки заданий.
+
+.fs-exam-entry {
+  &__when {
+    margin: 0 0 $spacing-lg;
+    text-align: center;
+    font-size: $font-size-base;
+    color: $color-muted;
+  }
+
+  &__hint,
+  &__state {
+    margin: $spacing-md 0 0;
+    text-align: center;
+    font-size: $font-size-base;
+    color: $color-muted;
+    line-height: $line-height-relaxed;
+  }
+}
+
+.fs-exam-result {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  max-width: $content-width;
+  margin: 0 auto;
+  padding: 0 $spacing-md $spacing-2xl;
+
+  &__head {
+    margin-bottom: $spacing-lg;
+  }
+
+  &__title {
+    margin: 0 0 $spacing-xs;
+    font-size: $font-size-xl;
+    line-height: $line-height-tight;
+    color: $color-text;
+  }
+
+  &__meta {
+    margin: 0;
+    font-size: $font-size-sm;
+    color: $color-muted;
+  }
+
+  &__score {
+    margin: $spacing-md 0 0;
+    font-size: $font-size-xl;
+    font-weight: $font-semibold;
+    color: $color-text;
+  }
+
+  &__note {
+    margin: $spacing-xs 0 0;
+    font-size: $font-size-base;
+    color: $color-wait;
+  }
+
+  &__stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(rem(140), 1fr));
+    gap: $spacing-md;
+    margin: 0 0 $spacing-lg;
+  }
+
+  &__stat {
+    padding: $spacing-md;
+    background: $color-bg-subtle;
+    border: 1px solid $color-border-light;
+    border-radius: $border-radius-md;
+
+    dt {
+      font-size: $font-size-sm;
+      color: $color-muted;
+    }
+
+    dd {
+      margin: $spacing-xs 0 0;
+      font-size: $font-size-lead;
+      font-weight: $font-semibold;
+    }
+
+    &.is-correct dd { color: $color-ok; }
+    &.is-partial dd { color: $color-wait; }
+    &.is-wrong dd { color: $color-err; }
+    &.is-pending dd { color: $color-muted; }
+  }
+
+  &__nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: $spacing-xs;
+    margin-bottom: $spacing-lg;
+  }
+
+  &__chip {
+    display: grid;
+    place-items: center;
+    min-width: rem(34);
+    height: rem(34);
+    padding: 0 $spacing-xs;
+    font-size: $font-size-sm;
+    font-weight: $font-medium;
+    color: $color-text;
+    text-decoration: none;
+    border: 1px solid $color-border;
+    border-radius: $border-radius-sm;
+
+    &.is-correct { background: $color-ok-soft; border-color: $color-ok-line; }
+    &.is-partial { background: $color-wait-soft; border-color: $color-wait-line; }
+
+    &.is-incorrect,
+    &.is-unanswered { background: $color-err-soft; border-color: $color-err-line; }
+    &.is-pending { background: $color-bg-subtle; }
+  }
+
+  &__tasks {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-md;
+  }
+
+  &__end {
+    margin: $spacing-xl 0 0;
+    text-align: center;
+  }
+}
+
+.fs-exam-task {
+  padding: $spacing-md $spacing-lg;
+  background: $color-white;
+  border: 1px solid $color-border-light;
+  border-radius: $border-radius-md;
+  scroll-margin-top: $spacing-xl;
+  min-width: 0;
+
+  &__head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: $spacing-sm;
+    margin-bottom: $spacing-sm;
+  }
+
+  &__n { font-weight: $font-semibold; }
+
+  &__verdict {
+    padding: 0 $spacing-sm;
+    font-size: $font-size-xs;
+    border-radius: $border-radius-pill;
+    background: $color-bg-subtle;
+  }
+
+  &.is-correct &__verdict,
+  &.is-corrected &__verdict { color: $color-ok; background: $color-ok-soft; }
+  &.is-partial &__verdict { color: $color-wait; background: $color-wait-soft; }
+
+  &.is-incorrect &__verdict,
+  &.is-unanswered &__verdict { color: $color-err; background: $color-err-soft; }
+
+  &__score {
+    margin-left: auto;
+    font-size: $font-size-sm;
+    color: $color-muted;
+  }
+
+  &__cond {
+    margin-bottom: $spacing-sm;
+    line-height: $line-height-relaxed;
+    overflow-x: auto;
+
+    img { max-width: 100%; height: auto; }
+  }
+
+  &__note {
+    margin: 0 0 $spacing-sm;
+    font-size: $font-size-base;
+    color: $color-muted;
+  }
+
+  &__line {
+    margin: 0 0 $spacing-xs;
+    overflow-wrap: anywhere;
+
+    &.is-correct { color: $color-ok; }
+  }
+
+  &__label { color: $color-muted; }
+
+  &__code {
+    margin: $spacing-xs 0 $spacing-sm;
+    padding: $spacing-sm $spacing-md;
+    overflow-x: auto;
+    font-family: $font-code;
+    font-size: $font-size-code;
+    background: $color-bg-subtle;
+    border-radius: $border-radius-sm;
+  }
+
+  &__solution {
+    margin-top: $spacing-sm;
+
+    summary { cursor: pointer; color: $color-accent; }
+  }
+}

@@ -55,12 +55,12 @@ class CsvExportService {
 		$handle = fopen( 'php://temp', 'r+' );
 
 		// Заголовки
-		fputcsv( $handle, array_map( fn( CsvColumn $c ) => $c->header, $columns ) );
+		fputcsv( $handle, array_map( fn( CsvColumn $c ) => $c->header, $columns ), ',', '"', '\\' );
 
 		// Строки данных
 		foreach ( $rows as $row ) {
-			$cells = array_map( fn( CsvColumn $c ) => (string) ( ( $c->extractor )( $row ) ?? '' ), $columns );
-			fputcsv( $handle, $cells );
+			$cells = array_map( fn( CsvColumn $c ) => (string) $this->neutralizeFormula( ( $c->extractor )( $row ) ?? '' ), $columns );
+			fputcsv( $handle, $cells, ',', '"', '\\' );
 		}
 
 		rewind( $handle );
@@ -69,6 +69,35 @@ class CsvExportService {
 
 		// UTF-8 BOM — необходим для корректного открытия в Microsoft Excel
 		return "\xEF\xBB\xBF" . $csv;
+	}
+
+	/**
+	 * Защита от «CSV-инъекции»: ячейка, которую табличный редактор прочёл бы как формулу, получает ведущий апостроф.
+	 *
+	 * Формулой считается строка, начинающаяся (после ведущих пробелов и управляющих символов) с `=`, `+`, `-`, `@`,
+	 * а также строка, начинающаяся с табуляции или возврата каретки. Числа (`42`, `-12.5`, строка `-12.5`) не трогаются:
+	 * отрицательное число — не формула. Номер вида `+7999…` числом не считается и получает апостроф.
+	 *
+	 * @param mixed $value Значение ячейки
+	 *
+	 * @return mixed Исходное значение или строка с ведущим апострофом
+	 */
+	public function neutralizeFormula( mixed $value ): mixed {
+		if ( ! is_string( $value ) || '' === $value ) {
+			return $value;
+		}
+		if ( 1 === preg_match( '/^-?\d+(?:[.,]\d+)?$/', $value ) ) {
+			return $value;
+		}
+
+		$first   = $value[0];
+		$trimmed = ltrim( $value, " \x00..\x1F" );
+
+		if ( "\t" === $first || "\r" === $first || ( '' !== $trimmed && str_contains( '=+-@', $trimmed[0] ) ) ) {
+			return "'" . $value;
+		}
+
+		return $value;
 	}
 
 	/**

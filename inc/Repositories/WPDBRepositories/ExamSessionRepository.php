@@ -123,6 +123,23 @@ class ExamSessionRepository extends AbstractExamRepository {
 	}
 
 	/**
+	 * Закрывает открытые сеансы проведения, плановый конец которых наступил (завершение проведения).
+	 *
+	 * @return int Сколько сеансов закрыто.
+	 */
+	public function completeEndedByEvent( int $eventId, string $nowUtc ): int {
+		return $this->write( $this->wpdb->prepare(
+			'UPDATE %i SET status = %s, version = version + 1, updated_at = %s WHERE event_id = %d AND status = %s AND planned_end_at <= %s',
+			$this->table,
+			ExamSessionStatus::Completed->value,
+			$nowUtc,
+			$eventId,
+			ExamSessionStatus::Open->value,
+			$nowUtc
+		) );
+	}
+
+	/**
 	 * Сеансы опубликованных проведений в окне дат (UTC) для «Главной» преподавателя: свои — по ответственному, у глобального охвата — все.
 	 * Отменённые сеансы и черновики не включаются. Название проведения — в `event_title`.
 	 *

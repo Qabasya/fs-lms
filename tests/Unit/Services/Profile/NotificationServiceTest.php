@@ -467,4 +467,46 @@ class NotificationServiceTest extends TestCase {
 			self::assertStringContainsString( $needle, $out['body'] );
 		}
 	}
+
+	/** @param array<string,mixed> $payload */
+	private function body( string $type, array $payload ): string {
+		$dto = NotificationDTO::fromArray( array(
+			'id' => 1, 'recipient_user_id' => 7, 'type' => $type, 'payload' => wp_json_encode( $payload ),
+			'url' => '', 'created_at' => '2026-07-27 10:00:00',
+		) );
+
+		return $this->service->toClientArray( $dto )['body'];
+	}
+
+	public function test_exam_bodies_follow_the_table(): void {
+		$p = array(
+			'event_title' => 'Пробный ЕГЭ', 'date' => '12.03', 'time' => '10:00', 'time_end' => '14:00', 'room' => 'Каб. 305',
+			'reason' => 'Болезнь', 'participant_name' => 'Иванов Пётр', 'score_caption' => '84 из 100', 'order_number' => '1203', 'source_label' => 'Школа 5',
+		);
+
+		self::assertSame( '«Пробный ЕГЭ»', $this->body( 'exam_registration_opened', $p ) );
+		foreach ( array( 'exam_registration_confirmed', 'exam_tomorrow', 'exam_soon', 'exam_entry_opened', 'exam_registration_changed' ) as $type ) {
+			self::assertSame( '«Пробный ЕГЭ» · 12.03, 10:00 · Каб. 305', $this->body( $type, $p ), $type );
+		}
+		self::assertSame( '«Пробный ЕГЭ». Причина: Болезнь', $this->body( 'exam_registration_cancelled', $p ) );
+		self::assertSame( '«Пробный ЕГЭ». Причина: Болезнь', $this->body( 'exam_session_cancelled', $p ) );
+		self::assertSame( '«Пробный ЕГЭ». Причина: Болезнь', $this->body( 'exam_result_corrected', $p ) );
+		self::assertSame( '«Пробный ЕГЭ» · 12.03, 10:00', $this->body( 'exam_missed', $p ) );
+		self::assertSame( '«Пробный ЕГЭ». Работа ожидает утверждения преподавателем.', $this->body( 'exam_work_accepted', $p ) );
+		self::assertSame( 'Экзамен сдан: Иванов Пётр · «Пробный ЕГЭ»', $this->body( 'exam_work_submitted', $p ) );
+		self::assertSame( '«Пробный ЕГЭ»: 84 из 100', $this->body( 'exam_approved', $p ) );
+		self::assertSame( '«Пробный ЕГЭ». Новое время завершения: 14:00. Причина: Болезнь', $this->body( 'exam_extended', $p ) );
+		self::assertSame( '«Пробный ЕГЭ». Новая дата: 12.03, 10:00 · Каб. 305. Причина: Болезнь', $this->body( 'exam_session_moved', $p ) );
+		self::assertSame( 'Заказ №1203 · «Пробный ЕГЭ» · Иванов Пётр', $this->body( 'exam_payment_needs_help', $p ) );
+		self::assertSame( 'Заказ №1203 · «Пробный ЕГЭ» · Иванов Пётр', $this->body( 'exam_reconcile_failed', $p ) );
+		self::assertSame( '«Пробный ЕГЭ» · Школа 5', $this->body( 'exam_source_limit', $p ) );
+	}
+
+	public function test_exam_cancel_without_reason_is_title_only(): void {
+		self::assertSame( '«Пробный ЕГЭ»', $this->body( 'exam_registration_cancelled', array( 'event_title' => 'Пробный ЕГЭ' ) ) );
+	}
+
+	public function test_exam_bodies_before_approval_have_no_scores(): void {
+		self::assertDoesNotMatchRegularExpression( '/\d/', $this->body( 'exam_work_accepted', array( 'event_title' => 'Пробный ЕГЭ' ) ) );
+	}
 }

@@ -5,6 +5,8 @@ declare( strict_types=1 );
 namespace Inc\Repositories\WPDBRepositories;
 
 use Inc\DTO\Exam\ExamEventDTO;
+use Inc\Enums\Exam\ExamEventStatus;
+use Inc\Enums\Exam\ExamSessionStatus;
 use Inc\Enums\Settings\TableName;
 
 class ExamEventRepository extends AbstractExamRepository {
@@ -92,6 +94,50 @@ class ExamEventRepository extends AbstractExamRepository {
 		);
 		return array_map( array( ExamEventDTO::class, 'fromArray' ), $rows );
 	}
+	/**
+	 * Опубликованные проведения с открытой записью (окно записи не задано или включает «сейчас»).
+	 *
+	 * @return ExamEventDTO[]
+	 */
+	public function listOpenForRegistration( string $nowUtc ): array {
+		$rows = $this->readRows( $this->wpdb->prepare(
+			'SELECT * FROM %i WHERE status = %s AND ( registration_opens_at IS NULL OR registration_opens_at <= %s )
+			 AND ( registration_closes_at IS NULL OR registration_closes_at > %s ) ORDER BY id ASC',
+			$this->table,
+			ExamEventStatus::Published->value,
+			$nowUtc,
+			$nowUtc
+		) );
+
+		return array_map( array( ExamEventDTO::class, 'fromArray' ), $rows );
+	}
+
+	/**
+	 * Опубликованные проведения, у которых есть неотменённый сеанс и все такие сеансы уже закончились (кандидаты на завершение).
+	 * Остальные условия завершения (нет действующих записей и идущих попыток) проверяет сервис под блокировкой.
+	 *
+	 * @return int[]
+	 */
+	public function listDueForCompletion( string $nowUtc, int $limit = 100 ): array {
+		$sessions = TableName::ExamSessions->prefixed();
+
+		return $this->readInts( $this->wpdb->prepare(
+			'SELECT e.id FROM %i e
+			 WHERE e.status = %s
+			   AND EXISTS ( SELECT 1 FROM %i s WHERE s.event_id = e.id AND s.status <> %s )
+			   AND NOT EXISTS ( SELECT 1 FROM %i s2 WHERE s2.event_id = e.id AND s2.status <> %s AND s2.planned_end_at > %s )
+			 ORDER BY e.id ASC LIMIT %d',
+			$this->table,
+			ExamEventStatus::Published->value,
+			$sessions,
+			ExamSessionStatus::Cancelled->value,
+			$sessions,
+			ExamSessionStatus::Cancelled->value,
+			$nowUtc,
+			$limit
+		) );
+	}
+
 	/**
 	 * Удаляет проведения с названием на `$prefix` и всё, что к ним относится: сеансы, участия, записи, заявки, источники и их ключи,
 	 * события outbox, ключи идемпотентности, участников без учётной записи. **Только для фикстур стенда** (`wp fs-lms exam stand-clean`):

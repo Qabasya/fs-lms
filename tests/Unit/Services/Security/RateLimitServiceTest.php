@@ -201,4 +201,45 @@ class RateLimitServiceTest extends TestCase {
 
 		self::assertTrue( $service->isLoginLocked( '1.1.1.1', 'id:7' ) );
 	}
+
+	// ── Экзамены: ключ приглашения и брони (11a.2.5) ──────────────────────────────
+
+	public function test_invitation_lock_after_twenty_failures(): void {
+		$service = $this->makeService();
+		$ip      = '5.5.5.5';
+
+		for ( $i = 1; $i <= 19; $i++ ) {
+			$service->registerInvitationFailure( $ip );
+			self::assertFalse( $service->isInvitationLocked( $ip ), "После $i неудач ещё открыто" );
+		}
+		$service->registerInvitationFailure( $ip );
+
+		self::assertTrue( $service->isInvitationLocked( $ip ) );
+		self::assertFalse( $service->isInvitationLocked( '6.6.6.6' ), 'Чужой адрес не заперт.' );
+	}
+
+	public function test_successful_openings_are_not_counted(): void {
+		$service = $this->makeService();
+
+		// Проверка блокировки счётчик не увеличивает: сколько ни проверяй, адрес открыт.
+		for ( $i = 0; $i < 100; $i++ ) {
+			self::assertFalse( $service->isInvitationLocked( '5.5.5.5' ) );
+		}
+	}
+
+	public function test_exam_hold_hourly_limit_and_trusted_multiplier(): void {
+		$plain   = $this->makeService();
+		$trusted = $this->makeService( false, array( '9.9.9.9' ) );
+
+		self::assertSame( 5, $this->passesBeforeBlock( fn() => $plain->allowExamHoldCreation( '5.5.5.5', 5 ) ) );
+		self::assertSame( 50, $this->passesBeforeBlock( fn() => $trusted->allowExamHoldCreation( '9.9.9.9', 5 ) ) );
+	}
+
+	public function test_ip_hash_is_salted_and_stable(): void {
+		$service = $this->makeService();
+
+		self::assertSame( $service->ipHash( '5.5.5.5' ), $service->ipHash( '5.5.5.5' ) );
+		self::assertNotSame( $service->ipHash( '5.5.5.5' ), hash( 'sha256', '5.5.5.5' ) );
+		self::assertSame( 64, strlen( $service->ipHash( '5.5.5.5' ) ) );
+	}
 }

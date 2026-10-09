@@ -114,3 +114,63 @@
   input { flex: 1 1 rem(140); height: rem(32); padding: 0 t.$spacing-sm; font: inherit; font-size: t.$font-size-sm; border: 1px solid var(--line); border-radius: t.$border-radius-sm; }
 }
 .es-grade { font-size: t.$font-size-xs; font-weight: t.$font-semibold; color: var(--muted); white-space: nowrap; }
+
+/* ══════════════════════════════════════════════════════════════════════
+   «Проведение экзамена» (этап 8.1): доска сеанса. Плитки, строки и пилюли — существующие prof-stat-tile / pr-row / prof-state-pill.
+   ══════════════════════════════════════════════════════════════════════ */
+.exam-conduct { display: flex; flex-direction: column; gap: t.$spacing-lg; }
+.exam-conduct-sessions { align-self: flex-start; max-width: 100%; overflow-x: auto; }
+.exam-conduct-titlebar { display: flex; align-items: center; justify-content: space-between; gap: t.$spacing-md; }
+.exam-conduct-title { margin: 0; font-size: t.$font-size-lead; font-weight: t.$font-bold; color: var(--ink); }
+.exam-conduct-sub { margin-top: t.$spacing-xs; font-size: t.$font-size-sm; color: var(--muted); }
+.exam-conduct-tiles { margin: 0; }
+.exam-conduct-empty { padding: t.$spacing-xl 0; text-align: center; font-size: t.$font-size-sm; color: var(--muted-2); }
+
+.exam-conduct-row {
+  flex-wrap: wrap;
+
+  &.is-off .pr-info { opacity: .55; }
+}
+.exam-conduct-left { font-variant-numeric: tabular-nums; font-weight: t.$font-semibold; color: var(--ink); }
+.exam-conduct-score { font-size: t.$font-size-sm; color: var(--ink); white-space: nowrap; }
+.exam-conduct-arrived { color: var(--ok); }
+.exam-conduct-loading { padding: t.$spacing-xl 0; text-align: center; color: var(--muted); }
+.exam-conduct-toolbar { display: flex; flex-wrap: wrap; gap: t.$spacing-sm; }
+.exam-conduct-check { flex: 0 0 auto; }
+.exam-skipped { margin: 0; padding-left: t.$spacing-lg; }
+
+/* Исправление утверждённого результата на экране проверки (8.6) */
+.wr-correct { display: flex; flex-direction: column; gap: t.$spacing-md; padding: t.$spacing-lg; margin-bottom: t.$spacing-lg; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
+.wr-correct-title { font-size: t.$font-size-md; font-weight: t.$font-bold; color: var(--ink); }
+.wr-correct-rows { display: flex; flex-wrap: wrap; gap: t.$spacing-md; }
+.wr-correct-row { display: inline-flex; align-items: center; gap: t.$spacing-xs; font-size: t.$font-size-sm; }
+.wr-correct-score { width: rem(72); }
+.wr-correct-reason { display: flex; flex-direction: column; gap: t.$spacing-xs; font-size: t.$font-size-sm; color: var(--muted); }
+
+/* «Результаты» (8.7): фильтры в строку, перенос на узких экранах */
+.exam-results { display: flex; flex-direction: column; gap: t.$spacing-lg; }
+.exam-results-segs { align-self: flex-start; max-width: 100%; overflow-x: auto; }
+.exam-results-filters { display: flex; flex-wrap: wrap; align-items: center; gap: t.$spacing-sm; }
+
+/* Печать списка участников (8.9): на печати виден только лист, остальной кабинет скрыт */
+.exam-print-sheet { display: none; }
+.exam-print-table { width: 100%; border-collapse: collapse; }
+.exam-print-table th, .exam-print-table td { padding: t.$spacing-xs t.$spacing-sm; text-align: left; border-bottom: 1px solid var(--line); font-size: t.$font-size-base; }
+
+@media print {
+  body.is-printing-exam > *:not(.exam-print-sheet) { display: none; }
+  body.is-printing-exam .exam-print-sheet { display: block; }
+}
+
+/* «Статистика» (10): плитки одной высоты, полоса долей из пяти сегментов */
+.exam-stats { display: flex; flex-direction: column; gap: t.$spacing-lg; }
+.exam-stat-tiles { margin: 0; align-items: stretch; }
+.exam-stat-tile { display: flex; flex-direction: column; }
+.exam-stat-tile .st-delta { min-height: 1lh; } // подпись есть не у всех плиток — высота общая
+.exam-bar { display: flex; width: 100%; height: rem(8); margin: t.$spacing-xs 0; overflow: hidden; border-radius: rem(4); background: var(--surface-2); }
+.exam-seg { display: block; width: var(--progress, 0%); height: 100%; }
+.exam-seg--correct { background: var(--ok); }
+.exam-seg--partial { background: var(--wait-line); }
+.exam-seg--incorrect { background: var(--err); }
+.exam-seg--unanswered { background: var(--wait-soft); }
+.exam-seg--pending { background: var(--line-2); }

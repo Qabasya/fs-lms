@@ -12,6 +12,8 @@ import { icoChevronLeft } from '../common/icons.js';
 import { createApi } from './api.js';
 import { confirmDialog } from '../common/components/confirm-dialog.js';
 import { renderTask, VERDICT_LABEL } from './task-render.js';
+import { resultCaption } from './exams/exam-result.js';
+import { ajaxErrorText } from '../common/utils.js';
 
 const STATUS_LABEL  = { submitted: 'Сдано', pending: 'На проверке', graded: 'Оценено', returned: 'Возвращено', in_progress: 'В процессе', expired: 'Просрочено' };
 /* D18: ответы/баллы скрыты от ученика до подтверждения — у ЕГЭ (без ручной
@@ -21,6 +23,7 @@ const APPROVABLE_KIND = 'ege_computer';
 /* Статусы сдачи, при которых работа ещё висит в корзине «На проверке» —
    зеркало ReviewQueueService::workStatusesFor('pending'). */
 const OPEN_STATUSES = [ 'submitted', 'pending_review' ];
+const STALE_CODE = 'X-STALE';
 
 let wrRoot   = null;
 let onBackCb = () => {};
@@ -28,6 +31,8 @@ let onLoadedCb = () => {};
 let reviewApi = null;
 let attemptGradeApi = null;
 let batchGradeApi = null;
+let examApi = null;
+let correcting = false;
 let returnTo = 'summary';
 let current  = null; // { sourceType, sourceId }
 
@@ -42,6 +47,8 @@ export function renderWorkReview(root, { onBack, onLoaded } = {}) {
     // D4: поштучное оценивание задания «Развёрнутый ответ» внутри submission-работы —
     // переиспользует Этап-7 эндпоинт GradeBatchTask (пишет per-task строку submissions).
     batchGradeApi   = p.batchGrade ? createApi(p.batchGrade) : null;
+    // 8.6: исправление утверждённого результата идёт через блок конфига экзаменов сотрудника.
+    examApi         = p.exams ? createApi(p.exams) : null;
 }
 
 /** Экран, на который вернёт кнопка «‹ Назад» (summary | works) — читает app.js при клике. */
@@ -52,6 +59,7 @@ export function getReturnTo() {
 /** Открывает деталь работы/экзамена — вызывается из Сводки (D2) и «Работ» (D3). */
 export async function openWorkReview(sourceType, sourceId, from) {
     returnTo = from || 'summary';
+    correcting = false;
     current  = { sourceType, sourceId };
     if (!wrRoot) { return; }
     if (!reviewApi) { toast('Оценивание недоступно', 'error'); return; }
@@ -89,13 +97,18 @@ function render(d, history = []) {
     const liveTasksHtml = d.tasks.length
         ? d.tasks.map(t => renderTask(t, taskContext(d))).join('')
         : '<div class="sum-detail-empty">В работе нет задач.</div>';
-    const scoreLine = (d.score !== null && d.score !== undefined)
-        ? `${fmtNum(d.score)}${d.max_score != null ? ' / ' + fmtNum(d.max_score) : ''} б.`
-        : 'без оценки';
+    const isExam = !!d.exam;
+    const scoreLine = isExam
+        ? examScoreLine(d)
+        : ((d.score !== null && d.score !== undefined)
+            ? `${fmtNum(d.score)}${d.max_score != null ? ' / ' + fmtNum(d.max_score) : ''} б.`
+            : 'без оценки');
 
     const isApproved = !!d.approved_at;
-    const canApprove = d.kind === 'exam' && d.attempt_id && attemptGradeApi
-        && d.assessment_kind === APPROVABLE_KIND && !isApproved;
+    // Экзаменная попытка ученика (ЕГЭ и ОГЭ) утверждается, когда проверка закончена; гостю кнопки нет (`approvable` приходит с сервера).
+    const canApprove = isExam
+        ? (!!d.approvable && !!attemptGradeApi)
+        : (d.kind === 'exam' && d.attempt_id && attemptGradeApi && d.assessment_kind === APPROVABLE_KIND && !isApproved);
     // Tasks.md п. 6: работа с разбором по заданиям не имеет единой формы оценки
     // (оценивание поштучное, D4) — без этой кнопки её нечем было увести из
     // «На проверке» в «Проверенные».
@@ -123,18 +136,20 @@ function render(d, history = []) {
             <div class="wr-head">
                 <button class="wr-back">${icoChevronLeft(16)} Назад</button>
                 <div class="wr-head-main">
-                    <div class="smh-title">${esc(d.title)}</div>
-                    <div class="smh-meta" id="smhMeta">${d.kind === 'exam' ? 'Экзамен' : 'Работа'} · ${esc(STATUS_LABEL[d.status] || d.status)} · ${esc(scoreLine)}${durationMeta(d.duration_sec)}${d.is_late ? ' · <span class="smh-late">Просрочено</span>' : ''}</div>
+                    <div class="smh-title">${esc(d.title)}${isExam && d.participant_name ? ' · ' + esc(d.participant_name) : ''}</div>
+                    <div class="smh-meta" id="smhMeta">${d.kind === 'exam' ? 'Экзамен' : 'Работа'} · ${esc(isExam ? (d.result_status_label || d.status) : (STATUS_LABEL[d.status] || d.status))} · ${esc(scoreLine)}${durationMeta(d.duration_sec)}${d.is_late ? ' · <span class="smh-late">Просрочено</span>' : ''}</div>
                 </div>
                 <div class="smh-actions">
                     ${d.review_url ? `<a class="prof-btn prof-btn-sm" href="${esc(d.review_url)}" target="_blank" rel="noopener">Лист результатов</a>` : ''}
                     ${canApprove ? '<button class="prof-btn prof-btn-sm prof-btn-primary sum-approve">Утвердить работу</button>' : ''}
                     ${isApproved ? '<span class="sum-approved-badge" title="Ответы открыты ученику">Утверждено</span>' : ''}
+                    ${isExam && d.correctable && examApi && !correcting ? '<button class="prof-btn prof-btn-sm sum-correct">Исправить результат</button>' : ''}
                     ${canComplete ? '<button class="prof-btn prof-btn-sm prof-btn-primary sum-complete">Проверка завершена</button>' : ''}
-                    <button class="prof-btn prof-btn-sm sum-reset">Сбросить попытки</button>
+                    ${isExam ? '' : '<button class="prof-btn prof-btn-sm sum-reset">Сбросить попытки</button>'}
                 </div>
             </div>
             ${picker}
+            ${isExam && correcting ? correctionPanel(d) : ''}
             <div class="wr-body">
                 <div class="wr-tasks prof-swap" data-wr-tasks>${liveTasksHtml}</div>
                 ${d.attachment_url ? attachmentBlock(d) : ''}
@@ -155,7 +170,8 @@ function render(d, history = []) {
     if (d.gradable) { wireGrading(wrRoot, d.submission_id); }
     if (canApprove) { wireApprove(wrRoot, d); }
     if (canComplete) { wireComplete(wrRoot, d); }
-    wireReset(wrRoot);
+    if (!isExam) { wireReset(wrRoot); }
+    if (isExam && d.correctable && examApi) { wireCorrection(wrRoot, d); }
     if (picker) { wireAttemptPicker(wrRoot, history, currentRound, liveTasksHtml, wireLiveTaskControls); }
 }
 
@@ -214,6 +230,75 @@ function wireAttemptPicker(root, history, currentRound, liveTasksHtml, wireLiveT
     });
 }
 
+/* Итог экзаменной попытки в шапке: пока ручная часть не проверена — только «Проверка не завершена», без вторичного балла и отметки. */
+function examScoreLine(d) {
+    if (!d.result || d.result.pending) { return 'Проверка не завершена'; }
+    return resultCaption(d.result);
+}
+
+/* 8.6: панель исправления утверждённого результата — поле балла у каждого задания и обязательная причина. */
+function correctionPanel(d) {
+    // Исправлять можно только задания с записанным баллом: у задания без ответа в работе нет строки, которую можно поправить.
+    const rows = (d.tasks || []).filter(t => t.task_id && t.score !== null && t.score !== undefined).map(t => `
+        <label class="wr-correct-row" data-task-id="${t.task_id}" data-max="${t.max_score ?? 0}">
+            <span>№ ${esc(String(t.number ?? t.n ?? t.task_id))}</span>
+            <input type="number" class="wr-correct-score" step="0.5" min="0" max="${t.max_score ?? ''}" value="${t.score}" data-old="${t.score}">
+            <span class="stg-of">/ ${t.max_score != null ? fmtNum(t.max_score) : '—'}</span>
+        </label>`).join('');
+    return `<div class="wr-correct">
+        <div class="wr-correct-title">Исправление результата</div>
+        <div class="wr-correct-rows">${rows}</div>
+        <label class="wr-correct-reason"><span>Причина</span><textarea id="wrCorrectReason" rows="2" maxlength="500" placeholder="Что сообщить ученику"></textarea></label>
+        <div class="smf-actions">
+            <button class="prof-btn prof-btn-sm prof-btn-primary" data-correct="save">Сохранить исправление</button>
+            <button class="prof-btn prof-btn-sm" data-correct="cancel">Отмена</button>
+        </div>
+    </div>`;
+}
+
+/* 8.6: «Исправить результат» открывает панель; сохранение — с подтверждением, ученик получит уведомление с причиной. */
+function wireCorrection(root, d) {
+    root.querySelector('.sum-correct')?.addEventListener('click', () => { correcting = true; render(d); });
+    root.querySelector('[data-correct="cancel"]')?.addEventListener('click', () => { correcting = false; render(d); });
+
+    const save = root.querySelector('[data-correct="save"]');
+    if (!save) { return; }
+    save.addEventListener('click', async () => {
+        const reason = root.querySelector('#wrCorrectReason').value.trim();
+        if (!reason) { toast('Укажите причину исправления', 'error'); return; }
+
+        const changes = [];
+        root.querySelectorAll('.wr-correct-row').forEach(row => {
+            const input = row.querySelector('.wr-correct-score');
+            if (input.value !== input.dataset.old) {
+                changes.push({ task_id: +row.dataset.taskId, score: input.value || '0' });
+            }
+        });
+        if (!changes.length) { toast('Нет изменений баллов', 'error'); return; }
+
+        if (!await confirmDialog('Исправить результат? Ученик получит уведомление с причиной.', 'Исправить', 'Отмена')) { return; }
+
+        save.disabled = true;
+        try {
+            await examApi('correctResult', { attempt_id: d.attempt_id, changes, reason, result_version: d.result_version });
+            toast('Результат исправлен');
+            correcting = false;
+            reload();
+        } catch (e) { reportFailure(e); save.disabled = false; }
+    });
+}
+
+/* Версия результата экзаменной попытки: уходит с каждым действием проверки, чтобы два проверяющих не перезаписали друг друга. */
+function versionParams(d) {
+    return d.exam ? { result_version: d.result_version } : {};
+}
+
+/* Ошибка действия проверки: устаревшая версия — понятное сообщение и перезагрузка экрана, прочее — текст ошибки. */
+function reportFailure(e) {
+    toast(ajaxErrorText(e, 'Не удалось выполнить действие'), 'error');
+    if (e && STALE_CODE === e.code) { reload(); }
+}
+
 /* Затраченное на работу время в шапке; у сдач до появления замера его нет. */
 function durationMeta(sec) {
     const text = fmtDuration(sec);
@@ -233,10 +318,10 @@ function wireApprove(root, d) {
     btn.addEventListener('click', async () => {
         btn.disabled = true;
         try {
-            await attemptGradeApi('approveAttempt', { attempt_id: d.attempt_id });
+            await attemptGradeApi('approveAttempt', { attempt_id: d.attempt_id, ...versionParams(d) });
             toast('Работа утверждена — ответы открыты ученику');
             reload();
-        } catch (e) { toast(e.message, 'error'); btn.disabled = false; }
+        } catch (e) { reportFailure(e); btn.disabled = false; }
     });
 }
 
@@ -313,7 +398,7 @@ function wireAttemptGrading(root, d) {
         btn.addEventListener('click', async () => {
             const taskId = +box.dataset.taskId;
             const feedback = box.querySelector('.stg-fb').value.trim();
-            const payload = { attempt_id: d.attempt_id, task_id: taskId, feedback };
+            const payload = { attempt_id: d.attempt_id, task_id: taskId, feedback, ...versionParams(d) };
 
             let verdict;
             if (isCriteria) {
@@ -351,7 +436,9 @@ function wireAttemptGrading(root, d) {
                     meta.textContent = `Экзамен · ${STATUS_LABEL[res.attempt_status] || res.attempt_status} · ${fmtNum(res.total_score)}${d.max_score != null ? ' / ' + fmtNum(d.max_score) : ''} б.`;
                 }
                 toast('Оценка сохранена');
-            } catch (e) { toast(e.message, 'error'); }
+                // Экзамен: статус результата («готова к утверждению») и версия меняются — экран перечитывается целиком.
+                if (d.exam) { reload(); return; }
+            } catch (e) { reportFailure(e); }
             btn.disabled = false;
         });
     });
@@ -410,6 +497,7 @@ function wireTaskCredit(root, d) {
                         task_id: +box.dataset.taskId,
                         credit: '1',
                         feedback,
+                        ...versionParams(d),
                     });
                 } else {
                     await batchGradeApi('gradeTask', {

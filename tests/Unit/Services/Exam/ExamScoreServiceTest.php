@@ -243,4 +243,16 @@ class ExamScoreServiceTest extends TestCase {
 
 		self::assertSame( 18, $this->service->summarize( $this->attempt( 17.6, 29.0 ), $this->event( $this->egeSnapshot() ) )['primary'] );
 	}
+
+	public function test_caption_for_ege_and_oge(): void {
+		self::assertSame( '84 из 100', $this->service->caption( array( 'direction' => 'ege', 'primary' => 37, 'primary_max' => 56, 'secondary' => 84, 'secondary_max' => 100, 'grade' => null, 'final' => true ) ) );
+		self::assertSame( '15 из 19, отметка 4', $this->service->caption( array( 'direction' => 'oge', 'primary' => 15, 'primary_max' => 19, 'secondary' => null, 'grade' => 4, 'final' => true ) ) );
+		self::assertSame( '', $this->service->caption( array() ) );
+	}
+
+	public function test_caption_marks_preliminary_when_pending(): void {
+		// Ручная часть не проверена: итог — первичным баллом, без вторичного и без отметки.
+		self::assertSame( '37 из 56', $this->service->caption( array( 'direction' => 'ege', 'primary' => 37, 'primary_max' => 56, 'secondary' => null, 'secondary_max' => 100, 'grade' => null, 'final' => false ) ) );
+		self::assertSame( '9 из 19', $this->service->caption( array( 'direction' => 'oge', 'primary' => 9, 'primary_max' => 19, 'secondary' => null, 'grade' => null, 'final' => false ) ) );
+	}
 }
