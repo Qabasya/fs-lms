@@ -4,6 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Course;
 
+use Inc\Enums\Profile\LearnerScreen;
 use Inc\Repositories\WPDBRepositories\AssessmentAnswerRepository;
 use Inc\Enums\Course\AttemptSource;
 use Inc\Enums\Course\WorkSourceType;
@@ -117,7 +118,7 @@ class WorkResetService {
 			NotificationType::AttemptReset,
 			'reset:' . $studentPersonId . ':' . $topic . ':' . current_time( 'mysql' ),
 			array( 'topic' => $topic ),
-			(string) add_query_arg( array( 'screen' => 'learner-grades' ), PageRoutes::UserProfile->url() ),
+			(string) add_query_arg( array( 'screen' => LearnerScreen::Grades->key() ), PageRoutes::UserProfile->url() ),
 			$groupId
 		);
 	}

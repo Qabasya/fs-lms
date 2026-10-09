@@ -137,6 +137,7 @@ function announce(n) {
     note.onclick = () => {
         window.focus();
         api('markRead', { id: n.id }).catch(() => {});
+        if (n.stream_url) { window.open(n.stream_url, '_blank', 'noopener'); }
         if (n.url) { window.location.href = n.url; }
         note.close();
     };
@@ -212,13 +213,17 @@ function renderList(pop, items) {
     if (readAllBtn) { readAllBtn.addEventListener('click', () => markAllRead(pop)); }
 
     pop.querySelectorAll('.prof-notif-item').forEach((el) => {
-        el.addEventListener('click', () => markOneRead(Number(el.dataset.id), el));
+        el.addEventListener('click', () => {
+            // «Урок начался»: кроме урока открываем трансляцию группы в новой вкладке (если она задана и занятие идёт).
+            if (el.dataset.stream) { window.open(el.dataset.stream, '_blank', 'noopener'); }
+            markOneRead(Number(el.dataset.id), el);
+        });
     });
 }
 
 function tileHtml(n) {
     const icoFn = TYPE_ICON[n.type] || icoBell;
-    return `<a class="prof-notif-item" href="${esc(n.url || '#')}" data-id="${Number(n.id)}" data-tone="${esc(n.tone || 'info')}">
+    return `<a class="prof-notif-item" href="${esc(n.url || '#')}"${n.stream_url ? ` data-stream="${esc(n.stream_url)}"` : ''} data-id="${Number(n.id)}" data-tone="${esc(n.tone || 'info')}">
         <span class="ni-ico">${icoFn(18)}</span>
         <span class="ni-body">
             <span class="ni-title">${n.unread ? '<span class="ni-dot"></span>' : ''}${esc(n.title || '')}</span>

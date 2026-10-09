@@ -60,11 +60,12 @@ readonly class EntityAuditLogDTO {
 		public ?int           $actorUserId,
 		public ?string        $actorRole,
 		public OperationType  $operation,
-		public EntityType     $entityType,
+		public ?EntityType    $entityType,
 		public ?int           $entityId,
 		public ?string        $oldLabel,
 		public string         $actorIp,
 		public string         $createdAt,
+		public string         $entityTypeRaw = '',
 	) {}
 
 	/**
@@ -80,11 +81,13 @@ readonly class EntityAuditLogDTO {
 			actorUserId:  isset( $row['actor_user_id'] ) ? (int) $row['actor_user_id'] : null,
 			actorRole:    isset( $row['actor_role'] ) ? (string) $row['actor_role'] : null,
 			operation:    OperationType::from( (string) $row['operation'] ),
-			entityType:   EntityType::from( (string) $row['entity_type'] ),
+			// tryFrom: журнал не должен падать на типе, которого нет в энуме (запись другой ветки или версии).
+			entityType:   EntityType::tryFrom( (string) $row['entity_type'] ),
 			entityId:     isset( $row['entity_id'] ) ? (int) $row['entity_id'] : null,
 			oldLabel:     isset( $row['old_label'] ) ? (string) $row['old_label'] : null,
 			actorIp:      (string) $row['actor_ip'],
 			createdAt:    (string) $row['created_at'],
+			entityTypeRaw: (string) $row['entity_type'],
 		);
 	}
 }

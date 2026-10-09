@@ -1,0 +1,28 @@
+/* ══════════════════════════════════════════════════════════════════════
+   Баннер «Занятие уже идёт» по центру шапки ученика (live-banner.js)
+   ══════════════════════════════════════════════════════════════════════ */
+@use '../variables' as *;
+
+.prof-tb-live {
+  display: flex; align-items: center; gap: rem(12);
+  padding: rem(4) rem(8) rem(4) rem(14);
+  background: var(--ok-soft); border: 1px solid var(--ok-line); border-radius: 999px;
+  color: var(--ok-ink); font-size: rem(14); font-weight: 600; white-space: nowrap;
+
+  &[hidden] { display: none; }
+}
+
+.prof-tb-live-dot {
+  width: rem(8); height: rem(8); border-radius: 50%; flex-shrink: 0;
+  background: var(--err);
+  animation: prof-live-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes prof-live-pulse {
+  50% { opacity: .35; }
+}
+
+/* Узкий экран: места под текст нет — остаётся точка и кнопка. */
+@media (max-width: 720px) {
+  .prof-tb-live-text { display: none; }
+}

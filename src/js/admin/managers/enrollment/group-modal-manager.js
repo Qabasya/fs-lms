@@ -65,6 +65,7 @@ export const GroupModalManager = {
             period_id:   $row.data('period-id'),
             subject_id:  $row.data('subject-key'),
             teacher_id:  $row.data('teacher-id') || '',
+            broadcast_url: $row.attr('data-broadcast-url') || '',
             access_mode: $row.data('access-mode') || 'scheduled',
             schedule,
         });
@@ -78,6 +79,7 @@ export const GroupModalManager = {
             action:        isEdit ? fs_lms_vars.ajax_actions.updateStudentGroup : fs_lms_vars.ajax_actions.saveStudentGroup,
             security:      fs_lms_vars.nonces.manager,
             teacher_id:    formData.teacher_id,
+            broadcast_url: formData.broadcast_url,
             schedule_json: formData.schedule_json,
         };
 

@@ -37,6 +37,7 @@ class ProfileViewResolverTest extends TestCase {
 			),
 			new LearnerProfileView(),
 			$this->createMock( SubjectRepository::class ),
+			$this->createMock( \Inc\Services\Course\LiveLessonService::class ),
 		);
 	}
 
@@ -84,6 +85,7 @@ class ProfileViewResolverTest extends TestCase {
 			),
 			new LearnerProfileView(),
 			$this->createMock( SubjectRepository::class ),
+			$this->createMock( \Inc\Services\Course\LiveLessonService::class ),
 		);
 
 		$config = $resolver->jsConfig( 5 );

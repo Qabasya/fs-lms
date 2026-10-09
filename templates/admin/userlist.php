@@ -27,6 +27,10 @@ $tabs = array(
 		'title' => 'Архив',
 		'file'  => '/components/tabs/userlist-tabs/userlist-5-archive.php',
 	),
+	'tab-6' => array(
+		'title' => 'Лиды с форм',
+		'file'  => '/components/tabs/userlist-tabs/userlist-6-leads.php',
+	),
 );
 ?>
 

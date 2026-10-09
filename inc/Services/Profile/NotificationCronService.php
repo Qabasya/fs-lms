@@ -4,6 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Profile;
 
+use Inc\Enums\Profile\LearnerScreen;
 use DateTimeImmutable;
 use Inc\Contracts\ClockInterface;
 use Inc\DTO\Course\GroupLessonDTO;
@@ -327,7 +328,7 @@ readonly class NotificationCronService {
 			NotificationType::AttendanceMissed,
 			$dedupe,
 			$payload,
-			(string) add_query_arg( array( 'screen' => 'learner-attendance' ), PageRoutes::UserProfile->url() ),
+			(string) add_query_arg( array( 'screen' => LearnerScreen::Attendance->key( true ) ), PageRoutes::UserProfile->url() ),
 			$lesson->groupId,
 			'group_lesson',
 			$lesson->id

@@ -127,6 +127,7 @@ class Migration_1_0_0 implements MigrationInterface {
 			deleted_at         datetime          DEFAULT NULL,
 			course_id          bigint(20) unsigned DEFAULT NULL,
 			room_id            int unsigned      DEFAULT NULL,
+			broadcast_url      varchar(1000)     DEFAULT NULL,
 			PRIMARY KEY  (id),
 			KEY subject_key (subject_key),
 			KEY academic_period_id (academic_period_id),
@@ -674,12 +675,39 @@ class Migration_1_0_0 implements MigrationInterface {
 			KEY recipient_seen (recipient_user_id, seen_at)
 		) $cc;"
 		);
+
+		// ===== 26. leads — заявки с лид-форм сайта (принятые и отклонённые) =====
+		$leads = TableName::Leads->prefixed();
+		dbDelta(
+			"CREATE TABLE $leads (
+			id                bigint unsigned NOT NULL AUTO_INCREMENT,
+			verdict           varchar(10)  NOT NULL,
+			reason            varchar(30)  NOT NULL DEFAULT '',
+			name_enc          blob         NOT NULL,
+			phone_enc         blob         NOT NULL,
+			form_id           varchar(30)  NOT NULL DEFAULT '',
+			page_url          varchar(500) NOT NULL DEFAULT '',
+			ip                varchar(45)  NOT NULL DEFAULT '',
+			subnet            varchar(50)  NOT NULL DEFAULT '',
+			user_agent        varchar(500) NOT NULL DEFAULT '',
+			fill_seconds      int unsigned NOT NULL DEFAULT 0,
+			captcha           varchar(12)  NOT NULL DEFAULT '',
+			captcha_challenge tinyint(1)   NOT NULL DEFAULT 0,
+			is_mobile         tinyint(1)   NOT NULL DEFAULT 0,
+			mail_sent         tinyint(1)   DEFAULT NULL,
+			received_at       datetime     NOT NULL,
+			PRIMARY KEY (id),
+			KEY verdict_received (verdict, received_at),
+			KEY subnet (subnet)
+		) $cc;"
+		);
 	}
 
 	public function down(): void {
 		global $wpdb;
 
 		$tables = array(
+			TableName::Leads->prefixed(),
 			TableName::Notifications->prefixed(),
 			TableName::Rooms->prefixed(),
 			TableName::Substitutions->prefixed(),

@@ -4,20 +4,23 @@
    отдаёт всё; родитель переключает ребёнка (fsProfile.children). Read-only.
    ══════════════════════════════════════════════════════════════════════ */
 
-import { esc, fmtDayMonth, fmtDate, emptyState, chipBg, chipText, chipSoft, shortName } from './utils.js';
+import { esc, fmtDayMonth, fmtDate, emptyState, chipBg, chipText, chipSoft, shortName, todayIso } from './utils.js';
 import { toggleVisible, applyProgress } from '../common/utils.js';
 import { icoCalendar, icoCheck, icoAlert, icoSearch, icoChevronRight, icoChevronDown, icoClock, icoStar, icoHome, icoLock } from '../common/icons.js';
 import { createApi } from './api.js';
 import { workCardHtml, workChipHtml, workStatusText } from './work-card.js';
 import { learnerLayout, learnerFlat } from './program-window.js';
 import { courseTabsShell, syncCourseTabs } from './course-tabs.js';
+import { initSchedule } from './schedule-view.js';
 
-const RENDERERS = {
-    'learner-home': renderHome,
-    'learner-lessons': renderLessons,
-    'learner-grades': renderGrades,
-    'learner-attendance': renderAttendance,
-};
+// Экраны ученика и родителя одни: ключ несёт роль (student-* / parent-*), рендер общий.
+const RENDERERS = {};
+['student', 'parent'].forEach((prefix) => {
+    RENDERERS[`${prefix}-home`]       = renderHome;
+    RENDERERS[`${prefix}-lessons`]    = renderLessons;
+    RENDERERS[`${prefix}-grades`]     = renderGrades;
+    RENDERERS[`${prefix}-attendance`] = renderAttendance;
+});
 
 let api = null;
 let dataPromise = null;
@@ -45,7 +48,7 @@ async function screen(root, renderer, title) {
 }
 
 function rerenderAll() {
-    document.querySelectorAll('.prof-screen[data-screen^="learner-"]').forEach(sec => {
+    document.querySelectorAll('.prof-screen[data-screen^="student-"], .prof-screen[data-screen^="parent-"]').forEach(sec => {
         const r = RENDERERS[sec.dataset.screen];
         if (r) screen(sec, r, sec.dataset.screen);
     });
@@ -94,9 +97,16 @@ function renderHome(root, d) {
             ${homeTile('Посещаемость', att.percent === null ? '—' : att.percent + '%', '#2f9e44', 'check')}
         </div>
         <div class="prof-dash-grid2">
-            <div class="prof-card">
-                <div class="prof-card-head"><h3>Расписание</h3></div>
-                <div>${d.upcoming.length ? d.upcoming.map(schedRow).join('') : empty('Ближайших занятий нет.')}</div>
+            <div class="prof-card prof-sched-card">
+                <div class="prof-card-head">
+                    <h3>Расписание</h3>
+                    <div class="prof-seg ch-act" id="profSchedToggle">
+                        <button class="on" data-mode="today">Сегодня</button>
+                        <button data-mode="week">Неделя</button>
+                        <button data-mode="month">Месяц</button>
+                    </div>
+                </div>
+                <div id="profSchedBody" class="prof-swap"></div>
             </div>
             <div class="prof-card">
                 <div class="prof-card-head"><h3>Дедлайны и оценки</h3></div>
@@ -109,6 +119,7 @@ function renderHome(root, d) {
         </div>
     </div>`;
     wireChild(root);
+    mountSchedule(root, d);
 }
 
 /* ── Мои курсы (дизайн Student Courses) ───────────────────────────────────
@@ -468,21 +479,76 @@ function teacherTag(l) {
     return l.teacher ? ` · ${esc(l.teacher)}` : '';
 }
 
+/** Расписание главной: Сегодня / Неделя / Месяц (общий механизм с главной преподавателя). */
+function mountSchedule(root, d) {
+    const body = root.querySelector('#profSchedBody');
+    const items = (d.lessons || []).filter((l) => l.scheduled_at);
+    const today = todayIso();
+
+    initSchedule({
+        toggle:    root.querySelector('#profSchedToggle'),
+        body,
+        items,
+        todayHtml: () => {
+            const rows = items.filter((l) => l.date === today).sort((a, b) => a.start.localeCompare(b.start));
+            return rows.length ? rows.map(schedRow).join('') : empty('Сегодня занятий нет.');
+        },
+        cardHtml:  schedCard,
+    });
+
+    // Идущее занятие: клик открывает урок (ссылка строки/карточки) и трансляцию группы в новой вкладке.
+    // Делегирование на контейнере — расписание перерисовывается при смене режима и листании.
+    body.addEventListener('click', (e) => {
+        const a = e.target.closest('[data-stream]');
+        if (a) { window.open(a.dataset.stream, '_blank', 'noopener'); }
+    });
+}
+
+/** Карточка занятия в «Неделе» и «Месяце»: время, группа, кабинет, преподаватель, тема; ведёт в урок. */
+function schedCard(it, cls) {
+    const inner = `
+        <div class="lc-row">
+            <span class="lc-time">${esc(it.start)}</span>
+            <span class="lc-grp">${esc(it.group_name)}</span>
+            ${it.room ? `<span class="lc-room">${esc(it.room)}</span>` : ''}
+        </div>
+        ${it.teacher || it.kind === 'individual' ? `<div class="lc-row lc-teacher"><span class="lc-name">${esc(it.teacher || '')}</span>${it.kind === 'individual' ? '<span class="prof-sub-tag indi">инд.</span>' : ''}</div>` : ''}
+        <div class="lc-topic" title="${esc(it.topic || '')}">${esc(it.topic || '—')}</div>`;
+    const classes = `${cls} lcard${it.kind === 'individual' ? ' chip-bd-indi' : ''}${it.live ? ' is-now' : ''}`;
+
+    if (it.player_url) {
+        return `<a class="${classes}" href="${esc(it.player_url)}"${it.live && it.stream_url ? ` data-stream="${esc(it.stream_url)}"` : ''}>${inner}</a>`;
+    }
+    if (it.live && it.stream_url) {
+        return `<a class="${classes}" href="${esc(it.stream_url)}" target="_blank" rel="noopener">${inner}</a>`;
+    }
+    return `<div class="${classes}">${inner}</div>`;
+}
+
 function schedRow(l) {
     const inner = `
-        <div class="prof-lesson-time"><div class="lt-start">${esc(l.start || '')}</div><div class="lt-end">${fmtDayMonth(l.date)}</div></div>
+        <div class="prof-lesson-time"><div class="lt-start">${esc(l.start || '')}</div><div class="lt-end">${esc(l.end || fmtDayMonth(l.date))}</div></div>
         <div class="prof-lesson-bar"></div>
         <div class="prof-lesson-body">
             <div class="prof-lesson-grp">${esc(l.group_name)}${l.kind === 'individual' ? ' <span class="prof-sub-tag indi">инд.</span>' : ''}</div>
             <div class="prof-lesson-topic">${esc(l.topic || '—')}${roomTag(l)}${teacherTag(l)}</div>
-        </div>`;
+        </div>${l.live ? '<div class="prof-lesson-state"><span class="prof-state-pill prof-state-now">Идёт сейчас</span></div>' : ''}`;
+    const now = l.live ? ' is-now' : '';
+    // Идущее занятие: урок открывается в этой вкладке, трансляция группы (если задана) — в новой
+    // (обработчик клика — в renderHome по data-stream).
+    if (l.player_url && l.live && l.stream_url) {
+        return `<a class="prof-lesson-row prof-lesson-go${now}" href="${esc(l.player_url)}" data-stream="${esc(l.stream_url)}">${inner}</a>`;
+    }
+    if (!l.player_url && l.live && l.stream_url) {
+        return `<a class="prof-lesson-row prof-lesson-go${now}" href="${esc(l.stream_url)}" target="_blank" rel="noopener">${inner}</a>`;
+    }
     // #3: клик по занятию в расписании ведёт прямо в плеер курса — даже если урок
     // ещё заблокирован по времени (там ученика встретит экран ожидания + таймер).
     // Занятие без контента (нет player_url) остаётся некликабельной строкой.
     if (l.player_url) {
-        return `<a class="prof-lesson-row prof-lesson-go" href="${esc(l.player_url)}">${inner}</a>`;
+        return `<a class="prof-lesson-row prof-lesson-go${now}" href="${esc(l.player_url)}">${inner}</a>`;
     }
-    return `<div class="prof-lesson-row">${inner}</div>`;
+    return `<div class="prof-lesson-row${now}">${inner}</div>`;
 }
 
 // Баннер «идёт контрольная»: весь контент кабинета недоступен, пока активна

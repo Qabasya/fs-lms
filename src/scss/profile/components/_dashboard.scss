@@ -188,6 +188,10 @@
 
 /* Карточка занятия «Недели»/«Месяца» (lessonCard() в dashboard.js). */
 .lcard { display: flex; flex-direction: column; gap: rem(2); min-width: 0; }
+
+/* Карточка занятия ученика — ссылка в урок: цвет и подчёркивание как у обычной карточки. */
+a.lcard { color: inherit; text-decoration: none; }
+.lcard.is-now { background: var(--good-bg); }
 .lc-row { display: flex; align-items: baseline; gap: rem(5); min-width: 0; }
 .lc-time { font-size: rem(12); font-weight: 700; font-variant-numeric: tabular-nums; flex: none; }
 .lc-grp { font-size: rem(12.5); font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

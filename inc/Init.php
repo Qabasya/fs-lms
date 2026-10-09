@@ -24,6 +24,7 @@ use Inc\Controllers\System\ModulesDashboardController;
 use Inc\Controllers\Task\BoilerplateController;
 use Inc\Controllers\Task\LegacyTaskImportController;
 use Inc\Controllers\Enrollment\EnrollmentController;
+use Inc\Controllers\Lead\LeadController;
 use Inc\Controllers\Course\LessonController;
 use Inc\Controllers\Course\LessonMetaBoxController;
 use Inc\Controllers\Course\WorkController;
@@ -108,6 +109,8 @@ use Inc\Migrations\Migration_1_0_37;
 use Inc\Migrations\Migration_1_0_54;
 use Inc\Migrations\Migration_1_0_62;
 use Inc\Migrations\Migration_1_0_70;
+use Inc\Migrations\Migration_1_0_81;
+use Inc\Migrations\Migration_1_0_82;
 use Inc\Migrations\MigrationRunner;
 use Inc\Services\Log\LogEventDispatcher;
 use Inc\Services\Shared\WpClock;
@@ -185,6 +188,7 @@ final class Init {
 			ConsentController::class,
 			ApplicationController::class,
 			EnrollmentController::class,
+			LeadController::class,   // Заявки с лид-форм сайта: приём от темы по хуку + удаление в «Пользователях»
 			PiiController::class,
 			RecoveryController::class,
 			ExpulsionController::class,
@@ -287,6 +291,8 @@ final class Init {
 		$migrationRunner->register( new Migration_1_0_54() );
 		$migrationRunner->register( new Migration_1_0_62() );
 		$migrationRunner->register( new Migration_1_0_70() );
+		$migrationRunner->register( new Migration_1_0_81() );
+		$migrationRunner->register( new Migration_1_0_82() );
 		$migrationRunner->run();
 
 		// Data-миграция (не схема): ссылки на файлы заданий со старой схемой
@@ -298,6 +304,9 @@ final class Init {
 		// Data-миграции: удалённый шаблон «с общим условием» → Стандартное;
 		// баллы первой сдачи работ (без них карточки рисовали крестики).
 		$container->get( \Inc\Migrations\CommonTemplateMigration::class )->run();
+
+		// Шаг «Трансляция» в уроках больше не хранится (плеер строит его сам из ссылки группы).
+		$container->get( \Inc\Migrations\BroadcastStepRemovalMigration::class )->run();
 		$container->get( \Inc\Migrations\SubmissionScoreBackfillMigration::class )->run();
 		// Время работы — суммой по всем попыткам, а не последней.
 		$container->get( \Inc\Migrations\SubmissionDurationTotalMigration::class )->run();

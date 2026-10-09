@@ -6,6 +6,8 @@ namespace Inc\Services\Profile;
 
 use Inc\Contracts\ProfileViewInterface;
 use Inc\DTO\Profile\ProfileContext;
+use Inc\Enums\Access\UserRole;
+use Inc\Enums\Profile\LearnerScreen;
 
 /**
  * Class LearnerProfileView
@@ -19,14 +21,18 @@ use Inc\DTO\Profile\ProfileContext;
 final class LearnerProfileView implements ProfileViewInterface {
 
 	public function build( ProfileContext $context ): array {
+		// Ключи экранов с префиксом роли: student-* / parent-* (виден в адресе кабинета).
+		$forParent = UserRole::FSParent === $context->role;
+
 		return array(
-			'nav'     => array(
-				array( 'key' => 'learner-home',       'label' => 'Главная' ),
-				array( 'key' => 'learner-lessons',    'label' => 'Мои курсы' ),
-				array( 'key' => 'learner-grades',     'label' => 'Мои оценки' ),
-				array( 'key' => 'learner-attendance', 'label' => 'Посещаемость' ),
+			'nav'     => array_map(
+				static fn( LearnerScreen $screen ): array => array( 'key' => $screen->key( $forParent ), 'label' => $screen->label() ),
+				LearnerScreen::cases()
 			),
-			'screens' => array( 'learner-home', 'learner-lessons', 'learner-grades', 'learner-attendance' ),
+			'screens' => array_map(
+				static fn( LearnerScreen $screen ): string => $screen->key( $forParent ),
+				LearnerScreen::cases()
+			),
 		);
 	}
 }

@@ -63,6 +63,9 @@ export function initCore() {
 	const isDone       = ( i ) => [ 'completed', 'failed' ].includes( panels[ i ].dataset.status );
 	const isInlineLike = ( p ) => INLINE.includes( p.dataset.stepType ) || '1' === p.dataset.manual;
 
+	// Виртуальный шаг («Трансляция» / «Запись занятия») строит плеер: прогресс по нему не пишем и не считаем.
+	const isVirtual = ( p ) => '1' === p.dataset.virtual;
+
 	function mark( stepKey, status ) {
 		if ( isPreview() || isTeacherMode() ) { return Promise.resolve( null ); }
 		const fd = new FormData();
@@ -96,11 +99,12 @@ export function initCore() {
 	}
 
 	function updateTopbar() {
-		const done = panels.filter( ( p ) => 'completed' === p.dataset.status ).length;
-		const txt  = document.getElementById( 'fsProgTxt' );
-		const bar  = document.getElementById( 'fsProgBar' );
-		if ( txt ) { txt.textContent = `Урок · ${ done } из ${ panels.length }`; }
-		if ( bar ) { bar.style.setProperty( '--progress', `${ ( done / panels.length ) * 100 }%` ); }
+		const counted = panels.filter( ( p ) => ! isVirtual( p ) );
+		const done    = counted.filter( ( p ) => 'completed' === p.dataset.status ).length;
+		const txt     = document.getElementById( 'fsProgTxt' );
+		const bar     = document.getElementById( 'fsProgBar' );
+		if ( txt ) { txt.textContent = `Урок · ${ done } из ${ counted.length }`; }
+		if ( bar ) { bar.style.setProperty( '--progress', `${ counted.length ? ( done / counted.length ) * 100 : 0 }%` ); }
 	}
 
 	function refresh() {
@@ -115,7 +119,7 @@ export function initCore() {
 		const panel = panels[ active ];
 		if ( ! isInlineLike( panel ) || isDone( active ) ) { return; }
 		setStatus( active, 'completed' );
-		mark( panel.dataset.step, 'completed' );
+		if ( ! isVirtual( panel ) ) { mark( panel.dataset.step, 'completed' ); }
 		unlockAfter( active );
 	}
 

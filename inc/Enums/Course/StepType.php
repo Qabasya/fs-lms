@@ -21,7 +21,11 @@ enum StepType: string {
 	/** Видео (url/embed; позже — запись из S3). */
 	case Video = 'video';
 
-	/** Трансляция занятия (инлайн): запись (если есть) или заглушка со ссылкой. */
+	/**
+	 * Трансляция занятия / запись занятия (инлайн, виртуальный): в уроке не хранится —
+	 * плеер сам добавляет его первым шагом занятия группы (ссылка группы во время
+	 * занятия, запись после). В конструкторе курса не выбирается, см. {@see self::isAuthorable()}.
+	 */
 	case Broadcast = 'broadcast';
 
 	/** Одна задача (ссылка): самопроверка, без записи сдачи. */
@@ -57,6 +61,13 @@ enum StepType: string {
 	}
 
 	/**
+	 * Можно ли добавить шаг в конструкторе курса. Трансляция — нет: её строит плеер.
+	 */
+	public function isAuthorable(): bool {
+		return self::Broadcast !== $this;
+	}
+
+	/**
 	 * Инлайновый шаг — контент принадлежит уроку (правится в самой карточке),
 	 * а не разворачивается в отдельную сущность банка.
 	 */
@@ -88,7 +99,7 @@ enum StepType: string {
 	 */
 	public static function allowedTypesFor( string $level ): array {
 		return match ( $level ) {
-			self::LEVEL_LESSON                       => self::cases(),
+			self::LEVEL_LESSON                       => array_values( array_filter( self::cases(), static fn( self $type ): bool => $type->isAuthorable() ) ),
 			self::LEVEL_WORK, self::LEVEL_ASSESSMENT => array( self::Task ),
 			default                                  => array(),
 		};
@@ -120,6 +131,9 @@ enum StepType: string {
 	public static function options(): array {
 		$options = array();
 		foreach ( self::cases() as $case ) {
+			if ( ! $case->isAuthorable() ) {
+				continue;
+			}
 			$options[ $case->value ] = $case->label();
 		}
 

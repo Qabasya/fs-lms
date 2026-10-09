@@ -88,6 +88,7 @@ export const GroupModal = {
         this.$subjectSelect = $('#group-subject');
         this.$teacherSelect = $('#group-teacher');
         this.$roomSelect     = this.$modal.find('#group-room');
+        this.$broadcastInput = this.$modal.find('#group-broadcast-url');
         this.$accessModeCb  = $('#group-access-mode');
 
         this.$actionInput  = this.$modal.find('input[name="action_type"]');
@@ -184,6 +185,7 @@ export const GroupModal = {
             this.$subjectSelect.val(data.subject_id ?? '').trigger('change');
             this.$teacherSelect.val(data.teacher_id ?? '').trigger('change');
             this.$roomSelect.val(data.room_id ? String(data.room_id) : '');
+            this.$broadcastInput.val(data.broadcast_url ?? '');
             this.$accessModeCb.prop('checked', data.access_mode === 'open');
             this._toggleScheduleByMode();
             this._restoreSchedule(data.schedule ?? []);
@@ -290,6 +292,8 @@ export const GroupModal = {
         // Скрываем все временные слоты в расписании
         this.$modal.find('.fs-schedule-day-times').addClass('hidden');
 
+        this.$broadcastInput.val('');
+
         // Сброс режима доступа: обычная группа, расписание видимо
         this.$accessModeCb.prop('checked', false);
         this._toggleScheduleByMode();
@@ -368,7 +372,8 @@ export const GroupModal = {
             subject_id:    this.$subjectSelect.val(),
             teacher_id:    this.$teacherSelect.val(),
             room_id:       this.$roomSelect.length ? this.$roomSelect.val() : '',
-            access_mode:   this.$accessModeCb.prop('checked') ? 'open' : 'scheduled',
+            broadcast_url: this.$broadcastInput.length ? this.$broadcastInput.val().trim() : '',
+            access_mode:  this.$accessModeCb.prop('checked') ? 'open' : 'scheduled',
 
             // Сериализуем массив расписания в JSON-строку для отправки на сервер.
             // Сервер распарсит JSON и сохранит расписание в базу данных.

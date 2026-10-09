@@ -18,6 +18,7 @@ use Inc\Repositories\WPDBRepositories\NotificationRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 use Inc\Services\Course\EffectiveTeacherResolver;
+use Inc\Services\Course\LiveLessonService;
 
 /**
  * Class NotificationService
@@ -48,6 +49,7 @@ readonly class NotificationService {
 		private EffectiveTeacherResolver  $effectiveTeacher,
 		private UserRepository            $users,
 		private UserManager               $userManager,
+		private LiveLessonService         $live,
 	) {}
 
 	/**
@@ -292,18 +294,24 @@ readonly class NotificationService {
 	 * `type` + `payload` (единственная точка текстов); клиент выбирает
 	 * только иконку/цвет по `type`/`tone`.
 	 *
-	 * @return array{id:int, type:string, tone:string, title:string, body:string, url:string, time:string, unread:bool}
+	 * `stream_url` — ссылка на трансляцию группы: только у «Урок начался», пока занятие
+	 * действительно идёт (позже плитка просто ведёт в урок).
+	 *
+	 * @return array{id:int, type:string, tone:string, title:string, body:string, url:string, stream_url:string, time:string, unread:bool}
 	 */
 	public function toClientArray( NotificationDTO $n ): array {
 		return array(
-			'id'     => $n->id,
-			'type'   => $n->type->value,
-			'tone'   => $n->type->tone(),
-			'title'  => $n->type->title(),
-			'body'   => $this->renderBody( $n->type, $n->payload ),
-			'url'    => $n->url,
-			'time'   => $n->createdAt,
-			'unread' => $n->isUnread(),
+			'id'         => $n->id,
+			'type'       => $n->type->value,
+			'tone'       => $n->type->tone(),
+			'title'      => $n->type->title(),
+			'body'       => $this->renderBody( $n->type, $n->payload ),
+			'url'        => $n->url,
+			'stream_url' => ( NotificationType::LessonOpened === $n->type && 'group_lesson' === $n->entityType && (int) $n->entityId > 0 )
+				? $this->live->liveStreamUrlById( (int) $n->entityId )
+				: '',
+			'time'       => $n->createdAt,
+			'unread'     => $n->isUnread(),
 		);
 	}
 

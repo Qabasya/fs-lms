@@ -64,7 +64,7 @@ enum NotificationType: string {
 			self::ReviewNeeded       => 'Сдана работа — нужна проверка',
 			self::SubstituteAssigned => 'Вам назначена замена',
 			self::AttendanceMissed   => 'Пропущено занятие',
-			self::LessonOpened       => 'Открыт новый урок',
+			self::LessonOpened       => 'Урок начался',
 			self::SubstituteAssignedStudent => 'Замена преподавателя',
 			self::RoomChanged        => 'Изменился кабинет',
 			self::AttemptReset       => 'Попытка сброшена',
