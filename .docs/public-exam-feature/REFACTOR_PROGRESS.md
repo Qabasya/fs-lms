@@ -58,12 +58,14 @@
 - `86abea4d` — F3, форматирование и описания DTO/typed contracts.
 - `69548839` — проверки FSE/адаптивности и гостевых маршрутов.
 - `a5326e8c` — F3, PHPDoc и полная проверка типов инфраструктуры.
+- `eb0e3c18` — F3, назначения файлов и typed contracts DTO/enum.
 
 ## Последние проверки и ограничения
 
-- Полный PHPUnit после E3/F1/F2: 3277 тестов / 10205 assertions, без ошибок; 6 deprecations и 1461 notices в полном проекте.
+- Полный PHPUnit после E3/F1/F2: 3277 тестов / 10202 assertions, без ошибок; один позитивный HTTP-тест пропущен без ключа отдельной фикстуры; 6 deprecations и 1461 notices в полном проекте.
 - После выделения списка результатов: 928 PHP-тестов / 3113 assertions (Exam services/callbacks/controllers + Export), без ошибок; 5 PHPUnit deprecations и 157 notices остаются для F3.
 - Дополнительно после переноса доски: 96 тестов / 321 assertions, включая AJAX оценивания работ и экспорт.
+- Позитивный HTTP-вход на отдельной синтетической фикстуре: 5 tests / 41 assertions (четыре 404 и обмен ключа → HttpOnly/SameSite гостевая cookie → чистый адрес → 200). WP auth cookies отсутствуют; REST users/me остаётся 401, число WP-учёток до/после неизменно. Прежний тест отсутствия строк wp_set_auth_cookie/wp_insert_user удалён. Фикстура и временный файл с ключами удалены. FS_LMS_HTTP_HOST=localhost:8080 согласует внутренний Docker-адрес с каноническим home_url; первая попытка без Host получила штатный 301, затем тест прошёл.
 - Реальные HTTP-проверки всех четырёх гостевых маршрутов без доступа: 404, X-Robots-Tag noindex/nofollow, no-store, no-referrer и отсутствие canonical. Новый tests/Integration/Http/ExamGuestPagesHttpTest.php запускается с FS_LMS_HTTP_BASE_URL=http://localhost внутри wp_app. Вместе с guest session/report/entry: 55 тестов / 197 assertions. Старые проверки строк исходника для этих заголовков/контактов/допуска результата удалены; проверка scope уже есть в GuestSessionServiceTest.
 - F1: 12 тестов / 35 assertions пройдены (создание, publish/draft/pending/trash, ручной контент, отказы записи, фильтр статуса, повтор миграции, отказ маркера). Настоящий WordPress: четыре страницы повторно обеспечены без дублей/перезаписи; DI пройден.
 - Настоящий WordPress: зависимости всех зарегистрированных сервисов разрешились после последних переносов. Прежний warning повторного определения WP_DEBUG остаётся в wp-config.php.

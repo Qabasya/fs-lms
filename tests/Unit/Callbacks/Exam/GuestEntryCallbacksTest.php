@@ -156,18 +156,6 @@ class GuestEntryCallbacksTest extends TestCase {
 		self::assertSame( GuestPageOutcome::NOT_FOUND, $this->access->entryPage( (string) ( $_GET['k'] ?? '' ), '10.0.0.7' )->kind );
 	}
 
-	public function test_no_wp_login_is_created(): void {
-		$this->givenValidKey();
-		$this->sessions->method( 'openEntry' )->willReturn( str_repeat( 'c', 64 ) );
-
-		$this->access->entryPage( (string) ( $_GET['k'] ?? '' ), '10.0.0.7' );
-
-		self::assertSame( 0, get_current_user_id() );
-		$root = dirname( __DIR__, 4 ) . '/inc';
-		foreach ( array( '/Callbacks/Exam/GuestEntryCallbacks.php', '/Services/Exam/GuestSessionService.php' ) as $file ) {
-			self::assertDoesNotMatchRegularExpression( '/wp_set_auth_cookie|wp_set_current_user|wp_insert_user|wp_create_user/', (string) file_get_contents( $root . $file ) );
-		}
-	}
 
 	// ── Страница результата (11b.3) и завершение сеанса (11b.4) ───────────────────────────────────
 

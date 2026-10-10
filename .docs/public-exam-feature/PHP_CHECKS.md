@@ -67,7 +67,7 @@ docker exec -e FS_LMS_HTTP_BASE_URL=http://localhost \
   -w /var/www/html/wp-content/plugins/fs-lms wp_app php vendor/bin/phpunit
 ```
 
-3277 тестов / 10205 assertions, без ошибок; 6 deprecations и 1461 notices остаются в проекте. Переменная HTTP включает четыре настоящих запроса к гостевым маршрутам без доступа. Без неё HTTP-тесты пропускаются.
+3277 тестов / 10202 assertions, без ошибок; 6 deprecations и 1461 notices остаются в проекте. Переменная HTTP включает четыре настоящих запроса к гостевым маршрутам без доступа. Без неё HTTP-тесты пропускаются. Позитивный вход дополнительно требует FS_LMS_HTTP_ENTRY_KEY от допущенного синтетического участия: без ключа один тест пропускается. Если внутренний адрес Docker отличается от home_url, задать FS_LMS_HTTP_HOST=localhost:8080. Отдельный прогон с ключом: 5 tests / 41 assertions; обмен, гостевая cookie, чистый URL, 200 и отсутствие WP-авторизации. Число учёток до/после не изменилось. Ключи не хранятся в репозитории; создавший фикстуру удаляет её записи/сессии/токены после проверки.
 
 DI проверяется на настоящем WordPress: новый Container, bind ClockInterface → WpClock и LogEventDispatcherInterface → LogEventDispatcher (как в Init), затем get() каждого класса Init::getServices(). Повторно register() не вызывается. Все зарегистрированные зависимости разрешились.
 
