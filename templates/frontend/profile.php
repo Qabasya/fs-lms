@@ -69,8 +69,8 @@ $fs_brand_logo_url = (string) get_query_var( 'fs_lms_brand_logo_url', '' );
 			<?php // Баннер «Занятие уже идёт» (live-banner.js): скрыт, пока у ученика нет идущего занятия. ?>
 			<div class="prof-tb-live" id="profLive" hidden>
 				<span class="prof-tb-live-dot" aria-hidden="true"></span>
-				<span class="prof-tb-live-text"><?php esc_html_e( 'Занятие уже идёт', 'fs-lms' ); ?></span>
-				<button type="button" class="prof-btn prof-btn-primary prof-btn-sm" id="profLiveJoin"><?php esc_html_e( 'Присоединиться', 'fs-lms' ); ?></button>
+				<span class="prof-tb-live-text"><?php esc_html_e( 'Идёт сейчас', 'fs-lms' ); ?></span>
+				<button type="button" class="prof-btn prof-btn-primary prof-btn-sm" id="profLiveJoin"><?php esc_html_e( 'Подключиться', 'fs-lms' ); ?></button>
 			</div>
 			<span class="prof-tb-spacer"></span>
 			<button class="prof-icon-ghost" id="profBell" aria-haspopup="true" title="Уведомления">
