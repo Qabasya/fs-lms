@@ -10,6 +10,7 @@ use Inc\Enums\Log\ErrorCode;
 use Inc\Services\Exam\ExamApprovalService;
 use Inc\Services\Exam\ExamAttemptService;
 use Inc\Services\Exam\ExamConductService;
+use Inc\Services\Exam\ExamConductViewService;
 use Inc\Services\Exam\ExamRegistrationService;
 use Inc\Services\Export\ExportService;
 use Inc\Shared\CodedException;
@@ -30,6 +31,7 @@ class ExamConductCallbacksTest extends TestCase {
 	private ExportService&MockObject $exports;
 	private \Inc\Services\Exam\GuestOnSiteService&MockObject $onSite;
 	private \Inc\Services\Exam\ExamRetentionService&MockObject $retention;
+	private ExamConductViewService&MockObject $board;
 	private ExamConductCallbacks $cb;
 
 	protected function setUp(): void {
@@ -37,6 +39,7 @@ class ExamConductCallbacksTest extends TestCase {
 		fs_test_reset_ajax();
 		$GLOBALS['_fs_test_user_id'] = 10;
 
+		$this->board        = $this->createMock( ExamConductViewService::class );
 		$this->conduct      = $this->createMock( ExamConductService::class );
 		$this->registration = $this->createMock( ExamRegistrationService::class );
 		$this->attempts     = $this->createMock( ExamAttemptService::class );
@@ -44,8 +47,8 @@ class ExamConductCallbacksTest extends TestCase {
 		$this->exports      = $this->createMock( ExportService::class );
 		$this->onSite       = $this->createMock( \Inc\Services\Exam\GuestOnSiteService::class );
 		$this->retention    = $this->createMock( \Inc\Services\Exam\ExamRetentionService::class );
-		$this->conduct->method( 'sessionBoard' )->willReturn( array( 'session' => array( 'id' => 7 ), 'rows' => array() ) );
-		$this->cb = new ExamConductCallbacks( $this->conduct, $this->registration, $this->attempts, $this->approval, $this->exports, $this->onSite, $this->retention );
+		$this->board->method( 'sessionBoard' )->willReturn( array( 'session' => array( 'id' => 7 ), 'rows' => array() ) );
+		$this->cb = new ExamConductCallbacks( $this->conduct, $this->registration, $this->attempts, $this->approval, $this->exports, $this->onSite, $this->retention, $this->board );
 	}
 
 	protected function tearDown(): void {
@@ -56,14 +59,14 @@ class ExamConductCallbacksTest extends TestCase {
 	public function test_requires_manage_exams(): void {
 		$GLOBALS['_fs_test_can'] = false;
 		$_POST                   = array( 'session_id' => '7' );
-		$this->conduct->expects( self::never() )->method( 'sessionBoard' );
+		$this->board->expects( self::never() )->method( 'sessionBoard' );
 
 		self::assertFalse( fs_test_capture_json( fn() => $this->cb->ajaxGetExamConduct() )->success );
 	}
 
 	public function test_default_session_is_running_or_next(): void {
 		$_POST = array();
-		$this->conduct->expects( self::once() )->method( 'defaultSessionId' )->with( 10 )->willReturn( 7 );
+		$this->board->expects( self::once() )->method( 'defaultSessionId' )->with( 10 )->willReturn( 7 );
 
 		$r = fs_test_capture_json( fn() => $this->cb->ajaxGetExamConduct() );
 
@@ -73,7 +76,7 @@ class ExamConductCallbacksTest extends TestCase {
 
 	public function test_no_sessions_returns_null_board(): void {
 		$_POST = array();
-		$this->conduct->method( 'defaultSessionId' )->willReturn( null );
+		$this->board->method( 'defaultSessionId' )->willReturn( null );
 
 		$r = fs_test_capture_json( fn() => $this->cb->ajaxGetExamConduct() );
 
@@ -219,7 +222,7 @@ class ExamConductCallbacksTest extends TestCase {
 		$GLOBALS['_fs_test_can_callback'] = static fn ( string $cap ): bool => 'export_pii' === $cap || 'manage_lms_exams' === $cap;
 		$_POST                            = array( 'session_id' => '7' );
 		$this->exports->expects( self::never() )->method( 'run' );
-		$this->conduct->expects( self::never() )->method( 'exportRows' );
+		$this->board->expects( self::never() )->method( 'exportRows' );
 
 		self::assertFalse( fs_test_capture_json( fn() => $this->cb->ajaxGetExamPrintList() )->success );
 		unset( $GLOBALS['_fs_test_can_callback'] );
@@ -228,14 +231,14 @@ class ExamConductCallbacksTest extends TestCase {
 	public function test_export_denied_for_foreign_event(): void {
 		$_POST = array( 'session_id' => '7' );
 		$this->exports->expects( self::once() )->method( 'run' )->willThrowException( new CodedException( ErrorCode::ExamAccess, 'Сеанс не найден.' ) );
-		$this->conduct->expects( self::never() )->method( 'exportRows' );
+		$this->board->expects( self::never() )->method( 'exportRows' );
 
 		self::assertFalse( fs_test_capture_json( fn() => $this->cb->ajaxExportExamParticipants() )->success );
 	}
 
 	public function test_export_returns_one_time_url_for_selected_participations(): void {
 		$_POST = array( 'participation_ids' => array( '5', '6', '0' ) );
-		$this->conduct->expects( self::never() )->method( 'exportRows' );
+		$this->board->expects( self::never() )->method( 'exportRows' );
 		$this->exports->expects( self::once() )->method( 'run' )->with(
 			\Inc\Enums\Export\ExportTarget::ExamParticipants,
 			array( 'participation_ids' => array( 5, 6 ), 'ids' => array( 5, 6 ), 'actor_user_id' => 10 ),
@@ -250,7 +253,7 @@ class ExamConductCallbacksTest extends TestCase {
 
 	public function test_print_list_has_no_contacts_or_links(): void {
 		$_POST = array( 'session_id' => '7' );
-		$this->conduct->method( 'exportRows' )->willReturn( array(
+		$this->board->method( 'exportRows' )->willReturn( array(
 			array( 'name' => 'Иванов Пётр', 'source' => 'Школа 5', 'session' => '2026-03-10 10:00', 'status' => 'Работа сдана', 'primary' => '10 / 20', 'secondary' => '' ),
 		) );
 
@@ -355,7 +358,7 @@ class ExamConductCallbacksTest extends TestCase {
 	public function test_manual_anonymize_passes_reason_to_service(): void {
 		$_POST = array( 'participant_id' => '9', 'session_id' => '7', 'reason' => 'Запрос представителя' );
 		$this->retention->expects( self::once() )->method( 'anonymizeByStaff' )->with( self::anything(), 9, 'Запрос представителя' );
-		$this->conduct->method( 'sessionBoard' )->willReturn( array( 'rows' => array() ) );
+		$this->board->method( 'sessionBoard' )->willReturn( array( 'rows' => array() ) );
 
 		self::assertTrue( fs_test_capture_json( fn() => $this->cb->ajaxAnonymizeExamGuest() )->success );
 	}

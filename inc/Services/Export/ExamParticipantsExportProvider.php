@@ -6,7 +6,7 @@ namespace Inc\Services\Export;
 
 use Inc\Contracts\CsvExportProviderInterface;
 use Inc\DTO\Export\CsvColumn;
-use Inc\Services\Exam\ExamConductService;
+use Inc\Services\Exam\ExamConductViewService;
 
 /**
  * Экспорт участников сеанса экзамена в CSV (8.9).
@@ -14,12 +14,12 @@ use Inc\Services\Exam\ExamConductService;
  * Колонки: ФИО, источник (школа), сеанс, статус, первичный балл / максимум, вторичный балл / максимум или отметка.
  * **Контактов (телефон, мессенджер, ссылки входа и результата) в файле нет.** Состав строк определяет контекст:
  * `session_id` — весь сеанс, `participation_ids` — только выбранные участия; `actor_user_id` — автор выгрузки (доступ к проведению
- * проверяет {@see ExamConductService::exportRows()}).
+ * проверяет {@see ExamConductViewService::exportRows()}).
  */
 class ExamParticipantsExportProvider implements CsvExportProviderInterface {
 
 	public function __construct(
-		private readonly ExamConductService $conduct,
+		private readonly ExamConductViewService $conduct,
 	) {}
 
 	public function columns( array $context = array() ): array {

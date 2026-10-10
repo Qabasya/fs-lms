@@ -12,6 +12,7 @@ use Inc\Enums\Wp\Nonce;
 use Inc\Services\Exam\ExamApprovalService;
 use Inc\Services\Exam\ExamAttemptService;
 use Inc\Services\Exam\ExamConductService;
+use Inc\Services\Exam\ExamConductViewService;
 use Inc\Services\Exam\ExamRegistrationService;
 use Inc\Services\Exam\GuestOnSiteService;
 use Inc\Services\Export\ExportService;
@@ -46,6 +47,7 @@ class ExamConductCallbacks extends BaseController {
 		private readonly ExportService $exports,
 		private readonly GuestOnSiteService $onSite,
 		private readonly ExamRetentionService $retention,
+		private readonly ExamConductViewService $board,
 	) {
 		parent::__construct();
 	}
@@ -56,12 +58,12 @@ class ExamConductCallbacks extends BaseController {
 		$sessionId = $this->sanitizeInt( 'session_id' );
 
 		$this->run( function () use ( $sessionId ): array {
-			$resolved = $sessionId > 0 ? $sessionId : $this->conduct->defaultSessionId( get_current_user_id() );
+			$resolved = $sessionId > 0 ? $sessionId : $this->board->defaultSessionId( get_current_user_id() );
 			if ( null === $resolved ) {
 				return array( 'board' => null );
 			}
 
-			return array( 'board' => $this->conduct->sessionBoard( get_current_user_id(), $resolved ) );
+			return array( 'board' => $this->board->sessionBoard( get_current_user_id(), $resolved ) );
 		} );
 	}
 
@@ -146,7 +148,7 @@ class ExamConductCallbacks extends BaseController {
 		$this->run( function () use ( $items, $sessionId ): array {
 			$result = $this->approval->approveMany( get_current_user_id(), $items );
 			if ( $sessionId > 0 ) {
-				$result['board'] = $this->conduct->sessionBoard( get_current_user_id(), $sessionId );
+				$result['board'] = $this->board->sessionBoard( get_current_user_id(), $sessionId );
 			}
 
 			return $result;
@@ -216,7 +218,7 @@ class ExamConductCallbacks extends BaseController {
 		$this->run( fn (): array => array(
 			'rows' => array_map(
 				static fn ( array $r ): array => array( 'name' => $r['name'], 'source' => $r['source'], 'session' => $r['session'] ),
-				$this->conduct->exportRows( get_current_user_id(), $context )
+				$this->board->exportRows( get_current_user_id(), $context )
 			),
 		) );
 	}
@@ -353,7 +355,7 @@ class ExamConductCallbacks extends BaseController {
 		$this->run( function () use ( $sessionId, $action ): array {
 			$action();
 
-			return array( 'board' => $this->conduct->sessionBoard( get_current_user_id(), $sessionId ) );
+			return array( 'board' => $this->board->sessionBoard( get_current_user_id(), $sessionId ) );
 		} );
 	}
 
