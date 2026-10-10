@@ -14,6 +14,7 @@ use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
+use Inc\Services\Course\LiveLessonService;
 
 /**
  * Class ProfileViewResolver
@@ -42,6 +43,7 @@ class ProfileViewResolver {
 		private readonly TeacherProfileView      $teacherView,
 		private readonly LearnerProfileView      $learnerView,
 		private readonly SubjectRepository       $subjects,
+		private readonly LiveLessonService       $live,
 	) {}
 
 
@@ -120,6 +122,11 @@ class ProfileViewResolver {
 					'getProfile' => AjaxHook::GetLearnerProfile->jsAction(),
 				),
 			);
+		}
+
+		// Баннер «Занятие уже идёт» в шапке — только ученику: окна его занятий на ближайшие сутки.
+		if ( UserRole::FSStudent === $ctx->role && null !== $ctx->personId ) {
+			$config['live'] = $this->live->windowsForStudent( $ctx->personId );
 		}
 
 		return $config;

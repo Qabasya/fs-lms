@@ -95,6 +95,10 @@ enum AjaxHook: string {
 	case GeneratePrintDocument = 'generate_print_document'; // params: document, student_id, record_id
 	case SavePrintProgram      = 'save_print_program';      // params: subject_key, program, price
 
+	// ==================== Заявки с сайта (Пользователи → Заявки с сайта) ====================
+	case DeleteLeads         = 'delete_leads';          // params: ids[]
+	case DeleteRejectedLeads = 'delete_rejected_leads'; // без параметров
+
 	// ==================== Журналы ====================
 	case ExportEntityAuditLog  = 'export_entity_audit_log';
 	case ExportEnrollmentLog   = 'export_enrollment_log';

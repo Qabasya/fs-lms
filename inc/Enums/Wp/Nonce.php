@@ -56,6 +56,9 @@ enum Nonce: string {
 	case HardDeleteStudent        = 'fs_lms_hard_delete_student';
 	case Config                   = 'fs_lms_config';
 
+	/** Удаление заявок с лид-форм сайта. */
+	case DeleteLeads              = 'fs_lms_delete_leads';
+
 	/** AJAX-запросы конструктора урока (выбор работ, статей). */
 	case AuthorLesson = 'fs_lms_author_lesson';
 

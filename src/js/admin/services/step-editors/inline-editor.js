@@ -3,7 +3,7 @@ import { registerBlockButtons } from '../../../tinymce/editor-blocks.js';
 import { registerLectureBlocks } from './lecture-blocks.js';
 
 /**
- * inline-editor.js — тело инлайнового шага (text / video / broadcast):
+ * inline-editor.js — тело инлайнового шага (text / video):
  * TinyMCE/wp.editor с кнопками блоков и LaTeX, поля видео-шага, ссылка
  * трансляции. Вынесено из step-editor.js без изменения поведения: связки с
  * инстансом редактора передаются через `ctx` — `tinyState` (держатель id
@@ -91,6 +91,8 @@ export function inlineEditor( ed, step, ctx ) {
 		function onEditorChange() {
 			const mc = window.tinymce?.get( tid );
 			step.payload.content = mc ? mc.getContent() : ( ed.querySelector( '#' + tid )?.value ?? '' );
+			// Лекция-дубликат: ссылку могли поменять диалогом (без клавиатуры) — проверяем по набору ссылок.
+			if ( step.payload.review_links ) { clearReviewFlag( step ); }
 			scheduleSave();
 		}
 
@@ -218,19 +220,6 @@ export function inlineEditor( ed, step, ctx ) {
 				scheduleSave();
 			} );
 			frame.open();
-		} );
-	} else if ( 'broadcast' === step.type ) {
-		ed.innerHTML = `
-			<div class="field-row"><label>Ссылка на трансляцию (необязательно)</label><input class="field-input" data-stream-url placeholder="https://…"></div>
-			<p class="field-hint">Адрес эфира на время занятия — Zoom, VK Видео, YouTube и т.п.
-			Поле можно оставить пустым: после занятия шаг сам покажет запись, привязанную к занятию
-			(в том числе загруженную в S3), а до неё — заглушку. Публикацию курса пустой шаг не блокирует.</p>`;
-		const streamUrl = ed.querySelector( '[data-stream-url]' );
-		streamUrl.value = step.payload.stream_url || '';
-		streamUrl.addEventListener( 'input', () => {
-			step.payload.stream_url = streamUrl.value;
-			clearReviewFlag( step );
-			scheduleSave();
 		} );
 	}
 }

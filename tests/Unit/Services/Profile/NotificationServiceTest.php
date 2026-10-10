@@ -52,6 +52,7 @@ class NotificationServiceTest extends TestCase {
 			$this->effectiveTeacher,
 			$this->users,
 			$this->userManager,
+			$this->createMock( \Inc\Services\Course\LiveLessonService::class ),
 		);
 	}
 
@@ -341,7 +342,7 @@ class NotificationServiceTest extends TestCase {
 
 		self::assertSame( 'lesson_opened', $out['type'] );
 		self::assertSame( 'info', $out['tone'] );
-		self::assertSame( 'Открыт новый урок', $out['title'] );
+		self::assertSame( 'Урок начался', $out['title'] );
 		self::assertStringContainsString( 'Внеплановый разбор', $out['body'] );
 		self::assertStringContainsString( 'Группа А', $out['body'] );
 	}

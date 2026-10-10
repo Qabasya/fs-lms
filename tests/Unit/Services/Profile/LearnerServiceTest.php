@@ -76,7 +76,7 @@ class LearnerServiceTest extends TestCase {
 		$contextBuilder = new \Inc\Services\Profile\Learner\LearnerContextBuilder(
 			$this->records, $this->groups, $this->groupLessons, $this->lessons, $this->courses,
 			$this->subjects, $this->rooms, $this->clock, $this->effectiveTeacher,
-			$this->progress, $this->gate,
+			$this->progress, $this->gate, $this->createMock( \Inc\Services\Course\LiveLessonService::class ),
 		);
 $visibility = $this->createStub( \Inc\Services\Course\LessonVisibilityService::class );
 		$visibility->method( 'effectiveVisibility' )->willReturnCallback( static fn( $row ) => $row->visibility );

@@ -198,6 +198,16 @@ class CourseBuilderCallbacks extends BaseController {
 				$this->error( $emptyStepError );
 				return;
 			}
+
+			// Мягкая проверка: неизменённые дубликаты не блокируют, а просят подтверждение.
+			// Клиент шлёт review_check только по кнопке «Опубликовать»; после «Всё равно» — без него.
+			if ( $this->sanitizeBool( 'review_check' ) ) {
+				$unchanged = $this->publishValidator->unchangedSteps( $course_id );
+				if ( array() !== $unchanged ) {
+					$this->success( array( 'saved' => false, 'unchanged' => $unchanged ) );
+					return;
+				}
+			}
 		}
 
 		if ( $this->builder->updateCourseMeta( $course_id, $title, $status, $author_id, $thumbnail_id ) ) {

@@ -66,23 +66,16 @@ class ContentCloneService {
 	}
 
 	/**
-	 * Помечает каждый шаг копии как «дубликат — контент не изменён» (payload.needs_review),
+	 * Помечает шаги копии как «дубликат — контент не изменён» (payload.needs_review),
 	 * чтобы конструктор показал преподавателю напоминание изменить контент.
-	 * StepDTO неизменяем — пересобираем с дополненным payload.
+	 * Правила (трансляция без метки, лекция — по ссылкам) — в {@see StepDTO::markedForReview()}.
 	 *
 	 * @param StepDTO[] $steps
 	 *
 	 * @return StepDTO[]
 	 */
 	private function markStepsForReview( array $steps ): array {
-		return array_map(
-			static fn( StepDTO $step ): StepDTO => new StepDTO(
-				$step->key,
-				$step->type,
-				array_merge( $step->payload, array( 'needs_review' => true ) )
-			),
-			$steps
-		);
+		return array_map( static fn( StepDTO $step ): StepDTO => $step->markedForReview(), $steps );
 	}
 
 	/**

@@ -11,7 +11,28 @@ import { renderKTP } from './ktp.js';
 import { renderActivity } from './activity.js';
 import { renderLearnerHome, renderLearnerLessons, renderLearnerGrades, renderLearnerAttendance } from './learner.js';
 import { initNotifications } from './notifications.js';
+import { initLiveBanner } from './live-banner.js';
 import { renderTeacherCourses, openTeacherCourse } from './teacher-courses.js';
+
+/* Экраны ученика и родителя одни и те же, а ключ несёт роль: student-grades / parent-grades
+   (виден в адресе ?screen=). Реестры ниже получают оба набора из одного описания. */
+const LEARNER_PREFIXES = ['student', 'parent'];
+const LEARNER_SCREEN_RE = /^(?:learner|student|parent)-(home|lessons|grades|attendance)$/;
+
+function forLearnerRoles(byScreen) {
+    const out = {};
+    LEARNER_PREFIXES.forEach((prefix) => {
+        Object.entries(byScreen).forEach(([name, value]) => { out[`${prefix}-${name}`] = value; });
+    });
+    return out;
+}
+
+/* Ссылка могла прийти с любым префиксом (старое уведомление `learner-*`, письмо ученику,
+   открытое родителем): приводим её к экрану роли вошедшего. */
+function canonicalScreen(wanted) {
+    const m = LEARNER_SCREEN_RE.exec(wanted || '');
+    return m ? `${cfg.readOnly ? 'parent' : 'student'}-${m[1]}` : wanted;
+}
 
 /* ── Screen registry: key → renderer ─────────────────────────────────── */
 const SCREENS = {
@@ -29,10 +50,12 @@ const SCREENS = {
     ktp:                  (root) => renderKTP(root),
     activity:             (root) => renderActivity(root, { openWorkReview: openWorkReviewFrom('activity') }),
     'teacher-courses':    renderTeacherCourses,
-    'learner-home':       renderLearnerHome,
-    'learner-lessons':    renderLearnerLessons,
-    'learner-grades':     renderLearnerGrades,
-    'learner-attendance': renderLearnerAttendance,
+    ...forLearnerRoles({
+        home:       renderLearnerHome,
+        lessons:    renderLearnerLessons,
+        grades:     renderLearnerGrades,
+        attendance: renderLearnerAttendance,
+    }),
 };
 
 const TOPBAR = {
@@ -46,10 +69,12 @@ const TOPBAR = {
     ktp:                  { crumb: 'Планирование',     title: 'КТП и расписание' },
     activity:             { crumb: 'Аналитика',       title: 'Активность' },
     'teacher-courses':    { crumb: 'Обучение',         title: 'Мои курсы' },
-    'learner-home':       { crumb: 'Личный кабинет',   title: 'Главная' },
-    'learner-lessons':    { crumb: 'Обучение',         title: 'Мои курсы' },
-    'learner-grades':     { crumb: 'Успеваемость',     title: 'Мои оценки' },
-    'learner-attendance': { crumb: 'Успеваемость',     title: 'Посещаемость' },
+    ...forLearnerRoles({
+        home:       { crumb: 'Личный кабинет',   title: 'Главная' },
+        lessons:    { crumb: 'Обучение',         title: 'Мои курсы' },
+        grades:     { crumb: 'Успеваемость',     title: 'Мои оценки' },
+        attendance: { crumb: 'Успеваемость',     title: 'Посещаемость' },
+    }),
 };
 
 const NAV_ICONS = {
@@ -61,10 +86,12 @@ const NAV_ICONS = {
     substitutions:        icoSwap(19),
     ktp:                  icoCalendarBoard(19),
     activity:             icoClock(19),
-    'learner-home':       icoHome(19),
-    'learner-lessons':    icoBook(19),
-    'learner-grades':     icoStar(19),
-    'learner-attendance': icoCalendarBoard(19),
+    ...forLearnerRoles({
+        home:       icoHome(19),
+        lessons:    icoBook(19),
+        grades:     icoStar(19),
+        attendance: icoCalendarBoard(19),
+    }),
 };
 
 const ROLE_LABELS = {
@@ -431,13 +458,14 @@ export function initProfile() {
     mountScreens();
     wire();
     initNotifications();
+    initLiveBanner();
     initCollapse();
 
-    // Deep-link на экран: /profile/?screen=learner-lessons (ссылки из плеера курса, T14.13).
+    // Deep-link на экран: /profile/?screen=student-lessons (ссылки из плеера курса, T14.13).
     // С gid (?screen=groups&gid=2) — открыть «Группы» на конкретной группе, как клик
     // по группе в сайдбаре (ссылки из сайдбара предпросмотра курса).
     const params = new URLSearchParams(window.location.search);
-    const wanted = params.get('screen');
+    const wanted = canonicalScreen(params.get('screen'));
     const gid = params.get('gid');
     const course = params.get('course');
     const submissionLink = submissionDeepLink(params, cfg.screens);

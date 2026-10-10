@@ -55,23 +55,32 @@ export function createPersistence( { courseId, mount, state, onPublishToggle } )
 		}, 800 );
 	}
 
-	function saveCourseMeta() {
+	/**
+	 * @param {{ reviewCheck?: boolean }} [opts] reviewCheck — запросить мягкую проверку
+	 *        неизменённых дубликатов; ответ `{ saved: false, unchanged: [...] }` значит «нужно подтверждение».
+	 */
+	function saveCourseMeta( opts = {} ) {
 		const payload = {
 			course_id: courseId,
 			title:     state.course.title,
 			status:    state.course.status || 'draft',
 		};
+		if ( opts.reviewCheck ) { payload.review_check = 1; }
 		if ( state.course.author_id )    { payload.author_id    = state.course.author_id; }
 		if ( state.course.thumbnail_id ) { payload.thumbnail_id = state.course.thumbnail_id; }
 		return ajax( acts().saveCourseMeta, payload )
-			.then( () => setStatus( 'Все изменения сохранены' ) )
+			.then( ( data ) => {
+				if ( data && false === data.saved ) { return data; }
+				setStatus( 'Все изменения сохранены' );
+				return data;
+			} )
 			.catch( ( msg ) => { setStatus( 'Ошибка сохранения' ); showToast( msg, 'error' ); throw msg; } );
 	}
 
 	function scheduleCourseMeta() {
 		setStatus( 'Изменения…' );
 		clearTimeout( courseMetaTimer );
-		courseMetaTimer = setTimeout( saveCourseMeta, 800 );
+		courseMetaTimer = setTimeout( () => saveCourseMeta(), 800 );
 	}
 
 	function scheduleLessonMeta( lesson ) {

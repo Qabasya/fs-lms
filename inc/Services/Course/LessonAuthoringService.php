@@ -348,7 +348,8 @@ class LessonAuthoringService {
 			}
 
 			$type = StepType::tryFrom( (string) ( $raw['type'] ?? '' ) );
-			if ( null === $type ) {
+			// Трансляцию в уроке не храним: её строит плеер из ссылки группы и записи занятия.
+			if ( null === $type || ! $type->isAuthorable() ) {
 				continue;
 			}
 
@@ -453,12 +454,7 @@ class LessonAuthoringService {
 					is_array( $raw_payload['attachments'] ?? null ) ? $raw_payload['attachments'] : array()
 				) ) ),
 			),
-			// Трансляция (Этап 1): ссылка-заглушка до появления записи занятия
-			// (плеер подменяет её на recording_url привязанного group_lesson).
-			'broadcast'          => array(
-				'title'      => $this->sanitizeTextValue( $raw_payload['title'] ?? '' ),
-				'stream_url' => $this->sanitizeTextValue( $raw_payload['stream_url'] ?? '' ),
-			),
+			// Трансляция в уроке не хранится: ссылку держит группа, шаг строит плеер.
 			'task'               => array(
 				'ref'      => $this->sanitizeIntValue( $raw_payload['ref'] ?? 0 ),
 				'source'   => 'bank' === $this->sanitizeKeyValue( $raw_payload['source'] ?? 'subject' ) ? 'bank' : 'subject',
@@ -481,8 +477,16 @@ class LessonAuthoringService {
 		}
 
 		// Метка «дубликат — контент не изменён»: переживает сохранение (напоминание преподавателю).
-		if ( filter_var( $raw_payload['needs_review'] ?? false, FILTER_VALIDATE_BOOLEAN ) ) {
+		// Лекция помнит исходные ссылки: метка снимается, только когда их набор изменился.
+		if ( filter_var( $raw_payload['needs_review'] ?? false, FILTER_VALIDATE_BOOLEAN ) && 'broadcast' !== $type ) {
 			$payload['needs_review'] = true;
+
+			if ( 'text' === $type && is_array( $raw_payload['review_links'] ?? null ) ) {
+				$payload['review_links'] = array_values( array_map( 'strval', array_filter( $raw_payload['review_links'], 'is_scalar' ) ) );
+				if ( ! StepDTO::fromArray( array( 'type' => 'text', 'payload' => $payload ) )->isUnreviewed() ) {
+					unset( $payload['needs_review'], $payload['review_links'] );
+				}
+			}
 		}
 
 		return array( 'key' => $key, 'type' => $type, 'payload' => $payload );

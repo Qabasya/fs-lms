@@ -14,7 +14,7 @@
 import { esc, plural, fmtDayMonth, todayIso, chipBg, chipBorder, groupSubjectKey, shortName, emptyState } from './utils.js';
 import { icoCalendar, icoCheck, icoAlert, icoMapPin, icoBookmark, icoShield, icoChevronRight, icoChevronDown, icoHome, icoJournal, icoUsers, icoDocCheck } from '../common/icons.js';
 import { createApi } from './api.js';
-import { DOW_JS, DOW_RU } from './constants.js';
+import { initSchedule } from './schedule-view.js';
 
 /** Ключ запомненной раскрытости аккордеонов главной. */
 const ACC_KEY = 'fsProfDashAcc';
@@ -28,7 +28,7 @@ export function renderDashboard(r, handlers) {
     root = r;
     nav = Object.assign(nav, handlers || {});
     const p = window.fsProfile || {};
-    state = { cfg: p.dashboard || null, data: null, weekOffset: 0, monthOffset: 0 };
+    state = { cfg: p.dashboard || null, data: null };
     if (!state.cfg) { root.innerHTML = emptyHtml('Главная недоступна', 'Нет данных кабинета.'); return; }
     api = createApi(state.cfg);
     load();
@@ -86,16 +86,15 @@ function render() {
             ${attnCount ? '' : '<div class="rev-empty">Всё в порядке — журналы заполнены, работы проверены.</div>'}`, icoAlert)}
     </div>`;
 
-    renderSched('today');
-
-    const toggle = root.querySelector('#profSchedToggle');
-    toggle.querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
-        toggle.querySelectorAll('button').forEach(x => x.classList.remove('on'));
-        b.classList.add('on');
-        state.weekOffset  = 0; // каждый вход в режим — текущая неделя / текущий месяц
-        state.monthOffset = 0;
-        renderSched(b.dataset.mode);
-    }));
+    initSchedule({
+        toggle:    root.querySelector('#profSchedToggle'),
+        body:      root.querySelector('#profSchedBody'),
+        items:     d.week,
+        todayHtml: () => d.today.length
+            ? d.today.map(schedRow).join('')
+            : `<div class="rev-empty">Сегодня занятий нет.</div>`,
+        cardHtml:  lessonCard,
+    });
 
     root.querySelectorAll('.prof-acc[data-acc]').forEach(acc => {
         const head = acc.querySelector('.prof-acc-head');
@@ -127,93 +126,6 @@ function render() {
         }));
 }
 
-function renderSched(mode) {
-    const body = document.getElementById('profSchedBody');
-    if (!body) return;
-    const d = state.data;
-
-    if (mode === 'month') {
-        renderMonth(body);
-    } else if (mode === 'week') {
-        const byDate = itemsByDate();
-
-        // #18 + НБ-11: 7 дней недели (Пн–Вс), даже пустые. Опорный понедельник —
-        // текущая неделя со сдвигом state.weekOffset (пагинация ‹ ›).
-        const weekDates = datesFrom(state.weekOffset, 7);
-
-        const grid = `<div class="prof-week-grid">${weekDates.map(date => {
-            const items = byDate[date] || [];
-            const cards = items.length
-                ? items.map(it => lessonCard(it, 'prof-week-card')).join('')
-                : `<div class="prof-week-empty">Занятий нет</div>`;
-            return `<div class="prof-week-col">
-                    <div class="prof-week-dow">${DOW_JS[new Date(date + 'T00:00:00').getDay()]} ${date.slice(8, 10)}.${date.slice(5, 7)}</div>
-                    ${cards}
-                </div>`;
-        }).join('')}</div>`;
-
-        body.innerHTML = weekNav(weekDates[0], weekDates[6]) + grid;
-        body.querySelectorAll('.pwn-arrow[data-wnav]').forEach(btn =>
-            btn.addEventListener('click', () => { state.weekOffset += +btn.dataset.wnav; renderSched('week'); }));
-    } else {
-        body.innerHTML = d.today.length
-            ? d.today.map(schedRow).join('')
-            : `<div class="rev-empty">Сегодня занятий нет.</div>`;
-    }
-}
-
-/**
- * «Месяц»: календарный месяц (с 1-го по последнее число) рядами по неделе Пн–Вс;
- * хвосты соседних месяцев в крайних рядах — пустые клетки. ‹ › листают месяцы.
- * В ячейке — все занятия дня ({@link lessonCard}), ряд растягивается по самому
- * загруженному дню; клик по дате открывает эту неделю в режиме «Неделя».
- */
-function renderMonth(body) {
-    const byDate = itemsByDate();
-    const today  = todayIso();
-    const first  = new Date();
-    first.setHours(0, 0, 0, 0);
-    first.setDate(1);
-    first.setMonth(first.getMonth() + state.monthOffset);
-
-    const year     = first.getFullYear();
-    const month    = first.getMonth();
-    const daysIn   = new Date(year, month + 1, 0).getDate();
-    const lead     = (first.getDay() + 6) % 7;             // пустые клетки до 1-го (неделя с Пн)
-    const trail    = (7 - ((lead + daysIn) % 7)) % 7;      // и после последнего числа
-    const prefix   = `${year}-${String(month + 1).padStart(2, '0')}-`;
-
-    const cells = [
-        ...Array.from({ length: lead }, () => '<div class="prof-month-cell is-out"></div>'),
-        ...Array.from({ length: daysIn }, (_, i) => {
-            const date  = prefix + String(i + 1).padStart(2, '0');
-            const items = (byDate[date] || []).map(it => lessonCard(it, 'prof-month-item')).join('');
-
-            return `<div class="prof-month-cell${date === today ? ' is-today' : ''}${date < today ? ' is-past' : ''}">
-                <button type="button" class="pmc-day" data-day="${date}" aria-label="Открыть неделю ${esc(fmtDayMonth(date))}">${i + 1}</button>
-                ${items}
-            </div>`;
-        }),
-        ...Array.from({ length: trail }, () => '<div class="prof-month-cell is-out"></div>'),
-    ].join('');
-
-    body.innerHTML = schedNav('mnav', 'Предыдущий месяц', 'Следующий месяц', monthLabel(first))
-        + `<div class="prof-month-grid">
-            ${DOW_RU.map(dow => `<div class="prof-month-dow">${dow}</div>`).join('')}
-            ${cells}
-        </div>`;
-
-    body.querySelectorAll('.pwn-arrow[data-mnav]').forEach(btn =>
-        btn.addEventListener('click', () => { state.monthOffset += +btn.dataset.mnav; renderSched('month'); }));
-    body.querySelectorAll('[data-day]').forEach(btn => btn.addEventListener('click', () => openWeekOf(btn.dataset.day)));
-}
-
-/** «Сентябрь 2026». */
-function monthLabel(date) {
-    const name = date.toLocaleDateString('ru-RU', { month: 'long' });
-    return `${name.charAt(0).toUpperCase()}${name.slice(1)} ${date.getFullYear()}`;
-}
-
 /**
  * Карточка занятия в «Неделе» и «Месяце»: 1) время, группа, кабинет;
  * 2) преподаватель («Сахаров Д.С.») и метки замены/инд.; 3) тема — сколько влезет.
@@ -231,59 +143,6 @@ function lessonCard(it, cls) {
         </div>
         ${it.teacher || tags ? `<div class="lc-row lc-teacher"><span class="lc-name">${esc(it.teacher || '')}</span>${tags}</div>` : ''}
         <div class="lc-topic" title="${esc(it.topic || '')}">${esc(it.topic || '—')}</div>
-    </div>`;
-}
-
-/** Переключает расписание на «Неделю», в которой лежит дата. */
-function openWeekOf(date) {
-    const days = (new Date(date + 'T00:00:00') - mondayOf(0)) / 86400000;
-    state.weekOffset = Math.floor(Math.round(days) / 7);
-
-    const toggle = root.querySelector('#profSchedToggle');
-    toggle.querySelectorAll('button').forEach(x => x.classList.toggle('on', 'week' === x.dataset.mode));
-    renderSched('week');
-}
-
-/** Всё расписание, разложенное по датам. */
-function itemsByDate() {
-    const byDate = {};
-    state.data.week.forEach(it => { (byDate[it.date] = byDate[it.date] || []).push(it); });
-    return byDate;
-}
-
-/** Понедельник текущей недели со сдвигом на weekOffset недель. */
-function mondayOf(weekOffset) {
-    const monday = new Date();
-    monday.setHours(0, 0, 0, 0);
-    monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7) + weekOffset * 7);
-    return monday;
-}
-
-/**
- * count дат подряд от понедельника недели со сдвигом weekOffset. Формат дат
- * локальный (без сдвига часового пояса, как у toISOString).
- */
-function datesFrom(weekOffset, count) {
-    const monday = mondayOf(weekOffset);
-    const fmtIso = dt => `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
-
-    return Array.from({ length: count }, (_, i) => {
-        const dt = new Date(monday);
-        dt.setDate(monday.getDate() + i);
-        return fmtIso(dt);
-    });
-}
-
-/** НБ-11: пагинатор недели (‹ диапазон ›) над сеткой расписания. */
-function weekNav(fromIso, toIso) {
-    return schedNav('wnav', 'Предыдущая неделя', 'Следующая неделя', `${fmtDayMonth(fromIso)} – ${fmtDayMonth(toIso)}`);
-}
-
-function schedNav(attr, prevLabel, nextLabel, label) {
-    return `<div class="prof-week-nav">
-        <button type="button" class="pwn-arrow" data-${attr}="-1" aria-label="${prevLabel}">‹</button>
-        <div class="pwn-label">${esc(label)}</div>
-        <button type="button" class="pwn-arrow" data-${attr}="1" aria-label="${nextLabel}">›</button>
     </div>`;
 }
 

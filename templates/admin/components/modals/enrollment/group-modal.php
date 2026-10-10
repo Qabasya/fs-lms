@@ -80,6 +80,12 @@ use Inc\Enums\Course\WeekDay;
 						<p class="description">Кабинет по умолчанию для занятий группы; у отдельного дня расписания можно указать свой.</p>
 					</div>
 
+					<div class="fs-form-group">
+						<label for="group-broadcast-url">Ссылка на трансляцию</label>
+						<input type="url" id="group-broadcast-url" name="broadcast_url" placeholder="https://…" maxlength="1000">
+						<p class="description">Одна на все занятия группы (Zoom, Телемост, Jitsi и т.п.). Без ссылки шаг «Трансляция» у учеников не появляется; во время занятия они подключаются кнопкой «Присоединиться».</p>
+					</div>
+
 					<div class="fs-form-group fs-access-mode-group">
 						<label class="fs-access-mode-toggle">
 							<input type="checkbox" id="group-access-mode" name="access_mode_open" value="1" data-edit-readonly>

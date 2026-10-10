@@ -184,14 +184,29 @@ function createApp( mount ) {
 
 		// Strip: "Опубликовать / Сохранить курс" → AJAX, без перезагрузки
 		mount.querySelector( '[data-strip-publish]' )?.addEventListener( 'click', () => {
-			const wasPublished = state.course.status === 'publish';
+			const prevStatus   = state.course.status;
+			const wasPublished = prevStatus === 'publish';
 			state.course.status = 'publish';
-			persist.saveCourseMeta().then( () => {
-				const msg = wasPublished ? 'Курс сохранён' : 'Курс опубликован';
-				showToast( msg, 'success' );
+
+			const done = () => {
+				showToast( wasPublished ? 'Курс сохранён' : 'Курс опубликован', 'success' );
 				const btn = mount.querySelector( '[data-strip-publish]' );
 				if ( btn ) { btn.textContent = 'Сохранить курс'; }
-			} );
+			};
+
+			// Неизменённые дубликаты не блокируют публикацию — просим подтвердить.
+			persist.saveCourseMeta( { reviewCheck: true } ).then( ( data ) => {
+				if ( ! data || false !== data.saved ) { done(); return; }
+
+				const list = data.unchanged.slice( 0, 3 ).join( '; ' ) + ( data.unchanged.length > 3 ? ` и ещё ${ data.unchanged.length - 3 }` : '' );
+				ConfirmModal.confirm( {
+					title:       'Есть неизменённый контент',
+					message:     `Здесь есть неизменённый контент: ${ list }. Всё равно опубликовать?`,
+					confirmText: 'Всё равно опубликовать',
+					isDanger:    false,
+				} ).then( () => persist.saveCourseMeta().then( done ) )
+					.catch( () => { state.course.status = prevStatus; } );
+			} ).catch( () => { state.course.status = prevStatus; } );
 		} );
 
 		// Strip title: click-to-edit inline

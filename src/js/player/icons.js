@@ -23,7 +23,7 @@ import {
 export const TYPES = {
 	text: { label: 'Лекция', c: '#1c7ed6', soft: '#e7f2fb' },
 	video: { label: 'Видео', c: '#7048e8', soft: '#f1ecfd' },
-	broadcast: { label: 'Трансляция', c: '#d6336c', soft: '#fbe4ec' },
+	broadcast: { label: 'Занятие', c: '#f03e3e', soft: '#ffe3e3' },
 	task: { label: 'Задача', c: '#099268', soft: '#e6f7f1' },
 	work: { label: 'Работа', c: '#e8590c', soft: '#fdeee3' },
 	assessment: { label: 'Экзамен', c: '#e03131', soft: '#fdecec' },
