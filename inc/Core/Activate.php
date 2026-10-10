@@ -74,7 +74,7 @@ class Activate {
 		$migration_runner->run();
 
 		// Автоматическое создание страниц входа, регистрации и профиля
-		self::generatePages();
+		self::generatePages( $container );
 
 		// Лендинги предметов: добор для заведённых до появления разделов и
 		// восстановление страниц, удалённых вручную.
@@ -103,8 +103,8 @@ class Activate {
 	 *
 	 * @return void
 	 */
-	private static function generatePages(): void {
-		$generator = new PageGeneratorService();
+	private static function generatePages( Container $container ): void {
+		$generator = $container->get( PageGeneratorService::class );
 
 		$generator->ensurePublished( PageRoutes::SignIn, 'Авторизация', ShortCode::LoginForm->tag() );
 		$generator->ensurePublished( PageRoutes::Apply, 'Подать заявку', ShortCode::ApplyForm->tag() );

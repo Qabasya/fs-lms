@@ -46,6 +46,9 @@ enum OptionName: string {
 	/** Версия схемы БД */
 	case SchemaVersion = 'fs_lms_schema_version';
 
+	/** Версия обеспечения гостевых страниц экзаменов. */
+	case ExamPagesVersion = 'fs_lms_exam_pages_version';
+
 	/** Версия набора capabilities — пересинхронизация ролей при изменении. */
 	case CapsVersion = 'fs_lms_caps_version';
 
