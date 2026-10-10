@@ -163,8 +163,6 @@ final class TeacherProfileView implements ProfileViewInterface {
 			'canAnonymizeGuests' => user_can( $context->wpUserId, Capability::ManageExamGuests->value ) && user_can( $context->wpUserId, Capability::ManageLmsPlatform->value ),
 			'canShareResults'  => user_can( $context->wpUserId, Capability::ShareExamResults->value ),
 			'canExportPii'     => user_can( $context->wpUserId, Capability::ManageLmsPlatform->value ) && user_can( $context->wpUserId, Capability::ExportPII->value ),
-			// Станет true на этапе 11a, когда появится форма гостя: до тех пор секция «Ссылки для преподавателей» скрыта.
-			'guestSignupReady' => false,
 		);
 	}
 

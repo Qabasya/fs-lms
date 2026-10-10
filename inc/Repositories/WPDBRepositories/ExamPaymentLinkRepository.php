@@ -67,6 +67,25 @@ class ExamPaymentLinkRepository extends AbstractExamRepository {
 	}
 
 	/**
+	 * Оплаченные связи заявок «нужна помощь», давно не сверявшиеся (11a.8.2): очередь оплат показывает по ним «время последней сверки».
+	 *
+	 * @return ExamPaymentLinkDTO[]
+	 */
+	public function listWaitingForHelpForRecheck( string $olderThanUtc, int $limit = 50 ): array {
+		$rows = $this->readRows( $this->wpdb->prepare(
+			'SELECT l.* FROM %i l INNER JOIN %i a ON a.id = l.application_id
+			 WHERE a.state = %s AND l.payment_state = %s AND ( l.last_reconciled_at IS NULL OR l.last_reconciled_at <= %s ) ORDER BY l.id ASC LIMIT %d',
+			$this->table,
+			TableName::ExamGuestApplications->prefixed(),
+			'paid_needs_resolution',
+			'paid',
+			$olderThanUtc,
+			$limit
+		) );
+		return array_map( array( ExamPaymentLinkDTO::class, 'fromArray' ), $rows );
+	}
+
+	/**
 	 * @param array<string, mixed> $data
 	 *
 	 * @return int Число затронутых строк.

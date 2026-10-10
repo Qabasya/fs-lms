@@ -238,4 +238,25 @@ class ExamTickServiceTest extends TestCase {
 
 		self::assertSame( array( 1, 2, 3 ), $seen, 'Заказ сверяется один раз, ошибка заказа 2 не останавливает 3.' );
 	}
+
+	public function test_recheck_of_waiting_for_help_runs_between_reconcile_and_release(): void {
+		$order = array();
+		$this->woo->method( 'isActive' )->willReturn( true );
+		$this->paymentLinks->method( 'listPendingForReconcile' )->willReturnCallback( static function () use ( &$order ): array {
+			$order[] = 'reconcile';
+			return array();
+		} );
+		$this->reconciler->method( 'refreshWaitingForHelp' )->willReturnCallback( static function () use ( &$order ): int {
+			$order[] = 'recheck';
+			return 0;
+		} );
+		$this->holds->method( 'releaseExpired' )->willReturnCallback( static function () use ( &$order ): int {
+			$order[] = 'release';
+			return 0;
+		} );
+
+		$this->service->releaseHolds();
+
+		self::assertSame( array( 'reconcile', 'recheck', 'release' ), $order );
+	}
 }

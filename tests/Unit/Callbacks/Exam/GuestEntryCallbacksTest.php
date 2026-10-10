@@ -61,7 +61,8 @@ class GuestEntryCallbacksTest extends TestCase {
 
 		$this->cb = new GuestEntryCallbacks(
 			$this->tokens, $this->sessions, $this->participations, $this->registrations, $this->sessionRepo, $this->rate,
-			$this->createMock( GuestEntryViewService::class ), $time, $this->result, $this->responder
+			$this->createMock( GuestEntryViewService::class ), $time, $this->result, $this->responder,
+			$this->createMock( \Inc\Services\Exam\GuestResultSidebarService::class )
 		);
 	}
 

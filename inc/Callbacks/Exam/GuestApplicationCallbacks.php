@@ -26,6 +26,7 @@ use Inc\Enums\Wp\PageRoutes;
 use Inc\Repositories\WPDBRepositories\ExamGuestApplicationRepository;
 use Inc\Repositories\WPDBRepositories\ExamSourceRepository;
 use Inc\Services\Exam\ExamAccessTokenService;
+use Inc\Services\Exam\ExamFormTrackingService;
 use Inc\Services\Exam\GuestSessionService;
 use Inc\Services\Exam\GuestSignupViewService;
 use Inc\Services\Security\RateLimitService;
@@ -62,6 +63,7 @@ class GuestApplicationCallbacks extends BaseController {
 		private readonly GuestOrderStatusService $orderStatus,
 		private readonly ExamPaymentReconciler $reconciler,
 		private readonly ExamGuestApplicationRepository $applicationRepo,
+		private readonly ExamFormTrackingService $formLog,
 	) {
 		parent::__construct();
 	}
@@ -80,7 +82,13 @@ class GuestApplicationCallbacks extends BaseController {
 			return $this->exchangeInvitation( $key, $ip );
 		}
 
-		return null !== $this->currentSource() ? GuestPageOutcome::render() : GuestPageOutcome::notFound();
+		$source = $this->currentSource();
+		if ( null === $source ) {
+			return GuestPageOutcome::notFound();
+		}
+		$this->formLog->opened( $source );
+
+		return GuestPageOutcome::render();
 	}
 
 	/** Шорткод формы: HTML страницы для источника из куки; без источника — пусто (страница уже отдала 404). */
@@ -113,6 +121,7 @@ class GuestApplicationCallbacks extends BaseController {
 		}
 
 		if ( ! $this->formGuard->isHuman( $this->sanitizeText( $this->formGuard->honeypotField() ), $this->sanitizeText( 'form_token' ) ) ) {
+			$this->formLog->invalid( $source, '', 'Защита формы отклонила отправку' );
 			$this->fail( ErrorCode::ExamReplay, 'Не удалось отправить форму. Обновите страницу.' );
 			return;
 		}
@@ -136,6 +145,7 @@ class GuestApplicationCallbacks extends BaseController {
 		try {
 			$application = $this->applications->apply( $source, $form, $this->requestContext(), $requestKey );
 		} catch ( GuestFormException $e ) {
+			$this->formLog->invalid( $source, $e->field, $e->getMessage() );
 			$extra = array( 'field' => $e->field );
 			if ( 'cabinet' === $e->field ) {
 				$extra['cabinet_url'] = \Inc\Enums\Wp\PageRoutes::UserProfile->screenUrl( 'learner-exams' );
@@ -143,6 +153,9 @@ class GuestApplicationCallbacks extends BaseController {
 			$this->fail( $e->errorCode, $e->getMessage(), array(), $extra );
 			return;
 		} catch ( CodedException $e ) {
+			if ( ErrorCode::ExamLimit === $e->errorCode ) {
+				$this->formLog->limited( $source, $e->getMessage() );
+			}
 			$this->fail( $e->errorCode, $e->getMessage() );
 			return;
 		}
@@ -164,6 +177,8 @@ class GuestApplicationCallbacks extends BaseController {
 			$this->fail( $e instanceof CodedException ? $e->errorCode : ErrorCode::ExamClosed, $message, array(), array( 'new_request_key' => true ) );
 			return;
 		}
+
+		$this->formLog->holdCreated( $source, $application );
 
 		$this->success( array(
 			'redirect'        => $this->woo->cartUrl(),

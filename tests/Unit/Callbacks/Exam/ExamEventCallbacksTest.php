@@ -26,6 +26,8 @@ class ExamEventCallbacksTest extends TestCase {
 
 	private ExamPlanService&MockObject $plans;
 	private ExamEventService&MockObject $events;
+	private \Inc\Services\Exam\ExamLaunchChecklist&MockObject $checklist;
+	private \Inc\Repositories\WPDBRepositories\ExamEventRepository&MockObject $eventRepo;
 	private ExamEventCallbacks $cb;
 
 	protected function setUp(): void {
@@ -35,7 +37,9 @@ class ExamEventCallbacksTest extends TestCase {
 
 		$this->plans  = $this->createMock( ExamPlanService::class );
 		$this->events = $this->createMock( ExamEventService::class );
-		$this->cb     = new ExamEventCallbacks( $this->plans, $this->events );
+		$this->checklist = $this->createMock( \Inc\Services\Exam\ExamLaunchChecklist::class );
+		$this->eventRepo = $this->createMock( \Inc\Repositories\WPDBRepositories\ExamEventRepository::class );
+		$this->cb     = new ExamEventCallbacks( $this->plans, $this->events, $this->checklist, $this->eventRepo );
 	}
 
 	protected function tearDown(): void {
@@ -223,5 +227,37 @@ class ExamEventCallbacksTest extends TestCase {
 		$r = fs_test_capture_json( fn() => $this->cb->ajaxDeleteExamSession() );
 
 		self::assertFalse( $r->success );
+	}
+
+	// ── 11a.6.7 чек-лист запуска в форме проведения ───────────────────────────────────────────────
+
+	public function test_plan_carries_launch_checklist_for_selected_and_new_event(): void {
+		$_POST = array( 'subject_key' => 'inf_ege', 'event_id' => '3' );
+		$this->plans->method( 'build' )->willReturn( array( 'events' => array(), 'event' => array( 'id' => 3 ), 'variants' => array(), 'rooms' => array() ) );
+		$event = $this->examEvent();
+		$this->eventRepo->method( 'find' )->with( 3 )->willReturn( $event );
+		$this->checklist->expects( self::exactly( 2 ) )->method( 'check' )->willReturnCallback( static fn ( $e ): array => array(
+			array( 'key' => 'woo', 'label' => 'WooCommerce активен', 'ok' => true, 'hint' => '' ),
+			array( 'key' => 'rooms', 'label' => 'У кабинетов указана вместимость', 'ok' => null !== $e, 'hint' => null === $e ? 'Укажите вместимость.' : '' ),
+		) );
+
+		$r = fs_test_capture_json( fn() => $this->cb->ajaxGetExamPlan() );
+
+		self::assertTrue( $r->success );
+		self::assertTrue( $r->payload['launch']['ready'], 'Для выбранного проведения пункты пройдены.' );
+		self::assertFalse( $r->payload['launch_new']['ready'], 'Форма нового проведения проверяется без проведения.' );
+		self::assertSame( 'Укажите вместимость.', $r->payload['launch_new']['items'][1]['hint'] );
+	}
+
+	public function test_plan_without_selected_event_still_has_launch_for_new_form(): void {
+		$_POST = array( 'subject_key' => 'inf_ege' );
+		$this->plans->method( 'build' )->willReturn( array( 'events' => array(), 'event' => null, 'variants' => array(), 'rooms' => array() ) );
+		$this->checklist->method( 'check' )->willReturn( array( array( 'key' => 'woo', 'label' => 'W', 'ok' => false, 'hint' => 'Включите WooCommerce.' ) ) );
+		$this->eventRepo->expects( self::never() )->method( 'find' );
+
+		$r = fs_test_capture_json( fn() => $this->cb->ajaxGetExamPlan() );
+
+		self::assertFalse( $r->payload['launch_new']['ready'] );
+		self::assertFalse( $r->payload['launch']['ready'] );
 	}
 }

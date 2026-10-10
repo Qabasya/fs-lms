@@ -17,6 +17,7 @@
  * @var list<array<string, mixed>> $units
  * @var array{correct: int, partial: int, wrong: int, pending: int} $counts
  * @var list<array<string, mixed>> $tasks
+ * @var array{courses: array, articles: array, articles_url: string}|null $sidebar Сайдбар: заглушка «Курсы» и статьи по ошибкам (11b.3.1)
  * @var array<string, string> $contacts
  * @var bool   $can_end_session Кнопка «Завершить сеанс»: показана, когда работа сдана
  * @var array<int, array{label: string, url?: string, current?: bool}> $crumbs
@@ -27,6 +28,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 $phone = (string) ( $contacts['phone'] ?? '' );
+
+$sidebar_data = (array) ( $sidebar ?? array() );
+$has_sidebar  = ! empty( $sidebar_data['courses'] ) || ! empty( $sidebar_data['articles'] );
 ?>
 
 <main class="fs-lms-join-page fs-exam-result" id="fs-exam-result" data-revealed="<?php echo $revealed ? '1' : '0'; ?>">
@@ -58,12 +62,28 @@ $phone = (string) ( $contacts['phone'] ?? '' );
 			<?php endif; ?>
 		</header>
 
-		<?php include __DIR__ . '/partials/exam-review.php'; ?>
+		<div class="fs-exam-result__layout<?php echo $has_sidebar ? ' fs-exam-result__layout--aside' : ''; ?>">
+			<div class="fs-exam-result__body">
+				<?php include __DIR__ . '/partials/exam-review.php'; ?>
 
-		<?php if ( ! empty( $can_end_session ) ) : ?>
-			<p class="fs-exam-result__end">
-				<button type="button" class="fs-join-btn" data-exam-end-session><?php esc_html_e( 'Завершить сеанс', 'fs-lms' ); ?></button>
-			</p>
-		<?php endif; ?>
+				<?php if ( ! empty( $can_end_session ) ) : ?>
+					<p class="fs-exam-result__end">
+						<button type="button" class="fs-join-btn" data-exam-end-session><?php esc_html_e( 'Завершить сеанс', 'fs-lms' ); ?></button>
+					</p>
+				<?php endif; ?>
+			</div>
+
+			<?php if ( $has_sidebar ) : ?>
+				<aside class="fs-task-sidebar fs-exam-result__aside">
+					<?php
+					$sidebar_courses      = $sidebar_data['courses'];
+					$sidebar_articles     = $sidebar_data['articles'];
+					$sidebar_articles_url = (string) $sidebar_data['articles_url'];
+					include __DIR__ . '/partials/sidebar-courses.php';
+					include __DIR__ . '/partials/sidebar-articles.php';
+					?>
+				</aside>
+			<?php endif; ?>
+		</div>
 	<?php endif; ?>
 </main>

@@ -77,7 +77,7 @@ class ExamPaymentQueueCallbacksTest extends TestCase {
 		$events = $this->createMock( ExamEventService::class );
 		$events->expects( self::never() )->method( 'createDraft' );
 		$events->expects( self::never() )->method( 'publish' );
-		$cb     = new ExamEventCallbacks( $this->createMock( ExamPlanService::class ), $events );
+		$cb     = new ExamEventCallbacks( $this->createMock( ExamPlanService::class ), $events, $this->createMock( \Inc\Services\Exam\ExamLaunchChecklist::class ), $this->createMock( \Inc\Repositories\WPDBRepositories\ExamEventRepository::class ) );
 		$_POST  = array( 'event_id' => '3', 'subject_key' => 'inf_ege', 'title' => 'x' );
 
 		self::assertFalse( fs_test_capture_json( fn() => $cb->ajaxSaveExamEvent() )->success );

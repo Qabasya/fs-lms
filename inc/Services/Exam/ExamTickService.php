@@ -147,6 +147,7 @@ class ExamTickService {
 			$this->reconcilePayments();
 			return 0;
 		} );
+		$this->step( 'recheck-needs-help', fn (): int => $this->reconciler->refreshWaitingForHelp() );
 		$released = $this->step( 'holds', fn (): int => $this->holds->releaseExpired( $limit ) );
 		$this->step( 'purge-keys', fn (): int => $this->operationKeys->purgeExpired( $this->time->nowUtc() ) );
 

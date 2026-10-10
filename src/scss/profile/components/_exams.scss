@@ -119,11 +119,33 @@
    «Проведение экзамена» (этап 8.1): доска сеанса. Плитки, строки и пилюли — существующие prof-stat-tile / pr-row / prof-state-pill.
    ══════════════════════════════════════════════════════════════════════ */
 .exam-conduct { display: flex; flex-direction: column; gap: t.$spacing-lg; }
+
+/* Поля экрана — как у «Работ» (.prof-works): корень экрана сам отступов не даёт */
+.exam-conduct,
+.exam-stats,
+.exam-results,
+.exam-payments { padding: rem(22) rem(26) rem(40); }
+
+@media (max-width: $breakpoint-mobile) {
+  .exam-conduct,
+  .exam-stats,
+  .exam-results,
+  .exam-payments { padding: rem(16) rem(14) rem(32); }
+}
 .exam-conduct-sessions { align-self: flex-start; max-width: 100%; overflow-x: auto; }
 .exam-conduct-titlebar { display: flex; align-items: center; justify-content: space-between; gap: t.$spacing-md; }
 .exam-conduct-title { margin: 0; font-size: t.$font-size-lead; font-weight: t.$font-bold; color: var(--ink); }
 .exam-conduct-sub { margin-top: t.$spacing-xs; font-size: t.$font-size-sm; color: var(--muted); }
 .exam-conduct-tiles { margin: 0; }
+
+/* Плитки без иконки на всю ширину экрана: колонки по ширине, на телефоне — по две; отступ под иконку мобильных плиток не нужен */
+.prof-stat-tiles.exam-conduct-tiles,
+.prof-stat-tiles.exam-stat-tiles { grid-template-columns: repeat(auto-fit, minmax(rem(120), 1fr)); }
+
+.exam-conduct-tiles .prof-stat-tile .st-val,
+.exam-conduct-tiles .prof-stat-tile .st-delta,
+.exam-stat-tiles .prof-stat-tile .st-val,
+.exam-stat-tiles .prof-stat-tile .st-delta { margin-left: 0; }
 .exam-conduct-empty { padding: t.$spacing-xl 0; text-align: center; font-size: t.$font-size-sm; color: var(--muted-2); }
 
 .exam-conduct-row {
@@ -134,6 +156,19 @@
 .exam-conduct-left { font-variant-numeric: tabular-nums; font-weight: t.$font-semibold; color: var(--ink); }
 .exam-conduct-score { font-size: t.$font-size-sm; color: var(--ink); white-space: nowrap; }
 .exam-conduct-arrived { color: var(--ok); }
+
+// Чек-лист запуска гостевой записи в форме проведения (11a.6.7).
+.exam-launch {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: t.$font-size-sm;
+
+  li { margin-bottom: t.$spacing-xs; }
+  .is-ok { color: var(--ok); }
+  .is-fail { color: var(--err); }
+  &.is-ready { color: var(--ok); }
+}
 .exam-conduct-subtitle { font-size: t.$font-size-sm; font-weight: t.$font-semibold; color: var(--muted); }
 
 // Гость: оплата, запись, допуск и попытка — четыре отдельные пилюли в одной строке (8.8.1).
@@ -160,6 +195,14 @@
 .exam-results { display: flex; flex-direction: column; gap: t.$spacing-lg; }
 .exam-results-segs { align-self: flex-start; max-width: 100%; overflow-x: auto; }
 .exam-results-filters { display: flex; flex-wrap: wrap; align-items: center; gap: t.$spacing-sm; }
+
+.exam-results-filters select {
+  max-width: 100%; height: rem(38); padding: 0 rem(12);
+  border: 1px solid var(--line); border-radius: var(--radius-sm);
+  font: inherit; font-size: rem(13.5); color: var(--ink-2); background: var(--surface); cursor: pointer;
+
+  &:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+}
 
 /* Печать списка участников (8.9): на печати виден только лист, остальной кабинет скрыт */
 .exam-print-sheet { display: none; }

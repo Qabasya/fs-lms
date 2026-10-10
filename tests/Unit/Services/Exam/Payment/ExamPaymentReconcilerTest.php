@@ -212,4 +212,48 @@ class ExamPaymentReconcilerTest extends TestCase {
 
 		$reconciler->reconcileOrder( 77 );
 	}
+
+	// ── 11a.8.2 повторная отметка сверки для заявок «нужна помощь» ───────────────────────────────
+
+	public function test_waiting_for_help_link_gets_fresh_reconcile_time_without_events(): void {
+		$this->links = $this->createMock( ExamPaymentLinkRepository::class );
+		$this->links->expects( self::once() )->method( 'listWaitingForHelpForRecheck' )->with( '2026-03-10 06:50:00', 50 )->willReturn( array( $this->link( 5, 'paid' ) ) );
+		$updates = array();
+		$this->links->method( 'update' )->willReturnCallback( function ( int $id, array $data ) use ( &$updates ): int {
+			$updates[] = array( $id, $data );
+			return 1;
+		} );
+		$this->outbox->expects( self::never() )->method( 'add' );
+		$this->holds->expects( self::never() )->method( 'convert' );
+		$reconciler = $this->rebuild();
+
+		self::assertSame( 1, $reconciler->refreshWaitingForHelp() );
+		self::assertSame( array( 5, array( 'last_reconciled_at' => '2026-03-10 07:05:00', 'updated_at' => '2026-03-10 07:05:00' ) ), $updates[0], 'Меняется только время сверки: состояние связи и заявки прежнее.' );
+	}
+
+	public function test_order_no_longer_paid_keeps_old_reconcile_time(): void {
+		$this->links = $this->createMock( ExamPaymentLinkRepository::class );
+		$this->links->method( 'listWaitingForHelpForRecheck' )->willReturn( array( $this->link( 5, 'paid' ) ) );
+		$this->links->expects( self::never() )->method( 'update' );
+		$this->paid = false; // возврат в магазине: «последняя сверка» не должна выглядеть свежей
+
+		self::assertSame( 0, $this->rebuild()->refreshWaitingForHelp() );
+	}
+
+	public function test_recheck_skips_when_woo_inactive(): void {
+		$woo = $this->createMock( WooGateway::class );
+		$woo->method( 'isActive' )->willReturn( false );
+		$this->links->expects( self::never() )->method( 'listWaitingForHelpForRecheck' );
+		$time = $this->createStub( ExamTime::class );
+
+		self::assertSame( 0, ( new ExamPaymentReconciler( $woo, $this->links, $this->applications, $this->holds, $this->outbox, $time ) )->refreshWaitingForHelp() );
+	}
+
+	private function rebuild(): ExamPaymentReconciler {
+		$time = $this->createStub( ExamTime::class );
+		$time->method( 'nowUtc' )->willReturn( '2026-03-10 07:05:00' );
+		$time->method( 'addMinutes' )->willReturn( '2026-03-10 06:50:00' );
+
+		return new ExamPaymentReconciler( $this->woo, $this->links, $this->applications, $this->holds, $this->outbox, $time );
+	}
 }

@@ -256,14 +256,14 @@ function openSession(anchor, fixed, edit = null) {
 
 function openNewEventForm(anchor) {
     openEventForm({
-        api, anchor, subjectKey: currentSubject(), event: null, variants: plan.variants, guestSignupReady: !!cfg.guestSignupReady,
+        api, anchor, subjectKey: currentSubject(), event: null, variants: plan.variants, canManageGuests: !!cfg.canManageGuests, launch: plan.launch_new,
         onSaved: id => load(id),
     });
 }
 
 function openSettings(anchor) {
     openEventForm({
-        api, anchor, subjectKey: currentSubject(), event: plan.event, variants: plan.variants, guestSignupReady: !!cfg.guestSignupReady,
+        api, anchor, subjectKey: currentSubject(), event: plan.event, variants: plan.variants, canManageGuests: !!cfg.canManageGuests, launch: plan.launch,
         onSaved: id => load(id, true),
     });
 }

@@ -18,6 +18,7 @@ use Inc\Services\Exam\ExamAccessTokenService;
 use Inc\Services\Exam\ExamTime;
 use Inc\Services\Exam\GuestEntryViewService;
 use Inc\Services\Exam\GuestPageResponder;
+use Inc\Services\Exam\GuestResultSidebarService;
 use Inc\Services\Exam\GuestResultViewService;
 use Inc\Services\Exam\GuestSessionService;
 use Inc\Services\Security\RateLimitService;
@@ -48,6 +49,7 @@ class GuestEntryCallbacks extends BaseController {
 		private readonly ExamTime $time,
 		private readonly GuestResultViewService $result,
 		private readonly GuestPageResponder $responder,
+		private readonly GuestResultSidebarService $sidebar,
 	) {
 		parent::__construct();
 	}
@@ -105,6 +107,7 @@ class GuestEntryCallbacks extends BaseController {
 		}
 
 		$data['can_end_session'] = true;
+		$data['sidebar']         = $this->sidebar->build( (string) ( $data['subject_key'] ?? '' ), (array) ( $data['units'] ?? array() ), $participationId );
 		$data['crumbs']          = array(
 			array( 'label' => __( 'Главная', 'fs-lms' ), 'url' => home_url( '/' ) ),
 			array( 'label' => __( 'Результат экзамена', 'fs-lms' ), 'current' => true ),

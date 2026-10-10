@@ -8,7 +8,9 @@ use Inc\Core\BaseController;
 use Inc\DTO\Exam\ExamEventDTO;
 use Inc\Enums\Access\Capability;
 use Inc\Enums\Wp\Nonce;
+use Inc\Repositories\WPDBRepositories\ExamEventRepository;
 use Inc\Services\Exam\ExamEventService;
+use Inc\Services\Exam\ExamLaunchChecklist;
 use Inc\Services\Exam\ExamPlanService;
 use Inc\Shared\CodedException;
 use Inc\Shared\Traits\Authorizer;
@@ -29,6 +31,8 @@ class ExamEventCallbacks extends BaseController {
 	public function __construct(
 		private readonly ExamPlanService $plans,
 		private readonly ExamEventService $events,
+		private readonly ExamLaunchChecklist $checklist,
+		private readonly ExamEventRepository $eventRepo,
 	) {
 		parent::__construct();
 	}
@@ -39,7 +43,27 @@ class ExamEventCallbacks extends BaseController {
 		$subjectKey = $this->requireKey( 'subject_key' );
 		$eventId    = $this->sanitizeInt( 'event_id' );
 
-		$this->run( fn (): array => $this->plans->build( get_current_user_id(), $subjectKey, $eventId > 0 ? $eventId : null ) );
+		$this->run( function () use ( $subjectKey, $eventId ): array {
+			$plan = $this->plans->build( get_current_user_id(), $subjectKey, $eventId > 0 ? $eventId : null );
+
+			// Готовность гостевой записи (11a.6.7): для выбранного проведения и для формы «Новое проведение» (без проведения).
+			$selected = null !== $plan['event'] ? $this->eventRepo->find( (int) $plan['event']['id'] ) : null;
+			$plan['launch']     = $this->launch( $selected );
+			$plan['launch_new'] = $this->launch( null );
+
+			return $plan;
+		} );
+	}
+
+	/**
+	 * Чек-лист запуска для формы проведения: пункты с подсказками и общий признак готовности.
+	 *
+	 * @return array{items: list<array{key: string, label: string, ok: bool, hint: string}>, ready: bool}
+	 */
+	private function launch( ?\Inc\DTO\Exam\ExamEventDTO $event ): array {
+		$items = $this->checklist->check( $event );
+
+		return array( 'items' => $items, 'ready' => array() === array_filter( $items, static fn ( array $i ): bool => ! $i['ok'] ) );
 	}
 
 	public function ajaxSaveExamSession(): void {

@@ -135,6 +135,32 @@ class ExamPaymentReconciler {
 		}
 	}
 
+	/**
+	 * Раз в 15 минут подтверждает, что заказ заявки «нужна помощь» всё ещё оплачен, и обновляет `last_reconciled_at` — очередь оплат показывает это время.
+	 *
+	 * Только отметка времени: состояние заявки и связи не меняются, событий outbox нет — уведомление «требуется помощь» не повторяется (9.5.2).
+	 * Заказ, который магазин больше не считает оплаченным (возврат), время не обновляет: «последняя сверка» не должна выглядеть свежей,
+	 * когда заказ изменился. Выключенный WooCommerce — ничего не делает.
+	 *
+	 * @return int Сколько связей отмечено.
+	 */
+	public function refreshWaitingForHelp( int $limit = 50 ): int {
+		if ( ! $this->woo->isActive() ) {
+			return 0;
+		}
+
+		$now     = $this->time->nowUtc();
+		$touched = 0;
+		foreach ( $this->links->listWaitingForHelpForRecheck( $this->recheckBefore(), $limit ) as $link ) {
+			if ( $this->woo->isOrderPaid( $link->wcOrderId ) ) {
+				$this->links->update( $link->id, array( 'last_reconciled_at' => $now, 'updated_at' => $now ) );
+				++$touched;
+			}
+		}
+
+		return $touched;
+	}
+
 	/** Время, раньше которого связь заявки «нужна помощь» повторно не сверяется (раз в 15 минут, 11a.8.2). */
 	public function recheckBefore(): string {
 		return $this->time->addMinutes( $this->time->nowUtc(), -self::NEEDS_RESOLUTION_RECHECK_MINUTES );

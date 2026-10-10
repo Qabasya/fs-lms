@@ -46,6 +46,7 @@ class GuestApplicationCallbacksTest extends TestCase {
 	private FormGuardService&MockObject $guard;
 	private WooGateway&MockObject $woo;
 	private \Inc\Repositories\WPDBRepositories\ExamGuestApplicationRepository&MockObject $appRepo;
+	private \Inc\Services\Exam\ExamFormTrackingService&MockObject $formLog;
 	private GuestApplicationCallbacks $cb;
 
 	protected function setUp(): void {
@@ -65,6 +66,7 @@ class GuestApplicationCallbacksTest extends TestCase {
 		$this->holds        = $this->createMock( ExamHoldService::class );
 		$this->guard        = $this->createMock( FormGuardService::class );
 		$this->woo          = $this->createMock( WooGateway::class );
+		$this->formLog      = $this->createMock( \Inc\Services\Exam\ExamFormTrackingService::class );
 		$this->appRepo      = $this->createMock( \Inc\Repositories\WPDBRepositories\ExamGuestApplicationRepository::class );
 		$time               = $this->createStub( ExamTime::class );
 		$time->method( 'toLocal' )->willReturnArgument( 0 );
@@ -78,7 +80,7 @@ class GuestApplicationCallbacksTest extends TestCase {
 		$this->cb = new GuestApplicationCallbacks(
 			$this->tokens, $this->sessions, $this->sources, $this->rate, $this->createMock( GuestSignupViewService::class ),
 			$this->applications, $this->adapter, $this->holds, $this->guard, $this->woo, $time,
-			$this->createMock( GuestOrderStatusService::class ), $this->createMock( ExamPaymentReconciler::class ), $this->appRepo
+			$this->createMock( GuestOrderStatusService::class ), $this->createMock( ExamPaymentReconciler::class ), $this->appRepo, $this->formLog
 		);
 	}
 
@@ -324,5 +326,64 @@ class GuestApplicationCallbacksTest extends TestCase {
 		$this->adapter->expects( self::never() )->method( 'addToCart' );
 
 		self::assertSame( GuestPageOutcome::NOT_FOUND, $this->cb->handleInvitationPage()->kind );
+	}
+
+	// ── Журнал формы (11a.2.7) ────────────────────────────────────────────────────────────────────
+
+	public function test_form_opened_is_logged_for_valid_session(): void {
+		$this->givenValidCookie();
+		$this->formLog->expects( self::once() )->method( 'opened' )->with( self::callback( static fn ( ExamSourceDTO $s ): bool => 14 === $s->id ) );
+
+		$this->cb->handleInvitationPage();
+	}
+
+	public function test_page_without_session_is_not_logged_as_opened(): void {
+		$this->formLog->expects( self::never() )->method( 'opened' );
+
+		$this->cb->handleInvitationPage();
+	}
+
+	public function test_field_error_is_logged_with_field_name_only(): void {
+		$this->givenValidCookie();
+		$this->post();
+		$this->applications->method( 'apply' )->willThrowException( new \Inc\Shared\GuestFormException( ErrorCode::ExamConflict, 'Укажите телефон: 11 цифр.', 'phone' ) );
+		$this->formLog->expects( self::once() )->method( 'invalid' )->with( self::anything(), 'phone', 'Укажите телефон: 11 цифр.' );
+
+		fs_test_capture_json( fn() => $this->cb->ajaxSubmitExamGuestApplication() );
+	}
+
+	public function test_guard_rejection_is_logged_as_invalid(): void {
+		$this->givenValidCookie();
+		$this->post( array( 'fs_company' => 'spam' ) );
+		$this->formLog->expects( self::once() )->method( 'invalid' );
+
+		fs_test_capture_json( fn() => $this->cb->ajaxSubmitExamGuestApplication() );
+	}
+
+	public function test_limit_is_logged(): void {
+		$this->givenValidCookie();
+		$this->post();
+		$this->applications->method( 'apply' )->willThrowException( new CodedException( ErrorCode::ExamLimit, 'Слишком много заявок с этого адреса.' ) );
+		$this->formLog->expects( self::once() )->method( 'limited' )->with( self::anything(), 'Слишком много заявок с этого адреса.' );
+
+		fs_test_capture_json( fn() => $this->cb->ajaxSubmitExamGuestApplication() );
+	}
+
+	public function test_other_refusals_are_not_logged_as_limit(): void {
+		$this->givenValidCookie();
+		$this->post();
+		$this->applications->method( 'apply' )->willThrowException( new CodedException( ErrorCode::ExamFull, 'Мест нет.' ) );
+		$this->formLog->expects( self::never() )->method( 'limited' );
+
+		fs_test_capture_json( fn() => $this->cb->ajaxSubmitExamGuestApplication() );
+	}
+
+	public function test_hold_created_is_logged(): void {
+		$this->givenValidCookie();
+		$this->post();
+		$this->applications->method( 'apply' )->willReturn( $this->application() );
+		$this->formLog->expects( self::once() )->method( 'holdCreated' );
+
+		fs_test_capture_json( fn() => $this->cb->ajaxSubmitExamGuestApplication() );
 	}
 }

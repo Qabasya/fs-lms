@@ -55,6 +55,7 @@ class GuestResultViewService {
 
 		return array(
 			'revealed'    => true,
+			'subject_key' => $event->subjectKey,
 			'event_title' => $event->title,
 			'title'       => (string) ( $review['title'] ?? $event->title ),
 			// Время попытки — местное, как и в `assessment_attempts`: перевода не нужно.

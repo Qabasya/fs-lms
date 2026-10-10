@@ -4,7 +4,8 @@
    Поповер `prof-grade-pop` + `gp-form`, как у формы сеанса. Клиентская проверка до отправки дублирует серверную, не заменяет:
    ошибка показывается у поля, при отказе сервера — под формой, введённое не теряется.
 
-   Вызов: openEventForm({ api, anchor, subjectKey, event?, variants, guestSignupReady, onSaved(eventId) }).
+   Вызов: openEventForm({ api, anchor, subjectKey, event?, variants, canManageGuests, launch, onSaved(eventId) }).
+   `launch` — чек-лист готовности гостевой записи ({items, ready}) с сервера: пока он не пройден, включить «Запись гостей» нельзя.
           openCancelForm({ api, anchor, event, onDone }).
    ══════════════════════════════════════════════════════════════════════ */
 
@@ -25,13 +26,23 @@ function fieldError(name) {
     return `<div class="gp-error" data-err="${name}" hidden></div>`;
 }
 
+/** Чек-лист запуска гостевой записи: галочки и подсказки по непройденным пунктам; пройден целиком — одна строка. */
+function launchChecklistHtml(launch) {
+    if (launch.ready) { return '<div class="gp-field"><span></span><div class="exam-launch is-ready">Настройки запуска гостевой записи в порядке.</div></div>'; }
+    return `<div class="gp-field gp-field--top"><span>Готовность</span><ul class="exam-launch">${launch.items.map(i =>
+        `<li class="${i.ok ? 'is-ok' : 'is-fail'}">${i.ok ? '✔' : '✖'} ${esc(i.label)}${i.ok ? '' : ` — ${esc(i.hint)}`}</li>`).join('')}</ul></div>
+        <div class="gp-warn">Пока есть непройденный пункт, включить «Запись гостей» нельзя.</div>`;
+}
+
 export function openEventForm(o) {
     const pop = document.getElementById('profGradePop');
     if (!pop) { return; }
 
     const { api, subjectKey, variants = [], onSaved } = o;
     const event = o.event || null;
-    const guestReady = !!o.guestSignupReady;
+    const guestReady = !!o.canManageGuests;
+    const launch = o.launch || { items: [], ready: true };
+    const guestsOn = !!(event && event.guest_registration_enabled);
     const today = new Date().toISOString().slice(0, 10);
 
     pop.innerHTML = `
@@ -53,7 +64,8 @@ export function openEventForm(o) {
         </div></div>
         ${fieldError('registration_opens_at')}
         <label class="gp-field"><span>Основной вариант</span><select id="evVariant">${variantOptions(variants, event ? event.default_assessment_id : '')}</select></label>
-        ${guestReady ? `<label class="gp-field gp-field--check"><input type="checkbox" id="evGuests" ${event && event.guest_registration_enabled ? 'checked' : ''}><span>Запись гостей по ссылкам школ</span></label>` : ''}
+        ${guestReady ? `<label class="gp-field gp-field--check"><input type="checkbox" id="evGuests" ${guestsOn ? 'checked' : ''}${launch.ready || guestsOn ? '' : ' disabled'}><span>Запись гостей по ссылкам школ</span></label>` : ''}
+        ${guestReady ? launchChecklistHtml(launch) : ''}
         ${guestReady && event ? '<div class="gp-sources" id="evSources"></div>' : ''}
         <div class="gp-error" id="evError" role="alert" hidden></div>
         <div class="gp-row">

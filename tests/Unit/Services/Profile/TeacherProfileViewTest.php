@@ -139,6 +139,6 @@ class TeacherProfileViewTest extends TestCase {
 		self::assertSame( 'get_exam_plan', $exams['actions']['getPlan'] );
 		self::assertSame( 'save_exam_session', $exams['actions']['saveSession'] );
 		self::assertSame( array( array( 'key' => 'inf_ege', 'name' => 'INF_EGE' ) ), $exams['subjects' ], 'Только предметы, которыми он вправе управлять (по guard).' );
-		self::assertFalse( $exams['guestSignupReady'], 'Гостевая запись появится на этапе 11a.' );
+		self::assertArrayNotHasKey( 'guestSignupReady', $exams, 'Готовность гостевой записи теперь приходит с чек-листом плана (launch).' );
 	}
 }
