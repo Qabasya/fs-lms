@@ -16,6 +16,11 @@ use Inc\Enums\Exam\ExamOrderItemMeta;
  */
 class WooCommerceManager {
 
+	/** Удалённая позиция корзины для хука WooCommerce. @return array<string, mixed> */
+	public function removedCartItem( mixed $cart, string $key ): array {
+		return is_object( $cart ) && isset( $cart->removed_cart_contents[ $key ] ) ? (array) $cart->removed_cart_contents[ $key ] : array();
+	}
+
 	public function isActive(): bool {
 		return class_exists( 'WooCommerce' ) && function_exists( 'wc_get_product' );
 	}

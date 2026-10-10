@@ -198,4 +198,24 @@ class WooExamAdapterTest extends TestCase {
 
 		$this->adapter->linkOrder( 77 );
 	}
+	public function test_quantity_rules_preserve_other_products_and_failed_validation(): void {
+		self::assertSame( '1', $this->adapter->quantityHtml( '<input>', array( 'product_id' => 500 ) ) );
+		self::assertSame( '<input>', $this->adapter->quantityHtml( '<input>', array( 'product_id' => 42 ) ) );
+		self::assertTrue( $this->adapter->isQuantityUpdateAllowed( true, array( 'product_id' => 500 ), 1 ) );
+		self::assertFalse( $this->adapter->isQuantityUpdateAllowed( true, array( 'product_id' => 500 ), 2 ) );
+		self::assertTrue( $this->adapter->isQuantityUpdateAllowed( true, array( 'product_id' => 42 ), 2 ) );
+		self::assertFalse( $this->adapter->isQuantityUpdateAllowed( false, array( 'product_id' => 42 ), 2 ) );
+	}
+
+	public function test_hold_countdown_uses_signed_application_and_server_time(): void {
+		$this->cart = array( array( 'key' => 'cart-key', 'product_id' => 500, 'data' => $this->item() ) );
+		$time = $this->createStub( ExamTime::class );
+		$time->method( 'toLocal' )->willReturn( '2026-03-10 09:20:00' );
+		$time->method( 'nowUtc' )->willReturn( $this->nowUtc );
+		$time->method( 'secondsUntil' )->willReturn( 1200 );
+		$adapter = new WooExamAdapter( $this->woo, $this->config, $this->applications, $this->links, $this->createMock( ExamSessionRepository::class ), $this->holds, $this->createMock( GuestParticipantMaterializer::class ), $time );
+
+		self::assertSame( array( array( 'until' => '09:20', 'seconds_left' => 1200 ) ), $adapter->holdCountdowns() );
+	}
+
 }

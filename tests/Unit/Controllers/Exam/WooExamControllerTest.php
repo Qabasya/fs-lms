@@ -4,7 +4,6 @@ declare( strict_types=1 );
 
 namespace Unit\Controllers\Exam;
 
-use Inc\Callbacks\Exam\WooExamCallbacks;
 use Inc\Controllers\Exam\WooExamController;
 use PHPUnit\Framework\TestCase;
 
@@ -37,6 +36,11 @@ class WooExamControllerTest extends TestCase {
 	}
 
 	private function controller(): WooExamController {
-		return new WooExamController( $this->createMock( WooExamCallbacks::class ) );
+		return new WooExamController(
+			$this->createMock( \Inc\Services\Exam\Payment\WooExamAdapter::class ),
+			$this->createMock( \Inc\Services\Exam\Payment\ExamPaymentReconciler::class ),
+			$this->createMock( \Inc\Services\Exam\Payment\GuestOrderStatusService::class ),
+			$this->createMock( \Inc\Managers\Woo\WooCommerceManager::class ),
+		);
 	}
 }

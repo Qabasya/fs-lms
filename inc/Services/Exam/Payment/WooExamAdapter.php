@@ -50,6 +50,32 @@ class WooExamAdapter {
 		return $productId > 0 && ( $productId === $this->config->examProductId( 9 ) || $productId === $this->config->examProductId( 11 ) );
 	}
 
+	/** Экзаменная позиция не допускает изменения количества. @param array<string, mixed> $item */
+	public function quantityHtml( string $html, array $item ): string {
+		return $this->isExamProduct( (int) ( $item['product_id'] ?? 0 ) ) ? '1' : $html;
+	}
+
+	/** @param array<string, mixed> $item */
+	public function isQuantityUpdateAllowed( bool $passed, array $item, int $quantity ): bool {
+		return $this->isExamProduct( (int) ( $item['product_id'] ?? 0 ) ) && 1 !== $quantity ? false : $passed;
+	}
+
+	/** @return list<array{until: string, seconds_left: int}> */
+	public function holdCountdowns(): array {
+		$data = array();
+		foreach ( $this->cartExamItems() as $item ) {
+			$app = $this->applicationOfItem( array( self::ITEM_APPLICATION => $item['application_id'], self::ITEM_SIGNATURE => $item['signature'] ) );
+			if ( null !== $app && $app->isHeld && null !== $app->holdExpiresAt ) {
+				$data[] = array(
+					'until' => substr( $this->time->toLocal( $app->holdExpiresAt ), 11, 5 ),
+					'seconds_left' => $this->time->secondsUntil( $this->time->nowUtc(), $app->holdExpiresAt ),
+				);
+			}
+		}
+
+		return $data;
+	}
+
 	/** Подпись привязки позиции к заявке. */
 	public function signature( ExamGuestApplicationDTO $application ): string {
 		return hash_hmac( 'sha256', $application->id . '|' . $application->requestKey, defined( 'FS_LMS_HASH_SALT' ) ? (string) FS_LMS_HASH_SALT : '' );
