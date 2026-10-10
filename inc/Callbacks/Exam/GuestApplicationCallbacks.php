@@ -240,6 +240,7 @@ class GuestApplicationCallbacks extends BaseController {
 		try {
 			$this->adapter->addToCart( $application );
 		} catch ( \Throwable $e ) {
+			PluginLogger::exception( 'ExamGuestPayment', $e, array( 'application_id' => $application->id ), true );
 			return GuestPageOutcome::notFound();
 		}
 

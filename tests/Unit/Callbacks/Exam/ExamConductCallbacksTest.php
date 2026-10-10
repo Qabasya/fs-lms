@@ -294,6 +294,24 @@ class ExamConductCallbacksTest extends TestCase {
 		self::assertTrue( fs_test_capture_json( fn() => $this->cb->ajaxAddExamGuestOnSite() )->success );
 	}
 
+	public function test_on_site_application_preserves_request_context(): void {
+		$server = $_SERVER;
+		try {
+			$_SERVER['REMOTE_ADDR']     = '10.0.0.15';
+			$_SERVER['HTTP_USER_AGENT'] = 'Exam staff browser';
+			$_POST = array( 'session_id' => '7', 'source_id' => '3', 'request_key' => 'rk-12345678' );
+			$this->onSite->expects( self::once() )->method( 'add' )->with(
+				10, 7, 3, self::anything(),
+				self::callback( static fn ( \Inc\DTO\RequestContextDTO $ctx ): bool => '10.0.0.15' === $ctx->ip && 'Exam staff browser' === $ctx->userAgent && 10 === $ctx->actorUserId ),
+				'rk-12345678', false,
+			)->willReturn( array( 'status' => 'created' ) );
+
+			self::assertTrue( fs_test_capture_json( fn() => $this->cb->ajaxAddExamGuestOnSite() )->success );
+		} finally {
+			$_SERVER = $server;
+		}
+	}
+
 	public function test_add_guest_denied_after_planned_end(): void {
 		$_POST = array( 'session_id' => '7', 'source_id' => '3' );
 		$this->onSite->method( 'add' )->willThrowException( new CodedException( ErrorCode::ExamClosed, 'Сеанс уже закончился: добавить участника нельзя.' ) );

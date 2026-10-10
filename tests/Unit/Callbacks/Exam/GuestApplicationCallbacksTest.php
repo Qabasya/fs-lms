@@ -289,6 +289,18 @@ class GuestApplicationCallbacksTest extends TestCase {
 		self::assertFalse( fs_test_capture_json( fn() => $this->cb->ajaxSubmitExamGuestApplication() )->success );
 	}
 
+	public function test_consent_error_preserves_the_client_field_key(): void {
+		$this->givenValidCookie();
+		$this->post();
+		$this->applications->method( 'apply' )->willThrowException( new \Inc\Shared\GuestFormException( ErrorCode::ExamConsent, 'Нужно согласие', 'consent_pd_processing' ) );
+
+		$r = fs_test_capture_json( fn() => $this->cb->ajaxSubmitExamGuestApplication() );
+
+		self::assertFalse( $r->success );
+		self::assertSame( 'consent_pd_processing', $r->payload['field'] );
+		self::assertSame( 'Нужно согласие', $r->payload['message'] );
+	}
+
 	// ── Ссылка на оплату (11a.7.5) ────────────────────────────────────────────────────────────────
 
 	private function payToken(): ExamAccessTokenDTO {
@@ -317,6 +329,25 @@ class GuestApplicationCallbacksTest extends TestCase {
 		$this->rate->expects( self::once() )->method( 'registerInvitationFailure' );
 
 		self::assertSame( GuestPageOutcome::NOT_FOUND, $this->cb->handleInvitationPage()->kind );
+	}
+
+	public function test_pay_link_cart_failure_stays_neutral_and_is_logged(): void {
+		$_GET['pay'] = str_repeat( 'e', 64 );
+		$this->tokens->method( 'exchange' )->willReturn( $this->payToken() );
+		$this->appRepo->method( 'find' )->willReturn( $this->application() );
+		$this->adapter->method( 'addToCart' )->willThrowException( new \RuntimeException( 'Cart unavailable' ) );
+		$log = tempnam( sys_get_temp_dir(), 'exam-log-' );
+		$previous = ini_set( 'error_log', $log );
+		try {
+			self::assertSame( GuestPageOutcome::NOT_FOUND, $this->cb->handleInvitationPage()->kind );
+			$content = (string) file_get_contents( $log );
+			self::assertStringContainsString( 'EXAMGUESTPAYMENT', $content );
+			self::assertStringContainsString( 'Cart unavailable', $content );
+			self::assertStringNotContainsString( $_GET['pay'], $content );
+		} finally {
+			ini_set( 'error_log', $previous );
+			unlink( $log );
+		}
 	}
 
 	public function test_pay_link_token_of_other_purpose_is_404(): void {

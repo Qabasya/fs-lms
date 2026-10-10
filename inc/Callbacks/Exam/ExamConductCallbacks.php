@@ -19,6 +19,7 @@ use Inc\Shared\CodedException;
 use Inc\Services\Exam\ExamRetentionService;
 use Inc\Shared\Traits\Authorizer;
 use Inc\Shared\Traits\Sanitizer;
+use Inc\Shared\Traits\RequestContextProvider;
 
 /**
  * AJAX проведения экзамена сотрудником (этап 8): доска сеанса и действия над участником.
@@ -31,6 +32,7 @@ class ExamConductCallbacks extends BaseController {
 
 	use Authorizer;
 	use Sanitizer;
+	use RequestContextProvider;
 
 	/** Допустимое продление, мин: границы совпадают с `ExamAttemptService::extend()`, здесь — ранний отказ. */
 	private const MIN_EXTENSION = 1;
@@ -256,7 +258,7 @@ class ExamConductCallbacks extends BaseController {
 			'consents'    => $this->sanitizeKeyList( 'consents' ),
 		);
 		$confirmed  = $this->sanitizeBool( 'confirmed' );
-		$ctx        = new \Inc\DTO\RequestContextDTO( '', '', get_current_user_id() );
+		$ctx        = $this->requestContext();
 
 		try {
 			$this->success( $this->onSite->add( get_current_user_id(), $sessionId, $sourceId, $form, $ctx, $requestKey, $confirmed ) );
