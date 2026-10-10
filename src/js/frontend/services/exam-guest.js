@@ -24,15 +24,20 @@ function initReportScroll() {
 }
 
 export function initExamGuest() {
+    const page = document.getElementById( 'fs-exam-signup' ) || document.getElementById( 'fs-exam-entry' ) ||
+        document.getElementById( 'fs-exam-result' ) || document.getElementById( 'fs-exam-report' );
+    if ( ! page ) { return; }
+
+    // Любой защищённый маршрут перепроверяет доступ после восстановления из bfcache, в том числе отчёт без AJAX-настроек.
+    window.addEventListener( 'pageshow', event => {
+        if ( shouldReloadOnPageshow( event ) ) { window.location.reload(); }
+    } );
+
     initReportScroll();
 
     const vars = window.fs_lms_exam_guest_vars;
     const root = document.getElementById( 'fs-exam-result' ) || document.getElementById( 'fs-exam-entry' );
     if ( ! vars || ! root ) { return; }
-
-    window.addEventListener( 'pageshow', event => {
-        if ( shouldReloadOnPageshow( event ) ) { window.location.reload(); }
-    } );
 
     const button = root.querySelector( '[data-exam-end-session]' );
     if ( ! button ) { return; }
