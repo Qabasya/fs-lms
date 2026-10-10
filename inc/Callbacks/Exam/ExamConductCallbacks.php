@@ -195,8 +195,7 @@ class ExamConductCallbacks extends BaseController {
 		}
 
 		$this->run( function () use ( $context ): array {
-			// Доступ к проведению проверяется до выгрузки: чужой сеанс отказывает целиком, а не отдаёт пустой файл.
-			$this->conduct->exportRows( get_current_user_id(), $context );
+			// Провайдер проверяет доступ к проведению при единственной загрузке строк, до создания CSV.
 
 			return array( 'url' => $this->exports->run( ExportTarget::ExamParticipants, $context + array( 'actor_user_id' => get_current_user_id() ), isset( $context['participation_ids'] ) ? 'single' : 'bulk' ) );
 		} );

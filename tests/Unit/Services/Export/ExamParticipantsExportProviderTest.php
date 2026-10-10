@@ -46,4 +46,20 @@ class ExamParticipantsExportProviderTest extends TestCase {
 		self::assertSame( 'оценка 4', $cells( $oge )[5] );
 		self::assertSame( '20 / 29', $cells( $ege )[4] );
 	}
+	public function test_foreign_event_is_rejected_by_provider_before_csv_or_download(): void {
+		$conduct = $this->createMock( ExamConductService::class );
+		$conduct->expects( self::once() )->method( 'exportRows' )->with( 10, self::anything() )->willThrowException( new \Inc\Shared\CodedException( \Inc\Enums\Log\ErrorCode::ExamAccess, 'Сеанс не найден.' ) );
+		$registry = new \Inc\Services\Export\CsvExportProviderRegistry();
+		$registry->register( \Inc\Enums\Export\ExportTarget::ExamParticipants, new ExamParticipantsExportProvider( $conduct ) );
+		$csv = $this->createMock( \Inc\Services\Export\CsvExportService::class );
+		$csv->expects( self::never() )->method( 'export' );
+		$csv->expects( self::never() )->method( 'createDownloadLink' );
+		$log = $this->createMock( \Inc\Services\Log\ExportLogWriter::class );
+		$log->expects( self::never() )->method( 'record' );
+		$service = new \Inc\Services\Export\ExportService( $registry, $csv, $log );
+		$this->expectException( \Inc\Shared\CodedException::class );
+
+		$service->run( \Inc\Enums\Export\ExportTarget::ExamParticipants, array( 'actor_user_id' => 10, 'session_id' => 7 ) );
+	}
+
 }

@@ -227,15 +227,15 @@ class ExamConductCallbacksTest extends TestCase {
 
 	public function test_export_denied_for_foreign_event(): void {
 		$_POST = array( 'session_id' => '7' );
-		$this->conduct->method( 'exportRows' )->willThrowException( new CodedException( ErrorCode::ExamAccess, 'Сеанс не найден.' ) );
-		$this->exports->expects( self::never() )->method( 'run' );
+		$this->exports->expects( self::once() )->method( 'run' )->willThrowException( new CodedException( ErrorCode::ExamAccess, 'Сеанс не найден.' ) );
+		$this->conduct->expects( self::never() )->method( 'exportRows' );
 
 		self::assertFalse( fs_test_capture_json( fn() => $this->cb->ajaxExportExamParticipants() )->success );
 	}
 
 	public function test_export_returns_one_time_url_for_selected_participations(): void {
 		$_POST = array( 'participation_ids' => array( '5', '6', '0' ) );
-		$this->conduct->method( 'exportRows' )->willReturn( array() );
+		$this->conduct->expects( self::never() )->method( 'exportRows' );
 		$this->exports->expects( self::once() )->method( 'run' )->with(
 			\Inc\Enums\Export\ExportTarget::ExamParticipants,
 			array( 'participation_ids' => array( 5, 6 ), 'ids' => array( 5, 6 ), 'actor_user_id' => 10 ),
