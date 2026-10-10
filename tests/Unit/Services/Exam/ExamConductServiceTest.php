@@ -4,6 +4,8 @@ declare( strict_types=1 );
 
 namespace Tests\Unit\Services\Exam;
 
+use Inc\Managers\Person\UserManager;
+
 use Inc\DTO\Assessment\AttemptDTO;
 use Inc\DTO\Enrollment\StudentRecordDTO;
 use Inc\DTO\Exam\ExamParticipantDTO;
@@ -118,7 +120,8 @@ class ExamConductServiceTest extends TestCase {
 			$this->guestData,
 			$this->config,
 			$this->logEvents,
-			$this->guestBoard
+			$this->guestBoard,
+			new UserManager(),
 		);
 	}
 
@@ -256,7 +259,8 @@ class ExamConductServiceTest extends TestCase {
 			$this->guestData,
 			$this->config,
 			$this->logEvents,
-			$this->guestBoard
+			$this->guestBoard,
+			new UserManager(),
 		);
 
 		$this->expectException( CodedException::class );
@@ -352,7 +356,8 @@ class ExamConductServiceTest extends TestCase {
 			$this->guestData,
 			$this->config,
 			$this->logEvents,
-			$this->guestBoard
+			$this->guestBoard,
+			new UserManager(),
 		);
 		$this->participations->expects( self::never() )->method( 'findByEvent' );
 
@@ -422,7 +427,8 @@ class ExamConductServiceTest extends TestCase {
 		$service = new ExamConductService(
 			$this->events, $this->sessions, $this->registrations, $this->participations, $this->participants, $this->attempts, $this->answers,
 			$this->sources, $this->records, $this->createMock( RoomRepository::class ), $this->roomService,
-			$this->scores, $guard, $this->time, $this->createMock( ExamPlanService::class ), $this->createMock( ExamReviewProjection::class ), $this->tokens, $this->guestData, $this->config, $this->logEvents, $this->guestBoard
+			$this->scores, $guard, $this->time, $this->createMock( ExamPlanService::class ), $this->createMock( ExamReviewProjection::class ), $this->tokens, $this->guestData, $this->config, $this->logEvents, $this->guestBoard,
+			new UserManager(),
 		);
 		$this->participations->method( 'find' )->willReturn( $this->guestParticipation() );
 		$this->participations->expects( self::never() )->method( 'setAdmission' );
@@ -583,7 +589,8 @@ class ExamConductServiceTest extends TestCase {
 			$this->events, $this->sessions, $this->registrations, $this->participations, $this->participants, $this->attempts, $this->answers,
 			$this->sources, $this->records, $this->createMock( RoomRepository::class ), $this->roomService,
 			$this->scores, $this->guard, $this->time, $this->createMock( ExamPlanService::class ), $this->createMock( ExamReviewProjection::class ),
-			$this->tokens, $this->guestData, $this->config, $this->logEvents, $this->guestBoard
+			$this->tokens, $this->guestData, $this->config, $this->logEvents, $this->guestBoard,
+			new UserManager(),
 		);
 
 		$board = $service->sessionBoard( 10, 7 );

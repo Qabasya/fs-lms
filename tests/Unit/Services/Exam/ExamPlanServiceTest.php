@@ -4,6 +4,8 @@ declare( strict_types=1 );
 
 namespace Tests\Unit\Services\Exam;
 
+use Inc\Managers\Person\UserManager;
+
 use Inc\Contracts\ClockInterface;
 use Inc\DTO\Assessment\AssessmentDTO;
 use Inc\DTO\Course\RoomDTO;
@@ -58,7 +60,8 @@ class ExamPlanServiceTest extends TestCase {
 
 		$this->service = new ExamPlanService(
 			$this->events, $this->sessions, $this->guard, $this->variants, $this->rooms, $this->assessments,
-			new ExamTime( $this->createMock( ClockInterface::class ) )
+			new ExamTime( $this->createMock( ClockInterface::class ) ),
+			new UserManager(),
 		);
 	}
 
@@ -75,7 +78,7 @@ class ExamPlanServiceTest extends TestCase {
 	public function test_get_plan_denied_for_foreign_subject(): void {
 		$guard = $this->createMock( ExamAccessGuard::class );
 		$guard->method( 'canManageSubject' )->with( 10, 'math' )->willReturn( false );
-		$service = new ExamPlanService( $this->events, $this->sessions, $guard, $this->variants, $this->rooms, $this->assessments, new ExamTime( $this->createMock( ClockInterface::class ) ) );
+		$service = new ExamPlanService( $this->events, $this->sessions, $guard, $this->variants, $this->rooms, $this->assessments, new ExamTime( $this->createMock( ClockInterface::class ) ), new UserManager() );
 
 		try {
 			$service->build( 10, 'math' );
@@ -94,7 +97,7 @@ class ExamPlanServiceTest extends TestCase {
 			$this->examEvent( array( 'id' => '1', 'subject_key' => 'inf_ege' ) ),
 			$this->examEvent( array( 'id' => '2', 'subject_key' => 'python' ) ),
 		) );
-		$service = new ExamPlanService( $this->events, $this->sessions, $this->guard, $this->variants, $this->rooms, $this->assessments, new ExamTime( $this->createMock( ClockInterface::class ) ) );
+		$service = new ExamPlanService( $this->events, $this->sessions, $this->guard, $this->variants, $this->rooms, $this->assessments, new ExamTime( $this->createMock( ClockInterface::class ) ), new UserManager() );
 
 		$plan = $service->build( 10, 'inf_ege' );
 
@@ -110,7 +113,7 @@ class ExamPlanServiceTest extends TestCase {
 			$this->examEvent( array( 'id' => '1', 'owner_user_id' => '10' ) ),
 			$this->examEvent( array( 'id' => '2', 'owner_user_id' => '11' ) ),
 		) );
-		$service = new ExamPlanService( $this->events, $this->sessions, $this->guard, $this->variants, $this->rooms, $this->assessments, new ExamTime( $this->createMock( ClockInterface::class ) ) );
+		$service = new ExamPlanService( $this->events, $this->sessions, $this->guard, $this->variants, $this->rooms, $this->assessments, new ExamTime( $this->createMock( ClockInterface::class ) ), new UserManager() );
 
 		self::assertSame( array( 1, 2 ), array_column( $service->build( 3, 'inf_ege' )['events'], 'id' ) );
 	}
@@ -120,7 +123,7 @@ class ExamPlanServiceTest extends TestCase {
 		$this->guard->method( 'canManageSubject' )->willReturn( true );
 		$this->guard->method( 'isGlobal' )->willReturn( true );
 		$this->events->method( 'findBySubjectKey' )->willReturn( array( $this->examEvent( array( 'id' => '5', 'title' => 'Свежее' ) ), $this->examEvent( array( 'id' => '4' ) ) ) );
-		$service = new ExamPlanService( $this->events, $this->sessions, $this->guard, $this->variants, $this->rooms, $this->assessments, new ExamTime( $this->createMock( ClockInterface::class ) ) );
+		$service = new ExamPlanService( $this->events, $this->sessions, $this->guard, $this->variants, $this->rooms, $this->assessments, new ExamTime( $this->createMock( ClockInterface::class ) ), new UserManager() );
 
 		self::assertSame( 5, $service->build( 3, 'inf_ege' )['event']['id'] );
 	}
@@ -145,7 +148,7 @@ class ExamPlanServiceTest extends TestCase {
 		$guard->method( 'canManageSubject' )->willReturn( true );
 		$guard->method( 'canManageEvent' )->willReturn( false );
 		$this->events->method( 'find' )->willReturn( $this->examEvent() );
-		$service = new ExamPlanService( $this->events, $this->sessions, $guard, $this->variants, $this->rooms, $this->assessments, new ExamTime( $this->createMock( ClockInterface::class ) ) );
+		$service = new ExamPlanService( $this->events, $this->sessions, $guard, $this->variants, $this->rooms, $this->assessments, new ExamTime( $this->createMock( ClockInterface::class ) ), new UserManager() );
 
 		try {
 			$service->build( 99, 'inf_ege', 3 );

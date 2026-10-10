@@ -24,6 +24,7 @@ use Inc\Enums\Log\ErrorCode;
 use Inc\Enums\Log\LogEvent;
 use Inc\Enums\Log\OperationType;
 use Inc\Enums\Wp\PageRoutes;
+use Inc\Managers\Person\UserManager;
 use Inc\Repositories\WPDBRepositories\AssessmentAnswerRepository;
 use Inc\Repositories\WPDBRepositories\AssessmentAttemptRepository;
 use Inc\Repositories\WPDBRepositories\ExamEventRepository;
@@ -102,6 +103,7 @@ class ExamConductService {
 		private readonly PluginConfig $config,
 		private readonly LogEventDispatcherInterface $logEvents,
 		private readonly ExamGuestBoardService $guestBoard,
+		private readonly UserManager $users,
 	) {}
 
 	/**
@@ -657,7 +659,7 @@ class ExamConductService {
 			return null;
 		}
 		$local = $this->time->toLocal( $token->passedAt );
-		$user  = null !== $token->passedByUserId ? get_userdata( $token->passedByUserId ) : false;
+		$user  = null !== $token->passedByUserId ? $this->users->find( $token->passedByUserId ) : null;
 
 		return sprintf( 'Передана %s.%s %s%s', substr( $local, 8, 2 ), substr( $local, 5, 2 ), substr( $local, 11, 5 ), $user ? ', ' . $user->display_name : '' );
 	}

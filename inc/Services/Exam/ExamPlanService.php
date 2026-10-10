@@ -9,6 +9,7 @@ use Inc\DTO\Exam\ExamSessionDTO;
 use Inc\Enums\Exam\ExamEventStatus;
 use Inc\Enums\Log\ErrorCode;
 use Inc\Managers\Assessment\AssessmentManager;
+use Inc\Managers\Person\UserManager;
 use Inc\Repositories\WPDBRepositories\ExamEventRepository;
 use Inc\Repositories\WPDBRepositories\ExamSessionRepository;
 use Inc\Repositories\WPDBRepositories\RoomRepository;
@@ -33,6 +34,7 @@ class ExamPlanService {
 		private readonly RoomRepository $rooms,
 		private readonly AssessmentManager $assessments,
 		private readonly ExamTime $time,
+		private readonly UserManager $users,
 	) {}
 
 	/**
@@ -79,7 +81,7 @@ class ExamPlanService {
 			'guest_registration_enabled' => $event->guestRegistrationEnabled,
 			'default_assessment_id'      => (int) $event->defaultAssessmentId,
 			'owner_user_id'              => $event->ownerUserId,
-			'owner_name'                 => (string) ( get_userdata( $event->ownerUserId )->display_name ?? '' ),
+			'owner_name'                 => (string) ( $this->users->find( $event->ownerUserId )?->display_name ?? '' ),
 			'sessions'                   => array_map(
 				fn ( ExamSessionDTO $session ): array => $this->sessionPayload( $session, $titles ),
 				$this->sessions->findByEvent( $event->id )

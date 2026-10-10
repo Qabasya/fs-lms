@@ -4,6 +4,8 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Exam;
 
+use Inc\Managers\Person\UserManager;
+
 use Inc\DTO\Assessment\AttemptDTO;
 use Inc\DTO\Exam\ExamEventDTO;
 use Inc\DTO\Exam\ExamParticipationDTO;
@@ -46,6 +48,7 @@ class LearnerExamsService {
 		private readonly ExamNoShowService $noShow,
 		private readonly ExamTime $time,
 		private readonly ExamReviewProjection $reviews,
+		private readonly UserManager $users,
 	) {}
 
 	/**
@@ -474,8 +477,8 @@ class LearnerExamsService {
 	}
 
 	private function ownerName( int $userId ): ?string {
-		$user = $userId > 0 ? get_userdata( $userId ) : false;
-		return false !== $user ? (string) $user->display_name : null;
+		$user = $userId > 0 ? $this->users->find( $userId ) : null;
+		return null !== $user ? (string) $user->display_name : null;
 	}
 
 	/**

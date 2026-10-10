@@ -4,6 +4,8 @@ declare( strict_types=1 );
 
 namespace Tests\Unit\Services\Exam;
 
+use Inc\Managers\Person\UserManager;
+
 use Inc\DTO\Exam\ExamGuestApplicationDTO;
 use Inc\DTO\Exam\ExamManualResolutionDTO;
 use Inc\DTO\Exam\ExamPaymentLinkDTO;
@@ -59,7 +61,7 @@ class ExamPaymentQueueServiceTest extends TestCase {
 			'payment_state' => 'paid', 'last_reconciled_at' => '2026-03-10 06:50:00', 'created_at' => '2026-03-10 06:00:00', 'updated_at' => '2026-03-10 06:50:00',
 		) ) ) );
 
-		$this->service = new ExamPaymentQueueService( $this->applications, $this->resolutions, $this->links, $this->events, $this->sessions, $participants, $materializer, $this->guard, $time );
+		$this->service = new ExamPaymentQueueService( $this->applications, $this->resolutions, $this->links, $this->events, $this->sessions, $participants, $materializer, $this->guard, $time, new UserManager() );
 	}
 
 	private function application(): ExamGuestApplicationDTO {
@@ -115,7 +117,7 @@ class ExamPaymentQueueServiceTest extends TestCase {
 			$sessions = $this->createMock( ExamSessionRepository::class );
 			$sessions->method( 'find' )->willReturn( $this->session( $override ) );
 			$sessions->method( 'findByEvent' )->willReturn( array() );
-			$service = new ExamPaymentQueueService( $this->applications, $this->resolutions, $this->links, $this->events, $sessions, $this->createMock( ExamParticipantRepository::class ), $this->createMock( GuestParticipantMaterializer::class ), $this->guard, $this->timeStub() );
+			$service = new ExamPaymentQueueService( $this->applications, $this->resolutions, $this->links, $this->events, $sessions, $this->createMock( ExamParticipantRepository::class ), $this->createMock( GuestParticipantMaterializer::class ), $this->guard, $this->timeStub(), new UserManager() );
 
 			self::assertSame( $expected, $service->list( 77, 'needs_help' )['items'][0]['reason'] );
 		}

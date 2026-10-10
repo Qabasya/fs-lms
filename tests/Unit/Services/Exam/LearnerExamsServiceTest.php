@@ -4,6 +4,8 @@ declare( strict_types=1 );
 
 namespace Tests\Unit\Services\Exam;
 
+use Inc\Managers\Person\UserManager;
+
 use Inc\Contracts\ClockInterface;
 use Inc\DTO\Assessment\AssessmentDTO;
 use Inc\DTO\Assessment\AttemptDTO;
@@ -102,6 +104,7 @@ class LearnerExamsServiceTest extends TestCase {
 			$this->audience, $this->events, $this->sessions, $this->participations, $this->registrations, $this->attempts,
 			$this->assessments, $this->createMock( RoomRepository::class ), $this->formats,
 			$this->noShow, new ExamTime( $clock ), $this->reviews,
+			new UserManager(),
 		);
 
 		$this->sessionList = array( $this->session() );

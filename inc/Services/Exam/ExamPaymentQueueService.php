@@ -4,6 +4,8 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Exam;
 
+use Inc\Managers\Person\UserManager;
+
 use Inc\DTO\Exam\ExamGuestApplicationDTO;
 use Inc\DTO\Exam\ExamManualResolutionDTO;
 use Inc\Enums\Exam\ExamSessionStatus;
@@ -37,6 +39,7 @@ class ExamPaymentQueueService {
 		private readonly GuestParticipantMaterializer $guestData,
 		private readonly ExamAccessGuard $guard,
 		private readonly ExamTime $time,
+		private readonly UserManager $users,
 	) {}
 
 	/**
@@ -86,7 +89,7 @@ class ExamPaymentQueueService {
 	private function base( ExamGuestApplicationDTO $application, string $eventTitle, int $ownerId ): array {
 		$link    = $this->links->findByApplication( $application->id )[0] ?? null;
 		$session = $this->sessions->find( $application->sessionId );
-		$owner   = $ownerId > 0 ? get_userdata( $ownerId ) : false;
+		$owner   = $ownerId > 0 ? $this->users->find( $ownerId ) : null;
 
 		return array(
 			'application_id'   => $application->id,
@@ -138,7 +141,7 @@ class ExamPaymentQueueService {
 
 	/** @return array<string, mixed> */
 	private function resolutionView( ExamManualResolutionDTO $resolution ): array {
-		$actor = get_userdata( $resolution->actorUserId );
+		$actor = $this->users->find( $resolution->actorUserId );
 		$new   = null !== $resolution->newSessionId ? $this->sessions->find( $resolution->newSessionId ) : null;
 
 		return array(
