@@ -65,7 +65,23 @@ class ExamReportPageTest extends TestCase {
 		$time->method( 'nowUtc' )->willReturn( '2026-03-10 07:00:00' );
 		$time->method( 'addMinutes' )->willReturn( '2026-03-11 07:00:00' );
 
-		$this->cb = new ExamReportPageCallbacks( $this->tokens, $this->sessions, $this->reports, $this->reportService, $this->view, $this->rate, $time );
+		$this->cb = new ExamReportPageCallbacks( $this->view, new \Inc\Services\Exam\GuestPageAccessService(
+				$this->tokens,
+				$this->sessions,
+				$this->createMock( \Inc\Repositories\WPDBRepositories\ExamSourceRepository::class ),
+				$this->rate,
+				$this->createMock( \Inc\Services\Exam\Payment\WooExamAdapter::class ),
+				$this->createMock( \Inc\Managers\Woo\WooCommerceManager::class ),
+				$this->createMock( \Inc\Repositories\WPDBRepositories\ExamGuestApplicationRepository::class ),
+				$time,
+				$this->createMock( \Inc\Services\Exam\ExamFormTrackingService::class ),
+				$this->createMock( \Inc\Repositories\WPDBRepositories\ExamParticipationRepository::class ),
+				$this->createMock( \Inc\Repositories\WPDBRepositories\ExamRegistrationRepository::class ),
+				$this->createMock( \Inc\Repositories\WPDBRepositories\ExamSessionRepository::class ),
+				$this->createMock( \Inc\Services\Exam\GuestResultViewService::class ),
+				$this->reports,
+				$this->reportService
+			) );
 	}
 
 	protected function tearDown(): void {
@@ -112,7 +128,23 @@ class ExamReportPageTest extends TestCase {
 		$reportService = $this->createMock( ExamReportService::class );
 		$reportService->method( 'isOpen' )->willReturn( false );
 		$this->reports->method( 'find' )->willReturn( $this->report() );
-		$cb = new ExamReportPageCallbacks( $this->tokens, $this->sessions, $this->reports, $reportService, $this->view, $this->rate, $this->createStub( ExamTime::class ) );
+		$cb = new ExamReportPageCallbacks( $this->view, new \Inc\Services\Exam\GuestPageAccessService(
+				$this->tokens,
+				$this->sessions,
+				$this->createMock( \Inc\Repositories\WPDBRepositories\ExamSourceRepository::class ),
+				$this->rate,
+				$this->createMock( \Inc\Services\Exam\Payment\WooExamAdapter::class ),
+				$this->createMock( \Inc\Managers\Woo\WooCommerceManager::class ),
+				$this->createMock( \Inc\Repositories\WPDBRepositories\ExamGuestApplicationRepository::class ),
+				$this->createStub( ExamTime::class ),
+				$this->createMock( \Inc\Services\Exam\ExamFormTrackingService::class ),
+				$this->createMock( \Inc\Repositories\WPDBRepositories\ExamParticipationRepository::class ),
+				$this->createMock( \Inc\Repositories\WPDBRepositories\ExamRegistrationRepository::class ),
+				$this->createMock( \Inc\Repositories\WPDBRepositories\ExamSessionRepository::class ),
+				$this->createMock( \Inc\Services\Exam\GuestResultViewService::class ),
+				$this->reports,
+				$reportService
+			) );
 		$this->sessions->expects( self::never() )->method( 'openReport' );
 
 		self::assertSame( GuestPageOutcome::NOT_FOUND, $cb->handleReportPage()->kind );

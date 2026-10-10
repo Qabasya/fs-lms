@@ -6,22 +6,13 @@ namespace Inc\Callbacks\Exam;
 
 use Inc\Core\BaseController;
 use Inc\DTO\Exam\GuestPageOutcome;
-use Inc\Enums\Exam\ExamAudience;
-use Inc\Enums\Exam\ExamRegistrationStatus;
-use Inc\Enums\Exam\ExamTokenPurpose;
 use Inc\Enums\Wp\Nonce;
-use Inc\Enums\Wp\PageRoutes;
-use Inc\Repositories\WPDBRepositories\ExamParticipationRepository;
-use Inc\Repositories\WPDBRepositories\ExamRegistrationRepository;
-use Inc\Repositories\WPDBRepositories\ExamSessionRepository;
-use Inc\Services\Exam\ExamAccessTokenService;
-use Inc\Services\Exam\ExamTime;
 use Inc\Services\Exam\GuestEntryViewService;
 use Inc\Services\Exam\GuestPageResponder;
 use Inc\Services\Exam\GuestResultSidebarService;
 use Inc\Services\Exam\GuestResultViewService;
 use Inc\Services\Exam\GuestSessionService;
-use Inc\Services\Security\RateLimitService;
+use Inc\Services\Exam\GuestPageAccessService;
 use Inc\Shared\Traits\RequestContextProvider;
 use Inc\Shared\Traits\Sanitizer;
 use Inc\Shared\Traits\TemplateRenderer;
@@ -39,31 +30,19 @@ class GuestEntryCallbacks extends BaseController {
 	use TemplateRenderer;
 
 	public function __construct(
-		private readonly ExamAccessTokenService $tokens,
 		private readonly GuestSessionService $sessions,
-		private readonly ExamParticipationRepository $participations,
-		private readonly ExamRegistrationRepository $registrations,
-		private readonly ExamSessionRepository $sessionRepo,
-		private readonly RateLimitService $rateLimit,
 		private readonly GuestEntryViewService $view,
-		private readonly ExamTime $time,
 		private readonly GuestResultViewService $result,
 		private readonly GuestPageResponder $responder,
 		private readonly GuestResultSidebarService $sidebar,
+		private readonly GuestPageAccessService $access,
 	) {
 		parent::__construct();
 	}
 
 	/** Обмен ключа на куку с редиректом на адрес без ключа либо проверка куки. */
 	public function handleEntryPage(): GuestPageOutcome {
-		$ip  = $this->requestContext()->ip;
-		$key = strtolower( trim( $this->sanitizeText( 'k', 'GET' ) ) );
-
-		if ( '' !== $key ) {
-			return $this->exchange( $key, $ip );
-		}
-
-		return null !== $this->sessions->current() ? GuestPageOutcome::render() : GuestPageOutcome::notFound();
+		return $this->access->entryPage( strtolower( trim( $this->sanitizeText( 'k', 'GET' ) ) ), $this->requestContext()->ip );
 	}
 
 	/** Шорткод страницы входа: HTML для сессии из куки; без сессии — пусто (страница уже отдала 404). */
@@ -85,17 +64,7 @@ class GuestEntryCallbacks extends BaseController {
 	 * (вход или результат). Попытка из адреса не читается; до сдачи, без сессии, после завершения сеанса — 404.
 	 */
 	public function handleResultPage(): GuestPageOutcome {
-		$ip  = $this->requestContext()->ip;
-		$key = strtolower( trim( $this->sanitizeText( 'k', 'GET' ) ) );
-
-		if ( '' !== $key ) {
-			return $this->exchangeResult( $key, $ip );
-		}
-
-		$participationId = $this->sessions->viewableParticipationId();
-		$data            = null !== $participationId ? $this->result->build( $participationId ) : null;
-
-		return null !== $data && true === $data['revealed'] ? GuestPageOutcome::render() : GuestPageOutcome::notFound();
+		return $this->access->resultPage( strtolower( trim( $this->sanitizeText( 'k', 'GET' ) ) ), $this->requestContext()->ip );
 	}
 
 	/** Шорткод страницы результата. */
@@ -144,48 +113,7 @@ class GuestEntryCallbacks extends BaseController {
 		$this->success( array( 'url' => home_url( '/' ) ) );
 	}
 
-	private function exchangeResult( string $key, string $ip ): GuestPageOutcome {
-		if ( $this->rateLimit->isInvitationLocked( $ip ) ) {
-			return GuestPageOutcome::notFound();
-		}
 
-		$token         = $this->tokens->exchange( ExamTokenPurpose::Result, $key );
-		$participation = null !== $token ? $this->participations->find( $token->targetId ) : null;
-		if ( null === $token || null === $participation || null === $participation->currentAttemptId || ExamAudience::Guest->value !== $participation->audience ) {
-			$this->rateLimit->registerInvitationFailure( $ip );
 
-			return GuestPageOutcome::notFound();
-		}
 
-		// Сессия результата живёт не дольше ключа и не дольше суток: ссылка у гостя остаётся, кука — нет.
-		$now     = $this->time->nowUtc();
-		$day     = $this->time->addMinutes( $now, 1440 );
-		$expires = null !== $token->expiresAt && $token->expiresAt < $day ? $token->expiresAt : $day;
-		$cookie  = $this->sessions->openResult( $token, $expires );
-
-		return GuestPageOutcome::redirect( PageRoutes::ExamResult->url(), array( GuestSessionService::COOKIE_RESULT => $cookie ) );
-	}
-
-	private function exchange( string $key, string $ip ): GuestPageOutcome {
-		if ( $this->rateLimit->isInvitationLocked( $ip ) ) {
-			return GuestPageOutcome::notFound();
-		}
-
-		$token         = $this->tokens->exchange( ExamTokenPurpose::Entry, $key );
-		$participation = null !== $token ? $this->participations->find( $token->targetId ) : null;
-		$registration  = null !== $participation && null !== $participation->activeRegistrationId ? $this->registrations->find( $participation->activeRegistrationId ) : null;
-		$session       = null !== $registration ? $this->sessionRepo->find( $registration->sessionId ) : null;
-
-		if ( null === $token || null === $participation || null === $registration || null === $session
-			|| 1 !== $registration->activeSlot || ExamRegistrationStatus::Confirmed->value !== $registration->status
-			|| null === $participation->admittedAt || $session->plannedEndAt <= $this->time->nowUtc() ) {
-			$this->rateLimit->registerInvitationFailure( $ip );
-
-			return GuestPageOutcome::notFound();
-		}
-
-		$cookie = $this->sessions->openEntry( $token, $registration->id, $session->plannedEndAt );
-
-		return GuestPageOutcome::redirect( PageRoutes::ExamEntry->url(), array( GuestSessionService::COOKIE_ENTRY => $cookie ) );
-	}
 }

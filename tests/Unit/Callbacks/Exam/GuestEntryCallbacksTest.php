@@ -60,9 +60,25 @@ class GuestEntryCallbacksTest extends TestCase {
 		$time->method( 'nowUtc' )->willReturn( '2026-03-10 07:00:00' );
 
 		$this->cb = new GuestEntryCallbacks(
-			$this->tokens, $this->sessions, $this->participations, $this->registrations, $this->sessionRepo, $this->rate,
-			$this->createMock( GuestEntryViewService::class ), $time, $this->result, $this->responder,
-			$this->createMock( \Inc\Services\Exam\GuestResultSidebarService::class )
+			$this->sessions, $this->createMock( GuestEntryViewService::class ), $this->result, $this->responder,
+			$this->createMock( \Inc\Services\Exam\GuestResultSidebarService::class ),
+			new \Inc\Services\Exam\GuestPageAccessService(
+				$this->tokens,
+				$this->sessions,
+				$this->createMock( \Inc\Repositories\WPDBRepositories\ExamSourceRepository::class ),
+				$this->rate,
+				$this->createMock( \Inc\Services\Exam\Payment\WooExamAdapter::class ),
+				$this->createMock( \Inc\Managers\Woo\WooCommerceManager::class ),
+				$this->createMock( \Inc\Repositories\WPDBRepositories\ExamGuestApplicationRepository::class ),
+				$time,
+				$this->createMock( \Inc\Services\Exam\ExamFormTrackingService::class ),
+				$this->participations,
+				$this->registrations,
+				$this->sessionRepo,
+				$this->result,
+				$this->createMock( \Inc\Repositories\WPDBRepositories\ExamReportRepository::class ),
+				$this->createMock( \Inc\Services\Exam\ExamReportService::class )
+			)
 		);
 	}
 
