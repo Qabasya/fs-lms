@@ -89,7 +89,14 @@ class ExamSourceService {
 			throw new CodedException( ErrorCode::ExamConflict, 'Класс не соответствует направлению проведения.' );
 		}
 
+		// Ключ — только у школы из справочника; свободный ввод его не имеет и школ по похожей строке не объединяет.
+		$schoolKey = trim( (string) ( $input['school_key'] ?? '' ) );
+		if ( '' !== $schoolKey && 1 !== preg_match( '/^[a-z0-9_-]{1,100}$/', $schoolKey ) ) {
+			throw new CodedException( ErrorCode::ExamConflict, 'Некорректный ключ школы.' );
+		}
+
 		$fields = array(
+			'school_key'             => '' !== $schoolKey ? $schoolKey : null,
 			'school_name'            => $school,
 			'school_name_normalized' => mb_strtolower( $school ),
 			'grade'                  => $grade,

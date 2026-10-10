@@ -180,6 +180,23 @@ class ExamSourceServiceTest extends TestCase {
 		self::assertSame( self::EVENT, $this->inserted['event_id'] );
 	}
 
+	public function test_save_keeps_school_key_when_given(): void {
+		$this->service->save( self::ACTOR, self::EVENT, $this->input( array( 'school_key' => 'school-1a2b3c4d' ) ), null, null );
+
+		self::assertSame( 'school-1a2b3c4d', $this->inserted['school_key'] );
+	}
+
+	public function test_free_text_school_has_null_key(): void {
+		$this->service->save( self::ACTOR, self::EVENT, $this->input( array( 'school_key' => '' ) ), null, null );
+
+		self::assertArrayHasKey( 'school_key', $this->inserted );
+		self::assertNull( $this->inserted['school_key'] );
+	}
+
+	public function test_malformed_school_key_is_refused(): void {
+		$this->assertRefusal( ErrorCode::ExamConflict, fn () => $this->service->save( self::ACTOR, self::EVENT, $this->input( array( 'school_key' => 'Школа 5!' ) ), null, null ), 'Некорректный ключ школы.' );
+	}
+
 	public function test_grade_must_match_event_direction(): void {
 		// Проведение ЕГЭ (11 класс): источник 9 класса отклоняется.
 		$this->assertRefusal( ErrorCode::ExamConflict, fn () => $this->service->save( self::ACTOR, self::EVENT, $this->input( array( 'grade' => 9 ) ), null, null ), 'Класс не соответствует направлению проведения.' );

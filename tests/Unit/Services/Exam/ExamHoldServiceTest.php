@@ -48,6 +48,8 @@ class ExamHoldServiceTest extends TestCase {
 	private ExamSessionRepository&MockObject $sessions;
 	private ExamEventRepository&MockObject $events;
 	private ExamParticipantRepository&MockObject $participants;
+	private \Inc\Repositories\WPDBRepositories\ExamParticipationRepository&MockObject $participationsRepo;
+	private \Inc\Repositories\WPDBRepositories\ExamManualResolutionRepository&MockObject $resolutionsRepo;
 	private ExamRegistrationService&MockObject $registrations;
 	private ExamOutbox&MockObject $outbox;
 	private ExamHoldService $service;
@@ -90,6 +92,8 @@ class ExamHoldServiceTest extends TestCase {
 		$this->sessions      = $this->createMock( ExamSessionRepository::class );
 		$this->events        = $this->createMock( ExamEventRepository::class );
 		$this->participants  = $this->createMock( ExamParticipantRepository::class );
+		$this->participationsRepo = $this->createMock( \Inc\Repositories\WPDBRepositories\ExamParticipationRepository::class );
+		$this->resolutionsRepo    = $this->createMock( \Inc\Repositories\WPDBRepositories\ExamManualResolutionRepository::class );
 		$this->registrations = $this->createMock( ExamRegistrationService::class );
 		$this->outbox        = $this->createMock( ExamOutbox::class );
 
@@ -127,7 +131,9 @@ class ExamHoldServiceTest extends TestCase {
 		$clock->method( 'now' )->willReturnCallback( static fn ( string $type = 'mysql', bool $gmt = false ): string => $gmt ? '2026-03-10 07:00:00' : '2026-03-10 10:00:00' );
 
 		return new ExamHoldService( $this->applications, $this->sessions, $this->events, $this->participants, $this->registrations, $this->outbox, new ExamTime( $clock ),
-			new \Inc\Services\Exam\GuestParticipantMaterializer( $this->participants, $this->createMock( \Inc\Services\Security\PiiCryptoService::class ), $this->createMock( \Inc\Services\Exam\GuestIdentity::class ), new ExamTime( $clock ) )
+			new \Inc\Services\Exam\GuestParticipantMaterializer( $this->participants, $this->createMock( \Inc\Services\Security\PiiCryptoService::class ), $this->createMock( \Inc\Services\Exam\GuestIdentity::class ), new ExamTime( $clock ) ),
+			$this->participationsRepo,
+			$this->resolutionsRepo
 		);
 	}
 
@@ -369,6 +375,22 @@ class ExamHoldServiceTest extends TestCase {
 		self::assertSame( array( 'START TRANSACTION', 'application-lock', 'COMMIT' ), $this->db->log );
 	}
 
+	public function test_convert_copies_transfer_consent_to_participation(): void {
+		$this->application = $this->examGuestApplication( array( 'consent_refs' => '{"pd_processing":11,"pd_transfer":12}' ) );
+		$this->registrations->method( 'confirmHeld' )->willReturn( $this->registrationResult() );
+		$this->participationsRepo->expects( self::once() )->method( 'setConsent' )->with( 41, '{"pd_processing":11,"pd_transfer":12}', true );
+
+		$this->service->convert( self::APPLICATION, null );
+	}
+
+	public function test_convert_without_transfer_consent_keeps_transfer_closed(): void {
+		$this->application = $this->examGuestApplication( array( 'consent_refs' => '{"pd_processing":11}' ) );
+		$this->registrations->method( 'confirmHeld' )->willReturn( $this->registrationResult() );
+		$this->participationsRepo->expects( self::once() )->method( 'setConsent' )->with( 41, '{"pd_processing":11}', false );
+
+		$this->service->convert( self::APPLICATION, null );
+	}
+
 	public function test_convert_reuses_existing_participant(): void {
 		$this->application = $this->examGuestApplication( array( 'participant_id' => '31' ) );
 		$this->participants->expects( self::never() )->method( 'insert' );
@@ -525,5 +547,109 @@ class ExamHoldServiceTest extends TestCase {
 		$this->sessions->method( 'releaseSeat' )->willReturnOnConsecutiveCalls( $this->throwException( new \RuntimeException( 'сбой базы' ) ), true );
 
 		self::assertSame( 1, $this->service->releaseExpired(), 'Сбой первой заявки не останавливает вторую.' );
+	}
+
+	// ---- ручное урегулирование оплаченной заявки (8.8.4) ----------------------------------------------------------------------------
+
+	private function needsHelp( array $override = array() ): void {
+		$this->application = $this->examGuestApplication( array_merge( array( 'state' => 'paid_needs_resolution', 'is_held' => '0', 'participant_id' => '31' ), $override ) );
+	}
+
+	public function test_resolve_transfer_occupies_seat_and_confirms(): void {
+		$this->needsHelp();
+		$this->sessions->method( 'find' )->willReturn( $this->examSession( array( 'id' => '8', 'event_id' => '3' ) ) );
+		$this->applications->method( 'hasActiveByIdentity' )->willReturn( false );
+		$this->registrations->expects( self::once() )->method( 'confirmByStaff' )->with( 31, 8, 'app-' . self::APPLICATION, self::SOURCE, 77 )->willReturn( $this->registrationResult() );
+		$inserted = null;
+		$this->resolutionsRepo->expects( self::once() )->method( 'insert' )->willReturnCallback( function ( array $row ) use ( &$inserted ): int {
+			$inserted = $row;
+			return 1;
+		} );
+
+		$this->service->resolveManually( 77, self::APPLICATION, \Inc\Enums\Exam\ManualResolutionKind::Transferred, 8, 'Гость оплатил, сеанс переполнен', null );
+
+		$final = $this->updates[ array_key_last( $this->updates ) ];
+		self::assertSame( 'confirmed', $final['data']['state'] );
+		self::assertSame( 55, $final['data']['registration_id'] );
+		self::assertSame( 'transferred', $inserted['kind'] );
+		self::assertSame( self::SESSION, $inserted['old_session_id'] );
+		self::assertSame( 8, $inserted['new_session_id'] );
+		self::assertSame( 77, $inserted['actor_user_id'] );
+	}
+
+	public function test_resolve_refunded_outside_closes_without_seat_and_stores_amount(): void {
+		$this->needsHelp();
+		$this->registrations->expects( self::never() )->method( 'confirmByStaff' );
+		$this->sessions->expects( self::never() )->method( 'occupySeat' );
+		$inserted = null;
+		$this->resolutionsRepo->method( 'insert' )->willReturnCallback( function ( array $row ) use ( &$inserted ): int {
+			$inserted = $row;
+			return 1;
+		} );
+
+		$this->service->resolveManually( 77, self::APPLICATION, \Inc\Enums\Exam\ManualResolutionKind::RefundedOutside, null, 'Вернули в ЮKassa', '1500.00' );
+
+		$final = $this->updates[ array_key_last( $this->updates ) ];
+		self::assertSame( 'cancelled', $final['data']['state'] );
+		self::assertNull( $final['data']['active_slot'] );
+		self::assertSame( 'refunded_outside', $inserted['kind'] );
+		self::assertSame( '1500.00', $inserted['amount'] );
+	}
+
+	public function test_resolve_other_is_only_a_note(): void {
+		$this->needsHelp();
+		$this->registrations->expects( self::never() )->method( 'confirmByStaff' );
+		$inserted = null;
+		$this->resolutionsRepo->method( 'insert' )->willReturnCallback( function ( array $row ) use ( &$inserted ): int {
+			$inserted = $row;
+			return 1;
+		} );
+
+		$this->service->resolveManually( 77, self::APPLICATION, \Inc\Enums\Exam\ManualResolutionKind::Other, null, 'Договорились лично', null );
+
+		self::assertSame( 'other', $inserted['kind'] );
+		self::assertArrayNotHasKey( 'amount', $inserted );
+	}
+
+	public function test_resolve_refused_for_already_resolved_application(): void {
+		$this->application = $this->examGuestApplication( array( 'state' => 'confirmed' ) );
+		$this->resolutionsRepo->expects( self::never() )->method( 'insert' );
+
+		$this->expectException( CodedException::class );
+		$this->service->resolveManually( 77, self::APPLICATION, \Inc\Enums\Exam\ManualResolutionKind::Other, null, 'Повтор', null );
+	}
+
+	public function test_resolve_transfer_refused_for_session_of_another_event(): void {
+		$this->needsHelp();
+		$this->sessions->method( 'find' )->willReturn( $this->examSession( array( 'id' => '8', 'event_id' => '99' ) ) );
+		$this->registrations->expects( self::never() )->method( 'confirmByStaff' );
+
+		$this->expectException( CodedException::class );
+		$this->service->resolveManually( 77, self::APPLICATION, \Inc\Enums\Exam\ManualResolutionKind::Transferred, 8, 'Другое проведение', null );
+	}
+
+	public function test_resolve_transfer_refused_when_guest_has_another_active_application(): void {
+		$this->needsHelp();
+		$this->sessions->method( 'find' )->willReturn( $this->examSession( array( 'id' => '8', 'event_id' => '3' ) ) );
+		$this->applications->method( 'hasActiveByIdentity' )->willReturn( true );
+		$this->registrations->expects( self::never() )->method( 'confirmByStaff' );
+
+		$this->expectException( CodedException::class );
+		$this->service->resolveManually( 77, self::APPLICATION, \Inc\Enums\Exam\ManualResolutionKind::Transferred, 8, 'Две заявки', null );
+	}
+
+	public function test_failed_transfer_rolls_back_and_writes_no_resolution(): void {
+		$this->needsHelp();
+		$this->sessions->method( 'find' )->willReturn( $this->examSession( array( 'id' => '8', 'event_id' => '3' ) ) );
+		$this->applications->method( 'hasActiveByIdentity' )->willReturn( false );
+		$this->registrations->method( 'confirmByStaff' )->willThrowException( new CodedException( \Inc\Enums\Log\ErrorCode::ExamFull, 'Свободных мест нет.' ) );
+		$this->resolutionsRepo->expects( self::never() )->method( 'insert' );
+
+		try {
+			$this->service->resolveManually( 77, self::APPLICATION, \Inc\Enums\Exam\ManualResolutionKind::Transferred, 8, 'Нет мест', null );
+			self::fail( 'Ожидался отказ.' );
+		} catch ( CodedException $e ) {
+			self::assertContains( 'ROLLBACK', $this->db->log );
+		}
 	}
 }

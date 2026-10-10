@@ -19,7 +19,7 @@ use Inc\Services\System\PageGeneratorService;
 class ExamPagesMigration {
 
 	private const VERSION_OPTION = 'fs_lms_exam_pages_version';
-	private const VERSION        = '1';
+	private const VERSION        = '2';
 
 	public function __construct(
 		private readonly PageGeneratorService $pages,
@@ -33,6 +33,7 @@ class ExamPagesMigration {
 		$this->pages->ensurePublished( PageRoutes::ExamSignup, 'Запись на экзамен', ShortCode::ExamSignup->tag() );
 		$this->pages->ensurePublished( PageRoutes::ExamEntry, 'Вход на экзамен', ShortCode::ExamEntry->tag() );
 		$this->pages->ensurePublished( PageRoutes::ExamResult, 'Результат экзамена', ShortCode::ExamResult->tag() );
+		$this->pages->ensurePublished( PageRoutes::ExamReport, 'Отчёт по экзамену', ShortCode::ExamReport->tag() );
 
 		update_option( self::VERSION_OPTION, self::VERSION, false );
 	}

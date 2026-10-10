@@ -7,6 +7,7 @@ namespace Inc\Callbacks\Enrollment;
 use Inc\Core\BaseController;
 use Inc\Services\Application\ApplicationService;
 use Inc\Services\Enrollment\RecoveryService;
+use Inc\Services\Exam\ExamRetentionService;
 use Inc\Services\Person\RetentionService;
 use Inc\Shared\PluginLogger;
 
@@ -46,6 +47,7 @@ class RecoveryCallbacks extends BaseController {
 		private readonly RecoveryService  $recoveryService,
 		private readonly ApplicationService $applicationService,
 		private readonly RetentionService $retentionService,
+		private readonly ExamRetentionService $examRetention,
 	) {
 		parent::__construct();
 	}
@@ -102,6 +104,8 @@ class RecoveryCallbacks extends BaseController {
 			$this->retentionService->purgeOldPiiAccessLogs();
 			// Журнал ошибок пользователей
 			$this->retentionService->purgeOldErrorLogs();
+			// Данные гостей экзаменов: обезличивание по сроку, неоплаченные заявки, технический мусор (под своей блокировкой)
+			$this->examRetention->runDaily();
 		} catch ( \Throwable $e ) {
 			PluginLogger::exception( 'RetentionCleanup', $e, array(), true );
 		}

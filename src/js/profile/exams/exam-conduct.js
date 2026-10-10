@@ -32,7 +32,15 @@ const ACTION_LABELS = {
     entry_link: 'Выдать ссылку на вход',
     result_link: 'Скопировать ссылку результата',
     revoke_result_link: 'Отозвать ссылку результата',
+    anonymize: 'Удалить данные гостя',
+    mark_entry_passed: 'Отметить: ссылка входа передана',
+    mark_result_passed: 'Отметить: ссылка результата передана',
 };
+
+/** Оплата гостя → пилюля `prof-state-*` (оплачено — активная, ожидание — «скоро», остальное — нейтральная). */
+const PAYMENT_PILL = { paid: 'prof-state-now', pending: 'prof-state-soon' };
+
+const REGISTRATION_LABEL = { confirmed: 'Запись подтверждена', cancelled: 'Запись отменена', missed: 'Неявка' };
 
 const PROGRESS_PILL = {
     not_started: 'prof-state-soon',
@@ -180,7 +188,8 @@ function render() {
             ${skippedListHtml(lastSkipped, id => board.rows.find(r => r.attempt_id === id)?.name)}
             ${board.rows.length
                 ? `<div class="pr-list">${board.rows.map(rowHtml).join('')}</div>`
-                : '<div class="exam-conduct-empty">На этот сеанс пока никто не записан.</div>'}
+                : (board.holds || []).length ? '' : '<div class="exam-conduct-empty">На этот сеанс пока никто не записан.</div>'}
+            ${(board.holds || []).length ? `<div class="exam-conduct-subtitle">Ожидают оплаты</div><div class="pr-list">${board.holds.map(holdRowHtml).join('')}</div>` : ''}
         </div>`;
     wire();
 }
@@ -234,7 +243,7 @@ function rowHtml(r) {
     const left = null !== r.seconds_left
         ? `<span class="exam-conduct-left" data-left="${r.seconds_left}">${fmtLeft(r.seconds_left)}</span>`
         : '';
-    const admitted = 'guest' === r.audience ? `<span class="exam-conduct-arrived">${r.admitted_at ? 'допущен' : 'не допущен'}</span>` : '';
+    const passed = [r.entry_link_passed, r.result_link_passed].filter(Boolean).map(esc).join(' · ');
     const arrived = r.arrived_at ? `<span class="exam-conduct-arrived" title="Приход отмечен">приход ${esc(r.arrived_at.slice(11, 16))}</span>` : '';
     const cancelled = 'cancelled' === r.registration_status;
     const pill = cancelled
@@ -247,10 +256,36 @@ function rowHtml(r) {
         ${selecting ? checkboxHtml(r) : ''}
         <div class="pr-info">
             <div class="pr-name">${esc(r.name)}</div>
-            <div class="pr-sub">${esc(r.audience_label)}${r.source ? ` · ${esc(r.source)}` : ''} ${arrived} ${admitted}</div>
+            <div class="pr-sub">${esc(r.audience_label)}${r.source ? ` · ${esc(r.source)}` : ''} ${arrived}</div>
+            ${'guest' === r.audience ? guestPillsHtml(r) : ''}
+            ${passed ? `<div class="pr-sub">${passed}</div>` : ''}
         </div>
-        ${score}${left}${pill}${result}
+        ${score}${left}${'guest' === r.audience ? '' : pill}${result}
         ${r.actions.length ? '<button type="button" class="prof-btn prof-btn-sm prof-btn-ghost" data-menu aria-label="Действия">⋯</button>' : ''}
+    </div>`;
+}
+
+/** У гостя четыре независимых состояния, а не одна «галочка»: оплата, запись, допуск и попытка — отдельными пилюлями. */
+function guestPillsHtml(r) {
+    const pay = r.payment
+        ? `<span class="prof-state-pill ${PAYMENT_PILL[r.payment.state] || 'prof-state-done'}">Оплата: ${esc(r.payment.label)}</span>`
+        : '<span class="prof-state-pill prof-state-done">Оплата: —</span>';
+    const registration = `<span class="prof-state-pill prof-state-done">${esc(REGISTRATION_LABEL[r.registration_status] || r.registration_status)}</span>`;
+    const admission = `<span class="prof-state-pill ${r.admitted_at ? 'prof-state-now' : 'prof-state-soon'}">${r.admitted_at ? 'Допущен' : 'Не допущен'}</span>`;
+    const progress = `<span class="prof-state-pill ${PROGRESS_PILL[r.progress] || 'prof-state-done'}">Попытка: ${esc(r.progress_label)}</span>`;
+
+    return `<div class="exam-guest-pills">${pay}${registration}${admission}${progress}</div>`;
+}
+
+/** Гости с бронью без записи: «Место удерживается до …» и ссылка на оплату (11a.7.7). Не строки доски: записи и попытки у них ещё нет. */
+function holdRowHtml(h) {
+    return `<div class="pr-row exam-conduct-row exam-hold-row" data-app="${h.application_id}">
+        <div class="pr-info">
+            <div class="pr-name">${esc(h.name)}</div>
+            <div class="pr-sub">Гость${h.on_site ? ' · добавлен на месте' : ''} · Место удерживается до ${esc(h.hold_until)}</div>
+        </div>
+        <span class="prof-state-pill prof-state-soon">Ожидает оплаты</span>
+        ${(h.actions || []).includes('copy_pay_link') && examConfig()?.canManageGuests ? '<button type="button" class="prof-btn prof-btn-sm" data-copy-pay>Скопировать ссылку на оплату</button>' : ''}
     </div>`;
 }
 
@@ -303,6 +338,21 @@ function wire() {
         const confirm = root.querySelector('[data-approve="confirm"]');
         if (confirm) { confirm.textContent = approveButtonLabel(selected.size); }
     }));
+    root.querySelectorAll('.exam-hold-row [data-copy-pay]').forEach(btn => btn.addEventListener('click', async () => {
+        const applicationId = Number(btn.closest('.exam-hold-row').dataset.app);
+        try {
+            const r = await api('issuePayLink', { application_id: applicationId });
+            try {
+                await navigator.clipboard.writeText(r.pay_url);
+                toast('Ссылка на оплату скопирована. Прежняя перестала работать.');
+            } catch {
+                const pop = document.getElementById('profGradePop');
+                if (pop) { showLinkPop(pop, 'Ссылка на оплату', 'Передайте гостю ссылку — она показана один раз.', 'Ссылка на оплату', r.pay_url); openGradePopPositioned(pop, btn); }
+            }
+        } catch (err) {
+            toast(ajaxErrorText(err, 'Не удалось выдать ссылку'), 'error');
+        }
+    }));
     root.querySelector('[data-add-guest]')?.addEventListener('click', e => openGuestForm(e.currentTarget));
     root.querySelector('[data-session-menu]')?.addEventListener('click', e => {
         const s = Object.assign({ date: board.session.date, time_start: board.session.time_start }, board.session);
@@ -313,7 +363,7 @@ function wire() {
     root.querySelectorAll('.exam-conduct-row [data-menu]').forEach(btn => btn.addEventListener('click', () => {
         const row = board.rows.find(r => r.registration_id === Number(btn.closest('.exam-conduct-row').dataset.reg));
         if (!row) { return; }
-        const items = row.actions.map(a => ({ v: a, label: actionLabel(a, row) }));
+        const items = row.actions.filter(a => 'anonymize' !== a || examConfig()?.canAnonymizeGuests).map(a => ({ v: a, label: actionLabel(a, row) }));
         openCtxMenu(btn, items, v => runAction(v, row, btn));
     }));
 }
@@ -356,6 +406,13 @@ function runAction(action, row, anchor) {
         case 'admit': act('admitGuest', { participation_id: row.participation_id, admitted: row.admitted_at ? 0 : 1 }, row.admitted_at ? 'Допуск снят' : 'Участник допущен'); break;
         case 'entry_link': issueGuestLink(row, anchor, { apiKey: 'issueEntryLink', issued: row.entry_link_issued, title: 'Ссылка на вход', label: 'Ссылка на вход' }); break;
         case 'result_link': issueGuestLink(row, anchor, { apiKey: 'issueResultLink', issued: row.result_link_issued, title: 'Ссылка результата', label: 'Ссылка результата' }); break;
+        case 'anonymize': openReasonForm(anchor, {
+            title: 'Удалить данные гостя', submit: 'Удалить',
+            confirm: `Удалить данные гостя ${row.name}? ФИО и контакты будут стёрты, ссылки перестанут работать. Отменить нельзя.`,
+            run: reason => act('anonymizeGuest', { participant_id: row.participant_id, reason }, 'Данные гостя удалены'),
+        }); break;
+        case 'mark_entry_passed': act('markLinkPassed', { participation_id: row.participation_id, purpose: 'entry' }, 'Отмечено'); break;
+        case 'mark_result_passed': act('markLinkPassed', { participation_id: row.participation_id, purpose: 'result' }, 'Отмечено'); break;
         case 'revoke_result_link': act('revokeResultLink', { participation_id: row.participation_id }, 'Ссылка результата отозвана'); break;
         case 'open_work': handlers.openWorkReview?.('attempt', row.attempt_id); break;
         default: break;

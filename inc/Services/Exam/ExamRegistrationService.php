@@ -10,7 +10,9 @@ use Inc\DTO\Exam\ExamParticipationDTO;
 use Inc\DTO\Exam\ExamRegistrationDTO;
 use Inc\DTO\Exam\ExamSessionDTO;
 use Inc\DTO\Exam\RegistrationResultDTO;
+use Inc\Enums\Access\Capability;
 use Inc\Enums\Exam\ExamAudience;
+use Inc\Enums\Exam\ManualResolutionKind;
 use Inc\Enums\Exam\ExamEventStatus;
 use Inc\Enums\Exam\ExamOutboxEvent;
 use Inc\Enums\Exam\ExamRegistrationStatus;
@@ -20,6 +22,7 @@ use Inc\Repositories\WPDBRepositories\DuplicateKeyException;
 use Inc\Repositories\WPDBRepositories\ExamEventRepository;
 use Inc\Repositories\WPDBRepositories\ExamGuestApplicationRepository;
 use Inc\Repositories\WPDBRepositories\ExamOperationKeyRepository;
+use Inc\Repositories\WPDBRepositories\ExamManualResolutionRepository;
 use Inc\Repositories\WPDBRepositories\ExamParticipantRepository;
 use Inc\Repositories\WPDBRepositories\ExamParticipationRepository;
 use Inc\Repositories\WPDBRepositories\ExamRegistrationRepository;
@@ -71,6 +74,7 @@ class ExamRegistrationService {
 		private readonly ExamTime $time,
 		private readonly ExamGuestApplicationRepository $guestApplications,
 		private readonly GroupLessonRepository $lessons,
+		private readonly ExamManualResolutionRepository $resolutions,
 	) {}
 
 	/**
@@ -127,6 +131,19 @@ class ExamRegistrationService {
 		$this->assertRequestKey( $requestKey );
 
 		return $this->registerLocked( $participantId, ExamAudience::Guest, $sessionId, $requestKey, null, true, $sourceId, array(), $recordedBy );
+	}
+
+	/**
+	 * Запись оплатившего гостя сотрудником в выбранный сеанс (ручное урегулирование «оплачено, мест нет»): место занимается заново,
+	 * правила записи — как у сотрудника (окно записи не проверяется, сеанс не должен закончиться). Транзакцию **не открывает** —
+	 * вызывается из `ExamHoldService::resolveManually()` под блокировкой заявки.
+	 *
+	 * @throws CodedException
+	 */
+	public function confirmByStaff( int $participantId, int $sessionId, string $requestKey, int $sourceId, int $actorUserId ): RegistrationResultDTO {
+		$this->assertRequestKey( $requestKey );
+
+		return $this->registerLocked( $participantId, ExamAudience::Guest, $sessionId, $requestKey, $actorUserId, false, $sourceId, array() );
 	}
 
 	/**
@@ -376,7 +393,21 @@ class ExamRegistrationService {
 				throw new CodedException( ErrorCode::ExamConflict, 'Действующей записи нет.' );
 			}
 
-			return $this->moveRegistration( $locked, $current, $newSessionId, true, $actorUserId, $reason );
+			$result = $this->moveRegistration( $locked, $current, $newSessionId, true, $actorUserId, $reason );
+			// Перенос оплаченного гостя — ручное решение: строка с причиной, старым и новым сеансом (8.8.5).
+			if ( ExamAudience::Guest->value === $locked->audience ) {
+				$this->resolutions->insert( array(
+					'participation_id' => $locked->id,
+					'kind'             => ManualResolutionKind::Transferred->value,
+					'reason'           => $reason,
+					'actor_user_id'    => $actorUserId,
+					'old_session_id'   => $current->sessionId,
+					'new_session_id'   => $newSessionId,
+					'created_at'       => $this->time->nowUtc(),
+				) );
+			}
+
+			return $result;
 		} );
 	}
 
@@ -622,7 +653,9 @@ class ExamRegistrationService {
 	/** Сотрудник вправе управлять предметом проведения, иначе — тот же отказ, что и для несуществующей записи. */
 	private function assertStaffScope( int $actorUserId, ?ExamParticipationDTO $participation ): void {
 		$event = null !== $participation ? $this->events->find( $participation->eventId ) : null;
-		if ( null === $event || ! $this->accessGuard->canManageSubject( $actorUserId, $event->subjectKey ) ) {
+		// Офис с правом разбора оплат переносит только оплаченных гостей (8.8.5); ученика и чужое проведение — нет.
+		$officeForGuest = null !== $participation && ExamAudience::Guest->value === $participation->audience && user_can( $actorUserId, Capability::ResolveExamPayments->value );
+		if ( null === $event || ( ! $officeForGuest && ! $this->accessGuard->canManageSubject( $actorUserId, $event->subjectKey ) ) ) {
 			throw new CodedException( ErrorCode::ExamAccess, 'Запись не найдена.' );
 		}
 	}

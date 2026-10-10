@@ -171,8 +171,14 @@ class ExamEventRepository extends AbstractExamRepository {
 			'DELETE k FROM ' . TableName::ExamOperationKeys->prefixed() . " k INNER JOIN {$participation} p ON k.scope = CONCAT( 'participant:', p.participant_id ) WHERE p.event_id IN ( {$in} )",
 			"DELETE r FROM {$registrations} r INNER JOIN {$participation} p ON p.id = r.participation_id WHERE p.event_id IN ( {$in} )",
 			'DELETE l FROM ' . TableName::ExamPaymentLinks->prefixed() . " l INNER JOIN {$applications} a ON a.id = l.application_id WHERE a.event_id IN ( {$in} )",
+			// Строки ручного урегулирования оплат (этап 8.8): по заявкам и по участиям стенда.
+			'DELETE m FROM ' . TableName::ExamManualResolutions->prefixed() . " m INNER JOIN {$applications} a ON a.id = m.application_id WHERE a.event_id IN ( {$in} )",
+			'DELETE m FROM ' . TableName::ExamManualResolutions->prefixed() . " m INNER JOIN {$participation} p ON p.id = m.participation_id WHERE p.event_id IN ( {$in} )",
 			"DELETE FROM {$applications} WHERE event_id IN ( {$in} )",
 			'DELETE t FROM ' . TableName::ExamAccessTokens->prefixed() . " t INNER JOIN {$sources} s ON t.purpose = 'invitation' AND t.target_id = s.id WHERE s.event_id IN ( {$in} )",
+			// Гостевые сессии и ключи входа/результата/отчёта участий стенда (сеанс на 50 гостей, этап 13.1.4).
+			'DELETE gs FROM ' . TableName::ExamGuestSessions->prefixed() . " gs INNER JOIN {$participation} p ON gs.participation_id = p.id WHERE p.event_id IN ( {$in} )",
+			'DELETE t FROM ' . TableName::ExamAccessTokens->prefixed() . " t INNER JOIN {$participation} p ON t.purpose IN ( 'entry', 'result' ) AND t.target_id = p.id WHERE p.event_id IN ( {$in} )",
 			'DELETE pt FROM ' . TableName::ExamParticipants->prefixed() . " pt INNER JOIN {$participation} p ON p.participant_id = pt.id WHERE p.event_id IN ( {$in} ) AND pt.person_id IS NULL",
 			"DELETE FROM {$participation} WHERE event_id IN ( {$in} )",
 			"DELETE FROM {$sources} WHERE event_id IN ( {$in} )",
@@ -183,6 +189,14 @@ class ExamEventRepository extends AbstractExamRepository {
 		foreach ( $statements as $sql ) {
 			$this->write( $sql );
 		}
+
+		// Участники, посеянные `stand-seed` без участий (имя школы — префикс стенда), в проведения не попадают и иначе копились бы.
+		$this->write( $this->wpdb->prepare(
+			'DELETE pt FROM %i pt LEFT JOIN %i p ON p.participant_id = pt.id WHERE pt.person_id IS NULL AND pt.school_name LIKE %s AND p.id IS NULL',
+			TableName::ExamParticipants->prefixed(),
+			$participation,
+			$this->wpdb->esc_like( $prefix ) . '%'
+		) );
 
 		return $this->write( $this->wpdb->prepare( "DELETE FROM %i WHERE id IN ( {$in} )", $this->table ) ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 	}

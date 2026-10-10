@@ -75,6 +75,9 @@ class ExamConductService {
 	public const ACTION_ADMIT      = 'admit';
 	public const ACTION_ENTRY_LINK = 'entry_link';
 	public const ACTION_RESULT_LINK = 'result_link';
+	public const ACTION_ANONYMIZE = 'anonymize';
+	public const ACTION_MARK_ENTRY_PASSED = 'mark_entry_passed';
+	public const ACTION_MARK_RESULT_PASSED = 'mark_result_passed';
 	public const ACTION_REVOKE_RESULT_LINK = 'revoke_result_link';
 
 	public function __construct(
@@ -98,12 +101,13 @@ class ExamConductService {
 		private readonly GuestParticipantMaterializer $guestData,
 		private readonly PluginConfig $config,
 		private readonly LogEventDispatcherInterface $logEvents,
+		private readonly ExamGuestBoardService $guestBoard,
 	) {}
 
 	/**
 	 * Доска сеанса.
 	 *
-	 * @return array{session: array<string, mixed>, tiles: array<string, int>, rows: list<array<string, mixed>>, warnings: list<string>, sessions: list<array<string, mixed>>, rooms: list<array<string, mixed>>, sources: list<array{id: int, label: string}>}
+	 * @return array{session: array<string, mixed>, tiles: array<string, int>, rows: list<array<string, mixed>>, warnings: list<string>, sessions: list<array<string, mixed>>, rooms: list<array<string, mixed>>, sources: list<array{id: int, label: string}>, holds: list<array<string, mixed>>}
 	 *
 	 * @throws CodedException `ExamAccess` — сеанса нет или проведение не принадлежит сотруднику.
 	 */
@@ -125,6 +129,7 @@ class ExamConductService {
 			'sessions' => $this->siblings( $event ),
 			'rooms'    => $this->plans->roomsFor( $event->subjectKey ),
 			'sources'  => $this->sourceOptions( $event->id ),
+			'holds'    => $this->guestBoard->holdsOf( $session ),
 		);
 	}
 
@@ -513,6 +518,24 @@ class ExamConductService {
 	}
 
 	/**
+	 * Ручная отметка «Ссылка передана» (8.8.6): ставит сотрудник после того, как отдал ссылку входа или результата. **Копирование ссылки отметку не ставит.**
+	 *
+	 * @throws CodedException
+	 */
+	public function markLinkPassed( int $actorUserId, int $participationId, ExamTokenPurpose $purpose ): void {
+		if ( ! in_array( $purpose, array( ExamTokenPurpose::Entry, ExamTokenPurpose::Result ), true ) ) {
+			throw new CodedException( ErrorCode::ExamConflict, 'Эту ссылку отметить нельзя.' );
+		}
+		$this->guestParticipationFor( $actorUserId, $participationId );
+
+		$token = $this->tokens->activeToken( $purpose, $participationId );
+		if ( null === $token ) {
+			throw new CodedException( ErrorCode::ExamConflict, 'Сначала выдайте ссылку.' );
+		}
+		$this->tokens->markPassed( $token->id, $actorUserId );
+	}
+
+	/**
 	 * Участие гостя, которым сотрудник вправе управлять (право на гостей + проведение). Чужое и ученическое — «не найдено».
 	 *
 	 * @throws CodedException
@@ -586,13 +609,22 @@ class ExamConductService {
 			}
 			if ( null !== $participation->admittedAt ) {
 				$actions[] = self::ACTION_ENTRY_LINK;
+				if ( $this->tokens->hasActive( ExamTokenPurpose::Entry, $participation->id ) ) {
+					$actions[] = self::ACTION_MARK_ENTRY_PASSED;
+				}
 			}
+		}
+
+		// Удаление данных гостя по его запросу: ручное действие, доступно строке любого гостя, пока данные не обезличены.
+		if ( null !== $participation && ExamAudience::Guest->value === $participation->audience ) {
+			$actions[] = self::ACTION_ANONYMIZE;
 		}
 
 		// Ссылка результата — гостю со сданной работой (выдача и перевыпуск); отзыв — когда ссылка уже выдана (флаг в строке).
 		if ( null !== $participation && ExamAudience::Guest->value === $participation->audience && null !== $attempt && AttemptStatus::InProgress !== $attempt->status ) {
 			$actions[] = self::ACTION_RESULT_LINK;
 			if ( $this->tokens->hasActive( ExamTokenPurpose::Result, $participation->id ) ) {
+				$actions[] = self::ACTION_MARK_RESULT_PASSED;
 				$actions[] = self::ACTION_REVOKE_RESULT_LINK;
 			}
 		}
@@ -617,6 +649,17 @@ class ExamConductService {
 		}
 
 		return self::RESULT_READY;
+	}
+
+	/** «Передана 10.10 15:00, Иванов» — или null, пока сотрудник не отметил вручную. */
+	private function passedLabel( ?\Inc\DTO\Exam\ExamAccessTokenDTO $token ): ?string {
+		if ( null === $token || null === $token->passedAt ) {
+			return null;
+		}
+		$local = $this->time->toLocal( $token->passedAt );
+		$user  = null !== $token->passedByUserId ? get_userdata( $token->passedByUserId ) : false;
+
+		return sprintf( 'Передана %s.%s %s%s', substr( $local, 8, 2 ), substr( $local, 5, 2 ), substr( $local, 11, 5 ), $user ? ', ' . $user->display_name : '' );
 	}
 
 	/** ФИО участника для таблицы сотрудника. */
@@ -686,11 +729,14 @@ class ExamConductService {
 		return array(
 			'registration_id'     => $registration->id,
 			'participation_id'    => $participation->id,
+			'participant_id'      => $participant->id,
 			'name'                => $this->participantName( $participant ),
 			'audience'            => $audience->value,
 			'audience_label'      => $audience->label(),
 			'source'              => $source->schoolName ?? '',
 			'registration_status' => $registration->status,
+			// Гость: четыре независимых состояния — оплата, запись, допуск (`admitted_at`), попытка (`progress`); у ученика оплаты нет.
+			'payment'             => ExamAudience::Guest === $audience ? $this->guestBoard->paymentOf( $participation->id ) : null,
 			'arrived_at'          => null !== $registration->arrivedAt ? $this->time->toLocal( $registration->arrivedAt ) : null,
 			'progress'            => $progress->value,
 			'progress_label'      => $progress->label(),
@@ -705,6 +751,8 @@ class ExamConductService {
 			'actions'             => $this->rowActions( $registration, $attempt, $others, $participation ),
 			'admitted_at'         => null !== $participation->admittedAt ? $this->time->toLocal( $participation->admittedAt ) : null,
 			'entry_link_issued'   => ExamAudience::Guest === $audience && $this->tokens->hasActive( ExamTokenPurpose::Entry, $participation->id ),
+			'entry_link_passed'   => $this->passedLabel( ExamAudience::Guest === $audience ? $this->tokens->activeToken( ExamTokenPurpose::Entry, $participation->id ) : null ),
+			'result_link_passed'  => $this->passedLabel( ExamAudience::Guest === $audience ? $this->tokens->activeToken( ExamTokenPurpose::Result, $participation->id ) : null ),
 			'result_link_issued'  => ExamAudience::Guest === $audience && $this->tokens->hasActive( ExamTokenPurpose::Result, $participation->id ),
 		);
 	}

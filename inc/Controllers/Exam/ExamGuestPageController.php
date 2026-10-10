@@ -4,6 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\Controllers\Exam;
 
+use Inc\Callbacks\Exam\ExamReportPageCallbacks;
 use Inc\Callbacks\Exam\GuestApplicationCallbacks;
 use Inc\Callbacks\Exam\GuestEntryCallbacks;
 use Inc\Contracts\ServiceInterface;
@@ -23,6 +24,7 @@ class ExamGuestPageController extends BaseController implements ServiceInterface
 	public function __construct(
 		private readonly GuestApplicationCallbacks $application,
 		private readonly GuestEntryCallbacks $entry,
+		private readonly ExamReportPageCallbacks $report,
 		private readonly GuestPageResponder $responder,
 	) {
 		parent::__construct();
@@ -35,6 +37,8 @@ class ExamGuestPageController extends BaseController implements ServiceInterface
 		add_action( 'template_redirect', array( $this, 'handleEntryPage' ), 5 );
 		add_shortcode( ShortCode::ExamResult->value, array( $this->entry, 'renderResultPage' ) );
 		add_action( 'template_redirect', array( $this, 'handleResultPage' ), 5 );
+		add_shortcode( ShortCode::ExamReport->value, array( $this->report, 'renderReportPage' ) );
+		add_action( 'template_redirect', array( $this, 'handleReportPage' ), 5 );
 		add_action( 'wp_head', array( $this, 'printNoindex' ), 1 );
 		add_filter( 'wp_sitemaps_posts_query_args', array( $this, 'excludeFromSitemap' ), 10, 2 );
 		add_action( 'pre_get_posts', array( $this, 'excludeFromSearch' ) );
@@ -68,6 +72,16 @@ class ExamGuestPageController extends BaseController implements ServiceInterface
 
 		$this->responder->sendHeaders();
 		$this->responder->apply( $this->entry->handleResultPage() );
+	}
+
+	/** Страница школьного отчёта: заголовки, затем исход. */
+	public function handleReportPage(): void {
+		if ( ! PageRoutes::ExamReport->isCurrent() ) {
+			return;
+		}
+
+		$this->responder->sendHeaders();
+		$this->responder->apply( $this->report->handleReportPage() );
 	}
 
 	/** `<meta name="robots">` на гостевых страницах: к HTTP-заголовку добавляется разметка (для краулеров, читающих только её). */
@@ -124,6 +138,6 @@ class ExamGuestPageController extends BaseController implements ServiceInterface
 
 	/** @return list<PageRoutes> */
 	private function guestRoutes(): array {
-		return array( PageRoutes::ExamSignup, PageRoutes::ExamEntry, PageRoutes::ExamResult );
+		return array( PageRoutes::ExamSignup, PageRoutes::ExamEntry, PageRoutes::ExamResult, PageRoutes::ExamReport );
 	}
 }

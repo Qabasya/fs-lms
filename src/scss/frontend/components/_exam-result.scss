@@ -206,3 +206,50 @@
     summary { cursor: pointer; color: $color-accent; }
   }
 }
+
+// Школьный отчёт (этап 12.3): таблица результатов и разбор выбранной строки под ней.
+.fs-exam-report {
+  &__table {
+    width: 100%;
+    margin-bottom: $spacing-xl;
+    border-collapse: collapse;
+    font-size: $font-size-base;
+
+    th,
+    td {
+      padding: $spacing-sm $spacing-md;
+      text-align: left;
+      border-bottom: 1px solid $color-border-light;
+    }
+
+    th {
+      font-size: $font-size-sm;
+      font-weight: $font-medium;
+      color: $color-muted;
+    }
+
+    .is-placeholder td { color: $color-muted; }
+    .is-current td { background: $color-bg-subtle; }
+  }
+
+  &__open {
+    color: $color-accent;
+    white-space: nowrap;
+  }
+
+  &__review {
+    scroll-margin-top: $spacing-xl;
+  }
+
+  &__review-title {
+    margin: 0 0 $spacing-xs;
+    font-size: $font-size-lead;
+  }
+}
+
+@media (max-width: 640px) {
+  .fs-exam-report__table {
+    display: block;
+    overflow-x: auto;
+  }
+}

@@ -106,6 +106,22 @@ class ExamGuestApplicationRepository extends AbstractExamRepository {
 		return $this->readInts( $this->wpdb->prepare( 'SELECT id FROM %i WHERE session_id = %d AND is_held = 1 ORDER BY id ASC', $this->table, $sessionId ) );
 	}
 
+	/**
+	 * Заявки сеанса, которые сейчас удерживают место (бронь без записи), ранняя бронь первой.
+	 *
+	 * @return ExamGuestApplicationDTO[]
+	 */
+	public function listHeldBySession( int $sessionId ): array {
+		$rows = $this->readRows( $this->wpdb->prepare( 'SELECT * FROM %i WHERE session_id = %d AND is_held = 1 ORDER BY hold_expires_at ASC, id ASC', $this->table, $sessionId ) );
+		return array_map( array( ExamGuestApplicationDTO::class, 'fromArray' ), $rows );
+	}
+
+	/** Заявка, ставшая участием (подтверждённая или урегулированная); null — участие создано не заявкой (например, стенд). */
+	public function findByParticipation( int $participationId ): ?ExamGuestApplicationDTO {
+		$row = $this->readRow( $this->wpdb->prepare( 'SELECT * FROM %i WHERE participation_id = %d ORDER BY id DESC LIMIT 1', $this->table, $participationId ) );
+		return null !== $row ? ExamGuestApplicationDTO::fromArray( $row ) : null;
+	}
+
 	/** Сколько мест сеанса сейчас удерживается бронями гостей. */
 	public function countHeldBySession( int $sessionId ): int {
 		return $this->readInt( $this->wpdb->prepare( 'SELECT COUNT(*) FROM %i WHERE session_id = %d AND is_held = 1', $this->table, $sessionId ) );
@@ -119,5 +135,43 @@ class ExamGuestApplicationRepository extends AbstractExamRepository {
 	/** Сколько броней держит один адрес (лимит по IP — этап 11a); хеш адреса, не сам адрес. */
 	public function countHeldByIp( string $ipHash ): int {
 		return $this->readInt( $this->wpdb->prepare( 'SELECT COUNT(*) FROM %i WHERE ip_hash = %s AND is_held = 1', $this->table, $ipHash ) );
+	}
+
+	/**
+	 * Очищает черновик (ФИО, телефон) и хеш адреса у неоплаченных заявок старше срока. Снимок источника остаётся.
+	 * Не трогает заявки с несверенной оплатой (`payment_state = pending`) и все заявки вне перечня состояний.
+	 *
+	 * @param list<string> $states Состояния, которые очищаются (`expired_unpaid`, `failed`, `cancelled`).
+	 *
+	 * @return int Число очищенных заявок.
+	 */
+	public function clearStaleDrafts( array $states, string $cutoffUtc, int $limit ): int {
+		if ( array() === $states ) {
+			return 0;
+		}
+
+		$payments     = TableName::ExamPaymentLinks->prefixed();
+		$placeholders = implode( ', ', array_fill( 0, count( $states ), '%s' ) );
+		// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- плейсхолдеры состояний собраны выше из числа элементов.
+		$sql = $this->wpdb->prepare(
+			"UPDATE %i ga SET ga.draft_enc = NULL, ga.ip_hash = NULL
+			 WHERE ga.state IN ( {$placeholders} ) AND ga.updated_at < %s AND ( ga.draft_enc IS NOT NULL OR ga.ip_hash IS NOT NULL )
+			   AND NOT EXISTS ( SELECT 1 FROM %i pl WHERE pl.application_id = ga.id AND pl.payment_state = 'pending' )
+			 ORDER BY ga.id ASC LIMIT %d",
+			$this->table,
+			...array_merge( $states, array( $cutoffUtc, $payments, $limit ) )
+		);
+
+		return $this->write( $sql );
+	}
+
+	/**
+	 * Заявки в состоянии, старые первыми (очередь разбора оплат).
+	 *
+	 * @return ExamGuestApplicationDTO[]
+	 */
+	public function listByState( string $state, int $limit = 200 ): array {
+		$rows = $this->readRows( $this->wpdb->prepare( 'SELECT * FROM %i WHERE state = %s ORDER BY updated_at ASC, id ASC LIMIT %d', $this->table, $state, $limit ) );
+		return array_map( array( ExamGuestApplicationDTO::class, 'fromArray' ), $rows );
 	}
 }

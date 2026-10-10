@@ -87,7 +87,7 @@ class ExamVariantPolicy {
 	 *
 	 * @param string $subjectKey Ключ предмета
 	 *
-	 * @return array[] Массив вариантов: `{id: int, title: string, kind: string, direction: string, duration_minutes: int}`
+	 * @return array[] Массив вариантов: `{id: int, title: string, kind: string, direction: string, duration_minutes: int, public: bool}`
 	 */
 	public function listForSubject( string $subjectKey ): array {
 		$assessments = $this->assessments->getBankBySubject( $subjectKey, array( 'status' => 'publish' ) );
@@ -110,6 +110,8 @@ class ExamVariantPolicy {
 				'kind'             => $assessment->kind->value,
 				'direction'        => $format?->direction->value ?? '',
 				'duration_minutes' => $format->durationMinutes ?? 0,
+				// Вариант уже открыт свободно (публичный экзамен с решениями): форма сеанса предупреждает. Модуль ядру не известен — только фильтр.
+				'public'           => (bool) apply_filters( \Inc\Controllers\Pages\AssessmentPageController::PUBLIC_ACCESS_FILTER, false, $assessment ),
 			);
 		}
 

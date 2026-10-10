@@ -70,6 +70,11 @@ class ExamOutboxEventRepository extends AbstractExamRepository {
 		return $claimed;
 	}
 
+	/** Удаляет обработанные события старше срока; необработанные не трогает. @return int Число удалённых. */
+	public function purgeProcessedBefore( string $cutoffUtc, int $limit = 1000 ): int {
+		return $this->write( $this->wpdb->prepare( 'DELETE FROM %i WHERE processed_at IS NOT NULL AND processed_at < %s LIMIT %d', $this->table, $cutoffUtc, $limit ) );
+	}
+
 	/** Событие обработано: аренда снимается, повторно оно не выдаётся. */
 	public function markProcessed( int $id, string $atUtc ): void {
 		$this->write( $this->wpdb->prepare(

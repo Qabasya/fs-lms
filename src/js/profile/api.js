@@ -28,8 +28,23 @@ function ajaxUrl() {
  * @param {Object} [params]
  * @returns {Promise<any>} json.data
  */
+/**
+ * Параметр в форме PHP: массив скаляров — `key[]=…`, вложенные массивы и объекты — `key[i][поле]=…`.
+ * `URLSearchParams` из объекта склеил бы массив в строку «1,2», а объект превратил бы в «[object Object]».
+ */
+export function appendParam(body, key, value) {
+    if (Array.isArray(value)) {
+        value.forEach((item, i) => appendParam(body, item !== null && typeof item === 'object' ? `${key}[${i}]` : `${key}[]`, item));
+    } else if (value !== null && typeof value === 'object') {
+        Object.entries(value).forEach(([field, item]) => appendParam(body, `${key}[${field}]`, item));
+    } else if (value !== undefined && value !== null) {
+        body.append(key, value);
+    }
+}
+
 async function request(action, nonce, params) {
-    const body = new URLSearchParams(Object.assign({ action, security: nonce }, params || {}));
+    const body = new URLSearchParams();
+    Object.entries(Object.assign({ action, security: nonce }, params || {})).forEach(([key, value]) => appendParam(body, key, value));
     const res = await fetch(ajaxUrl(), {
         method: 'POST',
         credentials: 'same-origin',

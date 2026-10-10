@@ -27,10 +27,12 @@ class GuestSessionService {
 	public const COOKIE_INVITATION = 'fs_exam_inv';
 	public const COOKIE_ENTRY      = 'fs_exam_guest';
 	public const COOKIE_RESULT     = 'fs_exam_result';
+	public const COOKIE_REPORT     = 'fs_exam_report';
 
 	public const SCOPE_INVITATION = 'invitation';
 	public const SCOPE_ENTRY      = 'entry';
 	public const SCOPE_RESULT     = 'result';
+	public const SCOPE_REPORT     = 'report';
 
 	/** Срок строки сессии приглашения, ч: форму открывают заранее, а отправляют позже (токен формы живёт 4 часа). */
 	private const INVITATION_HOURS = 12;
@@ -175,6 +177,38 @@ class GuestSessionService {
 		}
 
 		return $participation->id;
+	}
+
+	/**
+	 * Открывает сессию школьного отчёта (этап 12.3): школьный преподаватель — не пользователь WordPress, личность — кука отчёта.
+	 * Сессия отчёта не даёт ни попытки, ни результата участника: её принимает только страница отчёта.
+	 *
+	 * @return string Значение куки (в базе — только хеш).
+	 */
+	public function openReport( ExamAccessTokenDTO $token, string $expiresAtUtc ): string {
+		return $this->open( array(
+			'scope'      => self::SCOPE_REPORT,
+			'report_id'  => $token->targetId,
+			'generation' => $token->generation,
+			'issued_at'  => $this->time->nowUtc(),
+			'expires_at' => $expiresAtUtc,
+		) );
+	}
+
+	/**
+	 * Отчёт, открытый этой сессией; null — нет куки, сессия истекла или ключ отчёта отозван/перевыпущен (поколение не совпало).
+	 * Проверка — на каждом запросе страницы.
+	 */
+	public function currentReportId( ?string $cookie = null ): ?int {
+		$cookie ??= isset( $_COOKIE[ self::COOKIE_REPORT ] ) ? strtolower( sanitize_text_field( wp_unslash( (string) $_COOKIE[ self::COOKIE_REPORT ] ) ) ) : '';
+		$session = $this->find( $cookie, self::SCOPE_REPORT );
+		if ( null === $session || null === $session->reportId ) {
+			return null;
+		}
+
+		$generation = $this->tokens->currentGeneration( ExamTokenPurpose::Report, $session->reportId );
+
+		return $generation > 0 && $session->generation === $generation ? $session->reportId : null;
 	}
 
 	/** После сдачи просмотр результата живёт 30 минут: следующий человек за общим компьютером его не увидит. */

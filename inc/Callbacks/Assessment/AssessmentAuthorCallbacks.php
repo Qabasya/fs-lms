@@ -11,6 +11,7 @@ use Inc\Managers\Assessment\AssessmentManager;
 use Inc\Services\Assessment\EgeCompletenessChecker;
 use Inc\Services\Assessment\TaskPreviewService;
 use Inc\Services\Course\LessonAuthoringService;
+use Inc\Services\Exam\ExamVariantGuard;
 use Inc\Shared\Traits\Authorizer;
 use Inc\Shared\Traits\Sanitizer;
 
@@ -31,6 +32,7 @@ class AssessmentAuthorCallbacks extends BaseController {
 		private readonly LessonAuthoringService $authoringService,
 		private readonly EgeCompletenessChecker $completeness,
 		private readonly TaskPreviewService     $taskPreview,
+		private readonly ExamVariantGuard       $variantGuard,
 	) {
 		parent::__construct();
 	}
@@ -43,6 +45,10 @@ class AssessmentAuthorCallbacks extends BaseController {
 		$this->authorize( Nonce::AuthorAssessment, Capability::AuthorLmsCourses );
 
 		$assessment_id = $this->requireInt( 'assessment_id' );
+		if ( $this->variantGuard->isAssessmentFrozen( $assessment_id ) ) {
+			$this->error( $this->variantGuard->reason( $assessment_id ) );
+			return;
+		}
 		$item_ids      = $this->sanitizeIntList( 'item_ids' );
 		// Раскладка по позициям вместе с пустыми слотами (нули) — см. AssessmentManager::slotLayout().
 		$slot_ids      = $this->sanitizeIntList( 'slot_ids' );

@@ -81,6 +81,28 @@ trait Authorizer {
 	}
 
 	/**
+	 * Авторизация AJAX-запроса по **любому** из перечисленных прав (раздел открывают разные роли: преподаватель — `ManageExams`,
+	 * офис — `ResolveExamPayments`). Конкретную область (какое проведение) решает сервис, а не право.
+	 *
+	 * @param Capability[] $capabilities Права, достаточно одного
+	 */
+	public function authorizeAny(
+		Nonce $nonceEnum,
+		array $capabilities,
+		string $queryArg = 'security'
+	): void {
+		$nonceEnum->verify( $queryArg );
+
+		foreach ( $capabilities as $capability ) {
+			if ( current_user_can( $capability->value ) ) {
+				return;
+			}
+		}
+
+		wp_send_json_error( 'У вас недостаточно прав', 403 );
+	}
+
+	/**
 	 * Проверяет право доступа для страниц (не AJAX).
 	 * При отсутствии права вызывает wp_die().
 	 */

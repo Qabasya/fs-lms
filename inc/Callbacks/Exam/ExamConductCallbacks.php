@@ -16,6 +16,7 @@ use Inc\Services\Exam\ExamRegistrationService;
 use Inc\Services\Exam\GuestOnSiteService;
 use Inc\Services\Export\ExportService;
 use Inc\Shared\CodedException;
+use Inc\Services\Exam\ExamRetentionService;
 use Inc\Shared\Traits\Authorizer;
 use Inc\Shared\Traits\Sanitizer;
 
@@ -42,6 +43,7 @@ class ExamConductCallbacks extends BaseController {
 		private readonly ExamApprovalService $approval,
 		private readonly ExportService $exports,
 		private readonly GuestOnSiteService $onSite,
+		private readonly ExamRetentionService $retention,
 	) {
 		parent::__construct();
 	}
@@ -74,7 +76,8 @@ class ExamConductCallbacks extends BaseController {
 	}
 
 	public function ajaxTransferExamRegistration(): void {
-		$this->authorize( Nonce::ExamManage, Capability::ManageExams );
+		// Офис (`ResolveExamPayments`) переносит оплаченных гостей; кого именно — решает сервис.
+		$this->authorizeAny( Nonce::ExamManage, array( Capability::ManageExams, Capability::ResolveExamPayments ) );
 
 		$sessionId      = $this->requireInt( 'session_id' );
 		$registrationId = $this->requireInt( 'registration_id' );
@@ -282,6 +285,34 @@ class ExamConductCallbacks extends BaseController {
 		$participationId = $this->requireInt( 'participation_id' );
 
 		$this->run( fn (): array => array( 'url' => $this->conduct->issueEntryLink( get_current_user_id(), $participationId ) ) );
+	}
+
+	/**
+	 * Удаление данных гостя по его запросу: обе проверки прав (раздел и персональные данные), причина обязательна. Ответ — обновлённая доска.
+	 */
+	public function ajaxAnonymizeExamGuest(): void {
+		$this->authorizeAll( Nonce::ExamManage, array( Capability::ManageExamGuests, Capability::ManageLmsPlatform ) );
+
+		$participantId = $this->requireInt( 'participant_id' );
+		$sessionId     = $this->requireInt( 'session_id' );
+		$reason        = $this->sanitizeText( 'reason' );
+
+		$this->runOnBoard( $sessionId, fn () => $this->retention->anonymizeByStaff( get_current_user_id(), $participantId, $reason ) );
+	}
+
+	/** «Ссылка передана»: ручная отметка (копирование её не ставит). Ответ — обновлённая доска. */
+	public function ajaxMarkExamLinkPassed(): void {
+		$this->authorize( Nonce::ExamManage, Capability::ManageExamGuests );
+
+		$participationId = $this->requireInt( 'participation_id' );
+		$sessionId       = $this->requireInt( 'session_id' );
+		$purpose         = \Inc\Enums\Exam\ExamTokenPurpose::tryFrom( $this->sanitizeKey( 'purpose' ) );
+		if ( null === $purpose ) {
+			$this->error( 'Эту ссылку отметить нельзя.' );
+			return;
+		}
+
+		$this->runOnBoard( $sessionId, fn () => $this->conduct->markLinkPassed( get_current_user_id(), $participationId, $purpose ) );
 	}
 
 	/** «Скопировать ссылку результата»: выдаёт новый ключ (прежний перестаёт работать). Право — `ShareExamResults`. */

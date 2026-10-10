@@ -26,6 +26,7 @@ use Inc\Services\Exam\ExamApprovalService;
 use Inc\Services\Exam\ExamAttemptService;
 use Inc\Services\Exam\ExamEventService;
 use Inc\Services\Exam\ExamHoldService;
+use Inc\Services\Exam\GuestApplicationService;
 use Inc\Services\Exam\ExamRegistrationService;
 use Inc\Services\Exam\ExamTime;
 use Inc\Shared\CodedException;
@@ -68,6 +69,7 @@ class ExamStandCommand implements ServiceInterface {
 		private readonly AssessmentAttemptRepository $attempts,
 		private readonly AssessmentAnswerRepository $answers,
 		private readonly ExamApprovalService $approvals,
+		private readonly GuestApplicationService $guestApplications,
 	) {}
 
 	public function register(): void {
@@ -87,6 +89,8 @@ class ExamStandCommand implements ServiceInterface {
 		WP_CLI::add_command( 'fs-lms exam stand-approve', array( $this, 'standApprove' ) );
 		WP_CLI::add_command( 'fs-lms exam stand-approve-all', array( $this, 'standApproveAll' ) );
 		WP_CLI::add_command( 'fs-lms exam stand-correct', array( $this, 'standCorrect' ) );
+		WP_CLI::add_command( 'fs-lms exam stand-needs-help', array( $this, 'standNeedsHelp' ) );
+		WP_CLI::add_command( 'fs-lms exam stand-resolve', array( $this, 'standResolve' ) );
 		WP_CLI::add_command( 'fs-lms exam stand-clean', array( $this, 'standClean' ) );
 	}
 
@@ -305,6 +309,82 @@ class ExamStandCommand implements ServiceInterface {
 			WP_CLI::line( 'held' );
 		} catch ( CodedException $e ) {
 			WP_CLI::line( $this->wordFor( $e ) );
+		} catch ( \Throwable $e ) {
+			WP_CLI::line( 'error:' . $this->oneLine( $e->getMessage() ) );
+		}
+	}
+
+	/**
+	 * Оплаченная заявка стенда без места (`paid_needs_resolution`) на сеансе — для сценария resolve-race. Печатает ID заявки.
+	 *
+	 * ## OPTIONS
+	 *
+	 * --session=<id>
+	 * : ID сеанса стенда, к которому относится заявка.
+	 *
+	 * [--n=<number>]
+	 * : Номер заявки (личность stand-need-<n>).
+	 *
+	 * @param array $args       Позиционные аргументы
+	 * @param array $assoc_args Именованные аргументы
+	 */
+	public function standNeedsHelp( array $args, array $assoc_args ): void {
+		$session = $this->sessions->find( (int) ( $assoc_args['session'] ?? 0 ) );
+		$sources = null !== $session ? $this->sources->listByEvent( $session->eventId ) : array();
+		if ( null === $session || array() === $sources ) {
+			WP_CLI::error( 'Нет сеанса или источника стенда.' );
+		}
+
+		$now           = $this->time->nowUtc();
+		$number        = (string) ( $assoc_args['n'] ?? '1' );
+		$participantId = $this->participants->insert( array( 'school_name' => self::TITLE_PREFIX, 'created_at' => $now, 'updated_at' => $now ) );
+		$id            = $this->applications->insert( array(
+			'event_id'       => $session->eventId,
+			'session_id'     => $session->id,
+			'source_id'      => $sources[0]->id,
+			'participant_id' => $participantId,
+			'identity_hash'  => hash( 'sha256', 'stand-need-' . $number ),
+			'active_slot'    => 1,
+			'state'          => 'paid_needs_resolution',
+			'is_held'        => 0,
+			'request_key'    => 'need' . $number,
+			'version'        => 1,
+			'created_at'     => $now,
+			'updated_at'     => $now,
+		) );
+		WP_CLI::line( (string) $id );
+	}
+
+	/**
+	 * Одна попытка ручного урегулирования заявки стенда от имени администратора. Печатает: resolved, refused или error:<текст>.
+	 *
+	 * ## OPTIONS
+	 *
+	 * --application=<id>
+	 * : ID заявки.
+	 *
+	 * --kind=<kind>
+	 * : transferred, refunded_outside или other.
+	 *
+	 * [--session=<id>]
+	 * : Сеанс переноса (для transferred).
+	 *
+	 * @param array $args       Позиционные аргументы
+	 * @param array $assoc_args Именованные аргументы
+	 */
+	public function standResolve( array $args, array $assoc_args ): void {
+		$kind = \Inc\Enums\Exam\ManualResolutionKind::tryFrom( (string) ( $assoc_args['kind'] ?? '' ) );
+		if ( null === $kind ) {
+			WP_CLI::line( 'error:неизвестный вид' );
+			return;
+		}
+
+		try {
+			$session = (int) ( $assoc_args['session'] ?? 0 );
+			$this->guestApplications->resolve( 1, (int) ( $assoc_args['application'] ?? 0 ), $kind, $session > 0 ? $session : null, 'стенд', \Inc\Enums\Exam\ManualResolutionKind::RefundedOutside === $kind ? '100' : null );
+			WP_CLI::line( 'resolved' );
+		} catch ( CodedException $e ) {
+			WP_CLI::line( ErrorCode::ExamFull === $e->errorCode || ErrorCode::ExamConflict === $e->errorCode ? 'refused' : 'error:' . $this->oneLine( $e->getMessage() ) );
 		} catch ( \Throwable $e ) {
 			WP_CLI::line( 'error:' . $this->oneLine( $e->getMessage() ) );
 		}

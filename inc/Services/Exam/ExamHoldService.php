@@ -7,13 +7,16 @@ namespace Inc\Services\Exam;
 use Inc\DTO\Exam\ExamGuestApplicationDTO;
 use Inc\Enums\Exam\ExamEventStatus;
 use Inc\Enums\Exam\ExamOutboxEvent;
+use Inc\Enums\Exam\ManualResolutionKind;
 use Inc\Enums\Exam\ExamSessionStatus;
 use Inc\Enums\Exam\GuestApplicationState;
 use Inc\Enums\Log\ErrorCode;
 use Inc\Repositories\WPDBRepositories\DuplicateKeyException;
 use Inc\Repositories\WPDBRepositories\ExamEventRepository;
 use Inc\Repositories\WPDBRepositories\ExamGuestApplicationRepository;
+use Inc\Repositories\WPDBRepositories\ExamManualResolutionRepository;
 use Inc\Repositories\WPDBRepositories\ExamParticipantRepository;
+use Inc\Repositories\WPDBRepositories\ExamParticipationRepository;
 use Inc\Repositories\WPDBRepositories\ExamSessionRepository;
 use Inc\Shared\CodedException;
 use Inc\Shared\PluginLogger;
@@ -47,6 +50,8 @@ class ExamHoldService {
 		private readonly ExamOutbox $outbox,
 		private readonly ExamTime $time,
 		private readonly GuestParticipantMaterializer $materializer,
+		private readonly ExamParticipationRepository $participations,
+		private readonly ExamManualResolutionRepository $resolutions,
 	) {}
 
 	/**
@@ -210,6 +215,73 @@ class ExamHoldService {
 	}
 
 	/**
+	 * Ручное урегулирование оплаченной заявки без места (`paid_needs_resolution`), одна транзакция под блокировкой заявки:
+	 * - `Transferred` — заявка записывается в выбранный сеанс **того же проведения** (место занимается заново, участник и запись создаются);
+	 * - `RefundedOutside` / `Other` — заявка закрывается (`cancelled`), место не занимается. Возврат денег и заказ WooCommerce здесь **не затрагиваются**.
+	 * Всегда — строка в `exam_manual_resolutions` (вид, причина, автор, сумма, старый и новый сеанс). Повтор по уже урегулированной заявке — отказ.
+	 *
+	 * @throws CodedException
+	 */
+	public function resolveManually( int $actorUserId, int $applicationId, ManualResolutionKind $kind, ?int $targetSessionId, string $reason, ?string $amount ): ExamGuestApplicationDTO {
+		return $this->inTransactionWithRetry( function () use ( $actorUserId, $applicationId, $kind, $targetSessionId, $reason, $amount ): ExamGuestApplicationDTO {
+			$application = $this->applications->findForUpdate( $applicationId );
+			if ( null === $application ) {
+				throw new CodedException( ErrorCode::ExamConflict, 'Заявка не найдена.' );
+			}
+			if ( GuestApplicationState::PaidNeedsResolution->value !== $application->state ) {
+				throw new CodedException( ErrorCode::ExamConflict, 'Заявка уже урегулирована или не требует разбора.' );
+			}
+			$now = $this->time->nowUtc();
+
+			if ( ManualResolutionKind::Transferred === $kind ) {
+				$target = null !== $targetSessionId ? $this->sessions->find( $targetSessionId ) : null;
+				if ( null === $target || $target->eventId !== $application->eventId ) {
+					throw new CodedException( ErrorCode::ExamConflict, 'Выберите сеанс этого же проведения.' );
+				}
+				// Личность могла оформить новую заявку: вернуть ей активный слот второй раз нельзя.
+				if ( $this->applications->hasActiveByIdentity( $application->eventId, $application->identityHash, $application->id ) ) {
+					throw new CodedException( ErrorCode::ExamConflict, 'У гостя уже есть другая активная заявка на это проведение.' );
+				}
+
+				$participantId = $application->participantId ?? $this->createParticipant( $application );
+				$result        = $this->registrations->confirmByStaff( $participantId, $target->id, 'app-' . $application->id, $application->sourceId, $actorUserId );
+				$resolved      = $this->finalize( $application, $participantId, $result->participationId, $result->registrationId );
+				$this->resolutions->insert( array(
+					'application_id'   => $application->id,
+					'participation_id' => $result->participationId,
+					'kind'             => $kind->value,
+					'reason'           => $reason,
+					'actor_user_id'    => $actorUserId,
+					'old_session_id'   => $application->sessionId,
+					'new_session_id'   => $target->id,
+					'created_at'       => $now,
+				) );
+
+				return $resolved;
+			}
+
+			$updated = $this->applications->update( $application->id, array( 'state' => GuestApplicationState::Cancelled->value, 'active_slot' => null, 'is_held' => 0 ), $application->version );
+			if ( ! $updated ) {
+				throw new \RuntimeException( 'Заявка изменилась во время урегулирования.' );
+			}
+			$row = array(
+				'application_id' => $application->id,
+				'kind'           => $kind->value,
+				'reason'         => $reason,
+				'actor_user_id'  => $actorUserId,
+				'old_session_id' => $application->sessionId,
+				'created_at'     => $now,
+			);
+			if ( null !== $amount ) {
+				$row['amount'] = $amount;
+			}
+			$this->resolutions->insert( $row );
+
+			return $this->reload( $application->id );
+		} );
+	}
+
+	/**
 	 * Освобождает бронь одной заявки: компенсация сбоя корзины, удаление позиции, отмена сотрудником.
 	 *
 	 * @return bool true — место освобождено этим вызовом; false — бронь уже снята.
@@ -315,6 +387,11 @@ class ExamHoldService {
 		if ( ! $updated ) {
 			throw new \RuntimeException( 'Заявка изменилась во время подтверждения.' );
 		}
+
+		// Согласия заявки переходят в участие: по `pd_transfer` решается, можно ли включать гостя в школьный отчёт (этап 12).
+		$refs = null !== $application->consentRefs ? json_decode( $application->consentRefs, true ) : null;
+		$refs = is_array( $refs ) ? $refs : array();
+		$this->participations->setConsent( $participationId, $application->consentRefs, (int) ( $refs[ GuestApplicationService::CONSENT_TRANSFER ] ?? 0 ) > 0 );
 
 		return $this->reload( $application->id );
 	}

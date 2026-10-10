@@ -28,6 +28,9 @@ enum EntityType: string {
 	case ExamSource     = 'exam_source';
 	case ExamAttempt    = 'exam_attempt';
 	case ExamParticipation = 'exam_participation';
+	case ExamReport        = 'exam_report';
+	case ExamApplication   = 'exam_application';
+	case ExamParticipant   = 'exam_participant';
 
 	public function label(): string {
 		return match ( $this ) {
@@ -47,6 +50,9 @@ enum EntityType: string {
 			self::ExamSource     => 'Источник приглашений на экзамен',
 			self::ExamAttempt    => 'Результат экзамена',
 			self::ExamParticipation => 'Участие в экзамене',
+			self::ExamReport        => 'Школьный отчёт',
+			self::ExamApplication   => 'Гостевая заявка на экзамен',
+			self::ExamParticipant   => 'Участник экзамена',
 		};
 	}
 

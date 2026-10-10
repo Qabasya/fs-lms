@@ -46,6 +46,7 @@ class ExamSourceCallbacks extends BaseController {
 		$version  = $this->hasParam( 'version' ) ? $this->sanitizeInt( 'version' ) : null;
 		$input    = array(
 			'school_name'  => $this->sanitizeText( 'school_name' ),
+			'school_key'   => $this->sanitizeKey( 'school_key' ),
 			'teacher_name' => $this->sanitizeText( 'teacher_name' ),
 			'grade'        => $this->sanitizeInt( 'grade' ),
 		);

@@ -38,6 +38,36 @@ class ExamReportRepository extends AbstractExamRepository {
 	}
 
 	/**
+	 * Все отчёты проведения, в том числе отозванные: сотруднику виден список целиком, состояние решает сервис.
+	 *
+	 * @return ExamReportDTO[]
+	 */
+	public function listByEvent( int $eventId ): array {
+		$rows = $this->readRows( $this->wpdb->prepare( 'SELECT * FROM %i WHERE event_id = %d ORDER BY id DESC', $this->table, $eventId ) );
+		return array_map( array( ExamReportDTO::class, 'fromArray' ), $rows );
+	}
+
+	/**
+	 * Меняет отзыв отчёта и поднимает версию: условный `UPDATE` по версии, которую видела вкладка.
+	 *
+	 * @return bool true — ровно одна строка; false — версия устарела.
+	 */
+	public function setRevoked( int $id, ?string $revokedAtUtc, int $expectedVersion ): bool {
+		if ( null === $revokedAtUtc ) {
+			$sql = $this->wpdb->prepare( 'UPDATE %i SET revoked_at = NULL, version = version + 1 WHERE id = %d AND version = %d', $this->table, $id, $expectedVersion );
+		} else {
+			$sql = $this->wpdb->prepare( 'UPDATE %i SET revoked_at = %s, version = version + 1 WHERE id = %d AND version = %d', $this->table, $revokedAtUtc, $id, $expectedVersion );
+		}
+
+		return 1 === $this->write( $sql );
+	}
+
+	/** Поднимает версию отчёта (изменился состав). @return bool false — версия устарела. */
+	public function bumpVersion( int $id, int $expectedVersion ): bool {
+		return 1 === $this->write( $this->wpdb->prepare( 'UPDATE %i SET version = version + 1 WHERE id = %d AND version = %d', $this->table, $id, $expectedVersion ) );
+	}
+
+	/**
 	 * @param array<string, mixed> $data
 	 *
 	 * @return int Число затронутых строк.

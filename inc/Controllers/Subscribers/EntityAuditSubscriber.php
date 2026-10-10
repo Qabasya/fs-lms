@@ -102,6 +102,9 @@ class EntityAuditSubscriber implements ServiceInterface {
 			LogEvent::ExamSourceCreated,
 			LogEvent::ExamSourceUpdated,
 			// Ссылки гостя экзамена
+			LogEvent::ExamReportChanged,
+			LogEvent::ExamPaymentResolved,
+			LogEvent::ExamGuestAnonymized,
 			LogEvent::ExamGuestLinkIssued,
 			LogEvent::ExamGuestLinkRevoked,
 			// Исправление утверждённого результата экзамена

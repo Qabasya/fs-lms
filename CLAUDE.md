@@ -269,6 +269,14 @@ CSV-импорт учеников, два режима (`Inc\Enums\Import\Import
 Спецификация и задачи — `.docs/public-exam-feature/` (`tasks/README.md` — контракт имён). Правила транзакций, блокировок, времени и
 раскрытия результата, найденные при рефакторинге, — `inc/Services/Exam/CLAUDE.md` (грузится при работе с каталогом).
 
+### Экзамены вне курса (`inc/*/Exam/`)
+
+Код — `inc/Services/Exam`, `Callbacks/Exam`, `Controllers/Exam`, `Repositories/WPDBRepositories/Exam*`, `DTO/Exam`, `Enums/Exam`; кабинет — `src/js/profile/exams`, сайт — `src/js/frontend/services/exam-*.js`.
+Ядро не знает модулей: число единиц, шкала, длительность и направление приходят фильтром `fs_lms_exam_formats` (`ExamFormatRegistry`). Время в `exam_*` — **UTC**, переводит только `ExamTime`.
+Порядок блокировок: участник → участие → сеансы по возрастанию ID; кабинет — до сеанса. Экзаменные попытки (`exam_participation_id IS NOT NULL`) не должны попадать в старые выборки курса.
+Гость — не пользователь WordPress (сессия по куке, `GuestSessionService`); вариант после первого старта заморожен (`ExamVariantGuard`). Правила, найденные при реализации, — `inc/Services/Exam/CLAUDE.md`;
+спецификация, контракт имён и результаты приёмки — `.docs/public-exam-feature/` (`SPEC.md`, `tasks/README.md`, `HANDOFF.md`, `ACCEPTANCE.md`).
+
 ### Вход (`inc/Controllers/Person/AuthPageController.php`)
 
 Вход — только по логину и паролю, штатным механизмом WordPress. Страница `/sign-in/`

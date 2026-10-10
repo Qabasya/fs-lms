@@ -72,6 +72,12 @@ class ExamParticipationRepository extends AbstractExamRepository {
 		return array_map( array( ExamParticipationDTO::class, 'fromArray' ), $rows );
 	}
 
+	/** @return ExamParticipationDTO[] Все участия участника (для обезличивания: ключи, сессии, попытки). */
+	public function findByParticipant( int $participantId ): array {
+		$rows = $this->readRows( $this->wpdb->prepare( 'SELECT * FROM %i WHERE participant_id = %d', $this->table, $participantId ) );
+		return array_map( array( ExamParticipationDTO::class, 'fromArray' ), $rows );
+	}
+
 	/** @return int[] ID проведений, в которых у ученика есть участие. */
 	public function findEventIdsForPerson( int $personId ): array {
 		return $this->readInts( $this->wpdb->prepare(
@@ -116,6 +122,21 @@ class ExamParticipationRepository extends AbstractExamRepository {
 
 	public function setActiveRegistration( int $participationId, ?int $registrationId ): void {
 		$this->setNullableInt( 'active_registration_id', $participationId, $registrationId );
+	}
+
+	/**
+	 * Согласия гостя, данные в заявке: JSON `{тип: id согласия}` и признак согласия на передачу результата школе (`pd_transfer`).
+	 * Пишется при подтверждении заявки; `version` не меняет — согласие не указатель вкладки.
+	 */
+	public function setConsent( int $participationId, ?string $consentRefsJson, bool $transferAllowed ): void {
+		$this->write( $this->wpdb->prepare(
+			'UPDATE %i SET consent_refs = %s, transfer_allowed = %d, updated_at = %s WHERE id = %d',
+			$this->table,
+			(string) $consentRefsJson,
+			$transferAllowed ? 1 : 0,
+			gmdate( 'Y-m-d H:i:s' ),
+			$participationId
+		) );
 	}
 
 	/** Допуск гостя на площадке: отметка и автор; `null` снимает допуск. `version` не меняет — допуск не указатель вкладки. */

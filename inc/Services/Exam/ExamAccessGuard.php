@@ -121,6 +121,15 @@ class ExamAccessGuard {
 	}
 
 	/**
+	 * Может ли пользователь разбирать оплаты гостей проведения: офис и администратор (`ResolveExamPayments`) — любого проведения,
+	 * преподаватель (`ManageExams`) — только своего.
+	 */
+	public function canResolvePayments( int $userId, ExamEventDTO $event ): bool {
+		return user_can( $userId, Capability::ResolveExamPayments->value )
+			|| ( user_can( $userId, Capability::ManageExams->value ) && $this->canManageEvent( $userId, $event ) );
+	}
+
+	/**
 	 * Предметы из переданного списка, которыми пользователь может управлять.
 	 *
 	 * Для селектора предмета: глобальному пользователю — все, локальному — пересечение.

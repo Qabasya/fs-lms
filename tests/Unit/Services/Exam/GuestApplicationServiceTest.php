@@ -55,6 +55,8 @@ class GuestApplicationServiceTest extends TestCase {
 	private ExamOutbox&MockObject $outbox;
 	private RateLimitService&MockObject $rate;
 	private UserRepository&MockObject $users;
+	private \Inc\Services\Exam\ExamAccessGuard&MockObject $guard;
+	private \Inc\Contracts\LogEventDispatcherInterface&MockObject $log;
 	private GuestApplicationService $service;
 
 	/** @var array<string, mixed> */
@@ -77,6 +79,8 @@ class GuestApplicationServiceTest extends TestCase {
 		$this->outbox         = $this->createMock( ExamOutbox::class );
 		$this->rate           = $this->createMock( RateLimitService::class );
 		$this->users          = $this->createMock( UserRepository::class );
+		$this->guard          = $this->createMock( \Inc\Services\Exam\ExamAccessGuard::class );
+		$this->log            = $this->createMock( \Inc\Contracts\LogEventDispatcherInterface::class );
 
 		$this->crypto->method( 'encrypt' )->willReturnCallback( static fn ( string $v ): string => 'ENC(' . base64_encode( $v ) . ')' );
 		$this->crypto->method( 'hash' )->willReturnCallback( static fn ( string $v ): string => hash( 'sha256', mb_strtolower( trim( $v ) ) ) );
@@ -109,7 +113,9 @@ class GuestApplicationServiceTest extends TestCase {
 		return new GuestApplicationService(
 			$this->applications, $this->participants, $this->participations, $this->events, $this->sessions, $this->holds, $identity, $this->crypto, $this->consents,
 			$this->config, $this->outbox, $this->rate, $this->users,
-			new GuestParticipantMaterializer( $this->participants, $this->crypto, $identity, $this->createStub( \Inc\Services\Exam\ExamTime::class ) )
+			new GuestParticipantMaterializer( $this->participants, $this->crypto, $identity, $this->createStub( \Inc\Services\Exam\ExamTime::class ) ),
+			$this->guard,
+			$this->log
 		);
 	}
 
@@ -335,5 +341,83 @@ class GuestApplicationServiceTest extends TestCase {
 
 		$this->expectException( \RuntimeException::class );
 		$this->build()->apply( $this->source(), $this->form(), $this->ctx(), 'req-1' );
+	}
+
+	// ---- ручное урегулирование (8.8.4) ----------------------------------------------------------------------------------------------
+
+	private function needsHelpApplication(): ExamGuestApplicationDTO {
+		return ExamGuestApplicationDTO::fromArray( array(
+			'id' => '9', 'event_id' => '3', 'session_id' => '7', 'source_id' => '14', 'identity_hash' => 'h', 'state' => 'paid_needs_resolution', 'is_held' => '0',
+			'request_key' => 'k', 'version' => '2', 'created_at' => '2026-03-01 00:00:00', 'updated_at' => '2026-03-01 00:00:00',
+		) );
+	}
+
+	private function arrangeResolvable( bool $allowed = true ): void {
+		$this->applications->method( 'find' )->willReturn( $this->needsHelpApplication() );
+		$this->guard->method( 'canResolvePayments' )->willReturn( $allowed );
+	}
+
+	public function test_resolve_requires_reason(): void {
+		$this->arrangeResolvable();
+		$this->holds->expects( self::never() )->method( 'resolveManually' );
+
+		$this->expectException( CodedException::class );
+		$this->expectExceptionMessage( 'Укажите причину.' );
+		$this->service->resolve( 77, 9, \Inc\Enums\Exam\ManualResolutionKind::Other, null, '  ', null );
+	}
+
+	public function test_resolve_requires_scope_over_event(): void {
+		$this->arrangeResolvable( false );
+		$this->holds->expects( self::never() )->method( 'resolveManually' );
+
+		$this->expectException( CodedException::class );
+		$this->service->resolve( 77, 9, \Inc\Enums\Exam\ManualResolutionKind::Other, null, 'Причина', null );
+	}
+
+	public function test_resolve_refund_requires_positive_amount(): void {
+		$this->arrangeResolvable();
+		$this->holds->expects( self::never() )->method( 'resolveManually' );
+
+		foreach ( array( null, '', '0', '-5', 'abc' ) as $amount ) {
+			try {
+				$this->service->resolve( 77, 9, \Inc\Enums\Exam\ManualResolutionKind::RefundedOutside, null, 'Вернули', $amount );
+				self::fail( 'Сумма обязательна: ' . var_export( $amount, true ) );
+			} catch ( CodedException $e ) {
+				self::assertSame( 'Укажите сумму возврата.', $e->getMessage() );
+			}
+		}
+	}
+
+	public function test_resolve_transfer_requires_session(): void {
+		$this->arrangeResolvable();
+		$this->holds->expects( self::never() )->method( 'resolveManually' );
+
+		$this->expectException( CodedException::class );
+		$this->service->resolve( 77, 9, \Inc\Enums\Exam\ManualResolutionKind::Transferred, null, 'Перенос', null );
+	}
+
+	public function test_resolve_refunded_outside_never_calls_woo_refund(): void {
+		$this->arrangeResolvable();
+		$this->holds->expects( self::once() )->method( 'resolveManually' )->with( 77, 9, \Inc\Enums\Exam\ManualResolutionKind::RefundedOutside, null, 'Вернули в ЮKassa', '1500.00' )->willReturn( $this->needsHelpApplication() );
+		$this->log->expects( self::once() )->method( 'dispatch' )->with( \Inc\Enums\Log\LogEvent::ExamPaymentResolved, self::anything() );
+
+		$this->service->resolve( 77, 9, \Inc\Enums\Exam\ManualResolutionKind::RefundedOutside, null, 'Вернули в ЮKassa', '1 500,00' );
+
+		// Ни сервис урегулирования, ни ядро ручного разбора не знают магазина: возврат, статус заказа и письма Woo не вызываются.
+		foreach ( array( 'ExamHoldService.php', 'GuestApplicationService.php', 'ExamPaymentQueueService.php' ) as $file ) {
+			$source = (string) file_get_contents( __DIR__ . '/../../../../inc/Services/Exam/' . $file );
+			self::assertDoesNotMatchRegularExpression( '/WooGateway|wc_create_refund|->refund\(|wc_get_order|update_status|EmailTemplateType/', $source, $file );
+		}
+	}
+
+	public function test_resolve_writes_audit_with_kind_reason_and_amount(): void {
+		$this->arrangeResolvable();
+		$this->holds->method( 'resolveManually' )->willReturn( $this->needsHelpApplication() );
+		$this->log->expects( self::once() )->method( 'dispatch' )->with(
+			\Inc\Enums\Log\LogEvent::ExamPaymentResolved,
+			self::callback( static fn ( $e ): bool => 77 === $e->actorUserId && 9 === $e->entityId && str_contains( (string) $e->oldLabel, 'Вернули' ) && str_contains( (string) $e->oldLabel, '1500.00' ) )
+		);
+
+		$this->service->resolve( 77, 9, \Inc\Enums\Exam\ManualResolutionKind::RefundedOutside, null, 'Вернули в ЮKassa', '1500' );
 	}
 }

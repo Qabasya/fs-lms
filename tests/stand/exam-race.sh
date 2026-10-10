@@ -5,7 +5,7 @@
 # Параллельные процессы `wp fs-lms exam stand-*` запускаются внутри контейнера WordPress через `xargs -P`.
 #
 # Запуск:   tests/stand/exam-race.sh [--scenario=<имя|all>] [--runs=<N>] [--seats=<n>] [--participants=<m>]
-# Сценарии: last-seat, multi-session, same-participant, two-sessions, guest-vs-student, expired-hold, room-race, start-vs-missed
+# Сценарии: last-seat, multi-session, same-participant, two-sessions, guest-vs-student, expired-hold, room-race, resolve-race, start-vs-missed
 # Код выхода: 0 — все проверки сошлись; 1 — есть расхождение (печатается FAIL с числами).
 #
 # Окружение (значения по умолчанию подходят dev-стенду из CLAUDE.md):
@@ -224,7 +224,8 @@ scenario_room_race() {
 		FAILED=1
 		return
 	fi
-	day=$(date -d '+5 days' +%Y-%m-%d)
+	# Дата считается в контейнере (GNU date): на macOS у хоста `date -d` нет.
+	day=$(docker exec "$CONTAINER" date -d '+5 days' +%Y-%m-%d)
 
 	# Каждый процесс создаёт своё проведение: так сеансы разных проведений борются за один кабинет, и только блокировка кабинета
 	# не даёт назначить его дважды (в одном проведении их бы сериализовала блокировка самого проведения).
@@ -237,6 +238,31 @@ scenario_room_race() {
 	check room-race "$([ "$created" -eq 1 ] && [ "$rows" -eq 1 ] && echo 1 || echo 0)" "создан ровно один сеанс"
 	check room-race "$([ "$conflicts" -eq $((PARALLEL - 1)) ] && echo 1 || echo 0)" "остальные получили «кабинет занят»"
 	check room-race "$([ "$(has_errors "$answers")" -eq 0 ] && echo 1 || echo 0)" "ответов error: нет"
+}
+
+scenario_resolve_race() {
+	echo "== resolve-race: две оплаченные заявки без места, 20 процессов урегулируют их (перенос в сеанс на 1 место, возврат, «другое»)"
+	out=$(exam "stand-seed --seats=20,1 --participants=0 --sessions=2")
+	sessions=$(seed_value "$out" sessions)
+	home=$(echo "$sessions" | cut -d, -f1)
+	target=$(echo "$sessions" | cut -d, -f2)
+	app_a=$(exam "stand-needs-help --session=$home --n=1" | tail -1)
+	app_b=$(exam "stand-needs-help --session=$home --n=2" | tail -1)
+
+	answers=$( { for i in 1 2 3 4 5 6; do
+		echo "stand-resolve --application=$app_a --kind=transferred --session=$target"
+		echo "stand-resolve --application=$app_b --kind=transferred --session=$target"
+	done
+	for i in 1 2 3 4; do echo "stand-resolve --application=$app_a --kind=other"; echo "stand-resolve --application=$app_b --kind=refunded_outside"; done; } | par_n 20 )
+	resolved=$(count "$answers" resolved)
+	rows=$(docker exec "$DB_CONTAINER" mariadb -u root -proot wordpress -N -e "SELECT COUNT(*) FROM wp_fs_lms_exam_manual_resolutions WHERE application_id IN ($app_a, $app_b)")
+	left=$(docker exec "$DB_CONTAINER" mariadb -u root -proot wordpress -N -e "SELECT COUNT(*) FROM wp_fs_lms_exam_guest_applications WHERE id IN ($app_a, $app_b) AND state = 'paid_needs_resolution'")
+	report=$(exam "stand-report --session=$target")
+	echo "  ответы: resolved=$resolved; строк урегулирования=$rows; осталось без урегулирования=$left; целевой сеанс: $report"
+	check resolve-race "$([ "$resolved" -eq 2 ] && [ "$rows" -eq 2 ] && [ "$left" -eq 0 ] && echo 1 || echo 0)" "каждая заявка урегулирована ровно один раз (2 ответа resolved, 2 строки, 0 в очереди)"
+	check resolve-race "$([ "$(field "$report" occupied)" -eq "$(field "$report" active)" ] && [ "$(field "$report" occupied)" -le 1 ] && echo 1 || echo 0)" "в сеансе на 1 место занято не больше одного, occupied = числу действующих записей"
+	check resolve-race "$([ "$(field "$report" doubles)" -eq 0 ] && echo 1 || echo 0)" "двойных записей нет"
+	check resolve-race "$([ "$(has_errors "$answers")" -eq 0 ] && echo 1 || echo 0)" "ответов error: нет"
 }
 
 scenario_start_vs_missed() {
@@ -303,6 +329,7 @@ run() {
 			guest-vs-student) scenario_guest_vs_student ;;
 			expired-hold) scenario_expired_hold ;;
 			room-race) scenario_room_race ;;
+			resolve-race) scenario_resolve_race ;;
 			start-vs-missed) scenario_start_vs_missed ;;
 			*) echo "Неизвестный сценарий: $name" >&2; exit 2 ;;
 		esac
@@ -312,7 +339,7 @@ run() {
 }
 
 if [ "$SCENARIO" = "all" ]; then
-	for s in last-seat multi-session same-participant two-sessions guest-vs-student expired-hold room-race start-vs-missed; do
+	for s in last-seat multi-session same-participant two-sessions guest-vs-student expired-hold room-race resolve-race start-vs-missed; do
 		run "$s"
 	done
 else

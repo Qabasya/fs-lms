@@ -78,12 +78,12 @@ class ExamReviewProjection {
 	}
 
 	/**
-	 * Разбор для гостя по участию из его гостевой сессии: попытка — текущая попытка этого участия, номер из запроса не принимается.
+	 * Разбор по участию (гость по своей сессии, школьный отчёт по составу отчёта): попытка — текущая попытка этого участия, номер из запроса не принимается.
 	 * Гостю разбор раскрыт сразу после сдачи ({@see AttemptService::isRevealed()}); до сдачи — `revealed = false`.
 	 *
 	 * @return array<string, mixed>|null null — участия или попытки нет.
 	 */
-	public function forGuest( int $participationId ): ?array {
+	public function forParticipation( int $participationId ): ?array {
 		$participation = $this->participations->find( $participationId );
 		$event         = null !== $participation ? $this->events->find( $participation->eventId ) : null;
 		if ( null === $participation || null === $event || null === $participation->currentAttemptId ) {

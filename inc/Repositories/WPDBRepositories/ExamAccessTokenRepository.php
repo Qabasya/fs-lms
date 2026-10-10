@@ -80,4 +80,15 @@ class ExamAccessTokenRepository extends AbstractExamRepository {
 			$id
 		) );
 	}
+
+	/** Удаляет ключи, истёкшие или отозванные раньше срока. @return int Число удалённых. */
+	public function purgeInactiveBefore( string $cutoffUtc, int $limit = 1000 ): int {
+		return $this->write( $this->wpdb->prepare(
+			'DELETE FROM %i WHERE ( revoked_at IS NOT NULL AND revoked_at < %s ) OR ( expires_at IS NOT NULL AND expires_at < %s ) LIMIT %d',
+			$this->table,
+			$cutoffUtc,
+			$cutoffUtc,
+			$limit
+		) );
+	}
 }

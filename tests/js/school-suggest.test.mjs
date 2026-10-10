@@ -158,3 +158,24 @@ describe( 'справочник SCHOOLS', () => {
 		assert.deepEqual( SCHOOLS, source, 'src/js/frontend/data/schools.js разошёлся с .docs/schools' );
 	} );
 } );
+
+describe( 'common/school-suggest: ядро без DOM', () => {
+	test( 'то же ядро отдаёт и тонкая обёртка сайта, и модуль common', async () => {
+		const common = await import( '../../src/js/common/school-suggest.js' );
+		assert.equal( common.findSchools, findSchools );
+		assert.equal( common.resolveBareNumber, resolveBareNumber );
+	} );
+
+	test( 'exactSchool находит школу справочника без учёта регистра, свободный ввод — null', async () => {
+		const { exactSchool } = await import( '../../src/js/common/school-suggest.js' );
+		assert.equal( exactSchool( 'маоу сош № 24' ), 'МАОУ СОШ № 24' );
+		assert.equal( exactSchool( 'Школа у моря' ), null );
+	} );
+
+	test( 'schoolKeyOf — устойчивый ASCII-ключ', async () => {
+		const { schoolKeyOf } = await import( '../../src/js/common/school-suggest.js' );
+		assert.match( schoolKeyOf( 'МАОУ СОШ № 24' ), /^school-[0-9a-f]{8}$/ );
+		assert.equal( schoolKeyOf( 'МАОУ СОШ № 24' ), schoolKeyOf( 'маоу сош № 24' ) );
+		assert.notEqual( schoolKeyOf( 'МАОУ СОШ № 24' ), schoolKeyOf( 'МАОУ СОШ № 25' ) );
+	} );
+} );

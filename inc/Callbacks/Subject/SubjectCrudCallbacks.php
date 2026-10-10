@@ -19,6 +19,7 @@ use Inc\Services\Deletion\DeleteSubjectEvent;
 use Inc\Services\Deletion\DeletionEventDispatcher;
 use Inc\Services\Subject\SubjectArchiveGuard;
 use Inc\Services\Subject\SubjectPagesService;
+use Inc\Services\Exam\ExamVariantGuard;
 use Inc\Shared\Traits\Authorizer;
 use Inc\Shared\Traits\Sanitizer;
 use Inc\Shared\Traits\TaxonomySeeder;
@@ -58,6 +59,7 @@ class SubjectCrudCallbacks extends BaseController {
 		private readonly GroupsRepository            $groups,
 		private readonly SubjectArchiveGuard         $archiveGuard,
 		private readonly SubjectPagesService         $pages,
+		private readonly ExamVariantGuard            $variantGuard,
 	) {
 		parent::__construct();
 	}
@@ -171,6 +173,12 @@ class SubjectCrudCallbacks extends BaseController {
 		$key = $this->requireKey( 'key', error: 'ID предмета обязателен' );
 
 		$this->requireExists( $key );
+
+		// Предмет с замороженным вариантом экзамена удалить нельзя: стёрлись бы задания сданных работ.
+		$freezing = $this->variantGuard->eventsFreezingSubject( $key );
+		if ( array() !== $freezing ) {
+			$this->error( 'Нельзя удалить предмет: его варианты используются в экзаменах — ' . implode( ', ', array_map( static fn ( string $t ): string => '«' . $t . '»', $freezing ) ) . '.' );
+		}
 
 		// Защита от случайного удаления: предмет с группами без явного подтверждения удалять нельзя —
 		// стёрлись бы когорты и история; предлагаем архив. С force=1 (после усиленного подтверждения

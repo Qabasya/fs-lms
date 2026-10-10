@@ -108,7 +108,7 @@ let cfg;
    mod.collapsed в course-builder.js — флаг переживает re-render buildSidebar()). */
 /* «Мои группы» и «Мои курсы» есть только у преподавателей/методистов/админов
    (у учеников и родителей секций нет) — у них по умолчанию свёрнуты. */
-const sidebarState = { navCollapsed: false, examsCollapsed: false, groupsCollapsed: true, coursesCollapsed: true, courseFilter: '' };
+const sidebarState = { navCollapsed: false, examsCollapsed: true, groupsCollapsed: true, coursesCollapsed: true, courseFilter: '' };
 const COURSE_SEARCH_THRESHOLD = 6;
 
 /* ── Routing ─────────────────────────────────────────────────────────── */

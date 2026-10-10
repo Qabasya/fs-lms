@@ -161,6 +161,32 @@ class ExamSessionRepository extends AbstractExamRepository {
 	}
 
 	/**
+	 * Варианты, замороженные экзаменом (13.2): сеанс начат (`first_started_at`) либо уже начался по времени и не отменён,
+	 * проведение не черновик. Пара «проведение — вариант», UTC-момент сравнения передаёт вызывающий.
+	 *
+	 * @return list<array{event_id: int, assessment_id: int, event_title: string, subject_key: string}>
+	 */
+	public function listFrozenVariants( string $nowUtc ): array {
+		$events = TableName::ExamEvents->prefixed();
+		$rows   = $this->readRows( $this->wpdb->prepare(
+			'SELECT DISTINCT s.event_id, s.assessment_id, e.title AS event_title, e.subject_key FROM %i s INNER JOIN %i e ON e.id = s.event_id
+			 WHERE e.status <> %s AND ( s.first_started_at IS NOT NULL OR ( s.status <> %s AND s.scheduled_at <= %s ) )',
+			$this->table,
+			$events,
+			ExamEventStatus::Draft->value,
+			ExamSessionStatus::Cancelled->value,
+			$nowUtc
+		) );
+
+		return array_map( static fn ( array $r ): array => array(
+			'event_id'      => (int) $r['event_id'],
+			'assessment_id' => (int) $r['assessment_id'],
+			'event_title'   => (string) $r['event_title'],
+			'subject_key'   => (string) $r['subject_key'],
+		), $rows );
+	}
+
+	/**
 	 * Занимает место одним условным запросом: вместимость и статус проверяются в самой базе,
 	 * поэтому два одновременных запроса не продадут одно место дважды.
 	 *

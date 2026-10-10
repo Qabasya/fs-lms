@@ -64,6 +64,15 @@ enum LogEvent: string {
 	case ExamSourceUpdated = 'exam_source.updated';
 
 	// Ссылки гостя экзамена (вход и результат): выдача и отзыв; в метке — вид ссылки
+	// Школьные отчёты: создание, состав, выдача и отзыв ссылки; в метке — что именно
+	case ExamReportChanged    = 'exam_report.changed';
+
+	// Обезличивание гостя экзамена по сроку хранения или по запросу; в метке — причина
+	case ExamGuestAnonymized  = 'exam_guest.anonymized';
+
+	// Ручное урегулирование оплаченной заявки без места: в метке — вид, причина, сумма
+	case ExamPaymentResolved  = 'exam_payment.resolved';
+
 	case ExamGuestLinkIssued  = 'exam_guest_link.issued';
 	case ExamGuestLinkRevoked = 'exam_guest_link.revoked';
 

@@ -37,6 +37,34 @@ class ExamReportMemberRepository extends AbstractExamRepository {
 		return array_map( array( ExamReportMemberDTO::class, 'fromArray' ), $rows );
 	}
 
+	/** @return bool true — участие добавлено; false — оно уже в отчёте (уникальный индекс). */
+	public function add( int $reportId, int $participationId, ?int $consentRef, string $nowUtc ): bool {
+		if ( null === $consentRef ) {
+			$sql = $this->wpdb->prepare( 'INSERT IGNORE INTO %i ( report_id, participation_id, created_at ) VALUES ( %d, %d, %s )', $this->table, $reportId, $participationId, $nowUtc );
+		} else {
+			$sql = $this->wpdb->prepare( 'INSERT IGNORE INTO %i ( report_id, participation_id, consent_ref, created_at ) VALUES ( %d, %d, %d, %s )', $this->table, $reportId, $participationId, $consentRef, $nowUtc );
+		}
+
+		return 1 === $this->write( $sql );
+	}
+
+	public function remove( int $reportId, int $participationId ): bool {
+		return 1 === $this->write( $this->wpdb->prepare( 'DELETE FROM %i WHERE report_id = %d AND participation_id = %d', $this->table, $reportId, $participationId ) );
+	}
+
+	public function isMember( int $reportId, int $participationId ): bool {
+		return 0 !== $this->readInt( $this->wpdb->prepare( 'SELECT id FROM %i WHERE report_id = %d AND participation_id = %d', $this->table, $reportId, $participationId ) );
+	}
+
+	/**
+	 * Участия отчёта в порядке включения: номер строки в отчёте (`p=`) — порядковый номер из этого списка.
+	 *
+	 * @return int[]
+	 */
+	public function listParticipationIds( int $reportId ): array {
+		return $this->readInts( $this->wpdb->prepare( 'SELECT participation_id FROM %i WHERE report_id = %d ORDER BY id ASC', $this->table, $reportId ) );
+	}
+
 	/**
 	 * @param array<string, mixed> $data
 	 *

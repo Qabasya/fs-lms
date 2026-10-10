@@ -4,7 +4,13 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Exam;
 
+use Inc\Contracts\LogEventDispatcherInterface;
 use Inc\DTO\Exam\ExamGuestApplicationDTO;
+use Inc\DTO\Log\Events\EntityChangedEvent;
+use Inc\Enums\Exam\ManualResolutionKind;
+use Inc\Enums\Log\EntityType;
+use Inc\Enums\Log\LogEvent;
+use Inc\Enums\Log\OperationType;
 use Inc\DTO\Exam\ExamSourceDTO;
 use Inc\DTO\RequestContextDTO;
 use Inc\Enums\Access\UserRole;
@@ -62,7 +68,63 @@ class GuestApplicationService {
 		private readonly RateLimitService $rateLimit,
 		private readonly UserRepository $users,
 		private readonly GuestParticipantMaterializer $materializer,
+		private readonly ExamAccessGuard $guard,
+		private readonly LogEventDispatcherInterface $logEvents,
 	) {}
+
+	/**
+	 * Ручное урегулирование оплаченной заявки «мест нет» (8.8.4): перенос в сеанс, возврат вне магазина или отметка.
+	 *
+	 * Права и область: офис и администратор — любое проведение, преподаватель — своё ({@see ExamAccessGuard::canResolvePayments()}).
+	 * **Возврат вне магазина** не вызывает refund API WooCommerce, не меняет статус заказа и не шлёт писем: деньги возвращает сотрудник вручную;
+	 * сумма обязательна. Причина обязательна всегда. Результат записывается в `exam_manual_resolutions` и в журнал.
+	 *
+	 * @throws CodedException
+	 */
+	public function resolve( int $actorUserId, int $applicationId, ManualResolutionKind $kind, ?int $sessionId, string $reason, ?string $amount ): ExamGuestApplicationDTO {
+		$reason = trim( $reason );
+		if ( '' === $reason ) {
+			throw new CodedException( ErrorCode::ExamConflict, 'Укажите причину.' );
+		}
+		if ( ManualResolutionKind::Pending === $kind ) {
+			throw new CodedException( ErrorCode::ExamConflict, 'Выберите, как урегулировать заявку.' );
+		}
+
+		$application = $this->applications->find( $applicationId );
+		$event       = null !== $application ? $this->events->find( $application->eventId ) : null;
+		if ( null === $application || null === $event || ! $this->guard->canResolvePayments( $actorUserId, $event ) ) {
+			throw new CodedException( ErrorCode::ExamAccess, 'Заявка не найдена.' );
+		}
+
+		$normalizedAmount = null;
+		if ( ManualResolutionKind::RefundedOutside === $kind ) {
+			$normalizedAmount = $this->normalizeAmount( (string) $amount );
+		}
+		if ( ManualResolutionKind::Transferred === $kind && ( null === $sessionId || $sessionId <= 0 ) ) {
+			throw new CodedException( ErrorCode::ExamConflict, 'Выберите сеанс.' );
+		}
+
+		$resolved = $this->holds->resolveManually( $actorUserId, $applicationId, $kind, $sessionId, $reason, $normalizedAmount );
+		$this->logEvents->dispatch( LogEvent::ExamPaymentResolved, new EntityChangedEvent(
+			$actorUserId,
+			OperationType::Update,
+			EntityType::ExamApplication,
+			$applicationId,
+			sprintf( '%s: %s%s', $kind->label(), $reason, null !== $normalizedAmount ? ' (' . $normalizedAmount . ' ₽)' : '' )
+		) );
+
+		return $resolved;
+	}
+
+	/** Сумма возврата: положительное число с копейками, формат `NNN.NN`. @throws CodedException */
+	private function normalizeAmount( string $amount ): string {
+		$clean = str_replace( array( ' ', ',' ), array( '', '.' ), trim( $amount ) );
+		if ( '' === $clean || ! is_numeric( $clean ) || (float) $clean <= 0 || (float) $clean > 9999999.99 ) {
+			throw new CodedException( ErrorCode::ExamConflict, 'Укажите сумму возврата.' );
+		}
+
+		return number_format( (float) $clean, 2, '.', '' );
+	}
 
 	/**
 	 * @param array<string, mixed> $form `last_name`, `first_name`, `middle_name?`, `phone`, `messenger?`, `session_id`, `consents` (список ключей)

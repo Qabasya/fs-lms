@@ -29,6 +29,7 @@ class ExamConductCallbacksTest extends TestCase {
 	private ExamApprovalService&MockObject $approval;
 	private ExportService&MockObject $exports;
 	private \Inc\Services\Exam\GuestOnSiteService&MockObject $onSite;
+	private \Inc\Services\Exam\ExamRetentionService&MockObject $retention;
 	private ExamConductCallbacks $cb;
 
 	protected function setUp(): void {
@@ -42,8 +43,9 @@ class ExamConductCallbacksTest extends TestCase {
 		$this->approval     = $this->createMock( ExamApprovalService::class );
 		$this->exports      = $this->createMock( ExportService::class );
 		$this->onSite       = $this->createMock( \Inc\Services\Exam\GuestOnSiteService::class );
+		$this->retention    = $this->createMock( \Inc\Services\Exam\ExamRetentionService::class );
 		$this->conduct->method( 'sessionBoard' )->willReturn( array( 'session' => array( 'id' => 7 ), 'rows' => array() ) );
-		$this->cb = new ExamConductCallbacks( $this->conduct, $this->registration, $this->attempts, $this->approval, $this->exports, $this->onSite );
+		$this->cb = new ExamConductCallbacks( $this->conduct, $this->registration, $this->attempts, $this->approval, $this->exports, $this->onSite, $this->retention );
 	}
 
 	protected function tearDown(): void {
@@ -314,5 +316,29 @@ class ExamConductCallbacksTest extends TestCase {
 		$this->onSite->expects( self::never() )->method( 'reissuePayLink' );
 
 		self::assertFalse( fs_test_capture_json( fn() => $this->cb->ajaxIssueExamGuestPayLink() )->success );
+	}
+
+	// ── 13.3.5 удаление данных гостя ──────────────────────────────────────────────────────────────
+
+	public function test_manual_anonymize_requires_both_caps_and_reason(): void {
+		$_POST = array( 'participant_id' => '9', 'session_id' => '7', 'reason' => 'Запрос представителя' );
+		$this->retention->expects( self::never() )->method( 'anonymizeByStaff' );
+
+		// Только право на гостей, без права на раздел: отказ.
+		$GLOBALS['_fs_test_can_callback'] = static fn ( string $cap ): bool => 'manage_lms_exam_guests' === $cap;
+		self::assertFalse( fs_test_capture_json( fn() => $this->cb->ajaxAnonymizeExamGuest() )->success );
+
+		// Только право на раздел, без права на гостей: отказ.
+		$GLOBALS['_fs_test_can_callback'] = static fn ( string $cap ): bool => 'manage_lms_exam_guests' !== $cap;
+		self::assertFalse( fs_test_capture_json( fn() => $this->cb->ajaxAnonymizeExamGuest() )->success );
+		unset( $GLOBALS['_fs_test_can_callback'] );
+	}
+
+	public function test_manual_anonymize_passes_reason_to_service(): void {
+		$_POST = array( 'participant_id' => '9', 'session_id' => '7', 'reason' => 'Запрос представителя' );
+		$this->retention->expects( self::once() )->method( 'anonymizeByStaff' )->with( self::anything(), 9, 'Запрос представителя' );
+		$this->conduct->method( 'sessionBoard' )->willReturn( array( 'rows' => array() ) );
+
+		self::assertTrue( fs_test_capture_json( fn() => $this->cb->ajaxAnonymizeExamGuest() )->success );
 	}
 }

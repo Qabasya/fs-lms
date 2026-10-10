@@ -90,10 +90,11 @@ class ExamRegistrationServiceTest extends TestCase {
 		$clock = $this->createMock( ClockInterface::class );
 		$clock->method( 'now' )->willReturnCallback( static fn ( string $type = 'mysql', bool $gmt = false ): string => $gmt ? '2026-03-10 07:00:00' : '2026-03-10 10:00:00' );
 
+		$this->resolutions = $this->createMock( \Inc\Repositories\WPDBRepositories\ExamManualResolutionRepository::class );
 		$this->service = new ExamRegistrationService(
 			$this->events, $this->sessions, $this->participants, $this->participations, $this->registrations,
 			$this->operationKeys, $this->audience, $this->accessGuard, $this->outbox, new ExamTime( $clock ),
-			$this->guestApplications, $this->lessons,
+			$this->guestApplications, $this->lessons, $this->resolutions,
 		);
 
 		$this->eventDto = $this->event();
@@ -891,6 +892,8 @@ class ExamRegistrationServiceTest extends TestCase {
 		$this->addToAssertionCount( 1 );
 	}
 
+	private \Inc\Repositories\WPDBRepositories\ExamManualResolutionRepository&\PHPUnit\Framework\MockObject\MockObject $resolutions;
+
 	private function arrangeStaffScope( bool $canManage ): void {
 		$this->registrations->method( 'find' )->willReturn( $this->registration() );
 		$this->participations->method( 'find' )->willReturn( $this->participation() );
@@ -979,5 +982,71 @@ class ExamRegistrationServiceTest extends TestCase {
 		self::assertSame( self::REGISTRATION, $history[0]['registration_id'] );
 		self::assertSame( 'confirmed', $history[0]['status'] );
 		self::assertFalse( ( new \ReflectionClass( ExamRegistrationRepository::class ) )->hasMethod( 'delete' ), 'Строки записей не удаляются ни одной операцией.' );
+	}
+
+	// ---- 8.8.5 перенос оплаченного гостя офисом -------------------------------------------------------------------------------------
+
+	private function arrangeOfficeTransfer( string $audience ): void {
+		$this->registrations->method( 'find' )->willReturn( $this->registration() );
+		$this->participations->method( 'find' )->willReturn( $this->participation( 5, null, $audience ) );
+		$this->participations->method( 'findForUpdate' )->willReturn( $this->participation( 5, null, $audience ) );
+		$this->accessGuard->method( 'canManageSubject' )->willReturn( false ); // офис не управляет предметами
+		$this->participants->method( 'findForUpdate' )->willReturn( $this->participant() );
+		$this->registrations->method( 'hasOverlappingActive' )->willReturn( false );
+		$this->sessions->method( 'lockInOrder' )->willReturn( array(
+			self::OLD_SESSION => $this->session( self::OLD_SESSION, '2026-03-10 09:00:00', '2026-03-10 12:55:00' ),
+			self::NEW_SESSION => $this->session( self::NEW_SESSION, '2026-03-10 08:00:00', '2026-03-10 11:55:00' ),
+		) );
+		$this->sessions->method( 'occupySeat' )->willReturn( true );
+		$this->registrations->method( 'deactivate' )->willReturn( true );
+		$this->registrations->method( 'insert' )->willReturn( 22 );
+	}
+
+	public function test_office_transfers_paid_guest_and_writes_manual_resolution(): void {
+		$GLOBALS['_test_user_can'][9]['resolve_lms_exam_payments'] = true;
+		$this->arrangeOfficeTransfer( 'guest' );
+		$row = null;
+		$this->resolutions->expects( self::once() )->method( 'insert' )->willReturnCallback( function ( array $r ) use ( &$row ): int {
+			$row = $r;
+			return 1;
+		} );
+
+		$this->service->transferByStaff( 9, self::REGISTRATION, self::NEW_SESSION, 'Не нашлось места в своём сеансе' );
+		unset( $GLOBALS['_test_user_can'] );
+
+		self::assertSame( 'transferred', $row['kind'] );
+		self::assertSame( self::NEW_SESSION, $row['new_session_id'] );
+		self::assertSame( self::OLD_SESSION, $row['old_session_id'] );
+		self::assertSame( 9, $row['actor_user_id'] );
+	}
+
+	public function test_office_cannot_transfer_student(): void {
+		$GLOBALS['_test_user_can'][9]['resolve_lms_exam_payments'] = true;
+		$this->arrangeOfficeTransfer( 'student' );
+		$this->registrations->expects( self::never() )->method( 'deactivate' );
+
+		try {
+			$this->expectException( CodedException::class );
+			$this->service->transferByStaff( 9, self::REGISTRATION, self::NEW_SESSION, 'Попытка' );
+		} finally {
+			unset( $GLOBALS['_test_user_can'] );
+		}
+	}
+
+	public function test_student_transfer_by_teacher_writes_no_manual_resolution(): void {
+		$this->arrangeStaffScope( true );
+		$this->participations->method( 'findForUpdate' )->willReturn( $this->participation() );
+		$this->participants->method( 'findForUpdate' )->willReturn( $this->participant() );
+		$this->registrations->method( 'hasOverlappingActive' )->willReturn( false );
+		$this->sessions->method( 'lockInOrder' )->willReturn( array(
+			self::OLD_SESSION => $this->session( self::OLD_SESSION, '2026-03-10 09:00:00', '2026-03-10 12:55:00' ),
+			self::NEW_SESSION => $this->session( self::NEW_SESSION, '2026-03-10 08:00:00', '2026-03-10 11:55:00' ),
+		) );
+		$this->sessions->method( 'occupySeat' )->willReturn( true );
+		$this->registrations->method( 'deactivate' )->willReturn( true );
+		$this->registrations->method( 'insert' )->willReturn( 22 );
+		$this->resolutions->expects( self::never() )->method( 'insert' );
+
+		$this->service->transferByStaff( 9, self::REGISTRATION, self::NEW_SESSION, 'Просьба родителей' );
 	}
 }

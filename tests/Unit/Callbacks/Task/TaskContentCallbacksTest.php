@@ -21,15 +21,18 @@ use PHPUnit\Framework\TestCase;
 class TaskContentCallbacksTest extends TestCase {
 
 	private TaskContentCallbacks $callbacks;
+	private \Inc\Services\Exam\ExamVariantGuard&\PHPUnit\Framework\MockObject\MockObject $guard;
 
 	protected function setUp(): void {
 		parent::setUp();
 		fs_test_reset_posts();
 		fs_test_reset_ajax();
+		$this->guard = $this->createMock( \Inc\Services\Exam\ExamVariantGuard::class );
 		$this->callbacks = new TaskContentCallbacks(
 			new TemplateRegistry(),
 			new MetaBoxManager(),
-			new PostManager()
+			new PostManager(),
+			$this->guard
 		);
 	}
 
@@ -68,5 +71,18 @@ class TaskContentCallbacksTest extends TestCase {
 		$_POST = array( 'template' => 'standard_task', 'title' => 'X' );
 
 		self::assertFalse( fs_test_capture_json( fn() => $this->callbacks->ajaxSaveTaskContent() )->success );
+	}
+
+	public function test_task_cannot_change_when_frozen_via_inline_editor(): void {
+		fs_test_seed_post( array( 'ID' => 5, 'post_type' => 'inf_tasks', 'post_title' => 'Задача' ) );
+		$this->guard->method( 'isTaskFrozen' )->with( 5 )->willReturn( true );
+		$this->guard->method( 'reason' )->willReturn( 'Вариант используется в экзамене «Пробный»: изменение недоступно.' );
+		$_POST = array( 'subject_key' => 'inf', 'template' => 'standard_task', 'title' => 'Новое', 'post_id' => 5, 'fs_lms_meta' => array() );
+
+		$r = fs_test_capture_json( fn() => $this->callbacks->ajaxSaveTaskContent() );
+
+		self::assertFalse( $r->success );
+		self::assertStringContainsString( 'изменение недоступно', (string) $r->payload );
+		self::assertSame( 'Задача', get_post( 5 )->post_title, 'Название не изменено.' );
 	}
 }

@@ -41,7 +41,7 @@ class GuestResultViewService {
 	public function build( int $participationId ): ?array {
 		$participation = $this->participations->find( $participationId );
 		$event         = null !== $participation ? $this->events->find( $participation->eventId ) : null;
-		$review        = null !== $participation ? $this->reviews->forGuest( $participationId ) : null;
+		$review        = null !== $participation ? $this->reviews->forParticipation( $participationId ) : null;
 		if ( null === $event || null === $review ) {
 			return null;
 		}

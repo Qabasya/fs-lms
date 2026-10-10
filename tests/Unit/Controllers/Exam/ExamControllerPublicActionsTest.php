@@ -24,7 +24,7 @@ class ExamControllerPublicActionsTest extends TestCase {
 		$controller = new ExamController(
 			$this->createMock( LearnerExamCallbacks::class ), $this->createMock( ExamEventCallbacks::class ), $this->createMock( ExamSourceCallbacks::class ),
 			$this->createMock( ExamConductCallbacks::class ), $this->createMock( ExamResultCallbacks::class ), $this->createMock( ExamStatsCallbacks::class ),
-			$this->createMock( GuestApplicationCallbacks::class ), $this->createMock( \Inc\Callbacks\Exam\GuestEntryCallbacks::class )
+			$this->createMock( GuestApplicationCallbacks::class ), $this->createMock( \Inc\Callbacks\Exam\GuestEntryCallbacks::class ), $this->createMock( \Inc\Callbacks\Exam\ExamReportCallbacks::class ), $this->createMock( \Inc\Callbacks\Exam\ExamPaymentQueueCallbacks::class )
 		);
 		$method = new \ReflectionMethod( $controller, 'publicAjaxActions' );
 		$method->setAccessible( true );

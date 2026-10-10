@@ -367,6 +367,16 @@ enum AjaxHook: string {
 	case AddExamGuestOnSite             = 'add_exam_guest_on_site';             // params: session_id, source_id, last_name, first_name, middle_name?, phone, messenger?, consents[], request_key, confirmed? (0/1); ответ: status created (pay_url — один раз) | needs_confirmation (candidates)
 	case IssueExamResultLink            = 'issue_exam_result_link';             // params: participation_id; ответ: url (один раз, прежний ключ отзывается)
 	case RevokeExamResultLink           = 'revoke_exam_result_link';            // params: participation_id, session_id; ответ: board
+	case GetExamReports                 = 'get_exam_reports';                   // params: event_id; ответ: reports, blocked (participation_id → причина), sources
+	case SaveExamReport                 = 'save_exam_report';                   // params: event_id, title, participation_ids[], recipient_source_id?, days?
+	case AddExamReportMember            = 'add_exam_report_member';             // params: report_id, participation_id, version
+	case RemoveExamReportMember         = 'remove_exam_report_member';          // params: report_id, participation_id, version
+	case IssueExamReportLink            = 'issue_exam_report_link';             // params: report_id; ответ: url (один раз, прежний ключ отзывается)
+	case RevokeExamReportLink           = 'revoke_exam_report_link';            // params: report_id, version
+	case AnonymizeExamGuest             = 'anonymize_exam_guest';               // params: participant_id, reason, session_id; права ManageExamGuests + ManageLmsPlatform; ответ: board
+	case MarkExamLinkPassed             = 'mark_exam_link_passed';              // params: participation_id, purpose (entry|result), session_id; ответ: board
+	case GetExamPaymentQueue            = 'get_exam_payment_queue';             // params: tab (needs_help|resolved); ответ: items
+	case ResolveExamPayment             = 'resolve_exam_payment';               // params: application_id, kind (transferred|refunded_outside|other), session_id?, reason, amount?; ответ: items
 	case EndExamGuestSession            = 'end_exam_guest_session';             // публичный (nonce ExamGuest): отзыв гостевой сессии и удаление куки; ответ: url нейтральной страницы
 	case AdmitExamGuest                 = 'admit_exam_guest';                   // params: participation_id, admitted (0|1); ответ: board
 	case IssueExamEntryLink             = 'issue_exam_entry_link';              // params: participation_id; ответ: url (один раз, прежний ключ отзывается)

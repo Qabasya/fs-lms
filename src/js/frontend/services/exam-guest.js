@@ -16,7 +16,16 @@ function post( vars, data ) {
     return fetch( vars.ajax_url, { method: 'POST', credentials: 'same-origin', body } ).then( r => r.json() );
 }
 
+/** Школьный отчёт: после загрузки с раскрытым разбором страница прокручивается к блоку разбора. */
+function initReportScroll() {
+    const report = document.getElementById( 'fs-exam-report' );
+    const review = report && '1' === report.dataset.review ? document.getElementById( 'fs-exam-report-review' ) : null;
+    if ( review ) { review.scrollIntoView( { block: 'start' } ); }
+}
+
 export function initExamGuest() {
+    initReportScroll();
+
     const vars = window.fs_lms_exam_guest_vars;
     const root = document.getElementById( 'fs-exam-result' ) || document.getElementById( 'fs-exam-entry' );
     if ( ! vars || ! root ) { return; }

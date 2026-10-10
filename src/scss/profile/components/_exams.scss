@@ -134,6 +134,15 @@
 .exam-conduct-left { font-variant-numeric: tabular-nums; font-weight: t.$font-semibold; color: var(--ink); }
 .exam-conduct-score { font-size: t.$font-size-sm; color: var(--ink); white-space: nowrap; }
 .exam-conduct-arrived { color: var(--ok); }
+.exam-conduct-subtitle { font-size: t.$font-size-sm; font-weight: t.$font-semibold; color: var(--muted); }
+
+// Гость: оплата, запись, допуск и попытка — четыре отдельные пилюли в одной строке (8.8.1).
+.exam-guest-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: t.$spacing-xs;
+  margin-top: t.$spacing-xs;
+}
 .exam-conduct-loading { padding: t.$spacing-xl 0; text-align: center; color: var(--muted); }
 .exam-conduct-toolbar { display: flex; flex-wrap: wrap; gap: t.$spacing-sm; }
 .exam-conduct-check { flex: 0 0 auto; }

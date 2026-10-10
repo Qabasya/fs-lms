@@ -138,6 +138,16 @@ final class TeacherProfileView implements ProfileViewInterface {
 				'admitGuest'        => AjaxHook::AdmitExamGuest->jsAction(),
 				'issueEntryLink'    => AjaxHook::IssueExamEntryLink->jsAction(),
 				'issueResultLink'   => AjaxHook::IssueExamResultLink->jsAction(),
+				'anonymizeGuest'    => AjaxHook::AnonymizeExamGuest->jsAction(),
+				'markLinkPassed'    => AjaxHook::MarkExamLinkPassed->jsAction(),
+				'getPaymentQueue'   => AjaxHook::GetExamPaymentQueue->jsAction(),
+				'resolvePayment'    => AjaxHook::ResolveExamPayment->jsAction(),
+				'getReports'        => AjaxHook::GetExamReports->jsAction(),
+				'saveReport'        => AjaxHook::SaveExamReport->jsAction(),
+				'addReportMember'   => AjaxHook::AddExamReportMember->jsAction(),
+				'removeReportMember' => AjaxHook::RemoveExamReportMember->jsAction(),
+				'issueReportLink'   => AjaxHook::IssueExamReportLink->jsAction(),
+				'revokeReportLink'  => AjaxHook::RevokeExamReportLink->jsAction(),
 				'revokeResultLink'  => AjaxHook::RevokeExamResultLink->jsAction(),
 				'approveAttempts'   => AjaxHook::ApproveExamAttempts->jsAction(),
 				'correctResult'     => AjaxHook::CorrectExamResult->jsAction(),
@@ -148,6 +158,10 @@ final class TeacherProfileView implements ProfileViewInterface {
 			// Выгрузка и печать списка участников — только при обоих экспортных правах (стандарт выгрузки ПД).
 			// Кнопка «Добавить гостя» — только при праве на гостей; сервер проверит его снова.
 			'canManageGuests'  => user_can( $context->wpUserId, Capability::ManageExamGuests->value ),
+			// «Создать отчёт» на экране «Результаты» — только с правом выдавать результаты школам; сервер проверит его снова.
+			// «Удалить данные гостя» — оба права (раздел и персональные данные); сервер проверит их снова.
+			'canAnonymizeGuests' => user_can( $context->wpUserId, Capability::ManageExamGuests->value ) && user_can( $context->wpUserId, Capability::ManageLmsPlatform->value ),
+			'canShareResults'  => user_can( $context->wpUserId, Capability::ShareExamResults->value ),
 			'canExportPii'     => user_can( $context->wpUserId, Capability::ManageLmsPlatform->value ) && user_can( $context->wpUserId, Capability::ExportPII->value ),
 			// Станет true на этапе 11a, когда появится форма гостя: до тех пор секция «Ссылки для преподавателей» скрыта.
 			'guestSignupReady' => false,

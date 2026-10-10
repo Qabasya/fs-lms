@@ -12,6 +12,7 @@ use Inc\Managers\Wp\MetaBoxManager;
 use Inc\Managers\Wp\PostManager;
 use Inc\Services\Subject\PostTypeResolver;
 use Inc\Services\Template\TemplateRegistry;
+use Inc\Services\Exam\ExamVariantGuard;
 use Inc\Shared\Traits\Authorizer;
 use Inc\Shared\Traits\Sanitizer;
 
@@ -32,6 +33,7 @@ class TaskContentCallbacks extends BaseController {
 		private readonly TemplateRegistry $templateRegistry,
 		private readonly MetaBoxManager   $metaBoxManager,
 		private readonly PostManager      $posts,
+		private readonly ExamVariantGuard $variantGuard,
 	) {}
 
 	/**
@@ -83,6 +85,11 @@ class TaskContentCallbacks extends BaseController {
 		$title      = $this->requireText( 'title' );
 		$postId     = $this->sanitizeInt( 'post_id' );
 		$rawMeta    = $this->unslashArray( PostMetaName::Meta->value );
+
+		if ( $postId > 0 && $this->variantGuard->isTaskFrozen( $postId ) ) {
+			$this->error( $this->variantGuard->reason( $postId ) );
+			return;
+		}
 
 		$template = $this->templateRegistry->get( $templateId );
 		if ( ! $template ) {

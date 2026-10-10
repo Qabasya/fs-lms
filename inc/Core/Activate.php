@@ -70,6 +70,7 @@ class Activate {
 		$migration_runner->register( new \Inc\Migrations\Migration_1_0_70() );
 		$migration_runner->register( new \Inc\Migrations\Migration_1_0_71() );
 		$migration_runner->register( new \Inc\Migrations\Migration_1_0_72() );
+		$migration_runner->register( new \Inc\Migrations\Migration_1_0_73() );
 		$migration_runner->run();
 
 		// Автоматическое создание страниц входа, регистрации и профиля
@@ -111,6 +112,7 @@ class Activate {
 		$generator->ensurePublished( PageRoutes::ExamSignup, 'Запись на экзамен', ShortCode::ExamSignup->tag() );
 		$generator->ensurePublished( PageRoutes::ExamEntry, 'Вход на экзамен', ShortCode::ExamEntry->tag() );
 		$generator->ensurePublished( PageRoutes::ExamResult, 'Результат экзамена', ShortCode::ExamResult->tag() );
+		$generator->ensurePublished( PageRoutes::ExamReport, 'Отчёт по экзамену', ShortCode::ExamReport->tag() );
 		$generator->ensurePublished( PageRoutes::LessonPlayer, 'Урок', '' );
 		$generator->ensurePublished( PageRoutes::CoursePreview, 'Просмотр курса', '' );
 

@@ -20,6 +20,9 @@ enum TransientKey: string {
 	/** Причина отказа в удалении контента для нотиса (суффикс — ID пользователя). */
 	case DeleteBlocked = 'fs_lms_delete_blocked_';
 
+	/** Причина отказа в правке замороженного варианта экзамена для нотиса (суффикс — ID пользователя). */
+	case ExamVariantBlocked = 'fs_lms_exam_variant_blocked_';
+
 	/** HTML-таблица последних заданий предмета (суффикс — ключ предмета). */
 	case RecentTasks = 'fs_lms_recent_tasks_';
 

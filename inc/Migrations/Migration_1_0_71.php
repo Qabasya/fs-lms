@@ -247,6 +247,7 @@ class Migration_1_0_71 implements MigrationInterface {
 				source_id        int unsigned DEFAULT NULL,
 				participation_id int unsigned DEFAULT NULL,
 				registration_id  int unsigned DEFAULT NULL,
+				report_id        int unsigned DEFAULT NULL,
 				generation       int unsigned NOT NULL DEFAULT 1,
 				issued_at        datetime     NOT NULL,
 				expires_at       datetime     NOT NULL,
@@ -254,7 +255,8 @@ class Migration_1_0_71 implements MigrationInterface {
 				PRIMARY KEY  (id),
 				UNIQUE KEY cookie_hash (cookie_hash),
 				KEY participation_id (participation_id),
-				KEY source_id (source_id)
+				KEY source_id (source_id),
+				KEY report_id (report_id)
 			) $cc;",
 
 			"CREATE TABLE {$prefix}fs_lms_exam_reports (

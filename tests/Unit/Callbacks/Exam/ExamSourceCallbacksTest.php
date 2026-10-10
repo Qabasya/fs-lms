@@ -134,12 +134,12 @@ class ExamSourceCallbacksTest extends TestCase {
 		$this->sources->expects( self::once() )->method( 'save' )->with(
 			10,
 			3,
-			array( 'school_name' => 'Школа 5', 'teacher_name' => 'Иванова И. И.', 'grade' => 11 ),
+			array( 'school_name' => 'Школа 5', 'school_key' => 'school-1a2b3c4d', 'teacher_name' => 'Иванова И. И.', 'grade' => 11 ),
 			null,
 			null
 		)->willReturn( $source );
 		$this->sources->method( 'list' )->willReturn( array( $this->listRow() ) );
-		$_POST = array( 'event_id' => '3', 'school_name' => 'Школа 5', 'teacher_name' => 'Иванова И. И.', 'grade' => '11' );
+		$_POST = array( 'event_id' => '3', 'school_name' => 'Школа 5', 'school_key' => 'school-1a2b3c4d', 'teacher_name' => 'Иванова И. И.', 'grade' => '11' );
 
 		$r = fs_test_capture_json( fn() => $this->cb->ajaxSaveExamSource() );
 

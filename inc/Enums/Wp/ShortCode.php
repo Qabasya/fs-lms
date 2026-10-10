@@ -35,6 +35,9 @@ enum ShortCode: string {
 	/** Шорткод страницы результата гостя */
 	case ExamResult   = 'fs_lms_exam_result';
 
+	/** Шорткод страницы школьного отчёта */
+	case ExamReport   = 'fs_lms_exam_report';
+
 	/** Шорткод личного кабинета пользователя */
 	case Profile      = 'fs_lms_profile';
 

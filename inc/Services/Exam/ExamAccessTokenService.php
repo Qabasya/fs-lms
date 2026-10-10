@@ -101,6 +101,11 @@ class ExamAccessTokenService {
 		return null !== $this->tokens->findActive( $purpose, $targetId );
 	}
 
+	/** Действующий ключ цели (запись, не открытый ключ) — для отметки «Ссылка передана». */
+	public function activeToken( ExamTokenPurpose $purpose, int $targetId ): ?\Inc\DTO\Exam\ExamAccessTokenDTO {
+		return $this->tokens->findActive( $purpose, $targetId );
+	}
+
 	/** Ручная отметка «Ссылка передана»: копирование ссылки её не ставит. */
 	public function markPassed( int $tokenId, int $actorUserId ): void {
 		$this->tokens->markPassed( $tokenId, $actorUserId, $this->time->nowUtc() );

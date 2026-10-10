@@ -9,6 +9,8 @@ use Inc\Callbacks\Exam\ExamEventCallbacks;
 use Inc\Callbacks\Exam\ExamResultCallbacks;
 use Inc\Callbacks\Exam\ExamSourceCallbacks;
 use Inc\Callbacks\Exam\ExamStatsCallbacks;
+use Inc\Callbacks\Exam\ExamPaymentQueueCallbacks;
+use Inc\Callbacks\Exam\ExamReportCallbacks;
 use Inc\Callbacks\Exam\GuestApplicationCallbacks;
 use Inc\Callbacks\Exam\GuestEntryCallbacks;
 use Inc\Callbacks\Exam\LearnerExamCallbacks;
@@ -30,6 +32,8 @@ class ExamController extends AjaxController {
 		private readonly ExamStatsCallbacks $stats,
 		private readonly GuestApplicationCallbacks $guest,
 		private readonly GuestEntryCallbacks $guestEntry,
+		private readonly ExamReportCallbacks $reportCallbacks,
+		private readonly ExamPaymentQueueCallbacks $paymentQueue,
 	) {
 		parent::__construct();
 	}
@@ -60,6 +64,16 @@ class ExamController extends AjaxController {
 			array( AjaxHook::IssueExamGuestPayLink, $this->conduct ),
 			array( AjaxHook::AdmitExamGuest, $this->conduct ),
 			array( AjaxHook::IssueExamEntryLink, $this->conduct ),
+			array( AjaxHook::GetExamPaymentQueue, $this->paymentQueue ),
+			array( AjaxHook::ResolveExamPayment, $this->paymentQueue ),
+			array( AjaxHook::MarkExamLinkPassed, $this->conduct ),
+			array( AjaxHook::GetExamReports, $this->reportCallbacks ),
+			array( AjaxHook::SaveExamReport, $this->reportCallbacks ),
+			array( AjaxHook::AddExamReportMember, $this->reportCallbacks ),
+			array( AjaxHook::RemoveExamReportMember, $this->reportCallbacks ),
+			array( AjaxHook::IssueExamReportLink, $this->reportCallbacks ),
+			array( AjaxHook::RevokeExamReportLink, $this->reportCallbacks ),
+			array( AjaxHook::AnonymizeExamGuest, $this->conduct ),
 			array( AjaxHook::IssueExamResultLink, $this->conduct ),
 			array( AjaxHook::RevokeExamResultLink, $this->conduct ),
 			array( AjaxHook::ApproveExamAttempts, $this->conduct ),

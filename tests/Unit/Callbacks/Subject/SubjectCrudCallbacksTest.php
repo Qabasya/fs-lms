@@ -37,6 +37,7 @@ class SubjectCrudCallbacksTest extends TestCase {
 			$this->groups,
 			$this->archiveGuard,
 			$this->createMock( \Inc\Services\Subject\SubjectPagesService::class ),
+			$this->createMock( \Inc\Services\Exam\ExamVariantGuard::class ),
 		);
 	}
 
@@ -101,6 +102,7 @@ class SubjectCrudCallbacksTest extends TestCase {
 			$this->groups,
 			$guard,
 			$this->createMock( \Inc\Services\Subject\SubjectPagesService::class ),
+			$this->createMock( \Inc\Services\Exam\ExamVariantGuard::class ),
 		);
 		$_POST     = array( 'key' => 'math' );
 
@@ -108,5 +110,20 @@ class SubjectCrudCallbacksTest extends TestCase {
 
 		self::assertFalse( $r->success );
 		self::assertStringContainsString( 'активные группы', $r->payload );
+	}
+
+	public function test_subject_with_frozen_variant_cannot_be_deleted(): void {
+		$this->subjects->method( 'getByKey' )->willReturn( new SubjectDTO( 'inf_ege', 'Информатика' ) );
+		$this->groups->method( 'findBySubjectKey' )->willReturn( array() );
+		$guard = $this->createMock( \Inc\Services\Exam\ExamVariantGuard::class );
+		$guard->method( 'eventsFreezingSubject' )->willReturn( array( 'Пробный ЕГЭ' ) );
+		$cb = new SubjectCrudCallbacks( $this->subjects, $this->dispatcher, $this->createMock( LogEventDispatcherInterface::class ), $this->groups, $this->archiveGuard, $this->createMock( \Inc\Services\Subject\SubjectPagesService::class ), $guard );
+		$this->dispatcher->expects( $this->never() )->method( 'dispatch' );
+		$_POST = array( 'key' => 'inf_ege', 'force' => '1' );
+
+		$r = fs_test_capture_json( fn() => $cb->ajaxDeleteSubject() );
+
+		self::assertFalse( $r->success );
+		self::assertStringContainsString( 'Пробный ЕГЭ', (string) $r->payload );
 	}
 }

@@ -46,4 +46,14 @@ class ExamManualResolutionRepository extends AbstractExamRepository {
 		$rows = $this->readRows( $this->wpdb->prepare( 'SELECT * FROM %i WHERE participation_id = %d ORDER BY created_at DESC', $this->table, $participationId ) );
 		return array_map( array( ExamManualResolutionDTO::class, 'fromArray' ), $rows );
 	}
+
+	/**
+	 * Урегулированные заявки: свежие разборы первыми (вкладка «Урегулированы»).
+	 *
+	 * @return ExamManualResolutionDTO[]
+	 */
+	public function listRecentForApplications( int $limit = 100 ): array {
+		$rows = $this->readRows( $this->wpdb->prepare( 'SELECT * FROM %i WHERE application_id IS NOT NULL ORDER BY id DESC LIMIT %d', $this->table, $limit ) );
+		return array_map( array( ExamManualResolutionDTO::class, 'fromArray' ), $rows );
+	}
 }

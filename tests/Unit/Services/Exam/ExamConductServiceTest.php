@@ -56,6 +56,7 @@ class ExamConductServiceTest extends TestCase {
 	private \Inc\Services\Exam\GuestParticipantMaterializer&MockObject $guestData;
 	private \Inc\Services\Shared\PluginConfig&MockObject $config;
 	private \Inc\Contracts\LogEventDispatcherInterface&MockObject $logEvents;
+	private \Inc\Services\Exam\ExamGuestBoardService&MockObject $guestBoard;
 	private ExamSourceRepository&MockObject $sources;
 	private ExamTime&MockObject $time;
 	private ExamConductService $service;
@@ -78,6 +79,8 @@ class ExamConductServiceTest extends TestCase {
 		$this->guestData      = $this->createMock( \Inc\Services\Exam\GuestParticipantMaterializer::class );
 		$this->config         = $this->createMock( \Inc\Services\Shared\PluginConfig::class );
 		$this->logEvents      = $this->createMock( \Inc\Contracts\LogEventDispatcherInterface::class );
+		$this->guestBoard     = $this->createMock( \Inc\Services\Exam\ExamGuestBoardService::class );
+		$this->guestBoard->method( 'holdsOf' )->willReturn( array() );
 		$this->sources        = $this->createMock( ExamSourceRepository::class );
 		$this->time           = $this->createMock( ExamTime::class );
 
@@ -114,7 +117,8 @@ class ExamConductServiceTest extends TestCase {
 			$this->tokens,
 			$this->guestData,
 			$this->config,
-			$this->logEvents
+			$this->logEvents,
+			$this->guestBoard
 		);
 	}
 
@@ -251,7 +255,8 @@ class ExamConductServiceTest extends TestCase {
 			$this->tokens,
 			$this->guestData,
 			$this->config,
-			$this->logEvents
+			$this->logEvents,
+			$this->guestBoard
 		);
 
 		$this->expectException( CodedException::class );
@@ -346,7 +351,8 @@ class ExamConductServiceTest extends TestCase {
 			$this->tokens,
 			$this->guestData,
 			$this->config,
-			$this->logEvents
+			$this->logEvents,
+			$this->guestBoard
 		);
 		$this->participations->expects( self::never() )->method( 'findByEvent' );
 
@@ -416,7 +422,7 @@ class ExamConductServiceTest extends TestCase {
 		$service = new ExamConductService(
 			$this->events, $this->sessions, $this->registrations, $this->participations, $this->participants, $this->attempts, $this->answers,
 			$this->sources, $this->records, $this->createMock( RoomRepository::class ), $this->roomService,
-			$this->scores, $guard, $this->time, $this->createMock( ExamPlanService::class ), $this->createMock( ExamReviewProjection::class ), $this->tokens, $this->guestData, $this->config, $this->logEvents
+			$this->scores, $guard, $this->time, $this->createMock( ExamPlanService::class ), $this->createMock( ExamReviewProjection::class ), $this->tokens, $this->guestData, $this->config, $this->logEvents, $this->guestBoard
 		);
 		$this->participations->method( 'find' )->willReturn( $this->guestParticipation() );
 		$this->participations->expects( self::never() )->method( 'setAdmission' );
@@ -481,5 +487,109 @@ class ExamConductServiceTest extends TestCase {
 		$this->tokens->expects( self::once() )->method( 'revoke' )->with( \Inc\Enums\Exam\ExamTokenPurpose::Result, 4 );
 
 		$this->service->revokeResultLink( 10, 4 );
+	}
+
+	// ── 8.8.6 «Ссылка передана» ───────────────────────────────────────────────────────────────────
+
+	private function accessToken( int $id = 31 ): \Inc\DTO\Exam\ExamAccessTokenDTO {
+		return \Inc\DTO\Exam\ExamAccessTokenDTO::fromArray( array(
+			'id' => $id, 'purpose' => 'entry', 'target_id' => 4, 'token_hash' => str_repeat( 'a', 64 ), 'generation' => 1, 'issuer_user_id' => 10, 'created_at' => '2026-03-10 06:00:00',
+		) );
+	}
+
+	public function test_copying_link_does_not_mark_passed(): void {
+		$GLOBALS['_test_user_can'][10]['share_lms_exam_results'] = true;
+		$this->participations->method( 'find' )->willReturn( $this->guestParticipation() );
+		$this->registrations->method( 'find' )->willReturn( $this->registration( 1, 4 ) );
+		$this->tokens->method( 'issue' )->willReturn( str_repeat( 'd', 64 ) );
+		$this->tokens->expects( self::never() )->method( 'markPassed' );
+
+		// Выдача (она же «скопировать») отметку не ставит: «передана» — отдельное ручное действие.
+		$this->service->issueEntryLink( 10, 4 );
+	}
+
+	public function test_mark_link_passed_marks_active_token_by_actor(): void {
+		$this->participations->method( 'find' )->willReturn( $this->guestParticipation() );
+		$this->tokens->method( 'activeToken' )->willReturn( $this->accessToken( 31 ) );
+		$this->tokens->expects( self::once() )->method( 'markPassed' )->with( 31, 10 );
+
+		$this->service->markLinkPassed( 10, 4, \Inc\Enums\Exam\ExamTokenPurpose::Entry );
+	}
+
+	public function test_mark_link_passed_requires_issued_link(): void {
+		$this->participations->method( 'find' )->willReturn( $this->guestParticipation() );
+		$this->tokens->method( 'activeToken' )->willReturn( null );
+		$this->tokens->expects( self::never() )->method( 'markPassed' );
+
+		$this->expectException( CodedException::class );
+		$this->service->markLinkPassed( 10, 4, \Inc\Enums\Exam\ExamTokenPurpose::Result );
+	}
+
+	public function test_mark_link_passed_denied_for_student_and_other_purposes(): void {
+		$this->participations->method( 'find' )->willReturn( $this->guestParticipation( array( 'audience' => 'student' ) ) );
+		$this->tokens->expects( self::never() )->method( 'markPassed' );
+
+		try {
+			$this->service->markLinkPassed( 10, 4, \Inc\Enums\Exam\ExamTokenPurpose::Entry );
+			self::fail( 'Ученику ссылка гостя не отмечается.' );
+		} catch ( CodedException $e ) {
+			self::assertSame( \Inc\Enums\Log\ErrorCode::ExamAccess, $e->errorCode );
+		}
+
+		$this->expectException( CodedException::class );
+		$this->service->markLinkPassed( 10, 4, \Inc\Enums\Exam\ExamTokenPurpose::Payment );
+	}
+
+	// ── 8.8.1 гости в таблице сеанса ──────────────────────────────────────────────────────────────
+
+	public function test_guest_row_has_four_independent_states(): void {
+		$this->givenBoard(
+			array( $this->registration( 1, 1 ) ),
+			array( 1 => $this->participation( 1, null, 'guest' ) ),
+			array()
+		);
+		$this->guestBoard->method( 'paymentOf' )->willReturn( array( 'state' => 'paid', 'label' => 'Оплачено' ) );
+
+		$row = $this->service->sessionBoard( 10, 7 )['rows'][0];
+
+		// Оплата, запись, допуск, попытка — отдельные поля, а не одна «галочка».
+		self::assertSame( 'paid', $row['payment']['state'] );
+		self::assertSame( 'confirmed', $row['registration_status'] );
+		self::assertArrayHasKey( 'admitted_at', $row );
+		self::assertNull( $row['admitted_at'] );
+		self::assertSame( 'not_started', $row['progress'] );
+	}
+
+	public function test_board_without_guests_has_no_guest_columns(): void {
+		$this->givenBoard(
+			array( $this->registration( 1, 1 ) ),
+			array( 1 => $this->participation( 1 ) ),
+			array()
+		);
+		$this->guestBoard->expects( self::never() )->method( 'paymentOf' );
+
+		$board = $this->service->sessionBoard( 10, 7 );
+
+		self::assertNull( $board['rows'][0]['payment'] );
+		self::assertSame( array(), $board['holds'] );
+	}
+
+	public function test_board_lists_holds_apart_from_rows(): void {
+		$this->givenBoard( array(), array(), array() );
+		$hold = array( 'application_id' => 9, 'name' => 'Иванов Пётр', 'hold_until' => '10:20', 'seconds_left' => 900, 'on_site' => true, 'actions' => array( 'copy_pay_link' ) );
+		$this->guestBoard = $this->createMock( \Inc\Services\Exam\ExamGuestBoardService::class );
+		$this->guestBoard->method( 'holdsOf' )->willReturn( array( $hold ) );
+		$service = new ExamConductService(
+			$this->events, $this->sessions, $this->registrations, $this->participations, $this->participants, $this->attempts, $this->answers,
+			$this->sources, $this->records, $this->createMock( RoomRepository::class ), $this->roomService,
+			$this->scores, $this->guard, $this->time, $this->createMock( ExamPlanService::class ), $this->createMock( ExamReviewProjection::class ),
+			$this->tokens, $this->guestData, $this->config, $this->logEvents, $this->guestBoard
+		);
+
+		$board = $service->sessionBoard( 10, 7 );
+
+		self::assertSame( array(), $board['rows'], 'Бронь без записи — не строка доски: у неё нет записи, попытки и результата.' );
+		self::assertSame( array( $hold ), $board['holds'] );
+		self::assertSame( 0, $board['tiles']['registered'] );
 	}
 }

@@ -64,6 +64,7 @@ export function openSessionForm(o) {
         <label class="gp-field"><span>Время начала</span><input type="time" id="esTime" value="${esc(initTime)}"${lockAttr}></label>
         <div class="gp-field"><span>Окончание</span><b class="gp-fixed" id="esEnd"></b></div>
         <label class="gp-field"><span>Вариант</span><select id="esVariant"${lockAttr}>${variantOptions(variants, initVariant)}</select></label>
+        <div class="gp-warn" id="esPublicWarn" hidden>Этот вариант доступен свободно вместе с решениями.</div>
         <label class="gp-field"><span>Кабинет</span><select id="esRoom"${lockAttr}>${roomOptions(rooms, initRoom, edit)}</select></label>
         <div class="gp-field"><span>Мест</span><b class="gp-fixed" id="esSeats"></b></div>
         <div class="gp-field"><span>Ответственный</span><b class="gp-fixed">${esc(event.owner_name || '—')}</b></div>
@@ -86,6 +87,7 @@ export function openSessionForm(o) {
         return r ? r.seats : (edit && String($('#esRoom').value) === String(edit.room_id) ? edit.capacity : '—');
     };
     const refreshDerived = () => {
+        $('#esPublicWarn').hidden = !(variants.find(x => String(x.id) === $('#esVariant').value)?.public);
         const end = endTime($('#esTime').value, durationOf());
         $('#esEnd').textContent = end ? `до ${end}` : '—';
         $('#esSeats').textContent = String(roomSeats());

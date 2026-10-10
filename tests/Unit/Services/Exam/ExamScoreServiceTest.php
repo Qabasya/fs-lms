@@ -227,6 +227,21 @@ class ExamScoreServiceTest extends TestCase {
 		self::assertSame( 72, $this->service->summarize( $this->attempt( 18.0, 29.0 ), $this->event( $this->egeSnapshot() ) )['secondary'] );
 	}
 
+	public function test_module_scale_change_does_not_change_past_result(): void {
+		$this->assessments->method( 'get' )->willReturn( $this->assessment( AssessmentKind::EgeComputer ) );
+		$event   = $this->event( $this->egeSnapshot() );
+		$attempt = $this->attempt( 18.0, 29.0 );
+
+		$GLOBALS['_fs_test_filter_returns']['fs_lms_exam_formats'] = array( $this->formatDto( AssessmentKind::EgeComputer, array( 18 => 60 ) ) );
+		$before = $this->service->summarize( $attempt, $event );
+		// Владелец поменял шкалу и длительность модуля уже после проведения: сданная работа считается по снимку.
+		$GLOBALS['_fs_test_filter_returns']['fs_lms_exam_formats'] = array( $this->formatDto( AssessmentKind::EgeComputer, array( 18 => 10 ) ) );
+		$after = $this->service->summarize( $attempt, $event );
+
+		self::assertSame( 72, $before['secondary'] );
+		self::assertSame( $before, $after );
+	}
+
 	public function test_falls_back_to_module_format_without_snapshot(): void {
 		$this->assessments->method( 'get' )->willReturn( $this->assessment( AssessmentKind::EgeComputer ) );
 		$GLOBALS['_fs_test_filter_returns']['fs_lms_exam_formats'] = array( $this->formatDto( AssessmentKind::EgeComputer, array( 18 => 60 ) ) );

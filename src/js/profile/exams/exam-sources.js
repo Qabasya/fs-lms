@@ -10,6 +10,7 @@
 import { esc, toast } from '../utils.js';
 import { confirmDialog } from '../../common/components/confirm-dialog.js';
 import { copyToClipboard } from '../../common/utils.js';
+import { findSchools, resolveBareNumber, exactSchool, schoolKeyOf } from '../../common/school-suggest.js';
 
 /** Последствия перевыпуска — дословно из SPEC §6: человек должен понять, что произойдёт со старой ссылкой. */
 export const REISSUE_TEXT = 'Старая ссылка перестанет работать сразу, уже открытые по ней формы потеряют доступ; '
@@ -63,7 +64,8 @@ export function renderSourcesSection(container, o) {
                 : '<div class="es-empty">Ссылок пока нет.</div>'}</div>
             ${grade
                 ? `<div class="es-add">
-                    <input type="text" id="srcSchool" placeholder="Школа" maxlength="255" aria-label="Школа">
+                    <input type="text" id="srcSchool" placeholder="Школа" maxlength="255" aria-label="Школа" list="srcSchoolList" autocomplete="off">
+                    <datalist id="srcSchoolList"></datalist>
                     <span class="es-grade" title="Класс определяется направлением проведения">${grade} класс</span>
                     <input type="text" id="srcTeacher" placeholder="ФИО преподавателя" maxlength="255" aria-label="ФИО преподавателя">
                     <button type="button" class="prof-btn prof-btn-sm" data-src="add">Добавить</button>
@@ -93,10 +95,25 @@ export function renderSourcesSection(container, o) {
     };
 
     function wire() {
+        // Подсказки справочника: нативный datalist, без своей разметки и стилей. Вписать школу вручную можно всегда.
+        const schoolInput = container.querySelector('#srcSchool');
+        const schoolList = container.querySelector('#srcSchoolList');
+        schoolInput?.addEventListener('input', () => {
+            schoolList.replaceChildren(...findSchools(schoolInput.value).map(name => new Option(name)));
+        });
+        schoolInput?.addEventListener('blur', () => {
+            const full = resolveBareNumber(schoolInput.value);
+            if (full) { schoolInput.value = full; }
+        });
+
         container.querySelector('[data-src="add"]')?.addEventListener('click', () => act(async () => {
+            // Из справочника — название и ключ; свободный ввод — только название (ключа нет, школы не объединяются по похожей строке).
+            const typed = schoolInput.value;
+            const known = exactSchool(typed);
             await api('saveSource', {
                 event_id: event.id,
-                school_name: container.querySelector('#srcSchool').value,
+                school_name: known || typed,
+                school_key: known ? schoolKeyOf(known) : '',
                 teacher_name: container.querySelector('#srcTeacher').value,
                 grade,
             });

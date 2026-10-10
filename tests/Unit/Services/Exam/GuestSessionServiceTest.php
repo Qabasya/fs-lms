@@ -29,6 +29,8 @@ class GuestSessionServiceTest extends TestCase {
 	private ExamGuestSessionRepository&MockObject $repo;
 	private ExamAccessTokenService&MockObject $tokens;
 	private GuestSessionService $service;
+	private PiiCryptoService $cryptoMock;
+	private ExamTime $timeStub;
 	private ExamParticipationRepository&MockObject $participations;
 	private ExamRegistrationRepository&MockObject $registrations;
 
@@ -44,6 +46,7 @@ class GuestSessionServiceTest extends TestCase {
 		$this->registrations  = $this->createMock( ExamRegistrationRepository::class );
 		$this->tokens = $this->createMock( ExamAccessTokenService::class );
 		$crypto       = $this->createMock( PiiCryptoService::class );
+		$this->cryptoMock = $crypto;
 		$crypto->method( 'hash' )->willReturnCallback( static fn ( string $v ): string => hash( 'sha256', 'salt' . $v ) );
 		$time = $this->createStub( ExamTime::class );
 		$time->method( 'nowUtc' )->willReturn( '2026-03-10 07:00:00' );
@@ -58,12 +61,13 @@ class GuestSessionServiceTest extends TestCase {
 		} );
 		$this->tokens->method( 'currentGeneration' )->willReturnCallback( fn (): int => $this->currentGeneration );
 
+		$this->timeStub = $time;
 		$this->service = new GuestSessionService( $this->repo, $this->tokens, $crypto, $time, $this->participations, $this->registrations );
 	}
 
 	private function dto(): ExamGuestSessionDTO {
 		return ExamGuestSessionDTO::fromArray( array(
-			'id' => 5, 'cookie_hash' => $this->stored['cookie_hash'], 'scope' => $this->stored['scope'], 'source_id' => $this->stored['source_id'] ?? null, 'participation_id' => $this->stored['participation_id'] ?? null, 'registration_id' => $this->stored['registration_id'] ?? null,
+			'id' => 5, 'cookie_hash' => $this->stored['cookie_hash'], 'scope' => $this->stored['scope'], 'source_id' => $this->stored['source_id'] ?? null, 'participation_id' => $this->stored['participation_id'] ?? null, 'registration_id' => $this->stored['registration_id'] ?? null, 'report_id' => $this->stored['report_id'] ?? null,
 			'generation' => $this->stored['generation'], 'issued_at' => $this->stored['issued_at'], 'expires_at' => $this->stored['expires_at'],
 			'revoked_at' => $this->stored['revoked_at'] ?? null,
 		) );
@@ -260,5 +264,60 @@ class GuestSessionServiceTest extends TestCase {
 		} finally {
 			unset( $_COOKIE[ GuestSessionService::COOKIE_RESULT ] );
 		}
+	}
+
+	// ── Школьный отчёт (12.3–12.4) ────────────────────────────────────────────────────────────────
+
+	private function crypto(): PiiCryptoService {
+		return $this->cryptoMock;
+	}
+
+	private function time(): ExamTime {
+		return $this->timeStub;
+	}
+
+	private function reportToken( int $reportId, int $generation = 1 ): ExamAccessTokenDTO {
+		return ExamAccessTokenDTO::fromArray( array(
+			'id' => 1, 'purpose' => 'report', 'target_id' => $reportId, 'token_hash' => str_repeat( 'a', 64 ), 'generation' => $generation, 'issuer_user_id' => 10, 'created_at' => '2026-03-01 00:00:00',
+		) );
+	}
+
+	public function test_report_session_cannot_call_guest_or_staff_mutations(): void {
+		$cookie = $this->service->openReport( $this->reportToken( 7 ), '2026-03-11 07:00:00' );
+
+		self::assertSame( 'report', $this->stored['scope'] );
+		self::assertSame( 7, $this->stored['report_id'] );
+		// Контекст попытки строит только сессия входа; сессию отчёта current() не принимает.
+		self::assertNull( $this->service->current( $cookie ) );
+		self::assertSame( 7, $this->service->currentReportId( $cookie ) );
+	}
+
+	public function test_key_of_report_a_does_not_open_report_b(): void {
+		$cookie = $this->service->openReport( $this->reportToken( 7 ), '2026-03-11 07:00:00' );
+		$asked  = array();
+		$this->tokens = $this->createMock( ExamAccessTokenService::class );
+		$this->tokens->method( 'currentGeneration' )->willReturnCallback( function ( $purpose, int $target ) use ( &$asked ): int {
+			$asked[] = array( $purpose, $target );
+			return 1;
+		} );
+		$service = new GuestSessionService( $this->repo, $this->tokens, $this->crypto(), $this->time(), $this->participations, $this->registrations );
+
+		self::assertSame( 7, $service->currentReportId( $cookie ), 'Отчёт определяется сессией, а не адресом.' );
+		self::assertSame( array( array( ExamTokenPurpose::Report, 7 ) ), $asked, 'Поколение сверяется только с ключом своего отчёта.' );
+	}
+
+	public function test_revoked_or_reissued_report_key_closes_the_session(): void {
+		$cookie = $this->service->openReport( $this->reportToken( 7, 1 ), '2026-03-11 07:00:00' );
+
+		$this->currentGeneration = 0; // отозван
+		self::assertNull( $this->service->currentReportId( $cookie ) );
+		$this->currentGeneration = 2; // перевыпущен
+		self::assertNull( $this->service->currentReportId( $cookie ) );
+	}
+
+	public function test_entry_or_result_cookie_does_not_open_report(): void {
+		$entry = $this->service->openEntry( $this->entryToken(), 8, '2026-03-10 10:55:00' );
+
+		self::assertNull( $this->service->currentReportId( $entry ) );
 	}
 }
