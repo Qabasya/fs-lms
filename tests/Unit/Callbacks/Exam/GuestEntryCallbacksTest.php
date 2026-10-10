@@ -38,7 +38,7 @@ class GuestEntryCallbacksTest extends TestCase {
 	private ExamRegistrationRepository&MockObject $registrations;
 	private ExamSessionRepository&MockObject $sessionRepo;
 	private RateLimitService&MockObject $rate;
-	private \Inc\Services\Exam\GuestResultViewService&MockObject $result;
+	private \Inc\Services\Exam\ExamReviewProjection&MockObject $result;
 	private \Inc\Services\Exam\GuestPageResponder&MockObject $responder;
 	private GuestEntryCallbacks $cb;
 
@@ -56,7 +56,7 @@ class GuestEntryCallbacksTest extends TestCase {
 		$this->registrations  = $this->createMock( ExamRegistrationRepository::class );
 		$this->sessionRepo    = $this->createMock( ExamSessionRepository::class );
 		$this->rate           = $this->createMock( RateLimitService::class );
-		$this->result         = $this->createMock( \Inc\Services\Exam\GuestResultViewService::class );
+		$this->result         = $this->createMock( \Inc\Services\Exam\ExamReviewProjection::class );
 		$this->responder      = $this->createMock( \Inc\Services\Exam\GuestPageResponder::class );
 		$time                 = $this->createStub( ExamTime::class );
 		$time->method( 'nowUtc' )->willReturn( '2026-03-10 07:00:00' );
@@ -173,7 +173,7 @@ class GuestEntryCallbacksTest extends TestCase {
 
 	public function test_result_page_requires_guest_session_of_same_participation(): void {
 		$this->sessions->method( 'viewableParticipationId' )->willReturn( null );
-		$this->result->expects( self::never() )->method( 'build' );
+		$this->result->expects( self::never() )->method( 'isParticipationRevealed' );
 
 		self::assertSame( GuestPageOutcome::NOT_FOUND, $this->access->resultPage( (string) ( $_GET['k'] ?? '' ), '10.0.0.7' )->kind );
 	}
@@ -182,14 +182,14 @@ class GuestEntryCallbacksTest extends TestCase {
 		$_GET['attempt_id'] = '999';
 		$_GET['attempt']    = '999';
 		$this->sessions->method( 'viewableParticipationId' )->willReturn( 4 );
-		$this->result->expects( self::once() )->method( 'build' )->with( 4 )->willReturn( array( 'revealed' => true ) );
+		$this->result->expects( self::once() )->method( 'isParticipationRevealed' )->with( 4 )->willReturn( true );
 
 		self::assertSame( GuestPageOutcome::RENDER, $this->access->resultPage( (string) ( $_GET['k'] ?? '' ), '10.0.0.7' )->kind );
 	}
 
 	public function test_result_page_before_submit_is_404(): void {
 		$this->sessions->method( 'viewableParticipationId' )->willReturn( 4 );
-		$this->result->method( 'build' )->willReturn( array( 'revealed' => false ) );
+		$this->result->method( 'isParticipationRevealed' )->willReturn( false );
 
 		self::assertSame( GuestPageOutcome::NOT_FOUND, $this->access->resultPage( (string) ( $_GET['k'] ?? '' ), '10.0.0.7' )->kind );
 	}
@@ -245,7 +245,7 @@ class GuestEntryCallbacksTest extends TestCase {
 	public function test_end_session_revokes_and_clears_cookie(): void {
 		$_COOKIE[ GuestSessionService::COOKIE_ENTRY ] = str_repeat( 'e', 64 );
 		$this->sessions->method( 'viewableParticipationId' )->willReturn( 4 );
-		$this->result->method( 'build' )->willReturn( array( 'revealed' => true ) );
+		$this->result->method( 'isParticipationRevealed' )->willReturn( true );
 		$this->sessions->expects( self::once() )->method( 'revoke' )->with( str_repeat( 'e', 64 ) );
 		$this->responder->expects( self::once() )->method( 'clearCookies' )->with( array( GuestSessionService::COOKIE_ENTRY, GuestSessionService::COOKIE_RESULT ) );
 
@@ -257,7 +257,7 @@ class GuestEntryCallbacksTest extends TestCase {
 
 	public function test_end_session_denied_before_submit(): void {
 		$this->sessions->method( 'viewableParticipationId' )->willReturn( 4 );
-		$this->result->method( 'build' )->willReturn( array( 'revealed' => false ) );
+		$this->result->method( 'isParticipationRevealed' )->willReturn( false );
 		$this->sessions->expects( self::never() )->method( 'revoke' );
 
 		self::assertFalse( fs_test_capture_json( fn() => $this->cb->ajaxEndExamGuestSession() )->success );
@@ -273,7 +273,7 @@ class GuestEntryCallbacksTest extends TestCase {
 			$this->sessions,
 			$this->createMock( \Inc\Services\Exam\GuestSignupViewService::class ),
 			$this->createMock( \Inc\Services\Exam\GuestEntryViewService::class ),
-			$this->result,
+			$this->createMock( \Inc\Services\Exam\GuestResultViewService::class ),
 			$this->createMock( \Inc\Services\Exam\GuestResultSidebarService::class ),
 			$this->createMock( \Inc\Services\Exam\ExamReportViewService::class ),
 			$this->createMock( \Inc\Services\Exam\GuestPageResponder::class ),

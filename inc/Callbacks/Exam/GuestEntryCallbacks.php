@@ -7,7 +7,7 @@ namespace Inc\Callbacks\Exam;
 use Inc\Core\BaseController;
 use Inc\Enums\Wp\Nonce;
 use Inc\Services\Exam\GuestPageResponder;
-use Inc\Services\Exam\GuestResultViewService;
+use Inc\Services\Exam\ExamReviewProjection;
 use Inc\Services\Exam\GuestSessionService;
 use Inc\Shared\Traits\Sanitizer;
 
@@ -18,7 +18,7 @@ class GuestEntryCallbacks extends BaseController {
 
 	public function __construct(
 		private readonly GuestSessionService $sessions,
-		private readonly GuestResultViewService $result,
+		private readonly ExamReviewProjection $reviews,
 		private readonly GuestPageResponder $responder,
 	) {
 		parent::__construct();
@@ -32,8 +32,7 @@ class GuestEntryCallbacks extends BaseController {
 		Nonce::ExamGuest->verify();
 
 		$participationId = $this->sessions->viewableParticipationId();
-		$data            = null !== $participationId ? $this->result->build( $participationId ) : null;
-		if ( null === $data || true !== $data['revealed'] ) {
+		if ( null === $participationId || ! $this->reviews->isParticipationRevealed( $participationId ) ) {
 			$this->error( 'Завершить сеанс можно после сдачи работы.' );
 			return;
 		}

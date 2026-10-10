@@ -98,6 +98,18 @@ class ExamReviewProjection {
 		return $this->readOnlyWithResult( $attempt, $event );
 	}
 
+	/** Дешёвая проверка раскрытия: без сборки заданий, баллов и контактов страницы. */
+	public function isParticipationRevealed( int $participationId ): bool {
+		$participation = $this->participations->find( $participationId );
+		if ( null === $participation || null === $participation->currentAttemptId || null === $this->events->find( $participation->eventId ) ) {
+			return false;
+		}
+
+		$attempt = $this->attempts->find( $participation->currentAttemptId );
+
+		return null !== $attempt && $attempt->examParticipationId === $participation->id && $this->attemptService->isRevealed( $attempt );
+	}
+
 	/**
 	 * Очищенный разбор + итог и единицы, если работа раскрыта.
 	 *

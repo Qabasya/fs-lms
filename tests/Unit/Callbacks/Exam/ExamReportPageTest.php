@@ -80,7 +80,7 @@ class ExamReportPageTest extends TestCase {
 				$this->createMock( \Inc\Repositories\WPDBRepositories\ExamParticipationRepository::class ),
 				$this->createMock( \Inc\Repositories\WPDBRepositories\ExamRegistrationRepository::class ),
 				$this->createMock( \Inc\Repositories\WPDBRepositories\ExamSessionRepository::class ),
-				$this->createMock( \Inc\Services\Exam\GuestResultViewService::class ),
+				$this->createMock( \Inc\Services\Exam\ExamReviewProjection::class ),
 				$this->reports,
 				$this->reportService
 			);
@@ -154,7 +154,7 @@ class ExamReportPageTest extends TestCase {
 				$this->createMock( \Inc\Repositories\WPDBRepositories\ExamParticipationRepository::class ),
 				$this->createMock( \Inc\Repositories\WPDBRepositories\ExamRegistrationRepository::class ),
 				$this->createMock( \Inc\Repositories\WPDBRepositories\ExamSessionRepository::class ),
-				$this->createMock( \Inc\Services\Exam\GuestResultViewService::class ),
+				$this->createMock( \Inc\Services\Exam\ExamReviewProjection::class ),
 				$this->reports,
 				$reportService
 			);

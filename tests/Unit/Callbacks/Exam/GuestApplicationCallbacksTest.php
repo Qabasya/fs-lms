@@ -82,7 +82,7 @@ class GuestApplicationCallbacksTest extends TestCase {
 
 		$this->access = new GuestPageAccessService( $this->tokens, $this->sessions, $this->sources, $this->rate, $this->adapter, $this->woo, $this->appRepo, $time, $this->formLog,
 				$this->createMock( \Inc\Repositories\WPDBRepositories\ExamParticipationRepository::class ), $this->createMock( \Inc\Repositories\WPDBRepositories\ExamRegistrationRepository::class ),
-				$this->createMock( \Inc\Repositories\WPDBRepositories\ExamSessionRepository::class ), $this->createMock( \Inc\Services\Exam\GuestResultViewService::class ),
+				$this->createMock( \Inc\Repositories\WPDBRepositories\ExamSessionRepository::class ), $this->createMock( \Inc\Services\Exam\ExamReviewProjection::class ),
 				$this->createMock( \Inc\Repositories\WPDBRepositories\ExamReportRepository::class ), $this->createMock( \Inc\Services\Exam\ExamReportService::class ),
 			);
 		$this->cb = new GuestApplicationCallbacks( $this->applications, $this->adapter, $this->holds, $this->guard, $this->woo, $time, $this->createMock( GuestOrderStatusService::class ), $this->createMock( ExamPaymentReconciler::class ), $this->formLog, $this->access );

@@ -225,4 +225,32 @@ class ExamReviewProjectionTest extends TestCase {
 		self::assertSame( '1', $result['units'][0]['number'] );
 		self::assertArrayNotHasKey( 'task_id', $result['tasks'][0] );
 	}
+	public function test_reveal_check_does_not_read_tasks_or_calculate_scores(): void {
+		$this->participations->method( 'find' )->with( 7 )->willReturn( $this->participation() );
+		$this->events->method( 'find' )->willReturn( $this->event() );
+		$this->attempts->method( 'find' )->with( 11 )->willReturn( $this->attempt() );
+		$this->attemptService->expects( self::once() )->method( 'isRevealed' )->willReturn( true );
+		$this->details->expects( self::never() )->method( 'forWork' );
+		$this->scores->expects( self::never() )->method( 'summarize' );
+		$this->scores->expects( self::never() )->method( 'units' );
+
+		self::assertTrue( $this->projection->isParticipationRevealed( 7 ) );
+	}
+
+	public function test_reveal_check_rejects_attempt_of_another_participation(): void {
+		$this->participations->method( 'find' )->willReturn( $this->participation() );
+		$this->events->method( 'find' )->willReturn( $this->event() );
+		$this->attempts->method( 'find' )->willReturn( $this->attempt( 11, 8 ) );
+		$this->attemptService->expects( self::never() )->method( 'isRevealed' );
+
+		self::assertFalse( $this->projection->isParticipationRevealed( 7 ) );
+	}
+
+	public function test_reveal_check_without_current_attempt_does_not_read_attempts(): void {
+		$this->participations->method( 'find' )->willReturn( $this->participation( null ) );
+		$this->attempts->expects( self::never() )->method( 'find' );
+
+		self::assertFalse( $this->projection->isParticipationRevealed( 7 ) );
+	}
+
 }

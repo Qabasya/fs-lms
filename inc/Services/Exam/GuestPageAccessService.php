@@ -43,7 +43,7 @@ class GuestPageAccessService {
 		private readonly ExamParticipationRepository $participations,
 		private readonly ExamRegistrationRepository $registrations,
 		private readonly ExamSessionRepository $sessionRepo,
-		private readonly GuestResultViewService $result,
+		private readonly ExamReviewProjection $reviews,
 		private readonly ExamReportRepository $reports,
 		private readonly ExamReportService $reportService,
 	) {}
@@ -134,9 +134,8 @@ class GuestPageAccessService {
 		}
 
 		$participationId = $this->sessions->viewableParticipationId();
-		$data            = null !== $participationId ? $this->result->build( $participationId ) : null;
 
-		return null !== $data && true === $data['revealed'] ? GuestPageOutcome::render() : GuestPageOutcome::notFound();
+		return null !== $participationId && $this->reviews->isParticipationRevealed( $participationId ) ? GuestPageOutcome::render() : GuestPageOutcome::notFound();
 	}
 
 	private function exchangeResult( string $key, string $ip ): GuestPageOutcome {

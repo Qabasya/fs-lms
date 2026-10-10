@@ -5,6 +5,7 @@ declare( strict_types=1 );
 namespace Inc\Services\Exam;
 
 use Inc\DTO\Exam\ExamReportDTO;
+use Inc\DTO\Exam\ExamEventDTO;
 use Inc\Enums\Exam\ExamAudience;
 use Inc\Repositories\WPDBRepositories\AssessmentAttemptRepository;
 use Inc\Repositories\WPDBRepositories\ExamEventRepository;
@@ -51,7 +52,7 @@ class ExamReportViewService {
 		$accessible = array();
 		foreach ( $ids as $index => $participationId ) {
 			$number = $index + 1;
-			$entry  = $this->row( $report, $participationId, $number );
+			$entry  = $this->row( $report, $event, $participationId, $number );
 			if ( null !== $entry['summary'] ) {
 				if ( empty( $entry['summary']['final'] ) ) {
 					++$pending;
@@ -87,7 +88,7 @@ class ExamReportViewService {
 	 *
 	 * @return array{n: int, name: string, status: string, caption: string, open: bool, summary: array<string, mixed>|null}
 	 */
-	private function row( ExamReportDTO $report, int $participationId, int $number ): array {
+	private function row( ExamReportDTO $report, ?ExamEventDTO $event, int $participationId, int $number ): array {
 		$participation = $this->participations->find( $participationId );
 		$participant   = null !== $participation ? $this->participants->find( $participation->participantId ) : null;
 		$placeholder   = array( 'n' => $number, 'name' => self::PLACEHOLDER, 'status' => '', 'caption' => '', 'open' => false, 'summary' => null );
@@ -96,7 +97,6 @@ class ExamReportViewService {
 			return $placeholder;
 		}
 
-		$event   = $this->events->find( $report->eventId );
 		$attempt = null !== $participation->currentAttemptId ? $this->attempts->find( $participation->currentAttemptId ) : null;
 		if ( null === $event || null === $attempt ) {
 			return $placeholder;
