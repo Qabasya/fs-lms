@@ -56,7 +56,11 @@ class GuestParticipantMaterializer {
 		return $this->crypto->decrypt( (string) base64_decode( $stored, true ) );
 	}
 
-	/** Создаёт участника из черновика заявки; школа и класс — из снимка источника. */
+	/**
+	 * Создаёт участника из черновика заявки; школа и класс — из снимка источника.
+	 *
+	 * @throws \RuntimeException Участника не удалось создать из черновика заявки.
+	 */
 	public function materialize( ExamGuestApplicationDTO $application ): int {
 		$draft    = $this->decodeDraft( $application );
 		$snapshot = null !== $application->sourceSnapshot ? json_decode( $application->sourceSnapshot, true ) : null;
@@ -137,7 +141,9 @@ class GuestParticipantMaterializer {
 		);
 	}
 
-	/** @return array<string, mixed> */
+	/**
+	 * @return array<string, mixed>
+	 */
 	private function decodeDraft( ExamGuestApplicationDTO $application ): array {
 		if ( null === $application->draftEnc || '' === $application->draftEnc ) {
 			return array();

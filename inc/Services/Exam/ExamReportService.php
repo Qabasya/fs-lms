@@ -199,7 +199,9 @@ class ExamReportService {
 		return $this->reload( $reportId );
 	}
 
-	/** @throws CodedException */
+	/**
+	 * @throws CodedException
+	 */
 	public function removeMember( int $actorUserId, int $reportId, int $participationId, int $expectedVersion ): ExamReportDTO {
 		$report = $this->requireReport( $actorUserId, $reportId );
 		$this->assertActive( $report );
@@ -226,7 +228,11 @@ class ExamReportService {
 		return PageRoutes::ExamReport->url() . '?k=' . $plain;
 	}
 
-	/** Отзыв отчёта: ключ перестаёт работать, отчёт помечается отозванным. @throws CodedException */
+	/**
+	 * Отзыв отчёта: ключ перестаёт работать, отчёт помечается отозванным.
+	 *
+	 * @throws CodedException
+	 */
 	public function revoke( int $actorUserId, int $reportId, int $expectedVersion ): ExamReportDTO {
 		$report = $this->requireReport( $actorUserId, $reportId );
 		if ( null === $report->revokedAt && ! $this->reports->setRevoked( $reportId, $this->time->nowUtc(), $expectedVersion ) ) {
@@ -305,7 +311,9 @@ class ExamReportService {
 		return min( $byDays, $byRetention );
 	}
 
-	/** @return array<string, mixed> */
+	/**
+	 * @return array<string, mixed>
+	 */
 	private function view( ExamReportDTO $report ): array {
 		$state = null !== $report->revokedAt ? 'revoked' : ( $report->expiresAt <= $this->time->nowUtc() ? 'expired' : 'active' );
 
@@ -321,14 +329,18 @@ class ExamReportService {
 		);
 	}
 
-	/** @throws CodedException */
+	/**
+	 * @throws CodedException
+	 */
 	private function assertActive( ExamReportDTO $report ): void {
 		if ( null !== $report->revokedAt ) {
 			throw new CodedException( ErrorCode::ExamClosed, 'Отчёт отозван.' );
 		}
 	}
 
-	/** @throws CodedException */
+	/**
+	 * @throws CodedException
+	 */
 	private function requireEvent( int $actorUserId, int $eventId ): ExamEventDTO {
 		$event = $this->events->find( $eventId );
 		if ( null === $event || ! user_can( $actorUserId, Capability::ShareExamResults->value ) || ! $this->guard->canManageEvent( $actorUserId, $event ) ) {
@@ -338,7 +350,9 @@ class ExamReportService {
 		return $event;
 	}
 
-	/** @throws CodedException */
+	/**
+	 * @throws CodedException
+	 */
 	private function requireReport( int $actorUserId, int $reportId ): ExamReportDTO {
 		$report = $this->reports->find( $reportId );
 		if ( null === $report ) {

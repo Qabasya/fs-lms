@@ -41,6 +41,8 @@ class ExamAccessTokenService {
 	 * @param string|null $expiresAtUtc Срок действия (UTC) или null — бессрочно.
 	 *
 	 * @return string Открытый ключ — единственный раз.
+	 *
+	 * @throws \RuntimeException Новый ключ доступа не удалось сохранить.
 	 */
 	public function issue( ExamTokenPurpose $purpose, int $targetId, int $issuerUserId, ?string $expiresAtUtc = null ): string {
 		$now = $this->time->nowUtc();
@@ -88,7 +90,11 @@ class ExamAccessTokenService {
 		return $token;
 	}
 
-	/** Отзывает действующие ключи цели без выпуска нового. @return int Число отозванных. */
+	/**
+	 * Отзывает действующие ключи цели без выпуска нового.
+	 *
+	 * @return int Число отозванных.
+	 */
 	public function revoke( ExamTokenPurpose $purpose, int $targetId ): int {
 		return $this->tokens->revokeByTarget( $purpose, $targetId, $this->time->nowUtc() );
 	}

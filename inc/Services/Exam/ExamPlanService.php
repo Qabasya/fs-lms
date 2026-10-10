@@ -69,7 +69,11 @@ class ExamPlanService {
 		);
 	}
 
-	/** Проведение с сеансами — ответ на правку, публикацию и перезагрузку календаря. @return array<string, mixed> */
+	/**
+	 * Проведение с сеансами — ответ на правку, публикацию и перезагрузку календаря.
+	 *
+	 * @return array<string, mixed>
+	 */
 	public function eventPayload( ExamEventDTO $event ): array {
 		$titles = array();
 
@@ -164,7 +168,9 @@ class ExamPlanService {
 		);
 	}
 
-	/** @return array<string, mixed> */
+	/**
+	 * @return array<string, mixed>
+	 */
 	private function eventSummary( ExamEventDTO $event ): array {
 		return array(
 			'id'           => $event->id,

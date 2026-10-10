@@ -125,7 +125,9 @@ class GuestSignupViewService {
 		return $cards;
 	}
 
-	/** @return array<string, mixed> */
+	/**
+	 * @return array<string, mixed>
+	 */
 	private function card( ExamSessionDTO $session ): array {
 		$start = $this->time->toLocal( $session->scheduledAt );
 		$end   = $this->time->toLocal( $session->plannedEndAt );
@@ -143,7 +145,11 @@ class GuestSignupViewService {
 		);
 	}
 
-	/** Цена и товар — из WooCommerce; null, если магазин или товар недоступны. @return array{html: string, amount: string}|null */
+	/**
+	 * Цена и товар — из WooCommerce; null, если магазин или товар недоступны.
+	 *
+	 * @return array{html: string, amount: string}|null
+	 */
 	private function price( int $grade ): ?array {
 		$product = $this->woo->product( $this->config->examProductId( $grade ) );
 		if ( null === $product || ! $product['purchasable'] || (float) $product['price'] <= 0.0 ) {
@@ -192,7 +198,9 @@ class GuestSignupViewService {
 		return $list;
 	}
 
-	/** @param list<array{key: string}> $consents */
+	/**
+	 * @param list<array{key: string}> $consents
+	 */
 	private function hasPdConsent( array $consents ): bool {
 		foreach ( $consents as $consent ) {
 			if ( GuestApplicationService::CONSENT_PD === $consent['key'] ) {

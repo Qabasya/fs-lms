@@ -109,7 +109,12 @@ class ExamAttemptService {
 		return $result;
 	}
 
-	/** @return AttemptDTO|true `true` — время старта истекло, неявка проставлена. */
+	/**
+	 * @return AttemptDTO|true `true` — время старта истекло, неявка проставлена.
+	 *
+	 * @throws CodedException Запись, допуск или сеанс больше не позволяют начать попытку.
+	 * @throws \RuntimeException Попытку не удалось создать или прочитать после сохранения.
+	 */
 	private function startLocked( AttemptContext $ctx ): AttemptDTO|true {
 		$isGuest = ExamAudience::Guest === $ctx->audience;
 		if ( ! $isGuest && null === $ctx->personId ) {
@@ -213,6 +218,8 @@ class ExamAttemptService {
 	 * Длительность — из снимка проведения; нет снимка — из формата варианта.
 	 *
 	 * @param array<string, mixed>|null $snapshot
+	 *
+	 * @throws CodedException У варианта нет допустимой длительности экзамена.
 	 */
 	private function durationMinutes( ?array $snapshot, int $assessmentId ): int {
 		$fromSnapshot = (int) ( $snapshot['duration_minutes'] ?? 0 );

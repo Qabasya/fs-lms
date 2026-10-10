@@ -37,6 +37,9 @@
         <exclude name="Squiz.Commenting.FunctionComment.MissingParamComment"/>
         <exclude name="Squiz.Commenting.FunctionComment.ParamNameNoMatch"/>
         <exclude name="Squiz.Commenting.FunctionComment.IncorrectTypeHint"/>
+        <!-- Exceptions from transaction closures propagate to callers; Squiz counts
+             only direct throws and incorrectly rejects both documented types. -->
+        <exclude name="Squiz.Commenting.FunctionCommentThrowTag.WrongNumber"/>
 
         <exclude name="WordPress.Files.FileName.InvalidClassFileName"/>
         <exclude name="WordPress.Security.NonceVerification.Recommended: Processing form data without nonce verification."/>

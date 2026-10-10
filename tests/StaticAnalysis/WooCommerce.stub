@@ -1,0 +1,10 @@
+<?php
+
+/** WooCommerce leaves the session null until its frontend session is initialized. */
+class WooCommerce {
+	/** @var WC_Session|null */
+	public $session;
+}
+
+/** Dependency declaration for the isolated PHPStan stub validator. */
+abstract class WC_Session {}

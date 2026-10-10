@@ -166,6 +166,8 @@ class ExamRegistrationService {
 	 * @param bool     $seatHeld   Место уже занято (бронь): `occupySeat()` и проверки окна записи пропускаются.
 	 * @param string[] $warnings
 	 * @param int|null $recordedBy Кто оформил, если это не `$actorUserId` (подтверждение оплаты сотрудником).
+	 *
+	 * @throws CodedException Сеанс закрыт, запись конфликтует с правилами или свободных мест нет.
 	 */
 	private function registerLocked( int $participantId, ExamAudience $audience, int $sessionId, string $requestKey, ?int $actorUserId, bool $seatHeld, ?int $sourceId, array $warnings, ?int $recordedBy = null ): RegistrationResultDTO {
 		// Блокировка 1: участник (сериализует проверку пересечений между проведениями).
@@ -345,6 +347,8 @@ class ExamRegistrationService {
 	 * Отмена сотрудником с причиной: разрешена и после начала сеанса, пока попытка не начата.
 	 *
 	 * @throws CodedException
+	 *
+	 * @throws \InvalidArgumentException Не указана обязательная причина отмены.
 	 */
 	public function cancelByStaff( int $actorUserId, int $registrationId, string $reason ): void {
 		$reason = trim( $reason );
@@ -382,6 +386,8 @@ class ExamRegistrationService {
 	 * Перенос сотрудником с причиной: окно записи и «до начала своего сеанса» не проверяются, попытки быть не должно.
 	 *
 	 * @throws CodedException
+	 *
+	 * @throws \InvalidArgumentException Не указана обязательная причина переноса.
 	 */
 	public function transferByStaff( int $actorUserId, int $registrationId, int $newSessionId, string $reason ): RegistrationResultDTO {
 		$reason = trim( $reason );
@@ -449,6 +455,8 @@ class ExamRegistrationService {
 	 * Общий перенос: блокировка сеансов по возрастанию ID → проверки (в том числе пересечение с записью на другое
 	 * проведение) → место в новом → закрыть старую → новая запись. Участник и участие уже заблокированы вызывающим.
 	 * Любой отказ откатывает транзакцию, поэтому старая запись остаётся действующей.
+	 *
+	 * @throws CodedException Перенос нарушает правила, вместимость или действительность записи.
 	 */
 	private function moveRegistration( ExamParticipationDTO $participation, ExamRegistrationDTO $current, int $newSessionId, bool $byStaff, ?int $actorUserId, ?string $reason ): RegistrationResultDTO {
 		if ( $current->sessionId === $newSessionId ) {
@@ -519,7 +527,11 @@ class ExamRegistrationService {
 		);
 	}
 
-	/** Закрывает действующую запись, освобождает место и пишет событие. */
+	/**
+	 * Закрывает действующую запись, освобождает место и пишет событие.
+	 *
+	 * @throws CodedException Запись перестала быть действующей до её закрытия.
+	 */
 	private function closeRegistration( ExamParticipationDTO $participation, ExamRegistrationDTO $registration, ExamSessionDTO $session, ExamRegistrationStatus $status, string $nowUtc, ?string $reason, ?int $actorUserId, string $by ): void {
 		if ( ! $this->registrations->deactivate( $registration->id, $status, $nowUtc, $reason, $actorUserId ) ) {
 			throw new CodedException( ErrorCode::ExamConflict, 'Действующей записи нет.' );
@@ -617,7 +629,9 @@ class ExamRegistrationService {
 		}
 	}
 
-	/** @throws CodedException */
+	/**
+	 * @throws CodedException
+	 */
 	private function assertRegistrationWindow( ExamEventDTO $event, ExamSessionDTO $session, string $nowUtc ): void {
 		if ( null !== $event->registrationOpensAt && $nowUtc < $event->registrationOpensAt ) {
 			throw new CodedException( ErrorCode::ExamClosed, 'Запись ещё не открыта.' );
@@ -662,7 +676,11 @@ class ExamRegistrationService {
 		}
 	}
 
-	/** Сотрудник вправе управлять предметом проведения, иначе — тот же отказ, что и для несуществующей записи. */
+	/**
+	 * Сотрудник вправе управлять предметом проведения, иначе — тот же отказ, что и для несуществующей записи.
+	 *
+	 * @throws CodedException Запись отсутствует либо её проведение недоступно сотруднику.
+	 */
 	private function assertStaffScope( int $actorUserId, ?ExamParticipationDTO $participation ): void {
 		$event = null !== $participation ? $this->events->find( $participation->eventId ) : null;
 		// Офис с правом разбора оплат переносит только оплаченных гостей (8.8.5); ученика и чужое проведение — нет.
@@ -700,7 +718,9 @@ class ExamRegistrationService {
 		return null !== $session ? max( 0, $session->capacity - $session->occupiedCount ) : 0;
 	}
 
-	/** @throws CodedException */
+	/**
+	 * @throws CodedException
+	 */
 	private function assertRequestKey( string $requestKey ): void {
 		if ( '' === $requestKey || strlen( $requestKey ) > self::REQUEST_KEY_MAX_LENGTH ) {
 			throw new CodedException( ErrorCode::ExamReplay, 'Повторите действие.' );

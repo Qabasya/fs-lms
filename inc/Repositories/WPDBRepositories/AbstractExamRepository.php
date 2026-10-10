@@ -112,14 +112,14 @@ abstract class AbstractExamRepository {
 	protected function readRows( string $sql ): array {
 		$rows = $this->wpdb->get_results( $sql, ARRAY_A );
 		$this->assertReadSucceeded();
-		return is_array( $rows ) ? array_values( $rows ) : array();
+		return is_array( $rows ) ? $rows : array();
 	}
 
 	/** @return int[] Значения первой колонки как целые. */
 	protected function readInts( string $sql ): array {
 		$values = $this->wpdb->get_col( $sql );
 		$this->assertReadSucceeded();
-		return array_map( 'intval', is_array( $values ) ? $values : array() );
+		return array_map( 'intval', $values );
 	}
 
 	protected function readInt( string $sql ): int {

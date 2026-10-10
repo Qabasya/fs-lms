@@ -117,7 +117,11 @@ class GuestApplicationService {
 		return $resolved;
 	}
 
-	/** Сумма возврата: положительное число с копейками, формат `NNN.NN`. @throws CodedException */
+	/**
+	 * Сумма возврата: положительное число с копейками, формат `NNN.NN`.
+	 *
+	 * @throws CodedException
+	 */
 	private function normalizeAmount( string $amount ): string {
 		$clean = str_replace( array( ' ', ',' ), array( '', '.' ), trim( $amount ) );
 		if ( '' === $clean || ! is_numeric( $clean ) || (float) $clean <= 0 || (float) $clean > 9999999.99 ) {
@@ -243,7 +247,11 @@ class GuestApplicationService {
 		return $found;
 	}
 
-	/** Хеши введённых ФИО и телефона (для проверки дублей до создания заявки). @return array{name: string, phone: string} */
+	/**
+	 * Хеши введённых ФИО и телефона (для проверки дублей до создания заявки).
+	 *
+	 * @return array{name: string, phone: string}
+	 */
 	public function hashesOf( string $last, string $first, string $middle, string $phone ): array {
 		return array(
 			'name'  => $this->identity->nameHash( $last, $first, $middle ),
@@ -355,6 +363,8 @@ class GuestApplicationService {
 	 * @param list<string> $types
 	 *
 	 * @return array<string, int>
+	 *
+	 * @throws \RuntimeException Согласие не удалось сохранить; заявка не должна быть принята.
 	 */
 	private function recordConsents( array $types, RequestContextDTO $ctx ): array {
 		$refs = array();

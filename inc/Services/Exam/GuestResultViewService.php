@@ -14,7 +14,9 @@ class GuestResultViewService {
 		private readonly CenterContactsService $contacts,
 	) {}
 
-	/** @return array<string, mixed>|null */
+	/**
+	 * @return array<string, mixed>|null
+	 */
 	public function build( int $participationId ): ?array {
 		$data = $this->review->build( $participationId );
 

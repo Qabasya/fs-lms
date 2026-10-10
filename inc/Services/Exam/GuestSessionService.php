@@ -264,6 +264,8 @@ class GuestSessionService {
 	 * Создаёт строку сессии и возвращает значение куки.
 	 *
 	 * @param array<string, scalar|null> $row Поля строки без `cookie_hash`.
+	 *
+	 * @throws \RuntimeException Строка гостевой сессии не сохранена.
 	 */
 	protected function open( array $row ): string {
 		$cookie = bin2hex( random_bytes( 32 ) );

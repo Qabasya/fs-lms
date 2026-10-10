@@ -400,7 +400,11 @@ class ExamHoldService {
 		return true;
 	}
 
-	/** Заявка стала записью: участник, участие, запись и (если место удерживалось) снятый флаг брони. */
+	/**
+	 * Заявка стала записью: участник, участие, запись и (если место удерживалось) снятый флаг брони.
+	 *
+	 * @throws \RuntimeException Заявка изменилась до фиксации подтверждения.
+	 */
 	private function finalize( ExamGuestApplicationDTO $application, int $participantId, int $participationId, int $registrationId ): ExamGuestApplicationDTO {
 		$updated = $this->applications->update(
 			$application->id,
@@ -434,7 +438,11 @@ class ExamHoldService {
 		}
 	}
 
-	/** Оплата получена, а места нет: заявка помечается для разбора сотрудником, в outbox — событие. */
+	/**
+	 * Оплата получена, а места нет: заявка помечается для разбора сотрудником, в outbox — событие.
+	 *
+	 * @throws \RuntimeException Заявка изменилась до отметки о ручном урегулировании.
+	 */
 	private function markNeedsResolution( ExamGuestApplicationDTO $application, int $participantId ): ExamGuestApplicationDTO {
 		$updated = $this->applications->update(
 			$application->id,

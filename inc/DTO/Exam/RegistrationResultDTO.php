@@ -26,7 +26,9 @@ readonly class RegistrationResultDTO {
 		return new self( $this->registrationId, $this->participationId, $this->sessionId, $this->status, $this->freeSeats, true, $this->warnings );
 	}
 
-	/** @return array<string, mixed> */
+	/**
+	 * @return array<string, mixed>
+	 */
 	public function toArray(): array {
 		return array(
 			'registration_id'  => $this->registrationId,
@@ -39,7 +41,9 @@ readonly class RegistrationResultDTO {
 		);
 	}
 
-	/** @param array<string, mixed> $data */
+	/**
+	 * @param array<string, mixed> $data
+	 */
 	public static function fromArray( array $data ): self {
 		return new self(
 			registrationId : (int) $data['registration_id'],

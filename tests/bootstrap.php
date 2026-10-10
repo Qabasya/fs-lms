@@ -405,9 +405,9 @@ if (!function_exists('get_posts')) {
     }
 }
 if (!function_exists('wp_update_post')) {
-    function wp_update_post(array $arr): int {
+    function wp_update_post(array $arr, bool $wp_error = false): int|WP_Error {
         $id = (int) ($arr['ID'] ?? 0);
-        if (!isset($GLOBALS['_fs_test_posts'][$id])) { return 0; }
+        if (!isset($GLOBALS['_fs_test_posts'][$id])) { return $wp_error ? new WP_Error('invalid_post', 'Invalid post ID.') : 0; }
         foreach ($arr as $k => $v) {
             if ('ID' !== $k && property_exists($GLOBALS['_fs_test_posts'][$id], $k)) {
                 $GLOBALS['_fs_test_posts'][$id]->$k = $v;

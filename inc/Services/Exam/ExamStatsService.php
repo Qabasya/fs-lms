@@ -239,7 +239,9 @@ class ExamStatsService {
 		return $rows;
 	}
 
-	/** @param ExamRegistrationDTO[] $history */
+	/**
+	 * @param ExamRegistrationDTO[] $history
+	 */
 	private function registrationSession( array $history, int $registrationId ): int {
 		foreach ( $history as $registration ) {
 			if ( $registration->id === $registrationId ) {
@@ -336,12 +338,16 @@ class ExamStatsService {
 		);
 	}
 
-	/** @param list<float> $values */
+	/**
+	 * @param list<float> $values
+	 */
 	private function avg( array $values ): float {
 		return round( array_sum( $values ) / count( $values ), 1 );
 	}
 
-	/** @return list<array{id: int, date: string, time_start: string}> */
+	/**
+	 * @return list<array{id: int, date: string, time_start: string}>
+	 */
 	private function sessionOptions( ExamEventDTO $event ): array {
 		$list = array();
 		foreach ( $this->sessions->findByEvent( $event->id ) as $session ) {

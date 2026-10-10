@@ -78,17 +78,17 @@ class ExamVariantGuardController extends BaseController implements ServiceInterf
 		return $preserved;
 	}
 
-	/** @param bool|null $check @param \WP_Post $post @return bool|null */
+	/** Блокирует отправку замороженной записи в корзину; чужое решение фильтра сохраняется. */
 	public function guardTrash( mixed $check, mixed $post ): mixed {
 		return $post instanceof \WP_Post && $this->guard->isPostFrozen( $post->ID ) ? $this->block( $post->ID ) : $check;
 	}
 
-	/** @param \WP_Post|false|null $check @param \WP_Post $post @return \WP_Post|false|null */
+	/** Блокирует удаление замороженной записи; неожиданный аргумент стороннего хука пропускается. */
 	public function guardDelete( mixed $check, mixed $post ): mixed {
 		return $post instanceof \WP_Post && $this->guard->isPostFrozen( $post->ID ) ? $this->block( $post->ID ) : $check;
 	}
 
-	/** @param \WP_Post|false|null $check @param \WP_Post $post @return \WP_Post|false|null */
+	/** Блокирует удаление вложения замороженного варианта, сохраняя прежнее решение фильтра. */
 	public function guardAttachment( mixed $check, mixed $post ): mixed {
 		return $post instanceof \WP_Post && $this->guard->isAttachmentFrozen( $post->ID ) ? $this->block( $post->ID ) : $check;
 	}
@@ -100,7 +100,9 @@ class ExamVariantGuardController extends BaseController implements ServiceInterf
 		}
 	}
 
-	/** @return false */
+	/**
+	 * @return false
+	 */
 	private function block( int $postId ): false {
 		$this->remember( $postId );
 

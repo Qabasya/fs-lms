@@ -247,7 +247,9 @@ class ExamGuestPageController extends BaseController implements ServiceInterface
 		return false;
 	}
 
-	/** @return list<int> */
+	/**
+	 * @return list<int>
+	 */
 	private function guestPageIds(): array {
 		$ids = array();
 		foreach ( PageRoutes::guestExamPages() as $route ) {

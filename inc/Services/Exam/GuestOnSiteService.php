@@ -96,7 +96,11 @@ class GuestOnSiteService {
 		return $this->payLink( $actorUserId, $application );
 	}
 
-	/** @return array{application_id: int, pay_url: string, hold_expires_at: string, seconds_left: int} */
+	/**
+	 * @return array{application_id: int, pay_url: string, hold_expires_at: string, seconds_left: int}
+	 *
+	 * @throws CodedException Бронь не действует или уже истекла.
+	 */
 	private function payLink( int $actorUserId, ExamGuestApplicationDTO $application ): array {
 		if ( ! $application->isHeld || null === $application->holdExpiresAt || $application->holdExpiresAt <= $this->time->nowUtc() ) {
 			throw new CodedException( ErrorCode::ExamClosed, 'Бронь не действует: оформите заявку заново.' );

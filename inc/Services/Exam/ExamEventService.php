@@ -833,7 +833,11 @@ class ExamEventService {
 		}
 	}
 
-	/** Новый вариант опубликованного проведения получает запись в снимке: иначе его попытки считались бы по формату, а не по снимку. */
+	/**
+	 * Новый вариант опубликованного проведения получает запись в снимке: иначе его попытки считались бы по формату, а не по снимку.
+	 *
+	 * @throws CodedException Версия проведения изменилась до сохранения снимка.
+	 */
 	private function addVariantToPublishedSnapshot( ExamEventDTO $event, int $assessmentId ): void {
 		if ( ExamEventStatus::Published->value !== $event->status || null !== $event->snapshotFor( $assessmentId ) ) {
 			return;
@@ -847,13 +851,19 @@ class ExamEventService {
 		}
 	}
 
-	/** @return array<string, mixed> */
+	/**
+	 * @return array<string, mixed>
+	 */
 	private function snapshotOf( ExamEventDTO $event ): array {
 		$decoded = null === $event->variantSnapshot || '' === $event->variantSnapshot ? array() : json_decode( $event->variantSnapshot, true );
 		return is_array( $decoded ) ? $decoded : array();
 	}
 
-	/** Перенос возможен, пока ни одна попытка не начата, сеанс открыт и вместимость нового кабинета вмещает занятые места. */
+	/**
+	 * Перенос возможен, пока ни одна попытка не начата, сеанс открыт и вместимость нового кабинета вмещает занятые места.
+	 *
+	 * @throws CodedException Сеанс закрыт, попытка начата либо новый кабинет не вмещает записи.
+	 */
 	private function assertSessionMovable( ExamSessionDTO $current, int $newSeats ): void {
 		if ( $current->isLocked() ) {
 			throw new CodedException( ErrorCode::ExamStarted, 'Сеанс уже начат: перенести его нельзя.' );
@@ -885,7 +895,11 @@ class ExamEventService {
 		}
 	}
 
-	/** Гостевая запись включается только при пройденном чек-листе запуска (11a.6.6); проведение без гостей чек-листу не подчиняется. */
+	/**
+	 * Гостевая запись включается только при пройденном чек-листе запуска (11a.6.6); проведение без гостей чек-листу не подчиняется.
+	 *
+	 * @throws CodedException Чек-лист запуска гостевой записи не пройден.
+	 */
 	private function assertGuestLaunchReady( ExamEventDTO $event ): void {
 		if ( ! $this->checklist->isReady( $event ) ) {
 			throw new CodedException(
@@ -903,7 +917,11 @@ class ExamEventService {
 		return $event;
 	}
 
-	/** Блокирующее чтение проведения — первый оператор транзакции. */
+	/**
+	 * Блокирующее чтение проведения — первый оператор транзакции.
+	 *
+	 * @throws CodedException Проведение не найдено при блокирующем чтении.
+	 */
 	private function lockEvent( int $eventId ): ExamEventDTO {
 		$event = $this->events->findForUpdate( $eventId );
 		if ( null === $event ) {
@@ -946,7 +964,11 @@ class ExamEventService {
 		return new CodedException( ErrorCode::ExamStale, 'Данные изменились: обновите страницу и повторите.' );
 	}
 
-	/** Дата `Y-m-d` строго: «2026-02-30» и «10.03.2026» отвергаются. */
+	/**
+	 * Дата `Y-m-d` строго: «2026-02-30» и «10.03.2026» отвергаются.
+	 *
+	 * @throws CodedException Дата отсутствует или не соответствует допустимой календарной дате.
+	 */
 	private function dateOf( mixed $value, string $message ): string {
 		$raw  = trim( (string) $value );
 		$date = \DateTimeImmutable::createFromFormat( '!Y-m-d', $raw );
@@ -956,7 +978,11 @@ class ExamEventService {
 		return $raw;
 	}
 
-	/** Время `H:i` строго. */
+	/**
+	 * Время `H:i` строго.
+	 *
+	 * @throws CodedException Время отсутствует или не соответствует формату H:i.
+	 */
 	private function timeOf( mixed $value ): string {
 		$raw  = trim( (string) $value );
 		$time = \DateTimeImmutable::createFromFormat( '!H:i', $raw );
@@ -966,7 +992,11 @@ class ExamEventService {
 		return $raw;
 	}
 
-	/** Местные дата и время (`Y-m-d H:i[:s]`, допускается разделитель `T` поля datetime-local) → UTC; пусто → null. */
+	/**
+	 * Местные дата и время (`Y-m-d H:i[:s]`, допускается разделитель `T` поля datetime-local) → UTC; пусто → null.
+	 *
+	 * @throws CodedException Местная дата и время имеют недопустимый формат.
+	 */
 	private function localDateTimeToUtc( mixed $value ): ?string {
 		$raw = str_replace( 'T', ' ', trim( (string) $value ) );
 		if ( '' === $raw ) {

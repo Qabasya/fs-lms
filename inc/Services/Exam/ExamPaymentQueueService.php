@@ -51,7 +51,9 @@ class ExamPaymentQueueService {
 		);
 	}
 
-	/** @return list<array<string, mixed>> */
+	/**
+	 * @return list<array<string, mixed>>
+	 */
 	private function needsHelp( int $actorUserId ): array {
 		$items = array();
 		foreach ( $this->applications->listByState( GuestApplicationState::PaidNeedsResolution->value ) as $application ) {
@@ -69,7 +71,9 @@ class ExamPaymentQueueService {
 		return $items;
 	}
 
-	/** @return list<array<string, mixed>> */
+	/**
+	 * @return list<array<string, mixed>>
+	 */
 	private function resolved( int $actorUserId ): array {
 		$items = array();
 		foreach ( $this->resolutions->listRecentForApplications() as $resolution ) {
@@ -85,7 +89,9 @@ class ExamPaymentQueueService {
 		return $items;
 	}
 
-	/** @return array<string, mixed> */
+	/**
+	 * @return array<string, mixed>
+	 */
 	private function base( ExamGuestApplicationDTO $application, string $eventTitle, int $ownerId ): array {
 		$link    = $this->links->findByApplication( $application->id )[0] ?? null;
 		$session = $this->sessions->find( $application->sessionId );
@@ -143,7 +149,9 @@ class ExamPaymentQueueService {
 		return $targets;
 	}
 
-	/** @return array<string, mixed> */
+	/**
+	 * @return array<string, mixed>
+	 */
 	private function resolutionView( ExamManualResolutionDTO $resolution ): array {
 		$actor = $this->users->find( $resolution->actorUserId );
 		$new   = null !== $resolution->newSessionId ? $this->sessions->find( $resolution->newSessionId ) : null;

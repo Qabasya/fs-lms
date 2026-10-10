@@ -79,8 +79,14 @@ class WooCommerceManager {
 
 	/** У гостя корзина живёт в сессии WooCommerce; без куки сессии позиция потерялась бы при переходе на страницу корзины. */
 	public function ensureCartSession(): void {
-		if ( $this->isActive() && function_exists( 'WC' ) && isset( WC()->session ) && ! WC()->session->has_session() ) {
-			WC()->session->set_customer_session_cookie( true );
+		if ( ! $this->isActive() || ! function_exists( 'WC' ) ) {
+			return;
+		}
+
+		// Сторонний обработчик сессии может не предоставлять методы штатного WC_Session_Handler.
+		$session = WC()->session ?? null;
+		if ( null !== $session && method_exists( $session, 'has_session' ) && method_exists( $session, 'set_customer_session_cookie' ) && ! $session->has_session() ) {
+			$session->set_customer_session_cookie( true );
 		}
 	}
 
@@ -164,6 +170,9 @@ class WooCommerceManager {
 
 		$items = array();
 		foreach ( $order->get_items() as $item ) {
+			if ( ! $item instanceof \WC_Order_Item_Product ) {
+				continue;
+			}
 			$applicationId = (int) $item->get_meta( ExamOrderItemMeta::Application->value );
 			if ( $applicationId > 0 ) {
 				$items[] = array(

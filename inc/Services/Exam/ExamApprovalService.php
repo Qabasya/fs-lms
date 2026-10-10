@@ -179,7 +179,9 @@ class ExamApprovalService {
 		);
 	}
 
-	/** @return array{status: 'skipped', reason: string} */
+	/**
+	 * @return array{status: 'skipped', reason: string}
+	 */
 	private function skipped( string $reason ): array {
 		return array(
 			'status' => self::STATUS_SKIPPED,

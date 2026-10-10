@@ -30,7 +30,9 @@ readonly class GuestPageOutcome {
 		return new self( self::RENDER );
 	}
 
-	/** @param array<string, string> $cookies */
+	/**
+	 * @param array<string, string> $cookies
+	 */
 	public static function redirect( string $url, array $cookies = array() ): self {
 		return new self( self::REDIRECT, $url, $cookies );
 	}
@@ -40,7 +42,9 @@ readonly class GuestPageOutcome {
 		return new self( self::NOT_FOUND );
 	}
 
-	/** @param list<string> $names */
+	/**
+	 * @param list<string> $names
+	 */
 	public function withClearedCookies( array $names ): self {
 		return new self( $this->kind, $this->url, $this->cookies, $names );
 	}

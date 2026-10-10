@@ -237,7 +237,7 @@ class PostManager {
 	 * @return int ID созданного поста или 0 при ошибке
 	 */
 	public function insert( array $data ): int {
-		$id = wp_insert_post( $data );
+		$id = wp_insert_post( $data, true );
 
 		// is_wp_error() — проверяет, является ли результат ошибкой WordPress
 		return is_wp_error( $id ) ? 0 : (int) $id;
@@ -311,9 +311,9 @@ class PostManager {
 	 * @return bool true при успехе
 	 */
 	public function update( int $post_id, array $data ): bool {
-		$result = wp_update_post( array_merge( $data, array( 'ID' => $post_id ) ) );
+		$result = wp_update_post( array_merge( $data, array( 'ID' => $post_id ) ), true );
 
-		return ! is_wp_error( $result ) && 0 !== $result;
+		return ! is_wp_error( $result );
 	}
 
 	/**
@@ -332,7 +332,7 @@ class PostManager {
 	 */
 	public function insertBypassingHooks( array $data ): int {
 		return $this->withSuppressedPostLifecycle( (string) ( $data['post_type'] ?? 'post' ), function () use ( $data ): int {
-			$id = wp_insert_post( $data );
+			$id = wp_insert_post( $data, true );
 
 			return is_wp_error( $id ) ? 0 : (int) $id;
 		} );
@@ -348,9 +348,9 @@ class PostManager {
 	 */
 	public function updateBypassingHooks( int $post_id, array $data ): bool {
 		return $this->withSuppressedPostLifecycle( (string) get_post_type( $post_id ), function () use ( $post_id, $data ): bool {
-			$result = wp_update_post( array_merge( $data, array( 'ID' => $post_id ) ) );
+			$result = wp_update_post( array_merge( $data, array( 'ID' => $post_id ) ), true );
 
-			return ! is_wp_error( $result ) && 0 !== $result;
+			return ! is_wp_error( $result );
 		} );
 	}
 
@@ -361,9 +361,9 @@ class PostManager {
 	 * @template T
 	 *
 	 * @param string   $postType Тип поста — для хука `save_post_{type}`
-	 * @param callable $fn       Колбэк, чей результат возвращается
+	 * @param callable():T $fn   Колбэк, чей результат возвращается
 	 *
-	 * @return mixed Результат `$fn`
+	 * @return T Результат `$fn`
 	 */
 	private function withSuppressedPostLifecycle( string $postType, callable $fn ): mixed {
 		global $wp_filter;
@@ -782,6 +782,7 @@ class PostManager {
 	 *     author?: int,
 	 *     search?: string,
 	 *     tax_query?: array,
+	 *     meta_query?: array,
 	 *     limit?: int,
 	 *     orderby?: string,
 	 *     order?: string
@@ -865,9 +866,9 @@ class PostManager {
 		$result = wp_update_post( array(
 			'ID'          => $post_id,
 			'post_status' => $status,
-		) );
+		), true );
 
-		return ! is_wp_error( $result ) && 0 !== $result;
+		return ! is_wp_error( $result );
 	}
 
 	/**

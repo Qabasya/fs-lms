@@ -32,10 +32,14 @@ class ExamVariantGuard {
 		'fs_lms_bank_task_source',
 	);
 
-	/** @var array<int, array{event_title: string, subject_key: string}>|null assessmentId => проведение */
+	/**
+	 * @var array<int, array{event_title: string, subject_key: string}>|null assessmentId => проведение
+	 */
 	private ?array $frozen = null;
 
-	/** @var array<int, int>|null taskId => assessmentId */
+	/**
+	 * @var array<int, int>|null taskId => assessmentId
+	 */
 	private ?array $tasks = null;
 
 	public function __construct(
@@ -135,7 +139,9 @@ class ExamVariantGuard {
 		return sprintf( 'Вариант используется в экзамене «%s»: изменение недоступно. Создайте копию варианта для следующего проведения.', $title );
 	}
 
-	/** @return array<int, array{event_title: string, subject_key: string}> */
+	/**
+	 * @return array<int, array{event_title: string, subject_key: string}>
+	 */
 	private function frozenMap(): array {
 		if ( null === $this->frozen ) {
 			$this->frozen = array();
@@ -150,7 +156,9 @@ class ExamVariantGuard {
 		return $this->frozen;
 	}
 
-	/** @return array<int, int> */
+	/**
+	 * @return array<int, int>
+	 */
 	private function taskMap(): array {
 		if ( null === $this->tasks ) {
 			$this->tasks = array();
@@ -182,7 +190,9 @@ class ExamVariantGuard {
 		return array_values( array_filter( array_map( 'intval', $ids ) ) );
 	}
 
-	/** @return list<int> */
+	/**
+	 * @return list<int>
+	 */
 	private function childrenOf( int $taskId ): array {
 		$children = $this->posts->getMeta( $taskId, PostMetaName::TaskBundleChildIds->value );
 

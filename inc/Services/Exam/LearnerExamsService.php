@@ -141,7 +141,9 @@ class LearnerExamsService {
 		return array_values( $unique );
 	}
 
-	/** @return array<string, mixed> */
+	/**
+	 * @return array<string, mixed>
+	 */
 	private function card( ExamEventDTO $event, int $personId, bool $readOnly, string $nowUtc ): array {
 		$participation = $this->participations->findByEventAndPerson( $event->id, $personId );
 		$registration  = null !== $participation ? $this->registrations->findActive( $participation->id ) : null;
@@ -424,7 +426,9 @@ class LearnerExamsService {
 		return array_values( array_filter( $futureList, static fn ( array $s ): bool => $s['free'] > 0 && empty( $s['is_current'] ) ) );
 	}
 
-	/** @return array<string, mixed> */
+	/**
+	 * @return array<string, mixed>
+	 */
 	private function registrationBlock( ExamRegistrationDTO $registration, ExamSessionDTO $session, ExamParticipationDTO $participation ): array {
 		$start = $this->local( $session->scheduledAt );
 
@@ -447,7 +451,9 @@ class LearnerExamsService {
 		return null !== $last && null !== $last->actorUserId ? $last->reason : null;
 	}
 
-	/** @param ExamSessionDTO[] $sessions */
+	/**
+	 * @param ExamSessionDTO[] $sessions
+	 */
 	private function sessionById( array $sessions, int $id ): ?ExamSessionDTO {
 		foreach ( $sessions as $session ) {
 			if ( $session->id === $id ) {

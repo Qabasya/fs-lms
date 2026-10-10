@@ -202,7 +202,11 @@ class ExamSourceService {
 		);
 	}
 
-	/** Включает или отключает источник (отключённый новых заявок не принимает). @throws CodedException */
+	/**
+	 * Включает или отключает источник (отключённый новых заявок не принимает).
+	 *
+	 * @throws CodedException
+	 */
 	public function setActive( int $actorUserId, int $sourceId, bool $active ): void {
 		$eventId = $this->eventIdOf( $actorUserId, $sourceId );
 
@@ -237,7 +241,9 @@ class ExamSourceService {
 		return (string) add_query_arg( array( 'k' => $plain ), PageRoutes::ExamSignup->url() );
 	}
 
-	/** @return array<string, mixed> */
+	/**
+	 * @return array<string, mixed>
+	 */
 	private function payload( ExamSourceDTO $source ): array {
 		return array(
 			'id'           => $source->id,
@@ -252,7 +258,11 @@ class ExamSourceService {
 		);
 	}
 
-	/** Направление проведения — направление формата его основного варианта: от него зависит допустимый класс. */
+	/**
+	 * Направление проведения — направление формата его основного варианта: от него зависит допустимый класс.
+	 *
+	 * @throws CodedException Не задан основной вариант с известным направлением экзамена.
+	 */
 	private function directionOf( ExamEventDTO $event ): ExamDirection {
 		$assessment = null !== $event->defaultAssessmentId ? $this->assessments->get( $event->defaultAssessmentId ) : null;
 		$format     = null !== $assessment ? $this->formats->for( $assessment->kind ) : null;
@@ -263,7 +273,11 @@ class ExamSourceService {
 		return $format->direction;
 	}
 
-	/** Проведение, которым пользователь вправе управлять, плюс право на гостей. @throws CodedException */
+	/**
+	 * Проведение, которым пользователь вправе управлять, плюс право на гостей.
+	 *
+	 * @throws CodedException
+	 */
 	private function requireEvent( int $actorUserId, int $eventId ): ExamEventDTO {
 		$event = $this->events->find( $eventId );
 		if ( null === $event || ! $this->guard->canManageEventGuests( $actorUserId, $event ) ) {
@@ -273,7 +287,11 @@ class ExamSourceService {
 		return $event;
 	}
 
-	/** Проведение источника, прочитанное до транзакции (для проверки права и порядка блокировок). @throws CodedException */
+	/**
+	 * Проведение источника, прочитанное до транзакции (для проверки права и порядка блокировок).
+	 *
+	 * @throws CodedException
+	 */
 	private function eventIdOf( int $actorUserId, int $sourceId ): int {
 		$source = $this->sources->find( $sourceId );
 		if ( null === $source ) {
@@ -284,7 +302,11 @@ class ExamSourceService {
 		return $source->eventId;
 	}
 
-	/** Блокирующее чтение источника — первый оператор транзакции. @throws CodedException */
+	/**
+	 * Блокирующее чтение источника — первый оператор транзакции.
+	 *
+	 * @throws CodedException
+	 */
 	private function lockSource( int $sourceId, int $eventId ): ExamSourceDTO {
 		$source = $this->sources->findForUpdate( $sourceId );
 		if ( null === $source || $source->eventId !== $eventId ) {

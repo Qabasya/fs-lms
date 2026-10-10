@@ -183,14 +183,18 @@ class ExamNotificationComposer {
 		}
 	}
 
-	/** @param array<string, mixed> $p */
+	/**
+	 * @param array<string, mixed> $p
+	 */
 	private function registrationConfirmed( ExamOutboxEventDTO $row, array $p ): void {
 		$registration = $this->registrations->find( $row->aggregateId );
 		$session      = $this->sessions->find( (int) ( $p['session_id'] ?? 0 ) );
 		$this->toStudent( NotificationType::ExamRegistrationConfirmed, $row, 'registration_confirmed', (int) ( $p['participation_id'] ?? $registration->participationId ?? 0 ), $session );
 	}
 
-	/** @param array<string, mixed> $p */
+	/**
+	 * @param array<string, mixed> $p
+	 */
 	private function registrationTransferred( ExamOutboxEventDTO $row, array $p ): void {
 		$registration  = $this->registrations->find( $row->aggregateId );
 		$participation = null !== $registration ? $this->participations->find( $registration->participationId ) : null;
@@ -204,7 +208,9 @@ class ExamNotificationComposer {
 		$this->toStudent( NotificationType::ExamRegistrationChanged, $row, 'registration_changed', $participation->id, $this->sessions->find( (int) ( $p['new_session_id'] ?? 0 ) ) );
 	}
 
-	/** @param array<string, mixed> $p */
+	/**
+	 * @param array<string, mixed> $p
+	 */
 	private function registrationCancelled( ExamOutboxEventDTO $row, array $p ): void {
 		$registration  = $this->registrations->find( $row->aggregateId );
 		$participation = null !== $registration ? $this->participations->find( $registration->participationId ) : null;
@@ -224,7 +230,9 @@ class ExamNotificationComposer {
 		$this->toStudent( $type, $row, 'registration_cancelled', $participation->id, $session, $extra );
 	}
 
-	/** @param array<string, mixed> $p */
+	/**
+	 * @param array<string, mixed> $p
+	 */
 	private function participantMissed( ExamOutboxEventDTO $row, array $p ): void {
 		$participation = $this->participations->find( $row->aggregateId );
 		if ( null === $participation ) {
@@ -235,7 +243,9 @@ class ExamNotificationComposer {
 		$this->toStudent( NotificationType::ExamMissed, $row, 'missed', $participation->id, $this->sessions->find( (int) ( $p['session_id'] ?? 0 ) ) );
 	}
 
-	/** @param array<string, mixed> $p */
+	/**
+	 * @param array<string, mixed> $p
+	 */
 	private function attemptSubmitted( ExamOutboxEventDTO $row, array $p ): void {
 		$participation = $this->participations->find( $row->aggregateId );
 		$attempt       = $this->attempts->find( (int) ( $p['attempt_id'] ?? 0 ) );
@@ -281,7 +291,9 @@ class ExamNotificationComposer {
 		);
 	}
 
-	/** @param array<string, mixed> $p */
+	/**
+	 * @param array<string, mixed> $p
+	 */
 	private function attemptApproved( ExamOutboxEventDTO $row, array $p ): void {
 		$attempt       = $this->attempts->find( (int) ( $p['attempt_id'] ?? 0 ) );
 		$participation = $this->participations->find( (int) ( $p['participation_id'] ?? $row->aggregateId ) );
@@ -305,7 +317,9 @@ class ExamNotificationComposer {
 		);
 	}
 
-	/** @param array<string, mixed> $p */
+	/**
+	 * @param array<string, mixed> $p
+	 */
 	private function resultCorrected( ExamOutboxEventDTO $row, array $p ): void {
 		$participation = $this->participations->find( (int) ( $p['participation_id'] ?? $row->aggregateId ) );
 		$event         = null !== $participation ? $this->events->find( $participation->eventId ) : null;
@@ -328,7 +342,9 @@ class ExamNotificationComposer {
 		);
 	}
 
-	/** @param array<string, mixed> $p */
+	/**
+	 * @param array<string, mixed> $p
+	 */
 	private function attemptExtended( ExamOutboxEventDTO $row, array $p ): void {
 		$participation = $this->participations->find( $row->aggregateId );
 		$event         = null !== $participation ? $this->events->find( $participation->eventId ) : null;
@@ -353,7 +369,9 @@ class ExamNotificationComposer {
 		);
 	}
 
-	/** @param array<string, mixed> $p */
+	/**
+	 * @param array<string, mixed> $p
+	 */
 	private function sessionMoved( ExamOutboxEventDTO $row, array $p ): void {
 		$session = $this->sessions->find( (int) ( $p['session_id'] ?? $row->aggregateId ) );
 		$event   = null !== $session ? $this->events->find( $session->eventId ) : null;
@@ -395,7 +413,9 @@ class ExamNotificationComposer {
 		}
 	}
 
-	/** @param array<string, mixed> $p */
+	/**
+	 * @param array<string, mixed> $p
+	 */
 	private function paymentProblem( ExamOutboxEventDTO $row, array $p, NotificationType $type, string $prefix ): void {
 		$application = $this->applications->find( (int) ( $p['application_id'] ?? $row->aggregateId ) );
 		$event       = null !== $application ? $this->events->find( $application->eventId ) : null;
@@ -422,7 +442,9 @@ class ExamNotificationComposer {
 		);
 	}
 
-	/** @param array<string, mixed> $p */
+	/**
+	 * @param array<string, mixed> $p
+	 */
 	private function sourceLimit( array $p ): void {
 		$event  = $this->events->find( (int) ( $p['event_id'] ?? 0 ) );
 		$source = $this->sources->find( (int) ( $p['source_id'] ?? 0 ) );
@@ -508,7 +530,9 @@ class ExamNotificationComposer {
 		);
 	}
 
-	/** @return array<string, string> */
+	/**
+	 * @return array<string, string>
+	 */
 	private function sessionPayload( ExamSessionDTO $session, ExamEventDTO $event ): array {
 		$start = $this->time->toLocal( $session->scheduledAt );
 		$end   = $this->time->toLocal( $session->plannedEndAt );

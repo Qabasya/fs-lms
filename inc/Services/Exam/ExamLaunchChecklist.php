@@ -76,7 +76,9 @@ class ExamLaunchChecklist {
 		return implode( ' ', $hints );
 	}
 
-	/** @return array{key: string, label: string, ok: bool, hint: string} */
+	/**
+	 * @return array{key: string, label: string, ok: bool, hint: string}
+	 */
 	private function item( string $key, string $label, bool $ok, string $hint ): array {
 		return array(
 			'key'   => $key,

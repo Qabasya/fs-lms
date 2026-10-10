@@ -51,7 +51,9 @@ class GuestOrderStatusService {
 		return $blocks;
 	}
 
-	/** @return array{state: string, title: string, lines: list<string>, refresh: bool} */
+	/**
+	 * @return array{state: string, title: string, lines: list<string>, refresh: bool}
+	 */
 	private function block( string $state, int $sessionId, int $orderId ): array {
 		$contacts = $this->contacts->get();
 		$phone    = '' !== $contacts['phone'] ? sprintf( 'Телефон центра: %s.', $contacts['phone'] ) : '';
@@ -96,7 +98,9 @@ class GuestOrderStatusService {
 		}
 	}
 
-	/** @return list<string> Дата, время, адрес и кабинет сеанса. */
+	/**
+	 * @return list<string> Дата, время, адрес и кабинет сеанса.
+	 */
 	private function sessionLines( int $sessionId ): array {
 		$session = $this->sessions->find( $sessionId );
 		if ( null === $session ) {
