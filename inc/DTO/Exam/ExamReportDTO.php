@@ -4,6 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\DTO\Exam;
 
+/** Настройки отчёта по проведению и поколение его гостевой ссылки. */
 readonly class ExamReportDTO {
 
 	public function __construct(

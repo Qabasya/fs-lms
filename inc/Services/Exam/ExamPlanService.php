@@ -73,20 +73,23 @@ class ExamPlanService {
 	public function eventPayload( ExamEventDTO $event ): array {
 		$titles = array();
 
-		return array_merge( $this->eventSummary( $event ), array(
-			'subject_key'                => $event->subjectKey,
-			'description'                => (string) $event->description,
-			'registration_opens_at'      => null !== $event->registrationOpensAt ? $this->time->toLocal( $event->registrationOpensAt ) : '',
-			'registration_closes_at'     => null !== $event->registrationClosesAt ? $this->time->toLocal( $event->registrationClosesAt ) : '',
-			'guest_registration_enabled' => $event->guestRegistrationEnabled,
-			'default_assessment_id'      => (int) $event->defaultAssessmentId,
-			'owner_user_id'              => $event->ownerUserId,
-			'owner_name'                 => (string) ( $this->users->find( $event->ownerUserId )->display_name ?? '' ),
-			'sessions'                   => array_map(
-				fn ( ExamSessionDTO $session ): array => $this->sessionPayload( $session, $titles ),
-				$this->sessions->findByEvent( $event->id )
-			),
-		) );
+		return array_merge(
+			$this->eventSummary( $event ),
+			array(
+				'subject_key'                => $event->subjectKey,
+				'description'                => (string) $event->description,
+				'registration_opens_at'      => null !== $event->registrationOpensAt ? $this->time->toLocal( $event->registrationOpensAt ) : '',
+				'registration_closes_at'     => null !== $event->registrationClosesAt ? $this->time->toLocal( $event->registrationClosesAt ) : '',
+				'guest_registration_enabled' => $event->guestRegistrationEnabled,
+				'default_assessment_id'      => (int) $event->defaultAssessmentId,
+				'owner_user_id'              => $event->ownerUserId,
+				'owner_name'                 => (string) ( $this->users->find( $event->ownerUserId )->display_name ?? '' ),
+				'sessions'                   => array_map(
+					fn ( ExamSessionDTO $session ): array => $this->sessionPayload( $session, $titles ),
+					$this->sessions->findByEvent( $event->id )
+				),
+			)
+		);
 	}
 
 	/**
@@ -135,10 +138,10 @@ class ExamPlanService {
 		foreach ( $this->rooms->findAll( true ) as $room ) {
 			if ( $room->hasCapacity() && $room->allowsSubject( $subjectKey ) ) {
 				$result[] = array(
-'id'    => $room->id,
-'name'  => $room->name,
-'seats' => $room->seats
-);
+					'id'    => $room->id,
+					'name'  => $room->name,
+					'seats' => $room->seats,
+				);
 			}
 		}
 
@@ -153,10 +156,12 @@ class ExamPlanService {
 			return $this->events->findBySubjectKey( $subjectKey );
 		}
 
-		return array_values( array_filter(
-			$this->events->listByOwner( $userId ),
-			static fn ( ExamEventDTO $event ): bool => $event->subjectKey === $subjectKey
-		) );
+		return array_values(
+			array_filter(
+				$this->events->listByOwner( $userId ),
+				static fn ( ExamEventDTO $event ): bool => $event->subjectKey === $subjectKey
+			)
+		);
 	}
 
 	/** @return array<string, mixed> */

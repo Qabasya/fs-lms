@@ -51,14 +51,16 @@ class ExamSourceCallbacks extends BaseController {
 			'grade'        => $this->sanitizeInt( 'grade' ),
 		);
 
-		$this->run( function () use ( $eventId, $sourceId, $version, $input ): array {
-			$source = $this->sources->save( get_current_user_id(), $eventId, $input, $sourceId > 0 ? $sourceId : null, $sourceId > 0 ? $version : null );
+		$this->run(
+			function () use ( $eventId, $sourceId, $version, $input ): array {
+				$source = $this->sources->save( get_current_user_id(), $eventId, $input, $sourceId > 0 ? $sourceId : null, $sourceId > 0 ? $version : null );
 
-			return array(
-'source_id' => $source->id,
-'sources'   => $this->sources->list( get_current_user_id(), $eventId )
-);
-		} );
+				return array(
+					'source_id' => $source->id,
+					'sources'   => $this->sources->list( get_current_user_id(), $eventId ),
+				);
+			}
+		);
 	}
 
 	public function ajaxIssueExamSourceLink(): void {
@@ -82,11 +84,13 @@ class ExamSourceCallbacks extends BaseController {
 
 		$sourceId = $this->requireInt( 'source_id' );
 
-		$this->run( function () use ( $sourceId ): array {
-			$this->sources->revokeLink( get_current_user_id(), $sourceId );
+		$this->run(
+			function () use ( $sourceId ): array {
+				$this->sources->revokeLink( get_current_user_id(), $sourceId );
 
-			return array( 'source_id' => $sourceId );
-		} );
+				return array( 'source_id' => $sourceId );
+			}
+		);
 	}
 
 	public function ajaxToggleExamSource(): void {
@@ -95,14 +99,16 @@ class ExamSourceCallbacks extends BaseController {
 		$sourceId = $this->requireInt( 'source_id' );
 		$active   = $this->sanitizeBool( 'active' );
 
-		$this->run( function () use ( $sourceId, $active ): array {
-			$this->sources->setActive( get_current_user_id(), $sourceId, $active );
+		$this->run(
+			function () use ( $sourceId, $active ): array {
+				$this->sources->setActive( get_current_user_id(), $sourceId, $active );
 
-			return array(
-'source_id' => $sourceId,
-'active'    => $active
-);
-		} );
+				return array(
+					'source_id' => $sourceId,
+					'active'    => $active,
+				);
+			}
+		);
 	}
 
 	/**

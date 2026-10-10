@@ -57,14 +57,16 @@ class ExamConductCallbacks extends BaseController {
 
 		$sessionId = $this->sanitizeInt( 'session_id' );
 
-		$this->run( function () use ( $sessionId ): array {
-			$resolved = $sessionId > 0 ? $sessionId : $this->board->defaultSessionId( get_current_user_id() );
-			if ( null === $resolved ) {
-				return array( 'board' => null );
-			}
+		$this->run(
+			function () use ( $sessionId ): array {
+				$resolved = $sessionId > 0 ? $sessionId : $this->board->defaultSessionId( get_current_user_id() );
+				if ( null === $resolved ) {
+						return array( 'board' => null );
+				}
 
-			return array( 'board' => $this->board->sessionBoard( get_current_user_id(), $resolved ) );
-		} );
+				return array( 'board' => $this->board->sessionBoard( get_current_user_id(), $resolved ) );
+			}
+		);
 	}
 
 	public function ajaxCancelExamRegistrationByStaff(): void {
@@ -74,9 +76,12 @@ class ExamConductCallbacks extends BaseController {
 		$registrationId = $this->requireInt( 'registration_id' );
 		$reason         = $this->sanitizeMultilineText( 'reason' );
 
-		$this->runOnBoard( $sessionId, function () use ( $registrationId, $reason ): void {
-			$this->registration->cancelByStaff( get_current_user_id(), $registrationId, $reason );
-		} );
+		$this->runOnBoard(
+			$sessionId,
+			function () use ( $registrationId, $reason ): void {
+				$this->registration->cancelByStaff( get_current_user_id(), $registrationId, $reason );
+			}
+		);
 	}
 
 	public function ajaxTransferExamRegistration(): void {
@@ -88,9 +93,12 @@ class ExamConductCallbacks extends BaseController {
 		$targetId       = $this->requireInt( 'target_session_id' );
 		$reason         = $this->sanitizeMultilineText( 'reason' );
 
-		$this->runOnBoard( $sessionId, function () use ( $registrationId, $targetId, $reason ): void {
-			$this->registration->transferByStaff( get_current_user_id(), $registrationId, $targetId, $reason );
-		} );
+		$this->runOnBoard(
+			$sessionId,
+			function () use ( $registrationId, $targetId, $reason ): void {
+				$this->registration->transferByStaff( get_current_user_id(), $registrationId, $targetId, $reason );
+			}
+		);
 	}
 
 	public function ajaxExtendExamAttempt(): void {
@@ -106,9 +114,12 @@ class ExamConductCallbacks extends BaseController {
 			return;
 		}
 
-		$this->runOnBoard( $sessionId, function () use ( $attemptId, $minutes, $reason ): void {
-			$this->attempts->extend( get_current_user_id(), $attemptId, $minutes, $reason );
-		} );
+		$this->runOnBoard(
+			$sessionId,
+			function () use ( $attemptId, $minutes, $reason ): void {
+				$this->attempts->extend( get_current_user_id(), $attemptId, $minutes, $reason );
+			}
+		);
 	}
 
 	public function ajaxMarkExamArrival(): void {
@@ -118,9 +129,12 @@ class ExamConductCallbacks extends BaseController {
 		$registrationId = $this->requireInt( 'registration_id' );
 		$arrived        = $this->sanitizeBool( 'arrived' );
 
-		$this->runOnBoard( $sessionId, function () use ( $registrationId, $arrived ): void {
-			$this->conduct->markArrival( get_current_user_id(), $registrationId, $arrived );
-		} );
+		$this->runOnBoard(
+			$sessionId,
+			function () use ( $registrationId, $arrived ): void {
+				$this->conduct->markArrival( get_current_user_id(), $registrationId, $arrived );
+			}
+		);
 	}
 
 	/**
@@ -145,14 +159,16 @@ class ExamConductCallbacks extends BaseController {
 			return;
 		}
 
-		$this->run( function () use ( $items, $sessionId ): array {
-			$result = $this->approval->approveMany( get_current_user_id(), $items );
-			if ( $sessionId > 0 ) {
-				$result['board'] = $this->board->sessionBoard( get_current_user_id(), $sessionId );
-			}
+		$this->run(
+			function () use ( $items, $sessionId ): array {
+				$result = $this->approval->approveMany( get_current_user_id(), $items );
+				if ( $sessionId > 0 ) {
+						$result['board'] = $this->board->sessionBoard( get_current_user_id(), $sessionId );
+				}
 
-			return $result;
-		} );
+				return $result;
+			}
+		);
 	}
 
 	/**
@@ -176,14 +192,16 @@ class ExamConductCallbacks extends BaseController {
 			}
 		}
 
-		$this->run( function () use ( $attemptId, $changes, $reason, $version ): array {
-			$updated = $this->approval->correct( get_current_user_id(), $attemptId, $changes, $reason, $version );
+		$this->run(
+			function () use ( $attemptId, $changes, $reason, $version ): array {
+				$updated = $this->approval->correct( get_current_user_id(), $attemptId, $changes, $reason, $version );
 
-			return array(
-'attempt_id'  => $attemptId,
-'total_score' => $updated->totalScore
-);
-		} );
+				return array(
+					'attempt_id'  => $attemptId,
+					'total_score' => $updated->totalScore,
+				);
+			}
+		);
 	}
 
 	/**
@@ -199,11 +217,13 @@ class ExamConductCallbacks extends BaseController {
 			return;
 		}
 
-		$this->run( function () use ( $context ): array {
-			// Провайдер проверяет доступ к проведению при единственной загрузке строк, до создания CSV.
+		$this->run(
+			function () use ( $context ): array {
+				// Провайдер проверяет доступ к проведению при единственной загрузке строк, до создания CSV.
 
-			return array( 'url' => $this->exports->run( ExportTarget::ExamParticipants, $context + array( 'actor_user_id' => get_current_user_id() ), isset( $context['participation_ids'] ) ? 'single' : 'bulk' ) );
-		} );
+				return array( 'url' => $this->exports->run( ExportTarget::ExamParticipants, $context + array( 'actor_user_id' => get_current_user_id() ), isset( $context['participation_ids'] ) ? 'single' : 'bulk' ) );
+			}
+		);
 	}
 
 	/**
@@ -218,16 +238,18 @@ class ExamConductCallbacks extends BaseController {
 			return;
 		}
 
-		$this->run( fn (): array => array(
-			'rows' => array_map(
-				static fn ( array $r ): array => array(
-'name'    => $r['name'],
-'source'  => $r['source'],
-'session' => $r['session']
-),
-				$this->board->exportRows( get_current_user_id(), $context )
-			),
-		) );
+		$this->run(
+			fn (): array => array(
+				'rows' => array_map(
+					static fn ( array $r ): array => array(
+						'name'    => $r['name'],
+						'source'  => $r['source'],
+						'session' => $r['session'],
+					),
+					$this->board->exportRows( get_current_user_id(), $context )
+				),
+			)
+		);
 	}
 
 	/**
@@ -244,9 +266,9 @@ class ExamConductCallbacks extends BaseController {
 		$ids = array_values( array_filter( $this->sanitizeIntList( 'participation_ids' ) ) );
 
 		return array() === $ids ? array() : array(
-'participation_ids' => $ids,
-'ids'               => $ids
-);
+			'participation_ids' => $ids,
+			'ids'               => $ids,
+		);
 	}
 
 	/**
@@ -362,11 +384,13 @@ class ExamConductCallbacks extends BaseController {
 	 * @param callable():void $action
 	 */
 	private function runOnBoard( int $sessionId, callable $action ): void {
-		$this->run( function () use ( $sessionId, $action ): array {
-			$action();
+		$this->run(
+			function () use ( $sessionId, $action ): array {
+				$action();
 
-			return array( 'board' => $this->board->sessionBoard( get_current_user_id(), $sessionId ) );
-		} );
+				return array( 'board' => $this->board->sessionBoard( get_current_user_id(), $sessionId ) );
+			}
+		);
 	}
 
 	/**

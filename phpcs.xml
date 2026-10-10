@@ -30,6 +30,14 @@
         <exclude name="WordPress.Files.FileName.NotHyphenatedLowercase"/>
         <exclude name="Squiz.Commenting.InlineComment.InvalidEndChar"/>
         <exclude name="Squiz.Commenting.FunctionComment.ParamCommentFullStop"/>
+        <!-- Native types describe scalar parameters. PHPDoc refines only shapes/callables;
+             Squiz matches partial @param lists by position and cannot parse these types.
+             PHPStan checks the names and compatibility of the refined contracts. -->
+        <exclude name="Squiz.Commenting.FunctionComment.MissingParamTag"/>
+        <exclude name="Squiz.Commenting.FunctionComment.MissingParamComment"/>
+        <exclude name="Squiz.Commenting.FunctionComment.ParamNameNoMatch"/>
+        <exclude name="Squiz.Commenting.FunctionComment.IncorrectTypeHint"/>
+
         <exclude name="WordPress.Files.FileName.InvalidClassFileName"/>
         <exclude name="WordPress.Security.NonceVerification.Recommended: Processing form data without nonce verification."/>
     </rule>

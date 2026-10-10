@@ -81,9 +81,9 @@ class ExamReportService {
 			'blocked' => $blocked,
 			'sources' => array_map(
 				static fn ( $source ): array => array(
-'id'    => $source->id,
-'label' => $source->schoolName . ' · ' . $source->teacherName
-),
+					'id'    => $source->id,
+					'label' => $source->schoolName . ' · ' . $source->teacherName,
+				),
 				$this->sources->listByEvent( $event->id )
 			),
 		);
@@ -121,22 +121,26 @@ class ExamReportService {
 		$consentRefs = $this->assertAllIncludable( $participationIds, $eventId );
 
 		$now      = $this->time->nowUtc();
-		$reportId = $this->inTransactionWithRetry( function () use ( $actorUserId, $eventId, $title, $recipientSourceId, $days, $event, $participationIds, $consentRefs, $now ): int {
-			$id = $this->reports->insert( array(
-				'event_id'            => $eventId,
-				'title'               => $title,
-				'owner_user_id'       => $actorUserId,
-				'recipient_source_id' => $recipientSourceId,
-				'expires_at'          => $this->expiryFor( $event, $days ),
-				'version'             => 1,
-				'created_at'          => $now,
-			) );
-			foreach ( $participationIds as $participationId ) {
-				$this->members->add( $id, $participationId, $consentRefs[ $participationId ] ?? null, $now );
-			}
+		$reportId = $this->inTransactionWithRetry(
+			function () use ( $actorUserId, $eventId, $title, $recipientSourceId, $days, $event, $participationIds, $consentRefs, $now ): int {
+				$id = $this->reports->insert(
+					array(
+						'event_id'            => $eventId,
+						'title'               => $title,
+						'owner_user_id'       => $actorUserId,
+						'recipient_source_id' => $recipientSourceId,
+						'expires_at'          => $this->expiryFor( $event, $days ),
+						'version'             => 1,
+						'created_at'          => $now,
+					)
+				);
+				foreach ( $participationIds as $participationId ) {
+					$this->members->add( $id, $participationId, $consentRefs[ $participationId ] ?? null, $now );
+				}
 
-			return $id;
-		} );
+				return $id;
+			}
+		);
 
 		$this->audit( $actorUserId, OperationType::Create, $reportId, sprintf( 'отчёт «%s»: %d участников', $title, count( $participationIds ) ) );
 
@@ -283,12 +287,14 @@ class ExamReportService {
 	 * @param callable():bool $change
 	 */
 	private function changeMembers( ExamReportDTO $report, int $expectedVersion, callable $change ): void {
-		$this->inTransactionWithRetry( function () use ( $report, $expectedVersion, $change ): void {
-			if ( ! $this->reports->bumpVersion( $report->id, $expectedVersion ) ) {
-				throw new CodedException( ErrorCode::ExamStale, 'Данные изменились: обновите страницу и повторите.' );
+		$this->inTransactionWithRetry(
+			function () use ( $report, $expectedVersion, $change ): void {
+				if ( ! $this->reports->bumpVersion( $report->id, $expectedVersion ) ) {
+						throw new CodedException( ErrorCode::ExamStale, 'Данные изменились: обновите страницу и повторите.' );
+				}
+				$change();
 			}
-			$change();
-		} );
+		);
 	}
 
 	/** Срок — `min( сейчас + дни, конец хранения данных проведения )`, UTC. */

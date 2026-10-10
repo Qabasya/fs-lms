@@ -134,10 +134,10 @@ class ExamPaymentQueueService {
 				continue;
 			}
 			$targets[] = array(
-'id'    => $session->id,
-'label' => $this->sessionLabel( $session->scheduledAt ),
-'free'  => $free
-);
+				'id'    => $session->id,
+				'label' => $this->sessionLabel( $session->scheduledAt ),
+				'free'  => $free,
+			);
 		}
 
 		return $targets;

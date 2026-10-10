@@ -73,87 +73,89 @@ class ExamHoldService {
 			throw new CodedException( ErrorCode::ExamReplay, 'Повторите действие.' );
 		}
 
-		return $this->inTransactionWithRetry( function () use ( $data, $eventId, $sessionId, $sourceId, $identityHash, $requestKey, $staffUserId, $ttlMinutes ): ExamGuestApplicationDTO {
-			// Первый оператор транзакции — блокировка сеанса: ею сериализуются заявки, ученики и освобождение на этот сеанс.
-			$session = $this->sessions->findForUpdate( $sessionId );
-			if ( null === $session || $session->eventId !== $eventId ) {
-				throw new CodedException( ErrorCode::ExamClosed, 'Сеанс не найден.' );
-			}
-
-			$existing = $this->applications->findBySourceAndRequestKey( $sourceId, $requestKey );
-			if ( null !== $existing ) {
-				if ( $existing->sessionId !== $sessionId || ! hash_equals( $existing->identityHash, $identityHash ) ) {
-					throw new CodedException( ErrorCode::ExamReplay, 'Повторите действие.' );
+		return $this->inTransactionWithRetry(
+			function () use ( $data, $eventId, $sessionId, $sourceId, $identityHash, $requestKey, $staffUserId, $ttlMinutes ): ExamGuestApplicationDTO {
+				// Первый оператор транзакции — блокировка сеанса: ею сериализуются заявки, ученики и освобождение на этот сеанс.
+				$session = $this->sessions->findForUpdate( $sessionId );
+				if ( null === $session || $session->eventId !== $eventId ) {
+						throw new CodedException( ErrorCode::ExamClosed, 'Сеанс не найден.' );
 				}
-				return $existing;
-			}
 
-			$event = $this->events->find( $eventId );
-			if ( null === $event ) {
-				throw new CodedException( ErrorCode::ExamClosed, 'Сеанс не найден.' );
-			}
-
-			$nowUtc = $this->time->nowUtc();
-
-			// Места, занятые истёкшими бронями этого сеанса, освобождаются здесь же — не дожидаясь минутного тика.
-			foreach ( $this->applications->listExpiredHeldIdsBySession( $sessionId, $nowUtc ) as $expiredId ) {
-				$expired = $this->applications->findForUpdate( $expiredId );
-				if ( null !== $expired ) {
-					$this->releaseLocked( $expired, GuestApplicationState::ExpiredUnpaid );
+				$existing = $this->applications->findBySourceAndRequestKey( $sourceId, $requestKey );
+				if ( null !== $existing ) {
+					if ( $existing->sessionId !== $sessionId || ! hash_equals( $existing->identityHash, $identityHash ) ) {
+						throw new CodedException( ErrorCode::ExamReplay, 'Повторите действие.' );
+					}
+					return $existing;
 				}
-			}
 
-			$this->assertCanCapture( $event->status, $event->guestRegistrationEnabled, $event->registrationOpensAt, $event->registrationClosesAt, $session->status, $session->scheduledAt, $session->plannedEndAt, null !== $staffUserId, $nowUtc );
-
-			if ( ! $this->sessions->occupySeat( $sessionId ) ) {
-				throw new CodedException( ErrorCode::ExamFull, 'Свободных мест нет.' );
-			}
-
-			$limits = array( $this->time->addMinutes( $nowUtc, $ttlMinutes ) );
-			if ( null === $staffUserId ) {
-				if ( null !== $event->registrationClosesAt ) {
-					$limits[] = $event->registrationClosesAt;
+				$event = $this->events->find( $eventId );
+				if ( null === $event ) {
+					throw new CodedException( ErrorCode::ExamClosed, 'Сеанс не найден.' );
 				}
-				$limits[] = $session->scheduledAt;
-			} else {
-				$limits[] = $session->plannedEndAt;
-			}
 
-			$row = array(
-				'event_id'        => $eventId,
-				'session_id'      => $sessionId,
-				'source_id'       => $sourceId,
-				'identity_hash'   => $identityHash,
-				'active_slot'     => 1,
-				'state'           => GuestApplicationState::Hold->value,
-				'is_held'         => 1,
-				'hold_expires_at' => min( $limits ),
-				'request_key'     => $requestKey,
-				'version'         => 1,
-				'created_at'      => $nowUtc,
-				'updated_at'      => $nowUtc,
-			);
-			foreach ( array( 'draft_enc', 'source_snapshot', 'consent_refs', 'ip_hash' ) as $column ) {
-				if ( isset( $data[ $column ] ) && '' !== $data[ $column ] ) {
-					$row[ $column ] = (string) $data[ $column ];
+				$nowUtc = $this->time->nowUtc();
+
+				// Места, занятые истёкшими бронями этого сеанса, освобождаются здесь же — не дожидаясь минутного тика.
+				foreach ( $this->applications->listExpiredHeldIdsBySession( $sessionId, $nowUtc ) as $expiredId ) {
+					$expired = $this->applications->findForUpdate( $expiredId );
+					if ( null !== $expired ) {
+						$this->releaseLocked( $expired, GuestApplicationState::ExpiredUnpaid );
+					}
 				}
-			}
-			if ( null !== $staffUserId ) {
-				$row['created_by_user_id'] = $staffUserId;
-			}
 
-			try {
-				$id = $this->applications->insert( $row );
-			} catch ( DuplicateKeyException $e ) {
-				// Текст ответа фиксирован: данные чужой заявки в нём быть не должны.
-				if ( str_contains( $e->getMessage(), 'source_request' ) ) {
-					throw new CodedException( ErrorCode::ExamReplay, 'Повторите действие.' );
+				$this->assertCanCapture( $event->status, $event->guestRegistrationEnabled, $event->registrationOpensAt, $event->registrationClosesAt, $session->status, $session->scheduledAt, $session->plannedEndAt, null !== $staffUserId, $nowUtc );
+
+				if ( ! $this->sessions->occupySeat( $sessionId ) ) {
+					throw new CodedException( ErrorCode::ExamFull, 'Свободных мест нет.' );
 				}
-				throw new CodedException( ErrorCode::ExamConflict, 'Заявка на этот экзамен уже оформлена.' );
-			}
 
-			return $this->reload( $id );
-		} );
+				$limits = array( $this->time->addMinutes( $nowUtc, $ttlMinutes ) );
+				if ( null === $staffUserId ) {
+					if ( null !== $event->registrationClosesAt ) {
+						$limits[] = $event->registrationClosesAt;
+					}
+					$limits[] = $session->scheduledAt;
+				} else {
+					$limits[] = $session->plannedEndAt;
+				}
+
+				$row = array(
+					'event_id'        => $eventId,
+					'session_id'      => $sessionId,
+					'source_id'       => $sourceId,
+					'identity_hash'   => $identityHash,
+					'active_slot'     => 1,
+					'state'           => GuestApplicationState::Hold->value,
+					'is_held'         => 1,
+					'hold_expires_at' => min( $limits ),
+					'request_key'     => $requestKey,
+					'version'         => 1,
+					'created_at'      => $nowUtc,
+					'updated_at'      => $nowUtc,
+				);
+				foreach ( array( 'draft_enc', 'source_snapshot', 'consent_refs', 'ip_hash' ) as $column ) {
+					if ( isset( $data[ $column ] ) && '' !== $data[ $column ] ) {
+						$row[ $column ] = (string) $data[ $column ];
+					}
+				}
+				if ( null !== $staffUserId ) {
+						$row['created_by_user_id'] = $staffUserId;
+				}
+
+				try {
+					$id = $this->applications->insert( $row );
+				} catch ( DuplicateKeyException $e ) {
+					// Текст ответа фиксирован: данные чужой заявки в нём быть не должны.
+					if ( str_contains( $e->getMessage(), 'source_request' ) ) {
+						throw new CodedException( ErrorCode::ExamReplay, 'Повторите действие.' );
+					}
+					throw new CodedException( ErrorCode::ExamConflict, 'Заявка на этот экзамен уже оформлена.' );
+				}
+
+				return $this->reload( $id );
+			}
+		);
 	}
 
 	/**
@@ -168,48 +170,50 @@ class ExamHoldService {
 	 * @throws CodedException
 	 */
 	public function convert( int $applicationId, ?int $actorUserId ): ExamGuestApplicationDTO {
-		return $this->inTransactionWithRetry( function () use ( $applicationId, $actorUserId ): ExamGuestApplicationDTO {
-			$application = $this->applications->findForUpdate( $applicationId );
-			if ( null === $application ) {
-				throw new CodedException( ErrorCode::ExamConflict, 'Заявка не найдена.' );
-			}
-
-			$state = GuestApplicationState::tryFrom( $application->state );
-			if ( in_array( $state, array( GuestApplicationState::Confirmed, GuestApplicationState::Cancelled, GuestApplicationState::Missed, GuestApplicationState::PaidNeedsResolution ), true ) ) {
-				return $application;
-			}
-
-			$participantId = $application->participantId ?? $this->createParticipant( $application );
-			$requestKey    = 'app-' . $application->id;
-			$sourceId      = $application->sourceId;
-
-			if ( $application->isHeld ) {
-				try {
-					$result = $this->registrations->confirmHeld( $participantId, $application->sessionId, $requestKey, $sourceId, $actorUserId );
-
-					return $this->finalize( $application, $participantId, $result->participationId, $result->registrationId );
-				} catch ( CodedException ) { // phpcs:ignore Generic.CodeAnalysis.EmptyStatement.DetectedCatch -- Ожидаемый отказ переводит платёж в ручное разрешение ниже.
-					// Сеанс отменён или участие уже занято другой записью: бронь снимается, оплаченную заявку разбирает сотрудник.
-					$this->giveUpSeat( $application );
-
-					return $this->markNeedsResolution( $application, $participantId );
+		return $this->inTransactionWithRetry(
+			function () use ( $applicationId, $actorUserId ): ExamGuestApplicationDTO {
+				$application = $this->applications->findForUpdate( $applicationId );
+				if ( null === $application ) {
+						throw new CodedException( ErrorCode::ExamConflict, 'Заявка не найдена.' );
 				}
-			}
 
-			// Бронь уже освобождена: личность могла оформить новую заявку, и вернуть активный слот этой нельзя.
-			$slotFree = ! $this->applications->hasActiveByIdentity( $application->eventId, $application->identityHash, $application->id );
-			if ( $slotFree ) {
-				try {
-					$result = $this->registrations->confirmLate( $participantId, $application->sessionId, $requestKey, $sourceId, $actorUserId );
-
-					return $this->finalize( $application, $participantId, $result->participationId, $result->registrationId );
-				} catch ( CodedException ) { // phpcs:ignore Generic.CodeAnalysis.EmptyStatement.DetectedCatch -- Ожидаемый отказ переводит платёж в ручное разрешение ниже.
-					// Мест нет, сеанс начался или отменён: оплата получена, место не занято — разбирает сотрудник.
+				$state = GuestApplicationState::tryFrom( $application->state );
+				if ( in_array( $state, array( GuestApplicationState::Confirmed, GuestApplicationState::Cancelled, GuestApplicationState::Missed, GuestApplicationState::PaidNeedsResolution ), true ) ) {
+					return $application;
 				}
-			}
 
-			return $this->markNeedsResolution( $application, $participantId );
-		} );
+				$participantId = $application->participantId ?? $this->createParticipant( $application );
+				$requestKey    = 'app-' . $application->id;
+				$sourceId      = $application->sourceId;
+
+				if ( $application->isHeld ) {
+					try {
+						$result = $this->registrations->confirmHeld( $participantId, $application->sessionId, $requestKey, $sourceId, $actorUserId );
+
+						return $this->finalize( $application, $participantId, $result->participationId, $result->registrationId );
+					} catch ( CodedException ) { // phpcs:ignore Generic.CodeAnalysis.EmptyStatement.DetectedCatch -- Ожидаемый отказ переводит платёж в ручное разрешение ниже.
+						// Сеанс отменён или участие уже занято другой записью: бронь снимается, оплаченную заявку разбирает сотрудник.
+						$this->giveUpSeat( $application );
+
+						return $this->markNeedsResolution( $application, $participantId );
+					}
+				}
+
+				// Бронь уже освобождена: личность могла оформить новую заявку, и вернуть активный слот этой нельзя.
+				$slotFree = ! $this->applications->hasActiveByIdentity( $application->eventId, $application->identityHash, $application->id );
+				if ( $slotFree ) {
+					try {
+						$result = $this->registrations->confirmLate( $participantId, $application->sessionId, $requestKey, $sourceId, $actorUserId );
+
+						return $this->finalize( $application, $participantId, $result->participationId, $result->registrationId );
+					} catch ( CodedException ) { // phpcs:ignore Generic.CodeAnalysis.EmptyStatement.DetectedCatch -- Ожидаемый отказ переводит платёж в ручное разрешение ниже.
+						// Мест нет, сеанс начался или отменён: оплата получена, место не занято — разбирает сотрудник.
+					}
+				}
+
+				return $this->markNeedsResolution( $application, $participantId );
+			}
+		);
 	}
 
 	/**
@@ -221,66 +225,74 @@ class ExamHoldService {
 	 * @throws CodedException
 	 */
 	public function resolveManually( int $actorUserId, int $applicationId, ManualResolutionKind $kind, ?int $targetSessionId, string $reason, ?string $amount ): ExamGuestApplicationDTO {
-		return $this->inTransactionWithRetry( function () use ( $actorUserId, $applicationId, $kind, $targetSessionId, $reason, $amount ): ExamGuestApplicationDTO {
-			$application = $this->applications->findForUpdate( $applicationId );
-			if ( null === $application ) {
-				throw new CodedException( ErrorCode::ExamConflict, 'Заявка не найдена.' );
-			}
-			if ( GuestApplicationState::PaidNeedsResolution->value !== $application->state ) {
-				throw new CodedException( ErrorCode::ExamConflict, 'Заявка уже урегулирована или не требует разбора.' );
-			}
-			$now = $this->time->nowUtc();
-
-			if ( ManualResolutionKind::Transferred === $kind ) {
-				$target = null !== $targetSessionId ? $this->sessions->find( $targetSessionId ) : null;
-				if ( null === $target || $target->eventId !== $application->eventId ) {
-					throw new CodedException( ErrorCode::ExamConflict, 'Выберите сеанс этого же проведения.' );
+		return $this->inTransactionWithRetry(
+			function () use ( $actorUserId, $applicationId, $kind, $targetSessionId, $reason, $amount ): ExamGuestApplicationDTO {
+				$application = $this->applications->findForUpdate( $applicationId );
+				if ( null === $application ) {
+						throw new CodedException( ErrorCode::ExamConflict, 'Заявка не найдена.' );
 				}
-				// Личность могла оформить новую заявку: вернуть ей активный слот второй раз нельзя.
-				if ( $this->applications->hasActiveByIdentity( $application->eventId, $application->identityHash, $application->id ) ) {
-					throw new CodedException( ErrorCode::ExamConflict, 'У гостя уже есть другая активная заявка на это проведение.' );
+				if ( GuestApplicationState::PaidNeedsResolution->value !== $application->state ) {
+					throw new CodedException( ErrorCode::ExamConflict, 'Заявка уже урегулирована или не требует разбора.' );
+				}
+				$now = $this->time->nowUtc();
+
+				if ( ManualResolutionKind::Transferred === $kind ) {
+					$target = null !== $targetSessionId ? $this->sessions->find( $targetSessionId ) : null;
+					if ( null === $target || $target->eventId !== $application->eventId ) {
+						throw new CodedException( ErrorCode::ExamConflict, 'Выберите сеанс этого же проведения.' );
+					}
+					// Личность могла оформить новую заявку: вернуть ей активный слот второй раз нельзя.
+					if ( $this->applications->hasActiveByIdentity( $application->eventId, $application->identityHash, $application->id ) ) {
+						throw new CodedException( ErrorCode::ExamConflict, 'У гостя уже есть другая активная заявка на это проведение.' );
+					}
+
+					$participantId = $application->participantId ?? $this->createParticipant( $application );
+					$result        = $this->registrations->confirmByStaff( $participantId, $target->id, 'app-' . $application->id, $application->sourceId, $actorUserId );
+					$resolved      = $this->finalize( $application, $participantId, $result->participationId, $result->registrationId );
+					$this->resolutions->insert(
+						array(
+							'application_id'   => $application->id,
+							'participation_id' => $result->participationId,
+							'kind'             => $kind->value,
+							'reason'           => $reason,
+							'actor_user_id'    => $actorUserId,
+							'old_session_id'   => $application->sessionId,
+							'new_session_id'   => $target->id,
+							'created_at'       => $now,
+						)
+					);
+
+					return $resolved;
 				}
 
-				$participantId = $application->participantId ?? $this->createParticipant( $application );
-				$result        = $this->registrations->confirmByStaff( $participantId, $target->id, 'app-' . $application->id, $application->sourceId, $actorUserId );
-				$resolved      = $this->finalize( $application, $participantId, $result->participationId, $result->registrationId );
-				$this->resolutions->insert( array(
-					'application_id'   => $application->id,
-					'participation_id' => $result->participationId,
-					'kind'             => $kind->value,
-					'reason'           => $reason,
-					'actor_user_id'    => $actorUserId,
-					'old_session_id'   => $application->sessionId,
-					'new_session_id'   => $target->id,
-					'created_at'       => $now,
-				) );
+				$updated = $this->applications->update(
+					$application->id,
+					array(
+						'state'       => GuestApplicationState::Cancelled->value,
+						'active_slot' => null,
+						'is_held'     => 0,
+					),
+					$application->version
+				);
+				if ( ! $updated ) {
+					throw new \RuntimeException( 'Заявка изменилась во время урегулирования.' );
+				}
+				$row = array(
+					'application_id' => $application->id,
+					'kind'           => $kind->value,
+					'reason'         => $reason,
+					'actor_user_id'  => $actorUserId,
+					'old_session_id' => $application->sessionId,
+					'created_at'     => $now,
+				);
+				if ( null !== $amount ) {
+					$row['amount'] = $amount;
+				}
+				$this->resolutions->insert( $row );
 
-				return $resolved;
+				return $this->reload( $application->id );
 			}
-
-			$updated = $this->applications->update( $application->id, array(
-'state'       => GuestApplicationState::Cancelled->value,
-'active_slot' => null,
-'is_held'     => 0
-), $application->version );
-			if ( ! $updated ) {
-				throw new \RuntimeException( 'Заявка изменилась во время урегулирования.' );
-			}
-			$row = array(
-				'application_id' => $application->id,
-				'kind'           => $kind->value,
-				'reason'         => $reason,
-				'actor_user_id'  => $actorUserId,
-				'old_session_id' => $application->sessionId,
-				'created_at'     => $now,
-			);
-			if ( null !== $amount ) {
-				$row['amount'] = $amount;
-			}
-			$this->resolutions->insert( $row );
-
-			return $this->reload( $application->id );
-		} );
+		);
 	}
 
 	/**
@@ -295,14 +307,16 @@ class ExamHoldService {
 			throw new \InvalidArgumentException( 'Состояние после освобождения не должно удерживать место.' );
 		}
 
-		return (bool) $this->inTransactionWithRetry( function () use ( $applicationId, $newState ): bool {
-			$application = $this->applications->findForUpdate( $applicationId );
-			if ( null === $application || null === $this->sessions->findForUpdate( $application->sessionId ) ) {
-				return false;
-			}
+		return (bool) $this->inTransactionWithRetry(
+			function () use ( $applicationId, $newState ): bool {
+				$application = $this->applications->findForUpdate( $applicationId );
+				if ( null === $application || null === $this->sessions->findForUpdate( $application->sessionId ) ) {
+						return false;
+				}
 
-			return $this->releaseLocked( $application, $newState );
-		} );
+				return $this->releaseLocked( $application, $newState );
+			}
+		);
 	}
 
 	/**
@@ -314,15 +328,17 @@ class ExamHoldService {
 	 * @return bool true — состояние сменено этим вызовом.
 	 */
 	public function transition( int $applicationId, array $from, GuestApplicationState $to ): bool {
-		return (bool) $this->inTransactionWithRetry( function () use ( $applicationId, $from, $to ): bool {
-			$application = $this->applications->findForUpdate( $applicationId );
-			$state       = null !== $application ? GuestApplicationState::tryFrom( $application->state ) : null;
-			if ( null === $application || null === $state || ! in_array( $state, $from, true ) ) {
-				return false;
-			}
+		return (bool) $this->inTransactionWithRetry(
+			function () use ( $applicationId, $from, $to ): bool {
+				$application = $this->applications->findForUpdate( $applicationId );
+				$state       = null !== $application ? GuestApplicationState::tryFrom( $application->state ) : null;
+				if ( null === $application || null === $state || ! in_array( $state, $from, true ) ) {
+						return false;
+				}
 
-			return $this->applications->update( $application->id, array( 'state' => $to->value ), $application->version );
-		} );
+				return $this->applications->update( $application->id, array( 'state' => $to->value ), $application->version );
+			}
+		);
 	}
 
 	/**
@@ -336,19 +352,21 @@ class ExamHoldService {
 
 		foreach ( $this->applications->listExpiredHeldIds( $this->time->nowUtc(), $limit ) as $applicationId ) {
 			try {
-				$done = $this->inTransactionWithRetry( function () use ( $applicationId ): bool {
-					$application = $this->applications->findForUpdate( $applicationId );
-					if ( null === $application || $this->sessions->findForUpdate( $application->sessionId ) === null ) {
-						return false;
-					}
+				$done = $this->inTransactionWithRetry(
+					function () use ( $applicationId ): bool {
+						$application = $this->applications->findForUpdate( $applicationId );
+						if ( null === $application || $this->sessions->findForUpdate( $application->sessionId ) === null ) {
+								return false;
+						}
 
-					// Повторная проверка под блокировками: бронь могли подтвердить или снять, пока тик ждал.
-					if ( ! $application->isHeld || null === $application->holdExpiresAt || $application->holdExpiresAt > $this->time->nowUtc() ) {
-						return false;
-					}
+						// Повторная проверка под блокировками: бронь могли подтвердить или снять, пока тик ждал.
+						if ( ! $application->isHeld || null === $application->holdExpiresAt || $application->holdExpiresAt > $this->time->nowUtc() ) {
+							return false;
+						}
 
-					return $this->releaseLocked( $application, GuestApplicationState::ExpiredUnpaid );
-				} );
+						return $this->releaseLocked( $application, GuestApplicationState::ExpiredUnpaid );
+					}
+				);
 
 				if ( $done ) {
 					++$released;
@@ -370,25 +388,33 @@ class ExamHoldService {
 		}
 
 		$this->sessions->releaseSeat( $application->sessionId );
-		$this->applications->update( $application->id, array(
-'state'       => $newState->value,
-'active_slot' => null
-), $application->version );
+		$this->applications->update(
+			$application->id,
+			array(
+				'state'       => $newState->value,
+				'active_slot' => null,
+			),
+			$application->version
+		);
 
 		return true;
 	}
 
 	/** Заявка стала записью: участник, участие, запись и (если место удерживалось) снятый флаг брони. */
 	private function finalize( ExamGuestApplicationDTO $application, int $participantId, int $participationId, int $registrationId ): ExamGuestApplicationDTO {
-		$updated = $this->applications->update( $application->id, array(
-			'state'            => GuestApplicationState::Confirmed->value,
-			'is_held'          => 0,
-			'active_slot'      => 1,
-			'hold_expires_at'  => null,
-			'participant_id'   => $participantId,
-			'participation_id' => $participationId,
-			'registration_id'  => $registrationId,
-		), $application->version );
+		$updated = $this->applications->update(
+			$application->id,
+			array(
+				'state'            => GuestApplicationState::Confirmed->value,
+				'is_held'          => 0,
+				'active_slot'      => 1,
+				'hold_expires_at'  => null,
+				'participant_id'   => $participantId,
+				'participation_id' => $participationId,
+				'registration_id'  => $registrationId,
+			),
+			$application->version
+		);
 		if ( ! $updated ) {
 			throw new \RuntimeException( 'Заявка изменилась во время подтверждения.' );
 		}
@@ -410,11 +436,15 @@ class ExamHoldService {
 
 	/** Оплата получена, а места нет: заявка помечается для разбора сотрудником, в outbox — событие. */
 	private function markNeedsResolution( ExamGuestApplicationDTO $application, int $participantId ): ExamGuestApplicationDTO {
-		$updated = $this->applications->update( $application->id, array(
-			'state'          => GuestApplicationState::PaidNeedsResolution->value,
-			'participant_id' => $participantId,
-			'is_held'        => 0,
-		), $application->version );
+		$updated = $this->applications->update(
+			$application->id,
+			array(
+				'state'          => GuestApplicationState::PaidNeedsResolution->value,
+				'participant_id' => $participantId,
+				'is_held'        => 0,
+			),
+			$application->version
+		);
 		if ( ! $updated ) {
 			throw new \RuntimeException( 'Заявка изменилась во время подтверждения.' );
 		}
@@ -425,10 +455,10 @@ class ExamHoldService {
 			$application->id,
 			$application->version + 1,
 			array(
-'application_id' => $application->id,
-'event_id'       => $application->eventId,
-'session_id'     => $application->sessionId
-)
+				'application_id' => $application->id,
+				'event_id'       => $application->eventId,
+				'session_id'     => $application->sessionId,
+			)
 		);
 
 		return $this->reload( $application->id );

@@ -67,17 +67,23 @@ class ExamPaymentReconciler {
 
 		$status = $this->woo->orderStatus( $link->wcOrderId );
 		if ( 'failed' === $status && ExamPaymentState::Failed->value !== $link->paymentState ) {
-			$this->links->update( $link->id, array(
-'payment_state'      => ExamPaymentState::Failed->value,
-'last_reconciled_at' => $now,
-'updated_at'         => $now
-) );
+			$this->links->update(
+				$link->id,
+				array(
+					'payment_state'      => ExamPaymentState::Failed->value,
+					'last_reconciled_at' => $now,
+					'updated_at'         => $now,
+				)
+			);
 		} elseif ( 'cancelled' === $status && ExamPaymentState::Cancelled->value !== $link->paymentState ) {
-			$this->links->update( $link->id, array(
-'payment_state'      => ExamPaymentState::Cancelled->value,
-'last_reconciled_at' => $now,
-'updated_at'         => $now
-) );
+			$this->links->update(
+				$link->id,
+				array(
+					'payment_state'      => ExamPaymentState::Cancelled->value,
+					'last_reconciled_at' => $now,
+					'updated_at'         => $now,
+				)
+			);
 		} elseif ( 'refunded' === $status && ExamPaymentState::Paid->value === $link->paymentState ) {
 			// Возврат вручную при подтверждённой записи: запись не удаляется, расхождение разбирает сотрудник.
 			$this->flagDiscrepancy( $link );
@@ -93,48 +99,75 @@ class ExamPaymentReconciler {
 
 		// Вторая оплата уже подтверждённой заявки: связь отмечается оплаченной, запись не меняется, сотрудник разбирает лишнюю оплату.
 		if ( GuestApplicationState::Confirmed->value === $application->state && $this->hasOtherPaidLink( $link ) ) {
-			$this->links->update( $link->id, array(
-'payment_state'      => ExamPaymentState::Paid->value,
-'last_reconciled_at' => $now,
-'updated_at'         => $now
-) );
-			$this->outbox->add( ExamOutboxEvent::PaidNeedsResolution, 'guest_application', $application->id, $application->version, array(
-				'application_id' => $application->id,
-				'event_id'       => $application->eventId,
-				'session_id'     => $application->sessionId,
-				'reason'         => 'extra_payment',
-			) );
+			$this->links->update(
+				$link->id,
+				array(
+					'payment_state'      => ExamPaymentState::Paid->value,
+					'last_reconciled_at' => $now,
+					'updated_at'         => $now,
+				)
+			);
+			$this->outbox->add(
+				ExamOutboxEvent::PaidNeedsResolution,
+				'guest_application',
+				$application->id,
+				$application->version,
+				array(
+					'application_id' => $application->id,
+					'event_id'       => $application->eventId,
+					'session_id'     => $application->sessionId,
+					'reason'         => 'extra_payment',
+				)
+			);
 			return;
 		}
 
 		try {
 			$converted = $this->holds->convert( $link->applicationId, null );
 		} catch ( \Throwable $e ) {
-			$this->links->update( $link->id, array(
-'last_reconciled_at' => $now,
-'updated_at'         => $now
-) );
-			$this->outbox->add( ExamOutboxEvent::ReconcileFailed, 'guest_application', $application->id, $application->version, array(
-'application_id' => $application->id,
-'order_id'       => $link->wcOrderId
-) );
+			$this->links->update(
+				$link->id,
+				array(
+					'last_reconciled_at' => $now,
+					'updated_at'         => $now,
+				)
+			);
+			$this->outbox->add(
+				ExamOutboxEvent::ReconcileFailed,
+				'guest_application',
+				$application->id,
+				$application->version,
+				array(
+					'application_id' => $application->id,
+					'order_id'       => $link->wcOrderId,
+				)
+			);
 			throw $e;
 		}
 
-		$this->links->update( $link->id, array(
-'payment_state'      => ExamPaymentState::Paid->value,
-'last_reconciled_at' => $now,
-'updated_at'         => $now
-) );
+		$this->links->update(
+			$link->id,
+			array(
+				'payment_state'      => ExamPaymentState::Paid->value,
+				'last_reconciled_at' => $now,
+				'updated_at'         => $now,
+			)
+		);
 
 		// Оплата пришла, а заявка отменена сотрудником или помечена неявкой: запись не воскрешается, но деньги получены — нужна помощь.
 		if ( in_array( $converted->state, array( GuestApplicationState::Cancelled->value, GuestApplicationState::Missed->value ), true ) ) {
-			$this->outbox->add( ExamOutboxEvent::PaidNeedsResolution, 'guest_application', $converted->id, $converted->version, array(
-				'application_id' => $converted->id,
-				'event_id'       => $converted->eventId,
-				'session_id'     => $converted->sessionId,
-				'reason'         => 'payment_after_cancel',
-			) );
+			$this->outbox->add(
+				ExamOutboxEvent::PaidNeedsResolution,
+				'guest_application',
+				$converted->id,
+				$converted->version,
+				array(
+					'application_id' => $converted->id,
+					'event_id'       => $converted->eventId,
+					'session_id'     => $converted->sessionId,
+					'reason'         => 'payment_after_cancel',
+				)
+			);
 		}
 	}
 
@@ -151,11 +184,17 @@ class ExamPaymentReconciler {
 	private function flagDiscrepancy( ExamPaymentLinkDTO $link ): void {
 		$application = $this->applications->find( $link->applicationId );
 		if ( null !== $application ) {
-			$this->outbox->add( ExamOutboxEvent::ReconcileFailed, 'guest_application', $application->id, $application->version, array(
-				'application_id' => $application->id,
-				'order_id'       => $link->wcOrderId,
-				'reason'         => 'refunded_in_shop',
-			) );
+			$this->outbox->add(
+				ExamOutboxEvent::ReconcileFailed,
+				'guest_application',
+				$application->id,
+				$application->version,
+				array(
+					'application_id' => $application->id,
+					'order_id'       => $link->wcOrderId,
+					'reason'         => 'refunded_in_shop',
+				)
+			);
 		}
 	}
 
@@ -177,10 +216,13 @@ class ExamPaymentReconciler {
 		$touched = 0;
 		foreach ( $this->links->listWaitingForHelpForRecheck( $this->recheckBefore(), $limit ) as $link ) {
 			if ( $this->woo->isOrderPaid( $link->wcOrderId ) ) {
-				$this->links->update( $link->id, array(
-'last_reconciled_at' => $now,
-'updated_at'         => $now
-) );
+				$this->links->update(
+					$link->id,
+					array(
+						'last_reconciled_at' => $now,
+						'updated_at'         => $now,
+					)
+				);
 				++$touched;
 			}
 		}

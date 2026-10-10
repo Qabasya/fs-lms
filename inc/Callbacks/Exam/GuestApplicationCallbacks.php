@@ -123,11 +123,13 @@ class GuestApplicationCallbacks extends BaseController {
 
 		$this->formLog->holdCreated( $source, $application );
 
-		$this->success( array(
-			'redirect'        => $this->woo->cartUrl(),
-			'hold_expires_at' => null !== $application->holdExpiresAt ? $this->time->toLocal( $application->holdExpiresAt ) : null,
-			'seconds_left'    => null !== $application->holdExpiresAt ? $this->time->secondsUntil( $this->time->nowUtc(), $application->holdExpiresAt ) : 0,
-		) );
+		$this->success(
+			array(
+				'redirect'        => $this->woo->cartUrl(),
+				'hold_expires_at' => null !== $application->holdExpiresAt ? $this->time->toLocal( $application->holdExpiresAt ) : null,
+				'seconds_left'    => null !== $application->holdExpiresAt ? $this->time->secondsUntil( $this->time->nowUtc(), $application->holdExpiresAt ) : 0,
+			)
+		);
 	}
 
 	/**

@@ -69,10 +69,12 @@ class ExamStatsService {
 		$sessionId = (int) ( $filters['session_id'] ?? 0 );
 		$audience  = (string) ( $filters['audience'] ?? 'all' );
 
-		$available = array_values( array_filter(
-			$this->events->findBySubjectKey( $subject ),
-			fn ( ExamEventDTO $e ): bool => in_array( $e->status, array( ExamEventStatus::Published->value, ExamEventStatus::Completed->value ), true ) && $this->guard->canManageEvent( $actorUserId, $e )
-		) );
+		$available = array_values(
+			array_filter(
+				$this->events->findBySubjectKey( $subject ),
+				fn ( ExamEventDTO $e ): bool => in_array( $e->status, array( ExamEventStatus::Published->value, ExamEventStatus::Completed->value ), true ) && $this->guard->canManageEvent( $actorUserId, $e )
+			)
+		);
 
 		$selected = $available;
 		if ( $eventId > 0 ) {
@@ -93,10 +95,13 @@ class ExamStatsService {
 
 		return array(
 			'filters' => array(
-				'events'   => array_map( static fn ( ExamEventDTO $e ): array => array(
-'id'    => $e->id,
-'title' => $e->title
-), $available ),
+				'events'   => array_map(
+					static fn ( ExamEventDTO $e ): array => array(
+						'id'    => $e->id,
+						'title' => $e->title,
+					),
+					$available
+				),
 				'sessions' => 1 === count( $selected ) ? $this->sessionOptions( $selected[0] ) : array(),
 			),
 			'format'  => $kpi['format'],
@@ -129,17 +134,17 @@ class ExamStatsService {
 					continue; // задание без номера в единицы формата не входит
 				}
 				$row = $rows[ $number ] ?? array(
-'number'     => $number,
-'max'        => 0.0,
-'total'      => 0,
-'correct'    => 0,
-'partial'    => 0,
-'incorrect'  => 0,
-'unanswered' => 0,
-'pending'    => 0,
-'sum'        => 0.0,
-'scored'     => 0
-);
+					'number'     => $number,
+					'max'        => 0.0,
+					'total'      => 0,
+					'correct'    => 0,
+					'partial'    => 0,
+					'incorrect'  => 0,
+					'unanswered' => 0,
+					'pending'    => 0,
+					'sum'        => 0.0,
+					'scored'     => 0,
+				);
 
 				$status = in_array( $unit['status'], self::BUCKETS, true ) ? $unit['status'] : 'incorrect';
 				++$row['total'];
@@ -157,35 +162,37 @@ class ExamStatsService {
 		$unitCount = $this->formatFor( $event, $attempts[0] ?? null )->unitCount ?? 0;
 		for ( $n = 1; $n <= $unitCount; $n++ ) {
 			$rows[ (string) $n ] ??= array(
-'number'     => (string) $n,
-'max'        => 0.0,
-'total'      => 0,
-'correct'    => 0,
-'partial'    => 0,
-'incorrect'  => 0,
-'unanswered' => 0,
-'pending'    => 0,
-'sum'        => 0.0,
-'scored'     => 0
-);
+				'number'     => (string) $n,
+				'max'        => 0.0,
+				'total'      => 0,
+				'correct'    => 0,
+				'partial'    => 0,
+				'incorrect'  => 0,
+				'unanswered' => 0,
+				'pending'    => 0,
+				'sum'        => 0.0,
+				'scored'     => 0,
+			);
 		}
 		uksort( $rows, static fn ( int|string $a, int|string $b ): int => (int) $a <=> (int) $b );
 
-		return array_values( array_map(
-			static fn ( array $r ): array => array(
-				'number'     => $r['number'],
-				'max'        => $r['max'],
-				'total'      => $r['total'],
-				'full'       => $r['correct'],
-				'partial'    => $r['partial'],
-				'incorrect'  => $r['incorrect'],
-				'unanswered' => $r['unanswered'],
-				'pending'    => $r['pending'],
-				'avg_score'  => $r['scored'] > 0 ? round( $r['sum'] / $r['scored'], 1 ) : null,
-				'full_share' => $r['total'] > 0 ? (int) round( 100 * $r['correct'] / $r['total'] ) : 0,
-			),
-			$rows
-		) );
+		return array_values(
+			array_map(
+				static fn ( array $r ): array => array(
+					'number'     => $r['number'],
+					'max'        => $r['max'],
+					'total'      => $r['total'],
+					'full'       => $r['correct'],
+					'partial'    => $r['partial'],
+					'incorrect'  => $r['incorrect'],
+					'unanswered' => $r['unanswered'],
+					'pending'    => $r['pending'],
+					'avg_score'  => $r['scored'] > 0 ? round( $r['sum'] / $r['scored'], 1 ) : null,
+					'full_share' => $r['total'] > 0 ? (int) round( 100 * $r['correct'] / $r['total'] ) : 0,
+				),
+				$rows
+			)
+		);
 	}
 
 	/**
@@ -222,11 +229,11 @@ class ExamStatsService {
 			}
 
 			$rows[] = array(
-'participation' => $participation,
-'attempt'       => $attempt,
-'last'          => $last,
-'event'         => $event
-);
+				'participation' => $participation,
+				'attempt'       => $attempt,
+				'last'          => $last,
+				'event'         => $event,
+			);
 		}
 
 		return $rows;
@@ -250,16 +257,16 @@ class ExamStatsService {
 	 */
 	private function kpi( array $rows ): array {
 		$kpi = array(
-'registered'     => 0,
-'started'        => 0,
-'submitted'      => 0,
-'missed'         => 0,
-'pending_review' => 0,
-'avg_primary'    => null,
-'avg_secondary'  => null,
-'avg_grade'      => null,
-'sample'         => 0
-);
+			'registered'     => 0,
+			'started'        => 0,
+			'submitted'      => 0,
+			'missed'         => 0,
+			'pending_review' => 0,
+			'avg_primary'    => null,
+			'avg_secondary'  => null,
+			'avg_grade'      => null,
+			'sample'         => 0,
+		);
 
 		$direction = null;
 		$mixed     = false;
@@ -324,9 +331,9 @@ class ExamStatsService {
 		}
 
 		return array(
-'kpi'    => $kpi,
-'format' => null !== $format ? $format + array( 'mixed' => $mixed ) : null
-);
+			'kpi'    => $kpi,
+			'format' => null !== $format ? $format + array( 'mixed' => $mixed ) : null,
+		);
 	}
 
 	/** @param list<float> $values */
@@ -343,10 +350,10 @@ class ExamStatsService {
 			}
 			$start  = $this->time->toLocal( $session->scheduledAt );
 			$list[] = array(
-'id'         => $session->id,
-'date'       => substr( $start, 0, 10 ),
-'time_start' => substr( $start, 11, 5 )
-);
+				'id'         => $session->id,
+				'date'       => substr( $start, 0, 10 ),
+				'time_start' => substr( $start, 11, 5 ),
+			);
 		}
 
 		return $list;

@@ -164,9 +164,9 @@ class ExamReviewProjection {
 			$detail['result_version'] = $attempt->resultVersion;
 			$detail['revealed']       = true;
 			return array(
-'view'  => $detail,
-'tasks' => $tasks
-);
+				'view'  => $detail,
+				'tasks' => $tasks,
+			);
 		}
 
 		return array(

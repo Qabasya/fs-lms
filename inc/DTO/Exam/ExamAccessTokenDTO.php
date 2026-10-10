@@ -4,6 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\DTO\Exam;
 
+/** Хеш гостевого ключа с назначением, поколением и сроком действия; открытый ключ не хранится. */
 readonly class ExamAccessTokenDTO {
 
 	public function __construct(

@@ -74,13 +74,16 @@ class ExamRetentionService {
 	 */
 	public function runDaily(): ?array {
 		$result = null;
-		$this->lock->run( self::LOCK, function () use ( &$result ): void {
-			$result = array(
-				'guests'       => $this->sweepGuests(),
-				'applications' => $this->sweepUnpaidApplications(),
-				'purged'       => $this->purgeTechnical(),
-			);
-		} );
+		$this->lock->run(
+			self::LOCK,
+			function () use ( &$result ): void {
+				$result = array(
+					'guests'       => $this->sweepGuests(),
+					'applications' => $this->sweepUnpaidApplications(),
+					'purged'       => $this->purgeTechnical(),
+				);
+			}
+		);
 
 		return $result;
 	}
@@ -94,23 +97,25 @@ class ExamRetentionService {
 	public function anonymizeParticipant( int $participantId, string $reason, int $actorUserId = 0 ): bool {
 		$files = array();
 
-		$done = $this->inTransactionWithRetry( function () use ( $participantId, &$files ): bool {
-			$participant = $this->participants->findForUpdate( $participantId );
-			if ( null === $participant || null !== $participant->personId || null !== $participant->anonymizedAt ) {
-				return false;
-			}
-
-			foreach ( $this->participations->findByParticipant( $participantId ) as $participation ) {
-				$this->tokens->revoke( ExamTokenPurpose::Entry, $participation->id );
-				$this->tokens->revoke( ExamTokenPurpose::Result, $participation->id );
-				$this->sessions->revokeByParticipation( $participation->id );
-				if ( null !== $participation->currentAttemptId ) {
-					$files = array_merge( $files, $this->answerFileIds( $participation->currentAttemptId ) );
+		$done = $this->inTransactionWithRetry(
+			function () use ( $participantId, &$files ): bool {
+				$participant = $this->participants->findForUpdate( $participantId );
+				if ( null === $participant || null !== $participant->personId || null !== $participant->anonymizedAt ) {
+						return false;
 				}
-			}
 
-			return $this->participants->anonymize( $participantId, $this->time->nowUtc() );
-		} );
+				foreach ( $this->participations->findByParticipant( $participantId ) as $participation ) {
+					$this->tokens->revoke( ExamTokenPurpose::Entry, $participation->id );
+					$this->tokens->revoke( ExamTokenPurpose::Result, $participation->id );
+					$this->sessions->revokeByParticipation( $participation->id );
+					if ( null !== $participation->currentAttemptId ) {
+						$files = array_merge( $files, $this->answerFileIds( $participation->currentAttemptId ) );
+					}
+				}
+
+				return $this->participants->anonymize( $participantId, $this->time->nowUtc() );
+			}
+		);
 
 		if ( ! $done ) {
 			return false;

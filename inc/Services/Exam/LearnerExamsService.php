@@ -269,27 +269,27 @@ class LearnerExamsService {
 	): array {
 		if ( ExamEventStatus::Cancelled->value === $event->status ) {
 			return array(
-'state'   => 'event_cancelled',
-'actions' => array()
-);
+				'state'   => 'event_cancelled',
+				'actions' => array(),
+			);
 		}
 
 		if ( null !== $attempt ) {
 			if ( AttemptStatus::InProgress === $attempt->status ) {
 				return array(
-'state'   => 'in_progress',
-'actions' => array( 'resume' )
-);
+					'state'   => 'in_progress',
+					'actions' => array( 'resume' ),
+				);
 			}
 			return $attempt->isApproved()
 				? array(
-'state'   => 'approved',
-'actions' => array( 'results' )
-)
+					'state'   => 'approved',
+					'actions' => array( 'results' ),
+				)
 				: array(
-'state'   => 'awaiting_approval',
-'actions' => array()
-);
+					'state'   => 'awaiting_approval',
+					'actions' => array(),
+				);
 		}
 
 		$windowOpen = $this->registrationWindowOpen( $event, $nowUtc );
@@ -297,15 +297,15 @@ class LearnerExamsService {
 		if ( null !== $registration && null !== $session ) {
 			if ( $nowUtc < $session->scheduledAt ) {
 				return array(
-'state'   => 'registered',
-'actions' => $windowOpen ? array( 'change', 'cancel' ) : array()
-);
+					'state'   => 'registered',
+					'actions' => $windowOpen ? array( 'change', 'cancel' ) : array(),
+				);
 			}
 			if ( $nowUtc < $session->plannedEndAt ) {
 				return array(
-'state'   => 'entry_open',
-'actions' => array( 'start' )
-);
+					'state'   => 'entry_open',
+					'actions' => array( 'start' ),
+				);
 			}
 		}
 
@@ -314,40 +314,40 @@ class LearnerExamsService {
 		if ( null !== $last ) {
 			if ( ExamRegistrationStatus::Missed->value === $last->status ) {
 				return array(
-'state'   => 'missed',
-'actions' => $canRegister ? array( 'register' ) : array()
-);
+					'state'   => 'missed',
+					'actions' => $canRegister ? array( 'register' ) : array(),
+				);
 			}
 			if ( ExamRegistrationStatus::Cancelled->value === $last->status && null !== $last->actorUserId ) {
 				return array(
-'state'   => 'cancelled_by_staff',
-'actions' => $canRegister ? array( 'register' ) : array()
-);
+					'state'   => 'cancelled_by_staff',
+					'actions' => $canRegister ? array( 'register' ) : array(),
+				);
 			}
 		}
 
 		if ( null !== $event->registrationOpensAt && $nowUtc < $event->registrationOpensAt ) {
 			return array(
-'state'   => 'not_open',
-'actions' => array()
-);
+				'state'   => 'not_open',
+				'actions' => array(),
+			);
 		}
 		if ( ( null !== $event->registrationClosesAt && $nowUtc >= $event->registrationClosesAt ) || array() === $futureList ) {
 			return array(
-'state'   => 'closed',
-'actions' => array()
-);
+				'state'   => 'closed',
+				'actions' => array(),
+			);
 		}
 
 		return $hasFreeSeat
 			? array(
-'state'   => 'open',
-'actions' => array( 'register' )
-)
+				'state'   => 'open',
+				'actions' => array( 'register' ),
+			)
 			: array(
-'state'   => 'full',
-'actions' => array()
-);
+				'state'   => 'full',
+				'actions' => array(),
+			);
 	}
 
 	private function registrationWindowOpen( ExamEventDTO $event, string $nowUtc ): bool {

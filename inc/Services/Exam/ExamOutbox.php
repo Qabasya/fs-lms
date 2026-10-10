@@ -35,16 +35,18 @@ class ExamOutbox {
 	): void {
 		$now = $this->time->nowUtc();
 
-		$id = $this->events->insert( array(
-			'event_uuid'        => wp_generate_uuid4(),
-			'type'              => $type->value,
-			'aggregate_type'    => $aggregateType,
-			'aggregate_id'      => $aggregateId,
-			'aggregate_version' => $aggregateVersion,
-			'payload'           => (string) wp_json_encode( $payload ),
-			'available_at'      => $availableAtUtc ?? $now,
-			'created_at'        => $now,
-		) );
+		$id = $this->events->insert(
+			array(
+				'event_uuid'        => wp_generate_uuid4(),
+				'type'              => $type->value,
+				'aggregate_type'    => $aggregateType,
+				'aggregate_id'      => $aggregateId,
+				'aggregate_version' => $aggregateVersion,
+				'payload'           => (string) wp_json_encode( $payload ),
+				'available_at'      => $availableAtUtc ?? $now,
+				'created_at'        => $now,
+			)
+		);
 
 		if ( 0 === $id ) {
 			throw new \RuntimeException( 'Не удалось записать событие экзамена в outbox.' );

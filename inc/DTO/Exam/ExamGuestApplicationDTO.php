@@ -4,6 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\DTO\Exam;
 
+/** Снимок заявки и брони до подтверждения записи; персональные данные остаются зашифрованными. */
 readonly class ExamGuestApplicationDTO {
 
 	public function __construct(

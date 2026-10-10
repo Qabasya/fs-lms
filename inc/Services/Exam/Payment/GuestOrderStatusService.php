@@ -73,19 +73,19 @@ class GuestOrderStatusService {
 				);
 			case GuestApplicationState::ExpiredUnpaid->value:
 				return array(
-'state'   => $state,
-'title'   => 'Время брони истекло.',
-'lines'   => array( 'Проверьте оплату, затем выберите дату заново.' ),
-'refresh' => false
-);
+					'state'   => $state,
+					'title'   => 'Время брони истекло.',
+					'lines'   => array( 'Проверьте оплату, затем выберите дату заново.' ),
+					'refresh' => false,
+				);
 			case GuestApplicationState::Failed->value:
 			case GuestApplicationState::Cancelled->value:
 				return array(
-'state'   => $state,
-'title'   => 'Оплата не подтверждена.',
-'lines'   => array( 'Проверьте оплату, затем выберите дату заново.' ),
-'refresh' => false
-);
+					'state'   => $state,
+					'title'   => 'Оплата не подтверждена.',
+					'lines'   => array( 'Проверьте оплату, затем выберите дату заново.' ),
+					'refresh' => false,
+				);
 			default:
 				return array(
 					'state'   => $state,
@@ -106,9 +106,11 @@ class GuestOrderStatusService {
 		$start = $this->time->toLocal( $session->scheduledAt );
 		$room  = $this->rooms->find( $session->roomId )->name ?? '';
 
-		return array_filter( array(
-			sprintf( '%s, %s', gmdate( 'd.m.Y', (int) strtotime( substr( $start, 0, 10 ) . ' UTC' ) ), substr( $start, 11, 5 ) ),
-			trim( $this->contacts->addressWithoutRoom() . ( '' !== $room ? ', каб. ' . $room : '' ) ),
-		) );
+		return array_filter(
+			array(
+				sprintf( '%s, %s', gmdate( 'd.m.Y', (int) strtotime( substr( $start, 0, 10 ) . ' UTC' ) ), substr( $start, 11, 5 ) ),
+				trim( $this->contacts->addressWithoutRoom() . ( '' !== $room ? ', каб. ' . $room : '' ) ),
+			)
+		);
 	}
 }

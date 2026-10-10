@@ -4,6 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\DTO\Exam;
 
+/** Участие в проведении, объединяющее историю записей и единственную текущую попытку. */
 readonly class ExamParticipationDTO {
 
 	public function __construct(

@@ -70,9 +70,9 @@ class ExamReportViewService {
 			$data = $this->result->build( $ids[ $row - 1 ] );
 			if ( null !== $data && true === ( $data['revealed'] ?? false ) ) {
 				$review = $data + array(
-'row'  => $row,
-'name' => $rows[ $row - 1 ]['name']
-);
+					'row'  => $row,
+					'name' => $rows[ $row - 1 ]['name'],
+				);
 			}
 		}
 
@@ -82,10 +82,10 @@ class ExamReportViewService {
 			'expires_at' => $report->expiresAt,
 			'rows'       => $rows,
 			'stats'      => array(
-'participants' => count( $ids ),
-'average'      => $this->average( $finals ),
-'pending'      => $pending
-),
+				'participants' => count( $ids ),
+				'average'      => $this->average( $finals ),
+				'pending'      => $pending,
+			),
 			'review'     => $review,
 		);
 	}
@@ -99,13 +99,13 @@ class ExamReportViewService {
 		$participation = $this->participations->find( $participationId );
 		$participant   = null !== $participation ? $this->participants->find( $participation->participantId ) : null;
 		$placeholder   = array(
-'n'       => $number,
-'name'    => self::PLACEHOLDER,
-'status'  => '',
-'caption' => '',
-'open'    => false,
-'summary' => null
-);
+			'n'       => $number,
+			'name'    => self::PLACEHOLDER,
+			'status'  => '',
+			'caption' => '',
+			'open'    => false,
+			'summary' => null,
+		);
 
 		if ( null === $participation || null === $participant || null !== $participant->anonymizedAt || null !== $this->reportService->canInclude( $participation, $report->eventId ) ) {
 			return $placeholder;

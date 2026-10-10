@@ -75,14 +75,19 @@ class ExamEventService {
 		$fields = $this->eventFields( $input, $subjectKey );
 		$now    = $this->time->nowUtc();
 
-		$id = $this->events->insert( array_merge( $fields, array(
-			'subject_key'   => $subjectKey,
-			'owner_user_id' => $actorUserId,
-			'status'        => ExamEventStatus::Draft->value,
-			'version'       => 1,
-			'created_at'    => $now,
-			'updated_at'    => $now,
-		) ) );
+		$id = $this->events->insert(
+			array_merge(
+				$fields,
+				array(
+					'subject_key'   => $subjectKey,
+					'owner_user_id' => $actorUserId,
+					'status'        => ExamEventStatus::Draft->value,
+					'version'       => 1,
+					'created_at'    => $now,
+					'updated_at'    => $now,
+				)
+			)
+		);
 
 		return $this->reload( $id );
 	}
@@ -103,27 +108,29 @@ class ExamEventService {
 			$this->assertGuestLaunchReady( $early );
 		}
 
-		return $this->inTransactionWithRetry( function () use ( $eventId, $fields, $expectedVersion ): ExamEventDTO {
-			$event = $this->lockEvent( $eventId );
-			$this->assertEditable( $event );
-			$this->assertVersion( $event->version, $expectedVersion );
+		return $this->inTransactionWithRetry(
+			function () use ( $eventId, $fields, $expectedVersion ): ExamEventDTO {
+				$event = $this->lockEvent( $eventId );
+				$this->assertEditable( $event );
+				$this->assertVersion( $event->version, $expectedVersion );
 
-			foreach ( $this->sessions->findByEvent( $eventId ) as $session ) {
-				if ( ExamSessionStatus::Cancelled->value === $session->status ) {
-					continue;
+				foreach ( $this->sessions->findByEvent( $eventId ) as $session ) {
+					if ( ExamSessionStatus::Cancelled->value === $session->status ) {
+						continue;
+					}
+					$day = substr( $this->time->toLocal( $session->scheduledAt ), 0, 10 );
+					if ( $day < $fields['period_from'] || $day > $fields['period_to'] ) {
+						throw new CodedException( ErrorCode::ExamConflict, 'Есть сеансы вне нового периода проведения.' );
+					}
 				}
-				$day = substr( $this->time->toLocal( $session->scheduledAt ), 0, 10 );
-				if ( $day < $fields['period_from'] || $day > $fields['period_to'] ) {
-					throw new CodedException( ErrorCode::ExamConflict, 'Есть сеансы вне нового периода проведения.' );
+
+				if ( ! $this->events->update( $eventId, $fields, $expectedVersion ) ) {
+					throw $this->stale();
 				}
-			}
 
-			if ( ! $this->events->update( $eventId, $fields, $expectedVersion ) ) {
-				throw $this->stale();
+				return $this->reload( $eventId );
 			}
-
-			return $this->reload( $eventId );
-		} );
+		);
 	}
 
 	/**
@@ -171,59 +178,66 @@ class ExamEventService {
 		$startUtc = $this->time->toUtc( $date . ' ' . $time . ':00' );
 		$endUtc   = $this->time->addMinutes( $startUtc, $format->durationMinutes );
 
-		return $this->inTransactionWithRetry( function () use ( $eventId, $sessionId, $expectedVersion, $assessmentId, $roomId, $startUtc, $endUtc ): ExamSessionDTO {
-			$event = $this->lockEvent( $eventId );
-			$this->assertEditable( $event );
+		return $this->inTransactionWithRetry(
+			function () use ( $eventId, $sessionId, $expectedVersion, $assessmentId, $roomId, $startUtc, $endUtc ): ExamSessionDTO {
+				$event = $this->lockEvent( $eventId );
+				$this->assertEditable( $event );
 
-			$this->rooms->lock( $roomId );
-			$room = $this->rooms->assertUsable( $roomId, $event->subjectKey );
+				$this->rooms->lock( $roomId );
+				$room = $this->rooms->assertUsable( $roomId, $event->subjectKey );
 
-			$current = null;
-			if ( null !== $sessionId ) {
-				$current = $this->sessions->findForUpdate( $sessionId );
-				if ( null === $current || $current->eventId !== $eventId ) {
-					throw new CodedException( ErrorCode::ExamConflict, 'Сеанс не найден.' );
+				$current = null;
+				if ( null !== $sessionId ) {
+						$current = $this->sessions->findForUpdate( $sessionId );
+					if ( null === $current || $current->eventId !== $eventId ) {
+						throw new CodedException( ErrorCode::ExamConflict, 'Сеанс не найден.' );
+					}
+					$this->assertVersion( $current->version, (int) $expectedVersion );
+					$this->assertSessionEditable( $current, $assessmentId, $startUtc, $endUtc, $roomId, $room->seats );
 				}
-				$this->assertVersion( $current->version, (int) $expectedVersion );
-				$this->assertSessionEditable( $current, $assessmentId, $startUtc, $endUtc, $roomId, $room->seats );
-			}
 
-			$this->rooms->assertFree( $roomId, $startUtc, $endUtc, $current->id ?? 0 );
+				$this->rooms->assertFree( $roomId, $startUtc, $endUtc, $current->id ?? 0 );
 
-			$fields = array(
-				'assessment_id'       => $assessmentId,
-				'scheduled_at'        => $startUtc,
-				'planned_end_at'      => $endUtc,
-				'room_id'             => $roomId,
-				'capacity'            => $room->seats,
-				'responsible_user_id' => $event->ownerUserId,
-			);
+				$fields = array(
+					'assessment_id'       => $assessmentId,
+					'scheduled_at'        => $startUtc,
+					'planned_end_at'      => $endUtc,
+					'room_id'             => $roomId,
+					'capacity'            => $room->seats,
+					'responsible_user_id' => $event->ownerUserId,
+				);
 
-			if ( null === $current ) {
-				$now = $this->time->nowUtc();
-				$id  = $this->sessions->insert( array_merge( $fields, array(
-					'event_id'       => $eventId,
-					'occupied_count' => 0,
-					'status'         => ExamSessionStatus::Open->value,
-					'version'        => 1,
-					'created_at'     => $now,
-					'updated_at'     => $now,
-				) ) );
-			} else {
-				$id = $current->id;
-				if ( ! $this->sessions->update( $id, $fields, (int) $expectedVersion ) ) {
-					throw $this->stale();
+				if ( null === $current ) {
+					$now = $this->time->nowUtc();
+					$id  = $this->sessions->insert(
+						array_merge(
+							$fields,
+							array(
+								'event_id'       => $eventId,
+								'occupied_count' => 0,
+								'status'         => ExamSessionStatus::Open->value,
+								'version'        => 1,
+								'created_at'     => $now,
+								'updated_at'     => $now,
+							)
+						)
+					);
+				} else {
+						$id = $current->id;
+					if ( ! $this->sessions->update( $id, $fields, (int) $expectedVersion ) ) {
+						throw $this->stale();
+					}
 				}
-			}
 
-			$this->addVariantToPublishedSnapshot( $event, $assessmentId );
+				$this->addVariantToPublishedSnapshot( $event, $assessmentId );
 
-			$saved = $this->sessions->find( $id );
-			if ( null === $saved ) {
-				throw new \RuntimeException( 'Сеанс не найден после сохранения.' );
+				$saved = $this->sessions->find( $id );
+				if ( null === $saved ) {
+					throw new \RuntimeException( 'Сеанс не найден после сохранения.' );
+				}
+				return $saved;
 			}
-			return $saved;
-		} );
+		);
 	}
 
 	/**
@@ -238,20 +252,22 @@ class ExamEventService {
 		}
 		$this->assertCanManage( $actorUserId, $this->requireEvent( $session->eventId ) );
 
-		$this->inTransactionWithRetry( function () use ( $session ): void {
-			$event = $this->lockEvent( $session->eventId );
-			$this->assertEditable( $event );
+		$this->inTransactionWithRetry(
+			function () use ( $session ): void {
+				$event = $this->lockEvent( $session->eventId );
+				$this->assertEditable( $event );
 
-			$locked = $this->sessions->findForUpdate( $session->id );
-			if ( null === $locked ) {
-				throw new CodedException( ErrorCode::ExamConflict, 'Сеанс не найден.' );
-			}
-			if ( $locked->occupiedCount > 0 || array() !== $this->registrations->listBySession( $locked->id ) ) {
-				throw new CodedException( ErrorCode::ExamConflict, 'В сеансе есть записи: используйте отмену сеанса.' );
-			}
+				$locked = $this->sessions->findForUpdate( $session->id );
+				if ( null === $locked ) {
+						throw new CodedException( ErrorCode::ExamConflict, 'Сеанс не найден.' );
+				}
+				if ( $locked->occupiedCount > 0 || array() !== $this->registrations->listBySession( $locked->id ) ) {
+					throw new CodedException( ErrorCode::ExamConflict, 'В сеансе есть записи: используйте отмену сеанса.' );
+				}
 
-			$this->sessions->delete( $locked->id );
-		} );
+				$this->sessions->delete( $locked->id );
+			}
+		);
 	}
 
 	/**
@@ -266,53 +282,59 @@ class ExamEventService {
 			$this->assertGuestLaunchReady( $early );
 		}
 
-		return $this->inTransactionWithRetry( function () use ( $eventId, $expectedVersion ): ExamEventDTO {
-			$event = $this->lockEvent( $eventId );
-			$this->assertVersion( $event->version, $expectedVersion );
+		return $this->inTransactionWithRetry(
+			function () use ( $eventId, $expectedVersion ): ExamEventDTO {
+				$event = $this->lockEvent( $eventId );
+				$this->assertVersion( $event->version, $expectedVersion );
 
-			if ( ExamEventStatus::Draft->value !== $event->status ) {
-				throw new CodedException( ErrorCode::ExamConflict, 'Опубликовать можно только черновик.' );
-			}
-
-			$now      = $this->time->nowUtc();
-			$sessions = array_filter(
-				$this->sessions->findByEvent( $eventId ),
-				static fn ( ExamSessionDTO $s ): bool => ExamSessionStatus::Cancelled->value !== $s->status
-			);
-
-			$hasFutureOpen = false;
-			foreach ( $sessions as $session ) {
-				if ( ExamSessionStatus::Open->value === $session->status && $session->scheduledAt > $now ) {
-					$hasFutureOpen = true;
-					break;
+				if ( ExamEventStatus::Draft->value !== $event->status ) {
+						throw new CodedException( ErrorCode::ExamConflict, 'Опубликовать можно только черновик.' );
 				}
-			}
-			if ( ! $hasFutureOpen ) {
-				throw new CodedException( ErrorCode::ExamConflict, 'Добавьте хотя бы один сеанс в будущем.' );
-			}
-			if ( null === $event->registrationOpensAt || null === $event->registrationClosesAt ) {
-				throw new CodedException( ErrorCode::ExamConflict, 'Задайте время открытия и закрытия записи.' );
-			}
 
-			$snapshot = array();
-			foreach ( array_unique( array_map( static fn ( ExamSessionDTO $s ): int => $s->assessmentId, $sessions ) ) as $assessmentId ) {
-				$this->variants->assert( $assessmentId, $event->subjectKey );
-				$snapshot[ (string) $assessmentId ] = $this->buildSnapshot( $assessmentId );
+				$now      = $this->time->nowUtc();
+				$sessions = array_filter(
+					$this->sessions->findByEvent( $eventId ),
+					static fn ( ExamSessionDTO $s ): bool => ExamSessionStatus::Cancelled->value !== $s->status
+				);
+
+				$hasFutureOpen = false;
+				foreach ( $sessions as $session ) {
+					if ( ExamSessionStatus::Open->value === $session->status && $session->scheduledAt > $now ) {
+						$hasFutureOpen = true;
+						break;
+					}
+				}
+				if ( ! $hasFutureOpen ) {
+					throw new CodedException( ErrorCode::ExamConflict, 'Добавьте хотя бы один сеанс в будущем.' );
+				}
+				if ( null === $event->registrationOpensAt || null === $event->registrationClosesAt ) {
+					throw new CodedException( ErrorCode::ExamConflict, 'Задайте время открытия и закрытия записи.' );
+				}
+
+				$snapshot = array();
+				foreach ( array_unique( array_map( static fn ( ExamSessionDTO $s ): int => $s->assessmentId, $sessions ) ) as $assessmentId ) {
+					$this->variants->assert( $assessmentId, $event->subjectKey );
+					$snapshot[ (string) $assessmentId ] = $this->buildSnapshot( $assessmentId );
+				}
+
+				$updated = $this->events->update(
+					$eventId,
+					array(
+						'status'           => ExamEventStatus::Published->value,
+						'published_at'     => $now,
+						'variant_snapshot' => (string) wp_json_encode( $snapshot ),
+					),
+					$event->version
+				);
+				if ( ! $updated ) {
+					throw $this->stale();
+				}
+
+				$this->outbox->add( ExamOutboxEvent::EventPublished, 'event', $eventId, $event->version + 1, array( 'event_id' => $eventId ) );
+
+				return $this->reload( $eventId );
 			}
-
-			$updated = $this->events->update( $eventId, array(
-				'status'           => ExamEventStatus::Published->value,
-				'published_at'     => $now,
-				'variant_snapshot' => (string) wp_json_encode( $snapshot ),
-			), $event->version );
-			if ( ! $updated ) {
-				throw $this->stale();
-			}
-
-			$this->outbox->add( ExamOutboxEvent::EventPublished, 'event', $eventId, $event->version + 1, array( 'event_id' => $eventId ) );
-
-			return $this->reload( $eventId );
-		} );
+		);
 	}
 
 	/**
@@ -364,35 +386,37 @@ class ExamEventService {
 	public function rebuildSnapshot( int $actorUserId, int $eventId, int $assessmentId ): void {
 		$this->assertCanManage( $actorUserId, $this->requireEvent( $eventId ) );
 
-		$this->inTransactionWithRetry( function () use ( $eventId, $assessmentId ): void {
-			$event = $this->lockEvent( $eventId );
-			$this->assertEditable( $event );
+		$this->inTransactionWithRetry(
+			function () use ( $eventId, $assessmentId ): void {
+				$event = $this->lockEvent( $eventId );
+				$this->assertEditable( $event );
 
-			$now  = $this->time->nowUtc();
-			$used = false;
-			foreach ( $this->sessions->findByEvent( $eventId ) as $session ) {
-				if ( $session->assessmentId !== $assessmentId || ExamSessionStatus::Cancelled->value === $session->status ) {
-					continue;
+				$now  = $this->time->nowUtc();
+				$used = false;
+				foreach ( $this->sessions->findByEvent( $eventId ) as $session ) {
+					if ( $session->assessmentId !== $assessmentId || ExamSessionStatus::Cancelled->value === $session->status ) {
+						continue;
+					}
+					$used = true;
+					if ( $session->scheduledAt <= $now && $now < $session->plannedEndAt ) {
+						throw new CodedException( ErrorCode::ExamConflict, 'Идёт сеанс с этим вариантом: снимок менять нельзя.' );
+					}
 				}
-				$used = true;
-				if ( $session->scheduledAt <= $now && $now < $session->plannedEndAt ) {
+				if ( ! $used ) {
+					throw new CodedException( ErrorCode::ExamConflict, 'В проведении нет сеансов с этим вариантом.' );
+				}
+				if ( $this->attempts->countInProgressExamByEvent( $eventId, $assessmentId ) > 0 ) {
 					throw new CodedException( ErrorCode::ExamConflict, 'Идёт сеанс с этим вариантом: снимок менять нельзя.' );
 				}
-			}
-			if ( ! $used ) {
-				throw new CodedException( ErrorCode::ExamConflict, 'В проведении нет сеансов с этим вариантом.' );
-			}
-			if ( $this->attempts->countInProgressExamByEvent( $eventId, $assessmentId ) > 0 ) {
-				throw new CodedException( ErrorCode::ExamConflict, 'Идёт сеанс с этим вариантом: снимок менять нельзя.' );
-			}
 
-			$snapshot                           = $this->snapshotOf( $event );
-			$snapshot[ (string) $assessmentId ] = $this->buildSnapshot( $assessmentId );
+				$snapshot                           = $this->snapshotOf( $event );
+				$snapshot[ (string) $assessmentId ] = $this->buildSnapshot( $assessmentId );
 
-			if ( ! $this->events->update( $eventId, array( 'variant_snapshot' => (string) wp_json_encode( $snapshot ) ), $event->version ) ) {
-				throw $this->stale();
+				if ( ! $this->events->update( $eventId, array( 'variant_snapshot' => (string) wp_json_encode( $snapshot ) ), $event->version ) ) {
+					throw $this->stale();
+				}
 			}
-		} );
+		);
 	}
 
 	/**
@@ -430,50 +454,58 @@ class ExamEventService {
 
 		$startUtc = $this->time->toUtc( $date . ' ' . $time . ':00' );
 
-		return $this->inTransactionWithRetry( function () use ( $sessionId, $peek, $roomId, $startUtc, $reason, $expectedVersion ): ExamSessionDTO {
-			$event = $this->lockEvent( $peek->eventId );
-			$this->assertEditable( $event );
+		return $this->inTransactionWithRetry(
+			function () use ( $sessionId, $peek, $roomId, $startUtc, $reason, $expectedVersion ): ExamSessionDTO {
+				$event = $this->lockEvent( $peek->eventId );
+				$this->assertEditable( $event );
 
-			$this->rooms->lock( $roomId );
-			$room = $this->rooms->assertUsable( $roomId, $event->subjectKey );
+				$this->rooms->lock( $roomId );
+				$room = $this->rooms->assertUsable( $roomId, $event->subjectKey );
 
-			$current = $this->sessions->findForUpdate( $sessionId );
-			if ( null === $current || $current->eventId !== $event->id ) {
-				throw new CodedException( ErrorCode::ExamConflict, 'Сеанс не найден.' );
+				$current = $this->sessions->findForUpdate( $sessionId );
+				if ( null === $current || $current->eventId !== $event->id ) {
+						throw new CodedException( ErrorCode::ExamConflict, 'Сеанс не найден.' );
+				}
+				$this->assertVersion( $current->version, $expectedVersion );
+				$this->assertSessionMovable( $current, $room->seats );
+
+				// Длительность сохраняется: конец переносится вместе с началом.
+				$endUtc = $this->time->addMinutes( $startUtc, $this->durationMinutes( $current ) );
+				$this->rooms->assertFree( $roomId, $startUtc, $endUtc, $current->id );
+
+				$fields = array(
+					'scheduled_at'   => $startUtc,
+					'planned_end_at' => $endUtc,
+					'room_id'        => $roomId,
+					'capacity'       => $room->seats,
+				);
+				if ( ! $this->sessions->update( $current->id, $fields, $expectedVersion ) ) {
+					throw $this->stale();
+				}
+
+				$this->outbox->add(
+					ExamOutboxEvent::SessionMoved,
+					'session',
+					$current->id,
+					$expectedVersion + 1,
+					array(
+						'session_id'       => $current->id,
+						'event_id'         => $event->id,
+						'old_scheduled_at' => $current->scheduledAt,
+						'new_scheduled_at' => $startUtc,
+						'old_room_id'      => $current->roomId,
+						'new_room_id'      => $roomId,
+						'reason'           => $reason,
+					)
+				);
+
+				$saved = $this->sessions->find( $current->id );
+				if ( null === $saved ) {
+					throw new \RuntimeException( 'Сеанс не найден после переноса.' );
+				}
+				return $saved;
 			}
-			$this->assertVersion( $current->version, $expectedVersion );
-			$this->assertSessionMovable( $current, $room->seats );
-
-			// Длительность сохраняется: конец переносится вместе с началом.
-			$endUtc = $this->time->addMinutes( $startUtc, $this->durationMinutes( $current ) );
-			$this->rooms->assertFree( $roomId, $startUtc, $endUtc, $current->id );
-
-			$fields = array(
-				'scheduled_at'   => $startUtc,
-				'planned_end_at' => $endUtc,
-				'room_id'        => $roomId,
-				'capacity'       => $room->seats,
-			);
-			if ( ! $this->sessions->update( $current->id, $fields, $expectedVersion ) ) {
-				throw $this->stale();
-			}
-
-			$this->outbox->add( ExamOutboxEvent::SessionMoved, 'session', $current->id, $expectedVersion + 1, array(
-				'session_id'       => $current->id,
-				'event_id'         => $event->id,
-				'old_scheduled_at' => $current->scheduledAt,
-				'new_scheduled_at' => $startUtc,
-				'old_room_id'      => $current->roomId,
-				'new_room_id'      => $roomId,
-				'reason'           => $reason,
-			) );
-
-			$saved = $this->sessions->find( $current->id );
-			if ( null === $saved ) {
-				throw new \RuntimeException( 'Сеанс не найден после переноса.' );
-			}
-			return $saved;
-		} );
+		);
 	}
 
 	/**
@@ -500,34 +532,46 @@ class ExamEventService {
 
 		// Уже отменённый сеанс — только доводка записей, версия и статус не проверяются.
 		if ( ExamSessionStatus::Cancelled->value !== $peek->status ) {
-			$this->inTransactionWithRetry( function () use ( $sessionId, $peek, $reason, $expectedVersion ): void {
-				$event = $this->lockEvent( $peek->eventId );
-				$this->assertEditable( $event );
+			$this->inTransactionWithRetry(
+				function () use ( $sessionId, $peek, $reason, $expectedVersion ): void {
+					$event = $this->lockEvent( $peek->eventId );
+					$this->assertEditable( $event );
 
-				$current = $this->sessions->findForUpdate( $sessionId );
-				if ( null === $current || $current->eventId !== $event->id ) {
-					throw new CodedException( ErrorCode::ExamConflict, 'Сеанс не найден.' );
-				}
-				$this->assertVersion( $current->version, $expectedVersion );
-				if ( $current->isLocked() ) {
-					throw new CodedException( ErrorCode::ExamStarted, 'Сеанс уже начат.' );
-				}
-				if ( ExamSessionStatus::Open->value !== $current->status ) {
-					throw new CodedException( ErrorCode::ExamConflict, 'Сеанс завершён: отменить его нельзя.' );
-				}
+					$current = $this->sessions->findForUpdate( $sessionId );
+					if ( null === $current || $current->eventId !== $event->id ) {
+							throw new CodedException( ErrorCode::ExamConflict, 'Сеанс не найден.' );
+					}
+					$this->assertVersion( $current->version, $expectedVersion );
+					if ( $current->isLocked() ) {
+						throw new CodedException( ErrorCode::ExamStarted, 'Сеанс уже начат.' );
+					}
+					if ( ExamSessionStatus::Open->value !== $current->status ) {
+						throw new CodedException( ErrorCode::ExamConflict, 'Сеанс завершён: отменить его нельзя.' );
+					}
 
-				if ( ! $this->sessions->update( $current->id, array(
-'status'        => ExamSessionStatus::Cancelled->value,
-'cancel_reason' => $reason
-), $expectedVersion ) ) {
-					throw $this->stale();
+					if ( ! $this->sessions->update(
+						$current->id,
+						array(
+							'status'        => ExamSessionStatus::Cancelled->value,
+							'cancel_reason' => $reason,
+						),
+						$expectedVersion
+					) ) {
+							throw $this->stale();
+					}
+					$this->outbox->add(
+						ExamOutboxEvent::SessionCancelled,
+						'session',
+						$current->id,
+						$expectedVersion + 1,
+						array(
+							'session_id' => $current->id,
+							'event_id'   => $event->id,
+							'reason'     => $reason,
+						)
+					);
 				}
-				$this->outbox->add( ExamOutboxEvent::SessionCancelled, 'session', $current->id, $expectedVersion + 1, array(
-					'session_id' => $current->id,
-					'event_id'   => $event->id,
-					'reason'     => $reason,
-				) );
-			} );
+			);
 		}
 
 		$this->closeParticipantsOf( $actorUserId, $sessionId, $reason );
@@ -547,40 +591,52 @@ class ExamEventService {
 			throw new CodedException( ErrorCode::ExamConflict, 'Укажите причину отмены.' );
 		}
 
-		$sessionIds = $this->inTransactionWithRetry( function () use ( $eventId, $reason, $expectedVersion ): array {
-			$event = $this->lockEvent( $eventId );
-			$this->assertVersion( $event->version, $expectedVersion );
-			$this->assertEditable( $event );
+		$sessionIds = $this->inTransactionWithRetry(
+			function () use ( $eventId, $reason, $expectedVersion ): array {
+				$event = $this->lockEvent( $eventId );
+				$this->assertVersion( $event->version, $expectedVersion );
+				$this->assertEditable( $event );
 
-			$open = array();
-			foreach ( $this->sessions->findByEvent( $eventId ) as $session ) {
-				if ( $session->isLocked() ) {
-					throw new CodedException( ErrorCode::ExamStarted, 'Экзамен уже начат: отмена невозможна.' );
+				$open = array();
+				foreach ( $this->sessions->findByEvent( $eventId ) as $session ) {
+					if ( $session->isLocked() ) {
+						throw new CodedException( ErrorCode::ExamStarted, 'Экзамен уже начат: отмена невозможна.' );
+					}
+					if ( ExamSessionStatus::Cancelled->value !== $session->status ) {
+						$open[] = $session->id;
+					}
 				}
-				if ( ExamSessionStatus::Cancelled->value !== $session->status ) {
-					$open[] = $session->id;
+
+				$now = $this->time->nowUtc();
+				$this->sessions->cancelOpenByEvent( $eventId, $reason, $now );
+
+				$updated = $this->events->update(
+					$eventId,
+					array(
+						'status'        => ExamEventStatus::Cancelled->value,
+						'cancel_reason' => $reason,
+						'cancelled_at'  => $now,
+					),
+					$event->version
+				);
+				if ( ! $updated ) {
+					throw $this->stale();
 				}
+
+				$this->outbox->add(
+					ExamOutboxEvent::EventCancelled,
+					'event',
+					$eventId,
+					$event->version + 1,
+					array(
+						'event_id' => $eventId,
+						'reason'   => $reason,
+					)
+				);
+
+				return $open;
 			}
-
-			$now = $this->time->nowUtc();
-			$this->sessions->cancelOpenByEvent( $eventId, $reason, $now );
-
-			$updated = $this->events->update( $eventId, array(
-				'status'        => ExamEventStatus::Cancelled->value,
-				'cancel_reason' => $reason,
-				'cancelled_at'  => $now,
-			), $event->version );
-			if ( ! $updated ) {
-				throw $this->stale();
-			}
-
-			$this->outbox->add( ExamOutboxEvent::EventCancelled, 'event', $eventId, $event->version + 1, array(
-'event_id' => $eventId,
-'reason'   => $reason
-) );
-
-			return $open;
-		} );
+		);
 
 		// Проведение и его сеансы уже закрыты: новые записи и старты невозможны, остаётся отменить действующие записи и брони.
 		foreach ( $sessionIds as $sessionId ) {
@@ -597,40 +653,46 @@ class ExamEventService {
 	 * @return bool true — проведение завершено этим вызовом.
 	 */
 	public function completeIfDone( int $eventId ): bool {
-		return (bool) $this->inTransactionWithRetry( function () use ( $eventId ): bool {
-			$event = $this->events->findForUpdate( $eventId );
-			if ( null === $event || ExamEventStatus::Published->value !== $event->status ) {
-				return false;
-			}
+		return (bool) $this->inTransactionWithRetry(
+			function () use ( $eventId ): bool {
+				$event = $this->events->findForUpdate( $eventId );
+				if ( null === $event || ExamEventStatus::Published->value !== $event->status ) {
+						return false;
+				}
 
-			$now      = $this->time->nowUtc();
-			$sessions = array_filter(
-				$this->sessions->findByEvent( $eventId ),
-				static fn ( ExamSessionDTO $s ): bool => ExamSessionStatus::Cancelled->value !== $s->status
-			);
-			if ( array() === $sessions ) {
-				return false;
-			}
-			foreach ( $sessions as $session ) {
-				if ( $session->plannedEndAt > $now ) {
+				$now      = $this->time->nowUtc();
+				$sessions = array_filter(
+					$this->sessions->findByEvent( $eventId ),
+					static fn ( ExamSessionDTO $s ): bool => ExamSessionStatus::Cancelled->value !== $s->status
+				);
+				if ( array() === $sessions ) {
 					return false;
 				}
-			}
-			if ( $this->registrations->countActiveByEvent( $eventId ) > 0 || $this->attempts->countInProgressExamByEventAll( $eventId ) > 0 ) {
-				return false;
-			}
+				foreach ( $sessions as $session ) {
+					if ( $session->plannedEndAt > $now ) {
+						return false;
+					}
+				}
+				if ( $this->registrations->countActiveByEvent( $eventId ) > 0 || $this->attempts->countInProgressExamByEventAll( $eventId ) > 0 ) {
+					return false;
+				}
 
-			$this->sessions->completeEndedByEvent( $eventId, $now );
-			$updated = $this->events->update( $eventId, array(
-				'status'       => ExamEventStatus::Completed->value,
-				'completed_at' => $now,
-			), $event->version );
-			if ( ! $updated ) {
-				throw $this->stale();
-			}
+				$this->sessions->completeEndedByEvent( $eventId, $now );
+				$updated = $this->events->update(
+					$eventId,
+					array(
+						'status'       => ExamEventStatus::Completed->value,
+						'completed_at' => $now,
+					),
+					$event->version
+				);
+				if ( ! $updated ) {
+					throw $this->stale();
+				}
 
-			return true;
-		} );
+				return true;
+			}
+		);
 	}
 
 	/**
@@ -654,39 +716,41 @@ class ExamEventService {
 	 * @throws CodedException
 	 */
 	public function syncCapacityForRoom( int $roomId, int $newSeats, ?callable $persistRoom = null ): void {
-		$this->inTransactionWithRetry( function () use ( $roomId, $newSeats, $persistRoom ): void {
-			$this->rooms->lock( $roomId );
+		$this->inTransactionWithRetry(
+			function () use ( $roomId, $newSeats, $persistRoom ): void {
+				$this->rooms->lock( $roomId );
 
-			$future = $this->sessions->listFutureOpenByRoom( $roomId, $this->time->nowUtc() );
-			$locked = $this->sessions->lockInOrder( array_map( static fn ( ExamSessionDTO $s ): int => $s->id, $future ) );
+				$future = $this->sessions->listFutureOpenByRoom( $roomId, $this->time->nowUtc() );
+				$locked = $this->sessions->lockInOrder( array_map( static fn ( ExamSessionDTO $s ): int => $s->id, $future ) );
 
-			foreach ( $locked as $session ) {
-				if ( ExamSessionStatus::Open->value !== $session->status ) {
-					continue;
+				foreach ( $locked as $session ) {
+					if ( ExamSessionStatus::Open->value !== $session->status ) {
+						continue;
+					}
+					$title = $this->events->find( $session->eventId )->title ?? '№' . $session->eventId;
+
+					if ( $newSeats < 1 ) {
+						throw new CodedException( ErrorCode::ExamConflict, sprintf( 'В кабинете запланирован сеанс проведения «%s»: вместимость не может быть нулевой.', $title ) );
+					}
+					if ( $newSeats < $session->occupiedCount ) {
+						throw new CodedException(
+							ErrorCode::ExamConflict,
+							sprintf( 'Нельзя уменьшить вместимость до %d: в проведении «%s» уже занято %d мест.', $newSeats, $title, $session->occupiedCount )
+						);
+					}
 				}
-				$title = $this->events->find( $session->eventId )->title ?? '№' . $session->eventId;
 
-				if ( $newSeats < 1 ) {
-					throw new CodedException( ErrorCode::ExamConflict, sprintf( 'В кабинете запланирован сеанс проведения «%s»: вместимость не может быть нулевой.', $title ) );
+				foreach ( $locked as $session ) {
+					if ( ExamSessionStatus::Open->value === $session->status && $session->capacity !== $newSeats ) {
+						$this->sessions->setCapacity( $session->id, $newSeats );
+					}
 				}
-				if ( $newSeats < $session->occupiedCount ) {
-					throw new CodedException(
-						ErrorCode::ExamConflict,
-						sprintf( 'Нельзя уменьшить вместимость до %d: в проведении «%s» уже занято %d мест.', $newSeats, $title, $session->occupiedCount )
-					);
+
+				if ( null !== $persistRoom ) {
+					$persistRoom();
 				}
 			}
-
-			foreach ( $locked as $session ) {
-				if ( ExamSessionStatus::Open->value === $session->status && $session->capacity !== $newSeats ) {
-					$this->sessions->setCapacity( $session->id, $newSeats );
-				}
-			}
-
-			if ( null !== $persistRoom ) {
-				$persistRoom();
-			}
-		} );
+		);
 	}
 
 	// ---------------------------------------------------------------------------------------------------------------------------------

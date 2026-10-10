@@ -22,9 +22,9 @@ class ExamEventViewService {
 	public function sourceOptions( int $eventId ): array {
 		return array_map(
 			static fn ( $source ): array => array(
-'id'    => $source->id,
-'label' => $source->schoolName . ' · ' . $source->grade . ' класс'
-),
+				'id'    => $source->id,
+				'label' => $source->schoolName . ' · ' . $source->grade . ' класс',
+			),
 			$this->sources->listByEvent( $eventId )
 		);
 	}

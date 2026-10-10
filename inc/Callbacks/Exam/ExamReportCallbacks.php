@@ -46,11 +46,13 @@ class ExamReportCallbacks extends BaseController {
 		$source  = $this->sanitizeInt( 'recipient_source_id' );
 		$days    = $this->sanitizeInt( 'days' );
 
-		$this->run( function () use ( $eventId, $title, $ids, $source, $days ): array {
-			$report = $this->reports->create( get_current_user_id(), $eventId, $title, $ids, $source > 0 ? $source : null, $days > 0 ? $days : null );
+		$this->run(
+			function () use ( $eventId, $title, $ids, $source, $days ): array {
+				$report = $this->reports->create( get_current_user_id(), $eventId, $title, $ids, $source > 0 ? $source : null, $days > 0 ? $days : null );
 
-			return array( 'report_id' => $report->id ) + $this->reports->overview( get_current_user_id(), $eventId );
-		} );
+				return array( 'report_id' => $report->id ) + $this->reports->overview( get_current_user_id(), $eventId );
+			}
+		);
 	}
 
 	public function ajaxAddExamReportMember(): void {
@@ -60,11 +62,13 @@ class ExamReportCallbacks extends BaseController {
 		$participationId = $this->requireInt( 'participation_id' );
 		$version         = $this->sanitizeInt( 'version' );
 
-		$this->run( function () use ( $reportId, $participationId, $version ): array {
-			$report = $this->reports->addMember( get_current_user_id(), $reportId, $participationId, $version );
+		$this->run(
+			function () use ( $reportId, $participationId, $version ): array {
+				$report = $this->reports->addMember( get_current_user_id(), $reportId, $participationId, $version );
 
-			return $this->reports->overview( get_current_user_id(), $report->eventId );
-		} );
+				return $this->reports->overview( get_current_user_id(), $report->eventId );
+			}
+		);
 	}
 
 	public function ajaxRemoveExamReportMember(): void {
@@ -74,11 +78,13 @@ class ExamReportCallbacks extends BaseController {
 		$participationId = $this->requireInt( 'participation_id' );
 		$version         = $this->sanitizeInt( 'version' );
 
-		$this->run( function () use ( $reportId, $participationId, $version ): array {
-			$report = $this->reports->removeMember( get_current_user_id(), $reportId, $participationId, $version );
+		$this->run(
+			function () use ( $reportId, $participationId, $version ): array {
+				$report = $this->reports->removeMember( get_current_user_id(), $reportId, $participationId, $version );
 
-			return $this->reports->overview( get_current_user_id(), $report->eventId );
-		} );
+				return $this->reports->overview( get_current_user_id(), $report->eventId );
+			}
+		);
 	}
 
 	public function ajaxIssueExamReportLink(): void {
@@ -95,11 +101,13 @@ class ExamReportCallbacks extends BaseController {
 		$reportId = $this->requireInt( 'report_id' );
 		$version  = $this->sanitizeInt( 'version' );
 
-		$this->run( function () use ( $reportId, $version ): array {
-			$report = $this->reports->revoke( get_current_user_id(), $reportId, $version );
+		$this->run(
+			function () use ( $reportId, $version ): array {
+				$report = $this->reports->revoke( get_current_user_id(), $reportId, $version );
 
-			return $this->reports->overview( get_current_user_id(), $report->eventId );
-		} );
+				return $this->reports->overview( get_current_user_id(), $report->eventId );
+			}
+		);
 	}
 
 	/**

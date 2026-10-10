@@ -4,6 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\DTO\Exam;
 
+/** Сохранённый результат команды для её идемпотентного повтора по ключу запроса. */
 readonly class ExamOperationKeyDTO {
 
 	public function __construct(

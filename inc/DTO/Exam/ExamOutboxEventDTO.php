@@ -4,6 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\DTO\Exam;
 
+/** Задание отложенного уведомления с состоянием доставки и сроком следующей попытки. */
 readonly class ExamOutboxEventDTO {
 
 	public function __construct(

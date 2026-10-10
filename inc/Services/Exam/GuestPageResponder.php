@@ -68,13 +68,17 @@ class GuestPageResponder {
 
 	/** Сессионная кука: без срока, HttpOnly, SameSite=Lax, Secure на https. */
 	private function setCookie( string $name, string $value, int $expires ): void {
-		setcookie( $name, $value, array(
-			'expires'  => $expires,
-			'path'     => '/',
-			'secure'   => is_ssl(),
-			'httponly' => true,
-			'samesite' => 'Lax',
-		) );
+		setcookie(
+			$name,
+			$value,
+			array(
+				'expires'  => $expires,
+				'path'     => '/',
+				'secure'   => is_ssl(),
+				'httponly' => true,
+				'samesite' => 'Lax',
+			)
+		);
 		if ( '' !== $value ) {
 			$_COOKIE[ $name ] = $value;
 		} else {

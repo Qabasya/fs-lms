@@ -103,13 +103,16 @@ class GuestApplicationService {
 		}
 
 		$resolved = $this->holds->resolveManually( $actorUserId, $applicationId, $kind, $sessionId, $reason, $normalizedAmount );
-		$this->logEvents->dispatch( LogEvent::ExamPaymentResolved, new EntityChangedEvent(
-			$actorUserId,
-			OperationType::Update,
-			EntityType::ExamApplication,
-			$applicationId,
-			sprintf( '%s: %s%s', $kind->label(), $reason, null !== $normalizedAmount ? ' (' . $normalizedAmount . ' ₽)' : '' )
-		) );
+		$this->logEvents->dispatch(
+			LogEvent::ExamPaymentResolved,
+			new EntityChangedEvent(
+				$actorUserId,
+				OperationType::Update,
+				EntityType::ExamApplication,
+				$applicationId,
+				sprintf( '%s: %s%s', $kind->label(), $reason, null !== $normalizedAmount ? ' (' . $normalizedAmount . ' ₽)' : '' )
+			)
+		);
 
 		return $resolved;
 	}
@@ -158,20 +161,26 @@ class GuestApplicationService {
 			'identity_hash'   => $this->identity->identityHash( $fields['last_name'], $fields['first_name'], $fields['middle_name'], $fields['phone'] ),
 			'request_key'     => $requestKey,
 			// Из источника, не из формы: школу, класс и преподавателя гость выбрать не может.
-			'source_snapshot' => (string) wp_json_encode( array(
-				'school_name'  => $source->schoolName,
-				'school_key'   => $source->schoolKey,
-				'grade'        => $source->grade,
-				'teacher_name' => $source->teacherName,
-				'label'        => $source->label,
-			) ),
-			'draft_enc'       => $this->materializer->seal( (string) wp_json_encode( array(
-				'last_name'   => $fields['last_name'],
-				'first_name'  => $fields['first_name'],
-				'middle_name' => $fields['middle_name'],
-				'phone'       => $fields['phone'],
-				'messenger'   => $fields['messenger'],
-			) ) ),
+			'source_snapshot' => (string) wp_json_encode(
+				array(
+					'school_name'  => $source->schoolName,
+					'school_key'   => $source->schoolKey,
+					'grade'        => $source->grade,
+					'teacher_name' => $source->teacherName,
+					'label'        => $source->label,
+				)
+			),
+			'draft_enc'       => $this->materializer->seal(
+				(string) wp_json_encode(
+					array(
+						'last_name'   => $fields['last_name'],
+						'first_name'  => $fields['first_name'],
+						'middle_name' => $fields['middle_name'],
+						'phone'       => $fields['phone'],
+						'messenger'   => $fields['messenger'],
+					)
+				)
+			),
 			'consent_refs'    => (string) wp_json_encode( $consentRefs ),
 		);
 		if ( '' !== $ipHash ) {
@@ -237,9 +246,9 @@ class GuestApplicationService {
 	/** Хеши введённых ФИО и телефона (для проверки дублей до создания заявки). @return array{name: string, phone: string} */
 	public function hashesOf( string $last, string $first, string $middle, string $phone ): array {
 		return array(
-'name'  => $this->identity->nameHash( $last, $first, $middle ),
-'phone' => $this->identity->phoneHash( $phone )
-);
+			'name'  => $this->identity->nameHash( $last, $first, $middle ),
+			'phone' => $this->identity->phoneHash( $phone ),
+		);
 	}
 
 	// ── Проверки ─────────────────────────────────────────────────────────────────────────────────────
@@ -325,10 +334,16 @@ class GuestApplicationService {
 		}
 
 		if ( $this->applications->countHeldBySource( $source->id ) >= $this->config->examSourceActiveHoldsLimit() ) {
-			$this->outbox->add( ExamOutboxEvent::SourceLimitExceeded, 'source', $source->id, 1, array(
-'event_id'  => $eventId,
-'source_id' => $source->id
-) );
+			$this->outbox->add(
+				ExamOutboxEvent::SourceLimitExceeded,
+				'source',
+				$source->id,
+				1,
+				array(
+					'event_id'  => $eventId,
+					'source_id' => $source->id,
+				)
+			);
 
 			throw new CodedException( ErrorCode::ExamLimit, 'Слишком много заявок по этой ссылке, обратитесь к сотруднику.' );
 		}

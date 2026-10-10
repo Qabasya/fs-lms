@@ -143,10 +143,13 @@ class ExamTickService {
 	 */
 	public function releaseHolds( int $limit = 100 ): int {
 		// Сначала сверка оплат: оплата, пришедшая за секунду до истечения, успевает подтвердить ещё живую бронь.
-		$this->step( 'reconcile', function (): int {
-			$this->reconcilePayments();
-			return 0;
-		} );
+		$this->step(
+			'reconcile',
+			function (): int {
+				$this->reconcilePayments();
+				return 0;
+			}
+		);
 		$this->step( 'recheck-needs-help', fn (): int => $this->reconciler->refreshWaitingForHelp() );
 		$released = $this->step( 'holds', fn (): int => $this->holds->releaseExpired( $limit ) );
 		$this->step( 'purge-keys', fn (): int => $this->operationKeys->purgeExpired( $this->time->nowUtc() ) );

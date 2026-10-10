@@ -5,6 +5,7 @@ namespace Inc\DTO\Exam;
 use Inc\Enums\Assessment\AssessmentKind;
 use Inc\Enums\Exam\ExamDirection;
 
+/** Шкала официального экзамена: число единиц, первичные баллы и перевод результата. */
 readonly class ExamFormatDTO {
 	public function __construct(
 		public AssessmentKind $kind,

@@ -4,6 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\DTO\Exam;
 
+/** История ручного урегулирования оплаченной заявки; не выполняет возврат через магазин. */
 readonly class ExamManualResolutionDTO {
 
 	public function __construct(

@@ -167,17 +167,19 @@ class ExamAttemptService {
 		// Плановый конец сеанса дедлайн не обрезает: начавший получает полную длительность.
 		// Лимит попыток работы здесь не проверяется: официальная попытка одна на участие
 		// (шаг выше + уникальный индекс).
-		$attemptId = $this->attempts->create( new AttemptInputDTO(
-			assessmentId       : $assessmentId,
-			studentPersonId    : $ctx->personId,
-			groupId            : null,
-			attemptNumber      : $isGuest ? 1 : $this->attempts->nextAttemptNumber( (int) $ctx->personId, $assessmentId ),
-			startedAt          : $startedAt,
-			deadlineAt         : $deadlineAt,
-			groupLessonId      : null,
-			examParticipationId: $participation->id,
-			examRegistrationId : $registration->id,
-		) );
+		$attemptId = $this->attempts->create(
+			new AttemptInputDTO(
+				assessmentId       : $assessmentId,
+				studentPersonId    : $ctx->personId,
+				groupId            : null,
+				attemptNumber      : $isGuest ? 1 : $this->attempts->nextAttemptNumber( (int) $ctx->personId, $assessmentId ),
+				startedAt          : $startedAt,
+				deadlineAt         : $deadlineAt,
+				groupLessonId      : null,
+				examParticipationId: $participation->id,
+				examRegistrationId : $registration->id,
+			)
+		);
 		if ( 0 === $attemptId ) {
 			throw new \RuntimeException( 'Не удалось создать попытку экзамена.' );
 		}
@@ -240,28 +242,30 @@ class ExamAttemptService {
 			return false;
 		}
 
-		return (bool) $this->inTransactionWithRetry( function () use ( $attemptId, $participationId ): bool {
-			$participation = $this->participations->findForUpdate( $participationId );
-			$attempt       = $this->attempts->find( $attemptId );
-			if ( null === $participation || null === $attempt
+		return (bool) $this->inTransactionWithRetry(
+			function () use ( $attemptId, $participationId ): bool {
+				$participation = $this->participations->findForUpdate( $participationId );
+				$attempt       = $this->attempts->find( $attemptId );
+				if ( null === $participation || null === $attempt
 				|| AttemptStatus::InProgress !== $attempt->status
 				|| ! $attempt->isExpired( $this->time->nowLocal() ) ) {
-				return false;
-			}
+						return false;
+				}
 
-			$this->attemptService->submitFor( $attempt, $attempt->deadlineAt );
-			$this->outbox->add(
-				ExamOutboxEvent::AttemptSubmitted,
-				'participation',
-				$participation->id,
-				$participation->version,
-				array(
-					'attempt_id' => $attempt->id,
-					'auto'       => true,
-				)
-			);
-			return true;
-		} );
+				$this->attemptService->submitFor( $attempt, $attempt->deadlineAt );
+				$this->outbox->add(
+					ExamOutboxEvent::AttemptSubmitted,
+					'participation',
+					$participation->id,
+					$participation->version,
+					array(
+						'attempt_id' => $attempt->id,
+						'auto'       => true,
+					)
+				);
+				return true;
+			}
+		);
 	}
 
 	/**
@@ -275,10 +279,12 @@ class ExamAttemptService {
 		// Просроченную попытку завершает ленивый путь — со своей транзакцией, поэтому до открытия нашей.
 		$this->activeAttemptOf( $ctx, $attemptId );
 
-		$this->inTransactionWithRetry( function () use ( $ctx, $attemptId, $taskId, $text ): void {
-			$this->lockParticipation( $ctx );
-			$this->attemptService->saveAnswerFor( $this->writableAttempt( $ctx, $attemptId ), $taskId, $text );
-		} );
+		$this->inTransactionWithRetry(
+			function () use ( $ctx, $attemptId, $taskId, $text ): void {
+				$this->lockParticipation( $ctx );
+				$this->attemptService->saveAnswerFor( $this->writableAttempt( $ctx, $attemptId ), $taskId, $text );
+			}
+		);
 	}
 
 	/**
@@ -287,26 +293,28 @@ class ExamAttemptService {
 	public function submit( AttemptContext $ctx, int $attemptId ): AttemptDTO {
 		$this->activeAttemptOf( $ctx, $attemptId );
 
-		return $this->inTransactionWithRetry( function () use ( $ctx, $attemptId ): AttemptDTO {
-			$participation = $this->lockParticipation( $ctx );
-			$attempt       = $this->writableAttempt( $ctx, $attemptId );
+		return $this->inTransactionWithRetry(
+			function () use ( $ctx, $attemptId ): AttemptDTO {
+				$participation = $this->lockParticipation( $ctx );
+				$attempt       = $this->writableAttempt( $ctx, $attemptId );
 
-			$submitted = $this->attemptService->submitFor( $attempt );
-			if ( ExamAudience::Guest->value === $participation->audience ) {
-				$this->guestSessions->closeAfterSubmit( $participation->id );
+				$submitted = $this->attemptService->submitFor( $attempt );
+				if ( ExamAudience::Guest->value === $participation->audience ) {
+						$this->guestSessions->closeAfterSubmit( $participation->id );
+				}
+				$this->outbox->add(
+					ExamOutboxEvent::AttemptSubmitted,
+					'participation',
+					$participation->id,
+					$participation->version,
+					array(
+						'attempt_id' => $attempt->id,
+						'auto'       => false,
+					)
+				);
+				return $submitted;
 			}
-			$this->outbox->add(
-				ExamOutboxEvent::AttemptSubmitted,
-				'participation',
-				$participation->id,
-				$participation->version,
-				array(
-					'attempt_id' => $attempt->id,
-					'auto'       => false,
-				)
-			);
-			return $submitted;
-		} );
+		);
 	}
 
 	/**
@@ -399,45 +407,47 @@ class ExamAttemptService {
 			throw new CodedException( ErrorCode::ExamAccess, 'Попытка не найдена.' );
 		}
 
-		return $this->inTransactionWithRetry( function () use ( $actorUserId, $attemptId, $minutes, $reason, $participationId ): AttemptDTO {
-			$participation = $this->participations->findForUpdate( $participationId );
-			$event         = null !== $participation ? $this->events->find( $participation->eventId ) : null;
-			if ( null === $participation || null === $event || ! $this->accessGuard->canManageSubject( $actorUserId, $event->subjectKey ) ) {
-				throw new CodedException( ErrorCode::ExamAccess, 'Попытка не найдена.' );
-			}
+		return $this->inTransactionWithRetry(
+			function () use ( $actorUserId, $attemptId, $minutes, $reason, $participationId ): AttemptDTO {
+				$participation = $this->participations->findForUpdate( $participationId );
+				$event         = null !== $participation ? $this->events->find( $participation->eventId ) : null;
+				if ( null === $participation || null === $event || ! $this->accessGuard->canManageSubject( $actorUserId, $event->subjectKey ) ) {
+						throw new CodedException( ErrorCode::ExamAccess, 'Попытка не найдена.' );
+				}
 
-			$attempt = $this->attempts->find( $attemptId );
-			if ( null === $attempt || AttemptStatus::InProgress !== $attempt->status ) {
-				throw new CodedException( ErrorCode::ExamStarted, 'Попытка уже завершена.' );
-			}
+				$attempt = $this->attempts->find( $attemptId );
+				if ( null === $attempt || AttemptStatus::InProgress !== $attempt->status ) {
+					throw new CodedException( ErrorCode::ExamStarted, 'Попытка уже завершена.' );
+				}
 
-			$newDeadline = $this->time->addMinutes( $attempt->deadlineAt, $minutes );
-			if ( ! $this->attempts->update( $attempt->id, array( 'deadline_at' => $newDeadline ) ) ) {
-				throw new \RuntimeException( 'Не удалось продлить попытку экзамена.' );
-			}
-			$this->outbox->add(
-				ExamOutboxEvent::AttemptExtended,
-				'participation',
-				$participation->id,
-				$participation->version,
-				array(
-					'attempt_id'    => $attempt->id,
-					'minutes'       => $minutes,
-					'reason'        => $reason,
-					'actor_user_id' => $actorUserId,
-					'deadline_at'   => $newDeadline,
-				)
-			);
+				$newDeadline = $this->time->addMinutes( $attempt->deadlineAt, $minutes );
+				if ( ! $this->attempts->update( $attempt->id, array( 'deadline_at' => $newDeadline ) ) ) {
+					throw new \RuntimeException( 'Не удалось продлить попытку экзамена.' );
+				}
+				$this->outbox->add(
+					ExamOutboxEvent::AttemptExtended,
+					'participation',
+					$participation->id,
+					$participation->version,
+					array(
+						'attempt_id'    => $attempt->id,
+						'minutes'       => $minutes,
+						'reason'        => $reason,
+						'actor_user_id' => $actorUserId,
+						'deadline_at'   => $newDeadline,
+					)
+				);
 
-			$updated = $this->attempts->find( $attempt->id );
-			if ( null === $updated ) {
-				throw new \RuntimeException( 'Попытка экзамена не найдена после продления.' );
+				$updated = $this->attempts->find( $attempt->id );
+				if ( null === $updated ) {
+					throw new \RuntimeException( 'Попытка экзамена не найдена после продления.' );
+				}
+				if ( ExamAudience::Guest->value === $participation->audience ) {
+						$this->guestSessions->extendForAttempt( $participation->id, $this->time->toUtc( $updated->deadlineAt ) );
+				}
+				return $updated;
 			}
-			if ( ExamAudience::Guest->value === $participation->audience ) {
-				$this->guestSessions->extendForAttempt( $participation->id, $this->time->toUtc( $updated->deadlineAt ) );
-			}
-			return $updated;
-		} );
+		);
 	}
 
 	/**

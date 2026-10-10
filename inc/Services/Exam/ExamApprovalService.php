@@ -99,43 +99,45 @@ class ExamApprovalService {
 			return $this->skipped( self::REASON_GUEST );
 		}
 
-		return $this->inTransactionWithRetry( function () use ( $actorUserId, $attemptId, $participationId, $expectedVersion ): array {
-			$locked  = $this->participations->findForUpdate( $participationId );
-			$attempt = $this->attempts->find( $attemptId );
-			if ( null === $locked || null === $attempt || $attempt->examParticipationId !== $participationId ) {
-				return $this->skipped( self::REASON_NOT_FOUND );
-			}
+		return $this->inTransactionWithRetry(
+			function () use ( $actorUserId, $attemptId, $participationId, $expectedVersion ): array {
+				$locked  = $this->participations->findForUpdate( $participationId );
+				$attempt = $this->attempts->find( $attemptId );
+				if ( null === $locked || null === $attempt || $attempt->examParticipationId !== $participationId ) {
+						return $this->skipped( self::REASON_NOT_FOUND );
+				}
 
-			if ( AttemptStatus::InProgress === $attempt->status ) {
-				return $this->skipped( self::REASON_NOT_SUBMITTED );
-			}
-			if ( $attempt->isApproved() ) {
-				return $this->skipped( self::REASON_ALREADY_APPROVED );
-			}
-			if ( $this->answers->hasPendingAnswers( $attempt->id ) ) {
-				return $this->skipped( self::REASON_PENDING_REVIEW );
-			}
-			if ( $attempt->resultVersion !== $expectedVersion ) {
-				return $this->skipped( self::REASON_STALE );
-			}
+				if ( AttemptStatus::InProgress === $attempt->status ) {
+					return $this->skipped( self::REASON_NOT_SUBMITTED );
+				}
+				if ( $attempt->isApproved() ) {
+					return $this->skipped( self::REASON_ALREADY_APPROVED );
+				}
+				if ( $this->answers->hasPendingAnswers( $attempt->id ) ) {
+					return $this->skipped( self::REASON_PENDING_REVIEW );
+				}
+				if ( $attempt->resultVersion !== $expectedVersion ) {
+					return $this->skipped( self::REASON_STALE );
+				}
 
-			if ( ! $this->attempts->approve( $attempt->id, $actorUserId, $this->time->nowLocal() ) ) {
-				throw new \RuntimeException( 'Не удалось утвердить результат экзамена.' );
-			}
-			$this->outbox->add(
-				ExamOutboxEvent::AttemptApproved,
-				'participation',
-				$locked->id,
-				$locked->version,
-				array(
-					'attempt_id'       => $attempt->id,
-					'participation_id' => $locked->id,
-					'result_version'   => $attempt->resultVersion,
-				)
-			);
+				if ( ! $this->attempts->approve( $attempt->id, $actorUserId, $this->time->nowLocal() ) ) {
+					throw new \RuntimeException( 'Не удалось утвердить результат экзамена.' );
+				}
+				$this->outbox->add(
+					ExamOutboxEvent::AttemptApproved,
+					'participation',
+					$locked->id,
+					$locked->version,
+					array(
+						'attempt_id'       => $attempt->id,
+						'participation_id' => $locked->id,
+						'result_version'   => $attempt->resultVersion,
+					)
+				);
 
-			return array( 'status' => self::STATUS_APPROVED );
-		} );
+				return array( 'status' => self::STATUS_APPROVED );
+			}
+		);
 	}
 
 	/**
@@ -172,17 +174,17 @@ class ExamApprovalService {
 		}
 
 		return array(
-'approved' => $approved,
-'skipped'  => $skipped
-);
+			'approved' => $approved,
+			'skipped'  => $skipped,
+		);
 	}
 
 	/** @return array{status: 'skipped', reason: string} */
 	private function skipped( string $reason ): array {
 		return array(
-'status' => self::STATUS_SKIPPED,
-'reason' => $reason
-);
+			'status' => self::STATUS_SKIPPED,
+			'reason' => $reason,
+		);
 	}
 
 	/**
@@ -213,81 +215,83 @@ class ExamApprovalService {
 			throw new CodedException( ErrorCode::ExamAccess, 'Работа не найдена.' );
 		}
 
-		$result = $this->inTransactionWithRetry( function () use ( $actorUserId, $attemptId, $participationId, $changes, $reason, $expectedVersion ): array {
-			$locked  = $this->participations->findForUpdate( $participationId );
-			$attempt = $this->attempts->find( $attemptId );
-			if ( null === $locked || null === $attempt || $attempt->examParticipationId !== $participationId ) {
-				throw new CodedException( ErrorCode::ExamAccess, 'Работа не найдена.' );
-			}
-			if ( ! $attempt->isApproved() ) {
-				throw new CodedException( ErrorCode::ExamConflict, 'Работа не утверждена: исправлять можно только утверждённый результат.' );
-			}
-			if ( ! $this->attempts->bumpResultVersion( $attemptId, $expectedVersion ) ) {
-				throw new CodedException( ErrorCode::ExamStale, 'Работу уже изменил другой проверяющий. Обновите страницу.' );
-			}
-
-			$now     = $this->time->nowLocal();
-			$journal = array();
-			foreach ( $changes as $change ) {
-				$answer = $this->answers->findByAttemptAndTask( $attemptId, (int) $change['task_id'] );
-				if ( null === $answer ) {
-					throw new CodedException( ErrorCode::ExamConflict, 'Задание не найдено в работе.' );
+		$result = $this->inTransactionWithRetry(
+			function () use ( $actorUserId, $attemptId, $participationId, $changes, $reason, $expectedVersion ): array {
+				$locked  = $this->participations->findForUpdate( $participationId );
+				$attempt = $this->attempts->find( $attemptId );
+				if ( null === $locked || null === $attempt || $attempt->examParticipationId !== $participationId ) {
+						throw new CodedException( ErrorCode::ExamAccess, 'Работа не найдена.' );
+				}
+				if ( ! $attempt->isApproved() ) {
+					throw new CodedException( ErrorCode::ExamConflict, 'Работа не утверждена: исправлять можно только утверждённый результат.' );
+				}
+				if ( ! $this->attempts->bumpResultVersion( $attemptId, $expectedVersion ) ) {
+					throw new CodedException( ErrorCode::ExamStale, 'Работу уже изменил другой проверяющий. Обновите страницу.' );
 				}
 
-				$max   = (float) ( $answer->maxScore ?? 0.0 );
-				$score = (float) $change['score'];
-				if ( $score < 0.0 || $score > $max ) {
-					throw new CodedException( ErrorCode::ExamConflict, sprintf( 'Балл должен быть от 0 до %s.', $this->num( $max ) ) );
+				$now     = $this->time->nowLocal();
+				$journal = array();
+				foreach ( $changes as $change ) {
+					$answer = $this->answers->findByAttemptAndTask( $attemptId, (int) $change['task_id'] );
+					if ( null === $answer ) {
+						throw new CodedException( ErrorCode::ExamConflict, 'Задание не найдено в работе.' );
+					}
+
+					$max   = (float) ( $answer->maxScore ?? 0.0 );
+					$score = (float) $change['score'];
+					if ( $score < 0.0 || $score > $max ) {
+						throw new CodedException( ErrorCode::ExamConflict, sprintf( 'Балл должен быть от 0 до %s.', $this->num( $max ) ) );
+					}
+
+					$row = array(
+						'score'             => $score,
+						'is_correct'        => $score >= $max ? 1 : 0,
+						'graded_by_user_id' => $actorUserId,
+						'graded_at'         => $now,
+					);
+					if ( isset( $change['feedback'] ) && '' !== trim( (string) $change['feedback'] ) ) {
+						$row['grader_note'] = trim( (string) $change['feedback'] );
+					}
+					// Критерии описывали прежний балл: оставлять их рядом с новым баллом значит показывать ученику несогласованные числа.
+					if ( null !== $answer->criteriaScores ) {
+						$row['criteria_scores'] = null;
+					}
+
+					if ( ! $this->answers->upsert( $attemptId, (int) $change['task_id'], $row ) ) {
+						throw new \RuntimeException( 'Не удалось записать исправленный балл.' );
+					}
+					$journal[] = array(
+						'task_id' => (int) $change['task_id'],
+						'old'     => (float) ( $answer->score ?? 0.0 ),
+						'new'     => $score,
+					);
 				}
 
-				$row = array(
-					'score'             => $score,
-					'is_correct'        => $score >= $max ? 1 : 0,
-					'graded_by_user_id' => $actorUserId,
-					'graded_at'         => $now,
+				$updated = $this->autoGrade->finalize( $attempt );
+				$version = $expectedVersion + 1;
+				$this->outbox->add(
+					ExamOutboxEvent::ResultCorrected,
+					'participation',
+					$locked->id,
+					$locked->version,
+					array(
+						'attempt_id'       => $attemptId,
+						'participation_id' => $locked->id,
+						'reason'           => $reason,
+						'result_version'   => $version,
+						'old_total'        => $attempt->totalScore,
+						'new_total'        => $updated->totalScore,
+						'changes'          => $journal,
+					)
 				);
-				if ( isset( $change['feedback'] ) && '' !== trim( (string) $change['feedback'] ) ) {
-					$row['grader_note'] = trim( (string) $change['feedback'] );
-				}
-				// Критерии описывали прежний балл: оставлять их рядом с новым баллом значит показывать ученику несогласованные числа.
-				if ( null !== $answer->criteriaScores ) {
-					$row['criteria_scores'] = null;
-				}
 
-				if ( ! $this->answers->upsert( $attemptId, (int) $change['task_id'], $row ) ) {
-					throw new \RuntimeException( 'Не удалось записать исправленный балл.' );
-				}
-				$journal[] = array(
-'task_id' => (int) $change['task_id'],
-'old'     => (float) ( $answer->score ?? 0.0 ),
-'new'     => $score
-);
+				return array(
+					'attempt'   => $updated,
+					'old_total' => $attempt->totalScore,
+					'journal'   => $journal,
+				);
 			}
-
-			$updated = $this->autoGrade->finalize( $attempt );
-			$version = $expectedVersion + 1;
-			$this->outbox->add(
-				ExamOutboxEvent::ResultCorrected,
-				'participation',
-				$locked->id,
-				$locked->version,
-				array(
-					'attempt_id'       => $attemptId,
-					'participation_id' => $locked->id,
-					'reason'           => $reason,
-					'result_version'   => $version,
-					'old_total'        => $attempt->totalScore,
-					'new_total'        => $updated->totalScore,
-					'changes'          => $journal,
-				)
-			);
-
-			return array(
-'attempt'   => $updated,
-'old_total' => $attempt->totalScore,
-'journal'   => $journal
-);
-		} );
+		);
 
 		$this->audit( $actorUserId, $attemptId, $reason, $result['journal'], $result['old_total'], $result['attempt']->totalScore );
 

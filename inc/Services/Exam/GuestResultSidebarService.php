@@ -40,10 +40,10 @@ class GuestResultSidebarService {
 	public function build( string $subjectKey, array $units, int $participationId ): array {
 		if ( '' === $subjectKey ) {
 			return array(
-'courses'      => array(),
-'articles'     => array(),
-'articles_url' => ''
-);
+				'courses'      => array(),
+				'articles'     => array(),
+				'articles_url' => '',
+			);
 		}
 
 		$links = $this->pages->links( $subjectKey );
@@ -51,13 +51,16 @@ class GuestResultSidebarService {
 
 		return array(
 			'courses'      => $this->courses->getSidebarCourses( $subjectKey, $links->subject ),
-			'articles'     => array_map( static fn( ArticleCardDTO $card ): array => array(
-				'id'        => $card->id,
-				'title'     => $card->title,
-				'url'       => $card->url,
-				'excerpt'   => $card->excerpt,
-				'thumbnail' => $card->thumbnail,
-			), $cards ),
+			'articles'     => array_map(
+				static fn( ArticleCardDTO $card ): array => array(
+					'id'        => $card->id,
+					'title'     => $card->title,
+					'url'       => $card->url,
+					'excerpt'   => $card->excerpt,
+					'thumbnail' => $card->thumbnail,
+				),
+				$cards
+			),
 			'articles_url' => $links->articles,
 		);
 	}
@@ -88,7 +91,7 @@ class GuestResultSidebarService {
 			}
 		}
 
-		$picked = array();
+		$picked      = array();
 		$pickedCount = 0;
 		for ( $round = 0; $pickedCount < self::ARTICLES_LIMIT; ++$round ) {
 			$added = false;
@@ -126,9 +129,12 @@ class GuestResultSidebarService {
 		$errors = array_filter( $units, static fn( array $unit ): bool => in_array( (string) ( $unit['status'] ?? '' ), self::ERROR_STATUSES, true ) );
 
 		$ratio = static fn( array $unit ): float => (float) ( $unit['max'] ?? 0 ) > 0 ? (float) ( $unit['score'] ?? 0 ) / (float) $unit['max'] : 0.0;
-		usort( $errors, static function ( array $a, array $b ) use ( $ratio ): int {
-			return array( $ratio( $a ), (int) $a['number'] ) <=> array( $ratio( $b ), (int) $b['number'] );
-		} );
+		usort(
+			$errors,
+			static function ( array $a, array $b ) use ( $ratio ): int {
+				return array( $ratio( $a ), (int) $a['number'] ) <=> array( $ratio( $b ), (int) $b['number'] );
+			}
+		);
 
 		$slugs = array();
 		foreach ( $errors as $unit ) {

@@ -4,6 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\DTO\Exam;
 
+/** Источник приглашения гостя со снимком школы, класса и преподавателя. */
 readonly class ExamSourceDTO {
 
 	public function __construct(

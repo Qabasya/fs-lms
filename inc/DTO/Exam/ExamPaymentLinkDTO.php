@@ -4,6 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\DTO\Exam;
 
+/** Связь заявки с позицией заказа WooCommerce для идемпотентного подтверждения оплаты. */
 readonly class ExamPaymentLinkDTO {
 
 	public function __construct(

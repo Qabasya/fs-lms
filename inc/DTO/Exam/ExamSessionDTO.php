@@ -4,6 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\DTO\Exam;
 
+/** Сеанс проведения: расписание, площадка, вместимость и счётчики занятых мест. */
 readonly class ExamSessionDTO {
 
 	public function __construct(

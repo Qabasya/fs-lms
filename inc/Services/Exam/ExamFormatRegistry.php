@@ -6,6 +6,7 @@ use Inc\DTO\Exam\ExamFormatDTO;
 use Inc\Enums\Assessment\AssessmentKind;
 use Inc\Enums\Exam\ExamDirection;
 
+/** Принимает типизированные шкалы через фильтр плагина и выбирает их по виду экзамена. */
 class ExamFormatRegistry {
 	public const string FILTER = 'fs_lms_exam_formats';
 

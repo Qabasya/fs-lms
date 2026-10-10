@@ -4,6 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\DTO\Exam;
 
+/** Членство участия в отчёте; само по себе не раскрывает результат или контакты гостя. */
 readonly class ExamReportMemberDTO {
 
 	public function __construct(

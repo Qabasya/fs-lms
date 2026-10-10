@@ -57,13 +57,15 @@ class GuestSessionService {
 	public function openInvitation( int $sourceId, int $generation, ?string $expiresAtUtc = null ): string {
 		$now = $this->time->nowUtc();
 
-		return $this->open( array(
-			'scope'      => self::SCOPE_INVITATION,
-			'source_id'  => $sourceId,
-			'generation' => $generation,
-			'issued_at'  => $now,
-			'expires_at' => $expiresAtUtc ?? $this->time->addMinutes( $now, self::INVITATION_HOURS * 60 ),
-		) );
+		return $this->open(
+			array(
+				'scope'      => self::SCOPE_INVITATION,
+				'source_id'  => $sourceId,
+				'generation' => $generation,
+				'issued_at'  => $now,
+				'expires_at' => $expiresAtUtc ?? $this->time->addMinutes( $now, self::INVITATION_HOURS * 60 ),
+			)
+		);
 	}
 
 	/**
@@ -94,14 +96,16 @@ class GuestSessionService {
 		$now = $this->time->nowUtc();
 		$this->sessions->revokeByParticipation( $token->targetId, self::SCOPE_ENTRY, $now );
 
-		return $this->open( array(
-			'scope'            => self::SCOPE_ENTRY,
-			'participation_id' => $token->targetId,
-			'registration_id'  => $registrationId,
-			'generation'       => $token->generation,
-			'issued_at'        => $now,
-			'expires_at'       => $expiresAtUtc,
-		) );
+		return $this->open(
+			array(
+				'scope'            => self::SCOPE_ENTRY,
+				'participation_id' => $token->targetId,
+				'registration_id'  => $registrationId,
+				'generation'       => $token->generation,
+				'issued_at'        => $now,
+				'expires_at'       => $expiresAtUtc,
+			)
+		);
 	}
 
 	/**
@@ -145,13 +149,15 @@ class GuestSessionService {
 		$now = $this->time->nowUtc();
 		$this->sessions->revokeByParticipation( $token->targetId, self::SCOPE_RESULT, $now );
 
-		return $this->open( array(
-			'scope'            => self::SCOPE_RESULT,
-			'participation_id' => $token->targetId,
-			'generation'       => $token->generation,
-			'issued_at'        => $now,
-			'expires_at'       => $expiresAtUtc,
-		) );
+		return $this->open(
+			array(
+				'scope'            => self::SCOPE_RESULT,
+				'participation_id' => $token->targetId,
+				'generation'       => $token->generation,
+				'issued_at'        => $now,
+				'expires_at'       => $expiresAtUtc,
+			)
+		);
 	}
 
 	/**
@@ -186,13 +192,15 @@ class GuestSessionService {
 	 * @return string Значение куки (в базе — только хеш).
 	 */
 	public function openReport( ExamAccessTokenDTO $token, string $expiresAtUtc ): string {
-		return $this->open( array(
-			'scope'      => self::SCOPE_REPORT,
-			'report_id'  => $token->targetId,
-			'generation' => $token->generation,
-			'issued_at'  => $this->time->nowUtc(),
-			'expires_at' => $expiresAtUtc,
-		) );
+		return $this->open(
+			array(
+				'scope'      => self::SCOPE_REPORT,
+				'report_id'  => $token->targetId,
+				'generation' => $token->generation,
+				'issued_at'  => $this->time->nowUtc(),
+				'expires_at' => $expiresAtUtc,
+			)
+		);
 	}
 
 	/**

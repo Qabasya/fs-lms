@@ -50,15 +50,17 @@ class ExamAccessTokenService {
 		$plain      = bin2hex( random_bytes( 32 ) );
 		$generation = $this->tokens->maxGeneration( $purpose, $targetId ) + 1;
 
-		$id = $this->tokens->insert( array(
-			'purpose'        => $purpose->value,
-			'target_id'      => $targetId,
-			'token_hash'     => $this->crypto->hash( $plain ),
-			'generation'     => $generation,
-			'expires_at'     => $expiresAtUtc,
-			'issuer_user_id' => $issuerUserId,
-			'created_at'     => $now,
-		) );
+		$id = $this->tokens->insert(
+			array(
+				'purpose'        => $purpose->value,
+				'target_id'      => $targetId,
+				'token_hash'     => $this->crypto->hash( $plain ),
+				'generation'     => $generation,
+				'expires_at'     => $expiresAtUtc,
+				'issuer_user_id' => $issuerUserId,
+				'created_at'     => $now,
+			)
+		);
 		if ( 0 === $id ) {
 			throw new \RuntimeException( 'Не удалось сохранить ключ доступа.' );
 		}

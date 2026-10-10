@@ -68,12 +68,14 @@ class ExamGuestPageController extends BaseController implements ServiceInterface
 		}
 
 		$this->responder->sendHeaders();
-		$this->responder->apply( $this->access->invitationPage(
-			strtolower( trim( $this->sanitizeGetText( 'k' ) ) ),
-			strtolower( trim( $this->sanitizeGetText( 'pay' ) ) ),
-			strtolower( $this->sanitizeCookieText( GuestSessionService::COOKIE_INVITATION ) ),
-			$this->requestContext()->ip,
-		) );
+		$this->responder->apply(
+			$this->access->invitationPage(
+				strtolower( trim( $this->sanitizeGetText( 'k' ) ) ),
+				strtolower( trim( $this->sanitizeGetText( 'pay' ) ) ),
+				strtolower( $this->sanitizeCookieText( GuestSessionService::COOKIE_INVITATION ) ),
+				$this->requestContext()->ip,
+			)
+		);
 	}
 
 	/** Страница входа: заголовки, затем исход (отрисовать / редирект без ключа / 404). */
@@ -145,13 +147,13 @@ class ExamGuestPageController extends BaseController implements ServiceInterface
 		$data['sidebar']         = $this->sidebar->build( (string) ( $data['subject_key'] ?? '' ), (array) ( $data['units'] ?? array() ), $participationId );
 		$data['crumbs']          = array(
 			array(
-'label' => __( 'Главная', 'fs-lms' ),
-'url'   => home_url( '/' )
-),
+				'label' => __( 'Главная', 'fs-lms' ),
+				'url'   => home_url( '/' ),
+			),
 			array(
-'label'   => __( 'Результат экзамена', 'fs-lms' ),
-'current' => true
-),
+				'label'   => __( 'Результат экзамена', 'fs-lms' ),
+				'current' => true,
+			),
 		);
 
 		ob_start();
@@ -171,13 +173,13 @@ class ExamGuestPageController extends BaseController implements ServiceInterface
 		$data             = $this->reportView->build( $report, $row > 0 ? $row : null );
 		$data['crumbs']   = array(
 			array(
-'label' => __( 'Главная', 'fs-lms' ),
-'url'   => home_url( '/' )
-),
+				'label' => __( 'Главная', 'fs-lms' ),
+				'url'   => home_url( '/' ),
+			),
 			array(
-'label'   => __( 'Отчёт по экзамену', 'fs-lms' ),
-'current' => true
-),
+				'label'   => __( 'Отчёт по экзамену', 'fs-lms' ),
+				'current' => true,
+			),
 		);
 		$data['page_url'] = PageRoutes::ExamReport->url();
 

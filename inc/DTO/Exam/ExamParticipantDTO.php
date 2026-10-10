@@ -4,6 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\DTO\Exam;
 
+/** Личность участника: ссылка на ученика либо зашифрованные данные гостя и отметка обезличивания. */
 readonly class ExamParticipantDTO {
 
 	public function __construct(

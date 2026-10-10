@@ -226,7 +226,7 @@ class ExamRegistrationService {
 			)
 		);
 
-		$result = new RegistrationResultDTO(
+		$result        = new RegistrationResultDTO(
 			registrationId : $registrationId,
 			participationId: $participation->id,
 			sessionId      : $session->id,
@@ -259,30 +259,32 @@ class ExamRegistrationService {
 			throw new CodedException( ErrorCode::ExamConflict, 'Действующей записи нет.' );
 		}
 
-		return $this->inTransactionWithRetry( function () use ( $participant, $peek, $newSessionId, $requestKey, $expectedVersion ): RegistrationResultDTO {
-			$participation = $this->lockParticipation( $participant->id, $peek->eventId );
-			if ( null === $participation ) {
-				throw new CodedException( ErrorCode::ExamConflict, 'Действующей записи нет.' );
+		return $this->inTransactionWithRetry(
+			function () use ( $participant, $peek, $newSessionId, $requestKey, $expectedVersion ): RegistrationResultDTO {
+				$participation = $this->lockParticipation( $participant->id, $peek->eventId );
+				if ( null === $participation ) {
+						throw new CodedException( ErrorCode::ExamConflict, 'Действующей записи нет.' );
+				}
+
+				$replayed = $this->findOperation( $participation->participantId, self::OP_CHANGE, $requestKey, (string) $newSessionId );
+				if ( null !== $replayed ) {
+					return RegistrationResultDTO::fromArray( (array) json_decode( (string) $replayed->resultRef, true ) )->asReplayed();
+				}
+
+				$this->assertFreshVersion( $participation, $expectedVersion );
+
+				$current = $this->registrations->findActive( $participation->id );
+				if ( null === $current ) {
+					throw new CodedException( ErrorCode::ExamConflict, 'Действующей записи нет.' );
+				}
+
+				$result        = $this->moveRegistration( $participation, $current, $newSessionId, false, null, null );
+				$encodedResult = wp_json_encode( $result->toArray() );
+				$this->rememberOperation( $participation->participantId, self::OP_CHANGE, $requestKey, (string) $newSessionId, is_string( $encodedResult ) ? $encodedResult : '' );
+
+				return $result;
 			}
-
-			$replayed = $this->findOperation( $participation->participantId, self::OP_CHANGE, $requestKey, (string) $newSessionId );
-			if ( null !== $replayed ) {
-				return RegistrationResultDTO::fromArray( (array) json_decode( (string) $replayed->resultRef, true ) )->asReplayed();
-			}
-
-			$this->assertFreshVersion( $participation, $expectedVersion );
-
-			$current = $this->registrations->findActive( $participation->id );
-			if ( null === $current ) {
-				throw new CodedException( ErrorCode::ExamConflict, 'Действующей записи нет.' );
-			}
-
-			$result = $this->moveRegistration( $participation, $current, $newSessionId, false, null, null );
-			$encodedResult = wp_json_encode( $result->toArray() );
-			$this->rememberOperation( $participation->participantId, self::OP_CHANGE, $requestKey, (string) $newSessionId, is_string( $encodedResult ) ? $encodedResult : '' );
-
-			return $result;
-		} );
+		);
 	}
 
 	/**
@@ -301,40 +303,42 @@ class ExamRegistrationService {
 			throw new CodedException( ErrorCode::ExamConflict, 'Действующей записи нет.' );
 		}
 
-		$this->inTransactionWithRetry( function () use ( $participant, $eventId, $requestKey, $expectedVersion ): void {
-			$participation = $this->lockParticipation( $participant->id, $eventId );
-			if ( null === $participation ) {
-				throw new CodedException( ErrorCode::ExamConflict, 'Действующей записи нет.' );
-			}
+		$this->inTransactionWithRetry(
+			function () use ( $participant, $eventId, $requestKey, $expectedVersion ): void {
+				$participation = $this->lockParticipation( $participant->id, $eventId );
+				if ( null === $participation ) {
+						throw new CodedException( ErrorCode::ExamConflict, 'Действующей записи нет.' );
+				}
 
-			if ( null !== $this->findOperation( $participation->participantId, self::OP_CANCEL, $requestKey, (string) $eventId ) ) {
-				return;
-			}
+				if ( null !== $this->findOperation( $participation->participantId, self::OP_CANCEL, $requestKey, (string) $eventId ) ) {
+					return;
+				}
 
-			$this->assertFreshVersion( $participation, $expectedVersion );
+				$this->assertFreshVersion( $participation, $expectedVersion );
 
-			$registration = $this->registrations->findActive( $participation->id );
-			if ( null === $registration ) {
-				throw new CodedException( ErrorCode::ExamConflict, 'Действующей записи нет.' );
-			}
+				$registration = $this->registrations->findActive( $participation->id );
+				if ( null === $registration ) {
+					throw new CodedException( ErrorCode::ExamConflict, 'Действующей записи нет.' );
+				}
 
-			$sessions = $this->sessions->lockInOrder( array( $registration->sessionId ) );
-			$session  = $sessions[ $registration->sessionId ] ?? null;
-			if ( null === $session ) {
-				throw new CodedException( ErrorCode::ExamAccess, 'Экзамен недоступен.' );
-			}
+				$sessions = $this->sessions->lockInOrder( array( $registration->sessionId ) );
+				$session  = $sessions[ $registration->sessionId ] ?? null;
+				if ( null === $session ) {
+					throw new CodedException( ErrorCode::ExamAccess, 'Экзамен недоступен.' );
+				}
 
-			$nowUtc = $this->time->nowUtc();
-			if ( null !== $participation->currentAttemptId ) {
-				throw new CodedException( ErrorCode::ExamStarted, 'Экзамен уже начат или сдан.' );
-			}
-			if ( $nowUtc >= $session->scheduledAt ) {
-				throw new CodedException( ErrorCode::ExamClosed, 'Сеанс уже начался: отменить запись самостоятельно нельзя.' );
-			}
+				$nowUtc = $this->time->nowUtc();
+				if ( null !== $participation->currentAttemptId ) {
+					throw new CodedException( ErrorCode::ExamStarted, 'Экзамен уже начат или сдан.' );
+				}
+				if ( $nowUtc >= $session->scheduledAt ) {
+					throw new CodedException( ErrorCode::ExamClosed, 'Сеанс уже начался: отменить запись самостоятельно нельзя.' );
+				}
 
-			$this->closeRegistration( $participation, $registration, $session, ExamRegistrationStatus::Cancelled, $nowUtc, null, null, 'self' );
-			$this->rememberOperation( $participation->participantId, self::OP_CANCEL, $requestKey, (string) $eventId, 'ok' );
-		} );
+				$this->closeRegistration( $participation, $registration, $session, ExamRegistrationStatus::Cancelled, $nowUtc, null, null, 'self' );
+				$this->rememberOperation( $participation->participantId, self::OP_CANCEL, $requestKey, (string) $eventId, 'ok' );
+			}
+		);
 	}
 
 	/**
@@ -352,24 +356,26 @@ class ExamRegistrationService {
 		$participation = null !== $peek ? $this->participations->find( $peek->participationId ) : null;
 		$this->assertStaffScope( $actorUserId, $participation );
 
-		$this->inTransactionWithRetry( function () use ( $actorUserId, $registrationId, $reason, $participation ): void {
-			$locked       = $this->participations->findForUpdate( (int) $participation?->id );
-			$registration = $this->registrations->find( $registrationId );
-			if ( null === $locked || null === $registration || 1 !== $registration->activeSlot ) {
-				throw new CodedException( ErrorCode::ExamConflict, 'Действующей записи нет.' );
-			}
-			if ( null !== $locked->currentAttemptId ) {
-				throw new CodedException( ErrorCode::ExamStarted, 'Попытка уже начата: запись отменить нельзя.' );
-			}
+		$this->inTransactionWithRetry(
+			function () use ( $actorUserId, $registrationId, $reason, $participation ): void {
+				$locked       = $this->participations->findForUpdate( (int) $participation?->id );
+				$registration = $this->registrations->find( $registrationId );
+				if ( null === $locked || null === $registration || 1 !== $registration->activeSlot ) {
+						throw new CodedException( ErrorCode::ExamConflict, 'Действующей записи нет.' );
+				}
+				if ( null !== $locked->currentAttemptId ) {
+					throw new CodedException( ErrorCode::ExamStarted, 'Попытка уже начата: запись отменить нельзя.' );
+				}
 
-			$sessions = $this->sessions->lockInOrder( array( $registration->sessionId ) );
-			$session  = $sessions[ $registration->sessionId ] ?? null;
-			if ( null === $session ) {
-				throw new CodedException( ErrorCode::ExamAccess, 'Экзамен недоступен.' );
-			}
+				$sessions = $this->sessions->lockInOrder( array( $registration->sessionId ) );
+				$session  = $sessions[ $registration->sessionId ] ?? null;
+				if ( null === $session ) {
+					throw new CodedException( ErrorCode::ExamAccess, 'Экзамен недоступен.' );
+				}
 
-			$this->closeRegistration( $locked, $registration, $session, ExamRegistrationStatus::Cancelled, $this->time->nowUtc(), $reason, $actorUserId, 'staff' );
-		} );
+				$this->closeRegistration( $locked, $registration, $session, ExamRegistrationStatus::Cancelled, $this->time->nowUtc(), $reason, $actorUserId, 'staff' );
+			}
+		);
 	}
 
 	/**
@@ -387,30 +393,34 @@ class ExamRegistrationService {
 		$participation = null !== $peek ? $this->participations->find( $peek->participationId ) : null;
 		$this->assertStaffScope( $actorUserId, $participation );
 
-		return $this->inTransactionWithRetry( function () use ( $actorUserId, $registrationId, $newSessionId, $reason, $participation ): RegistrationResultDTO {
-			$this->lockParticipant( (int) $participation?->participantId );
-			$locked  = $this->participations->findForUpdate( (int) $participation?->id );
-			$current = $this->registrations->find( $registrationId );
-			if ( null === $locked || null === $current || 1 !== $current->activeSlot ) {
-				throw new CodedException( ErrorCode::ExamConflict, 'Действующей записи нет.' );
-			}
+		return $this->inTransactionWithRetry(
+			function () use ( $actorUserId, $registrationId, $newSessionId, $reason, $participation ): RegistrationResultDTO {
+				$this->lockParticipant( (int) $participation?->participantId );
+				$locked  = $this->participations->findForUpdate( (int) $participation?->id );
+				$current = $this->registrations->find( $registrationId );
+				if ( null === $locked || null === $current || 1 !== $current->activeSlot ) {
+						throw new CodedException( ErrorCode::ExamConflict, 'Действующей записи нет.' );
+				}
 
-			$result = $this->moveRegistration( $locked, $current, $newSessionId, true, $actorUserId, $reason );
-			// Перенос оплаченного гостя — ручное решение: строка с причиной, старым и новым сеансом (8.8.5).
-			if ( ExamAudience::Guest->value === $locked->audience ) {
-				$this->resolutions->insert( array(
-					'participation_id' => $locked->id,
-					'kind'             => ManualResolutionKind::Transferred->value,
-					'reason'           => $reason,
-					'actor_user_id'    => $actorUserId,
-					'old_session_id'   => $current->sessionId,
-					'new_session_id'   => $newSessionId,
-					'created_at'       => $this->time->nowUtc(),
-				) );
-			}
+				$result = $this->moveRegistration( $locked, $current, $newSessionId, true, $actorUserId, $reason );
+				// Перенос оплаченного гостя — ручное решение: строка с причиной, старым и новым сеансом (8.8.5).
+				if ( ExamAudience::Guest->value === $locked->audience ) {
+					$this->resolutions->insert(
+						array(
+							'participation_id' => $locked->id,
+							'kind'             => ManualResolutionKind::Transferred->value,
+							'reason'           => $reason,
+							'actor_user_id'    => $actorUserId,
+							'old_session_id'   => $current->sessionId,
+							'new_session_id'   => $newSessionId,
+							'created_at'       => $this->time->nowUtc(),
+						)
+					);
+				}
 
-			return $result;
-		} );
+				return $result;
+			}
+		);
 	}
 
 	/**

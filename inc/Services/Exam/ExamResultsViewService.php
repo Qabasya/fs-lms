@@ -45,11 +45,13 @@ class ExamResultsViewService {
 	 * @return array{filters: array<string, mixed>, items: list<array<string, mixed>>}
 	 */
 	public function results( int $actorUserId, string $subjectKey, array $filters ): array {
-		$events = array_values( array_filter(
-			$this->events->findBySubjectKey( $subjectKey ),
-			fn ( ExamEventDTO $event ): bool => in_array( $event->status, array( ExamEventStatus::Published->value, ExamEventStatus::Completed->value ), true )
-				&& $this->guard->canManageEvent( $actorUserId, $event )
-		) );
+		$events = array_values(
+			array_filter(
+				$this->events->findBySubjectKey( $subjectKey ),
+				fn ( ExamEventDTO $event ): bool => in_array( $event->status, array( ExamEventStatus::Published->value, ExamEventStatus::Completed->value ), true )
+					&& $this->guard->canManageEvent( $actorUserId, $event )
+			)
+		);
 
 		$eventId  = (int) ( $filters['event_id'] ?? 0 );
 		$selected = $eventId > 0
@@ -76,10 +78,13 @@ class ExamResultsViewService {
 
 		return array(
 			'filters' => array(
-				'events'   => array_map( static fn ( ExamEventDTO $e ): array => array(
-'id'    => $e->id,
-'title' => $e->title
-), $events ),
+				'events'   => array_map(
+					static fn ( ExamEventDTO $e ): array => array(
+						'id'    => $e->id,
+						'title' => $e->title,
+					),
+					$events
+				),
 				'sessions' => 1 === count( $selected ) ? $this->eventView->siblings( $selected[0] ) : array(),
 				'sources'  => 1 === count( $selected ) ? $this->eventView->sourceOptions( $selected[0]->id ) : array(),
 			),

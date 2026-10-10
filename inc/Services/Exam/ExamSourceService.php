@@ -106,13 +106,18 @@ class ExamSourceService {
 
 		if ( null === $sourceId ) {
 			$now = $this->time->nowUtc();
-			$id  = $this->sources->insert( array_merge( $fields, array(
-				'event_id'           => $eventId,
-				'created_by_user_id' => $actorUserId,
-				'version'            => 1,
-				'created_at'         => $now,
-				'updated_at'         => $now,
-			) ) );
+			$id  = $this->sources->insert(
+				array_merge(
+					$fields,
+					array(
+						'event_id'           => $eventId,
+						'created_by_user_id' => $actorUserId,
+						'version'            => 1,
+						'created_at'         => $now,
+						'updated_at'         => $now,
+					)
+				)
+			);
 			$this->audit( $actorUserId, OperationType::Create, LogEvent::ExamSourceCreated, $id, $school );
 
 			return $this->reload( $id );
@@ -122,15 +127,17 @@ class ExamSourceService {
 			throw $this->stale();
 		}
 
-		return $this->inTransactionWithRetry( function () use ( $actorUserId, $eventId, $sourceId, $fields, $expectedVersion ): ExamSourceDTO {
-			$source = $this->lockSource( $sourceId, $eventId );
-			if ( $source->version !== $expectedVersion || ! $this->sources->update( $sourceId, $fields, $expectedVersion ) ) {
-				throw $this->stale();
-			}
-			$this->audit( $actorUserId, OperationType::Update, LogEvent::ExamSourceUpdated, $sourceId, $source->schoolName );
+		return $this->inTransactionWithRetry(
+			function () use ( $actorUserId, $eventId, $sourceId, $fields, $expectedVersion ): ExamSourceDTO {
+				$source = $this->lockSource( $sourceId, $eventId );
+				if ( $source->version !== $expectedVersion || ! $this->sources->update( $sourceId, $fields, $expectedVersion ) ) {
+						throw $this->stale();
+				}
+				$this->audit( $actorUserId, OperationType::Update, LogEvent::ExamSourceUpdated, $sourceId, $source->schoolName );
 
-			return $this->reload( $sourceId );
-		} );
+				return $this->reload( $sourceId );
+			}
+		);
 	}
 
 	/**
@@ -144,14 +151,16 @@ class ExamSourceService {
 	public function issueLink( int $actorUserId, int $sourceId ): string {
 		$eventId = $this->eventIdOf( $actorUserId, $sourceId );
 
-		return $this->inTransactionWithRetry( function () use ( $actorUserId, $sourceId, $eventId ): string {
-			$source = $this->lockSource( $sourceId, $eventId );
-			if ( $this->tokens->hasActive( ExamTokenPurpose::Invitation, $sourceId ) ) {
-				throw new CodedException( ErrorCode::ExamConflict, 'Ссылка уже создана: чтобы заменить её, перевыпустите.' );
-			}
+		return $this->inTransactionWithRetry(
+			function () use ( $actorUserId, $sourceId, $eventId ): string {
+				$source = $this->lockSource( $sourceId, $eventId );
+				if ( $this->tokens->hasActive( ExamTokenPurpose::Invitation, $sourceId ) ) {
+						throw new CodedException( ErrorCode::ExamConflict, 'Ссылка уже создана: чтобы заменить её, перевыпустите.' );
+				}
 
-			return $this->publishKey( $actorUserId, $source, 'ссылка создана' );
-		} );
+				return $this->publishKey( $actorUserId, $source, 'ссылка создана' );
+			}
+		);
 	}
 
 	/**
@@ -165,11 +174,13 @@ class ExamSourceService {
 	public function reissueLink( int $actorUserId, int $sourceId ): string {
 		$eventId = $this->eventIdOf( $actorUserId, $sourceId );
 
-		return $this->inTransactionWithRetry( function () use ( $actorUserId, $sourceId, $eventId ): string {
-			$source = $this->lockSource( $sourceId, $eventId );
+		return $this->inTransactionWithRetry(
+			function () use ( $actorUserId, $sourceId, $eventId ): string {
+				$source = $this->lockSource( $sourceId, $eventId );
 
-			return $this->publishKey( $actorUserId, $source, 'ссылка перевыпущена' );
-		} );
+				return $this->publishKey( $actorUserId, $source, 'ссылка перевыпущена' );
+			}
+		);
 	}
 
 	/**
@@ -180,26 +191,30 @@ class ExamSourceService {
 	public function revokeLink( int $actorUserId, int $sourceId ): void {
 		$eventId = $this->eventIdOf( $actorUserId, $sourceId );
 
-		$this->inTransactionWithRetry( function () use ( $actorUserId, $sourceId, $eventId ): void {
-			$source = $this->lockSource( $sourceId, $eventId );
-			$this->tokens->revoke( ExamTokenPurpose::Invitation, $sourceId );
-			$this->guestSessions->revokeBySource( $sourceId );
-			$this->sources->setKeyRevokedAt( $sourceId, $this->time->nowUtc() );
-			$this->audit( $actorUserId, OperationType::Update, LogEvent::ExamSourceUpdated, $sourceId, $source->schoolName . ': ссылка отозвана' );
-		} );
+		$this->inTransactionWithRetry(
+			function () use ( $actorUserId, $sourceId, $eventId ): void {
+				$source = $this->lockSource( $sourceId, $eventId );
+				$this->tokens->revoke( ExamTokenPurpose::Invitation, $sourceId );
+				$this->guestSessions->revokeBySource( $sourceId );
+				$this->sources->setKeyRevokedAt( $sourceId, $this->time->nowUtc() );
+				$this->audit( $actorUserId, OperationType::Update, LogEvent::ExamSourceUpdated, $sourceId, $source->schoolName . ': ссылка отозвана' );
+			}
+		);
 	}
 
 	/** Включает или отключает источник (отключённый новых заявок не принимает). @throws CodedException */
 	public function setActive( int $actorUserId, int $sourceId, bool $active ): void {
 		$eventId = $this->eventIdOf( $actorUserId, $sourceId );
 
-		$this->inTransactionWithRetry( function () use ( $actorUserId, $sourceId, $eventId, $active ): void {
-			$source = $this->lockSource( $sourceId, $eventId );
-			if ( $source->isActive !== $active && ! $this->sources->update( $sourceId, array( 'is_active' => $active ? 1 : 0 ), $source->version ) ) {
-				throw $this->stale();
+		$this->inTransactionWithRetry(
+			function () use ( $actorUserId, $sourceId, $eventId, $active ): void {
+				$source = $this->lockSource( $sourceId, $eventId );
+				if ( $source->isActive !== $active && ! $this->sources->update( $sourceId, array( 'is_active' => $active ? 1 : 0 ), $source->version ) ) {
+						throw $this->stale();
+				}
+				$this->audit( $actorUserId, OperationType::Update, LogEvent::ExamSourceUpdated, $sourceId, $source->schoolName . ( $active ? ': включён' : ': отключён' ) );
 			}
-			$this->audit( $actorUserId, OperationType::Update, LogEvent::ExamSourceUpdated, $sourceId, $source->schoolName . ( $active ? ': включён' : ': отключён' ) );
-		} );
+		);
 	}
 
 	// ---------------------------------------------------------------------------------------------------------------------------------

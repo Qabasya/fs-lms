@@ -271,9 +271,9 @@ class ExamNotificationComposer {
 			NotificationType::ExamWorkSubmitted,
 			sprintf( 'exam:%s:%d:%d', 'work_submitted', $row->aggregateId, $row->aggregateVersion ),
 			array(
-'event_title'      => $event->title,
-'participant_name' => $name
-),
+				'event_title'      => $event->title,
+				'participant_name' => $name,
+			),
 			null !== $session ? (string) add_query_arg( array( 'session' => $session->id ), $this->staffUrl( 'exam-conduct' ) ) : $this->staffUrl( 'exam-results' ),
 			null,
 			'exam_event',
@@ -295,9 +295,9 @@ class ExamNotificationComposer {
 			NotificationType::ExamApproved,
 			'exam:approved:' . $attempt->id,
 			array(
-'event_title'   => $event->title,
-'score_caption' => $this->scoreCaption( $this->scores->summarize( $attempt, $event ) )
-),
+				'event_title'   => $event->title,
+				'score_caption' => $this->scoreCaption( $this->scores->summarize( $attempt, $event ) ),
+			),
 			$this->learnerUrl( $event->id ),
 			null,
 			'exam_event',
@@ -318,9 +318,9 @@ class ExamNotificationComposer {
 			NotificationType::ExamResultCorrected,
 			'exam:corrected:' . (int) ( $p['attempt_id'] ?? 0 ),
 			array(
-'event_title' => $event->title,
-'reason'      => (string) ( $p['reason'] ?? '' )
-),
+				'event_title' => $event->title,
+				'reason'      => (string) ( $p['reason'] ?? '' ),
+			),
 			$this->learnerUrl( $event->id ),
 			null,
 			'exam_event',
@@ -342,10 +342,10 @@ class ExamNotificationComposer {
 			NotificationType::ExamExtended,
 			sprintf( 'exam:extended:%d:%s', (int) ( $p['attempt_id'] ?? 0 ), gmdate( 'YmdHi', (int) strtotime( $deadline . ' UTC' ) ) ),
 			array(
-'event_title' => $event->title,
-'time_end'    => substr( $deadline, 11, 5 ),
-'reason'      => (string) ( $p['reason'] ?? '' )
-),
+				'event_title' => $event->title,
+				'time_end'    => substr( $deadline, 11, 5 ),
+				'reason'      => (string) ( $p['reason'] ?? '' ),
+			),
 			$this->learnerUrl( $event->id ),
 			null,
 			'exam_event',
@@ -411,10 +411,10 @@ class ExamNotificationComposer {
 			sprintf( 'exam:%s:%d:%d', $prefix, $application->id, $row->aggregateVersion ),
 			// Телефон и контакты гостя в payload не кладутся; ФИО до этапа 11a недоступно — «Гость».
 			array(
-'event_title'      => $event->title,
-'order_number'     => $order,
-'participant_name' => 'Гость'
-),
+				'event_title'      => $event->title,
+				'order_number'     => $order,
+				'participant_name' => 'Гость',
+			),
 			$this->staffUrl( 'exam-payments' ),
 			null,
 			'exam_event',
@@ -435,9 +435,9 @@ class ExamNotificationComposer {
 			NotificationType::ExamSourceLimit,
 			sprintf( 'exam:source_limit:%d:%s', $source->id, gmdate( 'YmdH', (int) strtotime( $this->time->nowUtc() . ' UTC' ) ) ),
 			array(
-'event_title'  => $event->title,
-'source_label' => $source->schoolName . ' · ' . $source->grade . ' класс'
-),
+				'event_title'  => $event->title,
+				'source_label' => $source->schoolName . ' · ' . $source->grade . ' класс',
+			),
 			$this->staffUrl( 'exam-plan' ),
 			null,
 			'exam_event',

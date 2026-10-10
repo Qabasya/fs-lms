@@ -34,25 +34,49 @@ readonly class ExamFormTrackingService {
 
 	/** Ошибка проверки формы: какое поле и что увидел гость (без введённых значений). */
 	public function invalid( ExamSourceDTO $source, string $field, string $message ): void {
-		$this->authLog->recordEvent( AuthAction::ExamFormInvalid, AuthResult::Failure, null, $this->details( $source, array(
-			'failure_reason' => $this->clip( $message ),
-			'note'           => '' !== $field ? 'поле: ' . $field : '',
-		) ) );
+		$this->authLog->recordEvent(
+			AuthAction::ExamFormInvalid,
+			AuthResult::Failure,
+			null,
+			$this->details(
+				$source,
+				array(
+					'failure_reason' => $this->clip( $message ),
+					'note'           => '' !== $field ? 'поле: ' . $field : '',
+				)
+			)
+		);
 	}
 
 	/** Бронь создана, гость идёт в корзину. */
 	public function holdCreated( ExamSourceDTO $source, ExamGuestApplicationDTO $application ): void {
-		$this->authLog->recordEvent( AuthAction::ExamHoldCreated, AuthResult::Success, null, $this->details( $source, array(
-			'session' => $application->sessionId,
-			'note'    => 'заявка №' . $application->id,
-		) ) );
+		$this->authLog->recordEvent(
+			AuthAction::ExamHoldCreated,
+			AuthResult::Success,
+			null,
+			$this->details(
+				$source,
+				array(
+					'session' => $application->sessionId,
+					'note'    => 'заявка №' . $application->id,
+				)
+			)
+		);
 	}
 
 	/** Сработал лимит заявок (адрес или источник): гость увидел отказ. */
 	public function limited( ExamSourceDTO $source, string $message ): void {
-		$this->authLog->recordEvent( AuthAction::ExamFormLimit, AuthResult::Failure, null, $this->details( $source, array(
-			'failure_reason' => $this->clip( $message ),
-		) ) );
+		$this->authLog->recordEvent(
+			AuthAction::ExamFormLimit,
+			AuthResult::Failure,
+			null,
+			$this->details(
+				$source,
+				array(
+					'failure_reason' => $this->clip( $message ),
+				)
+			)
+		);
 	}
 
 	/**
@@ -61,11 +85,14 @@ readonly class ExamFormTrackingService {
 	 * @return array<string, mixed>
 	 */
 	private function details( ExamSourceDTO $source, array $extra = array() ): array {
-		return array_filter( array(
-'form'   => 'exam_signup',
-'source' => $source->id,
-'event'  => $source->eventId
-) + $extra, static fn ( $v ): bool => '' !== $v && null !== $v );
+		return array_filter(
+			array(
+				'form'   => 'exam_signup',
+				'source' => $source->id,
+				'event'  => $source->eventId,
+			) + $extra,
+			static fn ( $v ): bool => '' !== $v && null !== $v
+		);
 	}
 
 	private function clip( string $message ): string {

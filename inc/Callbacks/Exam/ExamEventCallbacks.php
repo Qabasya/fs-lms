@@ -43,16 +43,18 @@ class ExamEventCallbacks extends BaseController {
 		$subjectKey = $this->requireKey( 'subject_key' );
 		$eventId    = $this->sanitizeInt( 'event_id' );
 
-		$this->run( function () use ( $subjectKey, $eventId ): array {
-			$plan = $this->plans->build( get_current_user_id(), $subjectKey, $eventId > 0 ? $eventId : null );
+		$this->run(
+			function () use ( $subjectKey, $eventId ): array {
+				$plan = $this->plans->build( get_current_user_id(), $subjectKey, $eventId > 0 ? $eventId : null );
 
-			// Готовность гостевой записи (11a.6.7): для выбранного проведения и для формы «Новое проведение» (без проведения).
-			$selected           = null !== $plan['event'] ? $this->eventRepo->find( (int) $plan['event']['id'] ) : null;
-			$plan['launch']     = $this->launch( $selected );
-			$plan['launch_new'] = $this->launch( null );
+				// Готовность гостевой записи (11a.6.7): для выбранного проведения и для формы «Новое проведение» (без проведения).
+				$selected           = null !== $plan['event'] ? $this->eventRepo->find( (int) $plan['event']['id'] ) : null;
+				$plan['launch']     = $this->launch( $selected );
+				$plan['launch_new'] = $this->launch( null );
 
-			return $plan;
-		} );
+				return $plan;
+			}
+		);
 	}
 
 	/**
@@ -64,9 +66,9 @@ class ExamEventCallbacks extends BaseController {
 		$items = $this->checklist->check( $event );
 
 		return array(
-'items' => $items,
-'ready' => array() === array_filter( $items, static fn ( array $i ): bool => ! $i['ok'] )
-);
+			'items' => $items,
+			'ready' => array() === array_filter( $items, static fn ( array $i ): bool => ! $i['ok'] ),
+		);
 	}
 
 	public function ajaxSaveExamSession(): void {
@@ -82,11 +84,13 @@ class ExamEventCallbacks extends BaseController {
 			'room_id'       => $this->sanitizeInt( 'room_id' ),
 		);
 
-		$this->run( fn (): array => array(
-			'session' => $this->plans->sessionPayload(
-				$this->events->saveSession( get_current_user_id(), $eventId, $input, $sessionId > 0 ? $sessionId : null, $sessionId > 0 ? $version : null )
-			),
-		) );
+		$this->run(
+			fn (): array => array(
+				'session' => $this->plans->sessionPayload(
+					$this->events->saveSession( get_current_user_id(), $eventId, $input, $sessionId > 0 ? $sessionId : null, $sessionId > 0 ? $version : null )
+				),
+			)
+		);
 	}
 
 	public function ajaxDeleteExamSession(): void {
@@ -94,11 +98,13 @@ class ExamEventCallbacks extends BaseController {
 
 		$sessionId = $this->requireInt( 'session_id' );
 
-		$this->run( function () use ( $sessionId ): array {
-			$this->events->deleteSession( get_current_user_id(), $sessionId );
+		$this->run(
+			function () use ( $sessionId ): array {
+				$this->events->deleteSession( get_current_user_id(), $sessionId );
 
-			return array( 'session_id' => $sessionId );
-		} );
+				return array( 'session_id' => $sessionId );
+			}
+		);
 	}
 
 	public function ajaxSaveExamEvent(): void {
@@ -118,13 +124,15 @@ class ExamEventCallbacks extends BaseController {
 			'guest_registration_enabled' => $this->sanitizeBool( 'guest_registration_enabled' ),
 		);
 
-		$this->run( function () use ( $eventId, $version, $input ): array {
-			$event = $eventId > 0
+		$this->run(
+			function () use ( $eventId, $version, $input ): array {
+				$event = $eventId > 0
 				? $this->events->updateEvent( get_current_user_id(), $eventId, $input, $version )
 				: $this->events->createDraft( get_current_user_id(), $input );
 
-			return array( 'event' => $this->plans->eventPayload( $event ) );
-		} );
+				return array( 'event' => $this->plans->eventPayload( $event ) );
+			}
+		);
 	}
 
 	public function ajaxPublishExamEvent(): void {
@@ -148,9 +156,11 @@ class ExamEventCallbacks extends BaseController {
 			'room_id' => $this->sanitizeInt( 'room_id' ),
 		);
 
-		$this->run( fn (): array => array(
-			'session' => $this->plans->sessionPayload( $this->events->moveSession( get_current_user_id(), $sessionId, $input, $reason, $version ) ),
-		) );
+		$this->run(
+			fn (): array => array(
+				'session' => $this->plans->sessionPayload( $this->events->moveSession( get_current_user_id(), $sessionId, $input, $reason, $version ) ),
+			)
+		);
 	}
 
 	public function ajaxCancelExamSession(): void {
@@ -160,11 +170,13 @@ class ExamEventCallbacks extends BaseController {
 		$reason    = $this->sanitizeMultilineText( 'reason' );
 		$version   = $this->sanitizeInt( 'version' );
 
-		$this->run( function () use ( $sessionId, $reason, $version ): array {
-			$this->events->cancelSession( get_current_user_id(), $sessionId, $reason, $version );
+		$this->run(
+			function () use ( $sessionId, $reason, $version ): array {
+				$this->events->cancelSession( get_current_user_id(), $sessionId, $reason, $version );
 
-			return array( 'session_id' => $sessionId );
-		} );
+				return array( 'session_id' => $sessionId );
+			}
+		);
 	}
 
 	public function ajaxCancelExamEvent(): void {
@@ -174,11 +186,13 @@ class ExamEventCallbacks extends BaseController {
 		$reason  = $this->sanitizeMultilineText( 'reason' );
 		$version = $this->sanitizeInt( 'version' );
 
-		$this->run( function () use ( $eventId, $reason, $version ): array {
-			$this->events->cancelEvent( get_current_user_id(), $eventId, $reason, $version );
+		$this->run(
+			function () use ( $eventId, $reason, $version ): array {
+				$this->events->cancelEvent( get_current_user_id(), $eventId, $reason, $version );
 
-			return array( 'event_id' => $eventId );
-		} );
+				return array( 'event_id' => $eventId );
+			}
+		);
 	}
 
 	/**

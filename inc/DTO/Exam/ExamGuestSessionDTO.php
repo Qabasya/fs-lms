@@ -4,6 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\DTO\Exam;
 
+/** Сеанс гостевого доступа: хеш секретного ключа и ограниченная область действия, без открытого токена. */
 readonly class ExamGuestSessionDTO {
 
 	public function __construct(

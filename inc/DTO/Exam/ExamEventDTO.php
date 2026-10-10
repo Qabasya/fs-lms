@@ -4,6 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\DTO\Exam;
 
+/** Проведение официального экзамена с периодом записи и снимком опубликованных вариантов. */
 readonly class ExamEventDTO {
 
 	public function __construct(

@@ -79,19 +79,21 @@ class ExamNoShowService {
 			return false;
 		}
 
-		return (bool) $this->inTransactionWithRetry( function () use ( $registrationId, $participationId ): bool {
-			$participation = $this->participations->findForUpdate( $participationId );
-			$registration  = $this->registrations->find( $registrationId );
-			if ( null === $participation || null === $registration ) {
-				return false;
-			}
+		return (bool) $this->inTransactionWithRetry(
+			function () use ( $registrationId, $participationId ): bool {
+				$participation = $this->participations->findForUpdate( $participationId );
+				$registration  = $this->registrations->find( $registrationId );
+				if ( null === $participation || null === $registration ) {
+						return false;
+				}
 
-			$session = $this->sessions->find( $registration->sessionId );
-			if ( null === $session ) {
-				return false;
-			}
+				$session = $this->sessions->find( $registration->sessionId );
+				if ( null === $session ) {
+					return false;
+				}
 
-			return $this->markMissedLocked( $participation, $registration, $session );
-		} );
+				return $this->markMissedLocked( $participation, $registration, $session );
+			}
+		);
 	}
 }
