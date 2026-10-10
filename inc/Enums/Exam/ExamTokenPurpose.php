@@ -16,7 +16,7 @@ enum ExamTokenPurpose: string {
 	case Report     = 'report';
 	case Payment    = 'payment';
 
-	/** Подпись состояния для интерфейса без изменения сохраняемого значения. */
+	/** Подпись для интерфейса без изменения сохраняемого значения. */
 	public function label(): string {
 		return match ( $this ) {
 			self::Invitation => 'Приглашение',

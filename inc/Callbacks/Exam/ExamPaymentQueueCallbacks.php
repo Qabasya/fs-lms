@@ -37,6 +37,7 @@ class ExamPaymentQueueCallbacks extends BaseController {
 		ManualResolutionKind::Other,
 	);
 
+	/** Получает очередь и ручное урегулирование заявок как отдельные ответственности. */
 	public function __construct(
 		private readonly ExamPaymentQueueService $queue,
 		private readonly GuestApplicationService $applications,
@@ -44,6 +45,7 @@ class ExamPaymentQueueCallbacks extends BaseController {
 		parent::__construct();
 	}
 
+	/** Возвращает очередь заявок, требующих сверки или ручного решения. */
 	public function ajaxGetExamPaymentQueue(): void {
 		$this->authorizeAny( Nonce::ExamManage, array( Capability::ResolveExamPayments, Capability::ManageExams ) );
 
@@ -52,6 +54,7 @@ class ExamPaymentQueueCallbacks extends BaseController {
 		$this->success( $this->queue->list( get_current_user_id(), ExamPaymentQueueService::TAB_RESOLVED === $tab ? $tab : ExamPaymentQueueService::TAB_NEEDS_HELP ) );
 	}
 
+	/** Передаёт выбранное ручное решение сервису и возвращает обновлённую очередь. */
 	public function ajaxResolveExamPayment(): void {
 		$this->authorizeAny( Nonce::ExamManage, array( Capability::ResolveExamPayments, Capability::ManageExams ) );
 

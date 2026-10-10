@@ -25,7 +25,7 @@ enum ExamPaymentState: string {
 		};
 	}
 
-	/** Подпись состояния для интерфейса без изменения сохраняемого значения. */
+	/** Подпись для интерфейса без изменения сохраняемого значения. */
 	public function label(): string {
 		return match ( $this ) {
 			self::Pending => 'Ожидание',

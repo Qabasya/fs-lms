@@ -116,3 +116,16 @@ test('обязательное согласие проверяется общи�
     assert.equal(ui.requests.length, 0);
     assert.equal(ui.errors.find(error => error.dataset.error === 'consent_pd_processing').hidden, false);
 });
+
+for (const field of ['last_name', 'unknown']) {
+    test(`ошибка ${field}: разметка сервера остаётся буквальным текстом`, async t => {
+        const message = '<img src=x onerror="alert(1)"> & <script>alert(2)</script>';
+        const ui = signupForm(t, { success: false, data: { field, message } });
+        await ui.send();
+        const box = field === 'last_name' ? ui.errors.find(error => error.dataset.error === field) : ui.formError;
+        assert.equal(box.hidden, false);
+        assert.equal(box.textContent, message);
+        assert.equal(box.innerHTML, undefined);
+        assert.equal(ui.submit.disabled, false);
+    });
+}

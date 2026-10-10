@@ -15,7 +15,7 @@ enum ExamProgress: string {
 	case Submitted  = 'submitted';
 	case Missed     = 'missed';
 
-	/** Подпись состояния для интерфейса без изменения сохраняемого значения. */
+	/** Подпись для интерфейса без изменения сохраняемого значения. */
 	public function label(): string {
 		return match ( $this ) {
 			self::NotStarted => 'Не начат',

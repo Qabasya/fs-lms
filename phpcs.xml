@@ -47,6 +47,13 @@
 
 
 
+    <!-- Exam services transport typed error codes and plain messages to JSON/logging.
+         Escaping belongs to the HTML consumer; this exception-argument heuristic also
+         rejects ErrorCode enum objects. Keep every actual output-escaping check. -->
+    <rule ref="WordPress.Security.EscapeOutput.ExceptionNotEscaped">
+        <exclude-pattern>*/inc/Services/Exam/*</exclude-pattern>
+    </rule>
+
     <!-- Дополнительные правила -->
     <rule ref="WordPress-Extra"/>
 

@@ -13,7 +13,7 @@ enum ExamDirection: string {
 	case Ege = 'ege';
 	case Oge = 'oge';
 
-	/** Подпись состояния для интерфейса без изменения сохраняемого значения. */
+	/** Подпись для интерфейса без изменения сохраняемого значения. */
 	public function label(): string {
 		return match ( $this ) {
 			self::Ege => 'ЕГЭ',
@@ -21,6 +21,7 @@ enum ExamDirection: string {
 		};
 	}
 
+	/** Класс аудитории направления: 11 для ЕГЭ, 9 для ОГЭ. */
 	public function grade(): int {
 		return match ( $this ) {
 			self::Ege => 11,

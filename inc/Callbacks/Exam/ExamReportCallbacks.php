@@ -28,12 +28,14 @@ class ExamReportCallbacks extends BaseController {
 	use Authorizer;
 	use Sanitizer;
 
+	/** Делегирует доступность состава и управление ключами доменному сервису отчётов. */
 	public function __construct(
 		private readonly ExamReportService $reports,
 	) {
 		parent::__construct();
 	}
 
+	/** Возвращает отчёты и допустимых участников выбранного проведения. */
 	public function ajaxGetExamReports(): void {
 		$this->authorize( Nonce::ExamManage, Capability::ShareExamResults );
 
@@ -42,6 +44,7 @@ class ExamReportCallbacks extends BaseController {
 		$this->run( fn (): array => $this->reports->overview( get_current_user_id(), $eventId ) );
 	}
 
+	/** Создаёт отчёт с выбранным составом и возвращает обновлённый список отчётов. */
 	public function ajaxSaveExamReport(): void {
 		$this->authorize( Nonce::ExamManage, Capability::ShareExamResults );
 
@@ -60,6 +63,7 @@ class ExamReportCallbacks extends BaseController {
 		);
 	}
 
+	/** Добавляет участие с проверкой версии отчёта и обновляет его представление. */
 	public function ajaxAddExamReportMember(): void {
 		$this->authorize( Nonce::ExamManage, Capability::ShareExamResults );
 
@@ -76,6 +80,7 @@ class ExamReportCallbacks extends BaseController {
 		);
 	}
 
+	/** Удаляет участие с проверкой версии отчёта и обновляет его представление. */
 	public function ajaxRemoveExamReportMember(): void {
 		$this->authorize( Nonce::ExamManage, Capability::ShareExamResults );
 
@@ -92,6 +97,7 @@ class ExamReportCallbacks extends BaseController {
 		);
 	}
 
+	/** Возвращает ссылку доступа к отчёту; проверку доступности выполняет сервис. */
 	public function ajaxIssueExamReportLink(): void {
 		$this->authorize( Nonce::ExamManage, Capability::ShareExamResults );
 
@@ -100,6 +106,7 @@ class ExamReportCallbacks extends BaseController {
 		$this->run( fn (): array => array( 'url' => $this->reports->issueLink( get_current_user_id(), $reportId ) ) );
 	}
 
+	/** Отзывает доступ к отчёту с проверкой версии и возвращает обновлённый список. */
 	public function ajaxRevokeExamReportLink(): void {
 		$this->authorize( Nonce::ExamManage, Capability::ShareExamResults );
 

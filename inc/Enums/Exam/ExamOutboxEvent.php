@@ -29,7 +29,7 @@ enum ExamOutboxEvent: string {
 	case ReconcileFailed         = 'reconcile_failed';
 	case SourceLimitExceeded     = 'source_limit_exceeded';
 
-	/** Подпись состояния для интерфейса без изменения сохраняемого значения. */
+	/** Подпись для интерфейса без изменения сохраняемого значения. */
 	public function label(): string {
 		return match ( $this ) {
 			self::EventPublished => 'Проведение опубликовано',

@@ -30,12 +30,14 @@ class ExamStatsCallbacks extends BaseController {
 
 	private const AUDIENCES = array( 'student', 'guest', 'all' );
 
+	/** Получает сервис статистики; агрегация данных остаётся за пределами AJAX. */
 	public function __construct(
 		private readonly ExamStatsService $stats,
 	) {
 		parent::__construct();
 	}
 
+	/** Возвращает статистику в области доступа текущего сотрудника. */
 	public function ajaxGetExamStats(): void {
 		$this->authorize( Nonce::ExamManage, Capability::ManageExams );
 

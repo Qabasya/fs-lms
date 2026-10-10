@@ -13,7 +13,7 @@ enum ExamAudience: string {
 	case Student = 'student';
 	case Guest   = 'guest';
 
-	/** Подпись состояния для интерфейса без изменения сохраняемого значения. */
+	/** Подпись для интерфейса без изменения сохраняемого значения. */
 	public function label(): string {
 		return match ( $this ) {
 			self::Student => 'Ученик',

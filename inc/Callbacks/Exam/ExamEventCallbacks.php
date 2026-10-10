@@ -33,6 +33,7 @@ class ExamEventCallbacks extends BaseController {
 	use Authorizer;
 	use Sanitizer;
 
+	/** Получает команды проведения и отдельные представления плана для AJAX-ответов. */
 	public function __construct(
 		private readonly ExamPlanService $plans,
 		private readonly ExamEventService $events,
@@ -42,6 +43,7 @@ class ExamEventCallbacks extends BaseController {
 		parent::__construct();
 	}
 
+	/** Возвращает план проведения вместе с готовностью гостевой записи. */
 	public function ajaxGetExamPlan(): void {
 		$this->authorize( Nonce::ExamManage, Capability::ManageExams );
 
@@ -76,6 +78,7 @@ class ExamEventCallbacks extends BaseController {
 		);
 	}
 
+	/** Сохраняет сеанс и возвращает его представление для формы расписания. */
 	public function ajaxSaveExamSession(): void {
 		$this->authorize( Nonce::ExamManage, Capability::ManageExams );
 
@@ -98,6 +101,7 @@ class ExamEventCallbacks extends BaseController {
 		);
 	}
 
+	/** Удаляет сеанс через доменный сервис и подтверждает его ID. */
 	public function ajaxDeleteExamSession(): void {
 		$this->authorize( Nonce::ExamManage, Capability::ManageExams );
 
@@ -112,6 +116,7 @@ class ExamEventCallbacks extends BaseController {
 		);
 	}
 
+	/** Создаёт черновик или обновляет существующее проведение и возвращает его представление. */
 	public function ajaxSaveExamEvent(): void {
 		$this->authorize( Nonce::ExamManage, Capability::ManageExams );
 
@@ -140,6 +145,7 @@ class ExamEventCallbacks extends BaseController {
 		);
 	}
 
+	/** Публикует проведение с проверкой версии и возвращает его представление. */
 	public function ajaxPublishExamEvent(): void {
 		$this->authorize( Nonce::ExamManage, Capability::ManageExams );
 
@@ -149,6 +155,7 @@ class ExamEventCallbacks extends BaseController {
 		$this->run( fn (): array => array( 'event' => $this->plans->eventPayload( $this->events->publish( get_current_user_id(), $eventId, $version ) ) ) );
 	}
 
+	/** Передаёт новое расписание, причину и версию сервису переноса сеанса. */
 	public function ajaxMoveExamSession(): void {
 		$this->authorize( Nonce::ExamManage, Capability::ManageExams );
 
@@ -168,6 +175,7 @@ class ExamEventCallbacks extends BaseController {
 		);
 	}
 
+	/** Отменяет сеанс с причиной и проверкой версии, подтверждает его ID. */
 	public function ajaxCancelExamSession(): void {
 		$this->authorize( Nonce::ExamManage, Capability::ManageExams );
 
@@ -184,6 +192,7 @@ class ExamEventCallbacks extends BaseController {
 		);
 	}
 
+	/** Отменяет проведение с причиной и проверкой версии, подтверждает его ID. */
 	public function ajaxCancelExamEvent(): void {
 		$this->authorize( Nonce::ExamManage, Capability::ManageExams );
 

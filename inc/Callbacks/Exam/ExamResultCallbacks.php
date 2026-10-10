@@ -31,12 +31,14 @@ class ExamResultCallbacks extends BaseController {
 	private const STATUSES  = array( 'pending_review', 'ready', 'approved', 'all' );
 	private const AUDIENCES = array( 'student', 'guest', 'all' );
 
+	/** Получает сервис представления результатов без команд изменения проведения. */
 	public function __construct(
 		private readonly ExamResultsViewService $results,
 	) {
 		parent::__construct();
 	}
 
+	/** Возвращает результаты и фильтры отдельно от команд проведения. */
 	public function ajaxGetExamResults(): void {
 		$this->authorize( Nonce::ExamManage, Capability::ManageExams );
 

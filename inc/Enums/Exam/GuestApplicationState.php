@@ -20,7 +20,7 @@ enum GuestApplicationState: string {
 	case Cancelled           = 'cancelled';
 	case Missed              = 'missed';
 
-	/** Подпись состояния для интерфейса без изменения сохраняемого значения. */
+	/** Подпись для интерфейса без изменения сохраняемого значения. */
 	public function label(): string {
 		return match ( $this ) {
 			self::Hold => 'Место удерживается',
@@ -35,10 +35,12 @@ enum GuestApplicationState: string {
 		};
 	}
 
+	/** Бронь занимает место только в hold, awaiting_payment и payment_pending. */
 	public function holdsSeat(): bool {
 		return self::Hold === $this || self::AwaitingPayment === $this || self::PaymentPending === $this;
 	}
 
+	/** Сверка заявки завершена; paid_needs_resolution остаётся открытым для ручного решения. */
 	public function isTerminal(): bool {
 		return self::Confirmed === $this || self::ExpiredUnpaid === $this || self::Failed === $this || self::Cancelled === $this || self::Missed === $this;
 	}

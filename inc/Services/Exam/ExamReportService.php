@@ -48,6 +48,7 @@ class ExamReportService {
 	public const DEFAULT_DAYS = 90;
 	public const MAX_DAYS     = 90;
 
+	/** Получает состав, согласия, сроки и ключи отдельно от HTTP-вывода отчёта. */
 	public function __construct(
 		private readonly ExamReportRepository $reports,
 		private readonly ExamReportMemberRepository $members,
@@ -68,7 +69,7 @@ class ExamReportService {
 	 *
 	 * @return array{reports: list<array<string, mixed>>, blocked: array<int, string>, sources: list<array{id: int, label: string}>}
 	 *
-	 * @throws CodedException
+	 * @throws CodedException При отсутствии проведения или права доступа к нему.
 	 */
 	public function overview( int $actorUserId, int $eventId ): array {
 		$event = $this->requireEvent( $actorUserId, $eventId );
@@ -99,7 +100,7 @@ class ExamReportService {
 	 *
 	 * @param list<int> $participationIds
 	 *
-	 * @throws CodedException
+	 * @throws CodedException При отсутствии доступа, недопустимых полях или недоступном составе отчёта.
 	 */
 	public function create( int $actorUserId, int $eventId, string $title, array $participationIds, ?int $recipientSourceId, ?int $days ): ExamReportDTO {
 		$event = $this->requireEvent( $actorUserId, $eventId );
@@ -184,7 +185,7 @@ class ExamReportService {
 	/**
 	 * Добавляет участие в отчёт. Версия — та, что видела вкладка; устаревшая — `ExamStale`.
 	 *
-	 * @throws CodedException
+	 * @throws CodedException При отсутствии доступа/участника, отозванном отчёте, недоступной строке или устаревшей версии.
 	 */
 	public function addMember( int $actorUserId, int $reportId, int $participationId, int $expectedVersion ): ExamReportDTO {
 		$report        = $this->requireReport( $actorUserId, $reportId );
@@ -205,7 +206,9 @@ class ExamReportService {
 	}
 
 	/**
-	 * @throws CodedException
+	 * Удаляет участие из состава с проверкой версии отчёта.
+	 *
+	 * @throws CodedException При отсутствии доступа, отозванном отчёте или устаревшей версии.
 	 */
 	public function removeMember( int $actorUserId, int $reportId, int $participationId, int $expectedVersion ): ExamReportDTO {
 		$report = $this->requireReport( $actorUserId, $reportId );
@@ -221,7 +224,7 @@ class ExamReportService {
 	 *
 	 * @return string Адрес с ключом — единственный раз.
 	 *
-	 * @throws CodedException
+	 * @throws CodedException При отсутствии доступа или отзыве отчёта.
 	 */
 	public function issueLink( int $actorUserId, int $reportId ): string {
 		$report = $this->requireReport( $actorUserId, $reportId );
@@ -236,7 +239,7 @@ class ExamReportService {
 	/**
 	 * Отзыв отчёта: ключ перестаёт работать, отчёт помечается отозванным.
 	 *
-	 * @throws CodedException
+	 * @throws CodedException При отсутствии доступа или устаревшей версии ещё не отозванного отчёта.
 	 */
 	public function revoke( int $actorUserId, int $reportId, int $expectedVersion ): ExamReportDTO {
 		$report = $this->requireReport( $actorUserId, $reportId );
@@ -271,7 +274,7 @@ class ExamReportService {
 	 *
 	 * @return array<int, int|null>
 	 *
-	 * @throws CodedException
+	 * @throws CodedException Если хотя бы одно участие отсутствует или не может быть показано школе.
 	 */
 	private function assertAllIncludable( array $participationIds, int $eventId ): array {
 		$problems = array();
@@ -317,6 +320,8 @@ class ExamReportService {
 	}
 
 	/**
+	 * Представление отчёта для сотрудника без открытого ключа доступа.
+	 *
 	 * @return array<string, mixed>
 	 */
 	private function view( ExamReportDTO $report ): array {
@@ -335,7 +340,9 @@ class ExamReportService {
 	}
 
 	/**
-	 * @throws CodedException
+	 * Проверяет отсутствие отзыва перед изменением состава или выдачей ключа.
+	 *
+	 * @throws CodedException Если отчёт уже отозван.
 	 */
 	private function assertActive( ExamReportDTO $report ): void {
 		if ( null !== $report->revokedAt ) {
@@ -344,7 +351,9 @@ class ExamReportService {
 	}
 
 	/**
-	 * @throws CodedException
+	 * Единая проверка права ShareExamResults и области доступа к проведению.
+	 *
+	 * @throws CodedException Если проведение отсутствует, нет ShareExamResults или доступа к проведению.
 	 */
 	private function requireEvent( int $actorUserId, int $eventId ): ExamEventDTO {
 		$event = $this->events->find( $eventId );
@@ -356,7 +365,9 @@ class ExamReportService {
 	}
 
 	/**
-	 * @throws CodedException
+	 * Проверяет существование отчёта и доступ сотрудника к его проведению.
+	 *
+	 * @throws CodedException Если отчёт отсутствует или его проведение недоступно сотруднику.
 	 */
 	private function requireReport( int $actorUserId, int $reportId ): ExamReportDTO {
 		$report = $this->reports->find( $reportId );
@@ -368,6 +379,11 @@ class ExamReportService {
 		return $report;
 	}
 
+	/**
+	 * Перечитывает отчёт после успешной записи; отсутствие записи — технический сбой.
+	 *
+	 * @throws \RuntimeException Если сохранённый отчёт не найден.
+	 */
 	private function reload( int $reportId ): ExamReportDTO {
 		$report = $this->reports->find( $reportId );
 		if ( null === $report ) {
@@ -377,6 +393,7 @@ class ExamReportService {
 		return $report;
 	}
 
+	/** Публикует доменное событие изменения отчёта через общий диспетчер журнала. */
 	private function audit( int $actorUserId, OperationType $operation, int $reportId, string $label ): void {
 		$this->logEvents->dispatch( LogEvent::ExamReportChanged, new EntityChangedEvent( $actorUserId, $operation, EntityType::ExamReport, $reportId, $label ) );
 	}

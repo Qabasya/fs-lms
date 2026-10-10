@@ -33,6 +33,7 @@ class LearnerExamCallbacks extends BaseController {
 
 	use Sanitizer;
 
+	/** Получает контекст ученика/родителя, операции записи и представление карточек. */
 	public function __construct(
 		private readonly ProfileViewResolver $resolver,
 		private readonly LearnerExamsService $exams,
@@ -42,6 +43,7 @@ class LearnerExamCallbacks extends BaseController {
 		parent::__construct();
 	}
 
+	/** Возвращает карточки для контекста ученика или родителя, разрешённого резолвером. */
 	public function ajaxGetLearnerExams(): void {
 		Nonce::ExamLearner->verify();
 
@@ -60,6 +62,7 @@ class LearnerExamCallbacks extends BaseController {
 		$this->success( $this->exams->build( $personId, $ctx->readOnly ) );
 	}
 
+	/** Записывает ученика на выбранный сеанс и возвращает обновлённые карточки с предупреждениями. */
 	public function ajaxRegisterForExam(): void {
 		$personId = $this->writablePersonId();
 		if ( null === $personId ) {
@@ -76,6 +79,7 @@ class LearnerExamCallbacks extends BaseController {
 		$this->run( $personId, fn () => $this->registration->register( $personId, $sessionId, $requestKey ) );
 	}
 
+	/** Переносит собственную запись; версия и ключ повторного запроса передаются сервису. */
 	public function ajaxChangeExamRegistration(): void {
 		$personId = $this->writablePersonId();
 		if ( null === $personId ) {
@@ -94,6 +98,7 @@ class LearnerExamCallbacks extends BaseController {
 		$this->run( $personId, fn () => $this->registration->change( $personId, $sessionId, $requestKey, $version ) );
 	}
 
+	/** Отменяет собственную запись и возвращает обновлённые карточки. */
 	public function ajaxCancelExamRegistration(): void {
 		$personId = $this->writablePersonId();
 		if ( null === $personId ) {

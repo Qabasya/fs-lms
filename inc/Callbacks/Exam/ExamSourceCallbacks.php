@@ -29,12 +29,14 @@ class ExamSourceCallbacks extends BaseController {
 	use Authorizer;
 	use Sanitizer;
 
+	/** Делегирует проверку области доступа и жизненный цикл приглашения сервису источников. */
 	public function __construct(
 		private readonly ExamSourceService $sources,
 	) {
 		parent::__construct();
 	}
 
+	/** Возвращает источники приглашений выбранного проведения. */
 	public function ajaxGetExamSources(): void {
 		$this->authorize( Nonce::ExamManage, Capability::ManageExamGuests );
 
@@ -43,6 +45,7 @@ class ExamSourceCallbacks extends BaseController {
 		$this->run( fn (): array => array( 'sources' => $this->sources->list( get_current_user_id(), $eventId ) ) );
 	}
 
+	/** Сохраняет источник и возвращает обновлённый список источников. */
 	public function ajaxSaveExamSource(): void {
 		$this->authorize( Nonce::ExamManage, Capability::ManageExamGuests );
 
@@ -68,6 +71,7 @@ class ExamSourceCallbacks extends BaseController {
 		);
 	}
 
+	/** Возвращает ссылку приглашения выбранного источника. */
 	public function ajaxIssueExamSourceLink(): void {
 		$this->authorize( Nonce::ExamManage, Capability::ManageExamGuests );
 
@@ -76,6 +80,7 @@ class ExamSourceCallbacks extends BaseController {
 		$this->run( fn (): array => array( 'url' => $this->sources->issueLink( get_current_user_id(), $sourceId ) ) );
 	}
 
+	/** Переиздаёт приглашение источника через сервис управления ключами. */
 	public function ajaxReissueExamSourceLink(): void {
 		$this->authorize( Nonce::ExamManage, Capability::ManageExamGuests );
 
@@ -84,6 +89,7 @@ class ExamSourceCallbacks extends BaseController {
 		$this->run( fn (): array => array( 'url' => $this->sources->reissueLink( get_current_user_id(), $sourceId ) ) );
 	}
 
+	/** Отзывает приглашение и подтверждает ID обработанного источника. */
 	public function ajaxRevokeExamSourceLink(): void {
 		$this->authorize( Nonce::ExamManage, Capability::ManageExamGuests );
 
@@ -98,6 +104,7 @@ class ExamSourceCallbacks extends BaseController {
 		);
 	}
 
+	/** Меняет доступность источника и возвращает установленное состояние. */
 	public function ajaxToggleExamSource(): void {
 		$this->authorize( Nonce::ExamManage, Capability::ManageExamGuests );
 

@@ -15,7 +15,7 @@ enum ExamEventStatus: string {
 	case Completed = 'completed';
 	case Cancelled = 'cancelled';
 
-	/** Подпись состояния для интерфейса без изменения сохраняемого значения. */
+	/** Подпись для интерфейса без изменения сохраняемого значения. */
 	public function label(): string {
 		return match ( $this ) {
 			self::Draft => 'Черновик',
@@ -25,10 +25,12 @@ enum ExamEventStatus: string {
 		};
 	}
 
+	/** Сохранять настройки можно до завершения или отмены проведения. */
 	public function isEditable(): bool {
 		return self::Draft === $this || self::Published === $this;
 	}
 
+	/** Принимать новые записи можно только в опубликованное проведение. */
 	public function acceptsRegistration(): bool {
 		return self::Published === $this;
 	}

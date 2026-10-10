@@ -16,7 +16,7 @@ enum ExamResultStatus: string {
 	case Ready         = 'ready';
 	case Approved      = 'approved';
 
-	/** Подпись состояния для интерфейса без изменения сохраняемого значения. */
+	/** Подпись для интерфейса без изменения сохраняемого значения. */
 	public function label( ExamAudience $audience ): string {
 		return match ( $this ) {
 			self::None => 'Нет работы',

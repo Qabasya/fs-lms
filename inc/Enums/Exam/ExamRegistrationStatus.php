@@ -15,7 +15,7 @@ enum ExamRegistrationStatus: string {
 	case Transferred = 'transferred';
 	case Missed      = 'missed';
 
-	/** Подпись состояния для интерфейса без изменения сохраняемого значения. */
+	/** Подпись для интерфейса без изменения сохраняемого значения. */
 	public function label(): string {
 		return match ( $this ) {
 			self::Confirmed => 'Запись подтверждена',

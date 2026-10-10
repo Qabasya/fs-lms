@@ -14,7 +14,7 @@ enum ExamSessionStatus: string {
 	case Cancelled = 'cancelled';
 	case Completed = 'completed';
 
-	/** Подпись состояния для интерфейса без изменения сохраняемого значения. */
+	/** Подпись для интерфейса без изменения сохраняемого значения. */
 	public function label(): string {
 		return match ( $this ) {
 			self::Open => 'Открыт',

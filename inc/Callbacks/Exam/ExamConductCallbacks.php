@@ -44,6 +44,7 @@ class ExamConductCallbacks extends BaseController {
 	private const MIN_EXTENSION = 1;
 	private const MAX_EXTENSION = 120;
 
+	/** Получает команды, доску и экспорт раздельно; формирование строк не входит в обработчик. */
 	public function __construct(
 		private readonly ExamConductService $conduct,
 		private readonly ExamRegistrationService $registration,
@@ -57,6 +58,7 @@ class ExamConductCallbacks extends BaseController {
 		parent::__construct();
 	}
 
+	/** Возвращает доску выбранного сеанса; при отсутствии выбора использует сеанс по умолчанию. */
 	public function ajaxGetExamConduct(): void {
 		$this->authorize( Nonce::ExamManage, Capability::ManageExams );
 
@@ -74,6 +76,7 @@ class ExamConductCallbacks extends BaseController {
 		);
 	}
 
+	/** Передаёт отмену записи сотрудником сервису регистрации. */
 	public function ajaxCancelExamRegistrationByStaff(): void {
 		$this->authorize( Nonce::ExamManage, Capability::ManageExams );
 
@@ -89,6 +92,7 @@ class ExamConductCallbacks extends BaseController {
 		);
 	}
 
+	/** Передаёт перенос записи сотрудником сервису регистрации. */
 	public function ajaxTransferExamRegistration(): void {
 		// Офис (`ResolveExamPayments`) переносит оплаченных гостей; кого именно — решает сервис.
 		$this->authorizeAny( Nonce::ExamManage, array( Capability::ManageExams, Capability::ResolveExamPayments ) );
@@ -106,6 +110,7 @@ class ExamConductCallbacks extends BaseController {
 		);
 	}
 
+	/** Передаёт продление попытки с причиной сервису попыток. */
 	public function ajaxExtendExamAttempt(): void {
 		$this->authorize( Nonce::ExamManage, Capability::ManageExams );
 
@@ -127,6 +132,7 @@ class ExamConductCallbacks extends BaseController {
 		);
 	}
 
+	/** Регистрирует отметку явки через сервис проведения. */
 	public function ajaxMarkExamArrival(): void {
 		$this->authorize( Nonce::ExamManage, Capability::ManageExams );
 
