@@ -1,38 +1,7 @@
 /**
- * Чистые функции формы записи гостя на экзамен (этап 11a.3): резюме перед оплатой, проверка полей, таймер брони.
+ * Чистые функции формы записи гостя на экзамен (этап 11a.3): резюме перед оплатой, выбор сеанса, таймер брони.
  * Без DOM — проверяются тестами (`tests/js/exam-signup.test.mjs`). Серверные правила те же и обязательны независимо от клиента.
  */
-
-export const MAX_NAME = 100;
-export const PHONE_DIGITS = 11;
-
-/** Цифры телефона; «8…» приводится к «7…». */
-export function phoneDigits( phone ) {
-    const digits = String( phone || '' ).replace( /\D+/g, '' );
-    return ( 11 === digits.length && '8' === digits[0] ) ? '7' + digits.slice( 1 ) : digits;
-}
-
-/**
- * Проверка полей формы до отправки. Возвращает ошибки по имени поля; пусто — ошибок нет.
- *
- * @param {{last_name:string, first_name:string, middle_name?:string, phone:string, messenger?:string, session_id:string|number, consents:string[]}} v
- * @returns {Object<string,string>}
- */
-export function validateForm( v ) {
-    const errors = {};
-    const last = String( v.last_name || '' ).trim();
-    const first = String( v.first_name || '' ).trim();
-
-    if ( ! last || last.length > MAX_NAME ) { errors.last_name = 'Укажите фамилию (до 100 символов).'; }
-    if ( ! first || first.length > MAX_NAME ) { errors.first_name = 'Укажите имя (до 100 символов).'; }
-    if ( String( v.middle_name || '' ).trim().length > MAX_NAME ) { errors.middle_name = 'Отчество слишком длинное.'; }
-    if ( PHONE_DIGITS !== phoneDigits( v.phone ).length ) { errors.phone = 'Укажите телефон: 11 цифр.'; }
-    if ( String( v.messenger || '' ).trim().length > MAX_NAME ) { errors.messenger = 'Не больше 100 символов.'; }
-    if ( ! Number( v.session_id ) ) { errors.session_id = 'Выберите дату и время.'; }
-    if ( ! ( v.consents || [] ).includes( 'pd_processing' ) ) { errors.consent_pd_processing = 'Для записи нужно согласие на обработку персональных данных.'; }
-
-    return errors;
-}
 
 /** Сеанс не выбран автоматически: без явного выбора отправка невозможна. */
 export function isSessionChosen( sessionId ) {

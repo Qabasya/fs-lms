@@ -6,8 +6,9 @@
  * один раз при загрузке и переиспользуется при повторе — после ошибки корзины сервер просит новый. Форма при ошибках не очищается.
  */
 
+import { initFormValidation, renderFieldError, clearFieldError } from '../../common/validation-manager.js';
 import { bindPhoneMask } from '../../common/input-masks.js';
-import { buildSummary, validateForm, formatLeft, secondsLeft } from './exam-signup-model.js';
+import { buildSummary, isSessionChosen, formatLeft, secondsLeft } from './exam-signup-model.js';
 
 function newRequestKey() {
     return ( window.crypto && window.crypto.randomUUID ) ? window.crypto.randomUUID() : `k${ Date.now() }${ Math.random().toString( 16 ).slice( 2 ) }`;
@@ -45,6 +46,7 @@ function initSignupForm( vars ) {
 
     bindPhoneMask( form.querySelector( '#fs_exam_phone' ) );
     initCarousel( form );
+    const validateAll = initFormValidation( form );
 
     const value = name => ( form.elements[ name ] ? form.elements[ name ].value : '' );
     const consents = () => Array.from( form.querySelectorAll( 'input[name="consents[]"]:checked' ) ).map( el => el.value );
@@ -64,14 +66,17 @@ function initSignupForm( vars ) {
         } );
     };
 
+    const fieldInput = field => {
+        const group = Array.from( form.querySelectorAll( '[data-field]' ) ).find( el => el.dataset.field === field );
+        return group ? group.querySelector( 'input, select, textarea' ) : null;
+    };
     const showError = ( field, text ) => {
-        const el = Array.from( form.querySelectorAll( '[data-error]' ) ).find( item => item.dataset.error === field );
-        if ( ! el ) { return false; }
-        el.textContent = text;
-        el.hidden = ! text;
+        const input = fieldInput( field );
+        if ( ! input ) { return false; }
+        renderFieldError( input, text || null );
         return true;
     };
-    const clearErrors = () => form.querySelectorAll( '[data-error]' ).forEach( el => { el.hidden = true; el.textContent = ''; } );
+    const clearErrors = () => form.querySelectorAll( 'input, select, textarea' ).forEach( clearFieldError );
     const formBox = document.getElementById( 'fs-exam-form-error' );
     const showFormError = text => { formBox.textContent = text; formBox.hidden = ! text; };
     const status = document.getElementById( 'fs-exam-status' );
@@ -99,11 +104,10 @@ function initSignupForm( vars ) {
 
         clearErrors();
         showFormError( '' );
-        const errors = validateForm( collect() );
-        if ( Object.keys( errors ).length ) {
-            Object.entries( errors ).forEach( ( [ field, text ] ) => showError( field, text ) );
-            return;
-        }
+        const fieldsValid = validateAll();
+        const sessionValid = isSessionChosen( sessionInput.value );
+        if ( ! sessionValid ) { showError( 'session_id', 'Выберите дату и время.' ); }
+        if ( ! fieldsValid || ! sessionValid ) { return; }
 
         setBusy( true, 'Занимаем место…' );
         const data = { ...collect(), request_key: requestKey, form_token: value( 'form_token' ) };

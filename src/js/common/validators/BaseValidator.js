@@ -30,7 +30,16 @@ export class BaseValidator {
      * Проверка встроенных атрибутов браузера через ValidityState
      */
     checkNative(input) {
+        if (input.disabled) { return null; }
         const validity = input.validity;
+        // Пробелы и программно установленный длинный текст не всегда отражаются в ValidityState.
+        const textField = !['checkbox', 'radio', 'hidden'].includes(input.type);
+        if (textField && input.required && !input.value.trim()) {
+            return 'Поле обязательно для заполнения.';
+        }
+        if (textField && input.maxLength > 0 && input.value.trim().length > input.maxLength) {
+            return `Максимальное количество символов: ${input.maxLength}.`;
+        }
 
         if (validity.valid) {
             return null;

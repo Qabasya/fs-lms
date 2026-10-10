@@ -5,10 +5,10 @@ import {AddressValidator} from './AddressValidator.js';
 import { LatinOnlyValidator } from './LatinOnlyValidator.js';
 import { PasswordValidator } from './PasswordValidator.js';
 import { PassportSeriesNumberValidator } from './PassportSeriesNumberValidator.js';
-import {SchoolNameValidator} from "./SchoolNameValidator";
-import {InnValidator} from "./InnValidator";
-import {CyrillicDigitsValidator} from "./CyrillicDigitsValidator";
-import {SubjectNameValidator} from "./SubjectNameValidator";
+import {SchoolNameValidator} from "./SchoolNameValidator.js";
+import {InnValidator} from "./InnValidator.js";
+import {CyrillicDigitsValidator} from "./CyrillicDigitsValidator.js";
+import {SubjectNameValidator} from "./SubjectNameValidator.js";
 
 // Экспортируем карту инстансов для быстрого доступа по ключу
 export const FieldValidators = {

@@ -22,9 +22,12 @@ export function renderFieldError( input, errorMessage ) {
         }
 
         errorElement.textContent = errorMessage;
+        errorElement.hidden = false;
     } else {
         formGroup.classList.remove( 'form-invalid' );
-        if ( errorElement ) { errorElement.remove(); }
+        if ( errorElement ) {
+            if ( errorElement.hasAttribute( 'data-error' ) ) { errorElement.hidden = true; errorElement.textContent = ''; } else { errorElement.remove(); }
+        }
     }
 }
 
@@ -35,6 +38,7 @@ export function renderFieldError( input, errorMessage ) {
  * @returns {boolean} True if the field is valid
  */
 export function validateField( input ) {
+    if ( input.disabled ) { clearFieldError( input ); return true; }
     const keys = ( input.dataset.validate || input.type ).trim().split( /\s+/ ).filter( Boolean );
 
     // Нативные проверки (required, minlength, type=email и т.д.) — один раз, от первого валидатора
@@ -74,12 +78,7 @@ export function validateField( input ) {
  * @param {HTMLInputElement|HTMLSelectElement|HTMLTextAreaElement} input
  */
 export function clearFieldError( input ) {
-    const formGroup = input.closest( '.fs-form-group' );
-    if ( formGroup && formGroup.classList.contains( 'form-invalid' ) ) {
-        formGroup.classList.remove( 'form-invalid' );
-        const error = formGroup.querySelector( '.fs-field-error' );
-        if ( error ) { error.remove(); }
-    }
+    renderFieldError( input, null );
 }
 
 /**

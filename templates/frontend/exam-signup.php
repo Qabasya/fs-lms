@@ -88,10 +88,10 @@ $contact_phone = (string) ( $contacts['phone'] ?? '' );
 							<div class="fs-field-control">
 								<span class="dashicons <?php echo esc_attr( $icon ); ?>" aria-hidden="true"></span>
 								<input type="<?php echo esc_attr( $type ); ?>" name="<?php echo esc_attr( $name ); ?>" id="fs_exam_<?php echo esc_attr( $name ); ?>"
-									autocomplete="<?php echo esc_attr( $autocomplete ); ?>" <?php echo 'phone' === $name ? 'inputmode="tel" placeholder="+7 (___) ___-__-__"' : 'maxlength="100"'; ?>
+									data-validate="<?php echo 'phone' === $name ? 'phone' : 'default'; ?>" autocomplete="<?php echo esc_attr( $autocomplete ); ?>" <?php echo 'phone' === $name ? 'inputmode="tel" placeholder="+7 (___) ___-__-__"' : 'maxlength="100"'; ?>
 									<?php echo $required ? 'required aria-required="true"' : ''; ?>>
 							</div>
-							<p class="fs-join-card__error" data-error="<?php echo esc_attr( $name ); ?>" role="alert" hidden></p>
+							<p class="description error fs-field-error" data-error="<?php echo esc_attr( $name ); ?>" role="alert" hidden></p>
 						</div>
 					<?php endforeach; ?>
 
@@ -102,12 +102,12 @@ $contact_phone = (string) ( $contacts['phone'] ?? '' );
 							<span class="dashicons dashicons-format-chat" aria-hidden="true"></span>
 							<input type="text" name="messenger" id="fs_exam_messenger" maxlength="100" autocomplete="off">
 						</div>
-						<p class="fs-join-card__error" data-error="messenger" role="alert" hidden></p>
+						<p class="description error fs-field-error" data-error="messenger" role="alert" hidden></p>
 					</div>
 				</fieldset>
 
 				<!-- Дата и время: карусель сеансов; сеанс автоматически не выбирается -->
-				<fieldset class="fs-join-card__section" data-field="session_id">
+				<fieldset class="fs-join-card__section fs-form-group" data-field="session_id">
 					<legend class="fs-join-card__section-title"><?php esc_html_e( 'Дата и время', 'fs-lms' ); ?></legend>
 					<div class="fs-exam-carousel" id="fs-exam-carousel">
 						<button type="button" class="fs-exam-carousel__arrow fs-exam-carousel__arrow--prev" aria-label="<?php esc_attr_e( 'Назад', 'fs-lms' ); ?>" disabled>
@@ -134,14 +134,14 @@ $contact_phone = (string) ( $contacts['phone'] ?? '' );
 						</button>
 					</div>
 					<input type="hidden" name="session_id" id="fs_exam_session_id" value="">
-					<p class="fs-join-card__error" data-error="session_id" role="alert" hidden></p>
+					<p class="description error fs-field-error" data-error="session_id" role="alert" hidden></p>
 				</fieldset>
 
 				<!-- Согласия: обработка ПД обязательна; передача результата преподавателю и маркетинг — не отмечены по умолчанию -->
 				<fieldset class="fs-join-card__section fs-join-card__section--consents">
 					<legend class="screen-reader-text"><?php esc_html_e( 'Согласия', 'fs-lms' ); ?></legend>
 					<?php foreach ( $consents as $consent ) : ?>
-						<div class="fs-join-card__consent" data-field="consent_<?php echo esc_attr( $consent['key'] ); ?>">
+						<div class="fs-join-card__consent fs-form-group" data-field="consent_<?php echo esc_attr( $consent['key'] ); ?>">
 							<label>
 								<input type="checkbox" name="consents[]" value="<?php echo esc_attr( $consent['key'] ); ?>" <?php echo $consent['required'] ? 'required' : ''; ?>>
 								<span>
@@ -151,7 +151,7 @@ $contact_phone = (string) ( $contacts['phone'] ?? '' );
 									<?php endif; ?>
 								</span>
 							</label>
-							<p class="fs-join-card__error" data-error="consent_<?php echo esc_attr( $consent['key'] ); ?>" role="alert" hidden></p>
+							<p class="description error fs-field-error" data-error="consent_<?php echo esc_attr( $consent['key'] ); ?>" role="alert" hidden></p>
 						</div>
 					<?php endforeach; ?>
 					<p class="fs-exam-signup__login">
@@ -187,7 +187,7 @@ $contact_phone = (string) ( $contacts['phone'] ?? '' );
 				</div>
 				<input type="hidden" name="form_token" value="<?php echo esc_attr( $form_token ); ?>">
 
-				<p class="fs-join-card__error" id="fs-exam-form-error" role="alert" hidden></p>
+				<p class="description error fs-field-error" id="fs-exam-form-error" role="alert" hidden></p>
 				<button type="submit" id="fs-exam-submit" class="fs-join-card__submit"><?php esc_html_e( 'Перейти к оплате', 'fs-lms' ); ?></button>
 				<p class="fs-exam-signup__status" id="fs-exam-status" role="status" hidden></p>
 			</form>
