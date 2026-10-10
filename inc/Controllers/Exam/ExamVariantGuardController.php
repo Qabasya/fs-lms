@@ -69,7 +69,7 @@ class ExamVariantGuardController extends BaseController implements ServiceInterf
 	 * @return array<string, mixed>
 	 */
 	public function guardPostData( array $data, array $postarr ): array {
-		$id = (int) ( $postarr['ID'] ?? 0 );
+		$id        = (int) ( $postarr['ID'] ?? 0 );
 		$preserved = $this->guard->preserveFrozenPostData( $id, $data );
 		if ( $preserved !== $data ) {
 			$this->remember( $id );

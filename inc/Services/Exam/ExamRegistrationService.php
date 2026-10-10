@@ -489,9 +489,9 @@ class ExamRegistrationService {
 
 		$payload = array(
 			'old_registration_id' => $current->id,
-			'old_session_id' => $oldSession->id,
-			'new_session_id' => $newSession->id,
-			'by'             => $byStaff ? 'staff' : 'self',
+			'old_session_id'      => $oldSession->id,
+			'new_session_id'      => $newSession->id,
+			'by'                  => $byStaff ? 'staff' : 'self',
 		);
 		if ( null !== $reason ) {
 			$payload['reason'] = $reason;

@@ -3,9 +3,9 @@
 namespace Inc\Enums\Exam;
 
 enum ExamPaymentState: string {
-	case Pending = 'pending';
-	case Paid = 'paid';
-	case Failed = 'failed';
+	case Pending   = 'pending';
+	case Paid      = 'paid';
+	case Failed    = 'failed';
 	case Cancelled = 'cancelled';
 
 	/** Подпись оплаты на доске сотрудника; обычные краткие подписи сохраняются. */

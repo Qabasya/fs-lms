@@ -6,10 +6,10 @@ namespace Inc\Enums\Exam;
 
 /** Вычисляемое состояние работы в представлении сотрудника; значения ответа сохранены. */
 enum ExamResultStatus: string {
-	case None = 'none';
+	case None          = 'none';
 	case PendingReview = 'pending_review';
-	case Ready = 'ready';
-	case Approved = 'approved';
+	case Ready         = 'ready';
+	case Approved      = 'approved';
 
 	public function label( ExamAudience $audience ): string {
 		return match ( $this ) {

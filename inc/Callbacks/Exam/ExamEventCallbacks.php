@@ -47,7 +47,7 @@ class ExamEventCallbacks extends BaseController {
 			$plan = $this->plans->build( get_current_user_id(), $subjectKey, $eventId > 0 ? $eventId : null );
 
 			// Готовность гостевой записи (11a.6.7): для выбранного проведения и для формы «Новое проведение» (без проведения).
-			$selected = null !== $plan['event'] ? $this->eventRepo->find( (int) $plan['event']['id'] ) : null;
+			$selected           = null !== $plan['event'] ? $this->eventRepo->find( (int) $plan['event']['id'] ) : null;
 			$plan['launch']     = $this->launch( $selected );
 			$plan['launch_new'] = $this->launch( null );
 
@@ -63,7 +63,10 @@ class ExamEventCallbacks extends BaseController {
 	private function launch( ?\Inc\DTO\Exam\ExamEventDTO $event ): array {
 		$items = $this->checklist->check( $event );
 
-		return array( 'items' => $items, 'ready' => array() === array_filter( $items, static fn ( array $i ): bool => ! $i['ok'] ) );
+		return array(
+'items' => $items,
+'ready' => array() === array_filter( $items, static fn ( array $i ): bool => ! $i['ok'] )
+);
 	}
 
 	public function ajaxSaveExamSession(): void {

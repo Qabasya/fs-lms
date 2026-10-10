@@ -27,5 +27,4 @@ class ExamParticipantNameService {
 
 		return trim( $record->snapshotLastName . ' ' . $record->snapshotFirstName );
 	}
-
 }

@@ -5,8 +5,8 @@ namespace Inc\Enums\Exam;
 enum ExamProgress: string {
 	case NotStarted = 'not_started';
 	case InProgress = 'in_progress';
-	case Submitted = 'submitted';
-	case Missed = 'missed';
+	case Submitted  = 'submitted';
+	case Missed     = 'missed';
 
 	public function label(): string {
 		return match ( $this ) {

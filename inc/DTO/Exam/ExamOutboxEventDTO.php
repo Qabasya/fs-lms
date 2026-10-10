@@ -7,19 +7,19 @@ namespace Inc\DTO\Exam;
 readonly class ExamOutboxEventDTO {
 
 	public function __construct(
-		public int     $id,
-		public string  $eventUuid,
-		public string  $type,
-		public string  $aggregateType,
-		public int     $aggregateId,
-		public int     $aggregateVersion,
+		public int $id,
+		public string $eventUuid,
+		public string $type,
+		public string $aggregateType,
+		public int $aggregateId,
+		public int $aggregateVersion,
 		public ?string $payload,
-		public string  $availableAt,
+		public string $availableAt,
 		public ?string $processedAt,
-		public int     $attempts,
+		public int $attempts,
 		public ?string $leasedUntil,
 		public ?string $lastError,
-		public string  $createdAt,
+		public string $createdAt,
 	) {}
 
 	public static function fromArray( array $row ): self {

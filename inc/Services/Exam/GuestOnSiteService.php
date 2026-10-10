@@ -67,7 +67,10 @@ class GuestOnSiteService {
 		if ( ! $confirmedNotDuplicate ) {
 			$candidates = $this->candidates( $event->id, $form );
 			if ( array() !== $candidates ) {
-				return array( 'status' => 'needs_confirmation', 'candidates' => $candidates );
+				return array(
+'status'     => 'needs_confirmation',
+'candidates' => $candidates
+);
 			}
 		}
 

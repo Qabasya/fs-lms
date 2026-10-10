@@ -61,7 +61,11 @@ class GuestSignupViewService {
 		$contacts = $this->contacts->get();
 		$base     = array(
 			'state'    => 'closed',
-			'source'   => array( 'school' => $source->schoolName, 'grade' => $source->grade, 'teacher' => $source->teacherName ),
+			'source'   => array(
+'school'  => $source->schoolName,
+'grade'   => $source->grade,
+'teacher' => $source->teacherName
+),
 			'event'    => array( 'title' => $event->title ?? '' ),
 			'contacts' => $contacts,
 			'sessions' => array(),
@@ -75,15 +79,15 @@ class GuestSignupViewService {
 		$sessions = $this->sessionCards( $event, $nowUtc );
 		$price    = $this->price( $source->grade );
 		$base     = array_merge( $base, array(
-			'sessions'           => $sessions,
-			'direction'          => $this->directionLabel( $event ),
-			'price'              => $price,
-			'address'            => $this->contacts->addressWithoutRoom(),
-			'hold_minutes'       => $this->config->examHoldMinutes(),
-			'retention_days'     => $this->config->examGuestRetentionDays(),
-			'consents'           => $this->consentList(),
-			'honeypot'           => $this->guard->honeypotField(),
-			'form_token'         => $this->guard->timestampToken(),
+			'sessions'       => $sessions,
+			'direction'      => $this->directionLabel( $event ),
+			'price'          => $price,
+			'address'        => $this->contacts->addressWithoutRoom(),
+			'hold_minutes'   => $this->config->examHoldMinutes(),
+			'retention_days' => $this->config->examGuestRetentionDays(),
+			'consents'       => $this->consentList(),
+			'honeypot'       => $this->guard->honeypotField(),
+			'form_token'     => $this->guard->timestampToken(),
 		) );
 
 		if ( null === $price || array() === $base['consents'] || ! $this->hasPdConsent( $base['consents'] ) ) {
@@ -143,7 +147,10 @@ class GuestSignupViewService {
 			return null;
 		}
 
-		return array( 'html' => $this->woo->formatPrice( $product['price'] ), 'amount' => $product['price'] );
+		return array(
+'html'   => $this->woo->formatPrice( $product['price'] ),
+'amount' => $product['price']
+);
 	}
 
 	private function directionLabel( ExamEventDTO $event ): string {

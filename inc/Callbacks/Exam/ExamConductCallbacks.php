@@ -179,7 +179,10 @@ class ExamConductCallbacks extends BaseController {
 		$this->run( function () use ( $attemptId, $changes, $reason, $version ): array {
 			$updated = $this->approval->correct( get_current_user_id(), $attemptId, $changes, $reason, $version );
 
-			return array( 'attempt_id' => $attemptId, 'total_score' => $updated->totalScore );
+			return array(
+'attempt_id'  => $attemptId,
+'total_score' => $updated->totalScore
+);
 		} );
 	}
 
@@ -217,7 +220,11 @@ class ExamConductCallbacks extends BaseController {
 
 		$this->run( fn (): array => array(
 			'rows' => array_map(
-				static fn ( array $r ): array => array( 'name' => $r['name'], 'source' => $r['source'], 'session' => $r['session'] ),
+				static fn ( array $r ): array => array(
+'name'    => $r['name'],
+'source'  => $r['source'],
+'session' => $r['session']
+),
 				$this->board->exportRows( get_current_user_id(), $context )
 			),
 		) );
@@ -236,7 +243,10 @@ class ExamConductCallbacks extends BaseController {
 
 		$ids = array_values( array_filter( $this->sanitizeIntList( 'participation_ids' ) ) );
 
-		return array() === $ids ? array() : array( 'participation_ids' => $ids, 'ids' => $ids );
+		return array() === $ids ? array() : array(
+'participation_ids' => $ids,
+'ids'               => $ids
+);
 	}
 
 	/**

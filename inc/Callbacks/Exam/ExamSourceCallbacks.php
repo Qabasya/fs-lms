@@ -54,7 +54,10 @@ class ExamSourceCallbacks extends BaseController {
 		$this->run( function () use ( $eventId, $sourceId, $version, $input ): array {
 			$source = $this->sources->save( get_current_user_id(), $eventId, $input, $sourceId > 0 ? $sourceId : null, $sourceId > 0 ? $version : null );
 
-			return array( 'source_id' => $source->id, 'sources' => $this->sources->list( get_current_user_id(), $eventId ) );
+			return array(
+'source_id' => $source->id,
+'sources'   => $this->sources->list( get_current_user_id(), $eventId )
+);
 		} );
 	}
 
@@ -95,7 +98,10 @@ class ExamSourceCallbacks extends BaseController {
 		$this->run( function () use ( $sourceId, $active ): array {
 			$this->sources->setActive( get_current_user_id(), $sourceId, $active );
 
-			return array( 'source_id' => $sourceId, 'active' => $active );
+			return array(
+'source_id' => $sourceId,
+'active'    => $active
+);
 		} );
 	}
 

@@ -3,7 +3,7 @@
 namespace Inc\Enums\Exam;
 
 enum ExamSessionStatus: string {
-	case Open = 'open';
+	case Open      = 'open';
 	case Cancelled = 'cancelled';
 	case Completed = 'completed';
 

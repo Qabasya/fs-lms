@@ -3,15 +3,15 @@
 namespace Inc\Enums\Exam;
 
 enum GuestApplicationState: string {
-	case Hold = 'hold';
-	case AwaitingPayment = 'awaiting_payment';
-	case PaymentPending = 'payment_pending';
-	case Confirmed = 'confirmed';
-	case ExpiredUnpaid = 'expired_unpaid';
-	case Failed = 'failed';
+	case Hold                = 'hold';
+	case AwaitingPayment     = 'awaiting_payment';
+	case PaymentPending      = 'payment_pending';
+	case Confirmed           = 'confirmed';
+	case ExpiredUnpaid       = 'expired_unpaid';
+	case Failed              = 'failed';
 	case PaidNeedsResolution = 'paid_needs_resolution';
-	case Cancelled = 'cancelled';
-	case Missed = 'missed';
+	case Cancelled           = 'cancelled';
+	case Missed              = 'missed';
 
 	public function label(): string {
 		return match ( $this ) {

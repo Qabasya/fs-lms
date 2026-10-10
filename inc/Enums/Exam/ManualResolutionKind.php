@@ -3,10 +3,10 @@
 namespace Inc\Enums\Exam;
 
 enum ManualResolutionKind: string {
-	case Pending = 'pending';
-	case Transferred = 'transferred';
+	case Pending         = 'pending';
+	case Transferred     = 'transferred';
 	case RefundedOutside = 'refunded_outside';
-	case Other = 'other';
+	case Other           = 'other';
 
 	public function label(): string {
 		return match ( $this ) {

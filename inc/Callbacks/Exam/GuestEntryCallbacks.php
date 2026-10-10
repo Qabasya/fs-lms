@@ -47,5 +47,4 @@ class GuestEntryCallbacks extends BaseController {
 
 		$this->success( array( 'url' => home_url( '/' ) ) );
 	}
-
 }

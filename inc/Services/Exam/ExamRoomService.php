@@ -101,12 +101,20 @@ class ExamRoomService {
 			$this->time->toLocal( $latestDeadlineUtc )
 		);
 		foreach ( $lessons as $lesson ) {
-			$conflicts[] = array( 'kind' => 'lesson', 'title' => $lesson['title'], 'start' => $lesson['start'] );
+			$conflicts[] = array(
+'kind'  => 'lesson',
+'title' => $lesson['title'],
+'start' => $lesson['start']
+);
 		}
 
 		$exams = $this->sessions->listInWindowByRoom( $session->roomId, $session->plannedEndAt, $latestDeadlineUtc, $session->id );
 		foreach ( $exams as $exam ) {
-			$conflicts[] = array( 'kind' => 'exam', 'title' => $exam['title'], 'start' => $this->time->toLocal( $exam['start'] ) );
+			$conflicts[] = array(
+'kind'  => 'exam',
+'title' => $exam['title'],
+'start' => $this->time->toLocal( $exam['start'] )
+);
 		}
 
 		usort( $conflicts, static fn ( array $a, array $b ): int => strcmp( $a['start'], $b['start'] ) );

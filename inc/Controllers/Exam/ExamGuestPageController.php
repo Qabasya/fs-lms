@@ -144,8 +144,14 @@ class ExamGuestPageController extends BaseController implements ServiceInterface
 		$data['can_end_session'] = true;
 		$data['sidebar']         = $this->sidebar->build( (string) ( $data['subject_key'] ?? '' ), (array) ( $data['units'] ?? array() ), $participationId );
 		$data['crumbs']          = array(
-			array( 'label' => __( 'Главная', 'fs-lms' ), 'url' => home_url( '/' ) ),
-			array( 'label' => __( 'Результат экзамена', 'fs-lms' ), 'current' => true ),
+			array(
+'label' => __( 'Главная', 'fs-lms' ),
+'url'   => home_url( '/' )
+),
+			array(
+'label'   => __( 'Результат экзамена', 'fs-lms' ),
+'current' => true
+),
 		);
 
 		ob_start();
@@ -161,11 +167,17 @@ class ExamGuestPageController extends BaseController implements ServiceInterface
 			return '';
 		}
 
-		$row  = $this->hasParam( 'row', 'GET' ) ? $this->sanitizeGetInt( 'row' ) : 0;
-		$data = $this->reportView->build( $report, $row > 0 ? $row : null );
-		$data['crumbs'] = array(
-			array( 'label' => __( 'Главная', 'fs-lms' ), 'url' => home_url( '/' ) ),
-			array( 'label' => __( 'Отчёт по экзамену', 'fs-lms' ), 'current' => true ),
+		$row              = $this->hasParam( 'row', 'GET' ) ? $this->sanitizeGetInt( 'row' ) : 0;
+		$data             = $this->reportView->build( $report, $row > 0 ? $row : null );
+		$data['crumbs']   = array(
+			array(
+'label' => __( 'Главная', 'fs-lms' ),
+'url'   => home_url( '/' )
+),
+			array(
+'label'   => __( 'Отчёт по экзамену', 'fs-lms' ),
+'current' => true
+),
 		);
 		$data['page_url'] = PageRoutes::ExamReport->url();
 
@@ -245,5 +257,4 @@ class ExamGuestPageController extends BaseController implements ServiceInterface
 
 		return $ids;
 	}
-
 }

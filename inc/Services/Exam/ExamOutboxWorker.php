@@ -42,7 +42,10 @@ class ExamOutboxWorker {
 				$this->outbox->markProcessed( $row->id, $this->time->nowUtc() );
 				++$done;
 			} catch ( \Throwable $e ) {
-				PluginLogger::exception( 'ExamOutbox', $e, array( 'outbox_id' => $row->id, 'type' => $row->type ), true );
+				PluginLogger::exception( 'ExamOutbox', $e, array(
+'outbox_id' => $row->id,
+'type'      => $row->type
+), true );
 				$this->outbox->markFailed( $row->id, $e->getMessage(), $this->time->addMinutes( $this->time->nowUtc(), min( 60, 2 ** $row->attempts ) ) );
 			}
 		}

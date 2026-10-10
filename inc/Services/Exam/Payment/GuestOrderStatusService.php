@@ -72,10 +72,20 @@ class GuestOrderStatusService {
 					'refresh' => false,
 				);
 			case GuestApplicationState::ExpiredUnpaid->value:
-				return array( 'state' => $state, 'title' => 'Время брони истекло.', 'lines' => array( 'Проверьте оплату, затем выберите дату заново.' ), 'refresh' => false );
+				return array(
+'state'   => $state,
+'title'   => 'Время брони истекло.',
+'lines'   => array( 'Проверьте оплату, затем выберите дату заново.' ),
+'refresh' => false
+);
 			case GuestApplicationState::Failed->value:
 			case GuestApplicationState::Cancelled->value:
-				return array( 'state' => $state, 'title' => 'Оплата не подтверждена.', 'lines' => array( 'Проверьте оплату, затем выберите дату заново.' ), 'refresh' => false );
+				return array(
+'state'   => $state,
+'title'   => 'Оплата не подтверждена.',
+'lines'   => array( 'Проверьте оплату, затем выберите дату заново.' ),
+'refresh' => false
+);
 			default:
 				return array(
 					'state'   => $state,

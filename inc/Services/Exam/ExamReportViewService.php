@@ -69,7 +69,10 @@ class ExamReportViewService {
 		if ( null !== $row && ( $accessible[ $row ] ?? false ) ) {
 			$data = $this->result->build( $ids[ $row - 1 ] );
 			if ( null !== $data && true === ( $data['revealed'] ?? false ) ) {
-				$review = $data + array( 'row' => $row, 'name' => $rows[ $row - 1 ]['name'] );
+				$review = $data + array(
+'row'  => $row,
+'name' => $rows[ $row - 1 ]['name']
+);
 			}
 		}
 
@@ -78,7 +81,11 @@ class ExamReportViewService {
 			'event'      => $event->title ?? '',
 			'expires_at' => $report->expiresAt,
 			'rows'       => $rows,
-			'stats'      => array( 'participants' => count( $ids ), 'average' => $this->average( $finals ), 'pending' => $pending ),
+			'stats'      => array(
+'participants' => count( $ids ),
+'average'      => $this->average( $finals ),
+'pending'      => $pending
+),
 			'review'     => $review,
 		);
 	}
@@ -91,7 +98,14 @@ class ExamReportViewService {
 	private function row( ExamReportDTO $report, ?ExamEventDTO $event, int $participationId, int $number ): array {
 		$participation = $this->participations->find( $participationId );
 		$participant   = null !== $participation ? $this->participants->find( $participation->participantId ) : null;
-		$placeholder   = array( 'n' => $number, 'name' => self::PLACEHOLDER, 'status' => '', 'caption' => '', 'open' => false, 'summary' => null );
+		$placeholder   = array(
+'n'       => $number,
+'name'    => self::PLACEHOLDER,
+'status'  => '',
+'caption' => '',
+'open'    => false,
+'summary' => null
+);
 
 		if ( null === $participation || null === $participant || null !== $participant->anonymizedAt || null !== $this->reportService->canInclude( $participation, $report->eventId ) ) {
 			return $placeholder;

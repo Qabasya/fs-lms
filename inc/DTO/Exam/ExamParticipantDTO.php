@@ -7,8 +7,8 @@ namespace Inc\DTO\Exam;
 readonly class ExamParticipantDTO {
 
 	public function __construct(
-		public int     $id,
-		public ?int    $personId,
+		public int $id,
+		public ?int $personId,
 		public ?string $nameEnc,
 		public ?string $phoneEnc,
 		public ?string $messengerEnc,
@@ -16,10 +16,10 @@ readonly class ExamParticipantDTO {
 		public ?string $phoneHash,
 		public ?string $schoolName,
 		public ?string $schoolKey,
-		public ?int    $grade,
+		public ?int $grade,
 		public ?string $anonymizedAt,
-		public string  $createdAt,
-		public string  $updatedAt,
+		public string $createdAt,
+		public string $updatedAt,
 	) {}
 
 	public static function fromArray( array $row ): self {

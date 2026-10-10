@@ -45,7 +45,10 @@ class ExamReviewViewService {
 		}
 
 		if ( true !== ( $review['revealed'] ?? false ) ) {
-			return array( 'revealed' => false, 'event_title' => $event->title );
+			return array(
+'revealed'    => false,
+'event_title' => $event->title
+);
 		}
 
 		$summary = (array) ( $review['result'] ?? array() );
@@ -74,7 +77,12 @@ class ExamReviewViewService {
 	 * @return array{correct: int, partial: int, wrong: int, pending: int}
 	 */
 	private function counts( array $units ): array {
-		$counts = array( 'correct' => 0, 'partial' => 0, 'wrong' => 0, 'pending' => 0 );
+		$counts = array(
+'correct' => 0,
+'partial' => 0,
+'wrong'   => 0,
+'pending' => 0
+);
 		foreach ( $units as $unit ) {
 			$key = match ( (string) ( $unit['status'] ?? '' ) ) {
 				'correct'             => 'correct',

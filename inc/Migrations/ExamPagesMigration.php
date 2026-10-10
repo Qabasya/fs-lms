@@ -43,6 +43,5 @@ class ExamPagesMigration {
 			// Маркер не записан: следующая загрузка повторит обеспечение страниц; сайт продолжает работать.
 			PluginLogger::exception( 'ExamPagesMigration', $e, array(), true );
 		}
-
 	}
 }

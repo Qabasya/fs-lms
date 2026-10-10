@@ -133,7 +133,11 @@ class ExamPaymentQueueService {
 			if ( $session->id === $application->sessionId || ExamSessionStatus::Open->value !== $session->status || $session->plannedEndAt <= $now || $free <= 0 ) {
 				continue;
 			}
-			$targets[] = array( 'id' => $session->id, 'label' => $this->sessionLabel( $session->scheduledAt ), 'free' => $free );
+			$targets[] = array(
+'id'    => $session->id,
+'label' => $this->sessionLabel( $session->scheduledAt ),
+'free'  => $free
+);
 		}
 
 		return $targets;

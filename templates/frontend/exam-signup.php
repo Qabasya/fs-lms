@@ -83,7 +83,8 @@ $contact_phone = (string) ( $contacts['phone'] ?? '' );
 						?>
 						<div class="fs-join-card__field-group fs-form-group" data-field="<?php echo esc_attr( $name ); ?>">
 							<label for="fs_exam_<?php echo esc_attr( $name ); ?>">
-								<?php echo esc_html( $label ); ?><?php if ( $required ) : ?> <span aria-hidden="true">*</span><?php endif; ?>
+								<?php echo esc_html( $label ); ?><?php if ( $required ) :
+?> <span aria-hidden="true">*</span><?php endif; ?>
 							</label>
 							<div class="fs-field-control">
 								<span class="dashicons <?php echo esc_attr( $icon ); ?>" aria-hidden="true"></span>
@@ -145,7 +146,8 @@ $contact_phone = (string) ( $contacts['phone'] ?? '' );
 							<label>
 								<input type="checkbox" name="consents[]" value="<?php echo esc_attr( $consent['key'] ); ?>" <?php echo $consent['required'] ? 'required' : ''; ?>>
 								<span>
-									<?php echo esc_html( $consent['title'] ); ?><?php if ( $consent['required'] ) : ?> <span aria-hidden="true">*</span><?php endif; ?>
+									<?php echo esc_html( $consent['title'] ); ?><?php if ( $consent['required'] ) :
+?> <span aria-hidden="true">*</span><?php endif; ?>
 									<?php if ( '' !== $consent['url'] ) : ?>
 										<a href="<?php echo esc_url( $consent['url'] ); ?>" target="_blank" rel="noopener"><?php esc_html_e( 'Прочитать', 'fs-lms' ); ?></a>
 									<?php endif; ?>

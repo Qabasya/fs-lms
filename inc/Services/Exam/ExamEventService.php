@@ -386,7 +386,7 @@ class ExamEventService {
 				throw new CodedException( ErrorCode::ExamConflict, 'Идёт сеанс с этим вариантом: снимок менять нельзя.' );
 			}
 
-			$snapshot                        = $this->snapshotOf( $event );
+			$snapshot                           = $this->snapshotOf( $event );
 			$snapshot[ (string) $assessmentId ] = $this->buildSnapshot( $assessmentId );
 
 			if ( ! $this->events->update( $eventId, array( 'variant_snapshot' => (string) wp_json_encode( $snapshot ) ), $event->version ) ) {
@@ -516,7 +516,10 @@ class ExamEventService {
 					throw new CodedException( ErrorCode::ExamConflict, 'Сеанс завершён: отменить его нельзя.' );
 				}
 
-				if ( ! $this->sessions->update( $current->id, array( 'status' => ExamSessionStatus::Cancelled->value, 'cancel_reason' => $reason ), $expectedVersion ) ) {
+				if ( ! $this->sessions->update( $current->id, array(
+'status'        => ExamSessionStatus::Cancelled->value,
+'cancel_reason' => $reason
+), $expectedVersion ) ) {
 					throw $this->stale();
 				}
 				$this->outbox->add( ExamOutboxEvent::SessionCancelled, 'session', $current->id, $expectedVersion + 1, array(
@@ -571,7 +574,10 @@ class ExamEventService {
 				throw $this->stale();
 			}
 
-			$this->outbox->add( ExamOutboxEvent::EventCancelled, 'event', $eventId, $event->version + 1, array( 'event_id' => $eventId, 'reason' => $reason ) );
+			$this->outbox->add( ExamOutboxEvent::EventCancelled, 'event', $eventId, $event->version + 1, array(
+'event_id' => $eventId,
+'reason'   => $reason
+) );
 
 			return $open;
 		} );
@@ -769,7 +775,7 @@ class ExamEventService {
 			return;
 		}
 
-		$snapshot                        = $this->snapshotOf( $event );
+		$snapshot                           = $this->snapshotOf( $event );
 		$snapshot[ (string) $assessmentId ] = $this->buildSnapshot( $assessmentId );
 
 		if ( ! $this->events->update( $event->id, array( 'variant_snapshot' => (string) wp_json_encode( $snapshot ) ), $event->version ) ) {

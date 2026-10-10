@@ -3,7 +3,7 @@
 namespace Inc\Enums\Exam;
 
 enum ExamEventStatus: string {
-	case Draft = 'draft';
+	case Draft     = 'draft';
 	case Published = 'published';
 	case Completed = 'completed';
 	case Cancelled = 'cancelled';

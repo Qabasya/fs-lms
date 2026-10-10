@@ -7,26 +7,26 @@ namespace Inc\DTO\Exam;
 readonly class ExamEventDTO {
 
 	public function __construct(
-		public int     $id,
-		public string  $subjectKey,
-		public string  $title,
+		public int $id,
+		public string $subjectKey,
+		public string $title,
 		public ?string $description,
-		public int     $ownerUserId,
-		public string  $status,
-		public string  $periodFrom,
-		public string  $periodTo,
+		public int $ownerUserId,
+		public string $status,
+		public string $periodFrom,
+		public string $periodTo,
 		public ?string $registrationOpensAt,
 		public ?string $registrationClosesAt,
-		public bool    $guestRegistrationEnabled,
-		public ?int    $defaultAssessmentId,
+		public bool $guestRegistrationEnabled,
+		public ?int $defaultAssessmentId,
 		public ?string $variantSnapshot,
 		public ?string $cancelReason,
 		public ?string $publishedAt,
 		public ?string $completedAt,
 		public ?string $cancelledAt,
-		public int     $version,
-		public string  $createdAt,
-		public string  $updatedAt,
+		public int $version,
+		public string $createdAt,
+		public string $updatedAt,
 	) {}
 
 	public static function fromArray( array $row ): self {

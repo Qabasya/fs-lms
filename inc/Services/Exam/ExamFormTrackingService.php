@@ -61,7 +61,11 @@ readonly class ExamFormTrackingService {
 	 * @return array<string, mixed>
 	 */
 	private function details( ExamSourceDTO $source, array $extra = array() ): array {
-		return array_filter( array( 'form' => 'exam_signup', 'source' => $source->id, 'event' => $source->eventId ) + $extra, static fn ( $v ): bool => '' !== $v && null !== $v );
+		return array_filter( array(
+'form'   => 'exam_signup',
+'source' => $source->id,
+'event'  => $source->eventId
+) + $extra, static fn ( $v ): bool => '' !== $v && null !== $v );
 	}
 
 	private function clip( string $message ): string {

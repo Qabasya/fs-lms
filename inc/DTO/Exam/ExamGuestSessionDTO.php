@@ -7,16 +7,16 @@ namespace Inc\DTO\Exam;
 readonly class ExamGuestSessionDTO {
 
 	public function __construct(
-		public int     $id,
-		public string  $cookieHash,
-		public string  $scope,
-		public ?int    $sourceId,
-		public ?int    $participationId,
-		public ?int    $registrationId,
-		public ?int    $reportId,
-		public int     $generation,
-		public string  $issuedAt,
-		public string  $expiresAt,
+		public int $id,
+		public string $cookieHash,
+		public string $scope,
+		public ?int $sourceId,
+		public ?int $participationId,
+		public ?int $registrationId,
+		public ?int $reportId,
+		public int $generation,
+		public string $issuedAt,
+		public string $expiresAt,
 		public ?string $revokedAt,
 	) {}
 

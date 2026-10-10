@@ -40,11 +40,11 @@ class ExamReportCallbacks extends BaseController {
 	public function ajaxSaveExamReport(): void {
 		$this->authorize( Nonce::ExamManage, Capability::ShareExamResults );
 
-		$eventId  = $this->requireInt( 'event_id' );
-		$title    = $this->sanitizeText( 'title' );
-		$ids      = $this->sanitizeIntList( 'participation_ids' );
-		$source   = $this->sanitizeInt( 'recipient_source_id' );
-		$days     = $this->sanitizeInt( 'days' );
+		$eventId = $this->requireInt( 'event_id' );
+		$title   = $this->sanitizeText( 'title' );
+		$ids     = $this->sanitizeIntList( 'participation_ids' );
+		$source  = $this->sanitizeInt( 'recipient_source_id' );
+		$days    = $this->sanitizeInt( 'days' );
 
 		$this->run( function () use ( $eventId, $title, $ids, $source, $days ): array {
 			$report = $this->reports->create( get_current_user_id(), $eventId, $title, $ids, $source > 0 ? $source : null, $days > 0 ? $days : null );

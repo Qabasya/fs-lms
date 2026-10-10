@@ -7,18 +7,18 @@ namespace Inc\DTO\Exam;
 readonly class ExamAccessTokenDTO {
 
 	public function __construct(
-		public int     $id,
-		public string  $purpose,
-		public int     $targetId,
-		public string  $tokenHash,
-		public int     $generation,
+		public int $id,
+		public string $purpose,
+		public int $targetId,
+		public string $tokenHash,
+		public int $generation,
 		public ?string $expiresAt,
 		public ?string $revokedAt,
 		public ?string $consumedAt,
-		public int     $issuerUserId,
+		public int $issuerUserId,
 		public ?string $passedAt,
-		public ?int    $passedByUserId,
-		public string  $createdAt,
+		public ?int $passedByUserId,
+		public string $createdAt,
 	) {}
 
 	public static function fromArray( array $row ): self {

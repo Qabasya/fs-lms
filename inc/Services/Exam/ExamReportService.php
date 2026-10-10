@@ -80,7 +80,10 @@ class ExamReportService {
 			'reports' => array_map( fn ( ExamReportDTO $report ): array => $this->view( $report ), $this->reports->listByEvent( $event->id ) ),
 			'blocked' => $blocked,
 			'sources' => array_map(
-				static fn ( $source ): array => array( 'id' => $source->id, 'label' => $source->schoolName . ' · ' . $source->teacherName ),
+				static fn ( $source ): array => array(
+'id'    => $source->id,
+'label' => $source->schoolName . ' · ' . $source->teacherName
+),
 				$this->sources->listByEvent( $event->id )
 			),
 		);
@@ -117,8 +120,8 @@ class ExamReportService {
 
 		$consentRefs = $this->assertAllIncludable( $participationIds, $eventId );
 
-		$now       = $this->time->nowUtc();
-		$reportId  = $this->inTransactionWithRetry( function () use ( $actorUserId, $eventId, $title, $recipientSourceId, $days, $event, $participationIds, $consentRefs, $now ): int {
+		$now      = $this->time->nowUtc();
+		$reportId = $this->inTransactionWithRetry( function () use ( $actorUserId, $eventId, $title, $recipientSourceId, $days, $event, $participationIds, $consentRefs, $now ): int {
 			$id = $this->reports->insert( array(
 				'event_id'            => $eventId,
 				'title'               => $title,
@@ -160,7 +163,7 @@ class ExamReportService {
 		if ( ! $participation->transferAllowed ) {
 			return 'Нет согласия на передачу результата школе.';
 		}
-		$ref = $this->transferConsentRef( $participation );
+		$ref     = $this->transferConsentRef( $participation );
 		$consent = null !== $ref ? $this->consents->find( $ref ) : null;
 		if ( null === $consent || null !== $consent->withdrawnAt ) {
 			return 'Согласие отозвано.';
@@ -175,7 +178,7 @@ class ExamReportService {
 	 * @throws CodedException
 	 */
 	public function addMember( int $actorUserId, int $reportId, int $participationId, int $expectedVersion ): ExamReportDTO {
-		$report = $this->requireReport( $actorUserId, $reportId );
+		$report        = $this->requireReport( $actorUserId, $reportId );
 		$participation = $this->participations->find( $participationId );
 		if ( null === $participation ) {
 			throw new CodedException( ErrorCode::ExamConflict, 'Участник не найден.' );

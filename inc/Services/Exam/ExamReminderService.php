@@ -109,7 +109,10 @@ class ExamReminderService {
 					++$sent;
 				}
 			} catch ( \Throwable $e ) {
-				PluginLogger::exception( 'ExamReminder', $e, array( 'registration_id' => $candidate->id, 'kind' => $prefix ), true );
+				PluginLogger::exception( 'ExamReminder', $e, array(
+'registration_id' => $candidate->id,
+'kind'            => $prefix
+), true );
 			}
 		}
 

@@ -7,21 +7,21 @@ namespace Inc\DTO\Exam;
 readonly class ExamSourceDTO {
 
 	public function __construct(
-		public int     $id,
-		public int     $eventId,
+		public int $id,
+		public int $eventId,
 		public ?string $schoolKey,
-		public string  $schoolName,
-		public string  $schoolNameNormalized,
-		public int     $grade,
-		public string  $teacherName,
-		public string  $label,
-		public bool    $isActive,
-		public int     $keyGeneration,
+		public string $schoolName,
+		public string $schoolNameNormalized,
+		public int $grade,
+		public string $teacherName,
+		public string $label,
+		public bool $isActive,
+		public int $keyGeneration,
 		public ?string $keyRevokedAt,
-		public int     $createdByUserId,
-		public int     $version,
-		public string  $createdAt,
-		public string  $updatedAt,
+		public int $createdByUserId,
+		public int $version,
+		public string $createdAt,
+		public string $updatedAt,
 	) {}
 
 	public static function fromArray( array $row ): self {

@@ -3,24 +3,24 @@
 namespace Inc\Enums\Exam;
 
 enum ExamOutboxEvent: string {
-	case EventPublished = 'event_published';
-	case RegistrationOpened = 'registration_opened';
-	case RegistrationConfirmed = 'registration_confirmed';
+	case EventPublished          = 'event_published';
+	case RegistrationOpened      = 'registration_opened';
+	case RegistrationConfirmed   = 'registration_confirmed';
 	case RegistrationTransferred = 'registration_transferred';
-	case RegistrationCancelled = 'registration_cancelled';
-	case ParticipantMissed = 'participant_missed';
-	case EntryOpened = 'entry_opened';
-	case AttemptStarted = 'attempt_started';
-	case AttemptSubmitted = 'attempt_submitted';
-	case AttemptApproved = 'attempt_approved';
-	case ResultCorrected = 'result_corrected';
-	case AttemptExtended = 'attempt_extended';
-	case SessionMoved = 'session_moved';
-	case SessionCancelled = 'session_cancelled';
-	case EventCancelled = 'event_cancelled';
-	case PaidNeedsResolution = 'paid_needs_resolution';
-	case ReconcileFailed = 'reconcile_failed';
-	case SourceLimitExceeded = 'source_limit_exceeded';
+	case RegistrationCancelled   = 'registration_cancelled';
+	case ParticipantMissed       = 'participant_missed';
+	case EntryOpened             = 'entry_opened';
+	case AttemptStarted          = 'attempt_started';
+	case AttemptSubmitted        = 'attempt_submitted';
+	case AttemptApproved         = 'attempt_approved';
+	case ResultCorrected         = 'result_corrected';
+	case AttemptExtended         = 'attempt_extended';
+	case SessionMoved            = 'session_moved';
+	case SessionCancelled        = 'session_cancelled';
+	case EventCancelled          = 'event_cancelled';
+	case PaidNeedsResolution     = 'paid_needs_resolution';
+	case ReconcileFailed         = 'reconcile_failed';
+	case SourceLimitExceeded     = 'source_limit_exceeded';
 
 	public function label(): string {
 		return match ( $this ) {

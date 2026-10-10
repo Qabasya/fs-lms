@@ -7,15 +7,15 @@ namespace Inc\DTO\Exam;
 readonly class ExamReportDTO {
 
 	public function __construct(
-		public int     $id,
-		public int     $eventId,
-		public string  $title,
-		public int     $ownerUserId,
-		public ?int    $recipientSourceId,
-		public string  $expiresAt,
+		public int $id,
+		public int $eventId,
+		public string $title,
+		public int $ownerUserId,
+		public ?int $recipientSourceId,
+		public string $expiresAt,
 		public ?string $revokedAt,
-		public int     $version,
-		public string  $createdAt,
+		public int $version,
+		public string $createdAt,
 	) {}
 
 	public static function fromArray( array $row ): self {

@@ -214,8 +214,8 @@ class GuestPageAccessService {
 		}
 
 		// Сессия живёт не дольше отчёта и не дольше суток: ссылка остаётся у школы, кука — нет.
-		$day     = $this->time->addMinutes( $this->time->nowUtc(), 1440 );
-		$cookie  = $this->sessions->openReport( $token, min( $report->expiresAt, $day ) );
+		$day    = $this->time->addMinutes( $this->time->nowUtc(), 1440 );
+		$cookie = $this->sessions->openReport( $token, min( $report->expiresAt, $day ) );
 
 		return GuestPageOutcome::redirect( PageRoutes::ExamReport->url(), array( GuestSessionService::COOKIE_REPORT => $cookie ) );
 	}

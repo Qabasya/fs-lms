@@ -39,7 +39,11 @@ class GuestResultSidebarService {
 	 */
 	public function build( string $subjectKey, array $units, int $participationId ): array {
 		if ( '' === $subjectKey ) {
-			return array( 'courses' => array(), 'articles' => array(), 'articles_url' => '' );
+			return array(
+'courses'      => array(),
+'articles'     => array(),
+'articles_url' => ''
+);
 		}
 
 		$links = $this->pages->links( $subjectKey );

@@ -68,7 +68,10 @@ class GuestParticipantMaterializer {
 		$middle = (string) ( $draft['middle_name'] ?? '' );
 		$phone  = (string) ( $draft['phone'] ?? '' );
 
-		$row = array( 'created_at' => $now, 'updated_at' => $now );
+		$row = array(
+'created_at' => $now,
+'updated_at' => $now
+);
 		if ( '' !== trim( $last . $first ) ) {
 			$row['name_enc']  = $this->seal( trim( implode( ' ', array_filter( array( $last, $first, $middle ) ) ) ) );
 			$row['name_hash'] = $this->identity->nameHash( $last, $first, $middle );

@@ -76,7 +76,10 @@ class ExamResultsViewService {
 
 		return array(
 			'filters' => array(
-				'events'   => array_map( static fn ( ExamEventDTO $e ): array => array( 'id' => $e->id, 'title' => $e->title ), $events ),
+				'events'   => array_map( static fn ( ExamEventDTO $e ): array => array(
+'id'    => $e->id,
+'title' => $e->title
+), $events ),
 				'sessions' => 1 === count( $selected ) ? $this->eventView->siblings( $selected[0] ) : array(),
 				'sources'  => 1 === count( $selected ) ? $this->eventView->sourceOptions( $selected[0]->id ) : array(),
 			),

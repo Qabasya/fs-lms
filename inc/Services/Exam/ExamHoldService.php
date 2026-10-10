@@ -260,7 +260,11 @@ class ExamHoldService {
 				return $resolved;
 			}
 
-			$updated = $this->applications->update( $application->id, array( 'state' => GuestApplicationState::Cancelled->value, 'active_slot' => null, 'is_held' => 0 ), $application->version );
+			$updated = $this->applications->update( $application->id, array(
+'state'       => GuestApplicationState::Cancelled->value,
+'active_slot' => null,
+'is_held'     => 0
+), $application->version );
 			if ( ! $updated ) {
 				throw new \RuntimeException( 'Заявка изменилась во время урегулирования.' );
 			}
@@ -368,7 +372,10 @@ class ExamHoldService {
 		}
 
 		$this->sessions->releaseSeat( $application->sessionId );
-		$this->applications->update( $application->id, array( 'state' => $newState->value, 'active_slot' => null ), $application->version );
+		$this->applications->update( $application->id, array(
+'state'       => $newState->value,
+'active_slot' => null
+), $application->version );
 
 		return true;
 	}
@@ -419,7 +426,11 @@ class ExamHoldService {
 			'guest_application',
 			$application->id,
 			$application->version + 1,
-			array( 'application_id' => $application->id, 'event_id' => $application->eventId, 'session_id' => $application->sessionId )
+			array(
+'application_id' => $application->id,
+'event_id'       => $application->eventId,
+'session_id'     => $application->sessionId
+)
 		);
 
 		return $this->reload( $application->id );

@@ -78,7 +78,12 @@ class ExamLaunchChecklist {
 
 	/** @return array{key: string, label: string, ok: bool, hint: string} */
 	private function item( string $key, string $label, bool $ok, string $hint ): array {
-		return array( 'key' => $key, 'label' => $label, 'ok' => $ok, 'hint' => $ok ? '' : $hint );
+		return array(
+'key'   => $key,
+'label' => $label,
+'ok'    => $ok,
+'hint'  => $ok ? '' : $hint
+);
 	}
 
 	/** Товар для класса направления: задан, существует, виртуальный, доступен к покупке, цена > 0. */

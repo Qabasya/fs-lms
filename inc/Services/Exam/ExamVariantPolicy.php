@@ -20,8 +20,8 @@ use Inc\Enums\Log\ErrorCode;
 class ExamVariantPolicy {
 
 	public function __construct(
-		private readonly AssessmentManager      $assessments,
-		private readonly ExamFormatRegistry     $formats,
+		private readonly AssessmentManager $assessments,
+		private readonly ExamFormatRegistry $formats,
 		private readonly EgeCompletenessChecker $completeness,
 	) {}
 
@@ -91,7 +91,7 @@ class ExamVariantPolicy {
 	 */
 	public function listForSubject( string $subjectKey ): array {
 		$assessments = $this->assessments->getBankBySubject( $subjectKey, array( 'status' => 'publish' ) );
-		$variants = array();
+		$variants    = array();
 
 		foreach ( $assessments as $assessment ) {
 			if ( ! $assessment->kind->isStation() ) {

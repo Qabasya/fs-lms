@@ -7,16 +7,16 @@ namespace Inc\DTO\Exam;
 readonly class ExamManualResolutionDTO {
 
 	public function __construct(
-		public int     $id,
-		public ?int    $applicationId,
-		public ?int    $participationId,
-		public string  $kind,
-		public string  $reason,
-		public int     $actorUserId,
+		public int $id,
+		public ?int $applicationId,
+		public ?int $participationId,
+		public string $kind,
+		public string $reason,
+		public int $actorUserId,
 		public ?string $amount,
-		public ?int    $oldSessionId,
-		public ?int    $newSessionId,
-		public string  $createdAt,
+		public ?int $oldSessionId,
+		public ?int $newSessionId,
+		public string $createdAt,
 	) {}
 
 	public static function fromArray( array $row ): self {

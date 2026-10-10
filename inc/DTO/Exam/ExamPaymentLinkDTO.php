@@ -7,17 +7,17 @@ namespace Inc\DTO\Exam;
 readonly class ExamPaymentLinkDTO {
 
 	public function __construct(
-		public int     $id,
-		public int     $applicationId,
-		public int     $wcOrderId,
-		public int     $wcOrderItemId,
-		public int     $productId,
-		public string  $amount,
-		public string  $currency,
-		public string  $paymentState,
+		public int $id,
+		public int $applicationId,
+		public int $wcOrderId,
+		public int $wcOrderItemId,
+		public int $productId,
+		public string $amount,
+		public string $currency,
+		public string $paymentState,
 		public ?string $lastReconciledAt,
-		public string  $createdAt,
-		public string  $updatedAt,
+		public string $createdAt,
+		public string $updatedAt,
 	) {}
 
 	public static function fromArray( array $row ): self {

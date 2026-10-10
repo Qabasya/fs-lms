@@ -140,7 +140,10 @@ class ExamVariantGuard {
 		if ( null === $this->frozen ) {
 			$this->frozen = array();
 			foreach ( $this->sessions->listFrozenVariants( $this->time->nowUtc() ) as $row ) {
-				$this->frozen[ $row['assessment_id'] ] ??= array( 'event_title' => $row['event_title'], 'subject_key' => $row['subject_key'] );
+				$this->frozen[ $row['assessment_id'] ] ??= array(
+'event_title' => $row['event_title'],
+'subject_key' => $row['subject_key']
+);
 			}
 		}
 

@@ -7,14 +7,14 @@ namespace Inc\DTO\Exam;
 readonly class ExamOperationKeyDTO {
 
 	public function __construct(
-		public int     $id,
-		public string  $scope,
-		public string  $operation,
-		public string  $requestKey,
-		public string  $payloadHash,
+		public int $id,
+		public string $scope,
+		public string $operation,
+		public string $requestKey,
+		public string $payloadHash,
 		public ?string $resultRef,
-		public string  $expiresAt,
-		public string  $createdAt,
+		public string $expiresAt,
+		public string $createdAt,
 	) {}
 
 	public static function fromArray( array $row ): self {

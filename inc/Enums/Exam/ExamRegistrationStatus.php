@@ -3,10 +3,10 @@
 namespace Inc\Enums\Exam;
 
 enum ExamRegistrationStatus: string {
-	case Confirmed = 'confirmed';
-	case Cancelled = 'cancelled';
+	case Confirmed   = 'confirmed';
+	case Cancelled   = 'cancelled';
 	case Transferred = 'transferred';
-	case Missed = 'missed';
+	case Missed      = 'missed';
 
 	public function label(): string {
 		return match ( $this ) {

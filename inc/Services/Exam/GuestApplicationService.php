@@ -42,8 +42,8 @@ use Inc\Shared\GuestFormException;
  */
 class GuestApplicationService {
 
-	public const CONSENT_PD       = 'pd_processing';
-	public const CONSENT_TRANSFER = 'pd_transfer';
+	public const CONSENT_PD        = 'pd_processing';
+	public const CONSENT_TRANSFER  = 'pd_transfer';
 	public const CONSENT_MARKETING = 'marketing';
 
 	/** Согласия, которые форма вправе передать; любые другие ключи отбрасываются. */
@@ -238,7 +238,10 @@ class GuestApplicationService {
 
 	/** Хеши введённых ФИО и телефона (для проверки дублей до создания заявки). @return array{name: string, phone: string} */
 	public function hashesOf( string $last, string $first, string $middle, string $phone ): array {
-		return array( 'name' => $this->identity->nameHash( $last, $first, $middle ), 'phone' => $this->identity->phoneHash( $phone ) );
+		return array(
+'name'  => $this->identity->nameHash( $last, $first, $middle ),
+'phone' => $this->identity->phoneHash( $phone )
+);
 	}
 
 	// ── Проверки ─────────────────────────────────────────────────────────────────────────────────────
@@ -324,7 +327,10 @@ class GuestApplicationService {
 		}
 
 		if ( $this->applications->countHeldBySource( $source->id ) >= $this->config->examSourceActiveHoldsLimit() ) {
-			$this->outbox->add( ExamOutboxEvent::SourceLimitExceeded, 'source', $source->id, 1, array( 'event_id' => $eventId, 'source_id' => $source->id ) );
+			$this->outbox->add( ExamOutboxEvent::SourceLimitExceeded, 'source', $source->id, 1, array(
+'event_id'  => $eventId,
+'source_id' => $source->id
+) );
 
 			throw new CodedException( ErrorCode::ExamLimit, 'Слишком много заявок по этой ссылке, обратитесь к сотруднику.' );
 		}

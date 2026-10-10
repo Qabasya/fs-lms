@@ -4,10 +4,10 @@ namespace Inc\Enums\Exam;
 
 enum ExamTokenPurpose: string {
 	case Invitation = 'invitation';
-	case Entry = 'entry';
-	case Result = 'result';
-	case Report = 'report';
-	case Payment = 'payment';
+	case Entry      = 'entry';
+	case Result     = 'result';
+	case Report     = 'report';
+	case Payment    = 'payment';
 
 	public function label(): string {
 		return match ( $this ) {

@@ -171,12 +171,18 @@ class ExamApprovalService {
 			);
 		}
 
-		return array( 'approved' => $approved, 'skipped' => $skipped );
+		return array(
+'approved' => $approved,
+'skipped'  => $skipped
+);
 	}
 
 	/** @return array{status: 'skipped', reason: string} */
 	private function skipped( string $reason ): array {
-		return array( 'status' => self::STATUS_SKIPPED, 'reason' => $reason );
+		return array(
+'status' => self::STATUS_SKIPPED,
+'reason' => $reason
+);
 	}
 
 	/**
@@ -220,8 +226,8 @@ class ExamApprovalService {
 				throw new CodedException( ErrorCode::ExamStale, 'Работу уже изменил другой проверяющий. Обновите страницу.' );
 			}
 
-			$now      = $this->time->nowLocal();
-			$journal  = array();
+			$now     = $this->time->nowLocal();
+			$journal = array();
 			foreach ( $changes as $change ) {
 				$answer = $this->answers->findByAttemptAndTask( $attemptId, (int) $change['task_id'] );
 				if ( null === $answer ) {
@@ -251,7 +257,11 @@ class ExamApprovalService {
 				if ( ! $this->answers->upsert( $attemptId, (int) $change['task_id'], $row ) ) {
 					throw new \RuntimeException( 'Не удалось записать исправленный балл.' );
 				}
-				$journal[] = array( 'task_id' => (int) $change['task_id'], 'old' => (float) ( $answer->score ?? 0.0 ), 'new' => $score );
+				$journal[] = array(
+'task_id' => (int) $change['task_id'],
+'old'     => (float) ( $answer->score ?? 0.0 ),
+'new'     => $score
+);
 			}
 
 			$updated = $this->autoGrade->finalize( $attempt );
@@ -272,7 +282,11 @@ class ExamApprovalService {
 				)
 			);
 
-			return array( 'attempt' => $updated, 'old_total' => $attempt->totalScore, 'journal' => $journal );
+			return array(
+'attempt'   => $updated,
+'old_total' => $attempt->totalScore,
+'journal'   => $journal
+);
 		} );
 
 		$this->audit( $actorUserId, $attemptId, $reason, $result['journal'], $result['old_total'], $result['attempt']->totalScore );

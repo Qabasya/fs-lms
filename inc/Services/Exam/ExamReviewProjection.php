@@ -163,7 +163,10 @@ class ExamReviewProjection {
 		if ( self::MODE_MANAGE === $mode ) {
 			$detail['result_version'] = $attempt->resultVersion;
 			$detail['revealed']       = true;
-			return array( 'view' => $detail, 'tasks' => $tasks );
+			return array(
+'view'  => $detail,
+'tasks' => $tasks
+);
 		}
 
 		return array(

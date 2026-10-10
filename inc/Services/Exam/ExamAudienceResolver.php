@@ -25,7 +25,7 @@ use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 class ExamAudienceResolver {
 
 	public function __construct(
-		private readonly GroupsRepository       $groups,
+		private readonly GroupsRepository $groups,
 		private readonly StudentRecordRepository $records,
 	) {}
 
@@ -37,7 +37,7 @@ class ExamAudienceResolver {
 	 * @return int[] Отсортированный массив уникальных ID
 	 */
 	public function studentPersonIds( string $subjectKey ): array {
-		$groups = $this->groups->findBySubjectKey( $subjectKey );
+		$groups     = $this->groups->findBySubjectKey( $subjectKey );
 		$studentIds = array();
 
 		foreach ( $groups as $group ) {
@@ -156,7 +156,7 @@ class ExamAudienceResolver {
 	 */
 	public function guardianPersonIds( int $studentPersonId, string $subjectKey ): array {
 		$studentRecords = $this->records->findActiveByStudent( $studentPersonId );
-		$guardianIds = array();
+		$guardianIds    = array();
 
 		foreach ( $studentRecords as $record ) {
 			if ( 0 === $record->parentPersonId ) {
@@ -177,5 +177,4 @@ class ExamAudienceResolver {
 		sort( $ids );
 		return $ids;
 	}
-
 }

@@ -45,7 +45,7 @@ class ExamAccessGuard {
 		}
 
 		return user_can( $userId, Capability::Admin->value ) ||
-			   user_can( $userId, Capability::ManageSubjects->value );
+				user_can( $userId, Capability::ManageSubjects->value );
 	}
 
 	/**
@@ -59,7 +59,7 @@ class ExamAccessGuard {
 	 * @return string[] Ключи предметов (уникальные, отсортированные)
 	 */
 	public function subjectKeysFor( int $userId ): array {
-		$groups = $this->groups->findByTeacherId( $userId );
+		$groups   = $this->groups->findByTeacherId( $userId );
 		$subjects = array();
 
 		foreach ( $groups as $group ) {

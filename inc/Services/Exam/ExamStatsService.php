@@ -64,10 +64,10 @@ class ExamStatsService {
 	 * @throws CodedException `ExamAccess` — проведение чужое.
 	 */
 	public function overview( int $actorUserId, array $filters ): array {
-		$subject  = (string) ( $filters['subject_key'] ?? '' );
-		$eventId  = (int) ( $filters['event_id'] ?? 0 );
+		$subject   = (string) ( $filters['subject_key'] ?? '' );
+		$eventId   = (int) ( $filters['event_id'] ?? 0 );
 		$sessionId = (int) ( $filters['session_id'] ?? 0 );
-		$audience = (string) ( $filters['audience'] ?? 'all' );
+		$audience  = (string) ( $filters['audience'] ?? 'all' );
 
 		$available = array_values( array_filter(
 			$this->events->findBySubjectKey( $subject ),
@@ -93,7 +93,10 @@ class ExamStatsService {
 
 		return array(
 			'filters' => array(
-				'events'   => array_map( static fn ( ExamEventDTO $e ): array => array( 'id' => $e->id, 'title' => $e->title ), $available ),
+				'events'   => array_map( static fn ( ExamEventDTO $e ): array => array(
+'id'    => $e->id,
+'title' => $e->title
+), $available ),
 				'sessions' => 1 === count( $selected ) ? $this->sessionOptions( $selected[0] ) : array(),
 			),
 			'format'  => $kpi['format'],
@@ -125,8 +128,19 @@ class ExamStatsService {
 				if ( '' === $number ) {
 					continue; // задание без номера в единицы формата не входит
 				}
-				$row = &$rows[ $number ];
-				$row ??= array( 'number' => $number, 'max' => 0.0, 'total' => 0, 'correct' => 0, 'partial' => 0, 'incorrect' => 0, 'unanswered' => 0, 'pending' => 0, 'sum' => 0.0, 'scored' => 0 );
+				$row   = &$rows[ $number ];
+				$row ??= array(
+'number'     => $number,
+'max'        => 0.0,
+'total'      => 0,
+'correct'    => 0,
+'partial'    => 0,
+'incorrect'  => 0,
+'unanswered' => 0,
+'pending'    => 0,
+'sum'        => 0.0,
+'scored'     => 0
+);
 
 				$status = in_array( $unit['status'], self::BUCKETS, true ) ? $unit['status'] : 'incorrect';
 				++$row['total'];
@@ -143,7 +157,18 @@ class ExamStatsService {
 		// Номера формата без единой работы показываются нулями: таблица всегда полная.
 		$unitCount = $this->formatFor( $event, $attempts[0] ?? null )?->unitCount ?? 0;
 		for ( $n = 1; $n <= $unitCount; $n++ ) {
-			$rows[ (string) $n ] ??= array( 'number' => (string) $n, 'max' => 0.0, 'total' => 0, 'correct' => 0, 'partial' => 0, 'incorrect' => 0, 'unanswered' => 0, 'pending' => 0, 'sum' => 0.0, 'scored' => 0 );
+			$rows[ (string) $n ] ??= array(
+'number'     => (string) $n,
+'max'        => 0.0,
+'total'      => 0,
+'correct'    => 0,
+'partial'    => 0,
+'incorrect'  => 0,
+'unanswered' => 0,
+'pending'    => 0,
+'sum'        => 0.0,
+'scored'     => 0
+);
 		}
 		uksort( $rows, static fn ( string $a, string $b ): int => (int) $a <=> (int) $b );
 
@@ -197,7 +222,12 @@ class ExamStatsService {
 				}
 			}
 
-			$rows[] = array( 'participation' => $participation, 'attempt' => $attempt, 'last' => $last, 'event' => $event );
+			$rows[] = array(
+'participation' => $participation,
+'attempt'       => $attempt,
+'last'          => $last,
+'event'         => $event
+);
 		}
 
 		return $rows;
@@ -220,7 +250,17 @@ class ExamStatsService {
 	 * @return array{kpi: array<string, mixed>, format: ?array<string, mixed>}
 	 */
 	private function kpi( array $rows ): array {
-		$kpi = array( 'registered' => 0, 'started' => 0, 'submitted' => 0, 'missed' => 0, 'pending_review' => 0, 'avg_primary' => null, 'avg_secondary' => null, 'avg_grade' => null, 'sample' => 0 );
+		$kpi = array(
+'registered'     => 0,
+'started'        => 0,
+'submitted'      => 0,
+'missed'         => 0,
+'pending_review' => 0,
+'avg_primary'    => null,
+'avg_secondary'  => null,
+'avg_grade'      => null,
+'sample'         => 0
+);
 
 		$direction = null;
 		$mixed     = false;
@@ -261,7 +301,7 @@ class ExamStatsService {
 				$mixed = true;
 				continue;
 			}
-			$format ??= array(
+			$format  ??= array(
 				'direction'     => $summary['direction'],
 				'primary_max'   => $summary['primary_max'],
 				'secondary_max' => $summary['secondary_max'],
@@ -284,7 +324,10 @@ class ExamStatsService {
 			$kpi['avg_grade']     = array() !== $grades ? $this->avg( $grades ) : null;
 		}
 
-		return array( 'kpi' => $kpi, 'format' => null !== $format ? $format + array( 'mixed' => $mixed ) : null );
+		return array(
+'kpi'    => $kpi,
+'format' => null !== $format ? $format + array( 'mixed' => $mixed ) : null
+);
 	}
 
 	/** @param list<float> $values */
@@ -300,7 +343,11 @@ class ExamStatsService {
 				continue;
 			}
 			$start  = $this->time->toLocal( $session->scheduledAt );
-			$list[] = array( 'id' => $session->id, 'date' => substr( $start, 0, 10 ), 'time_start' => substr( $start, 11, 5 ) );
+			$list[] = array(
+'id'         => $session->id,
+'date'       => substr( $start, 0, 10 ),
+'time_start' => substr( $start, 11, 5 )
+);
 		}
 
 		return $list;

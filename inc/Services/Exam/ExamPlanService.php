@@ -134,7 +134,11 @@ class ExamPlanService {
 
 		foreach ( $this->rooms->findAll( true ) as $room ) {
 			if ( $room->hasCapacity() && $room->allowsSubject( $subjectKey ) ) {
-				$result[] = array( 'id' => $room->id, 'name' => $room->name, 'seats' => $room->seats );
+				$result[] = array(
+'id'    => $room->id,
+'name'  => $room->name,
+'seats' => $room->seats
+);
 			}
 		}
 

@@ -40,7 +40,10 @@ class ExamGuestBoardService {
 
 		$state = ExamPaymentState::tryFrom( $link->paymentState );
 
-		return array( 'state' => $link->paymentState, 'label' => $state?->boardLabel() ?? $link->paymentState );
+		return array(
+			'state' => $link->paymentState,
+			'label' => $state?->boardLabel() ?? $link->paymentState,
+		);
 	}
 
 	/**

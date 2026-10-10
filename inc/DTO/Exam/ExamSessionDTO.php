@@ -7,21 +7,21 @@ namespace Inc\DTO\Exam;
 readonly class ExamSessionDTO {
 
 	public function __construct(
-		public int     $id,
-		public int     $eventId,
-		public int     $assessmentId,
-		public string  $scheduledAt,
-		public string  $plannedEndAt,
-		public int     $roomId,
-		public int     $capacity,
-		public int     $occupiedCount,
-		public int     $responsibleUserId,
-		public string  $status,
+		public int $id,
+		public int $eventId,
+		public int $assessmentId,
+		public string $scheduledAt,
+		public string $plannedEndAt,
+		public int $roomId,
+		public int $capacity,
+		public int $occupiedCount,
+		public int $responsibleUserId,
+		public string $status,
 		public ?string $firstStartedAt,
 		public ?string $cancelReason,
-		public int     $version,
-		public string  $createdAt,
-		public string  $updatedAt,
+		public int $version,
+		public string $createdAt,
+		public string $updatedAt,
 	) {}
 
 	public static function fromArray( array $row ): self {
