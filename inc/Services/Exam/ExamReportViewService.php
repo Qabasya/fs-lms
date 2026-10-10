@@ -32,7 +32,7 @@ class ExamReportViewService {
 		private readonly ExamReportService $reportService,
 		private readonly ExamConductService $conduct,
 		private readonly ExamScoreService $scores,
-		private readonly GuestResultViewService $result,
+		private readonly ExamReviewViewService $result,
 		private readonly GuestParticipantMaterializer $guestData,
 	) {}
 

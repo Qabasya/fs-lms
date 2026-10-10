@@ -25,7 +25,7 @@ use Inc\Services\Exam\ExamReportViewService;
 use Inc\Services\Exam\ExamScoreService;
 use Inc\Services\Exam\ExamTime;
 use Inc\Services\Exam\GuestParticipantMaterializer;
-use Inc\Services\Exam\GuestResultViewService;
+use Inc\Services\Exam\ExamReviewViewService;
 use Inc\Services\Exam\GuestSessionService;
 use Inc\Services\Security\RateLimitService;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
@@ -245,7 +245,7 @@ class ExamReportPageTest extends TestCase {
 
 	// ── Построение таблицы (ExamReportViewService) ──────────────────────────────────────────────
 
-	private function viewService( ExamReportService $reportService, ExamParticipantDTO $participant, ?GuestResultViewService $result = null, array $ids = array( 80, 81 ) ): ExamReportViewService {
+	private function viewService( ExamReportService $reportService, ExamParticipantDTO $participant, ?ExamReviewViewService $result = null, array $ids = array( 80, 81 ) ): ExamReportViewService {
 		$members = $this->createMock( ExamReportMemberRepository::class );
 		$members->method( 'listParticipationIds' )->willReturn( $ids );
 		$participations = $this->createMock( ExamParticipationRepository::class );
@@ -268,7 +268,7 @@ class ExamReportPageTest extends TestCase {
 		$mat = $this->createMock( GuestParticipantMaterializer::class );
 		$mat->method( 'displayName' )->willReturn( 'Иванов Пётр' );
 
-		return new ExamReportViewService( $members, $participations, $participants, $events, $attempts, $reportService, $this->createMock( ExamConductService::class ), $scores, $result ?? $this->createMock( GuestResultViewService::class ), $mat );
+		return new ExamReportViewService( $members, $participations, $participants, $events, $attempts, $reportService, $this->createMock( ExamConductService::class ), $scores, $result ?? $this->createMock( ExamReviewViewService::class ), $mat );
 	}
 
 	private function participant( ?string $anonymizedAt = null ): ExamParticipantDTO {
@@ -276,7 +276,7 @@ class ExamReportPageTest extends TestCase {
 	}
 
 	public function test_review_block_is_built_only_for_report_member(): void {
-		$result = $this->createMock( GuestResultViewService::class );
+		$result = $this->createMock( ExamReviewViewService::class );
 		$result->expects( self::once() )->method( 'build' )->with( 81 )->willReturn( array( 'revealed' => true, 'caption' => '84 из 100', 'units' => array(), 'counts' => array(), 'tasks' => array() ) );
 		$service = $this->viewService( $this->createMock( ExamReportService::class ), $this->participant(), $result );
 
@@ -286,7 +286,7 @@ class ExamReportPageTest extends TestCase {
 	}
 
 	public function test_row_number_out_of_range_shows_no_review(): void {
-		$result = $this->createMock( GuestResultViewService::class );
+		$result = $this->createMock( ExamReviewViewService::class );
 		$result->expects( self::never() )->method( 'build' );
 		$service = $this->viewService( $this->createMock( ExamReportService::class ), $this->participant(), $result );
 
@@ -296,7 +296,7 @@ class ExamReportPageTest extends TestCase {
 	}
 
 	public function test_anonymized_member_row_is_placeholder(): void {
-		$result = $this->createMock( GuestResultViewService::class );
+		$result = $this->createMock( ExamReviewViewService::class );
 		$result->expects( self::never() )->method( 'build' );
 		$service = $this->viewService( $this->createMock( ExamReportService::class ), $this->participant( '2026-03-20 00:00:00' ), $result );
 
@@ -310,7 +310,7 @@ class ExamReportPageTest extends TestCase {
 	public function test_withdrawn_transfer_consent_hides_member(): void {
 		$reportService = $this->createMock( ExamReportService::class );
 		$reportService->method( 'canInclude' )->willReturn( 'Согласие отозвано.' );
-		$result = $this->createMock( GuestResultViewService::class );
+		$result = $this->createMock( ExamReviewViewService::class );
 		$result->expects( self::never() )->method( 'build' );
 		$service = $this->viewService( $reportService, $this->participant(), $result );
 
