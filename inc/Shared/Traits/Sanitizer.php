@@ -45,6 +45,13 @@ trait Sanitizer {
 		return sanitize_text_field( wp_unslash( is_string( $value ) ? $value : '' ) );
 	}
 	
+	/** Текстовая кука: снимает экранирование WP; массивы и другие неверные значения отвергает. */
+	protected function sanitizeCookieText( string $key ): string {
+		$value = $_COOKIE[ $key ] ?? '';
+
+		return sanitize_text_field( wp_unslash( is_string( $value ) ? $value : '' ) );
+	}
+
 	/**
 	 * Получает и санирует многострочный текст (textarea).
 	 *

@@ -4,28 +4,43 @@ declare( strict_types=1 );
 
 namespace Inc\Controllers\Exam;
 
-use Inc\Callbacks\Exam\ExamReportPageCallbacks;
-use Inc\Callbacks\Exam\GuestApplicationCallbacks;
-use Inc\Callbacks\Exam\GuestEntryCallbacks;
 use Inc\Contracts\ServiceInterface;
 use Inc\Core\BaseController;
 use Inc\Enums\Wp\PageRoutes;
 use Inc\Enums\Wp\ShortCode;
 use Inc\Managers\Wp\PostManager;
 use Inc\Services\Exam\GuestPageResponder;
+use Inc\Services\Exam\GuestPageAccessService;
+use Inc\Services\Exam\GuestSessionService;
+use Inc\Services\Exam\GuestSignupViewService;
+use Inc\Services\Exam\GuestEntryViewService;
+use Inc\Services\Exam\GuestResultViewService;
+use Inc\Services\Exam\GuestResultSidebarService;
+use Inc\Services\Exam\ExamReportViewService;
+use Inc\Shared\Traits\Sanitizer;
+use Inc\Shared\Traits\RequestContextProvider;
+use Inc\Shared\Traits\TemplateRenderer;
 
 /**
  * Публичные страницы гостя: запись по ссылке школы (этап 11a), вход и результат (этап 11b).
  *
- * Только вешает хуки: проверки и решения — в коллбеках, исполнение (заголовки, куки, редирект, 404) — в `GuestPageResponder`.
- * Страницы не индексируются (`noindex` в `wp_head`, исключение из карты сайта и из поиска) и не кешируются.
+ * Адаптирует HTTP и шорткоды: решения доступа — в GuestPageAccessService, исполнение — в GuestPageResponder.
+ * Страницы не индексируются (штатная robots meta, исключение из карты сайта и из поиска) и не кешируются.
  */
 class ExamGuestPageController extends BaseController implements ServiceInterface {
 
+	use Sanitizer;
+	use RequestContextProvider;
+	use TemplateRenderer;
+
 	public function __construct(
-		private readonly GuestApplicationCallbacks $application,
-		private readonly GuestEntryCallbacks $entry,
-		private readonly ExamReportPageCallbacks $report,
+		private readonly GuestPageAccessService $access,
+		private readonly GuestSessionService $sessions,
+		private readonly GuestSignupViewService $signup,
+		private readonly GuestEntryViewService $entry,
+		private readonly GuestResultViewService $result,
+		private readonly GuestResultSidebarService $sidebar,
+		private readonly ExamReportViewService $reportView,
 		private readonly GuestPageResponder $responder,
 		private readonly PostManager $posts,
 	) {
@@ -33,13 +48,13 @@ class ExamGuestPageController extends BaseController implements ServiceInterface
 	}
 
 	public function register(): void {
-		add_shortcode( ShortCode::ExamSignup->value, array( $this->application, 'renderSignupPage' ) );
+		add_shortcode( ShortCode::ExamSignup->value, array( $this, 'renderSignupPage' ) );
 		add_action( 'template_redirect', array( $this, 'handleSignupPage' ), 5 );
-		add_shortcode( ShortCode::ExamEntry->value, array( $this->entry, 'renderEntryPage' ) );
+		add_shortcode( ShortCode::ExamEntry->value, array( $this, 'renderEntryPage' ) );
 		add_action( 'template_redirect', array( $this, 'handleEntryPage' ), 5 );
-		add_shortcode( ShortCode::ExamResult->value, array( $this->entry, 'renderResultPage' ) );
+		add_shortcode( ShortCode::ExamResult->value, array( $this, 'renderResultPage' ) );
 		add_action( 'template_redirect', array( $this, 'handleResultPage' ), 5 );
-		add_shortcode( ShortCode::ExamReport->value, array( $this->report, 'renderReportPage' ) );
+		add_shortcode( ShortCode::ExamReport->value, array( $this, 'renderReportPage' ) );
 		add_action( 'template_redirect', array( $this, 'handleReportPage' ), 5 );
 		add_filter( 'wp_robots', array( $this, 'filterRobots' ) );
 		add_filter( 'get_canonical_url', array( $this, 'filterCanonicalUrl' ) );
@@ -54,7 +69,12 @@ class ExamGuestPageController extends BaseController implements ServiceInterface
 		}
 
 		$this->responder->sendHeaders();
-		$this->responder->apply( $this->application->handleInvitationPage() );
+		$this->responder->apply( $this->access->invitationPage(
+			strtolower( trim( $this->sanitizeGetText( 'k' ) ) ),
+			strtolower( trim( $this->sanitizeGetText( 'pay' ) ) ),
+			strtolower( $this->sanitizeCookieText( GuestSessionService::COOKIE_INVITATION ) ),
+			$this->requestContext()->ip,
+		) );
 	}
 
 	/** Страница входа: заголовки, затем исход (отрисовать / редирект без ключа / 404). */
@@ -64,7 +84,7 @@ class ExamGuestPageController extends BaseController implements ServiceInterface
 		}
 
 		$this->responder->sendHeaders();
-		$this->responder->apply( $this->entry->handleEntryPage() );
+		$this->responder->apply( $this->access->entryPage( strtolower( trim( $this->sanitizeGetText( 'k' ) ) ), $this->requestContext()->ip ) );
 	}
 
 	/** Страница результата: заголовки, затем исход. */
@@ -74,7 +94,7 @@ class ExamGuestPageController extends BaseController implements ServiceInterface
 		}
 
 		$this->responder->sendHeaders();
-		$this->responder->apply( $this->entry->handleResultPage() );
+		$this->responder->apply( $this->access->resultPage( strtolower( trim( $this->sanitizeGetText( 'k' ) ) ), $this->requestContext()->ip ) );
 	}
 
 	/** Страница школьного отчёта: заголовки, затем исход. */
@@ -84,7 +104,76 @@ class ExamGuestPageController extends BaseController implements ServiceInterface
 		}
 
 		$this->responder->sendHeaders();
-		$this->responder->apply( $this->report->handleReportPage() );
+		$this->responder->apply( $this->access->reportPage( strtolower( trim( $this->sanitizeGetText( 'k' ) ) ), $this->requestContext()->ip ) );
+	}
+
+	/** Шорткод формы записи. */
+	public function renderSignupPage(): string {
+		$source = $this->access->currentSource( strtolower( $this->sanitizeCookieText( GuestSessionService::COOKIE_INVITATION ) ) );
+		if ( null === $source ) {
+			return '';
+		}
+
+		ob_start();
+		$this->render( 'frontend/exam-signup', array_merge( $this->signup->build( $source ), array( 'form_url' => PageRoutes::ExamSignup->url() ) ) );
+
+		return (string) ob_get_clean();
+	}
+
+	/** Шорткод входа на экзамен. */
+	public function renderEntryPage(): string {
+		$ctx  = $this->sessions->current();
+		$data = null !== $ctx ? $this->entry->build( $ctx ) : null;
+		if ( null === $data ) {
+			return '';
+		}
+
+		ob_start();
+		$this->render( 'frontend/exam-entry', $data );
+
+		return (string) ob_get_clean();
+	}
+
+	/** Шорткод результата. */
+	public function renderResultPage(): string {
+		$participationId = $this->sessions->viewableParticipationId();
+		$data            = null !== $participationId ? $this->result->build( $participationId ) : null;
+		if ( null === $data || true !== $data['revealed'] ) {
+			return '';
+		}
+
+		$data['can_end_session'] = true;
+		$data['sidebar']         = $this->sidebar->build( (string) ( $data['subject_key'] ?? '' ), (array) ( $data['units'] ?? array() ), $participationId );
+		$data['crumbs']          = array(
+			array( 'label' => __( 'Главная', 'fs-lms' ), 'url' => home_url( '/' ) ),
+			array( 'label' => __( 'Результат экзамена', 'fs-lms' ), 'current' => true ),
+		);
+
+		ob_start();
+		$this->render( 'frontend/exam-result', $data );
+
+		return (string) ob_get_clean();
+	}
+
+	/** Шорткод школьного отчёта. */
+	public function renderReportPage(): string {
+		$report = $this->access->currentReport();
+		if ( null === $report ) {
+			return '';
+		}
+
+		$row  = $this->hasParam( 'row', 'GET' ) ? $this->sanitizeGetInt( 'row' ) : 0;
+		$data = $this->reportView->build( $report, $row > 0 ? $row : null );
+		$data['crumbs'] = array(
+			array( 'label' => __( 'Главная', 'fs-lms' ), 'url' => home_url( '/' ) ),
+			array( 'label' => __( 'Отчёт по экзамену', 'fs-lms' ), 'current' => true ),
+		);
+		$data['page_url'] = PageRoutes::ExamReport->url();
+
+		ob_start();
+		$this->render( 'frontend/exam-report', $data );
+
+		return (string) ob_get_clean();
 	}
 
 	/**

@@ -7,7 +7,7 @@ namespace Inc\DTO\Exam;
 /**
  * Результат обработки гостевой страницы (приглашение, вход, результат): что сделать с ответом.
  *
- * Коллбек решает и возвращает исход, а выполняет его {@see \Inc\Services\Exam\GuestPageResponder}: так логика проверяется без `exit`.
+ * Сервис допуска возвращает исход, а выполняет его {@see \Inc\Services\Exam\GuestPageResponder}: так логика проверяется без `exit`.
  */
 readonly class GuestPageOutcome {
 

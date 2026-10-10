@@ -4,7 +4,7 @@ declare( strict_types=1 );
 
 namespace Unit\Callbacks\Exam;
 
-use Inc\Callbacks\Exam\ExamReportPageCallbacks;
+use Inc\Controllers\Exam\ExamGuestPageController;
 use Inc\DTO\Assessment\AttemptDTO;
 use Inc\DTO\Exam\ExamAccessTokenDTO;
 use Inc\DTO\Exam\ExamParticipantDTO;
@@ -47,7 +47,9 @@ class ExamReportPageTest extends TestCase {
 	private ExamReportService&MockObject $reportService;
 	private ExamReportViewService&MockObject $view;
 	private RateLimitService&MockObject $rate;
-	private ExamReportPageCallbacks $cb;
+	private ExamGuestPageController $cb;
+
+	private \Inc\Services\Exam\GuestPageAccessService $access;
 
 	protected function setUp(): void {
 		parent::setUp();
@@ -65,7 +67,7 @@ class ExamReportPageTest extends TestCase {
 		$time->method( 'nowUtc' )->willReturn( '2026-03-10 07:00:00' );
 		$time->method( 'addMinutes' )->willReturn( '2026-03-11 07:00:00' );
 
-		$this->cb = new ExamReportPageCallbacks( $this->view, new \Inc\Services\Exam\GuestPageAccessService(
+		$this->access = new \Inc\Services\Exam\GuestPageAccessService(
 				$this->tokens,
 				$this->sessions,
 				$this->createMock( \Inc\Repositories\WPDBRepositories\ExamSourceRepository::class ),
@@ -81,7 +83,18 @@ class ExamReportPageTest extends TestCase {
 				$this->createMock( \Inc\Services\Exam\GuestResultViewService::class ),
 				$this->reports,
 				$this->reportService
-			) );
+			);
+		$this->cb = new \Inc\Controllers\Exam\ExamGuestPageController(
+			$this->access,
+			$this->sessions,
+			$this->createMock( \Inc\Services\Exam\GuestSignupViewService::class ),
+			$this->createMock( \Inc\Services\Exam\GuestEntryViewService::class ),
+			$this->createMock( \Inc\Services\Exam\GuestResultViewService::class ),
+			$this->createMock( \Inc\Services\Exam\GuestResultSidebarService::class ),
+			$this->view,
+			$this->createMock( \Inc\Services\Exam\GuestPageResponder::class ),
+			$this->createMock( \Inc\Managers\Wp\PostManager::class )
+		);
 	}
 
 	protected function tearDown(): void {
@@ -108,7 +121,7 @@ class ExamReportPageTest extends TestCase {
 		$this->reportService->method( 'isOpen' )->willReturn( true );
 		$this->sessions->expects( self::once() )->method( 'openReport' )->willReturn( str_repeat( 'f', 64 ) );
 
-		$outcome = $this->cb->handleReportPage();
+		$outcome = $this->access->reportPage( (string) ( $_GET['k'] ?? '' ), '10.0.0.7' );
 
 		self::assertSame( GuestPageOutcome::REDIRECT, $outcome->kind );
 		self::assertStringNotContainsString( 'k=', $outcome->url );
@@ -120,7 +133,7 @@ class ExamReportPageTest extends TestCase {
 		// Ключ другого назначения (вход, результат) — exchange(Report, …) отвечает null.
 		$this->tokens->method( 'exchange' )->willReturn( null );
 		$this->rate->expects( self::atLeastOnce() )->method( 'registerInvitationFailure' );
-		self::assertSame( GuestPageOutcome::NOT_FOUND, $this->cb->handleReportPage()->kind );
+		self::assertSame( GuestPageOutcome::NOT_FOUND, $this->access->reportPage( (string) ( $_GET['k'] ?? '' ), '10.0.0.7' )->kind );
 
 		// Ключ верный, но отчёт отозван или истёк.
 		$this->tokens = $this->createMock( ExamAccessTokenService::class );
@@ -128,7 +141,7 @@ class ExamReportPageTest extends TestCase {
 		$reportService = $this->createMock( ExamReportService::class );
 		$reportService->method( 'isOpen' )->willReturn( false );
 		$this->reports->method( 'find' )->willReturn( $this->report() );
-		$cb = new ExamReportPageCallbacks( $this->view, new \Inc\Services\Exam\GuestPageAccessService(
+		$cb = new \Inc\Services\Exam\GuestPageAccessService(
 				$this->tokens,
 				$this->sessions,
 				$this->createMock( \Inc\Repositories\WPDBRepositories\ExamSourceRepository::class ),
@@ -144,16 +157,16 @@ class ExamReportPageTest extends TestCase {
 				$this->createMock( \Inc\Services\Exam\GuestResultViewService::class ),
 				$this->reports,
 				$reportService
-			) );
+			);
 		$this->sessions->expects( self::never() )->method( 'openReport' );
 
-		self::assertSame( GuestPageOutcome::NOT_FOUND, $cb->handleReportPage()->kind );
+		self::assertSame( GuestPageOutcome::NOT_FOUND, $cb->reportPage( (string) ( $_GET['k'] ?? '' ), '10.0.0.7' )->kind );
 	}
 
 	public function test_page_without_session_is_404(): void {
 		$this->sessions->method( 'currentReportId' )->willReturn( null );
 
-		self::assertSame( GuestPageOutcome::NOT_FOUND, $this->cb->handleReportPage()->kind );
+		self::assertSame( GuestPageOutcome::NOT_FOUND, $this->access->reportPage( (string) ( $_GET['k'] ?? '' ), '10.0.0.7' )->kind );
 		self::assertSame( '', $this->cb->renderReportPage() );
 	}
 

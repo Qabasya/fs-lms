@@ -20,32 +20,19 @@ use Inc\Shared\CodedException;
 use Inc\Shared\GuestFormException;
 use Inc\Shared\PluginLogger;
 use Inc\DTO\Exam\ExamSourceDTO;
-use Inc\DTO\Exam\GuestPageOutcome;
-use Inc\Enums\Wp\PageRoutes;
 use Inc\Services\Exam\ExamFormTrackingService;
 use Inc\Services\Exam\GuestSessionService;
-use Inc\Services\Exam\GuestSignupViewService;
 use Inc\Services\Exam\GuestPageAccessService;
 use Inc\Shared\Traits\RequestContextProvider;
 use Inc\Shared\Traits\Sanitizer;
-use Inc\Shared\Traits\TemplateRenderer;
 
-/**
- * Гостевая форма записи на экзамен (этап 11a): страница приглашения и её обработка.
- *
- * Страница открывается только по ссылке школы с ключом: ключ обменивается на сессионную куку и исчезает из адреса;
- * без действующей куки, с неверным, отозванным или чужим ключом — обычная 404 темы без сведений о проведении.
- * Успешные открытия лимитом не считаются (за общим адресом школы их десятки); неудачные — считаются (20 за 15 минут на IP).
- * Методы возвращают {@see GuestPageOutcome}; исполняет его контроллер через `GuestPageResponder` — логика проверяется без `exit`.
- */
+/** AJAX гостевой записи и проверки оплаты. Допуск к форме проверяется по сессии приглашения. */
 class GuestApplicationCallbacks extends BaseController {
 
 	use RequestContextProvider;
 	use Sanitizer;
-	use TemplateRenderer;
 
 	public function __construct(
-		private readonly GuestSignupViewService $view,
 		private readonly GuestApplicationService $applications,
 		private readonly WooExamAdapter $adapter,
 		private readonly ExamHoldService $holds,
@@ -58,29 +45,6 @@ class GuestApplicationCallbacks extends BaseController {
 		private readonly GuestPageAccessService $access,
 	) {
 		parent::__construct();
-	}
-
-	/** Обработка страницы формы: обмен ключа на куку (с редиректом на адрес без ключа) либо проверка куки. */
-	public function handleInvitationPage(): GuestPageOutcome {
-		return $this->access->invitationPage(
-			strtolower( trim( $this->sanitizeText( 'k', 'GET' ) ) ),
-			strtolower( trim( $this->sanitizeText( 'pay', 'GET' ) ) ),
-			$this->cookie( GuestSessionService::COOKIE_INVITATION ),
-			$this->requestContext()->ip,
-		);
-	}
-
-	/** Шорткод формы: HTML страницы для источника из куки; без источника — пусто (страница уже отдала 404). */
-	public function renderSignupPage(): string {
-		$source = $this->currentSource();
-		if ( null === $source ) {
-			return '';
-		}
-
-		ob_start();
-		$this->render( 'frontend/exam-signup', array_merge( $this->view->build( $source ), array( 'form_url' => PageRoutes::ExamSignup->url() ) ) );
-
-		return (string) ob_get_clean();
 	}
 
 	/**
@@ -190,15 +154,12 @@ class GuestApplicationCallbacks extends BaseController {
 	}
 
 	/** Источник по куке приглашения; null — куки нет, сессия отозвана, истекла или ссылка перевыпущена; источник отключён или отозван. */
-	public function currentSource(): ?ExamSourceDTO {
+	private function currentSource(): ?ExamSourceDTO {
 		return $this->access->currentSource( $this->cookie( GuestSessionService::COOKIE_INVITATION ) );
 	}
 
-
-
-
 	private function cookie( string $name ): string {
-		$value = isset( $_COOKIE[ $name ] ) ? sanitize_text_field( wp_unslash( (string) $_COOKIE[ $name ] ) ) : '';
+		$value = $this->sanitizeCookieText( $name );
 
 		return strtolower( $value );
 	}

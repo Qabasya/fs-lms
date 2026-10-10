@@ -50,6 +50,8 @@ class GuestApplicationCallbacksTest extends TestCase {
 	private \Inc\Services\Exam\ExamFormTrackingService&MockObject $formLog;
 	private GuestApplicationCallbacks $cb;
 
+	private \Inc\Services\Exam\GuestPageAccessService $access;
+
 	protected function setUp(): void {
 		parent::setUp();
 		fs_test_reset_ajax();
@@ -78,16 +80,12 @@ class GuestApplicationCallbacksTest extends TestCase {
 		$this->guard->method( 'isHuman' )->willReturnCallback( static fn ( string $hp ): bool => '' === $hp );
 		$this->woo->method( 'cartUrl' )->willReturn( 'https://example.test/cart/' );
 
-		$this->cb = new GuestApplicationCallbacks(
-			$this->createMock( GuestSignupViewService::class ), $this->applications, $this->adapter, $this->holds,
-			$this->guard, $this->woo, $time, $this->createMock( GuestOrderStatusService::class ),
-			$this->createMock( ExamPaymentReconciler::class ), $this->formLog,
-			new GuestPageAccessService( $this->tokens, $this->sessions, $this->sources, $this->rate, $this->adapter, $this->woo, $this->appRepo, $time, $this->formLog,
+		$this->access = new GuestPageAccessService( $this->tokens, $this->sessions, $this->sources, $this->rate, $this->adapter, $this->woo, $this->appRepo, $time, $this->formLog,
 				$this->createMock( \Inc\Repositories\WPDBRepositories\ExamParticipationRepository::class ), $this->createMock( \Inc\Repositories\WPDBRepositories\ExamRegistrationRepository::class ),
 				$this->createMock( \Inc\Repositories\WPDBRepositories\ExamSessionRepository::class ), $this->createMock( \Inc\Services\Exam\GuestResultViewService::class ),
 				$this->createMock( \Inc\Repositories\WPDBRepositories\ExamReportRepository::class ), $this->createMock( \Inc\Services\Exam\ExamReportService::class ),
-			),
-		);
+			);
+		$this->cb = new GuestApplicationCallbacks( $this->applications, $this->adapter, $this->holds, $this->guard, $this->woo, $time, $this->createMock( GuestOrderStatusService::class ), $this->createMock( ExamPaymentReconciler::class ), $this->formLog, $this->access );
 	}
 
 	protected function tearDown(): void {
@@ -122,7 +120,7 @@ class GuestApplicationCallbacksTest extends TestCase {
 		$this->sources->method( 'find' )->willReturn( $this->source() );
 		$this->sessions->expects( self::once() )->method( 'openInvitation' )->with( 14, 2 )->willReturn( 'COOKIEVALUE' );
 
-		$outcome = $this->cb->handleInvitationPage();
+		$outcome = $this->access->invitationPage( strtolower( trim( (string) ( $_GET['k'] ?? '' ) ) ), strtolower( trim( (string) ( $_GET['pay'] ?? '' ) ) ), (string) ( $_COOKIE[ GuestSessionService::COOKIE_INVITATION ] ?? '' ), '10.0.0.7' );
 
 		self::assertSame( GuestPageOutcome::REDIRECT, $outcome->kind );
 		self::assertStringNotContainsString( 'k=', $outcome->url );
@@ -134,17 +132,17 @@ class GuestApplicationCallbacksTest extends TestCase {
 		$this->tokens->method( 'exchange' )->willReturn( null );
 		$this->rate->expects( self::once() )->method( 'registerInvitationFailure' )->with( '10.0.0.7' );
 
-		self::assertSame( GuestPageOutcome::NOT_FOUND, $this->cb->handleInvitationPage()->kind );
+		self::assertSame( GuestPageOutcome::NOT_FOUND, $this->access->invitationPage( strtolower( trim( (string) ( $_GET['k'] ?? '' ) ) ), strtolower( trim( (string) ( $_GET['pay'] ?? '' ) ) ), (string) ( $_COOKIE[ GuestSessionService::COOKIE_INVITATION ] ?? '' ), '10.0.0.7' )->kind );
 	}
 
 	public function test_no_key_no_cookie_is_404(): void {
-		self::assertSame( GuestPageOutcome::NOT_FOUND, $this->cb->handleInvitationPage()->kind );
+		self::assertSame( GuestPageOutcome::NOT_FOUND, $this->access->invitationPage( strtolower( trim( (string) ( $_GET['k'] ?? '' ) ) ), strtolower( trim( (string) ( $_GET['pay'] ?? '' ) ) ), (string) ( $_COOKIE[ GuestSessionService::COOKIE_INVITATION ] ?? '' ), '10.0.0.7' )->kind );
 	}
 
 	public function test_valid_cookie_renders_page(): void {
 		$this->givenValidCookie();
 
-		self::assertSame( GuestPageOutcome::RENDER, $this->cb->handleInvitationPage()->kind );
+		self::assertSame( GuestPageOutcome::RENDER, $this->access->invitationPage( strtolower( trim( (string) ( $_GET['k'] ?? '' ) ) ), strtolower( trim( (string) ( $_GET['pay'] ?? '' ) ) ), (string) ( $_COOKIE[ GuestSessionService::COOKIE_INVITATION ] ?? '' ), '10.0.0.7' )->kind );
 	}
 
 	public function test_successful_openings_are_not_counted(): void {
@@ -154,7 +152,7 @@ class GuestApplicationCallbacksTest extends TestCase {
 		$this->sessions->method( 'openInvitation' )->willReturn( 'X' );
 		$this->rate->expects( self::never() )->method( 'registerInvitationFailure' );
 
-		$this->cb->handleInvitationPage();
+		$this->access->invitationPage( strtolower( trim( (string) ( $_GET['k'] ?? '' ) ) ), strtolower( trim( (string) ( $_GET['pay'] ?? '' ) ) ), (string) ( $_COOKIE[ GuestSessionService::COOKIE_INVITATION ] ?? '' ), '10.0.0.7' );
 	}
 
 	public function test_locked_ip_gets_404_even_with_valid_key(): void {
@@ -162,7 +160,7 @@ class GuestApplicationCallbacksTest extends TestCase {
 		$this->rate->method( 'isInvitationLocked' )->willReturn( true );
 		$this->tokens->expects( self::never() )->method( 'exchange' );
 
-		self::assertSame( GuestPageOutcome::NOT_FOUND, $this->cb->handleInvitationPage()->kind );
+		self::assertSame( GuestPageOutcome::NOT_FOUND, $this->access->invitationPage( strtolower( trim( (string) ( $_GET['k'] ?? '' ) ) ), strtolower( trim( (string) ( $_GET['pay'] ?? '' ) ) ), (string) ( $_COOKIE[ GuestSessionService::COOKIE_INVITATION ] ?? '' ), '10.0.0.7' )->kind );
 	}
 
 	public function test_revoked_source_with_valid_key_is_404(): void {
@@ -171,7 +169,7 @@ class GuestApplicationCallbacksTest extends TestCase {
 		$this->sources->method( 'find' )->willReturn( $this->source( array( 'key_revoked_at' => '2026-03-02 00:00:00' ) ) );
 		$this->sessions->expects( self::never() )->method( 'openInvitation' );
 
-		self::assertSame( GuestPageOutcome::NOT_FOUND, $this->cb->handleInvitationPage()->kind );
+		self::assertSame( GuestPageOutcome::NOT_FOUND, $this->access->invitationPage( strtolower( trim( (string) ( $_GET['k'] ?? '' ) ) ), strtolower( trim( (string) ( $_GET['pay'] ?? '' ) ) ), (string) ( $_COOKIE[ GuestSessionService::COOKIE_INVITATION ] ?? '' ), '10.0.0.7' )->kind );
 	}
 
 	// ── «Перейти к оплате» ────────────────────────────────────────────────────────────────────────
@@ -321,7 +319,7 @@ class GuestApplicationCallbacksTest extends TestCase {
 		$this->appRepo->method( 'find' )->willReturn( $this->application() );
 		$this->adapter->expects( self::once() )->method( 'addToCart' );
 
-		$outcome = $this->cb->handleInvitationPage();
+		$outcome = $this->access->invitationPage( strtolower( trim( (string) ( $_GET['k'] ?? '' ) ) ), strtolower( trim( (string) ( $_GET['pay'] ?? '' ) ) ), (string) ( $_COOKIE[ GuestSessionService::COOKIE_INVITATION ] ?? '' ), '10.0.0.7' );
 
 		self::assertSame( GuestPageOutcome::REDIRECT, $outcome->kind );
 		self::assertSame( 'https://example.test/cart/', $outcome->url );
@@ -334,7 +332,7 @@ class GuestApplicationCallbacksTest extends TestCase {
 		$this->adapter->expects( self::never() )->method( 'addToCart' );
 		$this->rate->expects( self::once() )->method( 'registerInvitationFailure' );
 
-		self::assertSame( GuestPageOutcome::NOT_FOUND, $this->cb->handleInvitationPage()->kind );
+		self::assertSame( GuestPageOutcome::NOT_FOUND, $this->access->invitationPage( strtolower( trim( (string) ( $_GET['k'] ?? '' ) ) ), strtolower( trim( (string) ( $_GET['pay'] ?? '' ) ) ), (string) ( $_COOKIE[ GuestSessionService::COOKIE_INVITATION ] ?? '' ), '10.0.0.7' )->kind );
 	}
 
 	public function test_pay_link_cart_failure_stays_neutral_and_is_logged(): void {
@@ -345,7 +343,7 @@ class GuestApplicationCallbacksTest extends TestCase {
 		$log = tempnam( sys_get_temp_dir(), 'exam-log-' );
 		$previous = ini_set( 'error_log', $log );
 		try {
-			self::assertSame( GuestPageOutcome::NOT_FOUND, $this->cb->handleInvitationPage()->kind );
+			self::assertSame( GuestPageOutcome::NOT_FOUND, $this->access->invitationPage( strtolower( trim( (string) ( $_GET['k'] ?? '' ) ) ), strtolower( trim( (string) ( $_GET['pay'] ?? '' ) ) ), (string) ( $_COOKIE[ GuestSessionService::COOKIE_INVITATION ] ?? '' ), '10.0.0.7' )->kind );
 			$content = (string) file_get_contents( $log );
 			self::assertStringContainsString( 'EXAMGUESTPAYMENT', $content );
 			self::assertStringContainsString( 'Cart unavailable', $content );
@@ -362,7 +360,7 @@ class GuestApplicationCallbacksTest extends TestCase {
 		$this->tokens->method( 'exchange' )->willReturn( null );
 		$this->adapter->expects( self::never() )->method( 'addToCart' );
 
-		self::assertSame( GuestPageOutcome::NOT_FOUND, $this->cb->handleInvitationPage()->kind );
+		self::assertSame( GuestPageOutcome::NOT_FOUND, $this->access->invitationPage( strtolower( trim( (string) ( $_GET['k'] ?? '' ) ) ), strtolower( trim( (string) ( $_GET['pay'] ?? '' ) ) ), (string) ( $_COOKIE[ GuestSessionService::COOKIE_INVITATION ] ?? '' ), '10.0.0.7' )->kind );
 	}
 
 	// ── Журнал формы (11a.2.7) ────────────────────────────────────────────────────────────────────
@@ -371,13 +369,13 @@ class GuestApplicationCallbacksTest extends TestCase {
 		$this->givenValidCookie();
 		$this->formLog->expects( self::once() )->method( 'opened' )->with( self::callback( static fn ( ExamSourceDTO $s ): bool => 14 === $s->id ) );
 
-		$this->cb->handleInvitationPage();
+		$this->access->invitationPage( strtolower( trim( (string) ( $_GET['k'] ?? '' ) ) ), strtolower( trim( (string) ( $_GET['pay'] ?? '' ) ) ), (string) ( $_COOKIE[ GuestSessionService::COOKIE_INVITATION ] ?? '' ), '10.0.0.7' );
 	}
 
 	public function test_page_without_session_is_not_logged_as_opened(): void {
 		$this->formLog->expects( self::never() )->method( 'opened' );
 
-		$this->cb->handleInvitationPage();
+		$this->access->invitationPage( strtolower( trim( (string) ( $_GET['k'] ?? '' ) ) ), strtolower( trim( (string) ( $_GET['pay'] ?? '' ) ) ), (string) ( $_COOKIE[ GuestSessionService::COOKIE_INVITATION ] ?? '' ), '10.0.0.7' );
 	}
 
 	public function test_field_error_is_logged_with_field_name_only(): void {
