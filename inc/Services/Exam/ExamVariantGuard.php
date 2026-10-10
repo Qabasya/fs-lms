@@ -97,7 +97,7 @@ class ExamVariantGuard {
 
 	/** Вложение используется заданием замороженного варианта: прикреплено к нему или упоминается в его данных. */
 	public function isAttachmentFrozen( int $attachmentId ): bool {
-		$parent = (int) ( $this->posts->get( $attachmentId )?->post_parent ?? 0 );
+		$parent = (int) ( $this->posts->get( $attachmentId )->post_parent ?? 0 );
 		if ( $parent > 0 && $this->isPostFrozen( $parent ) ) {
 			return true;
 		}
@@ -176,7 +176,7 @@ class ExamVariantGuard {
 		$event = $this->events->find( $eventId );
 		$ids   = $event?->snapshotFor( $assessmentId )['task_ids'] ?? null;
 		if ( ! is_array( $ids ) ) {
-			$ids = $this->assessments->get( $assessmentId )?->taskIds ?? array();
+			$ids = $this->assessments->get( $assessmentId )->taskIds ?? array();
 		}
 
 		return array_values( array_filter( array_map( 'intval', $ids ) ) );

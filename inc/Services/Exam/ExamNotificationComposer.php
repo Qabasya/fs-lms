@@ -187,7 +187,7 @@ class ExamNotificationComposer {
 	private function registrationConfirmed( ExamOutboxEventDTO $row, array $p ): void {
 		$registration = $this->registrations->find( $row->aggregateId );
 		$session      = $this->sessions->find( (int) ( $p['session_id'] ?? 0 ) );
-		$this->toStudent( NotificationType::ExamRegistrationConfirmed, $row, 'registration_confirmed', (int) ( $p['participation_id'] ?? $registration?->participationId ?? 0 ), $session );
+		$this->toStudent( NotificationType::ExamRegistrationConfirmed, $row, 'registration_confirmed', (int) ( $p['participation_id'] ?? $registration->participationId ?? 0 ), $session );
 	}
 
 	/** @param array<string, mixed> $p */

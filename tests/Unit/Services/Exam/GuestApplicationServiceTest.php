@@ -111,7 +111,7 @@ class GuestApplicationServiceTest extends TestCase {
 		$identity = new GuestIdentity( $this->crypto );
 
 		return new GuestApplicationService(
-			$this->applications, $this->participants, $this->participations, $this->events, $this->sessions, $this->holds, $identity, $this->crypto, $this->consents,
+			$this->applications, $this->participants, $this->participations, $this->events, $this->sessions, $this->holds, $identity, $this->consents,
 			$this->config, $this->outbox, $this->rate, $this->users,
 			new GuestParticipantMaterializer( $this->participants, $this->crypto, $identity, $this->createStub( \Inc\Services\Exam\ExamTime::class ) ),
 			$this->guard,

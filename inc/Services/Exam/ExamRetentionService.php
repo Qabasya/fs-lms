@@ -13,7 +13,6 @@ use Inc\Enums\Log\LogEvent;
 use Inc\Enums\Log\OperationType;
 use Inc\Managers\Wp\MediaManager;
 use Inc\Repositories\WPDBRepositories\AssessmentAnswerRepository;
-use Inc\Repositories\WPDBRepositories\AssessmentAttemptRepository;
 use Inc\Repositories\WPDBRepositories\ExamAccessTokenRepository;
 use Inc\Repositories\WPDBRepositories\ExamEventRepository;
 use Inc\Repositories\WPDBRepositories\ExamGuestApplicationRepository;
@@ -53,7 +52,6 @@ class ExamRetentionService {
 		private readonly ExamParticipantRepository $participants,
 		private readonly ExamParticipationRepository $participations,
 		private readonly ExamGuestApplicationRepository $applications,
-		private readonly AssessmentAttemptRepository $attempts,
 		private readonly AssessmentAnswerRepository $answers,
 		private readonly ExamAccessTokenService $tokens,
 		private readonly ExamAccessTokenRepository $tokenRows,

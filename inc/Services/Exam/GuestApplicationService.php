@@ -23,7 +23,6 @@ use Inc\Repositories\WPDBRepositories\ExamParticipantRepository;
 use Inc\Repositories\WPDBRepositories\ExamParticipationRepository;
 use Inc\Repositories\WPDBRepositories\ExamSessionRepository;
 use Inc\Services\Person\ConsentService;
-use Inc\Services\Security\PiiCryptoService;
 use Inc\Services\Security\RateLimitService;
 use Inc\Services\Shared\PluginConfig;
 use Inc\Shared\CodedException;
@@ -61,7 +60,6 @@ class GuestApplicationService {
 		private readonly ExamSessionRepository $sessions,
 		private readonly ExamHoldService $holds,
 		private readonly GuestIdentity $identity,
-		private readonly PiiCryptoService $crypto,
 		private readonly ConsentService $consents,
 		private readonly PluginConfig $config,
 		private readonly ExamOutbox $outbox,

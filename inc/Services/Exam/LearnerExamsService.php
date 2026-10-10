@@ -174,7 +174,7 @@ class LearnerExamsService {
 			'period_to'              => $event->periodTo,
 			'registration_opens_at'  => null !== $event->registrationOpensAt ? $this->time->toLocal( $event->registrationOpensAt ) : null,
 			'registration_closes_at' => null !== $event->registrationClosesAt ? $this->time->toLocal( $event->registrationClosesAt ) : null,
-			'registration'           => null !== $registration && null !== $session && null !== $participation ? $this->registrationBlock( $registration, $session, $participation ) : null,
+			'registration'           => null !== $registration && null !== $session ? $this->registrationBlock( $registration, $session, $participation ) : null,
 			'last_reason'            => $this->lastReason( $event, $last ),
 			'previous_date'          => null !== $lastSession && ExamRegistrationStatus::Missed->value === $last->status ? $this->local( $lastSession->scheduledAt )['date'] : null,
 			'sessions'               => $futureList,

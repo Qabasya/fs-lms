@@ -88,7 +88,7 @@ class ExamRetentionServiceTest extends TestCase {
 		$time->method( 'addMinutes' )->willReturnCallback( static fn ( string $d, int $m ): string => gmdate( 'Y-m-d H:i:s', strtotime( $d . ' UTC' ) + $m * 60 ) );
 
 		$this->service = new ExamRetentionService(
-			$this->participants, $this->participations, $this->applications, $this->createMock( AssessmentAttemptRepository::class ), $this->answers,
+			$this->participants, $this->participations, $this->applications, $this->answers,
 			$this->tokens, $this->tokenRows, $this->sessionRows, $this->sessions, $this->outbox, $this->media, $config, $this->log,
 			new ExamTickLock( $this->createMock( \Inc\Repositories\WPDBRepositories\ExamLockRepository::class ) ), $time, $this->events, $this->guard
 		);

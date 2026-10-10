@@ -81,7 +81,7 @@ class ExamPlanService {
 			'guest_registration_enabled' => $event->guestRegistrationEnabled,
 			'default_assessment_id'      => (int) $event->defaultAssessmentId,
 			'owner_user_id'              => $event->ownerUserId,
-			'owner_name'                 => (string) ( $this->users->find( $event->ownerUserId )?->display_name ?? '' ),
+			'owner_name'                 => (string) ( $this->users->find( $event->ownerUserId )->display_name ?? '' ),
 			'sessions'                   => array_map(
 				fn ( ExamSessionDTO $session ): array => $this->sessionPayload( $session, $titles ),
 				$this->sessions->findByEvent( $event->id )

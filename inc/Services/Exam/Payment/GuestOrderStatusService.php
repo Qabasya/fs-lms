@@ -68,7 +68,7 @@ class GuestOrderStatusService {
 				return array(
 					'state'   => $state,
 					'title'   => 'Оплата получена, запись пока не подтверждена. Сотрудник свяжется с вами.',
-					'lines'   => array_values( array_filter( array( sprintf( 'Номер заказа: %d.', $orderId ), $phone ) ) ),
+					'lines'   => array_filter( array( sprintf( 'Номер заказа: %d.', $orderId ), $phone ) ),
 					'refresh' => false,
 				);
 			case GuestApplicationState::ExpiredUnpaid->value:
@@ -106,9 +106,9 @@ class GuestOrderStatusService {
 		$start = $this->time->toLocal( $session->scheduledAt );
 		$room  = $this->rooms->find( $session->roomId )->name ?? '';
 
-		return array_values( array_filter( array(
+		return array_filter( array(
 			sprintf( '%s, %s', gmdate( 'd.m.Y', (int) strtotime( substr( $start, 0, 10 ) . ' UTC' ) ), substr( $start, 11, 5 ) ),
 			trim( $this->contacts->addressWithoutRoom() . ( '' !== $room ? ', каб. ' . $room : '' ) ),
-		) ) );
+		) );
 	}
 }

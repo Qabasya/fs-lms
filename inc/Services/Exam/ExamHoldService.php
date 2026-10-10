@@ -15,7 +15,6 @@ use Inc\Repositories\WPDBRepositories\DuplicateKeyException;
 use Inc\Repositories\WPDBRepositories\ExamEventRepository;
 use Inc\Repositories\WPDBRepositories\ExamGuestApplicationRepository;
 use Inc\Repositories\WPDBRepositories\ExamManualResolutionRepository;
-use Inc\Repositories\WPDBRepositories\ExamParticipantRepository;
 use Inc\Repositories\WPDBRepositories\ExamParticipationRepository;
 use Inc\Repositories\WPDBRepositories\ExamSessionRepository;
 use Inc\Shared\CodedException;
@@ -45,7 +44,6 @@ class ExamHoldService {
 		private readonly ExamGuestApplicationRepository $applications,
 		private readonly ExamSessionRepository $sessions,
 		private readonly ExamEventRepository $events,
-		private readonly ExamParticipantRepository $participants,
 		private readonly ExamRegistrationService $registrations,
 		private readonly ExamOutbox $outbox,
 		private readonly ExamTime $time,

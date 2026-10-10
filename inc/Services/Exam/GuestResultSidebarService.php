@@ -35,7 +35,7 @@ class GuestResultSidebarService {
 	/**
 	 * @param list<array<string, mixed>> $units Единицы оценивания результата (`number`, `status`, `score`, `max`).
 	 *
-	 * @return array{courses: array<int, \Inc\DTO\Course\CourseCardDTO>, articles: list<array<string, string>>, articles_url: string}
+	 * @return array{courses: array<int, \Inc\DTO\Course\CourseCardDTO>, articles: list<array{id: int, title: string, url: string, excerpt: string, thumbnail: string}>, articles_url: string}
 	 */
 	public function build( string $subjectKey, array $units, int $participationId ): array {
 		if ( '' === $subjectKey ) {

@@ -113,7 +113,6 @@ class ExamConductServiceTest extends TestCase {
 			$this->time,
 			$this->createMock( ExamReviewProjection::class ),
 			$this->tokens,
-			$this->guestData,
 			$this->config,
 			$this->logEvents,
 		);
@@ -241,7 +240,6 @@ class ExamConductServiceTest extends TestCase {
 			$this->time,
 			$this->createMock( ExamReviewProjection::class ),
 			$this->tokens,
-			$this->guestData,
 			$this->config,
 			$this->logEvents,
 		);

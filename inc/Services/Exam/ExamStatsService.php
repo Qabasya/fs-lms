@@ -57,7 +57,7 @@ class ExamStatsService {
 	) {}
 
 	/**
-	 * @param array{subject_key: string, event_id?: int, session_id?: int, audience?: string} $filters
+	 * @param array{subject_key?: string, event_id?: int, session_id?: int, audience?: string} $filters
 	 *
 	 * @return array{filters: array<string, mixed>, format: ?array<string, mixed>, kpi: array<string, mixed>, tasks: list<array<string, mixed>>}
 	 *
@@ -128,8 +128,7 @@ class ExamStatsService {
 				if ( '' === $number ) {
 					continue; // задание без номера в единицы формата не входит
 				}
-				$row   = &$rows[ $number ];
-				$row ??= array(
+				$row = $rows[ $number ] ?? array(
 'number'     => $number,
 'max'        => 0.0,
 'total'      => 0,
@@ -150,12 +149,12 @@ class ExamStatsService {
 					$row['sum'] += (float) $unit['score'];
 					++$row['scored'];
 				}
-				unset( $row );
+				$rows[ $number ] = $row;
 			}
 		}
 
 		// Номера формата без единой работы показываются нулями: таблица всегда полная.
-		$unitCount = $this->formatFor( $event, $attempts[0] ?? null )?->unitCount ?? 0;
+		$unitCount = $this->formatFor( $event, $attempts[0] ?? null )->unitCount ?? 0;
 		for ( $n = 1; $n <= $unitCount; $n++ ) {
 			$rows[ (string) $n ] ??= array(
 'number'     => (string) $n,
@@ -170,7 +169,7 @@ class ExamStatsService {
 'scored'     => 0
 );
 		}
-		uksort( $rows, static fn ( string $a, string $b ): int => (int) $a <=> (int) $b );
+		uksort( $rows, static fn ( int|string $a, int|string $b ): int => (int) $a <=> (int) $b );
 
 		return array_values( array_map(
 			static fn ( array $r ): array => array(
@@ -216,7 +215,7 @@ class ExamStatsService {
 				// Сеанс участия: у попытки — сеанс её записи, иначе сеанс последней (в том числе пропущенной) записи.
 				$sessionOf = null !== $attempt && null !== $attempt->examRegistrationId
 					? $this->registrationSession( $history, $attempt->examRegistrationId )
-					: ( $last?->sessionId ?? 0 );
+					: ( $last->sessionId ?? 0 );
 				if ( $sessionOf !== $sessionId ) {
 					continue;
 				}
@@ -306,7 +305,7 @@ class ExamStatsService {
 				'primary_max'   => $summary['primary_max'],
 				'secondary_max' => $summary['secondary_max'],
 				'grade_max'     => $summary['grade_max'],
-				'unit_count'    => $this->formatFor( $row['event'], $attempt )?->unitCount ?? 0,
+				'unit_count'    => $this->formatFor( $row['event'], $attempt )->unitCount ?? 0,
 			);
 			$primary[] = (float) $summary['primary'];
 			if ( ExamDirection::Ege->value === $direction && null !== $summary['secondary'] ) {
@@ -385,9 +384,9 @@ class ExamStatsService {
 		foreach ( $assessment->taskIds as $taskId ) {
 			$taskId  = (int) $taskId;
 			$answer  = $answers[ $taskId ] ?? null;
-			$score   = $answer?->score ?? ( null === $answer ? 0.0 : null );
-			$max     = $answer?->maxScore ?? ( null === $answer ? ( $assessment->taskPoints[ $taskId ] ?? null ) : null );
-			$empty   = '' === trim( (string) ( $answer?->answerText ?? '' ) );
+			$score   = $answer->score ?? ( null === $answer ? 0.0 : null );
+			$max     = $answer->maxScore ?? ( null === $answer ? ( $assessment->taskPoints[ $taskId ] ?? null ) : null );
+			$empty   = '' === trim( (string) ( $answer->answerText ?? '' ) );
 			$unitKey = $keys[ $taskId ] ?? 't:' . $taskId;
 
 			$tasks[] = array(

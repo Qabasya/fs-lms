@@ -46,7 +46,6 @@ class ExamConductService {
 		private readonly ExamTime $time,
 		private readonly ExamReviewProjection $reviews,
 		private readonly ExamAccessTokenService $tokens,
-		private readonly GuestParticipantMaterializer $guestData,
 		private readonly PluginConfig $config,
 		private readonly LogEventDispatcherInterface $logEvents,
 	) {}
