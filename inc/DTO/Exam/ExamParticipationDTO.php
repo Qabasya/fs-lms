@@ -1,4 +1,9 @@
 <?php
+/**
+ * Участие в проведении, объединяющее историю записей и единственную текущую попытку.
+ *
+ * @package FS_LMS
+ */
 
 declare( strict_types=1 );
 
@@ -7,6 +12,7 @@ namespace Inc\DTO\Exam;
 /** Участие в проведении, объединяющее историю записей и единственную текущую попытку. */
 readonly class ExamParticipationDTO {
 
+	/** Принимает типизированные поля без обращения к хранилищу. */
 	public function __construct(
 		public int $id,
 		public int $eventId,
@@ -24,6 +30,7 @@ readonly class ExamParticipationDTO {
 		public string $updatedAt,
 	) {}
 
+	/** Восстанавливает типы полей из строки репозитория. */
 	public static function fromArray( array $row ): self {
 		return new self(
 			id                  : (int) $row['id'],

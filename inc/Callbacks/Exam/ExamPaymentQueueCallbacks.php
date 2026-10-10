@@ -1,4 +1,9 @@
 <?php
+/**
+ * AJAX очереди «Оплачено, требуется помощь» (этап 8.8.3).
+ *
+ * @package FS_LMS
+ */
 
 declare( strict_types=1 );
 

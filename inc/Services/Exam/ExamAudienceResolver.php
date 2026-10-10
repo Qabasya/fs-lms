@@ -1,4 +1,9 @@
 <?php
+/**
+ * Резолвер аудитории проведения экзамена.
+ *
+ * @package FS_LMS
+ */
 
 declare( strict_types=1 );
 

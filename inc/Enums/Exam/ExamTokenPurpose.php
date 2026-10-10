@@ -1,4 +1,11 @@
-<?php declare( strict_types=1 );
+<?php
+/**
+ * Назначения ключей доступа: ключ принимается только на своём маршруте.
+ *
+ * @package FS_LMS
+ */
+
+declare( strict_types=1 );
 
 namespace Inc\Enums\Exam;
 
@@ -9,6 +16,7 @@ enum ExamTokenPurpose: string {
 	case Report     = 'report';
 	case Payment    = 'payment';
 
+	/** Подпись состояния для интерфейса без изменения сохраняемого значения. */
 	public function label(): string {
 		return match ( $this ) {
 			self::Invitation => 'Приглашение',

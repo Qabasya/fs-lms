@@ -1,4 +1,9 @@
 <?php
+/**
+ * AJAX экзаменов в кабинете ученика и родителя.
+ *
+ * @package FS_LMS
+ */
 
 declare( strict_types=1 );
 

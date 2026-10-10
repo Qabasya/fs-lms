@@ -1,4 +1,9 @@
 <?php
+/**
+ * Сеанс гостевого доступа: хеш секретного ключа и ограниченная область действия, без открытого токена.
+ *
+ * @package FS_LMS
+ */
 
 declare( strict_types=1 );
 
@@ -7,6 +12,7 @@ namespace Inc\DTO\Exam;
 /** Сеанс гостевого доступа: хеш секретного ключа и ограниченная область действия, без открытого токена. */
 readonly class ExamGuestSessionDTO {
 
+	/** Принимает типизированные поля без обращения к хранилищу. */
 	public function __construct(
 		public int $id,
 		public string $cookieHash,
@@ -21,6 +27,7 @@ readonly class ExamGuestSessionDTO {
 		public ?string $revokedAt,
 	) {}
 
+	/** Восстанавливает типы полей из строки репозитория. */
 	public static function fromArray( array $row ): self {
 		return new self(
 			id             : (int) $row['id'],

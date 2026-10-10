@@ -1,4 +1,9 @@
 <?php
+/**
+ * Членство участия в отчёте; само по себе не раскрывает результат или контакты гостя.
+ *
+ * @package FS_LMS
+ */
 
 declare( strict_types=1 );
 
@@ -7,6 +12,7 @@ namespace Inc\DTO\Exam;
 /** Членство участия в отчёте; само по себе не раскрывает результат или контакты гостя. */
 readonly class ExamReportMemberDTO {
 
+	/** Принимает типизированные поля без обращения к хранилищу. */
 	public function __construct(
 		public int $id,
 		public int $reportId,
@@ -15,6 +21,7 @@ readonly class ExamReportMemberDTO {
 		public string $createdAt,
 	) {}
 
+	/** Восстанавливает типы полей из строки репозитория. */
 	public static function fromArray( array $row ): self {
 		return new self(
 			id             : (int) $row['id'],

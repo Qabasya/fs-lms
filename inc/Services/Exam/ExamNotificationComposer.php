@@ -1,4 +1,9 @@
 <?php
+/**
+ * Превращает событие outbox в уведомления ленты кабинета (этап 9).
+ *
+ * @package FS_LMS
+ */
 
 declare( strict_types=1 );
 

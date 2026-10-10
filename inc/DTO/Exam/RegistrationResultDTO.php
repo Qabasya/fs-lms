@@ -1,4 +1,9 @@
 <?php
+/**
+ * Итог операции с записью. Хранится в `exam_operation_keys.result_ref` для повторного ответа по ключу.
+ *
+ * @package FS_LMS
+ */
 
 declare( strict_types=1 );
 
@@ -10,6 +15,8 @@ use Inc\Enums\Exam\ExamRegistrationStatus;
 readonly class RegistrationResultDTO {
 
 	/**
+	 * Фиксирует результат записи и предупреждения для повторяемого ответа.
+	 *
 	 * @param string[] $warnings Предупреждения, не отменяющие запись (например, `lesson_overlap`).
 	 */
 	public function __construct(
@@ -22,11 +29,14 @@ readonly class RegistrationResultDTO {
 		public array $warnings = array(),
 	) {}
 
+	/** Помечает повтор без изменения исходных идентификаторов, статуса и предупреждений. */
 	public function asReplayed(): self {
 		return new self( $this->registrationId, $this->participationId, $this->sessionId, $this->status, $this->freeSeats, true, $this->warnings );
 	}
 
 	/**
+	 * Сериализует результат для ключа идемпотентности и AJAX.
+	 *
 	 * @return array<string, mixed>
 	 */
 	public function toArray(): array {
@@ -42,6 +52,8 @@ readonly class RegistrationResultDTO {
 	}
 
 	/**
+	 * Восстанавливает ранее сохранённый результат операции.
+	 *
 	 * @param array<string, mixed> $data
 	 */
 	public static function fromArray( array $data ): self {

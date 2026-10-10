@@ -1,4 +1,11 @@
-<?php declare( strict_types=1 );
+<?php
+/**
+ * Типы событий экзаменного outbox для повторяемой доставки.
+ *
+ * @package FS_LMS
+ */
+
+declare( strict_types=1 );
 
 namespace Inc\Enums\Exam;
 
@@ -22,6 +29,7 @@ enum ExamOutboxEvent: string {
 	case ReconcileFailed         = 'reconcile_failed';
 	case SourceLimitExceeded     = 'source_limit_exceeded';
 
+	/** Подпись состояния для интерфейса без изменения сохраняемого значения. */
 	public function label(): string {
 		return match ( $this ) {
 			self::EventPublished => 'Проведение опубликовано',

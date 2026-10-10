@@ -1,4 +1,9 @@
 <?php
+/**
+ * AJAX завершения гостевого сеанса после сдачи экзамена.
+ *
+ * @package FS_LMS
+ */
 
 declare( strict_types=1 );
 

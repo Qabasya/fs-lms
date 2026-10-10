@@ -1,4 +1,11 @@
-<?php declare( strict_types=1 );
+<?php
+/**
+ * Виды ручного решения конфликтов регистрации и оплаты.
+ *
+ * @package FS_LMS
+ */
+
+declare( strict_types=1 );
 
 namespace Inc\Enums\Exam;
 
@@ -8,6 +15,7 @@ enum ManualResolutionKind: string {
 	case RefundedOutside = 'refunded_outside';
 	case Other           = 'other';
 
+	/** Подпись состояния для интерфейса без изменения сохраняемого значения. */
 	public function label(): string {
 		return match ( $this ) {
 			self::Pending => 'Ожидание',

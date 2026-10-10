@@ -1,4 +1,9 @@
 <?php
+/**
+ * Сеанс проведения: расписание, площадка, вместимость и счётчики занятых мест.
+ *
+ * @package FS_LMS
+ */
 
 declare( strict_types=1 );
 
@@ -7,6 +12,7 @@ namespace Inc\DTO\Exam;
 /** Сеанс проведения: расписание, площадка, вместимость и счётчики занятых мест. */
 readonly class ExamSessionDTO {
 
+	/** Принимает типизированные поля без обращения к хранилищу. */
 	public function __construct(
 		public int $id,
 		public int $eventId,
@@ -25,6 +31,7 @@ readonly class ExamSessionDTO {
 		public string $updatedAt,
 	) {}
 
+	/** Восстанавливает типы полей из строки репозитория. */
 	public static function fromArray( array $row ): self {
 		return new self(
 			id                  : (int) $row['id'],

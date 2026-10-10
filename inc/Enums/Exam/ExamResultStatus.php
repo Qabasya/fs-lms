@@ -1,4 +1,9 @@
 <?php
+/**
+ * Вычисляемое состояние работы в представлении сотрудника; значения ответа сохранены.
+ *
+ * @package FS_LMS
+ */
 
 declare( strict_types=1 );
 
@@ -11,6 +16,7 @@ enum ExamResultStatus: string {
 	case Ready         = 'ready';
 	case Approved      = 'approved';
 
+	/** Подпись состояния для интерфейса без изменения сохраняемого значения. */
 	public function label( ExamAudience $audience ): string {
 		return match ( $this ) {
 			self::None => 'Нет работы',

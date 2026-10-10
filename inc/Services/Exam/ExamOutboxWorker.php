@@ -1,4 +1,9 @@
 <?php
+/**
+ * Доставка событий outbox в ленту уведомлений (9.2.4).
+ *
+ * @package FS_LMS
+ */
 
 declare( strict_types=1 );
 

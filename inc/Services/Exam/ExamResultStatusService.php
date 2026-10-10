@@ -1,4 +1,9 @@
 <?php
+/**
+ * Единое вычисление состояния работы для доски, проверки и результатов.
+ *
+ * @package FS_LMS
+ */
 
 declare( strict_types=1 );
 
@@ -13,6 +18,7 @@ use Inc\Repositories\WPDBRepositories\AssessmentAnswerRepository;
 /** Единое вычисление состояния работы для доски, проверки и результатов. */
 class ExamResultStatusService {
 
+	/** Получает проверку незавершённых ответов без загрузки полного разбора. */
 	public function __construct(
 		private readonly AssessmentAnswerRepository $answers,
 	) {}

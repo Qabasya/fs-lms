@@ -73,4 +73,4 @@ DI проверяется на настоящем WordPress: новый Containe
 
 ## Оставшиеся проверки
 
-PHPCS ещё не пройден. FSE и валидные гостевые маршруты проверены в Chrome, форма/результат — desktop/mobile. Остаются persisted bfcache, валидная строка школьного отчёта, кабинет desktop/mobile и полный HTTP-рендер на обычной теме; ThemeCompat header/footer проверены отдельно на временной классической теме. Эти ограничения остаются в REFACTOR_PROGRESS.md. Зелёный PHPStan/ PHPUnit не заменяет их.
+PHPCS ещё не пройден: 599 errors / 8 warnings после описания файлов и контрактов DTO/enum. Исполняемые токены 103 файлов не изменились; PHPStan и полный PHPUnit повторно пройдены. FSE и валидные гостевые маршруты проверены в Chrome, форма/результат — desktop/mobile. Остаются persisted bfcache, валидная строка школьного отчёта, кабинет desktop/mobile и полный HTTP-рендер на обычной теме; ThemeCompat header/footer проверены отдельно на временной классической теме. Эти ограничения остаются в REFACTOR_PROGRESS.md. Зелёный PHPStan/ PHPUnit не заменяет их.

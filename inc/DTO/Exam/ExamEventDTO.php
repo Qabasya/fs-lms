@@ -1,4 +1,9 @@
 <?php
+/**
+ * Проведение официального экзамена с периодом записи и снимком опубликованных вариантов.
+ *
+ * @package FS_LMS
+ */
 
 declare( strict_types=1 );
 
@@ -7,6 +12,7 @@ namespace Inc\DTO\Exam;
 /** Проведение официального экзамена с периодом записи и снимком опубликованных вариантов. */
 readonly class ExamEventDTO {
 
+	/** Принимает типизированные поля без обращения к хранилищу. */
 	public function __construct(
 		public int $id,
 		public string $subjectKey,
@@ -30,6 +36,7 @@ readonly class ExamEventDTO {
 		public string $updatedAt,
 	) {}
 
+	/** Восстанавливает типы полей из строки репозитория. */
 	public static function fromArray( array $row ): self {
 		return new self(
 			id                      : (int) $row['id'],

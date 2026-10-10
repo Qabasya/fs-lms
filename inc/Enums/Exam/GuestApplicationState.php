@@ -1,4 +1,11 @@
-<?php declare( strict_types=1 );
+<?php
+/**
+ * Сохраняемые состояния гостевой заявки.
+ *
+ * @package FS_LMS
+ */
+
+declare( strict_types=1 );
 
 namespace Inc\Enums\Exam;
 
@@ -13,6 +20,7 @@ enum GuestApplicationState: string {
 	case Cancelled           = 'cancelled';
 	case Missed              = 'missed';
 
+	/** Подпись состояния для интерфейса без изменения сохраняемого значения. */
 	public function label(): string {
 		return match ( $this ) {
 			self::Hold => 'Место удерживается',

@@ -1,4 +1,9 @@
 <?php
+/**
+ * Контекст участника для старта попытки экзамена (6.1).
+ *
+ * @package FS_LMS
+ */
 
 declare( strict_types=1 );
 
@@ -14,6 +19,7 @@ use Inc\Enums\Exam\ExamAudience;
  */
 readonly class AttemptContext {
 
+	/** Принимает типизированные поля без обращения к хранилищу. */
 	public function __construct(
 		public ExamAudience $audience,
 		public int $participationId,

@@ -1,4 +1,9 @@
 <?php
+/**
+ * Личность участника: ссылка на ученика либо зашифрованные данные гостя и отметка обезличивания.
+ *
+ * @package FS_LMS
+ */
 
 declare( strict_types=1 );
 
@@ -7,6 +12,7 @@ namespace Inc\DTO\Exam;
 /** Личность участника: ссылка на ученика либо зашифрованные данные гостя и отметка обезличивания. */
 readonly class ExamParticipantDTO {
 
+	/** Принимает типизированные поля без обращения к хранилищу. */
 	public function __construct(
 		public int $id,
 		public ?int $personId,
@@ -23,6 +29,7 @@ readonly class ExamParticipantDTO {
 		public string $updatedAt,
 	) {}
 
+	/** Восстанавливает типы полей из строки репозитория. */
 	public static function fromArray( array $row ): self {
 		return new self(
 			id            : (int) $row['id'],

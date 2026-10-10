@@ -1,4 +1,9 @@
 <?php
+/**
+ * Хеши личности гостя без состояния (этап 11a.1.1).
+ *
+ * @package FS_LMS
+ */
 
 declare( strict_types=1 );
 

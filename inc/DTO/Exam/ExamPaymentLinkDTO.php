@@ -1,4 +1,9 @@
 <?php
+/**
+ * Связь заявки с позицией заказа WooCommerce для идемпотентного подтверждения оплаты.
+ *
+ * @package FS_LMS
+ */
 
 declare( strict_types=1 );
 
@@ -7,6 +12,7 @@ namespace Inc\DTO\Exam;
 /** Связь заявки с позицией заказа WooCommerce для идемпотентного подтверждения оплаты. */
 readonly class ExamPaymentLinkDTO {
 
+	/** Принимает типизированные поля без обращения к хранилищу. */
 	public function __construct(
 		public int $id,
 		public int $applicationId,
@@ -21,6 +27,7 @@ readonly class ExamPaymentLinkDTO {
 		public string $updatedAt,
 	) {}
 
+	/** Восстанавливает типы полей из строки репозитория. */
 	public static function fromArray( array $row ): self {
 		return new self(
 			id                  : (int) $row['id'],

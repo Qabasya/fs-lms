@@ -1,4 +1,9 @@
 <?php
+/**
+ * Исполняет {@see GuestPageOutcome}: заголовки гостевых страниц, куки, редирект, 404 темы.
+ *
+ * @package FS_LMS
+ */
 
 declare( strict_types=1 );
 
@@ -39,6 +44,8 @@ class GuestPageResponder {
 	}
 
 	/**
+	 * Исполняет транспорт исхода; для рендера оставляет управление контроллеру.
+	 *
 	 * @return bool true — исход исполнен и выполнение прервано (редирект/404 выходят из скрипта); false — страницу нужно отрисовать.
 	 */
 	public function apply( GuestPageOutcome $outcome ): bool {

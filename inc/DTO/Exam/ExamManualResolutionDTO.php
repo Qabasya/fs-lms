@@ -1,4 +1,9 @@
 <?php
+/**
+ * История ручного урегулирования оплаченной заявки; не выполняет возврат через магазин.
+ *
+ * @package FS_LMS
+ */
 
 declare( strict_types=1 );
 
@@ -7,6 +12,7 @@ namespace Inc\DTO\Exam;
 /** История ручного урегулирования оплаченной заявки; не выполняет возврат через магазин. */
 readonly class ExamManualResolutionDTO {
 
+	/** Принимает типизированные поля без обращения к хранилищу. */
 	public function __construct(
 		public int $id,
 		public ?int $applicationId,
@@ -20,6 +26,7 @@ readonly class ExamManualResolutionDTO {
 		public string $createdAt,
 	) {}
 
+	/** Восстанавливает типы полей из строки репозитория. */
 	public static function fromArray( array $row ): self {
 		return new self(
 			id              : (int) $row['id'],

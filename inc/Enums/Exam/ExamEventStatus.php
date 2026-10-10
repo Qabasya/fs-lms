@@ -1,4 +1,11 @@
-<?php declare( strict_types=1 );
+<?php
+/**
+ * Сохраняемые состояния проведения экзамена.
+ *
+ * @package FS_LMS
+ */
+
+declare( strict_types=1 );
 
 namespace Inc\Enums\Exam;
 
@@ -8,6 +15,7 @@ enum ExamEventStatus: string {
 	case Completed = 'completed';
 	case Cancelled = 'cancelled';
 
+	/** Подпись состояния для интерфейса без изменения сохраняемого значения. */
 	public function label(): string {
 		return match ( $this ) {
 			self::Draft => 'Черновик',

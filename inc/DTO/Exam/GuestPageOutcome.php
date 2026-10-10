@@ -1,4 +1,9 @@
 <?php
+/**
+ * Результат обработки гостевой страницы (приглашение, вход, результат): что сделать с ответом.
+ *
+ * @package FS_LMS
+ */
 
 declare( strict_types=1 );
 
@@ -16,6 +21,8 @@ readonly class GuestPageOutcome {
 	public const NOT_FOUND = 'not_found';
 
 	/**
+	 * Принимает исход страницы и изменения сессионных кук.
+	 *
 	 * @param array<string, string> $cookies Куки к установке: имя => значение (сессионные, HttpOnly).
 	 * @param list<string>          $clearCookies Куки к удалению.
 	 */
@@ -26,11 +33,14 @@ readonly class GuestPageOutcome {
 		public array $clearCookies = array(),
 	) {}
 
+	/** Возвращает разрешение на рендер гостевой страницы. */
 	public static function render(): self {
 		return new self( self::RENDER );
 	}
 
 	/**
+	 * Возвращает редирект и куки после обмена ключа.
+	 *
 	 * @param array<string, string> $cookies
 	 */
 	public static function redirect( string $url, array $cookies = array() ): self {
@@ -43,6 +53,8 @@ readonly class GuestPageOutcome {
 	}
 
 	/**
+	 * Добавляет удаление кук, сохраняя выбранный исход страницы.
+	 *
 	 * @param list<string> $names
 	 */
 	public function withClearedCookies( array $names ): self {
