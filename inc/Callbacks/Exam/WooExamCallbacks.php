@@ -9,7 +9,7 @@ use Inc\Services\Exam\ExamTime;
 use Inc\Services\Exam\Payment\ExamPaymentReconciler;
 use Inc\Services\Exam\Payment\GuestOrderStatusService;
 use Inc\Services\Exam\Payment\WooExamAdapter;
-use Inc\Services\Exam\Payment\WooGateway;
+use Inc\Managers\Woo\WooCommerceManager;
 use Inc\Shared\PluginLogger;
 use Inc\Shared\Traits\TemplateRenderer;
 
@@ -27,7 +27,7 @@ class WooExamCallbacks extends BaseController {
 		private readonly WooExamAdapter $adapter,
 		private readonly ExamPaymentReconciler $reconciler,
 		private readonly GuestOrderStatusService $orderStatus,
-		private readonly WooGateway $woo,
+		private readonly WooCommerceManager $woo,
 		private readonly ExamTime $time,
 	) {
 		parent::__construct();
@@ -93,7 +93,7 @@ class WooExamCallbacks extends BaseController {
 	/** Привязка к заявке переносится в мету позиции заказа. @param \WC_Order_Item_Product $item @param array<string, mixed> $values */
 	public function copyToOrderItem( $item, $cartItemKey = '', $values = array(), $order = null ): void {
 		if ( null !== $this->adapter->applicationOfItem( (array) $values ) ) {
-			$item->add_meta_data( WooExamAdapter::ORDER_ITEM_META, (int) $values[ WooExamAdapter::ITEM_APPLICATION ], true );
+			$this->woo->setOrderItemMeta( $item, WooExamAdapter::ORDER_ITEM_META, (int) $values[ WooExamAdapter::ITEM_APPLICATION ] );
 		}
 	}
 

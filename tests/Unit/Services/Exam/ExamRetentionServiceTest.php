@@ -206,7 +206,7 @@ class ExamRetentionServiceTest extends TestCase {
 	public function test_woo_orders_are_never_touched(): void {
 		$source = (string) file_get_contents( __DIR__ . '/../../../../inc/Services/Exam/ExamRetentionService.php' );
 
-		foreach ( array( 'WooGateway', 'wc_', 'wp_delete_post', 'shop_order' ) as $needle ) {
+		foreach ( array( 'WooCommerceManager', 'wc_', 'wp_delete_post', 'shop_order' ) as $needle ) {
 			self::assertStringNotContainsString( $needle, $source, $needle );
 		}
 	}

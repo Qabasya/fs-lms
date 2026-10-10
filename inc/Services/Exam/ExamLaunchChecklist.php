@@ -8,7 +8,7 @@ use Inc\DTO\Exam\ExamEventDTO;
 use Inc\Managers\Assessment\AssessmentManager;
 use Inc\Repositories\WPDBRepositories\ExamSessionRepository;
 use Inc\Repositories\WPDBRepositories\RoomRepository;
-use Inc\Services\Exam\Payment\WooGateway;
+use Inc\Managers\Woo\WooCommerceManager;
 use Inc\Services\Person\ConsentService;
 use Inc\Services\Shared\CenterContactsService;
 use Inc\Services\Shared\PluginConfig;
@@ -26,7 +26,7 @@ class ExamLaunchChecklist {
 	private const REQUIRED_CONSENTS = array( 'pd_processing', 'pd_transfer' );
 
 	public function __construct(
-		private readonly WooGateway $woo,
+		private readonly WooCommerceManager $woo,
 		private readonly PluginConfig $config,
 		private readonly RoomRepository $rooms,
 		private readonly ExamSessionRepository $sessions,

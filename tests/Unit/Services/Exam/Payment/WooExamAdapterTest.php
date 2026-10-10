@@ -15,7 +15,7 @@ use Inc\Services\Exam\ExamHoldService;
 use Inc\Services\Exam\ExamTime;
 use Inc\Services\Exam\GuestParticipantMaterializer;
 use Inc\Services\Exam\Payment\WooExamAdapter;
-use Inc\Services\Exam\Payment\WooGateway;
+use Inc\Managers\Woo\WooCommerceManager;
 use Inc\Services\Shared\PluginConfig;
 use Inc\Shared\CodedException;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
@@ -24,12 +24,12 @@ use PHPUnit\Framework\TestCase;
 
 /**
  * Адаптер корзины: товар экзамена без заявки не добавляется, подпись привязки, одна заявка на корзину, снятие брони, связи заказа.
- * Функции WooCommerce — только через мок {@see WooGateway}.
+ * Функции WooCommerce — только через мок {@see WooCommerceManager}.
  */
 #[AllowMockObjectsWithoutExpectations]
 class WooExamAdapterTest extends TestCase {
 
-	private WooGateway&MockObject $woo;
+	private WooCommerceManager&MockObject $woo;
 	private ExamGuestApplicationRepository&MockObject $applications;
 	private ExamPaymentLinkRepository&MockObject $links;
 	private ExamHoldService&MockObject $holds;
@@ -44,7 +44,7 @@ class WooExamAdapterTest extends TestCase {
 	protected function setUp(): void {
 		parent::setUp();
 
-		$this->woo          = $this->createMock( WooGateway::class );
+		$this->woo          = $this->createMock( WooCommerceManager::class );
 		$this->applications = $this->createMock( ExamGuestApplicationRepository::class );
 		$this->links        = $this->createMock( ExamPaymentLinkRepository::class );
 		$this->holds        = $this->createMock( ExamHoldService::class );
@@ -128,7 +128,7 @@ class WooExamAdapterTest extends TestCase {
 	}
 
 	public function test_unavailable_product_is_rejected(): void {
-		$woo = $this->createMock( WooGateway::class );
+		$woo = $this->createMock( WooCommerceManager::class );
 		$woo->method( 'product' )->willReturn( null );
 		$config = $this->createMock( PluginConfig::class );
 		$config->method( 'examProductId' )->willReturn( 500 );

@@ -11,7 +11,7 @@ use Inc\Managers\Assessment\AssessmentManager;
 use Inc\Services\Exam\ExamFormatRegistry;
 use Inc\Services\Exam\ExamLaunchChecklist;
 use Inc\Services\Exam\ExamNotificationComposer;
-use Inc\Services\Exam\Payment\WooGateway;
+use Inc\Managers\Woo\WooCommerceManager;
 use Inc\Services\Person\ConsentService;
 use Inc\Services\Shared\CenterContactsService;
 use Inc\Services\Shared\PluginConfig;
@@ -28,7 +28,7 @@ class ExamLaunchChecklistTest extends TestCase {
 
 	use ExamFixtures;
 
-	private WooGateway&MockObject $woo;
+	private WooCommerceManager&MockObject $woo;
 	private PluginConfig&MockObject $config;
 	private RoomRepository&MockObject $rooms;
 	private ExamSessionRepository&MockObject $sessions;
@@ -40,7 +40,7 @@ class ExamLaunchChecklistTest extends TestCase {
 	protected function setUp(): void {
 		parent::setUp();
 
-		$this->woo      = $this->createMock( WooGateway::class );
+		$this->woo      = $this->createMock( WooCommerceManager::class );
 		$this->config   = $this->createMock( PluginConfig::class );
 		$this->rooms    = $this->createMock( RoomRepository::class );
 		$this->sessions = $this->createMock( ExamSessionRepository::class );
@@ -65,7 +65,7 @@ class ExamLaunchChecklistTest extends TestCase {
 		$this->checklist = $this->build();
 	}
 
-	private function build( ?WooGateway $woo = null, ?PluginConfig $config = null, ?RoomRepository $rooms = null, ?ConsentService $consents = null, ?CenterContactsService $contacts = null, ?ExamNotificationComposer $composer = null ): ExamLaunchChecklist {
+	private function build( ?WooCommerceManager $woo = null, ?PluginConfig $config = null, ?RoomRepository $rooms = null, ?ConsentService $consents = null, ?CenterContactsService $contacts = null, ?ExamNotificationComposer $composer = null ): ExamLaunchChecklist {
 		return new ExamLaunchChecklist(
 			$woo ?? $this->woo, $config ?? $this->config, $rooms ?? $this->rooms, $this->sessions, $consents ?? $this->consents,
 			$contacts ?? $this->contacts, $composer ?? $this->composer, $this->createMock( AssessmentManager::class ), $this->createMock( ExamFormatRegistry::class )
@@ -87,7 +87,7 @@ class ExamLaunchChecklistTest extends TestCase {
 	}
 
 	public function test_woocommerce_inactive(): void {
-		$woo = $this->createMock( WooGateway::class );
+		$woo = $this->createMock( WooCommerceManager::class );
 		$woo->method( 'isActive' )->willReturn( false );
 		$items = $this->byKey( $this->build( $woo ) );
 
@@ -97,7 +97,7 @@ class ExamLaunchChecklistTest extends TestCase {
 
 	#[\PHPUnit\Framework\Attributes\DataProvider( 'unusableProducts' )]
 	public function test_product_must_be_usable( ?array $product ): void {
-		$woo = $this->createMock( WooGateway::class );
+		$woo = $this->createMock( WooCommerceManager::class );
 		$woo->method( 'isActive' )->willReturn( true );
 		$woo->method( 'product' )->willReturn( $product );
 		$items = $this->byKey( $this->build( $woo ) );

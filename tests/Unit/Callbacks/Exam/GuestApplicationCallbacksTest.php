@@ -22,7 +22,7 @@ use Inc\Services\Exam\GuestSignupViewService;
 use Inc\Services\Exam\Payment\ExamPaymentReconciler;
 use Inc\Services\Exam\Payment\GuestOrderStatusService;
 use Inc\Services\Exam\Payment\WooExamAdapter;
-use Inc\Services\Exam\Payment\WooGateway;
+use Inc\Managers\Woo\WooCommerceManager;
 use Inc\Services\Security\FormGuardService;
 use Inc\Services\Security\RateLimitService;
 use Inc\Shared\CodedException;
@@ -44,7 +44,7 @@ class GuestApplicationCallbacksTest extends TestCase {
 	private WooExamAdapter&MockObject $adapter;
 	private ExamHoldService&MockObject $holds;
 	private FormGuardService&MockObject $guard;
-	private WooGateway&MockObject $woo;
+	private WooCommerceManager&MockObject $woo;
 	private \Inc\Repositories\WPDBRepositories\ExamGuestApplicationRepository&MockObject $appRepo;
 	private \Inc\Services\Exam\ExamFormTrackingService&MockObject $formLog;
 	private GuestApplicationCallbacks $cb;
@@ -65,7 +65,7 @@ class GuestApplicationCallbacksTest extends TestCase {
 		$this->adapter      = $this->createMock( WooExamAdapter::class );
 		$this->holds        = $this->createMock( ExamHoldService::class );
 		$this->guard        = $this->createMock( FormGuardService::class );
-		$this->woo          = $this->createMock( WooGateway::class );
+		$this->woo          = $this->createMock( WooCommerceManager::class );
 		$this->formLog      = $this->createMock( \Inc\Services\Exam\ExamFormTrackingService::class );
 		$this->appRepo      = $this->createMock( \Inc\Repositories\WPDBRepositories\ExamGuestApplicationRepository::class );
 		$time               = $this->createStub( ExamTime::class );

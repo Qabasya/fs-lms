@@ -14,7 +14,7 @@ use Inc\Managers\Wp\PostManager;
 use Inc\Repositories\WPDBRepositories\ExamEventRepository;
 use Inc\Repositories\WPDBRepositories\ExamSessionRepository;
 use Inc\Repositories\WPDBRepositories\RoomRepository;
-use Inc\Services\Exam\Payment\WooGateway;
+use Inc\Managers\Woo\WooCommerceManager;
 use Inc\Services\Person\ConsentService;
 use Inc\Services\Security\FormGuardService;
 use Inc\Services\Shared\CenterContactsService;
@@ -42,7 +42,7 @@ class GuestSignupViewService {
 		private readonly RoomRepository $rooms,
 		private readonly AssessmentManager $assessments,
 		private readonly ExamFormatRegistry $formats,
-		private readonly WooGateway $woo,
+		private readonly WooCommerceManager $woo,
 		private readonly PluginConfig $config,
 		private readonly ConsentService $consents,
 		private readonly CenterContactsService $contacts,

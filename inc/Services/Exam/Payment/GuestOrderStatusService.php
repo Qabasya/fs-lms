@@ -4,6 +4,8 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Exam\Payment;
 
+use Inc\Managers\Woo\WooCommerceManager;
+
 use Inc\Enums\Exam\GuestApplicationState;
 use Inc\Repositories\WPDBRepositories\ExamGuestApplicationRepository;
 use Inc\Repositories\WPDBRepositories\ExamPaymentLinkRepository;
@@ -21,7 +23,7 @@ use Inc\Services\Shared\CenterContactsService;
 class GuestOrderStatusService {
 
 	public function __construct(
-		private readonly WooGateway $woo,
+		private readonly WooCommerceManager $woo,
 		private readonly ExamPaymentLinkRepository $links,
 		private readonly ExamGuestApplicationRepository $applications,
 		private readonly ExamSessionRepository $sessions,

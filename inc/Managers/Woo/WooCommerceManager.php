@@ -2,7 +2,9 @@
 
 declare( strict_types=1 );
 
-namespace Inc\Services\Exam\Payment;
+namespace Inc\Managers\Woo;
+
+use Inc\Enums\Exam\ExamOrderItemMeta;
 
 /**
  * Единственная тонкая обёртка над функциями WooCommerce для экзаменов (этап 11a).
@@ -12,7 +14,7 @@ namespace Inc\Services\Exam\Payment;
  * поэтому `get_post_meta`, `wp_posts` и прямые запросы к таблицам заказов запрещены.
  * Метод, вызванный при неактивном WooCommerce, ничего не делает и отвечает «нет данных».
  */
-class WooGateway {
+class WooCommerceManager {
 
 	public function isActive(): bool {
 		return class_exists( 'WooCommerce' ) && function_exists( 'wc_get_product' );
@@ -133,6 +135,18 @@ class WooGateway {
 	// ── Заказы (только CRUD WooCommerce, HPOS) ────────────────────────────────────────────────────
 
 	/**
+	 * Записывает метаданные позиции через Woo CRUD; сохранение завершает checkout.
+	 *
+	 * @param \WC_Order_Item $item  Позиция создаваемого заказа.
+	 * @param string         $key   Ключ метаданных.
+	 * @param int|string     $value Значение метаданных.
+	 * @return void
+	 */
+	public function setOrderItemMeta( \WC_Order_Item $item, string $key, int|string $value ): void {
+		$item->add_meta_data( $key, $value, true );
+	}
+
+	/**
 	 * Позиции заказа с привязкой к заявке LMS.
 	 *
 	 * @return list<array{item_id: int, product_id: int, application_id: int, total: string}>
@@ -145,7 +159,7 @@ class WooGateway {
 
 		$items = array();
 		foreach ( $order->get_items() as $item ) {
-			$applicationId = (int) $item->get_meta( '_fs_exam_application' );
+			$applicationId = (int) $item->get_meta( ExamOrderItemMeta::Application->value );
 			if ( $applicationId > 0 ) {
 				$items[] = array(
 					'item_id'        => (int) $item->get_id(),

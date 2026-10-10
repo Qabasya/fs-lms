@@ -14,7 +14,7 @@ use Inc\Services\Exam\GuestApplicationService;
 use Inc\Services\Exam\Payment\ExamPaymentReconciler;
 use Inc\Services\Exam\Payment\GuestOrderStatusService;
 use Inc\Services\Exam\Payment\WooExamAdapter;
-use Inc\Services\Exam\Payment\WooGateway;
+use Inc\Managers\Woo\WooCommerceManager;
 use Inc\Services\Security\FormGuardService;
 use Inc\Shared\CodedException;
 use Inc\Shared\GuestFormException;
@@ -58,7 +58,7 @@ class GuestApplicationCallbacks extends BaseController {
 		private readonly WooExamAdapter $adapter,
 		private readonly ExamHoldService $holds,
 		private readonly FormGuardService $formGuard,
-		private readonly WooGateway $woo,
+		private readonly WooCommerceManager $woo,
 		private readonly ExamTime $time,
 		private readonly GuestOrderStatusService $orderStatus,
 		private readonly ExamPaymentReconciler $reconciler,

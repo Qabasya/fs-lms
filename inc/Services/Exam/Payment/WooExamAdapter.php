@@ -4,8 +4,11 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Exam\Payment;
 
+use Inc\Managers\Woo\WooCommerceManager;
+
 use Inc\DTO\Exam\ExamGuestApplicationDTO;
 use Inc\Enums\Exam\GuestApplicationState;
+use Inc\Enums\Exam\ExamOrderItemMeta;
 use Inc\Enums\Log\ErrorCode;
 use Inc\Repositories\WPDBRepositories\DuplicateKeyException;
 use Inc\Repositories\WPDBRepositories\ExamGuestApplicationRepository;
@@ -20,7 +23,7 @@ use Inc\Shared\CodedException;
 /**
  * Связь гостевых заявок с корзиной и заказами WooCommerce (этап 11a.4–11a.5).
  *
- * **Единственная точка смысла** между LMS и магазином: все вызовы функций WooCommerce идут через {@see WooGateway}.
+ * **Единственная точка смысла** между LMS и магазином: все вызовы функций WooCommerce идут через {@see WooCommerceManager}.
  * Магазин не меняется — корзина, оформление, шлюз, письма и страница «Спасибо» остаются; LMS добавляет только данные позиции,
  * проверки и свой блок статуса. Позиция экзамена несёт ID заявки и подпись `HMAC(id|request_key)`: без заявки товар в корзину не попадает,
  * подмена ID в сессии не проходит. Одна корзина — одна незавершённая экзаменная заявка; чужие товары корзины не трогаются.
@@ -29,10 +32,10 @@ class WooExamAdapter {
 
 	public const ITEM_APPLICATION = 'fs_exam_application';
 	public const ITEM_SIGNATURE   = 'fs_exam_sig';
-	public const ORDER_ITEM_META  = '_fs_exam_application';
+	public const ORDER_ITEM_META  = ExamOrderItemMeta::Application->value;
 
 	public function __construct(
-		private readonly WooGateway $woo,
+		private readonly WooCommerceManager $woo,
 		private readonly PluginConfig $config,
 		private readonly ExamGuestApplicationRepository $applications,
 		private readonly ExamPaymentLinkRepository $links,

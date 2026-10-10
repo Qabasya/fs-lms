@@ -15,7 +15,7 @@ use Inc\Repositories\WPDBRepositories\ExamOperationKeyRepository;
 use Inc\Repositories\WPDBRepositories\ExamPaymentLinkRepository;
 use Inc\Services\Exam\ExamHoldService;
 use Inc\Services\Exam\Payment\ExamPaymentReconciler;
-use Inc\Services\Exam\Payment\WooGateway;
+use Inc\Managers\Woo\WooCommerceManager;
 use Inc\Services\Exam\ExamNotificationComposer;
 use Inc\Services\Exam\ExamOutboxWorker;
 use Inc\Services\Exam\ExamReminderService;
@@ -36,7 +36,7 @@ class ExamTickServiceTest extends TestCase {
 	private ExamReminderService&MockObject $reminders;
 	private ExamOutboxWorker&MockObject $worker;
 	private ExamOperationKeyRepository&MockObject $operationKeys;
-	private WooGateway&MockObject $woo;
+	private WooCommerceManager&MockObject $woo;
 	private ExamPaymentReconciler&MockObject $reconciler;
 	private ExamPaymentLinkRepository&MockObject $paymentLinks;
 	private ExamTickService $service;
@@ -53,7 +53,7 @@ class ExamTickServiceTest extends TestCase {
 		$this->reminders      = $this->createMock( ExamReminderService::class );
 		$this->worker         = $this->createMock( ExamOutboxWorker::class );
 		$this->operationKeys  = $this->createMock( ExamOperationKeyRepository::class );
-		$this->woo            = $this->createMock( WooGateway::class );
+		$this->woo            = $this->createMock( WooCommerceManager::class );
 		$this->reconciler     = $this->createMock( ExamPaymentReconciler::class );
 		$this->paymentLinks   = $this->createMock( ExamPaymentLinkRepository::class );
 

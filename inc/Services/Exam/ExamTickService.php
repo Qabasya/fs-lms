@@ -10,7 +10,7 @@ use Inc\Managers\Wp\TransientManager;
 use Inc\Repositories\WPDBRepositories\ExamEventRepository;
 use Inc\Repositories\WPDBRepositories\ExamPaymentLinkRepository;
 use Inc\Services\Exam\Payment\ExamPaymentReconciler;
-use Inc\Services\Exam\Payment\WooGateway;
+use Inc\Managers\Woo\WooCommerceManager;
 use Inc\Repositories\WPDBRepositories\ExamOperationKeyRepository;
 use Inc\Repositories\WPDBRepositories\ExamRegistrationRepository;
 use Inc\Shared\PluginLogger;
@@ -43,7 +43,7 @@ class ExamTickService {
 		private readonly ExamEventRepository $events,
 		private readonly ExamOperationKeyRepository $operationKeys,
 		private readonly TransientManager $transients,
-		private readonly WooGateway $woo,
+		private readonly WooCommerceManager $woo,
 		private readonly ExamPaymentReconciler $reconciler,
 		private readonly ExamPaymentLinkRepository $paymentLinks,
 	) {}

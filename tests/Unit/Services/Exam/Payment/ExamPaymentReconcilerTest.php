@@ -13,7 +13,7 @@ use Inc\Services\Exam\ExamHoldService;
 use Inc\Services\Exam\ExamOutbox;
 use Inc\Services\Exam\ExamTime;
 use Inc\Services\Exam\Payment\ExamPaymentReconciler;
-use Inc\Services\Exam\Payment\WooGateway;
+use Inc\Managers\Woo\WooCommerceManager;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -24,7 +24,7 @@ use PHPUnit\Framework\TestCase;
 #[AllowMockObjectsWithoutExpectations]
 class ExamPaymentReconcilerTest extends TestCase {
 
-	private WooGateway&MockObject $woo;
+	private WooCommerceManager&MockObject $woo;
 	private ExamPaymentLinkRepository&MockObject $links;
 	private ExamGuestApplicationRepository&MockObject $applications;
 	private ExamHoldService&MockObject $holds;
@@ -42,7 +42,7 @@ class ExamPaymentReconcilerTest extends TestCase {
 	protected function setUp(): void {
 		parent::setUp();
 
-		$this->woo          = $this->createMock( WooGateway::class );
+		$this->woo          = $this->createMock( WooCommerceManager::class );
 		$this->links        = $this->createMock( ExamPaymentLinkRepository::class );
 		$this->applications = $this->createMock( ExamGuestApplicationRepository::class );
 		$this->holds        = $this->createMock( ExamHoldService::class );
@@ -205,7 +205,7 @@ class ExamPaymentReconcilerTest extends TestCase {
 	}
 
 	public function test_inactive_woocommerce_does_nothing(): void {
-		$woo = $this->createMock( WooGateway::class );
+		$woo = $this->createMock( WooCommerceManager::class );
 		$woo->method( 'isActive' )->willReturn( false );
 		$this->links->expects( self::never() )->method( 'listByOrder' );
 		$reconciler = new ExamPaymentReconciler( $woo, $this->links, $this->applications, $this->holds, $this->outbox, $this->createStub( ExamTime::class ) );
@@ -241,7 +241,7 @@ class ExamPaymentReconcilerTest extends TestCase {
 	}
 
 	public function test_recheck_skips_when_woo_inactive(): void {
-		$woo = $this->createMock( WooGateway::class );
+		$woo = $this->createMock( WooCommerceManager::class );
 		$woo->method( 'isActive' )->willReturn( false );
 		$this->links->expects( self::never() )->method( 'listWaitingForHelpForRecheck' );
 		$time = $this->createStub( ExamTime::class );

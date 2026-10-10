@@ -27,7 +27,7 @@ use Inc\Services\Print\PrintCenterService;
 use Inc\Enums\Print\PrintDocument;
 use Inc\Enums\Print\PrintField;
 use Inc\Services\Exam\ExamLaunchChecklist;
-use Inc\Services\Exam\Payment\WooGateway;
+use Inc\Managers\Woo\WooCommerceManager;
 use Inc\Services\Shared\PluginConfig;
 use Inc\Shared\Traits\Authorizer;
 use Inc\Shared\Traits\Sanitizer;
@@ -85,7 +85,7 @@ class AdminCallbacks extends BaseController {
 		private readonly ConsentDefinitionsRepository $consentDefinitions,
 		private readonly LegacyTaskImportPageController $legacyTaskImportPageController,
 		private readonly PrintCenterService $printCenter,
-		private readonly WooGateway $woo,
+		private readonly WooCommerceManager $woo,
 		private readonly ExamLaunchChecklist $examChecklist,
 	) {
 		parent::__construct();

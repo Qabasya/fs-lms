@@ -406,7 +406,7 @@ class GuestApplicationServiceTest extends TestCase {
 		// Ни сервис урегулирования, ни ядро ручного разбора не знают магазина: возврат, статус заказа и письма Woo не вызываются.
 		foreach ( array( 'ExamHoldService.php', 'GuestApplicationService.php', 'ExamPaymentQueueService.php' ) as $file ) {
 			$source = (string) file_get_contents( __DIR__ . '/../../../../inc/Services/Exam/' . $file );
-			self::assertDoesNotMatchRegularExpression( '/WooGateway|wc_create_refund|->refund\(|wc_get_order|update_status|EmailTemplateType/', $source, $file );
+			self::assertDoesNotMatchRegularExpression( '/WooCommerceManager|wc_create_refund|->refund\(|wc_get_order|update_status|EmailTemplateType/', $source, $file );
 		}
 	}
 

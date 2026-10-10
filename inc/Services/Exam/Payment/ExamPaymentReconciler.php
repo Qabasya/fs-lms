@@ -4,6 +4,8 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Exam\Payment;
 
+use Inc\Managers\Woo\WooCommerceManager;
+
 use Inc\DTO\Exam\ExamPaymentLinkDTO;
 use Inc\Enums\Exam\ExamOutboxEvent;
 use Inc\Enums\Exam\ExamPaymentState;
@@ -17,7 +19,7 @@ use Inc\Services\Exam\ExamTime;
 /**
  * Сверка заказов WooCommerce с заявками гостей (этап 11a.5.4): запись подтверждается по серверным данным заказа.
  *
- * Признак оплаты — только `WC_Order::is_paid()` (через {@see WooGateway}); возврат из банка, `pending`, `on-hold`, `failed` оплатой не считаются.
+ * Признак оплаты — только `WC_Order::is_paid()` (через {@see WooCommerceManager}); возврат из банка, `pending`, `on-hold`, `failed` оплатой не считаются.
  * Метод **идемпотентен**: хуки `woocommerce_payment_complete` и `woocommerce_order_status_changed` приходят дважды и в любом порядке, а минутный
  * тик досверяет то, что хук не донёс. Подтверждение места, поздняя оплата и «нужна помощь» — целиком в {@see ExamHoldService::convert()}.
  * Refund API магазина никогда не вызывается; писем гостю нет.
@@ -28,7 +30,7 @@ class ExamPaymentReconciler {
 	private const NEEDS_RESOLUTION_RECHECK_MINUTES = 15;
 
 	public function __construct(
-		private readonly WooGateway $woo,
+		private readonly WooCommerceManager $woo,
 		private readonly ExamPaymentLinkRepository $links,
 		private readonly ExamGuestApplicationRepository $applications,
 		private readonly ExamHoldService $holds,
