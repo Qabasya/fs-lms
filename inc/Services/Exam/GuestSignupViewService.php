@@ -4,6 +4,8 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Exam;
 
+use Inc\Enums\Exam\ExamEventStatus;
+
 use Inc\DTO\Exam\ExamEventDTO;
 use Inc\DTO\Exam\ExamSessionDTO;
 use Inc\DTO\Exam\ExamSourceDTO;
@@ -66,7 +68,7 @@ class GuestSignupViewService {
 		);
 
 		$nowUtc = $this->time->nowUtc();
-		if ( null === $event || 'published' !== $event->status || ! $event->guestRegistrationEnabled || ! $this->registrationOpen( $event, $nowUtc ) ) {
+		if ( null === $event || ExamEventStatus::Published->value !== $event->status || ! $event->guestRegistrationEnabled || ! $this->registrationOpen( $event, $nowUtc ) ) {
 			return $base;
 		}
 

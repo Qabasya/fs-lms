@@ -4,6 +4,12 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Exam;
 
+use Inc\Enums\Exam\ExamAudience;
+
+use Inc\Enums\Exam\ExamSessionStatus;
+
+use Inc\Enums\Exam\ExamEventStatus;
+
 use Inc\DTO\Assessment\AttemptDTO;
 use Inc\DTO\Exam\ExamEventDTO;
 use Inc\DTO\Exam\ExamParticipationDTO;
@@ -65,7 +71,7 @@ class ExamStatsService {
 
 		$available = array_values( array_filter(
 			$this->events->findBySubjectKey( $subject ),
-			fn ( ExamEventDTO $e ): bool => in_array( $e->status, array( 'published', 'completed' ), true ) && $this->guard->canManageEvent( $actorUserId, $e )
+			fn ( ExamEventDTO $e ): bool => in_array( $e->status, array( ExamEventStatus::Published->value, ExamEventStatus::Completed->value ), true ) && $this->guard->canManageEvent( $actorUserId, $e )
 		) );
 
 		$selected = $available;
@@ -165,7 +171,7 @@ class ExamStatsService {
 	 */
 	private function participationRows( ExamEventDTO $event, int $sessionId, string $audience ): array {
 		$participations = $this->participations->findByEvent( $event->id );
-		if ( 'student' === $audience || 'guest' === $audience ) {
+		if ( ExamAudience::Student->value === $audience || ExamAudience::Guest->value === $audience ) {
 			$participations = array_filter( $participations, static fn ( ExamParticipationDTO $p ): bool => $p->audience === $audience );
 		}
 
@@ -290,7 +296,7 @@ class ExamStatsService {
 	private function sessionOptions( ExamEventDTO $event ): array {
 		$list = array();
 		foreach ( $this->sessions->findByEvent( $event->id ) as $session ) {
-			if ( 'cancelled' === $session->status ) {
+			if ( ExamSessionStatus::Cancelled->value === $session->status ) {
 				continue;
 			}
 			$start  = $this->time->toLocal( $session->scheduledAt );

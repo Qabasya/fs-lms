@@ -231,7 +231,7 @@ class ExamConductService {
 	public function results( int $actorUserId, string $subjectKey, array $filters ): array {
 		$events = array_values( array_filter(
 			$this->events->findBySubjectKey( $subjectKey ),
-			fn ( ExamEventDTO $event ): bool => in_array( $event->status, array( 'published', 'completed' ), true )
+			fn ( ExamEventDTO $event ): bool => in_array( $event->status, array( ExamEventStatus::Published->value, ExamEventStatus::Completed->value ), true )
 				&& $this->guard->canManageEvent( $actorUserId, $event )
 		) );
 
@@ -413,7 +413,7 @@ class ExamConductService {
 			'name'      => (string) $row['name'],
 			'source'    => (string) $row['source'],
 			'session'   => $session,
-			'status'    => 'cancelled' === $row['registration_status'] ? 'Запись отменена' : (string) $row['progress_label'],
+			'status'    => ExamRegistrationStatus::Cancelled->value === $row['registration_status'] ? 'Запись отменена' : (string) $row['progress_label'],
 			'primary'   => null !== $score ? $score['primary'] . ' / ' . $score['primary_max'] : '',
 			'secondary' => $secondary,
 		);

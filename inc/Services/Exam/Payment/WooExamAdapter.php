@@ -4,6 +4,8 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Exam\Payment;
 
+use Inc\Enums\Exam\ExamPaymentState;
+
 use Inc\Managers\Woo\WooCommerceManager;
 
 use Inc\DTO\Exam\ExamGuestApplicationDTO;
@@ -240,7 +242,7 @@ class WooExamAdapter {
 					'product_id'       => $item['product_id'],
 					'amount'           => $item['total'],
 					'currency'         => 'RUB',
-					'payment_state'    => 'pending',
+					'payment_state'    => ExamPaymentState::Pending->value,
 					'created_at'       => $now,
 					'updated_at'       => $now,
 				) );

@@ -19,14 +19,6 @@ class ExamGuestBoardService {
 
 	public const ACTION_COPY_PAY_LINK = 'copy_pay_link';
 
-	/** Подписи оплаты для сотрудника (ожидание оплаты — не «ожидание» вообще). */
-	private const PAYMENT_LABELS = array(
-		'pending'   => 'Ожидает оплаты',
-		'paid'      => 'Оплачено',
-		'failed'    => 'Оплата не прошла',
-		'cancelled' => 'Оплата отменена',
-	);
-
 	public function __construct(
 		private readonly ExamGuestApplicationRepository $applications,
 		private readonly ExamPaymentLinkRepository $links,
@@ -46,9 +38,9 @@ class ExamGuestBoardService {
 			return null;
 		}
 
-		$state = ExamPaymentState::tryFrom( $link->paymentState )?->value ?? $link->paymentState;
+		$state = ExamPaymentState::tryFrom( $link->paymentState );
 
-		return array( 'state' => $state, 'label' => self::PAYMENT_LABELS[ $state ] ?? $state );
+		return array( 'state' => $link->paymentState, 'label' => $state?->boardLabel() ?? $link->paymentState );
 	}
 
 	/**

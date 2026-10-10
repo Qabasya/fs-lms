@@ -50,7 +50,7 @@ class ExamVariantGuardController extends BaseController implements ServiceInterf
 	 *
 	 * @return mixed
 	 */
-	public function guardMeta( $check, $objectId, $metaKey ) {
+	public function guardMeta( mixed $check, mixed $objectId, mixed $metaKey ): mixed {
 		if ( null !== $check || ! in_array( (string) $metaKey, ExamVariantGuard::GUARDED_META, true ) || ! $this->guard->isPostFrozen( (int) $objectId ) ) {
 			return $check;
 		}
@@ -79,17 +79,17 @@ class ExamVariantGuardController extends BaseController implements ServiceInterf
 	}
 
 	/** @param bool|null $check @param \WP_Post $post @return bool|null */
-	public function guardTrash( $check, $post ) {
+	public function guardTrash( mixed $check, mixed $post ): mixed {
 		return $post instanceof \WP_Post && $this->guard->isPostFrozen( $post->ID ) ? $this->block( $post->ID ) : $check;
 	}
 
 	/** @param \WP_Post|false|null $check @param \WP_Post $post @return \WP_Post|false|null */
-	public function guardDelete( $check, $post ) {
+	public function guardDelete( mixed $check, mixed $post ): mixed {
 		return $post instanceof \WP_Post && $this->guard->isPostFrozen( $post->ID ) ? $this->block( $post->ID ) : $check;
 	}
 
 	/** @param \WP_Post|false|null $check @param \WP_Post $post @return \WP_Post|false|null */
-	public function guardAttachment( $check, $post ) {
+	public function guardAttachment( mixed $check, mixed $post ): mixed {
 		return $post instanceof \WP_Post && $this->guard->isAttachmentFrozen( $post->ID ) ? $this->block( $post->ID ) : $check;
 	}
 
@@ -101,7 +101,7 @@ class ExamVariantGuardController extends BaseController implements ServiceInterf
 	}
 
 	/** @return false */
-	private function block( int $postId ) {
+	private function block( int $postId ): false {
 		$this->remember( $postId );
 
 		return false;

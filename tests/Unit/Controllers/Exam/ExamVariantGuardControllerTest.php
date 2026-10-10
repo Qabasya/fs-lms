@@ -102,4 +102,12 @@ class ExamVariantGuardControllerTest extends TestCase {
 
 		$this->controller->guardMeta( null, 500, 'fs_lms_meta' );
 	}
+	public function test_hook_boundaries_accept_numeric_strings_and_preserve_existing_decisions(): void {
+		self::assertFalse( $this->controller->guardMeta( null, '500', 'fs_lms_meta' ) );
+		self::assertFalse( $this->controller->guardMeta( false, '500', 'fs_lms_meta' ) );
+		self::assertNull( $this->controller->guardTrash( null, false ) );
+		self::assertFalse( $this->controller->guardDelete( false, null ) );
+		self::assertNull( $this->controller->guardAttachment( null, null ) );
+	}
+
 }
