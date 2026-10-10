@@ -39,7 +39,8 @@ class ExamGuestPageController extends BaseController implements ServiceInterface
 		add_action( 'template_redirect', array( $this, 'handleResultPage' ), 5 );
 		add_shortcode( ShortCode::ExamReport->value, array( $this->report, 'renderReportPage' ) );
 		add_action( 'template_redirect', array( $this, 'handleReportPage' ), 5 );
-		add_action( 'wp_head', array( $this, 'printNoindex' ), 1 );
+		add_filter( 'wp_robots', array( $this, 'filterRobots' ) );
+		add_filter( 'get_canonical_url', array( $this, 'filterCanonicalUrl' ) );
 		add_filter( 'wp_sitemaps_posts_query_args', array( $this, 'excludeFromSitemap' ), 10, 2 );
 		add_action( 'pre_get_posts', array( $this, 'excludeFromSearch' ) );
 	}
@@ -84,11 +85,30 @@ class ExamGuestPageController extends BaseController implements ServiceInterface
 		$this->responder->apply( $this->report->handleReportPage() );
 	}
 
-	/** `<meta name="robots">` на гостевых страницах: к HTTP-заголовку добавляется разметка (для краулеров, читающих только её). */
-	public function printNoindex(): void {
+	/**
+	 * Штатная robots meta дополняет HTTP-заголовок гостевой страницы.
+	 *
+	 * @param array<string, bool|string> $robots Директивы WordPress и других фильтров.
+	 * @return array<string, bool|string>
+	 */
+	public function filterRobots( array $robots ): array {
 		if ( $this->isGuestPage() ) {
-			echo '<meta name="robots" content="noindex, nofollow" />' . "\n";
+			unset( $robots['index'], $robots['follow'] );
+			$robots['noindex']  = true;
+			$robots['nofollow'] = true;
 		}
+
+		return $robots;
+	}
+
+	/**
+	 * Защищённые служебные страницы не публикуют canonical.
+	 *
+	 * @param string|false $url Ссылка, подготовленная WordPress.
+	 * @return string|false
+	 */
+	public function filterCanonicalUrl( string|false $url ): string|false {
+		return $this->isGuestPage() ? false : $url;
 	}
 
 	/**

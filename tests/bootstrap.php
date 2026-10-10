@@ -182,6 +182,11 @@ if (!function_exists('add_filter')) {
         return true;
     }
 }
+if (!function_exists('is_page')) {
+    function is_page(string|int|array $page = ''): bool {
+        return in_array($GLOBALS['_fs_test_page_slug'] ?? null, (array) $page, true);
+    }
+}
 if (!function_exists('add_action')) {
     // Как add_filter() выше — do_action() не хранит подписчиков, поэтому это тоже no-op;
     // достаточно, чтобы register()-методы контроллеров/подписчиков не падали в тестах.
