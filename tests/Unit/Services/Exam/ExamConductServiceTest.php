@@ -106,7 +106,7 @@ class ExamConductServiceTest extends TestCase {
 			$this->participations,
 			$this->participants,
 			$this->attempts,
-			$this->answers,
+			new \Inc\Services\Exam\ExamResultStatusService( $this->answers ),
 			$this->sources,
 			new \Inc\Services\Exam\ExamParticipantNameService( $this->records, $this->guestData ),
 			$this->createMock( RoomRepository::class ),
@@ -122,6 +122,7 @@ class ExamConductServiceTest extends TestCase {
 			$this->logEvents,
 			$this->guestBoard,
 			new UserManager(),
+			new \Inc\Services\Exam\ExamEventViewService( $this->sessions, $this->sources, $this->time ),
 		);
 	}
 
@@ -252,7 +253,7 @@ class ExamConductServiceTest extends TestCase {
 		$guard = $this->createMock( ExamAccessGuard::class );
 		$guard->method( 'canManageEvent' )->willReturn( false );
 		$service = new ExamConductService(
-			$this->events, $this->sessions, $this->registrations, $this->participations, $this->participants, $this->attempts, $this->answers,
+			$this->events, $this->sessions, $this->registrations, $this->participations, $this->participants, $this->attempts, new \Inc\Services\Exam\ExamResultStatusService( $this->answers ),
 			$this->createMock( ExamSourceRepository::class ), new \Inc\Services\Exam\ExamParticipantNameService( $this->records, $this->guestData ), $this->createMock( RoomRepository::class ), $this->roomService,
 			$this->scores, $guard, $this->time, $this->createMock( ExamPlanService::class ), $this->createMock( ExamReviewProjection::class ),
 			$this->tokens,
@@ -261,6 +262,7 @@ class ExamConductServiceTest extends TestCase {
 			$this->logEvents,
 			$this->guestBoard,
 			new UserManager(),
+			new \Inc\Services\Exam\ExamEventViewService( $this->sessions, $this->sources, $this->time ),
 		);
 
 		$this->expectException( CodedException::class );
@@ -300,71 +302,6 @@ class ExamConductServiceTest extends TestCase {
 		$this->participations->expects( self::never() )->method( 'setActiveRegistration' );
 
 		$this->service->markArrival( 10, 1, true );
-	}
-
-	/* ── 8.7 Результаты ───────────────────────────────────────────────────── */
-
-	/** Два участия проведения: 1 — работа готова, 2 — ждёт проверки; 3 — гость с готовой работой. */
-	private function givenResults(): void {
-		$this->events->method( 'findBySubjectKey' )->willReturn( array( $this->examEvent( array( 'status' => 'published' ) ) ) );
-		$p = array( 1 => $this->participation( 1, 11 ), 2 => $this->participation( 2, 12 ), 3 => $this->participation( 3, 13, 'guest' ) );
-		$this->participations->method( 'findByEvent' )->willReturn( array_values( $p ) );
-		$this->attempts->method( 'listByParticipations' )->willReturn( array(
-			$this->attempt( 11, 1, 'graded', null, 1 ), $this->attempt( 12, 2, 'submitted', null, 2 ), $this->attempt( 13, 3, 'graded', null, 3 ),
-		) );
-		$this->participants->method( 'find' )->willReturnCallback( fn ( int $id ): ExamParticipantDTO => $this->participant( $id, $id > 102 ? null : $id - 100 ) );
-		$this->registrations->method( 'find' )->willReturn( $this->registration( 1, 1 ) );
-		$this->records->method( 'findActiveByStudentFirst' )->willReturn( StudentRecordDTO::fromArray( array(
-			'id' => 1, 'student_person_id' => 1, 'snapshot_last_name' => 'Иванов', 'snapshot_first_name' => 'Пётр', 'status' => 'active',
-		) ) );
-		$this->answers->method( 'hasPendingAnswers' )->willReturnCallback( static fn ( int $id ): bool => 12 === $id );
-	}
-
-	public function test_results_filter_by_status(): void {
-		$this->givenResults();
-
-		$pending = $this->service->results( 10, 'inf_ege', array( 'status' => 'pending_review' ) )['items'];
-		$ready   = $this->service->results( 10, 'inf_ege', array( 'status' => 'ready' ) )['items'];
-		$all     = $this->service->results( 10, 'inf_ege', array( 'status' => 'all' ) )['items'];
-
-		self::assertSame( array( 12 ), array_column( $pending, 'attempt_id' ) );
-		self::assertSame( array( 11 ), array_column( $ready, 'attempt_id' ) );
-		self::assertCount( 3, $all );
-	}
-
-	public function test_results_filter_by_audience_and_source(): void {
-		$this->givenResults();
-
-		$guests   = $this->service->results( 10, 'inf_ege', array( 'audience' => 'guest' ) )['items'];
-		$students = $this->service->results( 10, 'inf_ege', array( 'audience' => 'student' ) )['items'];
-		$noSource = $this->service->results( 10, 'inf_ege', array( 'source_id' => 99 ) )['items'];
-
-		self::assertSame( array( 13 ), array_column( $guests, 'attempt_id' ) );
-		self::assertSame( array( 11, 12 ), array_column( $students, 'attempt_id' ) );
-		self::assertSame( array(), $noSource );
-	}
-
-	public function test_results_exclude_foreign_events(): void {
-		$this->events->method( 'findBySubjectKey' )->willReturn( array( $this->examEvent( array( 'status' => 'published' ) ) ) );
-		$guard = $this->createMock( ExamAccessGuard::class );
-		$guard->method( 'canManageEvent' )->willReturn( false );
-		$service = new ExamConductService(
-			$this->events, $this->sessions, $this->registrations, $this->participations, $this->participants, $this->attempts, $this->answers,
-			$this->sources, new \Inc\Services\Exam\ExamParticipantNameService( $this->records, $this->guestData ), $this->createMock( RoomRepository::class ), $this->roomService,
-			$this->scores, $guard, $this->time, $this->createMock( ExamPlanService::class ), $this->createMock( ExamReviewProjection::class ),
-			$this->tokens,
-			$this->guestData,
-			$this->config,
-			$this->logEvents,
-			$this->guestBoard,
-			new UserManager(),
-		);
-		$this->participations->expects( self::never() )->method( 'findByEvent' );
-
-		$result = $service->results( 99, 'inf_ege', array() );
-
-		self::assertSame( array(), $result['items'] );
-		self::assertSame( array(), $result['filters']['events'] );
 	}
 
 	// ── 8.8.2 допуск и 11b.1 ссылка входа ─────────────────────────────────────────────────────────
@@ -425,10 +362,11 @@ class ExamConductServiceTest extends TestCase {
 		$guard = $this->createMock( ExamAccessGuard::class );
 		$guard->method( 'canManageEventGuests' )->willReturn( false );
 		$service = new ExamConductService(
-			$this->events, $this->sessions, $this->registrations, $this->participations, $this->participants, $this->attempts, $this->answers,
+			$this->events, $this->sessions, $this->registrations, $this->participations, $this->participants, $this->attempts, new \Inc\Services\Exam\ExamResultStatusService( $this->answers ),
 			$this->sources, new \Inc\Services\Exam\ExamParticipantNameService( $this->records, $this->guestData ), $this->createMock( RoomRepository::class ), $this->roomService,
 			$this->scores, $guard, $this->time, $this->createMock( ExamPlanService::class ), $this->createMock( ExamReviewProjection::class ), $this->tokens, $this->guestData, $this->config, $this->logEvents, $this->guestBoard,
 			new UserManager(),
+			new \Inc\Services\Exam\ExamEventViewService( $this->sessions, $this->sources, $this->time ),
 		);
 		$this->participations->method( 'find' )->willReturn( $this->guestParticipation() );
 		$this->participations->expects( self::never() )->method( 'setAdmission' );
@@ -586,11 +524,12 @@ class ExamConductServiceTest extends TestCase {
 		$this->guestBoard = $this->createMock( \Inc\Services\Exam\ExamGuestBoardService::class );
 		$this->guestBoard->method( 'holdsOf' )->willReturn( array( $hold ) );
 		$service = new ExamConductService(
-			$this->events, $this->sessions, $this->registrations, $this->participations, $this->participants, $this->attempts, $this->answers,
+			$this->events, $this->sessions, $this->registrations, $this->participations, $this->participants, $this->attempts, new \Inc\Services\Exam\ExamResultStatusService( $this->answers ),
 			$this->sources, new \Inc\Services\Exam\ExamParticipantNameService( $this->records, $this->guestData ), $this->createMock( RoomRepository::class ), $this->roomService,
 			$this->scores, $this->guard, $this->time, $this->createMock( ExamPlanService::class ), $this->createMock( ExamReviewProjection::class ),
 			$this->tokens, $this->guestData, $this->config, $this->logEvents, $this->guestBoard,
 			new UserManager(),
+			new \Inc\Services\Exam\ExamEventViewService( $this->sessions, $this->sources, $this->time ),
 		);
 
 		$board = $service->sessionBoard( 10, 7 );

@@ -7,7 +7,7 @@ namespace Inc\Callbacks\Exam;
 use Inc\Core\BaseController;
 use Inc\Enums\Access\Capability;
 use Inc\Enums\Wp\Nonce;
-use Inc\Services\Exam\ExamConductService;
+use Inc\Services\Exam\ExamResultsViewService;
 use Inc\Shared\CodedException;
 use Inc\Shared\Traits\Authorizer;
 use Inc\Shared\Traits\Sanitizer;
@@ -15,7 +15,7 @@ use Inc\Shared\Traits\Sanitizer;
 /**
  * AJAX раздела «Результаты» (8.7): работы проведений предмета с фильтрами и очередью проверки.
  *
- * Право `ManageExams` и nonce `ExamManage`; список строит {@see ExamConductService::results()} и включает только проведения,
+ * Право `ManageExams` и nonce `ExamManage`; список строит {@see ExamResultsViewService::results()} и включает только проведения,
  * доступные пользователю (`ExamAccessGuard::canManageEvent()`).
  */
 class ExamResultCallbacks extends BaseController {
@@ -27,7 +27,7 @@ class ExamResultCallbacks extends BaseController {
 	private const AUDIENCES = array( 'student', 'guest', 'all' );
 
 	public function __construct(
-		private readonly ExamConductService $conduct,
+		private readonly ExamResultsViewService $results,
 	) {
 		parent::__construct();
 	}
@@ -48,7 +48,7 @@ class ExamResultCallbacks extends BaseController {
 		);
 
 		try {
-			$this->success( $this->conduct->results( get_current_user_id(), $subjectKey, $filters ) );
+			$this->success( $this->results->results( get_current_user_id(), $subjectKey, $filters ) );
 		} catch ( CodedException $e ) {
 			$this->fail( $e->errorCode, $e->getMessage() );
 		}

@@ -15,6 +15,7 @@ use Inc\DTO\Exam\ExamSessionDTO;
 use Inc\Enums\Assessment\AttemptStatus;
 use Inc\Enums\Access\Capability;
 use Inc\Enums\Exam\ExamAudience;
+use Inc\Enums\Exam\ExamResultStatus;
 use Inc\Enums\Exam\ExamProgress;
 use Inc\Enums\Exam\ExamRegistrationStatus;
 use Inc\Enums\Exam\ExamSessionStatus;
@@ -25,7 +26,6 @@ use Inc\Enums\Log\LogEvent;
 use Inc\Enums\Log\OperationType;
 use Inc\Enums\Wp\PageRoutes;
 use Inc\Managers\Person\UserManager;
-use Inc\Repositories\WPDBRepositories\AssessmentAnswerRepository;
 use Inc\Repositories\WPDBRepositories\AssessmentAttemptRepository;
 use Inc\Repositories\WPDBRepositories\ExamEventRepository;
 use Inc\Repositories\WPDBRepositories\ExamParticipantRepository;
@@ -55,17 +55,11 @@ class ExamConductService {
 	private const DEFAULT_LOOKBEHIND_DAYS = 1;
 	private const DEFAULT_LOOKAHEAD_DAYS  = 90;
 
-	public const RESULT_NONE           = 'none';
-	public const RESULT_PENDING_REVIEW = 'pending_review';
-	public const RESULT_READY          = 'ready';
-	public const RESULT_APPROVED       = 'approved';
+	public const RESULT_NONE           = ExamResultStatus::None->value;
+	public const RESULT_PENDING_REVIEW = ExamResultStatus::PendingReview->value;
+	public const RESULT_READY          = ExamResultStatus::Ready->value;
+	public const RESULT_APPROVED       = ExamResultStatus::Approved->value;
 
-	private const RESULT_LABELS = array(
-		self::RESULT_NONE           => 'Нет работы',
-		self::RESULT_PENDING_REVIEW => 'Ожидает проверки',
-		self::RESULT_READY          => 'Готова к утверждению',
-		self::RESULT_APPROVED       => 'Утверждена',
-	);
 
 	public const ACTION_CANCEL    = 'cancel';
 	public const ACTION_TRANSFER  = 'transfer';
@@ -87,7 +81,7 @@ class ExamConductService {
 		private readonly ExamParticipationRepository $participations,
 		private readonly ExamParticipantRepository $participants,
 		private readonly AssessmentAttemptRepository $attempts,
-		private readonly AssessmentAnswerRepository $answers,
+		private readonly ExamResultStatusService $resultStates,
 		private readonly ExamSourceRepository $sources,
 		private readonly ExamParticipantNameService $names,
 		private readonly RoomRepository $rooms,
@@ -103,6 +97,7 @@ class ExamConductService {
 		private readonly LogEventDispatcherInterface $logEvents,
 		private readonly ExamGuestBoardService $guestBoard,
 		private readonly UserManager $users,
+		private readonly ExamEventViewService $eventView,
 	) {}
 
 	/**
@@ -127,9 +122,9 @@ class ExamConductService {
 			'tiles'    => $this->tiles( $rows ),
 			'rows'     => $rows,
 			'warnings' => $this->warnings( $session, $rows ),
-			'sessions' => $this->siblings( $event ),
+			'sessions' => $this->eventView->siblings( $event ),
 			'rooms'    => $this->plans->roomsFor( $event->subjectKey ),
-			'sources'  => $this->sourceOptions( $event->id ),
+			'sources'  => $this->eventView->sourceOptions( $event->id ),
 			'holds'    => $this->guestBoard->holdsOf( $session ),
 		);
 	}
@@ -216,116 +211,6 @@ class ExamConductService {
 			'result_status_label' => $this->resultLabel( $status, $audience ),
 			'approvable'          => self::RESULT_READY === $status,
 			'correctable'         => $attempt->isApproved(),
-		);
-	}
-
-	/**
-	 * Раздел «Результаты» (8.7): работы проведений предмета с фильтрами; только проведения, доступные пользователю.
-	 *
-	 * @param array{event_id?: int, session_id?: int, status?: string, audience?: string, source_id?: int} $filters
-	 *        `status` — `pending_review` | `ready` | `approved` | `all`; `audience` — `student` | `guest` | `all`.
-	 *
-	 * @return array{filters: array<string, mixed>, items: list<array<string, mixed>>}
-	 */
-	public function results( int $actorUserId, string $subjectKey, array $filters ): array {
-		$events = array_values( array_filter(
-			$this->events->findBySubjectKey( $subjectKey ),
-			fn ( ExamEventDTO $event ): bool => in_array( $event->status, array( ExamEventStatus::Published->value, ExamEventStatus::Completed->value ), true )
-				&& $this->guard->canManageEvent( $actorUserId, $event )
-		) );
-
-		$eventId  = (int) ( $filters['event_id'] ?? 0 );
-		$selected = $eventId > 0
-			? array_values( array_filter( $events, static fn ( ExamEventDTO $e ): bool => $e->id === $eventId ) )
-			: $events;
-
-		$status   = (string) ( $filters['status'] ?? 'all' );
-		$audience = (string) ( $filters['audience'] ?? 'all' );
-		$sourceId = (int) ( $filters['source_id'] ?? 0 );
-		$session  = (int) ( $filters['session_id'] ?? 0 );
-
-		$items = array();
-		foreach ( $selected as $event ) {
-			foreach ( $this->resultRows( $event ) as $row ) {
-				if ( ( 'all' !== $status && $row['result_status'] !== $status )
-					|| ( 'all' !== $audience && $row['audience'] !== $audience )
-					|| ( $sourceId > 0 && $row['source_id'] !== $sourceId )
-					|| ( $session > 0 && $row['session_id'] !== $session ) ) {
-					continue;
-				}
-				$items[] = $row;
-			}
-		}
-
-		return array(
-			'filters' => array(
-				'events'   => array_map( static fn ( ExamEventDTO $e ): array => array( 'id' => $e->id, 'title' => $e->title ), $events ),
-				'sessions' => 1 === count( $selected ) ? $this->siblings( $selected[0] ) : array(),
-				'sources'  => 1 === count( $selected ) ? $this->sourceOptions( $selected[0]->id ) : array(),
-			),
-			'items'   => $items,
-		);
-	}
-
-	/**
-	 * Строки результатов одного проведения: по одной на участие с попыткой.
-	 *
-	 * @return list<array<string, mixed>>
-	 */
-	private function resultRows( ExamEventDTO $event ): array {
-		$participations = array_filter( $this->participations->findByEvent( $event->id ), static fn ( ExamParticipationDTO $p ): bool => $p->hasAttempt() );
-		if ( array() === $participations ) {
-			return array();
-		}
-
-		$attempts = array();
-		foreach ( $this->attempts->listByParticipations( array_map( static fn ( ExamParticipationDTO $p ): int => $p->id, $participations ) ) as $attempt ) {
-			$attempts[ (int) $attempt->examParticipationId ] = $attempt;
-		}
-
-		$rows = array();
-		foreach ( $participations as $participation ) {
-			$attempt     = $attempts[ $participation->id ] ?? null;
-			$participant = $this->participants->find( $participation->participantId );
-			if ( null === $attempt || null === $participant ) {
-				continue;
-			}
-
-			$registration = null !== $attempt->examRegistrationId ? $this->registrations->find( $attempt->examRegistrationId ) : null;
-			$session      = null !== $registration ? $this->sessions->find( $registration->sessionId ) : null;
-			$audience     = ExamAudience::from( $participation->audience );
-			$result       = $this->resultStatus( $attempt, $audience );
-			$source       = null !== $participation->sourceId ? $this->sources->find( $participation->sourceId ) : null;
-			$start        = null !== $session ? $this->time->toLocal( $session->scheduledAt ) : null;
-
-			$rows[] = array(
-				'attempt_id'          => $attempt->id,
-				'participation_id'    => $participation->id,
-				'result_version'      => $attempt->resultVersion,
-				'event_id'            => $event->id,
-				'event_title'         => $event->title,
-				'session_id'          => $session->id ?? 0,
-				'session_date'        => null !== $start ? substr( $start, 0, 10 ) : '',
-				'session_time'        => null !== $start ? substr( $start, 11, 5 ) : '',
-				'name'                => $this->participantName( $participant ),
-				'audience'            => $audience->value,
-				'audience_label'      => $audience->label(),
-				'source'              => $source->schoolName ?? '',
-				'source_id'           => $participation->sourceId ?? 0,
-				'result_status'       => $result,
-				'result_status_label' => $this->resultLabel( $result, $audience ),
-				'score'               => AttemptStatus::InProgress === $attempt->status ? null : $this->scores->summarize( $attempt, $event ),
-			);
-		}
-
-		return $rows;
-	}
-
-	/** @return list<array{id: int, label: string}> */
-	private function sourceOptions( int $eventId ): array {
-		return array_map(
-			static fn ( $source ): array => array( 'id' => $source->id, 'label' => $source->schoolName . ' · ' . $source->grade . ' класс' ),
-			$this->sources->listByEvent( $eventId )
 		);
 	}
 
@@ -639,17 +524,7 @@ class ExamConductService {
 	 * Гостю утверждение не требуется: готовая работа для него равнозначна утверждённой («Результат выдан»).
 	 */
 	public function resultStatus( ?AttemptDTO $attempt, ExamAudience $audience ): string {
-		if ( null === $attempt || AttemptStatus::InProgress === $attempt->status ) {
-			return self::RESULT_NONE;
-		}
-		if ( $this->answers->hasPendingAnswers( $attempt->id ) ) {
-			return self::RESULT_PENDING_REVIEW;
-		}
-		if ( $attempt->isApproved() || ExamAudience::Guest === $audience ) {
-			return self::RESULT_APPROVED;
-		}
-
-		return self::RESULT_READY;
+		return $this->resultStates->status( $attempt, $audience )->value;
 	}
 
 	/** «Передана 10.10 15:00, Иванов» — или null, пока сотрудник не отметил вручную. */
@@ -789,11 +664,7 @@ class ExamConductService {
 	}
 
 	private function resultLabel( string $result, ExamAudience $audience ): string {
-		if ( self::RESULT_APPROVED === $result && ExamAudience::Guest === $audience ) {
-			return 'Результат выдан';
-		}
-
-		return self::RESULT_LABELS[ $result ];
+		return ExamResultStatus::from( $result )->label( $audience );
 	}
 
 	/**
@@ -876,30 +747,6 @@ class ExamConductService {
 			'is_locked'   => $session->isLocked(),
 			'version'     => $session->version,
 		);
-	}
-
-	/**
-	 * Сеансы проведения для переключателя.
-	 *
-	 * @return list<array<string, mixed>>
-	 */
-	private function siblings( ExamEventDTO $event ): array {
-		$list = array();
-		foreach ( $this->sessions->findByEvent( $event->id ) as $session ) {
-			if ( ExamSessionStatus::Cancelled->value === $session->status ) {
-				continue;
-			}
-			$start  = $this->time->toLocal( $session->scheduledAt );
-			$list[] = array(
-				'id'         => $session->id,
-				'date'       => substr( $start, 0, 10 ),
-				'time_start' => substr( $start, 11, 5 ),
-				'free'       => $session->freeSeats(),
-				'status'     => $session->status,
-			);
-		}
-
-		return $list;
 	}
 
 	/**
