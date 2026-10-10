@@ -50,7 +50,6 @@ readonly class NotificationCronService {
 	) {}
 
 	public function tick(): void {
-		$this->lessonSoon();
 		$this->lessonOpened();
 		$this->deadlines();
 		$this->homeworkBeforeNextLesson();
@@ -58,40 +57,6 @@ readonly class NotificationCronService {
 		$this->absenceMarked();
 		$this->journalNotFilled();
 		$this->purge();
-	}
-
-	/** Занятия, начинающиеся через (0, 30] минут — ученикам и эффективному учителю. */
-	private function lessonSoon(): void {
-		$now  = $this->clock->now();
-		$soon = $this->shift( $now, '+30 minutes' );
-
-		foreach ( $this->groupLessons->listStartingBetween( $now, $soon ) as $lesson ) {
-			$recipients = $this->notifications->lessonStudentUserIds( $lesson );
-			$teacherId  = $this->notifications->lessonTeacherUserId( $lesson );
-			if ( null !== $teacherId ) {
-				$recipients[] = $teacherId;
-			}
-			if ( empty( $recipients ) ) {
-				continue;
-			}
-
-			$this->notifications->push(
-				array_unique( $recipients ),
-				NotificationType::LessonSoon,
-				"lesson_soon:{$lesson->id}",
-				array(
-					'topic'      => $this->notifications->lessonTopic( $lesson ),
-					'group_name' => $this->notifications->groupName( $lesson->groupId ),
-					'time'       => $lesson->scheduledAt ? substr( $lesson->scheduledAt, 11, 5 ) : '',
-				),
-				$lesson->lessonId
-					? PageRoutes::LessonPlayer->lessonUrl( $lesson->groupId, $lesson->id )
-					: PageRoutes::UserProfile->url(),
-				$lesson->groupId,
-				'group_lesson',
-				$lesson->id
-			);
-		}
 	}
 
 	/**

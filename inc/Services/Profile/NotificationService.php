@@ -295,13 +295,27 @@ readonly class NotificationService {
 	 * @return array{id:int, type:string, tone:string, title:string, body:string, url:string, time:string, unread:bool}
 	 */
 	public function toClientArray( NotificationDTO $n ): array {
+		$url = $n->url;
+		if (
+			in_array( $n->type, array( NotificationType::ReviewNeeded, NotificationType::HomeworkSubmitted ), true )
+			&& 'submission' === $n->entityType
+			&& null !== $n->entityId
+			&& $n->entityId > 0
+		) {
+			// Also repairs links in notices created before the deep-link was added.
+			$url = (string) add_query_arg(
+				array( 'screen' => 'works', 'submission' => $n->entityId ),
+				PageRoutes::UserProfile->url()
+			);
+		}
+
 		return array(
 			'id'     => $n->id,
 			'type'   => $n->type->value,
 			'tone'   => $n->type->tone(),
 			'title'  => $n->type->title(),
 			'body'   => $this->renderBody( $n->type, $n->payload ),
-			'url'    => $n->url,
+			'url'    => $url,
 			'time'   => $n->createdAt,
 			'unread' => $n->isUnread(),
 		);

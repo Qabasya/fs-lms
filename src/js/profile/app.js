@@ -93,16 +93,16 @@ function closeMenuOnMobile() {
     }
 }
 
-/* Адрес отражает текущий экран: перезагрузка возвращает на него же, а не на экран из
-   прошлой ссылки (?screen=…&course=… из плеера). `course`/`gid` живут только на своём
-   экране — go() их сбрасывает, нужный экран выставляет сам. Программные экраны вне
-   cfg.screens (деталь работы) адрес не меняют: при перезагрузке откроется экран-родитель. */
+/* Адрес отражает текущий экран. `course`/`gid` и `submission` живут только на своих
+   экранах: обычный переход очищает их, а ссылка на конкретную сдачу оставляет
+   `screen=<parent>&submission=ID`, чтобы перезагрузка открыла ту же проверку. */
 function syncUrl(screen, extra) {
     if (!cfg.screens.includes(screen)) return;
     const url = new URL(window.location.href);
     url.searchParams.set('screen', screen);
     url.searchParams.delete('course');
     url.searchParams.delete('gid');
+    url.searchParams.delete('submission');
     Object.entries(extra || {}).forEach(([k, v]) => url.searchParams.set(k, v));
     window.history.replaceState(window.history.state, '', url);
 }
@@ -134,9 +134,21 @@ function setTopbar(screen, override) {
    из Сводки и из «Работ» (D3). `from` — экран, на который вернёт «‹ Назад». */
 function openWorkReviewFrom(from) {
     return (sourceType, sourceId) => {
+        syncUrl(from, 'submission' === sourceType ? { submission: sourceId } : {});
         openWorkReview(sourceType, sourceId, from);
         go('work-review');
     };
+}
+
+/** Read a submission deep-link without trusting malformed query parameters. */
+export function submissionDeepLink(params, screens) {
+    const from = params.get('screen');
+    const submission = params.get('submission');
+    const sourceId = Number(submission);
+    if (!/^\d+$/.test(submission || '') || !Number.isSafeInteger(sourceId) || sourceId < 1 || !['works', 'summary', 'activity'].includes(from) || !screens.includes(from)) {
+        return null;
+    }
+    return { from, sourceId };
 }
 
 /* Tasks.md п. 3: «Сводка» конкретного ученика — из карточки в «Группах» и
@@ -428,8 +440,11 @@ export function initProfile() {
     const wanted = params.get('screen');
     const gid = params.get('gid');
     const course = params.get('course');
+    const submissionLink = submissionDeepLink(params, cfg.screens);
     if (gid && cfg.screens.includes('groups')) {
         openGroupsFor(gid);
+    } else if (submissionLink) {
+        openWorkReviewFrom(submissionLink.from)('submission', submissionLink.sourceId);
     } else if ('teacher-courses' === wanted && course && cfg.screens.includes(wanted)) {
         // «К курсу» из плеера урока (Tasks.md З4) — страница этого курса.
         openCoursePage(course);

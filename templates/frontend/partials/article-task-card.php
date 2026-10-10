@@ -26,7 +26,7 @@ $body_id = 'fs-article-task-' . $task_card->id;
 		<span class="fs-article-task__main">
 			<span class="fs-article-task__title"><?php echo esc_html( $task_card->title ); ?></span>
 			<?php if ( '' !== $task_card->peek ) : ?>
-				<span class="fs-article-task__peek"><?php echo esc_html( $task_card->peek ); ?></span>
+				<span class="fs-article-task__peek"><?php echo \Inc\Shared\SafeHtml::post( $task_card->peek ); ?></span>
 			<?php endif; ?>
 		</span>
 		<span class="fs-article-task__chev" aria-hidden="true">

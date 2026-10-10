@@ -15,6 +15,7 @@ use Inc\Enums\Course\WorkType;
 use Inc\Enums\Log\LogEvent;
 use Inc\Enums\Profile\NotificationType;
 use Inc\Enums\Subject\TaskTemplate;
+use Inc\Enums\Wp\PageRoutes;
 use Inc\Managers\Course\WorkManager;
 use Inc\Managers\Wp\PostManager;
 use Inc\Repositories\WPDBRepositories\AssessmentAttemptRepository;
@@ -189,7 +190,7 @@ class NotificationSubscriberTest extends TestCase {
 
 		$this->notifications->expects( $this->once() )
 			->method( 'push' )
-			->with( array( 55 ), NotificationType::ReviewNeeded, 'review:1', $this->anything(), $this->anything(), 5, 'submission', 1 );
+			->with( array( 55 ), NotificationType::ReviewNeeded, 'review:1', $this->anything(), (string) add_query_arg( array( 'screen' => 'works', 'submission' => 1 ), PageRoutes::UserProfile->url() ), 5, 'submission', 1 );
 
 		$this->subscriber->handleSubmissionMade( new LearningEvent(
 			event: LogEvent::SubmissionMade, actorUserId: 10, entityId: '1'
@@ -316,7 +317,7 @@ class NotificationSubscriberTest extends TestCase {
 
 		$this->notifications->expects( $this->once() )
 			->method( 'push' )
-			->with( array( 55 ), NotificationType::HomeworkSubmitted, 'hw_sub:100:50:10', $this->anything(), $this->anything(), 5, 'submission', 1 );
+			->with( array( 55 ), NotificationType::HomeworkSubmitted, 'hw_sub:100:50:10', $this->anything(), (string) add_query_arg( array( 'screen' => 'works', 'submission' => 1 ), PageRoutes::UserProfile->url() ), 5, 'submission', 1 );
 
 		$this->subscriber->handleSubmissionMade( new LearningEvent(
 			event: LogEvent::SubmissionMade, actorUserId: 10, entityId: '1'

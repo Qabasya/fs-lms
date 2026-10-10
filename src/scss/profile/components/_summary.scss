@@ -3,6 +3,7 @@
    Палитра полос D12: 🟢 посещён · 🟣 индивидуальное · 🔴 пропуск · серый — не отмечено.
    ══════════════════════════════════════════════════════════════════════ */
 @use '../variables' as *;
+@use '../../shared/content-lists' as *;
 
 .prof-summary {
   padding: rem(22) rem(26) rem(40);
@@ -296,6 +297,7 @@
 .sv-pending   { background: var(--surface-2); color: var(--muted); }
 .sum-task-cond { font-size: rem(13.5); color: var(--ink-2); line-height: 1.5; }
 .sum-task-cond :is(p, ul, ol) { margin: 0 0 rem(6); }
+.sum-task-cond { @include fs-content-lists; }
 .sum-task-ans { margin-top: rem(8); font-size: rem(13); }
 .sta-label { color: var(--muted); }
 .sta-val { color: var(--ink); font-weight: 600; white-space: pre-wrap; }

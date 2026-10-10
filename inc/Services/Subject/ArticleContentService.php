@@ -414,9 +414,113 @@ readonly class ArticleContentService {
 			id:        $post_id,
 			title:     get_the_title( $post_id ),
 			url:       (string) get_permalink( $post_id ),
-			peek:      wp_trim_words( wp_strip_all_tags( $condition ), self::PEEK_WORDS, '…' ),
+			peek:      $this->buildPeek( $condition ),
 			condition: $condition,
 		);
+	}
+
+	/**
+	 * Builds the collapsed card preview, retaining safe sub/sup markup.
+	 *
+	 * Text is escaped as it is serialized; only sub/sup are emitted as tags.
+	 * The walk counts whitespace-delimited words across text nodes, so markup
+	 * boundaries do not split or join words, entities are decoded by DOM once,
+	 * and any open inline tag is closed when the preview reaches its limit.
+	 */
+	private function buildPeek( string $html ): string {
+		$dom = $this->loadDom( $html );
+
+		if ( ! $dom ) {
+			return esc_html( wp_trim_words( wp_strip_all_tags( $html ), self::PEEK_WORDS, '…' ) );
+		}
+
+		$state = array(
+			'words'     => 0,
+			'truncated' => false,
+			'in_word'   => false,
+		);
+		$text = $this->serializePeekNode( $dom->documentElement, $state );
+
+		$text = preg_replace( '/\s{2,}/u', ' ', $text ) ?? $text;
+		$text = preg_replace( '/(?<=>)\s+(?=<)/u', ' ', $text ) ?? $text;
+		$text = preg_replace( '/\s+(?=(?:<\/(?:sub|sup)>)*$)/u', '', $text ) ?? $text;
+
+		return trim( $text ) . ( $state['truncated'] ? '…' : '' );
+	}
+
+	/** @param array{words:int, truncated:bool, in_word:bool} $state */
+	private function serializePeekNode( \DOMNode $node, array &$state ): string {
+		if ( $state['truncated'] ) {
+			return '';
+		}
+
+		if ( $node instanceof \DOMText ) {
+			$chars  = preg_split( '//u', $node->nodeValue ?? '', -1, PREG_SPLIT_NO_EMPTY );
+			$result = '';
+
+			foreach ( $chars ?: array() as $char ) {
+				if ( preg_match( '/^\s$/u', $char ) ) {
+					$state['in_word'] = false;
+					$result          .= esc_html( $char );
+					continue;
+				}
+
+				if ( ! $state['in_word'] ) {
+					if ( $state['words'] >= self::PEEK_WORDS ) {
+						$state['truncated'] = true;
+						break;
+					}
+
+					++$state['words'];
+					$state['in_word'] = true;
+				}
+
+				$result .= esc_html( $char );
+			}
+
+			return $result;
+		}
+
+		if ( ! $node instanceof \DOMElement ) {
+			return '';
+		}
+
+		$node_tag = strtolower( $node->tagName );
+		if ( in_array( $node_tag, array( 'script', 'style' ), true ) ) {
+			return '';
+		}
+
+		if ( 'br' === $node_tag ) {
+			$state['in_word'] = false;
+			return ' ';
+		}
+
+		$block = in_array( $node_tag, array( 'p', 'div', 'li', 'ul', 'ol', 'section', 'blockquote', 'pre', 'table', 'tr' ), true );
+		if ( $block ) {
+			$state['in_word'] = false;
+		}
+
+		$tag   = in_array( $node_tag, array( 'sub', 'sup' ), true ) ? $node_tag : '';
+		$inner = '';
+
+		foreach ( $node->childNodes as $child ) {
+			$inner .= $this->serializePeekNode( $child, $state );
+		}
+
+		if ( $state['truncated'] && '' !== $tag && '' !== $inner ) {
+			return '<' . $tag . '>' . $inner . '</' . $tag . '>';
+		}
+
+		if ( $state['truncated'] && '' !== $tag ) {
+			return '';
+		}
+
+		if ( $block ) {
+			$state['in_word'] = false;
+			$inner            = ' ' . $inner . ' ';
+		}
+
+		return '' !== $tag ? '<' . $tag . '>' . $inner . '</' . $tag . '>' : $inner;
 	}
 
 	/**

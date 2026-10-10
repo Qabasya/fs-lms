@@ -68,6 +68,32 @@ class ArticleContentServiceTest extends TestCase {
 		self::assertStringNotContainsString( 'fs-article-task__peek', $html );
 	}
 
+	public function test_peek_preserves_safe_sub_sup_and_escapes_text_entities(): void {
+		$this->seedMeta( array( 'task_condition' => '<p>Число 2<sup>10</sup> &amp; основание <sub>16</sub>.</p>' ) );
+
+		$html = $this->content->build( '<p><a href="http://example.com/inf/trainer/5001/">Задание</a></p>' )->html;
+
+		self::assertMatchesRegularExpression( '/<span class="fs-article-task__peek">Число 2<sup>10<\/sup> &(?:amp;)? основание <sub>16<\/sub>\.<\/span>/', $html );
+	}
+
+	public function test_peek_counts_inline_markup_as_part_of_a_word_and_separates_blocks(): void {
+		$this->seedMeta( array( 'task_condition' => '<p>основание 2<sup>10</sup></p><p>дроби</p>' ) );
+
+		$html = $this->content->build( '<p><a href="http://example.com/inf/trainer/5001/">Задание</a></p>' )->html;
+
+		self::assertMatchesRegularExpression( '/<span class="fs-article-task__peek">основание 2<sup>10<\/sup> дроби<\/span>/', $html );
+	}
+
+	public function test_peek_truncates_after_28_words_without_leaving_an_unmatched_inline_tag(): void {
+		$condition = implode( ' ', array_fill( 0, 28, 'слово' ) ) . ' <sup>лишнее</sup>';
+		$this->seedMeta( array( 'task_condition' => '<p>' . $condition . '</p>' ) );
+
+		$html = $this->content->build( '<p><a href="http://example.com/inf/trainer/5001/">Задание</a></p>' )->html;
+
+		self::assertMatchesRegularExpression( '/<span class="fs-article-task__peek">(?:слово ?){28}…<\/span>/', $html );
+		self::assertStringNotContainsString( '<sup></sup>', $html );
+	}
+
 	private function seedMeta( array $meta ): void {
 		$this->posts
 			->method( 'getMeta' )
