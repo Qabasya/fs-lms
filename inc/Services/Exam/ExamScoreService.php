@@ -69,7 +69,7 @@ class ExamScoreService {
 			'secondary'     => $isEge ? $converted : null,
 			'secondary_max' => $isEge ? ( isset( $snapshot['secondary_max'] ) ? (int) $snapshot['secondary_max'] : $format?->secondaryMax ) : null,
 			'grade'         => $isEge ? null : $converted,
-			'grade_max'     => $isEge ? null : ( $format?->gradeMax ?: 5 ),
+			'grade_max'     => $isEge ? null : ( $format?->gradeMax ? $format->gradeMax : 5 ),
 			'pending'       => $pending,
 			'final'         => ! $pending,
 		);

@@ -89,7 +89,8 @@ class GuestResultSidebarService {
 		}
 
 		$picked = array();
-		for ( $round = 0; count( $picked ) < self::ARTICLES_LIMIT; ++$round ) {
+		$pickedCount = 0;
+		for ( $round = 0; $pickedCount < self::ARTICLES_LIMIT; ++$round ) {
 			$added = false;
 			foreach ( $queues as $queue ) {
 				$card = $queue[ $round ] ?? null;
@@ -98,7 +99,8 @@ class GuestResultSidebarService {
 				}
 				$picked[ $card->id ] = $card;
 				$added               = true;
-				if ( count( $picked ) >= self::ARTICLES_LIMIT ) {
+				++$pickedCount;
+				if ( $pickedCount >= self::ARTICLES_LIMIT ) {
 					break 2;
 				}
 			}

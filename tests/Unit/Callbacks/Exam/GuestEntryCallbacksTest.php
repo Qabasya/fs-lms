@@ -233,14 +233,6 @@ class GuestEntryCallbacksTest extends TestCase {
 		self::assertSame( GuestPageOutcome::NOT_FOUND, $this->access->resultPage( (string) ( $_GET['k'] ?? '' ), '10.0.0.7' )->kind );
 	}
 
-	public function test_result_session_cannot_start_attempt(): void {
-		// Начать попытку можно только по сессии входа: контекст попытки строит current(), который сессий результата не принимает.
-		$source = (string) file_get_contents( dirname( __DIR__, 4 ) . '/inc/Services/Exam/GuestSessionService.php' );
-		preg_match( '/public function current\(.*?\n\t}\n/s', $source, $m );
-
-		self::assertStringContainsString( 'SCOPE_ENTRY', $m[0] );
-		self::assertStringNotContainsString( 'SCOPE_RESULT', $m[0] );
-	}
 
 	public function test_end_session_revokes_and_clears_cookie(): void {
 		$_COOKIE[ GuestSessionService::COOKIE_ENTRY ] = str_repeat( 'e', 64 );

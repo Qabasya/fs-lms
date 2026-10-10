@@ -85,6 +85,10 @@
 - **Выгрузка и печать списка участников** — только при `ManageLmsPlatform` + `ExportPII` и доступе к проведению; контактов нет ни в CSV, ни в списке печати. Защита от формул — `CsvExportService::neutralizeFormula()` для всех выгрузок.
 - Стенд: `stand-attempts`, `stand-approve`, `stand-approve-all`, `stand-correct` (`ExamStandCommand`) — для гонок утверждения и исправления.
 
+- Доску и строки CSV/печати собирает `ExamConductViewService`, список результатов — `ExamResultsViewService`. AJAX и провайдер экспорта получают их напрямую; командный Conduct ради чтения доски/имени не подключать.
+- Общее состояние работы вычисляет `ExamResultStatusService` с enum `ExamResultStatus`; вывод имени — `ExamParticipantNameService`; варианты фильтров проведения — `ExamEventViewService`. Значения ответов клиенту сохраняются.
+- Общий разбор без контактов собирает `ExamReviewViewService`; контакты центра добавляет только `GuestResultViewService`. Для проверки допуска использовать дешёвый `ExamReviewProjection::isParticipationRevealed()`, не собирать review и не кешировать раскрытие между запросами.
+
 ## Уведомления (этап 9)
 
 - **Только кабинет.** Писем, SMS, мессенджеров нет; **гостю LMS не отправляет ничего** (`ExamNotificationComposer::studentRecipients()` для аудитории `guest` пуст).
@@ -108,7 +112,7 @@
 - **Отчёт — только состав, баллы не хранит:** итог читается из попытки при каждом построении; допуск строки (`ExamReportService::canInclude()`) перепроверяется каждый раз — отозванное согласие или снятое утверждение превращает строку в заглушку.
 - **AJAX-параметры кабинета:** `profile/api.js` кодирует массивы как `key[]`, объекты — `key[i][поле]`; свой `URLSearchParams` из объекта массив склеит в «1,2» (так не работали выбранные выгрузки и массовое утверждение).
 - **Тесты:** `user_can()` в юнит-тестах управляется `$GLOBALS['_test_user_can'][id][cap]`, `current_user_can()` — `_fs_test_can_callback`.
-- Страницы гостя и отчёта: заголовки только через `GuestPageResponder`; нет сессии — обычная 404 темы.
+- Страницы гостя и отчёта: HTTP/шорткоды — ExamGuestPageController, политика — GuestPageAccessService, заголовки только через `GuestPageResponder`; нет сессии — обычная 404 темы. Определения четырёх страниц — PageRoutes::guestExamPages()/guestExamTitle()/guestExamShortCode(). Общий генератор проверяет публикацию через PostManager; версия миграции записывается только после успеха всех страниц.
 - Все четыре защищённые страницы (`signup`, `entry`, `result`, `report`) перепроверяют доступ при восстановлении из bfcache: подписка на `pageshow` не зависит от AJAX-конфигурации. Robots задаёт штатный фильтр `wp_robots`, canonical на этих маршрутах отсутствует.
 - Поле серверной ошибки согласия совпадает с `data-error` формы (`consent_pd_processing`). Неизвестный ключ ошибки обязан показывать общий текст; заполненные данные и request_key сохраняются при повторе.
 - Ручная заявка сотрудника сохраняет реальный RequestContextProvider (IP, User-Agent, actor); исключение сотрудника из IP-лимитов определяется отдельно через staffUserId. Технический сбой платёжного перехода журналируется без секретного ключа.

@@ -79,16 +79,15 @@ $contact_phone = (string) ( $contacts['phone'] ?? '' );
 						array( 'middle_name', 'Отчество (если есть)', 'additional-name', false, 'dashicons-admin-users', 'text' ),
 						array( 'phone', 'Телефон', 'tel', true, 'dashicons-phone', 'tel' ),
 					);
-					foreach ( $fields as list( $name, $label, $autocomplete, $required, $icon, $type ) ) :
+					foreach ( $fields as list( $name, $label, $autocomplete, $required, $icon, $fieldType ) ) :
 						?>
 						<div class="fs-join-card__field-group fs-form-group" data-field="<?php echo esc_attr( $name ); ?>">
 							<label for="fs_exam_<?php echo esc_attr( $name ); ?>">
-								<?php echo esc_html( $label ); ?><?php if ( $required ) :
-?> <span aria-hidden="true">*</span><?php endif; ?>
+								<?php echo esc_html( $label ); ?><?php if ( $required ) : ?> <span aria-hidden="true">*</span><?php endif; ?>
 							</label>
 							<div class="fs-field-control">
 								<span class="dashicons <?php echo esc_attr( $icon ); ?>" aria-hidden="true"></span>
-								<input type="<?php echo esc_attr( $type ); ?>" name="<?php echo esc_attr( $name ); ?>" id="fs_exam_<?php echo esc_attr( $name ); ?>"
+								<input type="<?php echo esc_attr( $fieldType ); ?>" name="<?php echo esc_attr( $name ); ?>" id="fs_exam_<?php echo esc_attr( $name ); ?>"
 									data-validate="<?php echo 'phone' === $name ? 'phone' : 'default'; ?>" autocomplete="<?php echo esc_attr( $autocomplete ); ?>" <?php echo 'phone' === $name ? 'inputmode="tel" placeholder="+7 (___) ___-__-__"' : 'maxlength="100"'; ?>
 									<?php echo $required ? 'required aria-required="true"' : ''; ?>>
 							</div>

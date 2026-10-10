@@ -190,7 +190,7 @@ class ExamHoldService {
 					$result = $this->registrations->confirmHeld( $participantId, $application->sessionId, $requestKey, $sourceId, $actorUserId );
 
 					return $this->finalize( $application, $participantId, $result->participationId, $result->registrationId );
-				} catch ( CodedException ) {
+				} catch ( CodedException ) { // phpcs:ignore Generic.CodeAnalysis.EmptyStatement.DetectedCatch -- Ожидаемый отказ переводит платёж в ручное разрешение ниже.
 					// Сеанс отменён или участие уже занято другой записью: бронь снимается, оплаченную заявку разбирает сотрудник.
 					$this->giveUpSeat( $application );
 
@@ -205,7 +205,7 @@ class ExamHoldService {
 					$result = $this->registrations->confirmLate( $participantId, $application->sessionId, $requestKey, $sourceId, $actorUserId );
 
 					return $this->finalize( $application, $participantId, $result->participationId, $result->registrationId );
-				} catch ( CodedException ) {
+				} catch ( CodedException ) { // phpcs:ignore Generic.CodeAnalysis.EmptyStatement.DetectedCatch -- Ожидаемый отказ переводит платёж в ручное разрешение ниже.
 					// Мест нет, сеанс начался или отменён: оплата получена, место не занято — разбирает сотрудник.
 				}
 			}

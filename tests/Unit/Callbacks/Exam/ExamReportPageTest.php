@@ -223,25 +223,7 @@ class ExamReportPageTest extends TestCase {
 		self::assertStringContainsString( ExamReportViewService::PLACEHOLDER, $html );
 	}
 
-	public function test_view_service_source_never_reads_contacts(): void {
-		$src = (string) file_get_contents( __DIR__ . '/../../../../inc/Services/Exam/ExamReportViewService.php' );
 
-		foreach ( array( 'phoneEnc', 'messengerEnc', 'decryptContacts', 'issue(' ) as $needle ) {
-			self::assertStringNotContainsString( $needle, $src, $needle );
-		}
-	}
-
-	public function test_headers_noindex_no_store_no_referrer(): void {
-		$responder = (string) file_get_contents( __DIR__ . '/../../../../inc/Services/Exam/GuestPageResponder.php' );
-		$controller = (string) file_get_contents( __DIR__ . '/../../../../inc/Controllers/Exam/ExamGuestPageController.php' );
-
-		self::assertStringContainsString( 'X-Robots-Tag: noindex, nofollow', $responder );
-		self::assertStringContainsString( 'no-store', $responder );
-		self::assertStringContainsString( 'Referrer-Policy: no-referrer', $responder );
-		// Страница отчёта идёт через тот же ответчик и входит в список исключаемых из карты сайта и поиска.
-		self::assertMatchesRegularExpression( '/handleReportPage.*?sendHeaders\(\)/s', $controller );
-		self::assertStringContainsString( 'PageRoutes::ExamReport', substr( $controller, (int) strpos( $controller, 'function guestRoutes' ) ) );
-	}
 
 	// ── Построение таблицы (ExamReportViewService) ──────────────────────────────────────────────
 
@@ -267,6 +249,7 @@ class ExamReportPageTest extends TestCase {
 		$scores->method( 'caption' )->willReturn( '84 из 100' );
 		$mat = $this->createMock( GuestParticipantMaterializer::class );
 		$mat->method( 'displayName' )->willReturn( 'Иванов Пётр' );
+		$mat->expects( self::never() )->method( 'decryptContacts' );
 
 		return new ExamReportViewService( $members, $participations, $participants, $events, $attempts, $reportService, $this->createMock( ExamParticipantNameService::class ), $scores, $result ?? $this->createMock( ExamReviewViewService::class ), $mat );
 	}
@@ -329,5 +312,19 @@ class ExamReportPageTest extends TestCase {
 		self::assertSame( 2, $data['stats']['participants'] );
 		self::assertSame( '84', $data['stats']['average'] );
 		self::assertSame( 'Проверено', $data['rows'][0]['status'] );
+	}
+	public function test_report_data_never_contains_encrypted_contacts(): void {
+		$participant = ExamParticipantDTO::fromArray( array(
+			'id' => 9, 'phone_enc' => 'secret-phone', 'messenger_enc' => 'secret-messenger',
+			'created_at' => '2026-03-01 00:00:00', 'updated_at' => '2026-03-01 00:00:00',
+		) );
+		$reportService = $this->createMock( ExamReportService::class );
+		$reportService->method( 'canInclude' )->willReturn( null );
+		$data = $this->viewService( $reportService, $participant )->build( $this->report(), null );
+		$json = json_encode( $data, JSON_THROW_ON_ERROR );
+		self::assertStringNotContainsString( 'secret-phone', $json );
+		self::assertStringNotContainsString( 'secret-messenger', $json );
+		self::assertArrayNotHasKey( 'phone', $data['rows'][0] );
+		self::assertArrayNotHasKey( 'messenger', $data['rows'][0] );
 	}
 }

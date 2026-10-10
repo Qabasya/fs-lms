@@ -234,7 +234,8 @@ class ExamRegistrationService {
 			freeSeats      : $this->freeSeats( $session->id ),
 			warnings       : $warnings,
 		);
-		$this->rememberOperation( $participantId, self::OP_REGISTER, $requestKey, (string) $sessionId, json_encode( $result->toArray() ) ?: '' );
+		$encodedResult = wp_json_encode( $result->toArray() );
+		$this->rememberOperation( $participantId, self::OP_REGISTER, $requestKey, (string) $sessionId, is_string( $encodedResult ) ? $encodedResult : '' );
 
 		return $result;
 	}
@@ -277,7 +278,8 @@ class ExamRegistrationService {
 			}
 
 			$result = $this->moveRegistration( $participation, $current, $newSessionId, false, null, null );
-			$this->rememberOperation( $participation->participantId, self::OP_CHANGE, $requestKey, (string) $newSessionId, json_encode( $result->toArray() ) ?: '' );
+			$encodedResult = wp_json_encode( $result->toArray() );
+			$this->rememberOperation( $participation->participantId, self::OP_CHANGE, $requestKey, (string) $newSessionId, is_string( $encodedResult ) ? $encodedResult : '' );
 
 			return $result;
 		} );

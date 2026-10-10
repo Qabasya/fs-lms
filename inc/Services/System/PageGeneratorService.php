@@ -40,7 +40,7 @@ class PageGeneratorService {
 
 		if ( ! $this->posts->update( $page->ID, array(
 			'post_status'  => 'publish',
-			'post_content' => $page->post_content ?: $shortcode,
+			'post_content' => $page->post_content ? $page->post_content : $shortcode,
 		) ) ) {
 			throw new \RuntimeException( 'Не удалось опубликовать служебную страницу: ' . $route->value );
 		}
