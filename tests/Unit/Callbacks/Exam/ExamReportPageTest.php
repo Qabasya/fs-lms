@@ -19,7 +19,7 @@ use Inc\Repositories\WPDBRepositories\ExamParticipationRepository;
 use Inc\Repositories\WPDBRepositories\ExamReportMemberRepository;
 use Inc\Repositories\WPDBRepositories\ExamReportRepository;
 use Inc\Services\Exam\ExamAccessTokenService;
-use Inc\Services\Exam\ExamConductService;
+use Inc\Services\Exam\ExamParticipantNameService;
 use Inc\Services\Exam\ExamReportService;
 use Inc\Services\Exam\ExamReportViewService;
 use Inc\Services\Exam\ExamScoreService;
@@ -268,7 +268,7 @@ class ExamReportPageTest extends TestCase {
 		$mat = $this->createMock( GuestParticipantMaterializer::class );
 		$mat->method( 'displayName' )->willReturn( 'Иванов Пётр' );
 
-		return new ExamReportViewService( $members, $participations, $participants, $events, $attempts, $reportService, $this->createMock( ExamConductService::class ), $scores, $result ?? $this->createMock( ExamReviewViewService::class ), $mat );
+		return new ExamReportViewService( $members, $participations, $participants, $events, $attempts, $reportService, $this->createMock( ExamParticipantNameService::class ), $scores, $result ?? $this->createMock( ExamReviewViewService::class ), $mat );
 	}
 
 	private function participant( ?string $anonymizedAt = null ): ExamParticipantDTO {

@@ -31,7 +31,7 @@ class ExamReportViewService {
 		private readonly ExamEventRepository $events,
 		private readonly AssessmentAttemptRepository $attempts,
 		private readonly ExamReportService $reportService,
-		private readonly ExamConductService $conduct,
+		private readonly ExamParticipantNameService $names,
 		private readonly ExamScoreService $scores,
 		private readonly ExamReviewViewService $result,
 		private readonly GuestParticipantMaterializer $guestData,
@@ -105,7 +105,7 @@ class ExamReportViewService {
 		$summary = $this->scores->summarize( $attempt, $event );
 		$name    = ExamAudience::Guest->value === $participation->audience
 			? ( $this->guestData->displayName( $participant ) ?? self::PLACEHOLDER )
-			: $this->conduct->participantName( $participant );
+			: $this->names->participantName( $participant );
 
 		return array(
 			'n'       => $number,

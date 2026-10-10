@@ -34,7 +34,6 @@ use Inc\Repositories\WPDBRepositories\ExamRegistrationRepository;
 use Inc\Repositories\WPDBRepositories\ExamSessionRepository;
 use Inc\Repositories\WPDBRepositories\ExamSourceRepository;
 use Inc\Repositories\WPDBRepositories\RoomRepository;
-use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 use Inc\Services\Shared\PluginConfig;
 use Inc\Shared\CodedException;
 
@@ -90,7 +89,7 @@ class ExamConductService {
 		private readonly AssessmentAttemptRepository $attempts,
 		private readonly AssessmentAnswerRepository $answers,
 		private readonly ExamSourceRepository $sources,
-		private readonly StudentRecordRepository $studentRecords,
+		private readonly ExamParticipantNameService $names,
 		private readonly RoomRepository $rooms,
 		private readonly ExamRoomService $roomService,
 		private readonly ExamScoreService $scores,
@@ -666,16 +665,7 @@ class ExamConductService {
 
 	/** ФИО участника для таблицы сотрудника. */
 	public function participantName( ExamParticipantDTO $participant ): string {
-		if ( null === $participant->personId ) {
-			return $this->guestData->displayName( $participant ) ?? sprintf( 'Гость #%d', $participant->id );
-		}
-
-		$record = $this->studentRecords->findActiveByStudentFirst( $participant->personId ) ?? ( $this->studentRecords->findByStudent( $participant->personId )[0] ?? null );
-		if ( null === $record ) {
-			return sprintf( 'Ученик #%d', $participant->personId );
-		}
-
-		return trim( $record->snapshotLastName . ' ' . $record->snapshotFirstName );
+		return $this->names->participantName( $participant );
 	}
 
 	/**

@@ -108,7 +108,7 @@ class ExamConductServiceTest extends TestCase {
 			$this->attempts,
 			$this->answers,
 			$this->sources,
-			$this->records,
+			new \Inc\Services\Exam\ExamParticipantNameService( $this->records, $this->guestData ),
 			$this->createMock( RoomRepository::class ),
 			$this->roomService,
 			$this->scores,
@@ -253,7 +253,7 @@ class ExamConductServiceTest extends TestCase {
 		$guard->method( 'canManageEvent' )->willReturn( false );
 		$service = new ExamConductService(
 			$this->events, $this->sessions, $this->registrations, $this->participations, $this->participants, $this->attempts, $this->answers,
-			$this->createMock( ExamSourceRepository::class ), $this->records, $this->createMock( RoomRepository::class ), $this->roomService,
+			$this->createMock( ExamSourceRepository::class ), new \Inc\Services\Exam\ExamParticipantNameService( $this->records, $this->guestData ), $this->createMock( RoomRepository::class ), $this->roomService,
 			$this->scores, $guard, $this->time, $this->createMock( ExamPlanService::class ), $this->createMock( ExamReviewProjection::class ),
 			$this->tokens,
 			$this->guestData,
@@ -350,7 +350,7 @@ class ExamConductServiceTest extends TestCase {
 		$guard->method( 'canManageEvent' )->willReturn( false );
 		$service = new ExamConductService(
 			$this->events, $this->sessions, $this->registrations, $this->participations, $this->participants, $this->attempts, $this->answers,
-			$this->sources, $this->records, $this->createMock( RoomRepository::class ), $this->roomService,
+			$this->sources, new \Inc\Services\Exam\ExamParticipantNameService( $this->records, $this->guestData ), $this->createMock( RoomRepository::class ), $this->roomService,
 			$this->scores, $guard, $this->time, $this->createMock( ExamPlanService::class ), $this->createMock( ExamReviewProjection::class ),
 			$this->tokens,
 			$this->guestData,
@@ -426,7 +426,7 @@ class ExamConductServiceTest extends TestCase {
 		$guard->method( 'canManageEventGuests' )->willReturn( false );
 		$service = new ExamConductService(
 			$this->events, $this->sessions, $this->registrations, $this->participations, $this->participants, $this->attempts, $this->answers,
-			$this->sources, $this->records, $this->createMock( RoomRepository::class ), $this->roomService,
+			$this->sources, new \Inc\Services\Exam\ExamParticipantNameService( $this->records, $this->guestData ), $this->createMock( RoomRepository::class ), $this->roomService,
 			$this->scores, $guard, $this->time, $this->createMock( ExamPlanService::class ), $this->createMock( ExamReviewProjection::class ), $this->tokens, $this->guestData, $this->config, $this->logEvents, $this->guestBoard,
 			new UserManager(),
 		);
@@ -587,7 +587,7 @@ class ExamConductServiceTest extends TestCase {
 		$this->guestBoard->method( 'holdsOf' )->willReturn( array( $hold ) );
 		$service = new ExamConductService(
 			$this->events, $this->sessions, $this->registrations, $this->participations, $this->participants, $this->attempts, $this->answers,
-			$this->sources, $this->records, $this->createMock( RoomRepository::class ), $this->roomService,
+			$this->sources, new \Inc\Services\Exam\ExamParticipantNameService( $this->records, $this->guestData ), $this->createMock( RoomRepository::class ), $this->roomService,
 			$this->scores, $this->guard, $this->time, $this->createMock( ExamPlanService::class ), $this->createMock( ExamReviewProjection::class ),
 			$this->tokens, $this->guestData, $this->config, $this->logEvents, $this->guestBoard,
 			new UserManager(),

@@ -27,7 +27,7 @@ use Inc\Repositories\WPDBRepositories\ExamSessionRepository;
 use Inc\Repositories\WPDBRepositories\ExamSourceRepository;
 use Inc\Repositories\WPDBRepositories\RoomRepository;
 use Inc\Services\Exam\ExamAudienceResolver;
-use Inc\Services\Exam\ExamConductService;
+use Inc\Services\Exam\ExamParticipantNameService;
 use Inc\Services\Exam\ExamNotificationComposer;
 use Inc\Services\Exam\ExamOutbox;
 use Inc\Services\Exam\ExamScoreService;
@@ -86,7 +86,7 @@ class ExamNotificationComposerTest extends TestCase {
 		$this->links          = $this->createMock( ExamPaymentLinkRepository::class );
 		$this->sources        = $this->createMock( ExamSourceRepository::class );
 
-		$conduct = $this->createMock( ExamConductService::class );
+		$conduct = $this->createMock( ExamParticipantNameService::class );
 		$conduct->method( 'participantName' )->willReturn( 'Иванов Пётр' );
 		$rooms = $this->createMock( RoomRepository::class );
 		$rooms->method( 'find' )->willReturn( null );
@@ -460,7 +460,7 @@ class ExamNotificationComposerTest extends TestCase {
 
 	/** Пересобирает композитор с подменёнными зависимостями (свойства теста). */
 	private function rebuild(): ExamNotificationComposer {
-		$conduct = $this->createMock( ExamConductService::class );
+		$conduct = $this->createMock( ExamParticipantNameService::class );
 		$conduct->method( 'participantName' )->willReturn( 'Иванов Пётр' );
 		$rooms = $this->createMock( RoomRepository::class );
 		$time  = $this->createMock( ExamTime::class );

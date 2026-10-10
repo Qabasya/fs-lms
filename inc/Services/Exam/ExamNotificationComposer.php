@@ -57,7 +57,7 @@ class ExamNotificationComposer {
 		private readonly AssessmentAttemptRepository $attempts,
 		private readonly ExamAudienceResolver $audience,
 		private readonly ExamScoreService $scores,
-		private readonly ExamConductService $conduct,
+		private readonly ExamParticipantNameService $names,
 		private readonly RoomRepository $rooms,
 		private readonly ExamTime $time,
 		private readonly ExamOutbox $outbox,
@@ -265,7 +265,7 @@ class ExamNotificationComposer {
 			return;
 		}
 
-		$name = $this->conduct->participantName( $participant ) . ( ExamAudience::Guest->value === $participation->audience ? ' (гость)' : '' );
+		$name = $this->names->participantName( $participant ) . ( ExamAudience::Guest->value === $participation->audience ? ' (гость)' : '' );
 		$this->notifications->push(
 			array( $responsible ),
 			NotificationType::ExamWorkSubmitted,
