@@ -65,8 +65,11 @@ function initSignupForm( vars ) {
     };
 
     const showError = ( field, text ) => {
-        const el = form.querySelector( `[data-error="${ field }"]` );
-        if ( el ) { el.textContent = text; el.hidden = ! text; }
+        const el = Array.from( form.querySelectorAll( '[data-error]' ) ).find( item => item.dataset.error === field );
+        if ( ! el ) { return false; }
+        el.textContent = text;
+        el.hidden = ! text;
+        return true;
     };
     const clearErrors = () => form.querySelectorAll( '[data-error]' ).forEach( el => { el.hidden = true; el.textContent = ''; } );
     const formBox = document.getElementById( 'fs-exam-form-error' );
@@ -116,7 +119,8 @@ function initSignupForm( vars ) {
             const err = res.data || {};
             if ( err.cabinet_url ) { window.location.assign( err.cabinet_url ); return; }
             if ( err.new_request_key ) { requestKey = newRequestKey(); }
-            if ( err.field ) { showError( err.field, err.message ); } else { showFormError( err.message || 'Не удалось отправить форму. Попробуйте ещё раз.' ); }
+            const message = err.message || 'Не удалось отправить форму. Попробуйте ещё раз.';
+            if ( ! err.field || ! showError( err.field, message ) ) { showFormError( message ); }
         } catch {
             // Сеть упала: тот же request_key — повтор вернёт ту же бронь, а не вторую.
             showFormError( 'Нет связи. Проверьте интернет и нажмите ещё раз — место не потеряется.' );

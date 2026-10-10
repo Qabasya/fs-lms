@@ -186,7 +186,7 @@ class GuestApplicationServiceTest extends TestCase {
 	public function test_pd_consent_is_required(): void {
 		$this->consents->expects( self::never() )->method( 'recordSelfConsent' );
 
-		$this->assertFormError( 'consent_pd', ErrorCode::ExamConsent, fn () => $this->apply( array( 'consents' => array( 'pd_transfer' ) ) ) );
+		$this->assertFormError( 'consent_pd_processing', ErrorCode::ExamConsent, fn () => $this->apply( array( 'consents' => array( 'pd_transfer' ) ) ) );
 	}
 
 	public function test_transfer_consent_is_optional_and_stored_separately(): void {

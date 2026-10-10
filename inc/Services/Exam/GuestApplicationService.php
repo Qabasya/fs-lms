@@ -297,7 +297,7 @@ class GuestApplicationService {
 
 		$consents = array_values( array_intersect( self::ALLOWED_CONSENTS, array_map( 'strval', (array) ( $form['consents'] ?? array() ) ) ) );
 		if ( ! in_array( self::CONSENT_PD, $consents, true ) ) {
-			throw new GuestFormException( ErrorCode::ExamConsent, 'Для записи нужно согласие на обработку персональных данных.', 'consent_pd' );
+			throw new GuestFormException( ErrorCode::ExamConsent, 'Для записи нужно согласие на обработку персональных данных.', 'consent_' . self::CONSENT_PD );
 		}
 
 		return array(
