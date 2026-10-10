@@ -29,7 +29,7 @@
   // Ловушка для ботов: людям не видна, но и не display:none (простые боты такие поля пропускают)
   &__hp {
     position: absolute;
-    left: -9999px;
+    left: $exam-honeypot-offset;
     width: 1px;
     height: 1px;
     overflow: hidden;
@@ -44,14 +44,14 @@
     &.is-loading::before {
       content: '';
       display: inline-block;
-      width: rem(14);
-      height: rem(14);
+      width: $exam-spinner-size;
+      height: $exam-spinner-size;
       margin-right: $spacing-sm;
       vertical-align: middle;
       border: 2px solid $color-border-light;
       border-top-color: $color-accent;
       border-radius: 50%;
-      animation: fs-exam-spin 0.8s linear infinite;
+      animation: fs-exam-spin $exam-spin-duration linear infinite;
     }
   }
 }
@@ -81,8 +81,8 @@
   &__arrow {
     display: grid;
     place-items: center;
-    width: rem(36);
-    height: rem(36);
+    width: $exam-carousel-arrow-size;
+    height: $exam-carousel-arrow-size;
     padding: 0;
     cursor: pointer;
     color: $color-accent;
@@ -130,7 +130,7 @@
   &__time { font-size: $font-size-md; font-weight: $font-medium; }
 }
 
-@media (max-width: 640px) {
+@media (max-width: $exam-mobile-breakpoint) {
   .fs-exam-slot {
     flex-basis: 78%;
   }
@@ -172,7 +172,7 @@
   padding: $spacing-md $spacing-lg;
   font-size: $font-size-base;
   background: $color-bg-subtle;
-  border-left: rem(3.6) solid $color-accent;
+  border-left: $exam-accent-border-width solid $color-accent;
   border-radius: 0 $border-radius-md $border-radius-md 0;
 
   &.is-expired { border-left-color: $color-muted; color: $color-muted; }
@@ -187,7 +187,7 @@
     background: $color-bg-subtle;
     border-radius: $border-radius-md;
 
-    &.is-confirmed { border-left: rem(3.6) solid $color-accent; }
+    &.is-confirmed { border-left: $exam-accent-border-width solid $color-accent; }
   }
 
   &__title { margin: 0 0 $spacing-sm; font-weight: $font-medium; }

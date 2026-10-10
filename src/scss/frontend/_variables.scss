@@ -234,3 +234,13 @@ $font-size-card-text: max(#{$font-size-xs}, 14px);
 // Ширина раскрытого поиска в строке крошек на узком экране (до телефона):
 // подсказка «Номер или фрагмент условия…» целиком, вместе с иконкой и крестиком.
 $toolbar-search-open-width: rem(324);
+
+// ── Гостевые экзаменационные страницы: геометрия и анимация
+$exam-spinner-size: rem(14);
+$exam-spin-duration: 0.8s;
+$exam-carousel-arrow-size: rem(36);
+$exam-accent-border-width: rem(3.6);
+$exam-result-stat-min-width: rem(140);
+$exam-result-nav-size: rem(34);
+$exam-mobile-breakpoint: 640px;
+$exam-honeypot-offset: -9999px;

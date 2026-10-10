@@ -77,7 +77,7 @@
 
   &__stats {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(rem(140), 1fr));
+    grid-template-columns: repeat(auto-fit, minmax($exam-result-stat-min-width, 1fr));
     gap: $spacing-md;
     margin: 0 0 $spacing-lg;
   }
@@ -115,8 +115,8 @@
   &__chip {
     display: grid;
     place-items: center;
-    min-width: rem(34);
-    height: rem(34);
+    min-width: $exam-result-nav-size;
+    height: $exam-result-nav-size;
     padding: 0 $spacing-xs;
     font-size: $font-size-sm;
     font-weight: $font-medium;
@@ -267,7 +267,7 @@
   .fs-exam-result__layout--aside { grid-template-columns: minmax(0, 1fr); }
 }
 
-@media (max-width: 640px) {
+@media (max-width: $exam-mobile-breakpoint) {
   .fs-exam-report__table {
     display: block;
     overflow-x: auto;

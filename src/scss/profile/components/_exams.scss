@@ -83,11 +83,11 @@
 .gp-exam .gp-field--top { align-items: flex-start; }
 
 .gp-exam textarea {
-  flex: 1 1 auto; width: auto; min-height: rem(72); padding: t.$spacing-sm; resize: vertical;
+  flex: 1 1 auto; width: auto; min-height: $exam-textarea-min-height; padding: t.$spacing-sm; resize: vertical;
   font: inherit; font-size: t.$font-size-sm; color: var(--ink);
   background: var(--surface); border: 1px solid var(--line); border-radius: t.$border-radius-sm;
 
-  &:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  &:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 $exam-focus-ring-width var(--accent-soft); }
 }
 .gp-exam .gp-field--check input { flex: 0 0 auto; width: auto; height: auto; }
 .gp-exam .gp-field--check span { flex: 1 1 auto; }
@@ -101,7 +101,7 @@
 
   &.is-off .es-main { opacity: .55; }
 }
-.es-main { flex: 1 1 rem(180); min-width: 0; }
+.es-main { flex: 1 1 $exam-source-row-width; min-width: 0; }
 .es-school { font-size: t.$font-size-sm; font-weight: t.$font-semibold; color: var(--ink); }
 .es-teacher { font-size: t.$font-size-xs; color: var(--muted); }
 .es-toggle { display: inline-flex; align-items: center; gap: t.$spacing-xs; font-size: t.$font-size-xs; color: var(--muted); }
@@ -111,7 +111,7 @@
 .es-add {
   display: flex; align-items: center; flex-wrap: wrap; gap: t.$spacing-sm; margin-top: t.$spacing-md;
 
-  input { flex: 1 1 rem(140); height: rem(32); padding: 0 t.$spacing-sm; font: inherit; font-size: t.$font-size-sm; border: 1px solid var(--line); border-radius: t.$border-radius-sm; }
+  input { flex: 1 1 $exam-source-input-width; height: $exam-source-input-height; padding: 0 t.$spacing-sm; font: inherit; font-size: t.$font-size-sm; border: 1px solid var(--line); border-radius: t.$border-radius-sm; }
 }
 .es-grade { font-size: t.$font-size-xs; font-weight: t.$font-semibold; color: var(--muted); white-space: nowrap; }
 
@@ -124,13 +124,13 @@
 .exam-conduct,
 .exam-stats,
 .exam-results,
-.exam-payments { padding: rem(22) rem(26) rem(40); }
+.exam-payments { padding: t.$spacing-xl t.$spacing-3xl $exam-page-bottom-space; }
 
 @media (max-width: $breakpoint-mobile) {
   .exam-conduct,
   .exam-stats,
   .exam-results,
-  .exam-payments { padding: rem(16) rem(14) rem(32); }
+  .exam-payments { padding: t.$spacing-lg t.$spacing-md $exam-page-bottom-space-mobile; }
 }
 .exam-conduct-sessions { align-self: flex-start; max-width: 100%; overflow-x: auto; }
 .exam-conduct-titlebar { display: flex; align-items: center; justify-content: space-between; gap: t.$spacing-md; }
@@ -140,7 +140,7 @@
 
 /* Плитки без иконки на всю ширину экрана: колонки по ширине, на телефоне — по две; отступ под иконку мобильных плиток не нужен */
 .prof-stat-tiles.exam-conduct-tiles,
-.prof-stat-tiles.exam-stat-tiles { grid-template-columns: repeat(auto-fit, minmax(rem(120), 1fr)); }
+.prof-stat-tiles.exam-stat-tiles { grid-template-columns: repeat(auto-fit, minmax($exam-stat-min-width, 1fr)); }
 
 .exam-conduct-tiles .prof-stat-tile .st-val,
 .exam-conduct-tiles .prof-stat-tile .st-delta,
@@ -188,7 +188,7 @@
 .wr-correct-title { font-size: t.$font-size-md; font-weight: t.$font-bold; color: var(--ink); }
 .wr-correct-rows { display: flex; flex-wrap: wrap; gap: t.$spacing-md; }
 .wr-correct-row { display: inline-flex; align-items: center; gap: t.$spacing-xs; font-size: t.$font-size-sm; }
-.wr-correct-score { width: rem(72); }
+.wr-correct-score { width: $exam-score-width; }
 .wr-correct-reason { display: flex; flex-direction: column; gap: t.$spacing-xs; font-size: t.$font-size-sm; color: var(--muted); }
 
 /* «Результаты» (8.7): фильтры в строку, перенос на узких экранах */
@@ -197,11 +197,11 @@
 .exam-results-filters { display: flex; flex-wrap: wrap; align-items: center; gap: t.$spacing-sm; }
 
 .exam-results-filters select {
-  max-width: 100%; height: rem(38); padding: 0 rem(12);
+  max-width: 100%; height: $exam-filter-height; padding: 0 t.$spacing-md;
   border: 1px solid var(--line); border-radius: var(--radius-sm);
-  font: inherit; font-size: rem(13.5); color: var(--ink-2); background: var(--surface); cursor: pointer;
+  font: inherit; font-size: t.$font-size-base; color: var(--ink-2); background: var(--surface); cursor: pointer;
 
-  &:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  &:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 $exam-focus-ring-width var(--accent-soft); }
 }
 
 /* Печать списка участников (8.9): на печати виден только лист, остальной кабинет скрыт */
@@ -219,7 +219,7 @@
 .exam-stat-tiles { margin: 0; align-items: stretch; }
 .exam-stat-tile { display: flex; flex-direction: column; }
 .exam-stat-tile .st-delta { min-height: 1lh; } // подпись есть не у всех плиток — высота общая
-.exam-bar { display: flex; width: 100%; height: rem(8); margin: t.$spacing-xs 0; overflow: hidden; border-radius: rem(4); background: var(--surface-2); }
+.exam-bar { display: flex; width: 100%; height: t.$spacing-sm; margin: t.$spacing-xs 0; overflow: hidden; border-radius: t.$border-radius-sm; background: var(--surface-2); }
 .exam-seg { display: block; width: var(--progress, 0%); height: 100%; }
 .exam-seg--correct { background: var(--ok); }
 .exam-seg--partial { background: var(--wait-line); }

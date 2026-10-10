@@ -37,6 +37,18 @@ $z-toast: 400;
 $exam-slot-width: t.rem(220);
 $exam-slot-width-mobile: t.rem(180);
 
+// ── Геометрия экзаменационных экранов
+$exam-page-bottom-space: t.rem(40);
+$exam-page-bottom-space-mobile: t.rem(32);
+$exam-textarea-min-height: t.rem(72);
+$exam-source-row-width: t.rem(180);
+$exam-source-input-width: t.rem(140);
+$exam-source-input-height: t.rem(32);
+$exam-filter-height: t.rem(38);
+$exam-stat-min-width: t.rem(120);
+$exam-score-width: t.rem(72);
+$exam-focus-ring-width: 3px;
+
 // ── Геометрия оболочки кабинета (bundle-специфика; тема — общая)
 :root {
   --side-w: #{t.rem(244)};
