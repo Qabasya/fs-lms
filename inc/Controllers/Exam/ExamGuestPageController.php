@@ -11,6 +11,7 @@ use Inc\Contracts\ServiceInterface;
 use Inc\Core\BaseController;
 use Inc\Enums\Wp\PageRoutes;
 use Inc\Enums\Wp\ShortCode;
+use Inc\Managers\Wp\PostManager;
 use Inc\Services\Exam\GuestPageResponder;
 
 /**
@@ -26,6 +27,7 @@ class ExamGuestPageController extends BaseController implements ServiceInterface
 		private readonly GuestEntryCallbacks $entry,
 		private readonly ExamReportPageCallbacks $report,
 		private readonly GuestPageResponder $responder,
+		private readonly PostManager $posts,
 	) {
 		parent::__construct();
 	}
@@ -147,7 +149,7 @@ class ExamGuestPageController extends BaseController implements ServiceInterface
 	private function guestPageIds(): array {
 		$ids = array();
 		foreach ( $this->guestRoutes() as $route ) {
-			$page = get_page_by_path( $route->value );
+			$page = $this->posts->findByPath( $route->value );
 			if ( $page instanceof \WP_Post ) {
 				$ids[] = $page->ID;
 			}

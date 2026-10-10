@@ -91,6 +91,23 @@ class ExamVariantGuardTest extends TestCase {
 		self::assertFalse( $this->guard->isTaskFrozen( 99 ) );
 	}
 
+	public function test_frozen_post_keeps_saved_fields_and_unrelated_data(): void {
+		$this->frozenRows = array( $this->row() );
+		fs_test_seed_post( array( 'ID' => 500, 'post_type' => 'inf_ege_assessments', 'post_title' => 'Прежнее', 'post_content' => 'Условие', 'post_status' => 'publish' ) );
+		$preserved = $this->guard->preserveFrozenPostData( 500, array( 'post_title' => 'Правка', 'post_content' => 'Правка', 'post_status' => 'draft', 'custom' => 'keep' ) );
+
+		self::assertSame( array( 'post_title' => 'Прежнее', 'post_content' => 'Условие', 'post_status' => 'publish', 'custom' => 'keep' ), $preserved );
+	}
+
+	public function test_new_unfrozen_or_missing_post_data_is_preserved(): void {
+		$this->frozenRows = array( $this->row() );
+		$data = array( 'post_title' => 'Новое', 'menu_order' => 1 );
+
+		self::assertSame( $data, $this->guard->preserveFrozenPostData( 0, $data ) );
+		self::assertSame( $data, $this->guard->preserveFrozenPostData( 501, $data ) );
+		self::assertSame( $data, $this->guard->preserveFrozenPostData( 500, $data ), 'Нет сохранённой записи — менять нечего.' );
+	}
+
 	public function test_child_task_of_bundle_is_frozen(): void {
 		$this->frozenRows = array( $this->row() );
 		$this->meta[11]   = array( 'children' => array( 21, 22, 23 ) );

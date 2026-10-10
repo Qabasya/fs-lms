@@ -884,6 +884,16 @@ class PostManager {
 	}
 
 	/**
+	 * Получает постоянную ссылку записи через WordPress.
+	 *
+	 * @param int $postId ID записи.
+	 * @return string Пустая строка, если ссылку получить нельзя.
+	 */
+	public function getPermalink( int $postId ): string {
+		return (string) get_permalink( $postId );
+	}
+
+	/**
 	 * Возвращает URL архива типа записи или пустую строку, если архив недоступен.
 	 *
 	 * @param string $post_type Тип записи.

@@ -69,6 +69,32 @@ class ExamVariantGuard {
 		return $this->isAssessmentFrozen( $postId ) || $this->isTaskFrozen( $postId );
 	}
 
+	/**
+	 * Сохраняет прежние поля замороженной записи при обновлении через редактор или импорт.
+	 *
+	 * @param int                  $postId ID обновляемого поста, 0 для новой записи.
+	 * @param array<string, mixed> $data   Поля, подготовленные WordPress к сохранению.
+	 * @return array<string, mixed>
+	 */
+	public function preserveFrozenPostData( int $postId, array $data ): array {
+		if ( $postId <= 0 || ! $this->isPostFrozen( $postId ) ) {
+			return $data;
+		}
+
+		$current = $this->posts->get( $postId );
+		if ( null === $current ) {
+			return $data;
+		}
+
+		foreach ( array( 'post_title', 'post_content', 'post_excerpt', 'post_status', 'post_name', 'post_parent', 'menu_order' ) as $field ) {
+			if ( isset( $data[ $field ] ) && (string) $data[ $field ] !== (string) $current->{$field} ) {
+				$data[ $field ] = $current->{$field};
+			}
+		}
+
+		return $data;
+	}
+
 	/** Вложение используется заданием замороженного варианта: прикреплено к нему или упоминается в его данных. */
 	public function isAttachmentFrozen( int $attachmentId ): bool {
 		$parent = (int) ( $this->posts->get( $attachmentId )?->post_parent ?? 0 );

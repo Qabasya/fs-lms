@@ -9,6 +9,7 @@ use Inc\Callbacks\Exam\GuestApplicationCallbacks;
 use Inc\Callbacks\Exam\GuestEntryCallbacks;
 use Inc\Controllers\Exam\ExamGuestPageController;
 use Inc\Enums\Wp\PageRoutes;
+use Inc\Managers\Wp\PostManager;
 use Inc\Services\Exam\GuestPageResponder;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -26,6 +27,7 @@ class ExamGuestPageControllerTest extends TestCase {
 			$this->createMock( GuestEntryCallbacks::class ),
 			$this->createMock( ExamReportPageCallbacks::class ),
 			$this->createMock( GuestPageResponder::class ),
+			$this->createMock( PostManager::class ),
 		);
 	}
 

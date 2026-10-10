@@ -10,6 +10,7 @@ use Inc\DTO\Exam\ExamSourceDTO;
 use Inc\Enums\Exam\ExamDirection;
 use Inc\Enums\Exam\ExamSessionStatus;
 use Inc\Managers\Assessment\AssessmentManager;
+use Inc\Managers\Wp\PostManager;
 use Inc\Repositories\WPDBRepositories\ExamEventRepository;
 use Inc\Repositories\WPDBRepositories\ExamSessionRepository;
 use Inc\Repositories\WPDBRepositories\RoomRepository;
@@ -47,6 +48,7 @@ class GuestSignupViewService {
 		private readonly CenterContactsService $contacts,
 		private readonly FormGuardService $guard,
 		private readonly ExamTime $time,
+		private readonly PostManager $posts,
 	) {}
 
 	/**
@@ -170,7 +172,7 @@ class GuestSignupViewService {
 			$list[] = array(
 				'key'      => $key,
 				'title'    => $this->consents->getDefinitionName( $key ),
-				'url'      => (string) get_permalink( $page ),
+				'url'      => $this->posts->getPermalink( $page->ID ),
 				'required' => $required,
 			);
 		}

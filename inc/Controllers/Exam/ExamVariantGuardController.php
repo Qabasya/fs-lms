@@ -70,27 +70,12 @@ class ExamVariantGuardController extends BaseController implements ServiceInterf
 	 */
 	public function guardPostData( array $data, array $postarr ): array {
 		$id = (int) ( $postarr['ID'] ?? 0 );
-		if ( $id <= 0 || ! $this->guard->isPostFrozen( $id ) ) {
-			return $data;
-		}
-
-		$current = get_post( $id );
-		if ( ! $current instanceof \WP_Post ) {
-			return $data;
-		}
-
-		$changed = false;
-		foreach ( array( 'post_title', 'post_content', 'post_excerpt', 'post_status', 'post_name', 'post_parent', 'menu_order' ) as $field ) {
-			if ( isset( $data[ $field ] ) && (string) $data[ $field ] !== (string) $current->{$field} ) {
-				$data[ $field ] = $current->{$field};
-				$changed        = true;
-			}
-		}
-		if ( $changed ) {
+		$preserved = $this->guard->preserveFrozenPostData( $id, $data );
+		if ( $preserved !== $data ) {
 			$this->remember( $id );
 		}
 
-		return $data;
+		return $preserved;
 	}
 
 	/** @param bool|null $check @param \WP_Post $post @return bool|null */

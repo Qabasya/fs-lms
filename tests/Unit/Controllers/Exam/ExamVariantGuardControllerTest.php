@@ -57,6 +57,9 @@ class ExamVariantGuardControllerTest extends TestCase {
 	public function test_bundle_import_does_not_overwrite_frozen_variant(): void {
 		// Импорт и перенос предмета пишут те же posts и meta: поля поста возвращаются прежними, мета отклоняется.
 		fs_test_seed_post( array( 'ID' => 11, 'post_type' => 'inf_ege_tasks', 'post_title' => 'Прежнее', 'post_content' => 'Старое условие', 'post_status' => 'publish' ) );
+		$this->guard->expects( self::once() )->method( 'preserveFrozenPostData' )->with( 11, self::anything() )->willReturn(
+			array( 'post_title' => 'Прежнее', 'post_content' => 'Старое условие', 'post_status' => 'publish' )
+		);
 
 		$data = $this->controller->guardPostData(
 			array( 'post_title' => 'Из пакета', 'post_content' => 'Новое условие', 'post_status' => 'draft', 'post_name' => '', 'post_excerpt' => '', 'post_parent' => 0, 'menu_order' => 0 ),
@@ -71,6 +74,7 @@ class ExamVariantGuardControllerTest extends TestCase {
 
 	public function test_new_post_data_passes_through(): void {
 		$data = array( 'post_title' => 'Новое', 'post_content' => 'x' );
+		$this->guard->method( 'preserveFrozenPostData' )->willReturnArgument( 1 );
 
 		self::assertSame( $data, $this->controller->guardPostData( $data, array( 'ID' => 0 ) ) );
 		self::assertSame( $data, $this->controller->guardPostData( $data, array( 'ID' => 77 ) ) );
