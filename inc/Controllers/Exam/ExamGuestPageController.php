@@ -7,7 +7,6 @@ namespace Inc\Controllers\Exam;
 use Inc\Contracts\ServiceInterface;
 use Inc\Core\BaseController;
 use Inc\Enums\Wp\PageRoutes;
-use Inc\Enums\Wp\ShortCode;
 use Inc\Managers\Wp\PostManager;
 use Inc\Services\Exam\GuestPageResponder;
 use Inc\Services\Exam\GuestPageAccessService;
@@ -48,13 +47,13 @@ class ExamGuestPageController extends BaseController implements ServiceInterface
 	}
 
 	public function register(): void {
-		add_shortcode( ShortCode::ExamSignup->value, array( $this, 'renderSignupPage' ) );
+		add_shortcode( PageRoutes::ExamSignup->guestExamShortCode()->value, array( $this, 'renderSignupPage' ) );
 		add_action( 'template_redirect', array( $this, 'handleSignupPage' ), 5 );
-		add_shortcode( ShortCode::ExamEntry->value, array( $this, 'renderEntryPage' ) );
+		add_shortcode( PageRoutes::ExamEntry->guestExamShortCode()->value, array( $this, 'renderEntryPage' ) );
 		add_action( 'template_redirect', array( $this, 'handleEntryPage' ), 5 );
-		add_shortcode( ShortCode::ExamResult->value, array( $this, 'renderResultPage' ) );
+		add_shortcode( PageRoutes::ExamResult->guestExamShortCode()->value, array( $this, 'renderResultPage' ) );
 		add_action( 'template_redirect', array( $this, 'handleResultPage' ), 5 );
-		add_shortcode( ShortCode::ExamReport->value, array( $this, 'renderReportPage' ) );
+		add_shortcode( PageRoutes::ExamReport->guestExamShortCode()->value, array( $this, 'renderReportPage' ) );
 		add_action( 'template_redirect', array( $this, 'handleReportPage' ), 5 );
 		add_filter( 'wp_robots', array( $this, 'filterRobots' ) );
 		add_filter( 'get_canonical_url', array( $this, 'filterCanonicalUrl' ) );
@@ -225,7 +224,7 @@ class ExamGuestPageController extends BaseController implements ServiceInterface
 	}
 
 	private function isGuestPage(): bool {
-		foreach ( $this->guestRoutes() as $route ) {
+		foreach ( PageRoutes::guestExamPages() as $route ) {
 			if ( $route->isCurrent() ) {
 				return true;
 			}
@@ -237,7 +236,7 @@ class ExamGuestPageController extends BaseController implements ServiceInterface
 	/** @return list<int> */
 	private function guestPageIds(): array {
 		$ids = array();
-		foreach ( $this->guestRoutes() as $route ) {
+		foreach ( PageRoutes::guestExamPages() as $route ) {
 			$page = $this->posts->findByPath( $route->value );
 			if ( $page instanceof \WP_Post ) {
 				$ids[] = $page->ID;
@@ -247,8 +246,4 @@ class ExamGuestPageController extends BaseController implements ServiceInterface
 		return $ids;
 	}
 
-	/** @return list<PageRoutes> */
-	private function guestRoutes(): array {
-		return array( PageRoutes::ExamSignup, PageRoutes::ExamEntry, PageRoutes::ExamResult, PageRoutes::ExamReport );
-	}
 }

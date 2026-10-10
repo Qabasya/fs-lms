@@ -109,10 +109,9 @@ class Activate {
 		$generator->ensurePublished( PageRoutes::SignIn, 'Авторизация', ShortCode::LoginForm->tag() );
 		$generator->ensurePublished( PageRoutes::Apply, 'Подать заявку', ShortCode::ApplyForm->tag() );
 		$generator->ensurePublished( PageRoutes::UserProfile, 'Личный кабинет', ShortCode::Profile->tag() );
-		$generator->ensurePublished( PageRoutes::ExamSignup, 'Запись на экзамен', ShortCode::ExamSignup->tag() );
-		$generator->ensurePublished( PageRoutes::ExamEntry, 'Вход на экзамен', ShortCode::ExamEntry->tag() );
-		$generator->ensurePublished( PageRoutes::ExamResult, 'Результат экзамена', ShortCode::ExamResult->tag() );
-		$generator->ensurePublished( PageRoutes::ExamReport, 'Отчёт по экзамену', ShortCode::ExamReport->tag() );
+		foreach ( PageRoutes::guestExamPages() as $route ) {
+			$generator->ensurePublished( $route, $route->guestExamTitle(), $route->guestExamShortCode()->tag() );
+		}
 		$generator->ensurePublished( PageRoutes::LessonPlayer, 'Урок', '' );
 		$generator->ensurePublished( PageRoutes::CoursePreview, 'Просмотр курса', '' );
 

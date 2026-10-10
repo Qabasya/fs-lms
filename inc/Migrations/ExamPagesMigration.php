@@ -7,7 +7,6 @@ namespace Inc\Migrations;
 use Inc\Enums\Wp\PageRoutes;
 use Inc\Repositories\OptionsRepositories\ExamPagesVersionRepository;
 use Inc\Shared\PluginLogger;
-use Inc\Enums\Wp\ShortCode;
 use Inc\Services\System\PageGeneratorService;
 
 /**
@@ -33,10 +32,9 @@ class ExamPagesMigration {
 		}
 
 		try {
-			$this->pages->ensurePublished( PageRoutes::ExamSignup, 'Запись на экзамен', ShortCode::ExamSignup->tag() );
-			$this->pages->ensurePublished( PageRoutes::ExamEntry, 'Вход на экзамен', ShortCode::ExamEntry->tag() );
-			$this->pages->ensurePublished( PageRoutes::ExamResult, 'Результат экзамена', ShortCode::ExamResult->tag() );
-			$this->pages->ensurePublished( PageRoutes::ExamReport, 'Отчёт по экзамену', ShortCode::ExamReport->tag() );
+			foreach ( PageRoutes::guestExamPages() as $route ) {
+				$this->pages->ensurePublished( $route, $route->guestExamTitle(), $route->guestExamShortCode()->tag() );
+			}
 
 			if ( ! $this->versions->save( self::VERSION ) ) {
 				throw new \RuntimeException( 'Не удалось сохранить версию гостевых страниц экзаменов.' );

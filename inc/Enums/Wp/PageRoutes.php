@@ -54,6 +54,31 @@ enum PageRoutes: string {
 	/** Preview-плеер курса для преподавателя/офиса/автора (Фаза 5, ?course=N) */
 	case CoursePreview = 'course-preview';
 
+	/** @return list<self> Защищённые страницы официального экзамена. */
+	public static function guestExamPages(): array {
+		return array( self::ExamSignup, self::ExamEntry, self::ExamResult, self::ExamReport );
+	}
+
+	public function guestExamTitle(): string {
+		return match ( $this ) {
+			self::ExamSignup => 'Запись на экзамен',
+			self::ExamEntry => 'Вход на экзамен',
+			self::ExamResult => 'Результат экзамена',
+			self::ExamReport => 'Отчёт по экзамену',
+			default => throw new \LogicException( 'Маршрут не является гостевой страницей экзамена.' ),
+		};
+	}
+
+	public function guestExamShortCode(): ShortCode {
+		return match ( $this ) {
+			self::ExamSignup => ShortCode::ExamSignup,
+			self::ExamEntry => ShortCode::ExamEntry,
+			self::ExamResult => ShortCode::ExamResult,
+			self::ExamReport => ShortCode::ExamReport,
+			default => throw new \LogicException( 'Маршрут не является гостевой страницей экзамена.' ),
+		};
+	}
+
 	/**
 	 * Возвращает полный абсолютный URL для текущего маршрута.
 	 *
