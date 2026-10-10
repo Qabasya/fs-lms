@@ -21,15 +21,11 @@ use Inc\Shared\GuestFormException;
 use Inc\Shared\PluginLogger;
 use Inc\DTO\Exam\ExamSourceDTO;
 use Inc\DTO\Exam\GuestPageOutcome;
-use Inc\Enums\Exam\ExamTokenPurpose;
 use Inc\Enums\Wp\PageRoutes;
-use Inc\Repositories\WPDBRepositories\ExamGuestApplicationRepository;
-use Inc\Repositories\WPDBRepositories\ExamSourceRepository;
-use Inc\Services\Exam\ExamAccessTokenService;
 use Inc\Services\Exam\ExamFormTrackingService;
 use Inc\Services\Exam\GuestSessionService;
 use Inc\Services\Exam\GuestSignupViewService;
-use Inc\Services\Security\RateLimitService;
+use Inc\Services\Exam\GuestPageAccessService;
 use Inc\Shared\Traits\RequestContextProvider;
 use Inc\Shared\Traits\Sanitizer;
 use Inc\Shared\Traits\TemplateRenderer;
@@ -49,10 +45,6 @@ class GuestApplicationCallbacks extends BaseController {
 	use TemplateRenderer;
 
 	public function __construct(
-		private readonly ExamAccessTokenService $tokens,
-		private readonly GuestSessionService $sessions,
-		private readonly ExamSourceRepository $sources,
-		private readonly RateLimitService $rateLimit,
 		private readonly GuestSignupViewService $view,
 		private readonly GuestApplicationService $applications,
 		private readonly WooExamAdapter $adapter,
@@ -62,33 +54,20 @@ class GuestApplicationCallbacks extends BaseController {
 		private readonly ExamTime $time,
 		private readonly GuestOrderStatusService $orderStatus,
 		private readonly ExamPaymentReconciler $reconciler,
-		private readonly ExamGuestApplicationRepository $applicationRepo,
 		private readonly ExamFormTrackingService $formLog,
+		private readonly GuestPageAccessService $access,
 	) {
 		parent::__construct();
 	}
 
 	/** Обработка страницы формы: обмен ключа на куку (с редиректом на адрес без ключа) либо проверка куки. */
 	public function handleInvitationPage(): GuestPageOutcome {
-		$ip  = $this->requestContext()->ip;
-		$key = strtolower( trim( $this->sanitizeText( 'k', 'GET' ) ) );
-		$pay = strtolower( trim( $this->sanitizeText( 'pay', 'GET' ) ) );
-
-		if ( '' !== $pay ) {
-			return $this->openPayment( $pay, $ip );
-		}
-
-		if ( '' !== $key ) {
-			return $this->exchangeInvitation( $key, $ip );
-		}
-
-		$source = $this->currentSource();
-		if ( null === $source ) {
-			return GuestPageOutcome::notFound();
-		}
-		$this->formLog->opened( $source );
-
-		return GuestPageOutcome::render();
+		return $this->access->invitationPage(
+			strtolower( trim( $this->sanitizeText( 'k', 'GET' ) ) ),
+			strtolower( trim( $this->sanitizeText( 'pay', 'GET' ) ) ),
+			$this->cookie( GuestSessionService::COOKIE_INVITATION ),
+			$this->requestContext()->ip,
+		);
 	}
 
 	/** Шорткод формы: HTML страницы для источника из куки; без источника — пусто (страница уже отдала 404). */
@@ -212,59 +191,11 @@ class GuestApplicationCallbacks extends BaseController {
 
 	/** Источник по куке приглашения; null — куки нет, сессия отозвана, истекла или ссылка перевыпущена; источник отключён или отозван. */
 	public function currentSource(): ?ExamSourceDTO {
-		$cookie = $this->cookie( GuestSessionService::COOKIE_INVITATION );
-		$id     = '' !== $cookie ? $this->sessions->resolveInvitation( $cookie ) : null;
-		$source = null !== $id ? $this->sources->find( $id ) : null;
-
-		return null !== $source && $source->isActive && null === $source->keyRevokedAt ? $source : null;
+		return $this->access->currentSource( $this->cookie( GuestSessionService::COOKIE_INVITATION ) );
 	}
 
-	/**
-	 * Ссылка на оплату от сотрудника (`?pay=`, 11a.7.5): ключ назначения «оплата» → заявка держит место → позиция в корзину гостя → редирект в корзину.
-	 * Недействительный ключ, истёкшая или отменённая заявка, ключ другого назначения — обычная 404 (неудача засчитывается в лимит IP).
-	 * Повторное открытие ссылки вторую позицию не кладёт (проверка внутри адаптера).
-	 */
-	private function openPayment( string $key, string $ip ): GuestPageOutcome {
-		if ( $this->rateLimit->isInvitationLocked( $ip ) ) {
-			return GuestPageOutcome::notFound();
-		}
 
-		$token       = $this->tokens->exchange( ExamTokenPurpose::Payment, $key );
-		$application = null !== $token ? $this->applicationRepo->find( $token->targetId ) : null;
-		if ( null === $application || ! $application->isHeld || null === $application->holdExpiresAt || $application->holdExpiresAt <= $this->time->nowUtc() ) {
-			$this->rateLimit->registerInvitationFailure( $ip );
 
-			return GuestPageOutcome::notFound();
-		}
-
-		try {
-			$this->adapter->addToCart( $application );
-		} catch ( \Throwable $e ) {
-			PluginLogger::exception( 'ExamGuestPayment', $e, array( 'application_id' => $application->id ), true );
-			return GuestPageOutcome::notFound();
-		}
-
-		return GuestPageOutcome::redirect( $this->woo->cartUrl() );
-	}
-
-	private function exchangeInvitation( string $key, string $ip ): GuestPageOutcome {
-		if ( $this->rateLimit->isInvitationLocked( $ip ) ) {
-			return GuestPageOutcome::notFound();
-		}
-
-		$token  = $this->tokens->exchange( ExamTokenPurpose::Invitation, $key );
-		$source = null !== $token ? $this->sources->find( $token->targetId ) : null;
-		if ( null === $token || null === $source || ! $source->isActive || null !== $source->keyRevokedAt ) {
-			$this->rateLimit->registerInvitationFailure( $ip );
-
-			return GuestPageOutcome::notFound();
-		}
-
-		$cookie = $this->sessions->openInvitation( $source->id, $token->generation );
-
-		// Редирект на адрес без ключа: в адресной строке, истории и запросах метрики ключа уже нет.
-		return GuestPageOutcome::redirect( PageRoutes::ExamSignup->url(), array( GuestSessionService::COOKIE_INVITATION => $cookie ) );
-	}
 
 	private function cookie( string $name ): string {
 		$value = isset( $_COOKIE[ $name ] ) ? sanitize_text_field( wp_unslash( (string) $_COOKIE[ $name ] ) ) : '';

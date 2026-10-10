@@ -19,6 +19,7 @@ use Inc\Services\Exam\ExamTime;
 use Inc\Services\Exam\GuestApplicationService;
 use Inc\Services\Exam\GuestSessionService;
 use Inc\Services\Exam\GuestSignupViewService;
+use Inc\Services\Exam\GuestPageAccessService;
 use Inc\Services\Exam\Payment\ExamPaymentReconciler;
 use Inc\Services\Exam\Payment\GuestOrderStatusService;
 use Inc\Services\Exam\Payment\WooExamAdapter;
@@ -78,9 +79,10 @@ class GuestApplicationCallbacksTest extends TestCase {
 		$this->woo->method( 'cartUrl' )->willReturn( 'https://example.test/cart/' );
 
 		$this->cb = new GuestApplicationCallbacks(
-			$this->tokens, $this->sessions, $this->sources, $this->rate, $this->createMock( GuestSignupViewService::class ),
-			$this->applications, $this->adapter, $this->holds, $this->guard, $this->woo, $time,
-			$this->createMock( GuestOrderStatusService::class ), $this->createMock( ExamPaymentReconciler::class ), $this->appRepo, $this->formLog
+			$this->createMock( GuestSignupViewService::class ), $this->applications, $this->adapter, $this->holds,
+			$this->guard, $this->woo, $time, $this->createMock( GuestOrderStatusService::class ),
+			$this->createMock( ExamPaymentReconciler::class ), $this->formLog,
+			new GuestPageAccessService( $this->tokens, $this->sessions, $this->sources, $this->rate, $this->adapter, $this->woo, $this->appRepo, $time, $this->formLog ),
 		);
 	}
 
