@@ -24,6 +24,7 @@ class ExamGuestBoardService {
 
 	public const ACTION_COPY_PAY_LINK = 'copy_pay_link';
 
+	/** Получает заявки и связи оплаты для гостевых строк доски без платёжных команд. */
 	public function __construct(
 		private readonly ExamGuestApplicationRepository $applications,
 		private readonly ExamPaymentLinkRepository $links,

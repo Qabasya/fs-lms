@@ -27,6 +27,7 @@ use Inc\Services\Shared\CenterContactsService;
  */
 class GuestOrderStatusService {
 
+	/** Получает состояние заказа и записи для публичного ответа без ключей и персональных контактов гостя. */
 	public function __construct(
 		private readonly WooCommerceManager $woo,
 		private readonly ExamPaymentLinkRepository $links,
@@ -38,6 +39,8 @@ class GuestOrderStatusService {
 	) {}
 
 	/**
+	 * Готовит состояния экзаменных заявок только после проверки ключа заказа.
+	 *
 	 * @return list<array{state: string, title: string, lines: list<string>, refresh: bool}>
 	 */
 	public function forOrder( int $orderId, string $orderKey ): array {
@@ -57,6 +60,8 @@ class GuestOrderStatusService {
 	}
 
 	/**
+	 * Готовит пояснение состояния заявки и контакты для страницы заказа.
+	 *
 	 * @return array{state: string, title: string, lines: list<string>, refresh: bool}
 	 */
 	private function block( string $state, int $sessionId, int $orderId ): array {
@@ -104,6 +109,8 @@ class GuestOrderStatusService {
 	}
 
 	/**
+	 * Готовит дату, время и место сеанса; отсутствующий сеанс даёт пустой список.
+	 *
 	 * @return list<string> Дата, время, адрес и кабинет сеанса.
 	 */
 	private function sessionLines( int $sessionId ): array {

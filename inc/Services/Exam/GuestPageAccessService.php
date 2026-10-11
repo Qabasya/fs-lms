@@ -35,6 +35,7 @@ use Inc\Shared\PluginLogger;
  */
 class GuestPageAccessService {
 
+	/** Получает проверку ключей, scope, сроков и лимитов; HTTP-транспорт остаётся за пределами политики. */
 	public function __construct(
 		private readonly ExamAccessTokenService $tokens,
 		private readonly GuestSessionService $sessions,
@@ -80,6 +81,7 @@ class GuestPageAccessService {
 		return null !== $source && $source->isActive && null === $source->keyRevokedAt ? $source : null;
 	}
 
+	/** Принимает только действующую бронь по платёжному ключу; отказ остаётся обычной 404. */
 	private function openPayment( string $key, string $ip ): GuestPageOutcome {
 		if ( $this->rateLimit->isInvitationLocked( $ip ) ) {
 			return GuestPageOutcome::notFound();
@@ -103,6 +105,7 @@ class GuestPageAccessService {
 		return GuestPageOutcome::redirect( $this->woo->cartUrl() );
 	}
 
+	/** Меняет приглашение активного источника на его scope и адрес формы без открытого ключа. */
 	private function exchangeInvitation( string $key, string $ip ): GuestPageOutcome {
 		if ( $this->rateLimit->isInvitationLocked( $ip ) ) {
 			return GuestPageOutcome::notFound();
@@ -143,6 +146,7 @@ class GuestPageAccessService {
 		return null !== $participationId && $this->reviews->isParticipationRevealed( $participationId ) ? GuestPageOutcome::render() : GuestPageOutcome::notFound();
 	}
 
+	/** Открывает scope результата только гостевого участия с попыткой; срок куки ограничен ключом и сутками. */
 	private function exchangeResult( string $key, string $ip ): GuestPageOutcome {
 		if ( $this->rateLimit->isInvitationLocked( $ip ) ) {
 			return GuestPageOutcome::notFound();
@@ -165,6 +169,7 @@ class GuestPageAccessService {
 		return GuestPageOutcome::redirect( PageRoutes::ExamResult->url(), array( GuestSessionService::COOKIE_RESULT => $cookie ) );
 	}
 
+	/** Проверяет допуск, активную подтверждённую запись и конец сеанса до выдачи scope входа. */
 	private function exchangeEntry( string $key, string $ip ): GuestPageOutcome {
 		if ( $this->rateLimit->isInvitationLocked( $ip ) ) {
 			return GuestPageOutcome::notFound();
@@ -205,6 +210,7 @@ class GuestPageAccessService {
 		return null !== $report && $this->reportService->isOpen( $report ) ? $report : null;
 	}
 
+	/** Открывает scope неотозванного и неистёкшего отчёта; срок куки ограничен отчётом и сутками. */
 	private function exchangeReport( string $key, string $ip ): GuestPageOutcome {
 		if ( $this->rateLimit->isInvitationLocked( $ip ) ) {
 			return GuestPageOutcome::notFound();

@@ -31,6 +31,7 @@ class GuestResultSidebarService {
 	/** Вердикты, считающиеся ошибкой; `pending` (ручная часть ОГЭ) — нет. */
 	private const ERROR_STATUSES = array( 'incorrect', 'unanswered', 'partial' );
 
+	/** Получает материалы, курсы и ссылки разделов через общие сервисы предмета. */
 	public function __construct(
 		private readonly ArticleService $articles,
 		private readonly PublicCourseService $courses,
@@ -38,6 +39,8 @@ class GuestResultSidebarService {
 	) {}
 
 	/**
+	 * Готовит промокарточки курсов и материалы по результатам работы для гостевого сайдбара.
+	 *
 	 * @param list<array<string, mixed>> $units Единицы оценивания результата (`number`, `status`, `score`, `max`).
 	 *
 	 * @return array{courses: array<int, \Inc\DTO\Course\CourseCardDTO>, articles: list<array{id: int, title: string, url: string, excerpt: string, thumbnail: string}>, articles_url: string}
@@ -71,6 +74,8 @@ class GuestResultSidebarService {
 	}
 
 	/**
+	 * Подбирает материалы по номерам ошибок с воспроизводимым дополнением по идентификатору участия.
+	 *
 	 * @param list<array<string, mixed>> $units
 	 *
 	 * @return list<ArticleCardDTO>

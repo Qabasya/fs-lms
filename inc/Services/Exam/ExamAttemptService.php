@@ -52,6 +52,7 @@ class ExamAttemptService {
 
 	private const MAX_EXTENSION_MINUTES = 120;
 
+	/** Получает экзаменные блокировки и общую обработку попыток через существующие зависимости. */
 	public function __construct(
 		private readonly ExamParticipationRepository $participations,
 		private readonly ExamParticipantRepository $participants,
@@ -74,7 +75,7 @@ class ExamAttemptService {
 	 * Контекст ученика: запись существует, а её участие принадлежит участнику с `person_id`
 	 * этого пользователя. Чужая запись отвечает так же, как несуществующая.
 	 *
-	 * @throws CodedException
+	 * @throws CodedException Запись отсутствует или не принадлежит человеку вошедшего пользователя.
 	 */
 	public function contextForStudent( int $wpUserId, int $registrationId ): AttemptContext {
 		$registration  = $this->registrations->find( $registrationId );
@@ -101,7 +102,8 @@ class ExamAttemptService {
 	/**
 	 * Старт попытки. Повторный вызов (обновление страницы, двойной клик) возвращает ту же попытку.
 	 *
-	 * @throws CodedException
+	 * @throws CodedException Запись или допуск недействительны, окно старта закрыто либо попытку нельзя начать.
+	 * @throws \RuntimeException Попытку не удалось создать или прочитать после сохранения.
 	 */
 	public function start( AttemptContext $ctx ): AttemptDTO {
 		$result = $this->inTransactionWithRetry( fn (): AttemptDTO|true => $this->startLocked( $ctx ) );
@@ -115,6 +117,8 @@ class ExamAttemptService {
 	}
 
 	/**
+	 * Начинает попытку под блокировками либо фиксирует неявку после истечения окна старта.
+	 *
 	 * @return AttemptDTO|true `true` — время старта истекло, неявка проставлена.
 	 *
 	 * @throws CodedException Запись, допуск или сеанс больше не позволяют начать попытку.
@@ -285,7 +289,7 @@ class ExamAttemptService {
 	 * что у сдачи и автоистечения: без неё автосохранение, проверившее `in_progress`, могло дописать ответ
 	 * уже после сдачи и оценивания, и итог перестал бы соответствовать сохранённому ответу.
 	 *
-	 * @throws CodedException
+	 * @throws CodedException Попытка чужая, завершена или просрочена; участие либо сохраняемый ответ недоступны.
 	 */
 	public function saveAnswer( AttemptContext $ctx, int $attemptId, int $taskId, string $text ): void {
 		// Просроченную попытку завершает ленивый путь — со своей транзакцией, поэтому до открытия нашей.
@@ -300,7 +304,9 @@ class ExamAttemptService {
 	}
 
 	/**
-	 * @throws CodedException
+	 * Завершает активную попытку своего участия с повторной проверкой в транзакции.
+	 *
+	 * @throws CodedException Попытка не принадлежит контексту, уже завершена или её дедлайн истёк.
 	 */
 	public function submit( AttemptContext $ctx, int $attemptId ): AttemptDTO {
 		$this->activeAttemptOf( $ctx, $attemptId );
@@ -334,7 +340,7 @@ class ExamAttemptService {
 	 *
 	 * @return array{attempt: AttemptDTO, answers: list<\Inc\DTO\Assessment\AttemptAnswerDTO>}
 	 *
-	 * @throws CodedException
+	 * @throws CodedException Попытка не принадлежит контексту или результат ещё нельзя раскрыть.
 	 */
 	public function result( AttemptContext $ctx, int $attemptId ): array {
 		$attempt = $this->ownedAttempt( $ctx, $attemptId );
@@ -351,7 +357,7 @@ class ExamAttemptService {
 	 * Контекст ученика для попытки: null — попытка не экзаменная (обычный путь курса).
 	 * Чужая экзаменная попытка отвечает как несуществующая запись.
 	 *
-	 * @throws CodedException
+	 * @throws CodedException Экзаменная попытка не связана с записью пользователя или запись ему не принадлежит.
 	 */
 	public function contextForAttempt( int $wpUserId, int $attemptId ): ?AttemptContext {
 		$attempt = $this->attempts->find( $attemptId );
@@ -402,7 +408,8 @@ class ExamAttemptService {
 	/**
 	 * Продление личного дедлайна сотрудником с правом на проведение.
 	 *
-	 * @throws CodedException
+	 * @throws CodedException Нет доступа к участию, попытка завершена, срок вне допустимых границ или причина пуста.
+	 * @throws \RuntimeException Попытка не найдена после сохранения нового дедлайна.
 	 */
 	public function extend( int $actorUserId, int $attemptId, int $minutes, string $reason ): AttemptDTO {
 		if ( $minutes < 1 || $minutes > self::MAX_EXTENSION_MINUTES ) {
@@ -465,7 +472,7 @@ class ExamAttemptService {
 	/**
 	 * Попытка существует и принадлежит участию контекста; чужая отвечает как несуществующая.
 	 *
-	 * @throws CodedException
+	 * @throws CodedException Попытка отсутствует или относится к другому участию.
 	 */
 	private function ownedAttempt( AttemptContext $ctx, int $attemptId ): AttemptDTO {
 		$attempt = $this->attempts->find( $attemptId );
@@ -492,7 +499,7 @@ class ExamAttemptService {
 	 * Попытка, в которую сейчас можно писать: свежее состояние под блокировкой участия, статус `in_progress`,
 	 * дедлайн не наступил. Общее для сохранения ответа и сдачи — одни условия и одни тексты.
 	 *
-	 * @throws CodedException
+	 * @throws CodedException Попытка чужая, завершена или просрочена к моменту записи под блокировкой.
 	 */
 	private function writableAttempt( AttemptContext $ctx, int $attemptId ): AttemptDTO {
 		$attempt = $this->ownedAttempt( $ctx, $attemptId );
@@ -512,7 +519,7 @@ class ExamAttemptService {
 	 * Попытка принадлежит участию контекста и ещё идёт; просроченную — завершает и отказывает.
 	 * Своя транзакция только у `finalizeExpired()`: вызывать вне чужой транзакции.
 	 *
-	 * @throws CodedException
+	 * @throws CodedException Попытка чужая, завершена или просрочена; просроченная завершается перед отказом.
 	 */
 	private function activeAttemptOf( AttemptContext $ctx, int $attemptId ): AttemptDTO {
 		$attempt = $this->ownedAttempt( $ctx, $attemptId );

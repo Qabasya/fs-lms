@@ -37,6 +37,7 @@ class GuestApplicationCallbacks extends BaseController {
 	use RequestContextProvider;
 	use Sanitizer;
 
+	/** Получает обработку формы, бронь, Woo-переход и журналирование как отдельные ответственности. */
 	public function __construct(
 		private readonly GuestApplicationService $applications,
 		private readonly WooExamAdapter $adapter,
@@ -165,6 +166,9 @@ class GuestApplicationCallbacks extends BaseController {
 		return $this->access->currentSource( $this->cookie( GuestSessionService::COOKIE_INVITATION ) );
 	}
 
+	/**
+	 * Нормализует hex-значение гостевой куки после чтения через Sanitizer.
+	 */
 	private function cookie( string $name ): string {
 		$value = $this->sanitizeCookieText( $name );
 

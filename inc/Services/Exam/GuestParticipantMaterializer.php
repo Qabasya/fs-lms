@@ -23,6 +23,7 @@ use Inc\Services\Security\PiiCryptoService;
  */
 class GuestParticipantMaterializer {
 
+	/** Получает хранилище и криптографию для шифрования ФИО и контактных полей перед записью. */
 	public function __construct(
 		private readonly ExamParticipantRepository $participants,
 		private readonly PiiCryptoService $crypto,
@@ -147,6 +148,8 @@ class GuestParticipantMaterializer {
 	}
 
 	/**
+	 * Расшифровывает и декодирует черновик заявки; отсутствующий черновик даёт пустой массив.
+	 *
 	 * @return array<string, mixed>
 	 */
 	private function decodeDraft( ExamGuestApplicationDTO $application ): array {

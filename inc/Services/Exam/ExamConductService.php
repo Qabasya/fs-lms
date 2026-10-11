@@ -37,6 +37,7 @@ use Inc\Shared\CodedException;
 /** Команды сотрудника и допуск к проверке экзаменной попытки. */
 class ExamConductService {
 
+	/** Получает команды участия и общие правила состояния; доску и экспорт строит отдельный view-сервис. */
 	public function __construct(
 		private readonly ExamEventRepository $events,
 		private readonly ExamSessionRepository $sessions,
@@ -110,7 +111,7 @@ class ExamConductService {
 	 * Допуск гостя (8.8.2): сотрудник проверил данные и согласие представителя на площадке. Без допуска ссылка входа не выдаётся.
 	 * Допуск снимается, пока попытка не начата.
 	 *
-	 * @throws CodedException
+	 * @throws CodedException Нет доступа к гостю, действующей записи нет либо попытка уже начата.
 	 */
 	public function admit( int $actorUserId, int $participationId, bool $admitted ): void {
 		$participation = $this->guestParticipationFor( $actorUserId, $participationId );
@@ -130,7 +131,7 @@ class ExamConductService {
 	 *
 	 * @return string Адрес с ключом — единственный раз.
 	 *
-	 * @throws CodedException
+	 * @throws CodedException Гость недоступен, нет действующей записи или допуска либо сеанс закончился.
 	 */
 	public function issueEntryLink( int $actorUserId, int $participationId ): string {
 		$participation = $this->guestParticipationFor( $actorUserId, $participationId );
@@ -158,7 +159,7 @@ class ExamConductService {
 	 *
 	 * @return string Адрес с ключом — единственный раз.
 	 *
-	 * @throws CodedException
+	 * @throws CodedException Нет права поделиться результатом, участие недоступно либо работа ещё не сдана.
 	 */
 	public function issueResultLink( int $actorUserId, int $participationId ): string {
 		$participation = $this->resultLinkParticipation( $actorUserId, $participationId );
@@ -179,7 +180,7 @@ class ExamConductService {
 	/**
 	 * Отзыв ссылки результата без нового ключа: после отзыва страница открывается только 404. Сессию входа не затрагивает.
 	 *
-	 * @throws CodedException
+	 * @throws CodedException Нет права поделиться результатом или гостевое участие недоступно.
 	 */
 	public function revokeResultLink( int $actorUserId, int $participationId ): void {
 		$this->resultLinkParticipation( $actorUserId, $participationId );
@@ -191,7 +192,7 @@ class ExamConductService {
 	/**
 	 * Участие гостя для действий со ссылкой результата: нужен `ShareExamResults` (не `ManageExamGuests`) и управление проведением.
 	 *
-	 * @throws CodedException
+	 * @throws CodedException Участие отсутствует, не гостевое или у пользователя нет права и доступа к проведению.
 	 */
 	private function resultLinkParticipation( int $actorUserId, int $participationId ): ExamParticipationDTO {
 		$participation = $this->participations->find( $participationId );
@@ -209,7 +210,7 @@ class ExamConductService {
 	/**
 	 * Ручная отметка «Ссылка передана» (8.8.6): ставит сотрудник после того, как отдал ссылку входа или результата. **Копирование ссылки отметку не ставит.**
 	 *
-	 * @throws CodedException
+	 * @throws CodedException Участие недоступно, назначение ссылки не поддерживается или действующий ключ не выдан.
 	 */
 	public function markLinkPassed( int $actorUserId, int $participationId, ExamTokenPurpose $purpose ): void {
 		if ( ! in_array( $purpose, array( ExamTokenPurpose::Entry, ExamTokenPurpose::Result ), true ) ) {
@@ -227,7 +228,7 @@ class ExamConductService {
 	/**
 	 * Участие гостя, которым сотрудник вправе управлять (право на гостей + проведение). Чужое и ученическое — «не найдено».
 	 *
-	 * @throws CodedException
+	 * @throws CodedException Участие отсутствует, не гостевое или управление гостями проведения недоступно пользователю.
 	 */
 	private function guestParticipationFor( int $actorUserId, int $participationId ): ExamParticipationDTO {
 		$participation = $this->participations->find( $participationId );
@@ -242,6 +243,9 @@ class ExamConductService {
 		return $participation;
 	}
 
+	/**
+	 * Возвращает только текущую подтверждённую запись с действующим слотом.
+	 */
 	private function activeRegistrationOf( ExamParticipationDTO $participation ): ?ExamRegistrationDTO {
 		$registration = null !== $participation->activeRegistrationId ? $this->registrations->find( $participation->activeRegistrationId ) : null;
 
@@ -251,7 +255,7 @@ class ExamConductService {
 	/**
 	 * Отметка прихода: атрибут операционный, на допуск и неявку не влияет. Повторная отметка перезаписывает автора и время.
 	 *
-	 * @throws CodedException
+	 * @throws CodedException Запись отсутствует, недействительна или проведение недоступно пользователю.
 	 */
 	public function markArrival( int $actorUserId, int $registrationId, bool $arrived ): void {
 		$registration  = $this->registrations->find( $registrationId );
@@ -271,6 +275,9 @@ class ExamConductService {
 		);
 	}
 
+	/**
+	 * Получает подпись общего состояния результата с учётом аудитории.
+	 */
 	private function resultLabel( string $result, ExamAudience $audience ): string {
 		return ExamResultStatus::from( $result )->label( $audience );
 	}

@@ -30,6 +30,7 @@ class ExamVariantGuardController extends BaseController implements ServiceInterf
 	/** Сколько живёт причина отказа — ровно на один редирект. */
 	private const NOTICE_TTL = 30;
 
+	/** Получает политику заморозки и менеджер уведомлений о запрещённых правках. */
 	public function __construct(
 		private readonly ExamVariantGuard $guard,
 		private readonly TransientManager $transients,
@@ -37,6 +38,9 @@ class ExamVariantGuardController extends BaseController implements ServiceInterf
 		parent::__construct();
 	}
 
+	/**
+	 * Подключает защиту метаданных, содержимого и удаления замороженных вариантов.
+	 */
 	public function register(): void {
 		add_filter( 'update_post_metadata', array( $this, 'guardMeta' ), 1, 3 );
 		add_filter( 'add_post_metadata', array( $this, 'guardMeta' ), 1, 3 );
@@ -49,6 +53,8 @@ class ExamVariantGuardController extends BaseController implements ServiceInterf
 	}
 
 	/**
+	 * Отменяет изменение защищённой меты замороженного варианта, сохраняя решение предыдущих фильтров.
+	 *
 	 * @param mixed  $check    null — штатный путь; не null — операция отменена.
 	 * @param int    $objectId Пост.
 	 * @param string $metaKey  Ключ меты.
@@ -98,6 +104,9 @@ class ExamVariantGuardController extends BaseController implements ServiceInterf
 		return $post instanceof \WP_Post && $this->guard->isAttachmentFrozen( $post->ID ) ? $this->block( $post->ID ) : $check;
 	}
 
+	/**
+	 * Однократно выводит сохранённую причину отказа изменения варианта.
+	 */
 	public function renderNotice(): void {
 		$reason = $this->transients->take( TransientKey::ExamVariantBlocked, get_current_user_id() );
 		if ( is_string( $reason ) && '' !== $reason ) {
@@ -106,6 +115,8 @@ class ExamVariantGuardController extends BaseController implements ServiceInterf
 	}
 
 	/**
+	 * Запоминает причину отказа для уведомления и запрещает операцию с записью.
+	 *
 	 * @return false
 	 */
 	private function block( int $postId ): false {
@@ -114,6 +125,9 @@ class ExamVariantGuardController extends BaseController implements ServiceInterf
 		return false;
 	}
 
+	/**
+	 * Сохраняет причину блокировки для следующего административного уведомления.
+	 */
 	private function remember( int $postId ): void {
 		$this->transients->set( TransientKey::ExamVariantBlocked, get_current_user_id(), $this->guard->reason( $postId ), self::NOTICE_TTL );
 	}

@@ -28,6 +28,7 @@ class ExamOutboxWorker {
 	/** Аренда строки, мин: за это время обработка обязана завершиться, иначе строку возьмёт другой запуск. */
 	private const LEASE_MINUTES = 2;
 
+	/** Получает очередь событий, композитор и часы для доставки и повторов. */
 	public function __construct(
 		private readonly ExamOutboxEventRepository $outbox,
 		private readonly ExamNotificationComposer $composer,
@@ -35,6 +36,8 @@ class ExamOutboxWorker {
 	) {}
 
 	/**
+	 * Обрабатывает ограниченную порцию событий, сохраняя повтор после технических отказов.
+	 *
 	 * @return int Сколько строк обработано успешно.
 	 */
 	public function run( int $limit = 100 ): int {

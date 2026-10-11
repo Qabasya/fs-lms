@@ -36,6 +36,7 @@ class ExamReviewProjection {
 	/** Поля задачи, нужные только для оценивания; набранные по критериям баллы (`criteria`) остаются. */
 	private const TASK_GRADING_KEYS = array( 'task_id', 'manual', 'oge_rubric', 'review_url' );
 
+	/** Связывает участие с общей попыткой и подсчётом результата без контактных данных гостя. */
 	public function __construct(
 		private readonly WorkDetailService $details,
 		private readonly AssessmentAttemptRepository $attempts,
@@ -46,6 +47,8 @@ class ExamReviewProjection {
 	) {}
 
 	/**
+	 * Готовит разбор экзаменной попытки в режиме управления или ограниченного просмотра.
+	 *
 	 * @param string $mode `manage` | `read_only`
 	 *
 	 * @return array<string, mixed>|null null — попытка не найдена или не экзаменная.
@@ -180,6 +183,11 @@ class ExamReviewProjection {
 		);
 	}
 
+	/**
+	 * Принимает только режим управления или чтения разбора.
+	 *
+	 * @throws \InvalidArgumentException Если передан неизвестный режим.
+	 */
 	private function assertMode( string $mode ): void {
 		if ( self::MODE_MANAGE !== $mode && self::MODE_READ_ONLY !== $mode ) {
 			throw new \InvalidArgumentException( 'Неизвестный режим разбора: ' . $mode );
@@ -187,6 +195,8 @@ class ExamReviewProjection {
 	}
 
 	/**
+	 * Удаляет сведения об оценивании из разбора, который ещё нельзя раскрыть.
+	 *
 	 * @param array<string, mixed> $detail
 	 *
 	 * @return array<string, mixed>

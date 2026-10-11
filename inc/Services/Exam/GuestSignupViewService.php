@@ -43,6 +43,7 @@ class GuestSignupViewService {
 		GuestApplicationService::CONSENT_MARKETING => false,
 	);
 
+	/** Получает расписание, согласия и контакты для формы без создания заявки. */
 	public function __construct(
 		private readonly ExamEventRepository $events,
 		private readonly ExamSessionRepository $sessions,
@@ -59,6 +60,8 @@ class GuestSignupViewService {
 	) {}
 
 	/**
+	 * Готовит форму записи по источнику, включая сеансы, согласия и контакты центра.
+	 *
 	 * @return array<string, mixed>
 	 */
 	public function build( ExamSourceDTO $source ): array {
@@ -108,6 +111,9 @@ class GuestSignupViewService {
 		return array_merge( $base, array( 'state' => 'form' ) );
 	}
 
+	/**
+	 * Проверяет UTC-окно гостевой записи с исключительной верхней границей.
+	 */
 	private function registrationOpen( ExamEventDTO $event, string $nowUtc ): bool {
 		return ( null === $event->registrationOpensAt || $event->registrationOpensAt <= $nowUtc )
 			&& ( null === $event->registrationClosesAt || $event->registrationClosesAt > $nowUtc );
@@ -131,6 +137,8 @@ class GuestSignupViewService {
 	}
 
 	/**
+	 * Готовит подписи времени и доступность сеанса для выбора в форме.
+	 *
 	 * @return array<string, mixed>
 	 */
 	private function card( ExamSessionDTO $session ): array {
@@ -167,6 +175,9 @@ class GuestSignupViewService {
 		);
 	}
 
+	/**
+	 * Определяет направление по формату варианта проведения для формы гостя.
+	 */
 	private function directionLabel( ExamEventDTO $event ): string {
 		$assessmentId = $event->defaultAssessmentId;
 		if ( null !== $assessmentId ) {
@@ -204,6 +215,8 @@ class GuestSignupViewService {
 	}
 
 	/**
+	 * Проверяет наличие согласия на обработку персональных данных в списке формы.
+	 *
 	 * @param list<array{key: string}> $consents
 	 */
 	private function hasPdConsent( array $consents ): bool {

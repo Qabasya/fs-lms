@@ -32,6 +32,7 @@ use Inc\Repositories\WPDBRepositories\GroupsRepository;
  */
 class ExamAccessGuard {
 
+	/** Проверяет область доступа сотрудника через существующее хранилище групп. */
 	public function __construct(
 		private readonly GroupsRepository $groups,
 	) {}

@@ -18,11 +18,14 @@ use Inc\Shared\PluginLogger;
  */
 class ExamTickLock {
 
+	/** Использует репозиторий блокировок для исключения одновременной обработки одного тика. */
 	public function __construct(
 		private readonly ExamLockRepository $locks,
 	) {}
 
 	/**
+	 * Выполняет тик только после получения именованной блокировки и освобождает её при любом исходе.
+	 *
 	 * @param string   $name Имя тика (часть имени блокировки)
 	 * @param callable $fn   Тело тика
 	 *

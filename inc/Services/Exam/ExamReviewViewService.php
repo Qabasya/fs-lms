@@ -31,6 +31,7 @@ class ExamReviewViewService {
 		'pending'    => 'Проверяется преподавателем',
 	);
 
+	/** Получает проекцию работы и шкалу результата; контакты добавляет гостевое представление. */
 	public function __construct(
 		private readonly ExamReviewProjection $reviews,
 		private readonly ExamScoreService $scores,
@@ -39,6 +40,8 @@ class ExamReviewViewService {
 	) {}
 
 	/**
+	 * Готовит общий разбор текущей попытки участия без контактов центра.
+	 *
 	 * @return array<string, mixed>|null null — участия нет; `revealed = false` — работа ещё не сдана.
 	 */
 	public function build( int $participationId ): ?array {

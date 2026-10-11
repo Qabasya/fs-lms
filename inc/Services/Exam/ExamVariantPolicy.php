@@ -24,6 +24,7 @@ use Inc\Enums\Log\ErrorCode;
  */
 class ExamVariantPolicy {
 
+	/** Получает форматы и общую проверку полноты варианта перед его использованием в проведении. */
 	public function __construct(
 		private readonly AssessmentManager $assessments,
 		private readonly ExamFormatRegistry $formats,
@@ -75,7 +76,7 @@ class ExamVariantPolicy {
 	 * @param int    $assessmentId ID варианта
 	 * @param string $subjectKey   Ключ предмета
 	 *
-	 * @throws CodedException с кодом ErrorCode::ExamConflict
+	 * @throws CodedException Вариант не соответствует требованиям проведения (`ExamConflict`).
 	 */
 	public function assert( int $assessmentId, string $subjectKey ): void {
 		$reason = $this->check( $assessmentId, $subjectKey );

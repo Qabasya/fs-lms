@@ -57,6 +57,7 @@ class GuestApplicationService {
 	private const MAX_MESSENGER_LENGTH = 100;
 	private const PHONE_DIGITS         = 11;
 
+	/** Получает идентификацию, согласия и бронь отдельно от платёжного HTTP-перехода. */
 	public function __construct(
 		private readonly ExamGuestApplicationRepository $applications,
 		private readonly ExamParticipantRepository $participants,
@@ -82,7 +83,7 @@ class GuestApplicationService {
 	 * **Возврат вне магазина** не вызывает refund API WooCommerce, не меняет статус заказа и не шлёт писем: деньги возвращает сотрудник вручную;
 	 * сумма обязательна. Причина обязательна всегда. Результат записывается в `exam_manual_resolutions` и в журнал.
 	 *
-	 * @throws CodedException
+	 * @throws CodedException Недостаточно прав, решение или сумма некорректны, заявка уже урегулирована либо перенос невозможен.
 	 */
 	public function resolve( int $actorUserId, int $applicationId, ManualResolutionKind $kind, ?int $sessionId, string $reason, ?string $amount ): ExamGuestApplicationDTO {
 		$reason = trim( $reason );
@@ -125,7 +126,7 @@ class GuestApplicationService {
 	/**
 	 * Сумма возврата: положительное число с копейками, формат `NNN.NN`.
 	 *
-	 * @throws CodedException
+	 * @throws CodedException Сумма не является положительным числом в допустимом диапазоне.
 	 */
 	private function normalizeAmount( string $amount ): string {
 		$clean = str_replace( array( ' ', ',' ), array( '', '.' ), trim( $amount ) );
@@ -137,6 +138,8 @@ class GuestApplicationService {
 	}
 
 	/**
+	 * Проверяет гостевую форму и создаёт заявку с бронью в контексте гостя или сотрудника.
+	 *
 	 * @param array<string, mixed> $form `last_name`, `first_name`, `middle_name?`, `phone`, `messenger?`, `session_id`, `consents` (список ключей)
 	 *
 	 * @throws GuestFormException Ошибка поля формы или вошедший ученик/родитель (`field = cabinet`).
@@ -269,7 +272,7 @@ class GuestApplicationService {
 	/**
 	 * Вошедший ученик или родитель центра на гостевую форму не допускается: записаться он вправе в кабинете, где действует утверждение.
 	 *
-	 * @throws GuestFormException
+	 * @throws GuestFormException Вошедший пользователь имеет роль ученика или родителя центра.
 	 */
 	private function assertNotCenterMember( int $userId ): void {
 		if ( $userId <= 0 ) {
@@ -289,7 +292,7 @@ class GuestApplicationService {
 	 *
 	 * @return array{last_name: string, first_name: string, middle_name: string, phone: string, messenger: string, session_id: int, consents: list<string>}
 	 *
-	 * @throws GuestFormException
+	 * @throws GuestFormException Поля формы некорректны, сеанс не выбран или обязательное согласие отсутствует.
 	 */
 	private function validate( array $form ): array {
 		$last      = trim( (string) ( $form['last_name'] ?? '' ) );
@@ -337,7 +340,7 @@ class GuestApplicationService {
 	/**
 	 * Лимиты брони. IP — не для заявки сотрудника (он оформляет с площадки); источник — для всех.
 	 *
-	 * @throws CodedException `ExamLimit`
+	 * @throws CodedException Превышен лимит брони по IP или источнику (`ExamLimit`).
 	 */
 	private function assertLimits( ExamSourceDTO $source, int $eventId, string $ip, string $ipHash, bool $byStaff ): void {
 		if ( ! $byStaff && '' !== $ipHash ) {

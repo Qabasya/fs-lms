@@ -29,6 +29,7 @@ class ExamReportViewService {
 
 	public const PLACEHOLDER = 'Данные участника недоступны';
 
+	/** Получает состав и текущий допуск каждой строки; разбор использует общее представление работы. */
 	public function __construct(
 		private readonly ExamReportMemberRepository $members,
 		private readonly ExamParticipationRepository $participations,
@@ -43,6 +44,8 @@ class ExamReportViewService {
 	) {}
 
 	/**
+	 * Перепроверяет доступ к каждой строке отчёта и готовит статистику и выбранный разбор.
+	 *
 	 * @param int|null $row Порядковый номер строки отчёта (с 1) для разбора; вне диапазона или заглушка — разбора нет.
 	 *
 	 * @return array<string, mixed>

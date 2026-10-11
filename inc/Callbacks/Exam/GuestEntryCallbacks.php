@@ -21,6 +21,7 @@ class GuestEntryCallbacks extends BaseController {
 
 	use Sanitizer;
 
+	/** Получает отзыв сессии и проверку раскрытия результата отдельно от удаления HTTP-кук. */
 	public function __construct(
 		private readonly GuestSessionService $sessions,
 		private readonly ExamReviewProjection $reviews,

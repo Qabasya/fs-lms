@@ -20,14 +20,17 @@ class ExamTime {
 
 	private const FORMAT = 'Y-m-d H:i:s';
 
+	/** Использует внедряемые часы, чтобы все экзаменные сроки сравнивались относительно одного источника времени. */
 	public function __construct(
 		private readonly ClockInterface $clock,
 	) {}
 
+	/** Текущее время таблиц exam_* в формате MySQL и зоне UTC. */
 	public function nowUtc(): string {
 		return $this->clock->now( 'mysql', true );
 	}
 
+	/** Текущее местное время сайта для совместимости с прежними таблицами попыток/занятий. */
 	public function nowLocal(): string {
 		return $this->clock->now();
 	}

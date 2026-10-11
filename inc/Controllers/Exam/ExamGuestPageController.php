@@ -37,6 +37,7 @@ class ExamGuestPageController extends BaseController implements ServiceInterface
 	use RequestContextProvider;
 	use TemplateRenderer;
 
+	/** Разделяет решение допуска, данные шорткода и исполнение HTTP-ответа через зависимости контейнера. */
 	public function __construct(
 		private readonly GuestPageAccessService $access,
 		private readonly GuestSessionService $sessions,
@@ -51,6 +52,9 @@ class ExamGuestPageController extends BaseController implements ServiceInterface
 		parent::__construct();
 	}
 
+	/**
+	 * Регистрирует четыре шорткода и общие ограничения публичных гостевых маршрутов.
+	 */
 	public function register(): void {
 		add_shortcode( PageRoutes::ExamSignup->guestExamShortCode()->value, array( $this, 'renderSignupPage' ) );
 		add_action( 'template_redirect', array( $this, 'handleSignupPage' ), 5 );
@@ -242,6 +246,9 @@ class ExamGuestPageController extends BaseController implements ServiceInterface
 		}
 	}
 
+	/**
+	 * Распознаёт защищённый маршрут по единому списку PageRoutes.
+	 */
 	private function isGuestPage(): bool {
 		foreach ( PageRoutes::guestExamPages() as $route ) {
 			if ( $route->isCurrent() ) {
@@ -253,6 +260,8 @@ class ExamGuestPageController extends BaseController implements ServiceInterface
 	}
 
 	/**
+	 * Находит существующие страницы центрального списка гостевых маршрутов.
+	 *
 	 * @return list<int>
 	 */
 	private function guestPageIds(): array {

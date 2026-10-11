@@ -29,6 +29,7 @@ use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
  */
 class ExamAudienceResolver {
 
+	/** Получает группы и снимки зачисления для определения экзаменной аудитории. */
 	public function __construct(
 		private readonly GroupsRepository $groups,
 		private readonly StudentRecordRepository $records,

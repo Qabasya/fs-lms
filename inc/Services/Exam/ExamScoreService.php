@@ -35,6 +35,7 @@ class ExamScoreService {
 		'correct'    => 1,
 	);
 
+	/** Получает ответы и шкалы для единого подсчёта первичного и итогового результата. */
 	public function __construct(
 		private readonly ExamFormatRegistry $formats,
 		private readonly AssessmentManager $assessments,

@@ -31,6 +31,7 @@ use Inc\Shared\CodedException;
  */
 class GuestOnSiteService {
 
+	/** Получает обычный сервис заявок и гостевые ключи для сценария записи сотрудником. */
 	public function __construct(
 		private readonly GuestApplicationService $applications,
 		private readonly ExamAccessGuard $guard,
@@ -45,12 +46,14 @@ class GuestOnSiteService {
 	) {}
 
 	/**
+	 * Создаёт гостевую заявку сотрудника либо возвращает совпадения для подтверждения дубликата.
+	 *
 	 * @param array<string, mixed> $form Поля формы (как у гостевой формы); согласия сотрудник отмечает со слов участника.
 	 *
 	 * @return array{status: 'created', application_id: int, pay_url: string, hold_expires_at: string, seconds_left: int}
 	 *         |array{status: 'needs_confirmation', candidates: list<array{name: string, participation_id: int, match: string}>}
 	 *
-	 * @throws CodedException
+	 * @throws CodedException Нет доступа, сеанс завершён, источник не подходит или заявка нарушает правила брони.
 	 */
 	public function add( int $actorUserId, int $sessionId, int $sourceId, array $form, RequestContextDTO $ctx, string $requestKey, bool $confirmedNotDuplicate ): array {
 		$session = $this->sessions->find( $sessionId );
@@ -89,7 +92,7 @@ class GuestOnSiteService {
 	 *
 	 * @return array{application_id: int, pay_url: string, hold_expires_at: string, seconds_left: int}
 	 *
-	 * @throws CodedException
+	 * @throws CodedException Заявка недоступна сотруднику либо её бронь уже не действует.
 	 */
 	public function reissuePayLink( int $actorUserId, int $applicationId ): array {
 		$application = $this->applicationRepo->find( $applicationId );
@@ -102,6 +105,8 @@ class GuestOnSiteService {
 	}
 
 	/**
+	 * Выдаёт платёжную ссылку сотрудника для ещё действующей брони.
+	 *
 	 * @return array{application_id: int, pay_url: string, hold_expires_at: string, seconds_left: int}
 	 *
 	 * @throws CodedException Бронь не действует или уже истекла.

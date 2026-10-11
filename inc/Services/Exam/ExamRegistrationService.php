@@ -66,6 +66,7 @@ class ExamRegistrationService {
 	/** Длительность занятия без `ends_at` — как в `RoomRepository::isBusy()`. */
 	private const DEFAULT_LESSON_MINUTES = 60;
 
+	/** Получает аудиторию, ключи повторов и расписание для согласованных операций записи. */
 	public function __construct(
 		private readonly ExamEventRepository $events,
 		private readonly ExamSessionRepository $sessions,
@@ -85,7 +86,7 @@ class ExamRegistrationService {
 	/**
 	 * Запись ученика на сеанс.
 	 *
-	 * @throws CodedException
+	 * @throws CodedException Проведение закрыто, ученик не входит в аудиторию либо запись нарушает правила сеанса.
 	 */
 	public function register( int $personId, int $sessionId, string $requestKey ): RegistrationResultDTO {
 		$this->assertRequestKey( $requestKey );
@@ -112,7 +113,7 @@ class ExamRegistrationService {
 	 * @param int|null $actorUserId Сотрудник, оформляющий запись; null — участник записывается сам.
 	 * @param string[] $warnings    Предупреждения для ответа (не отменяют запись); хранятся вместе с результатом для повтора по ключу.
 	 *
-	 * @throws CodedException
+	 * @throws CodedException Ключ повтора некорректен, запись закрыта, конфликтует с правилами или свободных мест нет.
 	 */
 	public function registerParticipant( int $participantId, ExamAudience $audience, int $sessionId, string $requestKey, ?int $actorUserId, array $warnings = array() ): RegistrationResultDTO {
 		$this->assertRequestKey( $requestKey );
@@ -130,7 +131,7 @@ class ExamRegistrationService {
 	 * @param int      $sourceId    Источник приглашения; записывается в участие.
 	 * @param int|null $recordedBy  Сотрудник, подтвердивший вручную: записывается в запись, правила записи не меняет.
 	 *
-	 * @throws CodedException
+	 * @throws CodedException Ключ повтора некорректен, участие или сеанс недоступны либо активная запись конфликтует.
 	 */
 	public function confirmHeld( int $participantId, int $sessionId, string $requestKey, int $sourceId, ?int $recordedBy = null ): RegistrationResultDTO {
 		$this->assertRequestKey( $requestKey );
@@ -143,7 +144,7 @@ class ExamRegistrationService {
 	 * правила записи — как у сотрудника (окно записи не проверяется, сеанс не должен закончиться). Транзакцию **не открывает** —
 	 * вызывается из `ExamHoldService::resolveManually()` под блокировкой заявки.
 	 *
-	 * @throws CodedException
+	 * @throws CodedException Ключ повтора некорректен, сеанс завершён, запись конфликтует или свободных мест нет.
 	 */
 	public function confirmByStaff( int $participantId, int $sessionId, string $requestKey, int $sourceId, int $actorUserId ): RegistrationResultDTO {
 		$this->assertRequestKey( $requestKey );
@@ -157,7 +158,7 @@ class ExamRegistrationService {
 	 * до записи в базу и без утечки места: вызывающий переводит заявку в «оплачено, нужна помощь» и продолжает свою транзакцию.
 	 * Транзакцию не открывает — как {@see confirmHeld()}.
 	 *
-	 * @throws CodedException
+	 * @throws CodedException Ключ повтора некорректен, окно записи закрыто, сеанс начался, запись конфликтует или мест нет.
 	 */
 	public function confirmLate( int $participantId, int $sessionId, string $requestKey, int $sourceId, ?int $recordedBy = null ): RegistrationResultDTO {
 		$this->assertRequestKey( $requestKey );
@@ -252,7 +253,7 @@ class ExamRegistrationService {
 	 *
 	 * @param int|null $expectedVersion Версия участия, которую видит вкладка; расхождение — `ExamStale`.
 	 *
-	 * @throws CodedException
+	 * @throws CodedException Нет действующей записи, версия устарела или перенос нарушает окно, вместимость и расписание.
 	 */
 	public function change( int $personId, int $newSessionId, string $requestKey, ?int $expectedVersion = null ): RegistrationResultDTO {
 		$this->assertRequestKey( $requestKey );
@@ -300,7 +301,7 @@ class ExamRegistrationService {
 	 *
 	 * @param int|null $expectedVersion Версия участия, которую видит вкладка; расхождение — `ExamStale`.
 	 *
-	 * @throws CodedException
+	 * @throws CodedException Запись отсутствует, версия устарела, попытка уже существует либо сеанс начался.
 	 */
 	public function cancelBySelf( int $personId, int $eventId, string $requestKey, ?int $expectedVersion = null ): void {
 		$this->assertRequestKey( $requestKey );
@@ -351,7 +352,7 @@ class ExamRegistrationService {
 	/**
 	 * Отмена сотрудником с причиной: разрешена и после начала сеанса, пока попытка не начата.
 	 *
-	 * @throws CodedException
+	 * @throws CodedException Нет доступа или действующей записи либо попытка уже начата.
 	 *
 	 * @throws \InvalidArgumentException Не указана обязательная причина отмены.
 	 */
@@ -390,7 +391,7 @@ class ExamRegistrationService {
 	/**
 	 * Перенос сотрудником с причиной: окно записи и «до начала своего сеанса» не проверяются, попытки быть не должно.
 	 *
-	 * @throws CodedException
+	 * @throws CodedException Нет доступа или действующей записи либо перенос нарушает состояние, расписание или вместимость.
 	 *
 	 * @throws \InvalidArgumentException Не указана обязательная причина переноса.
 	 */
@@ -558,7 +559,7 @@ class ExamRegistrationService {
 	/**
 	 * Правила записи: один порядок и одни коды для всех путей.
 	 *
-	 * @throws CodedException
+	 * @throws CodedException Проведение или сеанс закрыты, окно истекло, попытка начата, запись уже есть или расписание пересекается.
 	 */
 	private function assertCanRegister( ExamEventDTO $event, ExamSessionDTO $session, ExamParticipationDTO $participation, string $nowUtc, bool $byStaff, bool $checkWindow = true ): void {
 		if ( ExamEventStatus::Published->value !== $event->status ) {
@@ -626,7 +627,7 @@ class ExamRegistrationService {
 	 * Одно правило для записи и переноса: в это время у участника нет действующей записи на другое проведение.
 	 * Надёжно только под блокировкой участника ({@see lockParticipant()}).
 	 *
-	 * @throws CodedException
+	 * @throws CodedException Время сеанса пересекается с действующей записью участника на другое проведение.
 	 */
 	private function assertNoOverlap( int $participantId, ExamSessionDTO $session ): void {
 		if ( $this->registrations->hasOverlappingActive( $participantId, $session->scheduledAt, $session->plannedEndAt, $session->eventId ) ) {
@@ -635,7 +636,9 @@ class ExamRegistrationService {
 	}
 
 	/**
-	 * @throws CodedException
+	 * Проверяет окно записи проведения и запрещает запись после начала сеанса.
+	 *
+	 * @throws CodedException Окно записи ещё не открыто, уже закрыто либо сеанс начался.
 	 */
 	private function assertRegistrationWindow( ExamEventDTO $event, ExamSessionDTO $session, string $nowUtc ): void {
 		if ( null !== $event->registrationOpensAt && $nowUtc < $event->registrationOpensAt ) {
@@ -673,7 +676,7 @@ class ExamRegistrationService {
 	/**
 	 * Вкладка видит устаревшее состояние участия — действовать по нему нельзя.
 	 *
-	 * @throws CodedException
+	 * @throws CodedException Версия участия отличается от версии, которую передала вкладка.
 	 */
 	private function assertFreshVersion( ExamParticipationDTO $participation, ?int $expectedVersion ): void {
 		if ( null !== $expectedVersion && $participation->version !== $expectedVersion ) {
@@ -695,6 +698,11 @@ class ExamRegistrationService {
 		}
 	}
 
+	/**
+	 * Создаёт подтверждённую запись с действующим слотом и данными повторяемой операции.
+	 *
+	 * @throws CodedException Если уникальный индекс запрещает вторую активную запись участия.
+	 */
 	private function insertConfirmed( int $participationId, int $sessionId, ?string $requestKey, ?int $actorUserId, string $nowUtc ): int {
 		$row = array(
 			'participation_id' => $participationId,
@@ -718,13 +726,18 @@ class ExamRegistrationService {
 		}
 	}
 
+	/**
+	 * Свободные места после учёта occupied_count; отсутствие сеанса даёт ноль.
+	 */
 	private function freeSeats( int $sessionId ): int {
 		$session = $this->sessions->find( $sessionId );
 		return null !== $session ? max( 0, $session->capacity - $session->occupiedCount ) : 0;
 	}
 
 	/**
-	 * @throws CodedException
+	 * Проверяет наличие и допустимую длину ключа повторяемой операции.
+	 *
+	 * @throws CodedException Ключ операции пуст или превышает допустимую длину.
 	 */
 	private function assertRequestKey( string $requestKey ): void {
 		if ( '' === $requestKey || strlen( $requestKey ) > self::REQUEST_KEY_MAX_LENGTH ) {
@@ -732,6 +745,9 @@ class ExamRegistrationService {
 		}
 	}
 
+	/**
+	 * Изолирует ключи повторных операций по участнику.
+	 */
 	private function scope( int $participantId ): string {
 		return 'participant:' . $participantId;
 	}
@@ -739,7 +755,7 @@ class ExamRegistrationService {
 	/**
 	 * Действующий ключ операции или null. Тот же ключ с другими данными — `ExamReplay`.
 	 *
-	 * @throws CodedException
+	 * @throws CodedException Сохранённый ключ операции повторно использован с другими данными.
 	 */
 	private function findOperation( int $participantId, string $operation, string $requestKey, string $payload ): ?ExamOperationKeyDTO {
 		$row = $this->operationKeys->findByKey( $this->scope( $participantId ), $operation, $requestKey );
@@ -752,6 +768,9 @@ class ExamRegistrationService {
 		return $row;
 	}
 
+	/**
+	 * Сохраняет payload и результат операции в области участника для повторного ответа.
+	 */
 	private function rememberOperation( int $participantId, string $operation, string $requestKey, string $payload, string $resultRef ): void {
 		$now = $this->time->nowUtc();
 		$this->operationKeys->remember(

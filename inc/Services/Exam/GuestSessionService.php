@@ -45,6 +45,7 @@ class GuestSessionService {
 	/** Сколько после личного дедлайна сессия ещё открывает страницу результата, мин. */
 	private const RESULT_VIEW_MINUTES = 30;
 
+	/** Получает хеширование и текущие поколения ключей для раздельных гостевых scope. */
 	public function __construct(
 		private readonly ExamGuestSessionRepository $sessions,
 		private readonly ExamAccessTokenService $tokens,

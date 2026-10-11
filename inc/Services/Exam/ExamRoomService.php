@@ -28,6 +28,7 @@ use Inc\Shared\CodedException;
  */
 class ExamRoomService {
 
+	/** Получает экзаменные сеансы и общую занятость кабинета для проверки пересечений. */
 	public function __construct(
 		private readonly RoomRepository $rooms,
 		private readonly ExamSessionRepository $sessions,

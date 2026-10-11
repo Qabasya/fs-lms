@@ -20,10 +20,14 @@ use Inc\Services\Security\PiiCryptoService;
  */
 class GuestIdentity {
 
+	/** Использует общий криптосервис для стабильных хешей нормализованных данных гостя. */
 	public function __construct(
 		private readonly PiiCryptoService $crypto,
 	) {}
 
+	/**
+	 * Приводит ФИО к единой форме для поиска дублей, включая регистр, ё и пробелы.
+	 */
 	public function normalizeName( string $last, string $first, string $middle = '' ): string {
 		$joined = mb_strtolower( implode( ' ', array( $last, $first, $middle ) ) );
 		$joined = str_replace( 'ё', 'е', $joined );
@@ -41,10 +45,16 @@ class GuestIdentity {
 		return $digits;
 	}
 
+	/**
+	 * Хеширует нормализованное ФИО с отдельным префиксом типа данных.
+	 */
 	public function nameHash( string $last, string $first, string $middle = '' ): string {
 		return $this->crypto->hash( 'name:' . $this->normalizeName( $last, $first, $middle ) );
 	}
 
+	/**
+	 * Хеширует нормализованный телефон с отдельным префиксом типа данных.
+	 */
 	public function phoneHash( string $phone ): string {
 		return $this->crypto->hash( 'phone:' . $this->normalizePhone( $phone ) );
 	}

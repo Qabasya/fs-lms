@@ -34,6 +34,7 @@ use Inc\Shared\PluginLogger;
  */
 class ExamTickService {
 
+	/** Получает исполнителей периодических операций; их доменные правила остаются в сервисах. */
 	public function __construct(
 		private readonly ExamAttemptService $attemptService,
 		private readonly ExamNoShowService $noShowService,

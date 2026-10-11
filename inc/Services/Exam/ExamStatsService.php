@@ -46,6 +46,7 @@ class ExamStatsService {
 
 	public const BUCKETS = array( 'correct', 'partial', 'incorrect', 'unanswered', 'pending' );
 
+	/** Получает ответы и шкалы для статистики в проверенной области доступа к проведению. */
 	public function __construct(
 		private readonly ExamEventRepository $events,
 		private readonly ExamSessionRepository $sessions,
@@ -62,6 +63,8 @@ class ExamStatsService {
 	) {}
 
 	/**
+	 * Готовит статистику по выбранным фильтрам в пределах доступа пользователя.
+	 *
 	 * @param array{subject_key?: string, event_id?: int, session_id?: int, audience?: string} $filters
 	 *
 	 * @return array{filters: array<string, mixed>, format: ?array<string, mixed>, kpi: array<string, mixed>, tasks: list<array<string, mixed>>}
@@ -245,6 +248,8 @@ class ExamStatsService {
 	}
 
 	/**
+	 * Находит сеанс записи в уже загруженной истории участия.
+	 *
 	 * @param ExamRegistrationDTO[] $history
 	 */
 	private function registrationSession( array $history, int $registrationId ): int {
@@ -258,6 +263,8 @@ class ExamStatsService {
 	}
 
 	/**
+	 * Считает показатели выбранных участий и определяет совместимость шкал результатов.
+	 *
 	 * @param list<array{participation: ExamParticipationDTO, attempt: ?AttemptDTO, last: ?ExamRegistrationDTO, event: ExamEventDTO}> $rows
 	 *
 	 * @return array{kpi: array<string, mixed>, format: ?array<string, mixed>}
@@ -344,6 +351,8 @@ class ExamStatsService {
 	}
 
 	/**
+	 * Считает среднее непустого списка значений с округлением до одного знака.
+	 *
 	 * @param list<float> $values
 	 */
 	private function avg( array $values ): float {
@@ -351,6 +360,8 @@ class ExamStatsService {
 	}
 
 	/**
+	 * Готовит список сеансов проведения с локальными подписями даты и времени.
+	 *
 	 * @return list<array{id: int, date: string, time_start: string}>
 	 */
 	private function sessionOptions( ExamEventDTO $event ): array {
@@ -370,6 +381,9 @@ class ExamStatsService {
 		return $list;
 	}
 
+	/**
+	 * Определяет экзаменную шкалу попытки; без попытки возвращает null.
+	 */
 	private function formatFor( ExamEventDTO $event, ?AttemptDTO $attempt ): ?\Inc\DTO\Exam\ExamFormatDTO {
 		if ( null === $attempt ) {
 			return null;
@@ -421,6 +435,9 @@ class ExamStatsService {
 		return $tasks;
 	}
 
+	/**
+	 * Разделяет ожидающие проверки, пустые, верные, частичные и неверные ответы.
+	 */
 	private function verdict( ?bool $isCorrect, ?float $score, ?float $max, bool $empty ): string {
 		if ( null === $isCorrect ) {
 			return 'pending';

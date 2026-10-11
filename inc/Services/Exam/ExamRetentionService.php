@@ -53,6 +53,7 @@ class ExamRetentionService {
 	/** Технический мусор (обработанные события, истёкшие ключи и сессии) хранится 30 дней. */
 	private const TECH_DAYS = 30;
 
+	/** Получает данные гостя, сессии и медиа для согласованного обезличивания и очистки. */
 	public function __construct(
 		private readonly ExamParticipantRepository $participants,
 		private readonly ExamParticipationRepository $participations,
@@ -139,7 +140,7 @@ class ExamRetentionService {
 	 * Запрос гостя на удаление: ручное действие сотрудника (права `ManageExamGuests` и `ManageLmsPlatform` проверяет коллбек). Причина
 	 * обязательна; сотрудник должен управлять **каждым** проведением участника: чужое обезличить нельзя.
 	 *
-	 * @throws CodedException
+	 * @throws CodedException Причина пуста, гость недоступен сотруднику или его данные уже обезличены.
 	 */
 	public function anonymizeByStaff( int $actorUserId, int $participantId, string $reason ): void {
 		$reason = trim( $reason );

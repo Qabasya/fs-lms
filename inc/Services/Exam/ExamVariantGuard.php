@@ -38,15 +38,20 @@ class ExamVariantGuard {
 	);
 
 	/**
+	 * Снимок замороженных вариантов для повторных проверок в текущем запросе.
+	 *
 	 * @var array<int, array{event_title: string, subject_key: string}>|null assessmentId => проведение
 	 */
 	private ?array $frozen = null;
 
 	/**
+	 * Снимок принадлежности заданий замороженным вариантам в текущем запросе.
+	 *
 	 * @var array<int, int>|null taskId => assessmentId
 	 */
 	private ?array $tasks = null;
 
+	/** Читает замороженные проведения и записи через менеджеры; восстановление полей остаётся в политике. */
 	public function __construct(
 		private readonly ExamSessionRepository $sessions,
 		private readonly ExamEventRepository $events,
@@ -64,6 +69,9 @@ class ExamVariantGuard {
 		return array_keys( $this->frozenMap() );
 	}
 
+	/**
+	 * Проверяет присутствие варианта в карте действующих замороженных проведений.
+	 */
 	public function isAssessmentFrozen( int $assessmentId ): bool {
 		return isset( $this->frozenMap()[ $assessmentId ] );
 	}
@@ -145,6 +153,8 @@ class ExamVariantGuard {
 	}
 
 	/**
+	 * Кеширует соответствие вариантов опубликованным проведениям в пределах экземпляра.
+	 *
 	 * @return array<int, array{event_title: string, subject_key: string}>
 	 */
 	private function frozenMap(): array {
@@ -162,6 +172,8 @@ class ExamVariantGuard {
 	}
 
 	/**
+	 * Кеширует задания замороженных вариантов и их дочерние записи.
+	 *
 	 * @return array<int, int>
 	 */
 	private function taskMap(): array {
@@ -196,6 +208,8 @@ class ExamVariantGuard {
 	}
 
 	/**
+	 * Читает и нормализует идентификаторы дочерних заданий комплекта.
+	 *
 	 * @return list<int>
 	 */
 	private function childrenOf( int $taskId ): array {

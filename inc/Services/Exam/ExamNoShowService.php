@@ -30,6 +30,7 @@ class ExamNoShowService {
 
 	use TransactionRunner;
 
+	/** Получает участие, регистрацию и расписание для отметки неявки под блокировкой участия. */
 	public function __construct(
 		private readonly ExamParticipationRepository $participations,
 		private readonly ExamRegistrationRepository $registrations,

@@ -45,6 +45,7 @@ class ExamHoldService {
 
 	use TransactionRunner;
 
+	/** Получает бронь, сеансы и ручные решения для перевода заявки в регистрацию под существующими блокировками. */
 	public function __construct(
 		private readonly ExamGuestApplicationRepository $applications,
 		private readonly ExamSessionRepository $sessions,
@@ -64,7 +65,7 @@ class ExamHoldService {
 	 * @param array<string, mixed> $data `event_id`, `session_id`, `source_id`, `identity_hash`, `request_key`, `draft_enc`, `source_snapshot`,
 	 *                                   `consent_refs`, `ip_hash`, `created_by_user_id` (заявка сотрудника на месте).
 	 *
-	 * @throws CodedException
+	 * @throws CodedException Параметры или повтор запроса некорректны, запись закрыта, заявка дублируется либо мест нет.
 	 */
 	public function capture( array $data, int $ttlMinutes ): ExamGuestApplicationDTO {
 		$eventId      = (int) ( $data['event_id'] ?? 0 );
@@ -172,7 +173,7 @@ class ExamHoldService {
 	 * - бронь истекла — место занимается заново по обычным правилам записи; не удалось — `paid_needs_resolution`
 	 *   и событие `PaidNeedsResolution`: место и другой сеанс сами не выбираются.
 	 *
-	 * @throws CodedException
+	 * @throws CodedException Заявка отсутствует; ожидаемые отказы регистрации переводятся в ручное урегулирование.
 	 */
 	public function convert( int $applicationId, ?int $actorUserId ): ExamGuestApplicationDTO {
 		return $this->inTransactionWithRetry(
@@ -227,7 +228,8 @@ class ExamHoldService {
 	 * - `RefundedOutside` / `Other` — заявка закрывается (`cancelled`), место не занимается. Возврат денег и заказ WooCommerce здесь **не затрагиваются**.
 	 * Всегда — строка в `exam_manual_resolutions` (вид, причина, автор, сумма, старый и новый сеанс). Повтор по уже урегулированной заявке — отказ.
 	 *
-	 * @throws CodedException
+	 * @throws CodedException Заявка не требует разбора, целевой сеанс другого проведения или у гостя уже есть активная заявка.
+	 * @throws \RuntimeException Заявка изменилась во время сохранения ручного решения.
 	 */
 	public function resolveManually( int $actorUserId, int $applicationId, ManualResolutionKind $kind, ?int $targetSessionId, string $reason, ?string $amount ): ExamGuestApplicationDTO {
 		return $this->inTransactionWithRetry(
@@ -485,7 +487,7 @@ class ExamHoldService {
 	/**
 	 * Правила оформления заявки. Для заявки сотрудника на месте (`$byStaff`) окно записи не проверяется, но сеанс не должен закончиться.
 	 *
-	 * @throws CodedException
+	 * @throws CodedException Проведение не опубликовано, гостевая запись отключена, сеанс закрыт или допустимое окно истекло.
 	 */
 	private function assertCanCapture( string $eventStatus, bool $guestEnabled, ?string $opensAt, ?string $closesAt, string $sessionStatus, string $scheduledAt, string $plannedEndAt, bool $byStaff, string $nowUtc ): void {
 		if ( ExamEventStatus::Published->value !== $eventStatus ) {
@@ -516,6 +518,11 @@ class ExamHoldService {
 		}
 	}
 
+	/**
+	 * Перечитывает заявку после изменения брони.
+	 *
+	 * @throws \RuntimeException Если сохранённая заявка не найдена.
+	 */
 	private function reload( int $applicationId ): ExamGuestApplicationDTO {
 		$application = $this->applications->find( $applicationId );
 		if ( null === $application ) {

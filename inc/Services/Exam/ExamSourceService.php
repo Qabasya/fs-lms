@@ -40,6 +40,7 @@ class ExamSourceService {
 
 	use TransactionRunner;
 
+	/** Получает источники, ключи и гостевые сессии для согласованного управления приглашениями. */
 	public function __construct(
 		private readonly ExamSourceRepository $sources,
 		private readonly ExamEventRepository $events,
@@ -58,7 +59,7 @@ class ExamSourceService {
 	 *
 	 * @return list<array<string, mixed>>
 	 *
-	 * @throws CodedException
+	 * @throws CodedException Проведение отсутствует или управление его гостями недоступно пользователю.
 	 */
 	public function list( int $actorUserId, int $eventId ): array {
 		$this->requireEvent( $actorUserId, $eventId );
@@ -71,7 +72,8 @@ class ExamSourceService {
 	 *
 	 * @param array<string, mixed> $input `school_name`, `teacher_name`, `grade`.
 	 *
-	 * @throws CodedException
+	 * @throws CodedException Нет доступа, поля школы или класс некорректны либо версия источника устарела.
+	 * @throws \RuntimeException Сохранённый источник не найден при повторном чтении.
 	 */
 	public function save( int $actorUserId, int $eventId, array $input, ?int $sourceId, ?int $expectedVersion ): ExamSourceDTO {
 		$event = $this->requireEvent( $actorUserId, $eventId );
@@ -151,7 +153,7 @@ class ExamSourceService {
 	 *
 	 * @return string Адрес формы с ключом — единственный раз.
 	 *
-	 * @throws CodedException
+	 * @throws CodedException Источник недоступен или действующая ссылка уже существует.
 	 */
 	public function issueLink( int $actorUserId, int $sourceId ): string {
 		$eventId = $this->eventIdOf( $actorUserId, $sourceId );
@@ -174,7 +176,7 @@ class ExamSourceService {
 	 *
 	 * @return string Адрес формы с новым ключом — единственный раз.
 	 *
-	 * @throws CodedException
+	 * @throws CodedException Источник отсутствует, принадлежит другому проведению или недоступен пользователю.
 	 */
 	public function reissueLink( int $actorUserId, int $sourceId ): string {
 		$eventId = $this->eventIdOf( $actorUserId, $sourceId );
@@ -191,7 +193,7 @@ class ExamSourceService {
 	/**
 	 * Отзывает ссылку без выпуска новой: новые заявки по ней невозможны, оплаченные записи и действующие брони остаются.
 	 *
-	 * @throws CodedException
+	 * @throws CodedException Источник отсутствует, принадлежит другому проведению или недоступен пользователю.
 	 */
 	public function revokeLink( int $actorUserId, int $sourceId ): void {
 		$eventId = $this->eventIdOf( $actorUserId, $sourceId );
@@ -210,7 +212,7 @@ class ExamSourceService {
 	/**
 	 * Включает или отключает источник (отключённый новых заявок не принимает).
 	 *
-	 * @throws CodedException
+	 * @throws CodedException Источник недоступен либо его версия изменилась до обновления.
 	 */
 	public function setActive( int $actorUserId, int $sourceId, bool $active ): void {
 		$eventId = $this->eventIdOf( $actorUserId, $sourceId );
@@ -247,6 +249,8 @@ class ExamSourceService {
 	}
 
 	/**
+	 * Готовит публичные поля источника для кабинета, не включая секрет ссылки.
+	 *
 	 * @return array<string, mixed>
 	 */
 	private function payload( ExamSourceDTO $source ): array {
@@ -281,7 +285,7 @@ class ExamSourceService {
 	/**
 	 * Проведение, которым пользователь вправе управлять, плюс право на гостей.
 	 *
-	 * @throws CodedException
+	 * @throws CodedException Проведение отсутствует или пользователь не вправе управлять его гостями.
 	 */
 	private function requireEvent( int $actorUserId, int $eventId ): ExamEventDTO {
 		$event = $this->events->find( $eventId );
@@ -295,7 +299,7 @@ class ExamSourceService {
 	/**
 	 * Проведение источника, прочитанное до транзакции (для проверки права и порядка блокировок).
 	 *
-	 * @throws CodedException
+	 * @throws CodedException Источник отсутствует или его проведение недоступно пользователю.
 	 */
 	private function eventIdOf( int $actorUserId, int $sourceId ): int {
 		$source = $this->sources->find( $sourceId );
@@ -310,7 +314,7 @@ class ExamSourceService {
 	/**
 	 * Блокирующее чтение источника — первый оператор транзакции.
 	 *
-	 * @throws CodedException
+	 * @throws CodedException Источник отсутствует либо больше не относится к ожидаемому проведению.
 	 */
 	private function lockSource( int $sourceId, int $eventId ): ExamSourceDTO {
 		$source = $this->sources->findForUpdate( $sourceId );
@@ -321,6 +325,11 @@ class ExamSourceService {
 		return $source;
 	}
 
+	/**
+	 * Перечитывает источник после изменения.
+	 *
+	 * @throws \RuntimeException Если сохранённый источник не найден.
+	 */
 	private function reload( int $sourceId ): ExamSourceDTO {
 		$source = $this->sources->find( $sourceId );
 		if ( null === $source ) {
@@ -330,10 +339,16 @@ class ExamSourceService {
 		return $source;
 	}
 
+	/**
+	 * Публикует изменение источника через общий диспетчер журнала.
+	 */
 	private function audit( int $actorUserId, OperationType $operation, LogEvent $event, int $sourceId, string $label ): void {
 		$this->logEvents->dispatch( $event, new EntityChangedEvent( $actorUserId, $operation, EntityType::ExamSource, $sourceId, $label ) );
 	}
 
+	/**
+	 * Создаёт отказ устаревшей версии источника для повторного открытия формы.
+	 */
 	private function stale(): CodedException {
 		return new CodedException( ErrorCode::ExamStale, 'Данные изменились: обновите страницу и повторите.' );
 	}

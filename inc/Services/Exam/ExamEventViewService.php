@@ -17,6 +17,7 @@ use Inc\Repositories\WPDBRepositories\ExamSourceRepository;
 /** Варианты фильтров проведения для доски и списка результатов. */
 class ExamEventViewService {
 
+	/** Получает сеансы и источники для общих сводок и фильтров проведения. */
 	public function __construct(
 		private readonly ExamSessionRepository $sessions,
 		private readonly ExamSourceRepository $sources,
@@ -24,6 +25,8 @@ class ExamEventViewService {
 	) {}
 
 	/**
+	 * Готовит варианты источника гостей для фильтра выбранного проведения.
+	 *
 	 * @return list<array{id: int, label: string}>
 	 */
 	public function sourceOptions( int $eventId ): array {

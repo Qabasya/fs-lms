@@ -20,12 +20,15 @@ use Inc\Repositories\WPDBRepositories\ExamOutboxEventRepository;
  */
 class ExamOutbox {
 
+	/** Получает хранилище доменных событий и единый источник UTC-времени. */
 	public function __construct(
 		private readonly ExamOutboxEventRepository $events,
 		private readonly ExamTime $time,
 	) {}
 
 	/**
+	 * Записывает доменное событие в outbox в транзакции вызывающей операции.
+	 *
 	 * @param array<string, mixed> $payload
 	 *
 	 * @throws \RuntimeException Если запись не удалась — транзакция вызывающего должна откатиться.

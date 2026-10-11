@@ -26,11 +26,16 @@ class ExamPagesMigration {
 
 	private const VERSION = '3';
 
+	/** Получает генератор и маркер версии; успешная публикация страниц предшествует записи маркера. */
 	public function __construct(
 		private readonly PageGeneratorService $pages,
 		private readonly ExamPagesVersionRepository $versions,
 	) {}
 
+	// phpcs:disable Squiz.Commenting.FunctionCommentThrowTag.Missing -- The RuntimeException raised here is caught and logged below, rather than propagated.
+	/**
+	 * Обеспечивает публикацию всех страниц до записи версии; при отказе следующая загрузка повторяет попытку.
+	 */
 	public function run(): void {
 		if ( $this->versions->get() === self::VERSION ) {
 			return;
@@ -49,4 +54,5 @@ class ExamPagesMigration {
 			PluginLogger::exception( 'ExamPagesMigration', $e, array(), true );
 		}
 	}
+	// phpcs:enable Squiz.Commenting.FunctionCommentThrowTag.Missing
 }

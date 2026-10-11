@@ -28,6 +28,7 @@ use Inc\Enums\Wp\AjaxHook;
  */
 class ExamController extends AjaxController {
 
+	/** Получает AJAX-обработчики по ответственностям для регистрации экзаменных хуков. */
 	public function __construct(
 		private readonly LearnerExamCallbacks $learner,
 		private readonly ExamEventCallbacks $events,
@@ -43,6 +44,9 @@ class ExamController extends AjaxController {
 		parent::__construct();
 	}
 
+	/**
+	 * Связывает экзаменные AJAX-экшены с обработчиками соответствующей ответственности.
+	 */
 	protected function ajaxActions(): array {
 		return array(
 			array( AjaxHook::GetLearnerExams, $this->learner ),

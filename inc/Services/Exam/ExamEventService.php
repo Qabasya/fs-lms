@@ -45,6 +45,7 @@ class ExamEventService {
 
 	use TransactionRunner;
 
+	/** Получает политику вариантов, кабинеты и связанные записи для согласованных изменений проведения. */
 	public function __construct(
 		private readonly ExamEventRepository $events,
 		private readonly ExamSessionRepository $sessions,
@@ -69,7 +70,7 @@ class ExamEventService {
 	 * @param array<string, mixed> $input `subject_key`, `title`, `description`, `period_from`, `period_to`, `registration_opens_at`,
 	 *                                    `registration_closes_at`, `default_assessment_id`, `guest_registration_enabled`.
 	 *
-	 * @throws CodedException
+	 * @throws CodedException Предмет недоступен пользователю или поля проведения некорректны.
 	 */
 	public function createDraft( int $actorUserId, array $input ): ExamEventDTO {
 		$subjectKey = trim( (string) ( $input['subject_key'] ?? '' ) );
@@ -102,7 +103,7 @@ class ExamEventService {
 	 *
 	 * @param array<string, mixed> $input Те же поля, что у {@see createDraft()}; `subject_key` игнорируется.
 	 *
-	 * @throws CodedException
+	 * @throws CodedException Нет доступа, проведение недоступно для правки, версия устарела или сеансы вне нового периода.
 	 */
 	public function updateEvent( int $actorUserId, int $eventId, array $input, int $expectedVersion ): ExamEventDTO {
 		$early = $this->requireEvent( $eventId );
@@ -145,7 +146,8 @@ class ExamEventService {
 	 * @param ?int                 $sessionId       null — новый сеанс.
 	 * @param ?int                 $expectedVersion Версия сеанса из формы (для правки обязательна).
 	 *
-	 * @throws CodedException
+	 * @throws CodedException Нет доступа, поля сеанса некорректны, версия устарела или изменение нарушает правила варианта и кабинета.
+	 * @throws \RuntimeException Сохранённый сеанс не найден при повторном чтении.
 	 */
 	public function saveSession( int $actorUserId, int $eventId, array $input, ?int $sessionId, ?int $expectedVersion ): ExamSessionDTO {
 		$early = $this->requireEvent( $eventId );
@@ -248,7 +250,7 @@ class ExamEventService {
 	/**
 	 * Удаляет сеанс без единой записи. Сеанс с записями отменяется (этап 8.3), а не удаляется.
 	 *
-	 * @throws CodedException
+	 * @throws CodedException Нет доступа, сеанс недоступен для правки либо у него уже есть записи.
 	 */
 	public function deleteSession( int $actorUserId, int $sessionId ): void {
 		$session = $this->sessions->find( $sessionId );
@@ -278,7 +280,7 @@ class ExamEventService {
 	/**
 	 * Публикует черновик: проверяет сеансы и запись, фиксирует снимок каждого варианта, пишет событие в outbox — одной транзакцией.
 	 *
-	 * @throws CodedException
+	 * @throws CodedException Нет доступа, версия устарела или черновик, сеансы и окно записи не готовы к публикации.
 	 */
 	public function publish( int $actorUserId, int $eventId, int $expectedVersion ): ExamEventDTO {
 		$early = $this->requireEvent( $eventId );
@@ -348,7 +350,7 @@ class ExamEventService {
 	 *
 	 * @return array<string, mixed>
 	 *
-	 * @throws CodedException
+	 * @throws CodedException Вариант отсутствует или его экзаменный формат недоступен.
 	 */
 	public function buildSnapshot( int $assessmentId ): array {
 		$assessment = $this->assessments->get( $assessmentId );
@@ -386,7 +388,7 @@ class ExamEventService {
 	 * Пересобирает снимок варианта после правки опечатки в работе. Пока сеанс с этим вариантом идёт или у него есть
 	 * незавершённые попытки, снимок менять нельзя: он определяет длительность и состав идущих попыток.
 	 *
-	 * @throws CodedException
+	 * @throws CodedException Нет доступа, вариант не используется, сеанс или попытка ещё идут либо версия изменилась.
 	 */
 	public function rebuildSnapshot( int $actorUserId, int $eventId, int $assessmentId ): void {
 		$this->assertCanManage( $actorUserId, $this->requireEvent( $eventId ) );
@@ -432,7 +434,8 @@ class ExamEventService {
 	 *
 	 * @param array<string, mixed> $input `date` (`Y-m-d`), `time` (`H:i`) — местные; `room_id`.
 	 *
-	 * @throws CodedException
+	 * @throws CodedException Нет доступа, причина или новое время некорректны, версия устарела либо перенос нарушает ограничения.
+	 * @throws \RuntimeException Перенесённый сеанс не найден при повторном чтении.
 	 */
 	public function moveSession( int $actorUserId, int $sessionId, array $input, string $reason, int $expectedVersion ): ExamSessionDTO {
 		$reason = trim( $reason );
@@ -520,7 +523,7 @@ class ExamEventService {
 	 * Сначала сеанс помечается отменённым — это закрывает запись и старт новых попыток; затем отменяются записи, каждая в своей
 	 * транзакции. Если на этом шаге произошёл сбой, повторный вызов доотменяет оставшиеся записи (сеанс уже отменён).
 	 *
-	 * @throws CodedException
+	 * @throws CodedException Нет доступа, причина пуста, версия устарела либо сеанс уже начат или завершён.
 	 */
 	public function cancelSession( int $actorUserId, int $sessionId, string $reason, int $expectedVersion ): void {
 		$reason = trim( $reason );
@@ -586,7 +589,7 @@ class ExamEventService {
 	 * Отменяет проведение: причина обязательна; сеансы закрываются, записи отменяются, в outbox — `EventCancelled`.
 	 * Проведение, где уже начата хотя бы одна попытка, отменить нельзя.
 	 *
-	 * @throws CodedException
+	 * @throws CodedException Нет доступа, причина пуста, версия устарела либо в проведении уже начат экзамен.
 	 */
 	public function cancelEvent( int $actorUserId, int $eventId, string $reason, int $expectedVersion ): void {
 		$this->assertCanManage( $actorUserId, $this->requireEvent( $eventId ) );
@@ -718,7 +721,7 @@ class ExamEventService {
 	 *
 	 * @param ?callable():void $persistRoom Сохранение кабинета; не вызывается, если синхронизация отказала.
 	 *
-	 * @throws CodedException
+	 * @throws CodedException Новая вместимость равна нулю или меньше числа занятых мест будущего сеанса.
 	 */
 	public function syncCapacityForRoom( int $roomId, int $newSeats, ?callable $persistRoom = null ): void {
 		$this->inTransactionWithRetry(
@@ -768,7 +771,7 @@ class ExamEventService {
 	 * @return array{title: string, description: ?string, period_from: string, period_to: string, registration_opens_at: ?string,
 	 *               registration_closes_at: ?string, default_assessment_id: ?int, guest_registration_enabled: int}
 	 *
-	 * @throws CodedException
+	 * @throws CodedException Название, период, окно записи или выбранный вариант не соответствуют правилам проведения.
 	 */
 	private function eventFields( array $input, string $subjectKey ): array {
 		$title = trim( (string) ( $input['title'] ?? '' ) );
@@ -816,7 +819,7 @@ class ExamEventService {
 	/**
 	 * Правка существующего сеанса: что можно менять.
 	 *
-	 * @throws CodedException
+	 * @throws CodedException Сеанс отменён, изменение затрагивает начатый сеанс или записи либо мест в новом кабинете недостаточно.
 	 */
 	private function assertSessionEditable( ExamSessionDTO $current, int $assessmentId, string $startUtc, string $endUtc, int $roomId, int $newSeats ): void {
 		if ( ExamSessionStatus::Cancelled->value === $current->status ) {
@@ -857,6 +860,8 @@ class ExamEventService {
 	}
 
 	/**
+	 * Декодирует сохранённый снимок варианта; отсутствующий или некорректный снимок даёт пустой массив.
+	 *
 	 * @return array<string, mixed>
 	 */
 	private function snapshotOf( ExamEventDTO $event ): array {
@@ -881,6 +886,9 @@ class ExamEventService {
 		}
 	}
 
+	/**
+	 * Считает длительность сеанса по UTC-границам; минимум — одна минута.
+	 */
 	private function durationMinutes( ExamSessionDTO $session ): int {
 		return max( 1, intdiv( $this->time->secondsUntil( $session->scheduledAt, $session->plannedEndAt ), 60 ) );
 	}
@@ -914,6 +922,11 @@ class ExamEventService {
 		}
 	}
 
+	/**
+	 * Читает проведение для операции.
+	 *
+	 * @throws CodedException Если проведение не найдено.
+	 */
 	private function requireEvent( int $eventId ): ExamEventDTO {
 		$event = $this->events->find( $eventId );
 		if ( null === $event ) {
@@ -935,6 +948,11 @@ class ExamEventService {
 		return $event;
 	}
 
+	/**
+	 * Перечитывает проведение после записи.
+	 *
+	 * @throws \RuntimeException Если сохранённое проведение не найдено.
+	 */
 	private function reload( int $eventId ): ExamEventDTO {
 		$event = $this->events->find( $eventId );
 		if ( null === $event ) {
@@ -943,28 +961,49 @@ class ExamEventService {
 		return $event;
 	}
 
+	/**
+	 * Проверяет область управления сотрудника.
+	 *
+	 * @throws CodedException Если проведение недоступно сотруднику.
+	 */
 	private function assertCanManage( int $actorUserId, ExamEventDTO $event ): void {
 		if ( ! $this->guard->canManageEvent( $actorUserId, $event ) ) {
 			throw $this->noAccess();
 		}
 	}
 
+	/**
+	 * Проверяет возможность изменения проведения по его статусу.
+	 *
+	 * @throws CodedException Если проведение завершено или отменено.
+	 */
 	private function assertEditable( ExamEventDTO $event ): void {
 		if ( ! ( ExamEventStatus::tryFrom( $event->status )?->isEditable() ?? false ) ) {
 			throw new CodedException( ErrorCode::ExamConflict, 'Проведение завершено или отменено: изменить его нельзя.' );
 		}
 	}
 
+	/**
+	 * Сравнивает версию записи с версией, которую видел клиент.
+	 *
+	 * @throws CodedException При несовпадении версий.
+	 */
 	private function assertVersion( int $actual, int $expected ): void {
 		if ( $actual !== $expected ) {
 			throw $this->stale();
 		}
 	}
 
+	/**
+	 * Создаёт единый отказ доступа с машинным кодом для AJAX и журнала.
+	 */
 	private function noAccess(): CodedException {
 		return new CodedException( ErrorCode::ExamAccess, 'Нет доступа к этому проведению.' );
 	}
 
+	/**
+	 * Создаёт единый отказ устаревшей версии с предложением обновить страницу.
+	 */
 	private function stale(): CodedException {
 		return new CodedException( ErrorCode::ExamStale, 'Данные изменились: обновите страницу и повторите.' );
 	}

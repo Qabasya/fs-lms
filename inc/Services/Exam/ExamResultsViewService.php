@@ -25,6 +25,7 @@ use Inc\Repositories\WPDBRepositories\ExamSourceRepository;
 /** Список результатов для сотрудника: чтение, фильтры и доступ к проведению. */
 class ExamResultsViewService {
 
+	/** Получает данные результатов, общие имена и состояния отдельно от команд проведения. */
 	public function __construct(
 		private readonly ExamEventRepository $events,
 		private readonly ExamSessionRepository $sessions,

@@ -34,6 +34,7 @@ class ExamAccessTokenService {
 	/** Длина открытого ключа: 32 байта = 64 hex-символа. */
 	private const KEY_PATTERN = '/^[a-f0-9]{64}$/';
 
+	/** Получает хранилище хешей и часы; открытый ключ возвращается только вызывающему сервису. */
 	public function __construct(
 		private readonly ExamAccessTokenRepository $tokens,
 		private readonly PiiCryptoService $crypto,

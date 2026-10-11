@@ -30,6 +30,7 @@ class ExamLaunchChecklist {
 	/** Согласия, без которых гостевая форма не работает. */
 	private const REQUIRED_CONSENTS = array( 'pd_processing', 'pd_transfer' );
 
+	/** Получает текущую конфигурацию, согласия и внешние зависимости для проверки готовности гостевой записи. */
 	public function __construct(
 		private readonly WooCommerceManager $woo,
 		private readonly PluginConfig $config,
@@ -43,6 +44,8 @@ class ExamLaunchChecklist {
 	) {}
 
 	/**
+	 * Готовит проверки готовности инфраструктуры и выбранного проведения к запуску.
+	 *
 	 * @return list<array{key: string, label: string, ok: bool, hint: string}>
 	 */
 	public function check( ?ExamEventDTO $event = null ): array {
@@ -59,6 +62,9 @@ class ExamLaunchChecklist {
 		);
 	}
 
+	/**
+	 * Требует успешного результата всех текущих проверок готовности гостевой записи.
+	 */
 	public function isReady( ?ExamEventDTO $event = null ): bool {
 		foreach ( $this->check( $event ) as $item ) {
 			if ( ! $item['ok'] ) {
@@ -82,6 +88,8 @@ class ExamLaunchChecklist {
 	}
 
 	/**
+	 * Готовит единый формат пункта проверки с пояснением отказа.
+	 *
 	 * @return array{key: string, label: string, ok: bool, hint: string}
 	 */
 	private function item( string $key, string $label, bool $ok, string $hint ): array {
@@ -115,6 +123,9 @@ class ExamLaunchChecklist {
 		return $this->item( 'product', $label, $ok, $hint );
 	}
 
+	/**
+	 * Проверяет виртуальный доступный товар с положительной ценой для класса аудитории.
+	 */
 	private function productUsable( int $grade ): bool {
 		$product = $this->woo->product( $this->config->examProductId( $grade ) );
 
@@ -148,6 +159,9 @@ class ExamLaunchChecklist {
 		return array_keys( $grades );
 	}
 
+	/**
+	 * Проверяет вместимость кабинетов назначенных сеансов; без проведения проверка нейтральна.
+	 */
 	private function roomsItem( ?ExamEventDTO $event ): array {
 		$label = 'У кабинетов сеансов указана вместимость';
 		if ( null === $event ) {
@@ -164,6 +178,9 @@ class ExamLaunchChecklist {
 		return $this->item( 'rooms', $label, true, '' );
 	}
 
+	/**
+	 * Проверяет наличие телефона и адреса центра для гостевых страниц.
+	 */
 	private function contactsItem(): array {
 		$contacts = $this->contacts->get();
 		$ok       = '' !== $contacts['phone'] && '' !== trim( $contacts['city'] . $contacts['street'] );
@@ -171,6 +188,9 @@ class ExamLaunchChecklist {
 		return $this->item( 'contacts', 'Заполнены контакты центра', $ok, 'Заполните контакты центра.' );
 	}
 
+	/**
+	 * Проверяет опубликованные страницы всех обязательных типов согласия.
+	 */
 	private function consentsItem(): array {
 		$ok = true;
 		foreach ( self::REQUIRED_CONSENTS as $type ) {
@@ -180,6 +200,9 @@ class ExamLaunchChecklist {
 		return $this->item( 'consents', 'Созданы страницы согласий', $ok, 'Создайте страницу согласия.' );
 	}
 
+	/**
+	 * Проверяет допустимые сроки брони и положительные лимиты гостевых заявок.
+	 */
 	private function limitsItem(): array {
 		$hold = $this->config->examHoldMinutes();
 		$ok   = $hold >= 5 && $hold <= 120

@@ -31,6 +31,7 @@ class ExamPlanService {
 	/** Название варианта, которого уже нет, — чтобы строка сеанса не оставалась пустой. */
 	private const UNKNOWN_VARIANT = 'Вариант удалён';
 
+	/** Получает данные плана и проверки доступа без изменения проведения. */
 	public function __construct(
 		private readonly ExamEventRepository $events,
 		private readonly ExamSessionRepository $sessions,
@@ -43,6 +44,8 @@ class ExamPlanService {
 	) {}
 
 	/**
+	 * Готовит план выбранного доступного проведения, варианты и кабинеты предмета.
+	 *
 	 * @param int|null $eventId Выбранное проведение; null или 0 — самое свежее из доступных.
 	 *
 	 * @return array{events: list<array<string, mixed>>, event: array<string, mixed>|null, variants: list<array<string, mixed>>, rooms: list<array<string, mixed>>}
@@ -158,6 +161,8 @@ class ExamPlanService {
 	}
 
 	/**
+	 * Выбирает проведения предмета в пределах полномочий пользователя.
+	 *
 	 * @return ExamEventDTO[] Проведения предмета, доступные пользователю: свои — преподавателю, все — глобальному доступу.
 	 */
 	private function availableEvents( int $userId, string $subjectKey ): array {
@@ -174,6 +179,8 @@ class ExamPlanService {
 	}
 
 	/**
+	 * Готовит краткие сведения о проведении для переключателя плана.
+	 *
 	 * @return array<string, mixed>
 	 */
 	private function eventSummary( ExamEventDTO $event ): array {

@@ -34,6 +34,7 @@ class ExamPaymentReconciler {
 	/** Пауза между повторными сверками заявок, ждущих разбора сотрудником, мин. */
 	private const NEEDS_RESOLUTION_RECHECK_MINUTES = 15;
 
+	/** Получает фактическую оплату через Woo-менеджер и переводит её в операции над бронью. */
 	public function __construct(
 		private readonly WooCommerceManager $woo,
 		private readonly ExamPaymentLinkRepository $links,
@@ -58,6 +59,9 @@ class ExamPaymentReconciler {
 		}
 	}
 
+	/**
+	 * Сверяет одну платёжную связь с Woo-заказом; pending/on-hold не подтверждают оплату.
+	 */
 	private function reconcileLink( ExamPaymentLinkDTO $link ): void {
 		$now = $this->time->nowUtc();
 
@@ -96,6 +100,11 @@ class ExamPaymentReconciler {
 		// Прочее (pending, on-hold): оплата не получена — состояние не меняем. Старый неуспешный заказ уже подтверждённую запись не трогает.
 	}
 
+	/**
+	 * Переводит оплаченную бронь в запись; повторная оплата передаётся на ручное решение.
+	 *
+	 * @throws \Throwable Если перевод брони завершился техническим отказом; событие сверки сохраняется для повтора.
+	 */
 	private function confirmPaid( ExamPaymentLinkDTO $link, string $now ): void {
 		$application = $this->applications->find( $link->applicationId );
 		if ( null === $application ) {
@@ -176,6 +185,9 @@ class ExamPaymentReconciler {
 		}
 	}
 
+	/**
+	 * Проверяет наличие другой оплаченной связи этой заявки перед её повторным подтверждением.
+	 */
 	private function hasOtherPaidLink( ExamPaymentLinkDTO $link ): bool {
 		foreach ( $this->links->findByApplication( $link->applicationId ) as $other ) {
 			if ( $other->id !== $link->id && ExamPaymentState::Paid->value === $other->paymentState ) {
@@ -186,6 +198,9 @@ class ExamPaymentReconciler {
 		return false;
 	}
 
+	/**
+	 * Публикует расхождение после возврата заказа без отмены уже подтверждённой записи.
+	 */
 	private function flagDiscrepancy( ExamPaymentLinkDTO $link ): void {
 		$application = $this->applications->find( $link->applicationId );
 		if ( null !== $application ) {

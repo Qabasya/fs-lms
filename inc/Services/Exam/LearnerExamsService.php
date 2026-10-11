@@ -40,6 +40,7 @@ use Inc\Shared\PluginLogger;
  */
 class LearnerExamsService {
 
+	/** Собирает карточки из аудитории, записей и попыток; доступность разбора проверяет проекция. */
 	public function __construct(
 		private readonly ExamAudienceResolver $audience,
 		private readonly ExamEventRepository $events,
@@ -57,6 +58,8 @@ class LearnerExamsService {
 	) {}
 
 	/**
+	 * Собирает доступные человеку экзамены и состояние его записей для кабинета.
+	 *
 	 * @return array{exams: list<array<string, mixed>>}
 	 */
 	public function build( int $personId, bool $readOnly = false ): array {
@@ -147,6 +150,8 @@ class LearnerExamsService {
 	}
 
 	/**
+	 * Готовит карточку проведения с текущим участием и доступными действиями.
+	 *
 	 * @return array<string, mixed>
 	 */
 	private function card( ExamEventDTO $event, int $personId, bool $readOnly, string $nowUtc ): array {
@@ -357,6 +362,9 @@ class LearnerExamsService {
 			);
 	}
 
+	/**
+	 * Проверяет UTC-окно записи: начало включительно, конец исключительно.
+	 */
 	private function registrationWindowOpen( ExamEventDTO $event, string $nowUtc ): bool {
 		return ( null === $event->registrationOpensAt || $nowUtc >= $event->registrationOpensAt )
 			&& ( null === $event->registrationClosesAt || $nowUtc < $event->registrationClosesAt );
@@ -379,6 +387,9 @@ class LearnerExamsService {
 		return $this->registrations->findActive( $participation->id );
 	}
 
+	/**
+	 * Находит попытку по текущему указателю участия; без указателя возвращает null.
+	 */
 	private function currentAttempt( ExamParticipationDTO $participation ): ?AttemptDTO {
 		return null !== $participation->currentAttemptId ? $this->attempts->find( $participation->currentAttemptId ) : null;
 	}
@@ -423,6 +434,8 @@ class LearnerExamsService {
 	}
 
 	/**
+	 * Оставляет будущие сеансы со свободными местами, исключая текущую запись.
+	 *
 	 * @param list<array<string, mixed>> $futureList
 	 *
 	 * @return list<array<string, mixed>>
@@ -432,6 +445,8 @@ class LearnerExamsService {
 	}
 
 	/**
+	 * Готовит сведения о текущей записи и локальном времени сеанса.
+	 *
 	 * @return array<string, mixed>
 	 */
 	private function registrationBlock( ExamRegistrationDTO $registration, ExamSessionDTO $session, ExamParticipationDTO $participation ): array {
@@ -449,6 +464,9 @@ class LearnerExamsService {
 		);
 	}
 
+	/**
+	 * Выбирает причину отмены проведения или последней записи для карточки.
+	 */
 	private function lastReason( ExamEventDTO $event, ?ExamRegistrationDTO $last ): ?string {
 		if ( ExamEventStatus::Cancelled->value === $event->status ) {
 			return $event->cancelReason;
@@ -457,6 +475,8 @@ class LearnerExamsService {
 	}
 
 	/**
+	 * Находит сеанс в уже загруженном списке; отсутствие возвращает как null.
+	 *
 	 * @param ExamSessionDTO[] $sessions
 	 */
 	private function sessionById( array $sessions, int $id ): ?ExamSessionDTO {
@@ -481,6 +501,8 @@ class LearnerExamsService {
 	}
 
 	/**
+	 * Готовит формат работы и длительность сеансов, если формат определён.
+	 *
 	 * @param ExamSessionDTO[] $sessions
 	 *
 	 * @return array<string, mixed>|null
@@ -501,6 +523,9 @@ class LearnerExamsService {
 		);
 	}
 
+	/**
+	 * Преобразует вычисленное состояние карточки в пользовательскую подпись.
+	 */
 	private function stateLabel( string $state ): string {
 		return match ( $state ) {
 			'event_cancelled'    => 'Проведение отменено',
@@ -519,10 +544,16 @@ class LearnerExamsService {
 		};
 	}
 
+	/**
+	 * Возвращает название назначенного кабинета или null при его отсутствии.
+	 */
 	private function roomName( int $roomId ): ?string {
 		return $roomId > 0 ? $this->rooms->find( $roomId )?->name : null;
 	}
 
+	/**
+	 * Возвращает отображаемое имя ответственного; удалённый пользователь даёт null.
+	 */
 	private function ownerName( int $userId ): ?string {
 		$user = $userId > 0 ? $this->users->find( $userId ) : null;
 		return null !== $user ? (string) $user->display_name : null;

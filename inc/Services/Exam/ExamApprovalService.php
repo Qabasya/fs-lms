@@ -65,6 +65,7 @@ class ExamApprovalService {
 		self::REASON_ERROR            => 'Не удалось утвердить',
 	);
 
+	/** Получает ответы, оценивание и область доступа для утверждения экзаменной работы. */
 	public function __construct(
 		private readonly AssessmentAttemptRepository $attempts,
 		private readonly AssessmentAnswerRepository $answers,
@@ -185,6 +186,8 @@ class ExamApprovalService {
 	}
 
 	/**
+	 * Готовит результат пропуска операции утверждения с причиной.
+	 *
 	 * @return array{status: 'skipped', reason: string}
 	 */
 	private function skipped( string $reason ): array {
@@ -330,6 +333,9 @@ class ExamApprovalService {
 		);
 	}
 
+	/**
+	 * Форматирует балл для журнала без незначащих нулей и лишнего десятичного разделителя.
+	 */
 	private function num( float $value ): string {
 		return rtrim( rtrim( number_format( $value, 2, '.', '' ), '0' ), '.' );
 	}

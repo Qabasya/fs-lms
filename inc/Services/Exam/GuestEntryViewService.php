@@ -30,6 +30,7 @@ use Inc\Services\Shared\CenterContactsService;
  */
 class GuestEntryViewService {
 
+	/** Получает текущую запись, попытку и контакты для состояния страницы входа гостя. */
 	public function __construct(
 		private readonly ExamParticipationRepository $participations,
 		private readonly ExamParticipantRepository $participants,
@@ -44,6 +45,8 @@ class GuestEntryViewService {
 	) {}
 
 	/**
+	 * Готовит состояние входа, временные окна и действие для участия из гостевого контекста.
+	 *
 	 * @return array{state: string, name: string, event_title: string, date: string, window_from: string, window_to: string, deadline: string, action_url: string, contacts: array<string, string>}|null
 	 */
 	public function build( AttemptContext $ctx ): ?array {

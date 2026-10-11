@@ -52,6 +52,7 @@ use Inc\Services\Profile\NotificationService;
  */
 class ExamNotificationComposer {
 
+	/** Получает снимки экзаменного события и общие имена для подготовки уведомлений. */
 	public function __construct(
 		private readonly NotificationService $notifications,
 		private readonly ExamEventRepository $events,
@@ -181,6 +182,9 @@ class ExamNotificationComposer {
 		);
 	}
 
+	/**
+	 * Объявляет открытие записи только для ещё опубликованного проведения.
+	 */
 	private function registrationOpened( ExamOutboxEventDTO $row ): void {
 		$event = $this->events->find( $row->aggregateId );
 		if ( null !== $event && 'published' === $event->status ) {
@@ -189,6 +193,8 @@ class ExamNotificationComposer {
 	}
 
 	/**
+	 * Готовит уведомление о подтверждённой записи по событию outbox.
+	 *
 	 * @param array<string, mixed> $p
 	 */
 	private function registrationConfirmed( ExamOutboxEventDTO $row, array $p ): void {
@@ -198,6 +204,8 @@ class ExamNotificationComposer {
 	}
 
 	/**
+	 * Готовит уведомление о переносе записи в другой сеанс.
+	 *
 	 * @param array<string, mixed> $p
 	 */
 	private function registrationTransferred( ExamOutboxEventDTO $row, array $p ): void {
@@ -214,6 +222,8 @@ class ExamNotificationComposer {
 	}
 
 	/**
+	 * Готовит уведомление об отмене записи участника.
+	 *
 	 * @param array<string, mixed> $p
 	 */
 	private function registrationCancelled( ExamOutboxEventDTO $row, array $p ): void {
@@ -236,6 +246,8 @@ class ExamNotificationComposer {
 	}
 
 	/**
+	 * Готовит уведомление о зафиксированной неявке участника.
+	 *
 	 * @param array<string, mixed> $p
 	 */
 	private function participantMissed( ExamOutboxEventDTO $row, array $p ): void {
@@ -249,6 +261,8 @@ class ExamNotificationComposer {
 	}
 
 	/**
+	 * Готовит уведомления о сдаче экзаменной работы.
+	 *
 	 * @param array<string, mixed> $p
 	 */
 	private function attemptSubmitted( ExamOutboxEventDTO $row, array $p ): void {
@@ -297,6 +311,8 @@ class ExamNotificationComposer {
 	}
 
 	/**
+	 * Готовит уведомления об утверждении результата работы.
+	 *
 	 * @param array<string, mixed> $p
 	 */
 	private function attemptApproved( ExamOutboxEventDTO $row, array $p ): void {
@@ -323,6 +339,8 @@ class ExamNotificationComposer {
 	}
 
 	/**
+	 * Готовит уведомление об исправленном результате участия.
+	 *
 	 * @param array<string, mixed> $p
 	 */
 	private function resultCorrected( ExamOutboxEventDTO $row, array $p ): void {
@@ -348,6 +366,8 @@ class ExamNotificationComposer {
 	}
 
 	/**
+	 * Готовит уведомление о продлении времени попытки.
+	 *
 	 * @param array<string, mixed> $p
 	 */
 	private function attemptExtended( ExamOutboxEventDTO $row, array $p ): void {
@@ -375,6 +395,8 @@ class ExamNotificationComposer {
 	}
 
 	/**
+	 * Готовит уведомления участникам о переносе сеанса.
+	 *
 	 * @param array<string, mixed> $p
 	 */
 	private function sessionMoved( ExamOutboxEventDTO $row, array $p ): void {
@@ -406,12 +428,18 @@ class ExamNotificationComposer {
 		}
 	}
 
+	/**
+	 * Снимает напоминания всех записей изменённого сеанса.
+	 */
 	private function retractSession( int $sessionId ): void {
 		foreach ( $this->registrations->listBySession( $sessionId ) as $registration ) {
 			$this->retractReminders( $registration->id, $this->participations->find( $registration->participationId ) );
 		}
 	}
 
+	/**
+	 * Снимает напоминания всех сеансов изменённого проведения.
+	 */
 	private function retractEvent( int $eventId ): void {
 		foreach ( $this->sessions->findByEvent( $eventId ) as $session ) {
 			$this->retractSession( $session->id );
@@ -419,6 +447,8 @@ class ExamNotificationComposer {
 	}
 
 	/**
+	 * Готовит уведомление о проблемной оплате выбранного вида.
+	 *
 	 * @param array<string, mixed> $p
 	 */
 	private function paymentProblem( ExamOutboxEventDTO $row, array $p, NotificationType $type, string $prefix ): void {
@@ -448,6 +478,8 @@ class ExamNotificationComposer {
 	}
 
 	/**
+	 * Готовит уведомление о достижении лимита заявок источника.
+	 *
 	 * @param array<string, mixed> $p
 	 */
 	private function sourceLimit( array $p ): void {
@@ -536,6 +568,8 @@ class ExamNotificationComposer {
 	}
 
 	/**
+	 * Готовит подстановки проведения и локального времени сеанса для уведомлений.
+	 *
 	 * @return array<string, string>
 	 */
 	private function sessionPayload( ExamSessionDTO $session, ExamEventDTO $event ): array {
@@ -565,10 +599,16 @@ class ExamNotificationComposer {
 		return ! empty( $r['final'] ) && null !== $r['secondary'] ? sprintf( '%d из %d', $r['secondary'], $r['secondary_max'] ) : $primary;
 	}
 
+	/**
+	 * Ведёт на экран экзаменов ученика с выбранным проведением.
+	 */
 	private function learnerUrl( int $eventId ): string {
 		return (string) add_query_arg( array( 'event' => $eventId ), PageRoutes::UserProfile->screenUrl( 'learner-exams' ) );
 	}
 
+	/**
+	 * Строит ссылку на экран сотрудника через общий маршрут кабинета.
+	 */
 	private function staffUrl( string $screen ): string {
 		return PageRoutes::UserProfile->screenUrl( $screen );
 	}

@@ -39,6 +39,7 @@ class ExamReminderService {
 	/** Сколько минут после начала ещё рассылается «вход открыт» (тик не работал дольше — пропускаем). */
 	public const ENTRY_WINDOW_MINUTES = 10;
 
+	/** Получает расписание и композитор уведомлений для выбора получателей по срокам. */
 	public function __construct(
 		private readonly ExamRegistrationRepository $registrations,
 		private readonly ExamSessionRepository $sessions,
@@ -93,7 +94,9 @@ class ExamReminderService {
 	}
 
 	/**
-	 * @param ExamRegistrationDTO[]                             $candidates
+	 * Перепроверяет кандидатов перед напоминанием и изолирует технический отказ одной записи.
+	 *
+	 * @param ExamRegistrationDTO[]                              $candidates
 	 * @param callable(ExamRegistrationDTO, ExamSessionDTO):bool $eligible   Условие именно этого вида напоминания.
 	 *
 	 * @return int Сколько записей получили напоминание в этом запуске.
@@ -129,6 +132,9 @@ class ExamReminderService {
 		return $sent;
 	}
 
+	/**
+	 * Проверяет, что напоминание относится к текущей действующей записи участия.
+	 */
 	private function isCurrent( ExamRegistrationDTO $registration, ExamSessionDTO $session ): bool {
 		return 1 === $registration->activeSlot
 			&& ExamRegistrationStatus::Confirmed->value === $registration->status

@@ -34,6 +34,7 @@ class ExamPaymentQueueService {
 	public const TAB_NEEDS_HELP = 'needs_help';
 	public const TAB_RESOLVED   = 'resolved';
 
+	/** Получает оплаченные конфликты и ручные решения для очереди в области доступа сотрудника. */
 	public function __construct(
 		private readonly ExamGuestApplicationRepository $applications,
 		private readonly ExamManualResolutionRepository $resolutions,
@@ -48,6 +49,8 @@ class ExamPaymentQueueService {
 	) {}
 
 	/**
+	 * Готовит очередь проблемных платежей либо историю решений в области доступа сотрудника.
+	 *
 	 * @return array{items: list<array<string, mixed>>}
 	 */
 	public function list( int $actorUserId, string $tab ): array {
@@ -57,6 +60,8 @@ class ExamPaymentQueueService {
 	}
 
 	/**
+	 * Выбирает доступные сотруднику оплаченные заявки, требующие решения.
+	 *
 	 * @return list<array<string, mixed>>
 	 */
 	private function needsHelp( int $actorUserId ): array {
@@ -77,6 +82,8 @@ class ExamPaymentQueueService {
 	}
 
 	/**
+	 * Готовит историю ручных решений по доступным сотруднику заявкам.
+	 *
 	 * @return list<array<string, mixed>>
 	 */
 	private function resolved( int $actorUserId ): array {
@@ -95,6 +102,8 @@ class ExamPaymentQueueService {
 	}
 
 	/**
+	 * Готовит общие сведения о заявке, платеже и сеансе для строки очереди.
+	 *
 	 * @return array<string, mixed>
 	 */
 	private function base( ExamGuestApplicationDTO $application, string $eventTitle, int $ownerId ): array {
@@ -155,6 +164,8 @@ class ExamPaymentQueueService {
 	}
 
 	/**
+	 * Готовит сведения об авторе ручного решения и новом сеансе.
+	 *
 	 * @return array<string, mixed>
 	 */
 	private function resolutionView( ExamManualResolutionDTO $resolution ): array {
@@ -172,6 +183,9 @@ class ExamPaymentQueueService {
 		);
 	}
 
+	/**
+	 * Восстанавливает имя из участника или черновика заявки для очереди сотрудника.
+	 */
 	private function guestName( ExamGuestApplicationDTO $application ): string {
 		$participant = null !== $application->participantId ? $this->participants->find( $application->participantId ) : null;
 		$name        = null !== $participant ? $this->guestData->displayName( $participant ) : null;
@@ -179,6 +193,9 @@ class ExamPaymentQueueService {
 		return $name ?? ( '' !== $this->guestData->draftName( $application ) ? $this->guestData->draftName( $application ) : 'Гость' );
 	}
 
+	/**
+	 * Собирает подпись назначенного сеанса в местном времени сайта.
+	 */
 	private function sessionLabel( string $scheduledAtUtc ): string {
 		$local = $this->time->toLocal( $scheduledAtUtc );
 

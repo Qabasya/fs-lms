@@ -28,6 +28,7 @@ readonly class ExamFormTrackingService {
 
 	private const MESSAGE_MAX = 200;
 
+	/** Использует общий журнал авторизации для событий публичной формы. */
 	public function __construct(
 		private AuthLogWriter $authLog,
 	) {}
@@ -85,6 +86,8 @@ readonly class ExamFormTrackingService {
 	}
 
 	/**
+	 * Собирает контекст источника и дополнительные поля события формы, пропуская пустые значения.
+	 *
 	 * @param array<string, mixed> $extra
 	 *
 	 * @return array<string, mixed>
@@ -100,6 +103,9 @@ readonly class ExamFormTrackingService {
 		);
 	}
 
+	/**
+	 * Обрезает диагностический текст до разрешённой длины перед записью события формы.
+	 */
 	private function clip( string $message ): string {
 		return mb_substr( trim( $message ), 0, self::MESSAGE_MAX );
 	}
