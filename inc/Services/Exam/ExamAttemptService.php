@@ -131,7 +131,7 @@ class ExamAttemptService {
 		}
 
 		$participation = $this->participations->findForUpdate( $ctx->participationId );
-		if ( null === $participation || $isGuest !== ( ExamAudience::Guest->value === $participation->audience ) ) {
+		if ( null === $participation || ( ExamAudience::Guest->value === $participation->audience ) !== $isGuest ) {
 			throw new CodedException( ErrorCode::ExamAccess, 'Экзамен недоступен.' );
 		}
 		// Гость садится за станцию только после допуска сотрудника на площадке.

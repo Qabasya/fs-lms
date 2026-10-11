@@ -62,12 +62,12 @@ class LearnerExamsService {
 	 *
 	 * @return array{exams: list<array<string, mixed>>}
 	 */
-	public function build( int $personId, bool $readOnly = false ): array {
+	public function build( int $personId, bool $viewOnly = false ): array {
 		$nowUtc = $this->time->nowUtc();
 		$cards  = array();
 
 		foreach ( $this->visibleEvents( $personId ) as $event ) {
-			$cards[] = $this->card( $event, $personId, $readOnly, $nowUtc );
+			$cards[] = $this->card( $event, $personId, $viewOnly, $nowUtc );
 		}
 
 		return array( 'exams' => $cards );
@@ -154,7 +154,7 @@ class LearnerExamsService {
 	 *
 	 * @return array<string, mixed>
 	 */
-	private function card( ExamEventDTO $event, int $personId, bool $readOnly, string $nowUtc ): array {
+	private function card( ExamEventDTO $event, int $personId, bool $viewOnly, string $nowUtc ): array {
 		$participation = $this->participations->findByEventAndPerson( $event->id, $personId );
 		$registration  = null !== $participation ? $this->registrations->findActive( $participation->id ) : null;
 
@@ -181,7 +181,7 @@ class LearnerExamsService {
 			'direction'              => $this->format( $event, $sessions )?->direction->value ?? '',
 			'state'                  => $stateInfo['state'],
 			'state_label'            => $this->stateLabel( $stateInfo['state'] ),
-			'actions'                => $readOnly ? $this->readOnlyActions( $stateInfo['actions'] ) : $stateInfo['actions'],
+			'actions'                => $viewOnly ? $this->readOnlyActions( $stateInfo['actions'] ) : $stateInfo['actions'],
 			'period_from'            => $event->periodFrom,
 			'period_to'              => $event->periodTo,
 			'registration_opens_at'  => null !== $event->registrationOpensAt ? $this->time->toLocal( $event->registrationOpensAt ) : null,
@@ -194,7 +194,7 @@ class LearnerExamsService {
 			'format'                 => $this->formatBlock( $event, $sessions ),
 		);
 
-		if ( ! $readOnly ) {
+		if ( ! $viewOnly ) {
 			$card += $this->stationBlock( $stateInfo['state'], $registration, $session, $attempt );
 		}
 

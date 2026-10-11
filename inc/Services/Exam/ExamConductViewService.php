@@ -1,4 +1,9 @@
 <?php
+/**
+ * Доска сеанса и строки выгрузки экзаменных участников.
+ *
+ * @package FS_LMS
+ */
 
 declare( strict_types=1 );
 
@@ -37,6 +42,7 @@ class ExamConductViewService {
 	private const DEFAULT_LOOKBEHIND_DAYS = 1;
 	private const DEFAULT_LOOKAHEAD_DAYS  = 90;
 
+	/** Получает чтение данных, доступ и представления для доски и выгрузки. */
 	public function __construct(
 		private readonly ExamEventRepository $events,
 		private readonly ExamSessionRepository $sessions,
@@ -133,7 +139,7 @@ class ExamConductViewService {
 	 *
 	 * @return list<array{name: string, source: string, session: string, status: string, primary: string, secondary: string}>
 	 *
-	 * @throws CodedException
+	 * @throws CodedException Выбранный сеанс отсутствует или его проведение недоступно сотруднику.
 	 */
 	public function exportRows( int $actorUserId, array $context ): array {
 		$rows = array();
@@ -181,11 +187,14 @@ class ExamConductViewService {
 		return null !== $attempt && null !== $attempt->examRegistrationId ? $this->registrations->find( $attempt->examRegistrationId ) : null;
 	}
 
+	/** Соединяет локальные дату и время сеанса для строк выгрузки. */
 	private function sessionLabel( string $date, string $time ): string {
 		return $date . ' ' . $time;
 	}
 
 	/**
+	 * Готовит строку выгрузки с баллами и состоянием, не добавляя контакты участника.
+	 *
 	 * @param array<string, mixed> $row Строка доски.
 	 *
 	 * @return array{name: string, source: string, session: string, status: string, primary: string, secondary: string}
@@ -273,6 +282,8 @@ class ExamConductViewService {
 	}
 
 	/**
+	 * Готовит строки сеанса, исключая историческую отмену при действующей записи того же участия.
+	 *
 	 * @return list<array<string, mixed>>
 	 */
 	private function rowsFor( ExamSessionDTO $session, ExamEventDTO $event, string $nowLocal ): array {
@@ -305,6 +316,8 @@ class ExamConductViewService {
 	}
 
 	/**
+	 * Готовит состояния, баллы и действия записи; отсутствующий участник не попадает в доску.
+	 *
 	 * @param list<ExamSessionDTO> $others
 	 *
 	 * @return array<string, mixed>|null
@@ -363,6 +376,7 @@ class ExamConductViewService {
 		return ( null !== $attempt && $attempt->examRegistrationId === $registration->id ) ? $attempt : null;
 	}
 
+	/** Определяет ход работы по попытке либо неявке записи. */
 	private function progressOf( ExamRegistrationDTO $registration, ?AttemptDTO $attempt ): ExamProgress {
 		if ( null !== $attempt ) {
 			return AttemptStatus::InProgress === $attempt->status ? ExamProgress::InProgress : ExamProgress::Submitted;
@@ -371,6 +385,7 @@ class ExamConductViewService {
 		return ExamRegistrationStatus::Missed->value === $registration->status ? ExamProgress::Missed : ExamProgress::NotStarted;
 	}
 
+	/** Возвращает оставшиеся секунды только для идущей попытки, ограничивая результат нулём. */
 	private function secondsLeft( ?AttemptDTO $attempt, string $nowLocal ): ?int {
 		if ( null === $attempt || AttemptStatus::InProgress !== $attempt->status ) {
 			return null;
@@ -393,12 +408,20 @@ class ExamConductViewService {
 	}
 
 	/**
+	 * Считает показатели доски, исключая отменённые записи.
+	 *
 	 * @param list<array<string, mixed>> $rows
 	 *
 	 * @return array{registered: int, started: int, submitted: int, missed: int, pending: int}
 	 */
 	private function tiles( array $rows ): array {
-		$tiles = array( 'registered' => 0, 'started' => 0, 'submitted' => 0, 'missed' => 0, 'pending' => 0 );
+		$tiles = array(
+			'registered' => 0,
+			'started'    => 0,
+			'submitted'  => 0,
+			'missed'     => 0,
+			'pending'    => 0,
+		);
 		foreach ( $rows as $row ) {
 			if ( ExamRegistrationStatus::Cancelled->value === $row['registration_status'] ) {
 				continue;
@@ -452,7 +475,11 @@ class ExamConductViewService {
 		return $warnings;
 	}
 
-	/** @return array<string, mixed> */
+	/**
+	 * Готовит данные сеанса и кабинета с локальным временем для доски.
+	 *
+	 * @return array<string, mixed>
+	 */
 	private function sessionPayload( ExamSessionDTO $session, ExamEventDTO $event ): array {
 		$start = $this->time->toLocal( $session->scheduledAt );
 		$end   = $this->time->toLocal( $session->plannedEndAt );
@@ -482,13 +509,15 @@ class ExamConductViewService {
 	private function openSiblings( ExamSessionDTO $session ): array {
 		$nowUtc = $this->time->nowUtc();
 
-		return array_values( array_filter(
-			$this->sessions->findByEvent( $session->eventId ),
-			static fn ( ExamSessionDTO $other ): bool => $other->id !== $session->id
-				&& ExamSessionStatus::Open->value === $other->status
-				&& $other->plannedEndAt > $nowUtc
-				&& $other->freeSeats() > 0
-		) );
+		return array_values(
+			array_filter(
+				$this->sessions->findByEvent( $session->eventId ),
+				static fn ( ExamSessionDTO $other ): bool => $other->id !== $session->id
+					&& ExamSessionStatus::Open->value === $other->status
+					&& $other->plannedEndAt > $nowUtc
+					&& $other->freeSeats() > 0
+			)
+		);
 	}
 
 	/**
@@ -500,6 +529,7 @@ class ExamConductViewService {
 		return $this->resultStates->status( $attempt, $audience )->value;
 	}
 
+	/** Готовит подпись состояния результата с учётом аудитории. */
 	private function resultLabel( string $result, ExamAudience $audience ): string {
 		return ExamResultStatus::from( $result )->label( $audience );
 	}

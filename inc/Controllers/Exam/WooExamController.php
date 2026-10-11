@@ -1,4 +1,11 @@
-<?php declare( strict_types=1 );
+<?php
+/**
+ * Хуки WooCommerce для гостевых экзаменов.
+ *
+ * @package FS_LMS
+ */
+
+declare( strict_types=1 );
 
 namespace Inc\Controllers\Exam;
 
@@ -24,6 +31,7 @@ class WooExamController extends BaseController implements ServiceInterface {
 	use TemplateRenderer;
 	use Sanitizer;
 
+	/** Получает адаптер магазина, сверку и представление статуса заказа через DI. */
 	public function __construct(
 		private readonly WooExamAdapter $adapter,
 		private readonly ExamPaymentReconciler $reconciler,
@@ -33,21 +41,25 @@ class WooExamController extends BaseController implements ServiceInterface {
 		parent::__construct();
 	}
 
+	/** Подключает раннее объявление HPOS и регистрацию хуков после инициализации WooCommerce. */
 	public function register(): void {
 		add_action( 'before_woocommerce_init', array( $this, 'declareHposCompatibility' ) );
 		add_action( 'woocommerce_init', array( $this, 'registerShopHooks' ) );
 	}
 
+	/** Объявляет совместимость плагина с HPOS при наличии API WooCommerce. */
 	public function declareHposCompatibility(): void {
 		if ( class_exists( \Automattic\WooCommerce\Utilities\FeaturesUtil::class ) ) {
 			\Automattic\WooCommerce\Utilities\FeaturesUtil::declare_compatibility( 'custom_order_tables', FS_LMS_PLUGIN_FILE, true );
 		}
 	}
 
+	/** Проверяет загрузку WooCommerce перед подключением хуков магазина. */
 	public function isWooActive(): bool {
 		return class_exists( 'WooCommerce' );
 	}
 
+	/** Подключает корзину, оформление заказа и сверку оплаты к экзаменным обработчикам. */
 	public function registerShopHooks(): void {
 		if ( ! $this->isWooActive() ) {
 			return;
@@ -83,12 +95,22 @@ class WooExamController extends BaseController implements ServiceInterface {
 		return $passed;
 	}
 
-	/** Количество экзаменной позиции всегда 1 и не редактируется. @param mixed $html @param array<string, mixed> $item */
+	/**
+	 * Количество экзаменной позиции всегда 1 и не редактируется.
+	 *
+	 * @param mixed                $html
+	 * @param array<string, mixed> $item
+	 */
 	public function fixQuantity( mixed $html, mixed $cartItemKey = '', mixed $item = array() ): string {
 		return $this->adapter->quantityHtml( (string) $html, (array) $item );
 	}
 
-	/** @param mixed $passed @param array<string, mixed> $values */
+	/**
+	 * Сохраняет решение WooCommerce, запрещая изменение количества экзаменной позиции.
+	 *
+	 * @param mixed                $passed
+	 * @param array<string, mixed> $values
+	 */
 	public function validateQuantityUpdate( mixed $passed, mixed $cartItemKey = '', mixed $values = array(), mixed $quantity = 1 ): bool {
 		return $this->adapter->isQuantityUpdateAllowed( (bool) $passed, (array) $values, (int) $quantity );
 	}
@@ -109,7 +131,12 @@ class WooExamController extends BaseController implements ServiceInterface {
 		return $itemData;
 	}
 
-	/** Позицию удалили — бронь снимается. @param string $cartItemKey @param \WC_Cart $cart */
+	/**
+	 * Позицию удалили — бронь снимается.
+	 *
+	 * @param string   $cartItemKey
+	 * @param \WC_Cart $cart
+	 */
 	public function onItemRemoved( mixed $cartItemKey, mixed $cart ): void {
 		$removed = $this->woo->removedCartItem( $cart, (string) $cartItemKey );
 		if ( $this->adapter->isExamProduct( (int) ( $removed['product_id'] ?? 0 ) ) ) {
@@ -124,7 +151,12 @@ class WooExamController extends BaseController implements ServiceInterface {
 		}
 	}
 
-	/** Привязка к заявке переносится в мету позиции заказа. @param \WC_Order_Item_Product $item @param array<string, mixed> $values */
+	/**
+	 * Привязка к заявке переносится в мету позиции заказа.
+	 *
+	 * @param \WC_Order_Item_Product $item
+	 * @param array<string, mixed>   $values
+	 */
 	public function copyToOrderItem( mixed $item, mixed $cartItemKey = '', mixed $values = array(), mixed $order = null ): void {
 		if ( null !== $this->adapter->applicationOfItem( (array) $values ) ) {
 			$this->woo->setOrderItemMeta( $item, WooExamAdapter::ORDER_ITEM_META, (int) $values[ WooExamAdapter::ITEM_APPLICATION ] );
@@ -153,7 +185,14 @@ class WooExamController extends BaseController implements ServiceInterface {
 		$key    = $this->sanitizeGetText( 'key' );
 		$blocks = $this->orderStatus->forOrder( (int) $orderId, $key );
 		if ( array() !== $blocks ) {
-			$this->render( 'frontend/exam-order-status', array( 'blocks' => $blocks, 'order_id' => (int) $orderId, 'order_key' => $key ) );
+			$this->render(
+				'frontend/exam-order-status',
+				array(
+					'blocks'    => $blocks,
+					'order_id'  => (int) $orderId,
+					'order_key' => $key,
+				)
+			);
 		}
 	}
 

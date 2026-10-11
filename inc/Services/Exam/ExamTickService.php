@@ -189,11 +189,11 @@ class ExamTickService {
 	/**
 	 * Шаг тика: сбой логируется и не останавливает следующие шаги.
 	 *
-	 * @param callable():int $fn
+	 * @param callable():int $operation
 	 */
-	private function step( string $name, callable $fn ): int {
+	private function step( string $name, callable $operation ): int {
 		try {
-			return (int) $fn();
+			return (int) $operation();
 		} catch ( \Throwable $e ) {
 			PluginLogger::exception( 'ExamTick', $e, array( 'step' => $name ), true );
 			return 0;

@@ -418,7 +418,7 @@ class ExamStatsService {
 			$answer  = $answers[ $taskId ] ?? null;
 			$score   = $answer->score ?? ( null === $answer ? 0.0 : null );
 			$max     = $answer->maxScore ?? ( null === $answer ? ( $assessment->taskPoints[ $taskId ] ?? null ) : null );
-			$empty   = '' === trim( (string) ( $answer->answerText ?? '' ) );
+			$isEmpty = '' === trim( (string) ( $answer->answerText ?? '' ) );
 			$unitKey = $keys[ $taskId ] ?? 't:' . $taskId;
 
 			$tasks[] = array(
@@ -426,7 +426,7 @@ class ExamStatsService {
 				'unit_key'  => $unitKey,
 				'number'    => str_starts_with( $unitKey, 'n:' ) ? substr( $unitKey, 2 ) : '',
 				'anchor'    => '',
-				'verdict'   => null === $answer ? 'unanswered' : $this->verdict( $answer->isCorrect, $score, $max, $empty ),
+				'verdict'   => null === $answer ? 'unanswered' : $this->verdict( $answer->isCorrect, $score, $max, $isEmpty ),
 				'score'     => $score,
 				'max_score' => $max,
 			);
@@ -438,11 +438,11 @@ class ExamStatsService {
 	/**
 	 * Разделяет ожидающие проверки, пустые, верные, частичные и неверные ответы.
 	 */
-	private function verdict( ?bool $isCorrect, ?float $score, ?float $max, bool $empty ): string {
+	private function verdict( ?bool $isCorrect, ?float $score, ?float $max, bool $isEmpty ): string {
 		if ( null === $isCorrect ) {
 			return 'pending';
 		}
-		if ( $empty && ( null === $score || $score <= 0.0 ) ) {
+		if ( $isEmpty && ( null === $score || $score <= 0.0 ) ) {
 			return 'unanswered';
 		}
 		if ( null !== $score && null !== $max && $score > 0.0 && $score < $max ) {

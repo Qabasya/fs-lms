@@ -36,6 +36,7 @@ class GuestParticipantMaterializer {
 	 * (в колонку `text`/`longtext` сырые байты не ложатся — запись отвергается как неверная кодировка).
 	 */
 	public function seal( string $plaintext ): string {
+		// phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_encode -- Encode encrypted bytes for text columns; no code is evaluated.
 		return base64_encode( $this->crypto->encrypt( $plaintext ) );
 	}
 
@@ -59,6 +60,7 @@ class GuestParticipantMaterializer {
 
 	/** Обратное к {@see seal()}. */
 	public function unseal( string $stored ): string {
+		// phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_decode -- Decode the storage envelope before authenticated decryption; no code is evaluated.
 		return $this->crypto->decrypt( (string) base64_decode( $stored, true ) );
 	}
 

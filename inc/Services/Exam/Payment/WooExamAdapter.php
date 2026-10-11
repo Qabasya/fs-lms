@@ -1,4 +1,9 @@
 <?php
+/**
+ * Связь гостевых заявок с корзиной и заказами WooCommerce.
+ *
+ * @package FS_LMS
+ */
 
 declare( strict_types=1 );
 
@@ -36,6 +41,7 @@ class WooExamAdapter {
 	public const ITEM_SIGNATURE   = 'fs_exam_sig';
 	public const ORDER_ITEM_META  = ExamOrderItemMeta::Application->value;
 
+	/** Получает Woo CRUD, заявки и брони для связи экзамена с магазином. */
 	public function __construct(
 		private readonly WooCommerceManager $woo,
 		private readonly PluginConfig $config,
@@ -52,24 +58,41 @@ class WooExamAdapter {
 		return $productId > 0 && ( $productId === $this->config->examProductId( 9 ) || $productId === $this->config->examProductId( 11 ) );
 	}
 
-	/** Экзаменная позиция не допускает изменения количества. @param array<string, mixed> $item */
+	/**
+	 * Экзаменная позиция не допускает изменения количества.
+	 *
+	 * @param array<string, mixed> $item
+	 */
 	public function quantityHtml( string $html, array $item ): string {
 		return $this->isExamProduct( (int) ( $item['product_id'] ?? 0 ) ) ? '1' : $html;
 	}
 
-	/** @param array<string, mixed> $item */
+	/**
+	 * Запрещает количество экзаменного товара, отличное от единицы.
+	 *
+	 * @param array<string, mixed> $item
+	 */
 	public function isQuantityUpdateAllowed( bool $passed, array $item, int $quantity ): bool {
 		return $this->isExamProduct( (int) ( $item['product_id'] ?? 0 ) ) && 1 !== $quantity ? false : $passed;
 	}
 
-	/** @return list<array{until: string, seconds_left: int}> */
+	/**
+	 * Готовит оставшееся время действующих броней подписанных позиций корзины.
+	 *
+	 * @return list<array{until: string, seconds_left: int}>
+	 */
 	public function holdCountdowns(): array {
 		$data = array();
 		foreach ( $this->cartExamItems() as $item ) {
-			$app = $this->applicationOfItem( array( self::ITEM_APPLICATION => $item['application_id'], self::ITEM_SIGNATURE => $item['signature'] ) );
+			$app = $this->applicationOfItem(
+				array(
+					self::ITEM_APPLICATION => $item['application_id'],
+					self::ITEM_SIGNATURE   => $item['signature'],
+				)
+			);
 			if ( null !== $app && $app->isHeld && null !== $app->holdExpiresAt ) {
 				$data[] = array(
-					'until' => substr( $this->time->toLocal( $app->holdExpiresAt ), 11, 5 ),
+					'until'        => substr( $this->time->toLocal( $app->holdExpiresAt ), 11, 5 ),
 					'seconds_left' => $this->time->secondsUntil( $this->time->nowUtc(), $app->holdExpiresAt ),
 				);
 			}
@@ -103,10 +126,13 @@ class WooExamAdapter {
 			throw new CodedException( ErrorCode::ExamConflict, 'Завершите оформление первой записи, затем запишите второго участника.' );
 		}
 
-		$key = $this->woo->addToCart( $productId, array(
-			self::ITEM_APPLICATION => $application->id,
-			self::ITEM_SIGNATURE   => $this->signature( $application ),
-		) );
+		$key = $this->woo->addToCart(
+			$productId,
+			array(
+				self::ITEM_APPLICATION => $application->id,
+				self::ITEM_SIGNATURE   => $this->signature( $application ),
+			)
+		);
 		if ( null === $key ) {
 			throw new CodedException( ErrorCode::ExamClosed, 'Не удалось перейти к оплате. Попробуйте ещё раз.' );
 		}
@@ -179,20 +205,33 @@ class WooExamAdapter {
 		$name    = $this->materializer->draftName( $app );
 		$session = $this->sessions->find( $app->sessionId );
 		if ( '' !== $name ) {
-			$rows[] = array( 'key' => 'Участник', 'value' => $name );
+			$rows[] = array(
+				'key'   => 'Участник',
+				'value' => $name,
+			);
 		}
 		if ( null !== $session ) {
 			$start  = $this->time->toLocal( $session->scheduledAt );
-			$rows[] = array( 'key' => 'Дата и время', 'value' => gmdate( 'd.m.Y', (int) strtotime( substr( $start, 0, 10 ) . ' UTC' ) ) . ', ' . substr( $start, 11, 5 ) );
+			$rows[] = array(
+				'key'   => 'Дата и время',
+				'value' => gmdate( 'd.m.Y', (int) strtotime( substr( $start, 0, 10 ) . ' UTC' ) ) . ', ' . substr( $start, 11, 5 ),
+			);
 		}
 		if ( $app->isHeld && null !== $app->holdExpiresAt ) {
-			$rows[] = array( 'key' => 'Место удерживается до', 'value' => substr( $this->time->toLocal( $app->holdExpiresAt ), 11, 5 ) );
+			$rows[] = array(
+				'key'   => 'Место удерживается до',
+				'value' => substr( $this->time->toLocal( $app->holdExpiresAt ), 11, 5 ),
+			);
 		}
 
 		return $rows;
 	}
 
-	/** Позицию удалили из корзины — бронь снимается; повторное добавление потребует новой заявки. @param array<string, mixed> $itemData */
+	/**
+	 * Позицию удалили из корзины — бронь снимается; повторное добавление потребует новой заявки.
+	 *
+	 * @param array<string, mixed> $itemData
+	 */
 	public function onItemRemoved( array $itemData ): void {
 		$app = $this->applicationOfItem( $itemData );
 		if ( null !== $app && $app->isHeld ) {
@@ -235,17 +274,19 @@ class WooExamAdapter {
 			}
 
 			try {
-				$this->links->insert( array(
-					'application_id'   => $item['application_id'],
-					'wc_order_id'      => $orderId,
-					'wc_order_item_id' => $item['item_id'],
-					'product_id'       => $item['product_id'],
-					'amount'           => $item['total'],
-					'currency'         => 'RUB',
-					'payment_state'    => ExamPaymentState::Pending->value,
-					'created_at'       => $now,
-					'updated_at'       => $now,
-				) );
+				$this->links->insert(
+					array(
+						'application_id'   => $item['application_id'],
+						'wc_order_id'      => $orderId,
+						'wc_order_item_id' => $item['item_id'],
+						'product_id'       => $item['product_id'],
+						'amount'           => $item['total'],
+						'currency'         => 'RUB',
+						'payment_state'    => ExamPaymentState::Pending->value,
+						'created_at'       => $now,
+						'updated_at'       => $now,
+					)
+				);
 			} catch ( DuplicateKeyException ) {
 				continue;
 			}

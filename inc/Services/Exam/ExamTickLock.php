@@ -26,18 +26,18 @@ class ExamTickLock {
 	/**
 	 * Выполняет тик только после получения именованной блокировки и освобождает её при любом исходе.
 	 *
-	 * @param string   $name Имя тика (часть имени блокировки)
-	 * @param callable $fn   Тело тика
+	 * @param string   $name      Имя тика (часть имени блокировки)
+	 * @param callable $operation Тело тика
 	 *
 	 * @return bool false — такой тик уже выполняется, тело не вызывалось.
 	 */
-	public function run( string $name, callable $fn ): bool {
+	public function run( string $name, callable $operation ): bool {
 		if ( ! $this->locks->acquire( $name ) ) {
 			return false;
 		}
 
 		try {
-			$fn();
+			$operation();
 		} catch ( \Throwable $e ) {
 			PluginLogger::exception( 'ExamTick', $e, array( 'tick' => $name ), true );
 		} finally {
