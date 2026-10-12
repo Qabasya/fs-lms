@@ -76,7 +76,8 @@ class GuestEntryCallbacksTest extends TestCase {
 				$this->sessionRepo,
 				$this->result,
 				$this->createMock( \Inc\Repositories\WPDBRepositories\ExamReportRepository::class ),
-				$this->createMock( \Inc\Services\Exam\ExamReportService::class )
+				$this->createMock( \Inc\Services\Exam\ExamReportService::class ),
+				$this->createMock( \Inc\Services\Exam\GuestPublicSignupService::class )
 			);
 		$this->cb = new GuestEntryCallbacks( $this->sessions, $this->result, $this->responder );
 	}

@@ -43,6 +43,22 @@ class ExamSourceRepository extends AbstractExamRepository {
 		return array_map( array( ExamSourceDTO::class, 'fromArray' ), $rows );
 	}
 
+	/** Источник открытой записи проведения (не более одного). */
+	public function findPublicByEvent( int $eventId ): ?ExamSourceDTO {
+		$row = $this->readRow( $this->wpdb->prepare( 'SELECT * FROM %i WHERE event_id = %d AND school_key = %s ORDER BY id ASC LIMIT 1', $this->table, $eventId, ExamSourceDTO::PUBLIC_KEY ) );
+		return null !== $row ? ExamSourceDTO::fromArray( $row ) : null;
+	}
+
+	/**
+	 * Включённые источники открытой записи по всем проведениям: страница выбора класса сама отбирает из них опубликованные и открытые.
+	 *
+	 * @return ExamSourceDTO[]
+	 */
+	public function listActivePublic(): array {
+		$rows = $this->readRows( $this->wpdb->prepare( 'SELECT * FROM %i WHERE school_key = %s AND is_active = 1 ORDER BY id DESC', $this->table, ExamSourceDTO::PUBLIC_KEY ) );
+		return array_map( array( ExamSourceDTO::class, 'fromArray' ), $rows );
+	}
+
 	/**
 	 * Версионированное обновление источника.
 	 *

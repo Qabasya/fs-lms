@@ -45,7 +45,8 @@ class ExamEventViewService {
 	 * @return list<array<string, mixed>>
 	 */
 	public function siblings( ExamEventDTO $event ): array {
-		$list = array();
+		$list   = array();
+		$nowUtc = $this->time->nowUtc();
 		foreach ( $this->sessions->findByEvent( $event->id ) as $session ) {
 			if ( ExamSessionStatus::Cancelled->value === $session->status ) {
 				continue;
@@ -57,6 +58,8 @@ class ExamEventViewService {
 				'time_start' => substr( $start, 11, 5 ),
 				'free'       => $session->freeSeats(),
 				'status'     => $session->status,
+				// Сеанс уже закончился: переключатель его показывает, но переносить на него записи нельзя.
+				'is_past'    => $session->plannedEndAt <= $nowUtc,
 			);
 		}
 

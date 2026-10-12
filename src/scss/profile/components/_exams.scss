@@ -92,6 +92,14 @@
 .gp-exam .gp-field--check input { flex: 0 0 auto; width: auto; height: auto; }
 .gp-exam .gp-field--check span { flex: 1 1 auto; }
 
+/* Подпись согласия — одной строкой на всю ширину окна (на телефоне переносится) */
+@media (min-width: #{$breakpoint-mobile + 1}) {
+  .gp-exam .gp-field--line span { white-space: nowrap; }
+}
+
+/* «Открытая запись»: адрес страницы с кнопкой копирования */
+.es-open { display: flex; flex-wrap: wrap; align-items: center; gap: t.$spacing-sm; margin: 0 0 t.$spacing-md; font-size: t.$font-size-sm; }
+
 /* «Ссылки для преподавателей» внутри настроек проведения: строки источников и добавление */
 .gp-sources { margin: t.$spacing-lg 0; padding-top: t.$spacing-md; border-top: 1px solid var(--line-2); }
 

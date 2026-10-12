@@ -108,6 +108,10 @@ $exam_text = static function ( string $name, string $label, string $value, strin
 				</div>
 
 			</div>
+			<div class="fs-card__footer">
+				<button type="submit" class="button button-primary js-config-save">Сохранить</button>
+				<span class="fs-config-status js-config-status"></span>
+			</div>
 		</div>
 
 		<!-- ======== Экзамены для гостей ======== -->
@@ -167,6 +171,10 @@ $exam_text = static function ( string $name, string $label, string $value, strin
 					<p class="fs-field__desc">Пока есть непройденный пункт, проведение с включённой «Записью гостей» опубликовать нельзя.</p>
 				</div>
 			</div>
+			<div class="fs-card__footer">
+				<button type="submit" class="button button-primary js-config-save">Сохранить</button>
+				<span class="fs-config-status js-config-status"></span>
+			</div>
 		</div>
 
 		<!-- ======== Оформление ======== -->
@@ -215,10 +223,8 @@ $exam_text = static function ( string $name, string $label, string $value, strin
 			</div>
 			<?php // Кнопка — всегда: оформление сохраняется, даже если тестовые параметры заданы в wp-config.php. ?>
 			<div class="fs-card__footer">
-				<button type="submit" id="fs-config-save" class="button button-primary">
-					Сохранить настройки
-				</button>
-				<span class="fs-config-status" id="fs-config-status"></span>
+				<button type="submit" class="button button-primary js-config-save">Сохранить</button>
+				<span class="fs-config-status js-config-status"></span>
 			</div>
 		</div>
 	</form>

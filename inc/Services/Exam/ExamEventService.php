@@ -653,6 +653,36 @@ class ExamEventService {
 	}
 
 	/**
+	 * Удаляет проведение, у которого нет данных участников (записей, участий, гостевых заявок) и не начат ни один сеанс.
+	 * Остальные проведения отменяются: отмена не стирает записи, ответы и журнал действий.
+	 *
+	 * @throws CodedException Нет доступа, версия устарела, у проведения есть участники либо экзамен уже начат.
+	 */
+	public function deleteEvent( int $actorUserId, int $eventId, int $expectedVersion ): void {
+		$this->assertCanManage( $actorUserId, $this->requireEvent( $eventId ) );
+
+		$this->inTransactionWithRetry(
+			function () use ( $eventId, $expectedVersion ): bool {
+				$event = $this->lockEvent( $eventId );
+				$this->assertVersion( $event->version, $expectedVersion );
+
+				foreach ( $this->sessions->findByEvent( $eventId ) as $session ) {
+					if ( $session->isLocked() ) {
+						throw new CodedException( ErrorCode::ExamStarted, 'Экзамен уже начат: удаление невозможно.' );
+					}
+				}
+				if ( $this->events->hasParticipantData( $eventId ) ) {
+					throw new CodedException( ErrorCode::ExamConflict, 'В проведении есть записи участников: удалить его нельзя, отмените проведение.' );
+				}
+
+				$this->events->deleteWithoutParticipants( $eventId );
+
+				return true;
+			}
+		);
+	}
+
+	/**
 	 * Завершает проведение, когда всё закончено: сеансы идут к концу или отменены, действующих записей без исхода нет, идущих попыток нет.
 	 * Завершённое проведение остаётся доступным для проверки, утверждения и исправления результатов.
 	 *

@@ -129,9 +129,20 @@ class GuestApplicationCallbacks extends BaseController {
 
 		$this->formLog->holdCreated( $source, $application );
 
+		// Тестовое окружение: оплата завершается автоматически, гость сразу попадает на страницу «Спасибо».
+		$testUrl = null;
+		try {
+			$testUrl = $this->adapter->completeInTestEnv(
+				$application,
+				array( 'first_name' => $form['first_name'], 'last_name' => $form['last_name'], 'phone' => $form['phone'] )
+			);
+		} catch ( \Throwable $e ) {
+			PluginLogger::exception( 'ExamGuest', $e, array( 'application_id' => $application->id ), true );
+		}
+
 		$this->success(
 			array(
-				'redirect'        => $this->woo->cartUrl(),
+				'redirect'        => $testUrl ?? $this->woo->cartUrl(),
 				'hold_expires_at' => null !== $application->holdExpiresAt ? $this->time->toLocal( $application->holdExpiresAt ) : null,
 				'seconds_left'    => null !== $application->holdExpiresAt ? $this->time->secondsUntil( $this->time->nowUtc(), $application->holdExpiresAt ) : 0,
 			)

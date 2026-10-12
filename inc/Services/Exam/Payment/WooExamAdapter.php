@@ -119,11 +119,13 @@ class WooExamAdapter {
 			throw new CodedException( ErrorCode::ExamClosed, 'Запись временно недоступна.' );
 		}
 
+		// Одна незавершённая экзаменная запись на корзину: новая заявка заменяет прежнюю (повторная отправка формы, второй участник).
+		// Позиция убирается штатным хуком корзины, он же снимает бронь прежней заявки; чужие товары корзины не трогаются.
 		foreach ( $this->cartExamItems() as $item ) {
 			if ( $item['application_id'] === $application->id ) {
 				return;
 			}
-			throw new CodedException( ErrorCode::ExamConflict, 'Завершите оформление первой записи, затем запишите второго участника.' );
+			$this->woo->removeCartItem( $item['key'] );
 		}
 
 		$key = $this->woo->addToCart(
@@ -152,6 +154,35 @@ class WooExamAdapter {
 		}
 
 		return $needsPayment;
+	}
+
+	/**
+	 * Тестовое окружение: вместо корзины и оформления создаёт заказ и сразу завершает его оплату штатным `payment_complete()`.
+	 * Дальше путь обычный: хуки магазина подтверждают запись, гость попадает на страницу «Спасибо» со статусом.
+	 *
+	 * @param array{first_name: string, last_name: string, phone: string} $billing
+	 *
+	 * @return string|null Адрес страницы «Спасибо»; null — не тестовое окружение или заказ создать не удалось (остаётся обычный путь через корзину).
+	 */
+	public function completeInTestEnv( ExamGuestApplicationDTO $application, array $billing ): ?string {
+		if ( ! $this->config->isTestEnv() ) {
+			return null;
+		}
+
+		$snapshot  = null !== $application->sourceSnapshot ? json_decode( $application->sourceSnapshot, true ) : null;
+		$productId = $this->config->examProductId( (int) ( is_array( $snapshot ) ? ( $snapshot['grade'] ?? 0 ) : 0 ) );
+		$orderId   = $this->woo->createOrderForProduct( $productId, array( self::ORDER_ITEM_META => $application->id ), $billing );
+		if ( null === $orderId ) {
+			return null;
+		}
+
+		// Заказ создан программно, хук оформления не срабатывает: связь с заявкой — вручную, затем оплата.
+		$this->linkOrder( $orderId );
+		$this->woo->completePayment( $orderId );
+		$this->woo->emptyCart();
+		$url = $this->woo->orderReceivedUrl( $orderId );
+
+		return '' !== $url ? $url : null;
 	}
 
 	/**

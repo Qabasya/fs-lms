@@ -84,6 +84,7 @@ class GuestApplicationCallbacksTest extends TestCase {
 				$this->createMock( \Inc\Repositories\WPDBRepositories\ExamParticipationRepository::class ), $this->createMock( \Inc\Repositories\WPDBRepositories\ExamRegistrationRepository::class ),
 				$this->createMock( \Inc\Repositories\WPDBRepositories\ExamSessionRepository::class ), $this->createMock( \Inc\Services\Exam\ExamReviewProjection::class ),
 				$this->createMock( \Inc\Repositories\WPDBRepositories\ExamReportRepository::class ), $this->createMock( \Inc\Services\Exam\ExamReportService::class ),
+				$this->createMock( \Inc\Services\Exam\GuestPublicSignupService::class ),
 			);
 		$this->cb = new GuestApplicationCallbacks( $this->applications, $this->adapter, $this->holds, $this->guard, $this->woo, $time, $this->createMock( GuestOrderStatusService::class ), $this->createMock( ExamPaymentReconciler::class ), $this->formLog, $this->access );
 	}
@@ -135,8 +136,8 @@ class GuestApplicationCallbacksTest extends TestCase {
 		self::assertSame( GuestPageOutcome::NOT_FOUND, $this->access->invitationPage( strtolower( trim( (string) ( $_GET['k'] ?? '' ) ) ), strtolower( trim( (string) ( $_GET['pay'] ?? '' ) ) ), (string) ( $_COOKIE[ GuestSessionService::COOKIE_INVITATION ] ?? '' ), '10.0.0.7' )->kind );
 	}
 
-	public function test_no_key_no_cookie_is_404(): void {
-		self::assertSame( GuestPageOutcome::NOT_FOUND, $this->access->invitationPage( strtolower( trim( (string) ( $_GET['k'] ?? '' ) ) ), strtolower( trim( (string) ( $_GET['pay'] ?? '' ) ) ), (string) ( $_COOKIE[ GuestSessionService::COOKIE_INVITATION ] ?? '' ), '10.0.0.7' )->kind );
+	public function test_no_key_no_cookie_opens_public_class_chooser(): void {
+		self::assertSame( GuestPageOutcome::RENDER, $this->access->invitationPage( '', '', '', '10.0.0.7' )->kind, 'Без приглашения — страница выбора класса открытой записи, а не 404.' );
 	}
 
 	public function test_valid_cookie_renders_page(): void {

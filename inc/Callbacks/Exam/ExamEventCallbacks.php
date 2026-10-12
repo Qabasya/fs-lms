@@ -209,6 +209,22 @@ class ExamEventCallbacks extends BaseController {
 		);
 	}
 
+	/** Удаляет проведение без записей участников (проверка версии на сервисе). */
+	public function ajaxDeleteExamEvent(): void {
+		$this->authorize( Nonce::ExamManage, Capability::ManageExams );
+
+		$eventId = $this->requireInt( 'event_id' );
+		$version = $this->sanitizeInt( 'version' );
+
+		$this->run(
+			function () use ( $eventId, $version ): array {
+				$this->events->deleteEvent( get_current_user_id(), $eventId, $version );
+
+				return array( 'event_id' => $eventId );
+			}
+		);
+	}
+
 	/**
 	 * Выполняет действие и отвечает: успех — данными, отказ сервиса с кодом — `fail()`, прочая ошибка проверки — `error()`.
 	 *

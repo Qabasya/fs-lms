@@ -23,6 +23,7 @@ import { openSessionForm } from './exam-session-form.js';
 import { openEventForm, openCancelForm } from './exam-event-form.js';
 
 const PUBLISH_TEXT = 'После публикации ученики предмета увидят экзамен и смогут записываться с даты открытия записи.';
+const DELETE_TEXT = 'Проведение будет удалено вместе с сеансами и ссылками школ без возможности восстановления. Это возможно, только пока в нём нет записей участников.';
 const NEW_EVENT = 'new';
 
 let root = null;
@@ -112,7 +113,7 @@ function headHtml() {
         ${statusPillHtml(e.status, e.status_label)}` : ''}
         ${isEditable() ? '<button type="button" class="prof-btn prof-btn-sm" id="examSettings">Настройки проведения</button>' : ''}
         ${e && 'draft' === e.status ? `<button type="button" class="prof-btn prof-btn-sm prof-btn-primary" id="examPublish" ${canPublish ? '' : 'disabled title="Добавьте хотя бы один сеанс"'}>Опубликовать</button>` : ''}
-        ${isEditable() ? '<button type="button" class="prof-icon-ghost" id="examActions" aria-label="Действия">⋮</button>' : ''}
+        ${e ? '<button type="button" class="prof-icon-ghost" id="examActions" aria-label="Действия">⋮</button>' : ''}
     </div>`;
 }
 
@@ -283,13 +284,29 @@ function openEventMenu() {
 }
 
 function openActionsMenu(anchor) {
-    openCtxMenuRaw('<div class="ctx-item danger" data-act="cancel">Отменить проведение</div>', anchor, null);
-    const item = document.querySelector('#profCtxMenu [data-act="cancel"]');
-    if (item) {
-        item.addEventListener('click', () => {
-            closeCtxMenu();
-            openCancelForm({ api, anchor, event: plan.event, onDone: () => load(plan.event.id, true) });
-        });
+    const items = [];
+    if (isEditable()) { items.push('<div class="ctx-item danger" data-act="cancel">Отменить проведение</div>'); }
+    items.push('<div class="ctx-item danger" data-act="delete">Удалить проведение</div>');
+    openCtxMenuRaw(items.join(''), anchor, null);
+
+    const bind = (act, handler) => {
+        const item = document.querySelector(`#profCtxMenu [data-act="${act}"]`);
+        if (item) { item.addEventListener('click', () => { closeCtxMenu(); handler(); }); }
+    };
+    bind('cancel', () => openCancelForm({ api, anchor, event: plan.event, onDone: () => load(plan.event.id, true) }));
+    bind('delete', doDelete);
+}
+
+/** Удаление доступно, пока в проведении нет записей участников: иначе сервер откажет и подскажет отмену. */
+async function doDelete() {
+    if (!await confirmDialog(DELETE_TEXT, 'Удалить проведение', 'Не удалять')) { return; }
+    try {
+        await api('deleteEvent', { event_id: plan.event.id, version: plan.event.version });
+        toast('Проведение удалено');
+        await load(0);
+    } catch (err) {
+        toast(err.message, 'error');
+        if ('X-STALE' === err.code) { await reload(); }
     }
 }
 

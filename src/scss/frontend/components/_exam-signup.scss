@@ -1,9 +1,37 @@
 @use '../variables' as *;
+@use '../mixins' as *;
 
 // Запись гостя на экзамен (этап 11a.3): карточка — существующая fs-join-card, здесь только то, чего в ней нет:
 // карусель сеансов, резюме перед оплатой, honeypot, состояния без формы.
 
+// Кнопка-ссылка страниц гостя (запись, вход, результат): как основная кнопка формы заявки, но по ширине содержимого.
+.fs-join-btn {
+  @include fs-btn-primary(0.88, $color-accent-theme);
+
+  display: inline-flex;
+  justify-content: center;
+  box-sizing: border-box;
+  padding: rem(12) rem(19.2);
+  font-size: $font-size-base;
+  font-weight: $font-medium;
+  text-decoration: none;
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
 .fs-exam-signup {
+  // Выбор класса открытой записи: кнопки одной колонкой на всю ширину карточки.
+  &__choices {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-md;
+
+    .fs-join-btn { width: 100%; }
+  }
+
   &__state {
     text-align: center;
     font-size: $font-size-base;

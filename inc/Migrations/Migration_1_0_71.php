@@ -227,6 +227,7 @@ class Migration_1_0_71 implements MigrationInterface {
 				purpose           varchar(20)     NOT NULL,
 				target_id         int unsigned    NOT NULL,
 				token_hash        char(64)        NOT NULL,
+				key_enc           text            DEFAULT NULL,
 				generation        int unsigned    NOT NULL DEFAULT 1,
 				expires_at        datetime        DEFAULT NULL,
 				revoked_at        datetime        DEFAULT NULL,

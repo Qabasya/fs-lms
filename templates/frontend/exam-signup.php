@@ -17,7 +17,7 @@ declare( strict_types=1 );
  * @package FS LMS
  *
  * @var string                       $state     form | full | closed | unavailable
- * @var array{school: string, grade: int, teacher: string}   $source
+ * @var array{school: string, grade: int, teacher: string, public?: bool}   $source
  * @var array{title: string}         $event
  * @var array<string, string>        $contacts  phone, email, hours, city, street
  * @var list<array<string, mixed>>   $sessions  Карточки сеансов
@@ -60,7 +60,8 @@ $contact_phone = (string) ( $contacts['phone'] ?? '' );
 		<?php else : ?>
 			<form id="fs-exam-signup-form" name="fs_exam_signup_form" method="post" novalidate autocomplete="on">
 
-				<!-- Организатор приглашения: текст с замком, не поля ввода и не скрытые поля -->
+				<!-- Организатор приглашения: текст с замком, не поля ввода и не скрытые поля. Открытая запись школы не имеет -->
+				<?php if ( empty( $source['public'] ) ) : ?>
 				<fieldset class="fs-join-card__section">
 					<legend class="fs-join-card__section-title"><?php esc_html_e( 'Организатор приглашения', 'fs-lms' ); ?></legend>
 					<p class="fs-join-card__locked-notice fs-exam-signup__organizer">
@@ -71,6 +72,7 @@ $contact_phone = (string) ( $contacts['phone'] ?? '' );
 						</span>
 					</p>
 				</fieldset>
+				<?php endif; ?>
 
 				<!-- Данные участника -->
 				<fieldset class="fs-join-card__section">

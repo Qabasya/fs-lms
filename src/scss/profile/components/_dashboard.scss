@@ -59,7 +59,7 @@
 .prof-dash-hello h1 { font-size: rem(24); font-weight: 700; letter-spacing: -.02em; }
 .prof-dash-hello p { color: var(--muted); font-size: rem(14); margin-top: rem(3); }
 
-.prof-stat-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: rem(18); margin-bottom: rem(18); }
+.prof-stat-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(rem(260), 1fr)); gap: rem(18); margin-bottom: rem(18); }
 .prof-stat-tiles--attendance { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .prof-dash-grid2 { display: grid; grid-template-columns: minmax(0, 1fr); gap: rem(18); }
 .prof-sched-card { margin-bottom: rem(18); }
@@ -264,6 +264,19 @@ a.prof-lesson-go, a.prof-work-item, a.prof-grade-attempt { text-decoration: none
 .prof-stat-tile .st-ico { width: rem(28); height: rem(28); border-radius: rem(8); display: flex; align-items: center; justify-content: center; }
 .prof-stat-tile .st-val { font-size: rem(28); font-weight: 700; letter-spacing: -.02em; margin-top: rem(8); font-variant-numeric: tabular-nums; }
 .prof-stat-tile .st-delta { font-size: rem(12); margin-top: rem(2); }
+
+/* Размер плитки показателей не растягивается вместе с экраном: на 1920 — крупнее и просторнее, на 1280 — компактнее; лишние колонки остаются пустыми */
+@media (min-width: 1920px) {
+  .prof-stat-tiles:not(.prof-stat-tiles--attendance) { grid-template-columns: repeat(auto-fill, minmax(rem(300), rem(380))); gap: rem(24); }
+  .prof-stat-tile { padding: rem(20) rem(22); }
+  .prof-stat-tile .st-val { font-size: rem(32); }
+}
+
+@media (max-width: 1280px) {
+  .prof-stat-tiles:not(.prof-stat-tiles--attendance) { grid-template-columns: repeat(auto-fill, minmax(rem(220), 1fr)); gap: rem(14); }
+  .prof-stat-tile { padding: rem(14) rem(16); }
+  .prof-stat-tile .st-val { font-size: rem(24); }
+}
 
 @media (max-width: $breakpoint-wide) {
   .prof-stat-tiles { gap: rem(8); }

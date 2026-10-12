@@ -192,6 +192,60 @@ class WooCommerceManager {
 		return $this->order( $orderId )?->is_paid() ?? false;
 	}
 
+	/**
+	 * Создаёт заказ с одной позицией товара без корзины и оформления (тестовое окружение): позиция получает метаданные, заказ — данные покупателя.
+	 *
+	 * @param array<string, int|string> $itemMeta Метаданные позиции.
+	 * @param array<string, string>     $billing  Поля покупателя: `first_name`, `last_name`, `phone`.
+	 *
+	 * @return int|null ID заказа; null — магазин или товар недоступны.
+	 */
+	public function createOrderForProduct( int $productId, array $itemMeta, array $billing ): ?int {
+		$product = $this->isActive() && function_exists( 'wc_create_order' ) ? wc_get_product( $productId ) : null;
+		if ( ! $product instanceof \WC_Product ) {
+			return null;
+		}
+
+		$order = wc_create_order( array( 'created_via' => 'fs_lms_exam_test' ) );
+		if ( ! $order instanceof \WC_Order ) {
+			return null;
+		}
+
+		$itemId = $order->add_product( $product, 1 );
+		$item   = $itemId ? $order->get_item( $itemId ) : null;
+		if ( $item instanceof \WC_Order_Item ) {
+			foreach ( $itemMeta as $key => $value ) {
+				$this->setOrderItemMeta( $item, (string) $key, $value );
+			}
+			$item->save();
+		}
+
+		$order->set_billing_first_name( (string) ( $billing['first_name'] ?? '' ) );
+		$order->set_billing_last_name( (string) ( $billing['last_name'] ?? '' ) );
+		$order->set_billing_phone( (string) ( $billing['phone'] ?? '' ) );
+		$order->calculate_totals();
+		$order->save();
+
+		return (int) $order->get_id();
+	}
+
+	/** Оплата заказа завершена штатным `payment_complete()`: статус и хуки магазина те же, что после реальной оплаты. */
+	public function completePayment( int $orderId ): void {
+		$this->order( $orderId )?->payment_complete();
+	}
+
+	/** Адрес страницы «Спасибо» заказа с ключом заказа. */
+	public function orderReceivedUrl( int $orderId ): string {
+		return (string) ( $this->order( $orderId )?->get_checkout_order_received_url() ?? '' );
+	}
+
+	/** Очищает корзину покупателя; позиции экзамена к этому моменту уже оплачены, бронь не затрагивается. */
+	public function emptyCart(): void {
+		if ( $this->isActive() && function_exists( 'WC' ) && null !== WC()->cart ) {
+			WC()->cart->empty_cart();
+		}
+	}
+
 	/** Статус заказа без префикса `wc-`: `pending`, `processing`, `failed`, `cancelled`, `refunded` … Пусто — заказа нет. */
 	public function orderStatus( int $orderId ): string {
 		return (string) ( $this->order( $orderId )?->get_status() ?? '' );

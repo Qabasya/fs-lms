@@ -364,6 +364,7 @@ class ExamEventServiceTest extends TestCase {
 
 		$this->assertRefusal( ErrorCode::ExamAccess, $denied, fn () => $service->publish( 99, self::EVENT, 1 ) );
 		$this->assertRefusal( ErrorCode::ExamAccess, $denied, fn () => $service->cancelEvent( 99, self::EVENT, 'Причина', 1 ) );
+		$this->assertRefusal( ErrorCode::ExamAccess, $denied, fn () => $service->deleteEvent( 99, self::EVENT, 1 ) );
 		$this->assertRefusal( ErrorCode::ExamAccess, $denied, fn () => $service->saveSession( 99, self::EVENT, $this->sessionInput(), null, null ) );
 		$this->assertRefusal( ErrorCode::ExamAccess, $denied, fn () => $service->updateEvent( 99, self::EVENT, $this->eventInput(), 1 ) );
 		$this->assertRefusal( ErrorCode::ExamAccess, $denied, fn () => $service->deleteSession( 99, self::SESSION ) );
@@ -714,6 +715,29 @@ class ExamEventServiceTest extends TestCase {
 		$this->events->expects( self::never() )->method( 'update' );
 
 		$this->assertRefusal( ErrorCode::ExamStarted, 'Экзамен уже начат: отмена невозможна.', fn () => $this->service->cancelEvent( self::ACTOR, self::EVENT, 'Причина', 1 ) );
+	}
+
+	public function test_delete_event_removes_event_without_participants(): void {
+		$this->events->method( 'hasParticipantData' )->willReturn( false );
+		$this->events->expects( self::once() )->method( 'deleteWithoutParticipants' )->with( self::EVENT );
+
+		$this->service->deleteEvent( self::ACTOR, self::EVENT, 1 );
+	}
+
+	public function test_delete_event_refused_when_participants_exist(): void {
+		$this->events->method( 'hasParticipantData' )->willReturn( true );
+		$this->events->expects( self::never() )->method( 'deleteWithoutParticipants' );
+
+		$this->assertRefusal( ErrorCode::ExamConflict, 'В проведении есть записи участников: удалить его нельзя, отмените проведение.', fn () => $this->service->deleteEvent( self::ACTOR, self::EVENT, 1 ) );
+	}
+
+	public function test_delete_event_refused_when_attempt_started_or_version_stale(): void {
+		$this->events->expects( self::never() )->method( 'deleteWithoutParticipants' );
+
+		$this->assertRefusal( ErrorCode::ExamStale, self::STALE, fn () => $this->service->deleteEvent( self::ACTOR, self::EVENT, 99 ) );
+
+		$this->sessionList = array( $this->examSession( array( 'first_started_at' => '2026-03-10 07:05:00' ) ) );
+		$this->assertRefusal( ErrorCode::ExamStarted, 'Экзамен уже начат: удаление невозможно.', fn () => $this->service->deleteEvent( self::ACTOR, self::EVENT, 1 ) );
 	}
 
 	public function test_move_session_requires_reason_and_writes_outbox(): void {

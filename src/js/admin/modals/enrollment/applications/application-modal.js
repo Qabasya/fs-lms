@@ -12,6 +12,7 @@
  */
 
 import { openModal, closeModal, bindEsc, unbindEsc } from '../../../modules/modal-base.js';
+import { formatPhone } from '../../../../common/input-masks.js';
 
 const $ = jQuery;
 
@@ -74,6 +75,11 @@ export const ApplicationModal = {
         this.$modal.on( 'click', '.fs-editable-field__btn', ( e ) => {
             e.preventDefault();
             this._toggleField( $( e.currentTarget ).closest( '.fs-editable-field' ) );
+        } );
+
+        // Телефон: маска +7 (999) 000-00-00 и не больше 10 цифр после кода страны — как на публичных формах.
+        this.$modal.on( 'input focusin', 'input[type="tel"]', ( e ) => {
+            if ( e.target.value ) { formatPhone( e.target ); }
         } );
 
         // Перехват отправки формы с уведомлением подписчиков

@@ -13,6 +13,7 @@ import { ajaxErrorText } from '../../common/utils.js';
 import { icoCalendarBoard, icoAlert } from '../../common/icons.js';
 import { confirmDialog } from '../../common/components/confirm-dialog.js';
 import { createApi } from '../api.js';
+import { bindPhoneMask } from '../../common/input-masks.js';
 import { examConfig, approvalBlockReason, approvableRows, approveButtonLabel, approvalItems, approvalSummaryText, skippedListHtml, exportButtonsHtml, wireExportButtons } from './exam-common.js';
 import { openMoveSessionForm, openCancelSessionForm } from './exam-session-actions.js';
 
@@ -271,8 +272,26 @@ function rowHtml(r) {
             ${passed ? `<div class="pr-sub">${passed}</div>` : ''}
         </div>
         ${score}${left}${'guest' === r.audience ? '' : pill}${result}
+        ${'guest' === r.audience ? guestLinkButtonHtml(r) : ''}
         ${r.actions.length ? '<button type="button" class="prof-btn prof-btn-sm prof-btn-ghost" data-menu aria-label="Действия">⋯</button>' : ''}
     </div>`;
+}
+
+/**
+ * Кнопка выдачи ссылки прямо в строке гостя (то же действие, что в меню «⋯»): ссылка входа — допущенному, ссылка результата — сдавшему.
+ * Не допущенному, но записанному гостю кнопка видна неактивной с подсказкой: иначе непонятно, почему ссылки нет.
+ */
+function guestLinkButtonHtml(r) {
+    if (r.actions.includes('entry_link')) {
+        return `<button type="button" class="prof-btn prof-btn-sm" data-link="entry_link">${r.entry_link_issued ? 'Перевыпустить ссылку' : 'Выдать ссылку'}</button>`;
+    }
+    if (r.actions.includes('result_link')) {
+        return `<button type="button" class="prof-btn prof-btn-sm" data-link="result_link">${r.result_link_issued ? 'Перевыпустить ссылку результата' : 'Выдать ссылку результата'}</button>`;
+    }
+    if (r.actions.includes('admit') && !r.admitted_at) {
+        return '<button type="button" class="prof-btn prof-btn-sm" disabled title="Сначала допустите участника">Выдать ссылку</button>';
+    }
+    return '';
 }
 
 /** У гостя четыре независимых состояния, а не одна «галочка»: оплата, запись, допуск и попытка — отдельными пилюлями. */
@@ -296,6 +315,7 @@ function holdRowHtml(h) {
         </div>
         <span class="prof-state-pill prof-state-soon">Ожидает оплаты</span>
         ${(h.actions || []).includes('copy_pay_link') && examConfig()?.canManageGuests ? '<button type="button" class="prof-btn prof-btn-sm" data-copy-pay>Скопировать ссылку на оплату</button>' : ''}
+        ${(h.actions || []).includes('accept_free') && examConfig()?.canManageGuests ? '<button type="button" class="prof-btn prof-btn-sm" data-accept-free>Принять без оплаты</button>' : ''}
     </div>`;
 }
 
@@ -368,6 +388,16 @@ function wire() {
             toast(ajaxErrorText(err, 'Не удалось выдать ссылку'), 'error');
         }
     }));
+    root.querySelectorAll('.exam-hold-row [data-accept-free]').forEach(btn => btn.addEventListener('click', () => {
+        const applicationId = Number(btn.closest('.exam-hold-row').dataset.app);
+        const hold = (board.holds || []).find(h => h.application_id === applicationId);
+        openReasonForm(btn, {
+            title: 'Принять без оплаты',
+            submit: 'Принять',
+            confirm: `Принять ${hold ? hold.name : 'гостя'} без оплаты? Запись будет подтверждена, платить не потребуется.`,
+            run: reason => act('acceptHold', { application_id: applicationId, reason }, 'Гость принят без оплаты'),
+        });
+    }));
     root.querySelector('[data-add-guest]')?.addEventListener('click', e => openGuestForm(e.currentTarget));
     root.querySelector('[data-session-menu]')?.addEventListener('click', e => {
         const s = Object.assign({ date: board.session.date, time_start: board.session.time_start }, board.session);
@@ -375,6 +405,10 @@ function wire() {
         openCtxMenu(e.currentTarget, [{ v: 'move', label: 'Перенести сеанс' }, { v: 'cancel', label: 'Отменить сеанс' }],
             v => ('move' === v ? openMoveSessionForm(ctx) : openCancelSessionForm(ctx)));
     });
+    root.querySelectorAll('.exam-conduct-row [data-link]').forEach(btn => btn.addEventListener('click', () => {
+        const row = board.rows.find(r => r.registration_id === Number(btn.closest('.exam-conduct-row').dataset.reg));
+        if (row) { runAction(btn.dataset.link, row, btn); }
+    }));
     root.querySelectorAll('.exam-conduct-row [data-menu]').forEach(btn => btn.addEventListener('click', () => {
         const row = board.rows.find(r => r.registration_id === Number(btn.closest('.exam-conduct-row').dataset.reg));
         if (!row) { return; }
@@ -474,7 +508,7 @@ function openReasonForm(anchor, o) {
 }
 
 function openTransferForm(anchor, row) {
-    const options = board.sessions.filter(x => x.id !== sessionId && x.free > 0 && 'open' === x.status);
+    const options = board.sessions.filter(x => x.id !== sessionId && x.free > 0 && 'open' === x.status && !x.is_past);
     openPop(anchor, {
         title: 'Назначить другой сеанс',
         submit: 'Перенести',
@@ -514,12 +548,14 @@ function openGuestForm(anchor) {
     const pop = document.getElementById('profGradePop');
     if (!pop) { return; }
     const requestKey = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : String(Date.now()) + Math.random();
-    const field = (name, label, required = false) => `<label class="gp-field"><span>${label}</span><input type="text" name="${name}" maxlength="100"${required ? ' required' : ''}></label>`;
+    const field = (name, label, required = false) => 'phone' === name
+        ? `<label class="gp-field"><span>${label}</span><input type="tel" name="${name}" inputmode="tel" autocomplete="off" placeholder="+7 (___) ___-__-__"${required ? ' required' : ''}></label>`
+        : `<label class="gp-field"><span>${label}</span><input type="text" name="${name}" maxlength="100"${required ? ' required' : ''}></label>`;
     pop.innerHTML = `<form class="gp-form gp-exam" id="ecGuestForm">
         <div class="gp-title">Добавить гостя</div>
         <label class="gp-field"><span>Источник</span><select name="source_id">${board.sources.map(x => `<option value="${x.id}">${esc(x.label)}</option>`).join('')}</select></label>
         ${field('last_name', 'Фамилия', true)}${field('first_name', 'Имя', true)}${field('middle_name', 'Отчество')}${field('phone', 'Телефон', true)}${field('messenger', 'Мессенджер')}
-        <label class="gp-field"><span><input type="checkbox" name="consents[]" value="pd_processing"> Согласие на обработку персональных данных получено</span></label>
+        <label class="gp-field gp-field--check gp-field--line"><input type="checkbox" name="consents[]" value="pd_processing"><span>Согласие на обработку персональных данных получено</span></label>
         <div class="gp-error" id="ecGuestError" role="alert" hidden></div>
         <div class="gp-row">
             <button type="submit" class="prof-btn prof-btn-sm prof-btn-primary">Добавить</button>
@@ -528,12 +564,15 @@ function openGuestForm(anchor) {
     </form>`;
     const form = pop.querySelector('#ecGuestForm');
     const errorBox = pop.querySelector('#ecGuestError');
+    bindPhoneMask(form.querySelector('[name="phone"]'));
     const showError = text => { errorBox.hidden = false; errorBox.textContent = text; };
     pop.querySelector('[data-ec="cancel"]').addEventListener('click', closeGradePop);
     let confirmed = 0;
     form.addEventListener('submit', async ev => {
         ev.preventDefault();
         errorBox.hidden = true;
+        // Телефон — ровно 11 цифр (маска +7 (999) 000-00-00), как на публичных формах.
+        if (11 !== String(form.elements.phone.value).replace(/\D/g, '').length) { showError('Укажите телефон полностью: 11 цифр.'); return; }
         const data = new FormData(form);
         const params = { session_id: sessionId, request_key: requestKey, confirmed };
         data.forEach((v, k) => { if ('consents[]' !== k) { params[k] = v; } });

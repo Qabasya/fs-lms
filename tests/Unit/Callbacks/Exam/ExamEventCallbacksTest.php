@@ -220,6 +220,13 @@ class ExamEventCallbacksTest extends TestCase {
 		self::assertTrue( fs_test_capture_json( fn() => $this->cb->ajaxCancelExamEvent() )->success );
 	}
 
+	public function test_delete_passes_event_and_version(): void {
+		$this->events->expects( self::once() )->method( 'deleteEvent' )->with( 10, 3, 2 );
+		$_POST = array( 'event_id' => '3', 'version' => '2' );
+
+		self::assertTrue( fs_test_capture_json( fn() => $this->cb->ajaxDeleteExamEvent() )->success );
+	}
+
 	public function test_plain_validation_error_is_returned_as_message(): void {
 		$this->events->method( 'deleteSession' )->willThrowException( new \InvalidArgumentException( 'Неверный запрос.' ) );
 		$_POST = array( 'session_id' => '7' );

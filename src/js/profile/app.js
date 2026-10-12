@@ -109,6 +109,23 @@ let cfg;
 /* «Мои группы» и «Мои курсы» есть только у преподавателей/методистов/админов
    (у учеников и родителей секций нет) — у них по умолчанию свёрнуты. */
 const sidebarState = { navCollapsed: false, examsCollapsed: true, groupsCollapsed: true, coursesCollapsed: true, courseFilter: '' };
+
+/* Свёрнутость секций сайдбара переживает перезагрузку: хранится только булевы флаги секций, фильтр курсов не запоминается. */
+const SECTIONS_KEY = 'fsProfileSections';
+const SECTION_FLAGS = ['navCollapsed', 'examsCollapsed', 'groupsCollapsed', 'coursesCollapsed'];
+
+function restoreSections() {
+    try {
+        const saved = JSON.parse(localStorage.getItem(SECTIONS_KEY) || '{}') || {};
+        SECTION_FLAGS.forEach(key => { if ('boolean' === typeof saved[key]) { sidebarState[key] = saved[key]; } });
+    } catch { /* браузер без хранилища — остаются значения по умолчанию */ }
+}
+
+function saveSections() {
+    try {
+        localStorage.setItem(SECTIONS_KEY, JSON.stringify(Object.fromEntries(SECTION_FLAGS.map(key => [key, sidebarState[key]]))));
+    } catch { /* приватный режим — без памяти */ }
+}
 const COURSE_SEARCH_THRESHOLD = 6;
 
 /* ── Routing ─────────────────────────────────────────────────────────── */
@@ -394,6 +411,7 @@ function wire() {
             const key       = el.dataset.toggleSection;
             const collapsed = !sidebarState[key];
             sidebarState[key] = collapsed;
+            saveSections();
             el.setAttribute('aria-expanded', String(!collapsed));
             el.querySelector('.pnl-caret')?.classList.toggle('collapsed', collapsed);
             document.querySelector(`[data-section-body="${key}"]`)?.classList.toggle('is-open', !collapsed);
@@ -466,6 +484,7 @@ function initCollapse() {
 }
 
 export function initProfile() {
+    restoreSections();
     cfg = window.fsProfile || defaultConfig();
     if (!cfg.screens || !cfg.screens.length) cfg = defaultConfig();
 

@@ -186,6 +186,20 @@ class ExamReportServiceTest extends TestCase {
 		self::assertSame( 'Результат ученика не утверждён.', $this->service->canInclude( $this->participation( 1 ), self::EVENT ) );
 	}
 
+	public function test_participant_of_open_registration_is_never_reportable(): void {
+		$this->sources->method( 'find' )->willReturn( \Inc\DTO\Exam\ExamSourceDTO::fromArray( array(
+			'id' => 40, 'event_id' => self::EVENT, 'school_key' => 'public', 'school_name' => 'Открытая запись', 'school_name_normalized' => 'открытая запись',
+			'grade' => 11, 'teacher_name' => '—', 'label' => 'Открытая запись', 'is_active' => 1, 'key_generation' => 0, 'key_revoked_at' => null,
+			'created_by_user_id' => 10, 'version' => 1, 'created_at' => '2026-03-01 00:00:00', 'updated_at' => '2026-03-01 00:00:00',
+		) ) );
+		$this->attempt = $this->attempt( 'graded', true );
+
+		self::assertSame(
+			'Открытая запись: отчёты по таким участникам не формируются.',
+			$this->service->canInclude( $this->participation( 1, array( 'source_id' => 40, 'audience' => 'guest', 'transfer_allowed' => 1 ) ), self::EVENT )
+		);
+	}
+
 	public function test_guest_without_transfer_consent_is_rejected(): void {
 		self::assertSame( 'Нет согласия на передачу результата школе.', $this->service->canInclude( $this->guest( 1, false ), self::EVENT ) );
 

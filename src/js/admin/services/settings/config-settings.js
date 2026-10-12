@@ -14,9 +14,11 @@ export const ConfigSettings = {
 	},
 
 	bindEvents() {
+		// Кнопка «Сохранить» есть в каждой карточке формы; сохраняется вся форма, статус показывается у нажатой кнопки.
 		$( '#fs-config-form' ).on( 'submit', ( e ) => {
 			e.preventDefault();
-			this.saveConfig();
+			const submitter = e.originalEvent && e.originalEvent.submitter;
+			this.saveConfig( $( submitter ).closest( '.fs-card' ) );
 		} );
 
 		$( document ).on( 'click', '.js-generate-key', ( e ) => {
@@ -42,13 +44,14 @@ export const ConfigSettings = {
 		return fields;
 	},
 
-	saveConfig() {
+	saveConfig( $card ) {
 		const $form   = $( '#fs-config-form' );
-		const $status = $( '#fs-config-status' );
-		const $btn    = $( '#fs-config-save' );
+		const $scope  = $card && $card.length ? $card : $form;
+		const $status = $scope.find( '.js-config-status' ).first();
+		const $btn    = $form.find( '.js-config-save' );
 
+		$form.find( '.js-config-status' ).text( '' ).removeClass( 'fs-config-status--ok fs-config-status--err' );
 		$btn.prop( 'disabled', true );
-		$status.text( '' ).removeClass( 'fs-config-status--ok fs-config-status--err' );
 
 		$.post( fs_lms_vars.ajaxurl, {
 			action:        fs_lms_vars.ajax_actions.saveConfig,

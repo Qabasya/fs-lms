@@ -41,6 +41,22 @@ class ExamAccessTokenServiceTest extends TestCase {
 		) );
 	}
 
+	public function test_invitation_key_is_short_and_entry_key_is_long(): void {
+		$this->tokens->method( 'maxGeneration' )->willReturn( 0 );
+		$this->tokens->method( 'insert' )->willReturn( 1 );
+
+		self::assertMatchesRegularExpression( '/^[a-z2-9]{6}$/', $this->service->issue( ExamTokenPurpose::Invitation, 3, 1 ) );
+		self::assertMatchesRegularExpression( '/^[a-f0-9]{64}$/', $this->service->issue( ExamTokenPurpose::Entry, 3, 1 ) );
+	}
+
+	public function test_short_key_is_accepted_for_invitation_only(): void {
+		$token = $this->token();
+		$this->tokens->method( 'findByHash' )->willReturn( $token );
+
+		self::assertSame( $token, $this->service->exchange( ExamTokenPurpose::Invitation, 'k7m2qx' ) );
+		self::assertNull( $this->service->exchange( ExamTokenPurpose::Result, 'k7m2qx' ), 'Короткий ключ открывает только приглашение.' );
+	}
+
 	public function test_issue_returns_64_hex_chars_and_stores_only_hash(): void {
 		$stored = null;
 		$this->tokens->method( 'maxGeneration' )->willReturn( 0 );
@@ -49,12 +65,12 @@ class ExamAccessTokenServiceTest extends TestCase {
 			return 11;
 		} );
 
-		$plain = $this->service->issue( ExamTokenPurpose::Invitation, 3, 1 );
+		$plain = $this->service->issue( ExamTokenPurpose::Entry, 3, 1 );
 
 		self::assertMatchesRegularExpression( '/^[a-f0-9]{64}$/', $plain );
 		self::assertSame( hash( 'sha256', 'salt' . $plain ), $stored['token_hash'] );
 		self::assertNotContains( $plain, array_map( 'strval', $stored ), 'Открытый ключ в строку не попадает.' );
-		self::assertSame( 'invitation', $stored['purpose'] );
+		self::assertSame( 'entry', $stored['purpose'] );
 		self::assertSame( 3, $stored['target_id'] );
 	}
 
@@ -95,7 +111,7 @@ class ExamAccessTokenServiceTest extends TestCase {
 	public function test_exchange_returns_null_for_malformed_key_without_db_lookup(): void {
 		$this->tokens->expects( self::never() )->method( 'findByHash' );
 
-		foreach ( array( '', 'abc', str_repeat( 'g', 64 ), strtoupper( str_repeat( 'a', 64 ) ), str_repeat( 'a', 63 ), str_repeat( 'a', 65 ) ) as $bad ) {
+		foreach ( array( '', 'abc', 'ABCDEF', 'abcde0', 'abcdefg', str_repeat( 'g', 64 ), strtoupper( str_repeat( 'a', 64 ) ), str_repeat( 'a', 63 ), str_repeat( 'a', 65 ) ) as $bad ) {
 			self::assertNull( $this->service->exchange( ExamTokenPurpose::Invitation, $bad ), "'{$bad}'" );
 		}
 	}
@@ -154,5 +170,38 @@ class ExamAccessTokenServiceTest extends TestCase {
 		$this->tokens->expects( self::once() )->method( 'markPassed' )->with( 5, 42, '2026-03-10 09:00:00' );
 
 		$this->service->markPassed( 5, 42 );
+	}
+
+	public function test_invitation_key_is_stored_sealed_and_revealed_back(): void {
+		$this->crypto->method( 'encrypt' )->willReturnCallback( static fn ( string $v ): string => strrev( $v ) );
+		$this->crypto->method( 'decrypt' )->willReturnCallback( static fn ( string $v ): string => strrev( $v ) );
+		$this->tokens->method( 'maxGeneration' )->willReturn( 0 );
+		$rows = array();
+		$this->tokens->method( 'insert' )->willReturnCallback( static function ( array $data ) use ( &$rows ): int {
+			$rows[] = $data;
+			return 1;
+		} );
+
+		$plain = $this->service->issue( ExamTokenPurpose::Invitation, 3, 1 );
+		$this->service->issue( ExamTokenPurpose::Entry, 3, 1 );
+
+		self::assertSame( base64_encode( strrev( $plain ) ), $rows[0]['key_enc'] );
+		self::assertNull( $rows[1]['key_enc'], 'Ключи входа не запоминаются.' );
+	}
+
+	public function test_invitation_key_returns_plain_from_active_token_or_null(): void {
+		$this->crypto->method( 'decrypt' )->willReturnCallback( static fn ( string $v ): string => strrev( $v ) );
+		$sealed = ExamAccessTokenDTO::fromArray( array(
+			'id' => 1, 'purpose' => 'invitation', 'target_id' => 3, 'token_hash' => str_repeat( 'a', 64 ), 'generation' => 1, 'created_at' => '2026-03-01 00:00:00',
+			'issuer_user_id' => 1, 'key_enc' => base64_encode( strrev( 'k7m2qx' ) ),
+		) );
+		$legacy = ExamAccessTokenDTO::fromArray( array(
+			'id' => 2, 'purpose' => 'invitation', 'target_id' => 4, 'token_hash' => str_repeat( 'b', 64 ), 'generation' => 1, 'created_at' => '2026-03-01 00:00:00', 'issuer_user_id' => 1,
+		) );
+		$this->tokens->method( 'findActive' )->willReturnCallback( static fn ( $purpose, int $target ) => 3 === $target ? $sealed : ( 4 === $target ? $legacy : null ) );
+
+		self::assertSame( 'k7m2qx', $this->service->invitationKey( 3 ) );
+		self::assertNull( $this->service->invitationKey( 4 ), 'Ссылка, выпущенная до хранения ключа, копироваться не может — её перевыпускают.' );
+		self::assertNull( $this->service->invitationKey( 5 ) );
 	}
 }

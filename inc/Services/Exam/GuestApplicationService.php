@@ -77,6 +77,33 @@ class GuestApplicationService {
 	) {}
 
 	/**
+	 * Принять бронь без оплаты (подарочное посещение): запись подтверждается, оплата не требуется. Права — как у разбора оплат
+	 * ({@see ExamAccessGuard::canResolvePayments()}): офис и администратор — любое проведение, преподаватель — своё. Причина обязательна.
+	 *
+	 * @throws CodedException Нет прав или причины, бронь не действует.
+	 */
+	public function acceptWithoutPayment( int $actorUserId, int $applicationId, string $reason ): ExamGuestApplicationDTO {
+		$reason = trim( $reason );
+		if ( '' === $reason ) {
+			throw new CodedException( ErrorCode::ExamConflict, 'Укажите причину.' );
+		}
+
+		$application = $this->applications->find( $applicationId );
+		$event       = null !== $application ? $this->events->find( $application->eventId ) : null;
+		if ( null === $application || null === $event || ! $this->guard->canResolvePayments( $actorUserId, $event ) ) {
+			throw new CodedException( ErrorCode::ExamAccess, 'Заявка не найдена.' );
+		}
+
+		$accepted = $this->holds->acceptWithoutPayment( $actorUserId, $applicationId, $reason );
+		$this->logEvents->dispatch(
+			LogEvent::ExamPaymentResolved,
+			new EntityChangedEvent( $actorUserId, OperationType::Update, EntityType::ExamApplication, $applicationId, ManualResolutionKind::AcceptedManually->label() . ': ' . $reason )
+		);
+
+		return $accepted;
+	}
+
+	/**
 	 * Ручное урегулирование оплаченной заявки «мест нет» (8.8.4): перенос в сеанс, возврат вне магазина или отметка.
 	 *
 	 * Права и область: офис и администратор — любое проведение, преподаватель — своё ({@see ExamAccessGuard::canResolvePayments()}).

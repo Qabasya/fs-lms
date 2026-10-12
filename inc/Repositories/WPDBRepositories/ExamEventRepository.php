@@ -139,6 +139,48 @@ class ExamEventRepository extends AbstractExamRepository {
 	}
 
 	/**
+	 * Есть ли у проведения данные участников: участия, записи на сеансы или гостевые заявки. Такое проведение не удаляется, а отменяется.
+	 */
+	public function hasParticipantData( int $eventId ): bool {
+		$sql = 'SELECT
+			EXISTS( SELECT 1 FROM %i WHERE event_id = %d )
+			OR EXISTS( SELECT 1 FROM %i WHERE event_id = %d )
+			OR EXISTS( SELECT 1 FROM %i r INNER JOIN %i s ON s.id = r.session_id WHERE s.event_id = %d )';
+
+		return 1 === $this->readInt( $this->wpdb->prepare(
+			$sql,
+			TableName::ExamParticipations->prefixed(),
+			$eventId,
+			TableName::ExamGuestApplications->prefixed(),
+			$eventId,
+			TableName::ExamRegistrations->prefixed(),
+			TableName::ExamSessions->prefixed(),
+			$eventId
+		) );
+	}
+
+	/**
+	 * Удаляет проведение без данных участников вместе с его сеансами, ссылками школ (источниками) и их ключами и событиями outbox.
+	 * Вызывающий держит блокировку строки проведения и уже проверил {@see hasParticipantData()}.
+	 */
+	public function deleteWithoutParticipants( int $eventId ): void {
+		$sources = TableName::ExamSources->prefixed();
+		$outbox  = TableName::ExamOutbox->prefixed();
+
+		$this->write( $this->wpdb->prepare(
+			'DELETE t FROM %i t INNER JOIN %i s ON t.purpose = %s AND t.target_id = s.id WHERE s.event_id = %d',
+			TableName::ExamAccessTokens->prefixed(),
+			$sources,
+			'invitation',
+			$eventId
+		) );
+		$this->write( $this->wpdb->prepare( 'DELETE FROM %i WHERE aggregate_type = %s AND aggregate_id = %d', $outbox, 'event', $eventId ) );
+		$this->write( $this->wpdb->prepare( 'DELETE FROM %i WHERE event_id = %d', $sources, $eventId ) );
+		$this->write( $this->wpdb->prepare( 'DELETE FROM %i WHERE event_id = %d', TableName::ExamSessions->prefixed(), $eventId ) );
+		$this->write( $this->wpdb->prepare( 'DELETE FROM %i WHERE id = %d', $this->table, $eventId ) );
+	}
+
+	/**
 	 * Удаляет проведения с названием на `$prefix` и всё, что к ним относится: сеансы, участия, записи, заявки, источники и их ключи,
 	 * события outbox, ключи идемпотентности, участников без учётной записи. **Только для фикстур стенда** (`wp fs-lms exam stand-clean`):
 	 * в работе проведения не удаляются, а отменяются.

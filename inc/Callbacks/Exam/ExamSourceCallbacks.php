@@ -42,7 +42,22 @@ class ExamSourceCallbacks extends BaseController {
 
 		$eventId = $this->requireInt( 'event_id' );
 
-		$this->run( fn (): array => array( 'sources' => $this->sources->list( get_current_user_id(), $eventId ) ) );
+		$this->run(
+			fn (): array => array(
+				'sources' => $this->sources->list( get_current_user_id(), $eventId ),
+				'public'  => $this->sources->publicRegistration( get_current_user_id(), $eventId ),
+			)
+		);
+	}
+
+	/** Включает или выключает открытую запись проведения (гость сам выбирает класс на странице записи). */
+	public function ajaxSetExamPublicRegistration(): void {
+		$this->authorize( Nonce::ExamManage, Capability::ManageExamGuests );
+
+		$eventId = $this->requireInt( 'event_id' );
+		$enabled = $this->sanitizeBool( 'enabled' );
+
+		$this->run( fn (): array => array( 'public' => $this->sources->setPublicRegistration( get_current_user_id(), $eventId, $enabled ) ) );
 	}
 
 	/** Сохраняет источник и возвращает обновлённый список источников. */

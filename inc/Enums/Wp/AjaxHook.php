@@ -355,6 +355,7 @@ enum AjaxHook: string {
 	case MoveExamSession        = 'move_exam_session';        // params: session_id, date, time, room_id, reason, version (сеанс с участниками)
 	case CancelExamSession      = 'cancel_exam_session';      // params: session_id, reason, version
 	case CancelExamEvent        = 'cancel_exam_event';        // params: event_id, reason, version
+	case DeleteExamEvent        = 'delete_exam_event';        // params: event_id, version (только проведение без записей участников)
 	// ==== Экзамены: проведение сеанса сотрудником (этап 8) ====
 	case GetExamConduct                 = 'get_exam_conduct';                   // params: session_id?, event_id?; ответ: доска сеанса (без параметров — идущий или ближайший сеанс)
 	case CancelExamRegistrationByStaff  = 'cancel_exam_registration_by_staff';  // params: session_id (для доски), registration_id, reason; ответ: доска
@@ -380,6 +381,7 @@ enum AjaxHook: string {
 	case EndExamGuestSession            = 'end_exam_guest_session';             // публичный (nonce ExamGuest): отзыв гостевой сессии и удаление куки; ответ: url нейтральной страницы
 	case AdmitExamGuest                 = 'admit_exam_guest';                   // params: participation_id, admitted (0|1); ответ: board
 	case IssueExamEntryLink             = 'issue_exam_entry_link';              // params: participation_id; ответ: url (один раз, прежний ключ отзывается)
+	case AcceptExamHoldWithoutPayment   = 'accept_exam_hold_without_payment';   // params: session_id (для доски), application_id, reason; ответ: доска
 	case IssueExamGuestPayLink          = 'issue_exam_guest_pay_link';          // params: application_id; ответ: pay_url (один раз, прежний ключ отзывается)
 	case MarkExamArrival                = 'mark_exam_arrival';                  // params: session_id (для доски), registration_id, arrived (0/1); ответ: доска
 
@@ -394,6 +396,7 @@ enum AjaxHook: string {
 	case ReissueExamSourceLink  = 'reissue_exam_source_link'; // params: source_id; ответ: url (один раз)
 	case RevokeExamSourceLink   = 'revoke_exam_source_link';  // params: source_id
 	case ToggleExamSource       = 'toggle_exam_source';       // params: source_id, active
+	case SetExamPublicRegistration = 'set_exam_public_registration'; // params: event_id, enabled (открытая запись без ссылки школы)
 
 	// ============================ ГЕНЕРАЦИЯ ИМЁН ============================ //
 

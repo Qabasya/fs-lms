@@ -10,6 +10,7 @@ declare( strict_types=1 );
 namespace Inc\Services\Exam;
 
 use Inc\DTO\Exam\ExamEventDTO;
+use Inc\Enums\Exam\ExamSubject;
 use Inc\Enums\Access\Capability;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
 
@@ -91,6 +92,11 @@ class ExamAccessGuard {
 	 * @return bool
 	 */
 	public function canManageSubject( int $userId, string $subjectKey ): bool {
+		// Экзамены вне курса ведутся только по предметам из ExamSubject.
+		if ( ! ExamSubject::supports( $subjectKey ) ) {
+			return false;
+		}
+
 		// Сначала проверяем наличие базового права
 		if ( ! user_can( $userId, Capability::ManageExams->value ) ) {
 			return false;
@@ -146,11 +152,13 @@ class ExamAccessGuard {
 	 * @return string[] Управляемые ключи (в исходном порядке)
 	 */
 	public function manageableSubjectKeys( int $userId, array $allSubjectKeys ): array {
+		$examSubjects = array_values( array_filter( $allSubjectKeys, static fn ( string $key ): bool => ExamSubject::supports( $key ) ) );
+
 		if ( $this->isGlobal( $userId ) ) {
-			return $allSubjectKeys;
+			return $examSubjects;
 		}
 
 		$mySubjects = $this->subjectKeysFor( $userId );
-		return array_intersect( $allSubjectKeys, $mySubjects );
+		return array_values( array_intersect( $examSubjects, $mySubjects ) );
 	}
 }

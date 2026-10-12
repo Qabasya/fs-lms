@@ -64,7 +64,88 @@ class ExamSourceService {
 	public function list( int $actorUserId, int $eventId ): array {
 		$this->requireEvent( $actorUserId, $eventId );
 
-		return array_map( fn ( ExamSourceDTO $source ): array => $this->payload( $source ), $this->sources->listByEvent( $eventId ) );
+		// Служебный источник открытой записи в список школ не входит: им управляет переключатель проведения.
+		$schools = array_filter( $this->sources->listByEvent( $eventId ), static fn ( ExamSourceDTO $source ): bool => ! $source->isPublic() );
+
+		return array_values( array_map( fn ( ExamSourceDTO $source ): array => $this->payload( $source ), $schools ) );
+	}
+
+	/**
+	 * Состояние открытой записи проведения: включена ли и по какому адресу гости сами выбирают класс.
+	 *
+	 * @return array{enabled: bool, url: string}
+	 *
+	 * @throws CodedException Проведение отсутствует или управление его гостями недоступно пользователю.
+	 */
+	public function publicRegistration( int $actorUserId, int $eventId ): array {
+		$this->requireEvent( $actorUserId, $eventId );
+		$source = $this->sources->findPublicByEvent( $eventId );
+
+		return array(
+			'enabled' => null !== $source && $source->isActive,
+			'url'     => PageRoutes::ExamSignup->url(),
+		);
+	}
+
+	/**
+	 * Включает или выключает открытую запись: гость без ссылки школы выбирает на `/exam-signup/` класс (9 — ОГЭ, 11 — ЕГЭ) и записывается сам.
+	 * Служебный источник создаётся при первом включении; отчёты школам по таким гостям не формируются, данные остаются для статистики.
+	 *
+	 * @return array{enabled: bool, url: string}
+	 *
+	 * @throws CodedException Нет доступа либо не задан основной вариант проведения (от него зависит класс).
+	 */
+	public function setPublicRegistration( int $actorUserId, int $eventId, bool $enabled ): array {
+		$event = $this->requireEvent( $actorUserId, $eventId );
+		$grade = $enabled ? $this->directionOf( $event )->grade() : 0;
+
+		$this->inTransactionWithRetry(
+			function () use ( $actorUserId, $event, $enabled, $grade ): void {
+				// Блокировка проведения — точка сериализации: два одновременных включения не создадут два служебных источника.
+				$this->events->findForUpdate( $event->id );
+				$existing = $this->sources->findPublicByEvent( $event->id );
+				if ( null === $existing ) {
+					if ( $enabled ) {
+						$this->createPublicSource( $actorUserId, $event, $grade );
+					}
+					return;
+				}
+
+				$source = $this->lockSource( $existing->id, $event->id );
+				$data   = array( 'is_active' => $enabled ? 1 : 0 );
+				if ( $enabled ) {
+					$data['grade'] = $grade;
+				}
+				if ( ( $source->isActive !== $enabled || ( $enabled && $source->grade !== $grade ) ) && ! $this->sources->update( $source->id, $data, $source->version ) ) {
+					throw $this->stale();
+				}
+				$this->audit( $actorUserId, OperationType::Update, LogEvent::ExamSourceUpdated, $source->id, 'открытая запись: ' . ( $enabled ? 'включена' : 'отключена' ) );
+			}
+		);
+
+		return $this->publicRegistration( $actorUserId, $event->id );
+	}
+
+	/** Создаёт служебный источник открытой записи и действующий ключ приглашения: ключ нужен только для сверки поколения сессий, гостям не отдаётся. */
+	private function createPublicSource( int $actorUserId, ExamEventDTO $event, int $grade ): void {
+		$now = $this->time->nowUtc();
+		$id  = $this->sources->insert(
+			array(
+				'event_id'               => $event->id,
+				'school_key'             => ExamSourceDTO::PUBLIC_KEY,
+				'school_name'            => 'Открытая запись',
+				'school_name_normalized' => 'открытая запись',
+				'grade'                  => $grade,
+				'teacher_name'           => '—',
+				'label'                  => 'Открытая запись',
+				'created_by_user_id'     => $actorUserId,
+				'version'                => 1,
+				'created_at'             => $now,
+				'updated_at'             => $now,
+			)
+		);
+		$this->tokens->issue( ExamTokenPurpose::Invitation, $id, $actorUserId );
+		$this->audit( $actorUserId, OperationType::Create, LogEvent::ExamSourceCreated, $id, 'открытая запись: включена' );
 	}
 
 	/**
@@ -243,6 +324,13 @@ class ExamSourceService {
 		return $this->signupUrl( $plain );
 	}
 
+	/** Адрес ссылки действующего приглашения из зашифрованного ключа; пусто — ключа нет (ссылка выпущена до хранения или нет ключа шифрования). */
+	private function storedUrl( int $sourceId ): string {
+		$plain = $this->tokens->invitationKey( $sourceId );
+
+		return null !== $plain ? $this->signupUrl( $plain ) : '';
+	}
+
 	/** Адрес формы гостя с ключом. Единственное место, где собирается ссылка. */
 	private function signupUrl( string $plain ): string {
 		return (string) add_query_arg( array( 'k' => $plain ), PageRoutes::ExamSignup->url() );
@@ -261,6 +349,7 @@ class ExamSourceService {
 			'grade'        => $source->grade,
 			'is_active'    => $source->isActive,
 			'has_link'     => $this->tokens->hasActive( ExamTokenPurpose::Invitation, $source->id ),
+			'url'          => $this->storedUrl( $source->id ),
 			'generation'   => $source->keyGeneration,
 			'active_holds' => $this->applications->countHeldBySource( $source->id ),
 			'version'      => $source->version,
@@ -305,6 +394,9 @@ class ExamSourceService {
 		$source = $this->sources->find( $sourceId );
 		if ( null === $source ) {
 			throw new CodedException( ErrorCode::ExamAccess, 'Источник не найден.' );
+		}
+		if ( $source->isPublic() ) {
+			throw new CodedException( ErrorCode::ExamConflict, 'Открытая запись включается переключателем в настройках проведения.' );
 		}
 		$this->requireEvent( $actorUserId, $source->eventId );
 

@@ -223,6 +223,46 @@ class ExamHoldService {
 	}
 
 	/**
+	 * Принять бронь без оплаты (подарочное посещение): действующая бронь превращается в запись участника тем же путём, что после оплаты
+	 * (`convert()`), но заказа магазина нет. Решение пишется в `exam_manual_resolutions` (вид, причина, автор).
+	 *
+	 * Только пока бронь действует: место уже за гостем. Истекшую бронь не воскрешаем — запись оформляется заново.
+	 *
+	 * @throws CodedException Заявка не найдена, бронь не действует/истекла либо запись не создалась.
+	 */
+	public function acceptWithoutPayment( int $actorUserId, int $applicationId, string $reason ): ExamGuestApplicationDTO {
+		$application = $this->applications->find( $applicationId );
+		if ( null === $application ) {
+			throw new CodedException( ErrorCode::ExamConflict, 'Заявка не найдена.' );
+		}
+
+		$waiting = array( GuestApplicationState::Hold->value, GuestApplicationState::AwaitingPayment->value, GuestApplicationState::PaymentPending->value );
+		if ( ! in_array( $application->state, $waiting, true ) || ! $application->isHeld
+			|| null === $application->holdExpiresAt || $application->holdExpiresAt <= $this->time->nowUtc() ) {
+			throw new CodedException( ErrorCode::ExamConflict, 'Бронь уже не действует: оформите запись заново.' );
+		}
+
+		$accepted = $this->convert( $applicationId, $actorUserId );
+		if ( GuestApplicationState::Confirmed->value !== $accepted->state ) {
+			throw new CodedException( ErrorCode::ExamConflict, 'Не удалось подтвердить запись: проверьте бронь и повторите.' );
+		}
+
+		$this->resolutions->insert(
+			array(
+				'application_id'   => $accepted->id,
+				'participation_id' => $accepted->participationId,
+				'kind'             => ManualResolutionKind::AcceptedManually->value,
+				'reason'           => $reason,
+				'actor_user_id'    => $actorUserId,
+				'old_session_id'   => $accepted->sessionId,
+				'created_at'       => $this->time->nowUtc(),
+			)
+		);
+
+		return $accepted;
+	}
+
+	/**
 	 * Ручное урегулирование оплаченной заявки без места (`paid_needs_resolution`), одна транзакция под блокировкой заявки:
 	 * - `Transferred` — заявка записывается в выбранный сеанс **того же проведения** (место занимается заново, участник и запись создаются);
 	 * - `RefundedOutside` / `Other` — заявка закрывается (`cancelled`), место не занимается. Возврат денег и заказ WooCommerce здесь **не затрагиваются**.

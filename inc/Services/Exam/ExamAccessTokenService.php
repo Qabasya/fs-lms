@@ -34,6 +34,15 @@ class ExamAccessTokenService {
 	/** Длина открытого ключа: 32 байта = 64 hex-символа. */
 	private const KEY_PATTERN = '/^[a-f0-9]{64}$/';
 
+	/**
+	 * Короткий ключ ссылки приглашения школы: 6 символов (~30 бит), алфавит как у JOIN-кодов без похожих символов.
+	 * Ключ открывает только форму записи, а не данные участника; перебор ограничен общим лимитом неудач по IP (11a.2.5).
+	 * Ключи входа, результата и отчёта остаются длинными: за ними персональные данные.
+	 */
+	private const SHORT_ALPHABET = 'abcdefghjklmnpqrstuvwxyz23456789';
+	private const SHORT_LENGTH   = 6;
+	private const SHORT_PATTERN  = '/^[a-z2-9]{6}$/';
+
 	/** Получает хранилище хешей и часы; открытый ключ возвращается только вызывающему сервису. */
 	public function __construct(
 		private readonly ExamAccessTokenRepository $tokens,
@@ -55,7 +64,7 @@ class ExamAccessTokenService {
 
 		$this->tokens->revokeByTarget( $purpose, $targetId, $now );
 
-		$plain      = bin2hex( random_bytes( 32 ) );
+		$plain      = $this->newKey( $purpose );
 		$generation = $this->tokens->maxGeneration( $purpose, $targetId ) + 1;
 
 		$id = $this->tokens->insert(
@@ -63,6 +72,7 @@ class ExamAccessTokenService {
 				'purpose'        => $purpose->value,
 				'target_id'      => $targetId,
 				'token_hash'     => $this->crypto->hash( $plain ),
+				'key_enc'        => $this->sealInvitationKey( $purpose, $plain ),
 				'generation'     => $generation,
 				'expires_at'     => $expiresAtUtc,
 				'issuer_user_id' => $issuerUserId,
@@ -77,11 +87,61 @@ class ExamAccessTokenService {
 	}
 
 	/**
+	 * Ключ приглашения школы хранится ещё и зашифрованным: сотрудник должен видеть и копировать ссылку, а не только получить её при выпуске.
+	 * Ключи входа, результата, отчёта и оплаты зашифрованными не хранятся. Нет ключа шифрования — ссылку при выпуске отдают как раньше, а в списке её нет.
+	 */
+	private function sealInvitationKey( ExamTokenPurpose $purpose, string $plain ): ?string {
+		if ( ExamTokenPurpose::Invitation !== $purpose ) {
+			return null;
+		}
+
+		try {
+			return base64_encode( $this->crypto->encrypt( $plain ) );
+		} catch ( \Throwable ) {
+			return null;
+		}
+	}
+
+	/** Открытый ключ действующего приглашения цели; null — ключа нет или он выпущен до хранения (достаточно перевыпустить). */
+	public function invitationKey( int $targetId ): ?string {
+		$sealed = $this->tokens->findActive( ExamTokenPurpose::Invitation, $targetId )?->keyEnc;
+		if ( null === $sealed || '' === $sealed ) {
+			return null;
+		}
+
+		try {
+			$plain = $this->crypto->decrypt( (string) base64_decode( $sealed, true ) );
+		} catch ( \Throwable ) {
+			return null;
+		}
+
+		return '' !== $plain ? $plain : null;
+	}
+
+	/** Новый открытый ключ: короткий уникальный для приглашений школ, длинный для остальных назначений. */
+	private function newKey( ExamTokenPurpose $purpose ): string {
+		if ( ExamTokenPurpose::Invitation !== $purpose ) {
+			return bin2hex( random_bytes( 32 ) );
+		}
+
+		$max = strlen( self::SHORT_ALPHABET ) - 1;
+		do {
+			$plain = '';
+			for ( $i = 0; $i < self::SHORT_LENGTH; $i++ ) {
+				$plain .= self::SHORT_ALPHABET[ random_int( 0, $max ) ];
+			}
+		} while ( null !== $this->tokens->findByHash( $this->crypto->hash( $plain ) ) );
+
+		return $plain;
+	}
+
+	/**
 	 * Меняет открытый ключ на запись о нём. Любой отказ — `null`, без различения причин:
 	 * неверный формат (до обращения к базе), ключ не найден, другое назначение, отозван, истёк.
 	 */
 	public function exchange( ExamTokenPurpose $purpose, string $plain ): ?ExamAccessTokenDTO {
-		if ( 1 !== preg_match( self::KEY_PATTERN, $plain ) ) {
+		$isShort = ExamTokenPurpose::Invitation === $purpose && 1 === preg_match( self::SHORT_PATTERN, $plain );
+		if ( ! $isShort && 1 !== preg_match( self::KEY_PATTERN, $plain ) ) {
 			return null;
 		}
 

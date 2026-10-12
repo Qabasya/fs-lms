@@ -39,12 +39,12 @@ class ExamAccessGuardTest extends TestCase {
 		$this->grantCap( $userId, Capability::ManageSubjects->value, false );
 
 		$group1 = (object) array( 'id' => 1, 'teacher_id' => $userId, 'name' => 'G1', 'subject_key' => 'inf_ege', 'deleted_at' => null );
-		$group2 = (object) array( 'id' => 2, 'teacher_id' => $userId, 'name' => 'G2', 'subject_key' => 'python', 'deleted_at' => null );
+		$group2 = (object) array( 'id' => 2, 'teacher_id' => $userId, 'name' => 'G2', 'subject_key' => 'inf_oge', 'deleted_at' => null );
 
 		$this->groups->method( 'findByTeacherId' )->with( $userId )->willReturn( array( $group1, $group2 ) );
 
 		$this->assertTrue( $this->guard->canManageSubject( $userId, 'inf_ege' ) );
-		$this->assertTrue( $this->guard->canManageSubject( $userId, 'python' ) );
+		$this->assertTrue( $this->guard->canManageSubject( $userId, 'inf_oge' ) );
 		$this->assertFalse( $this->guard->canManageSubject( $userId, 'math' ) );
 	}
 
@@ -68,7 +68,19 @@ class ExamAccessGuardTest extends TestCase {
 
 		$this->assertTrue( $this->guard->isGlobal( $userId ) );
 		$this->assertTrue( $this->guard->canManageSubject( $userId, 'inf_ege' ) );
-		$this->assertTrue( $this->guard->canManageSubject( $userId, 'python' ) );
+		$this->assertTrue( $this->guard->canManageSubject( $userId, 'inf_oge' ) );
+	}
+
+	public function test_only_exam_subjects_are_manageable_even_for_global_user(): void {
+		$userId = 3;
+		$this->grantCap( $userId, Capability::ManageExams->value, true );
+		$this->grantCap( $userId, Capability::Admin->value, true );
+
+		$this->assertFalse( $this->guard->canManageSubject( $userId, 'python' ) );
+		$this->assertSame(
+			array( 'inf_ege', 'inf_oge' ),
+			$this->guard->manageableSubjectKeys( $userId, array( 'python', 'inf_ege', 'robo', 'inf_oge' ) )
+		);
 	}
 
 	public function test_admin_is_global(): void {

@@ -356,16 +356,56 @@ class ExamSourceServiceTest extends TestCase {
 
 	// ---- список --------------------------------------------------------------------------------------------------------------------
 
-	public function test_list_has_no_key_or_hash_and_reports_link_state(): void {
+	public function test_list_has_no_hash_and_reports_link_state_with_stored_url(): void {
 		$this->sources->method( 'listByEvent' )->willReturn( array( $this->source( array( 'key_generation' => '3' ) ) ) );
 		$this->tokens->method( 'hasActive' )->willReturn( true );
+		$this->tokens->method( 'invitationKey' )->willReturn( 'k7m2qx' );
 		$this->applications->method( 'countHeldBySource' )->with( self::SOURCE )->willReturn( 2 );
 
 		$rows = $this->service->list( self::ACTOR, self::EVENT );
 
-		self::assertSame( array( 'id', 'school_name', 'teacher_name', 'grade', 'is_active', 'has_link', 'generation', 'active_holds', 'version' ), array_keys( $rows[0] ) );
+		self::assertSame( array( 'id', 'school_name', 'teacher_name', 'grade', 'is_active', 'has_link', 'url', 'generation', 'active_holds', 'version' ), array_keys( $rows[0] ) );
+		self::assertStringEndsWith( '?k=k7m2qx', $rows[0]['url'], 'Ссылка для копирования собирается из сохранённого ключа; хеша в ответе нет.' );
 		self::assertTrue( $rows[0]['has_link'] );
 		self::assertSame( 3, $rows[0]['generation'] );
 		self::assertSame( 2, $rows[0]['active_holds'] );
+	}
+
+	// ---- открытая запись ----------------------------------------------------------------------------------------------------------
+
+	public function test_list_hides_public_source(): void {
+		$this->sources->method( 'listByEvent' )->willReturn( array( $this->source(), $this->source( array( 'id' => '15', 'school_key' => 'public' ) ) ) );
+
+		self::assertCount( 1, $this->service->list( self::ACTOR, self::EVENT ) );
+	}
+
+	public function test_enabling_public_registration_creates_service_source_and_key(): void {
+		$this->sources->method( 'findPublicByEvent' )->willReturn( null );
+		$this->tokens->expects( self::once() )->method( 'issue' )->with( ExamTokenPurpose::Invitation, self::SOURCE, self::ACTOR );
+
+		$state = $this->service->setPublicRegistration( self::ACTOR, self::EVENT, true );
+
+		self::assertSame( 'public', $this->inserted['school_key'] );
+		self::assertSame( 11, $this->inserted['grade'], 'Класс — по направлению основного варианта (ЕГЭ).' );
+		self::assertSame( 'Открытая запись', $this->inserted['school_name'] );
+		self::assertArrayHasKey( 'url', $state );
+	}
+
+	public function test_disabling_public_registration_switches_source_off(): void {
+		$this->sources->method( 'findPublicByEvent' )->willReturn( $this->source( array( 'school_key' => 'public' ) ) );
+		$this->tokens->expects( self::never() )->method( 'issue' );
+
+		$this->service->setPublicRegistration( self::ACTOR, self::EVENT, false );
+
+		self::assertSame( array( 'is_active' => 0 ), $this->updates[0]['data'] );
+	}
+
+	public function test_public_source_has_no_link_actions(): void {
+		$this->sources = $this->createMock( ExamSourceRepository::class );
+		$this->sources->method( 'find' )->willReturn( $this->source( array( 'school_key' => 'public' ) ) );
+		$this->service = $this->makeService();
+
+		$this->assertRefusal( ErrorCode::ExamConflict, fn () => $this->service->reissueLink( self::ACTOR, self::SOURCE ) );
+		$this->assertRefusal( ErrorCode::ExamConflict, fn () => $this->service->setActive( self::ACTOR, self::SOURCE, false ) );
 	}
 }

@@ -9,7 +9,7 @@ declare( strict_types=1 );
 
 namespace Inc\DTO\Exam;
 
-/** Хеш гостевого ключа с назначением, поколением и сроком действия; открытый ключ не хранится. */
+/** Хеш гостевого ключа с назначением, поколением и сроком действия; открытый ключ хранится только зашифрованным и только у приглашений школ (`keyEnc`). */
 readonly class ExamAccessTokenDTO {
 
 	/** Принимает типизированные поля без обращения к хранилищу. */
@@ -26,6 +26,7 @@ readonly class ExamAccessTokenDTO {
 		public ?string $passedAt,
 		public ?int $passedByUserId,
 		public string $createdAt,
+		public ?string $keyEnc = null,
 	) {}
 
 	/** Восстанавливает типы полей из строки репозитория. */
@@ -43,6 +44,7 @@ readonly class ExamAccessTokenDTO {
 			passedAt      : $row['passed_at'] ?? null,
 			passedByUserId: isset( $row['passed_by_user_id'] ) ? (int) $row['passed_by_user_id'] : null,
 			createdAt     : (string) $row['created_at'],
+			keyEnc        : $row['key_enc'] ?? null,
 		);
 	}
 }

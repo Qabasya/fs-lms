@@ -57,6 +57,7 @@ class GuestSignupViewService {
 		private readonly FormGuardService $guard,
 		private readonly ExamTime $time,
 		private readonly PostManager $posts,
+		private readonly GuestPublicSignupService $publicSignup,
 	) {}
 
 	/**
@@ -73,6 +74,7 @@ class GuestSignupViewService {
 				'school'  => $source->schoolName,
 				'grade'   => $source->grade,
 				'teacher' => $source->teacherName,
+				'public'  => $source->isPublic(),
 			),
 			'event'    => array( 'title' => $event->title ?? '' ),
 			'contacts' => $contacts,
@@ -95,7 +97,7 @@ class GuestSignupViewService {
 				'address'        => $this->contacts->addressWithoutRoom(),
 				'hold_minutes'   => $this->config->examHoldMinutes(),
 				'retention_days' => $this->config->examGuestRetentionDays(),
-				'consents'       => $this->consentList(),
+				'consents'       => $this->consentList( $source->isPublic() ),
 				'honeypot'       => $this->guard->honeypotField(),
 				'form_token'     => $this->guard->timestampToken(),
 			)
@@ -109,6 +111,19 @@ class GuestSignupViewService {
 		}
 
 		return array_merge( $base, array( 'state' => 'form' ) );
+	}
+
+	/**
+	 * Страница открытой записи без приглашения: выбор класса. `$gradeClosed` — гость выбрал класс, на который записи сейчас нет.
+	 *
+	 * @return array{options: list<array{grade: int, label: string, available: bool, url: string}>, grade_closed: bool, contacts: array<string, string>}
+	 */
+	public function publicChooser( bool $gradeClosed ): array {
+		return array(
+			'options'      => $this->publicSignup->options(),
+			'grade_closed' => $gradeClosed,
+			'contacts'     => $this->contacts->get(),
+		);
 	}
 
 	/**
@@ -196,9 +211,13 @@ class GuestSignupViewService {
 	 *
 	 * @return list<array{key: string, title: string, url: string, required: bool}>
 	 */
-	private function consentList(): array {
+	private function consentList( bool $isPublic = false ): array {
 		$list = array();
 		foreach ( self::CONSENTS as $key => $required ) {
+			// Открытая запись не связана со школой: передавать результат преподавателю некому.
+			if ( $isPublic && GuestApplicationService::CONSENT_TRANSFER === $key ) {
+				continue;
+			}
 			$page = $this->consents->getPageForType( $key );
 			if ( null === $page ) {
 				continue;

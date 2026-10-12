@@ -85,13 +85,13 @@ class ExamReportService {
 		return array(
 			'reports' => array_map( fn ( ExamReportDTO $report ): array => $this->view( $report ), $this->reports->listByEvent( $event->id ) ),
 			'blocked' => $blocked,
-			'sources' => array_map(
+			'sources' => array_values( array_map(
 				static fn ( $source ): array => array(
 					'id'    => $source->id,
 					'label' => $source->schoolName . ' · ' . $source->teacherName,
 				),
-				$this->sources->listByEvent( $event->id )
-			),
+				array_filter( $this->sources->listByEvent( $event->id ), static fn ( $source ): bool => ! $source->isPublic() )
+			) ),
 		);
 	}
 
@@ -119,7 +119,7 @@ class ExamReportService {
 		}
 		if ( null !== $recipientSourceId ) {
 			$source = $this->sources->find( $recipientSourceId );
-			if ( null === $source || $source->eventId !== $eventId ) {
+			if ( null === $source || $source->eventId !== $eventId || $source->isPublic() ) {
 				throw new CodedException( ErrorCode::ExamConflict, 'Получатель не из этого проведения.' );
 			}
 		}
@@ -159,6 +159,12 @@ class ExamReportService {
 	public function canInclude( ExamParticipationDTO $participation, int $eventId ): ?string {
 		if ( $participation->eventId !== $eventId ) {
 			return 'Участник не из этого проведения.';
+		}
+
+		// Открытая запись (без ссылки школы): школе передавать некому, результаты остаются только для статистики.
+		$source = null !== $participation->sourceId ? $this->sources->find( $participation->sourceId ) : null;
+		if ( null !== $source && $source->isPublic() ) {
+			return 'Открытая запись: отчёты по таким участникам не формируются.';
 		}
 
 		$attempt = null !== $participation->currentAttemptId ? $this->attempts->find( $participation->currentAttemptId ) : null;

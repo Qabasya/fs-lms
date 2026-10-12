@@ -113,20 +113,20 @@ class WooExamAdapterTest extends TestCase {
 		$this->adapter->addToCart( $this->app() );
 	}
 
-	public function test_second_application_in_same_cart_is_rejected_and_foreign_items_kept(): void {
+	public function test_new_application_replaces_previous_exam_item_and_keeps_foreign_items(): void {
 		$this->cart = array(
 			array( 'key' => 'foreign', 'product_id' => 77, 'data' => array() ),
 			array( 'key' => 'exam', 'product_id' => 500, 'data' => $this->item( 10 ) ),
 		);
-		$this->woo->expects( self::never() )->method( 'removeCartItem' );
+		$removed = array();
+		$this->woo->expects( self::once() )->method( 'removeCartItem' )->willReturnCallback( static function ( string $key ) use ( &$removed ): void {
+			$removed[] = $key;
+		} );
 
-		try {
-			$this->adapter->addToCart( $this->app() );
-			self::fail( 'Ожидался отказ.' );
-		} catch ( CodedException $e ) {
-			self::assertSame( ErrorCode::ExamConflict, $e->errorCode );
-			self::assertSame( 'Завершите оформление первой записи, затем запишите второго участника.', $e->getMessage() );
-		}
+		$this->adapter->addToCart( $this->app() );
+
+		self::assertSame( array( 'exam' ), $removed, 'Прежняя экзаменная позиция убрана, чужой товар не тронут.' );
+		self::assertSame( 9, $this->added[ WooExamAdapter::ITEM_APPLICATION ] );
 	}
 
 	public function test_unavailable_product_is_rejected(): void {
@@ -230,4 +230,27 @@ class WooExamAdapterTest extends TestCase {
 		self::assertSame( array( array( 'until' => '09:20', 'seconds_left' => 1200 ) ), $adapter->holdCountdowns() );
 	}
 
+
+	public function test_test_env_completes_order_without_cart_and_returns_thank_you_url(): void {
+		$this->config->method( 'isTestEnv' )->willReturn( true );
+		$this->woo->expects( self::once() )->method( 'createOrderForProduct' )
+			->with( 500, array( WooExamAdapter::ORDER_ITEM_META => 9 ), array( 'first_name' => 'Тест', 'last_name' => 'Тестов', 'phone' => '+79990001122' ) )
+			->willReturn( 77 );
+		$this->woo->expects( self::once() )->method( 'completePayment' )->with( 77 );
+		$this->woo->expects( self::once() )->method( 'emptyCart' );
+		$this->woo->method( 'orderReceivedUrl' )->willReturn( 'https://example.test/checkout/order-received/77/?key=k' );
+
+		self::assertSame(
+			'https://example.test/checkout/order-received/77/?key=k',
+			$this->adapter->completeInTestEnv( $this->app(), array( 'first_name' => 'Тест', 'last_name' => 'Тестов', 'phone' => '+79990001122' ) )
+		);
+	}
+
+	public function test_production_never_completes_order_itself(): void {
+		$this->config->method( 'isTestEnv' )->willReturn( false );
+		$this->woo->expects( self::never() )->method( 'createOrderForProduct' );
+		$this->woo->expects( self::never() )->method( 'completePayment' );
+
+		self::assertNull( $this->adapter->completeInTestEnv( $this->app(), array( 'first_name' => 'А', 'last_name' => 'Б', 'phone' => '1' ) ) );
+	}
 }

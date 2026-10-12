@@ -31,7 +31,7 @@ export function gradeOfDirection(direction) {
  */
 export function sourceRowHtml(source, canCopy) {
     const link = source.has_link
-        ? `${canCopy ? `<button type="button" class="prof-btn prof-btn-sm" data-src="copy">Скопировать</button>` : ''}
+        ? `${canCopy || source.url ? `<button type="button" class="prof-btn prof-btn-sm" data-src="copy">Скопировать</button>` : ''}
            <button type="button" class="prof-btn prof-btn-sm" data-src="reissue">Перевыпустить</button>
            <button type="button" class="prof-btn prof-btn-sm" data-src="revoke">Отозвать</button>`
         : '<button type="button" class="prof-btn prof-btn-sm prof-btn-primary" data-src="issue">Создать ссылку</button>';
@@ -54,10 +54,15 @@ export function renderSourcesSection(container, o) {
     if (!container) { return; }
     const { api, event, grade } = o;
     let sources = [];
+    let open = { enabled: false, url: '' }; // открытая запись: гость сам выбирает класс по общему адресу страницы записи
     const urls = new Map(); // id источника → адрес со свежим ключом; только пока открыта форма
 
     const draw = () => {
         container.innerHTML = `
+            <div class="gp-title">Открытая запись</div>
+            <label class="gp-field gp-field--check"><input type="checkbox" data-open="toggle" ${open.enabled ? 'checked' : ''}${grade ? '' : ' disabled'}>
+                <span>Гости без ссылки школы выбирают класс на странице записи (отчётов школам по ним нет)</span></label>
+            ${open.enabled ? `<div class="es-open"><code>${esc(open.url)}</code> <button type="button" class="prof-btn prof-btn-sm" data-open="copy">Скопировать</button></div>` : ''}
             <div class="gp-title">Ссылки для преподавателей</div>
             <div class="es-list">${sources.length
                 ? sources.map(s => sourceRowHtml(s, urls.has(s.id))).join('')
@@ -76,7 +81,9 @@ export function renderSourcesSection(container, o) {
 
     const reload = async () => {
         try {
-            sources = (await api('getSources', { event_id: event.id })).sources || [];
+            const res = await api('getSources', { event_id: event.id });
+            sources = res.sources || [];
+            open = res.public || open;
         } catch (err) {
             container.innerHTML = `<div class="gp-error">${esc(err.message)}</div>`;
             return;
@@ -106,6 +113,15 @@ export function renderSourcesSection(container, o) {
             if (full) { schoolInput.value = full; }
         });
 
+        container.querySelector('[data-open="toggle"]')?.addEventListener('change', e => act(
+            async () => { open = (await api('setPublicRegistration', { event_id: event.id, enabled: e.target.checked ? 1 : 0 })).public; },
+            e.target.checked ? 'Открытая запись включена' : 'Открытая запись выключена'
+        ));
+        container.querySelector('[data-open="copy"]')?.addEventListener('click', async () => {
+            const copied = await copyToClipboard(open.url);
+            toast(copied ? 'Адрес скопирован' : 'Не удалось скопировать', copied ? 'ok' : 'error');
+        });
+
         container.querySelector('[data-src="add"]')?.addEventListener('click', () => act(async () => {
             // Из справочника — название и ключ; свободный ввод — только название (ключа нет, школы не объединяются по похожей строке).
             const typed = schoolInput.value;
@@ -126,7 +142,7 @@ export function renderSourcesSection(container, o) {
                 urls.set(id, (await api('issueSourceLink', { source_id: id })).url);
             }, 'Ссылка создана'));
             row.querySelector('[data-src="copy"]')?.addEventListener('click', async () => {
-                const copied = await copyToClipboard(urls.get(id));
+                const copied = await copyToClipboard(urls.get(id) || sources.find(x => x.id === id)?.url);
                 toast(copied ? 'Ссылка скопирована' : 'Не удалось скопировать', copied ? 'ok' : 'error');
             });
             row.querySelector('[data-src="reissue"]')?.addEventListener('click', async () => {

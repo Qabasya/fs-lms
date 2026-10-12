@@ -83,6 +83,7 @@ class ExamGuestPageController extends BaseController implements ServiceInterface
 				strtolower( trim( $this->sanitizeGetText( 'pay' ) ) ),
 				strtolower( $this->sanitizeCookieText( GuestSessionService::COOKIE_INVITATION ) ),
 				$this->requestContext()->ip,
+				(int) $this->sanitizeGetText( 'grade' ),
 			)
 		);
 	}
@@ -119,9 +120,14 @@ class ExamGuestPageController extends BaseController implements ServiceInterface
 
 	/** Шорткод формы записи. */
 	public function renderSignupPage(): string {
-		$source = $this->access->currentSource( strtolower( $this->sanitizeCookieText( GuestSessionService::COOKIE_INVITATION ) ) );
+		$grade  = (int) $this->sanitizeGetText( 'grade' );
+		$source = $grade > 0 ? null : $this->access->currentSource( strtolower( $this->sanitizeCookieText( GuestSessionService::COOKIE_INVITATION ) ) );
 		if ( null === $source ) {
-			return '';
+			// Нет приглашения: страница открытой записи с выбором класса (неудачный выбор класса — с пояснением).
+			ob_start();
+			$this->render( 'frontend/exam-signup-public', $this->signup->publicChooser( $grade > 0 ) );
+
+			return (string) ob_get_clean();
 		}
 
 		ob_start();

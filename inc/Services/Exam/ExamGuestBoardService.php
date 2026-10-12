@@ -23,6 +23,7 @@ use Inc\Repositories\WPDBRepositories\ExamPaymentLinkRepository;
 class ExamGuestBoardService {
 
 	public const ACTION_COPY_PAY_LINK = 'copy_pay_link';
+	public const ACTION_ACCEPT_FREE   = 'accept_free';
 
 	/** Получает заявки и связи оплаты для гостевых строк доски без платёжных команд. */
 	public function __construct(
@@ -73,7 +74,7 @@ class ExamGuestBoardService {
 				'hold_until'     => substr( $this->time->toLocal( $application->holdExpiresAt ), 11, 5 ),
 				'seconds_left'   => max( 0, $this->time->secondsUntil( $nowUtc, $application->holdExpiresAt ) ),
 				'on_site'        => null !== $application->createdByUserId,
-				'actions'        => array( self::ACTION_COPY_PAY_LINK ),
+				'actions'        => array( self::ACTION_COPY_PAY_LINK, self::ACTION_ACCEPT_FREE ),
 			);
 		}
 

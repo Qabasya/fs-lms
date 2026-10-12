@@ -82,7 +82,8 @@ class ExamReportPageTest extends TestCase {
 				$this->createMock( \Inc\Repositories\WPDBRepositories\ExamSessionRepository::class ),
 				$this->createMock( \Inc\Services\Exam\ExamReviewProjection::class ),
 				$this->reports,
-				$this->reportService
+				$this->reportService,
+				$this->createMock( \Inc\Services\Exam\GuestPublicSignupService::class )
 			);
 		$this->cb = new \Inc\Controllers\Exam\ExamGuestPageController(
 			$this->access,
@@ -156,7 +157,8 @@ class ExamReportPageTest extends TestCase {
 				$this->createMock( \Inc\Repositories\WPDBRepositories\ExamSessionRepository::class ),
 				$this->createMock( \Inc\Services\Exam\ExamReviewProjection::class ),
 				$this->reports,
-				$reportService
+				$reportService,
+				$this->createMock( \Inc\Services\Exam\GuestPublicSignupService::class )
 			);
 		$this->sessions->expects( self::never() )->method( 'openReport' );
 

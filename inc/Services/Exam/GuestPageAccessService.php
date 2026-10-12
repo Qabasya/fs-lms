@@ -52,10 +52,14 @@ class GuestPageAccessService {
 		private readonly ExamReviewProjection $reviews,
 		private readonly ExamReportRepository $reports,
 		private readonly ExamReportService $reportService,
+		private readonly GuestPublicSignupService $publicSignup,
 	) {}
 
-	/** Обмен ключа/платёжный переход либо проверка приглашения из сессионной куки. */
-	public function invitationPage( string $key, string $pay, string $cookie, string $ip ): GuestPageOutcome {
+	/**
+	 * Обмен ключа/платёжный переход, выбор класса открытой записи либо проверка приглашения из сессионной куки.
+	 * Без ключа, класса и действующей сессии открывается страница выбора класса (открытая запись), а не 404.
+	 */
+	public function invitationPage( string $key, string $pay, string $cookie, string $ip, int $grade = 0 ): GuestPageOutcome {
 		if ( '' !== $pay ) {
 			return $this->openPayment( $pay, $ip );
 		}
@@ -64,13 +68,27 @@ class GuestPageAccessService {
 			return $this->exchangeInvitation( $key, $ip );
 		}
 
+		if ( $grade > 0 ) {
+			return $this->openPublicGrade( $grade );
+		}
+
 		$source = $this->currentSource( $cookie );
 		if ( null === $source ) {
-			return GuestPageOutcome::notFound();
+			return GuestPageOutcome::render();
 		}
 		$this->formLog->opened( $source );
 
 		return GuestPageOutcome::render();
+	}
+
+	/** Выбран класс открытой записи: сессия приглашения и адрес без параметра; нет записи на класс — страница выбора с пояснением. */
+	private function openPublicGrade( int $grade ): GuestPageOutcome {
+		$cookie = $this->publicSignup->openForGrade( $grade );
+		if ( null === $cookie ) {
+			return GuestPageOutcome::render();
+		}
+
+		return GuestPageOutcome::redirect( PageRoutes::ExamSignup->url(), array( GuestSessionService::COOKIE_INVITATION => $cookie ) );
 	}
 
 	/** Источник действующего приглашения; входные cookies читает транспортный адаптер. */

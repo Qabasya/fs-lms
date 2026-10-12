@@ -12,6 +12,9 @@ namespace Inc\DTO\Exam;
 /** Источник приглашения гостя со снимком школы, класса и преподавателя. */
 readonly class ExamSourceDTO {
 
+	/** Ключ школы служебного источника «Открытая запись»: запись без ссылки школы со страницы выбора класса. Школьных отчётов по нему нет. */
+	public const PUBLIC_KEY = 'public';
+
 	/** Принимает типизированные поля без обращения к хранилищу. */
 	public function __construct(
 		public int $id,
@@ -30,6 +33,11 @@ readonly class ExamSourceDTO {
 		public string $createdAt,
 		public string $updatedAt,
 	) {}
+
+	/** Источник открытой записи (не школа): отчёты по его участникам не формируются. */
+	public function isPublic(): bool {
+		return self::PUBLIC_KEY === $this->schoolKey;
+	}
 
 	/** Восстанавливает типы полей из строки репозитория. */
 	public static function fromArray( array $row ): self {

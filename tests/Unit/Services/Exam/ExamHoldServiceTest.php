@@ -365,6 +365,43 @@ class ExamHoldServiceTest extends TestCase {
 		self::assertSame( 1, $final['version'], 'Версия, прочитанная под блокировкой заявки.' );
 	}
 
+	public function test_accept_without_payment_confirms_live_hold_and_writes_resolution(): void {
+		$this->registrations->method( 'confirmHeld' )->willReturnCallback( function () {
+			$this->application = $this->examGuestApplication( array( 'state' => 'confirmed', 'is_held' => '0', 'participation_id' => '41' ) );
+
+			return $this->registrationResult();
+		} );
+		$row = array();
+		$this->resolutionsRepo->expects( self::once() )->method( 'insert' )->willReturnCallback( function ( array $data ) use ( &$row ): int {
+			$row = $data;
+			return 1;
+		} );
+
+		$accepted = $this->service->acceptWithoutPayment( 7, self::APPLICATION, 'Подарок' );
+
+		self::assertSame( 'confirmed', $accepted->state );
+		self::assertSame( 'accepted_manually', $row['kind'] );
+		self::assertSame( 'Подарок', $row['reason'] );
+		self::assertSame( 7, $row['actor_user_id'] );
+	}
+
+	public function test_accept_without_payment_refuses_expired_or_finished_hold(): void {
+		$this->registrations->expects( self::never() )->method( 'confirmHeld' );
+		$this->resolutionsRepo->expects( self::never() )->method( 'insert' );
+
+		$this->application = $this->examGuestApplication( array( 'hold_expires_at' => '2026-03-10 06:59:00' ) );
+		try {
+			$this->service->acceptWithoutPayment( 7, self::APPLICATION, 'Подарок' );
+			self::fail( 'Ожидался отказ.' );
+		} catch ( CodedException $e ) {
+			self::assertSame( 'Бронь уже не действует: оформите запись заново.', $e->getMessage() );
+		}
+
+		$this->application = $this->examGuestApplication( array( 'state' => 'confirmed', 'is_held' => '0' ) );
+		$this->expectException( CodedException::class );
+		$this->service->acceptWithoutPayment( 7, self::APPLICATION, 'Подарок' );
+	}
+
 	public function test_convert_takes_application_lock_first_and_creates_participant_from_source_snapshot(): void {
 		$this->application = $this->examGuestApplication( array( 'source_snapshot' => '{"school_name":"Школа 5","school_key":"s5","grade":9}' ) );
 		$this->participants->expects( self::once() )->method( 'insert' )->with( self::callback( static fn ( array $row ): bool => 'Школа 5' === $row['school_name'] && 's5' === $row['school_key'] && 9 === $row['grade'] && ! isset( $row['name_enc'] ) ) )->willReturn( 31 );

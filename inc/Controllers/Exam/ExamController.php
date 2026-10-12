@@ -63,6 +63,7 @@ class ExamController extends AjaxController {
 			array( AjaxHook::MoveExamSession, $this->events ),
 			array( AjaxHook::CancelExamSession, $this->events ),
 			array( AjaxHook::CancelExamEvent, $this->events ),
+			array( AjaxHook::DeleteExamEvent, $this->events ),
 
 			array( AjaxHook::GetExamConduct, $this->conduct ),
 			array( AjaxHook::CancelExamRegistrationByStaff, $this->conduct ),
@@ -71,6 +72,7 @@ class ExamController extends AjaxController {
 			array( AjaxHook::MarkExamArrival, $this->conduct ),
 			array( AjaxHook::AddExamGuestOnSite, $this->conduct ),
 			array( AjaxHook::IssueExamGuestPayLink, $this->conduct ),
+			array( AjaxHook::AcceptExamHoldWithoutPayment, $this->conduct ),
 			array( AjaxHook::AdmitExamGuest, $this->conduct ),
 			array( AjaxHook::IssueExamEntryLink, $this->conduct ),
 			array( AjaxHook::GetExamPaymentQueue, $this->paymentQueue ),
@@ -99,6 +101,7 @@ class ExamController extends AjaxController {
 			array( AjaxHook::ReissueExamSourceLink, $this->sources ),
 			array( AjaxHook::RevokeExamSourceLink, $this->sources ),
 			array( AjaxHook::ToggleExamSource, $this->sources ),
+			array( AjaxHook::SetExamPublicRegistration, $this->sources ),
 		);
 	}
 

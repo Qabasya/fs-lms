@@ -389,6 +389,17 @@ class ExamConductCallbacks extends BaseController {
 		$this->run( fn (): array => $this->onSite->reissuePayLink( get_current_user_id(), $applicationId ) );
 	}
 
+	/** «Принять без оплаты» (подарочное посещение): бронь становится записью; причина обязательна, ответ — обновлённая доска. */
+	public function ajaxAcceptExamHoldWithoutPayment(): void {
+		$this->authorize( Nonce::ExamManage, Capability::ManageExamGuests );
+
+		$sessionId     = $this->requireInt( 'session_id' );
+		$applicationId = $this->requireInt( 'application_id' );
+		$reason        = $this->sanitizeMultilineText( 'reason' );
+
+		$this->runOnBoard( $sessionId, fn () => $this->onSite->acceptWithoutPayment( get_current_user_id(), $applicationId, $reason ) );
+	}
+
 	/**
 	 * Выполняет действие и отвечает обновлённой доской сеанса.
 	 *

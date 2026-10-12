@@ -92,7 +92,7 @@ class ExamGuestBoardServiceTest extends TestCase {
 		self::assertSame( 1200, $holds[0]['seconds_left'] );
 		self::assertFalse( $holds[0]['on_site'] );
 		self::assertTrue( $holds[1]['on_site'] );
-		self::assertSame( array( 'copy_pay_link' ), $holds[0]['actions'] );
+		self::assertSame( array( 'copy_pay_link', 'accept_free' ), $holds[0]['actions'] );
 		self::assertSame( 'Иванов Пётр', $holds[0]['name'] );
 		foreach ( array( 'phone', 'messenger' ) as $key ) {
 			self::assertArrayNotHasKey( $key, $holds[0] );
