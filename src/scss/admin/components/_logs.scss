@@ -53,3 +53,11 @@
   display: block;
   margin-top: $spacing-xs;
 }
+
+// Текст сообщения читателя в модалке журнала «Найденные ошибки»
+.fs-report-text {
+  margin: 0;
+  font-size: $font-size-base;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

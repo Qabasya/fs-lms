@@ -235,6 +235,8 @@ enum AjaxHook: string {
 	// Журнал «Ошибки»: сбой, которого сервер не видел. params: code, message, ref, source_action, page_url, status, snippet
 	case ReportClientError = 'report_client_error';
 	case ExportErrorLog    = 'export_error_log';
+	// Кнопка «Нашли ошибку?» на странице задания/статьи (priv + nopriv). params: post_id, task_id, message
+	case ReportContentError = 'report_content_error';
 	case GradeBatchTask  = 'grade_batch_task';  // params: submission_id, score, feedback
 
 	// ==== Предпросмотр курса — dry-run проверка (#5), без сохранения ====

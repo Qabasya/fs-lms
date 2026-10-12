@@ -92,6 +92,9 @@ class SubjectCptArgsBuilder {
 				array(
 					'supports'        => array( 'title' ),
 					'show_in_menu'    => false,
+					// По умолчанию наследует show_in_menu (false) — без этого в админбаре
+					// страницы задания/статьи нет пункта «Изменить».
+					'show_in_admin_bar' => true,
 					'capability_type' => 'fs_lms_content',
 					'map_meta_cap'    => true,
 				),
@@ -119,6 +122,9 @@ class SubjectCptArgsBuilder {
 				array(
 					'supports'        => array( 'title', 'editor', 'thumbnail' ),
 					'show_in_menu'    => false,
+					// По умолчанию наследует show_in_menu (false) — без этого в админбаре
+					// страницы задания/статьи нет пункта «Изменить».
+					'show_in_admin_bar' => true,
 					'capability_type' => 'fs_lms_article',
 					'map_meta_cap'    => true,
 				),

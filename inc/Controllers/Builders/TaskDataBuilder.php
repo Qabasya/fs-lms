@@ -375,6 +375,8 @@ readonly class TaskDataBuilder {
 			'limit'   => 1,
 			'orderby' => 'date',
 			'order'   => $oldest ? 'ASC' : 'DESC',
+			// Дочерние задания связки 19-21 — служебные, в кольцо не входят.
+			'meta_query' => $this->post_manager->bundleChildExclusion(),
 		);
 
 		if ( $task_type ) {

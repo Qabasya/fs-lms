@@ -150,4 +150,6 @@ ThemeCompatService::header();
 	</button>
 </div>
 
+<?php include __DIR__ . '/partials/report-error-modal.php'; ?>
+
 <?php ThemeCompatService::footer(); ?>

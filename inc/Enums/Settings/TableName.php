@@ -21,6 +21,7 @@ enum TableName: string {
 	case EmailLog          = 'fs_lms_email_log';
 	case AuthLog           = 'fs_lms_auth_log';
 	case ErrorLog          = 'fs_lms_error_log';
+	case ContentReport     = 'fs_lms_content_reports';
 
 	// ==== Этап 2 — программа группы ====
 	case GroupLessons   = 'fs_lms_group_lessons';

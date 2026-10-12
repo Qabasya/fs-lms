@@ -68,6 +68,8 @@ readonly class RateLimitService {
 	private const LIMIT_EMAIL_CHECK    = 20;
 	/** Отчёты о сбоях из браузера (журнал «Ошибки»): защита таблицы от засева. */
 	private const LIMIT_CLIENT_ERROR   = 30;
+	/** Сообщения «Нашли ошибку?»: защита журнала от засева. */
+	private const LIMIT_CONTENT_REPORT = 10;
 	/** События формы родителя (журнал «Зачисления»): на визит их единицы, лимит — от засева. */
 	private const LIMIT_JOIN_TRACK     = 60;
 	private const LIMIT_APPLY_TRACK    = 60;
@@ -128,6 +130,15 @@ readonly class RateLimitService {
 	public function allowOtpSendForEmail( string $email ): bool {
 		if ( $this->pluginConfig->isTestEnv() ) { return true; }
 		return $this->check( $this->emailKey( 'otpmail', $email ), self::LIMIT_OTP_EMAIL, DAY_IN_SECONDS );
+	}
+
+	/**
+	 * Сообщение об ошибке в задании или статье («Нашли ошибку?»).
+	 *
+	 * @param string $ip IP-адрес клиента
+	 */
+	public function allowContentReport( string $ip ): bool {
+		return $this->checkIp( 'contentreport', $ip, self::LIMIT_CONTENT_REPORT );
 	}
 
 	/**

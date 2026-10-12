@@ -124,6 +124,9 @@ enum Nonce: string {
 		return wp_create_nonce( $this->value );
 	}
 
+	/** Кнопка «Нашли ошибку?» на страницах заданий и статей. */
+	case ReportContentError = 'fs_lms_report_content_error';
+
 	/** Страница «Все задания» и AJAX-фильтрация. */
 	case AllTasks = 'fs_lms_all_tasks_nonce';
 

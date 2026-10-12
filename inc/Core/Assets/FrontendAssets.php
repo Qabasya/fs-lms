@@ -133,7 +133,33 @@ class FrontendAssets extends BaseController {
 			// Модульные скины контрольной (EgeComputer и т.п.) на общем стеке —
 			// данные попытки из единого провайдера BundleLoader::assessmentVars().
 			'fs_lms_assessment_vars' => $isAssessment ? $this->bundles->assessmentVars() : null,
+			'fs_lms_report_vars'     => $this->isContentPage() ? $this->reportVars() : null,
 			'fs_lms_join_vars'       => 'join' === get_query_var( 'fs_lms_page' ) ? $this->joinVars() : null,
+		);
+	}
+
+	/** Страница одного задания или статьи — там живёт кнопка «Нашли ошибку?». */
+	private function isContentPage(): bool {
+		if ( ! is_singular() ) {
+			return false;
+		}
+
+		$type = (string) get_post_type();
+
+		return PostTypeResolver::isTaskPostType( $type ) || PostTypeResolver::isArticlePostType( $type );
+	}
+
+	/**
+	 * Кнопка «Нашли ошибку?» на страницах заданий и статей.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function reportVars(): array {
+		return array(
+			'ajax_url' => admin_url( 'admin-ajax.php' ),
+			'post_id'  => (int) get_the_ID(),
+			'action'   => AjaxHook::ReportContentError->jsAction(),
+			'nonce'    => Nonce::ReportContentError->create(),
 		);
 	}
 
