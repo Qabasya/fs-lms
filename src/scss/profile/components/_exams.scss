@@ -196,6 +196,9 @@
 .exam-results-segs { align-self: flex-start; max-width: 100%; overflow-x: auto; }
 .exam-results-filters { display: flex; flex-wrap: wrap; align-items: center; gap: t.$spacing-sm; }
 
+/* Название проведения может быть длиннее свободного места рядом с подписью. */
+.exam-conduct-event select { min-width: 0; }
+
 .exam-results-filters select {
   max-width: 100%; height: $exam-filter-height; padding: 0 t.$spacing-md;
   border: 1px solid var(--line); border-radius: var(--radius-sm);
