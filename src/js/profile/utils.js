@@ -168,8 +168,34 @@ export function closeCtxMenu() {
 }
 
 /* ── Grade popover (shared) ────────────────────────────────────── */
+let positionedGradePop = null;
+
+function clearGradePopPositioning() {
+    positionedGradePop = null;
+    window.removeEventListener('resize', repositionGradePop);
+}
+
+function repositionGradePop() {
+    if (!positionedGradePop) return;
+    const { pop, anchor } = positionedGradePop;
+    if (!pop.classList.contains('open')) {
+        clearGradePopPositioning();
+        return;
+    }
+    // Центрированная форма сама следует за экраном; её координаты не меняем.
+    if (!pop.classList.contains('is-modal')) positionGradePop(pop, anchor);
+}
+
 export function openGradePopPositioned(pop, anchor) {
     pop.classList.add('open');
+    positionedGradePop = { pop, anchor };
+    window.addEventListener('resize', repositionGradePop);
+    positionGradePop(pop, anchor);
+    const backdrop = document.getElementById('profCtxBackdrop');
+    if (backdrop) backdrop.classList.add('open');
+}
+
+function positionGradePop(pop, anchor) {
     const r = anchor.getBoundingClientRect();
     const pw = pop.offsetWidth, ph = pop.offsetHeight;
     let left = r.left + r.width / 2 - pw / 2;
@@ -182,11 +208,10 @@ export function openGradePopPositioned(pop, anchor) {
     top = Math.max(10, Math.min(top, window.innerHeight - ph - 10));
     pop.style.left = left + 'px';
     pop.style.top = top + 'px';
-    const backdrop = document.getElementById('profCtxBackdrop');
-    if (backdrop) backdrop.classList.add('open');
 }
 
 export function closeGradePop() {
+    clearGradePopPositioning();
     const pop = document.getElementById('profGradePop');
     if (pop) pop.classList.remove('open');
     const menu = document.getElementById('profCtxMenu');
