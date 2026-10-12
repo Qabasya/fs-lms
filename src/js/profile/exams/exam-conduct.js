@@ -174,6 +174,7 @@ function render() {
     const s = board.session;
     root.innerHTML = `
         <div class="exam-conduct">
+            ${eventSwitcher()}
             ${sessionSwitcher()}
             <div class="exam-conduct-head">
                 <div class="exam-conduct-titlebar">
@@ -223,6 +224,15 @@ function approvalToolbar() {
     }
     return `<button type="button" class="prof-btn prof-btn-sm prof-btn-primary" data-approve="confirm">${esc(approveButtonLabel(selected.size))}</button>
         <button type="button" class="prof-btn prof-btn-sm" data-approve="cancel">Отмена</button>`;
+}
+
+/** Переключатель проведения: показывается, когда у предмета их больше одного; выбор открывает ближайший сеанс выбранного. */
+function eventSwitcher() {
+    const events = board.events || [];
+    if (events.length < 2) { return ''; }
+    return `<div class="exam-conduct-event"><span class="kp-label">Проведение</span>
+        <select data-event aria-label="Проведение">${events.map(e =>
+            `<option value="${e.session_id}"${e.id === board.event.id ? ' selected' : ''}>${esc(e.title)}</option>`).join('')}</select></div>`;
 }
 
 function sessionSwitcher() {
@@ -323,6 +333,11 @@ async function approveSelected() {
 
 /* ── Действия ─────────────────────────────────────────────────────────── */
 function wire() {
+    root.querySelector('[data-event]')?.addEventListener('change', e => {
+        sessionId = Number(e.target.value);
+        resetSelection();
+        load();
+    });
     root.querySelectorAll('[data-session]').forEach(btn => btn.addEventListener('click', () => {
         sessionId = Number(btn.dataset.session);
         resetSelection();

@@ -10,6 +10,8 @@
 
 body { @include cab-body; }
 
+@include cab-select-arrow;
+
 /* Общие состояния загрузки/пустоты — используются в нескольких экранах
    (dashboard/substitutions/learner). */
 .rev-loading { color: var(--muted);   font-size: rem(14); padding: rem(40) rem(20); text-align: center; }

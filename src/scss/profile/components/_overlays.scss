@@ -10,6 +10,7 @@
 
 .prof-ctx-backdrop { position: fixed; inset: 0; z-index: $z-ctx; display: none; }
 .prof-ctx-backdrop.open { display: block; }
+.prof-ctx-backdrop.dim { background: var(--backdrop); }
 
 .prof-ctx-menu {
   position: fixed; z-index: $z-ctx + 1; background: var(--surface); border: 1px solid var(--line);
@@ -62,6 +63,36 @@
   max-height: calc(100vh - rem(20)); overflow-y: auto;
 }
 .prof-grade-pop.open { display: block; animation: profCtxIn $tr ease; }
+
+/* Поля форм поповера: подписи — колонка одной ширины, значения и поля ввода начинаются на одной линии слева */
+@media (min-width: #{$breakpoint-mobile + 1}) {
+  .prof-grade-pop.open .gp-field:not(.gp-field--check) { justify-content: flex-start; gap: rem(12); }
+  .prof-grade-pop.open .gp-field:not(.gp-field--check) > span:first-child { flex: 0 0 rem(150); }
+  .prof-grade-pop.open .gp-field > :is(input:not([type="checkbox"]), select, textarea, .gp-time, .gp-fixed) { flex: 1 1 0; min-width: 0; text-align: left; }
+}
+
+/* Модальный режим: по центру вьюпорта, поверх затемнения; на узком экране — на всю ширину */
+.prof-grade-pop.is-modal {
+  top: 50%; left: 50%; translate: -50% -50%;
+  max-height: calc(100vh - rem(40)); padding: rem(18) rem(20);
+}
+
+@media (max-width: $breakpoint-mobile) {
+  .prof-grade-pop.is-modal { width: calc(100vw - rem(20)); }
+  .prof-grade-pop.is-modal .gp-form { min-width: 0; }
+
+  // Подпись над полем, пары дат — друг под другом: в строку они не помещаются
+  .prof-grade-pop.is-modal .gp-field:not(.gp-field--check) { flex-direction: column; align-items: stretch; gap: rem(4); }
+
+  .prof-grade-pop.is-modal .gp-field > span { flex: 0 0 auto; }
+
+  .prof-grade-pop.is-modal .gp-field > input:not([type="checkbox"]),
+  .prof-grade-pop.is-modal .gp-field > select,
+  .prof-grade-pop.is-modal .gp-field > textarea { flex: 0 0 auto; width: 100%; min-width: 0; }
+  .prof-grade-pop.is-modal .gp-field > .gp-time { flex-direction: column; align-items: stretch; }
+  .prof-grade-pop.is-modal .gp-field > .gp-time .gp-dash { display: none; }
+  .prof-grade-pop.is-modal .gp-field > .gp-time input { flex: 0 0 auto; width: 100%; min-width: 0; }
+}
 
 /* B1: форма инд. занятия — не уже 500px (в отметке посещаемости обёртки нет). */
 .gp-form { min-width: rem(500); }

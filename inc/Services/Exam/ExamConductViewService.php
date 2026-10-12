@@ -21,6 +21,7 @@ use Inc\Enums\Exam\ExamConductAction;
 use Inc\Enums\Exam\ExamResultStatus;
 use Inc\Enums\Exam\ExamProgress;
 use Inc\Enums\Exam\ExamRegistrationStatus;
+use Inc\Enums\Exam\ExamEventStatus;
 use Inc\Enums\Exam\ExamSessionStatus;
 use Inc\Enums\Exam\ExamTokenPurpose;
 use Inc\Enums\Log\ErrorCode;
@@ -88,6 +89,11 @@ class ExamConductViewService {
 			'rows'     => $rows,
 			'warnings' => $this->warnings( $session, $rows ),
 			'sessions' => $this->eventView->siblings( $event ),
+			'event'    => array(
+				'id'    => $event->id,
+				'title' => $event->title,
+			),
+			'events'   => $this->eventChoices( $actorUserId, $event ),
 			'rooms'    => $this->plans->roomsFor( $event->subjectKey ),
 			'sources'  => $this->eventView->sourceOptions( $event->id ),
 			'holds'    => $this->guestBoard->holdsOf( $session ),
@@ -537,5 +543,44 @@ class ExamConductViewService {
 	/** ФИО участника для таблицы сотрудника. */
 	private function participantName( ExamParticipantDTO $participant ): string {
 		return $this->names->participantName( $participant );
+	}
+
+	/**
+	 * Проведения предмета для переключателя экрана: опубликованные и доступные сотруднику; у каждого — сеанс, который открывается
+	 * по выбору (ближайший будущий, иначе последний).
+	 *
+	 * @return list<array{id: int, title: string, session_id: int}>
+	 */
+	private function eventChoices( int $actorUserId, ExamEventDTO $current ): array {
+		$nowUtc  = $this->time->nowUtc();
+		$choices = array();
+
+		foreach ( $this->events->findBySubjectKey( $current->subjectKey ) as $event ) {
+			if ( ExamEventStatus::Published->value !== $event->status || ! $this->guard->canManageEvent( $actorUserId, $event ) ) {
+				continue;
+			}
+
+			$pick = null;
+			foreach ( $this->sessions->findByEvent( $event->id ) as $session ) {
+				if ( ExamSessionStatus::Cancelled->value === $session->status ) {
+					continue;
+				}
+				// Сеансы идут по возрастанию времени: первый будущий выигрывает, а пока будущих нет — берём самый поздний прошедший.
+				$pickIsPast = null !== $pick && $pick->scheduledAt < $nowUtc;
+				if ( null === $pick || $pickIsPast ) {
+					$pick = $session;
+				}
+			}
+
+			if ( null !== $pick ) {
+				$choices[] = array(
+					'id'         => $event->id,
+					'title'      => $event->title,
+					'session_id' => $pick->id,
+				);
+			}
+		}
+
+		return $choices;
 	}
 }

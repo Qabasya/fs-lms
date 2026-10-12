@@ -1,7 +1,7 @@
 /* ══════════════════════════════════════════════════════════════════════
    «Настройки проведения» (этап 4.5): название, описание для участника, период «с — по», окно записи, основной вариант,
    запись гостей по ссылкам школ; форма отмены проведения с обязательной причиной.
-   Поповер `prof-grade-pop` + `gp-form`, как у формы сеанса. Клиентская проверка до отправки дублирует серверную, не заменяет:
+   Настройки — модалка (`prof-grade-pop` по центру с затемнением: форма длинная, у якоря не умещалась), отмена — поповер у кнопки; `gp-form`, как у формы сеанса. Клиентская проверка до отправки дублирует серверную, не заменяет:
    ошибка показывается у поля, при отказе сервера — под формой, введённое не теряется.
 
    Вызов: openEventForm({ api, anchor, subjectKey, event?, variants, canManageGuests, launch, onSaved(eventId) }).
@@ -9,7 +9,7 @@
           openCancelForm({ api, anchor, event, onDone }).
    ══════════════════════════════════════════════════════════════════════ */
 
-import { esc, toast, openGradePopPositioned, closeGradePop } from '../utils.js';
+import { esc, toast, openGradePopPositioned, openGradePopModal, closeGradePop } from '../utils.js';
 import { toDateTimeLocal, validateEventForm } from './exam-common.js';
 import { renderSourcesSection, gradeOfDirection } from './exam-sources.js';
 
@@ -134,7 +134,7 @@ export function openEventForm(o) {
         renderSourcesSection($('#evSources'), { api, event, grade: gradeOfDirection(main && main.direction) });
     }
 
-    openGradePopPositioned(pop, o.anchor);
+    openGradePopModal(pop);
 }
 
 /** Отмена проведения: причина обязательна. Пока есть записи, сервер откажет — текст отказа показывается в форме. */

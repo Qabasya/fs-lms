@@ -210,13 +210,22 @@ function positionGradePop(pop, anchor) {
     pop.style.top = top + 'px';
 }
 
+/* Тот же поповер, но по центру экрана с затемнением: для длинных форм, которым тесно у якоря (настройки проведения). */
+export function openGradePopModal(pop) {
+    pop.classList.add('open', 'is-modal');
+    pop.style.left = '';
+    pop.style.top = '';
+    const backdrop = document.getElementById('profCtxBackdrop');
+    if (backdrop) backdrop.classList.add('open', 'dim');
+}
+
 export function closeGradePop() {
     clearGradePopPositioning();
     const pop = document.getElementById('profGradePop');
-    if (pop) pop.classList.remove('open');
+    if (pop) pop.classList.remove('open', 'is-modal');
     const menu = document.getElementById('profCtxMenu');
     if (!menu || !menu.classList.contains('open')) {
         const backdrop = document.getElementById('profCtxBackdrop');
-        if (backdrop) backdrop.classList.remove('open');
+        if (backdrop) backdrop.classList.remove('open', 'dim');
     }
 }

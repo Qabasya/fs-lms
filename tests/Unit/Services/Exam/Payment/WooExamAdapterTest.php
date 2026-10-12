@@ -33,6 +33,7 @@ class WooExamAdapterTest extends TestCase {
 	private ExamGuestApplicationRepository&MockObject $applications;
 	private ExamPaymentLinkRepository&MockObject $links;
 	private ExamHoldService&MockObject $holds;
+	private PluginConfig&MockObject $config;
 	private WooExamAdapter $adapter;
 
 	/** @var list<array{key: string, product_id: int, data: array<string, mixed>}> */
@@ -49,6 +50,7 @@ class WooExamAdapterTest extends TestCase {
 		$this->links        = $this->createMock( ExamPaymentLinkRepository::class );
 		$this->holds        = $this->createMock( ExamHoldService::class );
 		$config             = $this->createMock( PluginConfig::class );
+		$this->config       = $config;
 		$config->method( 'examProductId' )->willReturn( 500 );
 		$time = $this->createStub( ExamTime::class );
 		$time->method( 'nowUtc' )->willReturnCallback( fn (): string => $this->nowUtc );
@@ -197,6 +199,16 @@ class WooExamAdapterTest extends TestCase {
 		$this->links->expects( self::never() )->method( 'insert' );
 
 		$this->adapter->linkOrder( 77 );
+	}
+
+	public function test_test_env_skips_payment_only_for_exam_cart(): void {
+		$this->config->method( 'isTestEnv' )->willReturn( true );
+
+		$this->cart = array( array( 'key' => 'k', 'product_id' => 500, 'data' => $this->item() ) );
+		self::assertFalse( $this->adapter->needsPayment( true ), 'Корзина с экзаменом в тестовом окружении оформляется без шлюза.' );
+
+		$this->cart = array( array( 'key' => 'k', 'product_id' => 77, 'data' => array() ) );
+		self::assertTrue( $this->adapter->needsPayment( true ), 'Чужие товары платятся как обычно.' );
 	}
 	public function test_quantity_rules_preserve_other_products_and_failed_validation(): void {
 		self::assertSame( '1', $this->adapter->quantityHtml( '<input>', array( 'product_id' => 500 ) ) );

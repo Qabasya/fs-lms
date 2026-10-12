@@ -142,6 +142,19 @@ class WooExamAdapter {
 	}
 
 	/**
+	 * Оплата экзамена в тестовом окружении (`FS_LMS_TEST_ENV`) не требуется: заказ создаётся и сразу считается оплаченным самим WooCommerce
+	 * (`payment_complete()`), поэтому дальше идёт обычный путь подтверждения записи — меняется только шаг платёжного шлюза.
+	 * Только для корзины с позицией экзамена; чужие товары и боевое окружение не затрагиваются.
+	 */
+	public function needsPayment( bool $needsPayment ): bool {
+		if ( $needsPayment && $this->config->isTestEnv() && array() !== $this->cartExamItems() ) {
+			return false;
+		}
+
+		return $needsPayment;
+	}
+
+	/**
 	 * Экзаменные позиции корзины.
 	 *
 	 * @return list<array{key: string, application_id: int, signature: string}>

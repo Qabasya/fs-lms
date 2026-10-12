@@ -132,6 +132,9 @@
   .exam-results,
   .exam-payments { padding: t.$spacing-lg t.$spacing-md $exam-page-bottom-space-mobile; }
 }
+.exam-conduct-event { display: flex; align-items: center; gap: t.$spacing-sm; }
+
+
 .exam-conduct-sessions { align-self: flex-start; max-width: 100%; overflow-x: auto; }
 .exam-conduct-titlebar { display: flex; align-items: center; justify-content: space-between; gap: t.$spacing-md; }
 .exam-conduct-title { margin: 0; font-size: t.$font-size-lead; font-weight: t.$font-bold; color: var(--ink); }
@@ -193,12 +196,17 @@
 
 /* «Результаты» (8.7): фильтры в строку, перенос на узких экранах */
 .exam-results { display: flex; flex-direction: column; gap: t.$spacing-lg; }
+
+/* Выбор предмета в колонке экранов: по ширине содержимого, как в «Журнале» и «Работах», а не на всю колонку */
+.exam-results > .prof-ktp-pick,
+.exam-stats > .prof-ktp-pick { align-self: flex-start; max-width: 100%; }
 .exam-results-segs { align-self: flex-start; max-width: 100%; overflow-x: auto; }
 .exam-results-filters { display: flex; flex-wrap: wrap; align-items: center; gap: t.$spacing-sm; }
 
 /* Название проведения может быть длиннее свободного места рядом с подписью. */
 .exam-conduct-event select { min-width: 0; }
 
+.exam-conduct-event select,
 .exam-results-filters select {
   max-width: 100%; height: $exam-filter-height; padding: 0 t.$spacing-md;
   border: 1px solid var(--line); border-radius: var(--radius-sm);

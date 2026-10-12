@@ -45,6 +45,10 @@ export function openSessionForm(o) {
     const edit = o.edit || null;
     const fixed = o.fixed || {};
     const locked = !!(edit && edit.is_locked);
+    const cancelled = !!(edit && 'cancelled' === edit.status);
+    // Заморожен: попытка начата или сеанс отменён — сохранить и удалить нельзя. Участники: есть записанные на живой сеанс.
+    const frozen = locked || cancelled;
+    const hasPeople = !!edit && !cancelled && Number(edit.occupied) > 0;
 
     const initDate = edit ? edit.date : (fixed.date || event.period_from);
     const initTime = edit ? edit.time_start : DEFAULT_TIME;

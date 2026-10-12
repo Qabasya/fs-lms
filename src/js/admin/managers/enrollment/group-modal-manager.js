@@ -17,6 +17,7 @@ import {
     showNotice,
 } from '../../modules/utils.js';
 import { ConfirmModal } from '../../modals/confirm-modal.js';
+import { AlertModal } from '../../modals/alert-modal.js';
 import { GroupModal } from '../../modals/enrollment/group-modal';
 
 const $ = jQuery;

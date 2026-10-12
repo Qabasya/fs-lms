@@ -66,6 +66,7 @@ class WooExamController extends BaseController implements ServiceInterface {
 		}
 
 		add_filter( 'woocommerce_add_to_cart_validation', array( $this, 'validateAddToCart' ), 10, 6 );
+		add_filter( 'woocommerce_cart_needs_payment', array( $this, 'needsPayment' ) );
 		add_filter( 'woocommerce_cart_item_quantity', array( $this, 'fixQuantity' ), 10, 3 );
 		add_filter( 'woocommerce_update_cart_validation', array( $this, 'validateQuantityUpdate' ), 10, 4 );
 		add_filter( 'woocommerce_get_item_data', array( $this, 'itemData' ), 10, 2 );
@@ -93,6 +94,15 @@ class WooExamController extends BaseController implements ServiceInterface {
 		}
 
 		return $passed;
+	}
+
+	/**
+	 * Тестовое окружение: корзина с экзаменом оформляется без платёжного шлюза.
+	 *
+	 * @param mixed $needsPayment
+	 */
+	public function needsPayment( mixed $needsPayment ): bool {
+		return $this->adapter->needsPayment( (bool) $needsPayment );
 	}
 
 	/**
