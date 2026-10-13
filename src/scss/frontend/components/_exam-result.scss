@@ -194,6 +194,15 @@
   &__cond {
     margin-bottom: $spacing-md;
     overflow-x: auto;
+
+    // Типовое условие (например, в 12): в разборе показано целиком, но без плашки с фоном и рамкой —
+    // как раскрытое условие в тренажёре, это часть того же задания.
+    .fs-common-cond--static {
+      padding: 0;
+      background: none;
+      border: 0;
+      border-radius: 0;
+    }
   }
 
   &__note {
