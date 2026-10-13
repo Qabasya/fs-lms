@@ -73,6 +73,19 @@
 }
 
 // ── Кнопка (канон — плеер: 9×16, 600 13) ─────────────────────────
+/// Нативно отключённая кнопка (`:disabled`): светло-серая заливка и приглушённый текст — иначе она не отличается от рабочей.
+/// Включается в базовую и акцентную кнопки: у акцентной свой фон, который без этого перебил бы состояние.
+@mixin cab-btn-inactive {
+  &:disabled,
+  &:disabled:hover {
+    background: var(--bg);
+    border-color: var(--line);
+    color: var(--muted-2);
+    box-shadow: none;
+    cursor: not-allowed;
+  }
+}
+
 @mixin cab-btn($tr: 0.12s) {
   display: inline-flex;
   align-items: center;
@@ -100,6 +113,8 @@
   // [hidden]{display:none} независимо от specificity (origin важнее). Без
   // этого JS-переключение btn.hidden визуально ничего не делало.
   &[hidden] { display: none; }
+
+  @include cab-btn-inactive;
 }
 
 @mixin cab-btn-primary {
@@ -112,6 +127,8 @@
     background: var(--accent-600);
     border-color: var(--accent-600);
   }
+
+  @include cab-btn-inactive;
 }
 
 @mixin cab-btn-danger {

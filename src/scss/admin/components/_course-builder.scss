@@ -28,10 +28,22 @@
 		flex-wrap: wrap;
 	}
 
+	.course-avatar { position: relative; flex-shrink: 0; }
+
 	.course-thumb {
 		width: rem(46); height: rem(46); border-radius: $border-radius-md;
-		flex-shrink: 0; overflow: hidden;
+		flex-shrink: 0; overflow: hidden; padding: 0; border: 0; background: none; cursor: pointer;
 		display: flex; align-items: center; justify-content: center;
+		&:hover, &:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 1px; }
+	}
+
+	.course-avatar-clear {
+		position: absolute; top: rem(-6); right: rem(-6);
+		width: rem(18); height: rem(18); padding: 0; border-radius: 50%;
+		border: 1px solid $color-border-footer; background: $color-bg-modal; color: $color-text-secondary;
+		font-size: rem(12); line-height: 1; cursor: pointer;
+		&:hover { color: $color-danger; }
+		&[hidden] { display: none; }
 	}
 	.course-thumb-img    { width: 100%; height: 100%; object-fit: cover; display: block; }
 

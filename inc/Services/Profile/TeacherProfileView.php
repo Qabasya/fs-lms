@@ -190,6 +190,7 @@ final class TeacherProfileView implements ProfileViewInterface {
 					'name'        => $g->name,
 					'subject'     => $this->subjectName( (string) $g->subject_key ),
 					'subject_key' => (string) $g->subject_key, // ключ цвета чипа (chipIndex, utils.js)
+					'avatar'      => $this->courses->avatarUrl( (int) ( $g->course_id ?? 0 ) ), // аватар курса группы
 					// Эпик 15: открытая группа — фронт скрывает КТП/посещаемость.
 					'access_mode' => AccessMode::fromValueOrDefault( (string) ( $g->access_mode ?? '' ) )->value,
 				),
@@ -360,7 +361,7 @@ final class TeacherProfileView implements ProfileViewInterface {
 	 * могут вести один курс — в сайдбаре он должен быть одной строкой.
 	 *
 	 * @param object[] $rows Строки групп (raw stdClass, `GroupsRepository`).
-	 * @return array<int, array{id:int, title:string, subject_key:string, group_ids:int[]}>
+	 * @return array<int, array{id:int, title:string, subject_key:string, avatar:string, group_ids:int[]}>
 	 */
 	private function coursesTaught( array $rows ): array {
 		$courses = array();
@@ -378,6 +379,7 @@ final class TeacherProfileView implements ProfileViewInterface {
 					'id'              => $courseId,
 					'title'           => $course->title,
 					'subject_key'     => (string) $g->subject_key,
+					'avatar'          => $this->courses->avatarUrl( $courseId ),
 					'group_ids'       => array(),
 				);
 			}

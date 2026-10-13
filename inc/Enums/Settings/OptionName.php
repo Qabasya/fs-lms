@@ -61,6 +61,9 @@ enum OptionName: string {
 	/** Конфигурация плагина: DaData-токен, тест-окружение, OTP bypass-код */
 	case PluginConfig = 'fs_lms_plugin_config';
 
+	/** Аватары предметов и групп: ['subject' => [key => attachment_id], 'group' => [id => attachment_id]] */
+	case Avatars = 'fs_lms_avatars';
+
 	/** Политика доступа после отчисления: 'retain' (default) | 'block' */
 	case ExpulsionRetentionPolicy = 'fs_lms_expulsion_retention_policy';
 

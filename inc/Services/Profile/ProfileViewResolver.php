@@ -14,6 +14,7 @@ use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
+use Inc\Services\Shared\AvatarService;
 
 /**
  * Class ProfileViewResolver
@@ -42,6 +43,7 @@ class ProfileViewResolver {
 		private readonly TeacherProfileView      $teacherView,
 		private readonly LearnerProfileView      $learnerView,
 		private readonly SubjectRepository       $subjects,
+		private readonly AvatarService           $avatars,
 	) {}
 
 
@@ -171,6 +173,8 @@ class ProfileViewResolver {
 					'initials' => $this->initials( $name ),
 				),
 				'subjectPersonId' => $ctx->subjectPersonId,
+				// Аватары предметов и групп (Настройки → Аватары): {subject: {key: url}, group: {id: url}}.
+				'avatars'         => $this->avatars->urlMap(),
 				'children'        => $ctx->children,
 				'nav'             => $built['nav'] ?? array(),
 				'screens'         => $built['screens'] ?? array(),

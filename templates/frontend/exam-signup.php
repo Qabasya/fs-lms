@@ -17,7 +17,7 @@ declare( strict_types=1 );
  * @package FS LMS
  *
  * @var string                       $state     form | full | closed | unavailable
- * @var array{school: string, grade: int, teacher: string, public?: bool}   $source
+ * @var array{school: string, grade: int, teacher: string, public?: bool, free?: bool}   $source
  * @var array{title: string}         $event
  * @var array<string, string>        $contacts  phone, email, hours, city, street
  * @var list<array<string, mixed>>   $sessions  Карточки сеансов
@@ -40,7 +40,7 @@ $contact_phone = (string) ( $contacts['phone'] ?? '' );
 
 <main class="fs-lms-join-page fs-exam-signup" id="fs-exam-signup" data-state="<?php echo esc_attr( $state ); ?>">
 	<div class="fs-join-card">
-		<h2 class="fs-join-card__title"><?php esc_html_e( 'Запись на экзамен', 'fs-lms' ); ?></h2>
+		<!-- Заголовок «Запись на экзамен» — h1 страницы (тема); здесь его не дублируем -->
 		<p class="fs-join-card__subtitle"><?php echo esc_html( (string) ( $event['title'] ?? '' ) ); ?></p>
 
 		<?php if ( 'form' !== $state ) : ?>
@@ -105,6 +105,18 @@ $contact_phone = (string) ( $contacts['phone'] ?? '' );
 							<p class="description error fs-field-error" data-error="<?php echo esc_attr( $name ); ?>" role="alert" hidden></p>
 						</div>
 					<?php endforeach; ?>
+
+					<!-- Школа: только в открытой записи (у ссылки школы она известна и показана выше); обязательное, с подсказками справочника -->
+					<?php if ( ! empty( $source['public'] ) ) : ?>
+					<div class="fs-join-card__field-group fs-form-group" data-field="school">
+						<label for="fs_exam_school"><?php esc_html_e( 'Школа', 'fs-lms' ); ?> <span aria-hidden="true">*</span></label>
+						<div class="fs-field-control">
+							<span class="dashicons dashicons-building" aria-hidden="true"></span>
+							<input type="text" name="school" id="fs_exam_school" maxlength="255" autocomplete="off" data-validate="default" required aria-required="true">
+						</div>
+						<p class="description error fs-field-error" data-error="school" role="alert" hidden></p>
+					</div>
+					<?php endif; ?>
 
 					<!-- Мессенджер: простой текстовый ввод любых символов, без кнопки и без проверки формата -->
 					<div class="fs-join-card__field-group fs-form-group" data-field="messenger">
@@ -190,7 +202,11 @@ $contact_phone = (string) ( $contacts['phone'] ?? '' );
 						<dt><?php esc_html_e( 'Стоимость', 'fs-lms' ); ?></dt><dd data-summary="price"><?php echo wp_kses_post( (string) ( $price['html'] ?? '' ) ); ?></dd>
 					</dl>
 					<p class="fs-exam-summary__note">
-						<?php echo esc_html( sprintf( 'Место удерживается %d мин. после перехода к оплате. Данные хранятся %d дн. после экзамена.', $hold_minutes, $retention_days ) ); ?>
+						<?php if ( ! empty( $source['free'] ) ) : ?>
+							<?php echo esc_html( sprintf( 'Данные хранятся %d дн. после экзамена.', $retention_days ) ); ?>
+						<?php else : ?>
+							<?php echo esc_html( sprintf( 'Место удерживается %d мин. после перехода к оплате. Данные хранятся %d дн. после экзамена.', $hold_minutes, $retention_days ) ); ?>
+						<?php endif; ?>
 					</p>
 				</section>
 
@@ -203,9 +219,14 @@ $contact_phone = (string) ( $contacts['phone'] ?? '' );
 				<input type="hidden" name="form_token" value="<?php echo esc_attr( $form_token ); ?>">
 
 				<p class="description error fs-field-error" id="fs-exam-form-error" role="alert" hidden></p>
-				<button type="submit" id="fs-exam-submit" class="fs-join-card__submit"><?php esc_html_e( 'Перейти к оплате', 'fs-lms' ); ?></button>
+				<button type="submit" id="fs-exam-submit" class="fs-join-card__submit"><?php echo esc_html( ! empty( $source['free'] ) ? __( 'Записаться', 'fs-lms' ) : __( 'Перейти к оплате', 'fs-lms' ) ); ?></button>
 				<p class="fs-exam-signup__status" id="fs-exam-status" role="status" hidden></p>
 			</form>
+			<!-- Результат записи по бесплатной ссылке: заполняется клиентом из ответа сервера, оплаты и перехода нет -->
+			<section class="fs-exam-signup__done" id="fs-exam-done" role="status" hidden>
+				<h3 class="fs-exam-summary__title" data-done="title"></h3>
+				<ul class="fs-exam-signup__done-lines" data-done="lines"></ul>
+			</section>
 		<?php endif; ?>
 	</div>
 </main>

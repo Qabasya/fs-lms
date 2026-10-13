@@ -11,6 +11,7 @@ use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
+use Inc\Services\Shared\AvatarService;
 use Inc\Services\Profile\LearnerProfileView;
 use Inc\Services\Profile\ProfileViewResolver;
 use Inc\Services\Exam\ExamAccessGuard;
@@ -40,6 +41,7 @@ class ProfileViewResolverTest extends TestCase {
 			),
 			new LearnerProfileView(),
 			$this->createMock( SubjectRepository::class ),
+			$this->createMock( AvatarService::class ),
 		);
 	}
 
@@ -76,6 +78,7 @@ class ProfileViewResolverTest extends TestCase {
 			),
 			new LearnerProfileView(),
 			$this->createMock( SubjectRepository::class ),
+			$this->createMock( AvatarService::class ),
 		);
 	}
 
@@ -144,6 +147,7 @@ class ProfileViewResolverTest extends TestCase {
 			),
 			new LearnerProfileView(),
 			$this->createMock( SubjectRepository::class ),
+			$this->createMock( AvatarService::class ),
 		);
 
 		$config = $resolver->jsConfig( 5 );

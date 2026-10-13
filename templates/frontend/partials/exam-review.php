@@ -14,11 +14,14 @@ declare( strict_types=1 );
  * @var list<array<string, mixed>> $units
  * @var array{correct: int, partial: int, wrong: int, pending: int} $counts
  * @var list<array<string, mixed>> $tasks
+ * @var string|null $answer_label Подпись ответа участника; по умолчанию «Ваш ответ:» (отчёт школе задаёт «Ответ ученика:»).
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
+
+$answer_label = $answer_label ?? __( 'Ваш ответ:', 'fs-lms' );
 ?>
 	<dl class="fs-exam-result__stats">
 		<div class="fs-exam-result__stat is-correct"><dt><?php esc_html_e( 'Верно', 'fs-lms' ); ?></dt><dd><?php echo (int) $counts['correct']; ?></dd></div>
@@ -37,7 +40,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 	<div class="fs-exam-result__tasks">
 		<?php foreach ( $tasks as $task ) : ?>
-			<article class="fs-exam-task is-<?php echo esc_attr( (string) $task['verdict'] ); ?>" id="<?php echo esc_attr( (string) $task['anchor'] ); ?>">
+			<article class="fs-task-card fs-exam-task is-<?php echo esc_attr( (string) $task['verdict'] ); ?>" id="<?php echo esc_attr( (string) $task['anchor'] ); ?>">
+				<div class="fs-task-card__body">
 				<header class="fs-exam-task__head">
 					<span class="fs-exam-task__n"><?php echo esc_html( sprintf( 'Задание %d', (int) $task['n'] ) ); ?></span>
 					<span class="fs-exam-task__verdict"><?php echo esc_html( (string) $task['verdict_text'] ); ?></span>
@@ -46,14 +50,14 @@ if ( ! defined( 'ABSPATH' ) ) {
 					<?php endif; ?>
 				</header>
 
-				<div class="fs-exam-task__cond"><?php echo wp_kses_post( (string) $task['condition'] ); ?></div>
+				<div class="fs-task-condition fs-exam-task__cond"><?php echo wp_kses_post( (string) $task['condition'] ); ?></div>
 
 				<?php if ( 'pending' === $task['verdict'] ) : ?>
 					<p class="fs-exam-task__note"><?php esc_html_e( 'Проверяется преподавателем.', 'fs-lms' ); ?></p>
 				<?php endif; ?>
 
 				<?php if ( '' !== (string) $task['answer'] || '' === (string) $task['code'] ) : ?>
-					<p class="fs-exam-task__line"><span class="fs-exam-task__label"><?php esc_html_e( 'Ваш ответ:', 'fs-lms' ); ?></span> <?php echo '' !== (string) $task['answer'] ? esc_html( (string) $task['answer'] ) : '—'; ?></p>
+					<p class="fs-exam-task__line"><span class="fs-exam-task__label"><?php echo esc_html( $answer_label ); ?></span> <?php echo '' !== (string) $task['answer'] ? esc_html( (string) $task['answer'] ) : '—'; ?></p>
 				<?php endif; ?>
 
 				<?php if ( '' !== (string) $task['code'] ) : ?>
@@ -68,16 +72,32 @@ if ( ! defined( 'ABSPATH' ) ) {
 					<p class="fs-exam-task__line is-correct"><span class="fs-exam-task__label"><?php esc_html_e( 'Правильный ответ:', 'fs-lms' ); ?></span> <?php echo esc_html( (string) $task['correct'] ); ?></p>
 				<?php endif; ?>
 
-				<?php if ( is_array( $task['solution'] ) ) : ?>
-					<details class="fs-exam-task__solution">
-						<summary><?php esc_html_e( 'Показать решение', 'fs-lms' ); ?></summary>
-						<?php if ( '' !== trim( (string) ( $task['solution']['html'] ?? '' ) ) ) : ?>
-							<div><?php echo wp_kses_post( (string) $task['solution']['html'] ); ?></div>
-						<?php endif; ?>
-						<?php if ( '' !== trim( (string) ( $task['solution']['code'] ?? '' ) ) ) : ?>
-							<pre class="fs-exam-task__code"><code><?php echo esc_html( (string) $task['solution']['code'] ); ?></code></pre>
-						<?php endif; ?>
-					</details>
+				</div>
+
+				<?php
+				// Решение — тот же блок вкладок, что и в тренажёре: кнопка в панели карточки, листинг кода
+				// разворачивается в редактор с подсветкой (`code.js-code`, code-block.js). Идентификатор панели —
+				// по якорю задания: на странице отчёта карточек много.
+				if ( is_array( $task['solution'] ) ) :
+					$panel_id = 'fs-exam-solution-' . (string) $task['anchor'];
+					?>
+					<div class="fs-task-tabs">
+						<div class="fs-tabs-toolbar">
+							<div class="fs-tabs-nav" role="tablist" aria-label="<?php esc_attr_e( 'Материалы задания', 'fs-lms' ); ?>">
+								<button type="button" id="<?php echo esc_attr( $panel_id . '-btn' ); ?>" class="fs-tab-btn" role="tab" aria-selected="false" aria-controls="<?php echo esc_attr( $panel_id ); ?>" data-tab="<?php echo esc_attr( $panel_id ); ?>"><?php esc_html_e( 'Показать решение', 'fs-lms' ); ?></button>
+							</div>
+						</div>
+						<div class="fs-tabs-content">
+							<div id="<?php echo esc_attr( $panel_id ); ?>" class="fs-tab-panel" role="tabpanel" aria-labelledby="<?php echo esc_attr( $panel_id . '-btn' ); ?>" data-panel="<?php echo esc_attr( $panel_id ); ?>">
+								<?php if ( '' !== trim( (string) ( $task['solution']['html'] ?? '' ) ) ) : ?>
+									<?php echo wp_kses_post( (string) $task['solution']['html'] ); ?>
+								<?php endif; ?>
+								<?php if ( '' !== trim( (string) ( $task['solution']['code'] ?? '' ) ) ) : ?>
+									<pre><code class="js-code" data-lang="Python"><?php echo esc_html( (string) $task['solution']['code'] ); ?></code></pre>
+								<?php endif; ?>
+							</div>
+						</div>
+					</div>
 				<?php endif; ?>
 			</article>
 		<?php endforeach; ?>

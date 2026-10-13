@@ -9,7 +9,7 @@
    Права проверяет сервер; клиент только прячет недоступное. Сеть — createApi(window.fsProfile.exams).
    ══════════════════════════════════════════════════════════════════════ */
 
-import { esc, toast, emptyState, openCtxMenu, openCtxMenuRaw, closeCtxMenu, fmtDayMonth, chipBg, shortName } from '../utils.js';
+import { esc, toast, emptyState, openCtxMenu, openCtxMenuRaw, closeCtxMenu, fmtDayMonth, chipHtml } from '../utils.js';
 import { icoChevronLeft, icoChevronRight, icoCalendarBoard, icoAlert, icoGrip, icoCaret, icoPlus } from '../../common/icons.js';
 import { confirmDialog } from '../../common/components/confirm-dialog.js';
 import { createApi } from '../api.js';
@@ -93,7 +93,7 @@ function eventPickerHtml() {
     const subject = examSubjects().find(s => s.key === currentSubject());
     return `<div class="prof-ktp-pick"><span class="kp-label">Проведение</span>
         <button type="button" class="kp-btn" id="examEventBtn">
-            <span class="kp-chip ${chipBg(currentSubject())}">${esc(shortName(subject ? subject.name : ''))}</span>
+            ${chipHtml('kp-chip', currentSubject(), subject ? subject.name : '')}
             <span class="kp-txt">${label}</span>
             ${icoCaret(12, 'kp-caret')}
         </button></div>`;

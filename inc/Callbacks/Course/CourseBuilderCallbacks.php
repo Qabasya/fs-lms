@@ -179,7 +179,7 @@ class CourseBuilderCallbacks extends BaseController {
 	}
 
 	/**
-	 * Обновляет мету курса. Params: course_id, title, status, author_id?, thumbnail_id?
+	 * Обновляет мету курса. Params: course_id, title, status, author_id?, thumbnail_id? (0 — снять аватар)
 	 */
 	public function ajaxSaveCourseMeta(): void {
 		$this->authorize( Nonce::AuthorCourse, Capability::AuthorLmsCourses );
@@ -188,7 +188,8 @@ class CourseBuilderCallbacks extends BaseController {
 		$title        = $this->sanitizeText( 'title' );
 		$status       = $this->sanitizeKey( 'status' );
 		$author_id    = $this->sanitizeInt( 'author_id' );
-		$thumbnail_id = $this->sanitizeInt( 'thumbnail_id' );
+		// Не прислан — аватар не меняется; 0 — снять (аватар курса, Конструктор курса).
+		$thumbnail_id = $this->hasParam( 'thumbnail_id' ) ? $this->sanitizeInt( 'thumbnail_id' ) : null;
 
 		// #11: нельзя опубликовать курс с пустым шагом. Проверяем только при публикации;
 		// сохранение черновика пустые шаги не блокирует.

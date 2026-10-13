@@ -1,4 +1,4 @@
-import { esc, shortName, chipBg, closeGradePop, closeCtxMenu, openCtxMenuRaw } from './utils.js';
+import { esc, shortName, chipBg, chipHtml, closeGradePop, closeCtxMenu, openCtxMenuRaw } from './utils.js';
 import { icoHome, icoUsers, icoJournal, icoDocCheck, icoInbox, icoSwap, icoCalendarBoard, icoBook, icoStar, icoClock, icoCaret, icoGear, icoLogout } from '../common/icons.js';
 import { renderDashboard } from './dashboard.js';
 import { renderJournal, setJournalGroup } from './journal.js';
@@ -276,7 +276,7 @@ function courseItemsHtml() {
     if (!list.length) { return '<div class="prof-side-empty">Ничего не найдено.</div>'; }
     return list.map(c => `
         <div class="prof-course-item" data-course="${c.id}">
-            <span class="prof-group-chip ${chipBg(c.subject_key)}">${esc(shortName(c.title))}</span>
+            ${chipHtml('prof-group-chip', c.subject_key, c.title, null, c.avatar)}
             <div class="prof-group-meta">
                 <div class="prof-group-name">${esc(c.title)}</div>
             </div>
@@ -298,7 +298,7 @@ function buildSidebar() {
         html += sectionHeader('Мои группы', 'groupsCollapsed');
         html += sectionBody('groupsCollapsed', cfg.groups.map(g => `
                 <div class="prof-group-item" data-grp="${g.id}">
-                    <span class="prof-group-chip ${chipBg(g.subject_key || g.subject)}">${esc(shortName(g.name))}</span>
+                    ${chipHtml('prof-group-chip', g.subject_key || g.subject, g.name, g.id, g.avatar)}
                     <div class="prof-group-meta">
                         <div class="prof-group-name">${esc(g.name)}</div>
                         <div class="prof-group-sub">${esc(g.subject)}</div>

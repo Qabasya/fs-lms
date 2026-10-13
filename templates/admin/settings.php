@@ -26,6 +26,10 @@ $tabs = apply_filters(
 			'title' => 'Кабинеты',
 			'file'  => '/components/tabs/settings-tabs/settings-9-rooms.php',
 		),
+		'tab-avatars' => array(
+			'title' => 'Аватары',
+			'file'  => '/components/tabs/settings-tabs/settings-10-avatars.php',
+		),
 		'tab-4' => array(
 			'title' => 'Шаблоны писем',
 			'file'  => '/components/tabs/settings-tabs/settings-4-email-templates.php',

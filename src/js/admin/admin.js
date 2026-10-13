@@ -15,6 +15,7 @@ import { LogsTable } from './services/tables/logs-table.js';
 import { EmailTemplateSettings } from './services/settings/email-template-settings.js';
 import { ConsentSettings } from './services/settings/consent-settings.js';
 import { ConfigSettings } from './services/settings/config-settings.js';
+import { AvatarSettings } from './services/settings/avatar-settings.js';
 import { HardDeleteStudentService } from './services/hard-delete-student-service.js';
 import { ArchiveTable } from './services/tables/archive-table.js';
 import { ImportCsv } from './services/import-csv.js';
@@ -179,6 +180,7 @@ function loadBuilder( chunk, exportName ) {
         EmailTemplateSettings.init();
         ConsentSettings.init();
         ConfigSettings.init();
+        AvatarSettings.init();
 
         HardDeleteStudentService.init();
 

@@ -1,12 +1,13 @@
 /* ══════════════════════════════════════════════════════════════════════
    Раздел «Результаты» (этап 8.7): работы проведений предмета с фильтрами и очередью проверки.
-   Разметка — существующая: prof-seg (статус), pr-row (работы), prof-state-pill, prof-stat-tile не нужен.
-   По умолчанию открывается очередь «На проверке». Клик по строке открывает экран проверки (`exam-results` — экран возврата).
+   Разметка — существующая: prof-seg (статус), prof-card (панели), prof-state-pill; работы — таблица exam-results-table.
+   По умолчанию открывается «Все» работы. Клик по строке открывает экран проверки (`exam-results` — экран возврата).
+   Отчёты школам и работы — две отдельные карточки: в режиме выбора строки таблицы становятся выбираемыми целиком.
    В сегменте «Готовы к утверждению» работает то же массовое утверждение, что и на доске сеанса (общие функции — exam-common.js).
    Сеть — createApi(window.fsProfile.exams). Права и список проведений решает сервер.
    ══════════════════════════════════════════════════════════════════════ */
 
-import { esc, toast, emptyState, fmtDate } from '../utils.js';
+import { esc, toast, emptyState, fmtDate, plural } from '../utils.js';
 import { ajaxErrorText } from '../../common/utils.js';
 import { icoAlert } from '../../common/icons.js';
 import { createApi } from '../api.js';
@@ -19,10 +20,10 @@ import { confirmDialog } from '../../common/components/confirm-dialog.js';
 import { copyToClipboard } from '../../common/utils.js';
 
 const SEGMENTS = [
+    { key: 'all', label: 'Все' },
     { key: 'pending_review', label: 'На проверке' },
     { key: 'ready', label: 'Готовы к утверждению' },
     { key: 'approved', label: 'Утверждены' },
-    { key: 'all', label: 'Все' },
 ];
 
 const AUDIENCES = [
@@ -51,7 +52,12 @@ let reporting = false;
 let reportPicked = new Set();
 let reportForm = false;
 let editingReport = 0;
-const query = { event_id: 0, session_id: 0, status: 'pending_review', audience: 'all', source_id: 0 };
+// group_id — группа наших учеников, source_id — источник гостей, school — школа (все); при смене проведения сбрасываются.
+const query = { event_id: 0, session_id: 0, status: 'all', audience: 'all', source_id: 0, group_id: 0, school: '' };
+
+// Сортировка таблицы на клиенте: ключ колонки и направление (1 — по возрастанию); пустой ключ — порядок сервера.
+const SORTABLE = { audience: 'Участник', school: 'Школа' };
+let sort = { key: '', dir: 1 };
 
 export function renderExamResults(r, h = {}) {
     root = r;
@@ -111,6 +117,31 @@ function optionsHtml(list, current, valueKey, labelKey, allLabel) {
         `<option value="${x[valueKey]}"${Number(current) === Number(x[valueKey]) ? ' selected' : ''}>${esc(x[labelKey])}</option>`).join('');
 }
 
+function schoolOptionsHtml(schools, current) {
+    return '<option value="">Все школы</option>' + schools.map(s =>
+        `<option value="${esc(s)}"${current === s ? ' selected' : ''}>${esc(s)}</option>`).join('');
+}
+
+/** Строки таблицы в выбранном порядке; пустое значение («—») всегда внизу, независимо от направления. */
+function sortedItems() {
+    if (!sort.key) { return data.items; }
+    const text = r => ('audience' === sort.key ? ('student' === r.audience ? 'Наш ученик' : 'Гость') : String(r[sort.key] || ''));
+    return [...data.items].sort((a, b) => {
+        const x = text(a);
+        const y = text(b);
+        if (x === y) { return 0; }
+        if ('' === x) { return 1; }
+        if ('' === y) { return -1; }
+        return sort.dir * x.localeCompare(y, 'ru');
+    });
+}
+
+function sortHeaderHtml(key) {
+    const on = sort.key === key;
+    const arrow = on ? (1 === sort.dir ? ' ↑' : ' ↓') : '';
+    return `<th><button type="button" class="exam-sort${on ? ' on' : ''}" data-sort="${key}" aria-label="Сортировать: ${esc(SORTABLE[key])}">${esc(SORTABLE[key])}${arrow}</button></th>`;
+}
+
 function render() {
     const f = data.filters;
     const sessions = f.sessions.map(x => ({ id: x.id, label: `${fmtDate(x.date)} · ${x.time_start}` }));
@@ -124,14 +155,14 @@ function render() {
                 ${sessions.length ? `<select data-filter="session_id" aria-label="Сеанс">${optionsHtml(sessions, query.session_id, 'id', 'label', 'Все сеансы')}</select>` : ''}
                 <div class="prof-seg" role="group" aria-label="Участники">${AUDIENCES.map(a =>
                     `<button type="button" class="${query.audience === a.key ? 'on' : ''}" data-audience="${a.key}">${esc(a.label)}</button>`).join('')}</div>
-                ${f.sources.length ? `<select data-filter="source_id" aria-label="Источник">${optionsHtml(f.sources, query.source_id, 'id', 'label', 'Все источники')}</select>` : ''}
+                ${'guest' !== query.audience && f.groups.length ? `<select data-filter="group_id" aria-label="Группа">${optionsHtml(f.groups, query.group_id, 'id', 'label', 'Все группы')}</select>` : ''}
+                ${'student' !== query.audience && f.sources.length ? `<select data-filter="source_id" aria-label="Источник">${optionsHtml(f.sources, query.source_id, 'id', 'label', 'Все источники')}</select>` : ''}
+                ${f.schools.length ? `<select data-filter="school" aria-label="Школа">${schoolOptionsHtml(f.schools, query.school)}</select>` : ''}
             </div>
             ${toolbar()}
             ${reportsPanel()}
             ${skippedListHtml(lastSkipped, id => data.items.find(r => r.attempt_id === id)?.name)}
-            ${data.items.length
-                ? `<div class="pr-list">${data.items.map(rowHtml).join('')}</div>`
-                : `<div class="exam-conduct-empty">${esc(EMPTY_TEXT[query.status])}</div>`}
+            ${resultsTableHtml()}
         </div>`;
     wire();
 }
@@ -177,11 +208,14 @@ function reportsPanel() {
                 <div class="pr-name">${esc(r.title)}</div>
                 <div class="pr-sub">${r.participation_ids.length} уч. · ${REPORT_STATE[r.state] || ''}${'active' === r.state ? ` до ${esc(fmtDate(r.expires_at.slice(0, 10)))}` : ''}</div>
             </div>
-            ${'active' === r.state ? `<button type="button" class="prof-btn prof-btn-sm" data-report-act="copy">${r.link_issued ? 'Скопировать ссылку (новая)' : 'Скопировать ссылку'}</button>
+            ${'active' === r.state ? `<button type="button" class="prof-btn prof-btn-sm" data-report-act="copy">${r.url || !r.link_issued ? 'Скопировать ссылку' : 'Скопировать ссылку (новая)'}</button>
             <button type="button" class="prof-btn prof-btn-sm" data-report-act="edit">Изменить состав</button>
             <button type="button" class="prof-btn prof-btn-sm" data-report-act="revoke">Отозвать</button>` : ''}
         </div>`).join('');
-    return `<div class="exam-reports">${form}${rows ? `<div class="pr-list">${rows}</div>` : ''}</div>`;
+    return `<div class="exam-reports prof-card">
+        <div class="exam-panel-head"><div class="exam-panel-title">Отчёты школам</div></div>
+        ${form}${rows ? `<div class="pr-list">${rows}</div>` : ''}
+    </div>`;
 }
 
 function approvalToolbar() {
@@ -193,6 +227,21 @@ function approvalToolbar() {
         <button type="button" class="prof-btn prof-btn-sm" data-approve="cancel">Отмена</button>`;
 }
 
+/** Карточка «Работы»: таблица участников выбранной выборки; пустая выборка — подсказка вместо пустой таблицы. */
+function resultsTableHtml() {
+    if (!data.items.length) {
+        return `<div class="prof-card exam-results-card"><div class="exam-conduct-empty">${esc(EMPTY_TEXT[query.status])}</div></div>`;
+    }
+    const checking = reporting || selecting;
+    return `<div class="prof-card exam-results-card">
+        <div class="exam-panel-head"><div class="exam-panel-title">Работы</div><div class="exam-panel-sub">${data.items.length} ${plural(data.items.length, 'работа', 'работы', 'работ')}</div></div>
+        <div class="exam-grid-scroll"><table class="exam-results-table">
+            <thead><tr>${checking ? '<th class="exam-results-check"></th>' : ''}<th>ФИО</th>${sortHeaderHtml('audience')}${sortHeaderHtml('school')}<th>Сеанс</th><th>Балл</th><th>Статус</th></tr></thead>
+            <tbody>${sortedItems().map(rowHtml).join('')}</tbody>
+        </table></div>
+    </div>`;
+}
+
 function rowHtml(r) {
     const reason = approvalBlockReason(r);
     const blocked = reporting ? (reports.blocked[r.participation_id] || '') : '';
@@ -202,22 +251,23 @@ function rowHtml(r) {
         : (selecting
             ? `<input type="checkbox" class="exam-conduct-check" data-attempt="${r.attempt_id}" aria-label="Выбрать работу"${reason ? ` disabled title="${esc(reason)}"` : (selected.has(r.attempt_id) ? ' checked' : '')}>`
             : '');
-    const when = r.session_date ? `${esc(fmtDate(r.session_date))} · ${esc(r.session_time)}` : '';
-    return `<div class="pr-row pr-row--link exam-results-row" data-attempt="${r.attempt_id}" tabindex="0">
-        ${check}
-        <div class="pr-info">
-            <div class="pr-name">${esc(r.name)}</div>
-            <div class="pr-sub">${esc(r.event_title)}${when ? ' · ' + when : ''} · ${esc(r.audience_label)}${r.source ? ' · ' + esc(r.source) : ''}</div>
-        </div>
-        ${r.score ? `<span class="exam-conduct-score">${scoreText(r.score)}</span>` : ''}
-        <span class="prof-state-pill prof-state-soon">${esc(r.result_status_label)}</span>
-    </div>`;
+    const when = r.session_date ? `${esc(fmtDate(r.session_date))} · ${esc(r.session_time)}` : '—';
+    const off = (reporting && blocked && !inReport) || (selecting && reason);
+    return `<tr class="exam-results-row${off ? ' is-off' : ''}" data-attempt="${r.attempt_id}" tabindex="0">
+        ${check ? `<td class="exam-results-check">${check}</td>` : (reporting || selecting ? '<td class="exam-results-check"></td>' : '')}
+        <td class="exam-results-name">${esc(r.name)}${0 === query.event_id ? `<span class="exam-results-sub">${esc(r.event_title)}</span>` : ''}</td>
+        <td>${'student' === r.audience ? 'Наш ученик' : 'Гость'}</td>
+        <td>${r.school ? esc(r.school) : '—'}</td>
+        <td>${when}</td>
+        <td class="exam-results-score">${r.score ? scoreText(r.score) : '—'}</td>
+        <td><span class="prof-state-pill prof-state-soon">${esc(r.result_status_label)}</span></td>
+    </tr>`;
 }
 
 function wire() {
     wireSubjectPicker('examSubjectBtn', examSubjects(), currentSubject(), key => {
         setCurrentSubject(key);
-        Object.assign(query, { event_id: 0, session_id: 0, source_id: 0 });
+        Object.assign(query, { event_id: 0, session_id: 0, source_id: 0, group_id: 0, school: '' });
         load();
     });
     root.querySelectorAll('[data-status]').forEach(btn => btn.addEventListener('click', () => {
@@ -227,12 +277,24 @@ function wire() {
         lastSkipped = [];
         load();
     }));
-    root.querySelectorAll('[data-audience]').forEach(btn => btn.addEventListener('click', () => { query.audience = btn.dataset.audience; load(); }));
-    root.querySelectorAll('[data-filter]').forEach(sel => sel.addEventListener('change', () => {
-        query[sel.dataset.filter] = Number(sel.value);
-        // Смена проведения сбрасывает фильтры, зависящие от него.
-        if ('event_id' === sel.dataset.filter) { query.session_id = 0; query.source_id = 0; }
+    root.querySelectorAll('[data-audience]').forEach(btn => btn.addEventListener('click', () => {
+        query.audience = btn.dataset.audience;
+        // Фильтр, который для выбранных участников скрыт, не должен действовать молча: группа — только у учеников, источник — у гостей.
+        if ('guest' === query.audience) { query.group_id = 0; }
+        if ('student' === query.audience) { query.source_id = 0; }
         load();
+    }));
+    root.querySelectorAll('[data-filter]').forEach(sel => sel.addEventListener('change', () => {
+        const key = sel.dataset.filter;
+        query[key] = 'school' === key ? sel.value : Number(sel.value);
+        // Смена проведения сбрасывает фильтры, зависящие от него.
+        if ('event_id' === key) { Object.assign(query, { session_id: 0, source_id: 0, group_id: 0, school: '' }); }
+        load();
+    }));
+    root.querySelectorAll('[data-sort]').forEach(btn => btn.addEventListener('click', () => {
+        const key = btn.dataset.sort;
+        sort = sort.key === key ? { key, dir: -sort.dir } : { key, dir: 1 };
+        render();
     }));
 
     wireExportButtons(root, api, () => ({ participation_ids: data.items.map(r => r.participation_id) }));
@@ -242,9 +304,20 @@ function wire() {
     wireReports();
 
     root.querySelectorAll('.exam-results-row').forEach(row => {
-        const open = () => handlers.openWorkReview?.('attempt', Number(row.dataset.attempt));
-        row.addEventListener('click', e => { if (!e.target.closest('input')) { open(); } });
-        row.addEventListener('keydown', e => { if ('Enter' === e.key) { open(); } });
+        // В режиме выбора (отчёт, утверждение) строка целиком переключает свою галочку, а не открывает работу.
+        const act = () => {
+            const box = row.querySelector('input[type="checkbox"]');
+            if (!box) { handlers.openWorkReview?.('attempt', Number(row.dataset.attempt)); return; }
+            if (!box.disabled) {
+                box.checked = !box.checked;
+                box.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+        };
+        row.addEventListener('click', e => { if (!e.target.closest('input')) { act(); } });
+        row.addEventListener('keydown', e => {
+            if (e.target.closest('input')) { return; } // сама галочка переключается штатно
+            if ('Enter' === e.key || (' ' === e.key && row.querySelector('input[type="checkbox"]'))) { e.preventDefault(); act(); }
+        });
     });
     root.querySelectorAll('.exam-conduct-check').forEach(box => box.addEventListener('change', () => {
         const id = Number(box.dataset.attempt);
@@ -276,6 +349,11 @@ function wireReports() {
         const id = Number(row.dataset.reportId);
         row.querySelector('[data-report-act="copy"]')?.addEventListener('click', async () => {
             const report = reportById(id);
+            // Ссылка хранится: копируем действующую, ничего не перевыпуская (старые ссылки без сохранённого ключа — выдача заново).
+            if (report?.url) {
+                toast(await copyToClipboard(report.url) ? 'Ссылка скопирована. Передайте её школе.' : 'Не удалось скопировать ссылку', 'ok');
+                return;
+            }
             if (report?.link_issued && !await confirmDialog('Прежняя ссылка перестанет работать.', 'Перевыпустить', 'Не перевыпускать')) { return; }
             try {
                 const { url } = await api('issueReportLink', { report_id: id });
@@ -322,6 +400,18 @@ async function changeReportSelection(box) {
     }
 }
 
+/** Выдаёт ссылку только что созданного отчёта и копирует её (как ссылки на запись): школе остаётся её передать. */
+async function copyIssuedLink(reportId) {
+    try {
+        const { url } = await api('issueReportLink', { report_id: reportId });
+        const copied = await copyToClipboard(url);
+        toast(copied ? 'Отчёт создан, ссылка скопирована. Передайте её школе.' : 'Отчёт создан. Ссылку скопируйте кнопкой в списке.', copied ? 'ok' : 'error');
+        await load();
+    } catch (err) {
+        toast(ajaxErrorText(err, 'Отчёт создан, но ссылку выдать не удалось'), 'error');
+    }
+}
+
 async function saveReport() {
     const error = root.querySelector('#repError');
     try {
@@ -333,9 +423,10 @@ async function saveReport() {
             recipient_source_id: source || '',
             days: root.querySelector('#repDays').value,
         });
-        toast('Отчёт создан');
+        const reportId = reports.report_id;
         resetReporting();
         render();
+        await copyIssuedLink(reportId);
     } catch (err) {
         error.hidden = false;
         error.textContent = ajaxErrorText(err, 'Не удалось создать отчёт');

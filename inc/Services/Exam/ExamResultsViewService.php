@@ -40,13 +40,17 @@ class ExamResultsViewService {
 		private readonly ExamTime $time,
 		private readonly ExamResultStatusService $resultStates,
 		private readonly ExamEventViewService $eventView,
+		private readonly ExamParticipantProfileService $profiles,
 	) {}
 
 	/**
 	 * Раздел «Результаты» (8.7): работы проведений предмета с фильтрами; только проведения, доступные пользователю.
 	 *
-	 * @param array{event_id?: int, session_id?: int, status?: string, audience?: string, source_id?: int} $filters
-	 *        `status` — `pending_review` | `ready` | `approved` | `all`; `audience` — `student` | `guest` | `all`.
+	 * @param array{event_id?: int, session_id?: int, status?: string, audience?: string, source_id?: int, group_id?: int, school?: string} $filters
+	 *        `status` — `pending_review` | `ready` | `approved` | `all`; `audience` — `student` | `guest` | `all`;
+	 *        `group_id` — группа наших учеников, `source_id` — источник гостей, `school` — школа (все).
+	 *        Группа и источник действуют каждый на своих участников: заданы оба — показываются ученики группы и гости источника,
+	 *        задан один — только его участники.
 	 *
 	 * @return array{filters: array<string, mixed>, items: list<array<string, mixed>>}
 	 */
@@ -67,20 +71,36 @@ class ExamResultsViewService {
 		$status   = (string) ( $filters['status'] ?? 'all' );
 		$audience = (string) ( $filters['audience'] ?? 'all' );
 		$sourceId = (int) ( $filters['source_id'] ?? 0 );
+		$groupId  = (int) ( $filters['group_id'] ?? 0 );
 		$session  = (int) ( $filters['session_id'] ?? 0 );
+		$school   = trim( (string) ( $filters['school'] ?? '' ) );
 
-		$items = array();
+		$items   = array();
+		$groups  = array();
+		$schools = array();
 		foreach ( $selected as $event ) {
 			foreach ( $this->resultRows( $event ) as $row ) {
+				// Варианты фильтров — по всем строкам выбранных проведений, до применения самих фильтров.
+				if ( $row['group_id'] > 0 ) {
+					$groups[ $row['group_id'] ] = $row['group'];
+				}
+				if ( '' !== $row['school'] ) {
+					$schools[ $row['school'] ] = $row['school'];
+				}
+
 				if ( ( 'all' !== $status && $row['result_status'] !== $status )
 					|| ( 'all' !== $audience && $row['audience'] !== $audience )
-					|| ( $sourceId > 0 && $row['source_id'] !== $sourceId )
-					|| ( $session > 0 && $row['session_id'] !== $session ) ) {
+					|| ( $session > 0 && $row['session_id'] !== $session )
+					|| ( '' !== $school && $row['school'] !== $school )
+					|| ! $this->matchesParticipantFilters( $row, $groupId, $sourceId ) ) {
 					continue;
 				}
 				$items[] = $row;
 			}
 		}
+
+		asort( $groups );
+		natcasesort( $schools );
 
 		return array(
 			'filters' => array(
@@ -93,9 +113,33 @@ class ExamResultsViewService {
 				),
 				'sessions' => 1 === count( $selected ) ? $this->eventView->siblings( $selected[0] ) : array(),
 				'sources'  => 1 === count( $selected ) ? $this->eventView->sourceOptions( $selected[0]->id ) : array(),
+				'groups'   => array_map(
+					static fn ( int $id, string $name ): array => array(
+						'id'    => $id,
+						'label' => $name,
+					),
+					array_keys( $groups ),
+					array_values( $groups )
+				),
+				'schools'  => array_values( $schools ),
 			),
 			'items'   => $items,
 		);
+	}
+
+	/**
+	 * Фильтры «группа» (наши ученики) и «источник» (гости): каждый относится к своим участникам.
+	 * Ничего не задано — строка проходит; задан один — подходят только его участники; заданы оба — любой из двух.
+	 *
+	 * @param array<string, mixed> $row
+	 */
+	private function matchesParticipantFilters( array $row, int $groupId, int $sourceId ): bool {
+		if ( $groupId <= 0 && $sourceId <= 0 ) {
+			return true;
+		}
+
+		return ( $groupId > 0 && 'student' === $row['audience'] && $row['group_id'] === $groupId )
+			|| ( $sourceId > 0 && 'guest' === $row['audience'] && $row['source_id'] === $sourceId );
 	}
 
 	/**
@@ -128,6 +172,7 @@ class ExamResultsViewService {
 			$result       = $this->resultStates->status( $attempt, $audience );
 			$source       = null !== $participation->sourceId ? $this->sources->find( $participation->sourceId ) : null;
 			$start        = null !== $session ? $this->time->toLocal( $session->scheduledAt ) : null;
+			$group        = $this->profiles->group( $participant );
 
 			$rows[] = array(
 				'attempt_id'          => $attempt->id,
@@ -142,7 +187,11 @@ class ExamResultsViewService {
 				'audience'            => $audience->value,
 				'audience_label'      => $audience->label(),
 				'source'              => $source->schoolName ?? '',
+				// Школа для таблицы: нашего ученика — из записи, гостя — из ссылки преподавателя, самозаписанного — пусто (прочерк).
+				'school'              => $this->profiles->school( $participation, $participant ),
 				'source_id'           => $participation->sourceId ?? 0,
+				'group_id'            => $group['id'],
+				'group'               => $group['name'],
 				'result_status'       => $result->value,
 				'result_status_label' => $result->label( $audience ),
 				'score'               => AttemptStatus::InProgress === $attempt->status ? null : $this->scores->summarize( $attempt, $event ),

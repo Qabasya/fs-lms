@@ -49,6 +49,8 @@ class ExamResultCallbacks extends BaseController {
 			'event_id'   => $this->sanitizeInt( 'event_id' ),
 			'session_id' => $this->sanitizeInt( 'session_id' ),
 			'source_id'  => $this->sanitizeInt( 'source_id' ),
+			'group_id'   => $this->sanitizeInt( 'group_id' ),
+			'school'     => $this->sanitizeText( 'school' ),
 			// Значение вне перечня не отбрасывает выборку молча, а превращается в «все».
 			'status'     => in_array( $status, self::STATUSES, true ) ? $status : 'all',
 			'audience'   => in_array( $audience, self::AUDIENCES, true ) ? $audience : 'all',

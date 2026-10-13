@@ -90,4 +90,13 @@ class CourseManager {
 			'modules' => ModuleDTO::toList( $dto->modules ),
 		) );
 	}
+
+	/**
+	 * URL аватара курса — его обложки (Конструктор курса → миниатюра в шапке).
+	 *
+	 * @return string '' — не задан (или курса нет)
+	 */
+	public function avatarUrl( int $courseId ): string {
+		return $courseId > 0 ? $this->posts->getThumbnailUrl( $courseId, 'thumbnail' ) : '';
+	}
 }

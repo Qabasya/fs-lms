@@ -58,6 +58,9 @@ class ExamStatsServiceTest extends TestCase {
 	private array $partList = array();
 	/** @var AttemptDTO[] */
 	private array $attemptList = array();
+	private \Inc\Repositories\WPDBRepositories\ExamParticipantRepository&\PHPUnit\Framework\MockObject\MockObject $participantRepo;
+	private \Inc\Services\Exam\ExamParticipantNameService&\PHPUnit\Framework\MockObject\MockObject $nameService;
+	private \Inc\Services\Exam\ExamParticipantProfileService&\PHPUnit\Framework\MockObject\MockObject $profileService;
 
 	protected function setUp(): void {
 		parent::setUp();
@@ -71,6 +74,16 @@ class ExamStatsServiceTest extends TestCase {
 		$this->guard          = $this->createMock( ExamAccessGuard::class );
 
 		$this->guard->method( 'canManageEvent' )->willReturn( true );
+
+		$this->participantRepo = $this->createMock( \Inc\Repositories\WPDBRepositories\ExamParticipantRepository::class );
+		$this->participantRepo->method( 'find' )->willReturnCallback( static fn ( int $id ): \Inc\DTO\Exam\ExamParticipantDTO => \Inc\DTO\Exam\ExamParticipantDTO::fromArray( array(
+			'id' => $id, 'person_id' => null, 'created_at' => '2026-03-01 00:00:00', 'updated_at' => '2026-03-01 00:00:00',
+		) ) );
+		$this->nameService = $this->createMock( \Inc\Services\Exam\ExamParticipantNameService::class );
+		$this->nameService->method( 'participantName' )->willReturnCallback( static fn ( \Inc\DTO\Exam\ExamParticipantDTO $p ): string => 'Гость ' . $p->id );
+		$this->profileService = $this->createMock( \Inc\Services\Exam\ExamParticipantProfileService::class );
+		$this->profileService->method( 'school' )->willReturn( 'Школа 5' );
+		$this->profileService->method( 'groupName' )->willReturn( '' );
 		$this->events->method( 'findBySubjectKey' )->willReturn( array( $this->examEvent( array( 'status' => 'published' ) ) ) );
 		$this->participations->method( 'findByEvent' )->willReturnCallback( fn (): array => $this->partList );
 		$this->registrations->method( 'findByParticipation' )->willReturnCallback( fn ( int $id ): array => $this->history[ $id ] ?? array() );
@@ -92,7 +105,8 @@ class ExamStatsServiceTest extends TestCase {
 	private function makeService( AssessmentManager $assessments, ScoringUnits $units, ExamFormatRegistry $formats, ExamTime $time, ?ExamScoreService $scores = null, ?ExamAccessGuard $guard = null ): ExamStatsService {
 		return new ExamStatsService(
 			$this->events, $this->createMock( ExamSessionRepository::class ), $this->participations, $this->registrations, $this->attempts, $this->answers,
-			$scores ?? $this->scores, $guard ?? $this->guard, $units, $assessments, $formats, $time
+			$scores ?? $this->scores, $guard ?? $this->guard, $units, $assessments, $formats, $time,
+			$this->participantRepo, $this->nameService, $this->profileService
 		);
 	}
 
@@ -166,6 +180,47 @@ class ExamStatsServiceTest extends TestCase {
 		self::assertSame( 2, $kpi['missed'] );
 		self::assertSame( 1, $kpi['pending_review'] );
 		self::assertSame( 5, $kpi['sample'] );
+	}
+
+	public function test_table_lists_submitted_works_with_scores_and_footer(): void {
+		$this->givenTen();
+		$this->units[201] = array(
+			array( 'unit_key' => 'n:1', 'number' => '1', 'score' => 1.0, 'max' => 1.0, 'status' => 'correct', 'anchor' => '' ),
+			array( 'unit_key' => 'n:14', 'number' => '14', 'score' => 0.0, 'max' => 1.0, 'status' => 'incorrect', 'anchor' => '' ),
+		);
+		$this->units[202] = array(
+			array( 'unit_key' => 'n:1', 'number' => '1', 'score' => 0.0, 'max' => 1.0, 'status' => 'incorrect', 'anchor' => '' ),
+		);
+
+		$table = $this->service->overview( 10, array( 'subject_key' => 'inf_ege', 'event_id' => 3 ) )['table'];
+
+		// Сдали шестеро (работа в процессе, неявки и запись без попытки не входят); ожидающая проверки — последней.
+		self::assertCount( 6, $table['rows'] );
+		self::assertSame( 'Гость 6', $table['rows'][5]['name'] );
+		self::assertTrue( $table['rows'][5]['pending'] );
+		self::assertSame( 'Школа 5', $table['rows'][0]['school'] );
+		self::assertSame( array( '1', '14' ), $table['columns'] );
+		self::assertSame( 'Вторичный балл', $table['secondary_label'] );
+		// Лидер — по первичному баллу (участие 5: 15).
+		self::assertSame( 15, $table['rows'][0]['primary'] );
+		self::assertArrayNotHasKey( 'units', $table['footer'] );
+		self::assertSame( 13.0, $table['footer']['primary'] );
+	}
+
+	public function test_summary_counts_attempts_and_correct_with_shares(): void {
+		$this->givenTen();
+		$this->units[201] = array( array( 'unit_key' => 'n:1', 'number' => '1', 'score' => 1.0, 'max' => 1.0, 'status' => 'correct', 'anchor' => '' ) );
+		$this->units[202] = array( array( 'unit_key' => 'n:1', 'number' => '1', 'score' => 0.0, 'max' => 1.0, 'status' => 'incorrect', 'anchor' => '' ) );
+		$this->units[203] = array( array( 'unit_key' => 'n:1', 'number' => '1', 'score' => 0.0, 'max' => 1.0, 'status' => 'unanswered', 'anchor' => '' ) );
+
+		$summary = $this->service->overview( 10, array( 'subject_key' => 'inf_ege', 'event_id' => 3 ) )['summary'];
+		$first   = array_values( array_filter( $summary['columns'], static fn ( array $c ): bool => '1' === $c['number'] ) )[0];
+
+		self::assertSame( 6, $summary['works'] );
+		self::assertSame( 2, $first['attempts'] );
+		self::assertSame( 1, $first['correct'] );
+		self::assertSame( 33, $first['attempts_share'] );
+		self::assertSame( 50, $first['correct_share'] );
 	}
 
 	public function test_averages_use_only_final_results(): void {

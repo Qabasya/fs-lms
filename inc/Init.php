@@ -60,6 +60,7 @@ use Inc\Controllers\Pages\AssessmentPageController;
 use Inc\Controllers\Pages\TaskPageController;
 use Inc\Controllers\Pages\TypographyController;
 use Inc\Controllers\Log\LogsController;
+use Inc\Controllers\Settings\AvatarController;
 use Inc\Controllers\Settings\ConfigController;
 use Inc\Controllers\Settings\SettingsController;
 use Inc\Services\Update\GithubReleaseUpdater;
@@ -117,6 +118,7 @@ use Inc\Migrations\Migration_1_0_70;
 use Inc\Migrations\Migration_1_0_71;
 use Inc\Migrations\Migration_1_0_72;
 use Inc\Migrations\Migration_1_0_73;
+use Inc\Migrations\Migration_1_0_74;
 use Inc\Migrations\MigrationRunner;
 use Inc\Services\Log\LogEventDispatcher;
 use Inc\Services\Shared\WpClock;
@@ -207,6 +209,7 @@ final class Init {
 			ExamCommand::class, // WP-CLI: команды управления экзаменами
 			ExamStandCommand::class, // WP-CLI: самопроверка схемы и стенд параллельных запросов (только dev)
 			ConfigController::class,
+			AvatarController::class, // AJAX вкладки «Настройки → Аватары»
 			SettingsController::class,
 			GithubReleaseUpdater::class, // Индикатор «Доступно обновление» из GitHub Releases (Qabasya/fs-lms)
 			LogsController::class,
@@ -305,6 +308,7 @@ final class Init {
 		$migrationRunner->register( new Migration_1_0_71() );
 		$migrationRunner->register( new Migration_1_0_72() );
 		$migrationRunner->register( new Migration_1_0_73() );
+		$migrationRunner->register( new Migration_1_0_74() );
 		$migrationRunner->run();
 
 		// Data-миграция (не схема): ссылки на файлы заданий со старой схемой

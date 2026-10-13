@@ -147,6 +147,7 @@ class LearnerCoursesSection {
 				'title'        => $this->contextBuilder->courseTitleForGroup( $g ),
 				'subject'      => $g['subject'],
 				'subject_key'  => $g['subject_key'], // ключ цвета чипа (chipIndex, utils.js)
+				'avatar'       => $this->courses->avatarUrl( (int) ( $g['course_id'] ?? 0 ) ), // аватар курса группы
 				'teacher'      => $teacher,
 				'room'         => $roomName,
 				'start'        => $start,

@@ -22,7 +22,29 @@
   }
 }
 
+// Заголовок страницы записи — h1 темы (wp-block-post-title); по центру, как заголовок карточки в форме заявки.
+// :has() — чтобы не трогать h1 остальных страниц сайта: правило включается только там, где есть форма записи.
+.fs-main:has(.fs-exam-signup) > .wp-block-post-title {
+  text-align: center;
+}
+
 .fs-exam-signup {
+  // Результат записи по бесплатной ссылке: заменяет форму.
+  &__done {
+    text-align: center;
+
+    &[hidden] { display: none; }
+  }
+
+  &__done-lines {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font-size: $font-size-base;
+    color: $color-muted;
+    line-height: $line-height-relaxed;
+  }
+
   // Выбор класса открытой записи: кнопки одной колонкой на всю ширину карточки.
   &__choices {
     display: flex;

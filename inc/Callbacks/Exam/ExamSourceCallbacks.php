@@ -73,6 +73,9 @@ class ExamSourceCallbacks extends BaseController {
 			'teacher_name' => $this->sanitizeText( 'teacher_name' ),
 			'grade'        => $this->sanitizeInt( 'grade' ),
 		);
+		if ( $this->hasParam( 'is_free' ) ) {
+			$input['is_free'] = $this->sanitizeBool( 'is_free' );
+		}
 
 		$this->run(
 			function () use ( $eventId, $sourceId, $version, $input ): array {

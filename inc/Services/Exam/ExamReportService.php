@@ -226,9 +226,10 @@ class ExamReportService {
 	}
 
 	/**
-	 * Выдаёт ключ отчёта (прежний отзывается). Открытый ключ не хранится: «скопировать ещё раз» — это перевыпуск.
+	 * Выдаёт ключ отчёта (прежний отзывается). Открытый ключ хранится зашифрованным, поэтому скопировать ссылку можно повторно
+	 * ({@see view()}, поле `url`); эта операция — именно выпуск новой, прежняя перестаёт работать.
 	 *
-	 * @return string Адрес с ключом — единственный раз.
+	 * @return string Адрес с ключом.
 	 *
 	 * @throws CodedException При отсутствии доступа или отзыве отчёта.
 	 */
@@ -331,7 +332,8 @@ class ExamReportService {
 	 * @return array<string, mixed>
 	 */
 	private function view( ExamReportDTO $report ): array {
-		$state = null !== $report->revokedAt ? 'revoked' : ( $report->expiresAt <= $this->time->nowUtc() ? 'expired' : 'active' );
+		$state  = null !== $report->revokedAt ? 'revoked' : ( $report->expiresAt <= $this->time->nowUtc() ? 'expired' : 'active' );
+		$active = 'active' === $state;
 
 		return array(
 			'id'                  => $report->id,
@@ -341,8 +343,17 @@ class ExamReportService {
 			'expires_at'          => $this->time->toLocal( $report->expiresAt ),
 			'recipient_source_id' => $report->recipientSourceId,
 			'participation_ids'   => $this->members->listParticipationIds( $report->id ),
-			'link_issued'         => 'active' === $state && $this->tokens->hasActive( ExamTokenPurpose::Report, $report->id ),
+			'link_issued'         => $active && $this->tokens->hasActive( ExamTokenPurpose::Report, $report->id ),
+			// Сохранённая ссылка для копирования; '' — не выдана, отчёт закрыт или ссылка выдана до хранения ключей (выдать заново).
+			'url'                 => $active ? $this->storedUrl( $report->id ) : '',
 		);
+	}
+
+	/** Адрес отчёта с сохранённым ключом; '' — ключа нет. */
+	private function storedUrl( int $reportId ): string {
+		$plain = $this->tokens->reportKey( $reportId );
+
+		return null !== $plain ? PageRoutes::ExamReport->url() . '?k=' . $plain : '';
 	}
 
 	/**

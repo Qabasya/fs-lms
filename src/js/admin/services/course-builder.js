@@ -194,8 +194,48 @@ function createApp( mount ) {
 			} );
 		} );
 
+		// Strip: аватар курса — картинка из медиатеки (используется чипом курса в кабинетах)
+		mount.querySelector( '[data-strip-thumb]' )?.addEventListener( 'click', pickCourseAvatar );
+		mount.querySelector( '[data-strip-thumb-clear]' )?.addEventListener( 'click', () => setCourseAvatar( 0, '' ) );
+
 		// Strip title: click-to-edit inline
 		bindStripTitleEdit();
+	}
+
+	/** Открывает медиатеку; выбранная картинка становится аватаром курса. */
+	function pickCourseAvatar() {
+		if ( ! window.wp || ! wp.media ) {
+			showToast( 'Медиатека недоступна на этой странице.', 'error' );
+			return;
+		}
+		const frame = wp.media( {
+			title:    'Аватар курса',
+			button:   { text: 'Выбрать' },
+			library:  { type: 'image' },
+			multiple: false,
+		} );
+		frame.on( 'select', () => {
+			const att = frame.state().get( 'selection' ).first().toJSON();
+			const url = ( att.sizes && att.sizes.medium ? att.sizes.medium.url : att.url ) || '';
+			setCourseAvatar( att.id, url );
+		} );
+		frame.open();
+	}
+
+	/** Обновляет миниатюру в шапке и сохраняет мету курса. `id` = 0 — снять аватар. */
+	function setCourseAvatar( id, url ) {
+		state.course.thumbnail_id = id;
+		state.course.thumbnail    = url;
+
+		const thumb = mount.querySelector( '[data-strip-thumb]' );
+		if ( thumb ) {
+			thumb.innerHTML = url
+				? `<img class="course-thumb-img" src="${ esc( url ) }" alt="">`
+				: `<div class="course-thumb-initials">${ esc( state.course.title.slice( 0, 2 ).toUpperCase() ) }</div>`;
+		}
+		mount.querySelector( '[data-strip-thumb-clear]' )?.toggleAttribute( 'hidden', ! url );
+
+		persist.saveCourseMeta();
 	}
 
 	function bindStripTitleEdit() {
@@ -257,7 +297,10 @@ function createApp( mount ) {
 
 		return `
 			<div class="course-strip">
-				<div class="course-thumb">${ thumbHtml }</div>
+				<div class="course-avatar">
+					<button type="button" class="course-thumb" data-strip-thumb title="Аватар курса: выбрать из медиатеки">${ thumbHtml }</button>
+					<button type="button" class="course-avatar-clear" data-strip-thumb-clear title="Убрать аватар" ${ c.thumbnail ? '' : 'hidden' }>×</button>
+				</div>
 				<div class="course-strip-main">
 					<div class="cs-title" data-strip-title>${ esc( c.title ) }</div>
 					<div class="cs-meta">

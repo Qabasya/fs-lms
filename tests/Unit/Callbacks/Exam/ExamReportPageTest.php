@@ -197,8 +197,8 @@ class ExamReportPageTest extends TestCase {
 	private function pageData(): array {
 		return array(
 			'title' => 'Школа 5', 'event' => 'Пробный ЕГЭ', 'expires_at' => '2026-06-08 07:00:00', 'review' => null,
-			'rows' => array( array( 'n' => 1, 'name' => 'Иванов Пётр', 'status' => 'Проверено', 'caption' => '84 из 100', 'open' => true ), array( 'n' => 2, 'name' => ExamReportViewService::PLACEHOLDER, 'status' => '', 'caption' => '', 'open' => false ) ),
-			'stats' => array( 'participants' => 2, 'average' => '84', 'pending' => 0 ),
+			'rows' => array( array( 'n' => 1, 'name' => 'Иванов Пётр', 'primary' => '37 из 56', 'secondary' => '84 из 100', 'units' => array( array( 'number' => '1', 'status' => 'correct' ), array( 'number' => '2', 'status' => 'partial' ), array( 'number' => '3', 'status' => 'incorrect' ) ), 'open' => true ), array( 'n' => 2, 'name' => ExamReportViewService::PLACEHOLDER, 'primary' => '', 'secondary' => '', 'units' => array(), 'open' => false ) ),
+			'stats' => array( 'participants' => 2, 'average' => '84', 'best' => '90', 'worst' => '78' ),
 		);
 	}
 
@@ -229,7 +229,7 @@ class ExamReportPageTest extends TestCase {
 
 	// ── Построение таблицы (ExamReportViewService) ──────────────────────────────────────────────
 
-	private function viewService( ExamReportService $reportService, ExamParticipantDTO $participant, ?ExamReviewViewService $result = null, array $ids = array( 80, 81 ) ): ExamReportViewService {
+	private function viewService( ExamReportService $reportService, ExamParticipantDTO $participant, ?ExamReviewViewService $result = null, array $ids = array( 80, 81 ), ?\Inc\Services\Exam\ExamStatsService $stats = null ): ExamReportViewService {
 		$members = $this->createMock( ExamReportMemberRepository::class );
 		$members->method( 'listParticipationIds' )->willReturn( $ids );
 		$participations = $this->createMock( ExamParticipationRepository::class );
@@ -253,7 +253,7 @@ class ExamReportPageTest extends TestCase {
 		$mat->method( 'displayName' )->willReturn( 'Иванов Пётр' );
 		$mat->expects( self::never() )->method( 'decryptContacts' );
 
-		return new ExamReportViewService( $members, $participations, $participants, $events, $attempts, $reportService, $this->createMock( ExamParticipantNameService::class ), $scores, $result ?? $this->createMock( ExamReviewViewService::class ), $mat );
+		return new ExamReportViewService( $members, $participations, $participants, $events, $attempts, $reportService, $this->createMock( ExamParticipantNameService::class ), $scores, $result ?? $this->createMock( ExamReviewViewService::class ), $mat, $stats ?? $this->createMock( \Inc\Services\Exam\ExamStatsService::class ) );
 	}
 
 	private function participant( ?string $anonymizedAt = null ): ExamParticipantDTO {
@@ -302,7 +302,7 @@ class ExamReportPageTest extends TestCase {
 		$data = $service->build( $this->report(), 1 );
 
 		self::assertSame( ExamReportViewService::PLACEHOLDER, $data['rows'][0]['name'] );
-		self::assertSame( 0, $data['stats']['pending'] );
+		self::assertSame( '—', $data['stats']['best'] );
 		self::assertNull( $data['review'] );
 	}
 
@@ -313,8 +313,34 @@ class ExamReportPageTest extends TestCase {
 
 		self::assertSame( 2, $data['stats']['participants'] );
 		self::assertSame( '84', $data['stats']['average'] );
-		self::assertSame( 'Проверено', $data['rows'][0]['status'] );
+		self::assertSame( '84', $data['stats']['best'] );
+		self::assertSame( '84', $data['stats']['worst'] );
+		self::assertSame( '37 из 56', $data['rows'][0]['primary'] );
+		self::assertSame( '84 из 100', $data['rows'][0]['secondary'] );
 	}
+
+	public function test_row_carries_task_statuses_for_chips(): void {
+		$stats = $this->createMock( \Inc\Services\Exam\ExamStatsService::class );
+		$stats->method( 'attemptUnits' )->willReturn( array(
+			array( 'number' => '1', 'status' => 'correct' ),
+			array( 'number' => '2', 'status' => 'incorrect' ),
+		) );
+		$service = $this->viewService( $this->createMock( ExamReportService::class ), $this->participant(), null, array( 80, 81 ), $stats );
+
+		$data = $service->build( $this->report(), null );
+
+		self::assertSame( array( array( 'number' => '1', 'status' => 'correct' ), array( 'number' => '2', 'status' => 'incorrect' ) ), $data['rows'][0]['units'] );
+	}
+
+	public function test_template_draws_status_chips_under_student(): void {
+		$html = $this->renderTemplate( $this->pageData() );
+
+		self::assertStringContainsString( 'fs-exam-result__chip is-correct', $html );
+		self::assertStringContainsString( 'fs-exam-result__chip is-partial', $html );
+		self::assertStringContainsString( 'fs-exam-result__chip is-incorrect', $html );
+		self::assertStringNotContainsString( 'Лучше всего решили', $html );
+	}
+
 	public function test_report_data_never_contains_encrypted_contacts(): void {
 		$participant = ExamParticipantDTO::fromArray( array(
 			'id' => 9, 'phone_enc' => 'secret-phone', 'messenger_enc' => 'secret-messenger',

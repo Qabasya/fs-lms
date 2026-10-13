@@ -72,6 +72,37 @@ export function chipIndex(key) {
 }
 
 export const chipBg     = (key) => `chip-c${chipIndex(key)}`;
+
+/**
+ * URL аватара: группа (Настройки → Аватары, window.fsProfile.avatars) → курс (обложка
+ * из Конструктора курса, приходит в данных строки) → предмет. '' — не задан, чип цветной.
+ *
+ * @param {string} subjectKey
+ * @param {?(string|number)} groupId   ID группы.
+ * @param {string} [courseUrl]         Аватар курса группы/строки (поле `avatar` из данных).
+ */
+export function avatarUrl(subjectKey, groupId = null, courseUrl = '') {
+    const map = (window.fsProfile && window.fsProfile.avatars) || {};
+    const byGroup = groupId !== null && map.group ? map.group[String(groupId)] : '';
+    return byGroup || courseUrl || (map.subject && map.subject[String(subjectKey || '')]) || '';
+}
+
+/**
+ * Чип сущности: картинка-аватар либо цветной чип с буквами названия.
+ *
+ * @param {string} baseClass  Класс размера чипа (prof-group-chip / sc-chip / kp-chip).
+ * @param {string} subjectKey Ключ предмета — цвет и аватар по умолчанию.
+ * @param {string} label      Название, из которого берутся буквы цветного чипа.
+ * @param {?(string|number)} groupId ID группы — её аватар главнее аватара курса и предмета.
+ * @param {string} [courseUrl] Аватар курса (поле `avatar` строки).
+ */
+export function chipHtml(baseClass, subjectKey, label, groupId = null, courseUrl = '') {
+    const url = avatarUrl(subjectKey, groupId, courseUrl);
+    if (url) {
+        return `<span class="${baseClass} chip-img"><img src="${esc(url)}" alt=""></span>`;
+    }
+    return `<span class="${baseClass} ${chipBg(subjectKey)}">${esc(shortName(label))}</span>`;
+}
 export const chipText   = (key) => `chip-tc-c${chipIndex(key)}`;
 export const chipBorder = (key) => `chip-bd-c${chipIndex(key)}`;
 export const chipSoft   = (key) => `chip-soft-c${chipIndex(key)}`;
@@ -121,7 +152,7 @@ export function openCtxMenu(anchor, items, onPick) {
     menu.classList.toggle('prof-ctx-menu--scroll', items.length > CTX_SCROLL_AFTER);
     menu.innerHTML = items.map(it => `<div class="ctx-item ${it.active ? 'on' : ''}" data-v="${esc(it.v)}">
         <span class="ctx-check">${it.active ? icoCheck(15) : ''}</span>
-        ${it.swatch || it.swatchClass ? `<span class="ctx-sw${it.swatchClass ? ' ' + esc(it.swatchClass) : ''}"${it.swatch ? ` style="background:${it.swatch}"` : ''}>${esc(it.chip || '')}</span>` : ''}
+        ${it.swatchImg ? `<span class="ctx-sw chip-img"><img src="${esc(it.swatchImg)}" alt=""></span>` : it.swatch || it.swatchClass ? `<span class="ctx-sw${it.swatchClass ? ' ' + esc(it.swatchClass) : ''}"${it.swatch ? ` style="background:${it.swatch}"` : ''}>${esc(it.chip || '')}</span>` : ''}
         <span class="ctx-lbl">${esc(it.label)}</span>
     </div>`).join('');
 

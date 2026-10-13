@@ -19,7 +19,9 @@ use Inc\Repositories\WPDBRepositories\SubmissionRepository;
 use Inc\Repositories\WPDBRepositories\SubstitutionRepository;
 use Inc\Repositories\WPDBRepositories\TaskAttemptRepository;
 use Inc\Repositories\WPDBRepositories\WorkTaskCheckRepository;
+use Inc\Enums\Settings\AvatarEntity;
 use Inc\Services\Course\ContentCloneService;
+use Inc\Services\Shared\AvatarService;
 use Inc\Shared\Traits\TransactionRunner;
 
 class GroupDeletionHandler {
@@ -42,6 +44,7 @@ class GroupDeletionHandler {
 		private readonly DeletionEventDispatcher    $dispatcher,
 		private readonly LogEventDispatcherInterface $logEvents,
 		private readonly ContentCloneService $cloneService,
+		private readonly AvatarService $avatars,
 	) {}
 
 	public function handle( DeleteGroupEvent $event ): void {
@@ -76,6 +79,9 @@ class GroupDeletionHandler {
 			$this->groups->hardDelete( $groupId );
 			return $ids;
 		} );
+
+		// Аватар группы (Настройки → Аватары) лежит в опции, не в транзакции БД — снимаем после неё.
+		$this->avatars->set( AvatarEntity::Group, (string) $groupId, 0 );
 
 		$studentsCount = count( $affected['students'] ?? array() );
 		$parentsCount  = count( $affected['parents'] ?? array() );

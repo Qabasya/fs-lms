@@ -2,7 +2,7 @@
    паттерн T12.8, используется в журнале, КТП и сводке. Раньше разметка и меню
    были продублированы в каждом экране. */
 
-import { esc, shortName, initials, chipBg, groupSubjectKey, avaColor, openCtxMenu } from './utils.js';
+import { esc, shortName, initials, chipBg, chipHtml, avatarUrl, groupSubjectKey, avaColor, openCtxMenu } from './utils.js';
 import { icoCaret } from '../common/icons.js';
 
 const CARET = icoCaret(12, 'kp-caret');
@@ -15,7 +15,7 @@ function groupChipBg(group) {
 /** Кнопка выбора направления (предмета): чип цвета предмета + название. */
 export function subjectPickerBtnHtml(subject, btnId) {
     return `<button type="button" class="kp-btn" id="${btnId}">
-        <span class="kp-chip ${chipBg(subject.key)}">${esc(shortName(subject.name))}</span>
+        ${chipHtml('kp-chip', subject.key, subject.name)}
         <span class="kp-txt">${esc(subject.name)}</span>
         ${CARET}
     </button>`;
@@ -31,6 +31,7 @@ export function openSubjectPicker(anchor, subjects, currentKey, onPick) {
             label: s.name,
             active: s.key === currentKey,
             swatchClass: chipBg(s.key),
+            swatchImg: avatarUrl(s.key),
             chip: shortName(s.name),
         })),
         v => { if (v !== currentKey) onPick(v); }
@@ -40,7 +41,7 @@ export function openSubjectPicker(anchor, subjects, currentKey, onPick) {
 /** Кнопка выбора группы (чип с цветом группы + «Название · предмет»). */
 export function groupPickerBtnHtml(group, btnId) {
     return `<button type="button" class="kp-btn" id="${btnId}">
-        <span class="kp-chip ${groupChipBg(group)}">${esc(shortName(group.name))}</span>
+        ${chipHtml('kp-chip', group.subject_key || groupSubjectKey(group.id), group.name, group.id, group.avatar)}
         <span class="kp-txt">${esc(group.name)} · ${esc(group.subject)}</span>
         ${CARET}
     </button>`;
@@ -68,6 +69,7 @@ export function openGroupPicker(anchor, groups, currentId, onPick, extra = []) {
         label: `${g.name} · ${g.subject}`,
         active: g.id === currentId,
         swatchClass: groupChipBg(g),
+        swatchImg: avatarUrl(g.subject_key || groupSubjectKey(g.id), g.id, g.avatar),
         chip: shortName(g.name),
     }));
     extra.forEach(e => items.push({ ...e, active: String(e.v) === String(currentId) }));

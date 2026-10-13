@@ -125,7 +125,7 @@ class ExamReviewViewService {
 				// Ручная часть: балл не выводится до проверки (сам по себе ноль ввёл бы в заблуждение).
 				'score'        => $pending || ! isset( $task['score'] ) ? null : (float) $task['score'],
 				'max_score'    => isset( $task['max_score'] ) ? (float) $task['max_score'] : null,
-				'condition'    => (string) ( $task['condition'] ?? '' ),
+				'condition'    => $this->withoutOwnTitle( (string) ( $task['condition'] ?? '' ) ),
 				'answer'       => (string) ( $task['answer'] ?? '' ),
 				'code'         => (string) ( $task['code'] ?? '' ),
 				'files'        => (array) ( $task['files'] ?? array() ),
@@ -135,5 +135,13 @@ class ExamReviewViewService {
 		}
 
 		return $result;
+	}
+
+	/**
+	 * Убирает из начала условия собственный заголовок «Задание N» (у заданий 19–21 он набран абзацем): карточка разбора
+	 * уже подписана номером, и второй заголовок дублирует первый.
+	 */
+	private function withoutOwnTitle( string $html ): string {
+		return (string) preg_replace( '~^\s*<p[^>]*>\s*(?:<(?:strong|b)[^>]*>\s*)?Задание\s*№?\s*\d+\s*[.:]?\s*(?:</(?:strong|b)>\s*)?</p>\s*~iu', '', $html, 1 );
 	}
 }

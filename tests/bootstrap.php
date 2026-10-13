@@ -610,6 +610,18 @@ if (!function_exists('wp_get_attachment_metadata')) {
         return $GLOBALS['_fs_test_attachment_meta'][$postId] ?? false;
     }
 }
+if (!function_exists('get_post_thumbnail_id')) {
+    function get_post_thumbnail_id(int $postId = 0): int { return 0; }
+}
+if (!function_exists('delete_post_thumbnail')) {
+    function delete_post_thumbnail(int $postId): bool { return true; }
+}
+if (!function_exists('set_post_thumbnail')) {
+    function set_post_thumbnail(int $postId, int $thumbnailId): int|bool { return true; }
+}
+if (!function_exists('flush_rewrite_rules')) {
+    function flush_rewrite_rules(bool $hard = true): void {}
+}
 if (!function_exists('wp_get_attachment_image_url')) {
     function wp_get_attachment_image_url(int $postId, string $size = 'thumbnail'): string|false {
         return $GLOBALS['_fs_test_attachment_size_urls'][$postId][$size] ?? false;

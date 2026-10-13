@@ -62,7 +62,8 @@ export function createPersistence( { courseId, mount, state, onPublishToggle } )
 			status:    state.course.status || 'draft',
 		};
 		if ( state.course.author_id )    { payload.author_id    = state.course.author_id; }
-		if ( state.course.thumbnail_id ) { payload.thumbnail_id = state.course.thumbnail_id; }
+		// 0 — «снять аватар»: отправляем и ноль, не только положительный ID.
+		if ( Number.isInteger( state.course.thumbnail_id ) ) { payload.thumbnail_id = state.course.thumbnail_id; }
 		return ajax( acts().saveCourseMeta, payload )
 			.then( () => setStatus( 'Все изменения сохранены' ) )
 			.catch( ( msg ) => { setStatus( 'Ошибка сохранения' ); showToast( msg, 'error' ); throw msg; } );

@@ -1,13 +1,13 @@
 /* ══════════════════════════════════════════════════════════════════════
-   Раздел «Статистика» (этап 10): показатели проведения и разбор по заданиям.
-   Все числа приходят с сервера — клиент ничего не усредняет и не складывает (кроме долей сегментов полосы для ширины).
-   Разметка — существующая: prof-seg (сегменты), prof-stat-tile (плитки), sc-row (строки заданий); ширина сегментов полосы — data-progress
-   + applyProgress() (без style). Сеть — createApi(window.fsProfile.exams).
+   Раздел «Статистика» (этап 10): показатели проведения и таблица «ученики × задания».
+   Все числа приходят с сервера — клиент ничего не усредняет и не складывает. Таблица (баллы за задания, первичный и вторичный балл,
+   средние первичного и вторичного балла внизу) строится из `data.table`; поиск, группа и школа фильтруют её строки на клиенте по полям строки.
+   Разметка — существующая: prof-seg (сегменты), prof-stat-tile (плитки), stu-search (поиск). Сеть — createApi(window.fsProfile.exams).
    ══════════════════════════════════════════════════════════════════════ */
 
 import { esc, emptyState, fmtDate, plural } from '../utils.js';
-import { ajaxErrorText, applyProgress } from '../../common/utils.js';
-import { icoCalendarBoard, icoAlert } from '../../common/icons.js';
+import { ajaxErrorText } from '../../common/utils.js';
+import { icoCalendarBoard, icoAlert, icoSearch } from '../../common/icons.js';
 import { createApi } from '../api.js';
 import {
     examConfig, examSubjects, currentSubject, setCurrentSubject, subjectPickerHtml, wireSubjectPicker, noSubjectsHtml,
@@ -19,25 +19,31 @@ const AUDIENCES = [
     { key: 'guest', label: 'Гости' },
 ];
 
-const SORTS = [
-    { key: 'number', label: 'По номеру' },
-    { key: 'hard', label: 'Сначала трудные' },
+/** Режимы страницы: таблица учеников и сводная по заданиям (общий prof-seg). */
+const MODES = [
+    { key: 'students', label: 'Ученики' },
+    { key: 'summary', label: 'Сводная' },
 ];
 
-/** Сегменты полосы: порядок и подписи; цвет — класс `exam-seg--{ключ}` (токены вердиктов 7.2.4). */
-const SEGMENTS = [
-    { key: 'full', cls: 'correct', label: 'полный балл' },
-    { key: 'partial', cls: 'partial', label: 'частично' },
-    { key: 'incorrect', cls: 'incorrect', label: 'ошибка' },
-    { key: 'unanswered', cls: 'unanswered', label: 'пропуск' },
-    { key: 'pending', cls: 'pending', label: 'на проверке' },
-];
+/** Порог цвета процента в сводной: от 70 — зелёный, от 40 — жёлтый, ниже — красный (как в таблице преподавателей). */
+function shareClass(value) {
+    if (null === value || undefined === value) { return ''; }
+    if (value >= 70) { return ' exam-cell--correct'; }
+    return value >= 40 ? ' exam-cell--partial' : ' exam-cell--incorrect';
+}
+
+/** Значение фильтра школы для самозаписанных гостей: у них школы нет, а пустое значение занято пунктом «Все школы». */
+const SELF_REGISTERED = '__self__';
+
+/** Подписи вердиктов для подсказки ячейки таблицы. */
+const CELL_TITLES = { correct: 'верно', partial: 'частично', incorrect: 'неверно', pending: 'на проверке' };
 
 let root = null;
 let api = null;
 let data = null;
-let sort = 'number';
 const query = { event_id: 0, session_id: 0, audience: 'all' };
+// Клиентские фильтры таблицы; сбрасываются при смене проведения, сеанса и участников.
+const view = { search: '', group: '', school: '', mode: 'students' };
 
 export function renderExamStats(r) {
     root = r;
@@ -103,6 +109,7 @@ function render() {
                 ${f.sessions.length ? `<select data-filter="session_id" aria-label="Сеанс">${options(f.sessions, query.session_id, s => `${fmtDate(s.date)} · ${s.time_start}`, 'Все сеансы')}</select>` : ''}
                 <div class="prof-seg" role="group" aria-label="Участники">${AUDIENCES.map(a =>
                     `<button type="button" class="${query.audience === a.key ? 'on' : ''}" data-audience="${a.key}">${esc(a.label)}</button>`).join('')}</div>
+                ${'students' === view.mode ? `${searchHtml()}${groupSelectHtml()}${schoolSelectHtml()}` : ''}
             </div>
             ${0 === k.registered ? '<div class="exam-conduct-empty">В выбранном проведении пока нет записей.</div>' : ''}
             <div class="prof-stat-tiles exam-stat-tiles">
@@ -110,58 +117,147 @@ function render() {
                 ${averages.join('')}
             </div>
             ${fmt && fmt.mixed ? '<div class="sc-notice exam-notice">В выборке работы разных форматов: средние посчитаны только по одному из них.</div>' : ''}
-            ${tasksHtml()}
+            <div class="prof-seg exam-stats-modes" role="tablist" aria-label="Вид статистики">${MODES.map(m =>
+                `<button type="button" role="tab" class="${view.mode === m.key ? 'on' : ''}" data-mode="${m.key}">${esc(m.label)}</button>`).join('')}</div>
+            ${'summary' === view.mode
+                ? `<div class="prof-card exam-stats-table" id="examStatsTable">${summaryHtml()}</div>`
+                : `<div class="prof-card exam-stats-table" id="examStatsTable">${tableHtml()}</div>`}
         </div>`;
-    applyProgress(root);
     wire();
 }
 
-function sortedTasks() {
-    const list = data.tasks.slice();
-    if ('hard' === sort) {
-        // Без работ — в конец: сортировать нечего. Остальные — по возрастанию доли полного балла.
-        list.sort((a, b) => (0 === a.total) - (0 === b.total) || a.full_share - b.full_share || Number(a.number) - Number(b.number));
+/** Поиск по ФИО: для нашего ученика — по ученикам, для гостей — по гостям; при «Все» ищет по всем. */
+function searchHtml() {
+    const placeholder = 'guest' === query.audience ? 'Поиск по гостям' : ('student' === query.audience ? 'Поиск по ученикам' : 'Поиск по ФИО');
+    return `<div class="stu-search exam-stats-search">
+        <span class="stu-search-ico">${icoSearch(15)}</span>
+        <input type="search" class="stu-search-input" id="examStatsSearch" placeholder="${esc(placeholder)}" value="${esc(view.search)}" autocomplete="off">
+    </div>`;
+}
+
+/** Строки таблицы выбранной аудитории — из них берутся варианты групп и школ. */
+function audienceRows(audience) {
+    return (data.table ? data.table.rows : []).filter(r => r.audience === audience);
+}
+
+/** Группы показываются, когда выбраны ученики: у гостей групп нет. */
+function groupSelectHtml() {
+    if ('student' !== query.audience) { return ''; }
+    const groups = [...new Set(audienceRows('student').map(r => r.group).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ru'));
+    if (!groups.length) { return ''; }
+    return `<select data-view="group" aria-label="Группа"><option value="">Все группы</option>${groups.map(g =>
+        `<option value="${esc(g)}"${view.group === g ? ' selected' : ''}>${esc(g)}</option>`).join('')}</select>`;
+}
+
+/** Школы показываются, когда выбраны гости: самозапись и школы из ссылок преподавателей. */
+function schoolSelectHtml() {
+    if ('guest' !== query.audience) { return ''; }
+    const rows = audienceRows('guest');
+    const schools = [...new Set(rows.map(r => r.school).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ru'));
+    const hasSelf = rows.some(r => !r.school);
+    if (!schools.length && !hasSelf) { return ''; }
+    return `<select data-view="school" aria-label="Школа"><option value="">Все школы</option>
+        ${hasSelf ? `<option value="${SELF_REGISTERED}"${SELF_REGISTERED === view.school ? ' selected' : ''}>Самозапись</option>` : ''}
+        ${schools.map(sc => `<option value="${esc(sc)}"${view.school === sc ? ' selected' : ''}>${esc(sc)}</option>`).join('')}</select>`;
+}
+
+const norm = s => String(s || '').toLowerCase().replace(/ё/g, 'е').trim();
+
+function visibleRows() {
+    const q = norm(view.search);
+    return (data.table ? data.table.rows : []).filter(r => {
+        if (q && !norm(r.name).includes(q)) { return false; }
+        if ('student' === query.audience && view.group && r.group !== view.group) { return false; }
+        if ('guest' === query.audience && view.school) {
+            return SELF_REGISTERED === view.school ? !r.school : r.school === view.school;
+        }
+        return true;
+    });
+}
+
+/** Балл без лишнего «.0»; пусто — для отсутствующего значения. */
+function num(value) {
+    return null === value || undefined === value ? '' : String(Number(value));
+}
+
+function cellHtml(unit) {
+    if (!unit || 'unanswered' === unit.status) { return '<td class="exam-cell"></td>'; }
+    const text = 'pending' === unit.status ? '…' : num(unit.score);
+    return `<td class="exam-cell exam-cell--${unit.status}" title="${esc(CELL_TITLES[unit.status] || '')}">${text}</td>`;
+}
+
+/** Таблица «ученики × задания»; под ней строка средних. Пустой выбор — подсказка вместо пустой рамки. */
+function tableHtml() {
+    const t = data.table;
+    if (!t || !t.rows.length) {
+        return '<div class="exam-conduct-empty">В выбранных проведениях пока нет сданных работ.</div>';
     }
-    return list;
+    const rows = visibleRows();
+    if (!rows.length) { return '<div class="exam-conduct-empty">Никого не нашли: измените поиск или фильтры.</div>'; }
+
+    const head = `<tr><th class="exam-grid-name">ФИО</th>${t.columns.map(c => `<th>${esc(c)}</th>`).join('')}<th class="exam-grid-sum">Первичный балл</th><th class="exam-grid-sum">${esc(t.secondary_label)}</th></tr>`;
+    const body = rows.map(r => `<tr>
+            <td class="exam-grid-name">${esc(r.name)}</td>
+            ${t.columns.map(c => cellHtml(r.units[c])).join('')}
+            <td class="exam-grid-sum">${r.primary}</td>
+            <td class="exam-grid-sum">${r.pending ? '…' : num(r.secondary)}</td>
+        </tr>`).join('');
+    const f = t.footer;
+    const foot = `<tr class="exam-grid-foot"><td class="exam-grid-name">Средний</td>
+            ${t.columns.map(() => '<td></td>').join('')}
+            <td class="exam-grid-sum">${num(f.primary)}</td><td class="exam-grid-sum">${num(f.secondary)}</td></tr>`;
+
+    return `<div class="exam-grid-scroll"><table class="exam-grid"><thead>${head}</thead><tbody>${body}</tbody><tfoot>${foot}</tfoot></table></div>`;
 }
 
-function tasksHtml() {
-    if (!data.tasks.length) { return ''; }
-    return `<div class="prof-card exam-units">
-        <div class="exam-panel-head">
-            <div class="exam-panel-title">Разбор по заданиям</div>
-            <div class="prof-seg" role="group" aria-label="Порядок">${SORTS.map(s =>
-                `<button type="button" class="${sort === s.key ? 'on' : ''}" data-sort="${s.key}">${esc(s.label)}</button>`).join('')}</div>
-        </div>
-        ${sortedTasks().map(taskRow).join('')}
-    </div>`;
+/** Сводная: сданные работы отдельно сверху, затем таблица «номера заданий × попытки / верные / проценты». */
+function summaryHtml() {
+    const sm = data.summary;
+    if (!sm || !sm.columns.length || !sm.works) {
+        return '<div class="exam-conduct-empty">В выбранных проведениях пока нет сданных работ.</div>';
+    }
+    const cell = (value, suffix = '', cls = '') => `<td class="exam-cell${cls}">${null === value || undefined === value ? '—' : `${value}${suffix}`}</td>`;
+    const row = (label, build) => `<tr><th class="exam-grid-name" scope="row">${label}</th>${sm.columns.map(build).join('')}</tr>`;
+
+    return `<div class="exam-summary-works"><span>Сдано работ</span><strong>${sm.works}</strong></div>
+        <div class="exam-grid-scroll"><table class="exam-grid exam-grid--summary">
+            <thead><tr><th class="exam-grid-name">Задание</th>${sm.columns.map(c => `<th>${esc(c.number)}</th>`).join('')}</tr></thead>
+            <tbody>
+                ${row('Попытки', c => cell(c.attempts))}
+                ${row('Верные решения', c => cell(c.correct))}
+                ${row('Процент попыток, %', c => cell(c.attempts_share, '', shareClass(c.attempts_share)))}
+                ${row('Процент верных, %', c => cell(c.correct_share, '', shareClass(c.correct_share)))}
+            </tbody>
+        </table></div>`;
 }
 
-function taskRow(t) {
-    const bar = SEGMENTS.map(s =>
-        `<span class="exam-seg exam-seg--${s.cls}" data-progress="${t.total > 0 ? (100 * t[s.key] / t.total) : 0}" title="${esc(s.label)}: ${t[s.key]}"></span>`).join('');
-    const avg = null !== t.avg_score && undefined !== t.avg_score ? ` · средний балл ${t.avg_score}` : '';
-    return `<div class="sc-row exam-task-row">
-        <span class="sc-num">${esc(t.number)}</span>
-        <div class="sc-lb">
-            <span class="sc-ltitle">Максимум ${esc(String(t.max))} · работ: ${t.total}</span>
-            <span class="exam-bar">${bar}</span>
-            <span class="sc-lsub">${t.total > 0 ? `${t.full_share}% полный балл${avg}` : 'нет сданных работ'}</span>
-        </div>
-    </div>`;
+/** Перерисовывает только таблицу: поле поиска не теряет фокус на каждой букве. */
+function redrawTable() {
+    const box = document.getElementById('examStatsTable');
+    if (box) { box.innerHTML = tableHtml(); }
 }
 
 function wire() {
     wireSubjectPicker('examSubjectBtn', examSubjects(), currentSubject(), key => {
         setCurrentSubject(key);
         Object.assign(query, { event_id: 0, session_id: 0 });
+        Object.assign(view, { group: '', school: '' });
         load();
     });
     root.querySelectorAll('[data-filter]').forEach(sel => sel.addEventListener('change', () => {
         query[sel.dataset.filter] = Number(sel.value);
         if ('event_id' === sel.dataset.filter) { query.session_id = 0; }
+        Object.assign(view, { group: '', school: '' });
         load();
     }));
-    root.querySelectorAll('[data-audience]').forEach(btn => btn.addEventListener('click', () => { query.audience = btn.dataset.audience; load(); }));
-    root.querySelectorAll('[data-sort]').forEach(btn => btn.addEventListener('click', () => { sort = btn.dataset.sort; render(); }));
+    root.querySelectorAll('[data-audience]').forEach(btn => btn.addEventListener('click', () => {
+        query.audience = btn.dataset.audience;
+        Object.assign(view, { group: '', school: '' });
+        load();
+    }));
+    root.querySelectorAll('[data-mode]').forEach(btn => btn.addEventListener('click', () => {
+        if (btn.dataset.mode !== view.mode) { view.mode = btn.dataset.mode; render(); }
+    }));
+    root.querySelector('#examStatsSearch')?.addEventListener('input', e => { view.search = e.target.value; redrawTable(); });
+    root.querySelectorAll('[data-view]').forEach(sel => sel.addEventListener('change', () => { view[sel.dataset.view] = sel.value; redrawTable(); }));
 }

@@ -184,6 +184,7 @@ class AdminLocalizations {
 				'authorAssessment'  => Nonce::AuthorAssessment->create(),
 				'authorCourse'      => Nonce::AuthorCourse->create(),
 				'room'              => Nonce::Room->create(),
+				'avatar'            => Nonce::Avatar->create(),
 				// Экран банка задач (fs_lms_problems): подгрузка boilerplate по (предмет, номер).
 				'taskCreation'      => Nonce::TaskCreation->create(),
 			),

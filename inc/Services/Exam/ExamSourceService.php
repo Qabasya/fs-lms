@@ -151,7 +151,7 @@ class ExamSourceService {
 	/**
 	 * Создаёт или правит источник. Правка не меняет уже оформленные заявки: у них свой снимок источника.
 	 *
-	 * @param array<string, mixed> $input `school_name`, `teacher_name`, `grade`.
+	 * @param array<string, mixed> $input `school_name`, `teacher_name`, `grade`, `is_free?` (запись без оплаты).
 	 *
 	 * @throws CodedException Нет доступа, поля школы или класс некорректны либо версия источника устарела.
 	 * @throws \RuntimeException Сохранённый источник не найден при повторном чтении.
@@ -191,6 +191,10 @@ class ExamSourceService {
 			'teacher_name'           => $teacher,
 			'label'                  => $school . ', ' . $grade . ' класс',
 		);
+		// Бесплатная ссылка: меняется только когда флаг прислан (правка без поля его не сбрасывает).
+		if ( array_key_exists( 'is_free', $input ) ) {
+			$fields['is_free'] = $input['is_free'] ? 1 : 0;
+		}
 
 		if ( null === $sourceId ) {
 			$now = $this->time->nowUtc();
@@ -348,6 +352,7 @@ class ExamSourceService {
 			'teacher_name' => $source->teacherName,
 			'grade'        => $source->grade,
 			'is_active'    => $source->isActive,
+			'is_free'      => $source->isFree,
 			'has_link'     => $this->tokens->hasActive( ExamTokenPurpose::Invitation, $source->id ),
 			'url'          => $this->storedUrl( $source->id ),
 			'generation'   => $source->keyGeneration,

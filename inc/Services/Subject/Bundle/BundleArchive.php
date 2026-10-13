@@ -74,7 +74,14 @@ class BundleArchive {
 			}
 		}
 
-		$zip->close();
+		// Файлы читаются именно в close(): здесь же вылезает нехватка места, прав или лимит ФС.
+		// Без проверки пакет «собирался» без файла, а ссылка на скачивание вела на 404.
+		$closed = $zip->close();
+		$status = $zip->getStatusString();
+
+		if ( ! $closed || ! is_file( $target ) ) {
+			throw new RuntimeException( 'Не удалось записать архив пакета: ' . $status . '. Проверьте свободное место и права на каталог uploads.' );
+		}
 	}
 
 	/**

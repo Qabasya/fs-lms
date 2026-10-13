@@ -47,6 +47,7 @@ class ExamResultsViewServiceTest extends TestCase {
 	private \Inc\Services\Exam\GuestParticipantMaterializer&MockObject $guestData;
 	private ExamSourceRepository&MockObject $sources;
 	private ExamTime&MockObject $time;
+	private $groupsRepo;
 	private ExamResultsViewService $service;
 
 	protected function setUp(): void {
@@ -64,6 +65,7 @@ class ExamResultsViewServiceTest extends TestCase {
 		$this->guard          = $this->createMock( ExamAccessGuard::class );
 		$this->guestData      = $this->createMock( \Inc\Services\Exam\GuestParticipantMaterializer::class );
 		$this->sources        = $this->createMock( ExamSourceRepository::class );
+		$this->groupsRepo     = $this->createMock( \Inc\Repositories\WPDBRepositories\GroupsRepository::class );
 		$this->time           = $this->createMock( ExamTime::class );
 
 		$this->time->method( 'nowUtc' )->willReturn( '2026-03-10 08:00:00' );
@@ -89,6 +91,7 @@ class ExamResultsViewServiceTest extends TestCase {
 			$this->scores, $guard, $this->time,
 			new \Inc\Services\Exam\ExamResultStatusService( $this->answers ),
 			new \Inc\Services\Exam\ExamEventViewService( $this->sessions, $this->sources, $this->time ),
+			new \Inc\Services\Exam\ExamParticipantProfileService( $this->records, $this->sources, $this->groupsRepo ),
 		);
 	}
 
@@ -121,7 +124,7 @@ class ExamResultsViewServiceTest extends TestCase {
 	/* ── 8.7 Результаты ───────────────────────────────────────────────────── */
 
 	/** Три участия проведения: 1 — работа готова, 2 — ждёт проверки; 3 — гость с готовой работой. */
-	private function givenResults(): void {
+	private function givenResults( ?string $school = null ): void {
 		$this->events->method( 'findBySubjectKey' )->willReturn( array( $this->examEvent( array( 'status' => 'published' ) ) ) );
 		$p = array( 1 => $this->participation( 1, 11 ), 2 => $this->participation( 2, 12 ), 3 => $this->participation( 3, 13, 'guest' ) );
 		$this->participations->method( 'findByEvent' )->willReturn( array_values( $p ) );
@@ -131,7 +134,7 @@ class ExamResultsViewServiceTest extends TestCase {
 		$this->participants->method( 'find' )->willReturnCallback( fn ( int $id ): ExamParticipantDTO => $this->participant( $id, $id > 102 ? null : $id - 100 ) );
 		$this->registrations->method( 'find' )->willReturn( $this->registration( 1, 1 ) );
 		$this->records->method( 'findActiveByStudentFirst' )->willReturn( StudentRecordDTO::fromArray( array(
-			'id' => 1, 'student_person_id' => 1, 'snapshot_last_name' => 'Иванов', 'snapshot_first_name' => 'Пётр', 'status' => 'active',
+			'id' => 1, 'student_person_id' => 1, 'snapshot_last_name' => 'Иванов', 'snapshot_first_name' => 'Пётр', 'snapshot_school' => $school, 'status' => 'active',
 		) ) );
 		$this->answers->method( 'hasPendingAnswers' )->willReturnCallback( static fn ( int $id ): bool => 12 === $id );
 	}
@@ -160,6 +163,39 @@ class ExamResultsViewServiceTest extends TestCase {
 		self::assertSame( array(), $noSource );
 	}
 
+	public function test_group_filter_applies_to_students_only_and_hides_guests(): void {
+		$this->groupsRepo->method( 'findById' )->willReturn( (object) array( 'id' => 5, 'name' => 'Группа А' ) );
+		$this->givenResults();
+
+		$result = $this->service->results( 10, 'inf_ege', array( 'group_id' => 5 ) );
+
+		self::assertSame( array( 11, 12 ), array_column( $result['items'], 'attempt_id' ), 'Гость под фильтром группы не показывается.' );
+		self::assertSame( array( array( 'id' => 5, 'label' => 'Группа А' ) ), $result['filters']['groups'] );
+		self::assertSame( array(), $this->service->results( 10, 'inf_ege', array( 'group_id' => 6 ) )['items'] );
+	}
+
+	public function test_source_filter_keeps_only_its_guests(): void {
+		$this->givenResults();
+		$result = $this->service->results( 10, 'inf_ege', array( 'source_id' => 0, 'audience' => 'all' ) );
+		self::assertCount( 3, $result['items'] );
+
+		// Ученики источника не имеют; фильтр источника скрывает их, а не оставляет «заодно».
+		self::assertSame( array(), $this->service->results( 10, 'inf_ege', array( 'source_id' => 99 ) )['items'] );
+	}
+
+	public function test_school_filter_applies_to_everyone_and_options_ignore_other_filters(): void {
+		$this->givenResults( 'Лицей № 5' );
+
+		$all    = $this->service->results( 10, 'inf_ege', array() );
+		$byName = $this->service->results( 10, 'inf_ege', array( 'school' => 'Лицей № 5' ) );
+		$other  = $this->service->results( 10, 'inf_ege', array( 'school' => 'Школа № 9' ) );
+
+		self::assertSame( array( 'Лицей № 5' ), $all['filters']['schools'] );
+		self::assertSame( array( 11, 12 ), array_column( $byName['items'], 'attempt_id' ), 'У гостя без источника школы нет — под фильтр не попадает.' );
+		self::assertSame( array(), $other['items'] );
+		self::assertSame( array( 'Лицей № 5' ), $other['filters']['schools'], 'Список школ не сужается выбранной школой.' );
+	}
+
 	public function test_results_exclude_foreign_events(): void {
 		$this->events->method( 'findBySubjectKey' )->willReturn( array( $this->examEvent( array( 'status' => 'published' ) ) ) );
 		$guard = $this->createMock( ExamAccessGuard::class );
@@ -180,14 +216,14 @@ class ExamResultsViewServiceTest extends TestCase {
 		self::assertSame( array(
 			'attempt_id', 'participation_id', 'result_version', 'event_id', 'event_title',
 			'session_id', 'session_date', 'session_time', 'name', 'audience', 'audience_label',
-			'source', 'source_id', 'result_status', 'result_status_label', 'score',
+			'source', 'school', 'source_id', 'group_id', 'group', 'result_status', 'result_status_label', 'score',
 		), array_keys( $row ) );
 		self::assertSame( 'Иванов Пётр', $row['name'] );
 		self::assertSame( 'ready', $row['result_status'] );
 		self::assertSame( 'Готова к утверждению', $row['result_status_label'] );
 		self::assertSame( 'Результат выдан', $result['items'][2]['result_status_label'] );
 		self::assertSame( 10, $row['score']['primary'] );
-		self::assertSame( array( 'events', 'sessions', 'sources' ), array_keys( $result['filters'] ) );
+		self::assertSame( array( 'events', 'sessions', 'sources', 'groups', 'schools' ), array_keys( $result['filters'] ) );
 	}
 
 	public function test_event_and_session_filters_do_not_expand_selection(): void {

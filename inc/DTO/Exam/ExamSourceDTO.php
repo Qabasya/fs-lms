@@ -32,6 +32,8 @@ readonly class ExamSourceDTO {
 		public int $version,
 		public string $createdAt,
 		public string $updatedAt,
+		/** Бесплатная ссылка: запись без оплаты (подарочное посещение по приглашению преподавателя). */
+		public bool $isFree = false,
 	) {}
 
 	/** Источник открытой записи (не школа): отчёты по его участникам не формируются. */
@@ -57,6 +59,7 @@ readonly class ExamSourceDTO {
 			version               : (int) $row['version'],
 			createdAt             : (string) $row['created_at'],
 			updatedAt             : (string) $row['updated_at'],
+			isFree                : (bool) ( $row['is_free'] ?? false ),
 		);
 	}
 }

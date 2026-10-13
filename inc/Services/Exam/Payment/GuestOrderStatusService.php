@@ -60,6 +60,20 @@ class GuestOrderStatusService {
 	}
 
 	/**
+	 * Блок «Вы записаны» для записи по бесплатной ссылке (заказа магазина нет): та же дата, время и адрес, что после оплаты.
+	 *
+	 * @return array{state: string, title: string, lines: list<string>, refresh: bool}
+	 */
+	public function confirmedFree( int $sessionId ): array {
+		return array(
+			'state'   => GuestApplicationState::Confirmed->value,
+			'title'   => 'Вы записаны. Оплата не требуется.',
+			'lines'   => array_merge( $this->sessionLines( $sessionId ), array( 'Ссылку для входа на экзамен выдаст сотрудник на площадке.' ) ),
+			'refresh' => false,
+		);
+	}
+
+	/**
 	 * Готовит пояснение состояния заявки и контакты для страницы заказа.
 	 *
 	 * @return array{state: string, title: string, lines: list<string>, refresh: bool}

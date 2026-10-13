@@ -6,6 +6,7 @@ namespace Inc\Services\Export;
 
 use Inc\Enums\Wp\TransientKey;
 use Inc\Managers\Wp\TransientManager;
+use RuntimeException;
 
 /**
  * Class OneTimeDownloadService
@@ -68,7 +69,10 @@ class OneTimeDownloadService {
 
 		// rename() внутри одной ФС дешевле копирования пакета на сотни мегабайт.
 		if ( ! @rename( $sourcePath, $path ) ) {
-			copy( $sourcePath, $path );
+			// Ссылку на файл, которого нет, не выдаём: иначе пользователь получает 404 вместо причины.
+			if ( ! @copy( $sourcePath, $path ) ) {
+				throw new RuntimeException( 'Не удалось сохранить файл для скачивания в каталог экспортов (uploads/lms-exports).' );
+			}
 			wp_delete_file( $sourcePath );
 		}
 

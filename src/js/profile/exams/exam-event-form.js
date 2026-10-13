@@ -26,11 +26,12 @@ function fieldError(name) {
     return `<div class="gp-error" data-err="${name}" hidden></div>`;
 }
 
-/** Чек-лист запуска гостевой записи: галочки и подсказки по непройденным пунктам; пройден целиком — одна строка. */
+/** Чек-лист запуска гостевой записи: только предупреждения о непройденных пунктах; всё в порядке — ничего не показываем. */
 function launchChecklistHtml(launch) {
-    if (launch.ready) { return '<div class="gp-field"><span></span><div class="exam-launch is-ready">Настройки запуска гостевой записи в порядке.</div></div>'; }
-    return `<div class="gp-field gp-field--top"><span>Готовность</span><ul class="exam-launch">${launch.items.map(i =>
-        `<li class="${i.ok ? 'is-ok' : 'is-fail'}">${i.ok ? '✔' : '✖'} ${esc(i.label)}${i.ok ? '' : ` — ${esc(i.hint)}`}</li>`).join('')}</ul></div>
+    if (launch.ready) { return ''; }
+    const failed = launch.items.filter(i => !i.ok);
+    return `<div class="gp-field gp-field--top"><span>Готовность</span><ul class="exam-launch">${failed.map(i =>
+        `<li class="is-fail">✖ ${esc(i.label)} — ${esc(i.hint)}</li>`).join('')}</ul></div>
         <div class="gp-warn">Пока есть непройденный пункт, включить «Запись гостей» нельзя.</div>`;
 }
 

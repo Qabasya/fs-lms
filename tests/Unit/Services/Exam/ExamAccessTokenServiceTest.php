@@ -189,6 +189,31 @@ class ExamAccessTokenServiceTest extends TestCase {
 		self::assertNull( $rows[1]['key_enc'], 'Ключи входа не запоминаются.' );
 	}
 
+	public function test_report_key_is_stored_sealed_and_can_be_copied_again(): void {
+		$this->crypto->method( 'encrypt' )->willReturnCallback( static fn ( string $v ): string => strrev( $v ) );
+		$this->crypto->method( 'decrypt' )->willReturnCallback( static fn ( string $v ): string => strrev( $v ) );
+		$this->tokens->method( 'maxGeneration' )->willReturn( 0 );
+		$rows = array();
+		$this->tokens->method( 'insert' )->willReturnCallback( static function ( array $data ) use ( &$rows ): int {
+			$rows[] = $data;
+			return 1;
+		} );
+
+		$plain = $this->service->issue( ExamTokenPurpose::Report, 8, 1 );
+		$this->service->issue( ExamTokenPurpose::Result, 8, 1 );
+
+		self::assertSame( base64_encode( strrev( $plain ) ), $rows[0]['key_enc'], 'Ссылка отчёта хранится зашифрованной: её можно скопировать повторно.' );
+		self::assertNull( $rows[1]['key_enc'], 'Ключи результата по-прежнему не запоминаются.' );
+
+		$sealed = ExamAccessTokenDTO::fromArray( array(
+			'id' => 1, 'purpose' => 'report', 'target_id' => 8, 'token_hash' => str_repeat( 'a', 64 ), 'generation' => 1, 'created_at' => '2026-03-01 00:00:00',
+			'issuer_user_id' => 1, 'key_enc' => base64_encode( strrev( 'abc123' ) ),
+		) );
+		$this->tokens->method( 'findActive' )->willReturn( $sealed );
+
+		self::assertSame( 'abc123', $this->service->reportKey( 8 ) );
+	}
+
 	public function test_invitation_key_returns_plain_from_active_token_or_null(): void {
 		$this->crypto->method( 'decrypt' )->willReturnCallback( static fn ( string $v ): string => strrev( $v ) );
 		$sealed = ExamAccessTokenDTO::fromArray( array(

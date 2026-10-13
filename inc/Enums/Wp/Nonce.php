@@ -81,6 +81,9 @@ enum Nonce: string {
 	// ==== Кабинеты / аудитории (Эпик 9) ====
 	case Room                 = 'fs_lms_room';
 
+	// ==== Аватары предметов, групп и кабинета (Настройки → Аватары) ====
+	case Avatar               = 'fs_lms_avatar';
+
 	// ==== Этап 3 — сдача работ ====
 	case GradeWork  = 'fs_lms_grade_work';
 

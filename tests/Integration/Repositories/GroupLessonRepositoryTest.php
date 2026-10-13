@@ -469,4 +469,18 @@ class GroupLessonRepositoryTest extends TestCase {
 		self::assertStringContainsString( 'homework_due_at IS NOT NULL', $q );
 		self::assertStringContainsString( 'work_deadlines IS NOT NULL', $q );
 	}
+	public function test_pending_recordings_include_ended_scheduled_lessons(): void {
+		$this->wpdb->queueResults( array() );
+		$this->repo->listPastWithoutRecording( '2026-10-13 16:00:00', 30 );
+		$q = $this->wpdb->lastQuery();
+		self::assertStringContainsString( "status = 'held'", $q );
+		self::assertStringContainsString( "status = 'scheduled'", $q );
+		self::assertStringContainsString( 'COALESCE(ends_at, DATE_ADD(scheduled_at, INTERVAL 3 HOUR))', $q );
+		self::assertStringContainsString( "< '2026-10-13 16:00:00'", $q );
+		self::assertStringContainsString( 'recording_link IS NULL', $q );
+		self::assertStringNotContainsString( "status = 'cancelled'", $q );
+		$this->repo->countPastWithoutRecording( '2026-10-13 16:00:00' );
+		self::assertStringContainsString( "status = 'scheduled'", $this->wpdb->lastQuery() );
+	}
+
 }

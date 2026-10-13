@@ -28,6 +28,7 @@ use Inc\Managers\Assessment\AssessmentManager;
 use Inc\Repositories\WPDBRepositories\AssessmentAnswerRepository;
 use Inc\Repositories\WPDBRepositories\AssessmentAttemptRepository;
 use Inc\Repositories\WPDBRepositories\ExamEventRepository;
+use Inc\Repositories\WPDBRepositories\ExamParticipantRepository;
 use Inc\Repositories\WPDBRepositories\ExamParticipationRepository;
 use Inc\Repositories\WPDBRepositories\ExamRegistrationRepository;
 use Inc\Repositories\WPDBRepositories\ExamSessionRepository;
@@ -60,6 +61,9 @@ class ExamStatsService {
 		private readonly AssessmentManager $assessments,
 		private readonly ExamFormatRegistry $formats,
 		private readonly ExamTime $time,
+		private readonly ExamParticipantRepository $participants,
+		private readonly ExamParticipantNameService $names,
+		private readonly ExamParticipantProfileService $profiles,
 	) {}
 
 	/**
@@ -67,7 +71,7 @@ class ExamStatsService {
 	 *
 	 * @param array{subject_key?: string, event_id?: int, session_id?: int, audience?: string} $filters
 	 *
-	 * @return array{filters: array<string, mixed>, format: ?array<string, mixed>, kpi: array<string, mixed>, tasks: list<array<string, mixed>>}
+	 * @return array{filters: array<string, mixed>, format: ?array<string, mixed>, kpi: array<string, mixed>, tasks: list<array<string, mixed>>, table: array<string, mixed>, summary: array<string, mixed>}
 	 *
 	 * @throws CodedException `ExamAccess` — проведение чужое.
 	 */
@@ -99,7 +103,11 @@ class ExamStatsService {
 			}
 		}
 
-		$kpi = $this->kpi( $rows );
+		$kpi   = $this->kpi( $rows );
+		$tasks = array() === $selected ? array() : $this->byTask(
+			array_values( array_filter( array_column( $rows, 'attempt' ), static fn ( ?AttemptDTO $a ): bool => null !== $a ) ),
+			$selected[0]
+		);
 
 		return array(
 			'filters' => array(
@@ -114,10 +122,9 @@ class ExamStatsService {
 			),
 			'format'  => $kpi['format'],
 			'kpi'     => $kpi['kpi'],
-			'tasks'   => array() === $selected ? array() : $this->byTask(
-				array_values( array_filter( array_column( $rows, 'attempt' ), static fn ( ?AttemptDTO $a ): bool => null !== $a ) ),
-				$selected[0]
-			),
+			'tasks'   => $tasks,
+			'table'   => $this->table( $rows ),
+			'summary' => $this->summary( $tasks, (int) $kpi['kpi']['submitted'] ),
 		);
 	}
 
@@ -200,6 +207,160 @@ class ExamStatsService {
 				),
 				$rows
 			)
+		);
+	}
+
+	/**
+	 * Статус каждой единицы оценивания одной попытки по возрастанию номера: для строки школьного отчёта.
+	 * Условия и ответы не собираются — только номер и вердикт (`correct`, `partial`, `incorrect`, `unanswered`, `pending`).
+	 *
+	 * @return list<array{number: string, status: string}>
+	 */
+	public function attemptUnits( AttemptDTO $attempt ): array {
+		return array_map(
+			static fn ( array $unit ): array => array(
+				'number' => $unit['number'],
+				'status' => $unit['status'],
+			),
+			$this->unitDetails( $attempt )
+		);
+	}
+
+	/**
+	 * Единицы оценивания попытки с баллами по возрастанию номера; задание без номера в единицы формата не входит.
+	 *
+	 * @return list<array{number: string, status: string, score: float, max: float}>
+	 */
+	private function unitDetails( AttemptDTO $attempt ): array {
+		$units = array();
+		foreach ( $this->scores->units( $attempt, $this->taskRows( $attempt ) ) as $unit ) {
+			$number = (string) $unit['number'];
+			if ( '' === $number ) {
+				continue;
+			}
+			$units[] = array(
+				'number' => $number,
+				'status' => in_array( $unit['status'], self::BUCKETS, true ) ? (string) $unit['status'] : 'incorrect',
+				'score'  => (float) $unit['score'],
+				'max'    => (float) $unit['max'],
+			);
+		}
+		usort( $units, static fn ( array $a, array $b ): int => (int) $a['number'] <=> (int) $b['number'] );
+
+		return $units;
+	}
+
+	/**
+	 * Таблица «ученики × задания»: по строке на каждого, кто сдал работу, с баллом за каждое задание, первичным и вторичным баллом.
+	 * Работа в процессе в таблицу не входит. Внизу — средние по столбцам (ожидающие проверки единицы и работы в среднее не идут).
+	 * Поиск, группа и школа применяются клиентом по полям строки: строк на проведение — сотни, перезапрос на каждую букву не нужен.
+	 *
+	 * @param list<array{participation: ExamParticipationDTO, attempt: ?AttemptDTO, last: ?ExamRegistrationDTO, event: ExamEventDTO}> $rows
+	 *
+	 * @return array{columns: list<string>, secondary_label: string, rows: list<array<string, mixed>>, footer: array<string, mixed>}
+	 */
+	private function table( array $rows ): array {
+		$columns = array();
+		$list    = array();
+		$ege     = true;
+
+		foreach ( $rows as $row ) {
+			$attempt     = $row['attempt'];
+			$participant = null !== $attempt && AttemptStatus::InProgress !== $attempt->status ? $this->participants->find( $row['participation']->participantId ) : null;
+			if ( null === $attempt || null === $participant ) {
+				continue;
+			}
+
+			$summary = $this->scores->summarize( $attempt, $row['event'] );
+			$units   = array();
+			foreach ( $this->unitDetails( $attempt ) as $unit ) {
+				$columns[ $unit['number'] ] = true;
+				$units[ $unit['number'] ]   = array(
+					'score'  => $unit['score'],
+					'max'    => $unit['max'],
+					'status' => $unit['status'],
+				);
+			}
+
+			$ege    = ExamDirection::Ege->value === (string) $summary['direction'];
+			$second = $ege ? $summary['secondary'] : $summary['grade'];
+			$list[] = array(
+				'participation_id' => $row['participation']->id,
+				'name'             => $this->names->participantName( $participant ),
+				'audience'         => $row['participation']->audience,
+				'school'           => $this->profiles->school( $row['participation'], $participant ),
+				'group'            => $this->profiles->groupName( $participant ),
+				'primary'          => (int) $summary['primary'],
+				'primary_max'      => (int) $summary['primary_max'],
+				'secondary'        => null !== $second ? (int) $second : null,
+				'pending'          => ! empty( $summary['pending'] ),
+				'units'            => $units,
+			);
+		}
+
+		// Сначала окончательные по убыванию первичного балла, затем ожидающие проверки; при равенстве — по имени.
+		usort(
+			$list,
+			static fn ( array $a, array $b ): int => ( (int) $a['pending'] <=> (int) $b['pending'] )
+				?: ( $b['primary'] <=> $a['primary'] )
+				?: strcmp( (string) $a['name'], (string) $b['name'] )
+		);
+
+		$numbers = array_map( 'strval', array_keys( $columns ) );
+		usort( $numbers, static fn ( string $a, string $b ): int => (int) $a <=> (int) $b );
+
+		return array(
+			'columns'         => $numbers,
+			'secondary_label' => $ege ? 'Вторичный балл' : 'Отметка',
+			'rows'            => $list,
+			'footer'          => $this->footer( $list ),
+		);
+	}
+
+	/**
+	 * Сводная по заданиям: сколько работ вообще дали ответ («попытки») и сколько решили верно, абсолютно и в процентах.
+	 * Верным считается любой положительный балл — и 1, и 2 балла за задание 26–27. Проценты: попыток — от сданных работ,
+	 * верных — от попыток; без попыток процент — null (делить не на что).
+	 *
+	 * @param list<array<string, mixed>> $tasks Результат {@see byTask()}.
+	 *
+	 * @return array{works: int, columns: list<array{number: string, attempts: int, correct: int, attempts_share: ?int, correct_share: ?int}>}
+	 */
+	private function summary( array $tasks, int $works ): array {
+		$columns = array();
+		foreach ( $tasks as $task ) {
+			$attempts  = (int) $task['total'] - (int) $task['unanswered'];
+			$correct   = (int) $task['full'] + (int) $task['partial'];
+			$columns[] = array(
+				'number'         => (string) $task['number'],
+				'attempts'       => $attempts,
+				'correct'        => $correct,
+				'attempts_share' => $works > 0 ? (int) round( 100 * $attempts / $works ) : null,
+				'correct_share'  => $attempts > 0 ? (int) round( 100 * $correct / $attempts ) : null,
+			);
+		}
+
+		return array(
+			'works'   => $works,
+			'columns' => $columns,
+		);
+	}
+
+	/**
+	 * Средние итоги таблицы: первичный и вторичный балл по окончательным работам; null — усреднять нечего.
+	 * По заданиям средних нет: столбцы заданий внизу остаются пустыми.
+	 *
+	 * @param list<array<string, mixed>> $list
+	 *
+	 * @return array{primary: ?float, secondary: ?float}
+	 */
+	private function footer( array $list ): array {
+		$mean  = static fn ( array $values ): ?float => array() === $values ? null : round( array_sum( $values ) / count( $values ), 1 );
+		$final = array_values( array_filter( $list, static fn ( array $row ): bool => ! $row['pending'] ) );
+
+		return array(
+			'primary'   => $mean( array_map( static fn ( array $row ): float => (float) $row['primary'], $final ) ),
+			'secondary' => $mean( array_map( static fn ( array $row ): float => (float) $row['secondary'], array_values( array_filter( $final, static fn ( array $row ): bool => null !== $row['secondary'] ) ) ) ),
 		);
 	}
 

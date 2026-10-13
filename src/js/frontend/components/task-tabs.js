@@ -1,7 +1,9 @@
+// Блок вкладок — на странице задания один, а в разборе экзамена (результат, отчёт школе) их по одному на задание.
 export function initTabs() {
-    const container = document.querySelector('.fs-task-tabs');
-    if (!container) return;
+    document.querySelectorAll('.fs-task-tabs').forEach(initTabsBlock);
+}
 
+function initTabsBlock(container) {
     const buttons = container.querySelectorAll('.fs-tab-btn');
     const panels  = container.querySelectorAll('.fs-tab-panel');
 

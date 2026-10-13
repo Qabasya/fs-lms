@@ -75,6 +75,7 @@ class GuestSignupViewService {
 				'grade'   => $source->grade,
 				'teacher' => $source->teacherName,
 				'public'  => $source->isPublic(),
+				'free'    => $source->isFree && ! $source->isPublic(),
 			),
 			'event'    => array( 'title' => $event->title ?? '' ),
 			'contacts' => $contacts,
@@ -87,7 +88,8 @@ class GuestSignupViewService {
 		}
 
 		$sessions = $this->sessionCards( $event, $nowUtc );
-		$price    = $this->price( $source->grade );
+		// Бесплатная ссылка преподавателя: цены и товара магазина не требует.
+		$price    = $source->isFree && ! $source->isPublic() ? array( 'html' => 'Бесплатно', 'amount' => '0' ) : $this->price( $source->grade );
 		$base     = array_merge(
 			$base,
 			array(

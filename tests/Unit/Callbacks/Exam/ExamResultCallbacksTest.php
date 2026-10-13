@@ -44,12 +44,13 @@ class ExamResultCallbacksTest extends TestCase {
 	public function test_filters_are_sanitized(): void {
 		$_POST = array(
 			'subject_key' => 'inf_ege', 'event_id' => '3', 'session_id' => '-7', 'source_id' => 'abc',
+			'group_id' => '-4', 'school' => '  <b>Лицей № 5</b> ',
 			'status' => 'DROP', 'audience' => 'guest',
 		);
 		$this->results->expects( self::once() )->method( 'results' )->with(
 			10,
 			'inf_ege',
-			array( 'event_id' => 3, 'session_id' => 7, 'source_id' => 0, 'status' => 'all', 'audience' => 'guest' )
+			array( 'event_id' => 3, 'session_id' => 7, 'source_id' => 0, 'group_id' => 4, 'school' => 'Лицей № 5', 'status' => 'all', 'audience' => 'guest' )
 		)->willReturn( array( 'filters' => array(), 'items' => array() ) );
 
 		self::assertTrue( fs_test_capture_json( fn() => $this->cb->ajaxGetExamResults() )->success );

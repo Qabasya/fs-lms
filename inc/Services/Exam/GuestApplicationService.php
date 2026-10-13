@@ -55,6 +55,7 @@ class GuestApplicationService {
 
 	private const MAX_NAME_LENGTH      = 100;
 	private const MAX_MESSENGER_LENGTH = 100;
+	private const MAX_SCHOOL_LENGTH    = 255;
 	private const PHONE_DIGITS         = 11;
 
 	/** Получает идентификацию, согласия и бронь отдельно от платёжного HTTP-перехода. */
@@ -167,7 +168,7 @@ class GuestApplicationService {
 	/**
 	 * Проверяет гостевую форму и создаёт заявку с бронью в контексте гостя или сотрудника.
 	 *
-	 * @param array<string, mixed> $form `last_name`, `first_name`, `middle_name?`, `phone`, `messenger?`, `session_id`, `consents` (список ключей)
+	 * @param array<string, mixed> $form `last_name`, `first_name`, `middle_name?`, `phone`, `messenger?`, `school` (обязательна только в открытой записи), `session_id`, `consents` (список ключей)
 	 *
 	 * @throws GuestFormException Ошибка поля формы или вошедший ученик/родитель (`field = cabinet`).
 	 * @throws CodedException     Лимит, закрытая запись, конфликт.
@@ -177,7 +178,8 @@ class GuestApplicationService {
 			$this->assertNotCenterMember( $ctx->actorUserId );
 		}
 
-		$fields = $this->validate( $form );
+		// Открытая запись: у неё нет школы-организатора, поэтому гость обязан назвать свою. Сотрудник на площадке школу не вводит.
+		$fields = $this->validate( $form, $source->isPublic() && null === $staffUserId );
 
 		$event = $this->events->find( $source->eventId );
 		if ( ! $source->isActive || null !== $source->keyRevokedAt || null === $event || 'published' !== $event->status || ! $event->guestRegistrationEnabled ) {
@@ -200,10 +202,11 @@ class GuestApplicationService {
 			'identity_hash'   => $this->identity->identityHash( $fields['last_name'], $fields['first_name'], $fields['middle_name'], $fields['phone'] ),
 			'request_key'     => $requestKey,
 			// Из источника, не из формы: школу, класс и преподавателя гость выбрать не может.
+			// Исключение — открытая запись: у неё школы нет, поэтому гость называет её сам (поле обязательное).
 			'source_snapshot' => (string) wp_json_encode(
 				array(
-					'school_name'  => $source->schoolName,
-					'school_key'   => $source->schoolKey,
+					'school_name'  => $source->isPublic() && '' !== $fields['school'] ? $fields['school'] : $source->schoolName,
+					'school_key'   => $source->isPublic() && '' !== $fields['school'] ? null : $source->schoolKey, // школа введена вручную — ключа справочника нет
 					'grade'        => $source->grade,
 					'teacher_name' => $source->teacherName,
 					'label'        => $source->label,
@@ -316,17 +319,19 @@ class GuestApplicationService {
 	 * Серверная проверка формы — независимо от клиента.
 	 *
 	 * @param array<string, mixed> $form
+	 * @param bool                 $schoolRequired Школа обязательна (гость открытой записи сам называет школу).
 	 *
-	 * @return array{last_name: string, first_name: string, middle_name: string, phone: string, messenger: string, session_id: int, consents: list<string>}
+	 * @return array{last_name: string, first_name: string, middle_name: string, phone: string, messenger: string, school: string, session_id: int, consents: list<string>}
 	 *
 	 * @throws GuestFormException Поля формы некорректны, сеанс не выбран или обязательное согласие отсутствует.
 	 */
-	private function validate( array $form ): array {
+	private function validate( array $form, bool $schoolRequired = false ): array {
 		$last      = trim( (string) ( $form['last_name'] ?? '' ) );
 		$first     = trim( (string) ( $form['first_name'] ?? '' ) );
 		$middle    = trim( (string) ( $form['middle_name'] ?? '' ) );
 		$phone     = trim( (string) ( $form['phone'] ?? '' ) );
 		$messenger = trim( (string) ( $form['messenger'] ?? '' ) );
+		$school    = trim( (string) ( $form['school'] ?? '' ) );
 		$sessionId = (int) ( $form['session_id'] ?? 0 );
 
 		if ( '' === $last || mb_strlen( $last ) > self::MAX_NAME_LENGTH ) {
@@ -344,6 +349,12 @@ class GuestApplicationService {
 		if ( mb_strlen( $messenger ) > self::MAX_MESSENGER_LENGTH ) {
 			throw new GuestFormException( ErrorCode::ExamConflict, 'Не больше 100 символов.', 'messenger' );
 		}
+		if ( $schoolRequired && '' === $school ) {
+			throw new GuestFormException( ErrorCode::ExamConflict, 'Укажите школу.', 'school' );
+		}
+		if ( mb_strlen( $school ) > self::MAX_SCHOOL_LENGTH ) {
+			throw new GuestFormException( ErrorCode::ExamConflict, 'Название школы слишком длинное.', 'school' );
+		}
 		if ( $sessionId <= 0 ) {
 			throw new GuestFormException( ErrorCode::ExamConflict, 'Выберите дату и время.', 'session_id' );
 		}
@@ -359,6 +370,7 @@ class GuestApplicationService {
 			'middle_name' => $middle,
 			'phone'       => $phone,
 			'messenger'   => $messenger,
+			'school'      => $school,
 			'session_id'  => $sessionId,
 			'consents'    => $consents,
 		);

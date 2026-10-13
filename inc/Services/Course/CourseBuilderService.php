@@ -99,6 +99,7 @@ class CourseBuilderService {
 			'author_id'    => $course->authorId,
 			'author_name'  => $author_name,
 			'thumbnail'    => get_the_post_thumbnail_url( $course->id, 'medium' ) ?: '',
+			'thumbnail_id' => (int) get_post_thumbnail_id( $course->id ), // аватар курса: 0 — не задан
 			'modules'      => $modules,
 			// Эпик 15 (follow-up П6): курс уже ведётся открытой группой, но содержит
 			// контент без автопроверки — предупреждение автору (новые уроки в открытую
@@ -295,7 +296,7 @@ class CourseBuilderService {
 	 *
 	 * @return bool
 	 */
-	public function updateCourseMeta( int $courseId, string $title, string $status, int $authorId = 0, int $thumbnailId = 0 ): bool {
+	public function updateCourseMeta( int $courseId, string $title, string $status, int $authorId = 0, ?int $thumbnailId = null ): bool {
 		$post = $this->posts->get( $courseId );
 		if ( null === $post || ! PostTypeResolver::isCoursePostType( $post->post_type ) ) {
 			return false;
@@ -311,8 +312,9 @@ class CourseBuilderService {
 			$this->posts->update( $courseId, array( 'post_author' => $authorId ) );
 		}
 
-		if ( $thumbnailId > 0 ) {
-			set_post_thumbnail( $courseId, $thumbnailId );
+		// null — не трогать, 0 — снять, >0 — задать (не картинка игнорируется менеджером).
+		if ( null !== $thumbnailId ) {
+			$this->posts->setThumbnail( $courseId, $thumbnailId );
 		}
 
 		if ( 'publish' === $safe_status ) {

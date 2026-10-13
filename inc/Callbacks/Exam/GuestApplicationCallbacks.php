@@ -24,6 +24,7 @@ use Inc\Services\Security\FormGuardService;
 use Inc\Shared\CodedException;
 use Inc\Shared\GuestFormException;
 use Inc\Shared\PluginLogger;
+use Inc\DTO\Exam\ExamGuestApplicationDTO;
 use Inc\DTO\Exam\ExamSourceDTO;
 use Inc\Services\Exam\ExamFormTrackingService;
 use Inc\Services\Exam\GuestSessionService;
@@ -87,6 +88,7 @@ class GuestApplicationCallbacks extends BaseController {
 			'middle_name' => $this->sanitizeText( 'middle_name' ),
 			'phone'       => $this->sanitizeText( 'phone' ),
 			'messenger'   => $this->sanitizeText( 'messenger' ),
+			'school'      => $this->sanitizeText( 'school' ),
 			'session_id'  => $this->sanitizeInt( 'session_id' ),
 			'consents'    => $this->sanitizeKeyList( 'consents' ),
 		);
@@ -111,6 +113,12 @@ class GuestApplicationCallbacks extends BaseController {
 
 		if ( ! $application->isHeld || GuestApplicationState::Failed->value === $application->state ) {
 			$this->fail( ErrorCode::ExamClosed, 'Время брони истекло. Выберите дату заново.', array(), array( 'new_request_key' => true ) );
+			return;
+		}
+
+		// Бесплатная ссылка преподавателя: бронь сразу становится записью, магазин не вызывается.
+		if ( $source->isFree && ! $source->isPublic() ) {
+			$this->confirmFree( $source, $application );
 			return;
 		}
 
@@ -147,6 +155,28 @@ class GuestApplicationCallbacks extends BaseController {
 				'seconds_left'    => null !== $application->holdExpiresAt ? $this->time->secondsUntil( $this->time->nowUtc(), $application->holdExpiresAt ) : 0,
 			)
 		);
+	}
+
+	/**
+	 * Запись по бесплатной ссылке: тот же путь подтверждения, что после оплаты (`convert()`), без заказа и без корзины.
+	 * Не подтвердилось (сеанс закрыт, место ушло) — бронь снимается, клиент берёт новый `request_key`.
+	 */
+	private function confirmFree( ExamSourceDTO $source, ExamGuestApplicationDTO $application ): void {
+		try {
+			$confirmed = $this->holds->convert( $application->id, null );
+		} catch ( \Throwable $e ) {
+			PluginLogger::exception( 'ExamGuest', $e, array( 'application_id' => $application->id ), true );
+			$confirmed = null;
+		}
+
+		if ( null === $confirmed || GuestApplicationState::Confirmed->value !== $confirmed->state ) {
+			$this->holds->release( $application->id, GuestApplicationState::Failed );
+			$this->fail( ErrorCode::ExamClosed, 'Не удалось записаться: место уже занято. Выберите дату заново.', array(), array( 'new_request_key' => true ) );
+			return;
+		}
+
+		$this->formLog->holdCreated( $source, $application );
+		$this->success( array( 'confirmed' => $this->orderStatus->confirmedFree( $confirmed->sessionId ) ) );
 	}
 
 	/**

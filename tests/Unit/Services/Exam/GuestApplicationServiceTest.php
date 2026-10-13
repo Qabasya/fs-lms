@@ -165,6 +165,46 @@ class GuestApplicationServiceTest extends TestCase {
 		self::assertSame( 'Петрова А. И.', $snapshot['teacher_name'] );
 	}
 
+	public function test_school_link_ignores_school_typed_in_form(): void {
+		$this->apply( array( 'school' => 'Другая школа' ) );
+
+		$snapshot = json_decode( $this->captured['source_snapshot'], true );
+		self::assertSame( 'Школа 5', $snapshot['school_name'], 'Школа ссылки преподавателя перекрыть формой нельзя.' );
+		self::assertSame( 'sch5', $snapshot['school_key'] );
+	}
+
+	public function test_open_registration_takes_school_from_form(): void {
+		$public = $this->source( array( 'school_key' => 'public', 'school_name' => 'Открытая запись' ) );
+		$this->apply( array( 'school' => '  Лицей № 49 ' ), $public );
+
+		$snapshot = json_decode( $this->captured['source_snapshot'], true );
+		self::assertSame( 'Лицей № 49', $snapshot['school_name'] );
+		self::assertNull( $snapshot['school_key'], 'Введённая вручную школа ключа справочника не имеет.' );
+	}
+
+	public function test_open_registration_requires_school(): void {
+		$this->holds->expects( self::never() )->method( 'capture' );
+		$public = $this->source( array( 'school_key' => 'public', 'school_name' => 'Открытая запись' ) );
+
+		$this->assertFormError( 'school', ErrorCode::ExamConflict, fn () => $this->apply( array(), $public ) );
+		$this->assertFormError( 'school', ErrorCode::ExamConflict, fn () => $this->apply( array( 'school' => '   ' ), $public ) );
+	}
+
+	public function test_staff_application_to_open_registration_does_not_need_school(): void {
+		$public = $this->source( array( 'school_key' => 'public', 'school_name' => 'Открытая запись' ) );
+		$this->apply( array(), $public, 0, 33 );
+
+		$snapshot = json_decode( $this->captured['source_snapshot'], true );
+		self::assertSame( 'Открытая запись', $snapshot['school_name'], 'Сотрудник школу не вводит: остаётся служебное имя источника.' );
+	}
+
+	public function test_too_long_school_is_rejected(): void {
+		$this->holds->expects( self::never() )->method( 'capture' );
+		$public = $this->source( array( 'school_key' => 'public' ) );
+
+		$this->assertFormError( 'school', ErrorCode::ExamConflict, fn () => $this->apply( array( 'school' => str_repeat( 'ш', 256 ) ), $public ) );
+	}
+
 	public function test_apply_stores_form_encrypted(): void {
 		$this->apply();
 

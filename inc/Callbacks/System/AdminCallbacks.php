@@ -26,7 +26,9 @@ use Inc\Services\Log\Pages\LogPageRegistry;
 use Inc\Services\Print\PrintCenterService;
 use Inc\Enums\Print\PrintDocument;
 use Inc\Enums\Print\PrintField;
+use Inc\Enums\Settings\AvatarEntity;
 use Inc\Services\Exam\ExamLaunchChecklist;
+use Inc\Services\Shared\AvatarService;
 use Inc\Managers\Woo\WooCommerceManager;
 use Inc\Services\Shared\PluginConfig;
 use Inc\Shared\Traits\Authorizer;
@@ -87,6 +89,7 @@ class AdminCallbacks extends BaseController {
 		private readonly PrintCenterService $printCenter,
 		private readonly WooCommerceManager $woo,
 		private readonly ExamLaunchChecklist $examChecklist,
+		private readonly AvatarService $avatars,
 	) {
 		parent::__construct();
 	}
@@ -150,6 +153,7 @@ class AdminCallbacks extends BaseController {
 		$this->render(
 			'admin/settings',
 			array(
+				'avatar_rows'         => $this->avatarRows(),
 				'subjects'            => $this->subjects->readAll(),
 				'active_subjects'     => $this->subjects->readActive(),
 				'academic_periods'    => $academic_periods,
@@ -165,6 +169,54 @@ class AdminCallbacks extends BaseController {
 				'saved_templates'     => $this->emailTemplates->readAll(),
 				'consent_definitions' => $this->consentDefinitions->readAll(),
 			)
+		);
+	}
+
+	/**
+	 * Строки вкладки «Аватары»: кабинет, предметы, группы — с текущим attachment ID и URL превью.
+	 *
+	 * @return array{brand: array{id:int,url:string}, subjects: array<int,array<string,mixed>>, groups: array<int,array<string,mixed>>}
+	 */
+	private function avatarRows(): array {
+		$map     = $this->avatars->urlMap();
+		$subject = array();
+		$subject_names = array();
+
+		foreach ( $this->subjects->readAll() as $key => $dto ) {
+			$subject_names[ (string) $key ] = $dto->name;
+			$subject[]                      = array(
+				'key'      => (string) $key,
+				'name'     => $dto->name,
+				'archived' => $dto->archived,
+				'id'       => $this->avatars->id( AvatarEntity::Subject, (string) $key ),
+				'url'      => $map[ AvatarEntity::Subject->value ][ (string) $key ] ?? '',
+			);
+		}
+
+		$groups = array();
+		foreach ( $this->groupsRepository->findAll() as $g ) {
+			if ( ! empty( $g->deleted_at ) ) {
+				continue;
+			}
+			$gid      = (string) $g->id;
+			$groups[] = array(
+				'key'     => $gid,
+				'name'    => (string) $g->name,
+				'subject' => $subject_names[ (string) $g->subject_key ] ?? (string) $g->subject_key,
+				'id'      => $this->avatars->id( AvatarEntity::Group, $gid ),
+				'url'     => $map[ AvatarEntity::Group->value ][ $gid ] ?? '',
+			);
+		}
+
+		$brand_id = $this->avatars->id( AvatarEntity::Brand, '' );
+
+		return array(
+			'brand'    => array(
+				'id'  => $brand_id,
+				'url' => $this->avatars->attachmentUrl( $brand_id ),
+			),
+			'subjects' => $subject,
+			'groups'   => $groups,
 		);
 	}
 

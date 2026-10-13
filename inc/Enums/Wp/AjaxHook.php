@@ -83,6 +83,9 @@ enum AjaxHook: string {
 	case SaveConfig              = 'save_config';
 	case GenerateKey             = 'generate_key';
 
+	// ==================== Настройки: аватары ====================
+	case SaveAvatar              = 'save_avatar';
+
 	// ==================== Экспорт данных ====================
 	case ExportGroups   = 'export_groups';
 	case ExportStudents = 'export_students';

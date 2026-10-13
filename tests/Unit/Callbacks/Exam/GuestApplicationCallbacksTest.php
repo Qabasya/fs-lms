@@ -238,6 +238,40 @@ class GuestApplicationCallbacksTest extends TestCase {
 		self::assertSame( 1200, $r->payload['seconds_left'] );
 	}
 
+	private function givenFreeSource(): void {
+		$_COOKIE[ GuestSessionService::COOKIE_INVITATION ] = str_repeat( 'b', 64 );
+		$this->sessions->method( 'resolveInvitation' )->willReturn( 14 );
+		$this->sources->method( 'find' )->willReturn( $this->source( array( 'school_key' => 'sch5', 'is_free' => '1' ) ) );
+	}
+
+	public function test_free_link_confirms_without_cart_or_payment(): void {
+		$this->givenFreeSource();
+		$this->post();
+		$this->applications->method( 'apply' )->willReturn( $this->application() );
+		$this->holds->expects( self::once() )->method( 'convert' )->with( 9, null )->willReturn( $this->application( false, 'confirmed' ) );
+		$this->adapter->expects( self::never() )->method( 'addToCart' );
+		$this->adapter->expects( self::never() )->method( 'completeInTestEnv' );
+
+		$r = fs_test_capture_json( fn() => $this->cb->ajaxSubmitExamGuestApplication() );
+
+		self::assertTrue( $r->success );
+		self::assertArrayHasKey( 'confirmed', $r->payload );
+		self::assertArrayNotHasKey( 'redirect', $r->payload, 'Бесплатная запись не уходит в магазин.' );
+	}
+
+	public function test_free_link_failure_releases_hold_and_asks_new_request_key(): void {
+		$this->givenFreeSource();
+		$this->post();
+		$this->applications->method( 'apply' )->willReturn( $this->application() );
+		$this->holds->method( 'convert' )->willReturn( $this->application( false, 'paid_needs_resolution' ) );
+		$this->holds->expects( self::once() )->method( 'release' )->with( 9, GuestApplicationState::Failed );
+
+		$r = fs_test_capture_json( fn() => $this->cb->ajaxSubmitExamGuestApplication() );
+
+		self::assertFalse( $r->success );
+		self::assertTrue( $r->payload['new_request_key'] );
+	}
+
 	public function test_cart_failure_releases_hold_once(): void {
 		$this->givenValidCookie();
 		$this->post();

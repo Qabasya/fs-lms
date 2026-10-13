@@ -8,7 +8,7 @@
    Вход — клик по курсу в сайдбаре кабинета.
    ══════════════════════════════════════════════════════════════════════ */
 
-import { esc, chipBg, shortName } from './utils.js';
+import { esc, chipHtml } from './utils.js';
 import { icoSearch, icoChevronRight } from '../common/icons.js';
 import { createApi } from './api.js';
 import { teacherLayout, moreHtml, bindMore } from './program-window.js';
@@ -90,7 +90,7 @@ function renderTabs() {
     const wrap = root.querySelector('#tcTabs');
     wrap.innerHTML = courses().map(c => `
         <button type="button" class="sc-tab${c.id === state.active ? ' on' : ''}" data-id="${c.id}">
-            <span class="sc-chip ${chipBg(c.subject_key)}">${esc(shortName(c.title))}</span>
+            ${chipHtml('sc-chip', c.subject_key, c.title, null, c.avatar)}
             <span class="sc-tb"><span class="sc-tname">${esc(c.title)}</span></span>
         </button>`).join('');
     wrap.querySelectorAll('.sc-tab').forEach(b => b.addEventListener('click', () => openTeacherCourse(b.dataset.id)));

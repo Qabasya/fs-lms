@@ -10,7 +10,8 @@
 import { esc, toast } from '../utils.js';
 import { confirmDialog } from '../../common/components/confirm-dialog.js';
 import { copyToClipboard } from '../../common/utils.js';
-import { findSchools, resolveBareNumber, exactSchool, schoolKeyOf } from '../../common/school-suggest.js';
+import { exactSchool, schoolKeyOf } from '../../common/school-suggest.js';
+import { initSchoolSuggest } from '../../frontend/services/school-suggest.js';
 
 /** Последствия перевыпуска — дословно из SPEC §6: человек должен понять, что произойдёт со старой ссылкой. */
 export const REISSUE_TEXT = 'Старая ссылка перестанет работать сразу, уже открытые по ней формы потеряют доступ; '
@@ -26,7 +27,7 @@ export function gradeOfDirection(direction) {
 /**
  * Строка источника. `canCopy` — ключ этой ссылки ещё в памяти формы.
  *
- * @param {{id:number, school_name:string, teacher_name:string, grade:number, is_active:boolean, has_link:boolean, active_holds:number}} source
+ * @param {{id:number, school_name:string, teacher_name:string, grade:number, is_active:boolean, is_free?:boolean, has_link:boolean, active_holds:number}} source
  * @param {boolean} canCopy
  */
 export function sourceRowHtml(source, canCopy) {
@@ -38,7 +39,7 @@ export function sourceRowHtml(source, canCopy) {
 
     return `<div class="exam-source${source.is_active ? '' : ' is-off'}" data-id="${source.id}">
         <div class="es-main">
-            <div class="es-school">${esc(source.school_name)} · ${source.grade} класс</div>
+            <div class="es-school">${esc(source.school_name)} · ${source.grade} класс${source.is_free ? ' <span class="es-free">без оплаты</span>' : ''}</div>
             <div class="es-teacher">${esc(source.teacher_name)}${source.active_holds ? ` · броней: ${source.active_holds}` : ''}</div>
         </div>
         <label class="es-toggle"><input type="checkbox" data-src="toggle" ${source.is_active ? 'checked' : ''}> активна</label>
@@ -69,10 +70,10 @@ export function renderSourcesSection(container, o) {
                 : '<div class="es-empty">Ссылок пока нет.</div>'}</div>
             ${grade
                 ? `<div class="es-add">
-                    <input type="text" id="srcSchool" placeholder="Школа" maxlength="255" aria-label="Школа" list="srcSchoolList" autocomplete="off">
-                    <datalist id="srcSchoolList"></datalist>
+                    <span class="es-school-field"><input type="text" id="srcSchool" placeholder="Школа" maxlength="255" aria-label="Школа" autocomplete="off"></span>
                     <span class="es-grade" title="Класс определяется направлением проведения">${grade} класс</span>
                     <input type="text" id="srcTeacher" placeholder="ФИО преподавателя" maxlength="255" aria-label="ФИО преподавателя">
+                    <label class="es-toggle" title="Ученики по этой ссылке записываются бесплатно, без этапа оплаты"><input type="checkbox" id="srcFree"> без оплаты</label>
                     <button type="button" class="prof-btn prof-btn-sm" data-src="add">Добавить</button>
                 </div>`
                 : '<div class="es-empty">Выберите основной вариант проведения: от него зависит класс.</div>'}`;
@@ -102,16 +103,9 @@ export function renderSourcesSection(container, o) {
     };
 
     function wire() {
-        // Подсказки справочника: нативный datalist, без своей разметки и стилей. Вписать школу вручную можно всегда.
+        // Подсказки справочника — тот же выпадающий список, что в форме заявки (apply). Вписать школу вручную можно всегда.
         const schoolInput = container.querySelector('#srcSchool');
-        const schoolList = container.querySelector('#srcSchoolList');
-        schoolInput?.addEventListener('input', () => {
-            schoolList.replaceChildren(...findSchools(schoolInput.value).map(name => new Option(name)));
-        });
-        schoolInput?.addEventListener('blur', () => {
-            const full = resolveBareNumber(schoolInput.value);
-            if (full) { schoolInput.value = full; }
-        });
+        initSchoolSuggest(schoolInput);
 
         container.querySelector('[data-open="toggle"]')?.addEventListener('change', e => act(
             async () => { open = (await api('setPublicRegistration', { event_id: event.id, enabled: e.target.checked ? 1 : 0 })).public; },
@@ -131,6 +125,7 @@ export function renderSourcesSection(container, o) {
                 school_name: known || typed,
                 school_key: known ? schoolKeyOf(known) : '',
                 teacher_name: container.querySelector('#srcTeacher').value,
+                is_free: container.querySelector('#srcFree').checked ? 1 : 0,
                 grade,
             });
         }, 'Источник добавлен'));

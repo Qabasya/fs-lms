@@ -24,7 +24,7 @@ $any_available = array() !== array_filter( $options, static fn ( array $option )
 
 <main class="fs-lms-join-page fs-exam-signup" id="fs-exam-signup" data-state="choose">
 	<div class="fs-join-card">
-		<h2 class="fs-join-card__title"><?php esc_html_e( 'Запись на экзамен', 'fs-lms' ); ?></h2>
+		<!-- Заголовок «Запись на экзамен» — h1 страницы (тема); здесь его не дублируем -->
 		<p class="fs-join-card__subtitle"><?php esc_html_e( 'Выберите класс, чтобы записаться на пробный экзамен', 'fs-lms' ); ?></p>
 
 		<?php if ( $grade_closed || ! $any_available ) : ?>

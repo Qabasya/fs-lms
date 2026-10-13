@@ -212,6 +212,7 @@ class Migration_1_0_71 implements MigrationInterface {
 				teacher_name           varchar(255)     NOT NULL,
 				label                  varchar(255)     NOT NULL DEFAULT '',
 				is_active              tinyint(1)       NOT NULL DEFAULT 1,
+				is_free                tinyint(1)       NOT NULL DEFAULT 0,
 				key_generation         int unsigned     NOT NULL DEFAULT 0,
 				key_revoked_at         datetime         DEFAULT NULL,
 				created_by_user_id     bigint unsigned  NOT NULL,

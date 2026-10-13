@@ -79,6 +79,11 @@
   background: var(--err-soft, var(--surface-2)); border-radius: t.$border-radius-sm;
 }
 
+/* «Настройки проведения»: окно 1200px; на узком экране его ограничивает вьюпорт (на телефоне — отдельные правила модалки) */
+@media (min-width: #{$breakpoint-mobile + 1}) {
+  .gp-form.gp-event { width: min(#{$exam-event-form-width}, calc(100vw - #{t.rem(60)})); }
+}
+
 /* Подписи многострочных полей и флажков в форме настроек проведения */
 .gp-exam .gp-field--top { align-items: flex-start; }
 
@@ -112,16 +117,43 @@
 .es-main { flex: 1 1 $exam-source-row-width; min-width: 0; }
 .es-school { font-size: t.$font-size-sm; font-weight: t.$font-semibold; color: var(--ink); }
 .es-teacher { font-size: t.$font-size-xs; color: var(--muted); }
+.es-free { margin-left: t.$spacing-xs; padding: 0 t.$spacing-xs; font-size: t.$font-size-2xs; font-weight: t.$font-semibold; color: var(--accent-700); background: var(--accent-soft); border-radius: t.$border-radius-xl; }
 .es-toggle { display: inline-flex; align-items: center; gap: t.$spacing-xs; font-size: t.$font-size-xs; color: var(--muted); }
 .es-actions { display: flex; flex-wrap: wrap; gap: t.$spacing-xs; }
 .es-empty { padding: t.$spacing-sm 0; font-size: t.$font-size-xs; color: var(--muted-2); }
 
 .es-add {
-  display: flex; align-items: center; flex-wrap: wrap; gap: t.$spacing-sm; margin-top: t.$spacing-md;
+  display: flex; align-items: center; flex-wrap: wrap; gap: $exam-source-row-gap; margin-top: t.$spacing-md;
 
-  input { flex: 1 1 $exam-source-input-width; height: $exam-source-input-height; padding: 0 t.$spacing-sm; font: inherit; font-size: t.$font-size-sm; border: 1px solid var(--line); border-radius: t.$border-radius-sm; }
+  // Флажок («без оплаты») полем ввода не считается: свои размеры, строка — высотой кнопки «Добавить».
+  input:not([type="checkbox"]) { flex: 1 1 $exam-source-input-width; min-width: $exam-source-input-width; height: $exam-source-input-height; padding: 0 t.$spacing-sm; font: inherit; font-size: t.$font-size-sm; border: 1px solid var(--line); border-radius: t.$border-radius-sm; }
+
+  .es-toggle { height: $exam-source-input-height; white-space: nowrap; }
+  .es-toggle input { flex: 0 0 auto; width: auto; height: auto; margin: 0; }
 }
 .es-grade { font-size: t.$font-size-xs; font-weight: t.$font-semibold; color: var(--muted); white-space: nowrap; }
+
+/* Автодополнение «Школа» — тот же компонент, что в форме заявки (createSuggest), в токенах кабинета. */
+.es-school-field {
+  position: relative; flex: 1 1 $exam-source-input-width; min-width: 0;
+
+  input { width: 100%; box-sizing: border-box; }
+
+  .fs-dadata-suggestions {
+    position: absolute; top: 100%; left: 0; right: 0; z-index: $z-suggest;
+    margin: 0; padding: 0; list-style: none; max-height: rem(264); overflow-y: auto;
+    background: var(--surface); border: 1px solid var(--line); border-top: none;
+    border-radius: 0 0 t.$border-radius-sm t.$border-radius-sm; box-shadow: var(--shadow-md);
+
+    &__item {
+      padding: t.$spacing-sm t.$spacing-md; font-size: t.$font-size-sm; color: var(--ink); cursor: pointer;
+      border-bottom: 1px solid var(--line-2);
+
+      &:last-child { border-bottom: none; }
+      &:hover, &.is-active { background: var(--accent-soft); color: var(--accent-700); }
+    }
+  }
+}
 
 /* ══════════════════════════════════════════════════════════════════════
    «Проведение экзамена» (этап 8.1): доска сеанса. Плитки, строки и пилюли — существующие prof-stat-tile / pr-row / prof-state-pill.
@@ -178,8 +210,15 @@
   li { margin-bottom: t.$spacing-xs; }
   .is-ok { color: var(--ok); }
   .is-fail { color: var(--err); }
-  &.is-ready { color: var(--ok); }
 }
+
+.exam-sort {
+  padding: 0; font: inherit; font-weight: inherit; color: inherit; text-align: left; white-space: nowrap;
+  background: none; border: 0; cursor: pointer;
+
+  &:hover, &.on { color: var(--accent-700); }
+}
+
 .exam-conduct-subtitle { font-size: t.$font-size-sm; font-weight: t.$font-semibold; color: var(--muted); }
 
 // Гость: оплата, запись, допуск и попытка — четыре отдельные пилюли в одной строке (8.8.1).
@@ -233,15 +272,83 @@
   body.is-printing-exam .exam-print-sheet { display: block; }
 }
 
-/* «Статистика» (10): плитки одной высоты, полоса долей из пяти сегментов */
+/* «Статистика» (10): плитки одной высоты и таблица «ученики × задания» */
 .exam-stats { display: flex; flex-direction: column; gap: t.$spacing-lg; }
 .exam-stat-tiles { margin: 0; align-items: stretch; }
 .exam-stat-tile { display: flex; flex-direction: column; }
 .exam-stat-tile .st-delta { min-height: 1lh; } // подпись есть не у всех плиток — высота общая
-.exam-bar { display: flex; width: 100%; height: t.$spacing-sm; margin: t.$spacing-xs 0; overflow: hidden; border-radius: t.$border-radius-sm; background: var(--surface-2); }
-.exam-seg { display: block; width: var(--progress, 0%); height: 100%; }
-.exam-seg--correct { background: var(--ok); }
-.exam-seg--partial { background: var(--wait-line); }
-.exam-seg--incorrect { background: var(--err); }
-.exam-seg--unanswered { background: var(--wait-soft); }
-.exam-seg--pending { background: var(--line-2); }
+
+/* Таблица «ученики × задания»: ячейка окрашена вердиктом, пустая — задание не решали; первый столбец остаётся на месте при прокрутке */
+.exam-stats-search { flex: 0 1 t.rem(280); width: auto; }
+.exam-results-filters .stu-search-input { height: $exam-filter-height; box-shadow: none; }
+
+.exam-stats-modes { align-self: flex-start; }
+.exam-stats-table { padding: 0; overflow: hidden; }
+
+/* Сводная: «Сдано работ» вынесено над таблицей; подписи строк — закреплённый первый столбец */
+.exam-summary-works {
+  display: flex; align-items: baseline; gap: t.$spacing-md; padding: t.$spacing-lg t.$spacing-xl;
+  font-size: t.$font-size-sm; color: var(--muted); border-bottom: 1px solid var(--line-2);
+
+  strong { font-size: t.$font-size-lead; font-weight: t.$font-bold; color: var(--ink); }
+}
+
+.exam-grid--summary tbody th.exam-grid-name { top: auto; background: var(--surface); color: var(--ink); }
+
+.exam-grid-scroll { overflow-x: auto; }
+
+.exam-grid {
+  width: 100%; border-collapse: separate; border-spacing: 0;
+  font-size: t.$font-size-sm; font-variant-numeric: tabular-nums; color: var(--ink);
+
+  th,
+  td {
+    box-sizing: border-box; min-width: t.rem(30); height: $exam-row-height; padding: t.$spacing-xs; text-align: center;
+    border-right: 1px solid var(--line-2); border-bottom: 1px solid var(--line-2);
+  }
+
+  th { position: sticky; top: 0; font-weight: t.$font-semibold; color: var(--muted); background: var(--surface-2); }
+
+  tbody tr:hover td:not(.exam-cell) { background: var(--surface-2); }
+}
+
+.exam-grid-name {
+  position: sticky; left: 0; z-index: 1; min-width: t.rem(170); padding-inline: t.$spacing-sm; text-align: left;
+  white-space: nowrap; font-weight: t.$font-semibold; background: var(--surface);
+}
+th.exam-grid-name { z-index: 2; background: var(--surface-2); }
+.exam-grid-sum { min-width: t.rem(80); font-weight: t.$font-bold; }
+.exam-grid-foot td { font-weight: t.$font-semibold; background: var(--surface-2); border-top: 2px solid var(--line); border-bottom: 0; }
+.exam-grid-foot .exam-grid-name { background: var(--surface-2); }
+
+.exam-cell--correct { color: var(--ok-ink); background: var(--ok-soft); }
+.exam-cell--partial { color: var(--wait-ink); background: var(--wait-soft); }
+.exam-cell--incorrect { color: var(--err-ink); background: var(--err-soft); }
+.exam-cell--pending { color: var(--muted); background: var(--line-2); }
+
+/* «Результаты»: отчёты школам и работы — две отдельные карточки с заголовками; работы — таблица */
+.exam-results .exam-reports { padding: t.$spacing-lg t.$spacing-xl; margin: 0; }
+.exam-results-card { padding: 0; overflow: hidden; }
+.exam-results-card > .exam-panel-head { display: flex; align-items: baseline; justify-content: space-between; padding: t.$spacing-lg t.$spacing-xl 0; }
+.exam-results-card > .exam-conduct-empty { padding: t.$spacing-xl; }
+.exam-results-card .exam-panel-sub { margin-top: 0; }
+
+.exam-results-table {
+  width: 100%; border-collapse: collapse; font-size: t.$font-size-base; color: var(--ink);
+
+  th,
+  td { padding: t.$spacing-md t.$spacing-lg; text-align: left; vertical-align: middle; border-bottom: 1px solid var(--line-2); }
+
+  th { font-size: t.$font-size-sm; font-weight: t.$font-semibold; color: var(--muted); background: var(--surface-2); white-space: nowrap; }
+
+  tbody tr:last-child td { border-bottom: 0; }
+  tbody tr { cursor: pointer; transition: background $tr; }
+  tbody tr:hover { background: var(--surface-2); }
+  tbody tr.is-off { cursor: default; }
+  tbody tr.is-off td:not(.exam-results-check) { color: var(--muted-2); }
+}
+
+.exam-results-check { width: t.rem(40); padding-right: 0; }
+.exam-results-name { font-weight: t.$font-semibold; }
+.exam-results-sub { display: block; margin-top: t.$spacing-xs; font-size: t.$font-size-xs; font-weight: t.$font-regular; color: var(--muted); }
+.exam-results-score { white-space: nowrap; font-variant-numeric: tabular-nums; }

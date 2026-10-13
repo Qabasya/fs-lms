@@ -12,6 +12,8 @@ use Inc\Enums\Log\OperationType;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\WPDBRepositories\RoomRepository;
+use Inc\Enums\Settings\AvatarEntity;
+use Inc\Services\Shared\AvatarService;
 use Inc\Services\Subject\SubjectDeletionService;
 use Inc\Services\Subject\SubjectPagesService;
 
@@ -25,6 +27,7 @@ class SubjectDeletionCascadeHandler {
 		private readonly DeletionEventDispatcher     $dispatcher,
 		private readonly LogEventDispatcherInterface $logEvents,
 		private readonly SubjectPagesService         $pages,
+		private readonly AvatarService               $avatars,
 	) {}
 
 	public function handle( DeleteSubjectEvent $event ): void {
@@ -42,6 +45,8 @@ class SubjectDeletionCascadeHandler {
 		// предмета) писал редактор, и восстановить его должно быть чем.
 		$this->pages->trashForSubject( $subjectKey );
 		$this->rooms->removeSubjectFromAll( $subjectKey );
+		// Иначе новый предмет с тем же ключом унаследует старую картинку.
+		$this->avatars->set( AvatarEntity::Subject, $subjectKey, 0 );
 		$this->subjects->remove( $subjectKey );
 		flush_rewrite_rules();
 

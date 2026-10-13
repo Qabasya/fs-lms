@@ -711,6 +711,27 @@ class PostManager {
 	}
 
 	/**
+	 * Задаёт или снимает обложку записи.
+	 *
+	 * @param int $post_id       ID записи
+	 * @param int $attachment_id ID вложения-картинки; 0 — снять обложку. Не картинка — ничего не меняет.
+	 *
+	 * @return bool false — вложение не картинка
+	 */
+	public function setThumbnail( int $post_id, int $attachment_id ): bool {
+		if ( $attachment_id <= 0 ) {
+			delete_post_thumbnail( $post_id );
+			return true;
+		}
+
+		if ( ! wp_attachment_is_image( $attachment_id ) ) {
+			return false;
+		}
+
+		return (bool) set_post_thumbnail( $post_id, $attachment_id );
+	}
+
+	/**
 	 * Получает конкретное мета-поле поста.
 	 *
 	 * @param int    $post_id ID поста

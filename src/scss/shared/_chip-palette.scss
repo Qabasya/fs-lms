@@ -29,3 +29,12 @@ $chip-colors: #3b5bdb, #0ca678, t.$hue-violet, #f08c00, #e8590c, #1c7ed6,
 /* Индивидуальные занятия — токен-цвет кабинета (класс используется только там). */
 .chip-indi    { background: var(--t-zachet); }
 .chip-bd-indi { border-left-color: var(--t-zachet); }
+
+/* Аватар вместо цветного чипа (Настройки → Аватары): картинка заполняет чип целиком. */
+.chip-img {
+  background: var(--surface-2);
+  overflow: hidden;
+  padding: 0;
+
+  img { display: block; width: 100%; height: 100%; object-fit: cover; }
+}

@@ -9,6 +9,7 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Exam;
 
+use Inc\DTO\Assessment\AttemptDTO;
 use Inc\DTO\Exam\ExamReportDTO;
 use Inc\DTO\Exam\ExamEventDTO;
 use Inc\Enums\Exam\ExamAudience;
@@ -41,6 +42,7 @@ class ExamReportViewService {
 		private readonly ExamScoreService $scores,
 		private readonly ExamReviewViewService $result,
 		private readonly GuestParticipantMaterializer $guestData,
+		private readonly ExamStatsService $stats,
 	) {}
 
 	/**
@@ -56,17 +58,12 @@ class ExamReportViewService {
 
 		$rows       = array();
 		$finals     = array();
-		$pending    = 0;
 		$accessible = array();
 		foreach ( $ids as $index => $participationId ) {
 			$number = $index + 1;
 			$entry  = $this->row( $report, $event, $participationId, $number );
-			if ( null !== $entry['summary'] ) {
-				if ( empty( $entry['summary']['final'] ) ) {
-					++$pending;
-				} else {
-					$finals[] = $entry['summary'];
-				}
+			if ( null !== $entry['summary'] && ! empty( $entry['summary']['final'] ) ) {
+				$finals[] = $entry['summary'];
 			}
 			$accessible[ $number ] = $entry['open'];
 			unset( $entry['summary'] );
@@ -92,7 +89,8 @@ class ExamReportViewService {
 			'stats'      => array(
 				'participants' => count( $ids ),
 				'average'      => $this->average( $finals ),
-				'pending'      => $pending,
+				'best'         => $this->extreme( $finals, true ),
+				'worst'        => $this->extreme( $finals, false ),
 			),
 			'review'     => $review,
 		);
@@ -101,18 +99,19 @@ class ExamReportViewService {
 	/**
 	 * Строка таблицы. Заглушка, если участие больше нельзя показывать школе.
 	 *
-	 * @return array{n: int, name: string, status: string, caption: string, open: bool, summary: array<string, mixed>|null}
+	 * @return array{n: int, name: string, primary: string, secondary: string, units: list<array{number: string, status: string}>, open: bool, summary: array<string, mixed>|null}
 	 */
 	private function row( ExamReportDTO $report, ?ExamEventDTO $event, int $participationId, int $number ): array {
 		$participation = $this->participations->find( $participationId );
 		$participant   = null !== $participation ? $this->participants->find( $participation->participantId ) : null;
 		$placeholder   = array(
-			'n'       => $number,
-			'name'    => self::PLACEHOLDER,
-			'status'  => '',
-			'caption' => '',
-			'open'    => false,
-			'summary' => null,
+			'n'         => $number,
+			'name'      => self::PLACEHOLDER,
+			'primary'   => '',
+			'secondary' => '',
+			'units'     => array(),
+			'open'      => false,
+			'summary'   => null,
 		);
 
 		if ( null === $participation || null === $participant || null !== $participant->anonymizedAt || null !== $this->reportService->canInclude( $participation, $report->eventId ) ) {
@@ -130,32 +129,75 @@ class ExamReportViewService {
 			: $this->names->participantName( $participant );
 
 		return array(
-			'n'       => $number,
-			'name'    => $name,
-			'status'  => empty( $summary['final'] ) ? 'Проверяется' : 'Проверено',
-			'caption' => $this->scores->caption( $summary ),
-			'open'    => true,
-			'summary' => $summary,
+			'n'         => $number,
+			'name'      => $name,
+			'primary'   => sprintf( '%s из %s', $summary['primary'], $summary['primary_max'] ),
+			'secondary' => $this->secondaryText( $summary ),
+			'units'     => $this->stats->attemptUnits( $attempt ),
+			'open'      => true,
+			'summary'   => $summary,
 		);
 	}
 
 	/**
-	 * Средний итог по окончательным результатам: ЕГЭ — вторичный балл, ОГЭ — первичный. Шкалы не смешиваются — разные направления дают «—».
+	 * Вторичный балл строки: ЕГЭ — «{балл} из {макс}», ОГЭ — отметка; пока идёт ручная проверка — «Проверяется».
+	 *
+	 * @param array<string, mixed> $summary Результат {@see ExamScoreService::summarize()}.
+	 */
+	private function secondaryText( array $summary ): string {
+		if ( empty( $summary['final'] ) ) {
+			return 'Проверяется';
+		}
+		if ( null !== ( $summary['secondary'] ?? null ) ) {
+			return sprintf( '%s из %s', $summary['secondary'], $summary['secondary_max'] );
+		}
+
+		return null !== ( $summary['grade'] ?? null ) ? sprintf( 'отметка %s', $summary['grade'] ) : '—';
+	}
+
+	/**
+	 * Зачётные значения окончательных результатов: ЕГЭ — вторичный балл, ОГЭ — первичный. Шкалы не смешиваются —
+	 * разные направления дают пустой список.
+	 *
+	 * @param list<array<string, mixed>> $finals
+	 *
+	 * @return list<float>
+	 */
+	private function values( array $finals ): array {
+		$directions = array_unique( array_map( static fn ( array $s ): string => (string) $s['direction'], $finals ) );
+		if ( 1 !== count( $directions ) ) {
+			return array();
+		}
+
+		return array_map( static fn ( array $s ): float => (float) ( 'ege' === $s['direction'] ? ( $s['secondary'] ?? $s['primary'] ) : $s['primary'] ), $finals );
+	}
+
+	/**
+	 * Средний балл по окончательным результатам.
 	 *
 	 * @param list<array<string, mixed>> $finals
 	 */
 	private function average( array $finals ): string {
-		if ( array() === $finals ) {
-			return '—';
-		}
-		$directions = array_unique( array_map( static fn ( array $s ): string => (string) $s['direction'], $finals ) );
-		if ( 1 !== count( $directions ) ) {
+		$values = $this->values( $finals );
+
+		return array() === $values ? '—' : $this->number( array_sum( $values ) / count( $values ) );
+	}
+
+	/**
+	 * Лучший или худший окончательный результат.
+	 *
+	 * @param list<array<string, mixed>> $finals
+	 */
+	private function extreme( array $finals, bool $best ): string {
+		$values = $this->values( $finals );
+		if ( array() === $values ) {
 			return '—';
 		}
 
-		$values = array_map( static fn ( array $s ): float => (float) ( 'ege' === $s['direction'] ? ( $s['secondary'] ?? $s['primary'] ) : $s['primary'] ), $finals );
-		$mean   = array_sum( $values ) / count( $values );
+		return $this->number( $best ? max( $values ) : min( $values ) );
+	}
 
-		return rtrim( rtrim( number_format( $mean, 1, '.', '' ), '0' ), '.' );
+	private function number( float $value ): string {
+		return rtrim( rtrim( number_format( $value, 1, '.', '' ), '0' ), '.' );
 	}
 }

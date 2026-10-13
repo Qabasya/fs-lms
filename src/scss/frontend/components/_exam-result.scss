@@ -1,4 +1,5 @@
 @use '../variables' as *;
+@use '../mixins' as *;
 
 // Страницы гостя после записи (этап 11b): вход на экзамен и результат. Карточка входа — существующая fs-join-card;
 // здесь только подпись окна старта и подсказки, а для результата — шапка, показатели, навигация и карточки заданий.
@@ -90,6 +91,7 @@
   }
 
   &__stat {
+    min-width: 0;
     padding: $spacing-md;
     background: $color-bg-subtle;
     border: 1px solid $color-border-light;
@@ -98,6 +100,7 @@
     dt {
       font-size: $font-size-sm;
       color: $color-muted;
+      overflow-wrap: anywhere;
     }
 
     dd {
@@ -153,10 +156,7 @@
 }
 
 .fs-exam-task {
-  padding: $spacing-md $spacing-lg;
-  background: $color-white;
-  border: 1px solid $color-border-light;
-  border-radius: $border-radius-md;
+  // Рамка, фон и скругление — у `.fs-task-card` (карточка тренажёра); здесь только то, чего у неё нет.
   scroll-margin-top: $spacing-xl;
   min-width: 0;
 
@@ -190,12 +190,10 @@
     color: $color-muted;
   }
 
+  // Условие — тот же `.fs-task-condition`, что в тренажёре: типографика, таблицы, картинки, код.
   &__cond {
-    margin-bottom: $spacing-sm;
-    line-height: $line-height-relaxed;
+    margin-bottom: $spacing-md;
     overflow-x: auto;
-
-    img { max-width: 100%; height: auto; }
   }
 
   &__note {
@@ -223,19 +221,25 @@
     border-radius: $border-radius-sm;
   }
 
-  &__solution {
-    margin-top: $spacing-sm;
+  // Вкладки решения — разметка и стили тренажёра (`_tabs.scss`); кнопке, как там, нужен скоуп карточки.
+  .fs-tab-btn { @include fs-btn-toggle; }
 
-    summary { cursor: pointer; color: $color-accent; }
+  @media (max-width: $bp-mobile) {
+    .fs-tab-btn { white-space: nowrap; }
   }
 }
 
 // Школьный отчёт (этап 12.3): таблица результатов и разбор выбранной строки под ней.
 .fs-exam-report {
+  // Скруглённые углы — как у плиток показателей: `separate`, иначе у схлопнутых границ радиус не рисуется.
   &__table {
     width: 100%;
     margin-bottom: $spacing-xl;
-    border-collapse: collapse;
+    border-collapse: separate;
+    border-spacing: 0;
+    border: 1px solid $color-border-light;
+    border-radius: $border-radius-md;
+    overflow: hidden;
     font-size: $font-size-base;
 
     th,
@@ -245,14 +249,59 @@
       border-bottom: 1px solid $color-border-light;
     }
 
+    // Строки белые; выбранная (раскрытая ниже) — на ступень темнее.
+    td { background: $color-white; }
+
+    tbody tr:last-child td { border-bottom: 0; }
+
+    // Строка ученика и строка его заданий — одна запись: линия только под второй.
+    .has-units td { border-bottom: 0; }
+
+    // Запись ученика — две строки (имя и квадратики): добавка к вертикальному отступу — сверху у имени и снизу у квадратиков;
+    // строка-заглушка одна, добавка с обеих сторон. Квадратики отстоят от имени заметнее, чем строки друг от друга.
+    .has-units td { padding-top: $spacing-sm + $exam-report-row-extra; }
+
+    .fs-exam-report__units td {
+      padding-top: $spacing-md;
+      padding-bottom: $spacing-sm + $exam-report-row-extra;
+    }
+
+    .is-placeholder td { padding-block: $spacing-sm + $exam-report-row-extra; }
+
+    // Все столбцы по центру, кроме первого (имя ученика — по левому краю).
+    th,
+    td { text-align: center; }
+
+    th:first-child,
+    td:first-child { text-align: left; }
+
     th {
       font-size: $font-size-sm;
       font-weight: $font-medium;
       color: $color-muted;
+      background: $color-bg-subtle;
     }
 
     .is-placeholder td { color: $color-muted; }
     .is-current td { background: $color-bg-subtle; }
+  }
+
+  // Квадратики заданий — и под строкой ученика, и в навигации разбора: белый фон, граница и цифра цвета вердикта.
+  &__chips {
+    justify-content: center;
+    margin-bottom: 0;
+  }
+
+  .fs-exam-result__chip {
+    background: $color-white;
+    border-color: $color-border;
+    color: $color-muted;
+
+    &.is-correct { border-color: $color-ok; color: $color-ok; }
+    &.is-partial { border-color: $color-wait; color: $color-wait; }
+
+    &.is-incorrect,
+    &.is-unanswered { border-color: $color-err; color: $color-err; }
   }
 
   &__open {

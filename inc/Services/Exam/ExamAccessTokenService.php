@@ -87,11 +87,12 @@ class ExamAccessTokenService {
 	}
 
 	/**
-	 * Ключ приглашения школы хранится ещё и зашифрованным: сотрудник должен видеть и копировать ссылку, а не только получить её при выпуске.
-	 * Ключи входа, результата, отчёта и оплаты зашифрованными не хранятся. Нет ключа шифрования — ссылку при выпуске отдают как раньше, а в списке её нет.
+	 * Ключ приглашения школы и ключ школьного отчёта хранятся ещё и зашифрованными: сотрудник должен видеть и копировать ссылку,
+	 * а не только получить её при выпуске. Ключи входа, результата и оплаты зашифрованными не хранятся. Нет ключа шифрования —
+	 * ссылку при выпуске отдают как раньше, а в списке её нет.
 	 */
 	private function sealInvitationKey( ExamTokenPurpose $purpose, string $plain ): ?string {
-		if ( ExamTokenPurpose::Invitation !== $purpose ) {
+		if ( ! in_array( $purpose, array( ExamTokenPurpose::Invitation, ExamTokenPurpose::Report ), true ) ) {
 			return null;
 		}
 
@@ -104,7 +105,17 @@ class ExamAccessTokenService {
 
 	/** Открытый ключ действующего приглашения цели; null — ключа нет или он выпущен до хранения (достаточно перевыпустить). */
 	public function invitationKey( int $targetId ): ?string {
-		$sealed = $this->tokens->findActive( ExamTokenPurpose::Invitation, $targetId )?->keyEnc;
+		return $this->storedKey( ExamTokenPurpose::Invitation, $targetId );
+	}
+
+	/** Открытый ключ действующей ссылки школьного отчёта; null — ключа нет или он выпущен до хранения (достаточно выдать заново). */
+	public function reportKey( int $reportId ): ?string {
+		return $this->storedKey( ExamTokenPurpose::Report, $reportId );
+	}
+
+	/** Расшифровывает сохранённый открытый ключ действующей ссылки; null — не сохранён или не читается. */
+	private function storedKey( ExamTokenPurpose $purpose, int $targetId ): ?string {
+		$sealed = $this->tokens->findActive( $purpose, $targetId )?->keyEnc;
 		if ( null === $sealed || '' === $sealed ) {
 			return null;
 		}

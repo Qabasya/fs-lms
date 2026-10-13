@@ -73,6 +73,46 @@ class CourseBuilderServiceTest extends TestCase {
 		self::assertSame( 'ДЗ-1', $lesson['steps'][1]['title'] );    // ref → resolved work title
 	}
 
+	/** @return array{0: CourseBuilderService, 1: \PHPUnit\Framework\MockObject\MockObject} сервис и PostManager со шпионом setThumbnail */
+	private function serviceWithThumbnailSpy(): array {
+		$posts = $this->getMockBuilder( PostManager::class )->onlyMethods( array( 'setThumbnail' ) )->getMock();
+
+		$service = new CourseBuilderService(
+			new CourseManager( $posts ),
+			new LessonManager( $posts ),
+			$posts,
+			$this->cloneService,
+			$this->createMock( GroupsRepository::class ),
+			$this->createMock( OpenCourseValidator::class ),
+		);
+
+		return array( $service, $posts );
+	}
+
+	public function test_update_course_meta_sets_avatar_when_id_given(): void {
+		$this->seedCourse( 1, 'inf', array() );
+		[ $service, $posts ] = $this->serviceWithThumbnailSpy();
+		$posts->expects( $this->once() )->method( 'setThumbnail' )->with( 1, 55 )->willReturn( true );
+
+		self::assertTrue( $service->updateCourseMeta( 1, 'Курс', 'draft', 0, 55 ) );
+	}
+
+	public function test_update_course_meta_removes_avatar_on_zero(): void {
+		$this->seedCourse( 1, 'inf', array() );
+		[ $service, $posts ] = $this->serviceWithThumbnailSpy();
+		$posts->expects( $this->once() )->method( 'setThumbnail' )->with( 1, 0 )->willReturn( true );
+
+		self::assertTrue( $service->updateCourseMeta( 1, 'Курс', 'draft', 0, 0 ) );
+	}
+
+	public function test_update_course_meta_keeps_avatar_when_not_sent(): void {
+		$this->seedCourse( 1, 'inf', array() );
+		[ $service, $posts ] = $this->serviceWithThumbnailSpy();
+		$posts->expects( $this->never() )->method( 'setThumbnail' );
+
+		self::assertTrue( $service->updateCourseMeta( 1, 'Курс', 'draft' ) );
+	}
+
 	public function test_build_tree_null_for_missing_course(): void {
 		self::assertNull( $this->service->buildTree( 777 ) );
 	}

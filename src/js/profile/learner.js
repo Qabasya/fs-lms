@@ -4,7 +4,7 @@
    отдаёт всё; родитель переключает ребёнка (fsProfile.children). Read-only.
    ══════════════════════════════════════════════════════════════════════ */
 
-import { esc, fmtDayMonth, fmtDate, emptyState, chipBg, chipText, chipSoft, shortName } from './utils.js';
+import { esc, fmtDayMonth, fmtDate, emptyState, chipBg, chipHtml, chipText, chipSoft, shortName } from './utils.js';
 import { toggleVisible, applyProgress } from '../common/utils.js';
 import { icoCalendar, icoCheck, icoAlert, icoSearch, icoChevronRight, icoChevronDown, icoClock, icoStar, icoHome, icoLock } from '../common/icons.js';
 import { createApi } from './api.js';
@@ -173,7 +173,7 @@ function scRenderTabs(courses) {
             ? (c.open ? 'свободное прохождение' : (c.start ? 'старт ' + fmtDayMonth(c.start) : 'скоро'))
             : `${esc(c.code)} · ${c.passed} из ${c.total} ${scPlural(c.total, ['урок', 'урока', 'уроков'])}`;
         return `<button class="sc-tab${c.id === scState.active ? ' on' : ''}" data-id="${c.id}">
-            <span class="sc-chip ${chipBg(c.subject_key)}">${esc(shortName(c.title))}</span>
+            ${chipHtml('sc-chip', c.subject_key, c.title, c.id, c.avatar)}
             <span class="sc-tb"><span class="sc-tname">${esc(c.title)}</span><span class="sc-tsub">${esc(sub)}</span></span>
             <span class="sc-tbar"><span class="${chipBg(c.subject_key)}" data-progress="${pct}"></span></span>
         </button>`;

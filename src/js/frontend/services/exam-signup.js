@@ -9,6 +9,7 @@
 import { initFormValidation, renderFieldError, clearFieldError } from '../../common/validation-manager.js';
 import { bindPhoneMask } from '../../common/input-masks.js';
 import { buildSummary, isSessionChosen, formatLeft, secondsLeft } from './exam-signup-model.js';
+import { initSchoolSuggest } from './school-suggest.js';
 
 function newRequestKey() {
     return ( window.crypto && window.crypto.randomUUID ) ? window.crypto.randomUUID() : `k${ Date.now() }${ Math.random().toString( 16 ).slice( 2 ) }`;
@@ -45,6 +46,7 @@ function initSignupForm( vars ) {
     const sessionInput = form.querySelector( '#fs_exam_session_id' );
 
     bindPhoneMask( form.querySelector( '#fs_exam_phone' ) );
+    initSchoolSuggest( form.querySelector( '#fs_exam_school' ) ); // есть только в открытой записи
     initCarousel( form );
     const validateAll = initFormValidation( form );
 
@@ -55,7 +57,7 @@ function initSignupForm( vars ) {
 
     const collect = () => ( {
         last_name: value( 'last_name' ), first_name: value( 'first_name' ), middle_name: value( 'middle_name' ),
-        phone: value( 'phone' ), messenger: value( 'messenger' ), session_id: sessionInput.value, consents: consents(),
+        phone: value( 'phone' ), messenger: value( 'messenger' ), school: value( 'school' ), session_id: sessionInput.value, consents: consents(),
     } );
 
     const refreshSummary = () => {
@@ -116,6 +118,8 @@ function initSignupForm( vars ) {
         try {
             const res = await post( vars, vars.actions.submit, data );
             if ( res.success ) {
+                // Бесплатная ссылка: оплаты нет, форма заменяется подтверждением записи.
+                if ( res.data.confirmed ) { showConfirmed( form, res.data.confirmed ); return; }
                 window.location.assign( res.data.redirect );
                 return;
             }
@@ -131,6 +135,23 @@ function initSignupForm( vars ) {
         }
         setBusy( false );
     } );
+}
+
+/** Подтверждение записи по бесплатной ссылке: заголовок и строки (дата, время, адрес) вместо формы. */
+function showConfirmed( form, block ) {
+    const done = document.getElementById( 'fs-exam-done' );
+    if ( ! done ) { return; }
+
+    done.querySelector( '[data-done="title"]' ).textContent = block.title || '';
+    const lines = done.querySelector( '[data-done="lines"]' );
+    lines.replaceChildren( ...( block.lines || [] ).map( text => {
+        const li = document.createElement( 'li' );
+        li.textContent = text;
+        return li;
+    } ) );
+
+    form.hidden = true;
+    done.hidden = false;
 }
 
 /** Карусель: стрелки листают на карточку, на краях недоступны; перетаскивание выбор не меняет (клик после сдвига глотается). */
