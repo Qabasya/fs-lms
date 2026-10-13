@@ -125,6 +125,37 @@ export function apiError(error, options = {}) {
 }
 
 /**
+ * Контейнер для уведомления уровня страницы: .wrap текущего экрана админки.
+ * Он лежит внутри #wpcontent, у которого есть отступ под админ-меню, — уведомление
+ * не перекрывается ни меню, ни админ-баром. Вне админки — <body>.
+ *
+ * @returns {jQuery}
+ */
+function pageNoticeContainer() {
+    const $wrap = $('#wpbody-content .wrap').first();
+    if ($wrap.length) {
+        return $wrap;
+    }
+
+    const $content = $('#wpbody-content');
+
+    return $content.length ? $content : $('body');
+}
+
+/**
+ * Виден ли элемент целиком по вертикали (с учётом фиксированного админ-бара).
+ *
+ * @param {Element} el
+ * @returns {boolean}
+ */
+function isInViewport(el) {
+    const rect = el.getBoundingClientRect();
+    const top  = document.getElementById('wpadminbar')?.offsetHeight || 0;
+
+    return rect.top >= top && rect.bottom <= window.innerHeight;
+}
+
+/**
  * Показывает уведомление в стиле WordPress Admin Notice.
  *
  * ОТЛИЧИЯ ОТ showToast():
@@ -141,9 +172,10 @@ export function apiError(error, options = {}) {
  *
  * @param {string} message - Текст сообщения
  * @param {'success'|'error'|'warning'|'info'} [type='info'] - Тип уведомления (определяет цвет и заголовок)
- * @param {jQuery|string|null} [$container=null] - Контейнер для вставки (по умолчанию $('body')).
- *        Можно передать селектор ('.wrap') или jQuery-объект для вставки уведомления
- *        в конкретное место страницы (например, внутри таблицы).
+ * @param {jQuery|string|null} [$container=null] - Контейнер для вставки. По умолчанию —
+ *        .wrap текущей страницы (под заголовком, как уведомления ядра) с прокруткой к нему.
+ *        Можно передать селектор или jQuery-объект, чтобы показать уведомление рядом
+ *        с местом действия (тело модалки, ячейка таблицы, форма).
  * @param {Object} [options] - Дополнительные настройки
  * @param {boolean} [options.autoDismiss=true] - Автозакрытие для типа 'success'
  * @param {number} [options.autoDismissDelay=1000] - Задержка автозакрытия в миллисекундах
@@ -157,21 +189,29 @@ export function showNotice(message, type = 'info', $container = null, options = 
     // НОРМАЛИЗАЦИЯ КОНТЕЙНЕРА:
     // Пользователь может передать null, строку-селектор, DOM-элемент или jQuery-объект.
     // Мы приводим всё к jQuery-объекту для единообразия.
-    if (!$container) {
-        $container = $('body');
-    } else if (!($container instanceof $)) {
+    if ($container && !($container instanceof $)) {
         // Если передан не jQuery-объект, оборачиваем его в $()
         $container = $($container);
     }
-    if (!$container.length) {
-        // Если контейнер не найден в DOM, fallback на body
-        $container = $('body');
+    // Контейнер не передан, не найден в DOM или это сам <body> — уведомление уровня страницы.
+    // В <body> его класть нельзя: там оно уезжает под админ-меню и админ-бар.
+    const isPageLevel = !$container || !$container.length || $container.is('body');
+    if (isPageLevel) {
+        $container = pageNoticeContainer();
     }
+
+    // <div> не может быть ребёнком <tr>/<table>: браузер загонит его в анонимную ячейку
+    // шириной в первую колонку. Строка → её первая ячейка, таблица → блок перед ней.
+    if ($container.is('tr')) {
+        $container = $container.children('td, th').first();
+    }
+    const $table = $container.is('table, thead, tbody, tfoot') ? $container.closest('table') : $();
 
     // УДАЛЕНИЕ ПРЕДЫДУЩИХ УВЕДОМЛЕНИЙ:
     // Чтобы уведомления не накапливались на странице, удаляем все существующие .fs-notice.
     // Это особенно важно при быстром последовательном вызове showNotice() (например, при валидации).
     $container.find('.fs-notice').remove();
+    $table.prevAll('.fs-notice').remove();
 
     // Карта заголовков для разных типов уведомлений.
     // Заголовки делают уведомление более информативным: пользователь сразу видит,
@@ -218,9 +258,23 @@ export function showNotice(message, type = 'info', $container = null, options = 
     });
 
     // ВСТАВКА В КОНТЕЙНЕР:
-    // Используем .prepend(), чтобы уведомление появилось вверху контейнера,
-    // а не внизу. Это соответствует UX-паттерну: важные сообщения — на видном месте.
-    $container.prepend($notice);
+    // В .wrap страницы уведомление встаёт туда же, куда их ставит ядро WordPress, —
+    // под заголовок (после hr.wp-header-end), а не над ним. В остальных контейнерах —
+    // в начало: важные сообщения должны быть на видном месте.
+    const $headerEnd = $container.is('.wrap') ? $container.children('.wp-header-end').first() : $();
+    if ($table.length) {
+        $table.before($notice);
+    } else if ($headerEnd.length) {
+        $headerEnd.after($notice);
+    } else {
+        $container.prepend($notice);
+    }
+
+    // Уведомление уровня страницы появляется наверху, а действие могло быть вызвано
+    // из середины длинной таблицы — докручиваем, иначе его никто не увидит.
+    if (isPageLevel && !isInViewport($notice[0])) {
+        $notice[0].scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }
 
     // АВТОЗАКРЫТИЕ ДЛЯ SUCCESS:
     // Успешные уведомления обычно не требуют внимания пользователя,

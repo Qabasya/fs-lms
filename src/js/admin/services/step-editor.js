@@ -38,7 +38,6 @@ import { refEditor } from './step-editors/ref-editor.js';
 const TYPE_UI = {
 	text:       { ui: 'lecture',  name: 'Лекция',       inline: true },
 	video:      { ui: 'video',    name: 'Видео',       inline: true },
-	broadcast:  { ui: 'broadcast', name: 'Трансляция',  inline: true },
 	task:       { ui: 'task',       name: 'Задача',      inline: false, candKind: 'task' },
 	work:       { ui: 'practice',  name: 'Работа',      inline: false, candKind: 'work' },
 	assessment: { ui: 'assessment', name: 'Экзамен', inline: false, candKind: 'assessment' },
@@ -48,7 +47,6 @@ const TYPE_UI = {
 const ADD_TYPES = [
 	{ type: 'text',       desc: 'Текст, формулы, картинки' },
 	{ type: 'video',      desc: 'YouTube, Vimeo, файл' },
-	{ type: 'broadcast',  desc: 'Ссылка на трансляцию, после занятия — запись' },
 	{ type: 'task',       desc: 'Задача из предмета или банка — любого типа' },
 	{ type: 'work',       desc: 'Работа из библиотеки' },
 	{ type: 'assessment', desc: 'Экзамен из библиотеки' },
@@ -233,9 +231,21 @@ export function createStepEditor( opts ) {
 	// Снимает метку «дубликат — не изменён» при правке контента шага и убирает значок-напоминание.
 	// Вызывать ТОЛЬКО из обработчиков реального пользовательского ввода (keyup/input/paste), НЕ из
 	// scheduleSave: TinyMCE дёргает NodeChange на init, и автосейв снял бы значок у первого шага при открытии.
+	// Ссылки из HTML (уникальные, отсортированные) — зеркало StepDTO::linksOf().
+	function reviewLinks( html ) {
+		const found = String( html || '' ).replace( /&amp;/g, '&' ).match( /https?:\/\/[^\s"'<>]+/gi ) || [];
+		return Array.from( new Set( found ) ).sort();
+	}
+	// У лекции-дубликата со ссылками метка снимается, только когда набор ссылок изменился.
 	function clearReviewFlag( step ) {
 		if ( step && step.payload && step.payload.needs_review ) {
+			const origin = step.payload.review_links;
+			if ( 'text' === step.type && Array.isArray( origin )
+				&& reviewLinks( step.payload.content ).join( '\n' ) === origin.join( '\n' ) ) {
+				return;
+			}
 			delete step.payload.needs_review;
+			delete step.payload.review_links;
 			renderStepsRow();
 		}
 	}
@@ -244,7 +254,6 @@ export function createStepEditor( opts ) {
 		const p = step.payload || {};
 		if ( 'text' === step.type ) { return !! String( p.content || '' ).trim(); }
 		if ( 'video' === step.type ) { return !! String( p.url || '' ).trim(); }
-		if ( 'broadcast' === step.type ) { return !! String( p.stream_url || '' ).trim(); }
 		return parseInt( p.ref || 0, 10 ) > 0; // task / work / assessment — прикреплена сущность
 	}
 

@@ -1,0 +1,103 @@
+@use '../../variables' as *;
+@use '../../mixins' as *;
+
+// ══════════════════════════════════════════════════════════════
+//  Окно «Массовое добавление заданий» (конструктор работы):
+//  панель источника и поиска + прокручиваемый список с чекбоксами.
+// ══════════════════════════════════════════════════════════════
+
+.fs-bulk-task {
+	display: flex;
+	flex-direction: column;
+	gap: $spacing-md;
+
+	&__bar {
+		display: flex;
+		align-items: center;
+		gap: $spacing-lg;
+		flex-wrap: wrap;
+	}
+
+	&__sources {
+		display: flex;
+		gap: $spacing-lg;
+	}
+
+	&__source {
+		display: inline-flex;
+		align-items: center;
+		gap: $spacing-xs;
+		font-size: $font-size-sm;
+		cursor: pointer;
+	}
+
+	&__search {
+		flex: 1;
+		min-width: rem(200);
+	}
+
+	// Скролл — у списка, а не у тела окна: панель источника и поиска остаётся на месте.
+	&__list {
+		height: rem(420);
+		max-height: 50vh;
+		overflow-y: auto;
+		border: 1px solid $color-border-input;
+		border-radius: $border-radius-sm;
+	}
+
+	&__row {
+		display: flex;
+		align-items: center;
+		gap: $spacing-sm;
+		padding: $spacing-sm $spacing-md;
+		border-bottom: 1px solid $wp-admin-gray-bg;
+		cursor: pointer;
+
+		&:hover { background: $cb-bg-hover; }
+
+		&.is-taken {
+			cursor: default;
+			color: $color-text-secondary;
+
+			&:hover { background: none; }
+		}
+	}
+
+	&__title {
+		flex: 1;
+		min-width: 0;
+		font-size: $font-size-sm;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	&__origin {
+		flex: 0 0 auto;
+		font-size: $font-size-code;
+		color: $color-secondary-hover;
+		background: $cb-bg-hover;
+		padding: 1px rem(7);
+		border-radius: $border-radius-sm;
+	}
+
+	&__check { flex: 0 0 auto; }
+
+	&__note {
+		padding: $spacing-md;
+		font-size: $font-size-xs;
+		color: $color-secondary-hover;
+		text-align: center;
+	}
+
+	&__count {
+		align-self: center;
+		font-size: $font-size-sm;
+		color: $color-text-secondary;
+	}
+
+	&__actions {
+		display: flex;
+		gap: $spacing-md;
+	}
+}

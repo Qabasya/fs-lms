@@ -34,10 +34,11 @@ class LogPageRegistry {
 		EmailLogPageProvider           $email,
 		AuthLogPageProvider            $auth,
 		ErrorLogPageProvider           $errors,
+		ContentReportLogPageProvider   $contentReports,
 	) {
 		$this->providers = array();
 
-		foreach ( array( $entityAudit, $enrollmentAudit, $piiAccess, $export, $dataChange, $consentChange, $email, $auth, $errors ) as $provider ) {
+		foreach ( array( $entityAudit, $enrollmentAudit, $piiAccess, $export, $dataChange, $consentChange, $email, $auth, $errors, $contentReports ) as $provider ) {
 			$this->providers[ $provider->channel()->value ] = $provider;
 		}
 	}

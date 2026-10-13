@@ -14,6 +14,7 @@ use Inc\Managers\Assessment\AssessmentManager;
 use Inc\Managers\Course\LessonManager;
 use Inc\Managers\Course\WorkManager;
 use Inc\Managers\Wp\PostManager;
+use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\WPDBRepositories\TaskAttemptRepository;
 use Inc\Services\Course\CourseNavService;
 use Inc\Services\Course\EffectiveStepSettingsResolver;
@@ -45,6 +46,7 @@ class LessonPlayerServiceTest extends TestCase {
 	private SubmissionService             $submissionService;
 	private AssessmentManager             $assessments;
 	private StepContentRenderer           $stepRenderer;
+	private GroupsRepository              $groups;
 	private LessonPlayerService           $service;
 
 	protected function setUp(): void {
@@ -61,6 +63,7 @@ class LessonPlayerServiceTest extends TestCase {
 		$this->works            = $this->createMock( WorkManager::class );
 		$this->submissionService = $this->createMock( SubmissionService::class );
 		$this->assessments      = $this->createMock( AssessmentManager::class );
+		$this->groups           = $this->createMock( GroupsRepository::class );
 
 		// Рендер контента шага вынесен в StepContentRenderer — собираем реальный
 		// из тех же моков (posts/templateResolver/checkerRegistry/assessments),
@@ -89,6 +92,7 @@ class LessonPlayerServiceTest extends TestCase {
 			$this->stepRenderer,
 			$this->createMock( CourseNavService::class ),
 			$this->createMock( \Inc\Services\Course\WorkTaskCheckService::class ),
+			$this->groups,
 		);
 	}
 
@@ -129,10 +133,6 @@ class LessonPlayerServiceTest extends TestCase {
 
 	private function makeVideoStep( string $key, array $payload = array() ): StepDTO {
 		return new StepDTO( $key, StepType::Video, $payload );
-	}
-
-	private function makeBroadcastStep( string $key, array $payload = array() ): StepDTO {
-		return new StepDTO( $key, StepType::Broadcast, $payload );
 	}
 
 	private function stubGateAndProgress( StepDTO ...$steps ): void {
@@ -186,65 +186,94 @@ class LessonPlayerServiceTest extends TestCase {
 		self::assertNull( $this->service->buildRouteView( 1, $this->makeGroupLesson(), false ) );
 	}
 
-	// ── broadcast-шаг (Tasks.md З1): до занятия — эфир, после — запись ─────
+	// ── виртуальный шаг «Трансляция» / «Запись занятия» ────────────────────────
 
-	private function broadcastRender( GroupLessonDTO $groupLesson, array $payload = array() ): array {
-		$step   = $this->makeBroadcastStep( 's1', $payload );
+	/**
+	 * Шаги плеера для занятия группы; у группы задана (или нет) ссылка на трансляцию.
+	 *
+	 * @return array<int, array<string, mixed>>
+	 */
+	private function liveSteps( GroupLessonDTO $groupLesson, ?string $broadcastUrl = null, bool $teacher = false ): array {
+		$step   = $this->makeVideoStep( 's1', array( 'url' => 'https://youtube.com/watch?v=abc' ) );
 		$lesson = $this->makeLesson( 10, array( $step ) );
 		$this->lessons->method( 'get' )->willReturn( $lesson );
 		$this->stubGateAndProgress( $step );
+		$this->groups->method( 'findById' )->willReturn( (object) array( 'broadcast_url' => $broadcastUrl ) );
 
-		return $this->service->buildView( 1, $groupLesson )['steps'][0]['render'];
+		$view = $teacher ? $this->service->buildTeacherView( $groupLesson ) : $this->service->buildView( 1, $groupLesson );
+
+		return $view['steps'];
 	}
 
-	public function test_broadcast_before_lesson_shows_stream(): void {
-		$render = $this->broadcastRender(
-			$this->makeGroupLesson( lessonId: 10 ),
-			array( 'stream_url' => 'https://stream.example.com/live' )
-		);
+	public function test_live_step_during_lesson_shows_group_stream_first(): void {
+		$steps = $this->liveSteps( $this->makeGroupLesson( lessonId: 10 ), 'https://stream.example.com/live' );
 
-		self::assertSame( 'live', $render['phase'] );
-		self::assertSame( 'https://stream.example.com/live', $render['stream_url'] );
-		self::assertSame( '', $render['video_url'] );
+		self::assertCount( 2, $steps );
+		self::assertSame( LessonPlayerService::LIVE_STEP_KEY, $steps[0]['key'] );
+		self::assertSame( 'broadcast', $steps[0]['type'] );
+		self::assertSame( 'Трансляция', $steps[0]['title'] );
+		self::assertTrue( $steps[0]['virtual'] );
+		self::assertSame( 'live', $steps[0]['render']['phase'] );
+		self::assertSame( 'https://stream.example.com/live', $steps[0]['render']['stream_url'] );
+		self::assertSame( 's1', $steps[1]['key'] );
 	}
 
-	public function test_broadcast_after_lesson_plays_recording_file(): void {
-		$render = $this->broadcastRender(
-			$this->makeGroupLesson( lessonId: 10, recordingUrl: 'https://s3.example.com/rec.mp4', recordingLink: 'https://disk.example.com/rec' )
+	public function test_live_step_hidden_from_student_without_group_link(): void {
+		$steps = $this->liveSteps( $this->makeGroupLesson( lessonId: 10 ), null );
+
+		self::assertCount( 1, $steps );
+		self::assertSame( 's1', $steps[0]['key'] );
+	}
+
+	public function test_live_step_always_present_for_teacher(): void {
+		$steps = $this->liveSteps( $this->makeGroupLesson( lessonId: 10 ), null, true );
+
+		self::assertCount( 2, $steps );
+		self::assertSame( LessonPlayerService::LIVE_STEP_KEY, $steps[0]['key'] );
+		self::assertSame( '', $steps[0]['render']['stream_url'] );
+	}
+
+	public function test_live_step_after_lesson_plays_recording_file(): void {
+		$steps = $this->liveSteps(
+			$this->makeGroupLesson( lessonId: 10, recordingUrl: 'https://s3.example.com/rec.mp4', recordingLink: 'https://disk.example.com/rec' ),
+			'https://stream.example.com/live'
 		);
 
-		self::assertSame( 'after', $render['phase'] );
-		self::assertSame( 'https://s3.example.com/rec.mp4', $render['video_url'] );
+		self::assertSame( 'Запись занятия', $steps[0]['title'] );
+		self::assertSame( 'after', $steps[0]['render']['phase'] );
+		self::assertSame( 'https://s3.example.com/rec.mp4', $steps[0]['render']['video_url'] );
 		// Внешняя ссылка остаётся запасным вариантом на случай сбоя хранилища.
-		self::assertSame( 'https://disk.example.com/rec', $render['record_link'] );
+		self::assertSame( 'https://disk.example.com/rec', $steps[0]['render']['record_link'] );
+		// Трансляция группы после занятия уже не нужна.
+		self::assertSame( '', $steps[0]['render']['stream_url'] );
 	}
 
-	public function test_broadcast_after_lesson_with_link_only_is_not_embedded(): void {
-		$render = $this->broadcastRender(
-			$this->makeGroupLesson( lessonId: 10, recordingLink: 'https://disk.example.com/rec' )
-		);
+	public function test_live_step_after_lesson_with_link_only_is_not_embedded(): void {
+		$steps = $this->liveSteps( $this->makeGroupLesson( lessonId: 10, recordingLink: 'https://disk.example.com/rec' ) );
 
-		self::assertSame( 'after', $render['phase'] );
-		self::assertSame( '', $render['video_url'] );
-		self::assertSame( 'https://disk.example.com/rec', $render['record_link'] );
+		self::assertSame( 'after', $steps[0]['render']['phase'] );
+		self::assertSame( '', $steps[0]['render']['video_url'] );
+		self::assertSame( 'https://disk.example.com/rec', $steps[0]['render']['record_link'] );
 	}
 
-	public function test_broadcast_held_without_recording_is_after_phase(): void {
-		$render = $this->broadcastRender( $this->makeGroupLesson( lessonId: 10, status: 'held' ) );
-
-		self::assertSame( 'after', $render['phase'] );
-		self::assertSame( '', $render['video_url'] );
-		self::assertSame( '', $render['record_link'] );
+	public function test_held_lesson_without_recording_hides_step_from_student(): void {
+		self::assertCount( 1, $this->liveSteps( $this->makeGroupLesson( lessonId: 10, status: 'held' ) ) );
 	}
 
-	public function test_broadcast_hides_non_http_recording_pointer(): void {
+	public function test_held_lesson_without_recording_keeps_step_for_teacher(): void {
+		$steps = $this->liveSteps( $this->makeGroupLesson( lessonId: 10, status: 'held' ), null, true );
+
+		self::assertSame( 'Запись занятия', $steps[0]['title'] );
+		self::assertSame( '', $steps[0]['render']['video_url'] );
+		self::assertSame( '', $steps[0]['render']['record_link'] );
+	}
+
+	public function test_non_http_recording_pointer_is_not_shown_to_student(): void {
 		// Модуль VideoLibrary выключен: фильтр fs_lms_recording_url — passthrough,
-		// указатель s3://… дошёл до рендера — guard не отдаёт его в плеер.
-		$render = $this->broadcastRender(
-			$this->makeGroupLesson( lessonId: 10, recordingUrl: 's3://bucket/videos/kege-1/rec.webm' )
-		);
+		// указатель s3://… дошёл до рендера — guard не отдаёт его в плеер, и шага у ученика нет.
+		$steps = $this->liveSteps( $this->makeGroupLesson( lessonId: 10, recordingUrl: 's3://bucket/videos/kege-1/rec.webm' ) );
 
-		self::assertSame( '', $render['video_url'] );
+		self::assertCount( 1, $steps );
 	}
 
 	// ── видео-шаг (Этап 1): больше не подменяется записью занятия ───────────
@@ -258,7 +287,8 @@ class LessonPlayerServiceTest extends TestCase {
 		$groupLesson = $this->makeGroupLesson( lessonId: 10, recordingUrl: 'https://s3.example.com/rec.mp4' );
 		$view        = $this->service->buildView( 1, $groupLesson );
 
-		$render = $view['steps'][0]['render'];
+		// [0] — виртуальный шаг «Запись занятия», [1] — сам видео-шаг урока: его url запись не подменяет.
+		$render = $view['steps'][1]['render'];
 		self::assertSame( 'https://youtube.com/watch?v=abc', $render['url'] );
 		self::assertArrayNotHasKey( 'recording_slot', $render );
 	}
@@ -586,7 +616,7 @@ class LessonPlayerServiceTest extends TestCase {
 		$groupLesson = $this->arrangeTaskStep( array() );
 		$this->correctAnswers->method( 'resolve' )->willReturn( null );
 
-		$render = $this->service->buildTeacherView( $groupLesson )['steps'][0]['render'];
+		$render = $this->service->buildTeacherView( $groupLesson )['steps'][1]['render']; // [0] — виртуальный шаг «Трансляция»
 
 		self::assertSame( 0, $render['attempts_used'] );
 		// Ученический канал эталона (D20) в teacher-режиме не используется —
@@ -600,7 +630,7 @@ class LessonPlayerServiceTest extends TestCase {
 		$groupLesson = $this->arrangeTaskStep( array() );
 		$this->correctAnswers->method( 'resolve' )->with( 77 )->willReturn( 'Вариант Б' );
 
-		$render = $this->service->buildTeacherView( $groupLesson )['steps'][0]['render'];
+		$render = $this->service->buildTeacherView( $groupLesson )['steps'][1]['render']; // [0] — виртуальный шаг «Трансляция»
 
 		self::assertSame( 'Вариант Б', $render['solution']['answer'] );
 		self::assertSame( '', $render['solution']['html'] );
@@ -611,7 +641,7 @@ class LessonPlayerServiceTest extends TestCase {
 		$groupLesson = $this->arrangeTaskStep( array() );
 		$this->correctAnswers->method( 'resolve' )->willReturn( null );
 
-		$render = $this->service->buildTeacherView( $groupLesson )['steps'][0]['render'];
+		$render = $this->service->buildTeacherView( $groupLesson )['steps'][1]['render']; // [0] — виртуальный шаг «Трансляция»
 
 		self::assertArrayNotHasKey( 'solution', $render );
 	}
@@ -632,7 +662,7 @@ class LessonPlayerServiceTest extends TestCase {
 		$groupLesson = $this->arrangeWorkStep();
 		$this->correctAnswers->method( 'resolve' )->willReturn( 'Пять' );
 
-		$render = $this->service->buildTeacherView( $groupLesson )['steps'][0]['render'];
+		$render = $this->service->buildTeacherView( $groupLesson )['steps'][1]['render']; // [0] — виртуальный шаг «Трансляция»
 
 		self::assertSame( 'Пять', $render['tasks'][0]['solution']['answer'] );
 		// Мета задачи из ответа не утекает — только собранный эталон.

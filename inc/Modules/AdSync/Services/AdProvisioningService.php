@@ -30,7 +30,9 @@ use Inc\Services\Security\PiiCryptoService;
  * читается в момент отправки — из заявки или из зашифрованной копии пароля пользователя.
  *
  * Жизненный цикл учётки:
- *  - **заявка подана** (направление из provision_subjects) → `provision` в OU направления;
+ *  - **заявка подана** из доверенной сети (направление из provision_subjects) → `provision`
+ *    в OU направления; подана с другого адреса — учётку создаёт сотрудник кнопкой «Создать
+ *    учётку» в окне заявки ({@see accountStateForApplication()});
  *  - **заявка истекла / в корзине** → `deprovision` (OU=Отчисленные);
  *  - **отчислен** и не осталось других активных зачислений → `deprovision`;
  *  - **снова зачислен** на направление с доменной учёткой, а учётка сейчас в «Отчисленных» →
@@ -222,6 +224,32 @@ class AdProvisioningService {
 			'dead'  => 'failed',
 			default => 'pending',
 		};
+	}
+
+	/**
+	 * Состояние доменной учётки по заявке — для кнопки «Создать учётку» в окне заявки.
+	 *
+	 *  - `none`      — учётка не положена (направление без доменных учёток, заявка закрыта)
+	 *                  или сайт её уже отключил/удалил: кнопки нет;
+	 *  - `creatable` — учётки ещё нет, её можно создать вручную;
+	 *  - `pending` / `done` / `failed` — задание на создание в очереди, выполнено, отклонено.
+	 */
+	public function accountStateForApplication( int $applicationId ): string {
+		$app = $this->applications->find( $applicationId );
+		if ( null === $app
+			|| ! in_array( $app->status, array( ApplicationStatus::PendingParent, ApplicationStatus::ReadyForReview ), true )
+			|| ! $this->config->shouldProvision( $app->subjectKey ?? null ) ) {
+			return 'none';
+		}
+
+		$latest = $this->outbox->latestByApplication( $applicationId );
+		if ( null === $latest ) {
+			return 'creatable';
+		}
+
+		return AdSyncEvent::Provision->value === $latest->event || AdSyncEvent::Rename->value === $latest->event
+			? $this->statusForApplication( $applicationId )
+			: 'none';
 	}
 
 	/**

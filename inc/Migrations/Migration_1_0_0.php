@@ -48,7 +48,7 @@ use Inc\Enums\Settings\TableName;
  * - **notifications**        — in-app уведомления кабинета
  * - **exam_\***              — 15 таблиц экзаменов вне курса: проведения, сеансы, участники, участия, записи, источники,
  *                              ключи доступа, гостевые сессии, отчёты школе, outbox, ключи операций, заявки гостей, оплаты,
- *                              ручные разборы. Схема — `Migration_1_0_71::examDdl()` (одна на установку с нуля и на апгрейд)
+ *                              ручные разборы. Схема — `Migration_1_0_84::examDdl()` (одна на установку с нуля и на апгрейд)
  */
 class Migration_1_0_0 implements MigrationInterface {
 
@@ -130,6 +130,7 @@ class Migration_1_0_0 implements MigrationInterface {
 			deleted_at         datetime          DEFAULT NULL,
 			course_id          bigint(20) unsigned DEFAULT NULL,
 			room_id            int unsigned      DEFAULT NULL,
+			broadcast_url      varchar(1000)     DEFAULT NULL,
 			PRIMARY KEY  (id),
 			KEY subject_key (subject_key),
 			KEY academic_period_id (academic_period_id),
@@ -392,6 +393,9 @@ class Migration_1_0_0 implements MigrationInterface {
 
 		// ===== 14a. error_log — журнал ошибок пользователей (Migration_1_0_33) =====
 		dbDelta( Migration_1_0_33::errorLogDdl( $cc ) );
+
+		// ===== 14b. content_reports — «Нашли ошибку?» на страницах заданий и статей (Migration_1_0_83) =====
+		dbDelta( Migration_1_0_83::contentReportDdl( $cc ) );
 
 		// ===== 15. group_lessons — программа группы (Этап 2) =====
 		$group_lessons = TableName::GroupLessons->prefixed();
@@ -682,8 +686,34 @@ class Migration_1_0_0 implements MigrationInterface {
 		) $cc;"
 		);
 
-		// ===== 26–40. Экзамены вне курса (15 таблиц) — схема одна на все пути: Migration_1_0_71::examDdl() =====
-		foreach ( Migration_1_0_71::examDdl( $cc ) as $sql ) {
+		// ===== 26. leads — заявки с лид-форм сайта (принятые и отклонённые) =====
+		$leads = TableName::Leads->prefixed();
+		dbDelta(
+			"CREATE TABLE $leads (
+			id                bigint unsigned NOT NULL AUTO_INCREMENT,
+			verdict           varchar(10)  NOT NULL,
+			reason            varchar(30)  NOT NULL DEFAULT '',
+			name_enc          blob         NOT NULL,
+			phone_enc         blob         NOT NULL,
+			form_id           varchar(30)  NOT NULL DEFAULT '',
+			page_url          varchar(500) NOT NULL DEFAULT '',
+			ip                varchar(45)  NOT NULL DEFAULT '',
+			subnet            varchar(50)  NOT NULL DEFAULT '',
+			user_agent        varchar(500) NOT NULL DEFAULT '',
+			fill_seconds      int unsigned NOT NULL DEFAULT 0,
+			captcha           varchar(12)  NOT NULL DEFAULT '',
+			captcha_challenge tinyint(1)   NOT NULL DEFAULT 0,
+			is_mobile         tinyint(1)   NOT NULL DEFAULT 0,
+			mail_sent         tinyint(1)   DEFAULT NULL,
+			received_at       datetime     NOT NULL,
+			PRIMARY KEY (id),
+			KEY verdict_received (verdict, received_at),
+			KEY subnet (subnet)
+		) $cc;"
+		);
+
+		// ===== 27–41. Экзамены вне курса (15 таблиц) — схема одна на все пути: Migration_1_0_84::examDdl() =====
+		foreach ( Migration_1_0_84::examDdl( $cc ) as $sql ) {
 			dbDelta( $sql );
 		}
 	}
@@ -708,6 +738,7 @@ class Migration_1_0_0 implements MigrationInterface {
 			TableName::ExamParticipants->prefixed(),
 			TableName::ExamSessions->prefixed(),
 			TableName::ExamEvents->prefixed(),
+			TableName::Leads->prefixed(),
 			TableName::Notifications->prefixed(),
 			TableName::Rooms->prefixed(),
 			TableName::Substitutions->prefixed(),
@@ -721,6 +752,7 @@ class Migration_1_0_0 implements MigrationInterface {
 			TableName::LearningEvents->prefixed(),
 			TableName::GroupLessons->prefixed(),
 			TableName::ErrorLog->prefixed(),
+			TableName::ContentReport->prefixed(),
 			TableName::AuthLog->prefixed(),
 			TableName::EmailLog->prefixed(),
 			TableName::ConsentChangeLog->prefixed(),

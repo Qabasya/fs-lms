@@ -41,6 +41,7 @@ class ProfileViewResolverTest extends TestCase {
 			),
 			new LearnerProfileView(),
 			$this->createMock( SubjectRepository::class ),
+			$this->createMock( \Inc\Services\Course\LiveLessonService::class ),
 			$this->createMock( AvatarService::class ),
 		);
 	}
@@ -78,6 +79,7 @@ class ProfileViewResolverTest extends TestCase {
 			),
 			new LearnerProfileView(),
 			$this->createMock( SubjectRepository::class ),
+			$this->createMock( \Inc\Services\Course\LiveLessonService::class ),
 			$this->createMock( AvatarService::class ),
 		);
 	}
@@ -147,6 +149,7 @@ class ProfileViewResolverTest extends TestCase {
 			),
 			new LearnerProfileView(),
 			$this->createMock( SubjectRepository::class ),
+			$this->createMock( \Inc\Services\Course\LiveLessonService::class ),
 			$this->createMock( AvatarService::class ),
 		);
 

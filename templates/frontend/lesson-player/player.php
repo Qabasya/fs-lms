@@ -29,6 +29,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
+use Inc\Enums\Profile\LearnerScreen;
 use Inc\Enums\Ui\Icon;
 use Inc\Enums\Wp\PageRoutes;
 
@@ -66,10 +67,12 @@ $locked_parent    = $locked && ! empty( $locked_parent );
 
 // Прогресс урока для топбара: пройденные шаги (completed; failed закрывает
 // шаг, но в прогресс не зачитывается — как в ProgressStatus::isComplete()).
-$steps_total = count( $view['steps'] );
+// Виртуальный шаг «Трансляция / Запись занятия» в прогресс урока не входит.
+$counted     = array_filter( $view['steps'], static fn( array $s ): bool => empty( $s['virtual'] ) );
+$steps_total = count( $counted );
 $steps_done  = count(
 	array_filter(
-		$view['steps'],
+		$counted,
 		static fn( array $s ): bool => 'completed' === $s['status']
 	)
 );
@@ -83,7 +86,7 @@ if ( $locked_parent ) {
 } elseif ( $is_teacher || $is_preview ) {
 	$back_url = add_query_arg( array_filter( array( 'screen' => 'teacher-courses', 'course' => $course_id ) ), $profile_url );
 } else {
-	$back_url = add_query_arg( array( 'screen' => 'learner-lessons', 'group' => $groupId ), $profile_url );
+	$back_url = add_query_arg( array( 'screen' => LearnerScreen::Lessons->key(), 'group' => $groupId ), $profile_url );
 }
 
 ?>
@@ -212,6 +215,7 @@ $next_url    = null !== $next_lesson
 							data-gate="<?php echo esc_attr( $step['gate'] ); ?>"
 							data-status="<?php echo esc_attr( $step['status'] ); ?>"
 							<?php echo $is_manual_task ? 'data-manual="1"' : ''; ?>
+							<?php echo ! empty( $step['virtual'] ) ? 'data-virtual="1"' : ''; ?>
 							hidden
 						>
 							<?php

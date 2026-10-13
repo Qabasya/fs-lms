@@ -1,0 +1,115 @@
+@use '../variables' as *;
+@use '../mixins' as *;
+
+// Кнопка «Нашли ошибку?» — просто текст без фона; модалка с описанием ошибки.
+// Префикс страниц нужен по специфичности: их сброс `button { font: inherit; color: inherit }`
+// иначе перебивает кегль и цвет.
+.fs-task-page .fs-report-btn,
+.fs-article-page .fs-report-btn {
+  padding: 0;
+  border: 0;
+  background: none;
+  font-family: inherit;
+  font-size: $font-size-xs;
+  color: $color-muted;
+  line-height: $line-height-tight;
+  cursor: pointer;
+  text-decoration: none;
+
+  @include fs-arrow-reveal;
+
+  &:hover { @include fs-arrow-reveal-open; }
+}
+
+// Кнопка у правого края: под карточкой задания и над навигацией статьи.
+.fs-task-report,
+.fs-article-report {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.fs-task-report { margin-top: $spacing-lg; }
+
+.fs-article-report {
+  margin: rem(52.8) 0 $spacing-md;
+
+  // Отбивку сверху держит сама строка с кнопкой.
+  + .fs-article-nav { margin-top: 0; }
+}
+
+.fs-report-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: $spacing-lg;
+
+  &[hidden] { display: none; }
+}
+
+.fs-report-modal__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(16, 24, 40, .45);
+}
+
+.fs-report-modal__box {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-md;
+  width: 100%;
+  max-width: rem(520);
+  padding: $spacing-xl;
+  background: $color-white;
+  border-radius: $radius-card;
+  box-shadow: $shadow-hover;
+}
+
+.fs-report-modal__title {
+  margin: 0;
+  font-size: $font-size-lead;
+  color: $color-text;
+}
+
+.fs-report-modal__field {
+  width: 100%;
+  padding: $spacing-md;
+  border: 1px solid $color-border;
+  border-radius: $radius-control;
+  font-family: inherit;
+  font-size: $font-size-base;
+  color: $color-text;
+  resize: vertical;
+
+  &:focus {
+    outline: none;
+    border-color: $color-accent;
+  }
+}
+
+.fs-report-modal__status {
+  margin: 0;
+  font-size: $font-size-xs;
+  color: $color-ok;
+
+  &[hidden] { display: none; }
+
+  &.is-error { color: $color-err; }
+}
+
+.fs-report-modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: $spacing-md;
+}
+
+.fs-report-modal__cancel { @include fs-btn-ghost; }
+
+.fs-report-modal__send {
+  @include fs-btn-accent;
+
+  &:disabled { opacity: .6; cursor: default; }
+}

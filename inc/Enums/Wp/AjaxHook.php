@@ -98,6 +98,10 @@ enum AjaxHook: string {
 	case GeneratePrintDocument = 'generate_print_document'; // params: document, student_id, record_id
 	case SavePrintProgram      = 'save_print_program';      // params: subject_key, program, price
 
+	// ==================== Заявки с сайта (Пользователи → Заявки с сайта) ====================
+	case DeleteLeads         = 'delete_leads';          // params: ids[]
+	case DeleteRejectedLeads = 'delete_rejected_leads'; // без параметров
+
 	// ==================== Журналы ====================
 	case ExportEntityAuditLog  = 'export_entity_audit_log';
 	case ExportEnrollmentLog   = 'export_enrollment_log';
@@ -234,6 +238,8 @@ enum AjaxHook: string {
 	// Журнал «Ошибки»: сбой, которого сервер не видел. params: code, message, ref, source_action, page_url, status, snippet
 	case ReportClientError = 'report_client_error';
 	case ExportErrorLog    = 'export_error_log';
+	// Кнопка «Нашли ошибку?» на странице задания/статьи (priv + nopriv). params: post_id, task_id, message
+	case ReportContentError = 'report_content_error';
 	case GradeBatchTask  = 'grade_batch_task';  // params: submission_id, score, feedback
 
 	// ==== Предпросмотр курса — dry-run проверка (#5), без сохранения ====
@@ -328,6 +334,7 @@ enum AjaxHook: string {
 	case CloneWork           = 'clone_work';
 	case CloneAssessment     = 'clone_assessment';
 	case CloneCourse         = 'clone_course';
+	case CloneTask           = 'clone_task';           // params: task_id — копия задания предмета: новый номер, без ответа
 	case ForkLessonForGroup  = 'fork_lesson_for_group';
 
 

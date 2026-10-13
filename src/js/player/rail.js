@@ -25,10 +25,11 @@ export function initRail() {
 	const render = () => {
 		// Перерисовка не должна выбивать фокус клавиатуры с квадрата.
 		const focused = rail.contains( document.activeElement ) ? document.activeElement.dataset.goto : null;
-		rail.innerHTML = core.panels.map( ( p, i ) => stepHtml( p, i, i === core.activeIndex() ) ).join( '' );
+		rail.innerHTML = core.panels.map( ( p, i ) => stepHtml( p, i, i === core.activeIndex(), stepNumber( core, i ) ) ).join( '' );
 		const active = core.panels[ core.activeIndex() ];
 		if ( cur && active ) {
-			cur.textContent = `${ core.activeIndex() + 1 }. ${ typeMeta( active.dataset.stepType ).label } · ${ active.dataset.title || '' }`;
+			const num = stepNumber( core, core.activeIndex() );
+			cur.textContent = `${ num ? num + '. ' : '' }${ typeMeta( active.dataset.stepType ).label } · ${ active.dataset.title || '' }`;
 		}
 		keepVisible( rail, rail.querySelector( '.rs-step.cur' ) );
 		if ( null !== focused ) { rail.querySelector( `[data-goto="${ focused }"]` )?.focus(); }
@@ -51,16 +52,22 @@ export function initRail() {
 	onRefresh( render );
 }
 
-function stepHtml( panel, i, isCurrent ) {
+/** Номер шага для рейки; у виртуального шага («Трансляция»/«Запись») номера нет — вместо него значок REC. */
+function stepNumber( core, i ) {
+	if ( '1' === core.panels[ i ].dataset.virtual ) { return 0; }
+	return i + 1 - core.panels.slice( 0, i ).filter( ( p ) => '1' === p.dataset.virtual ).length;
+}
+
+function stepHtml( panel, i, isCurrent, num ) {
 	const type   = panel.dataset.stepType;
 	const done   = [ 'completed', 'failed' ].includes( panel.dataset.status );
 	const locked = 'locked' === panel.dataset.gate;
 	const cls    = [ 'rs-step', isCurrent ? 'cur' : '', done ? 'done' : '', locked ? 'lk' : '' ].filter( Boolean ).join( ' ' );
-	const label  = `Шаг ${ i + 1 }: ${ typeMeta( type ).label }${ panel.dataset.title ? ` — ${ panel.dataset.title }` : '' }`;
+	const label  = `${ num ? 'Шаг ' + num : 'Занятие' }: ${ typeMeta( type ).label }${ panel.dataset.title ? ` — ${ panel.dataset.title }` : '' }`;
 
 	return `<button type="button" class="${ cls }" data-step-type="${ esc( type ) }" data-goto="${ i }"` +
 		` aria-label="${ esc( label ) }"${ isCurrent ? ' aria-current="step"' : '' }>` +
-		`<span class="rs-n">${ i + 1 }</span>` +
+		`<span class="rs-n">${ num || typeIco( type, 'currentColor', 14 ) }</span>` +
 		( done ? `<span class="rs-tick">${ ICO.check( 10 ) }</span>` : '' ) +
 		( locked && ! isCurrent ? `<span class="rs-lock">${ ICO.lock( 10 ) }</span>` : '' ) +
 		'</button>';

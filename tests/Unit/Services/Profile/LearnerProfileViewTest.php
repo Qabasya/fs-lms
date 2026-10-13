@@ -27,15 +27,17 @@ class LearnerProfileViewTest extends TestCase {
 	public function test_exams_item_always_present_for_student_and_parent( ProfileContext $context ): void {
 		$built = ( new LearnerProfileView() )->build( $context );
 
+		// Ключ несёт роль: student-exams у ученика, parent-exams у родителя.
+		$key  = ( $context->readOnly ? 'parent' : 'student' ) . '-exams';
 		$keys = array_column( $built['nav'], 'key' );
-		self::assertContains( 'learner-exams', $keys );
-		self::assertContains( 'learner-exams', $built['screens'] );
-		self::assertSame( 'Мои экзамены', array_column( $built['nav'], 'label', 'key' )['learner-exams'] );
+		self::assertContains( $key, $keys );
+		self::assertContains( $key, $built['screens'] );
+		self::assertSame( 'Мои экзамены', array_column( $built['nav'], 'label', 'key' )[ $key ] );
 	}
 
 	public function test_exams_item_is_last_in_menu(): void {
 		$keys = array_column( ( new LearnerProfileView() )->build( new ProfileContext( 1, 5, UserRole::FSStudent, 5, false, array() ) )['nav'], 'key' );
 
-		self::assertSame( 'learner-exams', end( $keys ) );
+		self::assertSame( 'student-exams', end( $keys ) );
 	}
 }

@@ -96,10 +96,9 @@ class NotificationCronServiceTest extends TestCase {
 		$this->service->tick();
 	}
 
-	public function test_lesson_soon_queries_exact_30_minute_window(): void {
-		// Второй вызов — окно «за 24 часа до следующего занятия» (ДЗ к следующему уроку).
+	public function test_only_homework_deadline_queries_next_lesson_window(): void {
 		$windows = array();
-		$this->groupLessons->expects( self::exactly( 2 ) )
+		$this->groupLessons->expects( self::once() )
 			->method( 'listStartingBetween' )
 			->willReturnCallback( function ( string $from, string $to ) use ( &$windows ): array {
 				$windows[] = array( $from, $to );
@@ -110,51 +109,11 @@ class NotificationCronServiceTest extends TestCase {
 
 		$this->service->tick();
 
-		self::assertSame( array( self::NOW, '2026-01-15 12:30:00' ), $windows[0] );
-		self::assertSame( array( self::NOW, '2026-01-16 12:00:00' ), $windows[1] );
+		self::assertSame( array( array( self::NOW, '2026-01-16 12:00:00' ) ), $windows );
 	}
 
-	public function test_lesson_soon_pushes_to_students_and_teacher_with_lesson_url(): void {
-		$lesson = $this->lesson( array( 'lesson_id' => 7 ) );
-		$this->stubLessons( startingBetween: array( $lesson ) );
-		$this->notifications->method( 'lessonStudentUserIds' )->with( $lesson )->willReturn( array( 21, 22 ) );
-		$this->notifications->method( 'lessonTeacherUserId' )->with( $lesson )->willReturn( 55 );
-		$this->notifications->method( 'lessonTopic' )->willReturn( 'Тема' );
-		$this->notifications->method( 'groupName' )->willReturn( 'Группа' );
-
-		$this->notifications->expects( self::once() )
-			->method( 'push' )
-			->with(
-				array( 21, 22, 55 ),
-				NotificationType::LessonSoon,
-				'lesson_soon:100',
-				self::callback( static fn( $p ) => 'Тема' === $p['topic'] && 'Группа' === $p['group_name'] ),
-				self::stringContains( 'gid=5' ),
-				5,
-				'group_lesson',
-				100
-			);
-
-		$this->service->tick();
-	}
-
-	public function test_lesson_soon_falls_back_to_profile_url_without_lesson_content(): void {
-		$lesson = $this->lesson( array( 'lesson_id' => null ) );
-		$this->stubLessons( startingBetween: array( $lesson ) );
-		$this->notifications->method( 'lessonStudentUserIds' )->willReturn( array( 21 ) );
-		$this->notifications->method( 'lessonTeacherUserId' )->willReturn( null );
-
-		$this->notifications->expects( self::once() )
-			->method( 'push' )
-			->with( array( 21 ), NotificationType::LessonSoon, self::anything(), self::anything(), self::stringContains( '/profile/' ), 5, 'group_lesson', 100 );
-
-		$this->service->tick();
-	}
-
-	public function test_lesson_soon_skips_when_no_recipients(): void {
+	public function test_tick_does_not_emit_lesson_soon_for_lessons_starting_within_30_minutes(): void {
 		$this->stubLessons( startingBetween: array( $this->lesson() ) );
-		$this->notifications->method( 'lessonStudentUserIds' )->willReturn( array() );
-		$this->notifications->method( 'lessonTeacherUserId' )->willReturn( null );
 
 		$this->notifications->expects( self::never() )->method( 'push' );
 
@@ -296,20 +255,6 @@ class NotificationCronServiceTest extends TestCase {
 
 		$this->notifications->expects( self::never() )->method( 'push' );
 
-		$this->service->tick();
-	}
-
-	public function test_dedupe_keys_are_stable_across_repeated_ticks(): void {
-		$lesson = $this->lesson( array( 'lesson_id' => 7 ) );
-		$this->stubLessons( startingBetween: array( $lesson ) );
-		$this->notifications->method( 'lessonStudentUserIds' )->willReturn( array( 21 ) );
-		$this->notifications->method( 'lessonTeacherUserId' )->willReturn( null );
-
-		$this->notifications->expects( self::exactly( 2 ) )
-			->method( 'push' )
-			->with( self::anything(), NotificationType::LessonSoon, 'lesson_soon:100', self::anything(), self::anything(), 5, 'group_lesson', 100 );
-
-		$this->service->tick();
 		$this->service->tick();
 	}
 

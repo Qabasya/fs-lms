@@ -3,6 +3,7 @@ import { initCarousel }         from './components/article-carousel.js';
 import { initArticleToc }       from './components/article-toc.js';
 import { initScrollSticky }     from './components/scroll-sticky.js';
 import { initArticleTaskCards } from './components/article-task-card.js';
+import { initReportError }      from './components/report-error.js';
 import { initArticleNav }       from './components/article-nav.js';
 import { initArticleCatalog }   from './components/article-catalog.js';
 import { initCodeBlocks }       from './components/code-block.js';
@@ -30,6 +31,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initScrollSticky();
     initArticleTaskCards();
     initArticleNav();
+    initReportError();
     initArticleCatalog();
     initCodeBlocks();
     initLessonCountdown();

@@ -9,12 +9,15 @@ use Inc\Modules\AdSync\Callbacks\AdSyncStatusCallbacks;
 use Inc\Modules\AdSync\Services\AdDeliveryService;
 use Inc\Modules\AdSync\Services\AdProvisioningService;
 use Inc\Modules\AdSync\Services\AdStatusTokenService;
+use Inc\Services\Shared\PluginConfig;
+use Inc\Shared\Traits\RequestContextProvider;
 
 /**
  * Class AdSyncController
  *
  * Рантайм-хуки модуля (только при включённом флаге). Подписан на generic-сеймы ядра:
- * при создании заявки ставит задание провижна в очередь, отправляет его в офис сразу после
+ * при создании заявки из доверенной сети ставит задание провижна в очередь (с других адресов
+ * учётку создаёт сотрудник — {@see AdAccountController}), отправляет его в офис сразу после
  * ответа пользователю (см. {@see flushAfterResponse()}) и вписывает в ответ apply generic-поля
  * `notice` + `poll` (фронт покажет спиннер и опросит статус). Статус отдаёт nopriv-AJAX
  * `fs_lms_ad_status` (обработчик — AdSyncStatusCallbacks, адресация — токеном,
@@ -23,6 +26,8 @@ use Inc\Modules\AdSync\Services\AdStatusTokenService;
  * @package Inc\Modules\AdSync\Controllers
  */
 class AdSyncController {
+
+	use RequestContextProvider;
 
 	/** Собственное имя nopriv-AJAX статуса провижна (вне core AjaxHook — изоляция). */
 	public const STATUS_ACTION = 'fs_lms_ad_status';
@@ -37,6 +42,7 @@ class AdSyncController {
 		private readonly AdDeliveryService     $delivery,
 		private readonly AdStatusTokenService  $tokens,
 		private readonly AdSyncStatusCallbacks $statusCallbacks,
+		private readonly PluginConfig          $pluginConfig,
 	) {}
 
 	public function register(): void {
@@ -59,7 +65,16 @@ class AdSyncController {
 		add_action( 'fs_lms_user_password_changed', array( $this, 'onPasswordChanged' ) );
 	}
 
+	/**
+	 * Учётка в домене сразу — только когда заявку подают очно, из доверенной сети
+	 * (`FS_LMS_TRUSTED_IPS`): ученик тут же садится за компьютер класса. Заявке с любого
+	 * другого адреса учётку создаёт сотрудник кнопкой в окне заявки.
+	 */
 	public function onApplicationCreated( int $applicationId ): void {
+		if ( ! $this->pluginConfig->isTrustedIp( $this->requestContext()->ip ) ) {
+			return;
+		}
+
 		$this->service->enqueueProvision( $applicationId );
 		$this->scheduleFlush();
 	}
@@ -129,7 +144,8 @@ class AdSyncController {
 	 * В `ref` уходит непредсказуемый токен (2S2), сырой ID заявки наружу не публикуется.
 	 */
 	public function filterApplyResponse( array $response, int $applicationId ): array {
-		// Провижн не ставился (направление вне provision_subjects) — спиннер/поллинг не нужны.
+		// Провижн не ставился (направление вне provision_subjects или заявка не из доверенной
+		// сети) — спиннер/поллинг не нужны.
 		// Порядок гарантирован: fs_lms_application_created срабатывает до этого фильтра в том же запросе.
 		if ( 'none' === $this->service->statusForApplication( $applicationId ) ) {
 			return $response;

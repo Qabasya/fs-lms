@@ -15,11 +15,13 @@ use Inc\Shared\Traits\Sanitizer;
 /**
  * Class ErrorLogCallbacks
  *
- * Наполнение журнала «Ошибки» из трёх источников:
+ * Наполнение журнала «Ошибки» из четырёх источников:
  *
- * 1. хук {@see ErrorCode::HOOK} — любой `AjaxResponse::error()` / `fail()`;
+ * 1. хук {@see ErrorCode::HOOK} — любой `AjaxResponse::error()` / `fail()`, отказ по правам
+ *    (`Authorizer`) и по обязательному полю (`Sanitizer::require*()`);
  * 2. `check_ajax_referer` с провалом — истёкшая сессия (ответ `-1`, обработчик не вызывается);
- * 3. AJAX `ReportClientError` — сбой, который сервер не видел как ошибку (ответ не JSON).
+ * 3. AJAX `ReportClientError` — сбой, который сервер не видел как ошибку (ответ не JSON);
+ * 4. `shutdown` — фатальная ошибка PHP в AJAX-запросе: обработчик до `error()` не дошёл.
  *
  * @package Inc\Callbacks\Log
  */
@@ -30,6 +32,9 @@ class ErrorLogCallbacks extends BaseController {
 
 	/** Коды, которые вправе прислать браузер: остальные сервер пишет сам. */
 	private const CLIENT_CODES = array( ErrorCode::Http, ErrorCode::Network );
+
+	/** Типы ошибок PHP, обрывающие запрос. */
+	private const FATAL_TYPES = E_ERROR | E_PARSE | E_CORE_ERROR | E_COMPILE_ERROR | E_USER_ERROR | E_RECOVERABLE_ERROR;
 
 	public function __construct(
 		private readonly ErrorLogWriter   $writer,
@@ -72,6 +77,41 @@ class ErrorLogCallbacks extends BaseController {
 			'Сессия устарела — обновите страницу.',
 			ErrorLogWriter::newRef(),
 			array( 'nonce' => $action )
+		);
+	}
+
+	/**
+	 * Хук `shutdown`: фатальная ошибка PHP в AJAX-запросе.
+	 *
+	 * Пользователь видит «ошибку сервера», а обработчик до `error()` не дошёл — без этой
+	 * записи сбой остаётся только в PHP-логе. Берём лишь фаталы, в которых участвует код
+	 * плагина (файл ошибки или стек непойманного исключения): чужие плагины — не наш журнал.
+	 */
+	public function onShutdown(): void {
+		$error = error_get_last();
+
+		if ( null === $error || ! wp_doing_ajax() || 0 === ( (int) $error['type'] & self::FATAL_TYPES ) ) {
+			return;
+		}
+
+		$pluginDir = wp_normalize_path( $this->plugin_path );
+		$file      = wp_normalize_path( (string) $error['file'] );
+		$details   = (string) $error['message'];
+
+		if ( ! str_contains( $file . "\n" . wp_normalize_path( $details ), $pluginDir ) ) {
+			return;
+		}
+
+		$this->writer->recordServer(
+			ErrorCode::Fatal,
+			'Сбой сервера при выполнении запроса.',
+			ErrorLogWriter::newRef(),
+			array(
+				// Первая строка — сама ошибка; стек остаётся в PHP-логе.
+				'error' => mb_substr( (string) strtok( $details, "\n" ), 0, 300 ),
+				'file'  => str_replace( $pluginDir, '', $file ),
+				'line'  => (int) $error['line'],
+			)
 		);
 	}
 

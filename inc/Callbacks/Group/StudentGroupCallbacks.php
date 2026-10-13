@@ -68,6 +68,24 @@ class StudentGroupCallbacks extends BaseController {
 	}
 
 	/**
+	 * Ссылка на трансляцию занятий группы из формы: пусто — трансляции нет, иначе
+	 * только http(s) (любая платформа). Невалидный адрес — ошибка, а не молчаливая потеря.
+	 */
+	private function broadcastUrl(): ?string {
+		$raw = trim( $this->sanitizeText( 'broadcast_url' ) );
+		if ( '' === $raw ) {
+			return null;
+		}
+
+		$url = esc_url_raw( $raw, array( 'http', 'https' ) );
+		if ( '' === $url || ! str_contains( $url, '.' ) ) {
+			$this->error( 'Ссылка на трансляцию должна начинаться с http:// или https://' );
+		}
+
+		return mb_substr( $url, 0, 1000 );
+	}
+
+	/**
 	 * «Основной» кабинет группы = кабинет первого занятия расписания, где он задан
 	 * (Эпик 10). Кабинет теперь привязан к строке расписания (`meetings[].room`),
 	 * `groups.room_id` хранит основной для колонки/фильтра/фолбэка.
@@ -106,7 +124,8 @@ class StudentGroupCallbacks extends BaseController {
 		if ( is_array( $raw_entries ) ) {
 			$schedule = MeetingsNormalizer::normalizeList( $this->sanitizeScheduleEntries( $raw_entries ) );
 		}
-		$room_id = $this->primaryRoom( $schedule );
+		$room_id       = $this->primaryRoom( $schedule );
+		$broadcast_url = $this->broadcastUrl();
 
 		if ( $this->groupsRepository->existsByNameAndPeriod( $title, $academic_period_id ) ) {
 			$this->error( 'Группа с таким названием в этом периоде уже существует.' );
@@ -125,6 +144,7 @@ class StudentGroupCallbacks extends BaseController {
 			'room_id'            => $room_id,
 			'meetings'           => (string) wp_json_encode( AccessMode::Open === $access_mode ? array() : $schedule ),
 			'access_mode'        => $access_mode->value,
+			'broadcast_url'      => $broadcast_url,
 		) );
 
 		if ( ! $id ) {
@@ -223,9 +243,10 @@ class StudentGroupCallbacks extends BaseController {
 		$room_id = $this->primaryRoom( $schedule );
 
 		$updated = $this->groupsRepository->update( $id, array(
-			'teacher_id' => $teacher_id,
-			'room_id'    => $room_id,
-			'meetings'   => (string) wp_json_encode( $schedule ),
+			'teacher_id'    => $teacher_id,
+			'room_id'       => $room_id,
+			'meetings'      => (string) wp_json_encode( $schedule ),
+			'broadcast_url' => $this->broadcastUrl(),
 		) );
 
 		if ( ! $updated ) {

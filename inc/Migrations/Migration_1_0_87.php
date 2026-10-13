@@ -8,15 +8,15 @@ use Inc\Contracts\MigrationInterface;
 use Inc\Enums\Settings\TableName;
 
 /**
- * Class Migration_1_0_74
+ * Class Migration_1_0_87
  *
  * Бесплатная ссылка преподавателя: `exam_sources.is_free` — гость по такой ссылке записывается без оплаты (бронь сразу
  * превращается в запись, магазин не вызывается). Идемпотентна: на новых установках колонку создаёт
- * `Migration_1_0_71::examDdl()`.
+ * `Migration_1_0_84::examDdl()`.
  *
  * @package Inc\Migrations
  */
-class Migration_1_0_74 implements MigrationInterface {
+class Migration_1_0_87 implements MigrationInterface {
 
 	public function up(): void {
 		global $wpdb;
@@ -33,6 +33,6 @@ class Migration_1_0_74 implements MigrationInterface {
 	}
 
 	public function version(): string {
-		return '1.0.74';
+		return '1.0.87';
 	}
 }

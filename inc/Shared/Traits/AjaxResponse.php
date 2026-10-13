@@ -85,10 +85,6 @@ trait AjaxResponse {
 	 * @return string Номер инцидента (6 hex-символов)
 	 */
 	private function reportError( ErrorCode $code, string $message, array $context ): string {
-		$ref = strtoupper( bin2hex( random_bytes( 3 ) ) );
-
-		do_action( ErrorCode::HOOK, $code, $message, $ref, $context );
-
-		return $ref;
+		return $code->report( $message, $context );
 	}
 }

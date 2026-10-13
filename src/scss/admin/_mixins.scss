@@ -212,6 +212,63 @@
   color: $color-text-secondary;
 }
 
+// ── Кнопка «Добавить» с меню выбора (конструктор курса и слот-билдер работы): клик по
+//    кнопке — действие по умолчанию, наведение/фокус — меню вверх. Меню вплотную к кнопке,
+//    чтобы курсор не «терял» hover по пути к пункту. Разметка: .add-wrap > .add-menu >
+//    .add-menu-box > .add-opt + .add-main (с .add-caret); JS вешает .is-closed после выбора.
+@mixin cb-add-split {
+  .add-wrap {
+    position: relative;
+
+    > .add-main { width: 100%; justify-content: center; }
+  }
+
+  .add-caret { margin-left: auto; transform: rotate(180deg); }
+
+  .add-menu {
+    position: absolute;
+    bottom: 100%;
+    left: 0;
+    right: 0;
+    padding-bottom: rem(4);
+    z-index: 100;
+    visibility: hidden;
+    opacity: 0;
+    transition: opacity 0.12s;
+  }
+
+  .add-wrap:not(.is-closed):hover .add-menu,
+  .add-wrap:not(.is-closed):focus-within .add-menu {
+    visibility: visible;
+    opacity: 1;
+  }
+
+  .add-menu-box {
+    background: $color-bg-modal;
+    border: 1px solid $color-border-input;
+    border-radius: $border-radius-md;
+    box-shadow: $shadow-cb-popover;
+    overflow: hidden;
+  }
+
+  .add-opt {
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
+    padding: rem(8) $spacing-sm;
+    width: 100%;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: $font-size-sm;
+    color: $color-text-primary;
+    text-align: left;
+
+    svg { fill: currentcolor; flex-shrink: 0; }
+    &:hover, &:focus-visible { background: $cb-bg-hover; }
+  }
+}
+
 // ── D1: каркас two-pane конструктора (.builder ≡ .fs-sb-builder)
 @mixin cb-builder-shell {
   display: grid;

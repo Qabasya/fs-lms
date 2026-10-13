@@ -8,14 +8,15 @@ use Inc\Contracts\ServiceInterface;
 use Inc\Core\BaseController;
 use Inc\Enums\Access\Capability;
 use Inc\Services\Subject\PostTypeResolver;
+use Inc\Shared\Traits\TemplateRenderer;
 
 /**
  * Class BankRowActionsController
  *
  * Admin-«довесок» банков контента, не связанный ни с меню, ни с фильтрами:
- * действие «Дублировать» в строке таблицы (контракт `data-clone-*` для
- * `admin/services/content-clone.js`) и модалка создания черновика в футере
- * страниц курсов/уроков/работ/контрольных.
+ * действие «Дублировать» в строке таблицы и кнопка «Дублировать задание» в
+ * редакторе задания (контракт `data-clone-*` для `admin/services/content-clone.js`),
+ * модалка создания черновика в футере страниц курсов/уроков/работ/контрольных.
  *
  * Выделен из LearningMenuController (Т14.1).
  *
@@ -23,10 +24,15 @@ use Inc\Services\Subject\PostTypeResolver;
  */
 class BankRowActionsController extends BaseController implements ServiceInterface {
 
+	use TemplateRenderer;
+
 	public function register(): void {
 		// «Дублировать» в строке таблицы банка — точка входа к AjaxHook::Clone*
 		// (Эпик: допиливание UI недостижимых эндпоинтов).
 		add_filter( 'post_row_actions', array( $this, 'addCloneRowAction' ), 10, 2 );
+
+		// «Дублировать задание» в блоке «Опубликовать» редактора задания — AjaxHook::CloneTask.
+		add_action( 'post_submitbox_misc_actions', array( $this, 'renderCloneTaskButton' ) );
 
 		// draft-creator-modal: рендерится на страницах уроков и курсов
 		// (создание работы из урока / урока из курса без перезагрузки).
@@ -69,6 +75,25 @@ class BankRowActionsController extends BaseController implements ServiceInterfac
 		);
 
 		return $actions;
+	}
+
+	/**
+	 * Кнопка «Дублировать задание» в блоке «Опубликовать» редактора задания предмета.
+	 *
+	 * У ещё не сохранённой записи (`auto-draft`) копировать нечего. Право — то же, что у
+	 * обработчика ({@see \Inc\Callbacks\Course\CloneCallbacks::ajaxCloneTask()}); прямой
+	 * current_user_can() легален по той же причине, что и в {@see addCloneRowAction()}.
+	 *
+	 * @param \WP_Post $post Редактируемая запись
+	 */
+	public function renderCloneTaskButton( \WP_Post $post ): void {
+		if ( ! PostTypeResolver::isTaskPostType( $post->post_type )
+			|| 'auto-draft' === $post->post_status
+			|| ! current_user_can( Capability::AuthorLmsCourses->value ) ) {
+			return;
+		}
+
+		$this->render( 'admin/components/task-clone-button', array( 'task_id' => $post->ID ) );
 	}
 
 	/** Подключает модаль создания черновика на страницах курсов, уроков, работ. */

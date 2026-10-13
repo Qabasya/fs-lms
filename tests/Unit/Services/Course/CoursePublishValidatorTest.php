@@ -74,4 +74,20 @@ class CoursePublishValidatorTest extends TestCase {
 
 		self::assertNotNull( $this->validator->firstEmptyStepError( 1 ) );
 	}
+
+	public function test_unchanged_steps_lists_only_marked_steps(): void {
+		$this->courseWithLesson();
+		$this->lessonWithStep( new StepDTO( 's1', StepType::Text, array( 'content' => 'A', 'needs_review' => true ) ) );
+
+		$list = $this->validator->unchangedSteps( 1 );
+		self::assertCount( 1, $list );
+		self::assertStringContainsString( 'шаг №1', $list[0] );
+	}
+
+	public function test_unchanged_steps_empty_when_not_marked(): void {
+		$this->courseWithLesson();
+		$this->lessonWithStep( new StepDTO( 's1', StepType::Text, array( 'content' => 'A' ) ) );
+
+		self::assertSame( array(), $this->validator->unchangedSteps( 1 ) );
+	}
 }

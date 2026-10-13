@@ -18,6 +18,7 @@ import { ConfigSettings } from './services/settings/config-settings.js';
 import { AvatarSettings } from './services/settings/avatar-settings.js';
 import { HardDeleteStudentService } from './services/hard-delete-student-service.js';
 import { ArchiveTable } from './services/tables/archive-table.js';
+import { LeadsTable } from './services/tables/leads-table.js';
 import { ImportCsv } from './services/import-csv.js';
 import { RefSelector } from './services/ref-selector.js';
 import { TaskTemplateType } from './services/task-template-type.js';
@@ -159,6 +160,8 @@ function loadBuilder( chunk, exportName ) {
             ArchiveViewModalManager.init();
             ArchiveTable.init();
         }
+
+        if ( $( '.fs-lms-leads' ).length ) { LeadsTable.init(); }
 
         if ( $( '.fs-lms-students' ).length ) { StudentsTable.init(); }
 

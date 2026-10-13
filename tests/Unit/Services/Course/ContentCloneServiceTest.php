@@ -104,6 +104,23 @@ class ContentCloneServiceTest extends TestCase {
 		self::assertTrue( $cloned->steps[0]->payload['needs_review'] );
 	}
 
+	public function test_clone_lesson_drops_legacy_broadcast_and_remembers_lecture_links(): void {
+		fs_test_seed_post(
+			array( 'ID' => 4, 'post_type' => 'inf_lessons', 'post_title' => 'Урок', 'post_status' => 'publish' ),
+			array( PostMetaName::Meta->value => array( 'steps' => array(
+				array( 'key' => 's1', 'type' => 'broadcast', 'payload' => array( 'stream_url' => 'https://t.me/x' ) ),
+				array( 'key' => 's2', 'type' => 'text', 'payload' => array( 'content' => '<a href="https://b.ru/2">б</a> <a href="https://a.ru/1">а</a>' ) ),
+			) ) )
+		);
+
+		$cloned = $this->lessons->get( $this->service->cloneLesson( 4 ) );
+
+		// Остаток шага «Трансляция» (теперь его строит плеер) в копию не попадает.
+		self::assertCount( 1, $cloned->steps );
+		self::assertTrue( $cloned->steps[0]->payload['needs_review'] );
+		self::assertSame( array( 'https://a.ru/1', 'https://b.ru/2' ), $cloned->steps[0]->payload['review_links'] );
+	}
+
 	// ── cloneWork ───────────────────────────────────────────────────────────
 
 	public function test_clone_work_returns_zero_for_missing(): void {
@@ -201,6 +218,25 @@ class ContentCloneServiceTest extends TestCase {
 		// Deep clone creates new IDs — they must differ from originals.
 		self::assertNotContains( 1, $newLessonIds );
 		self::assertNotContains( 2, $newLessonIds );
+	}
+
+	public function test_clone_course_keeps_module_description_in_both_modes(): void {
+		fs_test_seed_post(
+			array( 'ID' => 1, 'post_type' => 'inf_lessons', 'post_title' => 'Урок 1', 'post_status' => 'publish' ),
+			array( PostMetaName::Meta->value => array( 'steps' => array() ) )
+		);
+		fs_test_seed_post(
+			array( 'ID' => 100, 'post_type' => 'inf_courses', 'post_title' => 'Курс', 'post_status' => 'publish' ),
+			array( PostMetaName::Meta->value => array( 'modules' => array(
+				array( 'id' => 'm1', 'title' => 'Модуль 1', 'lesson_ids' => array( 1 ), 'description' => 'О чём модуль' ),
+			) ) )
+		);
+
+		foreach ( array( 'shallow', 'deep' ) as $mode ) {
+			$cloned = $this->courses->get( $this->service->cloneCourse( 100, $mode ) );
+
+			self::assertSame( 'О чём модуль', $cloned->modules[0]->description, $mode );
+		}
 	}
 
 	// ── forkLessonForGroup ──────────────────────────────────────────────────

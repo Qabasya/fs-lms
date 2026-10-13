@@ -127,6 +127,7 @@ $base_url  = add_query_arg( array( 'page' => $page_slug, 'period_filter' => $sel
 					data-group-id="<?php echo esc_attr( $group['id'] ); ?>"
 					data-group-name="<?php echo esc_attr( $group['title'] ); ?>"
 					data-teacher-id="<?php echo esc_attr( (string) ( $group['teacher_id'] ?? '' ) ); ?>"
+					data-broadcast-url="<?php echo esc_attr( (string) ( $group['broadcast_url'] ?? '' ) ); ?>"
 					data-schedule="<?php echo esc_attr( $group['schedule_raw'] ); ?>"
 					data-period-id="<?php echo esc_attr( $group['period_id'] ); ?>"
 					data-subject-key="<?php echo esc_attr( $group['subject_key'] ); ?>"

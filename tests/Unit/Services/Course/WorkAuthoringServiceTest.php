@@ -119,4 +119,40 @@ class WorkAuthoringServiceTest extends TestCase {
 		// Со scope='mine' запрос ушёл бы с author=7 и задачу автора 42 не нашёл.
 		self::assertSame( array( 1 ), $ids );
 	}
+
+	/**
+	 * Окно массового добавления догружает кандидатов страницами по 50: вторая
+	 * страница продолжает первую, а пустая означает конец списка.
+	 */
+	public function test_item_candidates_are_paged(): void {
+		for ( $id = 1; $id <= 60; $id++ ) {
+			fs_test_seed_post( array( 'ID' => $id, 'post_type' => 'inf_tasks', 'post_title' => "Задача {$id}", 'post_status' => 'publish' ) );
+		}
+
+		$first  = array_column( $this->service->getItemCandidates( 'inf', 0, 'subject', '', 'public' ), 'id' );
+		$second = array_column( $this->service->getItemCandidates( 'inf', 0, 'subject', '', 'public', 2 ), 'id' );
+		$third  = $this->service->getItemCandidates( 'inf', 0, 'subject', '', 'public', 3 );
+
+		self::assertCount( 50, $first );
+		self::assertCount( 10, $second );
+		self::assertSame( array(), array_intersect( $first, $second ) );
+		self::assertSame( array(), $third );
+	}
+
+	/** У смешанного источника страница листает и задания предмета, и банк. */
+	public function test_mixed_source_pages_both_tasks_and_bank(): void {
+		for ( $id = 1; $id <= 55; $id++ ) {
+			fs_test_seed_post( array( 'ID' => $id, 'post_type' => 'inf_tasks', 'post_title' => "Задача {$id}" ) );
+		}
+		for ( $id = 101; $id <= 153; $id++ ) {
+			fs_test_seed_post( array( 'ID' => $id, 'post_type' => 'fs_lms_problems', 'post_title' => "Банк {$id}" ) );
+		}
+
+		$first  = $this->service->getItemCandidates( 'inf', 0, 'subject', '', 'all' );
+		$second = array_column( $this->service->getItemCandidates( 'inf', 0, 'subject', '', 'all', 2 ), 'id' );
+
+		self::assertCount( 100, $first );
+		sort( $second );
+		self::assertSame( array( 51, 52, 53, 54, 55, 151, 152, 153 ), $second );
+	}
 }

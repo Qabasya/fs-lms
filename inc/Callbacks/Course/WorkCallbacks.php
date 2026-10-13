@@ -74,7 +74,8 @@ class WorkCallbacks extends BaseController {
 	/**
 	 * Кандидаты-элементы для работы: {key}_tasks + fs_lms_problems (unified).
 	 * Params: subject_key, collection, scope, search, source (subject|all — банк
-	 * в дропдауне по умолчанию не показываем, см. WorkAuthoringService::getItemCandidates)
+	 * в дропдауне по умолчанию не показываем, см. WorkAuthoringService::getItemCandidates),
+	 * page (с 1; следующие страницы догружает окно массового добавления заданий)
 	 */
 	public function ajaxGetWorkItemCandidates(): void {
 		$this->authorize( Nonce::AuthorWork, Capability::AuthorLmsCourses );
@@ -84,6 +85,7 @@ class WorkCallbacks extends BaseController {
 		$scope       = $this->sanitizeKey( 'scope' );
 		$search      = $this->sanitizeText( 'search' );
 		$source      = $this->sanitizeKey( 'source' );
+		$page        = max( 1, $this->sanitizeInt( 'page' ) );
 
 		if ( ! in_array( $scope, array( 'mine', 'subject' ), true ) ) {
 			$scope = 'mine';
@@ -93,7 +95,7 @@ class WorkCallbacks extends BaseController {
 		}
 
 		$this->success(
-			$this->authoringService->getItemCandidates( $subject_key, $collection, $scope, $search, $source )
+			$this->authoringService->getItemCandidates( $subject_key, $collection, $scope, $search, $source, $page )
 		);
 	}
 

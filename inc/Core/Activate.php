@@ -68,10 +68,13 @@ class Activate {
 		$migration_runner->register( new \Inc\Migrations\Migration_1_0_54() );
 		$migration_runner->register( new \Inc\Migrations\Migration_1_0_62() );
 		$migration_runner->register( new \Inc\Migrations\Migration_1_0_70() );
-		$migration_runner->register( new \Inc\Migrations\Migration_1_0_71() );
-		$migration_runner->register( new \Inc\Migrations\Migration_1_0_72() );
-		$migration_runner->register( new \Inc\Migrations\Migration_1_0_73() );
-		$migration_runner->register( new \Inc\Migrations\Migration_1_0_74() );
+		$migration_runner->register( new \Inc\Migrations\Migration_1_0_84() );
+		$migration_runner->register( new \Inc\Migrations\Migration_1_0_85() );
+		$migration_runner->register( new \Inc\Migrations\Migration_1_0_86() );
+		$migration_runner->register( new \Inc\Migrations\Migration_1_0_87() );
+		$migration_runner->register( new \Inc\Migrations\Migration_1_0_81() );
+		$migration_runner->register( new \Inc\Migrations\Migration_1_0_82() );
+		$migration_runner->register( new \Inc\Migrations\Migration_1_0_83() );
 		$migration_runner->run();
 
 		// Автоматическое создание страниц входа, регистрации и профиля

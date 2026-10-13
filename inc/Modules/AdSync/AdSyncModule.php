@@ -6,6 +6,7 @@ namespace Inc\Modules\AdSync;
 
 use Inc\Contracts\ServiceInterface;
 use Inc\Modules\AdSync\Config\AdSyncConfig;
+use Inc\Modules\AdSync\Controllers\AdAccountController;
 use Inc\Modules\AdSync\Controllers\AdAuditLabelController;
 use Inc\Modules\AdSync\Controllers\AdSyncController;
 use Inc\Modules\AdSync\Cli\AdSyncCommand;
@@ -41,6 +42,7 @@ class AdSyncModule implements ServiceInterface {
 		private readonly AdSchema                   $schema,
 		private readonly AdSyncConfig               $config,
 		private readonly AdAuditLabelController     $auditLabels,
+		private readonly AdAccountController        $accounts,
 	) {}
 
 	public function register(): void {
@@ -62,6 +64,9 @@ class AdSyncModule implements ServiceInterface {
 
 		// Generic-сеймы ядра: provision-в-очередь при создании заявки + notice/poll в ответ apply + статус-AJAX.
 		$this->runtime->register();
+
+		// «Создать учётку» в окне заявки — для заявок, поданных не из доверенной сети.
+		$this->accounts->register();
 
 		// Доставка в офис (push): раз в минуту — ретраи и хвост очереди, раз в сутки — сверка.
 		// Входящих REST-эндпоинтов у модуля нет: сайт сам шлёт задания серверу в офисе.

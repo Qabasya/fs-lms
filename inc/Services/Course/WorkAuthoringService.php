@@ -19,6 +19,12 @@ use Inc\Services\Task\TaskBundleService;
  */
 class WorkAuthoringService {
 
+	/**
+	 * Размер страницы кандидатов. Пикер слота берёт только первую страницу (дальше —
+	 * поиск), окно массового добавления догружает следующие по прокрутке.
+	 */
+	private const CANDIDATES_PER_PAGE = 50;
+
 	public function __construct(
 		private readonly PostManager      $posts,
 		private readonly TermManager      $terms,
@@ -36,6 +42,7 @@ class WorkAuthoringService {
 	 * @param bool   $onlyPublished    true — только опубликованные задачи (источник
 	 *                                 «публичные задачи»: то, что автор видит в
 	 *                                 тренажёре); по умолчанию идут и черновики.
+	 * @param int    $page             Страница выдачи, с 1.
 	 * @return array<int, array{id: int, title: string, author: int}>
 	 */
 	public function getTaskCandidates(
@@ -44,7 +51,8 @@ class WorkAuthoringService {
 		int    $collectionTermId = 0,
 		string $scope            = 'mine',
 		string $search           = '',
-		bool   $onlyPublished    = false
+		bool   $onlyPublished    = false,
+		int    $page             = 1
 	): array {
 		$tax_query = array();
 		if ( $taskTypeTermId > 0 ) {
@@ -65,7 +73,8 @@ class WorkAuthoringService {
 		}
 
 		$args = array(
-			'limit'     => 50,
+			'limit'     => self::CANDIDATES_PER_PAGE,
+			'offset'    => $this->pageOffset( $page ),
 			'author'    => 'mine' === $scope ? get_current_user_id() : 0,
 			'search'    => $search,
 			'tax_query' => $tax_query,
@@ -124,6 +133,9 @@ class WorkAuthoringService {
 	 * @param string $scope            'mine' | 'subject'
 	 * @param string $search
 	 * @param string $source           'subject' | 'all' | 'public'
+	 * @param int    $page             Страница выдачи, с 1. У смешанных источников страница —
+	 *                                 это страница заданий предмета плюс страница банка, поэтому
+	 *                                 конец списка — пустая страница, а не неполная.
 	 * @return array<int, array{id: int, title: string, author: int, type: string}>
 	 */
 	public function getItemCandidates(
@@ -131,14 +143,15 @@ class WorkAuthoringService {
 		int    $collectionTermId = 0,
 		string $scope            = 'mine',
 		string $search           = '',
-		string $source           = 'subject'
+		string $source           = 'subject',
+		int    $page             = 1
 	): array {
 		if ( 'public' === $source ) {
-			return $this->getTaskCandidates( $subjectKey, 0, $collectionTermId, 'subject', $search, true );
+			return $this->getTaskCandidates( $subjectKey, 0, $collectionTermId, 'subject', $search, true, $page );
 		}
 
-		$tasks    = $this->getTaskCandidates( $subjectKey, 0, $collectionTermId, $scope, $search );
-		$problems = $this->getProblemCandidates( $search, 'all' === $source ? '' : $subjectKey );
+		$tasks    = $this->getTaskCandidates( $subjectKey, 0, $collectionTermId, $scope, $search, false, $page );
+		$problems = $this->getProblemCandidates( $search, 'all' === $source ? '' : $subjectKey, $page );
 
 		return array_merge( $tasks, $problems );
 	}
@@ -149,11 +162,13 @@ class WorkAuthoringService {
 	 * @param string $search
 	 * @param string $subjectKey Непусто — сузить до задач, помеченных этим предметом
 	 *                           ({@see PostMetaName::BankTaskSubject}); пусто — весь банк.
+	 * @param int    $page       Страница выдачи, с 1.
 	 * @return array<int, array{id: int, title: string, author: int, type: string}>
 	 */
-	public function getProblemCandidates( string $search = '', string $subjectKey = '' ): array {
+	public function getProblemCandidates( string $search = '', string $subjectKey = '', int $page = 1 ): array {
 		$opts = array(
-			'limit'   => 50,
+			'limit'   => self::CANDIDATES_PER_PAGE,
+			'offset'  => $this->pageOffset( $page ),
 			'search'  => $search,
 			'orderby' => 'date',
 			'order'   => 'DESC',
@@ -172,6 +187,11 @@ class WorkAuthoringService {
 			'author' => (int) $post->post_author,
 			'type'   => 'problem',
 		), $post->ID ), $posts );
+	}
+
+	/** Смещение выборки для страницы кандидатов (страницы — с 1). */
+	private function pageOffset( int $page ): int {
+		return ( max( 1, $page ) - 1 ) * self::CANDIDATES_PER_PAGE;
 	}
 
 	/**

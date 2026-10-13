@@ -2180,7 +2180,7 @@ src/js/profile/profile.js → app.js: строит сайдбар, генери�
   старте; навигация `go(screen)` просто переключает класс `.active` (никакого хеш-роутинга).
 - `buildSidebar()` — меню из `cfg.nav`, сворачиваемые секции «Мои группы» (`cfg.groups`)
   и «Мои курсы» (`cfg.coursesTaught`, с поиском), блок пользователя.
-- Deep-link: `?screen=learner-lessons` в URL открывает конкретный экран (так плеер
+- Deep-link: `?screen=student-lessons` в URL открывает конкретный экран (так плеер
   возвращает в «Мои курсы»).
 - Клик по группе в сайдбаре открывает ростер (`openGroupsFor`) / журнал (`openJournalFor`)
   с установкой группы экрана; клик по курсу — preview-плеер (`cfg.coursePreviewUrl`).
@@ -2205,8 +2205,9 @@ src/js/profile/profile.js → app.js: строит сайдбар, генери�
 
 ### Ученик / родитель (`LearnerProfileView`)
 
-Экраны `learner-home` (Главная: расписание, дедлайны, оценки), `learner-lessons`
-(«Мои курсы» — вход в плеер), `learner-grades`, `learner-attendance` — все в `learner.js`,
+Экраны `student-home` / `parent-home` (Главная: расписание, дедлайны, оценки), `student-lessons`
+(«Мои курсы» — вход в плеер), `student-grades`, `student-attendance` (у родителя то же с префиксом `parent-`;
+старые ссылки `learner-*` приводятся к ключу роли в `app.js`) — все в `learner.js`,
 данные одним запросом `learner.getProfile`. Родитель видит то же по выбранному ребёнку
 (`fsProfile.children` + `subjectPersonId`), всё read-only (`fsProfile.readOnly`).
 

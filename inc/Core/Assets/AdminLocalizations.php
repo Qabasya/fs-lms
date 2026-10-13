@@ -158,6 +158,7 @@ class AdminLocalizations {
 				'restoreFromArchive'     => Nonce::RestoreFromArchive->create(),
 				'selectExistingParent'   => Nonce::SelectExistingParent->create(),
 				'removeParentAssignment' => Nonce::RemoveParentAssignment->create(),
+				'deleteLeads'            => Nonce::DeleteLeads->create(),
 			),
 		);
 	}

@@ -18,7 +18,33 @@ import { renderExamStats } from './exams/exam-stats.js';
 import { renderExamPayments } from './exams/exam-payments.js';
 import { renderExamReview, openExamReview } from './exams/exam-review.js';
 import { initNotifications } from './notifications.js';
+import { initLiveBanner } from './live-banner.js';
 import { renderTeacherCourses, openTeacherCourse } from './teacher-courses.js';
+
+/* Экраны ученика и родителя одни и те же, а ключ несёт роль: student-grades / parent-grades
+   (виден в адресе ?screen=). Реестры ниже получают оба набора из одного описания. */
+const LEARNER_PREFIXES = ['student', 'parent'];
+const LEARNER_SCREEN_RE = /^(?:learner|student|parent)-(home|lessons|exams|grades|attendance)$/;
+
+function forLearnerRoles(byScreen) {
+    const out = {};
+    LEARNER_PREFIXES.forEach((prefix) => {
+        Object.entries(byScreen).forEach(([name, value]) => { out[`${prefix}-${name}`] = value; });
+    });
+    return out;
+}
+
+/* Ссылка могла прийти с любым префиксом (старое уведомление `learner-*`, письмо ученику,
+   открытое родителем): приводим её к экрану роли вошедшего. */
+function canonicalScreen(wanted) {
+    const m = LEARNER_SCREEN_RE.exec(wanted || '');
+    return m ? learnerScreen(m[1]) : wanted;
+}
+
+/* Ключ экрана ученика/родителя по его имени (`exams` → student-exams / parent-exams) для вошедшей роли. */
+function learnerScreen(name) {
+    return `${cfg.readOnly ? 'parent' : 'student'}-${name}`;
+}
 
 /* ── Screen registry: key → renderer ─────────────────────────────────── */
 const SCREENS = {
@@ -38,11 +64,13 @@ const SCREENS = {
     ktp:                  (root) => renderKTP(root),
     activity:             (root) => renderActivity(root, { openWorkReview: openWorkReviewFrom('activity') }),
     'teacher-courses':    renderTeacherCourses,
-    'learner-home':       (root) => renderLearnerHome(root, { openExam: openLearnerExamFrom }),
-    'learner-lessons':    renderLearnerLessons,
-    'learner-exams':      (root) => renderLearnerExams(root, { openReview: openExamReviewFrom }),
-    'learner-grades':     renderLearnerGrades,
-    'learner-attendance': renderLearnerAttendance,
+    ...forLearnerRoles({
+        home:       (root) => renderLearnerHome(root, { openExam: openLearnerExamFrom }),
+        lessons:    renderLearnerLessons,
+        exams:      (root) => renderLearnerExams(root, { openReview: openExamReviewFrom }),
+        grades:     renderLearnerGrades,
+        attendance: renderLearnerAttendance,
+    }),
     'exam-conduct':       (root) => renderExamConduct(root, { openWorkReview: openWorkReviewFrom('exam-conduct') }),
     'exam-stats':         renderExamStats,
     'exam-plan':          renderExamPlan,
@@ -62,11 +90,13 @@ const TOPBAR = {
     ktp:                  { crumb: 'Планирование',     title: 'КТП и расписание' },
     activity:             { crumb: 'Аналитика',       title: 'Активность' },
     'teacher-courses':    { crumb: 'Обучение',         title: 'Мои курсы' },
-    'learner-home':       { crumb: 'Личный кабинет',   title: 'Главная' },
-    'learner-lessons':    { crumb: 'Обучение',         title: 'Мои курсы' },
-    'learner-exams':      { crumb: 'Обучение',         title: 'Мои экзамены' },
-    'learner-grades':     { crumb: 'Успеваемость',     title: 'Мои оценки' },
-    'learner-attendance': { crumb: 'Успеваемость',     title: 'Посещаемость' },
+    ...forLearnerRoles({
+        home:       { crumb: 'Личный кабинет',   title: 'Главная' },
+        lessons:    { crumb: 'Обучение',         title: 'Мои курсы' },
+        exams:      { crumb: 'Обучение',         title: 'Мои экзамены' },
+        grades:     { crumb: 'Успеваемость',     title: 'Мои оценки' },
+        attendance: { crumb: 'Успеваемость',     title: 'Посещаемость' },
+    }),
     'exam-conduct':       { crumb: 'Экзамены',         title: 'Проведение экзамена' },
     'exam-stats':         { crumb: 'Экзамены',         title: 'Статистика' },
     'exam-plan':          { crumb: 'Экзамены',         title: 'Назначить экзамен' },
@@ -83,11 +113,13 @@ const NAV_ICONS = {
     substitutions:        icoSwap(19),
     ktp:                  icoCalendarBoard(19),
     activity:             icoClock(19),
-    'learner-home':       icoHome(19),
-    'learner-lessons':    icoBook(19),
-    'learner-exams':      icoCalendarBoard(19),
-    'learner-grades':     icoStar(19),
-    'learner-attendance': icoCalendarBoard(19),
+    ...forLearnerRoles({
+        home:       icoHome(19),
+        lessons:    icoBook(19),
+        exams:      icoCalendarBoard(19),
+        grades:     icoStar(19),
+        attendance: icoCalendarBoard(19),
+    }),
     'exam-conduct':       icoUsers(19),
     'exam-stats':         icoDocCheck(19),
     'exam-plan':          icoCalendarBoard(19),
@@ -138,16 +170,16 @@ function closeMenuOnMobile() {
     }
 }
 
-/* Адрес отражает текущий экран: перезагрузка возвращает на него же, а не на экран из
-   прошлой ссылки (?screen=…&course=… из плеера). `course`/`gid` живут только на своём
-   экране — go() их сбрасывает, нужный экран выставляет сам. Программные экраны вне
-   cfg.screens (деталь работы) адрес не меняют: при перезагрузке откроется экран-родитель. */
+/* Адрес отражает текущий экран. `course`/`gid` и `submission` живут только на своих
+   экранах: обычный переход очищает их, а ссылка на конкретную сдачу оставляет
+   `screen=<parent>&submission=ID`, чтобы перезагрузка открыла ту же проверку. */
 function syncUrl(screen, extra) {
     if (!cfg.screens.includes(screen)) return;
     const url = new URL(window.location.href);
     url.searchParams.set('screen', screen);
     url.searchParams.delete('course');
     url.searchParams.delete('gid');
+    url.searchParams.delete('submission');
     Object.entries(extra || {}).forEach(([k, v]) => url.searchParams.set(k, v));
     window.history.replaceState(window.history.state, '', url);
 }
@@ -179,6 +211,7 @@ function setTopbar(screen, override) {
    из Сводки и из «Работ» (D3). `from` — экран, на который вернёт «‹ Назад». */
 function openWorkReviewFrom(from) {
     return (sourceType, sourceId) => {
+        syncUrl(from, 'submission' === sourceType ? { submission: sourceId } : {});
         openWorkReview(sourceType, sourceId, from);
         go('work-review');
     };
@@ -187,7 +220,7 @@ function openWorkReviewFrom(from) {
 /* 5.5: клик по экзамену в расписании «Главной» — карточка этого проведения в «Моих экзаменах». */
 function openLearnerExamFrom(eventId) {
     openLearnerExam(eventId);
-    go('learner-exams');
+    go(learnerScreen('exams'));
 }
 
 /* 7.4: разбор экзамена — тоже программный экран (не в cfg.screens): из карточки «Мои экзамены»,
@@ -195,6 +228,17 @@ function openLearnerExamFrom(eventId) {
 function openExamReviewFrom(eventId, anchor) {
     openExamReview(eventId, anchor);
     go('exam-review');
+}
+
+/** Read a submission deep-link without trusting malformed query parameters. */
+export function submissionDeepLink(params, screens) {
+    const from = params.get('screen');
+    const submission = params.get('submission');
+    const sourceId = Number(submission);
+    if (!/^\d+$/.test(submission || '') || !Number.isSafeInteger(sourceId) || sourceId < 1 || !['works', 'summary', 'activity'].includes(from) || !screens.includes(from)) {
+        return null;
+    }
+    return { from, sourceId };
 }
 
 /* Tasks.md п. 3: «Сводка» конкретного ученика — из карточки в «Группах» и
@@ -365,7 +409,7 @@ function mountScreens() {
     });
 
     const examReviewRoot = document.querySelector('.prof-screen[data-screen="exam-review"]');
-    if (examReviewRoot) { renderExamReview(examReviewRoot, { onBack: () => go('learner-exams') }); }
+    if (examReviewRoot) { renderExamReview(examReviewRoot, { onBack: () => go(learnerScreen('exams')) }); }
 
     const wrRoot = document.querySelector('.prof-screen[data-screen="work-review"]');
     if (wrRoot) {
@@ -493,21 +537,25 @@ export function initProfile() {
     mountScreens();
     wire();
     initNotifications();
+    initLiveBanner();
     initCollapse();
 
-    // Deep-link на экран: /profile/?screen=learner-lessons (ссылки из плеера курса, T14.13).
+    // Deep-link на экран: /profile/?screen=student-lessons (ссылки из плеера курса, T14.13).
     // С gid (?screen=groups&gid=2) — открыть «Группы» на конкретной группе, как клик
     // по группе в сайдбаре (ссылки из сайдбара предпросмотра курса).
     const params = new URLSearchParams(window.location.search);
-    const wanted = params.get('screen');
+    const wanted = canonicalScreen(params.get('screen'));
     const gid = params.get('gid');
     const course = params.get('course');
+    const submissionLink = submissionDeepLink(params, cfg.screens);
     if (gid && cfg.screens.includes('groups')) {
         openGroupsFor(gid);
+    } else if (submissionLink) {
+        openWorkReviewFrom(submissionLink.from)('submission', submissionLink.sourceId);
     } else if ('teacher-courses' === wanted && course && cfg.screens.includes(wanted)) {
         // «К курсу» из плеера урока (Tasks.md З4) — страница этого курса.
         openCoursePage(course);
-    } else if ('learner-exams' === wanted && params.get('event') && cfg.screens.includes(wanted)) {
+    } else if (learnerScreen('exams') === wanted && params.get('event') && cfg.screens.includes(wanted)) {
         // Уведомление об экзамене: карточка этого проведения (9.1.4).
         openLearnerExam(params.get('event'));
         go(wanted);

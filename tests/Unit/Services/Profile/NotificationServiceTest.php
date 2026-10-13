@@ -52,6 +52,7 @@ class NotificationServiceTest extends TestCase {
 			$this->effectiveTeacher,
 			$this->users,
 			$this->userManager,
+			$this->createMock( \Inc\Services\Course\LiveLessonService::class ),
 		);
 	}
 
@@ -341,7 +342,7 @@ class NotificationServiceTest extends TestCase {
 
 		self::assertSame( 'lesson_opened', $out['type'] );
 		self::assertSame( 'info', $out['tone'] );
-		self::assertSame( 'Открыт новый урок', $out['title'] );
+		self::assertSame( 'Урок начался', $out['title'] );
 		self::assertStringContainsString( 'Внеплановый разбор', $out['body'] );
 		self::assertStringContainsString( 'Группа А', $out['body'] );
 	}
@@ -367,6 +368,46 @@ class NotificationServiceTest extends TestCase {
 		self::assertStringContainsString( 'Иванов Иван', $out['body'] );
 		self::assertStringContainsString( 'Эссе', $out['body'] );
 		self::assertTrue( $out['unread'] );
+	}
+
+	public function test_to_client_array_repairs_existing_submission_notification_link(): void {
+		$dto = NotificationDTO::fromArray( array(
+			'id'                => 20,
+			'recipient_user_id' => 9,
+			'type'              => 'review_needed',
+			'group_id'          => 5,
+			'entity_type'       => 'submission',
+			'entity_id'         => 321,
+			'payload'           => wp_json_encode( array() ),
+			'url'               => '/profile/?screen=summary',
+			'created_at'        => '2026-07-27 10:00:00',
+			'seen_at'           => null,
+			'read_at'           => null,
+		) );
+
+		$out = $this->service->toClientArray( $dto );
+		parse_str( (string) wp_parse_url( $out['url'], PHP_URL_QUERY ), $query );
+
+		self::assertSame( 'works', $query['screen'] ?? null );
+		self::assertSame( '321', $query['submission'] ?? null );
+	}
+
+	public function test_to_client_array_keeps_non_submission_notification_url(): void {
+		$dto = NotificationDTO::fromArray( array(
+			'id'                => 21,
+			'recipient_user_id' => 9,
+			'type'              => 'lesson_opened',
+			'group_id'          => 5,
+			'entity_type'       => 'group_lesson',
+			'entity_id'         => 200,
+			'payload'           => wp_json_encode( array() ),
+			'url'               => '/profile/?screen=dashboard',
+			'created_at'        => '2026-07-27 10:00:00',
+			'seen_at'           => null,
+			'read_at'           => null,
+		) );
+
+		self::assertSame( '/profile/?screen=dashboard', $this->service->toClientArray( $dto )['url'] );
 	}
 
 	/** Блок B (Tasks.md): ученикам группы — замена преподавателя, а не только замещающему. */

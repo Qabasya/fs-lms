@@ -21,6 +21,7 @@ enum TableName: string {
 	case EmailLog          = 'fs_lms_email_log';
 	case AuthLog           = 'fs_lms_auth_log';
 	case ErrorLog          = 'fs_lms_error_log';
+	case ContentReport     = 'fs_lms_content_reports';
 
 	// ==== Этап 2 — программа группы ====
 	case GroupLessons   = 'fs_lms_group_lessons';
@@ -70,6 +71,9 @@ enum TableName: string {
 	case ExamGuestApplications = 'fs_lms_exam_guest_applications';
 	case ExamPaymentLinks = 'fs_lms_exam_payment_links';
 	case ExamManualResolutions = 'fs_lms_exam_manual_resolutions';
+
+	// ==== Заявки с лид-форм сайта (тема передаёт хуком) ====
+	case Leads = 'fs_lms_leads';
 
 	public function prefixed(): string {
 		global $wpdb;

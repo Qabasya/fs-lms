@@ -1,10 +1,11 @@
 <?php
 /**
- * Шаг-трансляция плеера (Tasks.md З1). Два состояния:
+ * Виртуальный первый шаг занятия: «Трансляция» / «Запись занятия» (в уроке не хранится,
+ * строит LessonPlayerService::liveStep). Два состояния:
  *
- * - до и во время занятия — кнопка «Подключиться к трансляции» (`stream_url`);
+ * - до и во время занятия — кнопка «Подключиться к трансляции» (ссылка группы);
  * - после занятия — запись из хранилища тем же видео-хромом, что у video-шага
- *   (video-chrome.php), либо кнопка «Открыть запись трансляции» на внешнюю ссылку
+ *   (video-chrome.php), либо кнопка «Открыть запись занятия» на внешнюю ссылку
  *   (не встраивается). При записи из хранилища ссылка — запасной вариант: её
  *   показывает step-video.js, если видео не загрузилось.
  *
@@ -58,7 +59,7 @@ $bc_teacher  = ! empty( $is_teacher ) && empty( $is_preview );
 					</a>
 				</div>
 			<?php else : ?>
-				<p class="step-muted"><?php esc_html_e( 'Ссылка на трансляцию появится перед началом занятия.', 'fs-lms' ); ?></p>
+				<p class="step-muted"><?php esc_html_e( 'У группы не задана ссылка на трансляцию — укажите её в настройках группы (Группы → редактировать). Ученики этот шаг не увидят.', 'fs-lms' ); ?></p>
 			<?php endif; ?>
 
 		<?php elseif ( '' !== $video_url ) : ?>
@@ -67,7 +68,7 @@ $bc_teacher  = ! empty( $is_teacher ) && empty( $is_preview );
 				<?php if ( '' !== $bc_link ) : ?>
 					<p class="step-muted"><?php esc_html_e( 'Запись не загрузилась — откройте её по ссылке.', 'fs-lms' ); ?></p>
 					<div class="bc-actions">
-						<a class="b b-pri" href="<?php echo esc_url( $bc_link ); ?>" target="_blank" rel="noopener"><?php esc_html_e( 'Открыть запись трансляции', 'fs-lms' ); ?></a>
+						<a class="b b-pri" href="<?php echo esc_url( $bc_link ); ?>" target="_blank" rel="noopener"><?php esc_html_e( 'Открыть запись занятия', 'fs-lms' ); ?></a>
 					</div>
 				<?php else : ?>
 					<p class="step-muted"><?php esc_html_e( 'Запись временно недоступна. Попробуйте позже.', 'fs-lms' ); ?></p>
@@ -78,12 +79,12 @@ $bc_teacher  = ! empty( $is_teacher ) && empty( $is_preview );
 			<div class="bc-actions">
 				<a class="b b-pri b-lg" href="<?php echo esc_url( $bc_link ); ?>" target="_blank" rel="noopener">
 					<?php echo Icon::Play->svg(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
-					<?php esc_html_e( 'Открыть запись трансляции', 'fs-lms' ); ?>
+					<?php esc_html_e( 'Открыть запись занятия', 'fs-lms' ); ?>
 				</a>
 			</div>
 
 		<?php else : ?>
-			<p class="step-muted"><?php esc_html_e( 'Запись занятия появится позже.', 'fs-lms' ); ?></p>
+			<p class="step-muted"><?php esc_html_e( 'Записи пока нет. Вставьте ссылку на неё ниже — ученики увидят этот шаг первым в уроке.', 'fs-lms' ); ?></p>
 		<?php endif; ?>
 
 		<?php if ( ! empty( $is_preview ) ) : ?>
@@ -91,7 +92,7 @@ $bc_teacher  = ! empty( $is_teacher ) && empty( $is_preview );
 			<div class="bc-actions">
 				<button type="button" class="b b-lg b-dis" disabled>
 					<?php echo Icon::Play->svg(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
-					<?php esc_html_e( 'Открыть запись трансляции', 'fs-lms' ); ?>
+					<?php esc_html_e( 'Открыть запись занятия', 'fs-lms' ); ?>
 				</button>
 			</div>
 			<p class="step-muted"><?php esc_html_e( 'Ссылку на запись добавляет преподаватель в группе после занятия — в предпросмотре её нет.', 'fs-lms' ); ?></p>

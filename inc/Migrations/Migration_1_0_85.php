@@ -8,7 +8,7 @@ use Inc\Contracts\MigrationInterface;
 use Inc\Enums\Settings\TableName;
 
 /**
- * Class Migration_1_0_72
+ * Class Migration_1_0_85
  *
  * `consents.version` хранит SHA-256 текста согласия (64 знака), а колонка была `varchar(20)`: в строгом режиме MariaDB вставка согласия
  * отвергалась, и `ConsentService` молча возвращал 0 — согласия не записывались вовсе (обнаружено при проверке гостевой формы экзаменов).
@@ -16,7 +16,7 @@ use Inc\Enums\Settings\TableName;
  *
  * @package Inc\Migrations
  */
-class Migration_1_0_72 implements MigrationInterface {
+class Migration_1_0_85 implements MigrationInterface {
 
 	public function up(): void {
 		global $wpdb;
@@ -33,6 +33,6 @@ class Migration_1_0_72 implements MigrationInterface {
 	}
 
 	public function version(): string {
-		return '1.0.72';
+		return '1.0.85';
 	}
 }

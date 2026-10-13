@@ -10,6 +10,8 @@ modules — общие утилиты), `frontend/` (components — UI без AJ
 
 **Модалки не ходят в сеть** — AJAX живёт в `admin/managers/*` (напр. `enrollment-api.js`, `draft-api.js`) и возвращает промисы; модалка только рисует. `init()` модалок идемпотентен (`_initialized`): их поднимает и автозагрузчик `ui.js`, и `admin.js`.
 
+**Уведомления админки** — `showNotice()` из `admin/modules/utils.js`. Без контейнера — уровень страницы: `.wrap` текущего экрана под заголовком, с прокруткой к уведомлению (в `<body>` класть нельзя — уедет под админ-меню). Контейнер передавать, только когда сообщение должно стоять у места действия: тело модалки (`.fs-lms-modal-body`), форма. Узкие ячейки таблицы контейнером не делать.
+
 ## Export conventions
 
 **Admin** (`admin/modals/`, `admin/managers/`, `admin/services/`) — jQuery-based, object pattern:

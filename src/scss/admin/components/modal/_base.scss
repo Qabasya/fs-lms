@@ -175,6 +175,10 @@ html.modal-open {
     border-radius: 0 0 $border-radius-sm $border-radius-sm;
     display: flex;
     justify-content: space-between;
+
+    // Перенос — страховка узких окон: кнопки модулей (хук fs_lms_application_modal_actions)
+    // добавляются в подвал сверх штатных, и без переноса ряд уезжал под горизонтальный скролл.
+    flex-wrap: wrap;
     gap: $spacing-md;
     flex-shrink: 0;
 

@@ -169,7 +169,7 @@ $color-border-footer: #e0e0e0;
 $step-type-palette: (
 	lecture:    #1c7ed6,
 	video:      $hue-violet,
-	broadcast:  #d6336c,
+	broadcast:  #f03e3e,   // красный REC: трансляция / запись занятия
 	task:       #099268,
 	practice:   #e8590c,
 	assessment: $hue-red,
@@ -177,7 +177,7 @@ $step-type-palette: (
 $step-type-palette-soft: (
 	lecture:    #e7f2fb,
 	video:      #f1ecfd,
-	broadcast:  #fbe4ec,
+	broadcast:  #ffe3e3,
 	task:       #e6f7f1,
 	practice:   #fdeee3,
 	assessment: $hue-red-soft,

@@ -373,7 +373,7 @@ class StepContentRenderer {
 	}
 
 	/**
-	 * Данные инлайн-шага (text/video/broadcast) — единая точка для плеера
+	 * Данные инлайн-шага (text/video) — единая точка для плеера
 	 * ({@see \Inc\Services\Course\LessonPlayerService}) и предпросмотра
 	 * ({@see \Inc\Services\Course\CoursePreviewService}), Р2.3. Новый инлайн-тип
 	 * добавляется правкой только этого метода. Для не-инлайн типов — пустой массив.
@@ -390,9 +390,8 @@ class StepContentRenderer {
 	 * `esc_html` внутри `<p>`) — `wpautop` вложил бы абзац в абзац, а теги
 	 * вышли бы наружу текстом.
 	 *
-	 * @param StepDTO     $step         Шаг урока
-	 * Трансляция здесь — без занятия (preview курса): состояние «до занятия».
-	 * Плеер с занятием зовёт {@see self::renderBroadcastData()} сам.
+	 * Трансляция/запись занятия здесь не рендерится: её шаг виртуальный, плеер с
+	 * занятием зовёт {@see self::renderBroadcastData()} сам.
 	 *
 	 * @param StepDTO $step Шаг урока
 	 *
@@ -402,7 +401,6 @@ class StepContentRenderer {
 		return match ( $step->type->value ) {
 			'text'      => array( 'content' => $this->posts->renderContent( (string) ( $step->payload['content'] ?? '' ) ) ),
 			'video'     => $this->renderVideoData( $step ),
-			'broadcast' => $this->renderBroadcastData( $step, null ),
 			default     => array(),
 		};
 	}
@@ -429,22 +427,22 @@ class StepContentRenderer {
 	}
 
 	/**
-	 * Данные шага-трансляции (`broadcast`, Tasks.md З1). У шага два состояния:
+	 * Данные виртуального шага «Трансляция» / «Запись занятия» (`broadcast`). У шага два состояния:
 	 *
-	 * - `live` — до и во время занятия: кнопка «Подключиться к трансляции» (`stream_url`);
+	 * - `live` — до и во время занятия: кнопка «Подключиться к трансляции» (ссылка группы);
 	 * - `after` — занятие прошло: плеер записи из хранилища (`video_url`, указатель
 	 *   `s3://…` через фильтр `fs_lms_recording_url`) и/или кнопка «Открыть запись
 	 *   трансляции» на внешнюю ссылку (`record_link`). Внешнюю запись не встраиваем;
 	 *   при записи в хранилище ссылка — запасной вариант, если видео не загрузится.
 	 *
-	 * @param string|null $recordingUrl  Запись в хранилище после фильтра; `null` вне
-	 *                                   занятия (preview курса) и без записи.
+	 * @param string      $streamUrl     Ссылка на трансляцию группы (`groups.broadcast_url`); пусто — нет.
+	 * @param string|null $recordingUrl  Запись в хранилище после фильтра; `null` без записи.
 	 * @param string|null $recordingLink Внешняя ссылка на запись (`GroupLessonDTO::recordingLink`).
 	 * @param bool        $isOver        Занятие закончилось ({@see IncDTOCourseGroupLessonDTO::isOver()}).
 	 *
 	 * @return array{phase: string, stream_url: string, video_url: string, record_link: string}
 	 */
-	public function renderBroadcastData( StepDTO $step, ?string $recordingUrl, ?string $recordingLink = null, bool $isOver = false ): array {
+	public function renderBroadcastData( string $streamUrl, ?string $recordingUrl, ?string $recordingLink = null, bool $isOver = false ): array {
 		// Graceful absence (V4): при выключенном модуле VideoLibrary указатель
 		// `s3://{bucket}/{key}` никто не превратил в presigned-ссылку — не рендерим.
 		$url  = ( null !== $recordingUrl && str_starts_with( $recordingUrl, 'http' ) ) ? $recordingUrl : '';
@@ -458,7 +456,7 @@ class StepContentRenderer {
 
 		return array(
 			'phase'       => $isOver ? 'after' : 'live',
-			'stream_url'  => (string) ( $step->payload['stream_url'] ?? '' ),
+			'stream_url'  => $streamUrl,
 			'video_url'   => $url,
 			'record_link' => $link,
 		);

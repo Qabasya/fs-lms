@@ -218,7 +218,7 @@ $termTone = static function ( ?string $expiresAtUtc, int $dangerBelow, int $warn
                 <?php echo LogNameResolver::sortableHeader( 'Создана', 'created', $orderby, $order, $sortUrl ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
             </th>
 
-            <th class="column-title tw-15">
+            <th class="column-title tw-10">
                 <?php esc_html_e( 'Действия', 'fs-lms' ); ?>
             </th>
         </tr>
@@ -514,7 +514,7 @@ $termTone = static function ( ?string $expiresAtUtc, int $dangerBelow, int $warn
 					   data-grade="<?php echo esc_attr( $studentGrade ); ?>"
 					   data-login="<?php echo esc_attr( $sd['username'] ?? '' ); ?>"
 					   data-password="<?php echo esc_attr( $sd['login_password'] ?? '' ); ?>">
-						<?php esc_html_e( 'Изменить', 'fs-lms' ); ?>
+						<?php esc_html_e( 'Просмотреть', 'fs-lms' ); ?>
 					</a>
 				<?php elseif ( $app->status === ApplicationStatus::ReadyForReview ) : ?>
 					<a href="#"
@@ -542,7 +542,7 @@ $termTone = static function ( ?string $expiresAtUtc, int $dangerBelow, int $warn
 					   data-p-doc-issued-date="<?php echo esc_attr( $parentDocIssuedDate ); ?>"
 					   data-p-inn="<?php echo esc_attr( $parentInn ); ?>"
 					   data-p-address="<?php echo esc_attr( $parentAddress ); ?>">
-						<?php esc_html_e( 'Изменить', 'fs-lms' ); ?>
+						<?php esc_html_e( 'Просмотреть', 'fs-lms' ); ?>
 					</a>
 				<?php else : ?>
 					<a href="#"
@@ -575,7 +575,7 @@ $termTone = static function ( ?string $expiresAtUtc, int $dangerBelow, int $warn
 				<?php endif; ?>
 			</span>
 
-							<?php // Выдача — кнопкой в модалке «Изменить»; здесь только снятие уже выданного. ?>
+							<?php // Выдача — кнопкой в модалке «Просмотреть»; здесь только снятие уже выданного. ?>
 							<?php if ( $canTrial && null !== $trial ) : ?>
                                 |
                                 <span class="trial">

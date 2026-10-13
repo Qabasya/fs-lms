@@ -7,7 +7,7 @@
    Источник: window.fsProfile.{groups, works:{nonce,actions}}.
    ══════════════════════════════════════════════════════════════════════ */
 
-import { esc, emptyState, fmtDateTime } from './utils.js';
+import { esc, emptyState, fmtDateTime, toast } from './utils.js';
 import { icoInbox } from '../common/icons.js';
 import { createApi } from './api.js';
 import { groupPickerBtnHtml, openGroupPicker } from './picker.js';
@@ -32,6 +32,10 @@ let api = null;
 let openWorkReviewCb = null;
 
 let state = null;
+let listRequest = 0;
+const countGenerations = { pending: 0, confirm: 0, done: 0 };
+let countsSweep = 0;
+let submissionsRequest = 0;
 
 /** @param {{ openWorkReview?: (sourceType: string, sourceId: number) => void }} [opts] */
 export function renderWorks(r, opts = {}) {
@@ -49,6 +53,7 @@ export function renderWorks(r, opts = {}) {
         counts:     {},    // tab => суммарное число сдач в корзине
         selected:   null,  // выбранная работа (шаг 2)
         submissions: null,
+        refreshing: false,
     };
     api = createApi(state.cfg);
     if (!state.cfg) { root.innerHTML = empty('Проверка недоступна', 'Экран «Работы» не настроен.'); return; }
@@ -59,44 +64,110 @@ export function renderWorks(r, opts = {}) {
 
 /* ── Data ─────────────────────────────────────────────────────────────── */
 async function loadAllCounts() {
+    const sweepId = ++countsSweep;
+    const versions = Object.fromEntries(TABS.map((t) => [t.key, ++countGenerations[t.key]]));
     await Promise.all(TABS.map(async (t) => {
         try {
             const items = await api('getPendingWorks', { tab: t.key });
-            state.counts[t.key] = items.reduce((sum, it) => sum + (it.count || 0), 0);
-            if (t.key === state.tab) { state.items = items; render(); }
+            if (sweepId !== countsSweep || versions[t.key] !== countGenerations[t.key] || !state) { return; }
+            if (t.key !== state.tab) {
+                state.counts[t.key] = items.reduce((sum, it) => sum + (it.count || 0), 0);
+            }
         } catch { /* тихо — бейдж останется пустым */ }
     }));
+    if (sweepId === countsSweep && state) { render(); }
 }
 
 async function loadTab(tab) {
+    const requestId = ++listRequest;
+    ++countGenerations[tab];
+    ++submissionsRequest;
     state.tab = tab;
     state.selected = null;
     state.submissions = null;
     state.items = null;
     render();
     try {
-        state.items = await api('getPendingWorks', { tab });
+        const items = await api('getPendingWorks', { tab });
+        if (requestId !== listRequest) { return; }
+        state.items = items;
         state.counts[tab] = state.items.reduce((sum, it) => sum + (it.count || 0), 0);
     } catch (e) {
+        if (requestId !== listRequest) { return; }
         state.items = [];
+        if (state.refreshing) { toast(e.message || 'Не удалось обновить список работ.', 'error'); }
     }
     render();
 }
 
 async function loadSubmissions(item) {
+    const requestId = ++submissionsRequest;
     state.selected = item;
     state.submissions = null;
     render();
     try {
-        state.submissions = await api('getWorkSubmissions', {
+        const submissions = await api('getWorkSubmissions', {
             source_type: item.source_type,
             source_id:   item.source_id,
             tab:         state.tab,
         });
+        if (requestId !== submissionsRequest) { return; }
+        state.submissions = submissions;
     } catch (e) {
+        if (requestId !== submissionsRequest) { return; }
         state.submissions = [];
+        if (state.refreshing) { toast(e.message || 'Не удалось обновить сдачи.', 'error'); }
     }
     render();
+}
+
+/** Refresh the current list/detail without discarding its tab, filters, or selection. */
+async function refreshWorks() {
+    if (state.refreshing) { return; }
+    state.refreshing = true;
+    render();
+    const tab = state.tab;
+    const selected = state.selected;
+    const listRequestId = ++listRequest;
+    const countsSweepId = ++countsSweep;
+    const countVersions = Object.fromEntries(TABS.map((t) => [t.key, ++countGenerations[t.key]]));
+    const submissionsRequestId = ++submissionsRequest;
+    const refreshes = TABS.map(async (t) => {
+        try {
+            const items = await api('getPendingWorks', { tab: t.key });
+            if (countsSweepId !== countsSweep || countVersions[t.key] !== countGenerations[t.key]) { return; }
+            state.counts[t.key] = items.reduce((sum, it) => sum + (it.count || 0), 0);
+            if (t.key === tab && listRequestId === listRequest) { state.items = items; }
+        } catch (e) {
+            if (t.key === tab && listRequestId === listRequest) {
+                toast(e.message || 'Не удалось обновить список работ.', 'error');
+            }
+        }
+    });
+    if (selected) {
+        refreshes.push((async () => {
+            try {
+                const items = await api('getWorkSubmissions', {
+                    source_type: selected.source_type,
+                    source_id: selected.source_id,
+                    tab,
+                });
+                if (submissionsRequestId === submissionsRequest && state.selected === selected) {
+                    state.submissions = items;
+                }
+            } catch (e) {
+                if (submissionsRequestId === submissionsRequest && state.selected === selected) {
+                    toast(e.message || 'Не удалось обновить сдачи.', 'error');
+                }
+            }
+        })());
+    }
+    try {
+        await Promise.allSettled(refreshes);
+    } finally {
+        state.refreshing = false;
+        render();
+    }
 }
 
 /* ── Render ───────────────────────────────────────────────────────────── */
@@ -150,6 +221,7 @@ function filtersHtml() {
             <option value="new"${'new' === state.sort ? ' selected' : ''}>Сначала новые</option>
             <option value="old"${'old' === state.sort ? ' selected' : ''}>Сначала старые</option>
         </select>
+        <button type="button" class="prof-btn prof-btn-sm wk-refresh" data-refresh${state.refreshing ? ' disabled' : ''}>${state.refreshing ? 'Обновление…' : 'Обновить'}</button>
     </div>`;
 }
 
@@ -190,6 +262,7 @@ function stepTwoHtml() {
     const backRow = `<div class="wk-step-head">
         <button type="button" class="wk-back">‹ К списку работ</button>
         <div class="wk-step-title">${esc(state.selected.title)}</div>
+        <button type="button" class="prof-btn prof-btn-sm wk-refresh" data-refresh${state.refreshing ? ' disabled' : ''}>${state.refreshing ? 'Обновление…' : 'Обновить'}</button>
     </div>`;
 
     if (null === state.submissions) {
@@ -228,6 +301,7 @@ function wireTabs() {
 }
 
 function wireStepOne() {
+    root.querySelector('[data-refresh]')?.addEventListener('click', refreshWorks);
     const gBtn = root.querySelector('#wkGroupBtn');
     if (gBtn) {
         gBtn.addEventListener('click', () => {
@@ -258,8 +332,16 @@ function wireStepOne() {
 }
 
 function wireStepTwo() {
+    root.querySelector('[data-refresh]')?.addEventListener('click', refreshWorks);
     const back = root.querySelector('.wk-back');
-    if (back) { back.addEventListener('click', () => { state.selected = null; state.submissions = null; render(); }); }
+    if (back) {
+        back.addEventListener('click', () => {
+            ++submissionsRequest;
+            state.selected = null;
+            state.submissions = null;
+            render();
+        });
+    }
 
     root.querySelectorAll('.wk-sub-row[data-src-id]').forEach((el) =>
         el.addEventListener('click', () => {

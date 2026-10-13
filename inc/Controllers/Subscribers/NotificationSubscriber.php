@@ -4,6 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\Controllers\Subscribers;
 
+use Inc\Enums\Profile\LearnerScreen;
 use Inc\Contracts\LogEventDispatcherInterface;
 use Inc\Contracts\ServiceInterface;
 use Inc\DTO\Course\SubmissionDTO;
@@ -157,7 +158,7 @@ class NotificationSubscriber implements ServiceInterface {
 				'score'     => $attempt->totalScore,
 				'max_score' => $attempt->maxScore,
 			),
-			(string) add_query_arg( array( 'screen' => 'learner-grades' ), PageRoutes::UserProfile->url() ),
+			(string) add_query_arg( array( 'screen' => LearnerScreen::Grades->key() ), PageRoutes::UserProfile->url() ),
 			$attempt->groupId,
 			'assessment_attempt',
 			$attempt->id
@@ -201,7 +202,7 @@ class NotificationSubscriber implements ServiceInterface {
 				'topic'        => $this->notifications->lessonTopic( $lesson ),
 				'group_name'   => $this->notifications->groupName( $lesson->groupId ),
 			),
-			(string) add_query_arg( array( 'screen' => 'summary' ), PageRoutes::UserProfile->url() ),
+			(string) add_query_arg( array( 'screen' => 'works', 'submission' => $sub->id ), PageRoutes::UserProfile->url() ),
 			$lesson->groupId,
 			'submission',
 			$sub->id
@@ -228,7 +229,7 @@ class NotificationSubscriber implements ServiceInterface {
 				'topic'        => $this->notifications->lessonTopic( $lesson ),
 				'group_name'   => $this->notifications->groupName( $lesson->groupId ),
 			),
-			(string) add_query_arg( array( 'screen' => 'summary' ), PageRoutes::UserProfile->url() ),
+			(string) add_query_arg( array( 'screen' => 'works', 'submission' => $sub->id ), PageRoutes::UserProfile->url() ),
 			$lesson->groupId,
 			'submission',
 			$sub->id

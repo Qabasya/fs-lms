@@ -139,16 +139,11 @@ $sort_url    = add_query_arg( $entity_audit_filters, $base_url );
 						<?php endif; ?>
 					</td>
 					<td>
-						<?php if ( $et ) : ?>
-
-								<?php echo esc_html( $et->label() ); ?>
-
-						<?php else : ?>
-							<?php echo esc_html( $et->value ); ?>
-						<?php endif; ?>
+						<?php // Тип, которого нет в энуме (запись другой ветки или версии), показываем как есть. ?>
+						<?php echo esc_html( $et ? $et->label() : $row->entityTypeRaw ); ?>
 					</td>
 					<td>
-						<?php echo LogNameResolver::entityName( $row->entityId, $et->value, $row->oldLabel ); // phpcs:ignore ?>
+						<?php echo LogNameResolver::entityName( $row->entityId, $row->entityTypeRaw, $row->oldLabel ); // phpcs:ignore ?>
 						<?php if ( $row->entityId ) : ?>
 							<span class="fs-text-muted fs-code-sm">#<?php echo (int) $row->entityId; ?></span>
 						<?php endif; ?>

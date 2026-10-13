@@ -190,6 +190,13 @@ ThemeCompatService::header();
 							</div>
 						<?php endif; ?>
 
+						<div class="fs-task-report">
+							<?php
+							$report_task_id = (int) ( $task_post?->id ?? 0 );
+							include __DIR__ . '/partials/report-error-button.php';
+							?>
+						</div>
+
 					</div>
 
 					<!-- Табы -->
@@ -280,5 +287,7 @@ ThemeCompatService::header();
 	<?php endif; ?>
 
 </div>
+
+<?php include __DIR__ . '/partials/report-error-modal.php'; ?>
 
 <?php ThemeCompatService::footer(); ?>

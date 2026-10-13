@@ -59,7 +59,7 @@
   // Таблицы — общее правило с карточкой тренажёра, статьёй, шагом курса
   // и контрольной: рамка цветом текста, одинаковая толщина везде.
   @include fs-content-tables;
-  @include fs-common-condition;
+  @include fs-common-condition($color-accent-700);
 
   td, th { font-size: $font-size-base; }
 

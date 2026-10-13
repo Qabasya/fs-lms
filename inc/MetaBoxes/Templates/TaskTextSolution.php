@@ -35,6 +35,7 @@ class TaskTextSolution extends BaseTemplate {
 			'task_answer'    => array(
 				'label'  => 'Правильный ответ',
 				'object' => new TextareaField(), // Многострочный текст (переносы сохраняются)
+				'answer' => true,
 			),
 			'task_text'      => array(
 				'label'  => 'Решение',

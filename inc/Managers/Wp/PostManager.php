@@ -690,9 +690,27 @@ class PostManager {
 		$saved = $post;
 		$post  = get_post( $post_id );
 		setup_postdata( $post );
-		$adjacent = '' !== $taxonomy
-			? get_adjacent_post( true, '', $previous, $taxonomy )
-			: get_adjacent_post( false, '', $previous );
+
+		// Дочерние задания связки 19-21 — служебные: в навигацию не попадают.
+		$hook    = $previous ? 'get_previous_post_where' : 'get_next_post_where';
+		$exclude = static function ( string $where ): string {
+			global $wpdb;
+
+			return $where . $wpdb->prepare(
+				" AND NOT EXISTS (SELECT 1 FROM {$wpdb->postmeta} fs_pm WHERE fs_pm.post_id = p.ID AND fs_pm.meta_key = %s)",
+				PostMetaName::TaskBundleParentId->value
+			);
+		};
+		add_filter( $hook, $exclude );
+
+		try {
+			$adjacent = '' !== $taxonomy
+				? get_adjacent_post( true, '', $previous, $taxonomy )
+				: get_adjacent_post( false, '', $previous );
+		} finally {
+			remove_filter( $hook, $exclude );
+		}
+
 		$post = $saved;
 		wp_reset_postdata();
 		return $adjacent instanceof \WP_Post ? $adjacent : null;
@@ -805,6 +823,7 @@ class PostManager {
 	 *     tax_query?: array,
 	 *     meta_query?: array,
 	 *     limit?: int,
+	 *     offset?: int,
 	 *     orderby?: string,
 	 *     order?: string
 	 * } $opts Параметры выборки.
@@ -834,6 +853,9 @@ class PostManager {
 		}
 		if ( ! empty( $opts['meta_query'] ) ) {
 			$args['meta_query'] = $opts['meta_query'];
+		}
+		if ( ! empty( $opts['offset'] ) ) {
+			$args['offset'] = (int) $opts['offset'];
 		}
 
 		$posts = get_posts( $args );

@@ -4,6 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Course;
 
+use Inc\Enums\Profile\LearnerScreen;
 use Inc\DTO\Course\GroupLessonDTO;
 use Inc\Enums\Profile\NotificationType;
 use Inc\Enums\Wp\PageRoutes;
@@ -145,7 +146,7 @@ class AttendanceService {
 			NotificationType::AbsenceStreak,
 			sprintf( 'absent_streak:%d:%d', $studentPersonId, $first ),
 			$payload,
-			(string) add_query_arg( array( 'screen' => 'learner-attendance' ), PageRoutes::UserProfile->url() ),
+			(string) add_query_arg( array( 'screen' => LearnerScreen::Attendance->key( true ) ), PageRoutes::UserProfile->url() ),
 			$groupId
 		);
 	}

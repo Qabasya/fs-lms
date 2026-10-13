@@ -14,6 +14,8 @@ use Inc\Enums\Course\ProgressStatus;
 use Inc\Enums\Subject\TaskTemplate;
 use Inc\Managers\Course\LessonManager;
 use Inc\Managers\Course\WorkManager;
+use Inc\Enums\Course\StepType;
+use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\WPDBRepositories\TaskAttemptRepository;
 use Inc\Services\Task\CorrectAnswerResolver;
 use Inc\Services\Task\TaskSolutionService;
@@ -32,6 +34,9 @@ use Inc\Services\Task\TaskSolutionService;
  */
 class LessonPlayerService {
 
+	/** Ключ виртуального шага «Трансляция» / «Запись занятия»: прогресс по нему не пишется. */
+	public const LIVE_STEP_KEY = '__live';
+
 	public function __construct(
 		private readonly LessonManager                $lessons,
 		private readonly LessonGateResolver           $gate,
@@ -45,6 +50,7 @@ class LessonPlayerService {
 		private readonly StepContentRenderer          $stepRenderer,
 		private readonly CourseNavService             $nav,
 		private readonly WorkTaskCheckService         $taskChecks,
+		private readonly GroupsRepository             $groups,
 	) {}
 
 	/**
@@ -131,6 +137,13 @@ class LessonPlayerService {
 	private function assembleView( LessonDTO $lesson, GroupLessonDTO $groupLesson, int $studentPersonId, ?array $statuses ): array {
 		$isTeacher = null === $statuses;
 		$steps     = array();
+
+		// Виртуальный первый шаг занятия: трансляция во время занятия, запись после него.
+		$live = $this->liveStep( $groupLesson, $isTeacher );
+		if ( null !== $live ) {
+			$steps[] = $live;
+		}
+
 		foreach ( $lesson->steps as $step ) {
 			$status = $isTeacher
 				? ProgressStatus::Available
@@ -158,6 +171,51 @@ class LessonPlayerService {
 	}
 
 	/**
+	 * Виртуальный первый шаг занятия группы (в уроке не хранится).
+	 *
+	 * - Во время занятия — «Трансляция»: кнопка на ссылку группы (`groups.broadcast_url`).
+	 * - После занятия — «Запись занятия»: встроенный плеер (запись из S3 через фильтр
+	 *   `fs_lms_recording_url`) и/или кнопка на внешнюю ссылку преподавателя.
+	 *
+	 * Ученику шаг показывается, только когда есть что показать (ссылка группы / запись);
+	 * преподавателю — всегда: через него он вставляет ссылку на запись.
+	 *
+	 * @return array<string, mixed>|null
+	 */
+	private function liveStep( GroupLessonDTO $groupLesson, bool $isTeacher ): ?array {
+		$isOver = $groupLesson->isOver( current_time( 'mysql' ) );
+		$group  = $groupLesson->groupId > 0 ? $this->groups->findById( $groupLesson->groupId ) : null;
+
+		// Generic-шов V4: модуль VideoLibrary подменяет указатель s3://… presigned-ссылкой.
+		$render = $this->stepRenderer->renderBroadcastData(
+			$isOver ? '' : (string) ( $group->broadcast_url ?? '' ),
+			null !== $groupLesson->recordingUrl
+				? apply_filters( 'fs_lms_recording_url', $groupLesson->recordingUrl, $groupLesson )
+				: null,
+			$groupLesson->recordingLink,
+			$isOver
+		);
+
+		$hasContent = $isOver
+			? ( '' !== $render['video_url'] || '' !== $render['record_link'] )
+			: '' !== $render['stream_url'];
+
+		if ( ! $isTeacher && ! $hasContent ) {
+			return null;
+		}
+
+		return array(
+			'key'     => self::LIVE_STEP_KEY,
+			'type'    => StepType::Broadcast->value,
+			'title'   => $isOver ? __( 'Запись занятия', 'fs-lms' ) : __( 'Трансляция', 'fs-lms' ),
+			'gate'    => GateState::Available->value,
+			'status'  => ProgressStatus::Available->value,
+			'virtual' => true,
+			'render'  => $render,
+		);
+	}
+
+	/**
 	 * Данные для рендера шага по типу.
 	 *
 	 * @param bool $isTeacher Teacher-режим: к задачам добавляется эталон («Показать решение»).
@@ -167,17 +225,7 @@ class LessonPlayerService {
 	private function renderData( StepDTO $step, GroupLessonDTO $groupLesson, int $studentPersonId, bool $isTeacher ): array {
 		return match ( $step->type->value ) {
 			'text', 'video' => $this->stepRenderer->renderInlineData( $step ),
-			// Generic-шов V4: модуль VideoLibrary подменяет указатель s3://… presigned-ссылкой.
-			// Фильтр дёргаем только для broadcast (не для каждого text/video-шага).
-			'broadcast'  => $this->stepRenderer->renderBroadcastData(
-				$step,
-				null !== $groupLesson->recordingUrl
-					? apply_filters( 'fs_lms_recording_url', $groupLesson->recordingUrl, $groupLesson )
-					: null,
-				$groupLesson->recordingLink,
-				$groupLesson->isOver( current_time( 'mysql' ) )
-			),
-			'task'       => $this->renderTaskData( $step, $groupLesson, $studentPersonId, $isTeacher ),
+			'task'       =>$this->renderTaskData( $step, $groupLesson, $studentPersonId, $isTeacher ),
 			'work'       => $this->renderWorkData( $step, $groupLesson, $studentPersonId, $isTeacher ),
 			'assessment' => $this->renderAssessmentData( $step, $isTeacher ),
 			default      => array( 'ref' => (int) ( $step->payload['ref'] ?? 0 ) ),

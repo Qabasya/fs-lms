@@ -30,8 +30,12 @@ class StepTypeTest extends TestCase {
 		}
 	}
 
-	public function test_allowed_types_for_lesson_is_all(): void {
-		self::assertSame( StepType::cases(), StepType::allowedTypesFor( StepType::LEVEL_LESSON ) );
+	public function test_allowed_types_for_lesson_is_all_but_virtual_broadcast(): void {
+		$expected = array( StepType::Text, StepType::Video, StepType::Task, StepType::Work, StepType::Assessment );
+
+		self::assertSame( $expected, StepType::allowedTypesFor( StepType::LEVEL_LESSON ) );
+		self::assertFalse( StepType::Broadcast->isAuthorable() );
+		self::assertFalse( StepType::Broadcast->allowedFor( StepType::LEVEL_LESSON ) );
 	}
 
 	public function test_allowed_types_for_work_and_assessment_is_task_only(): void {
@@ -52,9 +56,10 @@ class StepTypeTest extends TestCase {
 
 	public function test_options_map_value_to_label(): void {
 		$options = StepType::options();
-		self::assertCount( 6, $options );
+		self::assertCount( 5, $options );
 		self::assertSame( 'Экзамен', $options['assessment'] );
 		self::assertSame( 'Лекция', $options['text'] );
-		self::assertSame( 'Трансляция', $options['broadcast'] );
+		// Трансляцию строит плеер — в конструкторе курса её нет.
+		self::assertArrayNotHasKey( 'broadcast', $options );
 	}
 }

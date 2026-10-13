@@ -7,7 +7,7 @@ namespace Inc\Migrations;
 use Inc\Contracts\MigrationInterface;
 
 /**
- * Миграция 1.0.71: Схема публичных экзаменов (15 таблиц)
+ * Миграция 1.0.84: Схема публичных экзаменов (15 таблиц)
  *
  * **exam_registrations.active_slot:** только `1` у действующей брони, `NULL` у отменённой/перенесённой/пропущенной.
  * Уникальный индекс `(participation_id, active_slot)` не позволяет двум действующим броням сосуществовать;
@@ -29,10 +29,10 @@ use Inc\Contracts\MigrationInterface;
  *
  * @package Inc\Migrations
  */
-class Migration_1_0_71 implements MigrationInterface {
+class Migration_1_0_84 implements MigrationInterface {
 
 	public function version(): string {
-		return '1.0.71';
+		return '1.0.84';
 	}
 
 	public function up(): void {

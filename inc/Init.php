@@ -24,6 +24,7 @@ use Inc\Controllers\System\ModulesDashboardController;
 use Inc\Controllers\Task\BoilerplateController;
 use Inc\Controllers\Task\LegacyTaskImportController;
 use Inc\Controllers\Enrollment\EnrollmentController;
+use Inc\Controllers\Lead\LeadController;
 use Inc\Controllers\Course\LessonController;
 use Inc\Controllers\Course\LessonMetaBoxController;
 use Inc\Controllers\Course\WorkController;
@@ -65,6 +66,7 @@ use Inc\Controllers\Settings\ConfigController;
 use Inc\Controllers\Settings\SettingsController;
 use Inc\Services\Update\GithubReleaseUpdater;
 use Inc\Controllers\Subscribers\AuthLogController; // логирует общие WP-события (wp_login, wp_login_failed)
+use Inc\Controllers\Subscribers\ContentReportController;
 use Inc\Controllers\Subscribers\ErrorLogController;
 use Inc\Controllers\Subscribers\EntityAuditSubscriber;
 use Inc\Controllers\Subscribers\PostEntityAuditController;
@@ -115,10 +117,13 @@ use Inc\Migrations\Migration_1_0_37;
 use Inc\Migrations\Migration_1_0_54;
 use Inc\Migrations\Migration_1_0_62;
 use Inc\Migrations\Migration_1_0_70;
-use Inc\Migrations\Migration_1_0_71;
-use Inc\Migrations\Migration_1_0_72;
-use Inc\Migrations\Migration_1_0_73;
-use Inc\Migrations\Migration_1_0_74;
+use Inc\Migrations\Migration_1_0_84;
+use Inc\Migrations\Migration_1_0_85;
+use Inc\Migrations\Migration_1_0_86;
+use Inc\Migrations\Migration_1_0_87;
+use Inc\Migrations\Migration_1_0_81;
+use Inc\Migrations\Migration_1_0_82;
+use Inc\Migrations\Migration_1_0_83;
 use Inc\Migrations\MigrationRunner;
 use Inc\Services\Log\LogEventDispatcher;
 use Inc\Services\Shared\WpClock;
@@ -196,6 +201,7 @@ final class Init {
 			ConsentController::class,
 			ApplicationController::class,
 			EnrollmentController::class,
+			LeadController::class,   // Заявки с лид-форм сайта: приём от темы по хуку + удаление в «Пользователях»
 			PiiController::class,
 			RecoveryController::class,
 			ExpulsionController::class,
@@ -214,6 +220,7 @@ final class Init {
 			GithubReleaseUpdater::class, // Индикатор «Доступно обновление» из GitHub Releases (Qabasya/fs-lms)
 			LogsController::class,
 			AuthLogController::class,
+			ContentReportController::class, // журнал «Найденные ошибки»: «Нашли ошибку?» на заданиях и статьях
 			ErrorLogController::class, // журнал «Ошибки»: отказы AJAX, истёкшие сессии, сбои из браузера
 			EntityAuditSubscriber::class,
 			PostEntityAuditController::class,
@@ -305,10 +312,13 @@ final class Init {
 		$migrationRunner->register( new Migration_1_0_54() );
 		$migrationRunner->register( new Migration_1_0_62() );
 		$migrationRunner->register( new Migration_1_0_70() );
-		$migrationRunner->register( new Migration_1_0_71() );
-		$migrationRunner->register( new Migration_1_0_72() );
-		$migrationRunner->register( new Migration_1_0_73() );
-		$migrationRunner->register( new Migration_1_0_74() );
+		$migrationRunner->register( new Migration_1_0_84() );
+		$migrationRunner->register( new Migration_1_0_85() );
+		$migrationRunner->register( new Migration_1_0_86() );
+		$migrationRunner->register( new Migration_1_0_87() );
+		$migrationRunner->register( new Migration_1_0_81() );
+		$migrationRunner->register( new Migration_1_0_82() );
+		$migrationRunner->register( new Migration_1_0_83() );
 		$migrationRunner->run();
 
 		// Data-миграция (не схема): ссылки на файлы заданий со старой схемой
@@ -320,6 +330,9 @@ final class Init {
 		// Data-миграции: удалённый шаблон «с общим условием» → Стандартное;
 		// баллы первой сдачи работ (без них карточки рисовали крестики).
 		$container->get( \Inc\Migrations\CommonTemplateMigration::class )->run();
+
+		// Шаг «Трансляция» в уроках больше не хранится (плеер строит его сам из ссылки группы).
+		$container->get( \Inc\Migrations\BroadcastStepRemovalMigration::class )->run();
 		$container->get( \Inc\Migrations\SubmissionScoreBackfillMigration::class )->run();
 		// Время работы — суммой по всем попыткам, а не последней.
 		$container->get( \Inc\Migrations\SubmissionDurationTotalMigration::class )->run();

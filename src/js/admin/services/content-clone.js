@@ -1,10 +1,11 @@
 /**
- * @fileoverview Дублирование записи банка контента из строки таблицы.
+ * @fileoverview Дублирование записи банка контента — из строки таблицы и из редактора задания.
  *
  * @module admin/services/content-clone
- * @description Кнопку «Дублировать» ставит LearningMenuController::addCloneRowAction();
+ * @description Кнопку «Дублировать» ставит BankRowActionsController (строка таблицы —
+ * addCloneRowAction(), блок «Опубликовать» в редакторе задания — renderCloneTaskButton());
  * здесь — вызов соответствующего AJAX-хука (`clone_lesson`/`clone_work`/
- * `clone_assessment`/`clone_course`) и переход к редактированию копии.
+ * `clone_assessment`/`clone_course`/`clone_task`) и переход к редактированию копии.
  *
  * Для курса спрашиваем режим: `shallow` — копия структуры со ссылками на те же
  * уроки, `deep` — с копиями уроков (так же, как понимает CloneCallbacks).
@@ -24,6 +25,7 @@ const CLONE_MAP = {
     work:       { action: 'cloneWork',       param: 'work_id' },
     assessment: { action: 'cloneAssessment', param: 'assessment_id' },
     course:     { action: 'cloneCourse',     param: 'course_id' },
+    task:       { action: 'cloneTask',       param: 'task_id' },
 };
 
 export const ContentClone = {
@@ -54,7 +56,8 @@ export const ContentClone = {
         if ( ! cfg || ! id ) { return; }
 
         // Для курса режим влияет на объём копирования — спрашиваем явно.
-        // confirm() резолвится на «С уроками» и реджектится на «Только структуру».
+        // confirm() резолвится на «С уроками»; реджект с причиной 'cancel' — кнопка
+        // «Только структуру». Крестик, фон и Esc ('close' / 'esc') — отказ от дублирования.
         if ( 'course' === type ) {
             ConfirmModal.confirm( {
                 title:       'Дублировать курс',
@@ -64,7 +67,9 @@ export const ContentClone = {
                 isDanger:    false,
             } ).then(
                 () => this.request( $link, cfg, id, 'deep' ),
-                () => this.request( $link, cfg, id, 'shallow' )
+                ( reason ) => {
+                    if ( 'cancel' === reason ) { this.request( $link, cfg, id, 'shallow' ); }
+                }
             );
 
             return;
@@ -96,14 +101,32 @@ export const ContentClone = {
         $.post( fs_lms_vars.ajaxurl, data )
             .done( ( res ) => {
                 if ( ! res || ! res.success ) {
-                    showNotice( ( res && res.data ) || 'Не удалось дублировать запись.', 'error' );
+                    // data — строка от error() либо объект { message, … } (отказ по nonce, fail()).
+                    showNotice( res?.data?.message || ( 'string' === typeof res?.data && res.data ) || 'Не удалось дублировать запись.', 'error' );
                     return;
                 }
 
                 // Копия создаётся черновиком — сразу открываем её на редактирование.
                 window.location.href = `post.php?post=${ res.data.id }&action=edit`;
             } )
-            .fail( () => showNotice( 'Ошибка сети при дублировании.', 'error' ) )
+            .fail( ( xhr ) => showNotice( this.failMessage( xhr ), 'error' ) )
             .always( () => toggleButton( $link, false, 'Дублировать' ) );
+    },
+
+    /**
+     * Текст для отказа запроса. «Ошибка сети» — только когда сеть и правда недоступна:
+     * отказ по правам (403) и сбой сервера (5xx) называем своими именами.
+     *
+     * @param {jqXHR} xhr Ответ.
+     * @return {string}
+     */
+    failMessage( xhr ) {
+        const data = xhr?.responseJSON?.data;
+        const text = data?.message || ( 'string' === typeof data && data );
+
+        if ( text ) { return text; }
+        if ( ! xhr?.status ) { return 'Нет связи с сервером — проверьте соединение и повторите.'; }
+
+        return `Сервер не смог выполнить дублирование (код ${ xhr.status }). Запись об ошибке — в журнале «Ошибки».`;
     },
 };

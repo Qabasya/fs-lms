@@ -8,15 +8,15 @@ use Inc\Contracts\MigrationInterface;
 use Inc\Enums\Settings\TableName;
 
 /**
- * Class Migration_1_0_73
+ * Class Migration_1_0_86
  *
  * Школьные отчёты (этап 12.3): `exam_guest_sessions.report_id` — отчёт, который открыла сессия `scope = report`.
  * Чужие колонки (`source_id`, `participation_id`) под ID отчёта не используются. Идемпотентна: на новых установках колонку создаёт
- * `Migration_1_0_71::examDdl()`.
+ * `Migration_1_0_84::examDdl()`.
  *
  * @package Inc\Migrations
  */
-class Migration_1_0_73 implements MigrationInterface {
+class Migration_1_0_86 implements MigrationInterface {
 
 	public function up(): void {
 		global $wpdb;
@@ -36,6 +36,6 @@ class Migration_1_0_73 implements MigrationInterface {
 	}
 
 	public function version(): string {
-		return '1.0.73';
+		return '1.0.86';
 	}
 }

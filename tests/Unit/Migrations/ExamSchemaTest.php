@@ -4,7 +4,7 @@ declare( strict_types=1 );
 
 namespace Tests\Unit\Migrations;
 
-use Inc\Migrations\Migration_1_0_71;
+use Inc\Migrations\Migration_1_0_84;
 use Inc\Enums\Settings\TableName;
 use PHPUnit\Framework\TestCase;
 
@@ -13,20 +13,20 @@ class ExamSchemaTest extends TestCase {
 	private string $cc = 'utf8mb4_unicode_ci';
 
 	public function test_migration_version_matches_class_name(): void {
-		$class = new \ReflectionClass( Migration_1_0_71::class );
+		$class = new \ReflectionClass( Migration_1_0_84::class );
 
-		self::assertSame( '1.0.71', ( new Migration_1_0_71() )->version() );
-		self::assertSame( 'Migration_' . str_replace( '.', '_', ( new Migration_1_0_71() )->version() ), $class->getShortName() );
+		self::assertSame( '1.0.84', ( new Migration_1_0_84() )->version() );
+		self::assertSame( 'Migration_' . str_replace( '.', '_', ( new Migration_1_0_84() )->version() ), $class->getShortName() );
 	}
 
 	public function test_ddl_contains_fifteen_tables(): void {
-		$ddl = Migration_1_0_71::examDdl( $this->cc );
+		$ddl = Migration_1_0_84::examDdl( $this->cc );
 
 		$this->assertCount( 15, $ddl, 'DDL должна содержать ровно 15 таблиц' );
 	}
 
 	public function test_every_table_name_comes_from_table_name_enum(): void {
-		$ddl = Migration_1_0_71::examDdl( $this->cc );
+		$ddl = Migration_1_0_84::examDdl( $this->cc );
 
 		$expectedTables = array(
 			TableName::ExamEvents->prefixed(),
@@ -59,7 +59,7 @@ class ExamSchemaTest extends TestCase {
 	}
 
 	public function test_primary_key_has_two_spaces(): void {
-		$ddl = Migration_1_0_71::examDdl( $this->cc );
+		$ddl = Migration_1_0_84::examDdl( $this->cc );
 
 		foreach ( $ddl as $sql ) {
 			$this->assertStringContainsString( 'PRIMARY KEY  (id)', $sql, "DDL должна содержать ровно два пробела перед (id): $sql" );
@@ -67,7 +67,7 @@ class ExamSchemaTest extends TestCase {
 	}
 
 	public function test_registrations_have_active_slot_unique_index(): void {
-		$ddl = Migration_1_0_71::examDdl( $this->cc );
+		$ddl = Migration_1_0_84::examDdl( $this->cc );
 
 		$registrationsDdl = '';
 		foreach ( $ddl as $sql ) {
@@ -82,7 +82,7 @@ class ExamSchemaTest extends TestCase {
 	}
 
 	public function test_no_foreign_keys_and_no_if_not_exists(): void {
-		$ddl = Migration_1_0_71::examDdl( $this->cc );
+		$ddl = Migration_1_0_84::examDdl( $this->cc );
 
 		foreach ( $ddl as $sql ) {
 			$this->assertStringNotContainsString( 'FOREIGN KEY', $sql, 'Не должно быть внешних ключей' );
@@ -98,7 +98,7 @@ class ExamSchemaTest extends TestCase {
 	public function test_fresh_install_builds_exam_tables_from_the_same_ddl(): void {
 		$source = $this->source( \Inc\Migrations\Migration_1_0_0::class );
 
-		self::assertStringContainsString( 'Migration_1_0_71::examDdl( $cc )', $source, 'Новая установка получает ту же схему, что и апгрейд.' );
+		self::assertStringContainsString( 'Migration_1_0_84::examDdl( $cc )', $source, 'Новая установка получает ту же схему, что и апгрейд.' );
 		foreach ( TableName::cases() as $case ) {
 			if ( str_starts_with( $case->value, 'fs_lms_exam_' ) ) {
 				self::assertStringContainsString( 'TableName::' . $case->name . '->prefixed()', $source, "down() новой установки удаляет {$case->value}" );
@@ -118,7 +118,7 @@ class ExamSchemaTest extends TestCase {
 	}
 
 	public function test_down_removes_attempt_index_and_columns_but_keeps_student_nullable(): void {
-		$source = $this->source( Migration_1_0_71::class );
+		$source = $this->source( Migration_1_0_84::class );
 		$from   = (int) strpos( $source, 'public function down()' );
 		$down   = substr( $source, $from, (int) strpos( $source, 'public static function examDdl' ) - $from );
 
@@ -130,7 +130,7 @@ class ExamSchemaTest extends TestCase {
 	}
 
 	public function test_consent_version_column_fits_sha256_hash(): void {
-		self::assertSame( '1.0.72', ( new \Inc\Migrations\Migration_1_0_72() )->version() );
+		self::assertSame( '1.0.85', ( new \Inc\Migrations\Migration_1_0_85() )->version() );
 		self::assertStringContainsString( 'version              varchar(64)', (string) file_get_contents( dirname( __DIR__, 3 ) . '/inc/Migrations/Migration_1_0_0.php' ) );
 	}
 }

@@ -64,6 +64,36 @@ class CoursePublishValidator {
 		return null;
 	}
 
+	/**
+	 * Шаги курса с неснятой меткой «дубликат — контент не изменён» (мягкая проверка:
+	 * автор подтверждает публикацию, а не получает отказ). Подписи — «Урок «…»: шаг №N (тип)».
+	 *
+	 * @return string[]
+	 */
+	public function unchangedSteps( int $courseId ): array {
+		$course = $this->courses->get( $courseId );
+		if ( null === $course ) {
+			return array();
+		}
+
+		$found = array();
+		foreach ( $course->modules as $module ) {
+			foreach ( $module->lessonIds as $lessonId ) {
+				$lesson = $this->lessons->get( (int) $lessonId );
+				if ( null === $lesson ) {
+					continue;
+				}
+				foreach ( $lesson->steps as $index => $step ) {
+					if ( $step->isUnreviewed() ) {
+						$found[] = sprintf( 'Урок «%1$s»: шаг №%2$d (%3$s)', $lesson->topic, $index + 1, $step->type->label() );
+					}
+				}
+			}
+		}
+
+		return $found;
+	}
+
 	/** Правило пустоты шага (зеркало клиентского stepHasContent). */
 	private function stepHasContent( StepDTO $step ): bool {
 		return match ( $step->type ) {

@@ -59,6 +59,15 @@ readonly class PluginConfig {
 	}
 
 	/**
+	 * Запрос пришёл из доверенной сети ({@see self::trustedIps()}) — заявку подают очно.
+	 *
+	 * @param string $ip IP клиента (с учётом доверенных прокси — {@see \Inc\Shared\Traits\RequestContextProvider})
+	 */
+	public function isTrustedIp( string $ip ): bool {
+		return '' !== $ip && in_array( $ip, $this->trustedIps(), true );
+	}
+
+	/**
 	 * Ссылка на форму записи на консультацию. Показывается в блоке «Показать
 	 * ответ» у заданий, которые проверяет преподаватель: автоматического ответа
 	 * у них нет ({@see \Inc\Enums\Subject\TaskTemplate::isFileAnswerShape()}).

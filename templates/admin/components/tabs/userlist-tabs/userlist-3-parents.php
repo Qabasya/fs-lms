@@ -90,7 +90,7 @@ $sortUrl       = add_query_arg( $activeFilters, $baseUrl );
 			<th class="column-title">
 				<?php echo LogNameResolver::sortableHeader( 'ФИО ребёнка', 'child_name', $orderby, strtolower( $order ), $sortUrl ); // phpcs:ignore ?>
 			</th>
-			<th class="column-title">
+			<th class="column-title tw-10">
 				<?php esc_html_e( 'Действия', 'fs-lms' ); ?>
 			</th>
 		</tr>

@@ -80,7 +80,7 @@ export const SubjectTransferService = {
                     } );
 
                 return request
-                    .catch( ( err ) => showNotice( err.message, 'error', $btn.closest( 'td' ) ) )
+                    .catch( ( err ) => showNotice( err.message, 'error' ) )
                     .then( () => toggleButton( $btn, false ) );
             } )
             // Отказ в модалке — штатный путь, не ошибка.
@@ -99,8 +99,7 @@ export const SubjectTransferService = {
 
         showNotice(
             `Пакет собран (${ data.filename }), но есть замечания: ${ data.warnings.slice( 0, 5 ).join( '; ' ) }`,
-            'warning',
-            $btn.closest( 'td' )
+            'warning'
         );
     },
 

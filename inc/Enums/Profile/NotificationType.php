@@ -23,8 +23,7 @@ enum NotificationType: string {
 	case ReviewNeeded       = 'review_needed';
 	case SubstituteAssigned = 'substitute_assigned';
 	case AttendanceMissed   = 'attendance_missed';
-	/** Этап 5 (Tasks.md): урок вне расписания открылся ученикам — плановое занятие
-	 * такого не шлёт, за него уже отвечает LessonSoon за 30 минут до начала. */
+	/** Этап 5 (Tasks.md): урок вне расписания открылся ученикам. */
 	case LessonOpened       = 'lesson_opened';
 	/** Ученикам группы — при утверждении замены преподавателя (Tasks.md, блок B). */
 	case SubstituteAssignedStudent = 'substitute_assigned_student';
@@ -84,7 +83,7 @@ enum NotificationType: string {
 			self::ReviewNeeded       => 'Сдана работа — нужна проверка',
 			self::SubstituteAssigned => 'Вам назначена замена',
 			self::AttendanceMissed   => 'Пропущено занятие',
-			self::LessonOpened       => 'Открыт новый урок',
+			self::LessonOpened       => 'Урок начался',
 			self::SubstituteAssignedStudent => 'Замена преподавателя',
 			self::RoomChanged        => 'Изменился кабинет',
 			self::AttemptReset       => 'Попытка сброшена',

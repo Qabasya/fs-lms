@@ -69,8 +69,8 @@ class EntityAuditLogExportProvider implements CsvExportProviderInterface {
 			new CsvColumn( 'Пользователь',    fn( $r ) => LogNameResolver::userName( $r->actorUserId ) ),
 			new CsvColumn( 'Роль',            fn( $r ) => $r->actorRole ?? '' ),
 			new CsvColumn( 'Операция',        fn( $r ) => $r->operation->value ),
-			new CsvColumn( 'Тип сущности',    fn( $r ) => $r->entityType->value ),
-			new CsvColumn( 'Сущность',        fn( $r ) => LogNameResolver::entityName( $r->entityId, $r->entityType->value, $r->oldLabel ) ),
+			new CsvColumn( 'Тип сущности',    fn( $r ) => $r->entityTypeRaw ),
+			new CsvColumn( 'Сущность',        fn( $r ) => LogNameResolver::entityName( $r->entityId, $r->entityTypeRaw, $r->oldLabel ) ),
 			new CsvColumn( 'Прошлое название', fn( $r ) => $r->oldLabel ?? '' ),
 			new CsvColumn( 'IP',              fn( $r ) => $r->actorIp ?? '' ),
 		);

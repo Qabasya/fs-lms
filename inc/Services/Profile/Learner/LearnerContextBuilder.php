@@ -18,6 +18,7 @@ use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 use Inc\Services\Course\EffectiveTeacherResolver;
 use Inc\Services\Course\LessonGateResolver;
 use Inc\Services\Course\LessonProgressService;
+use Inc\Services\Course\LiveLessonService;
 
 /**
  * Class LearnerContextBuilder
@@ -44,6 +45,7 @@ class LearnerContextBuilder {
 		private readonly EffectiveTeacherResolver $effectiveTeacher,
 		private readonly LessonProgressService    $progress,
 		private readonly LessonGateResolver       $gate,
+		private readonly LiveLessonService        $live,
 	) {}
 
 	/**
@@ -157,6 +159,8 @@ class LearnerContextBuilder {
 			$teacherNames[ $teacherId ] = get_userdata( $teacherId )->display_name ?? '';
 		}
 
+		$isLive = $this->live->isLive( $row );
+
 		return array(
 			'group_lesson_id' => $row->id,
 			'group_id'        => (int) $group['id'],
@@ -164,6 +168,7 @@ class LearnerContextBuilder {
 			'topic'           => $this->topicOf( $row ),
 			'date'            => $row->scheduledAt ? substr( $row->scheduledAt, 0, 10 ) : '',
 			'start'           => $row->scheduledAt ? substr( $row->scheduledAt, 11, 5 ) : '',
+			'end'             => $row->endsAt ? substr( $row->endsAt, 11, 5 ) : '',
 			'scheduled_at'    => $row->scheduledAt,
 			'homework_due_at' => $row->homeworkDueAt,
 			'visibility'      => $row->visibility,
@@ -175,6 +180,11 @@ class LearnerContextBuilder {
 			// в плеер и статус прохождения (done / available / locked).
 			'player_url'      => $hasContent ? PageRoutes::LessonPlayer->lessonUrl( (int) $group['id'], $row->id ) : '',
 			'status'          => $hasContent ? $this->lessonStatus( $personId, $row ) : '',
+			// Идёт прямо сейчас (по расписанию занятия): строка на главной ведёт в урок и в трансляцию группы.
+			'live'            => $isLive,
+			// Для расписания «Сегодня / Неделя / Месяц»: soon — ещё не началось, now — идёт, done — прошло.
+			'state'           => $isLive ? 'now' : ( ( $row->scheduledAt ?? '' ) > $this->clock->now() ? 'soon' : 'done' ),
+			'stream_url'      => $isLive ? $this->live->streamUrl( $row->groupId ) : '',
 		);
 	}
 

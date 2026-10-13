@@ -4,6 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\Shared\Traits;
 
+use Inc\Enums\Log\ErrorCode;
 use Inc\Shared\SafeHtml;
 
 /**
@@ -206,7 +207,7 @@ trait Sanitizer {
 	protected function requireKey( string $key, string $method = 'POST', string $error = 'Недостаточно данных' ): string {
 		$value = $this->sanitizeKey( $key, $method );
 		if ( empty( $value ) ) {
-			wp_send_json_error( $error );
+			$this->rejectMissing( $key, $error );
 		}
 		
 		return $value;
@@ -224,7 +225,7 @@ trait Sanitizer {
 	protected function requireText( string $key, string $method = 'POST', string $error = 'Поле обязательно для заполнения' ): string {
 		$value = $this->sanitizeText( $key, $method );
 		if ( empty( $value ) ) {
-			wp_send_json_error( $error );
+			$this->rejectMissing( $key, $error );
 		}
 		
 		return $value;
@@ -258,10 +259,19 @@ trait Sanitizer {
 	protected function requireInt( string $key, string $method = 'POST', string $error = 'Неверный идентификатор' ): int {
 		$value = $this->sanitizeInt( $key, $method );
 		if ( 0 === $value ) {
-			wp_send_json_error( $error );
+			$this->rejectMissing( $key, $error );
 		}
 
 		return $value;
+	}
+
+	/**
+	 * Отказ `require*()`: ответ с ошибкой + запись в журнал «Ошибки» с именем поля —
+	 * по тексту «Неверный идентификатор» иначе не понять, чего не хватило запросу.
+	 */
+	private function rejectMissing( string $key, string $error ): void {
+		ErrorCode::Ajax->report( $error, array( 'field' => $key ) );
+		wp_send_json_error( $error );
 	}
 
 	/**
