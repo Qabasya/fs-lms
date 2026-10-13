@@ -102,7 +102,7 @@
 
 			$badge.html( data.count
 				? '<span class="fs-badge is-red">Без записи: ' + self.esc( data.count ) + '</span>'
-				: '<span class="fs-badge is-green">Все записи на месте</span>' );
+				: '<span class="fs-badge is-green">Нет занятий без записи</span>' );
 
 			if ( ! lessons.length ) {
 				$list.html( '<p class="description">Занятий без записи нет.</p>' );
@@ -123,9 +123,9 @@
 					+ '</div>'
 					+ '<div class="fs-videolib-pending-row__actions">'
 					+ ( options
-						? '<select data-pending-select><option value="">Выберите запись группы…</option>' + options + '</select>'
+						? '<select data-pending-select><option value="">Выберите запись…</option>' + options + '</select>'
 							+ '<button type="button" class="button" data-pending-attach>Привязать</button>'
-						: '<span class="description">Непривязанных записей этой группы нет.</span>' )
+						: '<span class="description">Подходящих непривязанных записей нет.</span>' )
 					+ '</div>'
 					+ '<div class="fs-videolib-pending-row__actions">'
 					+ '<input type="text" data-pending-url placeholder="https://… или s3://bucket/key">'

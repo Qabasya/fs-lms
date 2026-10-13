@@ -114,6 +114,20 @@ class VideoRegistrationServiceTest extends TestCase {
 		) );
 	}
 
+	public function test_preview_resolves_without_writes_or_notifications(): void {
+		$this->recordings->expects( self::never() )->method( 'upsertByS3Key' );
+		$this->recordings->expects( self::never() )->method( 'attach' );
+		$this->groupLessons->expects( self::never() )->method( 'setRecordingUrl' );
+		$this->groupLessons->expects( self::never() )->method( 'setStatus' );
+		$this->resolver->expects( self::once() )->method( 'resolve' )->with(
+			self::callback( static fn( \DateTimeImmutable $date ): bool => '2026-07-08 15:04:45' === $date->format( 'Y-m-d H:i:s' ) ),
+			null,
+			7
+		)->willReturn( array( 'group_lesson_id' => 55, 'reason' => 'matched' ) );
+		self::assertSame( array( 'matched' => true, 'group_lesson_id' => 55 ), $this->service->preview( $this->input( array( 'group_id' => null ) ) ) );
+		self::assertSame( array(), $GLOBALS['_fs_test_actions'] );
+	}
+
 	// ── Матч ─────────────────────────────────────────────────────────────────
 
 	public function test_match_attaches_writes_pointer_and_sets_held(): void {

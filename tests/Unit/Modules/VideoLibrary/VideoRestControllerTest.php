@@ -109,6 +109,26 @@ class VideoRestControllerTest extends TestCase {
 		self::assertSame( 200, $this->controller->postVideo( $this->request( $body ) )->get_status() );
 	}
 
+	public function test_teacher_id_without_group_is_accepted(): void {
+		$this->service->method( 'register' )->willReturn( array( 'recording_id' => 1, 'matched' => false, 'group_lesson_id' => null ) );
+		$body = $this->validBody( array( 'lms' => array( 'teacher_id' => 7 ) ) );
+		self::assertSame( 200, $this->controller->postVideo( $this->request( $body ) )->get_status() );
+	}
+
+	public function test_dry_run_only_previews_matching(): void {
+		$this->service->expects( self::never() )->method( 'register' );
+		$this->service->expects( self::once() )->method( 'preview' )->willReturn( array( 'matched' => true, 'group_lesson_id' => 123 ) );
+		$response = $this->controller->postVideo( $this->request( $this->validBody( array( 'dry_run' => true ) ) ) );
+		self::assertSame( 200, $response->get_status() );
+		self::assertTrue( $response->get_data()['matched'] );
+	}
+
+	public function test_non_boolean_dry_run_is_rejected(): void {
+		$this->service->expects( self::never() )->method( 'register' );
+		$response = $this->controller->postVideo( $this->request( $this->validBody( array( 'dry_run' => 'false' ) ) ) );
+		self::assertSame( 400, $response->get_status() );
+	}
+
 	// ── 400 ──────────────────────────────────────────────────────────────────
 
 	public function test_missing_s3_key_is_400(): void {

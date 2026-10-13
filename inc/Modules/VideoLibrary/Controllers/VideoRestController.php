@@ -51,7 +51,10 @@ class VideoRestController {
 		}
 
 		try {
-			$result = $this->service->register( $input );
+			$body   = $request->get_json_params();
+			$result = true === ( $body['dry_run'] ?? false )
+				? $this->service->preview( $input )
+				: $this->service->register( $input );
 		} catch ( \InvalidArgumentException $e ) {
 			return new \WP_REST_Response( array( 'ok' => false, 'error' => $e->getMessage() ), 400 );
 		}
@@ -68,6 +71,11 @@ class VideoRestController {
 		$body = $request->get_json_params();
 		if ( ! is_array( $body ) || array() === $body ) {
 			$error = 'empty or non-json body';
+			return null;
+		}
+
+		if ( array_key_exists( 'dry_run', $body ) && ! is_bool( $body['dry_run'] ) ) {
+			$error = 'dry_run must be a boolean';
 			return null;
 		}
 
@@ -99,8 +107,10 @@ class VideoRestController {
 		$groupId         = isset( $lms['group_id'] ) ? (int) $lms['group_id'] : null;
 		$teacherUsername = isset( $lms['teacher_username'] ) ? trim( (string) $lms['teacher_username'] ) : '';
 
-		if ( ( null === $groupId || $groupId <= 0 ) && '' === $teacherUsername ) {
-			$error = 'lms block must contain group_id (int > 0) or teacher_username';
+		$teacherId       = isset( $lms['teacher_id'] ) ? (int) $lms['teacher_id'] : 0;
+
+		if ( ( null === $groupId || $groupId <= 0 ) && $teacherId <= 0 && '' === $teacherUsername ) {
+			$error = 'lms block must contain group_id or teacher_id (int > 0) or teacher_username';
 			return null;
 		}
 

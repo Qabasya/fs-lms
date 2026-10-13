@@ -35,6 +35,22 @@ class VideoRegistrationService {
 		private readonly GroupsRepository         $groups,
 	) {}
 
+	/** Проверяет привязку без записи в реестр, изменения занятия и уведомлений.
+	 *
+	 * @return array{matched:bool, group_lesson_id:int|null}
+	 */
+	public function preview( VideoRecordingInputDTO $input ): array {
+		$result = $this->resolver->resolve(
+			$this->normalizeRecordedAt( $input->recordedAt ),
+			$input->groupId,
+			$this->resolveTeacherUserId( $input )
+		);
+		return array(
+			'matched'         => null !== $result['group_lesson_id'],
+			'group_lesson_id' => $result['group_lesson_id'],
+		);
+	}
+
 	/**
 	 * Полный цикл регистрации (REST `POST /videos`).
 	 *

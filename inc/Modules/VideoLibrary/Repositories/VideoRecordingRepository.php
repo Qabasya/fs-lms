@@ -128,4 +128,23 @@ class VideoRecordingRepository {
 		return array_map( static fn( $r ) => VideoRecordingDTO::fromRow( $r ), $rows ?: array() );
 	}
 
+	/** Записи группы плюс личной папки преподавателя для индивидуального занятия.
+	 *
+	 * @return VideoRecordingDTO[]
+	 */
+	public function listCandidates( int $groupId, ?int $teacherUserId = null ): array {
+		if ( null === $teacherUserId || $teacherUserId <= 0 ) {
+			return $this->listByGroup( $groupId );
+		}
+		$rows = $this->wpdb->get_results(
+			$this->wpdb->prepare(
+				"SELECT * FROM {$this->table} WHERE (group_id = %d OR (group_id IS NULL AND teacher_user_id = %d))
+			 AND status = %s ORDER BY recorded_at DESC",
+				$groupId,
+				$teacherUserId,
+				VideoRecordingStatus::Unmatched->value
+			)
+		);
+		return array_map( static fn( $r ) => VideoRecordingDTO::fromRow( $r ), $rows ?: array() );
+	}
 }

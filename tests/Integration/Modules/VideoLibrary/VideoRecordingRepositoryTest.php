@@ -136,4 +136,17 @@ class VideoRecordingRepositoryTest extends TestCase {
 		self::assertStringContainsString( "status = 'unmatched'", $q );
 		self::assertCount( 1, $list );
 	}
+	public function test_manual_candidates_include_teacher_folder_only_for_individual_lessons(): void {
+		$this->wpdb->queueResults( array() );
+		$this->repo->listCandidates( 5, 7 );
+		$q = $this->wpdb->lastQuery();
+		self::assertStringContainsString( 'group_id = 5', $q );
+		self::assertStringContainsString( 'group_id IS NULL AND teacher_user_id = 7', $q );
+		self::assertStringContainsString( "status = 'unmatched'", $q );
+
+		$this->wpdb->queueResults( array() );
+		$this->repo->listCandidates( 5 );
+		self::assertStringNotContainsString( 'teacher_user_id =', $this->wpdb->lastQuery() );
+	}
+
 }

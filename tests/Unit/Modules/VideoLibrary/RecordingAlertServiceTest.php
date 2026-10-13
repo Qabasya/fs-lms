@@ -6,6 +6,7 @@ namespace Unit\Modules\VideoLibrary;
 
 use Inc\DTO\Course\GroupLessonDTO;
 use Inc\DTO\Course\LessonDTO;
+use Inc\Enums\Course\LessonKind;
 use Inc\Managers\Course\LessonManager;
 use Inc\Modules\VideoLibrary\DTO\VideoRecordingDTO;
 use Inc\Modules\VideoLibrary\Repositories\VideoRecordingRepository;
@@ -41,13 +42,13 @@ class RecordingAlertServiceTest extends TestCase {
 		);
 	}
 
-	private function lessonRow( int $id, int $groupId, ?int $lessonId, ?string $label = null ): GroupLessonDTO {
+	private function lessonRow( int $id, int $groupId, ?int $lessonId, ?string $label = null, LessonKind $kind = LessonKind::Group, ?int $teacherId = null ): GroupLessonDTO {
 		return new GroupLessonDTO(
 			id: $id, groupId: $groupId, lessonId: $lessonId, position: 0, workIdsSnapshot: null,
 			extraWorkIds: array(), scheduledAt: '2026-07-20 10:00:00', endsAt: null, isPinned: false,
-			teacherUserId: null, visibility: 'open', openedAt: null, homeworkDueAt: null,
+			teacherUserId: $teacherId, visibility: 'open', openedAt: null, homeworkDueAt: null,
 			allowLate: true, recordingUrl: null, createdByUserId: null, updatedByUserId: null,
-			label: $label, status: 'held',
+			label: $label, status: 'held', kind: $kind,
 		);
 	}
 
@@ -67,11 +68,11 @@ class RecordingAlertServiceTest extends TestCase {
 	}
 
 	public function test_pending_row_carries_group_topic_and_candidates(): void {
-		$this->groupLessons->method( 'listHeldWithoutRecording' )
+		$this->groupLessons->method( 'listPastWithoutRecording' )
 			->willReturn( array( $this->lessonRow( 42, 5, 1 ) ) );
 		$this->groups->method( 'findById' )->with( 5 )->willReturn( (object) array( 'name' => 'КЕГЭ-1' ) );
 		$this->lessons->method( 'get' )->with( 1 )->willReturn( $this->lesson( 'Циклы' ) );
-		$this->recordings->method( 'listByGroup' )->with( 5 )
+		$this->recordings->method( 'listCandidates' )->with( 5 )
 			->willReturn( array( $this->recording( 7, 'videos/kege-1/rec.webm' ) ) );
 
 		$rows = $this->service->pending();
@@ -87,14 +88,14 @@ class RecordingAlertServiceTest extends TestCase {
 
 	public function test_group_and_candidates_are_read_once_per_group(): void {
 		// Три занятия: два в группе 5, одно в группе 6 — два чтения, а не три.
-		$this->groupLessons->method( 'listHeldWithoutRecording' )->willReturn( array(
+		$this->groupLessons->method( 'listPastWithoutRecording' )->willReturn( array(
 			$this->lessonRow( 42, 5, 1 ),
 			$this->lessonRow( 43, 5, 1 ),
 			$this->lessonRow( 44, 6, 1 ),
 		) );
 		$this->groups->expects( self::exactly( 2 ) )->method( 'findById' )
 			->willReturn( (object) array( 'name' => 'Группа' ) );
-		$this->recordings->expects( self::exactly( 2 ) )->method( 'listByGroup' )->willReturn( array() );
+		$this->recordings->expects( self::exactly( 2 ) )->method( 'listCandidates' )->willReturn( array() );
 		$this->lessons->method( 'get' )->willReturn( $this->lesson( 'Тема' ) );
 
 		self::assertCount( 3, $this->service->pending() );
@@ -102,18 +103,36 @@ class RecordingAlertServiceTest extends TestCase {
 
 	public function test_topic_falls_back_to_lesson_label_without_content(): void {
 		// Занятие без урока (lesson_id = null) — подписываем собственной меткой.
-		$this->groupLessons->method( 'listHeldWithoutRecording' )
+		$this->groupLessons->method( 'listPastWithoutRecording' )
 			->willReturn( array( $this->lessonRow( 42, 5, null, 'Консультация' ) ) );
 		$this->groups->method( 'findById' )->willReturn( (object) array( 'name' => 'КЕГЭ-1' ) );
-		$this->recordings->method( 'listByGroup' )->willReturn( array() );
+		$this->recordings->method( 'listCandidates' )->willReturn( array() );
 		$this->lessons->expects( self::never() )->method( 'get' );
 
 		self::assertSame( 'Консультация', $this->service->pending()[0]['topic'] );
 	}
 
 	public function test_count_pending_delegates_to_repository(): void {
-		$this->groupLessons->method( 'countHeldWithoutRecording' )->willReturn( 4 );
+		$this->groupLessons->method( 'countPastWithoutRecording' )->willReturn( 4 );
 
 		self::assertSame( 4, $this->service->countPending() );
 	}
+	public function test_individual_candidates_use_lesson_teacher_override(): void {
+		$this->groupLessons->method( 'listPastWithoutRecording' )->willReturn( array(
+			$this->lessonRow( 42, 5, null, 'Индивидуальное', LessonKind::Individual, 9 ),
+			$this->lessonRow( 43, 5, null, 'Индивидуальное', LessonKind::Individual ),
+			$this->lessonRow( 44, 5, null, 'Групповое' ),
+		) );
+		$this->groups->method( 'findById' )->willReturn( (object) array( 'name' => 'КЕГЭ-1', 'teacher_id' => 7 ) );
+		$calls = array();
+		$this->recordings->expects( self::exactly( 3 ) )->method( 'listCandidates' )->willReturnCallback(
+			static function ( int $groupId, ?int $teacherId ) use ( &$calls ): array {
+				$calls[] = array( $groupId, $teacherId );
+				return array();
+			}
+		);
+		self::assertCount( 3, $this->service->pending() );
+		self::assertSame( array( array( 5, 9 ), array( 5, 7 ), array( 5, null ) ), $calls );
+	}
+
 }

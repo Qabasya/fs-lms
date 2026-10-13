@@ -450,6 +450,38 @@ class GroupLessonRepository {
 		);
 	}
 
+	/** Завершившиеся занятия без записи, включая не отмеченные как проведённые.
+	 *
+	 * @return GroupLessonDTO[]
+	 */
+	public function listPastWithoutRecording( string $now, int $limit = 50 ): array {
+		$rows = $this->wpdb->get_results(
+			$this->wpdb->prepare(
+				'SELECT * FROM %i WHERE ' . $this->missingRecordingCondition() . ' ORDER BY scheduled_at DESC LIMIT %d',
+				$this->table,
+				$now,
+				$limit
+			),
+			ARRAY_A
+		);
+		return array_map( array( GroupLessonDTO::class, 'fromArray' ), $rows ?: array() );
+	}
+
+	public function countPastWithoutRecording( string $now ): int {
+		return (int) $this->wpdb->get_var(
+			$this->wpdb->prepare(
+				'SELECT COUNT(*) FROM %i WHERE ' . $this->missingRecordingCondition(),
+				$this->table,
+				$now
+			)
+		);
+	}
+
+	private function missingRecordingCondition(): string {
+		return "(status = 'held' OR (status = 'scheduled' AND COALESCE(ends_at, DATE_ADD(scheduled_at, INTERVAL 3 HOUR)) < %s))
+			AND (recording_url IS NULL OR recording_url = '') AND (recording_link IS NULL OR recording_link = '')";
+	}
+
 	/**
 	 * Индивидуальные занятия преподавателя в календарный день по всем его группам (V4).
 	 * Эффективный препод: `teacher_user_id` занятия, иначе `teacher_id` группы.
