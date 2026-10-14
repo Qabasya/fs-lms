@@ -18,6 +18,7 @@ import { renderExamStats } from './exams/exam-stats.js';
 import { renderExamPayments } from './exams/exam-payments.js';
 import { renderExamReview, openExamReview } from './exams/exam-review.js';
 import { initNotifications } from './notifications.js';
+import { initSegmented } from './segmented.js';
 import { initLiveBanner } from './live-banner.js';
 import { renderTeacherCourses, openTeacherCourse } from './teacher-courses.js';
 
@@ -539,6 +540,7 @@ export function initProfile() {
     initNotifications();
     initLiveBanner();
     initCollapse();
+    initSegmented();
 
     // Deep-link на экран: /profile/?screen=student-lessons (ссылки из плеера курса, T14.13).
     // С gid (?screen=groups&gid=2) — открыть «Группы» на конкретной группе, как клик

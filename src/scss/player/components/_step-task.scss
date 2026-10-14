@@ -6,6 +6,23 @@
 @use '../variables' as *;
 @use '../../shared/cabinet/ui' as *;
 
+// Подсветка верного варианта — общая для ответа ученика (.ok) и эталона преподавателя.
+@mixin opt-ok {
+  border-color: var(--ok);
+  background: var(--ok-soft);
+  color: var(--ink);
+
+  .radio { border-color: var(--ok); }
+
+  .radio::after {
+    content: '';
+    position: absolute;
+    inset: rem(3);
+    border-radius: 50%;
+    background: var(--ok);
+  }
+}
+
 /* ── Варианты ответа (choice) ───────────────────────────────────────── */
 .opt {
   display: flex;
@@ -58,21 +75,7 @@
     }
   }
 
-  &.ok {
-    border-color: var(--ok);
-    background: var(--ok-soft);
-    color: var(--ink);
-
-    .radio { border-color: var(--ok); }
-
-    .radio::after {
-      content: '';
-      position: absolute;
-      inset: rem(3);
-      border-radius: 50%;
-      background: var(--ok);
-    }
-  }
+  &.ok { @include opt-ok; }
 
   &.no {
     border-color: var(--err);
@@ -254,15 +257,15 @@
 
 .fs-widget-triple-group + .fs-widget-triple-group { margin-top: rem(10); }
 
-// Сетка задана на контейнере, строки — display: contents: колонка селектов
-// прижата к левой (max-content), но общая для всех пар, поэтому селекты
-// остаются выровненными между строками.
+// Сетка задана на контейнере, строки — display: contents: обе колонки по 40%
+// ширины, 10% между ними — общие для всех пар, поэтому селекты остаются
+// выровненными между строками.
 .fs-widget-matching {
   display: grid;
-  grid-template-columns: max-content rem(220);
+  grid-template-columns: 40% 40%;
   justify-content: start;
   align-items: center;
-  gap: rem(10) rem(12);
+  gap: rem(10) 10%;
 }
 
 .fs-widget-matching-row { display: contents; }
@@ -270,6 +273,7 @@
 .fs-widget-matching-left { font-size: $font-size-md; color: var(--ink-2); }
 
 .fs-widget-matching-select {
+  width: 100%;
   border: 1.5px solid var(--line);
   border-radius: rem(10);
   background: var(--surface);
@@ -277,6 +281,10 @@
   font: 500 rem(13) var(--font);
   color: var(--ink-2);
   outline: none;
+
+  // Своя стрелка с отступом от правого края — родная прилипает к границе.
+  // После `background`/`padding`: их шорткаты иначе сбросили бы картинку и padding-right.
+  @include cab-select-arrow-skin;
 
   &:focus {
     border-color: var(--accent);
@@ -387,6 +395,9 @@
    .fs-answer): кнопка-переключатель, заливная в раскрытом состоянии, и
    плашка ответа под ней. Аккордеон держит <details>, поэтому переключение
    обходится без JS — «is-active» тренажёра здесь это [open]. */
+// В карточке задачи работы нет flex-gap — отступ от условия/вариантов задаём сами.
+.a-task > .fs-solution { margin-top: rem(12); }
+
 .fs-solution {
   .fs-solution__toggle {
     @include cab-btn($tr);
@@ -468,4 +479,44 @@
 /* ── Мобильный (Фаза 5): сопоставление — селект под условием, не сбоку ─ */
 @media (max-width: $bp-mobile) {
   .fs-widget-matching { grid-template-columns: 1fr; gap: rem(6); }
+}
+
+/* ── Режим преподавателя: варианты как у ученика, но без ввода ───────── */
+.fs-teacher-variants {
+  &.fs-widget-ordering .fs-widget-ordering-item,
+  .fs-widget-ordering-grip { cursor: default; }
+}
+
+// Эталон скрыт, пока «Показать решение» закрыто; общий родитель шага и карточки работы.
+.fs-teacher-key,
+.fs-teacher-variants--key { display: none; }
+
+:has(> .fs-solution[open]) {
+  .opt[data-key] { @include opt-ok; }
+
+  .fs-widget-matching-row {
+    .fs-widget-matching-select { display: none; }
+
+    .fs-teacher-key {
+      display: block;
+      padding: rem(9) rem(12);
+      border: 1.5px solid var(--ok);
+      border-radius: rem(10);
+      background: var(--ok-soft);
+      font: 500 #{rem(13)} var(--font);
+      color: var(--ink);
+    }
+  }
+
+  .fs-teacher-variants--bank { display: none; }
+
+  .fs-teacher-variants--key {
+    display: flex;
+
+    .fs-widget-ordering-item {
+      border-color: var(--ok);
+      background: var(--ok-soft);
+      color: var(--ink);
+    }
+  }
 }

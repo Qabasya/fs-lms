@@ -77,7 +77,7 @@ function wrap(inner) {
             <div class="subs-title">Замены</div>
             <button class="prof-btn prof-btn-sm subs-group-btn" id="subsGroupBtn">
                 ${esc(g ? g.name + ' · ' + g.subject : 'Группа')}
-                ${icoCaret(12)}
+                ${icoCaret(12, 'kp-caret')}
             </button>
         </div>
         ${inner}

@@ -50,7 +50,11 @@
 .kp-btn:disabled:hover { border-color: var(--line); }
 .kp-chip { width: rem(28); height: rem(26); border-radius: rem(7); flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: rem(11); font-weight: 700; color: var(--ink-inverse); }
 .kp-txt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.kp-caret { color: var(--muted-2); margin-left: rem(2); flex-shrink: 0; }
+
+/* Стрелка выпадашки — как у нативных select кабинета (cab-select-arrow-skin): тёмный треугольник
+   10×5 в 10px от правой границы. Svg 20×20 (треугольник внутри — 10 из 20), поэтому поля
+   втягиваем: правый край треугольника сидит в 5px от края svg. */
+.kp-caret { width: rem(20); height: rem(20); color: var(--ink-2); margin: 0 rem(-7) 0 rem(-3); flex-shrink: 0; }
 
 .prof-ktp-empty {
   flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;

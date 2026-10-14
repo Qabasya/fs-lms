@@ -39,7 +39,8 @@ readonly class TaskSolutionService {
 	 * @param int                  $taskId ID задачи
 	 * @param array<string, mixed> $meta   Мета задачи из `StepContentRenderer::taskBundle()`
 	 *
-	 * @return array{answer:string, html:string, code:string}|null null — эталона нет (ручной шаблон без решения).
+	 * @return array{answer:string, html:string, code:string, variants:array{correct_ids:string[], pairs:array<int,array{left:string,right:string}>, order:string[]}}|null
+	 *         null — эталона нет (ручной шаблон без решения).
 	 */
 	public function forTask( int $taskId, array $meta ): ?array {
 		$answer   = (string) ( $this->correctAnswers->resolve( $taskId ) ?? '' );
@@ -59,9 +60,49 @@ readonly class TaskSolutionService {
 		}
 
 		return array(
-			'answer' => $answer,
-			'html'   => $html,
-			'code'   => $code,
+			'answer'   => $answer,
+			'html'     => $html,
+			'code'     => $code,
+			'variants' => $this->variants( $meta ),
+		);
+	}
+
+	/**
+	 * Структурный эталон для подсветки в режиме преподавателя: верные варианты выбора,
+	 * верные пары сопоставления и порядок элементов сортировки. Читается из меты по
+	 * ключам полей шаблонов (см. {@see CorrectAnswerResolver}); у чужих шаблонов пусто.
+	 *
+	 * @param array<string, mixed> $meta
+	 *
+	 * @return array{correct_ids:string[], pairs:array<int,array{left:string,right:string}>, order:string[]}
+	 */
+	private function variants( array $meta ): array {
+		$correctIds = array();
+		foreach ( (array) ( $meta['task_options']['options'] ?? array() ) as $option ) {
+			if ( is_array( $option ) && ! empty( $option['correct'] ) && '' !== (string) ( $option['id'] ?? '' ) ) {
+				$correctIds[] = (string) $option['id'];
+			}
+		}
+
+		$pairs = array();
+		foreach ( (array) ( $meta['task_pairs']['pairs'] ?? array() ) as $pair ) {
+			if ( is_array( $pair ) ) {
+				$pairs[] = array(
+					'left'  => (string) ( $pair['left'] ?? '' ),
+					'right' => (string) ( $pair['right'] ?? '' ),
+				);
+			}
+		}
+
+		$order = array_values( array_map( 'strval', array_filter(
+			(array) ( $meta['task_order_items']['items'] ?? array() ),
+			'is_scalar'
+		) ) );
+
+		return array(
+			'correct_ids' => $correctIds,
+			'pairs'       => $pairs,
+			'order'       => $order,
 		);
 	}
 }

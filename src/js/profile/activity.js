@@ -190,16 +190,16 @@ function render(inner) {
     const g = group();
     const body = inner ?? (FEEDS[state.tab] ? eventsBody() : attemptsBody());
     const tab  = (key, label) =>
-        `<button class="act-tab${key === state.tab ? ' is-active' : ''}" data-tab="${key}">${label}</button>`;
+        `<button type="button" class="${key === state.tab ? 'on' : ''}" data-tab="${key}">${label}</button>`;
 
     root.innerHTML = `
     <div class="prof-activity">
         <div class="act-head">
             <button class="prof-btn prof-btn-sm act-group-btn" id="actGroupBtn">
                 ${esc(g ? g.name + ' · ' + g.subject : 'Группа')}
-                ${icoCaret(12)}
+                ${icoCaret(12, 'kp-caret')}
             </button>
-            <div class="act-tabs">
+            <div class="prof-seg" role="tablist" aria-label="Раздел активности">
                 ${tab('events', FEEDS.events.title)}
                 ${tab('attempts', 'Решения задач')}
                 ${tab('course', FEEDS.course.title)}

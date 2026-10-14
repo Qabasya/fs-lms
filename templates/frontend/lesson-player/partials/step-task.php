@@ -142,6 +142,9 @@ use Inc\Enums\Ui\Icon;
 		// в ученическом view его не бывает ни при каком статусе шага.
 		if ( ! empty( $render['solution'] ) ) :
 			$teacher_solution = $render['solution'];
+			// Режим преподавателя подсвечивает верное в самих вариантах — строку ответа не дублируем.
+			$solution_inline = ! empty( $is_teacher_view )
+				&& in_array( (string) ( $render['widget_data']['type'] ?? '' ), array( 'choice', 'matching', 'ordering' ), true );
 			include __DIR__ . '/teacher-solution.php';
 		endif;
 		?>

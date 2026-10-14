@@ -13,17 +13,21 @@
 // у бандлов свой (body / body.fs-player-page) — оформление едино.
 // Стрелка выпадающего списка: своя (рисуется градиентами в цвет текста), с отступом от правой границы — родная упирается в край.
 // Селектор с :not() намеренно тяжелее компонентных `select { background: … }`, иначе их шорткат сбросит картинку.
+@mixin cab-select-arrow-skin {
+  appearance: none;
+  padding-right: t.rem(32);
+  cursor: pointer;
+  background-image:
+    linear-gradient(45deg, transparent 50%, currentcolor 50%),
+    linear-gradient(135deg, currentcolor 50%, transparent 50%);
+  background-position: calc(100% - t.rem(17)) 50%, calc(100% - t.rem(12)) 50%;
+  background-size: t.rem(5) t.rem(5);
+  background-repeat: no-repeat;
+}
+
 @mixin cab-select-arrow {
   body select:not([multiple], [size]) {
-    appearance: none;
-    padding-right: t.rem(32);
-    cursor: pointer;
-    background-image:
-      linear-gradient(45deg, transparent 50%, currentcolor 50%),
-      linear-gradient(135deg, currentcolor 50%, transparent 50%);
-    background-position: calc(100% - t.rem(17)) 50%, calc(100% - t.rem(12)) 50%;
-    background-size: t.rem(5) t.rem(5);
-    background-repeat: no-repeat;
+    @include cab-select-arrow-skin;
   }
 }
 

@@ -59,6 +59,7 @@ use Inc\Enums\Ui\Icon;
 
 					if ( ! empty( $tw_task['solution'] ) ) :
 						$teacher_solution = $tw_task['solution'];
+						$solution_inline = in_array( (string) ( $tw_task['widget_data']['type'] ?? '' ), array( 'choice', 'matching', 'ordering' ), true );
 						include __DIR__ . '/teacher-solution.php';
 					endif;
 					?>

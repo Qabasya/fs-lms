@@ -156,30 +156,6 @@
 /* Режим преподавателя: пропуск в тексте задачи — прочерк на месте поля ввода. */
 .fs-fill-blank { color: var(--muted-2); white-space: nowrap; }
 
-/* Режим преподавателя: варианты выбора / сортировки / сопоставления списком, без полей ответа. */
-.fs-task-variants {
-  display: flex;
-  flex-direction: column;
-  gap: rem(6);
-  margin-top: rem(12);
-
-  &--cols {
-    flex-direction: row;
-    flex-wrap: wrap;
-    gap: rem(24);
-  }
-
-  &__label {
-    color: var(--muted-2);
-    font-weight: 600;
-  }
-
-  &__list {
-    margin: 0;
-    padding-left: rem(20);
-  }
-}
-
 /* номер задачи */
 .tkn {
   width: rem(30);

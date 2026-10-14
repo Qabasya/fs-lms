@@ -22,36 +22,6 @@
   gap: rem(6);
 }
 
-/* ── Вкладки экрана ───────────────────────────────────────────────────── */
-
-.act-tabs {
-  display: inline-flex;
-  gap: rem(4);
-  padding: rem(3);
-  border-radius: var(--radius-sm);
-  background: var(--line-2);
-}
-
-.act-tab {
-  padding: rem(6) rem(14);
-  border: 0;
-  border-radius: var(--radius-xs);
-  background: none;
-  color: var(--muted);
-  font-size: rem(13);
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.15s, color 0.15s;
-
-  &:hover { color: var(--ink-2); }
-
-  &.is-active {
-    background: var(--surface);
-    color: var(--ink);
-    box-shadow: var(--shadow-sm);
-  }
-}
-
 /* ── Лента событий ────────────────────────────────────────────────────── */
 
 .prof-activity .prof-card { padding-bottom: rem(16); }

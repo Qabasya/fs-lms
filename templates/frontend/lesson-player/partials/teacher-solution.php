@@ -11,6 +11,8 @@
  * `solution` не бывает, поэтому партиал ему не подключается никогда.
  *
  * @var array{answer:string, html:string, code:string} $teacher_solution
+ * @var bool|null $solution_inline Верный ответ уже подсвечен в самих вариантах (режим преподавателя:
+ *                                выбор, сопоставление, сортировка) — строку «Правильный ответ» не дублируем.
  *
  * @package FS LMS
  */
@@ -30,7 +32,7 @@ use Inc\Enums\Ui\Icon;
 		<?php esc_html_e( 'Показать решение', 'fs-lms' ); ?>
 	</summary>
 	<div class="fs-solution__body">
-		<?php if ( '' !== (string) $teacher_solution['answer'] ) : ?>
+		<?php if ( '' !== (string) $teacher_solution['answer'] && empty( $solution_inline ) ) : ?>
 			<div class="fs-solution__row">
 				<span class="fs-solution__label"><?php esc_html_e( 'Правильный ответ', 'fs-lms' ); ?></span>
 				<span class="fs-solution__answer"><?php echo esc_html( (string) $teacher_solution['answer'] ); ?></span>

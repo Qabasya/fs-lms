@@ -52,3 +52,27 @@
   font-size: rem(13); font-weight: 600; color: var(--muted); cursor: pointer; transition: all $tr;
 }
 .prof-seg button.on { background: var(--surface); color: var(--accent-700); box-shadow: var(--shadow-sm); }
+
+/* Плавающая «таблетка» (segmented.js): кнопки над ней, активная — без собственного фона.
+   Положение и ширину отдаёт JS переменными --seg-x/--seg-w: геометрию классом не выразить. */
+.prof-seg { position: relative; }
+.prof-seg button { position: relative; z-index: 1; }
+
+.prof-seg__thumb {
+  position: absolute;
+  top: rem(3);
+  bottom: rem(3);
+  left: 0;
+  width: var(--seg-w, 0);
+  transform: translateX(var(--seg-x, 0));
+  border-radius: rem(7);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  pointer-events: none;
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), width 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+
+  &.is-instant { transition: none; }
+}
+
+.prof-seg:not(.has-thumb) .prof-seg__thumb { display: none; }
+.prof-seg.has-thumb button.on { background: transparent; box-shadow: none; }

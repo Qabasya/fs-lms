@@ -72,4 +72,23 @@ class TaskSolutionServiceTest extends TestCase {
 
 		self::assertNull( $this->service->forTask( 77, array() ) );
 	}
+
+	/** Структурный эталон: верные варианты, пары и порядок — для подсветки в режиме преподавателя. */
+	public function test_exposes_structured_variants(): void {
+		$this->correctAnswers->method( 'resolve' )->willReturn( 'ответ' );
+
+		$solution = $this->service->forTask( 77, array(
+			'task_options'     => array( 'options' => array(
+				array( 'id' => '1', 'text' => 'A', 'correct' => true ),
+				array( 'id' => '2', 'text' => 'B', 'correct' => false ),
+				array( 'id' => '3', 'text' => 'C', 'correct' => '1' ),
+			) ),
+			'task_pairs'       => array( 'pairs' => array( array( 'left' => 'x', 'right' => 'y' ) ) ),
+			'task_order_items' => array( 'items' => array( 'первый', 'второй' ) ),
+		) );
+
+		self::assertSame( array( '1', '3' ), $solution['variants']['correct_ids'] );
+		self::assertSame( array( array( 'left' => 'x', 'right' => 'y' ) ), $solution['variants']['pairs'] );
+		self::assertSame( array( 'первый', 'второй' ), $solution['variants']['order'] );
+	}
 }

@@ -110,7 +110,11 @@ class StepContentRenderer {
 			'condition_html' => $this->buildConditionHtml( $meta, $template, $collapseCommon ),
 			// Ручные задания виджета не получают (ответ — файлы на отдельном флоу),
 			// кроме «Задания Робо»: его ответ — код, вводится прямо в карточке работы.
-			'widget_data'    => $autoGrade || $template->isCodeOnlyAnswer() ? $this->buildWidgetData( $meta, $template, $shuffle ) : array(),
+			// Сортировка перемешивается всегда (как в StepSettingsDTO::withTypeDefaults): задачи
+			// работы приходят сюда с shuffle=false, и без форсирования элементы стояли бы в верном порядке.
+			'widget_data'    => $autoGrade || $template->isCodeOnlyAnswer()
+				? $this->buildWidgetData( $meta, $template, $shuffle || TaskTemplate::Ordering === $template )
+				: array(),
 			'files'          => $this->buildFiles( $meta ),
 			// Кнопка «Проверить ответ» в работе: только текстовые автозадания.
 			'check_enabled'  => $autoGrade && $template->allowsInlineCheck(),
@@ -352,8 +356,13 @@ class StepContentRenderer {
 			$items,
 			array_keys( $items )
 		) );
-		if ( $shuffle ) {
+		if ( $shuffle && count( $data ) > 1 ) {
 			shuffle( $data );
+			// Случайная перестановка могла совпасть с верным порядком — тогда задание
+			// выглядит уже решённым. Сдвигаем на один: порядок гарантированно иной.
+			if ( array_column( $data, 'id' ) === array_keys( $data ) ) {
+				$data[] = array_shift( $data );
+			}
 		}
 		return array( 'type' => 'ordering', 'items' => $data );
 	}
