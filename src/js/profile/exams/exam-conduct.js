@@ -14,7 +14,7 @@ import { icoCalendarBoard, icoAlert } from '../../common/icons.js';
 import { confirmDialog } from '../../common/components/confirm-dialog.js';
 import { createApi } from '../api.js';
 import { bindPhoneMask } from '../../common/input-masks.js';
-import { examConfig, approvalBlockReason, approvableRows, approveButtonLabel, approvalItems, approvalSummaryText, skippedListHtml, exportButtonsHtml, wireExportButtons } from './exam-common.js';
+import { examConfig, examSubjects, subjectPickerHtml, wireSubjectPicker, approvalBlockReason, approvableRows, approveButtonLabel, approvalItems, approvalSummaryText, skippedListHtml, exportButtonsHtml, wireExportButtons } from './exam-common.js';
 import { openMoveSessionForm, openCancelSessionForm } from './exam-session-actions.js';
 
 const REFRESH_MS = 30000;
@@ -56,6 +56,7 @@ let root = null;
 let api = null;
 let board = null;
 let sessionId = 0;
+let chosenSubject = ''; // предмет, выбранный переключателем; пусто — экран сам выбирает ближайший сеанс
 let fetchedAt = 0;
 let selecting = false;
 let selected = new Set();
@@ -84,6 +85,7 @@ export function renderExamConduct(r, h = {}) {
     api = createApi(cfg);
     sessionId = requestedSessionId;
     requestedSessionId = 0;
+    chosenSubject = '';
     resetSelection();
     root.innerHTML = '<div class="exam-conduct-loading">Загрузка…</div>';
     load();
@@ -93,7 +95,8 @@ export function renderExamConduct(r, h = {}) {
 /* ── Данные ───────────────────────────────────────────────────────────── */
 async function load() {
     try {
-        const data = await api('getConduct', sessionId ? { session_id: sessionId } : {});
+        const params = sessionId ? { session_id: sessionId } : (chosenSubject ? { subject_key: chosenSubject } : {});
+        const data = await api('getConduct', params);
         board = data.board || null;
     } catch (err) {
         board = null;
@@ -169,14 +172,15 @@ export function fmtLeft(total) {
 /* ── Отрисовка ────────────────────────────────────────────────────────── */
 function render() {
     if (!board) {
-        root.innerHTML = emptyState('prof-ktp', icoCalendarBoard(34), 'Экзамены не назначены.', 'Назначьте экзамен в разделе «Назначить экзамен».');
+        // С выбранным предметом переключатель остаётся: иначе из предмета без экзаменов не вернуться.
+        root.innerHTML = `<div class="exam-conduct">${subjectSwitcher()}${emptyState('prof-ktp', icoCalendarBoard(34), 'Экзамены не назначены.', 'Назначьте экзамен в разделе «Назначить экзамен».')}</div>`;
+        wireSubject();
         return;
     }
     const s = board.session;
     root.innerHTML = `
         <div class="exam-conduct">
-            ${eventSwitcher()}
-            ${sessionSwitcher()}
+            <div class="exam-conduct-nav">${subjectSwitcher()}${eventSwitcher()}${sessionSwitcher()}</div>
             <div class="exam-conduct-head">
                 <div class="exam-conduct-titlebar">
                     <h2 class="exam-conduct-title">${esc(s.event_title)}</h2>
@@ -225,6 +229,22 @@ function approvalToolbar() {
     }
     return `<button type="button" class="prof-btn prof-btn-sm prof-btn-primary" data-approve="confirm">${esc(approveButtonLabel(selected.size))}</button>
         <button type="button" class="prof-btn prof-btn-sm" data-approve="cancel">Отмена</button>`;
+}
+
+/** Переключатель предмета: показывается, когда у сотрудника больше одного предмета (как на экранах «Назначить», «Результаты»). */
+function subjectSwitcher() {
+    const current = chosenSubject || board?.event?.subject_key || '';
+    return subjectPickerHtml(examSubjects(), current, 'examConductSubjectBtn');
+}
+
+function wireSubject() {
+    const current = chosenSubject || board?.event?.subject_key || '';
+    wireSubjectPicker('examConductSubjectBtn', examSubjects(), current, key => {
+        chosenSubject = key;
+        sessionId = 0;
+        resetSelection();
+        load();
+    });
 }
 
 /** Переключатель проведения: показывается, когда у предмета их больше одного; выбор открывает ближайший сеанс выбранного. */
@@ -283,7 +303,9 @@ function rowHtml(r) {
  */
 function guestLinkButtonHtml(r) {
     if (r.actions.includes('entry_link')) {
-        return `<button type="button" class="prof-btn prof-btn-sm" data-link="entry_link">${r.entry_link_issued ? 'Перевыпустить ссылку' : 'Выдать ссылку'}</button>`;
+        // Выданная ссылка копируется как есть (адрес хранится зашифрованным); «Перевыпустить» остаётся в меню «⋯».
+        const label = r.entry_link_url ? 'Скопировать ссылку' : (r.entry_link_issued ? 'Перевыпустить ссылку' : 'Выдать ссылку');
+        return `<button type="button" class="prof-btn prof-btn-sm" data-link="entry_link"${r.entry_link_url ? ' data-copy-stored' : ''}>${label}</button>`;
     }
     if (r.actions.includes('result_link')) {
         return `<button type="button" class="prof-btn prof-btn-sm" data-link="result_link">${r.result_link_issued ? 'Перевыпустить ссылку результата' : 'Выдать ссылку результата'}</button>`;
@@ -353,6 +375,7 @@ async function approveSelected() {
 
 /* ── Действия ─────────────────────────────────────────────────────────── */
 function wire() {
+    wireSubject();
     root.querySelector('[data-event]')?.addEventListener('change', e => {
         sessionId = Number(e.target.value);
         resetSelection();
@@ -407,7 +430,12 @@ function wire() {
     });
     root.querySelectorAll('.exam-conduct-row [data-link]').forEach(btn => btn.addEventListener('click', () => {
         const row = board.rows.find(r => r.registration_id === Number(btn.closest('.exam-conduct-row').dataset.reg));
-        if (row) { runAction(btn.dataset.link, row, btn); }
+        if (!row) { return; }
+        if ('entry_link' === btn.dataset.link && btn.hasAttribute('data-copy-stored') && row.entry_link_url) {
+            copyStoredLink(row.entry_link_url, btn);
+            return;
+        }
+        runAction(btn.dataset.link, row, btn);
     }));
     root.querySelectorAll('.exam-conduct-row [data-menu]').forEach(btn => btn.addEventListener('click', () => {
         const row = board.rows.find(r => r.registration_id === Number(btn.closest('.exam-conduct-row').dataset.reg));
@@ -423,6 +451,20 @@ function actionLabel(action, row) {
     if ('entry_link' === action && row.entry_link_issued) { return 'Перевыпустить ссылку на вход'; }
     if ('result_link' === action && row.result_link_issued) { return 'Скопировать ссылку результата (выдать новую)'; }
     return ACTION_LABELS[action];
+}
+
+/** Копирует уже выданную ссылку входа без перевыпуска; при сбое буфера — окно для ручного копирования. */
+async function copyStoredLink(url, anchor) {
+    try {
+        await navigator.clipboard.writeText(url);
+        toast('Ссылка скопирована. Передайте её участнику.');
+    } catch {
+        const pop = document.getElementById('profGradePop');
+        if (pop) {
+            showLinkPop(pop, 'Ссылка на вход', 'Скопируйте ссылку и передайте её участнику.', 'Ссылка на вход', url);
+            openGradePopPositioned(pop, anchor);
+        }
+    }
 }
 
 /** Ссылка гостя (вход или результат) отдаётся один раз: копируется в буфер; при сбое буфера — показывается в окне для ручного копирования. */

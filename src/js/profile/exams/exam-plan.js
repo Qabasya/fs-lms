@@ -105,7 +105,7 @@ function headHtml() {
     const canPublish = e && 'draft' === e.status && e.sessions.length > 0;
     return `<div class="prof-ktp-head">
         <div class="prof-ktp-pickers">
-            ${subjectPickerHtml(subjects, currentSubject())}
+            ${subjectPickerHtml(subjects, currentSubject(), 'examPlanSubjectBtn')}
             ${eventPickerHtml()}
         </div>
         <span class="prof-spacer"></span>
@@ -159,7 +159,7 @@ function render() {
     const e = plan.event;
     root.innerHTML = `<div class="prof-ktp">${headHtml()}${e ? bannersHtml() + boardHtml() : emptyEventsHtml()}</div>`;
 
-    wireSubjectPicker('examSubjectBtn', examSubjects(), currentSubject(), key => {
+    wireSubjectPicker('examPlanSubjectBtn', examSubjects(), currentSubject(), key => {
         setCurrentSubject(key);
         load(0);
     });

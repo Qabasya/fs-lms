@@ -128,6 +128,9 @@
   // Флажок («без оплаты») полем ввода не считается: свои размеры, строка — высотой кнопки «Добавить».
   input:not([type="checkbox"]) { flex: 1 1 $exam-source-input-width; min-width: $exam-source-input-width; height: $exam-source-input-height; padding: 0 t.$spacing-sm; font: inherit; font-size: t.$font-size-sm; border: 1px solid var(--line); border-radius: t.$border-radius-sm; }
 
+  // Скидка по ссылке: те же размеры и рамка, что у полей ввода строки.
+  select { flex: 0 0 auto; height: $exam-source-input-height; padding: 0 t.$spacing-sm; font: inherit; font-size: t.$font-size-sm; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: t.$border-radius-sm; }
+
   .es-toggle { height: $exam-source-input-height; white-space: nowrap; }
   .es-toggle input { flex: 0 0 auto; width: auto; height: auto; margin: 0; }
 }
@@ -175,7 +178,20 @@
 .exam-conduct-event { display: flex; align-items: center; gap: t.$spacing-sm; }
 
 
-.exam-conduct-sessions { align-self: flex-start; max-width: 100%; overflow-x: auto; }
+/* Предмет, проведение и сеансы — одной строкой и одной высоты; на узком экране переносятся. Подпись «Предмет» в строке не нужна:
+   кнопка сама называет предмет, а подпись делала бы блок выше соседей. */
+.exam-conduct-nav {
+  display: flex; flex-wrap: wrap; align-items: center; gap: t.$spacing-lg t.$spacing-3xl;
+
+  .kp-label { display: none; }
+
+  .kp-btn,
+  .exam-conduct-sessions,
+  .exam-conduct-event select { height: $exam-filter-height; box-sizing: border-box; }
+
+  .exam-conduct-sessions { align-items: center; }
+}
+.exam-conduct-sessions { max-width: 100%; overflow-x: auto; }
 .exam-conduct-titlebar { display: flex; align-items: center; justify-content: space-between; gap: t.$spacing-md; }
 .exam-conduct-title { margin: 0; font-size: t.$font-size-lead; font-weight: t.$font-bold; color: var(--ink); }
 .exam-conduct-sub { margin-top: t.$spacing-xs; font-size: t.$font-size-sm; color: var(--muted); }

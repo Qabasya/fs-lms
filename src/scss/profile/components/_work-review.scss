@@ -126,6 +126,9 @@
   &[hidden] { display: none; }
 }
 
+/* «Утвердить работу» внизу работы: одна кнопка у правого края. */
+.wr-foot--approve { align-items: flex-end; }
+
 @media (max-width: $breakpoint-mobile) {
   .wr-head { padding: rem(16) rem(14) rem(12); }
   .wr-attempts { padding: rem(12) rem(14) 0; }

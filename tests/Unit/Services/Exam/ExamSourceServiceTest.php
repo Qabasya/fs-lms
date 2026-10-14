@@ -180,13 +180,29 @@ class ExamSourceServiceTest extends TestCase {
 		self::assertSame( self::EVENT, $this->inserted['event_id'] );
 	}
 
-	public function test_save_marks_free_link_only_when_flag_given(): void {
-		$this->service->save( self::ACTOR, self::EVENT, $this->input( array( 'is_free' => true ) ), null, null );
-		self::assertSame( 1, $this->inserted['is_free'] );
+	public function test_save_stores_link_discount_only_when_given(): void {
+		$this->service->save( self::ACTOR, self::EVENT, $this->input( array( 'discount_percent' => 100 ) ), null, null );
+		self::assertSame( 100, $this->inserted['discount_percent'] );
+
+		$this->inserted = array();
+		$this->service->save( self::ACTOR, self::EVENT, $this->input( array( 'discount_percent' => 25 ) ), null, null );
+		self::assertSame( 25, $this->inserted['discount_percent'] );
 
 		$this->inserted = array();
 		$this->service->save( self::ACTOR, self::EVENT, $this->input(), null, null );
-		self::assertArrayNotHasKey( 'is_free', $this->inserted, 'Без флага колонка остаётся со значением по умолчанию (платная).' );
+		self::assertArrayNotHasKey( 'discount_percent', $this->inserted, 'Без поля колонка остаётся со значением по умолчанию (полная цена).' );
+	}
+
+	public function test_save_rejects_discount_outside_steps(): void {
+		foreach ( array( 5, 30, 101, -10 ) as $bad ) {
+			try {
+				$this->service->save( self::ACTOR, self::EVENT, $this->input( array( 'discount_percent' => $bad ) ), null, null );
+				self::fail( "Скидка {$bad}% должна отклоняться." );
+			} catch ( CodedException $e ) {
+				self::assertSame( ErrorCode::ExamConflict, $e->errorCode );
+			}
+		}
+		self::assertSame( array(), $this->inserted );
 	}
 
 	public function test_save_keeps_school_key_when_given(): void {
@@ -373,7 +389,7 @@ class ExamSourceServiceTest extends TestCase {
 
 		$rows = $this->service->list( self::ACTOR, self::EVENT );
 
-		self::assertSame( array( 'id', 'school_name', 'teacher_name', 'grade', 'is_active', 'is_free', 'has_link', 'url', 'generation', 'active_holds', 'version' ), array_keys( $rows[0] ) );
+		self::assertSame( array( 'id', 'school_name', 'teacher_name', 'grade', 'is_active', 'discount_percent', 'has_link', 'url', 'generation', 'active_holds', 'version' ), array_keys( $rows[0] ) );
 		self::assertStringEndsWith( '?k=k7m2qx', $rows[0]['url'], 'Ссылка для копирования собирается из сохранённого ключа; хеша в ответе нет.' );
 		self::assertTrue( $rows[0]['has_link'] );
 		self::assertSame( 3, $rows[0]['generation'] );

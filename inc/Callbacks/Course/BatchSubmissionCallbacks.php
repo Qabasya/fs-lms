@@ -171,14 +171,15 @@ class BatchSubmissionCallbacks extends BaseController {
 	 * сдаче — поштучное оценивание submission-работы (D4, .docs/Tasks.md), та же
 	 * проверка доступа, что у ajaxSaveGrade().
 	 *
-	 * POST: submission_id, score, feedback, security
+	 * POST: submission_id, score, feedback, security; `revoke_credit=1` — «Отменить зачёт» (score и feedback не читаются).
 	 */
 	public function ajaxGradeBatchTask(): void {
 		$this->authorize( Nonce::GradeBatch, Capability::ManageLmsTeaching );
 
 		$submissionId = $this->requireInt( 'submission_id' );
-		$score        = $this->sanitizeFloat( 'score' );
-		$feedback     = $this->sanitizeHtml( 'feedback' );
+		$revokeCredit = (bool) $this->sanitizeInt( 'revoke_credit' );
+		$score        = $revokeCredit ? 0.0 : $this->sanitizeFloat( 'score' );
+		$feedback     = $revokeCredit ? '' : $this->sanitizeHtml( 'feedback' );
 
 		$sub = $this->submissionRepo->find( $submissionId );
 		if ( ! $sub ) {
@@ -195,7 +196,12 @@ class BatchSubmissionCallbacks extends BaseController {
 		$teacherUserId = get_current_user_id();
 
 		try {
-			$this->submissionService->gradeBatchTask( $submissionId, $score, $feedback, $teacherUserId );
+			if ( $revokeCredit ) {
+				// «Отменить зачёт»: задание возвращается к автоматической проверке.
+				$this->submissionService->revokeBatchCredit( $submissionId, $teacherUserId );
+			} else {
+				$this->submissionService->gradeBatchTask( $submissionId, $score, $feedback, $teacherUserId );
+			}
 			$this->success( array( 'submission_id' => $submissionId ) );
 		} catch ( \InvalidArgumentException $e ) {
 			$this->error( $e->getMessage() );

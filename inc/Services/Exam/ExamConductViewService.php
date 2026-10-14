@@ -24,6 +24,7 @@ use Inc\Enums\Exam\ExamRegistrationStatus;
 use Inc\Enums\Exam\ExamEventStatus;
 use Inc\Enums\Exam\ExamSessionStatus;
 use Inc\Enums\Exam\ExamTokenPurpose;
+use Inc\Enums\Wp\PageRoutes;
 use Inc\Enums\Log\ErrorCode;
 use Inc\Managers\Person\UserManager;
 use Inc\Repositories\WPDBRepositories\AssessmentAttemptRepository;
@@ -90,8 +91,9 @@ class ExamConductViewService {
 			'warnings' => $this->warnings( $session, $rows ),
 			'sessions' => $this->eventView->siblings( $event ),
 			'event'    => array(
-				'id'    => $event->id,
-				'title' => $event->title,
+				'id'          => $event->id,
+				'title'       => $event->title,
+				'subject_key' => $event->subjectKey,
 			),
 			'events'   => $this->eventChoices( $actorUserId, $event ),
 			'rooms'    => $this->plans->roomsFor( $event->subjectKey ),
@@ -105,7 +107,12 @@ class ExamConductViewService {
 	 *
 	 * @return int|null null — сеансов в доступных проведениях нет.
 	 */
-	public function defaultSessionId( int $actorUserId ): ?int {
+	public function defaultSessionId( int $actorUserId, ?string $subjectKey = null ): ?int {
+		// Выбран предмет: берётся сеанс его проведения (идущий или ближайший), как у переключателя проведений.
+		if ( null !== $subjectKey && '' !== $subjectKey ) {
+			return $this->subjectSessionId( $actorUserId, $subjectKey );
+		}
+
 		$nowUtc = $this->time->nowUtc();
 		$all    = $this->guard->isGlobal( $actorUserId );
 		$list   = $this->sessions->listForTeacherBetween(
@@ -366,10 +373,19 @@ class ExamConductViewService {
 			'actions'             => $this->rowActions( $registration, $attempt, $others, $participation ),
 			'admitted_at'         => null !== $participation->admittedAt ? $this->time->toLocal( $participation->admittedAt ) : null,
 			'entry_link_issued'   => ExamAudience::Guest === $audience && $this->tokens->hasActive( ExamTokenPurpose::Entry, $participation->id ),
+			// Адрес действующей ссылки входа из зашифрованного ключа: «Скопировать ссылку» без перевыпуска. Пусто — ключ выпущен до хранения.
+			'entry_link_url'      => ExamAudience::Guest === $audience ? $this->entryUrl( $participation->id ) : '',
 			'entry_link_passed'   => $this->passedLabel( ExamAudience::Guest === $audience ? $this->tokens->activeToken( ExamTokenPurpose::Entry, $participation->id ) : null ),
 			'result_link_passed'  => $this->passedLabel( ExamAudience::Guest === $audience ? $this->tokens->activeToken( ExamTokenPurpose::Result, $participation->id ) : null ),
 			'result_link_issued'  => ExamAudience::Guest === $audience && $this->tokens->hasActive( ExamTokenPurpose::Result, $participation->id ),
 		);
+	}
+
+	/** Адрес ссылки входа из сохранённого ключа; пусто — ссылка не выдана или ключ не сохранён. */
+	private function entryUrl( int $participationId ): string {
+		$plain = $this->tokens->entryKey( $participationId );
+
+		return null !== $plain ? PageRoutes::ExamEntry->url() . '?k=' . $plain : '';
 	}
 
 	/** Попытка строки: только если она начата именно по этой записи (после переноса попытка принадлежит новой). */
@@ -552,10 +568,26 @@ class ExamConductViewService {
 	 * @return list<array{id: int, title: string, session_id: int}>
 	 */
 	private function eventChoices( int $actorUserId, ExamEventDTO $current ): array {
+		return $this->choicesOfSubject( $actorUserId, $current->subjectKey );
+	}
+
+	/** Сеанс для открытия экрана по выбранному предмету: первое проведение предмета (его идущий или ближайший сеанс). */
+	private function subjectSessionId( int $actorUserId, string $subjectKey ): ?int {
+		$choices = $this->choicesOfSubject( $actorUserId, $subjectKey );
+
+		return array() !== $choices ? $choices[0]['session_id'] : null;
+	}
+
+	/**
+	 * Проведения предмета, доступные сотруднику, с сеансом для открытия каждого.
+	 *
+	 * @return list<array{id: int, title: string, session_id: int}>
+	 */
+	private function choicesOfSubject( int $actorUserId, string $subjectKey ): array {
 		$nowUtc  = $this->time->nowUtc();
 		$choices = array();
 
-		foreach ( $this->events->findBySubjectKey( $current->subjectKey ) as $event ) {
+		foreach ( $this->events->findBySubjectKey( $subjectKey ) as $event ) {
 			if ( ExamEventStatus::Published->value !== $event->status || ! $this->guard->canManageEvent( $actorUserId, $event ) ) {
 				continue;
 			}

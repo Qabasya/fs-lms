@@ -9,7 +9,7 @@
   .fs-join-btn {
     display: flex;
     width: fit-content;
-    margin-inline: auto;
+    margin: $spacing-lg auto 0;
   }
 
   &__when {
@@ -41,12 +41,16 @@
     margin-bottom: $spacing-lg;
   }
 
-  // Раскладка с сайдбаром (11b.3.1): справа на широком экране, под результатом на узком.
+  // Раскладка с сайдбаром (11b.3.1): слева на широком экране (как у тренажёра), под результатом на узком.
+  // В разметке тело идёт первым — на узком экране порядок остаётся «результат, затем сайдбар».
   &__layout--aside {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) $sidebar-width;
+    grid-template-columns: $sidebar-width minmax(0, 1fr);
     gap: $layout-gap;
     align-items: start;
+
+    > .fs-exam-result__aside { grid-column: 1; grid-row: 1; }
+    > .fs-exam-result__body { grid-column: 2; grid-row: 1; }
   }
 
   &__body {
@@ -329,7 +333,12 @@
 }
 
 @media (max-width: $bp-catalog) {
-  .fs-exam-result__layout--aside { grid-template-columns: minmax(0, 1fr); }
+  .fs-exam-result__layout--aside {
+    grid-template-columns: minmax(0, 1fr);
+
+    > .fs-exam-result__aside,
+    > .fs-exam-result__body { grid-column: 1; grid-row: auto; }
+  }
 }
 
 @media (max-width: $exam-mobile-breakpoint) {

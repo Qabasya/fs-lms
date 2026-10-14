@@ -103,7 +103,7 @@ function render() {
 
     root.innerHTML = `
         <div class="exam-stats">
-            ${subjectPickerHtml(examSubjects(), currentSubject())}
+            ${subjectPickerHtml(examSubjects(), currentSubject(), 'examStatsSubjectBtn')}
             <div class="exam-results-filters">
                 <select data-filter="event_id" aria-label="Проведение">${options(f.events, query.event_id, e => e.title, 'Все проведения')}</select>
                 ${f.sessions.length ? `<select data-filter="session_id" aria-label="Сеанс">${options(f.sessions, query.session_id, s => `${fmtDate(s.date)} · ${s.time_start}`, 'Все сеансы')}</select>` : ''}
@@ -238,7 +238,7 @@ function redrawTable() {
 }
 
 function wire() {
-    wireSubjectPicker('examSubjectBtn', examSubjects(), currentSubject(), key => {
+    wireSubjectPicker('examStatsSubjectBtn', examSubjects(), currentSubject(), key => {
         setCurrentSubject(key);
         Object.assign(query, { event_id: 0, session_id: 0 });
         Object.assign(view, { group: '', school: '' });

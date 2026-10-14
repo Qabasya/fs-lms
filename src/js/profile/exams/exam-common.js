@@ -36,8 +36,11 @@ export function setCurrentSubject(key) {
     subjectKey = key;
 }
 
-/** Выбор предмета скрыт, если предмет один (SPEC §2): нечего выбирать. */
-export function subjectPickerHtml(subjects, current, btnId = 'examSubjectBtn') {
+/**
+ * Выбор предмета скрыт, если предмет один (SPEC §2): нечего выбирать.
+ * Экраны кабинета смонтированы одновременно, поэтому `btnId` у каждого экрана свой: общий id отдавал бы клик чужому экрану.
+ */
+export function subjectPickerHtml(subjects, current, btnId) {
     if (!subjects || subjects.length < 2) { return ''; }
     const subject = subjects.find(s => s.key === current) || subjects[0];
     return `<div class="prof-ktp-pick"><span class="kp-label">Предмет</span>${subjectPickerBtnHtml(subject, btnId)}</div>`;

@@ -74,6 +74,24 @@ class GradeAttemptCallbacks extends BaseController {
 			return;
 		}
 
+		// «Отменить зачёт»: задание возвращается к автоматической оценке. Только там, где зачёт выставлен преподавателем.
+		if ( (bool) $this->sanitizeInt( 'revoke_credit' ) ) {
+			$existing = $this->answers->findByAttemptAndTask( $attemptId, $taskId );
+			if ( null === $existing || null === $existing->gradedByUserId ) {
+				$this->error( 'Зачёт по этому заданию не выставлен.' );
+				return;
+			}
+
+			$updated = $this->autoGrade->revertTaskToAuto( $attempt, $taskId );
+			if ( null === $updated ) {
+				$this->error( 'Задание проверяется вручную: зачёт отменить нельзя.' );
+				return;
+			}
+
+			$this->success( $this->gradePayload( $updated ) );
+			return;
+		}
+
 		// Произвольный балл — только для заданий без авто-чекера (TaskCheckerRegistry).
 		// 2026-08-21: без этого гейта ручной балл на автопроверяемое задание уходил
 		// в assessment_answers.score и расходился с реальной авто-проверкой — лист

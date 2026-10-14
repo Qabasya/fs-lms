@@ -353,6 +353,7 @@
 .stg-of { font-size: rem(12); color: var(--muted); }
 .stg-ok { display: inline-flex; align-items: center; gap: rem(4); font-size: rem(12.5); color: var(--muted); }
 .stg-fb { flex: 1 1 rem(160); height: rem(32); padding: 0 rem(8); border: 1px solid var(--line); border-radius: var(--radius-xs); font: inherit; color: var(--ink); }
+.sum-task-grade .stg-save { align-self: flex-start; flex: 0 0 auto; width: auto; }
 .sum-task-grade input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 
 /* Tasks.md, п. 6: ручной зачёт задания работы + метка «оценено преподавателем». */

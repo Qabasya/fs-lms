@@ -75,7 +75,9 @@ class GuestSignupViewService {
 				'grade'   => $source->grade,
 				'teacher' => $source->teacherName,
 				'public'  => $source->isPublic(),
-				'free'    => $source->isFree && ! $source->isPublic(),
+				'free'    => $source->isFree(),
+				// Скидка по ссылке преподавателя, %: показывается гостю явно (0 — полная цена, у открытой записи не бывает).
+				'discount' => $source->effectiveDiscount(),
 			),
 			'event'    => array( 'title' => $event->title ?? '' ),
 			'contacts' => $contacts,
@@ -88,8 +90,8 @@ class GuestSignupViewService {
 		}
 
 		$sessions = $this->sessionCards( $event, $nowUtc );
-		// Бесплатная ссылка преподавателя: цены и товара магазина не требует.
-		$price    = $source->isFree && ! $source->isPublic() ? array( 'html' => 'Бесплатно', 'amount' => '0' ) : $this->price( $source->grade );
+		// Бесплатная ссылка преподавателя: цены и товара магазина не требует; частичная скидка — цена товара со скидкой.
+		$price    = $source->isFree() ? array( 'html' => 'Бесплатно', 'amount' => '0' ) : $this->price( $source->grade, $source->effectiveDiscount() );
 		$base     = array_merge(
 			$base,
 			array(
@@ -178,17 +180,28 @@ class GuestSignupViewService {
 	/**
 	 * Цена и товар — из WooCommerce; null, если магазин или товар недоступны.
 	 *
-	 * @return array{html: string, amount: string}|null
+	 * @return array{html: string, amount: string, old_html?: string}|null
 	 */
-	private function price( int $grade ): ?array {
+	private function price( int $grade, int $discount = 0 ): ?array {
 		$product = $this->woo->product( $this->config->examProductId( $grade ) );
 		if ( null === $product || ! $product['purchasable'] || (float) $product['price'] <= 0.0 ) {
 			return null;
 		}
 
+		if ( $discount <= 0 || $discount >= 100 ) {
+			return array(
+				'html'   => $this->woo->formatPrice( $product['price'] ),
+				'amount' => $product['price'],
+			);
+		}
+
+		// Та же формула, что в корзине (`WooExamAdapter::discountedPrice()`): форма и счёт не расходятся.
+		$discounted = (string) round( (float) $product['price'] * ( 100 - $discount ) / 100, 2 );
+
 		return array(
-			'html'   => $this->woo->formatPrice( $product['price'] ),
-			'amount' => $product['price'],
+			'html'     => $this->woo->formatPrice( $discounted ),
+			'amount'   => $discounted,
+			'old_html' => $this->woo->formatPrice( $product['price'] ),
 		);
 	}
 

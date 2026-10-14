@@ -121,6 +121,7 @@ use Inc\Migrations\Migration_1_0_84;
 use Inc\Migrations\Migration_1_0_85;
 use Inc\Migrations\Migration_1_0_86;
 use Inc\Migrations\Migration_1_0_87;
+use Inc\Migrations\Migration_1_0_88;
 use Inc\Migrations\Migration_1_0_81;
 use Inc\Migrations\Migration_1_0_82;
 use Inc\Migrations\Migration_1_0_83;
@@ -316,6 +317,7 @@ final class Init {
 		$migrationRunner->register( new Migration_1_0_85() );
 		$migrationRunner->register( new Migration_1_0_86() );
 		$migrationRunner->register( new Migration_1_0_87() );
+		$migrationRunner->register( new Migration_1_0_88() );
 		$migrationRunner->register( new Migration_1_0_81() );
 		$migrationRunner->register( new Migration_1_0_82() );
 		$migrationRunner->register( new Migration_1_0_83() );

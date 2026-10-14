@@ -100,12 +100,31 @@ foreach ( $assessment->taskIds as $i => $taskId ) {
 
 			<div class="kege-task-scroll" id="kegeTaskScroll">
 
-				<div class="kege-t-body" data-kege-panel="i">
-					<div class="kege-t-content">
-						<?php foreach ( ( $isOge ? OgeInstructionConfig::paragraphs() : KegeInstructionConfig::paragraphs() ) as $paragraph ) : ?>
-							<p<?php echo $paragraph['indent'] ? ' class="kege-ind"' : ''; ?>><?php echo esc_html( $paragraph['text'] ); ?></p>
-						<?php endforeach; ?>
-					</div>
+				<div class="kege-t-body<?php echo $isOge ? ' kege-t-body--ins' : ''; ?>" data-kege-panel="i">
+					<?php if ( $isOge ) : ?>
+						<?php $ins = OgeInstructionConfig::screen(); ?>
+						<?php // Документ по центру: заголовок экзамена, подзаголовок, плотный текст, пожелание (макет ОГЭ). ?>
+						<div class="kege-t-content kege-ins">
+							<h2 class="kege-ins-title">
+								<?php foreach ( $ins['heading'] as $line ) : ?>
+									<span><?php echo esc_html( $line ); ?></span>
+								<?php endforeach; ?>
+							</h2>
+							<h3 class="kege-ins-sub"><?php echo esc_html( $ins['subheading'] ); ?></h3>
+							<div class="kege-ins-text">
+								<?php foreach ( $ins['paragraphs'] as $paragraph ) : ?>
+									<p><?php echo esc_html( $paragraph ); ?></p>
+								<?php endforeach; ?>
+							</div>
+							<p class="kege-ins-bye"><?php echo esc_html( $ins['farewell'] ); ?></p>
+						</div>
+					<?php else : ?>
+						<div class="kege-t-content">
+							<?php foreach ( KegeInstructionConfig::paragraphs() as $paragraph ) : ?>
+								<p<?php echo $paragraph['indent'] ? ' class="kege-ind"' : ''; ?>><?php echo esc_html( $paragraph['text'] ); ?></p>
+							<?php endforeach; ?>
+						</div>
+					<?php endif; ?>
 					<?php if ( ! empty( $allMaterials ) ) : ?>
 						<button type="button" class="kege-dl-all" id="kegeDlAll" aria-expanded="false" aria-controls="kegeDlList">Скачать все файлы</button>
 						<div class="kege-files kege-dl-list" id="kegeDlList" hidden>

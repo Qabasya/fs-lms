@@ -145,6 +145,40 @@ class GradeAttemptCallbacksTest extends TestCase {
 		self::assertTrue( fs_test_capture_json( fn() => $this->cb->ajaxGradeAttempt() )->success );
 	}
 
+	/** «Отменить зачёт»: задание возвращается к автооценке сервисом, ручной путь не затрагивается. */
+	public function test_grade_attempt_revoke_credit_reverts_task_to_auto(): void {
+		$this->attempts->method( 'find' )->willReturn( $this->attemptFixture() );
+		$this->guard->method( 'canWriteJournal' )->willReturn( true );
+		$this->answers->method( 'findByAttemptAndTask' )->willReturn(
+			new \Inc\DTO\Assessment\AttemptAnswerDTO(
+				id: 1, attemptId: 5, taskId: 7, answerText: '41', isCorrect: true,
+				score: 2.0, maxScore: 2.0, gradedByUserId: 9, gradedAt: '2026-10-14 10:00:00',
+			)
+		);
+		$this->autoGrade->expects( $this->once() )->method( 'revertTaskToAuto' )->with( self::anything(), 7 )->willReturn( $this->attemptFixture() );
+		$this->answers->expects( $this->never() )->method( 'upsert' );
+
+		$_POST = array( 'attempt_id' => '5', 'task_id' => '7', 'revoke_credit' => '1' );
+
+		self::assertTrue( fs_test_capture_json( fn() => $this->cb->ajaxGradeAttempt() )->success );
+	}
+
+	public function test_grade_attempt_revoke_credit_denied_without_credit(): void {
+		$this->attempts->method( 'find' )->willReturn( $this->attemptFixture() );
+		$this->guard->method( 'canWriteJournal' )->willReturn( true );
+		$this->answers->method( 'findByAttemptAndTask' )->willReturn(
+			new \Inc\DTO\Assessment\AttemptAnswerDTO(
+				id: 1, attemptId: 5, taskId: 7, answerText: '41', isCorrect: false,
+				score: 0.0, maxScore: 2.0, gradedByUserId: null, gradedAt: null,
+			)
+		);
+		$this->autoGrade->expects( $this->never() )->method( 'revertTaskToAuto' );
+
+		$_POST = array( 'attempt_id' => '5', 'task_id' => '7', 'revoke_credit' => '1' );
+
+		self::assertFalse( fs_test_capture_json( fn() => $this->cb->ajaxGradeAttempt() )->success );
+	}
+
 	/** Ответа в БД ещё нет (задание пропущено) — зачёт даёт балл 1 по фолбэку. */
 	public function test_grade_attempt_credit_falls_back_to_single_point(): void {
 		$this->attempts->method( 'find' )->willReturn( $this->attemptFixture() );

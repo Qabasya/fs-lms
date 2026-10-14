@@ -216,6 +216,37 @@
   }
 }
 
+// ── Скидка по ссылке преподавателя: плашка над формой и прежняя цена в резюме ────────────────────
+.fs-exam-signup__perk {
+  display: flex;
+  gap: $spacing-md;
+  align-items: flex-start;
+  margin: 0 0 $spacing-lg;
+  padding: $spacing-md $spacing-lg;
+  font-size: $font-size-base;
+  color: $color-text;
+  background: $color-accent-soft;
+  border: 1px solid $color-accent-soft-2;
+  border-radius: $border-radius-md;
+
+  .dashicons { color: $color-accent; }
+}
+
+.fs-exam-summary__old {
+  margin-right: $spacing-xs;
+  color: $color-muted;
+}
+
+.fs-exam-summary__badge {
+  margin-left: $spacing-xs;
+  padding: 0 $spacing-xs;
+  font-size: $font-size-2xs;
+  font-weight: $font-medium;
+  color: $color-accent;
+  background: $color-accent-soft;
+  border-radius: $border-radius-xl;
+}
+
 // ── Корзина и оформление: обратный отсчёт брони; страница «Спасибо»: статус записи ────────────────
 .fs-exam-hold {
   margin: $spacing-md 0;

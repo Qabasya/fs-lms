@@ -210,6 +210,8 @@ class GuestApplicationService {
 					'grade'        => $source->grade,
 					'teacher_name' => $source->teacherName,
 					'label'        => $source->label,
+					// Скидка фиксируется в снимке: правка ссылки после брони цену оформленной заявки не меняет.
+					'discount_percent' => $source->effectiveDiscount(),
 				)
 			),
 			'draft_enc'       => $this->materializer->seal(

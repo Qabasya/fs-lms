@@ -148,6 +148,30 @@
 
 .kege-t-body[hidden] { display: none; }
 
+// Экран «i» компьютерного ОГЭ: заголовки по центру, плотный текст инструкции слева, пожелание по центру (макет `.docs/img_5.png`).
+.kege-ins { max-width: rem(1560); margin: 0 auto; padding-top: rem(24); }
+
+.kege-ins-title,
+.kege-ins-sub {
+  margin: 0;
+  text-align: center;
+  font-size: calc(var(--kege-tfs) * 1.15);
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.kege-ins-title span { display: block; }
+.kege-ins-sub { margin-top: rem(56); margin-bottom: rem(56); }
+
+.kege-ins .kege-ins-text p { margin: 0; }
+
+.kege-ins .kege-ins-bye {
+  margin: rem(64) 0 0;
+  text-align: center;
+  font-weight: 700;
+  font-style: italic;
+}
+
 .kege-t-head { font-weight: 500; font-size: var(--kege-tfs); margin-bottom: 2px; }
 
 .kege-t-content {

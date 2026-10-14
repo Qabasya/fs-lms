@@ -171,7 +171,12 @@ class WooExamAdapter {
 
 		$snapshot  = null !== $application->sourceSnapshot ? json_decode( $application->sourceSnapshot, true ) : null;
 		$productId = $this->config->examProductId( (int) ( is_array( $snapshot ) ? ( $snapshot['grade'] ?? 0 ) : 0 ) );
-		$orderId   = $this->woo->createOrderForProduct( $productId, array( self::ORDER_ITEM_META => $application->id ), $billing );
+		$orderId   = $this->woo->createOrderForProduct(
+			$productId,
+			array( self::ORDER_ITEM_META => $application->id ),
+			$billing,
+			$this->discountedPrice( $application )
+		);
 		if ( null === $orderId ) {
 			return null;
 		}
@@ -183,6 +188,57 @@ class WooExamAdapter {
 		$url = $this->woo->orderReceivedUrl( $orderId );
 
 		return '' !== $url ? $url : null;
+	}
+
+	/**
+	 * Скидка по ссылке преподавателя из снимка заявки, %; 0 — полная цена. Снимок хранит и 100, но такая запись магазин не вызывает.
+	 */
+	public function discountOf( ExamGuestApplicationDTO $application ): int {
+		$snapshot = null !== $application->sourceSnapshot ? json_decode( $application->sourceSnapshot, true ) : null;
+		$percent  = is_array( $snapshot ) ? (int) ( $snapshot['discount_percent'] ?? 0 ) : 0;
+
+		return max( 0, min( 99, $percent ) );
+	}
+
+	/**
+	 * Цена товара со скидкой ссылки; null — скидки нет или цену не получить (остаётся цена товара).
+	 */
+	public function discountedPrice( ExamGuestApplicationDTO $application ): ?float {
+		$percent = $this->discountOf( $application );
+		if ( $percent <= 0 ) {
+			return null;
+		}
+
+		$snapshot = json_decode( (string) $application->sourceSnapshot, true );
+		$product  = $this->woo->product( $this->config->examProductId( (int) ( is_array( $snapshot ) ? ( $snapshot['grade'] ?? 0 ) : 0 ) ) );
+		if ( null === $product || (float) $product['price'] <= 0.0 ) {
+			return null;
+		}
+
+		return round( (float) $product['price'] * ( 100 - $percent ) / 100, 2 );
+	}
+
+	/**
+	 * Цены экзаменных позиций корзины со скидкой ссылки: ключ позиции → цена. Заявка берётся только при верной подписи.
+	 *
+	 * @param array<int, array{key: string, product_id: int, data: array<string, mixed>}> $items
+	 *
+	 * @return array<string, float>
+	 */
+	public function discountedCartPrices( array $items ): array {
+		$prices = array();
+		foreach ( $items as $item ) {
+			if ( ! $this->isExamProduct( $item['product_id'] ) ) {
+				continue;
+			}
+			$application = $this->applicationOfItem( $item['data'] );
+			$price       = null !== $application ? $this->discountedPrice( $application ) : null;
+			if ( null !== $price ) {
+				$prices[ $item['key'] ] = $price;
+			}
+		}
+
+		return $prices;
 	}
 
 	/**
@@ -259,6 +315,13 @@ class WooExamAdapter {
 			$rows[] = array(
 				'key'   => 'Дата и время',
 				'value' => gmdate( 'd.m.Y', (int) strtotime( substr( $start, 0, 10 ) . ' UTC' ) ) . ', ' . substr( $start, 11, 5 ),
+			);
+		}
+		$discount = $this->discountOf( $app );
+		if ( $discount > 0 ) {
+			$rows[] = array(
+				'key'   => 'Скидка по ссылке преподавателя',
+				'value' => $discount . '%',
 			);
 		}
 		if ( $app->isHeld && null !== $app->holdExpiresAt ) {

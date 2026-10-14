@@ -57,14 +57,17 @@ export function getReturnTo() {
 }
 
 /** Открывает деталь работы/экзамена — вызывается из Сводки (D2) и «Работ» (D3). */
-export async function openWorkReview(sourceType, sourceId, from) {
+export async function openWorkReview(sourceType, sourceId, from, { keepScroll = false } = {}) {
     returnTo = from || 'summary';
     correcting = false;
     current  = { sourceType, sourceId };
     if (!wrRoot) { return; }
     if (!reviewApi) { toast('Оценивание недоступно', 'error'); return; }
 
-    wrRoot.innerHTML = '<div class="wr-loading">Загрузка…</div>';
+    // Перечитывание после действия на экране (оценка, утверждение): без заглушки «Загрузка…» и с прежней прокруткой —
+    // иначе страница схлопывается и уезжает вверх, а учитель теряет место проверки.
+    const scroll = keepScroll ? snapshotScroll(wrRoot) : null;
+    if (!keepScroll) { wrRoot.innerHTML = '<div class="wr-loading">Загрузка…</div>'; }
     let d;
     try {
         d = await reviewApi('getDetail', { source_type: sourceType, source_id: sourceId });
@@ -85,11 +88,28 @@ export async function openWorkReview(sourceType, sourceId, from) {
     }
 
     render(d, history);
+    if (scroll) { restoreScroll(scroll); }
     onLoadedCb(d);
 }
 
+/** Перечитывает деталь на месте: прокрутка экрана сохраняется (см. {@see openWorkReview}). */
 function reload() {
-    if (current) { openWorkReview(current.sourceType, current.sourceId, returnTo); }
+    if (current) { openWorkReview(current.sourceType, current.sourceId, returnTo, { keepScroll: true }); }
+}
+
+/** Прокрутка окна и всех прокручиваемых предков экрана — их позиции возвращает {@see restoreScroll}. */
+function snapshotScroll(el) {
+    const saved = [{ node: window, x: window.scrollX, y: window.scrollY }];
+    for (let n = el.parentElement; n; n = n.parentElement) {
+        if (n.scrollTop > 0 || n.scrollLeft > 0) { saved.push({ node: n, x: n.scrollLeft, y: n.scrollTop }); }
+    }
+    return saved;
+}
+
+function restoreScroll(saved) {
+    saved.forEach(({ node, x, y }) => {
+        if (node === window) { window.scrollTo(x, y); } else { node.scrollLeft = x; node.scrollTop = y; }
+    });
 }
 
 /* ── Render ───────────────────────────────────────────────────────────── */
@@ -142,7 +162,7 @@ function render(d, history = []) {
                 <div class="smh-actions">
                     ${d.review_url ? `<a class="prof-btn prof-btn-sm" href="${esc(d.review_url)}" target="_blank" rel="noopener">Лист результатов</a>` : ''}
                     ${canApprove ? '<button class="prof-btn prof-btn-sm prof-btn-primary sum-approve">Утвердить работу</button>' : ''}
-                    ${isApproved ? '<span class="sum-approved-badge" title="Ответы открыты ученику">Утверждено</span>' : ''}
+                    ${isApproved ? '<span class="sum-approved-badge" title="Ответы открыты ученику">Утверждена</span>' : ''}
                     ${isExam && d.correctable && examApi && !correcting ? '<button class="prof-btn prof-btn-sm sum-correct">Исправить результат</button>' : ''}
                     ${canComplete ? '<button class="prof-btn prof-btn-sm prof-btn-primary sum-complete">Проверка завершена</button>' : ''}
                     ${isExam ? '' : '<button class="prof-btn prof-btn-sm sum-reset">Сбросить попытки</button>'}
@@ -156,6 +176,7 @@ function render(d, history = []) {
                 ${d.feedback ? `<div class="sum-fb"><b>Комментарий:</b> ${esc(d.feedback)}</div>` : ''}
             </div>
             ${grading}
+            ${canApprove ? '<div class="wr-foot wr-foot--approve"><button class="prof-btn prof-btn-primary sum-approve">Утвердить работу</button></div>' : ''}
         </div>`;
 
     wrRoot.querySelector('.wr-back').addEventListener('click', () => onBackCb());
@@ -313,16 +334,16 @@ function taskContext(d) {
 /* D18: «Утвердить работу» — единственное явное действие учителя для ЕГЭ (без
    ручной проверки заданий), открывает ответы/баллы ученику. */
 function wireApprove(root, d) {
-    const btn = root.querySelector('.sum-approve');
-    if (!btn) { return; }
-    btn.addEventListener('click', async () => {
-        btn.disabled = true;
+    // Кнопка есть в шапке и внизу работы: действие одно, блокируются обе.
+    const buttons = root.querySelectorAll('.sum-approve');
+    buttons.forEach(btn => btn.addEventListener('click', async () => {
+        buttons.forEach(b => { b.disabled = true; });
         try {
             await attemptGradeApi('approveAttempt', { attempt_id: d.attempt_id, ...versionParams(d) });
             toast('Работа утверждена — ответы открыты ученику');
             reload();
-        } catch (e) { reportFailure(e); btn.disabled = false; }
-    });
+        } catch (e) { reportFailure(e); buttons.forEach(b => { b.disabled = false; }); }
+    }));
 }
 
 /* Tasks.md п. 6: «Проверка завершена» — переводит сдачу в «Проверенные».
@@ -387,6 +408,25 @@ function attachmentBlock(d) {
     </div>`;
 }
 
+/**
+ * Блокирует форму оценки после сохранения (поля недоступны, кнопка — красная «Изменить оценку») или снимает блокировку
+ * (поля доступны, кнопка — «Оценить»). Разметка кнопки та же, что у первичной отрисовки (`gradeSaveButton()`).
+ *
+ * @param {HTMLElement} box    Блок `.sum-task-grade`.
+ * @param {boolean}     locked Заблокировать.
+ * @returns {HTMLElement}      Кнопка формы (тот же элемент: обработчик клика на ней сохраняется).
+ */
+function setGradeLocked(box, locked) {
+    box.classList.toggle('is-graded', locked);
+    box.querySelectorAll('input, select').forEach(el => { el.disabled = locked; });
+    const old = box.querySelector('.stg-save');
+    old.classList.toggle('prof-btn-danger', locked);
+    old.classList.toggle('prof-btn-primary', !locked);
+    old.textContent = locked ? 'Изменить оценку' : 'Оценить';
+    old.disabled = false;
+    return old;
+}
+
 /* Пооответное оценивание попытки экзамена (T11.9). Эпик 13 (D17): критериальные
    задачи шлют criteria_scores (JSON {индекс: баллы}) вместо score/is_correct. */
 function wireAttemptGrading(root, d) {
@@ -396,6 +436,11 @@ function wireAttemptGrading(root, d) {
         const isCriteria  = box.classList.contains('sum-task-grade--criteria');
         const isOgeRubric = box.classList.contains('sum-task-grade--oge-rubric');
         btn.addEventListener('click', async () => {
+            // «Изменить оценку»: поля разблокируются, кнопка снова «Оценить»; сохранение — следующим кликом.
+            if (box.classList.contains('is-graded')) {
+                setGradeLocked(box, false);
+                return;
+            }
             const taskId = +box.dataset.taskId;
             const feedback = box.querySelector('.stg-fb').value.trim();
             const payload = { attempt_id: d.attempt_id, task_id: taskId, feedback, ...versionParams(d) };
@@ -438,6 +483,7 @@ function wireAttemptGrading(root, d) {
                 toast('Оценка сохранена');
                 // Экзамен: статус результата («готова к утверждению») и версия меняются — экран перечитывается целиком.
                 if (d.exam) { reload(); return; }
+                setGradeLocked(box, true);
             } catch (e) { reportFailure(e); }
             btn.disabled = false;
         });
@@ -453,6 +499,10 @@ function wireSubmissionTaskGrading(root) {
     root.querySelectorAll('.sum-task-grade--batch').forEach((box) => {
         const btn = box.querySelector('.stg-save');
         btn.addEventListener('click', async () => {
+            if (box.classList.contains('is-graded')) {
+                setGradeLocked(box, false);
+                return;
+            }
             const submissionId = +box.dataset.submissionId;
             const score = box.querySelector('.stg-score').value || '0';
             const feedback = box.querySelector('.stg-fb').value.trim();
@@ -479,6 +529,11 @@ function wireSubmissionTaskGrading(root) {
    Комментарий не трогаем — если учитель его уже оставил, зачёт его не стирает. */
 function wireTaskCredit(root, d) {
     root.querySelectorAll('.sum-task-credit').forEach((box) => {
+        const undo = box.querySelector('.stg-uncredit');
+        if (undo) {
+            wireCreditRevoke(box, undo, d);
+            return;
+        }
         const btn = box.querySelector('.stg-credit');
         btn.addEventListener('click', async () => {
             const ok = await confirmDialog(
@@ -510,6 +565,35 @@ function wireTaskCredit(root, d) {
                 reload();
             } catch (e) { toast(e.message, 'error'); btn.disabled = false; }
         });
+    });
+}
+
+/* «Отменить зачёт»: зачёт выставили по ошибке — задание возвращается к автоматической проверке.
+   Работа — тот же GradeBatchTask с `revoke_credit=1`, экзамен — GradeAttempt с тем же флагом. */
+function wireCreditRevoke(box, btn, d) {
+    btn.addEventListener('click', async () => {
+        const ok = await confirmDialog(
+            'Зачёт будет отменён: задание снова оценится автоматически, по ответу ученика.',
+            'Отменить зачёт',
+            'Оставить'
+        );
+        if (!ok) { return; }
+
+        btn.disabled = true;
+        try {
+            if (d.kind === 'exam') {
+                await attemptGradeApi('gradeAttempt', {
+                    attempt_id: d.attempt_id,
+                    task_id: +box.dataset.taskId,
+                    revoke_credit: '1',
+                    ...versionParams(d),
+                });
+            } else {
+                await batchGradeApi('gradeTask', { submission_id: +box.dataset.submissionId, revoke_credit: '1' });
+            }
+            toast('Зачёт отменён');
+            reload();
+        } catch (e) { reportFailure(e); btn.disabled = false; }
     });
 }
 

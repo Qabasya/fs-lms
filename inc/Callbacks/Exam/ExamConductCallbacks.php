@@ -62,11 +62,12 @@ class ExamConductCallbacks extends BaseController {
 	public function ajaxGetExamConduct(): void {
 		$this->authorize( Nonce::ExamManage, Capability::ManageExams );
 
-		$sessionId = $this->sanitizeInt( 'session_id' );
+		$sessionId  = $this->sanitizeInt( 'session_id' );
+		$subjectKey = $this->hasParam( 'subject_key' ) ? $this->sanitizeKey( 'subject_key' ) : '';
 
 		$this->run(
-			function () use ( $sessionId ): array {
-				$resolved = $sessionId > 0 ? $sessionId : $this->board->defaultSessionId( get_current_user_id() );
+			function () use ( $sessionId, $subjectKey ): array {
+				$resolved = $sessionId > 0 ? $sessionId : $this->board->defaultSessionId( get_current_user_id(), '' !== $subjectKey ? $subjectKey : null );
 				if ( null === $resolved ) {
 						return array( 'board' => null );
 				}

@@ -74,29 +74,14 @@ $examTitle  = $isOge ? 'Основной государственный экза
 		<div class="kege-slides" id="kegeSlides">
 			<?php foreach ( $slides as $i => $slide ) : ?>
 				<div class="kege-slide" data-slide-index="<?php echo esc_attr( (string) $i ); ?>"<?php echo 0 !== $i ? ' hidden' : ''; ?>>
-					<?php if ( 'text' === ( $slide['type'] ?? 'image' ) ) : ?>
-						<?php // Слайд-текст (ОГЭ, шаги ритуала сдачи экзамена) — без изображения. ?>
-						<div class="kege-slide-text">
-							<div class="kege-slide-text__title"><?php echo esc_html( $slide['title'] ); ?></div>
-							<ol class="kege-slide-text__steps">
-								<?php foreach ( $slide['steps'] as $step ) : ?>
-									<li>
-										<div class="kege-slide-text__step-title"><?php echo esc_html( $step['title'] ); ?></div>
-										<p><?php echo esc_html( $step['text'] ); ?></p>
-									</li>
-								<?php endforeach; ?>
-							</ol>
-						</div>
-					<?php else : ?>
-						<?php // Первый слайд грузим сразу, остальные — по мере пролистывания. ?>
-						<?php // width/height — резервирование пропорций: без них слайд прыгает при смене. ?>
-						<img class="kege-slide-shot"
-							src="<?php echo esc_url( $slide['image'] ); ?>"
-							alt="<?php echo esc_attr( $slide['alt'] ); ?>"
-							width="<?php echo esc_attr( (string) $slide['width'] ); ?>"
-							height="<?php echo esc_attr( (string) $slide['height'] ); ?>"
-							<?php echo 0 !== $i ? 'loading="lazy"' : ''; ?>>
-					<?php endif; ?>
+					<?php // Первый слайд грузим сразу, остальные — по мере пролистывания. ?>
+					<?php // width/height — резервирование пропорций: без них слайд прыгает при смене. ?>
+					<img class="kege-slide-shot"
+						src="<?php echo esc_url( $slide['image'] ); ?>"
+						alt="<?php echo esc_attr( $slide['alt'] ); ?>"
+						width="<?php echo esc_attr( (string) $slide['width'] ); ?>"
+						height="<?php echo esc_attr( (string) $slide['height'] ); ?>"
+						<?php echo 0 !== $i ? 'loading="lazy"' : ''; ?>>
 				</div>
 			<?php endforeach; ?>
 		</div>

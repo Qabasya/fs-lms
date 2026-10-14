@@ -37,10 +37,16 @@ export function monthCells(year, month) {
     return cells;
 }
 
-/** Стартовый курсор: месяц самой ранней размещённой темы (или 0). */
-export function initialCursor(themes, months) {
+/**
+ * Стартовый курсор КТП: текущий месяц, если он в учебном периоде; иначе месяц самой ранней размещённой темы
+ * (или первый месяц периода). `now` — параметром, чтобы вычисление оставалось чистым и проверяемым.
+ */
+export function initialCursor(themes, months, now = new Date()) {
+    if (!months.length) return 0;
+    const current = months.findIndex(mm => mm.y === now.getFullYear() && mm.m === now.getMonth());
+    if (current >= 0) return current;
     const placed = (themes || []).filter(t => t.scheduled_at).map(t => t.scheduled_at.slice(0, 7));
-    if (!placed.length || !months.length) return 0;
+    if (!placed.length) return 0;
     placed.sort();
     const [y, m] = placed[0].split('-').map(Number);
     const idx = months.findIndex(mm => mm.y === y && mm.m === m - 1);

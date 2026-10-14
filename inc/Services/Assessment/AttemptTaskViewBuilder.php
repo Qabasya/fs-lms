@@ -200,7 +200,11 @@ readonly class AttemptTaskViewBuilder {
 		}
 
 		$parts = $this->content->buildConditionHtml( $meta, $template );
-		$parts = is_array( $parts ) ? $parts : array();
+		// Дочернее задание связки (19/20/21) — обычное `standard_task`: условие у него одно, строкой, и показывается как у
+		// простого задания. Раньше оно превращалось в подпункт с пустым условием, и станция показывала голый заголовок.
+		if ( ! is_array( $parts ) ) {
+			return array();
+		}
 
 		$subparts = array();
 		foreach ( $subItems as $sub ) {

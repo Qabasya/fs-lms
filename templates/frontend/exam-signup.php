@@ -17,12 +17,12 @@ declare( strict_types=1 );
  * @package FS LMS
  *
  * @var string                       $state     form | full | closed | unavailable
- * @var array{school: string, grade: int, teacher: string, public?: bool, free?: bool}   $source
+ * @var array{school: string, grade: int, teacher: string, public?: bool, free?: bool, discount?: int}   $source
  * @var array{title: string}         $event
  * @var array<string, string>        $contacts  phone, email, hours, city, street
  * @var list<array<string, mixed>>   $sessions  Карточки сеансов
  * @var string                       $direction Направление («ЕГЭ» / «ОГЭ»)
- * @var array{html: string, amount: string}|null $price Цена из магазина
+ * @var array{html: string, amount: string, old_html?: string}|null $price Цена из магазина (при скидке ссылки — `old_html` с прежней ценой)
  * @var string                       $address   Адрес без номера кабинета
  * @var int                          $hold_minutes
  * @var int                          $retention_days
@@ -72,6 +72,22 @@ $contact_phone = (string) ( $contacts['phone'] ?? '' );
 						</span>
 					</p>
 				</fieldset>
+				<?php endif; ?>
+
+				<!-- Скидка по ссылке преподавателя: гостю показываем явно, что цена особая именно из-за ссылки -->
+				<?php if ( ! empty( $source['discount'] ) ) : ?>
+				<p class="fs-exam-signup__perk" role="note">
+					<span class="dashicons dashicons-tickets-alt" aria-hidden="true"></span>
+					<span>
+						<?php if ( ! empty( $source['free'] ) ) : ?>
+							<strong><?php esc_html_e( 'Для вас запись бесплатная.', 'fs-lms' ); ?></strong>
+							<?php echo esc_html( sprintf( 'Её предоставил преподаватель — %s: вы пришли по его личной ссылке.', (string) $source['teacher'] ) ); ?>
+						<?php else : ?>
+							<strong><?php echo esc_html( sprintf( 'Специальная скидка %d%% только для вас.', (int) $source['discount'] ) ); ?></strong>
+							<?php echo esc_html( sprintf( 'Она действует, потому что вы пришли по личной ссылке преподавателя — %s. Цена ниже уже со скидкой.', (string) $source['teacher'] ) ); ?>
+						<?php endif; ?>
+					</span>
+				</p>
 				<?php endif; ?>
 
 				<!-- Данные участника -->
@@ -199,7 +215,15 @@ $contact_phone = (string) ( $contacts['phone'] ?? '' );
 						<dt><?php esc_html_e( 'Дата', 'fs-lms' ); ?></dt><dd data-summary="date">—</dd>
 						<dt><?php esc_html_e( 'Время', 'fs-lms' ); ?></dt><dd data-summary="time">—</dd>
 						<dt><?php esc_html_e( 'Адрес', 'fs-lms' ); ?></dt><dd data-summary="address"><?php echo esc_html( $address ); ?></dd>
-						<dt><?php esc_html_e( 'Стоимость', 'fs-lms' ); ?></dt><dd data-summary="price"><?php echo wp_kses_post( (string) ( $price['html'] ?? '' ) ); ?></dd>
+						<dt><?php esc_html_e( 'Стоимость', 'fs-lms' ); ?></dt><dd data-summary="price">
+							<?php if ( ! empty( $price['old_html'] ) ) : ?>
+								<del class="fs-exam-summary__old"><?php echo wp_kses_post( (string) $price['old_html'] ); ?></del>
+							<?php endif; ?>
+							<?php echo wp_kses_post( (string) ( $price['html'] ?? '' ) ); ?>
+							<?php if ( ! empty( $source['discount'] ) && empty( $source['free'] ) ) : ?>
+								<span class="fs-exam-summary__badge"><?php echo esc_html( sprintf( 'скидка %d%% по ссылке', (int) $source['discount'] ) ); ?></span>
+							<?php endif; ?>
+						</dd>
 					</dl>
 					<p class="fs-exam-summary__note">
 						<?php if ( ! empty( $source['free'] ) ) : ?>

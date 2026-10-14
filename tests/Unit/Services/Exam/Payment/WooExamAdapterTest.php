@@ -234,7 +234,7 @@ class WooExamAdapterTest extends TestCase {
 	public function test_test_env_completes_order_without_cart_and_returns_thank_you_url(): void {
 		$this->config->method( 'isTestEnv' )->willReturn( true );
 		$this->woo->expects( self::once() )->method( 'createOrderForProduct' )
-			->with( 500, array( WooExamAdapter::ORDER_ITEM_META => 9 ), array( 'first_name' => 'Тест', 'last_name' => 'Тестов', 'phone' => '+79990001122' ) )
+			->with( 500, array( WooExamAdapter::ORDER_ITEM_META => 9 ), array( 'first_name' => 'Тест', 'last_name' => 'Тестов', 'phone' => '+79990001122' ), null )
 			->willReturn( 77 );
 		$this->woo->expects( self::once() )->method( 'completePayment' )->with( 77 );
 		$this->woo->expects( self::once() )->method( 'emptyCart' );
@@ -244,6 +244,38 @@ class WooExamAdapterTest extends TestCase {
 			'https://example.test/checkout/order-received/77/?key=k',
 			$this->adapter->completeInTestEnv( $this->app(), array( 'first_name' => 'Тест', 'last_name' => 'Тестов', 'phone' => '+79990001122' ) )
 		);
+	}
+
+	public function test_link_discount_lowers_cart_price_of_signed_exam_item(): void {
+		$app = $this->app( array( 'source_snapshot' => '{"grade":11,"discount_percent":30}' ) );
+		$this->applications = $this->createMock( ExamGuestApplicationRepository::class );
+		$this->applications->method( 'find' )->willReturn( $app );
+		$adapter = new WooExamAdapter( $this->woo, $this->config, $this->applications, $this->links, $this->createMock( ExamSessionRepository::class ), $this->holds, $this->createMock( GuestParticipantMaterializer::class ), $this->createStub( ExamTime::class ) );
+
+		$items = array(
+			array( 'key' => 'a', 'product_id' => 500, 'data' => array( WooExamAdapter::ITEM_APPLICATION => 9, WooExamAdapter::ITEM_SIGNATURE => $adapter->signature( $app ) ) ),
+			array( 'key' => 'b', 'product_id' => 77, 'data' => array() ),
+			array( 'key' => 'c', 'product_id' => 500, 'data' => array( WooExamAdapter::ITEM_APPLICATION => 9, WooExamAdapter::ITEM_SIGNATURE => 'bad' ) ),
+		);
+
+		self::assertSame( array( 'a' => 350.0 ), $adapter->discountedCartPrices( $items ), 'Скидка только у подписанной экзаменной позиции; цена 500 ₽ − 30 %.' );
+	}
+
+	public function test_discount_is_zero_without_snapshot_value_and_capped_below_free(): void {
+		self::assertSame( 0, $this->adapter->discountOf( $this->app() ) );
+		self::assertNull( $this->adapter->discountedPrice( $this->app() ) );
+		// 100 % идёт по бесплатной ветке, в корзину такая заявка не попадает: цену магазина она не меняет.
+		self::assertSame( 99, $this->adapter->discountOf( $this->app( array( 'source_snapshot' => '{"grade":11,"discount_percent":100}' ) ) ) );
+	}
+
+	public function test_test_env_order_uses_discounted_price(): void {
+		$this->config->method( 'isTestEnv' )->willReturn( true );
+		$this->woo->expects( self::once() )->method( 'createOrderForProduct' )
+			->with( 500, array( WooExamAdapter::ORDER_ITEM_META => 9 ), self::anything(), 400.0 )
+			->willReturn( 78 );
+		$this->woo->method( 'orderReceivedUrl' )->willReturn( 'https://example.test/thanks' );
+
+		$this->adapter->completeInTestEnv( $this->app( array( 'source_snapshot' => '{"grade":11,"discount_percent":20}' ) ), array( 'first_name' => 'А', 'last_name' => 'Б', 'phone' => '1' ) );
 	}
 
 	public function test_production_never_completes_order_itself(): void {

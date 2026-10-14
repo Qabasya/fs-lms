@@ -431,6 +431,46 @@ class SubmissionServiceTest extends TestCase {
 		self::assertSame( 'incorrect', $snapshot[7]['verdict'] );
 	}
 
+	/** «Отменить зачёт»: задание снова оценивается автопроверкой, отметка преподавателя снимается, снимок возвращается. */
+	public function test_revokeBatchCredit_restores_auto_result_and_clears_teacher_mark(): void {
+		$credited  = new SubmissionDTO(
+			id: 21, studentPersonId: 10, groupLessonId: 5, workId: 3, workType: WorkType::Practice, taskId: 7,
+			answerText: '41', attachmentId: null, dueAt: null, status: SubmissionStatus::Graded, score: 1.0, maxScore: 1.0,
+			feedback: null, gradedByUserId: 99, submittedAt: '2024-01-01 10:00:00', gradedAt: '2024-01-02 10:00:00',
+			createdAt: '2024-01-01 00:00:00', updatedAt: '2024-01-01 00:00:00',
+		);
+		$aggregate = $this->makeAggregateWithVerdicts( 1, [ 7 => [ 'verdict' => 'correct', 'score' => 1.0, 'maxScore' => 1.0 ] ] );
+
+		$this->submissions->method( 'find' )->willReturn( $credited );
+		$this->submissions->method( 'findAggregate' )->willReturn( $aggregate );
+		$this->submissions->method( 'listPerTaskByStudentWorkLesson' )->willReturn( [ $credited ] );
+		$this->batchChecker->method( 'check' )->willReturn(
+			new BatchCheckResultDTO( [ 7 => [ 'verdict' => 'incorrect', 'score' => 0.0, 'maxScore' => 1.0 ] ], 0, 1, 0.0, 1.0, false )
+		);
+
+		$updates = array();
+		$this->submissions->method( 'update' )->willReturnCallback(
+			function ( int $id, array $data ) use ( &$updates ): bool {
+				$updates[ $id ][] = $data;
+
+				return true;
+			}
+		);
+
+		$this->service->revokeBatchCredit( 21, 99 );
+
+		self::assertSame( 0.0, $updates[21][0]['score'] );
+		self::assertNull( $updates[21][0]['graded_by_user_id'], 'Отметка преподавателя снята.' );
+		self::assertSame( 'incorrect', json_decode( (string) $updates[1][0]['answer_text'], true )[7]['verdict'], 'Снимок ученика вернулся к автопроверке.' );
+	}
+
+	public function test_revokeBatchCredit_refuses_when_no_credit_set(): void {
+		$this->submissions->method( 'find' )->willReturn( $this->makePerTaskSubmission( 21, 7 ) ); // gradedByUserId = null
+
+		$this->expectException( \InvalidArgumentException::class );
+		$this->service->revokeBatchCredit( 21, 99 );
+	}
+
 	public function test_gradeBatchTask_throws_on_aggregate_row(): void {
 		$this->submissions->method( 'find' )->willReturn( $this->makeSubmission( 1, SubmissionStatus::Submitted ) );
 

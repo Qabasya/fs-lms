@@ -24,10 +24,26 @@ export function gradeOfDirection(direction) {
     return 'ege' === direction ? 11 : ('oge' === direction ? 9 : 0);
 }
 
+/** Допустимые скидки по ссылке (зеркало `ExamSourceDTO::DISCOUNT_STEPS`): 0 — полная цена, 100 — без оплаты. */
+const DISCOUNT_STEPS = [0, 25, 50, 75, 100];
+
+/** Подпись пункта скидки в списке выбора. */
+function discountLabel(percent) {
+    if (100 === percent) { return '100% — бесплатно'; }
+    return 0 === percent ? 'Без скидки' : `Скидка ${percent}%`;
+}
+
+/** Плашка скидки в строке источника; у полной цены её нет. */
+function discountChipHtml(percent) {
+    const p = Number(percent) || 0;
+    if (p <= 0) { return ''; }
+    return ` <span class="es-free">${100 === p ? 'без оплаты' : `скидка ${p}%`}</span>`;
+}
+
 /**
  * Строка источника. `canCopy` — ключ этой ссылки ещё в памяти формы.
  *
- * @param {{id:number, school_name:string, teacher_name:string, grade:number, is_active:boolean, is_free?:boolean, has_link:boolean, active_holds:number}} source
+ * @param {{id:number, school_name:string, teacher_name:string, grade:number, is_active:boolean, discount_percent?:number, has_link:boolean, active_holds:number}} source
  * @param {boolean} canCopy
  */
 export function sourceRowHtml(source, canCopy) {
@@ -39,7 +55,7 @@ export function sourceRowHtml(source, canCopy) {
 
     return `<div class="exam-source${source.is_active ? '' : ' is-off'}" data-id="${source.id}">
         <div class="es-main">
-            <div class="es-school">${esc(source.school_name)} · ${source.grade} класс${source.is_free ? ' <span class="es-free">без оплаты</span>' : ''}</div>
+            <div class="es-school">${esc(source.school_name)} · ${source.grade} класс${discountChipHtml(source.discount_percent)}</div>
             <div class="es-teacher">${esc(source.teacher_name)}${source.active_holds ? ` · броней: ${source.active_holds}` : ''}</div>
         </div>
         <label class="es-toggle"><input type="checkbox" data-src="toggle" ${source.is_active ? 'checked' : ''}> активна</label>
@@ -73,7 +89,7 @@ export function renderSourcesSection(container, o) {
                     <span class="es-school-field"><input type="text" id="srcSchool" placeholder="Школа" maxlength="255" aria-label="Школа" autocomplete="off"></span>
                     <span class="es-grade" title="Класс определяется направлением проведения">${grade} класс</span>
                     <input type="text" id="srcTeacher" placeholder="ФИО преподавателя" maxlength="255" aria-label="ФИО преподавателя">
-                    <label class="es-toggle" title="Ученики по этой ссылке записываются бесплатно, без этапа оплаты"><input type="checkbox" id="srcFree"> без оплаты</label>
+                    <select id="srcDiscount" aria-label="Скидка по ссылке" title="Скидка для учеников, пришедших по этой ссылке. 100% — запись без оплаты. Гость видит, что скидка действует из-за ссылки преподавателя">${DISCOUNT_STEPS.map(p => `<option value="${p}">${discountLabel(p)}</option>`).join('')}</select>
                     <button type="button" class="prof-btn prof-btn-sm" data-src="add">Добавить</button>
                 </div>`
                 : '<div class="es-empty">Выберите основной вариант проведения: от него зависит класс.</div>'}`;
@@ -125,7 +141,7 @@ export function renderSourcesSection(container, o) {
                 school_name: known || typed,
                 school_key: known ? schoolKeyOf(known) : '',
                 teacher_name: container.querySelector('#srcTeacher').value,
-                is_free: container.querySelector('#srcFree').checked ? 1 : 0,
+                discount_percent: Number(container.querySelector('#srcDiscount').value) || 0,
                 grade,
             });
         }, 'Источник добавлен'));

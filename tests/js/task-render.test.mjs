@@ -40,12 +40,30 @@ test('read_only не содержит ни форм оценивания, ни �
     }
 });
 
-test('manage для ручной задачи экзамена содержит форму оценки и зачёт', () => {
+test('manage для ручной задачи экзамена содержит форму оценки без отдельного зачёта', () => {
     const html = renderTask(manualTask({ criteria: [], oge_rubric: null }), MANAGE_EXAM);
 
     assert.match(html, /sum-task-grade/);
-    assert.match(html, /stg-save/);
-    assert.match(html, /stg-credit/);
+    assert.match(html, /stg-save">Оценить</);
+    assert.doesNotMatch(html, /stg-credit/, 'Есть «Оценить» — «Засчитать задание» не нужен.');
+});
+
+test('оценённая преподавателем задача: поля заблокированы, кнопка «Изменить оценку»', () => {
+    const html = renderTask(manualTask({ criteria: [], oge_rubric: null, manually_graded: true, score: 1 }), MANAGE_EXAM);
+
+    assert.match(html, /sum-task-grade is-graded/);
+    assert.match(html, /stg-score"[^>]*disabled/);
+    assert.match(html, /stg-fb"[^>]*disabled/);
+    assert.match(html, /prof-btn-danger stg-save">Изменить оценку</);
+    assert.doesNotMatch(html, /stg-credit/);
+});
+
+test('не оценённая задача: кнопка «Оценить», поля доступны', () => {
+    const html = renderTask(manualTask({ criteria: [], oge_rubric: null, manually_graded: false }), MANAGE_EXAM);
+
+    assert.doesNotMatch(html, /is-graded/);
+    assert.doesNotMatch(html, /stg-score"[^>]*disabled/);
+    assert.match(html, /prof-btn-primary stg-save">Оценить</);
 });
 
 test('manage без транспорта оценки не рисует формы', () => {
@@ -104,4 +122,21 @@ test('условие и ответ ученика экранируются', () 
 
     assert.doesNotMatch(html, /<script>x<\/script>/);
     assert.match(html, /&lt;script&gt;/);
+});
+
+test('автозадание, зачтённое преподавателем: вместо «Засчитать» — красная «Отменить зачёт»', () => {
+    const t = { n: 1, task_id: 7, verdict: 'correct', manual: false, manually_graded: true, score: 1, max_score: 1, condition: 'у' };
+    const html = renderTask(t, MANAGE_EXAM);
+
+    assert.match(html, /prof-btn-danger stg-uncredit">Отменить зачёт</);
+    assert.doesNotMatch(html, /stg-credit"/);
+});
+
+test('работа: зачтённое автозадание тоже отменяется; ручное — нет', () => {
+    const auto = { n: 1, task_submission_id: 21, task_id: 7, verdict: 'correct', gradable: false, manually_graded: true, condition: 'у' };
+    const manual = { n: 2, task_submission_id: 22, task_id: 8, verdict: 'correct', gradable: true, manually_graded: true, condition: 'у' };
+    const ctx = { mode: 'manage', kind: 'work', canGradeBatch: true };
+
+    assert.match(renderTask(auto, ctx), /stg-uncredit/);
+    assert.doesNotMatch(renderTask(manual, ctx), /stg-uncredit/);
 });

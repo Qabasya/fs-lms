@@ -38,6 +38,18 @@ export function verdictKey(t) {
 }
 
 /**
+ * Кнопка формы оценки: «Оценить» (основная) или, когда оценка уже сохранена и поля заблокированы, красная «Изменить оценку».
+ * Состояние потом переключает `setGradeLocked()` в work-review.js — классы и подписи те же.
+ *
+ * @param {boolean} locked Оценка выставлена преподавателем.
+ */
+export function gradeSaveButton(locked) {
+    return locked
+        ? '<button class="prof-btn prof-btn-sm prof-btn-danger stg-save">Изменить оценку</button>'
+        : '<button class="prof-btn prof-btn-sm prof-btn-primary stg-save">Оценить</button>';
+}
+
+/**
  * Разметка одной задачи.
  *
  * @param {Object}            t   Задача из WorkDetailService (`n`, `condition`, `answer`, `verdict`, …).
@@ -67,10 +79,14 @@ export function renderTask(t, ctx = {}) {
     // ответ ученика (Tasks.md, п. 1). На ручной проверке (pending) остаётся —
     // именно по нему преподаватель и ставит балл. Условие общее для обоих режимов.
     const showCorrect = t.correct && 'correct' !== t.verdict;
+    // Оценка уже выставлена преподавателем: поля заблокированы, вместо «Оценить» — «Изменить оценку».
+    const locked = !!t.manually_graded;
+    const dis = locked ? ' disabled' : '';
+    const gradedCls = locked ? ' is-graded' : '';
     // Tasks.md, п. 6: ручной зачёт задания — опечатка в условии не должна стоить
     // ученику возврата всей работы. Доступен для ЛЮБОЙ задачи (в т.ч.
-    // автопроверенной), пока она не засчитана; у ручных задач кнопка стоит рядом
-    // с формой балла, а не вместо неё. Прошлые раунды сдачи task_submission_id
+    // автопроверенной), пока она не засчитана; у задач с формой оценки кнопки нет —
+    // балл ставится самой формой. Прошлые раунды сдачи task_submission_id
     // не отдают — там снимок, и кнопки не будет.
     const creditable = manage && 'correct' !== t.verdict && (
         (kind === 'work' && t.task_submission_id && canGradeBatch)
@@ -82,24 +98,37 @@ export function renderTask(t, ctx = {}) {
     // полным текстом всех уровней рядом (НЕ сумма критериев);
     // иначе — прежний контрол «балл + верно».
     const grade = hasCriteria ? criteriaGradeBlock(t) : hasOgeRubric ? ogeRubricGradeBlock(t) : canGrade ? `
-            <div class="sum-task-grade" data-task-id="${t.task_id}" data-max="${t.max_score ?? ''}">
-                <input type="number" class="stg-score" step="0.5" min="0" value="${t.score ?? ''}" placeholder="балл">
+            <div class="sum-task-grade${gradedCls}" data-task-id="${t.task_id}" data-max="${t.max_score ?? ''}">
+                <input type="number" class="stg-score" step="0.5" min="0" value="${t.score ?? ''}" placeholder="балл"${dis}>
                 <span class="stg-of">/ ${t.max_score != null ? fmtNum(t.max_score) : '1'}</span>
-                <label class="stg-ok"><input type="checkbox" class="stg-ok-cb" ${t.verdict === 'correct' ? 'checked' : ''}>верно</label>
-                <input type="text" class="stg-fb" placeholder="комментарий" value="${t.feedback ? esc(t.feedback) : ''}">
-                <button class="prof-btn prof-btn-sm prof-btn-primary stg-save">Оценить</button>
+                <label class="stg-ok"><input type="checkbox" class="stg-ok-cb" ${t.verdict === 'correct' ? 'checked' : ''}${dis}>верно</label>
+                <input type="text" class="stg-fb" placeholder="комментарий" value="${t.feedback ? esc(t.feedback) : ''}"${dis}>
+                ${gradeSaveButton(locked)}
             </div>` : canGradeSubmissionTask ? `
-            <div class="sum-task-grade sum-task-grade--batch" data-submission-id="${t.task_submission_id}" data-max="${t.max_score ?? 1}">
-                <input type="number" class="stg-score" step="0.5" min="0" value="${t.score ?? ''}" placeholder="балл">
+            <div class="sum-task-grade sum-task-grade--batch${gradedCls}" data-submission-id="${t.task_submission_id}" data-max="${t.max_score ?? 1}">
+                <input type="number" class="stg-score" step="0.5" min="0" value="${t.score ?? ''}" placeholder="балл"${dis}>
                 <span class="stg-of">/ ${t.max_score != null ? fmtNum(t.max_score) : '1'}</span>
-                <input type="text" class="stg-fb" placeholder="комментарий" value="${t.feedback ? esc(t.feedback) : ''}">
-                <button class="prof-btn prof-btn-sm prof-btn-primary stg-save">Оценить</button>
+                <input type="text" class="stg-fb" placeholder="комментарий" value="${t.feedback ? esc(t.feedback) : ''}"${dis}>
+                ${gradeSaveButton(locked)}
             </div>` : '';
-    const credit = creditable ? `
-            <div class="sum-task-credit" data-submission-id="${t.task_submission_id ?? ''}" data-task-id="${t.task_id ?? ''}" data-max="${t.max_score ?? 1}">
+    // Есть форма оценки («Оценить») — отдельный «Засчитать задание» не нужен: полный балл ставится там же.
+    // Автопроверяемое задание, зачтённое преподавателем: для таких `graded_by_user_id` пишет только зачёт
+    // (ручной балл автозаданию сервер не принимает) — поэтому «manually_graded» здесь и есть «засчитано».
+    // Ошибочный зачёт отменяется: задание возвращается к автопроверке.
+    const credited = manage && t.manually_graded && !grade && (
+        (kind === 'exam' && t.task_id && !t.manual && canGradeAttempt)
+        || (kind === 'work' && t.task_submission_id && !t.gradable && canGradeBatch)
+    );
+    const creditAttrs = `data-submission-id="${t.task_submission_id ?? ''}" data-task-id="${t.task_id ?? ''}" data-max="${t.max_score ?? 1}"`;
+    const credit = credited ? `
+            <div class="sum-task-credit" ${creditAttrs}>
+                <button class="prof-btn prof-btn-sm prof-btn-danger stg-uncredit">Отменить зачёт</button>
+                <span class="stc-hint">Задание засчитано преподавателем; отмена вернёт автоматическую проверку</span>
+            </div>` : (creditable && !grade ? `
+            <div class="sum-task-credit" ${creditAttrs}>
                 <button class="prof-btn prof-btn-sm stg-credit">Засчитать задание</button>
                 <span class="stc-hint">Выставит полный балл за задание, работа останется у ученика</span>
-            </div>` : '';
+            </div>` : '');
     const key = verdictKey(t);
     // Якорь — устойчивый идентификатор задания: клик по строке перечня ведёт к нему, а не к строке с тем же индексом.
     const anchor = t.anchor ? ` id="${esc(t.anchor)}"` : '';
@@ -148,17 +177,19 @@ export function taskFilesBlock(files) {
 
 /* Эпик 13 (D17): покритерийное оценивание — строка на критерий, балл задачи = сумма. */
 function criteriaGradeBlock(t) {
+    const locked = !!t.manually_graded;
+    const dis = locked ? ' disabled' : '';
     const rows = t.criteria.map((c, i) => `
             <div class="stg-criterion" data-idx="${i}" data-max="${c.max_points}">
                 <span class="stgc-label">${esc(c.label)}</span>
-                <input type="number" class="stgc-points" min="0" max="${c.max_points}" step="0.5" value="${c.awarded ?? 0}">
+                <input type="number" class="stgc-points" min="0" max="${c.max_points}" step="0.5" value="${c.awarded ?? 0}"${dis}>
                 <span class="stgc-of">/ ${fmtNum(c.max_points)}</span>
             </div>`).join('');
     return `
-            <div class="sum-task-grade sum-task-grade--criteria" data-task-id="${t.task_id}">
+            <div class="sum-task-grade sum-task-grade--criteria${locked ? ' is-graded' : ''}" data-task-id="${t.task_id}">
                 ${rows}
-                <input type="text" class="stg-fb" placeholder="комментарий" value="${t.feedback ? esc(t.feedback) : ''}">
-                <button class="prof-btn prof-btn-sm prof-btn-primary stg-save">Оценить</button>
+                <input type="text" class="stg-fb" placeholder="комментарий" value="${t.feedback ? esc(t.feedback) : ''}"${dis}>
+                ${gradeSaveButton(locked)}
             </div>`;
 }
 
@@ -167,14 +198,16 @@ function criteriaGradeBlock(t) {
    сумму независимых критериев (в отличие от criteriaGradeBlock выше). */
 function ogeRubricGradeBlock(t) {
     const max = t.oge_rubric.max_points;
+    const locked = !!t.manually_graded;
+    const dis = locked ? ' disabled' : '';
     const options = Array.from({ length: max + 1 }, (_, score) => max - score)
         .map((score) => `<option value="${score}" ${t.score !== null && Math.round(+t.score) === score ? 'selected' : ''}>${score} из ${max}</option>`)
         .join('');
     return `
             <div class="sum-task-rubric">${t.oge_rubric.html}</div>
-            <div class="sum-task-grade sum-task-grade--oge-rubric" data-task-id="${t.task_id}" data-max="${max}">
-                <select class="stg-oge-score">${options}</select>
-                <input type="text" class="stg-fb" placeholder="комментарий" value="${t.feedback ? esc(t.feedback) : ''}">
-                <button class="prof-btn prof-btn-sm prof-btn-primary stg-save">Оценить</button>
+            <div class="sum-task-grade sum-task-grade--oge-rubric${locked ? ' is-graded' : ''}" data-task-id="${t.task_id}" data-max="${max}">
+                <select class="stg-oge-score"${dis}>${options}</select>
+                <input type="text" class="stg-fb" placeholder="комментарий" value="${t.feedback ? esc(t.feedback) : ''}"${dis}>
+                ${gradeSaveButton(locked)}
             </div>`;
 }

@@ -469,6 +469,47 @@ class SubmissionService {
 	}
 
 	/**
+	 * «Отменить зачёт»: задание сдачи возвращается к автоматической проверке — по сохранённому ответу ученика, как при сдаче.
+	 * Снимается и отметка преподавателя (`graded_by_user_id`), снимок вердиктов и итог работы пересчитываются.
+	 *
+	 * @throws \InvalidArgumentException Сдача не найдена, зачёт не выставлен либо задание ручное (автоматического результата нет).
+	 */
+	public function revokeBatchCredit( int $submissionId, int $teacherUserId ): void {
+		$sub = $this->submissions->find( $submissionId );
+		if ( ! $sub || null === $sub->taskId ) {
+			throw new \InvalidArgumentException( 'Per-task сдача не найдена.' );
+		}
+		if ( null === $sub->gradedByUserId ) {
+			throw new \InvalidArgumentException( 'Зачёт по этому заданию не выставлен.' );
+		}
+
+		$raw     = (string) $sub->answerText;
+		$decoded = json_decode( $raw, true );
+		$answer  = is_array( $decoded ) ? $decoded : $raw;
+
+		$result = $this->batchChecker->check( array( $sub->taskId => $answer ), array() );
+		$auto   = $result->perTask[ $sub->taskId ] ?? array( 'verdict' => 'pending', 'score' => 0.0, 'maxScore' => 1.0 );
+		if ( 'pending' === $auto['verdict'] ) {
+			throw new \InvalidArgumentException( 'Задание проверяется вручную: зачёт отменить нельзя.' );
+		}
+
+		$maxScore = $sub->maxScore ?? (float) $auto['maxScore'];
+		$score    = 'correct' === $auto['verdict'] ? $maxScore : min( (float) $auto['score'], $maxScore );
+
+		$this->submissions->update( $submissionId, [
+			'score'             => $score,
+			'max_score'         => $maxScore,
+			'feedback'          => null,
+			'status'            => SubmissionStatus::Graded->value,
+			'graded_by_user_id' => null,
+			'graded_at'         => $this->clock->now(),
+		] );
+
+		$this->syncAggregateSnapshot( $sub, $score, $maxScore );
+		$this->recalculateAggregate( $sub->studentPersonId, $sub->groupLessonId, $sub->workId, $teacherUserId );
+	}
+
+	/**
 	 * Переписывает вердикт одной задачи в JSON-снимке агрегатной строки.
 	 *
 	 * Снимок — то, что видит УЧЕНИК на экране результатов работы

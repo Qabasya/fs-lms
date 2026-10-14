@@ -460,6 +460,9 @@ class LearnerExamsService {
 			'weekday'         => $start['weekday'],
 			'time_start'      => $start['time'],
 			'time_end'        => $this->local( $session->plannedEndAt )['time'],
+			// Секунды до начала и конца окна на момент ответа: клиент отсчитывает их сам (фаза «скоро» — за 5 минут).
+			'starts_in'       => $this->time->secondsUntil( $this->time->nowUtc(), $session->scheduledAt ),
+			'ends_in'         => $this->time->secondsUntil( $this->time->nowUtc(), $session->plannedEndAt ),
 			'room'            => $this->roomName( $session->roomId ),
 		);
 	}

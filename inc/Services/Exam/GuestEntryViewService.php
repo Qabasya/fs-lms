@@ -12,6 +12,7 @@ namespace Inc\Services\Exam;
 use Inc\DTO\Exam\AttemptContext;
 use Inc\Enums\Assessment\AttemptStatus;
 use Inc\Enums\Exam\ExamSessionStatus;
+use Inc\Enums\Exam\ExamStartPhase;
 use Inc\Enums\Wp\PageRoutes;
 use Inc\Managers\Assessment\AssessmentManager;
 use Inc\Repositories\WPDBRepositories\AssessmentAttemptRepository;
@@ -47,7 +48,7 @@ class GuestEntryViewService {
 	/**
 	 * Готовит состояние входа, временные окна и действие для участия из гостевого контекста.
 	 *
-	 * @return array{state: string, name: string, event_title: string, date: string, window_from: string, window_to: string, deadline: string, action_url: string, contacts: array<string, string>}|null
+	 * @return array{state: string, phase: string, starts_in: int, ends_in: int, soon_seconds: int, name: string, event_title: string, date: string, window_from: string, window_to: string, deadline: string, action_url: string, contacts: array<string, string>}|null
 	 */
 	public function build( AttemptContext $ctx ): ?array {
 		$participation = $this->participations->find( $ctx->participationId );
@@ -78,19 +79,26 @@ class GuestEntryViewService {
 			$url   = $this->assessments->examStationUrl( $session->assessmentId, $registration->id );
 		}
 
-		$from = $this->time->toLocal( $session->scheduledAt );
-		$to   = $this->time->toLocal( $session->plannedEndAt );
+		$startsIn = $this->time->secondsUntil( $nowUtc, $session->scheduledAt );
+		$endsIn   = $this->time->secondsUntil( $nowUtc, $session->plannedEndAt );
+		$from     = $this->time->toLocal( $session->scheduledAt );
+		$to       = $this->time->toLocal( $session->plannedEndAt );
 
 		return array(
-			'state'       => $state,
-			'name'        => $this->guestData->displayName( $participant ) ?? '',
-			'event_title' => $event->title,
-			'date'        => substr( $from, 0, 10 ),
-			'window_from' => substr( $from, 11, 5 ),
-			'window_to'   => substr( $to, 11, 5 ),
-			'deadline'    => null !== $attempt && AttemptStatus::InProgress === $attempt->status ? substr( $attempt->deadlineAt, 11, 5 ) : '',
-			'action_url'  => $url,
-			'contacts'    => $this->contacts->get(),
+			'state'        => $state,
+			// Фаза старта для текстов страницы; секунды клиент отсчитывает сам и переключает текст без перезагрузки.
+			'phase'        => ExamStartPhase::of( $startsIn, $endsIn )->value,
+			'starts_in'    => $startsIn,
+			'ends_in'      => $endsIn,
+			'soon_seconds' => ExamStartPhase::SOON_SECONDS,
+			'name'         => $this->guestData->displayName( $participant ) ?? '',
+			'event_title'  => $event->title,
+			'date'         => substr( $from, 0, 10 ),
+			'window_from'  => substr( $from, 11, 5 ),
+			'window_to'    => substr( $to, 11, 5 ),
+			'deadline'     => null !== $attempt && AttemptStatus::InProgress === $attempt->status ? substr( $attempt->deadlineAt, 11, 5 ) : '',
+			'action_url'   => $url,
+			'contacts'     => $this->contacts->get(),
 		);
 	}
 }

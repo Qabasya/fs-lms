@@ -183,10 +183,12 @@ class ExamAccessTokenServiceTest extends TestCase {
 		} );
 
 		$plain = $this->service->issue( ExamTokenPurpose::Invitation, 3, 1 );
-		$this->service->issue( ExamTokenPurpose::Entry, 3, 1 );
+		$entry = $this->service->issue( ExamTokenPurpose::Entry, 3, 1 );
+		$this->service->issue( ExamTokenPurpose::Payment, 3, 1 );
 
 		self::assertSame( base64_encode( strrev( $plain ) ), $rows[0]['key_enc'] );
-		self::assertNull( $rows[1]['key_enc'], 'Ключи входа не запоминаются.' );
+		self::assertSame( base64_encode( strrev( $entry ) ), $rows[1]['key_enc'], 'Ссылка входа хранится зашифрованной: её можно скопировать без перевыпуска.' );
+		self::assertNull( $rows[2]['key_enc'], 'Ключи оплаты не запоминаются.' );
 	}
 
 	public function test_report_key_is_stored_sealed_and_can_be_copied_again(): void {

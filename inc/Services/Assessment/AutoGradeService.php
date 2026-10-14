@@ -84,6 +84,37 @@ class AutoGradeService {
 	}
 
 	/**
+	 * Возвращает одно задание к автоматической оценке: снимает зачёт/ручной балл преподавателя («Отменить зачёт»).
+	 * Результат считает тот же `evaluate()`, что и при сдаче, по сохранённому ответу ученика.
+	 *
+	 * @return AttemptDTO|null null — ответа нет или задание ручное (автоматического результата у него нет): ничего не меняется.
+	 */
+	public function revertTaskToAuto( AttemptDTO $attempt, int $taskId ): ?AttemptDTO {
+		$answer = $this->answers->findByAttemptAndTask( $attempt->id, $taskId );
+		if ( null === $answer ) {
+			return null;
+		}
+
+		$assessment = $this->assessments->get( $attempt->assessmentId );
+		$result     = $this->evaluate( $assessment, array( $taskId ), array( $taskId => $answer->answerText ?? '' ) );
+		$auto       = $result['perTask'][ $taskId ] ?? null;
+		if ( null === $auto || $auto['pending'] ) {
+			return null;
+		}
+
+		$this->answers->upsert( $attempt->id, $taskId, array(
+			'is_correct'        => $auto['correct'] ? 1 : 0,
+			'score'             => $auto['score'],
+			'max_score'         => $auto['max'],
+			'grader_note'       => null,
+			'graded_by_user_id' => null,
+			'graded_at'         => null,
+		) );
+
+		return $this->finalize( $attempt );
+	}
+
+	/**
 	 * Оценивает попытку по ПОЛНОМУ набору заданий контрольной (а не только по
 	 * заполненным ответам): максимум складывается из всех заданий работы, иначе
 	 * при пустых/частичных ответах итог был бы «0 / 0» вместо «0 / N». Для каждого

@@ -70,6 +70,25 @@ class WooCommerceManager {
 		return $list;
 	}
 
+	/**
+	 * Ставит цену позициям корзины на время пересчёта итогов (хук `woocommerce_before_calculate_totals`).
+	 *
+	 * @param mixed                $cart   Корзина WooCommerce.
+	 * @param array<string, float> $prices Ключ позиции → новая цена за единицу.
+	 */
+	public function setCartItemPrices( mixed $cart, array $prices ): void {
+		if ( ! is_object( $cart ) || ! method_exists( $cart, 'get_cart' ) ) {
+			return;
+		}
+
+		foreach ( $cart->get_cart() as $key => $item ) {
+			$product = $item['data'] ?? null;
+			if ( isset( $prices[ (string) $key ] ) && $product instanceof \WC_Product ) {
+				$product->set_price( (string) $prices[ (string) $key ] );
+			}
+		}
+	}
+
 	/** Цена в разметке магазина (`wc_price()`); пусто — WooCommerce не активен. */
 	public function formatPrice( string $price ): string {
 		return $this->isActive() ? (string) wc_price( (float) $price ) : '';
@@ -200,7 +219,7 @@ class WooCommerceManager {
 	 *
 	 * @return int|null ID заказа; null — магазин или товар недоступны.
 	 */
-	public function createOrderForProduct( int $productId, array $itemMeta, array $billing ): ?int {
+	public function createOrderForProduct( int $productId, array $itemMeta, array $billing, ?float $price = null ): ?int {
 		$product = $this->isActive() && function_exists( 'wc_create_order' ) ? wc_get_product( $productId ) : null;
 		if ( ! $product instanceof \WC_Product ) {
 			return null;
@@ -211,7 +230,9 @@ class WooCommerceManager {
 			return null;
 		}
 
-		$itemId = $order->add_product( $product, 1 );
+		// Цена со скидкой ссылки преподавателя; без неё — цена товара.
+		$args   = null !== $price ? array( 'subtotal' => $price, 'total' => $price ) : array();
+		$itemId = $order->add_product( $product, 1, $args );
 		$item   = $itemId ? $order->get_item( $itemId ) : null;
 		if ( $item instanceof \WC_Order_Item ) {
 			foreach ( $itemMeta as $key => $value ) {

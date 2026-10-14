@@ -15,6 +15,7 @@ import { courseTabsShell, syncCourseTabs } from '../course-tabs.js';
 import { confirmDialog } from '../../common/components/confirm-dialog.js';
 import { childBar, wireChild, getChildId, isParent, onChildChange } from '../learner-child.js';
 import { UNIT_STATUS, resultCaption, resultPercent } from './exam-result.js';
+import { examStartPhase, msToNextPhase } from '../../common/exam-start-phase.js';
 
 const DIRECTION_LABEL = { ege: 'ЕГЭ', oge: 'ОГЭ' };
 
@@ -48,6 +49,8 @@ let rootEl = null;
 let api = null;
 let openReviewCb = () => {};
 let exams = [];
+let loadedAt = Date.now();   // момент получения списка: от него отсчитываются starts_in / ends_in карточек
+let phaseTimer = null;       // перерисовка на смене фазы «до начала» → «скоро» → «идёт»
 let activeId = null;
 let pendingEventId = null; // карточка, которую просили открыть из расписания (5.5)
 let requestKey = null;     // один ключ на одно намерение пользователя: повтор после обрыва идемпотентен
@@ -121,6 +124,7 @@ function load() {
 /** Принять свежий список карточек и перерисовать экран, сохранив выбранное проведение. */
 function apply(data) {
     exams = data?.exams || [];
+    loadedAt = Date.now();
     if (pendingEventId && exams.some(e => e.event_id === pendingEventId)) {
         activeId = pendingEventId;
         pendingEventId = null;
@@ -185,6 +189,7 @@ function paint() {
     paintHero();
     paintUnits();
     syncRefreshTimer();
+    schedulePhaseRefresh();
 }
 
 function paintTabs() {
@@ -303,18 +308,41 @@ function actionButton(e, action) {
     return `<button type="button" class="prof-btn${primary ? ' prof-btn-primary' : ''} sc-hbtn${disabled ? ' sc-dis' : ''}" data-action="${action}"${disabled ? ' disabled' : ''}>${esc(ACTION_LABEL[action] || action)}</button>`;
 }
 
+/** Фаза момента старта по записи карточки: секунды с сервера минус прошедшее с момента ответа. */
+function startPhase(reg) {
+    const elapsed = (Date.now() - loadedAt) / 1000;
+    return examStartPhase(reg.starts_in - elapsed, reg.ends_in - elapsed);
+}
+
+/** Перерисовка ровно на границе фазы записи: «скоро» наступает без ожидания опроса. */
+function schedulePhaseRefresh() {
+    clearTimeout(phaseTimer);
+    const reg = active()?.state === 'registered' ? active().registration : null;
+    if (!reg || typeof reg.starts_in !== 'number') { return; }
+    const elapsed = (Date.now() - loadedAt) / 1000;
+    const wait = msToNextPhase(reg.starts_in - elapsed, reg.ends_in - elapsed);
+    if (null === wait) { return; }
+    phaseTimer = setTimeout(() => { if (screenActive() && !panelMode) { load(); } else { paintHero(); } }, wait + 300);
+}
+
 function hint(e) {
     const teacher = e.teacher_name || 'преподавателю';
     switch (e.state) {
         case 'not_open':           return e.registration_opens_at ? `Запись откроется ${day(e.registration_opens_at.slice(0, 10))}, ${e.registration_opens_at.slice(11, 16)}` : '';
-        case 'registered':         return `Кнопка станет активной в ${e.registration?.time_start || ''}. Смена и отмена записи — до начала выбранного сеанса.`;
-        case 'entry_open':         return e.registration?.time_end ? `Начать можно до ${e.registration.time_end}` : 'Начать можно до конца экзамена';
+        case 'registered': {
+            const reg = e.registration;
+            const phase = reg ? startPhase(reg) : 'far';
+            if ('soon' === phase) { return 'Экзамен скоро начнётся'; }
+            if ('running' === phase) { return 'Экзамен уже идёт. Срочно приступайте к работе!'; }
+            return reg ? `Экзамен начнётся ${day(reg.date)}, ${reg.time_start}` : '';
+        }
+        case 'entry_open':         return 'Экзамен уже идёт. Срочно приступайте к работе!';
         case 'in_progress':        return e.deadline ? `Завершение в ${e.deadline}` : '';
         case 'full':               return `Свободных мест нет. Обратитесь к преподавателю: ${teacher}.`;
         case 'closed':             return `Запись закрыта. Обратитесь к преподавателю: ${teacher}.`;
         case 'awaiting_approval':  return 'Работа сдана и ожидает утверждения преподавателем.';
         case 'cancelled_by_staff': return e.last_reason ? `Запись отменена. Причина: ${e.last_reason}` : 'Запись отменена.';
-        case 'missed':             return e.previous_date ? `Экзамен пропущен, запись на ${day(e.previous_date)} аннулирована.` : 'Экзамен пропущен.';
+        case 'missed':             return 'Экзамен завершён. Приступить к работе невозможно. Свяжитесь с преподавателем';
         case 'event_cancelled':    return `Проведение отменено. Причина: ${e.last_reason || 'не указана'}.`;
         default:                   return '';
     }

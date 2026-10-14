@@ -147,7 +147,7 @@ function render() {
     const sessions = f.sessions.map(x => ({ id: x.id, label: `${fmtDate(x.date)} · ${x.time_start}` }));
     root.innerHTML = `
         <div class="exam-results">
-            ${subjectPickerHtml(examSubjects(), currentSubject())}
+            ${subjectPickerHtml(examSubjects(), currentSubject(), 'examResultsSubjectBtn')}
             <div class="prof-seg exam-results-segs" role="tablist">${SEGMENTS.map(s =>
                 `<button type="button" role="tab" class="${query.status === s.key ? 'on' : ''}" data-status="${s.key}">${esc(s.label)}</button>`).join('')}</div>
             <div class="exam-results-filters">
@@ -265,7 +265,7 @@ function rowHtml(r) {
 }
 
 function wire() {
-    wireSubjectPicker('examSubjectBtn', examSubjects(), currentSubject(), key => {
+    wireSubjectPicker('examResultsSubjectBtn', examSubjects(), currentSubject(), key => {
         setCurrentSubject(key);
         Object.assign(query, { event_id: 0, session_id: 0, source_id: 0, group_id: 0, school: '' });
         load();

@@ -72,6 +72,7 @@ class Activate {
 		$migration_runner->register( new \Inc\Migrations\Migration_1_0_85() );
 		$migration_runner->register( new \Inc\Migrations\Migration_1_0_86() );
 		$migration_runner->register( new \Inc\Migrations\Migration_1_0_87() );
+		$migration_runner->register( new \Inc\Migrations\Migration_1_0_88() );
 		$migration_runner->register( new \Inc\Migrations\Migration_1_0_81() );
 		$migration_runner->register( new \Inc\Migrations\Migration_1_0_82() );
 		$migration_runner->register( new \Inc\Migrations\Migration_1_0_83() );

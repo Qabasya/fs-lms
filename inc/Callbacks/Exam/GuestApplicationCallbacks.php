@@ -117,7 +117,7 @@ class GuestApplicationCallbacks extends BaseController {
 		}
 
 		// Бесплатная ссылка преподавателя: бронь сразу становится записью, магазин не вызывается.
-		if ( $source->isFree && ! $source->isPublic() ) {
+		if ( $source->isFree() ) {
 			$this->confirmFree( $source, $application );
 			return;
 		}

@@ -15,6 +15,9 @@ readonly class ExamSourceDTO {
 	/** Ключ школы служебного источника «Открытая запись»: запись без ссылки школы со страницы выбора класса. Школьных отчётов по нему нет. */
 	public const PUBLIC_KEY = 'public';
 
+	/** Допустимые проценты скидки по ссылке преподавателя: 0 — полная цена, 100 — запись без оплаты. Зеркало — `exam-sources.js`. */
+	public const DISCOUNT_STEPS = array( 0, 25, 50, 75, 100 );
+
 	/** Принимает типизированные поля без обращения к хранилищу. */
 	public function __construct(
 		public int $id,
@@ -32,9 +35,19 @@ readonly class ExamSourceDTO {
 		public int $version,
 		public string $createdAt,
 		public string $updatedAt,
-		/** Бесплатная ссылка: запись без оплаты (подарочное посещение по приглашению преподавателя). */
-		public bool $isFree = false,
+		/** Скидка по ссылке преподавателя, %: 0 — полная цена, 100 — запись без оплаты. У открытой записи не действует. */
+		public int $discountPercent = 0,
 	) {}
+
+	/** Действующая скидка: у открытой записи её не бывает. */
+	public function effectiveDiscount(): int {
+		return $this->isPublic() ? 0 : max( 0, min( 100, $this->discountPercent ) );
+	}
+
+	/** Запись по ссылке без оплаты (скидка 100 %): бронь сразу превращается в запись, магазин не вызывается. */
+	public function isFree(): bool {
+		return 100 === $this->effectiveDiscount();
+	}
 
 	/** Источник открытой записи (не школа): отчёты по его участникам не формируются. */
 	public function isPublic(): bool {
@@ -59,7 +72,8 @@ readonly class ExamSourceDTO {
 			version               : (int) $row['version'],
 			createdAt             : (string) $row['created_at'],
 			updatedAt             : (string) $row['updated_at'],
-			isFree                : (bool) ( $row['is_free'] ?? false ),
+			// Строка до миграции 1.0.88 знает только флаг `is_free`: он равен скидке 100 %.
+			discountPercent       : isset( $row['discount_percent'] ) ? (int) $row['discount_percent'] : ( ! empty( $row['is_free'] ) ? 100 : 0 ),
 		);
 	}
 }
