@@ -43,7 +43,22 @@ $video_fmt   = static fn( int $sec ): string => floor( $sec / 60 ) . ':' . str_p
 				<?php echo Icon::SeekForward10->svg(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
 			</button>
 			<span class="vp-time" data-vp-time>0:00 / 0:00</span>
+			<div class="vp-audio">
+				<button type="button" class="vp-cbtn" data-vp-mute aria-pressed="false" aria-label="<?php esc_attr_e( 'Выключить звук', 'fs-lms' ); ?>" data-label-mute="<?php esc_attr_e( 'Выключить звук', 'fs-lms' ); ?>" data-label-unmute="<?php esc_attr_e( 'Включить звук', 'fs-lms' ); ?>">
+					<span class="vp-ico-volume"><?php echo Icon::Volume->svg(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></span>
+					<span class="vp-ico-muted"><?php echo Icon::VolumeOff->svg(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></span>
+				</button>
+				<input type="range" class="vp-volume" data-vp-volume min="0" max="1" step="0.05" value="1" aria-label="<?php esc_attr_e( 'Громкость', 'fs-lms' ); ?>">
+			</div>
 			<span class="grow"></span>
+			<select class="vp-speed" data-vp-speed aria-label="<?php esc_attr_e( 'Скорость воспроизведения', 'fs-lms' ); ?>">
+				<?php foreach ( array( '0.5', '0.75', '1', '1.25', '1.5', '1.75', '2' ) as $video_rate ) : ?>
+					<option value="<?php echo esc_attr( $video_rate ); ?>" <?php selected( $video_rate, '1' ); ?>><?php echo esc_html( str_replace( '.', ',', $video_rate ) . '×' ); ?></option>
+				<?php endforeach; ?>
+			</select>
+			<button type="button" class="vp-cbtn" data-vp-pip hidden title="<?php esc_attr_e( 'Картинка в картинке', 'fs-lms' ); ?>" aria-label="<?php esc_attr_e( 'Картинка в картинке', 'fs-lms' ); ?>" aria-pressed="false">
+				<?php echo Icon::PictureInPicture->svg(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+			</button>
 			<button type="button" class="vp-cbtn" data-vp-fs title="<?php esc_attr_e( 'Во весь экран', 'fs-lms' ); ?>">
 				<?php echo Icon::Fullscreen->svg(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
 			</button>

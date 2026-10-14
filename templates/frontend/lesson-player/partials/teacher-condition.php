@@ -23,6 +23,11 @@ use Inc\Enums\Ui\Icon;
 $cond_template = (string) ( $cond_task['template'] ?? '' );
 $cond_html     = $cond_task['condition_html'] ?? '';
 $cond_segments = (array) ( $cond_task['widget_data']['segments'] ?? array() );
+$cond_widget   = (array) ( $cond_task['widget_data'] ?? array() );
+$cond_options  = array_map( static fn( $o ): string => (string) ( $o['text'] ?? '' ), (array) ( $cond_widget['options'] ?? array() ) );
+$cond_lefts    = array_map( static fn( $o ): string => (string) ( $o['text'] ?? '' ), (array) ( $cond_widget['lefts'] ?? array() ) );
+$cond_rights   = array_map( 'strval', (array) ( $cond_widget['rights'] ?? array() ) );
+$cond_items    = array_map( static fn( $o ): string => (string) ( $o['text'] ?? '' ), (array) ( $cond_widget['items'] ?? array() ) );
 ?>
 <?php if ( is_array( $cond_html ) ) : ?>
 	<?php foreach ( $cond_html as $cond_key => $cond_part ) : ?>
@@ -45,6 +50,46 @@ $cond_segments = (array) ( $cond_task['widget_data']['segments'] ?? array() );
 	</div>
 <?php elseif ( is_string( $cond_html ) && '' !== $cond_html ) : ?>
 	<div class="<?php echo esc_attr( $cond_class ); ?>"><?php echo \Inc\Shared\SafeHtml::post( $cond_html ); ?></div>
+<?php endif; ?>
+
+<?php // Варианты ответа: у ученика их рисует виджет, у преподавателя — списком без выбора. ?>
+<?php if ( 'choice' === ( $cond_widget['type'] ?? '' ) && array() !== $cond_options ) : ?>
+	<div class="fs-task-variants">
+		<span class="fs-task-variants__label"><?php echo esc_html( ! empty( $cond_widget['multiple'] ) ? __( 'Варианты ответа (несколько верных)', 'fs-lms' ) : __( 'Варианты ответа', 'fs-lms' ) ); ?></span>
+		<ul class="fs-task-variants__list">
+			<?php foreach ( $cond_options as $cond_option ) : ?>
+				<li><?php echo esc_html( $cond_option ); ?></li>
+			<?php endforeach; ?>
+		</ul>
+	</div>
+<?php elseif ( 'matching' === ( $cond_widget['type'] ?? '' ) && array() !== $cond_lefts ) : ?>
+	<div class="fs-task-variants fs-task-variants--cols">
+		<div>
+			<span class="fs-task-variants__label"><?php esc_html_e( 'Элементы', 'fs-lms' ); ?></span>
+			<ol class="fs-task-variants__list">
+				<?php foreach ( $cond_lefts as $cond_left ) : ?>
+					<li><?php echo esc_html( $cond_left ); ?></li>
+				<?php endforeach; ?>
+			</ol>
+		</div>
+		<div>
+			<span class="fs-task-variants__label"><?php esc_html_e( 'Соответствия', 'fs-lms' ); ?></span>
+			<ul class="fs-task-variants__list">
+				<?php foreach ( $cond_rights as $cond_right ) : ?>
+					<li><?php echo esc_html( $cond_right ); ?></li>
+				<?php endforeach; ?>
+			</ul>
+		</div>
+	</div>
+<?php elseif ( 'ordering' === ( $cond_widget['type'] ?? '' ) && array() !== $cond_items ) : ?>
+	<div class="fs-task-variants">
+		<span class="fs-task-variants__label"><?php esc_html_e( 'Элементы для сортировки', 'fs-lms' ); ?></span>
+		<ul class="fs-task-variants__list">
+			<?php foreach ( $cond_items as $cond_item ) : ?>
+				<li><?php echo esc_html( $cond_item ); ?></li>
+			<?php endforeach; ?>
+		</ul>
+	</div>
 <?php endif; ?>
 
 <?php foreach ( (array) ( $cond_task['files'] ?? array() ) as $cond_file ) : ?>

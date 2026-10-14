@@ -18,6 +18,11 @@ $bp-shell-narrow: 1100px;
 $tr: 0.12s;                          // быстрые ховеры
 $tr-top: 0.22s ease; // шапка прячется/возвращается при прокрутке
 
+// Размеры элементов управления видео.
+$video-volume-width: t.rem(80);
+$video-volume-mobile-width: t.rem(48);
+$video-control-height: t.rem(32);
+
 // ── Z-index
 $z-rail: 45;  // липкая рейка шагов
 $z-workbar: 46; // липкий воркбар работы/контрольной — над контентом, под шапкой

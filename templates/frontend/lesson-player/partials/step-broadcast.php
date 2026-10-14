@@ -98,7 +98,7 @@ $bc_teacher  = ! empty( $is_teacher ) && empty( $is_preview );
 			<p class="step-muted"><?php esc_html_e( 'Ссылку на запись добавляет преподаватель в группе после занятия — в предпросмотре её нет.', 'fs-lms' ); ?></p>
 		<?php endif; ?>
 
-		<?php if ( $bc_teacher ) : ?>
+		<?php if ( $bc_teacher && '' === $video_url ) : ?>
 			<form class="bc-rec" data-recording-form data-group-lesson-id="<?php echo esc_attr( (string) ( $view['group_lesson_id'] ?? 0 ) ); ?>">
 				<label class="bc-rec-label" for="bcRecLink-<?php echo esc_attr( $step['key'] ); ?>"><?php esc_html_e( 'Ссылка на запись занятия (видна ученикам после занятия)', 'fs-lms' ); ?></label>
 				<div class="bc-rec-row">

@@ -3,6 +3,7 @@
    вложения-конспекты. Порт .vp/.chaps/.attach из cp-base.css.
    ══════════════════════════════════════════════════════════════════════ */
 @use '../variables' as *;
+@use '../../shared/tokens' as t;
 
 .vp {
   position: relative;
@@ -156,6 +157,54 @@
   color: var(--video-ink);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+}
+
+.vp-audio {
+  display: flex;
+  align-items: center;
+  gap: t.$spacing-xs;
+}
+
+.vp-volume {
+  width: $video-volume-width;
+  min-width: 0;
+  padding: 0;
+  margin: 0;
+  accent-color: var(--ink-inverse);
+  cursor: pointer;
+}
+
+.vp-speed {
+  width: auto;
+  min-height: $video-control-height;
+  padding: t.$spacing-xs t.$spacing-sm;
+  border: 1px solid var(--video-ink);
+  border-radius: t.$border-radius-sm;
+  background: var(--video-canvas);
+  color: var(--video-ink-2);
+  font: 500 t.$font-size-xs var(--font);
+  cursor: pointer;
+}
+
+.vp-ico-volume,
+.vp-ico-muted { display: flex; }
+
+.vp:not(.muted) .vp-ico-muted,
+.vp.muted .vp-ico-volume { display: none; }
+
+.vp-cbtn[hidden] { display: none; }
+
+.vp-cbtn:focus-visible,
+.vp-volume:focus-visible,
+.vp-speed:focus-visible {
+  outline: 2px solid var(--ink-inverse);
+  outline-offset: t.$spacing-xs;
+}
+
+@include below($bp-mobile) {
+  .vp-bar { padding: t.$spacing-lg t.$spacing-sm t.$spacing-sm; }
+  .vp-ctrls { flex-wrap: wrap; gap: t.$spacing-sm; }
+  .vp-volume { width: $video-volume-mobile-width; }
 }
 
 /* ── Главы ──────────────────────────────────────────────────────────── */

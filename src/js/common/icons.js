@@ -48,6 +48,15 @@ export const icoFlag = ( s = 14 ) =>
 export const icoClock = ( s = 16 ) =>
 	stroke20( '<circle cx="10" cy="10" r="7.5" stroke="{c}" stroke-width="1.5"/><path d="M10 6v4.2l2.8 1.6" stroke="{c}" stroke-width="1.5" stroke-linecap="round"/>', s );
 
+export const icoVolume = ( s = 20 ) =>
+	stroke20( '<path d="M3 8h3l4-3v10l-4-3H3zM13 7a4 4 0 0 1 0 6M15 4a8 8 0 0 1 0 12" stroke="{c}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>', s );
+
+export const icoVolumeOff = ( s = 20 ) =>
+	stroke20( '<path d="M3 8h3l4-3v10l-4-3H3zM13 7l5 6M18 7l-5 6" stroke="{c}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>', s );
+
+export const icoPictureInPicture = ( s = 20 ) =>
+	stroke20( '<rect x="2" y="4" width="16" height="12" rx="2" stroke="{c}" stroke-width="1.5"/><rect x="10" y="10" width="6" height="4" rx="1" fill="{c}"/>', s );
+
 export const icoCalendar = ( s = 16 ) =>
 	stroke20( '<path d="M4 6h12v10H4zM4 9h12M7 4v3M13 4v3" stroke="{c}" stroke-width="1.6" stroke-linecap="round"/>', s );
 

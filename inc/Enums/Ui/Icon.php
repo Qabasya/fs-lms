@@ -51,6 +51,9 @@ enum Icon: string {
 	case SeekBack10    = 'seek_back_10';
 	case SeekForward10 = 'seek_forward_10';
 	case Fullscreen    = 'fullscreen';
+	case Volume        = 'volume';
+	case VolumeOff     = 'volume_off';
+	case PictureInPicture = 'picture_in_picture';
 
 	/** Файл-вложение (конспект). */
 	case File = 'file';
@@ -103,6 +106,9 @@ enum Icon: string {
 			self::Flag            => 14,
 			self::Play,
 			self::Pause,
+			self::Volume,
+			self::VolumeOff,
+			self::PictureInPicture,
 			self::Fullscreen      => 16,
 			self::SeekBack10,
 			self::SeekForward10,
@@ -135,6 +141,9 @@ enum Icon: string {
 			self::Lock            => '<rect x="4.5" y="8.5" width="11" height="8" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M7 8.5V6.5a3 3 0 0 1 6 0v2" stroke="currentColor" stroke-width="1.5"/>',
 			self::Clock           => '<circle cx="10" cy="10" r="7.5" stroke="currentColor" stroke-width="1.5"/><path d="M10 6v4.2l2.8 1.6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>',
 			self::Flag            => '<path d="M5 17V3.5M5 4h9.5l-2 3 2 3H5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>',
+			self::Volume => '<path d="M3 8h3l4-3v10l-4-3H3zM13 7a4 4 0 0 1 0 6M15 4a8 8 0 0 1 0 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>',
+			self::VolumeOff => '<path d="M3 8h3l4-3v10l-4-3H3zM13 7l5 6M18 7l-5 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>',
+			self::PictureInPicture => '<rect x="2" y="4" width="16" height="12" rx="2" stroke="currentColor" stroke-width="1.5"/><rect x="10" y="10" width="6" height="4" rx="1" fill="currentColor"/>',
 			self::Play            => '<path d="M7 4.8v10.4L15.5 10 7 4.8z" fill="currentColor"/>',
 			self::Pause           => '<rect x="5.5" y="4.5" width="3.2" height="11" rx="1" fill="currentColor"/><rect x="11.3" y="4.5" width="3.2" height="11" rx="1" fill="currentColor"/>',
 			self::SeekBack10      => '<path d="M10 3a7 7 0 1 1-6.4 4.2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M3 3v4.5h4.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><text x="7" y="14.5" fill="currentColor" font-size="6.5" font-weight="700">10</text>',

@@ -37,6 +37,7 @@ function mountChrome( panel, root ) {
 	const knob   = root.querySelector( '[data-vp-knob]' );
 	const timeEl = root.querySelector( '[data-vp-time]' );
 	if ( ! video ) { return; }
+	initMediaControls( root, video );
 
 	const toggle = () => { if ( video.paused ) { video.play(); } else { video.pause(); } };
 
@@ -109,4 +110,75 @@ function mountChrome( panel, root ) {
 	} );
 
 	updateTime();
+}
+
+/** Громкость, скорость и PiP общие для видео и записи трансляции. */
+export function initMediaControls( root, video ) {
+	const mute = root.querySelector( '[data-vp-mute]' );
+	const volume = root.querySelector( '[data-vp-volume]' );
+	const speed = root.querySelector( '[data-vp-speed]' );
+	const pip = root.querySelector( '[data-vp-pip]' );
+	let lastVolume = video.volume || 1;
+
+	const syncVolume = () => {
+		const silent = video.muted || video.volume === 0;
+		root.classList.toggle( 'muted', silent );
+		if ( volume ) { volume.value = String( video.muted ? 0 : video.volume ); }
+		if ( mute ) {
+			mute.setAttribute( 'aria-pressed', String( silent ) );
+			mute.setAttribute( 'aria-label', silent ? mute.dataset.labelUnmute : mute.dataset.labelMute );
+		}
+		if ( video.volume > 0 ) { lastVolume = video.volume; }
+	};
+	video.addEventListener( 'volumechange', syncVolume );
+	mute?.addEventListener( 'click', () => {
+		if ( video.muted || video.volume === 0 ) {
+			video.volume = lastVolume;
+			video.muted = false;
+		} else {
+			video.muted = true;
+		}
+		syncVolume();
+	} );
+	volume?.addEventListener( 'input', () => {
+		const value = Number( volume.value );
+		if ( ! Number.isFinite( value ) ) { return; }
+		video.volume = Math.min( 1, Math.max( 0, value ) );
+		video.muted = video.volume === 0;
+		syncVolume();
+	} );
+	speed?.addEventListener( 'change', () => {
+		const rate = Number( speed.value );
+		if ( [ 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2 ].includes( rate ) ) {
+			video.playbackRate = rate;
+		}
+	} );
+	const syncSpeed = () => { if ( speed ) { speed.value = String( video.playbackRate ); } };
+	video.addEventListener( 'ratechange', syncSpeed );
+
+	if ( pip && document.pictureInPictureEnabled && video.requestPictureInPicture ) {
+		pip.hidden = false;
+		pip.disabled = video.readyState === 0;
+		video.addEventListener( 'loadedmetadata', () => { pip.disabled = false; } );
+		const syncPip = () => pip.setAttribute( 'aria-pressed', String( document.pictureInPictureElement === video ) );
+		video.addEventListener( 'enterpictureinpicture', syncPip );
+		video.addEventListener( 'leavepictureinpicture', syncPip );
+		pip.addEventListener( 'click', async () => {
+			pip.disabled = true;
+			try {
+				if ( document.pictureInPictureElement === video ) {
+					await document.exitPictureInPicture();
+				} else {
+					await video.requestPictureInPicture();
+				}
+			} catch {
+				// Браузер может запретить PiP для конкретного видео; плеер продолжает работать.
+			} finally {
+				pip.disabled = false;
+				syncPip();
+			}
+		} );
+	}
+	syncVolume();
+	syncSpeed();
 }

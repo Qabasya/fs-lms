@@ -75,11 +75,15 @@ class ConsentController extends BaseController implements ServiceInterface {
 		$wp_query->post              = $page;
 		$wp_query->found_posts       = 1;
 		$post                        = $page; // phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited
+
+		// Подставляем нужную версию (текущую или архивную) в объект записи — в БД не пишется.
+		// Дальше текст проходит штатный конвейер the_content (блоки, wpautop, шорткоды),
+		// иначе сырая разметка редактора выводится «поломанной».
+		$page->post_content = $text;
 		setup_postdata( $page );
 		status_header( 200 );
 
-		// Подменяем содержимое страницы нужной версией (текущей или архивной)
-		add_filter( 'the_content', fn() => SafeHtml::post( $text ), PHP_INT_MAX );
+		add_filter( 'the_content', array( SafeHtml::class, 'post' ), 20 );
 
 		// Возвращаем шаблон страницы из темы; fallback — плагиновый шаблон
 		return get_page_template()
