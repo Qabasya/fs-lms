@@ -178,12 +178,13 @@
 .exam-conduct-event { display: flex; align-items: center; gap: t.$spacing-sm; }
 
 
-/* Предмет, проведение и сеансы — одной строкой и одной высоты; на узком экране переносятся. Подпись «Предмет» в строке не нужна:
-   кнопка сама называет предмет, а подпись делала бы блок выше соседей. */
+/* Предмет, проведение и сеансы — одной строкой и одной высоты; на узком экране переносятся. Подпись «Предмет» — как на
+   «Статистике» (prof-ktp-pick); из-за неё блок выше соседей, поэтому элементы выровнены по нижней кромке. У «Проведения»
+   подпись не нужна: рядом стоит сам выбор. */
 .exam-conduct-nav {
-  display: flex; flex-wrap: wrap; align-items: center; gap: t.$spacing-lg t.$spacing-3xl;
+  display: flex; flex-wrap: wrap; align-items: flex-end; gap: t.$spacing-lg t.$spacing-3xl;
 
-  .kp-label { display: none; }
+  .exam-conduct-event .kp-label { display: none; }
 
   .kp-btn,
   .exam-conduct-sessions,

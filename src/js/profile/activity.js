@@ -15,9 +15,9 @@
    ══════════════════════════════════════════════════════════════════════ */
 
 import { esc, emptyState, fmtDateTime, fmtDate, fmtNum, plural } from './utils.js';
-import { icoCaret, icoCheck, icoChevronRight, icoCross, icoJournal } from '../common/icons.js';
+import { icoCheck, icoChevronRight, icoCross, icoJournal } from '../common/icons.js';
 import { createApi } from './api.js';
-import { openGroupPicker } from './picker.js';
+import { openGroupPicker, groupPickerBtnHtml } from './picker.js';
 
 /** Статус попытки контрольной, когда балла ещё нет. */
 const EXAM_STATUS = {
@@ -66,6 +66,9 @@ const FEEDS = {
 };
 
 let root = null;
+/** Заглушка пикера, пока группа не выбрана (как «Все группы» в «Работах»). */
+const NO_GROUP = { id: 0, name: 'Группа', subject: '' };
+
 let state = null;
 let apiEvents = null;
 let apiProgram = null;
@@ -195,10 +198,7 @@ function render(inner) {
     root.innerHTML = `
     <div class="prof-activity">
         <div class="act-head">
-            <button class="prof-btn prof-btn-sm act-group-btn" id="actGroupBtn">
-                ${esc(g ? g.name + ' · ' + g.subject : 'Группа')}
-                ${icoCaret(12, 'kp-caret')}
-            </button>
+            ${groupPickerBtnHtml(g || NO_GROUP, 'actGroupBtn')}
             <div class="prof-seg" role="tablist" aria-label="Раздел активности">
                 ${tab('events', FEEDS.events.title)}
                 ${tab('attempts', 'Решения задач')}

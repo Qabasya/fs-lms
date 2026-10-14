@@ -6,11 +6,14 @@
    ══════════════════════════════════════════════════════════════════════ */
 
 import { esc, toast, emptyState } from './utils.js';
-import { icoCaret, icoSwap } from '../common/icons.js';
+import { icoSwap } from '../common/icons.js';
 import { createApi } from './api.js';
-import { openGroupPicker } from './picker.js';
+import { openGroupPicker, groupPickerBtnHtml } from './picker.js';
 
 let root = null;
+/** Заглушка пикера, пока группа не выбрана (как «Все группы» в «Работах»). */
+const NO_GROUP = { id: 0, name: 'Группа', subject: '' };
+
 let state = null;
 let api = null;
 
@@ -74,11 +77,7 @@ function wrap(inner) {
     return `
     <div class="prof-subs">
         <div class="subs-head">
-            <div class="subs-title">Замены</div>
-            <button class="prof-btn prof-btn-sm subs-group-btn" id="subsGroupBtn">
-                ${esc(g ? g.name + ' · ' + g.subject : 'Группа')}
-                ${icoCaret(12, 'kp-caret')}
-            </button>
+            ${groupPickerBtnHtml(g || NO_GROUP, 'subsGroupBtn')}
         </div>
         ${inner}
     </div>`;

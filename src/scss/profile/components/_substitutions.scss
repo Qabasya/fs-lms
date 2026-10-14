@@ -21,12 +21,6 @@
   color: var(--ink);
 }
 
-.subs-group-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: rem(6);
-}
-
 .subs-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
