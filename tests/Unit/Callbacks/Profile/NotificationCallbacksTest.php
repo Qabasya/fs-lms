@@ -25,7 +25,7 @@ class NotificationCallbacksTest extends TestCase {
 
 		$this->notifications = $this->createMock( NotificationRepository::class );
 		$this->service       = $this->createMock( NotificationService::class );
-		$this->cb            = new NotificationCallbacks( $this->notifications, $this->service );
+		$this->cb            = new NotificationCallbacks( $this->notifications, $this->service, $this->createMock( \Inc\Services\Profile\PinnedNotificationService::class ) );
 	}
 
 	private function dto(): NotificationDTO {

@@ -53,6 +53,14 @@ $exam-stat-min-width: t.rem(120);
 $exam-score-width: t.rem(72);
 $exam-focus-ring-width: 3px;
 
+// ── Закреплённое уведомление
+$pin-width: t.rem(560);
+$pin-icon-size: t.rem(36);
+$pin-control-size: t.rem(32);
+$pin-accent-width: t.rem(3);
+$pin-detail-gap: t.rem(2);
+$pin-focus-width: t.rem(2);
+
 // ── Геометрия оболочки кабинета (bundle-специфика; тема — общая)
 :root {
   --side-w: #{t.rem(244)};

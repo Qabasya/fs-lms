@@ -93,6 +93,11 @@
 .sc-hpbar span { display: block; width: var(--progress, 0%); height: 100%; border-radius: rem(4); transition: width .3s; }
 .sc-hact { display: flex; flex-direction: column; gap: rem(9); flex-shrink: 0; min-width: rem(210); }
 .sc-hbtn { justify-content: center; text-decoration: none; padding: rem(11) rem(18); font-size: rem(14); }
+
+// Ученик не отменяет запись и не меняет сеанс самостоятельно: кнопки скрыты только визуально,
+// обработчики и серверная логика остаются (data-action: cancel / change в learner-exams.js).
+.sc-hbtn[data-action='cancel'],
+.sc-hbtn[data-action='change'] { display: none; }
 .sc-dis { opacity: .55; cursor: default; }
 .sc-hint { font-size: rem(11.5); color: var(--muted-2); text-align: center; }
 

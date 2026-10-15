@@ -111,6 +111,32 @@ class NotificationRepository {
 	}
 
 	/**
+	 * Уведомления получателя заданных типов за последние дни, свежие сверху — источник
+	 * закреплённых плашек ({@see \Inc\Services\Profile\PinnedNotificationService}).
+	 *
+	 * @param string[] $types Значения {@see \Inc\Enums\Profile\NotificationType}
+	 *
+	 * @return NotificationDTO[]
+	 */
+	public function listByTypes( int $userId, array $types, int $days = 14, int $limit = 20 ): array {
+		if ( array() === $types ) {
+			return array();
+		}
+
+		$placeholders = implode( ', ', array_fill( 0, count( $types ), '%s' ) );
+		$rows         = $this->wpdb->get_results(
+			$this->wpdb->prepare(
+				"SELECT * FROM %i WHERE recipient_user_id = %d AND type IN ({$placeholders})
+				 AND created_at > DATE_SUB(NOW(), INTERVAL %d DAY) ORDER BY id DESC LIMIT %d",
+				array_merge( array( $this->table, $userId ), array_values( $types ), array( $days, $limit ) )
+			),
+			ARRAY_A
+		);
+
+		return array_map( array( NotificationDTO::class, 'fromArray' ), $rows ?: array() );
+	}
+
+	/**
 	 * Новые (ещё не увиденные в колокольчике) уведомления с id больше `$afterId`,
 	 * старые сверху — источник браузерных уведомлений между поллингами.
 	 *

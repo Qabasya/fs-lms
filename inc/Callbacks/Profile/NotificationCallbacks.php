@@ -8,6 +8,7 @@ use Inc\Core\BaseController;
 use Inc\Enums\Wp\Nonce;
 use Inc\Repositories\WPDBRepositories\NotificationRepository;
 use Inc\Services\Profile\NotificationService;
+use Inc\Services\Profile\PinnedNotificationService;
 use Inc\Shared\Traits\Sanitizer;
 
 /**
@@ -28,6 +29,7 @@ class NotificationCallbacks extends BaseController {
 	public function __construct(
 		private readonly NotificationRepository $notifications,
 		private readonly NotificationService     $service,
+		private readonly PinnedNotificationService $pinned,
 	) {
 		parent::__construct();
 	}
@@ -73,6 +75,9 @@ class NotificationCallbacks extends BaseController {
 			'unseen'    => $this->notifications->unseenCount( $userId ),
 			'latest_id' => $this->notifications->latestId( $userId ),
 			'fresh'     => $fresh,
+			// Важные невыполненные плитки — плашка сверху экрана (перечитывается каждый опрос и при загрузке).
+			'pinned'    => $this->pinned->forUser( $userId ),
+			'pinned_types' => PinnedNotificationService::typeValues(),
 		) );
 	}
 

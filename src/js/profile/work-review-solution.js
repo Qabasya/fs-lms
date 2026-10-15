@@ -8,12 +8,7 @@ export function solutionBlock(solution) {
 
     return `<details class="wr-solution">
         <summary class="prof-btn prof-btn-sm wr-solution-toggle">Показать эталонное решение</summary>
-        <div class="wr-solution-body">
-            ${html.trim() ? `<div class="wr-solution-text">${html}</div>` : ''}
-            ${code.trim() ? `<div class="wr-solution-code">
-                <span class="sta-label">Листинг кода:</span>
-                <pre class="sum-task-code-pre"><code>${esc(code)}</code></pre>
-            </div>` : ''}
-        </div>
+        ${html.trim() ? `<div class="wr-solution-text">${html}</div>` : ''}
+        ${code.trim() ? `<div class="wr-solution-code"><pre><code class="js-code">${esc(code)}</code></pre></div>` : ''}
     </details>`;
 }

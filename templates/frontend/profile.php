@@ -93,6 +93,8 @@ $fs_brand_logo_url = (string) get_query_var( 'fs_lms_brand_logo_url', '' );
 <div class="prof-grade-pop" id="profGradePop"></div>
 <!-- Поповер уведомлений (свой контейнер — не переиспользует prof-ctx-menu) -->
 <div class="prof-notif-pop" id="profNotifPop" hidden></div>
+<!-- Закреплённые важные уведомления: плашка сверху по центру, пока действие не выполнено -->
+<div class="prof-pin" id="profPin" role="alert" hidden></div>
 <div class="prof-toast" id="profToast">
 	<?php echo Icon::Check->svg(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
 	<span>Готово</span>

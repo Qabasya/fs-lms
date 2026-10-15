@@ -12,7 +12,7 @@
    ══════════════════════════════════════════════════════════════════════ */
 
 import { esc, toast } from './utils.js';
-import { icoBell, icoCamera, icoClock, icoAlert, icoCheck, icoReplace, icoDocCheck, icoSwap, icoEye, icoMapPin, icoCalendarBoard, icoUsers, icoJournal } from '../common/icons.js';
+import { icoBell, icoCamera, icoClock, icoAlert, icoCheck, icoReplace, icoDocCheck, icoSwap, icoEye, icoMapPin, icoCalendarBoard, icoUsers, icoJournal, icoX } from '../common/icons.js';
 import { createApi } from './api.js';
 
 const POLL_MS = 60000;
@@ -82,6 +82,12 @@ function browserNotificationsSupported() {
 let api = null;
 let isOpen = false;
 
+/* Закреплённые плашки: очередь с сервера (свежие первыми) и закрытые в этой загрузке страницы.
+   Закрытие крестиком — только до перезагрузки: действие не выполнено, плашка вернётся. */
+let pinnedQueue = [];
+let pinnedTypes = [];
+const dismissedPinned = new Set();
+
 export function initNotifications() {
     const bell = document.getElementById('profBell');
     const cfg = window.fsProfile && window.fsProfile.notifications;
@@ -130,6 +136,8 @@ async function refreshCount() {
         const lastId = readLastId();
         const data = await api('count', lastId ? { after: lastId } : {});
         setBadge(Number(data?.unseen) || 0);
+        pinnedTypes = Array.isArray(data?.pinned_types) ? data.pinned_types : pinnedTypes;
+        setPinned(Array.isArray(data?.pinned) ? data.pinned : []);
 
         const fresh = Array.isArray(data?.fresh) ? data.fresh : [];
         const latestId = Number(data?.latest_id) || 0;
@@ -146,6 +154,8 @@ async function refreshCount() {
 function announce(n) {
     const text = n.body ? `${n.title}: ${n.body}` : n.title;
     if (!document.hidden) {
+        // Важные плитки показывает закреплённая плашка — тост продублировал бы её.
+        if (pinnedTypes.includes(n.type)) { return; }
         toast(text, 'error' === n.tone ? 'error' : 'ok');
         return;
     }
@@ -159,6 +169,61 @@ function announce(n) {
         if (n.url) { window.location.href = n.url; }
         note.close();
     };
+}
+
+/* ── Закреплённые плашки ───────────────────────────────────────────────── */
+
+/** Принимает актуальный список с сервера: выполненные исчезают, закрытые вручную не возвращаются до перезагрузки. */
+function setPinned(items) {
+    pinnedQueue = items.filter((n) => !dismissedPinned.has(n.id));
+    renderPinned();
+}
+
+/** Показывает одну плашку — самую свежую; после закрытия крестиком — следующую. */
+function renderPinned() {
+    const box = document.getElementById('profPin');
+    if (!box) { return; }
+
+    const current = pinnedQueue[0];
+    if (!current) {
+        box.hidden = true;
+        box.innerHTML = '';
+        return;
+    }
+    // Тот же id уже нарисован — не перерисовываем на каждом опросе (не мигаем, не сбиваем фокус).
+    if (!box.hidden && box.dataset.id === String(current.id)) {
+        updatePinnedMore(box, pinnedQueue.length - 1);
+        return;
+    }
+
+    const icoFn = TYPE_ICON[current.type] || icoAlert;
+    box.dataset.id = String(current.id);
+    box.innerHTML = `<div class="prof-pin-card">
+        <a class="prof-pin-link" href="${esc(current.url || '#')}">
+            <span class="prof-pin-ico">${icoFn(22)}</span>
+            <span class="prof-pin-text">
+                <span class="prof-pin-title">${esc(current.title || '')}</span>
+                ${current.body ? `<span class="prof-pin-sub">${esc(current.body)}</span>` : ''}
+            </span>
+        </a>
+        <span class="prof-pin-more" hidden></span>
+        <button type="button" class="prof-pin-close" aria-label="Закрыть">${icoX(14)}</button>
+    </div>`;
+    box.hidden = false;
+    updatePinnedMore(box, pinnedQueue.length - 1);
+
+    box.querySelector('.prof-pin-close').addEventListener('click', () => {
+        dismissedPinned.add(current.id);
+        pinnedQueue = pinnedQueue.filter((n) => n.id !== current.id);
+        renderPinned();
+    });
+}
+
+function updatePinnedMore(box, rest) {
+    const more = box.querySelector('.prof-pin-more');
+    if (!more) { return; }
+    more.hidden = rest <= 0;
+    more.textContent = rest > 0 ? `ещё ${rest}` : '';
 }
 
 /* ── Поповер ───────────────────────────────────────────────────────────── */

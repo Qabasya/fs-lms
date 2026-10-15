@@ -4,6 +4,8 @@
    ══════════════════════════════════════════════════════════════════════ */
 @use '../variables' as *;
 @use '../../shared/content-lists' as *;
+@use '../../shared/content-tables' as *;
+@use '../../shared/common-condition' as *;
 
 .prof-summary {
   padding: rem(22) rem(26) rem(40);
@@ -301,7 +303,15 @@
 .sv-partial    { background: var(--wait-soft); color: var(--wait-text); box-shadow: inset 0 0 0 1px var(--wait-line); }
 .sum-task-cond { font-size: rem(13.5); color: var(--ink-2); line-height: 1.5; }
 .sum-task-cond :is(p, ul, ol) { margin: 0 0 rem(6); }
-.sum-task-cond { @include fs-content-lists; }
+
+// Условие и авторское решение — тот же контент из редактора, что в плеере и тренажёре:
+// списки, таблицы и врезки обязаны выглядеть одинаково (общие миксины shared/).
+.sum-task-cond,
+.wr-solution-text {
+  @include fs-content-lists;
+  @include fs-content-tables;
+  @include fs-common-condition;
+}
 .sum-task-ans { margin-top: rem(8); font-size: rem(13); }
 .sta-label { color: var(--muted); }
 .sta-val { color: var(--ink); font-weight: 600; white-space: pre-wrap; }

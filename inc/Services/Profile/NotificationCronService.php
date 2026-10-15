@@ -185,6 +185,7 @@ readonly class NotificationCronService {
 			array(
 				'topic'      => $work->title,
 				'group_name' => $this->notifications->groupName( $lesson->groupId ),
+				'work_id'    => $work->id,
 			),
 			$this->notifications->lessonWorkUrl( $lesson, $work->id ),
 			$lesson->groupId,

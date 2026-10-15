@@ -13,6 +13,7 @@
 import { esc, fmtDateTime } from '../utils.js';
 import { icoChevronLeft } from '../../common/icons.js';
 import { createApi } from '../api.js';
+import { initCodeBlocks } from '../../frontend/components/code-block.js';
 import { renderTask } from '../task-render.js';
 import { getChildId } from '../learner-child.js';
 import { resultCaption } from './exam-result.js';
@@ -89,6 +90,8 @@ function paint(review) {
         </div>`;
 
     rootEl.querySelector('.wr-back').addEventListener('click', () => onBackCb());
+    // Листинги в условии и решении: подсветка синтаксиса и шапка блока кода, как в плеере и тренажёре.
+    initCodeBlocks();
 }
 
 /** Прокрутка к заданию по устойчивому якорю — не к строке с тем же индексом. */

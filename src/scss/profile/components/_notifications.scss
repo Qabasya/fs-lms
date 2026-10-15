@@ -6,6 +6,7 @@
    ══════════════════════════════════════════════════════════════════════ */
 @use '../variables' as *;
 @use '../../shared/cabinet/ui' as *;
+@use '../../shared/tokens' as t;
 
 /* ── Badge на колокольчике ─────────────────────────────────────────────── */
 #profBell { position: relative; }
@@ -104,7 +105,69 @@
 }
 .prof-notif-empty p { font-size: rem(13); color: var(--muted); }
 
+/* ── Закреплённые важные уведомления: плашка сверху по центру ───────────────
+   Висит, пока действие не выполнено; крестик закрывает до перезагрузки.
+   Красная статусная палитра и усиленный левый край — для всех важных типов. */
+.prof-pin {
+  // Центр — через left/right + margin auto, а не transform: анимация cab-enter сама пишет transform.
+  position: fixed; top: calc(var(--top-h) + #{t.$spacing-md}); left: 0; right: 0; margin-inline: auto;
+  width: min(#{$pin-width}, calc(100vw - #{t.$spacing-md * 2}));
+  z-index: $z-toast;
+  animation: cab-enter $tr ease;
+}
+.prof-pin[hidden] { display: none; }
+
+.prof-pin-card {
+  @include cab-card;
+
+  display: flex; align-items: center; gap: t.$spacing-sm;
+  padding: t.$spacing-md;
+  background: var(--err-soft);
+  border-color: var(--err-line);
+  border-left: $pin-accent-width solid var(--err);
+  box-shadow: var(--shadow-md);
+}
+
+.prof-pin-link {
+  flex: 1; min-width: 0; display: flex; align-items: center; gap: t.$spacing-md;
+  text-decoration: none; color: inherit; border-radius: var(--radius-xs);
+}
+.prof-pin-link:hover .prof-pin-title { color: var(--err-text); }
+
+.prof-pin-ico {
+  width: $pin-icon-size; height: $pin-icon-size; border-radius: var(--radius-sm); flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--err); color: var(--ink-inverse);
+}
+
+.prof-pin-text { min-width: 0; display: flex; flex-direction: column; gap: $pin-detail-gap; overflow-wrap: anywhere; }
+.prof-pin-title { font-size: t.$font-size-base; font-weight: t.$font-bold; line-height: t.$line-height-base; color: var(--err-ink); }
+.prof-pin-sub { font-size: t.$font-size-sm; line-height: t.$line-height-base; color: var(--ink-2); }
+
+.prof-pin-more {
+  flex-shrink: 0; padding: t.$spacing-xs t.$spacing-sm; border-radius: var(--radius-xs);
+  background: var(--surface); color: var(--err-ink); border: 1px solid var(--err-line);
+  font-size: t.$font-size-xs; font-weight: t.$font-medium; white-space: nowrap;
+}
+.prof-pin-more[hidden] { display: none; }
+
+.prof-pin-close {
+  flex-shrink: 0; width: $pin-control-size; height: $pin-control-size; padding: 0; border: none; border-radius: var(--radius-sm);
+  display: flex; align-items: center; justify-content: center;
+  background: none; color: var(--muted); cursor: pointer;
+  transition: background $tr, color $tr;
+}
+.prof-pin-close:hover { background: var(--surface-2); color: var(--ink); }
+
+.prof-pin-link:focus-visible,
+.prof-pin-close:focus-visible { outline: $pin-focus-width solid var(--accent); outline-offset: $pin-focus-width; }
+
 /* ── Мобилка: от края до края ──────────────────────────────────────────── */
 @include below($bp-mobile) {
   .prof-notif-pop { left: rem(10); right: rem(10); width: auto; }
+
+  .prof-pin-card { flex-wrap: wrap; }
+  .prof-pin-link { flex-basis: calc(100% - #{$pin-control-size + t.$spacing-sm}); }
+  .prof-pin-close { order: 1; }
+  .prof-pin-more { order: 2; margin-left: $pin-icon-size + t.$spacing-md; }
 }

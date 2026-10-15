@@ -14,6 +14,7 @@ import { confirmDialog } from '../common/components/confirm-dialog.js';
 import { renderTask, VERDICT_LABEL } from './task-render.js';
 import { resultCaption } from './exams/exam-result.js';
 import { ajaxErrorText } from '../common/utils.js';
+import { initCodeBlocks } from '../frontend/components/code-block.js';
 
 const STATUS_LABEL  = { submitted: 'Сдано', pending: 'На проверке', graded: 'Оценено', returned: 'Возвращено', in_progress: 'В процессе', expired: 'Просрочено' };
 /* D18: ответы/баллы скрыты от ученика до подтверждения — у ЕГЭ (без ручной
@@ -187,6 +188,7 @@ function render(d, history = []) {
         wireTaskCredit(wrRoot, d);
     };
     wireLiveTaskControls();
+    initCodeBlocks();
 
     if (d.gradable) { wireGrading(wrRoot, d.submission_id); }
     if (canApprove) { wireApprove(wrRoot, d); }
@@ -240,6 +242,7 @@ function wireAttemptPicker(root, history, currentRound, liveTasksHtml, wireLiveT
             tasksRoot.innerHTML = liveTasksHtml;
             if (foot) { foot.hidden = false; }
             wireLiveTaskControls();
+            initCodeBlocks();
             return;
         }
 
@@ -248,6 +251,7 @@ function wireAttemptPicker(root, history, currentRound, liveTasksHtml, wireLiveT
             ? roundData.tasks.map(t => renderTask(t, { mode: 'read_only', kind: 'exam' })).join('')
             : '<div class="sum-detail-empty">В этой попытке нет задач.</div>';
         if (foot) { foot.hidden = true; }
+        initCodeBlocks();
     });
 }
 
