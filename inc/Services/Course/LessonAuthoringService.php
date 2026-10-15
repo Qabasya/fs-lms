@@ -260,7 +260,13 @@ class LessonAuthoringService {
 	 */
 	private function candidatesFrom( string $post_type, string $search, string $source = '', bool $withBundles = false, array $extraQuery = array(), string $position = '' ): array {
 		$result = array();
-		$opts   = array_merge( array( 'limit' => 50, 'search' => $search, 'orderby' => 'date', 'order' => 'DESC' ), $extraQuery );
+		// Запрос из одних цифр — номер задания: ищем по началу слага (25 → 2500, 2501, но не 1725).
+		$byNumber = $withBundles && '' !== $search && ctype_digit( $search );
+		$opts     = array_merge(
+			array( 'limit' => 50, 'search' => $byNumber ? '' : $search, 'orderby' => 'date', 'order' => 'DESC' ),
+			$byNumber ? array( 'slug_prefix' => $search ) : array(),
+			$extraQuery
+		);
 		foreach ( $this->posts->search( $post_type, $opts ) as $post ) {
 			$item = array(
 				'id'    => $post->ID,

@@ -100,4 +100,30 @@ class UserBehaviorManagerTest extends TestCase {
 
 		self::assertTrue( $this->manager->hideAdminBarForFrontCabinet( true ) );
 	}
+
+	public function test_media_list_limited_to_own_files_for_student(): void {
+		$this->mockRoles( 7, array( UserRole::FSStudent->value ) );
+
+		self::assertSame( 7, $this->manager->getMediaFilterArgs( array() )['author'] );
+	}
+
+	public function test_media_list_limited_to_own_files_for_parent(): void {
+		$this->mockRoles( 8, array( UserRole::FSParent->value ) );
+
+		self::assertSame( 8, $this->manager->getMediaFilterArgs( array() )['author'] );
+	}
+
+	public function test_media_list_not_limited_for_teacher_and_methodist(): void {
+		$this->mockRoles( 9, array( UserRole::FSTeacher->value ) );
+		self::assertArrayNotHasKey( 'author', $this->manager->getMediaFilterArgs( array() ) );
+
+		$this->mockRoles( 10, array( UserRole::FSMethodist->value ) );
+		self::assertArrayNotHasKey( 'author', $this->manager->getMediaFilterArgs( array() ) );
+	}
+
+	public function test_media_list_not_limited_for_student_with_staff_role(): void {
+		$this->mockRoles( 11, array( UserRole::FSStudent->value, UserRole::FSTeacher->value ) );
+
+		self::assertArrayNotHasKey( 'author', $this->manager->getMediaFilterArgs( array() ) );
+	}
 }

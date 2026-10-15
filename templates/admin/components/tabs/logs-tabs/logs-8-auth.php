@@ -96,8 +96,8 @@ $sort_url    = add_query_arg( $auth_filters, $base_url );
                 <th class="tw-3"><?php echo LogNameResolver::sortableHeader( 'ID', 'id', $log_orderby, $log_order, $sort_url ); // phpcs:ignore ?></th>
                 <th class="tw-7">Дата</th>
 				<th class="tw-20">Логин</th>
-				<th>Действие</th>
-				<th class="tw-10" >Результат</th>
+				<th class="tw-15">Действие</th>
+				<th class="tw-7" >Результат</th>
 				<th>Причина</th>
                 <th class="tw-10">IP</th>
 			</tr>

@@ -88,10 +88,10 @@ $sort_url    = add_query_arg( $error_filters, $base_url );
 		<table class="wp-list-table widefat fixed striped fs-table">
 			<thead>
 			<tr>
-				<th class="tw-7"><?php echo LogNameResolver::sortableHeader( 'Инцидент', 'id', $log_orderby, $log_order, $sort_url ); // phpcs:ignore ?></th>
+				<th class="tw-5"><?php echo LogNameResolver::sortableHeader( 'Инцидент', 'id', $log_orderby, $log_order, $sort_url ); // phpcs:ignore ?></th>
 				<th class="tw-7">Дата</th>
 				<th class="tw-15">Пользователь</th>
-				<th class="tw-7">Код</th>
+				<th class="tw-10">Код</th>
 				<th>Сообщение</th>
 				<th class="tw-15">Где</th>
 				<th class="tw-10">IP</th>

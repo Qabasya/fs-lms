@@ -39,6 +39,11 @@ class MediaManager {
 		// Архив с решением (несколько файлов проекта, скрипт + данные и т.п.).
 		'application/zip',
 		'application/x-zip-compressed',
+		// RAR: libmagic в зависимости от версии отдаёт один из этих типов.
+		'application/vnd.rar',
+		'application/x-rar',
+		'application/x-rar-compressed',
+		'application/rar',
 	);
 
 	private const MAX_SIZE_BYTES = 20 * 1024 * 1024; // 20 MB (T13.2: фото решений с телефона)
@@ -77,12 +82,13 @@ class MediaManager {
 		require_once ABSPATH . 'wp-admin/includes/media.php';
 
 		// T13.2: точечно расширяем WP-whitelist ТОЛЬКО на время нашей (уже
-		// провалидированной finfo-проверкой выше) загрузки: .py/.heic нет в
+		// провалидированной finfo-проверкой выше) загрузки: .py/.heic/.rar нет в
 		// дефолтном wp_check_filetype, глобально загрузки не ослабляем.
 		$extraMimes = static function ( array $mimes ): array {
 			$mimes['py']   = 'text/x-python';
 			$mimes['heic'] = 'image/heic';
 			$mimes['heif'] = 'image/heif';
+			$mimes['rar']  = 'application/vnd.rar';
 			return $mimes;
 		};
 		$attachmentId = $this->withFilter(

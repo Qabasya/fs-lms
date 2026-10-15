@@ -132,7 +132,7 @@ $sortUrl    = add_query_arg( $activeFilters, $baseUrl );
 			<th class="column-title column-primary tw-15">
 				<?php echo LogNameResolver::sortableHeader( 'ФИО ученика', 'student_name', $orderby, strtolower( $order ), $sortUrl ); // phpcs:ignore ?>
 			</th>
-			<th class="column-title tw-10">
+			<th class="column-title tw-20">
 				<?php esc_html_e( 'Предмет', 'fs-lms' ); ?>
 			</th>
 			<th class="column-title tw-10">
@@ -144,7 +144,7 @@ $sortUrl    = add_query_arg( $activeFilters, $baseUrl );
 			<th class="column-title tw-7">
 				<?php esc_html_e( 'Номер договора', 'fs-lms' ); ?>
 			</th>
-			<th class="column-title tw-10">
+			<th class="column-title tw-15">
 				<?php esc_html_e( 'Действия', 'fs-lms' ); ?>
 			</th>
 		</tr>

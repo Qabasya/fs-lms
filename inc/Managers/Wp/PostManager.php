@@ -858,7 +858,25 @@ class PostManager {
 			$args['offset'] = (int) $opts['offset'];
 		}
 
-		$posts = get_posts( $args );
+		// Поиск по началу слага (номера заданий): временный фильтр ровно на этот запрос.
+		$prefix = (string) ( $opts['slug_prefix'] ?? '' );
+		$where  = null;
+		if ( '' !== $prefix ) {
+			$where = static function ( string $sql ) use ( $prefix ): string {
+				global $wpdb;
+
+				return $sql . $wpdb->prepare( " AND {$wpdb->posts}.post_name LIKE %s", $wpdb->esc_like( $prefix ) . '%' );
+			};
+			add_filter( 'posts_where', $where );
+		}
+
+		try {
+			$posts = get_posts( $args );
+		} finally {
+			if ( null !== $where ) {
+				remove_filter( 'posts_where', $where );
+			}
+		}
 
 		if ( ! isset( $opts['limit'] ) ) {
 			$this->warnIfCapped( count( $posts ), self::HARD_CAP, __FUNCTION__, $post_type );

@@ -74,7 +74,7 @@ $sort_url    = add_query_arg( $consent_filters, $base_url );
 			<tr>
                 <th class="tw-3"><?php echo LogNameResolver::sortableHeader( 'ID', 'id', $log_orderby, $log_order, $sort_url ); // phpcs:ignore ?></th>
                 <th class="tw-7">Дата</th>
-				<th class="tw-15">Тип согласия</th>
+				<th class="tw-20">Тип согласия</th>
 				<th>Хеш согласия</th>
 				<th class="tw-10">IP</th>
 				<th>User-Agent</th>

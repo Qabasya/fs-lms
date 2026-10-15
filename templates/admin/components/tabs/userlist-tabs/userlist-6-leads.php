@@ -170,9 +170,9 @@ $topSubnets = $leadRepo->topSubnets();
 			<?php endif; ?>
 			<th class="column-title tw-10">Получена</th>
 			<th class="column-title column-primary tw-15">Имя</th>
-			<th class="column-title tw-10">Телефон</th>
-			<th class="column-title tw-7">Результат</th>
-			<th class="column-title tw-7">Страница</th>
+			<th class="column-title tw-7">Телефон</th>
+			<th class="column-title tw-5">Результат</th>
+			<th class="column-title tw-15">Страница</th>
 			<th class="column-title tw-7">IP / подсеть</th>
 			<th class="column-title">Проверки</th>
 		</tr>

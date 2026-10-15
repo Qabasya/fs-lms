@@ -10,7 +10,6 @@ declare( strict_types=1 );
 namespace Inc\Services\Exam;
 
 use Inc\Managers\Assessment\AssessmentManager;
-use Inc\Services\Assessment\EgeCompletenessChecker;
 use Inc\Shared\CodedException;
 use Inc\Enums\Log\ErrorCode;
 
@@ -24,11 +23,10 @@ use Inc\Enums\Log\ErrorCode;
  */
 class ExamVariantPolicy {
 
-	/** Получает форматы и общую проверку полноты варианта перед его использованием в проведении. */
+	/** Получает менеджер работ и форматы экзаменов для проверки варианта перед использованием в проведении. */
 	public function __construct(
 		private readonly AssessmentManager $assessments,
 		private readonly ExamFormatRegistry $formats,
-		private readonly EgeCompletenessChecker $completeness,
 	) {}
 
 	/**
@@ -62,9 +60,10 @@ class ExamVariantPolicy {
 			return 'Вариант не опубликован.';
 		}
 
-		$result = $this->completeness->validate( $assessment, $subjectKey );
-		if ( ! $result->isStrictlyComplete() ) {
-			return 'Вариант не укомплектован: ' . $result->summary();
+		// Число и номера заданий не проверяем: в варианте может быть несколько заданий одного номера.
+		// Пустой вариант проводить нельзя — попытке нечего показывать.
+		if ( array() === $assessment->taskIds ) {
+			return 'В варианте нет заданий.';
 		}
 
 		return null;

@@ -90,7 +90,7 @@ $sort_url    = add_query_arg( $export_filters, $base_url );
                 <th class="tw-3"><?php echo LogNameResolver::sortableHeader( 'ID', 'id', $log_orderby, $log_order, $sort_url ); // phpcs:ignore ?></th>
                 <th class="tw-7">Дата</th>
                 <th class="tw-10">Пользователь</th>
-				<th class="tw-20">Тип данных</th>
+				<th class="tw-15">Тип данных</th>
 				<th>Действие</th>
 				<th>Цели</th>
                 <th class="tw-10">IP</th

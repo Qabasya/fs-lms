@@ -21,6 +21,12 @@
 		@include cb-tree-pane;
 	}
 
+	// Высоту строки сетки задаёт редактор, а не дерево: height:0 + min-height:100% выводит
+	// панель из расчёта высоты — длинный список слотов прокручивается в .fs-sb-tree-scroll.
+	@media (min-width: #{$breakpoint-builder + 1}) {
+		.fs-sb-tree { height: 0; min-height: 100%; }
+	}
+
 	.fs-sb-tree-head {
 		@include cb-tree-head;
 

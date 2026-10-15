@@ -196,10 +196,10 @@ $filterUrl     = add_query_arg( array_merge( $activeFilters, $sortParams ), $bas
 			<th class="column-title tw-5">
 				<?php echo LogNameResolver::sortableHeader( 'Статус', 'status', $orderby, strtolower( $order ), $sortUrl ); // phpcs:ignore ?>
 			</th>
-			<th class="column-title tw-10">
+			<th class="column-title tw-15">
 				<?php echo LogNameResolver::sortableHeader( 'Направление', 'subject', $orderby, strtolower( $order ), $sortUrl ); // phpcs:ignore ?>
 			</th>
-			<th class="column-title tw-10">
+			<th class="column-title tw-7">
 				<?php echo LogNameResolver::sortableHeader( 'Группа', 'group', $orderby, strtolower( $order ), $sortUrl ); // phpcs:ignore ?>
 			</th>
 			<th class="column-title tw-10">
@@ -208,7 +208,7 @@ $filterUrl     = add_query_arg( array_merge( $activeFilters, $sortParams ), $bas
 			<th class="column-title">
 				<?php esc_html_e( 'Причина', 'fs-lms' ); ?>
 			</th>
-			<th class="column-title tw-10">
+			<th class="column-title tw-15">
 				<?php esc_html_e( 'Действия', 'fs-lms' ); ?>
 			</th>
 		</tr>

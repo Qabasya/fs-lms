@@ -107,7 +107,9 @@ class UserBehaviorManager {
 	}
 
 	/**
-	 * Фильтрует медиафайлы: администратор видит все, другие пользователи — только свои.
+	 * Ограничивает выбор файлов в медиатеке для ученика и родителя: в списке (модалка выбора,
+	 * экран «Медиафайлы») они видят только свои загрузки. Сотрудники и администратор видят все файлы.
+	 * На показ картинок, видео и вложений на страницах это не влияет — фильтруется только список.
 	 * Используется в хуках 'ajax_query_attachments_args' и 'request'.
 	 *
 	 * @param array $query Параметры запроса
@@ -115,14 +117,17 @@ class UserBehaviorManager {
 	 * @return array
 	 */
 	public function getMediaFilterArgs( array $query ): array {
-		// Администратор видит все файлы
-		if ( current_user_can( Capability::Admin->value ) ) {
+		$user_id = get_current_user_id();
+		if ( 0 === $user_id || current_user_can( Capability::Admin->value ) ) {
 			return $query;
 		}
 
-		$user_id = get_current_user_id();
-		if ( 0 !== $user_id ) {
-			// Ограничиваем запрос только файлами текущего пользователя
+		$user  = $this->userManager->find( $user_id );
+		$roles = $user ? array_values( (array) $user->roles ) : array();
+		$own   = array( UserRole::FSStudent->value, UserRole::FSParent->value );
+
+		// Только «чистые» ученик/родитель: любая сотрудническая роль в наборе снимает ограничение.
+		if ( array() !== $roles && array() === array_diff( $roles, $own ) ) {
 			$query['author'] = $user_id;
 		}
 

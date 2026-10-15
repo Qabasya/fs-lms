@@ -198,7 +198,7 @@ $termTone = static function ( ?string $expiresAtUtc, int $dangerBelow, int $warn
                 <?php echo LogNameResolver::sortableHeader( 'ФИО родителя', 'parent', $orderby, $order, $sortUrl ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
             </th>
 
-            <th class="column-title tw-10">
+            <th class="column-title tw-7">
                 <?php esc_html_e( 'Направление', 'fs-lms' ); ?>
             </th>
 
@@ -210,7 +210,7 @@ $termTone = static function ( ?string $expiresAtUtc, int $dangerBelow, int $warn
                 <?php esc_html_e( 'JOIN-ссылка', 'fs-lms' ); ?>
             </th>
 
-            <th class="column-title tw-10">
+            <th class="column-title tw-7">
                 <?php echo LogNameResolver::sortableHeader( 'Срок', 'term', $orderby, $order, $sortUrl ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
             </th>
 
@@ -218,7 +218,7 @@ $termTone = static function ( ?string $expiresAtUtc, int $dangerBelow, int $warn
                 <?php echo LogNameResolver::sortableHeader( 'Создана', 'created', $orderby, $order, $sortUrl ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
             </th>
 
-            <th class="column-title tw-10">
+            <th class="column-title tw-15">
                 <?php esc_html_e( 'Действия', 'fs-lms' ); ?>
             </th>
         </tr>
@@ -410,7 +410,7 @@ $termTone = static function ( ?string $expiresAtUtc, int $dangerBelow, int $warn
 							<?php
 							echo esc_html( null !== $linkLeft
 								? sprintf( 'Ссылка: %s', $linkLeft )
-								: 'Ссылка истекла — скопируйте заново' );
+								: 'Ссылка истекла' );
 							?>
 						</span>
 						<span class="fs-lms-term <?php echo esc_attr( $termTone( $app->expiresAt, DAY_IN_SECONDS, DAY_IN_SECONDS * 4 ) ); ?>">
