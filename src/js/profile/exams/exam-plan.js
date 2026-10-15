@@ -148,7 +148,9 @@ function variantCardHtml(v, index) {
 
 function sessionHtml(s) {
     const cancelled = 'cancelled' === s.status;
-    return `<div class="placed-theme exam-session${cancelled ? ' is-draft' : ''}" data-sid="${s.id}" role="button" tabindex="0">
+    // Полоска слева: завершённый — жёлтая, отменённый — красная, остальные — зелёная плана.
+    const state = cancelled ? ' is-cancelled' : ('completed' === s.status ? ' is-completed' : '');
+    return `<div class="placed-theme exam-session${state}" data-sid="${s.id}" role="button" tabindex="0">
         <span class="pt-title">${esc(s.time_start)} · ${s.occupied}/${s.capacity}</span>
         <span class="pt-meta">${esc(s.assessment_title)}</span>
         <span class="pt-meta">${cancelled ? 'отменён' : esc(s.room_name)}</span>

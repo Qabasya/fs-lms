@@ -585,6 +585,62 @@ class ExamEventServiceTest extends TestCase {
 		self::assertSame( array( 'START TRANSACTION', 'event-lock', 'COMMIT' ), $this->db->log );
 	}
 
+	private function historyRegistration( int $id, string $status ): \Inc\DTO\Exam\ExamRegistrationDTO {
+		return \Inc\DTO\Exam\ExamRegistrationDTO::fromArray( array(
+			'id' => $id, 'participation_id' => 1, 'session_id' => self::SESSION, 'status' => $status, 'active_slot' => null, 'created_at' => '2026-03-01 00:00:00',
+		) );
+	}
+
+	public function test_delete_session_whose_registrations_were_all_cancelled(): void {
+		$this->registrations->method( 'listBySession' )->willReturn( array(
+			$this->historyRegistration( 5, 'cancelled' ),
+			$this->historyRegistration( 6, 'transferred' ),
+		) );
+		$this->registrations->expects( self::once() )->method( 'deleteBySession' )->with( self::SESSION );
+		$this->sessions->expects( self::once() )->method( 'delete' )->with( self::SESSION )->willReturn( true );
+
+		$this->service->deleteSession( self::ACTOR, self::SESSION );
+	}
+
+	public function test_delete_cancelled_session(): void {
+		$this->session = $this->examSession( array( 'status' => 'cancelled', 'occupied_count' => '0' ) );
+		$this->registrations->method( 'listBySession' )->willReturn( array( $this->historyRegistration( 5, 'cancelled' ) ) );
+		$this->sessions->expects( self::once() )->method( 'delete' )->with( self::SESSION )->willReturn( true );
+
+		$this->service->deleteSession( self::ACTOR, self::SESSION );
+	}
+
+	public function test_delete_session_with_confirmed_registration_is_refused(): void {
+		$this->registrations->method( 'listBySession' )->willReturn( array( $this->historyRegistration( 5, 'cancelled' ), $this->registration( 6 ) ) );
+		$this->registrations->expects( self::never() )->method( 'deleteBySession' );
+		$this->sessions->expects( self::never() )->method( 'delete' );
+
+		$this->assertRefusal( ErrorCode::ExamConflict, 'В сеансе есть записи: используйте отмену сеанса.', fn () => $this->service->deleteSession( self::ACTOR, self::SESSION ) );
+	}
+
+	public function test_delete_session_with_active_guest_application_is_refused(): void {
+		$this->guestApplications->method( 'countActiveBySession' )->willReturn( 1 );
+		$this->sessions->expects( self::never() )->method( 'delete' );
+
+		$this->assertRefusal( ErrorCode::ExamConflict, 'В сеансе есть записи: используйте отмену сеанса.', fn () => $this->service->deleteSession( self::ACTOR, self::SESSION ) );
+	}
+
+	public function test_delete_session_waits_for_pending_cancellation_notices(): void {
+		$this->registrations->method( 'listBySession' )->willReturn( array( $this->historyRegistration( 5, 'cancelled' ) ) );
+		$this->outbox->method( 'hasPending' )->willReturn( true );
+		$this->registrations->expects( self::never() )->method( 'deleteBySession' );
+		$this->sessions->expects( self::never() )->method( 'delete' );
+
+		$this->assertRefusal( ErrorCode::ExamConflict, 'Участникам ещё отправляются уведомления об отмене: повторите через минуту.', fn () => $this->service->deleteSession( self::ACTOR, self::SESSION ) );
+	}
+
+	public function test_delete_started_session_is_refused(): void {
+		$this->session = $this->examSession( array( 'first_started_at' => '2026-03-10 07:05:00' ) );
+		$this->sessions->expects( self::never() )->method( 'delete' );
+
+		$this->assertRefusal( ErrorCode::ExamStarted, 'Сеанс уже начат: удалить его нельзя.', fn () => $this->service->deleteSession( self::ACTOR, self::SESSION ) );
+	}
+
 	// ---- публикация ----------------------------------------------------------------------------------------------------------------
 
 	public function test_publish_requires_future_session(): void {

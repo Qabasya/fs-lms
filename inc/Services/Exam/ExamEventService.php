@@ -248,9 +248,13 @@ class ExamEventService {
 	}
 
 	/**
-	 * Удаляет сеанс без единой записи. Сеанс с записями отменяется (этап 8.3), а не удаляется.
+	 * Удаляет сеанс, в котором нет действующих записей: пустой, отменённый или такой, где все записи
+	 * отменены самими участниками. Отменённые и перенесённые записи (история) удаляются вместе с сеансом.
 	 *
-	 * @throws CodedException Нет доступа, сеанс недоступен для правки либо у него уже есть записи.
+	 * Нельзя удалить: сеанс с попыткой, завершённый, с подтверждёнными/пропущенными записями, с бронями и
+	 * действующими заявками гостей, а также пока не разосланы уведомления об отмене (иначе они потеряются).
+	 *
+	 * @throws CodedException Нет доступа, сеанс недоступен для правки либо в нём ещё есть записи.
 	 */
 	public function deleteSession( int $actorUserId, int $sessionId ): void {
 		$session = $this->sessions->find( $sessionId );
@@ -268,13 +272,45 @@ class ExamEventService {
 				if ( null === $locked ) {
 						throw new CodedException( ErrorCode::ExamConflict, 'Сеанс не найден.' );
 				}
-				if ( $locked->occupiedCount > 0 || array() !== $this->registrations->listBySession( $locked->id ) ) {
+				if ( $locked->isLocked() ) {
+					throw new CodedException( ErrorCode::ExamStarted, 'Сеанс уже начат: удалить его нельзя.' );
+				}
+				if ( ExamSessionStatus::Completed->value === $locked->status ) {
+					throw new CodedException( ErrorCode::ExamConflict, 'Сеанс завершён: удалить его нельзя.' );
+				}
+
+				$rows = $this->registrations->listBySession( $locked->id );
+				if ( $locked->occupiedCount > 0 || $this->hasLiveRegistration( $rows ) || $this->guestApplications->countActiveBySession( $locked->id ) > 0 ) {
 					throw new CodedException( ErrorCode::ExamConflict, 'В сеансе есть записи: используйте отмену сеанса.' );
 				}
 
+				$registrationIds = array_map( static fn ( object $row ): int => (int) ( $row->id ?? 0 ), $rows );
+				if ( $this->outbox->hasPending( 'session', array( $locked->id ) ) || $this->outbox->hasPending( 'registration', $registrationIds ) ) {
+					throw new CodedException( ErrorCode::ExamConflict, 'Участникам ещё отправляются уведомления об отмене: повторите через минуту.' );
+				}
+
+				if ( array() !== $rows ) {
+					$this->registrations->deleteBySession( $locked->id );
+				}
 				$this->sessions->delete( $locked->id );
 			}
 		);
+	}
+
+	/**
+	 * Есть ли среди записей сеанса те, что нельзя удалять: любые, кроме отменённых и перенесённых.
+	 *
+	 * @param object[] $rows
+	 */
+	private function hasLiveRegistration( array $rows ): bool {
+		$history = array( ExamRegistrationStatus::Cancelled->value, ExamRegistrationStatus::Transferred->value );
+		foreach ( $rows as $row ) {
+			if ( ! in_array( (string) ( $row->status ?? '' ), $history, true ) ) {
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	/**

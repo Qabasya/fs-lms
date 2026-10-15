@@ -46,7 +46,8 @@ export function openSessionForm(o) {
     const fixed = o.fixed || {};
     const locked = !!(edit && edit.is_locked);
     const cancelled = !!(edit && 'cancelled' === edit.status);
-    // Заморожен: попытка начата или сеанс отменён — сохранить и удалить нельзя. Участники: есть записанные на живой сеанс.
+    // Заморожен: попытка начата или сеанс отменён — сохранить нельзя. Удалить можно отменённый сеанс и сеанс без записанных
+    // (в том числе если все записавшиеся отменили записи). Участники: есть записанные на живой сеанс.
     const frozen = locked || cancelled;
     const hasPeople = !!edit && !cancelled && Number(edit.occupied) > 0;
 
@@ -76,7 +77,7 @@ export function openSessionForm(o) {
         <div class="gp-row">
             ${frozen ? '' : `<button type="button" class="prof-btn prof-btn-sm prof-btn-primary" data-es="save">${edit ? 'Сохранить' : 'Добавить'}</button>`}
             ${hasPeople ? '<button type="button" class="prof-btn prof-btn-sm prof-btn-primary" data-es="move">Перенести сеанс</button><button type="button" class="prof-btn prof-btn-sm" data-es="cancel-session">Отменить сеанс</button>' : ''}
-            ${edit && !frozen ? '<button type="button" class="prof-btn prof-btn-sm" data-es="delete">Удалить сеанс</button>' : ''}
+            ${edit && !locked && !hasPeople ? '<button type="button" class="prof-btn prof-btn-sm" data-es="delete">Удалить сеанс</button>' : ''}
             <button type="button" class="prof-btn prof-btn-sm" data-es="cancel">${frozen ? 'Закрыть' : 'Отмена'}</button>
         </div>
         </div>`;

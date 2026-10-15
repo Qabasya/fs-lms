@@ -70,6 +70,30 @@ class ExamOutboxEventRepository extends AbstractExamRepository {
 		return $claimed;
 	}
 
+	/**
+	 * Сколько необработанных событий у агрегатов типа `$aggregateType` с заданными id.
+	 *
+	 * @param int[] $aggregateIds
+	 */
+	public function countPending( string $aggregateType, array $aggregateIds ): int {
+		$ids = array_values( array_filter( array_map( 'intval', $aggregateIds ) ) );
+		if ( array() === $ids ) {
+			return 0;
+		}
+
+		$placeholders = implode( ', ', array_fill( 0, count( $ids ), '%d' ) );
+
+		return $this->readInt(
+			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- плейсхолдеры собраны из числа идентификаторов.
+			$this->wpdb->prepare(
+				"SELECT COUNT(*) FROM %i WHERE processed_at IS NULL AND aggregate_type = %s AND aggregate_id IN ( {$placeholders} )",
+				$this->table,
+				$aggregateType,
+				...$ids
+			)
+		);
+	}
+
 	/** Удаляет обработанные события старше срока; необработанные не трогает. @return int Число удалённых. */
 	public function purgeProcessedBefore( string $cutoffUtc, int $limit = 1000 ): int {
 		return $this->write( $this->wpdb->prepare( 'DELETE FROM %i WHERE processed_at IS NOT NULL AND processed_at < %s LIMIT %d', $this->table, $cutoffUtc, $limit ) );

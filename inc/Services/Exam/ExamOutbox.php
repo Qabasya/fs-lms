@@ -27,6 +27,15 @@ class ExamOutbox {
 	) {}
 
 	/**
+	 * Есть ли необработанные события у агрегатов (уведомления ещё не разосланы).
+	 *
+	 * @param int[] $aggregateIds
+	 */
+	public function hasPending( string $aggregateType, array $aggregateIds ): bool {
+		return $this->events->countPending( $aggregateType, $aggregateIds ) > 0;
+	}
+
+	/**
 	 * Записывает доменное событие в outbox в транзакции вызывающей операции.
 	 *
 	 * @param array<string, mixed> $payload

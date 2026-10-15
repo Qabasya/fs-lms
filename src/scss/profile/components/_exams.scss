@@ -71,6 +71,10 @@
 }
 
 .exam-session { cursor: pointer; }
+.exam-session.is-completed { border-left-color: var(--wait-accent); }
+.exam-session.is-completed .pt-title { color: var(--wait-text); }
+.exam-session.is-cancelled { border-left-color: var(--err); }
+.exam-session.is-cancelled .pt-title { color: var(--err-ink); }
 
 /* Ошибка у поля формы или под ней: форма не закрывается, введённое остаётся */
 .gp-error {

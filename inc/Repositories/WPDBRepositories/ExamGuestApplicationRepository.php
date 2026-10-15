@@ -127,6 +127,11 @@ class ExamGuestApplicationRepository extends AbstractExamRepository {
 		return $this->readInt( $this->wpdb->prepare( 'SELECT COUNT(*) FROM %i WHERE session_id = %d AND is_held = 1', $this->table, $sessionId ) );
 	}
 
+	/** Сколько заявок гостей на сеанс ещё действуют (бронь, оплата, запись): сеанс с ними удалять нельзя. */
+	public function countActiveBySession( int $sessionId ): int {
+		return $this->readInt( $this->wpdb->prepare( 'SELECT COUNT(*) FROM %i WHERE session_id = %d AND active_slot = 1', $this->table, $sessionId ) );
+	}
+
 	/** Сколько броней держит один источник (лимит источника — этап 11a). */
 	public function countHeldBySource( int $sourceId ): int {
 		return $this->readInt( $this->wpdb->prepare( 'SELECT COUNT(*) FROM %i WHERE source_id = %d AND is_held = 1', $this->table, $sourceId ) );

@@ -160,6 +160,16 @@ class ExamRegistrationRepository extends AbstractExamRepository {
 		) ) > 0;
 	}
 
+	/**
+	 * Удаляет все записи сеанса — вместе с самим сеансом. Вызывать, когда в нём остались только
+	 * отменённые и перенесённые записи (проверяет сервис).
+	 *
+	 * @return int Число удалённых строк.
+	 */
+	public function deleteBySession( int $sessionId ): int {
+		return $this->write( $this->wpdb->prepare( 'DELETE FROM %i WHERE session_id = %d', $this->table, $sessionId ) );
+	}
+
 	/** Сколько действующих записей во всех сеансах проведения — отмена проведения до этапа 8.3 разрешена только без них. */
 	public function countActiveByEvent( int $eventId ): int {
 		return $this->readInt( $this->wpdb->prepare(
