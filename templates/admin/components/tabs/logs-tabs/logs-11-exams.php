@@ -19,6 +19,7 @@ defined( 'ABSPATH' ) || exit;
  * @var int          $exam_page
  * @var array        $exam_filters
  * @var string[]     $exam_actions
+ * @var array        $exam_names   events/sessions/actors: названия проведений, даты сеансов, роль ученика/родителя
  * @var int          $per_page
  * @var string       $log_orderby
  * @var string       $log_order
@@ -32,8 +33,8 @@ $sort_params = array_filter( array( 'orderby' => 'id' !== $log_orderby ? $log_or
 $filter_url  = add_query_arg( array_merge( $exam_filters, $sort_params ), $base_url );
 $sort_url    = add_query_arg( $exam_filters, $base_url );
 
+// «Кто»: ученик/родитель/гость — ролью, система — словом, сотрудник — ФИО.
 $actor_types = array(
-	'user'   => 'Сотрудник',
 	'guest'  => 'Гость',
 	'system' => 'Система',
 );
@@ -87,27 +88,24 @@ $actor_types = array(
 		<table class="wp-list-table widefat fixed striped fs-table">
 			<thead>
 			<tr>
-				<th class="tw-5"><?php echo LogNameResolver::sortableHeader( 'ID', 'id', $log_orderby, $log_order, $sort_url ); // phpcs:ignore ?></th>
-				<th class="tw-10">Дата</th>
+				<th class="tw-3"><?php echo LogNameResolver::sortableHeader( 'ID', 'id', $log_orderby, $log_order, $sort_url ); // phpcs:ignore ?></th>
+				<th class="tw-7">Дата</th>
 				<th class="tw-20">Действие</th>
-				<th class="tw-15">Кто</th>
-				<th class="tw-15">Участник</th>
+				<th class="tw-10">Кто</th>
+				<th class="tw-10">Участник</th>
 				<th>Объект</th>
-				<th class="tw-7">Результат</th>
+				<th class="tw-5">Результат</th>
 				<th class="tw-10">IP</th>
 			</tr>
 			</thead>
 			<tbody>
 			<?php foreach ( $exam_rows as $row ) :
-				$refs = array_filter(
-					array(
-						'Проведение' => $row->eventId,
-						'Сеанс'      => $row->sessionId,
-						'Заявка'     => $row->registrationId,
-						'Попытка'    => $row->attemptId,
-					)
-				);
-				$actor = $row->actorLabel ?? ( $actor_types[ $row->actorType ] ?? $row->actorType );
+				$event_title = (string) ( $exam_names['events'][ $row->eventId ] ?? '' );
+				$session_at  = (string) ( $exam_names['sessions'][ $row->sessionId ] ?? '' );
+				$actor       = $actor_types[ $row->actorType ]
+					?? ( '' !== (string) ( $exam_names['actors'][ $row->actorUserId ] ?? '' ) ? $exam_names['actors'][ $row->actorUserId ] : null )
+					?? $row->actorLabel
+					?? 'Пользователь #' . (int) $row->actorUserId;
 				?>
 				<tr>
 					<td><?php echo (int) $row->id; ?></td>
@@ -125,13 +123,16 @@ $actor_types = array(
 					</td>
 					<td>
 						<?php echo esc_html( $actor ); ?>
-						<div class="fs-text-muted"><?php echo esc_html( $actor_types[ $row->actorType ] ?? $row->actorType ); ?></div>
 					</td>
 					<td><?php echo esc_html( $row->subjectLabel ?? '—' ); ?></td>
 					<td>
-						<?php foreach ( $refs as $label => $ref_id ) : ?>
-							<div><?php echo esc_html( $label ); ?> <code>#<?php echo (int) $ref_id; ?></code></div>
-						<?php endforeach; ?>
+						<?php if ( '' !== $event_title ) : ?>
+							<div>Проведение «<?php echo esc_html( $event_title ); ?>»</div>
+						<?php endif; ?>
+						<?php if ( '' !== $session_at ) : ?>
+							<div>Сеанс <?php echo esc_html( mysql2date( 'd.m.Y H:i', $session_at ) ); ?></div>
+						<?php endif; ?>
+						<?php if ( '' === $event_title && '' === $session_at ) : ?>—<?php endif; ?>
 					</td>
 					<td><?php render_fs_badge( 'success' === $row->result ? 'Успех' : 'Сбой', 'success' === $row->result ? 'green' : 'red' ); ?></td>
 					<td><?php echo esc_html( $row->actorIp ); ?></td>
