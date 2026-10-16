@@ -12,6 +12,7 @@ namespace Inc\Services\Exam;
 use Inc\DTO\Exam\ExamEventDTO;
 use Inc\DTO\Exam\ExamSessionDTO;
 use Inc\Enums\Exam\ExamEventStatus;
+use Inc\Enums\Exam\ExamLogAction;
 use Inc\Enums\Exam\ExamOutboxEvent;
 use Inc\Enums\Exam\ExamRegistrationStatus;
 use Inc\Enums\Exam\ExamSessionStatus;
@@ -95,6 +96,14 @@ class ExamEventService {
 			)
 		);
 
+		ExamLogAction::EventCreated->record(
+			array(
+				'event_id' => $id,
+				'actor'    => $actorUserId,
+				'context'  => array( 'title' => (string) ( $fields['title'] ?? '' ) ),
+			)
+		);
+
 		return $this->reload( $id );
 	}
 
@@ -114,7 +123,7 @@ class ExamEventService {
 			$this->assertGuestLaunchReady( $early );
 		}
 
-		return $this->inTransactionWithRetry(
+		$updated = $this->inTransactionWithRetry(
 			function () use ( $eventId, $fields, $expectedVersion ): ExamEventDTO {
 				$event = $this->lockEvent( $eventId );
 				$this->assertEditable( $event );
@@ -126,7 +135,7 @@ class ExamEventService {
 					}
 					$day = substr( $this->time->toLocal( $session->scheduledAt ), 0, 10 );
 					if ( $day < $fields['period_from'] || $day > $fields['period_to'] ) {
-						throw new CodedException( ErrorCode::ExamConflict, 'Есть сеансы вне нового периода проведения.' );
+						throw new CodedException( ErrorCode::ExamInput, 'Есть сеансы вне нового периода проведения.' );
 					}
 				}
 
@@ -137,6 +146,10 @@ class ExamEventService {
 				return $this->reload( $eventId );
 			}
 		);
+
+		ExamLogAction::EventUpdated->record( array( 'event_id' => $eventId, 'actor' => $actorUserId ) );
+
+		return $updated;
 	}
 
 	/**
@@ -156,7 +169,7 @@ class ExamEventService {
 		if ( null !== $sessionId ) {
 			$current = $this->sessions->find( $sessionId );
 			if ( null === $current || $current->eventId !== $eventId ) {
-				throw new CodedException( ErrorCode::ExamConflict, 'Сеанс не найден.' );
+				throw new CodedException( ErrorCode::ExamNotFound, 'Сеанс не найден.' );
 			}
 			if ( null === $expectedVersion ) {
 				throw $this->stale();
@@ -169,7 +182,7 @@ class ExamEventService {
 		$roomId       = (int) ( $input['room_id'] ?? 0 );
 
 		if ( $date < $early->periodFrom || $date > $early->periodTo ) {
-			throw new CodedException( ErrorCode::ExamConflict, 'Дата сеанса вне периода проведения.' );
+			throw new CodedException( ErrorCode::ExamInput, 'Дата сеанса вне периода проведения.' );
 		}
 		if ( $roomId <= 0 ) {
 			throw new CodedException( ErrorCode::ExamRoom, 'Выберите кабинет.' );
@@ -179,13 +192,13 @@ class ExamEventService {
 		$assessment = $this->assessments->get( $assessmentId );
 		$format     = null !== $assessment ? $this->formats->for( $assessment->kind ) : null;
 		if ( null === $format ) {
-			throw new CodedException( ErrorCode::ExamConflict, 'Формат экзамена недоступен: модуль экзаменов выключен.' );
+			throw new CodedException( ErrorCode::ExamState, 'Формат экзамена недоступен: модуль экзаменов выключен.' );
 		}
 
 		$startUtc = $this->time->toUtc( $date . ' ' . $time . ':00' );
 		$endUtc   = $this->time->addMinutes( $startUtc, $format->durationMinutes );
 
-		return $this->inTransactionWithRetry(
+		$saved = $this->inTransactionWithRetry(
 			function () use ( $eventId, $sessionId, $expectedVersion, $assessmentId, $roomId, $startUtc, $endUtc ): ExamSessionDTO {
 				$event = $this->lockEvent( $eventId );
 				$this->assertEditable( $event );
@@ -197,7 +210,7 @@ class ExamEventService {
 				if ( null !== $sessionId ) {
 						$current = $this->sessions->findForUpdate( $sessionId );
 					if ( null === $current || $current->eventId !== $eventId ) {
-						throw new CodedException( ErrorCode::ExamConflict, 'Сеанс не найден.' );
+						throw new CodedException( ErrorCode::ExamNotFound, 'Сеанс не найден.' );
 					}
 					$this->assertVersion( $current->version, (int) $expectedVersion );
 					$this->assertSessionEditable( $current, $assessmentId, $startUtc, $endUtc, $roomId, $room->seats );
@@ -245,6 +258,20 @@ class ExamEventService {
 				return $saved;
 			}
 		);
+
+		( null === $sessionId ? ExamLogAction::SessionCreated : ExamLogAction::SessionUpdated )->record(
+			array(
+				'event_id'   => $eventId,
+				'session_id' => $saved->id,
+				'actor'      => $actorUserId,
+				'context'    => array(
+					'scheduled_at_utc' => $startUtc,
+					'room_id'          => $roomId,
+				),
+			)
+		);
+
+		return $saved;
 	}
 
 	/**
@@ -259,7 +286,7 @@ class ExamEventService {
 	public function deleteSession( int $actorUserId, int $sessionId ): void {
 		$session = $this->sessions->find( $sessionId );
 		if ( null === $session ) {
-			throw new CodedException( ErrorCode::ExamConflict, 'Сеанс не найден.' );
+			throw new CodedException( ErrorCode::ExamNotFound, 'Сеанс не найден.' );
 		}
 		$this->assertCanManage( $actorUserId, $this->requireEvent( $session->eventId ) );
 
@@ -270,23 +297,23 @@ class ExamEventService {
 
 				$locked = $this->sessions->findForUpdate( $session->id );
 				if ( null === $locked ) {
-						throw new CodedException( ErrorCode::ExamConflict, 'Сеанс не найден.' );
+						throw new CodedException( ErrorCode::ExamNotFound, 'Сеанс не найден.' );
 				}
 				if ( $locked->isLocked() ) {
 					throw new CodedException( ErrorCode::ExamStarted, 'Сеанс уже начат: удалить его нельзя.' );
 				}
 				if ( ExamSessionStatus::Completed->value === $locked->status ) {
-					throw new CodedException( ErrorCode::ExamConflict, 'Сеанс завершён: удалить его нельзя.' );
+					throw new CodedException( ErrorCode::ExamState, 'Сеанс завершён: удалить его нельзя.' );
 				}
 
 				$rows = $this->registrations->listBySession( $locked->id );
 				if ( $locked->occupiedCount > 0 || $this->hasLiveRegistration( $rows ) || $this->guestApplications->countActiveBySession( $locked->id ) > 0 ) {
-					throw new CodedException( ErrorCode::ExamConflict, 'В сеансе есть записи: используйте отмену сеанса.' );
+					throw new CodedException( ErrorCode::ExamState, 'В сеансе есть записи: используйте отмену сеанса.' );
 				}
 
 				$registrationIds = array_map( static fn ( object $row ): int => (int) ( $row->id ?? 0 ), $rows );
 				if ( $this->outbox->hasPending( 'session', array( $locked->id ) ) || $this->outbox->hasPending( 'registration', $registrationIds ) ) {
-					throw new CodedException( ErrorCode::ExamConflict, 'Участникам ещё отправляются уведомления об отмене: повторите через минуту.' );
+					throw new CodedException( ErrorCode::ExamState, 'Участникам ещё отправляются уведомления об отмене: повторите через минуту.' );
 				}
 
 				if ( array() !== $rows ) {
@@ -295,6 +322,8 @@ class ExamEventService {
 				$this->sessions->delete( $locked->id );
 			}
 		);
+
+		ExamLogAction::SessionDeleted->record( array( 'event_id' => $session->eventId, 'session_id' => $session->id, 'actor' => $actorUserId ) );
 	}
 
 	/**
@@ -325,13 +354,13 @@ class ExamEventService {
 			$this->assertGuestLaunchReady( $early );
 		}
 
-		return $this->inTransactionWithRetry(
+		$published = $this->inTransactionWithRetry(
 			function () use ( $eventId, $expectedVersion ): ExamEventDTO {
 				$event = $this->lockEvent( $eventId );
 				$this->assertVersion( $event->version, $expectedVersion );
 
 				if ( ExamEventStatus::Draft->value !== $event->status ) {
-						throw new CodedException( ErrorCode::ExamConflict, 'Опубликовать можно только черновик.' );
+						throw new CodedException( ErrorCode::ExamState, 'Опубликовать можно только черновик.' );
 				}
 
 				$now      = $this->time->nowUtc();
@@ -348,10 +377,10 @@ class ExamEventService {
 					}
 				}
 				if ( ! $hasFutureOpen ) {
-					throw new CodedException( ErrorCode::ExamConflict, 'Добавьте хотя бы один сеанс в будущем.' );
+					throw new CodedException( ErrorCode::ExamState, 'Добавьте хотя бы один сеанс в будущем.' );
 				}
 				if ( null === $event->registrationOpensAt || null === $event->registrationClosesAt ) {
-					throw new CodedException( ErrorCode::ExamConflict, 'Задайте время открытия и закрытия записи.' );
+					throw new CodedException( ErrorCode::ExamState, 'Задайте время открытия и закрытия записи.' );
 				}
 
 				$snapshot = array();
@@ -378,6 +407,10 @@ class ExamEventService {
 				return $this->reload( $eventId );
 			}
 		);
+
+		ExamLogAction::EventPublished->record( array( 'event_id' => $eventId, 'actor' => $actorUserId ) );
+
+		return $published;
 	}
 
 	/**
@@ -392,7 +425,7 @@ class ExamEventService {
 		$assessment = $this->assessments->get( $assessmentId );
 		$format     = null !== $assessment ? $this->formats->for( $assessment->kind ) : null;
 		if ( null === $assessment || null === $format ) {
-			throw new CodedException( ErrorCode::ExamConflict, 'Вариант не найден или формат экзамена недоступен.' );
+			throw new CodedException( ErrorCode::ExamNotFound, 'Вариант не найден или формат экзамена недоступен.' );
 		}
 
 		$taskNumbers = array();
@@ -442,14 +475,14 @@ class ExamEventService {
 					}
 					$used = true;
 					if ( $session->scheduledAt <= $now && $now < $session->plannedEndAt ) {
-						throw new CodedException( ErrorCode::ExamConflict, 'Идёт сеанс с этим вариантом: снимок менять нельзя.' );
+						throw new CodedException( ErrorCode::ExamState, 'Идёт сеанс с этим вариантом: снимок менять нельзя.' );
 					}
 				}
 				if ( ! $used ) {
-					throw new CodedException( ErrorCode::ExamConflict, 'В проведении нет сеансов с этим вариантом.' );
+					throw new CodedException( ErrorCode::ExamState, 'В проведении нет сеансов с этим вариантом.' );
 				}
 				if ( $this->attempts->countInProgressExamByEvent( $eventId, $assessmentId ) > 0 ) {
-					throw new CodedException( ErrorCode::ExamConflict, 'Идёт сеанс с этим вариантом: снимок менять нельзя.' );
+					throw new CodedException( ErrorCode::ExamState, 'Идёт сеанс с этим вариантом: снимок менять нельзя.' );
 				}
 
 				$snapshot                           = $this->snapshotOf( $event );
@@ -460,6 +493,8 @@ class ExamEventService {
 				}
 			}
 		);
+
+		ExamLogAction::SnapshotRebuilt->record( array( 'event_id' => $eventId, 'actor' => $actorUserId, 'context' => array( 'assessment_id' => $assessmentId ) ) );
 	}
 
 	/**
@@ -476,13 +511,13 @@ class ExamEventService {
 	public function moveSession( int $actorUserId, int $sessionId, array $input, string $reason, int $expectedVersion ): ExamSessionDTO {
 		$reason = trim( $reason );
 		if ( '' === $reason ) {
-			throw new CodedException( ErrorCode::ExamConflict, 'Укажите причину переноса.' );
+			throw new CodedException( ErrorCode::ExamInput, 'Укажите причину переноса.' );
 		}
 
 		$peek  = $this->sessions->find( $sessionId );
 		$early = null !== $peek ? $this->requireEvent( $peek->eventId ) : null;
 		if ( null === $peek || null === $early ) {
-			throw new CodedException( ErrorCode::ExamConflict, 'Сеанс не найден.' );
+			throw new CodedException( ErrorCode::ExamNotFound, 'Сеанс не найден.' );
 		}
 		$this->assertCanManage( $actorUserId, $early );
 
@@ -490,7 +525,7 @@ class ExamEventService {
 		$time   = $this->timeOf( $input['time'] ?? '' );
 		$roomId = (int) ( $input['room_id'] ?? 0 );
 		if ( $date < $early->periodFrom || $date > $early->periodTo ) {
-			throw new CodedException( ErrorCode::ExamConflict, 'Дата сеанса вне периода проведения.' );
+			throw new CodedException( ErrorCode::ExamInput, 'Дата сеанса вне периода проведения.' );
 		}
 		if ( $roomId <= 0 ) {
 			throw new CodedException( ErrorCode::ExamRoom, 'Выберите кабинет.' );
@@ -498,7 +533,7 @@ class ExamEventService {
 
 		$startUtc = $this->time->toUtc( $date . ' ' . $time . ':00' );
 
-		return $this->inTransactionWithRetry(
+		$moved = $this->inTransactionWithRetry(
 			function () use ( $sessionId, $peek, $roomId, $startUtc, $reason, $expectedVersion ): ExamSessionDTO {
 				$event = $this->lockEvent( $peek->eventId );
 				$this->assertEditable( $event );
@@ -508,7 +543,7 @@ class ExamEventService {
 
 				$current = $this->sessions->findForUpdate( $sessionId );
 				if ( null === $current || $current->eventId !== $event->id ) {
-						throw new CodedException( ErrorCode::ExamConflict, 'Сеанс не найден.' );
+						throw new CodedException( ErrorCode::ExamNotFound, 'Сеанс не найден.' );
 				}
 				$this->assertVersion( $current->version, $expectedVersion );
 				$this->assertSessionMovable( $current, $room->seats );
@@ -550,6 +585,23 @@ class ExamEventService {
 				return $saved;
 			}
 		);
+
+		ExamLogAction::SessionMoved->record(
+			array(
+				'event_id'   => $moved->eventId,
+				'session_id' => $moved->id,
+				'actor'      => $actorUserId,
+				'context'    => array(
+					'reason'              => $reason,
+					'old_scheduled_utc'   => $peek->scheduledAt,
+					'new_scheduled_utc'   => $moved->scheduledAt,
+					'old_room_id'         => $peek->roomId,
+					'new_room_id'         => $moved->roomId,
+				),
+			)
+		);
+
+		return $moved;
 	}
 
 	/**
@@ -564,13 +616,13 @@ class ExamEventService {
 	public function cancelSession( int $actorUserId, int $sessionId, string $reason, int $expectedVersion ): void {
 		$reason = trim( $reason );
 		if ( '' === $reason ) {
-			throw new CodedException( ErrorCode::ExamConflict, 'Укажите причину отмены.' );
+			throw new CodedException( ErrorCode::ExamInput, 'Укажите причину отмены.' );
 		}
 
 		$peek  = $this->sessions->find( $sessionId );
 		$early = null !== $peek ? $this->requireEvent( $peek->eventId ) : null;
 		if ( null === $peek || null === $early ) {
-			throw new CodedException( ErrorCode::ExamConflict, 'Сеанс не найден.' );
+			throw new CodedException( ErrorCode::ExamNotFound, 'Сеанс не найден.' );
 		}
 		$this->assertCanManage( $actorUserId, $early );
 
@@ -583,14 +635,14 @@ class ExamEventService {
 
 					$current = $this->sessions->findForUpdate( $sessionId );
 					if ( null === $current || $current->eventId !== $event->id ) {
-							throw new CodedException( ErrorCode::ExamConflict, 'Сеанс не найден.' );
+							throw new CodedException( ErrorCode::ExamNotFound, 'Сеанс не найден.' );
 					}
 					$this->assertVersion( $current->version, $expectedVersion );
 					if ( $current->isLocked() ) {
 						throw new CodedException( ErrorCode::ExamStarted, 'Сеанс уже начат.' );
 					}
 					if ( ExamSessionStatus::Open->value !== $current->status ) {
-						throw new CodedException( ErrorCode::ExamConflict, 'Сеанс завершён: отменить его нельзя.' );
+						throw new CodedException( ErrorCode::ExamState, 'Сеанс завершён: отменить его нельзя.' );
 					}
 
 					if ( ! $this->sessions->update(
@@ -619,6 +671,8 @@ class ExamEventService {
 		}
 
 		$this->closeParticipantsOf( $actorUserId, $sessionId, $reason );
+
+		ExamLogAction::SessionCancelled->record( array( 'event_id' => $peek->eventId, 'session_id' => $sessionId, 'actor' => $actorUserId, 'context' => array( 'reason' => $reason ) ) );
 	}
 
 	/**
@@ -632,7 +686,7 @@ class ExamEventService {
 
 		$reason = trim( $reason );
 		if ( '' === $reason ) {
-			throw new CodedException( ErrorCode::ExamConflict, 'Укажите причину отмены.' );
+			throw new CodedException( ErrorCode::ExamInput, 'Укажите причину отмены.' );
 		}
 
 		$sessionIds = $this->inTransactionWithRetry(
@@ -686,6 +740,8 @@ class ExamEventService {
 		foreach ( $sessionIds as $sessionId ) {
 			$this->closeParticipantsOf( $actorUserId, $sessionId, $reason );
 		}
+
+		ExamLogAction::EventCancelled->record( array( 'event_id' => $eventId, 'actor' => $actorUserId, 'context' => array( 'reason' => $reason, 'sessions' => count( $sessionIds ) ) ) );
 	}
 
 	/**
@@ -708,7 +764,7 @@ class ExamEventService {
 					}
 				}
 				if ( $this->events->hasParticipantData( $eventId ) ) {
-					throw new CodedException( ErrorCode::ExamConflict, 'В проведении есть записи участников: удалить его нельзя, отмените проведение.' );
+					throw new CodedException( ErrorCode::ExamState, 'В проведении есть записи участников: удалить его нельзя, отмените проведение.' );
 				}
 
 				$this->events->deleteWithoutParticipants( $eventId );
@@ -716,6 +772,8 @@ class ExamEventService {
 				return true;
 			}
 		);
+
+		ExamLogAction::EventDeleted->record( array( 'event_id' => $eventId, 'actor' => $actorUserId ) );
 	}
 
 	/**
@@ -804,11 +862,11 @@ class ExamEventService {
 					$title = $this->events->find( $session->eventId )->title ?? '№' . $session->eventId;
 
 					if ( $newSeats < 1 ) {
-						throw new CodedException( ErrorCode::ExamConflict, sprintf( 'В кабинете запланирован сеанс проведения «%s»: вместимость не может быть нулевой.', $title ) );
+						throw new CodedException( ErrorCode::ExamState, sprintf( 'В кабинете запланирован сеанс проведения «%s»: вместимость не может быть нулевой.', $title ) );
 					}
 					if ( $newSeats < $session->occupiedCount ) {
 						throw new CodedException(
-							ErrorCode::ExamConflict,
+							ErrorCode::ExamState,
 							sprintf( 'Нельзя уменьшить вместимость до %d: в проведении «%s» уже занято %d мест.', $newSeats, $title, $session->occupiedCount )
 						);
 					}
@@ -842,25 +900,25 @@ class ExamEventService {
 	private function eventFields( array $input, string $subjectKey ): array {
 		$title = trim( (string) ( $input['title'] ?? '' ) );
 		if ( '' === $title ) {
-			throw new CodedException( ErrorCode::ExamConflict, 'Укажите название проведения.' );
+			throw new CodedException( ErrorCode::ExamInput, 'Укажите название проведения.' );
 		}
 		if ( mb_strlen( $title ) > 255 ) {
-			throw new CodedException( ErrorCode::ExamConflict, 'Название проведения не длиннее 255 символов.' );
+			throw new CodedException( ErrorCode::ExamState, 'Название проведения не длиннее 255 символов.' );
 		}
 
 		$from = $this->dateOf( $input['period_from'] ?? '', 'Укажите даты проведения.' );
 		$to   = $this->dateOf( $input['period_to'] ?? '', 'Укажите даты проведения.' );
 		if ( $from > $to ) {
-			throw new CodedException( ErrorCode::ExamConflict, 'Дата начала позже даты окончания.' );
+			throw new CodedException( ErrorCode::ExamInput, 'Дата начала позже даты окончания.' );
 		}
 
 		$opens  = $this->localDateTimeToUtc( $input['registration_opens_at'] ?? '' );
 		$closes = $this->localDateTimeToUtc( $input['registration_closes_at'] ?? '' );
 		if ( null !== $opens && null !== $closes && $opens > $closes ) {
-			throw new CodedException( ErrorCode::ExamConflict, 'Открытие записи позже её закрытия.' );
+			throw new CodedException( ErrorCode::ExamState, 'Открытие записи позже её закрытия.' );
 		}
 		if ( null !== $closes && $closes > $this->time->endOfLocalDayUtc( $to ) ) {
-			throw new CodedException( ErrorCode::ExamConflict, 'Запись не может закрываться позже последнего дня проведения.' );
+			throw new CodedException( ErrorCode::ExamState, 'Запись не может закрываться позже последнего дня проведения.' );
 		}
 
 		$defaultAssessment = (int) ( $input['default_assessment_id'] ?? 0 );
@@ -889,7 +947,7 @@ class ExamEventService {
 	 */
 	private function assertSessionEditable( ExamSessionDTO $current, int $assessmentId, string $startUtc, string $endUtc, int $roomId, int $newSeats ): void {
 		if ( ExamSessionStatus::Cancelled->value === $current->status ) {
-			throw new CodedException( ErrorCode::ExamConflict, 'Сеанс отменён: изменить его нельзя.' );
+			throw new CodedException( ErrorCode::ExamState, 'Сеанс отменён: изменить его нельзя.' );
 		}
 
 		$changed = $current->assessmentId !== $assessmentId || $current->scheduledAt !== $startUtc
@@ -900,10 +958,10 @@ class ExamEventService {
 		}
 		// Перенос сеанса с записанными участниками — отдельная операция с причиной и уведомлением ({@see moveSession()}).
 		if ( $changed && $current->occupiedCount > 0 ) {
-			throw new CodedException( ErrorCode::ExamConflict, 'В сеансе есть участники: используйте перенос с причиной.' );
+			throw new CodedException( ErrorCode::ExamState, 'В сеансе есть участники: используйте перенос с причиной.' );
 		}
 		if ( $current->occupiedCount > $newSeats ) {
-			throw new CodedException( ErrorCode::ExamConflict, sprintf( 'В сеансе уже занято %d мест, в кабинете их меньше.', $current->occupiedCount ) );
+			throw new CodedException( ErrorCode::ExamState, sprintf( 'В сеансе уже занято %d мест, в кабинете их меньше.', $current->occupiedCount ) );
 		}
 	}
 
@@ -945,10 +1003,10 @@ class ExamEventService {
 			throw new CodedException( ErrorCode::ExamStarted, 'Сеанс уже начат: перенести его нельзя.' );
 		}
 		if ( ExamSessionStatus::Open->value !== $current->status ) {
-			throw new CodedException( ErrorCode::ExamConflict, 'Сеанс отменён или завершён: перенести его нельзя.' );
+			throw new CodedException( ErrorCode::ExamState, 'Сеанс отменён или завершён: перенести его нельзя.' );
 		}
 		if ( $current->occupiedCount > $newSeats ) {
-			throw new CodedException( ErrorCode::ExamConflict, sprintf( 'В сеансе уже занято %d мест, в кабинете их меньше.', $current->occupiedCount ) );
+			throw new CodedException( ErrorCode::ExamState, sprintf( 'В сеансе уже занято %d мест, в кабинете их меньше.', $current->occupiedCount ) );
 		}
 	}
 
@@ -982,7 +1040,7 @@ class ExamEventService {
 	private function assertGuestLaunchReady( ExamEventDTO $event ): void {
 		if ( ! $this->checklist->isReady( $event ) ) {
 			throw new CodedException(
-				ErrorCode::ExamConflict,
+				ErrorCode::ExamState,
 				trim( 'Запись гостей недоступна: настройки запуска не завершены. ' . $this->checklist->failedSummary( $event ) )
 			);
 		}
@@ -996,7 +1054,7 @@ class ExamEventService {
 	private function requireEvent( int $eventId ): ExamEventDTO {
 		$event = $this->events->find( $eventId );
 		if ( null === $event ) {
-			throw new CodedException( ErrorCode::ExamConflict, 'Проведение не найдено.' );
+			throw new CodedException( ErrorCode::ExamNotFound, 'Проведение не найдено.' );
 		}
 		return $event;
 	}
@@ -1009,7 +1067,7 @@ class ExamEventService {
 	private function lockEvent( int $eventId ): ExamEventDTO {
 		$event = $this->events->findForUpdate( $eventId );
 		if ( null === $event ) {
-			throw new CodedException( ErrorCode::ExamConflict, 'Проведение не найдено.' );
+			throw new CodedException( ErrorCode::ExamNotFound, 'Проведение не найдено.' );
 		}
 		return $event;
 	}
@@ -1045,7 +1103,7 @@ class ExamEventService {
 	 */
 	private function assertEditable( ExamEventDTO $event ): void {
 		if ( ! ( ExamEventStatus::tryFrom( $event->status )?->isEditable() ?? false ) ) {
-			throw new CodedException( ErrorCode::ExamConflict, 'Проведение завершено или отменено: изменить его нельзя.' );
+			throw new CodedException( ErrorCode::ExamState, 'Проведение завершено или отменено: изменить его нельзя.' );
 		}
 	}
 
@@ -1083,7 +1141,7 @@ class ExamEventService {
 		$raw  = trim( (string) $value );
 		$date = \DateTimeImmutable::createFromFormat( '!Y-m-d', $raw );
 		if ( false === $date || $date->format( 'Y-m-d' ) !== $raw ) {
-			throw new CodedException( ErrorCode::ExamConflict, $message );
+			throw new CodedException( ErrorCode::ExamInput, $message );
 		}
 		return $raw;
 	}
@@ -1097,7 +1155,7 @@ class ExamEventService {
 		$raw  = trim( (string) $value );
 		$time = \DateTimeImmutable::createFromFormat( '!H:i', $raw );
 		if ( false === $time || $time->format( 'H:i' ) !== $raw ) {
-			throw new CodedException( ErrorCode::ExamConflict, 'Укажите время сеанса.' );
+			throw new CodedException( ErrorCode::ExamInput, 'Укажите время сеанса.' );
 		}
 		return $raw;
 	}
@@ -1120,6 +1178,6 @@ class ExamEventService {
 			}
 		}
 
-		throw new CodedException( ErrorCode::ExamConflict, 'Неверный формат даты и времени записи.' );
+		throw new CodedException( ErrorCode::ExamState, 'Неверный формат даты и времени записи.' );
 	}
 }

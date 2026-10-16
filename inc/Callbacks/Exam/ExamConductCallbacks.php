@@ -121,7 +121,7 @@ class ExamConductCallbacks extends BaseController {
 		$reason    = $this->sanitizeMultilineText( 'reason' );
 
 		if ( $minutes < self::MIN_EXTENSION || $minutes > self::MAX_EXTENSION ) {
-			$this->fail( ErrorCode::ExamConflict, sprintf( 'Продлить можно на срок от %d до %d минут.', self::MIN_EXTENSION, self::MAX_EXTENSION ) );
+			$this->fail( ErrorCode::ExamInput, sprintf( 'Продлить можно на срок от %d до %d минут.', self::MIN_EXTENSION, self::MAX_EXTENSION ) );
 			return;
 		}
 

@@ -207,7 +207,7 @@ class LogsCallbacks extends BaseController {
 	 */
 	public function ajaxExportAuthLog(): void {
 		$this->authorize( Nonce::Manager, Capability::ManageLmsPlatform );
-		$filters = $this->logFilters( array( 'action_filter', 'result', 'date_from', 'date_to' ) );
+		$filters = $this->logFilters( array( 'action_filter', 'result', 'login', 'date_from', 'date_to' ) );
 		$url     = $this->exportService->run( ExportTarget::LogAuth, $filters );
 		$this->success( array( 'url' => $url ) );
 	}
@@ -242,6 +242,7 @@ class LogsCallbacks extends BaseController {
 			'email_type'    => fn() => $this->sanitizeKey( 'email_type' ),
 			'status'        => fn() => $this->sanitizeKey( 'status' ),
 			'result'        => fn() => $this->sanitizeKey( 'result' ),
+			'login'         => fn() => $this->sanitizeText( 'login' ),
 			'code'          => fn() => strtoupper( $this->sanitizeText( 'code' ) ),
 			'ref'           => fn() => strtoupper( $this->sanitizeText( 'ref' ) ),
 			'user_id'       => fn() => $this->sanitizeInt( 'user_id' ) ?: null,

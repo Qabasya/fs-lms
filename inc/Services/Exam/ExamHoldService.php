@@ -11,6 +11,7 @@ namespace Inc\Services\Exam;
 
 use Inc\DTO\Exam\ExamGuestApplicationDTO;
 use Inc\Enums\Exam\ExamEventStatus;
+use Inc\Enums\Exam\ExamLogAction;
 use Inc\Enums\Exam\ExamOutboxEvent;
 use Inc\Enums\Exam\ManualResolutionKind;
 use Inc\Enums\Exam\ExamSessionStatus;
@@ -180,7 +181,7 @@ class ExamHoldService {
 			function () use ( $applicationId, $actorUserId ): ExamGuestApplicationDTO {
 				$application = $this->applications->findForUpdate( $applicationId );
 				if ( null === $application ) {
-						throw new CodedException( ErrorCode::ExamConflict, 'Заявка не найдена.' );
+						throw new CodedException( ErrorCode::ExamNotFound, 'Заявка не найдена.' );
 				}
 
 				$state = GuestApplicationState::tryFrom( $application->state );
@@ -233,18 +234,18 @@ class ExamHoldService {
 	public function acceptWithoutPayment( int $actorUserId, int $applicationId, string $reason ): ExamGuestApplicationDTO {
 		$application = $this->applications->find( $applicationId );
 		if ( null === $application ) {
-			throw new CodedException( ErrorCode::ExamConflict, 'Заявка не найдена.' );
+			throw new CodedException( ErrorCode::ExamNotFound, 'Заявка не найдена.' );
 		}
 
 		$waiting = array( GuestApplicationState::Hold->value, GuestApplicationState::AwaitingPayment->value, GuestApplicationState::PaymentPending->value );
 		if ( ! in_array( $application->state, $waiting, true ) || ! $application->isHeld
 			|| null === $application->holdExpiresAt || $application->holdExpiresAt <= $this->time->nowUtc() ) {
-			throw new CodedException( ErrorCode::ExamConflict, 'Бронь уже не действует: оформите запись заново.' );
+			throw new CodedException( ErrorCode::ExamState, 'Бронь уже не действует: оформите запись заново.' );
 		}
 
 		$accepted = $this->convert( $applicationId, $actorUserId );
 		if ( GuestApplicationState::Confirmed->value !== $accepted->state ) {
-			throw new CodedException( ErrorCode::ExamConflict, 'Не удалось подтвердить запись: проверьте бронь и повторите.' );
+			throw new CodedException( ErrorCode::ExamState, 'Не удалось подтвердить запись: проверьте бронь и повторите.' );
 		}
 
 		$this->resolutions->insert(
@@ -276,17 +277,17 @@ class ExamHoldService {
 			function () use ( $actorUserId, $applicationId, $kind, $targetSessionId, $reason, $amount ): ExamGuestApplicationDTO {
 				$application = $this->applications->findForUpdate( $applicationId );
 				if ( null === $application ) {
-						throw new CodedException( ErrorCode::ExamConflict, 'Заявка не найдена.' );
+						throw new CodedException( ErrorCode::ExamNotFound, 'Заявка не найдена.' );
 				}
 				if ( GuestApplicationState::PaidNeedsResolution->value !== $application->state ) {
-					throw new CodedException( ErrorCode::ExamConflict, 'Заявка уже урегулирована или не требует разбора.' );
+					throw new CodedException( ErrorCode::ExamState, 'Заявка уже урегулирована или не требует разбора.' );
 				}
 				$now = $this->time->nowUtc();
 
 				if ( ManualResolutionKind::Transferred === $kind ) {
 					$target = null !== $targetSessionId ? $this->sessions->find( $targetSessionId ) : null;
 					if ( null === $target || $target->eventId !== $application->eventId ) {
-						throw new CodedException( ErrorCode::ExamConflict, 'Выберите сеанс этого же проведения.' );
+						throw new CodedException( ErrorCode::ExamInput, 'Выберите сеанс этого же проведения.' );
 					}
 					// Личность могла оформить новую заявку: вернуть ей активный слот второй раз нельзя.
 					if ( $this->applications->hasActiveByIdentity( $application->eventId, $application->identityHash, $application->id ) ) {
@@ -444,6 +445,15 @@ class ExamHoldService {
 			$application->version
 		);
 
+		ExamLogAction::ApplicationReleased->record(
+			array(
+				'event_id'       => $application->eventId,
+				'session_id'     => $application->sessionId,
+				'participant_id' => $application->participantId,
+				'context'        => array( 'application_id' => $application->id, 'state' => $newState->value ),
+			)
+		);
+
 		return true;
 	}
 
@@ -474,6 +484,17 @@ class ExamHoldService {
 		$refs = null !== $application->consentRefs ? json_decode( $application->consentRefs, true ) : null;
 		$refs = is_array( $refs ) ? $refs : array();
 		$this->participations->setConsent( $participationId, $application->consentRefs, (int) ( $refs[ GuestApplicationService::CONSENT_TRANSFER ] ?? 0 ) > 0 );
+
+		ExamLogAction::ApplicationConverted->record(
+			array(
+				'event_id'         => $application->eventId,
+				'session_id'       => $application->sessionId,
+				'registration_id'  => $registrationId,
+				'participation_id' => $participationId,
+				'participant_id'   => $participantId,
+				'context'          => array( 'application_id' => $application->id, 'was_held' => $application->isHeld ),
+			)
+		);
 
 		return $this->reload( $application->id );
 	}

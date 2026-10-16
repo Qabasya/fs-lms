@@ -70,11 +70,11 @@
   gap: rem(8);
 }
 
-/* Одна строка: тип (200px) · название · сдачи · дата и время · «Открыть».
+/* Одна строка: тип (бейдж) · название · сдачи · дата и время · «Открыть».
    Колонки фиксированной ширины — одинаковые во всех строках списка. */
 .wk-row {
   display: grid;
-  grid-template-columns: rem(200) minmax(0, 1fr) rem(76) rem(118) auto;
+  grid-template-columns: rem(56) minmax(0, 1fr) rem(76) rem(118) auto;
   align-items: center;
   gap: rem(14);
   padding: rem(12) rem(16);
@@ -86,19 +86,7 @@
 }
 .wk-row:hover { border-color: var(--line-2); box-shadow: var(--shadow-sm); }
 
-.wk-badge {
-  flex: none;
-  font-size: rem(11);
-  font-weight: 700;
-  padding: rem(3) rem(9);
-  border-radius: 999px;
-  background: var(--surface-2);
-  color: var(--muted);
-}
-.wk-badge-exam { background: var(--accent-soft); color: var(--accent-700); }
-
 .wk-type { display: flex; min-width: 0; }
-.wk-type .wk-badge { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .wk-row-title {
   font-size: rem(14.5);

@@ -16,6 +16,7 @@ use Inc\DTO\Exam\ExamParticipationDTO;
 use Inc\Enums\Assessment\AttemptStatus;
 use Inc\Enums\Exam\ExamAudience;
 use Inc\Enums\Exam\ExamEventStatus;
+use Inc\Enums\Exam\ExamLogAction;
 use Inc\Enums\Exam\ExamOutboxEvent;
 use Inc\Enums\Exam\ExamRegistrationStatus;
 use Inc\Enums\Exam\ExamSessionStatus;
@@ -172,7 +173,7 @@ class ExamAttemptService {
 		$startedAt = $this->time->nowLocal();
 		// У гостя нет Person, а значит и другой его активной попытки: «одна на участие» держит уникальный индекс.
 		if ( ! $isGuest && null !== $this->attempts->findAnyActive( (int) $ctx->personId, $startedAt ) ) {
-			throw new CodedException( ErrorCode::ExamConflict, 'Сначала завершите начатую работу.' );
+			throw new CodedException( ErrorCode::ExamState, 'Сначала завершите начатую работу.' );
 		}
 
 		$assessmentId = $session->assessmentId;
@@ -220,7 +221,31 @@ class ExamAttemptService {
 			// Сессия живёт до личного дедлайна + время на просмотр результата.
 			$this->guestSessions->extendForAttempt( $participation->id, $this->time->toUtc( $attempt->deadlineAt ) );
 		}
+
+		ExamLogAction::AttemptStarted->record(
+			array_merge(
+				array(
+					'event_id'         => $event->id,
+					'session_id'       => $session->id,
+					'registration_id'  => $registration->id,
+					'participation_id' => $participation->id,
+					'attempt_id'       => $attemptId,
+					'context'          => array( 'deadline_at' => $attempt->deadlineAt ),
+				),
+				$this->actorOf( $isGuest )
+			)
+		);
+
 		return $attempt;
+	}
+
+	/**
+	 * Актор действий самого участника: гость — не пользователь WP, ученик — пользователь текущего запроса.
+	 *
+	 * @return array<string, string>
+	 */
+	private function actorOf( bool $isGuest ): array {
+		return $isGuest ? array( 'actor_type' => 'guest', 'actor_label' => 'Гость' ) : array();
 	}
 
 	/**
@@ -279,6 +304,17 @@ class ExamAttemptService {
 						'auto'       => true,
 					)
 				);
+
+				ExamLogAction::AttemptExpired->record(
+					array(
+						'event_id'         => $participation->eventId,
+						'participation_id' => $participation->id,
+						'attempt_id'       => $attempt->id,
+						'actor_type'       => 'system',
+						'actor_label'      => 'Система',
+					)
+				);
+
 				return true;
 			}
 		);
@@ -330,6 +366,18 @@ class ExamAttemptService {
 						'auto'       => false,
 					)
 				);
+
+				ExamLogAction::AttemptSubmitted->record(
+					array_merge(
+						array(
+							'event_id'         => $participation->eventId,
+							'participation_id' => $participation->id,
+							'attempt_id'       => $attempt->id,
+						),
+						$this->actorOf( ExamAudience::Guest === $ctx->audience )
+					)
+				);
+
 				return $submitted;
 			}
 		);
@@ -413,11 +461,11 @@ class ExamAttemptService {
 	 */
 	public function extend( int $actorUserId, int $attemptId, int $minutes, string $reason ): AttemptDTO {
 		if ( $minutes < 1 || $minutes > self::MAX_EXTENSION_MINUTES ) {
-			throw new CodedException( ErrorCode::ExamConflict, sprintf( 'Продлить можно на срок от 1 до %d минут.', self::MAX_EXTENSION_MINUTES ) );
+			throw new CodedException( ErrorCode::ExamInput, sprintf( 'Продлить можно на срок от 1 до %d минут.', self::MAX_EXTENSION_MINUTES ) );
 		}
 		$reason = trim( $reason );
 		if ( '' === $reason ) {
-			throw new CodedException( ErrorCode::ExamConflict, 'Укажите причину продления.' );
+			throw new CodedException( ErrorCode::ExamInput, 'Укажите причину продления.' );
 		}
 
 		// Участие определяем до транзакции: внутри неё первым оператором должна быть блокировка.
@@ -464,6 +512,21 @@ class ExamAttemptService {
 				if ( ExamAudience::Guest->value === $participation->audience ) {
 						$this->guestSessions->extendForAttempt( $participation->id, $this->time->toUtc( $updated->deadlineAt ) );
 				}
+
+				ExamLogAction::AttemptExtended->record(
+					array(
+						'event_id'         => $participation->eventId,
+						'participation_id' => $participation->id,
+						'attempt_id'       => $attempt->id,
+						'actor'            => $actorUserId,
+						'context'          => array(
+							'minutes'     => $minutes,
+							'reason'      => $reason,
+							'deadline_at' => $newDeadline,
+						),
+					)
+				);
+
 				return $updated;
 			}
 		);

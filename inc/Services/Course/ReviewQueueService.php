@@ -54,7 +54,7 @@ class ReviewQueueService {
 	 * `latest_at` — MAX(submitted_at) среди сдач корзины, для клиентской
 	 * сортировки «сначала новые/старые» (D3).
 	 *
-	 * @return array<int, array{source_type:string, source_id:int, title:string, label:string, count:int, group_ids:int[], latest_at:?string}>
+	 * @return array<int, array{source_type:string, source_id:int, title:string, label:string, badge:string, count:int, group_ids:int[], latest_at:?string}>
 	 */
 	public function pendingWorks( int $userId, bool $allGroups, string $tab ): array {
 		$groupIds = $this->teacherGroups->idsFor( $userId, $allGroups );
@@ -90,6 +90,7 @@ class ReviewQueueService {
 					'source_id'   => $workId,
 					'title'       => $work->title,
 					'label'       => $work->workType->label(),
+					'badge'       => GradeBadge::fromWorkType( $work->workType )->badge(),
 					'count'       => $agg['count'],
 					'group_ids'   => array_values( array_unique( $agg['group_ids'] ) ),
 					'latest_at'   => $agg['latest_at'],
@@ -126,6 +127,7 @@ class ReviewQueueService {
 				'source_id'   => $assessmentId,
 				'title'       => $assessment->title,
 				'label'       => 'Экзамен',
+				'badge'       => GradeBadge::fromAssessmentKind( $assessment->kind )->badge(),
 				'count'       => $agg['count'],
 				'group_ids'   => array_values( array_unique( $agg['group_ids'] ) ),
 				'latest_at'   => $agg['latest_at'],

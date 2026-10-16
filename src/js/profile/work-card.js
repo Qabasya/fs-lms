@@ -40,7 +40,6 @@ const MARK_TITLE = { correct: 'Решено', corrected: 'Решено с исп
  * @returns {string} HTML карточки; без ссылки и без сдачи — некликабельна
  */
 export function workCardHtml(card) {
-    const mod = BADGE_MOD[card.badge] || 'df';
     const tag = card.url ? 'a' : 'div';
     const cls = ['wcard', card.rowClass, (card.url || card.sourceId) ? '' : 'wcard--static'].filter(Boolean).join(' ');
     let act = '';
@@ -51,7 +50,7 @@ export function workCardHtml(card) {
     }
 
     return `<${tag} class="${cls}"${act}>
-        <span class="wcard-type">${card.badge ? `<span class="wcard-badge wcard-badge--${mod}">${esc(card.badge)}</span>` : ''}</span>
+        <span class="wcard-type">${badgeHtml(card.badge)}</span>
         <div class="wcard-main" title="${esc([card.title, card.subtitle].filter(Boolean).join(' · '))}">
             <span class="wcard-title">${esc(card.title || '—')}</span>
             ${card.subtitle ? `<span class="wcard-sub">${esc(card.subtitle)}</span>` : ''}
@@ -65,23 +64,33 @@ export function workCardHtml(card) {
 }
 
 /**
+ * Бейдж типа работы (СР/ПР/ДЗ/КР/ЭКЗ) — общий для карточек и списка «Работы».
+ *
+ * @param {string} badge Короткая метка типа
+ * @returns {string} HTML бейджа; пустая строка без метки
+ */
+export function badgeHtml(badge) {
+    return badge ? `<span class="wcard-badge wcard-badge--${BADGE_MOD[badge] || 'df'}">${esc(badge)}</span>` : '';
+}
+
+/**
  * Подпись статуса работы под заголовком карточки: результат, «На проверке»,
- * «Просрочено · 3/5» (сдано после срока) или «Не сдано · срок …».
+ * «Просрочено · 3/5» (сдано после срока), «Не сдано · срок …» или «Нет сдачи».
  *
  * @param {{display: string, value: string, overdue?: boolean, due_at?: string}} w
  * @returns {string}
  */
 export function workStatusText(w) {
-    if ('missed' === w.display) { return `Не сдано · срок ${fmtDateTime(w.due_at)}`; }
+    if ('missed' === w.display) { return w.due_at ? `Не сдано · срок ${fmtDateTime(w.due_at)}` : 'Нет сдачи'; }
     if ('pending' === w.display) { return 'На проверке'; }
     return w.overdue ? `Просрочено · ${w.value}` : w.value;
 }
 
 /**
- * Чип работы в строке занятия: «ПР 3/5», «ДЗ не сдано», «на проверке» + метка
+ * Чип работы в строке занятия: «ПР 3/5», «ДЗ -/3» (не приступали), «на проверке» + метка
  * «просрочено». Одна вёрстка для сводки преподавателя и посещаемости ученика.
  *
- * @param {{title: string, badge?: string, value: string, display: string, overdue?: boolean, due_at?: string}} w
+ * @param {{title: string, badge?: string, value: string, display: string, overdue?: boolean, due_at?: string|null, max_score?: number|null}} w
  * @param {string} [attrs] Атрибуты кликабельного чипа (href или role/data-*); пусто — просто подпись
  * @param {'span'|'a'} [tag]
  * @returns {string}
@@ -90,9 +99,9 @@ export function workChipHtml(w, attrs = '', tag = 'span') {
     const missed = 'missed' === w.display;
     const cls    = ['sum-work', 'pending' === w.display ? 'pending' : '', w.overdue ? 'overdue' : '', missed ? 'missed' : ''].filter(Boolean).join(' ');
     let text = esc(w.value);
-    if (missed) { text = 'не сдано'; } else if ('pending' === w.display) { text = 'на проверке'; }
+    if (missed) { text = `-/${w.max_score ?? '?'}`; } else if ('pending' === w.display) { text = 'на проверке'; }
     let hint = w.title;
-    if (missed) { hint += ` — не сдано, срок ${fmtDateTime(w.due_at)}`; } else if (w.overdue) { hint += ' — сдано после дедлайна'; }
+    if (missed) { hint += w.due_at ? ` — не сдано, срок ${fmtDateTime(w.due_at)}` : ' — не приступали'; } else if (w.overdue) { hint += ' — сдано после дедлайна'; }
 
     return `<${tag} class="${cls}"${attrs ? ' ' + attrs : ''} title="${esc(hint)}">${w.badge ? `<b>${esc(w.badge)}</b> ` : ''}${text}${w.overdue ? ' <span class="sum-work-late">просрочено</span>' : ''}</${tag}>`;
 }

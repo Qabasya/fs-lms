@@ -14,6 +14,7 @@ use Inc\DTO\Exam\ExamEventDTO;
 use Inc\DTO\Exam\ExamSourceDTO;
 use Inc\DTO\Log\Events\EntityChangedEvent;
 use Inc\Enums\Exam\ExamDirection;
+use Inc\Enums\Exam\ExamLogAction;
 use Inc\Enums\Exam\ExamTokenPurpose;
 use Inc\Enums\Log\EntityType;
 use Inc\Enums\Log\ErrorCode;
@@ -120,6 +121,7 @@ class ExamSourceService {
 					throw $this->stale();
 				}
 				$this->audit( $actorUserId, OperationType::Update, LogEvent::ExamSourceUpdated, $source->id, 'открытая запись: ' . ( $enabled ? 'включена' : 'отключена' ) );
+				$this->log( ExamLogAction::PublicRegistrationToggled, $actorUserId, $event->id, $source->id, array( 'enabled' => $enabled ) );
 			}
 		);
 
@@ -146,6 +148,7 @@ class ExamSourceService {
 		);
 		$this->tokens->issue( ExamTokenPurpose::Invitation, $id, $actorUserId );
 		$this->audit( $actorUserId, OperationType::Create, LogEvent::ExamSourceCreated, $id, 'открытая запись: включена' );
+		$this->log( ExamLogAction::PublicRegistrationToggled, $actorUserId, $event->id, $id, array( 'enabled' => true ) );
 	}
 
 	/**
@@ -164,23 +167,23 @@ class ExamSourceService {
 		$grade   = (int) ( $input['grade'] ?? 0 );
 
 		if ( '' === $school ) {
-			throw new CodedException( ErrorCode::ExamConflict, 'Укажите школу.' );
+			throw new CodedException( ErrorCode::ExamInput, 'Укажите школу.' );
 		}
 		if ( '' === $teacher ) {
-			throw new CodedException( ErrorCode::ExamConflict, 'Укажите ФИО преподавателя.' );
+			throw new CodedException( ErrorCode::ExamInput, 'Укажите ФИО преподавателя.' );
 		}
 		if ( 9 !== $grade && 11 !== $grade ) {
-			throw new CodedException( ErrorCode::ExamConflict, 'Класс — 9 или 11.' );
+			throw new CodedException( ErrorCode::ExamInput, 'Класс — 9 или 11.' );
 		}
 		$direction = $this->directionOf( $event );
 		if ( $direction->grade() !== $grade ) {
-			throw new CodedException( ErrorCode::ExamConflict, 'Класс не соответствует направлению проведения.' );
+			throw new CodedException( ErrorCode::ExamInput, 'Класс не соответствует направлению проведения.' );
 		}
 
 		// Ключ — только у школы из справочника; свободный ввод его не имеет и школ по похожей строке не объединяет.
 		$schoolKey = trim( (string) ( $input['school_key'] ?? '' ) );
 		if ( '' !== $schoolKey && 1 !== preg_match( '/^[a-z0-9_-]{1,100}$/', $schoolKey ) ) {
-			throw new CodedException( ErrorCode::ExamConflict, 'Некорректный ключ школы.' );
+			throw new CodedException( ErrorCode::ExamInput, 'Некорректный ключ школы.' );
 		}
 
 		$fields = array(
@@ -195,7 +198,7 @@ class ExamSourceService {
 		if ( array_key_exists( 'discount_percent', $input ) ) {
 			$discount = (int) $input['discount_percent'];
 			if ( ! in_array( $discount, ExamSourceDTO::DISCOUNT_STEPS, true ) ) {
-				throw new CodedException( ErrorCode::ExamConflict, 'Выберите скидку из списка.' );
+				throw new CodedException( ErrorCode::ExamInput, 'Выберите скидку из списка.' );
 			}
 			$fields['discount_percent'] = $discount;
 		}
@@ -215,6 +218,7 @@ class ExamSourceService {
 				)
 			);
 			$this->audit( $actorUserId, OperationType::Create, LogEvent::ExamSourceCreated, $id, $school );
+			$this->log( ExamLogAction::SourceSaved, $actorUserId, $eventId, $id, array( 'created' => true, 'school' => $school ) );
 
 			return $this->reload( $id );
 		}
@@ -230,6 +234,7 @@ class ExamSourceService {
 						throw $this->stale();
 				}
 				$this->audit( $actorUserId, OperationType::Update, LogEvent::ExamSourceUpdated, $sourceId, $source->schoolName );
+				$this->log( ExamLogAction::SourceSaved, $actorUserId, $eventId, $sourceId, array( 'created' => false, 'school' => $source->schoolName ) );
 
 				return $this->reload( $sourceId );
 			}
@@ -251,10 +256,10 @@ class ExamSourceService {
 			function () use ( $actorUserId, $sourceId, $eventId ): string {
 				$source = $this->lockSource( $sourceId, $eventId );
 				if ( $this->tokens->hasActive( ExamTokenPurpose::Invitation, $sourceId ) ) {
-						throw new CodedException( ErrorCode::ExamConflict, 'Ссылка уже создана: чтобы заменить её, перевыпустите.' );
+						throw new CodedException( ErrorCode::ExamState, 'Ссылка уже создана: чтобы заменить её, перевыпустите.' );
 				}
 
-				return $this->publishKey( $actorUserId, $source, 'ссылка создана' );
+				return $this->publishKey( $actorUserId, $source, 'ссылка создана', ExamLogAction::SourceLinkIssued );
 			}
 		);
 	}
@@ -274,7 +279,7 @@ class ExamSourceService {
 			function () use ( $actorUserId, $sourceId, $eventId ): string {
 				$source = $this->lockSource( $sourceId, $eventId );
 
-				return $this->publishKey( $actorUserId, $source, 'ссылка перевыпущена' );
+				return $this->publishKey( $actorUserId, $source, 'ссылка перевыпущена', ExamLogAction::SourceLinkReissued );
 			}
 		);
 	}
@@ -294,6 +299,7 @@ class ExamSourceService {
 				$this->guestSessions->revokeBySource( $sourceId );
 				$this->sources->setKeyRevokedAt( $sourceId, $this->time->nowUtc() );
 				$this->audit( $actorUserId, OperationType::Update, LogEvent::ExamSourceUpdated, $sourceId, $source->schoolName . ': ссылка отозвана' );
+				$this->log( ExamLogAction::SourceLinkRevoked, $actorUserId, $eventId, $sourceId, array( 'school' => $source->schoolName ) );
 			}
 		);
 	}
@@ -313,6 +319,7 @@ class ExamSourceService {
 						throw $this->stale();
 				}
 				$this->audit( $actorUserId, OperationType::Update, LogEvent::ExamSourceUpdated, $sourceId, $source->schoolName . ( $active ? ': включён' : ': отключён' ) );
+				$this->log( ExamLogAction::SourceToggled, $actorUserId, $eventId, $sourceId, array( 'active' => $active, 'school' => $source->schoolName ) );
 			}
 		);
 	}
@@ -320,7 +327,7 @@ class ExamSourceService {
 	// ---------------------------------------------------------------------------------------------------------------------------------
 
 	/** Выпускает ключ под блокировкой источника: прежний отзывается, поколение растёт, отметка отзыва снимается. */
-	private function publishKey( int $actorUserId, ExamSourceDTO $source, string $auditNote ): string {
+	private function publishKey( int $actorUserId, ExamSourceDTO $source, string $auditNote, ExamLogAction $logAction ): string {
 		$event = $this->events->find( $source->eventId );
 		$plain = $this->tokens->issue( ExamTokenPurpose::Invitation, $source->id, $actorUserId, $event?->registrationClosesAt );
 		// Открытые по прежней ссылке формы после обновления страницы дают 404.
@@ -328,6 +335,7 @@ class ExamSourceService {
 		$this->sources->bumpGeneration( $source->id );
 		$this->sources->setKeyRevokedAt( $source->id, null );
 		$this->audit( $actorUserId, OperationType::Update, LogEvent::ExamSourceUpdated, $source->id, $source->schoolName . ': ' . $auditNote );
+		$this->log( $logAction, $actorUserId, $source->eventId, $source->id, array( 'school' => $source->schoolName ) );
 
 		return $this->signupUrl( $plain );
 	}
@@ -374,7 +382,7 @@ class ExamSourceService {
 		$assessment = null !== $event->defaultAssessmentId ? $this->assessments->get( $event->defaultAssessmentId ) : null;
 		$format     = null !== $assessment ? $this->formats->for( $assessment->kind ) : null;
 		if ( null === $format ) {
-			throw new CodedException( ErrorCode::ExamConflict, 'Выберите основной вариант проведения: от него зависит класс.' );
+			throw new CodedException( ErrorCode::ExamInput, 'Выберите основной вариант проведения: от него зависит класс.' );
 		}
 
 		return $format->direction;
@@ -405,7 +413,7 @@ class ExamSourceService {
 			throw new CodedException( ErrorCode::ExamAccess, 'Источник не найден.' );
 		}
 		if ( $source->isPublic() ) {
-			throw new CodedException( ErrorCode::ExamConflict, 'Открытая запись включается переключателем в настройках проведения.' );
+			throw new CodedException( ErrorCode::ExamState, 'Открытая запись включается переключателем в настройках проведения.' );
 		}
 		$this->requireEvent( $actorUserId, $source->eventId );
 
@@ -438,6 +446,21 @@ class ExamSourceService {
 		}
 
 		return $source;
+	}
+
+	/**
+	 * Сообщает о действии с источником записи в журнал «Экзамены»: источник — в контексте, у журнала своей колонки для него нет.
+	 *
+	 * @param array<string, mixed> $context
+	 */
+	private function log( ExamLogAction $action, int $actorUserId, int $eventId, int $sourceId, array $context = array() ): void {
+		$action->record(
+			array(
+				'event_id' => $eventId,
+				'actor'    => $actorUserId,
+				'context'  => array_merge( array( 'source_id' => $sourceId ), $context ),
+			)
+		);
 	}
 
 	/**

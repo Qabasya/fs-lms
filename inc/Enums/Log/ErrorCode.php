@@ -62,6 +62,9 @@ enum ErrorCode: string {
 	case ExamLimit    = 'X-LIMIT';
 	case ExamRoom     = 'X-ROOM';
 	case ExamReplay   = 'X-REPLAY';
+	case ExamNotFound = 'X-NOT-FOUND';
+	case ExamState    = 'X-STATE';
+	case ExamInput    = 'X-INPUT';
 
 	/** Что означает код — подпись в журнале и фильтре. */
 	public function label(): string {
@@ -96,6 +99,9 @@ enum ErrorCode: string {
 			self::ExamLimit       => 'Экзамен: лимит по IP/источнику',
 			self::ExamRoom        => 'Экзамен: кабинет не подходит',
 			self::ExamReplay      => 'Экзамен: тот же ключ с другими данными',
+			self::ExamNotFound    => 'Экзамен: запись не найдена',
+			self::ExamState       => 'Экзамен: действие недоступно в этом состоянии',
+			self::ExamInput       => 'Экзамен: некорректные данные',
 		};
 	}
 

@@ -11,7 +11,9 @@ namespace Inc\Services\Exam\Payment;
 
 use Inc\Managers\Woo\WooCommerceManager;
 
+use Inc\DTO\Exam\ExamGuestApplicationDTO;
 use Inc\DTO\Exam\ExamPaymentLinkDTO;
+use Inc\Enums\Exam\ExamLogAction;
 use Inc\Enums\Exam\ExamOutboxEvent;
 use Inc\Enums\Exam\ExamPaymentState;
 use Inc\Enums\Exam\GuestApplicationState;
@@ -133,6 +135,7 @@ class ExamPaymentReconciler {
 					'reason'         => 'extra_payment',
 				)
 			);
+			$this->logPayment( $application, $link, 'success', array( 'extra_payment' => true ) );
 			return;
 		}
 
@@ -156,6 +159,7 @@ class ExamPaymentReconciler {
 					'order_id'       => $link->wcOrderId,
 				)
 			);
+			$this->logPayment( $application, $link, 'failure', array( 'error' => $e->getMessage() ) );
 			throw $e;
 		}
 
@@ -167,6 +171,8 @@ class ExamPaymentReconciler {
 				'updated_at'         => $now,
 			)
 		);
+
+		$this->logPayment( $converted, $link, 'success', array( 'application_state' => $converted->state ) );
 
 		// Оплата пришла, а заявка отменена сотрудником или помечена неявкой: запись не воскрешается, но деньги получены — нужна помощь.
 		if ( in_array( $converted->state, array( GuestApplicationState::Cancelled->value, GuestApplicationState::Missed->value ), true ) ) {
@@ -183,6 +189,26 @@ class ExamPaymentReconciler {
 				)
 			);
 		}
+	}
+
+	/**
+	 * Поступление оплаты — в журнал «Экзамены»: заказ магазина и состояние заявки после подтверждения.
+	 *
+	 * @param array<string, mixed> $context
+	 */
+	private function logPayment( ExamGuestApplicationDTO $application, ExamPaymentLinkDTO $link, string $result, array $context ): void {
+		ExamLogAction::PaymentReceived->record(
+			array(
+				'event_id'        => $application->eventId,
+				'session_id'      => $application->sessionId,
+				'registration_id' => $application->registrationId,
+				'participant_id'  => $application->participantId,
+				'actor_type'      => 'system',
+				'actor_label'     => 'Магазин',
+				'result'          => $result,
+				'context'         => array_merge( array( 'order_id' => $link->wcOrderId, 'application_id' => $application->id ), $context ),
+			)
+		);
 	}
 
 	/**

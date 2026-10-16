@@ -16,6 +16,7 @@ use Inc\DTO\Exam\ExamReportDTO;
 use Inc\DTO\Log\Events\EntityChangedEvent;
 use Inc\Enums\Access\Capability;
 use Inc\Enums\Assessment\AttemptStatus;
+use Inc\Enums\Exam\ExamLogAction;
 use Inc\Enums\Exam\ExamAudience;
 use Inc\Enums\Exam\ExamTokenPurpose;
 use Inc\Enums\Log\EntityType;
@@ -107,20 +108,20 @@ class ExamReportService {
 
 		$title = trim( (string) preg_replace( '/\s+/u', ' ', $title ) );
 		if ( '' === $title ) {
-			throw new CodedException( ErrorCode::ExamConflict, 'Укажите название отчёта.' );
+			throw new CodedException( ErrorCode::ExamInput, 'Укажите название отчёта.' );
 		}
 		$participationIds = array_values( array_unique( array_filter( array_map( 'intval', $participationIds ) ) ) );
 		if ( array() === $participationIds ) {
-			throw new CodedException( ErrorCode::ExamConflict, 'Выберите хотя бы одного участника.' );
+			throw new CodedException( ErrorCode::ExamInput, 'Выберите хотя бы одного участника.' );
 		}
 		$days = $days ?? self::DEFAULT_DAYS;
 		if ( $days < 1 || $days > self::MAX_DAYS ) {
-			throw new CodedException( ErrorCode::ExamConflict, sprintf( 'Срок отчёта — от 1 до %d дней.', self::MAX_DAYS ) );
+			throw new CodedException( ErrorCode::ExamInput, sprintf( 'Срок отчёта — от 1 до %d дней.', self::MAX_DAYS ) );
 		}
 		if ( null !== $recipientSourceId ) {
 			$source = $this->sources->find( $recipientSourceId );
 			if ( null === $source || $source->eventId !== $eventId || $source->isPublic() ) {
-				throw new CodedException( ErrorCode::ExamConflict, 'Получатель не из этого проведения.' );
+				throw new CodedException( ErrorCode::ExamState, 'Получатель не из этого проведения.' );
 			}
 		}
 
@@ -148,7 +149,7 @@ class ExamReportService {
 			}
 		);
 
-		$this->audit( $actorUserId, OperationType::Create, $reportId, sprintf( 'отчёт «%s»: %d участников', $title, count( $participationIds ) ) );
+		$this->audit( $actorUserId, OperationType::Create, $reportId, sprintf( 'отчёт «%s»: %d участников', $title, count( $participationIds ) ), ExamLogAction::ReportCreated, array( 'title' => $title, 'members' => count( $participationIds ) ) );
 
 		return $this->reload( $reportId );
 	}
@@ -197,16 +198,16 @@ class ExamReportService {
 		$report        = $this->requireReport( $actorUserId, $reportId );
 		$participation = $this->participations->find( $participationId );
 		if ( null === $participation ) {
-			throw new CodedException( ErrorCode::ExamConflict, 'Участник не найден.' );
+			throw new CodedException( ErrorCode::ExamNotFound, 'Участник не найден.' );
 		}
 		$reason = $this->canInclude( $participation, $report->eventId );
 		if ( null !== $reason ) {
-			throw new CodedException( ErrorCode::ExamConflict, $reason );
+			throw new CodedException( ErrorCode::ExamState, $reason );
 		}
 
 		$this->assertActive( $report );
 		$this->changeMembers( $report, $expectedVersion, fn (): bool => $this->members->add( $reportId, $participationId, $this->transferConsentRef( $participation ), $this->time->nowUtc() ) );
-		$this->audit( $actorUserId, OperationType::Update, $reportId, sprintf( 'добавлено участие #%d', $participationId ) );
+		$this->audit( $actorUserId, OperationType::Update, $reportId, sprintf( 'добавлено участие #%d', $participationId ), ExamLogAction::ReportMemberChanged, array( 'added_participation_id' => $participationId ) );
 
 		return $this->reload( $reportId );
 	}
@@ -220,7 +221,7 @@ class ExamReportService {
 		$report = $this->requireReport( $actorUserId, $reportId );
 		$this->assertActive( $report );
 		$this->changeMembers( $report, $expectedVersion, fn (): bool => $this->members->remove( $reportId, $participationId ) );
-		$this->audit( $actorUserId, OperationType::Update, $reportId, sprintf( 'убрано участие #%d', $participationId ) );
+		$this->audit( $actorUserId, OperationType::Update, $reportId, sprintf( 'убрано участие #%d', $participationId ), ExamLogAction::ReportMemberChanged, array( 'removed_participation_id' => $participationId ) );
 
 		return $this->reload( $reportId );
 	}
@@ -238,7 +239,7 @@ class ExamReportService {
 		$this->assertActive( $report );
 
 		$plain = $this->tokens->issue( ExamTokenPurpose::Report, $reportId, $actorUserId, $report->expiresAt );
-		$this->audit( $actorUserId, OperationType::Update, $reportId, 'ссылка выдана' );
+		$this->audit( $actorUserId, OperationType::Update, $reportId, 'ссылка выдана', ExamLogAction::ReportLinkIssued );
 
 		return PageRoutes::ExamReport->url() . '?k=' . $plain;
 	}
@@ -254,7 +255,7 @@ class ExamReportService {
 			throw new CodedException( ErrorCode::ExamStale, 'Данные изменились: обновите страницу и повторите.' );
 		}
 		$this->tokens->revoke( ExamTokenPurpose::Report, $reportId );
-		$this->audit( $actorUserId, OperationType::Update, $reportId, 'отчёт отозван' );
+		$this->audit( $actorUserId, OperationType::Update, $reportId, 'отчёт отозван', ExamLogAction::ReportRevoked );
 
 		return $this->reload( $reportId );
 	}
@@ -296,7 +297,7 @@ class ExamReportService {
 			$refs[ $participationId ] = $this->transferConsentRef( $participation );
 		}
 		if ( array() !== $problems ) {
-			throw new CodedException( ErrorCode::ExamConflict, 'В отчёт нельзя включить: ' . implode( ' ', $problems ) );
+			throw new CodedException( ErrorCode::ExamState, 'В отчёт нельзя включить: ' . implode( ' ', $problems ) );
 		}
 
 		return $refs;
@@ -410,8 +411,20 @@ class ExamReportService {
 		return $report;
 	}
 
-	/** Публикует доменное событие изменения отчёта через общий диспетчер журнала. */
-	private function audit( int $actorUserId, OperationType $operation, int $reportId, string $label ): void {
+	/**
+	 * Публикует доменное событие изменения отчёта через общий диспетчер журнала и пишет действие в журнал «Экзамены».
+	 *
+	 * @param array<string, mixed> $context Подробности для журнала «Экзамены»
+	 */
+	private function audit( int $actorUserId, OperationType $operation, int $reportId, string $label, ExamLogAction $logAction, array $context = array() ): void {
 		$this->logEvents->dispatch( LogEvent::ExamReportChanged, new EntityChangedEvent( $actorUserId, $operation, EntityType::ExamReport, $reportId, $label ) );
+
+		$logAction->record(
+			array(
+				'event_id' => $this->reports->find( $reportId )?->eventId,
+				'actor'    => $actorUserId,
+				'context'  => array_merge( array( 'report_id' => $reportId ), $context ),
+			)
+		);
 	}
 }

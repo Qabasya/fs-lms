@@ -199,7 +199,7 @@ class ExamSourceServiceTest extends TestCase {
 				$this->service->save( self::ACTOR, self::EVENT, $this->input( array( 'discount_percent' => $bad ) ), null, null );
 				self::fail( "Скидка {$bad}% должна отклоняться." );
 			} catch ( CodedException $e ) {
-				self::assertSame( ErrorCode::ExamConflict, $e->errorCode );
+				self::assertSame( ErrorCode::ExamInput, $e->errorCode );
 			}
 		}
 		self::assertSame( array(), $this->inserted );
@@ -219,12 +219,12 @@ class ExamSourceServiceTest extends TestCase {
 	}
 
 	public function test_malformed_school_key_is_refused(): void {
-		$this->assertRefusal( ErrorCode::ExamConflict, fn () => $this->service->save( self::ACTOR, self::EVENT, $this->input( array( 'school_key' => 'Школа 5!' ) ), null, null ), 'Некорректный ключ школы.' );
+		$this->assertRefusal( ErrorCode::ExamInput, fn () => $this->service->save( self::ACTOR, self::EVENT, $this->input( array( 'school_key' => 'Школа 5!' ) ), null, null ), 'Некорректный ключ школы.' );
 	}
 
 	public function test_grade_must_match_event_direction(): void {
 		// Проведение ЕГЭ (11 класс): источник 9 класса отклоняется.
-		$this->assertRefusal( ErrorCode::ExamConflict, fn () => $this->service->save( self::ACTOR, self::EVENT, $this->input( array( 'grade' => 9 ) ), null, null ), 'Класс не соответствует направлению проведения.' );
+		$this->assertRefusal( ErrorCode::ExamInput, fn () => $this->service->save( self::ACTOR, self::EVENT, $this->input( array( 'grade' => 9 ) ), null, null ), 'Класс не соответствует направлению проведения.' );
 		self::assertSame( array(), $this->inserted );
 	}
 
@@ -235,24 +235,24 @@ class ExamSourceServiceTest extends TestCase {
 		$this->service->save( self::ACTOR, self::EVENT, $this->input( array( 'grade' => 9 ) ), null, null );
 		self::assertSame( 9, $this->inserted['grade'] );
 
-		$this->assertRefusal( ErrorCode::ExamConflict, fn () => $this->service->save( self::ACTOR, self::EVENT, $this->input( array( 'grade' => 11 ) ), null, null ), 'Класс не соответствует направлению проведения.' );
+		$this->assertRefusal( ErrorCode::ExamInput, fn () => $this->service->save( self::ACTOR, self::EVENT, $this->input( array( 'grade' => 11 ) ), null, null ), 'Класс не соответствует направлению проведения.' );
 	}
 
 	public function test_grade_other_than_9_or_11_rejected(): void {
 		foreach ( array( 0, 8, 10, 12 ) as $grade ) {
-			$this->assertRefusal( ErrorCode::ExamConflict, fn () => $this->service->save( self::ACTOR, self::EVENT, $this->input( array( 'grade' => $grade ) ), null, null ), 'Класс — 9 или 11.' );
+			$this->assertRefusal( ErrorCode::ExamInput, fn () => $this->service->save( self::ACTOR, self::EVENT, $this->input( array( 'grade' => $grade ) ), null, null ), 'Класс — 9 или 11.' );
 		}
 	}
 
 	public function test_school_and_teacher_are_required(): void {
-		$this->assertRefusal( ErrorCode::ExamConflict, fn () => $this->service->save( self::ACTOR, self::EVENT, $this->input( array( 'school_name' => '  ' ) ), null, null ), 'Укажите школу.' );
-		$this->assertRefusal( ErrorCode::ExamConflict, fn () => $this->service->save( self::ACTOR, self::EVENT, $this->input( array( 'teacher_name' => '' ) ), null, null ), 'Укажите ФИО преподавателя.' );
+		$this->assertRefusal( ErrorCode::ExamInput, fn () => $this->service->save( self::ACTOR, self::EVENT, $this->input( array( 'school_name' => '  ' ) ), null, null ), 'Укажите школу.' );
+		$this->assertRefusal( ErrorCode::ExamInput, fn () => $this->service->save( self::ACTOR, self::EVENT, $this->input( array( 'teacher_name' => '' ) ), null, null ), 'Укажите ФИО преподавателя.' );
 	}
 
 	public function test_event_without_main_variant_cannot_get_a_source(): void {
 		$this->defaultAssessment = null;
 
-		$this->assertRefusal( ErrorCode::ExamConflict, fn () => $this->service->save( self::ACTOR, self::EVENT, $this->input(), null, null ), 'Выберите основной вариант проведения: от него зависит класс.' );
+		$this->assertRefusal( ErrorCode::ExamInput, fn () => $this->service->save( self::ACTOR, self::EVENT, $this->input(), null, null ), 'Выберите основной вариант проведения: от него зависит класс.' );
 	}
 
 	public function test_editing_source_does_not_touch_existing_applications(): void {
@@ -301,7 +301,7 @@ class ExamSourceServiceTest extends TestCase {
 		$this->tokens->expects( self::never() )->method( 'issue' );
 		$this->sources->expects( self::never() )->method( 'bumpGeneration' );
 
-		$this->assertRefusal( ErrorCode::ExamConflict, fn () => $this->service->issueLink( self::ACTOR, self::SOURCE ), 'Ссылка уже создана: чтобы заменить её, перевыпустите.' );
+		$this->assertRefusal( ErrorCode::ExamState, fn () => $this->service->issueLink( self::ACTOR, self::SOURCE ), 'Ссылка уже создана: чтобы заменить её, перевыпустите.' );
 	}
 
 	public function test_reissue_revokes_old_key_and_writes_audit_event(): void {
@@ -430,7 +430,7 @@ class ExamSourceServiceTest extends TestCase {
 		$this->sources->method( 'find' )->willReturn( $this->source( array( 'school_key' => 'public' ) ) );
 		$this->service = $this->makeService();
 
-		$this->assertRefusal( ErrorCode::ExamConflict, fn () => $this->service->reissueLink( self::ACTOR, self::SOURCE ) );
-		$this->assertRefusal( ErrorCode::ExamConflict, fn () => $this->service->setActive( self::ACTOR, self::SOURCE, false ) );
+		$this->assertRefusal( ErrorCode::ExamState, fn () => $this->service->reissueLink( self::ACTOR, self::SOURCE ) );
+		$this->assertRefusal( ErrorCode::ExamState, fn () => $this->service->setActive( self::ACTOR, self::SOURCE, false ) );
 	}
 }

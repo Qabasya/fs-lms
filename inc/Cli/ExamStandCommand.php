@@ -384,7 +384,7 @@ class ExamStandCommand implements ServiceInterface {
 			$this->guestApplications->resolve( 1, (int) ( $assoc_args['application'] ?? 0 ), $kind, $session > 0 ? $session : null, 'стенд', \Inc\Enums\Exam\ManualResolutionKind::RefundedOutside === $kind ? '100' : null );
 			WP_CLI::line( 'resolved' );
 		} catch ( CodedException $e ) {
-			WP_CLI::line( ErrorCode::ExamFull === $e->errorCode || ErrorCode::ExamConflict === $e->errorCode ? 'refused' : 'error:' . $this->oneLine( $e->getMessage() ) );
+			WP_CLI::line( ErrorCode::ExamFull === $e->errorCode || ErrorCode::ExamConflict === $e->errorCode || ErrorCode::ExamState === $e->errorCode || ErrorCode::ExamNotFound === $e->errorCode ? 'refused' : 'error:' . $this->oneLine( $e->getMessage() ) );
 		} catch ( \Throwable $e ) {
 			WP_CLI::line( 'error:' . $this->oneLine( $e->getMessage() ) );
 		}
@@ -451,7 +451,7 @@ class ExamStandCommand implements ServiceInterface {
 			);
 			WP_CLI::line( 'created' );
 		} catch ( CodedException $e ) {
-			WP_CLI::line( ErrorCode::ExamConflict === $e->errorCode ? 'conflict' : 'error:' . $this->oneLine( $e->getMessage() ) );
+			WP_CLI::line( ErrorCode::ExamConflict === $e->errorCode || ErrorCode::ExamState === $e->errorCode || ErrorCode::ExamNotFound === $e->errorCode ? 'conflict' : 'error:' . $this->oneLine( $e->getMessage() ) );
 		} catch ( \Throwable $e ) {
 			WP_CLI::line( 'error:' . $this->oneLine( $e->getMessage() ) );
 		}
@@ -851,7 +851,7 @@ class ExamStandCommand implements ServiceInterface {
 		return match ( $e->errorCode ) {
 			ErrorCode::ExamFull     => 'full',
 			ErrorCode::ExamHeld     => 'held',
-			ErrorCode::ExamConflict => 'conflict',
+			ErrorCode::ExamConflict, ErrorCode::ExamState, ErrorCode::ExamNotFound => 'conflict',
 			ErrorCode::ExamReplay   => 'replay',
 			default                 => 'error:' . $e->errorCode->value . ' ' . $this->oneLine( $e->getMessage() ),
 		};

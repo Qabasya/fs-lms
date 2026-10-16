@@ -100,14 +100,14 @@ class ExamVariantPolicyTest extends TestCase {
 		self::assertSame( 'В варианте нет заданий.', $this->policy->check( 1, 'inf_ege' ) );
 	}
 
-	public function test_assert_throws_coded_exception_with_exam_conflict(): void {
+	public function test_assert_throws_coded_exception_with_exam_state(): void {
 		$this->assessments->method( 'get' )->willReturn( null );
 
 		try {
 			$this->policy->assert( 1, 'inf_ege' );
 			self::fail( 'Ожидалось исключение.' );
 		} catch ( CodedException $e ) {
-			self::assertSame( ErrorCode::ExamConflict, $e->errorCode );
+			self::assertSame( ErrorCode::ExamState, $e->errorCode );
 		}
 	}
 }

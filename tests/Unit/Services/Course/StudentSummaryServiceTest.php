@@ -93,7 +93,7 @@ $visibility = $this->createStub( \Inc\Services\Course\LessonVisibilityService::c
 		self::assertSame( 'fraction', $works[0]['display'] );
 	}
 
-	public function test_homework_before_explicit_deadline_is_not_missed(): void {
+	public function test_homework_before_explicit_deadline_is_listed_with_dashes_without_due_date(): void {
 		$this->groupLessons->method( 'listByGroup' )->willReturn( array(
 			$this->glRow( 10, '2026-09-20 17:00:00', array( 100 => '2026-09-26 23:59:00' ) ),
 			$this->glRow( 11, '2026-09-24 17:00:00', array( 100 => '2026-09-26 23:59:00' ) ),
@@ -102,7 +102,9 @@ $visibility = $this->createStub( \Inc\Services\Course\LessonVisibilityService::c
 		$this->resolver->method( 'resolve' )->willReturn( array( $this->work( 100, WorkType::Homework, 3 ) ) );
 
 		foreach ( $this->service->forStudent( 5, self::STUDENT )['lessons'] as $lesson ) {
-			self::assertSame( array(), $lesson['works'] );
+			self::assertCount( 1, $lesson['works'] );
+			self::assertSame( 'missed', $lesson['works'][0]['display'] );
+			self::assertNull( $lesson['works'][0]['due_at'] );
 		}
 	}
 
@@ -121,13 +123,26 @@ $visibility = $this->createStub( \Inc\Services\Course\LessonVisibilityService::c
 		// Отменённое занятие следующим не считается — срок уходит на 22-е.
 		self::assertSame( '2026-09-22 17:00:00', $byId[10][0]['due_at'] );
 		self::assertSame( array(), $byId[11] );
-		// Срок — занятие 26-го, ещё не наступило.
-		self::assertSame( array(), $byId[12] );
-		// Следующего занятия нет — срока нет.
-		self::assertSame( array(), $byId[13] );
+		// Срок — занятие 26-го, ещё не наступило: работа есть, но без даты срока.
+		self::assertNull( $byId[12][0]['due_at'] );
+		// Занятие 26-го ещё не прошло — в сводке его нет.
+		self::assertArrayNotHasKey( 13, $byId );
 	}
 
-	public function test_classwork_and_hidden_or_cancelled_lessons_are_skipped(): void {
+	public function test_future_lessons_are_not_listed(): void {
+		$this->groupLessons->method( 'listByGroup' )->willReturn( array(
+			$this->glRow( 10, '2026-09-20 17:00:00' ),
+			$this->glRow( 11, '2026-09-25 12:00:01' ),
+		) );
+		$this->gradebook->method( 'forGroup' )->willReturn( array() );
+		$this->resolver->method( 'resolve' )->willReturn( array() );
+
+		$ids = array_column( $this->service->forStudent( 5, self::STUDENT )['lessons'], 'group_lesson_id' );
+
+		self::assertSame( array( 10 ), $ids );
+	}
+
+	public function test_every_assigned_work_is_listed_but_hidden_or_cancelled_lessons_have_none(): void {
 		$this->groupLessons->method( 'listByGroup' )->willReturn( array(
 			$this->glRow( 10, '2026-09-20 17:00:00' ),
 			$this->glRow( 11, '2026-09-19 17:00:00', null, 'hidden' ),
@@ -140,9 +155,15 @@ $visibility = $this->createStub( \Inc\Services\Course\LessonVisibilityService::c
 				: array( $this->work( 100, WorkType::Homework, 3 ) )
 		);
 
-		foreach ( $this->service->forStudent( 5, self::STUDENT )['lessons'] as $lesson ) {
-			self::assertSame( array(), $lesson['works'] );
-		}
+		$byId = array_column( $this->service->forStudent( 5, self::STUDENT )['lessons'], 'works', 'group_lesson_id' );
+
+		// Практика без сдачи — тоже карточка с прочерками (бейдж по типу работы).
+		self::assertCount( 1, $byId[10] );
+		self::assertSame( 'ПР', $byId[10][0]['badge'] );
+		self::assertSame( 'missed', $byId[10][0]['display'] );
+		self::assertSame( 2.0, $byId[10][0]['max_score'] );
+		self::assertSame( array(), $byId[11] );
+		self::assertSame( array(), $byId[12] );
 	}
 
 	/** @param array<int,string>|null $deadlines null — дедлайн работы 100 через 2 дня после занятия */

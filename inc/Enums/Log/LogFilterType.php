@@ -16,6 +16,9 @@ enum LogFilterType {
 	/** Строковое равенство: `column = %s`. */
 	case Text;
 
+	/** Вхождение подстроки без учёта регистра: `column LIKE %s` (спецсимволы LIKE экранируются). */
+	case Like;
+
 	/** Целочисленное равенство: `column = %d`. */
 	case Number;
 

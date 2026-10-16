@@ -12,6 +12,7 @@ namespace Inc\Services\Exam;
 use Inc\Contracts\LogEventDispatcherInterface;
 use Inc\DTO\Exam\ExamGuestApplicationDTO;
 use Inc\DTO\Log\Events\EntityChangedEvent;
+use Inc\Enums\Exam\ExamLogAction;
 use Inc\Enums\Exam\ManualResolutionKind;
 use Inc\Enums\Log\EntityType;
 use Inc\Enums\Log\LogEvent;
@@ -86,7 +87,7 @@ class GuestApplicationService {
 	public function acceptWithoutPayment( int $actorUserId, int $applicationId, string $reason ): ExamGuestApplicationDTO {
 		$reason = trim( $reason );
 		if ( '' === $reason ) {
-			throw new CodedException( ErrorCode::ExamConflict, 'Укажите причину.' );
+			throw new CodedException( ErrorCode::ExamInput, 'Укажите причину.' );
 		}
 
 		$application = $this->applications->find( $applicationId );
@@ -96,6 +97,17 @@ class GuestApplicationService {
 		}
 
 		$accepted = $this->holds->acceptWithoutPayment( $actorUserId, $applicationId, $reason );
+		ExamLogAction::ApplicationAccepted->record(
+			array(
+				'event_id'         => $accepted->eventId,
+				'session_id'       => $accepted->sessionId,
+				'registration_id'  => $accepted->registrationId,
+				'participation_id' => $accepted->participationId,
+				'participant_id'   => $accepted->participantId,
+				'actor'            => $actorUserId,
+				'context'          => array( 'application_id' => $applicationId, 'reason' => $reason ),
+			)
+		);
 		$this->logEvents->dispatch(
 			LogEvent::ExamPaymentResolved,
 			new EntityChangedEvent( $actorUserId, OperationType::Update, EntityType::ExamApplication, $applicationId, ManualResolutionKind::AcceptedManually->label() . ': ' . $reason )
@@ -116,10 +128,10 @@ class GuestApplicationService {
 	public function resolve( int $actorUserId, int $applicationId, ManualResolutionKind $kind, ?int $sessionId, string $reason, ?string $amount ): ExamGuestApplicationDTO {
 		$reason = trim( $reason );
 		if ( '' === $reason ) {
-			throw new CodedException( ErrorCode::ExamConflict, 'Укажите причину.' );
+			throw new CodedException( ErrorCode::ExamInput, 'Укажите причину.' );
 		}
 		if ( ManualResolutionKind::Pending === $kind ) {
-			throw new CodedException( ErrorCode::ExamConflict, 'Выберите, как урегулировать заявку.' );
+			throw new CodedException( ErrorCode::ExamInput, 'Выберите, как урегулировать заявку.' );
 		}
 
 		$application = $this->applications->find( $applicationId );
@@ -133,10 +145,30 @@ class GuestApplicationService {
 			$normalizedAmount = $this->normalizeAmount( (string) $amount );
 		}
 		if ( ManualResolutionKind::Transferred === $kind && ( null === $sessionId || $sessionId <= 0 ) ) {
-			throw new CodedException( ErrorCode::ExamConflict, 'Выберите сеанс.' );
+			throw new CodedException( ErrorCode::ExamInput, 'Выберите сеанс.' );
 		}
 
 		$resolved = $this->holds->resolveManually( $actorUserId, $applicationId, $kind, $sessionId, $reason, $normalizedAmount );
+		ExamLogAction::ApplicationResolved->record(
+			array(
+				'event_id'         => $resolved->eventId,
+				'session_id'       => $resolved->sessionId,
+				'registration_id'  => $resolved->registrationId,
+				'participation_id' => $resolved->participationId,
+				'participant_id'   => $resolved->participantId,
+				'actor'            => $actorUserId,
+				'context'          => array_filter(
+					array(
+						'application_id' => $applicationId,
+						'kind'           => $kind->value,
+						'reason'         => $reason,
+						'amount'         => $normalizedAmount,
+						'target_session' => $sessionId,
+					),
+					static fn ( mixed $value ): bool => null !== $value
+				),
+			)
+		);
 		$this->logEvents->dispatch(
 			LogEvent::ExamPaymentResolved,
 			new EntityChangedEvent(
@@ -159,7 +191,7 @@ class GuestApplicationService {
 	private function normalizeAmount( string $amount ): string {
 		$clean = str_replace( array( ' ', ',' ), array( '', '.' ), trim( $amount ) );
 		if ( '' === $clean || ! is_numeric( $clean ) || (float) $clean <= 0 || (float) $clean > 9999999.99 ) {
-			throw new CodedException( ErrorCode::ExamConflict, 'Укажите сумму возврата.' );
+			throw new CodedException( ErrorCode::ExamInput, 'Укажите сумму возврата.' );
 		}
 
 		return number_format( (float) $clean, 2, '.', '' );
@@ -188,7 +220,7 @@ class GuestApplicationService {
 
 		$session = $this->sessions->find( $fields['session_id'] );
 		if ( null === $session || $session->eventId !== $event->id ) {
-			throw new GuestFormException( ErrorCode::ExamConflict, 'Выберите дату и время.', 'session_id' );
+			throw new GuestFormException( ErrorCode::ExamInput, 'Выберите дату и время.', 'session_id' );
 		}
 
 		$ipHash = '' !== $ctx->ip ? $this->rateLimit->ipHash( $ctx->ip ) : '';
@@ -234,7 +266,22 @@ class GuestApplicationService {
 			$data['created_by_user_id'] = $staffUserId;
 		}
 
-		return $this->holds->capture( $data, $this->config->examHoldMinutes() );
+		$application = $this->holds->capture( $data, $this->config->examHoldMinutes() );
+
+		ExamLogAction::ApplicationCaptured->record(
+			array_merge(
+				array(
+					'event_id'       => $application->eventId,
+					'session_id'     => $application->sessionId,
+					'participant_id' => $application->participantId,
+					'subject'        => trim( $fields['last_name'] . ' ' . $fields['first_name'] . ' ' . $fields['middle_name'] ),
+					'context'        => array( 'application_id' => $application->id, 'source_id' => $source->id ),
+				),
+				null !== $staffUserId ? array( 'actor' => $staffUserId ) : array( 'actor_type' => 'guest', 'actor_label' => 'Гость' )
+			)
+		);
+
+		return $application;
 	}
 
 	/** Участник из заявки (вызывает подтверждение оплаты через {@see GuestParticipantMaterializer}). */
@@ -337,28 +384,28 @@ class GuestApplicationService {
 		$sessionId = (int) ( $form['session_id'] ?? 0 );
 
 		if ( '' === $last || mb_strlen( $last ) > self::MAX_NAME_LENGTH ) {
-			throw new GuestFormException( ErrorCode::ExamConflict, 'Укажите фамилию (до 100 символов).', 'last_name' );
+			throw new GuestFormException( ErrorCode::ExamInput, 'Укажите фамилию (до 100 символов).', 'last_name' );
 		}
 		if ( '' === $first || mb_strlen( $first ) > self::MAX_NAME_LENGTH ) {
-			throw new GuestFormException( ErrorCode::ExamConflict, 'Укажите имя (до 100 символов).', 'first_name' );
+			throw new GuestFormException( ErrorCode::ExamInput, 'Укажите имя (до 100 символов).', 'first_name' );
 		}
 		if ( mb_strlen( $middle ) > self::MAX_NAME_LENGTH ) {
-			throw new GuestFormException( ErrorCode::ExamConflict, 'Отчество слишком длинное.', 'middle_name' );
+			throw new GuestFormException( ErrorCode::ExamInput, 'Отчество слишком длинное.', 'middle_name' );
 		}
 		if ( self::PHONE_DIGITS !== strlen( $this->identity->normalizePhone( $phone ) ) ) {
-			throw new GuestFormException( ErrorCode::ExamConflict, 'Укажите телефон: 11 цифр.', 'phone' );
+			throw new GuestFormException( ErrorCode::ExamInput, 'Укажите телефон: 11 цифр.', 'phone' );
 		}
 		if ( mb_strlen( $messenger ) > self::MAX_MESSENGER_LENGTH ) {
-			throw new GuestFormException( ErrorCode::ExamConflict, 'Не больше 100 символов.', 'messenger' );
+			throw new GuestFormException( ErrorCode::ExamInput, 'Не больше 100 символов.', 'messenger' );
 		}
 		if ( $schoolRequired && '' === $school ) {
-			throw new GuestFormException( ErrorCode::ExamConflict, 'Укажите школу.', 'school' );
+			throw new GuestFormException( ErrorCode::ExamInput, 'Укажите школу.', 'school' );
 		}
 		if ( mb_strlen( $school ) > self::MAX_SCHOOL_LENGTH ) {
-			throw new GuestFormException( ErrorCode::ExamConflict, 'Название школы слишком длинное.', 'school' );
+			throw new GuestFormException( ErrorCode::ExamInput, 'Название школы слишком длинное.', 'school' );
 		}
 		if ( $sessionId <= 0 ) {
-			throw new GuestFormException( ErrorCode::ExamConflict, 'Выберите дату и время.', 'session_id' );
+			throw new GuestFormException( ErrorCode::ExamInput, 'Выберите дату и время.', 'session_id' );
 		}
 
 		$consents = array_values( array_intersect( self::ALLOWED_CONSENTS, array_map( 'strval', (array) ( $form['consents'] ?? array() ) ) ) );

@@ -14,6 +14,7 @@ use Inc\DTO\Assessment\AttemptDTO;
 use Inc\DTO\Log\Events\EntityChangedEvent;
 use Inc\Enums\Assessment\AttemptStatus;
 use Inc\Enums\Exam\ExamAudience;
+use Inc\Enums\Exam\ExamLogAction;
 use Inc\Enums\Exam\ExamOutboxEvent;
 use Inc\Enums\Log\ErrorCode;
 use Inc\Enums\Log\EntityType;
@@ -105,7 +106,7 @@ class ExamApprovalService {
 			return $this->skipped( self::REASON_GUEST );
 		}
 
-		return $this->inTransactionWithRetry(
+		$outcome = $this->inTransactionWithRetry(
 			function () use ( $actorUserId, $attemptId, $participationId, $expectedVersion ): array {
 				$locked  = $this->participations->findForUpdate( $participationId );
 				$attempt = $this->attempts->find( $attemptId );
@@ -144,6 +145,20 @@ class ExamApprovalService {
 				return array( 'status' => self::STATUS_APPROVED );
 			}
 		);
+
+		if ( self::STATUS_APPROVED === $outcome['status'] ) {
+			ExamLogAction::AttemptApproved->record(
+				array(
+					'event_id'         => $participation->eventId,
+					'participation_id' => $participationId,
+					'attempt_id'       => $attemptId,
+					'actor'            => $actorUserId,
+					'context'          => array( 'result_version' => $expectedVersion ),
+				)
+			);
+		}
+
+		return $outcome;
 	}
 
 	/**
@@ -206,15 +221,15 @@ class ExamApprovalService {
 	 *
 	 * @param list<array{task_id: int, score: float, feedback?: string}> $changes
 	 *
-	 * @throws CodedException `ExamConflict` — причина/балл/состояние; `ExamStale` — версия устарела; `ExamAccess` — нет права.
+	 * @throws CodedException `ExamInput` — причина/балл; `ExamState`/`ExamNotFound` — состояние работы; `ExamStale` — версия устарела; `ExamAccess` — нет права.
 	 */
 	public function correct( int $actorUserId, int $attemptId, array $changes, string $reason, int $expectedVersion ): AttemptDTO {
 		$reason = trim( $reason );
 		if ( '' === $reason ) {
-			throw new CodedException( ErrorCode::ExamConflict, 'Укажите причину исправления.' );
+			throw new CodedException( ErrorCode::ExamInput, 'Укажите причину исправления.' );
 		}
 		if ( array() === $changes ) {
-			throw new CodedException( ErrorCode::ExamConflict, 'Нет изменений для сохранения.' );
+			throw new CodedException( ErrorCode::ExamInput, 'Нет изменений для сохранения.' );
 		}
 
 		$peek            = $this->attempts->find( $attemptId );
@@ -233,7 +248,7 @@ class ExamApprovalService {
 						throw new CodedException( ErrorCode::ExamAccess, 'Работа не найдена.' );
 				}
 				if ( ! $attempt->isApproved() ) {
-					throw new CodedException( ErrorCode::ExamConflict, 'Работа не утверждена: исправлять можно только утверждённый результат.' );
+					throw new CodedException( ErrorCode::ExamState, 'Работа не утверждена: исправлять можно только утверждённый результат.' );
 				}
 				if ( ! $this->attempts->bumpResultVersion( $attemptId, $expectedVersion ) ) {
 					throw new CodedException( ErrorCode::ExamStale, 'Работу уже изменил другой проверяющий. Обновите страницу.' );
@@ -244,13 +259,13 @@ class ExamApprovalService {
 				foreach ( $changes as $change ) {
 					$answer = $this->answers->findByAttemptAndTask( $attemptId, (int) $change['task_id'] );
 					if ( null === $answer ) {
-						throw new CodedException( ErrorCode::ExamConflict, 'Задание не найдено в работе.' );
+						throw new CodedException( ErrorCode::ExamNotFound, 'Задание не найдено в работе.' );
 					}
 
 					$max   = (float) ( $answer->maxScore ?? 0.0 );
 					$score = (float) $change['score'];
 					if ( $score < 0.0 || $score > $max ) {
-						throw new CodedException( ErrorCode::ExamConflict, sprintf( 'Балл должен быть от 0 до %s.', $this->num( $max ) ) );
+						throw new CodedException( ErrorCode::ExamInput, sprintf( 'Балл должен быть от 0 до %s.', $this->num( $max ) ) );
 					}
 
 					$row = array(
@@ -304,6 +319,19 @@ class ExamApprovalService {
 		);
 
 		$this->audit( $actorUserId, $attemptId, $reason, $result['journal'], $result['old_total'], $result['attempt']->totalScore );
+
+		ExamLogAction::AttemptCorrected->record(
+			array(
+				'attempt_id' => $attemptId,
+				'actor'      => $actorUserId,
+				'context'    => array(
+					'reason'    => $reason,
+					'old_total' => $result['old_total'],
+					'new_total' => $result['attempt']->totalScore,
+					'changes'   => count( $result['journal'] ),
+				),
+			)
+		);
 
 		return $result['attempt'];
 	}

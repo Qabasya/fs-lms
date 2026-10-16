@@ -146,6 +146,7 @@ class ReviewQueueServiceTest extends TestCase {
 		self::assertSame( 'work', $items[0]['source_type'] );
 		self::assertSame( 3, $items[0]['source_id'] );
 		self::assertSame( 'ДЗ №1', $items[0]['title'] );
+		self::assertSame( 'ПР', $items[0]['badge'] );
 		self::assertSame( 3, $items[0]['count'] );
 		self::assertSame( array( 7, 8 ), $items[0]['group_ids'] );
 		self::assertSame( '2026-06-02 10:00:00', $items[0]['latest_at'] );
@@ -189,6 +190,7 @@ class ReviewQueueServiceTest extends TestCase {
 		$confirm = $this->service->pendingWorks( 5, false, 'confirm' );
 		self::assertCount( 1, $confirm );
 		self::assertSame( 1, $confirm[0]['source_id'] );
+		self::assertSame( 'ЭКЗ', $confirm[0]['badge'] );
 
 		self::assertSame( array(), $this->service->pendingWorks( 5, false, 'pending' ) );
 		self::assertSame( array(), $this->service->pendingWorks( 5, false, 'done' ) );

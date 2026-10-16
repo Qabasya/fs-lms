@@ -13,7 +13,9 @@ use Inc\Repositories\WPDBRepositories\Log\AuditLogRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Repositories\WPDBRepositories\Log\PiiAccessLogRepository;
 use Inc\Repositories\WPDBRepositories\Log\ErrorLogRepository;
+use Inc\Repositories\WPDBRepositories\Log\ExamLogRepository;
 use Inc\Services\Person\PersonService;
+use Inc\Services\Shared\PluginConfig;
 
 class RetentionService {
 
@@ -26,6 +28,8 @@ class RetentionService {
 		private readonly UserManager                 $userManager,
 		private readonly PersonService               $personService,
 		private readonly ErrorLogRepository          $errorLogRepository,
+		private readonly ExamLogRepository           $examLogRepository,
+		private readonly PluginConfig                $config,
 	) {}
 
 	public function anonymizeDeletedPersons(): int {
@@ -65,5 +69,10 @@ class RetentionService {
 	/** Журнал «Ошибки» — оперативный: полгода хватает разобрать любую жалобу. */
 	public function purgeOldErrorLogs(): int {
 		return $this->errorLogRepository->purgeOlderThan( 180 );
+	}
+
+	/** Журнал «Экзамены» хранит ФИО участников, поэтому живёт столько же, сколько данные гостей после проведения. */
+	public function purgeOldExamLogs(): int {
+		return $this->examLogRepository->purgeOlderThan( $this->config->examGuestRetentionDays() );
 	}
 }

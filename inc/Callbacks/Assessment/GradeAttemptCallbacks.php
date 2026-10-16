@@ -8,6 +8,7 @@ use Inc\Contracts\ClockInterface;
 use Inc\Core\BaseController;
 use Inc\DTO\Assessment\AttemptDTO;
 use Inc\Enums\Access\Capability;
+use Inc\Enums\Exam\ExamLogAction;
 use Inc\Enums\Log\ErrorCode;
 use Inc\Enums\Subject\TaskTemplate;
 use Inc\Enums\Wp\Nonce;
@@ -129,6 +130,20 @@ class GradeAttemptCallbacks extends BaseController {
 			) );
 
 			$updated = $this->autoGrade->finalize( $attempt );
+
+			if ( $attempt->isExam() ) {
+				ExamLogAction::AttemptGraded->record(
+					array(
+						'attempt_id' => $attemptId,
+						'actor'      => get_current_user_id(),
+						'context'    => array(
+							'task_id' => $taskId,
+							'score'   => $maxScore,
+						),
+					)
+				);
+			}
+
 			$this->success( $this->gradePayload( $updated ) );
 			return;
 		}
@@ -177,6 +192,21 @@ class GradeAttemptCallbacks extends BaseController {
 		}
 
 		$updated = $this->autoGrade->finalize( $attempt );
+
+		// Ручная проверка экзаменной работы преподавателем — в журнал «Экзамены».
+		if ( $attempt->isExam() ) {
+			ExamLogAction::AttemptGraded->record(
+				array(
+					'attempt_id' => $attemptId,
+					'actor'      => get_current_user_id(),
+					'context'    => array(
+						'task_id' => $taskId,
+						'score'   => $score,
+					),
+				)
+			);
+		}
+
 		$this->success( $this->gradePayload( $updated ) );
 	}
 
@@ -211,7 +241,7 @@ class GradeAttemptCallbacks extends BaseController {
 			if ( ExamApprovalService::STATUS_APPROVED !== $result['status'] ) {
 				$reason = (string) ( $result['reason'] ?? '' );
 				$this->fail(
-					ExamApprovalService::REASON_STALE === $reason ? ErrorCode::ExamStale : ErrorCode::ExamConflict,
+					ExamApprovalService::REASON_STALE === $reason ? ErrorCode::ExamStale : ErrorCode::ExamState,
 					$this->approvalRefusal( $reason )
 				);
 				return;

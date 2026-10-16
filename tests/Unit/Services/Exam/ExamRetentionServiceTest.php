@@ -212,7 +212,7 @@ class ExamRetentionServiceTest extends TestCase {
 	}
 
 	public function test_manual_anonymize_requires_reason_and_scope(): void {
-		self::assertSame( ErrorCode::ExamConflict, $this->refusal( fn () => $this->service->anonymizeByStaff( 10, 9, '  ' ) )->errorCode );
+		self::assertSame( ErrorCode::ExamInput, $this->refusal( fn () => $this->service->anonymizeByStaff( 10, 9, '  ' ) )->errorCode );
 
 		$this->participants->method( 'find' )->willReturn( $this->participant() );
 		$this->participations->method( 'findByParticipant' )->willReturn( array( $this->participation( 80 ) ) );

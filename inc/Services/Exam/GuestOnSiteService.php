@@ -67,7 +67,7 @@ class GuestOnSiteService {
 
 		$source = $this->sources->find( $sourceId );
 		if ( null === $source || $source->eventId !== $event->id ) {
-			throw new CodedException( ErrorCode::ExamConflict, 'Выберите источник заявки.' );
+			throw new CodedException( ErrorCode::ExamInput, 'Выберите источник заявки.' );
 		}
 
 		$form['session_id'] = $session->id;

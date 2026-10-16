@@ -97,6 +97,40 @@ export function initKegeExam() {
 
 	const savedAnswers = new Map(); // taskId (string) -> answerText
 
+	/**
+	 * Техническое событие станции — в журнал «Экзамены». Маячок переживает закрытие вкладки;
+	 * сервер сам ограничивает частоту (одно событие вида в минуту) и проверяет, что попытка идёт.
+	 *
+	 * @param {string} kind   left_page | save_failed | session_lost | network_error
+	 * @param {string} detail Короткая подробность (код ответа сервера)
+	 */
+	function reportTech( kind, detail = '' ) {
+		if ( sandbox || ! kegeVars || ! kegeVars.actions.logExamClientEvent ) { return; }
+
+		const fd = new FormData();
+		fd.append( 'action', kegeVars.actions.logExamClientEvent );
+		fd.append( 'attempt_id', String( attemptId ) );
+		fd.append( 'kind', kind );
+		fd.append( 'detail', detail );
+
+		if ( navigator.sendBeacon ) {
+			navigator.sendBeacon( kegeVars.ajax_url, fd );
+			return;
+		}
+		void fetch( kegeVars.ajax_url, { method: 'POST', body: fd, keepalive: true } ).catch( () => {} );
+	}
+
+	/** Сбой сохранения ответа: код ответа сервера → вид события. */
+	function reportSaveFailure( code ) {
+		if ( 'E-SESSION' === code ) {
+			reportTech( 'session_lost', code );
+		} else if ( 'network' === code ) {
+			reportTech( 'network_error', code );
+		} else {
+			reportTech( 'save_failed', code );
+		}
+	}
+
 	/* ── Шапка: КИМ/бланк (тренажёрные значения) + таймер ── */
 	const kimEl = document.getElementById( 'kegeHeadKim' );
 	const brEl  = document.getElementById( 'kegeHeadBr' );
@@ -246,7 +280,7 @@ export function initKegeExam() {
 					if ( statusEl ) { statusEl.textContent = '✓'; }
 					return true;
 				}
-				return saveAnswer( kegeVars, attemptId, taskId, text, statusEl );
+				return saveAnswer( kegeVars, attemptId, taskId, text, statusEl, reportSaveFailure );
 			} )
 			.catch( () => false );
 
@@ -332,6 +366,9 @@ export function initKegeExam() {
 	 * тем же экшеном и нонсом, что и обычный autosave.
 	 */
 	window.addEventListener( 'pagehide', () => {
+		// Ушли со страницы, не сдав работу: закрыта вкладка, перезагрузка, переход. Сдача сама перезагружает страницу — её не считаем.
+		if ( ! submitting ) { reportTech( 'left_page' ); }
+
 		if ( sandbox || ! kegeVars || ! navigator.sendBeacon || ! isDirty() ) { return; }
 
 		const fd = new FormData();

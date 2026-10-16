@@ -11,7 +11,7 @@ import { esc, emptyState, fmtDateTime, toast } from './utils.js';
 import { icoInbox } from '../common/icons.js';
 import { createApi } from './api.js';
 import { groupPickerBtnHtml, openGroupPicker } from './picker.js';
-import { workCardHtml } from './work-card.js';
+import { badgeHtml, workCardHtml } from './work-card.js';
 
 const TABS = [
     { key: 'pending', label: 'На проверке' },
@@ -243,7 +243,7 @@ function visibleItems() {
 
 function itemRow(it) {
     return `<div class="wk-row" data-src-type="${esc(it.source_type)}" data-src-id="${it.source_id}">
-        <span class="wk-type"><span class="wk-badge wk-badge-${it.source_type === 'assessment' ? 'exam' : 'work'}">${esc(it.label)}</span></span>
+        <span class="wk-type">${badgeHtml(it.badge)}</span>
         <span class="wk-row-title" title="${esc(it.title)}">${esc(it.title)}</span>
         <span class="wk-row-count">${it.count} ${pluralSubmissions(it.count)}</span>
         <span class="wk-row-date">${it.latest_at ? esc(fmtDateTime(it.latest_at)) : '—'}</span>

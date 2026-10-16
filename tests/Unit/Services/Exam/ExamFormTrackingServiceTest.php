@@ -27,7 +27,7 @@ class ExamFormTrackingServiceTest extends TestCase {
 		$writer->method( 'recordEvent' )->willReturnCallback( function ( AuthAction $a, AuthResult $r, $reason = null, array $details = array() ): void {
 			$this->recorded[] = array( $a, $r, $details );
 		} );
-		$this->service = new ExamFormTrackingService( $writer );
+		$this->service = new ExamFormTrackingService( $writer, $this->createStub( \Inc\Services\Security\RateLimitService::class ) );
 	}
 
 	private function source(): ExamSourceDTO {

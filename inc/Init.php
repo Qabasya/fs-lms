@@ -67,6 +67,7 @@ use Inc\Controllers\Settings\SettingsController;
 use Inc\Services\Update\GithubReleaseUpdater;
 use Inc\Controllers\Subscribers\AuthLogController; // логирует общие WP-события (wp_login, wp_login_failed)
 use Inc\Controllers\Subscribers\ContentReportController;
+use Inc\Controllers\Subscribers\ExamLogController;
 use Inc\Controllers\Subscribers\ErrorLogController;
 use Inc\Controllers\Subscribers\EntityAuditSubscriber;
 use Inc\Controllers\Subscribers\PostEntityAuditController;
@@ -122,6 +123,7 @@ use Inc\Migrations\Migration_1_0_85;
 use Inc\Migrations\Migration_1_0_86;
 use Inc\Migrations\Migration_1_0_87;
 use Inc\Migrations\Migration_1_0_88;
+use Inc\Migrations\Migration_1_0_89;
 use Inc\Migrations\Migration_1_0_81;
 use Inc\Migrations\Migration_1_0_82;
 use Inc\Migrations\Migration_1_0_83;
@@ -222,6 +224,7 @@ final class Init {
 			LogsController::class,
 			AuthLogController::class,
 			ContentReportController::class, // журнал «Найденные ошибки»: «Нашли ошибку?» на заданиях и статьях
+			ExamLogController::class, // журнал «Экзамены»: подписка на действия служб экзаменов
 			ErrorLogController::class, // журнал «Ошибки»: отказы AJAX, истёкшие сессии, сбои из браузера
 			EntityAuditSubscriber::class,
 			PostEntityAuditController::class,
@@ -321,6 +324,7 @@ final class Init {
 		$migrationRunner->register( new Migration_1_0_81() );
 		$migrationRunner->register( new Migration_1_0_82() );
 		$migrationRunner->register( new Migration_1_0_83() );
+		$migrationRunner->register( new Migration_1_0_89() );
 		$migrationRunner->run();
 
 		// Data-миграция (не схема): ссылки на файлы заданий со старой схемой

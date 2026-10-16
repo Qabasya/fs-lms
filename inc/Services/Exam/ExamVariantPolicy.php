@@ -75,13 +75,13 @@ class ExamVariantPolicy {
 	 * @param int    $assessmentId ID варианта
 	 * @param string $subjectKey   Ключ предмета
 	 *
-	 * @throws CodedException Вариант не соответствует требованиям проведения (`ExamConflict`).
+	 * @throws CodedException Вариант не соответствует требованиям проведения (`ExamState`).
 	 */
 	public function assert( int $assessmentId, string $subjectKey ): void {
 		$reason = $this->check( $assessmentId, $subjectKey );
 
 		if ( null !== $reason ) {
-			throw new CodedException( ErrorCode::ExamConflict, $reason );
+			throw new CodedException( ErrorCode::ExamState, $reason );
 		}
 	}
 

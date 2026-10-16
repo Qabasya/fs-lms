@@ -186,8 +186,8 @@ class GuestApplicationServiceTest extends TestCase {
 		$this->holds->expects( self::never() )->method( 'capture' );
 		$public = $this->source( array( 'school_key' => 'public', 'school_name' => 'Открытая запись' ) );
 
-		$this->assertFormError( 'school', ErrorCode::ExamConflict, fn () => $this->apply( array(), $public ) );
-		$this->assertFormError( 'school', ErrorCode::ExamConflict, fn () => $this->apply( array( 'school' => '   ' ), $public ) );
+		$this->assertFormError( 'school', ErrorCode::ExamInput, fn () => $this->apply( array(), $public ) );
+		$this->assertFormError( 'school', ErrorCode::ExamInput, fn () => $this->apply( array( 'school' => '   ' ), $public ) );
 	}
 
 	public function test_staff_application_to_open_registration_does_not_need_school(): void {
@@ -202,7 +202,7 @@ class GuestApplicationServiceTest extends TestCase {
 		$this->holds->expects( self::never() )->method( 'capture' );
 		$public = $this->source( array( 'school_key' => 'public' ) );
 
-		$this->assertFormError( 'school', ErrorCode::ExamConflict, fn () => $this->apply( array( 'school' => str_repeat( 'ш', 256 ) ), $public ) );
+		$this->assertFormError( 'school', ErrorCode::ExamInput, fn () => $this->apply( array( 'school' => str_repeat( 'ш', 256 ) ), $public ) );
 	}
 
 	public function test_apply_stores_form_encrypted(): void {
@@ -256,7 +256,7 @@ class GuestApplicationServiceTest extends TestCase {
 	}
 
 	public function test_session_of_other_event_is_rejected(): void {
-		$this->assertFormError( 'session_id', ErrorCode::ExamConflict, fn () => $this->apply( array( 'session_id' => 99 ) ) );
+		$this->assertFormError( 'session_id', ErrorCode::ExamInput, fn () => $this->apply( array( 'session_id' => 99 ) ) );
 	}
 
 	/** @return array<string, array{0: string, 1: array<string, mixed>}> */
@@ -278,7 +278,7 @@ class GuestApplicationServiceTest extends TestCase {
 	public function test_server_validation_rules( string $field, array $override ): void {
 		$this->holds->expects( self::never() )->method( 'capture' );
 
-		$this->assertFormError( $field, ErrorCode::ExamConflict, fn () => $this->apply( $override ) );
+		$this->assertFormError( $field, ErrorCode::ExamInput, fn () => $this->apply( $override ) );
 	}
 
 	public function test_middle_name_and_messenger_are_optional(): void {

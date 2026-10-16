@@ -13,7 +13,10 @@ use Inc\DTO\Exam\ExamGuestApplicationDTO;
 use Inc\DTO\Exam\ExamSourceDTO;
 use Inc\Enums\Auth\AuthAction;
 use Inc\Enums\Auth\AuthResult;
+use Inc\Enums\Exam\ExamLogAction;
 use Inc\Services\Log\AuthLogWriter;
+use Inc\Services\Security\RateLimitService;
+use Inc\Shared\Traits\RequestContextProvider;
 
 /**
  * Журнал гостевой формы записи на экзамен (этап 11a.2.7): открыта, не прошла проверку, бронь создана, лимит.
@@ -26,16 +29,23 @@ use Inc\Services\Log\AuthLogWriter;
  */
 readonly class ExamFormTrackingService {
 
+	use RequestContextProvider;
+
 	private const MESSAGE_MAX = 200;
 
-	/** Использует общий журнал авторизации для событий публичной формы. */
+	/** Использует общий журнал авторизации для событий публичной формы; открытие формы дополнительно дедуплицируется для журнала «Экзамены». */
 	public function __construct(
 		private AuthLogWriter $authLog,
+		private RateLimitService $rateLimit,
 	) {}
 
 	/** Страница формы показана по действующей ссылке школы. */
 	public function opened( ExamSourceDTO $source ): void {
 		$this->authLog->recordEvent( AuthAction::ExamFormOpened, AuthResult::Success, null, $this->details( $source ) );
+
+		if ( $this->rateLimit->allowExamFormOpenLog( $this->requestContext()->ip, $source->id ) ) {
+			ExamLogAction::FormOpened->record( $this->guestEntry( $source ) );
+		}
 	}
 
 	/** Ошибка проверки формы: какое поле и что увидел гость (без введённых значений). */
@@ -52,6 +62,8 @@ readonly class ExamFormTrackingService {
 				)
 			)
 		);
+
+		ExamLogAction::FormInvalid->record( $this->guestEntry( $source, 'failure', array_filter( array( 'field' => $field, 'message' => $this->clip( $message ) ) ) ) );
 	}
 
 	/** Бронь создана, гость идёт в корзину. */
@@ -82,6 +94,25 @@ readonly class ExamFormTrackingService {
 					'failure_reason' => $this->clip( $message ),
 				)
 			)
+		);
+
+		ExamLogAction::FormLimited->record( $this->guestEntry( $source, 'failure', array( 'message' => $this->clip( $message ) ) ) );
+	}
+
+	/**
+	 * Запись журнала «Экзамены» о действии гостя на форме: источник — в контексте, значения полей не пишутся.
+	 *
+	 * @param array<string, mixed> $context
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function guestEntry( ExamSourceDTO $source, string $result = 'success', array $context = array() ): array {
+		return array(
+			'event_id'    => $source->eventId,
+			'actor_type'  => 'guest',
+			'actor_label' => 'Гость',
+			'result'      => $result,
+			'context'     => array_merge( array( 'source_id' => $source->id, 'school' => $source->schoolName ), $context ),
 		);
 	}
 

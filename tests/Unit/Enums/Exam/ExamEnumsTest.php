@@ -7,6 +7,7 @@ namespace Unit\Enums\Exam;
 use Inc\Enums\Exam\ExamAudience;
 use Inc\Enums\Exam\ExamDirection;
 use Inc\Enums\Exam\ExamEventStatus;
+use Inc\Enums\Exam\ExamLogAction;
 use Inc\Enums\Exam\ExamOutboxEvent;
 use Inc\Enums\Exam\ExamPaymentState;
 use Inc\Enums\Exam\ExamProgress;
@@ -23,7 +24,7 @@ class ExamEnumsTest extends TestCase {
 
 	/** @var list<class-string<\BackedEnum>> */
 	private const ENUMS = array(
-		ExamAudience::class, ExamDirection::class, ExamEventStatus::class, ExamOutboxEvent::class, ExamPaymentState::class, ExamProgress::class,
+		ExamAudience::class, ExamDirection::class, ExamEventStatus::class, ExamLogAction::class, ExamOutboxEvent::class, ExamPaymentState::class, ExamProgress::class,
 		ExamRegistrationStatus::class, ExamSessionStatus::class, ExamTokenPurpose::class, GuestApplicationState::class, ManualResolutionKind::class,
 	);
 
@@ -89,7 +90,7 @@ class ExamEnumsTest extends TestCase {
 	public function test_table_names_have_plugin_prefix(): void {
 		$exam = array_filter( TableName::cases(), static fn ( TableName $t ): bool => str_starts_with( $t->name, 'Exam' ) );
 
-		self::assertCount( 15, $exam );
+		self::assertCount( 16, $exam );
 		foreach ( $exam as $table ) {
 			self::assertStringStartsWith( 'fs_lms_exam_', $table->value, $table->name );
 		}

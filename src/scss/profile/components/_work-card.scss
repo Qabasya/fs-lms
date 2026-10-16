@@ -35,7 +35,7 @@
   color: var(--muted);
 }
 
-.wcard-badge--sr { background: var(--t-zachet-soft); color: var(--t-zachet); }
+.wcard-badge--sr { background: var(--ok-soft); color: var(--ok-ink); }
 .wcard-badge--pr { background: var(--accent-soft); color: var(--accent-700); }
 .wcard-badge--dz { background: var(--wait-soft); color: var(--wait-text); }
 .wcard-badge--kr { background: var(--err-soft); color: var(--err-ink); }
@@ -143,6 +143,11 @@ a.wcard           { color: inherit; text-decoration: none; }
    остальное — отметкам, прижатым влево: первые квадратики всех карточек стоят друг
    под другом, а лишние задания уходят на следующий ряд, только когда не помещаются. */
 .sum-work-card { grid-template-columns: rem(40) minmax(rem(160), rem(280)) minmax(0, 1fr) rem(190); }
+
+/* Широкий экран 1920+: на теме и подписи работы больше места — колонка до 500px. */
+@media (min-width: $breakpoint-fullhd) {
+  .sum-work-card { grid-template-columns: rem(40) minmax(rem(160), rem(500)) minmax(0, 1fr) rem(190); }
+}
 
 /* Ноутбук 1280: на отметки рядом с темой места мало — они уходят второй
    строкой под тему, от её левого края. */

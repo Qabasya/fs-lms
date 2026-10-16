@@ -104,6 +104,8 @@ class RecoveryCallbacks extends BaseController {
 			$this->retentionService->purgeOldPiiAccessLogs();
 			// Журнал ошибок пользователей
 			$this->retentionService->purgeOldErrorLogs();
+			// Журнал «Экзамены» (ФИО участников): срок хранения данных гостей
+			$this->retentionService->purgeOldExamLogs();
 			// Данные гостей экзаменов: обезличивание по сроку, неоплаченные заявки, технический мусор (под своей блокировкой)
 			$this->examRetention->runDaily();
 		} catch ( \Throwable $e ) {

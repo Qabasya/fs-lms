@@ -29,6 +29,8 @@
 .prof-child-bar { display: flex; align-items: center; gap: rem(12); margin-bottom: rem(16); flex-wrap: wrap; }
 .prof-child-pick { display: inline-flex; align-items: center; gap: rem(8); font-size: rem(13); color: var(--muted); }
 
+.prof-child-pick strong { color: var(--ink); font-weight: 600; }
+
 .prof-child-pick select {
   height: rem(34); padding: 0 rem(10); border: 1px solid var(--line); border-radius: var(--radius-xs);
   font: inherit; font-size: rem(13); color: var(--ink); background: var(--surface);

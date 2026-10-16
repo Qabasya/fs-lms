@@ -20,6 +20,7 @@ use Inc\Enums\Exam\ExamAudience;
 use Inc\Enums\Exam\ManualResolutionKind;
 use Inc\Enums\Exam\ExamEventStatus;
 use Inc\Enums\Exam\ExamOutboxEvent;
+use Inc\Enums\Exam\ExamLogAction;
 use Inc\Enums\Exam\ExamRegistrationStatus;
 use Inc\Enums\Exam\ExamSessionStatus;
 use Inc\Enums\Log\ErrorCode;
@@ -245,6 +246,25 @@ class ExamRegistrationService {
 		$encodedResult = wp_json_encode( $result->toArray() );
 		$this->rememberOperation( $participantId, self::OP_REGISTER, $requestKey, (string) $sessionId, is_string( $encodedResult ) ? $encodedResult : '' );
 
+		ExamLogAction::Registered->record(
+			array(
+				'event_id'         => $session->eventId,
+				'session_id'       => $session->id,
+				'registration_id'  => $registrationId,
+				'participation_id' => $participation->id,
+				'actor'            => $actorUserId ?? $recordedBy,
+				'context'          => array_filter(
+					array(
+						'audience'  => $audience->value,
+						'source_id' => $sourceId,
+						'seat_held' => $seatHeld ? true : null,
+						'warnings'  => array() === $warnings ? null : $warnings,
+					),
+					static fn ( mixed $value ): bool => null !== $value
+				),
+			)
+		);
+
 		return $result;
 	}
 
@@ -264,14 +284,14 @@ class ExamRegistrationService {
 			throw new CodedException( ErrorCode::ExamClosed, 'Сеанс не найден.' );
 		}
 		if ( null === $participant ) {
-			throw new CodedException( ErrorCode::ExamConflict, 'Действующей записи нет.' );
+			throw new CodedException( ErrorCode::ExamNotFound, 'Действующей записи нет.' );
 		}
 
 		return $this->inTransactionWithRetry(
 			function () use ( $participant, $peek, $newSessionId, $requestKey, $expectedVersion ): RegistrationResultDTO {
 				$participation = $this->lockParticipation( $participant->id, $peek->eventId );
 				if ( null === $participation ) {
-						throw new CodedException( ErrorCode::ExamConflict, 'Действующей записи нет.' );
+						throw new CodedException( ErrorCode::ExamNotFound, 'Действующей записи нет.' );
 				}
 
 				$replayed = $this->findOperation( $participation->participantId, self::OP_CHANGE, $requestKey, (string) $newSessionId );
@@ -283,7 +303,7 @@ class ExamRegistrationService {
 
 				$current = $this->registrations->findActive( $participation->id );
 				if ( null === $current ) {
-					throw new CodedException( ErrorCode::ExamConflict, 'Действующей записи нет.' );
+					throw new CodedException( ErrorCode::ExamNotFound, 'Действующей записи нет.' );
 				}
 
 				$result        = $this->moveRegistration( $participation, $current, $newSessionId, false, null, null );
@@ -308,14 +328,14 @@ class ExamRegistrationService {
 
 		$participant = $this->participants->findByPersonId( $personId );
 		if ( null === $participant ) {
-			throw new CodedException( ErrorCode::ExamConflict, 'Действующей записи нет.' );
+			throw new CodedException( ErrorCode::ExamNotFound, 'Действующей записи нет.' );
 		}
 
 		$this->inTransactionWithRetry(
 			function () use ( $participant, $eventId, $requestKey, $expectedVersion ): void {
 				$participation = $this->lockParticipation( $participant->id, $eventId );
 				if ( null === $participation ) {
-						throw new CodedException( ErrorCode::ExamConflict, 'Действующей записи нет.' );
+						throw new CodedException( ErrorCode::ExamNotFound, 'Действующей записи нет.' );
 				}
 
 				if ( null !== $this->findOperation( $participation->participantId, self::OP_CANCEL, $requestKey, (string) $eventId ) ) {
@@ -326,7 +346,7 @@ class ExamRegistrationService {
 
 				$registration = $this->registrations->findActive( $participation->id );
 				if ( null === $registration ) {
-					throw new CodedException( ErrorCode::ExamConflict, 'Действующей записи нет.' );
+					throw new CodedException( ErrorCode::ExamNotFound, 'Действующей записи нет.' );
 				}
 
 				$sessions = $this->sessions->lockInOrder( array( $registration->sessionId ) );
@@ -371,7 +391,7 @@ class ExamRegistrationService {
 				$locked       = $this->participations->findForUpdate( (int) $participation?->id );
 				$registration = $this->registrations->find( $registrationId );
 				if ( null === $locked || null === $registration || 1 !== $registration->activeSlot ) {
-						throw new CodedException( ErrorCode::ExamConflict, 'Действующей записи нет.' );
+						throw new CodedException( ErrorCode::ExamNotFound, 'Действующей записи нет.' );
 				}
 				if ( null !== $locked->currentAttemptId ) {
 					throw new CodedException( ErrorCode::ExamStarted, 'Попытка уже начата: запись отменить нельзя.' );
@@ -411,7 +431,7 @@ class ExamRegistrationService {
 				$locked  = $this->participations->findForUpdate( (int) $participation?->id );
 				$current = $this->registrations->find( $registrationId );
 				if ( null === $locked || null === $current || 1 !== $current->activeSlot ) {
-						throw new CodedException( ErrorCode::ExamConflict, 'Действующей записи нет.' );
+						throw new CodedException( ErrorCode::ExamNotFound, 'Действующей записи нет.' );
 				}
 
 				$result = $this->moveRegistration( $locked, $current, $newSessionId, true, $actorUserId, $reason );
@@ -476,7 +496,7 @@ class ExamRegistrationService {
 		$oldSession = $locked[ $current->sessionId ] ?? null;
 		$newSession = $locked[ $newSessionId ] ?? null;
 		if ( null === $oldSession || null === $newSession || $oldSession->eventId !== $newSession->eventId ) {
-			throw new CodedException( ErrorCode::ExamConflict, 'Перенос возможен только между сеансами одного экзамена.' );
+			throw new CodedException( ErrorCode::ExamState, 'Перенос возможен только между сеансами одного экзамена.' );
 		}
 
 		$event = $this->events->find( $newSession->eventId );
@@ -507,7 +527,7 @@ class ExamRegistrationService {
 
 		$this->sessions->releaseSeat( $oldSession->id );
 		if ( ! $this->registrations->deactivate( $current->id, ExamRegistrationStatus::Transferred, $nowUtc, $reason, $actorUserId ) ) {
-			throw new CodedException( ErrorCode::ExamConflict, 'Действующей записи нет.' );
+			throw new CodedException( ErrorCode::ExamNotFound, 'Действующей записи нет.' );
 		}
 
 		$registrationId = $this->insertConfirmed( $participation->id, $newSession->id, null, $actorUserId, $nowUtc );
@@ -523,6 +543,24 @@ class ExamRegistrationService {
 			$payload['reason'] = $reason;
 		}
 		$this->outbox->add( ExamOutboxEvent::RegistrationTransferred, 'registration', $registrationId, 1, $payload );
+
+		( $byStaff ? ExamLogAction::RegistrationTransferred : ExamLogAction::RegistrationChanged )->record(
+			array(
+				'event_id'         => $newSession->eventId,
+				'session_id'       => $newSession->id,
+				'registration_id'  => $registrationId,
+				'participation_id' => $participation->id,
+				'actor'            => $actorUserId,
+				'context'          => array_filter(
+					array(
+						'old_registration_id' => $current->id,
+						'old_session_id'      => $oldSession->id,
+						'reason'              => $reason,
+					),
+					static fn ( mixed $value ): bool => null !== $value
+				),
+			)
+		);
 
 		return new RegistrationResultDTO(
 			registrationId : $registrationId,
@@ -540,7 +578,7 @@ class ExamRegistrationService {
 	 */
 	private function closeRegistration( ExamParticipationDTO $participation, ExamRegistrationDTO $registration, ExamSessionDTO $session, ExamRegistrationStatus $status, string $nowUtc, ?string $reason, ?int $actorUserId, string $by ): void {
 		if ( ! $this->registrations->deactivate( $registration->id, $status, $nowUtc, $reason, $actorUserId ) ) {
-			throw new CodedException( ErrorCode::ExamConflict, 'Действующей записи нет.' );
+			throw new CodedException( ErrorCode::ExamNotFound, 'Действующей записи нет.' );
 		}
 
 		$this->sessions->releaseSeat( $session->id );
@@ -554,6 +592,17 @@ class ExamRegistrationService {
 			$payload['reason'] = $reason;
 		}
 		$this->outbox->add( ExamOutboxEvent::RegistrationCancelled, 'registration', $registration->id, 1, $payload );
+
+		( 'staff' === $by ? ExamLogAction::RegistrationCancelledStaff : ExamLogAction::RegistrationCancelledSelf )->record(
+			array(
+				'event_id'         => $session->eventId,
+				'session_id'       => $session->id,
+				'registration_id'  => $registration->id,
+				'participation_id' => $participation->id,
+				'actor'            => $actorUserId,
+				'context'          => null !== $reason ? array( 'reason' => $reason ) : array(),
+			)
+		);
 	}
 
 	/**

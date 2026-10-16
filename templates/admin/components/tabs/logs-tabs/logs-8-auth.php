@@ -40,6 +40,8 @@ $sort_url    = add_query_arg( $auth_filters, $base_url );
 		<input type="hidden" name="page" value="<?php echo esc_attr( $page_slug ); ?>">
 		<input type="hidden" name="tab"  value="tab-8">
 
+		<input type="search" name="login" value="<?php echo esc_attr( $auth_filters['login'] ?? '' ); ?>" placeholder="Логин или email">
+
 		<select name="action">
 			<option value="">Все действия</option>
             <?php foreach ( $auth_actions ?? array() as $actionValue ) :

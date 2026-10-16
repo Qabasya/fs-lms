@@ -250,6 +250,8 @@ class BundleLoader extends BaseController {
 					'saveAttemptAnswer' => AjaxHook::SaveAttemptAnswer->jsAction(),
 					'submitAttempt'     => AjaxHook::SubmitAttempt->jsAction(),
 					'getAttemptResult'  => AjaxHook::GetAttemptResult->jsAction(),
+					// Технические события станции (закрыта вкладка, сбой сохранения) — в журнал «Экзамены».
+					'logExamClientEvent' => AjaxHook::LogExamClientEvent->jsAction(),
 					// Задания 13-16 ОГЭ («Развёрнутый ответ») — двухшаговая загрузка
 					// файла ответа (kege-exam.js, тот же контракт, что и générique
 					// file_answer_task в assessmentVars() выше). Без этой пары ключей

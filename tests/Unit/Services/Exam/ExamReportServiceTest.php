@@ -236,8 +236,8 @@ class ExamReportServiceTest extends TestCase {
 
 	public function test_term_outside_range_is_refused(): void {
 		$this->guest( 1 );
-		self::assertSame( ErrorCode::ExamConflict, $this->refusal( fn () => $this->service->create( self::ACTOR, self::EVENT, 'Отчёт', array( 1 ), null, 91 ) )->errorCode );
-		self::assertSame( ErrorCode::ExamConflict, $this->refusal( fn () => $this->service->create( self::ACTOR, self::EVENT, 'Отчёт', array( 1 ), null, 0 ) )->errorCode );
+		self::assertSame( ErrorCode::ExamInput, $this->refusal( fn () => $this->service->create( self::ACTOR, self::EVENT, 'Отчёт', array( 1 ), null, 91 ) )->errorCode );
+		self::assertSame( ErrorCode::ExamInput, $this->refusal( fn () => $this->service->create( self::ACTOR, self::EVENT, 'Отчёт', array( 1 ), null, 0 ) )->errorCode );
 	}
 
 	public function test_new_guest_of_same_school_is_not_added_automatically(): void {
@@ -256,7 +256,7 @@ class ExamReportServiceTest extends TestCase {
 			'is_active' => '1', 'key_generation' => '1', 'created_by_user_id' => '10', 'version' => '1', 'created_at' => '2026-03-01 00:00:00', 'updated_at' => '2026-03-01 00:00:00',
 		) ) );
 
-		self::assertSame( ErrorCode::ExamConflict, $this->refusal( fn () => $this->service->create( self::ACTOR, self::EVENT, 'Отчёт', array( 1 ), 14, null ) )->errorCode );
+		self::assertSame( ErrorCode::ExamState, $this->refusal( fn () => $this->service->create( self::ACTOR, self::EVENT, 'Отчёт', array( 1 ), 14, null ) )->errorCode );
 	}
 
 	public function test_member_change_is_logged_and_versioned(): void {

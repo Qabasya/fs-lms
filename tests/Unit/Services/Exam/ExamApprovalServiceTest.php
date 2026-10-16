@@ -244,13 +244,13 @@ class ExamApprovalServiceTest extends TestCase {
 	public function test_correct_requires_reason(): void {
 		$this->attempts->expects( self::never() )->method( 'bumpResultVersion' );
 
-		$this->assertCoded( ErrorCode::ExamConflict, fn () => $this->correct( array( array( 'task_id' => 1, 'score' => 1.0 ) ), '  ' ) );
+		$this->assertCoded( ErrorCode::ExamInput, fn () => $this->correct( array( array( 'task_id' => 1, 'score' => 1.0 ) ), '  ' ) );
 	}
 
 	public function test_correct_requires_approved_attempt(): void {
 		$this->attempts->expects( self::never() )->method( 'bumpResultVersion' );
 
-		$this->assertCoded( ErrorCode::ExamConflict, fn () => $this->correct( array( array( 'task_id' => 1, 'score' => 1.0 ) ) ) );
+		$this->assertCoded( ErrorCode::ExamState, fn () => $this->correct( array( array( 'task_id' => 1, 'score' => 1.0 ) ) ) );
 	}
 
 	public function test_correct_with_stale_version_is_rejected_and_changes_nothing(): void {
@@ -284,8 +284,8 @@ class ExamApprovalServiceTest extends TestCase {
 		$this->answers->method( 'findByAttemptAndTask' )->willReturn( $this->answer( 1, 1.0, 2.0 ) );
 		$this->answers->expects( self::never() )->method( 'upsert' );
 
-		$this->assertCoded( ErrorCode::ExamConflict, fn () => $this->correct( array( array( 'task_id' => 1, 'score' => 3.0 ) ) ) );
-		$this->assertCoded( ErrorCode::ExamConflict, fn () => $this->correct( array( array( 'task_id' => 1, 'score' => -1.0 ) ) ) );
+		$this->assertCoded( ErrorCode::ExamInput, fn () => $this->correct( array( array( 'task_id' => 1, 'score' => 3.0 ) ) ) );
+		$this->assertCoded( ErrorCode::ExamInput, fn () => $this->correct( array( array( 'task_id' => 1, 'score' => -1.0 ) ) ) );
 	}
 
 	public function test_correct_recalculates_totals_and_bumps_version(): void {

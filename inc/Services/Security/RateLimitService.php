@@ -250,6 +250,22 @@ readonly class RateLimitService {
 		return $this->checkIp( 'examhold', $ip, max( 1, $hourlyLimit ) );
 	}
 
+	/**
+	 * Техническое событие станции экзамена из браузера: одно событие каждого вида на попытку и IP в минуту.
+	 * Фиксирует и проверяет.
+	 */
+	public function allowExamClientEvent( string $ip, int $attemptId, string $kind ): bool {
+		return $this->check( $this->ipKey( 'examclient' . $kind . $attemptId, $ip ), 1, MINUTE_IN_SECONDS );
+	}
+
+	/**
+	 * Запись об открытии гостевой формы записи в журнал «Экзамены»: не чаще раза в 10 минут с IP на один источник,
+	 * иначе каждое обновление страницы и каждый бот заполняли бы журнал. Фиксирует и проверяет.
+	 */
+	public function allowExamFormOpenLog( string $ip, int $sourceId ): bool {
+		return $this->check( $this->ipKey( 'examformopen' . $sourceId, $ip ), 1, 10 * MINUTE_IN_SECONDS );
+	}
+
 	/** Хеш IP для хранения в таблице заявок (сырой IP в базу не пишется): тот же алгоритм, что у ключей счётчиков. */
 	public function ipHash( string $ip ): string {
 		return hash( 'sha256', $ip . ( defined( 'FS_LMS_HASH_SALT' ) ? FS_LMS_HASH_SALT : '' ) );

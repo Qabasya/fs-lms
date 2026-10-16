@@ -32,6 +32,7 @@ use Inc\Enums\Log\LogFilterType;
  *
  * - action — тип действия (login, login_failed, password_reset)
  * - result — результат (success/failed)
+ * - login — подстрока логина/email, введённого при входе
  * - date_from — дата начала периода
  * - date_to — дата окончания периода
  *
@@ -52,6 +53,7 @@ class AuthLogRepository extends AbstractLogRepository {
 			'action' => array( 'action', LogFilterType::Text ),
 			'result' => array( 'result', LogFilterType::Text ),
 			'reason' => array( 'reason', LogFilterType::Text ),
+			'login'  => array( 'login_identifier', LogFilterType::Like ),
 		);
 	}
 

@@ -98,6 +98,20 @@ class HomeworkDeadlineService {
 	}
 
 	/**
+	 * Работы, выданные ученику на занятии: все типы. Скрытое занятие ученику не
+	 * выдавалось, отменённое/перенесённое — не состоялось, работ у них нет.
+	 *
+	 * @return WorkDTO[]
+	 */
+	public function assignedWorks( GroupLessonDTO $row ): array {
+		if ( LessonVisibility::Hidden->value === $this->visibility->effectiveVisibility( $row ) || $this->freesSlot( $row ) ) {
+			return array();
+		}
+
+		return $this->worksResolver->resolve( $row );
+	}
+
+	/**
 	 * ДЗ, которые ученик не сдал к сроку. Дата зачисления не учитывается:
 	 * пришедший в середине курса получает прошлые ДЗ несданными, как все.
 	 *

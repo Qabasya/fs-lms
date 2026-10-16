@@ -55,6 +55,7 @@ class StudentSummaryService {
 		// Эпик 15: открытая группа — занятия не датируются, включаем всю программу
 		// (порядок программы), посещаемость не показывается.
 		$group  = $this->groups->findById( $groupId );
+		$now    = $this->clock->now();
 		$isOpen = $group && AccessMode::Open === AccessMode::fromValueOrDefault( (string) ( $group->access_mode ?? '' ) );
 
 		// Занятия: групповые датированные + личные индивидуальные этого ученика.
@@ -63,6 +64,10 @@ class StudentSummaryService {
 				continue;
 			}
 			if ( ! $gl->scheduledAt && ! $isOpen ) {
+				continue;
+			}
+			// Только прошедшие занятия: будущие в сводке не нужны (в открытой группе дат нет).
+			if ( ! $isOpen && $gl->scheduledAt > $now ) {
 				continue;
 			}
 			$rows[ $gl->id ]     = $gl;
@@ -124,9 +129,21 @@ class StudentSummaryService {
 			);
 		}
 
-		foreach ( $this->deadlines->missed( $rows, $submitted, $this->clock->now() ) as $glid => $missed ) {
+		// Срок ДЗ, истёкший без сдачи: work_id → due_at (остальным работам срок в карточке не нужен).
+		$overdue = array();
+		foreach ( $this->deadlines->missed( $rows, $submitted, $now ) as $glid => $missed ) {
 			foreach ( $missed as $m ) {
-				$lessons[ $glid ]['works'][] = $this->missedCard( $m['work'], $m['due_at'] );
+				$overdue[ $glid ][ $m['work']->id ] = $m['due_at'];
+			}
+		}
+
+		// Каждая выданная на занятии работа без сдачи — карточка с прочерками.
+		foreach ( $rows as $glid => $row ) {
+			foreach ( $this->deadlines->assignedWorks( $row ) as $work ) {
+				if ( isset( $submitted[ $glid ][ $work->id ] ) ) {
+					continue;
+				}
+				$lessons[ $glid ]['works'][] = $this->missedCard( $work, $overdue[ $glid ][ $work->id ] ?? null );
 			}
 		}
 
@@ -143,13 +160,13 @@ class StudentSummaryService {
 	}
 
 	/**
-	 * Карточка ДЗ, не сданного к сроку: остаётся в «Работах», все задания — прочерком.
+	 * Карточка работы без сдачи (не приступал или ДЗ не сдано к сроку): все задания — прочерком.
 	 *
 	 * @return array<string, mixed>
 	 */
-	private function missedCard( WorkDTO $work, string $dueAt ): array {
+	private function missedCard( WorkDTO $work, ?string $dueAt ): array {
 		return array(
-			'badge'        => GradeBadge::Homework->badge(),
+			'badge'        => GradeBadge::fromWorkType( $work->workType )->badge(),
 			'value'        => 'Не сдано',
 			'display'      => self::MISSED,
 			'title'        => $work->title,

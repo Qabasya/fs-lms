@@ -11,7 +11,7 @@ import { createApi } from './api.js';
 import { workCardHtml, workChipHtml, workStatusText } from './work-card.js';
 import { learnerLayout, learnerFlat } from './program-window.js';
 import { courseTabsShell, syncCourseTabs } from './course-tabs.js';
-import { isParent, getChildId, childName, childBar, wireChild, onChildChange } from './learner-child.js';
+import { isParent, getChildId, childBar, childPickHtml, wireChild, onChildChange } from './learner-child.js';
 import { initSchedule } from './schedule-view.js';
 
 // Экраны ученика и родителя одни: ключ несёт роль (student-* / parent-*), рендер общий.
@@ -66,16 +66,25 @@ export function renderLearnerAttendance(root) { screen(root, renderAttendance, '
 onChildChange(() => { load(true); rerenderAll(); });
 
 /* ── Home ─────────────────────────────────────────────────────────────── */
+/** Имя в приветствии: у родителя — его собственное «Имя Отчество» (в аккаунте имя хранится как «Фамилия Имя Отчество»). */
+function greetingName() {
+    const own = window.fsProfile?.user?.name || '';
+    if (!isParent()) { return own || 'ученик'; }
+    const words = own.trim().split(/\s+/).filter(Boolean);
+    return (words.length > 1 ? words.slice(1).join(' ') : own) || 'родитель';
+}
+
 function renderHome(root, d) {
-    const name = isParent() ? (childName() || 'ученик') : (window.fsProfile?.user?.name || 'ученик');
+    const name = greetingName();
     const att = d.attendance;
     root.innerHTML = `
     <div class="prof-dash">
-        ${childBar()}
+        ${childBar(false)}
         ${examLockBanner(d)}
         <div class="prof-dash-hello">
             <h1>Здравствуйте, ${esc(name)} 👋</h1>
             <p>${d.groups.map(g => esc(g.name) + ' · ' + esc(g.subject)).join(' · ') || 'Нет активных групп'}</p>
+            ${childPickHtml()}
         </div>
         <div class="prof-stat-tiles prof-stat-tiles--learner">
             ${homeTile('Дедлайнов', String(d.deadlines.length), '#f08c00', 'alert')}

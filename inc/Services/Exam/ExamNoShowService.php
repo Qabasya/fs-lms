@@ -12,6 +12,7 @@ namespace Inc\Services\Exam;
 use Inc\DTO\Exam\ExamParticipationDTO;
 use Inc\DTO\Exam\ExamRegistrationDTO;
 use Inc\DTO\Exam\ExamSessionDTO;
+use Inc\Enums\Exam\ExamLogAction;
 use Inc\Enums\Exam\ExamOutboxEvent;
 use Inc\Enums\Exam\ExamRegistrationStatus;
 use Inc\Repositories\WPDBRepositories\ExamParticipationRepository;
@@ -68,6 +69,17 @@ class ExamNoShowService {
 			array(
 				'registration_id' => $registration->id,
 				'session_id'      => $session->id,
+			)
+		);
+
+		ExamLogAction::NoShow->record(
+			array(
+				'event_id'         => $session->eventId,
+				'session_id'       => $session->id,
+				'registration_id'  => $registration->id,
+				'participation_id' => $participation->id,
+				'actor_type'       => 'system',
+				'actor_label'      => 'Система',
 			)
 		);
 

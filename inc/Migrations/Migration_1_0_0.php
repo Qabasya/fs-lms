@@ -397,6 +397,9 @@ class Migration_1_0_0 implements MigrationInterface {
 		// ===== 14b. content_reports — «Нашли ошибку?» на страницах заданий и статей (Migration_1_0_83) =====
 		dbDelta( Migration_1_0_83::contentReportDdl( $cc ) );
 
+		// ===== 14c. exam_log — журнал «Экзамены» (Migration_1_0_89) =====
+		dbDelta( Migration_1_0_89::examLogDdl( $cc ) );
+
 		// ===== 15. group_lessons — программа группы (Этап 2) =====
 		$group_lessons = TableName::GroupLessons->prefixed();
 		dbDelta(
@@ -753,6 +756,7 @@ class Migration_1_0_0 implements MigrationInterface {
 			TableName::GroupLessons->prefixed(),
 			TableName::ErrorLog->prefixed(),
 			TableName::ContentReport->prefixed(),
+			TableName::ExamLog->prefixed(),
 			TableName::AuthLog->prefixed(),
 			TableName::EmailLog->prefixed(),
 			TableName::ConsentChangeLog->prefixed(),

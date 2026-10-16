@@ -522,7 +522,7 @@ class ExamHoldServiceTest extends TestCase {
 		$applications->method( 'findForUpdate' )->willReturn( null );
 		$this->applications = $applications;
 
-		$this->assertRefusal( ErrorCode::ExamConflict, fn () => $this->makeService()->convert( 404, null ), 'Заявка не найдена.' );
+		$this->assertRefusal( ErrorCode::ExamNotFound, fn () => $this->makeService()->convert( 404, null ), 'Заявка не найдена.' );
 	}
 
 	// ---- освобождение --------------------------------------------------------------------------------------------------------------

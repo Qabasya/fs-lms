@@ -256,12 +256,12 @@ class ExamEventServiceTest extends TestCase {
 	}
 
 	public function test_create_rejects_empty_title(): void {
-		$this->assertRefusal( ErrorCode::ExamConflict, 'Укажите название проведения.', fn () => $this->service->createDraft( self::ACTOR, $this->eventInput( array( 'title' => '  ' ) ) ) );
+		$this->assertRefusal( ErrorCode::ExamInput, 'Укажите название проведения.', fn () => $this->service->createDraft( self::ACTOR, $this->eventInput( array( 'title' => '  ' ) ) ) );
 	}
 
 	public function test_create_rejects_reversed_period(): void {
 		$this->assertRefusal(
-			ErrorCode::ExamConflict,
+			ErrorCode::ExamInput,
 			'Дата начала позже даты окончания.',
 			fn () => $this->service->createDraft( self::ACTOR, $this->eventInput( array( 'period_from' => '2026-03-12', 'period_to' => '2026-03-10' ) ) )
 		);
@@ -269,7 +269,7 @@ class ExamEventServiceTest extends TestCase {
 
 	public function test_create_rejects_registration_opening_after_closing(): void {
 		$this->assertRefusal(
-			ErrorCode::ExamConflict,
+			ErrorCode::ExamState,
 			'Открытие записи позже её закрытия.',
 			fn () => $this->service->createDraft( self::ACTOR, $this->eventInput( array( 'registration_opens_at' => '2026-03-09 19:00', 'registration_closes_at' => '2026-03-09 18:00' ) ) )
 		);
@@ -277,7 +277,7 @@ class ExamEventServiceTest extends TestCase {
 
 	public function test_create_rejects_registration_closing_after_period(): void {
 		$this->assertRefusal(
-			ErrorCode::ExamConflict,
+			ErrorCode::ExamState,
 			'Запись не может закрываться позже последнего дня проведения.',
 			fn () => $this->service->createDraft( self::ACTOR, $this->eventInput( array( 'registration_closes_at' => '2026-03-13 00:30' ) ) )
 		);
@@ -290,11 +290,11 @@ class ExamEventServiceTest extends TestCase {
 	}
 
 	public function test_create_rejects_variant_of_other_subject(): void {
-		$this->variants->method( 'assert' )->willThrowException( new CodedException( ErrorCode::ExamConflict, 'Вариант относится к другому предмету.' ) );
+		$this->variants->method( 'assert' )->willThrowException( new CodedException( ErrorCode::ExamState, 'Вариант относится к другому предмету.' ) );
 		$this->events->expects( self::never() )->method( 'insert' );
 
 		$this->assertRefusal(
-			ErrorCode::ExamConflict,
+			ErrorCode::ExamState,
 			'Вариант относится к другому предмету.',
 			fn () => $this->service->createDraft( self::ACTOR, $this->eventInput( array( 'default_assessment_id' => 77 ) ) )
 		);
@@ -310,7 +310,7 @@ class ExamEventServiceTest extends TestCase {
 	}
 
 	public function test_impossible_calendar_date_is_rejected(): void {
-		$this->assertRefusal( ErrorCode::ExamConflict, 'Укажите даты проведения.', fn () => $this->service->createDraft( self::ACTOR, $this->eventInput( array( 'period_from' => '2026-02-30' ) ) ) );
+		$this->assertRefusal( ErrorCode::ExamInput, 'Укажите даты проведения.', fn () => $this->service->createDraft( self::ACTOR, $this->eventInput( array( 'period_from' => '2026-02-30' ) ) ) );
 	}
 
 	// ---- правка проведения ---------------------------------------------------------------------------------------------------------
@@ -324,14 +324,14 @@ class ExamEventServiceTest extends TestCase {
 	public function test_update_is_refused_for_cancelled_event(): void {
 		$this->event = $this->examEvent( array( 'status' => 'cancelled' ) );
 
-		$this->assertRefusal( ErrorCode::ExamConflict, 'Проведение завершено или отменено: изменить его нельзя.', fn () => $this->service->updateEvent( self::ACTOR, self::EVENT, $this->eventInput(), 1 ) );
+		$this->assertRefusal( ErrorCode::ExamState, 'Проведение завершено или отменено: изменить его нельзя.', fn () => $this->service->updateEvent( self::ACTOR, self::EVENT, $this->eventInput(), 1 ) );
 	}
 
 	public function test_update_refuses_period_that_leaves_a_session_outside(): void {
 		$this->sessionList = array( $this->examSession( array( 'scheduled_at' => '2026-03-12 07:00:00', 'planned_end_at' => '2026-03-12 10:55:00' ) ) );
 
 		$this->assertRefusal(
-			ErrorCode::ExamConflict,
+			ErrorCode::ExamInput,
 			'Есть сеансы вне нового периода проведения.',
 			fn () => $this->service->updateEvent( self::ACTOR, self::EVENT, $this->eventInput( array( 'period_to' => '2026-03-11' ) ), 1 )
 		);
@@ -424,7 +424,7 @@ class ExamEventServiceTest extends TestCase {
 
 	public function test_session_rejects_date_outside_period(): void {
 		$this->assertRefusal(
-			ErrorCode::ExamConflict,
+			ErrorCode::ExamInput,
 			'Дата сеанса вне периода проведения.',
 			fn () => $this->service->saveSession( self::ACTOR, self::EVENT, $this->sessionInput( array( 'date' => '2026-03-13' ) ), null, null )
 		);
@@ -445,7 +445,7 @@ class ExamEventServiceTest extends TestCase {
 	}
 
 	public function test_session_rejects_wrong_time_format(): void {
-		$this->assertRefusal( ErrorCode::ExamConflict, 'Укажите время сеанса.', fn () => $this->service->saveSession( self::ACTOR, self::EVENT, $this->sessionInput( array( 'time' => '25:00' ) ), null, null ) );
+		$this->assertRefusal( ErrorCode::ExamInput, 'Укажите время сеанса.', fn () => $this->service->saveSession( self::ACTOR, self::EVENT, $this->sessionInput( array( 'time' => '25:00' ) ), null, null ) );
 	}
 
 	public function test_session_requires_room(): void {
@@ -478,7 +478,7 @@ class ExamEventServiceTest extends TestCase {
 		$this->sessions->expects( self::never() )->method( 'update' );
 
 		$this->assertRefusal(
-			ErrorCode::ExamConflict,
+			ErrorCode::ExamState,
 			'В сеансе есть участники: используйте перенос с причиной.',
 			fn () => $this->service->saveSession( self::ACTOR, self::EVENT, $this->sessionInput( array( 'time' => '12:00' ) ), self::SESSION, 1 )
 		);
@@ -489,7 +489,7 @@ class ExamEventServiceTest extends TestCase {
 		$this->room    = $this->room( array( 'seats' => '8' ) );
 
 		$this->assertRefusal(
-			ErrorCode::ExamConflict,
+			ErrorCode::ExamState,
 			'В сеансе уже занято 10 мест, в кабинете их меньше.',
 			fn () => $this->service->saveSession( self::ACTOR, self::EVENT, $this->sessionInput(), self::SESSION, 1 )
 		);
@@ -508,13 +508,13 @@ class ExamEventServiceTest extends TestCase {
 	public function test_session_of_another_event_cannot_be_edited_through_this_one(): void {
 		$this->session = $this->examSession( array( 'event_id' => '99' ) );
 
-		$this->assertRefusal( ErrorCode::ExamConflict, 'Сеанс не найден.', fn () => $this->service->saveSession( self::ACTOR, self::EVENT, $this->sessionInput(), self::SESSION, 1 ) );
+		$this->assertRefusal( ErrorCode::ExamNotFound, 'Сеанс не найден.', fn () => $this->service->saveSession( self::ACTOR, self::EVENT, $this->sessionInput(), self::SESSION, 1 ) );
 	}
 
 	public function test_cancelled_session_cannot_be_edited(): void {
 		$this->session = $this->examSession( array( 'status' => 'cancelled' ) );
 
-		$this->assertRefusal( ErrorCode::ExamConflict, 'Сеанс отменён: изменить его нельзя.', fn () => $this->service->saveSession( self::ACTOR, self::EVENT, $this->sessionInput(), self::SESSION, 1 ) );
+		$this->assertRefusal( ErrorCode::ExamState, 'Сеанс отменён: изменить его нельзя.', fn () => $this->service->saveSession( self::ACTOR, self::EVENT, $this->sessionInput(), self::SESSION, 1 ) );
 	}
 
 	public function test_empty_session_is_edited_in_place_excluding_itself_from_room_check(): void {
@@ -560,21 +560,21 @@ class ExamEventServiceTest extends TestCase {
 	public function test_sessions_cannot_be_added_to_cancelled_event(): void {
 		$this->event = $this->examEvent( array( 'status' => 'cancelled' ) );
 
-		$this->assertRefusal( ErrorCode::ExamConflict, 'Проведение завершено или отменено: изменить его нельзя.', fn () => $this->service->saveSession( self::ACTOR, self::EVENT, $this->sessionInput(), null, null ) );
+		$this->assertRefusal( ErrorCode::ExamState, 'Проведение завершено или отменено: изменить его нельзя.', fn () => $this->service->saveSession( self::ACTOR, self::EVENT, $this->sessionInput(), null, null ) );
 	}
 
 	public function test_delete_session_with_registrations_is_refused(): void {
 		$this->registrations->method( 'listBySession' )->willReturn( array( new \stdClass() ) );
 		$this->sessions->expects( self::never() )->method( 'delete' );
 
-		$this->assertRefusal( ErrorCode::ExamConflict, 'В сеансе есть записи: используйте отмену сеанса.', fn () => $this->service->deleteSession( self::ACTOR, self::SESSION ) );
+		$this->assertRefusal( ErrorCode::ExamState, 'В сеансе есть записи: используйте отмену сеанса.', fn () => $this->service->deleteSession( self::ACTOR, self::SESSION ) );
 	}
 
 	public function test_delete_session_with_occupied_seats_is_refused_even_without_registration_rows(): void {
 		$this->session = $this->examSession( array( 'occupied_count' => '1' ) );
 		$this->sessions->expects( self::never() )->method( 'delete' );
 
-		$this->assertRefusal( ErrorCode::ExamConflict, 'В сеансе есть записи: используйте отмену сеанса.', fn () => $this->service->deleteSession( self::ACTOR, self::SESSION ) );
+		$this->assertRefusal( ErrorCode::ExamState, 'В сеансе есть записи: используйте отмену сеанса.', fn () => $this->service->deleteSession( self::ACTOR, self::SESSION ) );
 	}
 
 	public function test_delete_empty_session(): void {
@@ -615,14 +615,14 @@ class ExamEventServiceTest extends TestCase {
 		$this->registrations->expects( self::never() )->method( 'deleteBySession' );
 		$this->sessions->expects( self::never() )->method( 'delete' );
 
-		$this->assertRefusal( ErrorCode::ExamConflict, 'В сеансе есть записи: используйте отмену сеанса.', fn () => $this->service->deleteSession( self::ACTOR, self::SESSION ) );
+		$this->assertRefusal( ErrorCode::ExamState, 'В сеансе есть записи: используйте отмену сеанса.', fn () => $this->service->deleteSession( self::ACTOR, self::SESSION ) );
 	}
 
 	public function test_delete_session_with_active_guest_application_is_refused(): void {
 		$this->guestApplications->method( 'countActiveBySession' )->willReturn( 1 );
 		$this->sessions->expects( self::never() )->method( 'delete' );
 
-		$this->assertRefusal( ErrorCode::ExamConflict, 'В сеансе есть записи: используйте отмену сеанса.', fn () => $this->service->deleteSession( self::ACTOR, self::SESSION ) );
+		$this->assertRefusal( ErrorCode::ExamState, 'В сеансе есть записи: используйте отмену сеанса.', fn () => $this->service->deleteSession( self::ACTOR, self::SESSION ) );
 	}
 
 	public function test_delete_session_waits_for_pending_cancellation_notices(): void {
@@ -631,7 +631,7 @@ class ExamEventServiceTest extends TestCase {
 		$this->registrations->expects( self::never() )->method( 'deleteBySession' );
 		$this->sessions->expects( self::never() )->method( 'delete' );
 
-		$this->assertRefusal( ErrorCode::ExamConflict, 'Участникам ещё отправляются уведомления об отмене: повторите через минуту.', fn () => $this->service->deleteSession( self::ACTOR, self::SESSION ) );
+		$this->assertRefusal( ErrorCode::ExamState, 'Участникам ещё отправляются уведомления об отмене: повторите через минуту.', fn () => $this->service->deleteSession( self::ACTOR, self::SESSION ) );
 	}
 
 	public function test_delete_started_session_is_refused(): void {
@@ -647,20 +647,20 @@ class ExamEventServiceTest extends TestCase {
 		$this->sessionList = array( $this->examSession( array( 'scheduled_at' => '2026-02-20 07:00:00', 'planned_end_at' => '2026-02-20 10:55:00' ) ) );
 		$this->events->expects( self::never() )->method( 'update' );
 
-		$this->assertRefusal( ErrorCode::ExamConflict, 'Добавьте хотя бы один сеанс в будущем.', fn () => $this->service->publish( self::ACTOR, self::EVENT, 1 ) );
+		$this->assertRefusal( ErrorCode::ExamState, 'Добавьте хотя бы один сеанс в будущем.', fn () => $this->service->publish( self::ACTOR, self::EVENT, 1 ) );
 	}
 
 	public function test_publish_ignores_cancelled_future_session(): void {
 		$this->sessionList = array( $this->examSession( array( 'status' => 'cancelled' ) ) );
 
-		$this->assertRefusal( ErrorCode::ExamConflict, 'Добавьте хотя бы один сеанс в будущем.', fn () => $this->service->publish( self::ACTOR, self::EVENT, 1 ) );
+		$this->assertRefusal( ErrorCode::ExamState, 'Добавьте хотя бы один сеанс в будущем.', fn () => $this->service->publish( self::ACTOR, self::EVENT, 1 ) );
 	}
 
 	public function test_publish_requires_registration_window(): void {
 		$this->event       = $this->examEvent( array( 'registration_opens_at' => null ) );
 		$this->sessionList = array( $this->session );
 
-		$this->assertRefusal( ErrorCode::ExamConflict, 'Задайте время открытия и закрытия записи.', fn () => $this->service->publish( self::ACTOR, self::EVENT, 1 ) );
+		$this->assertRefusal( ErrorCode::ExamState, 'Задайте время открытия и закрытия записи.', fn () => $this->service->publish( self::ACTOR, self::EVENT, 1 ) );
 	}
 
 	public function test_publish_builds_snapshot_per_variant(): void {
@@ -724,7 +724,7 @@ class ExamEventServiceTest extends TestCase {
 	public function test_publish_of_published_event_is_refused(): void {
 		$this->event = $this->examEvent( array( 'status' => 'published' ) );
 
-		$this->assertRefusal( ErrorCode::ExamConflict, 'Опубликовать можно только черновик.', fn () => $this->service->publish( self::ACTOR, self::EVENT, 1 ) );
+		$this->assertRefusal( ErrorCode::ExamState, 'Опубликовать можно только черновик.', fn () => $this->service->publish( self::ACTOR, self::EVENT, 1 ) );
 	}
 
 	// ---- отмена, снимок, вместимость -----------------------------------------------------------------------------------------------
@@ -732,7 +732,7 @@ class ExamEventServiceTest extends TestCase {
 	public function test_cancel_requires_reason(): void {
 		$this->events->expects( self::never() )->method( 'update' );
 
-		$this->assertRefusal( ErrorCode::ExamConflict, 'Укажите причину отмены.', fn () => $this->service->cancelEvent( self::ACTOR, self::EVENT, '   ', 1 ) );
+		$this->assertRefusal( ErrorCode::ExamInput, 'Укажите причину отмены.', fn () => $this->service->cancelEvent( self::ACTOR, self::EVENT, '   ', 1 ) );
 	}
 
 	public function test_cancel_closes_open_sessions_and_writes_outbox(): void {
@@ -784,7 +784,7 @@ class ExamEventServiceTest extends TestCase {
 		$this->events->method( 'hasParticipantData' )->willReturn( true );
 		$this->events->expects( self::never() )->method( 'deleteWithoutParticipants' );
 
-		$this->assertRefusal( ErrorCode::ExamConflict, 'В проведении есть записи участников: удалить его нельзя, отмените проведение.', fn () => $this->service->deleteEvent( self::ACTOR, self::EVENT, 1 ) );
+		$this->assertRefusal( ErrorCode::ExamState, 'В проведении есть записи участников: удалить его нельзя, отмените проведение.', fn () => $this->service->deleteEvent( self::ACTOR, self::EVENT, 1 ) );
 	}
 
 	public function test_delete_event_refused_when_attempt_started_or_version_stale(): void {
@@ -797,7 +797,7 @@ class ExamEventServiceTest extends TestCase {
 	}
 
 	public function test_move_session_requires_reason_and_writes_outbox(): void {
-		$this->assertRefusal( ErrorCode::ExamConflict, 'Укажите причину переноса.', fn () => $this->service->moveSession( self::ACTOR, self::SESSION, $this->moveInput(), '  ', 1 ) );
+		$this->assertRefusal( ErrorCode::ExamInput, 'Укажите причину переноса.', fn () => $this->service->moveSession( self::ACTOR, self::SESSION, $this->moveInput(), '  ', 1 ) );
 
 		$this->session = $this->examSession( array( 'occupied_count' => '3' ) );
 		$this->sessions->expects( self::once() )->method( 'update' )->with(
@@ -835,7 +835,7 @@ class ExamEventServiceTest extends TestCase {
 		$this->session = $this->examSession( array( 'occupied_count' => '3' ) );
 
 		$this->assertRefusal(
-			ErrorCode::ExamConflict,
+			ErrorCode::ExamState,
 			'В сеансе есть участники: используйте перенос с причиной.',
 			fn () => $this->service->saveSession( self::ACTOR, self::EVENT, $this->sessionInput( array( 'date' => '2026-03-11' ) ), self::SESSION, 1 )
 		);
@@ -869,7 +869,7 @@ class ExamEventServiceTest extends TestCase {
 	}
 
 	public function test_cancel_session_requires_reason(): void {
-		$this->assertRefusal( ErrorCode::ExamConflict, 'Укажите причину отмены.', fn () => $this->service->cancelSession( self::ACTOR, self::SESSION, ' ', 1 ) );
+		$this->assertRefusal( ErrorCode::ExamInput, 'Укажите причину отмены.', fn () => $this->service->cancelSession( self::ACTOR, self::SESSION, ' ', 1 ) );
 	}
 
 	public function test_cancelled_session_only_finishes_remaining_registrations(): void {
@@ -949,7 +949,7 @@ class ExamEventServiceTest extends TestCase {
 		$this->sessionList = array( $this->session );
 		$this->events->expects( self::never() )->method( 'update' );
 
-		$this->assertRefusal( ErrorCode::ExamConflict, 'Идёт сеанс с этим вариантом: снимок менять нельзя.', fn () => $this->service->rebuildSnapshot( self::ACTOR, self::EVENT, self::ASSESSMENT ) );
+		$this->assertRefusal( ErrorCode::ExamState, 'Идёт сеанс с этим вариантом: снимок менять нельзя.', fn () => $this->service->rebuildSnapshot( self::ACTOR, self::EVENT, self::ASSESSMENT ) );
 	}
 
 	public function test_rebuild_snapshot_blocked_by_unfinished_attempts(): void {
@@ -957,13 +957,13 @@ class ExamEventServiceTest extends TestCase {
 		$this->sessionList = array( $this->session );
 		$this->attempts->method( 'countInProgressExamByEvent' )->with( self::EVENT, self::ASSESSMENT )->willReturn( 1 );
 
-		$this->assertRefusal( ErrorCode::ExamConflict, 'Идёт сеанс с этим вариантом: снимок менять нельзя.', fn () => $this->service->rebuildSnapshot( self::ACTOR, self::EVENT, self::ASSESSMENT ) );
+		$this->assertRefusal( ErrorCode::ExamState, 'Идёт сеанс с этим вариантом: снимок менять нельзя.', fn () => $this->service->rebuildSnapshot( self::ACTOR, self::EVENT, self::ASSESSMENT ) );
 	}
 
 	public function test_rebuild_snapshot_requires_variant_in_event(): void {
 		$this->sessionList = array( $this->session );
 
-		$this->assertRefusal( ErrorCode::ExamConflict, 'В проведении нет сеансов с этим вариантом.', fn () => $this->service->rebuildSnapshot( self::ACTOR, self::EVENT, 999 ) );
+		$this->assertRefusal( ErrorCode::ExamState, 'В проведении нет сеансов с этим вариантом.', fn () => $this->service->rebuildSnapshot( self::ACTOR, self::EVENT, 999 ) );
 	}
 
 	public function test_rebuild_snapshot_replaces_only_that_variant(): void {
@@ -1017,7 +1017,7 @@ class ExamEventServiceTest extends TestCase {
 		$persisted = false;
 
 		$this->assertRefusal(
-			ErrorCode::ExamConflict,
+			ErrorCode::ExamState,
 			'Нельзя уменьшить вместимость до 8: в проведении «Пробный ЕГЭ» уже занято 9 мест.',
 			function () use ( &$persisted ): void {
 				$this->service->syncCapacityForRoom( 2, 8, function () use ( &$persisted ): void {
@@ -1035,7 +1035,7 @@ class ExamEventServiceTest extends TestCase {
 		$this->sessions->method( 'lockInOrder' )->willReturn( array( self::SESSION => $session ) );
 
 		$this->assertRefusal(
-			ErrorCode::ExamConflict,
+			ErrorCode::ExamState,
 			'В кабинете запланирован сеанс проведения «Пробный ЕГЭ»: вместимость не может быть нулевой.',
 			fn () => $this->service->syncCapacityForRoom( 2, 0 )
 		);
@@ -1076,7 +1076,7 @@ class ExamEventServiceTest extends TestCase {
 		$this->events->expects( self::never() )->method( 'update' );
 
 		$this->assertRefusal(
-			ErrorCode::ExamConflict,
+			ErrorCode::ExamState,
 			'Запись гостей недоступна: настройки запуска не завершены. Включите WooCommerce.',
 			fn () => $this->makeService()->publish( self::ACTOR, self::EVENT, 1 )
 		);

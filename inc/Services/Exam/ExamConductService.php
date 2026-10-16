@@ -18,6 +18,7 @@ use Inc\Enums\Assessment\AttemptStatus;
 use Inc\Enums\Access\Capability;
 use Inc\Enums\Exam\ExamAudience;
 use Inc\Enums\Exam\ExamResultStatus;
+use Inc\Enums\Exam\ExamLogAction;
 use Inc\Enums\Exam\ExamRegistrationStatus;
 use Inc\Enums\Exam\ExamTokenPurpose;
 use Inc\Enums\Log\EntityType;
@@ -116,13 +117,23 @@ class ExamConductService {
 	public function admit( int $actorUserId, int $participationId, bool $admitted ): void {
 		$participation = $this->guestParticipationFor( $actorUserId, $participationId );
 		if ( $admitted && null === $this->activeRegistrationOf( $participation ) ) {
-			throw new CodedException( ErrorCode::ExamConflict, 'У участника нет действующей записи.' );
+			throw new CodedException( ErrorCode::ExamNotFound, 'У участника нет действующей записи.' );
 		}
 		if ( $participation->hasAttempt() ) {
 			throw new CodedException( ErrorCode::ExamStarted, 'Попытка уже начата: допуск изменить нельзя.' );
 		}
 
 		$this->participations->setAdmission( $participationId, $admitted ? $this->time->nowUtc() : null, $admitted ? $actorUserId : null );
+
+		ExamLogAction::Admitted->record(
+			array(
+				'event_id'         => $participation->eventId,
+				'participation_id' => $participationId,
+				'registration_id'  => $participation->activeRegistrationId,
+				'actor'            => $actorUserId,
+				'context'          => array( 'admitted' => $admitted ),
+			)
+		);
 	}
 
 	/**
@@ -137,10 +148,10 @@ class ExamConductService {
 		$participation = $this->guestParticipationFor( $actorUserId, $participationId );
 		$registration  = $this->activeRegistrationOf( $participation );
 		if ( null === $registration ) {
-			throw new CodedException( ErrorCode::ExamConflict, 'У участника нет действующей записи.' );
+			throw new CodedException( ErrorCode::ExamNotFound, 'У участника нет действующей записи.' );
 		}
 		if ( null === $participation->admittedAt ) {
-			throw new CodedException( ErrorCode::ExamConflict, 'Сначала отметьте допуск участника.' );
+			throw new CodedException( ErrorCode::ExamState, 'Сначала отметьте допуск участника.' );
 		}
 		$session = $this->sessions->find( $registration->sessionId );
 		if ( null === $session || $session->plannedEndAt <= $this->time->nowUtc() ) {
@@ -148,6 +159,16 @@ class ExamConductService {
 		}
 
 		$plain = $this->tokens->issue( ExamTokenPurpose::Entry, $participationId, $actorUserId, $session->plannedEndAt );
+
+		ExamLogAction::EntryLinkIssued->record(
+			array(
+				'event_id'         => $participation->eventId,
+				'session_id'       => $session->id,
+				'participation_id' => $participationId,
+				'registration_id'  => $registration->id,
+				'actor'            => $actorUserId,
+			)
+		);
 
 		return PageRoutes::ExamEntry->url() . '?k=' . $plain;
 	}
@@ -165,7 +186,7 @@ class ExamConductService {
 		$participation = $this->resultLinkParticipation( $actorUserId, $participationId );
 		$attempt       = null !== $participation->currentAttemptId ? $this->attempts->find( $participation->currentAttemptId ) : null;
 		if ( null === $attempt || AttemptStatus::InProgress === $attempt->status ) {
-			throw new CodedException( ErrorCode::ExamConflict, 'Ссылку результата можно выдать после сдачи работы.' );
+			throw new CodedException( ErrorCode::ExamState, 'Ссылку результата можно выдать после сдачи работы.' );
 		}
 
 		$event   = $this->events->find( $participation->eventId );
@@ -173,6 +194,7 @@ class ExamConductService {
 		$plain   = $this->tokens->issue( ExamTokenPurpose::Result, $participationId, $actorUserId, $expires );
 
 		$this->logEvents->dispatch( LogEvent::ExamGuestLinkIssued, new EntityChangedEvent( $actorUserId, OperationType::Update, EntityType::ExamParticipation, $participationId, 'ссылка результата' ) );
+		ExamLogAction::ResultLinkIssued->record( array( 'event_id' => $participation->eventId, 'participation_id' => $participationId, 'attempt_id' => $attempt->id, 'actor' => $actorUserId ) );
 
 		return PageRoutes::ExamResult->url() . '?k=' . $plain;
 	}
@@ -183,10 +205,11 @@ class ExamConductService {
 	 * @throws CodedException Нет права поделиться результатом или гостевое участие недоступно.
 	 */
 	public function revokeResultLink( int $actorUserId, int $participationId ): void {
-		$this->resultLinkParticipation( $actorUserId, $participationId );
+		$participation = $this->resultLinkParticipation( $actorUserId, $participationId );
 		$this->tokens->revoke( ExamTokenPurpose::Result, $participationId );
 
 		$this->logEvents->dispatch( LogEvent::ExamGuestLinkRevoked, new EntityChangedEvent( $actorUserId, OperationType::Update, EntityType::ExamParticipation, $participationId, 'ссылка результата' ) );
+		ExamLogAction::ResultLinkRevoked->record( array( 'event_id' => $participation->eventId, 'participation_id' => $participationId, 'actor' => $actorUserId ) );
 	}
 
 	/**
@@ -214,15 +237,17 @@ class ExamConductService {
 	 */
 	public function markLinkPassed( int $actorUserId, int $participationId, ExamTokenPurpose $purpose ): void {
 		if ( ! in_array( $purpose, array( ExamTokenPurpose::Entry, ExamTokenPurpose::Result ), true ) ) {
-			throw new CodedException( ErrorCode::ExamConflict, 'Эту ссылку отметить нельзя.' );
+			throw new CodedException( ErrorCode::ExamState, 'Эту ссылку отметить нельзя.' );
 		}
-		$this->guestParticipationFor( $actorUserId, $participationId );
+		$participation = $this->guestParticipationFor( $actorUserId, $participationId );
 
 		$token = $this->tokens->activeToken( $purpose, $participationId );
 		if ( null === $token ) {
-			throw new CodedException( ErrorCode::ExamConflict, 'Сначала выдайте ссылку.' );
+			throw new CodedException( ErrorCode::ExamState, 'Сначала выдайте ссылку.' );
 		}
 		$this->tokens->markPassed( $token->id, $actorUserId );
+
+		ExamLogAction::LinkMarkedPassed->record( array( 'event_id' => $participation->eventId, 'participation_id' => $participationId, 'actor' => $actorUserId, 'context' => array( 'purpose' => $purpose->value ) ) );
 	}
 
 	/**
@@ -265,13 +290,24 @@ class ExamConductService {
 			throw new CodedException( ErrorCode::ExamAccess, 'Запись не найдена.' );
 		}
 		if ( 1 !== $registration->activeSlot ) {
-			throw new CodedException( ErrorCode::ExamConflict, 'Запись не действует.' );
+			throw new CodedException( ErrorCode::ExamState, 'Запись не действует.' );
 		}
 
 		$this->registrations->setArrival(
 			$registrationId,
 			$arrived ? $this->time->nowUtc() : null,
 			$arrived ? $actorUserId : null
+		);
+
+		ExamLogAction::Arrival->record(
+			array(
+				'event_id'         => $event->id,
+				'session_id'       => $registration->sessionId,
+				'registration_id'  => $registrationId,
+				'participation_id' => $participation->id,
+				'actor'            => $actorUserId,
+				'context'          => array( 'arrived' => $arrived ),
+			)
 		);
 	}
 

@@ -115,7 +115,7 @@ export const debounce = debounceUtil;
  *
  * @returns {Promise<boolean>} true — ответ записан в БД
  */
-export async function saveAnswer( vars, attemptId, taskId, answerText, statusEl ) {
+export async function saveAnswer( vars, attemptId, taskId, answerText, statusEl, onFail = null ) {
 	if ( ! vars ) { return false; }
 	if ( statusEl ) { statusEl.textContent = 'Сохраняется…'; }
 	try {
@@ -128,9 +128,11 @@ export async function saveAnswer( vars, attemptId, taskId, answerText, statusEl 
 		const res = await fetch( vars.ajax_url, { method: 'POST', body: fd } );
 		const json = await res.json();
 		if ( statusEl ) { statusEl.textContent = json.success ? '✓' : ( json.data || 'Ошибка' ); }
+		if ( ! json.success && onFail ) { onFail( json.data && json.data.code ? String( json.data.code ) : 'rejected' ); }
 		return true === json.success;
 	} catch ( e ) {
 		if ( statusEl ) { statusEl.textContent = 'Сетевая ошибка'; }
+		if ( onFail ) { onFail( 'network' ); }
 		return false;
 	}
 }

@@ -58,6 +58,7 @@
 .prof-dash-hello { margin-bottom: rem(20); }
 .prof-dash-hello h1 { font-size: rem(24); font-weight: 700; letter-spacing: -.02em; }
 .prof-dash-hello p { color: var(--muted); font-size: rem(14); margin-top: rem(3); }
+.prof-dash-hello .prof-child-pick { margin-top: rem(10); }
 
 .prof-stat-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(rem(260), 1fr)); gap: rem(18); margin-bottom: rem(18); }
 .prof-stat-tiles--attendance { grid-template-columns: repeat(3, minmax(0, 1fr)); }

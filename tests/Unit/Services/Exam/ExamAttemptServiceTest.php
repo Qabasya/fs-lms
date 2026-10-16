@@ -435,7 +435,7 @@ class ExamAttemptServiceTest extends TestCase {
 			$this->service->start( $this->ctx() );
 			self::fail( 'Пока идёт другая работа, второй старт закрыт.' );
 		} catch ( CodedException $e ) {
-			self::assertSame( ErrorCode::ExamConflict, $e->errorCode );
+			self::assertSame( ErrorCode::ExamState, $e->errorCode );
 		}
 	}
 
@@ -626,9 +626,9 @@ class ExamAttemptServiceTest extends TestCase {
 		$this->arrangeExtend( 'in_progress', false );
 
 		foreach ( array(
-			array( 10, '', 'X-CONFLICT' ),           // причина обязательна
-			array( 0, 'причина', 'X-CONFLICT' ),     // минимум 1 минута
-			array( 121, 'причина', 'X-CONFLICT' ),   // максимум 120 минут
+			array( 10, '', 'X-INPUT' ),              // причина обязательна
+			array( 0, 'причина', 'X-INPUT' ),     // минимум 1 минута
+			array( 121, 'причина', 'X-INPUT' ),   // максимум 120 минут
 			array( 10, 'причина', 'X-ACCESS' ),      // нет права на предмет проведения
 		) as [ $minutes, $reason, $code ] ) {
 			try {

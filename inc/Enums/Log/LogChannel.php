@@ -28,6 +28,7 @@ enum LogChannel: string {
 	case Errors          = 'errors';
 	case LearningEvents  = 'learning_events';
 	case ContentReports  = 'content_reports';
+	case Exams           = 'exams';
 
 	/** Короткая метка канала — заголовок вкладки на странице «Журналы». */
 	public function label(): string {
@@ -43,6 +44,7 @@ enum LogChannel: string {
 			self::Errors          => 'Ошибки',
 			self::LearningEvents  => 'События обучения',
 			self::ContentReports  => 'Найденные ошибки',
+			self::Exams           => 'Экзамены',
 		};
 	}
 
@@ -60,6 +62,7 @@ enum LogChannel: string {
 			self::Errors          => TableName::ErrorLog,
 			self::LearningEvents  => TableName::LearningEvents,
 			self::ContentReports  => TableName::ContentReport,
+			self::Exams           => TableName::ExamLog,
 		};
 	}
 
@@ -90,6 +93,7 @@ enum LogChannel: string {
 			self::Auth            => array( 'id' => 'tab-8', 'partial' => 'logs-8-auth' ),
 			self::Errors          => array( 'id' => 'tab-9', 'partial' => 'logs-9-errors' ),
 			self::ContentReports  => array( 'id' => 'tab-10', 'partial' => 'logs-10-content-reports' ),
+			self::Exams           => array( 'id' => 'tab-11', 'partial' => 'logs-11-exams' ),
 			self::LearningEvents  => array( 'id' => '', 'partial' => '' ),
 		};
 	}

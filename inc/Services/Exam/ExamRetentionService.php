@@ -145,7 +145,7 @@ class ExamRetentionService {
 	public function anonymizeByStaff( int $actorUserId, int $participantId, string $reason ): void {
 		$reason = trim( $reason );
 		if ( '' === $reason ) {
-			throw new CodedException( ErrorCode::ExamConflict, 'Укажите причину.' );
+			throw new CodedException( ErrorCode::ExamInput, 'Укажите причину.' );
 		}
 
 		$participant = $this->participants->find( $participantId );
@@ -160,7 +160,7 @@ class ExamRetentionService {
 		}
 
 		if ( ! $this->anonymizeParticipant( $participantId, $reason, $actorUserId ) ) {
-			throw new CodedException( ErrorCode::ExamConflict, 'Данные гостя уже обезличены.' );
+			throw new CodedException( ErrorCode::ExamState, 'Данные гостя уже обезличены.' );
 		}
 	}
 

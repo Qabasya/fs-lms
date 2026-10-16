@@ -207,6 +207,14 @@ abstract class AbstractLogRepository {
 			return;
 		}
 
+		if ( LogFilterType::Like === $type ) {
+			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			$conditions[] = "$column LIKE %s";
+			$bindings[]   = '%' . $this->wpdb->esc_like( (string) $value ) . '%';
+
+			return;
+		}
+
 		if ( LogFilterType::Number === $type ) {
 			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 			$conditions[] = "$column = %d";
