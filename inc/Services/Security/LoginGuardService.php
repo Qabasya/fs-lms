@@ -28,6 +28,11 @@ use WP_User;
  * после проверки пароля ядром (приоритет 20), но его результат затирается: бот не
  * узнаёт, подошёл ли пароль, пока вход закрыт или капча не пройдена.
  *
+ * ### Доверенный IP:
+ *
+ * С адреса из `FS_LMS_TRUSTED_IPS` (сеть школы: за ним много учеников) вход не блокируется и неудачи
+ * не копятся; капча остаётся.
+ *
  * ### Что не считается неудачей:
  *
  * - отказ по блокировке — иначе каждая попытка продлевала бы окно;
@@ -64,7 +69,7 @@ readonly class LoginGuardService {
 
 		$userKey = $this->userKey( $login );
 
-		if ( $this->rateLimit->isLoginLocked( $ip, $userKey ) ) {
+		if ( ! $this->pluginConfig->isTrustedIp( $ip ) && $this->rateLimit->isLoginLocked( $ip, $userKey ) ) {
 			$wait = $this->rateLimit->loginRetryAfter( $ip, $userKey );
 			return new WP_Error( self::CODE_LOCKED, LoginNotice::Locked->message( $wait ) );
 		}
@@ -90,7 +95,7 @@ readonly class LoginGuardService {
 	 * @return void
 	 */
 	public function onFailure( string $login, ?WP_Error $error, string $ip ): void {
-		if ( '' === trim( $login ) || $this->isGuardRejection( $error ) ) {
+		if ( '' === trim( $login ) || $this->isGuardRejection( $error ) || $this->pluginConfig->isTrustedIp( $ip ) ) {
 			return;
 		}
 
@@ -125,7 +130,7 @@ readonly class LoginGuardService {
 			return new LoginNoticeDTO( LoginNotice::Captcha );
 		}
 
-		if ( '' === trim( $login ) ) {
+		if ( '' === trim( $login ) || $this->pluginConfig->isTrustedIp( $ip ) ) {
 			return new LoginNoticeDTO( LoginNotice::Failed );
 		}
 

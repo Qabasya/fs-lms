@@ -42,9 +42,11 @@ class LoginGuardServiceTest extends TestCase {
 		bool $testEnv = false,
 		array $logins = array(),
 		array $emails = array(),
+		bool $trusted = false,
 	): LoginGuardService {
 		$config = $this->createStub( PluginConfig::class );
 		$config->method( 'isTestEnv' )->willReturn( $testEnv );
+		$config->method( 'isTrustedIp' )->willReturn( $trusted );
 
 		$this->rateLimit = new RateLimitService( $config );
 
@@ -75,6 +77,17 @@ class LoginGuardServiceTest extends TestCase {
 
 		self::assertInstanceOf( WP_Error::class, $result );
 		self::assertSame( LoginGuardService::CODE_LOCKED, $result->get_error_code() );
+	}
+
+	public function test_trusted_ip_is_never_locked(): void {
+		$service = $this->makeService( logins: array( 'ivan' => $this->user( 5 ) ), trusted: true );
+		$this->failTimes( $service, 'ivan', 5 );
+
+		$result = $service->guard( $this->user( 5 ), 'ivan', '', self::IP, true );
+
+		self::assertInstanceOf( WP_User::class, $result );
+		self::assertSame( 3, $this->rateLimit->loginAttemptsLeft( self::IP, $service->userKey( 'ivan' ) ) );
+		self::assertSame( LoginNotice::Failed, $service->noticeFor( 'ivan', new WP_Error( 'incorrect_password', 'x' ), self::IP )->notice );
 	}
 
 	public function test_guard_rejections_are_not_counted(): void {
