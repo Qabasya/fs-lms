@@ -17,7 +17,7 @@ import { renderExamResults } from './exams/exam-results.js';
 import { renderExamStats } from './exams/exam-stats.js';
 import { renderExamPayments } from './exams/exam-payments.js';
 import { renderExamReview, openExamReview } from './exams/exam-review.js';
-import { initNotifications } from './notifications.js';
+import { initNotifications, syncPinned } from './notifications.js';
 import { initSegmented } from './segmented.js';
 import { initLiveBanner } from './live-banner.js';
 import { renderTeacherCourses, openTeacherCourse } from './teacher-courses.js';
@@ -198,6 +198,7 @@ function go(screen) {
     closeMenuOnMobile();
     const act = document.querySelector(`.prof-screen[data-screen="${screen}"]`);
     if (act) act.scrollTop = 0;
+    syncPinned();
 }
 
 function setTopbar(screen, override) {

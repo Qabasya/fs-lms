@@ -180,13 +180,27 @@ function setPinned(items) {
     renderPinned();
 }
 
+/* Экраны, куда ведут плашки (экзамены, разбор работы): человек уже там — плашка не нужна. */
+const PIN_HIDDEN_SCREEN_RE = /(?:^|-)exams$|^(?:work|exam)-review$/;
+
+function pinHiddenOnScreen() {
+    const screen = document.querySelector('.prof-screen.active')?.dataset.screen || '';
+    return PIN_HIDDEN_SCREEN_RE.test(screen);
+}
+
+/** Перерисовывает плашку после смены экрана кабинета (вызывает навигация). */
+export function syncPinned() {
+    renderPinned();
+}
+
 /** Показывает одну плашку — самую свежую; после закрытия крестиком — следующую. */
 function renderPinned() {
     const box = document.getElementById('profPin');
     if (!box) { return; }
 
     const current = pinnedQueue[0];
-    if (!current) {
+    if (!current || pinHiddenOnScreen()) {
+        delete box.dataset.id;
         box.hidden = true;
         box.innerHTML = '';
         return;
