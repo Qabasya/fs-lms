@@ -48,7 +48,7 @@ class ExamConductCallbacksTest extends TestCase {
 		$this->onSite       = $this->createMock( \Inc\Services\Exam\GuestOnSiteService::class );
 		$this->retention    = $this->createMock( \Inc\Services\Exam\ExamRetentionService::class );
 		$this->board->method( 'sessionBoard' )->willReturn( array( 'session' => array( 'id' => 7 ), 'rows' => array() ) );
-		$this->cb = new ExamConductCallbacks( $this->conduct, $this->registration, $this->attempts, $this->approval, $this->exports, $this->onSite, $this->retention, $this->board );
+		$this->cb = new ExamConductCallbacks( $this->conduct, $this->registration, $this->attempts, $this->approval, $this->exports, $this->onSite, $this->retention, $this->createMock( \Inc\Services\Exam\ExamGuestDeletionService::class ), $this->board );
 	}
 
 	protected function tearDown(): void {

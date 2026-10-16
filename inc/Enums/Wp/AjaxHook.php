@@ -384,6 +384,7 @@ enum AjaxHook: string {
 	case RemoveExamReportMember         = 'remove_exam_report_member';          // params: report_id, participation_id, version
 	case IssueExamReportLink            = 'issue_exam_report_link';             // params: report_id; ответ: url (один раз, прежний ключ отзывается)
 	case RevokeExamReportLink           = 'revoke_exam_report_link';            // params: report_id, version
+	case DeleteExamGuest                = 'delete_exam_guest';                  // params: participant_id, session_id; права ManageExamGuests + ManageLmsPlatform; полное удаление тестовой заявки; ответ: board
 	case AnonymizeExamGuest             = 'anonymize_exam_guest';               // params: participant_id, reason, session_id; права ManageExamGuests + ManageLmsPlatform; ответ: board
 	case MarkExamLinkPassed             = 'mark_exam_link_passed';              // params: participation_id, purpose (entry|result), session_id; ответ: board
 	case GetExamPaymentQueue            = 'get_exam_payment_queue';             // params: tab (needs_help|resolved); ответ: items

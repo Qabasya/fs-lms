@@ -20,6 +20,7 @@ enum ExamConductAction: string {
 	case EntryLink        = 'entry_link';
 	case ResultLink       = 'result_link';
 	case Anonymize        = 'anonymize';
+	case DeleteGuest      = 'delete_guest';
 	case MarkEntryPassed  = 'mark_entry_passed';
 	case MarkResultPassed = 'mark_result_passed';
 	case RevokeResultLink = 'revoke_result_link';

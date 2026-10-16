@@ -17,6 +17,7 @@ use Inc\Enums\Wp\Nonce;
 use Inc\Services\Exam\ExamApprovalService;
 use Inc\Services\Exam\ExamAttemptService;
 use Inc\Services\Exam\ExamConductService;
+use Inc\Services\Exam\ExamGuestDeletionService;
 use Inc\Services\Exam\ExamConductViewService;
 use Inc\Services\Exam\ExamRegistrationService;
 use Inc\Services\Exam\GuestOnSiteService;
@@ -53,6 +54,7 @@ class ExamConductCallbacks extends BaseController {
 		private readonly ExportService $exports,
 		private readonly GuestOnSiteService $onSite,
 		private readonly ExamRetentionService $retention,
+		private readonly ExamGuestDeletionService $guestDeletion,
 		private readonly ExamConductViewService $board,
 	) {
 		parent::__construct();
@@ -345,6 +347,18 @@ class ExamConductCallbacks extends BaseController {
 		$reason        = $this->sanitizeText( 'reason' );
 
 		$this->runOnBoard( $sessionId, fn () => $this->retention->anonymizeByStaff( get_current_user_id(), $participantId, $reason ) );
+	}
+
+	/**
+	 * Полное удаление тестовой заявки гостя: те же обе проверки прав, что и у обезличивания. Ответ — обновлённая доска.
+	 */
+	public function ajaxDeleteExamGuest(): void {
+		$this->authorizeAll( Nonce::ExamManage, array( Capability::ManageExamGuests, Capability::ManageLmsPlatform ) );
+
+		$participantId = $this->requireInt( 'participant_id' );
+		$sessionId     = $this->requireInt( 'session_id' );
+
+		$this->runOnBoard( $sessionId, fn () => $this->guestDeletion->deleteByStaff( get_current_user_id(), $participantId ) );
 	}
 
 	/** «Ссылка передана»: ручная отметка (копирование её не ставит). Ответ — обновлённая доска. */

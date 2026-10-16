@@ -269,6 +269,7 @@ class ExamConductViewService {
 		// Удаление данных гостя по его запросу: ручное действие, доступно строке любого гостя, пока данные не обезличены.
 		if ( null !== $participation && ExamAudience::Guest->value === $participation->audience ) {
 			$actions[] = ExamConductAction::Anonymize->value;
+			$actions[] = ExamConductAction::DeleteGuest->value;
 		}
 
 		// Ссылка результата — гостю со сданной работой (выдача и перевыпуск); отзыв — когда ссылка уже выдана (флаг в строке).

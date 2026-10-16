@@ -34,6 +34,7 @@ const ACTION_LABELS = {
     result_link: 'Скопировать ссылку результата',
     revoke_result_link: 'Отозвать ссылку результата',
     anonymize: 'Удалить данные гостя',
+    delete_guest: 'Удалить заявку полностью (тест)',
     mark_entry_passed: 'Отметить: ссылка входа передана',
     mark_result_passed: 'Отметить: ссылка результата передана',
 };
@@ -440,7 +441,7 @@ function wire() {
     root.querySelectorAll('.exam-conduct-row [data-menu]').forEach(btn => btn.addEventListener('click', () => {
         const row = board.rows.find(r => r.registration_id === Number(btn.closest('.exam-conduct-row').dataset.reg));
         if (!row) { return; }
-        const items = row.actions.filter(a => 'anonymize' !== a || examConfig()?.canAnonymizeGuests).map(a => ({ v: a, label: actionLabel(a, row) }));
+        const items = row.actions.filter(a => !['anonymize', 'delete_guest'].includes(a) || examConfig()?.canAnonymizeGuests).map(a => ({ v: a, label: actionLabel(a, row) }));
         openCtxMenu(btn, items, v => runAction(v, row, btn));
     }));
 }
@@ -502,6 +503,12 @@ function runAction(action, row, anchor) {
             confirm: `Удалить данные гостя ${row.name}? ФИО и контакты будут стёрты, ссылки перестанут работать. Отменить нельзя.`,
             run: reason => act('anonymizeGuest', { participant_id: row.participant_id, reason }, 'Данные гостя удалены'),
         }); break;
+        case 'delete_guest':
+            confirmDialog(
+                `Удалить гостя ${row.name} полностью? Заявка, запись, ключи и строки журнала будут стёрты без следа (для тестовых заявок). Если гость уже начинал работу, оплачивал или есть в отчёте школы — удаление будет отклонено.`,
+                'Удалить', 'Не удалять'
+            ).then(ok => { if (ok) { act('deleteGuest', { participant_id: row.participant_id }, 'Заявка удалена'); } });
+            break;
         case 'mark_entry_passed': act('markLinkPassed', { participation_id: row.participation_id, purpose: 'entry' }, 'Отмечено'); break;
         case 'mark_result_passed': act('markLinkPassed', { participation_id: row.participation_id, purpose: 'result' }, 'Отмечено'); break;
         case 'revoke_result_link': act('revokeResultLink', { participation_id: row.participation_id }, 'Ссылка результата отозвана'); break;

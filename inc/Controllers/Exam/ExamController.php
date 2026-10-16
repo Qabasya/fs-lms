@@ -85,6 +85,7 @@ class ExamController extends AjaxController {
 			array( AjaxHook::IssueExamReportLink, $this->reportCallbacks ),
 			array( AjaxHook::RevokeExamReportLink, $this->reportCallbacks ),
 			array( AjaxHook::AnonymizeExamGuest, $this->conduct ),
+			array( AjaxHook::DeleteExamGuest, $this->conduct ),
 			array( AjaxHook::IssueExamResultLink, $this->conduct ),
 			array( AjaxHook::RevokeExamResultLink, $this->conduct ),
 			array( AjaxHook::ApproveExamAttempts, $this->conduct ),
