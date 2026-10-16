@@ -346,7 +346,7 @@ class ExamSourceServiceTest extends TestCase {
 
 	public function test_delete_removes_source_with_revoked_link(): void {
 		$this->lockedOverride = array( 'key_revoked_at' => '2026-03-01 06:00:00' );
-		$this->sources->method( 'isReferenced' )->willReturn( false );
+		$this->sources->method( 'hasLiveReferences' )->willReturn( false );
 		$this->tokens->method( 'hasActive' )->willReturn( false );
 		$this->sources->expects( self::once() )->method( 'delete' )->with( self::SOURCE );
 
@@ -354,7 +354,7 @@ class ExamSourceServiceTest extends TestCase {
 	}
 
 	public function test_delete_is_refused_without_explicit_revoke(): void {
-		$this->sources->method( 'isReferenced' )->willReturn( false );
+		$this->sources->method( 'hasLiveReferences' )->willReturn( false );
 		$this->tokens->method( 'hasActive' )->willReturn( true );
 		$this->sources->expects( self::never() )->method( 'delete' );
 
@@ -362,9 +362,9 @@ class ExamSourceServiceTest extends TestCase {
 		$this->service->deleteSource( self::ACTOR, self::SOURCE );
 	}
 
-	public function test_delete_is_refused_when_source_has_applications_or_records(): void {
+	public function test_delete_is_refused_when_source_has_live_applications_or_records(): void {
 		$this->lockedOverride = array( 'key_revoked_at' => '2026-03-01 06:00:00' );
-		$this->sources->method( 'isReferenced' )->willReturn( true );
+		$this->sources->method( 'hasLiveReferences' )->willReturn( true );
 		$this->sources->expects( self::never() )->method( 'delete' );
 
 		$this->expectException( \Inc\Shared\CodedException::class );

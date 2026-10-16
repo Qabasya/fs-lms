@@ -139,6 +139,11 @@
   background: var(--err);
   border-color: var(--err);
   color: var(--ink-inverse);
+
+  &:hover {
+    background: var(--err-hover);
+    border-color: var(--err-hover);
+  }
 }
 
 @mixin cab-btn-ghost {

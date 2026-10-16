@@ -5,6 +5,7 @@ declare( strict_types=1 );
 namespace Inc\Repositories\WPDBRepositories;
 
 use Inc\DTO\Exam\ExamSourceDTO;
+use Inc\Enums\Exam\GuestApplicationState;
 use Inc\Enums\Settings\TableName;
 
 /** Источники гостевой записи (школы, классы) проведения: к источнику привязаны ключ-приглашение и заявки гостей. */
@@ -81,24 +82,28 @@ class ExamSourceRepository extends AbstractExamRepository {
 		return $this->readInt( $this->wpdb->prepare( 'SELECT key_generation FROM %i WHERE id = %d', $this->table, $id ) );
 	}
 
-	/** Удаляет источник. Вызывать после {@see isReferenced()} и отзыва ключа. */
+	/** Удаляет источник. Вызывать после {@see hasLiveReferences()} и отзыва ключа. */
 	public function delete( int $id ): void {
 		$this->write( $this->wpdb->prepare( 'DELETE FROM %i WHERE id = %d', $this->table, $id ) );
 	}
 
-	/** На источник ссылаются заявки гостей, участия, сессии гостей или школьные отчёты. */
-	public function isReferenced( int $id ): bool {
+	/**
+	 * На источник опираются действующие данные: открытые заявки гостей (бронь, ожидание оплаты, ручной разбор оплаты),
+	 * участия с действующей записью или школьные отчёты. Отменённые, истёкшие и завершённые заявки и записи не считаются.
+	 */
+	public function hasLiveReferences( int $id ): bool {
 		return $this->readInt(
 			$this->wpdb->prepare(
-				'SELECT ( SELECT COUNT(*) FROM %i WHERE source_id = %d )
-					+ ( SELECT COUNT(*) FROM %i WHERE source_id = %d )
-					+ ( SELECT COUNT(*) FROM %i WHERE source_id = %d )
+				'SELECT ( SELECT COUNT(*) FROM %i WHERE source_id = %d AND ( state IN ( %s, %s, %s, %s ) ) )
+					+ ( SELECT COUNT(*) FROM %i WHERE source_id = %d AND active_registration_id IS NOT NULL )
 					+ ( SELECT COUNT(*) FROM %i WHERE recipient_source_id = %d )',
 				TableName::ExamGuestApplications->prefixed(),
 				$id,
+				GuestApplicationState::Hold->value,
+				GuestApplicationState::AwaitingPayment->value,
+				GuestApplicationState::PaymentPending->value,
+				GuestApplicationState::PaidNeedsResolution->value,
 				TableName::ExamParticipations->prefixed(),
-				$id,
-				TableName::ExamGuestSessions->prefixed(),
 				$id,
 				TableName::ExamReports->prefixed(),
 				$id

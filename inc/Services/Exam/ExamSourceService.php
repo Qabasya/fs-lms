@@ -306,7 +306,7 @@ class ExamSourceService {
 
 	/**
 	 * Удаляет источник, чья ссылка явно отозвана ({@see revokeLink()}); с действующей или ни разу не выданной ссылкой — отказ.
-	 * Источник, на который уже есть заявки, записи, сессии гостей или школьные отчёты, не удаляется: на него ссылаются эти данные.
+	 * Источник с действующими данными (открытая заявка, действующая запись, школьный отчёт) не удаляется; отменённые и истёкшие заявки и записи не мешают.
 	 *
 	 * @throws CodedException Источник недоступен или на него есть ссылки из заявок, записей или отчётов.
 	 */
@@ -316,8 +316,8 @@ class ExamSourceService {
 		$this->inTransactionWithRetry(
 			function () use ( $actorUserId, $sourceId, $eventId ): void {
 				$source = $this->lockSource( $sourceId, $eventId );
-				if ( $this->sources->isReferenced( $sourceId ) ) {
-					throw new CodedException( ErrorCode::ExamState, 'По этой ссылке уже есть заявки или записи, поэтому удалить её нельзя. Отзовите ссылку и отключите источник.' );
+				if ( $this->sources->hasLiveReferences( $sourceId ) ) {
+					throw new CodedException( ErrorCode::ExamState, 'По этой ссылке есть действующие заявки, записи или школьные отчёты, поэтому удалить её нельзя. Отмените записи или дождитесь окончания брони.' );
 				}
 				if ( null === $source->keyRevokedAt || $this->tokens->hasActive( ExamTokenPurpose::Invitation, $sourceId ) ) {
 					throw new CodedException( ErrorCode::ExamState, 'Сначала отзовите ссылку: удалить можно только отозванную.' );
