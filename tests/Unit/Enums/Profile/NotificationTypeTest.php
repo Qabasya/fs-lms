@@ -21,8 +21,8 @@ class NotificationTypeTest extends TestCase {
 		}
 	}
 
-	public function test_there_are_eighteen_exam_types(): void {
-		self::assertCount( 18, $this->examTypes() );
+	public function test_there_are_nineteen_exam_types(): void {
+		self::assertCount( 19, $this->examTypes() );
 	}
 
 	public function test_exam_titles_have_no_gendered_forms(): void {

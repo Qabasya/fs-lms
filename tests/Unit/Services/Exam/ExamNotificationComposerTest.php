@@ -190,9 +190,11 @@ class ExamNotificationComposerTest extends TestCase {
 	public function test_registration_confirmed_goes_to_student_and_guardians(): void {
 		$this->composer->handle( $this->row( ExamOutboxEvent::RegistrationConfirmed, 'registration', 20, 1, array( 'event_id' => 3, 'session_id' => 7, 'participation_id' => 5 ) ) );
 
-		$push = $this->lastPush();
+		$push = $this->pushed[0];
 		self::assertSame( NotificationType::ExamRegistrationConfirmed, $push['type'] );
 		self::assertSame( array( 100, 200 ), $push['users'] );
+		self::assertSame( NotificationType::ExamStaffRegistration, $this->pushed[1]['type'], 'Администратору — отдельное уведомление о каждой записи.' );
+		self::assertSame( 'exam:staff_registration:20:1', $this->pushed[1]['key'] );
 		self::assertSame( '12.03.2026', gmdate( 'd.m.Y', strtotime( '2026-03-12' ) ) );
 		self::assertSame( 'Пробный ЕГЭ', $push['payload']['event_title'] );
 		self::assertSame( '10:00', $push['payload']['time'] );
@@ -278,7 +280,7 @@ class ExamNotificationComposerTest extends TestCase {
 		$this->composer->handle( $row );
 		$this->composer->handle( $row );
 
-		self::assertSame( $this->pushed[0]['key'], $this->pushed[1]['key'] );
+		self::assertSame( $this->pushed[0]['key'], $this->pushed[2]['key'] );
 		self::assertSame( 'exam:registration_confirmed:20:1', $this->pushed[0]['key'] );
 		self::assertLessThanOrEqual( 120, strlen( $this->pushed[0]['key'] ) );
 	}

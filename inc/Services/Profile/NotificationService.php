@@ -480,6 +480,8 @@ readonly class NotificationService {
 
 			NotificationType::ExamSourceLimit => $this->examTitle( $p ) . ' · ' . (string) ( $p['source_label'] ?? '' ),
 
+			NotificationType::ExamStaffRegistration => sprintf( '%s · %s', (string) ( $p['participant_name'] ?? '' ), trim( $this->examTitle( $p ) . $this->examWhen( $p ) ) ),
+
 			NotificationType::AttemptReset => '' !== $topic
 				? "Можете решить «{$topic}» заново{$tail}"
 				: trim( "Можете пройти заново{$tail}" ),

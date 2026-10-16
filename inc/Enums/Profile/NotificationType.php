@@ -69,6 +69,7 @@ enum NotificationType: string {
 	case ExamPaymentNeedsHelp = 'exam_payment_needs_help';
 	case ExamReconcileFailed = 'exam_reconcile_failed';
 	case ExamSourceLimit = 'exam_source_limit';
+	case ExamStaffRegistration = 'exam_staff_registration';
 
 	/** Заголовок плитки уведомления. */
 	public function title(): string {
@@ -114,6 +115,7 @@ enum NotificationType: string {
 			self::ExamPaymentNeedsHelp => 'Оплачено, требуется помощь',
 			self::ExamReconcileFailed => 'Сбой сверки оплаты',
 			self::ExamSourceLimit => 'Превышен лимит заявок по ссылке',
+			self::ExamStaffRegistration => 'Новая запись на экзамен',
 		};
 	}
 
@@ -128,7 +130,7 @@ enum NotificationType: string {
 			self::JournalNotFilled, self::JournalOverdue, self::ReviewOverdue => 'warn',
 			self::DeadlineMissed, self::AttendanceMissed, self::AbsenceStreak,
 			self::HomeworkStreak, self::TeacherAbsent                      => 'err',
-			self::ExamRegistrationOpened, self::ExamRegistrationChanged, self::ExamTomorrow, self::ExamEntryOpened, self::ExamResultCorrected, self::ExamExtended => 'info',
+			self::ExamRegistrationOpened, self::ExamRegistrationChanged, self::ExamTomorrow, self::ExamEntryOpened, self::ExamResultCorrected, self::ExamExtended, self::ExamStaffRegistration => 'info',
 			self::ExamRegistrationConfirmed, self::ExamWorkAccepted, self::ExamApproved => 'ok',
 			self::ExamRegistrationCancelled, self::ExamSoon, self::ExamWorkSubmitted, self::ExamSessionMoved, self::ExamSourceLimit => 'warn',
 			self::ExamMissed, self::ExamSessionCancelled, self::ExamPaymentNeedsHelp, self::ExamReconcileFailed => 'err',

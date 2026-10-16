@@ -59,6 +59,95 @@ class ExamParticipantRepository extends AbstractExamRepository {
 	}
 
 	/** @param array<string, mixed>|null $row */
+	/**
+	 * Гости с их проведениями и сеансом: строка на участие (гость без участия — одна строка с пустыми полями проведения).
+	 * Сеанс — по действующей записи, а если её нет, по последней. Порядок и страницы — на вызывающем (ФИО зашифровано).
+	 *
+	 * @param array{event_id?: int, session_id?: int, school?: string} $filters Фильтры.
+	 * @return list<array<string, mixed>>
+	 */
+	public function listGuestRows( array $filters = array() ): array {
+		$where  = array( 'p.person_id IS NULL' );
+		$params = array();
+		if ( ! empty( $filters['event_id'] ) ) {
+			$where[]  = 'pn.event_id = %d';
+			$params[] = (int) $filters['event_id'];
+		}
+		if ( ! empty( $filters['session_id'] ) ) {
+			$where[]  = 's.id = %d';
+			$params[] = (int) $filters['session_id'];
+		}
+		if ( ! empty( $filters['school'] ) ) {
+			$where[]  = 'p.school_name = %s';
+			$params[] = (string) $filters['school'];
+		}
+
+		$sql = 'SELECT p.*, pn.id AS participation_id, pn.event_id, ev.title AS event_title, r.id AS registration_id, r.status AS registration_status,
+				s.id AS session_id, s.scheduled_at, s.planned_end_at, s.status AS session_status
+			FROM %i p
+			LEFT JOIN %i pn ON pn.participant_id = p.id
+			LEFT JOIN %i ev ON ev.id = pn.event_id
+			LEFT JOIN %i r ON r.id = COALESCE( pn.active_registration_id, ( SELECT MAX( r2.id ) FROM %i r2 WHERE r2.participation_id = pn.id ) )
+			LEFT JOIN %i s ON s.id = r.session_id
+			WHERE ' . implode( ' AND ', $where ) . '
+			ORDER BY p.created_at DESC, p.id DESC, pn.id DESC';
+
+		return $this->readRows(
+			$this->wpdb->prepare(
+				$sql,
+				array_merge(
+					array(
+						$this->table,
+						TableName::ExamParticipations->prefixed(),
+						TableName::ExamEvents->prefixed(),
+						TableName::ExamRegistrations->prefixed(),
+						TableName::ExamRegistrations->prefixed(),
+						TableName::ExamSessions->prefixed(),
+					),
+					$params
+				)
+			)
+		);
+	}
+
+	/**
+	 * Школы гостей — словарь фильтра.
+	 *
+	 * @return string[]
+	 */
+	public function guestSchools(): array {
+		$rows = $this->readRows(
+			$this->wpdb->prepare( 'SELECT DISTINCT school_name FROM %i WHERE person_id IS NULL AND school_name IS NOT NULL AND school_name <> %s ORDER BY school_name', $this->table, '' )
+		);
+
+		return array_map( static fn ( array $row ): string => (string) $row['school_name'], $rows );
+	}
+
+	/**
+	 * Проведения и сеансы, на которые записаны гости, — словарь фильтров.
+	 *
+	 * @return list<array<string, mixed>> event_id, event_title, session_id, scheduled_at
+	 */
+	public function guestSessionOptions(): array {
+		return $this->readRows(
+			$this->wpdb->prepare(
+				'SELECT DISTINCT ev.id AS event_id, ev.title AS event_title, s.id AS session_id, s.scheduled_at
+				FROM %i p
+				JOIN %i pn ON pn.participant_id = p.id
+				JOIN %i ev ON ev.id = pn.event_id
+				LEFT JOIN %i r ON r.participation_id = pn.id
+				LEFT JOIN %i s ON s.id = r.session_id
+				WHERE p.person_id IS NULL
+				ORDER BY ev.id DESC, s.scheduled_at',
+				$this->table,
+				TableName::ExamParticipations->prefixed(),
+				TableName::ExamEvents->prefixed(),
+				TableName::ExamRegistrations->prefixed(),
+				TableName::ExamSessions->prefixed()
+			)
+		);
+	}
+
 	private function hydrate( ?array $row ): ?ExamParticipantDTO {
 		return null !== $row ? ExamParticipantDTO::fromArray( $row ) : null;
 	}

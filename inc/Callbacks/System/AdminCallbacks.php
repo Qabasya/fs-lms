@@ -27,6 +27,7 @@ use Inc\Services\Print\PrintCenterService;
 use Inc\Enums\Print\PrintDocument;
 use Inc\Enums\Print\PrintField;
 use Inc\Enums\Settings\AvatarEntity;
+use Inc\Services\Exam\ExamGuestDirectoryService;
 use Inc\Services\Exam\ExamLaunchChecklist;
 use Inc\Services\Shared\AvatarService;
 use Inc\Managers\Woo\WooCommerceManager;
@@ -90,6 +91,7 @@ class AdminCallbacks extends BaseController {
 		private readonly WooCommerceManager $woo,
 		private readonly ExamLaunchChecklist $examChecklist,
 		private readonly AvatarService $avatars,
+		private readonly ExamGuestDirectoryService $examGuests,
 	) {
 		parent::__construct();
 	}
@@ -348,6 +350,7 @@ class AdminCallbacks extends BaseController {
 			array(
 				'subjects'         => $this->subjects->readAll(),
 				'academic_periods' => $this->periods->readAll(),
+				'exam_guests'      => $this->examGuests,
 			)
 		);
 	}

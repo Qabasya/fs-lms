@@ -31,6 +31,10 @@ $tabs = array(
 		'title' => 'Лиды с форм',
 		'file'  => '/components/tabs/userlist-tabs/userlist-6-leads.php',
 	),
+	'tab-7' => array(
+		'title' => 'Гости экзамена',
+		'file'  => '/components/tabs/userlist-tabs/userlist-7-exam-guests.php',
+	),
 );
 ?>
 

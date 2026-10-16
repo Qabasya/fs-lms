@@ -58,6 +58,7 @@ const TYPE_ICON = {
     exam_session_moved:          icoCalendarBoard,
     exam_session_cancelled:      icoAlert,
     exam_payment_needs_help:     icoAlert,
+    exam_staff_registration:     icoUsers,
     exam_reconcile_failed:       icoAlert,
     exam_source_limit:           icoAlert,
 };

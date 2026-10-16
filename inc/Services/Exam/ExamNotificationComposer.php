@@ -201,6 +201,33 @@ class ExamNotificationComposer {
 		$registration = $this->registrations->find( $row->aggregateId );
 		$session      = $this->sessions->find( (int) ( $p['session_id'] ?? 0 ) );
 		$this->toStudent( NotificationType::ExamRegistrationConfirmed, $row, 'registration_confirmed', (int) ( $p['participation_id'] ?? $registration->participationId ?? 0 ), $session );
+		$this->staffRegistration( $row, (int) ( $p['participation_id'] ?? $registration->participationId ?? 0 ), $session );
+	}
+
+	/**
+	 * Сообщает администраторам платформы о каждой новой записи (ученика или гостя).
+	 *
+	 * Ключ дедупликации — запись и версия, повторная обработка строки outbox ничего не вставляет.
+	 */
+	private function staffRegistration( ExamOutboxEventDTO $row, int $participationId, ?ExamSessionDTO $session ): void {
+		$participation = $this->participations->find( $participationId );
+		$event         = null !== $participation ? $this->events->find( $participation->eventId ) : null;
+		$participant   = null !== $participation ? $this->participants->find( $participation->participantId ) : null;
+		if ( null === $participation || null === $event || null === $participant ) {
+			return;
+		}
+
+		$payload = null !== $session ? $this->sessionPayload( $session, $event ) : array( 'event_title' => $event->title );
+		$this->notifications->push(
+			$this->paymentRecipients(),
+			NotificationType::ExamStaffRegistration,
+			sprintf( 'exam:staff_registration:%d:%d', $row->aggregateId, $row->aggregateVersion ),
+			array( 'participant_name' => $this->names->participantName( $participant ) ) + $payload,
+			$this->staffUrl( 'exam-plan' ),
+			null,
+			'exam_event',
+			$event->id
+		);
 	}
 
 	/**
