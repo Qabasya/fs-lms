@@ -15,7 +15,7 @@ use Inc\Shared\Traits\Sanitizer;
 /**
  * Class AdSyncSettingsController
  *
- * Admin-настройки модуля AdSync: рендер своей секции в табе «Конфигурация» через
+ * Admin-настройки модуля AdSync: отдельная вкладка через
  * generic-хук ядра `fs_lms_config_sections` (ядро о модуле не знает), AJAX-сохранение,
  * регистрация в Dashboard через `fs_lms_dashboard_modules`,
  * и собственный admin-JS (модуль self-contained, не лезет в core-бандл).
@@ -35,6 +35,7 @@ class AdSyncSettingsController extends BaseController {
 	public const CHECK_ACTION = 'fs_lms_ad_sync_check';
 	public const FLUSH_ACTION = 'fs_lms_ad_sync_flush';
 	public const RETRY_ACTION = 'fs_lms_ad_sync_retry_dead';
+	public const SYNC_ACTION = 'fs_lms_ad_sync_full_sync';
 
 	public function __construct(
 		private readonly AdSyncSettingsCallbacks    $callbacks,
@@ -51,7 +52,9 @@ class AdSyncSettingsController extends BaseController {
 		add_action( 'wp_ajax_' . self::CHECK_ACTION, array( $this->callbacks, 'ajaxCheckConnection' ) );
 		add_action( 'wp_ajax_' . self::FLUSH_ACTION, array( $this->callbacks, 'ajaxDeliverNow' ) );
 		add_action( 'wp_ajax_' . self::RETRY_ACTION, array( $this->callbacks, 'ajaxRetryDead' ) );
-		add_action( 'fs_lms_config_sections', array( $this, 'renderSection' ) );
+		add_action( 'wp_ajax_' . self::SYNC_ACTION, array( $this->callbacks, 'ajaxFullSync' ) );
+		add_filter( 'fs_lms_settings_tabs', array( $this, 'registerSettingsTab' ) );
+		add_action( 'fs_lms_adsync_settings', array( $this, 'renderSection' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueueAssets' ) );
 		add_filter( 'fs_lms_dashboard_modules', array( $this, 'registerDashboardModule' ) );
 		add_action( 'fs_lms_module_toggle_ad_sync', array( $this, 'onToggle' ) );
@@ -63,6 +66,13 @@ class AdSyncSettingsController extends BaseController {
 	 *
 	 * @param array $subjects Список предметов (из шаблона таба конфигурации).
 	 */
+	public function registerSettingsTab( array $tabs ): array {
+		if ( $this->config->isEnabled() ) {
+			$tabs['tab-adsync'] = array( 'title' => 'AdSync', 'path' => $this->path( 'inc/Modules/AdSync/templates/settings-tab.php' ) );
+		}
+		return $tabs;
+	}
+
 	public function renderSection( array $subjects = array() ): void {
 		if ( ! $this->config->isEnabled() ) {
 			return;
@@ -85,7 +95,7 @@ class AdSyncSettingsController extends BaseController {
 		$modules[] = array(
 			'id'           => 'ad_sync',
 			'title'        => 'Синхронизация с доменом (AD)',
-			'description'  => 'Создание учётных записей в Active Directory по заявкам. Сайт сам отправляет задания серверу в офисе (push). При отключении исчезает секция «Синхронизация с доменом» в Конфигурации.',
+			'description'  => 'Создание учётных записей в Active Directory по заявкам. Сайт сам отправляет задания серверу в офисе (push). При отключении исчезает секция «Синхронизация с доменом» во вкладке «AdSync» настроек.',
 			'enabled'      => $this->config->isEnabled(),
 			'const_locked' => $const_defined,
 			'const_key'    => 'FS_LMS_AD_SYNC',
@@ -129,6 +139,7 @@ class AdSyncSettingsController extends BaseController {
 				'check' => self::CHECK_ACTION,
 				'flush' => self::FLUSH_ACTION,
 				'retry' => self::RETRY_ACTION,
+				'sync' => self::SYNC_ACTION,
 			),
 			'nonce'   => Nonce::Config->create(),
 		) );

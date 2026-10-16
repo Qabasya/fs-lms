@@ -7,7 +7,7 @@ const $ = jQuery;
 export const ConfigSettings = {
 
 	init() {
-		if ( ! $( '#tab-config' ).length ) {
+		if ( ! $( '#tab-config, #tab-exams, .js-copy-key' ).length ) {
 			return;
 		}
 		this.bindEvents();
@@ -50,14 +50,18 @@ export const ConfigSettings = {
 		$form.find( '.js-config-status' ).text( '' ).removeClass( 'fs-config-status--ok fs-config-status--err' );
 		$btn.prop( 'disabled', true );
 
-		$.post( fs_lms_vars.ajaxurl, {
-			action:        fs_lms_vars.ajax_actions.saveConfig,
-			security:      fs_lms_vars.nonces.config,
-			otp_bypass_code: $form.find( '[name=otp_bypass_code]' ).val(),
-			test_env:      $form.find( '[name=test_env]' ).is( ':checked' ) ? 1 : 0,
-			consultation_url: $form.find( '[name=consultation_url]' ).val() || '',
+		const payload = {
+			action: fs_lms_vars.ajax_actions.saveConfig,
+			security: fs_lms_vars.nonces.config,
 			...this.examFields( $form ),
-		} )
+		};
+		[ 'otp_bypass_code', 'test_env', 'consultation_url' ].forEach( ( name ) => {
+			const $field = $form.find( '[name="' + name + '"]' );
+			if ( $field.length && ! $field.is( ':disabled' ) ) {
+				payload[ name ] = $field.is( ':checkbox' ) ? ( $field.is( ':checked' ) ? 1 : 0 ) : $field.val();
+			}
+		} );
+		$.post( fs_lms_vars.ajaxurl, payload )
 			.done( ( res ) => {
 				if ( res.success ) {
 					$status.text( 'Сохранено.' ).addClass( 'fs-config-status--ok' );

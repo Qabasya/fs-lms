@@ -10,8 +10,9 @@ namespace Inc\Modules\AdSync\Enums;
  * @package Inc\Modules\AdSync\Enums
  */
 enum AdOutboxStatus: string {
-	case Pending = 'pending';
-	case Sent    = 'sent';
-	case Failed  = 'failed';
-	case Dead    = 'dead';
+	case Pending   = 'pending';
+	case Sent      = 'sent';
+	case Failed    = 'failed';
+	case Dead      = 'dead';
+	case Cancelled = 'cancelled';
 }

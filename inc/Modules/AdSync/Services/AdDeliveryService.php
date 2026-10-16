@@ -4,7 +4,9 @@ declare( strict_types=1 );
 
 namespace Inc\Modules\AdSync\Services;
 
+use Inc\Modules\AdSync\Config\AdSyncConfig;
 use Inc\Modules\AdSync\DTO\AdServerResponseDTO;
+use Inc\Modules\AdSync\Enums\AdOutboxStatus;
 use Inc\Modules\AdSync\Repositories\AdOutboxRepository;
 use Inc\Modules\AdSync\Repositories\AdSyncStateRepository;
 
@@ -52,6 +54,7 @@ class AdDeliveryService {
 		private readonly AdServerClient        $client,
 		private readonly AdSyncStateRepository $state,
 		private readonly AdAuditLogger         $audit,
+		private readonly AdSyncConfig $config,
 	) {}
 
 	/**
@@ -60,10 +63,42 @@ class AdDeliveryService {
 	 * @param int  $limit Сколько заданий за проход
 	 * @param bool $force Игнорировать паузу простоя (ручной прогон, WP-CLI)
 	 *
-	 * @return array{sent: int, failed: int, dead: int, skipped: string} `skipped` — почему не отправляли
+	 * @return array{sent: int, failed: int, dead: int, skipped: string, cancelled: int} `skipped` — почему не отправляли
 	 */
 	public function deliverPending( int $limit = 20, bool $force = false ): array {
-		$report = array( 'sent' => 0, 'failed' => 0, 'dead' => 0, 'skipped' => '' );
+		return $this->deliverBatch( fn(): array => $this->outbox->listPending( $limit ), $force );
+	}
+
+	/** Возвращает исправимые мёртвые задания; удалённые источники сначала отменяются. */
+	public function retryDead(): array {
+		if ( ! $this->state->acquireLock() ) {
+			throw new \RuntimeException( 'Доставка AD уже выполняется. Повторите действие через несколько секунд.' );
+		}
+		try {
+			$cancelled = $this->provisioning->cancelObsoleteJobs();
+			return array( 'retried' => $this->outbox->retryDead(), 'cancelled' => $cancelled );
+		} finally {
+			$this->state->releaseLock();
+		}
+	}
+
+	/** Отправляет не более трёх заданий ручного прогона, не затрагивая остальную очередь. */
+	public function deliverSelected( array $ids ): array {
+		return $this->deliverBatch( function () use ( $ids ): array {
+			$items = array();
+			foreach ( array_slice( array_unique( $ids ), 0, 3 ) as $id ) {
+				$item = $this->outbox->find( (int) $id );
+				if ( null !== $item && in_array( $item->status, array( AdOutboxStatus::Pending->value, AdOutboxStatus::Failed->value ), true ) ) {
+					$items[] = $item;
+				}
+			}
+			return $items;
+		}, true );
+	}
+
+	/** Единая доставка под блокировкой, включая повторное чтение статусов заданий. */
+	private function deliverBatch( callable $items, bool $force ): array {
+		$report = array( 'sent' => 0, 'failed' => 0, 'dead' => 0, 'skipped' => '', 'cancelled' => 0 );
 
 		$notReady = $this->client->notReadyReason();
 		if ( '' !== $notReady ) {
@@ -80,16 +115,33 @@ class AdDeliveryService {
 		}
 
 		try {
-			foreach ( $this->outbox->listPending( $limit ) as $item ) {
-				$payload = $this->provisioning->payloadFor( $item );
+			$this->outbox->cancelForUsernames( $this->config->excludedUsernames() );
+			$report['cancelled'] = $this->provisioning->cancelObsoleteJobs();
+			foreach ( $items() as $item ) {
+				$excluded = $this->config->isExcluded( (string) $item->target );
+				if ( ( $excluded && ! $item->isExclusionDeletion() ) || ( ! $excluded && $item->isExclusionDeletion() ) ) {
+					$this->outbox->markCancelled( $item->id );
+					continue;
+				}
+				$prepared = $this->provisioning->prepareJob( $item );
+				if ( $prepared->obsolete ) {
+					$this->outbox->markCancelled( $item->id, (string) $prepared->error );
+					++$report['cancelled'];
+					continue;
+				}
+				$payload = $prepared->payload;
 				if ( null === $payload ) {
-					$error = 'Нет данных для задания: заявка или ученик удалены, нет учётных данных или сохранённого пароля.';
+					$error = (string) $prepared->error;
 					$this->outbox->markDead( $item->id, $error );
 					$this->audit->dead( $item, $error );
 					++$report['dead'];
 					continue;
 				}
 
+				if ( ! $item->isExclusionDeletion() && $this->config->isExcluded( (string) ( $payload['username'] ?? '' ) ) ) {
+					$this->outbox->markCancelled( $item->id );
+					continue;
+				}
 				$response = $this->client->request( 'POST', '/v1/jobs', $payload );
 				$outcome  = self::classify( $response );
 
@@ -170,10 +222,12 @@ class AdDeliveryService {
 			AdServerClient::TIMEOUT_RECONCILE
 		);
 
+		$valid = in_array( $response->data['status'] ?? '', array( 'ok', 'aborted' ), true ) && is_array( $response->data['disabled'] ?? null );
 		$affected = is_array( $response->data['disabled'] ?? null ) ? count( $response->data['disabled'] ) : 0;
 		$aborted  = 'aborted' === ( $response->data['status'] ?? '' );
 		$message  = match ( true ) {
 			! $response->isSuccess() => $response->describe(),
+			! $valid => 'Сервер вернул некорректный ответ на сверку.',
 			// Сработал предохранитель сервера (порог отключений, пустой список) — никто не тронут.
 			$aborted                 => 'Сверка отменена сервером: ' . (string) ( $response->data['abort_reason'] ?? 'сработал предохранитель' ),
 			default                  => sprintf( '%s: %d.', $apply ? 'Отключено учёток' : 'Отключил бы (только журнал)', $affected ),
@@ -184,6 +238,11 @@ class AdDeliveryService {
 			'last_reconcile_result' => $message,
 		) );
 
-		return array( 'ok' => $response->isSuccess() && ! $aborted, 'message' => $message );
+		return array(
+			'ok' => $response->isSuccess() && $valid && ! $aborted,
+			'message' => $message,
+			'usernames' => is_array( $response->data['disabled'] ?? null ) ? array_values( $response->data['disabled'] ) : array(),
+			'applied' => (bool) ( $response->data['applied'] ?? $apply ),
+		);
 	}
 }

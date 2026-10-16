@@ -16,7 +16,7 @@ use Inc\Shared\Traits\Sanitizer;
 /**
  * Class VideoLibrarySettingsController
  *
- * Admin-настройки модуля VideoLibrary: секция в табе «Конфигурация» через generic-хук
+ * Admin-настройки модуля VideoLibrary: отдельная вкладка «S3 хранилище» через фильтр
  * ядра `fs_lms_config_sections`, регистрация в Dashboard (`fs_lms_dashboard_modules`),
  * тумблер (`fs_lms_module_toggle_video_library`) и собственный admin-JS
  * (модуль self-contained, не лезет в core-бандл). Паттерн — AdSyncSettingsController.
@@ -46,7 +46,8 @@ class VideoLibrarySettingsController extends BaseController {
 	public function register(): void {
 		add_action( 'wp_ajax_' . self::SAVE_ACTION, array( $this->callbacks, 'ajaxSaveSettings' ) );
 		add_action( 'wp_ajax_' . self::EXPORT_GROUPS_ACTION, array( $this->callbacks, 'ajaxExportGroups' ) );
-		add_action( 'fs_lms_config_sections', array( $this, 'renderSection' ) );
+		add_filter( 'fs_lms_settings_tabs', array( $this, 'registerSettingsTab' ) );
+		add_action( 'fs_lms_s3_settings', array( $this, 'renderSection' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueueAssets' ) );
 		add_action( 'admin_notices', array( $this, 'renderPendingNotice' ) );
 		add_filter( 'fs_lms_dashboard_modules', array( $this, 'registerDashboardModule' ) );
@@ -65,7 +66,7 @@ class VideoLibrarySettingsController extends BaseController {
 		}
 
 		$page = $this->sanitizeGetKey( 'page' );
-		if ( ! str_starts_with( $page, 'fs_' ) || Menu::Settings->value === $page ) {
+		if ( ! str_starts_with( $page, 'fs_' ) || ( Menu::Settings->value === $page && 'tab-s3' === $this->sanitizeGetKey( 'tab' ) ) ) {
 			return;
 		}
 
@@ -75,7 +76,7 @@ class VideoLibrarySettingsController extends BaseController {
 		}
 
 		$url = add_query_arg(
-			array( 'page' => Menu::Settings->value, 'tab' => 'tab-7' ),
+			array( 'page' => Menu::Settings->value, 'tab' => 'tab-s3' ),
 			admin_url( 'admin.php' )
 		);
 
@@ -101,6 +102,13 @@ class VideoLibrarySettingsController extends BaseController {
 	 *
 	 * @param array $subjects Список предметов (из шаблона таба конфигурации).
 	 */
+	public function registerSettingsTab( array $tabs ): array {
+		if ( $this->config->isEnabled() ) {
+			$tabs['tab-s3'] = array( 'title' => 'S3 хранилище', 'path' => $this->path( 'inc/Modules/VideoLibrary/templates/settings-tab.php' ) );
+		}
+		return $tabs;
+	}
+
 	public function renderSection( array $subjects = array() ): void {
 		if ( ! $this->config->isEnabled() ) {
 			return;

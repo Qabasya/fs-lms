@@ -125,6 +125,24 @@ $ad_reconcile_at  = ! empty( $state['last_reconcile_at'] ) ? wp_date( 'd.m.Y H:i
 			</div>
 
 			<div class="fs-field">
+				<button type="button" class="button button-secondary" data-ad-full-sync>Синхронизировать все учётки сейчас</button>
+				<p class="fs-field__desc">Используются сохранённые настройки. Создаёт отсутствующие учётки, обновляет пароли и параметры AD, обрабатывает исключения. Лишние учётки отключаются только при включённом режиме сверки. При ошибках обновления отключение лишних пропускается.</p>
+				<div data-ad-sync-report hidden>
+					<p data-ad-sync-progress role="status" aria-live="polite"></p>
+					<table class="widefat striped">
+						<thead><tr><th scope="col">Логин</th><th scope="col">Состояние</th><th scope="col">Результат</th></tr></thead>
+						<tbody data-ad-sync-rows></tbody>
+					</table>
+				</div>
+			</div>
+
+			<div class="fs-field">
+				<label class="fs-field__label" for="fs-adsync-excluded">Логины без синхронизации с AD</label>
+				<textarea id="fs-adsync-excluded" name="excluded_usernames" class="large-text" rows="3"><?php echo esc_textarea( implode( "\n", $config->excludedUsernames() ) ); ?></textarea>
+				<p class="fs-field__desc">По одному логину на строку. Например: test. При сохранении существующие доменные учётки этих логинов будут безвозвратно удалены из управляемых OU. Удаление выполняется через очередь, когда сервер доступен. Старые задания отменяются, новые учётки и изменения паролей в AD для этих логинов не отправляются. Ученики и их доступ на сайте сохраняются. Удаление логина из этого поля не восстанавливает доменную учётку.</p>
+			</div>
+
+			<div class="fs-field">
 				<span class="fs-field__label">Направления с доменными учётками</span>
 				<?php if ( empty( $subjects ) ) : ?>
 					<p class="fs-field__desc">Сначала создайте предметы в разделе «Предметы».</p>

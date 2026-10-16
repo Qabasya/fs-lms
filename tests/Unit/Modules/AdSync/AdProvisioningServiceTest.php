@@ -140,6 +140,113 @@ class AdProvisioningServiceTest extends TestCase {
 	}
 
 	/** @return array<string, mixed> */
+	public function test_excluded_username_never_queues_jobs(): void {
+		foreach ( array( 'enqueueProvision', 'enqueueDeprovisionByApplication', 'enqueueDeprovisionByPerson', 'enqueuePasswordChange', 'enqueueNameUpdate', 'enqueueDeleteByApplication' ) as $method ) {
+			$m = $this->mocks();
+			$m['config']->method( 'isExcluded' )->with( 'i.petrov' )->willReturn( true );
+			$m['apps']->method( 'find' )->willReturn( $this->app() );
+			$m['crypto']->method( 'decrypt' )->willReturn( $this->blobJson() );
+			$m['persons']->method( 'findByWpUserId' )->willReturn( $this->person() );
+			$m['persons']->method( 'findIncludingDeleted' )->willReturn( $this->person() );
+			$user = new \WP_User();
+			$user->user_login = 'i.petrov';
+			$m['users']->method( 'find' )->willReturn( $user );
+			$m['outbox']->method( 'latestByApplication' )->willReturn( $this->row( 'provision', array( 'app' => 5, 'target' => 'i.petrov' ) ) );
+			$m['outbox']->expects( self::never() )->method( 'enqueue' );
+			$this->service( $m )->$method( 5 );
+		}
+	}
+
+	public function test_full_sync_targets_deduplicate_student_and_application_without_loading_passwords(): void {
+		$m = $this->enrolledMocks( array( $this->record() ) );
+		$m['records']->method( 'allActiveStudentPersonIds' )->willReturn( array( 42 ) );
+		$m['apps']->method( 'findByStatuses' )->willReturn( array( $this->app() ) );
+		$m['apps']->method( 'find' )->willReturn( $this->app() );
+		$m['crypto']->method( 'decrypt' )->willReturn( $this->blobJson() );
+		$plan = $this->service( $m )->fullSyncTargets();
+		self::assertCount( 1, $plan['targets'] );
+		self::assertSame( 42, $plan['targets']['i.petrov']['person_id'] );
+		self::assertArrayNotHasKey( 'password', $plan['targets']['i.petrov'] );
+	}
+
+	public function test_full_sync_targets_skip_excluded_and_trial_accounts(): void {
+		$m = $this->enrolledMocks( array( $this->record() ) );
+		$m['records']->method( 'allActiveStudentPersonIds' )->willReturn( array( 42 ) );
+		$m['config']->method( 'isExcluded' )->willReturn( true );
+		self::assertSame( array(), $this->service( $m )->fullSyncTargets()['targets'] );
+		$m = $this->enrolledMocks( array( $this->record( 3, true ) ) );
+		$m['records']->method( 'allActiveStudentPersonIds' )->willReturn( array( 42 ) );
+		self::assertSame( array(), $this->service( $m )->fullSyncTargets()['targets'] );
+	}
+
+	public function test_preparation_cancels_removed_application_but_preserves_domain_cleanup(): void {
+		$m = $this->mocks();
+		$m['apps']->method( 'find' )->willReturn( null );
+		$service = $this->service( $m );
+		foreach ( array( 'provision', 'rename' ) as $event ) {
+			$result = $service->prepareJob( $this->row( $event, array( 'app' => 5, 'target' => 'i.petrov' ) ) );
+			self::assertTrue( $result->obsolete );
+			self::assertNull( $result->payload );
+			self::assertStringContainsString( 'Заявка №5 удалена', $result->error );
+		}
+		foreach ( array( 'delete', 'deprovision' ) as $event ) {
+			$result = $service->prepareJob( $this->row( $event, array( 'app' => 5, 'target' => 'i.petrov' ) ) );
+			self::assertFalse( $result->obsolete );
+			self::assertSame( 'i.petrov', $result->payload['username'] );
+		}
+	}
+
+	public function test_preparation_reports_missing_application_password_without_cancelling(): void {
+		$m = $this->mocks();
+		$m['apps']->method( 'find' )->willReturn( $this->app() );
+		$m['crypto']->method( 'decrypt' )->willReturn( '{"username":"i.petrov","first_name":"Иван","last_name":"Петров"}' );
+		$result = $this->service( $m )->prepareJob( $this->row( 'provision', array( 'app' => 5 ) ) );
+		self::assertFalse( $result->obsolete );
+		self::assertNull( $result->payload );
+		self::assertStringContainsString( 'нет сохранённого пароля', $result->error );
+	}
+
+	public function test_preparation_reports_missing_saved_password_for_existing_student(): void {
+		$m = $this->mocks();
+		$m['persons']->method( 'findIncludingDeleted' )->willReturn( $this->person() );
+		$m['users']->method( 'find' )->willReturn( $this->wpUser() );
+		$m['pass']->method( 'getCredentials' )->willReturn( null );
+		$result = $this->service( $m )->prepareJob( $this->row( 'password', array( 'person' => 42 ) ) );
+		self::assertFalse( $result->obsolete );
+		self::assertStringContainsString( 'сохранённый пароль', $result->error );
+	}
+
+	public function test_removed_sources_are_cancelled_before_retry_without_reading_passwords(): void {
+		$m = $this->mocks();
+		$m['outbox']->method( 'listUnfinishedSourceJobs' )->willReturn( array( $this->row( 'provision', array( 'app' => 5 ) ) ) );
+		$m['apps']->method( 'find' )->willReturn( null );
+		$m['pass']->expects( self::never() )->method( 'getCredentials' );
+		$m['outbox']->expects( self::once() )->method( 'markCancelled' )->with( 7, self::stringContains( 'Заявка №5 удалена' ) );
+		self::assertSame( 1, $this->service( $m )->cancelObsoleteJobs() );
+	}
+
+	public function test_removed_student_and_closed_application_are_obsolete_without_reading_secrets(): void {
+		$m = $this->mocks();
+		$m['persons']->method( 'findIncludingDeleted' )->willReturn( null );
+		$m['pass']->expects( self::never() )->method( 'getCredentials' );
+		self::assertTrue( $this->service( $m )->prepareJob( $this->row( 'password', array( 'person' => 42 ) ) )->obsolete );
+		$m = $this->mocks();
+		$m['apps']->method( 'find' )->willReturn( ApplicationDTO::fromArray( array_replace( $this->app()->toArray(), array( 'status' => 'trash' ) ) ) );
+		$m['crypto']->expects( self::never() )->method( 'decrypt' );
+		self::assertTrue( $this->service( $m )->prepareJob( $this->row( 'provision', array( 'app' => 5 ) ) )->obsolete );
+	}
+
+	public function test_corrupt_application_data_is_an_error_and_does_not_leak_its_content(): void {
+		$m = $this->mocks();
+		$m['apps']->method( 'find' )->willReturn( $this->app() );
+		$m['crypto']->method( 'decrypt' )->willReturn( '{"login_password":"DoNotLogThis",broken' );
+		$result = $this->service( $m )->prepareJob( $this->row( 'provision', array( 'app' => 5 ) ) );
+		self::assertFalse( $result->obsolete );
+		self::assertNull( $result->payload );
+		self::assertStringContainsString( 'повреждены', $result->error );
+		self::assertStringNotContainsString( 'DoNotLogThis', json_encode( $result ) );
+	}
+
 	private function mocks(): array {
 		$config = $this->createMock( AdSyncConfig::class );
 		// По умолчанию направление разрешено — negative-кейсы переопределяют явно.

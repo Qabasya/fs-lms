@@ -62,7 +62,7 @@ class AdSyncCommand {
 			! isset( $assocArgs['respect-pause'] )
 		);
 
-		WP_CLI::log( sprintf( 'Отправлено: %d, ошибок: %d, без данных: %d.', $report['sent'], $report['failed'], $report['dead'] ) );
+		WP_CLI::log( sprintf( 'Отправлено: %d, ошибок: %d, без данных: %d, отменено устаревших: %d.', $report['sent'], $report['failed'], $report['dead'], $report['cancelled'] ?? 0 ) );
 		if ( '' !== $report['skipped'] ) {
 			WP_CLI::warning( $report['skipped'] );
 		}
@@ -117,6 +117,12 @@ class AdSyncCommand {
 	 * @subcommand retry-dead
 	 */
 	public function retryDead(): void {
-		WP_CLI::success( sprintf( 'Возвращено в очередь: %d.', $this->outbox->retryDead() ) );
+		try {
+			$result = $this->delivery->retryDead();
+		} catch ( \RuntimeException $error ) {
+			WP_CLI::error( $error->getMessage() );
+			return;
+		}
+		WP_CLI::success( sprintf( 'Возвращено в очередь: %d. Отменено устаревших заданий: %d.', $result['retried'], $result['cancelled'] ) );
 	}
 }

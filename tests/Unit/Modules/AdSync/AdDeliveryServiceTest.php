@@ -4,7 +4,9 @@ declare( strict_types=1 );
 
 namespace Unit\Modules\AdSync;
 
+use Inc\Modules\AdSync\Config\AdSyncConfig;
 use Inc\Modules\AdSync\DTO\AdOutboxItemDTO;
+use Inc\Modules\AdSync\DTO\AdPreparedJob;
 use Inc\Modules\AdSync\DTO\AdServerResponseDTO;
 use Inc\Modules\AdSync\Repositories\AdOutboxRepository;
 use Inc\Modules\AdSync\Repositories\AdSyncStateRepository;
@@ -24,6 +26,7 @@ class AdDeliveryServiceTest extends TestCase {
 	private AdServerClient $client;
 	private AdSyncStateRepository $state;
 	private AdAuditLogger $audit;
+	private AdSyncConfig $config;
 
 	protected function setUp(): void {
 		$this->outbox       = $this->createMock( AdOutboxRepository::class );
@@ -31,16 +34,17 @@ class AdDeliveryServiceTest extends TestCase {
 		$this->client       = $this->createMock( AdServerClient::class );
 		$this->state        = $this->createMock( AdSyncStateRepository::class );
 		$this->audit        = $this->createMock( AdAuditLogger::class );
+		$this->config       = $this->createMock( AdSyncConfig::class );
 
 		$this->client->method( 'notReadyReason' )->willReturn( '' );
 		$this->state->method( 'acquireLock' )->willReturn( true );
-		$this->provisioning->method( 'payloadFor' )->willReturnCallback(
-			fn( AdOutboxItemDTO $row ): array => array( 'event' => $row->event, 'idempotency_key' => $row->idempotencyKey )
+		$this->provisioning->method( 'prepareJob' )->willReturnCallback(
+			fn( AdOutboxItemDTO $row ): AdPreparedJob => AdPreparedJob::ready( array( 'event' => $row->event, 'idempotency_key' => $row->idempotencyKey ) )
 		);
 	}
 
 	private function service(): AdDeliveryService {
-		return new AdDeliveryService( $this->outbox, $this->provisioning, $this->client, $this->state, $this->audit );
+		return new AdDeliveryService( $this->outbox, $this->provisioning, $this->client, $this->state, $this->audit, $this->config );
 	}
 
 	private function row( int $id ): AdOutboxItemDTO {
@@ -49,6 +53,21 @@ class AdDeliveryServiceTest extends TestCase {
 			idempotencyKey: 'app:' . $id, status: 'pending', attempts: 0, nextAttemptAt: null,
 			lastError: null, createdAt: '2026-01-01 00:00:00', sentAt: null
 		);
+	}
+
+	public function test_excluded_old_job_is_cancelled_without_contacting_ad(): void {
+		$this->provisioning = $this->createMock( AdProvisioningService::class );
+		$this->provisioning->method( 'prepareJob' )->willReturn( AdPreparedJob::ready( array( 'username' => 'test' ) ) );
+		$this->config->method( 'isExcluded' )->willReturnCallback( static fn( string $username ): bool => 'test' === $username );
+		$this->outbox->method( 'listPending' )->willReturn( array( $this->row( 6 ) ) );
+		$this->outbox->expects( self::once() )->method( 'markCancelled' )->with( 6 );
+		$this->client->expects( self::never() )->method( 'request' );
+		$this->outbox->expects( self::never() )->method( 'markSent' );
+		$this->outbox->expects( self::never() )->method( 'markDead' );
+		$this->audit->expects( self::never() )->method( 'dead' );
+		$report = $this->service()->deliverPending();
+		self::assertSame( 0, $report['failed'] );
+		self::assertSame( 0, $report['sent'] );
 	}
 
 	// ── classify ─────────────────────────────────────────────────────────────
@@ -104,7 +123,7 @@ class AdDeliveryServiceTest extends TestCase {
 
 	public function test_job_without_data_goes_dead_without_request(): void {
 		$this->provisioning = $this->createMock( AdProvisioningService::class );
-		$this->provisioning->method( 'payloadFor' )->willReturn( null );
+		$this->provisioning->method( 'prepareJob' )->willReturn( AdPreparedJob::invalid( 'Нет сохранённого пароля' ) );
 		$this->outbox->method( 'listPending' )->willReturn( array( $this->row( 3 ) ) );
 
 		$this->client->expects( self::never() )->method( 'request' );
@@ -112,6 +131,17 @@ class AdDeliveryServiceTest extends TestCase {
 		$this->audit->expects( self::once() )->method( 'dead' );
 
 		self::assertSame( 1, $this->service()->deliverPending()['dead'] );
+	}
+
+	public function test_obsolete_job_is_cancelled_without_error_audit_or_ad_request(): void {
+		$this->provisioning = $this->createMock( AdProvisioningService::class );
+		$this->provisioning->method( 'prepareJob' )->willReturn( AdPreparedJob::obsolete( 'Заявка №3 удалена' ) );
+		$this->outbox->method( 'listPending' )->willReturn( array( $this->row( 3 ) ) );
+		$this->outbox->expects( self::once() )->method( 'markCancelled' )->with( 3, 'Заявка №3 удалена' );
+		$this->client->expects( self::never() )->method( 'request' );
+		$this->outbox->expects( self::never() )->method( 'markDead' );
+		$this->audit->expects( self::never() )->method( 'dead' );
+		self::assertSame( 1, $this->service()->deliverPending()['cancelled'] );
 	}
 
 	public function test_last_failed_attempt_is_logged_with_server_error(): void {
@@ -154,6 +184,20 @@ class AdDeliveryServiceTest extends TestCase {
 		self::assertSame( 'Не указан адрес сервера в офисе.', $this->service()->deliverPending()['skipped'] );
 	}
 
+	public function test_selected_batch_skips_already_sent_jobs_and_leaves_the_other_queue_alone(): void {
+		$this->outbox->expects( self::never() )->method( 'listPending' );
+		$this->outbox->method( 'find' )->willReturnCallback( function ( int $id ): AdOutboxItemDTO {
+			return new AdOutboxItemDTO( ...array_replace( get_object_vars( $this->row( $id ) ), array( 'status' => 2 === $id ? 'sent' : 'pending' ) ) );
+		} );
+		$this->client->expects( self::exactly( 2 ) )->method( 'request' )->willReturn( new AdServerResponseDTO( 200, array( 'status' => 'done' ) ) );
+		self::assertSame( 2, $this->service()->deliverSelected( array( 1, 2, 3, 4 ) )['sent'] );
+	}
+
+	public function test_reconcile_rejects_a_successful_http_response_without_a_valid_result(): void {
+		$this->client->method( 'request' )->willReturn( new AdServerResponseDTO( 200, null ) );
+		self::assertFalse( $this->service()->reconcile( array( 'x' ), false )['ok'] );
+	}
+
 	// ── reconcile ────────────────────────────────────────────────────────────
 
 	public function test_reconcile_reports_dry_run_count(): void {
@@ -162,7 +206,7 @@ class AdDeliveryServiceTest extends TestCase {
 		);
 
 		self::assertSame(
-			array( 'ok' => true, 'message' => 'Отключил бы (только журнал): 2.' ),
+			array( 'ok' => true, 'message' => 'Отключил бы (только журнал): 2.', 'usernames' => array( 'a', 'b' ), 'applied' => false ),
 			$this->service()->reconcile( array( 'x' ), false )
 		);
 	}

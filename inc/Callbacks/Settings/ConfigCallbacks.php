@@ -27,14 +27,17 @@ class ConfigCallbacks extends BaseController {
 	public function ajaxSaveConfig(): void {
 		$this->authorize( Nonce::Config, Capability::Admin );
 
-		$this->configRepository->save( array_merge(
-			array(
-				'test_env'        => $this->sanitizeBool( 'test_env' ),
-				'otp_bypass_code' => $this->sanitizeText( 'otp_bypass_code' ),
-				'consultation_url' => esc_url_raw( $this->sanitizeText( 'consultation_url' ) ),
-			),
-			$this->examSettings()
-		) );
+		$settings = $this->examSettings();
+		if ( $this->hasParam( 'test_env' ) ) {
+			$settings['test_env'] = $this->sanitizeBool( 'test_env' );
+		}
+		if ( $this->hasParam( 'otp_bypass_code' ) ) {
+			$settings['otp_bypass_code'] = $this->sanitizeText( 'otp_bypass_code' );
+		}
+		if ( $this->hasParam( 'consultation_url' ) ) {
+			$settings['consultation_url'] = esc_url_raw( $this->sanitizeText( 'consultation_url' ) );
+		}
+		$this->configRepository->save( $settings );
 
 		$this->success( array( 'message' => 'Настройки сохранены.' ) );
 	}

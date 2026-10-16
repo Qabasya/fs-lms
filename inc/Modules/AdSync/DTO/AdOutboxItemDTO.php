@@ -4,6 +4,8 @@ declare( strict_types=1 );
 
 namespace Inc\Modules\AdSync\DTO;
 
+use Inc\Modules\AdSync\Enums\AdSyncEvent;
+
 /**
  * Class AdOutboxItemDTO
  *
@@ -13,6 +15,13 @@ namespace Inc\Modules\AdSync\DTO;
  * @package Inc\Modules\AdSync\DTO
  */
 readonly class AdOutboxItemDTO {
+
+	public const EXCLUSION_KEY_PREFIX = 'exclude:';
+
+	/** Служебное удаление доменной учётки после добавления логина в исключения. */
+	public function isExclusionDeletion(): bool {
+		return AdSyncEvent::Delete->value === $this->event && str_starts_with( $this->idempotencyKey, self::EXCLUSION_KEY_PREFIX );
+	}
 
 	public function __construct(
 		public int     $id,

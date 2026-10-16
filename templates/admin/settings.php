@@ -42,6 +42,10 @@ $tabs = apply_filters(
 			'title' => 'Импорт',
 			'file'  => '/components/tabs/settings-tabs/settings-6-import.php',
 		),
+		'tab-exams' => array(
+			'title' => 'Экзамены',
+			'file' => '/components/tabs/settings-tabs/settings-exams.php',
+		),
 		'tab-7' => array(
 			'title' => 'Конфигурация',
 			'file'  => '/components/tabs/settings-tabs/settings-7-config.php',

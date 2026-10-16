@@ -6,6 +6,7 @@ namespace Inc\Modules\AdSync\Repositories;
 
 use Inc\Modules\AdSync\DTO\AdOutboxItemDTO;
 use Inc\Modules\AdSync\Enums\AdOutboxStatus;
+use Inc\Modules\AdSync\Enums\AdSyncEvent;
 use Inc\Modules\AdSync\Schema\AdSchema;
 
 /**
@@ -28,10 +29,12 @@ class AdOutboxRepository {
 	/**
 	 * Ставит задачу в очередь. Возвращает ID строки.
 	 *
+	 * @throws \RuntimeException Запись задания в очередь не удалась.
+	 *
 	 * @param array{event:string,application_id?:?int,person_id?:?int,target?:?string,idempotency_key:string} $data
 	 */
 	public function enqueue( array $data ): int {
-		$this->wpdb->insert(
+		$inserted = $this->wpdb->insert(
 			$this->table,
 			array(
 				'event'           => $data['event'],
@@ -43,7 +46,60 @@ class AdOutboxRepository {
 				'attempts'        => 0,
 			)
 		);
+		if ( false === $inserted ) {
+			throw new \RuntimeException( 'Не удалось поставить задание AD в очередь.' );
+		}
 		return (int) $this->wpdb->insert_id;
+	}
+
+	/** Отмена старых заданий исключённых логинов. Выполненные задания сохраняются. */
+	public function cancelForUsernames( array $usernames ): int {
+		if ( array() === $usernames ) {
+			return 0;
+		}
+		$placeholders = implode( ', ', array_fill( 0, count( $usernames ), '%s' ) );
+		return $this->cancelWhere( "LOWER(target) IN ({$placeholders}) AND idempotency_key NOT LIKE %s", array_merge( array_map( 'mb_strtolower', $usernames ), array( AdOutboxItemDTO::EXCLUSION_KEY_PREFIX . '%' ) ) );
+	}
+
+	/** Снято исключение — ещё не выполненное служебное удаление больше не нужно. */
+	public function cancelExclusionDeletions( array $usernames ): int {
+		if ( array() === $usernames ) {
+			return 0;
+		}
+		$placeholders = implode( ', ', array_fill( 0, count( $usernames ), '%s' ) );
+		return $this->cancelWhere( "LOWER(target) IN ({$placeholders}) AND idempotency_key LIKE %s", array_merge( array_map( 'mb_strtolower', $usernames ), array( AdOutboxItemDTO::EXCLUSION_KEY_PREFIX . '%' ) ) );
+	}
+
+	/** Отменяет невыполненное задание с причиной, сохраняя историю. */
+	public function markCancelled( int $id, string $reason = 'Отменено: логин исключён из синхронизации AD.' ): void {
+		$this->cancelWhere( 'id = %d', array( $id ), $reason );
+	}
+
+	/**
+	 * Отменяет невыполненные задания по внутреннему условию.
+	 *
+	 * @param array<int, int|string> $args Параметры условия отмены.
+	 * @throws \RuntimeException Запись отмены не удалась.
+	 */
+	private function cancelWhere( string $where, array $args, string $reason = 'Отменено: логин исключён из синхронизации AD.' ): int {
+		// $where — только внутренние SQL-фрагменты; значения передаются отдельными параметрами.
+		// phpcs:disable WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$sql = $this->wpdb->prepare(
+			"UPDATE {$this->table} SET status = %s, next_attempt_at = NULL, last_error = %s
+			 WHERE status IN (%s, %s, %s) AND {$where}",
+			AdOutboxStatus::Cancelled->value,
+			mb_substr( $reason, 0, 1000 ),
+			AdOutboxStatus::Pending->value,
+			AdOutboxStatus::Failed->value,
+			AdOutboxStatus::Dead->value,
+			...$args
+		);
+		// phpcs:enable WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$result = $this->wpdb->query( $sql ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- Выше все значения переданы через prepare().
+		if ( false === $result ) {
+			throw new \RuntimeException( 'Не удалось отменить задания AD.' );
+		}
+		return $result;
 	}
 
 	public function markSent( int $id ): void {
@@ -83,8 +139,8 @@ class AdOutboxRepository {
 	}
 
 	/**
-	 * Сразу «мёртвое»: отправлять нечего (заявку удалили, данных учётки нет) —
-	 * ретраи ничего не изменят.
+	 * Сразу «мёртвое»: у существующего источника не хватает данных.
+	 * Причина остаётся видимой администратору; устаревшие задания отменяются отдельно.
 	 */
 	public function markDead( int $id, string $error ): void {
 		$this->wpdb->update(
@@ -135,6 +191,22 @@ class AdOutboxRepository {
 		return $row ? AdOutboxItemDTO::fromRow( $row ) : null;
 	}
 
+	/** Задания с источником, которые ещё могут быть отменены как устаревшие. */
+	public function listUnfinishedSourceJobs(): array {
+		$rows = $this->wpdb->get_results( $this->wpdb->prepare(
+			"SELECT * FROM {$this->table} WHERE status IN (%s, %s, %s)
+			 AND event IN (%s, %s, %s) AND (application_id IS NOT NULL OR person_id IS NOT NULL)
+			 ORDER BY id ASC",
+			AdOutboxStatus::Pending->value,
+			AdOutboxStatus::Failed->value,
+			AdOutboxStatus::Dead->value,
+			AdSyncEvent::Provision->value,
+			AdSyncEvent::Password->value,
+			AdSyncEvent::Rename->value
+		) );
+		return array_map( static fn( $row ) => AdOutboxItemDTO::fromRow( $row ), $rows ?: array() );
+	}
+
 	/**
 	 * Задания, готовые к отправке в офис: pending, либо failed с наступившим next_attempt_at.
 	 *
@@ -166,8 +238,9 @@ class AdOutboxRepository {
 	public function latestByTarget( string $username ): ?AdOutboxItemDTO {
 		$row = $this->wpdb->get_row(
 			$this->wpdb->prepare(
-				"SELECT * FROM {$this->table} WHERE target = %s ORDER BY id DESC LIMIT 1",
-				$username
+				"SELECT * FROM {$this->table} WHERE target = %s AND status <> %s ORDER BY id DESC LIMIT 1",
+				$username,
+				AdOutboxStatus::Cancelled->value
 			)
 		);
 		return $row ? AdOutboxItemDTO::fromRow( $row ) : null;
@@ -177,8 +250,9 @@ class AdOutboxRepository {
 	public function latestByApplication( int $applicationId ): ?AdOutboxItemDTO {
 		$row = $this->wpdb->get_row(
 			$this->wpdb->prepare(
-				"SELECT * FROM {$this->table} WHERE application_id = %d ORDER BY id DESC LIMIT 1",
-				$applicationId
+				"SELECT * FROM {$this->table} WHERE application_id = %d AND status <> %s ORDER BY id DESC LIMIT 1",
+				$applicationId,
+				AdOutboxStatus::Cancelled->value
 			)
 		);
 		return $row ? AdOutboxItemDTO::fromRow( $row ) : null;

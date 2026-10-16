@@ -103,6 +103,72 @@
 				} );
 		} );
 
+		// Полная синхронизация: небольшие порции и возобновление прогона после потери связи.
+		$form.on( 'click', '[data-ad-full-sync]', function () {
+			var $report = $form.find( '[data-ad-sync-report]' );
+			var $progress = $form.find( '[data-ad-sync-progress]' );
+			var $rows = $form.find( '[data-ad-sync-rows]' );
+			var controls = [];
+			var lastCounts;
+			$form.find( ':input' ).each( function () {
+				controls.push( { element: this, disabled: this.disabled } );
+				this.disabled = true;
+			} );
+			$report.removeAttr( 'hidden' ).attr( 'aria-busy', 'true' );
+			$rows.empty();
+			$progress.text( 'Проверяю соединение и собираю список учёток…' ).removeClass( 'fs-config-status--ok fs-config-status--err' );
+
+			function renderReport( data ) {
+				$rows.empty();
+				var labels = { ok: 'Готово', pending: 'Ожидает', error: 'Ошибка', warning: 'Расхождение' };
+				( data.rows || [] ).forEach( function ( row ) {
+					var $row = $( '<tr>' );
+					$( '<td>' ).text( row.username ).appendTo( $row );
+					$( '<td>' ).text( labels[ row.status ] || row.status ).appendTo( $row );
+					$( '<td>' ).text( row.message ).appendTo( $row );
+					$row.appendTo( $rows );
+				} );
+				$progress.text( 'Обработано: ' + data.processed + ' из ' + data.total + '.' );
+				lastCounts = data.counts || lastCounts;
+			}
+
+			function requestPhase( phase, runId ) {
+				return $.ajax( {
+					url: window.fsLmsAdSync.ajaxurl,
+					method: 'POST', timeout: 45000,
+					data: { action: window.fsLmsAdSync.actions.sync, security: window.fsLmsAdSync.nonce, phase: phase, run_id: runId || '' },
+				} ).then( function ( res ) {
+					if ( ! res || ! res.success ) {
+						return $.Deferred().reject( ( res && res.data ) || 'Не удалось выполнить синхронизацию.' ).promise();
+					}
+					var data = res.data;
+					renderReport( data );
+					if ( data.skipped ) {
+						return $.Deferred().reject( data.skipped ).promise();
+					}
+					if ( 'finish' === phase ) {
+						var errors = ( data.rows || [] ).filter( function ( row ) { return 'ok' !== row.status; } ).length;
+						$progress.text( ( data.ok ? 'Синхронизация завершена.' : 'Синхронизация завершена с замечаниями: ' + errors + '.' ) + ' ' + data.message )
+							.addClass( data.ok ? 'fs-config-status--ok' : 'fs-config-status--err' );
+						return data;
+					}
+					if ( data.processed >= data.total ) {
+						$progress.text( 'Учётки обработаны. Выполняю сверку лишних…' );
+						return requestPhase( 'finish', data.run_id );
+					}
+					return requestPhase( 'step', data.run_id );
+				} );
+			}
+
+			requestPhase( 'start' ).fail( function ( error ) {
+				$progress.text( ( typeof error === 'string' ? error : 'Нет ответа от сервера.' ) + ' Повторное нажатие продолжит незавершённый прогон.' ).addClass( 'fs-config-status--err' );
+			} ).always( function () {
+				$report.attr( 'aria-busy', 'false' );
+				controls.forEach( function ( control ) { control.element.disabled = control.disabled; } );
+				renderCounts( lastCounts );
+			} );
+		} );
+
 		// Сохранение настроек секции: направления, адрес сервера, режим сверки.
 		$form.on( 'submit', function ( e ) {
 			e.preventDefault();
@@ -122,11 +188,13 @@
 				security:           window.fsLmsAdSync.nonce,
 				provision_subjects: subjects,
 				server_url:         $form.find( '[name="server_url"]' ).val(),
+				excluded_usernames: $form.find( '[name="excluded_usernames"]' ).val(),
 				reconcile_apply:    $form.find( '[name="reconcile_apply"]' ).is( ':checked' ) ? 1 : 0,
 			} )
 				.done( function ( res ) {
 					if ( res && res.success ) {
-						$status.text( 'Сохранено.' ).addClass( 'fs-config-status--ok' );
+						$status.text( res.data.message || 'Сохранено.' ).addClass( 'fs-config-status--ok' );
+						renderCounts( res.data.counts );
 					} else {
 						$status.text( ( res && res.data ) || 'Ошибка.' ).addClass( 'fs-config-status--err' );
 					}

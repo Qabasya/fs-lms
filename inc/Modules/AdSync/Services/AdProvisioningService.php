@@ -9,6 +9,7 @@ use Inc\Enums\Enrollment\ApplicationStatus;
 use Inc\Managers\Person\UserManager;
 use Inc\Modules\AdSync\Config\AdSyncConfig;
 use Inc\Modules\AdSync\DTO\AdOutboxItemDTO;
+use Inc\Modules\AdSync\DTO\AdPreparedJob;
 use Inc\Modules\AdSync\Enums\AdSyncEvent;
 use Inc\Modules\AdSync\Repositories\AdOutboxRepository;
 use Inc\Repositories\WPDBRepositories\ApplicationRepository;
@@ -66,6 +67,9 @@ class AdProvisioningService {
 			return;
 		}
 		$username = $this->usernameFromApplication( $applicationId );
+		if ( $this->config->isExcluded( $username ) ) {
+			return;
+		}
 		$this->outbox->enqueue( array(
 			'event'           => AdSyncEvent::Provision->value,
 			'application_id'  => $applicationId,
@@ -81,7 +85,7 @@ class AdProvisioningService {
 			return;
 		}
 		$username = $this->usernameFromApplication( $applicationId );
-		if ( '' === $username ) {
+		if ( '' === $username || $this->config->isExcluded( $username ) ) {
 			return;
 		}
 		$this->outbox->enqueue( array(
@@ -105,7 +109,7 @@ class AdProvisioningService {
 			return;
 		}
 		$username = $this->usernameFromPerson( $personId );
-		if ( '' === $username ) {
+		if ( '' === $username || $this->config->isExcluded( $username ) ) {
 			return;
 		}
 		$this->outbox->enqueue( array(
@@ -129,7 +133,7 @@ class AdProvisioningService {
 			return;
 		}
 		$username = $this->usernameFromPerson( $personId );
-		if ( '' === $username || ! $this->isDeprovisioned( $username ) ) {
+		if ( '' === $username || $this->config->isExcluded( $username ) || ! $this->isDeprovisioned( $username ) ) {
 			return;
 		}
 		$this->outbox->enqueue( array(
@@ -148,7 +152,7 @@ class AdProvisioningService {
 	public function enqueuePasswordChange( int $wpUserId ): void {
 		$person   = $this->persons->findByWpUserId( $wpUserId );
 		$username = (string) ( $this->users->find( $wpUserId )?->user_login ?? '' );
-		if ( null === $person || '' === $username || $this->isDeprovisioned( $username ) ) {
+		if ( null === $person || '' === $username || $this->config->isExcluded( $username ) || $this->isDeprovisioned( $username ) ) {
 			return;
 		}
 
@@ -169,6 +173,50 @@ class AdProvisioningService {
 		) );
 	}
 
+	/**
+	 * Снимок учёток для ручного полного обновления: активные ученики и живые заявки.
+	 * Направления без AD, пробные доступы и исключения не создают доменных учёток.
+	 * Пароли в план не попадают: перечитываются только при отправке задания.
+	 *
+	 * @return array{targets: array<string, array<string, mixed>>, issues: array<int, array<string, mixed>>}
+	 */
+	public function fullSyncTargets(): array {
+		$targets = array();
+		$issues = array();
+		foreach ( $this->records->allActiveStudentPersonIds() as $personId ) {
+			$eligible = false;
+			foreach ( $this->activeRecords( $personId ) as $record ) {
+				$eligible = $eligible || $this->config->shouldProvision( $this->subjectOf( $record ) );
+			}
+			if ( ! $eligible ) {
+				continue;
+			}
+			$username = $this->usernameFromPerson( $personId );
+			if ( '' === $username ) {
+				$issues[] = array( 'username' => 'Ученик #' . $personId, 'status' => 'error', 'message' => 'Не задан логин для синхронизации.' );
+				continue;
+			}
+			if ( ! $this->config->isExcluded( $username ) ) {
+				$targets[ mb_strtolower( $username ) ] = array( 'event' => AdSyncEvent::Provision->value, 'person_id' => $personId, 'target' => $username );
+			}
+		}
+		foreach ( $this->applications->findByStatuses( array( ApplicationStatus::PendingParent->value, ApplicationStatus::ReadyForReview->value, ApplicationStatus::Enrolling->value ) ) as $app ) {
+			if ( ! $this->config->shouldProvision( $app->subjectKey ?? null ) ) {
+				continue;
+			}
+			$username = $this->usernameFromApplication( $app->id );
+			if ( '' === $username ) {
+				$issues[] = array( 'username' => 'Заявка #' . $app->id, 'status' => 'error', 'message' => 'Не задан логин для синхронизации.' );
+				continue;
+			}
+			$key = mb_strtolower( $username );
+			if ( ! isset( $targets[ $key ] ) && ! $this->config->isExcluded( $username ) ) {
+				$targets[ $key ] = array( 'event' => AdSyncEvent::Provision->value, 'application_id' => $app->id, 'target' => $username );
+			}
+		}
+		return array( 'targets' => $targets, 'issues' => $issues );
+	}
+
 	/** Обновление ФИО существующей доменной учётки после правки заявки. */
 	public function enqueueNameUpdate( int $applicationId ): void {
 		$previous = $this->outbox->latestByApplication( $applicationId );
@@ -180,7 +228,7 @@ class AdProvisioningService {
 			return;
 		}
 		$username = $this->usernameFromApplication( $applicationId );
-		if ( '' === $username ) {
+		if ( '' === $username || $this->config->isExcluded( $username ) ) {
 			return;
 		}
 		$this->outbox->enqueue( array(
@@ -198,7 +246,7 @@ class AdProvisioningService {
 		}
 		$previous = $this->outbox->latestByApplication( $applicationId );
 		$username = (string) ( $previous?->target ?? '' );
-		if ( '' === $username || AdSyncEvent::Delete->value === $previous?->event ) {
+		if ( '' === $username || $this->config->isExcluded( $username ) || AdSyncEvent::Delete->value === $previous?->event ) {
 			return;
 		}
 		$latest = $this->outbox->latestByTarget( $username );
@@ -242,6 +290,9 @@ class AdProvisioningService {
 			return 'none';
 		}
 
+		if ( $this->config->isExcluded( $this->usernameFromApplication( $applicationId ) ) ) {
+			return 'none';
+		}
 		$latest = $this->outbox->latestByApplication( $applicationId );
 		if ( null === $latest ) {
 			return 'creatable';
@@ -250,6 +301,97 @@ class AdProvisioningService {
 		return AdSyncEvent::Provision->value === $latest->event || AdSyncEvent::Rename->value === $latest->event
 			? $this->statusForApplication( $applicationId )
 			: 'none';
+	}
+
+	/** Подготовка с объяснением: готово, устарело либо ошибка данных. */
+	public function prepareJob( AdOutboxItemDTO $row ): AdPreparedJob {
+		$obsolete = $this->obsoleteReason( $row );
+		if ( null !== $obsolete ) {
+			return AdPreparedJob::obsolete( $obsolete );
+		}
+		try {
+			$payload = $this->payloadFor( $row );
+		} catch ( \JsonException ) {
+			return AdPreparedJob::invalid( 'Данные учётной записи в заявке №' . $row->applicationId . ' повреждены: неверный формат.' );
+		} catch ( \RuntimeException ) {
+			return AdPreparedJob::invalid( 'Не удалось расшифровать данные учётной записи. Проверьте ключ шифрования и сохранённые данные в LMS.' );
+		}
+		if ( null === $payload ) {
+			return AdPreparedJob::invalid( $this->missingDataReason( $row ) );
+		}
+		if ( '' === trim( (string) ( $payload['username'] ?? '' ) ) ) {
+			return AdPreparedJob::invalid( null !== $row->applicationId ? 'В заявке №' . $row->applicationId . ' не указан логин.' : 'Не задан логин доменной учётной записи.' );
+		}
+		if ( in_array( $row->event, array( AdSyncEvent::Provision->value, AdSyncEvent::Password->value ), true ) && '' === (string) ( $payload['password'] ?? '' ) ) {
+			return AdPreparedJob::invalid( null !== $row->applicationId ? 'В заявке №' . $row->applicationId . ' нет сохранённого пароля.' : 'Недоступен сохранённый пароль ученика. Задайте пароль заново в LMS.' );
+		}
+		return AdPreparedJob::ready( $payload );
+	}
+
+	/** Отменяет старые pending/failed/dead-задания без чтения паролей и запросов в AD. */
+	public function cancelObsoleteJobs(): int {
+		$cancelled = 0;
+		foreach ( $this->outbox->listUnfinishedSourceJobs() as $row ) {
+			$reason = $this->obsoleteReason( $row );
+			if ( null !== $reason ) {
+				$this->outbox->markCancelled( $row->id, $reason );
+				++$cancelled;
+			}
+		}
+		return $cancelled;
+	}
+
+	/** Удаление и отключение по сохранённому target не требуют существования заявки. */
+	private function obsoleteReason( AdOutboxItemDTO $row ): ?string {
+		if ( in_array( $row->event, array( AdSyncEvent::Delete->value, AdSyncEvent::Deprovision->value ), true ) ) {
+			return null;
+		}
+		if ( null !== $row->applicationId ) {
+			$app = $this->applications->find( $row->applicationId );
+			if ( null === $app ) {
+				return 'Заявка №' . $row->applicationId . ' удалена; задание отменено как устаревшее.';
+			}
+			if ( in_array( $app->status, array( ApplicationStatus::Trash, ApplicationStatus::Expired ), true ) ) {
+				return 'Заявка №' . $row->applicationId . ' закрыта (' . $app->status->label() . '); создание или обновление учётки больше не требуется.';
+			}
+		} elseif ( null !== $row->personId ) {
+			if ( null === $this->persons->findIncludingDeleted( $row->personId ) ) {
+				return 'Ученик №' . $row->personId . ' удалён; задание отменено как устаревшее.';
+			}
+			if ( AdSyncEvent::Provision->value === $row->event ) {
+				foreach ( $this->activeRecords( $row->personId ) as $record ) {
+					if ( $this->config->shouldProvision( $this->subjectOf( $record ) ) ) {
+						return null;
+					}
+				}
+				return 'У ученика нет действующих зачислений с доменной учёткой; реактивация отменена.';
+			}
+		}
+		return null;
+	}
+
+	/** Конкретная причина отсутствия тела запроса; содержимое пароля не используется. */
+	private function missingDataReason( AdOutboxItemDTO $row ): string {
+		if ( in_array( $row->event, array( AdSyncEvent::Delete->value, AdSyncEvent::Deprovision->value ), true ) ) {
+			return 'В задании отключения или удаления не указан доменный логин.';
+		}
+		if ( null !== $row->applicationId ) {
+			$app = $this->applications->find( $row->applicationId );
+			return empty( $app?->studentDataEnc )
+				? 'В заявке №' . $row->applicationId . ' не сохранены данные учётной записи.'
+				: 'В задании по заявке №' . $row->applicationId . ' не указан доменный логин.';
+		}
+		if ( null === $row->personId ) {
+			return 'В задании не указан ученик.';
+		}
+		$person = $this->persons->findIncludingDeleted( $row->personId );
+		if ( null === $person?->wpUserId ) {
+			return 'У ученика не привязана учётная запись WordPress.';
+		}
+		if ( null === $this->users->find( $person->wpUserId ) ) {
+			return 'Привязанная учётная запись WordPress не найдена.';
+		}
+		return 'Недоступен сохранённый пароль ученика. Задайте пароль заново в LMS.';
 	}
 
 	/**
@@ -275,7 +417,7 @@ class AdProvisioningService {
 		if ( null === $app || empty( $app->studentDataEnc ) || empty( $row->target ) ) {
 			return null;
 		}
-		$blob = json_decode( $this->crypto->decrypt( $app->studentDataEnc ), true ) ?? array();
+		$blob = $this->applicationBlob( $app->studentDataEnc );
 		return array(
 			'id'              => $row->id,
 			'event'           => $row->event,
@@ -308,7 +450,7 @@ class AdProvisioningService {
 			return null;
 		}
 
-		$blob = json_decode( $this->crypto->decrypt( $app->studentDataEnc ), true ) ?? array();
+		$blob = $this->applicationBlob( $app->studentDataEnc );
 
 		return array(
 			'id'              => $row->id,
@@ -374,6 +516,19 @@ class AdProvisioningService {
 			'username'        => $creds['login'],
 			'password'        => $creds['password'],
 		);
+	}
+
+	/**
+	 * Читает только структуру данных заявки, не включая её содержимое в исключения.
+	 *
+	 * @throws \JsonException Структура данных повреждена.
+	 */
+	private function applicationBlob( string $encrypted ): array {
+		$blob = json_decode( $this->crypto->decrypt( $encrypted ), true, 512, JSON_THROW_ON_ERROR );
+		if ( ! is_array( $blob ) ) {
+			throw new \JsonException( 'Invalid application data structure' );
+		}
+		return $blob;
 	}
 
 	/** Учётка сейчас в «Отчисленных»: последним заданием по логину был deprovision. */

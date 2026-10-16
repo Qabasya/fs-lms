@@ -31,6 +31,7 @@ class AdSyncConfig extends ModuleConfig {
 		'enabled'            => false,
 		// Ключи предметов, по которым создаются доменные учётки. Пустой список = никого.
 		'provision_subjects' => array(),
+		'excluded_usernames' => array(),
 		// Адрес сервера AdSync в офисе: https://<белый IP>:<порт>, без хвостового «/».
 		'server_url'         => '',
 		// Сверка: false — сервер только пишет в журнал, кого отключил бы; true — отключает.
@@ -82,6 +83,25 @@ class AdSyncConfig extends ModuleConfig {
 		$path = $this->serverCertPath();
 
 		return '' !== $path && is_readable( $path );
+	}
+
+	/**
+	 * Логины, для которых сайт не отправляет задания в AD.
+	 *
+	 * @return string[]
+	 */
+	public function excludedUsernames(): array {
+		$list = $this->get()['excluded_usernames'] ?? array();
+		if ( ! is_array( $list ) ) {
+			return array();
+		}
+		$normalized = array_map( static fn( $name ): string => is_string( $name ) ? mb_strtolower( trim( $name ) ) : '', $list );
+		return array_values( array_unique( array_filter( $normalized, static fn( string $name ): bool => '' !== $name ) ) );
+	}
+
+	/** Исключён ли логин из отправки заданий в AD (без учёта регистра). */
+	public function isExcluded( string $username ): bool {
+		return in_array( mb_strtolower( trim( $username ) ), $this->excludedUsernames(), true );
 	}
 
 	/** Сверка отключает лишние учётки (иначе — только журнал на сервере). */
