@@ -40,6 +40,7 @@ enum ExamLogAction: string {
 	case SourceLinkReissued = 'source_link_reissued';
 	case SourceLinkRevoked = 'source_link_revoked';
 	case SourceToggled = 'source_toggled';
+	case SourceDeleted = 'source_deleted';
 	case PublicRegistrationToggled = 'public_registration_toggled';
 	case FormOpened = 'form_opened';
 	case FormInvalid = 'form_invalid';
@@ -118,6 +119,7 @@ enum ExamLogAction: string {
 			self::SourceLinkReissued => 'Источник записи: ссылка перевыпущена',
 			self::SourceLinkRevoked => 'Источник записи: ссылка отозвана',
 			self::SourceToggled => 'Источник записи: включён/выключен',
+			self::SourceDeleted => 'Источник записи: удалён',
 			self::PublicRegistrationToggled => 'Открытая запись: включена/выключена',
 			self::FormOpened => 'Форма записи: открыта по ссылке',
 			self::FormInvalid => 'Форма записи: ошибка в данных',

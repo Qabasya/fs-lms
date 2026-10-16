@@ -305,6 +305,31 @@ class ExamSourceService {
 	}
 
 	/**
+	 * Удаляет источник, чья ссылка явно отозвана ({@see revokeLink()}); с действующей или ни разу не выданной ссылкой — отказ.
+	 * Источник, на который уже есть заявки, записи, сессии гостей или школьные отчёты, не удаляется: на него ссылаются эти данные.
+	 *
+	 * @throws CodedException Источник недоступен или на него есть ссылки из заявок, записей или отчётов.
+	 */
+	public function deleteSource( int $actorUserId, int $sourceId ): void {
+		$eventId = $this->eventIdOf( $actorUserId, $sourceId );
+
+		$this->inTransactionWithRetry(
+			function () use ( $actorUserId, $sourceId, $eventId ): void {
+				$source = $this->lockSource( $sourceId, $eventId );
+				if ( $this->sources->isReferenced( $sourceId ) ) {
+					throw new CodedException( ErrorCode::ExamState, 'По этой ссылке уже есть заявки или записи, поэтому удалить её нельзя. Отзовите ссылку и отключите источник.' );
+				}
+				if ( null === $source->keyRevokedAt || $this->tokens->hasActive( ExamTokenPurpose::Invitation, $sourceId ) ) {
+					throw new CodedException( ErrorCode::ExamState, 'Сначала отзовите ссылку: удалить можно только отозванную.' );
+				}
+				$this->sources->delete( $sourceId );
+				$this->audit( $actorUserId, OperationType::Delete, LogEvent::ExamSourceDeleted, $sourceId, $source->schoolName );
+				$this->log( ExamLogAction::SourceDeleted, $actorUserId, $eventId, $sourceId, array( 'school' => $source->schoolName ) );
+			}
+		);
+	}
+
+	/**
 	 * Включает или отключает источник (отключённый новых заявок не принимает).
 	 *
 	 * @throws CodedException Источник недоступен либо его версия изменилась до обновления.
@@ -361,10 +386,12 @@ class ExamSourceService {
 		return array(
 			'id'           => $source->id,
 			'school_name'  => $source->schoolName,
+			'school_key'   => (string) ( $source->schoolKey ?? '' ),
 			'teacher_name' => $source->teacherName,
 			'grade'        => $source->grade,
 			'is_active'    => $source->isActive,
 			'discount_percent' => $source->effectiveDiscount(),
+			'revoked'      => null !== $source->keyRevokedAt,
 			'has_link'     => $this->tokens->hasActive( ExamTokenPurpose::Invitation, $source->id ),
 			'url'          => $this->storedUrl( $source->id ),
 			'generation'   => $source->keyGeneration,

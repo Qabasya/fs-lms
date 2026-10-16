@@ -407,6 +407,7 @@ enum AjaxHook: string {
 	case ReissueExamSourceLink  = 'reissue_exam_source_link'; // params: source_id; ответ: url (один раз)
 	case RevokeExamSourceLink   = 'revoke_exam_source_link';  // params: source_id
 	case ToggleExamSource       = 'toggle_exam_source';       // params: source_id, active
+	case DeleteExamSource       = 'delete_exam_source';       // params: source_id (ссылка отзывается и источник удаляется; нельзя, если по нему есть заявки или записи)
 	case SetExamPublicRegistration = 'set_exam_public_registration'; // params: event_id, enabled (открытая запись без ссылки школы)
 
 	// ============================ ГЕНЕРАЦИЯ ИМЁН ============================ //

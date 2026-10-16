@@ -48,6 +48,9 @@ class ExamSourceServiceTest extends TestCase {
 	private const KEY    = 'a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4';
 
 	private ExamSourceRepository&MockObject $sources;
+
+	/** @var array<string, mixed> Поля, которыми переопределяется источник, прочитанный под блокировкой. */
+	private array $lockedOverride = array();
 	private ExamEventRepository&MockObject $events;
 	private ExamGuestApplicationRepository&MockObject $applications;
 	private ExamAccessGuard&MockObject $guard;
@@ -98,7 +101,7 @@ class ExamSourceServiceTest extends TestCase {
 		$this->sources->method( 'find' )->willReturnCallback( fn (): ExamSourceDTO => $this->source() );
 		$this->sources->method( 'findForUpdate' )->willReturnCallback( function (): ExamSourceDTO {
 			$this->db->log[] = 'source-lock';
-			return $this->source();
+			return $this->source( $this->lockedOverride );
 		} );
 		$this->sources->method( 'insert' )->willReturnCallback( function ( array $row ): int {
 			$this->inserted = $row;
@@ -341,6 +344,33 @@ class ExamSourceServiceTest extends TestCase {
 		$this->service->revokeLink( self::ACTOR, self::SOURCE );
 	}
 
+	public function test_delete_removes_source_with_revoked_link(): void {
+		$this->lockedOverride = array( 'key_revoked_at' => '2026-03-01 06:00:00' );
+		$this->sources->method( 'isReferenced' )->willReturn( false );
+		$this->tokens->method( 'hasActive' )->willReturn( false );
+		$this->sources->expects( self::once() )->method( 'delete' )->with( self::SOURCE );
+
+		$this->service->deleteSource( self::ACTOR, self::SOURCE );
+	}
+
+	public function test_delete_is_refused_without_explicit_revoke(): void {
+		$this->sources->method( 'isReferenced' )->willReturn( false );
+		$this->tokens->method( 'hasActive' )->willReturn( true );
+		$this->sources->expects( self::never() )->method( 'delete' );
+
+		$this->expectException( \Inc\Shared\CodedException::class );
+		$this->service->deleteSource( self::ACTOR, self::SOURCE );
+	}
+
+	public function test_delete_is_refused_when_source_has_applications_or_records(): void {
+		$this->lockedOverride = array( 'key_revoked_at' => '2026-03-01 06:00:00' );
+		$this->sources->method( 'isReferenced' )->willReturn( true );
+		$this->sources->expects( self::never() )->method( 'delete' );
+
+		$this->expectException( \Inc\Shared\CodedException::class );
+		$this->service->deleteSource( self::ACTOR, self::SOURCE );
+	}
+
 	public function test_set_active_updates_flag_under_lock(): void {
 		$this->service->setActive( self::ACTOR, self::SOURCE, false );
 
@@ -389,7 +419,7 @@ class ExamSourceServiceTest extends TestCase {
 
 		$rows = $this->service->list( self::ACTOR, self::EVENT );
 
-		self::assertSame( array( 'id', 'school_name', 'teacher_name', 'grade', 'is_active', 'discount_percent', 'has_link', 'url', 'generation', 'active_holds', 'version' ), array_keys( $rows[0] ) );
+		self::assertSame( array( 'id', 'school_name', 'school_key', 'teacher_name', 'grade', 'is_active', 'discount_percent', 'revoked', 'has_link', 'url', 'generation', 'active_holds', 'version' ), array_keys( $rows[0] ) );
 		self::assertStringEndsWith( '?k=k7m2qx', $rows[0]['url'], 'Ссылка для копирования собирается из сохранённого ключа; хеша в ответе нет.' );
 		self::assertTrue( $rows[0]['has_link'] );
 		self::assertSame( 3, $rows[0]['generation'] );

@@ -81,6 +81,31 @@ class ExamSourceRepository extends AbstractExamRepository {
 		return $this->readInt( $this->wpdb->prepare( 'SELECT key_generation FROM %i WHERE id = %d', $this->table, $id ) );
 	}
 
+	/** Удаляет источник. Вызывать после {@see isReferenced()} и отзыва ключа. */
+	public function delete( int $id ): void {
+		$this->write( $this->wpdb->prepare( 'DELETE FROM %i WHERE id = %d', $this->table, $id ) );
+	}
+
+	/** На источник ссылаются заявки гостей, участия, сессии гостей или школьные отчёты. */
+	public function isReferenced( int $id ): bool {
+		return $this->readInt(
+			$this->wpdb->prepare(
+				'SELECT ( SELECT COUNT(*) FROM %i WHERE source_id = %d )
+					+ ( SELECT COUNT(*) FROM %i WHERE source_id = %d )
+					+ ( SELECT COUNT(*) FROM %i WHERE source_id = %d )
+					+ ( SELECT COUNT(*) FROM %i WHERE recipient_source_id = %d )',
+				TableName::ExamGuestApplications->prefixed(),
+				$id,
+				TableName::ExamParticipations->prefixed(),
+				$id,
+				TableName::ExamGuestSessions->prefixed(),
+				$id,
+				TableName::ExamReports->prefixed(),
+				$id
+			)
+		) > 0;
+	}
+
 	/** Время отзыва ключа: `null` снимает отметку (после перевыпуска). */
 	public function setKeyRevokedAt( int $id, ?string $atUtc ): void {
 		if ( null === $atUtc ) {

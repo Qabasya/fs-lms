@@ -10,12 +10,15 @@
 import { esc, toast } from '../utils.js';
 import { confirmDialog } from '../../common/components/confirm-dialog.js';
 import { copyToClipboard } from '../../common/utils.js';
+import { icoPencil } from '../../common/icons.js';
 import { exactSchool, schoolKeyOf } from '../../common/school-suggest.js';
 import { initSchoolSuggest } from '../../frontend/services/school-suggest.js';
 
 /** Последствия перевыпуска — дословно из SPEC §6: человек должен понять, что произойдёт со старой ссылкой. */
 export const REISSUE_TEXT = 'Старая ссылка перестанет работать сразу, уже открытые по ней формы потеряют доступ; '
     + 'оплаченные записи и действующие брони сохраняются; новую ссылку нужно отправить школе заново.';
+
+const DELETE_TEXT = 'Источник будет удалён без возможности восстановления. Если по нему уже есть заявки или записи, удаление будет отклонено.';
 
 const REVOKE_TEXT = 'Ссылка перестанет работать сразу: новые заявки по ней станут невозможны. Оплаченные записи и действующие брони сохранятся.';
 
@@ -52,14 +55,17 @@ export function sourceRowHtml(source, canCopy) {
            <button type="button" class="prof-btn prof-btn-sm" data-src="reissue">Перевыпустить</button>
            <button type="button" class="prof-btn prof-btn-sm" data-src="revoke">Отозвать</button>`
         : '<button type="button" class="prof-btn prof-btn-sm prof-btn-primary" data-src="issue">Создать ссылку</button>';
+    // Удалить можно только после явного отзыва ссылки: сначала «Отозвать», потом «Удалить».
+    const remove = !source.revoked || source.has_link ? '' : '<button type="button" class="prof-btn prof-btn-sm prof-btn-danger" data-src="delete">Удалить</button>';
 
     return `<div class="exam-source${source.is_active ? '' : ' is-off'}" data-id="${source.id}">
         <div class="es-main">
             <div class="es-school">${esc(source.school_name)} · ${source.grade} класс${discountChipHtml(source.discount_percent)}</div>
-            <div class="es-teacher">${esc(source.teacher_name)}${source.active_holds ? ` · броней: ${source.active_holds}` : ''}</div>
+            <div class="es-teacher"><span class="es-teacher-name">${esc(source.teacher_name)}</span>
+                <button type="button" class="es-edit" data-src="edit-teacher" title="Изменить ФИО преподавателя" aria-label="Изменить ФИО преподавателя">${icoPencil(12)}</button>${source.active_holds ? ` · броней: ${source.active_holds}` : ''}</div>
         </div>
         <label class="es-toggle"><input type="checkbox" data-src="toggle" ${source.is_active ? 'checked' : ''}> активна</label>
-        <div class="es-actions">${link}</div>
+        <div class="es-actions">${link} ${remove}</div>
     </div>`;
 }
 
@@ -118,6 +124,36 @@ export function renderSourcesSection(container, o) {
         await reload();
     };
 
+    /* ФИО преподавателя правится на месте: ссылка и ключ остаются прежними. Enter — сохранить, Esc — отмена. */
+    function editTeacher(row, id) {
+        const source = sources.find(x => x.id === id);
+        const box = row.querySelector('.es-teacher');
+        if (!source || !box || box.querySelector('input')) { return; }
+
+        box.innerHTML = `<input type="text" class="es-teacher-input" maxlength="255" aria-label="ФИО преподавателя" value="${esc(source.teacher_name)}">
+            <button type="button" class="prof-btn prof-btn-sm prof-btn-primary" data-src="teacher-save">Сохранить</button>
+            <button type="button" class="prof-btn prof-btn-sm" data-src="teacher-cancel">Отмена</button>`;
+        const input = box.querySelector('input');
+        input.focus();
+        input.select();
+
+        const save = () => act(() => api('saveSource', {
+            event_id: event.id,
+            source_id: id,
+            version: source.version,
+            school_name: source.school_name,
+            school_key: source.school_key || '',
+            grade: source.grade,
+            teacher_name: input.value,
+        }), 'ФИО преподавателя изменено');
+        box.querySelector('[data-src="teacher-save"]').addEventListener('click', save);
+        box.querySelector('[data-src="teacher-cancel"]').addEventListener('click', draw);
+        input.addEventListener('keydown', (e) => {
+            if ('Enter' === e.key) { e.preventDefault(); save(); }
+            if ('Escape' === e.key) { draw(); }
+        });
+    }
+
     function wire() {
         // Подсказки справочника — тот же выпадающий список, что в форме заявки (apply). Вписать школу вручную можно всегда.
         const schoolInput = container.querySelector('#srcSchool');
@@ -159,6 +195,11 @@ export function renderSourcesSection(container, o) {
             row.querySelector('[data-src="reissue"]')?.addEventListener('click', async () => {
                 if (!await confirmDialog(REISSUE_TEXT, 'Перевыпустить', 'Не перевыпускать')) { return; }
                 await act(async () => { urls.set(id, (await api('reissueSourceLink', { source_id: id })).url); }, 'Ссылка перевыпущена');
+            });
+            row.querySelector('[data-src="edit-teacher"]')?.addEventListener('click', () => editTeacher(row, id));
+            row.querySelector('[data-src="delete"]')?.addEventListener('click', async () => {
+                if (!await confirmDialog(DELETE_TEXT, 'Удалить', 'Не удалять')) { return; }
+                await act(async () => { await api('deleteSource', { source_id: id }); urls.delete(id); }, 'Источник удалён');
             });
             row.querySelector('[data-src="revoke"]')?.addEventListener('click', async () => {
                 if (!await confirmDialog(REVOKE_TEXT, 'Отозвать', 'Не отзывать')) { return; }

@@ -120,7 +120,11 @@
 }
 .es-main { flex: 1 1 $exam-source-row-width; min-width: 0; }
 .es-school { font-size: t.$font-size-sm; font-weight: t.$font-semibold; color: var(--ink); }
-.es-teacher { font-size: t.$font-size-xs; color: var(--muted); }
+.es-teacher { display: flex; flex-wrap: wrap; align-items: center; gap: t.$spacing-xs; font-size: t.$font-size-xs; color: var(--muted); }
+.es-list { max-height: $exam-source-list-max-height; overflow-y: auto; }
+.es-edit { display: inline-flex; padding: t.$spacing-xs; color: var(--muted-2); background: none; border: 0; border-radius: t.$border-radius-sm; cursor: pointer; }
+.es-edit:hover { color: var(--accent-700); background: var(--accent-soft); }
+.es-teacher-input { flex: 1 1 auto; min-width: 0; height: $exam-source-input-height; padding: 0 t.$spacing-sm; font: inherit; font-size: t.$font-size-sm; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: t.$border-radius-sm; }
 .es-free { margin-left: t.$spacing-xs; padding: 0 t.$spacing-xs; font-size: t.$font-size-2xs; font-weight: t.$font-semibold; color: var(--accent-700); background: var(--accent-soft); border-radius: t.$border-radius-xl; }
 .es-toggle { display: inline-flex; align-items: center; gap: t.$spacing-xs; font-size: t.$font-size-xs; color: var(--muted); }
 .es-actions { display: flex; flex-wrap: wrap; gap: t.$spacing-xs; }

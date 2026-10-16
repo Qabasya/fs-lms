@@ -122,6 +122,21 @@ class ExamSourceCallbacks extends BaseController {
 		);
 	}
 
+	/** Удаляет источник: ссылка, если создана, отзывается; источник с заявками или записями не удаляется. */
+	public function ajaxDeleteExamSource(): void {
+		$this->authorize( Nonce::ExamManage, Capability::ManageExamGuests );
+
+		$sourceId = $this->requireInt( 'source_id' );
+
+		$this->run(
+			function () use ( $sourceId ): array {
+				$this->sources->deleteSource( get_current_user_id(), $sourceId );
+
+				return array( 'source_id' => $sourceId );
+			}
+		);
+	}
+
 	/** Меняет доступность источника и возвращает установленное состояние. */
 	public function ajaxToggleExamSource(): void {
 		$this->authorize( Nonce::ExamManage, Capability::ManageExamGuests );

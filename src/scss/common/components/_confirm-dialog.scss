@@ -56,13 +56,14 @@
   }
 
   .button.button-primary {
-    border-color: $color-primary;
-    background: $color-primary;
+    // Цвет — из темы бандла (в кабинете это акцент), без темы — синий wp-admin.
+    border-color: var(--color-primary, #{$color-primary});
+    background: var(--color-primary, #{$color-primary});
     color: $color-text-inverse;
 
     &:hover {
-      background: $color-primary-hover;
-      border-color: $color-primary-hover;
+      background: var(--color-primary-hover, #{$color-primary-hover});
+      border-color: var(--color-primary-hover, #{$color-primary-hover});
     }
   }
 }

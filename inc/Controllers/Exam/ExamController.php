@@ -101,6 +101,7 @@ class ExamController extends AjaxController {
 			array( AjaxHook::ReissueExamSourceLink, $this->sources ),
 			array( AjaxHook::RevokeExamSourceLink, $this->sources ),
 			array( AjaxHook::ToggleExamSource, $this->sources ),
+			array( AjaxHook::DeleteExamSource, $this->sources ),
 			array( AjaxHook::SetExamPublicRegistration, $this->sources ),
 		);
 	}

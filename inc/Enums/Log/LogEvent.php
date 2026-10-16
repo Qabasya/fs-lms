@@ -62,6 +62,7 @@ enum LogEvent: string {
 
 	case ExamSourceCreated = 'exam_source.created';
 	case ExamSourceUpdated = 'exam_source.updated';
+	case ExamSourceDeleted = 'exam_source.deleted';
 
 	// Ссылки гостя экзамена (вход и результат): выдача и отзыв; в метке — вид ссылки
 	// Школьные отчёты: создание, состав, выдача и отзыв ссылки; в метке — что именно

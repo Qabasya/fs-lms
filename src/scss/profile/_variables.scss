@@ -47,6 +47,9 @@ $exam-event-form-width: t.rem(1200); // «Настройки проведени�
 $exam-source-row-width: t.rem(180);
 $exam-source-input-width: t.rem(140);
 $exam-source-input-height: t.rem(32);
+
+// Список ссылок прокручивается сам: после ~10 строк (строка источника ≈ 56px).
+$exam-source-list-max-height: t.rem(560);
 $exam-source-row-gap: t.rem(32); // промежуток между полями ряда «Школа / класс / ФИО / без оплаты / Добавить»
 $exam-filter-height: t.rem(38);
 $exam-row-height: 40px; // высота строки таблиц статистики — ровно в пикселях, без масштаба rem кабинета

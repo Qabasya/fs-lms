@@ -18,6 +18,10 @@
   --accent:        #{t.$hue-indigo};
   --accent-600:    #364fc7;
   --accent-700:    #2f44b3;
+
+  // Мост для общих компонентов (confirm, toggle, copy-button): в кабинете «основной» цвет — акцент, а не синий wp-admin.
+  --color-primary:       var(--accent);
+  --color-primary-hover: var(--accent-600);
   --accent-soft:   #edf0fe;
   --accent-soft-2: #dde3fb;
   --accent-soft-3: #f6f8ff; // подсветка липких ячеек активной строки журнала
