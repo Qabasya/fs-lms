@@ -276,6 +276,10 @@ body.fs-player-page { overflow: visible; }
     justify-content: center;
   }
 
+  .lock-countdown + .lock-actions {
+    margin-top: rem(18);
+  }
+
   .lock-countdown {
     margin-top: rem(18);
     font: 700 rem(34) var(--mono);

@@ -64,6 +64,7 @@ $locked_seconds   = $locked_seconds ?? null;
 $locked_soon      = ! empty( $locked_soon );
 // Родитель: та же блокировка, но оверлей объясняет, что материалы — только для ученика.
 $locked_parent    = $locked && ! empty( $locked_parent );
+$locked_stream_url = (string) ( $locked_stream_url ?? '' );
 
 // Прогресс урока для топбара: пройденные шаги (completed; failed закрывает
 // шаг, но в прогресс не зачитывается — как в ProgressStatus::isComplete()).
@@ -291,6 +292,11 @@ $next_url    = null !== $next_lesson
 					<div class="lock-countdown" data-lesson-countdown data-seconds="<?php echo esc_attr( (string) $locked_seconds ); ?>">
 						<span data-countdown-value><?php echo esc_html( sprintf( '%02d:%02d', intdiv( $locked_seconds, 60 ), $locked_seconds % 60 ) ); ?></span>
 					</div>
+					<?php if ( '' !== $locked_stream_url ) : ?>
+						<div class="lock-actions">
+							<a class="b b-pri" href="<?php echo esc_url( $locked_stream_url ); ?>" target="_blank" rel="noopener noreferrer"><?php esc_html_e( 'Подключиться к встрече', 'fs-lms' ); ?></a>
+						</div>
+					<?php endif; ?>
 				<?php elseif ( null !== $locked_seconds && $locked_seconds > 0 ) : ?>
 					<div class="lock-title" id="fsLockTitle"><?php esc_html_e( 'Урок ещё не доступен', 'fs-lms' ); ?></div>
 					<p class="lock-sub">
@@ -303,6 +309,11 @@ $next_url    = null !== $next_lesson
 						);
 						?>
 					</p>
+					<?php if ( '' !== $locked_stream_url ) : ?>
+						<div class="lock-actions">
+							<a class="b b-pri" href="<?php echo esc_url( $locked_stream_url ); ?>" target="_blank" rel="noopener noreferrer"><?php esc_html_e( 'Подключиться к встрече', 'fs-lms' ); ?></a>
+						</div>
+					<?php endif; ?>
 				<?php else : ?>
 					<div class="lock-title" id="fsLockTitle"><?php esc_html_e( 'Урок ещё не доступен', 'fs-lms' ); ?></div>
 					<p class="lock-sub"><?php esc_html_e( 'Он откроется по дате или после выполнения предыдущих шагов.', 'fs-lms' ); ?></p>

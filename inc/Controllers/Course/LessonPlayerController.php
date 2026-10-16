@@ -108,6 +108,7 @@ class LessonPlayerController extends BaseController implements ServiceInterface 
 		$locked_seconds   = $isParent ? null : $data['locked_seconds'];
 		$locked_soon      = ! $isParent && $data['locked_soon'];
 		$locked_parent    = $isParent;
+		$locked_stream_url = $isParent ? '' : $data['locked_stream_url'];
 		$groupId          = $row->groupId;
 		$active_step      = $this->sanitizeGetKey( 'step' );
 		$is_teacher       = $isTeacher;

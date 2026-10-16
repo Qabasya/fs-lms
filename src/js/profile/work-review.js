@@ -135,6 +135,12 @@ function render(d, history = []) {
     // «На проверке» в «Проверенные».
     const canComplete = d.kind === 'work' && d.submission_id && OPEN_STATUSES.includes(d.status);
 
+    // «Засчитать работу»: все ещё не зачтённые задания получают полный балл. Только работа и только те задания,
+    // которые можно засчитать поштучно (у них есть строка сдачи задания).
+    const creditableTasks = d.kind === 'work' && batchGradeApi && d.submission_id && !d.gradable
+        ? (d.tasks || []).filter((t) => t.task_submission_id && 'correct' !== t.verdict)
+        : [];
+
     const grading = d.gradable ? `
         <div class="wr-foot">
             <div class="smf-fields">
@@ -165,6 +171,7 @@ function render(d, history = []) {
                     ${canApprove ? '<button class="prof-btn prof-btn-sm prof-btn-primary sum-approve">Утвердить работу</button>' : ''}
                     ${isApproved ? '<span class="sum-approved-badge" title="Ответы открыты ученику">Утверждена</span>' : ''}
                     ${isExam && d.correctable && examApi && !correcting ? '<button class="prof-btn prof-btn-sm sum-correct">Исправить результат</button>' : ''}
+                    ${creditableTasks.length ? '<button class="prof-btn prof-btn-sm sum-credit-work">Засчитать работу</button>' : ''}
                     ${canComplete ? '<button class="prof-btn prof-btn-sm prof-btn-primary sum-complete">Проверка завершена</button>' : ''}
                     ${isExam ? '' : '<button class="prof-btn prof-btn-sm sum-reset">Сбросить попытки</button>'}
                 </div>
@@ -193,6 +200,7 @@ function render(d, history = []) {
     if (d.gradable) { wireGrading(wrRoot, d.submission_id); }
     if (canApprove) { wireApprove(wrRoot, d); }
     if (canComplete) { wireComplete(wrRoot, d); }
+    if (creditableTasks.length) { wireWorkCredit(wrRoot, d, creditableTasks, canComplete); }
     if (!isExam) { wireReset(wrRoot); }
     if (isExam && d.correctable && examApi) { wireCorrection(wrRoot, d); }
     if (picker) { wireAttemptPicker(wrRoot, history, currentRound, liveTasksHtml, wireLiveTaskControls); }
@@ -569,6 +577,33 @@ function wireTaskCredit(root, d) {
                 reload();
             } catch (e) { toast(e.message, 'error'); btn.disabled = false; }
         });
+    });
+}
+
+/* «Засчитать работу» — полный балл за все ещё не зачтённые задания (все считаются выполненными верно).
+   Тот же GradeBatchTask, что и у зачёта одного задания, по одному запросу на задание: он пишет строку задания,
+   синхронизирует снимок вердиктов и пересчитывает итог. Если работа ещё «на проверке», она сразу уходит
+   в «Проверенные» — зачёт целиком и есть завершённая проверка. Комментарии учителя не трогаем. */
+function wireWorkCredit(root, d, tasks, canComplete) {
+    const btn = root.querySelector('.sum-credit-work');
+    if (!btn) { return; }
+    btn.addEventListener('click', async () => {
+        const ok = await confirmDialog(
+            `Все задания работы (не зачтённых: ${ tasks.length }) будут засчитаны с полным баллом. Работа останется у ученика, на доработку не вернётся.`,
+            'Засчитать работу',
+            'Отмена'
+        );
+        if (!ok) { return; }
+
+        btn.disabled = true;
+        try {
+            for (const t of tasks) {
+                await batchGradeApi('gradeTask', { submission_id: t.task_submission_id, score: t.max_score != null ? String(t.max_score) : '1' });
+            }
+            if (canComplete) { await reviewApi('completeReview', { submission_id: d.submission_id }); }
+            toast('Работа засчитана');
+            reload();
+        } catch (e) { reportFailure(e); btn.disabled = false; reload(); }
     });
 }
 

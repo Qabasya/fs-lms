@@ -62,7 +62,7 @@ class LessonPlayerService {
 	 * @param GroupLessonDTO $row       Занятие группы
 	 * @param bool           $isTeacher Teacher-режим (гейты открыты, прогресс не читается)
 	 *
-	 * @return array{view:array<string,mixed>, locked:bool, locked_scheduled:?string, locked_seconds:?int, locked_soon:bool}|null
+	 * @return array{view:array<string,mixed>, locked:bool, locked_scheduled:?string, locked_seconds:?int, locked_soon:bool, locked_stream_url:string}|null
 	 *         null — у урока нет контента (контроллер рендерит themed-фолбэк locked.php)
 	 */
 	public function buildRouteView( int $personId, GroupLessonDTO $row, bool $isTeacher ): ?array {
@@ -80,7 +80,11 @@ class LessonPlayerService {
 			? strtotime( $scheduled ) - strtotime( current_time( 'mysql' ) )
 			: null;
 
+		// Ссылка на встречу группы — для кнопки «Подключиться» в оверлее до начала занятия.
+		$group = ( $locked && $row->groupId > 0 ) ? $this->groups->findById( $row->groupId ) : null;
+
 		return array(
+			'locked_stream_url' => (string) ( $group->broadcast_url ?? '' ),
 			'view'             => $view,
 			'locked'           => $locked,
 			'locked_scheduled' => $scheduled,
