@@ -118,7 +118,7 @@ class ExamConductViewServiceTest extends TestCase {
 			$this->tokens,
 			$this->guestBoard,
 			new UserManager(),
-			new \Inc\Services\Exam\ExamEventViewService( $this->sessions, $this->sources, $this->time ),
+			new \Inc\Services\Exam\ExamEventViewService( $this->sessions, $this->sources, $this->registrations, $this->time ),
 		);
 	}
 
@@ -174,6 +174,15 @@ class ExamConductViewServiceTest extends TestCase {
 		$tiles = $this->service->sessionBoard( 10, 7 )['tiles'];
 
 		self::assertSame( array( 'registered' => 4, 'started' => 2, 'submitted' => 1, 'missed' => 1, 'pending' => 1 ), $tiles );
+	}
+
+	public function test_session_switcher_carries_active_registration_count(): void {
+		$this->givenBoard( array(), array() );
+		$this->registrations->method( 'countActiveBySession' )->willReturn( 3 );
+
+		$sessions = $this->service->sessionBoard( 10, 7 )['sessions'];
+
+		self::assertSame( 3, $sessions[0]['registered'] );
 	}
 
 	public function test_row_progress_for_each_state(): void {
@@ -267,7 +276,7 @@ class ExamConductViewServiceTest extends TestCase {
 			$this->tokens,
 			$this->guestBoard,
 			new UserManager(),
-			new \Inc\Services\Exam\ExamEventViewService( $this->sessions, $this->sources, $this->time ),
+			new \Inc\Services\Exam\ExamEventViewService( $this->sessions, $this->sources, $this->registrations, $this->time ),
 		);
 
 		$this->expectException( CodedException::class );
@@ -348,7 +357,7 @@ class ExamConductViewServiceTest extends TestCase {
 			$this->tokens,
 			$this->guestBoard,
 			new UserManager(),
-			new \Inc\Services\Exam\ExamEventViewService( $this->sessions, $this->sources, $this->time ),
+			new \Inc\Services\Exam\ExamEventViewService( $this->sessions, $this->sources, $this->registrations, $this->time ),
 		);
 
 		$board = $service->sessionBoard( 10, 7 );

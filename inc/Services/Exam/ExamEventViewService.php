@@ -11,6 +11,7 @@ namespace Inc\Services\Exam;
 
 use Inc\DTO\Exam\ExamEventDTO;
 use Inc\Enums\Exam\ExamSessionStatus;
+use Inc\Repositories\WPDBRepositories\ExamRegistrationRepository;
 use Inc\Repositories\WPDBRepositories\ExamSessionRepository;
 use Inc\Repositories\WPDBRepositories\ExamSourceRepository;
 
@@ -21,6 +22,7 @@ class ExamEventViewService {
 	public function __construct(
 		private readonly ExamSessionRepository $sessions,
 		private readonly ExamSourceRepository $sources,
+		private readonly ExamRegistrationRepository $registrations,
 		private readonly ExamTime $time,
 	) {}
 
@@ -57,6 +59,8 @@ class ExamEventViewService {
 				'date'       => substr( $start, 0, 10 ),
 				'time_start' => substr( $start, 11, 5 ),
 				'free'       => $session->freeSeats(),
+				// Действующие записи сеанса — подпись в переключателе доски.
+				'registered' => $this->registrations->countActiveBySession( $session->id ),
 				'status'     => $session->status,
 				// Сеанс уже закончился: переключатель его показывает, но переносить на него записи нельзя.
 				'is_past'    => $session->plannedEndAt <= $nowUtc,

@@ -260,7 +260,7 @@ function eventSwitcher() {
 function sessionSwitcher() {
     if (board.sessions.length < 2) { return ''; }
     return `<div class="prof-seg exam-conduct-sessions" role="tablist">${board.sessions.map(x =>
-        `<button type="button" role="tab" class="${x.id === sessionId ? 'on' : ''}" data-session="${x.id}">${esc(fmtDate(x.date))} · ${esc(x.time_start)}</button>`
+        `<button type="button" role="tab" class="${x.id === sessionId ? 'on' : ''}" data-session="${x.id}">${esc(fmtDate(x.date))} · ${esc(x.time_start)} · ${x.registered}</button>`
     ).join('')}</div>`;
 }
 

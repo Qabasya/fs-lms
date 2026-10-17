@@ -90,7 +90,7 @@ class ExamResultsViewServiceTest extends TestCase {
 			$this->sources, new \Inc\Services\Exam\ExamParticipantNameService( $this->records, $this->guestData ),
 			$this->scores, $guard, $this->time,
 			new \Inc\Services\Exam\ExamResultStatusService( $this->answers ),
-			new \Inc\Services\Exam\ExamEventViewService( $this->sessions, $this->sources, $this->time ),
+			new \Inc\Services\Exam\ExamEventViewService( $this->sessions, $this->sources, $this->registrations, $this->time ),
 			new \Inc\Services\Exam\ExamParticipantProfileService( $this->records, $this->sources, $this->groupsRepo ),
 		);
 	}
