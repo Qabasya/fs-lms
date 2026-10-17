@@ -222,8 +222,11 @@
     color: $color-muted;
   }
 
+  // Ответ ученика — того же кегля и интерлиньяжа, что и условие (`.fs-task-condition`).
   &__line {
     margin: 0 0 $spacing-xs;
+    font-size: $font-size-md;
+    line-height: $line-height-relaxed;
     overflow-wrap: anywhere;
 
     &.is-correct { color: $color-ok; }
