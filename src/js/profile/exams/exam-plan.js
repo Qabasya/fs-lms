@@ -104,7 +104,7 @@ function headHtml() {
     const subjects = examSubjects();
     const canPublish = e && 'draft' === e.status && e.sessions.length > 0;
     return `<div class="prof-ktp-head">
-        <div class="prof-ktp-pickers">
+        <div class="prof-ktp-pickers exam-plan-pickers">
             ${subjectPickerHtml(subjects, currentSubject(), 'examPlanSubjectBtn')}
             ${eventPickerHtml()}
         </div>

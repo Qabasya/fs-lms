@@ -52,6 +52,7 @@ $exam-source-input-height: t.rem(32);
 $exam-source-list-max-height: t.rem(560);
 $exam-source-row-gap: t.rem(32); // промежуток между полями ряда «Школа / класс / ФИО / без оплаты / Добавить»
 $exam-filter-height: t.rem(38);
+$exam-session-pick-width: t.rem(207.5); // выбор сеанса по ширине выбора предмета: 249px на FullHD при масштабе кабинета 1.2
 $exam-row-height: 40px; // высота строки таблиц статистики — ровно в пикселях, без масштаба rem кабинета
 $exam-stat-min-width: t.rem(120);
 $exam-score-width: t.rem(72);

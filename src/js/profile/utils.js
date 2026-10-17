@@ -162,7 +162,8 @@ let ctxOnClose = null;
 /** Больше стольких пунктов — меню получает прокрутку (Tasks.md п. 2: ученики группы). */
 const CTX_SCROLL_AFTER = 14;
 
-export function openCtxMenu(anchor, items, onPick) {
+/** `opts.alignRight` — правый край меню по правому краю якоря (кнопки «⋯» у правого края строки). */
+export function openCtxMenu(anchor, items, onPick, opts = {}) {
     const menu = document.getElementById('profCtxMenu');
     const backdrop = document.getElementById('profCtxBackdrop');
     if (!menu || !backdrop) return;
@@ -184,6 +185,12 @@ export function openCtxMenu(anchor, items, onPick) {
     menu.style.left = Math.max(10, Math.min(r.left, window.innerWidth - 300)) + 'px';
     menu.style.top = (r.bottom + 6) + 'px';
     backdrop.classList.add('open');
+    // Реальная ширина известна только после показа: длинные пункты («⋯» в строках) уводили меню за правый край окна.
+    if (opts.alignRight) {
+        menu.style.left = Math.max(10, r.right - menu.getBoundingClientRect().width) + 'px';
+    }
+    const overflow = menu.getBoundingClientRect().right - (window.innerWidth - 10);
+    if (overflow > 0) { menu.style.left = Math.max(10, parseFloat(menu.style.left) - overflow) + 'px'; }
     ctxOnClose = null;
 }
 

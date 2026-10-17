@@ -56,7 +56,7 @@ let editingReport = 0;
 const query = { event_id: 0, session_id: 0, status: 'all', audience: 'all', source_id: 0, group_id: 0, school: '' };
 
 // Сортировка таблицы на клиенте: ключ колонки и направление (1 — по возрастанию); пустой ключ — порядок сервера.
-const SORTABLE = { audience: 'Участник', school: 'Школа' };
+const SORTABLE = { name: 'ФИО', audience: 'Участник', school: 'Школа', session: 'Сеанс', score: 'Балл' };
 let sort = { key: '', dir: 1 };
 
 export function renderExamResults(r, h = {}) {
@@ -122,17 +122,26 @@ function schoolOptionsHtml(schools, current) {
         `<option value="${esc(s)}"${current === s ? ' selected' : ''}>${esc(s)}</option>`).join('');
 }
 
+/** Значение колонки для сортировки: строка или число; null — пусто (такие строки всегда внизу). */
+function sortValue(r, key) {
+    switch (key) {
+        case 'audience': return 'student' === r.audience ? 'Наш ученик' : 'Гость';
+        case 'session': return r.session_date ? `${r.session_date} ${r.session_time}` : null;
+        case 'score': return r.score ? Number(r.score.primary) : null;
+        default: return r[key] ? String(r[key]) : null;
+    }
+}
+
 /** Строки таблицы в выбранном порядке; пустое значение («—») всегда внизу, независимо от направления. */
 function sortedItems() {
     if (!sort.key) { return data.items; }
-    const text = r => ('audience' === sort.key ? ('student' === r.audience ? 'Наш ученик' : 'Гость') : String(r[sort.key] || ''));
     return [...data.items].sort((a, b) => {
-        const x = text(a);
-        const y = text(b);
+        const x = sortValue(a, sort.key);
+        const y = sortValue(b, sort.key);
         if (x === y) { return 0; }
-        if ('' === x) { return 1; }
-        if ('' === y) { return -1; }
-        return sort.dir * x.localeCompare(y, 'ru');
+        if (null === x) { return 1; }
+        if (null === y) { return -1; }
+        return sort.dir * ('number' === typeof x ? x - y : x.localeCompare(y, 'ru'));
     });
 }
 
@@ -236,7 +245,7 @@ function resultsTableHtml() {
     return `<div class="prof-card exam-results-card">
         <div class="exam-panel-head"><div class="exam-panel-title">Работы</div><div class="exam-panel-sub">${data.items.length} ${plural(data.items.length, 'работа', 'работы', 'работ')}</div></div>
         <div class="exam-grid-scroll"><table class="exam-results-table">
-            <thead><tr>${checking ? '<th class="exam-results-check"></th>' : ''}<th>ФИО</th>${sortHeaderHtml('audience')}${sortHeaderHtml('school')}<th>Сеанс</th><th>Балл</th><th>Статус</th></tr></thead>
+            <thead><tr>${checking ? '<th class="exam-results-check"></th>' : ''}${sortHeaderHtml('name')}${sortHeaderHtml('audience')}${sortHeaderHtml('school')}${sortHeaderHtml('session')}${sortHeaderHtml('score')}<th>Статус</th></tr></thead>
             <tbody>${sortedItems().map(rowHtml).join('')}</tbody>
         </table></div>
     </div>`;

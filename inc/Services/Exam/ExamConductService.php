@@ -109,8 +109,8 @@ class ExamConductService {
 	}
 
 	/**
-	 * Допуск гостя (8.8.2): сотрудник проверил данные и согласие представителя на площадке. Без допуска ссылка входа не выдаётся.
-	 * Допуск снимается, пока попытка не начата.
+	 * Допуск гостя (8.8.2): ставится выдачей ссылки входа ({@see self::issueEntryLink()}), снимается здесь вместе с отзывом ссылки.
+	 * Снять допуск можно, пока попытка не начата.
 	 *
 	 * @throws CodedException Нет доступа к гостю, действующей записи нет либо попытка уже начата.
 	 */
@@ -124,6 +124,9 @@ class ExamConductService {
 		}
 
 		$this->participations->setAdmission( $participationId, $admitted ? $this->time->nowUtc() : null, $admitted ? $actorUserId : null );
+		if ( ! $admitted ) {
+			$this->tokens->revoke( ExamTokenPurpose::Entry, $participationId );
+		}
 
 		ExamLogAction::Admitted->record(
 			array(
@@ -137,7 +140,7 @@ class ExamConductService {
 	}
 
 	/**
-	 * Ссылка входа гостя (11b.1.2): допуск и действующая запись обязательны, сеанс не закончился. Прежний ключ отзывается, поколение растёт.
+	 * Ссылка входа гостя (11b.1.2): действующая запись обязательна, сеанс не закончился; выдача допускает гостя, если он ещё не допущен. Прежний ключ отзывается, поколение растёт.
 	 * Права `ExportPII` и `ManageLmsPlatform` не нужны: ссылка не содержит персональных данных.
 	 *
 	 * @return string Адрес с ключом; позднее ту же ссылку копирует кнопка строки доски (ключ входа хранится зашифрованным).
@@ -150,12 +153,13 @@ class ExamConductService {
 		if ( null === $registration ) {
 			throw new CodedException( ErrorCode::ExamNotFound, 'У участника нет действующей записи.' );
 		}
-		if ( null === $participation->admittedAt ) {
-			throw new CodedException( ErrorCode::ExamState, 'Сначала отметьте допуск участника.' );
-		}
 		$session = $this->sessions->find( $registration->sessionId );
 		if ( null === $session || $session->plannedEndAt <= $this->time->nowUtc() ) {
 			throw new CodedException( ErrorCode::ExamClosed, 'Сеанс уже закончился.' );
+		}
+
+		if ( null === $participation->admittedAt ) {
+			$this->admit( $actorUserId, $participationId, true );
 		}
 
 		$plain = $this->tokens->issue( ExamTokenPurpose::Entry, $participationId, $actorUserId, $session->plannedEndAt );

@@ -179,19 +179,34 @@ class ExamConductServiceTest extends TestCase {
 		), $over ) );
 	}
 
-	public function test_entry_link_requires_admission_and_confirmed_registration(): void {
-		$this->participations->method( 'find' )->willReturnOnConsecutiveCalls( $this->guestParticipation( array( 'admitted_at' => null ) ), $this->guestParticipation( array( 'active_registration_id' => null ) ) );
-		$this->registrations->method( 'find' )->willReturn( $this->registration( 1, 4 ) );
+	public function test_entry_link_requires_confirmed_registration(): void {
+		$this->participations->method( 'find' )->willReturn( $this->guestParticipation( array( 'active_registration_id' => null ) ) );
 		$this->tokens->expects( self::never() )->method( 'issue' );
 
-		foreach ( array( 'Сначала отметьте допуск участника.', 'У участника нет действующей записи.' ) as $message ) {
-			try {
-				$this->service->issueEntryLink( 10, 4 );
-				self::fail( 'Ожидался отказ.' );
-			} catch ( CodedException $e ) {
-				self::assertSame( $message, $e->getMessage() );
-			}
+		try {
+			$this->service->issueEntryLink( 10, 4 );
+			self::fail( 'Ожидался отказ.' );
+		} catch ( CodedException $e ) {
+			self::assertSame( 'У участника нет действующей записи.', $e->getMessage() );
 		}
+	}
+
+	public function test_entry_link_admits_not_yet_admitted_guest(): void {
+		$this->participations->method( 'find' )->willReturn( $this->guestParticipation( array( 'admitted_at' => null ) ) );
+		$this->registrations->method( 'find' )->willReturn( $this->registration( 1, 4 ) );
+		$this->participations->expects( self::once() )->method( 'setAdmission' )->with( 4, self::isType( 'string' ), 10 );
+		$this->tokens->expects( self::once() )->method( 'issue' )->willReturn( str_repeat( 'a', 64 ) );
+
+		$this->service->issueEntryLink( 10, 4 );
+	}
+
+	public function test_entry_link_keeps_existing_admission(): void {
+		$this->participations->method( 'find' )->willReturn( $this->guestParticipation() );
+		$this->registrations->method( 'find' )->willReturn( $this->registration( 1, 4 ) );
+		$this->participations->expects( self::never() )->method( 'setAdmission' );
+		$this->tokens->expects( self::once() )->method( 'issue' )->willReturn( str_repeat( 'a', 64 ) );
+
+		$this->service->issueEntryLink( 10, 4 );
 	}
 
 	public function test_entry_link_denied_for_student_participation(): void {
@@ -256,6 +271,15 @@ class ExamConductServiceTest extends TestCase {
 		$this->participations->expects( self::once() )->method( 'setAdmission' )->with( 4, self::isType( 'string' ), 10 );
 
 		$this->service->admit( 10, 4, true );
+	}
+
+	public function test_clearing_admission_revokes_entry_link(): void {
+		$this->participations->method( 'find' )->willReturn( $this->guestParticipation() );
+		$this->registrations->method( 'find' )->willReturn( $this->registration( 1, 4 ) );
+		$this->participations->expects( self::once() )->method( 'setAdmission' )->with( 4, null, null );
+		$this->tokens->expects( self::once() )->method( 'revoke' )->with( \Inc\Enums\Exam\ExamTokenPurpose::Entry, 4 );
+
+		$this->service->admit( 10, 4, false );
 	}
 
 	public function test_admission_cannot_change_after_attempt_started(): void {

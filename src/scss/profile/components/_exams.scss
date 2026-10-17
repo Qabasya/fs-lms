@@ -186,21 +186,20 @@
 .exam-conduct-event { display: flex; align-items: center; gap: t.$spacing-sm; }
 
 
-/* Предмет, проведение и сеансы — одной строкой и одной высоты; на узком экране переносятся. Подпись «Предмет» — как на
+/* Предмет, проведение и сеансы — одной строкой и одной высоты, отступ между ними 16px — как между выборами в «Сводке по ученику»; на узком экране переносятся. Подпись «Предмет» — как на
    «Статистике» (prof-ktp-pick); из-за неё блок выше соседей, поэтому элементы выровнены по нижней кромке. У «Проведения»
    подпись не нужна: рядом стоит сам выбор. */
 .exam-conduct-nav {
-  display: flex; flex-wrap: wrap; align-items: flex-end; gap: t.$spacing-lg t.$spacing-3xl;
+  display: flex; flex-wrap: wrap; align-items: flex-end; gap: t.$spacing-lg;
 
   .exam-conduct-event .kp-label { display: none; }
 
-  .kp-btn,
-  .exam-conduct-sessions,
-  .exam-conduct-event select { height: $exam-filter-height; box-sizing: border-box; }
+  .exam-conduct-sessions .kp-btn { width: $exam-session-pick-width; max-width: 100%; }
+  .exam-conduct-sessions .kp-txt { flex: 1; }
 
-  .exam-conduct-sessions { align-items: center; }
+  .kp-btn,
+  .exam-conduct-event select { height: $exam-filter-height; box-sizing: border-box; }
 }
-.exam-conduct-sessions { max-width: 100%; overflow-x: auto; }
 .exam-conduct-titlebar { display: flex; align-items: center; justify-content: space-between; gap: t.$spacing-md; }
 .exam-conduct-title { margin: 0; font-size: t.$font-size-lead; font-weight: t.$font-bold; color: var(--ink); }
 .exam-conduct-sub { margin-top: t.$spacing-xs; font-size: t.$font-size-sm; color: var(--muted); }
@@ -225,6 +224,25 @@
 .exam-conduct-score { font-size: t.$font-size-sm; color: var(--ink); white-space: nowrap; }
 .exam-conduct-arrived { color: var(--ok); }
 
+// Бейдж сеанса в строке общего списка («Все сеансы»): день недели, дата, время.
+.exam-conduct-session-badge {
+  display: inline-block;
+  margin-top: t.$spacing-xs;
+  padding: t.$spacing-xs t.$spacing-sm;
+  border-radius: t.$border-radius-xl;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  font-size: t.$font-size-xs;
+  font-weight: t.$font-semibold;
+  color: var(--muted);
+  white-space: nowrap;
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color $tr, background $tr;
+
+  &:hover { border-color: var(--accent-soft-2); background: var(--accent-soft); }
+}
+
 // Чек-лист запуска гостевой записи в форме проведения (11a.6.7).
 .exam-launch {
   margin: 0;
@@ -246,12 +264,14 @@
 
 .exam-conduct-subtitle { font-size: t.$font-size-sm; font-weight: t.$font-semibold; color: var(--muted); }
 
-// Гость: оплата, запись, допуск и попытка — четыре отдельные пилюли в одной строке (8.8.1).
+// Гость: оплата и попытка — отдельные пилюли в одной строке (8.8.1); в режиме «Все сеансы» к ним добавляется бейдж сеанса.
 .exam-guest-pills {
   display: flex;
   flex-wrap: wrap;
   gap: t.$spacing-xs;
   margin-top: t.$spacing-xs;
+
+  .exam-conduct-session-badge { margin-top: 0; }
 }
 .exam-conduct-loading { padding: t.$spacing-xl 0; text-align: center; color: var(--muted); }
 .exam-conduct-toolbar { display: flex; flex-wrap: wrap; gap: t.$spacing-sm; }
@@ -377,3 +397,6 @@ th.exam-grid-name { z-index: 2; background: var(--surface-2); }
 .exam-results-name { font-weight: t.$font-semibold; }
 .exam-results-sub { display: block; margin-top: t.$spacing-xs; font-size: t.$font-size-xs; font-weight: t.$font-regular; color: var(--muted); }
 .exam-results-score { white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+// Предмет и проведение на «Назначить экзамен»: отступ между выборами как в «Сводке по ученику» (.sum-head), а не общий для КТП.
+.prof-ktp-pickers.exam-plan-pickers { gap: t.$spacing-lg; }

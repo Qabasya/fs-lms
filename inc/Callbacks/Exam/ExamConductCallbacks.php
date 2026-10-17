@@ -74,7 +74,7 @@ class ExamConductCallbacks extends BaseController {
 						return array( 'board' => null );
 				}
 
-				return array( 'board' => $this->board->sessionBoard( get_current_user_id(), $resolved ) );
+				return array( 'board' => $this->boardOf( $resolved ) );
 			}
 		);
 	}
@@ -177,7 +177,7 @@ class ExamConductCallbacks extends BaseController {
 			function () use ( $items, $sessionId ): array {
 				$result = $this->approval->approveMany( get_current_user_id(), $items );
 				if ( $sessionId > 0 ) {
-						$result['board'] = $this->board->sessionBoard( get_current_user_id(), $sessionId );
+						$result['board'] = $this->boardOf( $sessionId );
 				}
 
 				return $result;
@@ -274,7 +274,10 @@ class ExamConductCallbacks extends BaseController {
 	private function exportContext(): array {
 		$sessionId = $this->sanitizeInt( 'session_id' );
 		if ( $sessionId > 0 ) {
-			return array( 'session_id' => $sessionId );
+			return array(
+				'session_id' => $sessionId,
+				'all'        => $this->sanitizeBool( 'all' ),
+			);
 		}
 
 		$ids = array_values( array_filter( $this->sanitizeIntList( 'participation_ids' ) ) );
@@ -425,9 +428,14 @@ class ExamConductCallbacks extends BaseController {
 			function () use ( $sessionId, $action ): array {
 				$action();
 
-				return array( 'board' => $this->board->sessionBoard( get_current_user_id(), $sessionId ) );
+				return array( 'board' => $this->boardOf( $sessionId ) );
 			}
 		);
+	}
+
+	/** Доска сеанса; с флагом `all` — строки всех сеансов проведения (режим «Все сеансы»), действия при этом те же. */
+	private function boardOf( int $sessionId ): array {
+		return $this->board->sessionBoard( get_current_user_id(), $sessionId, $this->sanitizeBool( 'all' ) );
 	}
 
 	/**

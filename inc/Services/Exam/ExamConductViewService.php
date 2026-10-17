@@ -68,13 +68,13 @@ class ExamConductViewService {
 	) {}
 
 	/**
-	 * Доска сеанса.
+	 * Доска сеанса. С `$allSessions` — строки всех сеансов проведения (`session` остаётся опорным сеансом, у каждой строки свой `session`).
 	 *
 	 * @return array{session: array<string, mixed>, tiles: array<string, int>, rows: list<array<string, mixed>>, warnings: list<string>, sessions: list<array<string, mixed>>, rooms: list<array<string, mixed>>, sources: list<array{id: int, label: string}>, holds: list<array<string, mixed>>}
 	 *
 	 * @throws CodedException `ExamAccess` — сеанса нет или проведение не принадлежит сотруднику.
 	 */
-	public function sessionBoard( int $actorUserId, int $sessionId ): array {
+	public function sessionBoard( int $actorUserId, int $sessionId, bool $allSessions = false ): array {
 		$session = $this->sessions->find( $sessionId );
 		$event   = null !== $session ? $this->events->find( $session->eventId ) : null;
 		if ( null === $session || null === $event || ! $this->guard->canManageEvent( $actorUserId, $event ) ) {
@@ -82,13 +82,15 @@ class ExamConductViewService {
 		}
 
 		$nowLocal = $this->time->nowLocal();
-		$rows     = $this->rowsFor( $session, $event, $nowLocal );
+		$rows     = $allSessions ? $this->rowsForEvent( $event, $nowLocal ) : $this->rowsFor( $session, $event, $nowLocal );
 
 		return array(
 			'session'  => $this->sessionPayload( $session, $event ),
+			'all'      => $allSessions,
 			'tiles'    => $this->tiles( $rows ),
 			'rows'     => $rows,
-			'warnings' => $this->warnings( $session, $rows ),
+			// Предупреждение о позднем старте и брони оплаты относятся к одному кабинету и сеансу — в общем списке их нет.
+			'warnings' => $allSessions ? array() : $this->warnings( $session, $rows ),
 			'sessions' => $this->eventView->siblings( $event ),
 			'event'    => array(
 				'id'          => $event->id,
@@ -98,7 +100,7 @@ class ExamConductViewService {
 			'events'   => $this->eventChoices( $actorUserId, $event ),
 			'rooms'    => $this->plans->roomsFor( $event->subjectKey ),
 			'sources'  => $this->eventView->sourceOptions( $event->id ),
-			'holds'    => $this->guestBoard->holdsOf( $session ),
+			'holds'    => $allSessions ? array() : $this->guestBoard->holdsOf( $session ),
 		);
 	}
 
@@ -158,10 +160,10 @@ class ExamConductViewService {
 		$rows = array();
 
 		if ( (int) ( $context['session_id'] ?? 0 ) > 0 ) {
-			$board   = $this->sessionBoard( $actorUserId, (int) $context['session_id'] );
-			$session = $this->sessionLabel( $board['session']['date'], $board['session']['time_start'] );
+			$board = $this->sessionBoard( $actorUserId, (int) $context['session_id'], ! empty( $context['all'] ) );
 			foreach ( $board['rows'] as $row ) {
-				$rows[] = $this->exportRow( $row, $session );
+				// Строка знает свой сеанс (в общем списке они разные).
+				$rows[] = $this->exportRow( $row, $this->sessionLabel( $row['session']['date'], $row['session']['time_start'] ) );
 			}
 
 			return $rows;
@@ -253,16 +255,14 @@ class ExamConductViewService {
 			$actions[] = ExamConductAction::Arrival->value;
 		}
 
-		// Гость: допуск после личной проверки на площадке; ссылка входа — только допущенному (и пока не сдал).
+		// Гость: ссылка входа выдаётся сразу (выдача и есть допуск); «Admit» — отзыв ссылки со снятием допуска, пока попытка не начата.
 		if ( null !== $participation && ExamAudience::Guest->value === $participation->audience && ( $active || ( null !== $attempt && AttemptStatus::InProgress === $attempt->status ) ) ) {
-			if ( null === $attempt ) {
+			$actions[] = ExamConductAction::EntryLink->value;
+			if ( null === $attempt && null !== $participation->admittedAt ) {
 				$actions[] = ExamConductAction::Admit->value;
 			}
-			if ( null !== $participation->admittedAt ) {
-				$actions[] = ExamConductAction::EntryLink->value;
-				if ( $this->tokens->hasActive( ExamTokenPurpose::Entry, $participation->id ) ) {
-					$actions[] = ExamConductAction::MarkEntryPassed->value;
-				}
+			if ( $this->tokens->hasActive( ExamTokenPurpose::Entry, $participation->id ) ) {
+				$actions[] = ExamConductAction::MarkEntryPassed->value;
 			}
 		}
 
@@ -322,8 +322,31 @@ class ExamConductViewService {
 			}
 			$row = $this->rowFor( $registration, $event, $others, $nowLocal );
 			if ( null !== $row ) {
-				$rows[] = $row;
+				$start       = $this->time->toLocal( $session->scheduledAt );
+				$row['session'] = array(
+					'id'         => $session->id,
+					'date'       => substr( $start, 0, 10 ),
+					'time_start' => substr( $start, 11, 5 ),
+				);
+				$rows[]      = $row;
 			}
+		}
+
+		return $rows;
+	}
+
+	/**
+	 * Строки всех сеансов проведения (кроме отменённых) подряд, по возрастанию времени сеанса.
+	 *
+	 * @return list<array<string, mixed>>
+	 */
+	private function rowsForEvent( ExamEventDTO $event, string $nowLocal ): array {
+		$rows = array();
+		foreach ( $this->sessions->findByEvent( $event->id ) as $session ) {
+			if ( ExamSessionStatus::Cancelled->value === $session->status ) {
+				continue;
+			}
+			array_push( $rows, ...$this->rowsFor( $session, $event, $nowLocal ) );
 		}
 
 		return $rows;
@@ -358,7 +381,7 @@ class ExamConductViewService {
 			'audience_label'      => $audience->label(),
 			'source'              => $source->schoolName ?? '',
 			'registration_status' => $registration->status,
-			// Гость: четыре независимых состояния — оплата, запись, допуск (`admitted_at`), попытка (`progress`); у ученика оплаты нет.
+			// Гость: независимые состояния — оплата, допуск (`admitted_at`: ссылка входа выдана), попытка (`progress`); у ученика оплаты нет.
 			'payment'             => ExamAudience::Guest === $audience ? $this->guestBoard->paymentOf( $participation->id ) : null,
 			'arrived_at'          => null !== $registration->arrivedAt ? $this->time->toLocal( $registration->arrivedAt ) : null,
 			'progress'            => $progress->value,

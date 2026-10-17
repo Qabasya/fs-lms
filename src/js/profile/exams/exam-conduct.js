@@ -10,9 +10,10 @@
 
 import { esc, toast, emptyState, openCtxMenu, openGradePopPositioned, closeGradePop, plural, fmtDate } from '../utils.js';
 import { ajaxErrorText } from '../../common/utils.js';
-import { icoCalendarBoard, icoAlert } from '../../common/icons.js';
+import { icoCalendarBoard, icoAlert, icoCaret } from '../../common/icons.js';
 import { confirmDialog } from '../../common/components/confirm-dialog.js';
 import { createApi } from '../api.js';
+import { DOW_JS } from '../constants.js';
 import { bindPhoneMask } from '../../common/input-masks.js';
 import { examConfig, examSubjects, subjectPickerHtml, wireSubjectPicker, approvalBlockReason, approvableRows, approveButtonLabel, approvalItems, approvalSummaryText, skippedListHtml, exportButtonsHtml, wireExportButtons } from './exam-common.js';
 import { openMoveSessionForm, openCancelSessionForm } from './exam-session-actions.js';
@@ -29,7 +30,7 @@ const ACTION_LABELS = {
     extend: 'Продлить',
     arrival: 'Отметить приход',
     open_work: 'Открыть работу',
-    admit: 'Допустить к экзамену',
+    admit: 'Отозвать ссылку входа',
     entry_link: 'Выдать ссылку на вход',
     result_link: 'Скопировать ссылку результата',
     revoke_result_link: 'Отозвать ссылку результата',
@@ -42,7 +43,6 @@ const ACTION_LABELS = {
 /** Оплата гостя → пилюля `prof-state-*` (оплачено — активная, ожидание — «скоро», остальное — нейтральная). */
 const PAYMENT_PILL = { paid: 'prof-state-now', pending: 'prof-state-soon' };
 
-const REGISTRATION_LABEL = { confirmed: 'Запись подтверждена', cancelled: 'Запись отменена', missed: 'Неявка' };
 
 const PROGRESS_PILL = {
     not_started: 'prof-state-soon',
@@ -52,11 +52,15 @@ const PROGRESS_PILL = {
 };
 
 let requestedSessionId = 0;
+const ALL_SESSIONS_LABEL = 'Все сеансы';
+const ALL_SESSIONS_VALUE = 'all';
+
 let handlers = {};
 let root = null;
 let api = null;
 let board = null;
 let sessionId = 0;
+let allSessions = false; // режим «Все сеансы»: список участников всего проведения; sessionId остаётся опорным сеансом
 let chosenSubject = ''; // предмет, выбранный переключателем; пусто — экран сам выбирает ближайший сеанс
 let fetchedAt = 0;
 let selecting = false;
@@ -86,6 +90,7 @@ export function renderExamConduct(r, h = {}) {
     api = createApi(cfg);
     sessionId = requestedSessionId;
     requestedSessionId = 0;
+    allSessions = false;
     chosenSubject = '';
     resetSelection();
     root.innerHTML = '<div class="exam-conduct-loading">Загрузка…</div>';
@@ -96,7 +101,7 @@ export function renderExamConduct(r, h = {}) {
 /* ── Данные ───────────────────────────────────────────────────────────── */
 async function load() {
     try {
-        const params = sessionId ? { session_id: sessionId } : (chosenSubject ? { subject_key: chosenSubject } : {});
+        const params = sessionId ? { session_id: sessionId, all: allSessions ? 1 : 0 } : (chosenSubject ? { subject_key: chosenSubject } : {});
         const data = await api('getConduct', params);
         board = data.board || null;
     } catch (err) {
@@ -119,7 +124,7 @@ function applyBoard(data) {
 
 async function act(action, params, okText) {
     try {
-        applyBoard(await api(action, Object.assign({ session_id: sessionId }, params)));
+        applyBoard(await api(action, Object.assign({ session_id: sessionId, all: allSessions ? 1 : 0 }, params)));
         if (okText) { toast(okText); }
         return true;
     } catch (err) {
@@ -185,9 +190,11 @@ function render() {
             <div class="exam-conduct-head">
                 <div class="exam-conduct-titlebar">
                     <h2 class="exam-conduct-title">${esc(s.event_title)}</h2>
-                    ${sessionMenuAllowed(s) ? '<button type="button" class="prof-btn prof-btn-sm prof-btn-ghost" data-session-menu aria-label="Действия с сеансом">⋯</button>' : ''}
+                    ${sessionMenuAllowed(s) && !allSessions ? '<button type="button" class="prof-btn prof-btn-sm prof-btn-ghost" data-session-menu aria-label="Действия с сеансом">⋯</button>' : ''}
                 </div>
-                <div class="exam-conduct-sub">${esc(fmtDate(s.date))} · ${esc(s.time_start)}–${esc(s.time_end)}${s.room_name ? ` · ${esc(s.room_name)}` : ''} · занято ${s.occupied} из ${s.capacity}</div>
+                <div class="exam-conduct-sub">${allSessions
+                    ? `${ALL_SESSIONS_LABEL} · записано ${board.tiles.registered}`
+                    : `${esc(fmtDate(s.date))} · ${esc(s.time_start)}–${esc(s.time_end)}${s.room_name ? ` · ${esc(s.room_name)}` : ''} · занято ${s.occupied} из ${s.capacity}`}</div>
             </div>
             ${tilesHtml(board.tiles)}
             ${board.warnings.map(w => `<div class="sc-notice exam-notice">${esc(w)}</div>`).join('')}
@@ -195,7 +202,7 @@ function render() {
             ${skippedListHtml(lastSkipped, id => board.rows.find(r => r.attempt_id === id)?.name)}
             ${board.rows.length
                 ? `<div class="pr-list">${board.rows.map(rowHtml).join('')}</div>`
-                : (board.holds || []).length ? '' : '<div class="exam-conduct-empty">На этот сеанс пока никто не записан.</div>'}
+                : (board.holds || []).length ? '' : `<div class="exam-conduct-empty">${allSessions ? 'На экзамен пока никто не записан.' : 'На этот сеанс пока никто не записан.'}</div>`}
             ${(board.holds || []).length ? `<div class="exam-conduct-subtitle">Ожидают оплаты</div><div class="pr-list">${board.holds.map(holdRowHtml).join('')}</div>` : ''}
         </div>`;
     wire();
@@ -218,7 +225,7 @@ function toolbar() {
 /** «Добавить гостя» — только с правом на гостей, пока сеанс открыт и есть источник; окончательно решает сервер. */
 function guestButtonHtml() {
     const cfg = examConfig();
-    if (!cfg || !cfg.canManageGuests || 'open' !== board.session.status || !(board.sources || []).length) { return ''; }
+    if (allSessions || !cfg || !cfg.canManageGuests || 'open' !== board.session.status || !(board.sources || []).length) { return ''; }
     return '<button type="button" class="prof-btn prof-btn-sm" data-add-guest>Добавить гостя</button>';
 }
 
@@ -243,6 +250,7 @@ function wireSubject() {
     wireSubjectPicker('examConductSubjectBtn', examSubjects(), current, key => {
         chosenSubject = key;
         sessionId = 0;
+        allSessions = false;
         resetSelection();
         load();
     });
@@ -257,11 +265,29 @@ function eventSwitcher() {
             `<option value="${e.session_id}"${e.id === board.event.id ? ' selected' : ''}>${esc(e.title)}</option>`).join('')}</select></div>`;
 }
 
+/** «Пн» для даты ISO (локальный день без сдвига часового пояса). */
+function weekdayOf(date) {
+    return DOW_JS[new Date(`${date}T00:00:00`).getDay()] || '';
+}
+
+/** «Пн · 12.10.2026 · 10:00» — день недели, дата и время сеанса; так же подписан бейдж строки. */
+function sessionStamp(x) {
+    return `${weekdayOf(x.date)} · ${fmtDate(x.date)} · ${x.time_start}`;
+}
+
+/** Подпись сеанса в выборе: «день недели · дата · начало · записано». */
+function sessionLabel(x) {
+    return `${sessionStamp(x)} · ${x.registered}`;
+}
+
+/** Выбор сеанса — кнопка `kp-btn` как у предмета, без чипа; меню открывает wire(). */
 function sessionSwitcher() {
     if (board.sessions.length < 2) { return ''; }
-    return `<div class="prof-seg exam-conduct-sessions" role="tablist">${board.sessions.map(x =>
-        `<button type="button" role="tab" class="${x.id === sessionId ? 'on' : ''}" data-session="${x.id}">${esc(fmtDate(x.date))} · ${esc(x.time_start)} · ${x.registered}</button>`
-    ).join('')}</div>`;
+    const current = board.sessions.find(x => x.id === sessionId) || board.sessions[0];
+    const text = allSessions ? ALL_SESSIONS_LABEL : sessionLabel(current);
+    return `<div class="prof-ktp-pick exam-conduct-sessions"><span class="kp-label">Сеанс</span><button type="button" class="kp-btn" id="examConductSessionBtn" aria-label="Сеанс">
+        <span class="kp-txt">${esc(text)}</span>${icoCaret(12, 'kp-caret')}
+    </button></div>`;
 }
 
 function tilesHtml(t) {
@@ -269,6 +295,13 @@ function tilesHtml(t) {
     return `<div class="prof-stat-tiles exam-conduct-tiles">
         ${tile('Записано', t.registered)}${tile('Начали', t.started)}${tile('Сдали', t.submitted)}${tile('Не явились', t.missed)}${tile('Ожидают проверки', t.pending)}
     </div>`;
+}
+
+/** Бейдж сеанса строки в режиме «Все сеансы»: день недели, дата, время; по клику открывается этот сеанс. У гостя стоит в одной строке с пилюлями. */
+function sessionBadgeHtml(r) {
+    return allSessions && r.session
+        ? `<button type="button" class="exam-conduct-session-badge" data-pick-session="${r.session.id}" title="Открыть этот сеанс">${esc(sessionStamp(r.session))}</button>`
+        : '';
 }
 
 function rowHtml(r) {
@@ -282,6 +315,7 @@ function rowHtml(r) {
         ? '<span class="prof-state-pill prof-state-done">Запись отменена</span>'
         : `<span class="prof-state-pill ${PROGRESS_PILL[r.progress] || 'prof-state-done'}">${esc(r.progress_label)}</span>`;
     const result = 'none' === r.result_status ? '' : `<span class="prof-state-pill prof-state-soon">${esc(r.result_status_label)}</span>`;
+    const stamp = 'guest' !== r.audience ? sessionBadgeHtml(r) : '';
     const score = r.score ? `<span class="exam-conduct-score">${scoreText(r.score)}</span>` : '';
 
     return `<div class="pr-row exam-conduct-row${cancelled ? ' is-off' : ''}" data-reg="${r.registration_id}">
@@ -289,6 +323,7 @@ function rowHtml(r) {
         <div class="pr-info">
             <div class="pr-name">${esc(r.name)}</div>
             <div class="pr-sub">${esc(r.audience_label)}${r.source ? ` · ${esc(r.source)}` : ''} ${arrived}</div>
+            ${stamp}
             ${'guest' === r.audience ? guestPillsHtml(r) : ''}
             ${passed ? `<div class="pr-sub">${passed}</div>` : ''}
         </div>
@@ -300,7 +335,7 @@ function rowHtml(r) {
 
 /**
  * Кнопка выдачи ссылки прямо в строке гостя (то же действие, что в меню «⋯»): ссылка входа — допущенному, ссылка результата — сдавшему.
- * Не допущенному, но записанному гостю кнопка видна неактивной с подсказкой: иначе непонятно, почему ссылки нет.
+ * Выдача ссылки входа допускает гостя к экзамену.
  */
 function guestLinkButtonHtml(r) {
     if (r.actions.includes('entry_link')) {
@@ -311,22 +346,17 @@ function guestLinkButtonHtml(r) {
     if (r.actions.includes('result_link')) {
         return `<button type="button" class="prof-btn prof-btn-sm" data-link="result_link">${r.result_link_issued ? 'Перевыпустить ссылку результата' : 'Выдать ссылку результата'}</button>`;
     }
-    if (r.actions.includes('admit') && !r.admitted_at) {
-        return '<button type="button" class="prof-btn prof-btn-sm" disabled title="Сначала допустите участника">Выдать ссылку</button>';
-    }
     return '';
 }
 
-/** У гостя четыре независимых состояния, а не одна «галочка»: оплата, запись, допуск и попытка — отдельными пилюлями. */
+/** У гостя два независимых состояния, а не одна «галочка»: оплата и попытка — отдельными пилюлями. */
 function guestPillsHtml(r) {
     const pay = r.payment
         ? `<span class="prof-state-pill ${PAYMENT_PILL[r.payment.state] || 'prof-state-done'}">Оплата: ${esc(r.payment.label)}</span>`
         : '<span class="prof-state-pill prof-state-done">Оплата: —</span>';
-    const registration = `<span class="prof-state-pill prof-state-done">${esc(REGISTRATION_LABEL[r.registration_status] || r.registration_status)}</span>`;
-    const admission = `<span class="prof-state-pill ${r.admitted_at ? 'prof-state-now' : 'prof-state-soon'}">${r.admitted_at ? 'Допущен' : 'Не допущен'}</span>`;
     const progress = `<span class="prof-state-pill ${PROGRESS_PILL[r.progress] || 'prof-state-done'}">Попытка: ${esc(r.progress_label)}</span>`;
 
-    return `<div class="exam-guest-pills">${pay}${registration}${admission}${progress}</div>`;
+    return `<div class="exam-guest-pills">${sessionBadgeHtml(r)}${pay}${progress}</div>`;
 }
 
 /** Гости с бронью без записи: «Место удерживается до …» и ссылка на оплату (11a.7.7). Не строки доски: записи и попытки у них ещё нет. */
@@ -363,7 +393,7 @@ async function approveSelected() {
     const items = approvalItems(board.rows, selected);
     if (!items.length) { toast('Нет работ, готовых к утверждению', 'error'); return; }
     try {
-        const result = await api('approveAttempts', { session_id: sessionId, items });
+        const result = await api('approveAttempts', { session_id: sessionId, all: allSessions ? 1 : 0, items });
         toast(approvalSummaryText(result));
         lastSkipped = result.skipped || [];
         selecting = false;
@@ -379,15 +409,33 @@ function wire() {
     wireSubject();
     root.querySelector('[data-event]')?.addEventListener('change', e => {
         sessionId = Number(e.target.value);
+        allSessions = false;
         resetSelection();
         load();
     });
-    root.querySelectorAll('[data-session]').forEach(btn => btn.addEventListener('click', () => {
-        sessionId = Number(btn.dataset.session);
+    root.querySelectorAll('[data-pick-session]').forEach(badge => badge.addEventListener('click', () => {
+        allSessions = false;
+        sessionId = Number(badge.dataset.pickSession);
         resetSelection();
         load();
     }));
-    wireExportButtons(root, api, () => ({ session_id: sessionId }));
+    const sessionBtn = root.querySelector('#examConductSessionBtn');
+    if (sessionBtn) {
+        sessionBtn.onclick = () => openCtxMenu(
+            sessionBtn,
+            [{ v: ALL_SESSIONS_VALUE, label: ALL_SESSIONS_LABEL, active: allSessions }]
+                .concat(board.sessions.map(x => ({ v: String(x.id), label: sessionLabel(x), active: !allSessions && x.id === sessionId }))),
+            v => {
+                const all = ALL_SESSIONS_VALUE === v;
+                if (all ? allSessions : (!allSessions && Number(v) === sessionId)) { return; }
+                allSessions = all;
+                if (!all) { sessionId = Number(v); }
+                resetSelection();
+                load();
+            }
+        );
+    }
+    wireExportButtons(root, api, () => ({ session_id: sessionId, all: allSessions ? 1 : 0 }));
     root.querySelector('[data-approve="start"]')?.addEventListener('click', () => { selecting = true; selected = new Set(); render(); });
     root.querySelector('[data-approve="cancel"]')?.addEventListener('click', () => { selecting = false; selected = new Set(); render(); });
     root.querySelector('[data-approve="confirm"]')?.addEventListener('click', approveSelected);
@@ -427,7 +475,7 @@ function wire() {
         const s = Object.assign({ date: board.session.date, time_start: board.session.time_start }, board.session);
         const ctx = { api, anchor: e.currentTarget, session: s, rooms: board.rooms, onDone: () => { load(); } };
         openCtxMenu(e.currentTarget, [{ v: 'move', label: 'Перенести сеанс' }, { v: 'cancel', label: 'Отменить сеанс' }],
-            v => ('move' === v ? openMoveSessionForm(ctx) : openCancelSessionForm(ctx)));
+            v => ('move' === v ? openMoveSessionForm(ctx) : openCancelSessionForm(ctx)), { alignRight: true });
     });
     root.querySelectorAll('.exam-conduct-row [data-link]').forEach(btn => btn.addEventListener('click', () => {
         const row = board.rows.find(r => r.registration_id === Number(btn.closest('.exam-conduct-row').dataset.reg));
@@ -442,13 +490,12 @@ function wire() {
         const row = board.rows.find(r => r.registration_id === Number(btn.closest('.exam-conduct-row').dataset.reg));
         if (!row) { return; }
         const items = row.actions.filter(a => !['anonymize', 'delete_guest'].includes(a) || examConfig()?.canAnonymizeGuests).map(a => ({ v: a, label: actionLabel(a, row) }));
-        openCtxMenu(btn, items, v => runAction(v, row, btn));
+        openCtxMenu(btn, items, v => runAction(v, row, btn), { alignRight: true });
     }));
 }
 
 function actionLabel(action, row) {
     if ('arrival' === action && row.arrived_at) { return 'Снять отметку прихода'; }
-    if ('admit' === action && row.admitted_at) { return 'Снять допуск'; }
     if ('entry_link' === action && row.entry_link_issued) { return 'Перевыпустить ссылку на вход'; }
     if ('result_link' === action && row.result_link_issued) { return 'Скопировать ссылку результата (выдать новую)'; }
     return ACTION_LABELS[action];
@@ -495,7 +542,7 @@ function runAction(action, row, anchor) {
         case 'transfer': openTransferForm(anchor, row); break;
         case 'extend': openExtendForm(anchor, row); break;
         case 'arrival': act('markArrival', { registration_id: row.registration_id, arrived: row.arrived_at ? 0 : 1 }); break;
-        case 'admit': act('admitGuest', { participation_id: row.participation_id, admitted: row.admitted_at ? 0 : 1 }, row.admitted_at ? 'Допуск снят' : 'Участник допущен'); break;
+        case 'admit': act('admitGuest', { participation_id: row.participation_id, admitted: 0 }, 'Ссылка входа отозвана'); break;
         case 'entry_link': issueGuestLink(row, anchor, { apiKey: 'issueEntryLink', issued: row.entry_link_issued, title: 'Ссылка на вход', label: 'Ссылка на вход' }); break;
         case 'result_link': issueGuestLink(row, anchor, { apiKey: 'issueResultLink', issued: row.result_link_issued, title: 'Ссылка результата', label: 'Ссылка результата' }); break;
         case 'anonymize': openReasonForm(anchor, {
