@@ -27,6 +27,7 @@ enum ExamLogAction: string {
 	case RegistrationChanged = 'registration_changed';
 	case RegistrationCancelledSelf = 'registration_cancelled_self';
 	case RegistrationCancelledStaff = 'registration_cancelled_staff';
+	case RegistrationDeleted = 'registration_deleted';
 	case RegistrationTransferred = 'registration_transferred';
 	case NoShow = 'no_show';
 	case Arrival = 'arrival';
@@ -107,6 +108,7 @@ enum ExamLogAction: string {
 			self::RegistrationChanged => 'Заявка: перенос на другой сеанс (участник)',
 			self::RegistrationCancelledSelf => 'Заявка: отмена участником',
 			self::RegistrationCancelledStaff => 'Заявка: отмена сотрудником',
+			self::RegistrationDeleted => 'Запись: отменённая запись удалена',
 			self::RegistrationTransferred => 'Заявка: перенос сотрудником',
 			self::NoShow => 'Заявка: неявка',
 			self::Arrival => 'Заявка: отметка о прибытии',

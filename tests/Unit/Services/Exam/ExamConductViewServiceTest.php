@@ -291,6 +291,8 @@ class ExamConductViewServiceTest extends TestCase {
 		self::assertSame( array( 'extend' ), $this->service->rowActions( $this->registration( 1, 1 ), $this->attempt( 1, 1, 'in_progress' ), $open ) );
 		self::assertSame( array( 'open_work' ), $this->service->rowActions( $this->registration( 1, 1 ), $this->attempt( 1, 1, 'submitted' ), $open ) );
 		self::assertSame( array(), $this->service->rowActions( $this->registration( 1, 1, 'missed' ), null, $open ) );
+		self::assertSame( array( 'delete_registration' ), $this->service->rowActions( $this->registration( 1, 1, 'cancelled' ), null, $open, $this->participation( 1 ) ) );
+		self::assertSame( array( 'anonymize', 'delete_guest' ), $this->service->rowActions( $this->registration( 1, 1, 'cancelled' ), null, $open, $this->participation( 1, null, 'guest' ) ) );
 	}
 
 	// ── 8.8.2 допуск и 11b.1 ссылка входа ─────────────────────────────────────────────────────────

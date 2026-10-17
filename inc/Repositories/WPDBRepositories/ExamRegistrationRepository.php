@@ -140,6 +140,23 @@ class ExamRegistrationRepository extends AbstractExamRepository {
 	}
 
 	/**
+	 * Удаляет отменённую запись без попыток; одним запросом, чтобы проверка и удаление не расходились под гонкой.
+	 *
+	 * @return bool true — запись удалена; false — записи нет, она не отменена или по ней есть попытка.
+	 */
+	public function deleteCancelled( int $id ): bool {
+		return 1 === $this->write( $this->wpdb->prepare(
+			'DELETE FROM %i WHERE id = %d AND status = %s AND active_slot IS NULL
+			 AND NOT EXISTS (SELECT 1 FROM %i a WHERE a.exam_registration_id = %d)',
+			$this->table,
+			$id,
+			ExamRegistrationStatus::Cancelled->value,
+			TableName::AssessmentAttempts->prefixed(),
+			$id
+		) );
+	}
+
+	/**
 	 * Есть ли у участника действующая запись в ДРУГОМ проведении, пересекающаяся по времени (UTC).
 	 * Надёжна только под блокировкой участника ({@see ExamParticipantRepository::findForUpdate()}).
 	 */

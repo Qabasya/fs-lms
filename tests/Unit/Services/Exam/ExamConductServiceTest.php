@@ -169,6 +169,32 @@ class ExamConductServiceTest extends TestCase {
 		$this->service->markArrival( 10, 1, true );
 	}
 
+	public function test_cancelled_student_registration_is_deleted(): void {
+		$this->registrations->method( 'find' )->willReturn( $this->registration( 1, 1, 'cancelled' ) );
+		$this->participations->method( 'find' )->willReturn( $this->participation( 1 ) );
+		$this->registrations->expects( self::once() )->method( 'deleteCancelled' )->with( 1 )->willReturn( true );
+
+		$this->service->deleteCancelledRegistration( 10, 1 );
+	}
+
+	public function test_delete_registration_refused_when_repository_declines(): void {
+		$this->registrations->method( 'find' )->willReturn( $this->registration( 1, 1, 'confirmed' ) );
+		$this->participations->method( 'find' )->willReturn( $this->participation( 1 ) );
+		$this->registrations->method( 'deleteCancelled' )->willReturn( false );
+
+		$this->expectException( CodedException::class );
+		$this->service->deleteCancelledRegistration( 10, 1 );
+	}
+
+	public function test_delete_registration_refused_for_guest(): void {
+		$this->registrations->method( 'find' )->willReturn( $this->registration( 1, 1, 'cancelled' ) );
+		$this->participations->method( 'find' )->willReturn( $this->participation( 1, null, 'guest' ) );
+		$this->registrations->expects( self::never() )->method( 'deleteCancelled' );
+
+		$this->expectException( CodedException::class );
+		$this->service->deleteCancelledRegistration( 10, 1 );
+	}
+
 	// ── 8.8.2 допуск и 11b.1 ссылка входа ─────────────────────────────────────────────────────────
 
 	private function guestParticipation( array $over = array() ): ExamParticipationDTO {

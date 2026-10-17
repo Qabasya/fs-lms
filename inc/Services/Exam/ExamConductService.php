@@ -316,6 +316,37 @@ class ExamConductService {
 	}
 
 	/**
+	 * Удаляет отменённую запись нашего ученика: она ничего не занимает и ни на что не ссылается, только засоряет список.
+	 * Гостей это не касается (у них своё полное удаление заявки), записи с попыткой и действующие не удаляются.
+	 *
+	 * @throws CodedException Запись недоступна сотруднику, не отменена, гостевая либо по ней есть попытка.
+	 */
+	public function deleteCancelledRegistration( int $actorUserId, int $registrationId ): void {
+		$registration  = $this->registrations->find( $registrationId );
+		$participation = null !== $registration ? $this->participations->find( $registration->participationId ) : null;
+		$event         = null !== $participation ? $this->events->find( $participation->eventId ) : null;
+		if ( null === $registration || null === $participation || null === $event || ! $this->guard->canManageEvent( $actorUserId, $event ) ) {
+			throw new CodedException( ErrorCode::ExamAccess, 'Запись не найдена.' );
+		}
+		if ( ExamAudience::Student->value !== $participation->audience ) {
+			throw new CodedException( ErrorCode::ExamState, 'Запись гостя удаляется вместе с заявкой.' );
+		}
+		if ( ! $this->registrations->deleteCancelled( $registrationId ) ) {
+			throw new CodedException( ErrorCode::ExamState, 'Удалить можно только отменённую запись без начатой работы.' );
+		}
+
+		ExamLogAction::RegistrationDeleted->record(
+			array(
+				'event_id'         => $event->id,
+				'session_id'       => $registration->sessionId,
+				'registration_id'  => $registrationId,
+				'participation_id' => $participation->id,
+				'actor'            => $actorUserId,
+			)
+		);
+	}
+
+	/**
 	 * Получает подпись общего состояния результата с учётом аудитории.
 	 */
 	private function resultLabel( string $result, ExamAudience $audience ): string {

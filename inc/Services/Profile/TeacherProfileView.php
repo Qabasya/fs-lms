@@ -140,6 +140,7 @@ final class TeacherProfileView implements ProfileViewInterface {
 				'issuePayLink'      => AjaxHook::IssueExamGuestPayLink->jsAction(),
 				'acceptHold'        => AjaxHook::AcceptExamHoldWithoutPayment->jsAction(),
 				'admitGuest'        => AjaxHook::AdmitExamGuest->jsAction(),
+				'deleteRegistration' => AjaxHook::DeleteExamRegistration->jsAction(),
 				'issueEntryLink'    => AjaxHook::IssueExamEntryLink->jsAction(),
 				'issueResultLink'   => AjaxHook::IssueExamResultLink->jsAction(),
 				'anonymizeGuest'    => AjaxHook::AnonymizeExamGuest->jsAction(),

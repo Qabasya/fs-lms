@@ -319,6 +319,16 @@ class ExamConductCallbacks extends BaseController {
 		}
 	}
 
+	/** Удаление отменённой записи ученика без попыток: ответ — обновлённая доска. */
+	public function ajaxDeleteExamRegistration(): void {
+		$this->authorize( Nonce::ExamManage, Capability::ManageExams );
+
+		$sessionId      = $this->requireInt( 'session_id' );
+		$registrationId = $this->requireInt( 'registration_id' );
+
+		$this->runOnBoard( $sessionId, fn () => $this->conduct->deleteCancelledRegistration( get_current_user_id(), $registrationId ) );
+	}
+
 	/** Допуск гостя на площадке: ответ — обновлённая доска. */
 	public function ajaxAdmitExamGuest(): void {
 		$this->authorize( Nonce::ExamManage, Capability::ManageExamGuests );

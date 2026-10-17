@@ -390,6 +390,7 @@ enum AjaxHook: string {
 	case GetExamPaymentQueue            = 'get_exam_payment_queue';             // params: tab (needs_help|resolved); ответ: items
 	case ResolveExamPayment             = 'resolve_exam_payment';               // params: application_id, kind (transferred|refunded_outside|other), session_id?, reason, amount?; ответ: items
 	case EndExamGuestSession            = 'end_exam_guest_session';             // публичный (nonce ExamGuest): отзыв гостевой сессии и удаление куки; ответ: url нейтральной страницы
+	case DeleteExamRegistration         = 'delete_exam_registration';           // params: registration_id, session_id; удаляет отменённую запись ученика без попыток; ответ: board
 	case AdmitExamGuest                 = 'admit_exam_guest';                   // params: participation_id, admitted (0|1); ответ: board
 	case IssueExamEntryLink             = 'issue_exam_entry_link';              // params: participation_id; ответ: url (один раз, прежний ключ отзывается)
 	case AcceptExamHoldWithoutPayment   = 'accept_exam_hold_without_payment';   // params: session_id (для доски), application_id, reason; ответ: доска

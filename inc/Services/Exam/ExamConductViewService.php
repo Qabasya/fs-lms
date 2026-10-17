@@ -255,6 +255,12 @@ class ExamConductViewService {
 			$actions[] = ExamConductAction::Arrival->value;
 		}
 
+		// Отменённая запись ученика без попытки — мусор в списке: её можно убрать совсем (у гостя для этого «удалить заявку»).
+		if ( null === $attempt && ExamRegistrationStatus::Cancelled->value === $registration->status
+			&& null !== $participation && ExamAudience::Student->value === $participation->audience ) {
+			$actions[] = ExamConductAction::DeleteRegistration->value;
+		}
+
 		// Гость: ссылка входа выдаётся сразу (выдача и есть допуск); «Admit» — отзыв ссылки со снятием допуска, пока попытка не начата.
 		if ( null !== $participation && ExamAudience::Guest->value === $participation->audience && ( $active || ( null !== $attempt && AttemptStatus::InProgress === $attempt->status ) ) ) {
 			$actions[] = ExamConductAction::EntryLink->value;

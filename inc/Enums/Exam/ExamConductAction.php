@@ -12,6 +12,7 @@ namespace Inc\Enums\Exam;
 /** Действия строки доски; серверные команды повторно проверяют доступ. */
 enum ExamConductAction: string {
 	case Cancel           = 'cancel';
+	case DeleteRegistration = 'delete_registration';
 	case Transfer         = 'transfer';
 	case Extend           = 'extend';
 	case Arrival          = 'arrival';

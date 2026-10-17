@@ -26,6 +26,7 @@ const DEFAULT_EXTENSION = 10;
 
 const ACTION_LABELS = {
     cancel: 'Отменить запись',
+    delete_registration: 'Удалить запись',
     transfer: 'Назначить другой сеанс',
     extend: 'Продлить',
     arrival: 'Отметить приход',
@@ -536,9 +537,16 @@ async function issueGuestLink(row, anchor, { apiKey, issued, title, label }) {
     }
 }
 
+/** Убирает отменённую запись ученика из списка (подтверждение — запись не вернуть). */
+async function deleteRegistration(row) {
+    if (!await confirmDialog(`Удалить отменённую запись: ${row.name}? Вернуть её будет нельзя.`, 'Удалить', 'Не удалять')) { return; }
+    act('deleteRegistration', { registration_id: row.registration_id }, 'Запись удалена');
+}
+
 function runAction(action, row, anchor) {
     switch (action) {
         case 'cancel': openReasonForm(anchor, { title: 'Отменить запись', submit: 'Отменить запись', confirm: `Отменить запись: ${row.name}?`, run: reason => act('cancelRegistration', { registration_id: row.registration_id, reason }, 'Запись отменена') }); break;
+        case 'delete_registration': deleteRegistration(row); break;
         case 'transfer': openTransferForm(anchor, row); break;
         case 'extend': openExtendForm(anchor, row); break;
         case 'arrival': act('markArrival', { registration_id: row.registration_id, arrived: row.arrived_at ? 0 : 1 }); break;
