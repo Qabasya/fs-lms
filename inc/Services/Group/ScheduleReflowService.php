@@ -127,6 +127,8 @@ readonly class ScheduleReflowService {
 	 * @param string|null $endsAt        Явный конец занятия (Этап 4: выбран автором в
 	 *                                   модалке урока вне расписания) — если не передан,
 	 *                                   вычисляется автоматически {@see resolveEndsAt()}
+	 * @param bool        $together      true — поставить вместе с занятием, уже стоящим на этой дате (оба
+	 *                                   остаются, вытеснения нет); false — заменить его, оно уходит в пул
 	 *
 	 * @return void
 	 *
@@ -135,7 +137,7 @@ readonly class ScheduleReflowService {
 	 *                                   занятием группы в этот день, либо на дате уже стоит
 	 *                                   состоявшееся занятие (`held` или с посещаемостью)
 	 */
-	public function pinToDate( int $groupLessonId, string $scheduledAt, int $actorUserId, ?string $endsAt = null ): void {
+	public function pinToDate( int $groupLessonId, string $scheduledAt, int $actorUserId, ?string $endsAt = null, bool $together = false ): void {
 		$row = $this->requireRow( $groupLessonId );
 
 		$this->assertWithinPeriod( $row->groupId, $scheduledAt );
@@ -176,7 +178,8 @@ readonly class ScheduleReflowService {
 		$this->groupLessons->setPinned( $groupLessonId, true );
 
 		$allRows = null;
-		foreach ( $displaced as $d ) {
+		// «Вместе»: занятие, стоявшее на дате, остаётся — вытеснять нечего.
+		foreach ( $together ? array() : $displaced as $d ) {
 			$this->groupLessons->clearSchedule( $d->id );
 
 			// T12.6: вытеснение исходной части не должно осиротить вторую — вытесняем

@@ -97,13 +97,16 @@ class LessonScheduleCallbacks extends BaseController {
 	 * опционален (Этап 4: модалка урока вне расписания сама считает конец занятия
 	 * по выбранным времени/длительности) — без него сервис вычисляет его сам
 	 * из слота периода или встречи того же дня недели.
-	 * Params: group_lesson_id, scheduled_at, ends_at?
+	 * Если на дате уже стоит другое занятие группы, `on_conflict` выбирает: `replace`
+	 * (по умолчанию) — заменить его, оно вернётся в пул; `together` — поставить вместе.
+	 * Params: group_lesson_id, scheduled_at, ends_at?, on_conflict?
 	 */
 	public function ajaxPinLesson(): void {
 		$this->authorize( Nonce::SaveSchedule, Capability::ManageLmsTeaching );
 		$groupLessonId = $this->requireInt( 'group_lesson_id' );
 		$scheduledAt   = $this->sanitizeText( 'scheduled_at' );
 		$endsAt        = $this->sanitizeText( 'ends_at' );
+		$together      = 'together' === $this->sanitizeKey( 'on_conflict' );
 		$userId        = get_current_user_id();
 
 		$row = $this->requireProgramRow( $groupLessonId );
@@ -114,7 +117,7 @@ class LessonScheduleCallbacks extends BaseController {
 		}
 
 		try {
-			$this->schedule->pinToDate( $groupLessonId, $scheduledAt, $userId, '' !== $endsAt ? $endsAt : null );
+			$this->schedule->pinToDate( $groupLessonId, $scheduledAt, $userId, '' !== $endsAt ? $endsAt : null, $together );
 		} catch ( \InvalidArgumentException $e ) {
 			$this->error( $e->getMessage() );
 			return;

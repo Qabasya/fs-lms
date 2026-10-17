@@ -107,6 +107,24 @@ export const chipText   = (key) => `chip-tc-c${chipIndex(key)}`;
 export const chipBorder = (key) => `chip-bd-c${chipIndex(key)}`;
 export const chipSoft   = (key) => `chip-soft-c${chipIndex(key)}`;
 
+/**
+ * Класс цвета левой полосы карточки занятия: экзамен — красный, индивидуальное — серый,
+ * дальше по ключу предмета (ОГЭ — фиолетовый, Python — зелёный, робототехника — жёлтый);
+ * ЕГЭ и прочие предметы — акцентный синий (пустая строка).
+ *
+ * @param {string} kind       Вид занятия: 'exam' | 'individual' | другое.
+ * @param {string} subjectKey Ключ предмета.
+ */
+export function scheduleTone(kind, subjectKey) {
+    if ('exam' === kind) { return 'tone-exam'; }
+    if ('individual' === kind) { return 'tone-indi'; }
+    const key = String(subjectKey || '').toLowerCase();
+    if (key.includes('oge')) { return 'tone-oge'; }
+    if (key.includes('python')) { return 'tone-python'; }
+    if (key.includes('robo')) { return 'tone-robo'; }
+    return '';
+}
+
 /** Ключ предмета группы сайдбара по id (fallback — id, чтобы цвет был стабилен). */
 export function groupSubjectKey(gid) {
     const groups = (window.fsProfile && window.fsProfile.groups) || [];

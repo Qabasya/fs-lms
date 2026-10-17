@@ -165,6 +165,7 @@ class LearnerContextBuilder {
 			'group_lesson_id' => $row->id,
 			'group_id'        => (int) $group['id'],
 			'group_name'      => $group['name'],
+			'subject_key'     => (string) ( $group['subject_key'] ?? '' ), // цвет карточки в расписании (scheduleTone)
 			'topic'           => $this->topicOf( $row ),
 			'date'            => $row->scheduledAt ? substr( $row->scheduledAt, 0, 10 ) : '',
 			'start'           => $row->scheduledAt ? substr( $row->scheduledAt, 11, 5 ) : '',

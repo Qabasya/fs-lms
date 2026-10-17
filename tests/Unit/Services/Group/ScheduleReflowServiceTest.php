@@ -170,6 +170,19 @@ class ScheduleReflowServiceTest extends TestCase {
 		$this->service->pinToDate( 5, '2026-09-03 10:00:00', 1 );
 	}
 
+	/** «Поставить вместе»: занятие, стоявшее на дате, остаётся — clearSchedule() не зовётся, новое закрепляется. */
+	public function test_pin_to_date_together_keeps_existing_lesson_on_the_day(): void {
+		$this->groupLessons->method( 'find' )->willReturn( $this->makeRow( 5, 'group' ) );
+		$this->groups->method( 'findById' )->willReturn( new \stdClass() );
+		$this->roomAvailability->method( 'isFree' )->willReturn( true );
+		$this->groupLessons->method( 'listByGroupAndDay' )->willReturn( array( $this->rowWithDate( 2, '2026-09-03 10:00:00' ) ) );
+
+		$this->groupLessons->expects( self::once() )->method( 'updateSchedule' )->with( 5, '2026-09-03 10:00:00', null, self::anything() );
+		$this->groupLessons->expects( self::never() )->method( 'clearSchedule' );
+
+		$this->service->pinToDate( 5, '2026-09-03 10:00:00', 1, null, true );
+	}
+
 	/** Дата свободна — никого вытеснять не нужно, clearSchedule() не зовётся. */
 	public function test_pin_to_date_does_not_evict_when_day_is_free(): void {
 		$this->groupLessons->method( 'find' )->willReturn( $this->makeRow( 42, 'group' ) );

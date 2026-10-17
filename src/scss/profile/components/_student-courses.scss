@@ -121,7 +121,7 @@
 .sc-mhead.static:hover { background: transparent; }
 .sc-caret { color: var(--muted-2); flex-shrink: 0; display: flex; transition: transform $tr-collapse; }
 .sc-mod.open .sc-caret { transform: rotate(90deg); }
-.sc-mnum { font-size: rem(11); font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--muted-2); width: rem(66); flex-shrink: 0; }
+.sc-mnum { font-size: rem(11); font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--muted-2); width: rem(112); flex-shrink: 0; }
 .sc-mname { font-size: rem(14); font-weight: 600; flex: 1; min-width: 0; }
 .sc-mdone { color: var(--ok); font-weight: 700; flex-shrink: 0; }
 .sc-mcnt { font-size: rem(12); color: var(--muted-2); white-space: nowrap; font-variant-numeric: tabular-nums; }

@@ -109,7 +109,14 @@
 	// height:0 + min-height:100% выводит панель из расчёта высоты — длинная
 	// структура курса прокручивается в .tree-scroll, а не растягивает страницу.
 	@media (min-width: #{$breakpoint-builder + 1}) {
-		.tree-pane { height: 0; min-height: 100%; }
+		// Две строки сетки: шапки (tree-top / editor-top) и тело. Панели берут их через subgrid,
+		// поэтому нижняя граница шапки структуры всегда на одной линии с нижней границей editor-top.
+		.builder { grid-template-rows: auto minmax(0, 1fr); }
+		.builder > .tree-pane, .builder > .editor-pane { grid-row: 1 / span 2; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: subgrid; }
+		.tree-top { display: flex; flex-direction: column; min-width: 0; }
+		.tree-top > .tree-head { flex: 1; }
+		.tree-body { display: flex; flex-direction: column; height: 0; min-height: 100%; }
+		.editor-empty { grid-row: 1 / -1; }
 	}
 
 	.tree-head {
@@ -126,6 +133,42 @@
 
 		// «Добавить»: клик — урок, наведение/фокус — меню выбора (вверх).
 		@include cb-add-split;
+	}
+
+	// Кнопка «Свернуть» над «Добавить»; в свёрнутом виде остаётся стрелка «развернуть».
+	.tree-collapse {
+		display: flex; align-items: center; justify-content: flex-start; gap: rem(6);
+		box-sizing: border-box; width: 100%; height: rem(48); min-height: rem(48); flex-shrink: 0; line-height: 1; margin: 0; padding: 0 rem(14);
+		border: 0; border-radius: 0; box-shadow: none; background: transparent; color: $color-text-secondary; cursor: pointer;
+		&:hover, &:focus { background: $cb-bg-hover; color: $color-text-primary; box-shadow: none; }
+	}
+	.tree-collapse__ico { display: flex; }
+	.th-icon { display: none; color: $color-secondary-hover; }
+
+	// Свёрнутая структура (только широкий экран): колонка-рельса с номерами модулей и уроков.
+	@media (min-width: #{$breakpoint-builder + 1}) {
+		.builder.is-rail {
+			grid-template-columns: rem(72) 1fr;
+
+			.tree-head { justify-content: center; padding-inline: 0; }
+			.th-title, .th-count { display: none; }
+			.th-icon { display: flex; }
+
+			.mod-grip, .mod-caret, .mod-main, .mod-lessons,
+			.les-grip, .les-title, .les-steps { display: none; }
+			.module-head { justify-content: center; padding-inline: 0; }
+			.module-lessons { margin-left: 0; padding-left: 0; border-left: none; }
+
+			// Уроки видны всегда: переключателя сворачивания модулей в рельсе нет.
+			.module.collapsed .module-lessons { display: block; }
+			.lesson { justify-content: center; padding-inline: 0; }
+			.lesson .les-num { min-width: 0; }
+
+			.tree-collapse { justify-content: center; padding-inline: 0; }
+			.tree-collapse__text, .add-main__text, .add-caret { display: none; }
+			.tree-collapse__ico { transform: rotate(180deg); }
+			.add-menu { right: auto; min-width: rem(160); }
+		}
 	}
 
 	// module
@@ -204,6 +247,9 @@
 
 			&--dup { background: transparent; color: var(--color-primary); border-color: currentcolor;
 				&:hover { background: $wp-admin-blue-bg-light; } }
+
+			&--preview { background: transparent; color: $wp-admin-green-text; border-color: currentcolor;
+				&:hover { background: $wp-admin-green-bg; } }
 	}
 
 	// editor body (контейнер правой панели; шаги — внутри .fs-se)

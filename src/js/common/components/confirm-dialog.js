@@ -1,4 +1,14 @@
-export function confirmDialog( message, confirmText = 'Подтвердить', cancelText = 'Отмена' ) {
+/**
+ * Диалог подтверждения. Результат: true — подтверждено, false — отмена; если передан `extraText`,
+ * между ними появляется третья кнопка, и её выбор даёт строку 'extra'.
+ *
+ * @param {string}  message
+ * @param {string}  [confirmText]
+ * @param {string}  [cancelText]
+ * @param {?string} [extraText] Подпись третьей кнопки (необязательна).
+ * @return {Promise<boolean|string>}
+ */
+export function confirmDialog( message, confirmText = 'Подтвердить', cancelText = 'Отмена', extraText = null ) {
 	return new Promise( ( resolve ) => {
 		const overlay = document.createElement( 'div' );
 		overlay.className = 'fs-confirm-overlay';
@@ -36,6 +46,14 @@ export function confirmDialog( message, confirmText = 'Подтвердить', 
 		overlay.addEventListener( 'keydown', ( e ) => { if ( e.key === 'Escape' ) { cleanup( false ); } } );
 
 		actions.appendChild( cancelBtn );
+		if ( extraText ) {
+			const extraBtn = document.createElement( 'button' );
+			extraBtn.type        = 'button';
+			extraBtn.className   = 'button';
+			extraBtn.textContent = extraText;
+			extraBtn.addEventListener( 'click', () => cleanup( 'extra' ) );
+			actions.appendChild( extraBtn );
+		}
 		actions.appendChild( okBtn );
 		dialog.appendChild( msgEl );
 		dialog.appendChild( actions );

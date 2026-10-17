@@ -71,6 +71,14 @@
   --indi-ink:     #087f5b;
   --t-zachet:      #{t.$hue-violet}; // индивидуальное / зачёт (палитра D12; используется и из JS)
   --t-zachet-soft: rgba(112, 72, 232, 0.1);
+
+  // Цвет левой полосы карточки занятия в расписании по виду предмета (scheduleTone, profile/utils.js)
+  --tone-ege:    var(--accent);
+  --tone-oge:    #{t.$hue-violet};
+  --tone-python: var(--ok);
+  --tone-robo:   var(--wait-accent);
+  --tone-exam:   var(--err);
+  --tone-indi:   var(--muted-2);
   --holiday-bg:     #fdf0f0; // ячейка-выходной в календаре КТП
   --holiday-border: #f7d6d6;
   --holiday-tag-bg: #ffe3e3;

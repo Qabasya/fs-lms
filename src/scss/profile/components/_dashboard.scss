@@ -187,6 +187,14 @@
 }
 .prof-week-card:hover { background: var(--accent-soft); }
 
+/* Цвет левой полосы карточки по виду предмета; без класса — акцент (ЕГЭ и прочие предметы). */
+.lcard.tone-ege    { border-left-color: var(--tone-ege); }
+.lcard.tone-oge    { border-left-color: var(--tone-oge); }
+.lcard.tone-python { border-left-color: var(--tone-python); }
+.lcard.tone-robo   { border-left-color: var(--tone-robo); }
+.lcard.tone-exam   { border-left-color: var(--tone-exam); }
+.lcard.tone-indi   { border-left-color: var(--tone-indi); }
+
 /* Карточка занятия «Недели»/«Месяца» (lessonCard() в dashboard.js). */
 .lcard { display: flex; flex-direction: column; gap: rem(2); min-width: 0; }
 

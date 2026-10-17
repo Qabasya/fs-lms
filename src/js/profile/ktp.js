@@ -437,20 +437,37 @@ function nearestMeetingTime(day) {
 }
 
 /**
- * Этап 3: drop строго закрепляет тему на дату, вытесняя ту, что там стояла
- * (если была) — вернётся в пул. Имя темы для тоста берём из уже загруженного
- * календаря (state.data), запрос AJAX это не меняет.
+ * Drop закрепляет тему на дату. Если там уже стоит другая тема, спрашиваем: заменить её
+ * (она вернётся в пул) или поставить вместе (обе остаются на этой дате и времени).
+ * Имя темы для тоста берём из уже загруженного календаря (state.data).
  */
 async function doPin(glid, day, scheduledAt, endsAt) {
     const dragged = (state.data.themes || []).find(t => String(t.group_lesson_id) === String(glid));
     const displaced = (state.data.themes || [])
         .find(t => t.group_lesson_id !== dragged?.group_lesson_id && (t.scheduled_at || '').slice(0, 10) === day);
+
+    let together = false;
+    if (displaced) {
+        const choice = await confirmDialog(
+            `На ${fmtDayMonth(day)} уже стоит тема ${displaced.n}. Заменить её или поставить вместе?`,
+            'Заменить',
+            'Отмена',
+            'Поставить вместе'
+        );
+        if (!choice) { return; }
+        together = 'extra' === choice;
+    }
+
     try {
-        await api('pin', { group_lesson_id: glid, scheduled_at: scheduledAt, ends_at: endsAt || '' });
+        await api('pin', { group_lesson_id: glid, scheduled_at: scheduledAt, ends_at: endsAt || '', on_conflict: together ? 'together' : 'replace' });
         const draggedLabel = dragged ? `Тема ${dragged.n}` : 'Тема';
-        toast(displaced
-            ? `${draggedLabel} закреплена на ${fmtDayMonth(day)} · тема ${displaced.n} возвращена в пул`
-            : `${draggedLabel} закреплена на ${fmtDayMonth(day)}`);
+        let note = '';
+        if (displaced) {
+            note = together
+                ? ` · вместе с темой ${displaced.n}`
+                : ` · тема ${displaced.n} возвращена в пул`;
+        }
+        toast(`${draggedLabel} закреплена на ${fmtDayMonth(day)}${note}`);
         await reloadCalendar();
     } catch (err) {
         toast(err.message, 'error');

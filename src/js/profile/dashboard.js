@@ -11,7 +11,7 @@
    сутки, серии пропусков и несданных ДЗ, работы без проверки 48 часов.
    ══════════════════════════════════════════════════════════════════════ */
 
-import { esc, plural, fmtDayMonth, todayIso, chipBg, chipBorder, groupSubjectKey, shortName, emptyState } from './utils.js';
+import { esc, plural, fmtDayMonth, todayIso, chipBg, scheduleTone, groupSubjectKey, shortName, emptyState } from './utils.js';
 import { icoCalendar, icoCheck, icoAlert, icoMapPin, icoBookmark, icoShield, icoChevronRight, icoChevronDown, icoHome, icoJournal, icoUsers, icoDocCheck } from '../common/icons.js';
 import { createApi } from './api.js';
 import { initSchedule } from './schedule-view.js';
@@ -144,7 +144,7 @@ function render() {
 function lessonCard(it, cls) {
     // Сеанс экзамена — самостоятельное событие, не занятие группы: своя метка и переход в «Проведение экзамена».
     if (it.kind === 'exam') {
-        return `<div class="${cls} lcard ${chipBorder('exam')}" data-exam-session="${it.session_id}">
+        return `<div class="${cls} lcard ${scheduleTone('exam')}" data-exam-session="${it.session_id}">
             <div class="lc-row">
                 <span class="lc-time">${esc(it.start)}</span>
                 <span class="lc-grp">${esc(it.title)}</span>
@@ -159,7 +159,7 @@ function lessonCard(it, cls) {
     const tags = (it.is_substitute ? '<span class="prof-sub-tag">замена</span>' : '')
         + (it.kind === 'individual' ? '<span class="prof-sub-tag indi">инд.</span>' : '');
 
-    return `<div class="${cls} lcard ${it.kind === 'individual' ? 'chip-bd-indi' : chipBorder(groupSubjectKey(it.group_id))}" data-grp="${it.group_id}">
+    return `<div class="${cls} lcard ${scheduleTone(it.kind, groupSubjectKey(it.group_id))}" data-grp="${it.group_id}">
         <div class="lc-row">
             <span class="lc-time">${esc(it.start)}</span>
             <span class="lc-grp">${esc(who)}</span>

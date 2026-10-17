@@ -91,10 +91,19 @@ class LessonScheduleCallbacksTest extends TestCase {
 		self::assertFalse( fs_test_capture_json( fn() => $this->cb->ajaxUnscheduleGroup() )->success );
 	}
 
+	public function test_pin_lesson_passes_together_choice_to_service(): void {
+		$this->program->method( 'getProgramRow' )->with( 42 )->willReturn( $this->programRow() );
+		$this->guard->method( 'canManage' )->willReturn( true );
+		$this->schedule->expects( $this->once() )->method( 'pinToDate' )->with( 42, '2026-05-20', $this->anything(), null, true );
+		$_POST = array( 'group_lesson_id' => '42', 'scheduled_at' => '2026-05-20', 'on_conflict' => 'together' );
+
+		self::assertTrue( fs_test_capture_json( fn() => $this->cb->ajaxPinLesson() )->success );
+	}
+
 	public function test_pin_lesson_delegates_to_pin_to_date(): void {
 		$this->program->method( 'getProgramRow' )->with( 42 )->willReturn( $this->programRow() );
 		$this->guard->method( 'canManage' )->willReturn( true );
-		$this->schedule->expects( $this->once() )->method( 'pinToDate' )->with( 42, '2026-05-20', $this->anything() );
+		$this->schedule->expects( $this->once() )->method( 'pinToDate' )->with( 42, '2026-05-20', $this->anything(), null, false );
 		$_POST = array( 'group_lesson_id' => '42', 'scheduled_at' => '2026-05-20' );
 
 		self::assertTrue( fs_test_capture_json( fn() => $this->cb->ajaxPinLesson() )->success );

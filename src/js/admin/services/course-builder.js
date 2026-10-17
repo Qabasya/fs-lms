@@ -1,5 +1,5 @@
 import '../_types.js';
-import { icoGrip, icoCaret, icoPlus, icoImport, icoModule, icoDuplicate, icoEye } from '../../common/icons.js';
+import { icoGrip, icoCaret, icoPlus, icoImport, icoModule, icoDuplicate, icoEye, icoChevronLeft } from '../../common/icons.js';
 import { escapeHtml as esc } from '../modules/utils.js';
 import { openPicker } from '../modules/picker.js';
 import { createStepEditor } from './step-editor.js';
@@ -25,6 +25,7 @@ const $ = jQuery;
 const acts = () => fs_lms_vars.ajax_actions;
 
 const GRIP_SVG = icoGrip( 12 );
+const RAIL_KEY = 'fs_lms_cb_tree_rail'; // localStorage: структура курса свёрнута до номеров
 
 export const CourseBuilder = {
 	init() {
@@ -127,30 +128,53 @@ function createApp( mount ) {
 			</div>` : '' }
 			<div class="builder">
 				<div class="tree-pane">
-					<div class="tree-head">
-						<span class="th-title">Структура курса</span>
-						<span class="th-count" data-tree-count></span>
+					<div class="tree-top">
+						<button type="button" class="button tree-collapse" data-tree-collapse>
+							<span class="tree-collapse__ico">${ icoChevronLeft( 12 ) }</span>
+							<span class="tree-collapse__text">Свернуть</span>
+						</button>
+						<div class="tree-head">
+							<span class="th-icon" title="Структура курса">${ icoModule( 16 ) }</span>
+							<span class="th-title">Структура курса</span>
+							<span class="th-count" data-tree-count></span>
+						</div>
 					</div>
-					<div class="tree-scroll" data-tree></div>
-					<div class="tree-add">
-						<div class="add-wrap" data-add-wrap>
-							<div class="add-menu">
-								<div class="add-menu-box">
-									<button type="button" class="add-opt" data-add-kind="lesson">${ icoPlus( 13 ) }Урок</button>
-									<button type="button" class="add-opt" data-add-kind="module">${ icoModule( 13 ) }Модуль</button>
-									<button type="button" class="add-opt" data-add-kind="import">${ icoImport( 13 ) }Импорт урока</button>
+					<div class="tree-body">
+						<div class="tree-scroll" data-tree></div>
+						<div class="tree-add">
+							<div class="add-wrap" data-add-wrap>
+								<div class="add-menu">
+									<div class="add-menu-box">
+										<button type="button" class="add-opt" data-add-kind="lesson">${ icoPlus( 13 ) }Урок</button>
+										<button type="button" class="add-opt" data-add-kind="module">${ icoModule( 13 ) }Модуль</button>
+										<button type="button" class="add-opt" data-add-kind="import">${ icoImport( 13 ) }Импорт урока</button>
+									</div>
 								</div>
+								<button type="button" class="button add-main" data-add-main>
+									${ icoPlus( 13 ) }
+									<span class="add-main__text">Добавить</span>
+									${ icoCaret( 10, 'add-caret' ) }
+								</button>
 							</div>
-							<button type="button" class="button add-main" data-add-main>
-								${ icoPlus( 13 ) }
-								Добавить
-								${ icoCaret( 10, 'add-caret' ) }
-							</button>
 						</div>
 					</div>
 				</div>
 				<div class="editor-pane" data-editor></div>
 			</div>`;
+
+		// Свёрнутая структура: остаются номера модулей/уроков, «Добавить» — один плюс.
+		const builderEl = mount.querySelector( '.builder' );
+		const collapseBtn = mount.querySelector( '[data-tree-collapse]' );
+		const setRail = ( on ) => {
+			builderEl.classList.toggle( 'is-rail', on );
+			collapseBtn.setAttribute( 'aria-pressed', on ? 'true' : 'false' );
+			collapseBtn.title = on ? 'Развернуть структуру' : '';
+			try { localStorage.setItem( RAIL_KEY, on ? '1' : '0' ); } catch ( e ) { /* без памяти — не критично */ }
+		};
+		let railOn = false;
+		try { railOn = '1' === localStorage.getItem( RAIL_KEY ); } catch ( e ) { /* ignore */ }
+		setRail( railOn );
+		collapseBtn.addEventListener( 'click', () => setRail( ! builderEl.classList.contains( 'is-rail' ) ) );
 
 		const addWrap = mount.querySelector( '[data-add-wrap]' );
 		const addMain = addWrap.querySelector( '[data-add-main]' );
@@ -173,25 +197,15 @@ function createApp( mount ) {
 		// Блокируем нативный submit формы — сохранение только через AJAX
 		document.getElementById( 'post' )?.addEventListener( 'submit', ( e ) => e.preventDefault() );
 
-		// Strip: просмотр курса в preview-плеере (Фаза 5, D3/D4) — свой маршрут,
-		// не зависит от статуса поста (черновик открывается так же, как публикация).
-		mount.querySelector( '[data-strip-preview]' )?.addEventListener( 'click', ( e ) => {
-			const id  = e.currentTarget.dataset.courseId;
-			const url = new URL( fs_lms_vars.coursePreviewUrl );
-			url.searchParams.set( 'course', id );
-			window.open( url.toString(), '_blank' );
-		} );
-
-		// Strip: "Опубликовать / Сохранить курс" → AJAX, без перезагрузки
+		// Strip: "Опубликовать курс" (только у черновика) → AJAX, без перезагрузки
 		mount.querySelector( '[data-strip-publish]' )?.addEventListener( 'click', () => {
-			const prevStatus   = state.course.status;
-			const wasPublished = prevStatus === 'publish';
+			const prevStatus = state.course.status;
 			state.course.status = 'publish';
 
 			const done = () => {
-				showToast( wasPublished ? 'Курс сохранён' : 'Курс опубликован', 'success' );
-				const btn = mount.querySelector( '[data-strip-publish]' );
-				if ( btn ) { btn.textContent = 'Сохранить курс'; }
+				showToast( 'Курс опубликован', 'success' );
+				// Опубликованный курс дальше сохраняется автосейвом — кнопка больше не нужна.
+				mount.querySelector( '[data-strip-publish]' )?.remove();
 			};
 
 			// Неизменённые дубликаты не блокируют публикацию — просим подтвердить.
@@ -326,12 +340,7 @@ function createApp( mount ) {
 					</div>
 				</div>
 				<div class="course-strip-actions">
-					<button type="button" class="button" data-strip-preview data-course-id="${ c.id }">
-						${ icoEye( 14 ) }Просмотр
-					</button>
-					<button type="button" class="button button-green" data-strip-publish>
-						${ 'publish' === c.status ? 'Сохранить курс' : 'Опубликовать курс' }
-					</button>
+					${ 'publish' === c.status ? '' : '<button type="button" class="button button-green" data-strip-publish>Опубликовать курс</button>' }
 				</div>
 			</div>`;
 	}
@@ -391,6 +400,7 @@ function createApp( mount ) {
 				<span class="mod-num">${ mi + 1 }</span>
 				<span class="mod-main"><span class="mod-title"></span><span class="mod-desc"></span></span>
 				<span class="mod-lessons">${ mod.lessons.length }</span>`;
+			head.title = mod.title;
 			head.querySelector( '.mod-title' ).textContent = mod.title;
 			const descEl = head.querySelector( '.mod-desc' );
 			if ( mod.description ) { descEl.textContent = mod.description; } else { descEl.remove(); }
@@ -411,6 +421,7 @@ function createApp( mount ) {
 					<span class="les-num">${ mi + 1 }.${ mod.lessons.indexOf( les ) + 1 }</span>
 					<span class="les-title"></span>
 					<span class="les-steps">${ les.steps.length }</span>`;
+				el.title = les.title;
 				el.querySelector( '.les-title' ).textContent = les.title;
 				el.addEventListener( 'click', () => selectLesson( les.id ) );
 				attachLessonDrag( el, les, mod );
@@ -588,6 +599,7 @@ function createApp( mount ) {
 					<button type="button" class="lesson-flag ${ lesson.published ? 'published' : '' }" data-toggle-publish>
 						${ lesson.published ? 'Опубликован' : 'Черновик' }
 					</button>
+					<button type="button" class="lesson-flag lesson-flag--preview" data-les-preview>${ icoEye( 13 ) } Просмотр</button>
 					<button type="button" class="lesson-flag lesson-flag--dup" data-les-dup>${ icoDuplicate( 13 ) } Дублировать урок</button>
 					<button type="button" class="lesson-flag danger" data-les-del>Убрать урок</button>
 				</div>
@@ -601,6 +613,14 @@ function createApp( mount ) {
 			persist.scheduleLessonMeta( lesson );
 		} );
 		pane.querySelector( '[data-toggle-publish]' ).addEventListener( 'click', () => persist.togglePublish( lesson ) );
+		// Предпросмотр урока в preview-плеере (Фаза 5, D3/D4): свой маршрут, не зависит
+		// от статуса поста — черновик открывается так же, как публикация.
+		pane.querySelector( '[data-les-preview]' ).addEventListener( 'click', () => {
+			const url = new URL( fs_lms_vars.coursePreviewUrl );
+			url.searchParams.set( 'course', state.course.id );
+			url.searchParams.set( 'lesson', lesson.id );
+			window.open( url.toString(), '_blank' );
+		} );
 		pane.querySelector( '[data-les-dup]' ).addEventListener( 'click', () => duplicateLesson( lesson, module ) );
 		pane.querySelector( '[data-les-del]' ).addEventListener( 'click', () => removeLesson( lesson, module ) );
 
