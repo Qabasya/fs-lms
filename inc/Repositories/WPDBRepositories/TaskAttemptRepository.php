@@ -40,6 +40,8 @@ class TaskAttemptRepository {
 		array  $itemFeedback,
 		?int    $durationSec = null,
 		?string $answeredAt = null,
+		?int    $firstAnswerSec = null,
+		?int    $lastAnswerSec = null,
 	): int {
 		$this->wpdb->insert( $this->table, array(
 			'student_person_id' => $studentPersonId,
@@ -54,6 +56,8 @@ class TaskAttemptRepository {
 			'item_feedback'     => wp_json_encode( $itemFeedback ),
 			'duration_sec'      => $durationSec,
 			'answered_at'       => $answeredAt,
+			'first_answer_sec'  => $firstAnswerSec,
+			'last_answer_sec'   => $lastAnswerSec,
 		) );
 
 		return (int) $this->wpdb->insert_id;

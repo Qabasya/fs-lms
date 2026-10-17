@@ -134,12 +134,13 @@ $contact_phone = (string) ( $contacts['phone'] ?? '' );
 					</div>
 					<?php endif; ?>
 
-					<!-- Мессенджер: простой текстовый ввод любых символов, без кнопки и без проверки формата -->
-					<div class="fs-join-card__field-group fs-form-group" data-field="messenger">
-						<label for="fs_exam_messenger"><?php esc_html_e( 'Связь через мессенджер', 'fs-lms' ); ?></label>
+					<!-- Мессенджер: обязательное поле, любой текст без проверки формата; пояснение — при наведении -->
+					<?php $messenger_hint = __( 'Вставьте ссылку на аккаунт или ваш логин в Max или другом мессенджере, чтобы мы могли связаться с вами', 'fs-lms' ); ?>
+					<div class="fs-join-card__field-group fs-form-group" data-field="messenger" title="<?php echo esc_attr( $messenger_hint ); ?>">
+						<label for="fs_exam_messenger"><?php esc_html_e( 'Ссылка на аккаунт/логин в мессенджере', 'fs-lms' ); ?> <span aria-hidden="true">*</span></label>
 						<div class="fs-field-control">
 							<span class="dashicons dashicons-format-chat" aria-hidden="true"></span>
-							<input type="text" name="messenger" id="fs_exam_messenger" maxlength="100" autocomplete="off">
+							<input type="text" name="messenger" id="fs_exam_messenger" maxlength="100" autocomplete="off" placeholder="@username" title="<?php echo esc_attr( $messenger_hint ); ?>" data-validate="default" required aria-required="true">
 						</div>
 						<p class="description error fs-field-error" data-error="messenger" role="alert" hidden></p>
 					</div>

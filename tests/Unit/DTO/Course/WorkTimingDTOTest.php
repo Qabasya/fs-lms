@@ -36,4 +36,19 @@ class WorkTimingDTOTest extends TestCase {
 
 		self::assertSame( '2024-06-01 11:59:00', $dto->answeredAt( 12, '2024-06-01 12:00:00' ) );
 	}
+
+	public function test_answer_offsets_count_from_round_start(): void {
+		$dto = WorkTimingDTO::fromArray( array( 'elapsed' => 600, 'answered' => array( '12' => 30 ), 'first' => array( '12' => 400 ) ) );
+
+		self::assertSame( 200, $dto->firstAnswerSec( 12 ) );
+		self::assertSame( 570, $dto->lastAnswerSec( 12 ) );
+		self::assertNull( $dto->lastAnswerSec( 99 ) );
+	}
+
+	public function test_first_offset_falls_back_to_last_and_never_goes_negative(): void {
+		$dto = new WorkTimingDTO( 60, array( 12 => 3600 ) );
+
+		self::assertSame( 0, $dto->firstAnswerSec( 12 ) );
+		self::assertNull( ( new WorkTimingDTO( null, array( 12 => 5 ) ) )->lastAnswerSec( 12 ) );
+	}
 }

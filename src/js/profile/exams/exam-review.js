@@ -10,7 +10,7 @@
    клиент не передаёт.
    ══════════════════════════════════════════════════════════════════════ */
 
-import { esc, fmtDateTime } from '../utils.js';
+import { esc, fmtDateTime, fmtClock } from '../utils.js';
 import { icoChevronLeft } from '../../common/icons.js';
 import { createApi } from '../api.js';
 import { initCodeBlocks } from '../../frontend/components/code-block.js';
@@ -66,6 +66,7 @@ function paint(review) {
     const caption = revealed ? resultCaption(review.result) : '';
     const meta = [
         review.submitted_at ? `Сдано ${fmtDateTime(review.submitted_at)}` : '',
+        review.duration_sec != null ? `Затрачено ${fmtClock(review.duration_sec)}` : '',
         caption ? `Итог: ${caption}` : '',
     ].filter(Boolean).map(esc).join(' · ');
 

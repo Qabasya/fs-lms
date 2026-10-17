@@ -19,6 +19,10 @@ readonly class AttemptAnswerDTO {
 		public ?string $graderNote = null,
 		/** Эпик 13 (D17): {индекс критерия => начисленные баллы}; null — критериев нет / не оценивалось по ним. */
 		public ?array  $criteriaScores = null,
+		/** Момент первого непустого ответа (местное время); null — ответа не было. */
+		public ?string $firstAnsweredAt = null,
+		/** Момент последнего изменения ответа; равен первому, если ответ не менялся. */
+		public ?string $answeredAt = null,
 	) {}
 
 	public static function fromArray( array $row ): self {
@@ -43,6 +47,8 @@ readonly class AttemptAnswerDTO {
 			gradedAt        : $row['graded_at'] ?? null,
 			graderNote      : $row['grader_note'] ?? null,
 			criteriaScores  : $criteria,
+			firstAnsweredAt : $row['first_answered_at'] ?? null,
+			answeredAt      : $row['answered_at'] ?? null,
 		);
 	}
 }

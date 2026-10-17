@@ -200,7 +200,7 @@ class GuestApplicationService {
 	/**
 	 * Проверяет гостевую форму и создаёт заявку с бронью в контексте гостя или сотрудника.
 	 *
-	 * @param array<string, mixed> $form `last_name`, `first_name`, `middle_name?`, `phone`, `messenger?`, `school` (обязательна только в открытой записи), `session_id`, `consents` (список ключей)
+	 * @param array<string, mixed> $form `last_name`, `first_name`, `middle_name?`, `phone`, `messenger`, `school` (обязательна только в открытой записи), `session_id`, `consents` (список ключей)
 	 *
 	 * @throws GuestFormException Ошибка поля формы или вошедший ученик/родитель (`field = cabinet`).
 	 * @throws CodedException     Лимит, закрытая запись, конфликт.
@@ -395,8 +395,8 @@ class GuestApplicationService {
 		if ( self::PHONE_DIGITS !== strlen( $this->identity->normalizePhone( $phone ) ) ) {
 			throw new GuestFormException( ErrorCode::ExamInput, 'Укажите телефон: 11 цифр.', 'phone' );
 		}
-		if ( mb_strlen( $messenger ) > self::MAX_MESSENGER_LENGTH ) {
-			throw new GuestFormException( ErrorCode::ExamInput, 'Не больше 100 символов.', 'messenger' );
+		if ( '' === $messenger || mb_strlen( $messenger ) > self::MAX_MESSENGER_LENGTH ) {
+			throw new GuestFormException( ErrorCode::ExamInput, 'Укажите ссылку на аккаунт или логин в мессенджере (до 100 символов).', 'messenger' );
 		}
 		if ( $schoolRequired && '' === $school ) {
 			throw new GuestFormException( ErrorCode::ExamInput, 'Укажите школу.', 'school' );

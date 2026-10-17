@@ -69,6 +69,7 @@ class ExamReviewViewService {
 			'title'       => (string) ( $review['title'] ?? $event->title ),
 			// Время попытки — местное, как и в `assessment_attempts`: перевода не нужно.
 			'submitted'   => (string) ( $review['submitted_at'] ?? '' ),
+			'duration_text' => isset( $review['duration_sec'] ) ? $this->clock( (int) $review['duration_sec'] ) : '',
 			'caption'     => $this->scores->caption( $summary ),
 			'preliminary' => ! empty( $summary ) && empty( $summary['final'] ),
 			'units'       => $units,
@@ -131,10 +132,44 @@ class ExamReviewViewService {
 				'files'        => (array) ( $task['files'] ?? array() ),
 				'correct'      => ! $pending && 'correct' !== $verdict && 'corrected' !== $verdict ? (string) ( $task['correct'] ?? '' ) : '',
 				'solution'     => ! $pending && is_array( $task['solution'] ?? null ) ? $task['solution'] : null,
+				'answer_time'  => $this->answerTime( $task['answer_first_sec'] ?? null, $task['answer_last_sec'] ?? null ),
 			);
 		}
 
 		return $result;
+	}
+
+	/** Секунды → «ЧЧ:ММ:СС» (часов может быть больше двух цифр). */
+	private function clock( int $sec ): string {
+		$sec = max( 0, $sec );
+
+		return sprintf( '%02d:%02d:%02d', intdiv( $sec, 3600 ), intdiv( $sec % 3600, 60 ), $sec % 60 );
+	}
+
+	/**
+	 * Время ответа на задание для шапки карточки: «Ответ дан: ЧЧ:ММ:СС» или, если ответ менялся,
+	 * «Ответ дан: ЧЧ:ММ:СС / ЧЧ:ММ:СС» (до первого ответа / до последнего, от начала экзамена).
+	 *
+	 * @return array{text: string, title: string}|null null — ответа не было.
+	 */
+	private function answerTime( mixed $first, mixed $last ): ?array {
+		if ( null === $first && null === $last ) {
+			return null;
+		}
+		$first = (int) ( $first ?? $last );
+		$last  = (int) ( $last ?? $first );
+
+		if ( $last === $first ) {
+			return array(
+				'text'  => 'Ответ дан: ' . $this->clock( $first ),
+				'title' => 'Сколько времени прошло от начала экзамена до ответа на задание',
+			);
+		}
+
+		return array(
+			'text'  => 'Ответ дан: ' . $this->clock( $first ) . ' / ' . $this->clock( $last ),
+			'title' => 'Первое время — сколько прошло до первого ответа, второе — сколько прошло от начала экзамена до последнего ответа',
+		);
 	}
 
 	/**

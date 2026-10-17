@@ -187,6 +187,8 @@ class SubmissionService {
 				$attemptsUsed + 1,
 				$timing->elapsedSec,
 				$timing->answeredAt( $taskId, $now ),
+				$timing->firstAnswerSec( $taskId ),
+				$timing->lastAnswerSec( $taskId ),
 			);
 
 			// Автопроверенное задание закрыто прямо сейчас; ручное ждёт учителя —
@@ -420,6 +422,8 @@ class SubmissionService {
 		int   $round,
 		?int    $durationSec,
 		?string $answeredAt,
+		?int    $firstAnswerSec,
+		?int    $lastAnswerSec,
 	): void {
 		$this->attempts->create(
 			studentPersonId: $studentPersonId,
@@ -434,6 +438,8 @@ class SubmissionService {
 			itemFeedback   : array(),
 			durationSec    : $durationSec,
 			answeredAt     : $answeredAt,
+			firstAnswerSec : $firstAnswerSec,
+			lastAnswerSec  : $lastAnswerSec,
 		);
 	}
 

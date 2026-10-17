@@ -180,7 +180,7 @@ class AttemptService {
 			throw new \InvalidArgumentException( 'Задание не входит в эту работу.' );
 		}
 
-		$this->answers->upsert( $attempt->id, $taskId, [ 'answer_text' => $answerText ] );
+		$this->answers->saveAnswer( $attempt->id, $taskId, $answerText, $this->clock->now() );
 	}
 
 	/**

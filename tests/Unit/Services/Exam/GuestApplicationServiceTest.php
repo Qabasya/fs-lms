@@ -269,6 +269,7 @@ class GuestApplicationServiceTest extends TestCase {
 			'короткий телефон'   => array( 'phone', array( 'phone' => '+7 900 111' ) ),
 			'нет телефона'       => array( 'phone', array( 'phone' => '' ) ),
 			'длинный мессенджер' => array( 'messenger', array( 'messenger' => str_repeat( 'x', 101 ) ) ),
+			'нет мессенджера'    => array( 'messenger', array( 'messenger' => '  ' ) ),
 			'нет сеанса'         => array( 'session_id', array( 'session_id' => 0 ) ),
 		);
 	}
@@ -281,8 +282,8 @@ class GuestApplicationServiceTest extends TestCase {
 		$this->assertFormError( $field, ErrorCode::ExamInput, fn () => $this->apply( $override ) );
 	}
 
-	public function test_middle_name_and_messenger_are_optional(): void {
-		$this->apply( array( 'middle_name' => '', 'messenger' => '' ) );
+	public function test_middle_name_is_optional(): void {
+		$this->apply( array( 'middle_name' => '' ) );
 
 		self::assertNotEmpty( $this->captured );
 	}

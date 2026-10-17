@@ -74,4 +74,20 @@ class ExamReviewViewServiceTest extends TestCase {
 		unset( $guest['contacts'] );
 		self::assertSame( $data, $guest );
 	}
+
+	public function test_answer_time_and_duration_are_formatted_as_clock(): void {
+		$data = $this->service( array(
+			'revealed' => true, 'result' => array( 'final' => true ), 'duration_sec' => 3725,
+			'tasks' => array(
+				array( 'verdict' => 'correct', 'answer_first_sec' => 65, 'answer_last_sec' => 65 ),
+				array( 'verdict' => 'correct', 'answer_first_sec' => 65, 'answer_last_sec' => 3700 ),
+				array( 'verdict' => 'unanswered' ),
+			),
+		) )->build( 80 );
+
+		self::assertSame( '01:02:05', $data['duration_text'] );
+		self::assertSame( 'Ответ дан: 00:01:05', $data['tasks'][0]['answer_time']['text'] );
+		self::assertSame( 'Ответ дан: 00:01:05 / 01:01:40', $data['tasks'][1]['answer_time']['text'] );
+		self::assertNull( $data['tasks'][2]['answer_time'] );
+	}
 }

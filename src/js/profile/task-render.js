@@ -7,7 +7,7 @@
    ExamReviewProjection). Скрытие через CSS защитой не считается.
    ══════════════════════════════════════════════════════════════════════ */
 
-import { esc, fmtNum, fmtDateTime } from './utils.js';
+import { esc, fmtNum, fmtDateTime, fmtClock } from './utils.js';
 import { solutionBlock } from './work-review-solution.js';
 
 export const VERDICT_LABEL = {
@@ -27,9 +27,18 @@ export const VERDICT_LABEL = {
  * @property {boolean}              [canGradeBatch]   Есть транспорт оценки задач сдачи (только manage).
  */
 
-/* Момент, когда ученик последний раз правил ответ на задание. */
-export function answeredAtHtml(at) {
-    return at ? `<span class="st-time" title="Время ответа">ответ ${esc(fmtDateTime(at))}</span>` : '';
+/* Время ответа на задание от начала экзамена/раунда работы: «Ответ дан: ЧЧ:ММ:СС» или, если ответ менялся, «первый / последний». */
+export function answerTimeHtml(t) {
+    const first = t.answer_first_sec ?? t.answer_last_sec;
+    const last = t.answer_last_sec ?? t.answer_first_sec;
+    if (null === first || undefined === first) { return ''; }
+
+    const changed = last !== first;
+    const text = `Ответ дан: ${fmtClock(first)}${changed ? ` / ${fmtClock(last)}` : ''}`;
+    const hint = changed
+        ? 'Первое время — сколько прошло до первого ответа, второе — сколько прошло от начала до последнего ответа'
+        : 'Сколько времени прошло от начала до ответа на задание';
+    return `<span class="st-time" title="${esc(hint)}">${esc(text)}</span>`;
 }
 
 /* Верно после ошибки в проверке кнопкой до сдачи — отдельный (жёлтый) вердикт. */
@@ -138,7 +147,7 @@ export function renderTask(t, ctx = {}) {
             <div class="sum-task-head">
                 <span class="st-n">Задача ${t.n}</span>
                 <span class="sum-verdict sv-${esc(key)}">${esc(VERDICT_LABEL[key] || t.verdict)}</span>
-                ${answeredAtHtml(t.answered_at)}
+                ${answerTimeHtml(t)}
                 ${score}
                 ${t.manually_graded ? '<span class="sum-manual-mark">Оценено преподавателем</span>' : ''}
             </div>

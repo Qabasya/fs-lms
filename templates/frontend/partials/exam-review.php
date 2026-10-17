@@ -14,6 +14,7 @@ declare( strict_types=1 );
  * @var list<array<string, mixed>> $units
  * @var array{correct: int, partial: int, wrong: int, pending: int} $counts
  * @var list<array<string, mixed>> $tasks
+ * @var string|null $duration_text Время, затраченное на работу («ЧЧ:ММ:СС»); пусто — не показывать.
  * @var string|null $answer_label Подпись ответа участника; по умолчанию «Ваш ответ:» (отчёт школе задаёт «Ответ ученика:»).
  */
 
@@ -27,6 +28,9 @@ $answer_label = $answer_label ?? __( 'Ваш ответ:', 'fs-lms' );
 		<div class="fs-exam-result__stat is-correct"><dt><?php esc_html_e( 'Верно', 'fs-lms' ); ?></dt><dd><?php echo (int) $counts['correct']; ?></dd></div>
 		<div class="fs-exam-result__stat is-partial"><dt><?php esc_html_e( 'Частично', 'fs-lms' ); ?></dt><dd><?php echo (int) $counts['partial']; ?></dd></div>
 		<div class="fs-exam-result__stat is-wrong"><dt><?php esc_html_e( 'Неверно и не решено', 'fs-lms' ); ?></dt><dd><?php echo (int) $counts['wrong']; ?></dd></div>
+		<?php if ( '' !== (string) ( $duration_text ?? '' ) ) : ?>
+			<div class="fs-exam-result__stat"><dt><?php esc_html_e( 'Затрачено времени', 'fs-lms' ); ?></dt><dd><?php echo esc_html( (string) $duration_text ); ?></dd></div>
+		<?php endif; ?>
 		<?php if ( $counts['pending'] > 0 ) : ?>
 			<div class="fs-exam-result__stat is-pending"><dt><?php esc_html_e( 'Проверяется', 'fs-lms' ); ?></dt><dd><?php echo (int) $counts['pending']; ?></dd></div>
 		<?php endif; ?>
@@ -45,6 +49,9 @@ $answer_label = $answer_label ?? __( 'Ваш ответ:', 'fs-lms' );
 				<header class="fs-exam-task__head">
 					<span class="fs-exam-task__n"><?php echo esc_html( sprintf( 'Задание %d', (int) $task['n'] ) ); ?></span>
 					<span class="fs-exam-task__verdict"><?php echo esc_html( (string) $task['verdict_text'] ); ?></span>
+					<?php if ( is_array( $task['answer_time'] ?? null ) ) : ?>
+						<span class="fs-exam-task__time" title="<?php echo esc_attr( (string) $task['answer_time']['title'] ); ?>"><?php echo esc_html( (string) $task['answer_time']['text'] ); ?></span>
+					<?php endif; ?>
 					<?php if ( null !== $task['score'] ) : ?>
 						<span class="fs-exam-task__score"><?php echo esc_html( rtrim( rtrim( number_format( (float) $task['score'], 1, '.', '' ), '0' ), '.' ) . ( null !== $task['max_score'] ? ' / ' . rtrim( rtrim( number_format( (float) $task['max_score'], 1, '.', '' ), '0' ), '.' ) : '' ) ); ?></span>
 					<?php endif; ?>

@@ -68,7 +68,8 @@ function mountWork( panel, root ) {
 	const draftKey     = `fsWorkDraft:${ core.groupLessonId }:${ workId }`;
 	const timingKey    = `fsWorkTiming:${ core.groupLessonId }:${ workId }`;
 
-	// ── Замер времени: { started: ms, answered: { taskId: ms } } ──────────
+	// ── Замер времени: { started: ms, first: { taskId: ms }, answered: { taskId: ms } } ──
+	// first — первый ответ на задание, answered — последнее изменение ответа.
 	let timing = null;
 
 	/** fresh — новый раунд («Пройти заново»): прошлый замер не продолжаем. */
@@ -76,14 +77,16 @@ function mountWork( panel, root ) {
 		if ( isPreview() || isTeacherMode() ) { return; }
 		const saved = fresh ? null : readDrafts( timingKey );
 		timing = saved && saved.started
-			? { started: saved.started, answered: saved.answered || {} }
-			: { started: Date.now(), answered: {} };
+			? { started: saved.started, first: saved.first || {}, answered: saved.answered || {} }
+			: { started: Date.now(), first: {}, answered: {} };
 		writeDrafts( timingKey, timing );
 	}
 
 	function markAnswered( taskId ) {
 		if ( ! timing ) { return; }
-		timing.answered[ taskId ] = Date.now();
+		const now = Date.now();
+		if ( ! timing.first[ taskId ] ) { timing.first[ taskId ] = now; }
+		timing.answered[ taskId ] = now;
 		writeDrafts( timingKey, timing );
 	}
 
@@ -93,7 +96,9 @@ function mountWork( panel, root ) {
 		const ago  = ( ms ) => Math.max( 0, Math.round( ( now - ms ) / 1000 ) );
 		const answered = {};
 		Object.entries( timing.answered ).forEach( ( [ taskId, ms ] ) => { answered[ taskId ] = ago( ms ); } );
-		return JSON.stringify( { elapsed: ago( timing.started ), answered } );
+		const first = {};
+		Object.entries( timing.first ).forEach( ( [ taskId, ms ] ) => { first[ taskId ] = ago( ms ); } );
+		return JSON.stringify( { elapsed: ago( timing.started ), answered, first } );
 	}
 
 	// ── Виджеты + восстановление ответов (черновик > прошлая сдача) ──────

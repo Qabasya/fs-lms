@@ -38,7 +38,7 @@ function signupForm(t, response) {
         first_name: field('first_name', 'Пётр', { required: true }),
         middle_name: field('middle_name', ''),
         phone: field('phone', '+79001112233', { required: true, type: 'tel', maxLength: -1 }),
-        messenger: field('messenger', ''),
+        messenger: field('messenger', '@ivan', { required: true }),
         session_id: field('session_id', '7', { type: 'hidden' }),
         consent: field('consent', 'pd_processing', { required: true, type: 'checkbox', checked: true, error: 'consent_pd_processing' }),
         form_token: { value: 'token' },
@@ -99,7 +99,7 @@ for (const field of ['unknown', 'field-with-"-quote', undefined]) {
     });
 }
 
-for (const [name, value] of [['last_name', ' '], ['first_name', 'а'.repeat(101)], ['middle_name', 'а'.repeat(101)], ['phone', '+7 900'], ['messenger', 'x'.repeat(101)], ['session_id', '']]) {
+for (const [name, value] of [['last_name', ' '], ['first_name', 'а'.repeat(101)], ['middle_name', 'а'.repeat(101)], ['phone', '+7 900'], ['messenger', 'x'.repeat(101)], ['messenger', ''], ['session_id', '']]) {
     test(`общая валидация блокирует неверное поле ${name}`, async t => {
         const ui = signupForm(t, { success: true });
         ui.elements[name].value = value;

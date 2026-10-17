@@ -29,6 +29,8 @@ readonly class TaskAttemptDTO {
 	 * @param string     $createdAt
 	 * @param int|null    $durationSec     Работа: секунд от открытия до сдачи этого раунда.
 	 * @param string|null $answeredAt      Работа: когда ученик последний раз менял ответ.
+	 * @param int|null    $firstAnswerSec  Работа: секунд от начала раунда до первого ответа.
+	 * @param int|null    $lastAnswerSec   Работа: секунд от начала раунда до последнего ответа.
 	 */
 	public function __construct(
 		public int     $id,
@@ -45,6 +47,8 @@ readonly class TaskAttemptDTO {
 		public string  $createdAt,
 		public ?int    $durationSec = null,
 		public ?string $answeredAt = null,
+		public ?int    $firstAnswerSec = null,
+		public ?int    $lastAnswerSec = null,
 	) {}
 
 	public static function fromArray( array $row ): self {
@@ -63,6 +67,8 @@ readonly class TaskAttemptDTO {
 			createdAt      : (string) $row['created_at'],
 			durationSec    : isset( $row['duration_sec'] ) ? (int) $row['duration_sec'] : null,
 			answeredAt     : $row['answered_at'] ?? null,
+			firstAnswerSec : isset( $row['first_answer_sec'] ) ? (int) $row['first_answer_sec'] : null,
+			lastAnswerSec  : isset( $row['last_answer_sec'] ) ? (int) $row['last_answer_sec'] : null,
 		);
 	}
 }

@@ -188,6 +188,13 @@
   &.is-incorrect &__verdict,
   &.is-unanswered &__verdict { color: $color-err; background: $color-err-soft; }
 
+  // Время ответа: подсказка при наведении объясняет, что считается от начала экзамена.
+  &__time {
+    font-size: $font-size-sm;
+    color: $color-muted;
+    cursor: help;
+  }
+
   &__score {
     margin-left: auto;
     font-size: $font-size-sm;

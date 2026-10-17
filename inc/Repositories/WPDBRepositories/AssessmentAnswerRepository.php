@@ -40,6 +40,36 @@ class AssessmentAnswerRepository {
 	}
 
 	/**
+	 * Сохраняет ответ ученика и ведёт время ответа.
+	 *
+	 * Первый непустой текст ставит `first_answered_at` и `answered_at`; дальше `answered_at` двигается
+	 * только когда текст реально изменился (автосохранение шлёт и неизменённый ответ). Пустой ответ время
+	 * не трогает. Всё одним запросом, как в {@see upsert()}: порядок присваиваний в `ON DUPLICATE KEY UPDATE`
+	 * важен — временные поля сравнивают новый текст со старым до его перезаписи.
+	 *
+	 * @param string $nowLocal Текущее время (местное, из ClockInterface).
+	 */
+	public function saveAnswer( int $attemptId, int $taskId, string $answerText, string $nowLocal ): bool {
+		$filled = '' !== trim( $answerText );
+
+		// NULL через %s стал бы пустой строкой, поэтому у пустого ответа метки времени — литерал NULL.
+		$stamps = $filled ? '%s, %s' : 'NULL, NULL';
+		$args   = $filled
+			? array( $attemptId, $taskId, $answerText, $nowLocal, $nowLocal )
+			: array( $attemptId, $taskId, $answerText );
+
+		$sql = 'INSERT INTO `' . $this->table . '` (`attempt_id`, `task_id`, `answer_text`, `first_answered_at`, `answered_at`)'
+			. ' VALUES (%d, %d, %s, ' . $stamps . ')'
+			. ' ON DUPLICATE KEY UPDATE'
+			. ' `first_answered_at` = IF(`first_answered_at` IS NULL AND VALUES(`answered_at`) IS NOT NULL, VALUES(`answered_at`), `first_answered_at`),'
+			. ' `answered_at` = IF(VALUES(`answered_at`) IS NOT NULL AND NOT (`answer_text` <=> VALUES(`answer_text`)), VALUES(`answered_at`), `answered_at`),'
+			. ' `answer_text` = VALUES(`answer_text`)';
+
+		// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		return false !== $this->wpdb->query( $this->wpdb->prepare( $sql, $args ) );
+	}
+
+	/**
 	 * Вставляет или обновляет ответ на задание внутри попытки.
 	 *
 	 * Одним запросом, а не «прочитать → решить → записать»: автосохранение шлёт

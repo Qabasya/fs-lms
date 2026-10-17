@@ -66,6 +66,21 @@ export function fmtDateTime( iso ) {
 }
 
 /**
+ * Секунды → «ЧЧ:ММ:СС» (часов может быть больше двух цифр).
+ *
+ * @param {number|null} sec Секунды.
+ * @return {string} Пустая строка, если значения нет.
+ */
+export function fmtClock( sec ) {
+    if ( null === sec || undefined === sec || '' === sec || Number.isNaN( Number( sec ) ) ) { return ''; }
+
+    const total = Math.max( 0, Math.floor( Number( sec ) ) );
+    const pad   = ( n ) => String( n ).padStart( 2, '0' );
+
+    return `${ pad( Math.floor( total / 3600 ) ) }:${ pad( Math.floor( ( total % 3600 ) / 60 ) ) }:${ pad( total % 60 ) }`;
+}
+
+/**
  * Длительность в секундах → «< 1 мин» / «42 мин» / «1 ч 05 мин» / «2 д 3 ч».
  *
  * @param {number|null} sec Секунды.

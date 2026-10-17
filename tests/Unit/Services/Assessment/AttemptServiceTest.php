@@ -256,6 +256,15 @@ class AttemptServiceTest extends TestCase {
 		$this->service->saveAnswerFor( $this->examAttempt(), 999, 'ответ' );
 	}
 
+	public function test_save_answer_for_records_answer_time_from_clock(): void {
+		$this->assessments->method( 'get' )->willReturn( $this->assessment( AssessmentKind::EgeComputer ) );
+		$attempt = $this->examAttempt();
+		$taskId  = (int) $this->assessment( AssessmentKind::EgeComputer )->taskIds[0];
+		$this->answers->expects( self::once() )->method( 'saveAnswer' )->with( $attempt->id, $taskId, 'ответ', self::isType( 'string' ) );
+
+		$this->service->saveAnswerFor( $attempt, $taskId, 'ответ' );
+	}
+
 	public function test_submit_for_writes_given_submission_time_and_grades(): void {
 		$attempt = $this->examAttempt();
 		$graded  = $this->examAttempt( 'graded' );

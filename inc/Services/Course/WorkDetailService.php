@@ -122,7 +122,7 @@ class WorkDetailService {
 	 *   submitted_at: string,
 	 *   duration_sec: ?int,
 	 *   is_current: bool,
-	 *   tasks: array<int, array{n:int, condition:string, answer:?string, code:?string, correct:?string, solution:?array, verdict:string, score:?float, max_score:?float, answered_at:?string}>
+	 *   tasks: array<int, array{n:int, condition:string, answer:?string, code:?string, correct:?string, solution:?array, verdict:string, score:?float, max_score:?float, answered_at:?string, answer_first_sec:?int, answer_last_sec:?int}>
 	 * }>|null null, если сдача не найдена
 	 */
 	public function attemptHistory( int $submissionId ): ?array {
@@ -194,6 +194,8 @@ class WorkDetailService {
 					'score'     => $a->score,
 					'max_score' => $a->maxScore,
 					'answered_at' => $a->answeredAt,
+					'answer_first_sec' => $a->firstAnswerSec,
+					'answer_last_sec'  => $a->lastAnswerSec,
 				);
 			}
 
@@ -316,7 +318,9 @@ class WorkDetailService {
 					'gradable'           => true,
 					'task_submission_id' => $row->id,
 					'manually_graded'    => null !== $row->gradedByUserId,
-					'answered_at'        => $answeredAt[ $taskId ] ?? null,
+					'answered_at'        => $answeredAt[ $taskId ]['at'] ?? null,
+					'answer_first_sec'   => $answeredAt[ $taskId ]['first'] ?? null,
+					'answer_last_sec'    => $answeredAt[ $taskId ]['last'] ?? null,
 				);
 				continue;
 			}
@@ -352,7 +356,9 @@ class WorkDetailService {
 				'gradable'           => $gradable,
 				'task_submission_id' => $row?->id,
 				'manually_graded'    => $manuallyGraded,
-				'answered_at'        => $answeredAt[ $taskId ] ?? null,
+				'answered_at'        => $answeredAt[ $taskId ]['at'] ?? null,
+					'answer_first_sec'   => $answeredAt[ $taskId ]['first'] ?? null,
+					'answer_last_sec'    => $answeredAt[ $taskId ]['last'] ?? null,
 				// Верно после ошибки в проверке кнопкой до сдачи (жёлтая отметка).
 				'corrected'          => 'correct' === $verdict && ! $manuallyGraded && ! empty( $pt['corrected'] ),
 			);
@@ -521,6 +527,9 @@ class WorkDetailService {
 				'verdict'    => $verdict,
 				'score'      => $score,
 				'max_score'  => $maxScore,
+				// Время ответа — секунды от начала попытки (местное время обеих меток).
+				'answer_first_sec' => $this->offsetSec( $attempt->startedAt, $ans?->firstAnsweredAt ),
+				'answer_last_sec'  => $this->offsetSec( $attempt->startedAt, $ans?->answeredAt ),
 				'manual'     => $isManual,
 				// Балл мог быть выставлен/зачтён преподавателем вручную (Tasks.md,
 				// п. 6) — авто-оценка `graded_by_user_id` не пишет.
@@ -607,20 +616,35 @@ class WorkDetailService {
 	}
 
 	/**
-	 * Момент последнего ответа ученика на каждое задание работы — из истории
+	 * Момент и смещение от начала раунда последнего ответа ученика на каждое задание работы — из истории
 	 * попыток: засчитанное задание при пересдаче не перепроверяется, поэтому его
 	 * время остаётся от того раунда, где ответ был принят.
 	 *
-	 * @return array<int, string> taskId → answered_at
+	 * @return array<int, array{at: ?string, first: ?int, last: ?int}> taskId → время ответа
 	 */
 	private function lastAnsweredAt( int $studentPersonId, int $groupLessonId, int $workId ): array {
 		$out = array();
 		foreach ( $this->taskAttempts->listByStep( $studentPersonId, $groupLessonId, AttemptSource::workStepKey( $workId ) ) as $a ) {
-			if ( null !== $a->answeredAt ) {
-				$out[ $a->taskId ] = $a->answeredAt;
+			if ( null === $a->answeredAt && null === $a->lastAnswerSec ) {
+				continue;
 			}
+			$out[ $a->taskId ] = array(
+				'at'    => $a->answeredAt,
+				'first' => $a->firstAnswerSec,
+				'last'  => $a->lastAnswerSec,
+			);
 		}
 		return $out;
+	}
+
+	/** Секунд от начала попытки до метки; null — метки нет или она раньше начала (не бывает, но не показываем минус). */
+	private function offsetSec( string $startedAt, ?string $at ): ?int {
+		if ( null === $at ) {
+			return null;
+		}
+		$diff = strtotime( $at ) - strtotime( $startedAt );
+
+		return $diff >= 0 ? $diff : null;
 	}
 
 	/** Условие задания хранится в мете (`task_condition` и составные шаблоны), не в `post_content`. */

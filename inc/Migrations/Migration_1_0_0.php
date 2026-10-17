@@ -544,6 +544,8 @@ class Migration_1_0_0 implements MigrationInterface {
 			graded_by_user_id   bigint unsigned DEFAULT NULL,
 			graded_at           datetime        DEFAULT NULL,
 			criteria_scores     json            DEFAULT NULL,
+			first_answered_at   datetime        DEFAULT NULL,
+			answered_at         datetime        DEFAULT NULL,
 			PRIMARY KEY  (id),
 			UNIQUE KEY attempt_task (attempt_id,task_id),
 			KEY task_id (task_id)
@@ -587,6 +589,8 @@ class Migration_1_0_0 implements MigrationInterface {
 			item_feedback     json             DEFAULT NULL,
 			duration_sec      int unsigned     DEFAULT NULL,
 			answered_at       datetime         DEFAULT NULL,
+			first_answer_sec  int unsigned     DEFAULT NULL,
+			last_answer_sec   int unsigned     DEFAULT NULL,
 			created_at        datetime         NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			PRIMARY KEY  (id),
 			KEY student_step (student_person_id, group_lesson_id, step_key),
