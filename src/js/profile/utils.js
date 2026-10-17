@@ -157,6 +157,15 @@ export function emptyState(wrapClass, iconSvg, title, text, danger) {
 }
 
 /* ── Context menu (shared) ─────────────────────────────────────── */
+/** Адрес экрана кабинета с заданными параметрами (`?screen=…`): для ссылок «в новой вкладке». */
+export function profileUrl(params) {
+    const url = new URL(window.location.href);
+    url.search = '';
+    url.hash = '';
+    Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
+    return url.href;
+}
+
 let ctxOnClose = null;
 
 /** Больше стольких пунктов — меню получает прокрутку (Tasks.md п. 2: ученики группы). */
@@ -188,6 +197,12 @@ export function openCtxMenu(anchor, items, onPick, opts = {}) {
     // Реальная ширина известна только после показа: длинные пункты («⋯» в строках) уводили меню за правый край окна.
     if (opts.alignRight) {
         menu.style.left = Math.max(10, r.right - menu.getBoundingClientRect().width) + 'px';
+    }
+    // Снизу не помещается — открываем вверх от якоря; не помещается и там — прижимаем к нижнему краю окна (длинный список прокручивается).
+    const height = menu.getBoundingClientRect().height;
+    if (r.bottom + 6 + height > window.innerHeight - 10) {
+        const above = r.top - 6 - height;
+        menu.style.top = Math.max(10, above >= 10 ? above : window.innerHeight - 10 - height) + 'px';
     }
     const overflow = menu.getBoundingClientRect().right - (window.innerWidth - 10);
     if (overflow > 0) { menu.style.left = Math.max(10, parseFloat(menu.style.left) - overflow) + 'px'; }

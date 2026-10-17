@@ -10,7 +10,7 @@
    отметки фокус уходит на следующего ученика того же занятия), Del — снять отметку.
    ══════════════════════════════════════════════════════════════════════ */
 
-import { esc, toast, initials, avaColor, todayIso, emptyState, openCtxMenuRaw, closeCtxMenu, openGradePopPositioned, closeGradePop } from './utils.js';
+import { esc, toast, initials, avaColor, todayIso, emptyState, openCtxMenuRaw, closeCtxMenu, openGradePopPositioned, closeGradePop, profileUrl } from './utils.js';
 import { icoCheck, icoCross, icoJournal } from '../common/icons.js';
 import { createApi } from './api.js';
 import { MONTHS_RU } from './constants.js';
@@ -340,7 +340,7 @@ function nameCell(students, s) {
         <span class="cn-ava" style="background:${avaColor(students, s.person_id)}">${initials(s.name)}</span>
         <span class="cn-name">${esc(s.name)}</span>`;
     return canOpenSummary()
-        ? `<button type="button" class="cn-wrap cn-link" data-summary-pid="${s.person_id}" title="Открыть сводку по ученику">${inner}</button>`
+        ? `<button type="button" class="cn-wrap cn-link" data-summary-pid="${s.person_id}" data-href="${esc(profileUrl({ screen: 'summary', gid: state.groupId, pid: s.person_id }))}" title="Открыть сводку по ученику">${inner}</button>`
         : `<div class="cn-wrap">${inner}</div>`;
 }
 

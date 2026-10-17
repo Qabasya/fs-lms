@@ -76,6 +76,23 @@
   transition: opacity 0.2s, transform 0.2s;
 }
 
+/* Подсказка перемотки по двойному тапу/стрелке: «−5 с» / «+5 с» у соответствующего края, гаснет сама. */
+.vp-skip {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  padding: rem(8) rem(14);
+  border-radius: 999px;
+  background: rgba(8, 10, 22, 0.62);
+  color: var(--ink-inverse);
+  font-size: rem(14);
+  font-weight: 600;
+  pointer-events: none;
+
+  &[data-side="back"] { left: 8%; }
+  &[data-side="forward"] { right: 8%; }
+}
+
 .vp.playing .vp-play {
   opacity: 0;
   pointer-events: none;

@@ -7,7 +7,7 @@
    Клик по карточке ученика — его «Сводка» по этой группе (Tasks.md п. 3).
    ══════════════════════════════════════════════════════════════════════ */
 
-import { esc, toast, initials, firstWord, avaColor, emptyState, fmtDate } from './utils.js';
+import { esc, toast, initials, firstWord, avaColor, emptyState, fmtDate, profileUrl } from './utils.js';
 import { icoUsers } from '../common/icons.js';
 import { createApi } from './api.js';
 import { openIndiModal } from './indi-modal.js';
@@ -102,7 +102,7 @@ function studentRow(s) {
         : '<div class="pr-indis pr-indis-empty">Индивидуальных занятий нет</div>';
 
     return `
-    <div class="pr-row${linked ? ' pr-row--link' : ''}" data-pid="${s.person_id}"${linked ? ' tabindex="0" title="Открыть сводку по ученику"' : ''}>
+    <div class="pr-row${linked ? ' pr-row--link' : ''}" data-pid="${s.person_id}"${linked ? ` tabindex="0" title="Открыть сводку по ученику" data-href="${esc(profileUrl({ screen: 'summary', gid: state.groupId, pid: s.person_id }))}"` : ''}>
         <span class="pr-ava" style="background:${avaColor(state.data.students, s.person_id)}">${initials(s.name)}</span>
         <div class="pr-info">
             <div class="pr-name">${esc(s.name)}</div>

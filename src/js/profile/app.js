@@ -19,6 +19,7 @@ import { renderExamPayments } from './exams/exam-payments.js';
 import { renderExamReview, openExamReview } from './exams/exam-review.js';
 import { initNotifications, syncPinned } from './notifications.js';
 import { initSegmented } from './segmented.js';
+import { initNewTabLinks } from './new-tab.js';
 import { initLiveBanner } from './live-banner.js';
 import { renderTeacherCourses, openTeacherCourse } from './teacher-courses.js';
 
@@ -180,6 +181,7 @@ function syncUrl(screen, extra) {
     url.searchParams.set('screen', screen);
     url.searchParams.delete('course');
     url.searchParams.delete('gid');
+    url.searchParams.delete('pid');
     url.searchParams.delete('submission');
     Object.entries(extra || {}).forEach(([k, v]) => url.searchParams.set(k, v));
     window.history.replaceState(window.history.state, '', url);
@@ -542,6 +544,7 @@ export function initProfile() {
     initLiveBanner();
     initCollapse();
     initSegmented();
+    initNewTabLinks();
 
     // Deep-link на экран: /profile/?screen=student-lessons (ссылки из плеера курса, T14.13).
     // С gid (?screen=groups&gid=2) — открыть «Группы» на конкретной группе, как клик
@@ -549,9 +552,14 @@ export function initProfile() {
     const params = new URLSearchParams(window.location.search);
     const wanted = canonicalScreen(params.get('screen'));
     const gid = params.get('gid');
+    const pid = params.get('pid');
     const course = params.get('course');
     const submissionLink = submissionDeepLink(params, cfg.screens);
-    if (gid && cfg.screens.includes('groups')) {
+    if ('summary' === wanted && gid && pid && cfg.screens.includes('summary')) {
+        // Сводка ученика в новой вкладке (ссылка из «Групп», журнала и «Главной»).
+        go('summary');
+        openSummaryFor(gid, pid);
+    } else if (gid && cfg.screens.includes('groups')) {
         openGroupsFor(gid);
     } else if (submissionLink) {
         openWorkReviewFrom(submissionLink.from)('submission', submissionLink.sourceId);

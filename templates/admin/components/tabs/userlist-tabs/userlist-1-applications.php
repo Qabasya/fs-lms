@@ -198,11 +198,11 @@ $termTone = static function ( ?string $expiresAtUtc, int $dangerBelow, int $warn
                 <?php echo LogNameResolver::sortableHeader( 'ФИО родителя', 'parent', $orderby, $order, $sortUrl ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
             </th>
 
-            <th class="column-title tw-7">
+            <th class="column-title tw-15">
                 <?php esc_html_e( 'Направление', 'fs-lms' ); ?>
             </th>
 
-            <th class="column-title tw-10">
+            <th class="column-title tw-7">
                 <?php echo LogNameResolver::sortableHeader( 'Статус', 'status', $orderby, $order, $sortUrl ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
             </th>
 

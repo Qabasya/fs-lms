@@ -1,6 +1,6 @@
 /**
  * Видео-шаг (D21, T14.12): кастомный хром нативного <video> для прямых URL —
- * play/pause, ±10 сек, ползунок, время, fullscreen; главы-чипы = перемотка
+ * play/pause, ±10 сек, ±5 сек (стрелки ←/→ и двойной тап по краям экрана), ползунок, время, fullscreen; главы-чипы = перемотка
  * (только нативный режим). По окончании ролика шаг отмечается пройденным.
  * Тот же хром переиспользует шаг-трансляция (broadcast, Этап 1), когда у
  * занятия уже есть запись — see partials/video-chrome.php.
@@ -9,6 +9,11 @@ import { getCore, onPanelShow } from './core.js';
 
 const mounted = new WeakSet();
 const CHROME_TYPES = [ 'video', 'broadcast' ];
+const SKIP_SECONDS = 5;
+const DOUBLE_TAP_MS = 300;
+const SKIP_HINT_MS = 700;
+/** Доля ширины с каждого края, где двойной тап перематывает; середина остаётся «плей/пауза». */
+const EDGE_ZONE = 0.33;
 
 export function initStepVideo() {
 	onPanelShow( setup );
@@ -53,7 +58,52 @@ function mountChrome( panel, root ) {
 	video.addEventListener( 'pause', () => root.classList.remove( 'playing' ) );
 	video.addEventListener( 'timeupdate', updateTime );
 	video.addEventListener( 'loadedmetadata', updateTime );
-	video.addEventListener( 'click', toggle );
+	const skipHint = root.querySelector( '[data-vp-skip]' );
+	let hintTimer = 0;
+	const seekBy = ( delta ) => {
+		const end = video.duration || 0;
+		video.currentTime = Math.min( end, Math.max( 0, video.currentTime + delta ) );
+		updateTime();
+		if ( ! skipHint ) { return; }
+		skipHint.dataset.side = delta < 0 ? 'back' : 'forward';
+		skipHint.textContent = `${ delta < 0 ? '−' : '+' }${ Math.abs( delta ) } с`;
+		skipHint.hidden = false;
+		window.clearTimeout( hintTimer );
+		hintTimer = window.setTimeout( () => { skipHint.hidden = true; }, SKIP_HINT_MS );
+	};
+
+	// Клавиатура: ←/→ — на 5 секунд, пока этот шаг на экране и фокус не в поле/ползунке.
+	document.addEventListener( 'keydown', ( e ) => {
+		if ( ! [ 'ArrowLeft', 'ArrowRight' ].includes( e.key ) || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey ) { return; }
+		if ( ! root.isConnected || ! root.offsetParent || e.defaultPrevented ) { return; }
+		if ( e.target.closest?.( 'input, select, textarea, [contenteditable="true"]' ) ) { return; }
+		e.preventDefault();
+		seekBy( 'ArrowLeft' === e.key ? -SKIP_SECONDS : SKIP_SECONDS );
+	} );
+
+	// Сенсорные экраны: двойной тап по левому/правому краю — ∓5 секунд, тап по середине и одиночный — плей/пауза.
+	// Мышь не затронута. Одиночный тап по краю ждёт окно двойного, поэтому реагирует с задержкой в DOUBLE_TAP_MS.
+	let pointerType = 'mouse';
+	let lastTap = { time: 0, side: '' };
+	let tapTimer = 0;
+	video.addEventListener( 'pointerdown', ( e ) => { pointerType = e.pointerType; } );
+	video.addEventListener( 'click', ( e ) => {
+		if ( 'touch' !== pointerType ) { toggle(); return; }
+		const r = video.getBoundingClientRect();
+		const k = ( e.clientX - r.left ) / r.width;
+		const side = k < EDGE_ZONE ? 'back' : ( k > 1 - EDGE_ZONE ? 'forward' : '' );
+		if ( ! side ) { toggle(); return; }
+		const now = Date.now();
+		if ( lastTap.side === side && now - lastTap.time < DOUBLE_TAP_MS ) {
+			window.clearTimeout( tapTimer );
+			lastTap = { time: 0, side: '' };
+			seekBy( 'back' === side ? -SKIP_SECONDS : SKIP_SECONDS );
+			return;
+		}
+		lastTap = { time: now, side };
+		window.clearTimeout( tapTimer );
+		tapTimer = window.setTimeout( () => { lastTap = { time: 0, side: '' }; toggle(); }, DOUBLE_TAP_MS );
+	} );
 
 	// Просмотр до конца = шаг пройден (обычно он засчитан уже при открытии — core.js).
 	video.addEventListener( 'ended', () => {

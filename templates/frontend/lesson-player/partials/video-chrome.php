@@ -1,7 +1,7 @@
 <?php
 /**
  * Хром нативного видео-плеера (D21, T14.12; вынесено на Этапе 1 из step-video.php):
- * play, ±10 сек, ползунок, время, fullscreen — общий для video- и broadcast-шагов
+ * play, ±10 сек (с клавиатуры и двойным тапом по краям экрана — ±5 сек), ползунок, время, fullscreen — общий для video- и broadcast-шагов
  * (запись занятия рендерится тем же хромом). Поведение — src/js/player/step-video.js.
  *
  * @var string $video_url   URL прямого файла (mp4/webm/…).
@@ -23,6 +23,7 @@ $video_fmt   = static fn( int $sec ): string => floor( $sec / 60 ) . ':' . str_p
 ?>
 <div class="vp" data-video-root>
 	<video class="vp-el" data-vp-el src="<?php echo esc_url( $video_url ); ?>" preload="metadata" playsinline></video>
+	<span class="vp-skip" data-vp-skip hidden aria-hidden="true"></span>
 	<button type="button" class="vp-play" data-vp-big aria-label="<?php esc_attr_e( 'Смотреть', 'fs-lms' ); ?>">
 		<?php echo Icon::Play->svg( 30 ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
 	</button>
