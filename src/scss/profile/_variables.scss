@@ -10,6 +10,10 @@
 @forward '../shared/tokens' show rem, below, $bp-mobile, $bp-wp, $bp-tablet, $bp-wide;
 @use '../shared/tokens' as t;
 
+// ── Кнопка «Наверх» и липкая шапка экрана
+$to-top-size: t.rem(44);
+$to-top-inset: t.rem(24);
+
 // ── Тайминги
 $tr: 0.12s; // единая длительность переходов кабинета
 $tr-menu: 0.3s cubic-bezier(0.2, 0.7, 0.3, 1); // сворачивание сайдбара (как в плеере)
@@ -30,6 +34,7 @@ $breakpoint-narrow: t.$bp-mobile; // модалка детали работы �
 $z-journal-sticky-col: 5; // липкие столбцы журнала (#, имя)
 $z-journal-sticky-head: 6; // липкая шапка журнала
 $z-journal-sticky-corner: 7; // пересечение шапки и липких столбцов
+$z-screen-head: 8; // липкая шапка экрана (проверка работы, сдачи работы) и «Наверх» над содержимым экрана
 $z-topbar: 20;
 $z-suggest: 5; // выпадающий список подсказок внутри попапа формы
 $z-ctx: 300; // backdrop контекстного меню; само меню и grade-pop = +1

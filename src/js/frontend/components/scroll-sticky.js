@@ -16,7 +16,7 @@
  */
 
 import { debounce } from '../../common/utils.js';
-import { onScrollFrame } from '../modules/scroll-frame.js';
+import { onScrollFrame } from '../../common/scroll-frame.js';
 
 /** Класс, под которым `top` берётся из переменной. */
 const ACTIVE_CLASS = 'is-scroll-sticky';

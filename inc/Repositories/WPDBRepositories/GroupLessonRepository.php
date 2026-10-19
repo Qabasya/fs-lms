@@ -16,6 +16,9 @@ class GroupLessonRepository {
 	 * Вычисляемый флаг «по занятию отмечена посещаемость» для выборок с алиасом
 	 * `gl`; первым плейсхолдером запроса идёт таблица посещаемости.
 	 */
+	/** Занятие без записи: пусты и указатель хранилища, и внешняя ссылка. */
+	private const NO_RECORDING = "( recording_url IS NULL OR recording_url = '' ) AND ( recording_link IS NULL OR recording_link = '' )";
+
 	private const HAS_ATTENDANCE = 'EXISTS( SELECT 1 FROM %i a WHERE a.group_lesson_id = gl.id ) AS has_attendance';
 
 	private \wpdb  $wpdb;
@@ -430,7 +433,7 @@ class GroupLessonRepository {
 	public function listHeldWithoutRecording( int $limit = 50 ): array {
 		$rows = $this->wpdb->get_results(
 			$this->wpdb->prepare(
-				"SELECT * FROM %i WHERE status = 'held' AND ( recording_url IS NULL OR recording_url = '' ) AND ( recording_link IS NULL OR recording_link = '' )
+				"SELECT * FROM %i WHERE status = 'held' AND " . self::NO_RECORDING . "
 				 ORDER BY scheduled_at DESC LIMIT %d",
 				$this->table,
 				$limit
@@ -444,7 +447,7 @@ class GroupLessonRepository {
 	public function countHeldWithoutRecording(): int {
 		return (int) $this->wpdb->get_var(
 			$this->wpdb->prepare(
-				"SELECT COUNT(*) FROM %i WHERE status = 'held' AND ( recording_url IS NULL OR recording_url = '' ) AND ( recording_link IS NULL OR recording_link = '' )",
+				"SELECT COUNT(*) FROM %i WHERE status = 'held' AND " . self::NO_RECORDING,
 				$this->table
 			)
 		);
@@ -479,7 +482,31 @@ class GroupLessonRepository {
 
 	private function missingRecordingCondition(): string {
 		return "(status = 'held' OR (status = 'scheduled' AND COALESCE(ends_at, DATE_ADD(scheduled_at, INTERVAL 3 HOUR)) < %s))
-			AND (recording_url IS NULL OR recording_url = '') AND (recording_link IS NULL OR recording_link = '')";
+			AND " . self::NO_RECORDING;
+	}
+
+	/**
+	 * Занятия (любого вида), закончившиеся в интервале ($from, $to], без записи — кандидаты
+	 * «не прикреплена запись» преподавателю. Отменённые и перенесённые не в счёт; без `ends_at`
+	 * конец — час от начала (как в {@see listGroupEndedBetween()}).
+	 *
+	 * @return GroupLessonDTO[]
+	 */
+	public function listEndedBetweenWithoutRecording( string $from, string $to ): array {
+		$rows = $this->wpdb->get_results(
+			$this->wpdb->prepare(
+				"SELECT * FROM %i
+				 WHERE status IN ('scheduled','held') AND scheduled_at IS NOT NULL
+				   AND COALESCE( ends_at, DATE_ADD( scheduled_at, INTERVAL 60 MINUTE ) ) > %s
+				   AND COALESCE( ends_at, DATE_ADD( scheduled_at, INTERVAL 60 MINUTE ) ) <= %s
+				   AND " . self::NO_RECORDING,
+				$this->table,
+				$from,
+				$to
+			),
+			ARRAY_A
+		);
+		return array_map( array( GroupLessonDTO::class, 'fromArray' ), $rows ?: array() );
 	}
 
 	/**

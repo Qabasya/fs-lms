@@ -121,7 +121,8 @@
   display: flex;
   align-items: center;
   gap: rem(14);
-  margin-bottom: rem(16);
+  margin: 0 rem(-26) rem(16);
+  padding: rem(10) rem(26); // фон липкой шапки на всю ширину экрана (отступы .prof-works)
 }
 
 .wk-back {
@@ -152,5 +153,6 @@
 
 @media (max-width: $breakpoint-mobile) {
   .prof-works { padding: rem(16) rem(14) rem(32); }
+  .wk-step-head { margin-inline: rem(-14); padding-inline: rem(14); }
   .wk-filters .kp-btn { max-width: none; width: 100%; }
 }

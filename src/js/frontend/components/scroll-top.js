@@ -5,10 +5,8 @@
  * и возвращает страницу к началу. UI-only, без AJAX.
  */
 
-import { onScrollFrame } from '../modules/scroll-frame.js';
-
-/** С какой глубины прокрутки (в высотах окна) показывать кнопку. */
-const SHOW_AFTER_SCREENS = 1.5;
+import { onScrollFrame } from '../../common/scroll-frame.js';
+import { shouldShowToTop, scrollToTop } from '../../common/scroll-to-top.js';
 
 /**
  * @returns {void}
@@ -18,14 +16,12 @@ export function initScrollTop() {
     if (!btn) return;
 
     const sync = () => {
-        btn.hidden = window.scrollY < window.innerHeight * SHOW_AFTER_SCREENS;
+        btn.hidden = !shouldShowToTop(window.scrollY, window.innerHeight);
     };
 
     onScrollFrame(sync);
 
-    btn.addEventListener('click', () => {
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-    });
+    btn.addEventListener('click', () => scrollToTop());
 
     sync();
 }

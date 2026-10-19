@@ -59,6 +59,15 @@ export function renderKTP(r) {
     loadCalendar();
 }
 
+/* Ссылка `?screen=ktp&gid=N` (уведомление «не прикреплена запись»): открыть КТП на этой группе. */
+export function selectKtpGroup(gid) {
+    const g = state && state.groups.find(x => String(x.id) === String(gid));
+    if (!g || g.id === state.groupId) { return; }
+    state.groupId = g.id;
+    state.changeCourseOpen = false;
+    loadCalendar();
+}
+
 function currentGroup() {
     return state.groups.find(g => g.id === state.groupId) || state.groups[0];
 }
@@ -74,12 +83,17 @@ function hasUnplacedThemes() { return (state.data.themes || []).some(t => !t.sch
 /* ── AJAX ─────────────────────────────────────────────────────────────── */
 async function loadCalendar(keepMonth = false) {
     const shown = keepMonth && state.months[state.cursor];
+    const requested = state.groupId;
+    let data;
     try {
-        state.data = await api('getCalendar', { group_id: state.groupId });
+        data = await api('getCalendar', { group_id: requested });
     } catch (e) {
-        root.innerHTML = errorHtml(e.message);
+        if (requested === state.groupId) { root.innerHTML = errorHtml(e.message); }
         return;
     }
+    // Группу успели сменить, пока шёл запрос (меню, ссылка ?gid=) — ответ прежней группы не показываем.
+    if (requested !== state.groupId) { return; }
+    state.data = data;
     state.months = computeMonths(state.data.period);
     state.cursor = initialCursor(state.data.themes, state.months);
     if (shown) {

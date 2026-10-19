@@ -412,6 +412,10 @@ readonly class NotificationService {
 				? sprintf( 'Отметьте посещаемость: «%s»%s', $topic, $tail )
 				: trim( 'Отметьте посещаемость' . $tail ),
 
+			NotificationType::RecordingMissing => '' !== $topic
+				? sprintf( 'Прикрепите запись занятия: «%s»%s', $topic, $tail )
+				: trim( 'Прикрепите запись занятия' . $tail ),
+
 			NotificationType::AbsenceStreak => sprintf(
 				'%s — пропущено подряд занятий: %d%s',
 				(string) ( $p['student_name'] ?? '' ),

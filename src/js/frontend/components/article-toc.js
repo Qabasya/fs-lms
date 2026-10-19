@@ -5,7 +5,7 @@
  * здесь — только поведение. UI-only, без AJAX.
  */
 
-import { onScrollFrame } from '../modules/scroll-frame.js';
+import { onScrollFrame } from '../../common/scroll-frame.js';
 
 /** Отступ от верха окна, с которого заголовок считается текущим. */
 const ACTIVE_OFFSET = 120;

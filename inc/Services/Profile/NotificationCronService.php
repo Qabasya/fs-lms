@@ -39,6 +39,12 @@ use Inc\Services\Course\LessonVisibilityService;
  */
 readonly class NotificationCronService {
 
+	/** Сколько ждать запись после конца занятия: автосопоставление видео успевает привязать её само. */
+	private const RECORDING_GRACE = '-3 hours';
+
+	/** Как давно закончившиеся занятия ещё напоминаем (старше — уже не актуально). */
+	private const RECORDING_LOOKBACK = '-14 days';
+
 	public function __construct(
 		private GroupLessonRepository   $groupLessons,
 		private SubmissionRepository     $submissions,
@@ -57,6 +63,7 @@ readonly class NotificationCronService {
 		$this->nextLessonBegan();
 		$this->absenceMarked();
 		$this->journalNotFilled();
+		$this->recordingMissing();
 		$this->purge();
 	}
 
@@ -330,6 +337,50 @@ readonly class NotificationCronService {
 					'group_name' => $this->notifications->groupName( $lesson->groupId ),
 				),
 				(string) add_query_arg( array( 'screen' => 'journal' ), PageRoutes::UserProfile->url() ),
+				$lesson->groupId,
+				'group_lesson',
+				$lesson->id
+			);
+		}
+	}
+
+	/**
+	 * Через 3 часа после окончания занятия запись так и не прикреплена — преподавателю.
+	 *
+	 * Только когда модуль видеозаписей включён (он подписывается на `fs_lms_recording_url`;
+	 * ядро о модуле не знает): иначе записи никто не ждёт. За это время автосопоставление
+	 * успевает привязать запись само. Занятия без учеников и открытые группы не в счёт,
+	 * глубина — 14 суток; плитка одна на занятие (dedupe), снимает её привязка записи.
+	 */
+	private function recordingMissing(): void {
+		if ( ! has_filter( 'fs_lms_recording_url' ) ) {
+			return;
+		}
+
+		$now = $this->clock->now();
+
+		foreach ( $this->groupLessons->listEndedBetweenWithoutRecording( $this->shift( $now, self::RECORDING_LOOKBACK ), $this->shift( $now, self::RECORDING_GRACE ) ) as $lesson ) {
+			if ( $this->notifications->isOpenGroup( $lesson->groupId ) ) {
+				continue;
+			}
+			if ( empty( $this->notifications->lessonStudentPersonIds( $lesson ) ) ) {
+				continue;
+			}
+
+			$teacherUserId = $this->notifications->lessonTeacherUserId( $lesson );
+			if ( null === $teacherUserId ) {
+				continue;
+			}
+
+			$this->notifications->push(
+				array( $teacherUserId ),
+				NotificationType::RecordingMissing,
+				"recording:{$lesson->id}",
+				array(
+					'topic'      => $this->notifications->lessonTopic( $lesson ),
+					'group_name' => $this->notifications->groupName( $lesson->groupId ),
+				),
+				(string) add_query_arg( array( 'screen' => 'ktp', 'gid' => $lesson->groupId ), PageRoutes::UserProfile->url() ),
 				$lesson->groupId,
 				'group_lesson',
 				$lesson->id

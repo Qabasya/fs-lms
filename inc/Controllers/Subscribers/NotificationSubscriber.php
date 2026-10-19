@@ -269,6 +269,12 @@ class NotificationSubscriber implements ServiceInterface {
 			return;
 		}
 
+		// Запись появилась — напоминание преподавателю «прикрепите запись» больше не нужно.
+		$this->notifications->retract(
+			array_filter( array( $this->notifications->lessonTeacherUserId( $lesson ), $this->notifications->groupTeacherUserId( $lesson->groupId ) ) ),
+			"recording:{$groupLessonId}"
+		);
+
 		$recipients = $this->notifications->lessonStudentUserIds( $lesson );
 		if ( empty( $recipients ) ) {
 			return;

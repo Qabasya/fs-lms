@@ -7,7 +7,7 @@ import { renderSummary, openSummaryFor } from './summary.js';
 import { renderWorks } from './works.js';
 import { renderWorkReview, openWorkReview, getReturnTo } from './work-review.js';
 import { renderSubstitutions } from './substitutions.js';
-import { renderKTP } from './ktp.js';
+import { renderKTP, selectKtpGroup } from './ktp.js';
 import { renderActivity } from './activity.js';
 import { renderLearnerHome, renderLearnerLessons, renderLearnerGrades, renderLearnerAttendance } from './learner.js';
 import { renderLearnerExams, openLearnerExam } from './exams/learner-exams.js';
@@ -20,6 +20,7 @@ import { renderExamReview, openExamReview } from './exams/exam-review.js';
 import { initNotifications, syncPinned } from './notifications.js';
 import { initSegmented } from './segmented.js';
 import { initNewTabLinks } from './new-tab.js';
+import { initScrollChrome, resetScrollChrome } from './scroll-chrome.js';
 import { initLiveBanner } from './live-banner.js';
 import { renderTeacherCourses, openTeacherCourse } from './teacher-courses.js';
 
@@ -200,6 +201,7 @@ function go(screen) {
     closeMenuOnMobile();
     const act = document.querySelector(`.prof-screen[data-screen="${screen}"]`);
     if (act) act.scrollTop = 0;
+    resetScrollChrome();
     syncPinned();
 }
 
@@ -538,6 +540,7 @@ export function initProfile() {
 
     buildSidebar();
     buildStage();
+    initScrollChrome();
     mountScreens();
     wire();
     initNotifications();
@@ -559,6 +562,10 @@ export function initProfile() {
         // Сводка ученика в новой вкладке (ссылка из «Групп», журнала и «Главной»).
         go('summary');
         openSummaryFor(gid, pid);
+    } else if ('ktp' === wanted && gid && cfg.screens.includes('ktp')) {
+        // Уведомление преподавателю («не прикреплена запись»): КТП этой группы.
+        selectKtpGroup(gid);
+        go('ktp');
     } else if (gid && cfg.screens.includes('groups')) {
         openGroupsFor(gid);
     } else if (submissionLink) {

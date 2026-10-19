@@ -308,6 +308,20 @@ class NotificationSubscriberTest extends TestCase {
 		$this->subscriber->handleRecordingAttached( 100 );
 	}
 
+	/** Запись прикреплена — напоминание преподавателю (эффективному и основному) снимается, даже если учеников нет. */
+	public function test_recording_attached_retracts_teacher_reminder(): void {
+		$this->groupLessons->method( 'find' )->willReturn( $this->lesson() );
+		$this->notifications->method( 'lessonTeacherUserId' )->willReturn( 55 );
+		$this->notifications->method( 'groupTeacherUserId' )->willReturn( 56 );
+		$this->notifications->method( 'lessonStudentUserIds' )->willReturn( array() );
+
+		$this->notifications->expects( $this->once() )
+			->method( 'retract' )
+			->with( array( 55, 56 ), 'recording:100' );
+
+		$this->subscriber->handleRecordingAttached( 100 );
+	}
+
 	public function test_recording_attached_skips_when_no_students(): void {
 		$this->groupLessons->method( 'find' )->willReturn( $this->lesson() );
 		$this->notifications->method( 'lessonStudentUserIds' )->willReturn( array() );

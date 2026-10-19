@@ -39,6 +39,8 @@ enum NotificationType: string {
 	case StudentJoined      = 'student_joined';
 	/** Преподавателю — через час после окончания занятия посещаемость так и не отмечена. */
 	case JournalNotFilled   = 'journal_not_filled';
+	/** Преподавателю — через 3 часа после окончания занятия запись так и не прикреплена (модуль видеозаписей включён). */
+	case RecordingMissing   = 'recording_missing';
 	/** Родителю — ученик пропустил подряд больше двух занятий; администратору — уже два. */
 	case AbsenceStreak      = 'absence_streak';
 	/** Администратору — через сутки после занятия журнал посещаемости так и не заполнен. */
@@ -92,6 +94,7 @@ enum NotificationType: string {
 			self::ProgramUpdated     => 'Курс обновился в КТП',
 			self::StudentJoined      => 'Новый ученик в группе',
 			self::JournalNotFilled   => 'Не заполнен журнал',
+			self::RecordingMissing   => 'Не прикреплена запись занятия',
 			self::AbsenceStreak      => 'Ученик не посещает занятия!',
 			self::JournalOverdue     => 'Преподаватель не заполнил журнал',
 			self::HomeworkStreak     => 'Ученик не сдаёт работы',
@@ -127,7 +130,7 @@ enum NotificationType: string {
 			self::ProgramUpdated, self::StudentJoined                      => 'info',
 			self::WorkGraded, self::AttemptGraded, self::HomeworkSubmitted => 'ok',
 			self::DeadlineSoon, self::WorkReturned, self::ReviewNeeded,
-			self::JournalNotFilled, self::JournalOverdue, self::ReviewOverdue => 'warn',
+			self::JournalNotFilled, self::RecordingMissing, self::JournalOverdue, self::ReviewOverdue => 'warn',
 			self::DeadlineMissed, self::AttendanceMissed, self::AbsenceStreak,
 			self::HomeworkStreak, self::TeacherAbsent                      => 'err',
 			self::ExamRegistrationOpened, self::ExamRegistrationChanged, self::ExamTomorrow, self::ExamEntryOpened, self::ExamResultCorrected, self::ExamExtended, self::ExamStaffRegistration => 'info',

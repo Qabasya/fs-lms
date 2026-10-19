@@ -3,6 +3,7 @@
    ══════════════════════════════════════════════════════════════════════ */
 @use '../variables' as *;
 @use '../../shared/cabinet/ui' as *;
+@use '../../shared/to-top-button' as *;
 
 /* ── App grid ───────────────────────────────────────────────────────── */
 .prof-app {
@@ -205,6 +206,49 @@ body.prof-menu-off .prof-mtoggle { display: flex; }
 
 .prof-screen[data-screen="journal"],
 .prof-screen[data-screen="ktp"] { overflow: hidden; }
+
+/* ── Липкая шапка экрана и «Наверх» (scroll-chrome.js) ───────────────────
+   Шапка с «Назад» (проверка работы/экзамена, сдачи работы) липнет к верху
+   экрана-прокрутки, уезжает при прокрутке вниз и возвращается при прокрутке
+   вверх; состояние — классы на .prof-screen. */
+.prof-screen .wr-head,
+.prof-screen .wk-step-head {
+  position: sticky;
+  top: 0;
+  z-index: $z-screen-head;
+  background: var(--bg);
+  transition: transform $tr-swap, box-shadow $tr-swap;
+}
+
+.prof-screen.is-scrolled .wr-head,
+.prof-screen.is-scrolled .wk-step-head { box-shadow: var(--shadow-sm); }
+
+.prof-screen.is-chrome-tucked .wr-head,
+.prof-screen.is-chrome-tucked .wk-step-head { transform: translateY(-100%); }
+
+.prof-to-top {
+  @include to-top-button(
+    $size: $to-top-size,
+    $bg: var(--surface),
+    $border: var(--line),
+    $shadow: var(--shadow-md),
+    $ink: var(--accent),
+    $hover-bg: var(--accent),
+    $hover-border: var(--accent),
+    $hover-ink: var(--ink-inverse),
+    $transition: (background $tr, border-color $tr, color $tr)
+  );
+
+  position: absolute;
+  right: $to-top-inset;
+  bottom: $to-top-inset;
+  z-index: $z-screen-head;
+  padding: 0;
+
+  @include cab-enter;
+
+  &[hidden] { display: none; } // display:grid из миксина перебивает атрибут hidden
+}
 
 /* ── Мобильный (Фаза 5): сайдбар — off-canvas поверх контента.
    Панель ВСЕГДА fixed (вне потока грида!), поэтому грид — ОДНА колонка

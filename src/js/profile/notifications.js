@@ -37,6 +37,7 @@ const TYPE_ICON = {
     program_updated:     icoCalendarBoard,
     student_joined:      icoUsers,
     journal_not_filled:  icoJournal,
+    recording_missing:   icoCamera,
     absence_streak:      icoAlert,
     journal_overdue:     icoJournal,
     homework_streak:     icoAlert,

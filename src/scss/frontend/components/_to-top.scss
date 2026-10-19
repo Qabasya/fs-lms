@@ -1,4 +1,5 @@
 @use '../variables' as *;
+@use '../../shared/to-top-button' as *;
 
 // Кнопка «наверх» — общий компонент длинных публичных страниц («Все задания»,
 // учебник, статья). Показ и скрытие — атрибутом hidden из components/scroll-top.js.
@@ -10,26 +11,21 @@
 .fs-articles-page,
 .fs-article-page {
   .fs-to-top {
+    @include to-top-button(
+      $size: rem(52.8),
+      $bg: $color-white,
+      $border: $color-border,
+      $shadow: $shadow-hover,
+      $ink: $color-accent,
+      $hover-bg: $color-accent,
+      $hover-border: $color-accent,
+      $hover-ink: $color-white,
+      $transition: (background $transition, border-color $transition, color $transition)
+    );
+
     position: fixed; right: rem(33.6); bottom: rem(33.6);
     z-index: 20;
-    display: grid; place-items: center;
-    width: rem(52.8); height: rem(52.8);
-    background: $color-white;
-    border: 1px solid $color-border; border-radius: 50%;
-    box-shadow: $shadow-hover;
-    color: $color-accent;
-    cursor: pointer;
     animation: fs-to-top-in .2s ease-out;
-    transition: background $transition, border-color $transition, color $transition;
-
-    &:hover {
-      background: $color-accent;
-      border-color: $color-accent;
-      color: $color-white;
-    }
-
-    // Стрелка вверх — тот же шеврон, что у раскрытия условия, развёрнутый.
-    svg { display: block; transform: rotate(180deg); }
   }
 
   @media (max-width: $bp-md) {

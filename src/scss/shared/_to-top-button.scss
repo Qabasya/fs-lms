@@ -1,0 +1,28 @@
+// Круглая кнопка «Наверх»: сайт (`.fs-to-top`, окно) и кабинет (`.prof-to-top`, экран-прокрутка).
+// Общая только внешность кнопки; позицию, размер, цвета и анимацию задаёт потребитель
+// (шкалы сайта и кабинета разные), иконка — шеврон вниз, развёрнутый вверх.
+
+@mixin to-top-button($size, $bg, $border, $shadow, $ink, $hover-bg, $hover-border, $hover-ink, $transition) {
+	display: grid;
+	place-items: center;
+	width: $size;
+	height: $size;
+	background: $bg;
+	border: 1px solid $border;
+	border-radius: 50%;
+	box-shadow: $shadow;
+	color: $ink;
+	cursor: pointer;
+	transition: $transition;
+
+	&:hover {
+		background: $hover-bg;
+		border-color: $hover-border;
+		color: $hover-ink;
+	}
+
+	svg {
+		display: block;
+		transform: rotate(180deg);
+	}
+}

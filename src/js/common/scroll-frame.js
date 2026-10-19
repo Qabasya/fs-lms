@@ -8,13 +8,16 @@
 /**
  * Вызывает callback не чаще одного раза за кадр анимации.
  *
- * @param {Function} callback Что делать на прокрутке.
+ * @param {Function}           callback Что делать на прокрутке.
+ * @param {Window|HTMLElement} target   Что слушаем (по умолчанию окно).
+ * @param {boolean}            capture  Фаза перехвата: прокрутка вложенных элементов не всплывает,
+ *                                      так её ловит контейнер (экраны кабинета в `#profStage`).
  * @returns {void}
  */
-export function onScrollFrame(callback) {
+export function onScrollFrame(callback, target = window, capture = false) {
     let ticking = false;
 
-    window.addEventListener('scroll', () => {
+    target.addEventListener('scroll', () => {
         if (ticking) return;
 
         ticking = true;
@@ -22,5 +25,5 @@ export function onScrollFrame(callback) {
             ticking = false;
             callback();
         });
-    }, { passive: true });
+    }, { passive: true, capture });
 }

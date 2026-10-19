@@ -32,6 +32,11 @@ class NotificationCronServiceTest extends TestCase {
 	private LessonVisibilityService&\PHPUnit\Framework\MockObject\MockObject $visibility;
 	private NotificationCronService $service;
 
+	protected function tearDown(): void {
+		unset( $GLOBALS['_fs_test_has_filter']['fs_lms_recording_url'] );
+		parent::tearDown();
+	}
+
 	protected function setUp(): void {
 		parent::setUp();
 
@@ -389,6 +394,56 @@ class NotificationCronServiceTest extends TestCase {
 		$this->notifications->expects( self::once() )
 			->method( 'push' )
 			->with( array( 55 ), NotificationType::JournalNotFilled, 'journal:100', self::anything(), self::anything(), 5, 'group_lesson', 100 );
+
+		$this->service->tick();
+	}
+
+	/** Через 3 часа после конца занятия записи нет, модуль видео включён — преподавателю напоминание. */
+	public function test_missing_recording_notifies_teacher(): void {
+		$GLOBALS['_fs_test_has_filter']['fs_lms_recording_url'] = true;
+		$lesson = $this->lesson( array( 'id' => 100, 'scheduled_at' => '2026-01-15 07:00:00', 'ends_at' => '2026-01-15 08:30:00' ) );
+		$this->stubLessons();
+		$this->groupLessons->expects( self::once() )
+			->method( 'listEndedBetweenWithoutRecording' )
+			->with( '2026-01-01 12:00:00', '2026-01-15 09:00:00' )
+			->willReturn( array( $lesson ) );
+		$this->notifications->method( 'lessonStudentPersonIds' )->willReturn( array( 10 ) );
+		$this->notifications->method( 'lessonTeacherUserId' )->willReturn( 55 );
+
+		$this->notifications->expects( self::once() )
+			->method( 'push' )
+			->with( array( 55 ), NotificationType::RecordingMissing, 'recording:100', self::anything(), self::stringContains( 'gid=5' ), 5, 'group_lesson', 100 );
+
+		$this->service->tick();
+	}
+
+	/** Модуль видеозаписей выключен — записи никто не ждёт, выборка даже не делается. */
+	public function test_missing_recording_is_silent_without_video_module(): void {
+		$this->stubLessons();
+		$this->groupLessons->expects( self::never() )->method( 'listEndedBetweenWithoutRecording' );
+		$this->notifications->expects( self::never() )->method( 'push' );
+
+		$this->service->tick();
+	}
+
+	public function test_missing_recording_skips_lesson_without_students(): void {
+		$GLOBALS['_fs_test_has_filter']['fs_lms_recording_url'] = true;
+		$this->stubLessons();
+		$this->groupLessons->method( 'listEndedBetweenWithoutRecording' )->willReturn( array( $this->lesson() ) );
+		$this->notifications->method( 'lessonStudentPersonIds' )->willReturn( array() );
+
+		$this->notifications->expects( self::never() )->method( 'push' );
+
+		$this->service->tick();
+	}
+
+	public function test_missing_recording_skips_open_group(): void {
+		$GLOBALS['_fs_test_has_filter']['fs_lms_recording_url'] = true;
+		$this->stubLessons();
+		$this->groupLessons->method( 'listEndedBetweenWithoutRecording' )->willReturn( array( $this->lesson() ) );
+		$this->notifications->method( 'isOpenGroup' )->willReturn( true );
+
+		$this->notifications->expects( self::never() )->method( 'push' );
 
 		$this->service->tick();
 	}
