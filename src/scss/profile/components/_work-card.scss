@@ -100,8 +100,9 @@
 .wmark--incorrect { background: var(--err-soft); color: var(--err); }
 .wmark--pending   { background: var(--surface-2); color: var(--muted-2); }
 
-/* ДЗ не сдано к дедлайну: красная плашка с прочерком — сдачи не было, разбирать нечего. */
-.wmark--missed    { background: var(--err-soft); color: var(--err); font-weight: 700; line-height: 1; }
+/* ДЗ не сдано к дедлайну или на задание не отвечали: красная плашка с прочерком — ответа не было, разбирать нечего. */
+.wmark--missed,
+.wmark--unanswered { background: var(--err-soft); color: var(--err); font-weight: 700; line-height: 1; }
 .wcard--static    { cursor: default; }
 a.wcard           { color: inherit; text-decoration: none; }
 

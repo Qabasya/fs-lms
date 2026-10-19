@@ -19,6 +19,15 @@
 }
 .j-monthnav .jm-arrow:hover { background: var(--surface-2); border-color: var(--line-3); }
 .j-monthnav .jm-arrow[disabled] { opacity: .35; pointer-events: none; }
+
+/* «i» в правом углу шапки: легенда журнала поповером. */
+.j-monthnav .jm-info {
+  width: rem(30); height: rem(30); margin-left: auto; display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface);
+  color: var(--ink-2); cursor: pointer; flex-shrink: 0;
+  transition: background $tr, border-color $tr, color $tr;
+}
+.j-monthnav .jm-info:hover { background: var(--surface-2); border-color: var(--line-3); }
 .jm-label { font-size: rem(15); font-weight: 700; letter-spacing: -.01em; min-width: rem(132); text-align: center; }
 .jm-count { font-size: rem(12.5); color: var(--muted); margin-left: rem(6); font-variant-numeric: tabular-nums; }
 
@@ -77,15 +86,11 @@ table.jgrid { border-collapse: separate; border-spacing: 0; width: max-content; 
 
 .j-empty { padding: rem(40); text-align: center; color: var(--muted-2); font-size: rem(14); }
 
-.j-legend-bottom {
-  display: flex; align-items: center; gap: rem(16); flex-wrap: wrap;
-  padding: rem(12) rem(18); margin-top: rem(12); flex-shrink: 0;
-  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow-sm);
-}
-.j-legend-bottom .jlb-label { font-size: rem(11); font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--muted-2); }
-.j-legend-bottom .jlb-label:not(:first-child) { margin-left: rem(8); }
-.j-legend-bottom .jl { display: inline-flex; align-items: center; gap: rem(7); font-size: rem(13); color: var(--ink-2); font-weight: 500; }
-.j-legend-bottom .jl-sw { width: rem(12); height: rem(12); border-radius: rem(4); flex-shrink: 0; }
+.j-legend-pop { display: flex; flex-direction: column; align-items: flex-start; gap: rem(8); padding: rem(8) rem(10); }
+.j-legend-pop .jlb-label { font-size: rem(11); font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--muted-2); }
+.j-legend-pop .jlb-label:not(:first-child) { margin-top: rem(4); }
+.j-legend-pop .jl { display: inline-flex; align-items: center; gap: rem(7); font-size: rem(13); color: var(--ink-2); font-weight: 500; }
+.j-legend-pop .jl-sw { width: rem(12); height: rem(12); border-radius: rem(4); flex-shrink: 0; }
 .jl-sw--present { background: var(--ok); }
 .jl-sw--absent { background: var(--err); }
 
@@ -112,7 +117,7 @@ table.jgrid { border-collapse: separate; border-spacing: 0; width: max-content; 
 .cw-dot--warn { background: var(--wait); }
 .gc .cw-dot { position: absolute; top: rem(4); right: rem(4); }
 
-.j-legend-bottom kbd {
+.j-legend-pop kbd {
   display: inline-block; padding: 0 rem(5); border: 1px solid var(--line); border-bottom-width: 2px;
   border-radius: rem(4); background: var(--surface-2); font: inherit; font-size: rem(12);
 }
@@ -166,5 +171,4 @@ table.jgrid { border-collapse: separate; border-spacing: 0; width: max-content; 
 
   .col-name { width: rem(140); min-width: rem(140); }
 
-  .j-legend-bottom { padding: rem(8) rem(12); gap: rem(10); }
 }

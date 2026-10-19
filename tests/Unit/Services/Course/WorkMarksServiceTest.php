@@ -11,7 +11,9 @@ use Inc\Managers\Course\WorkManager;
 use Inc\Repositories\WPDBRepositories\AssessmentAnswerRepository;
 use Inc\Repositories\WPDBRepositories\AssessmentAttemptRepository;
 use Inc\Repositories\WPDBRepositories\SubmissionRepository;
+use Inc\Managers\Wp\PostManager;
 use Inc\Services\Course\WorkMarksService;
+use Inc\Services\Task\CorrectAnswerResolver;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -33,6 +35,7 @@ class WorkMarksServiceTest extends TestCase {
 			$this->createMock( AssessmentAttemptRepository::class ),
 			$this->createMock( AssessmentAnswerRepository::class ),
 			$this->createMock( AssessmentManager::class ),
+			new CorrectAnswerResolver( $this->createMock( PostManager::class ) ),
 		);
 	}
 
@@ -60,7 +63,7 @@ class WorkMarksServiceTest extends TestCase {
 		$this->submissions->method( 'listPerTaskByStudentWorkLesson' )->willReturn( array(
 			$this->row( 2, 10, 'graded' ),
 			$this->row( 3, 11, 'graded' ),
-			$this->row( 4, 12, 'graded' ),
+			$this->row( 4, 12, 'graded', '7' ),
 		) );
 
 		self::assertSame( array( 'correct', 'correct', 'incorrect' ), $this->service->marksFor( 'submission', 1 ) );
@@ -83,5 +86,37 @@ class WorkMarksServiceTest extends TestCase {
 		self::assertArrayNotHasKey( 'score', $without );
 		self::assertSame( 1.0, $with['score'] );
 		self::assertSame( 2.0, $with['max_score'] );
+	}
+
+	/** Ответа на задание не было вовсе (нет строки или пустой текст) — «не решено», а не «неверно». */
+	public function test_task_without_answer_is_unanswered(): void {
+		$snapshot = wp_json_encode( array(
+			10 => array( 'verdict' => 'incorrect' ),
+			11 => array( 'verdict' => 'incorrect' ),
+			12 => array( 'verdict' => 'incorrect' ),
+			13 => array( 'verdict' => 'incorrect' ),
+		) );
+		$this->submissions->method( 'find' )->willReturn( $this->row( 1, null, 'graded', $snapshot ) );
+		$this->submissions->method( 'listPerTaskByStudentWorkLesson' )->willReturn( array(
+			$this->row( 2, 10, 'graded', '' ),          // пустой ответ
+			$this->row( 3, 11, 'graded', '[]' ),        // пустой выбор
+			$this->row( 4, 12, 'graded', '42' ),        // ответил — неверно
+			// 13 — строки нет вовсе
+		) );
+
+		self::assertSame( array( 'unanswered', 'unanswered', 'incorrect', 'unanswered' ), $this->service->marksFor( 'submission', 1 ) );
+	}
+
+	/** Ноль, выставленный преподавателем, остаётся «неверно», даже если ответа не было. */
+	public function test_manually_graded_zero_stays_incorrect(): void {
+		$snapshot = wp_json_encode( array( 10 => array( 'verdict' => 'incorrect' ) ) );
+		$this->submissions->method( 'find' )->willReturn( $this->row( 1, null, 'graded', $snapshot ) );
+		$graded = SubmissionDTO::fromArray( array(
+			'id' => 2, 'student_person_id' => 1, 'group_lesson_id' => 2, 'work_id' => 3, 'task_id' => 10,
+			'answer_text' => '', 'status' => 'graded', 'score' => 0.0, 'max_score' => 1.0, 'graded_by_user_id' => 5,
+		) );
+		$this->submissions->method( 'listPerTaskByStudentWorkLesson' )->willReturn( array( $graded ) );
+
+		self::assertSame( array( 'incorrect' ), $this->service->marksFor( 'submission', 1 ) );
 	}
 }

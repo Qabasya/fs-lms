@@ -16,6 +16,7 @@ use Inc\Enums\Log\LogEvent;
 use Inc\Enums\Wp\Nonce;
 use Inc\Enums\Log\OperationType;
 use Inc\Services\Enrollment\OpenGroupEnrollmentService;
+use Inc\Services\Group\GroupModeService;
 use Inc\Services\Group\MeetingsNormalizer;
 use Inc\Repositories\OptionsRepositories\UserRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
@@ -63,6 +64,7 @@ class StudentGroupCallbacks extends BaseController {
 		private readonly LogEventDispatcherInterface $logEvents,
 		private readonly UserRepository              $userRepository,
 		private readonly OpenGroupEnrollmentService  $openGroupEnrollment,
+		private readonly GroupModeService            $groupMode,
 	) {
 		parent::__construct();
 	}
@@ -131,8 +133,9 @@ class StudentGroupCallbacks extends BaseController {
 			$this->error( 'Группа с таким названием в этом периоде уже существует.' );
 		}
 
-		// Режим доступа задаётся только при создании (Эпик 15): открытая группа —
-		// без расписания, программа публикуется целиком при назначении курса.
+		// Режим «открытая» задаётся только при создании (Эпик 15): без расписания, программа
+		// публикуется целиком при назначении курса. «Индивидуальная» — тоже без расписания:
+		// занятия ставятся в КТП вручную; режим можно сменить позже (GroupModeService).
 		$access_mode = AccessMode::fromValueOrDefault( $this->sanitizeKey( 'access_mode' ) );
 
 		// Создание группы в БД
@@ -142,7 +145,7 @@ class StudentGroupCallbacks extends BaseController {
 			'name'               => $title,
 			'teacher_id'         => $teacher_id,
 			'room_id'            => $room_id,
-			'meetings'           => (string) wp_json_encode( AccessMode::Open === $access_mode ? array() : $schedule ),
+			'meetings'           => (string) wp_json_encode( $access_mode->isScheduleless() ? array() : $schedule ),
 			'access_mode'        => $access_mode->value,
 			'broadcast_url'      => $broadcast_url,
 		) );
@@ -242,12 +245,40 @@ class StudentGroupCallbacks extends BaseController {
 		}
 		$room_id = $this->primaryRoom( $schedule );
 
-		$updated = $this->groupsRepository->update( $id, array(
+		$group = $this->groupsRepository->findById( $id );
+		if ( ! $group ) {
+			$this->error( 'Группа не найдена.' );
+		}
+
+		// Смена режима «по расписанию» ↔ «индивидуальная» (открытая не меняется): расписание
+		// индивидуальной группы пусто, его очищает сама смена режима.
+		$current = AccessMode::fromValueOrDefault( (string) ( $group->access_mode ?? '' ) );
+		$target  = $this->hasParam( 'access_mode' ) ? AccessMode::fromValueOrDefault( $this->sanitizeKey( 'access_mode' ) ) : $current;
+
+		try {
+			$changed = $this->groupMode->change( $id, $target );
+		} catch ( \DomainException | \InvalidArgumentException $e ) {
+			$this->error( $e->getMessage() );
+			return;
+		}
+
+		$fields = array(
 			'teacher_id'    => $teacher_id,
-			'room_id'       => $room_id,
-			'meetings'      => (string) wp_json_encode( $schedule ),
 			'broadcast_url' => $this->broadcastUrl(),
-		) );
+		);
+		if ( AccessMode::Individual !== $target ) {
+			$fields['room_id']  = $room_id;
+			$fields['meetings'] = (string) wp_json_encode( $schedule );
+		}
+
+		$updated = $this->groupsRepository->update( $id, $fields );
+
+		if ( $changed ) {
+			$this->logEvents->dispatch(
+				LogEvent::GroupUpdated,
+				new EntityChangedEvent( get_current_user_id(), OperationType::Update, EntityType::Group, $id )
+			);
+		}
 
 		if ( ! $updated ) {
 			$this->error( 'Ошибка обновления группы.' );

@@ -21,9 +21,10 @@ const MARK_ICON = {
     incorrect: () => icoCross(11),
     pending:   () => icoClock(12),
     missed:    () => '–',
+    unanswered: () => '–',
 };
 
-const MARK_TITLE = { correct: 'Решено', corrected: 'Решено с исправлением', incorrect: 'Не решено', pending: 'На проверке', missed: 'Не сдано' };
+const MARK_TITLE = { correct: 'Решено', corrected: 'Решено с исправлением', incorrect: 'Не решено', pending: 'На проверке', missed: 'Не сдано', unanswered: 'Нерешено' };
 
 /**
  * @param {Object}   card

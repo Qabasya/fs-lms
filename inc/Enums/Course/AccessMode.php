@@ -21,6 +21,12 @@ enum AccessMode: string {
 	case Open = 'open';
 
 	/**
+	 * Индивидуальная — один ученик; расписания группы нет, преподаватель сам ставит занятия
+	 * в КТП на любые дни и время (автораспределения и публикации КТП нет), занятия видны ученику сразу.
+	 */
+	case Individual = 'individual';
+
+	/**
 	 * Человекочитаемое название.
 	 *
 	 * @return string
@@ -29,7 +35,17 @@ enum AccessMode: string {
 		return match ( $this ) {
 			self::Scheduled => 'По расписанию',
 			self::Open      => 'Открытая (свободное прохождение)',
+			self::Individual => 'Индивидуальная',
 		};
+	}
+
+	/**
+	 * У группы нет штатного расписания (`groups.meetings` пуст): открытая и индивидуальная.
+	 *
+	 * @return bool
+	 */
+	public function isScheduleless(): bool {
+		return self::Scheduled !== $this;
 	}
 
 	/**

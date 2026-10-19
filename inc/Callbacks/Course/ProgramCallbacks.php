@@ -108,6 +108,7 @@ class ProgramCallbacks extends BaseController {
 		$userId  = get_current_user_id();
 
 		$this->requireGroupAccess( $groupId );
+		$this->denyIfIndividualGroup( $groupId, __( 'В индивидуальной группе КТП не публикуется: занятия видны ученику сразу.', 'fs-lms' ) );
 
 		$this->program->publishProgram( $groupId, $userId );
 		$this->success( array( 'locked' => true, 'locked_at' => $this->program->programLockedAt( $groupId ) ) );

@@ -70,4 +70,16 @@ class CorrectAnswerResolverTest extends TestCase {
 		$posts->method( 'get' )->willReturn( null );
 		self::assertNull( ( new CorrectAnswerResolver( $posts ) )->resolve( 1 ) );
 	}
+
+	/** Пустой ответ: пустая строка, null и структуры без единого заполненного значения. */
+	public function test_is_empty_student_answer(): void {
+		$resolver = $this->resolver( array(), 'standard_task' );
+
+		foreach ( array( null, '', '  ', 'null', '[]', '{}', '[null,""]', '{"text":"","code":""}', '{"a":{"b":[]}}' ) as $empty ) {
+			self::assertTrue( $resolver->isEmptyStudentAnswer( $empty ), var_export( $empty, true ) );
+		}
+		foreach ( array( '0', '42', 'abc', '[1]', '{"text":"","code":"x=1"}', '[{"left":1,"right":""}]' ) as $filled ) {
+			self::assertFalse( $resolver->isEmptyStudentAnswer( $filled ), $filled );
+		}
+	}
 }

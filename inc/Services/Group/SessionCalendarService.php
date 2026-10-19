@@ -5,6 +5,7 @@ declare( strict_types=1 );
 namespace Inc\Services\Group;
 
 use Inc\DTO\Course\ScheduleReflowResultDTO;
+use Inc\Enums\Course\AccessMode;
 use Inc\Enums\Course\LessonStatus;
 use Inc\Repositories\OptionsRepositories\AcademicPeriodRepository;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
@@ -36,6 +37,11 @@ class SessionCalendarService {
 	public function generate( int $groupId ): array {
 		$group = $this->groups->findById( $groupId );
 		if ( ! $group ) {
+			return array();
+		}
+
+		// Индивидуальная группа: штатных слотов нет, даже если в `meetings` остались записи.
+		if ( AccessMode::Individual === AccessMode::fromValueOrDefault( (string) ( $group->access_mode ?? '' ) ) ) {
 			return array();
 		}
 

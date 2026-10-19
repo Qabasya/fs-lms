@@ -42,6 +42,14 @@ class GroupsRepository {
 	}
 
 	/**
+	 * Блокирует строку группы до конца транзакции (смена режима и зачисление идут по очереди).
+	 * Вызывать первым оператором транзакции.
+	 */
+	public function lockForUpdate( int $groupId ): void {
+		$this->wpdb->get_var( $this->wpdb->prepare( 'SELECT id FROM %i WHERE id = %d FOR UPDATE', $this->table, $groupId ) );
+	}
+
+	/**
 	 * Находит группу по ID.
 	 *
 	 * @param int $id ID группы

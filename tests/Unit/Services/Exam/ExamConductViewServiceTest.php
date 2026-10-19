@@ -61,6 +61,7 @@ class ExamConductViewServiceTest extends TestCase {
 	private \Inc\Services\Exam\ExamGuestBoardService&MockObject $guestBoard;
 	private ExamSourceRepository&MockObject $sources;
 	private ExamTime&MockObject $time;
+	private \Inc\Services\Exam\ExamParticipantProfileService&\PHPUnit\Framework\MockObject\MockObject $profiles;
 	private ExamConductViewService $service;
 
 	protected function setUp(): void {
@@ -99,7 +100,8 @@ class ExamConductViewServiceTest extends TestCase {
 		$this->events->method( 'find' )->willReturn( $this->examEvent( array( 'status' => 'published' ) ) );
 		$this->scores->method( 'summarize' )->willReturn( array( 'primary' => 10, 'primary_max' => 20, 'secondary' => null, 'grade' => null, 'pending' => false ) );
 
-		$this->service = new ExamConductViewService(
+		$this->profiles = $this->createMock( \Inc\Services\Exam\ExamParticipantProfileService::class );
+		$this->service  = new ExamConductViewService(
 			$this->events,
 			$this->sessions,
 			$this->registrations,
@@ -119,6 +121,7 @@ class ExamConductViewServiceTest extends TestCase {
 			$this->guestBoard,
 			new UserManager(),
 			new \Inc\Services\Exam\ExamEventViewService( $this->sessions, $this->sources, $this->registrations, $this->time ),
+			$this->profiles,
 		);
 	}
 
@@ -174,6 +177,18 @@ class ExamConductViewServiceTest extends TestCase {
 		$tiles = $this->service->sessionBoard( 10, 7 )['tiles'];
 
 		self::assertSame( array( 'registered' => 4, 'started' => 2, 'submitted' => 1, 'missed' => 1, 'pending' => 1 ), $tiles );
+	}
+
+	/** Строка несёт группу и школу участника — по ним работают фильтры списка (как в «Результатах»). */
+	public function test_row_carries_group_and_school_for_filters(): void {
+		$this->profiles->method( 'groupName' )->willReturn( '10А' );
+		$this->profiles->method( 'school' )->willReturn( 'Лицей 5' );
+		$this->givenBoard( array( $this->registration( 1, 1 ) ), array( 1 => $this->participation( 1 ) ) );
+
+		$row = $this->service->sessionBoard( 10, 7 )['rows'][0];
+
+		self::assertSame( '10А', $row['group'] );
+		self::assertSame( 'Лицей 5', $row['school'] );
 	}
 
 	public function test_session_switcher_carries_active_registration_count(): void {
@@ -277,6 +292,7 @@ class ExamConductViewServiceTest extends TestCase {
 			$this->guestBoard,
 			new UserManager(),
 			new \Inc\Services\Exam\ExamEventViewService( $this->sessions, $this->sources, $this->registrations, $this->time ),
+			$this->createMock( \Inc\Services\Exam\ExamParticipantProfileService::class ),
 		);
 
 		$this->expectException( CodedException::class );
@@ -360,6 +376,7 @@ class ExamConductViewServiceTest extends TestCase {
 			$this->guestBoard,
 			new UserManager(),
 			new \Inc\Services\Exam\ExamEventViewService( $this->sessions, $this->sources, $this->registrations, $this->time ),
+			$this->createMock( \Inc\Services\Exam\ExamParticipantProfileService::class ),
 		);
 
 		$board = $service->sessionBoard( 10, 7 );

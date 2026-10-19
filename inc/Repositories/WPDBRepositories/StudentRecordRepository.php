@@ -440,8 +440,38 @@ class StudentRecordRepository {
 	 * @return int ID созданной записи
 	 */
 	public function create( StudentRecordInputDTO $dto ): int {
+		if ( EnrollmentStatus::Active->value === $dto->status && null !== $dto->groupId ) {
+			$this->assertIndividualGroupHasRoom( $dto->groupId );
+		}
+
 		$this->wpdb->insert( $this->table, $dto->toArray() );
 		return (int) $this->wpdb->insert_id;
+	}
+
+	/**
+	 * В индивидуальной группе (`access_mode = 'individual'`) — не более одной активной записи.
+	 *
+	 * Проверка живёт здесь, потому что активные записи создают все пути зачисления (заявка, временный
+	 * доступ, CSV-импорт, пакет предмета), и ни один не должен её обойти. Строка группы читается с
+	 * `FOR UPDATE`: в транзакции зачисления два параллельных запроса встают в очередь, и второй
+	 * видит первого.
+	 *
+	 * @throws \DomainException Если группа индивидуальная и ученик в ней уже есть.
+	 */
+	private function assertIndividualGroupHasRoom( int $groupId ): void {
+		$row = $this->wpdb->get_row(
+			$this->wpdb->prepare(
+				"SELECT g.access_mode, ( SELECT COUNT(*) FROM %i r WHERE r.group_id = g.id AND r.status = 'active' ) AS active_count
+				 FROM %i g WHERE g.id = %d FOR UPDATE",
+				$this->table,
+				TableName::Groups->prefixed(),
+				$groupId
+			)
+		);
+
+		if ( $row && 'individual' === $row->access_mode && (int) $row->active_count >= 1 ) {
+			throw new \DomainException( 'В индивидуальной группе может быть только один ученик.' );
+		}
 	}
 
 	/**

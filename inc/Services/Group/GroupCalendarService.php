@@ -93,6 +93,8 @@ readonly class GroupCalendarService {
 
 		$entries    = $this->program->numberThemes( $this->program->getProgram( $groupId ) );
 		$lessonDays = array_flip( $meta['lessonDays'] );
+		// Индивидуальная группа: штатного расписания нет, любой день — обычный, «вне расписания» не бывает.
+		$individual = $this->program->isIndividualGroup( $groupId );
 
 		$themes       = array();
 		$teacherNames = array(); // кэш id→display_name.
@@ -109,7 +111,7 @@ readonly class GroupCalendarService {
 			$hasContent = null !== $row->lessonId && 0 !== $row->lessonId;
 			// Этап 4: тема с датой на дне, которого нет в расписании группы — урок
 			// вне расписания. Отдаём флагом, иначе на календаре неотличим от планового.
-			$offSchedule = null !== $row->scheduledAt && ! isset( $lessonDays[ substr( (string) $row->scheduledAt, 0, 10 ) ] );
+			$offSchedule = ! $individual && null !== $row->scheduledAt && ! isset( $lessonDays[ substr( (string) $row->scheduledAt, 0, 10 ) ] );
 			$themes[]   = array(
 				'group_lesson_id' => $row->id,
 				'lesson_id'       => $row->lessonId,
@@ -119,6 +121,7 @@ readonly class GroupCalendarService {
 				'total_parts'     => $entry['totalParts'],
 				'topic'           => $entry['topic'],
 				'scheduled_at'    => $row->scheduledAt,
+				'ends_at'         => $row->endsAt,
 				'is_pinned'       => $row->isPinned,
 				'off_schedule'    => $offSchedule,
 				'room'            => ( $effRoomId && isset( $roomNames[ $effRoomId ] ) ) ? $roomNames[ $effRoomId ] : '',
@@ -138,6 +141,8 @@ readonly class GroupCalendarService {
 			'course_id'     => $group ? (int) ( $group->course_id ?? 0 ) : 0,
 			// Эпик 15: открытая группа — расписание не ведётся, фронт показывает
 			// программу списком вместо КТП-доски (reflow/publish неприменимы).
+			// Индивидуальная группа: дни, время и перенос занятий — вручную; «Распределить» и публикации КТП нет.
+			'individual'    => $individual,
 			'open'          => $group && AccessMode::Open === AccessMode::fromValueOrDefault( (string) ( $group->access_mode ?? '' ) ),
 			// Graceful absence (V4): фильтр вешает VideoLibraryController только при
 			// включённом модуле и заполненных S3-ключах — ядро модуль не импортирует,
@@ -153,8 +158,8 @@ readonly class GroupCalendarService {
 			'unplaced'      => $completeness['unplaced'],
 			'themes'        => $themes,
 			// T1.8: заблокирована ли КТП (опубликована) — фронт скрывает правки.
-			'locked'        => $group ? ! empty( $group->program_locked_at ) : false,
-			'locked_at'     => $group && ! empty( $group->program_locked_at ) ? (string) $group->program_locked_at : null,
+			'locked'        => $group ? ( ! empty( $group->program_locked_at ) && ! $individual ) : false,
+			'locked_at'     => $group && ! empty( $group->program_locked_at ) && ! $individual ? (string) $group->program_locked_at : null,
 		);
 	}
 }

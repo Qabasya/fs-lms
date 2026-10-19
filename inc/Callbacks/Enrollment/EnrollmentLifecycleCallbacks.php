@@ -14,7 +14,9 @@ use Inc\Enums\Access\Capability;
 use Inc\Enums\Log\LogEvent;
 use Inc\Enums\Wp\Nonce;
 use Inc\Repositories\WPDBRepositories\ApplicationRepository;
+use Inc\Enums\Course\AccessMode;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
+use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 use Inc\Services\Enrollment\EnrollmentService;
 use Inc\Shared\Traits\Authorizer;
 use Inc\Shared\Traits\Sanitizer;
@@ -41,6 +43,7 @@ class EnrollmentLifecycleCallbacks extends BaseController {
 		private readonly EnrollmentService           $enrollmentService,
 		private readonly LogEventDispatcherInterface $logEvents,
 		private readonly GroupsRepository            $studentGroupRepository,
+		private readonly StudentRecordRepository     $studentRecordRepository,
 	) {
 		parent::__construct();
 	}
@@ -212,6 +215,13 @@ class EnrollmentLifecycleCallbacks extends BaseController {
 		$subjectKey = $this->sanitizeText( 'subject_id' );
 
 		$groups = $this->studentGroupRepository->findByPeriodAndSubject( $periodId, $subjectKey );
+
+		// Индивидуальная группа с уже зачисленным учеником (один ученик на группу) в выбор не попадает.
+		$groups = array_filter(
+			$groups,
+			fn( object $g ): bool => AccessMode::Individual->value !== (string) ( $g->access_mode ?? '' )
+				|| 0 === $this->studentRecordRepository->countActiveByGroup( (int) $g->id )
+		);
 
 		$result = array_values( array_map(
 			static fn( object $g ) => array( 'id' => (int) $g->id, 'title' => $g->name ),

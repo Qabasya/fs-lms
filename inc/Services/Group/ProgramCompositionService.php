@@ -247,7 +247,19 @@ readonly class ProgramCompositionService {
 	public function isProgramLocked( int $groupId ): bool {
 		$group = $this->groups->findById( $groupId );
 
-		return (bool) ( $group && ! empty( $group->program_locked_at ) );
+		// Индивидуальную группу публикацией не блокируем: расписание в ней меняется постоянно.
+		return (bool) ( $group && ! empty( $group->program_locked_at ) && ! $this->isIndividualGroup( $groupId ) );
+	}
+
+	/**
+	 * Индивидуальная группа (`access_mode = 'individual'`): занятия ставятся вручную, публикации КТП нет.
+	 *
+	 * @param int $groupId ID группы
+	 */
+	public function isIndividualGroup( int $groupId ): bool {
+		$group = $this->groups->findById( $groupId );
+
+		return null !== $group && \Inc\Enums\Course\AccessMode::Individual === \Inc\Enums\Course\AccessMode::fromValueOrDefault( (string) ( $group->access_mode ?? '' ) );
 	}
 
 	/**
@@ -270,6 +282,10 @@ readonly class ProgramCompositionService {
 	 * @return void
 	 */
 	public function publishProgram( int $groupId, int $actorUserId ): void {
+		if ( $this->isIndividualGroup( $groupId ) ) {
+			throw new \InvalidArgumentException( 'В индивидуальной группе КТП не публикуется: занятия видны ученику сразу.' );
+		}
+
 		$this->groups->setProgramLocked( $groupId, current_time( 'mysql' ) );
 		$this->events->groupChanged( $groupId, $actorUserId );
 	}

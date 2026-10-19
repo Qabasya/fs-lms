@@ -165,8 +165,8 @@ function render() {
                 <div class="prof-seg" role="group" aria-label="Участники">${AUDIENCES.map(a =>
                     `<button type="button" class="${query.audience === a.key ? 'on' : ''}" data-audience="${a.key}">${esc(a.label)}</button>`).join('')}</div>
                 ${'guest' !== query.audience && f.groups.length ? `<select data-filter="group_id" aria-label="Группа">${optionsHtml(f.groups, query.group_id, 'id', 'label', 'Все группы')}</select>` : ''}
-                ${'student' !== query.audience && f.sources.length ? `<select data-filter="source_id" aria-label="Источник">${optionsHtml(f.sources, query.source_id, 'id', 'label', 'Все источники')}</select>` : ''}
                 ${f.schools.length ? `<select data-filter="school" aria-label="Школа">${schoolOptionsHtml(f.schools, query.school)}</select>` : ''}
+                ${'student' !== query.audience && f.sources.length ? `<select data-filter="source_id" aria-label="Источник">${optionsHtml(f.sources, query.source_id, 'id', 'label', 'Все источники')}</select>` : ''}
             </div>
             ${toolbar()}
             ${reportsPanel()}

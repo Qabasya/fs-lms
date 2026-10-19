@@ -63,6 +63,10 @@ export const icoCalendar = ( s = 16 ) =>
 export const icoAlert = ( s = 16 ) =>
 	stroke20( '<path d="M10 4v7M10 14.5v.5" stroke="{c}" stroke-width="1.8" stroke-linecap="round"/>', s );
 
+/** Информация «i» в круге — подсказки и легенды. */
+export const icoInfo = ( s = 16 ) =>
+	stroke20( '<circle cx="10" cy="10" r="7" stroke="{c}" stroke-width="1.6"/><path d="M10 9v5M10 6.3v.4" stroke="{c}" stroke-width="1.8" stroke-linecap="round"/>', s );
+
 /** Колокольчик уведомлений — зеркало Icon::Bell (inc/Enums/Ui/Icon.php). */
 export const icoBell = ( s = 20 ) =>
 	stroke20( '<path d="M10 3a4 4 0 0 0-4 4c0 4-1.5 5-1.5 5h11S14 11 14 7a4 4 0 0 0-4-4zM8.5 15a1.5 1.5 0 0 0 3 0" stroke="{c}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>', s );

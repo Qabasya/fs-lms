@@ -6,6 +6,7 @@ namespace Inc\Services\Group;
 
 use Inc\Contracts\ClockInterface;
 use Inc\DTO\Course\ScheduleReflowResultDTO;
+use Inc\Enums\Course\AccessMode;
 use Inc\Enums\Course\LessonStatus;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
@@ -87,6 +88,8 @@ readonly class ScheduleReflowService {
 	 * @return ScheduleReflowResultDTO Конфликты кабинета + укомплектованность периода
 	 */
 	public function reflow( int $groupId, int $actorUserId ): ScheduleReflowResultDTO {
+		$this->assertNotIndividual( $groupId, 'Автораспределения в индивидуальной группе нет — занятия ставятся вручную.' );
+
 		$result = $this->calendar->reflow( $groupId );
 		$this->events->groupChanged( $groupId, $actorUserId );
 
@@ -103,6 +106,8 @@ readonly class ScheduleReflowService {
 	 * @return int Количество затронутых строк.
 	 */
 	public function unschedule( int $groupId, int $actorUserId ): int {
+		$this->assertNotIndividual( $groupId, 'В индивидуальной группе занятия ставятся вручную — снимать распределение нечего.' );
+
 		$affected = $this->groupLessons->unscheduleAll( $groupId );
 		$this->events->groupChanged( $groupId, $actorUserId );
 
@@ -140,7 +145,17 @@ readonly class ScheduleReflowService {
 	public function pinToDate( int $groupLessonId, string $scheduledAt, int $actorUserId, ?string $endsAt = null, bool $together = false ): void {
 		$row = $this->requireRow( $groupLessonId );
 
-		$this->assertWithinPeriod( $row->groupId, $scheduledAt );
+		// Индивидуальная группа: любой день (выходные и дни вне периода тоже), время — только явное,
+		// занятия одного дня не вытесняют друг друга.
+		$individual = $this->isIndividualGroup( $row->groupId );
+		if ( $individual ) {
+			if ( strlen( $scheduledAt ) <= 10 ) {
+				throw new \InvalidArgumentException( 'Укажите время занятия.' );
+			}
+			$together = true;
+		} else {
+			$this->assertWithinPeriod( $row->groupId, $scheduledAt );
+		}
 		$this->assertRoomFree( $row, $scheduledAt, $groupLessonId );
 
 		$endsAt = $endsAt && '' !== $endsAt ? $endsAt : $this->resolveEndsAt( $row->groupId, $scheduledAt );
@@ -230,8 +245,9 @@ readonly class ScheduleReflowService {
 			return 0;
 		}
 
-		$allRows   = $this->groupLessons->listByGroup( $row->groupId );
-		$freeSlots = array( $this->slotOf( $row ) );
+		$allRows    = $this->groupLessons->listByGroup( $row->groupId );
+		$freeSlots  = array( $this->slotOf( $row ) );
+		$individual = $this->isIndividualGroup( $row->groupId );
 
 		$this->groupLessons->clearSchedule( $groupLessonId );
 
@@ -247,8 +263,9 @@ readonly class ScheduleReflowService {
 		usort( $freeSlots, static fn( $a, $b ) => strcmp( $a['scheduled_at'], $b['scheduled_at'] ) );
 
 		// Хвост считаем от самого раннего освободившегося окна: часть темы могла
-		// стоять и раньше оригинала, и эта дырка тоже должна закрыться.
-		$shifted = $this->shiftTail( $allRows, $freeSlots[0]['scheduled_at'], $freeSlots, $groupLessonId );
+		// стоять и раньше оригинала, и эта дырка тоже должна закрыться. В индивидуальной
+		// группе окон-слотов нет: у каждого занятия своя дата, подтягивать нечего.
+		$shifted = $individual ? 0 : $this->shiftTail( $allRows, $freeSlots[0]['scheduled_at'], $freeSlots, $groupLessonId );
 
 		$this->events->lessonChanged( $row->groupId, $groupLessonId, $actorUserId );
 
@@ -280,7 +297,7 @@ readonly class ScheduleReflowService {
 	 */
 	public function placeInserted( int $groupLessonId, int $actorUserId ): int {
 		$row = $this->groupLessons->find( $groupLessonId );
-		if ( ! $row || $row->kind->isIndividual() || null !== $row->scheduledAt ) {
+		if ( ! $row || $row->kind->isIndividual() || null !== $row->scheduledAt || $this->isIndividualGroup( $row->groupId ) ) {
 			return 0;
 		}
 
@@ -512,6 +529,22 @@ readonly class ScheduleReflowService {
 
 		if ( ! $this->roomAvailability->isFree( $roomId, $scheduledAt, $end, $groupLessonId, $row->groupId ) ) {
 			throw new \InvalidArgumentException( 'Кабинет занят в это время другим занятием.' );
+		}
+	}
+
+	/** Индивидуальная группа (`access_mode = 'individual'`): без слотов, дат расставляет преподаватель. */
+	private function isIndividualGroup( int $groupId ): bool {
+		$group = $this->groups->findById( $groupId );
+
+		return null !== $group && AccessMode::Individual === AccessMode::fromValueOrDefault( (string) ( $group->access_mode ?? '' ) );
+	}
+
+	/**
+	 * @throws \InvalidArgumentException Если группа индивидуальная
+	 */
+	private function assertNotIndividual( int $groupId, string $message ): void {
+		if ( $this->isIndividualGroup( $groupId ) ) {
+			throw new \InvalidArgumentException( $message );
 		}
 	}
 

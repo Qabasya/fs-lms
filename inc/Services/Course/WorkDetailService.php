@@ -190,7 +190,11 @@ class WorkDetailService {
 					// правилу, что и текущая сдача — только у нерешённой задачи.
 					'correct'   => $this->correctAnswers->resolve( $taskId ),
 					'solution'  => $this->reviewSolution( $taskId ),
-					'verdict'   => true === $a->isCorrect ? 'correct' : ( false === $a->isCorrect ? 'incorrect' : 'pending' ),
+					'verdict'   => true === $a->isCorrect
+						? 'correct'
+						: ( false === $a->isCorrect
+							? ( $this->correctAnswers->isEmptyStudentAnswer( $a->answer ) ? 'unanswered' : 'incorrect' )
+							: 'pending' ),
 					'score'     => $a->score,
 					'max_score' => $a->maxScore,
 					'answered_at' => $a->answeredAt,
@@ -340,6 +344,10 @@ class WorkDetailService {
 				$score    = $row->score;
 				$maxScore = $row->maxScore ?? $maxScore;
 				$verdict  = ( ( $row->score ?? 0.0 ) >= ( $row->maxScore ?? 1.0 ) ) ? 'correct' : 'incorrect';
+			}
+			// Ответа на задание не было вовсе — «Нерешено», а не «Неверно» (оценку преподавателя не трогаем).
+			if ( 'incorrect' === $verdict && ! $manuallyGraded && $this->correctAnswers->isEmptyStudentAnswer( $rawAnswer ) ) {
+				$verdict = 'unanswered';
 			}
 
 			$tasks[] = array(

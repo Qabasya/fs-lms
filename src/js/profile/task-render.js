@@ -15,7 +15,7 @@ export const VERDICT_LABEL = {
     corrected: 'Верно с исправлением',
     incorrect: 'Неверно',
     partial: 'Частично',
-    unanswered: 'Не решено',
+    unanswered: 'Нерешено',
     pending: 'На проверке',
 };
 

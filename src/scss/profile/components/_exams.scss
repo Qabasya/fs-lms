@@ -275,6 +275,15 @@
 }
 .exam-conduct-loading { padding: t.$spacing-xl 0; text-align: center; color: var(--muted); }
 .exam-conduct-toolbar { display: flex; flex-wrap: wrap; gap: t.$spacing-sm; }
+
+/* Фильтры списка и кнопки действий — одной строкой: фильтры занимают остаток, кнопки прижаты вправо; на узком экране переносятся. */
+.exam-conduct-controls { display: flex; flex-wrap: wrap; align-items: center; gap: t.$spacing-sm t.$spacing-lg; }
+.exam-conduct-controls .exam-conduct-filters { flex: 1 1 0; min-width: 0; }
+.exam-conduct-controls .exam-conduct-toolbar { flex: none; margin-left: auto; }
+
+@media (max-width: $breakpoint-mobile) {
+  .exam-conduct-controls .exam-conduct-filters { flex-basis: 100%; }
+}
 .exam-conduct-check { flex: 0 0 auto; }
 .exam-skipped { margin: 0; padding-left: t.$spacing-lg; }
 
@@ -293,7 +302,16 @@
 .exam-results > .prof-ktp-pick,
 .exam-stats > .prof-ktp-pick { align-self: flex-start; max-width: 100%; }
 .exam-results-segs { align-self: flex-start; max-width: 100%; overflow-x: auto; }
-.exam-results-filters { display: flex; flex-wrap: wrap; align-items: center; gap: t.$spacing-sm; }
+.exam-results-filters { display: flex; flex-wrap: nowrap; align-items: center; gap: t.$spacing-sm; }
+
+/* Списки панели фильтров — до 200px; на узких экранах сжимаются, а не переносятся: ряд занимает почти всю ширину контейнера */
+.exam-results-filters select { flex: 0 1 $exam-filter-select-width; min-width: 0; }
+.exam-results-filters .prof-seg { flex: none; }
+
+@media (max-width: $breakpoint-mobile) {
+  .exam-results-filters { flex-wrap: wrap; }
+  .exam-results-filters select { flex: 1 1 $exam-filter-select-width; }
+}
 
 /* Название проведения может быть длиннее свободного места рядом с подписью. */
 .exam-conduct-event select { min-width: 0; }
@@ -324,7 +342,7 @@
 .exam-stat-tile .st-delta { min-height: 1lh; } // подпись есть не у всех плиток — высота общая
 
 /* Таблица «ученики × задания»: ячейка окрашена вердиктом, пустая — задание не решали; первый столбец остаётся на месте при прокрутке */
-.exam-stats-search { flex: 0 1 t.rem(280); width: auto; }
+.exam-stats-search { flex: 0 1 t.rem(280); width: auto; min-width: 0; }
 .exam-results-filters .stu-search-input { height: $exam-filter-height; box-shadow: none; }
 
 .exam-stats-modes { align-self: flex-start; }

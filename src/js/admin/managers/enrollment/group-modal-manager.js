@@ -82,6 +82,7 @@ export const GroupModalManager = {
             teacher_id:    formData.teacher_id,
             broadcast_url: formData.broadcast_url,
             schedule_json: formData.schedule_json,
+            access_mode:   formData.access_mode, // «открытая» фиксируется при создании (Эпик 15); «индивидуальную» можно сменить
         };
 
         if (isEdit) {
@@ -90,7 +91,6 @@ export const GroupModalManager = {
             payload.title       = formData.title;
             payload.period_id   = formData.period_id;
             payload.subject_id  = formData.subject_id;
-            payload.access_mode = formData.access_mode; // режим фиксируется при создании (Эпик 15)
         }
 
         $.post(fs_lms_vars.ajaxurl, payload)

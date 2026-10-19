@@ -100,13 +100,13 @@ test('код выводится блоком, файлы — списком; о�
 });
 
 test('подписи новых вердиктов и якорь задания', () => {
-    assert.equal(VERDICT_LABEL.unanswered, 'Не решено');
+    assert.equal(VERDICT_LABEL.unanswered, 'Нерешено');
     assert.equal(VERDICT_LABEL.partial, 'Частично');
 
     const unanswered = renderTask(manualTask({ verdict: 'unanswered' }), { mode: 'read_only', kind: 'exam' });
     const partial = renderTask(manualTask({ verdict: 'partial' }), { mode: 'read_only', kind: 'exam' });
 
-    assert.match(unanswered, /sv-unanswered">Не решено</);
+    assert.match(unanswered, /sv-unanswered">Нерешено</);
     assert.match(partial, /sv-partial">Частично</);
     assert.match(unanswered, /<div class="sum-task" id="u-abc123">/);
 });

@@ -141,6 +141,8 @@ $base_url  = add_query_arg( array( 'page' => $page_slug, 'period_filter' => $sel
 					<td>
 						<?php if ( 'open' === $group['access_mode'] ) : ?>
 							<em>Открытая — свободное прохождение</em>
+						<?php elseif ( 'individual' === $group['access_mode'] ) : ?>
+							<em>Индивидуальная — занятия ставятся в КТП</em>
 						<?php else : ?>
 							<?php echo nl2br( esc_html( $group['schedule'] ) ); ?>
 						<?php endif; ?>

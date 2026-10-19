@@ -15,7 +15,7 @@ import { confirmDialog } from '../common/components/confirm-dialog.js';
 import { createApi } from './api.js';
 import { DOW_RU, MONTHS_RU } from './constants.js';
 import { groupPickerBtnHtml, openGroupPicker } from './picker.js';
-import { computeMonths, initialCursor, shiftMonth, monthCells } from './ktp/ktp-calendar-model.js';
+import { computeMonths, individualMonths, initialCursor, shiftMonth, monthCells, durationMinutes, endAfter, hasStarted, suggestLessonTime } from './ktp/ktp-calendar-model.js';
 import { themeCardHtml, placedThemeHtml, openProgramHtml, emptyStateHtml, changeCourseHtml, noGroupsHtml, errorHtml } from './ktp/ktp-templates.js';
 import { attachDeadlinesClick, attachPlacedThemeClick, attachRecordingClick, attachThemeActionsClick } from './ktp/ktp-popovers.js';
 import { INDI_ID, loadIndividual } from './ktp/ktp-individual.js';
@@ -94,7 +94,9 @@ async function loadCalendar(keepMonth = false) {
     // Группу успели сменить, пока шёл запрос (меню, ссылка ?gid=) — ответ прежней группы не показываем.
     if (requested !== state.groupId) { return; }
     state.data = data;
-    state.months = computeMonths(state.data.period);
+    state.months = state.data.individual
+        ? individualMonths(state.data.period, state.data.themes)
+        : computeMonths(state.data.period);
     state.cursor = initialCursor(state.data.themes, state.months);
     if (shown) {
         const idx = state.months.findIndex(mm => mm.y === shown.y && mm.m === shown.m);
@@ -114,6 +116,9 @@ function render() {
     // Эпик 15: открытая группа — расписания нет, программа опубликована целиком.
     // Вместо КТП-доски (drag-drop/reflow/publish) — программа списком.
     const open = !!state.data.open;
+    // Индивидуальная группа: занятия ставятся вручную на любые дни и время — без «Распределить»,
+    // публикации, легенды штатных дней и баннера переполнения периода.
+    const individual = !!state.data.individual;
 
     root.innerHTML = `
     <div class="prof-ktp">
@@ -126,7 +131,7 @@ function render() {
             </div>
             <span class="prof-spacer"></span>
             ${assigned ? `<button type="button" class="prof-btn prof-btn-sm" id="ktpChangeCourse" ${locked ? 'disabled title="Снимите публикацию КТП, чтобы сменить курс"' : ''}>Сменить курс</button>` : ''}
-            ${assigned && !open ? `
+            ${assigned && !open && !individual ? `
                 <div class="prof-ktp-legend">
                     <span class="kl"><span class="prof-dot prof-dot-good"></span>Тема по плану</span>
                     <span class="kl"><span class="prof-dot prof-dot-accent"></span>Закреплено</span>
@@ -138,7 +143,7 @@ function render() {
                     Опубликовано
                 </span>
                 <button class="prof-btn prof-btn-sm" id="ktpUnpublish">Снять публикацию</button>` : ''}
-            ${assigned && !open && !locked ? `
+            ${assigned && !open && !individual && !locked ? `
                 ${hasUnplacedThemes() ? `
                 <button class="prof-btn prof-btn-sm prof-btn-primary" id="ktpReflow">
                     ${icoSwap(15)}
@@ -150,7 +155,7 @@ function render() {
         </div>
 
         ${assigned && state.changeCourseOpen && !locked ? changeCourseHtml() : ''}
-        ${assigned && !open ? overflowBannerHtml(state.data) : ''}
+        ${assigned && !open && !individual ? overflowBannerHtml(state.data) : ''}
 
         ${assigned ? (open ? openProgramHtml(state.data.themes || []) : `
         <div class="prof-ktp-grid">
@@ -164,7 +169,7 @@ function render() {
                     <div class="kal-month" id="ktpMonth"></div>
                     <button class="prof-icon-ghost" id="ktpNext">${icoChevronRight(18)}</button>
                     <span class="prof-spacer"></span>
-                    <span class="kal-hint" id="ktpHint">${locked ? 'КТП опубликована — редактирование заблокировано' : 'Перетащите тему на дату, чтобы закрепить · обратно в «Темы курса» — чтобы снять, следующие сдвинутся на её место'}</span>
+                    <span class="kal-hint" id="ktpHint">${locked ? 'КТП опубликована — редактирование заблокировано' : (individual ? 'Перетащите тему на любой день и выберите время · «⋮» на занятии — изменить дату и время · занятия сразу видны ученику' : 'Перетащите тему на дату, чтобы закрепить · обратно в «Темы курса» — чтобы снять, следующие сдвинутся на её место')}</span>
                 </div>
                 <div class="kal-grid-wrap">
                     <div class="kal-dow">${DOW_RU.map(d => `<span>${d}</span>`).join('')}</div>
@@ -187,7 +192,7 @@ function render() {
     }
 
     if (assigned && !open) {
-        if (!locked) {
+        if (!locked && !individual) {
             // Обе кнопки не альтернативны — могут стоять рядом (см. hasUnplacedThemes()).
             const reflowBtn = document.getElementById('ktpReflow');
             if (reflowBtn) reflowBtn.onclick = doReflow;
@@ -305,7 +310,9 @@ function renderCalendar() {
     document.getElementById('ktpPrev').disabled = state.cursor <= 0;
     document.getElementById('ktpNext').disabled = state.cursor >= state.months.length - 1;
 
-    const holidays = new Set(state.data.holidays || []);
+    // Индивидуальная группа: выходных периода и штатных дней нет — любой день обычный.
+    const individual = !!state.data.individual;
+    const holidays = new Set(individual ? [] : (state.data.holidays || []));
     const lessonDays = new Set(state.data.lessonDays || []);
     const lessonTimes = state.data.lessonTimes || {};
     // T12.5: на один день может быть две (и более) темы одной группы — стек, не перезапись.
@@ -326,7 +333,7 @@ function renderCalendar() {
 
         let cls = 'kal-cell';
         if (isHol) cls += ' holiday';
-        else if (!isLesson) cls += ' no-lesson';
+        else if (!isLesson && !individual) cls += ' no-lesson';
 
         cells += `<div class="${cls}" data-day="${ds}" data-lesson="${isLesson && !isHol ? 1 : 0}">
             <div class="kal-date">
@@ -334,7 +341,7 @@ function renderCalendar() {
                 ${isHol ? `<span class="kd-tag hol">вых</span>` : ''}
                 ${isLesson && !isHol ? `<span class="kd-lesson">${lessonTimes[ds] ? esc(lessonTimes[ds]) : 'урок'}</span>` : ''}
             </div>
-            ${dayThemes.map(t => placedThemeHtml(t, state.data.video_enabled)).join('')}
+            ${dayThemes.map(t => placedThemeHtml(t, state.data.video_enabled, individual)).join('')}
         </div>`;
     }
 
@@ -349,7 +356,7 @@ function renderCalendar() {
     grid.querySelectorAll('.pt-recording').forEach(el => attachRecordingClick(el, api, reloadCalendar));
     // T12.6: «Продолжить на другую дату» доступно и при lock КТП — теме не хватило
     // урока, продолжение встаёт следующим занятием, хвост сдвигается сервером.
-    grid.querySelectorAll('.pt-more').forEach(el => attachThemeActionsClick(el, api, reloadCalendar));
+    grid.querySelectorAll('.pt-more').forEach(el => attachThemeActionsClick(el, api, reloadCalendar, individual ? editLessonTime : null));
     if (!isLocked()) {
         // Этап 4: drop доступен на любой день периода (кроме выходных), не только
         // на дни со штатным слотом — attachDrop() сам разруливает slot/off-schedule.
@@ -450,6 +457,58 @@ function nearestMeetingTime(day) {
     return m ? m[0] : '15:00';
 }
 
+/* ── Индивидуальная группа: занятия на любые дни и время, перенос в т.ч. начавшегося ── */
+function themeById(glid) {
+    return (state.data.themes || []).find(t => String(t.group_lesson_id) === String(glid));
+}
+
+/* Занятие уже началось или прошло — переносить можно (ученик просит сдвинуть), но спрашиваем. */
+async function confirmMoveStarted(theme) {
+    if (!hasStarted(theme)) return true;
+    return !!await confirmDialog('Занятие уже началось или прошло. Перенести его?', 'Перенести', 'Отмена');
+}
+
+async function dropIndividual(cell, glid, day) {
+    const theme = themeById(glid);
+    if (theme && theme.scheduled_at) {
+        // Перенос уже стоящего занятия на другой день: время и длительность те же.
+        if (!await confirmMoveStarted(theme)) { return; }
+        const start = theme.scheduled_at.slice(11, 16);
+        doPin(glid, day, `${day} ${start}:00`, endAfter(day, start, durationMinutes(theme)));
+        return;
+    }
+    // Время подтягивается с прошлых занятий (тот же день недели, затем последнее занятие).
+    const suggested = suggestLessonTime(state.data.themes, day);
+    openOffScheduleModal({
+        anchor: cell,
+        day,
+        individual: true,
+        title: 'Занятие',
+        saveLabel: 'Поставить',
+        defaultTime: suggested?.start || '15:00',
+        defaultEnd: suggested?.end || undefined,
+        onConfirm: ({ scheduledAt, endsAt }) => doPin(glid, day, scheduledAt, endsAt),
+    });
+}
+
+/* «⋮» → «Изменить дату и время»: модалка с датой и временем занятия. */
+async function editLessonTime(glid, anchor) {
+    const theme = themeById(glid);
+    if (!theme || !theme.scheduled_at) { return; }
+    if (!await confirmMoveStarted(theme)) { return; }
+    openOffScheduleModal({
+        anchor,
+        day: theme.scheduled_at.slice(0, 10),
+        individual: true,
+        dateEditable: true,
+        title: 'Дата и время занятия',
+        saveLabel: 'Сохранить',
+        defaultTime: theme.scheduled_at.slice(11, 16),
+        defaultEnd: theme.ends_at ? theme.ends_at.slice(11, 16) : undefined,
+        onConfirm: ({ day, scheduledAt, endsAt }) => doPin(glid, day, scheduledAt, endsAt),
+    });
+}
+
 /**
  * Drop закрепляет тему на дату. Если там уже стоит другая тема, спрашиваем: заменить её
  * (она вернётся в пул) или поставить вместе (обе остаются на этой дате и времени).
@@ -457,7 +516,8 @@ function nearestMeetingTime(day) {
  */
 async function doPin(glid, day, scheduledAt, endsAt) {
     const dragged = (state.data.themes || []).find(t => String(t.group_lesson_id) === String(glid));
-    const displaced = (state.data.themes || [])
+    // Индивидуальная группа: занятия одного дня уживаются, вытеснять нечего.
+    const displaced = state.data.individual ? null : (state.data.themes || [])
         .find(t => t.group_lesson_id !== dragged?.group_lesson_id && (t.scheduled_at || '').slice(0, 10) === day);
 
     let together = false;
@@ -474,14 +534,14 @@ async function doPin(glid, day, scheduledAt, endsAt) {
 
     try {
         await api('pin', { group_lesson_id: glid, scheduled_at: scheduledAt, ends_at: endsAt || '', on_conflict: together ? 'together' : 'replace' });
-        const draggedLabel = dragged ? `Тема ${dragged.n}` : 'Тема';
+        const draggedLabel = state.data.individual ? 'Занятие' : (dragged ? `Тема ${dragged.n}` : 'Тема');
         let note = '';
         if (displaced) {
             note = together
                 ? ` · вместе с темой ${displaced.n}`
                 : ` · тема ${displaced.n} возвращена в пул`;
         }
-        toast(`${draggedLabel} закреплена на ${fmtDayMonth(day)}${note}`);
+        toast(`${draggedLabel} ${state.data.individual ? 'поставлено' : 'закреплена'} на ${fmtDayMonth(day)}${note}`);
         await reloadCalendar();
     } catch (err) {
         toast(err.message, 'error');
@@ -534,6 +594,7 @@ function attachDrop(cell) {
         if (!state.dragGlid) return;
         const glid = state.dragGlid;
         const day = cell.dataset.day;
+        if (state.data.individual) { dropIndividual(cell, glid, day); return; }
         // Время слота — из расписания группы (lessonTimes: 'HH:MM–HH:MM').
         const start = (((state.data.lessonTimes || {})[day] || '').match(/\d{1,2}:\d{2}/) || [])[0];
         if (start) {
@@ -545,7 +606,7 @@ function attachDrop(cell) {
         openOffScheduleModal({
             anchor: cell,
             day,
-            defaultTime: nearestMeetingTime(day),
+            defaultTime: suggestLessonTime(state.data.themes, day)?.start || nearestMeetingTime(day),
             onConfirm: ({ scheduledAt, endsAt }) => doPin(glid, day, scheduledAt, endsAt),
         });
     });

@@ -48,7 +48,7 @@ function recordingIconHtml(t, videoEnabled) {
     return '';
 }
 
-export function placedThemeHtml(t, videoEnabled) {
+export function placedThemeHtml(t, videoEnabled, individual = false) {
     const pinned = t.is_pinned ? ' pinned' : '';
     const offSchedule = t.off_schedule ? ' off-schedule' : '';
     const draft = t.lesson_draft ? ' is-draft' : '';
@@ -58,7 +58,8 @@ export function placedThemeHtml(t, videoEnabled) {
     const total = t.total_parts || 1;
     const canContinue = 1 === t.part && 1 === total;
     const isContinuation = t.part > 1;
-    const moreKind = isContinuation ? 'remove' : 'continue';
+    // В индивидуальной группе «⋮» есть у любой темы (перенос даты и времени), даже без «продолжить».
+    const moreKind = isContinuation ? 'remove' : (canContinue ? 'continue' : 'none');
     // #16: карточка урока = тема (жирная) / кабинет / преподаватель, друг под другом.
     // Номер убран; метка продолжения (part/total) прикреплена к теме.
     // Этап 2 (★): клик по карточке ведёт в плеер курса (teacher-режим) — карточка
@@ -74,7 +75,7 @@ export function placedThemeHtml(t, videoEnabled) {
         ${t.room ? `<span class="pt-meta">${esc(t.room)}</span>` : ''}
         ${t.teacher ? `<span class="pt-meta">${esc(t.teacher)}</span>` : ''}
         ${recordingIconHtml(t, videoEnabled)}
-        ${(canContinue || isContinuation) ? `<button type="button" class="pt-more" data-glid="${t.group_lesson_id}" data-kind="${moreKind}" aria-label="Действия">⋮</button>` : ''}
+        ${(canContinue || isContinuation || individual) ? `<button type="button" class="pt-more" data-glid="${t.group_lesson_id}" data-kind="${moreKind}" aria-label="Действия">⋮</button>` : ''}
     </div>`;
 }
 

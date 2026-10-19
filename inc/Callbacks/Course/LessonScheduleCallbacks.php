@@ -65,6 +65,7 @@ class LessonScheduleCallbacks extends BaseController {
 		$userId  = get_current_user_id();
 
 		$this->requireGroupAccess( $groupId );
+		$this->denyIfIndividualGroup( $groupId, __( 'Автораспределения в индивидуальной группе нет — занятия ставятся вручную.', 'fs-lms' ) );
 		$this->denyIfProgramLocked( $groupId );
 
 		$result = $this->schedule->reflow( $groupId, $userId );
@@ -86,6 +87,7 @@ class LessonScheduleCallbacks extends BaseController {
 		$userId  = get_current_user_id();
 
 		$this->requireGroupAccess( $groupId );
+		$this->denyIfIndividualGroup( $groupId, __( 'В индивидуальной группе занятия ставятся вручную — снимать распределение нечего.', 'fs-lms' ) );
 		$this->denyIfProgramLocked( $groupId );
 
 		$affected = $this->schedule->unschedule( $groupId, $userId );

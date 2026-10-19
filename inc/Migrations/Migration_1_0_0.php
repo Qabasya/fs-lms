@@ -124,7 +124,7 @@ class Migration_1_0_0 implements MigrationInterface {
 			teacher_id         int unsigned      DEFAULT NULL,
 			meetings           json              DEFAULT NULL,
 			program_locked_at  datetime          DEFAULT NULL,
-			access_mode        enum('scheduled','open') NOT NULL DEFAULT 'scheduled',
+			access_mode        enum('scheduled','open','individual') NOT NULL DEFAULT 'scheduled',
 			created_at         datetime          NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			updated_at         datetime          NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 			deleted_at         datetime          DEFAULT NULL,

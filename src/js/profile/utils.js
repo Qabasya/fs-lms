@@ -209,6 +209,7 @@ export function openCtxMenu(anchor, items, onPick, opts = {}) {
     ctxOnClose = null;
 }
 
+/** `opts.up` — раскрыть вверх; `opts.alignRight` — правый край поповера по правому краю якоря (кнопка у правого края окна). */
 export function openCtxMenuRaw(html, anchor, onClose, opts = {}) {
     const menu = document.getElementById('profCtxMenu');
     const backdrop = document.getElementById('profCtxBackdrop');
@@ -219,6 +220,11 @@ export function openCtxMenuRaw(html, anchor, onClose, opts = {}) {
     menu.classList.add('open');
     let left = Math.min(r.left, window.innerWidth - 220);
     menu.style.left = Math.max(10, left) + 'px';
+    if (opts.alignRight) {
+        // Естественная ширина — от левого края окна: у правого края поповер сжимался и после сдвига вылезал за якорь.
+        menu.style.left = '0px';
+        menu.style.left = Math.max(10, r.right - menu.getBoundingClientRect().width) + 'px';
+    }
     // opts.up — раскрыть вверх (для нижних якорей, напр. шестерёнка профиля).
     menu.style.top = opts.up
         ? Math.max(10, r.top - menu.offsetHeight - 6) + 'px'

@@ -7,17 +7,13 @@
 
 import { esc, emptyState, fmtDate, plural } from '../utils.js';
 import { ajaxErrorText } from '../../common/utils.js';
-import { icoCalendarBoard, icoAlert, icoSearch } from '../../common/icons.js';
+import { icoCalendarBoard, icoAlert } from '../../common/icons.js';
 import { createApi } from '../api.js';
+import { audienceSegHtml, searchHtml, groupSelectHtml, schoolSelectHtml, rowMatches } from './exam-row-filters.js';
 import {
     examConfig, examSubjects, currentSubject, setCurrentSubject, subjectPickerHtml, wireSubjectPicker, noSubjectsHtml,
 } from './exam-common.js';
 
-const AUDIENCES = [
-    { key: 'all', label: 'Все' },
-    { key: 'student', label: 'Ученики' },
-    { key: 'guest', label: 'Гости' },
-];
 
 /** Режимы страницы: таблица учеников и сводная по заданиям (общий prof-seg). */
 const MODES = [
@@ -31,9 +27,6 @@ function shareClass(value) {
     if (value >= 70) { return ' exam-cell--correct'; }
     return value >= 40 ? ' exam-cell--partial' : ' exam-cell--incorrect';
 }
-
-/** Значение фильтра школы для самозаписанных гостей: у них школы нет, а пустое значение занято пунктом «Все школы». */
-const SELF_REGISTERED = '__self__';
 
 /** Подписи вердиктов для подсказки ячейки таблицы. */
 const CELL_TITLES = { correct: 'верно', partial: 'частично', incorrect: 'неверно', pending: 'на проверке' };
@@ -107,9 +100,8 @@ function render() {
             <div class="exam-results-filters">
                 <select data-filter="event_id" aria-label="Проведение">${options(f.events, query.event_id, e => e.title, 'Все проведения')}</select>
                 ${f.sessions.length ? `<select data-filter="session_id" aria-label="Сеанс">${options(f.sessions, query.session_id, s => `${fmtDate(s.date)} · ${s.time_start}`, 'Все сеансы')}</select>` : ''}
-                <div class="prof-seg" role="group" aria-label="Участники">${AUDIENCES.map(a =>
-                    `<button type="button" class="${query.audience === a.key ? 'on' : ''}" data-audience="${a.key}">${esc(a.label)}</button>`).join('')}</div>
-                ${'students' === view.mode ? `${searchHtml()}${groupSelectHtml()}${schoolSelectHtml()}` : ''}
+                ${audienceSegHtml(query.audience)}
+                ${'students' === view.mode ? `${searchHtml(query.audience, view.search, 'examStatsSearch')}${groupSelectHtml(tableRows(), query.audience, view.group)}${schoolSelectHtml(tableRows(), query.audience, view.school)}` : ''}
             </div>
             ${0 === k.registered ? '<div class="exam-conduct-empty">В выбранном проведении пока нет записей.</div>' : ''}
             <div class="prof-stat-tiles exam-stat-tiles">
@@ -126,53 +118,13 @@ function render() {
     wire();
 }
 
-/** Поиск по ФИО: для нашего ученика — по ученикам, для гостей — по гостям; при «Все» ищет по всем. */
-function searchHtml() {
-    const placeholder = 'guest' === query.audience ? 'Поиск по гостям' : ('student' === query.audience ? 'Поиск по ученикам' : 'Поиск по ФИО');
-    return `<div class="stu-search exam-stats-search">
-        <span class="stu-search-ico">${icoSearch(15)}</span>
-        <input type="search" class="stu-search-input" id="examStatsSearch" placeholder="${esc(placeholder)}" value="${esc(view.search)}" autocomplete="off">
-    </div>`;
+/** Строки таблицы — из них берутся варианты групп и школ. */
+function tableRows() {
+    return data.table ? data.table.rows : [];
 }
-
-/** Строки таблицы выбранной аудитории — из них берутся варианты групп и школ. */
-function audienceRows(audience) {
-    return (data.table ? data.table.rows : []).filter(r => r.audience === audience);
-}
-
-/** Группы показываются, когда выбраны ученики: у гостей групп нет. */
-function groupSelectHtml() {
-    if ('student' !== query.audience) { return ''; }
-    const groups = [...new Set(audienceRows('student').map(r => r.group).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ru'));
-    if (!groups.length) { return ''; }
-    return `<select data-view="group" aria-label="Группа"><option value="">Все группы</option>${groups.map(g =>
-        `<option value="${esc(g)}"${view.group === g ? ' selected' : ''}>${esc(g)}</option>`).join('')}</select>`;
-}
-
-/** Школы показываются, когда выбраны гости: самозапись и школы из ссылок преподавателей. */
-function schoolSelectHtml() {
-    if ('guest' !== query.audience) { return ''; }
-    const rows = audienceRows('guest');
-    const schools = [...new Set(rows.map(r => r.school).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ru'));
-    const hasSelf = rows.some(r => !r.school);
-    if (!schools.length && !hasSelf) { return ''; }
-    return `<select data-view="school" aria-label="Школа"><option value="">Все школы</option>
-        ${hasSelf ? `<option value="${SELF_REGISTERED}"${SELF_REGISTERED === view.school ? ' selected' : ''}>Самозапись</option>` : ''}
-        ${schools.map(sc => `<option value="${esc(sc)}"${view.school === sc ? ' selected' : ''}>${esc(sc)}</option>`).join('')}</select>`;
-}
-
-const norm = s => String(s || '').toLowerCase().replace(/ё/g, 'е').trim();
 
 function visibleRows() {
-    const q = norm(view.search);
-    return (data.table ? data.table.rows : []).filter(r => {
-        if (q && !norm(r.name).includes(q)) { return false; }
-        if ('student' === query.audience && view.group && r.group !== view.group) { return false; }
-        if ('guest' === query.audience && view.school) {
-            return SELF_REGISTERED === view.school ? !r.school : r.school === view.school;
-        }
-        return true;
-    });
+    return tableRows().filter(r => rowMatches(r, { audience: 'all', search: view.search, group: view.group, school: view.school }));
 }
 
 /** Балл без лишнего «.0»; пусто — для отсутствующего значения. */

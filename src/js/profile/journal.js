@@ -11,7 +11,7 @@
    ══════════════════════════════════════════════════════════════════════ */
 
 import { esc, toast, initials, avaColor, todayIso, emptyState, openCtxMenuRaw, closeCtxMenu, openGradePopPositioned, closeGradePop, profileUrl } from './utils.js';
-import { icoCheck, icoCross, icoJournal } from '../common/icons.js';
+import { icoCheck, icoCross, icoInfo, icoJournal } from '../common/icons.js';
 import { createApi } from './api.js';
 import { MONTHS_RU } from './constants.js';
 import { groupPickerBtnHtml, openGroupPicker } from './picker.js';
@@ -166,6 +166,10 @@ function render() {
 function bindChrome() {
     const gBtn = root.querySelector('#jGroupBtn');
     if (gBtn) gBtn.addEventListener('click', openGroupMenu);
+    const legendBtn = root.querySelector('#jLegendBtn');
+    if (legendBtn) {
+        legendBtn.addEventListener('click', () => openCtxMenuRaw(legendHtml(), legendBtn, null, { alignRight: true }));
+    }
     root.querySelectorAll('.jm-arrow[data-mnav]').forEach(btn =>
         btn.addEventListener('click', () => changeMonth(+btn.dataset.mnav)));
     root.querySelectorAll('.j-filters input[data-type]').forEach(cb =>
@@ -191,21 +195,27 @@ function wrap(g, inner) {
             <button type="button" class="jm-arrow" data-mnav="1" ${atLast ? 'disabled' : ''} aria-label="Следующий месяц">›</button>` : ''}
             <span class="jm-count">${d.students.length} уч. · ${monthLessons.length} занятий</span>
             ${filterBar()}
+            <button type="button" class="jm-info" id="jLegendBtn" aria-label="Обозначения и клавиши" title="Обозначения и клавиши">${icoInfo(16)}</button>
         </div>
         <div class="prof-journal-wrap">${inner}</div>
-        <div class="j-legend-bottom">
-            ${d.open ? '<span class="jlb-label">Открытая группа — «+» проставляется автоматически, когда ученик проходит все шаги урока.</span>' : `
-            <span class="jlb-label">Посещаемость:</span>
-            <span class="jl"><span class="jl-sw jl-sw--present"></span>Присутствовал</span>
-            <span class="jl"><span class="jl-sw jl-sw--absent"></span>Отсутствовал</span>`}
-            <span class="jlb-label">Работы:</span>
-            <span class="jl"><span class="cw-dot"></span>есть результаты — наведите на ячейку</span>
-            <span class="jl"><span class="cw-dot cw-dot--warn"></span>на проверке или просрочено</span>
-            ${d.open ? '' : `
-            <span class="jlb-label">Клавиши:</span>
-            <span class="jl"><kbd>←↑↓→</kbd> перемещение · <kbd>пробел</kbd> был · <kbd>Н</kbd> отсутствовал · <kbd>Del</kbd> снять</span>`}
-        </div>
         <div class="j-works-tip" id="jWorksTip" hidden></div>
+    </div>`;
+}
+
+/** Легенда журнала — поповер по кнопке «i» в шапке. */
+function legendHtml() {
+    const d = state.data || {};
+    return `<div class="j-legend-pop">
+        ${d.open ? '<span class="jlb-label">Открытая группа — «+» проставляется автоматически, когда ученик проходит все шаги урока.</span>' : `
+        <span class="jlb-label">Посещаемость:</span>
+        <span class="jl"><span class="jl-sw jl-sw--present"></span>Присутствовал</span>
+        <span class="jl"><span class="jl-sw jl-sw--absent"></span>Отсутствовал</span>`}
+        <span class="jlb-label">Работы:</span>
+        <span class="jl"><span class="cw-dot"></span>есть результаты — наведите на ячейку</span>
+        <span class="jl"><span class="cw-dot cw-dot--warn"></span>на проверке или просрочено</span>
+        ${d.open ? '' : `
+        <span class="jlb-label">Клавиши:</span>
+        <span class="jl"><kbd>←↑↓→</kbd> перемещение · <kbd>пробел</kbd> был · <kbd>Н</kbd> отсутствовал · <kbd>Del</kbd> снять</span>`}
     </div>`;
 }
 

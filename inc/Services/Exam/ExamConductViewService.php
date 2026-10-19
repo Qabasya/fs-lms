@@ -65,6 +65,7 @@ class ExamConductViewService {
 		private readonly ExamGuestBoardService $guestBoard,
 		private readonly UserManager $users,
 		private readonly ExamEventViewService $eventView,
+		private readonly ExamParticipantProfileService $profiles,
 	) {}
 
 	/**
@@ -386,6 +387,9 @@ class ExamConductViewService {
 			'audience'            => $audience->value,
 			'audience_label'      => $audience->label(),
 			'source'              => $source->schoolName ?? '',
+			// Для фильтров списка (как в «Результатах»): группа нашего ученика и школа участника.
+			'group'               => $this->profiles->groupName( $participant ),
+			'school'              => $this->profiles->school( $participation, $participant ),
 			'registration_status' => $registration->status,
 			// Гость: независимые состояния — оплата, допуск (`admitted_at`: ссылка входа выдана), попытка (`progress`); у ученика оплаты нет.
 			'payment'             => ExamAudience::Guest === $audience ? $this->guestBoard->paymentOf( $participation->id ) : null,

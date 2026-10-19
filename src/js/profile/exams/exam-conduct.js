@@ -17,6 +17,7 @@ import { DOW_JS } from '../constants.js';
 import { bindPhoneMask } from '../../common/input-masks.js';
 import { examConfig, examSubjects, subjectPickerHtml, wireSubjectPicker, approvalBlockReason, approvableRows, approveButtonLabel, approvalItems, approvalSummaryText, skippedListHtml, exportButtonsHtml, wireExportButtons } from './exam-common.js';
 import { openMoveSessionForm, openCancelSessionForm } from './exam-session-actions.js';
+import { audienceSegHtml, searchHtml, groupSelectHtml, schoolSelectHtml, rowMatches } from './exam-row-filters.js';
 
 const REFRESH_MS = 30000;
 const TICK_MS = 1000;
@@ -61,6 +62,8 @@ let root = null;
 let api = null;
 let board = null;
 let sessionId = 0;
+// Фильтры списка (как в «Результатах»): кого показывать, поиск по ФИО, группа учеников, школа гостей. Работают на клиенте по строкам доски.
+const view = { audience: 'all', search: '', group: '', school: '' };
 let allSessions = false; // режим «Все сеансы»: список участников всего проведения; sessionId остаётся опорным сеансом
 let chosenSubject = ''; // предмет, выбранный переключателем; пусто — экран сам выбирает ближайший сеанс
 let fetchedAt = 0;
@@ -91,7 +94,9 @@ export function renderExamConduct(r, h = {}) {
     api = createApi(cfg);
     sessionId = requestedSessionId;
     requestedSessionId = 0;
-    allSessions = false;
+    // По умолчанию — «Все сеансы»; ссылка на конкретный сеанс (уведомление) открывает именно его.
+    allSessions = 0 === sessionId;
+    resetFilters();
     chosenSubject = '';
     resetSelection();
     root.innerHTML = '<div class="exam-conduct-loading">Загрузка…</div>';
@@ -102,7 +107,8 @@ export function renderExamConduct(r, h = {}) {
 /* ── Данные ───────────────────────────────────────────────────────────── */
 async function load() {
     try {
-        const params = sessionId ? { session_id: sessionId, all: allSessions ? 1 : 0 } : (chosenSubject ? { subject_key: chosenSubject } : {});
+        const all = allSessions ? 1 : 0;
+        const params = sessionId ? { session_id: sessionId, all } : (chosenSubject ? { subject_key: chosenSubject, all } : { all });
         const data = await api('getConduct', params);
         board = data.board || null;
     } catch (err) {
@@ -132,6 +138,32 @@ async function act(action, params, okText) {
         toast(ajaxErrorText(err, 'Не удалось выполнить действие'), 'error');
         return false;
     }
+}
+
+function resetFilters() {
+    Object.assign(view, { audience: 'all', search: '', group: '', school: '' });
+}
+
+/** Строки доски под фильтрами списка. */
+function visibleRows() {
+    return board.rows.filter(r => rowMatches(r, view));
+}
+
+/** Фильтры списка и панель действий — в одну строку: фильтры слева, кнопки справа. */
+function controlsHtml() {
+    const filters = filtersHtml();
+    const actions = toolbar();
+    return filters || actions ? `<div class="exam-conduct-controls">${filters}${actions}</div>` : '';
+}
+
+function filtersHtml() {
+    if (!board.rows.length) { return ''; }
+    return `<div class="exam-results-filters exam-conduct-filters">
+        ${audienceSegHtml(view.audience)}
+        ${searchHtml(view.audience, view.search, 'examConductSearch')}
+        ${groupSelectHtml(board.rows, view.audience, view.group)}
+        ${schoolSelectHtml(board.rows, view.audience, view.school)}
+    </div>`;
 }
 
 function resetSelection() {
@@ -185,6 +217,9 @@ function render() {
         return;
     }
     const s = board.session;
+    // Поиск — на каждом нажатии и при автообновлении доска перерисовывается целиком: возвращаем фокус и каретку.
+    const search = root.querySelector('#examConductSearch');
+    const keepFocus = search && document.activeElement === search ? search.selectionStart : null;
     root.innerHTML = `
         <div class="exam-conduct">
             <div class="exam-conduct-nav">${subjectSwitcher()}${eventSwitcher()}${sessionSwitcher()}</div>
@@ -199,14 +234,21 @@ function render() {
             </div>
             ${tilesHtml(board.tiles)}
             ${board.warnings.map(w => `<div class="sc-notice exam-notice">${esc(w)}</div>`).join('')}
-            ${toolbar()}
+            ${controlsHtml()}
             ${skippedListHtml(lastSkipped, id => board.rows.find(r => r.attempt_id === id)?.name)}
             ${board.rows.length
-                ? `<div class="pr-list">${board.rows.map(rowHtml).join('')}</div>`
+                ? (visibleRows().length
+                    ? `<div class="pr-list">${visibleRows().map(rowHtml).join('')}</div>`
+                    : '<div class="exam-conduct-empty">Никого не найдено.</div>')
                 : (board.holds || []).length ? '' : `<div class="exam-conduct-empty">${allSessions ? 'На экзамен пока никто не записан.' : 'На этот сеанс пока никто не записан.'}</div>`}
             ${(board.holds || []).length ? `<div class="exam-conduct-subtitle">Ожидают оплаты</div><div class="pr-list">${board.holds.map(holdRowHtml).join('')}</div>` : ''}
         </div>`;
     wire();
+    if (null !== keepFocus) {
+        const field = root.querySelector('#examConductSearch');
+        field?.focus();
+        field?.setSelectionRange(keepFocus, keepFocus);
+    }
 }
 
 /** Перенос и отмена — пока сеанс открыт и ни одна попытка не начата. */
@@ -232,7 +274,7 @@ function guestButtonHtml() {
 
 /** Панель массового утверждения: кнопка входа в режим выбора или «Отмена» и кнопка подтверждения. */
 function approvalToolbar() {
-    if (!approvableRows(board.rows).length && !selecting) { return ''; }
+    if (!approvableRows(visibleRows()).length && !selecting) { return ''; }
     if (!selecting) {
         return '<button type="button" class="prof-btn prof-btn-sm" data-approve="start">Утвердить работы</button>';
     }
@@ -251,7 +293,8 @@ function wireSubject() {
     wireSubjectPicker('examConductSubjectBtn', examSubjects(), current, key => {
         chosenSubject = key;
         sessionId = 0;
-        allSessions = false;
+        allSessions = true;
+        resetFilters();
         resetSelection();
         load();
     });
@@ -391,7 +434,7 @@ export function scoreText(sc) {
 
 /** Массовое утверждение: отправляет выбранные (или все готовые), показывает итог и закрывает режим выбора. */
 async function approveSelected() {
-    const items = approvalItems(board.rows, selected);
+    const items = approvalItems(visibleRows(), selected);
     if (!items.length) { toast('Нет работ, готовых к утверждению', 'error'); return; }
     try {
         const result = await api('approveAttempts', { session_id: sessionId, all: allSessions ? 1 : 0, items });
@@ -408,9 +451,17 @@ async function approveSelected() {
 /* ── Действия ─────────────────────────────────────────────────────────── */
 function wire() {
     wireSubject();
+    root.querySelectorAll('.exam-conduct-filters [data-audience]').forEach(btn => btn.addEventListener('click', () => {
+        view.audience = btn.dataset.audience;
+        Object.assign(view, { group: '', school: '' });
+        render();
+    }));
+    root.querySelector('#examConductSearch')?.addEventListener('input', e => { view.search = e.target.value; render(); });
+    root.querySelectorAll('.exam-conduct-filters [data-view]').forEach(sel => sel.addEventListener('change', () => { view[sel.dataset.view] = sel.value; render(); }));
     root.querySelector('[data-event]')?.addEventListener('change', e => {
         sessionId = Number(e.target.value);
-        allSessions = false;
+        allSessions = true;
+        resetFilters();
         resetSelection();
         load();
     });

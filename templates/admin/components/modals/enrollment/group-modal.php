@@ -8,6 +8,7 @@
  * @var array                       $rooms             Активные кабинеты (передан из коллбека)
  */
 
+use Inc\Enums\Course\AccessMode;
 use Inc\Enums\Course\WeekDay;
 
 
@@ -67,9 +68,9 @@ use Inc\Enums\Course\WeekDay;
 						</select>
 					</div>
 
-					<div class="fs-form-group">
-						<label for="group-room">Основной кабинет</label>
-						<select id="group-room" name="room_id">
+					<div class="fs-form-group fs-group-room-row">
+						<label for="group-room" title="Кабинет по умолчанию для занятий группы; у отдельного дня расписания можно указать свой.">Основной кабинет</label>
+						<select id="group-room" title="Кабинет по умолчанию для занятий группы; у отдельного дня расписания можно указать свой." name="room_id">
 							<option value="">— Не назначен —</option>
 							<?php foreach ( $rooms ?? [] as $room ) : ?>
 								<option value="<?php echo esc_attr( (string) $room->id ); ?>">
@@ -77,20 +78,20 @@ use Inc\Enums\Course\WeekDay;
 								</option>
 							<?php endforeach; ?>
 						</select>
-						<p class="description">Кабинет по умолчанию для занятий группы; у отдельного дня расписания можно указать свой.</p>
 					</div>
 
 					<div class="fs-form-group">
-						<label for="group-broadcast-url">Ссылка на трансляцию</label>
-						<input type="url" id="group-broadcast-url" name="broadcast_url" placeholder="https://…" maxlength="1000">
-						<p class="description">Одна на все занятия группы (Zoom, Телемост, Jitsi и т.п.). Без ссылки шаг «Трансляция» у учеников не появляется; во время занятия они подключаются кнопкой «Присоединиться».</p>
+						<label for="group-broadcast-url" title="Одна на все занятия группы (Zoom, Телемост, Jitsi и т.п.). Без ссылки шаг «Трансляция» у учеников не появляется; во время занятия они подключаются кнопкой «Присоединиться».">Ссылка на трансляцию</label>
+						<input type="url" id="group-broadcast-url" title="Одна на все занятия группы (Zoom, Телемост, Jitsi и т.п.). Без ссылки шаг «Трансляция» у учеников не появляется; во время занятия они подключаются кнопкой «Присоединиться»." name="broadcast_url" placeholder="https://…" maxlength="1000">
 					</div>
 
 					<div class="fs-form-group fs-access-mode-group">
-						<label class="fs-access-mode-toggle">
-							<input type="checkbox" id="group-access-mode" name="access_mode_open" value="1" data-edit-readonly>
-							<span>Открытая группа — весь курс доступен сразу, без расписания (свободное прохождение)</span>
-						</label>
+						<label for="group-access-mode" title="«Открытая» — весь курс доступен сразу, без расписания; задаётся при создании и не меняется. «Индивидуальная» — один ученик, занятия преподаватель ставит в КТП на любые дни и время; тип можно сменить, пока в группе не больше одного ученика.">Тип группы</label>
+						<select id="group-access-mode" title="«Открытая» — весь курс доступен сразу, без расписания; задаётся при создании и не меняется. «Индивидуальная» — один ученик, занятия преподаватель ставит в КТП на любые дни и время; тип можно сменить, пока в группе не больше одного ученика." name="access_mode">
+							<?php foreach ( AccessMode::cases() as $mode ) : ?>
+								<option value="<?php echo esc_attr( $mode->value ); ?>"><?php echo esc_html( $mode->label() ); ?></option>
+							<?php endforeach; ?>
+						</select>
 					</div>
 				</div>
 

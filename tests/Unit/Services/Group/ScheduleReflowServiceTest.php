@@ -707,4 +707,109 @@ class ScheduleReflowServiceTest extends TestCase {
 			$this->moves
 		);
 	}
+
+	// ===== Индивидуальная группа (access_mode = 'individual') =====
+
+	private function individualGroup(): void {
+		$this->groups->method( 'findById' )->willReturn( (object) array( 'id' => 5, 'access_mode' => 'individual' ) );
+	}
+
+	/** Любой день: выходной и дата вне периода не мешают. */
+	public function test_individual_group_pins_to_holiday_outside_period(): void {
+		$this->calendar = $this->createMock( SessionCalendarService::class );
+		$this->calendar->method( 'periodMeta' )->willReturn( array(
+			'period' => array( 'start_date' => '2026-09-01', 'end_date' => '2026-12-31' ),
+			'holidays' => array( '2026-11-04' ), 'lessonDays' => array(), 'lessonTimes' => array(),
+		) );
+		$service = new ScheduleReflowService(
+			$this->groupLessons, $this->groups, $this->calendar, $this->roomAvailability,
+			new ScheduleEventPublisher( $this->dispatcher ),
+			$this->clock,
+		);
+		$this->individualGroup();
+		$this->groupLessons->method( 'find' )->willReturn( $this->makeRow( 42, 'group' ) );
+		$this->groupLessons->method( 'listByGroupAndDay' )->willReturn( array() );
+
+		$this->groupLessons->expects( self::exactly( 2 ) )->method( 'updateSchedule' );
+
+		$service->pinToDate( 42, '2026-11-04 11:00:00', 1, '2026-11-04 12:00:00' ); // выходной
+		$service->pinToDate( 42, '2027-03-02 16:00:00', 1, '2027-03-02 17:00:00' ); // за границей периода
+	}
+
+	/** Время — явное: дата без времени отклоняется, угадывать слот нечего. */
+	public function test_individual_group_requires_time(): void {
+		$this->individualGroup();
+		$this->groupLessons->method( 'find' )->willReturn( $this->makeRow( 42, 'group' ) );
+		$this->groupLessons->expects( self::never() )->method( 'updateSchedule' );
+
+		$this->expectException( \InvalidArgumentException::class );
+		$this->service->pinToDate( 42, '2026-11-04', 1 );
+	}
+
+	/** Два занятия в один день уживаются: прежнее не вытесняется в пул. */
+	public function test_individual_group_keeps_existing_lesson_on_the_day(): void {
+		$this->individualGroup();
+		$moved    = $this->makeRow( 42, 'group' );
+		$existing = $this->placedRow( 7, '2026-09-10 10:00:00' );
+		$this->groupLessons->method( 'find' )->willReturn( $moved );
+		$this->groupLessons->method( 'listByGroupAndDay' )->willReturn( array( $existing ) );
+
+		$this->groupLessons->expects( self::never() )->method( 'clearSchedule' );
+		$this->groupLessons->expects( self::once() )->method( 'updateSchedule' );
+
+		$this->service->pinToDate( 42, '2026-09-10 16:00:00', 1, '2026-09-10 17:00:00' );
+	}
+
+	/** Перенос уже проведённого занятия (ученик просит сдвинуть) разрешён: строка и её журнал остаются. */
+	public function test_individual_group_moves_held_lesson(): void {
+		$this->individualGroup();
+		$held = $this->attendedRow( 42, '2026-09-10 10:00:00', 0 );
+		$this->groupLessons->method( 'find' )->willReturn( $held );
+		$this->groupLessons->method( 'listByGroupAndDay' )->willReturn( array() );
+
+		$this->groupLessons->expects( self::once() )->method( 'updateSchedule' )
+			->with( 42, '2026-09-12 12:00:00', null, '2026-09-12 13:00:00' );
+
+		$this->service->pinToDate( 42, '2026-09-12 12:00:00', 1, '2026-09-12 13:00:00' );
+	}
+
+	public function test_individual_group_rejects_reflow_and_unschedule(): void {
+		$this->individualGroup();
+		$this->calendar->expects( self::never() )->method( 'reflow' );
+		$this->groupLessons->expects( self::never() )->method( 'unscheduleAll' );
+
+		try {
+			$this->service->reflow( 5, 99 );
+			self::fail( 'reflow должен быть отклонён' );
+		} catch ( \InvalidArgumentException ) {
+		}
+
+		$this->expectException( \InvalidArgumentException::class );
+		$this->service->unschedule( 5, 99 );
+	}
+
+	/** Возврат в пул — без подтягивания хвоста: слотов у индивидуальной группы нет. */
+	public function test_individual_group_return_to_pool_does_not_shift_tail(): void {
+		$this->individualGroup();
+		$first  = $this->placedRow( 1, '2026-09-03 10:00:00' );
+		$second = $this->placedRow( 2, '2026-09-10 10:00:00' );
+		$this->groupLessons->method( 'find' )->willReturn( $first );
+		$this->groupLessons->method( 'listByGroup' )->willReturn( array( $first, $second ) );
+
+		$this->groupLessons->expects( self::once() )->method( 'clearSchedule' )->with( 1 );
+		$this->groupLessons->expects( self::never() )->method( 'moveToSlot' );
+
+		self::assertSame( 0, $this->service->returnToPool( 1, 99 ) );
+	}
+
+	/** Новый урок курса не раздвигает даты индивидуальных занятий. */
+	public function test_individual_group_place_inserted_is_noop(): void {
+		$this->individualGroup();
+		$this->groupLessons->method( 'find' )->willReturn( $this->unplacedRow( 99, 1 ) );
+
+		$this->groupLessons->expects( self::never() )->method( 'moveToSlot' );
+		$this->groupLessons->expects( self::never() )->method( 'listByGroup' );
+
+		self::assertSame( 0, $this->service->placeInserted( 99, 1 ) );
+	}
 }

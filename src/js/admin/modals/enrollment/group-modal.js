@@ -47,7 +47,7 @@ export const GroupModal = {
     /** @type {jQuery} Dropdown выбора кабинета (дефолт группы на год) */
     $roomSelect: null,
     /** @type {jQuery} Чекбокс «Открытая группа» (Эпик 15, задаётся только при создании) */
-    $accessModeCb: null,
+    $accessModeSel: null,
     /** @type {jQuery} Скрытое поле типа действия (add/edit) */
     $actionInput: null,
     /** @type {jQuery} Скрытое поле ID группы (для режима редактирования) */
@@ -89,7 +89,7 @@ export const GroupModal = {
         this.$teacherSelect = $('#group-teacher');
         this.$roomSelect     = this.$modal.find('#group-room');
         this.$broadcastInput = this.$modal.find('#group-broadcast-url');
-        this.$accessModeCb  = $('#group-access-mode');
+        this.$accessModeSel = $('#group-access-mode');
 
         this.$actionInput  = this.$modal.find('input[name="action_type"]');
         this.$groupIdInput = this.$modal.find('input[name="id"]');
@@ -132,8 +132,8 @@ export const GroupModal = {
             $row.find('.fs-schedule-day-times').toggleClass('hidden', !$cb.prop('checked'));
         });
 
-        // Открытая группа (Эпик 15): без расписания — блок скрывается.
-        this.$accessModeCb.on('change.fs', () => this._toggleScheduleByMode());
+        // Открытая и индивидуальная группы (Эпик 15): без расписания — блок скрывается.
+        this.$accessModeSel.on('change.fs', () => this._toggleScheduleByMode());
 
         // Перехват отправки формы с валидацией и уведомлением подписчиков
         this.$form.on('submit.fs', (e) => {
@@ -186,7 +186,8 @@ export const GroupModal = {
             this.$teacherSelect.val(data.teacher_id ?? '').trigger('change');
             this.$roomSelect.val(data.room_id ? String(data.room_id) : '');
             this.$broadcastInput.val(data.broadcast_url ?? '');
-            this.$accessModeCb.prop('checked', data.access_mode === 'open');
+            this.$accessModeSel.val(data.access_mode || 'scheduled');
+            this._lockAccessMode(data.access_mode || 'scheduled');
             this._toggleScheduleByMode();
             this._restoreSchedule(data.schedule ?? []);
             this._setEditReadonly(true);
@@ -295,18 +296,32 @@ export const GroupModal = {
         this.$broadcastInput.val('');
 
         // Сброс режима доступа: обычная группа, расписание видимо
-        this.$accessModeCb.prop('checked', false);
+        this.$accessModeSel.val('scheduled');
+        this._lockAccessMode(null);
         this._toggleScheduleByMode();
     },
 
     /**
-     * Показывает/скрывает блок расписания в зависимости от режима доступа:
-     * открытой группе расписание не нужно (свободное прохождение).
+     * Показывает/скрывает расписание и основной кабинет в зависимости от типа группы:
+     * открытой (свободное прохождение) и индивидуальной (занятия ставятся в КТП вручную)
+     * штатное расписание и общий кабинет не нужны.
      * @private
      */
     _toggleScheduleByMode() {
-        const isOpen = this.$accessModeCb.prop('checked');
-        this.$modal.find('.fs-schedule-group').toggleClass('hidden', isOpen);
+        const hasSchedule = this.$accessModeSel.val() === 'scheduled';
+        this.$modal.find('.fs-schedule-group').toggleClass('hidden', !hasSchedule);
+        this.$modal.find('.fs-group-room-row').toggleClass('hidden', !hasSchedule);
+    },
+
+    /**
+     * При редактировании «открытую» нельзя ни выбрать, ни сменить (задаётся при создании).
+     * @private
+     * @param {string|null} current Текущий тип редактируемой группы; null — создание.
+     */
+    _lockAccessMode(current) {
+        const editing = current !== null;
+        this.$accessModeSel.prop('disabled', editing && current === 'open');
+        this.$accessModeSel.find('option[value="open"]').prop('disabled', editing && current !== 'open');
     },
 
     /**
@@ -373,7 +388,7 @@ export const GroupModal = {
             teacher_id:    this.$teacherSelect.val(),
             room_id:       this.$roomSelect.length ? this.$roomSelect.val() : '',
             broadcast_url: this.$broadcastInput.length ? this.$broadcastInput.val().trim() : '',
-            access_mode:  this.$accessModeCb.prop('checked') ? 'open' : 'scheduled',
+            access_mode:   this.$accessModeSel.val() || 'scheduled',
 
             // Сериализуем массив расписания в JSON-строку для отправки на сервер.
             // Сервер распарсит JSON и сохранит расписание в базу данных.

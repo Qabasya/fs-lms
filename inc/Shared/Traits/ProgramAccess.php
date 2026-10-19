@@ -64,6 +64,21 @@ trait ProgramAccess {
 	}
 
 	/**
+	 * Индивидуальная группа: автораспределения и публикации КТП нет (занятия ставятся вручную).
+	 * Прерывает ответ JSON-ошибкой.
+	 *
+	 * @param int    $groupId ID группы
+	 * @param string $message Текст ошибки
+	 *
+	 * @return void
+	 */
+	protected function denyIfIndividualGroup( int $groupId, string $message ): void {
+		if ( $this->programService()->isIndividualGroup( $groupId ) ) {
+			$this->error( $message );
+		}
+	}
+
+	/**
 	 * T1.8: блокирует правку опубликованной (locked) КТП. Прерывает ответ JSON-ошибкой.
 	 *
 	 * @param int $groupId ID группы

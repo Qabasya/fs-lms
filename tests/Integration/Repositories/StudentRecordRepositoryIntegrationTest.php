@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Integration\Repositories;
 
 use FakeWpdb;
+use Inc\DTO\Enrollment\StudentRecordInputDTO;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 use PHPUnit\Framework\TestCase;
 
@@ -61,5 +62,54 @@ class StudentRecordRepositoryIntegrationTest extends TestCase {
 		$query = $this->wpdb->lastQuery();
 		self::assertStringContainsString( "status = 'active'", $query );
 		self::assertStringContainsString( 'group_id = 5', $query );
+	}
+
+	private function input( string $status = 'active', ?int $groupId = 7 ): StudentRecordInputDTO {
+		return new StudentRecordInputDTO(
+			studentPersonId: 10,
+			parentPersonId:  20,
+			status:          $status,
+			enrolledAt:      '2026-01-01 00:00:00',
+			createdAt:       '2026-01-01 00:00:00',
+			updatedAt:       '2026-01-01 00:00:00',
+			groupId:         $groupId,
+		);
+	}
+
+	/** Индивидуальная группа: второго активного ученика создать нельзя, запись не вставляется. */
+	public function test_create_rejects_second_active_student_in_individual_group(): void {
+		$this->wpdb->queueRow( (object) array( 'access_mode' => 'individual', 'active_count' => 1 ) );
+
+		$this->expectException( \DomainException::class );
+		try {
+			$this->repo->create( $this->input() );
+		} finally {
+			self::assertSame( array(), $this->wpdb->inserts );
+			self::assertStringContainsString( 'FOR UPDATE', $this->wpdb->lastQuery() );
+		}
+	}
+
+	public function test_create_allows_first_student_in_individual_group(): void {
+		$this->wpdb->queueRow( (object) array( 'access_mode' => 'individual', 'active_count' => 0 ) );
+
+		$this->repo->create( $this->input() );
+
+		self::assertCount( 1, $this->wpdb->inserts );
+	}
+
+	public function test_create_does_not_limit_regular_group(): void {
+		$this->wpdb->queueRow( (object) array( 'access_mode' => 'scheduled', 'active_count' => 12 ) );
+
+		$this->repo->create( $this->input() );
+
+		self::assertCount( 1, $this->wpdb->inserts );
+	}
+
+	/** Архивная (неактивная) запись инвариант не затрагивает и лишнего запроса не делает. */
+	public function test_create_skips_check_for_non_active_record(): void {
+		$this->repo->create( $this->input( 'expelled' ) );
+
+		self::assertCount( 1, $this->wpdb->inserts );
+		self::assertStringNotContainsString( 'FOR UPDATE', $this->wpdb->lastQuery() );
 	}
 }

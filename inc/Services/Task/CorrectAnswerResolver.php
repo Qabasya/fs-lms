@@ -137,6 +137,35 @@ class CorrectAnswerResolver {
 	}
 
 	/**
+	 * Ученик на задание не отвечал: ответ пуст — строка без текста либо структура (выбор, соответствие,
+	 * пропуски, код) без единого заполненного значения.
+	 */
+	public function isEmptyStudentAnswer( ?string $rawAnswer ): bool {
+		$raw = trim( (string) $rawAnswer );
+		if ( '' === $raw || 'null' === $raw ) {
+			return true;
+		}
+
+		$decoded = json_decode( $raw, true );
+
+		return is_array( $decoded ) && ! $this->hasContent( $decoded );
+	}
+
+	/** Есть ли в значении хоть что-то заполненное (рекурсивно по массивам). */
+	private function hasContent( mixed $value ): bool {
+		if ( is_array( $value ) ) {
+			foreach ( $value as $item ) {
+				if ( $this->hasContent( $item ) ) {
+					return true;
+				}
+			}
+			return false;
+		}
+
+		return null !== $value && '' !== trim( (string) $value );
+	}
+
+	/**
 	 * @param array<int|string, mixed> $ids Выбранные id опций
 	 */
 	private function studentChoice( int $taskId, array $ids ): string {

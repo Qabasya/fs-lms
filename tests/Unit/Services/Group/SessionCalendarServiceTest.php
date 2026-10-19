@@ -142,4 +142,12 @@ class SessionCalendarServiceTest extends TestCase {
 		self::assertSame( array(), $meta['lessonTimes'] );
 		self::assertNull( $meta['period'] );
 	}
+
+	/** Индивидуальная группа: слотов нет, даже если в `meetings` остались записи (после смены режима). */
+	public function test_individual_group_generates_no_slots_even_with_legacy_meetings(): void {
+		$this->groups->method( 'findById' )->willReturn( (object) array( 'id' => 5, 'academic_period_id' => 'p', 'access_mode' => 'individual' ) );
+		$this->groups->expects( self::never() )->method( 'getMeetings' );
+
+		self::assertSame( array(), $this->service->generate( 5 ) );
+	}
 }

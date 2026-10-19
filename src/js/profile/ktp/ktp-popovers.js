@@ -5,7 +5,7 @@
    ══════════════════════════════════════════════════════════════════════ */
 
 import { esc, toast, openCtxMenuRaw, closeCtxMenu } from '../utils.js';
-import { icoContinue, icoTrash } from '../../common/icons.js';
+import { icoCalendar, icoContinue, icoTrash } from '../../common/icons.js';
 import { toLocalInputValue, fromLocalInputValue } from './ktp-calendar-model.js';
 
 /* ── Дедлайны работ занятия (T12.3, D13) ─────────────────────────────────
@@ -120,26 +120,31 @@ function openRecordingPopover(glid, anchorEl, currentUrl, currentLink, api, relo
    занятие вперёд (сервер, ScheduleReflowService::placeInserted). У самого
    продолжения «⋮» ведёт обратно — «Убрать продолжение»: дата освобождается, темы
    после неё подтягиваются назад (ProgramCompositionService::removeContinuation). */
-export function attachThemeActionsClick(btn, api, reload) {
+export function attachThemeActionsClick(btn, api, reload, onEdit) {
     btn.addEventListener('click', e => {
         e.stopPropagation(); // не открывать поповер дедлайнов родительской темы
-        openThemeActionsMenu(btn.dataset.glid, btn, api, reload, btn.dataset.kind);
+        openThemeActionsMenu(btn.dataset.glid, btn, api, reload, btn.dataset.kind, onEdit);
     });
 }
 
-function openThemeActionsMenu(glid, anchorEl, api, reload, kind) {
+/* `onEdit(glid, anchor)` — только в индивидуальной группе: пункт «Изменить дату и время» (перенос занятия). */
+function openThemeActionsMenu(glid, anchorEl, api, reload, kind, onEdit) {
     const remove = 'remove' === kind;
-    const html = remove
-        ? `<div class="ctx-item" data-act="remove">${icoTrash(16)}Убрать продолжение</div>`
-        : `<div class="ctx-item" data-act="continue">${icoContinue(16)}Продолжить на другую дату</div>`;
-    openCtxMenuRaw(html, anchorEl);
+    const items = [];
+    if (onEdit) items.push(`<div class="ctx-item" data-act="edit">${icoCalendar(16)}Изменить дату и время</div>`);
+    if ('none' !== kind) {
+        items.push(remove
+            ? `<div class="ctx-item" data-act="remove">${icoTrash(16)}Убрать продолжение</div>`
+            : `<div class="ctx-item" data-act="continue">${icoContinue(16)}Продолжить на другую дату</div>`);
+    }
+    openCtxMenuRaw(items.join(''), anchorEl);
     const menu = document.getElementById('profCtxMenu');
-    const item = menu?.querySelector('[data-act]');
-    if (!item) return;
-    item.addEventListener('click', async () => {
+    menu?.querySelectorAll('[data-act]').forEach(item => item.addEventListener('click', async () => {
         closeCtxMenu();
+        const act = item.dataset.act;
+        if ('edit' === act) { onEdit(glid, anchorEl); return; }
         try {
-            if (remove) {
+            if ('remove' === act) {
                 await api('removeContinuation', { group_lesson_id: glid });
                 toast('Продолжение убрано — следующие темы подтянуты назад');
             } else {
@@ -148,5 +153,5 @@ function openThemeActionsMenu(glid, anchorEl, api, reload, kind) {
             }
             await reload();
         } catch (e) { toast(e.message, 'error'); }
-    });
+    }));
 }
