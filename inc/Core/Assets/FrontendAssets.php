@@ -172,6 +172,7 @@ class FrontendAssets extends BaseController {
 			'ajax_url' => admin_url( 'admin-ajax.php' ),
 			'actions'  => array(
 				'submit'       => AjaxHook::SubmitExamGuestApplication->jsAction(),
+				'track'        => AjaxHook::TrackExamSignupForm->jsAction(),
 				'check_status' => AjaxHook::CheckExamApplicationStatus->jsAction(),
 			),
 			'nonce'    => Nonce::ExamGuest->create(),

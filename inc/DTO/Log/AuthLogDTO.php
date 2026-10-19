@@ -6,6 +6,7 @@ namespace Inc\DTO\Log;
 
 use Inc\Enums\Access\UserRole;
 use Inc\Enums\Auth\AuthAction;
+use Inc\Enums\Auth\CaptchaFailure;
 use Inc\Enums\Auth\LoginFailReason;
 
 /**
@@ -117,11 +118,15 @@ readonly class AuthLogDTO {
 			$lines[] = match ( $d['form'] ) {
 				'sign_in' => 'Форма: /sign-in/',
 				'apply'   => 'Форма: /apply/',
+				'exam_signup' => 'Форма: запись на экзамен',
 				default   => 'Форма: wp-login.php',
 			};
 		}
 		if ( isset( $d['captcha_token'] ) ) {
 			$lines[] = $d['captcha_token'] ? 'Токен капчи: есть' : 'Токен капчи: нет';
+		}
+		if ( ! empty( $d['captcha_unavailable'] ) ) {
+			$lines[] = 'Браузер сообщил о капче: ' . ( CaptchaFailure::tryFrom( (string) $d['captcha_unavailable'] )?->failReason()->label() ?? (string) $d['captcha_unavailable'] );
 		}
 		if ( ! empty( $d['error_code'] ) ) {
 			$lines[] = 'Код WP: ' . $d['error_code'];

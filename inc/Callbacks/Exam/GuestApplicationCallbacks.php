@@ -25,7 +25,10 @@ use Inc\Shared\CodedException;
 use Inc\Shared\GuestFormException;
 use Inc\Shared\PluginLogger;
 use Inc\DTO\Exam\ExamGuestApplicationDTO;
+use Inc\DTO\Exam\ExamFormTrackInputDTO;
 use Inc\DTO\Exam\ExamSourceDTO;
+use Inc\Enums\Exam\ExamFormEvent;
+use Inc\Services\Security\RateLimitService;
 use Inc\Services\Exam\ExamFormTrackingService;
 use Inc\Services\Exam\GuestSessionService;
 use Inc\Services\Exam\GuestPageAccessService;
@@ -50,8 +53,40 @@ class GuestApplicationCallbacks extends BaseController {
 		private readonly ExamPaymentReconciler $reconciler,
 		private readonly ExamFormTrackingService $formLog,
 		private readonly GuestPageAccessService $access,
+		private readonly RateLimitService $rateLimit,
 	) {
 		parent::__construct();
+	}
+
+	/**
+	 * Событие формы записи от браузера (`exam-signup-tracking.js`): журналы «Аутентификация» и «Экзамены».
+	 *
+	 * Ответ всегда успешный и пустой: трекинг ничего не сообщает гостю и ничего не ломает. Источник — только из куки
+	 * приглашения; без неё (или при превышении лимита) событие молча отбрасывается.
+	 */
+	public function ajaxTrackExamSignupForm(): void {
+		Nonce::ExamGuest->verify();
+
+		$event  = ExamFormEvent::tryFrom( $this->sanitizeKey( 'event' ) );
+		$source = null !== $event ? $this->currentSource() : null;
+
+		if ( null === $source || ! $this->rateLimit->allowExamFormTrack( $this->requestContext()->ip ) ) {
+			$this->success();
+			return;
+		}
+
+		$this->formLog->track( $source, new ExamFormTrackInputDTO(
+			event:   $event,
+			visit:   substr( $this->sanitizeKey( 'visit' ), 0, 16 ),
+			fields:  array_slice( $this->sanitizeKeyList( 'fields' ), 0, 30 ),
+			filled:  max( 0, $this->sanitizeInt( 'filled' ) ),
+			total:   max( 0, $this->sanitizeInt( 'total' ) ),
+			seconds: max( 0, $this->sanitizeInt( 'seconds' ) ),
+			submits: max( 0, $this->sanitizeInt( 'submits' ) ),
+			message: $this->sanitizeText( 'message' ),
+		) );
+
+		$this->success();
 	}
 
 	/**
@@ -70,15 +105,18 @@ class GuestApplicationCallbacks extends BaseController {
 			return;
 		}
 
-		if ( ! $this->formGuard->isHuman( $this->sanitizeText( $this->formGuard->honeypotField() ), $this->sanitizeText( 'form_token' ) ) ) {
-			$this->formLog->invalid( $source, '', 'Защита формы отклонила отправку' );
-			$this->fail( ErrorCode::ExamReplay, 'Не удалось отправить форму. Обновите страницу.' );
+		$visit       = substr( $this->sanitizeKey( 'visit' ), 0, 16 );
+		$guardReason = $this->formGuard->rejectionReason( $this->sanitizeText( $this->formGuard->honeypotField() ), $this->sanitizeText( 'form_token' ) );
+		if ( null !== $guardReason ) {
+			$this->formLog->guardRejected( $source, $guardReason, $visit );
+			$this->fail( ErrorCode::ExamReplay, 'Не удалось отправить форму. Обновите страницу.', array( 'guard_reason' => $guardReason ) );
 			return;
 		}
 
 		$requestKey = $this->sanitizeText( 'request_key' );
 		if ( 1 !== preg_match( '/^[A-Za-z0-9_-]{8,64}$/', $requestKey ) ) {
-			$this->fail( ErrorCode::ExamReplay, 'Не удалось отправить форму. Обновите страницу.' );
+			$this->formLog->guardRejected( $source, 'bad_request_key', $visit );
+			$this->fail( ErrorCode::ExamReplay, 'Не удалось отправить форму. Обновите страницу.', array( 'guard_reason' => 'bad_request_key' ) );
 			return;
 		}
 
@@ -96,7 +134,7 @@ class GuestApplicationCallbacks extends BaseController {
 		try {
 			$application = $this->applications->apply( $source, $form, $this->requestContext(), $requestKey );
 		} catch ( GuestFormException $e ) {
-			$this->formLog->invalid( $source, $e->field, $e->getMessage() );
+			$this->formLog->invalid( $source, $e->field, $e->getMessage(), $visit );
 			$extra = array( 'field' => $e->field );
 			if ( 'cabinet' === $e->field ) {
 				$extra['cabinet_url'] = \Inc\Enums\Wp\PageRoutes::UserProfile->screenUrl( 'learner-exams' );

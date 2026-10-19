@@ -88,6 +88,7 @@ class AuthLogController implements ServiceInterface {
 			password:       $this->unslashRawString( 'pwd' ),
 			captchaToken:   $this->sanitizeText( 'captcha_token' ),
 			fromSignInPage: $this->sanitizeBool( 'fs_lms_login' ),
+			captchaUnavailable: $this->sanitizeKey( 'captcha_unavailable' ),
 		);
 
 		$this->authLog->record(

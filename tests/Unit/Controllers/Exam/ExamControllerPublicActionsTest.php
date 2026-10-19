@@ -30,7 +30,7 @@ class ExamControllerPublicActionsTest extends TestCase {
 		$method->setAccessible( true );
 		$public = array_map( static fn ( array $pair ): AjaxHook => $pair[0], $method->invoke( $controller ) );
 
-		self::assertSame( array( AjaxHook::SubmitExamGuestApplication, AjaxHook::CheckExamApplicationStatus, AjaxHook::EndExamGuestSession ), $public );
+		self::assertSame( array( AjaxHook::SubmitExamGuestApplication, AjaxHook::TrackExamSignupForm, AjaxHook::CheckExamApplicationStatus, AjaxHook::EndExamGuestSession ), $public );
 		foreach ( array( AjaxHook::RegisterForExam, AjaxHook::ChangeExamRegistration, AjaxHook::CancelExamRegistration, AjaxHook::IssueExamEntryLink, AjaxHook::AdmitExamGuest ) as $hook ) {
 			self::assertNotContains( $hook, $public );
 		}

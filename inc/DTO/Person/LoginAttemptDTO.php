@@ -19,6 +19,7 @@ readonly class LoginAttemptDTO {
 	 * @param string $password       Введённый пароль
 	 * @param string $captchaToken   Токен капчи из формы
 	 * @param bool   $fromSignInPage Попытка с нашей страницы /sign-in/, а не с нативного wp-login.php
+	 * @param string $captchaUnavailable Причина, по которой браузер не получил токен (`captcha_unavailable`); пусто — форма её не прислала
 	 */
 	public function __construct(
 		public string $login,
@@ -26,5 +27,6 @@ readonly class LoginAttemptDTO {
 		public string $password,
 		public string $captchaToken,
 		public bool   $fromSignInPage,
+		public string $captchaUnavailable = '',
 	) {}
 }

@@ -8,6 +8,7 @@ use Inc\Core\BaseController;
 use Inc\Enums\Access\Capability;
 use Inc\Enums\Wp\Nonce;
 use Inc\Managers\Course\LessonManager;
+use Inc\Services\Course\GroupAccessGuard;
 use Inc\Modules\VideoLibrary\Services\RecordingAlertService;
 use Inc\Modules\VideoLibrary\Services\VideoRegistrationService;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
@@ -34,6 +35,7 @@ class VideoLibraryCallbacks extends BaseController {
 		private readonly GroupLessonRepository    $groupLessons,
 		private readonly LessonManager            $lessons,
 		private readonly RecordingAlertService    $alerts,
+		private readonly GroupAccessGuard         $accessGuard,
 	) {
 		parent::__construct();
 	}
@@ -74,6 +76,32 @@ class VideoLibraryCallbacks extends BaseController {
 
 		if ( ! $this->registration->attachManually( $recordingId, $groupLessonId ) ) {
 			$this->error( 'Запись или занятие не найдены.' );
+		}
+
+		$this->success( array( 'message' => 'Запись привязана к занятию.' ) );
+	}
+
+	/**
+	 * Привязка записи преподавателем из шага «Трансляция» плеера. В отличие от {@see self::ajaxAttach()}
+	 * (админ), доступ — к своей группе, а привязать можно только запись из списка подходящих этому занятию.
+	 * Params: group_lesson_id, recording_id
+	 */
+	public function ajaxTeacherAttach(): void {
+		$this->authorize( Nonce::SaveSchedule, Capability::ManageLmsTeaching );
+
+		$groupLessonId = $this->requireInt( 'group_lesson_id' );
+		$recordingId   = $this->requireInt( 'recording_id' );
+
+		$lesson = $this->groupLessons->find( $groupLessonId );
+		if ( null === $lesson || ! $this->accessGuard->canManage( $lesson->groupId, get_current_user_id() ) ) {
+			$this->error( 'Нет доступа к группе.' );
+			return;
+		}
+
+		$allowed = array_map( static fn ( $r ): int => $r->id, $this->alerts->candidatesFor( $lesson ) );
+		if ( ! in_array( $recordingId, $allowed, true ) || ! $this->registration->attachManually( $recordingId, $groupLessonId ) ) {
+			$this->error( 'Эта запись не подходит занятию или уже привязана.' );
+			return;
 		}
 
 		$this->success( array( 'message' => 'Запись привязана к занятию.' ) );

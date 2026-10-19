@@ -78,4 +78,31 @@ class ExamFormTrackingServiceTest extends TestCase {
 			self::assertStringStartsWith( 'Экзамен:', $action->label() );
 		}
 	}
+
+	public function test_browser_events_use_shared_journal_with_counters_only(): void {
+		$input = static fn ( \Inc\Enums\Exam\ExamFormEvent $e, array $fields = array(), string $msg = '' ): \Inc\DTO\Exam\ExamFormTrackInputDTO
+			=> new \Inc\DTO\Exam\ExamFormTrackInputDTO( $e, 'abc123', $fields, 3, 8, 75, 2, $msg );
+
+		$this->service->track( $this->source(), $input( \Inc\Enums\Exam\ExamFormEvent::Started ) );
+		$this->service->track( $this->source(), $input( \Inc\Enums\Exam\ExamFormEvent::Invalid, array( 'phone', 'unknown' ) ) );
+		$this->service->track( $this->source(), $input( \Inc\Enums\Exam\ExamFormEvent::SubmitFailed, array(), 'Время брони истекло.' ) );
+		$this->service->track( $this->source(), $input( \Inc\Enums\Exam\ExamFormEvent::Left ) );
+
+		self::assertSame(
+			array( AuthAction::ExamFormStarted, AuthAction::ExamFormInvalid, AuthAction::ExamFormSubmitFailed, AuthAction::ExamFormLeft ),
+			array_column( $this->recorded, 0 )
+		);
+		self::assertSame( array( AuthResult::Success, AuthResult::Failure, AuthResult::Failure, AuthResult::Failure ), array_column( $this->recorded, 1 ) );
+		self::assertSame( 'ошибки в полях: телефон · заполнено 3 из 8 полей', $this->recorded[1][2]['note'] );
+		self::assertSame( 'через 1 мин 15 с · заполнено 3 из 8 полей · нажимали «Перейти к оплате»: 2 раз(а)', $this->recorded[3][2]['note'] );
+		self::assertSame( 'abc123', $this->recorded[0][2]['visit'] );
+	}
+
+	public function test_guard_rejection_is_recorded_with_human_reason(): void {
+		$this->service->guardRejected( $this->source(), 'token_expired', 'abc123' );
+
+		self::assertSame( AuthAction::ExamFormSubmitFailed, $this->recorded[0][0] );
+		self::assertStringContainsString( 'устарела', $this->recorded[0][2]['failure_reason'] );
+		self::assertSame( 'abc123', $this->recorded[0][2]['visit'] );
+	}
 }

@@ -234,7 +234,24 @@ class ExamSourceService {
 						throw $this->stale();
 				}
 				$this->audit( $actorUserId, OperationType::Update, LogEvent::ExamSourceUpdated, $sourceId, $source->schoolName );
-				$this->log( ExamLogAction::SourceSaved, $actorUserId, $eventId, $sourceId, array( 'created' => false, 'school' => $source->schoolName ) );
+				$this->log(
+					ExamLogAction::SourceSaved,
+					$actorUserId,
+					$eventId,
+					$sourceId,
+					array(
+						'created' => false,
+						'school'  => $source->schoolName,
+						'changes' => $this->changes(
+							array(
+								'school_name'      => array( $source->schoolName, $fields['school_name'] ),
+								'teacher_name'     => array( $source->teacherName, $fields['teacher_name'] ),
+								'grade'            => array( $source->grade, $fields['grade'] ),
+								'discount_percent' => array( $source->discountPercent, $fields['discount_percent'] ?? $source->discountPercent ),
+							)
+						),
+					)
+				);
 
 				return $this->reload( $sourceId );
 			}
@@ -488,6 +505,17 @@ class ExamSourceService {
 				'context'  => array_merge( array( 'source_id' => $sourceId ), $context ),
 			)
 		);
+	}
+
+	/**
+	 * Что изменилось при сохранении: поле → [было, стало], только различающиеся пары. Для журнала «Экзамены».
+	 *
+	 * @param array<string, array{0: mixed, 1: mixed}> $pairs
+	 *
+	 * @return array<string, array{0: mixed, 1: mixed}>
+	 */
+	private function changes( array $pairs ): array {
+		return array_filter( $pairs, static fn ( array $pair ): bool => (string) $pair[0] !== (string) $pair[1] );
 	}
 
 	/**

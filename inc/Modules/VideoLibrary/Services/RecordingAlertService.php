@@ -4,6 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\Modules\VideoLibrary\Services;
 
+use Inc\DTO\Course\GroupLessonDTO;
 use Inc\Managers\Course\LessonManager;
 use Inc\Enums\Course\LessonKind;
 use Inc\Modules\VideoLibrary\DTO\VideoRecordingDTO;
@@ -105,6 +106,22 @@ class RecordingAlertService {
 		}
 
 		return $out;
+	}
+
+	/**
+	 * Непривязанные записи, подходящие занятию: группы, а для индивидуального занятия ещё и личной папки преподавателя.
+	 * Один источник правды для админского алёрта, шага «Трансляция» преподавателя и проверки при привязке.
+	 *
+	 * @return VideoRecordingDTO[]
+	 */
+	public function candidatesFor( GroupLessonDTO $lesson ): array {
+		$teacherId = null;
+		if ( LessonKind::Individual === $lesson->kind ) {
+			$group     = $this->groups->findById( $lesson->groupId );
+			$teacherId = $lesson->teacherUserId ?? (int) ( $group->teacher_id ?? 0 );
+		}
+
+		return $this->recordings->listCandidates( $lesson->groupId, $teacherId );
 	}
 
 	/** Подпись занятия: тема урока, иначе собственная метка занятия. */

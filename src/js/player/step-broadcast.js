@@ -11,6 +11,8 @@ import { toast } from './shell.js';
 const vars = window.fs_lms_player_vars;
 
 export function initStepBroadcast() {
+	document.querySelectorAll( '[data-recording-pick]' ).forEach( initPicker );
+
 	if ( ! vars?.actions?.setRecording ) { return; }
 
 	document.querySelectorAll( '[data-recording-form]' ).forEach( ( form ) => {
@@ -22,6 +24,38 @@ export function initStepBroadcast() {
 			save( input.value.trim() );
 		} );
 		form.querySelector( '[data-recording-clear]' )?.addEventListener( 'click', () => save( '' ) );
+	} );
+}
+
+/**
+ * Выбор загруженной записи из списка подходящих (модуль VideoLibrary): действие и nonce приходят из разметки формы.
+ */
+function initPicker( form ) {
+	form.addEventListener( 'submit', async ( e ) => {
+		e.preventDefault();
+		const recordingId = form.querySelector( '[name="recording_id"]' )?.value;
+		if ( ! recordingId ) {
+			toast( 'Выберите запись из списка', 'error' );
+			return;
+		}
+
+		const buttons = form.querySelectorAll( 'button' );
+		buttons.forEach( ( b ) => { b.disabled = true; } );
+
+		const fd = new FormData();
+		fd.append( 'action', form.dataset.action );
+		fd.append( 'security', form.dataset.nonce );
+		fd.append( 'group_lesson_id', form.dataset.groupLessonId );
+		fd.append( 'recording_id', recordingId );
+
+		try {
+			await playerPost( fd );
+			toast( 'Запись привязана к занятию' );
+			window.location.reload();
+		} catch ( err ) {
+			toast( err.toUserText ? err.toUserText() : err.message, 'error' );
+			buttons.forEach( ( b ) => { b.disabled = false; } );
+		}
 	} );
 }
 

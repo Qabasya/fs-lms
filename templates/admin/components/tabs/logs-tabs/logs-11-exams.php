@@ -99,7 +99,18 @@ $actor_types = array(
 			</tr>
 			</thead>
 			<tbody>
-			<?php foreach ( $exam_rows as $row ) :
+			<?php
+			// Подписи полей для «было → стало» в подробностях записи.
+			$exam_change_labels = array(
+				'school_name'      => 'Школа',
+				'teacher_name'     => 'Преподаватель',
+				'grade'            => 'Класс',
+				'discount_percent' => 'Скидка, %',
+				'scheduled_at_utc' => 'Начало (UTC)',
+				'room_id'          => 'Кабинет (ID)',
+				'assessment_id'    => 'Вариант (ID)',
+			);
+			foreach ( $exam_rows as $row ) :
 				$event_title = (string) ( $exam_names['events'][ $row->eventId ] ?? '' );
 				$session_at  = (string) ( $exam_names['sessions'][ $row->sessionId ] ?? '' );
 				$actor       = $actor_types[ $row->actorType ]
@@ -116,7 +127,13 @@ $actor_types = array(
 							<details class="fs-code-sm">
 								<summary>Подробнее</summary>
 								<?php foreach ( $row->context as $key => $value ) : ?>
-									<div><?php echo esc_html( (string) $key ); ?>: <?php echo esc_html( is_scalar( $value ) ? (string) $value : wp_json_encode( $value, JSON_UNESCAPED_UNICODE ) ); ?></div>
+									<?php if ( 'changes' === $key && is_array( $value ) ) : ?>
+										<?php foreach ( $value as $field => $pair ) : ?>
+											<div><?php echo esc_html( $exam_change_labels[ $field ] ?? (string) $field ); ?>: «<?php echo esc_html( (string) ( $pair[0] ?? '' ) ); ?>» → «<?php echo esc_html( (string) ( $pair[1] ?? '' ) ); ?>»</div>
+										<?php endforeach; ?>
+									<?php else : ?>
+										<div><?php echo esc_html( (string) $key ); ?>: <?php echo esc_html( is_scalar( $value ) ? (string) $value : wp_json_encode( $value, JSON_UNESCAPED_UNICODE ) ); ?></div>
+									<?php endif; ?>
 								<?php endforeach; ?>
 							</details>
 						<?php endif; ?>

@@ -128,9 +128,14 @@ class PersonUpdateCallbacks extends BaseController {
 			// Изменение логина. wp_update_user() игнорирует user_login при обновлении
 			// существующего пользователя (ограничение ядра WP) — меняем отдельно.
 			$newLogin = $this->sanitizeText( 'login' );
-			if ( $newLogin ) {
+			$oldLogin = (string) ( $this->userManager->find( $person->wpUserId )?->user_login ?? '' );
+			if ( $newLogin && $newLogin !== $oldLogin ) {
 				try {
 					$this->userManager->changeLogin( $person->wpUserId, $newLogin );
+					$this->logEvents->dispatch(
+						LogEvent::PersonDataChanged,
+						new PersonDataChangedEvent( get_current_user_id(), $personId, 'login', $oldLogin, $newLogin )
+					);
 				} catch ( \RuntimeException $e ) {
 					$this->error( $e->getMessage() );
 				}

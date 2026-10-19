@@ -10,6 +10,7 @@ import { initFormValidation, renderFieldError, clearFieldError } from '../../com
 import { bindPhoneMask } from '../../common/input-masks.js';
 import { buildSummary, isSessionChosen, formatLeft, secondsLeft } from './exam-signup-model.js';
 import { initSchoolSuggest } from './school-suggest.js';
+import { createExamSignupTracker, examVisitId } from './exam-signup-tracking.js';
 
 function newRequestKey() {
     return ( window.crypto && window.crypto.randomUUID ) ? window.crypto.randomUUID() : `k${ Date.now() }${ Math.random().toString( 16 ).slice( 2 ) }`;
@@ -49,6 +50,7 @@ function initSignupForm( vars ) {
     initSchoolSuggest( form.querySelector( '#fs_exam_school' ) ); // есть только в открытой записи
     initCarousel( form );
     const validateAll = initFormValidation( form );
+    const tracker = createExamSignupTracker( form, vars );
 
     const value = name => ( form.elements[ name ] ? form.elements[ name ].value : '' );
     const consents = () => Array.from( form.querySelectorAll( 'input[name="consents[]"]:checked' ) ).map( el => el.value );
@@ -109,27 +111,35 @@ function initSignupForm( vars ) {
         const fieldsValid = validateAll();
         const sessionValid = isSessionChosen( sessionInput.value );
         if ( ! sessionValid ) { showError( 'session_id', 'Выберите дату и время.' ); }
-        if ( ! fieldsValid || ! sessionValid ) { return; }
+        tracker.submitAttempt();
+        if ( ! fieldsValid || ! sessionValid ) {
+            tracker.invalid();
+            return;
+        }
 
         setBusy( true, 'Занимаем место…' );
-        const data = { ...collect(), request_key: requestKey, form_token: value( 'form_token' ) };
+        const data = { ...collect(), request_key: requestKey, form_token: value( 'form_token' ), visit: examVisitId() };
         data[ form.querySelector( '.fs-exam-signup__hp input' ).name ] = form.querySelector( '.fs-exam-signup__hp input' ).value;
 
         try {
             const res = await post( vars, vars.actions.submit, data );
             if ( res.success ) {
                 // Бесплатная ссылка: оплаты нет, форма заменяется подтверждением записи.
+                tracker.succeeded();
                 if ( res.data.confirmed ) { showConfirmed( form, res.data.confirmed ); return; }
                 window.location.assign( res.data.redirect );
                 return;
             }
 
             const err = res.data || {};
-            if ( err.cabinet_url ) { window.location.assign( err.cabinet_url ); return; }
+            if ( err.cabinet_url ) { tracker.succeeded(); window.location.assign( err.cabinet_url ); return; }
             if ( err.new_request_key ) { requestKey = newRequestKey(); }
             const message = err.message || 'Не удалось отправить форму. Попробуйте ещё раз.';
+            // Сервер уже записал свой отказ (проверка формы, лимит, поле); событие браузера нужно, когда ответ не разобран.
+            if ( ! err.message ) { tracker.failed( message, err.field || '' ); }
             if ( ! err.field || ! showError( err.field, message ) ) { showFormError( message ); }
         } catch {
+            tracker.failed( '' );
             // Сеть упала: тот же request_key — повтор вернёт ту же бронь, а не вторую.
             showFormError( 'Нет связи. Проверьте интернет и нажмите ещё раз — место не потеряется.' );
         }

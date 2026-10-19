@@ -22,6 +22,7 @@ class VideoLibraryControllerTest extends TestCase {
 			$this->createMock( VideoLibraryCallbacks::class ),
 			$this->signer,
 			$this->createMock( VideoLibraryConfig::class ),
+			$this->createMock( \Inc\Modules\VideoLibrary\Services\RecordingAlertService::class ),
 		);
 	}
 

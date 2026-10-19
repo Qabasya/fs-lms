@@ -103,4 +103,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 			?>
 		</section>
 	<?php endif; ?>
+	<?php // Кнопка «наверх» — показывает и прячет components/scroll-top.js. ?>
+	<button type="button" class="fs-to-top js-to-top" aria-label="<?php esc_attr_e( 'Наверх', 'fs-lms' ); ?>" hidden>
+		<?php echo \Inc\Enums\Ui\Icon::ChevronDown->svg( 18 ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+	</button>
 </main>

@@ -151,7 +151,7 @@ class LogNameResolver {
 		}
 
 		// CPT: задания и статьи
-		if ( in_array( $entityType, array( 'task', 'article' ), true ) ) {
+		if ( in_array( $entityType, array( 'task', 'article', 'problem' ), true ) ) {
 			return self::postTitle( $entityId );
 		}
 

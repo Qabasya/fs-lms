@@ -48,6 +48,10 @@ enum LogEvent: string {
 	case TaskUpdated      = 'task.updated';
 	case TaskDeleted      = 'task.deleted';
 
+	case ProblemCreated   = 'problem.created';
+	case ProblemUpdated   = 'problem.updated';
+	case ProblemDeleted   = 'problem.deleted';
+
 	case ArticleCreated   = 'article.created';
 	case ArticleUpdated   = 'article.updated';
 	case ArticleDeleted   = 'article.deleted';

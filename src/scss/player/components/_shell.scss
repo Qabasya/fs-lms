@@ -7,6 +7,7 @@
    ══════════════════════════════════════════════════════════════════════ */
 @use '../variables' as *;
 @use '../../shared/cabinet/ui' as *;
+@use '../../shared/to-top-button' as *;
 
 // Прокручивается документ, а не внутренний контейнер: иначе липкие шапка
 // и воркбар не работали бы от края экрана (общий cab-body прячет overflow).
@@ -168,6 +169,7 @@ body.fs-player-page { overflow: visible; }
   gap: rem(12);
   margin-top: rem(20);
   padding: rem(16) rem(20);
+  background: var(--surface);
   border: 1px dashed var(--line);
   border-radius: var(--radius);
 
@@ -286,6 +288,29 @@ body.fs-player-page { overflow: visible; }
     color: var(--accent);
     font-variant-numeric: tabular-nums;
   }
+}
+
+/* ══ Кнопка «Наверх»: страница прокручивается окном (показ — scroll-top.js, атрибут hidden) ═══ */
+.fs-to-top {
+  @include to-top-button(
+    $size: rem(44),
+    $bg: var(--surface),
+    $border: var(--line),
+    $shadow: var(--shadow-md),
+    $ink: var(--accent),
+    $hover-bg: var(--accent),
+    $hover-border: var(--accent),
+    $hover-ink: var(--ink-inverse),
+    $transition: (background $tr, border-color $tr, color $tr)
+  );
+
+  position: fixed;
+  right: rem(24);
+  bottom: rem(24);
+  z-index: $z-top;
+  padding: 0;
+
+  &[hidden] { display: none; } // display:grid из миксина перебивает атрибут hidden
 }
 
 /* ══ Общие атомы: кнопки — единый примитив кабинета+плеера

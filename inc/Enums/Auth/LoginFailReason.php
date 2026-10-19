@@ -26,6 +26,7 @@ enum LoginFailReason: string {
 	case CaptchaTimeout   = 'captcha_timeout';
 	case CaptchaNetwork   = 'captcha_network';
 	case CaptchaDismissed = 'captcha_dismissed';
+	case CaptchaFallbackLimit = 'captcha_fallback_limit';
 	case Locked          = 'locked';
 	case Other           = 'other';
 
@@ -37,12 +38,13 @@ enum LoginFailReason: string {
 			self::PasswordLayout  => 'Пароль верный, но набран в русской раскладке',
 			self::CapsLock        => 'Пароль верный, но включён Caps Lock',
 			self::FirstLetterCase => 'Пароль верный, кроме регистра первой буквы',
-			self::CaptchaMissing  => 'Капча: токен не пришёл с формы',
+			self::CaptchaMissing  => 'Капча: форма не прислала ни токен, ни причину (скрипт формы не отработал, страница из кеша или запрос не из формы)',
 			self::CaptchaRejected => 'Капча: токен отклонён сервисом',
 			self::CaptchaNotLoaded => 'Капча: не загрузилась (возможно, VPN или блокировщик)',
 			self::CaptchaTimeout   => 'Капча: не открылась вовремя (возможно, VPN)',
 			self::CaptchaNetwork   => 'Капча: ошибка сети при загрузке (возможно, VPN)',
 			self::CaptchaDismissed => 'Капча: задание закрыто, не решено',
+			self::CaptchaFallbackLimit => 'Капча не дошла до браузера (VPN или блокировщик), а лимит пропусков для этого адреса исчерпан',
 			self::Locked          => 'Вход закрыт после неудачных попыток',
 			self::Other           => 'Другая ошибка',
 		};

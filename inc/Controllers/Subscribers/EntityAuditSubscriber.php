@@ -86,6 +86,10 @@ class EntityAuditSubscriber implements ServiceInterface {
 			LogEvent::TaskCreated,
 			LogEvent::TaskUpdated,
 			LogEvent::TaskDeleted,
+			// Задачи глобального банка
+			LogEvent::ProblemCreated,
+			LogEvent::ProblemUpdated,
+			LogEvent::ProblemDeleted,
 			// Статьи
 			LogEvent::ArticleCreated,
 			LogEvent::ArticleUpdated,

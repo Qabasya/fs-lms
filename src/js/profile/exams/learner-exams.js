@@ -96,7 +96,8 @@ export function openLearnerExam(eventId) {
 
 // Родитель переключил ребёнка — перечитать карточки именно его; ответ по прежнему ребёнку отбрасывается.
 onChildChange(() => { if (rootEl && api) { load(); } });
-document.addEventListener('visibilitychange', () => syncRefreshTimer());
+// Модуль импортируют и тесты без DOM (deep-links): подписка только в браузере.
+if ('undefined' !== typeof document) { document.addEventListener('visibilitychange', () => syncRefreshTimer()); }
 
 /** Параметры запроса списка: у родителя — выбранный ребёнок. */
 function listParams() {

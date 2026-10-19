@@ -22,6 +22,7 @@ class VideoLibraryCallbacksTest extends TestCase {
 	private $groupLessons;
 	private $lessons;
 	private $alerts;
+	private \Inc\Services\Course\GroupAccessGuard&\PHPUnit\Framework\MockObject\MockObject $guard;
 	private VideoLibraryCallbacks $cb;
 
 	protected function setUp(): void {
@@ -33,12 +34,14 @@ class VideoLibraryCallbacksTest extends TestCase {
 		$this->groupLessons = $this->createMock( GroupLessonRepository::class );
 		$this->lessons      = $this->createMock( LessonManager::class );
 		$this->alerts       = $this->createMock( RecordingAlertService::class );
+		$this->guard        = $this->createMock( \Inc\Services\Course\GroupAccessGuard::class );
 
 		$this->cb = new VideoLibraryCallbacks(
 			$this->registration,
 			$this->groupLessons,
 			$this->lessons,
-			$this->alerts
+			$this->alerts,
+			$this->guard
 		);
 	}
 
@@ -120,5 +123,41 @@ class VideoLibraryCallbacksTest extends TestCase {
 		$_POST = array( 'group_lesson_id' => '42', 'recording_url' => 'https://example.com/rec.mp4' );
 
 		self::assertFalse( fs_test_capture_json( fn() => $this->cb->ajaxSetLessonRecordingUrl() )->success );
+	}
+
+	private function recording( int $id ): \Inc\Modules\VideoLibrary\DTO\VideoRecordingDTO {
+		return \Inc\Modules\VideoLibrary\DTO\VideoRecordingDTO::fromRow( (object) array(
+			'id' => $id, 's3_bucket' => 'b', 's3_key' => 'g/rec.webm', 'group_slug' => 'g', 'status' => 'unmatched',
+			'recorded_at' => '2026-10-19 10:00:00', 'size_bytes' => 1, 'sha256' => 'h', 'created_at' => '2026-10-19 10:00:00', 'updated_at' => '2026-10-19 10:00:00',
+		) );
+	}
+
+	public function test_teacher_attach_binds_candidate_recording(): void {
+		$this->groupLessons->method( 'find' )->with( 42 )->willReturn( $this->row() );
+		$this->guard->method( 'canManage' )->willReturn( true );
+		$this->alerts->method( 'candidatesFor' )->willReturn( array( $this->recording( 7 ) ) );
+		$this->registration->expects( self::once() )->method( 'attachManually' )->with( 7, 42 )->willReturn( true );
+		$_POST = array( 'group_lesson_id' => '42', 'recording_id' => '7' );
+
+		self::assertTrue( fs_test_capture_json( fn() => $this->cb->ajaxTeacherAttach() )->success );
+	}
+
+	public function test_teacher_attach_rejects_recording_outside_candidates(): void {
+		$this->groupLessons->method( 'find' )->willReturn( $this->row() );
+		$this->guard->method( 'canManage' )->willReturn( true );
+		$this->alerts->method( 'candidatesFor' )->willReturn( array( $this->recording( 7 ) ) );
+		$this->registration->expects( self::never() )->method( 'attachManually' );
+		$_POST = array( 'group_lesson_id' => '42', 'recording_id' => '99' );
+
+		self::assertFalse( fs_test_capture_json( fn() => $this->cb->ajaxTeacherAttach() )->success );
+	}
+
+	public function test_teacher_attach_denied_without_group_access(): void {
+		$this->groupLessons->method( 'find' )->willReturn( $this->row() );
+		$this->guard->method( 'canManage' )->willReturn( false );
+		$this->registration->expects( self::never() )->method( 'attachManually' );
+		$_POST = array( 'group_lesson_id' => '42', 'recording_id' => '7' );
+
+		self::assertFalse( fs_test_capture_json( fn() => $this->cb->ajaxTeacherAttach() )->success );
 	}
 }

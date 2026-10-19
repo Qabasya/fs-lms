@@ -22,6 +22,9 @@ enum AuthAction: string {
 	case ExamFormInvalid     = 'exam_form_invalid';
 	case ExamHoldCreated     = 'exam_hold_created';
 	case ExamFormLimit       = 'exam_form_limit';
+	case ExamFormStarted     = 'exam_form_started';
+	case ExamFormSubmitFailed = 'exam_form_submit_failed';
+	case ExamFormLeft        = 'exam_form_left';
 	// Капча не дошла до браузера, форма пропущена по смягчённому правилу
 	case CaptchaFallback     = 'captcha_fallback';
 
@@ -42,6 +45,9 @@ enum AuthAction: string {
 			self::ExamFormInvalid    => 'Экзамен: форма записи не прошла проверку',
 			self::ExamHoldCreated    => 'Экзамен: бронь создана',
 			self::ExamFormLimit      => 'Экзамен: лимит заявок',
+			self::ExamFormStarted    => 'Экзамен: начал заполнять форму',
+			self::ExamFormSubmitFailed => 'Экзамен: отправка формы не удалась',
+			self::ExamFormLeft       => 'Экзамен: ушёл с формы, не записавшись',
 			self::CaptchaFallback    => 'Пропуск без капчи',
 		};
 	}

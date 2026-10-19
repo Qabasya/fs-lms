@@ -47,6 +47,9 @@ enum ExamLogAction: string {
 	case FormOpened = 'form_opened';
 	case FormInvalid = 'form_invalid';
 	case FormLimited = 'form_limited';
+	case FormStarted = 'form_started';
+	case FormSubmitFailed = 'form_submit_failed';
+	case FormLeft = 'form_left';
 	case Admitted = 'admitted';
 	case EntryLinkIssued = 'entry_link_issued';
 	case ResultLinkIssued = 'result_link_issued';
@@ -128,6 +131,9 @@ enum ExamLogAction: string {
 			self::FormOpened => 'Форма записи: открыта по ссылке',
 			self::FormInvalid => 'Форма записи: ошибка в данных',
 			self::FormLimited => 'Форма записи: отказ по лимиту',
+			self::FormStarted => 'Форма записи: начал заполнять',
+			self::FormSubmitFailed => 'Форма записи: отправка не удалась',
+			self::FormLeft => 'Форма записи: ушёл, не записавшись',
 			self::Admitted => 'Допуск к экзамену',
 			self::EntryLinkIssued => 'Ссылка входа гостя: выдана или скопирована',
 			self::ResultLinkIssued => 'Ссылка результата: выдана',

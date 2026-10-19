@@ -112,6 +112,7 @@ class ExamController extends AjaxController {
 	protected function publicAjaxActions(): array {
 		return array(
 			array( AjaxHook::SubmitExamGuestApplication, $this->guest ),
+			array( AjaxHook::TrackExamSignupForm, $this->guest ),
 			array( AjaxHook::CheckExamApplicationStatus, $this->guest ),
 			array( AjaxHook::EndExamGuestSession, $this->guestEntry ),
 		);

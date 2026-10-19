@@ -89,9 +89,19 @@ readonly class PersonService {
 		$changedFields = array();
 		$fieldChanges  = array();
 
-		foreach ( array( 'last_name', 'first_name', 'middle_name', 'school', 'grade' ) as $nameField ) {
+		// Колонка таблицы → свойство PersonDTO (в DTO camelCase: прямое чтение `->last_name` всегда давало пусто,
+		// и каждое присланное поле ФИО попадало в журнал «Изменения данных» как изменённое).
+		$nameProps = array(
+			'last_name'   => 'lastName',
+			'first_name'  => 'firstName',
+			'middle_name' => 'middleName',
+			'school'      => 'school',
+			'grade'       => 'grade',
+		);
+
+		foreach ( $nameProps as $nameField => $prop ) {
 			if ( array_key_exists( $nameField, $changes ) ) {
-				$oldVal                   = (string) ( $existingPerson->$nameField ?? '' );
+				$oldVal                   = (string) ( $existingPerson->$prop ?? '' );
 				$newVal                   = (string) $changes[ $nameField ];
 				$personData[ $nameField ] = $newVal;
 				$changedFields[]          = $nameField;

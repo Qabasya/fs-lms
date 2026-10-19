@@ -9,7 +9,8 @@
 // специфичности фон, рамку, тень и padding кнопки.
 .fs-all-tasks-page,
 .fs-articles-page,
-.fs-article-page {
+.fs-article-page,
+.fs-exam-result {
   .fs-to-top {
     @include to-top-button(
       $size: rem(52.8),

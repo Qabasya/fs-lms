@@ -10,6 +10,7 @@ use Inc\Enums\Auth\AuthResult;
 use Inc\Enums\Enrollment\ApplyFormEvent;
 use Inc\Enums\Enrollment\ApplyFormField;
 use Inc\Services\Log\AuthLogWriter;
+use Inc\Shared\Traits\FormTrackingText;
 
 /**
  * Class ApplyFormTrackingService
@@ -27,6 +28,8 @@ use Inc\Services\Log\AuthLogWriter;
  * и текст ошибки, который увидел пользователь.
  */
 readonly class ApplyFormTrackingService {
+
+	use FormTrackingText;
 
 	private const MESSAGE_MAX = 200;
 
@@ -142,24 +145,9 @@ readonly class ApplyFormTrackingService {
 	}
 
 	private function filled( ApplyTrackInputDTO $input ): string {
-		return $input->total > 0
-			? sprintf( 'заполнено %d из %d полей', $input->filled, $input->total )
-			: sprintf( 'заполнено полей: %d', $input->filled );
+		return $this->filledText( $input->filled, $input->total );
 	}
 
-	private function duration( int $seconds ): string {
-		$seconds = max( 0, $seconds );
-
-		if ( $seconds < MINUTE_IN_SECONDS ) {
-			return $seconds . ' с';
-		}
-
-		$minutes = intdiv( $seconds, MINUTE_IN_SECONDS );
-
-		return $minutes < 60
-			? sprintf( '%d мин %d с', $minutes, $seconds % MINUTE_IN_SECONDS )
-			: sprintf( '%d ч %d мин', intdiv( $minutes, 60 ), $minutes % 60 );
-	}
 
 	/**
 	 * Текст ошибки из браузера — обрезанный, для журнала.

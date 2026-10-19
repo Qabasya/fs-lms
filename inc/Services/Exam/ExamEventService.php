@@ -264,9 +264,20 @@ class ExamEventService {
 				'event_id'   => $eventId,
 				'session_id' => $saved->id,
 				'actor'      => $actorUserId,
-				'context'    => array(
-					'scheduled_at_utc' => $startUtc,
-					'room_id'          => $roomId,
+				'context'    => array_filter(
+					array(
+						'scheduled_at_utc' => $startUtc,
+						'room_id'          => $roomId,
+						// Правка сеанса: что было до неё (создание — без «было»).
+						'changes'          => isset( $current ) ? array_filter(
+							array(
+								'scheduled_at_utc' => array( $current->scheduledAt, $startUtc ),
+								'room_id'          => array( $current->roomId, $roomId ),
+								'assessment_id'    => array( $current->assessmentId, $assessmentId ),
+							),
+							static fn ( array $pair ): bool => (string) $pair[0] !== (string) $pair[1]
+						) : array(),
+					)
 				),
 			)
 		);
@@ -323,7 +334,7 @@ class ExamEventService {
 			}
 		);
 
-		ExamLogAction::SessionDeleted->record( array( 'event_id' => $session->eventId, 'session_id' => $session->id, 'actor' => $actorUserId ) );
+		ExamLogAction::SessionDeleted->record( array( 'event_id' => $session->eventId, 'session_id' => $session->id, 'actor' => $actorUserId, 'context' => array( 'scheduled_at_utc' => $session->scheduledAt, 'room_id' => $session->roomId ) ) );
 	}
 
 	/**

@@ -200,6 +200,11 @@ class LessonPlayerService {
 			$isOver
 		);
 
+		// Запись не прикрепилась: преподавателю — список подходящих записей (даёт модуль через фильтр; без модуля null).
+		if ( $isTeacher && $isOver && '' === $render['video_url'] && '' === $render['record_link'] ) {
+			$render['recording_picker'] = apply_filters( 'fs_lms_recording_candidates', null, $groupLesson );
+		}
+
 		$hasContent = $isOver
 			? ( '' !== $render['video_url'] || '' !== $render['record_link'] )
 			: '' !== $render['stream_url'];

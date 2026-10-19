@@ -6,6 +6,7 @@ namespace Inc\Services\Security;
 
 use Inc\DTO\Log\LoginDiagnosticsDTO;
 use Inc\DTO\Person\LoginAttemptDTO;
+use Inc\Enums\Auth\CaptchaFailure;
 use Inc\Enums\Auth\LoginFailReason;
 use Inc\Managers\Person\UserManager;
 use WP_Error;
@@ -72,6 +73,7 @@ readonly class LoginDiagnosticsService {
 			'error_code'        => $code,
 			'form'              => $attempt->fromSignInPage ? 'sign_in' : 'wp_login',
 			'captcha_token'     => '' !== $attempt->captchaToken,
+			'captcha_unavailable' => $attempt->captchaUnavailable,
 			'account'           => $foundBy,
 			'password_length'   => mb_strlen( $password ),
 			'password_cyrillic' => $this->hasCyrillic( $password ),
@@ -91,9 +93,7 @@ readonly class LoginDiagnosticsService {
 
 	private function reason( string $code, LoginAttemptDTO $attempt, ?WP_User $user, string $rawLogin, string $password ): LoginFailReason {
 		return match ( $code ) {
-			LoginGuardService::CODE_CAPTCHA => '' === $attempt->captchaToken
-				? LoginFailReason::CaptchaMissing
-				: LoginFailReason::CaptchaRejected,
+			LoginGuardService::CODE_CAPTCHA => $this->captchaReason( $attempt ),
 			LoginGuardService::CODE_LOCKED  => LoginFailReason::Locked,
 			'invalid_username', 'invalid_email' => $this->hasCyrillic( $rawLogin )
 				&& null !== $this->findUser( $this->toLatinLayout( $rawLogin ) )[0]
@@ -104,6 +104,22 @@ readonly class LoginDiagnosticsService {
 				: LoginFailReason::WrongPassword,
 			default => LoginFailReason::Other,
 		};
+	}
+
+	/**
+	 * Почему отклонена капча: токен был и не прошёл, браузер назвал причину, по которой токена нет, или не сказал ничего.
+	 */
+	private function captchaReason( LoginAttemptDTO $attempt ): LoginFailReason {
+		if ( '' !== $attempt->captchaToken ) {
+			return LoginFailReason::CaptchaRejected;
+		}
+
+		$failure = CaptchaFailure::tryFrom( $attempt->captchaUnavailable );
+		if ( null === $failure ) {
+			return LoginFailReason::CaptchaMissing;
+		}
+
+		return $failure->allowsFallback() ? LoginFailReason::CaptchaFallbackLimit : LoginFailReason::CaptchaDismissed;
 	}
 
 	private function nearMissReason( WP_User $user, string $password ): LoginFailReason {

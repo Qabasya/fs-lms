@@ -98,6 +98,26 @@ $bc_teacher  = ! empty( $is_teacher ) && empty( $is_preview );
 			<p class="step-muted"><?php esc_html_e( 'Ссылку на запись добавляет преподаватель в группе после занятия — в предпросмотре её нет.', 'fs-lms' ); ?></p>
 		<?php endif; ?>
 
+		<?php $bc_picker = is_array( $render['recording_picker'] ?? null ) ? $render['recording_picker'] : array(); ?>
+		<?php if ( $bc_teacher && '' === $video_url && '' === $bc_link && ! empty( $bc_picker ) ) : ?>
+			<form class="bc-rec" data-recording-pick data-group-lesson-id="<?php echo esc_attr( (string) ( $view['group_lesson_id'] ?? 0 ) ); ?>" data-action="<?php echo esc_attr( (string) $bc_picker['action'] ); ?>" data-nonce="<?php echo esc_attr( (string) $bc_picker['nonce'] ); ?>">
+				<label class="bc-rec-label" for="bcRecPick-<?php echo esc_attr( $step['key'] ); ?>"><?php esc_html_e( 'Или выберите загруженную запись, которая подходит этому занятию', 'fs-lms' ); ?></label>
+				<?php if ( empty( $bc_picker['candidates'] ) ) : ?>
+					<p class="step-muted"><?php esc_html_e( 'Подходящих записей пока нет — они появляются после загрузки в видеохранилище.', 'fs-lms' ); ?></p>
+				<?php else : ?>
+					<div class="bc-rec-row">
+						<select class="bc-rec-input" id="bcRecPick-<?php echo esc_attr( $step['key'] ); ?>" name="recording_id">
+							<option value=""><?php esc_html_e( 'Выберите запись…', 'fs-lms' ); ?></option>
+							<?php foreach ( $bc_picker['candidates'] as $bc_candidate ) : ?>
+								<option value="<?php echo esc_attr( (string) $bc_candidate['id'] ); ?>"><?php echo esc_html( (string) $bc_candidate['label'] ); ?></option>
+							<?php endforeach; ?>
+						</select>
+						<button type="submit" class="b b-pri"><?php esc_html_e( 'Привязать', 'fs-lms' ); ?></button>
+					</div>
+				<?php endif; ?>
+			</form>
+		<?php endif; ?>
+
 		<?php if ( $bc_teacher && '' === $video_url ) : ?>
 			<form class="bc-rec" data-recording-form data-group-lesson-id="<?php echo esc_attr( (string) ( $view['group_lesson_id'] ?? 0 ) ); ?>">
 				<label class="bc-rec-label" for="bcRecLink-<?php echo esc_attr( $step['key'] ); ?>"><?php esc_html_e( 'Ссылка на запись занятия (видна ученикам после занятия)', 'fs-lms' ); ?></label>

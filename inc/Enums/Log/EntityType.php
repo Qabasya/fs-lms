@@ -19,6 +19,7 @@ enum EntityType: string {
 	case Boilerplate    = 'boilerplate';
 	case Task           = 'task';
 	case Article        = 'article';
+	case Problem        = 'problem';
 	case Group          = 'group';
 	case Period         = 'period';
 	case Student        = 'student';
@@ -41,6 +42,7 @@ enum EntityType: string {
 			self::Boilerplate    => 'Типовое условие',
 			self::Task           => 'Задание',
 			self::Article        => 'Статья',
+			self::Problem        => 'Задача банка',
 			self::Group          => 'Группа',
 			self::Period         => 'Учебный период',
 			self::Student        => 'Ученик',

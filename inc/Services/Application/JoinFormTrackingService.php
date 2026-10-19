@@ -14,6 +14,7 @@ use Inc\Enums\Log\AuditAction;
 use Inc\Enums\Log\LogEvent;
 use Inc\Repositories\WPDBRepositories\ApplicationRepository;
 use Inc\Services\Security\VisitorClassifier;
+use Inc\Shared\Traits\FormTrackingText;
 
 /**
  * Class JoinFormTrackingService
@@ -35,6 +36,8 @@ use Inc\Services\Security\VisitorClassifier;
  * и текст ошибки, который увидел родитель.
  */
 readonly class JoinFormTrackingService {
+
+	use FormTrackingText;
 
 	private const MESSAGE_MAX = 200;
 
@@ -122,24 +125,9 @@ readonly class JoinFormTrackingService {
 	}
 
 	private function filled( JoinTrackInputDTO $input ): string {
-		return $input->total > 0
-			? sprintf( 'заполнено %d из %d полей', $input->filled, $input->total )
-			: sprintf( 'заполнено полей: %d', $input->filled );
+		return $this->filledText( $input->filled, $input->total );
 	}
 
-	private function duration( int $seconds ): string {
-		$seconds = max( 0, $seconds );
-
-		if ( $seconds < MINUTE_IN_SECONDS ) {
-			return $seconds . ' с';
-		}
-
-		$minutes = intdiv( $seconds, MINUTE_IN_SECONDS );
-
-		return $minutes < 60
-			? sprintf( '%d мин %d с', $minutes, $seconds % MINUTE_IN_SECONDS )
-			: sprintf( '%d ч %d мин', intdiv( $minutes, 60 ), $minutes % 60 );
-	}
 
 	private function dispatch( AuditAction $action, int $applicationId, string $visit, string $note ): void {
 		$this->logEvents->dispatch(

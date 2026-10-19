@@ -78,6 +78,7 @@ class GuestApplicationCallbacksTest extends TestCase {
 
 		$this->guard->method( 'honeypotField' )->willReturn( 'fs_company' );
 		$this->guard->method( 'isHuman' )->willReturnCallback( static fn ( string $hp ): bool => '' === $hp );
+		$this->guard->method( 'rejectionReason' )->willReturnCallback( static fn ( string $hp ): ?string => '' === $hp ? null : 'honeypot_filled' );
 		$this->woo->method( 'cartUrl' )->willReturn( 'https://example.test/cart/' );
 
 		$this->access = new GuestPageAccessService( $this->tokens, $this->sessions, $this->sources, $this->rate, $this->adapter, $this->woo, $this->appRepo, $time, $this->formLog,
@@ -86,7 +87,8 @@ class GuestApplicationCallbacksTest extends TestCase {
 				$this->createMock( \Inc\Repositories\WPDBRepositories\ExamReportRepository::class ), $this->createMock( \Inc\Services\Exam\ExamReportService::class ),
 				$this->createMock( \Inc\Services\Exam\GuestPublicSignupService::class ),
 			);
-		$this->cb = new GuestApplicationCallbacks( $this->applications, $this->adapter, $this->holds, $this->guard, $this->woo, $time, $this->createMock( GuestOrderStatusService::class ), $this->createMock( ExamPaymentReconciler::class ), $this->formLog, $this->access );
+		$this->cb = new GuestApplicationCallbacks( $this->applications, $this->adapter, $this->holds, $this->guard, $this->woo, $time, $this->createMock( GuestOrderStatusService::class ), $this->createMock( ExamPaymentReconciler::class ), $this->formLog, $this->access, $this->rate );
+		$this->rate->method( 'allowExamFormTrack' )->willReturn( true );
 	}
 
 	protected function tearDown(): void {
@@ -422,12 +424,41 @@ class GuestApplicationCallbacksTest extends TestCase {
 		fs_test_capture_json( fn() => $this->cb->ajaxSubmitExamGuestApplication() );
 	}
 
-	public function test_guard_rejection_is_logged_as_invalid(): void {
+	public function test_guard_rejection_is_logged_with_reason(): void {
 		$this->givenValidCookie();
-		$this->post( array( 'fs_company' => 'spam' ) );
-		$this->formLog->expects( self::once() )->method( 'invalid' );
+		$this->post( array( 'fs_company' => 'spam', 'visit' => 'abc123' ) );
+		$this->formLog->expects( self::once() )->method( 'guardRejected' )->with( self::anything(), 'honeypot_filled', 'abc123' );
+
+		$r = fs_test_capture_json( fn() => $this->cb->ajaxSubmitExamGuestApplication() );
+
+		self::assertFalse( $r->success );
+		self::assertSame( 'X-REPLAY', $r->payload['code'] ?? null );
+	}
+
+	public function test_bad_request_key_is_logged_with_reason(): void {
+		$this->givenValidCookie();
+		$this->post( array( 'request_key' => 'x' ) );
+		$this->formLog->expects( self::once() )->method( 'guardRejected' )->with( self::anything(), 'bad_request_key' );
 
 		fs_test_capture_json( fn() => $this->cb->ajaxSubmitExamGuestApplication() );
+	}
+
+	public function test_browser_event_is_tracked_for_current_source(): void {
+		$this->givenValidCookie();
+		$this->post( array( 'event' => 'left', 'visit' => 'abc123', 'filled' => '3', 'total' => '8', 'seconds' => '40', 'submits' => '1', 'fields' => array( 'phone' ) ) );
+		$this->formLog->expects( self::once() )->method( 'track' )->with(
+			self::anything(),
+			self::callback( static fn ( \Inc\DTO\Exam\ExamFormTrackInputDTO $i ): bool => \Inc\Enums\Exam\ExamFormEvent::Left === $i->event && 3 === $i->filled && 8 === $i->total && array( 'phone' ) === $i->fields )
+		);
+
+		self::assertTrue( fs_test_capture_json( fn() => $this->cb->ajaxTrackExamSignupForm() )->success );
+	}
+
+	public function test_browser_event_without_invitation_cookie_is_dropped(): void {
+		$this->post( array( 'event' => 'started' ) );
+		$this->formLog->expects( self::never() )->method( 'track' );
+
+		self::assertTrue( fs_test_capture_json( fn() => $this->cb->ajaxTrackExamSignupForm() )->success );
 	}
 
 	public function test_limit_is_logged(): void {

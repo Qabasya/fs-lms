@@ -14,6 +14,7 @@ import { initStepVideo } from './step-video.js';
 import { initStepBroadcast } from './step-broadcast.js';
 import { initLessonCountdown } from '../frontend/components/lesson-countdown.js';
 import { initCodeBlocks } from '../frontend/components/code-block.js';
+import { initScrollTop } from '../frontend/components/scroll-top.js';
 import { installNonceRefresh } from '../common/nonce-refresh.js';
 
 // До любых запросов бандла: устаревший nonce обновляется и запрос повторяется сам.
@@ -21,6 +22,7 @@ installNonceRefresh();
 
 document.addEventListener( 'DOMContentLoaded', () => {
 	initShell();
+	initScrollTop();
 
 	// #3b: экран блокировки урока — плеер без реальных шагов (контент размыт +
 	// оверлей). Инициализируем только сайдбар и таймер обратного отсчёта.

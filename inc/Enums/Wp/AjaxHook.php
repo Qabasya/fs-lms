@@ -402,6 +402,7 @@ enum AjaxHook: string {
 	case GetExamStats           = 'get_exam_stats';           // params: subject_key, event_id?, session_id?, audience? (student|guest|all); ответ: filters, format, kpi, tasks
 	// ==== Экзамены: гость (публичные, nonce ExamGuest, 11a) ====
 	case SubmitExamGuestApplication = 'submit_exam_guest_application'; // params: поля формы, session_id, consents[], request_key, honeypot, form_token; ответ: redirect, hold_expires_at, seconds_left
+	case TrackExamSignupForm        = 'track_exam_signup_form';        // публичный (nonce ExamGuest): visit, event (started|invalid|submit_failed|left), fields[], filled, total, seconds, submits, message; всегда success
 	case CheckExamApplicationStatus = 'check_exam_application_status'; // params: order_id, key; ответ: статус записи (только владельцу заказа)
 	case GetExamSources         = 'get_exam_sources';         // params: event_id; ответ: источники без ключей и хешей
 	case SaveExamSource         = 'save_exam_source';         // params: event_id, source_id?, school_name, teacher_name, grade, version?

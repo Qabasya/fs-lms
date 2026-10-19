@@ -6,6 +6,9 @@ namespace Inc\Modules\VideoLibrary\Controllers;
 
 use Inc\Modules\VideoLibrary\Callbacks\VideoLibraryCallbacks;
 use Inc\Modules\VideoLibrary\Config\VideoLibraryConfig;
+use Inc\DTO\Course\GroupLessonDTO;
+use Inc\Enums\Wp\Nonce;
+use Inc\Modules\VideoLibrary\Services\RecordingAlertService;
 use Inc\Modules\VideoLibrary\Services\S3UrlSigner;
 
 /**
@@ -30,10 +33,14 @@ class VideoLibraryController {
 	public const PENDING_ACTION = 'fs_lms_video_pending';
 	public const SET_URL_ACTION = 'fs_lms_video_set_url';
 
+	/** Привязка записи преподавателем из шага «Трансляция» плеера. */
+	public const TEACHER_ATTACH_ACTION = 'fs_lms_video_teacher_attach';
+
 	public function __construct(
 		private readonly VideoLibraryCallbacks $callbacks,
 		private readonly S3UrlSigner           $signer,
 		private readonly VideoLibraryConfig    $config,
+		private readonly RecordingAlertService $alerts,
 	) {}
 
 	public function register(): void {
@@ -43,11 +50,42 @@ class VideoLibraryController {
 		add_action( 'wp_ajax_' . self::PENDING_ACTION, array( $this->callbacks, 'ajaxPendingRecordings' ) );
 		add_action( 'wp_ajax_' . self::SET_URL_ACTION, array( $this->callbacks, 'ajaxSetLessonRecordingUrl' ) );
 
+		add_action( 'wp_ajax_' . self::TEACHER_ATTACH_ACTION, array( $this->callbacks, 'ajaxTeacherAttach' ) );
+		// Шов для плеера: ядро спрашивает, какие записи можно привязать занятию, и о модуле не знает.
+		add_filter( 'fs_lms_recording_candidates', array( $this, 'filterRecordingCandidates' ), 10, 2 );
+
 		// Без S3-ключей указатель s3://… не подписать — фильтр не регистрируем,
 		// guard в StepContentRenderer скроет запись из плеера.
 		if ( $this->config->s3Ready() ) {
 			add_filter( 'fs_lms_recording_url', array( $this, 'filterRecordingUrl' ), 10, 2 );
 		}
+	}
+
+	/**
+	 * Подходящие занятию непривязанные записи для выбора преподавателем в шаге «Трансляция».
+	 *
+	 * @param mixed $picker Прежнее значение фильтра (null — модуль не отвечал)
+	 *
+	 * @return array{candidates: array<int, array{id: int, label: string}>, action: string, nonce: string}|null
+	 */
+	public function filterRecordingCandidates( mixed $picker, mixed $groupLesson = null ): mixed {
+		if ( ! $groupLesson instanceof GroupLessonDTO ) {
+			return $picker;
+		}
+
+		$candidates = array();
+		foreach ( $this->alerts->candidatesFor( $groupLesson ) as $recording ) {
+			$candidates[] = array(
+				'id'    => $recording->id,
+				'label' => trim( (string) $recording->recordedAt . ' · ' . basename( $recording->s3Key ) ),
+			);
+		}
+
+		return array(
+			'candidates' => $candidates,
+			'action'     => self::TEACHER_ATTACH_ACTION,
+			'nonce'      => Nonce::SaveSchedule->create(),
+		);
 	}
 
 	/**

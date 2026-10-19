@@ -250,7 +250,7 @@ $next_url    = null !== $next_lesson
 				<div class="lesson-end" id="fsLessonEnd" hidden>
 					<div class="le-t"><?php esc_html_e( 'Это последний шаг урока', 'fs-lms' ); ?></div>
 					<div class="le-actions">
-						<a class="b" href="<?php echo esc_url( $back_url ); ?>">
+						<a class="b b-pri" href="<?php echo esc_url( $back_url ); ?>">
 							<?php echo Icon::Back->svg(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
 							<?php esc_html_e( 'Вернуться к курсу', 'fs-lms' ); ?>
 						</a>
@@ -324,6 +324,11 @@ $next_url    = null !== $next_lesson
 	</div>
 
 </div>
+
+<?php // Кнопка «наверх» — показывает и прячет frontend/components/scroll-top.js (страница прокручивается окном). ?>
+<button type="button" class="fs-to-top js-to-top" aria-label="<?php esc_attr_e( 'Наверх', 'fs-lms' ); ?>" hidden>
+	<?php echo Icon::ChevronDown->svg( 18 ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+</button>
 
 <div class="toast" id="fsToast">
 	<?php echo Icon::Check->svg(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>

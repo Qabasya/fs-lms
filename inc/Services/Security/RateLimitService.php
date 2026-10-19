@@ -73,6 +73,7 @@ readonly class RateLimitService {
 	/** События формы родителя (журнал «Зачисления»): на визит их единицы, лимит — от засева. */
 	private const LIMIT_JOIN_TRACK     = 60;
 	private const LIMIT_APPLY_TRACK    = 60;
+	private const LIMIT_EXAM_FORM_TRACK = 60;
 
 	// Пропуск формы без капчи, когда она не дошла до браузера (VPN, блокировщик). Лимит по IP
 	// на час: без капчи защита держится на нём, поэтому он тесный. Заявка — до 8 попыток
@@ -264,6 +265,11 @@ readonly class RateLimitService {
 	 */
 	public function allowExamFormOpenLog( string $ip, int $sourceId ): bool {
 		return $this->check( $this->ipKey( 'examformopen' . $sourceId, $ip ), 1, 10 * MINUTE_IN_SECONDS );
+	}
+
+	/** События гостевой формы записи на экзамен от браузера (начал, ошибка, ушёл): 60 в час с адреса. */
+	public function allowExamFormTrack( string $ip ): bool {
+		return $this->checkIp( 'examformtrack', $ip, self::LIMIT_EXAM_FORM_TRACK );
 	}
 
 	/** Хеш IP для хранения в таблице заявок (сырой IP в базу не пишется): тот же алгоритм, что у ключей счётчиков. */
