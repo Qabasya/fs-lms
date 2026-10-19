@@ -89,7 +89,7 @@ class GuestSignupViewService {
 			return $base;
 		}
 
-		$sessions = $this->sessionCards( $event, $nowUtc );
+		$sessions = $this->sessionCards( $event, $nowUtc, $source );
 		// Бесплатная ссылка преподавателя: цены и товара магазина не требует; частичная скидка — цена товара со скидкой.
 		$price    = $source->isFree() ? array( 'html' => 'Бесплатно', 'amount' => '0' ) : $this->price( $source->grade, $source->effectiveDiscount() );
 		$base     = array_merge(
@@ -143,10 +143,10 @@ class GuestSignupViewService {
 	 *
 	 * @return list<array<string, mixed>>
 	 */
-	private function sessionCards( ExamEventDTO $event, string $nowUtc ): array {
+	private function sessionCards( ExamEventDTO $event, string $nowUtc, ExamSourceDTO $source ): array {
 		$cards = array();
 		foreach ( $this->sessions->findByEvent( $event->id ) as $session ) {
-			if ( ExamSessionStatus::Open->value !== $session->status || $session->scheduledAt <= $nowUtc ) {
+			if ( ExamSessionStatus::Open->value !== $session->status || $session->scheduledAt <= $nowUtc || ! $source->allowsSession( $session->id ) ) {
 				continue;
 			}
 			$cards[] = $this->card( $session );

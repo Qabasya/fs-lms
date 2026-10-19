@@ -137,6 +137,10 @@ class ExamEventService {
 					if ( $day < $fields['period_from'] || $day > $fields['period_to'] ) {
 						throw new CodedException( ErrorCode::ExamInput, 'Есть сеансы вне нового периода проведения.' );
 					}
+					// Сеанс только для гостей без записи гостей — запись на него невозможна: сначала покажите его ученикам.
+					if ( 0 === (int) $fields['guest_registration_enabled'] && ! $session->visibleToStudents ) {
+						throw new CodedException( ErrorCode::ExamInput, 'Есть сеансы только для гостей: включите их показ ученикам или оставьте запись гостей по ссылкам школ.' );
+					}
 				}
 
 				if ( ! $this->events->update( $eventId, $fields, $expectedVersion ) ) {
@@ -155,7 +159,7 @@ class ExamEventService {
 	/**
 	 * Создаёт или правит сеанс. Конец и вместимость во входе нет: конец — начало плюс длительность формата, вместимость — места кабинета.
 	 *
-	 * @param array<string, mixed> $input `date` (`Y-m-d`), `time` (`H:i`) — местные; `assessment_id`; `room_id`.
+	 * @param array<string, mixed> $input `date` (`Y-m-d`), `time` (`H:i`) — местные; `assessment_id`; `room_id`; `visible_to_students?` (false — сеанс только для гостей; не прислан — не меняется, у нового — виден).
 	 * @param ?int                 $sessionId       null — новый сеанс.
 	 * @param ?int                 $expectedVersion Версия сеанса из формы (для правки обязательна).
 	 *
@@ -187,6 +191,11 @@ class ExamEventService {
 		if ( $roomId <= 0 ) {
 			throw new CodedException( ErrorCode::ExamRoom, 'Выберите кабинет.' );
 		}
+		// Скрыть сеанс от учеников можно, только если на него есть кому записываться: гости по ссылкам школ включены.
+		$visible = array_key_exists( 'visible_to_students', $input ) ? (bool) $input['visible_to_students'] : null;
+		if ( false === $visible && ! $early->guestRegistrationEnabled ) {
+			throw new CodedException( ErrorCode::ExamInput, 'Чтобы скрыть сеанс от учеников, включите запись гостей по ссылкам школ в настройках проведения.' );
+		}
 
 		$this->variants->assert( $assessmentId, $early->subjectKey );
 		$assessment = $this->assessments->get( $assessmentId );
@@ -199,7 +208,7 @@ class ExamEventService {
 		$endUtc   = $this->time->addMinutes( $startUtc, $format->durationMinutes );
 
 		$saved = $this->inTransactionWithRetry(
-			function () use ( $eventId, $sessionId, $expectedVersion, $assessmentId, $roomId, $startUtc, $endUtc ): ExamSessionDTO {
+			function () use ( $eventId, $sessionId, $expectedVersion, $assessmentId, $roomId, $startUtc, $endUtc, $visible ): ExamSessionDTO {
 				$event = $this->lockEvent( $eventId );
 				$this->assertEditable( $event );
 
@@ -226,6 +235,9 @@ class ExamEventService {
 					'capacity'            => $room->seats,
 					'responsible_user_id' => $event->ownerUserId,
 				);
+				if ( null !== $visible ) {
+					$fields['visible_to_students'] = $visible ? 1 : 0;
+				}
 
 				if ( null === $current ) {
 					$now = $this->time->nowUtc();
@@ -274,6 +286,7 @@ class ExamEventService {
 								'scheduled_at_utc' => array( $current->scheduledAt, $startUtc ),
 								'room_id'          => array( $current->roomId, $roomId ),
 								'assessment_id'    => array( $current->assessmentId, $assessmentId ),
+								'visible_to_students' => array( (int) $current->visibleToStudents, null === $visible ? (int) $current->visibleToStudents : (int) $visible ),
 							),
 							static fn ( array $pair ): bool => (string) $pair[0] !== (string) $pair[1]
 						) : array(),

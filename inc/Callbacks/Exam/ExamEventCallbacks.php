@@ -91,6 +91,10 @@ class ExamEventCallbacks extends BaseController {
 			'assessment_id' => $this->sanitizeInt( 'assessment_id' ),
 			'room_id'       => $this->sanitizeInt( 'room_id' ),
 		);
+		// Показ ученикам: не прислан — не меняется (новый сеанс — виден).
+		if ( $this->hasParam( 'visible_to_students' ) ) {
+			$input['visible_to_students'] = $this->sanitizeBool( 'visible_to_students' );
+		}
 
 		$this->run(
 			fn (): array => array(

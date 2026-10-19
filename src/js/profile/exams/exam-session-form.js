@@ -2,8 +2,10 @@
    Форма сеанса экзамена (этап 4.3): одна форма для кнопки «+ Сеанс», для перетаскивания варианта на день и для правки.
    Поповер `prof-grade-pop` + `gp-form` — как у индивидуального занятия (indi-modal.js).
 
-   Поля: дата, время начала, вариант, кабинет. Окончание, число мест и ответственный — только текст: окончание считается
-   из длительности формата варианта, места берутся из кабинета, ответственный — владелец проведения (поля ввода нет).
+   Поля: дата, время начала, вариант, кабинет. Окончание считается из длительности формата варианта и показывается рядом с временем начала.
+   Число мест берётся из кабинета, ответственный — владелец проведения: ни того, ни другого в форме нет (сервер подставляет сам).
+   «Отображать у учеников» (по умолчанию да): выключено — сеанс видят и записываются на него только гости; выключить можно, лишь когда
+   в проведении включена запись гостей по ссылкам школ (иначе флажок заблокирован).
    Ошибка сервера показывается внутри формы, введённое не теряется.
 
    Вызов: openSessionForm({ api, anchor, event, variants, rooms, fixed:{date?, assessmentId?}, edit?, onSaved }).
@@ -57,6 +59,8 @@ export function openSessionForm(o) {
     const initRoom = edit ? edit.room_id : (rooms.length === 1 ? rooms[0].id : '');
     const dateFixed = !!fixed.date && !edit;
     const lockAttr = locked ? ' disabled' : '';
+    const guestsOn = !!event.guest_registration_enabled;
+    const initVisible = edit ? edit.visible_to_students !== false : true;
 
     pop.innerHTML = `
         <div class="gp-form gp-indi gp-exam">
@@ -66,13 +70,11 @@ export function openSessionForm(o) {
         ${dateFixed
             ? `<div class="gp-field"><span>Дата</span><b class="gp-fixed">${esc(fmtDate(initDate))}</b><input type="hidden" id="esDate" value="${esc(initDate)}"></div>`
             : `<label class="gp-field"><span>Дата</span><input type="date" id="esDate" value="${esc(initDate)}" min="${esc(event.period_from)}" max="${esc(event.period_to)}"${lockAttr}></label>`}
-        <label class="gp-field"><span>Время начала</span><input type="time" id="esTime" value="${esc(initTime)}"${lockAttr}></label>
-        <div class="gp-field"><span>Окончание</span><b class="gp-fixed" id="esEnd"></b></div>
+        <div class="gp-field"><span>Время</span><div class="gp-time"><input type="time" id="esTime" value="${esc(initTime)}" aria-label="Время начала"${lockAttr}><span class="gp-dash">–</span><b class="gp-fixed" id="esEnd" title="Окончание: по длительности варианта"></b></div></div>
         <label class="gp-field"><span>Вариант</span><select id="esVariant"${lockAttr}>${variantOptions(variants, initVariant)}</select></label>
-        <div class="gp-warn" id="esPublicWarn" hidden>Этот вариант доступен свободно вместе с решениями.</div>
         <label class="gp-field"><span>Кабинет</span><select id="esRoom"${lockAttr}>${roomOptions(rooms, initRoom, edit)}</select></label>
-        <div class="gp-field"><span>Мест</span><b class="gp-fixed" id="esSeats"></b></div>
-        <div class="gp-field"><span>Ответственный</span><b class="gp-fixed">${esc(event.owner_name || '—')}</b></div>
+        <label class="gp-field"><span>Отображать у учеников</span><input type="checkbox" id="esVisible" ${initVisible || !guestsOn ? 'checked' : ''}${locked || !guestsOn ? ' disabled' : ''}></label>
+        ${guestsOn ? '' : '<div class="gp-hint">Скрыть сеанс от учеников можно, когда в настройках проведения включена запись гостей по ссылкам школ.</div>'}
         <div class="gp-error" id="esError" role="alert" hidden></div>
         <div class="gp-row">
             ${frozen ? '' : `<button type="button" class="prof-btn prof-btn-sm prof-btn-primary" data-es="save">${edit ? 'Сохранить' : 'Добавить'}</button>`}
@@ -87,15 +89,9 @@ export function openSessionForm(o) {
         const v = variants.find(x => String(x.id) === $('#esVariant').value);
         return v ? Number(v.duration_minutes) : NaN;
     };
-    const roomSeats = () => {
-        const r = rooms.find(x => String(x.id) === $('#esRoom').value);
-        return r ? r.seats : (edit && String($('#esRoom').value) === String(edit.room_id) ? edit.capacity : '—');
-    };
     const refreshDerived = () => {
-        $('#esPublicWarn').hidden = !(variants.find(x => String(x.id) === $('#esVariant').value)?.public);
         const end = endTime($('#esTime').value, durationOf());
-        $('#esEnd').textContent = end ? `до ${end}` : '—';
-        $('#esSeats').textContent = String(roomSeats());
+        $('#esEnd').textContent = end || '—';
     };
     const showError = (text, withRefresh = false) => {
         const box = $('#esError');
@@ -130,6 +126,7 @@ export function openSessionForm(o) {
                 time: $('#esTime').value,
                 assessment_id: $('#esVariant').value,
                 room_id: $('#esRoom').value,
+                visible_to_students: $('#esVisible').checked ? 1 : 0,
             };
             if (!params.date || !params.time) { showError('Укажите дату и время начала.'); return; }
             if (!params.assessment_id) { showError('Выберите вариант.'); return; }

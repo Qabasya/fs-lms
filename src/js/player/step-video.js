@@ -1,6 +1,6 @@
 /**
  * Видео-шаг (D21, T14.12): кастомный хром нативного <video> для прямых URL —
- * play/pause, ±10 сек, ±5 сек (стрелки ←/→ и двойной тап по краям экрана), ползунок, время, fullscreen; главы-чипы = перемотка
+ * play/pause, ±10 сек, ±5 сек (стрелки ←/→ и двойной тап по краям экрана), громкость ↑/↓, Пробел/F/M, ползунок, время, fullscreen; главы-чипы = перемотка
  * (только нативный режим). По окончании ролика шаг отмечается пройденным.
  * Тот же хром переиспользует шаг-трансляция (broadcast, Этап 1), когда у
  * занятия уже есть запись — see partials/video-chrome.php.
@@ -10,6 +10,7 @@ import { getCore, onPanelShow } from './core.js';
 const mounted = new WeakSet();
 const CHROME_TYPES = [ 'video', 'broadcast' ];
 const SKIP_SECONDS = 5;
+const VOLUME_STEP = 0.05;
 const DOUBLE_TAP_MS = 300;
 const SKIP_HINT_MS = 700;
 /** Доля ширины с каждого края, где двойной тап перематывает; середина остаётся «плей/пауза». */
@@ -72,13 +73,51 @@ function mountChrome( panel, root ) {
 		hintTimer = window.setTimeout( () => { skipHint.hidden = true; }, SKIP_HINT_MS );
 	};
 
-	// Клавиатура: ←/→ — на 5 секунд, пока этот шаг на экране и фокус не в поле/ползунке.
+	// Подсказка по центру кадра: громкость и звук.
+	const showHint = ( text, side ) => {
+		if ( ! skipHint ) { return; }
+		skipHint.dataset.side = side;
+		skipHint.textContent = text;
+		skipHint.hidden = false;
+		window.clearTimeout( hintTimer );
+		hintTimer = window.setTimeout( () => { skipHint.hidden = true; }, SKIP_HINT_MS );
+	};
+	const volumeBy = ( delta ) => {
+		const next = Math.min( 1, Math.max( 0, Math.round( ( ( video.muted ? 0 : video.volume ) + delta ) * 100 ) / 100 ) );
+		video.volume = next;
+		video.muted = 0 === next;
+		showHint( `Громкость ${ Math.round( next * 100 ) }%`, 'center' );
+	};
+	const toggleMute = () => {
+		video.muted = ! video.muted;
+		showHint( video.muted ? 'Звук выключен' : `Громкость ${ Math.round( video.volume * 100 ) }%`, 'center' );
+	};
+	const toggleFullscreen = () => {
+		if ( document.fullscreenElement ) {
+			document.exitFullscreen();
+		} else {
+			( root.requestFullscreen || video.requestFullscreen )?.call( root );
+		}
+	};
+
+	// Клавиатура, пока этот шаг на экране и фокус не в поле/кнопке: ←/→ — ∓5 с, ↑/↓ — громкость ±5%,
+	// Пробел — плей/пауза, F — во весь экран, M — звук. Листание шагов стрелками на видео отключено (core.js).
 	document.addEventListener( 'keydown', ( e ) => {
-		if ( ! [ 'ArrowLeft', 'ArrowRight' ].includes( e.key ) || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey ) { return; }
+		if ( e.altKey || e.ctrlKey || e.metaKey || e.shiftKey ) { return; }
+		const key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+		if ( ! [ 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', ' ', 'f', 'а', 'm', 'ь' ].includes( key ) ) { return; }
 		if ( ! root.isConnected || ! root.offsetParent || e.defaultPrevented ) { return; }
+		if ( document.querySelector( '.cp-dim' ) ) { return; }
 		if ( e.target.closest?.( 'input, select, textarea, [contenteditable="true"]' ) ) { return; }
+		if ( ' ' === key && e.target.closest?.( 'button, a' ) ) { return; } // Пробел на кнопке — её нажатие
 		e.preventDefault();
-		seekBy( 'ArrowLeft' === e.key ? -SKIP_SECONDS : SKIP_SECONDS );
+		if ( 'ArrowLeft' === key ) { seekBy( -SKIP_SECONDS ); }
+		else if ( 'ArrowRight' === key ) { seekBy( SKIP_SECONDS ); }
+		else if ( 'ArrowUp' === key ) { volumeBy( VOLUME_STEP ); }
+		else if ( 'ArrowDown' === key ) { volumeBy( -VOLUME_STEP ); }
+		else if ( ' ' === key ) { toggle(); }
+		else if ( 'f' === key || 'а' === key ) { toggleFullscreen(); }
+		else { toggleMute(); }
 	} );
 
 	// Сенсорные экраны: двойной тап по левому/правому краю — ∓5 секунд, тап по середине и одиночный — плей/пауза.
@@ -143,13 +182,7 @@ function mountChrome( panel, root ) {
 		updateTime();
 	} );
 
-	root.querySelector( '[data-vp-fs]' )?.addEventListener( 'click', () => {
-		if ( document.fullscreenElement ) {
-			document.exitFullscreen();
-		} else {
-			( root.requestFullscreen || video.requestFullscreen )?.call( root );
-		}
-	} );
+	root.querySelector( '[data-vp-fs]' )?.addEventListener( 'click', toggleFullscreen );
 
 	// Главы-чипы: перемотка (рендерятся только в нативном режиме, D21).
 	panel.querySelectorAll( '[data-chap-t]' ).forEach( ( chip ) => {

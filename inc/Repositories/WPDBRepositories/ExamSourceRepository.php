@@ -111,6 +111,27 @@ class ExamSourceRepository extends AbstractExamRepository {
 		) > 0;
 	}
 
+	/**
+	 * Сколько участников с действующей записью пришло по каждому источнику проведения (отменённые записи не считаются).
+	 *
+	 * @return array<int, int> ID источника → число участников.
+	 */
+	public function countRegisteredByEvent( int $eventId ): array {
+		$rows = $this->readRows(
+			$this->wpdb->prepare(
+				'SELECT source_id, COUNT(*) AS cnt FROM %i WHERE event_id = %d AND source_id IS NOT NULL AND active_registration_id IS NOT NULL GROUP BY source_id',
+				TableName::ExamParticipations->prefixed(),
+				$eventId
+			)
+		);
+		$counts = array();
+		foreach ( $rows as $row ) {
+			$counts[ (int) $row['source_id'] ] = (int) $row['cnt'];
+		}
+
+		return $counts;
+	}
+
 	/** Время отзыва ключа: `null` снимает отметку (после перевыпуска). */
 	public function setKeyRevokedAt( int $id, ?string $atUtc ): void {
 		if ( null === $atUtc ) {

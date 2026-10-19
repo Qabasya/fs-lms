@@ -144,9 +144,11 @@ export function initCore() {
 	}
 
 	// Клавиатура ←/→ (не при фокусе в полях ввода и не под модалкой).
+	// На шаге с видео стрелки принадлежат плееру (step-video.js): перемотка и громкость, шаги не листаются.
 	document.addEventListener( 'keydown', ( e ) => {
 		const tag = ( e.target.tagName || '' ).toLowerCase();
 		if ( [ 'textarea', 'input', 'select' ].includes( tag ) || document.querySelector( '.cp-dim' ) ) { return; }
+		if ( e.defaultPrevented || panels[ active ]?.querySelector( '[data-video-root]' ) ) { return; }
 		if ( 'ArrowRight' === e.key ) { show( active + 1 ); }
 		if ( 'ArrowLeft' === e.key ) { show( active - 1 ); }
 	} );

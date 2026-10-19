@@ -223,7 +223,8 @@ class ExamNotificationComposer {
 			NotificationType::ExamStaffRegistration,
 			sprintf( 'exam:staff_registration:%d:%d', $row->aggregateId, $row->aggregateVersion ),
 			array( 'participant_name' => $this->names->participantName( $participant ) ) + $payload,
-			$this->staffUrl( 'exam-plan' ),
+			// Ведёт на «Проведение экзамена» (доска сеанса), где виден записавшийся.
+			null !== $session ? (string) add_query_arg( array( 'session' => $session->id ), $this->staffUrl( 'exam-conduct' ) ) : $this->staffUrl( 'exam-conduct' ),
 			null,
 			'exam_event',
 			$event->id

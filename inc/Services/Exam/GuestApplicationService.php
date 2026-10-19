@@ -219,7 +219,8 @@ class GuestApplicationService {
 		}
 
 		$session = $this->sessions->find( $fields['session_id'] );
-		if ( null === $session || $session->eventId !== $event->id ) {
+		// Сеанс должен быть из проведения и, если у ссылки школы задан список сеансов, входить в него (проверка сервера, а не формы).
+		if ( null === $session || $session->eventId !== $event->id || ( null === $staffUserId && ! $source->allowsSession( $session->id ) ) ) {
 			throw new GuestFormException( ErrorCode::ExamInput, 'Выберите дату и время.', 'session_id' );
 		}
 

@@ -444,6 +444,41 @@ class ExamEventServiceTest extends TestCase {
 		$this->assertRefusal( ErrorCode::ExamConflict, 'Кабинет занят в это время.', fn () => $this->service->saveSession( self::ACTOR, self::EVENT, $this->sessionInput(), null, null ) );
 	}
 
+	public function test_session_cannot_be_hidden_from_students_without_guest_registration(): void {
+		$this->sessions->expects( self::never() )->method( 'insert' );
+
+		$this->assertRefusal(
+			ErrorCode::ExamInput,
+			'Чтобы скрыть сеанс от учеников, включите запись гостей по ссылкам школ в настройках проведения.',
+			fn () => $this->service->saveSession( self::ACTOR, self::EVENT, $this->sessionInput( array( 'visible_to_students' => false ) ), null, null )
+		);
+	}
+
+	public function test_session_hidden_from_students_is_stored_when_guests_are_enabled(): void {
+		$this->event = $this->examEvent( array( 'guest_registration_enabled' => '1' ) );
+
+		$this->makeService()->saveSession( self::ACTOR, self::EVENT, $this->sessionInput( array( 'visible_to_students' => false ) ), null, null );
+
+		self::assertSame( 0, $this->sessionInserted['visible_to_students'] );
+	}
+
+	public function test_session_visibility_is_not_touched_when_not_sent(): void {
+		$this->service->saveSession( self::ACTOR, self::EVENT, $this->sessionInput(), null, null );
+
+		self::assertArrayNotHasKey( 'visible_to_students', $this->sessionInserted, 'Без поля колонка остаётся со значением по умолчанию (виден).' );
+	}
+
+	public function test_update_refuses_to_disable_guests_while_a_session_is_guests_only(): void {
+		$this->event       = $this->examEvent( array( 'guest_registration_enabled' => '1' ) );
+		$this->sessionList = array( $this->examSession( array( 'visible_to_students' => '0' ) ) );
+
+		$this->assertRefusal(
+			ErrorCode::ExamInput,
+			'Есть сеансы только для гостей: включите их показ ученикам или оставьте запись гостей по ссылкам школ.',
+			fn () => $this->makeService()->updateEvent( self::ACTOR, self::EVENT, $this->eventInput( array( 'guest_registration_enabled' => '0' ) ), 1 )
+		);
+	}
+
 	public function test_session_rejects_wrong_time_format(): void {
 		$this->assertRefusal( ErrorCode::ExamInput, 'Укажите время сеанса.', fn () => $this->service->saveSession( self::ACTOR, self::EVENT, $this->sessionInput( array( 'time' => '25:00' ) ), null, null ) );
 	}

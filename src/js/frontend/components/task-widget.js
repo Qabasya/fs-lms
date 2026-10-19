@@ -89,16 +89,18 @@ function buildTextAnswerWidget( container, isDone, withCode ) {
 	const fitText = autoGrow( textarea );
 
 	let codeArea = null;
+	let fitCode  = null;
 	if ( withCode ) {
 		const label = make( 'label', 'fs-widget-code-label' );
 		label.textContent = 'Код (необязательно)';
 		container.appendChild( label );
 
 		codeArea = make( 'textarea', 'fs-widget-code ansbox txt' );
-		codeArea.rows        = 8;
+		codeArea.rows        = 1;
 		codeArea.placeholder = 'Вставьте свой код…';
 		if ( isDone ) { codeArea.disabled = true; }
 		container.appendChild( codeArea );
+		fitCode = autoGrow( codeArea );
 	}
 
 	const inputs = codeArea ? [ textarea, codeArea ] : [ textarea ];
@@ -124,6 +126,7 @@ function buildTextAnswerWidget( container, isDone, withCode ) {
 					if ( codeArea ) { codeArea.value = ''; }
 				}
 				fitText();
+				if ( fitCode ) { fitCode(); }
 			},
 		}
 	);
@@ -134,12 +137,13 @@ function buildTextAnswerWidget( container, isDone, withCode ) {
 function buildCodeAnswerWidget( container, isDone ) {
 	// Без .txt: у .ansbox по умолчанию моноширинный шрифт — то, что нужно коду.
 	const codeArea = make( 'textarea', 'fs-widget-code fs-widget-code--answer ansbox' );
-	codeArea.rows        = 14;
+	codeArea.rows        = 1;
 	codeArea.placeholder = 'Вставьте код программы — его проверит преподаватель';
 	codeArea.spellcheck  = false;
 	codeArea.setAttribute( 'aria-label', 'Код программы' );
 	if ( isDone ) { codeArea.disabled = true; }
 	container.appendChild( codeArea );
+	const fitCode = autoGrow( codeArea );
 
 	bindTabIndent( codeArea );
 
@@ -153,11 +157,10 @@ function buildCodeAnswerWidget( container, isDone ) {
 		),
 		{
 			setAnswer: ( v ) => {
-				if ( v && 'object' === typeof v ) {
-					codeArea.value = 'string' === typeof v.code ? v.code : '';
-					return;
-				}
-				codeArea.value = 'string' === typeof v ? v : '';
+				codeArea.value = v && 'object' === typeof v
+					? ( 'string' === typeof v.code ? v.code : '' )
+					: ( 'string' === typeof v ? v : '' );
+				fitCode();
 			},
 		}
 	);

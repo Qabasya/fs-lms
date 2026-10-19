@@ -491,6 +491,23 @@ class LearnerExamsServiceTest extends TestCase {
 		self::assertSame( array(), $card['actions'] );
 	}
 
+	public function test_guests_only_session_is_not_offered_to_students_but_current_one_stays(): void {
+		$this->now = '2026-03-11 09:00:00';
+		$this->withSessions( array(
+			$this->session( array( 'id' => 100 ) ),
+			$this->session( array( 'id' => 101, 'scheduled_at' => '2026-03-12 11:00:00', 'planned_end_at' => '2026-03-12 14:55:00', 'visible_to_students' => 0 ) ),
+		) );
+
+		$ids = array_column( $this->card()['sessions'], 'session_id' );
+
+		self::assertSame( array( 100 ), $ids, 'Сеанс только для гостей ученик не видит.' );
+
+		$this->arrangeRegistered();
+		$this->withSessions( array( $this->session( array( 'id' => 100, 'visible_to_students' => 0 ) ) ) );
+
+		self::assertSame( array( 100 ), array_column( $this->card()['sessions'], 'session_id' ), 'Свой текущий сеанс остаётся в списке.' );
+	}
+
 	public function test_state_closed_when_there_are_no_future_sessions(): void {
 		$this->now = '2026-03-13 09:00:00';
 

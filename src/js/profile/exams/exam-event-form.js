@@ -1,6 +1,6 @@
 /* ══════════════════════════════════════════════════════════════════════
    «Настройки проведения» (этап 4.5): название, описание для участника, период «с — по», окно записи, основной вариант,
-   запись гостей по ссылкам школ; форма отмены проведения с обязательной причиной.
+   запись гостей по ссылкам школ (сами ссылки — в панели «Управление ссылками» рядом с кнопкой настроек, exam-plan.js / exam-sources.js); форма отмены проведения с обязательной причиной.
    Настройки — модалка (`prof-grade-pop` по центру с затемнением: форма длинная, у якоря не умещалась), отмена — поповер у кнопки; `gp-form`, как у формы сеанса. Клиентская проверка до отправки дублирует серверную, не заменяет:
    ошибка показывается у поля, при отказе сервера — под формой, введённое не теряется.
 
@@ -11,7 +11,6 @@
 
 import { esc, toast, openGradePopPositioned, openGradePopModal, closeGradePop } from '../utils.js';
 import { toDateTimeLocal, validateEventForm } from './exam-common.js';
-import { renderSourcesSection, gradeOfDirection } from './exam-sources.js';
 
 const STALE_CODE = 'X-STALE';
 const STALE_TEXT = 'Проведение изменили в другой вкладке. Обновите страницу.';
@@ -67,7 +66,6 @@ export function openEventForm(o) {
         <label class="gp-field"><span>Основной вариант</span><select id="evVariant">${variantOptions(variants, event ? event.default_assessment_id : '')}</select></label>
         ${guestReady ? `<label class="gp-field gp-field--check"><input type="checkbox" id="evGuests" ${guestsOn ? 'checked' : ''}${launch.ready || guestsOn ? '' : ' disabled'}><span>Запись гостей по ссылкам школ</span></label>` : ''}
         ${guestReady ? launchChecklistHtml(launch) : ''}
-        ${guestReady && event ? '<div class="gp-sources" id="evSources"></div>' : ''}
         <div class="gp-error" id="evError" role="alert" hidden></div>
         <div class="gp-row">
             <button type="button" class="prof-btn prof-btn-sm prof-btn-primary" data-ev="save">${event ? 'Сохранить' : 'Создать'}</button>
@@ -129,11 +127,6 @@ export function openEventForm(o) {
             showFormError(STALE_CODE === err.code ? STALE_TEXT : err.message, STALE_CODE === err.code);
         }
     });
-
-    if (guestReady && event) {
-        const main = variants.find(v => String(v.id) === String(event.default_assessment_id));
-        renderSourcesSection($('#evSources'), { api, event, grade: gradeOfDirection(main && main.direction) });
-    }
 
     openGradePopModal(pop);
 }

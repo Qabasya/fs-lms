@@ -9,6 +9,7 @@
 
 @forward '../shared/tokens' show rem, below, $bp-mobile, $bp-wp, $bp-tablet, $bp-wide, $font-size-base, $font-size-md, $font-size-xl;
 @use 'sass:map';
+@use 'sass:math';
 @use '../shared/tokens' as t;
 
 // ── Брейкпоинт оболочки (сужение жёлоба контента)
@@ -55,9 +56,34 @@ $rail-gap: t.rem(18); // отступ липких элементов от ша�
 $rail-sq: t.rem(40); // квадрат шага в рейке
 $rail-w: t.rem(64);  // ширина рейки
 
+// ── Ширина контентной колонки .col (весь блок шага вместе с воркбаром).
+// Только в px: на сайте корень шрифта плеера масштабируется (тема даёт html { font-size: 120% } на FullHD, 19.2px),
+// и колонка в rem превращалась бы в 1538px вместо 1200. Размеры внутри колонки по-прежнему в rem.
+// Колонка: 1000px на экране 1280, плавно 1000→1200 к 1920 (FullHD), дальше плавно 1200→1600 к 3840 (4K).
+$colw-min: 1000px;
+$colw-fhd: 1200px;
+$colw-max: 1600px;
+$colw-bp-min: 1280px;
+$colw-bp-fhd: 1920px;
+$colw-bp-max: 3840px;
+
 :root {
-  // Ширина контентной колонки (B4: адаптив от экрана — в _shell.scss;
-  // сайдбара в плеере нет, поэтому база — «широкий» вариант).
-  // Tasks.md, З2: на 1920 контент ~1200px — задача работы помещается в экран ноутбука.
-  --colw: #{t.rem(1282)}; /* контент шага = colw − 82px (padding 40×2 + border 1×2) = 1200px */
+  // Ниже 1280 колонка сжимается сама (max-width: 100% у .col).
+  --colw: #{$colw-min};
+
+  // Сдвиг колонки к центру экрана: рейка шагов слева и жёлоб справа смещают центр контентной области от центра экрана
+  // на (левый отступ − правый) / 2 — на столько .col сдвигается влево, чтобы стоять строго по центру (см. .col в _shell.scss).
+  --col-shift: #{calc((#{$rail-gap} * 2 + #{$rail-w} - #{t.rem(22)}) / 2)};
+}
+
+@media (min-width: $colw-bp-min) {
+  :root {
+    --colw: clamp(#{$colw-min}, #{$colw-min} + (100vw - #{$colw-bp-min}) * #{math.div(200, 640)}, #{$colw-fhd});
+  }
+}
+
+@media (min-width: $colw-bp-fhd) {
+  :root {
+    --colw: clamp(#{$colw-fhd}, #{$colw-fhd} + (100vw - #{$colw-bp-fhd}) * #{math.div(400, 1920)}, #{$colw-max});
+  }
 }

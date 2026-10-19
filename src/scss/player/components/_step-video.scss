@@ -91,6 +91,12 @@
 
   &[data-side="back"] { left: 8%; }
   &[data-side="forward"] { right: 8%; }
+
+  // Громкость: подсказка по центру кадра.
+  &[data-side="center"] {
+    left: 50%;
+    transform: translate(-50%, -50%);
+  }
 }
 
 .vp.playing .vp-play {

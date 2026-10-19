@@ -209,7 +209,7 @@ export function openCtxMenu(anchor, items, onPick, opts = {}) {
     ctxOnClose = null;
 }
 
-/** `opts.up` — раскрыть вверх; `opts.alignRight` — правый край поповера по правому краю якоря (кнопка у правого края окна). */
+/** `opts.up` — раскрыть вверх; `opts.alignRight` — правый край поповера по правому краю якоря (кнопка у правого края окна); `opts.flip` — вниз, а при нехватке места внизу — вверх. */
 export function openCtxMenuRaw(html, anchor, onClose, opts = {}) {
     const menu = document.getElementById('profCtxMenu');
     const backdrop = document.getElementById('profCtxBackdrop');
@@ -229,6 +229,10 @@ export function openCtxMenuRaw(html, anchor, onClose, opts = {}) {
     menu.style.top = opts.up
         ? Math.max(10, r.top - menu.offsetHeight - 6) + 'px'
         : (r.bottom + 4) + 'px';
+    if (opts.flip && !opts.up) {
+        const height = menu.getBoundingClientRect().height;
+        if (r.bottom + 4 + height > window.innerHeight - 10) { menu.style.top = Math.max(10, r.top - 4 - height) + 'px'; }
+    }
     backdrop.classList.add('open');
     ctxOnClose = onClose || null;
 }
@@ -282,14 +286,28 @@ function positionGradePop(pop, anchor) {
     // НБ-8: верх/низ-clamp — высокий поповер (форма инд. занятия) у нижних/верхних
     // якорей не должен уходить за вьюпорт; при нехватке высоты прижимаем к верху
     // (переполнение гасит max-height/overflow на .prof-grade-pop).
-    top = Math.max(10, Math.min(top, window.innerHeight - ph - 10));
+    // Сверху — не выше нижнего края WP admin-bar (fixed, поверх поповера): иначе верх формы прячется под ней.
+    const bar = document.getElementById('wpadminbar');
+    const topLimit = 10 + (bar ? Math.max(0, bar.getBoundingClientRect().bottom) : 0);
+    top = Math.max(topLimit, Math.min(top, window.innerHeight - ph - 10));
     pop.style.left = left + 'px';
     pop.style.top = top + 'px';
 }
 
 /* Тот же поповер, но по центру экрана с затемнением: для длинных форм, которым тесно у якоря (настройки проведения). */
 export function openGradePopModal(pop) {
+    pop.classList.remove('is-drawer');
     pop.classList.add('open', 'is-modal');
+    pop.style.left = '';
+    pop.style.top = '';
+    const backdrop = document.getElementById('profCtxBackdrop');
+    if (backdrop) backdrop.classList.add('open', 'dim');
+}
+
+/* Тот же поповер боковой панелью справа (половина экрана) с затемнением: для списков, которым тесно в модалке (ссылки школ). */
+export function openGradePopDrawer(pop) {
+    pop.classList.remove('is-modal');
+    pop.classList.add('open', 'is-drawer');
     pop.style.left = '';
     pop.style.top = '';
     const backdrop = document.getElementById('profCtxBackdrop');
@@ -299,7 +317,7 @@ export function openGradePopModal(pop) {
 export function closeGradePop() {
     clearGradePopPositioning();
     const pop = document.getElementById('profGradePop');
-    if (pop) pop.classList.remove('open', 'is-modal');
+    if (pop) pop.classList.remove('open', 'is-modal', 'is-drawer');
     const menu = document.getElementById('profCtxMenu');
     if (!menu || !menu.classList.contains('open')) {
         const backdrop = document.getElementById('profCtxBackdrop');

@@ -76,6 +76,10 @@ class ExamSourceCallbacks extends BaseController {
 		if ( $this->hasParam( 'discount_percent' ) ) {
 			$input['discount_percent'] = $this->sanitizeInt( 'discount_percent' );
 		}
+		// Пустой список приходит как «не прислано» (массив без элементов не кодируется): флаг отличает «снять ограничение» от «не менять».
+		if ( $this->hasParam( 'session_ids_set' ) ) {
+			$input['session_ids'] = $this->sanitizeIntList( 'session_ids' );
+		}
 
 		$this->run(
 			function () use ( $eventId, $sourceId, $version, $input ): array {

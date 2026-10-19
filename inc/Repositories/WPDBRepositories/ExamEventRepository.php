@@ -46,13 +46,13 @@ class ExamEventRepository extends AbstractExamRepository {
 
 	/** @return ExamEventDTO[] Проведения владельца, свежие первыми. */
 	public function listByOwner( int $userId ): array {
-		$rows = $this->readRows( $this->wpdb->prepare( 'SELECT * FROM %i WHERE owner_user_id = %d ORDER BY created_at DESC', $this->table, $userId ) );
+		$rows = $this->readRows( $this->wpdb->prepare( 'SELECT * FROM %i WHERE owner_user_id = %d ORDER BY created_at DESC, id DESC', $this->table, $userId ) );
 		return array_map( array( ExamEventDTO::class, 'fromArray' ), $rows );
 	}
 
 	/** @return ExamEventDTO[] */
 	public function findBySubjectKey( string $subjectKey ): array {
-		$rows = $this->readRows( $this->wpdb->prepare( 'SELECT * FROM %i WHERE subject_key = %s ORDER BY created_at DESC', $this->table, $subjectKey ) );
+		$rows = $this->readRows( $this->wpdb->prepare( 'SELECT * FROM %i WHERE subject_key = %s ORDER BY created_at DESC, id DESC', $this->table, $subjectKey ) );
 		return array_map( array( ExamEventDTO::class, 'fromArray' ), $rows );
 	}
 
@@ -72,7 +72,7 @@ class ExamEventRepository extends AbstractExamRepository {
 
 		$rows = $this->readRows(
 			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- плейсхолдеры собраны из числа ключей и статусов.
-			$this->wpdb->prepare( "SELECT * FROM %i WHERE subject_key IN ( {$subjectPlaceholders} ) AND status IN ( {$statusPlaceholders} ) ORDER BY created_at DESC", $this->table, ...$subjectKeys, ...$statuses )
+			$this->wpdb->prepare( "SELECT * FROM %i WHERE subject_key IN ( {$subjectPlaceholders} ) AND status IN ( {$statusPlaceholders} ) ORDER BY created_at DESC, id DESC", $this->table, ...$subjectKeys, ...$statuses )
 		);
 		return array_map( array( ExamEventDTO::class, 'fromArray' ), $rows );
 	}
@@ -90,7 +90,7 @@ class ExamEventRepository extends AbstractExamRepository {
 		$placeholders = implode( ', ', array_fill( 0, count( $ids ), '%d' ) );
 		$rows         = $this->readRows(
 			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- плейсхолдеры собраны из числа ID.
-			$this->wpdb->prepare( "SELECT * FROM %i WHERE id IN ( {$placeholders} ) ORDER BY created_at DESC", $this->table, ...array_map( 'intval', $ids ) )
+			$this->wpdb->prepare( "SELECT * FROM %i WHERE id IN ( {$placeholders} ) ORDER BY created_at DESC, id DESC", $this->table, ...array_map( 'intval', $ids ) )
 		);
 		return array_map( array( ExamEventDTO::class, 'fromArray' ), $rows );
 	}

@@ -24,6 +24,7 @@ use Inc\Enums\Wp\PageRoutes;
 use Inc\Managers\Assessment\AssessmentManager;
 use Inc\Repositories\WPDBRepositories\ExamEventRepository;
 use Inc\Repositories\WPDBRepositories\ExamGuestApplicationRepository;
+use Inc\Repositories\WPDBRepositories\ExamSessionRepository;
 use Inc\Repositories\WPDBRepositories\ExamSourceRepository;
 use Inc\Shared\CodedException;
 use Inc\Shared\Traits\TransactionRunner;
@@ -53,6 +54,7 @@ class ExamSourceService {
 		private readonly LogEventDispatcherInterface $logEvents,
 		private readonly ExamTime $time,
 		private readonly GuestSessionService $guestSessions,
+		private readonly ExamSessionRepository $sessions,
 	) {}
 
 	/**
@@ -68,7 +70,9 @@ class ExamSourceService {
 		// Служебный источник открытой записи в список школ не входит: им управляет переключатель проведения.
 		$schools = array_filter( $this->sources->listByEvent( $eventId ), static fn ( ExamSourceDTO $source ): bool => ! $source->isPublic() );
 
-		return array_values( array_map( fn ( ExamSourceDTO $source ): array => $this->payload( $source ), $schools ) );
+		$registered = $this->sources->countRegisteredByEvent( $eventId );
+
+		return array_values( array_map( fn ( ExamSourceDTO $source ): array => $this->payload( $source, $registered[ $source->id ] ?? 0 ), $schools ) );
 	}
 
 	/**
@@ -202,6 +206,10 @@ class ExamSourceService {
 			}
 			$fields['discount_percent'] = $discount;
 		}
+		// Сеансы ссылки: меняются только когда поле прислано; пустой список снимает ограничение (все сеансы).
+		if ( array_key_exists( 'session_ids', $input ) ) {
+			$fields['session_ids'] = $this->encodeSessionIds( $eventId, (array) $input['session_ids'] );
+		}
 
 		if ( null === $sourceId ) {
 			$now = $this->time->nowUtc();
@@ -219,6 +227,9 @@ class ExamSourceService {
 			);
 			$this->audit( $actorUserId, OperationType::Create, LogEvent::ExamSourceCreated, $id, $school );
 			$this->log( ExamLogAction::SourceSaved, $actorUserId, $eventId, $id, array( 'created' => true, 'school' => $school ) );
+
+			// Ссылка выдаётся сразу: отдельного шага «Создать ссылку» нет.
+			$this->issueLink( $actorUserId, $id );
 
 			return $this->reload( $id );
 		}
@@ -248,6 +259,7 @@ class ExamSourceService {
 								'teacher_name'     => array( $source->teacherName, $fields['teacher_name'] ),
 								'grade'            => array( $source->grade, $fields['grade'] ),
 								'discount_percent' => array( $source->discountPercent, $fields['discount_percent'] ?? $source->discountPercent ),
+								'session_ids'      => array( implode( ',', $source->allowedSessionIds ?? array() ), array_key_exists( 'session_ids', $fields ) ? implode( ',', json_decode( (string) $fields['session_ids'], true ) ?: array() ) : implode( ',', $source->allowedSessionIds ?? array() ) ),
 							)
 						),
 					)
@@ -322,7 +334,7 @@ class ExamSourceService {
 	}
 
 	/**
-	 * Удаляет источник, чья ссылка явно отозвана ({@see revokeLink()}); с действующей или ни разу не выданной ссылкой — отказ.
+	 * Удаляет источник вместе со ссылкой (удаление предназначено для тестовых ссылок).
 	 * Источник с действующими данными (открытая заявка, действующая запись, школьный отчёт) не удаляется; отменённые и истёкшие заявки и записи не мешают.
 	 *
 	 * @throws CodedException Источник недоступен или на него есть ссылки из заявок, записей или отчётов.
@@ -336,9 +348,9 @@ class ExamSourceService {
 				if ( $this->sources->hasLiveReferences( $sourceId ) ) {
 					throw new CodedException( ErrorCode::ExamState, 'По этой ссылке есть действующие заявки, записи или школьные отчёты, поэтому удалить её нельзя. Отмените записи или дождитесь окончания брони.' );
 				}
-				if ( null === $source->keyRevokedAt || $this->tokens->hasActive( ExamTokenPurpose::Invitation, $sourceId ) ) {
-					throw new CodedException( ErrorCode::ExamState, 'Сначала отзовите ссылку: удалить можно только отозванную.' );
-				}
+				// Ссылка гаснет вместе с источником: отдельный отзыв перед удалением не нужен.
+				$this->tokens->revoke( ExamTokenPurpose::Invitation, $sourceId );
+				$this->guestSessions->revokeBySource( $sourceId );
 				$this->sources->delete( $sourceId );
 				$this->audit( $actorUserId, OperationType::Delete, LogEvent::ExamSourceDeleted, $sourceId, $source->schoolName );
 				$this->log( ExamLogAction::SourceDeleted, $actorUserId, $eventId, $sourceId, array( 'school' => $source->schoolName ) );
@@ -399,7 +411,7 @@ class ExamSourceService {
 	 *
 	 * @return array<string, mixed>
 	 */
-	private function payload( ExamSourceDTO $source ): array {
+	private function payload( ExamSourceDTO $source, int $registered = 0 ): array {
 		return array(
 			'id'           => $source->id,
 			'school_name'  => $source->schoolName,
@@ -413,8 +425,23 @@ class ExamSourceService {
 			'url'          => $this->storedUrl( $source->id ),
 			'generation'   => $source->keyGeneration,
 			'active_holds' => $this->applications->countHeldBySource( $source->id ),
+			'registered'   => $registered,
+			'session_ids'  => $source->allowedSessionIds ?? array(),
 			'version'      => $source->version,
 		);
+	}
+
+	/**
+	 * Сеансы ссылки в виде JSON для хранения: чужие и несуществующие сеансы отбрасываются, пустой список — `null` (все сеансы).
+	 *
+	 * @param array<int|string, mixed> $ids
+	 */
+	private function encodeSessionIds( int $eventId, array $ids ): ?string {
+		$own = array_map( static fn ( $session ): int => $session->id, $this->sessions->findByEvent( $eventId ) );
+		$ids = array_values( array_unique( array_filter( array_map( 'intval', $ids ), static fn ( int $id ): bool => in_array( $id, $own, true ) ) ) );
+		sort( $ids );
+
+		return array() === $ids ? null : (string) wp_json_encode( $ids );
 	}
 
 	/**

@@ -72,6 +72,9 @@
 
 .prof-ktp-grid { display: grid; grid-template-columns: rem(340) 1fr; gap: rem(18); flex: 1; min-height: 0; }
 
+/* «Назначить экзамен»: банка тем нет — календарь на всю ширину (перебивает и планшетные колонки ниже). */
+.prof-ktp-grid.prof-ktp-grid--single { grid-template-columns: 1fr; }
+
 .prof-theme-bank {
   background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
   box-shadow: var(--shadow-sm); display: flex; flex-direction: column; min-height: 0;
@@ -319,5 +322,8 @@
   .kal-grid-wrap { overflow-x: auto; }
 
   .kal-grid,
-  .kal-dow { width: max-content; min-width: 100%; grid-template-columns: repeat(7, minmax(rem(76), 1fr)); }
+  .kal-dow,
+  .kal-week { width: max-content; min-width: 100%; grid-template-columns: repeat(7, minmax(rem(76), 1fr)); }
+
+  .kal-grid--weeks .kal-week { width: auto; min-width: 100%; }
 }

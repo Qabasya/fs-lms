@@ -63,6 +63,17 @@ export function statusPillHtml(status, label) {
     return `<span class="prof-state-pill ${cls}">${esc(label)}</span>`;
 }
 
+/**
+ * Последнее добавленное проведение из списка фильтра — выбирается по умолчанию во всех списках «Проведение» (зимой новое проведение
+ * сразу открыто первым). Идентификаторы растут по порядку создания, поэтому берётся наибольший.
+ *
+ * @param {Array<{id:number}>} events
+ * @returns {number} 0 — проведений нет.
+ */
+export function newestEventId(events) {
+    return (events || []).reduce((max, e) => Math.max(max, Number(e.id) || 0), 0);
+}
+
 /** Телефонная ширина: сеанс добавляется кнопкой, перетаскивание не включается. */
 export function isPhone() {
     return window.matchMedia(`(max-width: ${PHONE_MAX_WIDTH}px)`).matches;

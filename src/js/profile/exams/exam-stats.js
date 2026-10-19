@@ -11,7 +11,7 @@ import { icoCalendarBoard, icoAlert } from '../../common/icons.js';
 import { createApi } from '../api.js';
 import { audienceSegHtml, searchHtml, groupSelectHtml, schoolSelectHtml, rowMatches } from './exam-row-filters.js';
 import {
-    examConfig, examSubjects, currentSubject, setCurrentSubject, subjectPickerHtml, wireSubjectPicker, noSubjectsHtml,
+    examConfig, examSubjects, currentSubject, setCurrentSubject, subjectPickerHtml, wireSubjectPicker, noSubjectsHtml, newestEventId,
 } from './exam-common.js';
 
 
@@ -35,6 +35,8 @@ let root = null;
 let api = null;
 let data = null;
 const query = { event_id: 0, session_id: 0, audience: 'all' };
+// По умолчанию выбрано последнее добавленное проведение; после выбора «Все проведения» вручную оно не возвращается (до смены предмета).
+let eventDefaulted = false;
 // Клиентские фильтры таблицы; сбрасываются при смене проведения, сеанса и участников.
 const view = { search: '', group: '', school: '', mode: 'students' };
 
@@ -56,6 +58,14 @@ export function renderExamStats(r) {
 async function load() {
     try {
         data = await api('getStats', { subject_key: currentSubject(), ...query });
+        if (!eventDefaulted) {
+            eventDefaulted = true;
+            const newest = newestEventId(data.filters.events);
+            if (newest && !query.event_id) {
+                query.event_id = newest;
+                data = await api('getStats', { subject_key: currentSubject(), ...query });
+            }
+        }
     } catch (err) {
         data = null;
         root.innerHTML = emptyState('prof-ktp', icoAlert(30), 'Не удалось загрузить статистику', ajaxErrorText(err, 'Ошибка загрузки'), true);
@@ -194,6 +204,7 @@ function wire() {
         setCurrentSubject(key);
         Object.assign(query, { event_id: 0, session_id: 0 });
         Object.assign(view, { group: '', school: '' });
+        eventDefaulted = false;
         load();
     });
     root.querySelectorAll('[data-filter]').forEach(sel => sel.addEventListener('change', () => {

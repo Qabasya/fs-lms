@@ -1,26 +1,27 @@
 /* ══════════════════════════════════════════════════════════════════════
    Экран «Назначить экзамен» (этап 4.2): сеансы назначаются в месячном календаре на общей модели КТП.
    Вместо группы — предмет, вместо тем — варианты работ, вместо урока — сеанс. Разметка — существующая КТП:
-   prof-ktp / kp-btn / prof-dot / prof-theme-bank / prof-theme-card / prof-kal / placed-theme / prof-ktp-empty.
+   prof-ktp / kp-btn / prof-dot / prof-kal / placed-theme / prof-ktp-empty.
 
    Календарь показывает только месяцы периода проведения; выходные не скрываются; период может идти через границу месяцев и года.
-   Перетаскивание варианта на день ничего не сохраняет: оно открывает форму сеанса (exam-session-form.js), как и кнопка «+ Сеанс».
-   На телефоне (≤ 720 px) перетаскивания нет — кнопка «+ Сеанс» есть в каждой ячейке периода и на компьютере тоже.
+   Сеанс добавляется кнопкой «+ Сеанс» в ячейке дня периода: открывается форма сеанса (exam-session-form.js), вариант выбирается в ней.
+   Банка вариантов и легенды нет — календарь занимает всю ширину.
    Права проверяет сервер; клиент только прячет недоступное. Сеть — createApi(window.fsProfile.exams).
    ══════════════════════════════════════════════════════════════════════ */
 
 import { esc, toast, emptyState, openCtxMenu, openCtxMenuRaw, closeCtxMenu, fmtDayMonth, chipHtml } from '../utils.js';
-import { icoChevronLeft, icoChevronRight, icoCalendarBoard, icoAlert, icoGrip, icoCaret, icoPlus } from '../../common/icons.js';
+import { icoChevronLeft, icoChevronRight, icoCalendarBoard, icoAlert, icoCaret, icoPlus } from '../../common/icons.js';
 import { confirmDialog } from '../../common/components/confirm-dialog.js';
 import { createApi } from '../api.js';
 import { DOW_RU, MONTHS_RU } from '../constants.js';
 import { computeMonths, shiftMonth, monthCells } from '../ktp/ktp-calendar-model.js';
 import {
     examConfig, examSubjects, currentSubject, setCurrentSubject, subjectPickerHtml, wireSubjectPicker, noSubjectsHtml,
-    statusPillHtml, isPhone, sessionsByDate, inPeriod,
+    statusPillHtml, sessionsByDate, inPeriod,
 } from './exam-common.js';
 import { openSessionForm } from './exam-session-form.js';
 import { openEventForm, openCancelForm } from './exam-event-form.js';
+import { openSourcesDrawer, gradeOfDirection } from './exam-sources.js';
 
 const PUBLISH_TEXT = 'После публикации ученики предмета увидят экзамен и смогут записываться с даты открытия записи.';
 const DELETE_TEXT = 'Проведение будет удалено вместе с сеансами и ссылками школ без возможности восстановления. Это возможно, только пока в нём нет записей участников.';
@@ -32,7 +33,6 @@ let cfg = null;
 let plan = null;
 let months = [];
 let cursor = 0;
-let dragVariant = null;
 
 export function renderExamPlan(r) {
     root = r;
@@ -103,15 +103,15 @@ function headHtml() {
     const e = plan.event;
     const subjects = examSubjects();
     const canPublish = e && 'draft' === e.status && e.sessions.length > 0;
-    return `<div class="prof-ktp-head">
+    return `<div class="prof-ktp-head exam-plan-head">
         <div class="prof-ktp-pickers exam-plan-pickers">
             ${subjectPickerHtml(subjects, currentSubject(), 'examPlanSubjectBtn')}
             ${eventPickerHtml()}
         </div>
         <span class="prof-spacer"></span>
-        ${e ? `<div class="prof-ktp-legend"><span class="kl"><span class="prof-dot prof-dot-good"></span>Сеанс экзамена</span></div>
-        ${statusPillHtml(e.status, e.status_label)}` : ''}
+        ${e ? statusPillHtml(e.status, e.status_label) : ''}
         ${isEditable() ? '<button type="button" class="prof-btn prof-btn-sm" id="examSettings">Настройки проведения</button>' : ''}
+        ${isEditable() && cfg.canManageGuests && e && e.guest_registration_enabled ? '<button type="button" class="prof-btn prof-btn-sm" id="examLinks">Управление ссылками</button>' : ''}
         ${e && 'draft' === e.status ? `<button type="button" class="prof-btn prof-btn-sm prof-btn-primary" id="examPublish" ${canPublish ? '' : 'disabled title="Добавьте хотя бы один сеанс"'}>Опубликовать</button>` : ''}
         ${e ? '<button type="button" class="prof-icon-ghost" id="examActions" aria-label="Действия">⋮</button>' : ''}
     </div>`;
@@ -133,27 +133,15 @@ function bannersHtml() {
     return items.map(t => `<div class="ktp-overflow-banner">${icoAlert(16)}<span>${esc(t)}</span></div>`).join('');
 }
 
-function variantCardHtml(v, index) {
-    const draggable = isEditable() && !isPhone();
-    const dir = 'ege' === v.direction ? 'ЕГЭ' : ('oge' === v.direction ? 'ОГЭ' : '');
-    return `<div class="prof-theme-card" ${draggable ? 'draggable="true"' : ''} data-vid="${v.id}">
-        <span class="tc-num">${index + 1}</span>
-        <div class="tc-body">
-            <div class="tc-title">${esc(v.title)}</div>
-            <div class="tc-meta">${dir ? `<span>${dir}</span>` : ''}<span>${v.duration_minutes} мин</span></div>
-        </div>
-        ${draggable ? `<span class="tc-grip">${icoGrip(14)}</span>` : ''}
-    </div>`;
-}
-
 function sessionHtml(s) {
     const cancelled = 'cancelled' === s.status;
     // Полоска слева: завершённый — жёлтая, отменённый — красная, остальные — зелёная плана.
-    const state = cancelled ? ' is-cancelled' : ('completed' === s.status ? ' is-completed' : '');
+    const guestsOnly = false === s.visible_to_students;
+    const state = (cancelled ? ' is-cancelled' : ('completed' === s.status ? ' is-completed' : '')) + (guestsOnly ? ' is-guests-only' : '');
     return `<div class="placed-theme exam-session${state}" data-sid="${s.id}" role="button" tabindex="0">
         <span class="pt-title">${esc(s.time_start)} · ${s.occupied}/${s.capacity}</span>
         <span class="pt-meta">${esc(s.assessment_title)}</span>
-        <span class="pt-meta">${cancelled ? 'отменён' : esc(s.room_name)}</span>
+        <span class="pt-meta">${cancelled ? 'отменён' : esc(s.room_name)}${guestsOnly ? ' · только гости' : ''}</span>
     </div>`;
 }
 
@@ -172,6 +160,8 @@ function render() {
     if (!e) { return; }
     const settings = document.getElementById('examSettings');
     if (settings) { settings.onclick = () => openSettings(settings); }
+    const links = document.getElementById('examLinks');
+    if (links) { links.onclick = openLinks; }
     const publish = document.getElementById('examPublish');
     if (publish) { publish.onclick = doPublish; }
     const actions = document.getElementById('examActions');
@@ -179,29 +169,22 @@ function render() {
 
     document.getElementById('examPrev').onclick = () => shiftBy(-1);
     document.getElementById('examNext').onclick = () => shiftBy(1);
-    wireBank();
     renderCalendar();
 }
 
 function boardHtml() {
-    return `<div class="prof-ktp-grid">
-        <div class="prof-theme-bank">
-            <div class="tb-head"><h3>Экзаменационные работы</h3><span class="tbh-count">${isEditable() && !isPhone() ? 'перетащите на дату' : 'вариант выбирается в форме сеанса'}</span></div>
-            <div class="prof-theme-list" id="examBank">${plan.variants.length
-                ? plan.variants.map(variantCardHtml).join('')
-                : '<div class="tb-empty">Нет опубликованных вариантов этого предмета.</div>'}</div>
-        </div>
+    return `<div class="prof-ktp-grid prof-ktp-grid--single">
         <div class="prof-kal">
             <div class="kal-head">
                 <button type="button" class="prof-icon-ghost" id="examPrev" aria-label="Предыдущий месяц">${icoChevronLeft(18)}</button>
                 <div class="kal-month" id="examMonth"></div>
                 <button type="button" class="prof-icon-ghost" id="examNext" aria-label="Следующий месяц">${icoChevronRight(18)}</button>
                 <span class="prof-spacer"></span>
-                <span class="kal-hint">${isEditable() ? 'Нажмите «+ Сеанс» в нужный день или перетащите вариант на дату' : 'Проведение закрыто — изменять нельзя'}</span>
+                <span class="kal-hint">${isEditable() ? 'Нажмите «+ Сеанс» в нужный день' : 'Проведение закрыто — изменять нельзя'}</span>
             </div>
             <div class="kal-grid-wrap">
                 <div class="kal-dow">${DOW_RU.map(d => `<span>${d}</span>`).join('')}</div>
-                <div class="kal-grid" id="examGrid"></div>
+                <div class="kal-grid kal-grid--weeks" id="examGrid"></div>
             </div>
         </div>
     </div>`;
@@ -218,19 +201,31 @@ function renderCalendar() {
     const byDate = sessionsByDate(event.sessions);
     const editable = isEditable();
 
-    let cells = '';
-    for (const cell of monthCells(y, m)) {
-        if ('empty' === cell.type) { cells += '<div class="kal-cell empty"></div>'; continue; }
-        const inside = inPeriod(cell.date, event);
-        cells += `<div class="kal-cell${inside ? '' : ' no-lesson'}" data-day="${cell.date}">
-            <div class="kal-date"><span class="kd-num">${cell.day}</span></div>
-            ${(byDate[cell.date] || []).map(sessionHtml).join('')}
-            ${inside && editable ? `<button type="button" class="exam-add" data-day="${cell.date}" aria-label="Добавить сеанс ${cell.date}">${icoPlus(11)} Сеанс</button>` : ''}
-        </div>`;
+    // Месяц по неделям: вне периода и без сеансов — сжата до строки с числами (off); в периоде без сеансов — 60–80px (empty);
+    // с сеансами — растёт по содержимому, два сеанса в день делают неделю выше (busy).
+    const days = monthCells(y, m);
+    while (days.length % 7) { days.push({ type: 'empty' }); }
+
+    let weeks = '';
+    for (let i = 0; i < days.length; i += 7) {
+        const week = days.slice(i, i + 7);
+        const dayCells = week.filter(c => 'day' === c.type);
+        const hasSessions = dayCells.some(c => (byDate[c.date] || []).length);
+        const kind = hasSessions ? 'busy' : (dayCells.some(c => inPeriod(c.date, event)) ? 'empty' : 'off');
+        const cells = week.map(cell => {
+            if ('empty' === cell.type) { return '<div class="kal-cell empty"></div>'; }
+            const inside = inPeriod(cell.date, event);
+            return `<div class="kal-cell${inside ? '' : ' no-lesson'}" data-day="${cell.date}">
+                <div class="kal-date"><span class="kd-num">${cell.day}</span>
+                ${inside && editable ? `<button type="button" class="exam-add" data-day="${cell.date}" aria-label="Добавить сеанс ${cell.date}">${icoPlus(11)} Сеанс</button>` : ''}</div>
+                ${(byDate[cell.date] || []).map(sessionHtml).join('')}
+            </div>`;
+        }).join('');
+        weeks += `<div class="kal-week kal-week--${kind}">${cells}</div>`;
     }
 
     const grid = document.getElementById('examGrid');
-    grid.innerHTML = cells;
+    grid.innerHTML = weeks;
 
     grid.querySelectorAll('.exam-add').forEach(btn => {
         btn.onclick = () => openSession(btn, { date: btn.dataset.day });
@@ -240,9 +235,6 @@ function renderCalendar() {
         el.addEventListener('click', open);
         el.addEventListener('keydown', ev => { if ('Enter' === ev.key || ' ' === ev.key) { ev.preventDefault(); open(); } });
     });
-    if (editable && !isPhone()) {
-        grid.querySelectorAll('.kal-cell[data-day]:not(.no-lesson)').forEach(attachDrop);
-    }
 }
 
 /* ── Действия ─────────────────────────────────────────────────────────── */
@@ -269,6 +261,12 @@ function openSettings(anchor) {
         api, anchor, subjectKey: currentSubject(), event: plan.event, variants: plan.variants, canManageGuests: !!cfg.canManageGuests, launch: plan.launch,
         onSaved: id => load(id, true),
     });
+}
+
+/** Панель «Управление ссылками»: школы, их ссылки и открытая запись; класс определяется направлением основного варианта. */
+function openLinks() {
+    const main = plan.variants.find(v => String(v.id) === String(plan.event.default_assessment_id));
+    openSourcesDrawer({ api, event: plan.event, grade: gradeOfDirection(main && main.direction) });
 }
 
 function openEventMenu() {
@@ -322,39 +320,4 @@ async function doPublish() {
         toast(err.message, 'error');
         if ('X-STALE' === err.code) { await reload(); }
     }
-}
-
-/* ── Перетаскивание варианта на день ──────────────────────────────────── */
-function wireBank() {
-    document.querySelectorAll('#examBank .prof-theme-card[draggable="true"]').forEach(el => {
-        el.addEventListener('dragstart', e => {
-            dragVariant = el.dataset.vid;
-            el.classList.add('dragging');
-            e.dataTransfer.effectAllowed = 'copy';
-            e.dataTransfer.setData('text/plain', dragVariant);
-        });
-        el.addEventListener('dragend', () => {
-            dragVariant = null;
-            el.classList.remove('dragging');
-            document.querySelectorAll('.kal-cell.drop-ok').forEach(c => c.classList.remove('drop-ok'));
-        });
-    });
-}
-
-function attachDrop(cell) {
-    cell.addEventListener('dragover', e => {
-        if (!dragVariant) { return; }
-        e.preventDefault();
-        cell.classList.add('drop-ok');
-    });
-    cell.addEventListener('dragleave', () => cell.classList.remove('drop-ok'));
-    cell.addEventListener('drop', e => {
-        e.preventDefault();
-        cell.classList.remove('drop-ok');
-        if (!dragVariant) { return; }
-        const assessmentId = Number(dragVariant);
-        dragVariant = null;
-        // Само перетаскивание ничего не сохраняет: открывается та же форма сеанса с подставленными датой и вариантом.
-        openSession(cell, { date: cell.dataset.day, assessmentId });
-    });
 }

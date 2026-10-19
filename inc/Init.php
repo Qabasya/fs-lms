@@ -126,6 +126,8 @@ use Inc\Migrations\Migration_1_0_88;
 use Inc\Migrations\Migration_1_0_89;
 use Inc\Migrations\Migration_1_0_90;
 use Inc\Migrations\Migration_1_0_91;
+use Inc\Migrations\Migration_1_0_92;
+use Inc\Migrations\Migration_1_0_93;
 use Inc\Migrations\Migration_1_0_81;
 use Inc\Migrations\Migration_1_0_82;
 use Inc\Migrations\Migration_1_0_83;
@@ -329,6 +331,8 @@ final class Init {
 		$migrationRunner->register( new Migration_1_0_89() );
 		$migrationRunner->register( new Migration_1_0_90() );
 		$migrationRunner->register( new Migration_1_0_91() );
+		$migrationRunner->register( new Migration_1_0_92() );
+		$migrationRunner->register( new Migration_1_0_93() );
 		$migrationRunner->run();
 
 		// Data-миграция (не схема): ссылки на файлы заданий со старой схемой
@@ -352,6 +356,14 @@ final class Init {
 		$container->get( \Inc\Migrations\LearningEventActorMigration::class )->run();
 		// Уроки-черновики больше не открываются по дате — уже открытые фиксируем в БД.
 		$container->get( \Inc\Migrations\DraftLessonOpenMigration::class )->run();
-		$container->get( \Inc\Migrations\ExamPagesMigration::class )->run();
+		// Страницы создаются через wp_insert_post → get_permalink, которому нужен $wp_rewrite: на загрузке плагина его ещё нет (фатал),
+		// поэтому миграция откладывается до `init`.
+		add_action(
+			'init',
+			static function () use ( $container ): void {
+				$container->get( \Inc\Migrations\ExamPagesMigration::class )->run();
+			},
+			20
+		);
 	}
 }

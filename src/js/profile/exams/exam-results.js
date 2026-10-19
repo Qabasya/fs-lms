@@ -14,6 +14,7 @@ import { createApi } from '../api.js';
 import {
     examConfig, examSubjects, currentSubject, setCurrentSubject, subjectPickerHtml, wireSubjectPicker, noSubjectsHtml,
     approvalBlockReason, approvableRows, approveButtonLabel, approvalItems, approvalSummaryText, skippedListHtml, exportButtonsHtml, wireExportButtons,
+    newestEventId,
 } from './exam-common.js';
 import { scoreText } from './exam-conduct.js';
 import { confirmDialog } from '../../common/components/confirm-dialog.js';
@@ -54,6 +55,8 @@ let reportForm = false;
 let editingReport = 0;
 // group_id — группа наших учеников, source_id — источник гостей, school — школа (все); при смене проведения сбрасываются.
 const query = { event_id: 0, session_id: 0, status: 'all', audience: 'all', source_id: 0, group_id: 0, school: '' };
+// По умолчанию выбрано последнее добавленное проведение; после выбора «Все проведения» вручную оно не возвращается (до смены предмета).
+let eventDefaulted = false;
 
 // Сортировка таблицы на клиенте: ключ колонки и направление (1 — по возрастанию); пустой ключ — порядок сервера.
 const SORTABLE = { name: 'ФИО', audience: 'Участник', school: 'Школа', session: 'Сеанс', score: 'Балл' };
@@ -81,6 +84,14 @@ export function renderExamResults(r, h = {}) {
 async function load() {
     try {
         data = await api('getResults', { subject_key: currentSubject(), ...query });
+        if (!eventDefaulted) {
+            eventDefaulted = true;
+            const newest = newestEventId(data.filters.events);
+            if (newest && !query.event_id) {
+                query.event_id = newest;
+                data = await api('getResults', { subject_key: currentSubject(), ...query });
+            }
+        }
     } catch (err) {
         data = null;
         root.innerHTML = emptyState('prof-ktp', icoAlert(30), 'Не удалось загрузить результаты', ajaxErrorText(err, 'Ошибка загрузки'), true);
@@ -277,6 +288,7 @@ function wire() {
     wireSubjectPicker('examResultsSubjectBtn', examSubjects(), currentSubject(), key => {
         setCurrentSubject(key);
         Object.assign(query, { event_id: 0, session_id: 0, source_id: 0, group_id: 0, school: '' });
+        eventDefaulted = false;
         load();
     });
     root.querySelectorAll('[data-status]').forEach(btn => btn.addEventListener('click', () => {

@@ -58,6 +58,7 @@ class ExamSourceServiceTest extends TestCase {
 	private LogEventDispatcherInterface&MockObject $log;
 	private ExamSourceService $service;
 	private \Inc\Services\Exam\GuestSessionService&\PHPUnit\Framework\MockObject\MockObject $guestSessions;
+	private \Inc\Repositories\WPDBRepositories\ExamSessionRepository&\PHPUnit\Framework\MockObject\MockObject $sessions;
 	private object $db;
 	private \wpdb $originalWpdb;
 
@@ -91,6 +92,7 @@ class ExamSourceServiceTest extends TestCase {
 		$this->guard        = $this->createMock( ExamAccessGuard::class );
 		$this->tokens       = $this->createMock( ExamAccessTokenService::class );
 		$this->guestSessions = $this->createMock( \Inc\Services\Exam\GuestSessionService::class );
+		$this->sessions      = $this->createMock( \Inc\Repositories\WPDBRepositories\ExamSessionRepository::class );
 		$this->log          = $this->createMock( LogEventDispatcherInterface::class );
 
 		$this->guard->method( 'canManageEventGuests' )->willReturn( true );
@@ -136,7 +138,7 @@ class ExamSourceServiceTest extends TestCase {
 		) );
 
 		return new ExamSourceService(
-			$this->sources, $this->events, $this->applications, $guard ?? $this->guard, $this->tokens, $formats, $assessments, $this->log, new ExamTime( $clock ), $this->guestSessions
+			$this->sources, $this->events, $this->applications, $guard ?? $this->guard, $this->tokens, $formats, $assessments, $this->log, new ExamTime( $clock ), $this->guestSessions, $this->sessions
 		);
 	}
 
@@ -169,12 +171,20 @@ class ExamSourceServiceTest extends TestCase {
 	// ---- создание и правка ---------------------------------------------------------------------------------------------------------
 
 	public function test_save_creates_source_with_normalized_school_and_audit_event(): void {
-		$this->log->expects( self::once() )->method( 'dispatch' )->with(
-			LogEvent::ExamSourceCreated,
-			self::callback( static fn ( EntityChangedEvent $e ): bool => OperationType::Create === $e->operation && EntityType::ExamSource === $e->entityType && self::SOURCE === $e->entityId && self::ACTOR === $e->actorUserId )
+		$events = array();
+		$this->log->method( 'dispatch' )->willReturnCallback(
+			static function ( LogEvent $event, EntityChangedEvent $e ) use ( &$events ): void {
+				$events[] = array( $event, $e );
+			}
 		);
+		// Ссылка выдаётся сразу при создании: отдельного шага «Создать ссылку» нет.
+		$this->tokens->expects( self::once() )->method( 'issue' )->willReturn( 'k7m2qx' );
 
 		$this->service->save( self::ACTOR, self::EVENT, $this->input(), null, null );
+
+		self::assertSame( LogEvent::ExamSourceCreated, $events[0][0] );
+		self::assertTrue( OperationType::Create === $events[0][1]->operation && EntityType::ExamSource === $events[0][1]->entityType && self::SOURCE === $events[0][1]->entityId && self::ACTOR === $events[0][1]->actorUserId );
+		self::assertSame( LogEvent::ExamSourceUpdated, $events[1][0], 'Выдача ссылки пишется отдельным событием.' );
 
 		self::assertSame( 'Школа 5', $this->inserted['school_name'], 'Края обрезаны, пробелы схлопнуты.' );
 		self::assertSame( 'школа 5', $this->inserted['school_name_normalized'] );
@@ -194,6 +204,29 @@ class ExamSourceServiceTest extends TestCase {
 		$this->inserted = array();
 		$this->service->save( self::ACTOR, self::EVENT, $this->input(), null, null );
 		self::assertArrayNotHasKey( 'discount_percent', $this->inserted, 'Без поля колонка остаётся со значением по умолчанию (полная цена).' );
+	}
+
+	public function test_save_stores_only_own_sessions_and_empty_list_clears_restriction(): void {
+		$this->sessions->method( 'findByEvent' )->willReturn( array( (object) array( 'id' => 5 ), (object) array( 'id' => 7 ) ) );
+
+		$this->service->save( self::ACTOR, self::EVENT, $this->input( array( 'session_ids' => array( 7, 5, 99, 7 ) ) ), null, null );
+		self::assertSame( '[5,7]', $this->inserted['session_ids'], 'Чужие сеансы отброшены, повторы убраны, порядок по возрастанию.' );
+
+		$this->inserted = array();
+		$this->service->save( self::ACTOR, self::EVENT, $this->input( array( 'session_ids' => array() ) ), null, null );
+		self::assertNull( $this->inserted['session_ids'], 'Пустой выбор — ограничения нет.' );
+
+		$this->inserted = array();
+		$this->service->save( self::ACTOR, self::EVENT, $this->input(), null, null );
+		self::assertArrayNotHasKey( 'session_ids', $this->inserted, 'Без поля ограничение не меняется.' );
+	}
+
+	public function test_dto_allows_any_session_without_restriction_and_only_listed_with_it(): void {
+		self::assertTrue( $this->source()->allowsSession( 12 ) );
+
+		$limited = $this->source( array( 'session_ids' => '[5,7]' ) );
+		self::assertTrue( $limited->allowsSession( 7 ) );
+		self::assertFalse( $limited->allowsSession( 6 ) );
 	}
 
 	public function test_save_rejects_discount_outside_steps(): void {
@@ -344,26 +377,16 @@ class ExamSourceServiceTest extends TestCase {
 		$this->service->revokeLink( self::ACTOR, self::SOURCE );
 	}
 
-	public function test_delete_removes_source_with_revoked_link(): void {
-		$this->lockedOverride = array( 'key_revoked_at' => '2026-03-01 06:00:00' );
+	public function test_delete_removes_source_and_revokes_its_link_without_prior_revoke(): void {
 		$this->sources->method( 'hasLiveReferences' )->willReturn( false );
-		$this->tokens->method( 'hasActive' )->willReturn( false );
+		$this->tokens->expects( self::once() )->method( 'revoke' )->with( ExamTokenPurpose::Invitation, self::SOURCE );
+		$this->guestSessions->expects( self::once() )->method( 'revokeBySource' )->with( self::SOURCE );
 		$this->sources->expects( self::once() )->method( 'delete' )->with( self::SOURCE );
 
 		$this->service->deleteSource( self::ACTOR, self::SOURCE );
 	}
 
-	public function test_delete_is_refused_without_explicit_revoke(): void {
-		$this->sources->method( 'hasLiveReferences' )->willReturn( false );
-		$this->tokens->method( 'hasActive' )->willReturn( true );
-		$this->sources->expects( self::never() )->method( 'delete' );
-
-		$this->expectException( \Inc\Shared\CodedException::class );
-		$this->service->deleteSource( self::ACTOR, self::SOURCE );
-	}
-
 	public function test_delete_is_refused_when_source_has_live_applications_or_records(): void {
-		$this->lockedOverride = array( 'key_revoked_at' => '2026-03-01 06:00:00' );
 		$this->sources->method( 'hasLiveReferences' )->willReturn( true );
 		$this->sources->expects( self::never() )->method( 'delete' );
 
@@ -419,7 +442,7 @@ class ExamSourceServiceTest extends TestCase {
 
 		$rows = $this->service->list( self::ACTOR, self::EVENT );
 
-		self::assertSame( array( 'id', 'school_name', 'school_key', 'teacher_name', 'grade', 'is_active', 'discount_percent', 'revoked', 'has_link', 'url', 'generation', 'active_holds', 'version' ), array_keys( $rows[0] ) );
+		self::assertSame( array( 'id', 'school_name', 'school_key', 'teacher_name', 'grade', 'is_active', 'discount_percent', 'revoked', 'has_link', 'url', 'generation', 'active_holds', 'registered', 'session_ids', 'version' ), array_keys( $rows[0] ) );
 		self::assertStringEndsWith( '?k=k7m2qx', $rows[0]['url'], 'Ссылка для копирования собирается из сохранённого ключа; хеша в ответе нет.' );
 		self::assertTrue( $rows[0]['has_link'] );
 		self::assertSame( 3, $rows[0]['generation'] );

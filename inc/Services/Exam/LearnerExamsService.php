@@ -413,6 +413,10 @@ class LearnerExamsService {
 			if ( ExamSessionStatus::Open->value !== $session->status || $nowUtc >= $session->scheduledAt ) {
 				continue;
 			}
+			// Сеанс только для гостей ученик не видит; свой текущий сеанс остаётся в списке.
+			if ( ! $session->visibleToStudents && ( null === $registration || $registration->sessionId !== $session->id ) ) {
+				continue;
+			}
 
 			$free  = max( 0, $session->capacity - $session->occupiedCount );
 			$start = $this->local( $session->scheduledAt );

@@ -114,10 +114,11 @@ class ExamRegistrationServiceTest extends TestCase {
 		), $override ) );
 	}
 
-	private function session( int $id, string $start = '2026-03-12 07:00:00', string $end = '2026-03-12 10:55:00', string $status = 'open' ): ExamSessionDTO {
+	private function session( int $id, string $start = '2026-03-12 07:00:00', string $end = '2026-03-12 10:55:00', string $status = 'open', bool $visible = true ): ExamSessionDTO {
 		return ExamSessionDTO::fromArray( array(
 			'id' => $id, 'event_id' => self::EVENT, 'assessment_id' => 50, 'scheduled_at' => $start, 'planned_end_at' => $end,
 			'room_id' => 1, 'capacity' => 10, 'occupied_count' => 1, 'responsible_user_id' => 1, 'status' => $status, 'version' => 1,
+			'visible_to_students' => $visible ? 1 : 0,
 			'created_at' => '2026-01-01 00:00:00', 'updated_at' => '2026-01-01 00:00:00',
 		) );
 	}
@@ -472,6 +473,33 @@ class ExamRegistrationServiceTest extends TestCase {
 		$this->lessons->method( 'listByGroupAndDay' )->with( 5, '2026-03-12' )->willReturn( $lessons );
 		$this->arrangeRegistration();
 		$this->sessions->method( 'occupySeat' )->willReturn( true );
+	}
+
+	public function test_student_cannot_register_on_guests_only_session(): void {
+		$this->audience->method( 'isEligible' )->willReturn( true );
+		$this->sessions->method( 'find' )->willReturn( $this->session( self::OLD_SESSION, '2026-03-12 07:00:00', '2026-03-12 10:55:00', 'open', false ) );
+		$this->sessions->expects( self::never() )->method( 'occupySeat' );
+
+		try {
+			$this->service->register( self::PERSON, self::OLD_SESSION, 'key-hidden' );
+			self::fail( 'Запись ученика на сеанс только для гостей должна отказывать.' );
+		} catch ( CodedException $e ) {
+			self::assertSame( ErrorCode::ExamAccess, $e->errorCode );
+			self::assertSame( 'Этот сеанс недоступен для записи.', $e->getMessage() );
+		}
+	}
+
+	public function test_student_cannot_move_to_guests_only_session(): void {
+		$this->participants->method( 'findByPersonId' )->willReturn( $this->participant() );
+		$this->sessions->method( 'find' )->willReturn( $this->session( self::NEW_SESSION, '2026-03-12 11:00:00', '2026-03-12 14:55:00', 'open', false ) );
+		$this->sessions->expects( self::never() )->method( 'occupySeat' );
+
+		try {
+			$this->service->change( self::PERSON, self::NEW_SESSION, 'key-hidden-move' );
+			self::fail( 'Перенос ученика на сеанс только для гостей должен отказывать.' );
+		} catch ( CodedException $e ) {
+			self::assertSame( ErrorCode::ExamAccess, $e->errorCode );
+		}
 	}
 
 	public function test_lesson_overlap_gives_warning_not_error(): void {

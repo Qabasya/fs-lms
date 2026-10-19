@@ -37,6 +37,8 @@ readonly class ExamSourceDTO {
 		public string $updatedAt,
 		/** Скидка по ссылке преподавателя, %: 0 — полная цена, 100 — запись без оплаты. У открытой записи не действует. */
 		public int $discountPercent = 0,
+		/** ID сеансов, на которые разрешена запись по ссылке; null — ограничения нет (все сеансы). */
+		public ?array $allowedSessionIds = null,
 	) {}
 
 	/** Действующая скидка: у открытой записи её не бывает. */
@@ -47,6 +49,11 @@ readonly class ExamSourceDTO {
 	/** Запись по ссылке без оплаты (скидка 100 %): бронь сразу превращается в запись, магазин не вызывается. */
 	public function isFree(): bool {
 		return 100 === $this->effectiveDiscount();
+	}
+
+	/** Разрешена ли запись на сеанс по этой ссылке: без ограничения — любой сеанс проведения. */
+	public function allowsSession( int $sessionId ): bool {
+		return null === $this->allowedSessionIds || in_array( $sessionId, $this->allowedSessionIds, true );
 	}
 
 	/** Источник открытой записи (не школа): отчёты по его участникам не формируются. */
@@ -74,6 +81,21 @@ readonly class ExamSourceDTO {
 			updatedAt             : (string) $row['updated_at'],
 			// Строка до миграции 1.0.88 знает только флаг `is_free`: он равен скидке 100 %.
 			discountPercent       : isset( $row['discount_percent'] ) ? (int) $row['discount_percent'] : ( ! empty( $row['is_free'] ) ? 100 : 0 ),
+			allowedSessionIds     : self::decodeSessionIds( $row['session_ids'] ?? null ),
 		);
+	}
+
+	/**
+	 * Разбирает JSON-список ID сеансов; пусто или не список — null (без ограничения).
+	 *
+	 * @return list<int>|null
+	 */
+	private static function decodeSessionIds( mixed $raw ): ?array {
+		if ( ! is_string( $raw ) || '' === $raw ) {
+			return null;
+		}
+		$list = json_decode( $raw, true );
+
+		return is_array( $list ) ? array_values( array_map( 'intval', $list ) ) : null;
 	}
 }

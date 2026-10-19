@@ -62,15 +62,37 @@
 /* Кнопка «+ Сеанс» в ячейке дня периода: добавление без перетаскивания — единственный способ на телефоне */
 .exam-add {
   display: flex; align-items: center; justify-content: center; gap: t.$spacing-xs;
-  width: 100%; margin-top: t.$spacing-xs; padding: t.$spacing-xs;
-  background: transparent; color: var(--accent-700); font: inherit; font-size: t.$font-size-2xs; font-weight: t.$font-semibold;
+  width: auto; height: $exam-add-height; margin: 0 0 0 auto; padding: 0 t.$spacing-sm;
+  background: transparent; color: var(--accent-700); font: inherit; font-size: t.$font-size-xs; font-weight: t.$font-semibold;
   border: 1px dashed var(--line); border-radius: t.$border-radius-sm; cursor: pointer;
   transition: background $tr, border-color $tr;
 
   &:hover { background: var(--accent-soft); border-color: var(--accent); }
 }
 
+/* Календарь проведения по неделям. Высота зависит от сеансов:
+   — неделя вне периода (kal-week--off) сжата до строки с числами;
+   — неделя периода без сеансов (--empty) 60–80px, растягивается/сжимается по свободному месту;
+   — неделя с сеансами (--busy) растёт по содержимому: два сеанса в день делают её выше.
+   В ячейке — строка даты с «+ Сеанс» и сеансы в три строки. */
+.kal-grid-wrap:has(.kal-grid--weeks) { display: flex; flex-direction: column; min-height: 0; }
+.kal-grid--weeks { display: flex; flex-direction: column; flex: 1 0 auto; gap: t.$spacing-xs; }
+.kal-week { display: grid; grid-template-columns: repeat(7, 1fr); column-gap: t.$spacing-sm; }
+
+.kal-week--off,
+.kal-week--busy { flex: 0 0 auto; }
+.kal-week--empty { flex: 1 1 $exam-day-min-height; min-height: $exam-day-min-height; max-height: $exam-day-max-height; }
+.kal-grid--weeks .kal-cell { min-width: 0; }
+
+.kal-week--empty .kal-cell,
+.kal-week--busy .kal-cell { min-height: $exam-day-min-height; }
+.kal-week--busy .kal-cell { padding-block: $exam-busy-day-padding; } /* день с сеансами — чуть воздуха сверху и снизу */
+.kal-week--off .kal-cell { min-height: 0; opacity: .5; }
+.kal-grid--weeks .kal-date { min-height: $exam-add-height; }
+
 .exam-session { cursor: pointer; }
+.exam-session.is-guests-only { border-left-style: dashed; } /* сеанс только для гостей: пунктир слева, подпись «только гости» */
+.gp-exam .gp-hint { margin: calc(-1 * #{t.$spacing-xs}) 0 t.$spacing-sm; font-size: t.$font-size-xs; color: var(--muted-2); }
 .exam-session.is-completed { border-left-color: var(--wait-accent); }
 .exam-session.is-completed .pt-title { color: var(--wait-text); }
 .exam-session.is-cancelled { border-left-color: var(--err); }
@@ -99,6 +121,9 @@
   &:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 $exam-focus-ring-width var(--accent-soft); }
 }
 .gp-exam .gp-field--check input { flex: 0 0 auto; width: auto; height: auto; }
+
+/* Флажок в строке «подпись — значение» (форма сеанса): своих размеров не растягивается до поля ввода, стоит на одной линии с селектами */
+.gp-exam .gp-field input[type="checkbox"] { flex: 0 0 auto; width: auto; height: auto; margin: 0; }
 .gp-exam .gp-field--check span { flex: 1 1 auto; }
 
 /* Подпись согласия — одной строкой на всю ширину окна (на телефоне переносится) */
@@ -109,26 +134,64 @@
 /* «Открытая запись»: адрес страницы с кнопкой копирования */
 .es-open { display: flex; flex-wrap: wrap; align-items: center; gap: t.$spacing-sm; margin: 0 0 t.$spacing-md; font-size: t.$font-size-sm; }
 
-/* «Ссылки для преподавателей» внутри настроек проведения: строки источников и добавление */
-.gp-sources { margin: t.$spacing-lg 0; padding-top: t.$spacing-md; border-top: 1px solid var(--line-2); }
+/* «Управление ссылками»: панель справа; одна строка = школа, ФИО, скидка, число записанных, «Скопировать», сеансы, «⋯» */
+.es-drawer { display: flex; flex-direction: column; min-width: 0; height: 100%; }
+.es-drawer-head { display: flex; align-items: center; gap: t.$spacing-sm; padding-bottom: t.$spacing-md; margin-bottom: t.$spacing-md; border-bottom: 1px solid var(--line-2); }
+.es-drawer-title { font-size: t.$font-size-md; font-weight: t.$font-semibold; color: var(--ink); }
+.es-drawer-body { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
 
 .exam-source {
-  display: flex; align-items: center; flex-wrap: wrap; gap: t.$spacing-md;
+  display: flex; align-items: center; gap: t.$spacing-md; /* кнопки — по центру строки (школа + ФИО), а не по верху */
   padding: t.$spacing-sm 0; border-bottom: 1px solid var(--line-2);
 
-  &.is-off .es-main { opacity: .55; }
+  &.is-off .es-school,
+  &.is-off .es-teacher { opacity: .55; }
 }
-.es-main { flex: 1 1 $exam-source-row-width; min-width: 0; }
-.es-school { font-size: t.$font-size-sm; font-weight: t.$font-semibold; color: var(--ink); }
+.es-main { display: flex; flex-direction: column; flex: 1 1 $exam-source-row-width; gap: t.$spacing-xs; min-width: 0; }
+
+/* Отметка «открытой записи» в панели: общий `.gp-field input` растягивает любой input до поля ввода, у флажка свои размеры. */
+.es-drawer .gp-field--check input { flex: 0 0 auto; width: auto; height: auto; margin: 0; }
+.es-drawer .gp-field--check span { flex: 1 1 auto; }
+.es-school { min-width: 0; font-size: t.$font-size-sm; font-weight: t.$font-semibold; color: var(--ink); }
+.es-off { margin-left: t.$spacing-xs; font-size: t.$font-size-2xs; font-weight: t.$font-semibold; color: var(--err); }
+
+.es-tools > .prof-btn,
+.es-tools > .prof-icon-ghost { height: $exam-source-input-height; box-sizing: border-box; }
+.es-tools > .prof-icon-ghost { display: inline-flex; align-items: center; justify-content: center; }
+.es-tools { display: flex; flex: 0 0 auto; align-items: center; gap: t.$spacing-sm; }
+.es-count { font-size: t.$font-size-xs; color: var(--muted); white-space: nowrap; }
+.es-count b { color: var(--ink); }
+
+/* «Скопировать» и выбор сеансов — одной ширины, чтобы кнопки строк стояли друг под другом */
+.es-copy,
+.es-sessions { display: inline-flex; align-items: center; justify-content: center; gap: t.$spacing-xs; width: $exam-source-btn-width; }
+.es-sessions { justify-content: space-between; height: $exam-source-input-height; padding: 0 t.$spacing-sm; font-size: t.$font-size-sm; background: var(--surface); }
+.es-caret { flex: 0 0 auto; color: var(--muted-2); }
 .es-teacher { display: flex; flex-wrap: wrap; align-items: center; gap: t.$spacing-xs; font-size: t.$font-size-xs; color: var(--muted); }
-.es-list { max-height: $exam-source-list-max-height; overflow-y: auto; }
+
+/* Правка ФИО: поле на всю ширину колонки (до кнопок), справа зелёная галочка и красный крестик */
+.es-teacher.is-editing { flex-wrap: nowrap; }
+.es-icon { display: inline-flex; flex: 0 0 auto; align-items: center; justify-content: center; width: $exam-source-input-height; height: $exam-source-input-height; padding: 0; background: var(--surface); border: 1px solid var(--line); border-radius: t.$border-radius-sm; cursor: pointer; }
+.es-icon--ok { color: var(--ok); }
+.es-icon--ok:hover { background: var(--ok-soft); border-color: var(--ok); }
+.es-icon--no { color: var(--err); }
+.es-icon--no:hover { background: var(--err-soft); border-color: var(--err); }
+.es-holds { margin-left: t.$spacing-xs; }
+.es-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
 .es-edit { display: inline-flex; padding: t.$spacing-xs; color: var(--muted-2); background: none; border: 0; border-radius: t.$border-radius-sm; cursor: pointer; }
 .es-edit:hover { color: var(--accent-700); background: var(--accent-soft); }
 .es-teacher-input { flex: 1 1 auto; min-width: 0; height: $exam-source-input-height; padding: 0 t.$spacing-sm; font: inherit; font-size: t.$font-size-sm; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: t.$border-radius-sm; }
 .es-free { margin-left: t.$spacing-xs; padding: 0 t.$spacing-xs; font-size: t.$font-size-2xs; font-weight: t.$font-semibold; color: var(--accent-700); background: var(--accent-soft); border-radius: t.$border-radius-xl; }
-.es-toggle { display: inline-flex; align-items: center; gap: t.$spacing-xs; font-size: t.$font-size-xs; color: var(--muted); }
-.es-actions { display: flex; flex-wrap: wrap; gap: t.$spacing-xs; }
 .es-empty { padding: t.$spacing-sm 0; font-size: t.$font-size-xs; color: var(--muted-2); }
+
+/* Выбор сеансов ссылки (поповер): отметки, сохраняются при закрытии */
+.es-sess { min-width: $exam-source-list-min-width; }
+.es-sess-list { max-height: $exam-source-sessions-max-height; overflow-y: auto; }
+.es-sess-item { display: flex; align-items: center; gap: t.$spacing-sm; padding: t.$spacing-xs t.$spacing-sm; font-size: t.$font-size-sm; color: var(--ink-2); cursor: pointer; }
+.es-sess-item:hover { background: var(--surface-2); }
+.es-sess-hint { padding: t.$spacing-xs t.$spacing-sm 0; font-size: t.$font-size-xs; color: var(--muted-2); }
+.ctx-item.is-disabled { color: var(--muted-2); cursor: not-allowed; }
+.ctx-item.is-disabled:hover { background: none; }
 
 .es-add {
   display: flex; align-items: center; flex-wrap: wrap; gap: $exam-source-row-gap; margin-top: t.$spacing-md;
@@ -139,10 +202,7 @@
   // Скидка по ссылке: те же размеры и рамка, что у полей ввода строки.
   select { flex: 0 0 auto; height: $exam-source-input-height; padding: 0 t.$spacing-sm; font: inherit; font-size: t.$font-size-sm; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: t.$border-radius-sm; }
 
-  .es-toggle { height: $exam-source-input-height; white-space: nowrap; }
-  .es-toggle input { flex: 0 0 auto; width: auto; height: auto; margin: 0; }
 }
-.es-grade { font-size: t.$font-size-xs; font-weight: t.$font-semibold; color: var(--muted); white-space: nowrap; }
 
 /* Автодополнение «Школа» — тот же компонент, что в форме заявки (createSuggest), в токенах кабинета. */
 .es-school-field {
@@ -418,3 +478,18 @@ th.exam-grid-name { z-index: 2; background: var(--surface-2); }
 
 // Предмет и проведение на «Назначить экзамен»: отступ между выборами как в «Сводке по ученику» (.sum-head), а не общий для КТП.
 .prof-ktp-pickers.exam-plan-pickers { gap: t.$spacing-lg; }
+
+/* Шапка «Назначить экзамен»: кнопки, статус и «⋮» — одной высоты с селектами предмета и проведения и по их нижней линии */
+.exam-plan-head { align-items: flex-end; }
+
+.exam-plan-head > .prof-btn,
+.exam-plan-head > .prof-icon-ghost,
+.exam-plan-head > .prof-state-pill { display: inline-flex; align-items: center; justify-content: center; height: $exam-head-control-height; box-sizing: border-box; }
+.exam-plan-head > .prof-btn { padding-inline: t.$spacing-lg; font-size: t.$font-size-sm; }
+
+/* Форма добавления прижата к низу панели: подсказки школы открываются вверх, иначе их срежет край панели. */
+.es-drawer .es-school-field .fs-dadata-suggestions {
+  top: auto; bottom: 100%;
+  border-top: 1px solid var(--line); border-bottom: none;
+  border-radius: t.$border-radius-sm t.$border-radius-sm 0 0;
+}

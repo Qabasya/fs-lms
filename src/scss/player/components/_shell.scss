@@ -158,6 +158,11 @@ body.fs-player-page { overflow: visible; }
   max-width: 100%;
   margin: 0 auto;
   padding-bottom: rem(28);
+
+  // Строго по центру экрана, без учёта рейки шагов: колонка центрируется в контентной области (она смещена вправо
+  // на рейку), поэтому сдвигается влево на --col-shift, но не дальше, чем есть свободного места слева (100% — ширина области).
+  position: relative;
+  left: min(0px, max(calc(-1 * var(--col-shift)), calc((var(--colw) - 100%) / 2)));
 }
 
 /* Конец урока: под последним шагом — выход к курсу / следующий урок. */
@@ -326,17 +331,21 @@ body.fs-player-page { overflow: visible; }
 .toast { @include cab-toast($z-toast); }
 
 /* ── B4: адаптив ширины шага и жёлобов ───────────────────────────────────
-   База --colw:1282 (контент 1200). Колонка ограничена max-width:100%, поэтому
+   Колонка --colw: 1000px на 1280 → 1200px на FullHD → 1600px на 4K (_variables.scss). Колонка ограничена max-width:100%, поэтому
    на узких экранах достаточно ужать жёлоба; на телефоне рейка уходит наверх
    горизонтальной полосой (_rail.scss). */
 @media (max-width: $bp-shell-narrow) {
   .player { padding: rem(12) rem(14); }
   .content { margin-left: rem(12); }
+
+  // Жёлоба уже: (14 + рейка 64 + 12 − 14) / 2
+  :root { --col-shift: #{calc((#{rem(14)} + #{$rail-w} + #{rem(12)} - #{rem(14)}) / 2)}; }
 }
 
 @media (max-width: $bp-mobile) {
   .player { flex-direction: column; align-items: stretch; padding: 0 rem(8) rem(8); }
   .content { margin-left: 0; }
+  :root { --col-shift: 0px; } // рейка уходит наверх — центр области совпадает с центром экрана
 
   .lesson-end,
   .lesson-end .le-actions { flex-direction: column; align-items: stretch; }

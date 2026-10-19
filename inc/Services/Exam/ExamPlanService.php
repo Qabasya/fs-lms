@@ -134,6 +134,7 @@ class ExamPlanService {
 			'occupied'            => $session->occupiedCount,
 			'status'              => $session->status,
 			'is_locked'           => $session->isLocked(),
+			'visible_to_students' => $session->visibleToStudents,
 			'responsible_user_id' => $session->responsibleUserId,
 			'version'             => $session->version,
 		);

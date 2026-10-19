@@ -52,9 +52,20 @@ $exam-event-form-width: t.rem(1200); // «Настройки проведени�
 $exam-source-row-width: t.rem(180);
 $exam-source-input-width: t.rem(140);
 $exam-source-input-height: t.rem(32);
+$exam-head-control-height: calc(#{t.rem(42)} + 2px); // кнопки шапки «Назначить экзамен» — высотой селектов предмета и проведения (.kp-btn: чип 26 + отступы 16 + рамка)
+$exam-add-height: t.rem(24); // строка даты в ячейке календаря проведения — по кнопке «+ Сеанс»
+$exam-day-min-height: t.rem(60); // день без сеансов: 60–80px, с сеансами ячейка растёт по содержимому
+$exam-day-max-height: t.rem(80);
+$exam-busy-day-padding: t.rem(18); // отступ сверху и снизу у дня с сеансами
+
+// WP admin-bar не масштабируется вместе с rem кабинета: отступ под неё — в px
+$admin-bar-h: 32px;
+$admin-bar-h-mobile: 46px;
+$exam-source-btn-width: t.rem(140); // «Скопировать» и выбор сеансов в строке ссылки — одной ширины
 
 // Список ссылок прокручивается сам: после ~10 строк (строка источника ≈ 56px).
-$exam-source-list-max-height: t.rem(560);
+$exam-source-list-min-width: t.rem(260); // поповер выбора сеансов ссылки
+$exam-source-sessions-max-height: t.rem(280);
 $exam-source-row-gap: t.rem(32); // промежуток между полями ряда «Школа / класс / ФИО / без оплаты / Добавить»
 $exam-filter-height: t.rem(38);
 $exam-filter-select-width: 200px; // выпадающие списки панели фильтров — ровно 200px, без масштаба rem кабинета

@@ -486,9 +486,18 @@ function wire() {
     if (gear) gear.addEventListener('click', () => openUserMenu(gear));
 
     const backdrop = document.getElementById('profCtxBackdrop');
-    if (backdrop) backdrop.addEventListener('click', () => { closeGradePop(); closeCtxMenu(); });
+    // Открытое меню (в т.ч. поверх модалки или панели) закрывается первым: панель под ним остаётся.
+    const menuOpen = () => document.getElementById('profCtxMenu')?.classList.contains('open');
+    if (backdrop) backdrop.addEventListener('click', () => { if (menuOpen()) { closeCtxMenu(); return; } closeGradePop(); closeCtxMenu(); });
+    // Меню поверх панели/модалки: клик в любое место вне меню закрывает его (подложка лежит под панелью и клик не получает).
+    document.addEventListener('pointerdown', e => {
+        if (menuOpen() && !e.target.closest('#profCtxMenu') && !e.target.closest('#profCtxBackdrop')) { closeCtxMenu(); }
+    }, true);
     document.addEventListener('keydown', e => {
-        if (e.key === 'Escape') { closeGradePop(); closeCtxMenu(); }
+        if (e.key !== 'Escape') { return; }
+        if (menuOpen()) { closeCtxMenu(); return; }
+        closeGradePop();
+        closeCtxMenu();
     });
 }
 

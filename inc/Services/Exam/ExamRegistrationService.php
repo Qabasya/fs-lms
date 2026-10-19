@@ -101,6 +101,7 @@ class ExamRegistrationService {
 		if ( ! $this->audience->isEligible( $personId, $event->subjectKey ) ) {
 			throw new CodedException( ErrorCode::ExamAccess, 'Экзамен недоступен для этого ученика.' );
 		}
+		$this->assertVisibleToStudents( $session );
 
 		$participantId = $this->participants->getOrCreateForPerson( $personId );
 		$warnings      = $this->lessonOverlapWarning( $personId, $session ) ? array( self::WARNING_LESSON_OVERLAP ) : array();
@@ -269,6 +270,17 @@ class ExamRegistrationService {
 	}
 
 	/**
+	 * Сеанс только для гостей ученик и родитель не видят и записаться на него сами не могут (сотрудник записывает куда угодно).
+	 *
+	 * @throws CodedException Сеанс скрыт от учеников.
+	 */
+	private function assertVisibleToStudents( ExamSessionDTO $session ): void {
+		if ( ! $session->visibleToStudents ) {
+			throw new CodedException( ErrorCode::ExamAccess, 'Этот сеанс недоступен для записи.' );
+		}
+	}
+
+	/**
 	 * Перенос ученика на другой сеанс (до начала своего сеанса). Неудачный перенос сохраняет старую запись.
 	 *
 	 * @param int|null $expectedVersion Версия участия, которую видит вкладка; расхождение — `ExamStale`.
@@ -286,6 +298,7 @@ class ExamRegistrationService {
 		if ( null === $participant ) {
 			throw new CodedException( ErrorCode::ExamNotFound, 'Действующей записи нет.' );
 		}
+		$this->assertVisibleToStudents( $peek );
 
 		return $this->inTransactionWithRetry(
 			function () use ( $participant, $peek, $newSessionId, $requestKey, $expectedVersion ): RegistrationResultDTO {

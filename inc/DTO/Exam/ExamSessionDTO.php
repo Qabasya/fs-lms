@@ -29,6 +29,8 @@ readonly class ExamSessionDTO {
 		public int $version,
 		public string $createdAt,
 		public string $updatedAt,
+		/** Сеанс виден ученикам и родителям (они могут записываться); false — только гости. */
+		public bool $visibleToStudents = true,
 	) {}
 
 	/** Восстанавливает типы полей из строки репозитория. */
@@ -49,6 +51,7 @@ readonly class ExamSessionDTO {
 			version             : (int) $row['version'],
 			createdAt           : (string) $row['created_at'],
 			updatedAt           : (string) $row['updated_at'],
+			visibleToStudents   : ! isset( $row['visible_to_students'] ) || (bool) $row['visible_to_students'],
 		);
 	}
 
