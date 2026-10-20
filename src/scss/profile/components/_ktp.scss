@@ -158,6 +158,7 @@
 .placed-theme.pinned { border-left-color: var(--accent); }
 .placed-theme .pt-num { font-weight: 700; color: var(--ok); }
 .placed-theme.pinned .pt-num { color: var(--accent-700); }
+
 /* Верхняя строка карточки: дедлайны, запись, закрепление (и маркеры), «⋮» справа. */
 .placed-theme .pt-bar { display: flex; align-items: center; gap: rem(4); min-height: rem(18); margin-bottom: rem(3); }
 .placed-theme .pt-pin { color: var(--accent); display: none; }
