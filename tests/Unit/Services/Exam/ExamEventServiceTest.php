@@ -70,6 +70,7 @@ class ExamEventServiceTest extends TestCase {
 	private ExamHoldService&MockObject $holds;
 	private ExamGuestApplicationRepository&MockObject $guestApplications;
 	private ExamLaunchChecklist&MockObject $checklist;
+	private \Inc\Repositories\WPDBRepositories\ExamAccessTokenRepository&MockObject $tokens;
 	private ExamEventService $service;
 	private object $db;
 	private \wpdb $originalWpdb;
@@ -125,6 +126,7 @@ class ExamEventServiceTest extends TestCase {
 		$this->holds               = $this->createMock( ExamHoldService::class );
 		$this->guestApplications   = $this->createMock( ExamGuestApplicationRepository::class );
 		$this->checklist           = $this->createMock( ExamLaunchChecklist::class );
+		$this->tokens              = $this->createMock( \Inc\Repositories\WPDBRepositories\ExamAccessTokenRepository::class );
 		$this->checklist->method( 'isReady' )->willReturn( true );
 
 		$this->guard->method( 'canManageSubject' )->willReturn( true );
@@ -189,6 +191,7 @@ class ExamEventServiceTest extends TestCase {
 			$this->events, $this->sessions, $this->registrations, $this->attempts, $guard ?? $this->guard, $this->variants,
 			new ExamRoomService( $this->rooms, $this->sessions, $time, new \Inc\Services\Course\RoomAvailabilityService( $this->rooms, $this->sessions, $time ) ), $formats, $this->assessments, $this->outbox, $time,
 			$this->registrationService, $this->holds, $this->guestApplications, $this->checklist,
+			$this->tokens,
 		);
 	}
 
@@ -349,6 +352,19 @@ class ExamEventServiceTest extends TestCase {
 			->with( self::EVENT, self::callback( static fn ( array $d ): bool => 'Новое имя' === $d['title'] ), 1 );
 
 		$this->service->updateEvent( self::ACTOR, self::EVENT, $this->eventInput( array( 'title' => 'Новое имя' ) ), 1 );
+	}
+
+	public function test_update_extends_school_links_when_registration_close_moves(): void {
+		$this->tokens->expects( self::once() )->method( 'setInvitationExpiryByEvent' )->with( self::EVENT, '2026-03-09 15:00:00' );
+
+		$this->service->updateEvent( self::ACTOR, self::EVENT, $this->eventInput(), 1 );
+	}
+
+	public function test_update_keeps_school_links_when_registration_close_is_unchanged(): void {
+		$this->event = $this->examEvent( array( 'registration_closes_at' => '2026-03-09 15:00:00' ) );
+		$this->tokens->expects( self::never() )->method( 'setInvitationExpiryByEvent' );
+
+		$this->service->updateEvent( self::ACTOR, self::EVENT, $this->eventInput(), 1 );
 	}
 
 	// ---- права ---------------------------------------------------------------------------------------------------------------------

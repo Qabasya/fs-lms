@@ -20,6 +20,7 @@ use Inc\Enums\Exam\GuestApplicationState;
 use Inc\Enums\Log\ErrorCode;
 use Inc\Managers\Assessment\AssessmentManager;
 use Inc\Repositories\WPDBRepositories\AssessmentAttemptRepository;
+use Inc\Repositories\WPDBRepositories\ExamAccessTokenRepository;
 use Inc\Repositories\WPDBRepositories\ExamEventRepository;
 use Inc\Repositories\WPDBRepositories\ExamGuestApplicationRepository;
 use Inc\Repositories\WPDBRepositories\ExamRegistrationRepository;
@@ -63,6 +64,7 @@ class ExamEventService {
 		private readonly ExamHoldService $holds,
 		private readonly ExamGuestApplicationRepository $guestApplications,
 		private readonly ExamLaunchChecklist $checklist,
+		private readonly ExamAccessTokenRepository $tokens,
 	) {}
 
 	/**
@@ -145,6 +147,11 @@ class ExamEventService {
 
 				if ( ! $this->events->update( $eventId, $fields, $expectedVersion ) ) {
 					throw $this->stale();
+				}
+
+				// Срок ссылок школ равен закрытию записи: сдвинули закрытие — выданные ссылки сдвигаются вместе с ним.
+				if ( $fields['registration_closes_at'] !== $event->registrationClosesAt ) {
+					$this->tokens->setInvitationExpiryByEvent( $eventId, $fields['registration_closes_at'] );
 				}
 
 				return $this->reload( $eventId );

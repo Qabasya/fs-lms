@@ -70,6 +70,25 @@ class ExamAccessTokenRepository extends AbstractExamRepository {
 		) );
 	}
 
+	/**
+	 * Переносит срок действующих (не отозванных) приглашений всех школ проведения.
+	 *
+	 * Просроченные, но не отозванные ключи тоже оживают: срок приглашения равен закрытию записи,
+	 * и при её продлении выданные ссылки должны работать без перевыпуска.
+	 *
+	 * @return int Сколько ключей обновлено.
+	 */
+	public function setInvitationExpiryByEvent( int $eventId, ?string $expiresAtUtc ): int {
+		return $this->write( $this->wpdb->prepare(
+			'UPDATE %i t INNER JOIN %i s ON s.id = t.target_id SET t.expires_at = %s WHERE t.purpose = %s AND t.revoked_at IS NULL AND s.event_id = %d',
+			$this->table,
+			TableName::ExamSources->prefixed(),
+			$expiresAtUtc,
+			ExamTokenPurpose::Invitation->value,
+			$eventId
+		) );
+	}
+
 	/** Ручная отметка «Ссылка передана»; повторная отметка ничего не меняет. */
 	public function markPassed( int $id, int $userId, string $atUtc ): void {
 		$this->write( $this->wpdb->prepare(
