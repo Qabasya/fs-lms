@@ -120,9 +120,9 @@ $bc_teacher  = ! empty( $is_teacher ) && empty( $is_preview );
 
 		<?php if ( $bc_teacher && '' === $video_url ) : ?>
 			<form class="bc-rec" data-recording-form data-group-lesson-id="<?php echo esc_attr( (string) ( $view['group_lesson_id'] ?? 0 ) ); ?>">
-				<label class="bc-rec-label" for="bcRecLink-<?php echo esc_attr( $step['key'] ); ?>"><?php esc_html_e( 'Ссылка на запись занятия (видна ученикам после занятия)', 'fs-lms' ); ?></label>
+				<label class="bc-rec-label" for="bcRecLink-<?php echo esc_attr( $step['key'] ); ?>"><?php esc_html_e( 'Запись занятия: ссылка https://… или s3://… (видна ученикам после занятия)', 'fs-lms' ); ?></label>
 				<div class="bc-rec-row">
-					<input type="url" class="bc-rec-input" id="bcRecLink-<?php echo esc_attr( $step['key'] ); ?>" name="recording_link" value="<?php echo esc_attr( $bc_link ); ?>" placeholder="https://…">
+					<input type="text" class="bc-rec-input" id="bcRecLink-<?php echo esc_attr( $step['key'] ); ?>" name="recording" value="<?php echo esc_attr( $bc_link ); ?>" placeholder="https://… или s3://bucket/key">
 					<button type="submit" class="b b-pri"><?php esc_html_e( 'Сохранить', 'fs-lms' ); ?></button>
 					<?php if ( '' !== $bc_link ) : ?>
 						<button type="button" class="b b-gh" data-recording-clear><?php esc_html_e( 'Убрать', 'fs-lms' ); ?></button>

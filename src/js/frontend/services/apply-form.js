@@ -56,6 +56,7 @@ function collectFormData() {
         username:    document.getElementById( 'fs_username' )?.value.trim()   ?? '',
         password:    document.getElementById( 'fs_password' )?.value          ?? '',
         birth_date:  document.getElementById( 'fs_birth_date' )?.value        ?? '',
+        city:        document.getElementById( 'fs_city' )?.value.trim()       ?? '',
         school:      document.getElementById( 'fs_school' )?.value.trim()     ?? '',
         grade:       document.getElementById( 'fs_grade' )?.value             ?? '',
         subject_key: document.getElementById( 'fs_subject' )?.value           ?? '',
@@ -455,7 +456,7 @@ function bindFormBehaviors() {
         ?.addEventListener( 'click', handleResendOtp );
 
     bindPhoneMask( document.getElementById( 'fs_phone' ) );
-    initSchoolSuggest( document.getElementById( 'fs_school' ) );
+    initSchoolSuggest( document.getElementById( 'fs_school' ), document.getElementById( 'fs_city' ) );
 }
 
 /**

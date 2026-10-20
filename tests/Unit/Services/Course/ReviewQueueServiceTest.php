@@ -177,7 +177,7 @@ class ReviewQueueServiceTest extends TestCase {
 		self::assertSame( array(), $confirm );
 	}
 
-	/** Решено (D): ЕГЭ-компьютерный без ручной проверки — «Ждут подтверждения», не «На проверке». */
+	/** Вкладки «Ждут подтверждения» в кабинете больше нет: ожидающий утверждения ЕГЭ лежит в «На проверке» (и в самой корзине confirm). */
 	public function test_ege_computer_fully_graded_unapproved_attempt_goes_to_confirm(): void {
 		$this->groups->method( 'findByTeacherId' )->willReturn( array( $this->group( 7, 'Группа А' ) ) );
 		$this->submissions->method( 'summaryByGroups' )->willReturn( array() );
@@ -192,7 +192,7 @@ class ReviewQueueServiceTest extends TestCase {
 		self::assertSame( 1, $confirm[0]['source_id'] );
 		self::assertSame( 'ЭКЗ', $confirm[0]['badge'] );
 
-		self::assertSame( array(), $this->service->pendingWorks( 5, false, 'pending' ) );
+		self::assertCount( 1, $this->service->pendingWorks( 5, false, 'pending' ) );
 		self::assertSame( array(), $this->service->pendingWorks( 5, false, 'done' ) );
 	}
 

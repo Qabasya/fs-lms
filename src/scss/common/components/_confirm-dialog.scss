@@ -19,6 +19,8 @@
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.24);
   padding: $spacing-xl $spacing-3xl;
   max-width: rem(420);
+  max-height: 100%; /* оверлей — flex с отступами: диалог не выше окна, длинный текст прокручивается */
+  overflow-y: auto;
   width: 100%;
 }
 

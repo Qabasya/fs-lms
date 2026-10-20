@@ -160,6 +160,24 @@ $max_birth_date = gmdate( 'Y-m-d' );
         </div>
 
         <div class="fs-apply-card__field-group fs-form-group">
+            <label for="fs_city"><?php esc_html_e( 'Город', 'fs-lms' ); ?> <span aria-hidden="true">*</span></label>
+            <div class="fs-field-control">
+                <span class="dashicons dashicons-location" aria-hidden="true"></span>
+                <input
+                        type="text"
+                        name="city"
+                        id="fs_city"
+                        value="<?php echo esc_attr( \Inc\Services\Application\ApplicationService::DEFAULT_CITY ); ?>"
+                        required
+                        aria-required="true"
+                        autocomplete="address-level2"
+                        minlength="2"
+                        maxlength="50"
+                >
+            </div>
+        </div>
+
+        <div class="fs-apply-card__field-group fs-form-group">
             <label for="fs_school"><?php esc_html_e( 'Школа', 'fs-lms' ); ?> <span aria-hidden="true">*</span></label>
             <div class="fs-field-control">
                 <span class="dashicons dashicons-welcome-learn-more" aria-hidden="true"></span>

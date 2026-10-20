@@ -149,6 +149,18 @@
     tab-size: 4;
   }
 
+  // «Проверить ответ» справа от поля ответа (кнопка вдвое уже былого); без кнопки (верный ответ) поле занимает строку.
+  .answer-row {
+    display: flex;
+    align-items: stretch;
+    gap: rem(12);
+
+    > * { flex: 1 1 0; min-width: 0; max-width: none; }
+
+    // Кнопка вдвое уже поля: 1/4 строки против 3/4.
+    > [data-task-check] { flex-grow: 0.333; font-size: 0.9896rem; } // = 19px сайта, как у поля ответа (.fs-widget-text из frontend.min.css: 19/19.2 rem)
+  }
+
   .tgap {
     display: flex;
     flex-direction: column;
@@ -285,6 +297,8 @@
 .cp-modal {
   width: rem(470);
   max-width: calc(100vw - rem(32));
+  max-height: calc(100vh - rem(32)); /* низкое окно (1280×720): модалка прокручивается, а не уходит за край */
+  overflow-y: auto;
   background: var(--surface);
   border-radius: rem(18);
   box-shadow: var(--shadow-pop);
@@ -400,6 +414,8 @@
   .a-prog { flex: 1; }
 
   .a-task { padding: rem(16) rem(14); }
+
+  .a-task .answer-row { flex-direction: column; }
 
   // Шапка задачи: номер + название строкой, чип ответа и баллы — под ними.
   .a-task .th {

@@ -152,6 +152,29 @@ class ProgramCallbacks extends BaseController {
 	}
 
 	/**
+	 * Меняет тему проведённого занятия на тему из пула («провели не ту тему»): дата, посещаемость
+	 * и запись занятия остаются, прежняя тема возвращается в пул. Как и «Продолжить», разрешено в
+	 * опубликованной КТП (T1.8) — это ход учебного года. Доступно всем, кто правит КТП группы.
+	 * Params: group_lesson_id (занятие на дате), pool_group_lesson_id (тема из пула).
+	 */
+	public function ajaxReplaceProgramTopic(): void {
+		$this->authorize( Nonce::SaveSchedule, Capability::ManageLmsTeaching );
+		$groupLessonId = $this->requireInt( 'group_lesson_id' );
+		$poolId        = $this->requireInt( 'pool_group_lesson_id' );
+
+		$this->requireProgramRow( $groupLessonId );
+
+		try {
+			$this->program->swapTopic( $groupLessonId, $poolId, get_current_user_id() );
+		} catch ( \InvalidArgumentException $e ) {
+			$this->error( $e->getMessage() );
+			return;
+		}
+
+		$this->success();
+	}
+
+	/**
 	 * Убирает продолжение темы — вторую дату, созданную «Продолжить на другую дату»:
 	 * окно освобождается, следующие темы подтягиваются назад. Как и само продолжение,
 	 * разрешено и в опубликованной КТП (T1.8). Нельзя, если занятие уже состоялось или

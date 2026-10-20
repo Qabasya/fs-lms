@@ -14,7 +14,9 @@
  *   revealResult(correctIds)      — экран результатов работы: подсветить только выбор
  *                                    ученика (зелёный+верный/красный+неверный, эталон
  *                                    ученику не раскрывается) и залочить (choice);
- *   lock()                        — задизейблить ввод.
+ *   lock()                        — задизейблить ввод;
+ *   lockAnswer()                  — закрыть только поле ответа (поле кода остаётся
+ *                                    доступным: код можно поправить после верного ответа).
  */
 
 import { icoCheck, icoCross } from '../../common/icons.js';
@@ -117,6 +119,7 @@ function buildTextAnswerWidget( container, isDone, withCode ) {
 			() => '' !== textarea.value.trim()
 		),
 		{
+			lockAnswer: () => { textarea.disabled = true; textarea.classList.add( 'lock' ); },
 			setAnswer: ( v ) => {
 				if ( v && 'object' === typeof v ) {
 					textarea.value = 'string' === typeof v.text ? v.text : '';

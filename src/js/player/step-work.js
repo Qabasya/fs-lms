@@ -120,7 +120,9 @@ function mountWork( panel, root ) {
 		if ( saved !== undefined && saved !== null ) { widget.setAnswer( saved ); }
 		if ( check && 'correct' === check.status ) { solveByCheck( card, widget ); }
 
-		card.querySelector( '[data-task-check]' )?.addEventListener( 'click', () => runCheck( card ) );
+		const checkBtn = card.querySelector( '[data-task-check]' );
+		checkBtn?.addEventListener( 'click', () => runCheck( card ) );
+		placeCheckBeside( card, checkBtn );
 
 		widget.onChange( () => {
 			drafts[ taskId ] = parseAnswer( widget.collectAnswer() );
@@ -131,6 +133,16 @@ function mountWork( panel, root ) {
 		} );
 		updateChip( card, widget );
 	} );
+
+	/** «Проверить ответ» стоит справа от поля ответа, в одной строке и равной ширины. */
+	function placeCheckBeside( card, btn ) {
+		const field = card.querySelector( '.fs-widget-text' );
+		if ( ! btn || ! field ) { return; }
+		const row = document.createElement( 'div' );
+		row.className = 'answer-row';
+		field.before( row );
+		row.append( field, btn );
+	}
 
 	const answeredCount = () =>
 		Array.from( widgets.values() ).filter( ( w ) => w.hasAnswer() ).length;
@@ -151,7 +163,8 @@ function mountWork( panel, root ) {
 
 	/** Верная проверка закрывает задачу так же, как зачёт при пересдаче. */
 	function solveByCheck( card, widget ) {
-		widget.lock();
+		// Закрывается только поле ответа: поле кода остаётся активным — код можно поправить.
+		( widget.lockAnswer || widget.lock )();
 		card.classList.add( 'is-checked' );
 	}
 
@@ -171,6 +184,7 @@ function mountWork( panel, root ) {
 			|| 'wrong' === activeCheck( card, widget )?.status;
 		btn.disabled = blocked;
 		btn.classList.toggle( 'b-dis', blocked );
+		btn.classList.toggle( 'b-pri', ! blocked ); // активная кнопка — синяя
 		btn.textContent = 0 === left
 			? 'Проверки закончились'
 			: ( used > 0 && Infinity !== left ? `Проверить ответ · осталось ${ left }` : 'Проверить ответ' );

@@ -68,6 +68,100 @@ class SubmissionService {
 		$this->dispatchGraded( $sub->groupLessonId, $submissionId, $teacherUserId );
 	}
 
+	/**
+	 * «Засчитать» работу целиком ученику без сдачи (занятие прошло, работу решали вне платформы):
+	 * каждое задание получает максимальный балл (1), агрегат закрывается как проверенный.
+	 * Сдача ученика приоритетнее: если она уже есть, ничего не меняется.
+	 *
+	 * @return bool true — зачёт выставлен; false — у ученика уже есть сдача этой работы.
+	 *
+	 * @throws \InvalidArgumentException Занятия нет, работа не входит в его набор или в ней нет заданий.
+	 */
+	public function creditWork( int $studentPersonId, int $groupLessonId, int $workId, int $teacherUserId ): bool {
+		$row = $this->groupLessons->find( $groupLessonId );
+		if ( ! $row ) {
+			throw new \InvalidArgumentException( 'Занятие не найдено.' );
+		}
+
+		$work = null;
+		foreach ( $this->worksResolver->resolve( $row ) as $candidate ) {
+			if ( $candidate->id === $workId ) {
+				$work = $candidate;
+			}
+		}
+		if ( null === $work || array() === $work->itemIds ) {
+			throw new \InvalidArgumentException( 'Работа не входит в набор занятия или в ней нет заданий.' );
+		}
+
+		if ( null !== $this->submissions->findAggregate( $studentPersonId, $groupLessonId, $workId ) ) {
+			return false;
+		}
+
+		$now     = $this->clock->now();
+		$dueAt   = $this->deadlines->deadlineForRow( $row, $work );
+		$verdict = array();
+
+		foreach ( $work->itemIds as $taskId ) {
+			$taskId = (int) $taskId;
+			$this->submissions->create( new SubmissionInputDTO(
+				studentPersonId : $studentPersonId,
+				groupLessonId   : $groupLessonId,
+				workId          : $workId,
+				workType        : $work->workType->value,
+				taskId          : $taskId,
+				dueAt           : $dueAt,
+				status          : SubmissionStatus::Graded->value,
+				submittedAt     : $now,
+				gradedAt        : $now,
+				score           : 1.0,
+				maxScore        : 1.0,
+			) );
+			$verdict[ $taskId ] = array( 'verdict' => 'correct', 'score' => 1.0, 'maxScore' => 1.0 );
+		}
+
+		$count       = count( $work->itemIds );
+		$aggregateId = $this->submissions->create( new SubmissionInputDTO(
+			studentPersonId : $studentPersonId,
+			groupLessonId   : $groupLessonId,
+			workId          : $workId,
+			workType        : $work->workType->value,
+			answerText      : wp_json_encode( $verdict ),
+			dueAt           : $dueAt,
+			status          : SubmissionStatus::Graded->value,
+			submittedAt     : $now,
+			gradedAt        : $now,
+			score           : (float) $count,
+			maxScore        : (float) $count,
+		) );
+
+		// Отметка преподавателя делает балл авторитетным (как у «Засчитать задание»); попыток ученик не делал.
+		foreach ( $this->submissions->listPerTaskByStudentWorkLesson( $studentPersonId, $groupLessonId, $workId ) as $taskRow ) {
+			$this->submissions->update( $taskRow->id, array( 'graded_by_user_id' => $teacherUserId ) );
+		}
+		$this->submissions->update( $aggregateId, array( 'graded_by_user_id' => $teacherUserId, 'attempt_count' => 0 ) );
+
+		// Событие «проверена» не шлём: оно рассылает ученику уведомление, а работу он не сдавал.
+
+		return true;
+	}
+
+	/**
+	 * «Отменить зачёт»: убирает работу, засчитанную вручную ({@see creditWork()}), — ученик снова
+	 * числится несдавшим. Настоящую сдачу ученика (есть попытки) не трогает.
+	 *
+	 * @return bool true — зачёт снят; false — у ученика нет засчитанной вручную работы.
+	 */
+	public function revokeWorkCredit( int $studentPersonId, int $groupLessonId, int $workId ): bool {
+		$aggregate = $this->submissions->findAggregate( $studentPersonId, $groupLessonId, $workId );
+		if ( null === $aggregate || ! $aggregate->isCredited() ) {
+			return false;
+		}
+
+		$this->submissions->deleteAllByStudentWorkLesson( $studentPersonId, $groupLessonId, $workId );
+
+		return true;
+	}
+
 	/** Событие «работа проверена» — общее для всех путей закрытия проверки. */
 	private function dispatchGraded( int $groupLessonId, int $submissionId, int $teacherUserId ): void {
 		$row = $this->groupLessons->find( $groupLessonId );

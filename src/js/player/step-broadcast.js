@@ -16,7 +16,7 @@ export function initStepBroadcast() {
 	if ( ! vars?.actions?.setRecording ) { return; }
 
 	document.querySelectorAll( '[data-recording-form]' ).forEach( ( form ) => {
-		const input = form.querySelector( '[name="recording_link"]' );
+		const input = form.querySelector( '[name="recording"]' );
 		const save  = ( link ) => submit( form, link );
 
 		form.addEventListener( 'submit', ( e ) => {
@@ -67,7 +67,7 @@ async function submit( form, link ) {
 	fd.append( 'action', vars.actions.setRecording );
 	fd.append( 'security', vars.nonces.setRecording );
 	fd.append( 'group_lesson_id', form.dataset.groupLessonId );
-	fd.append( 'recording_link', link );
+	fd.append( 'recording', link );
 
 	try {
 		await playerPost( fd );

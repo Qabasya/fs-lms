@@ -101,7 +101,7 @@ class ReviewQueueService {
 		// Экзамены — pending/confirm/done по attemptBucket().
 		$byAssessment = array();
 		foreach ( $this->attempts->listByGroupsForGradebook( $groupIds ) as $attempt ) {
-			if ( $this->attemptBucket( $attempt ) !== $tab ) {
+			if ( ! $this->attemptInTab( $attempt, $tab ) ) {
 				continue;
 			}
 			$aid = $attempt->assessmentId;
@@ -185,7 +185,7 @@ class ReviewQueueService {
 		if ( 'assessment' === $sourceType ) {
 			$out = array();
 			foreach ( $this->attempts->listByGroupsForGradebook( $groupIds ) as $attempt ) {
-				if ( $attempt->assessmentId !== $sourceId || $this->attemptBucket( $attempt ) !== $tab ) {
+				if ( $attempt->assessmentId !== $sourceId || ! $this->attemptInTab( $attempt, $tab ) ) {
 					continue;
 				}
 				$group      = $attempt->groupId ? $this->groups->findById( $attempt->groupId ) : null;
@@ -219,6 +219,16 @@ class ReviewQueueService {
 	 */
 	private static function workStatusesFor( string $tab ): array {
 		return 'pending' === $tab ? array( 'submitted', 'pending_review' ) : array( 'graded' );
+	}
+
+	/**
+	 * Попадает ли попытка во вкладку. Вкладки «Ждут подтверждения» в кабинете нет: экзамены, которым
+	 * нужно «Утвердить работу», лежат в «На проверке» вместе с ожидающими ручной проверки.
+	 */
+	private function attemptInTab( AttemptDTO $attempt, string $tab ): bool {
+		$bucket = $this->attemptBucket( $attempt );
+
+		return $bucket === $tab || ( 'pending' === $tab && 'confirm' === $bucket );
 	}
 
 	/**

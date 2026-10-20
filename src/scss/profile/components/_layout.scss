@@ -184,7 +184,6 @@ body.prof-menu-off .prof-mtoggle { display: flex; }
   position: relative; z-index: $z-topbar;
 }
 .prof-tb-titles { min-width: 0; }
-.prof-tb-crumb { font-size: rem(12); color: var(--muted); display: flex; align-items: center; gap: rem(6); }
 .prof-tb-title { font-size: rem(18); font-weight: 700; letter-spacing: -.01em; line-height: 1.15; }
 .prof-tb-spacer { flex: 1; }
 

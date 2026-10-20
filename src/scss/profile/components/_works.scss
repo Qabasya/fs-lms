@@ -74,7 +74,7 @@
    Колонки фиксированной ширины — одинаковые во всех строках списка. */
 .wk-row {
   display: grid;
-  grid-template-columns: rem(56) minmax(0, 1fr) rem(76) rem(118) auto;
+  grid-template-columns: rem(56) minmax(0, 1fr) rem(112) rem(118) auto;
   align-items: center;
   gap: rem(14);
   padding: rem(12) rem(16);
@@ -106,6 +106,21 @@
 }
 
 .wk-row-count { text-align: right; }
+
+/* «Прошедшие»: под названием работы — группа и тема занятия. */
+.wk-row-sub {
+  display: block;
+  font-size: rem(12);
+  font-weight: 450;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* «Прошедшие», шаг 2: ученик без сдачи с кнопкой «Засчитать»; «Засчитать всем» — над списком. */
+.wcard.wk-credit-row { cursor: default; grid-template-columns: rem(40) minmax(0, 1fr) auto; }
+.wk-credit-row .prof-btn { justify-self: end; }
+.wk-credit-all { display: flex; justify-content: flex-end; margin-bottom: rem(8); }
 
 .wk-loading {
   padding: rem(40);
@@ -156,3 +171,4 @@
   .wk-step-head { margin-inline: rem(-14); padding-inline: rem(14); }
   .wk-filters .kp-btn { max-width: none; width: 100%; }
 }
+

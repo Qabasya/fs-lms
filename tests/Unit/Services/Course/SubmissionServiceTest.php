@@ -718,4 +718,70 @@ class SubmissionServiceTest extends TestCase {
 
 		self::assertInstanceOf( SubmissionDTO::class, $this->service->submitBatch( 10, 5, 3, array( 1 => 'a' ) ) );
 	}
+
+	// ── creditWork: «Засчитать» работу несдавшему ───────────────────────────
+
+	private function creditWorkOf( array $itemIds ): WorkDTO {
+		return new WorkDTO( 3, 'inf', 'Практика', WorkType::Practice, $itemIds, '', 1, 'publish' );
+	}
+
+	public function test_credit_work_gives_full_score_for_every_task_without_notifying(): void {
+		$work = $this->creditWorkOf( array( 101, 102 ) );
+		$this->groupLessons->method( 'find' )->willReturn( $this->makeRow() );
+		$this->resolver->method( 'resolve' )->willReturn( array( $work ) );
+		$this->submissions->method( 'findAggregate' )->willReturn( null );
+		$this->submissions->method( 'listPerTaskByStudentWorkLesson' )->willReturn( array() );
+		$this->submissions->method( 'create' )->willReturn( 77 );
+
+		$created = array();
+		$this->submissions->method( 'create' )->willReturnCallback( function ( SubmissionInputDTO $dto ) use ( &$created ): int {
+			$created[] = $dto;
+			return 77;
+		} );
+		$this->dispatcher->expects( $this->never() )->method( 'dispatch' );
+
+		self::assertTrue( $this->service->creditWork( 10, 5, 3, 99 ) );
+
+		self::assertCount( 3, $created, 'по строке на задание и агрегат' );
+		self::assertSame( 101, $created[0]->taskId );
+		self::assertSame( 1.0, $created[0]->score );
+		self::assertSame( 'graded', $created[0]->status );
+		self::assertNull( $created[2]->taskId );
+		self::assertSame( 2.0, $created[2]->score );
+		self::assertSame( 2.0, $created[2]->maxScore );
+		self::assertSame( 'correct', json_decode( (string) $created[2]->answerText, true )[102]['verdict'] );
+	}
+
+	public function test_credit_work_keeps_existing_submission(): void {
+		$this->groupLessons->method( 'find' )->willReturn( $this->makeRow() );
+		$this->resolver->method( 'resolve' )->willReturn( array( $this->creditWorkOf( array( 101 ) ) ) );
+		$this->submissions->method( 'findAggregate' )->willReturn( $this->makeSubmission( 8, SubmissionStatus::Graded ) );
+		$this->submissions->expects( $this->never() )->method( 'create' );
+
+		self::assertFalse( $this->service->creditWork( 10, 5, 3, 99 ) );
+	}
+
+	public function test_credit_work_rejects_work_outside_lesson(): void {
+		$this->groupLessons->method( 'find' )->willReturn( $this->makeRow() );
+		$this->resolver->method( 'resolve' )->willReturn( array() );
+
+		$this->expectException( \InvalidArgumentException::class );
+		$this->service->creditWork( 10, 5, 3, 99 );
+	}
+
+	public function test_revoke_work_credit_deletes_only_manually_credited_submission(): void {
+		$credited = new SubmissionDTO( 8, 10, 5, 3, WorkType::Practice, null, '{}', null, null, SubmissionStatus::Graded, 2.0, 2.0, null, 99, '2024-01-01 10:00:00', null, '', '', 0 );
+		$this->submissions->method( 'findAggregate' )->willReturn( $credited );
+		$this->submissions->expects( $this->once() )->method( 'deleteAllByStudentWorkLesson' )->with( 10, 5, 3 );
+
+		self::assertTrue( $this->service->revokeWorkCredit( 10, 5, 3 ) );
+	}
+
+	public function test_revoke_work_credit_keeps_real_student_submission(): void {
+		$real = new SubmissionDTO( 8, 10, 5, 3, WorkType::Practice, null, '{}', null, null, SubmissionStatus::Graded, 2.0, 2.0, null, 99, '2024-01-01 10:00:00', null, '', '', 1 );
+		$this->submissions->method( 'findAggregate' )->willReturn( $real );
+		$this->submissions->expects( $this->never() )->method( 'deleteAllByStudentWorkLesson' );
+
+		self::assertFalse( $this->service->revokeWorkCredit( 10, 5, 3 ) );
+	}
 }

@@ -25,7 +25,7 @@
   @include cab-card;
 
   position: fixed; top: calc(var(--top-h) + #{rem(8)}); right: rem(24);
-  width: rem(380); max-height: 70vh;
+  width: rem(380); max-width: calc(100vw - rem(24)); max-height: 70vh;
   z-index: $z-ctx;
   display: flex; flex-direction: column; overflow: hidden;
   animation: cab-enter $tr ease;

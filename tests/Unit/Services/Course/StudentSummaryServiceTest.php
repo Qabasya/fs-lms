@@ -64,6 +64,7 @@ $visibility = $this->createStub( \Inc\Services\Course\LessonVisibilityService::c
 			$marks,
 			new HomeworkDeadlineService( $this->resolver, $visibility, $this->groupLessons ),
 			$clock,
+			$this->createStub( \Inc\Repositories\WPDBRepositories\SubmissionRepository::class ),
 		);
 	}
 

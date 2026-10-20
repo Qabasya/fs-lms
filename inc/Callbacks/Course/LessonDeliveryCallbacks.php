@@ -130,8 +130,10 @@ class LessonDeliveryCallbacks extends BaseController {
 	 * - `recording_link` — внешняя ссылка на запись (облако), её же вставляет
 	 *   преподаватель прямо в шаге «Трансляция» плеера.
 	 * `http(s)://`, пришедший в `recording_url` (старый попап), считается ссылкой.
+	 * Одно поле `recording` (КТП и плеер): тип определяется по значению — `https://` уходит во
+	 * внешнюю ссылку, `s3://` в указатель хранилища, второе поле при этом снимается; пусто — снять обе.
 	 *
-	 * Params: group_lesson_id, recording_url?, recording_link?
+	 * Params: group_lesson_id, recording? | recording_url?, recording_link?
 	 */
 	public function ajaxSetRecordingUrl(): void {
 		$this->authorize( Nonce::SaveSchedule, Capability::ManageLmsTeaching );
@@ -141,6 +143,16 @@ class LessonDeliveryCallbacks extends BaseController {
 
 		$pointer = $this->hasParam( 'recording_url' ) ? $this->sanitizeText( 'recording_url' ) : null;
 		$link    = $this->hasParam( 'recording_link' ) ? $this->sanitizeText( 'recording_link' ) : null;
+
+		if ( $this->hasParam( 'recording' ) ) {
+			$value = $this->sanitizeText( 'recording' );
+			if ( '' !== $value && ! preg_match( '#^(https?|s3)://#i', $value ) ) {
+				$this->error( __( 'Запись указывается ссылкой на облако (https://…) или в хранилище (s3://бакет/ключ).', 'fs-lms' ) );
+			}
+			$isPointer = str_starts_with( strtolower( $value ), 's3://' );
+			$pointer   = $isPointer ? $value : '';
+			$link      = $isPointer ? '' : $value;
+		}
 
 		if ( null !== $pointer && preg_match( '#^https?://#i', $pointer ) ) {
 			$link    = $pointer;

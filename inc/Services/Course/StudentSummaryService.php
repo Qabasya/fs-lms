@@ -13,6 +13,7 @@ use Inc\Enums\Course\WorkSourceType;
 use Inc\Managers\Course\LessonManager;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
+use Inc\Repositories\WPDBRepositories\SubmissionRepository;
 
 /**
  * Class StudentSummaryService
@@ -39,6 +40,7 @@ class StudentSummaryService {
 		private readonly WorkMarksService        $marks,
 		private readonly HomeworkDeadlineService $deadlines,
 		private readonly ClockInterface          $clock,
+		private readonly SubmissionRepository    $submissions,
 	) {}
 
 	/**
@@ -103,10 +105,18 @@ class StudentSummaryService {
 				continue;
 			}
 			// Ключ сдачи работы — `work:{id}` ({@see SubmissionGradeSource}).
+			$credited = false;
+			$workId   = 0;
 			if ( WorkSourceType::Submission->value === $entry->sourceType ) {
-				$submitted[ $entry->groupLessonId ][ (int) substr( (string) $entry->groupKey, 5 ) ] = true;
+				$workId = (int) substr( (string) $entry->groupKey, 5 );
+				$submitted[ $entry->groupLessonId ][ $workId ] = true;
+				// Засчитана преподавателем вручную — вместо «Засчитать» у карточки «Отменить зачёт».
+				$credited = $this->submissions->find( $entry->sourceId )?->isCredited() ?? false;
 			}
 			$lessons[ $entry->groupLessonId ]['works'][] = array(
+				'credited'        => $credited,
+				'work_id'         => $workId,
+				'group_lesson_id' => $entry->groupLessonId,
 				'badge'       => $entry->badge?->badge(),
 				'value'       => $entry->displayValue(),
 				'display'     => $entry->displayType,
@@ -143,7 +153,7 @@ class StudentSummaryService {
 				if ( isset( $submitted[ $glid ][ $work->id ] ) ) {
 					continue;
 				}
-				$lessons[ $glid ]['works'][] = $this->missedCard( $work, $overdue[ $glid ][ $work->id ] ?? null );
+				$lessons[ $glid ]['works'][] = $this->missedCard( $work, $glid, $overdue[ $glid ][ $work->id ] ?? null );
 			}
 		}
 
@@ -164,7 +174,7 @@ class StudentSummaryService {
 	 *
 	 * @return array<string, mixed>
 	 */
-	private function missedCard( WorkDTO $work, ?string $dueAt ): array {
+	private function missedCard( WorkDTO $work, int $groupLessonId, ?string $dueAt ): array {
 		return array(
 			'badge'        => GradeBadge::fromWorkType( $work->workType )->badge(),
 			'value'        => 'Не сдано',
@@ -182,6 +192,9 @@ class StudentSummaryService {
 			'submitted_at' => null,
 			'duration_sec' => null,
 			'due_at'       => $dueAt,
+			// Для «Засчитать» (PassedWorksService): работа и занятие, к которому она выдана.
+			'work_id'         => $work->id,
+			'group_lesson_id' => $groupLessonId,
 		);
 	}
 

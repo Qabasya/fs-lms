@@ -131,6 +131,63 @@ readonly class ProgramCompositionService {
 		$this->events->lessonRemoved( $row->groupId, $row->lessonId, $this->subjectOf( $row->lessonId ), $actorUserId );
 	}
 
+	/**
+	 * Меняет тему проведённого занятия местами с темой из пула («провели не ту тему»).
+	 *
+	 * Занятие остаётся как есть — дата, посещаемость, запись, кабинет, дополнительные работы;
+	 * меняется только урок (тема). Прежняя тема возвращается в пул как будущая и встанет на
+	 * ближайшее свободное занятие. Закреплённая за занятием выдача работ (снимок) пересобирается
+	 * по новому уроку, если занятие было открыто.
+	 *
+	 * Нельзя, если по занятию уже есть прогресс по урокам, сдачи или попытки заданий: они
+	 * относятся к прежней теме, и подменять её под ними нельзя. Тема-продолжение (две даты) — тоже
+	 * нельзя: части темы обязаны оставаться одним уроком.
+	 *
+	 * @param int $placedId    ID занятия на дате (обычно уже проведённого)
+	 * @param int $poolId      ID строки пула (тема без даты), которая заменит тему занятия
+	 * @param int $actorUserId Автор изменения
+	 *
+	 * @throws \InvalidArgumentException Если замена невозможна
+	 */
+	public function swapTopic( int $placedId, int $poolId, int $actorUserId ): void {
+		$placed = $this->groupLessons->find( $placedId );
+		$pool   = $this->groupLessons->find( $poolId );
+		if ( ! $placed || ! $pool || $placed->groupId !== $pool->groupId ) {
+			throw new \InvalidArgumentException( 'Занятие или тема не найдены в этой группе.' );
+		}
+		if ( null === $placed->scheduledAt || null !== $pool->scheduledAt || $pool->isFact() ) {
+			throw new \InvalidArgumentException( 'Заменить можно тему занятия на дате темой из пула без даты.' );
+		}
+		if ( $placed->kind->isIndividual() || $pool->kind->isIndividual() ) {
+			throw new \InvalidArgumentException( 'В индивидуальных занятиях тема меняется в самом занятии.' );
+		}
+		if ( ! $placed->lessonId || ! $pool->lessonId ) {
+			throw new \InvalidArgumentException( 'У занятия или темы нет урока.' );
+		}
+		foreach ( array( $placed, $pool ) as $row ) {
+			if ( null !== $row->continuedFromId || $this->hasContinuation( $row ) ) {
+				throw new \InvalidArgumentException( 'Тема разбита на две даты — сначала уберите продолжение.' );
+			}
+		}
+		if ( $this->usage->hasLearningData( $placedId ) ) {
+			throw new \InvalidArgumentException( 'По занятию уже есть прогресс, сдачи или попытки учеников — тему менять нельзя.' );
+		}
+
+		$oldLessonId = $placed->lessonId;
+		$this->groupLessons->setLessonId( $placedId, $pool->lessonId );
+		$this->groupLessons->setLessonId( $poolId, $oldLessonId );
+
+		// Открытое занятие хранит снимок работ урока: после смены темы он должен описывать новый урок.
+		if ( $placed->isPublished() ) {
+			$this->groupLessons->setWorkIdsSnapshot( $placedId, $this->lessonManager->get( $pool->lessonId )?->workIds() ?? array() );
+		}
+		if ( $pool->isPublished() ) {
+			$this->groupLessons->setWorkIdsSnapshot( $poolId, $this->lessonManager->get( $oldLessonId )?->workIds() ?? array() );
+		}
+
+		$this->events->lessonChanged( $placed->groupId, $placedId, $actorUserId );
+	}
+
 	/** Есть ли у строки продолжение в программе группы. */
 	private function hasContinuation( GroupLessonDTO $row ): bool {
 		foreach ( $this->groupLessons->listByGroup( $row->groupId ) as $other ) {

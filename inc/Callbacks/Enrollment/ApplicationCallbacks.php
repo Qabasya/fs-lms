@@ -407,7 +407,7 @@ class ApplicationCallbacks extends BaseController {
 		$middleName = $this->sanitizeText( 'middle_name' );
 		$email      = $this->requireText( 'email' );
 		$phone      = $this->requireText( 'phone' );
-		$school     = $this->sanitizeText( 'school' );
+		$school     = ApplicationService::schoolWithCity( $this->sanitizeText( 'city' ), $this->sanitizeText( 'school' ) );
 		$grade      = $this->sanitizeInt( 'grade' );
 		$birthDate  = $this->requireText( 'birth_date' );
 		$otpCode    = $this->requireText( 'otp_code' );

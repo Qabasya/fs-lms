@@ -38,6 +38,7 @@ const MARK_TITLE = { correct: 'Решено', corrected: 'Решено с исп
  * @param {number}  [card.sourceId]   0 — сдачи нет (ДЗ с прошедшим дедлайном)
  * @param {string}  [card.url]        Ссылка на саму работу (кабинет ученика) — карточка становится ссылкой
  * @param {string}  [card.rowClass]   Класс строки (совместимость со старыми обработчиками)
+ * @param {string}  [card.action]     HTML действия в колонке справа, под временем (кнопка «Засчитать» / «Отменить зачёт»)
  * @returns {string} HTML карточки; без ссылки и без сдачи — некликабельна
  */
 export function workCardHtml(card) {
@@ -60,6 +61,7 @@ export function workCardHtml(card) {
         <div class="wcard-when">
             <span class="wcard-date">${card.date ? esc(fmtDateTime(card.date)) : '—'}</span>
             ${durationHtml(card.duration)}
+            ${card.action || ''}
         </div>
     </${tag}>`;
 }

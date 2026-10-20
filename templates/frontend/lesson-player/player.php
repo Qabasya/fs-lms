@@ -9,6 +9,7 @@
  * Шаги отрендерены сервером в скрытые панели; рейку и переключение строит бандл
  * player.min.js (Enqueue грузит по fs_lms_is_player_route).
  *
+ * @var string|null $live_stream_url Ссылка на трансляцию, пока занятие идёт (плашка в шапке).
  * @var array    $view        {group_lesson_id, lesson_id, topic, steps[], shell?, preview?}
  * @var int      $groupId     0 в preview-режиме (курс не привязан к группе, Фаза 5).
  * @var string   $active_step Ключ шага из deep-link ?step= (может быть пустым).
@@ -123,9 +124,10 @@ $next_url    = null !== $next_lesson
 
 	<!-- Шапка — часть страницы: уезжает при прокрутке (липкий — только воркбар работы). -->
 	<header class="s-top">
-		<a class="s-back" href="<?php echo esc_url( $back_url ); ?>">
+		<?php // Шапка ведёт на главную кабинета; к экрану, откуда пришли (КТП, журнал…), возвращает «Назад» браузера — состояние экранов хранится в адресе (nav-state.js). ?>
+		<a class="s-back" href="<?php echo esc_url( $profile_url ); ?>">
 			<?php echo Icon::Back->svg(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
-			<?php esc_html_e( 'К курсу', 'fs-lms' ); ?>
+			<?php esc_html_e( 'На главную', 'fs-lms' ); ?>
 		</a>
 		<div>
 			<div class="s-crumb">
@@ -134,6 +136,12 @@ $next_url    = null !== $next_lesson
 			<div class="s-title"><?php echo esc_html( $view['topic'] ); ?></div>
 		</div>
 		<div class="s-right">
+			<?php if ( ! empty( $live_stream_url ) ) : ?>
+				<a class="s-live" href="<?php echo esc_url( $live_stream_url ); ?>" target="_blank" rel="noopener">
+					<span class="s-live-dot" aria-hidden="true"></span>
+					<?php esc_html_e( 'Подключиться к трансляции', 'fs-lms' ); ?>
+				</a>
+			<?php endif; ?>
 			<?php if ( $is_preview ) : ?>
 				<?php if ( '' !== $mode_switch_url ) : ?>
 					<a class="pv-banner pv-banner--link" href="<?php echo esc_url( $mode_switch_url ); ?>" title="<?php esc_attr_e( 'Переключить на режим преподавателя', 'fs-lms' ); ?>"><?php esc_html_e( 'Предпросмотр курса', 'fs-lms' ); ?></a>

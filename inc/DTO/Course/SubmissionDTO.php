@@ -34,6 +34,14 @@ readonly class SubmissionDTO {
 		public ?int              $durationSec = null,
 	) {}
 
+	/**
+	 * Работа засчитана преподавателем вручную («Засчитать»): агрегатная сдача, закрытая отметкой
+	 * преподавателя без единой попытки ученика.
+	 */
+	public function isCredited(): bool {
+		return null === $this->taskId && 0 === $this->attemptCount && null !== $this->gradedByUserId;
+	}
+
 	public function isLate(): bool {
 		if ( null === $this->submittedAt || null === $this->dueAt ) {
 			return false;

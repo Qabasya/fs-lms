@@ -218,6 +218,7 @@ final class TeacherProfileView implements ProfileViewInterface {
 					'saveDeadlines' => AjaxHook::SaveWorkDeadlines->jsAction(),
 					'setRecordingUrl' => AjaxHook::SetRecordingUrl->jsAction(),
 					'continue'      => AjaxHook::ContinueProgramLesson->jsAction(),
+					'replaceTopic'  => AjaxHook::ReplaceProgramTopic->jsAction(),
 					'removeContinuation' => AjaxHook::RemoveProgramContinuation->jsAction(),
 					'getIndividual'    => AjaxHook::GetIndividualSlots->jsAction(),
 					'lessonCandidates' => AjaxHook::GetLessonCandidates->jsAction(),
@@ -273,6 +274,10 @@ final class TeacherProfileView implements ProfileViewInterface {
 				'actions' => array(
 					'getPendingWorks'    => AjaxHook::GetPendingWorks->jsAction(),
 					'getWorkSubmissions' => AjaxHook::GetWorkSubmissions->jsAction(),
+					'getPassedWorks'     => AjaxHook::GetPassedWorks->jsAction(),
+					'getPassedStudents'  => AjaxHook::GetPassedWorkStudents->jsAction(),
+					'creditWork'         => AjaxHook::CreditWork->jsAction(),
+					'uncreditWork'       => AjaxHook::UncreditWork->jsAction(),
 				),
 			),
 			// Деталь работы + оценивание (нонс GradeWork) для «Сводки по ученику» (T10.9).

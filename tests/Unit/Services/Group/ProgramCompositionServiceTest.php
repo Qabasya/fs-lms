@@ -249,6 +249,60 @@ class ProgramCompositionServiceTest extends TestCase {
 		self::assertSame( '2026-05-20 10:00:00', $this->service->programLockedAt( 5 ) );
 	}
 
+	// ── swapTopic: «провели не ту тему» ─────────────────────────────────────
+
+	private function themeRow( int $id, int $lessonId, ?string $scheduledAt, ?array $snapshot = null ): \Inc\DTO\Course\GroupLessonDTO {
+		return new \Inc\DTO\Course\GroupLessonDTO(
+			id: $id, groupId: 5, lessonId: $lessonId, position: $id, workIdsSnapshot: $snapshot, extraWorkIds: array(),
+			scheduledAt: $scheduledAt, endsAt: null, isPinned: false, teacherUserId: null,
+			visibility: 'open', openedAt: null, homeworkDueAt: null, allowLate: true, recordingUrl: null,
+			createdByUserId: null, updatedByUserId: null,
+		);
+	}
+
+	public function test_swap_topic_exchanges_lessons_and_keeps_the_lesson_itself(): void {
+		$this->groupLessons->method( 'find' )->willReturnMap( array(
+			array( 10, $this->themeRow( 10, 111, '2026-10-15 16:15:00' ) ),
+			array( 20, $this->themeRow( 20, 222, null ) ),
+		) );
+		$this->usage->method( 'hasLearningData' )->willReturn( false );
+
+		$changes = array();
+		$this->groupLessons->method( 'setLessonId' )->willReturnCallback( function ( int $id, int $lessonId ) use ( &$changes ): bool {
+			$changes[ $id ] = $lessonId;
+			return true;
+		} );
+		$this->groupLessons->expects( self::never() )->method( 'updateSchedule' );
+		$this->groupLessons->expects( self::never() )->method( 'clearSchedule' );
+
+		$this->service->swapTopic( 10, 20, 99 );
+
+		self::assertSame( array( 10 => 222, 20 => 111 ), $changes );
+	}
+
+	public function test_swap_topic_refuses_when_students_already_have_learning_data(): void {
+		$this->groupLessons->method( 'find' )->willReturnMap( array(
+			array( 10, $this->themeRow( 10, 111, '2026-10-15 16:15:00' ) ),
+			array( 20, $this->themeRow( 20, 222, null ) ),
+		) );
+		$this->usage->method( 'hasLearningData' )->willReturn( true );
+		$this->groupLessons->expects( self::never() )->method( 'setLessonId' );
+
+		$this->expectException( \InvalidArgumentException::class );
+		$this->service->swapTopic( 10, 20, 99 );
+	}
+
+	public function test_swap_topic_requires_pool_row_without_date(): void {
+		$this->groupLessons->method( 'find' )->willReturnMap( array(
+			array( 10, $this->themeRow( 10, 111, '2026-10-15 16:15:00' ) ),
+			array( 20, $this->themeRow( 20, 222, '2026-10-22 16:15:00' ) ),
+		) );
+		$this->groupLessons->expects( self::never() )->method( 'setLessonId' );
+
+		$this->expectException( \InvalidArgumentException::class );
+		$this->service->swapTopic( 10, 20, 99 );
+	}
+
 	private function setupGroupAndLesson( string $groupSubject, string $lessonSubject ): void {
 		$group              = new \stdClass();
 		$group->subject_key = $groupSubject;

@@ -109,7 +109,7 @@
 
 /* «Месяц»: строка дней недели + 4 ряда по неделе. */
 .prof-month-grid {
-  display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px;
+  display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 1px;
   background: var(--line-2); border-radius: 0 0 var(--radius) var(--radius); overflow: hidden;
 }
 
@@ -172,7 +172,7 @@
 }
 
 .prof-week-col {
-  background: var(--surface); padding: rem(12) rem(10); min-height: rem(150);
+  background: var(--surface); padding: rem(12) rem(6); min-height: rem(150); min-width: 0;
   display: flex; flex-direction: column; gap: rem(8);
 }
 
@@ -183,7 +183,7 @@
 
 .prof-week-card {
   border-left: rem(3) solid var(--accent); background: var(--surface-2);
-  border-radius: rem(7); padding: rem(8) rem(10); cursor: pointer; transition: background $tr;
+  border-radius: rem(7); padding: rem(8); cursor: pointer; min-width: 0; transition: background $tr;
 }
 .prof-week-card:hover { background: var(--accent-soft); }
 
@@ -204,8 +204,8 @@ a.lcard { color: inherit; text-decoration: none; }
 .lc-row { display: flex; align-items: baseline; gap: rem(5); min-width: 0; }
 .lc-time { font-size: rem(12); font-weight: 700; font-variant-numeric: tabular-nums; flex: none; }
 .lc-grp { font-size: rem(12.5); font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.lc-room { margin-left: auto; flex: none; font-size: rem(11); color: var(--muted); white-space: nowrap; }
-.lc-teacher { font-size: rem(11.5); color: var(--muted); }
+.lc-room { margin-left: auto; flex: 0 1 auto; min-width: 0; font-size: rem(11); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lc-teacher { font-size: rem(11.5); color: var(--muted); min-width: 0; }
 .lc-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .lc-row .prof-sub-tag { margin-left: 0; flex: none; }
 .lc-topic { font-size: rem(11.5); color: var(--muted-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

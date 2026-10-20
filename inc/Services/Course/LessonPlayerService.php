@@ -175,6 +175,25 @@ class LessonPlayerService {
 	}
 
 	/**
+	 * Ссылка на трансляцию для плашки «Подключиться к трансляции» в шапке плеера:
+	 * только пока занятие идёт (началось и не закончилось), иначе пусто.
+	 *
+	 * @param array<string, mixed> $view Вид плеера ({@see self::buildRouteView()}).
+	 */
+	public function liveStreamUrl( GroupLessonDTO $groupLesson, array $view ): string {
+		$now = current_time( 'mysql' );
+		if ( null === $groupLesson->scheduledAt || $groupLesson->scheduledAt > $now || $groupLesson->isOver( $now ) ) {
+			return '';
+		}
+		foreach ( (array) ( $view['steps'] ?? array() ) as $step ) {
+			if ( self::LIVE_STEP_KEY === ( $step['key'] ?? '' ) ) {
+				return (string) ( $step['render']['stream_url'] ?? '' );
+			}
+		}
+		return '';
+	}
+
+	/**
 	 * Виртуальный первый шаг занятия группы (в уроке не хранится).
 	 *
 	 * - Во время занятия — «Трансляция»: кнопка на ссылку группы (`groups.broadcast_url`).

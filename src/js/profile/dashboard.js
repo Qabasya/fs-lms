@@ -11,7 +11,7 @@
    сутки, серии пропусков и несданных ДЗ, работы без проверки 48 часов.
    ══════════════════════════════════════════════════════════════════════ */
 
-import { esc, plural, fmtDayMonth, todayIso, chipBg, scheduleTone, groupSubjectKey, shortName, emptyState } from './utils.js';
+import { esc, plural, fmtDayMonth, todayIso, chipBg, scheduleTone, groupSubjectKey, shortName, emptyState, roomLabel } from './utils.js';
 import { icoCalendar, icoCheck, icoAlert, icoMapPin, icoBookmark, icoShield, icoChevronRight, icoChevronDown, icoHome, icoJournal, icoUsers, icoDocCheck } from '../common/icons.js';
 import { createApi } from './api.js';
 import { initSchedule } from './schedule-view.js';
@@ -148,7 +148,7 @@ function lessonCard(it, cls) {
             <div class="lc-row">
                 <span class="lc-time">${esc(it.start)}</span>
                 <span class="lc-grp">${esc(it.title)}</span>
-                ${it.room ? `<span class="lc-room">${esc(it.room)}</span>` : ''}
+                ${roomLabel(it.room) ? `<span class="lc-room">${esc(roomLabel(it.room))}</span>` : ''}
             </div>
             <div class="lc-row lc-teacher"><span class="prof-chip">Экзамен</span></div>
             <div class="lc-topic">записано ${it.occupied} из ${it.capacity}</div>
@@ -163,7 +163,7 @@ function lessonCard(it, cls) {
         <div class="lc-row">
             <span class="lc-time">${esc(it.start)}</span>
             <span class="lc-grp">${esc(who)}</span>
-            ${it.room ? `<span class="lc-room">${esc(it.room)}</span>` : ''}
+            ${roomLabel(it.room) ? `<span class="lc-room">${esc(roomLabel(it.room))}</span>` : ''}
         </div>
         ${it.teacher || tags ? `<div class="lc-row lc-teacher"><span class="lc-name">${esc(it.teacher || '')}</span>${tags}</div>` : ''}
         <div class="lc-topic" title="${esc(it.topic || '')}">${esc(it.topic || '—')}</div>

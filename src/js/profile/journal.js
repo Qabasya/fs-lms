@@ -14,6 +14,7 @@ import { esc, toast, initials, avaColor, todayIso, emptyState, openCtxMenuRaw, c
 import { icoCheck, icoCross, icoInfo, icoJournal } from '../common/icons.js';
 import { createApi } from './api.js';
 import { MONTHS_RU } from './constants.js';
+import { readNav, saveNav } from './nav-state.js';
 import { groupPickerBtnHtml, openGroupPicker } from './picker.js';
 
 let root = null;
@@ -24,10 +25,14 @@ let api = null;
 export function renderJournal(r, handlers = {}) {
     root = r;
     const p = window.fsProfile || {};
+    // Группа и месяц из адреса (nav-state.js): «Назад» из плеера возвращает в тот же журнал.
+    const nav = readNav('journal');
+    const groups = Array.isArray(p.groups) ? p.groups : [];
     state = {
-        groups:  Array.isArray(p.groups) ? p.groups : [],
+        groups,
         cfg:     p.journal || null,
-        groupId: (p.groups && p.groups[0]) ? p.groups[0].id : null,
+        groupId: (groups.find(g => String(g.id) === nav.g) || groups[0] || {}).id ?? null,
+        pendingMonth: nav.m || null,
         data:    null,
         filters: null,
         months:  [],   // T11.5: список месяцев 'YYYY-MM', отсортированный
@@ -43,6 +48,7 @@ export function renderJournal(r, handlers = {}) {
 export function setJournalGroup(gid) {
     if (!state) return;
     state.groupId = gid;
+    state.pendingMonth = null;
     load();
 }
 
@@ -81,6 +87,9 @@ function computeMonths() {
         }
     }
     state.monthIdx = state.months.length ? Math.max(0, idx) : 0;
+    const wanted = state.months.indexOf(state.pendingMonth);
+    if (wanted >= 0) { state.monthIdx = wanted; }
+    state.pendingMonth = null;
 }
 
 /** Занятия активного месяца. */
@@ -117,6 +126,7 @@ function openGroupMenu() {
 function render() {
     const d = state.data;
     const g = group();
+    saveNav('journal', { g: state.groupId, m: state.months[state.monthIdx] || '' });
 
     if (!d.students.length) {
         root.innerHTML = wrap(g, emptyInline('В группе нет активных учеников.'));

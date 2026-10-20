@@ -6,16 +6,17 @@
  * с серверным (`live.now`), а не с часами устройства, и перепроверяем раз в 15 секунд —
  * баннер появляется и пропадает сам, без перезагрузки страницы.
  *
- * Кнопка «Присоединиться» открывает урок в этой вкладке, а трансляцию группы (если ссылка
- * задана) — в новой. Окно в новой вкладке открывается прямо из клика, иначе его заблокирует браузер.
+ * Весь блок — кнопка «Подключиться к трансляции»: открывает трансляцию группы в новой вкладке.
+ * Урок баннер не открывает (урок открывается кликом по самому занятию). Нет ссылки на трансляцию —
+ * блок остаётся пометкой «Идёт сейчас», а клик ведёт на урок.
  */
 const TICK_MS = 15000;
 
 export function initLiveBanner() {
     const live = window.fsProfile?.live;
     const box  = document.getElementById('profLive');
-    const btn  = document.getElementById('profLiveJoin');
-    if (!live || !box || !btn || !Array.isArray(live.lessons) || !live.lessons.length) { return; }
+    const text = document.getElementById('profLiveText');
+    if (!live || !box || !Array.isArray(live.lessons) || !live.lessons.length) { return; }
 
     const skew = live.now - Math.floor(Date.now() / 1000);
     let current = null;
@@ -30,12 +31,13 @@ export function initLiveBanner() {
         box.hidden = !current;
         if (current) {
             box.title = [current.group_name, current.topic].filter(Boolean).join(' · ');
+            if (text) { text.textContent = current.stream_url ? 'Подключиться к трансляции' : 'Идёт сейчас'; }
         }
     };
 
-    btn.addEventListener('click', () => {
+    box.addEventListener('click', () => {
         if (!current) { return; }
-        if (current.stream_url) { window.open(current.stream_url, '_blank', 'noopener'); }
+        if (current.stream_url) { window.open(current.stream_url, '_blank', 'noopener'); return; }
         if (current.player_url) { window.location.href = current.player_url; }
     });
 

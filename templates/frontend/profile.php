@@ -62,7 +62,6 @@ $fs_brand_logo_url = (string) get_query_var( 'fs_lms_brand_logo_url', '' );
 				<?php echo Icon::SidebarExpand->svg(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
 			</button>
 			<div class="prof-tb-titles">
-				<div class="prof-tb-crumb" id="profTbCrumb">Личный кабинет</div>
 				<div class="prof-tb-title" id="profTbTitle">Главная</div>
 			</div>
 			<span class="prof-tb-spacer"></span>
@@ -72,11 +71,10 @@ $fs_brand_logo_url = (string) get_query_var( 'fs_lms_brand_logo_url', '' );
 				<span class="prof-tb-trial-text"><?php esc_html_e( 'Временный доступ', 'fs-lms' ); ?></span>
 			</div>
 			<?php // Баннер «Занятие уже идёт» (live-banner.js): скрыт, пока у ученика нет идущего занятия. ?>
-			<div class="prof-tb-live" id="profLive" hidden>
+			<button type="button" class="prof-tb-live" id="profLive" hidden>
 				<span class="prof-tb-live-dot" aria-hidden="true"></span>
-				<span class="prof-tb-live-text"><?php esc_html_e( 'Идёт сейчас', 'fs-lms' ); ?></span>
-				<button type="button" class="prof-btn prof-btn-primary prof-btn-sm" id="profLiveJoin"><?php esc_html_e( 'Подключиться', 'fs-lms' ); ?></button>
-			</div>
+				<span class="prof-tb-live-text" id="profLiveText"><?php esc_html_e( 'Идёт сейчас', 'fs-lms' ); ?></span>
+			</button>
 			<span class="prof-tb-spacer"></span>
 			<button class="prof-icon-ghost" id="profBell" aria-haspopup="true" title="Уведомления">
 				<?php echo Icon::Bell->svg(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>

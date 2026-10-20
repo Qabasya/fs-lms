@@ -3,7 +3,8 @@
    всё нужное (флаги, выбранный слот) приходит параметрами от ядра.
    ══════════════════════════════════════════════════════════════════════ */
 
-import { esc, emptyState } from '../utils.js';
+import { esc, emptyState, surnameInitials } from '../utils.js';
+import { hasStarted } from './ktp-calendar-model.js';
 import { icoGrip, icoPinFilled, icoCalendarBoard, icoAlert, icoCamera, icoCalendar } from '../../common/icons.js';
 
 /* T12.6 (D14): «1/2 · 2/2» — origin+continuation считаются одной темой. */
@@ -60,6 +61,8 @@ export function placedThemeHtml(t, videoEnabled, individual = false) {
     const isContinuation = t.part > 1;
     // В индивидуальной группе «⋮» есть у любой темы (перенос даты и времени), даже без «продолжить».
     const moreKind = isContinuation ? 'remove' : (canContinue ? 'continue' : 'none');
+    // «Провели не ту тему»: тему начавшегося занятия можно заменить темой из пула (не у продолжения и не в индивидуальной).
+    const canReplace = !individual && canContinue && hasStarted(t);
     // #16: карточка урока = тема (жирная) / кабинет / преподаватель, друг под другом.
     // Номер убран; метка продолжения (part/total) прикреплена к теме.
     // Этап 2 (★): клик по карточке ведёт в плеер курса (teacher-режим) — карточка
@@ -67,15 +70,17 @@ export function placedThemeHtml(t, videoEnabled, individual = false) {
     // Этап 4: урок вне расписания (нет штатного слота в этот день) — иначе неотличим
     // от планового занятия.
     return `<div class="placed-theme${pinned}${offSchedule}${draft}" draggable="true" data-glid="${t.group_lesson_id}" title="${esc(t.topic)}${esc(roomTip)}">
-        <span class="pt-pin">${icoPinFilled(11)}</span>
-        ${t.off_schedule ? `<span class="pt-off-schedule" title="Урок вне расписания — открывается ученикам отдельно">${icoAlert(11)}</span>` : ''}
-        <button type="button" class="pt-deadlines" data-glid="${t.group_lesson_id}" title="Дедлайны работ" aria-label="Дедлайны работ">${icoCalendar(12)}</button>
+        <div class="pt-bar">
+            <button type="button" class="pt-deadlines" data-glid="${t.group_lesson_id}" title="Дедлайны работ" aria-label="Дедлайны работ">${icoCalendar(12)}</button>
+            ${recordingIconHtml(t, videoEnabled)}
+            <span class="pt-pin">${icoPinFilled(11)}</span>
+            ${t.off_schedule ? `<span class="pt-off-schedule" title="Урок вне расписания — открывается ученикам отдельно">${icoAlert(11)}</span>` : ''}
+            ${(canContinue || isContinuation || individual) ? `<button type="button" class="pt-more" data-glid="${t.group_lesson_id}" data-kind="${moreKind}"${canReplace ? ' data-replace="1"' : ''} aria-label="Действия">⋮</button>` : ''}
+        </div>
         <span class="pt-title">${esc(t.topic || 'Без названия')}${partLabel(t)}</span>
         ${draftBadge(t)}
         ${t.room ? `<span class="pt-meta">${esc(t.room)}</span>` : ''}
-        ${t.teacher ? `<span class="pt-meta">${esc(t.teacher)}</span>` : ''}
-        ${recordingIconHtml(t, videoEnabled)}
-        ${(canContinue || isContinuation || individual) ? `<button type="button" class="pt-more" data-glid="${t.group_lesson_id}" data-kind="${moreKind}" aria-label="Действия">⋮</button>` : ''}
+        ${t.teacher ? `<span class="pt-meta pt-teacher">${esc(surnameInitials(t.teacher))}</span>` : ''}
     </div>`;
 }
 

@@ -4,7 +4,7 @@
    отдаёт всё; родитель переключает ребёнка (fsProfile.children). Read-only.
    ══════════════════════════════════════════════════════════════════════ */
 
-import { esc, fmtDayMonth, fmtDate, emptyState, chipBg, chipHtml, chipText, chipSoft, scheduleTone, shortName, todayIso } from './utils.js';
+import { esc, fmtDayMonth, fmtDate, emptyState, chipBg, chipHtml, chipText, chipSoft, scheduleTone, shortName, todayIso, roomLabel } from './utils.js';
 import { toggleVisible, applyProgress } from '../common/utils.js';
 import { icoCalendar, icoCheck, icoAlert, icoSearch, icoChevronRight, icoChevronDown, icoClock, icoStar, icoHome, icoLock } from '../common/icons.js';
 import { createApi } from './api.js';
@@ -465,7 +465,7 @@ function renderAttendance(root, d) {
 /* ── Rows ─────────────────────────────────────────────────────────────── */
 /** #14: пометка аудитории «· Название» (пусто, если аудитория не задана). */
 function roomTag(l) {
-    return l.room ? ` · ${esc(l.room)}` : '';
+    return roomLabel(l.room) ? ` · ${esc(roomLabel(l.room))}` : '';
 }
 
 /** Имя преподавателя занятия (полностью, с учётом замены — Эпик 5). */
@@ -492,13 +492,9 @@ function mountSchedule(root, d) {
         cardHtml:  schedCard,
     });
 
-    // Идущее занятие: клик открывает урок (ссылка строки/карточки) и трансляцию группы в новой вкладке.
+    // Идущее занятие открывает только урок; трансляция — в баннере шапки (live-banner.js).
     // Делегирование на контейнере — расписание перерисовывается при смене режима и листании.
-    body.addEventListener('click', (e) => {
-        const a = e.target.closest('[data-stream]');
-        if (a) { window.open(a.dataset.stream, '_blank', 'noopener'); return; }
-        openExamRow(e.target);
-    });
+    body.addEventListener('click', (e) => { openExamRow(e.target); });
     // Экзамен в расписании — кнопка: открывается с клавиатуры (Enter/пробел) так же, как по клику.
     body.addEventListener('keydown', (e) => {
         if ((e.key === 'Enter' || e.key === ' ') && openExamRow(e.target)) { e.preventDefault(); }
@@ -530,7 +526,7 @@ function examSchedRow(l) {
 function schedCard(it, cls) {
     if (it.kind === 'exam') {
         return `<div class="${cls} lcard ${scheduleTone('exam')}" role="button" tabindex="0" data-exam-event="${Number(it.event_id)}">
-            <div class="lc-row"><span class="lc-time">${esc(it.start || '')}</span><span class="lc-grp">${esc(it.topic || 'Экзамен')}</span>${it.room ? `<span class="lc-room">${esc(it.room)}</span>` : ''}</div>
+            <div class="lc-row"><span class="lc-time">${esc(it.start || '')}</span><span class="lc-grp">${esc(it.topic || 'Экзамен')}</span>${roomLabel(it.room) ? `<span class="lc-room">${esc(roomLabel(it.room))}</span>` : ''}</div>
             <div class="lc-row lc-teacher"><span class="prof-sub-tag">Экзамен</span>${it.deadline ? `<span class="prof-sub-tag warn">до ${esc(it.deadline)}</span>` : ''}</div>
         </div>`;
     }
@@ -538,7 +534,7 @@ function schedCard(it, cls) {
         <div class="lc-row">
             <span class="lc-time">${esc(it.start)}</span>
             <span class="lc-grp">${esc(it.group_name)}</span>
-            ${it.room ? `<span class="lc-room">${esc(it.room)}</span>` : ''}
+            ${roomLabel(it.room) ? `<span class="lc-room">${esc(roomLabel(it.room))}</span>` : ''}
         </div>
         ${it.teacher || it.kind === 'individual' ? `<div class="lc-row lc-teacher"><span class="lc-name">${esc(it.teacher || '')}</span>${it.kind === 'individual' ? '<span class="prof-sub-tag indi">инд.</span>' : ''}</div>` : ''}
         <div class="lc-topic" title="${esc(it.topic || '')}">${esc(it.topic || '—')}</div>`;
@@ -546,7 +542,7 @@ function schedCard(it, cls) {
     const classes = `${cls} lcard${tone ? ' ' + tone : ''}${it.live ? ' is-now' : ''}`;
 
     if (it.player_url) {
-        return `<a class="${classes}" href="${esc(it.player_url)}"${it.live && it.stream_url ? ` data-stream="${esc(it.stream_url)}"` : ''}>${inner}</a>`;
+        return `<a class="${classes}" href="${esc(it.player_url)}">${inner}</a>`;
     }
     if (it.live && it.stream_url) {
         return `<a class="${classes}" href="${esc(it.stream_url)}" target="_blank" rel="noopener">${inner}</a>`;
@@ -564,11 +560,6 @@ function schedRow(l) {
             <div class="prof-lesson-topic">${esc(l.topic || '—')}${roomTag(l)}${teacherTag(l)}</div>
         </div>${l.live ? '<div class="prof-lesson-state"><span class="prof-state-pill prof-state-now">Идёт сейчас</span></div>' : ''}`;
     const now = l.live ? ' is-now' : '';
-    // Идущее занятие: урок открывается в этой вкладке, трансляция группы (если задана) — в новой
-    // (обработчик клика — в renderHome по data-stream).
-    if (l.player_url && l.live && l.stream_url) {
-        return `<a class="prof-lesson-row prof-lesson-go${now}" href="${esc(l.player_url)}" data-stream="${esc(l.stream_url)}">${inner}</a>`;
-    }
     if (!l.player_url && l.live && l.stream_url) {
         return `<a class="prof-lesson-row prof-lesson-go${now}" href="${esc(l.stream_url)}" target="_blank" rel="noopener">${inner}</a>`;
     }

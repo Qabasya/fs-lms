@@ -158,22 +158,20 @@
 .placed-theme.pinned { border-left-color: var(--accent); }
 .placed-theme .pt-num { font-weight: 700; color: var(--ok); }
 .placed-theme.pinned .pt-num { color: var(--accent-700); }
-.placed-theme .pt-pin { position: absolute; top: rem(3); right: rem(4); color: var(--accent); display: none; }
-.placed-theme.pinned .pt-pin { display: block; }
+/* Верхняя строка карточки: дедлайны, запись, закрепление (и маркеры), «⋮» справа. */
+.placed-theme .pt-bar { display: flex; align-items: center; gap: rem(4); min-height: rem(18); margin-bottom: rem(3); }
+.placed-theme .pt-pin { color: var(--accent); display: none; }
+.placed-theme.pinned .pt-pin { display: flex; }
 
 /* Этап 4 (★): урок вне расписания — маркер рядом с pt-pin (такие уроки всегда
    закреплены, is_pinned=1 всегда true у них — сдвинут левее, чтобы не наложиться). */
-.placed-theme .pt-off-schedule {
-  position: absolute; top: rem(3); right: rem(18); display: flex; align-items: center;
-  color: var(--wait-ink);
-}
+.placed-theme .pt-off-schedule { display: flex; align-items: center; color: var(--wait-ink); }
 .placed-theme.off-schedule { border-left-color: var(--wait); }
 .placed-theme.off-schedule .pt-title { color: var(--wait-ink); }
 
 /* #16: тема — жирная, в стиле бывшего номера (pt-num); закреплённая — акцентная. */
 .placed-theme .pt-title { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 700; color: var(--ok); }
-.placed-theme.pinned .pt-title { color: var(--accent-700); padding-right: rem(12); }
-.placed-theme.pinned.off-schedule .pt-title { padding-right: rem(26); } // + маркер «вне расписания»
+.placed-theme.pinned .pt-title { color: var(--accent-700); }
 
 /* Урок курса — черновик: по дате ученикам не откроется, пока его не опубликуют. */
 .placed-theme.is-draft { border-left-style: dashed; }
@@ -185,7 +183,7 @@
 /* T12.6 (D14): «⋮» действия темы (продолжить на другую дату) — видно при наведении.
    pointer-events:none, пока кнопка невидима (opacity:0), иначе перехватывает клик по краю .pt-title. */
 .placed-theme .pt-more {
-  position: absolute; bottom: rem(2); right: rem(3); width: rem(16); height: rem(16); line-height: rem(14);
+  margin-left: auto; width: rem(16); height: rem(16); line-height: rem(14);
   border: none; background: transparent; color: var(--muted-2); font-size: rem(12); font-weight: 700;
   cursor: pointer; opacity: 0; pointer-events: none; transition: opacity $tr, color $tr; border-radius: rem(3);
 }
@@ -194,23 +192,20 @@
 
 /* Индикатор записи занятия (модуль VideoLibrary): всегда видим, в отличие от pt-more. */
 .placed-theme .pt-recording {
-  position: absolute; bottom: rem(2); left: rem(3); width: rem(16); height: rem(16);
+  width: rem(16); height: rem(16);
   display: flex; align-items: center; justify-content: center;
   border: none; background: transparent; padding: 0; cursor: pointer; border-radius: rem(3);
 }
 .placed-theme .pt-recording:hover { background: var(--accent-soft); }
 
 /* Этап 2 (★): дедлайны работ (T12.3, D13) переехали с клика по всей карточке
-   (теперь ведёт в плеер курса) на отдельную иконку — видно при наведении.
-   pointer-events:none, пока иконка невидима (opacity:0), иначе перехватывает клик по началу
-   .pt-title и открывает поповер дедлайнов вместо перехода в плеер (Р0.5). */
+   (теперь ведёт в плеер курса) на отдельную иконку верхней строки карточки (.pt-bar). */
 .placed-theme .pt-deadlines {
-  position: absolute; top: rem(3); left: rem(4); width: rem(15); height: rem(15);
+  width: rem(16); height: rem(16);
   display: flex; align-items: center; justify-content: center;
   border: none; background: transparent; padding: 0; color: var(--muted-2);
-  cursor: pointer; opacity: 0; pointer-events: none; transition: opacity $tr, color $tr, background $tr; border-radius: rem(3);
+  cursor: pointer; transition: color $tr, background $tr; border-radius: rem(3);
 }
-.placed-theme:hover .pt-deadlines { opacity: 1; pointer-events: auto; }
 .placed-theme .pt-deadlines:hover { color: var(--accent-700); background: var(--accent-soft); }
 
 /* T11.1: курс-пикер в пустом состоянии КТП */

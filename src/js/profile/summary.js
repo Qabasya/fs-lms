@@ -10,9 +10,11 @@
    Оценивание — в детали работы (T10.9), переход через openWorkReview.
    ══════════════════════════════════════════════════════════════════════ */
 
-import { esc, emptyState, fmtDate } from './utils.js';
+import { esc, emptyState, fmtDate, toast } from './utils.js';
 import { icoDocCheck } from '../common/icons.js';
 import { createApi } from './api.js';
+import { readNav, saveNav } from './nav-state.js';
+import { confirmDialog } from '../common/components/confirm-dialog.js';
 import {
     subjectPickerBtnHtml, groupPickerBtnHtml, studentPickerBtnHtml,
     openSubjectPicker, openGroupPicker, openStudentPicker,
@@ -31,6 +33,7 @@ const TABS = [
 let root = null;
 let state = null;
 let api = null;
+let worksApi = null; // GradeWork: «Засчитать» работу несдавшему
 let openWorkReviewCb = null;
 /** Промис загрузки справочника: переход «к ученику» может прийти раньше, чем он загрузился. */
 let directoryReady = null;
@@ -51,13 +54,24 @@ export function renderSummary(r, opts = {}) {
         tab:        'lessons',
     };
     api = createApi(state.cfg);
+    worksApi = p.works ? createApi(p.works) : null;
     if (!state.cfg) {
         directoryReady = Promise.resolve(false);
         root.innerHTML = empty('Сводка недоступна', 'Экран «Сводка по ученику» не настроен.');
         return;
     }
     directoryReady = loadDirectory();
-    directoryReady.then(ok => { if (ok && null === state.personId) { selectSubject(subjects()[0]?.key ?? null); } });
+    directoryReady.then(async ok => {
+        if (!ok || null !== state.personId) { return; }
+        // Выбор из адреса (nav-state.js): группа, ученик и вкладка, на которых остановились.
+        const nav = readNav('summary');
+        if (nav.g && nav.p) {
+            await openSummaryFor(nav.g, nav.p);
+            if (nav.tab && 'lessons' !== nav.tab) { state.tab = nav.tab; render(); }
+            return;
+        }
+        selectSubject(subjects()[0]?.key ?? null);
+    });
 }
 
 /**
@@ -148,6 +162,7 @@ function selectFoundStudent(personId) {
 
 /* ── Render ───────────────────────────────────────────────────────────── */
 function render() {
+    saveNav('summary', { g: state.groupId, p: state.personId, tab: state.tab });
     const subject = subjects().find(x => x.key === state.subjectKey);
     const group = state.groups.find(g => g.id === state.groupId);
     const roster = groupStudents();
@@ -226,7 +241,48 @@ function workCard(w) {
         sourceType: w.source_type,
         sourceId:   w.source_id,
         rowClass:   'sum-work-card',
+        // Работа без сдачи (занятие прошло) — можно засчитать; со сдачей — карточка открывается.
+        action:     w.credited && worksApi
+            ? `<button type="button" class="prof-btn prof-btn-sm sum-credit" data-undo data-gl="${w.group_lesson_id}" data-work="${w.work_id}">Отменить зачёт</button>`
+            : (!w.source_id && w.work_id && worksApi
+                ? `<button type="button" class="prof-btn prof-btn-sm sum-credit" data-gl="${w.group_lesson_id}" data-work="${w.work_id}">Засчитать</button>`
+                : ''),
     });
+}
+
+/** «Засчитать» работу ученику без сдачи: подтверждение → зачёт → перезагрузка сводки. */
+async function creditWork(btn) {
+    if (btn.hasAttribute('data-undo')) { return uncreditWork(btn); }
+    const ok = await confirmDialog(
+        'За каждое задание работы будет выставлен максимальный балл. Если ученик уже сдал работу, его сдача останется как есть.',
+        'Засчитать',
+        'Отмена'
+    );
+    if (!ok) { return; }
+    btn.disabled = true;
+    try {
+        await worksApi('creditWork', { group_lesson_id: btn.dataset.gl, work_id: btn.dataset.work, person_ids: [state.personId] });
+        toast('Работа засчитана');
+        loadSummary();
+    } catch (e) {
+        toast(e.message || 'Не удалось засчитать работу.', 'error');
+        btn.disabled = false;
+    }
+}
+
+/** «Отменить зачёт»: работа снова числится несданной. */
+async function uncreditWork(btn) {
+    const ok = await confirmDialog('Зачёт будет снят, ученик снова станет несдавшим эту работу.', 'Отменить зачёт', 'Назад');
+    if (!ok) { return; }
+    btn.disabled = true;
+    try {
+        await worksApi('uncreditWork', { group_lesson_id: btn.dataset.gl, work_id: btn.dataset.work, person_id: state.personId });
+        toast('Зачёт снят');
+        loadSummary();
+    } catch (e) {
+        toast(e.message || 'Не удалось снять зачёт.', 'error');
+        btn.disabled = false;
+    }
 }
 
 /* T12.8: дропдауны — общий пикер (picker.js); поиск — student-search.js. */
@@ -267,6 +323,7 @@ function wireTabs() {
 }
 
 function wireRows() {
+    root.querySelectorAll('.sum-credit').forEach(btn => btn.addEventListener('click', e => { e.stopPropagation(); creditWork(btn); }));
     root.querySelectorAll('.sum-work[data-src-id], .wcard[data-src-id]').forEach(el =>
         el.addEventListener('click', () => {
             if (openWorkReviewCb) { openWorkReviewCb(el.dataset.srcType, +el.dataset.srcId); }

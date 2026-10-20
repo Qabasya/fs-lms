@@ -5,7 +5,7 @@
    ══════════════════════════════════════════════════════════════════════ */
 
 import { esc, toast, openCtxMenuRaw, closeCtxMenu } from '../utils.js';
-import { icoCalendar, icoContinue, icoTrash } from '../../common/icons.js';
+import { icoCalendar, icoContinue, icoSwap, icoTrash } from '../../common/icons.js';
 import { toLocalInputValue, fromLocalInputValue } from './ktp-calendar-model.js';
 
 /* ── Дедлайны работ занятия (T12.3, D13) ─────────────────────────────────
@@ -77,16 +77,14 @@ export function attachRecordingClick(el, api, reload) {
     });
 }
 
-/* Два независимых поля: запись в хранилище (s3://, её ставит авто-привязка) и
-   ссылка на облако — она же запасной вариант, если запись из хранилища не откроется. */
+/* Одно поле: сервер сам различает запись в хранилище (s3://, её ставит авто-привязка)
+   и ссылку на облако (https://). */
 function openRecordingPopover(glid, anchorEl, currentUrl, currentLink, api, reload) {
     const html = `
         <div class="wd-pop rec-pop">
             <div class="ctx-title">Запись занятия</div>
-            <label class="rec-label" for="recLink">Ссылка на запись (облако)</label>
-            <input type="url" id="recLink" class="wd-input rec-input" data-rec="recording_link" value="${esc(currentLink)}" placeholder="https://…">
-            <label class="rec-label" for="recPointer">Запись в хранилище</label>
-            <input type="text" id="recPointer" class="wd-input rec-input" data-rec="recording_url" value="${esc(currentUrl)}" placeholder="s3://bucket/key">
+            <label class="rec-label" for="recValue">Ссылка на запись (https://… или s3://…)</label>
+            <input type="text" id="recValue" class="wd-input rec-input" data-rec="recording" value="${esc(currentUrl || currentLink)}" placeholder="https://… или s3://bucket/key">
             <div class="rec-actions">
                 <button type="button" class="prof-btn prof-btn-sm prof-btn-primary rec-save">Сохранить</button>
                 ${currentUrl || currentLink ? '<button type="button" class="prof-btn prof-btn-sm rec-clear">Снять всё</button>' : ''}
@@ -120,15 +118,32 @@ function openRecordingPopover(glid, anchorEl, currentUrl, currentLink, api, relo
    занятие вперёд (сервер, ScheduleReflowService::placeInserted). У самого
    продолжения «⋮» ведёт обратно — «Убрать продолжение»: дата освобождается, темы
    после неё подтягиваются назад (ProgramCompositionService::removeContinuation). */
-export function attachThemeActionsClick(btn, api, reload, onEdit) {
+export function attachThemeActionsClick(btn, api, reload, onEdit, getPool) {
     btn.addEventListener('click', e => {
         e.stopPropagation(); // не открывать поповер дедлайнов родительской темы
-        openThemeActionsMenu(btn.dataset.glid, btn, api, reload, btn.dataset.kind, onEdit);
+        openThemeActionsMenu(btn.dataset.glid, btn, api, reload, btn.dataset.kind, onEdit, '1' === btn.dataset.replace ? getPool : null);
     });
 }
 
+/* «Провели не ту тему»: второй шаг меню — выбор темы из пула, которая встанет на это занятие.
+   Дата, посещаемость и запись занятия остаются, прежняя тема уходит в пул как будущая. */
+function openReplaceMenu(glid, anchorEl, api, reload, pool) {
+    const items = pool.length
+        ? pool.map(t => `<div class="ctx-item" data-pool="${t.group_lesson_id}">${esc(t.topic || 'Без названия')}</div>`).join('')
+        : '<div class="ctx-item ctx-item--empty">В пуле нет тем без даты</div>';
+    openCtxMenuRaw(`<div class="ctx-title">Какая тема была на самом деле?</div>${items}`, anchorEl);
+    document.getElementById('profCtxMenu')?.querySelectorAll('[data-pool]').forEach(item => item.addEventListener('click', async () => {
+        closeCtxMenu();
+        try {
+            await api('replaceTopic', { group_lesson_id: glid, pool_group_lesson_id: item.dataset.pool });
+            toast('Тема занятия заменена — прежняя тема вернулась в пул');
+            await reload();
+        } catch (e) { toast(e.message, 'error'); }
+    }));
+}
+
 /* `onEdit(glid, anchor)` — только в индивидуальной группе: пункт «Изменить дату и время» (перенос занятия). */
-function openThemeActionsMenu(glid, anchorEl, api, reload, kind, onEdit) {
+function openThemeActionsMenu(glid, anchorEl, api, reload, kind, onEdit, getPool) {
     const remove = 'remove' === kind;
     const items = [];
     if (onEdit) items.push(`<div class="ctx-item" data-act="edit">${icoCalendar(16)}Изменить дату и время</div>`);
@@ -137,12 +152,14 @@ function openThemeActionsMenu(glid, anchorEl, api, reload, kind, onEdit) {
             ? `<div class="ctx-item" data-act="remove">${icoTrash(16)}Убрать продолжение</div>`
             : `<div class="ctx-item" data-act="continue">${icoContinue(16)}Продолжить на другую дату</div>`);
     }
+    if (getPool) items.push(`<div class="ctx-item" data-act="replace">${icoSwap(16)}Заменить тему занятия…</div>`);
     openCtxMenuRaw(items.join(''), anchorEl);
     const menu = document.getElementById('profCtxMenu');
     menu?.querySelectorAll('[data-act]').forEach(item => item.addEventListener('click', async () => {
         closeCtxMenu();
         const act = item.dataset.act;
         if ('edit' === act) { onEdit(glid, anchorEl); return; }
+        if ('replace' === act) { openReplaceMenu(glid, anchorEl, api, reload, getPool()); return; }
         try {
             if ('remove' === act) {
                 await api('removeContinuation', { group_lesson_id: glid });

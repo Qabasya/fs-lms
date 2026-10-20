@@ -15,6 +15,9 @@
 .prof-ctx-menu {
   position: fixed; z-index: $z-ctx + 2; /* над grade-pop (+1): меню из боковой панели не должно прятаться под ней */ background: var(--surface); border: 1px solid var(--line);
   border-radius: var(--radius-sm); box-shadow: var(--shadow-pop); padding: rem(6); min-width: rem(200); display: none;
+
+  /* Не выше и не шире окна: на 1280×720 длинное меню прокручивается, а не уходит за край. */
+  max-width: calc(100vw - rem(20)); max-height: calc(100vh - rem(20)); overflow-y: auto; overscroll-behavior: contain;
 }
 .prof-ctx-menu.open { display: block; animation: profCtxIn $tr ease; }
 
@@ -31,6 +34,7 @@
 .ctx-item .ctx-check { width: rem(16); flex-shrink: 0; display: inline-flex; align-items: center; color: var(--accent); }
 .ctx-item .ctx-sw { width: rem(22); height: rem(20); border-radius: rem(5); flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: rem(10); font-weight: 700; color: var(--ink-inverse); }
 .ctx-item .ctx-lbl { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ctx-item--empty { color: var(--muted); pointer-events: none; }
 .ctx-title { font-size: rem(11); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--muted-2); padding: rem(6) rem(10) rem(4); }
 
 /* T12.3 (D13): поповер дедлайнов работ занятия — клик по размещённой теме в КТП. */

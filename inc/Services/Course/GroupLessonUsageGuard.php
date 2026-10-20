@@ -49,6 +49,17 @@ class GroupLessonUsageGuard {
 		return false;
 	}
 
+	/**
+	 * Есть ли по занятию учебные данные, привязанные к уроку: прогресс шагов, сдачи работ, попытки заданий.
+	 * Посещаемость не считается — она относится к занятию, а не к его теме (тему проведённого занятия
+	 * можно заменить, не теряя отметок журнала).
+	 */
+	public function hasLearningData( int $groupLessonId ): bool {
+		return ! empty( $this->progress->listByGroupLesson( $groupLessonId ) )
+			|| $this->submissions->hasAnyByGroupLesson( $groupLessonId )
+			|| $this->taskAttempts->hasAnyByGroupLesson( $groupLessonId );
+	}
+
 	/** Безопасно ли удалить осиротевшую строку доставки (нет вовлечённости). */
 	public function isSafeToRemove( int $groupLessonId ): bool {
 		return ! $this->hasEngagement( $groupLessonId );

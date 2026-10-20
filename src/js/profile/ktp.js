@@ -20,6 +20,7 @@ import { themeCardHtml, placedThemeHtml, openProgramHtml, emptyStateHtml, change
 import { attachDeadlinesClick, attachPlacedThemeClick, attachRecordingClick, attachThemeActionsClick } from './ktp/ktp-popovers.js';
 import { INDI_ID, loadIndividual } from './ktp/ktp-individual.js';
 import { openOffScheduleModal } from './ktp/ktp-offschedule-modal.js';
+import { readNav, saveNav } from './nav-state.js';
 
 let root = null;
 let state = null;
@@ -55,8 +56,25 @@ export function renderKTP(r) {
         return;
     }
 
-    state.groupId = state.groups[0].id;
+    // Состояние из адреса (nav-state.js): группа и месяц, на которых остановились до ухода в плеер.
+    const nav = readNav('ktp');
+    state.pendingMonth = nav.m || null;
+    if (nav.g && String(INDI_ID) === nav.g) {
+        saveNav('ktp', { g: INDI_ID });
+        loadIndividual(indiCtx);
+        return;
+    }
+    state.groupId = (state.groups.find(g => String(g.id) === nav.g) || state.groups[0]).id;
     loadCalendar();
+}
+
+/* Группа и месяц КТП — в адрес: «Назад» из плеера вернёт на то же место. */
+function persistNav() {
+    const month = state.months[state.cursor];
+    saveNav('ktp', {
+        g: state.groupId,
+        m: month && !state.data?.individual ? `${month.y}-${String(month.m + 1).padStart(2, '0')}` : '',
+    });
 }
 
 /* Ссылка `?screen=ktp&gid=N` (уведомление «не прикреплена запись»): открыть КТП на этой группе. */
@@ -65,6 +83,7 @@ export function selectKtpGroup(gid) {
     if (!g || g.id === state.groupId) { return; }
     state.groupId = g.id;
     state.changeCourseOpen = false;
+    state.pendingMonth = null;
     loadCalendar();
 }
 
@@ -101,7 +120,11 @@ async function loadCalendar(keepMonth = false) {
     if (shown) {
         const idx = state.months.findIndex(mm => mm.y === shown.y && mm.m === shown.m);
         if (idx >= 0) state.cursor = idx;
+    } else if (state.pendingMonth) {
+        const idx = state.months.findIndex(mm => `${mm.y}-${String(mm.m + 1).padStart(2, '0')}` === state.pendingMonth);
+        if (idx >= 0) state.cursor = idx;
     }
+    state.pendingMonth = null;
     render();
 }
 
@@ -307,6 +330,7 @@ function renderCalendar() {
     if (!state.months.length) return;
     const { y, m } = state.months[state.cursor];
     document.getElementById('ktpMonth').textContent = `${MONTHS_RU[m]} ${y}`;
+    persistNav();
     document.getElementById('ktpPrev').disabled = state.cursor <= 0;
     document.getElementById('ktpNext').disabled = state.cursor >= state.months.length - 1;
 
@@ -356,7 +380,9 @@ function renderCalendar() {
     grid.querySelectorAll('.pt-recording').forEach(el => attachRecordingClick(el, api, reloadCalendar));
     // T12.6: «Продолжить на другую дату» доступно и при lock КТП — теме не хватило
     // урока, продолжение встаёт следующим занятием, хвост сдвигается сервером.
-    grid.querySelectorAll('.pt-more').forEach(el => attachThemeActionsClick(el, api, reloadCalendar, individual ? editLessonTime : null));
+    grid.querySelectorAll('.pt-more').forEach(el => attachThemeActionsClick(el, api, reloadCalendar, individual ? editLessonTime : null,
+        // Темы пула без даты (не продолжения): кандидаты на замену темы проведённого занятия.
+        () => (state.data.themes || []).filter(t => !t.scheduled_at && 1 === (t.part || 1) && 1 === (t.total_parts || 1) && t.lesson_id)));
     if (!isLocked()) {
         // Этап 4: drop доступен на любой день периода (кроме выходных), не только
         // на дни со штатным слотом — attachDrop() сам разруливает slot/off-schedule.
@@ -375,6 +401,8 @@ function openGroupMenu() {
     openGroupPicker(document.getElementById('ktpGroupBtn'), state.groups, state.groupId, id => {
         state.groupId = id;
         state.changeCourseOpen = false;
+        state.pendingMonth = null;
+        saveNav('ktp', { g: id });
         if (INDI_ID === id) { loadIndividual(indiCtx); } else { loadCalendar(); }
     }, [{ v: String(INDI_ID), label: 'Индивидуальные занятия', swatchClass: 'chip-indi', chip: 'Инд' }]);
 }

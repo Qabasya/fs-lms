@@ -22,6 +22,7 @@ import { initSegmented } from './segmented.js';
 import { initNewTabLinks } from './new-tab.js';
 import { initScrollChrome, resetScrollChrome } from './scroll-chrome.js';
 import { initLiveBanner } from './live-banner.js';
+import { navParamsExcept } from './nav-state.js';
 import { initTrialBanner } from './trial-banner.js';
 import { renderTeacherCourses, openTeacherCourse } from './teacher-courses.js';
 
@@ -83,29 +84,29 @@ const SCREENS = {
 };
 
 const TOPBAR = {
-    dashboard:            { crumb: 'Личный кабинет',   title: 'Главная' },
-    groups:               { crumb: 'Группы',           title: 'Группы' },
-    journal:              { crumb: 'Журнал',           title: 'Журнал' },
-    works:                { crumb: 'Работы',           title: 'Работы' },
-    summary:              { crumb: 'Успеваемость',      title: 'Сводка по ученику' },
-    'work-review':        { crumb: 'Проверка работ',    title: 'Проверка работы' },
-    'exam-review':        { crumb: 'Мои экзамены',      title: 'Результаты экзамена' },
-    substitutions:        { crumb: 'Офис',             title: 'Замены' },
-    ktp:                  { crumb: 'Планирование',     title: 'КТП и расписание' },
-    activity:             { crumb: 'Аналитика',       title: 'Активность' },
-    'teacher-courses':    { crumb: 'Обучение',         title: 'Мои курсы' },
+    dashboard:            { title: 'Главная' },
+    groups:               { title: 'Группы' },
+    journal:              { title: 'Журнал' },
+    works:                { title: 'Работы' },
+    summary:              { title: 'Сводка по ученику' },
+    'work-review':        { title: 'Проверка работы' },
+    'exam-review':        { title: 'Результаты экзамена' },
+    substitutions:        { title: 'Замены' },
+    ktp:                  { title: 'КТП и расписание' },
+    activity:             { title: 'Активность' },
+    'teacher-courses':    { title: 'Мои курсы' },
     ...forLearnerRoles({
-        home:       { crumb: 'Личный кабинет',   title: 'Главная' },
-        lessons:    { crumb: 'Обучение',         title: 'Мои курсы' },
-        exams:      { crumb: 'Обучение',         title: 'Мои экзамены' },
-        grades:     { crumb: 'Успеваемость',     title: 'Мои оценки' },
-        attendance: { crumb: 'Успеваемость',     title: 'Посещаемость' },
+        home:       { title: 'Главная' },
+        lessons:    { title: 'Мои курсы' },
+        exams:      { title: 'Мои экзамены' },
+        grades:     { title: 'Мои оценки' },
+        attendance: { title: 'Посещаемость' },
     }),
-    'exam-conduct':       { crumb: 'Экзамены',         title: 'Проведение экзамена' },
-    'exam-stats':         { crumb: 'Экзамены',         title: 'Статистика' },
-    'exam-plan':          { crumb: 'Экзамены',         title: 'Назначить экзамен' },
-    'exam-results':       { crumb: 'Экзамены',         title: 'Результаты' },
-    'exam-payments':      { crumb: 'Экзамены',         title: 'Оплаты гостей' },
+    'exam-conduct':       { title: 'Проведение экзамена' },
+    'exam-stats':         { title: 'Статистика' },
+    'exam-plan':          { title: 'Назначить экзамен' },
+    'exam-results':       { title: 'Результаты' },
+    'exam-payments':      { title: 'Оплаты гостей' },
 };
 
 const NAV_ICONS = {
@@ -185,6 +186,7 @@ function syncUrl(screen, extra) {
     url.searchParams.delete('gid');
     url.searchParams.delete('pid');
     url.searchParams.delete('submission');
+    navParamsExcept(screen).forEach(name => url.searchParams.delete(name)); // состояние чужих экранов (nav-state.js)
     Object.entries(extra || {}).forEach(([k, v]) => url.searchParams.set(k, v));
     window.history.replaceState(window.history.state, '', url);
 }
@@ -207,10 +209,8 @@ function go(screen) {
 }
 
 function setTopbar(screen, override) {
-    const t = override || TOPBAR[screen] || { crumb: 'Личный кабинет', title: '' };
-    const crumb = document.getElementById('profTbCrumb');
+    const t = override || TOPBAR[screen] || { title: '' };
     const title = document.getElementById('profTbTitle');
-    if (crumb) crumb.textContent = t.crumb;
     if (title) title.textContent = t.title;
 }
 
@@ -266,7 +266,7 @@ function openJournalFor(gid) {
     document.querySelectorAll('.prof-group-item').forEach(el =>
         el.classList.toggle('active', String(el.dataset.grp) === String(gid)));
     go('journal');
-    setTopbar('journal', { crumb: 'Журнал', title: g ? `${g.name} · ${g.subject}` : 'Журнал' });
+    setTopbar('journal', { title: g ? `${g.name} · ${g.subject}` : 'Журнал' });
     if (g) setJournalGroup(g.id);
 }
 
@@ -278,7 +278,7 @@ function openGroupsFor(gid) {
         el.classList.toggle('active', String(el.dataset.grp) === String(gid)));
     go('groups');
     if (g) syncUrl('groups', { gid: g.id });
-    setTopbar('groups', { crumb: 'Группы', title: g ? `${g.name} · ${g.subject}` : 'Группы' });
+    setTopbar('groups', { title: g ? `${g.name} · ${g.subject}` : 'Группы' });
     if (g) setGroupsGroup(g.id);
 }
 
@@ -425,7 +425,7 @@ function mountScreens() {
             // ФИО сдавшего — в шапку; деталь грузится асинхронно, ученик мог уже уйти с экрана.
             onLoaded: (d) => {
                 if (!d.student_name || !wrRoot.classList.contains('active')) return;
-                setTopbar('work-review', { crumb: TOPBAR['work-review'].crumb, title: d.student_name });
+                setTopbar('work-review', { title: d.student_name });
             },
         });
     }

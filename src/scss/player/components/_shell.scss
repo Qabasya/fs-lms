@@ -123,6 +123,28 @@ body.fs-player-page { overflow: visible; }
   }
 }
 
+/* Плашка «Подключиться к трансляции» (пока занятие идёт): ссылка на трансляцию группы. */
+.s-live {
+  display: inline-flex; align-items: center; gap: rem(10);
+  padding: rem(6) rem(14);
+  background: var(--surface); border: 1px solid var(--line); border-radius: 999px;
+  color: var(--ink-2); font-size: rem(13); font-weight: 600; white-space: nowrap; text-decoration: none;
+  box-shadow: var(--shadow-sm); transition: box-shadow $tr;
+
+  &:hover { box-shadow: var(--shadow-md); }
+}
+
+.s-live-dot {
+  width: rem(8); height: rem(8); border-radius: 50%; flex-shrink: 0;
+  background: var(--err);
+  box-shadow: 0 0 0 rem(3) var(--err-soft);
+  animation: s-live-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes s-live-pulse {
+  50% { opacity: .35; }
+}
+
 .s-ibtn {
   width: rem(34);
   height: rem(34);
@@ -249,6 +271,8 @@ body.fs-player-page { overflow: visible; }
   box-shadow: var(--shadow-lg);
   padding: rem(32) rem(38);
   max-width: rem(420);
+  max-height: 100%; /* оверлей — absolute inset 0 с отступом: окно не выше его */
+  overflow-y: auto;
   text-align: center;
 
   .lock-ico {

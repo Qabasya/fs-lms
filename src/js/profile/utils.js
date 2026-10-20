@@ -44,6 +44,19 @@ export function firstWord(name) {
     return String(name).split(' ').filter(Boolean)[0] || '';
 }
 
+/** Кабинет для карточки занятия: онлайн-занятие кабинета не имеет — вместо «Онлайн» пусто. */
+export function roomLabel(room) {
+    const name = String(room || '').trim();
+    return /^онлайн$/i.test(name) ? '' : name;
+}
+
+/** «Иванов Иван Иванович» → «Иванов И.И.»; одно слово остаётся как есть. */
+export function surnameInitials(name) {
+    const [surname = '', ...rest] = String(name).split(/\s+/).filter(Boolean);
+    const dots = rest.slice(0, 2).map(part => part[0].toUpperCase() + '.').join('');
+    return dots ? `${surname} ${dots}` : surname;
+}
+
 /** Русская плюрализация: plural(3, 'занятие', 'занятия', 'занятий'). Правило — в common/plural.js. */
 export { pluralRu as plural } from '../common/plural.js';
 
@@ -198,18 +211,26 @@ export function openCtxMenu(anchor, items, onPick, opts = {}) {
     if (opts.alignRight) {
         menu.style.left = Math.max(10, r.right - menu.getBoundingClientRect().width) + 'px';
     }
-    // Снизу не помещается — открываем вверх от якоря; не помещается и там — прижимаем к нижнему краю окна (длинный список прокручивается).
+    keepMenuInViewport(menu, r, 6);
+    ctxOnClose = null;
+}
+
+/**
+ * Меню не должно выходить за окно (1280×720 и ниже): снизу не помещается — открываем вверх от якоря,
+ * не помещается и там — прижимаем к нижнему краю (высоту ограничивает CSS, длинное меню прокручивается);
+ * справа — сдвигаем влево. Общая для всех меню и поповеров у якоря.
+ */
+function keepMenuInViewport(menu, anchorRect, gap) {
     const height = menu.getBoundingClientRect().height;
-    if (r.bottom + 6 + height > window.innerHeight - 10) {
-        const above = r.top - 6 - height;
+    if (anchorRect.bottom + gap + height > window.innerHeight - 10) {
+        const above = anchorRect.top - gap - height;
         menu.style.top = Math.max(10, above >= 10 ? above : window.innerHeight - 10 - height) + 'px';
     }
     const overflow = menu.getBoundingClientRect().right - (window.innerWidth - 10);
     if (overflow > 0) { menu.style.left = Math.max(10, parseFloat(menu.style.left) - overflow) + 'px'; }
-    ctxOnClose = null;
 }
 
-/** `opts.up` — раскрыть вверх; `opts.alignRight` — правый край поповера по правому краю якоря (кнопка у правого края окна); `opts.flip` — вниз, а при нехватке места внизу — вверх. */
+/** `opts.up` — раскрыть вверх; `opts.alignRight` — правый край поповера по правому краю якоря (кнопка у правого края окна); Не помещается в окно — меню само открывается вверх или прижимается к краю. */
 export function openCtxMenuRaw(html, anchor, onClose, opts = {}) {
     const menu = document.getElementById('profCtxMenu');
     const backdrop = document.getElementById('profCtxBackdrop');
@@ -229,10 +250,7 @@ export function openCtxMenuRaw(html, anchor, onClose, opts = {}) {
     menu.style.top = opts.up
         ? Math.max(10, r.top - menu.offsetHeight - 6) + 'px'
         : (r.bottom + 4) + 'px';
-    if (opts.flip && !opts.up) {
-        const height = menu.getBoundingClientRect().height;
-        if (r.bottom + 4 + height > window.innerHeight - 10) { menu.style.top = Math.max(10, r.top - 4 - height) + 'px'; }
-    }
+    if (!opts.up) { keepMenuInViewport(menu, r, 4); }
     backdrop.classList.add('open');
     ctxOnClose = onClose || null;
 }

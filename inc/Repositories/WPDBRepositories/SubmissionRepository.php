@@ -186,6 +186,19 @@ class SubmissionRepository {
 		return array_map( [ SubmissionDTO::class, 'fromArray' ], $rows ?: array() );
 	}
 
+	/** @return SubmissionDTO[] Агрегатные сдачи (task_id IS NULL) всех учеников по занятию. */
+	public function listAggregatesByGroupLesson( int $groupLessonId ): array {
+		$rows = $this->wpdb->get_results(
+			$this->wpdb->prepare(
+				'SELECT * FROM %i WHERE group_lesson_id = %d AND task_id IS NULL',
+				$this->table,
+				$groupLessonId
+			),
+			ARRAY_A
+		);
+		return array_map( [ SubmissionDTO::class, 'fromArray' ], $rows ?: array() );
+	}
+
 	/** Агрегатная строка пакетной сдачи (task_id IS NULL). */
 	public function findAggregate( int $studentPersonId, int $groupLessonId, int $workId ): ?SubmissionDTO {
 		$row = $this->wpdb->get_row(

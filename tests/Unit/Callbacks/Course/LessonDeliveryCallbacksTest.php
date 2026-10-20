@@ -192,4 +192,37 @@ class LessonDeliveryCallbacksTest extends TestCase {
 
 		self::assertFalse( fs_test_capture_json( fn() => $this->cb->ajaxSetRecordingUrl() )->success );
 	}
+
+	/** Одно поле «Запись занятия»: s3:// уходит в указатель, облачная ссылка снимается. */
+	public function test_set_recording_single_field_routes_s3_to_pointer(): void {
+		$this->program->method( 'getProgramRow' )->willReturn( $this->programRow() );
+		$this->guard->method( 'canManage' )->willReturn( true );
+		$this->groupLessons->expects( $this->once() )->method( 'setRecordingUrl' )->with( 42, 's3://bucket/videos/a.mp4' );
+		$this->groupLessons->expects( $this->once() )->method( 'setRecordingLink' )->with( 42, null );
+
+		$_POST = array( 'group_lesson_id' => '42', 'recording' => 's3://bucket/videos/a.mp4' );
+
+		self::assertTrue( fs_test_capture_json( fn() => $this->cb->ajaxSetRecordingUrl() )->success );
+	}
+
+	public function test_set_recording_single_field_routes_https_to_link(): void {
+		$this->program->method( 'getProgramRow' )->willReturn( $this->programRow() );
+		$this->guard->method( 'canManage' )->willReturn( true );
+		$this->groupLessons->expects( $this->once() )->method( 'setRecordingUrl' )->with( 42, null );
+		$this->groupLessons->expects( $this->once() )->method( 'setRecordingLink' )->with( 42, 'https://disk.example.com/rec' );
+
+		$_POST = array( 'group_lesson_id' => '42', 'recording' => 'https://disk.example.com/rec' );
+
+		self::assertTrue( fs_test_capture_json( fn() => $this->cb->ajaxSetRecordingUrl() )->success );
+	}
+
+	public function test_set_recording_single_field_rejects_other_scheme(): void {
+		$this->program->method( 'getProgramRow' )->willReturn( $this->programRow() );
+		$this->guard->method( 'canManage' )->willReturn( true );
+		$this->groupLessons->expects( $this->never() )->method( 'setRecordingUrl' );
+
+		$_POST = array( 'group_lesson_id' => '42', 'recording' => 'ftp://example.com/rec' );
+
+		self::assertFalse( fs_test_capture_json( fn() => $this->cb->ajaxSetRecordingUrl() )->success );
+	}
 }

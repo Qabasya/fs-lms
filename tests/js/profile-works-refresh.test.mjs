@@ -25,7 +25,7 @@ class FakeRoot {
 
     querySelectorAll(selector) {
         if (selector === '[data-tab]') {
-            this.tabs = ['pending', 'confirm', 'done'].map((tab) => new FakeElement({ tab }));
+            this.tabs = ['pending', 'done', 'passed'].map((tab) => new FakeElement({ tab }));
             return this.tabs;
         }
         if (selector === '.wk-row[data-src-id]') {
@@ -62,7 +62,7 @@ test('refresh preserves the selected tab, filter, and work detail while refreshi
     let failRefresh = false;
     globalThis.window = {
         fsProfile: {
-            works: { nonce: 'nonce', actions: { getPendingWorks: 'pending', getWorkSubmissions: 'submissions' } },
+            works: { nonce: 'nonce', actions: { getPendingWorks: 'pending', getWorkSubmissions: 'submissions', getPassedWorks: 'passed' } },
             groups: [],
         },
     };
@@ -72,6 +72,7 @@ test('refresh preserves the selected tab, filter, and work detail while refreshi
     window.FS_LMS_API.request = async (action, nonce, params) => {
         calls.push({ action, params });
         if (failRefresh) { throw new Error('network error'); }
+        if (action === 'passed') { return []; }
         return action === 'pending' ? list : submissions;
     };
     globalThis.document = { getElementById: () => null };
@@ -114,7 +115,7 @@ test('a tab change during refresh prevents stale rows and counts from replacing 
     let holdRefresh = false;
     globalThis.window = {
         fsProfile: {
-            works: { nonce: 'nonce', actions: { getPendingWorks: 'pending', getWorkSubmissions: 'submissions' } },
+            works: { nonce: 'nonce', actions: { getPendingWorks: 'pending', getWorkSubmissions: 'submissions', getPassedWorks: 'passed' } },
             groups: [],
         },
     };

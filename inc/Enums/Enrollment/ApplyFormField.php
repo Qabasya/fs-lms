@@ -20,6 +20,7 @@ enum ApplyFormField: string {
 	case Email      = 'email';
 	case Phone      = 'phone';
 	case BirthDate  = 'birth_date';
+	case City       = 'city';
 	case School     = 'school';
 	case Grade      = 'grade';
 	case Username   = 'username';
@@ -35,6 +36,7 @@ enum ApplyFormField: string {
 			self::Email      => 'email',
 			self::Phone      => 'телефон',
 			self::BirthDate  => 'дата рождения',
+			self::City       => 'город',
 			self::School     => 'школа',
 			self::Grade      => 'класс',
 			self::Username   => 'логин',

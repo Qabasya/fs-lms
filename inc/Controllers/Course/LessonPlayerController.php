@@ -110,6 +110,7 @@ class LessonPlayerController extends BaseController implements ServiceInterface 
 		$locked_parent    = $isParent;
 		$locked_stream_url = $isParent ? '' : $data['locked_stream_url'];
 		$groupId          = $row->groupId;
+		$live_stream_url  = $this->player->liveStreamUrl( $row, $view );
 		$active_step      = $this->sanitizeGetKey( 'step' );
 		$is_teacher       = $isTeacher;
 		// Бейдж «Режим преподавателя» ведёт в предпросмотр того же урока (только автору курса).

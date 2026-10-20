@@ -50,6 +50,21 @@ use RuntimeException;
  */
 readonly class ApplicationService {
 
+	/** Город формы заявки по умолчанию: для него школа выбирается из справочника и пишется как есть. */
+	public const DEFAULT_CITY = 'Калининград';
+
+	/**
+	 * Школа для записи в заявку: у другого города он идёт префиксом («Москва - МАОУ СОШ №1»),
+	 * отдельной колонки города нет.
+	 */
+	public static function schoolWithCity( string $city, string $school ): string {
+		$city = trim( $city );
+		if ( '' === $city || mb_strtolower( $city ) === mb_strtolower( self::DEFAULT_CITY ) ) {
+			return $school;
+		}
+		return $city . ' - ' . $school;
+	}
+
 	use TransactionRunner;        // Трейт с методом inTransaction() для атомарных операций
 	use RequestContextProvider;   // Трейт с методом requestContext() для получения IP/UA
 
