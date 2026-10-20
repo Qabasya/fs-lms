@@ -18,7 +18,7 @@ import { openMoveSessionForm, openCancelSessionForm } from './exam-session-actio
 
 const DEFAULT_TIME = '10:00';
 const STALE_CODE = 'X-STALE';
-const LOCKED_TEXT = 'Сеанс уже начат: общие параметры менять нельзя.';
+const LOCKED_TEXT = 'Сеанс уже начат: время, вариант и кабинет менять нельзя, показ ученикам — можно.';
 const PEOPLE_TEXT = 'В сеансе есть участники: перенос и отмена — с причиной, участники получат уведомление.';
 const STALE_TEXT = 'Сеанс изменили в другой вкладке. Обновите календарь.';
 
@@ -48,9 +48,9 @@ export function openSessionForm(o) {
     const fixed = o.fixed || {};
     const locked = !!(edit && edit.is_locked);
     const cancelled = !!(edit && 'cancelled' === edit.status);
-    // Заморожен: попытка начата или сеанс отменён — сохранить нельзя. Удалить можно отменённый сеанс и сеанс без записанных
+    // Заморожен: сеанс отменён — сохранить нельзя. Начатый сеанс сохраняется, но только показ ученикам: время, вариант и кабинет заблокированы. Удалить можно отменённый сеанс и сеанс без записанных
     // (в том числе если все записавшиеся отменили записи). Участники: есть записанные на живой сеанс.
-    const frozen = locked || cancelled;
+    const frozen = cancelled;
     const hasPeople = !!edit && !cancelled && Number(edit.occupied) > 0;
 
     const initDate = edit ? edit.date : (fixed.date || event.period_from);
@@ -73,7 +73,7 @@ export function openSessionForm(o) {
         <div class="gp-field"><span>Время</span><div class="gp-time"><input type="time" id="esTime" value="${esc(initTime)}" aria-label="Время начала"${lockAttr}><span class="gp-dash">–</span><b class="gp-fixed" id="esEnd" title="Окончание: по длительности варианта"></b></div></div>
         <label class="gp-field"><span>Вариант</span><select id="esVariant"${lockAttr}>${variantOptions(variants, initVariant)}</select></label>
         <label class="gp-field"><span>Кабинет</span><select id="esRoom"${lockAttr}>${roomOptions(rooms, initRoom, edit)}</select></label>
-        <label class="gp-field"><span>Отображать у учеников</span><input type="checkbox" id="esVisible" ${initVisible || !guestsOn ? 'checked' : ''}${locked || !guestsOn ? ' disabled' : ''}></label>
+        <label class="gp-field"><span>Отображать у учеников</span><input type="checkbox" id="esVisible" ${initVisible || !guestsOn ? 'checked' : ''}${!guestsOn || cancelled ? ' disabled' : ''}></label>
         ${guestsOn ? '' : '<div class="gp-hint">Скрыть сеанс от учеников можно, когда в настройках проведения включена запись гостей по ссылкам школ.</div>'}
         <div class="gp-error" id="esError" role="alert" hidden></div>
         <div class="gp-row">

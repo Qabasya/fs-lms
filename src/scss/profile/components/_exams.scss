@@ -84,9 +84,8 @@
 .kal-week--empty { flex: 1 1 $exam-day-min-height; min-height: $exam-day-min-height; max-height: $exam-day-max-height; }
 .kal-grid--weeks .kal-cell { min-width: 0; }
 
-.kal-week--empty .kal-cell,
-.kal-week--busy .kal-cell { min-height: $exam-day-min-height; }
-.kal-week--busy .kal-cell { padding-block: $exam-busy-day-padding; } /* день с сеансами — чуть воздуха сверху и снизу */
+.kal-week--empty .kal-cell { min-height: $exam-day-min-height; }
+.kal-week--busy .kal-cell { min-height: $exam-busy-day-min-height; padding-block: $exam-busy-day-padding; } /* день с сеансами — чуть воздуха сверху и снизу */
 .kal-week--off .kal-cell { min-height: 0; opacity: .5; }
 .kal-grid--weeks .kal-date { min-height: $exam-add-height; }
 .kal-grid--weeks .kal-date .kd-num { font-size: t.$font-size-md; } /* число дня в календаре проведения крупнее, чем в КТП */
