@@ -146,7 +146,8 @@ readonly class EnrollmentService {
 
 			$this->applicationRepository->forceDelete( $app->id );
 
-			if ( $input->sendEmailAuto ) {
+			// Письмо — только при создании учётки родителя: перезачисление данные для входа не меняет.
+			if ( $input->sendEmailAuto && $guardian->created ) {
 				// Письмо с данными для входа уходит только родителю — учётные данные ученика
 				// родитель передаёт ему сам (учитель/офис видят их в карточке зачисления).
 				$this->emailService->sendWelcomeWithCredentials( $guardian->userId, $guardian->password, array(

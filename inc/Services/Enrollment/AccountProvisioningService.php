@@ -33,9 +33,13 @@ use Inc\Services\Security\PasswordGeneratorService;
  *
  * ### Ветки провизии (обе ветки provisionStudent/provisionParent)
  *
- * 1. У person уже есть `wpUserId` → переиспользовать, установить новый пароль.
- * 2. Иначе email занят существующим WP-пользователем → привязать его к person.
+ * 1. У person уже есть `wpUserId` → переиспользовать, пароль не менять.
+ * 2. Иначе email занят существующим WP-пользователем → привязать его к person, пароль не менять.
  * 3. Иначе создать нового WP-пользователя и привязать.
+ *
+ * Пароль ставится только при создании учётки: перезачисление (возврат заявки с данными
+ * родителя) учётные данные не трогает. Исключение — явный пароль родителя
+ * (перенос предмета между сайтами). `created = false` в результате — сигнал не слать письмо.
  */
 readonly class AccountProvisioningService {
 
@@ -53,7 +57,7 @@ readonly class AccountProvisioningService {
 	 * @param int            $personId ID person ученика
 	 * @param PersonInputDTO $data     Данные ученика (email, ФИО)
 	 * @param string         $username Желаемый логин (для новой учётки)
-	 * @param string         $password Пароль (устанавливается в любой ветке)
+	 * @param string         $password Пароль новой учётки (у существующей не меняется)
 	 *
 	 * @throws \RuntimeException Коллизия логина/email при создании (wp_insert_user → WP_Error)
 	 */
@@ -61,9 +65,7 @@ readonly class AccountProvisioningService {
 		$person = $this->personRepository->find( $personId );
 
 		if ( null !== $person && null !== $person->wpUserId ) {
-			$this->passwordGenerator->setFromPlain( $person->wpUserId, $password );
-			$login = $this->userManager->find( $person->wpUserId )?->user_login ?? '';
-			return new AccountCredentialsDTO( $person->wpUserId, $login, $password, false );
+			return $this->existingCredentials( $person->wpUserId );
 		}
 
 		$email        = (string) ( $data->email ?? '' );
@@ -72,9 +74,8 @@ readonly class AccountProvisioningService {
 		if ( null !== $existingUser ) {
 			$this->assertNotRole( $existingUser, UserRole::FSParent, 'Email ученика занят учётной записью родителя — укажите ученику другой email.' );
 
-			$this->passwordGenerator->setFromPlain( $existingUser->ID, $password );
 			$this->linkPerson( $personId, $existingUser->ID );
-			return new AccountCredentialsDTO( $existingUser->ID, $existingUser->user_login, $password, false );
+			return $this->existingCredentials( $existingUser->ID );
 		}
 
 		$userId = $this->createUser( $username, $email, $password, $data->fullName(), $data->firstName, $data->lastName, UserRole::FSStudent );
@@ -106,9 +107,7 @@ readonly class AccountProvisioningService {
 		$person = $this->personRepository->find( $personId );
 
 		if ( null !== $person && null !== $person->wpUserId ) {
-			$password = $this->applyPassword( $person->wpUserId, $password );
-			$login    = $this->userManager->find( $person->wpUserId )?->user_login ?? '';
-			return new AccountCredentialsDTO( $person->wpUserId, $login, $password, false );
+			return $this->existingCredentials( $person->wpUserId, $password );
 		}
 
 		$email        = (string) ( $data->email ?? '' );
@@ -118,9 +117,8 @@ readonly class AccountProvisioningService {
 			// Иначе родитель привязался бы к учётке ребёнка с тем же email и сменил ей пароль.
 			$this->assertNotRole( $existingUser, UserRole::FSStudent, 'Email родителя занят учётной записью ученика — укажите родителю другой email.' );
 
-			$password = $this->applyPassword( $existingUser->ID, $password );
 			$this->linkPerson( $personId, $existingUser->ID );
-			return new AccountCredentialsDTO( $existingUser->ID, $existingUser->user_login, $password, false );
+			return $this->existingCredentials( $existingUser->ID, $password );
 		}
 
 		$login    = '' !== $email ? $email : ( 'parent_' . $personId );
@@ -155,21 +153,22 @@ readonly class AccountProvisioningService {
 	}
 
 	/**
-	 * Ставит существующему пользователю заданный пароль либо генерирует новый.
+	 * Данные уже существующей учётки. Пароль не меняется, кроме явно заданного вызывающим.
 	 *
 	 * @param int         $userId   ID WP-пользователя
-	 * @param string|null $password Явный пароль; `null`/пусто — сгенерировать
-	 *
-	 * @return string Установленный пароль в открытом виде
+	 * @param string|null $password Явный пароль (перенос между сайтами); `null`/пусто — оставить прежний
 	 */
-	private function applyPassword( int $userId, ?string $password ): string {
-		if ( null === $password || '' === $password ) {
-			return $this->passwordGenerator->generateAndSet( $userId );
+	private function existingCredentials( int $userId, ?string $password = null ): AccountCredentialsDTO {
+		if ( null !== $password && '' !== $password ) {
+			$this->passwordGenerator->setFromPlain( $userId, $password );
+			$stored = array( 'login' => '', 'password' => $password );
+		} else {
+			$stored = $this->passwordGenerator->getCredentials( $userId ) ?? array();
 		}
 
-		$this->passwordGenerator->setFromPlain( $userId, $password );
+		$login = $this->userManager->find( $userId )?->user_login ?? (string) ( $stored['login'] ?? '' );
 
-		return $password;
+		return new AccountCredentialsDTO( $userId, $login, (string) ( $stored['password'] ?? '' ), false );
 	}
 
 	/**

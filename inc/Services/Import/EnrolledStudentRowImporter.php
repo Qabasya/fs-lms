@@ -209,7 +209,7 @@ readonly class EnrolledStudentRowImporter extends AbstractRowImporter {
 		$studentCreds = $this->provisioning->provisionStudent( $studentId, $studentInput, $username, $password );
 		$parentCreds  = $this->provisioning->provisionParent( $parentId, $parentInput );
 
-		if ( $ctx->sendEmails ) {
+		if ( $ctx->sendEmails && $parentCreds->created ) {
 			$this->emailService->sendWelcomeWithCredentials(
 				$parentCreds->userId,
 				$parentCreds->password,

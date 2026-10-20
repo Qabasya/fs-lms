@@ -108,7 +108,7 @@ class AccountProvisioningServiceTest extends TestCase {
 		$this->userManager->method( 'find' )->willReturn( $existing );
 
 		$this->userManager->expects( $this->never() )->method( 'create' );
-		$this->passwordGenerator->expects( $this->once() )->method( 'setFromPlain' )->with( 501, 'NewPass1' );
+		$this->passwordGenerator->expects( $this->never() )->method( 'setFromPlain' );
 		$this->logEvents->expects( $this->never() )->method( 'dispatch' );
 
 		$result = $this->service->provisionStudent( 10, $this->studentInput(), 'ivanov', 'NewPass1' );
@@ -127,13 +127,12 @@ class AccountProvisioningServiceTest extends TestCase {
 		$this->userManager->method( 'findByEmail' )->with( 'ivan@example.com' )->willReturn( $existing );
 
 		$this->userManager->expects( $this->never() )->method( 'create' );
-		$this->passwordGenerator->expects( $this->once() )->method( 'setFromPlain' )->with( 777, 'Passw0rd!' );
+		$this->passwordGenerator->expects( $this->never() )->method( 'setFromPlain' );
 		$this->personRepository->expects( $this->once() )->method( 'setWpUser' )->with( 10, 777 );
 
 		$result = $this->service->provisionStudent( 10, $this->studentInput(), 'ivanov', 'Passw0rd!' );
 
 		$this->assertSame( 777, $result->userId );
-		$this->assertSame( 'old_login', $result->login );
 		$this->assertFalse( $result->created );
 	}
 
@@ -184,14 +183,16 @@ class AccountProvisioningServiceTest extends TestCase {
 		$existing->ID         = 601;
 		$existing->user_login = 'maria@example.com';
 		$this->userManager->method( 'find' )->willReturn( $existing );
-		$this->passwordGenerator->method( 'generateAndSet' )->with( 601 )->willReturn( 'RotatedPass' );
+		$this->passwordGenerator->method( 'getCredentials' )->with( 601 )->willReturn( array( 'login' => 'maria@example.com', 'password' => 'StoredPass' ) );
 
 		$this->userManager->expects( $this->never() )->method( 'create' );
+		$this->passwordGenerator->expects( $this->never() )->method( 'generateAndSet' );
+		$this->passwordGenerator->expects( $this->never() )->method( 'setFromPlain' );
 
 		$result = $this->service->provisionParent( 20, $this->parentInput() );
 
 		$this->assertSame( 601, $result->userId );
-		$this->assertSame( 'RotatedPass', $result->password );
+		$this->assertSame( 'StoredPass', $result->password );
 		$this->assertFalse( $result->created );
 	}
 
