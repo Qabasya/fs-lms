@@ -63,7 +63,7 @@
 .exam-add {
   display: flex; align-items: center; justify-content: center; gap: t.$spacing-xs;
   width: auto; height: $exam-add-height; margin: 0 0 0 auto; padding: 0 t.$spacing-sm;
-  background: transparent; color: var(--accent-700); font: inherit; font-size: t.$font-size-xs; font-weight: t.$font-semibold;
+  background: transparent; color: var(--accent-700); font: inherit; font-size: t.$font-size-base; font-weight: t.$font-semibold;
   border: 1px dashed var(--line); border-radius: t.$border-radius-sm; cursor: pointer;
   transition: background $tr, border-color $tr;
 
@@ -89,8 +89,10 @@
 .kal-week--busy .kal-cell { padding-block: $exam-busy-day-padding; } /* день с сеансами — чуть воздуха сверху и снизу */
 .kal-week--off .kal-cell { min-height: 0; opacity: .5; }
 .kal-grid--weeks .kal-date { min-height: $exam-add-height; }
+.kal-grid--weeks .kal-date .kd-num { font-size: t.$font-size-md; } /* число дня в календаре проведения крупнее, чем в КТП */
 
-.exam-session { cursor: pointer; }
+.exam-session { cursor: pointer; font-size: t.$font-size-base; } /* карточки календаря проведения крупнее, чем в КТП: высоты ячейки хватает */
+.exam-session .pt-meta { font-size: t.$font-size-sm; }
 .exam-session.is-guests-only { border-left-style: dashed; } /* сеанс только для гостей: пунктир слева, подпись «только гости» */
 .gp-exam .gp-hint { margin: calc(-1 * #{t.$spacing-xs}) 0 t.$spacing-sm; font-size: t.$font-size-xs; color: var(--muted-2); }
 .exam-session.is-completed { border-left-color: var(--wait-accent); }

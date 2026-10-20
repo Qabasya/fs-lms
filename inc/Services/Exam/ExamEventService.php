@@ -214,13 +214,21 @@ class ExamEventService {
 		$startUtc = $this->time->toUtc( $date . ' ' . $time . ':00' );
 		$endUtc   = $this->time->addMinutes( $startUtc, $format->durationMinutes );
 
+		// Меняется только показ (вариант, начало и кабинет те же): время, вместимость и кабинет не пересчитываются и не проверяются,
+		// иначе начатый или прошедший сеанс нельзя было бы скрыть, а смена длительности формата считалась бы переносом.
+		$peek        = null !== $sessionId ? $this->sessions->find( $sessionId ) : null;
+		$visibleOnly = null !== $visible && null !== $peek && $peek->assessmentId === $assessmentId && $peek->scheduledAt === $startUtc && $peek->roomId === $roomId;
+
 		$saved = $this->inTransactionWithRetry(
-			function () use ( $eventId, $sessionId, $expectedVersion, $assessmentId, $roomId, $startUtc, $endUtc, $visible ): ExamSessionDTO {
+			function () use ( $eventId, $sessionId, $expectedVersion, $assessmentId, $roomId, $startUtc, $endUtc, $visible, $visibleOnly ): ExamSessionDTO {
 				$event = $this->lockEvent( $eventId );
 				$this->assertEditable( $event );
 
-				$this->rooms->lock( $roomId );
-				$room = $this->rooms->assertUsable( $roomId, $event->subjectKey );
+				$room = null;
+				if ( ! $visibleOnly ) {
+					$this->rooms->lock( $roomId );
+					$room = $this->rooms->assertUsable( $roomId, $event->subjectKey );
+				}
 
 				$current = null;
 				if ( null !== $sessionId ) {
@@ -229,19 +237,32 @@ class ExamEventService {
 						throw new CodedException( ErrorCode::ExamNotFound, 'Сеанс не найден.' );
 					}
 					$this->assertVersion( $current->version, (int) $expectedVersion );
-					$this->assertSessionEditable( $current, $assessmentId, $startUtc, $endUtc, $roomId, $room->seats );
+					if ( $visibleOnly ) {
+						if ( ExamSessionStatus::Cancelled->value === $current->status ) {
+							throw new CodedException( ErrorCode::ExamState, 'Сеанс отменён: изменить его нельзя.' );
+						}
+						if ( $current->assessmentId !== $assessmentId || $current->scheduledAt !== $startUtc || $current->roomId !== $roomId ) {
+							throw $this->stale();
+						}
+					} else {
+						$this->assertSessionEditable( $current, $assessmentId, $startUtc, $endUtc, $roomId, $room->seats );
+					}
 				}
 
-				$this->rooms->assertFree( $roomId, $startUtc, $endUtc, $current->id ?? 0 );
+				if ( $visibleOnly ) {
+					$fields = array();
+				} else {
+					$this->rooms->assertFree( $roomId, $startUtc, $endUtc, $current->id ?? 0 );
 
-				$fields = array(
-					'assessment_id'       => $assessmentId,
-					'scheduled_at'        => $startUtc,
-					'planned_end_at'      => $endUtc,
-					'room_id'             => $roomId,
-					'capacity'            => $room->seats,
-					'responsible_user_id' => $event->ownerUserId,
-				);
+					$fields = array(
+						'assessment_id'       => $assessmentId,
+						'scheduled_at'        => $startUtc,
+						'planned_end_at'      => $endUtc,
+						'room_id'             => $roomId,
+						'capacity'            => $room->seats,
+						'responsible_user_id' => $event->ownerUserId,
+					);
+				}
 				if ( null !== $visible ) {
 					$fields['visible_to_students'] = $visible ? 1 : 0;
 				}
@@ -288,12 +309,12 @@ class ExamEventService {
 						'scheduled_at_utc' => $startUtc,
 						'room_id'          => $roomId,
 						// Правка сеанса: что было до неё (создание — без «было»).
-						'changes'          => isset( $current ) ? array_filter(
+						'changes'          => null !== $peek ? array_filter(
 							array(
-								'scheduled_at_utc' => array( $current->scheduledAt, $startUtc ),
-								'room_id'          => array( $current->roomId, $roomId ),
-								'assessment_id'    => array( $current->assessmentId, $assessmentId ),
-								'visible_to_students' => array( (int) $current->visibleToStudents, null === $visible ? (int) $current->visibleToStudents : (int) $visible ),
+								'scheduled_at_utc' => array( $peek->scheduledAt, $startUtc ),
+								'room_id'          => array( $peek->roomId, $roomId ),
+								'assessment_id'    => array( $peek->assessmentId, $assessmentId ),
+								'visible_to_students' => array( (int) $peek->visibleToStudents, null === $visible ? (int) $peek->visibleToStudents : (int) $visible ),
 							),
 							static fn ( array $pair ): bool => (string) $pair[0] !== (string) $pair[1]
 						) : array(),

@@ -217,7 +217,7 @@ function renderCalendar() {
             const inside = inPeriod(cell.date, event);
             return `<div class="kal-cell${inside ? '' : ' no-lesson'}" data-day="${cell.date}">
                 <div class="kal-date"><span class="kd-num">${cell.day}</span>
-                ${inside && editable ? `<button type="button" class="exam-add" data-day="${cell.date}" aria-label="Добавить сеанс ${cell.date}">${icoPlus(11)} Сеанс</button>` : ''}</div>
+                ${inside && editable ? `<button type="button" class="exam-add" data-day="${cell.date}" aria-label="Добавить сеанс ${cell.date}">${icoPlus(14)} Сеанс</button>` : ''}</div>
                 ${(byDate[cell.date] || []).map(sessionHtml).join('')}
             </div>`;
         }).join('');

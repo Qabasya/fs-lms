@@ -109,6 +109,7 @@ $actor_types = array(
 				'scheduled_at_utc' => 'Начало (UTC)',
 				'room_id'          => 'Кабинет (ID)',
 				'assessment_id'    => 'Вариант (ID)',
+				'visible_to_students' => 'Виден ученикам (1 — да)',
 			);
 			foreach ( $exam_rows as $row ) :
 				$event_title = (string) ( $exam_names['events'][ $row->eventId ] ?? '' );

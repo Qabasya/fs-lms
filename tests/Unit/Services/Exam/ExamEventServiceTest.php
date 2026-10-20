@@ -495,6 +495,18 @@ class ExamEventServiceTest extends TestCase {
 		);
 	}
 
+	public function test_started_session_visibility_can_be_changed_without_touching_time(): void {
+		$this->event   = $this->examEvent( array( 'guest_registration_enabled' => '1' ) );
+		$this->session = $this->examSession( array( 'first_started_at' => '2026-03-10 07:05:00', 'occupied_count' => '3' ) );
+		$this->sessions->expects( self::once() )->method( 'update' )->with(
+			self::SESSION,
+			self::callback( static fn ( array $d ): bool => array( 'visible_to_students' ) === array_keys( $d ) && 0 === $d['visible_to_students'] ),
+			1
+		);
+
+		$this->makeService()->saveSession( self::ACTOR, self::EVENT, $this->sessionInput( array( 'visible_to_students' => false ) ), self::SESSION, 1 );
+	}
+
 	public function test_session_rejects_wrong_time_format(): void {
 		$this->assertRefusal( ErrorCode::ExamInput, 'Укажите время сеанса.', fn () => $this->service->saveSession( self::ACTOR, self::EVENT, $this->sessionInput( array( 'time' => '25:00' ) ), null, null ) );
 	}
