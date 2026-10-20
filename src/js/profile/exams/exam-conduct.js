@@ -232,9 +232,9 @@ function render() {
                     ? `${ALL_SESSIONS_LABEL} · записано ${board.tiles.registered}`
                     : `${esc(fmtDate(s.date))} · ${esc(s.time_start)}–${esc(s.time_end)}${s.room_name ? ` · ${esc(s.room_name)}` : ''} · занято ${s.occupied} из ${s.capacity}`}</div>
             </div>
-            ${tilesHtml(board.tiles)}
-            ${board.warnings.map(w => `<div class="sc-notice exam-notice">${esc(w)}</div>`).join('')}
             ${controlsHtml()}
+            ${tilesHtml(tilesOf(visibleRows()))}
+            ${board.warnings.map(w => `<div class="sc-notice exam-notice">${esc(w)}</div>`).join('')}
             ${skippedListHtml(lastSkipped, id => board.rows.find(r => r.attempt_id === id)?.name)}
             ${board.rows.length
                 ? (visibleRows().length
@@ -332,6 +332,19 @@ function sessionSwitcher() {
     return `<div class="prof-ktp-pick exam-conduct-sessions"><span class="kp-label">Сеанс</span><button type="button" class="kp-btn" id="examConductSessionBtn" aria-label="Сеанс">
         <span class="kp-txt">${esc(text)}</span>${icoCaret(12, 'kp-caret')}
     </button></div>`;
+}
+
+/** Показатели плиток по строкам под фильтрами; правила подсчёта — как у `ExamConductViewService::tiles()` (отменённые записи не считаются). */
+function tilesOf(rows) {
+    const t = { registered: 0, started: 0, submitted: 0, missed: 0, pending: 0 };
+    rows.filter(r => 'cancelled' !== r.registration_status).forEach(r => {
+        t.registered++;
+        if ('missed' === r.progress) { t.missed++; }
+        if ('in_progress' === r.progress || 'submitted' === r.progress) { t.started++; }
+        if ('submitted' === r.progress) { t.submitted++; }
+        if ('pending_review' === r.result_status) { t.pending++; }
+    });
+    return t;
 }
 
 function tilesHtml(t) {
