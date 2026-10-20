@@ -17,6 +17,7 @@ use Inc\Repositories\WPDBRepositories\ExamEventRepository;
 use Inc\Repositories\WPDBRepositories\ExamParticipationRepository;
 use Inc\Repositories\WPDBRepositories\NotificationRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
+use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 use Inc\Repositories\WPDBRepositories\SubmissionRepository;
 use Inc\Services\Exam\ExamTime;
 
@@ -26,7 +27,8 @@ use Inc\Services\Exam\ExamTime;
  * Состояние «выполнено» вычисляется на чтении по данным домена, а не хранится в уведомлении:
  * - «Дедлайн близко» / «Дедлайн пропущен» — пока у ученика нет сдачи этой работы в этом занятии;
  * - «Открыта запись на экзамен» — пока у ученика нет действующей записи на это проведение
- *   (и пока проведение опубликовано, а запись не закрыта).
+ *   (и пока проведение опубликовано, а запись не закрыта);
+ * - «Временный доступ» — пока у ученика есть запись временного доступа (до зачисления), без ограничения по возрасту плитки.
  * Прочитанность плитки в колокольчике на закрепление не влияет. Закрепление — только для учеников:
  * родителям те же плитки приходят обычной лентой.
  */
@@ -37,10 +39,14 @@ class PinnedNotificationService {
 		NotificationType::DeadlineSoon,
 		NotificationType::DeadlineMissed,
 		NotificationType::ExamRegistrationOpened,
+		NotificationType::TrialAccess,
 	);
 
 	/** Старше этого срока (дней) плитка не закрепляется, даже если действие не выполнено. */
 	private const MAX_AGE_DAYS = 14;
+
+	/** «Временный доступ» живёт, пока действует доступ (его срок — срок заявки с продлениями), а не 14 дней: окно — как у очистки ленты. */
+	private const TRIAL_MAX_AGE_DAYS = 90;
 
 	/** Получает репозитории уведомлений и данные, по которым определяется выполнение действия. */
 	public function __construct(
@@ -52,6 +58,7 @@ class PinnedNotificationService {
 		private readonly ExamEventRepository $events,
 		private readonly ExamParticipationRepository $participations,
 		private readonly ExamTime $time,
+		private readonly StudentRecordRepository $records,
 	) {}
 
 	/** Значения типов, которые закрепляются (клиент не показывает по ним тост). @return string[] */
@@ -76,6 +83,14 @@ class PinnedNotificationService {
 		}
 
 		$rows = $this->notifications->listByTypes( $userId, self::typeValues(), self::MAX_AGE_DAYS );
+
+		// Плитка временного доступа старше 14 дней тоже закрепляется, пока доступ действует; слияние по id убирает дубли.
+		$byId = array();
+		foreach ( array_merge( $rows, $this->notifications->listByTypes( $userId, array( NotificationType::TrialAccess->value ), self::TRIAL_MAX_AGE_DAYS ) ) as $row ) {
+			$byId[ $row->id ] = $row;
+		}
+		krsort( $byId );
+		$rows = array_values( $byId );
 
 		// Пропущенный срок вытесняет «скоро срок» по той же работе.
 		$missed = array();
@@ -108,6 +123,9 @@ class PinnedNotificationService {
 	private function isDone( NotificationDTO $row, int $personId ): bool {
 		if ( NotificationType::ExamRegistrationOpened === $row->type ) {
 			return $this->examRegistrationDone( $row, $personId );
+		}
+		if ( NotificationType::TrialAccess === $row->type ) {
+			return array() === $this->records->findTrialByStudent( $personId );
 		}
 
 		$workId   = (int) ( $row->payload['work_id'] ?? 0 );

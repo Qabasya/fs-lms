@@ -149,6 +149,9 @@ class ProfileViewResolver {
 		// Баннер «Занятие уже идёт» в шапке — только ученику: окна его занятий на ближайшие сутки.
 		if ( UserRole::FSStudent === $ctx->role && null !== $ctx->personId ) {
 			$config['live'] = $this->live->windowsForStudent( $ctx->personId );
+
+			// Плашка «Временный доступ» в шапке: у ученика есть запись временного доступа (родитель ещё не заполнил анкету).
+			$config['trial'] = array( 'active' => array() !== $this->records->findTrialByStudent( $ctx->personId ) );
 		}
 
 		return $config;

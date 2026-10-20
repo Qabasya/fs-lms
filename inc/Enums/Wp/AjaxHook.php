@@ -162,6 +162,7 @@ enum AjaxHook: string {
 	// Временный доступ ученика до зачисления. params: application_id, group_id / application_id
 	case GrantTrialAccess            = 'grant_trial_access';
 	case RevokeTrialAccess           = 'revoke_trial_access';
+	case ExtendTrialAccess           = 'extend_trial_access'; // params: application_id — срок заявки (а с ним и доступа) +7 суток
 	case CheckUsernameAvailable      = 'check_username_available';
 	case CheckEmailAvailable         = 'check_email_available';
 	// Публичный: события формы родителя (начал, ошибка, отказ сервера, ушёл) — в журнал заявки

@@ -1,0 +1,19 @@
+/* ══════════════════════════════════════════════════════════════════════
+   Плашка «Временный доступ» в шапке ученика (trial-banner.js)
+   ══════════════════════════════════════════════════════════════════════ */
+@use '../variables' as *;
+
+.prof-tb-trial {
+  display: flex; align-items: center; gap: rem(8);
+  padding: rem(6) rem(14);
+  background: var(--wait-soft); border: 1px solid var(--wait-line); border-radius: 999px;
+  color: var(--wait-text); font-size: rem(14); font-weight: 600; white-space: nowrap;
+  box-shadow: var(--shadow-sm);
+
+  &[hidden] { display: none; }
+}
+
+/* Узкий экран: остаётся значок, текст — во всплывающей подсказке. */
+@media (max-width: 720px) {
+  .prof-tb-trial-text { display: none; }
+}

@@ -575,17 +575,7 @@ $termTone = static function ( ?string $expiresAtUtc, int $dangerBelow, int $warn
 				<?php endif; ?>
 			</span>
 
-							<?php // Выдача — кнопкой в модалке «Просмотреть»; здесь только снятие уже выданного. ?>
-							<?php if ( $canTrial && null !== $trial ) : ?>
-                                |
-                                <span class="trial">
-					<a href="#"
-					   class="js-revoke-trial fs-text-danger"
-					   data-id="<?php echo esc_attr( (string) $app->id ); ?>">
-						<?php esc_html_e( 'Снять доступ', 'fs-lms' ); ?>
-					</a>
-				</span>
-							<?php endif; ?>
+							<?php // Выдача, продление и снятие временного доступа — кнопками в подвале модалки «Просмотреть». ?>
 
 							<?php if ( $canTrash ) : ?>
                                 |

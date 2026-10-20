@@ -71,6 +71,27 @@ class TrialAccessCallbacks extends BaseController {
 	}
 
 	/**
+	 * AJAX: продлить временный доступ (срок заявки). Params: application_id.
+	 */
+	public function ajaxExtendTrialAccess(): void {
+		$this->authorize( Nonce::Enroll, Capability::EnrollStudent );
+
+		$applicationId = $this->requireInt( 'application_id', error: 'Не указан ID заявки.' );
+
+		try {
+			$until = $this->trialAccess->extend( $applicationId, get_current_user_id() );
+		} catch ( \InvalidArgumentException | \DomainException $e ) {
+			$this->error( $e->getMessage() );
+			return;
+		}
+
+		$this->success( array(
+			'expires_at'       => $until,
+			'expires_at_local' => get_date_from_gmt( $until, 'j F' ),
+		) );
+	}
+
+	/**
 	 * Хуки `fs_lms_application_expired` / `fs_lms_application_trashed`: доступ живёт
 	 * не дольше заявки. Сбой снятия не должен ронять cron истечения или перенос в корзину.
 	 *

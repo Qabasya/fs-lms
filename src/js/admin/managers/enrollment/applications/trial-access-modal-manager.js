@@ -2,7 +2,8 @@
  * @module TrialAccessModalManager
  * @description Временный доступ ученика до зачисления из таблицы заявок:
  *              - «Временный доступ» (кнопка в модалке «Просмотреть») — модалка выбора группы → выдача;
- *              - «Снять доступ» (действие строки) — подтверждение → снятие.
+ *              - «Снять доступ» (кнопка той же модалки) — подтверждение → снятие;
+ *              - «Продлить доступ» (кнопка той же модалки) — срок заявки +7 суток.
  *              После успеха страница перезагружается: бейдж, колонка «Срок» и
  *              действия строки рисуются сервером.
  *
@@ -33,17 +34,20 @@ export const TrialAccessModalManager = {
     },
 
     _bindEvents() {
-        // Кнопка живёт в подвале модалок «Просмотреть» (своих для «Ждёт родителя» и
-        // «Готово к проверке»): заявку ей передаёт ссылка, которой модалку открыли.
+        // Кнопки живут в подвале модалок «Просмотреть» (своих для «Ждёт родителя» и «Готово к проверке»):
+        // заявку им передаёт ссылка, которой модалку открыли. «Временный доступ» — пока доступа нет,
+        // «Продлить» и «Снять» — когда он выдан.
         $( document ).on( 'click', '.js-edit-application, .js-review-application', ( e ) => {
-            const $link = $( e.currentTarget );
-            $( '.fs-lms-modal .js-grant-trial' )
-                .data( {
-                    id:      $link.data( 'id' ),
-                    student: $link.data( 'trial-student' ) || '',
-                    subject: $link.data( 'trial-subject' ) || '',
-                } )
-                .prop( 'hidden', !! $link.data( 'trial-active' ) );
+            const $link  = $( e.currentTarget );
+            const active = !! $link.data( 'trial-active' );
+            const data   = {
+                id:      $link.data( 'id' ),
+                student: $link.data( 'trial-student' ) || '',
+                subject: $link.data( 'trial-subject' ) || '',
+            };
+
+            $( '.fs-lms-modal .js-grant-trial' ).data( data ).prop( 'hidden', active );
+            $( '.fs-lms-modal .js-extend-trial, .fs-lms-modal .js-revoke-trial' ).data( data ).prop( 'hidden', ! active );
         } );
 
         $( document ).on( 'click', '.js-grant-trial', ( e ) => {
@@ -62,7 +66,16 @@ export const TrialAccessModalManager = {
 
         $( document ).on( 'click', '.js-revoke-trial', ( e ) => {
             e.preventDefault();
-            this._confirmRevoke( e.currentTarget );
+            const btn = e.currentTarget;
+
+            // Подтверждение не поверх «Просмотреть»: закрываем её (та же последовательность, что при выдаче).
+            $( btn ).closest( '.fs-lms-modal' ).find( '.fs-lms-modal-cancel' ).first().trigger( 'click' );
+            setTimeout( () => this._confirmRevoke( btn ), CLOSE_ANIMATION_MS );
+        } );
+
+        $( document ).on( 'click', '.js-extend-trial', ( e ) => {
+            e.preventDefault();
+            this._extend( e.currentTarget );
         } );
 
         TrialAccessModal.onFilterChange( ( filters ) => this._loadGroups( filters ) );
@@ -118,8 +131,35 @@ export const TrialAccessModalManager = {
     },
 
     /**
+     * Продление без подтверждения: действие обратимо снятием и безопасно повторять — сроки складываются.
      * @private
-     * @param {HTMLElement} btn - Ссылка «Снять доступ»
+     * @param {HTMLElement} btn - Кнопка «Продлить доступ»
+     */
+    _extend( btn ) {
+        btn.classList.add( 'disabled' );
+
+        $.post( fs_lms_vars.ajaxurl, {
+            action:         fs_lms_vars.ajax_actions.extendTrialAccess,
+            security:       appVars.nonces.enroll,
+            application_id: $( btn ).data( 'id' ),
+        } )
+            .done( ( res ) => {
+                if ( res.success ) {
+                    location.reload();
+                    return;
+                }
+                btn.classList.remove( 'disabled' );
+                showNotice( res.data?.message || res.data || 'Не удалось продлить доступ.', 'error', $( btn ).closest( '.wrap' ) );
+            } )
+            .fail( () => {
+                btn.classList.remove( 'disabled' );
+                showNotice( 'Ошибка соединения с сервером.', 'error', $( btn ).closest( '.wrap' ) );
+            } );
+    },
+
+    /**
+     * @private
+     * @param {HTMLElement} btn - Кнопка «Снять доступ»
      */
     _confirmRevoke( btn ) {
         ConfirmModal.confirm( {
@@ -136,7 +176,7 @@ export const TrialAccessModalManager = {
 
     /**
      * @private
-     * @param {HTMLElement} btn - Ссылка «Снять доступ»
+     * @param {HTMLElement} btn - Кнопка «Снять доступ»
      */
     _revoke( btn ) {
         btn.classList.add( 'disabled' );
@@ -144,7 +184,7 @@ export const TrialAccessModalManager = {
         $.post( fs_lms_vars.ajaxurl, {
             action:         fs_lms_vars.ajax_actions.revokeTrialAccess,
             security:       appVars.nonces.enroll,
-            application_id: btn.dataset.id,
+            application_id: $( btn ).data( 'id' ),
         } )
             .done( ( res ) => {
                 if ( res.success ) {

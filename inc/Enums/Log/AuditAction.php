@@ -85,6 +85,7 @@ enum AuditAction: string {
 	/** Временный доступ ученика до зачисления (выдан / снят) */
 	case GrantTrialAccess  = 'grant_trial_access';
 	case RevokeTrialAccess = 'revoke_trial_access';
+	case ExtendTrialAccess = 'extend_trial_access';
 
 	/** Экспорт записи архива отчисленных */
 	case ExpelledArchiveExported = 'expelled_archive_exported';
@@ -162,6 +163,7 @@ enum AuditAction: string {
 			self::JoinFormLeft           => 'Родитель ушёл, не отправив форму',
 			self::GrantTrialAccess       => 'Выдан временный доступ',
 			self::RevokeTrialAccess      => 'Снят временный доступ',
+			self::ExtendTrialAccess      => 'Продлён временный доступ',
 
 			self::ExpelledArchiveExported => 'Экспортированы записи архива',
 			self::StudentExported         => 'Экспортированы данные ученика(ов)',

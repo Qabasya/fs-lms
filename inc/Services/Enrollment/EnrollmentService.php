@@ -32,6 +32,7 @@ use Inc\Enums\Log\EntityType;
 use Inc\Enums\Log\LogEvent;
 use Inc\Enums\Log\OperationType;
 use Inc\Services\Person\ConsentService;
+use Inc\Services\Profile\NotificationService;
 use Inc\Services\Email\EmailService;
 use Inc\Services\Person\PersonService;
 use Inc\Contracts\ClockInterface;
@@ -65,6 +66,7 @@ readonly class EnrollmentService {
 		private EnrollmentTransaction        $transaction,
 		private EnrollmentAccountsService    $accounts,
 		private FamilyEmailPolicy            $familyEmails,
+		private NotificationService          $notifications,
 	) {}
 
 	/**
@@ -145,6 +147,9 @@ readonly class EnrollmentService {
 			$guardian = $this->accounts->provisionGuardian( $parentDto, $guardianPersonId );
 
 			$this->applicationRepository->forceDelete( $app->id );
+
+			// Полный доступ открыт: плитка «Временный доступ» в ленте ученика больше не нужна.
+			$this->notifications->retract( array( $student->userId ), TrialAccessService::noticeKey( $studentPersonId ) );
 
 			// Письмо — только при создании учётки родителя: перезачисление данные для входа не меняет.
 			if ( $input->sendEmailAuto && $guardian->created ) {

@@ -210,4 +210,30 @@ class AttendanceServiceTest extends TestCase {
 
 		$this->service->clear( 100, 10 );
 	}
+
+	public function test_auto_mark_sets_present_for_each_student_of_ended_individual_lessons(): void {
+		$first  = $this->lesson( array( 'id' => 100 ) );
+		$second = $this->lesson( array( 'id' => 101 ) );
+		$this->groupLessons->method( 'listEndedInIndividualGroupsWithoutAttendance' )->with( '2026-05-02 12:00:00' )->willReturn( array( $first, $second ) );
+		$this->notifications->method( 'lessonStudentPersonIds' )->willReturn( array( 9005 ) );
+
+		$this->attendance->expects( self::exactly( 2 ) )->method( 'insertPresentIfMissing' )
+			->willReturnCallback( function ( int $lessonId, int $studentId, int $markedBy ): bool {
+				self::assertContains( $lessonId, array( 100, 101 ) );
+				self::assertSame( 9005, $studentId );
+				self::assertSame( AttendanceService::SYSTEM_USER, $markedBy );
+				return true;
+			} );
+		$this->attendance->expects( self::never() )->method( 'upsert' );
+
+		self::assertSame( 2, $this->service->autoMarkIndividualGroups( '2026-05-02 12:00:00' ) );
+	}
+
+	public function test_auto_mark_does_not_count_or_overwrite_existing_marks(): void {
+		$this->groupLessons->method( 'listEndedInIndividualGroupsWithoutAttendance' )->willReturn( array( $this->lesson() ) );
+		$this->notifications->method( 'lessonStudentPersonIds' )->willReturn( array( 9005 ) );
+		$this->attendance->method( 'insertPresentIfMissing' )->willReturn( false );
+
+		self::assertSame( 0, $this->service->autoMarkIndividualGroups( '2026-05-02 12:00:00' ) );
+	}
 }

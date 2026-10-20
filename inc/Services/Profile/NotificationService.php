@@ -444,6 +444,8 @@ readonly class NotificationService {
 				'' !== $topic ? " — «{$topic}»{$tail}" : $tail
 			),
 
+			NotificationType::TrialAccess => 'Внимание! У вас включён временный доступ. Для получения полного доступа к платформе родитель должен заполнить персональные данные в отправленной форме.',
+
 			NotificationType::ExamRegistrationOpened => $this->examTitle( $p ),
 
 			NotificationType::ExamRegistrationConfirmed,

@@ -280,13 +280,19 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
 					<button type="button" class="button fs-lms-modal-cancel">
 						<?php esc_html_e( 'Закрыть', 'fs-lms' ); ?>
 					</button>
-					<?php // Показывает TrialAccessModalManager, если временного доступа по заявке ещё нет. ?>
+					<?php // Показывает TrialAccessModalManager: «Временный доступ» — если доступа по заявке ещё нет, «Продлить» и «Снять» — если он уже выдан. ?>
 					<button type="button" class="button js-grant-trial" hidden>
 						<?php esc_html_e( 'Временный доступ', 'fs-lms' ); ?>
 					</button>
+					<button type="button" class="button js-extend-trial" hidden>
+						<?php esc_html_e( 'Продлить доступ', 'fs-lms' ); ?>
+					</button>
+					<button type="button" class="button js-revoke-trial fs-text-danger" hidden>
+						<?php esc_html_e( 'Снять доступ', 'fs-lms' ); ?>
+					</button>
 					<?php
 					/**
-					 * Кнопки опциональных модулей в подвале окна заявки — между «Временным доступом»
+					 * Кнопки опциональных модулей в подвале окна заявки — между кнопками временного доступа
 					 * и «Сохранить» (напр. «Создать учётку» модуля AdSync). Без подписчиков — no-op.
 					 */
 					do_action( 'fs_lms_application_modal_actions' );

@@ -4,11 +4,13 @@ declare( strict_types=1 );
 
 namespace Inc\Controllers\System;
 
+use Inc\Contracts\ClockInterface;
 use Inc\Contracts\ServiceInterface;
 use Inc\Core\BaseController;
 use Inc\Enums\Wp\CronHook;
 use Inc\Managers\Wp\CronManager;
 use Inc\Repositories\WPDBRepositories\AssessmentAttemptRepository;
+use Inc\Services\Course\AttendanceService;
 use Inc\Services\Exam\ExamTickLock;
 use Inc\Services\Exam\ExamTickService;
 use Inc\Services\Profile\AdminAlertCronService;
@@ -51,6 +53,8 @@ class CronController extends BaseController implements ServiceInterface {
 		private readonly AdminAlertCronService       $adminAlertCron,
 		private readonly ExamTickLock                $examTickLock,
 		private readonly ExamTickService             $examTicks,
+		private readonly AttendanceService           $attendance,
+		private readonly ClockInterface              $clock,
 	) {
 		parent::__construct();
 	}
@@ -101,6 +105,8 @@ class CronController extends BaseController implements ServiceInterface {
 	}
 
 	public function handleNotificationsTick(): void {
+		// Раньше уведомлений: «журнал не заполнен» по индивидуальной группе после автоотметки уже не нужен.
+		$this->attendance->autoMarkIndividualGroups( $this->clock->now() );
 		$this->notificationCron->tick();
 		$this->adminAlertCron->tick();
 	}

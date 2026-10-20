@@ -13,6 +13,7 @@ use Inc\Repositories\WPDBRepositories\ExamEventRepository;
 use Inc\Repositories\WPDBRepositories\ExamParticipationRepository;
 use Inc\Repositories\WPDBRepositories\NotificationRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
+use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 use Inc\Repositories\WPDBRepositories\SubmissionRepository;
 use Inc\Services\Exam\ExamTime;
 use Inc\Services\Profile\NotificationService;
@@ -31,6 +32,7 @@ class PinnedNotificationServiceTest extends TestCase {
 	private ExamEventRepository $events;
 	private ExamParticipationRepository $participations;
 	private ExamTime $time;
+	private StudentRecordRepository $records;
 	private PinnedNotificationService $service;
 
 	protected function setUp(): void {
@@ -42,6 +44,7 @@ class PinnedNotificationServiceTest extends TestCase {
 		$this->events         = $this->createMock( ExamEventRepository::class );
 		$this->participations = $this->createMock( ExamParticipationRepository::class );
 		$this->time           = $this->createMock( ExamTime::class );
+		$this->records        = $this->createMock( StudentRecordRepository::class );
 		$this->time->method( 'nowUtc' )->willReturn( '2026-10-15 12:00:00' );
 
 		$client = $this->createMock( NotificationService::class );
@@ -57,7 +60,8 @@ class PinnedNotificationServiceTest extends TestCase {
 			$this->submissions,
 			$this->events,
 			$this->participations,
-			$this->time
+			$this->time,
+			$this->records
 		);
 	}
 
@@ -135,5 +139,32 @@ class PinnedNotificationServiceTest extends TestCase {
 		$this->events->method( 'find' )->willReturn( null );
 
 		self::assertSame( array(), $this->service->forUser( 5 ) );
+	}
+
+	public function test_trial_access_stays_pinned_while_trial_record_exists(): void {
+		$this->asStudent();
+		$this->notifications->method( 'listByTypes' )->willReturn( array( $this->row( 7, NotificationType::TrialAccess, 0 ) ) );
+		$this->records->method( 'findTrialByStudent' )->with( 42 )->willReturn( array( (object) array( 'id' => 31 ) ) );
+
+		self::assertSame( array( 7 ), $this->ids( $this->service->forUser( 5 ) ) );
+	}
+
+	public function test_trial_access_is_not_pinned_after_full_enrollment(): void {
+		$this->asStudent();
+		$this->notifications->method( 'listByTypes' )->willReturn( array( $this->row( 7, NotificationType::TrialAccess, 0 ) ) );
+		$this->records->method( 'findTrialByStudent' )->willReturn( array() );
+
+		self::assertSame( array(), $this->ids( $this->service->forUser( 5 ) ) );
+	}
+
+	public function test_trial_access_is_looked_up_beyond_the_default_age_window(): void {
+		$this->asStudent();
+		$this->notifications->expects( self::exactly( 2 ) )->method( 'listByTypes' )
+			->willReturnCallback( function ( int $userId, array $types, int $days = 14 ): array {
+				self::assertContains( $days, array( 14, 90 ) );
+				return array();
+			} );
+
+		$this->service->forUser( 5 );
 	}
 }

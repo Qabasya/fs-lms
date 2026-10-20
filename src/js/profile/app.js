@@ -22,6 +22,7 @@ import { initSegmented } from './segmented.js';
 import { initNewTabLinks } from './new-tab.js';
 import { initScrollChrome, resetScrollChrome } from './scroll-chrome.js';
 import { initLiveBanner } from './live-banner.js';
+import { initTrialBanner } from './trial-banner.js';
 import { renderTeacherCourses, openTeacherCourse } from './teacher-courses.js';
 
 /* Экраны ученика и родителя одни и те же, а ключ несёт роль: student-grades / parent-grades
@@ -554,6 +555,7 @@ export function initProfile() {
     wire();
     initNotifications();
     initLiveBanner();
+    initTrialBanner();
     initCollapse();
     initSegmented();
     initNewTabLinks();

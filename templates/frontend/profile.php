@@ -66,6 +66,11 @@ $fs_brand_logo_url = (string) get_query_var( 'fs_lms_brand_logo_url', '' );
 				<div class="prof-tb-title" id="profTbTitle">Главная</div>
 			</div>
 			<span class="prof-tb-spacer"></span>
+			<?php // Плашка «Временный доступ» (trial-banner.js): стоит слева от баннера «Идёт сейчас», плашки не мешают друг другу. ?>
+			<div class="prof-tb-trial" id="profTrial" hidden title="<?php echo esc_attr__( 'Для полного доступа родитель должен заполнить персональные данные в отправленной форме', 'fs-lms' ); ?>">
+				<?php echo Icon::Clock->svg( 16 ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+				<span class="prof-tb-trial-text"><?php esc_html_e( 'Временный доступ', 'fs-lms' ); ?></span>
+			</div>
 			<?php // Баннер «Занятие уже идёт» (live-banner.js): скрыт, пока у ученика нет идущего занятия. ?>
 			<div class="prof-tb-live" id="profLive" hidden>
 				<span class="prof-tb-live-dot" aria-hidden="true"></span>

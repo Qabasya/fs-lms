@@ -362,6 +362,20 @@ class StudentRecordRepository {
 	}
 
 	/**
+	 * Все действующие записи временного доступа.
+	 *
+	 * @return StudentRecordDTO[]
+	 */
+	public function findActiveTrials(): array {
+		$rows = $this->wpdb->get_results(
+			$this->wpdb->prepare( 'SELECT * FROM %i WHERE is_trial = 1 AND status = %s ORDER BY id', $this->table, EnrollmentStatus::Active->value ),
+			ARRAY_A
+		);
+
+		return array_map( fn( array $r ) => StudentRecordDTO::fromArray( $r ), $rows ?: array() );
+	}
+
+	/**
 	 * Записи временного доступа нескольких учеников одним запросом (таблица заявок).
 	 *
 	 * @param int[] $studentPersonIds ID учеников

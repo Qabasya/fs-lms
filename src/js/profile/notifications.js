@@ -62,6 +62,7 @@ const TYPE_ICON = {
     exam_staff_registration:     icoUsers,
     exam_reconcile_failed:       icoAlert,
     exam_source_limit:           icoAlert,
+    trial_access:                icoClock,
 };
 
 /* Последнее уведомление, уже показанное в браузере. Общее для всех вкладок

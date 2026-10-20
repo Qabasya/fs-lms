@@ -27,6 +27,8 @@ use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 use Inc\Services\Application\JoinCodeService;
 use Inc\Services\Person\PersonService;
 use Inc\Services\Security\PasswordGeneratorService;
+use Inc\Enums\Profile\NotificationType;
+use Inc\Services\Profile\NotificationService;
 use Inc\Services\Security\PiiCryptoService;
 use Inc\Shared\PluginLogger;
 use Inc\Shared\Traits\TransactionRunner;
@@ -79,7 +81,13 @@ readonly class TrialAccessService {
 		private JoinCodeService             $joinCodes,
 		private ClockInterface              $clock,
 		private LogEventDispatcherInterface $logEvents,
+		private NotificationService         $notifications,
 	) {}
+
+	/** Ключ плитки «Временный доступ» в ленте ученика: одна на физлицо, снимается при зачислении и при снятии доступа. */
+	public static function noticeKey( int $personId ): string {
+		return "trial_access:{$personId}";
+	}
 
 	/**
 	 * Выдаёт временный доступ к группе: физлицо, запись и учётка ученика.
@@ -166,6 +174,16 @@ readonly class TrialAccessService {
 			new EnrollmentStatusEvent( get_current_user_id(), AuditAction::GrantTrialAccess, $personId, $recordId, $groupId )
 		);
 
+		// Ученик видит в ленте, почему доступ временный и что нужно от родителя.
+		$this->notifications->push(
+			array( $credentials->userId ),
+			NotificationType::TrialAccess,
+			self::noticeKey( $personId ),
+			array( 'group_name' => (string) $group->name ),
+			'',
+			$groupId
+		);
+
 		return new TrialAccessResultDTO(
 			recordId:  $recordId,
 			login:     $credentials->login,
@@ -217,6 +235,10 @@ readonly class TrialAccessService {
 			return true;
 		} );
 
+		if ( $wpUserId ) {
+			$this->notifications->retract( array( $wpUserId ), self::noticeKey( $personId ) );
+		}
+
 		if ( $personDeleted && $wpUserId ) {
 			$this->users->delete( $wpUserId );
 		}
@@ -229,6 +251,56 @@ readonly class TrialAccessService {
 		}
 
 		return array() !== $trials || $personDeleted;
+	}
+
+	/** На сколько суток продлевается срок заявки (и временного доступа) за одно действие. */
+	public const EXTEND_DAYS = 7;
+
+	/**
+	 * Продлевает временный доступ: доступ живёт не дольше заявки, поэтому сдвигается срок заявки.
+	 * Отсчёт — от более позднего из текущего срока и «сейчас», поэтому повторные продления складываются,
+	 * а доступ, срок которого вот-вот выйдет, получает полные сутки сверху.
+	 *
+	 * @param int $applicationId ID заявки
+	 * @param int $actorId       Кто продлевает
+	 *
+	 * @return string Новый срок заявки, 'Y-m-d H:i:s' в UTC
+	 *
+	 * @throws InvalidArgumentException Заявка не найдена
+	 * @throws DomainException          У заявки нет временного доступа или она уже не ждёт родителя/проверки
+	 */
+	public function extend( int $applicationId, int $actorId ): string {
+		$app = $this->applications->find( $applicationId );
+		if ( null === $app ) {
+			throw new InvalidArgumentException( 'Заявка не найдена.' );
+		}
+
+		if ( ! in_array( $app->status, array( ApplicationStatus::PendingParent, ApplicationStatus::ReadyForReview ), true ) ) {
+			throw new DomainException( 'Продлить можно только доступ по заявке, которая ждёт родителя или проверки.' );
+		}
+
+		$trials = null !== $app->studentPersonId ? $this->records->findTrialByStudent( $app->studentPersonId ) : array();
+		if ( array() === $trials ) {
+			throw new DomainException( 'У этой заявки нет временного доступа.' );
+		}
+
+		$nowUtc = $this->clock->now( 'mysql', true );
+		$from   = null !== $app->expiresAt && $app->expiresAt > $nowUtc ? $app->expiresAt : $nowUtc;
+		$until  = gmdate( 'Y-m-d H:i:s', strtotime( $from . ' UTC' ) + self::EXTEND_DAYS * DAY_IN_SECONDS );
+
+		$this->applications->update( $app->id, array(
+			'expires_at' => $until,
+			'updated_at' => $nowUtc,
+		) );
+
+		foreach ( $trials as $trial ) {
+			$this->logEvents->dispatch(
+				LogEvent::TrialAccessExtended,
+				new EnrollmentStatusEvent( $actorId, AuditAction::ExtendTrialAccess, (int) $app->studentPersonId, $trial->id, $trial->groupId )
+			);
+		}
+
+		return $until;
 	}
 
 	/**

@@ -26,6 +26,24 @@ class AttendanceRepository {
 	}
 
 	/**
+	 * Ставит «присутствовал» только если отметки (занятие, ученик) ещё нет — отметку преподавателя не трогает.
+	 *
+	 * @return bool Отметка добавлена.
+	 */
+	public function insertPresentIfMissing( int $groupLessonId, int $studentPersonId, int $markedBy ): bool {
+		return 1 === (int) $this->wpdb->query(
+			$this->wpdb->prepare(
+				'INSERT IGNORE INTO %i (group_lesson_id, student_person_id, is_present, marked_by, marked_at) VALUES (%d, %d, 1, %d, %s)',
+				$this->table,
+				$groupLessonId,
+				$studentPersonId,
+				$markedBy,
+				current_time( 'mysql', true )
+			)
+		);
+	}
+
+	/**
 	 * Ставит/обновляет отметку (занятие, ученик).
 	 */
 	public function upsert( int $groupLessonId, int $studentPersonId, bool $isPresent, int $markedBy ): void {

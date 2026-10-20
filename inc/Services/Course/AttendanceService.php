@@ -74,6 +74,31 @@ class AttendanceService {
 		}
 	}
 
+	/**
+	 * Индивидуальная группа: прошедшее занятие — значит ученик был, поэтому «+» ставится сам.
+	 * Занятие без отметок получает «присутствовал» для его ученика; уже выставленную отметку (в том числе «Н») не трогает,
+	 * уведомлений и серий пропусков тут нет — отметка всегда положительная. Вызывает cron-тик.
+	 *
+	 * @param string $now Текущее время сайта (`Y-m-d H:i:s`), с которым сравнивается конец занятия.
+	 *
+	 * @return int Сколько отметок поставлено.
+	 */
+	public function autoMarkIndividualGroups( string $now ): int {
+		$marked = 0;
+		foreach ( $this->groupLessons->listEndedInIndividualGroupsWithoutAttendance( $now ) as $lesson ) {
+			foreach ( $this->notifications->lessonStudentPersonIds( $lesson ) as $studentPersonId ) {
+				if ( $this->attendance->insertPresentIfMissing( $lesson->id, $studentPersonId, self::SYSTEM_USER ) ) {
+					++$marked;
+				}
+			}
+		}
+
+		return $marked;
+	}
+
+	/** Отметку поставила система, а не пользователь (`attendance.marked_by`). */
+	public const SYSTEM_USER = 0;
+
 	/** Сколько пропусков подряд — уже повод тревожить родителя («более 2 занятий»). */
 	private const ABSENCE_STREAK = 3;
 

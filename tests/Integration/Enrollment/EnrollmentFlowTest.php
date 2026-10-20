@@ -118,6 +118,7 @@ class EnrollmentFlowTest extends TestCase {
 				$this->passwordGenerator
 			),
 			new \Inc\Services\Enrollment\FamilyEmailPolicy(),
+			$this->createMock( \Inc\Services\Profile\NotificationService::class ),
 		);
 	}
 

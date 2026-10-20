@@ -691,6 +691,32 @@ class GroupLessonRepository {
 	}
 
 	/**
+	 * Закончившиеся занятия индивидуальных групп (`groups.access_mode = 'individual'`), по которым нет ни одной отметки посещаемости.
+	 * Отменённые и перенесённые не в счёт; без `ends_at` конец — час от начала (как в {@see listGroupEndedBetween()}).
+	 *
+	 * @return GroupLessonDTO[]
+	 */
+	public function listEndedInIndividualGroupsWithoutAttendance( string $now, int $limit = 200 ): array {
+		$rows = $this->wpdb->get_results(
+			$this->wpdb->prepare(
+				"SELECT gl.* FROM %i gl
+				 INNER JOIN %i g ON g.id = gl.group_id AND g.access_mode = 'individual'
+				 WHERE gl.status IN ('scheduled','held') AND gl.scheduled_at IS NOT NULL
+				   AND COALESCE( gl.ends_at, DATE_ADD( gl.scheduled_at, INTERVAL 60 MINUTE ) ) <= %s
+				   AND NOT EXISTS( SELECT 1 FROM %i a WHERE a.group_lesson_id = gl.id )
+				 ORDER BY gl.scheduled_at ASC LIMIT %d",
+				$this->table,
+				TableName::Groups->prefixed(),
+				$now,
+				TableName::Attendance->prefixed(),
+				$limit
+			),
+			ARRAY_A
+		);
+		return array_map( [ GroupLessonDTO::class, 'fromArray' ], $rows ?: array() );
+	}
+
+	/**
 	 * Групповые занятия, закончившиеся в интервале ($from, $to], с флагом
 	 * отметок посещаемости — кандидаты «не заполнен журнал». Без `ends_at`
 	 * конец — час от начала.

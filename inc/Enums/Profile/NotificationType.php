@@ -73,6 +73,9 @@ enum NotificationType: string {
 	case ExamSourceLimit = 'exam_source_limit';
 	case ExamStaffRegistration = 'exam_staff_registration';
 
+	/** Ученику — ему выдан временный доступ: полный откроется, когда родитель заполнит анкету. */
+	case TrialAccess = 'trial_access';
+
 	/** Заголовок плитки уведомления. */
 	public function title(): string {
 		return match ( $this ) {
@@ -119,6 +122,7 @@ enum NotificationType: string {
 			self::ExamReconcileFailed => 'Сбой сверки оплаты',
 			self::ExamSourceLimit => 'Превышен лимит заявок по ссылке',
 			self::ExamStaffRegistration => 'Новая запись на экзамен',
+			self::TrialAccess => 'Временный доступ',
 		};
 	}
 
@@ -135,7 +139,7 @@ enum NotificationType: string {
 			self::HomeworkStreak, self::TeacherAbsent                      => 'err',
 			self::ExamRegistrationOpened, self::ExamRegistrationChanged, self::ExamTomorrow, self::ExamEntryOpened, self::ExamResultCorrected, self::ExamExtended, self::ExamStaffRegistration => 'info',
 			self::ExamRegistrationConfirmed, self::ExamWorkAccepted, self::ExamApproved => 'ok',
-			self::ExamRegistrationCancelled, self::ExamSoon, self::ExamWorkSubmitted, self::ExamSessionMoved, self::ExamSourceLimit => 'warn',
+			self::ExamRegistrationCancelled, self::ExamSoon, self::ExamWorkSubmitted, self::ExamSessionMoved, self::ExamSourceLimit, self::TrialAccess => 'warn',
 			self::ExamMissed, self::ExamSessionCancelled, self::ExamPaymentNeedsHelp, self::ExamReconcileFailed => 'err',
 		};
 	}

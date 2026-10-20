@@ -17,9 +17,11 @@ use Inc\Enums\Wp\PageRoutes;
 use Inc\Repositories\WPDBRepositories\AttendanceRepository;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\NotificationRepository;
+use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 use Inc\Repositories\WPDBRepositories\SubmissionRepository;
 use Inc\Services\Course\EffectiveWorksResolver;
 use Inc\Services\Course\LessonVisibilityService;
+use Inc\Services\Enrollment\TrialAccessService;
 
 /**
  * Class NotificationCronService
@@ -54,6 +56,7 @@ readonly class NotificationCronService {
 		private ClockInterface           $clock,
 		private LessonVisibilityService  $visibility,
 		private AttendanceRepository     $attendance,
+		private StudentRecordRepository  $records,
 	) {}
 
 	public function tick(): void {
@@ -64,6 +67,7 @@ readonly class NotificationCronService {
 		$this->absenceMarked();
 		$this->journalNotFilled();
 		$this->recordingMissing();
+		$this->trialAccess();
 		$this->purge();
 	}
 
@@ -340,6 +344,29 @@ readonly class NotificationCronService {
 				$lesson->groupId,
 				'group_lesson',
 				$lesson->id
+			);
+		}
+	}
+
+	/**
+	 * Ученику с действующим временным доступом — плитка «Временный доступ».
+	 * Основной путь — выдача доступа ({@see \Inc\Services\Enrollment\TrialAccessService::grant()}); тик подбирает доступы,
+	 * выданные до появления плитки, и те, где она не создалась. Одна плитка на ученика (dedupe), снимают её зачисление и снятие доступа.
+	 */
+	private function trialAccess(): void {
+		foreach ( $this->records->findActiveTrials() as $trial ) {
+			$userId = $this->notifications->studentUserId( $trial->studentPersonId );
+			if ( null === $userId || $userId <= 0 ) {
+				continue;
+			}
+
+			$this->notifications->push(
+				array( $userId ),
+				NotificationType::TrialAccess,
+				TrialAccessService::noticeKey( $trial->studentPersonId ),
+				array( 'group_name' => $this->notifications->groupName( $trial->groupId ) ),
+				'',
+				$trial->groupId
 			);
 		}
 	}

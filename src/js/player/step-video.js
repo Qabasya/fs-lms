@@ -93,6 +93,8 @@ function mountChrome( panel, root ) {
 		showHint( video.muted ? 'Звук выключен' : `Громкость ${ Math.round( video.volume * 100 ) }%`, 'center' );
 	};
 	const toggleFullscreen = () => {
+		// Фокус остаётся на кнопке «Во весь экран»: следующий Пробел нажал бы её же и закрыл полноэкранный режим.
+		if ( document.activeElement instanceof HTMLElement && root.contains( document.activeElement ) ) { document.activeElement.blur(); }
 		if ( document.fullscreenElement ) {
 			document.exitFullscreen();
 		} else {
@@ -106,7 +108,8 @@ function mountChrome( panel, root ) {
 		if ( e.altKey || e.ctrlKey || e.metaKey || e.shiftKey ) { return; }
 		const key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
 		if ( ! [ 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', ' ', 'f', 'а', 'm', 'ь' ].includes( key ) ) { return; }
-		if ( ! root.isConnected || ! root.offsetParent || e.defaultPrevented ) { return; }
+		// Шаг на экране: `offsetParent` у полноэкранного элемента null (он position: fixed), поэтому смотрим на «есть ли у него рамка».
+		if ( ! root.isConnected || ! root.getClientRects().length || e.defaultPrevented ) { return; }
 		if ( document.querySelector( '.cp-dim' ) ) { return; }
 		if ( e.target.closest?.( 'input, select, textarea, [contenteditable="true"]' ) ) { return; }
 		if ( ' ' === key && e.target.closest?.( 'button, a' ) ) { return; } // Пробел на кнопке — её нажатие

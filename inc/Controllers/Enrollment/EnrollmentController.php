@@ -99,6 +99,7 @@ class EnrollmentController extends AjaxController {
 			// ── Временный доступ до зачисления ──
 			array( AjaxHook::GrantTrialAccess, $this->trial ),
 			array( AjaxHook::RevokeTrialAccess, $this->trial ),
+			array( AjaxHook::ExtendTrialAccess, $this->trial ),
 
 			// ── Учётные данные ──
 			array( AjaxHook::RevealUserCredentials, $this->credentials ),

@@ -29,6 +29,7 @@ class NotificationCronServiceTest extends TestCase {
 	private NotificationRepository&\PHPUnit\Framework\MockObject\MockObject $notificationRepository;
 	private NotificationService&\PHPUnit\Framework\MockObject\MockObject   $notifications;
 	private \Inc\Repositories\WPDBRepositories\AttendanceRepository&\PHPUnit\Framework\MockObject\MockObject $attendance;
+	private \Inc\Repositories\WPDBRepositories\StudentRecordRepository&\PHPUnit\Framework\MockObject\MockObject $records;
 	private LessonVisibilityService&\PHPUnit\Framework\MockObject\MockObject $visibility;
 	private NotificationCronService $service;
 
@@ -46,6 +47,7 @@ class NotificationCronServiceTest extends TestCase {
 		$this->notificationRepository = $this->createMock( NotificationRepository::class );
 		$this->notifications         = $this->createMock( NotificationService::class );
 		$this->attendance            = $this->createMock( \Inc\Repositories\WPDBRepositories\AttendanceRepository::class );
+		$this->records               = $this->createMock( \Inc\Repositories\WPDBRepositories\StudentRecordRepository::class );
 		$this->visibility            = $this->createMock( LessonVisibilityService::class );
 		$this->visibility->method( 'effectiveVisibility' )->willReturnCallback(
 			static fn( $row ) => 999 === $row->lessonId ? 'hidden' : 'open'
@@ -63,6 +65,7 @@ class NotificationCronServiceTest extends TestCase {
 			$clock,
 			$this->visibility,
 			$this->attendance,
+			$this->records,
 		);
 	}
 
@@ -454,6 +457,24 @@ class NotificationCronServiceTest extends TestCase {
 		$this->groupLessons->method( 'listGroupEndedBetween' )->willReturn( array( $lesson ) );
 
 		$this->notifications->expects( self::never() )->method( 'push' );
+
+		$this->service->tick();
+	}
+
+	public function test_active_trial_gets_one_notice_for_the_student(): void {
+		$trial = \Inc\DTO\Enrollment\StudentRecordDTO::fromArray( array( 'id' => 31, 'student_person_id' => 9005, 'group_id' => 4, 'status' => 'active', 'is_trial' => 1 ) );
+		$this->records->method( 'findActiveTrials' )->willReturn( array( $trial ) );
+		$this->notifications->method( 'studentUserId' )->with( 9005 )->willReturn( 119 );
+		$this->notifications->method( 'groupName' )->willReturn( 'Группа' );
+
+		$this->notifications->expects( self::once() )->method( 'push' )->with(
+			array( 119 ),
+			\Inc\Enums\Profile\NotificationType::TrialAccess,
+			'trial_access:9005',
+			array( 'group_name' => 'Группа' ),
+			'',
+			4
+		);
 
 		$this->service->tick();
 	}

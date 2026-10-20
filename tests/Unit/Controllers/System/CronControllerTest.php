@@ -37,6 +37,8 @@ class CronControllerTest extends TestCase {
 			$this->createMock( AdminAlertCronService::class ),
 			$this->tickLock,
 			$this->ticks,
+			$this->createMock( \Inc\Services\Course\AttendanceService::class ),
+			$this->createMock( \Inc\Contracts\ClockInterface::class ),
 		);
 	}
 
