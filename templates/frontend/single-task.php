@@ -271,6 +271,13 @@ ThemeCompatService::header();
 
 				</div>
 
+				<?php
+				// Призыв на пробное занятие: ведёт на форму страницы направления (первая крошка — предмет).
+				$trial_cta_kind = 'task';
+				$trial_cta_url  = '' !== (string) ( $crumbs[0]['url'] ?? '' ) ? $crumbs[0]['url'] . '#signup' : '';
+				include __DIR__ . '/partials/trial-cta.php';
+				?>
+
 			</main>
 
 		</div>

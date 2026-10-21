@@ -128,6 +128,11 @@ ThemeCompatService::header();
 				<?php
 				// Переходы по серии: отбивка и отступ сверху — в самом компоненте.
 				include __DIR__ . '/partials/article-nav.php';
+
+				// Призыв на пробное занятие: ведёт на форму страницы направления (первая крошка — предмет).
+				$trial_cta_kind = 'article';
+				$trial_cta_url  = '' !== (string) ( $article_data->breadcrumbs[0]['url'] ?? '' ) ? $article_data->breadcrumbs[0]['url'] . '#signup' : '';
+				include __DIR__ . '/partials/trial-cta.php';
 				?>
 
 			</main>

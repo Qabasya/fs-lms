@@ -55,6 +55,7 @@ use Inc\Controllers\Task\TaskEditorButtonsController;
 use Inc\Controllers\Pages\AllTasksPageController;
 use Inc\Controllers\Article\ArticleMetaBoxController;
 use Inc\Controllers\Article\ArticleSlugController;
+use Inc\Controllers\Seo\ContentSeoController;
 use Inc\Controllers\Pages\ArticlePageController;
 use Inc\Controllers\Pages\SubjectLandingController;
 use Inc\Controllers\Pages\AssessmentPageController;
@@ -193,6 +194,7 @@ final class Init {
 			ArticleMetaBoxController::class, // Метабокс краткого описания статьи
 			ArticleSlugController::class,    // Слаг статьи: article-task-{задание}-{номер}
 			ArticlePageController::class,    // Frontend-страница статьи
+			ContentSeoController::class,     // Title, description, схема и noindex-фильтры страниц заданий и статей (Rank Math)
 			SubjectLandingController::class, // Разделы лендинга предмета (шорткоды страниц)
 			TypographyController::class,     // Неразрывные пробелы после предлогов на всех публичных страницах
 			AssessmentPageController::class, // Frontend-страница контрольной

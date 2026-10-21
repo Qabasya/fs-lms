@@ -17,6 +17,9 @@
   overflow: hidden;
 }
 
+// Призыв на пробное занятие под заданием и статьёй: отступ от карточки или текста над ним.
+.fs-trial-cta { margin-top: $spacing-2xl; }
+
 .fs-sidebar-trainer {
   &__body {
     display: grid;
