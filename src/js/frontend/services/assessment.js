@@ -4,6 +4,7 @@
  */
 
 import { escapeHtml, debounce as debounceUtil, disableCopying, bindTabIndent } from '../../common/utils.js';
+import { urlencodedBody } from '../../common/nonce-refresh.js';
 
 const vars = window.fs_lms_assessment_vars;
 
@@ -222,7 +223,7 @@ function bindUnloadBeacon( form, attemptId ) {
 			fd.append( 'attempt_id', String( attemptId ) );
 			fd.append( 'task_id', String( block.dataset.taskId ) );
 			fd.append( 'answer_text', value );
-			navigator.sendBeacon( vars.ajax_url, fd );
+			navigator.sendBeacon( vars.ajax_url, urlencodedBody( fd ) );
 		} );
 	} );
 }

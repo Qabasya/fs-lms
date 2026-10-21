@@ -7,6 +7,7 @@
  */
 import { saveAnswer, debounce, startCountdown } from '../frontend/services/assessment.js';
 import { ajaxErrorText, disableCopying } from '../common/utils.js';
+import { urlencodedBody } from '../common/nonce-refresh.js';
 import { clearKegeState, kegeBr, kegeKim, loadKegeState, setKegeAnswers, setKegeOvertime, setKegeStage, setKegeTask } from './kege-state.js';
 import { renderKegeSheet } from './kege-entry.js';
 
@@ -114,7 +115,7 @@ export function initKegeExam() {
 		fd.append( 'detail', detail );
 
 		if ( navigator.sendBeacon ) {
-			navigator.sendBeacon( kegeVars.ajax_url, fd );
+			navigator.sendBeacon( kegeVars.ajax_url, urlencodedBody( fd ) );
 			return;
 		}
 		void fetch( kegeVars.ajax_url, { method: 'POST', body: fd, keepalive: true } ).catch( () => {} );
@@ -377,7 +378,7 @@ export function initKegeExam() {
 		fd.append( 'attempt_id', String( attemptId ) );
 		fd.append( 'task_id', String( binding.taskId ) );
 		fd.append( 'answer_text', binding.collect() );
-		navigator.sendBeacon( kegeVars.ajax_url, fd );
+		navigator.sendBeacon( kegeVars.ajax_url, urlencodedBody( fd ) );
 	} );
 
 	/**
