@@ -19,6 +19,7 @@ import { computeMonths, individualMonths, initialCursor, shiftMonth, monthCells,
 import { themeCardHtml, placedThemeHtml, openProgramHtml, emptyStateHtml, changeCourseHtml, noGroupsHtml, errorHtml } from './ktp/ktp-templates.js';
 import { attachDeadlinesClick, attachPlacedThemeClick, attachRecordingClick, attachThemeActionsClick } from './ktp/ktp-popovers.js';
 import { INDI_ID, loadIndividual } from './ktp/ktp-individual.js';
+import { openIndiModal } from './indi-modal.js';
 import { openOffScheduleModal } from './ktp/ktp-offschedule-modal.js';
 import { readNav, saveNav } from './nav-state.js';
 
@@ -192,7 +193,7 @@ function render() {
                     <div class="kal-month" id="ktpMonth"></div>
                     <button class="prof-icon-ghost" id="ktpNext">${icoChevronRight(18)}</button>
                     <span class="prof-spacer"></span>
-                    <span class="kal-hint" id="ktpHint">${locked ? 'КТП опубликована — редактирование заблокировано' : (individual ? 'Перетащите тему на любой день и выберите время · «⋮» на занятии — изменить дату и время · занятия сразу видны ученику' : 'Перетащите тему на дату, чтобы закрепить · обратно в «Темы курса» — чтобы снять, следующие сдвинутся на её место')}</span>
+                    <span class="kal-hint" id="ktpHint">${locked ? 'КТП опубликована — редактирование заблокировано' : (individual ? 'Перетащите тему на любой день и выберите время · «⋮» на занятии — изменить дату и время · занятия сразу видны ученику' : 'Перетащите тему на дату, чтобы закрепить · обратно в «Темы курса» — чтобы снять, следующие сдвинутся на её место · клик по свободному дню — доп. занятие для части группы')}</span>
                 </div>
                 <div class="kal-grid-wrap">
                     <div class="kal-dow">${DOW_RU.map(d => `<span>${d}</span>`).join('')}</div>
@@ -358,6 +359,8 @@ function renderCalendar() {
         let cls = 'kal-cell';
         if (isHol) cls += ' holiday';
         else if (!isLesson && !individual) cls += ' no-lesson';
+        // Свободный день группы (нет ни занятия, ни слота расписания) — клик добавляет доп. занятие.
+        if (!individual && !isLesson && !dayThemes.length) cls += ' kal-cell--free';
 
         cells += `<div class="${cls}" data-day="${ds}" data-lesson="${isLesson && !isHol ? 1 : 0}">
             <div class="kal-date">
@@ -383,6 +386,10 @@ function renderCalendar() {
     grid.querySelectorAll('.pt-more').forEach(el => attachThemeActionsClick(el, api, reloadCalendar, individual ? editLessonTime : null,
         // Темы пула без даты (не продолжения): кандидаты на замену темы проведённого занятия.
         () => (state.data.themes || []).filter(t => !t.scheduled_at && 1 === (t.part || 1) && 1 === (t.total_parts || 1) && t.lesson_id)));
+    // Доп. занятие вне расписания для части группы: не трогает программу и расписание, доступно и при lock КТП.
+    if (!individual && !state.data.open) {
+        grid.querySelectorAll('.kal-cell--free[data-day]').forEach(cell => cell.addEventListener('click', () => openExtraLesson(cell, cell.dataset.day)));
+    }
     if (!isLocked()) {
         // Этап 4: drop доступен на любой день периода (кроме выходных), не только
         // на дни со штатным слотом — attachDrop() сам разруливает slot/off-schedule.
@@ -395,6 +402,12 @@ function renderCalendar() {
 function shiftMonthBy(d) {
     state.cursor = shiftMonth(state.cursor, state.months.length, d);
     renderCalendar();
+}
+
+/* Клик по свободному дню: занятие вне расписания для части группы (чекбоксы учеников, тема из курса группы). */
+function openExtraLesson(anchor, day) {
+    const group = state.groups.find(g => g.id === state.groupId) || { id: state.groupId, name: '' };
+    openIndiModal({ api, anchor, groups: state.groups, multi: true, fixed: { group, date: day }, onSaved: reloadCalendar });
 }
 
 function openGroupMenu() {

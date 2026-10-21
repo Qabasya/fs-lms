@@ -71,22 +71,24 @@
 }
 
 /* Календарь проведения по неделям. Высота зависит от сеансов:
-   — неделя вне периода (kal-week--off) сжата до строки с числами;
-   — неделя периода без сеансов (--empty) 60–80px, растягивается/сжимается по свободному месту;
-   — неделя с сеансами (--busy) растёт по содержимому: два сеанса в день делают её выше.
+   — неделя с сеансами (--busy) занимает высоту по содержимому, но не ниже дня с одним сеансом:
+     два сеанса в день делают её выше (~210px), сжимать её нельзя;
+   — недели без сеансов (--empty) и вне периода (--off, приглушены) ужимаются: делят остаток высоты контейнера,
+     не ниже строки с числом и не выше дня с одним сеансом — прокрутки быть не должно, пока хватает места.
    В ячейке — строка даты с «+ Сеанс» и сеансы в три строки. */
 .kal-grid-wrap:has(.kal-grid--weeks) { display: flex; flex-direction: column; min-height: 0; }
 .kal-grid--weeks { display: flex; flex-direction: column; flex: 1 0 auto; gap: t.$spacing-xs; }
 .kal-week { display: grid; grid-template-columns: repeat(7, 1fr); column-gap: t.$spacing-sm; }
 
 .kal-week--off,
+.kal-week--empty { flex: 1 1 0; min-height: $exam-day-min-height; max-height: $exam-day-max-height; }
 .kal-week--busy { flex: 0 0 auto; }
-.kal-week--empty { flex: 1 1 $exam-day-min-height; min-height: $exam-day-min-height; max-height: $exam-day-max-height; }
 .kal-grid--weeks .kal-cell { min-width: 0; }
 
+.kal-week--off .kal-cell,
 .kal-week--empty .kal-cell { min-height: $exam-day-min-height; }
 .kal-week--busy .kal-cell { min-height: $exam-busy-day-min-height; padding-block: $exam-busy-day-padding; } /* день с сеансами — чуть воздуха сверху и снизу */
-.kal-week--off .kal-cell { min-height: 0; opacity: .5; }
+.kal-week--off .kal-cell { opacity: .5; }
 .kal-grid--weeks .kal-date { min-height: $exam-add-height; }
 .kal-grid--weeks .kal-date .kd-num { font-size: t.$font-size-md; } /* число дня в календаре проведения крупнее, чем в КТП */
 

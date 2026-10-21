@@ -101,6 +101,48 @@ readonly class IndividualLessonService {
 		return $this->insertIndividual( $groupId, $studentPersonId, $scheduledAt, $endsAt, $lessonId, $label, $teacherUserId, $actorUserId, $roomId );
 	}
 
+	/**
+	 * Дополнительное занятие вне расписания для части группы: по строке-занятию на каждого
+	 * выбранного ученика (дата, время, кабинет и тема общие). Каждое — обычное занятие
+	 * `kind='individual'`, поэтому журнал, посещаемость, выдача и плеер работают без изменений.
+	 * Состав проверяется целиком до первой вставки.
+	 *
+	 * @param int[] $studentPersonIds Ученики группы
+	 *
+	 * @return int[] ID созданных занятий
+	 *
+	 * @throws \InvalidArgumentException Если группа не найдена, учеников нет или кто-то не в группе
+	 */
+	public function createExtraLessons(
+		int     $groupId,
+		array   $studentPersonIds,
+		string  $scheduledAt,
+		?string $endsAt,
+		?int    $lessonId,
+		?string $label,
+		?int    $teacherUserId,
+		int     $actorUserId,
+		?int    $roomId = null
+	): array {
+		$studentPersonIds = array_values( array_unique( array_filter( array_map( 'intval', $studentPersonIds ) ) ) );
+		if ( ! $studentPersonIds ) {
+			throw new \InvalidArgumentException( 'Выберите хотя бы одного ученика.' );
+		}
+		if ( ! $this->groups->findById( $groupId ) ) {
+			throw new \InvalidArgumentException( 'Группа не найдена.' );
+		}
+		foreach ( $studentPersonIds as $personId ) {
+			$this->assertMember( $groupId, $personId );
+		}
+
+		$ids = array();
+		foreach ( $studentPersonIds as $personId ) {
+			$ids[] = $this->createIndividualLesson( $groupId, $personId, $scheduledAt, $endsAt, $lessonId, $label, $teacherUserId, $actorUserId, $roomId );
+		}
+
+		return $ids;
+	}
+
 	/** Вставка индивидуального занятия и событие обучения. */
 	private function insertIndividual( int $groupId, int $studentPersonId, string $scheduledAt, ?string $endsAt, ?int $lessonId, ?string $label, ?int $teacherUserId, int $actorUserId, ?int $roomId ): int {
 		$id = $this->groupLessons->add( new GroupLessonInputDTO(
@@ -189,7 +231,7 @@ readonly class IndividualLessonService {
 	 *
 	 * @return array<int, array{id:int, title:string, in_course:bool}>
 	 */
-	public function lessonCandidatesForGroup( int $groupId, string $search = '' ): array {
+	public function lessonCandidatesForGroup( int $groupId, string $search = '', bool $courseOnly = false ): array {
 		$group = $this->groups->findById( $groupId );
 		if ( ! $group ) {
 			return array();
@@ -203,6 +245,24 @@ readonly class IndividualLessonService {
 					$courseLessonIds[ (int) $lid ] = true;
 				}
 			}
+		}
+
+		// Только темы курса группы — в порядке курса, без выборки из общего банка (лимит банка может срезать часть курса).
+		if ( $courseOnly ) {
+			$out = array();
+			foreach ( array_keys( $courseLessonIds ) as $lid ) {
+				$lesson = $this->lessonManager->get( $lid );
+				if ( ! $lesson || ( '' !== $search && false === mb_stripos( $lesson->topic, $search ) ) ) {
+					continue;
+				}
+				$out[] = array(
+					'id'        => $lesson->id,
+					'title'     => $lesson->topic,
+					'in_course' => true,
+				);
+			}
+
+			return $out;
 		}
 
 		$args = array( 'limit' => 100 );

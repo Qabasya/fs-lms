@@ -195,3 +195,15 @@ body.admin-bar .prof-grade-pop.is-drawer { top: $admin-bar-h; }
 @media (max-width: $breakpoint-mobile) {
   .gp-form { min-width: 0; width: 100%; }
 }
+
+/* Дополнительное занятие (indi-modal, режим multi): кнопка выбора учеников; список — prof-ctx-menu с флажком справа от имени */
+.gp-indi .gp-multi-btn {
+  display: flex; align-items: center; justify-content: space-between; gap: rem(8); width: 100%;
+  padding: rem(6) rem(10); background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-sm);
+  color: inherit; font: inherit; text-align: left; cursor: pointer;
+}
+.gp-indi .gp-multi-btn:hover { border-color: var(--accent); }
+
+.ctx-item--multi { justify-content: space-between; }
+.ctx-item--multi input { flex: 0 0 auto; width: auto; height: auto; margin: 0; }
+.ctx-item--multi:first-child { border-bottom: 1px solid var(--line); font-weight: 600; }

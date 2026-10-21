@@ -92,6 +92,45 @@ class IndividualLessonServiceTest extends TestCase {
 		$this->service->createIndividualLesson( 1, 9001, '2026-05-20 15:00:00', null, null, null, null, 99 );
 	}
 
+	/** Доп. занятие для части группы: по занятию на каждого выбранного, общие дата и тема. */
+	public function test_create_extra_lessons_makes_one_lesson_per_selected_student(): void {
+		$this->groups->method( 'findById' )->willReturn( new \stdClass() );
+		$this->records->method( 'findActiveByGroupId' )->willReturn( array(
+			(object) array( 'studentPersonId' => 9001 ),
+			(object) array( 'studentPersonId' => 9002 ),
+			(object) array( 'studentPersonId' => 9003 ),
+		) );
+
+		$students = array();
+		$this->groupLessons->expects( self::exactly( 2 ) )->method( 'add' )
+			->willReturnCallback( function ( $dto ) use ( &$students ): int {
+				self::assertSame( 77, $dto->lessonId );
+				self::assertSame( '2026-05-20 15:00:00', $dto->scheduledAt );
+				$students[] = $dto->studentPersonId;
+				return 100 + count( $students );
+			} );
+
+		$ids = $this->service->createExtraLessons( 1, array( 9001, 9003, 9003 ), '2026-05-20 15:00:00', null, 77, null, null, 99 );
+
+		self::assertSame( array( 101, 102 ), $ids );
+		self::assertSame( array( 9001, 9003 ), $students );
+	}
+
+	/** Один посторонний в списке — не создаётся ни одно занятие. */
+	public function test_create_extra_lessons_rejects_whole_batch_when_someone_not_in_group(): void {
+		$this->groups->method( 'findById' )->willReturn( new \stdClass() );
+		$this->records->method( 'findActiveByGroupId' )->willReturn( array( (object) array( 'studentPersonId' => 9001 ) ) );
+		$this->groupLessons->expects( self::never() )->method( 'add' );
+
+		$this->expectException( \InvalidArgumentException::class );
+		$this->service->createExtraLessons( 1, array( 9001, 5555 ), '2026-05-20 15:00:00', null, null, null, null, 99 );
+	}
+
+	public function test_create_extra_lessons_requires_students(): void {
+		$this->expectException( \InvalidArgumentException::class );
+		$this->service->createExtraLessons( 1, array(), '2026-05-20 15:00:00', null, null, null, null, 99 );
+	}
+
 	public function test_assign_lesson_rejects_non_individual_row(): void {
 		$this->groupLessons->method( 'find' )->willReturn( $this->makeRow( 42, 'group' ) );
 		$this->groupLessons->expects( self::never() )->method( 'setLessonId' );

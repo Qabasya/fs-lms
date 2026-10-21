@@ -125,18 +125,22 @@
 .kal-grid-wrap { flex: 1; overflow-y: auto; padding: rem(12); scrollbar-width: thin; }
 .kal-grid-wrap::-webkit-scrollbar { width: rem(10); }
 .kal-grid-wrap::-webkit-scrollbar-thumb { background: var(--line); border-radius: rem(5); border: rem(2) solid var(--surface); }
-.kal-dow { display: grid; grid-template-columns: repeat(7, 1fr); gap: rem(8); margin-bottom: rem(8); }
+.kal-dow { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: rem(8); margin-bottom: rem(8); }
 .kal-dow span { font-size: rem(11); font-weight: 600; color: var(--muted-2); text-align: center; text-transform: uppercase; letter-spacing: .03em; }
-.kal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: rem(8); }
+.kal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: rem(8); }
 
 .kal-cell {
   min-height: rem(92); border: 1px solid var(--line); border-radius: var(--radius-xs);
-  background: var(--surface-2); padding: rem(6); display: flex; flex-direction: column; gap: rem(4);
+  background: var(--surface-2); padding: rem(6); display: flex; flex-direction: column; gap: rem(4); min-width: 0;
   transition: border-color $tr, background $tr;
 }
 .kal-cell.empty { background: transparent; border-color: transparent; }
 .kal-cell.holiday { background: var(--holiday-bg); border-color: var(--holiday-border); }
 .kal-cell.no-lesson { background: var(--surface-2); opacity: .55; }
+
+/* Свободный день группы: клик — дополнительное занятие вне расписания */
+.kal-cell--free { cursor: pointer; }
+.kal-cell--free:hover { opacity: 1; border-color: var(--accent); }
 .kal-cell.drop-ok { border-color: var(--accent); border-style: dashed; background: var(--accent-soft); box-shadow: inset 0 0 0 1px var(--accent); }
 .kal-date { display: flex; align-items: center; gap: rem(5); }
 .kal-date .kd-num { font-size: rem(12); font-weight: 700; font-variant-numeric: tabular-nums; }
@@ -153,7 +157,7 @@
 .placed-theme {
   background: var(--surface); border: 1px solid var(--line); border-left: rem(3) solid var(--ok);
   border-radius: rem(5); padding: rem(5) rem(7); font-size: rem(11); line-height: 1.25; cursor: grab;
-  position: relative; box-shadow: var(--shadow-sm);
+  position: relative; box-shadow: var(--shadow-sm); min-width: 0;
 }
 .placed-theme.pinned { border-left-color: var(--accent); }
 .placed-theme .pt-num { font-weight: 700; color: var(--ok); }

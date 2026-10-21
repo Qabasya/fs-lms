@@ -51,12 +51,15 @@ class IndividualLessonCallbacks extends BaseController {
 
 	/**
 	 * Создаёт индивидуальное занятие на одного ученика (Эпик 4).
-	 * Params: group_id, student_person_id, scheduled_at [, ends_at, lesson_id, label, teacher_user_id, room_id]
+	 * Дополнительное занятие вне расписания для части группы: вместо `student_person_id` приходит
+	 * список `student_person_ids[]` — на каждого создаётся своё занятие с общими датой, кабинетом и темой.
+	 * Params: group_id, student_person_id | student_person_ids[], scheduled_at [, ends_at, lesson_id, label, teacher_user_id, room_id]
 	 */
 	public function ajaxCreateIndividualLesson(): void {
 		$this->authorize( Nonce::SaveSchedule, Capability::ManageLmsTeaching );
 		$groupId         = $this->requireInt( 'group_id' );
-		$studentPersonId = $this->requireInt( 'student_person_id' );
+		$studentIds      = $this->sanitizeIntList( 'student_person_ids' );
+		$studentPersonId = $studentIds ? 0 : $this->requireInt( 'student_person_id' );
 		$scheduledAt     = $this->sanitizeText( 'scheduled_at' );
 		$endsAt          = $this->sanitizeText( 'ends_at' ) ?: null;
 		$lessonId        = $this->optionalInt( 'lesson_id' );
@@ -71,6 +74,13 @@ class IndividualLessonCallbacks extends BaseController {
 		$this->requireGroupAccess( $groupId );
 
 		try {
+			if ( $studentIds ) {
+				$ids = $this->individual->createExtraLessons(
+					$groupId, $studentIds, $scheduledAt, $endsAt, $lessonId, $label, $teacherUserId, $userId, $roomId
+				);
+				$this->success( array( 'group_lesson_ids' => $ids ) );
+				return;
+			}
 			$id = $this->individual->createIndividualLesson(
 				$groupId, $studentPersonId, $scheduledAt, $endsAt, $lessonId, $label, $teacherUserId, $userId, $roomId
 			);
@@ -97,16 +107,17 @@ class IndividualLessonCallbacks extends BaseController {
 
 	/**
 	 * НБ-9: уроки предмета группы (курс-первыми) для назначения инд. занятию.
-	 * Params: group_id [, search].
+	 * Params: group_id [, search, course_only] — `course_only`: только темы курса группы (доп. занятие).
 	 */
 	public function ajaxGetLessonCandidates(): void {
 		$this->authorize( Nonce::SaveSchedule, Capability::ManageLmsTeaching );
 		$groupId = $this->requireInt( 'group_id' );
 		$search  = $this->sanitizeText( 'search' );
+		$courseOnly = $this->sanitizeBool( 'course_only' );
 
 		$this->requireGroupAccess( $groupId );
 
-		$this->success( array( 'lessons' => $this->individual->lessonCandidatesForGroup( $groupId, $search ) ) );
+		$this->success( array( 'lessons' => $this->individual->lessonCandidatesForGroup( $groupId, $search, $courseOnly ) ) );
 	}
 
 	/**

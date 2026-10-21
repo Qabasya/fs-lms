@@ -7,14 +7,18 @@
      • правка слота      — группа фиксирована, остальное редактируется.
    Тема — выбор урока (lesson_id), не свободный текст (решение по B2).
 
-   Вызов: openIndiModal({ api, anchor, groups, fixed:{date?,group?,student?},
+   Режим `multi` — дополнительное занятие вне расписания для части группы: группа фиксирована,
+   ученики — флажками из её состава, тема — только из курса группы; на каждого ученика
+   создаётся своё занятие (`student_person_ids[]`).
+
+   Вызов: openIndiModal({ api, anchor, groups, multi?, fixed:{date?,group?,student?},
                           edit?:{glid,group_id,student_person_id,student_name,
                                  date,time,room_id,room_name,lesson_id}, onSaved }).
    `api` — createApi(cfg) вызывающего экрана; его конфиг должен содержать действия
    getRoster / getFreeRooms / lessonCandidates / createIndividual / updateIndividual.
    ══════════════════════════════════════════════════════════════════════ */
 
-import { esc, toast, todayIso, openGradePopPositioned, closeGradePop, fmtDate } from './utils.js';
+import { esc, toast, todayIso, openGradePopPositioned, closeGradePop, fmtDate, openCtxMenuRaw } from './utils.js';
 
 export function openIndiModal( o ) {
     const pop = document.getElementById( 'profGradePop' );
@@ -33,19 +37,22 @@ export function openIndiModal( o ) {
     const initRoom    = edit ? String( edit.room_id || '' ) : '';
     const initLesson  = edit ? String( edit.lesson_id || '' ) : '';
 
+    const multi        = !! o.multi && ! edit;     // доп. занятие для части группы
     const groupFixed   = !! fx.group || !! edit;   // группа не меняется
     const studentFixed = !! fx.student;            // ученик фиксирован (из «Группы»)
     const dateFixed    = !! fx.date && ! edit;      // дата фиксирована (ячейка календаря)
 
     pop.innerHTML = `
         <div class="gp-form gp-indi">
-        <div class="gp-title">${ edit ? 'Правка занятия' : 'Инд. занятие' }</div>
+        <div class="gp-title">${ edit ? 'Правка занятия' : ( multi ? 'Доп. занятие' : 'Инд. занятие' ) }</div>
         ${ groupFixed
             ? `<input type="hidden" id="giGroup" value="${ initGroup }">`
             : `<label class="gp-field"><span>Группа</span><select id="giGroup">${
                 groups.map( g => `<option value="${ g.id }" ${ g.id === initGroup ? 'selected' : '' }>${ esc( g.name ) }</option>` ).join( '' )
             }</select></label>` }
-        ${ studentFixed
+        ${ multi
+            ? `<div class="gp-field gp-field--students"><span>Ученики</span><div class="gp-multi" id="giStudents"><em>загрузка…</em></div></div>`
+            : studentFixed
             ? `<div class="gp-field"><span>Ученик</span><b class="gp-fixed">${ esc( fx.student.name || '' ) }</b><input type="hidden" id="giStudent" value="${ initStudent }"></div>`
             : `<label class="gp-field"><span>Ученик</span><select id="giStudent"><option value="">— загрузка… —</option></select></label>` }
         ${ dateFixed
@@ -96,7 +103,7 @@ export function openIndiModal( o ) {
         const sel = $( '#giLesson' );
         sel.innerHTML = '<option value="">— загрузка… —</option>';
         try {
-            const d = await api( 'lessonCandidates', { group_id: groupId() } );
+            const d = await api( 'lessonCandidates', multi ? { group_id: groupId(), course_only: 1 } : { group_id: groupId() } );
             const lessons = ( d && d.lessons ) || [];
             sel.innerHTML = '<option value="">— без темы —</option>' +
                 lessons.map( l => `<option value="${ l.id }" ${ String( l.id ) === initLesson ? 'selected' : '' }>${ esc( l.title || 'Без названия' ) }</option>` ).join( '' );
@@ -105,6 +112,7 @@ export function openIndiModal( o ) {
 
     // Ученики выбранной группы (если ученик не фиксирован).
     const loadStudents = async () => {
+        if ( multi ) { return loadStudentChecks(); }
         if ( studentFixed ) { return; }
         const sel = $( '#giStudent' );
         sel.innerHTML = '<option value="">— загрузка… —</option>';
@@ -116,6 +124,46 @@ export function openIndiModal( o ) {
                 : '<option value="">— нет учеников —</option>';
         } catch { sel.innerHTML = '<option value="">— ошибка —</option>'; }
     };
+
+    // Ученики группы: кнопка открывает меню (prof-ctx-menu) — у каждого имени справа флажок, первая строка «Все».
+    // Выбор хранится в `chosen` и применяется при закрытии меню, как в выборе сеансов ссылки (exam-sources).
+    const chosen = new Set();
+    let roster   = [];
+    const summary = () => {
+        const n = chosen.size;
+        return 0 === n ? 'Выберите учеников' : ( n === roster.length ? 'Все ученики' : `Выбрано: ${ n } из ${ roster.length }` );
+    };
+    const pickStudents = btn => {
+        const row = ( attrs, name ) => `<label class="ctx-item ctx-item--multi"><span class="ctx-lbl">${ name }</span><input type="checkbox" ${ attrs }></label>`;
+        openCtxMenuRaw(
+            row( 'data-gi="all"', 'Все' ) + roster.map( s => row( `data-gi="stu" value="${ s.person_id }" ${ chosen.has( s.person_id ) ? 'checked' : '' }`, esc( s.name ) ) ).join( '' ),
+            btn,
+            () => {
+                chosen.clear();
+                document.querySelectorAll( '#profCtxMenu [data-gi="stu"]:checked' ).forEach( c => chosen.add( Number( c.value ) ) );
+                btn.querySelector( '[data-gi="summary"]' ).textContent = summary();
+            }
+        );
+        const menu   = document.getElementById( 'profCtxMenu' );
+        menu.classList.toggle( 'prof-ctx-menu--scroll', roster.length > 12 );
+        const all    = menu.querySelector( '[data-gi="all"]' );
+        const checks = Array.from( menu.querySelectorAll( '[data-gi="stu"]' ) );
+        const sync   = () => { all.checked = checks.every( c => c.checked ); };
+        all.addEventListener( 'change', () => { checks.forEach( c => { c.checked = all.checked; } ); } );
+        checks.forEach( c => c.addEventListener( 'change', sync ) );
+        sync();
+    };
+    const loadStudentChecks = async () => {
+        const box = $( '#giStudents' );
+        try {
+            const d = await api( 'getRoster', { group_id: groupId() } );
+            roster = ( d && d.students ) || [];
+            if ( ! roster.length ) { box.innerHTML = '<em>В группе нет учеников</em>'; return; }
+            box.innerHTML = `<button type="button" class="gp-multi-btn" data-gi="students"><span data-gi="summary">${ summary() }</span><span class="gp-multi-caret">▾</span></button>`;
+            box.querySelector( '[data-gi="students"]' ).addEventListener( 'click', e => pickStudents( e.currentTarget ) );
+        } catch { box.innerHTML = '<em>Не удалось загрузить учеников</em>'; }
+    };
+    const selectedStudents = () => Array.from( chosen );
 
     if ( ! groupFixed ) {
         $( '#giGroup' ).addEventListener( 'change', () => { loadStudents(); loadRooms(); loadLessons(); } );
@@ -133,11 +181,13 @@ export function openIndiModal( o ) {
     $( '[data-gi="cancel"]' ).addEventListener( 'click', closeGradePop );
     $( '[data-gi="save"]' ).addEventListener( 'click', async () => {
         const at        = scheduledAt();
-        const studentId = studentFixed ? initStudent : ( Number( $( '#giStudent' ).value ) || 0 );
+        const chosen    = multi ? selectedStudents() : [];
+        const studentId = multi ? 0 : ( studentFixed ? initStudent : ( Number( $( '#giStudent' ).value ) || 0 ) );
         const roomVal   = $( '#giRoom' ).value;
         const lessonVal = $( '#giLesson' ).value;
         if ( ! at ) { toast( 'Укажите дату', 'error' ); return; }
-        if ( ! studentId ) { toast( 'Выберите ученика', 'error' ); return; }
+        if ( multi && ! chosen.length ) { toast( 'Выберите хотя бы одного ученика', 'error' ); return; }
+        if ( ! multi && ! studentId ) { toast( 'Выберите ученика', 'error' ); return; }
         closeGradePop();
         try {
             if ( edit ) {
@@ -151,15 +201,14 @@ export function openIndiModal( o ) {
                 } );
                 toast( 'Занятие обновлено' );
             } else {
-                await api( 'createIndividual', {
-                    group_id:          groupId(),
-                    student_person_id: studentId,
-                    scheduled_at:      at,
-                    ends_at:           endsAt(),
-                    room_id:           roomVal,
-                    lesson_id:         lessonVal,
-                } );
-                toast( 'Индивидуальное занятие создано' );
+                await api( 'createIndividual', Object.assign( {
+                    group_id:     groupId(),
+                    scheduled_at: at,
+                    ends_at:      endsAt(),
+                    room_id:      roomVal,
+                    lesson_id:    lessonVal,
+                }, multi ? { student_person_ids: chosen } : { student_person_id: studentId } ) );
+                toast( multi ? 'Дополнительное занятие создано' : 'Индивидуальное занятие создано' );
             }
             if ( o.onSaved ) { o.onSaved(); }
         } catch ( err ) { toast( err.message, 'error' ); }
