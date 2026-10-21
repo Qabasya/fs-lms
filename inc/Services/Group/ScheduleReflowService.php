@@ -135,14 +135,14 @@ readonly class ScheduleReflowService {
 	 * @param bool        $together      true — поставить вместе с занятием, уже стоящим на этой дате (оба
 	 *                                   остаются, вытеснения нет); false — заменить его, оно уходит в пул
 	 *
-	 * @return void
+	 * @return string[] Предупреждения (дата вне периода, выходной, пересечение с индивидуальным
+	 *                  занятием): тема всё равно ставится, решение за автором.
 	 *
-	 * @throws \InvalidArgumentException Если строка не найдена, дата вне периода/выходной,
-	 *                                   кабинет занят, время пересекается с индивидуальным
-	 *                                   занятием группы в этот день, либо на дате уже стоит
+	 * @throws \InvalidArgumentException Если строка не найдена, либо на дате уже стоит
 	 *                                   состоявшееся занятие (`held` или с посещаемостью)
 	 */
-	public function pinToDate( int $groupLessonId, string $scheduledAt, int $actorUserId, ?string $endsAt = null, bool $together = false ): void {
+	public function pinToDate( int $groupLessonId, string $scheduledAt, int $actorUserId, ?string $endsAt = null, bool $together = false ): array {
+		$warnings = array();
 		$row = $this->requireRow( $groupLessonId );
 
 		// Индивидуальная группа: любой день (выходные и дни вне периода тоже), время — только явное,
@@ -154,9 +154,8 @@ readonly class ScheduleReflowService {
 			}
 			$together = true;
 		} else {
-			$this->assertWithinPeriod( $row->groupId, $scheduledAt );
+			$warnings = $this->periodWarnings( $row->groupId, $scheduledAt );
 		}
-		$this->assertRoomFree( $row, $scheduledAt, $groupLessonId );
 
 		$endsAt = $endsAt && '' !== $endsAt ? $endsAt : $this->resolveEndsAt( $row->groupId, $scheduledAt );
 
@@ -185,7 +184,8 @@ readonly class ScheduleReflowService {
 			}
 			$rEnd = $r->endsAt ?? $r->scheduledAt;
 			if ( $scheduledAt < $rEnd && $endsAt > $r->scheduledAt ) {
-				throw new \InvalidArgumentException( 'Время пересекается с индивидуальным занятием группы в этот день.' );
+				$warnings[] = 'Время пересекается с индивидуальным занятием группы в этот день.';
+				break;
 			}
 		}
 
@@ -208,6 +208,8 @@ readonly class ScheduleReflowService {
 		}
 
 		$this->events->lessonChanged( $row->groupId, $groupLessonId, $actorUserId );
+
+		return $warnings;
 	}
 
 	/**
@@ -478,58 +480,28 @@ readonly class ScheduleReflowService {
 	}
 
 	/**
-	 * Дата закрепления обязана лежать внутри границ учебного периода группы и не
-	 * приходиться на выходной (Этап 4: и день без слота — тоже рабочий день периода,
-	 * просто без штатной встречи).
+	 * Предупреждения о дате закрепления: вне границ учебного периода, выходной день или период
+	 * не задан. Не блокируют — автор сам решает, куда поставить тему.
 	 *
-	 * @throws \InvalidArgumentException Периода нет, дата вне его границ, либо день — выходной
+	 * @return string[]
 	 */
-	private function assertWithinPeriod( int $groupId, string $scheduledAt ): void {
+	private function periodWarnings( int $groupId, string $scheduledAt ): array {
 		$meta   = $this->calendar->periodMeta( $groupId );
 		$period = $meta['period'];
 		if ( ! $period ) {
-			throw new \InvalidArgumentException( 'У группы не задан учебный период.' );
+			return array( 'У группы не задан учебный период.' );
 		}
 
-		$day = substr( $scheduledAt, 0, 10 );
+		$warnings = array();
+		$day      = substr( $scheduledAt, 0, 10 );
 		if ( $day < $period['start_date'] || $day > $period['end_date'] ) {
-			throw new \InvalidArgumentException( 'Дата вне границ учебного периода.' );
+			$warnings[] = 'Дата вне границ учебного периода.';
 		}
 		if ( in_array( $day, $meta['holidays'], true ) ) {
-			throw new \InvalidArgumentException( 'На этот день назначен выходной.' );
-		}
-	}
-
-	/**
-	 * Конфликт кабинета (T11.4): эффективный кабинет занятия ?? основной кабинет
-	 * группы; hard-block, если он занят ДРУГОЙ группой в это время. Занятия своей
-	 * группы (T12.5: две темы на один день) конфликтом не считаются — аналогично reflow.
-	 *
-	 * @param \Inc\DTO\Course\GroupLessonDTO $row           Строка программы
-	 * @param string                         $scheduledAt   Планируемое начало
-	 * @param int                            $groupLessonId ID строки (исключается из проверки)
-	 *
-	 * @return void
-	 *
-	 * @throws \InvalidArgumentException Если кабинет занят
-	 */
-	private function assertRoomFree( \Inc\DTO\Course\GroupLessonDTO $row, string $scheduledAt, int $groupLessonId ): void {
-		$group  = $this->groups->findById( $row->groupId );
-		$roomId = ! empty( $row->roomId )
-			? (int) $row->roomId
-			: ( ( $group && ! empty( $group->room_id ) ) ? (int) $group->room_id : 0 );
-
-		if ( $roomId <= 0 ) {
-			return;
+			$warnings[] = 'На этот день назначен выходной.';
 		}
 
-		$end = ( $row->endsAt && '' !== $row->endsAt )
-			? $row->endsAt
-			: ( new \DateTimeImmutable( $scheduledAt ) )->modify( '+60 minutes' )->format( 'Y-m-d H:i:s' );
-
-		if ( ! $this->roomAvailability->isFree( $roomId, $scheduledAt, $end, $groupLessonId, $row->groupId ) ) {
-			throw new \InvalidArgumentException( 'Кабинет занят в это время другим занятием.' );
-		}
+		return $warnings;
 	}
 
 	/** Индивидуальная группа (`access_mode = 'individual'`): без слотов, дат расставляет преподаватель. */

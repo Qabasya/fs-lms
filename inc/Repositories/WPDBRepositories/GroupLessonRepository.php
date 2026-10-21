@@ -550,6 +550,54 @@ class GroupLessonRepository {
 		return false !== $result;
 	}
 
+	/**
+	 * Меняет местами данные учеников двух строк программы: сдачи, прогресс шагов, попытки заданий,
+	 * проверки ответа и попытки контрольных (не экзаменов вне курса). Нужны для замены темы: решения
+	 * и оценки принадлежат теме и едут вместе с ней, посещаемость остаётся на занятии.
+	 * Через временный ID 0 — уникальный ключ прогресса не должен совпасть посреди обмена.
+	 * Вызывать внутри транзакции.
+	 */
+	public function swapLearningData( int $a, int $b ): void {
+		$tables = array(
+			TableName::Submissions->prefixed()        => '',
+			TableName::LessonProgress->prefixed()     => '',
+			TableName::TaskAttempts->prefixed()       => '',
+			TableName::WorkTaskChecks->prefixed()     => '',
+			TableName::AssessmentAttempts->prefixed() => ' AND exam_participation_id IS NULL',
+		);
+
+		foreach ( $tables as $table => $extra ) {
+			$this->reassign( $table, $a, 0, $extra );
+			$this->reassign( $table, $b, $a, $extra );
+			$this->reassign( $table, 0, $b, $extra );
+		}
+	}
+
+	private function reassign( string $table, int $from, int $to, string $extra ): void {
+		// $extra — константный фрагмент из swapLearningData(), не пользовательский ввод.
+		$this->wpdb->query(
+			$this->wpdb->prepare( 'UPDATE %i SET group_lesson_id = %d WHERE group_lesson_id = %d' . $extra, $table, $to, $from ) // phpcs:ignore WordPress.DB.PreparedSQL
+		);
+	}
+
+	/** Сколько разных учеников имеют по строке сдачи, прогресс или попытки (для предупреждений). */
+	public function countLearningStudents( int $id ): int {
+		$sub  = TableName::Submissions->prefixed();
+		$prog = TableName::LessonProgress->prefixed();
+		$att  = TableName::TaskAttempts->prefixed();
+
+		return (int) $this->wpdb->get_var(
+			$this->wpdb->prepare(
+				'SELECT COUNT(*) FROM (
+					SELECT student_person_id FROM %i WHERE group_lesson_id = %d
+					UNION SELECT student_person_id FROM %i WHERE group_lesson_id = %d
+					UNION SELECT student_person_id FROM %i WHERE group_lesson_id = %d
+				) u',
+				$sub, $id, $prog, $id, $att, $id
+			)
+		);
+	}
+
 	/** B2: смена ученика индивидуального занятия. */
 	public function setStudentPersonId( int $id, int $personId ): bool {
 		return false !== $this->wpdb->update(

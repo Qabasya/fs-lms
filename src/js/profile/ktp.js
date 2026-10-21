@@ -561,7 +561,7 @@ async function doPin(glid, day, scheduledAt, endsAt) {
     }
 
     try {
-        await api('pin', { group_lesson_id: glid, scheduled_at: scheduledAt, ends_at: endsAt || '', on_conflict: together ? 'together' : 'replace' });
+        const res = await api('pin', { group_lesson_id: glid, scheduled_at: scheduledAt, ends_at: endsAt || '', on_conflict: together ? 'together' : 'replace' });
         const draggedLabel = state.data.individual ? 'Занятие' : (dragged ? `Тема ${dragged.n}` : 'Тема');
         let note = '';
         if (displaced) {
@@ -569,7 +569,9 @@ async function doPin(glid, day, scheduledAt, endsAt) {
                 ? ` · вместе с темой ${displaced.n}`
                 : ` · тема ${displaced.n} возвращена в пул`;
         }
-        toast(`${draggedLabel} ${state.data.individual ? 'поставлено' : 'закреплена'} на ${fmtDayMonth(day)}${note}`);
+        const warnings = (res && res.warnings) || [];
+        const text = `${draggedLabel} ${state.data.individual ? 'поставлено' : 'закреплена'} на ${fmtDayMonth(day)}${note}`;
+        toast(warnings.length ? `${text}. Внимание: ${warnings.join('; ')}` : text, warnings.length ? 'error' : 'ok');
         await reloadCalendar();
     } catch (err) {
         toast(err.message, 'error');

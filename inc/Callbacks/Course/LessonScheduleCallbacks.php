@@ -119,13 +119,13 @@ class LessonScheduleCallbacks extends BaseController {
 		}
 
 		try {
-			$this->schedule->pinToDate( $groupLessonId, $scheduledAt, $userId, '' !== $endsAt ? $endsAt : null, $together );
+			$warnings = $this->schedule->pinToDate( $groupLessonId, $scheduledAt, $userId, '' !== $endsAt ? $endsAt : null, $together );
 		} catch ( \InvalidArgumentException $e ) {
 			$this->error( $e->getMessage() );
 			return;
 		}
 
-		$this->success();
+		$this->success( array( 'warnings' => $warnings ) );
 	}
 
 	/**

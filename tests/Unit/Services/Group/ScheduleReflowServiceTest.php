@@ -107,33 +107,12 @@ class ScheduleReflowServiceTest extends TestCase {
 		self::assertSame( $expected, $this->service->reflow( 5, 99 ) );
 	}
 
-	public function test_pin_to_date_blocks_on_room_conflict(): void {
+	/** Кабинет при постановке темы не проверяется: автор сам решает, куда ставить тему. */
+	public function test_pin_to_date_ignores_room_busy(): void {
 		$this->groupLessons->method( 'find' )->willReturn( $this->makeRow( 42, 'group', 7 ) );
 		$this->groups->method( 'findById' )->willReturn( new \stdClass() );
-		$this->roomAvailability->method( 'isFree' )->willReturn( false ); // кабинет занят
-		$this->groupLessons->expects( self::never() )->method( 'updateSchedule' );
-
-		$this->expectException( \InvalidArgumentException::class );
-		$this->service->pinToDate( 42, '2026-05-20 15:00:00', 1 );
-	}
-
-	public function test_pin_to_date_proceeds_when_room_free(): void {
-		$this->groupLessons->method( 'find' )->willReturn( $this->makeRow( 42, 'group', 7 ) );
-		$this->groups->method( 'findById' )->willReturn( new \stdClass() );
-		$this->roomAvailability->method( 'isFree' )->willReturn( true );
+		$this->roomAvailability->expects( self::never() )->method( 'isFree' );
 		$this->groupLessons->expects( self::once() )->method( 'updateSchedule' );
-
-		$this->service->pinToDate( 42, '2026-05-20 15:00:00', 1 );
-	}
-
-	/** T12.5: room-check исключает занятия СВОЕЙ группы — две темы в один день/кабинет не конфликт. */
-	public function test_pin_to_date_excludes_own_group_from_room_conflict_check(): void {
-		$row = $this->makeRow( 42, 'group', 7 ); // groupId: 5 (см. makeRow())
-		$this->groupLessons->method( 'find' )->willReturn( $row );
-		$this->groups->method( 'findById' )->willReturn( new \stdClass() );
-		$this->roomAvailability->expects( self::once() )->method( 'isFree' )
-			->with( 7, '2026-05-20 15:00:00', self::anything(), 42, $row->groupId )
-			->willReturn( true );
 
 		$this->service->pinToDate( 42, '2026-05-20 15:00:00', 1 );
 	}
@@ -280,7 +259,7 @@ class ScheduleReflowServiceTest extends TestCase {
 	}
 
 	/** Дата за пределами периода — отклоняется, ничего не пишется. */
-	public function test_pin_to_date_rejects_date_outside_period(): void {
+	public function test_pin_to_date_warns_date_outside_period(): void {
 		$this->calendar = $this->createMock( SessionCalendarService::class );
 		$this->calendar->method( 'periodMeta' )->willReturn( array(
 			'period' => array( 'start_date' => '2026-09-01', 'end_date' => '2026-12-31' ),
@@ -292,14 +271,14 @@ class ScheduleReflowServiceTest extends TestCase {
 			$this->clock,
 		);
 		$this->groupLessons->method( 'find' )->willReturn( $this->makeRow( 42, 'group' ) );
-		$this->groupLessons->expects( self::never() )->method( 'updateSchedule' );
+		$this->groupLessons->expects( self::once() )->method( 'updateSchedule' );
 
-		$this->expectException( \InvalidArgumentException::class );
-		$service->pinToDate( 42, '2026-08-15 11:00:00', 1 );
+		$warnings = $service->pinToDate( 42, '2026-08-15 11:00:00', 1 );
+		self::assertNotEmpty( $warnings );
 	}
 
-	/** День — выходной периода — отклоняется. */
-	public function test_pin_to_date_rejects_holiday(): void {
+	/** День — выходной периода — предупреждение, тема ставится. */
+	public function test_pin_to_date_warns_holiday(): void {
 		$this->calendar = $this->createMock( SessionCalendarService::class );
 		$this->calendar->method( 'periodMeta' )->willReturn( array(
 			'period' => array( 'start_date' => '2026-01-01', 'end_date' => '2026-12-31' ),
@@ -311,14 +290,14 @@ class ScheduleReflowServiceTest extends TestCase {
 			$this->clock,
 		);
 		$this->groupLessons->method( 'find' )->willReturn( $this->makeRow( 42, 'group' ) );
-		$this->groupLessons->expects( self::never() )->method( 'updateSchedule' );
+		$this->groupLessons->expects( self::once() )->method( 'updateSchedule' );
 
-		$this->expectException( \InvalidArgumentException::class );
-		$service->pinToDate( 42, '2026-11-04 11:00:00', 1, '2026-11-04 12:00:00' );
+		$warnings = $service->pinToDate( 42, '2026-11-04 11:00:00', 1, '2026-11-04 12:00:00' );
+		self::assertNotEmpty( $warnings );
 	}
 
-	/** Без периода у группы — отклоняется. */
-	public function test_pin_to_date_rejects_when_group_has_no_period(): void {
+	/** Без периода у группы — предупреждение, тема ставится. */
+	public function test_pin_to_date_warns_when_group_has_no_period(): void {
 		$this->calendar = $this->createMock( SessionCalendarService::class );
 		$this->calendar->method( 'periodMeta' )->willReturn( array(
 			'period' => null, 'holidays' => array(), 'lessonDays' => array(), 'lessonTimes' => array(),
@@ -330,12 +309,12 @@ class ScheduleReflowServiceTest extends TestCase {
 		);
 		$this->groupLessons->method( 'find' )->willReturn( $this->makeRow( 42, 'group' ) );
 
-		$this->expectException( \InvalidArgumentException::class );
-		$service->pinToDate( 42, '2026-05-20 11:00:00', 1 );
+		$warnings = $service->pinToDate( 42, '2026-05-20 11:00:00', 1 );
+		self::assertNotEmpty( $warnings );
 	}
 
-	/** Время закрепления пересекается с индивидуальным занятием того же дня — отклоняется. */
-	public function test_pin_to_date_rejects_overlap_with_individual_lesson_same_day(): void {
+	/** Время закрепления пересекается с индивидуальным занятием того же дня — предупреждение, тема ставится. */
+	public function test_pin_to_date_warns_overlap_with_individual_lesson_same_day(): void {
 		$this->groupLessons->method( 'find' )->willReturn( $this->makeRow( 5, 'group' ) );
 		$this->groups->method( 'findById' )->willReturn( new \stdClass() );
 		$this->roomAvailability->method( 'isFree' )->willReturn( true );
@@ -347,11 +326,11 @@ class ScheduleReflowServiceTest extends TestCase {
 			createdByUserId: null, updatedByUserId: null, kind: \Inc\Enums\Course\LessonKind::Individual,
 		);
 		$this->groupLessons->method( 'listByGroupAndDay' )->willReturn( array( $individual ) );
-		$this->groupLessons->expects( self::never() )->method( 'updateSchedule' );
+		$this->groupLessons->expects( self::once() )->method( 'updateSchedule' );
 
-		$this->expectException( \InvalidArgumentException::class );
 		// 11:00–12:00 пересекается с 11:30–12:30.
-		$this->service->pinToDate( 5, '2026-09-03 11:00:00', 1, '2026-09-03 12:00:00' );
+		$warnings = $this->service->pinToDate( 5, '2026-09-03 11:00:00', 1, '2026-09-03 12:00:00' );
+		self::assertNotEmpty( $warnings );
 	}
 
 	/** Не пересекается — окна впритык (12:00 == конец индивидуального) проходят без ошибки. */

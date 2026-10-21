@@ -10,6 +10,7 @@ use Inc\Managers\Course\LessonManager;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Services\Course\GroupLessonUsageGuard;
+use Inc\Shared\Traits\TransactionRunner;
 
 /**
  * Class ProgramCompositionService
@@ -28,6 +29,8 @@ use Inc\Services\Course\GroupLessonUsageGuard;
  * - Представление КТП для фронта — {@see GroupCalendarService}.
  */
 readonly class ProgramCompositionService {
+
+	use TransactionRunner;
 
 	/**
 	 * @param GroupLessonRepository  $groupLessons Строки программы
@@ -135,21 +138,22 @@ readonly class ProgramCompositionService {
 	 * Меняет тему проведённого занятия местами с темой из пула («провели не ту тему»).
 	 *
 	 * Занятие остаётся как есть — дата, посещаемость, запись, кабинет, дополнительные работы;
-	 * меняется только урок (тема). Прежняя тема возвращается в пул как будущая и встанет на
-	 * ближайшее свободное занятие. Закреплённая за занятием выдача работ (снимок) пересобирается
-	 * по новому уроку, если занятие было открыто.
+	 * меняется только урок (тема). Решения и оценки учеников принадлежат теме и едут вместе с ней:
+	 * прежняя тема уходит в пул со своими сдачами, прогрессом и попытками, а на занятие переходят
+	 * данные новой темы (если по ней что-то уже было). Прежняя тема в пуле скрывается как будущая,
+	 * на занятии открывается новая. Снимок работ занятия пересобирается по новому уроку.
 	 *
-	 * Нельзя, если по занятию уже есть прогресс по урокам, сдачи или попытки заданий: они
-	 * относятся к прежней теме, и подменять её под ними нельзя. Тема-продолжение (две даты) — тоже
-	 * нельзя: части темы обязаны оставаться одним уроком.
+	 * Тема-продолжение (две даты) — нельзя: части темы обязаны оставаться одним уроком.
 	 *
 	 * @param int $placedId    ID занятия на дате (обычно уже проведённого)
 	 * @param int $poolId      ID строки пула (тема без даты), которая заменит тему занятия
 	 * @param int $actorUserId Автор изменения
 	 *
+	 * @return string[] Предупреждения (напр. сколько учеников переехало вместе с темой)
+	 *
 	 * @throws \InvalidArgumentException Если замена невозможна
 	 */
-	public function swapTopic( int $placedId, int $poolId, int $actorUserId ): void {
+	public function swapTopic( int $placedId, int $poolId, int $actorUserId ): array {
 		$placed = $this->groupLessons->find( $placedId );
 		$pool   = $this->groupLessons->find( $poolId );
 		if ( ! $placed || ! $pool || $placed->groupId !== $pool->groupId ) {
@@ -169,23 +173,38 @@ readonly class ProgramCompositionService {
 				throw new \InvalidArgumentException( 'Тема разбита на две даты — сначала уберите продолжение.' );
 			}
 		}
-		if ( $this->usage->hasLearningData( $placedId ) ) {
-			throw new \InvalidArgumentException( 'По занятию уже есть прогресс, сдачи или попытки учеников — тему менять нельзя.' );
-		}
 
+		$warnings    = array();
+		$movedOut    = $this->groupLessons->countLearningStudents( $placedId );
+		$movedIn     = $this->groupLessons->countLearningStudents( $poolId );
 		$oldLessonId = $placed->lessonId;
-		$this->groupLessons->setLessonId( $placedId, $pool->lessonId );
-		$this->groupLessons->setLessonId( $poolId, $oldLessonId );
 
-		// Открытое занятие хранит снимок работ урока: после смены темы он должен описывать новый урок.
-		if ( $placed->isPublished() ) {
-			$this->groupLessons->setWorkIdsSnapshot( $placedId, $this->lessonManager->get( $pool->lessonId )?->workIds() ?? array() );
+		if ( $movedOut > 0 ) {
+			$warnings[] = sprintf( 'Решения и оценки %d уч. по прежней теме ушли в пул вместе с ней', $movedOut );
 		}
-		if ( $pool->isPublished() ) {
-			$this->groupLessons->setWorkIdsSnapshot( $poolId, $this->lessonManager->get( $oldLessonId )?->workIds() ?? array() );
+		if ( $movedIn > 0 ) {
+			$warnings[] = sprintf( 'Решения и оценки %d уч. по новой теме перешли на занятие', $movedIn );
 		}
+
+		$this->inTransaction( function () use ( $placedId, $poolId, $placed, $pool, $oldLessonId ): void {
+			$this->groupLessons->setLessonId( $placedId, $pool->lessonId );
+			$this->groupLessons->setLessonId( $poolId, $oldLessonId );
+			$this->groupLessons->swapLearningData( $placedId, $poolId );
+
+			// Открытое занятие хранит снимок работ урока: после смены темы он описывает новый урок.
+			if ( $placed->isPublished() ) {
+				$this->groupLessons->setWorkIdsSnapshot( $placedId, $this->lessonManager->get( $pool->lessonId )?->workIds() ?? array() );
+			}
+			// Прежняя тема снова будущая: в пуле она скрыта, пока не встанет на занятие.
+			$this->groupLessons->setVisibility( $poolId, 'hidden', null );
+			if ( $pool->isPublished() ) {
+				$this->groupLessons->setWorkIdsSnapshot( $poolId, $this->lessonManager->get( $oldLessonId )?->workIds() ?? array() );
+			}
+		} );
 
 		$this->events->lessonChanged( $placed->groupId, $placedId, $actorUserId );
+
+		return $warnings;
 	}
 
 	/** Есть ли у строки продолжение в программе группы. */

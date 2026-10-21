@@ -126,7 +126,8 @@ export function attachThemeActionsClick(btn, api, reload, onEdit, getPool) {
 }
 
 /* «Провели не ту тему»: второй шаг меню — выбор темы из пула, которая встанет на это занятие.
-   Дата, посещаемость и запись занятия остаются, прежняя тема уходит в пул как будущая. */
+   Дата, посещаемость и запись занятия остаются, прежняя тема уходит в пул как будущая
+   вместе с решениями и оценками учеников. */
 function openReplaceMenu(glid, anchorEl, api, reload, pool) {
     const items = pool.length
         ? pool.map(t => `<div class="ctx-item" data-pool="${t.group_lesson_id}">${esc(t.topic || 'Без названия')}</div>`).join('')
@@ -135,8 +136,11 @@ function openReplaceMenu(glid, anchorEl, api, reload, pool) {
     document.getElementById('profCtxMenu')?.querySelectorAll('[data-pool]').forEach(item => item.addEventListener('click', async () => {
         closeCtxMenu();
         try {
-            await api('replaceTopic', { group_lesson_id: glid, pool_group_lesson_id: item.dataset.pool });
-            toast('Тема занятия заменена — прежняя тема вернулась в пул');
+            const res = await api('replaceTopic', { group_lesson_id: glid, pool_group_lesson_id: item.dataset.pool });
+            const warnings = (res && res.warnings) || [];
+            toast(warnings.length
+                ? `Тема занятия заменена — прежняя вернулась в пул. Внимание: ${warnings.join('; ')}`
+                : 'Тема занятия заменена — прежняя тема вернулась в пул', warnings.length ? 'error' : 'ok');
             await reload();
         } catch (e) { toast(e.message, 'error'); }
     }));

@@ -265,7 +265,6 @@ class ProgramCompositionServiceTest extends TestCase {
 			array( 10, $this->themeRow( 10, 111, '2026-10-15 16:15:00' ) ),
 			array( 20, $this->themeRow( 20, 222, null ) ),
 		) );
-		$this->usage->method( 'hasLearningData' )->willReturn( false );
 
 		$changes = array();
 		$this->groupLessons->method( 'setLessonId' )->willReturnCallback( function ( int $id, int $lessonId ) use ( &$changes ): bool {
@@ -280,16 +279,20 @@ class ProgramCompositionServiceTest extends TestCase {
 		self::assertSame( array( 10 => 222, 20 => 111 ), $changes );
 	}
 
-	public function test_swap_topic_refuses_when_students_already_have_learning_data(): void {
+	/** Решения и оценки едут с темой: данные меняются местами, прежняя тема в пуле скрывается, учеников считаем в предупреждении. */
+	public function test_swap_topic_moves_learning_data_with_the_theme_and_warns(): void {
 		$this->groupLessons->method( 'find' )->willReturnMap( array(
 			array( 10, $this->themeRow( 10, 111, '2026-10-15 16:15:00' ) ),
 			array( 20, $this->themeRow( 20, 222, null ) ),
 		) );
-		$this->usage->method( 'hasLearningData' )->willReturn( true );
-		$this->groupLessons->expects( self::never() )->method( 'setLessonId' );
+		$this->groupLessons->method( 'countLearningStudents' )->willReturnMap( array( array( 10, 7 ), array( 20, 0 ) ) );
+		$this->groupLessons->expects( self::once() )->method( 'swapLearningData' )->with( 10, 20 );
+		$this->groupLessons->expects( self::once() )->method( 'setVisibility' )->with( 20, 'hidden', null );
 
-		$this->expectException( \InvalidArgumentException::class );
-		$this->service->swapTopic( 10, 20, 99 );
+		$warnings = $this->service->swapTopic( 10, 20, 99 );
+
+		self::assertCount( 1, $warnings );
+		self::assertStringContainsString( '7', $warnings[0] );
 	}
 
 	public function test_swap_topic_requires_pool_row_without_date(): void {

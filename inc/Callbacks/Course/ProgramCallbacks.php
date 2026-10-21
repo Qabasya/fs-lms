@@ -155,6 +155,7 @@ class ProgramCallbacks extends BaseController {
 	 * Меняет тему проведённого занятия на тему из пула («провели не ту тему»): дата, посещаемость
 	 * и запись занятия остаются, прежняя тема возвращается в пул. Как и «Продолжить», разрешено в
 	 * опубликованной КТП (T1.8) — это ход учебного года. Доступно всем, кто правит КТП группы.
+	 * Решения и оценки учеников едут вместе с темой, посещаемость остаётся на занятии; в ответе `warnings`.
 	 * Params: group_lesson_id (занятие на дате), pool_group_lesson_id (тема из пула).
 	 */
 	public function ajaxReplaceProgramTopic(): void {
@@ -165,13 +166,13 @@ class ProgramCallbacks extends BaseController {
 		$this->requireProgramRow( $groupLessonId );
 
 		try {
-			$this->program->swapTopic( $groupLessonId, $poolId, get_current_user_id() );
+			$warnings = $this->program->swapTopic( $groupLessonId, $poolId, get_current_user_id() );
 		} catch ( \InvalidArgumentException $e ) {
 			$this->error( $e->getMessage() );
 			return;
 		}
 
-		$this->success();
+		$this->success( array( 'warnings' => $warnings ) );
 	}
 
 	/**
