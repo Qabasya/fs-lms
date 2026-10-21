@@ -18,6 +18,19 @@
   font-family: $font-family;
 }
 
+// Вводный текст раздела над карточками (экзамены): абзацы читаемой ширины.
+.fs-subject-intro {
+  max-width: 46rem;
+  margin: 0 0 $spacing-2xl;
+  font-size: $font-size-base;
+  line-height: $line-height-relaxed;
+  color: $color-text-secondary;
+
+  p { margin: 0 0 rem(12); }
+
+  a { color: $color-accent; }
+}
+
 .fs-subject-empty {
   margin: 0;
   padding: $spacing-2xl 0;
