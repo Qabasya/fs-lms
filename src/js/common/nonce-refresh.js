@@ -14,6 +14,11 @@
  *
  * Ставится один раз на окно (флаг на обёртке) — каждый бандл вызывает install
  * у себя, срабатывает первый.
+ *
+ * Заодно `FormData` без файлов уходит как `application/x-www-form-urlencoded`:
+ * фильтры хостинга режут `multipart/form-data` до PHP (403 от nginx, плеер
+ * показывает E-HTTP). PHP разбирает оба формата одинаково; запросы с файлами
+ * остаются multipart.
  */
 
 const RETRY_HEADER = 'X-FS-Nonce-Retry';
@@ -39,6 +44,29 @@ function refreshFrom( payload ) {
 	}
 
 	return nonce?.field && nonce?.value ? { field: String( nonce.field ), value: String( nonce.value ) } : null;
+}
+
+/**
+ * FormData без файлов → URLSearchParams; с файлами и любое другое тело — как есть.
+ *
+ * @param {*} body Тело запроса
+ *
+ * @returns {*}
+ */
+export function urlencodedBody( body ) {
+	if ( ! ( body instanceof FormData ) ) {
+		return body;
+	}
+
+	const params = new URLSearchParams();
+	for ( const [ key, value ] of body.entries() ) {
+		if ( 'string' !== typeof value ) {
+			return body;
+		}
+		params.append( key, value );
+	}
+
+	return params;
 }
 
 /** Заменяет в URLSearchParams / FormData известные устаревшие токены. */
@@ -85,7 +113,7 @@ function installFetch() {
 
 	const wrapped = async ( input, init = {} ) => {
 		const url  = 'string' === typeof input || input instanceof URL ? String( input ) : input?.url;
-		const body = isAjaxUrl( url ) ? editable( init?.body ) : null;
+		const body = isAjaxUrl( url ) ? editable( urlencodedBody( init?.body ) ) : null;
 		if ( ! body ) {
 			return original( input, init );
 		}
