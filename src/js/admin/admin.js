@@ -12,6 +12,7 @@ import { ApplicationsTable } from './services/tables/applications-table.js';
 import { StudentsTable } from './services/tables/students-table.js';
 import { ParentsTable } from './services/tables/parents-table.js';
 import { LogsTable } from './services/tables/logs-table.js';
+import { LogArchive } from './services/log-archive.js';
 import { EmailTemplateSettings } from './services/settings/email-template-settings.js';
 import { ConsentSettings } from './services/settings/consent-settings.js';
 import { ConfigSettings } from './services/settings/config-settings.js';
@@ -180,6 +181,7 @@ function loadBuilder( chunk, exportName ) {
         ExpelModalManager.init();
 
         LogsTable.init();
+        LogArchive.init();
         EmailTemplateSettings.init();
         ConsentSettings.init();
         ConfigSettings.init();

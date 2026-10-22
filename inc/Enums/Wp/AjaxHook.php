@@ -103,6 +103,9 @@ enum AjaxHook: string {
 	case DeleteRejectedLeads = 'delete_rejected_leads'; // без параметров
 
 	// ==================== Журналы ====================
+	case GetLogArchiveStatus   = 'get_log_archive_status';  // без params — что попадёт в архив и состояние последнего архива
+	case ExportLogArchive      = 'export_log_archive';      // без params — ZIP тяжёлых журналов (ПД: ManageLmsPlatform + ExportPII)
+	case PurgeLogArchive       = 'purge_log_archive';       // без params — удалить то, что вошло в скачанный архив
 	case ExportEntityAuditLog  = 'export_entity_audit_log';
 	case ExportEnrollmentLog   = 'export_enrollment_log';
 	case ExportPiiLog          = 'export_pii_log';

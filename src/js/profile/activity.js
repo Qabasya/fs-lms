@@ -15,7 +15,7 @@
    ══════════════════════════════════════════════════════════════════════ */
 
 import { esc, emptyState, fmtDateTime, fmtDate, fmtNum, plural } from './utils.js';
-import { icoCheck, icoChevronRight, icoCross, icoJournal } from '../common/icons.js';
+import { icoCheck, icoCross, icoJournal } from '../common/icons.js';
 import { createApi } from './api.js';
 import { openGroupPicker, groupPickerBtnHtml } from './picker.js';
 
@@ -48,10 +48,9 @@ const EVENT_LABELS = {
     'learning.page_viewed':       'Открыта страница',
 };
 
-/** Подпись роли того, кто выполнил действие (у действий преподавателя роль не показываем). */
+/** Подпись роли того, кто выполнил действие: только родитель (ученика и преподавателя в колонке «Кто» подписывать незачем). */
 const ACTOR_ROLE_TAG = {
-    lms_student: 'ученик',
-    lms_parent:  'родитель',
+    lms_parent: 'родитель',
 };
 
 /**
@@ -256,7 +255,7 @@ function eventsBody() {
             <span class="ch-sub">${shown} из ${data.total}</span>
         </div>
         ${filters}
-        <div class="act-feed">${data.events.map(eventRow).join('')}</div>
+        <div class="act-feed">${FEED_HEAD}${data.events.map(eventRow).join('')}</div>
         ${more}
     </div>`;
 }
@@ -265,24 +264,23 @@ function eventRow(e) {
     const label = EVENT_LABELS[e.action] || e.action;
     const role  = ACTOR_ROLE_TAG[e.actor_role] ? ` (${ACTOR_ROLE_TAG[e.actor_role]})` : '';
     const actor = e.actor ? esc(e.actor) + role : 'система';
+    const text  = `${label}${e.detail ? `: ${e.detail}` : ''}`;
     const inner = `
-        <div class="act-event-main">
-            <span class="act-event-label">${esc(label)}${e.detail ? `: ${esc(e.detail)}` : ''}</span>
-            <span class="act-event-actor">${actor}</span>
-        </div>
+        <span class="act-event-label" title="${esc(text)}">${esc(text)}</span>
+        <span class="act-event-actor">${actor}</span>
         <time class="act-event-time">${esc(fmtDateTime(e.created_at))}</time>`;
 
-    // Работа или попытка → строка ведёт на экран её проверки.
+    // Работа или попытка → вся строка ведёт на экран её проверки.
     const srcType = WORK_SOURCE[e.action];
     const srcId   = Number(e.entity_id);
     if (openWorkReviewCb && srcType && srcType === e.entity_type && srcId > 0) {
-        return `<button type="button" class="act-event act-event--link" data-src-type="${srcType}" data-src-id="${srcId}" title="Открыть работу">
-            ${inner}${icoChevronRight(14)}
-        </button>`;
+        return `<button type="button" class="act-event act-event--link" data-src-type="${srcType}" data-src-id="${srcId}" title="Открыть работу">${inner}</button>`;
     }
 
     return `<div class="act-event">${inner}</div>`;
 }
+
+const FEED_HEAD = '<div class="act-event act-event--head"><span>Действие</span><span>Кто</span><span class="act-event-time">Когда</span></div>';
 
 function attemptsBody() {
     if (!state.lessons || !state.lessons.length) {

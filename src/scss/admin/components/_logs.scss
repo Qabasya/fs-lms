@@ -61,3 +61,39 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+
+// Месячный архив тяжёлых журналов (блок над вкладками)
+.fs-log-archive {
+  margin: $spacing-lg 0;
+  padding: $spacing-md $spacing-lg;
+  background: $wp-admin-gray-bg-light;
+  border: 1px solid $color-border-input;
+  border-radius: $border-radius-lg;
+
+  &__title {
+    margin: 0 0 $spacing-xs;
+    font-size: $font-size-md;
+  }
+
+  &__hint,
+  &__last {
+    margin: 0 0 $spacing-sm;
+    color: $color-text-secondary;
+    font-size: $font-size-base;
+  }
+
+  &__list {
+    margin: 0 0 $spacing-sm;
+    padding: 0;
+    list-style: none;
+    font-size: $font-size-base;
+
+    li { margin: 0 0 $spacing-xs; }
+  }
+
+  &__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: $spacing-sm;
+  }
+}

@@ -84,6 +84,11 @@ if (!function_exists('wp_json_encode')) {
         return json_encode($data, $flags, $depth);
     }
 }
+if (!function_exists('wp_raise_memory_limit')) {
+    function wp_raise_memory_limit(string $context = 'admin'): string|false {
+        return false;
+    }
+}
 if (!function_exists('home_url')) {
     function home_url(string $path = '', string $scheme = 'http'): string {
         // Тесты подменяют адрес сайта, чтобы проверить http→https нормализацию.

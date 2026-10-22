@@ -6,6 +6,7 @@ namespace Inc\Controllers\Log;
 
 use Inc\Controllers\System\AjaxController;
 
+use Inc\Callbacks\Log\LogArchiveCallbacks;
 use Inc\Callbacks\Log\LogsCallbacks;
 use Inc\Enums\Wp\AjaxHook;
 
@@ -37,10 +38,12 @@ class LogsController extends AjaxController {
 	/**
 	 * Конструктор контроллера.
 	 *
-	 * @param LogsCallbacks $logsCallbacks Коллбеки для операций с логами
+	 * @param LogsCallbacks       $logsCallbacks    Коллбеки для операций с логами
+	 * @param LogArchiveCallbacks $archiveCallbacks Коллбеки месячного архива журналов
 	 */
 	public function __construct(
 		private readonly LogsCallbacks $logsCallbacks,
+		private readonly LogArchiveCallbacks $archiveCallbacks,
 	) {
 		parent::__construct();
 	}
@@ -77,6 +80,10 @@ class LogsController extends AjaxController {
 			array( AjaxHook::ExportEmailLog,          $this->logsCallbacks ),
 			array( AjaxHook::ExportAuthLog,           $this->logsCallbacks ),
 			array( AjaxHook::ExportErrorLog,          $this->logsCallbacks ),
+			// Месячный архив тяжёлых журналов
+			array( AjaxHook::GetLogArchiveStatus,     $this->archiveCallbacks ),
+			array( AjaxHook::ExportLogArchive,        $this->archiveCallbacks ),
+			array( AjaxHook::PurgeLogArchive,         $this->archiveCallbacks ),
 		);
 	}
 }

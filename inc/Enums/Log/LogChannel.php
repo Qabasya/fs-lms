@@ -67,6 +67,24 @@ enum LogChannel: string {
 	}
 
 	/**
+	 * Каналы «тяжёлых» журналов: их скачивают архивом раз в месяц и очищают вручную
+	 * ({@see \Inc\Services\Log\LogArchiveService}). Остальные журналы хранятся на сайте.
+	 *
+	 * @return self[]
+	 */
+	public static function archivable(): array {
+		return array( self::EntityAudit, self::Auth, self::Exams, self::LearningEvents );
+	}
+
+	/**
+	 * Архив забирает таблицу целиком, без «захлёста» прошлого месяца: у ленты событий обучения
+	 * хранить нечего (оценки и сдачи лежат в своих таблицах), у остальных каналов остаётся прошлый месяц.
+	 */
+	public function archivesWholeTable(): bool {
+		return self::LearningEvents === $this;
+	}
+
+	/**
 	 * Показывать ли канал отдельной вкладкой на админ-странице «Журналы».
 	 * LearningEvents — лента событий обучения, в админ-журналы не выводится.
 	 */

@@ -98,6 +98,7 @@ use Inc\Controllers\Course\PreviewSolveController;
 use Inc\Controllers\Course\LessonPlayerController;
 use Inc\Controllers\Course\LessonProgressController;
 use Inc\Controllers\Course\SubmissionController;
+use Inc\Cli\LogArchiveCommand;
 use Inc\Cli\SubjectBundleCommand;
 use Inc\Cli\TaskConditionCleanupCommand;
 use Inc\Cli\TaskFileSchemeCommand;
@@ -222,6 +223,7 @@ final class Init {
 			ImportController::class,   // Импорт учеников из CSV
 			PrintCenterController::class, // Центр печати: документы по шаблонам
 			LegacyTaskImportController::class, // AJAX разового переноса заданий со старой версии сайта
+			LogArchiveCommand::class, // WP-CLI: возврат журналов из месячного архива (только под WP_CLI)
 			SubjectBundleCommand::class, // WP-CLI: перенос предмета пакетом (регистрируется только под WP_CLI)
 			TaskFileSchemeCommand::class, // WP-CLI: http:// → https:// в ссылках на файлы заданий
 			TaskConditionCleanupCommand::class, // WP-CLI: пустые строки по краям условий заданий
