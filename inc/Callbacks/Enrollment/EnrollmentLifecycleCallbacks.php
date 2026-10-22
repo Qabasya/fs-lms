@@ -211,16 +211,23 @@ class EnrollmentLifecycleCallbacks extends BaseController {
 	public function ajaxGetStudentGroups(): void {
 		$this->authorize( Nonce::Manager, Capability::ManageApplications );
 
-		$periodId   = $this->sanitizeText( 'period_id' );
-		$subjectKey = $this->sanitizeText( 'subject_id' );
+		$periodId      = $this->sanitizeText( 'period_id' );
+		$subjectKey    = $this->sanitizeText( 'subject_id' );
+		$applicationId = $this->sanitizeInt( 'application_id' );
 
 		$groups = $this->studentGroupRepository->findByPeriodAndSubject( $periodId, $subjectKey );
+
+		// Форма зачисления передаёт заявку: временный доступ самого ученика группу не занимает —
+		// зачисление заменит его настоящей записью ({@see EnrollmentService::enroll()}).
+		$trialStudentId = $applicationId > 0
+			? (int) ( $this->applicationRepository->find( $applicationId )?->studentPersonId ?? 0 )
+			: 0;
 
 		// Индивидуальная группа с уже зачисленным учеником (один ученик на группу) в выбор не попадает.
 		$groups = array_filter(
 			$groups,
 			fn( object $g ): bool => AccessMode::Individual->value !== (string) ( $g->access_mode ?? '' )
-				|| 0 === $this->studentRecordRepository->countActiveByGroup( (int) $g->id )
+				|| 0 === $this->studentRecordRepository->countActiveByGroup( (int) $g->id, $trialStudentId )
 		);
 
 		$result = array_values( array_map(

@@ -48,11 +48,6 @@ const EVENT_LABELS = {
     'learning.page_viewed':       'Открыта страница',
 };
 
-/** Подпись роли того, кто выполнил действие: только родитель (ученика и преподавателя в колонке «Кто» подписывать незачем). */
-const ACTOR_ROLE_TAG = {
-    lms_parent: 'родитель',
-};
-
 /**
  * События, у которых есть «сама сущность» — работа или попытка контрольной: по клику
  * открывается её экран проверки. entity_type события → source_type экрана проверки.
@@ -262,8 +257,7 @@ function eventsBody() {
 
 function eventRow(e) {
     const label = EVENT_LABELS[e.action] || e.action;
-    const role  = ACTOR_ROLE_TAG[e.actor_role] ? ` (${ACTOR_ROLE_TAG[e.actor_role]})` : '';
-    const actor = e.actor ? esc(e.actor) + role : 'система';
+    const actor = e.actor ? esc(e.actor) : 'система';
     const text  = `${label}${e.detail ? `: ${e.detail}` : ''}`;
     const inner = `
         <span class="act-event-label" title="${esc(text)}">${esc(text)}</span>

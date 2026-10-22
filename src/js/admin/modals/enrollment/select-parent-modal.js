@@ -256,16 +256,9 @@ export const SelectParentModal = {
                 // Закрываем модалку после успешного назначения
                 this.close();
 
-                // ОБНОВЛЕНИЕ СТРОКИ ТАБЛИЦЫ БЕЗ ПЕРЕЗАГРУЗКИ:
-                // Это ключевой UX-паттерн: вместо location.reload() мы точечно
-                // обновляем только ту строку таблицы, которую редактировали.
-                // Это создает ощущение мгновенного отклика интерфейса.
-                this._updateRow(
-                    appId,
-                    res.data.parent_name ?? '',   // Имя назначенного родителя
-                    res.data.join_url ?? '',      // Новая JOIN-ссылка
-                    true                          // Флаг: родитель назначен
-                );
+                // Назначение сразу отправляет заявку на проверку: у строки другие статус и кнопки
+                // (ссылка родителю больше не нужна), поэтому страница перезагружается целиком.
+                location.reload();
             },
             () => AlertModal.show( 'Сетевая ошибка.' )
         );
@@ -308,29 +301,24 @@ export const SelectParentModal = {
                 }
 
                 // Обновляем строку таблицы: родитель снят, имя '—', новая JOIN-ссылка
-                this._updateRow( appId, '—', res.data.join_url ?? '', false );
+                this._updateRow( appId, '—', res.data.join_url ?? '' );
             },
             () => AlertModal.show( 'Сетевая ошибка.' )
         );
     },
 
     /**
-     * Обновление строки таблицы заявок после назначения/снятия родителя.
+     * Обновление строки таблицы заявок после снятия назначения родителя.
      * Реализует паттерн "точечного обновления DOM": вместо перезагрузки всей страницы
-     * мы меняем только конкретные ячейки в нужной строке.
-     *
-     * ПАТТЕРН: Условный рендеринг кнопок действий.
-     * В зависимости от флага hasParent генерируются разные наборы кнопок:
-     * - Если родитель назначен: "Сменить родителя" + "Снять назначение"
-     * - Если родитель не назначен: только "Назначить родителя"
+     * мы меняем только конкретные ячейки в нужной строке. Назначение родителя строку не
+     * обновляет, а перезагружает страницу — оно меняет статус заявки (см. _selectParent()).
      *
      * @private
      * @param {string|number} appId - ID заявки.
-     * @param {string} parentName - Имя родителя (или '—', если не назначен).
+     * @param {string} parentName - Имя родителя ('—', если не назначен).
      * @param {string} joinUrl - Новая JOIN-ссылка для приглашения родителя.
-     * @param {boolean} hasParent - Флаг: назначен ли родитель.
      */
-    _updateRow( appId, parentName, joinUrl, hasParent ) {
+    _updateRow( appId, parentName, joinUrl ) {
         // ПОИСК СТРОКИ ПО DATA-АТРИБУТУ:
         // Используем атрибут data-app-id для точного поиска нужной строки в таблице.
         // Это надежнее, чем поиск по индексу строки, который может измениться 
@@ -364,31 +352,13 @@ export const SelectParentModal = {
         $joinCell.find( '.js-select-existing-parent' ).remove();
         $joinCell.find( '.js-remove-parent-assignment' ).remove();
 
-        // УСЛОВНЫЙ РЕНДЕРИНГ КНОПОК:
-        // В зависимости от состояния hasParent генерируем разные наборы кнопок.
-        if ( hasParent ) {
-            // РОДИТЕЛЬ НАЗНАЧЕН: показываем кнопки "Сменить" и "Снять"
-            $joinCell.append(
-                `<br><button type="button"
-                    class="button-link js-select-existing-parent fs-parent-action"
-                    data-application-id="${ appId }">
-                    ✎ Сменить родителя
-                </button>
-                <button type="button"
-                    class="button-link js-remove-parent-assignment fs-parent-action fs-parent-action--danger"
-                    data-application-id="${ appId }">
-                    ✕ Снять назначение
-                </button>`
-            );
-        } else {
-            // РОДИТЕЛЬ НЕ НАЗНАЧЕН: показываем только кнопку "Назначить"
-            $joinCell.append(
-                `<br><button type="button"
-                    class="button-link js-select-existing-parent fs-parent-action"
-                    data-application-id="${ appId }">
-                    + Назначить родителя
-                </button>`
-            );
-        }
+        // Родитель снят: остаётся только кнопка "Назначить".
+        $joinCell.append(
+            `<br><button type="button"
+                class="button-link js-select-existing-parent fs-parent-action"
+                data-application-id="${ appId }">
+                + Назначить родителя
+            </button>`
+        );
     },
 };

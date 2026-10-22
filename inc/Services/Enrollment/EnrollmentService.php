@@ -26,6 +26,7 @@ use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 use Inc\Services\Application\JoinCodeService;
 use Inc\Contracts\LogEventDispatcherInterface;
+use Inc\DTO\Log\Events\ApplicationStatusEvent;
 use Inc\DTO\Log\Events\EntityChangedEvent;
 use Inc\DTO\Log\Events\EnrollmentStatusEvent;
 use Inc\Enums\Log\EntityType;
@@ -266,12 +267,8 @@ readonly class EnrollmentService {
 				throw new \InvalidArgumentException( 'У этой записи нет привязанного родителя.' );
 			}
 
+			// Назначение родителя само переводит заявку на проверку.
 			$parentResult = $this->selectExistingParent( $appId, $record->parentPersonId );
-
-			$this->applicationRepository->update( $appId, array(
-				'status'     => ApplicationStatus::ReadyForReview->value,
-				'updated_at' => $this->clock->now( 'mysql', true ),
-			) );
 
 			return new RestoreResultDTO(
 				appId:      $appId,
@@ -286,6 +283,20 @@ readonly class EnrollmentService {
 		);
 	}
 
+	/**
+	 * Назначает заявке существующего родителя и сразу отправляет её на проверку.
+	 *
+	 * Родитель уже известен системе, его данные подставлены из карточки — ссылка с анкетой ему
+	 * не нужна, зачислять можно сразу. Согласие на обработку данных по такой заявке через форму
+	 * не подписывалось: об этом остаётся пометка в журнале действий. Новая ссылка выдаётся как и
+	 * раньше, но заявка уже не ждёт родителя, и по ней анкета не принимается.
+	 *
+	 * @param int $applicationId  ID заявки
+	 * @param int $parentPersonId ID физлица родителя
+	 *
+	 * @throws InvalidArgumentException Заявка или родитель не найдены
+	 * @throws DomainException          Заявка не ждёт родителя
+	 */
 	public function selectExistingParent( int $applicationId, int $parentPersonId ): ParentAssignmentResultDTO {
 		$app = $this->applicationRepository->find( $applicationId );
 
@@ -353,6 +364,7 @@ readonly class EnrollmentService {
 		// Код заменён — срок считаем заново от выдачи новой ссылки, иначе она
 		// унаследовала бы остаток срока старой (вплоть до уже истёкшего).
 		$this->applicationRepository->update( $applicationId, array(
+			'status'               => ApplicationStatus::ReadyForReview->value,
 			'parent_person_id'     => $parentPersonId,
 			'parent_data_enc'      => $parentDataEnc,
 			'join_code_hash'       => $newHash,
@@ -360,6 +372,17 @@ readonly class EnrollmentService {
 			'join_code_expires_at' => $this->joinCodeService->expiresAt(),
 			'updated_at'           => $this->clock->now( 'mysql', true ),
 		) );
+
+		$this->logEvents->dispatch(
+			LogEvent::ApplicationUpdated,
+			new ApplicationStatusEvent(
+				get_current_user_id(),
+				AuditAction::AddParent,
+				$applicationId,
+				$app->studentPersonId,
+				array( 'note' => 'Родитель назначен сотрудником: анкета и согласие по ссылке не заполнялись, заявка сразу на проверке.' )
+			)
+		);
 
 		return new ParentAssignmentResultDTO(
 			joinUrl:    home_url( '/lms/join/' . $newCode ),

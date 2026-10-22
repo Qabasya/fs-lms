@@ -309,12 +309,20 @@ class StudentRecordRepository {
 		);
 	}
 
-	public function countActiveByGroup( int $groupId ): int {
+	/**
+	 * Число активных записей группы.
+	 *
+	 * @param int $groupId       ID группы
+	 * @param int $exceptTrialOf Не считать запись временного доступа этого ученика: зачисление заменяет её
+	 *                           настоящей, поэтому индивидуальная группа с его же доступом свободна для него (0 — считать все)
+	 */
+	public function countActiveByGroup( int $groupId, int $exceptTrialOf = 0 ): int {
 		return (int) $this->wpdb->get_var(
 			$this->wpdb->prepare(
-				"SELECT COUNT(*) FROM %i WHERE group_id = %d AND status = 'active'",
+				"SELECT COUNT(*) FROM %i WHERE group_id = %d AND status = 'active' AND NOT ( is_trial = 1 AND student_person_id = %d )",
 				$this->table,
-				$groupId
+				$groupId,
+				$exceptTrialOf
 			)
 		);
 	}

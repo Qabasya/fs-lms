@@ -239,6 +239,8 @@ export const ApplicationEnrollmentModalManager = {
             security:  appVars.nonces.manager,
             period_id:  periodId,
             subject_id: subjectId,
+            // Заявка нужна, чтобы временный доступ самого ученика не занимал его индивидуальную группу.
+            application_id: ApplicationEnrollmentModal.getApplicationId(),
         } )
             .done( ( res ) => {
                 if ( res.success ) {

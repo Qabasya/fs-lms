@@ -13,6 +13,8 @@ use Inc\DTO\Enrollment\StudentRecordDTO;
 use Inc\DTO\Person\PersonDTO;
 use Inc\Enums\Enrollment\ApplicationStatus;
 use Inc\Enums\Enrollment\EnrollmentStatus;
+use Inc\Enums\Log\AuditAction;
+use Inc\Enums\Log\LogEvent;
 use Inc\Managers\Person\UserManager;
 use Inc\Repositories\WPDBRepositories\ApplicationRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
@@ -137,12 +139,12 @@ class EnrollmentServiceTest extends TestCase {
 		);
 	}
 
-	private function makePendingApp( int $id = 1, ?int $parentPersonId = null ): ApplicationDTO {
+	private function makePendingApp( int $id = 1, ?int $parentPersonId = null, ApplicationStatus $status = ApplicationStatus::PendingParent ): ApplicationDTO {
 		return new ApplicationDTO(
 			id:                $id,
 			studentPersonId:   null,
 			parentPersonId:    $parentPersonId,
-			status:            ApplicationStatus::PendingParent,
+			status:            $status,
 			joinCodeHash:      null,
 			joinCodeEnc:       null,
 			joinCodeExpiresAt: null,
@@ -437,6 +439,34 @@ class EnrollmentServiceTest extends TestCase {
 		$result = $this->service->selectExistingParent( 1, 5 );
 
 		self::assertStringContainsString( 'JOIN-ABCD-EFGH-1234', $result->joinUrl );
+	}
+
+	// Родитель выбран сотрудником — ссылка с анкетой не нужна: заявка сразу на проверке, в журнале пометка.
+	public function test_select_existing_parent_sends_application_to_review_and_logs_it(): void {
+		$this->appRepo->method( 'find' )->willReturn( $this->makePendingApp() );
+		$this->personRepo->method( 'findIncludingDeleted' )->willReturn( $this->makePersonDTO( 5 ) );
+		$this->docsRepo->method( 'findByPersonId' )->willReturn( null );
+
+		$this->appRepo->expects( $this->once() )->method( 'update' )
+			->with( 1, $this->callback( fn( array $d ) => ApplicationStatus::ReadyForReview->value === $d['status'] && 5 === $d['parent_person_id'] ) )
+			->willReturn( true );
+
+		$this->logEvents->expects( $this->once() )->method( 'dispatch' )
+			->with(
+				LogEvent::ApplicationUpdated,
+				$this->callback( fn( object $e ) => AuditAction::AddParent === $e->action && 1 === $e->applicationId )
+			);
+
+		$this->service->selectExistingParent( 1, 5 );
+	}
+
+	public function test_select_existing_parent_rejects_application_that_is_not_waiting_for_parent(): void {
+		$this->appRepo->method( 'find' )->willReturn( $this->makePendingApp( 1, status: ApplicationStatus::ReadyForReview ) );
+
+		$this->appRepo->expects( $this->never() )->method( 'update' );
+		$this->expectException( DomainException::class );
+
+		$this->service->selectExistingParent( 1, 5 );
 	}
 
 	// ── removeParentAssignment() ──────────────────────────────────────────────

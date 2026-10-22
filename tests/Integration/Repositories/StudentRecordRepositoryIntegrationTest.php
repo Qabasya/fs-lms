@@ -64,6 +64,22 @@ class StudentRecordRepositoryIntegrationTest extends TestCase {
 		self::assertStringContainsString( 'group_id = 5', $query );
 	}
 
+	/** Форма зачисления: временный доступ самого ученика индивидуальную группу не занимает. */
+	public function test_count_active_by_group_can_skip_trial_of_student(): void {
+		$this->wpdb->queueVar( 0 );
+
+		self::assertSame( 0, $this->repo->countActiveByGroup( 5, 10 ) );
+		self::assertStringContainsString( 'NOT ( is_trial = 1 AND student_person_id = 10 )', $this->wpdb->lastQuery() );
+	}
+
+	public function test_count_active_by_group_counts_everything_by_default(): void {
+		$this->wpdb->queueVar( 1 );
+
+		self::assertSame( 1, $this->repo->countActiveByGroup( 5 ) );
+		// student_person_id = 0 не бывает — без ученика условие ничего не исключает.
+		self::assertStringContainsString( 'student_person_id = 0', $this->wpdb->lastQuery() );
+	}
+
 	private function input( string $status = 'active', ?int $groupId = 7 ): StudentRecordInputDTO {
 		return new StudentRecordInputDTO(
 			studentPersonId: 10,
