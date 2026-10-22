@@ -42,6 +42,13 @@ class LearningEventRepositoryTest extends TestCase {
 		self::assertSame( LogEvent::CourseAssigned->value, $this->wpdb->inserts[0]['data']['action'] );
 	}
 
+	public function test_create_stamps_event_with_site_time_not_database_clock(): void {
+		// Колонка по умолчанию берёт время сервера БД (может быть UTC) — лента показывала бы сдвиг относительно занятий.
+		$this->repo->create( new LearningEventInputDTO( action: LogEvent::CourseAssigned->value, groupId: 3 ) );
+
+		self::assertSame( current_time( 'mysql' ), $this->wpdb->inserts[0]['data']['created_at'] );
+	}
+
 	public function test_list_by_group_builds_paginated_query(): void {
 		$this->wpdb->queueResults( [] );
 

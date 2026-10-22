@@ -18,8 +18,13 @@ class LearningEventRepository {
 		$this->table = LogChannel::LearningEvents->tableName()->prefixed();
 	}
 
+	/**
+	 * Время события — по часам сайта (настройка часового пояса WordPress), как у занятий и расписания:
+	 * лента показывает его без пересчёта. Колонка по умолчанию берёт время сервера БД, а оно может
+	 * идти в другом поясе (UTC) и сдвигало бы ленту относительно занятий.
+	 */
 	public function create( LearningEventInputDTO $dto ): int {
-		$this->wpdb->insert( $this->table, $dto->toArray() );
+		$this->wpdb->insert( $this->table, array( 'created_at' => current_time( 'mysql' ) ) + $dto->toArray() );
 		return (int) $this->wpdb->insert_id;
 	}
 
@@ -92,20 +97,21 @@ class LearningEventRepository {
 
 	/**
 	 * Было ли такое же событие того же пользователя за последние `$withinSec` секунд — защита ленты
-	 * от повторов (обновление страницы, возврат на вкладку). Время сравнивается часами БД: `created_at`
-	 * ставит она же.
+	 * от повторов (обновление страницы, возврат на вкладку). Окно считается от времени сайта — тем же
+	 * поясом, в котором {@see create()} пишет `created_at`.
 	 */
 	public function existsWithin( string $action, int $actorUserId, int $groupId, string $entityType, string $entityId, int $withinSec ): bool {
 		return (bool) $this->wpdb->get_var(
 			$this->wpdb->prepare(
 				'SELECT 1 FROM %i WHERE action = %s AND actor_user_id = %d AND group_id = %d AND entity_type = %s AND entity_id = %s
-				 AND created_at >= DATE_SUB(NOW(), INTERVAL %d SECOND) LIMIT 1',
+				 AND created_at >= DATE_SUB(%s, INTERVAL %d SECOND) LIMIT 1',
 				$this->table,
 				$action,
 				$actorUserId,
 				$groupId,
 				$entityType,
 				$entityId,
+				current_time( 'mysql' ),
 				$withinSec
 			)
 		);
