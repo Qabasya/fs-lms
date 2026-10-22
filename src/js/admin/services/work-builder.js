@@ -23,6 +23,7 @@ function mount( el ) {
 
 	createSlotBuilder( el, {
 		treeTitle: 'Структура работы',
+		reorderable: true,
 		emptyText: 'Нет заданий — нажмите «+ Задача».',
 
 		// Пустые (ещё не заполненные) слоты — taskId=0 — в item_ids не идут: несколько

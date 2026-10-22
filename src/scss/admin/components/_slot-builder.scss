@@ -55,6 +55,22 @@
 		&.active {
 			.fs-sb-slot-num, .fs-sb-slot-title { color: var(--color-primary-hover); font-weight: $font-semibold; }
 		}
+		&.dragging { opacity: 0.4; }
+		&.drop-before { box-shadow: 0 -2px 0 var(--color-primary); }
+		&.drop-after { box-shadow: 0 2px 0 var(--color-primary); }
+
+		.fs-sb-slot-grip { opacity: 0; color: $color-secondary-hover; cursor: grab; display: flex; flex-shrink: 0; }
+		&:hover .fs-sb-slot-grip { opacity: 1; }
+
+		// «+ Добавить» под заданием — вставляет пустой слот следом
+		&.fs-sb-slot-add {
+			width: 100%;
+			border: 0;
+			background: none;
+			color: $color-text-secondary;
+			text-align: left;
+			.fs-sb-slot-title { color: inherit; }
+		}
 		&.empty .fs-sb-slot-title { color: $color-text-secondary; font-style: italic; }
 
 		.fs-sb-slot-num { font-size: $font-size-code; color: $color-secondary-hover; font-variant-numeric: tabular-nums; flex-shrink: 0; min-width: 24px; }

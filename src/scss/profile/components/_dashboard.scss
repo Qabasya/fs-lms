@@ -65,6 +65,9 @@
 .prof-dash-grid2 { display: grid; grid-template-columns: minmax(0, 1fr); gap: rem(18); }
 .prof-sched-card { margin-bottom: rem(18); }
 
+/* разделитель между идущим занятием и остальными — как граница строки */
+.prof-sched-now-divider { margin: 0; border: 0; border-bottom: 1px solid var(--line-2); }
+
 /* «Требует внимания» — аккордеон: шапка-кнопка + .prof-fold. */
 .prof-acc-head {
   width: 100%;

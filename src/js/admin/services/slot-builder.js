@@ -1,5 +1,5 @@
 import '../_types.js';
-import { icoPlus, icoX, icoReplace, icoImport, icoCaret, icoTrash } from '../../common/icons.js';
+import { icoPlus, icoX, icoReplace, icoImport, icoCaret, icoTrash, icoGrip } from '../../common/icons.js';
 import { escapeHtml as esc } from '../modules/utils.js';
 import { openPicker, expandPicked } from '../modules/picker.js';
 import { readSteps } from './step-editor.js';
@@ -117,6 +117,8 @@ const defaultNewSlot = ( i ) => ( { key: 'slot_' + i, taskId: 0, title: '' } );
  * @param {Function}   [config.newSlot]    (i) => slot                   Пустой слот для «+ Задача».
  * @param {Function}   [config.renderExtraBody] (container, slot, index, api) => void
  * @param {Function}   [config.onReady]    (api) => void                 Хук после первого рендера.
+ * @param {boolean}    [config.reorderable] Перетаскивание слотов и «+ Добавить» под каждым слотом
+ *                                            (не для конструкторов с позиционными слотами).
  * @returns {{ getSlots: Function, replaceSlots: Function, render: Function, save: Function }}
  */
 export function createSlotBuilder( el, config ) {
@@ -128,6 +130,7 @@ export function createSlotBuilder( el, config ) {
 
 	let slots       = initialSteps.map( mapSlot );
 	let activeIndex = slots.length ? 0 : -1;
+	let dragIndex   = null;
 
 	const canBulkAdd = typeof config.bulkSearch === 'function';
 
@@ -199,9 +202,13 @@ export function createSlotBuilder( el, config ) {
 	return api;
 
 	// ── Slot operations ───────────────────────────────────────────────────────
-	function addSlot() {
-		slots.push( newSlot( slots.length ) );
-		activeIndex = slots.length - 1;
+	/**
+	 * @param {number} [afterIndex] Вставить пустой слот после этого индекса; без аргумента — в конец.
+	 */
+	function addSlot( afterIndex ) {
+		const at = Number.isInteger( afterIndex ) ? afterIndex + 1 : slots.length;
+		slots.splice( at, 0, newSlot( slots.length ) );
+		activeIndex = at;
 		render();
 		save();
 	}
@@ -367,16 +374,74 @@ export function createSlotBuilder( el, config ) {
 			item.className = 'fs-sb-slot'
 				+ ( i === activeIndex ? ' active' : '' )
 				+ ( ! slot.taskId ? ' empty' : '' );
-			item.innerHTML = `<span class="fs-sb-slot-num">${ i + 1 }</span>`
+			item.draggable = !! config.reorderable;
+			item.innerHTML = `${ config.reorderable ? `<span class="fs-sb-slot-grip">${ icoGrip( 12 ) }</span>` : '' }`
+				+ `<span class="fs-sb-slot-num">${ i + 1 }</span>`
 				+ `<span class="fs-sb-slot-title">${ esc( slot.title || '(Пусто)' ) }</span>`;
 			item.addEventListener( 'click', () => {
 				activeIndex = i;
 				treeScroll.querySelectorAll( '.fs-sb-slot' )
-					.forEach( ( n, j ) => n.classList.toggle( 'active', j === i ) );
+					.forEach( ( n ) => n.classList.toggle( 'active', n === item ) );
 				renderCenter();
 			} );
+			if ( config.reorderable ) { attachSlotDnD( item, i ); }
 			treeScroll.appendChild( item );
+			if ( ! config.reorderable ) { return; }
+
+			const add = document.createElement( 'button' );
+			add.type      = 'button';
+			add.className = 'fs-sb-slot fs-sb-slot-add';
+			add.innerHTML = `${ icoPlus( 12 ) }<span class="fs-sb-slot-title">Добавить</span>`;
+			add.addEventListener( 'click', () => addSlot( i ) );
+			treeScroll.appendChild( add );
 		} );
+	}
+
+	// ── Drag&drop слотов (как уроки в конструкторе курса) ─────────────────────
+	function attachSlotDnD( item, index ) {
+		const clearMarks = () => treeScroll
+			.querySelectorAll( '.drop-before,.drop-after' )
+			.forEach( ( n ) => n.classList.remove( 'drop-before', 'drop-after' ) );
+		const isAfter = ( e ) => {
+			const r = item.getBoundingClientRect();
+			return ( e.clientY - r.top ) > r.height / 2;
+		};
+
+		item.addEventListener( 'dragstart', ( e ) => {
+			dragIndex = index;
+			item.classList.add( 'dragging' );
+			e.dataTransfer.effectAllowed = 'move';
+			e.dataTransfer.setData( 'text/plain', String( index ) );
+		} );
+		item.addEventListener( 'dragend', () => {
+			dragIndex = null;
+			item.classList.remove( 'dragging' );
+			clearMarks();
+		} );
+		item.addEventListener( 'dragover', ( e ) => {
+			if ( null === dragIndex || dragIndex === index ) { return; }
+			e.preventDefault();
+			clearMarks();
+			item.classList.add( isAfter( e ) ? 'drop-after' : 'drop-before' );
+		} );
+		item.addEventListener( 'dragleave', () => item.classList.remove( 'drop-before', 'drop-after' ) );
+		item.addEventListener( 'drop', ( e ) => {
+			if ( null === dragIndex || dragIndex === index ) { return; }
+			e.preventDefault();
+			const after = isAfter( e );
+			clearMarks();
+			moveSlot( dragIndex, index, after );
+		} );
+	}
+
+	function moveSlot( from, to, after ) {
+		const [ moved ] = slots.splice( from, 1 );
+		let at = to + ( after ? 1 : 0 );
+		if ( from < to ) { at -= 1; }
+		slots.splice( at, 0, moved );
+		activeIndex = at;
+		render();
+		save();
 	}
 
 	function renderCenter() {
