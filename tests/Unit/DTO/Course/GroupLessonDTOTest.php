@@ -94,4 +94,16 @@ class GroupLessonDTOTest extends TestCase {
 		$dto = GroupLessonDTO::fromArray( $row );
 		self::assertSame( array( 3 => '2026-06-01 12:00:00' ), $dto->workDeadlines );
 	}
+
+	public function test_effective_broadcast_url_prefers_own_link_over_group_link(): void {
+		$own = GroupLessonDTO::fromArray( array_merge( $this->baseRow(), array( 'broadcast_url' => 'https://own.example/live' ) ) );
+		self::assertSame( 'https://own.example/live', $own->effectiveBroadcastUrl( 'https://group.example/live' ) );
+	}
+
+	public function test_effective_broadcast_url_falls_back_to_group_link(): void {
+		$dto = GroupLessonDTO::fromArray( array_merge( $this->baseRow(), array( 'broadcast_url' => '' ) ) );
+		self::assertNull( $dto->broadcastUrl );
+		self::assertSame( 'https://group.example/live', $dto->effectiveBroadcastUrl( 'https://group.example/live' ) );
+		self::assertSame( '', $dto->effectiveBroadcastUrl( null ) );
+	}
 }

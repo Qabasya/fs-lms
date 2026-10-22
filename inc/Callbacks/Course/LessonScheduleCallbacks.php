@@ -166,19 +166,20 @@ class LessonScheduleCallbacks extends BaseController {
 
 	/**
 	 * Свободные кабинеты для индивидуального занятия (Эпик 11 T11.3): по предмету
-	 * группы + окну времени. Params: group_id, scheduled_at [, ends_at].
+	 * группы + окну времени. Params: group_id, scheduled_at [, ends_at, shared] — `shared`: доп. занятие, кабинет делится с другими занятиями.
 	 */
 	public function ajaxGetFreeRooms(): void {
 		$this->authorize( Nonce::SaveSchedule, Capability::ManageLmsTeaching );
 		$groupId     = $this->requireInt( 'group_id' );
 		$scheduledAt = $this->sanitizeText( 'scheduled_at' );
 		$endsAt      = $this->sanitizeText( 'ends_at' ) ?: null;
+		$shared      = $this->sanitizeBool( 'shared' );
 
 		if ( '' === $scheduledAt ) {
 			$this->error( __( 'Не указана дата занятия.', 'fs-lms' ) );
 		}
 		$this->requireGroupAccess( $groupId );
 
-		$this->success( array( 'rooms' => $this->calendar->freeRoomsForGroup( $groupId, $scheduledAt, $endsAt ) ) );
+		$this->success( array( 'rooms' => $this->calendar->freeRoomsForGroup( $groupId, $scheduledAt, $endsAt, $shared ) ) );
 	}
 }

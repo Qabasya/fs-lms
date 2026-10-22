@@ -376,6 +376,15 @@ class GroupLessonRepository {
 		);
 	}
 
+	/** Своя ссылка на трансляцию занятия; null — вернуться к ссылке группы. */
+	public function setBroadcastUrl( int $id, ?string $url ): bool {
+		return false !== $this->wpdb->update(
+			$this->table,
+			array( 'broadcast_url' => $url ),
+			array( 'id' => $id )
+		);
+	}
+
 	/** Указатель записи занятия (модуль VideoLibrary пишет `s3://{bucket}/{key}`). */
 	public function setRecordingUrl( int $id, ?string $url ): bool {
 		return false !== $this->wpdb->update(

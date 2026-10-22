@@ -185,7 +185,7 @@ class LearnerContextBuilder {
 			'live'            => $isLive,
 			// Для расписания «Сегодня / Неделя / Месяц»: soon — ещё не началось, now — идёт, done — прошло.
 			'state'           => $isLive ? 'now' : ( ( $row->scheduledAt ?? '' ) > $this->clock->now() ? 'soon' : 'done' ),
-			'stream_url'      => $isLive ? $this->live->streamUrl( $row->groupId ) : '',
+			'stream_url'      => $isLive ? $this->live->streamUrlFor( $row ) : '',
 		);
 	}
 

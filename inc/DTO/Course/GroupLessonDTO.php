@@ -80,7 +80,18 @@ readonly class GroupLessonDTO {
 		public bool $recordingSkipped = false,
 		/** Общий ключ строк одного дополнительного занятия для части группы; null — обычное занятие. */
 		public ?string $extraKey = null,
+		/** Своя ссылка на трансляцию занятия; null — действует ссылка группы. */
+		public ?string $broadcastUrl = null,
 	) {}
+
+	/**
+	 * Ссылка на трансляцию занятия: своя, если преподаватель её задал, иначе ссылка группы.
+	 *
+	 * @param string|null $groupUrl `groups.broadcast_url`
+	 */
+	public function effectiveBroadcastUrl( ?string $groupUrl ): string {
+		return (string) ( $this->broadcastUrl ?? $groupUrl ?? '' );
+	}
 
 	public static function fromArray( array $row ): self {
 		return new self(
@@ -117,6 +128,7 @@ readonly class GroupLessonDTO {
 			recordingLink   : isset( $row['recording_link'] ) && '' !== $row['recording_link'] ? (string) $row['recording_link'] : null,
 			recordingSkipped: ! empty( $row['recording_skipped'] ),
 			extraKey        : isset( $row['extra_key'] ) && '' !== $row['extra_key'] ? (string) $row['extra_key'] : null,
+			broadcastUrl    : isset( $row['broadcast_url'] ) && '' !== $row['broadcast_url'] ? (string) $row['broadcast_url'] : null,
 		);
 	}
 

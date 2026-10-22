@@ -52,10 +52,11 @@ readonly class GroupCalendarService {
 	 *
 	 * @param string      $start Начало окна 'Y-m-d H:i:s'
 	 * @param string|null $end   Конец окна (опц.)
+	 * @param bool        $shared Дополнительное занятие: кабинет можно делить с другими занятиями, исключены лишь занятые экзаменом
 	 *
 	 * @return array<int, array{id:int, name:string}>
 	 */
-	public function freeRoomsForGroup( int $groupId, string $start, ?string $end = null ): array {
+	public function freeRoomsForGroup( int $groupId, string $start, ?string $end = null, bool $shared = false ): array {
 		$group = $this->groups->findById( $groupId );
 		if ( ! $group ) {
 			return array();
@@ -67,7 +68,7 @@ readonly class GroupCalendarService {
 
 		return array_map(
 			static fn( $room ): array => array( 'id' => $room->id, 'name' => $room->name ),
-			$this->roomAvailability->listFreeRooms( $start, $endWindow, (string) $group->subject_key )
+			$this->roomAvailability->listFreeRooms( $start, $endWindow, (string) $group->subject_key, 0, $shared )
 		);
 	}
 

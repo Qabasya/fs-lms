@@ -201,7 +201,7 @@ function trackScreen(screen) {
     if (!block || !m) { return; }
 
     const childId = getChildId();
-    createApi(block)('log', Object.assign({ type: 'page', page: m[1] }, childId ? { student_person_id: childId } : {}))
+    createApi(block, { passive: ['log'] })('log', Object.assign({ type: 'page', page: m[1] }, childId ? { student_person_id: childId } : {}))
         .catch(() => {});
 }
 

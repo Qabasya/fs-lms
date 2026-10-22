@@ -84,7 +84,8 @@ readonly class IndividualLessonService {
 		?int    $teacherUserId,
 		int     $actorUserId,
 		?int    $roomId = null,
-		?string $extraKey = null
+		?string $extraKey = null,
+		?string $broadcastUrl = null
 	): int {
 		if ( ! $this->groups->findById( $groupId ) ) {
 			throw new \InvalidArgumentException( 'Группа не найдена.' );
@@ -93,21 +94,21 @@ readonly class IndividualLessonService {
 		$this->assertMember( $groupId, $studentPersonId );
 
 		if ( null !== $roomId && $roomId > 0 ) {
-			return $this->inTransaction( function () use ( $groupId, $studentPersonId, $scheduledAt, $endsAt, $lessonId, $label, $teacherUserId, $actorUserId, $roomId, $extraKey ): int {
+			return $this->inTransaction( function () use ( $groupId, $studentPersonId, $scheduledAt, $endsAt, $lessonId, $label, $teacherUserId, $actorUserId, $roomId, $extraKey, $broadcastUrl ): int {
 				// Кабинет занимается под блокировкой: сеанс экзамена, назначаемый параллельно, видит это занятие, а занятие — сеанс.
 				$this->rooms->lockForUpdate( $roomId );
 				$this->assertNoExamInRoom( $roomId, $scheduledAt, $endsAt );
 
-				return $this->insertIndividual( $groupId, $studentPersonId, $scheduledAt, $endsAt, $lessonId, $label, $teacherUserId, $actorUserId, $roomId, $extraKey );
+				return $this->insertIndividual( $groupId, $studentPersonId, $scheduledAt, $endsAt, $lessonId, $label, $teacherUserId, $actorUserId, $roomId, $extraKey, $broadcastUrl );
 			} );
 		}
 
-		return $this->insertIndividual( $groupId, $studentPersonId, $scheduledAt, $endsAt, $lessonId, $label, $teacherUserId, $actorUserId, $roomId, $extraKey );
+		return $this->insertIndividual( $groupId, $studentPersonId, $scheduledAt, $endsAt, $lessonId, $label, $teacherUserId, $actorUserId, $roomId, $extraKey, $broadcastUrl );
 	}
 
 	/**
 	 * Дополнительное занятие вне расписания для части группы: по строке-занятию на каждого
-	 * выбранного ученика (дата, время, кабинет и тема общие). Каждое — обычное занятие
+	 * выбранного ученика (дата, время, кабинет, тема и ссылка на трансляцию общие). Каждое — обычное занятие
 	 * `kind='individual'`, поэтому журнал, посещаемость, выдача и плеер работают без изменений.
 	 * Состав проверяется целиком до первой вставки.
 	 *
@@ -126,7 +127,8 @@ readonly class IndividualLessonService {
 		?string $label,
 		?int    $teacherUserId,
 		int     $actorUserId,
-		?int    $roomId = null
+		?int    $roomId = null,
+		?string $broadcastUrl = null
 	): array {
 		$studentPersonIds = array_values( array_unique( array_filter( array_map( 'intval', $studentPersonIds ) ) ) );
 		if ( ! $studentPersonIds ) {
@@ -144,7 +146,7 @@ readonly class IndividualLessonService {
 
 		$ids = array();
 		foreach ( $studentPersonIds as $personId ) {
-			$ids[] = $this->createIndividualLesson( $groupId, $personId, $scheduledAt, $endsAt, $lessonId, $label, $teacherUserId, $actorUserId, $roomId, $extraKey );
+			$ids[] = $this->createIndividualLesson( $groupId, $personId, $scheduledAt, $endsAt, $lessonId, $label, $teacherUserId, $actorUserId, $roomId, $extraKey, $broadcastUrl );
 		}
 
 		return $ids;
@@ -185,6 +187,7 @@ readonly class IndividualLessonService {
 					'room_id'         => ! empty( $row->roomId ) ? (int) $row->roomId : 0,
 					'room'            => ( $effRoomId && isset( $room[ $effRoomId ] ) ) ? $room[ $effRoomId ] : '',
 					'lesson_id'       => $row->lessonId,
+					'broadcast_url'   => (string) ( $row->broadcastUrl ?? '' ),
 					'topic'           => $lesson?->topic ?? ( $row->label ?? '' ),
 					'students'        => array(),
 				);
@@ -211,6 +214,7 @@ readonly class IndividualLessonService {
 	 * @param int[]    $studentPersonIds Новый состав (минимум один)
 	 * @param int|null $lessonId         Новая тема; null — не менять
 	 * @param int|null $roomId           Кабинет; 0 — снять, null — не менять
+	 * @param string|null $broadcastUrl  Своя ссылка на трансляцию; null — вернуться к ссылке группы
 	 *
 	 * @throws \InvalidArgumentException Нет занятия, пустой состав, ученик не в группе, у убираемого ученика есть данные
 	 */
@@ -222,7 +226,8 @@ readonly class IndividualLessonService {
 		?string $endsAt,
 		?int    $roomId,
 		?int    $lessonId,
-		int     $actorUserId
+		int     $actorUserId,
+		?string $broadcastUrl = null
 	): void {
 		$rows = array_values( array_filter(
 			$this->groupLessons->listByGroup( $groupId ),
@@ -263,6 +268,7 @@ readonly class IndividualLessonService {
 
 		foreach ( $existing as $row ) {
 			$this->updateIndividualLesson( $row->id, $scheduledAt, $endsAt, $roomId, null, $lessonId, $actorUserId );
+			$this->groupLessons->setBroadcastUrl( $row->id, $broadcastUrl );
 		}
 		foreach ( $toRemove as $row ) {
 			$this->groupLessons->remove( $row->id );
@@ -273,7 +279,7 @@ readonly class IndividualLessonService {
 		$newLesson = ( null !== $lessonId && $lessonId > 0 ) ? $lessonId : $template->lessonId;
 		foreach ( $studentPersonIds as $personId ) {
 			if ( ! isset( $existing[ $personId ] ) ) {
-				$this->insertIndividual( $groupId, $personId, $scheduledAt, $endsAt, $newLesson, $template->label, $template->teacherUserId, $actorUserId, $newRoom, $extraKey );
+				$this->insertIndividual( $groupId, $personId, $scheduledAt, $endsAt, $newLesson, $template->label, $template->teacherUserId, $actorUserId, $newRoom, $extraKey, $broadcastUrl );
 			}
 		}
 
@@ -301,7 +307,7 @@ readonly class IndividualLessonService {
 	}
 
 	/** Вставка индивидуального занятия и событие обучения. */
-	private function insertIndividual( int $groupId, int $studentPersonId, string $scheduledAt, ?string $endsAt, ?int $lessonId, ?string $label, ?int $teacherUserId, int $actorUserId, ?int $roomId, ?string $extraKey = null ): int {
+	private function insertIndividual( int $groupId, int $studentPersonId, string $scheduledAt, ?string $endsAt, ?int $lessonId, ?string $label, ?int $teacherUserId, int $actorUserId, ?int $roomId, ?string $extraKey = null, ?string $broadcastUrl = null ): int {
 		$id = $this->groupLessons->add( new GroupLessonInputDTO(
 			groupId         : $groupId,
 			lessonId        : $lessonId,
@@ -317,6 +323,7 @@ readonly class IndividualLessonService {
 			studentPersonId : $studentPersonId,
 			roomId          : $roomId,
 			extraKey        : $extraKey,
+			broadcastUrl    : $broadcastUrl,
 		) );
 
 		$this->events->lessonChanged( $groupId, $id, $actorUserId );

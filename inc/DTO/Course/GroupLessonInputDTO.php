@@ -32,6 +32,8 @@ readonly class GroupLessonInputDTO {
 		public ?int    $roomId           = null,
 		/** Продолжение темы (T12.6, D14): id исходной строки, либо null для «родной». */
 		public ?int    $continuedFromId  = null,
+		/** Своя ссылка на трансляцию занятия; null — действует ссылка группы. */
+		public ?string $broadcastUrl     = null,
 	) {}
 
 	public function toArray(): array {
@@ -60,6 +62,7 @@ readonly class GroupLessonInputDTO {
 			'extra_key'         => $this->extraKey,
 			'room_id'           => $this->roomId,
 			'continued_from_id' => $this->continuedFromId,
+			'broadcast_url'     => $this->broadcastUrl,
 		);
 	}
 }

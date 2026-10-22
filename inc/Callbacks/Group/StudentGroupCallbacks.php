@@ -74,17 +74,11 @@ class StudentGroupCallbacks extends BaseController {
 	 * только http(s) (любая платформа). Невалидный адрес — ошибка, а не молчаливая потеря.
 	 */
 	private function broadcastUrl(): ?string {
-		$raw = trim( $this->sanitizeText( 'broadcast_url' ) );
-		if ( '' === $raw ) {
-			return null;
-		}
-
-		$url = esc_url_raw( $raw, array( 'http', 'https' ) );
-		if ( '' === $url || ! str_contains( $url, '.' ) ) {
+		try {
+			return $this->sanitizeHttpUrlOrNull( 'broadcast_url' );
+		} catch ( \InvalidArgumentException ) {
 			$this->error( 'Ссылка на трансляцию должна начинаться с http:// или https://' );
 		}
-
-		return mb_substr( $url, 0, 1000 );
 	}
 
 	/**

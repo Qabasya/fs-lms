@@ -10,7 +10,8 @@
 
 import { esc, emptyState, fmtDate, fmtDateTime, toast } from './utils.js';
 import { icoInbox } from '../common/icons.js';
-import { createApi } from './api.js';
+import { createApi, clearApiCache } from './api.js';
+import { prefetchWorkReview } from './work-review.js';
 import { groupPickerBtnHtml, openGroupPicker } from './picker.js';
 import { badgeHtml, workCardHtml } from './work-card.js';
 import { confirmDialog } from '../common/components/confirm-dialog.js';
@@ -63,7 +64,14 @@ export function renderWorks(r, opts = {}) {
         submissions: null,
         refreshing: false,
     };
-    api = createApi(state.cfg);
+    // Очередь и сдачи — короткий кеш: переключение между работами не ждёт сервер;
+    // «Обновить» и любая запись (зачёт, оценка) сбрасывают его.
+    api = createApi(state.cfg, { cache: {
+        getPendingWorks:    30000,
+        getWorkSubmissions: 30000,
+        getPassedWorks:     60000,
+        getPassedStudents:  30000,
+    } });
     if (!state.cfg) { root.innerHTML = empty('Проверка недоступна', 'Экран «Работы» не настроен.'); return; }
 
     loadAllCounts();
@@ -155,6 +163,7 @@ async function loadSubmissions(item) {
 /** Refresh the current list/detail without discarding its tab, filters, or selection. */
 async function refreshWorks() {
     if (state.refreshing) { return; }
+    clearApiCache();
     state.refreshing = true;
     render();
     const tab = state.tab;
@@ -450,10 +459,15 @@ function wireStepTwo() {
         });
     }
 
-    root.querySelectorAll('.wk-sub-row[data-src-id]').forEach((el) =>
+    root.querySelectorAll('.wk-sub-row[data-src-id]').forEach((el) => {
         el.addEventListener('click', () => {
             if (openWorkReviewCb) { openWorkReviewCb(el.dataset.srcType, +el.dataset.srcId); }
-        }));
+        });
+        // Пока курсор над строкой, деталь работы уже грузится: к клику она обычно в кеше.
+        const warm = () => prefetchWorkReview(el.dataset.srcType, +el.dataset.srcId);
+        el.addEventListener('pointerenter', warm);
+        el.addEventListener('focus', warm);
+    });
 
     root.querySelectorAll('[data-credit]').forEach((btn) =>
         btn.addEventListener('click', () => creditStudents([+btn.dataset.credit])));

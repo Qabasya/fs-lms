@@ -148,11 +148,7 @@ $work_meta_line = sprintf(
 					<?php endif; ?>
 
 					<?php foreach ( (array) ( $work_task['files'] ?? array() ) as $work_task_file ) : ?>
-						<a class="attach" href="<?php echo esc_url( (string) $work_task_file['url'] ); ?>" download>
-							<span class="ai"><?php echo Icon::File->svg(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></span>
-							<span class="at"><b><?php echo esc_html( (string) $work_task_file['name'] ); ?></b></span>
-							<span class="adl"><?php echo Icon::Download->svg(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></span>
-						</a>
+						<?php $attach_file = $work_task_file; include __DIR__ . '/attach-file.php'; ?>
 					<?php endforeach; ?>
 
 					<div class="tgap">

@@ -237,7 +237,7 @@ a.lcard { color: inherit; text-decoration: none; }
 .prof-state-now { background: var(--good-bg); color: var(--ok); }
 .prof-state-soon { background: var(--accent-soft); color: var(--accent-700); }
 .prof-state-done { background: var(--surface-2); color: var(--muted-2); border: 1px solid var(--line); }
-.prof-lesson-row.is-now { background: linear-gradient(90deg, var(--good-bg-soft), transparent 60%); }
+.prof-lesson-row.is-now { background: var(--good-bg-soft); }
 .prof-lesson-row.is-now .prof-lesson-bar { background: var(--ok); }
 
 .prof-work-item {

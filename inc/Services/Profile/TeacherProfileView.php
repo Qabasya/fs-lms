@@ -194,6 +194,7 @@ final class TeacherProfileView implements ProfileViewInterface {
 					'subject'     => $this->subjectName( (string) $g->subject_key ),
 					'subject_key' => (string) $g->subject_key, // ключ цвета чипа (chipIndex, utils.js)
 					'avatar'      => $this->courses->avatarUrl( (int) ( $g->course_id ?? 0 ) ), // аватар курса группы
+					'broadcast_url' => (string) ( $g->broadcast_url ?? '' ), // ссылка по умолчанию в модалке доп. занятия
 					// Эпик 15: открытая группа — фронт скрывает КТП/посещаемость.
 					'access_mode' => AccessMode::fromValueOrDefault( (string) ( $g->access_mode ?? '' ) )->value,
 				),

@@ -166,7 +166,9 @@ class StepContentRenderer {
 	 * сразу после условия: ссылки File/FileCode и вложения поля «Материалы задания»
 	 * (`task_materials` — «Развёрнутый ответ», «Задание Робо»).
 	 *
-	 * @return array<int, array{name:string, url:string}>
+	 * `download` — скачивается ли файл по клику (свой origin); чужой открывается во вкладке.
+	 *
+	 * @return array<int, array{name:string, url:string, download:bool}>
 	 */
 	public function buildFiles( array $meta ): array {
 		$files = array();
@@ -177,9 +179,11 @@ class StepContentRenderer {
 				continue;
 			}
 
+			$link    = $this->taskMeta->fileLink( esc_url_raw( $url ) );
 			$files[] = array(
-				'name' => $this->fileNameFromUrl( $url ),
-				'url'  => esc_url_raw( $url ),
+				'name'     => $this->fileNameFromUrl( $url ),
+				'url'      => $link['url'],
+				'download' => $link['download'],
 			);
 		}
 
@@ -190,9 +194,11 @@ class StepContentRenderer {
 				continue;
 			}
 
+			$link    = $this->taskMeta->fileLink( esc_url_raw( $url ) );
 			$files[] = array(
-				'name' => $this->posts->get( $attachmentId )?->post_title ?: $this->fileNameFromUrl( $url ),
-				'url'  => esc_url_raw( $url ),
+				'name'     => $this->posts->get( $attachmentId )?->post_title ?: $this->fileNameFromUrl( $url ),
+				'url'      => $link['url'],
+				'download' => $link['download'],
 			);
 		}
 

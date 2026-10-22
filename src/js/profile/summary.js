@@ -53,7 +53,7 @@ export function renderSummary(r, opts = {}) {
         data:       null,
         tab:        'lessons',
     };
-    api = createApi(state.cfg);
+    api = createApi(state.cfg, { cache: { getStudents: 60000, getSummary: 30000 } });
     worksApi = p.works ? createApi(p.works) : null;
     if (!state.cfg) {
         directoryReady = Promise.resolve(false);

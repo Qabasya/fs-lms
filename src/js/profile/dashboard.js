@@ -30,7 +30,7 @@ export function renderDashboard(r, handlers) {
     const p = window.fsProfile || {};
     state = { cfg: p.dashboard || null, data: null };
     if (!state.cfg) { root.innerHTML = emptyHtml('Главная недоступна', 'Нет данных кабинета.'); return; }
-    api = createApi(state.cfg);
+    api = createApi(state.cfg, { cache: { getDashboard: 30000 } });
     load();
 }
 

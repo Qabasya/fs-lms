@@ -65,11 +65,7 @@ use Inc\Enums\Ui\Icon;
 			?>
 
 			<?php foreach ( (array) ( $render['files'] ?? array() ) as $task_file ) : ?>
-			<a class="attach" href="<?php echo esc_url( (string) $task_file['url'] ); ?>" download>
-				<span class="ai"><?php echo Icon::File->svg(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></span>
-				<span class="at"><b><?php echo esc_html( (string) $task_file['name'] ); ?></b></span>
-				<span class="adl"><?php echo Icon::Download->svg(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></span>
-			</a>
+			<?php $attach_file = $task_file; include __DIR__ . '/attach-file.php'; ?>
 			<?php endforeach; ?>
 
 			<?php if ( ! empty( $render['hint_html'] ) ) : ?>

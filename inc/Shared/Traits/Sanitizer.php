@@ -405,6 +405,27 @@ trait Sanitizer {
 	}
 
 	/**
+	 * Ссылка http(s) из запроса: пусто → null, иначе проверенный адрес (до 1000 знаков).
+	 *
+	 * @param string $key Ключ в $_POST
+	 *
+	 * @throws \InvalidArgumentException Если значение не похоже на http(s)-адрес
+	 */
+	protected function sanitizeHttpUrlOrNull( string $key ): ?string {
+		$raw = trim( $this->sanitizeText( $key ) );
+		if ( '' === $raw ) {
+			return null;
+		}
+
+		$url = esc_url_raw( $raw, array( 'http', 'https' ) );
+		if ( '' === $url || ! str_contains( $url, '.' ) ) {
+			throw new \InvalidArgumentException( 'Ссылка должна начинаться с http:// или https://' );
+		}
+
+		return mb_substr( $url, 0, 1000 );
+	}
+
+	/**
 	 * Текст либо null, если ключ отсутствует или пуст (необязательные поля).
 	 *
 	 * @param string $key    Ключ в суперглобальном массиве

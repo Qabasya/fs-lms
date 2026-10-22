@@ -13,7 +13,8 @@
 
    Режим `extra` — правка уже созданного дополнительного занятия (карточка календаря КТП): те же поля,
    состав учеников и тема предзаполнены, сохранение правит занятие целиком (`updateExtra`).
-   `extra` = { extra_key, group_id, scheduled_at, ends_at, room_id, room, lesson_id, students:[{person_id,name}] }.
+   `extra` = { extra_key, group_id, scheduled_at, ends_at, room_id, room, lesson_id, broadcast_url, students:[{person_id,name}] }.
+   Ссылка на трансляцию (только `multi`/`extra`): подставляется ссылка группы (`groups[].broadcast_url`), преподаватель вправе её сменить.
 
    Вызов: openIndiModal({ api, anchor, groups, multi?, extra?, fixed:{date?,group?,student?},
                           edit?:{glid,group_id,student_person_id,student_name,
@@ -43,6 +44,9 @@ export function openIndiModal( o ) {
     const initLesson  = edit ? String( edit.lesson_id || '' ) : ( extra ? String( extra.lesson_id || '' ) : '' );
 
     const multi        = ( !! o.multi || !! extra ) && ! edit; // доп. занятие для части группы
+    // Ссылка на трансляцию: по умолчанию — ссылка группы; своя у занятия подменяет её.
+    const groupStream  = ( groups.find( g => g.id === initGroup ) || {} ).broadcast_url || '';
+    const initStream   = ( extra && extra.broadcast_url ) || groupStream;
     const groupFixed   = !! fx.group || !! edit || !! extra;   // группа не меняется
     const studentFixed = !! fx.student;            // ученик фиксирован (из «Группы»)
     const dateFixed    = !! fx.date && ! edit && ! extra; // дата фиксирована (ячейка календаря)
@@ -66,6 +70,7 @@ export function openIndiModal( o ) {
         <div class="gp-field"><span>Время</span><div class="gp-time"><input type="time" id="giTime" value="${ initTime }"><span class="gp-dash">–</span><input type="time" id="giTimeEnd" value="${ initTimeEnd }"></div></div>
         <label class="gp-field"><span>Кабинет</span><select id="giRoom"><option value="">Без кабинета</option></select></label>
         <label class="gp-field"><span>Тема</span><select id="giLesson"><option value="">— без темы —</option></select></label>
+        ${ multi ? `<label class="gp-field"><span>Ссылка на трансляцию</span><input type="url" id="giStream" value="${ esc( initStream ) }" placeholder="https://…"></label>` : '' }
         <div class="gp-row">
             <button class="prof-btn prof-btn-sm prof-btn-primary" data-gi="save">${ edit || extra ? 'Сохранить' : 'Создать' }</button>
             <button class="prof-btn prof-btn-sm" data-gi="cancel">Отмена</button>
@@ -93,7 +98,8 @@ export function openIndiModal( o ) {
         if ( ! at ) { sel.innerHTML = '<option value="0">Без кабинета</option>'; return; }
         sel.innerHTML = '<option value="">— загрузка… —</option>';
         try {
-            const d = await api( 'getFreeRooms', { group_id: groupId(), scheduled_at: at, ends_at: endsAt() } );
+            // Доп. занятия делят кабинет с другими занятиями (по 2 ученика из четырёх групп в одной аудитории): занятость экзаменом скрывает кабинет, занятость занятиями — нет.
+            const d = await api( 'getFreeRooms', Object.assign( { group_id: groupId(), scheduled_at: at, ends_at: endsAt() }, multi ? { shared: 1 } : {} ) );
             const rooms = ( d && d.rooms ) || [];
             sel.innerHTML = '<option value="0">Без кабинета</option>' +
                 rooms.map( r => `<option value="${ r.id }" ${ String( r.id ) === initRoom ? 'selected' : '' }>${ esc( r.name ) }</option>` ).join( '' );
@@ -190,6 +196,9 @@ export function openIndiModal( o ) {
         const studentId = multi ? 0 : ( studentFixed ? initStudent : ( Number( $( '#giStudent' ).value ) || 0 ) );
         const roomVal   = $( '#giRoom' ).value;
         const lessonVal = $( '#giLesson' ).value;
+        // Ссылка группы не копируется в занятие: пусто = «как у группы», и смена ссылки группы дойдёт до занятия.
+        const streamVal = multi ? $( '#giStream' ).value.trim() : '';
+        const stream    = streamVal === groupStream ? '' : streamVal;
         if ( ! at ) { toast( 'Укажите дату', 'error' ); return; }
         if ( multi && ! chosen.length ) { toast( 'Выберите хотя бы одного ученика', 'error' ); return; }
         if ( ! multi && ! studentId ) { toast( 'Выберите ученика', 'error' ); return; }
@@ -204,6 +213,7 @@ export function openIndiModal( o ) {
                     ends_at:            endsAt(),
                     room_id:            roomVal,
                     lesson_id:          lessonVal,
+                    broadcast_url:      stream,
                 } );
                 toast( 'Дополнительное занятие обновлено' );
             } else if ( edit ) {
@@ -223,7 +233,7 @@ export function openIndiModal( o ) {
                     ends_at:      endsAt(),
                     room_id:      roomVal,
                     lesson_id:    lessonVal,
-                }, multi ? { student_person_ids: chosen } : { student_person_id: studentId } ) );
+                }, multi ? { student_person_ids: chosen, broadcast_url: stream } : { student_person_id: studentId } ) );
                 toast( multi ? 'Дополнительное занятие создано' : 'Индивидуальное занятие создано' );
             }
             if ( o.onSaved ) { o.onSaved(); }

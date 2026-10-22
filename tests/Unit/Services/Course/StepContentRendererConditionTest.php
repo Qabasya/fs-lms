@@ -48,19 +48,22 @@ class StepContentRendererConditionTest extends TestCase {
 
 	public function test_build_files_includes_task_materials_attachments(): void {
 		$this->media->method( 'url' )->willReturnMap( array(
-			array( 5, 'https://example.test/wp-content/uploads/scheme.png' ),
+			array( 5, 'http://example.com/wp-content/uploads/scheme.png' ),
 			array( 6, '' ),
 		) );
 
 		$files = $this->renderer->buildFiles( array(
-			'file'           => 'https://example.test/data.txt',
+			'file'           => 'http://example.com/data.txt',
+			'file_secondary' => 'https://drive.example.org/extra.pdf',
 			'task_materials' => array( 'attachment_ids' => array( 5, 6 ) ),
 		) );
 
 		self::assertSame(
 			array(
-				array( 'name' => 'data.txt', 'url' => 'https://example.test/data.txt' ),
-				array( 'name' => 'scheme.png', 'url' => 'https://example.test/wp-content/uploads/scheme.png' ),
+				array( 'name' => 'data.txt', 'url' => '/data.txt', 'download' => true ),
+				// Чужая ссылка не скачивается атрибутом `download` — чип откроет её во вкладке.
+				array( 'name' => 'extra.pdf', 'url' => 'https://drive.example.org/extra.pdf', 'download' => false ),
+				array( 'name' => 'scheme.png', 'url' => '/wp-content/uploads/scheme.png', 'download' => true ),
 			),
 			$files
 		);

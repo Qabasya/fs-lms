@@ -84,7 +84,7 @@ class LessonPlayerService {
 		$group = ( $locked && $row->groupId > 0 ) ? $this->groups->findById( $row->groupId ) : null;
 
 		return array(
-			'locked_stream_url' => (string) ( $group->broadcast_url ?? '' ),
+			'locked_stream_url' => $row->effectiveBroadcastUrl( $group->broadcast_url ?? null ),
 			'view'             => $view,
 			'locked'           => $locked,
 			'locked_scheduled' => $scheduled,
@@ -211,7 +211,7 @@ class LessonPlayerService {
 
 		// Generic-шов V4: модуль VideoLibrary подменяет указатель s3://… presigned-ссылкой.
 		$render = $this->stepRenderer->renderBroadcastData(
-			$isOver ? '' : (string) ( $group->broadcast_url ?? '' ),
+			$isOver ? '' : $groupLesson->effectiveBroadcastUrl( $group->broadcast_url ?? null ),
 			null !== $groupLesson->recordingUrl
 				? apply_filters( 'fs_lms_recording_url', $groupLesson->recordingUrl, $groupLesson )
 				: null,

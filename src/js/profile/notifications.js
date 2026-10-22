@@ -96,7 +96,7 @@ export function initNotifications() {
     const cfg = window.fsProfile && window.fsProfile.notifications;
     if (!bell || !cfg) { return; }
 
-    api = createApi(cfg);
+    api = createApi(cfg, { passive: ['markRead', 'markAllRead'] });
 
     refreshCount();
     // Опрос идёт и в фоновой вкладке: иначе системное уведомление не придёт,

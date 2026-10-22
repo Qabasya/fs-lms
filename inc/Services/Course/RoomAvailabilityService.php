@@ -54,15 +54,19 @@ class RoomAvailabilityService {
 	 * Свободные на окно [$start,$end) активные кабинеты, подходящие под предмет.
 	 *
 	 * @param string $subjectKey фильтр по `allowed_subjects` (пусто = любой).
+	 * @param bool   $ignoreLessons не считать занятость другими занятиями (дополнительные занятия делят кабинет); сеансы экзаменов по-прежнему занимают его.
 	 * @return RoomDTO[]
 	 */
-	public function listFreeRooms( string $start, string $end, string $subjectKey = '', int $excludeGroupLessonId = 0 ): array {
+	public function listFreeRooms( string $start, string $end, string $subjectKey = '', int $excludeGroupLessonId = 0, bool $ignoreLessons = false ): array {
 		$free = array();
 		foreach ( $this->rooms->findAll( true ) as $room ) {
 			if ( '' !== $subjectKey && ! $room->allowsSubject( $subjectKey ) ) {
 				continue;
 			}
-			if ( $this->isFree( $room->id, $start, $end, $excludeGroupLessonId ) ) {
+			$free_now = $ignoreLessons
+				? ! $this->hasExamConflict( $room->id, $start, $end )
+				: $this->isFree( $room->id, $start, $end, $excludeGroupLessonId );
+			if ( $free_now ) {
 				$free[] = $room;
 			}
 		}

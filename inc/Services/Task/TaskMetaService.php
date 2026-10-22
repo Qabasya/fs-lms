@@ -213,22 +213,6 @@ class TaskMetaService {
 	}
 
 	/**
-	 * Приводит ссылку на файл к схеме самого сайта.
-	 *
-	 * Поле «Файл задания» хранит адрес так, как его вставил автор, и у части
-	 * заданий там `http://` — сайт переехал на HTTPS позже. Для браузера
-	 * `http://сайт/…` на HTTPS-странице это ЧУЖОЙ origin (схема входит в
-	 * origin), поэтому атрибут `download` у чипа молча игнорируется и файл
-	 * открывается во вкладке вместо скачивания.
-	 *
-	 * Трогаем только свой домен: чужие ссылки переписывать нельзя — там может
-	 * не быть HTTPS вовсе.
-	 *
-	 * @param string $url Адрес из меты задания или медиатеки
-	 *
-	 * @return string
-	 */
-	/**
 	 * Скачается ли файл по клику. `download` действует только для файлов своего
 	 * origin; для чужой ссылки браузер атрибут игнорирует, и чип обязан
 	 * открываться в новой вкладке, иначе клик уводит со страницы задания.
@@ -248,6 +232,22 @@ class TaskMetaService {
 		return $host === (string) wp_parse_url( home_url(), PHP_URL_HOST );
 	}
 
+	/**
+	 * Приводит ссылку на файл к схеме самого сайта.
+	 *
+	 * Поле «Файл задания» хранит адрес так, как его вставил автор, и у части
+	 * заданий там `http://` — сайт переехал на HTTPS позже. Для браузера
+	 * `http://сайт/…` на HTTPS-странице это ЧУЖОЙ origin (схема входит в
+	 * origin), поэтому атрибут `download` у чипа молча игнорируется и файл
+	 * открывается во вкладке вместо скачивания.
+	 *
+	 * Трогаем только свой домен: чужие ссылки переписывать нельзя — там может
+	 * не быть HTTPS вовсе.
+	 *
+	 * @param string $url Адрес из меты задания или медиатеки
+	 *
+	 * @return string
+	 */
 	private function normalizeScheme( string $url ): string {
 		$host = (string) wp_parse_url( $url, PHP_URL_HOST );
 		$site = (string) wp_parse_url( home_url(), PHP_URL_HOST );
@@ -257,6 +257,34 @@ class TaskMetaService {
 		}
 
 		return (string) set_url_scheme( $url );
+	}
+
+	/**
+	 * Ссылка на файл для чипа: адрес приведён к схеме сайта и признак «скачивается по клику».
+	 * Без этого `http://` своего домена на HTTPS-странице — чужой origin: `download` игнорируется,
+	 * а браузер блокирует небезопасную загрузку, и клик по файлу ничего не делает.
+	 *
+	 * @param string $url Адрес файла как его сохранил автор или отдала медиатека
+	 *
+	 * @return array{url: string, download: bool} Свой файл — путь от корня сайта, чужой — как есть
+
+	 */
+	public function fileLink( string $url ): array {
+		$url = $this->normalizeScheme( $url );
+
+		// Файл своего сайта отдаём путём без схемы и хоста: браузер возьмёт схему страницы. Абсолютный
+		// `http://…` (или `https://…`, который сайт за прокси считает `http`) даёт «Mixed Content … redirected
+		// through an insecure connection» — Chrome блокирует загрузку, и клик по файлу ничего не делает.
+		if ( $this->isSameOrigin( $url ) && '' !== (string) wp_parse_url( $url, PHP_URL_HOST ) ) {
+			$path  = (string) wp_parse_url( $url, PHP_URL_PATH );
+			$query = (string) wp_parse_url( $url, PHP_URL_QUERY );
+			$url   = $path . ( '' !== $query ? '?' . $query : '' );
+		}
+
+		return array(
+			'url'      => $url,
+			'download' => $this->isSameOrigin( $url ),
+		);
 	}
 
 	/**

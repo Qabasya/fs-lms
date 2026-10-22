@@ -53,7 +53,7 @@ class IndividualLessonCallbacks extends BaseController {
 	 * Создаёт индивидуальное занятие на одного ученика (Эпик 4).
 	 * Дополнительное занятие вне расписания для части группы: вместо `student_person_id` приходит
 	 * список `student_person_ids[]` — на каждого создаётся своё занятие с общими датой, кабинетом и темой.
-	 * Params: group_id, student_person_id | student_person_ids[], scheduled_at [, ends_at, lesson_id, label, teacher_user_id, room_id]
+	 * Params: group_id, student_person_id | student_person_ids[], scheduled_at [, ends_at, lesson_id, label, teacher_user_id, room_id, broadcast_url]
 	 */
 	public function ajaxCreateIndividualLesson(): void {
 		$this->authorize( Nonce::SaveSchedule, Capability::ManageLmsTeaching );
@@ -74,9 +74,10 @@ class IndividualLessonCallbacks extends BaseController {
 		$this->requireGroupAccess( $groupId );
 
 		try {
+			$broadcastUrl = $this->sanitizeHttpUrlOrNull( 'broadcast_url' );
 			if ( $studentIds ) {
 				$ids = $this->individual->createExtraLessons(
-					$groupId, $studentIds, $scheduledAt, $endsAt, $lessonId, $label, $teacherUserId, $userId, $roomId
+					$groupId, $studentIds, $scheduledAt, $endsAt, $lessonId, $label, $teacherUserId, $userId, $roomId, $broadcastUrl
 				);
 				$this->success( array( 'group_lesson_ids' => $ids ) );
 				return;
@@ -171,7 +172,8 @@ class IndividualLessonCallbacks extends BaseController {
 	/**
 	 * Правка дополнительного занятия для части группы целиком (карточка в календаре КТП):
 	 * состав учеников, дата/время, кабинет, тема. Минимум один ученик; room_id='0' снимает кабинет.
-	 * Params: group_id, extra_key, student_person_ids[], scheduled_at [, ends_at, room_id, lesson_id]
+	 * Params: group_id, extra_key, student_person_ids[], scheduled_at [, ends_at, room_id, lesson_id, broadcast_url]
+	 * `broadcast_url` пуст — у занятия снова ссылка группы.
 	 */
 	public function ajaxUpdateExtraLessons(): void {
 		$this->authorize( Nonce::SaveSchedule, Capability::ManageLmsTeaching );
@@ -190,7 +192,8 @@ class IndividualLessonCallbacks extends BaseController {
 		$this->requireGroupAccess( $groupId );
 
 		try {
-			$this->individual->updateExtraLessons( $groupId, $extraKey, $studentIds, $scheduledAt, $endsAt, $roomId, $lessonId, $userId );
+			$broadcastUrl = $this->sanitizeHttpUrlOrNull( 'broadcast_url' );
+			$this->individual->updateExtraLessons( $groupId, $extraKey, $studentIds, $scheduledAt, $endsAt, $roomId, $lessonId, $userId, $broadcastUrl );
 		} catch ( \InvalidArgumentException $e ) {
 			$this->error( $e->getMessage() );
 			return;

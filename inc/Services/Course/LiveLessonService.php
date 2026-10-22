@@ -71,10 +71,19 @@ class LiveLessonService {
 	}
 
 	/**
+	 * Ссылка на трансляцию занятия: своя, если преподаватель её сменил, иначе ссылка группы.
+	 */
+	public function streamUrlFor( GroupLessonDTO $row ): string {
+		$group = $row->groupId > 0 ? $this->groups->findById( $row->groupId ) : null;
+
+		return $row->effectiveBroadcastUrl( $group->broadcast_url ?? null );
+	}
+
+	/**
 	 * Адрес трансляции занятия, если оно идёт прямо сейчас; иначе пусто.
 	 */
 	public function liveStreamUrl( GroupLessonDTO $row ): string {
-		return $this->isLive( $row ) ? $this->streamUrl( $row->groupId ) : '';
+		return $this->isLive( $row ) ? $this->streamUrlFor( $row ) : '';
 	}
 
 	/**
@@ -106,7 +115,7 @@ class LiveLessonService {
 			$seen[ $groupId ] = true;
 
 			$group     = $this->groups->findById( $groupId );
-			$streamUrl = (string) ( $group->broadcast_url ?? '' );
+			$groupUrl  = (string) ( $group->broadcast_url ?? '' );
 			$groupName = (string) ( $group->name ?? '' );
 
 			foreach ( $this->groupLessons->listByGroup( $groupId ) as $row ) {
@@ -128,6 +137,7 @@ class LiveLessonService {
 					continue;
 				}
 
+				$streamUrl = $row->effectiveBroadcastUrl( $groupUrl );
 				$hasLesson = null !== $row->lessonId && 0 !== $row->lessonId;
 				if ( ! $hasLesson && '' === $streamUrl ) {
 					continue; // открывать нечего

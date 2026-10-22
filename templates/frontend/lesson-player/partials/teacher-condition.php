@@ -109,9 +109,5 @@ $cond_items    = array_map( static fn( $o ): string => (string) ( $o['text'] ?? 
 <?php endif; ?>
 
 <?php foreach ( (array) ( $cond_task['files'] ?? array() ) as $cond_file ) : ?>
-	<a class="attach" href="<?php echo esc_url( (string) $cond_file['url'] ); ?>" download>
-		<span class="ai"><?php echo Icon::File->svg(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></span>
-		<span class="at"><b><?php echo esc_html( (string) $cond_file['name'] ); ?></b></span>
-		<span class="adl"><?php echo Icon::Download->svg(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></span>
-	</a>
+	<?php $attach_file = $cond_file; include __DIR__ . '/attach-file.php'; ?>
 <?php endforeach; ?>
