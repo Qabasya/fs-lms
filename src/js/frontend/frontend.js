@@ -24,6 +24,11 @@ import { installNonceRefresh } from '../common/nonce-refresh.js';
 // До любых запросов бандла: устаревший nonce обновляется и запрос повторяется сам.
 installNonceRefresh();
 
+// Форма входа подключается сразу, а не по DOMContentLoaded: бандл стоит в футере, форма уже в DOM.
+// DOMContentLoaded ждёт все блокирующие скрипты страницы, и пока он не наступит, кнопка «Войти»
+// уже работает, но обработчика капчи нет — форма уходила без токена и без причины.
+initLoginForm();
+
 document.addEventListener('DOMContentLoaded', () => {
     initTabs();
     initCarousel();
@@ -39,7 +44,6 @@ document.addEventListener('DOMContentLoaded', () => {
     initScrollTop();
     initFiltersToggle();
     initApplyForm();
-    initLoginForm();
     initJoinForm();
     initExamSignup();
     initExamGuest();

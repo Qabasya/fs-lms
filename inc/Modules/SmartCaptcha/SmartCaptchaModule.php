@@ -30,6 +30,9 @@ use Inc\Modules\SmartCaptcha\Controllers\SmartCaptchaSettingsController;
  */
 class SmartCaptchaModule implements ServiceInterface {
 
+	/** Хендл внешнего скрипта Yandex SmartCaptcha. */
+	private const SCRIPT_HANDLE = 'fs-lms-smartcaptcha';
+
 	public function __construct(
 		private readonly SmartCaptchaSettingsController $settings,
 		private readonly SmartCaptchaConfig             $config,
@@ -60,6 +63,7 @@ class SmartCaptchaModule implements ServiceInterface {
 
 		// Грузим внешний скрипт Yandex SmartCaptcha на страницах заявки и входа (после core-бандла).
 		add_action( 'wp_enqueue_scripts', array( $this, 'enqueueCaptchaScript' ), 20 );
+		add_filter( 'script_loader_tag', array( $this, 'asyncCaptchaScript' ), 10, 2 );
 	}
 
 	public function provideProvider( CaptchaProviderInterface $default ): CaptchaProviderInterface {
@@ -85,11 +89,36 @@ class SmartCaptchaModule implements ServiceInterface {
 		}
 
 		wp_enqueue_script(
-			'fs-lms-smartcaptcha',
+			self::SCRIPT_HANDLE,
 			'https://smartcaptcha.yandexcloud.net/captcha.js?render=onload&onload=__fsSmartCaptchaReady',
 			array( 'fs-lms-frontend-script' ),
 			null,
 			true
 		);
+	}
+
+	/**
+	 * Скрипт Яндекса не должен блокировать разбор страницы.
+	 *
+	 * Обычный скрипт в футере держит `DOMContentLoaded`, пока не скачается. Из сетей, где Яндекс
+	 * не отвечает, а «висит» (VPN), это ~10 секунд без обработчика формы: ученик успевал нажать
+	 * «Войти», и запрос уходил без токена и без причины («Капча: форма не прислала ни токен, ни
+	 * причину»). С `async` страница и обработчик не ждут Яндекс, а недоступность капчи
+	 * обрабатывает сама форма (см. captcha.js: `not_loaded` через 6 с → смягчённое правило).
+	 *
+	 * Атрибут ставится явно, а не через `strategy` ядра: у скрипта есть зависимость от
+	 * блокирующего бандла, и для такого случая ядро не гарантирует именно `async` (`defer`
+	 * `DOMContentLoaded` держит так же). Порядок выполнения сохраняется: тег идёт после бандла,
+	 * где задан `__fsSmartCaptchaReady`, а async-скрипт выполняется не раньше, чем парсер дошёл до тега.
+	 *
+	 * @param string $tag    Готовый тег `<script>`
+	 * @param string $handle Хендл скрипта
+	 */
+	public function asyncCaptchaScript( string $tag, string $handle ): string {
+		if ( self::SCRIPT_HANDLE !== $handle || str_contains( $tag, ' async' ) ) {
+			return $tag;
+		}
+
+		return (string) preg_replace( '/<script\b/', '<script async', $tag, 1 );
 	}
 }

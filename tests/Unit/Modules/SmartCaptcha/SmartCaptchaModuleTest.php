@@ -43,4 +43,29 @@ class SmartCaptchaModuleTest extends TestCase {
 		self::assertSame( 'my-site-key', $vars['captcha_key'] );
 		self::assertSame( 'x', $vars['ajax_url'] );
 	}
+
+	// Регресс: блокирующий скрипт Яндекса держал DOMContentLoaded, и форма входа уходила без обработчика.
+	public function test_captcha_script_tag_becomes_async(): void {
+		[ $module ] = $this->makeModule();
+		$tag        = '<script src="https://smartcaptcha.yandexcloud.net/captcha.js" id="fs-lms-smartcaptcha-js"></script>';
+
+		self::assertSame(
+			'<script async src="https://smartcaptcha.yandexcloud.net/captcha.js" id="fs-lms-smartcaptcha-js"></script>',
+			$module->asyncCaptchaScript( $tag, 'fs-lms-smartcaptcha' )
+		);
+	}
+
+	public function test_async_is_not_duplicated(): void {
+		[ $module ] = $this->makeModule();
+		$tag        = '<script async src="https://smartcaptcha.yandexcloud.net/captcha.js"></script>';
+
+		self::assertSame( $tag, $module->asyncCaptchaScript( $tag, 'fs-lms-smartcaptcha' ) );
+	}
+
+	public function test_other_scripts_are_left_blocking(): void {
+		[ $module ] = $this->makeModule();
+		$tag        = '<script src="https://example.test/frontend.min.js" id="fs-lms-frontend-script-js"></script>';
+
+		self::assertSame( $tag, $module->asyncCaptchaScript( $tag, 'fs-lms-frontend-script' ) );
+	}
 }
