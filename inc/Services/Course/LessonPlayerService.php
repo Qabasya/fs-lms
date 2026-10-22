@@ -224,6 +224,9 @@ class LessonPlayerService {
 			$render['recording_picker'] = apply_filters( 'fs_lms_recording_candidates', null, $groupLesson );
 		}
 
+		// Запись отменена преподавателем: без записи шаг у ученика и так не показывается, преподавателю остаётся «вернуть».
+		$render['recording_skipped'] = $isOver && $groupLesson->recordingSkipped;
+
 		$hasContent = $isOver
 			? ( '' !== $render['video_url'] || '' !== $render['record_link'] )
 			: '' !== $render['stream_url'];

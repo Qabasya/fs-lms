@@ -38,6 +38,7 @@ class ProgramCallbacksTest extends TestCase {
 
 		$this->cb = new ProgramCallbacks(
 			$this->program, $this->assignment, $this->guard, $this->events,
+			$this->createMock( \Inc\Services\Log\ActivityEventDetailResolver::class ),
 		);
 	}
 

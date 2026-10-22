@@ -179,6 +179,9 @@ async function saveBlock( block, attemptId, statusEl ) {
 	return ok;
 }
 
+/** Пауза после ввода или ухода из поля до автосохранения ответа. */
+const AUTOSAVE_SETTLE_MS = 7000;
+
 /** Bind autosave handlers to all answer textareas (кнопки «Сохранить» нет — сохраняется само). */
 function bindAutosave( form, attemptId ) {
 	form.querySelectorAll( '.fs-attempt-question' ).forEach( ( block ) => {
@@ -195,9 +198,11 @@ function bindAutosave( form, attemptId ) {
 		const save = () => saveBlock( block, attemptId, statusEl );
 
 		textareas.forEach( ( textarea ) => {
-			// Дебаунс при вводе + немедленное сохранение при уходе из поля (blur).
-			textarea.addEventListener( 'input', debounce( save, 1200 ) );
-			textarea.addEventListener( 'blur', save );
+			// Сохраняем, когда ученик замолчал или ушёл из поля: пока он печатает и правит, ответ не фиксируется,
+			// иначе в разборе «Ответ дан» показывает два близких времени. При уходе со страницы дописывает маячок.
+			const saveSettled = debounce( save, AUTOSAVE_SETTLE_MS );
+			textarea.addEventListener( 'input', saveSettled );
+			textarea.addEventListener( 'blur', saveSettled );
 		} );
 	} );
 }

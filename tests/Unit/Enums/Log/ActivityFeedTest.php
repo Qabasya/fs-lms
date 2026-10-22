@@ -32,4 +32,13 @@ class ActivityFeedTest extends TestCase {
 			self::assertSame( 1, count( array_keys( $all, $event->value, true ) ), $event->value );
 		}
 	}
+
+	public function test_events_feed_is_union_of_works_and_opens(): void {
+		self::assertEqualsCanonicalizing(
+			array_merge( ActivityFeed::Works->actions(), ActivityFeed::Opens->actions() ),
+			ActivityFeed::Events->actions()
+		);
+		self::assertContains( LogEvent::LessonOpened->value, ActivityFeed::Opens->actions() );
+		self::assertNotContains( LogEvent::LessonOpened->value, ActivityFeed::Works->actions() );
+	}
 }

@@ -13,6 +13,7 @@ use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\WPDBRepositories\RoomRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
+use Inc\Services\Course\GroupLessonUsageGuard;
 use Inc\Services\Course\RoomAvailabilityService;
 use Inc\Shared\Traits\TransactionRunner;
 
@@ -40,6 +41,7 @@ readonly class IndividualLessonService {
 	 * @param CourseManager           $courses       Курсы (уроки назначенного курса)
 	 * @param ScheduleEventPublisher  $events        Публикация событий обучения
 	 * @param RoomAvailabilityService $roomAvailability Занятость кабинетов (занятия и сеансы экзаменов)
+	 * @param GroupLessonUsageGuard   $usage         Есть ли у строки данные ученика (можно ли убрать его из доп. занятия)
 	 */
 	public function __construct(
 		private GroupLessonRepository   $groupLessons,
@@ -50,6 +52,7 @@ readonly class IndividualLessonService {
 		private CourseManager           $courses,
 		private ScheduleEventPublisher  $events,
 		private RoomAvailabilityService $roomAvailability,
+		private GroupLessonUsageGuard   $usage,
 	) {}
 
 	/**
@@ -80,7 +83,8 @@ readonly class IndividualLessonService {
 		?string $label,
 		?int    $teacherUserId,
 		int     $actorUserId,
-		?int    $roomId = null
+		?int    $roomId = null,
+		?string $extraKey = null
 	): int {
 		if ( ! $this->groups->findById( $groupId ) ) {
 			throw new \InvalidArgumentException( 'Группа не найдена.' );
@@ -89,16 +93,16 @@ readonly class IndividualLessonService {
 		$this->assertMember( $groupId, $studentPersonId );
 
 		if ( null !== $roomId && $roomId > 0 ) {
-			return $this->inTransaction( function () use ( $groupId, $studentPersonId, $scheduledAt, $endsAt, $lessonId, $label, $teacherUserId, $actorUserId, $roomId ): int {
+			return $this->inTransaction( function () use ( $groupId, $studentPersonId, $scheduledAt, $endsAt, $lessonId, $label, $teacherUserId, $actorUserId, $roomId, $extraKey ): int {
 				// Кабинет занимается под блокировкой: сеанс экзамена, назначаемый параллельно, видит это занятие, а занятие — сеанс.
 				$this->rooms->lockForUpdate( $roomId );
 				$this->assertNoExamInRoom( $roomId, $scheduledAt, $endsAt );
 
-				return $this->insertIndividual( $groupId, $studentPersonId, $scheduledAt, $endsAt, $lessonId, $label, $teacherUserId, $actorUserId, $roomId );
+				return $this->insertIndividual( $groupId, $studentPersonId, $scheduledAt, $endsAt, $lessonId, $label, $teacherUserId, $actorUserId, $roomId, $extraKey );
 			} );
 		}
 
-		return $this->insertIndividual( $groupId, $studentPersonId, $scheduledAt, $endsAt, $lessonId, $label, $teacherUserId, $actorUserId, $roomId );
+		return $this->insertIndividual( $groupId, $studentPersonId, $scheduledAt, $endsAt, $lessonId, $label, $teacherUserId, $actorUserId, $roomId, $extraKey );
 	}
 
 	/**
@@ -135,16 +139,169 @@ readonly class IndividualLessonService {
 			$this->assertMember( $groupId, $personId );
 		}
 
+		// Общий ключ: КТП группы показывает строки одного занятия одной карточкой и правит их разом.
+		$extraKey = str_replace( '-', '', wp_generate_uuid4() );
+
 		$ids = array();
 		foreach ( $studentPersonIds as $personId ) {
-			$ids[] = $this->createIndividualLesson( $groupId, $personId, $scheduledAt, $endsAt, $lessonId, $label, $teacherUserId, $actorUserId, $roomId );
+			$ids[] = $this->createIndividualLesson( $groupId, $personId, $scheduledAt, $endsAt, $lessonId, $label, $teacherUserId, $actorUserId, $roomId, $extraKey );
 		}
 
 		return $ids;
 	}
 
+	/**
+	 * Дополнительные занятия группы для календаря КТП: строки с общим ключом сведены в одну карточку
+	 * со списком учеников. Занятия без ключа (созданные по одному) сюда не попадают — они в режиме
+	 * «Индивидуальные занятия».
+	 *
+	 * @return array<int, array<string, mixed>> По дате; `group_lesson_id` — первая строка занятия (для плеера)
+	 */
+	public function getExtraLessons( int $groupId ): array {
+		$group = $this->groups->findById( $groupId );
+		if ( ! $group ) {
+			return array();
+		}
+
+		$names = $this->studentNames( $groupId );
+		$room  = $this->roomNames();
+
+		$items = array();
+		foreach ( $this->groupLessons->listByGroup( $groupId ) as $row ) {
+			if ( ! $row->kind->isIndividual() || null === $row->extraKey || null === $row->studentPersonId ) {
+				continue;
+			}
+
+			$key = $row->extraKey;
+			if ( ! isset( $items[ $key ] ) ) {
+				$lesson      = $row->lessonId ? $this->lessonManager->get( $row->lessonId ) : null;
+				$effRoomId   = ! empty( $row->roomId ) ? (int) $row->roomId : ( ! empty( $group->room_id ) ? (int) $group->room_id : 0 );
+				$items[ $key ] = array(
+					'extra_key'       => $key,
+					'group_lesson_id' => $row->id,
+					'group_id'        => $groupId,
+					'scheduled_at'    => $row->scheduledAt,
+					'ends_at'         => $row->endsAt,
+					'room_id'         => ! empty( $row->roomId ) ? (int) $row->roomId : 0,
+					'room'            => ( $effRoomId && isset( $room[ $effRoomId ] ) ) ? $room[ $effRoomId ] : '',
+					'lesson_id'       => $row->lessonId,
+					'topic'           => $lesson?->topic ?? ( $row->label ?? '' ),
+					'students'        => array(),
+				);
+			}
+
+			$items[ $key ]['students'][] = array(
+				'person_id' => $row->studentPersonId,
+				'name'      => $names[ $row->studentPersonId ] ?? '—',
+			);
+		}
+
+		$items = array_values( $items );
+		usort( $items, static fn( $a, $b ) => strcmp( (string) $a['scheduled_at'], (string) $b['scheduled_at'] ) );
+
+		return $items;
+	}
+
+	/**
+	 * Правка дополнительного занятия целиком: состав учеников, дата/время, кабинет, тема.
+	 * Общие поля пишутся во все строки; новым ученикам добавляются строки, убранным — удаляются.
+	 * Ученика с данными по занятию (прогресс, сдачи, попытки, посещаемость) убрать нельзя, тему при
+	 * учебных данных — сменить нельзя.
+	 *
+	 * @param int[]    $studentPersonIds Новый состав (минимум один)
+	 * @param int|null $lessonId         Новая тема; null — не менять
+	 * @param int|null $roomId           Кабинет; 0 — снять, null — не менять
+	 *
+	 * @throws \InvalidArgumentException Нет занятия, пустой состав, ученик не в группе, у убираемого ученика есть данные
+	 */
+	public function updateExtraLessons(
+		int     $groupId,
+		string  $extraKey,
+		array   $studentPersonIds,
+		string  $scheduledAt,
+		?string $endsAt,
+		?int    $roomId,
+		?int    $lessonId,
+		int     $actorUserId
+	): void {
+		$rows = array_values( array_filter(
+			$this->groupLessons->listByGroup( $groupId ),
+			static fn( GroupLessonDTO $r ): bool => $r->kind->isIndividual() && $r->extraKey === $extraKey
+		) );
+		if ( ! $rows ) {
+			throw new \InvalidArgumentException( 'Дополнительное занятие не найдено.' );
+		}
+
+		$studentPersonIds = array_values( array_unique( array_filter( array_map( 'intval', $studentPersonIds ) ) ) );
+		if ( ! $studentPersonIds ) {
+			throw new \InvalidArgumentException( 'Выберите хотя бы одного ученика.' );
+		}
+		foreach ( $studentPersonIds as $personId ) {
+			$this->assertMember( $groupId, $personId );
+		}
+		if ( null !== $lessonId && $lessonId > 0 ) {
+			$this->assertLessonExists( $lessonId );
+		}
+
+		$names      = $this->studentNames( $groupId );
+		$changeLesson = null !== $lessonId && $lessonId > 0 && $lessonId !== $rows[0]->lessonId;
+		$existing   = array();
+		$toRemove   = array();
+		foreach ( $rows as $row ) {
+			if ( in_array( $row->studentPersonId, $studentPersonIds, true ) ) {
+				$existing[ (int) $row->studentPersonId ] = $row;
+				if ( $changeLesson && $this->usage->hasLearningData( $row->id ) ) {
+					throw new \InvalidArgumentException( sprintf( 'Тему нельзя сменить: у ученика «%s» уже есть решения по занятию.', $names[ $row->studentPersonId ] ?? '—' ) );
+				}
+			} else {
+				if ( $this->usage->hasEngagement( $row->id ) ) {
+					throw new \InvalidArgumentException( sprintf( 'Ученика «%s» убрать нельзя: по занятию уже есть его данные.', $names[ $row->studentPersonId ] ?? '—' ) );
+				}
+				$toRemove[] = $row;
+			}
+		}
+
+		foreach ( $existing as $row ) {
+			$this->updateIndividualLesson( $row->id, $scheduledAt, $endsAt, $roomId, null, $lessonId, $actorUserId );
+		}
+		foreach ( $toRemove as $row ) {
+			$this->groupLessons->remove( $row->id );
+		}
+
+		$template = $rows[0];
+		$newRoom  = null !== $roomId ? ( $roomId > 0 ? $roomId : null ) : $template->roomId;
+		$newLesson = ( null !== $lessonId && $lessonId > 0 ) ? $lessonId : $template->lessonId;
+		foreach ( $studentPersonIds as $personId ) {
+			if ( ! isset( $existing[ $personId ] ) ) {
+				$this->insertIndividual( $groupId, $personId, $scheduledAt, $endsAt, $newLesson, $template->label, $template->teacherUserId, $actorUserId, $newRoom, $extraKey );
+			}
+		}
+
+		$this->events->groupChanged( $groupId, $actorUserId );
+	}
+
+	/** @return array<int, string> person_id → «Фамилия Имя» активных учеников группы. */
+	private function studentNames( int $groupId ): array {
+		$names = array();
+		foreach ( $this->records->findActiveByGroupId( $groupId ) as $rec ) {
+			$names[ $rec->studentPersonId ] = trim( $rec->snapshotLastName . ' ' . $rec->snapshotFirstName );
+		}
+
+		return $names;
+	}
+
+	/** @return array<int, string> id → название кабинета. */
+	private function roomNames(): array {
+		$names = array();
+		foreach ( $this->rooms->findAll() as $r ) {
+			$names[ $r->id ] = $r->name;
+		}
+
+		return $names;
+	}
+
 	/** Вставка индивидуального занятия и событие обучения. */
-	private function insertIndividual( int $groupId, int $studentPersonId, string $scheduledAt, ?string $endsAt, ?int $lessonId, ?string $label, ?int $teacherUserId, int $actorUserId, ?int $roomId ): int {
+	private function insertIndividual( int $groupId, int $studentPersonId, string $scheduledAt, ?string $endsAt, ?int $lessonId, ?string $label, ?int $teacherUserId, int $actorUserId, ?int $roomId, ?string $extraKey = null ): int {
 		$id = $this->groupLessons->add( new GroupLessonInputDTO(
 			groupId         : $groupId,
 			lessonId        : $lessonId,
@@ -159,6 +316,7 @@ readonly class IndividualLessonService {
 			status          : 'scheduled',
 			studentPersonId : $studentPersonId,
 			roomId          : $roomId,
+			extraKey        : $extraKey,
 		) );
 
 		$this->events->lessonChanged( $groupId, $id, $actorUserId );

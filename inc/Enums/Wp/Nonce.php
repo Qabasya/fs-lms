@@ -80,6 +80,7 @@ enum Nonce: string {
 
 	// ==== ЛК учащегося/родителя (Эпик 7) ====
 	case LearnerProfile       = 'fs_lms_learner_profile';
+	case LearnerActivity      = 'fs_lms_learner_activity';
 
 	// ==== Кабинеты / аудитории (Эпик 9) ====
 	case Room                 = 'fs_lms_room';

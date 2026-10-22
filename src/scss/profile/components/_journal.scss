@@ -21,13 +21,17 @@
 .j-monthnav .jm-arrow[disabled] { opacity: .35; pointer-events: none; }
 
 /* «i» в правом углу шапки: легенда журнала поповером. */
-.j-monthnav .jm-info {
+.j-monthnav .jm-info,
+.kal-head .jm-info {
   width: rem(30); height: rem(30); margin-left: auto; display: inline-flex; align-items: center; justify-content: center;
   border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface);
   color: var(--ink-2); cursor: pointer; flex-shrink: 0;
   transition: background $tr, border-color $tr, color $tr;
 }
-.j-monthnav .jm-info:hover { background: var(--surface-2); border-color: var(--line-3); }
+
+.j-monthnav .jm-info:hover,
+.kal-head .jm-info:hover { background: var(--surface-2); border-color: var(--line-3); }
+
 .jm-label { font-size: rem(15); font-weight: 700; letter-spacing: -.01em; min-width: rem(132); text-align: center; }
 .jm-count { font-size: rem(12.5); color: var(--muted); margin-left: rem(6); font-variant-numeric: tabular-nums; }
 

@@ -188,11 +188,6 @@
 .es-empty { padding: t.$spacing-sm 0; font-size: t.$font-size-xs; color: var(--muted-2); }
 
 /* Выбор сеансов ссылки (поповер): отметки, сохраняются при закрытии */
-.es-sess { min-width: $exam-source-list-min-width; }
-.es-sess-list { max-height: $exam-source-sessions-max-height; overflow-y: auto; }
-.es-sess-item { display: flex; align-items: center; gap: t.$spacing-sm; padding: t.$spacing-xs t.$spacing-sm; font-size: t.$font-size-sm; color: var(--ink-2); cursor: pointer; }
-.es-sess-item:hover { background: var(--surface-2); }
-.es-sess-hint { padding: t.$spacing-xs t.$spacing-sm 0; font-size: t.$font-size-xs; color: var(--muted-2); }
 .ctx-item.is-disabled { color: var(--muted-2); cursor: not-allowed; }
 .ctx-item.is-disabled:hover { background: none; }
 

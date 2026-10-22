@@ -1,3 +1,5 @@
+import { createApi } from './api.js';
+import { getChildId } from './learner-child.js';
 import { esc, shortName, chipBg, chipHtml, closeGradePop, closeCtxMenu, openCtxMenuRaw } from './utils.js';
 import { icoHome, icoUsers, icoJournal, icoDocCheck, icoInbox, icoSwap, icoCalendarBoard, icoBook, icoStar, icoClock, icoCaret, icoGear, icoLogout } from '../common/icons.js';
 import { renderDashboard } from './dashboard.js';
@@ -191,7 +193,20 @@ function syncUrl(screen, extra) {
     window.history.replaceState(window.history.state, '', url);
 }
 
+/* Открытие экрана учеником/родителем — в ленту «Активность» преподавателя. Без ожидания и без ошибок:
+   сбой записи не должен мешать навигации. */
+function trackScreen(screen) {
+    const block = cfg.learner?.activity;
+    const m = LEARNER_SCREEN_RE.exec(screen);
+    if (!block || !m) { return; }
+
+    const childId = getChildId();
+    createApi(block)('log', Object.assign({ type: 'page', page: m[1] }, childId ? { student_person_id: childId } : {}))
+        .catch(() => {});
+}
+
 function go(screen) {
+    trackScreen(screen);
     syncUrl(screen);
     document.querySelectorAll('.prof-screen').forEach(s =>
         s.classList.toggle('active', s.dataset.screen === screen));

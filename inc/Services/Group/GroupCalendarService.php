@@ -33,6 +33,7 @@ readonly class GroupCalendarService {
 	 * @param EffectiveTeacherResolver  $effectiveTeacher Эффективный преподаватель занятия
 	 * @param ProgramCompositionService $program          Состав и нумерация тем
 	 * @param LessonManager             $lessonManager    Статус публикации уроков курса
+	 * @param IndividualLessonService   $individual       Дополнительные занятия для части группы (карточки календаря)
 	 */
 	public function __construct(
 		private GroupsRepository          $groups,
@@ -42,6 +43,7 @@ readonly class GroupCalendarService {
 		private EffectiveTeacherResolver  $effectiveTeacher,
 		private ProgramCompositionService $program,
 		private LessonManager             $lessonManager,
+		private IndividualLessonService   $individual,
 	) {}
 
 	/**
@@ -129,6 +131,7 @@ readonly class GroupCalendarService {
 				// Индикатор записи занятия в КТП (модуль VideoLibrary или ручная ссылка).
 				'recording_url'   => $row->recordingUrl,
 				'recording_link'  => $row->recordingLink,
+				'recording_skipped' => $row->recordingSkipped,
 				'status'          => $row->status,
 				'player_url'      => $hasContent ? PageRoutes::LessonPlayer->lessonUrl( $groupId, $row->id ) : '',
 				// Урок курса ещё черновик — по дате ученикам не откроется, пока его не опубликуют.
@@ -157,6 +160,8 @@ readonly class GroupCalendarService {
 			'slots_total'   => $completeness['slots'],
 			'unplaced'      => $completeness['unplaced'],
 			'themes'        => $themes,
+			// Дополнительные занятия для части группы: одна карточка на занятие, строки учеников сведены по ключу.
+			'extras'        => $individual ? array() : $this->individual->getExtraLessons( $groupId ),
 			// T1.8: заблокирована ли КТП (опубликована) — фронт скрывает правки.
 			'locked'        => $group ? ( ! empty( $group->program_locked_at ) && ! $individual ) : false,
 			'locked_at'     => $group && ! empty( $group->program_locked_at ) && ! $individual ? (string) $group->program_locked_at : null,

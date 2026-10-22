@@ -52,6 +52,7 @@ class ScheduleController extends AjaxController {
 
 			// Индивидуальные занятия
 			array( AjaxHook::CreateIndividualLesson,  $this->individual ),
+			array( AjaxHook::UpdateExtraLessons,      $this->individual ),
 			array( AjaxHook::GetIndividualSlots,      $this->individual ),
 			array( AjaxHook::GetLessonCandidates,     $this->individual ),
 			array( AjaxHook::AssignIndividualLesson,  $this->individual ),

@@ -37,6 +37,7 @@ $bc_link     = (string) ( $render['record_link'] ?? '' );
 $stream_url  = (string) ( $render['stream_url'] ?? '' );
 $video_chaps = array(); // главы трансляции не поддерживаются.
 $bc_teacher  = ! empty( $is_teacher ) && empty( $is_preview );
+$bc_skipped  = ! empty( $render['recording_skipped'] );
 ?>
 <div class="card16">
 	<div class="kick">
@@ -49,7 +50,8 @@ $bc_teacher  = ! empty( $is_teacher ) && empty( $is_preview );
 	</div>
 	<h2><?php echo esc_html( $step['title'] ); ?></h2>
 
-	<div class="gap16 bc-body">
+	<?php // Открытие записи учеником/родителем уходит в ленту «Активность» (step-broadcast.js). ?>
+	<div class="gap16 bc-body"<?php echo ( $bc_after && ! $bc_teacher && empty( $is_preview ) ) ? ' data-recording-track data-group-lesson-id="' . esc_attr( (string) ( $view['group_lesson_id'] ?? 0 ) ) . '"' : ''; ?>>
 		<?php if ( ! $bc_after ) : ?>
 			<?php if ( '' !== $stream_url ) : ?>
 				<div class="bc-actions">
@@ -82,6 +84,9 @@ $bc_teacher  = ! empty( $is_teacher ) && empty( $is_preview );
 					<?php esc_html_e( 'Открыть запись занятия', 'fs-lms' ); ?>
 				</a>
 			</div>
+
+		<?php elseif ( $bc_skipped ) : ?>
+			<p class="step-muted"><?php esc_html_e( 'Запись этого занятия отменена: ученики шаг не видят, напоминания «без записи» не будет.', 'fs-lms' ); ?></p>
 
 		<?php else : ?>
 			<p class="step-muted"><?php esc_html_e( 'Записи пока нет. Вставьте ссылку на неё ниже — ученики увидят этот шаг первым в уроке.', 'fs-lms' ); ?></p>
@@ -116,6 +121,15 @@ $bc_teacher  = ! empty( $is_teacher ) && empty( $is_preview );
 					</div>
 				<?php endif; ?>
 			</form>
+		<?php endif; ?>
+
+		<?php if ( $bc_teacher && $bc_after && '' === $video_url && '' === $bc_link ) : ?>
+			<?php // Запись одна на два занятия подряд: вторую тему не привязать — шаг отменяется, а не дублируется ссылкой. ?>
+			<div class="bc-rec-row">
+				<button type="button" class="b b-gh" data-recording-skip="<?php echo $bc_skipped ? '0' : '1'; ?>" data-group-lesson-id="<?php echo esc_attr( (string) ( $view['group_lesson_id'] ?? 0 ) ); ?>">
+					<?php echo $bc_skipped ? esc_html__( 'Вернуть шаг «Запись занятия»', 'fs-lms' ) : esc_html__( 'Записи не будет — отменить шаг', 'fs-lms' ); ?>
+				</button>
+			</div>
 		<?php endif; ?>
 
 		<?php if ( $bc_teacher && '' === $video_url ) : ?>

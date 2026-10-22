@@ -12,7 +12,7 @@ import { workCardHtml, workChipHtml, workStatusText } from './work-card.js';
 import { learnerLayout, learnerFlat } from './program-window.js';
 import { courseTabsShell, syncCourseTabs } from './course-tabs.js';
 import { isParent, getChildId, childBar, childPickHtml, wireChild, onChildChange } from './learner-child.js';
-import { initSchedule } from './schedule-view.js';
+import { initSchedule, todayRowsHtml } from './schedule-view.js';
 
 // Экраны ученика и родителя одни: ключ несёт роль (student-* / parent-*), рендер общий.
 const RENDERERS = {};
@@ -487,7 +487,7 @@ function mountSchedule(root, d) {
         items,
         todayHtml: () => {
             const rows = items.filter((l) => l.date === today).sort((a, b) => a.start.localeCompare(b.start));
-            return rows.length ? rows.map(schedRow).join('') : empty('Сегодня занятий нет.');
+            return rows.length ? todayRowsHtml(rows, schedRow) : empty('Сегодня занятий нет.');
         },
         cardHtml:  schedCard,
     });

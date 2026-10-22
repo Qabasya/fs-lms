@@ -154,4 +154,10 @@ enum LogEvent: string {
 	case AttemptSubmitted = 'learning.attempt_submitted';
 	case AttemptGraded    = 'learning.attempt_graded';
 	case AttemptExpired   = 'learning.attempt_expired';
+
+	// ===== Канал: LearningEvents — действия учеников и родителей (лента «Активность») =====
+
+	case LessonOpened     = 'learning.lesson_opened';
+	case RecordingOpened  = 'learning.recording_opened';
+	case PageViewed       = 'learning.page_viewed';
 }

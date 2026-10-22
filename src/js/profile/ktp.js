@@ -9,14 +9,14 @@
    ktp-popovers (поповеры темы), ktp-individual (инд. занятия).
    ══════════════════════════════════════════════════════════════════════ */
 
-import { esc, toast, plural, fmtDayMonth } from './utils.js';
-import { icoLock, icoSwap, icoChevronLeft, icoChevronRight, icoAlert } from '../common/icons.js';
+import { esc, toast, plural, fmtDayMonth, openCtxMenuRaw } from './utils.js';
+import { icoLock, icoSwap, icoChevronLeft, icoChevronRight, icoAlert, icoInfo } from '../common/icons.js';
 import { confirmDialog } from '../common/components/confirm-dialog.js';
 import { createApi } from './api.js';
 import { DOW_RU, MONTHS_RU } from './constants.js';
 import { groupPickerBtnHtml, openGroupPicker } from './picker.js';
 import { computeMonths, individualMonths, initialCursor, shiftMonth, monthCells, durationMinutes, endAfter, hasStarted, suggestLessonTime } from './ktp/ktp-calendar-model.js';
-import { themeCardHtml, placedThemeHtml, openProgramHtml, emptyStateHtml, changeCourseHtml, noGroupsHtml, errorHtml } from './ktp/ktp-templates.js';
+import { themeCardHtml, placedThemeHtml, extraCardHtml, ktpHelpHtml, openProgramHtml, emptyStateHtml, changeCourseHtml, noGroupsHtml, errorHtml } from './ktp/ktp-templates.js';
 import { attachDeadlinesClick, attachPlacedThemeClick, attachRecordingClick, attachThemeActionsClick } from './ktp/ktp-popovers.js';
 import { INDI_ID, loadIndividual } from './ktp/ktp-individual.js';
 import { openIndiModal } from './indi-modal.js';
@@ -193,7 +193,7 @@ function render() {
                     <div class="kal-month" id="ktpMonth"></div>
                     <button class="prof-icon-ghost" id="ktpNext">${icoChevronRight(18)}</button>
                     <span class="prof-spacer"></span>
-                    <span class="kal-hint" id="ktpHint">${locked ? 'КТП опубликована — редактирование заблокировано' : (individual ? 'Перетащите тему на любой день и выберите время · «⋮» на занятии — изменить дату и время · занятия сразу видны ученику' : 'Перетащите тему на дату, чтобы закрепить · обратно в «Темы курса» — чтобы снять, следующие сдвинутся на её место · клик по свободному дню — доп. занятие для части группы')}</span>
+                    <button type="button" class="jm-info" id="ktpHelpBtn" aria-label="Как работать с КТП" title="Как работать с КТП">${icoInfo(16)}</button>
                 </div>
                 <div class="kal-grid-wrap">
                     <div class="kal-dow">${DOW_RU.map(d => `<span>${d}</span>`).join('')}</div>
@@ -204,6 +204,10 @@ function render() {
     </div>`;
 
     document.getElementById('ktpGroupBtn').onclick = openGroupMenu;
+    const helpBtn = document.getElementById('ktpHelpBtn');
+    if (helpBtn) {
+        helpBtn.addEventListener('click', () => openCtxMenuRaw(ktpHelpHtml({ individual, locked }), helpBtn, null, { alignRight: true, flip: true }));
+    }
     const changeBtn = document.getElementById('ktpChangeCourse');
     if (changeBtn && !locked) {
         changeBtn.onclick = () => {
@@ -347,6 +351,13 @@ function renderCalendar() {
         const ds = t.scheduled_at.slice(0, 10);
         (byDate[ds] = byDate[ds] || []).push(t);
     });
+    // Доп. занятия для части группы — по карточке на занятие в своём дне.
+    const extraByDate = {};
+    (state.data.extras || []).forEach(x => {
+        if (!x.scheduled_at) return;
+        const ds = x.scheduled_at.slice(0, 10);
+        (extraByDate[ds] = extraByDate[ds] || []).push(x);
+    });
 
     let cells = '';
     for (const cell of monthCells(y, m)) {
@@ -359,8 +370,8 @@ function renderCalendar() {
         let cls = 'kal-cell';
         if (isHol) cls += ' holiday';
         else if (!isLesson && !individual) cls += ' no-lesson';
-        // Свободный день группы (нет ни занятия, ни слота расписания) — клик добавляет доп. занятие.
-        if (!individual && !isLesson && !dayThemes.length) cls += ' kal-cell--free';
+        // Клик по любому дню (и по занятию, и по выходному) добавляет доп. занятие для части группы.
+        if (!individual && !state.data.open) cls += ' kal-cell--extra';
 
         cells += `<div class="${cls}" data-day="${ds}" data-lesson="${isLesson && !isHol ? 1 : 0}">
             <div class="kal-date">
@@ -369,6 +380,7 @@ function renderCalendar() {
                 ${isLesson && !isHol ? `<span class="kd-lesson">${lessonTimes[ds] ? esc(lessonTimes[ds]) : 'урок'}</span>` : ''}
             </div>
             ${dayThemes.map(t => placedThemeHtml(t, state.data.video_enabled, individual)).join('')}
+            ${(extraByDate[ds] || []).map(extraCardHtml).join('')}
         </div>`;
     }
 
@@ -383,12 +395,21 @@ function renderCalendar() {
     grid.querySelectorAll('.pt-recording').forEach(el => attachRecordingClick(el, api, reloadCalendar));
     // T12.6: «Продолжить на другую дату» доступно и при lock КТП — теме не хватило
     // урока, продолжение встаёт следующим занятием, хвост сдвигается сервером.
-    grid.querySelectorAll('.pt-more').forEach(el => attachThemeActionsClick(el, api, reloadCalendar, individual ? editLessonTime : null,
+    grid.querySelectorAll('.pt-more:not(.pt-extra-more)').forEach(el => attachThemeActionsClick(el, api, reloadCalendar, individual ? editLessonTime : null,
         // Темы пула без даты (не продолжения): кандидаты на замену темы проведённого занятия.
         () => (state.data.themes || []).filter(t => !t.scheduled_at && 1 === (t.part || 1) && 1 === (t.total_parts || 1) && t.lesson_id)));
     // Доп. занятие вне расписания для части группы: не трогает программу и расписание, доступно и при lock КТП.
     if (!individual && !state.data.open) {
-        grid.querySelectorAll('.kal-cell--free[data-day]').forEach(cell => cell.addEventListener('click', () => openExtraLesson(cell, cell.dataset.day)));
+        grid.querySelectorAll('.kal-cell--extra[data-day]').forEach(cell => cell.addEventListener('click', e => {
+            // Клик по карточке занятия или её кнопкам не создаёт новое занятие.
+            if (e.target.closest('.placed-theme')) { return; }
+            openExtraLesson(cell, cell.dataset.day);
+        }));
+        grid.querySelectorAll('.pt-extra-more').forEach(btn => btn.addEventListener('click', e => {
+            e.stopPropagation();
+            const extra = (state.data.extras || []).find(x => x.extra_key === btn.dataset.extra);
+            if (extra) { openIndiModal({ api, anchor: btn, groups: state.groups, extra, onSaved: reloadCalendar }); }
+        }));
     }
     if (!isLocked()) {
         // Этап 4: drop доступен на любой день периода (кроме выходных), не только

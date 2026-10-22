@@ -14,7 +14,7 @@
 import { esc, plural, fmtDayMonth, todayIso, chipBg, scheduleTone, groupSubjectKey, shortName, emptyState, roomLabel } from './utils.js';
 import { icoCalendar, icoCheck, icoAlert, icoMapPin, icoBookmark, icoShield, icoChevronRight, icoChevronDown, icoHome, icoJournal, icoUsers, icoDocCheck } from '../common/icons.js';
 import { createApi } from './api.js';
-import { initSchedule } from './schedule-view.js';
+import { initSchedule, todayRowsHtml } from './schedule-view.js';
 
 /** Ключ запомненной раскрытости аккордеонов главной. */
 const ACC_KEY = 'fsProfDashAcc';
@@ -95,7 +95,7 @@ function render() {
             const todayItems = [...d.today, ...examItems().filter(x => x.date === localToday())]
                 .sort((a, b) => String(a.start).localeCompare(String(b.start)));
             return todayItems.length
-                ? todayItems.map(schedRow).join('')
+                ? todayRowsHtml(todayItems, schedRow)
                 : `<div class="rev-empty">Сегодня занятий нет.</div>`;
         },
         cardHtml:  lessonCard,

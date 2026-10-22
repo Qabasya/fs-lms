@@ -128,6 +128,23 @@ export function initSchedule({ toggle, body, items, todayHtml, cardHtml }) {
     render('today');
 }
 
+/**
+ * Строки режима «Сегодня»: идущее занятие закрепляется сверху и отделяется линией от остальных.
+ * Остальные идут в прежнем порядке (по времени начала — сортирует вызывающий).
+ *
+ * @param {object[]} rows    Занятия дня (`live` у ученика, `state === 'now'` у преподавателя).
+ * @param {Function} rowHtml (item) => HTML строки.
+ */
+export function todayRowsHtml(rows, rowHtml) {
+    const isNow = (it) => it.live || 'now' === it.state;
+    const now   = rows.filter(isNow);
+    const rest  = rows.filter((it) => !isNow(it));
+
+    return now.map(rowHtml).join('')
+        + (now.length && rest.length ? '<hr class="prof-sched-now-divider">' : '')
+        + rest.map(rowHtml).join('');
+}
+
 /** «Сентябрь 2026». */
 function monthLabel(date) {
     const name = date.toLocaleDateString('ru-RU', { month: 'long' });

@@ -125,6 +125,12 @@ class ProfileViewResolver {
 				),
 			);
 
+			// Лента «Активность» преподавателя: открытие экранов кабинета.
+			$config['learner']['activity'] = array(
+				'nonce'   => Nonce::LearnerActivity->create(),
+				'actions' => array( 'log' => AjaxHook::LogLearnerActivity->jsAction() ),
+			);
+
 			// Экзамены (Этап 5): действия регистрации только для ученика
 			$config['exams'] = array(
 				'nonce'   => Nonce::ExamLearner->create(),

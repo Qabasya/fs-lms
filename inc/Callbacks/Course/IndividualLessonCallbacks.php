@@ -169,6 +169,37 @@ class IndividualLessonCallbacks extends BaseController {
 	}
 
 	/**
+	 * Правка дополнительного занятия для части группы целиком (карточка в календаре КТП):
+	 * состав учеников, дата/время, кабинет, тема. Минимум один ученик; room_id='0' снимает кабинет.
+	 * Params: group_id, extra_key, student_person_ids[], scheduled_at [, ends_at, room_id, lesson_id]
+	 */
+	public function ajaxUpdateExtraLessons(): void {
+		$this->authorize( Nonce::SaveSchedule, Capability::ManageLmsTeaching );
+		$groupId     = $this->requireInt( 'group_id' );
+		$extraKey    = $this->requireKey( 'extra_key' );
+		$studentIds  = $this->sanitizeIntList( 'student_person_ids' );
+		$scheduledAt = $this->sanitizeText( 'scheduled_at' );
+		$endsAt      = $this->sanitizeText( 'ends_at' ) ?: null;
+		$roomId      = $this->optionalInt( 'room_id' );
+		$lessonId    = $this->optionalInt( 'lesson_id' );
+		$userId      = get_current_user_id();
+
+		if ( '' === $scheduledAt ) {
+			$this->error( __( 'Не указана дата занятия.', 'fs-lms' ) );
+		}
+		$this->requireGroupAccess( $groupId );
+
+		try {
+			$this->individual->updateExtraLessons( $groupId, $extraKey, $studentIds, $scheduledAt, $endsAt, $roomId, $lessonId, $userId );
+		} catch ( \InvalidArgumentException $e ) {
+			$this->error( $e->getMessage() );
+			return;
+		}
+
+		$this->success();
+	}
+
+	/**
 	 * Необязательное числовое поле: отсутствует или пустая строка → null.
 	 *
 	 * @param string $key Ключ в $_POST

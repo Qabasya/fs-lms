@@ -57,6 +57,7 @@ class GroupCalendarServiceTest extends TestCase {
 			$this->createMock( EffectiveTeacherResolver::class ),
 			$program,
 			$this->lessonManager,
+			$this->createMock( \Inc\Services\Group\IndividualLessonService::class ),
 		);
 	}
 

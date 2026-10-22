@@ -206,25 +206,33 @@ export function renderSourcesSection(container, o) {
         });
     }
 
-    /* Выбор сеансов ссылки: отметки в поповере, сохраняются при его закрытии; ничего не отмечено — все сеансы. */
+    /* Выбор сеансов ссылки: меню как у выбора учеников доп. занятия (prof-ctx-menu): первая строка «Все»,
+       у каждого сеанса справа флажок; сохраняется при закрытии. «Все» (или ничего) — доступны все сеансы. */
     function pickSessions(btn, source) {
         const list = selectableSessions(sessions);
-        const chosen = new Set((source.session_ids || []).map(Number));
-        const items = list.map(s => `<label class="es-sess-item"><input type="checkbox" value="${s.id}" ${chosen.has(Number(s.id)) ? 'checked' : ''}>
-            <span>${esc(fmtDayMonth(s.date))} · ${esc(s.time_start)} · ${esc(s.room_name || '')}</span></label>`).join('');
-        const html = `<div class="es-sess">
-            <div class="gp-title">Сеансы для записи по ссылке</div>
-            ${list.length ? `<div class="es-sess-list">${items}</div>` : '<div class="es-empty">Сеансов пока нет.</div>'}
-            <div class="es-sess-hint">Ничего не отмечено — доступны все сеансы.</div>
-        </div>`;
+        if (!list.length) { toast('Сеансов пока нет', 'error'); return; }
+
+        const chosen = new Set((source.session_ids || []).map(Number).filter(id => list.some(s => Number(s.id) === id)));
+        const allChosen = !chosen.size;
+        const row = (attrs, name) => `<label class="ctx-item ctx-item--multi"><span class="ctx-lbl">${name}</span><input type="checkbox" ${attrs}></label>`;
+        const html = row(`data-es="all" ${allChosen ? 'checked' : ''}`, 'Все')
+            + list.map(s => row(`data-es="sess" value="${s.id}" ${allChosen || chosen.has(Number(s.id)) ? 'checked' : ''}`,
+                `${esc(fmtDayMonth(s.date))} · ${esc(s.time_start)} · ${esc(s.room_name || '')}`)).join('');
 
         openCtxMenuRaw(html, btn, () => {
-            const menu = document.getElementById('profCtxMenu');
-            const next = [...menu.querySelectorAll('.es-sess-item input:checked')].map(i => Number(i.value)).sort((a, b) => a - b);
-            const prev = [...chosen].filter(id => list.some(s => Number(s.id) === id)).sort((a, b) => a - b);
-            if (!list.length || next.join(',') === prev.join(',')) { return; }
+            const checked = [...document.querySelectorAll('#profCtxMenu [data-es="sess"]:checked')].map(i => Number(i.value));
+            const next = checked.length === list.length ? [] : checked.sort((a, b) => a - b);
+            const prev = [...chosen].sort((a, b) => a - b);
+            if (next.join(',') === prev.join(',')) { return; }
             act(() => api('saveSource', { ...baseFields(source), session_ids_set: 1, session_ids: next }), next.length ? 'Сеансы ссылки сохранены' : 'Ограничение сеансов снято');
         }, { alignRight: true, flip: true });
+
+        const menu = document.getElementById('profCtxMenu');
+        menu.classList.toggle('prof-ctx-menu--scroll', list.length > 12);
+        const all = menu.querySelector('[data-es="all"]');
+        const checks = [...menu.querySelectorAll('[data-es="sess"]')];
+        all.addEventListener('change', () => { checks.forEach(c => { c.checked = all.checked; }); });
+        checks.forEach(c => c.addEventListener('change', () => { all.checked = checks.every(x => x.checked); }));
     }
 
     /* Меню «⋯»: вниз и влево от кнопки, при нехватке места внизу — вверх и влево. */

@@ -10,12 +10,12 @@
    indiMonths, indiCursor, indiSelected, indiCandidates) живут в state ядра.
    ══════════════════════════════════════════════════════════════════════ */
 
-import { esc, toast } from '../utils.js';
-import { icoChevronLeft, icoChevronRight, icoCaret } from '../../common/icons.js';
+import { esc, toast, openCtxMenuRaw } from '../utils.js';
+import { icoChevronLeft, icoChevronRight, icoCaret, icoInfo } from '../../common/icons.js';
 import { DOW_RU, MONTHS_RU } from '../constants.js';
 import { openIndiModal } from '../indi-modal.js';
 import { indiMonths, indiInitialCursor, shiftIndiMonth } from './ktp-calendar-model.js';
-import { indiSlotChip, errorHtml } from './ktp-templates.js';
+import { indiSlotChip, errorHtml, ktpHelpHtml } from './ktp-templates.js';
 
 /* НБ-9: sentinel-id псевдо-«группы» = режим «Индивидуальные занятия». */
 export const INDI_ID = -1;
@@ -79,7 +79,7 @@ function renderIndividual(ctx) {
                     <div class="kal-month" id="ktpMonth"></div>
                     <button class="prof-icon-ghost" id="ktpNext">${icoChevronRight(18)}</button>
                     <span class="prof-spacer"></span>
-                    <span class="kal-hint">Клик по дню — добавить · ✎ на занятии — изменить</span>
+                    <button type="button" class="jm-info" id="ktpHelpBtn" aria-label="Как работать с индивидуальными занятиями" title="Как работать с индивидуальными занятиями">${icoInfo(16)}</button>
                 </div>
                 <div class="kal-grid-wrap">
                     <div class="kal-dow">${DOW_RU.map(d => `<span>${d}</span>`).join('')}</div>
@@ -90,6 +90,10 @@ function renderIndividual(ctx) {
     </div>`;
 
     document.getElementById('ktpGroupBtn').onclick = ctx.openGroupMenu;
+    const helpBtn = document.getElementById('ktpHelpBtn');
+    if (helpBtn) {
+        helpBtn.addEventListener('click', () => openCtxMenuRaw(ktpHelpHtml({ indiMode: true }), helpBtn, null, { alignRight: true, flip: true }));
+    }
     if (!items.length) {
         const add = document.getElementById('indiAddFirst');
         if (add) { add.addEventListener('click', () => openIndiModal({ api: ctx.api, anchor: add, groups: state.groups, onSaved: () => loadIndividual(ctx) })); }

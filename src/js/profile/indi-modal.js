@@ -11,11 +11,15 @@
    ученики — флажками из её состава, тема — только из курса группы; на каждого ученика
    создаётся своё занятие (`student_person_ids[]`).
 
-   Вызов: openIndiModal({ api, anchor, groups, multi?, fixed:{date?,group?,student?},
+   Режим `extra` — правка уже созданного дополнительного занятия (карточка календаря КТП): те же поля,
+   состав учеников и тема предзаполнены, сохранение правит занятие целиком (`updateExtra`).
+   `extra` = { extra_key, group_id, scheduled_at, ends_at, room_id, room, lesson_id, students:[{person_id,name}] }.
+
+   Вызов: openIndiModal({ api, anchor, groups, multi?, extra?, fixed:{date?,group?,student?},
                           edit?:{glid,group_id,student_person_id,student_name,
                                  date,time,room_id,room_name,lesson_id}, onSaved }).
    `api` — createApi(cfg) вызывающего экрана; его конфиг должен содержать действия
-   getRoster / getFreeRooms / lessonCandidates / createIndividual / updateIndividual.
+   getRoster / getFreeRooms / lessonCandidates / createIndividual / updateIndividual (+ updateExtra для `extra`).
    ══════════════════════════════════════════════════════════════════════ */
 
 import { esc, toast, todayIso, openGradePopPositioned, closeGradePop, fmtDate, openCtxMenuRaw } from './utils.js';
@@ -26,25 +30,26 @@ export function openIndiModal( o ) {
 
     const api    = o.api;
     const edit   = o.edit || null;
+    const extra  = o.extra || null;
     const fx     = o.fixed || {};
     const groups = o.groups || [];
 
-    const initGroup   = edit ? edit.group_id : ( fx.group ? fx.group.id : ( groups[ 0 ] && groups[ 0 ].id ) );
+    const initGroup   = edit ? edit.group_id : ( extra ? extra.group_id : ( fx.group ? fx.group.id : ( groups[ 0 ] && groups[ 0 ].id ) ) );
     const initStudent = edit ? edit.student_person_id : ( fx.student ? fx.student.person_id : 0 );
-    const initDate    = edit ? edit.date : ( fx.date || todayIso() );
-    const initTime    = edit ? ( edit.time || '15:00' ) : '15:00';
-    const initTimeEnd = edit ? ( edit.time_end || addHour( initTime ) ) : addHour( initTime );
-    const initRoom    = edit ? String( edit.room_id || '' ) : '';
-    const initLesson  = edit ? String( edit.lesson_id || '' ) : '';
+    const initDate    = edit ? edit.date : ( extra ? datePart( extra.scheduled_at ) : ( fx.date || todayIso() ) );
+    const initTime    = edit ? ( edit.time || '15:00' ) : ( extra ? ( timePart( extra.scheduled_at ) || '15:00' ) : '15:00' );
+    const initTimeEnd = edit ? ( edit.time_end || addHour( initTime ) ) : ( extra ? ( timePart( extra.ends_at ) || addHour( initTime ) ) : addHour( initTime ) );
+    const initRoom    = edit ? String( edit.room_id || '' ) : ( extra ? String( extra.room_id || '' ) : '' );
+    const initLesson  = edit ? String( edit.lesson_id || '' ) : ( extra ? String( extra.lesson_id || '' ) : '' );
 
-    const multi        = !! o.multi && ! edit;     // доп. занятие для части группы
-    const groupFixed   = !! fx.group || !! edit;   // группа не меняется
+    const multi        = ( !! o.multi || !! extra ) && ! edit; // доп. занятие для части группы
+    const groupFixed   = !! fx.group || !! edit || !! extra;   // группа не меняется
     const studentFixed = !! fx.student;            // ученик фиксирован (из «Группы»)
-    const dateFixed    = !! fx.date && ! edit;      // дата фиксирована (ячейка календаря)
+    const dateFixed    = !! fx.date && ! edit && ! extra; // дата фиксирована (ячейка календаря)
 
     pop.innerHTML = `
         <div class="gp-form gp-indi">
-        <div class="gp-title">${ edit ? 'Правка занятия' : ( multi ? 'Доп. занятие' : 'Инд. занятие' ) }</div>
+        <div class="gp-title">${ edit ? 'Правка занятия' : ( extra ? 'Правка доп. занятия' : ( multi ? 'Доп. занятие' : 'Инд. занятие' ) ) }</div>
         ${ groupFixed
             ? `<input type="hidden" id="giGroup" value="${ initGroup }">`
             : `<label class="gp-field"><span>Группа</span><select id="giGroup">${
@@ -62,7 +67,7 @@ export function openIndiModal( o ) {
         <label class="gp-field"><span>Кабинет</span><select id="giRoom"><option value="">Без кабинета</option></select></label>
         <label class="gp-field"><span>Тема</span><select id="giLesson"><option value="">— без темы —</option></select></label>
         <div class="gp-row">
-            <button class="prof-btn prof-btn-sm prof-btn-primary" data-gi="save">${ edit ? 'Сохранить' : 'Создать' }</button>
+            <button class="prof-btn prof-btn-sm prof-btn-primary" data-gi="save">${ edit || extra ? 'Сохранить' : 'Создать' }</button>
             <button class="prof-btn prof-btn-sm" data-gi="cancel">Отмена</button>
         </div>
         </div>`;
@@ -92,8 +97,8 @@ export function openIndiModal( o ) {
             const rooms = ( d && d.rooms ) || [];
             sel.innerHTML = '<option value="0">Без кабинета</option>' +
                 rooms.map( r => `<option value="${ r.id }" ${ String( r.id ) === initRoom ? 'selected' : '' }>${ esc( r.name ) }</option>` ).join( '' );
-            if ( edit && initRoom && ! sel.querySelector( `option[value="${ initRoom }"]` ) ) {
-                sel.insertAdjacentHTML( 'beforeend', `<option value="${ initRoom }" selected>${ esc( edit.room_name || 'Кабинет' ) }</option>` );
+            if ( ( edit || extra ) && initRoom && ! sel.querySelector( `option[value="${ initRoom }"]` ) ) {
+                sel.insertAdjacentHTML( 'beforeend', `<option value="${ initRoom }" selected>${ esc( ( edit || extra ).room_name || ( edit || extra ).room || 'Кабинет' ) }</option>` );
             }
         } catch { sel.innerHTML = '<option value="0">Без кабинета</option>'; }
     };
@@ -127,7 +132,7 @@ export function openIndiModal( o ) {
 
     // Ученики группы: кнопка открывает меню (prof-ctx-menu) — у каждого имени справа флажок, первая строка «Все».
     // Выбор хранится в `chosen` и применяется при закрытии меню, как в выборе сеансов ссылки (exam-sources).
-    const chosen = new Set();
+    const chosen = new Set( extra ? extra.students.map( s => Number( s.person_id ) ) : [] );
     let roster   = [];
     const summary = () => {
         const n = chosen.size;
@@ -190,7 +195,18 @@ export function openIndiModal( o ) {
         if ( ! multi && ! studentId ) { toast( 'Выберите ученика', 'error' ); return; }
         closeGradePop();
         try {
-            if ( edit ) {
+            if ( extra ) {
+                await api( 'updateExtra', {
+                    group_id:           groupId(),
+                    extra_key:          extra.extra_key,
+                    student_person_ids: chosen,
+                    scheduled_at:       at,
+                    ends_at:            endsAt(),
+                    room_id:            roomVal,
+                    lesson_id:          lessonVal,
+                } );
+                toast( 'Дополнительное занятие обновлено' );
+            } else if ( edit ) {
                 await api( 'updateIndividual', {
                     group_lesson_id:   edit.glid,
                     scheduled_at:      at,
@@ -217,7 +233,11 @@ export function openIndiModal( o ) {
     openGradePopPositioned( pop, o.anchor );
 }
 
-/** 'YYYY-MM-DD' → 'DD.MM'. */
+/** 'YYYY-MM-DD HH:MM:SS' → 'YYYY-MM-DD'. */
+function datePart( at ) { return String( at || '' ).slice( 0, 10 ); }
+
+/** 'YYYY-MM-DD HH:MM:SS' → 'HH:MM' ('' — времени нет). */
+function timePart( at ) { return String( at || '' ).split( ' ' )[ 1 ]?.slice( 0, 5 ) || ''; }
 
 /** '15:00' → '16:00' — дефолт времени окончания (начало + 1 час). */
 function addHour( time ) {

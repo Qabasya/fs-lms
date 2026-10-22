@@ -82,16 +82,47 @@ function mountWork( panel, root ) {
 		writeDrafts( timingKey, timing );
 	}
 
+	// Антидребезг: ответ «дан», когда ученик замолчал на ANSWER_SETTLE_MS (пока печатает, автосохранение
+	// и правки не считаются ответами), а правка в пределах ANSWER_MERGE_MS от прошлой отметки не даёт
+	// второго времени — это уточнение того же ответа.
+	const ANSWER_SETTLE_MS = 7000;
+	const ANSWER_MERGE_MS  = 30000;
+	const settleTimers     = new Map(); // taskId → { timer, at } (at — момент последней правки)
+
+	function commitAnswered( taskId, at ) {
+		if ( ! timing ) { return; }
+		if ( ! timing.first[ taskId ] ) {
+			timing.first[ taskId ]    = at;
+			timing.answered[ taskId ] = at;
+		} else if ( at - timing.answered[ taskId ] >= ANSWER_MERGE_MS ) {
+			timing.answered[ taskId ] = at;
+		}
+		writeDrafts( timingKey, timing );
+	}
+
+	/** Сразу фиксирует отложенные отметки (перед отправкой замера). */
+	function flushAnswered() {
+		settleTimers.forEach( ( { timer, at }, taskId ) => {
+			clearTimeout( timer );
+			commitAnswered( taskId, at );
+		} );
+		settleTimers.clear();
+	}
+
 	function markAnswered( taskId ) {
 		if ( ! timing ) { return; }
-		const now = Date.now();
-		if ( ! timing.first[ taskId ] ) { timing.first[ taskId ] = now; }
-		timing.answered[ taskId ] = now;
-		writeDrafts( timingKey, timing );
+		clearTimeout( settleTimers.get( taskId )?.timer );
+		const at    = Date.now();
+		const timer = setTimeout( () => {
+			settleTimers.delete( taskId );
+			commitAnswered( taskId, at );
+		}, ANSWER_SETTLE_MS );
+		settleTimers.set( taskId, { timer, at } );
 	}
 
 	function timingPayload() {
 		if ( ! timing ) { return '{}'; }
+		flushAnswered();
 		const now  = Date.now();
 		const ago  = ( ms ) => Math.max( 0, Math.round( ( now - ms ) / 1000 ) );
 		const answered = {};

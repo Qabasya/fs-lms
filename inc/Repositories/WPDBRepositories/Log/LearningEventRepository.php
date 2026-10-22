@@ -90,6 +90,27 @@ class LearningEventRepository {
 			: '';
 	}
 
+	/**
+	 * Было ли такое же событие того же пользователя за последние `$withinSec` секунд — защита ленты
+	 * от повторов (обновление страницы, возврат на вкладку). Время сравнивается часами БД: `created_at`
+	 * ставит она же.
+	 */
+	public function existsWithin( string $action, int $actorUserId, int $groupId, string $entityType, string $entityId, int $withinSec ): bool {
+		return (bool) $this->wpdb->get_var(
+			$this->wpdb->prepare(
+				'SELECT 1 FROM %i WHERE action = %s AND actor_user_id = %d AND group_id = %d AND entity_type = %s AND entity_id = %s
+				 AND created_at >= DATE_SUB(NOW(), INTERVAL %d SECOND) LIMIT 1',
+				$this->table,
+				$action,
+				$actorUserId,
+				$groupId,
+				$entityType,
+				$entityId,
+				$withinSec
+			)
+		);
+	}
+
 	/** Журнал неизменяем. */
 	public function update(): never {
 		throw new \LogicException( 'LearningEventRepository: записи ленты не изменяются.' );

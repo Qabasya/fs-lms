@@ -12,6 +12,7 @@ const vars = window.fs_lms_player_vars;
 
 export function initStepBroadcast() {
 	document.querySelectorAll( '[data-recording-pick]' ).forEach( initPicker );
+	document.querySelectorAll( '[data-recording-track]' ).forEach( trackRecordingOpen );
 
 	if ( ! vars?.actions?.setRecording ) { return; }
 
@@ -24,6 +25,10 @@ export function initStepBroadcast() {
 			save( input.value.trim() );
 		} );
 		form.querySelector( '[data-recording-clear]' )?.addEventListener( 'click', () => save( '' ) );
+	} );
+
+	document.querySelectorAll( '[data-recording-skip]' ).forEach( ( btn ) => {
+		btn.addEventListener( 'click', () => submitSkip( btn ) );
 	} );
 }
 
@@ -77,4 +82,49 @@ async function submit( form, link ) {
 		toast( err.toUserText ? err.toUserText() : err.message, 'error' );
 		buttons.forEach( ( b ) => { b.disabled = false; } );
 	}
+}
+
+/** Отмена (или возврат) шага «Запись занятия»: записи у этого занятия не будет. */
+async function submitSkip( btn ) {
+	btn.disabled = true;
+
+	const fd = new FormData();
+	fd.append( 'action', vars.actions.setRecording );
+	fd.append( 'security', vars.nonces.setRecording );
+	fd.append( 'group_lesson_id', btn.dataset.groupLessonId );
+	fd.append( 'recording_skipped', btn.dataset.recordingSkip );
+
+	try {
+		await playerPost( fd );
+		toast( '1' === btn.dataset.recordingSkip ? 'Шаг записи отменён' : 'Шаг записи возвращён' );
+		window.location.reload();
+	} catch ( err ) {
+		toast( err.toUserText ? err.toUserText() : err.message, 'error' );
+		btn.disabled = false;
+	}
+}
+
+/**
+ * Открытие записи занятия (клик по ссылке или первый запуск видео) — в ленту «Активность» преподавателя.
+ * Без ожидания и без ошибок: сбой записи не должен мешать смотреть запись; повторы отсекает сервер.
+ */
+function trackRecordingOpen( box ) {
+	if ( ! vars?.actions?.logActivity ) { return; }
+
+	let sent = false;
+	const send = () => {
+		if ( sent ) { return; }
+		sent = true;
+
+		const fd = new FormData();
+		fd.append( 'action', vars.actions.logActivity );
+		fd.append( 'security', vars.nonces.logActivity );
+		fd.append( 'type', 'recording' );
+		fd.append( 'group_lesson_id', box.dataset.groupLessonId );
+		playerPost( fd ).catch( () => {} );
+	};
+
+	box.querySelectorAll( 'a[href]' ).forEach( ( a ) => a.addEventListener( 'click', send ) );
+	// `play` не всплывает — слушаем на захвате.
+	box.addEventListener( 'play', send, true );
 }

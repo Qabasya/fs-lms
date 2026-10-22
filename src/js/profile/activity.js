@@ -43,6 +43,15 @@ const EVENT_LABELS = {
     'learning.extra_works_changed': 'Изменены доп. работы',
     'learning.lesson_published':  'Тема открыта',
     'learning.lesson_hidden':     'Тема скрыта',
+    'learning.lesson_opened':     'Открыт урок',
+    'learning.recording_opened':  'Открыта запись',
+    'learning.page_viewed':       'Открыта страница',
+};
+
+/** Подпись роли того, кто выполнил действие (у действий преподавателя роль не показываем). */
+const ACTOR_ROLE_TAG = {
+    lms_student: 'ученик',
+    lms_parent:  'родитель',
 };
 
 /**
@@ -62,8 +71,17 @@ const WORK_SOURCE = {
 /** Вкладки-ленты журнала: ключ = параметр `feed` запроса. */
 const FEEDS = {
     events: { title: 'Лента событий',     empty: 'По этой группе событий пока нет.' },
+    works:  { title: 'Лента событий',     empty: 'Работ и контрольных по этой группе пока нет.' },
+    opens:  { title: 'Лента событий',     empty: 'Открытий уроков, записей и страниц по этой группе пока нет.' },
     course: { title: 'Действия с курсом', empty: 'С курсом группы пока ничего не делали.' },
 };
+
+/** Фильтры вкладки «Лента событий»: ключ = параметр `feed` запроса. */
+const EVENT_FILTERS = [
+    { key: 'events', label: 'Всё' },
+    { key: 'works',  label: 'Работы и контрольные' },
+    { key: 'opens',  label: 'Открытия' },
+];
 
 let root = null;
 /** Заглушка пикера, пока группа не выбрана (как «Все группы» в «Работах»). */
@@ -87,6 +105,7 @@ export function renderActivity(r, opts = {}) {
         cfg,
         groupId: (p.groups && p.groups[0]) ? p.groups[0].id : null,
         tab:     'events',
+        eventsFilter: 'events', // фильтр вкладки «Лента событий»
         feeds:   {},     // feed → { events, total, page }
         lessons: null,   // строки программы для селекта занятий
         lessonId: null,
@@ -113,7 +132,7 @@ async function loadTab() {
 
     try {
         if (FEEDS[state.tab]) {
-            state.feeds[state.tab] = await apiEvents('getEvents', { group_id: state.groupId, feed: state.tab, page: 1 });
+            state.feeds[feedKey()] = await apiEvents('getEvents', { group_id: state.groupId, feed: feedKey(), page: 1 });
         } else {
             await loadLessons();
         }
@@ -152,14 +171,17 @@ function pickDefaultLesson() {
     return past.length ? past[past.length - 1].id : state.lessons[0].id;
 }
 
+/** Какая лента сейчас на экране: у «Ленты событий» — выбранный фильтр, у «Действий с курсом» — она сама. */
+function feedKey() { return 'events' === state.tab ? state.eventsFilter : state.tab; }
+
 async function loadMoreEvents() {
-    const feed = state.feeds[state.tab];
+    const feed = state.feeds[feedKey()];
     if (state.loading || !feed) { return; }
     state.loading = true;
 
     try {
-        const next = await apiEvents('getEvents', { group_id: state.groupId, feed: state.tab, page: feed.page + 1 });
-        state.feeds[state.tab] = {
+        const next = await apiEvents('getEvents', { group_id: state.groupId, feed: feedKey(), page: feed.page + 1 });
+        state.feeds[feedKey()] = {
             events: feed.events.concat(next.events || []),
             total:  next.total,
             page:   next.page,
@@ -212,10 +234,14 @@ function render(inner) {
 }
 
 function eventsBody() {
-    const feed = FEEDS[state.tab];
-    const data = state.feeds[state.tab];
+    const feed = FEEDS[feedKey()];
+    const data = state.feeds[feedKey()];
+    const filters = 'events' === state.tab
+        ? `<div class="prof-seg act-filters" role="group" aria-label="Фильтр ленты">${EVENT_FILTERS.map(f =>
+            `<button type="button" class="${f.key === state.eventsFilter ? 'on' : ''}" data-filter="${f.key}">${esc(f.label)}</button>`).join('')}</div>`
+        : '';
     if (!data || !data.events.length) {
-        return `<div class="prof-card"><div class="rev-empty">${esc(feed.empty)}</div></div>`;
+        return `<div class="prof-card">${filters}<div class="rev-empty">${esc(feed.empty)}</div></div>`;
     }
 
     const shown = data.events.length;
@@ -229,6 +255,7 @@ function eventsBody() {
             <h3>${esc(feed.title)}</h3>
             <span class="ch-sub">${shown} из ${data.total}</span>
         </div>
+        ${filters}
         <div class="act-feed">${data.events.map(eventRow).join('')}</div>
         ${more}
     </div>`;
@@ -236,10 +263,11 @@ function eventsBody() {
 
 function eventRow(e) {
     const label = EVENT_LABELS[e.action] || e.action;
-    const actor = e.actor ? esc(e.actor) : 'система';
+    const role  = ACTOR_ROLE_TAG[e.actor_role] ? ` (${ACTOR_ROLE_TAG[e.actor_role]})` : '';
+    const actor = e.actor ? esc(e.actor) + role : 'система';
     const inner = `
         <div class="act-event-main">
-            <span class="act-event-label">${esc(label)}</span>
+            <span class="act-event-label">${esc(label)}${e.detail ? `: ${esc(e.detail)}` : ''}</span>
             <span class="act-event-actor">${actor}</span>
         </div>
         <time class="act-event-time">${esc(fmtDateTime(e.created_at))}</time>`;
@@ -403,8 +431,14 @@ function wire() {
         if (tab.dataset.tab === state.tab) { return; }
         state.tab = tab.dataset.tab;
         // Данные вкладки могли не грузиться ни разу — тогда тянем, иначе рисуем из состояния.
-        const loaded = FEEDS[state.tab] ? state.feeds[state.tab] : state.lessons;
+        const loaded = FEEDS[state.tab] ? state.feeds[feedKey()] : state.lessons;
         if (loaded) { render(); } else { loadTab(); }
+    }));
+
+    root.querySelectorAll('[data-filter]').forEach(btn => btn.addEventListener('click', () => {
+        if (btn.dataset.filter === state.eventsFilter) { return; }
+        state.eventsFilter = btn.dataset.filter;
+        if (state.feeds[feedKey()]) { render(); } else { loadTab(); }
     }));
 
     root.querySelectorAll('.act-event--link').forEach(row => row.addEventListener('click', () => {

@@ -17,7 +17,8 @@ class GroupLessonRepository {
 	 * `gl`; первым плейсхолдером запроса идёт таблица посещаемости.
 	 */
 	/** Занятие без записи: пусты и указатель хранилища, и внешняя ссылка. */
-	private const NO_RECORDING = "( recording_url IS NULL OR recording_url = '' ) AND ( recording_link IS NULL OR recording_link = '' )";
+	/** Записи нет и не ожидается: `recording_skipped` — преподаватель отменил шаг «Трансляция» (запись общая с соседним занятием). */
+	private const NO_RECORDING = "( recording_url IS NULL OR recording_url = '' ) AND ( recording_link IS NULL OR recording_link = '' ) AND recording_skipped = 0";
 
 	private const HAS_ATTENDANCE = 'EXISTS( SELECT 1 FROM %i a WHERE a.group_lesson_id = gl.id ) AS has_attendance';
 
@@ -389,6 +390,15 @@ class GroupLessonRepository {
 		return false !== $this->wpdb->update(
 			$this->table,
 			array( 'recording_link' => $url ),
+			array( 'id' => $id )
+		);
+	}
+
+	/** Отмена шага «Трансляция» занятия: записи не будет, напоминание «без записи» не показывается. */
+	public function setRecordingSkipped( int $id, bool $skipped ): bool {
+		return false !== $this->wpdb->update(
+			$this->table,
+			array( 'recording_skipped' => $skipped ? 1 : 0 ),
 			array( 'id' => $id )
 		);
 	}

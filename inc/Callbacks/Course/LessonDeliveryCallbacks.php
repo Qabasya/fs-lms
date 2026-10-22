@@ -133,13 +133,23 @@ class LessonDeliveryCallbacks extends BaseController {
 	 * Одно поле `recording` (КТП и плеер): тип определяется по значению — `https://` уходит во
 	 * внешнюю ссылку, `s3://` в указатель хранилища, второе поле при этом снимается; пусто — снять обе.
 	 *
-	 * Params: group_lesson_id, recording? | recording_url?, recording_link?
+	 * Отмена шага «Трансляция» (`recording_skipped` = 1): записи у занятия не будет — например, в один день
+	 * проведено две темы, а запись одна. Ученик шаг не видит, напоминание «без записи» молчит; `0` возвращает шаг.
+	 * Ссылка на запись при этом не трогается.
+	 *
+	 * Params: group_lesson_id, recording? | recording_url?, recording_link? | recording_skipped?
 	 */
 	public function ajaxSetRecordingUrl(): void {
 		$this->authorize( Nonce::SaveSchedule, Capability::ManageLmsTeaching );
 		$groupLessonId = $this->requireInt( 'group_lesson_id' );
 
 		$this->requireProgramRow( $groupLessonId );
+
+		if ( $this->hasParam( 'recording_skipped' ) ) {
+			$skipped = $this->sanitizeBool( 'recording_skipped' );
+			$this->groupLessons->setRecordingSkipped( $groupLessonId, $skipped );
+			$this->success( array( 'saved' => true, 'recording_skipped' => $skipped ) );
+		}
 
 		$pointer = $this->hasParam( 'recording_url' ) ? $this->sanitizeText( 'recording_url' ) : null;
 		$link    = $this->hasParam( 'recording_link' ) ? $this->sanitizeText( 'recording_link' ) : null;

@@ -278,6 +278,7 @@ enum AjaxHook: string {
 	case GetIndividualSlots      = 'get_individual_slots'; // params: group_id — инд. занятия группы (ФИО + дата + урок/тема)
 	case GetLessonCandidates     = 'get_lesson_candidates'; // params: group_id[, search] — уроки предмета (курс-первыми) для назначения инд. занятию
 	case AssignIndividualLesson  = 'assign_individual_lesson'; // params: group_lesson_id, lesson_id — привязать урок банка к инд. занятию
+	case UpdateExtraLessons      = 'update_extra_lessons';      // params: group_id, extra_key, student_person_ids[], scheduled_at[, ends_at, room_id, lesson_id] — правка доп. занятия для части группы целиком
 	case UpdateIndividualLesson  = 'update_individual_lesson'; // params: group_lesson_id[, scheduled_at, room_id, student_person_id, lesson_id] — правка инд. занятия (B2)
 
 	// ==== Экран «Группы» / ростер (ЛК преподавателя, Эпик 10 T10.7) ====
@@ -322,6 +323,7 @@ enum AjaxHook: string {
 
 	// ==== ЛК учащегося/родителя (Эпик 7) ====
 	case GetLearnerProfile       = 'get_learner_profile';      // [student_person_id] — родитель выбирает ребёнка; ученик игнорит
+	case LogLearnerActivity      = 'log_learner_activity';     // type=page|recording; page | group_lesson_id; [student_person_id] — открытие экрана кабинета / записи занятия (лента «Активность»)
 
 	// ==== Кабинеты / аудитории (офис, Эпик 9) ====
 	case GetRooms                = 'get_rooms';                // список кабинетов + группы (для назначения)

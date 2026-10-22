@@ -427,6 +427,8 @@ class Migration_1_0_0 implements MigrationInterface {
 			work_deadlines     json                DEFAULT NULL,
 			recording_url      varchar(1000)       DEFAULT NULL,
 			recording_link     varchar(1000)       DEFAULT NULL,
+			recording_skipped  tinyint(1)          NOT NULL DEFAULT 0,
+			extra_key          varchar(32)         DEFAULT NULL,
 			created_by_user_id bigint(20) unsigned DEFAULT NULL,
 			updated_by_user_id bigint(20) unsigned DEFAULT NULL,
 			created_at         datetime            NOT NULL DEFAULT CURRENT_TIMESTAMP,

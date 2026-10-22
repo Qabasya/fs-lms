@@ -13,6 +13,7 @@ use Inc\Repositories\WPDBRepositories\Log\LearningEventRepository;
 use Inc\Services\Course\CourseAssignmentService;
 use Inc\Services\Course\GroupAccessGuard;
 use Inc\Services\Group\ProgramCompositionService;
+use Inc\Services\Log\ActivityEventDetailResolver;
 use Inc\Shared\Traits\Authorizer;
 use Inc\Shared\Traits\ProgramAccess;
 use Inc\Shared\Traits\Sanitizer;
@@ -49,6 +50,7 @@ class ProgramCallbacks extends BaseController {
 		private readonly CourseAssignmentService   $assignmentService,
 		private readonly GroupAccessGuard          $guard,
 		private readonly LearningEventRepository   $eventRepo,
+		private readonly ActivityEventDetailResolver $eventDetails,
 	) {
 		parent::__construct();
 	}
@@ -220,6 +222,9 @@ class ProgramCallbacks extends BaseController {
 			'events' => array_map( fn( $e ) => array(
 				'action'      => $e->action,
 				'actor'       => $e->actorUserId ? ( get_userdata( $e->actorUserId )->display_name ?? '' ) : '',
+				'actor_role'  => (string) $e->actorRole,
+				// Тема занятия / название экрана у открытий; у остальных событий пусто.
+				'detail'      => $this->eventDetails->detail( $e ),
 				'created_at'  => $e->createdAt,
 				'is_public'   => $e->isPublic,
 				// Сущность события — клиент по ней открывает саму работу/попытку.

@@ -32,12 +32,6 @@ $nav_labels = array(
 	'next' => array( 'Следующая', 'Первая статья' ),
 );
 ?>
-<div class="fs-article-report">
-	<?php
-	$report_task_id = 0;
-	include __DIR__ . '/report-error-button.php';
-	?>
-</div>
 <nav class="fs-article-nav" aria-label="Навигация по статьям">
 	<div class="fs-article-nav__head">
 		<span class="fs-article-nav__counter"><?php echo esc_html( $nav_counter ); ?></span>

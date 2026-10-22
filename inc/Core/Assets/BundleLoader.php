@@ -150,6 +150,8 @@ class BundleLoader extends BaseController {
 					// Журнал «Ошибки»: сбой, которого сервер не видел (ответ не JSON, нет сети).
 					'reportClientError'      => AjaxHook::ReportClientError->jsAction(),
 					'setRecording'           => $canTeach ? AjaxHook::SetRecordingUrl->jsAction() : '',
+					// Открытие записи занятия учеником/родителем — в ленту «Активность» преподавателя.
+					'logActivity'            => AjaxHook::LogLearnerActivity->jsAction(),
 				),
 				'nonces'   => array(
 					'markStep'          => Nonce::MarkStepProgress->create(),
@@ -158,6 +160,7 @@ class BundleLoader extends BaseController {
 					'previewSolve'      => Nonce::PreviewSolve->create(),
 					'reportClientError' => Nonce::ReportClientError->create(),
 					'setRecording'      => $canTeach ? Nonce::SaveSchedule->create() : '',
+					'logActivity'       => Nonce::LearnerActivity->create(),
 				),
 			)
 		);

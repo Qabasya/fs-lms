@@ -126,6 +126,15 @@ ThemeCompatService::header();
 				</div>
 
 				<?php
+				// «Нашли ошибку?» — вне навигации: у статьи без серии навигации нет, а кнопка нужна всегда.
+				?>
+				<div class="fs-article-report">
+					<?php
+					$report_task_id = 0;
+					include __DIR__ . '/partials/report-error-button.php';
+					?>
+				</div>
+				<?php
 				// Переходы по серии: отбивка и отступ сверху — в самом компоненте.
 				include __DIR__ . '/partials/article-nav.php';
 

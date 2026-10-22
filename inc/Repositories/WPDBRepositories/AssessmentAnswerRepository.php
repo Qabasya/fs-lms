@@ -18,6 +18,9 @@ class AssessmentAnswerRepository {
 	 * подставляет только значения. Белый список держит эту интерполяцию
 	 * безопасной независимо от того, откуда вызывающий взял ключи `$data`.
 	 */
+	/** Правка ответа в пределах этого числа секунд от прошлой отметки не двигает время ответа. */
+	public const ANSWER_MERGE_SEC = 30;
+
 	private const WRITABLE_COLUMNS = array(
 		'attempt_id',
 		'task_id',
@@ -43,7 +46,8 @@ class AssessmentAnswerRepository {
 	 * Сохраняет ответ ученика и ведёт время ответа.
 	 *
 	 * Первый непустой текст ставит `first_answered_at` и `answered_at`; дальше `answered_at` двигается
-	 * только когда текст реально изменился (автосохранение шлёт и неизменённый ответ). Пустой ответ время
+	 * только когда текст реально изменился (автосохранение шлёт и неизменённый ответ) и с прошлой
+	 * отметки прошло не меньше {@see self::ANSWER_MERGE_SEC}: правка сразу после ответа — уточнение, а не второй ответ. Пустой ответ время
 	 * не трогает. Всё одним запросом, как в {@see upsert()}: порядок присваиваний в `ON DUPLICATE KEY UPDATE`
 	 * важен — временные поля сравнивают новый текст со старым до его перезаписи.
 	 *
@@ -62,7 +66,9 @@ class AssessmentAnswerRepository {
 			. ' VALUES (%d, %d, %s, ' . $stamps . ')'
 			. ' ON DUPLICATE KEY UPDATE'
 			. ' `first_answered_at` = IF(`first_answered_at` IS NULL AND VALUES(`answered_at`) IS NOT NULL, VALUES(`answered_at`), `first_answered_at`),'
-			. ' `answered_at` = IF(VALUES(`answered_at`) IS NOT NULL AND NOT (`answer_text` <=> VALUES(`answer_text`)), VALUES(`answered_at`), `answered_at`),'
+			. ' `answered_at` = IF(VALUES(`answered_at`) IS NOT NULL AND NOT (`answer_text` <=> VALUES(`answer_text`))'
+			. ' AND (`answered_at` IS NULL OR TIMESTAMPDIFF(SECOND, `answered_at`, VALUES(`answered_at`)) >= ' . self::ANSWER_MERGE_SEC . '),'
+			. ' VALUES(`answered_at`), `answered_at`),'
 			. ' `answer_text` = VALUES(`answer_text`)';
 
 		// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching

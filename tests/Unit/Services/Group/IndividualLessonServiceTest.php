@@ -14,6 +14,7 @@ use Inc\Repositories\WPDBRepositories\RoomRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 use Inc\Services\Group\IndividualLessonService;
 use Inc\Services\Group\ScheduleEventPublisher;
+use Inc\DTO\Course\GroupLessonDTO;
 use PHPUnit\Framework\TestCase;
 use Tests\Support\GroupLessonFixtures;
 
@@ -32,6 +33,7 @@ class IndividualLessonServiceTest extends TestCase {
 	private CourseManager&\PHPUnit\Framework\MockObject\MockObject $courses;
 	private LogEventDispatcherInterface&\PHPUnit\Framework\MockObject\MockObject $dispatcher;
 	private \Inc\Repositories\WPDBRepositories\ExamSessionRepository&\PHPUnit\Framework\MockObject\MockObject $examSessions;
+	private \Inc\Services\Course\GroupLessonUsageGuard&\PHPUnit\Framework\MockObject\MockObject $usage;
 	private IndividualLessonService $service;
 
 	protected function setUp(): void {
@@ -44,6 +46,8 @@ class IndividualLessonServiceTest extends TestCase {
 		$this->courses       = $this->createMock( CourseManager::class );
 		$this->dispatcher    = $this->createMock( LogEventDispatcherInterface::class );
 		$this->examSessions  = $this->createMock( \Inc\Repositories\WPDBRepositories\ExamSessionRepository::class );
+
+		$this->usage = $this->createMock( \Inc\Services\Course\GroupLessonUsageGuard::class );
 
 		$this->service = new IndividualLessonService(
 			$this->groupLessons,
@@ -58,6 +62,7 @@ class IndividualLessonServiceTest extends TestCase {
 				$this->examSessions,
 				new \Inc\Services\Exam\ExamTime( $this->createMock( \Inc\Contracts\ClockInterface::class ) )
 			),
+			$this->usage,
 		);
 	}
 
@@ -244,5 +249,63 @@ class IndividualLessonServiceTest extends TestCase {
 		$this->groupLessons->expects( self::once() )->method( 'setRoom' )->with( 42, null );
 
 		$this->service->updateIndividualLesson( 42, null, null, 0, null, null, 99 );
+	}
+
+	// ---- дополнительные занятия одной карточкой -------------------------------------------------------------------------------
+
+	private function extraRow( int $id, int $studentId, string $key = 'k1' ): GroupLessonDTO {
+		return GroupLessonDTO::fromArray( array(
+			'id' => $id, 'group_id' => 1, 'kind' => 'individual', 'student_person_id' => $studentId, 'extra_key' => $key,
+			'scheduled_at' => '2026-05-20 15:00:00', 'ends_at' => '2026-05-20 16:00:00', 'status' => 'scheduled',
+		) );
+	}
+
+	public function test_get_extra_lessons_merges_rows_with_same_key_into_one_card(): void {
+		$this->groups->method( 'findById' )->willReturn( (object) array( 'room_id' => 0 ) );
+		$this->rooms->method( 'findAll' )->willReturn( array() );
+		$this->records->method( 'findActiveByGroupId' )->willReturn( array(
+			(object) array( 'studentPersonId' => 9001, 'snapshotLastName' => 'Иванов', 'snapshotFirstName' => 'Иван' ),
+			(object) array( 'studentPersonId' => 9002, 'snapshotLastName' => 'Петров', 'snapshotFirstName' => 'Пётр' ),
+		) );
+		$this->groupLessons->method( 'listByGroup' )->willReturn( array(
+			$this->extraRow( 10, 9001 ),
+			$this->extraRow( 11, 9002 ),
+			$this->extraRow( 12, 9001, 'k2' ),
+		) );
+
+		$cards = $this->service->getExtraLessons( 1 );
+
+		self::assertCount( 2, $cards );
+		self::assertSame( 'k1', $cards[0]['extra_key'] );
+		self::assertSame( array( 9001, 9002 ), array_column( $cards[0]['students'], 'person_id' ) );
+	}
+
+	public function test_update_extra_lessons_refuses_to_remove_student_with_data(): void {
+		$this->groups->method( 'findById' )->willReturn( new \stdClass() );
+		$this->records->method( 'findActiveByGroupId' )->willReturn( array(
+			(object) array( 'studentPersonId' => 9001, 'snapshotLastName' => 'Иванов', 'snapshotFirstName' => 'Иван' ),
+			(object) array( 'studentPersonId' => 9002, 'snapshotLastName' => 'Петров', 'snapshotFirstName' => 'Пётр' ),
+		) );
+		$this->groupLessons->method( 'listByGroup' )->willReturn( array( $this->extraRow( 10, 9001 ), $this->extraRow( 11, 9002 ) ) );
+		$this->usage->method( 'hasEngagement' )->with( 11 )->willReturn( true );
+		$this->groupLessons->expects( self::never() )->method( 'remove' );
+
+		$this->expectException( \InvalidArgumentException::class );
+		$this->service->updateExtraLessons( 1, 'k1', array( 9001 ), '2026-05-20 15:00:00', null, null, null, 99 );
+	}
+
+	public function test_update_extra_lessons_adds_rows_for_new_students_with_same_key(): void {
+		$this->groups->method( 'findById' )->willReturn( new \stdClass() );
+		$this->records->method( 'findActiveByGroupId' )->willReturn( array(
+			(object) array( 'studentPersonId' => 9001, 'snapshotLastName' => 'А', 'snapshotFirstName' => 'А' ),
+			(object) array( 'studentPersonId' => 9002, 'snapshotLastName' => 'Б', 'snapshotFirstName' => 'Б' ),
+		) );
+		$this->groupLessons->method( 'listByGroup' )->willReturn( array( $this->extraRow( 10, 9001 ) ) );
+		$this->groupLessons->method( 'find' )->willReturn( $this->extraRow( 10, 9001 ) );
+		$this->groupLessons->expects( self::once() )->method( 'add' )->with(
+			self::callback( static fn( $dto ): bool => 9002 === $dto->studentPersonId && 'k1' === $dto->extraKey )
+		)->willReturn( 55 );
+
+		$this->service->updateExtraLessons( 1, 'k1', array( 9001, 9002 ), '2026-05-20 15:00:00', null, null, null, 99 );
 	}
 }

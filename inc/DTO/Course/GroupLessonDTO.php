@@ -77,6 +77,9 @@ readonly class GroupLessonDTO {
 		 * если запись из хранилища не открылась.
 		 */
 		public ?string $recordingLink = null,
+		public bool $recordingSkipped = false,
+		/** Общий ключ строк одного дополнительного занятия для части группы; null — обычное занятие. */
+		public ?string $extraKey = null,
 	) {}
 
 	public static function fromArray( array $row ): self {
@@ -112,6 +115,8 @@ readonly class GroupLessonDTO {
 			continuedFromId : isset( $row['continued_from_id'] ) && '' !== $row['continued_from_id'] ? (int) $row['continued_from_id'] : null,
 			hasAttendance   : ! empty( $row['has_attendance'] ),
 			recordingLink   : isset( $row['recording_link'] ) && '' !== $row['recording_link'] ? (string) $row['recording_link'] : null,
+			recordingSkipped: ! empty( $row['recording_skipped'] ),
+			extraKey        : isset( $row['extra_key'] ) && '' !== $row['extra_key'] ? (string) $row['extra_key'] : null,
 		);
 	}
 

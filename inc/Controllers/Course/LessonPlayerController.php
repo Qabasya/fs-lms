@@ -12,6 +12,7 @@ use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Services\Course\GroupAccessGuard;
 use Inc\Services\Course\LessonPlayerService;
 use Inc\Services\Course\PlayerModeSwitchService;
+use Inc\Services\Log\StudentActivityLogger;
 use Inc\Services\Shared\ThemeCompatService;
 use Inc\Shared\Traits\Sanitizer;
 
@@ -34,6 +35,7 @@ class LessonPlayerController extends BaseController implements ServiceInterface 
 		private readonly GroupLessonRepository $groupLessons,
 		private readonly LessonPlayerService   $player,
 		private readonly PlayerModeSwitchService $modeSwitch,
+		private readonly StudentActivityLogger   $activity,
 	) {
 		parent::__construct();
 	}
@@ -88,6 +90,12 @@ class LessonPlayerController extends BaseController implements ServiceInterface 
 		// Родителю вид собирается как преподавателю (без гейтов), но шаги не выводятся:
 		// шаблон в режиме блокировки их не рендерит. Вся сборка данных — в сервисе (Р2.7).
 		$personId = ( $isTeacher || $isParent ) ? 0 : $person->id;
+
+		// Открытие урока учеником и родителем — в ленту «Активность» преподавателя (преподаватель и предпросмотр не пишутся).
+		if ( ! $isTeacher ) {
+			$this->activity->lessonOpened( $userId, $row->groupId, $row->id );
+		}
+
 		$data     = $this->player->buildRouteView( $personId, $row, $isTeacher || $isParent );
 
 		// Урок без контента (нет уроков-шагов) — прежний themed-фолбэк.
