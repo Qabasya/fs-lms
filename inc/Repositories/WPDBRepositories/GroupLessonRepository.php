@@ -80,6 +80,60 @@ class GroupLessonRepository {
 		return array_map( [ GroupLessonDTO::class, 'fromArray' ], $rows ?: array() );
 	}
 
+	/**
+	 * Страница занятий для экрана «Работы» кабинета: прошедшие занятия групп, новые сверху.
+	 *
+	 * Занятие с датой попадает в ленту, когда оно уже началось. У занятия без даты (открытая группа,
+	 * где даты не ставятся) «датой» служит последняя сдача по нему, а без сдач оно в ленте не нужно.
+	 * Порядок и курсор — по этой «дате» и ID занятия: при одинаковых датах страницы не рвутся.
+	 *
+	 * @param int[]       $groupIds Группы, доступные преподавателю
+	 * @param string      $now      Текущее время в формате `scheduled_at`
+	 * @param string|null $cursorAt «Дата» последнего просмотренного занятия; null — с начала
+	 * @param int         $cursorId ID последнего просмотренного занятия
+	 * @param int         $limit    Сколько занятий отдать
+	 *
+	 * @return array<int, array{row: GroupLessonDTO, at: string}>
+	 */
+	public function listFeedPage( array $groupIds, string $now, ?string $cursorAt, int $cursorId, int $limit ): array {
+		if ( array() === $groupIds ) {
+			return array();
+		}
+
+		$groupPlaceholders = implode( ', ', array_fill( 0, count( $groupIds ), '%d' ) );
+		$feedAt            = 'COALESCE( gl.scheduled_at, sm.last_at )';
+		$args              = array_merge( array( $this->table, TableName::Submissions->prefixed() ), $groupIds, array( $now ) );
+		$cursorSql         = '';
+
+		if ( null !== $cursorAt ) {
+			$cursorSql = " AND ( $feedAt < %s OR ( $feedAt = %s AND gl.id < %d ) )";
+			array_push( $args, $cursorAt, $cursorAt, $cursorId );
+		}
+		$args[] = $limit;
+
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$sql = $this->wpdb->prepare(
+			"SELECT gl.*, $feedAt AS feed_at
+			 FROM %i gl
+			 LEFT JOIN ( SELECT group_lesson_id, MAX( submitted_at ) AS last_at FROM %i WHERE task_id IS NULL AND submitted_at IS NOT NULL GROUP BY group_lesson_id ) sm
+			        ON sm.group_lesson_id = gl.id
+			 WHERE gl.group_id IN ($groupPlaceholders)
+			   AND ( ( gl.scheduled_at IS NOT NULL AND gl.scheduled_at <= %s ) OR ( gl.scheduled_at IS NULL AND sm.last_at IS NOT NULL ) )
+			   $cursorSql
+			 ORDER BY feed_at DESC, gl.id DESC
+			 LIMIT %d",
+			$args
+		);
+		// phpcs:enable
+
+		$rows = $this->wpdb->get_results( $sql, ARRAY_A );
+
+		return array_map(
+			static fn( array $r ): array => array( 'row' => GroupLessonDTO::fromArray( $r ), 'at' => (string) $r['feed_at'] ),
+			$rows ?: array()
+		);
+	}
+
 	public function find( int $id ): ?GroupLessonDTO {
 		$row = $this->wpdb->get_row(
 			$this->wpdb->prepare(

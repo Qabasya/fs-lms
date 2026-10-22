@@ -25,8 +25,8 @@ const STATUS_LABEL  = { submitted: 'Сдано', pending: 'На проверке
    проверки заданий) Graded наступает сразу при сдаче и не значит «учитель
    посмотрел», нужна отдельная кнопка. */
 const APPROVABLE_KIND = 'ege_computer';
-/* Статусы сдачи, при которых работа ещё висит в корзине «На проверке» —
-   зеркало ReviewQueueService::workStatusesFor('pending'). */
+/* Статусы сдачи, при которых работа ещё ждёт проверки (фильтр «Ждут проверки» в «Работах») —
+   зеркало PassedWorksService::pendingStatuses(). */
 const OPEN_STATUSES = [ 'submitted', 'pending_review' ];
 const STALE_CODE = 'X-STALE';
 
@@ -159,8 +159,8 @@ function render(d, history = []) {
         ? (!!d.approvable && !!attemptGradeApi)
         : (d.kind === 'exam' && d.attempt_id && attemptGradeApi && d.assessment_kind === APPROVABLE_KIND && !isApproved);
     // Tasks.md п. 6: работа с разбором по заданиям не имеет единой формы оценки
-    // (оценивание поштучное, D4) — без этой кнопки её нечем было увести из
-    // «На проверке» в «Проверенные».
+    // (оценивание поштучное, D4) — без этой кнопки её нечем было вывести из
+    // состояния «ждёт проверки» в «проверена».
     const canComplete = d.kind === 'work' && d.submission_id && OPEN_STATUSES.includes(d.status);
 
     // «Засчитать работу»: все ещё не зачтённые задания получают полный балл. Только работа и только те задания,
@@ -386,7 +386,7 @@ function wireApprove(root, d) {
     }));
 }
 
-/* Tasks.md п. 6: «Проверка завершена» — переводит сдачу в «Проверенные».
+/* Tasks.md п. 6: «Проверка завершена» — снимает сдачу с проверки (статус «оценена»).
    Неоценённые развёрнутые ответы фиксируются с текущим баллом, поэтому
    спрашиваем подтверждение, когда такие задания в работе ещё есть. */
 function wireComplete(root, d) {
@@ -407,7 +407,7 @@ function wireComplete(root, d) {
         btn.disabled = true;
         try {
             await reviewApi('completeReview', { submission_id: d.submission_id });
-            toast('Работа переведена в «Проверенные»');
+            toast('Проверка завершена');
             reload();
         } catch (e) { toast(e.message, 'error'); btn.disabled = false; }
     });
@@ -610,8 +610,8 @@ function wireTaskCredit(root, d) {
 
 /* «Засчитать работу» — полный балл за все ещё не зачтённые задания (все считаются выполненными верно).
    Тот же GradeBatchTask, что и у зачёта одного задания, по одному запросу на задание: он пишет строку задания,
-   синхронизирует снимок вердиктов и пересчитывает итог. Если работа ещё «на проверке», она сразу уходит
-   в «Проверенные» — зачёт целиком и есть завершённая проверка. Комментарии учителя не трогаем. */
+   синхронизирует снимок вердиктов и пересчитывает итог. Если работа ещё ждёт проверки, она сразу
+   считается проверенной — зачёт целиком и есть завершённая проверка. Комментарии учителя не трогаем. */
 function wireWorkCredit(root, d, tasks, canComplete) {
     const btn = root.querySelector('.sum-credit-work');
     if (!btn) { return; }

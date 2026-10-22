@@ -92,7 +92,7 @@ class GroupRosterCallbacks extends BaseController {
 		}
 	}
 
-	/** Офис видит все группы, препод — свои + активные замены (как ReviewQueueCallbacks). */
+	/** Офис видит все группы, препод — свои + активные замены (как PassedWorksCallbacks). */
 	private function isOffice( int $userId ): bool {
 		return user_can( $userId, Capability::ManageLmsPlatform->value );
 	}

@@ -1,46 +1,13 @@
 /* ══════════════════════════════════════════════════════════════════════
-   Вкладка «Работы» (D3, .docs/Tasks.md) — три вкладки + фильтры + список
-   работ/экзаменов на проверку (шаг 1), список сдач выбранной работы (шаг 2).
+   Экран «Работы» (D3, .docs/Tasks.md) — один список работ прошедших занятий
+   порциями (шаг 1) и список учеников выбранной работы (шаг 2); над списком —
+   фильтры: группа, тип работы, быстрый статус.
    ══════════════════════════════════════════════════════════════════════ */
 @use '../variables' as *;
 
 .prof-works {
   padding: rem(22) rem(26) rem(40);
 }
-
-/* ── Вкладки (На проверке / Ждут подтверждения / Проверенные) ─────────── */
-.wk-tabs {
-  display: flex;
-  gap: rem(4);
-  border-bottom: 1px solid var(--line);
-  margin-bottom: rem(18);
-}
-
-.wk-tab {
-  border: 0;
-  background: none;
-  padding: rem(10) rem(14);
-  font: inherit;
-  font-size: rem(13.5);
-  color: var(--muted);
-  border-bottom: 2px solid transparent;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: rem(6);
-  transition: color $tr, border-color $tr;
-}
-.wk-tab:hover { color: var(--ink-2); }
-.wk-tab.active { color: var(--accent-700); border-bottom-color: var(--accent); font-weight: 600; }
-
-.wk-tab-badge {
-  background: var(--surface-2);
-  border-radius: 999px;
-  padding: 0 rem(8);
-  font-size: rem(11.5);
-  color: var(--muted);
-}
-.wk-tab.active .wk-tab-badge { background: var(--accent-soft); color: var(--accent-700); }
 
 /* ── Фильтры ────────────────────────────────────────────────────────── */
 .wk-filters {
@@ -63,6 +30,16 @@
 }
 .wk-select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 
+/* Число сдач, ждущих проверки, у быстрого фильтра «Ждут проверки». */
+.wk-badge {
+  margin-left: rem(6);
+  background: var(--wait-soft);
+  border-radius: 999px;
+  padding: 0 rem(8);
+  font-size: rem(11.5);
+  color: var(--wait-ink);
+}
+
 /* ── Список работ (шаг 1) ──────────────────────────────────────────── */
 .wk-list {
   display: flex;
@@ -70,11 +47,11 @@
   gap: rem(8);
 }
 
-/* Одна строка: тип (бейдж) · название · сдачи · дата и время · «Открыть».
+/* Одна строка: тип (бейдж) · название с группой и темой · сдали / на проверке · дата занятия · «Открыть».
    Колонки фиксированной ширины — одинаковые во всех строках списка. */
 .wk-row {
   display: grid;
-  grid-template-columns: rem(56) minmax(0, 1fr) rem(112) rem(118) auto;
+  grid-template-columns: rem(56) minmax(0, 1fr) rem(150) rem(96) auto;
   align-items: center;
   gap: rem(14);
   padding: rem(12) rem(16);
@@ -97,7 +74,7 @@
   white-space: nowrap;
 }
 
-.wk-row-count,
+.wk-row-stats,
 .wk-row-date {
   font-size: rem(12.5);
   color: var(--muted);
@@ -105,9 +82,27 @@
   font-variant-numeric: tabular-nums;
 }
 
-.wk-row-count { text-align: right; }
+/* «Сдали 8 из 10» и, если есть, «на проверке 3» второй строкой. */
+.wk-row-stats {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: rem(2);
+}
+.wk-row-pending { color: var(--wait-ink); font-weight: 600; }
 
-/* «Прошедшие»: под названием работы — группа и тема занятия. */
+/* Подгрузка списка: кнопка у нижнего края (она же метка для подгрузки по прокрутке). */
+.wk-more {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: rem(10);
+  padding: rem(16) 0 0;
+  color: var(--muted);
+  font-size: rem(13);
+}
+
+/* Под названием работы — группа и тема занятия. */
 .wk-row-sub {
   display: block;
   font-size: rem(12);
@@ -117,7 +112,7 @@
   text-overflow: ellipsis;
 }
 
-/* «Прошедшие», шаг 2: ученик без сдачи с кнопкой «Засчитать»; «Засчитать всем» — над списком. */
+/* Шаг 2: ученик без сдачи с кнопкой «Засчитать»; «Засчитать всем» — над списком. */
 .wcard.wk-credit-row { cursor: default; grid-template-columns: rem(40) minmax(0, 1fr) auto; }
 .wk-credit-row .prof-btn { justify-self: end; }
 .wk-credit-all { display: flex; justify-content: flex-end; margin-bottom: rem(8); }

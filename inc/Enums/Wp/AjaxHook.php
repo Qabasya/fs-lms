@@ -300,13 +300,11 @@ enum AjaxHook: string {
 	// ==== Сброс попыток ученика преподавателем (задача 11) ====
 	case ResetAttempts           = 'reset_attempts'; // params: source_type (submission|attempt), source_id — удаляет попытки/сдачи ученика по этой работе/экзамену
 
-	// ==== Вкладка «Работы» (D3, .docs/Tasks.md) ====
-	case GetPendingWorks    = 'get_pending_works';    // params: tab (pending|confirm|done), all_groups? — работы/экзамены на проверку по вкладке
-	case GetPassedWorks        = 'get_passed_works';         // params: group_id? — вкладка «Прошедшие»: работы прошедших занятий
-	case GetPassedWorkStudents = 'get_passed_work_students'; // params: group_lesson_id, work_id — ученики работы занятия (сдали / не сдали)
+	// ==== Экран «Работы» (D3, .docs/Tasks.md): один список работ прошедших занятий ====
+	case GetPassedWorks        = 'get_passed_works';         // params: group_id?, type?, status? (pending|missing), cursor? — порция списка работ, новые сверху
+	case GetPassedWorkStudents = 'get_passed_work_students'; // params: group_lesson_id, work_id — ученики работы занятия (сдали / ждут проверки / не сдали)
 	case CreditWork            = 'credit_work';              // params: group_lesson_id, work_id, person_ids[]? — засчитать работу несдавшим (макс. балл)
 	case UncreditWork          = 'uncredit_work';            // params: group_lesson_id, work_id, person_id — снять зачёт, выставленный вручную
-	case GetWorkSubmissions = 'get_work_submissions'; // params: source_type (work|assessment), source_id, tab, all_groups? — сдачи конкретной работы/экзамена
 
 	// ==== Курс-пикер КТП (ЛК преподавателя, Эпик 11 T11.1) ====
 	case GetSubjectCourses       = 'get_subject_courses'; // params: group_id — курсы предмета группы для назначения

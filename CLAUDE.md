@@ -211,6 +211,10 @@ Log format: `[FS LMS] CONTEXT: message | Context: {timestamp, user_id, ip, ...da
   хост «висит» (VPN), блокирующий скрипт держит `DOMContentLoaded` ~10 с, а кнопка «Войти» уже работает: запрос уходил без
   токена и без причины («Капча: форма не прислала ни токен, ни причину», 2026-10-22: `readyState = loading`, обработчиков 0,
   кнопка активна). Тесты — `tests/js/login-form.test.mjs`, `SmartCaptchaModuleTest`.
+- **Выбор из списка в кабинете — пикер, а не родной `<select>`.** Один вид на весь кабинет: кнопка `kp-btn` + контекстное меню
+  (`src/js/profile/picker.js`: группа, предмет, ученик, любой короткий список — `optionPickerBtnHtml` + `openOptionPicker`);
+  «Все …» — первым пунктом. Детали и перечень старых `<select>` — `src/js/CLAUDE.md`, новый `<select>` роняет
+  `tests/js/profile-no-native-select.test.mjs`.
 - **Повторная отправка формы — только в следующей задаче.** `form.requestSubmit()` / `submit()` внутри обработки
   `submit` той же формы (в том числе из микрозадачи после `await`) браузер молча игнорирует: запрос не уходит, а кнопка,
   заблокированная обработчиком, остаётся такой навсегда. Между `preventDefault()` и повтором — `setTimeout(…, 0)`

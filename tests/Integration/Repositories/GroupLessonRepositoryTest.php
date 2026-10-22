@@ -40,6 +40,60 @@ class GroupLessonRepositoryTest extends TestCase {
 		self::assertStringContainsString( 'group_id = 5', $q );
 	}
 
+	// ── listFeedPage(): лента экрана «Работы» ────────────────────────────────
+
+	public function test_list_feed_page_orders_newest_first_and_limits(): void {
+		$this->wpdb->queueResults( [] );
+
+		$this->repo->listFeedPage( [ 3, 4 ], '2026-10-20 12:00:00', null, 0, 41 );
+
+		$q = $this->wpdb->lastQuery();
+		self::assertStringContainsString( 'gl.group_id IN (3, 4)', $q );
+		self::assertStringContainsString( "gl.scheduled_at <= '2026-10-20 12:00:00'", $q );
+		self::assertStringContainsString( 'ORDER BY feed_at DESC, gl.id DESC', $q );
+		self::assertStringContainsString( 'LIMIT 41', $q );
+		self::assertStringNotContainsString( 'gl.id <', $q, 'без курсора страница начинается с самого нового' );
+	}
+
+	public function test_list_feed_page_takes_dateless_lessons_only_with_submissions(): void {
+		$this->wpdb->queueResults( [] );
+
+		$this->repo->listFeedPage( [ 3 ], '2026-10-20 12:00:00', null, 0, 41 );
+
+		$q = $this->wpdb->lastQuery();
+		self::assertStringContainsString( 'gl.scheduled_at IS NULL AND sm.last_at IS NOT NULL', $q );
+		self::assertStringContainsString( 'COALESCE( gl.scheduled_at, sm.last_at )', $q );
+	}
+
+	public function test_list_feed_page_continues_strictly_after_cursor(): void {
+		$this->wpdb->queueResults( [] );
+
+		$this->repo->listFeedPage( [ 3 ], '2026-10-20 12:00:00', '2026-10-11 10:00:00', 11, 41 );
+
+		$q = $this->wpdb->lastQuery();
+		self::assertStringContainsString( "COALESCE( gl.scheduled_at, sm.last_at ) < '2026-10-11 10:00:00'", $q );
+		self::assertStringContainsString( "COALESCE( gl.scheduled_at, sm.last_at ) = '2026-10-11 10:00:00' AND gl.id < 11", $q );
+	}
+
+	public function test_list_feed_page_returns_lesson_with_its_feed_date(): void {
+		$this->wpdb->queueResults( [ [
+			'id' => 10, 'group_id' => 3, 'lesson_id' => 7, 'position' => 1, 'work_ids_snapshot' => '[]',
+			'extra_work_ids' => '[]', 'scheduled_at' => null, 'visibility' => 'open', 'allow_late' => 1,
+			'feed_at' => '2026-10-18 09:30:00',
+		] ] );
+
+		$rows = $this->repo->listFeedPage( [ 3 ], '2026-10-20 12:00:00', null, 0, 41 );
+
+		self::assertCount( 1, $rows );
+		self::assertSame( 10, $rows[0]['row']->id );
+		self::assertSame( '2026-10-18 09:30:00', $rows[0]['at'] );
+	}
+
+	public function test_list_feed_page_without_groups_does_not_query(): void {
+		self::assertSame( [], $this->repo->listFeedPage( [], '2026-10-20 12:00:00', null, 0, 41 ) );
+		self::assertSame( '', $this->wpdb->lastQuery() );
+	}
+
 	public function test_find_maps_row_to_dto(): void {
 		$this->wpdb->queueRow( [
 			'id'               => 10,

@@ -16,7 +16,7 @@ export const NAV_SCREENS = {
     ktp:     ['g', 'm'],
     journal: ['g', 'm'],
     summary: ['g', 'p', 'tab'],
-    works:   ['tab', 'g', 'sel'],
+    works:   ['g', 't', 's'],
 };
 
 /** Адрес страницы; вне браузера (тесты, SSR) его нет — состояние тогда просто не помнится. */

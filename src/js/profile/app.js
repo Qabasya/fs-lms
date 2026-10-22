@@ -6,7 +6,7 @@ import { renderDashboard } from './dashboard.js';
 import { renderJournal, setJournalGroup } from './journal.js';
 import { renderGroups, setGroupsGroup } from './groups.js';
 import { renderSummary, openSummaryFor } from './summary.js';
-import { renderWorks } from './works.js';
+import { renderWorks, applyWorksStatus } from './works.js';
 import { renderWorkReview, openWorkReview, getReturnTo } from './work-review.js';
 import { renderSubstitutions } from './substitutions.js';
 import { renderKTP, selectKtpGroup } from './ktp.js';
@@ -58,7 +58,11 @@ const SCREENS = {
     dashboard:            (root) => renderDashboard(root, {
         openJournalFor,
         openReview: () => go('summary'),
-        openWorks: () => go(cfg.screens.includes('works') ? 'works' : 'summary'),
+        // Тревога главной «Работы без проверки» ведёт в «Работы» сразу с фильтром «Ждут проверки».
+        openWorks: () => {
+            if (cfg.screens.includes('works')) { applyWorksStatus('pending'); }
+            go(cfg.screens.includes('works') ? 'works' : 'summary');
+        },
         // Сеанс экзамена с «Главной» ведёт в «Проведение экзамена» этого сеанса (4.7); без права экранов экзаменов нет.
         ...(cfg.screens.includes('exam-conduct') ? { openExamConduct: (sid) => { openExamConductFor(sid); go('exam-conduct'); } } : {}),
         ...summaryLink(),

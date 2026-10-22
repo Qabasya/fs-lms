@@ -6,6 +6,7 @@ namespace Inc\Callbacks\Course;
 
 use Inc\Core\BaseController;
 use Inc\Enums\Access\Capability;
+use Inc\Enums\Course\WorkType;
 use Inc\Enums\Wp\Nonce;
 use Inc\Services\Course\PassedWorksService;
 use Inc\Shared\Traits\AjaxResponse;
@@ -15,7 +16,7 @@ use Inc\Shared\Traits\Sanitizer;
 /**
  * Class PassedWorksCallbacks
  *
- * AJAX вкладки «Прошедшие» экрана «Работы»: работы прошедших занятий, ученики работы и «Засчитать».
+ * AJAX экрана «Работы»: порции списка работ прошедших занятий, ученики работы и «Засчитать».
  *
  * @package Inc\Callbacks\Course
  */
@@ -31,12 +32,37 @@ class PassedWorksCallbacks extends BaseController {
 		parent::__construct();
 	}
 
-	/** Работы прошедших занятий. Params: group_id? (0 — все группы пользователя). */
+	/**
+	 * Порция списка работ прошедших занятий, новые сверху.
+	 * Params: group_id? (0 — все группы пользователя), type? (значение WorkType), status? (pending|missing), cursor? (метка из прошлой порции).
+	 */
 	public function ajaxGetPassedWorks(): void {
 		$this->authorize( Nonce::GradeWork, Capability::ManageLmsTeaching );
 
+		$type   = $this->sanitizeKey( 'type' );
+		$status = $this->sanitizeKey( 'status' );
+		if ( ( '' !== $type && null === WorkType::tryFrom( $type ) )
+			|| ! in_array( $status, array( '', PassedWorksService::STATUS_PENDING, PassedWorksService::STATUS_MISSING ), true ) ) {
+			$this->error( 'Некорректные параметры.' );
+			return;
+		}
+
 		$userId = get_current_user_id();
-		$this->success( $this->passed->list( $userId, $this->isOffice( $userId ), $this->sanitizeInt( 'group_id' ) ) );
+		try {
+			$feed = $this->passed->feed(
+				$userId,
+				$this->isOffice( $userId ),
+				$this->sanitizeInt( 'group_id' ),
+				$type,
+				$status,
+				$this->sanitizeText( 'cursor' )
+			);
+		} catch ( \InvalidArgumentException $e ) {
+			$this->error( $e->getMessage() );
+			return;
+		}
+
+		$this->success( $feed );
 	}
 
 	/** Ученики работы занятия: сдавшие и нет. Params: group_lesson_id, work_id. */
@@ -107,7 +133,7 @@ class PassedWorksCallbacks extends BaseController {
 		$this->success();
 	}
 
-	/** Офис видит все группы, препод — свои + активные замены (как ReviewQueueCallbacks). */
+	/** Офис видит все группы, препод — свои + активные замены (как DashboardCallbacks). */
 	private function isOffice( int $userId ): bool {
 		return user_can( $userId, Capability::ManageLmsPlatform->value );
 	}

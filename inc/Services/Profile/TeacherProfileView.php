@@ -268,14 +268,11 @@ final class TeacherProfileView implements ProfileViewInterface {
 					'getStudents' => AjaxHook::GetTeacherStudents->jsAction(),
 				),
 			),
-			// Вкладка «Работы» (D3): список работ/экзаменов на проверку по вкладке
-			// (На проверке / Ждут подтверждения / Проверенные) + сдачи по каждой.
+			// Экран «Работы» (D3): один список работ прошедших занятий порциями + ученики работы.
 			// review/attemptGrade ниже переиспользуются переходом в деталь работы (D2).
 			'works'    => array(
 				'nonce'   => Nonce::GradeWork->create(),
 				'actions' => array(
-					'getPendingWorks'    => AjaxHook::GetPendingWorks->jsAction(),
-					'getWorkSubmissions' => AjaxHook::GetWorkSubmissions->jsAction(),
 					'getPassedWorks'     => AjaxHook::GetPassedWorks->jsAction(),
 					'getPassedStudents'  => AjaxHook::GetPassedWorkStudents->jsAction(),
 					'creditWork'         => AjaxHook::CreditWork->jsAction(),

@@ -72,6 +72,26 @@ All `wp_localize_script` calls live in the `inc/Core/Assets/*` layer only (facad
 
 `AjaxHook::toJsArray()` exports all hooks as `['camelCaseName' => 'snake_case_action']` — accessed as `fs_lms_vars.ajax_actions.myActionName`.
 
+## Выпадающие списки (кабинет)
+
+**В кабинете (`src/js/profile/`) выбор из списка — только пикер, родной `<select>` не используем.** Он выглядит чужеродно рядом с
+выбором группы и не стилизуется. Пикер — кнопка `kp-btn` + контекстное меню `openCtxMenu` с галочкой у текущего пункта
+(`src/js/profile/picker.js`):
+
+| Что выбираем | Кнопка | Меню |
+|---|---|---|
+| группа | `groupPickerBtnHtml` | `openGroupPicker` |
+| предмет | `subjectPickerBtnHtml` | `openSubjectPicker` |
+| ученик | `studentPickerBtnHtml` | `openStudentPicker` |
+| любой короткий список значений (тип работы, статус, кабинет, вариант…) | `optionPickerBtnHtml(текст, id, aria)` | `openOptionPicker(якорь, [{value, label}], текущее, onPick)` |
+
+- Пустая строка — полноценное значение («Все типы»): `onPick` зовётся только при смене.
+- Пункт «Все …» стоит **первым** (`openGroupPicker`: у доп. пункта `first: true`); служебные пункты («Индивидуальные занятия») — в конец списка.
+- Нужного вида выбора нет — расширяем `picker.js`, а не берём `<select>`.
+- Старые `<select>` переводятся по мере правки экрана. Их перечень и «потолок» по файлам — `LEGACY` в
+  `tests/js/profile-no-native-select.test.mjs`: новый `<select>` в кабинете роняет тест, а переведённый на пикер нужно убрать из списка.
+- Правило относится к кабинету; админка и публичный сайт (другие бандлы) тут не рассматриваются.
+
 ## SVG-иконки
 
 Два единственных источника иконок — по одному на язык. **Инлайновые `<svg>` в JS-шаблонных строках и PHP-шаблонах запрещены.**

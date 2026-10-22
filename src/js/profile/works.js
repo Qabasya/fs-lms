@@ -1,336 +1,328 @@
 /* ══════════════════════════════════════════════════════════════════════
-   Вкладка «Работы» (D3, .docs/Tasks.md) — список работ/экзаменов на
-   проверку, без обхода по ученикам (Сводка → группа → ученик → занятие).
-   Три вкладки (На проверке / Проверенные / Прошедшие) + фильтры
-   группа/тип работы/сортировка. «Прошедшие» — все работы состоявшихся занятий:
-   в работе видны ученики, а несдавшим работу можно «Засчитать» (максимальный балл). Шаг 1 — работы активной вкладки; шаг 2 —
-   сдачи выбранной работы/экзамена → переход на work-review (D2).
+   Экран «Работы» (D3, .docs/Tasks.md) — один список работ прошедших занятий
+   групп преподавателя, всегда сначала новые (по дате занятия).
+
+   Список грузится порциями: первые работы сразу, следующие — когда нижний край
+   списка подходит к экрану. Фильтры — группа, тип работы и быстрый статус
+   («Все / Ждут проверки / Есть несдавшие») — считает сервер, иначе порция после
+   клиентского фильтра оказывалась бы неполной.
+
+   Шаг 1 — список работ; шаг 2 — ученики выбранной работы: сдавший открывается на
+   экран проверки (D2), не сдавшему можно «Засчитать» (максимальный балл).
+   Экзамены и контрольные в этот список не входят.
+
    Источник: window.fsProfile.{groups, works:{nonce,actions}}.
    ══════════════════════════════════════════════════════════════════════ */
 
-import { esc, emptyState, fmtDate, fmtDateTime, toast } from './utils.js';
+import { esc, emptyState, fmtDate, toast } from './utils.js';
 import { icoInbox } from '../common/icons.js';
 import { createApi, clearApiCache } from './api.js';
 import { prefetchWorkReview } from './work-review.js';
-import { groupPickerBtnHtml, openGroupPicker } from './picker.js';
+import { groupPickerBtnHtml, openGroupPicker, optionPickerBtnHtml, openOptionPicker } from './picker.js';
 import { badgeHtml, workCardHtml } from './work-card.js';
 import { confirmDialog } from '../common/components/confirm-dialog.js';
 import { readNav, saveNav } from './nav-state.js';
 
-const TABS = [
-    { key: 'pending', label: 'На проверке' },
-    { key: 'done', label: 'Проверенные' },
-    { key: 'passed', label: 'Прошедшие' },
+/** Быстрый фильтр списка: ключ = параметр `status` запроса (PassedWorksService::STATUS_*). */
+const STATUS_FILTERS = [
+    { key: '', label: 'Все' },
+    { key: 'pending', label: 'Ждут проверки' },
+    { key: 'missing', label: 'Есть несдавшие' },
 ];
 
-/** Вкладка «Прошедшие»: элементы списка строятся из PassedWorksService, а не из очереди проверки. */
-const PASSED = 'passed';
-
+/** Тип работы: значение = Inc\Enums\Course\WorkType. */
 const WORK_TYPE_OPTIONS = [
     { value: '', label: 'Все типы работ' },
-    { value: 'Практика', label: 'Практика' },
-    { value: 'Самостоятельная работа', label: 'Самостоятельная работа' },
-    { value: 'Домашнее задание', label: 'Домашнее задание' },
-    { value: 'Экзамен', label: 'Экзамен' },
+    { value: 'practice', label: 'Практика' },
+    { value: 'independent', label: 'Самостоятельная работа' },
+    { value: 'homework', label: 'Домашнее задание' },
 ];
+
+/** Статусы сдачи, при которых работа ждёт проверки (PassedWorksService::pendingStatuses). */
+const PENDING_STATUSES = ['submitted', 'pending_review'];
 
 let root = null;
 let api = null;
 let openWorkReviewCb = null;
+let observer = null;
 
 let state = null;
 let listRequest = 0;
-const countGenerations = { pending: 0, done: 0, passed: 0 };
-let countsSweep = 0;
-let submissionsRequest = 0;
+let studentsRequest = 0;
 
 /** @param {{ openWorkReview?: (sourceType: string, sourceId: number) => void }} [opts] */
 export function renderWorks(r, opts = {}) {
     root = r;
     openWorkReviewCb = typeof opts.openWorkReview === 'function' ? opts.openWorkReview : null;
     const p = window.fsProfile || {};
-    // Вкладка и группа из адреса (nav-state.js): «Назад» из плеера возвращает на ту же вкладку.
+    // Фильтры из адреса (nav-state.js): «Назад» из экрана проверки возвращает к тем же фильтрам.
     const nav = readNav('works');
     state = {
-        groups:     Array.isArray(p.groups) ? p.groups : [],
-        cfg:        p.works || null,
-        tab:        TABS.some((t) => t.key === nav.tab) ? nav.tab : 'pending',
+        groups:       Array.isArray(p.groups) ? p.groups : [],
+        cfg:          p.works || null,
         filterGroupId: Number(nav.g) || 0, // 0 = все группы
-        filterType: '',
-        sort:       'new', // new | old
-        items:      null,  // список работ активной вкладки (шаг 1)
-        counts:     {},    // tab => суммарное число сдач в корзине
-        selected:   null,  // выбранная работа (шаг 2)
-        submissions: null,
-        refreshing: false,
+        filterType:   WORK_TYPE_OPTIONS.some((o) => o.value && o.value === nav.t) ? nav.t : '',
+        filterStatus: STATUS_FILTERS.some((s) => s.key && s.key === nav.s) ? nav.s : '',
+        items:        [],    // загруженные порции, новые сверху
+        next:         null,  // метка продолжения; null — список закончился
+        loaded:       false, // первая порция получена (или не получилась)
+        loading:      false,
+        error:        '',
+        pendingTotal: null,  // сколько сдач ждут проверки (число у фильтра)
+        selected:     null,  // выбранная работа (шаг 2)
+        students:     null,
+        refreshing:   false,
+        scrollTop:    0,
     };
-    // Очередь и сдачи — короткий кеш: переключение между работами не ждёт сервер;
-    // «Обновить» и любая запись (зачёт, оценка) сбрасывают его.
+    // Порции и ученики — короткий кеш: возврат к работе не ждёт сервер;
+    // «Обновить» и любая запись (зачёт) сбрасывают его.
     api = createApi(state.cfg, { cache: {
-        getPendingWorks:    30000,
-        getWorkSubmissions: 30000,
-        getPassedWorks:     60000,
-        getPassedStudents:  30000,
+        getPassedWorks:    30000,
+        getPassedStudents: 30000,
     } });
     if (!state.cfg) { root.innerHTML = empty('Проверка недоступна', 'Экран «Работы» не настроен.'); return; }
 
-    loadAllCounts();
-    loadTab(state.tab);
+    loadFirstPage();
+}
+
+/**
+ * Открывает список с быстрым фильтром по статусу (ссылка с главной «Работы без проверки»).
+ *
+ * @param {string} status '' | 'pending' | 'missing'
+ */
+export function applyWorksStatus(status) {
+    if (!state || !state.cfg) { return; }
+    const key = STATUS_FILTERS.some((s) => s.key === status) ? status : '';
+    if (key === state.filterStatus && !state.selected) { return; }
+    state.filterStatus = key;
+    loadFirstPage();
 }
 
 /* ── Data ─────────────────────────────────────────────────────────────── */
-/** Строка вкладки «Прошедшие» приводится к виду очереди: общие фильтры, сортировка и подсчёт работают одинаково. */
-function passedItem(it) {
-    return Object.assign({}, it, {
-        source_type: PASSED,
-        source_id:   `${it.group_lesson_id}:${it.work_id}`,
-        group_ids:   [it.group_id],
-        latest_at:   it.date,
-        count:       it.missing,
-    });
-}
+function rowKey(it) { return `${it.group_lesson_id}:${it.work_id}`; }
 
-/** Работы вкладки: очередь проверки или прошедшие занятия. */
-async function fetchItems(tab) {
-    if (PASSED === tab) {
-        return (await api('getPassedWorks', { group_id: 0 })).map(passedItem);
-    }
-    return api('getPendingWorks', { tab });
-}
-
-/** Сдачи выбранной работы; у «Прошедших» — ученики занятия (сдавшие и нет). */
-function fetchSubmissions(item, tab) {
-    if (PASSED === item.source_type) {
-        return api('getPassedStudents', { group_lesson_id: item.group_lesson_id, work_id: item.work_id });
-    }
-    return api('getWorkSubmissions', { source_type: item.source_type, source_id: item.source_id, tab });
-}
-
-async function loadAllCounts() {
-    const sweepId = ++countsSweep;
-    const versions = Object.fromEntries(TABS.map((t) => [t.key, ++countGenerations[t.key]]));
-    await Promise.all(TABS.map(async (t) => {
-        try {
-            const items = await fetchItems(t.key);
-            if (sweepId !== countsSweep || versions[t.key] !== countGenerations[t.key] || !state) { return; }
-            if (t.key !== state.tab) {
-                state.counts[t.key] = items.reduce((sum, it) => sum + (it.count || 0), 0);
-            }
-        } catch { /* тихо — бейдж останется пустым */ }
-    }));
-    if (sweepId === countsSweep && state) { render(); }
-}
-
-async function loadTab(tab) {
+/** Первая порция под текущие фильтры: прежний список и выбранная работа сбрасываются. */
+async function loadFirstPage() {
     const requestId = ++listRequest;
-    ++countGenerations[tab];
-    ++submissionsRequest;
-    state.tab = tab;
+    ++studentsRequest;
+    state.items = [];
+    state.next = null;
+    state.loaded = false;
+    state.loading = true;
+    state.error = '';
     state.selected = null;
-    state.submissions = null;
-    state.items = null;
+    state.students = null;
     render();
+    await fetchPage('', requestId);
+}
+
+/** Следующая порция (по метке из прошлой). */
+async function loadMore() {
+    if (state.loading || !state.next) { return; }
+    const requestId = ++listRequest;
+    state.loading = true;
+    state.error = '';
+    renderListArea();
+    await fetchPage(state.next, requestId);
+}
+
+async function fetchPage(cursor, requestId) {
     try {
-        const items = await fetchItems(tab);
+        const page = await api('getPassedWorks', {
+            group_id: state.filterGroupId,
+            type:     state.filterType,
+            status:   state.filterStatus,
+            cursor,
+        });
         if (requestId !== listRequest) { return; }
-        state.items = items;
-        state.counts[tab] = state.items.reduce((sum, it) => sum + (it.count || 0), 0);
+        // Данные могли сместиться между порциями (новое занятие, зачёт): повторов в списке не держим.
+        const known = new Set(state.items.map(rowKey));
+        state.items.push(...(page.items || []).filter((it) => !known.has(rowKey(it))));
+        state.next = page.next || null;
+        if (null !== page.pending_total && undefined !== page.pending_total) { state.pendingTotal = page.pending_total; }
     } catch (e) {
         if (requestId !== listRequest) { return; }
-        state.items = [];
-        if (state.refreshing) { toast(e.message || 'Не удалось обновить список работ.', 'error'); }
+        state.error = e.message || 'Не удалось загрузить список работ.';
+        if (state.refreshing) { toast(state.error, 'error'); }
+    }
+    state.loading = false;
+    state.loaded = true;
+    if (cursor) { renderListArea(); } else { render(); }
+}
+
+/** Ученики выбранной работы; `keep` — перечитать на месте, не уходя с экрана и не теряя прокрутку. */
+async function loadStudents(item, keep = false) {
+    const requestId = ++studentsRequest;
+    if (!keep) {
+        state.scrollTop = scrollPosition();
+        state.selected = item;
+        state.students = null;
+        render();
+        setScrollPosition(0);
+    }
+    try {
+        const students = await api('getPassedStudents', { group_lesson_id: item.group_lesson_id, work_id: item.work_id });
+        if (requestId !== studentsRequest) { return; }
+        state.students = students;
+        patchSelected(students);
+    } catch (e) {
+        if (requestId !== studentsRequest) { return; }
+        if (!keep) { state.students = []; }
+        toast(e.message || 'Не удалось загрузить учеников.', 'error');
     }
     render();
 }
 
-async function loadSubmissions(item) {
-    const requestId = ++submissionsRequest;
-    state.selected = item;
-    state.submissions = null;
-    render();
-    try {
-        const submissions = await fetchSubmissions(item, state.tab);
-        if (requestId !== submissionsRequest) { return; }
-        state.submissions = submissions;
-    } catch (e) {
-        if (requestId !== submissionsRequest) { return; }
-        state.submissions = [];
-        if (state.refreshing) { toast(e.message || 'Не удалось обновить сдачи.', 'error'); }
-    }
-    render();
+/** Счётчики выбранной работы в списке — по свежему составу учеников (список заново не грузим). */
+function patchSelected(students) {
+    const it = state.selected;
+    if (!it) { return; }
+    const submitted = students.filter((st) => st.submission_id).length;
+    it.total = students.length;
+    it.submitted = submitted;
+    it.missing = students.length - submitted;
+    it.pending = students.filter((st) => PENDING_STATUSES.includes(st.status)).length;
 }
 
-/** Refresh the current list/detail without discarding its tab, filters, or selection. */
-async function refreshWorks() {
+/** «Обновить»: сброс кеша и перезагрузка — списка с первой порции либо учеников открытой работы. */
+async function refresh() {
     if (state.refreshing) { return; }
     clearApiCache();
     state.refreshing = true;
-    render();
-    const tab = state.tab;
-    const selected = state.selected;
-    const listRequestId = ++listRequest;
-    const countsSweepId = ++countsSweep;
-    const countVersions = Object.fromEntries(TABS.map((t) => [t.key, ++countGenerations[t.key]]));
-    const submissionsRequestId = ++submissionsRequest;
-    const refreshes = TABS.map(async (t) => {
-        try {
-            const items = await fetchItems(t.key);
-            if (countsSweepId !== countsSweep || countVersions[t.key] !== countGenerations[t.key]) { return; }
-            state.counts[t.key] = items.reduce((sum, it) => sum + (it.count || 0), 0);
-            if (t.key === tab && listRequestId === listRequest) { state.items = items; }
-        } catch (e) {
-            if (t.key === tab && listRequestId === listRequest) {
-                toast(e.message || 'Не удалось обновить список работ.', 'error');
-            }
-        }
-    });
-    if (selected) {
-        refreshes.push((async () => {
-            try {
-                const items = await fetchSubmissions(selected, tab);
-                if (submissionsRequestId === submissionsRequest && state.selected === selected) {
-                    state.submissions = items;
-                }
-            } catch (e) {
-                if (submissionsRequestId === submissionsRequest && state.selected === selected) {
-                    toast(e.message || 'Не удалось обновить сдачи.', 'error');
-                }
-            }
-        })());
-    }
+    render(); // «Обновление…» сразу, не дожидаясь ответа сервера
     try {
-        await Promise.allSettled(refreshes);
+        if (state.selected) { await loadStudents(state.selected, true); } else { await loadFirstPage(); }
     } finally {
         state.refreshing = false;
         render();
     }
 }
 
+/* ── Scroll ───────────────────────────────────────────────────────────── */
+/** Прокручивается секция экрана кабинета, а не окно. */
+function scroller() { return root && typeof root.closest === 'function' ? root.closest('.prof-screen') : null; }
+function scrollPosition() { return scroller()?.scrollTop || 0; }
+function setScrollPosition(top) { const el = scroller(); if (el) { el.scrollTop = top; } }
+
 /* ── Render ───────────────────────────────────────────────────────────── */
 function render() {
-    saveNav('works', { tab: state.tab, g: state.filterGroupId });
+    observer?.disconnect();
+    saveNav('works', { g: state.filterGroupId, t: state.filterType, s: state.filterStatus });
     root.innerHTML = `
     <div class="prof-works">
-        ${tabsHtml()}
         <div class="prof-swap">${state.selected ? stepTwoHtml() : stepOneHtml()}</div>
     </div>`;
 
-    wireTabs();
     if (state.selected) { wireStepTwo(); } else { wireStepOne(); }
 }
 
-function tabsHtml() {
-    return `<div class="wk-tabs">${TABS.map((t) => `
-        <button type="button" class="wk-tab${t.key === state.tab ? ' active' : ''}" data-tab="${t.key}">
-            ${esc(t.label)}<span class="wk-tab-badge">${state.counts[t.key] ?? '·'}</span>
-        </button>`).join('')}</div>`;
+/** Только область списка: подгрузка новой порции не пересобирает фильтры и не сдвигает прокрутку. */
+function renderListArea() {
+    const area = root.querySelector('#wkListArea');
+    if (!area) { return; }
+    observer?.disconnect();
+    area.innerHTML = listAreaHtml();
+    wireListArea();
 }
 
 function stepOneHtml() {
-    if (null === state.items) {
-        return '<div class="wk-loading">Загрузка…</div>';
-    }
-
-    const items = visibleItems();
-    const list = items.length
-        ? `<div class="wk-list">${items.map(itemRow).join('')}</div>`
-        : emptyState('wk-empty-wrap', icoInbox(34), PASSED === state.tab ? 'Работ нет' : 'Работ на проверку нет', tabEmptyText());
-
-    return `${filtersHtml()}${list}`;
-}
-
-function tabEmptyText() {
-    return 'pending' === state.tab ? 'Все сдачи проверены.'
-        : PASSED === state.tab ? 'Работ в прошедших занятиях нет.'
-        : 'Проверенных работ пока нет.';
+    return `${filtersHtml()}<div id="wkListArea">${listAreaHtml()}</div>`;
 }
 
 function filtersHtml() {
     const g = state.groups.find((x) => x.id === state.filterGroupId);
+    const statuses = STATUS_FILTERS.map((s) => {
+        const badge = 'pending' === s.key && state.pendingTotal ? `<span class="wk-badge">${state.pendingTotal}</span>` : '';
+        return `<button type="button" class="${s.key === state.filterStatus ? 'on' : ''}" data-status="${s.key}">${esc(s.label)}${badge}</button>`;
+    }).join('');
+
+    const type = WORK_TYPE_OPTIONS.find((o) => o.value === state.filterType) || WORK_TYPE_OPTIONS[0];
     return `<div class="wk-filters">
         <div class="wk-filter">
             ${groupPickerBtnHtml(g || { id: 0, name: 'Все группы', subject: '' }, 'wkGroupBtn')}
         </div>
-        <select class="wk-select" id="wkTypeFilter">
-            ${WORK_TYPE_OPTIONS.map((o) => `<option value="${esc(o.value)}"${o.value === state.filterType ? ' selected' : ''}>${esc(o.label)}</option>`).join('')}
-        </select>
-        <select class="wk-select" id="wkSort">
-            <option value="new"${'new' === state.sort ? ' selected' : ''}>Сначала новые</option>
-            <option value="old"${'old' === state.sort ? ' selected' : ''}>Сначала старые</option>
-        </select>
+        <div class="wk-filter">
+            ${optionPickerBtnHtml(type.label, 'wkTypeBtn', 'Тип работы')}
+        </div>
+        <div class="prof-seg" role="group" aria-label="Статус работ">${statuses}</div>
         <button type="button" class="prof-btn prof-btn-sm wk-refresh" data-refresh${state.refreshing ? ' disabled' : ''}>${state.refreshing ? 'Обновление…' : 'Обновить'}</button>
     </div>`;
 }
 
+/** Работы, подходящие под быстрый статус: после зачёта счётчики меняются на месте, и строка может перестать подходить. */
 function visibleItems() {
-    let items = state.items || [];
-    if (state.filterGroupId) {
-        items = items.filter((it) => (it.group_ids || []).includes(state.filterGroupId));
-    }
-    if (state.filterType) {
-        items = items.filter((it) => it.label === state.filterType);
-    }
-    items = items.slice().sort((a, b) => {
-        const at = a.latest_at || '';
-        const bt = b.latest_at || '';
-        return 'old' === state.sort ? at.localeCompare(bt) : bt.localeCompare(at);
-    });
-    return items;
+    return state.items.filter((it) => 'pending' === state.filterStatus ? it.pending > 0 : 'missing' === state.filterStatus ? it.missing > 0 : true);
 }
 
-/* «Прошедшие»: работа занятия — группа, тема, дата и сколько учеников сдали. */
-function passedRow(it) {
-    return `<div class="wk-row" data-src-type="${PASSED}" data-src-id="${esc(it.source_id)}">
+function listAreaHtml() {
+    if (!state.loaded && state.loading) {
+        return '<div class="wk-loading">Загрузка…</div>';
+    }
+
+    const items = visibleItems();
+    if (!items.length && !state.next) {
+        return state.error
+            ? `<div class="wk-loading">${esc(state.error)}<br><button type="button" class="prof-btn prof-btn-sm" data-more>Повторить</button></div>`
+            : emptyState('wk-empty-wrap', icoInbox(34), emptyTitle(), emptyText());
+    }
+
+    let tail = '';
+    if (state.loading) {
+        tail = '<div class="wk-loading">Загрузка…</div>';
+    } else if (state.error) {
+        tail = `<div class="wk-more">${esc(state.error)} <button type="button" class="prof-btn prof-btn-sm" data-more>Повторить</button></div>`;
+    } else if (state.next) {
+        // Кнопка одновременно «метка» для подгрузки по прокрутке и ручной путь, если прокрутка недоступна.
+        tail = '<div class="wk-more"><button type="button" class="prof-btn prof-btn-sm" data-more>Показать ещё</button></div>';
+    }
+
+    return `<div class="wk-list">${items.map(itemRow).join('')}</div>${tail}`;
+}
+
+function emptyTitle() {
+    return 'pending' === state.filterStatus ? 'Работ на проверку нет'
+        : 'missing' === state.filterStatus ? 'Несдавших нет'
+        : 'Работ нет';
+}
+
+function emptyText() {
+    return 'pending' === state.filterStatus ? 'Все сдачи проверены.'
+        : 'missing' === state.filterStatus ? 'Все ученики сдали эти работы.'
+        : 'Работ в прошедших занятиях пока нет.';
+}
+
+/* Работа занятия: тип, название, группа · тема, сколько сдали и сколько ждёт проверки, дата занятия. */
+function itemRow(it) {
+    const pending = it.pending ? `<span class="wk-row-pending">на проверке ${it.pending}</span>` : '';
+    return `<div class="wk-row" data-key="${esc(rowKey(it))}">
         <span class="wk-type">${badgeHtml(it.badge)}</span>
         <span class="wk-row-title" title="${esc(it.title)}">${esc(it.title)}<span class="wk-row-sub">${esc([it.group_name, it.topic].filter(Boolean).join(' · '))}</span></span>
-        <span class="wk-row-count">сдали ${it.submitted} из ${it.total}</span>
+        <span class="wk-row-stats"><span>сдали ${it.submitted} из ${it.total}</span>${pending}</span>
         <span class="wk-row-date">${esc(fmtDate(it.date))}</span>
         <button type="button" class="prof-btn prof-btn-sm">Открыть</button>
     </div>`;
 }
 
-function itemRow(it) {
-    if (PASSED === it.source_type) { return passedRow(it); }
-    return `<div class="wk-row" data-src-type="${esc(it.source_type)}" data-src-id="${it.source_id}">
-        <span class="wk-type">${badgeHtml(it.badge)}</span>
-        <span class="wk-row-title" title="${esc(it.title)}">${esc(it.title)}</span>
-        <span class="wk-row-count">${it.count} ${pluralSubmissions(it.count)}</span>
-        <span class="wk-row-date">${it.latest_at ? esc(fmtDateTime(it.latest_at)) : '—'}</span>
-        <button type="button" class="prof-btn prof-btn-sm">Открыть</button>
-    </div>`;
-}
-
-function pluralSubmissions(n) {
-    const mod10 = n % 10, mod100 = n % 100;
-    if (mod10 === 1 && mod100 !== 11) { return 'сдача'; }
-    if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) { return 'сдачи'; }
-    return 'сдач';
-}
-
 function stepTwoHtml() {
-    const backRow = `<div class="wk-step-head">
+    const it = state.selected;
+    const sub = [it.group_name, it.topic, fmtDate(it.date)].filter(Boolean).join(' · ');
+    const head = `<div class="wk-step-head">
         <button type="button" class="wk-back">‹ К списку работ</button>
-        <div class="wk-step-title">${esc(state.selected.title)}</div>
+        <div class="wk-step-title">${esc(it.title)}<span class="wk-row-sub">${esc(sub)}</span></div>
         <button type="button" class="prof-btn prof-btn-sm wk-refresh" data-refresh${state.refreshing ? ' disabled' : ''}>${state.refreshing ? 'Обновление…' : 'Обновить'}</button>
     </div>`;
 
-    if (null === state.submissions) {
-        return backRow + '<div class="wk-loading">Загрузка…</div>';
+    if (null === state.students) {
+        return head + '<div class="wk-loading">Загрузка…</div>';
     }
 
-    if (PASSED === state.selected.source_type) { return backRow + passedStudentsHtml(); }
-
-    const rows = state.submissions.length
-        ? `<div class="wk-sub-list">${state.submissions.map(subRow).join('')}</div>`
-        : '<div class="wk-empty-wrap"><div class="prof-ktp-empty"><p>Сдач нет.</p></div></div>';
-
-    return backRow + rows;
+    return head + studentsHtml();
 }
 
-/* «Прошедшие», шаг 2: ученики занятия. Сдавший — обычная карточка сдачи (открывается; его сдача
-   приоритетнее зачёта), не сдавший — «Засчитать» (максимальный балл). Несдавшим сразу всем — кнопка в шапке. */
-function passedStudentsHtml() {
-    const students = state.submissions;
+/* Ученики работы. Сдавший — обычная карточка сдачи (открывается; его сдача приоритетнее зачёта),
+   не сдавший — «Засчитать» (максимальный балл). Несдавшим сразу всем — кнопка над списком. */
+function studentsHtml() {
+    const students = state.students;
     if (!students.length) {
         return '<div class="wk-empty-wrap"><div class="prof-ktp-empty"><p>В группе нет активных учеников.</p></div></div>';
     }
@@ -344,7 +336,10 @@ function passedStudentsHtml() {
         ? workCardHtml({
             title:      st.student_name,
             badge:      state.selected.badge,
-            subtitle:   null === st.score ? '' : `${st.score} из ${st.max_score}`,
+            subtitle:   studentSubtitle(st),
+            marks:      st.marks,
+            date:       st.submitted_at,
+            duration:   st.duration_sec,
             sourceType: 'submission',
             sourceId:   st.submission_id,
             rowClass:   'wk-sub-row',
@@ -358,7 +353,17 @@ function passedStudentsHtml() {
         </div>`).join('')}</div>`;
 }
 
-/** «Засчитать» одному или всем несдавшим: подтверждение → зачёт → перезагрузка списка. */
+/** Подпись под ФИО по статусу сдачи (оценка, «на проверке», зачёт…). */
+function studentSubtitle(st) {
+    const score = null === st.score ? '' : `${st.score} из ${st.max_score}`;
+    if (st.credited) { return score ? `Засчитано · ${score}` : 'Засчитано'; }
+    if (PENDING_STATUSES.includes(st.status)) { return 'На проверке'; }
+    if ('returned' === st.status) { return 'Возвращена на доработку'; }
+    if ('assigned' === st.status) { return 'Начата, не сдана'; }
+    return score;
+}
+
+/** «Засчитать» одному или всем несдавшим: подтверждение → зачёт → перечитать учеников. */
 async function creditStudents(personIds) {
     const item = state.selected;
     const ok = await confirmDialog(
@@ -374,7 +379,7 @@ async function creditStudents(personIds) {
         toast(e.message || 'Не удалось засчитать работу.', 'error');
         return;
     }
-    refreshWorks();
+    loadStudents(item, true);
 }
 
 /** «Отменить зачёт» у одного ученика: работа снова числится несданной. */
@@ -389,73 +394,74 @@ async function uncreditStudent(personId) {
         toast(e.message || 'Не удалось снять зачёт.', 'error');
         return;
     }
-    refreshWorks();
-}
-
-/* Карточка сдачи (Tasks.md, п. 7) — общая вёрстка с «Сводкой по ученику»:
-   бейдж типа, ФИО, полоска вердиктов по заданиям, справа время сдачи. */
-function subRow(s) {
-    return workCardHtml({
-        title:      s.student_name,
-        badge:      s.badge,
-        marks:      s.marks,
-        subtitle:   s.group_name,
-        date:       s.submitted_at,
-        duration:   s.duration_sec,
-        sourceType: s.source_type,
-        sourceId:   s.source_id,
-        rowClass:   'wk-sub-row',
-    });
+    loadStudents(item, true);
 }
 
 /* ── Wiring ───────────────────────────────────────────────────────────── */
-function wireTabs() {
-    root.querySelectorAll('[data-tab]').forEach((btn) =>
-        btn.addEventListener('click', () => {
-            if (btn.dataset.tab !== state.tab) { loadTab(btn.dataset.tab); }
-        }));
-}
-
 function wireStepOne() {
-    root.querySelector('[data-refresh]')?.addEventListener('click', refreshWorks);
+    root.querySelector('[data-refresh]')?.addEventListener('click', refresh);
     const gBtn = root.querySelector('#wkGroupBtn');
     if (gBtn) {
         gBtn.addEventListener('click', () => {
             openGroupPicker(gBtn, state.groups, state.filterGroupId, (id) => {
                 state.filterGroupId = id;
-                render();
-            }, [ { v: '0', label: 'Все группы', chip: '∀' } ]);
+                loadFirstPage();
+            }, [ { v: '0', label: 'Все группы', chip: '∀', first: true } ]);
         });
     }
 
-    const typeSel = root.querySelector('#wkTypeFilter');
-    if (typeSel) {
-        typeSel.addEventListener('change', () => { state.filterType = typeSel.value; render(); });
+    const typeBtn = root.querySelector('#wkTypeBtn');
+    if (typeBtn) {
+        typeBtn.addEventListener('click', () => {
+            openOptionPicker(typeBtn, WORK_TYPE_OPTIONS, state.filterType, (value) => {
+                state.filterType = value;
+                loadFirstPage();
+            });
+        });
     }
 
-    const sortSel = root.querySelector('#wkSort');
-    if (sortSel) {
-        sortSel.addEventListener('change', () => { state.sort = sortSel.value; render(); });
-    }
-
-    root.querySelectorAll('.wk-row[data-src-id]').forEach((el) =>
-        el.addEventListener('click', () => {
-            const item = (state.items || []).find(
-                (it) => it.source_type === el.dataset.srcType && String(it.source_id) === el.dataset.srcId
-            );
-            if (item) { loadSubmissions(item); }
+    root.querySelectorAll('[data-status]').forEach((btn) =>
+        btn.addEventListener('click', () => {
+            if (btn.dataset.status !== state.filterStatus) { state.filterStatus = btn.dataset.status; loadFirstPage(); }
         }));
+
+    wireListArea();
+}
+
+/** Строки списка и «метка» подгрузки: элементы пересоздаются при каждой порции, поэтому вешаем заново. */
+function wireListArea() {
+    root.querySelectorAll('.wk-row[data-key]').forEach((el) =>
+        el.addEventListener('click', () => {
+            const item = state.items.find((it) => rowKey(it) === el.dataset.key);
+            if (item) { loadStudents(item); }
+        }));
+
+    const more = root.querySelector('[data-more]');
+    if (!more) { return; }
+    more.addEventListener('click', () => {
+        if (state.error && !state.items.length) { loadFirstPage(); return; }
+        state.error = '';
+        loadMore();
+    });
+    // Подгрузка по прокрутке: кнопка у нижнего края списка нажимается сама. После ошибки — только вручную.
+    if (typeof IntersectionObserver === 'function' && !state.error) {
+        observer = new IntersectionObserver((entries) => {
+            if (entries.some((e) => e.isIntersecting)) { loadMore(); }
+        }, { rootMargin: '300px' });
+        observer.observe(more);
+    }
 }
 
 function wireStepTwo() {
-    root.querySelector('[data-refresh]')?.addEventListener('click', refreshWorks);
+    root.querySelector('[data-refresh]')?.addEventListener('click', refresh);
     const back = root.querySelector('.wk-back');
     if (back) {
         back.addEventListener('click', () => {
-            ++submissionsRequest;
+            ++studentsRequest;
             state.selected = null;
-            state.submissions = null;
+            state.students = null;
             render();
+            setScrollPosition(state.scrollTop);
         });
     }
 
