@@ -11,17 +11,31 @@ globalThis.window = {};
 
 const { initLoginForm } = await import('../../src/js/frontend/services/login-form.js');
 
-/** Минимальная форма входа: кнопка, два скрытых поля и обработчики submit. */
+/** Прогон микрозадач: промисы формы разрешаются в них. */
+async function flush() {
+    for (let i = 0; i < 20; i++) { await Promise.resolve(); }
+}
+
+/**
+ * Минимальная форма входа. Ведёт себя как браузер в одном важном месте: микрозадачи, оставшиеся
+ * после обработчика submit, выполняются ещё ВНУТРИ обработки события, а requestSubmit(), вызванный
+ * в это время, молча игнорируется (флаг «форма отправляется» ещё не снят).
+ */
 function makeForm() {
     const listeners = [];
     const button = { disabled: false };
     const tokenInput = { value: '' };
     const failureInput = { value: '' };
     const navigations = [];
+    const ignored = [];
+    let dispatching = false;
 
-    const fire = () => {
+    const fire = async () => {
+        dispatching = true;
         let prevented = false;
         listeners.forEach(listener => listener({ preventDefault: () => { prevented = true; } }));
+        await flush();
+        dispatching = false;
         if (!prevented) {
             navigations.push({ token: tokenInput.value, unavailable: failureInput.value });
         }
@@ -34,15 +48,16 @@ function makeForm() {
             '[name="captcha_token"]': tokenInput,
             '[name="captcha_unavailable"]': failureInput,
         })[selector] ?? null,
-        requestSubmit: fire,
+        requestSubmit: () => {
+            if (dispatching) {
+                ignored.push('requestSubmit внутри обработки submit');
+                return undefined;
+            }
+            return fire();
+        },
     };
 
-    return { form, fire, navigations, button };
-}
-
-/** Прогон микрозадач между сдвигами времени: промисы формы разрешаются в них. */
-async function flush() {
-    for (let i = 0; i < 20; i++) { await Promise.resolve(); }
+    return { form, fire, navigations, ignored, button };
 }
 
 async function submitWithUnreachableCaptcha(t, waitMs) {
@@ -53,7 +68,7 @@ async function submitWithUnreachableCaptcha(t, waitMs) {
         globalThis.document = previousDocument;
     });
 
-    const { form, fire, navigations, button } = makeForm();
+    const { form, fire, navigations, ignored, button } = makeForm();
     globalThis.window = {
         fs_lms_login_vars: { captcha_key: 'key' },
         setTimeout: (...args) => globalThis.setTimeout(...args),
@@ -63,24 +78,32 @@ async function submitWithUnreachableCaptcha(t, waitMs) {
 
     initLoginForm();
     mock.timers.tick(waitMs);
-    fire();
-    await flush();
-    mock.timers.tick(8000);
-    await flush();
+    await fire();
 
-    return { navigations, button };
+    // Время идёт порциями, между ними — микрозадачи: так срабатывают и опрос скрипта, и nextTask().
+    for (let i = 0; i < 10; i++) {
+        mock.timers.tick(1000);
+        await flush();
+    }
+
+    return { navigations, ignored, button };
 }
 
 test('Яндекс недоступен: форма уходит с причиной not_loaded, а не пустой', async t => {
-    const { navigations } = await submitWithUnreachableCaptcha(t, 2000);
+    const { navigations, ignored } = await submitWithUnreachableCaptcha(t, 2000);
 
+    assert.deepEqual(ignored, []);
     assert.deepEqual(navigations, [{ token: '', unavailable: 'not_loaded' }]);
 });
 
-test('Яндекс недоступен давно: причина отправляется сразу', async t => {
-    const { navigations } = await submitWithUnreachableCaptcha(t, 20000);
+// Регресс: сбой известен заранее (скрипт уже упал), промис отклонён сразу, и requestSubmit() шёл
+// из микрозадачи внутри обработки submit — браузер его игнорировал: форма висела без запроса.
+test('Яндекс недоступен давно: отправка не теряется внутри обработки submit', async t => {
+    const { navigations, ignored, button } = await submitWithUnreachableCaptcha(t, 20000);
 
+    assert.deepEqual(ignored, []);
     assert.deepEqual(navigations, [{ token: '', unavailable: 'not_loaded' }]);
+    assert.equal(button.disabled, true, 'кнопка остаётся заблокированной до ответа сервера');
 });
 
 // Регресс: обработчик входа жил в DOMContentLoaded, а его держал блокирующий скрипт Яндекса —

@@ -3,7 +3,8 @@
  *
  * Форма постит на wp-login.php штатно. Если капча включена, первый submit
  * перехватывается: запрашивается токен, пишется в captcha_token, и форма
- * отправляется повторно через requestSubmit( кнопка ) — чтобы в POST ушёл wp-submit.
+ * отправляется повторно через requestSubmit( кнопка ) — чтобы в POST ушёл wp-submit. Повтор —
+ * строго в следующей задаче (nextTask()): внутри обработки submit браузер его игнорирует.
  *
  * Капча недоступна из части сетей (VPN, блокировщик): если она не загрузилась / не открылась
  * вовремя, форма уходит без токена с причиной в captcha_unavailable — сервер пропускает такой вход
@@ -53,9 +54,25 @@ export function initLoginForm() {
             if ( failureInput ) { failureInput.value = failure; }
         }
 
-        tokenReady      = true;
+        tokenReady = true;
+
+        // Не в том же стеке, что обработчик submit. Если сбой капчи известен заранее (скрипт Яндекса
+        // уже не загрузился), промис отклонён сразу, и весь путь досюда — микрозадачи ВНУТРИ обработки
+        // исходного submit. Браузер игнорирует requestSubmit() во время submit-события той же формы:
+        // отправка терялась, запрос на wp-login.php не уходил, а кнопка оставалась заблокированной.
+        await nextTask();
+
         button.disabled = false;
         form.requestSubmit( button );
         button.disabled = true;
     } );
+}
+
+/**
+ * Продолжение в следующей задаче — уже после обработки текущего события.
+ *
+ * @returns {Promise<void>}
+ */
+function nextTask() {
+    return new Promise( ( resolve ) => window.setTimeout( resolve, 0 ) );
 }
