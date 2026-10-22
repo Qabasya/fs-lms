@@ -386,7 +386,7 @@ export function createSlotBuilder( el, config ) {
 			} );
 			if ( config.reorderable ) { attachSlotDnD( item, i ); }
 			treeScroll.appendChild( item );
-			if ( ! config.reorderable ) { return; }
+			if ( ! config.reorderable || i !== slots.length - 1 ) { return; }
 
 			const add = document.createElement( 'button' );
 			add.type      = 'button';
