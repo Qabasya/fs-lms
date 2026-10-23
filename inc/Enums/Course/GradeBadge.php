@@ -8,9 +8,9 @@ use Inc\Enums\Assessment\AssessmentKind;
 
 /**
  * Короткая метка типа работы в журнале/сводке (Эпик 10, решение D9):
- * СР / ПР / ДЗ / КР / ЭКЗ. Единый бейдж поверх {@see WorkType} и {@see AssessmentKind}.
+ * СР / ПР / ДЗ / ОП / КР / ЭКЗ. Единый бейдж поверх {@see WorkType} и {@see AssessmentKind}.
  *
- * Маппинг: practice→ПР, independent→СР, homework→ДЗ; control→КР, ege/ege_computer→ЭКЗ.
+ * Маппинг: practice→ПР, independent→СР, homework→ДЗ, survey→ОП; control→КР, ege/ege_computer→ЭКЗ.
  *
  * @package Inc\Enums\Course
  */
@@ -19,6 +19,7 @@ enum GradeBadge: string {
 	case Independent = 'independent'; // СР
 	case Practice    = 'practice';    // ПР
 	case Homework    = 'homework';    // ДЗ
+	case Survey      = 'survey';      // ОП
 	case Control     = 'control';     // КР
 	case Exam        = 'exam';        // ЭКЗ
 
@@ -28,6 +29,7 @@ enum GradeBadge: string {
 			self::Independent => 'СР',
 			self::Practice    => 'ПР',
 			self::Homework    => 'ДЗ',
+			self::Survey      => 'ОП',
 			self::Control     => 'КР',
 			self::Exam        => 'ЭКЗ',
 		};
@@ -39,6 +41,7 @@ enum GradeBadge: string {
 			self::Independent => 'Самостоятельная',
 			self::Practice    => 'Практическая',
 			self::Homework    => 'Домашнее задание',
+			self::Survey      => 'Опрос',
 			self::Control     => 'Контрольная',
 			self::Exam        => 'Экзамен',
 		};
@@ -50,6 +53,7 @@ enum GradeBadge: string {
 			WorkType::Practice    => self::Practice,
 			WorkType::Independent => self::Independent,
 			WorkType::Homework    => self::Homework,
+			WorkType::Survey      => self::Survey,
 		};
 	}
 

@@ -153,7 +153,7 @@ test('тип работы выбирается тем же меню, что и �
 
     root.typeBtn.fire('click');
 
-    assert.deepEqual(menu.values(), ['', 'practice', 'independent', 'homework']);
+    assert.deepEqual(menu.values(), ['', 'practice', 'independent', 'homework', 'survey']);
     assert.equal(menu.labels()[0], 'Все типы работ');
     assert.deepEqual(menu.active(), ['']);
 });

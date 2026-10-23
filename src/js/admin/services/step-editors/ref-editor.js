@@ -89,6 +89,7 @@ export function refEditor( ed, step, ctx ) {
 			step.payload.ref    = id;
 			step._title         = title;
 			step.title          = title;
+			step.work_type      = item && item.work_type ? item.work_type : '';
 			step.payload.source = 'bank' === source ? 'bank' : 'subject';
 			delete step.payload.needs_review;
 			renderStepsRow(); renderStepBody(); saveSteps();
@@ -176,8 +177,9 @@ export function refEditor( ed, step, ctx ) {
 
 	const pickBtn = ed.querySelector( '[data-pick]' );
 	if ( pickBtn ) {
-		pickBtn.addEventListener( 'click', ( e ) => openLibraryPicker( e, candKind, ( id, title ) => {
+		pickBtn.addEventListener( 'click', ( e ) => openLibraryPicker( e, candKind, ( id, title, source, item ) => {
 			step.payload.ref = id; step._title = title; step.title = title; delete step.payload.needs_review;
+			step.work_type = item && item.work_type ? item.work_type : '';
 			renderStepsRow(); renderStepBody(); saveSteps();
 		} ) );
 	}
@@ -201,6 +203,7 @@ export function refEditor( ed, step, ctx ) {
 					clearInterval( poll );
 					step.payload.ref = parseInt( postId, 10 );
 					step._title      = meta.name + ' #' + postId;
+					step.work_type   = ''; // тип новой работы неизвестен до перезагрузки — общий значок
 					step.title       = step._title;
 					renderStepsRow(); renderStepBody(); saveSteps();
 					showToast( meta.name + ' добавлена в шаг', 'success' );

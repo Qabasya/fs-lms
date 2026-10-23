@@ -1,5 +1,5 @@
 /* ══════════════════════════════════════════════════════════════════════
-   Открытие учеников, уроков и сдач работ в новой вкладке: колёсико мыши, Ctrl/Cmd+клик и контекстное меню.
+   Открытие в новой вкладке пунктов меню, групп и курсов сайдбара, занятий КТП, учеников, уроков и сдач работ: колёсико мыши, Ctrl/Cmd+клик и контекстное меню.
    Строки кабинета — не ссылки (<div>/<button> с обработчиком клика), поэтому «новая вкладка» собирается здесь одним
    делегированным обработчиком по адресу строки: `data-href`, `data-url` (урок), `data-alert-*` (ученик на «Главной»)
    или `data-src-*` (сдача; адрес — глубокая ссылка экрана `?screen=…&submission=ID`, см. submissionDeepLink в app.js).
@@ -8,13 +8,21 @@
 import { openCtxMenu, profileUrl, toast } from './utils.js';
 import { copyToClipboard } from '../common/utils.js';
 
-const TARGET = '.prof-screen [data-href], .prof-screen [data-url], .prof-screen [data-alert-pid], .prof-screen [data-src-id]';
+const TARGET = [
+    '.prof-screen [data-href]', '.prof-screen [data-url]', '.prof-screen [data-alert-pid]', '.prof-screen [data-src-id]',
+    // Сайдбар (меню, группы, курсы) и карточки «Главной», ведущие в журнал группы.
+    '.prof-nav-item[data-go]', '.prof-group-item[data-grp]', '.prof-course-item[data-course]', '.prof-screen[data-screen="dashboard"] [data-grp]',
+].join(', ');
 const INNER_CONTROLS = 'button, a, input, select, textarea, label';
 
 /** Адрес строки или null, если у неё нет страницы, которую можно открыть отдельно. */
 function hrefOf(el) {
     if (el.dataset.href) { return el.dataset.href; }
     if (el.dataset.url) { return el.dataset.url; }
+    // Сайдбар: адрес совпадает с глубокой ссылкой, которую app.js разбирает при загрузке (экран / ?gid / ?course).
+    if (el.matches('.prof-nav-item[data-go]')) { return profileUrl({ screen: el.dataset.go }); }
+    if (el.matches('.prof-group-item[data-grp]')) { return profileUrl({ screen: 'groups', gid: el.dataset.grp }); }
+    if (el.matches('.prof-course-item[data-course]')) { return profileUrl({ screen: 'teacher-courses', course: el.dataset.course }); }
     if (el.dataset.alertPid) {
         return profileUrl({ screen: 'summary', gid: el.dataset.alertGrp, pid: el.dataset.alertPid });
     }
@@ -22,6 +30,10 @@ function hrefOf(el) {
     const screen = el.closest('.prof-screen')?.dataset.screen;
     if ('submission' === el.dataset.srcType && ['works', 'summary', 'activity'].includes(screen)) {
         return profileUrl({ screen, submission: el.dataset.srcId });
+    }
+    // Карточка «Главной» с группой открывает журнал этой группы (состояние журнала — journal_g, см. nav-state.js).
+    if (el.dataset.grp && 'dashboard' === screen) {
+        return profileUrl({ screen: 'journal', journal_g: el.dataset.grp });
     }
     return null;
 }

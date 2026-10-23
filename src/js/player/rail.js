@@ -29,7 +29,7 @@ export function initRail() {
 		const active = core.panels[ core.activeIndex() ];
 		if ( cur && active ) {
 			const num = stepNumber( core, core.activeIndex() );
-			cur.textContent = `${ num ? num + '. ' : '' }${ typeMeta( active.dataset.stepType ).label } · ${ active.dataset.title || '' }`;
+			cur.textContent = `${ num ? num + '. ' : '' }${ typeMeta( active.dataset.stepType, active.dataset.workType ).label } · ${ active.dataset.title || '' }`;
 		}
 		keepVisible( rail, rail.querySelector( '.rs-step.cur' ) );
 		if ( null !== focused ) { rail.querySelector( `[data-goto="${ focused }"]` )?.focus(); }
@@ -52,7 +52,7 @@ export function initRail() {
 	onRefresh( render );
 }
 
-/** Номер шага для рейки; у виртуального шага («Трансляция»/«Запись») номера нет — вместо него значок REC. */
+/** Номер шага для подписей (`aria-label`, строка текущего шага); в квадрате рейки его нет — там глиф типа. У виртуального шага («Трансляция»/«Запись») номера нет. */
 function stepNumber( core, i ) {
 	if ( '1' === core.panels[ i ].dataset.virtual ) { return 0; }
 	return i + 1 - core.panels.slice( 0, i ).filter( ( p ) => '1' === p.dataset.virtual ).length;
@@ -60,14 +60,15 @@ function stepNumber( core, i ) {
 
 function stepHtml( panel, i, isCurrent, num ) {
 	const type   = panel.dataset.stepType;
+	const work   = panel.dataset.workType;
 	const done   = [ 'completed', 'failed' ].includes( panel.dataset.status );
 	const locked = 'locked' === panel.dataset.gate;
 	const cls    = [ 'rs-step', isCurrent ? 'cur' : '', done ? 'done' : '', locked ? 'lk' : '' ].filter( Boolean ).join( ' ' );
-	const label  = `${ num ? 'Шаг ' + num : 'Занятие' }: ${ typeMeta( type ).label }${ panel.dataset.title ? ` — ${ panel.dataset.title }` : '' }`;
+	const label  = `${ num ? 'Шаг ' + num : 'Занятие' }: ${ typeMeta( type, work ).label }${ panel.dataset.title ? ` — ${ panel.dataset.title }` : '' }`;
 
-	return `<button type="button" class="${ cls }" data-step-type="${ esc( type ) }" data-goto="${ i }"` +
+	return `<button type="button" class="${ cls }" data-step-type="${ esc( type ) }"${ work ? ` data-work-type="${ esc( work ) }"` : '' } data-goto="${ i }"` +
 		` aria-label="${ esc( label ) }"${ isCurrent ? ' aria-current="step"' : '' }>` +
-		`<span class="rs-n">${ num || typeIco( type, 'currentColor', 14 ) }</span>` +
+		`<span class="rs-n">${ typeIco( type, 'currentColor', 20, work ) }</span>` +
 		( done ? `<span class="rs-tick">${ ICO.check( 10 ) }</span>` : '' ) +
 		( locked && ! isCurrent ? `<span class="rs-lock">${ ICO.lock( 10 ) }</span>` : '' ) +
 		'</button>';
@@ -79,10 +80,12 @@ function attachPopout( rail, pop, core ) {
 		const panel = core.panels[ parseInt( btn.dataset.goto, 10 ) ];
 		if ( ! panel ) { return; }
 		const type = panel.dataset.stepType;
-		const meta = typeMeta( type );
+		const work = panel.dataset.workType;
+		const meta = typeMeta( type, work );
 
 		pop.dataset.stepType = type;
-		pop.innerHTML = `<span class="rp-type">${ typeIco( type, meta.c, 16 ) }${ esc( meta.label ) }</span>` +
+		pop.dataset.workType = work || '';
+		pop.innerHTML = `<span class="rp-type">${ typeIco( type, meta.c, 16, work ) }${ esc( meta.label ) }</span>` +
 			( panel.dataset.title ? `<span class="rp-title">${ esc( panel.dataset.title ) }</span>` : '' ) +
 			( 'locked' === panel.dataset.gate ? '<span class="rp-note">Откроется после решения предыдущего задания</span>' : '' );
 

@@ -21,6 +21,9 @@ function mount( el ) {
 	const acts        = fs_lms_vars.ajax_actions;
 	const nonces      = fs_lms_vars.nonces;
 
+	// Тип работы выбирается в соседнем метабоксе и может смениться без перезагрузки — читаем при каждом поиске.
+	const workType = () => String( document.querySelector( '[name="fs_lms_meta[work_type]"]' )?.value || '' );
+
 	createSlotBuilder( el, {
 		treeTitle: 'Структура работы',
 		reorderable: true,
@@ -40,6 +43,7 @@ function mount( el ) {
 			subject_key: subject,
 			search:      q,
 			source:      candidateSource( q, scope ),
+			work_type:   workType(),
 		} ),
 
 		// Окно «Массовое добавление заданий»: тот же эндпоинт, но постранично. Источник
@@ -48,6 +52,7 @@ function mount( el ) {
 			subject_key: subject,
 			search:      q,
 			source:      candidateSource( q, scope ),
+			work_type:   workType(),
 			page,
 		} ),
 
@@ -58,6 +63,9 @@ function mount( el ) {
 		} ),
 
 		subjectKey: subject,
+
+		// Тип работы — для сужения шаблонов у новой задачи («Создать задачу»).
+		workType,
 
 		// «1.4. П-1» (префикс из настроек работы) → «1.4. П-1-1», «1.4. П-1-2»… — меняется
 		// только последняя цифра (порядковый номер задачи в работе).

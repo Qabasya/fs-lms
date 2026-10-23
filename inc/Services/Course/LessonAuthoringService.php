@@ -141,6 +141,15 @@ class LessonAuthoringService {
 
 		$candidates = $this->candidatesFrom( $post_type, $search );
 
+		// Тип работы нужен пикеру, чтобы шаг получил значок по типу (практика / СР / ДЗ / опрос).
+		if ( 'work' === $kind ) {
+			foreach ( $candidates as &$candidate ) {
+				$meta                    = $this->posts->getMeta( $candidate['id'], PostMetaName::Meta->value );
+				$candidate['work_type'] = WorkType::fromValueOrDefault( is_array( $meta ) ? (string) ( $meta['work_type'] ?? '' ) : '' )->value;
+			}
+			unset( $candidate );
+		}
+
 		// Экзамен-станция (ЕГЭ/ОГЭ) — отдельный путь через «Мои экзамены», шагом курса она не бывает (SPEC §0, §14).
 		if ( 'assessment' === $kind ) {
 			$candidates = array_values( array_filter(

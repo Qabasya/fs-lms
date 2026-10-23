@@ -7,6 +7,7 @@ namespace Inc\Controllers\Problems;
 use Inc\Contracts\ServiceInterface;
 use Inc\Core\BaseController;
 use Inc\Enums\Access\Capability;
+use Inc\Enums\Course\WorkType;
 use Inc\Enums\Wp\AjaxHook;
 use Inc\Enums\Wp\Nonce;
 use Inc\Enums\Wp\PostMetaName;
@@ -116,10 +117,36 @@ class ProblemsController extends BaseController implements ServiceInterface {
 
 		$this->posts->updateMeta( $post_id, PostMetaName::BankTaskSubject->value, $subject );
 
+		// Черновик из конструктора работы с ограничением шаблонов (`fs_lms_work_type=survey`).
+		$scopeType = WorkType::tryFrom( $this->sanitizeGetKey( 'fs_lms_work_type' ) );
+		$allowed   = $scopeType?->allowedTemplates();
+		if ( null !== $scopeType && null !== $allowed ) {
+			$this->posts->updateMeta( $post_id, PostMetaName::BankTaskWorkType->value, $scopeType->value );
+		}
+
 		$default = $this->defaultTemplateFor( $subject );
+		if ( null !== $allowed && ( null === $default || ! in_array( $default, $allowed, true ) ) ) {
+			$default = $allowed[0];
+		}
 		if ( null !== $default ) {
 			$this->posts->updateMeta( $post_id, PostMetaName::TemplateType->value, $default->value );
 		}
+	}
+
+	/**
+	 * Шаблоны, разрешённые черновику банка пометкой {@see PostMetaName::BankTaskWorkType};
+	 * `null` — ограничения нет (пометки нет или задача уже не черновик).
+	 *
+	 * @return TaskTemplate[]|null
+	 */
+	private function templateScope( \WP_Post $post ): ?array {
+		if ( ! in_array( $post->post_status, array( 'auto-draft', 'draft', 'pending' ), true ) ) {
+			return null;
+		}
+
+		$type = WorkType::tryFrom( (string) $this->posts->getMeta( $post->ID, PostMetaName::BankTaskWorkType->value ) );
+
+		return $type?->allowedTemplates();
 	}
 
 	/**
@@ -160,11 +187,21 @@ class ProblemsController extends BaseController implements ServiceInterface {
 				$current = $default->value;
 			}
 		}
+		$templates = $this->registry->getAll();
+		$allowed   = $this->templateScope( $post );
+		if ( null !== $allowed ) {
+			$ids       = array_map( static fn( TaskTemplate $t ): string => $t->value, $allowed );
+			$templates = array_values( array_filter(
+				$templates,
+				static fn( $template ): bool => in_array( $template->get_id(), $ids, true )
+			) );
+			$current   = in_array( $current, $ids, true ) ? $current : $ids[0];
+		}
 		wp_nonce_field( Nonce::SaveMeta->value, 'fs_lms_meta_nonce' );
 		$this->render( 'admin/metaboxes/template-select', array(
 			'name'      => PostMetaName::TemplateType->value,
 			'current'   => $current,
-			'templates' => $this->registry->getAll(),
+			'templates' => $templates,
 		) );
 	}
 
@@ -197,6 +234,14 @@ class ProblemsController extends BaseController implements ServiceInterface {
 		return null !== $this->subjects->getByKey( $fromQuery ) ? $fromQuery : '';
 	}
 
+	/** Разрешён ли шаблон задаче с учётом пометки {@see PostMetaName::BankTaskWorkType}. */
+	private function templateAllowedFor( int $post_id, string $template_id ): bool {
+		$post    = get_post( $post_id );
+		$allowed = $post instanceof \WP_Post ? $this->templateScope( $post ) : null;
+
+		return null === $allowed || in_array( TaskTemplate::tryFrom( $template_id ), $allowed, true );
+	}
+
 	public function saveTemplateType( int $post_id ): void {
 		if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) {
 			return;
@@ -208,6 +253,9 @@ class ProblemsController extends BaseController implements ServiceInterface {
 			return;
 		}
 		$template_id = $this->sanitizeKey( PostMetaName::TemplateType->value );
+		if ( '' !== $template_id && ! $this->templateAllowedFor( $post_id, $template_id ) ) {
+			return;
+		}
 		if ( '' !== $template_id ) {
 			$this->posts->updateMeta( $post_id, PostMetaName::TemplateType->value, $template_id );
 		}
@@ -349,6 +397,9 @@ class ProblemsController extends BaseController implements ServiceInterface {
 		}
 		if ( ! get_post( $post_id ) ) {
 			$this->error( 'Пост не найден.' );
+		}
+		if ( ! $this->templateAllowedFor( $post_id, $template_id ) ) {
+			$this->error( 'Этот шаблон нельзя использовать в задании для работы такого типа.' );
 		}
 
 		$this->posts->updateMeta( $post_id, PostMetaName::TemplateType->value, $template_id );

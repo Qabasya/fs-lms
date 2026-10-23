@@ -11,6 +11,13 @@
 [data-step-type='work'] { --tc: #{$type-work}; --tcs: #{$type-work-soft}; }
 [data-step-type='assessment'] { --tc: #{$type-assessment}; --tcs: #{$type-assessment-soft}; }
 
+/* Работа окрашена по типу работы (WorkType): атрибут на самом элементе (рейка, подсказка) или на
+   шаге-предке (бейдж внутри панели). Идёт после правил типов шага — перекрывает общий цвет «Работы». */
+[data-work-type='practice'], [data-work-type='practice'] [data-step-type='work'] { --tc: #{$type-work}; --tcs: #{$type-work-soft}; }
+[data-work-type='independent'], [data-work-type='independent'] [data-step-type='work'] { --tc: #{$type-independent}; --tcs: #{$type-independent-soft}; }
+[data-work-type='homework'], [data-work-type='homework'] [data-step-type='work'] { --tc: #{$type-homework}; --tcs: #{$type-homework-soft}; }
+[data-work-type='survey'], [data-work-type='survey'] [data-step-type='work'] { --tc: #{$type-survey}; --tcs: #{$type-survey-soft}; }
+
 /* Бейдж типа шага (цветной) */
 .tbadge {
   display: inline-flex;

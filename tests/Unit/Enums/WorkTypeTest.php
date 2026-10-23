@@ -4,7 +4,9 @@ declare( strict_types=1 );
 
 namespace Unit\Enums;
 
+use Inc\Enums\Course\GradeBadge;
 use Inc\Enums\Course\WorkType;
+use Inc\Enums\Subject\TaskTemplate;
 use PHPUnit\Framework\TestCase;
 
 class WorkTypeTest extends TestCase {
@@ -23,10 +25,29 @@ class WorkTypeTest extends TestCase {
 		$options = WorkType::options();
 		self::assertArrayHasKey( 'homework', $options );
 		self::assertSame( 'Домашнее задание', $options['homework'] );
-		self::assertCount( 3, $options );
+		self::assertCount( 4, $options );
+		self::assertSame( 'Опрос', $options['survey'] );
 	}
 
 	public function test_label_is_human_readable(): void {
 		self::assertSame( 'Практика', WorkType::Practice->label() );
+	}
+
+	public function test_survey_allows_only_simple_question_templates(): void {
+		self::assertSame(
+			array( TaskTemplate::Choice, TaskTemplate::Matching, TaskTemplate::Ordering, TaskTemplate::Fill, TaskTemplate::Standard ),
+			WorkType::Survey->allowedTemplates()
+		);
+	}
+
+	public function test_other_work_types_have_no_template_restriction(): void {
+		foreach ( array( WorkType::Practice, WorkType::Independent, WorkType::Homework ) as $type ) {
+			self::assertNull( $type->allowedTemplates() );
+		}
+	}
+
+	public function test_survey_has_no_inline_check_and_own_badge(): void {
+		self::assertFalse( WorkType::Survey->allowsInlineCheck() );
+		self::assertSame( 'ОП', GradeBadge::fromWorkType( WorkType::Survey )->badge() );
 	}
 }

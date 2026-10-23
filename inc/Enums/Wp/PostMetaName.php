@@ -90,4 +90,12 @@ enum PostMetaName: string {
 	 * бумажного сборника (свободный текст, вручную вводит автор).
 	 */
 	case BankTaskSource = 'fs_lms_bank_task_source';
+
+	/**
+	 * На черновике банковской задачи (fs_lms_problems), созданном из конструктора работы с
+	 * ограничением шаблонов (например «Опрос»), — значение {@see \Inc\Enums\Course\WorkType}.
+	 * Пока задача черновик, выбор шаблона сужен до {@see \Inc\Enums\Course\WorkType::allowedTemplates()};
+	 * после публикации пометка не действует (задачу можно использовать в любых работах).
+	 */
+	case BankTaskWorkType = 'fs_lms_bank_task_work_type';
 }

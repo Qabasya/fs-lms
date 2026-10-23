@@ -4,6 +4,8 @@ declare( strict_types=1 );
 
 namespace Inc\Enums\Course;
 
+use Inc\Enums\Subject\TaskTemplate;
+
 /**
  * Тип работы (набора заданий) урока.
  *
@@ -23,6 +25,9 @@ enum WorkType: string {
 	/** Домашнее задание. */
 	case Homework = 'homework';
 
+	/** Опрос: короткие вопросы с ограниченным набором шаблонов заданий ({@see self::allowedTemplates()}). */
+	case Survey = 'survey';
+
 	/**
 	 * Человекочитаемое название типа работы.
 	 *
@@ -33,7 +38,20 @@ enum WorkType: string {
 			self::Practice    => 'Практика',
 			self::Independent => 'Самостоятельная работа',
 			self::Homework    => 'Домашнее задание',
+			self::Survey      => 'Опрос',
 		};
+	}
+
+	/**
+	 * Шаблоны заданий, которые можно класть в работу этого типа; `null` — без ограничений.
+	 * Опрос собирается только из вопросов с готовыми вариантами и простым ответом.
+	 *
+	 * @return TaskTemplate[]|null
+	 */
+	public function allowedTemplates(): ?array {
+		return self::Survey === $this
+			? array( TaskTemplate::Choice, TaskTemplate::Matching, TaskTemplate::Ordering, TaskTemplate::Fill, TaskTemplate::Standard )
+			: null;
 	}
 
 	/**

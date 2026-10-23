@@ -164,23 +164,32 @@ $color-border-footer: #e0e0e0;
 // ── Цвета типов шагов урока — ЕДИНСТВЕННЫЙ источник ──────────────
 // Один и тот же тип обязан быть одного цвета в конструкторе курса
 // (admin $step-type-colors), плеере (player $type-*/_types.scss) и JS
-// (src/js/player/icons.js TYPES — зеркало, править синхронно!).
-// Ключи — UI-типы конструктора; StepType→UI: text→lecture, work→practice.
+// (src/js/player/icons.js TYPES/WORK_TYPES — зеркало, править синхронно!).
+// Ключи — UI-типы конструктора; StepType→UI: text→lecture. У шага «Работа» цвет и глиф
+// по типу работы (WorkType): practice / independent / homework / survey.
+// Видео и задача — редкие типы, поэтому приглушены (серые): яркие цвета достаются
+// трансляции, лекции и работам.
 $step-type-palette: (
-	lecture:    #1c7ed6,
-	video:      $hue-violet,
-	broadcast:  #f03e3e,   // красный REC: трансляция / запись занятия
-	task:       #099268,
-	practice:   #e8590c,
-	assessment: $hue-red,
+	lecture:     #1c7ed6,   // chip 5 · синий
+	video:       #495057,   // графит (токена нет)
+	broadcast:   #f03e3e,   // красный REC (токена нет)
+	task:        #868e96,   // серый (токена нет)
+	practice:    #099268,   // зелёный (токена нет)
+	independent: $hue-violet, // chip 2 · фиолетовый
+	homework:    #e8590c,   // chip 4 · оранжевый
+	survey:      #0c8599,   // chip 9 · бирюзовый
+	assessment:  $hue-red,
 );
 $step-type-palette-soft: (
-	lecture:    #e7f2fb,
-	video:      #f1ecfd,
-	broadcast:  #ffe3e3,
-	task:       #e6f7f1,
-	practice:   #fdeee3,
-	assessment: $hue-red-soft,
+	lecture:     #e4f0fa,
+	video:       #e9eaeb,
+	broadcast:   #fde8e8,
+	task:        #f0f1f2,
+	practice:    #e1f2ed,
+	independent: #eee9fc,
+	homework:    #fcebe2,
+	survey:      #e2f0f3,
+	assessment:  #fbe6e6,
 );
 
 // ── WP-статусная палитра (бейджи, статусы; common + admin) ───────

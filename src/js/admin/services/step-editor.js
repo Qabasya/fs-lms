@@ -60,7 +60,11 @@ const icon   = ( ourType ) => stepIcon( uiMeta( ourType ).ui );
 
 /** UI-меты шага по его типу (Задача сама подстраивается под любую задачу). */
 const stepMeta = ( step ) => uiMeta( step ? step.type : 'text' );
-const iconForStep = ( step ) => stepIcon( stepMeta( step ).ui );
+// У работы глиф зависит от её типа (практика / самостоятельная / домашняя / опрос) — совпадает со значком в рейке плеера.
+const WORK_GLYPHS = [ 'practice', 'independent', 'homework', 'survey' ];
+const WORK_NAMES  = { practice: 'Практика', independent: 'Самостоятельная работа', homework: 'Домашнее задание', survey: 'Опрос' };
+const glyphForStep = ( step ) => ( step && 'work' === step.type && WORK_GLYPHS.includes( step.work_type ) ) ? step.work_type : stepMeta( step ).ui;
+const iconForStep = ( step ) => stepIcon( glyphForStep( step ) );
 
 /**
  * Монтирует редактор шагов одного урока в `mount`.
@@ -142,7 +146,7 @@ export function createStepEditor( opts ) {
 		lesson.steps.forEach( ( s, i ) => {
 			const chip = document.createElement( 'div' );
 			chip.className = 'step-chip' + ( step && s.key === step.key ? ' active' : '' );
-			chip.dataset.type = stepMeta( s ).ui;
+			chip.dataset.type = glyphForStep( s );
 			chip.draggable = true;
 			chip.innerHTML = `
 				<div class="step-chip-box"><span class="sc-num">${ i + 1 }</span>${ iconForStep( s ) }${ s.payload && s.payload.needs_review ? '<span class="dashicons dashicons-warning fs-dashicon fs-dashicon--danger sc-warn" title="Дублированный шаг — измените контент"></span>' : '' }${ lesson.steps.length > 1 ? `<button type="button" class="sc-del" data-del title="Удалить этот шаг" aria-label="Удалить этот шаг">${ icoX( 10 ) }</button>` : '' }</div>
@@ -194,8 +198,8 @@ export function createStepEditor( opts ) {
 		const index = lesson.steps.indexOf( step ) + 1;
 
 		body.innerHTML = `
-			<div class="step-head" data-type="${ meta.ui }">
-				<span class="sh-badge">${ iconForStep( step ) } Шаг ${ index }: ${ esc( meta.name ) }</span>
+			<div class="step-head" data-type="${ glyphForStep( step ) }">
+				<span class="sh-badge">${ iconForStep( step ) } Шаг ${ index }: ${ esc( WORK_NAMES[ step.work_type ] && 'work' === step.type ? WORK_NAMES[ step.work_type ] : meta.name ) }</span>
 				${ meta.inline ? `<input class="field-input field-input--title" data-step-title value="${ esc( step.payload.title || step.title || '' ) }" placeholder="Название шага">` : '' }
 			</div>
 			<div class="step-editor" data-step-editor></div>`;
@@ -414,6 +418,7 @@ export function readSteps( el ) {
 				payload: ( s.payload && typeof s.payload === 'object' ) ? s.payload : {},
 				title:   s.title || '',
 				_title:  s._title || '',
+				work_type: s.work_type || '',
 			} ) ).filter( ( s ) => TYPE_UI[ s.type ] )
 			: [];
 	} catch ( e ) {

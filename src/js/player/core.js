@@ -1,6 +1,6 @@
 /**
  * Ядро плеера (T14.5): состояние шагов из серверных панелей (.pstep),
- * переход по шагам (рейка, клавиатура ←/→), deep-link ?step=, запись
+ * переход по шагам (рейка, клавиатура ←/→), deep-link ?step= (номер шага или ключ; текущий шаг пишется в адрес), запись
  * прогресса через AJAX.
  *
  * Tasks.md З4: обязательны только шаги, которые сдаются кнопкой (задание с
@@ -10,6 +10,7 @@
  * что у сервера (LessonGateResolver::requireSolvedUpTo).
  */
 import { toast } from './shell.js';
+import { stepIndexFromParam, stepNumberOf } from './nav-link.js';
 
 // Шаги без сдачи: гейт не держат (сервер пропускает их по типу).
 const INLINE = [ 'text', 'video', 'broadcast' ];
@@ -123,6 +124,19 @@ export function initCore() {
 		unlockAfter( active );
 	}
 
+	/**
+	 * Номер текущего шага — в адресе (`?step=3`): ссылку можно переслать ученику, она откроет этот шаг.
+	 * Без новой записи в истории, чтобы «Назад» вёл на экран кабинета, а не на прошлый шаг.
+	 */
+	function syncStepUrl() {
+		try {
+			const url    = new URL( window.location.href );
+			const number = stepNumberOf( panels, active );
+			if ( number > 0 ) { url.searchParams.set( 'step', String( number ) ); } else { url.searchParams.delete( 'step' ); }
+			window.history.replaceState( window.history.state, '', url );
+		} catch ( e ) { /* адрес не обновился — шаг всё равно открыт */ }
+	}
+
 	function show( i ) {
 		if ( i < 0 || i >= panels.length || ! isAvailable( i ) ) { return; }
 		// Направление перехода — для анимации въезда панели (CSS step-slide-*
@@ -136,6 +150,7 @@ export function initCore() {
 		panel.hidden = false;
 		completeIfInline();
 		refresh();
+		syncStepUrl();
 		// Новый шаг — с начала контента (шапка прокручивается вместе со страницей).
 		if ( player && window.scrollY > player.offsetTop ) {
 			window.scrollTo( { top: player.offsetTop } );
@@ -168,7 +183,7 @@ export function initCore() {
 	let start = panels.findIndex( ( _, i ) => isAvailable( i ) );
 	const deepStep = app.dataset.activeStep || '';
 	if ( deepStep ) {
-		const di = panels.findIndex( ( p ) => p.dataset.step === deepStep );
+		const di = stepIndexFromParam( panels, deepStep );
 		if ( di >= 0 && isAvailable( di ) ) {
 			start = di;
 		} else if ( di >= 0 ) {
@@ -181,6 +196,7 @@ export function initCore() {
 	panels[ active ].hidden = false;
 	completeIfInline();
 	refresh();
+	syncStepUrl();
 	showListeners.forEach( ( cb ) => cb( panels[ active ], core ) );
 
 	return core;

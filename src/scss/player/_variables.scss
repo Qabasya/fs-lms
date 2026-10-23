@@ -44,6 +44,12 @@ $type-task: map.get(t.$step-type-palette, task);
 $type-task-soft: map.get(t.$step-type-palette-soft, task);
 $type-work: map.get(t.$step-type-palette, practice);
 $type-work-soft: map.get(t.$step-type-palette-soft, practice);
+$type-independent: map.get(t.$step-type-palette, independent);
+$type-independent-soft: map.get(t.$step-type-palette-soft, independent);
+$type-homework: map.get(t.$step-type-palette, homework);
+$type-homework-soft: map.get(t.$step-type-palette-soft, homework);
+$type-survey: map.get(t.$step-type-palette, survey);
+$type-survey-soft: map.get(t.$step-type-palette-soft, survey);
 $type-assessment: map.get(t.$step-type-palette, assessment);
 $type-assessment-soft: map.get(t.$step-type-palette-soft, assessment);
 

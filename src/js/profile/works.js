@@ -36,6 +36,7 @@ const WORK_TYPE_OPTIONS = [
     { value: 'practice', label: 'Практика' },
     { value: 'independent', label: 'Самостоятельная работа' },
     { value: 'homework', label: 'Домашнее задание' },
+    { value: 'survey', label: 'Опрос' },
 ];
 
 /** Статусы сдачи, при которых работа ждёт проверки (PassedWorksService::pendingStatuses). */

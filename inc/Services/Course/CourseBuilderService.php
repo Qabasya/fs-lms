@@ -11,6 +11,7 @@ use Inc\DTO\Course\StepDTO;
 use Inc\Enums\Wp\PostMetaName;
 use Inc\Enums\Course\StepType;
 use Inc\Enums\Course\AccessMode;
+use Inc\Enums\Course\WorkType;
 use Inc\Managers\Course\CourseManager;
 use Inc\Managers\Course\LessonManager;
 use Inc\Managers\Wp\PostManager;
@@ -365,7 +366,7 @@ class CourseBuilderService {
 	 *
 	 * @param StepDTO $step
 	 *
-	 * @return array{key: string, type: string, title: string, payload: array}
+	 * @return array{key: string, type: string, title: string, payload: array, work_type?: string}
 	 */
 	private function stepNode( StepDTO $step ): array {
 		$title = (string) ( $step->payload['title'] ?? '' );
@@ -376,12 +377,20 @@ class CourseBuilderService {
 			$title = $post instanceof \WP_Post ? $post->post_title : '';
 		}
 
-		return array(
+		$node = array(
 			'key'     => $step->key,
 			'type'    => $step->type->value,
 			'title'   => '' !== $title ? $title : $step->type->label(),
 			'payload' => $step->payload,
 		);
+
+		// Тип работы нужен конструктору, чтобы показать у шага значок по типу (практика / СР / ДЗ / опрос).
+		if ( StepType::Work === $step->type ) {
+			$meta              = $this->posts->getMeta( (int) ( $step->payload['ref'] ?? 0 ), PostMetaName::Meta->value );
+			$node['work_type'] = WorkType::fromValueOrDefault( is_array( $meta ) ? (string) ( $meta['work_type'] ?? '' ) : '' )->value;
+		}
+
+		return $node;
 	}
 
 	/**

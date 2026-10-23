@@ -78,6 +78,12 @@
   }
 }
 
+.rs-n {
+  display: flex; // глиф типа шага (вместо номера) строго по центру квадрата
+  align-items: center;
+  justify-content: center;
+}
+
 .rs-tick,
 .rs-lock {
   position: absolute;

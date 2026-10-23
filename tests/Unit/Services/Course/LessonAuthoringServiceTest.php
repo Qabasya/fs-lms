@@ -197,11 +197,12 @@ class LessonAuthoringServiceTest extends TestCase {
 		self::assertSame( 27, $steps[0]->payload['ref'] );
 	}
 	public function test_step_candidates_work(): void {
-		fs_test_seed_post( array( 'ID' => 1, 'post_type' => 'inf_works', 'post_title' => 'ДЗ' ) );
+		fs_test_seed_post( array( 'ID' => 1, 'post_type' => 'inf_works', 'post_title' => 'ДЗ' ), array( 'fs_lms_meta' => array( 'work_type' => 'survey' ) ) );
 
 		$candidates = $this->service->getStepCandidates( 'inf', 'work' );
 
-		self::assertSame( array( array( 'id' => 1, 'title' => 'ДЗ' ) ), $candidates );
+		// Тип работы отдаётся для значка шага в конструкторе.
+		self::assertSame( array( array( 'id' => 1, 'title' => 'ДЗ', 'work_type' => 'survey' ) ), $candidates );
 	}
 
 	public function test_step_candidates_task_source_subject_vs_bank(): void {

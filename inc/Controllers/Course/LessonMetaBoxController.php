@@ -7,7 +7,10 @@ namespace Inc\Controllers\Course;
 use Inc\Contracts\ServiceInterface;
 use Inc\Core\BaseController;
 use Inc\DTO\Course\StepDTO;
+use Inc\Enums\Course\WorkType;
+use Inc\Enums\Wp\PostMetaName;
 use Inc\Managers\Course\LessonManager;
+use Inc\Managers\Wp\PostManager;
 use Inc\Registrars\MetaBoxRegistrar;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Services\Subject\PostTypeResolver;
@@ -32,6 +35,7 @@ class LessonMetaBoxController extends BaseController implements ServiceInterface
 		private readonly SubjectRepository $subjects,
 		private readonly MetaBoxRegistrar  $registrar,
 		private readonly LessonManager     $lessons,
+		private readonly PostManager       $posts,
 	) {
 		parent::__construct();
 	}
@@ -95,6 +99,10 @@ class LessonMetaBoxController extends BaseController implements ServiceInterface
 			$ref_id = (int) ( $step['payload']['ref'] ?? $step['payload']['article_id'] ?? 0 );
 			if ( $ref_id > 0 ) {
 				$step['_title'] = get_the_title( $ref_id );
+			}
+			if ( 'work' === ( $step['type'] ?? '' ) && $ref_id > 0 ) {
+				$meta              = $this->posts->getMeta( $ref_id, PostMetaName::Meta->value );
+				$step['work_type'] = WorkType::fromValueOrDefault( is_array( $meta ) ? (string) ( $meta['work_type'] ?? '' ) : '' )->value;
 			}
 		}
 		unset( $step );

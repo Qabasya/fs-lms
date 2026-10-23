@@ -111,6 +111,8 @@ const defaultNewSlot = ( i ) => ( { key: 'slot_' + i, taskId: 0, title: '' } );
  * @param {string}     [config.subjectKey]    Предмет — прокидывается в URL «Создать задачу»
  *                                            (post-new.php?fs_lms_subject=…), чтобы новый
  *                                            черновик в банке сразу был привязан к предмету.
+ * @param {Function}   [config.workType]  () => string  Тип работы с ограничением шаблонов (например «survey»):
+ *                                     передаётся в «Создать задачу», чтобы шаблон новой задачи выбирался из разрешённых.
  * @param {Function}   [config.suggestTitle] (filledCount) => string  Подсказка заголовка нового
  *                                            черновика (напр. «{название работы}-{N}»).
  * @param {Function}   [config.mapSlot]    (step,i) => slot              Маппинг начальных слотов.
@@ -622,6 +624,11 @@ export function createSlotBuilder( el, config ) {
 				const params = new URLSearchParams( { post_type: 'fs_lms_problems' } );
 				if ( config.subjectKey ) {
 					params.set( 'fs_lms_subject', config.subjectKey );
+				}
+				// Тип работы с ограничением шаблонов (например «Опрос»): новая задача предложит только их.
+				const scopeType = typeof config.workType === 'function' ? config.workType() : '';
+				if ( scopeType ) {
+					params.set( 'fs_lms_work_type', scopeType );
 				}
 				if ( typeof config.suggestTitle === 'function' ) {
 					const filledCount = slots.filter( ( s ) => s.taskId > 0 ).length;

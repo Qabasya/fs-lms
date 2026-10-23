@@ -472,7 +472,7 @@ class Migration_1_0_0 implements MigrationInterface {
 			student_person_id   int unsigned         NOT NULL,
 			group_lesson_id     int unsigned         NOT NULL,
 			work_id             bigint unsigned      NOT NULL,
-			work_type           enum('practice','independent','homework') NOT NULL,
+			work_type           enum('practice','independent','homework','survey') NOT NULL,
 			task_id             bigint unsigned      DEFAULT NULL,
 			answer_text         longtext             DEFAULT NULL,
 			attachment_id       bigint unsigned      DEFAULT NULL,

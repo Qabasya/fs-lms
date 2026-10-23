@@ -99,4 +99,34 @@ class WorkCallbacksTest extends TestCase {
 
 		self::assertFalse( fs_test_capture_json( fn() => $this->cb->ajaxSaveWorkItems() )->success );
 	}
+
+	public function test_item_candidates_pass_work_type(): void {
+		$this->auth->expects( $this->once() )->method( 'getItemCandidates' )
+			->with( 'inf', 0, 'mine', '', 'subject', 1, 'survey' )
+			->willReturn( array() );
+		$_POST = array( 'subject_key' => 'inf', 'work_type' => 'survey' );
+
+		self::assertTrue( fs_test_capture_json( fn() => $this->cb->ajaxGetWorkItemCandidates() )->success );
+	}
+
+	public function test_save_work_items_rejects_templates_not_allowed_for_survey(): void {
+		$this->manager->method( 'get' )->willReturn( new \Inc\DTO\Course\WorkDTO(
+			id          : 5,
+			subjectKey  : 'inf',
+			title       : 'Опрос',
+			workType    : \Inc\Enums\Course\WorkType::Survey,
+			itemIds     : array(),
+			instructions: '',
+			authorId    : 1,
+			status      : 'draft',
+		) );
+		$this->auth->method( 'disallowedItemIds' )->willReturn( array( 20 ) );
+		$this->manager->expects( $this->never() )->method( 'setItemIds' );
+		$_POST = array( 'work_id' => '5', 'item_ids' => array( '10', '20' ) );
+
+		$r = fs_test_capture_json( fn() => $this->cb->ajaxSaveWorkItems() );
+
+		self::assertFalse( $r->success );
+		self::assertStringContainsString( 'Опрос', (string) ( $r->payload['message'] ?? $r->payload ) );
+	}
 }

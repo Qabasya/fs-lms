@@ -21,23 +21,32 @@ import {
 } from '../common/icons.js';
 
 export const TYPES = {
-	text: { label: 'Лекция', c: '#1c7ed6', soft: '#e7f2fb' },
-	video: { label: 'Видео', c: '#7048e8', soft: '#f1ecfd' },
-	broadcast: { label: 'Занятие', c: '#f03e3e', soft: '#ffe3e3' },
-	task: { label: 'Задача', c: '#099268', soft: '#e6f7f1' },
-	work: { label: 'Работа', c: '#e8590c', soft: '#fdeee3' },
-	assessment: { label: 'Экзамен', c: '#e03131', soft: '#fdecec' },
+	text: { label: 'Лекция', c: '#1c7ed6', soft: '#e4f0fa' },
+	video: { label: 'Видео', c: '#495057', soft: '#e9eaeb' },
+	broadcast: { label: 'Занятие', c: '#f03e3e', soft: '#fde8e8' },
+	task: { label: 'Задача', c: '#868e96', soft: '#f0f1f2' },
+	work: { label: 'Работа', c: '#099268', soft: '#e1f2ed' },
+	assessment: { label: 'Экзамен', c: '#e03131', soft: '#fbe6e6' },
 };
 
-export function typeMeta( type ) {
-	return TYPES[ type ] || TYPES.text;
+// Работа называется и красится по типу работы (WorkType); цвета — зеркало тех же ключей палитры ядра.
+const WORK_TYPES = {
+	practice: { label: 'Практика', c: '#099268', soft: '#e1f2ed' },
+	independent: { label: 'Самостоятельная работа', c: '#7048e8', soft: '#eee9fc' },
+	homework: { label: 'Домашнее задание', c: '#e8590c', soft: '#fcebe2' },
+	survey: { label: 'Опрос', c: '#0c8599', soft: '#e2f0f3' },
+};
+
+export function typeMeta( type, workType = '' ) {
+	return 'work' === type && WORK_TYPES[ workType ] ? WORK_TYPES[ workType ] : ( TYPES[ type ] || TYPES.text );
 }
 
 // Наш StepType → UI-тип конструктора (ключ STEP_GLYPHS).
 const TYPE_UI = { text: 'lecture', video: 'video', broadcast: 'broadcast', task: 'task', work: 'practice', assessment: 'assessment' };
 
-export function typeIco( type, color, s = 22 ) {
-	const glyph = STEP_GLYPHS[ TYPE_UI[ type ] ] || STEP_GLYPHS.lecture;
+export function typeIco( type, color, s = 22, workType = '' ) {
+	const ui    = 'work' === type && WORK_TYPES[ workType ] ? workType : TYPE_UI[ type ];
+	const glyph = STEP_GLYPHS[ ui ] || STEP_GLYPHS.lecture;
 	return `<svg width="${ s }" height="${ s }" viewBox="0 0 24 24" fill="${ color }">${ glyph }</svg>`;
 }
 

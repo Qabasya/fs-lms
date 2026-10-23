@@ -19,6 +19,7 @@
 					<option value="practice">Практическая</option>
 					<option value="independent">Самостоятельная</option>
 					<option value="homework">Домашняя работа</option>
+					<option value="survey">Опрос</option>
 				</select>
 			</div>
 		</div>

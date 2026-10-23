@@ -70,7 +70,7 @@ export function placedThemeHtml(t, videoEnabled, individual = false) {
     // кликабельна, только если у занятия есть контент (player_url из getCalendar).
     // Этап 4: урок вне расписания (нет штатного слота в этот день) — иначе неотличим
     // от планового занятия.
-    return `<div class="placed-theme${pinned}${offSchedule}${draft}" draggable="true" data-glid="${t.group_lesson_id}" title="${esc(t.topic)}${esc(roomTip)}">
+    return `<div class="placed-theme${pinned}${offSchedule}${draft}" draggable="true" data-glid="${t.group_lesson_id}"${t.player_url ? ` data-url="${esc(t.player_url)}"` : ''} title="${esc(t.topic)}${esc(roomTip)}">
         <div class="pt-bar">
             <button type="button" class="pt-deadlines" data-glid="${t.group_lesson_id}" title="Дедлайны работ" aria-label="Дедлайны работ">${icoCalendar(12)}</button>
             ${recordingIconHtml(t, videoEnabled)}

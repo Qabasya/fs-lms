@@ -7,6 +7,7 @@ namespace Inc\Callbacks\Course;
 use Inc\Core\BaseController;
 use Inc\DTO\Course\WorkDTO;
 use Inc\Enums\Access\Capability;
+use Inc\Enums\Course\WorkType;
 use Inc\Enums\Wp\Nonce;
 use Inc\Managers\Course\WorkManager;
 use Inc\Services\Course\WorkAuthoringService;
@@ -42,6 +43,21 @@ class WorkCallbacks extends BaseController {
 		$work_id  = $this->requireInt( 'work_id' );
 		$item_ids = $this->sanitizeIntList( 'item_ids' );
 
+		// Тип работы ограничивает шаблоны заданий (у «Опроса» — только вопросы с вариантами и простым ответом).
+		$work = $this->workManager->get( $work_id );
+		if ( null !== $work ) {
+			$bad = $this->authoringService->disallowedItemIds( $work->workType, $item_ids );
+			if ( array() !== $bad ) {
+				$this->error( sprintf(
+					'В работу типа «%s» нельзя добавить задания с этим шаблоном (ID: %s). Допустимы: %s.',
+					$work->workType->label(),
+					implode( ', ', $bad ),
+					implode( ', ', array_map( static fn( $t ) => $t->label(), $work->workType->allowedTemplates() ?? array() ) )
+				) );
+				return;
+			}
+		}
+
 		if ( $this->workManager->setItemIds( $work_id, $item_ids ) ) {
 			$this->success( array( 'count' => count( array_filter( $item_ids ) ) ) );
 		} else {
@@ -75,7 +91,8 @@ class WorkCallbacks extends BaseController {
 	 * Кандидаты-элементы для работы: {key}_tasks + fs_lms_problems (unified).
 	 * Params: subject_key, collection, scope, search, source (subject|all — банк
 	 * в дропдауне по умолчанию не показываем, см. WorkAuthoringService::getItemCandidates),
-	 * page (с 1; следующие страницы догружает окно массового добавления заданий)
+	 * page (с 1; следующие страницы догружает окно массового добавления заданий),
+	 * work_type? (значение WorkType; у «Опроса» список сужен до разрешённых шаблонов)
 	 */
 	public function ajaxGetWorkItemCandidates(): void {
 		$this->authorize( Nonce::AuthorWork, Capability::AuthorLmsCourses );
@@ -86,6 +103,7 @@ class WorkCallbacks extends BaseController {
 		$search      = $this->sanitizeText( 'search' );
 		$source      = $this->sanitizeKey( 'source' );
 		$page        = max( 1, $this->sanitizeInt( 'page' ) );
+		$work_type   = $this->sanitizeKey( 'work_type' );
 
 		if ( ! in_array( $scope, array( 'mine', 'subject' ), true ) ) {
 			$scope = 'mine';
@@ -95,7 +113,7 @@ class WorkCallbacks extends BaseController {
 		}
 
 		$this->success(
-			$this->authoringService->getItemCandidates( $subject_key, $collection, $scope, $search, $source, $page )
+			$this->authoringService->getItemCandidates( $subject_key, $collection, $scope, $search, $source, $page, $work_type )
 		);
 	}
 

@@ -4,10 +4,12 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Course;
 
+use Inc\Enums\Course\WorkType;
 use Inc\Enums\Wp\PostMetaName;
 use Inc\Managers\Wp\PostManager;
 use Inc\Managers\Wp\TermManager;
 use Inc\Services\Subject\PostTypeResolver;
+use Inc\Services\Template\TemplateResolver;
 use Inc\Services\Task\TaskBundleService;
 
 /**
@@ -25,10 +27,14 @@ class WorkAuthoringService {
 	 */
 	private const CANDIDATES_PER_PAGE = 50;
 
+	/** Сколько страниц источника просматривается, пока набирается страница кандидатов с отбором по шаблону. */
+	private const MAX_SCAN_PAGES = 20;
+
 	public function __construct(
 		private readonly PostManager      $posts,
 		private readonly TermManager      $terms,
 		private readonly TaskBundleService $taskBundles,
+		private readonly TemplateResolver $templateResolver,
 	) {}
 
 	/**
@@ -136,6 +142,9 @@ class WorkAuthoringService {
 	 * @param int    $page             Страница выдачи, с 1. У смешанных источников страница —
 	 *                                 это страница заданий предмета плюс страница банка, поэтому
 	 *                                 конец списка — пустая страница, а не неполная.
+	 * @param string $workType         Тип работы ({@see WorkType}); у типа с ограничением шаблонов
+	 *                                 ({@see WorkType::allowedTemplates()}) остаются только подходящие
+	 *                                 задания, страницы нарезаются уже по отобранным.
 	 * @return array<int, array{id: int, title: string, author: int, type: string}>
 	 */
 	public function getItemCandidates(
@@ -144,7 +153,69 @@ class WorkAuthoringService {
 		string $scope            = 'mine',
 		string $search           = '',
 		string $source           = 'subject',
-		int    $page             = 1
+		int    $page             = 1,
+		string $workType         = ''
+	): array {
+		$allowed = WorkType::tryFrom( $workType )?->allowedTemplates();
+		if ( null === $allowed ) {
+			return $this->sourceItemCandidates( $subjectKey, $collectionTermId, $scope, $search, $source, $page );
+		}
+
+		$need = max( 1, $page ) * self::CANDIDATES_PER_PAGE;
+		$kept = array();
+		for ( $raw = 1; $raw <= self::MAX_SCAN_PAGES && count( $kept ) < $need; $raw++ ) {
+			$batch = $this->sourceItemCandidates( $subjectKey, $collectionTermId, $scope, $search, $source, $raw );
+			if ( array() === $batch ) {
+				break;
+			}
+			foreach ( $batch as $item ) {
+				if ( $this->hasAllowedTemplate( (int) $item['id'], $allowed ) ) {
+					$kept[] = $item;
+				}
+			}
+		}
+
+		return array_slice( $kept, $this->pageOffset( $page ), self::CANDIDATES_PER_PAGE );
+	}
+
+	/**
+	 * Задания из списка, чей шаблон не разрешён типом работы (для проверки перед сохранением состава).
+	 *
+	 * @param int[] $itemIds
+	 *
+	 * @return int[] ID заданий, которых в работе такого типа быть не должно
+	 */
+	public function disallowedItemIds( WorkType $type, array $itemIds ): array {
+		$allowed = $type->allowedTemplates();
+		if ( null === $allowed ) {
+			return array();
+		}
+
+		return array_values( array_filter(
+			array_map( 'intval', $itemIds ),
+			fn( int $id ): bool => $id > 0 && ! $this->hasAllowedTemplate( $id, $allowed )
+		) );
+	}
+
+	/** @param \Inc\Enums\Subject\TaskTemplate[] $allowed */
+	private function hasAllowedTemplate( int $postId, array $allowed ): bool {
+		$post = $this->posts->get( $postId );
+
+		return null !== $post && in_array( $this->templateResolver->resolveEnum( $post ), $allowed, true );
+	}
+
+	/**
+	 * Страница кандидатов-элементов выбранного источника, без отбора по типу работы.
+	 *
+	 * @return array<int, array{id: int, title: string, author: int, type: string}>
+	 */
+	private function sourceItemCandidates(
+		string $subjectKey,
+		int    $collectionTermId,
+		string $scope,
+		string $search,
+		string $source,
+		int    $page
 	): array {
 		if ( 'public' === $source ) {
 			return $this->getTaskCandidates( $subjectKey, 0, $collectionTermId, 'subject', $search, true, $page );

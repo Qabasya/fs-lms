@@ -2,6 +2,7 @@
  * Оболочка плеера (D18): тост, data-toast заглушки топбара. UI-слой без AJAX.
  */
 import { ICO } from './icons.js';
+import { BACK_STORAGE_KEY, backAction, profileReferrer } from './nav-link.js';
 
 /**
  * Всплывающее уведомление плеера.
@@ -43,6 +44,34 @@ export function initShell() {
 	} );
 
 	initHeadroom();
+	initBack();
+}
+
+/**
+ * Кнопка «Назад» (`.s-back`): возвращает на экран кабинета, с которого открыли урок, в том же состоянии
+ * (группа, месяц, вкладка живут в адресе кабинета — см. profile/nav-state.js). Экран запоминается на
+ * вкладку, поэтому «Назад» работает и после перехода между уроками, и в новой вкладке (Ctrl+клик).
+ * Без кабинета в истории кнопка ведёт по своей ссылке. Ctrl/Cmd/Shift+клик и колёсико — обычные.
+ */
+function initBack() {
+	const link = document.querySelector( '.s-back' );
+	if ( ! link ) { return; }
+
+	const profileUrl = link.dataset.profile || '';
+	const fromProfile = profileReferrer( document.referrer, profileUrl );
+	let stored = '';
+	try {
+		if ( fromProfile ) { window.sessionStorage.setItem( BACK_STORAGE_KEY, fromProfile ); }
+		stored = window.sessionStorage.getItem( BACK_STORAGE_KEY ) || '';
+	} catch ( e ) { /* хранилище закрыто — достаточно referrer */ }
+
+	link.addEventListener( 'click', ( e ) => {
+		if ( e.defaultPrevented || 0 !== e.button || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey ) { return; }
+		const act = backAction( { referrer: document.referrer, profileUrl, stored, historyLength: window.history.length } );
+		if ( 'link' === act.action ) { return; }
+		e.preventDefault();
+		if ( 'back' === act.action ) { window.history.back(); } else { window.location.assign( act.url ); }
+	} );
 }
 
 /** Сдвиг прокрутки, после которого шапка реагирует на направление, px. */

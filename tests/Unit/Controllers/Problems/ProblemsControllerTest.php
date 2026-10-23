@@ -200,4 +200,48 @@ class ProblemsControllerTest extends TestCase {
 
 		self::assertSame( 'Информатика', $out );
 	}
+
+	/** Черновик, созданный из конструктора «Опроса»: пометка типа работы в мете, статус — черновик. */
+	private function surveyDraft( int $id = 201, string $status = 'draft' ): void {
+		fs_test_seed_post( array( 'ID' => $id, 'post_type' => 'fs_lms_problems', 'post_status' => $status ) );
+		$this->posts->method( 'getMeta' )->willReturnCallback(
+			static fn( int $postId, string $key ): mixed => 'fs_lms_bank_task_work_type' === $key ? 'survey' : ''
+		);
+	}
+
+	private function formFor( int $id, string $template ): void {
+		$_POST = array(
+			'post_ID'              => (string) $id,
+			'fs_lms_meta_nonce'    => 'nonce',
+			'fs_lms_template_type' => $template,
+		);
+	}
+
+	public function test_survey_draft_rejects_template_outside_allowed_list(): void {
+		$this->surveyDraft();
+		$this->formFor( 201, 'code_task' );
+
+		$this->posts->expects( $this->never() )->method( 'updateMeta' );
+
+		$this->controller->saveTemplateType( 201 );
+	}
+
+	public function test_survey_draft_accepts_allowed_template(): void {
+		$this->surveyDraft();
+		$this->formFor( 201, 'choice_task' );
+
+		$this->posts->expects( $this->once() )->method( 'updateMeta' )->with( 201, 'fs_lms_template_type', 'choice_task' );
+
+		$this->controller->saveTemplateType( 201 );
+	}
+
+	/** Опубликованная задача больше не ограничена пометкой: её можно сохранить с любым шаблоном. */
+	public function test_published_task_ignores_survey_scope(): void {
+		$this->surveyDraft( 202, 'publish' );
+		$this->formFor( 202, 'code_task' );
+
+		$this->posts->expects( $this->once() )->method( 'updateMeta' )->with( 202, 'fs_lms_template_type', 'code_task' );
+
+		$this->controller->saveTemplateType( 202 );
+	}
 }

@@ -124,10 +124,10 @@ $next_url    = null !== $next_lesson
 
 	<!-- Шапка — часть страницы: уезжает при прокрутке (липкий — только воркбар работы). -->
 	<header class="s-top">
-		<?php // Шапка ведёт на главную кабинета; к экрану, откуда пришли (КТП, журнал…), возвращает «Назад» браузера — состояние экранов хранится в адресе (nav-state.js). ?>
-		<a class="s-back" href="<?php echo esc_url( $profile_url ); ?>">
+		<?php // «Назад» возвращает на экран кабинета, откуда пришли (КТП, журнал…) в том же состоянии — оно хранится в адресе (nav-state.js, player/shell.js initBack); без кабинета в истории ссылка ведёт к курсу. ?>
+		<a class="s-back" href="<?php echo esc_url( $back_url ); ?>" data-profile="<?php echo esc_url( $profile_url ); ?>">
 			<?php echo Icon::Back->svg(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
-			<?php esc_html_e( 'На главную', 'fs-lms' ); ?>
+			<?php esc_html_e( 'Назад', 'fs-lms' ); ?>
 		</a>
 		<div>
 			<div class="s-crumb">
@@ -220,6 +220,7 @@ $next_url    = null !== $next_lesson
 							data-step="<?php echo esc_attr( $step['key'] ); ?>"
 							data-index="<?php echo esc_attr( (string) $i ); ?>"
 							data-step-type="<?php echo esc_attr( $step['type'] ); ?>"
+							<?php echo 'work' === $step['type'] ? 'data-work-type="' . esc_attr( (string) ( $step['render']['work_type'] ?? '' ) ) . '"' : ''; ?>
 							data-title="<?php echo esc_attr( $step['title'] ); ?>"
 							data-gate="<?php echo esc_attr( $step['gate'] ); ?>"
 							data-status="<?php echo esc_attr( $step['status'] ); ?>"

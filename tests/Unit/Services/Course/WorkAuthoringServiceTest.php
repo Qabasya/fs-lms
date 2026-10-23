@@ -7,21 +7,29 @@ namespace Unit\Services\Course;
 use Inc\Managers\Wp\PostManager;
 use Inc\Managers\Wp\TermManager;
 use Inc\Services\Course\WorkAuthoringService;
+use Inc\Enums\Course\WorkType;
+use Inc\Enums\Subject\TaskTemplate;
 use Inc\Services\Task\TaskBundleService;
+use Inc\Services\Template\TemplateResolver;
 use PHPUnit\Framework\TestCase;
 
 class WorkAuthoringServiceTest extends TestCase {
 
 	private WorkAuthoringService $service;
 
+	/** @var TemplateResolver&\PHPUnit\Framework\MockObject\MockObject */
+	private TemplateResolver $resolver;
+
 	protected function setUp(): void {
 		parent::setUp();
 		fs_test_reset_posts();
-		$posts = new PostManager();
-		$this->service = new WorkAuthoringService(
+		$posts          = new PostManager();
+		$this->resolver = $this->createMock( TemplateResolver::class );
+		$this->service  = new WorkAuthoringService(
 			$posts,
 			$this->createMock( TermManager::class ),
-			new TaskBundleService( $posts, $this->createMock( TermManager::class ) )
+			new TaskBundleService( $posts, $this->createMock( TermManager::class ) ),
+			$this->resolver
 		);
 	}
 
@@ -154,5 +162,58 @@ class WorkAuthoringServiceTest extends TestCase {
 		self::assertCount( 100, $first );
 		sort( $second );
 		self::assertSame( array( 51, 52, 53, 54, 55, 151, 152, 153 ), $second );
+	}
+
+	/** Шаблон задания по ID поста: чётные — выбор варианта (разрешён опросу), нечётные — код (запрещён). */
+	private function templatesByParity(): void {
+		$this->resolver->method( 'resolveEnum' )->willReturnCallback(
+			static fn( \WP_Post $post ): TaskTemplate => 0 === $post->ID % 2 ? TaskTemplate::Choice : TaskTemplate::Code
+		);
+	}
+
+	public function test_survey_candidates_keep_only_allowed_templates(): void {
+		$this->templatesByParity();
+		for ( $id = 1; $id <= 6; $id++ ) {
+			fs_test_seed_post( array( 'ID' => $id, 'post_type' => 'inf_tasks', 'post_title' => "Задача {$id}" ) );
+		}
+
+		$ids = array_column( $this->service->getItemCandidates( 'inf', 0, 'subject', '', 'subject', 1, WorkType::Survey->value ), 'id' );
+		sort( $ids );
+
+		self::assertSame( array( 2, 4, 6 ), $ids );
+	}
+
+	public function test_other_work_types_are_not_filtered_by_template(): void {
+		$this->resolver->expects( self::never() )->method( 'resolveEnum' );
+		for ( $id = 1; $id <= 3; $id++ ) {
+			fs_test_seed_post( array( 'ID' => $id, 'post_type' => 'inf_tasks', 'post_title' => "Задача {$id}" ) );
+		}
+
+		self::assertCount( 3, $this->service->getItemCandidates( 'inf', 0, 'subject', '', 'subject', 1, WorkType::Homework->value ) );
+	}
+
+	/** Страницы нарезаются по отобранным заданиям: подходящие из дальних страниц источника не теряются. */
+	public function test_survey_candidates_are_paged_after_filtering(): void {
+		$this->templatesByParity();
+		for ( $id = 1; $id <= 160; $id++ ) {
+			fs_test_seed_post( array( 'ID' => $id, 'post_type' => 'inf_tasks', 'post_title' => "Задача {$id}" ) );
+		}
+
+		$first  = array_column( $this->service->getItemCandidates( 'inf', 0, 'subject', '', 'subject', 1, 'survey' ), 'id' );
+		$second = array_column( $this->service->getItemCandidates( 'inf', 0, 'subject', '', 'subject', 2, 'survey' ), 'id' );
+
+		self::assertCount( 50, $first );
+		self::assertCount( 30, $second );
+		self::assertSame( array(), array_intersect( $first, $second ) );
+	}
+
+	public function test_disallowed_item_ids_for_survey(): void {
+		$this->templatesByParity();
+		foreach ( array( 1, 2, 3 ) as $id ) {
+			fs_test_seed_post( array( 'ID' => $id, 'post_type' => 'inf_tasks' ) );
+		}
+
+		self::assertSame( array( 1, 3 ), $this->service->disallowedItemIds( WorkType::Survey, array( 1, 2, 3 ) ) );
+		self::assertSame( array(), $this->service->disallowedItemIds( WorkType::Practice, array( 1, 2, 3 ) ) );
 	}
 }

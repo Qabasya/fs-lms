@@ -29,4 +29,8 @@ class RepairColumnsMigrationTest extends TestCase {
 		self::assertContains( TableName::ExamSources->value . '.session_ids', $pairs );
 		self::assertContains( TableName::TaskAttempts->value . '.first_answer_sec', $pairs );
 	}
+
+	public function test_survey_enum_migration_version(): void {
+		self::assertSame( '1.0.98', ( new \Inc\Migrations\Migration_1_0_98() )->version() );
+	}
 }
