@@ -67,7 +67,7 @@ class LearnerScheduleSection {
 
 		foreach ( $ctx->rawRows as $glid => $row ) {
 			$submittedWorkIds = array();
-			foreach ( $this->submissions->listByStudentAndGroupLesson( $personId, $glid ) as $sub ) {
+			foreach ( $this->submissions->listByStudentAndGroupLesson( $personId, $row->progressId() ) as $sub ) {
 				$submittedWorkIds[ $sub->workId ] = true;
 			}
 

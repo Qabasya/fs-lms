@@ -180,10 +180,15 @@ function stopTimers() {
     tickTimer = 0;
 }
 
+/** Экран «Проведение» сейчас на виду (экраны кабинета смонтированы все сразу, видим один). */
+function screenActive() {
+    return !!root?.closest('.prof-screen')?.classList.contains('active');
+}
+
 function startTimers() {
     refreshTimer = window.setInterval(() => {
         if (!root || !root.isConnected) { stopTimers(); return; }
-        if (document.hidden || !board) { return; }
+        if (document.hidden || !board || !screenActive()) { return; }
         load();
     }, REFRESH_MS);
     tickTimer = window.setInterval(() => {

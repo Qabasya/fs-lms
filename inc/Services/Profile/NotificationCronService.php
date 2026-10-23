@@ -137,7 +137,7 @@ readonly class NotificationCronService {
 			foreach ( $studentPersonIds as $studentPersonId ) {
 				$submittedByStudent[ $studentPersonId ] = array_map(
 					static fn( $s ) => $s->workId,
-					$this->submissions->listByStudentAndGroupLesson( $studentPersonId, $lesson->id )
+					$this->submissions->listByStudentAndGroupLesson( $studentPersonId, $lesson->progressId() )
 				);
 			}
 
@@ -461,7 +461,7 @@ readonly class NotificationCronService {
 			$this->notifications->lessonStudentPersonIds( $lesson ),
 			fn( int $personId ): bool => ! in_array(
 				$workId,
-				array_map( static fn( $s ) => $s->workId, $this->submissions->listByStudentAndGroupLesson( $personId, $lesson->id ) ),
+				array_map( static fn( $s ) => $s->workId, $this->submissions->listByStudentAndGroupLesson( $personId, $lesson->progressId() ) ),
 				true
 			)
 		) );

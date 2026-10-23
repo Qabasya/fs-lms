@@ -784,4 +784,99 @@ class SubmissionServiceTest extends TestCase {
 
 		self::assertFalse( $this->service->revokeWorkCredit( 10, 5, 3 ) );
 	}
+
+	/** Продолжение темы (строка 7 → исходная 5) со своим сроком работы. */
+	private function makeContinuation(): GroupLessonDTO {
+		return new GroupLessonDTO(
+			id              : 7,
+			groupId         : 1,
+			lessonId        : 10,
+			position        : 1,
+			workIdsSnapshot : null,
+			extraWorkIds    : [],
+			scheduledAt     : null,
+			endsAt          : null,
+			isPinned        : true,
+			teacherUserId   : null,
+			visibility      : 'open',
+			openedAt        : '2024-01-01 00:00:00',
+			homeworkDueAt   : null,
+			allowLate       : true,
+			recordingUrl    : null,
+			createdByUserId : null,
+			updatedByUserId : null,
+			workDeadlines   : [ 3 => '2100-02-02 10:00:00' ],
+			continuedFromId : 5,
+		);
+	}
+
+	/** Сдача на продолжении темы пишется под исходной строкой, а срок берётся у продолжения. */
+	public function test_submit_batch_on_continuation_stores_under_origin_with_own_deadline(): void {
+		$this->arrangeBatch( $this->makeContinuation() );
+
+		$this->taskAttempts->expects( $this->once() )
+			->method( 'create' )
+			->with( 10, 5 );
+
+		$created = null;
+		$this->submissions->method( 'create' )->willReturnCallback( static function ( $dto ) use ( &$created ): int {
+			$created = $dto;
+			return 1;
+		} );
+
+		$this->service->submitBatch( 10, 7, 3, [ 1 => 'a' ] );
+
+		self::assertNotNull( $created );
+		self::assertSame( 5, $created->groupLessonId );
+		self::assertSame( '2100-02-02 10:00:00', $created->dueAt );
+	}
+
+	/** Пересдача на продолжении обновляет срок сдачи на срок продолжения. */
+	public function test_resubmit_on_continuation_refreshes_due_at(): void {
+		$this->policy->method( 'canSubmit' )->willReturn( true );
+		$this->groupLessons->method( 'find' )->willReturn( $this->makeContinuation() );
+		$this->resolver->method( 'resolve' )->willReturn( [ $this->makeWork( 3 ) ] );
+		$this->workManager->method( 'get' )->willReturn( $this->makeWork( 3 ) );
+		$this->batchChecker->method( 'check' )->willReturn( new BatchCheckResultDTO(
+			perTask         : [ 2 => [ 'verdict' => 'correct', 'score' => 1.0, 'maxScore' => 1.0 ] ],
+			correctCount    : 1,
+			totalCount      : 1,
+			weightedScore   : 1.0,
+			maxWeightedScore: 1.0,
+			hasManual       : false,
+		) );
+		$this->submissions->method( 'findAggregate' )->willReturn( $this->aggregateAfter( 1, array(
+			1 => array( 'verdict' => 'correct', 'score' => 1.0, 'maxScore' => 1.0 ),
+			2 => array( 'verdict' => 'incorrect', 'score' => 0.0, 'maxScore' => 1.0 ),
+		) ) );
+		$this->submissions->method( 'listPerTaskByStudentWorkLesson' )->willReturn( [] );
+		$this->submissions->method( 'findForWork' )->willReturn( null );
+		$this->submissions->method( 'create' )->willReturn( 2 );
+
+		$aggregateUpdate = null;
+		$this->submissions->method( 'update' )->willReturnCallback(
+			function ( int $id, array $data ) use ( &$aggregateUpdate ): bool {
+				if ( array_key_exists( 'attempt_count', $data ) ) {
+					$aggregateUpdate = $data;
+				}
+				return true;
+			}
+		);
+
+		$this->service->submitBatch( 10, 7, 3, array( 2 => 'исправлено' ) );
+
+		self::assertSame( '2100-02-02 10:00:00', $aggregateUpdate['due_at'] );
+	}
+
+	/** Плеер продолжения читает число попыток и закрытые задания исходной строки. */
+	public function test_attempts_and_locked_tasks_of_continuation_read_origin_row(): void {
+		$this->groupLessons->method( 'find' )->willReturn( $this->makeContinuation() );
+		$this->submissions->expects( $this->exactly( 2 ) )
+			->method( 'findAggregate' )
+			->with( 10, 5, 3 )
+			->willReturn( null );
+
+		self::assertSame( 0, $this->service->workAttemptsUsed( 10, 7, 3 ) );
+		self::assertSame( [], $this->service->lockedTaskIds( 10, 7, 3 ) );
+	}
 }

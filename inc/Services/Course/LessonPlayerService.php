@@ -450,7 +450,7 @@ class LessonPlayerService {
 		// Шафл (если включён настройками шага) не зашит в bundle — считаем виджет заново
 		// с нужным shuffle, а не берём bundle['widget_data'] с shuffle=false по умолчанию.
 		$widgetData = $autoGrade ? $this->stepRenderer->buildWidgetData( $meta, $template, $settings->shuffle ) : array();
-		$attempts   = $this->taskAttempts->listByStep( $studentPersonId, $groupLesson->id, $step->key );
+		$attempts   = $this->taskAttempts->listByStep( $studentPersonId, $groupLesson->progressId(), $step->key );
 		$usedCount  = count( $attempts );
 		$wrongCount = count( array_filter( $attempts, static fn( $a ) => false === $a->isCorrect ) );
 		$hintHtml   = $this->stepRenderer->cleanHtml( (string) ( $meta['task_hint'] ?? '' ) );

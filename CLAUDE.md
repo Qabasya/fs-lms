@@ -58,6 +58,12 @@ npx gulp styles:common    # common CSS only
 `GroupCalendarService` + `ScheduleEventPublisher`. Новый коллбек КТП обязан попадать в
 существующую ответственность, а не заводить свою.
 
+**Прогресс ученика у продолжения темы** (`group_lessons.continued_from_id`) хранится под
+строкой-источником: сдачи, попытки заданий, проверки кнопкой и прогресс шагов читаются и
+пишутся по `GroupLessonDTO::progressId()`, а не по `->id` (срок сдачи — у строки продолжения).
+Новый код, читающий или пишущий прогресс ученика по `group_lesson_id`, обязан идти через него,
+иначе вторая дата теми же заданиями снова окажется пустой.
+
 **BaseController** (`Inc\Core\BaseController`): infrastructure utility only — not a domain or architectural base class. Provides `$plugin_path`, `$plugin_url`, `$plugin_name`, and helpers `path()`, `url()`. Also declares the `AjaxResponse` trait (inherited by all subclasses). Extend this purely to gain access to plugin path helpers and AJAX transport — not to express any domain relationship. Controllers and Callbacks extending it are unrelated to each other beyond sharing these utilities.
 
 ### Contracts

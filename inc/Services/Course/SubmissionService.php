@@ -8,6 +8,7 @@ use Inc\Contracts\ClockInterface;
 use Inc\Contracts\LogEventDispatcherInterface;
 use Inc\DTO\Course\BatchCheckResultDTO;
 use Inc\DTO\Course\GradeDTO;
+use Inc\DTO\Course\GroupLessonDTO;
 use Inc\DTO\Course\SubmissionDTO;
 use Inc\DTO\Course\SubmissionInputDTO;
 use Inc\DTO\Course\WorkTimingDTO;
@@ -180,7 +181,15 @@ class SubmissionService {
 
 	/** @return \Inc\DTO\Course\SubmissionDTO[] Сдачи ученика по уроку (для его кабинета). */
 	public function getSubmissionsForView( int $studentPersonId, int $groupLessonId ): array {
-		return $this->submissions->listByStudentAndGroupLesson( $studentPersonId, $groupLessonId );
+		return $this->submissions->listByStudentAndGroupLesson( $studentPersonId, $this->progressKey( $groupLessonId ) );
+	}
+
+	/**
+	 * Строка, в которой хранится прогресс занятия: у продолжения темы это исходная строка
+	 * ({@see GroupLessonDTO::progressId()}). Идемпотентно — исходная строка отдаёт саму себя.
+	 */
+	private function progressKey( int $groupLessonId ): int {
+		return $this->groupLessons->find( $groupLessonId )?->progressId() ?? $groupLessonId;
 	}
 
 	/**
@@ -218,6 +227,10 @@ class SubmissionService {
 			throw new CodedException( ErrorCode::WorkNoLesson, 'Строка программы не найдена.' );
 		}
 
+		// Продолжение темы дорешивается в той же сдаче: результаты хранятся под исходной строкой,
+		// а срок берётся у строки, на которой ученик сейчас сдаёт.
+		$storeId = $row->progressId();
+
 		$effectiveWorks = $this->worksResolver->resolve( $row );
 		$workIds        = array_map( fn( $w ) => $w->id, $effectiveWorks );
 		if ( ! in_array( $workId, $workIds, true ) ) {
@@ -234,8 +247,8 @@ class SubmissionService {
 		// per-work дедлайн, иначе legacy homeworkDueAt, у ДЗ — начало следующего занятия.
 		$dueAt = $this->deadlines->deadlineForRow( $row, $work );
 
-		$aggregate    = $this->submissions->findAggregate( $studentPersonId, $groupLessonId, $workId );
-		$attemptsUsed = $this->attemptsUsedFrom( $aggregate, $studentPersonId, $groupLessonId, $workId );
+		$aggregate    = $this->submissions->findAggregate( $studentPersonId, $storeId, $workId );
+		$attemptsUsed = $this->attemptsUsedFrom( $aggregate, $studentPersonId, $storeId, $workId );
 
 		// Лимит — настройка работы (0 = без ограничений). Проверяем ДО записи попыток —
 		// иначе лимит превышался бы ровно на одну сдачу.
@@ -248,7 +261,7 @@ class SubmissionService {
 
 		$previousVerdicts = $this->snapshotVerdicts( $aggregate );
 		$locked           = null !== $aggregate
-			? $this->lockedFrom( $previousVerdicts, $studentPersonId, $groupLessonId, $workId )
+			? $this->lockedFrom( $previousVerdicts, $studentPersonId, $storeId, $workId )
 			: array();
 
 		// Ответы на засчитанные задания не принимаем: их итог уже зафиксирован.
@@ -273,7 +286,7 @@ class SubmissionService {
 			// каждая попытка отдельно копится в task_attempts (D-хвост Tasks.md).
 			$this->recordWorkAttempt(
 				$studentPersonId,
-				$groupLessonId,
+				$storeId,
 				$workId,
 				$taskId,
 				$answer,
@@ -289,9 +302,9 @@ class SubmissionService {
 			// прошлая отметка о проверке (пересдача уже проверенной работы) снимается.
 			$taskGradedAt = SubmissionStatus::Graded->value === $taskStatus ? $now : null;
 
-			$existing = $this->submissions->findForWork( $studentPersonId, $groupLessonId, $workId, $taskId );
+			$existing = $this->submissions->findForWork( $studentPersonId, $storeId, $workId, $taskId );
 			if ( $existing ) {
-				$this->submissions->update( $existing->id, [
+				$taskUpdate = [
 					'answer_text'       => $answerStored,
 					'score'             => $taskResult['score'],
 					'max_score'         => $taskResult['maxScore'],
@@ -300,12 +313,12 @@ class SubmissionService {
 					'graded_at'         => $taskGradedAt,
 					// Новый ответ — прежняя оценка и отзыв преподавателя к нему не относятся.
 					'graded_by_user_id' => null,
-					'feedback'          => null,
-				] );
+				] + $this->dueUpdate( $row, $dueAt );
+				$this->submissions->update( $existing->id, $taskUpdate );
 			} else {
 				$this->submissions->create( new SubmissionInputDTO(
 					studentPersonId : $studentPersonId,
-					groupLessonId   : $groupLessonId,
+					groupLessonId   : $storeId,
 					workId          : $workId,
 					workType        : $work->workType->value,
 					taskId          : $taskId,
@@ -321,7 +334,7 @@ class SubmissionService {
 		}
 
 		// Итог работы: прежние вердикты засчитанных заданий + свежие по остальным.
-		$fresh   = $this->markCorrected( $result->perTask, $studentPersonId, $groupLessonId, $workId, $attemptsUsed + 1 );
+		$fresh   = $this->markCorrected( $result->perTask, $studentPersonId, $storeId, $workId, $attemptsUsed + 1 );
 		$perTask = array_intersect_key( $previousVerdicts, array_flip( $locked ) ) + $fresh;
 		ksort( $perTask );
 
@@ -338,7 +351,7 @@ class SubmissionService {
 		$verdicts = wp_json_encode( $perTask );
 
 		if ( $aggregate ) {
-			$this->submissions->update( $aggregate->id, [
+			$aggregateUpdate = [
 				'answer_text'   => $verdicts,
 				'score'         => (float) $correctCount,
 				'max_score'     => (float) count( $perTask ),
@@ -351,12 +364,13 @@ class SubmissionService {
 				'duration_sec'  => null === $timing->elapsedSec
 					? $aggregate->durationSec
 					: ( $aggregate->durationSec ?? 0 ) + $timing->elapsedSec,
-			] );
+			] + $this->dueUpdate( $row, $dueAt );
+			$this->submissions->update( $aggregate->id, $aggregateUpdate );
 			$aggregateId = $aggregate->id;
 		} else {
 			$aggregateId = $this->submissions->create( new SubmissionInputDTO(
 				studentPersonId : $studentPersonId,
-				groupLessonId   : $groupLessonId,
+				groupLessonId   : $storeId,
 				workId          : $workId,
 				workType        : $work->workType->value,
 				taskId          : null,
@@ -390,9 +404,19 @@ class SubmissionService {
 			)
 		);
 
-		$updated = $this->submissions->findAggregate( $studentPersonId, $groupLessonId, $workId );
+		$updated = $this->submissions->findAggregate( $studentPersonId, $storeId, $workId );
 		assert( $updated !== null );
 		return $updated;
+	}
+
+	/**
+	 * Срок сдачи при пересдаче на продолжении темы — срок строки продолжения, а не исходной:
+	 * иначе сдача в новую дату помечалась бы просроченной по старому сроку.
+	 *
+	 * @return array<string, string>
+	 */
+	private function dueUpdate( GroupLessonDTO $row, ?string $dueAt ): array {
+		return ( null !== $row->continuedFromId && null !== $dueAt ) ? array( 'due_at' => $dueAt ) : array();
 	}
 
 	/**
@@ -426,6 +450,8 @@ class SubmissionService {
 	 * предупредить о предпоследней и последней попытке.
 	 */
 	public function workAttemptsUsed( int $studentPersonId, int $groupLessonId, int $workId ): int {
+		$groupLessonId = $this->progressKey( $groupLessonId );
+
 		return $this->attemptsUsedFrom(
 			$this->submissions->findAggregate( $studentPersonId, $groupLessonId, $workId ),
 			$studentPersonId,
@@ -444,6 +470,7 @@ class SubmissionService {
 	 * @return int[] task_id
 	 */
 	public function lockedTaskIds( int $studentPersonId, int $groupLessonId, int $workId ): array {
+		$groupLessonId = $this->progressKey( $groupLessonId );
 		$aggregate = $this->submissions->findAggregate( $studentPersonId, $groupLessonId, $workId );
 		if ( null === $aggregate ) {
 			return array();

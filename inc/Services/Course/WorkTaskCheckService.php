@@ -68,6 +68,9 @@ class WorkTaskCheckService {
 			throw new CodedException( ErrorCode::WorkNoLesson, 'Строка программы не найдена.' );
 		}
 
+		// Проверки продолжения темы копятся в раунде исходной строки (см. GroupLessonDTO::progressId()).
+		$storeId = $row->progressId();
+
 		$workIds = array_map( static fn( $w ) => $w->id, $this->worksResolver->resolve( $row ) );
 		if ( ! in_array( $workId, $workIds, true ) ) {
 			throw new CodedException( ErrorCode::WorkNotInLesson, 'Работа не входит в эффективный набор урока.' );
@@ -84,11 +87,11 @@ class WorkTaskCheckService {
 			throw new CodedException( ErrorCode::WorkNotInLesson, 'Задание не входит в работу.' );
 		}
 
-		$attemptsUsed = $this->submissions->workAttemptsUsed( $studentPersonId, $groupLessonId, $workId );
+		$attemptsUsed = $this->submissions->workAttemptsUsed( $studentPersonId, $storeId, $workId );
 		if ( $work->maxAttempts > 0 && $attemptsUsed >= $work->maxAttempts ) {
 			throw new CodedException( ErrorCode::WorkLimit, 'Исчерпан лимит попыток сдачи. Обратитесь к преподавателю.' );
 		}
-		if ( in_array( $taskId, $this->submissions->lockedTaskIds( $studentPersonId, $groupLessonId, $workId ), true ) ) {
+		if ( in_array( $taskId, $this->submissions->lockedTaskIds( $studentPersonId, $storeId, $workId ), true ) ) {
 			throw new CodedException( ErrorCode::WorkCheckKind, 'Задание уже засчитано.' );
 		}
 
@@ -105,7 +108,7 @@ class WorkTaskCheckService {
 
 		$round = $attemptsUsed + 1;
 		$prior = array_values( array_filter(
-			$this->checks->listByRound( $studentPersonId, $groupLessonId, $workId, $round ),
+			$this->checks->listByRound( $studentPersonId, $storeId, $workId, $round ),
 			static fn( $c ) => $c->taskId === $taskId
 		) );
 
@@ -121,7 +124,7 @@ class WorkTaskCheckService {
 		$meta   = $this->posts->getMeta( $taskId, PostMetaName::Meta->value );
 		$result = $checker->check( is_array( $meta ) ? $meta : array(), $answer );
 
-		$this->checks->create( $studentPersonId, $groupLessonId, $workId, $taskId, $round, $answer, $result->isCorrect );
+		$this->checks->create( $studentPersonId, $storeId, $workId, $taskId, $round, $answer, $result->isCorrect );
 
 		return array(
 			'is_correct'  => $result->isCorrect,
@@ -141,8 +144,9 @@ class WorkTaskCheckService {
 			return array();
 		}
 
-		$round = $this->submissions->workAttemptsUsed( $studentPersonId, $groupLessonId, $workId ) + 1;
-		$state = array();
+		$groupLessonId = $this->groupLessons->find( $groupLessonId )?->progressId() ?? $groupLessonId;
+		$round         = $this->submissions->workAttemptsUsed( $studentPersonId, $groupLessonId, $workId ) + 1;
+		$state         = array();
 
 		foreach ( $this->checks->listByRound( $studentPersonId, $groupLessonId, $workId, $round ) as $check ) {
 			$previous = $state[ $check->taskId ] ?? null;

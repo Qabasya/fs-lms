@@ -106,4 +106,14 @@ class GroupLessonDTOTest extends TestCase {
 		self::assertSame( 'https://group.example/live', $dto->effectiveBroadcastUrl( 'https://group.example/live' ) );
 		self::assertSame( '', $dto->effectiveBroadcastUrl( null ) );
 	}
+
+	public function test_progress_id_is_own_id_for_regular_row(): void {
+		$dto = GroupLessonDTO::fromArray( array_merge( $this->baseRow(), array( 'id' => 7 ) ) );
+		self::assertSame( 7, $dto->progressId() );
+	}
+
+	public function test_progress_id_of_continuation_is_origin_row(): void {
+		$dto = GroupLessonDTO::fromArray( array_merge( $this->baseRow(), array( 'id' => 7, 'continued_from_id' => 5 ) ) );
+		self::assertSame( 5, $dto->progressId() );
+	}
 }

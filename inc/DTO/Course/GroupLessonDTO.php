@@ -179,6 +179,17 @@ readonly class GroupLessonDTO {
 		return $this->workDeadlines[ $workId ] ?? $this->homeworkDueAt;
 	}
 
+	/**
+	 * Ключ, под которым хранится прогресс ученика (сдачи, попытки, проверки, шаги).
+	 *
+	 * Продолжение темы на другую дату (`continuedFromId`) не заводит свой прогресс: ученик
+	 * дорешивает то же самое, поэтому результаты копятся в исходной строке. Цепочек длиннее
+	 * двух строк не бывает (`ProgramCompositionService`), так что одного шага достаточно.
+	 */
+	public function progressId(): int {
+		return $this->continuedFromId ?? $this->id;
+	}
+
 	/** @return array<int,string> */
 	private static function jsonDeadlines( mixed $raw ): array {
 		if ( null === $raw || '' === $raw ) {

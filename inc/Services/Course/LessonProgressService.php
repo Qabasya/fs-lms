@@ -78,7 +78,8 @@ class LessonProgressService {
 		if ( ! $row->lessonId ) {
 			return;
 		}
-		$this->progress->upsert( $studentPersonId, $groupLessonId, $row->lessonId, $stepKey, $status, $completedAt );
+		// Продолжение темы наследует прогресс исходной строки (GroupLessonDTO::progressId()).
+		$this->progress->upsert( $studentPersonId, $row->progressId(), $row->lessonId, $stepKey, $status, $completedAt );
 	}
 
 	/**
@@ -98,12 +99,13 @@ class LessonProgressService {
 			return array();
 		}
 
-		$stored = array();
-		foreach ( $this->progress->listForStudent( $studentPersonId, $groupLessonId ) as $p ) {
+		$progressId = $row->progressId();
+		$stored     = array();
+		foreach ( $this->progress->listForStudent( $studentPersonId, $progressId ) as $p ) {
 			$stored[ $p->stepKey ] = $p->status;
 		}
 
-		$completedWorkIds = $this->completedWorkIds( $studentPersonId, $groupLessonId );
+		$completedWorkIds = $this->completedWorkIds( $studentPersonId, $progressId );
 
 		$result = array();
 		foreach ( $lesson->steps as $step ) {

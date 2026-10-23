@@ -15,7 +15,9 @@ import { esc, toast } from './utils.js';
 import { icoBell, icoCamera, icoClock, icoAlert, icoCheck, icoReplace, icoDocCheck, icoSwap, icoEye, icoMapPin, icoCalendarBoard, icoUsers, icoJournal, icoX } from '../common/icons.js';
 import { createApi } from './api.js';
 
+/** Вкладка на виду — раз в минуту; в фоне реже: системное уведомление чуть запаздывает, зато нагрузка в разы меньше. */
 const POLL_MS = 60000;
+const POLL_HIDDEN_MS = 300000;
 
 /** type → фабрика иконки плитки (только существующие фабрики common/icons.js). */
 const TYPE_ICON = {
@@ -99,9 +101,8 @@ export function initNotifications() {
     api = createApi(cfg, { passive: ['markRead', 'markAllRead'] });
 
     refreshCount();
-    // Опрос идёт и в фоновой вкладке: иначе системное уведомление не придёт,
-    // пока пользователь на другой вкладке (браузер сам разрежает фоновые таймеры).
-    setInterval(refreshCount, POLL_MS);
+    // Опрос идёт и в фоновой вкладке (иначе системное уведомление не придёт), но втрое-впятеро реже.
+    schedulePoll();
     document.addEventListener('visibilitychange', () => {
         if (!document.hidden) { refreshCount(); }
     });
@@ -132,6 +133,13 @@ function setBadge(count) {
     } else {
         badge.hidden = true;
     }
+}
+
+function schedulePoll() {
+    setTimeout(async () => {
+        await refreshCount();
+        schedulePoll();
+    }, document.hidden ? POLL_HIDDEN_MS : POLL_MS);
 }
 
 async function refreshCount() {

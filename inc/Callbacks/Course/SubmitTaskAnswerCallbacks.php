@@ -125,7 +125,7 @@ class SubmitTaskAnswerCallbacks extends BaseController {
 		}
 
 		$settings         = $this->settingsResolver->resolve( $step, $groupLesson, $template );
-		$previousAttempts = $this->taskAttempts->listByStep( $person->id, $groupLessonId, $stepKey );
+		$previousAttempts = $this->taskAttempts->listByStep( $person->id, $groupLesson->progressId(), $stepKey );
 		$usedCount        = count( $previousAttempts );
 
 		if ( $settings->maxAttempts > 0 && $usedCount >= $settings->maxAttempts ) {
@@ -140,7 +140,7 @@ class SubmitTaskAnswerCallbacks extends BaseController {
 
 		$this->taskAttempts->create(
 			studentPersonId: $person->id,
-			groupLessonId  : $groupLessonId,
+			groupLessonId  : $groupLesson->progressId(),
 			stepKey        : $stepKey,
 			taskId         : $taskId,
 			attemptNumber  : $attemptNumber,
