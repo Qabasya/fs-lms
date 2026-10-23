@@ -228,6 +228,7 @@ final class TeacherProfileView implements ProfileViewInterface {
 					'getFreeRooms'     => AjaxHook::GetFreeRooms->jsAction(),
 					'updateIndividual' => AjaxHook::UpdateIndividualLesson->jsAction(),
 					'updateExtra'      => AjaxHook::UpdateExtraLessons->jsAction(),
+					'deleteExtra'      => AjaxHook::DeleteExtraLessons->jsAction(),
 					'getRoster'        => AjaxHook::GetGroupRoster->jsAction(),
 				),
 			),

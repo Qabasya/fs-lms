@@ -91,7 +91,7 @@ export function extraCardHtml(x) {
     const span = x.ends_at ? `${time(x.scheduled_at)}–${time(x.ends_at)}` : time(x.scheduled_at);
     const names = x.students.map(s => s.name).join(', ');
     const count = x.students.length;
-    return `<div class="placed-theme placed-extra" data-extra="${esc(x.extra_key)}" title="${esc(x.topic || 'Доп. занятие')} · ${esc(names)}">
+    return `<div class="placed-theme placed-extra" data-extra="${esc(x.extra_key)}"${x.player_url ? ` data-url="${esc(x.player_url)}"` : ''} title="${esc(x.topic || 'Доп. занятие')} · ${esc(names)}">
         <div class="pt-bar">
             <span class="pt-extra-tag">доп.</span>
             <button type="button" class="pt-more pt-extra-more" data-extra="${esc(x.extra_key)}" aria-label="Изменить дополнительное занятие">⋮</button>

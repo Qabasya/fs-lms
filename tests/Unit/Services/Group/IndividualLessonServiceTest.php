@@ -63,6 +63,7 @@ class IndividualLessonServiceTest extends TestCase {
 				new \Inc\Services\Exam\ExamTime( $this->createMock( \Inc\Contracts\ClockInterface::class ) )
 			),
 			$this->usage,
+			$this->createMock( \Inc\Services\Profile\NotificationService::class ),
 		);
 	}
 

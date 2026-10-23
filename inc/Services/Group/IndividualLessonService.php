@@ -7,6 +7,8 @@ namespace Inc\Services\Group;
 use Inc\DTO\Course\GroupLessonDTO;
 use Inc\DTO\Course\GroupLessonInputDTO;
 use Inc\Enums\Course\LessonKind;
+use Inc\Enums\Profile\NotificationType;
+use Inc\Enums\Wp\PageRoutes;
 use Inc\Managers\Course\CourseManager;
 use Inc\Managers\Course\LessonManager;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
@@ -15,6 +17,7 @@ use Inc\Repositories\WPDBRepositories\RoomRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 use Inc\Services\Course\GroupLessonUsageGuard;
 use Inc\Services\Course\RoomAvailabilityService;
+use Inc\Services\Profile\NotificationService;
 use Inc\Shared\Traits\TransactionRunner;
 
 /**
@@ -42,6 +45,7 @@ readonly class IndividualLessonService {
 	 * @param ScheduleEventPublisher  $events        Публикация событий обучения
 	 * @param RoomAvailabilityService $roomAvailability Занятость кабинетов (занятия и сеансы экзаменов)
 	 * @param GroupLessonUsageGuard   $usage         Есть ли у строки данные ученика (можно ли убрать его из доп. занятия)
+	 * @param NotificationService     $notifications Оповещения ученика о назначении, переносе и отмене доп. занятия
 	 */
 	public function __construct(
 		private GroupLessonRepository   $groupLessons,
@@ -53,6 +57,7 @@ readonly class IndividualLessonService {
 		private ScheduleEventPublisher  $events,
 		private RoomAvailabilityService $roomAvailability,
 		private GroupLessonUsageGuard   $usage,
+		private NotificationService     $notifications,
 	) {}
 
 	/**
@@ -189,6 +194,8 @@ readonly class IndividualLessonService {
 					'lesson_id'       => $row->lessonId,
 					'broadcast_url'   => (string) ( $row->broadcastUrl ?? '' ),
 					'topic'           => $lesson?->topic ?? ( $row->label ?? '' ),
+					// Вход в плеер (teacher-режим) — как у темы КТП; занятие без урока не кликабельно.
+					'player_url'      => $row->lessonId ? PageRoutes::LessonPlayer->lessonUrl( $groupId, $row->id ) : '',
 					'students'        => array(),
 				);
 			}
@@ -269,8 +276,12 @@ readonly class IndividualLessonService {
 		foreach ( $existing as $row ) {
 			$this->updateIndividualLesson( $row->id, $scheduledAt, $endsAt, $roomId, null, $lessonId, $actorUserId );
 			$this->groupLessons->setBroadcastUrl( $row->id, $broadcastUrl );
+			if ( $row->scheduledAt !== $scheduledAt ) {
+				$this->notifyExtra( NotificationType::ExtraLessonScheduled, $row->id, $groupId, (int) $row->studentPersonId, $scheduledAt, $lessonId ?: $row->lessonId, $row->label );
+			}
 		}
 		foreach ( $toRemove as $row ) {
+			$this->notifyExtraCancelled( $row );
 			$this->groupLessons->remove( $row->id );
 		}
 
@@ -284,6 +295,90 @@ readonly class IndividualLessonService {
 		}
 
 		$this->events->groupChanged( $groupId, $actorUserId );
+	}
+
+	/**
+	 * Отмена дополнительного занятия целиком: строки всех учеников удаляются, ученики оповещаются.
+	 * Если по занятию у кого-то уже есть данные (решения, посещаемость), отменить нельзя — иначе они пропадут.
+	 *
+	 * @throws \InvalidArgumentException Нет занятия или по нему есть данные учеников
+	 */
+	public function deleteExtraLessons( int $groupId, string $extraKey, int $actorUserId ): void {
+		$rows = array_values( array_filter(
+			$this->groupLessons->listByGroup( $groupId ),
+			static fn( GroupLessonDTO $r ): bool => $r->kind->isIndividual() && $r->extraKey === $extraKey
+		) );
+		if ( ! $rows ) {
+			throw new \InvalidArgumentException( 'Дополнительное занятие не найдено.' );
+		}
+
+		$names = $this->studentNames( $groupId );
+		foreach ( $rows as $row ) {
+			if ( $this->usage->hasEngagement( $row->id ) ) {
+				throw new \InvalidArgumentException( sprintf( 'Занятие отменить нельзя: по нему уже есть данные ученика «%s».', $names[ $row->studentPersonId ] ?? '—' ) );
+			}
+		}
+
+		foreach ( $rows as $row ) {
+			$this->notifyExtraCancelled( $row );
+			$this->groupLessons->remove( $row->id );
+		}
+
+		$this->events->groupChanged( $groupId, $actorUserId );
+	}
+
+	/** Ученику — назначено/перенесено доп. занятие (плитка по ключу строки заменяется свежей). */
+	private function notifyExtra( NotificationType $type, int $rowId, int $groupId, int $personId, string $scheduledAt, ?int $lessonId, ?string $label ): void {
+		$userId = $this->notifications->studentUserId( $personId );
+		if ( null === $userId ) {
+			return;
+		}
+
+		$this->notifications->pushFresh(
+			array( $userId ),
+			$type,
+			"extra:{$rowId}",
+			array(
+				'when'       => $this->formatWhen( $scheduledAt ),
+				'topic'      => $lessonId ? ( $this->lessonManager->get( $lessonId )?->topic ?? (string) $label ) : (string) $label,
+				'group_name' => $this->notifications->groupName( $groupId ),
+			),
+			PageRoutes::LessonPlayer->lessonUrl( $groupId, $rowId ),
+			$groupId,
+			'group_lesson',
+			$rowId
+		);
+	}
+
+	/** Ученику — доп. занятие отменено; прежняя плитка о назначении снимается. */
+	private function notifyExtraCancelled( GroupLessonDTO $row ): void {
+		$userId = $this->notifications->studentUserId( (int) $row->studentPersonId );
+		if ( null === $userId ) {
+			return;
+		}
+
+		$this->notifications->retract( array( $userId ), "extra:{$row->id}" );
+		$this->notifications->push(
+			array( $userId ),
+			NotificationType::ExtraLessonCancelled,
+			"extra-cancel:{$row->id}",
+			array(
+				'when'       => $this->formatWhen( (string) $row->scheduledAt ),
+				'topic'      => $row->lessonId ? ( $this->lessonManager->get( $row->lessonId )?->topic ?? (string) $row->label ) : (string) $row->label,
+				'group_name' => $this->notifications->groupName( $row->groupId ),
+			),
+			'',
+			$row->groupId,
+			'group_lesson',
+			$row->id
+		);
+	}
+
+	/** «23.10 в 15:00» из `Y-m-d H:i:s`. */
+	private function formatWhen( string $scheduledAt ): string {
+		$ts = strtotime( $scheduledAt );
+
+		return false === $ts ? '' : gmdate( 'd.m', $ts ) . ' в ' . gmdate( 'H:i', $ts );
 	}
 
 	/** @return array<int, string> person_id → «Фамилия Имя» активных учеников группы. */
@@ -327,6 +422,10 @@ readonly class IndividualLessonService {
 		) );
 
 		$this->events->lessonChanged( $groupId, $id, $actorUserId );
+
+		if ( null !== $extraKey ) {
+			$this->notifyExtra( NotificationType::ExtraLessonScheduled, $id, $groupId, $studentPersonId, $scheduledAt, $lessonId, $label );
+		}
 
 		return $id;
 	}

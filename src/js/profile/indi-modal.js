@@ -23,6 +23,7 @@
    getRoster / getFreeRooms / lessonCandidates / createIndividual / updateIndividual (+ updateExtra для `extra`).
    ══════════════════════════════════════════════════════════════════════ */
 
+import { confirmDialog } from '../common/components/confirm-dialog.js';
 import { esc, toast, todayIso, openGradePopPositioned, closeGradePop, fmtDate, openCtxMenuRaw } from './utils.js';
 
 export function openIndiModal( o ) {
@@ -73,6 +74,7 @@ export function openIndiModal( o ) {
         ${ multi ? `<label class="gp-field"><span>Ссылка на трансляцию</span><input type="url" id="giStream" value="${ esc( initStream ) }" placeholder="https://…"></label>` : '' }
         <div class="gp-row">
             <button class="prof-btn prof-btn-sm prof-btn-primary" data-gi="save">${ edit || extra ? 'Сохранить' : 'Создать' }</button>
+            ${ extra ? '<button class="prof-btn prof-btn-sm prof-btn-danger" data-gi="delete">Отменить занятие</button>' : '' }
             <button class="prof-btn prof-btn-sm" data-gi="cancel">Отмена</button>
         </div>
         </div>`;
@@ -190,6 +192,17 @@ export function openIndiModal( o ) {
     loadLessons();
 
     $( '[data-gi="cancel"]' ).addEventListener( 'click', closeGradePop );
+    if ( extra ) {
+        $( '[data-gi="delete"]' ).addEventListener( 'click', async () => {
+            if ( ! await confirmDialog( 'Отменить дополнительное занятие? Ученики получат оповещение.', 'Отменить занятие', 'Не отменять' ) ) { return; }
+            closeGradePop();
+            try {
+                await api( 'deleteExtra', { group_id: groupId(), extra_key: extra.extra_key } );
+                toast( 'Дополнительное занятие отменено' );
+                if ( o.onSaved ) { o.onSaved(); }
+            } catch ( err ) { toast( err.message, 'error' ); }
+        } );
+    }
     $( '[data-gi="save"]' ).addEventListener( 'click', async () => {
         const at        = scheduledAt();
         const chosen    = multi ? selectedStudents() : [];

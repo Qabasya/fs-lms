@@ -282,6 +282,7 @@ enum AjaxHook: string {
 	case GetLessonCandidates     = 'get_lesson_candidates'; // params: group_id[, search] — уроки предмета (курс-первыми) для назначения инд. занятию
 	case AssignIndividualLesson  = 'assign_individual_lesson'; // params: group_lesson_id, lesson_id — привязать урок банка к инд. занятию
 	case UpdateExtraLessons      = 'update_extra_lessons';      // params: group_id, extra_key, student_person_ids[], scheduled_at[, ends_at, room_id, lesson_id] — правка доп. занятия для части группы целиком
+	case DeleteExtraLessons      = 'delete_extra_lessons';      // params: group_id, extra_key — отмена доп. занятия целиком
 	case UpdateIndividualLesson  = 'update_individual_lesson'; // params: group_lesson_id[, scheduled_at, room_id, student_person_id, lesson_id] — правка инд. занятия (B2)
 
 	// ==== Экран «Группы» / ростер (ЛК преподавателя, Эпик 10 T10.7) ====

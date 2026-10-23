@@ -203,6 +203,26 @@ class IndividualLessonCallbacks extends BaseController {
 	}
 
 	/**
+	 * Отмена дополнительного занятия целиком (карточка календаря КТП); ученики оповещаются.
+	 * Params: group_id, extra_key
+	 */
+	public function ajaxDeleteExtraLessons(): void {
+		$this->authorize( Nonce::SaveSchedule, Capability::ManageLmsTeaching );
+		$groupId  = $this->requireInt( 'group_id' );
+		$extraKey = $this->requireKey( 'extra_key' );
+		$this->requireGroupAccess( $groupId );
+
+		try {
+			$this->individual->deleteExtraLessons( $groupId, $extraKey, get_current_user_id() );
+		} catch ( \InvalidArgumentException $e ) {
+			$this->error( $e->getMessage() );
+			return;
+		}
+
+		$this->success();
+	}
+
+	/**
 	 * Необязательное числовое поле: отсутствует или пустая строка → null.
 	 *
 	 * @param string $key Ключ в $_POST

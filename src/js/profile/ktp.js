@@ -388,7 +388,9 @@ function renderCalendar() {
     grid.innerHTML = cells;
     // Этап 2 (★): клик по карточке занятия — переход в плеер курса (teacher-режим).
     // Навигация к контенту, не правка структуры/расписания — доступна даже при lock КТП.
-    grid.querySelectorAll('.placed-theme').forEach(el => attachPlacedThemeClick(el, () => state.data.themes || []));
+    grid.querySelectorAll('.placed-theme:not(.placed-extra)').forEach(el => attachPlacedThemeClick(el, () => state.data.themes || []));
+    // Доп. занятие — тот же вход в плеер; ссылку отдаёт сервер в data-url карточки.
+    grid.querySelectorAll('.placed-extra[data-url]').forEach(el => el.addEventListener('click', () => { window.location.href = el.dataset.url; }));
     // T12.3: дедлайны — delivery, не структура/расписание — доступны даже при lock КТП (T1.8).
     grid.querySelectorAll('.pt-deadlines').forEach(el => attachDeadlinesClick(el, api));
     // Индикатор записи занятия — тоже ведёт в плеер (Этап 2, ★); тоже delivery, доступен даже при lock КТП.

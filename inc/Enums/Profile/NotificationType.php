@@ -73,6 +73,11 @@ enum NotificationType: string {
 	case ExamSourceLimit = 'exam_source_limit';
 	case ExamStaffRegistration = 'exam_staff_registration';
 
+	/** Ученику — назначено или перенесено дополнительное занятие вне расписания. */
+	case ExtraLessonScheduled = 'extra_lesson_scheduled';
+	/** Ученику — дополнительное занятие отменено. */
+	case ExtraLessonCancelled = 'extra_lesson_cancelled';
+
 	/** Ученику — ему выдан временный доступ: полный откроется, когда родитель заполнит анкету. */
 	case TrialAccess = 'trial_access';
 
@@ -123,6 +128,8 @@ enum NotificationType: string {
 			self::ExamSourceLimit => 'Превышен лимит заявок по ссылке',
 			self::ExamStaffRegistration => 'Новая запись на экзамен',
 			self::TrialAccess => 'Временный доступ',
+			self::ExtraLessonScheduled => 'Дополнительное занятие',
+			self::ExtraLessonCancelled => 'Дополнительное занятие отменено',
 		};
 	}
 
@@ -137,6 +144,8 @@ enum NotificationType: string {
 			self::JournalNotFilled, self::RecordingMissing, self::JournalOverdue, self::ReviewOverdue => 'warn',
 			self::DeadlineMissed, self::AttendanceMissed, self::AbsenceStreak,
 			self::HomeworkStreak, self::TeacherAbsent                      => 'err',
+			self::ExtraLessonScheduled => 'info',
+			self::ExtraLessonCancelled => 'warn',
 			self::ExamRegistrationOpened, self::ExamRegistrationChanged, self::ExamTomorrow, self::ExamEntryOpened, self::ExamResultCorrected, self::ExamExtended, self::ExamStaffRegistration => 'info',
 			self::ExamRegistrationConfirmed, self::ExamWorkAccepted, self::ExamApproved => 'ok',
 			self::ExamRegistrationCancelled, self::ExamSoon, self::ExamWorkSubmitted, self::ExamSessionMoved, self::ExamSourceLimit, self::TrialAccess => 'warn',

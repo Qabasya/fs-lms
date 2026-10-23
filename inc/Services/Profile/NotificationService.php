@@ -393,6 +393,14 @@ readonly class NotificationService {
 				'' !== (string) ( $p['valid_from'] ?? '' ) ? sprintf( ', %s – %s', (string) $p['valid_from'], (string) ( $p['valid_to'] ?? '' ) ) : ''
 			) ),
 
+			NotificationType::ExtraLessonScheduled,
+			NotificationType::ExtraLessonCancelled => trim( sprintf(
+				'%s%s%s',
+				(string) ( $p['when'] ?? '' ),
+				'' !== $topic ? " — «{$topic}»" : '',
+				$tail
+			) ),
+
 			NotificationType::RoomChanged => trim( sprintf(
 				'%s%s',
 				sprintf( '%s → %s', (string) ( $p['old_room'] ?? '—' ), (string) ( $p['new_room'] ?? '—' ) ),

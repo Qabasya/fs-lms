@@ -34,6 +34,8 @@ const TYPE_ICON = {
     lesson_opened:       icoEye,
     substitute_assigned_student: icoSwap,
     room_changed:        icoMapPin,
+    extra_lesson_scheduled: icoCalendarBoard,
+    extra_lesson_cancelled: icoX,
     attempt_reset:       icoReplace,
     homework_submitted:  icoDocCheck,
     program_updated:     icoCalendarBoard,
