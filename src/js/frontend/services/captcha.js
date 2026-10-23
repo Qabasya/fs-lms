@@ -26,13 +26,23 @@ export const CAPTCHA_FAILURE = Object.freeze( {
 } );
 
 /** Невидимая проверка обычно укладывается в 1–2 с; дольше — сеть Яндекса не отвечает. */
-const SILENT_TIMEOUT_MS = 8000;
+const SILENT_TIMEOUT_MS = 6000;
 
 /** Если задание показано — пользователю нужно время его решить. */
 const CHALLENGE_TIMEOUT_MS = 60000;
 
-/** Сколько ждём загрузки скрипта Яндекса, прежде чем считать капчу недоступной. */
-const SCRIPT_WAIT_MS = 6000;
+/**
+ * Сколько ждём загрузки скрипта Яндекса, прежде чем считать капчу недоступной. Блокировщик или сбой
+ * DNS обрывают загрузку сразу — об этом сообщает событие `error` скрипта (см. onCaptchaScriptError),
+ * ждать приходится только тем, у кого запрос «висит» (VPN).
+ */
+const SCRIPT_WAIT_MS = 4000;
+
+/** Идентификатор тега скрипта Яндекса (SmartCaptchaModule::SCRIPT_HANDLE + «-js»). */
+const SCRIPT_TAG_ID = 'fs-lms-smartcaptcha-js';
+
+/** Скрипт Яндекса не загрузился (ошибка сети / блокировщик): ждать его бессмысленно. */
+let _scriptFailed = false;
 
 /** @type {number|null} ID виджета SmartCaptcha. */
 let _widgetId = null;
@@ -186,6 +196,18 @@ export function initCaptcha() {
 window.__fsSmartCaptchaReady = initCaptcha;
 
 /**
+ * Ошибка загрузки ресурса страницы. Событие `error` у `<script>` не всплывает, поэтому слушатель
+ * стоит на window в фазе захвата; тега ещё нет в DOM, пока выполняется бандл, — слушатель успевает раньше.
+ *
+ * @param {{ target?: { id?: string } }} event
+ */
+export function onCaptchaScriptError( event ) {
+    if ( SCRIPT_TAG_ID === event?.target?.id ) { _scriptFailed = true; }
+}
+
+window.addEventListener?.( 'error', onCaptchaScriptError, true );
+
+/**
  * Запрашивает свежий токен капчи. Если капча не подключена — резолвит ''.
  * Если подключена, но до браузера не дошла или не ответила вовремя — отклоняется
  * с причиной (см. captchaFailureOf()).
@@ -206,7 +228,7 @@ export function getCaptchaToken() {
 
 /**
  * Скрипт Яндекса мог ещё грузиться (медленная сеть) — даём ему SCRIPT_WAIT_MS с момента
- * открытия страницы; не загрузился — капча недоступна.
+ * открытия страницы; не загрузился (или загрузка оборвалась ошибкой) — капча недоступна.
  *
  * @returns {Promise<void>}
  */
@@ -215,7 +237,7 @@ function waitForScript() {
         const poll = () => {
             if ( isCaptchaReady() ) {
                 resolve();
-            } else if ( Date.now() - _loadedAt >= SCRIPT_WAIT_MS ) {
+            } else if ( _scriptFailed || Date.now() - _loadedAt >= SCRIPT_WAIT_MS ) {
                 emit( 'failed', CAPTCHA_FAILURE.NOT_LOADED );
                 reject( new Error( CAPTCHA_FAILURE.NOT_LOADED ) );
             } else {

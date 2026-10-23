@@ -56,9 +56,16 @@
 		<?php // Причина, по которой капча не дошла до браузера (VPN, блокировщик); пишет login-form.js. ?>
 		<input type="hidden" name="captcha_unavailable" value="">
 
-		<button type="submit" name="wp-submit" id="wp-submit" class="fs-auth-card__submit">
+		<?php // Кнопка неактивна, пока login-form.js не подключил обработчик: форма стоит выше бандла в футере, и ранний «Войти» уходил без токена и без причины. ?>
+		<button type="submit" name="wp-submit" id="wp-submit" class="fs-auth-card__submit" disabled>
 			Войти
 		</button>
+
+		<?php // Пока форма ждёт капчу (до нескольких секунд, если скрипт Яндекса не отвечает), показываем, что она не зависла; переключает login-form.js. ?>
+		<div class="fs-apply-card__status" data-login-status role="status" aria-live="polite" hidden>
+			<span class="fs-apply-card__spinner" aria-hidden="true"></span>
+			<span>Проверяем безопасность соединения…</span>
+		</div>
 
 		<!-- Редирект после успешного входа (фильтр для кастомизации) -->
 		<input type="hidden" name="redirect_to" value="<?php echo esc_url( apply_filters( 'lms_auth_redirect_url', home_url(), null ) ); ?>">
