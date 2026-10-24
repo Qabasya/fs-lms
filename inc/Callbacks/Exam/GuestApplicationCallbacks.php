@@ -109,7 +109,11 @@ class GuestApplicationCallbacks extends BaseController {
 		$guardReason = $this->formGuard->rejectionReason( $this->sanitizeText( $this->formGuard->honeypotField() ), $this->sanitizeText( 'form_token' ) );
 		if ( null !== $guardReason ) {
 			$this->formLog->guardRejected( $source, $guardReason, $visit );
-			$this->fail( ErrorCode::ExamReplay, 'Не удалось отправить форму. Обновите страницу.', array( 'guard_reason' => $guardReason ) );
+			// Ловушка: поле очищено клиентом, повтор пройдёт; перезагрузка стёрла бы введённые данные. Метка и сроки — только обновлением.
+			$message = 'honeypot_filled' === $guardReason
+				? 'Не удалось отправить форму. Нажмите кнопку ещё раз.'
+				: 'Не удалось отправить форму. Обновите страницу.';
+			$this->fail( ErrorCode::ExamReplay, $message, array( 'guard_reason' => $guardReason ) );
 			return;
 		}
 

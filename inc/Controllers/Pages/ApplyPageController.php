@@ -9,6 +9,7 @@ use Inc\Core\BaseController;
 use Inc\Enums\Wp\ShortCode;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Services\Exam\ApplyPrefillLinkService;
+use Inc\Services\Security\FormGuardService;
 use Inc\Shared\Traits\TemplateRenderer;
 
 /**
@@ -30,6 +31,7 @@ class ApplyPageController extends BaseController implements ServiceInterface {
 	public function __construct(
 		private readonly SubjectRepository $subjects,
 		private readonly ApplyPrefillLinkService $prefillLinks,
+		private readonly FormGuardService $formGuard,
 	) {
 		parent::__construct();
 	}
@@ -57,6 +59,7 @@ class ApplyPageController extends BaseController implements ServiceInterface {
 		$this->render( 'frontend/apply', array(
 			'subjects' => $this->subjects->readActive(),
 			'prefill'  => $prefill ?? array(),
+			'honeypot' => $this->formGuard->honeypotField(),
 		) );
 		return (string) ob_get_clean();
 	}

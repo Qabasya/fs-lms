@@ -5,6 +5,7 @@
  * @package FS LMS
  *
  * @var \Inc\DTO\Subject\SubjectDTO[] $subjects Активные предметы для селекта «Направление».
+ * @var string                        $honeypot Имя honeypot-поля.
  */
 
 if ( ! defined( 'ABSPATH' ) ) {

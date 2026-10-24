@@ -210,7 +210,7 @@ class GuestApplicationCallbacksTest extends TestCase {
 		$r = fs_test_capture_json( fn() => $this->cb->ajaxSubmitExamGuestApplication() );
 
 		self::assertFalse( $r->success );
-		self::assertSame( 'Не удалось отправить форму. Обновите страницу.', $r->payload['message'] );
+		self::assertSame( 'Не удалось отправить форму. Нажмите кнопку ещё раз.', $r->payload['message'] );
 	}
 
 	public function test_submit_ignores_school_and_grade_from_request(): void {

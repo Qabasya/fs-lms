@@ -17,6 +17,10 @@ use Inc\Services\Shared\PluginConfig;
  *
  * 1. **Honeypot** — скрытое поле, которое люди не видят и не заполняют,
  *    а примитивные боты автозаполняют. Непустое значение → бот.
+ *    Ловушка не должна срабатывать на людей, поэтому: имя нейтральное (без «company», «url», «phone» и
+ *    прочих слов, по которым автозаполнение браузера узнаёт поле), а значение, которое вписал сам браузер
+ *    (`:autofill`), клиент очищает до отправки (`form-trap.js`). Отказ по ловушке восстановим: после него
+ *    поле очищено, повторная отправка проходит.
  * 2. **Тайминг** — подписанная HMAC метка времени рендера формы.
  *    Сабмит быстрее MIN_FILL_SECONDS после загрузки → бот.
  *    Подпись (FS_LMS_HASH_SALT) делает метку неподделываемой и stateless —
@@ -36,8 +40,11 @@ readonly class FormGuardService {
 	 */
 	private const MAX_TOKEN_AGE = 4 * HOUR_IN_SECONDS;
 
-	/** Имя honeypot-поля в разметке формы. */
-	private const HONEYPOT_FIELD = 'fs_company';
+	/**
+	 * Имя honeypot-поля в разметке формы.
+	 * Было `fs_company`: Chrome узнавал «Компания» и подставлял организацию из профиля — человек не мог отправить заявку.
+	 */
+	private const HONEYPOT_FIELD = 'fs_ref_id';
 
 	public function __construct(
 		private PluginConfig $pluginConfig,

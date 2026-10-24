@@ -38,6 +38,14 @@ class FormGuardServiceTest extends TestCase {
 		self::assertTrue( $service->isHuman( '   ', $this->tokenFor( -10 ) ) );
 	}
 
+	public function test_honeypot_name_does_not_look_like_an_autofillable_field(): void {
+		// По таким словам браузер узнаёт поле и вписывает данные профиля: человек не может очистить скрытое поле.
+		self::assertDoesNotMatchRegularExpression(
+			'/company|org|name|url|site|phone|tel|mail|addr|city|zip|post|user|login|pass|card|school/i',
+			$this->makeService()->honeypotField()
+		);
+	}
+
 	// ── Тайминг ─────────────────────────────────────────────────────────────────
 
 	public function test_rejects_too_fast_submission(): void {

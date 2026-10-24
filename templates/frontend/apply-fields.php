@@ -10,6 +10,7 @@
  *
  * @var \Inc\DTO\Subject\SubjectDTO[] $subjects Активные предметы для селекта «Направление».
  * @var array<string, string>          $prefill  Заполненные поля по личной ссылке гостя экзамена (пусто — обычная форма).
+ * @var string                         $honeypot Имя honeypot-поля.
  */
 
 use Inc\Enums\Wp\Nonce;
@@ -30,11 +31,7 @@ $prefill        = $prefill ?? array();
 
         <?php wp_nonce_field( Nonce::Apply->value, 'security' ); ?>
 
-        <?php /* Honeypot-ловушка для ботов (имя поля = FormGuardService::HONEYPOT_FIELD). Скрыто через CSS .fs-hp, люди не заполняют. */ ?>
-        <div class="fs-hp" aria-hidden="true">
-            <label for="fs_company"><?php esc_html_e( 'Компания', 'fs-lms' ); ?></label>
-            <input type="text" name="fs_company" id="fs_company" tabindex="-1" autocomplete="off" readonly>
-        </div>
+        <?php include __DIR__ . '/partials/form-trap.php'; ?>
 
         <div class="fs-apply-card__field-group fs-form-group">
             <label for="fs_subject"><?php esc_html_e( 'Направление', 'fs-lms' ); ?> <span aria-hidden="true">*</span></label>

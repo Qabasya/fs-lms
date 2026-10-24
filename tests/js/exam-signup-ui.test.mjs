@@ -44,6 +44,11 @@ function signupForm(t, response) {
         form_token: { value: 'token' },
     };
     const inputs = Object.values(elements).filter(input => input.closest);
+    // Ловушка: autofilled имитирует :autofill (значение вписал браузер), иначе значение «вписал скрипт».
+    const trap = {
+        name: 'fs_ref_id', value: '', autofilled: false,
+        matches(selector) { return this.autofilled && selector === ':autofill'; },
+    };
     const form = {
         elements, setAttribute() {},
         addEventListener: (name, callback) => listeners.set(name, callback),
@@ -56,7 +61,7 @@ function signupForm(t, response) {
         querySelector(selector) {
             if (selector === '#fs_exam_session_id') return elements.session_id;
             if (selector === '#fs-exam-submit') return submit;
-            if (selector === '.fs-exam-signup__hp input') return { name: 'fs_company', value: '' };
+            if (selector === '[data-fs-trap]') return trap;
             return null;
         },
     };
@@ -72,7 +77,7 @@ function signupForm(t, response) {
         return { json: async () => response };
     };
     initExamSignup();
-    return { errors, formError, submit, elements, requests, send: () => listeners.get('submit')({ preventDefault() {} }) };
+    return { errors, formError, submit, elements, trap, requests, send: () => listeners.get('submit')({ preventDefault() {} }) };
 }
 
 test('серверная ошибка согласия видна у соответствующего поля', async t => {
@@ -129,3 +134,30 @@ for (const field of ['last_name', 'unknown']) {
         assert.equal(ui.submit.disabled, false);
     });
 }
+
+test('ловушка: значение, вписанное автозаполнением браузера, не уходит на сервер', async t => {
+    const ui = signupForm(t, { success: true, data: { redirect: '/cart/' } });
+    globalThis.window.location = { assign() {} };
+    ui.trap.value = 'Школа №1';
+    ui.trap.autofilled = true;
+    await ui.send();
+    assert.equal(ui.requests.length, 1);
+    assert.equal(ui.requests[0].options.body.get('fs_ref_id'), '');
+});
+
+test('ловушка: значение, вписанное скриптом, уходит на сервер', async t => {
+    const ui = signupForm(t, { success: true, data: { redirect: '/cart/' } });
+    globalThis.window.location = { assign() {} };
+    ui.trap.value = 'spam';
+    await ui.send();
+    assert.equal(ui.requests[0].options.body.get('fs_ref_id'), 'spam');
+});
+
+test('ловушка: после отказа поле очищено, повторная отправка проходит', async t => {
+    const ui = signupForm(t, { success: false, data: { message: 'Не удалось отправить форму. Нажмите кнопку ещё раз.' } });
+    ui.trap.value = 'расширение вписало';
+    await ui.send();
+    assert.equal(ui.trap.value, '');
+    await ui.send();
+    assert.equal(ui.requests[1].options.body.get('fs_ref_id'), '');
+});

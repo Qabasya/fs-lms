@@ -11,6 +11,7 @@ import { bindPhoneMask } from '../../common/input-masks.js';
 import { buildSummary, isSessionChosen, formatLeft, secondsLeft } from './exam-signup-model.js';
 import { initSchoolSuggest } from './school-suggest.js';
 import { createExamSignupTracker, examVisitId } from './exam-signup-tracking.js';
+import { trapField, resetTrap } from './form-trap.js';
 
 function newRequestKey() {
     return ( window.crypto && window.crypto.randomUUID ) ? window.crypto.randomUUID() : `k${ Date.now() }${ Math.random().toString( 16 ).slice( 2 ) }`;
@@ -118,8 +119,7 @@ function initSignupForm( vars ) {
         }
 
         setBusy( true, 'Занимаем место…' );
-        const data = { ...collect(), request_key: requestKey, form_token: value( 'form_token' ), visit: examVisitId() };
-        data[ form.querySelector( '.fs-exam-signup__hp input' ).name ] = form.querySelector( '.fs-exam-signup__hp input' ).value;
+        const data = { ...collect(), request_key: requestKey, form_token: value( 'form_token' ), visit: examVisitId(), ...trapField( form ) };
 
         try {
             const res = await post( vars, vars.actions.submit, data );
@@ -131,6 +131,8 @@ function initSignupForm( vars ) {
                 return;
             }
 
+            // Ловушка отказала человеку (расширение вписало скрытое поле): повтор уходит с пустым полем.
+            resetTrap( form );
             const err = res.data || {};
             if ( err.cabinet_url ) { tracker.succeeded(); window.location.assign( err.cabinet_url ); return; }
             if ( err.new_request_key ) { requestKey = newRequestKey(); }

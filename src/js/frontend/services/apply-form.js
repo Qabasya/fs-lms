@@ -18,23 +18,15 @@ import { getCaptchaToken, resetCaptcha, captchaFailureOf, captchaFailureAllowsFa
 import { createApplyTracker, applyVisitId } from './apply-tracking.js';
 import { initSchoolSuggest } from './school-suggest.js';
 import { createApplySession } from './apply-session.js';
+import { trapField, resetTrap } from './form-trap.js';
 
-/** @type {{ ajax_url: string, captcha_key: string, hp_field: string, form_token: string, actions: { send_otp: string, create: string }, nonces: { apply: string, verify_otp: string } }} */
+/** @type {{ ajax_url: string, captcha_key: string, form_token: string, actions: { send_otp: string, create: string }, nonces: { apply: string, verify_otp: string } }} */
 const vars = window.fs_lms_apply_vars;
 const session = vars ? createApplySession( vars ) : null;
 
 /** Данные формы этапа 1, сохраняются для передачи на этапе 2 */
 let _formData = null;
 let _tracker = null;
-
-/**
- * Читает значение honeypot-поля (должно быть пустым у людей).
- * @returns {string}
- */
-function readHoneypot() {
-    const name = vars.hp_field || 'fs_company';
-    return document.querySelector( `[name="${ name }"]` )?.value ?? '';
-}
 
 // ── Сбор данных ──────────────────────────────────────────────────────────────
 
@@ -153,8 +145,15 @@ function otpRequestFields( captcha, email ) {
         captcha_unavailable: captcha.failure,
         form_token:          vars.form_token ?? '',
         visit:               applyVisitId(),
-        [ vars.hp_field || 'fs_company' ]: readHoneypot(),
+        ...trapField(),
     };
+}
+
+/** Отправка кода; отказ сервера очищает ловушку, чтобы повтор не упирался в неё снова. */
+async function sendOtp( captcha, email ) {
+    const res = await ajaxPost( vars.actions.send_otp, otpRequestFields( captcha, email ) );
+    if ( ! res?.success ) { resetTrap(); }
+    return res;
 }
 
 // ── Переходы между этапами ───────────────────────────────────────────────────
@@ -295,7 +294,7 @@ async function handleResendOtp() {
     let res;
     try {
         await session.prepareOtp();
-        res = await ajaxPost( vars.actions.send_otp, otpRequestFields( captcha, _formData.email ) );
+        res = await sendOtp( captcha, _formData.email );
     } catch ( error ) {
         resetCaptcha();
         showError( form, 'Не удалось обновить данные формы. Проверьте соединение и попробуйте ещё раз.' );
@@ -426,7 +425,7 @@ function bindFormBehaviors() {
         let res;
         try {
             await session.prepareOtp();
-            res = await ajaxPost( vars.actions.send_otp, otpRequestFields( captcha, data.email ) );
+            res = await sendOtp( captcha, data.email );
         } catch ( error ) {
             setLoading( btn, false );
             resetCaptcha();

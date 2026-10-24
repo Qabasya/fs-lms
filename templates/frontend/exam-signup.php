@@ -236,11 +236,7 @@ $contact_phone = (string) ( $contacts['phone'] ?? '' );
 				</section>
 
 				<!-- Honeypot и метка времени (капчи нет) -->
-				<div class="fs-exam-signup__hp" aria-hidden="true">
-					<label><?php esc_html_e( 'Не заполняйте это поле', 'fs-lms' ); ?>
-						<input type="text" name="<?php echo esc_attr( $honeypot ); ?>" value="" tabindex="-1" autocomplete="off">
-					</label>
-				</div>
+				<?php include __DIR__ . '/partials/form-trap.php'; ?>
 				<input type="hidden" name="form_token" value="<?php echo esc_attr( $form_token ); ?>">
 
 				<p class="description error fs-field-error" id="fs-exam-form-error" role="alert" hidden></p>

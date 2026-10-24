@@ -215,7 +215,6 @@ class FrontendAssets extends BaseController {
 	private function applyVars(): array {
 		return (array) apply_filters( 'fs_lms_apply_vars', array(
 			'ajax_url'   => admin_url( 'admin-ajax.php' ),
-			'hp_field'   => $this->formGuard->honeypotField(),
 			'form_token' => $this->formGuard->timestampToken(),
 			'actions'    => array(
 				'session'        => AjaxHook::GetApplySession->jsAction(),

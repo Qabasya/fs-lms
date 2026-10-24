@@ -15,8 +15,9 @@
  */
 
 import { onCaptchaEvent } from './captcha.js';
+import { TRAP_SELECTOR } from './form-trap.js';
 
-/** @type {{ ajax_url: string, hp_field?: string, actions: { track?: string }, nonces: { track?: string } }|undefined} */
+/** @type {{ ajax_url: string, actions: { track?: string }, nonces: { track?: string } }|undefined} */
 const vars = window.fs_lms_apply_vars;
 
 /** ID визита: связывает события одной сессии формы; сервер принимает a-z0-9, до 16 символов. */
@@ -40,7 +41,7 @@ const NOOP_TRACKER = {
  */
 function fieldStats( form ) {
     const inputs = [ ...form.querySelectorAll( 'input:not([type="hidden"]), select, textarea' ) ]
-        .filter( ( input ) => input.name && ( vars?.hp_field || 'fs_company' ) !== input.name );
+        .filter( ( input ) => input.name && ! input.matches( TRAP_SELECTOR ) );
 
     const filled = inputs.filter( ( input ) => '' !== input.value.trim() ).length;
 

@@ -76,15 +76,6 @@
     }
   }
 
-  // Ловушка для ботов: людям не видна, но и не display:none (простые боты такие поля пропускают)
-  &__hp {
-    position: absolute;
-    left: $exam-honeypot-offset;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-  }
-
   &__status {
     margin: $spacing-md 0 0;
     text-align: center;

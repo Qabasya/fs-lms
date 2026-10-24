@@ -11,6 +11,8 @@
  * Глобальные переменные: fs_lms_exam_signup_vars (ajax_url, actions.track, nonce).
  */
 
+import { TRAP_SELECTOR } from './form-trap.js';
+
 /** ID визита: связывает события одной сессии формы; сервер принимает a-z0-9, до 16 символов. */
 const VISIT = Math.random().toString( 36 ).slice( 2, 10 );
 
@@ -34,7 +36,7 @@ const NOOP_TRACKER = {
  */
 function fieldStats( form ) {
     const inputs = [ ...form.querySelectorAll( 'input:not([type="hidden"]):not([type="checkbox"]), select, textarea' ) ]
-        .filter( ( input ) => input.name && ! input.closest( '.fs-exam-signup__hp' ) );
+        .filter( ( input ) => input.name && ! input.matches( TRAP_SELECTOR ) );
     const consents = [ ...form.querySelectorAll( 'input[type="checkbox"]' ) ];
     const session  = form.querySelector( '#fs_exam_session_id' );
 
