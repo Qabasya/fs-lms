@@ -8,6 +8,7 @@ use Inc\Contracts\ServiceInterface;
 use Inc\Core\BaseController;
 use Inc\Enums\Wp\ShortCode;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
+use Inc\Services\Exam\ApplyPrefillLinkService;
 use Inc\Shared\Traits\TemplateRenderer;
 
 /**
@@ -28,6 +29,7 @@ class ApplyPageController extends BaseController implements ServiceInterface {
 
 	public function __construct(
 		private readonly SubjectRepository $subjects,
+		private readonly ApplyPrefillLinkService $prefillLinks,
 	) {
 		parent::__construct();
 	}
@@ -47,9 +49,14 @@ class ApplyPageController extends BaseController implements ServiceInterface {
 	 * @return string HTML-контент формы
 	 */
 	public function renderApplyForm(): string {
+		// Личная ссылка гостя экзамена: поля формы заполнены, курсор — на почте (её у гостя нет).
+		$token   = sanitize_text_field( wp_unslash( $_GET[ ApplyPrefillLinkService::QUERY_ARG ] ?? '' ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- публичная ссылка, подпись проверяет сервис.
+		$prefill = '' !== $token ? $this->prefillLinks->resolve( $token ) : null;
+
 		ob_start();
 		$this->render( 'frontend/apply', array(
 			'subjects' => $this->subjects->readActive(),
+			'prefill'  => $prefill ?? array(),
 		) );
 		return (string) ob_get_clean();
 	}

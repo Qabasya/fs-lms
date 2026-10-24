@@ -26,6 +26,7 @@ class ExamGuestDirectoryService {
 		private readonly ExamParticipantRepository $participants,
 		private readonly GuestParticipantMaterializer $guestData,
 		private readonly ExamTime $time,
+		private readonly ApplyPrefillLinkService $applyLinks,
 	) {}
 
 	/**
@@ -106,6 +107,7 @@ class ExamGuestDirectoryService {
 		$status = ExamRegistrationStatus::tryFrom( (string) ( $row['registration_status'] ?? '' ) );
 
 		return array(
+			'apply_link' => $anonymized ? '' : $this->applyLinks->issue( $participant->id ),
 			'name'       => $anonymized ? 'Обезличен' : $this->guestData->decryptName( $participant ),
 			'phone'      => $contacts['phone'],
 			'messenger'  => $contacts['messenger'],

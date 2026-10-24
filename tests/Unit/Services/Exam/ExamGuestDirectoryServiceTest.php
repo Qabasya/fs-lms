@@ -21,7 +21,7 @@ class ExamGuestDirectoryServiceTest extends TestCase {
 		$time = $this->createMock( ExamTime::class );
 		$time->method( 'toLocal' )->willReturnCallback( static fn ( string $u ): string => $u );
 
-		return new ExamGuestDirectoryService( $participants, $guestData, $time );
+		return new ExamGuestDirectoryService( $participants, $guestData, $time, $this->createMock( \Inc\Services\Exam\ApplyPrefillLinkService::class ) );
 	}
 
 	public function test_row_has_form_data_and_session(): void {

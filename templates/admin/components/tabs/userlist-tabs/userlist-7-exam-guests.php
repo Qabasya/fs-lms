@@ -122,7 +122,12 @@ $pageUrl       = add_query_arg( array_filter( array( 'orderby' => $orderby, 'ord
 		<?php else : ?>
 			<?php foreach ( $guests as $guest ) : ?>
 				<tr>
-					<td class="column-title"><?php echo esc_html( $guest['name'] ); ?></td>
+					<td class="column-title">
+						<?php echo esc_html( $guest['name'] ); ?>
+						<?php if ( '' !== $guest['apply_link'] ) : ?>
+							<br><a href="<?php echo esc_url( $guest['apply_link'] ); ?>" class="js-guest-apply-link" data-link="<?php echo esc_attr( $guest['apply_link'] ); ?>">Выдать ссылку</a>
+						<?php endif; ?>
+					</td>
 					<td class="column-title"><?php echo esc_html( '' !== $guest['phone'] ? $guest['phone'] : '—' ); ?></td>
 					<td class="column-title"><?php echo esc_html( '' !== $guest['messenger'] ? $guest['messenger'] : '—' ); ?></td>
 					<td class="column-title"><?php echo esc_html( '' !== $guest['school'] ? $guest['school'] : '—' ); ?></td>

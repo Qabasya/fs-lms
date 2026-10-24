@@ -9,6 +9,7 @@
  * @package FS LMS
  *
  * @var \Inc\DTO\Subject\SubjectDTO[] $subjects Активные предметы для селекта «Направление».
+ * @var array<string, string>          $prefill  Заполненные поля по личной ссылке гостя экзамена (пусто — обычная форма).
  */
 
 use Inc\Enums\Wp\Nonce;
@@ -19,6 +20,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 // Текущая дата для ограничения выбора даты рождения (нельзя выбрать будущее)
 $max_birth_date = gmdate( 'Y-m-d' );
+$prefill        = $prefill ?? array();
 ?>
 
 <!-- ЭТАП 1: Форма ввода данных -->
@@ -45,9 +47,9 @@ $max_birth_date = gmdate( 'Y-m-d' );
                         aria-required="true"
                         autocomplete="off"
                 >
-                    <option value="" disabled selected><?php esc_html_e( 'Выберите направление', 'fs-lms' ); ?></option>
+                    <option value="" disabled <?php selected( '', $prefill['subject_key'] ?? '' ); ?>><?php esc_html_e( 'Выберите направление', 'fs-lms' ); ?></option>
                     <?php foreach ( ( $subjects ?? array() ) as $subject ) : ?>
-                        <option value="<?php echo esc_attr( $subject->key ); ?>">
+                        <option value="<?php echo esc_attr( $subject->key ); ?>" <?php selected( $subject->key, $prefill['subject_key'] ?? '' ); ?>>
                             <?php echo esc_html( $subject->name ); ?>
                         </option>
                     <?php endforeach; ?>
@@ -63,6 +65,7 @@ $max_birth_date = gmdate( 'Y-m-d' );
                         type="text"
                         name="last_name"
                         id="fs_last_name"
+                        value="<?php echo esc_attr( $prefill['last_name'] ?? '' ); ?>"
                         placeholder="<?php esc_attr_e( 'Иванов', 'fs-lms' ); ?>"
                         required
                         aria-required="true"
@@ -81,6 +84,7 @@ $max_birth_date = gmdate( 'Y-m-d' );
                         type="text"
                         name="first_name"
                         id="fs_first_name"
+                        value="<?php echo esc_attr( $prefill['first_name'] ?? '' ); ?>"
                         placeholder="<?php esc_attr_e( 'Иван', 'fs-lms' ); ?>"
                         required
                         aria-required="true"
@@ -99,6 +103,7 @@ $max_birth_date = gmdate( 'Y-m-d' );
                         type="text"
                         name="middle_name"
                         id="fs_middle_name"
+                        value="<?php echo esc_attr( $prefill['middle_name'] ?? '' ); ?>"
                         placeholder="<?php esc_attr_e( 'Иванович', 'fs-lms' ); ?>"
                         autocomplete="additional-name"
                         autocapitalize="words"
@@ -115,6 +120,7 @@ $max_birth_date = gmdate( 'Y-m-d' );
                         type="email"
                         name="email"
                         id="fs_email"
+                        <?php echo array() !== $prefill ? 'autofocus' : ''; ?>
                         placeholder="<?php esc_attr_e( 'ivanov@mail.ru', 'fs-lms' ); ?>"
                         required
                         aria-required="true"
@@ -132,6 +138,7 @@ $max_birth_date = gmdate( 'Y-m-d' );
                         type="tel"
                         name="phone"
                         id="fs_phone"
+                        value="<?php echo esc_attr( $prefill['phone'] ?? '' ); ?>"
                         placeholder="+7 (999) 000-00-00"
                         required
                         aria-required="true"
@@ -185,6 +192,7 @@ $max_birth_date = gmdate( 'Y-m-d' );
                         type="text"
                         name="school"
                         id="fs_school"
+                        value="<?php echo esc_attr( $prefill['school'] ?? '' ); ?>"
                         placeholder="<?php esc_attr_e( 'МАОУ СОШ №', 'fs-lms' ); ?>"
                         required
                         aria-required="true"
@@ -207,9 +215,9 @@ $max_birth_date = gmdate( 'Y-m-d' );
                         aria-required="true"
                         autocomplete="off"
                 >
-                    <option value="" disabled selected><?php esc_html_e( 'Выберите класс', 'fs-lms' ); ?></option>
+                    <option value="" disabled <?php selected( '', $prefill['grade'] ?? '' ); ?>><?php esc_html_e( 'Выберите класс', 'fs-lms' ); ?></option>
                     <?php for ( $i = 1; $i <= 11; $i++ ) : ?>
-                        <option value="<?php echo esc_attr( (string) $i ); ?>">
+                        <option value="<?php echo esc_attr( (string) $i ); ?>" <?php selected( (string) $i, $prefill['grade'] ?? '' ); ?>>
                             <?php echo esc_html( $i . ' класс' ); ?>
                         </option>
                     <?php endfor; ?>

@@ -110,6 +110,20 @@ class ExamParticipantRepository extends AbstractExamRepository {
 		);
 	}
 
+	/** Направление (предмет) последнего проведения гостя; пусто, если проведений нет. */
+	public function guestEventSubjectKey( int $participantId ): string {
+		$row = $this->readRow(
+			$this->wpdb->prepare(
+				'SELECT ev.subject_key FROM %i pn JOIN %i ev ON ev.id = pn.event_id WHERE pn.participant_id = %d ORDER BY pn.id DESC LIMIT 1',
+				TableName::ExamParticipations->prefixed(),
+				TableName::ExamEvents->prefixed(),
+				$participantId
+			)
+		);
+
+		return (string) ( $row['subject_key'] ?? '' );
+	}
+
 	/**
 	 * Школы гостей — словарь фильтра.
 	 *
