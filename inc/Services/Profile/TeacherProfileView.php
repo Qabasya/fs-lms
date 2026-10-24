@@ -159,6 +159,9 @@ final class TeacherProfileView implements ProfileViewInterface {
 				'correctResult'     => AjaxHook::CorrectExamResult->jsAction(),
 				'exportParticipants' => AjaxHook::ExportExamParticipants->jsAction(),
 				'printList'         => AjaxHook::GetExamPrintList->jsAction(),
+				'getUnregistered'   => AjaxHook::GetExamUnregistered->jsAction(),
+				'exportUnregistered' => AjaxHook::ExportExamUnregistered->jsAction(),
+				'printUnregistered' => AjaxHook::GetExamUnregisteredPrintList->jsAction(),
 			),
 			'subjects'         => $subjects,
 			// Выгрузка и печать списка участников — только при обоих экспортных правах (стандарт выгрузки ПД).

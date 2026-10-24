@@ -14,6 +14,9 @@ enum ExportTarget: string {
 	// Участники сеанса экзамена (8.9): без контактов, под двумя экспортными правами
 	case ExamParticipants = 'exam_participants';
 
+	// Ученики направления, ещё не записавшиеся на проведение
+	case ExamUnregistered = 'exam_unregistered';
+
 	// Центр печати: документ по шаблону (ID — ученик и родитель)
 	case PrintDocument = 'print_document';
 
@@ -35,6 +38,7 @@ enum ExportTarget: string {
 			self::Parents            => 'Родители',
 			self::Archive            => 'Архив',
 			self::ExamParticipants   => 'Экзамен: участники сеанса',
+			self::ExamUnregistered   => 'Экзамен: не записавшиеся ученики',
 			self::PrintDocument      => 'Центр печати: документ',
 			self::LogEntityAudit     => 'Лог: действия с сущностями',
 			self::LogEnrollment      => 'Лог: путь зачисления',

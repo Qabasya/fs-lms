@@ -162,7 +162,11 @@ class ExamConductViewService {
 
 		if ( (int) ( $context['session_id'] ?? 0 ) > 0 ) {
 			$board = $this->sessionBoard( $actorUserId, (int) $context['session_id'], ! empty( $context['all'] ) );
+			$only = array_map( 'intval', (array) ( $context['registration_ids'] ?? array() ) );
 			foreach ( $board['rows'] as $row ) {
+				if ( array() !== $only && ! in_array( (int) $row['registration_id'], $only, true ) ) {
+					continue;
+				}
 				// Строка знает свой сеанс (в общем списке они разные).
 				$rows[] = $this->exportRow( $row, $this->sessionLabel( $row['session']['date'], $row['session']['time_start'] ) );
 			}

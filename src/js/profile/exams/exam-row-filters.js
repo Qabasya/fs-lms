@@ -16,6 +16,9 @@ export const AUDIENCES = [
 /** Значение фильтра школы для самозаписанных гостей: у них школы нет, а пустое значение занято пунктом «Все школы». */
 export const SELF_REGISTERED = '__self__';
 
+/** Значение фильтра групп «Незаписавшиеся»: вместо группы показывает учеников направления без записи (только на экране проведения). */
+export const UNREGISTERED = '__unregistered__';
+
 const norm = s => String(s || '').toLowerCase().replace(/ё/g, 'е').trim();
 
 /** Переключатель «Все / Ученики / Гости» (prof-seg); кнопки — `data-audience`. */
@@ -36,12 +39,14 @@ export function searchHtml(audience, value, id) {
 const sortedUnique = values => [...new Set(values.filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ru'));
 
 /** Группы — когда показаны ученики (у гостей групп нет); варианты — из групп учеников в списке. */
-export function groupSelectHtml(rows, audience, current) {
+export function groupSelectHtml(rows, audience, current, withUnregistered = false) {
     if ('guest' === audience) { return ''; }
     const groups = sortedUnique(rows.filter(r => 'student' === r.audience).map(r => r.group));
-    if (!groups.length) { return ''; }
+    const extra = withUnregistered && 'student' === audience;
+    if (!groups.length && !extra) { return ''; }
     return `<select data-view="group" aria-label="Группа"><option value="">Все группы</option>${groups.map(g =>
-        `<option value="${esc(g)}"${current === g ? ' selected' : ''}>${esc(g)}</option>`).join('')}</select>`;
+        `<option value="${esc(g)}"${current === g ? ' selected' : ''}>${esc(g)}</option>`).join('')}${extra
+        ? `<option value="${UNREGISTERED}"${UNREGISTERED === current ? ' selected' : ''}>Незаписавшиеся</option>` : ''}</select>`;
 }
 
 /** Школы — когда показаны гости: самозапись и школы из ссылок преподавателей. */

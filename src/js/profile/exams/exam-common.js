@@ -211,17 +211,18 @@ export function exportButtonsHtml() {
  * @param {HTMLElement} container
  * @param {Function} api createApi(...)
  * @param {() => Object} params Выборка: `{ session_id }` или `{ participation_ids: [...] }`.
+ * @param {{csv: string, print: string}} [actions] Имена действий api; по умолчанию — участники.
  */
-export function wireExportButtons(container, api, params) {
+export function wireExportButtons(container, api, params, actions = { csv: 'exportParticipants', print: 'printList' }) {
     container.querySelector('[data-export="csv"]')?.addEventListener('click', async () => {
         try {
-            const { url } = await api('exportParticipants', params());
+            const { url } = await api(actions.csv, params());
             window.location.assign(url);
         } catch (err) { toast(ajaxErrorText(err, 'Не удалось выгрузить список'), 'error'); }
     });
     container.querySelector('[data-export="print"]')?.addEventListener('click', async () => {
         try {
-            const { rows } = await api('printList', params());
+            const { rows } = await api(actions.print, params());
             printList(rows);
         } catch (err) { toast(ajaxErrorText(err, 'Не удалось подготовить список'), 'error'); }
     });

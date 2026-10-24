@@ -275,8 +275,10 @@ class ExamConductCallbacks extends BaseController {
 		$sessionId = $this->sanitizeInt( 'session_id' );
 		if ( $sessionId > 0 ) {
 			return array(
-				'session_id' => $sessionId,
-				'all'        => $this->sanitizeBool( 'all' ),
+				'session_id'       => $sessionId,
+				'all'              => $this->sanitizeBool( 'all' ),
+				// Выбор фильтрами экрана: пусто — весь сеанс.
+				'registration_ids' => array_values( array_filter( $this->sanitizeIntList( 'registration_ids' ) ) ),
 			);
 		}
 

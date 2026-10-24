@@ -14,6 +14,7 @@ use Inc\Callbacks\Exam\ExamEventCallbacks;
 use Inc\Callbacks\Exam\ExamResultCallbacks;
 use Inc\Callbacks\Exam\ExamSourceCallbacks;
 use Inc\Callbacks\Exam\ExamStatsCallbacks;
+use Inc\Callbacks\Exam\ExamUnregisteredCallbacks;
 use Inc\Callbacks\Exam\ExamPaymentQueueCallbacks;
 use Inc\Callbacks\Exam\ExamReportCallbacks;
 use Inc\Callbacks\Exam\GuestApplicationCallbacks;
@@ -40,6 +41,7 @@ class ExamController extends AjaxController {
 		private readonly GuestEntryCallbacks $guestEntry,
 		private readonly ExamReportCallbacks $reportCallbacks,
 		private readonly ExamPaymentQueueCallbacks $paymentQueue,
+		private readonly ExamUnregisteredCallbacks $unregistered,
 	) {
 		parent::__construct();
 	}
@@ -93,6 +95,9 @@ class ExamController extends AjaxController {
 			array( AjaxHook::CorrectExamResult, $this->conduct ),
 			array( AjaxHook::ExportExamParticipants, $this->conduct ),
 			array( AjaxHook::GetExamPrintList, $this->conduct ),
+			array( AjaxHook::GetExamUnregistered, $this->unregistered ),
+			array( AjaxHook::ExportExamUnregistered, $this->unregistered ),
+			array( AjaxHook::GetExamUnregisteredPrintList, $this->unregistered ),
 
 			array( AjaxHook::GetExamResults, $this->results ),
 			array( AjaxHook::GetExamStats, $this->stats ),

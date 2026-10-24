@@ -17,7 +17,7 @@ import { DOW_JS } from '../constants.js';
 import { bindPhoneMask } from '../../common/input-masks.js';
 import { examConfig, examSubjects, subjectPickerHtml, wireSubjectPicker, approvalBlockReason, approvableRows, approveButtonLabel, approvalItems, approvalSummaryText, skippedListHtml, exportButtonsHtml, wireExportButtons } from './exam-common.js';
 import { openMoveSessionForm, openCancelSessionForm } from './exam-session-actions.js';
-import { audienceSegHtml, searchHtml, groupSelectHtml, schoolSelectHtml, rowMatches } from './exam-row-filters.js';
+import { audienceSegHtml, searchHtml, groupSelectHtml, schoolSelectHtml, rowMatches, UNREGISTERED } from './exam-row-filters.js';
 
 const REFRESH_MS = 30000;
 const TICK_MS = 1000;
@@ -64,6 +64,7 @@ let board = null;
 let sessionId = 0;
 // Фильтры списка (как в «Результатах»): кого показывать, поиск по ФИО, группа учеников, школа гостей. Работают на клиенте по строкам доски.
 const view = { audience: 'all', search: '', group: '', school: '' };
+let unregistered = []; // ученики направления без записи: показываются, пока в фильтре групп выбран пункт «Незаписавшиеся»
 let allSessions = false; // режим «Все сеансы»: список участников всего проведения; sessionId остаётся опорным сеансом
 let chosenSubject = ''; // предмет, выбранный переключателем; пусто — экран сам выбирает ближайший сеанс
 let fetchedAt = 0;
@@ -118,7 +119,30 @@ async function load() {
     }
     if (board) { sessionId = board.session.id; }
     fetchedAt = Date.now();
+    await loadUnregistered();
     render();
+}
+
+/** Режим «Незаписавшиеся»: в фильтре групп выбран соответствующий пункт. */
+function unregisteredMode() {
+    return UNREGISTERED === view.group;
+}
+
+/** Список незаписавшихся учеников направления; вне режима не запрашивается. */
+async function loadUnregistered() {
+    if (!unregisteredMode() || !board) { return; }
+    try {
+        unregistered = (await api('getUnregistered', { session_id: board.session.id })).rows || [];
+    } catch (err) {
+        unregistered = [];
+        view.group = '';
+        toast(ajaxErrorText(err, 'Не удалось загрузить незаписавшихся'), 'error');
+    }
+}
+
+/** Незаписавшиеся под поиском по ФИО. */
+function visibleUnregistered() {
+    return unregistered.filter(r => rowMatches({ audience: 'student', name: r.name, group: '' }, { audience: 'student', search: view.search, group: '', school: '' }));
 }
 
 /** Ответ действия — свежая доска: перерисовываем без повторного запроса. */
@@ -157,11 +181,11 @@ function controlsHtml() {
 }
 
 function filtersHtml() {
-    if (!board.rows.length) { return ''; }
+    if (!board.rows.length && !unregisteredMode()) { return ''; }
     return `<div class="exam-results-filters exam-conduct-filters">
         ${audienceSegHtml(view.audience)}
         ${searchHtml(view.audience, view.search, 'examConductSearch')}
-        ${groupSelectHtml(board.rows, view.audience, view.group)}
+        ${groupSelectHtml(board.rows, view.audience, view.group, true)}
         ${schoolSelectHtml(board.rows, view.audience, view.school)}
     </div>`;
 }
@@ -238,15 +262,16 @@ function render() {
                     : `${esc(fmtDate(s.date))} · ${esc(s.time_start)}–${esc(s.time_end)}${s.room_name ? ` · ${esc(s.room_name)}` : ''} · занято ${s.occupied} из ${s.capacity}`}</div>
             </div>
             ${controlsHtml()}
-            ${tilesHtml(tilesOf(visibleRows()))}
+            ${unregisteredMode() ? '' : tilesHtml(tilesOf(visibleRows()))}
             ${board.warnings.map(w => `<div class="sc-notice exam-notice">${esc(w)}</div>`).join('')}
             ${skippedListHtml(lastSkipped, id => board.rows.find(r => r.attempt_id === id)?.name)}
-            ${board.rows.length
+            ${unregisteredMode() ? unregisteredListHtml() : ''}
+            ${unregisteredMode() ? '' : board.rows.length
                 ? (visibleRows().length
                     ? `<div class="pr-list">${visibleRows().map(rowHtml).join('')}</div>`
                     : '<div class="exam-conduct-empty">Никого не найдено.</div>')
                 : (board.holds || []).length ? '' : `<div class="exam-conduct-empty">${allSessions ? 'На экзамен пока никто не записан.' : 'На этот сеанс пока никто не записан.'}</div>`}
-            ${(board.holds || []).length ? `<div class="exam-conduct-subtitle">Ожидают оплаты</div><div class="pr-list">${board.holds.map(holdRowHtml).join('')}</div>` : ''}
+            ${!unregisteredMode() && (board.holds || []).length ? `<div class="exam-conduct-subtitle">Ожидают оплаты</div><div class="pr-list">${board.holds.map(holdRowHtml).join('')}</div>` : ''}
         </div>`;
     wire();
     if (null !== keepFocus) {
@@ -256,6 +281,16 @@ function render() {
     }
 }
 
+/** Строки незаписавшихся: ФИО и группа, без действий. */
+function unregisteredListHtml() {
+    const rows = visibleUnregistered();
+    if (!rows.length) { return '<div class="exam-conduct-empty">Незаписавшихся учеников нет.</div>'; }
+    return `<div class="pr-list">${rows.map(r => `<div class="pr-row exam-conduct-row">
+        <div class="pr-info"><div class="pr-name">${esc(r.name)}</div><div class="pr-sub">${esc(r.group)}</div></div>
+        <span class="prof-state-pill prof-state-soon">Не записан</span>
+    </div>`).join('')}</div>`;
+}
+
 /** Перенос и отмена — пока сеанс открыт и ни одна попытка не начата. */
 function sessionMenuAllowed(s) {
     return 'open' === s.status && !s.is_locked;
@@ -263,9 +298,10 @@ function sessionMenuAllowed(s) {
 
 /** Панель действий над списком: утверждение работ и выгрузка (CSV, печать — только при обоих экспортных правах). */
 function toolbar() {
-    const approval = approvalToolbar();
-    const exports = board.rows.length ? exportButtonsHtml() : '';
-    const guest = guestButtonHtml();
+    const unreg = unregisteredMode();
+    const approval = unreg ? '' : approvalToolbar();
+    const exports = (unreg ? visibleUnregistered().length : visibleRows().length) ? exportButtonsHtml() : '';
+    const guest = unreg ? '' : guestButtonHtml();
     if (!approval && !exports && !guest) { return ''; }
     return `<div class="exam-conduct-toolbar">${guest}${approval}${exports}</div>`;
 }
@@ -466,6 +502,18 @@ async function approveSelected() {
     }
 }
 
+/** Выборка выгрузки и печати: текущие фильтры — только показанные строки; без фильтров — весь сеанс. */
+function exportParams() {
+    if (unregisteredMode()) {
+        const rows = visibleUnregistered();
+        return { session_id: board.session.id, person_ids: rows.length === unregistered.length ? [] : rows.map(r => r.person_id) };
+    }
+    const rows = visibleRows();
+    const params = { session_id: sessionId, all: allSessions ? 1 : 0 };
+    if (rows.length !== board.rows.length) { params.registration_ids = rows.map(r => r.registration_id); }
+    return params;
+}
+
 /* ── Действия ─────────────────────────────────────────────────────────── */
 function wire() {
     wireSubject();
@@ -475,7 +523,12 @@ function wire() {
         render();
     }));
     root.querySelector('#examConductSearch')?.addEventListener('input', e => { view.search = e.target.value; render(); });
-    root.querySelectorAll('.exam-conduct-filters [data-view]').forEach(sel => sel.addEventListener('change', () => { view[sel.dataset.view] = sel.value; render(); }));
+    root.querySelectorAll('.exam-conduct-filters [data-view]').forEach(sel => sel.addEventListener('change', async () => {
+        view[sel.dataset.view] = sel.value;
+        resetSelection();
+        await loadUnregistered();
+        render();
+    }));
     root.querySelector('[data-event]')?.addEventListener('change', e => {
         sessionId = Number(e.target.value);
         allSessions = true;
@@ -505,7 +558,9 @@ function wire() {
             }
         );
     }
-    wireExportButtons(root, api, () => ({ session_id: sessionId, all: allSessions ? 1 : 0 }));
+    wireExportButtons(root, api, exportParams, unregisteredMode()
+        ? { csv: 'exportUnregistered', print: 'printUnregistered' }
+        : { csv: 'exportParticipants', print: 'printList' });
     root.querySelector('[data-approve="start"]')?.addEventListener('click', () => { selecting = true; selected = new Set(); render(); });
     root.querySelector('[data-approve="cancel"]')?.addEventListener('click', () => { selecting = false; selected = new Set(); render(); });
     root.querySelector('[data-approve="confirm"]')?.addEventListener('click', approveSelected);

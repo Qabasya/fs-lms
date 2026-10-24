@@ -385,6 +385,9 @@ enum AjaxHook: string {
 	case CorrectExamResult              = 'correct_exam_result';                // params: attempt_id, changes[][task_id, score, feedback?], reason, result_version; ответ: result_version
 	case ExportExamParticipants         = 'export_exam_participants';           // params: session_id | participation_ids[]; ответ: url (CSV без контактов; ManageLmsPlatform + ExportPII)
 	case GetExamPrintList               = 'get_exam_print_list';                // params: session_id | participation_ids[]; ответ: title, rows (ФИО, источник, сеанс; без контактов; ManageLmsPlatform + ExportPII)
+	case GetExamUnregistered            = 'get_exam_unregistered';              // params: session_id; ответ: rows (person_id, name, group, school) — ученики направления без записи (ManageExams)
+	case ExportExamUnregistered         = 'export_exam_unregistered';           // params: session_id, person_ids[]?; ответ: url (CSV без контактов; ManageLmsPlatform + ExportPII)
+	case GetExamUnregisteredPrintList   = 'get_exam_unregistered_print_list';   // params: session_id, person_ids[]?; ответ: rows (ФИО, источник, сеанс; ManageLmsPlatform + ExportPII)
 	case AddExamGuestOnSite             = 'add_exam_guest_on_site';             // params: session_id, source_id, last_name, first_name, middle_name?, phone, messenger?, consents[], request_key, confirmed? (0/1); ответ: status created (pay_url — один раз) | needs_confirmation (candidates)
 	case IssueExamResultLink            = 'issue_exam_result_link';             // params: participation_id; ответ: url (один раз, прежний ключ отзывается)
 	case RevokeExamResultLink           = 'revoke_exam_result_link';            // params: participation_id, session_id; ответ: board
