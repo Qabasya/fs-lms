@@ -24,6 +24,7 @@ use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Repositories\WPDBRepositories\SubmissionRepository;
 use Inc\Repositories\WPDBRepositories\TaskAttemptRepository;
 use Inc\Repositories\WPDBRepositories\WorkTaskCheckRepository;
+use Inc\Services\Assessment\ExamLockService;
 use Inc\Shared\CodedException;
 
 class SubmissionService {
@@ -42,6 +43,7 @@ class SubmissionService {
 		private readonly PersonRepository            $persons,
 		private readonly HomeworkDeadlineService     $deadlines,
 		private readonly WorkTaskCheckRepository     $workTaskChecks,
+		private readonly ExamLockService             $examLock,
 	) {}
 
 	/** В ленту пишется WP-пользователь, а не персона (actor_user_id резолвится через get_userdata()). */
@@ -220,6 +222,13 @@ class SubmissionService {
 
 		if ( ! $this->accessPolicy->canSubmit( $studentPersonId, $groupLessonId ) ) {
 			throw new CodedException( ErrorCode::WorkAccess, 'Сдача недоступна для данного ученика и урока.' );
+		}
+
+		// Запирающий экзамен блокирует сдачу и проверку из вкладки, открытой до его начала.
+		// Здесь, а не в LessonAccessPolicy: через canRead() идёт AssessmentAccessPolicy,
+		// и экзамен заблокировал бы сам себя.
+		if ( $this->examLock->isLocked( $studentPersonId ) ) {
+			throw new CodedException( ErrorCode::WorkAccess, 'Сдача недоступна: идёт экзамен.' );
 		}
 
 		$row = $this->groupLessons->find( $groupLessonId );

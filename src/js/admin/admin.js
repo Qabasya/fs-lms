@@ -53,6 +53,7 @@ import { TeacherViewModal } from './modals/enrollment/teacher-view-modal.js';
 import { AlertModal } from './modals/alert-modal.js';
 import { RolesSettings } from './services/roles-settings.js';
 import { LegacyTaskImport } from './services/legacy-task-import.js';
+import { TaskBulkEdit } from './services/task-bulk-edit.js';
 import { PrintCenter } from './services/print-center.js';
 import { installNonceRefresh } from '../common/nonce-refresh.js';
 
@@ -228,6 +229,10 @@ function loadBuilder( chunk, exportName ) {
 
         if ( $( '#fs-legacy-import-start' ).length ) {
             LegacyTaskImport.init();
+        }
+
+        if ( $( '#fs-task-bulk' ).length ) {
+            TaskBulkEdit.init();
         }
 
         if ( $( '#fs-print-center-form' ).length ) {

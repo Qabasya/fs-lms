@@ -19,7 +19,9 @@ use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Repositories\WPDBRepositories\TaskAttemptRepository;
 use Inc\Services\Course\EffectiveStepSettingsResolver;
 use Inc\Services\Course\LessonProgressService;
+use Inc\Enums\Course\GateState;
 use Inc\Services\Course\GroupAccessGuard;
+use Inc\Services\Course\LessonGateResolver;
 use Inc\Services\Task\CorrectAnswerResolver;
 use Inc\Services\Task\TaskCheckerRegistry;
 use Inc\Services\Template\TemplateResolver;
@@ -42,6 +44,8 @@ class SubmitTaskAnswerCallbacksTest extends TestCase {
 	private EffectiveStepSettingsResolver $settingsResolver;
 	private CorrectAnswerResolver         $correctAnswers;
 	private GroupAccessGuard              $guard;
+	private LessonGateResolver            $gate;
+	private GateState                     $gateState = GateState::Available;
 	private SubmitTaskAnswerCallbacks     $cb;
 
 	/** Ученик ли отправитель: ответ на занятии сдаёт только член группы. */
@@ -62,7 +66,10 @@ class SubmitTaskAnswerCallbacksTest extends TestCase {
 		$this->settingsResolver = $this->createMock( EffectiveStepSettingsResolver::class );
 		$this->correctAnswers   = $this->createMock( CorrectAnswerResolver::class );
 		$this->guard            = $this->createMock( GroupAccessGuard::class );
+		$this->gate             = $this->createMock( LessonGateResolver::class );
 		$this->isMember         = true;
+		$this->gateState        = GateState::Available;
+		$this->gate->method( 'resolveStep' )->willReturnCallback( fn(): GateState => $this->gateState );
 
 		$this->guard->method( 'isMemberEver' )->willReturnCallback( fn(): bool => $this->isMember );
 
@@ -76,7 +83,8 @@ class SubmitTaskAnswerCallbacksTest extends TestCase {
 			$this->resolver,
 			$this->settingsResolver,
 			$this->correctAnswers,
-			$this->guard
+			$this->guard,
+			$this->gate
 		);
 	}
 
@@ -205,5 +213,17 @@ class SubmitTaskAnswerCallbacksTest extends TestCase {
 		$_POST = array( 'group_lesson_id' => '5', 'step_key' => 's1', 'answer' => '[]' );
 
 		self::assertFalse( fs_test_capture_json( fn() => $this->cb->ajaxSubmitTaskAnswer() )->success );
+	}
+
+	/** Закрытый шаг/урок (экзамен, дата, последовательность): попытка не пишется, эталон не отдаётся. */
+	public function test_locked_step_is_rejected_without_answer(): void {
+		$this->arrange( 1, array( $this->wrongAttempt( 1 ) ), CheckResultDTO::incorrect() );
+		$this->gateState = GateState::Locked;
+		$this->taskAttempts->expects( $this->never() )->method( 'create' );
+
+		$r = fs_test_capture_json( fn() => $this->cb->ajaxSubmitTaskAnswer() );
+
+		self::assertFalse( $r->success );
+		self::assertArrayNotHasKey( 'correct_answer', (array) $r->payload );
 	}
 }

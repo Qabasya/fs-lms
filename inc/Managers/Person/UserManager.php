@@ -205,6 +205,11 @@ class UserManager {
 	}
 
 	public function delete( int $id ): void {
+		// В WP-Cron wp-admin/includes/user.php не загружен.
+		if ( ! function_exists( 'wp_delete_user' ) ) {
+			require_once ABSPATH . 'wp-admin/includes/user.php';
+		}
+
 		wp_delete_user( $id );
 	}
 

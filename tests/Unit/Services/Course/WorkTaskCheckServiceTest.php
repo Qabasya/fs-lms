@@ -40,6 +40,7 @@ class WorkTaskCheckServiceTest extends TestCase {
 	private PostManager             $posts;
 	private TemplateResolver        $templates;
 	private TaskCheckerRegistry     $registry;
+	private \Inc\Services\Assessment\ExamLockService $examLock;
 	private WorkTaskCheckService    $service;
 
 	private TaskTemplate $template = TaskTemplate::Standard;
@@ -58,10 +59,12 @@ class WorkTaskCheckServiceTest extends TestCase {
 		$this->posts        = $this->createMock( PostManager::class );
 		$this->templates    = $this->createMock( TemplateResolver::class );
 		$this->registry     = $this->createMock( TaskCheckerRegistry::class );
+		$this->examLock     = $this->createMock( \Inc\Services\Assessment\ExamLockService::class );
 
 		$this->service = new WorkTaskCheckService(
 			$this->checks, $this->submissions, $this->policy, $this->groupLessons,
-			$this->resolver, $this->works, $this->posts, $this->templates, $this->registry
+			$this->resolver, $this->works, $this->posts, $this->templates, $this->registry,
+			$this->examLock
 		);
 	}
 
@@ -224,6 +227,15 @@ class WorkTaskCheckServiceTest extends TestCase {
 
 	public function test_student_without_access_is_refused(): void {
 		$this->policy->method( 'canSubmit' )->willReturn( false );
+		$this->checks->expects( $this->never() )->method( 'create' );
+
+		$this->expectCode( ErrorCode::WorkAccess );
+	}
+
+	/** Запирающий экзамен: «Проверить ответ» из ранее открытой вкладки отклоняется. */
+	public function test_check_refused_during_locking_exam(): void {
+		$this->policy->method( 'canSubmit' )->willReturn( true );
+		$this->examLock->method( 'isLocked' )->willReturn( true );
 		$this->checks->expects( $this->never() )->method( 'create' );
 
 		$this->expectCode( ErrorCode::WorkAccess );

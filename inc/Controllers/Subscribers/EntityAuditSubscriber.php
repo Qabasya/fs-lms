@@ -86,6 +86,9 @@ class EntityAuditSubscriber implements ServiceInterface {
 			LogEvent::TaskCreated,
 			LogEvent::TaskUpdated,
 			LogEvent::TaskDeleted,
+			// Массовая правка заданий (снимки)
+			LogEvent::TaskSnapshotApplied,
+			LogEvent::TaskSnapshotRolledBack,
 			// Задачи глобального банка
 			LogEvent::ProblemCreated,
 			LogEvent::ProblemUpdated,

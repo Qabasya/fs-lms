@@ -1,0 +1,54 @@
+@use '../variables' as *;
+
+// =================================================================
+// Массовая правка заданий через CSV (Предметы → Менеджер заданий)
+// =================================================================
+
+.fs-task-bulk {
+  &__steps {
+    margin: $spacing-md 0;
+    padding-left: $spacing-xl;
+    color: $color-text-secondary;
+  }
+
+  &__controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: $spacing-sm;
+  }
+
+  &__title {
+    margin-top: $spacing-xl;
+  }
+
+  &__table {
+    margin-top: $spacing-md;
+
+    .column-line {
+      width: 4em;
+    }
+
+    .column-number {
+      width: 12em;
+    }
+  }
+
+  &__notes {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  &__warning {
+    color: $wp-admin-yellow-text;
+  }
+
+  &__error {
+    color: $wp-admin-red-text;
+  }
+
+  &__row--error td {
+    background: $wp-admin-red-bg;
+  }
+}

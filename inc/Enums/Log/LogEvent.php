@@ -48,6 +48,10 @@ enum LogEvent: string {
 	case TaskUpdated      = 'task.updated';
 	case TaskDeleted      = 'task.deleted';
 
+	// Массовая правка заданий через CSV: одна запись на партию, подробности — в снимке
+	case TaskSnapshotApplied    = 'task_snapshot.applied';
+	case TaskSnapshotRolledBack = 'task_snapshot.rolled_back';
+
 	case ProblemCreated   = 'problem.created';
 	case ProblemUpdated   = 'problem.updated';
 	case ProblemDeleted   = 'problem.deleted';

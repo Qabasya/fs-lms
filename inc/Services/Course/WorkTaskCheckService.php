@@ -10,6 +10,7 @@ use Inc\Managers\Course\WorkManager;
 use Inc\Managers\Wp\PostManager;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\WorkTaskCheckRepository;
+use Inc\Services\Assessment\ExamLockService;
 use Inc\Services\Task\TaskCheckerRegistry;
 use Inc\Services\Template\TemplateResolver;
 use Inc\Shared\CodedException;
@@ -48,6 +49,7 @@ class WorkTaskCheckService {
 		private readonly PostManager             $posts,
 		private readonly TemplateResolver        $resolver,
 		private readonly TaskCheckerRegistry     $checkers,
+		private readonly ExamLockService         $examLock,
 	) {}
 
 	/**
@@ -61,6 +63,13 @@ class WorkTaskCheckService {
 	public function check( int $studentPersonId, int $groupLessonId, int $workId, int $taskId, mixed $answer ): array {
 		if ( ! $this->accessPolicy->canSubmit( $studentPersonId, $groupLessonId ) ) {
 			throw new CodedException( ErrorCode::WorkAccess, 'Проверка недоступна для данного ученика и урока.' );
+		}
+
+		// Запирающий экзамен блокирует сдачу и проверку из вкладки, открытой до его начала.
+		// Здесь, а не в LessonAccessPolicy: через canRead() идёт AssessmentAccessPolicy,
+		// и экзамен заблокировал бы сам себя.
+		if ( $this->examLock->isLocked( $studentPersonId ) ) {
+			throw new CodedException( ErrorCode::WorkAccess, 'Проверка недоступна: идёт экзамен.' );
 		}
 
 		$row = $this->groupLessons->find( $groupLessonId );

@@ -16,6 +16,7 @@ use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Repositories\WPDBRepositories\TaskAttemptRepository;
 use Inc\Services\Course\EffectiveStepSettingsResolver;
 use Inc\Services\Course\GroupAccessGuard;
+use Inc\Services\Course\LessonGateResolver;
 use Inc\Services\Course\LessonProgressService;
 use Inc\Services\Task\CorrectAnswerResolver;
 use Inc\Services\Task\TaskCheckerRegistry;
@@ -47,6 +48,7 @@ class SubmitTaskAnswerCallbacks extends BaseController {
 		private readonly EffectiveStepSettingsResolver $settingsResolver,
 		private readonly CorrectAnswerResolver        $correctAnswers,
 		private readonly GroupAccessGuard             $guard,
+		private readonly LessonGateResolver           $gate,
 	) {
 		parent::__construct();
 	}
@@ -85,6 +87,14 @@ class SubmitTaskAnswerCallbacks extends BaseController {
 		// в dry-run (PreviewCheckTask), но ручка обязана держаться сама.
 		if ( ! $this->guard->isMemberEver( $groupLesson->groupId, $person->id ) ) {
 			$this->error( 'Ответы на этом занятии сдают только его ученики.' );
+			return;
+		}
+
+		// Членства мало: урок может быть скрыт или не наступить, шаг — закрыт
+		// последовательностью, а ученик — заперт экзаменом (иначе эталон уходит
+		// из вкладки, открытой до экзамена, или прямым запросом).
+		if ( ! $this->gate->resolveStep( $person->id, $groupLesson, $stepKey )->isAvailable() ) {
+			$this->error( 'Этот шаг сейчас недоступен.' );
 			return;
 		}
 

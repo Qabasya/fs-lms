@@ -359,6 +359,14 @@ enum AjaxHook: string {
 	// ==== Разовый перенос заданий со старой версии сайта ====
 	case LegacyTaskImportBatch = 'legacy_task_import_batch'; // params: subject_key, offset, rows (JSON-массив записей батча), author_taxonomy?, year_taxonomy?, level_taxonomy?
 
+	// ==== Массовая правка заданий через CSV (Предметы → Менеджер заданий) ====
+	case TaskBulkTemplate    = 'task_bulk_template';     // params: subject_key, task_number? (слаг терма номера задания); ответ: filename, csv (шаблон с текущими значениями)
+	case TaskBulkPreview     = 'task_bulk_preview';      // params: subject_key, csv; ответ: отчёт «было → стало» без записи
+	case TaskBulkApply       = 'task_bulk_apply';        // params: subject_key, csv; ответ: отчёт применения + snapshot_id
+	case TaskBulkSnapshots   = 'task_bulk_snapshots';    // params: subject_key; ответ: список снимков предмета
+	case TaskBulkSnapshotCsv = 'task_bulk_snapshot_csv'; // params: snapshot_id; ответ: filename, csv (старый номер → новые данные)
+	case TaskBulkRollback    = 'task_bulk_rollback';     // params: snapshot_id; возвращает задания к состоянию снимка
+
 	// ==== Экзамены: кабинет ученика и родителя ====
 	case GetLearnerExams        = 'get_learner_exams';        // params: student_person_id? (родитель); ответ: список карточек экзаменов
 	case RegisterForExam        = 'register_for_exam';        // params: session_id, request_key (ученик)

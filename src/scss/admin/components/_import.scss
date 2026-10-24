@@ -14,7 +14,11 @@
     align-items: center;
     gap: $spacing-sm $spacing-lg;
   }
+}
 
+// Тот же вид поля выбора файла — на вкладке «Менеджер заданий» (массовая правка заданий)
+.fs-lms-import,
+.fs-task-bulk {
   input[type="file"] {
     max-width: $field-max-width;
     font-size: $font-size-sm;

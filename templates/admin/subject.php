@@ -31,10 +31,22 @@ $tabs = array(
 		'file'  => '/components/tabs/subject-tabs/subject-4-taxonomies.php',
 	),
 	'tab-5' => array(
-		'title' => 'Менеджер заданий',
+		'title' => 'Менеджер шаблонов',
 		'file'  => '/components/tabs/subject-tabs/subject-5-task-manager.php',
 	),
+	'tab-6' => array(
+		'title' => 'Менеджер заданий',
+		'file'  => '/components/tabs/subject-tabs/subject-6-task-bulk.php',
+	),
 );
+
+// Разовый перенос заданий со старой версии сайта — право платформы, как у скрытой страницы переноса.
+if ( current_user_can( \Inc\Enums\Access\Capability::ManageLmsPlatform->value ) ) {
+	$tabs['tab-7'] = array(
+		'title' => 'Импорт',
+		'file'  => '/components/tabs/subject-tabs/subject-7-import.php',
+	);
+}
 ?>
 
 	<div class="wrap fs-lms-dashboard">
@@ -58,7 +70,7 @@ $tabs = array(
 		</h2>
 
         <!-- Содержимое активной вкладки -->
-		<div class="tab-content">
+		<div class="tab-content fs-subject-tab">
 			<?php
             // Подключение файла активной вкладки
 			if ( isset( $tabs[ $active_tab ] ) ) {

@@ -45,6 +45,7 @@ class SubmissionServiceTest extends TestCase {
 	private TaskAttemptRepository&\PHPUnit\Framework\MockObject\MockObject $taskAttempts;
 	private PersonRepository&\PHPUnit\Framework\MockObject\MockObject $persons;
 	private \Inc\Repositories\WPDBRepositories\WorkTaskCheckRepository&\PHPUnit\Framework\MockObject\MockObject $workTaskChecks;
+	private \Inc\Services\Assessment\ExamLockService&\PHPUnit\Framework\MockObject\MockObject $examLock;
 	private SubmissionService $service;
 
 	protected function setUp(): void {
@@ -62,6 +63,7 @@ class SubmissionServiceTest extends TestCase {
 		$this->taskAttempts = $this->createMock( TaskAttemptRepository::class );
 		$this->persons      = $this->createMock( PersonRepository::class );
 		$this->workTaskChecks = $this->createMock( \Inc\Repositories\WPDBRepositories\WorkTaskCheckRepository::class );
+		$this->examLock       = $this->createMock( \Inc\Services\Assessment\ExamLockService::class );
 
 		$this->service = new SubmissionService(
 			$this->submissions,
@@ -81,6 +83,7 @@ class SubmissionServiceTest extends TestCase {
 				$this->groupLessons,
 			),
 			$this->workTaskChecks,
+			$this->examLock,
 		);
 	}
 
@@ -148,6 +151,20 @@ class SubmissionServiceTest extends TestCase {
 
 		$this->expectException( \InvalidArgumentException::class );
 		$this->service->submitBatch( 10, 5, 3, [ 1 => 'a' ] );
+	}
+
+	/** Запирающий экзамен: сдача из вкладки, открытой до экзамена, отклоняется. */
+	public function test_submit_batch_refused_during_locking_exam(): void {
+		$this->policy->method( 'canSubmit' )->willReturn( true );
+		$this->examLock->method( 'isLocked' )->with( 10 )->willReturn( true );
+		$this->submissions->expects( $this->never() )->method( 'create' );
+
+		try {
+			$this->service->submitBatch( 10, 5, 3, [ 1 => 'a' ] );
+			self::fail( 'Ожидалось CodedException' );
+		} catch ( \Inc\Shared\CodedException $e ) {
+			self::assertSame( \Inc\Enums\Log\ErrorCode::WorkAccess, $e->errorCode );
+		}
 	}
 
 	public function test_submit_batch_throws_when_work_not_in_effective_set(): void {

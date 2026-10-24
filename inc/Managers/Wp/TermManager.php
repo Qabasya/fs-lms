@@ -241,6 +241,37 @@ class TermManager {
 	}
 
 	/**
+	 * Находит терм по слагу; null — такого нет.
+	 *
+	 * @param string $slug     Слаг терма
+	 * @param string $taxonomy Слаг таксономии
+	 *
+	 * @return \WP_Term|null
+	 */
+	public function findBySlug( string $slug, string $taxonomy ): ?\WP_Term {
+		$term = get_term_by( 'slug', $slug, $taxonomy );
+
+		return ( $term instanceof \WP_Term ) ? $term : null;
+	}
+
+	/**
+	 * ID терма по названию без создания; 0 — такого терма нет.
+	 *
+	 * @param string $name     Название терма
+	 * @param string $taxonomy Слаг таксономии
+	 *
+	 * @return int
+	 */
+	public function findIdByName( string $name, string $taxonomy ): int {
+		$existing = term_exists( $name, $taxonomy );
+		if ( is_array( $existing ) ) {
+			return (int) ( $existing['term_id'] ?? 0 );
+		}
+
+		return is_numeric( $existing ) ? (int) $existing : 0;
+	}
+
+	/**
 	 * Получает объект термина по ID и таксономии.
 	 *
 	 * @param int    $term_id  ID термина

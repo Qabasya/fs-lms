@@ -23,6 +23,7 @@ enum TableName: string {
 	case ErrorLog          = 'fs_lms_error_log';
 	case ContentReport     = 'fs_lms_content_reports';
 	case ExamLog           = 'fs_lms_exam_log';
+	case TaskBulkSnapshots = 'fs_lms_task_bulk_snapshots';
 
 	// ==== Этап 2 — программа группы ====
 	case GroupLessons   = 'fs_lms_group_lessons';

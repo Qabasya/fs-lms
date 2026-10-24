@@ -155,7 +155,7 @@ class TaskNumberService {
 	 *
 	 * @return bool
 	 */
-	private function belongsTo( string $slug, int $task_number ): bool {
+	public function belongsTo( string $slug, int $task_number ): bool {
 		return 1 === preg_match( '/^' . $task_number . '(?:\d{3}|[1-9]\d{3,})$/', $slug );
 	}
 

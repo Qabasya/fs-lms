@@ -18,6 +18,7 @@ enum EntityType: string {
 	case VisualTemplate = 'visual_template';
 	case Boilerplate    = 'boilerplate';
 	case Task           = 'task';
+	case TaskSnapshot   = 'task_snapshot';
 	case Article        = 'article';
 	case Problem        = 'problem';
 	case Group          = 'group';
@@ -41,6 +42,7 @@ enum EntityType: string {
 			self::VisualTemplate => 'Визуальный шаблон',
 			self::Boilerplate    => 'Типовое условие',
 			self::Task           => 'Задание',
+			self::TaskSnapshot   => 'Снимок заданий',
 			self::Article        => 'Статья',
 			self::Problem        => 'Задача банка',
 			self::Group          => 'Группа',

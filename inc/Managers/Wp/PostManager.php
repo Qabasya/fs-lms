@@ -504,6 +504,36 @@ class PostManager {
 	}
 
 	/**
+	 * Низкоуровневая запись заголовка, даты и статуса без жизненного цикла сохранения.
+	 *
+	 * Как {@see self::renameSlug()}: прямой UPDATE таблицы, поэтому не срабатывают хуки сохранения
+	 * (ни валидаторы публикации, ни аудит записи, ни ревизии) и не двигается `post_modified`.
+	 * Нужна массовой правке заданий, которой достаточно ОДНОЙ записи в журнале на партию.
+	 * Статус `future` и планировщик публикации здесь не обслуживаются — вызывающий код не ставит
+	 * опубликованному заданию будущую дату.
+	 *
+	 * @param int                  $post_id ID записи.
+	 * @param array<string, mixed> $fields  Любые из: post_title, post_date, post_date_gmt, post_status.
+	 *
+	 * @return void
+	 */
+	public function updateFields( int $post_id, array $fields ): void {
+		global $wpdb;
+
+		$allowed = array_intersect_key(
+			$fields,
+			array_flip( array( 'post_title', 'post_date', 'post_date_gmt', 'post_status' ) )
+		);
+		if ( array() === $allowed ) {
+			return;
+		}
+
+		$wpdb->update( $wpdb->posts, $allowed, array( 'ID' => $post_id ) );
+
+		clean_post_cache( $post_id );
+	}
+
+	/**
 	 * Запоминает прежний слаг записи, чтобы старый адрес отдавал 301.
 	 *
 	 * `_wp_old_slug` — штатный механизм ядра: по нему работает

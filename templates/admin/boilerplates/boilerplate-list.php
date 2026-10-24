@@ -74,7 +74,7 @@ use Inc\Enums\Wp\Nonce;
 
 	<p class="fs-mt-xl">
 		<a href="<?php echo esc_url( $back_url ); ?>" class="button">
-			&larr; Назад в Менеджер заданий
+			&larr; Назад в Менеджер шаблонов
 		</a>
 	</p>
 </div>

@@ -23,6 +23,7 @@ use Inc\Controllers\System\MediaUploadController;
 use Inc\Controllers\System\ModulesDashboardController;
 use Inc\Controllers\Task\BoilerplateController;
 use Inc\Controllers\Task\LegacyTaskImportController;
+use Inc\Controllers\Task\TaskBulkEditController;
 use Inc\Controllers\Enrollment\EnrollmentController;
 use Inc\Controllers\Lead\LeadController;
 use Inc\Controllers\Course\LessonController;
@@ -135,6 +136,7 @@ use Inc\Migrations\Migration_1_0_95;
 use Inc\Migrations\Migration_1_0_96;
 use Inc\Migrations\Migration_1_0_97;
 use Inc\Migrations\Migration_1_0_98;
+use Inc\Migrations\Migration_1_0_99;
 use Inc\Migrations\Migration_1_0_81;
 use Inc\Migrations\Migration_1_0_82;
 use Inc\Migrations\Migration_1_0_83;
@@ -224,6 +226,7 @@ final class Init {
 			ImportController::class,   // Импорт учеников из CSV
 			PrintCenterController::class, // Центр печати: документы по шаблонам
 			LegacyTaskImportController::class, // AJAX разового переноса заданий со старой версии сайта
+			TaskBulkEditController::class, // AJAX массовой правки заданий через CSV
 			LogArchiveCommand::class, // WP-CLI: возврат журналов из месячного архива (только под WP_CLI)
 			SubjectBundleCommand::class, // WP-CLI: перенос предмета пакетом (регистрируется только под WP_CLI)
 			TaskFileSchemeCommand::class, // WP-CLI: http:// → https:// в ссылках на файлы заданий
@@ -347,6 +350,7 @@ final class Init {
 		$migrationRunner->register( new Migration_1_0_96() );
 		$migrationRunner->register( new Migration_1_0_97() );
 		$migrationRunner->register( new Migration_1_0_98() );
+		$migrationRunner->register( new Migration_1_0_99() );
 		$migrationRunner->run();
 
 		// Data-миграция (не схема): ссылки на файлы заданий со старой схемой
