@@ -20,6 +20,7 @@ use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Services\Course\CourseAssignmentService;
 use Inc\Services\Course\GroupLessonUsageGuard;
 use Inc\Services\Course\OpenCourseValidator;
+use Inc\Services\Group\ProgramCompositionService;
 use Inc\Services\Group\ScheduleEventPublisher;
 use Inc\Services\Group\ScheduleReflowService;
 use Inc\Services\Profile\NotificationService;
@@ -39,6 +40,7 @@ class CourseAssignmentServiceTest extends TestCase {
 	private ScheduleReflowService&\PHPUnit\Framework\MockObject\MockObject $schedule;
 	private ScheduleEventPublisher&\PHPUnit\Framework\MockObject\MockObject $events;
 	private NotificationService&\PHPUnit\Framework\MockObject\MockObject $notifications;
+	private ProgramCompositionService&\PHPUnit\Framework\MockObject\MockObject $program;
 	private CourseAssignmentService $service;
 
 	protected function setUp(): void {
@@ -53,6 +55,7 @@ class CourseAssignmentServiceTest extends TestCase {
 		$this->schedule            = $this->createMock( ScheduleReflowService::class );
 		$this->events              = $this->createMock( ScheduleEventPublisher::class );
 		$this->notifications       = $this->createMock( NotificationService::class );
+		$this->program             = $this->createMock( ProgramCompositionService::class );
 
 		$clock = $this->createMock( ClockInterface::class );
 		$clock->method( 'now' )->willReturn( self::NOW );
@@ -69,6 +72,7 @@ class CourseAssignmentServiceTest extends TestCase {
 			$this->schedule,
 			$this->events,
 			$this->notifications,
+			$this->program,
 		);
 	}
 
@@ -128,6 +132,58 @@ class CourseAssignmentServiceTest extends TestCase {
 		$this->groupLessons->expects( self::once() )->method( 'remove' )->with( 200 );
 
 		$this->service->assign( 1, 5, 99, AssignmentPolicy::Replace );
+	}
+
+	/**
+	 * Смена курса: проведённое занятие старого курса остаётся в КТП (за ним посещаемость). Если урок есть и в новом
+	 * курсе, второй пустой копией он в «Темы курса» не дописывается — иначе там две одинаковые карточки.
+	 */
+	public function test_assign_replace_does_not_duplicate_lesson_kept_from_previous_course(): void {
+		$this->setupGroupAndCourse( lessonIds: [ 10, 20 ] );
+		$this->groupLessons->method( 'nextPosition' )->willReturn( 1 );
+		$this->groupLessons->method( 'listByGroup' )->willReturn( array( $this->glRow( id: 100, lessonId: 10 ) ) );
+		$this->usageGuard->method( 'isSafeToRemove' )->willReturn( false );
+
+		$this->groupLessons->expects( self::once() )->method( 'add' )
+			->with( self::callback( static fn( GroupLessonInputDTO $d ) => 20 === $d->lessonId && 1 === $d->position ) );
+
+		self::assertSame( 1, $this->service->assign( 1, 5, 99, AssignmentPolicy::Replace ) );
+	}
+
+	/** Повторное назначение того же курса «Дописать» не множит уроки. */
+	public function test_assign_append_skips_lessons_already_in_program(): void {
+		$this->setupGroupAndCourse( lessonIds: [ 10, 20 ] );
+		$this->groupLessons->method( 'nextPosition' )->willReturn( 2 );
+		$this->groupLessons->method( 'listByGroup' )->willReturn( array(
+			$this->glRow( id: 100, lessonId: 10 ),
+			$this->glRow( id: 200, lessonId: 20, position: 1 ),
+			$this->glRow( id: 300, lessonId: 10, kind: 'individual' ),
+		) );
+
+		$this->groupLessons->expects( self::never() )->method( 'add' );
+
+		self::assertSame( 0, $this->service->assign( 1, 5, 99, AssignmentPolicy::Append ) );
+	}
+
+	/** Индивидуальное занятие по уроку курса — не строка программы: урок в группу всё равно дописывается. */
+	public function test_assign_ignores_individual_rows_when_checking_presence(): void {
+		$this->setupGroupAndCourse( lessonIds: [ 10 ] );
+		$this->groupLessons->method( 'nextPosition' )->willReturn( 0 );
+		$this->groupLessons->method( 'listByGroup' )->willReturn( array( $this->glRow( id: 300, lessonId: 10, kind: 'individual' ) ) );
+
+		$this->groupLessons->expects( self::once() )->method( 'add' );
+
+		self::assertSame( 1, $this->service->assign( 1, 5, 99 ) );
+	}
+
+	/** Пустые копии, оставшиеся от прежних назначений, убираются при назначении. */
+	public function test_assign_cleans_up_duplicate_topics_of_the_group(): void {
+		$this->setupGroupAndCourse( lessonIds: [ 10 ] );
+		$this->groupLessons->method( 'nextPosition' )->willReturn( 0 );
+
+		$this->program->expects( self::once() )->method( 'removeDuplicateTopics' )->with( 1 );
+
+		$this->service->assign( 1, 5, 99 );
 	}
 
 	public function test_assign_rejects_cross_subject_course(): void {
@@ -262,6 +318,23 @@ class CourseAssignmentServiceTest extends TestCase {
 		$res = $this->service->reconcileCourseLessons( 5, 99 );
 
 		self::assertSame( 1, $res['removed'] );
+	}
+
+	/** Сохранение курса заодно убирает пустые дубли тем во всех его группах; они входят в число убранных строк. */
+	public function test_reconcile_removes_duplicate_topics_of_course_groups(): void {
+		$this->courseManager->method( 'get' )->willReturn( $this->makeCourse( lessonIds: [ 10 ] ) );
+		$this->groups->method( 'findByCourse' )->with( 5 )->willReturn( array(
+			(object) array( 'id' => 1, 'access_mode' => 'scheduled', 'program_locked_at' => null ),
+			(object) array( 'id' => 2, 'access_mode' => 'scheduled', 'program_locked_at' => null ),
+		) );
+		$this->groupLessons->method( 'listByGroup' )->willReturn( array( $this->glRow( id: 100, lessonId: 10 ) ) );
+
+		$this->program->expects( self::exactly( 2 ) )->method( 'removeDuplicateTopics' )
+			->willReturnMap( array( array( 1, 2 ), array( 2, 0 ) ) );
+
+		$res = $this->service->reconcileCourseLessons( 5, 99 );
+
+		self::assertSame( 2, $res['removed'] );
 	}
 
 	public function test_reconcile_keeps_orphan_with_engagement(): void {

@@ -19,6 +19,7 @@ use Inc\Managers\Course\CourseManager;
 use Inc\Managers\Course\LessonManager;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
+use Inc\Services\Group\ProgramCompositionService;
 use Inc\Services\Group\ScheduleEventPublisher;
 use Inc\Services\Group\ScheduleReflowService;
 use Inc\Services\Profile\NotificationService;
@@ -37,6 +38,7 @@ class CourseAssignmentService {
 		private readonly ScheduleReflowService       $schedule,
 		private readonly ScheduleEventPublisher      $events,
 		private readonly NotificationService         $notifications,
+		private readonly ProgramCompositionService   $program,
 	) {}
 
 	/**
@@ -58,6 +60,10 @@ class CourseAssignmentService {
 	/**
 	 * Снапшотит уроки курса в программу группы.
 	 *
+	 * Урок, который в программе уже есть, второй строкой не добавляется (как и в {@see syncCourseLessons()}):
+	 * при замене курса проведённые занятия остаются в КТП, и общие для двух курсов уроки иначе повторились бы
+	 * пустой копией в «Темах курса». Заодно убираются пустые дубли, оставшиеся от прежних назначений.
+	 *
 	 * @param AssignmentPolicy $policy Append — дописать; Replace — заменить (удаляет текущие строки без данных учеников).
 	 * @return int  Число добавленных строк.
 	 */
@@ -78,13 +84,25 @@ class CourseAssignmentService {
 			$this->removeSafeRows( $groupId );
 		}
 
+		// Уроки, уже стоящие в программе (после замены — только строки с данными учеников).
+		$present = array();
+		foreach ( $this->programRows( $groupId ) as $row ) {
+			$present[ (int) $row->lessonId ] = true;
+		}
+
 		$position = $this->groupLessons->nextPosition( $groupId );
 		$added    = 0;
 		foreach ( $course->lessonIds() as $lessonId ) {
+			if ( isset( $present[ (int) $lessonId ] ) ) {
+				continue;
+			}
 			$this->groupLessons->add( $this->programRow( $groupId, $lessonId, $position, $actorUserId, $openMode ) );
+			$present[ (int) $lessonId ] = true;
 			$position++;
 			$added++;
 		}
+
+		$this->program->removeDuplicateTopics( $groupId );
 
 		$this->groups->update( $groupId, array( 'course_id' => $courseId ) );
 
@@ -249,6 +267,11 @@ class CourseAssignmentService {
 	public function reconcileCourseLessons( int $courseId, int $actorUserId ): array {
 		$added   = $this->syncCourseLessons( $courseId, $actorUserId );
 		$removed = $this->removeOrphanCourseLessons( $courseId );
+
+		// Пустые копии уроков, оставшиеся после смены курса, тоже лишние.
+		foreach ( $this->groups->findByCourse( $courseId ) as $group ) {
+			$removed += $this->program->removeDuplicateTopics( (int) $group->id );
+		}
 
 		return array( 'added' => $added, 'removed' => $removed );
 	}

@@ -306,6 +306,128 @@ class ProgramCompositionServiceTest extends TestCase {
 		$this->service->swapTopic( 10, 20, 99 );
 	}
 
+	// ── removeDuplicateTopics: один урок — одна тема ────────────────────────
+
+	private function dupRow( int $id, int $lessonId, ?string $scheduledAt = null, bool $held = false, ?int $continuedFromId = null, string $kind = 'group' ): \Inc\DTO\Course\GroupLessonDTO {
+		return new \Inc\DTO\Course\GroupLessonDTO(
+			id: $id, groupId: 5, lessonId: $lessonId, position: $id, workIdsSnapshot: null, extraWorkIds: array(),
+			scheduledAt: $scheduledAt, endsAt: null, isPinned: false, teacherUserId: null,
+			visibility: 'hidden', openedAt: null, homeworkDueAt: null, allowLate: true, recordingUrl: null,
+			createdByUserId: null, updatedByUserId: null, kind: \Inc\Enums\Course\LessonKind::fromValueOrDefault( $kind ),
+			continuedFromId: $continuedFromId, hasAttendance: $held,
+		);
+	}
+
+	/**
+	 * Данные учеников по строкам: за перечисленными стоят прогресс, сдачи или попытки.
+	 *
+	 * @param int[] $engagedIds
+	 */
+	private function engagedRows( array $engagedIds ): void {
+		$this->usage->method( 'hasEngagement' )->willReturnCallback( static fn( int $id ): bool => in_array( $id, $engagedIds, true ) );
+		$this->usage->method( 'isSafeToRemove' )->willReturnCallback( static fn( int $id ): bool => ! in_array( $id, $engagedIds, true ) );
+	}
+
+	/** Смена курса оставляет проведённый урок на дате и дописывает его же в пул пустой копией — копия уходит. */
+	public function test_remove_duplicates_drops_empty_pool_copy_of_a_held_lesson(): void {
+		$this->groupLessons->method( 'listByGroup' )->willReturn( array(
+			$this->dupRow( 10, 111, '2026-10-01 16:15:00', true ),
+			$this->dupRow( 20, 111 ),
+			$this->dupRow( 30, 222 ),
+		) );
+		$this->engagedRows( array( 10 ) );
+
+		$this->groupLessons->expects( self::once() )->method( 'remove' )->with( 20 )->willReturn( true );
+
+		self::assertSame( 1, $this->service->removeDuplicateTopics( 5 ) );
+	}
+
+	/** Копия с данными учеников — отчётность: остаётся она, а пустая уходит. */
+	public function test_remove_duplicates_keeps_the_copy_with_student_data(): void {
+		$this->groupLessons->method( 'listByGroup' )->willReturn( array(
+			$this->dupRow( 20, 111 ),
+			$this->dupRow( 30, 111 ),
+		) );
+		$this->engagedRows( array( 30 ) );
+
+		$this->groupLessons->expects( self::once() )->method( 'remove' )->with( 20 )->willReturn( true );
+
+		self::assertSame( 1, $this->service->removeDuplicateTopics( 5 ) );
+	}
+
+	public function test_remove_duplicates_keeps_the_earliest_of_two_empty_copies(): void {
+		$this->groupLessons->method( 'listByGroup' )->willReturn( array(
+			$this->dupRow( 30, 111 ),
+			$this->dupRow( 20, 111 ),
+		) );
+		$this->engagedRows( array() );
+
+		$this->groupLessons->expects( self::once() )->method( 'remove' )->with( 30 )->willReturn( true );
+
+		self::assertSame( 1, $this->service->removeDuplicateTopics( 5 ) );
+	}
+
+	/** Не удаляется то, что нельзя терять: копия на дате, проведённая или с данными. */
+	public function test_remove_duplicates_never_removes_placed_held_or_engaged_copies(): void {
+		$this->groupLessons->method( 'listByGroup' )->willReturn( array(
+			$this->dupRow( 10, 111, '2026-10-01 16:15:00', true ),
+			$this->dupRow( 20, 111, '2026-10-08 16:15:00' ),
+			$this->dupRow( 30, 111, null, true ),
+			$this->dupRow( 40, 111 ),
+		) );
+		$this->engagedRows( array( 10, 40 ) );
+
+		$this->groupLessons->expects( self::never() )->method( 'remove' );
+
+		self::assertSame( 0, $this->service->removeDuplicateTopics( 5 ) );
+	}
+
+	/** Вторая дата темы — не дубль, а исходная строка с продолжением не убирается, даже если она лишняя. */
+	public function test_remove_duplicates_respects_continuations(): void {
+		$this->groupLessons->method( 'listByGroup' )->willReturn( array(
+			$this->dupRow( 10, 111, '2026-10-01 16:15:00', true ),
+			$this->dupRow( 11, 111, '2026-10-08 16:15:00', false, 10 ),
+			$this->dupRow( 20, 111 ),
+			$this->dupRow( 21, 111, null, false, 20 ),
+		) );
+		$this->engagedRows( array( 10 ) );
+
+		$this->groupLessons->expects( self::never() )->method( 'remove' );
+
+		self::assertSame( 0, $this->service->removeDuplicateTopics( 5 ) );
+	}
+
+	public function test_remove_duplicates_ignores_individual_lessons(): void {
+		$this->groupLessons->method( 'listByGroup' )->willReturn( array(
+			$this->dupRow( 10, 111, '2026-10-01 16:15:00', true ),
+			$this->dupRow( 20, 111, null, false, null, 'individual' ),
+		) );
+		$this->engagedRows( array( 10 ) );
+
+		$this->groupLessons->expects( self::never() )->method( 'remove' );
+
+		self::assertSame( 0, $this->service->removeDuplicateTopics( 5 ) );
+	}
+
+	/** «Заменить тему занятия» возвращает прежнюю тему в пул; пустая копия того же урока, лежавшая там, не остаётся второй карточкой. */
+	public function test_swap_topic_removes_the_empty_copy_left_in_the_pool(): void {
+		$this->groupLessons->method( 'find' )->willReturnMap( array(
+			array( 10, $this->themeRow( 10, 111, '2026-10-15 16:15:00' ) ),
+			array( 20, $this->themeRow( 20, 222, null ) ),
+		) );
+		// Состояние после обмена: на занятии 222, в пуле 111 с данными и пустая копия 111.
+		$this->groupLessons->method( 'listByGroup' )->willReturn( array(
+			$this->dupRow( 10, 222, '2026-10-15 16:15:00', true ),
+			$this->dupRow( 20, 111 ),
+			$this->dupRow( 30, 111 ),
+		) );
+		$this->engagedRows( array( 20 ) );
+
+		$this->groupLessons->expects( self::once() )->method( 'remove' )->with( 30 )->willReturn( true );
+
+		$this->service->swapTopic( 10, 20, 99 );
+	}
+
 	private function setupGroupAndLesson( string $groupSubject, string $lessonSubject ): void {
 		$group              = new \stdClass();
 		$group->subject_key = $groupSubject;

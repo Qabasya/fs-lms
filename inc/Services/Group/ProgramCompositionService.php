@@ -135,6 +135,72 @@ readonly class ProgramCompositionService {
 	}
 
 	/**
+	 * Убирает дубли тем: в программе группы один урок — одна тема (плюс её продолжение на вторую дату).
+	 * Вторая строка того же урока появлялась после смены курса — новый курс дописывал свои уроки, не глядя,
+	 * что проведённые занятия старого курса их уже занимают, — и мозолила глаза в «Темах курса».
+	 *
+	 * Остаётся самая значимая строка: стоящая на дате или проведённая, затем та, за которой есть данные
+	 * учеников, затем самая ранняя в порядке программы. Убирается только пустая копия: без даты, не проведённая,
+	 * без продолжения и без посещаемости, прогресса, сдач и попыток. Копия с данными остаётся — это отчётность.
+	 *
+	 * @param int $groupId ID группы
+	 *
+	 * @return int Сколько строк убрано
+	 */
+	public function removeDuplicateTopics( int $groupId ): int {
+		$continued = array();
+		$byLesson  = array();
+		foreach ( $this->groupLessons->listByGroup( $groupId ) as $row ) {
+			if ( $row->kind->isIndividual() || ! $row->lessonId ) {
+				continue;
+			}
+			if ( null !== $row->continuedFromId ) {
+				// Вторая дата темы — не отдельная тема, но её исходная строка убираться не должна.
+				$continued[ $row->continuedFromId ] = true;
+				continue;
+			}
+			$byLesson[ $row->lessonId ][] = $row;
+		}
+
+		$removed = 0;
+		foreach ( $byLesson as $themes ) {
+			if ( count( $themes ) < 2 ) {
+				continue;
+			}
+
+			$weights = array();
+			foreach ( $themes as $theme ) {
+				$weights[ $theme->id ] = $this->keepWeight( $theme );
+			}
+			usort(
+				$themes,
+				static fn( GroupLessonDTO $a, GroupLessonDTO $b ): int => $weights[ $b->id ] <=> $weights[ $a->id ] ?: $a->position <=> $b->position
+			);
+
+			// Первая — остаётся, остальные удаляются, если это пустые копии.
+			foreach ( array_slice( $themes, 1 ) as $copy ) {
+				if ( isset( $continued[ $copy->id ] ) || null !== $copy->scheduledAt || $copy->isFact() || ! $this->usage->isSafeToRemove( $copy->id ) ) {
+					continue;
+				}
+				if ( $this->groupLessons->remove( $copy->id ) ) {
+					++$removed;
+				}
+			}
+		}
+
+		return $removed;
+	}
+
+	/** Насколько строка достойна остаться из дублей: 2 — на дате или проведена, 1 — за ней данные учеников, 0 — пустая. */
+	private function keepWeight( GroupLessonDTO $row ): int {
+		if ( null !== $row->scheduledAt || $row->isFact() ) {
+			return 2;
+		}
+
+		return $this->usage->hasEngagement( $row->id ) ? 1 : 0;
+	}
+
+	/**
 	 * Меняет тему проведённого занятия местами с темой из пула («провели не ту тему»).
 	 *
 	 * Занятие остаётся как есть — дата, посещаемость, запись, кабинет, дополнительные работы;
@@ -201,6 +267,9 @@ readonly class ProgramCompositionService {
 				$this->groupLessons->setWorkIdsSnapshot( $poolId, $this->lessonManager->get( $oldLessonId )?->workIds() ?? array() );
 			}
 		} );
+
+		// Прежняя тема вернулась в пул, где могла уже лежать пустая копия того же урока (след смены курса): двух одинаковых не оставляем.
+		$this->removeDuplicateTopics( $placed->groupId );
 
 		$this->events->lessonChanged( $placed->groupId, $placedId, $actorUserId );
 
