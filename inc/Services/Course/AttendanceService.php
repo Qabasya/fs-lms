@@ -139,8 +139,13 @@ class AttendanceService {
 	 * Серия пропусков ученика: {@see self::ADMIN_ABSENCE_STREAK} подряд —
 	 * администратору, {@see self::ABSENCE_STREAK} — родителю. Одна плитка на
 	 * серию: ключ — первое занятие серии, следующие пропуски той же серии не дублируют.
+	 * В общей (дополнительной) группе серия не тревожит никого: основное обучение ученика идёт в другой группе.
 	 */
 	private function notifyAbsenceStreak( int $groupId, int $studentPersonId, string $studentName ): void {
+		if ( $this->notifications->isSharedGroup( $groupId ) ) {
+			return;
+		}
+
 		$streak = $this->absenceStreaks( $groupId )[ $studentPersonId ] ?? array();
 		if ( count( $streak ) < self::ADMIN_ABSENCE_STREAK ) {
 			return;

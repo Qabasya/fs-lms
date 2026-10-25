@@ -113,6 +113,29 @@ class AttendanceServiceTest extends TestCase {
 		$this->service->mark( 102, 10, false, 3 );
 	}
 
+	/** Общая (дополнительная) группа: отметка сохраняется, но серия пропусков не тревожит ни администратора, ни родителя. */
+	public function test_absence_streak_in_shared_group_does_not_notify(): void {
+		$this->groupLessons->method( 'find' )->willReturn( $this->lesson( array( 'id' => 103 ) ) );
+		$this->groupLessons->method( 'listByGroup' )->willReturn( array(
+			$this->lesson( array( 'id' => 101, 'scheduled_at' => '2026-05-08 10:00:00' ) ),
+			$this->lesson( array( 'id' => 102, 'scheduled_at' => '2026-05-15 10:00:00' ) ),
+			$this->lesson( array( 'id' => 103, 'scheduled_at' => '2026-05-22 10:00:00' ) ),
+		) );
+		$this->attendance->method( 'listByGroup' )->willReturn( array(
+			$this->mark( 101, false ),
+			$this->mark( 102, false ),
+			$this->mark( 103, false ),
+		) );
+		$this->notifications->method( 'isSharedGroup' )->with( 5 )->willReturn( true );
+		$this->notifications->method( 'adminUserIds' )->willReturn( array( 2 ) );
+		$this->notifications->method( 'guardianUserIds' )->willReturn( array( 88 ) );
+
+		$this->attendance->expects( self::once() )->method( 'upsert' )->with( 103, 10, false, 3 );
+		$this->notifications->expects( self::never() )->method( 'push' );
+
+		$this->service->mark( 103, 10, false, 3 );
+	}
+
 	/** Серии считаются по всей группе: у каждого ученика — от свежего занятия до первого «был». */
 	public function test_absence_streaks_per_student(): void {
 		$this->groupLessons->method( 'listByGroup' )->willReturn( array(

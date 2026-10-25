@@ -171,6 +171,32 @@ class AdminAlertServiceTest extends TestCase {
 		self::assertSame( array( 10, 2, 101 ), array( $out[0]['person_id'], $out[0]['count'], $out[0]['first_lesson_id'] ) );
 	}
 
+	/** Общая (дополнительная) группа: серия пропусков в «Требует внимания» не попадает, обычная группа рядом — попадает. */
+	public function test_shared_group_absence_streak_is_not_reported(): void {
+		$shared = (object) array( 'id' => 8, 'name' => 'Общая', 'access_mode' => 'scheduled', 'deleted_at' => null, 'is_shared' => '1' );
+		$this->groups->method( 'findAll' )->willReturn( array( $shared, $this->group() ) );
+		$this->records->method( 'findActiveByGroupId' )->willReturn( array( $this->record( 10 ) ) );
+
+		$this->attendance->expects( self::once() )->method( 'absenceStreaks' )->with( 5 )->willReturn( array( 10 => array( 102, 101 ) ) );
+
+		$out = $this->service->absenceStreaks();
+
+		self::assertCount( 1, $out );
+		self::assertSame( 5, $out[0]['group_id'] );
+	}
+
+	/** Общая (дополнительная) группа: серия несданных ДЗ ни в «Требует внимания», ни в плитке администратору не попадает. */
+	public function test_shared_group_homework_streak_is_not_reported(): void {
+		$shared = (object) array( 'id' => 8, 'name' => 'Общая', 'access_mode' => 'scheduled', 'deleted_at' => null, 'is_shared' => '1' );
+		$this->groups->method( 'findAll' )->willReturn( array( $shared ) );
+
+		// Группа отсекается до чтения состава: ни записей, ни ДЗ, ни сдач не запрашивается.
+		$this->records->expects( self::never() )->method( 'findActiveByGroupId' );
+		$this->submissions->expects( self::never() )->method( 'listForGradebookByGroup' );
+
+		self::assertSame( array(), $this->service->homeworkStreaks() );
+	}
+
 	/** Непроверенная работа — в сигналах; проверенная и удалённая — нет. */
 	public function test_overdue_reviews_keep_only_unchecked_submissions(): void {
 		$notification = static fn( int $subId ): NotificationDTO => NotificationDTO::fromArray( array(

@@ -75,6 +75,10 @@ npx gulp styles:common    # common CSS only
   `findByStudent( $id, false )`. Общие записи включает только вызов без второго аргумента (журнал, доступ к урокам, уведомления);
 - допуск к предмету экзамена общая группа не даёт (`ExamAudienceResolver`), но её занятия учитываются при проверке пересечений
   сеанса с занятиями (`groupIdsForStudent`);
+- журнал и сводка работ общей группы — как у обычной (всё считается по `group_id`, записи общей группы входят в ростер);
+  а вот серии пропусков («Ученик не посещает занятия!») и несданных ДЗ («Ученик не сдаёт работы») в ней никого не тревожат: ни плитка
+  (`AttendanceService::notifyAbsenceStreak()`, `AdminAlertCronService`), ни строка «Требует внимания» (`AdminAlertService::absenceStreaks()` /
+  `homeworkStreaks()` — их читает и крон). Новый сигнал «ученик не ходит/не сдаёт» эту группу пропускает так же;
 - отчисление из последней основной записи закрывает общие (`Finished`), выход из общей группы аккаунт не трогает и хук
   `fs_lms_student_expelled` не вызывает (`ExpulsionService`). Тесты — `ExpulsionServiceTest`, `OpenGroupEnrollmentServiceTest`,
   `ExamAudienceResolverTest`.

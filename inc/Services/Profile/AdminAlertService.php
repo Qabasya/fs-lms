@@ -90,13 +90,18 @@ class AdminAlertService {
 
 	/**
 	 * Текущие серии пропусков от {@see AttendanceService::ADMIN_ABSENCE_STREAK} занятий.
+	 * Общие (дополнительные) группы пропускаются: пропуски в них — не повод для тревоги.
 	 *
 	 * @return array<int, array{person_id: int, group_id: int, student_name: string, group_name: string, count: int, first_lesson_id: int}>
 	 */
 	public function absenceStreaks(): array {
 		$out = array();
 		foreach ( $this->activeGroups() as $group ) {
-			$names   = $this->studentNames( (int) $group->id );
+			if ( $this->isSharedGroup( $group ) ) {
+				continue;
+			}
+
+			$names   =$this->studentNames( (int) $group->id );
 			$streaks = $this->attendance->absenceStreaks( (int) $group->id );
 			foreach ( $streaks as $personId => $lessonIds ) {
 				if ( ! isset( $names[ $personId ] ) || count( $lessonIds ) < AttendanceService::ADMIN_ABSENCE_STREAK ) {
@@ -120,6 +125,7 @@ class AdminAlertService {
 	 * Текущие серии несданных домашних работ от {@see self::HOMEWORK_STREAK}. Считаются
 	 * ДЗ со сроком после зачисления ученика: пришедшему в середине курса прошлые
 	 * работы в серию не идут. Сданная хоть с опозданием работа серию прерывает.
+	 * Общие (дополнительные) группы пропускаются: несданные работы в них — не повод для тревоги.
 	 *
 	 * @return array<int, array{person_id: int, group_id: int, student_name: string, group_name: string, count: int, first_key: string, latest_due: string}>
 	 */
@@ -128,6 +134,10 @@ class AdminAlertService {
 		$out = array();
 
 		foreach ( $this->activeGroups() as $group ) {
+			if ( $this->isSharedGroup( $group ) ) {
+				continue;
+			}
+
 			$groupId = (int) $group->id;
 			$records = $this->records->findActiveByGroupId( $groupId );
 			if ( empty( $records ) ) {
@@ -251,6 +261,11 @@ class AdminAlertService {
 			static fn( object $g ): bool => empty( $g->deleted_at )
 				&& AccessMode::Open !== AccessMode::fromValueOrDefault( (string) ( $g->access_mode ?? '' ) )
 		) );
+	}
+
+	/** Общая (дополнительная) группа: `groups.is_shared`. */
+	private function isSharedGroup( object $group ): bool {
+		return 1 === (int) ( $group->is_shared ?? 0 );
 	}
 
 	/** @return array<int, string> person id → снапшот-имя активных учеников группы */
