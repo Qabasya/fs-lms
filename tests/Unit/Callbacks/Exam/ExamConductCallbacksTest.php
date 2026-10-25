@@ -134,6 +134,13 @@ class ExamConductCallbacksTest extends TestCase {
 		self::assertTrue( fs_test_capture_json( fn() => $this->cb->ajaxMarkExamArrival() )->success );
 	}
 
+	public function test_confirm_guest_passes_flag(): void {
+		$_POST = array( 'session_id' => '7', 'participation_id' => '4', 'confirmed' => '1' );
+		$this->conduct->expects( self::once() )->method( 'confirmGuest' )->with( 10, 4, true );
+
+		self::assertTrue( fs_test_capture_json( fn() => $this->cb->ajaxConfirmExamGuest() )->success );
+	}
+
 	public function test_actions_denied_for_foreign_event(): void {
 		$_POST = array( 'session_id' => '7', 'registration_id' => '5', 'reason' => 'x' );
 		$this->registration->method( 'cancelByStaff' )->willThrowException( new CodedException( ErrorCode::ExamAccess, 'Запись не найдена.' ) );

@@ -51,6 +51,7 @@ enum ExamLogAction: string {
 	case FormSubmitFailed = 'form_submit_failed';
 	case FormLeft = 'form_left';
 	case Admitted = 'admitted';
+	case GuestConfirmed = 'guest_confirmed';
 	case EntryLinkIssued = 'entry_link_issued';
 	case ResultLinkIssued = 'result_link_issued';
 	case ResultLinkRevoked = 'result_link_revoked';
@@ -135,6 +136,7 @@ enum ExamLogAction: string {
 			self::FormSubmitFailed => 'Форма записи: отправка не удалась',
 			self::FormLeft => 'Форма записи: ушёл, не записавшись',
 			self::Admitted => 'Допуск к экзамену',
+			self::GuestConfirmed => 'Гость: запись подтверждена сотрудником',
 			self::EntryLinkIssued => 'Ссылка входа гостя: выдана или скопирована',
 			self::ResultLinkIssued => 'Ссылка результата: выдана',
 			self::ResultLinkRevoked => 'Ссылка результата: отозвана',

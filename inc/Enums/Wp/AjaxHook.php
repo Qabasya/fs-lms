@@ -413,7 +413,8 @@ enum AjaxHook: string {
 	case EndExamGuestSession            = 'end_exam_guest_session';             // публичный (nonce ExamGuest): отзыв гостевой сессии и удаление куки; ответ: url нейтральной страницы
 	case DeleteExamRegistration         = 'delete_exam_registration';           // params: registration_id, session_id; удаляет отменённую запись ученика без попыток; ответ: board
 	case AdmitExamGuest                 = 'admit_exam_guest';                   // params: participation_id, admitted (0|1); ответ: board
-	case IssueExamEntryLink             = 'issue_exam_entry_link';              // params: participation_id; ответ: url (один раз, прежний ключ отзывается)
+	case ConfirmExamGuest               = 'confirm_exam_guest';                 // params: participation_id, session_id, confirmed (0|1); ответ: board
+	case IssueExamEntryLink             = 'issue_exam_entry_link';            // params: participation_id; ответ: url (один раз, прежний ключ отзывается)
 	case AcceptExamHoldWithoutPayment   = 'accept_exam_hold_without_payment';   // params: session_id (для доски), application_id, reason; ответ: доска
 	case IssueExamGuestPayLink          = 'issue_exam_guest_pay_link';          // params: application_id; ответ: pay_url (один раз, прежний ключ отзывается)
 	case MarkExamArrival                = 'mark_exam_arrival';                  // params: session_id (для доски), registration_id, arrived (0/1); ответ: доска

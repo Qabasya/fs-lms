@@ -311,6 +311,34 @@ class ExamConductViewServiceTest extends TestCase {
 		self::assertSame( array( 'anonymize', 'delete_guest' ), $this->service->rowActions( $this->registration( 1, 1, 'cancelled' ), null, $open, $this->participation( 1, null, 'guest' ) ) );
 	}
 
+	public function test_confirm_guest_action_only_for_guest_with_active_registration(): void {
+		$guest = $this->participation( 1, null, 'guest' );
+
+		self::assertContains( 'confirm_guest', $this->service->rowActions( $this->registration( 1, 1 ), null, array(), $guest ) );
+		self::assertNotContains( 'confirm_guest', $this->service->rowActions( $this->registration( 1, 1 ), null, array(), $this->participation( 1 ) ) );
+		self::assertNotContains( 'confirm_guest', $this->service->rowActions( $this->registration( 1, 1, 'cancelled' ), null, array(), $guest ) );
+		self::assertNotContains( 'confirm_guest', $this->service->rowActions( $this->registration( 1, 1, 'missed' ), null, array(), $guest ) );
+	}
+
+	public function test_guest_row_exposes_staff_confirmation_time_only_for_guests(): void {
+		$guest = ExamParticipationDTO::fromArray( array(
+			'id' => 1, 'event_id' => 3, 'participant_id' => 101, 'audience' => 'guest', 'current_attempt_id' => null,
+			'transfer_allowed' => 0, 'staff_confirmed_at' => '2026-03-10 07:00:00', 'staff_confirmed_by_user_id' => 10,
+			'version' => 1, 'created_at' => '2026-03-01 00:00:00', 'updated_at' => '2026-03-01 00:00:00',
+		) );
+		$this->givenBoard(
+			array( $this->registration( 1, 1 ), $this->registration( 2, 2 ) ),
+			array( 1 => $guest, 2 => $this->participation( 2 ) ),
+			array()
+		);
+		$this->guestBoard->method( 'paymentOf' )->willReturn( array( 'state' => 'paid', 'label' => 'Оплачено' ) );
+
+		$rows = $this->service->sessionBoard( 10, 7 )['rows'];
+
+		self::assertNotNull( $rows[0]['staff_confirmed_at'] );
+		self::assertNull( $rows[1]['staff_confirmed_at'] );
+	}
+
 	// ── 8.8.2 допуск и 11b.1 ссылка входа ─────────────────────────────────────────────────────────
 
 	// ── 11b.5 ссылка результата ──────────────────────────────────────────────────────────────────

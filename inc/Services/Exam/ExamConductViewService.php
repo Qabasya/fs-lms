@@ -266,6 +266,11 @@ class ExamConductViewService {
 			$actions[] = ExamConductAction::DeleteRegistration->value;
 		}
 
+		// Гость: «Запись подтверждена» — ручная отметка сотрудника при действующей записи, независимая от допуска.
+		if ( $active && null !== $participation && ExamAudience::Guest->value === $participation->audience ) {
+			$actions[] = ExamConductAction::ConfirmGuest->value;
+		}
+
 		// Гость: ссылка входа выдаётся сразу (выдача и есть допуск); «Admit» — отзыв ссылки со снятием допуска, пока попытка не начата.
 		if ( null !== $participation && ExamAudience::Guest->value === $participation->audience && ( $active || ( null !== $attempt && AttemptStatus::InProgress === $attempt->status ) ) ) {
 			$actions[] = ExamConductAction::EntryLink->value;
@@ -395,7 +400,7 @@ class ExamConductViewService {
 			'group'               => $this->profiles->groupName( $participant ),
 			'school'              => $this->profiles->school( $participation, $participant ),
 			'registration_status' => $registration->status,
-			// Гость: независимые состояния — оплата, допуск (`admitted_at`: ссылка входа выдана), попытка (`progress`); у ученика оплаты нет.
+			// Гость: независимые состояния — оплата, подтверждение записи (`staff_confirmed_at`: отметка сотрудника), допуск (`admitted_at`: ссылка входа выдана), попытка (`progress`); у ученика оплаты нет.
 			'payment'             => ExamAudience::Guest === $audience ? $this->guestBoard->paymentOf( $participation->id ) : null,
 			'arrived_at'          => null !== $registration->arrivedAt ? $this->time->toLocal( $registration->arrivedAt ) : null,
 			'progress'            => $progress->value,
@@ -410,6 +415,7 @@ class ExamConductViewService {
 			'result_status_label' => $this->resultLabel( $result, $audience ),
 			'actions'             => $this->rowActions( $registration, $attempt, $others, $participation ),
 			'admitted_at'         => null !== $participation->admittedAt ? $this->time->toLocal( $participation->admittedAt ) : null,
+			'staff_confirmed_at'  => ExamAudience::Guest === $audience && null !== $participation->staffConfirmedAt ? $this->time->toLocal( $participation->staffConfirmedAt ) : null,
 			'entry_link_issued'   => ExamAudience::Guest === $audience && $this->tokens->hasActive( ExamTokenPurpose::Entry, $participation->id ),
 			// Адрес действующей ссылки входа из зашифрованного ключа: «Скопировать ссылку» без перевыпуска. Пусто — ключ выпущен до хранения.
 			'entry_link_url'      => ExamAudience::Guest === $audience ? $this->entryUrl( $participation->id ) : '',

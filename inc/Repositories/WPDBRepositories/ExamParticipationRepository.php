@@ -149,6 +149,16 @@ class ExamParticipationRepository extends AbstractExamRepository {
 		$this->write( $sql );
 	}
 
+	/** Ручное подтверждение записи гостя сотрудником: отметка и автор; `null` снимает подтверждение. `version` не меняет — это не указатель вкладки. */
+	public function setStaffConfirmation( int $participationId, ?string $atUtc, ?int $byUserId ): void {
+		if ( null === $atUtc ) {
+			$sql = $this->wpdb->prepare( 'UPDATE %i SET staff_confirmed_at = NULL, staff_confirmed_by_user_id = NULL, updated_at = %s WHERE id = %d', $this->table, gmdate( 'Y-m-d H:i:s' ), $participationId );
+		} else {
+			$sql = $this->wpdb->prepare( 'UPDATE %i SET staff_confirmed_at = %s, staff_confirmed_by_user_id = %d, updated_at = %s WHERE id = %d', $this->table, $atUtc, (int) $byUserId, gmdate( 'Y-m-d H:i:s' ), $participationId );
+		}
+		$this->write( $sql );
+	}
+
 	/**
 	 * Источник приглашения, по которому гость записан. Пишется один раз при подтверждении заявки; `version` не меняет:
 	 * источник — не указатель, по которому вкладка проверяет устаревшее состояние.

@@ -317,6 +317,42 @@ class ExamConductServiceTest extends TestCase {
 		$this->service->admit( 10, 4, false );
 	}
 
+	// ── «Запись подтверждена»: ручная отметка сотрудника, отдельная от допуска ──────────────────────
+
+	public function test_confirm_guest_sets_staff_confirmation_without_touching_admission(): void {
+		$this->participations->method( 'find' )->willReturn( $this->guestParticipation( array( 'admitted_at' => null ) ) );
+		$this->registrations->method( 'find' )->willReturn( $this->registration( 1, 4 ) );
+		$this->participations->expects( self::once() )->method( 'setStaffConfirmation' )->with( 4, self::isString(), 10 );
+		$this->participations->expects( self::never() )->method( 'setAdmission' );
+		$this->tokens->expects( self::never() )->method( 'revoke' );
+
+		$this->service->confirmGuest( 10, 4, true );
+	}
+
+	public function test_confirm_guest_clears_confirmation(): void {
+		$this->participations->method( 'find' )->willReturn( $this->guestParticipation( array( 'staff_confirmed_at' => '2026-03-10 07:00:00', 'staff_confirmed_by_user_id' => '10' ) ) );
+		$this->registrations->method( 'find' )->willReturn( $this->registration( 1, 4 ) );
+		$this->participations->expects( self::once() )->method( 'setStaffConfirmation' )->with( 4, null, null );
+
+		$this->service->confirmGuest( 10, 4, false );
+	}
+
+	public function test_confirm_guest_requires_active_registration(): void {
+		$this->participations->method( 'find' )->willReturn( $this->guestParticipation( array( 'active_registration_id' => null ) ) );
+		$this->participations->expects( self::never() )->method( 'setStaffConfirmation' );
+
+		$this->expectException( CodedException::class );
+		$this->service->confirmGuest( 10, 4, true );
+	}
+
+	public function test_confirm_guest_denied_for_student_participation(): void {
+		$this->participations->method( 'find' )->willReturn( $this->guestParticipation( array( 'audience' => 'student' ) ) );
+		$this->participations->expects( self::never() )->method( 'setStaffConfirmation' );
+
+		$this->expectException( CodedException::class );
+		$this->service->confirmGuest( 10, 4, true );
+	}
+
 	// ── 11b.5 ссылка результата ──────────────────────────────────────────────────────────────────
 
 	public function test_result_link_requires_share_cap_and_submitted_attempt(): void {

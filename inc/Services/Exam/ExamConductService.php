@@ -140,6 +140,31 @@ class ExamConductService {
 	}
 
 	/**
+	 * Ручное подтверждение записи гостя («Запись подтверждена»): операционная отметка сотрудника, как и приход.
+	 * На допуск, ссылку входа и попытку не влияет; ставить можно только при действующей записи, снимать — всегда.
+	 *
+	 * @throws CodedException Нет доступа к гостю либо (при установке) нет действующей записи.
+	 */
+	public function confirmGuest( int $actorUserId, int $participationId, bool $confirmed ): void {
+		$participation = $this->guestParticipationFor( $actorUserId, $participationId );
+		if ( $confirmed && null === $this->activeRegistrationOf( $participation ) ) {
+			throw new CodedException( ErrorCode::ExamNotFound, 'У участника нет действующей записи.' );
+		}
+
+		$this->participations->setStaffConfirmation( $participationId, $confirmed ? $this->time->nowUtc() : null, $confirmed ? $actorUserId : null );
+
+		ExamLogAction::GuestConfirmed->record(
+			array(
+				'event_id'         => $participation->eventId,
+				'participation_id' => $participationId,
+				'registration_id'  => $participation->activeRegistrationId,
+				'actor'            => $actorUserId,
+				'context'          => array( 'confirmed' => $confirmed ),
+			)
+		);
+	}
+
+	/**
 	 * Ссылка входа гостя (11b.1.2): действующая запись обязательна, сеанс не закончился; выдача допускает гостя, если он ещё не допущен. Прежний ключ отзывается, поколение растёт.
 	 * Права `ExportPII` и `ManageLmsPlatform` не нужны: ссылка не содержит персональных данных.
 	 *

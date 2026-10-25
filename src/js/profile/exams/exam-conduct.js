@@ -32,6 +32,7 @@ const ACTION_LABELS = {
     extend: 'Продлить',
     arrival: 'Отметить приход',
     open_work: 'Открыть работу',
+    confirm_guest: 'Запись подтверждена',
     admit: 'Отозвать ссылку входа',
     entry_link: 'Выдать ссылку на вход',
     result_link: 'Скопировать ссылку результата',
@@ -447,14 +448,18 @@ function guestLinkButtonHtml(r) {
     return '';
 }
 
-/** У гостя два независимых состояния, а не одна «галочка»: оплата и попытка — отдельными пилюлями. */
+/** У гостя независимые состояния, а не одна «галочка»: подтверждение записи сотрудником, оплата и попытка — отдельными пилюлями. */
 function guestPillsHtml(r) {
+    // Отметка сотрудника относится к действующей записи: у отменённой бейдж не показываем.
+    const confirmed = r.staff_confirmed_at && 'cancelled' !== r.registration_status
+        ? '<span class="prof-state-pill prof-state-now">Подтверждено</span>'
+        : '';
     const pay = r.payment
         ? `<span class="prof-state-pill ${PAYMENT_PILL[r.payment.state] || 'prof-state-done'}">Оплата: ${esc(r.payment.label)}</span>`
         : '<span class="prof-state-pill prof-state-done">Оплата: —</span>';
     const progress = `<span class="prof-state-pill ${PROGRESS_PILL[r.progress] || 'prof-state-done'}">Попытка: ${esc(r.progress_label)}</span>`;
 
-    return `<div class="exam-guest-pills">${sessionBadgeHtml(r)}${pay}${progress}</div>`;
+    return `<div class="exam-guest-pills">${sessionBadgeHtml(r)}${confirmed}${pay}${progress}</div>`;
 }
 
 /** Гости с бронью без записи: «Место удерживается до …» и ссылка на оплату (11a.7.7). Не строки доски: записи и попытки у них ещё нет. */
@@ -621,6 +626,7 @@ function wire() {
 
 function actionLabel(action, row) {
     if ('arrival' === action && row.arrived_at) { return 'Снять отметку прихода'; }
+    if ('confirm_guest' === action && row.staff_confirmed_at) { return 'Снять подтверждение записи'; }
     if ('entry_link' === action && row.entry_link_issued) { return 'Перевыпустить ссылку на вход'; }
     if ('result_link' === action && row.result_link_issued) { return 'Скопировать ссылку результата (выдать новую)'; }
     return ACTION_LABELS[action];
@@ -674,6 +680,7 @@ function runAction(action, row, anchor) {
         case 'transfer': openTransferForm(anchor, row); break;
         case 'extend': openExtendForm(anchor, row); break;
         case 'arrival': act('markArrival', { registration_id: row.registration_id, arrived: row.arrived_at ? 0 : 1 }); break;
+        case 'confirm_guest': act('confirmGuest', { participation_id: row.participation_id, confirmed: row.staff_confirmed_at ? 0 : 1 }, row.staff_confirmed_at ? 'Подтверждение снято' : 'Запись подтверждена'); break;
         case 'admit': act('admitGuest', { participation_id: row.participation_id, admitted: 0 }, 'Ссылка входа отозвана'); break;
         case 'entry_link': issueGuestLink(row, anchor, { apiKey: 'issueEntryLink', issued: row.entry_link_issued, title: 'Ссылка на вход', label: 'Ссылка на вход' }); break;
         case 'result_link': issueGuestLink(row, anchor, { apiKey: 'issueResultLink', issued: row.result_link_issued, title: 'Ссылка результата', label: 'Ссылка результата' }); break;

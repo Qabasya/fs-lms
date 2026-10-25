@@ -76,6 +76,7 @@ class ExamController extends AjaxController {
 			array( AjaxHook::IssueExamGuestPayLink, $this->conduct ),
 			array( AjaxHook::AcceptExamHoldWithoutPayment, $this->conduct ),
 			array( AjaxHook::AdmitExamGuest, $this->conduct ),
+			array( AjaxHook::ConfirmExamGuest, $this->conduct ),
 			array( AjaxHook::DeleteExamRegistration, $this->conduct ),
 			array( AjaxHook::IssueExamEntryLink, $this->conduct ),
 			array( AjaxHook::GetExamPaymentQueue, $this->paymentQueue ),

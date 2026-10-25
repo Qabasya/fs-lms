@@ -175,6 +175,8 @@ class Migration_1_0_84 implements MigrationInterface {
 				transfer_allowed       tinyint(1)      NOT NULL DEFAULT 0,
 				admitted_at            datetime        DEFAULT NULL,
 				admitted_by_user_id    bigint unsigned DEFAULT NULL,
+				staff_confirmed_at     datetime        DEFAULT NULL,
+				staff_confirmed_by_user_id bigint unsigned DEFAULT NULL,
 				version                int unsigned    NOT NULL DEFAULT 1,
 				created_at             datetime        NOT NULL,
 				updated_at             datetime        NOT NULL,
