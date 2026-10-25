@@ -140,8 +140,9 @@ readonly class ProgramCompositionService {
 	 * что проведённые занятия старого курса их уже занимают, — и мозолила глаза в «Темах курса».
 	 *
 	 * Остаётся самая значимая строка: стоящая на дате или проведённая, затем та, за которой есть данные
-	 * учеников, затем самая ранняя в порядке программы. Убирается только пустая копия: без даты, не проведённая,
-	 * без продолжения и без посещаемости, прогресса, сдач и попыток. Копия с данными остаётся — это отчётность.
+	 * учеников или запись занятия, затем самая ранняя в порядке программы. Убирается только пустая копия: без даты,
+	 * не проведённая, без продолжения, без записи занятия и без посещаемости, прогресса, сдач и попыток.
+	 * Копия с данными остаётся — это отчётность.
 	 *
 	 * @param int $groupId ID группы
 	 *
@@ -179,7 +180,7 @@ readonly class ProgramCompositionService {
 
 			// Первая — остаётся, остальные удаляются, если это пустые копии.
 			foreach ( array_slice( $themes, 1 ) as $copy ) {
-				if ( isset( $continued[ $copy->id ] ) || null !== $copy->scheduledAt || $copy->isFact() || ! $this->usage->isSafeToRemove( $copy->id ) ) {
+				if ( isset( $continued[ $copy->id ] ) || null !== $copy->scheduledAt || $copy->isFact() || $copy->hasRecording() || ! $this->usage->isSafeToRemove( $copy->id ) ) {
 					continue;
 				}
 				if ( $this->groupLessons->remove( $copy->id ) ) {
@@ -191,13 +192,13 @@ readonly class ProgramCompositionService {
 		return $removed;
 	}
 
-	/** Насколько строка достойна остаться из дублей: 2 — на дате или проведена, 1 — за ней данные учеников, 0 — пустая. */
+	/** Насколько строка достойна остаться из дублей: 2 — на дате или проведена, 1 — за ней данные учеников или запись занятия, 0 — пустая. */
 	private function keepWeight( GroupLessonDTO $row ): int {
 		if ( null !== $row->scheduledAt || $row->isFact() ) {
 			return 2;
 		}
 
-		return $this->usage->hasEngagement( $row->id ) ? 1 : 0;
+		return ( $row->hasRecording() || $this->usage->hasEngagement( $row->id ) ) ? 1 : 0;
 	}
 
 	/**

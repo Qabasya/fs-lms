@@ -308,11 +308,11 @@ class ProgramCompositionServiceTest extends TestCase {
 
 	// ── removeDuplicateTopics: один урок — одна тема ────────────────────────
 
-	private function dupRow( int $id, int $lessonId, ?string $scheduledAt = null, bool $held = false, ?int $continuedFromId = null, string $kind = 'group' ): \Inc\DTO\Course\GroupLessonDTO {
+	private function dupRow( int $id, int $lessonId, ?string $scheduledAt = null, bool $held = false, ?int $continuedFromId = null, string $kind = 'group', ?string $recordingUrl = null ): \Inc\DTO\Course\GroupLessonDTO {
 		return new \Inc\DTO\Course\GroupLessonDTO(
 			id: $id, groupId: 5, lessonId: $lessonId, position: $id, workIdsSnapshot: null, extraWorkIds: array(),
 			scheduledAt: $scheduledAt, endsAt: null, isPinned: false, teacherUserId: null,
-			visibility: 'hidden', openedAt: null, homeworkDueAt: null, allowLate: true, recordingUrl: null,
+			visibility: 'hidden', openedAt: null, homeworkDueAt: null, allowLate: true, recordingUrl: $recordingUrl,
 			createdByUserId: null, updatedByUserId: null, kind: \Inc\Enums\Course\LessonKind::fromValueOrDefault( $kind ),
 			continuedFromId: $continuedFromId, hasAttendance: $held,
 		);
@@ -349,6 +349,20 @@ class ProgramCompositionServiceTest extends TestCase {
 			$this->dupRow( 30, 111 ),
 		) );
 		$this->engagedRows( array( 30 ) );
+
+		$this->groupLessons->expects( self::once() )->method( 'remove' )->with( 20 )->willReturn( true );
+
+		self::assertSame( 1, $this->service->removeDuplicateTopics( 5 ) );
+	}
+
+	/** Запись занятия — тоже данные: копия с записью не удаляется, а пустая рядом с ней уходит. */
+	public function test_remove_duplicates_keeps_the_copy_with_a_recording(): void {
+		$this->groupLessons->method( 'listByGroup' )->willReturn( array(
+			$this->dupRow( 20, 111 ),
+			$this->dupRow( 30, 111, null, false, null, 'group', 's3://bucket/key.mp4' ),
+		) );
+		$this->usage->method( 'hasEngagement' )->willReturn( false );
+		$this->usage->method( 'isSafeToRemove' )->willReturn( true );
 
 		$this->groupLessons->expects( self::once() )->method( 'remove' )->with( 20 )->willReturn( true );
 
