@@ -124,6 +124,50 @@ class ExamAudienceResolverTest extends TestCase {
 		$this->assertContains( 10, $result );
 	}
 
+	// ── Общая (дополнительная) группа: допуск к предмету не определяет, занятия учитываются ─────────
+
+	public function test_shared_group_does_not_define_subject_audience(): void {
+		$main   = (object) array( 'id' => '1', 'name' => 'G1', 'subject_key' => 'inf_ege', 'deleted_at' => null, 'is_shared' => '0' );
+		$shared = (object) array( 'id' => '2', 'name' => 'Общая', 'subject_key' => 'inf_ege', 'deleted_at' => null, 'is_shared' => '1' );
+		$this->groups->method( 'findBySubjectKey' )->with( 'inf_ege' )->willReturn( array( $main, $shared ) );
+
+		// В общей группе есть ученик, у которого основной группы этого предмета нет: допущенным он не становится.
+		$this->records->method( 'findActiveByGroupId' )->willReturnCallback(
+			fn( $gid ) => 1 === $gid ? array( $this->createStudentRecord( 1, 10, 20, 1 ) ) : array( $this->createStudentRecord( 2, 11, 21, 2 ) )
+		);
+
+		$this->assertSame( array( 10 ), $this->resolver->studentPersonIds( 'inf_ege' ) );
+	}
+
+	public function test_shared_group_does_not_make_student_eligible_for_its_subject(): void {
+		$this->records->method( 'findActiveByStudent' )->with( 11 )->willReturn( array( $this->createStudentRecord( 2, 11, 21, 2 ) ) );
+		$this->groups->method( 'findById' )->willReturn(
+			(object) array( 'id' => '2', 'name' => 'Общая', 'subject_key' => 'inf_ege', 'deleted_at' => null, 'is_shared' => '1' )
+		);
+
+		$this->assertFalse( $this->resolver->isEligible( 11, 'inf_ege' ) );
+		$this->assertSame( array(), $this->resolver->subjectKeysForStudent( 11 ) );
+	}
+
+	public function test_shared_group_lessons_still_count_for_exam_overlap(): void {
+		$this->records->method( 'findActiveByStudent' )->with( 11 )->willReturn( array( $this->createStudentRecord( 2, 11, 21, 2 ) ) );
+		$this->groups->method( 'findById' )->willReturn(
+			(object) array( 'id' => '2', 'name' => 'Общая', 'subject_key' => 'inf_ege', 'deleted_at' => null, 'is_shared' => '1' )
+		);
+
+		// Сеанс экзамена может прийтись на занятие общей группы — предупреждение строится по этим группам.
+		$this->assertSame( array( 2 ), $this->resolver->groupIdsForStudent( 11 ) );
+	}
+
+	public function test_shared_group_does_not_add_guardian_of_subject(): void {
+		$this->records->method( 'findActiveByStudent' )->with( 11 )->willReturn( array( $this->createStudentRecord( 2, 11, 21, 2 ) ) );
+		$this->groups->method( 'findById' )->willReturn(
+			(object) array( 'id' => '2', 'name' => 'Общая', 'subject_key' => 'inf_ege', 'deleted_at' => null, 'is_shared' => '1' )
+		);
+
+		$this->assertSame( array(), $this->resolver->guardianPersonIds( 11, 'inf_ege' ) );
+	}
+
 	public function test_subject_keys_for_student_are_unique(): void {
 		$record1 = $this->createStudentRecord( 1, 10, 20, 1 );
 		$record2 = $this->createStudentRecord( 2, 10, 20, 2 );

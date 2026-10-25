@@ -90,6 +90,7 @@ export const GroupModal = {
         this.$roomSelect     = this.$modal.find('#group-room');
         this.$broadcastInput = this.$modal.find('#group-broadcast-url');
         this.$accessModeSel = $('#group-access-mode');
+        this.$sharedCb      = $('#group-is-shared');
 
         this.$actionInput  = this.$modal.find('input[name="action_type"]');
         this.$groupIdInput = this.$modal.find('input[name="id"]');
@@ -188,6 +189,7 @@ export const GroupModal = {
             this.$broadcastInput.val(data.broadcast_url ?? '');
             this.$accessModeSel.val(data.access_mode || 'scheduled');
             this._lockAccessMode(data.access_mode || 'scheduled');
+            this.$sharedCb.prop('checked', !!data.is_shared);
             this._toggleScheduleByMode();
             this._restoreSchedule(data.schedule ?? []);
             this._setEditReadonly(true);
@@ -308,9 +310,17 @@ export const GroupModal = {
      * @private
      */
     _toggleScheduleByMode() {
-        const hasSchedule = this.$accessModeSel.val() === 'scheduled';
+        const mode        = this.$accessModeSel.val();
+        const hasSchedule = mode === 'scheduled';
         this.$modal.find('.fs-schedule-group').toggleClass('hidden', !hasSchedule);
         this.$modal.find('.fs-group-room-row').toggleClass('hidden', !hasSchedule);
+
+        // «Общая (дополнительная)» — признак для любой группы, кроме индивидуальной (там один ученик).
+        const individual = mode === 'individual';
+        this.$modal.find('.fs-group-shared-row').toggleClass('hidden', individual);
+        if (individual) {
+            this.$sharedCb.prop('checked', false);
+        }
     },
 
     /**
@@ -389,6 +399,7 @@ export const GroupModal = {
             room_id:       this.$roomSelect.length ? this.$roomSelect.val() : '',
             broadcast_url: this.$broadcastInput.length ? this.$broadcastInput.val().trim() : '',
             access_mode:   this.$accessModeSel.val() || 'scheduled',
+            is_shared:     this.$sharedCb.prop('checked') ? 1 : 0,
 
             // Сериализуем массив расписания в JSON-строку для отправки на сервер.
             // Сервер распарсит JSON и сохранит расписание в базу данных.

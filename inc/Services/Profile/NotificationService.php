@@ -250,6 +250,11 @@ readonly class NotificationService {
 		);
 	}
 
+	/** Общая (дополнительная) группа: ученики добавляются пачками, поштучных плиток преподавателю нет. */
+	public function isSharedGroup( int $groupId ): bool {
+		return 1 === (int) ( $this->groups->findById( $groupId )?->is_shared ?? 0 );
+	}
+
 	/** Тема занятия для текста плитки: заголовок урока, иначе `label` строки (паттерн {@see \Inc\Services\Profile\LearnerService}). */
 	public function lessonTopic( GroupLessonDTO $lesson ): string {
 		$content = $lesson->lessonId ? $this->lessons->get( $lesson->lessonId ) : null;

@@ -83,7 +83,8 @@ class ExamParticipantProfileService {
 	}
 
 	private function record( int $personId ): ?\Inc\DTO\Enrollment\StudentRecordDTO {
-		return $this->studentRecords->findActiveByStudentFirst( $personId ) ?? ( $this->studentRecords->findByStudent( $personId )[0] ?? null );
+		// Группа и школа ученика — по основному зачислению: запись общей группы «группой ученика» не бывает.
+		return $this->studentRecords->findActiveByStudentFirst( $personId ) ?? ( $this->studentRecords->findByStudent( $personId, false )[0] ?? null );
 	}
 
 	private function source( ?int $sourceId ): ?ExamSourceDTO {

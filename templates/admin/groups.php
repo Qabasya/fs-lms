@@ -131,9 +131,13 @@ $base_url  = add_query_arg( array( 'page' => $page_slug, 'period_filter' => $sel
 					data-schedule="<?php echo esc_attr( $group['schedule_raw'] ); ?>"
 					data-period-id="<?php echo esc_attr( $group['period_id'] ); ?>"
 					data-subject-key="<?php echo esc_attr( $group['subject_key'] ); ?>"
-					data-access-mode="<?php echo esc_attr( $group['access_mode'] ); ?>">
+					data-access-mode="<?php echo esc_attr( $group['access_mode'] ); ?>"
+					data-is-shared="<?php echo $group['is_shared'] ? '1' : '0'; ?>">
 					<td class="column-title">
 						<strong><?php echo esc_html( $group['title'] ); ?></strong>
+						<?php if ( $group['is_shared'] ) : ?>
+							<span class="fs-badge is-blue fs-group-shared-badge" title="Общая группа: курс и расписание поверх основной группы ученика. Не считается «группой ученика» в экзаменах и карточках.">Общая</span>
+						<?php endif; ?>
 					</td>
 					<td><?php echo esc_html( $group['period_name'] ); ?></td>
 					<td><?php echo esc_html( $group['subject_name'] ); ?></td>
@@ -154,7 +158,9 @@ $base_url  = add_query_arg( array( 'page' => $page_slug, 'period_filter' => $sel
 								<a href="#" class="js-view-group-students"
 									data-group-id="<?php echo esc_attr( $group['id'] ); ?>"
 									data-group-name="<?php echo esc_attr( $group['title'] ); ?>"
-									data-access-mode="<?php echo esc_attr( $group['access_mode'] ); ?>">Просмотреть</a>
+									data-access-mode="<?php echo esc_attr( $group['access_mode'] ); ?>"
+									data-is-shared="<?php echo $group['is_shared'] ? '1' : '0'; ?>"
+									data-subject-key="<?php echo esc_attr( $group['subject_key'] ); ?>">Просмотреть</a>
 							</span>
 							|
 							<span class="edit">

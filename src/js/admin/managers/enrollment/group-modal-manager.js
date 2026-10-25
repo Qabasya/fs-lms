@@ -68,6 +68,7 @@ export const GroupModalManager = {
             teacher_id:  $row.data('teacher-id') || '',
             broadcast_url: $row.attr('data-broadcast-url') || '',
             access_mode: $row.data('access-mode') || 'scheduled',
+            is_shared:   String($row.attr('data-is-shared')) === '1',
             schedule,
         });
     },
@@ -83,6 +84,7 @@ export const GroupModalManager = {
             broadcast_url: formData.broadcast_url,
             schedule_json: formData.schedule_json,
             access_mode:   formData.access_mode, // «открытая» фиксируется при создании (Эпик 15); «индивидуальную» можно сменить
+            is_shared:     formData.is_shared,   // «общая (дополнительная)» — признак поверх режима
         };
 
         if (isEdit) {

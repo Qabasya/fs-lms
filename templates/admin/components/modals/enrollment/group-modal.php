@@ -93,6 +93,13 @@ use Inc\Enums\Course\WeekDay;
 							<?php endforeach; ?>
 						</select>
 					</div>
+
+					<div class="fs-form-group fs-group-shared-row">
+						<label class="fs-group-shared-label" for="group-is-shared" title="Курс и расписание поверх основной группы ученика. Ученики добавляются без договора и приказа и могут быть записаны сразу всем предметом. Такая группа не считается «группой ученика» в экзаменах и карточках, а при отчислении из основной группы ученик выходит и из неё.">
+							<input type="checkbox" id="group-is-shared" name="is_shared" value="1">
+							Общая (дополнительная) группа
+						</label>
+					</div>
 				</div>
 
 				<div class="fs-form-group fs-schedule-group">

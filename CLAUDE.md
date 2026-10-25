@@ -64,6 +64,21 @@ npx gulp styles:common    # common CSS only
 Новый код, читающий или пишущий прогресс ученика по `group_lesson_id`, обязан идти через него,
 иначе вторая дата теми же заданиями снова окажется пустой.
 
+**Общая (дополнительная) группа** (`groups.is_shared`, `Migration_1_0_101`; флаг поверх режима доступа, у индивидуальной
+его нет) — курс и расписание поверх основной группы ученика. Запись в неё — не зачисление: `OpenGroupEnrollmentService`
+создаёт параллельную `student_records` без договора и приказа, без писем «вам открыт курс» и без хука
+`fs_lms_student_enrolled`, преподавателю уходит одна сводная плитка на вызов (поштучную гасит `NotificationSubscriber`).
+Массово — «Добавить всех учеников предмета»: `planFromSubject()` (предпросмотр) → порции `AddStudentsToOpenGroup` по 100.
+Правила для нового кода, иначе общая группа «засветится» там, где её быть не должно:
+- «группа ученика» (экзамены, карточки, списки) = `StudentRecordRepository::findActiveByStudentFirst()`; запасной
+  вариант и всё, что считает «основное зачисление» (оставшиеся записи, печать договора), — `findActiveByStudent( $id, false )` /
+  `findByStudent( $id, false )`. Общие записи включает только вызов без второго аргумента (журнал, доступ к урокам, уведомления);
+- допуск к предмету экзамена общая группа не даёт (`ExamAudienceResolver`), но её занятия учитываются при проверке пересечений
+  сеанса с занятиями (`groupIdsForStudent`);
+- отчисление из последней основной записи закрывает общие (`Finished`), выход из общей группы аккаунт не трогает и хук
+  `fs_lms_student_expelled` не вызывает (`ExpulsionService`). Тесты — `ExpulsionServiceTest`, `OpenGroupEnrollmentServiceTest`,
+  `ExamAudienceResolverTest`.
+
 **BaseController** (`Inc\Core\BaseController`): infrastructure utility only — not a domain or architectural base class. Provides `$plugin_path`, `$plugin_url`, `$plugin_name`, and helpers `path()`, `url()`. Also declares the `AjaxResponse` trait (inherited by all subclasses). Extend this purely to gain access to plugin path helpers and AJAX transport — not to express any domain relationship. Controllers and Callbacks extending it are unrelated to each other beyond sharing these utilities.
 
 ### Contracts

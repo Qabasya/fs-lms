@@ -366,4 +366,16 @@ class NotificationSubscriberTest extends TestCase {
 			1, \Inc\Enums\Log\AuditAction::EnrollStudent, 10, 7, 5
 		) );
 	}
+
+	public function test_student_enrolled_into_shared_group_pushes_no_per_student_notice(): void {
+		$this->notifications->method( 'isSharedGroup' )->with( 5 )->willReturn( true );
+		$this->notifications->method( 'groupTeacherUserId' )->willReturn( 55 );
+
+		// Общая группа пополняется пачками: одну сводную плитку шлёт сервис записи, а не подписчик на каждого ученика.
+		$this->notifications->expects( $this->never() )->method( 'push' );
+
+		$this->subscriber->handleStudentEnrolled( new \Inc\DTO\Log\Events\EnrollmentStatusEvent(
+			1, \Inc\Enums\Log\AuditAction::EnrollStudent, 10, 7, 5
+		) );
+	}
 }

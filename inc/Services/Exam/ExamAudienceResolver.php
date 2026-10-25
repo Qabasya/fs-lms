@@ -16,7 +16,8 @@ use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
  * Резолвер аудитории проведения экзамена.
  *
  * **Аудитория** — все активные не пробные ученики групп предмета проведения (1.1).
- * Это потенциальные участники записи и получатели приглашений.
+ * Это потенциальные участники записи и получатели приглашений. Общие (дополнительные) группы
+ * (`groups.is_shared`) допуск к предмету не определяют: ученик допущен по своей основной группе.
  *
  * **Управление** — право преподавателя на проведения своих предметов, методиста и администратора —
  * на любые (1.2). Это отдельное понятие от аудитории; разделено в {@see ExamAccessGuard}.
@@ -47,8 +48,8 @@ class ExamAudienceResolver {
 		$studentIds = array();
 
 		foreach ( $groups as $group ) {
-			// Пропускаем удалённые группы
-			if ( null !== $group->deleted_at ) {
+			// Пропускаем удалённые группы и общие: допуск к предмету даёт основная группа
+			if ( null !== $group->deleted_at || 1 === (int) ( $group->is_shared ?? 0 ) ) {
 				continue;
 			}
 
@@ -120,7 +121,8 @@ class ExamAudienceResolver {
 	 * @return int[] Уникальные ID по возрастанию.
 	 */
 	public function groupIdsForStudent( int $personId ): array {
-		$ids = array_values( array_unique( array_map( static fn ( object $g ): int => (int) $g->id, $this->eligibleGroups( $personId ) ) ) );
+		// Занятия общей группы — такие же занятия ученика: пересечение с сеансом экзамена проверяется и по ним.
+		$ids = array_values( array_unique( array_map( static fn ( object $g ): int => (int) $g->id, $this->eligibleGroups( $personId, true ) ) ) );
 		sort( $ids );
 		return $ids;
 	}
@@ -128,9 +130,11 @@ class ExamAudienceResolver {
 	/**
 	 * Неудалённые группы активных не пробных записей ученика.
 	 *
+	 * @param bool $includeShared Включать общие группы (для допуска к предмету — нет, для пересечения занятий — да).
+	 *
 	 * @return list<object>
 	 */
-	private function eligibleGroups( int $personId ): array {
+	private function eligibleGroups( int $personId, bool $includeShared = false ): array {
 		$result = array();
 
 		foreach ( $this->records->findActiveByStudent( $personId ) as $record ) {
@@ -140,6 +144,9 @@ class ExamAudienceResolver {
 
 			$group = $this->groups->findById( $record->groupId );
 			if ( null === $group || null !== $group->deleted_at ) {
+				continue;
+			}
+			if ( ! $includeShared && 1 === (int) ( $group->is_shared ?? 0 ) ) {
 				continue;
 			}
 
@@ -174,7 +181,7 @@ class ExamAudienceResolver {
 				continue;
 			}
 
-			if ( $group->subject_key === $subjectKey ) {
+			if ( $group->subject_key === $subjectKey && 1 !== (int) ( $group->is_shared ?? 0 ) ) {
 				$guardianIds[ $record->parentPersonId ] = true;
 			}
 		}

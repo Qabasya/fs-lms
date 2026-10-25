@@ -67,6 +67,7 @@ enum AjaxHook: string {
 	// Эпик 15 — открытые группы: пикер учеников + лёгкая запись существующих.
 	case SearchStudentsForGroup  = 'search_students_for_group';  // params: group_id, query
 	case AddStudentsToOpenGroup  = 'add_students_to_open_group'; // params: group_id, student_person_ids (CSV из id)
+	case PlanSubjectStudentsForGroup = 'plan_subject_students_for_group'; // params: group_id, subject_key; ответ: ids (кого добавить), total, already
 
 	// ==================== Каскадное удаление ====================
 	case CheckGroupDeletion   = 'check_group_deletion';

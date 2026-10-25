@@ -24,6 +24,23 @@ defined( 'ABSPATH' ) || exit;
 					<button type="button" class="button button-primary js-add-students-submit" disabled>Добавить выбранных</button>
 				</div>
 				<div class="fs-group-add-students__results"></div>
+
+				<div class="fs-group-add-students__bulk">
+					<label for="fs-group-bulk-subject">Добавить всех учеников предмета</label>
+					<div class="fs-group-add-students__controls">
+						<select id="fs-group-bulk-subject" class="js-bulk-subject">
+							<option value="">— Выберите предмет —</option>
+							<?php foreach ( $active_subjects ?? $subjects ?? [] as $subject_key => $subject ) : ?>
+								<option value="<?php echo esc_attr( (string) $subject_key ); ?>">
+									<?php echo esc_html( $subject->name ?? $subject_key ); ?>
+								</option>
+							<?php endforeach; ?>
+						</select>
+						<button type="button" class="button js-bulk-plan" disabled>Подобрать</button>
+						<button type="button" class="button button-primary js-bulk-confirm hidden">Добавить</button>
+					</div>
+					<p class="description fs-group-add-students__bulk-status js-bulk-status hidden"></p>
+				</div>
 			</div>
 
 			<div class="fs-group-students-content">

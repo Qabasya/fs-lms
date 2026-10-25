@@ -27,7 +27,7 @@ class ExamParticipantNameService {
 			return $this->guestData->displayName( $participant ) ?? sprintf( 'Гость #%d', $participant->id );
 		}
 
-		$record = $this->studentRecords->findActiveByStudentFirst( $participant->personId ) ?? ( $this->studentRecords->findByStudent( $participant->personId )[0] ?? null );
+		$record = $this->studentRecords->findActiveByStudentFirst( $participant->personId ) ?? ( $this->studentRecords->findByStudent( $participant->personId, false )[0] ?? null );
 		if ( null === $record ) {
 			return sprintf( 'Ученик #%d', $participant->personId );
 		}

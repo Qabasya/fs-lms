@@ -11,6 +11,9 @@ import { fsBadge } from '../../modules/ui-helpers.js';
 
 const $ = jQuery;
 
+/** Сколько учеников записывается за один запрос при массовом добавлении (на каждого — запись, журнал аудита). */
+const BULK_CHUNK = 100;
+
 export const GroupsTable = {
     _initialized: false,
 
@@ -19,6 +22,9 @@ export const GroupsTable = {
 
     /** @type {number} ID группы, открытой в модалке состава */
     _groupId: 0,
+
+    /** @type {number[]} ID учеников предмета, подобранные предпросмотром и ещё не записанные в группу */
+    _bulkIds: [],
 
     init() {
         if (this._initialized) return;
@@ -49,6 +55,11 @@ export const GroupsTable = {
             });
             this.$studentsModal.on('change', '.js-add-student-cb', () => this._syncSubmitState());
             this.$studentsModal.on('click', '.js-add-students-submit', () => this._submitAddStudents());
+
+            // Массовое добавление: все ученики предмета («направления») — предпросмотр, затем запись порциями.
+            this.$studentsModal.on('change', '.js-bulk-subject', () => this._resetBulk());
+            this.$studentsModal.on('click', '.js-bulk-plan', () => this._planBulk());
+            this.$studentsModal.on('click', '.js-bulk-confirm', () => this._runBulk());
         }
     },
 
@@ -59,17 +70,21 @@ export const GroupsTable = {
         const $btn      = $(e.currentTarget);
         const groupName = $btn.data('group-name');
         const isOpen    = $btn.data('access-mode') === 'open';
+        const isShared  = String($btn.attr('data-is-shared')) === '1';
 
         this._groupId = $btn.data('group-id');
 
         this.$studentsModal.find('.fs-lms-modal-title').text('Ученики группы: ' + groupName);
         this.$studentsModal.find('.fs-group-students-count').text('');
 
-        // Панель добавления — только для открытых групп (лёгкая запись без документов).
+        // Панель добавления — только для открытых и общих групп (лёгкая запись без документов).
         const $addPanel = this.$studentsModal.find('.fs-group-add-students');
-        $addPanel.toggleClass('hidden', !isOpen);
+        $addPanel.toggleClass('hidden', !(isOpen || isShared));
         $addPanel.find('.js-add-student-query').val('');
         $addPanel.find('.fs-group-add-students__results').empty();
+        // Предмет массового добавления по умолчанию — предмет самой группы.
+        $addPanel.find('.js-bulk-subject').val(String($btn.attr('data-subject-key') || ''));
+        this._resetBulk();
         this._syncSubmitState();
 
         openModal(this.$studentsModal);
@@ -173,6 +188,99 @@ export const GroupsTable = {
                 apiError('Failed to add students to open group');
                 this._syncSubmitState();
             });
+    },
+
+    /** Сброс предпросмотра массового добавления: смена предмета или повторное открытие группы. */
+    _resetBulk() {
+        this._bulkIds = [];
+        const $panel = this.$studentsModal.find('.fs-group-add-students__bulk');
+        $panel.find('.js-bulk-plan').prop('disabled', !$panel.find('.js-bulk-subject').val());
+        $panel.find('.js-bulk-confirm').addClass('hidden').prop('disabled', false);
+        $panel.find('.js-bulk-status').addClass('hidden').text('');
+    },
+
+    /** Показывает строку состояния массового добавления под выбором предмета. */
+    _bulkStatus(text) {
+        this.$studentsModal.find('.js-bulk-status').removeClass('hidden').text(text);
+    },
+
+    /** Предпросмотр: сколько учеников предмета ещё не в группе («будет добавлено N, уже в группе M»). */
+    _planBulk() {
+        const subject = this.$studentsModal.find('.js-bulk-subject').val();
+        if (!subject) return;
+
+        const $plan = this.$studentsModal.find('.js-bulk-plan');
+        $plan.prop('disabled', true);
+        this.$studentsModal.find('.js-bulk-confirm').addClass('hidden');
+        this._bulkStatus('Подбор учеников…');
+
+        $.post(fs_lms_vars.ajaxurl, {
+            action:      fs_lms_vars.ajax_actions.planSubjectStudentsForGroup,
+            group_id:    this._groupId,
+            subject_key: subject,
+            security:    fs_lms_vars.nonces.manager,
+        })
+            .done((res) => {
+                if (!res.success) {
+                    this._bulkStatus(res.data?.message || res.data || 'Не удалось подобрать учеников.');
+                    return;
+                }
+                const { ids, total, already } = res.data;
+                this._bulkIds = ids.map(Number);
+                this._bulkStatus(`Учеников предмета: ${ total } · уже в группе: ${ already } · будет добавлено: ${ ids.length }`);
+                this.$studentsModal.find('.js-bulk-confirm')
+                    .toggleClass('hidden', !ids.length)
+                    .text(`Добавить ${ ids.length }`);
+            })
+            .fail(() => {
+                apiError('Failed to plan subject students for group');
+                this._bulkStatus('Ошибка сети.');
+            })
+            .always(() => $plan.prop('disabled', false));
+    },
+
+    /** Запись подобранных учеников порциями по BULK_CHUNK с общим итогом. */
+    async _runBulk() {
+        const ids = this._bulkIds.slice();
+        if (!ids.length) return;
+
+        const $confirm = this.$studentsModal.find('.js-bulk-confirm');
+        const $plan    = this.$studentsModal.find('.js-bulk-plan');
+        $confirm.prop('disabled', true);
+        $plan.prop('disabled', true);
+
+        let added   = 0;
+        let skipped = 0;
+        let failed  = false;
+
+        for (let i = 0; i < ids.length; i += BULK_CHUNK) {
+            this._bulkStatus(`Добавление: ${ Math.min(i, ids.length) } из ${ ids.length }…`);
+            try {
+                const res = await $.post(fs_lms_vars.ajaxurl, {
+                    action:             fs_lms_vars.ajax_actions.addStudentsToOpenGroup,
+                    group_id:           this._groupId,
+                    student_person_ids: ids.slice(i, i + BULK_CHUNK).join(','),
+                    security:           fs_lms_vars.nonces.manager,
+                });
+                if (!res.success) {
+                    showNotice(res.data?.message || res.data || 'Ошибка добавления.', 'error', this.$studentsModal.find('.fs-lms-modal-body'));
+                    failed = true;
+                    break;
+                }
+                added   += Number(res.data.added);
+                skipped += Number(res.data.skipped);
+            } catch (err) {
+                apiError(err);
+                failed = true;
+                break;
+            }
+        }
+
+        this._bulkIds = [];
+        $confirm.addClass('hidden').prop('disabled', false);
+        $plan.prop('disabled', false);
+        this._bulkStatus(`${ failed ? 'Остановлено. ' : '' }Добавлено: ${ added }, пропущено: ${ skipped }. Повторите подбор, чтобы увидеть остаток.`);
+        this._loadStudents();
     },
 
     _renderStudents(data) {

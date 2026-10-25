@@ -93,13 +93,14 @@ class PrintCenterService {
 	 * Только действующие: выбор на странице появляется, лишь когда их несколько
 	 * (ученик на двух направлениях — у каждого свой договор и своя программа).
 	 * Действующих нет — последнее зачисление, чтобы можно было перепечатать
-	 * договор завершившего обучение. Пробные доступы не в счёт: договора у них нет.
+	 * договор завершившего обучение. Пробные доступы не в счёт: договора у них нет;
+	 * записи общих групп тоже (это доступ к курсу, а не зачисление).
 	 *
 	 * @return array<int, array{id: int, label: string, active: bool, parent: array{id: int, name: string}|null}>
 	 */
 	public function studentRecords( int $studentId ): array {
 		$records = array_values( array_filter(
-			$this->records->findByStudent( $studentId ),
+			$this->records->findByStudent( $studentId, false ),
 			static fn( StudentRecordDTO $r ): bool => ! $r->isTrial
 		) );
 

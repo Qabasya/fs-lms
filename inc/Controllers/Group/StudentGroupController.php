@@ -58,6 +58,7 @@ class StudentGroupController extends AjaxController {
 			// Эпик 15 — открытые группы: пикер учеников + лёгкая запись существующих.
 			array( AjaxHook::SearchStudentsForGroup,  $this->student_group_callbacks ),
 			array( AjaxHook::AddStudentsToOpenGroup,  $this->student_group_callbacks ),
+			array( AjaxHook::PlanSubjectStudentsForGroup, $this->student_group_callbacks ),
 		);
 	}
 }

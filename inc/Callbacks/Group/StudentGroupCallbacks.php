@@ -132,6 +132,9 @@ class StudentGroupCallbacks extends BaseController {
 		// занятия ставятся в КТП вручную; режим можно сменить позже (GroupModeService).
 		$access_mode = AccessMode::fromValueOrDefault( $this->sanitizeKey( 'access_mode' ) );
 
+		// «Общая (дополнительная)» группа — курс и расписание поверх основной группы ученика (не для индивидуальных).
+		$is_shared = AccessMode::Individual !== $access_mode && $this->sanitizeBool( 'is_shared' );
+
 		// Создание группы в БД
 		$id = $this->groupsRepository->create( array(
 			'subject_key'        => $subject_key,
@@ -141,6 +144,7 @@ class StudentGroupCallbacks extends BaseController {
 			'room_id'            => $room_id,
 			'meetings'           => (string) wp_json_encode( $access_mode->isScheduleless() ? array() : $schedule ),
 			'access_mode'        => $access_mode->value,
+			'is_shared'          => $is_shared ? 1 : 0,
 			'broadcast_url'      => $broadcast_url,
 		) );
 
@@ -260,6 +264,10 @@ class StudentGroupCallbacks extends BaseController {
 			'teacher_id'    => $teacher_id,
 			'broadcast_url' => $this->broadcastUrl(),
 		);
+		// Признак общей группы меняется отдельно от режима; индивидуальная группа общей быть не может.
+		if ( $this->hasParam( 'is_shared' ) || AccessMode::Individual === $target ) {
+			$fields['is_shared'] = AccessMode::Individual !== $target && $this->sanitizeBool( 'is_shared' ) ? 1 : 0;
+		}
 		if ( AccessMode::Individual !== $target ) {
 			$fields['room_id']  = $room_id;
 			$fields['meetings'] = (string) wp_json_encode( $schedule );
@@ -338,6 +346,33 @@ class StudentGroupCallbacks extends BaseController {
 		}
 
 		$this->success( $summary );
+	}
+
+	/**
+	 * Предпросмотр массового добавления: ученики предмета («направления»), которых ещё нет в группе.
+	 * Ответ — ID для порционной записи через {@see self::ajaxAddStudentsToOpenGroup()} и счётчики.
+	 *
+	 * @return void
+	 */
+	public function ajaxPlanSubjectStudentsForGroup(): void {
+		$this->authorize( Nonce::Manager, Capability::EnrollStudent );
+
+		$group_id    = $this->sanitizeInt( 'group_id' );
+		$subject_key = $this->requireKey( 'subject_key', error: 'Выберите предмет.' );
+
+		if ( ! $group_id ) {
+			$this->error( 'Группа не указана.' );
+			return;
+		}
+
+		try {
+			$plan = $this->openGroupEnrollment->planFromSubject( $subject_key, $group_id );
+		} catch ( \InvalidArgumentException $e ) {
+			$this->error( $e->getMessage() );
+			return;
+		}
+
+		$this->success( $plan );
 	}
 
 	/**

@@ -35,4 +35,39 @@
       padding: $spacing-xs;
     }
   }
+
+  // Массовое добавление: все ученики предмета («направления») — предпросмотр, затем запись порциями
+  &__bulk {
+    margin-top: $spacing-md;
+    padding-top: $spacing-md;
+    border-top: 1px solid $color-border-footer;
+
+    > label {
+      display: block;
+      margin-bottom: $spacing-xs;
+      font-weight: $font-semibold;
+    }
+
+    .js-bulk-subject {
+      flex: 1;
+    }
+  }
+
+  &__bulk-status {
+    margin: $spacing-xs 0 0;
+  }
+}
+
+// Метка «Общая» рядом с названием группы в таблице
+.fs-group-shared-badge {
+  display: inline-flex;
+  margin-left: $spacing-sm;
+  vertical-align: middle;
+}
+
+// Чекбокс «Общая (дополнительная) группа» в карточке группы
+.fs-group-shared-label {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
 }

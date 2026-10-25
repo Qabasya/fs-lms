@@ -62,21 +62,29 @@ class StudentRecordRepository {
 	}
 
 	/**
+	 * Условие «запись не в общей (дополнительной) группе» (`groups.is_shared`). Запись общей группы — доступ к курсу
+	 * поверх основной, а не зачисление: «группа ученика», «оставшиеся записи» и аудитория экзамена её не учитывают.
+	 * Плейсхолдер `%i` — таблица групп.
+	 */
+	private const NOT_SHARED_SQL = ' AND ( group_id IS NULL OR group_id NOT IN ( SELECT id FROM %i WHERE is_shared = 1 ) )';
+
+	/**
 	 * Находит все записи студента (включая архивные).
 	 *
-	 * @param int $studentPersonId ID студента
+	 * @param int  $studentPersonId ID студента
+	 * @param bool $includeShared   false — без записей общих групп (основное зачисление ученика)
 	 *
 	 * @return StudentRecordDTO[]
 	 */
-	public function findByStudent( int $studentPersonId ): array {
-		$rows = $this->wpdb->get_results(
-			$this->wpdb->prepare(
-				'SELECT * FROM %i WHERE student_person_id = %d ORDER BY enrolled_at DESC',
-				$this->table,
-				$studentPersonId
-			),
-			ARRAY_A
-		);
+	public function findByStudent( int $studentPersonId, bool $includeShared = true ): array {
+		$sql  = 'SELECT * FROM %i WHERE student_person_id = %d' . ( $includeShared ? '' : self::NOT_SHARED_SQL ) . ' ORDER BY enrolled_at DESC';
+		$args = array( $this->table, $studentPersonId );
+		if ( ! $includeShared ) {
+			$args[] = TableName::Groups->prefixed();
+		}
+
+		// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+		$rows = $this->wpdb->get_results( $this->wpdb->prepare( $sql, $args ), ARRAY_A );
 
 		return array_map( fn( array $r ) => StudentRecordDTO::fromArray( $r ), $rows ?: array() );
 	}
@@ -84,26 +92,27 @@ class StudentRecordRepository {
 	/**
 	 * Находит активные записи студента (статус Active).
 	 *
-	 * @param int $studentPersonId ID студента
+	 * @param int  $studentPersonId ID студента
+	 * @param bool $includeShared   false — без записей общих групп (основное зачисление ученика)
 	 *
 	 * @return StudentRecordDTO[]
 	 */
-	public function findActiveByStudent( int $studentPersonId ): array {
-		$rows = $this->wpdb->get_results(
-			$this->wpdb->prepare(
-				'SELECT * FROM %i WHERE student_person_id = %d AND status = %s ORDER BY enrolled_at DESC',
-				$this->table,
-				$studentPersonId,
-				EnrollmentStatus::Active->value
-			),
-			ARRAY_A
-		);
+	public function findActiveByStudent( int $studentPersonId, bool $includeShared = true ): array {
+		$sql  = 'SELECT * FROM %i WHERE student_person_id = %d AND status = %s' . ( $includeShared ? '' : self::NOT_SHARED_SQL ) . ' ORDER BY enrolled_at DESC';
+		$args = array( $this->table, $studentPersonId, EnrollmentStatus::Active->value );
+		if ( ! $includeShared ) {
+			$args[] = TableName::Groups->prefixed();
+		}
+
+		// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+		$rows = $this->wpdb->get_results( $this->wpdb->prepare( $sql, $args ), ARRAY_A );
 
 		return array_map( fn( array $r ) => StudentRecordDTO::fromArray( $r ), $rows ?: array() );
 	}
 
 	/**
-	 * Находит первую (последнюю) активную запись студента.
+	 * Находит «основную» активную запись студента: последнюю по дате зачисления, не в общей группе.
+	 * Из неё берутся группа ученика, школа и ФИО в списках экзаменов и карточках.
 	 *
 	 * @param int $studentPersonId ID студента
 	 *
@@ -112,10 +121,11 @@ class StudentRecordRepository {
 	public function findActiveByStudentFirst( int $studentPersonId ): ?StudentRecordDTO {
 		$row = $this->wpdb->get_row(
 			$this->wpdb->prepare(
-				'SELECT * FROM %i WHERE student_person_id = %d AND status = %s ORDER BY enrolled_at DESC LIMIT 1',
+				'SELECT * FROM %i WHERE student_person_id = %d AND status = %s' . self::NOT_SHARED_SQL . ' ORDER BY enrolled_at DESC LIMIT 1',
 				$this->table,
 				$studentPersonId,
-				EnrollmentStatus::Active->value
+				EnrollmentStatus::Active->value,
+				TableName::Groups->prefixed()
 			),
 			ARRAY_A
 		);
@@ -525,6 +535,20 @@ class StudentRecordRepository {
 			'expelled_by_user_id' => $userId,
 			'expel_reason'        => $reason,
 			'updated_at'          => current_time( 'mysql', true ),
+		) );
+	}
+
+	/**
+	 * Закрывает запись общей группы: статус Finished (доступ к курсу закончился), без архива отчисленных.
+	 *
+	 * @param int $id ID записи
+	 *
+	 * @return bool
+	 */
+	public function setFinished( int $id ): bool {
+		return $this->update( $id, array(
+			'status'     => EnrollmentStatus::Finished->value,
+			'updated_at' => current_time( 'mysql', true ),
 		) );
 	}
 
