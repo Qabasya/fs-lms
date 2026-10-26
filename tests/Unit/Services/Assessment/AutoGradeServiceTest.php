@@ -39,6 +39,9 @@ class AutoGradeServiceTest extends TestCase {
 	/** @var array<string, mixed> Захваченные аргументы последнего attempts->update(). */
 	private array $captured = array();
 
+	/** @var array<int, string> Сохранённые ответы ученика: task_id → answer_text (по умолчанию ответов нет). */
+	private array $savedAnswers = array();
+
 	protected function setUp(): void {
 		parent::setUp();
 		fs_test_reset_posts();
@@ -65,8 +68,14 @@ class AutoGradeServiceTest extends TestCase {
 			new \Inc\Services\Assessment\ScoringUnits( $this->createMock( \Inc\Managers\Wp\TermManager::class ), new \Inc\Services\Assessment\ArchiveTaskNumber() ),
 		);
 
-		// Нет сохранённых ответов — оцениваем по полному составу работы.
-		$this->answers->method( 'listByAttempt' )->willReturn( array() );
+		// Оцениваем по полному составу работы; сохранённые ответы задаёт тест ($savedAnswers).
+		$this->answers->method( 'listByAttempt' )->willReturnCallback(
+			fn(): array => array_map(
+				static fn( int $taskId, string $text ): object => (object) array( 'taskId' => $taskId, 'answerText' => $text ),
+				array_keys( $this->savedAnswers ),
+				$this->savedAnswers
+			)
+		);
 		$this->answers->method( 'upsert' )->willReturn( true );
 
 		// Захват итогов, которые сервис пишет в попытку.
@@ -147,6 +156,8 @@ class AutoGradeServiceTest extends TestCase {
 	public function test_control_scores_each_task_as_binary_one_or_zero(): void {
 		$this->assessments->method( 'get' )->willReturn( $this->assessment( AssessmentKind::Control ) );
 		$this->seedThreeTasks();
+		// У ручного задания ответ есть — оно ждёт проверки.
+		$this->savedAnswers = array( 20 => 'мой ответ' );
 
 		$this->service->gradeAttempt( $this->attempt() );
 
@@ -167,5 +178,28 @@ class AutoGradeServiceTest extends TestCase {
 		// Взвешенно: 2/2 (верно) + max 3 (критерии) + 1/2 (частично).
 		$this->assertSame( 7.0, $this->captured['max_score'] );
 		$this->assertSame( 3.0, $this->captured['total_score'] );
+	}
+
+	public function test_manual_task_without_answer_gets_zero_and_is_not_pending(): void {
+		$this->assessments->method( 'get' )->willReturn( $this->assessment( AssessmentKind::EgeComputer ) );
+		$this->seedThreeTasks();
+		// Ручное задание #20 пусто (текста нет, файлов нет) — проверять нечего.
+		$this->savedAnswers = array( 20 => '{"text":"","files":[]}' );
+
+		$this->service->gradeAttempt( $this->attempt() );
+
+		// Ожидающих ручной проверки нет: попытка оценена целиком, ручное задание — 0 из 3.
+		$this->assertSame( 'graded', $this->captured['status'] );
+		$this->assertSame( 3.0, $this->captured['total_score'] );
+	}
+
+	public function test_manual_task_with_attached_file_stays_pending(): void {
+		$this->assessments->method( 'get' )->willReturn( $this->assessment( AssessmentKind::EgeComputer ) );
+		$this->seedThreeTasks();
+		$this->savedAnswers = array( 20 => '{"text":"","files":[321]}' );
+
+		$this->service->gradeAttempt( $this->attempt() );
+
+		$this->assertSame( 'submitted', $this->captured['status'] );
 	}
 }

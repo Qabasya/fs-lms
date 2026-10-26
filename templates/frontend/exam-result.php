@@ -25,7 +25,7 @@ declare( strict_types=1 );
  * @var list<array<string, mixed>> $units
  * @var array{correct: int, partial: int, wrong: int, pending: int} $counts
  * @var list<array<string, mixed>> $tasks
- * @var array{courses: array, articles: array, articles_url: string}|null $sidebar Сайдбар: заглушка «Курсы» и статьи по ошибкам (11b.3.1)
+ * @var array{courses: array, articles: array, articles_url: string, trial_url?: string}|null $sidebar Сайдбар: заглушка «Курсы», статьи по ошибкам (11b.3.1) и призыв на пробное занятие
  * @var array<string, string> $contacts
  * @var bool   $can_end_session Кнопка «Завершить сеанс»: показана, когда работа сдана
  * @var array<int, array{label: string, url?: string, current?: bool}> $crumbs
@@ -38,7 +38,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 $phone = (string) ( $contacts['phone'] ?? '' );
 
 $sidebar_data = (array) ( $sidebar ?? array() );
-$has_sidebar  = ! empty( $sidebar_data['courses'] ) || ! empty( $sidebar_data['articles'] );
+$has_sidebar  = ! empty( $sidebar_data['courses'] ) || ! empty( $sidebar_data['articles'] ) || '' !== (string) ( $sidebar_data['trial_url'] ?? '' );
 ?>
 
 <main class="fs-lms-join-page fs-exam-result" id="fs-exam-result" data-revealed="<?php echo $revealed ? '1' : '0'; ?>">
@@ -89,6 +89,11 @@ $has_sidebar  = ! empty( $sidebar_data['courses'] ) || ! empty( $sidebar_data['a
 					$sidebar_articles_url = (string) $sidebar_data['articles_url'];
 					include __DIR__ . '/partials/sidebar-courses.php';
 					include __DIR__ . '/partials/sidebar-articles.php';
+
+					// Призыв на пробное занятие — внизу сайдбара, как под заданиями и статьями.
+					$trial_cta_kind = 'exam';
+					$trial_cta_url  = (string) ( $sidebar_data['trial_url'] ?? '' );
+					include __DIR__ . '/partials/trial-cta.php';
 					?>
 				</aside>
 			<?php endif; ?>

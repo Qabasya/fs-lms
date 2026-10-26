@@ -99,6 +99,8 @@ class ExamConductService {
 		return $view + array(
 			'exam'                => true,
 			'audience'            => $audience->value,
+			// Нужен экрану проверки гостя: ссылку на лист результатов выдаёт IssueExamResultLink по участию.
+			'participation_id'    => $participation->id,
 			'participant_name'    => $this->names->participantName( $participant ),
 			'result'              => $this->scores->summarize( $attempt, $event ),
 			'result_status'       => $status,

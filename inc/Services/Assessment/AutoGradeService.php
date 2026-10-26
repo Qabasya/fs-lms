@@ -240,11 +240,13 @@ class AutoGradeService {
 			if ( $a['pending'] ) {
 				// Ручное задание (нет чекера) — уходит на проверку. D16.1: контрольная —
 				// max = 1; ЕГЭ — сумма критериев (Эпик 13/D17), иначе вес слота.
+				// Ответа нет (ни текста, ни кода, ни файла) — проверять нечего: сразу 0 баллов,
+				// преподавателю такое задание не показывается как ожидающее проверки.
 				$perTask[ $taskId ] = array(
 					'score'   => 0.0,
 					'max'     => $binary ? 1.0 : $this->manualMax( $taskId, $a['max'] ),
 					'correct' => false,
-					'pending' => true,
+					'pending' => ! $this->isEmptyAnswer( $rawByTask[ $taskId ] ?? '' ),
 				);
 				continue;
 			}
@@ -259,6 +261,27 @@ class AutoGradeService {
 		}
 
 		return array( 'perTask' => $perTask );
+	}
+
+	/**
+	 * Пустой ли ответ ручного задания: нет текста, кода и приложенных файлов.
+	 * «Развёрнутый ответ» и «Задание Робо» хранят ответ JSON-ом (`text`, `files`, `code`), остальные — строкой.
+	 *
+	 * @param mixed $raw Сырой ответ из `assessment_answers.answer_text`
+	 */
+	private function isEmptyAnswer( mixed $raw ): bool {
+		if ( ! is_string( $raw ) ) {
+			return true;
+		}
+
+		$decoded = '' !== $raw ? json_decode( $raw, true ) : null;
+		if ( ! is_array( $decoded ) ) {
+			return '' === trim( $raw );
+		}
+
+		return '' === trim( (string) ( $decoded['text'] ?? '' ) )
+			&& '' === trim( (string) ( $decoded['code'] ?? '' ) )
+			&& array() === array_filter( is_array( $decoded['files'] ?? null ) ? $decoded['files'] : array() );
 	}
 
 	/** Составное ли задание (ThreeInOne) в режиме ЕГЭ — разворачивается на под-пункты. */

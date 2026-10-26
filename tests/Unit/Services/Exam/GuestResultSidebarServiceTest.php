@@ -86,6 +86,16 @@ class GuestResultSidebarServiceTest extends TestCase {
 		self::assertSame( array(), $result['articles'] );
 	}
 
+	public function test_trial_cta_points_to_subject_signup_form(): void {
+		$result = $this->service( array() )->build( 'inf_oge', array(), 3 );
+
+		self::assertSame( '/inf/#signup', $result['trial_url'] );
+	}
+
+	public function test_empty_subject_key_gives_no_trial_cta(): void {
+		self::assertSame( '', $this->service( array() )->build( '', array(), 1 )['trial_url'] );
+	}
+
 	public function test_empty_subject_key_gives_nothing(): void {
 		self::assertSame( array(), $this->service( array() )->build( '', array(), 1 )['articles'] );
 	}

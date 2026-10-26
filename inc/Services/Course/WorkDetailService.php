@@ -567,8 +567,10 @@ class WorkDetailService {
 			// посмотрел»; approved_at — отдельный явный шаг (см. AttemptRevealPolicy).
 			'assessment_kind' => $assessment?->kind->value,
 			'approved_at'     => $attempt->approvedAt,
-			// Лист результата этой попытки (таблица, как у ученика) — только у станций ЕГЭ/ОГЭ.
-			'review_url'      => $this->reviewUrl( $attempt, $assessment ),
+			// Лист результата этой попытки (таблица, как у ученика) — только у станций ЕГЭ/ОГЭ и только у ученика:
+			// гостю лист открывает его собственная ссылка результата (кнопка на экране проверки), а адрес `?attempt=`
+			// без входа в WordPress отдаёт пустую страницу.
+			'review_url'      => null === $attempt->studentPersonId ? '' : $this->reviewUrl( $attempt, $assessment ),
 		);
 	}
 

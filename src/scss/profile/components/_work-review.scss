@@ -24,6 +24,7 @@
 .wr-head {
   flex: none;
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-start;
   gap: rem(16);
   padding: rem(22) rem(26) rem(16);
@@ -49,6 +50,44 @@
 .wr-back:hover { border-color: var(--accent); color: var(--accent-700); }
 
 .wr-head-main { flex: 1 1 auto; min-width: 0; }
+
+/* Квадратики заданий в шапке проверки (как навигация листа результатов): белый фон, граница и цифра цвета вердикта; клик ведёт к заданию. */
+.wr-chips {
+  flex: 1 0 100%;
+  display: flex;
+  flex-wrap: wrap;
+  gap: rem(4);
+}
+
+.wr-chip {
+  display: grid;
+  place-items: center;
+  min-width: rem(30);
+  height: rem(30);
+  padding: 0 rem(6);
+  border: 1px solid var(--line-3);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--muted);
+  font: inherit;
+  font-size: rem(13);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background $tr, box-shadow $tr;
+
+  &:hover { background: var(--surface-2); }
+
+  &.is-correct { border-color: var(--ok); color: var(--ok); }
+
+  &.is-corrected,
+  &.is-partial { border-color: var(--wait); color: var(--wait-text); }
+
+  &.is-incorrect,
+  &.is-unanswered { border-color: var(--err); color: var(--err); }
+}
+
+/* К заданию из шапки: липкая шапка с квадратиками не должна закрывать его заголовок. */
+.sum-task { scroll-margin-top: rem(150); }
 
 /* «Пройти заново» (Tasks.md, п. 8): выбор раунда сдачи выпадающим списком —
    попыток бывает до десяти, строкой пилюль они не помещались. */
@@ -127,8 +166,18 @@
   &[hidden] { display: none; }
 }
 
-/* «Утвердить работу» внизу работы: одна кнопка у правого края. */
-.wr-foot--approve { align-items: flex-end; }
+/* «Утвердить работу» внизу работы: одна кнопка у правого края, рядом — пояснение или отметка об утверждении. */
+.wr-foot--approve {
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-end;
+  gap: rem(12);
+}
+
+.wr-foot-hint {
+  color: var(--muted);
+  font-size: rem(13);
+}
 
 @media (max-width: $breakpoint-mobile) {
   .wr-head { padding: rem(16) rem(14) rem(12); }

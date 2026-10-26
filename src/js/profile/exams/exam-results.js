@@ -256,10 +256,31 @@ function resultsTableHtml() {
     return `<div class="prof-card exam-results-card">
         <div class="exam-panel-head"><div class="exam-panel-title">Работы</div><div class="exam-panel-sub">${data.items.length} ${plural(data.items.length, 'работа', 'работы', 'работ')}</div></div>
         <div class="exam-grid-scroll"><table class="exam-results-table">
-            <thead><tr>${checking ? '<th class="exam-results-check"></th>' : ''}${sortHeaderHtml('name')}${sortHeaderHtml('audience')}${sortHeaderHtml('school')}${sortHeaderHtml('session')}${sortHeaderHtml('score')}<th>Статус</th></tr></thead>
+            <thead><tr>${checking ? `<th class="exam-results-check">${selectAllHtml()}</th>` : ''}${sortHeaderHtml('name')}${sortHeaderHtml('audience')}${sortHeaderHtml('school')}${sortHeaderHtml('session')}${sortHeaderHtml('score')}<th>Статус</th></tr></thead>
             <tbody>${sortedItems().map(rowHtml).join('')}</tbody>
         </table></div>
     </div>`;
+}
+
+/** «Выбрать всех» в заголовке таблицы при создании отчёта; при изменении состава готового отчёта каждая галочка сохраняется отдельно, массовый выбор там не нужен. */
+function selectAllHtml() {
+    return reporting && !editingReport ? '<input type="checkbox" class="exam-report-all" aria-label="Выбрать всех">' : '';
+}
+
+/** Доступные для выбора галочки отчёта (заблокированные причиной не считаются). */
+function reportBoxes() {
+    return [...root.querySelectorAll('.exam-report-check:not(:disabled)')];
+}
+
+/** Состояние «Выбрать всех» по галочкам строк: все — отмечена, часть — неопределённое. */
+function syncSelectAll() {
+    const all = root.querySelector('.exam-report-all');
+    if (!all) { return; }
+    const boxes = reportBoxes();
+    const checked = boxes.filter(b => b.checked).length;
+    all.checked = boxes.length > 0 && checked === boxes.length;
+    all.indeterminate = checked > 0 && checked < boxes.length;
+    all.disabled = 0 === boxes.length;
 }
 
 function rowHtml(r) {
@@ -365,6 +386,16 @@ function wireReports() {
     root.querySelector('[data-report="save"]')?.addEventListener('click', saveReport);
 
     root.querySelectorAll('.exam-report-check').forEach(box => box.addEventListener('change', () => changeReportSelection(box)));
+    root.querySelector('.exam-report-all')?.addEventListener('change', e => {
+        reportBoxes().forEach(box => {
+            box.checked = e.target.checked;
+            if (box.checked) { reportPicked.add(Number(box.dataset.participation)); } else { reportPicked.delete(Number(box.dataset.participation)); }
+        });
+        const next = root.querySelector('[data-report="next"]');
+        if (next) { next.textContent = `Создать отчёт (${reportPicked.size})`; }
+        syncSelectAll();
+    });
+    syncSelectAll();
 
     root.querySelectorAll('.exam-report-row').forEach(row => {
         const id = Number(row.dataset.reportId);
@@ -406,6 +437,7 @@ async function changeReportSelection(box) {
         if (box.checked) { reportPicked.add(participationId); } else { reportPicked.delete(participationId); }
         const next = root.querySelector('[data-report="next"]');
         if (next) { next.textContent = `Создать отчёт (${reportPicked.size})`; }
+        syncSelectAll();
         return;
     }
     try {

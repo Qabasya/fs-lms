@@ -15,9 +15,9 @@ import { createApi } from './api.js';
    открытие берётся из кеша мгновенно, а фоновая сверка подменяет экран, если данные на сервере изменились. */
 const DETAIL_CACHE = { ttl: 300000, swr: true };
 import { confirmDialog } from '../common/components/confirm-dialog.js';
-import { renderTask, VERDICT_LABEL } from './task-render.js';
+import { renderTask, VERDICT_LABEL, verdictKey } from './task-render.js';
 import { resultCaption } from './exams/exam-result.js';
-import { ajaxErrorText } from '../common/utils.js';
+import { ajaxErrorText, copyToClipboard } from '../common/utils.js';
 import { initCodeBlocks } from '../frontend/components/code-block.js';
 
 const STATUS_LABEL  = { submitted: 'Сдано', pending: 'На проверке', graded: 'Оценено', returned: 'Возвращено', in_progress: 'В процессе', expired: 'Просрочено' };
@@ -169,11 +169,17 @@ function render(d, history = []) {
         ? (d.tasks || []).filter((t) => t.task_submission_id && 'correct' !== t.verdict)
         : [];
 
+    // Гость: лист результатов открывается его собственной ссылкой (у гостя нет входа в WordPress), её выдаёт сотрудник.
+    const guestResultLink = isExam && 'guest' === d.audience && d.participation_id && examApi && window.fsProfile?.exams?.canShareResults;
+    // Явный итог проверки внизу экрана: кнопка «Утвердить работу», пока проверка не закончена — неактивная с пояснением,
+    // после утверждения — отметка «утверждена». Гостю утверждение не требуется.
+    const showApproveFoot = (isExam && 'guest' !== d.audience && !!attemptGradeApi) || canApprove;
+
     const grading = d.gradable ? `
         <div class="wr-foot">
             <div class="smf-fields">
-                <label>Балл<input type="number" id="grScore" step="0.5" min="0" value="${d.score ?? ''}"></label>
-                <label>Из<input type="number" id="grMax" step="0.5" min="0" value="${d.max_score ?? ''}"></label>
+                <label>Балл<input type="number" id="grScore" step="1" min="0" value="${d.score ?? ''}"></label>
+                <label>Из<input type="number" id="grMax" step="1" min="0" value="${d.max_score ?? ''}"></label>
                 <input type="text" id="grFb" class="smf-fb" placeholder="Комментарий (обязателен для возврата)" value="${d.feedback ? esc(d.feedback) : ''}">
             </div>
             <div class="smf-actions">
@@ -196,6 +202,7 @@ function render(d, history = []) {
                 </div>
                 <div class="smh-actions">
                     ${d.review_url ? `<a class="prof-btn prof-btn-sm" href="${esc(d.review_url)}" target="_blank" rel="noopener">Лист результатов</a>` : ''}
+                    ${guestResultLink ? '<button class="prof-btn prof-btn-sm sum-result-link" title="Выдать ссылку на лист результатов и скопировать её">Лист результатов</button>' : ''}
                     ${canApprove ? '<button class="prof-btn prof-btn-sm prof-btn-primary sum-approve">Утвердить работу</button>' : ''}
                     ${isApproved ? '<span class="sum-approved-badge" title="Ответы открыты ученику">Утверждена</span>' : ''}
                     ${isExam && d.correctable && examApi && !correcting ? '<button class="prof-btn prof-btn-sm sum-correct">Исправить результат</button>' : ''}
@@ -203,6 +210,7 @@ function render(d, history = []) {
                     ${canComplete ? '<button class="prof-btn prof-btn-sm prof-btn-primary sum-complete">Проверка завершена</button>' : ''}
                     ${isExam ? '' : '<button class="prof-btn prof-btn-sm sum-reset">Сбросить попытки</button>'}
                 </div>
+                ${taskChipsHtml(d)}
             </div>
             ${picker}
             ${isExam && correcting ? correctionPanel(d) : ''}
@@ -212,10 +220,12 @@ function render(d, history = []) {
                 ${d.feedback ? `<div class="sum-fb"><b>Комментарий:</b> ${esc(d.feedback)}</div>` : ''}
             </div>
             ${grading}
-            ${canApprove ? '<div class="wr-foot wr-foot--approve"><button class="prof-btn prof-btn-primary sum-approve">Утвердить работу</button></div>' : ''}
+            ${showApproveFoot ? approveFootHtml(d, canApprove, isApproved) : ''}
         </div>`;
 
     wrRoot.querySelector('.wr-back').addEventListener('click', () => onBackCb());
+    wireTaskChips(wrRoot);
+    if (guestResultLink) { wireGuestResultLink(wrRoot, d); }
 
     const wireLiveTaskControls = () => {
         if (d.kind === 'exam' && d.attempt_id && attemptGradeApi) { wireAttemptGrading(wrRoot, d); }
@@ -232,6 +242,51 @@ function render(d, history = []) {
     if (!isExam) { wireReset(wrRoot); }
     if (isExam && d.correctable && examApi) { wireCorrection(wrRoot, d); }
     if (picker) { wireAttemptPicker(wrRoot, history, currentRound, liveTasksHtml, wireLiveTaskControls); }
+}
+
+/** Квадратики заданий в шапке проверки: номер и цвет вердикта, клик прокручивает к заданию (как навигация листа результатов). */
+function taskChipsHtml(d) {
+    const tasks = (d.tasks || []).filter(t => t.anchor);
+    if (tasks.length < 2) { return ''; }
+
+    const chips = tasks.map(t => {
+        const label = t.number ? t.number : t.n;
+        return `<button type="button" class="wr-chip is-${esc(verdictKey(t))}" data-anchor="${esc(t.anchor)}" title="Задание ${esc(String(label))}: ${esc(VERDICT_LABEL[verdictKey(t)] || t.verdict)}">${esc(String(label))}</button>`;
+    }).join('');
+
+    return `<nav class="wr-chips" aria-label="Задания">${chips}</nav>`;
+}
+
+function wireTaskChips(root) {
+    root.querySelectorAll('.wr-chip').forEach(chip => chip.addEventListener('click', () => {
+        root.querySelector(`#${CSS.escape(chip.dataset.anchor)}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }));
+}
+
+/** Низ экрана проверки экзамена: итог проверки — «Утвердить работу» / неактивная кнопка с причиной / отметка об утверждении. */
+function approveFootHtml(d, canApprove, isApproved) {
+    if (isApproved) {
+        return '<div class="wr-foot wr-foot--approve"><span class="sum-approved-badge">Работа утверждена — результат открыт ученику</span></div>';
+    }
+    if (canApprove) {
+        return '<div class="wr-foot wr-foot--approve"><button class="prof-btn prof-btn-primary sum-approve">Утвердить работу</button></div>';
+    }
+
+    return '<div class="wr-foot wr-foot--approve"><span class="wr-foot-hint">Утвердить можно, когда проверены все задания</span><button class="prof-btn prof-btn-primary" disabled>Утвердить работу</button></div>';
+}
+
+/** Лист результатов гостя: выдаёт новую ссылку (прежняя перестаёт работать) и копирует её. */
+function wireGuestResultLink(root, d) {
+    const btn = root.querySelector('.sum-result-link');
+    btn?.addEventListener('click', async () => {
+        if (!await confirmDialog('Будет выдана новая ссылка на лист результатов, прежняя перестанет работать.', 'Выдать ссылку', 'Отмена')) { return; }
+        btn.disabled = true;
+        try {
+            const { url } = await examApi('issueResultLink', { participation_id: d.participation_id });
+            toast(await copyToClipboard(url) ? 'Ссылка скопирована. Передайте её участнику.' : `Не удалось скопировать. Ссылка: ${url}`);
+        } catch (e) { toast(ajaxErrorText(e, 'Не удалось выдать ссылку'), 'error'); }
+        btn.disabled = false;
+    });
 }
 
 /* «Пройти заново»: выбор раунда сдачи (Tasks.md п. 8 — вместо строки пилюль,
@@ -303,7 +358,7 @@ function correctionPanel(d) {
     const rows = (d.tasks || []).filter(t => t.task_id && t.score !== null && t.score !== undefined).map(t => `
         <label class="wr-correct-row" data-task-id="${t.task_id}" data-max="${t.max_score ?? 0}">
             <span>№ ${esc(String(t.number ?? t.n ?? t.task_id))}</span>
-            <input type="number" class="wr-correct-score" step="0.5" min="0" max="${t.max_score ?? ''}" value="${t.score}" data-old="${t.score}">
+            <input type="number" class="wr-correct-score" step="1" min="0" max="${t.max_score ?? ''}" value="${t.score}" data-old="${t.score}">
             <span class="stg-of">/ ${t.max_score != null ? fmtNum(t.max_score) : '—'}</span>
         </label>`).join('');
     return `<div class="wr-correct">

@@ -43,7 +43,7 @@ class GuestResultSidebarService {
 	 *
 	 * @param list<array<string, mixed>> $units Единицы оценивания результата (`number`, `status`, `score`, `max`).
 	 *
-	 * @return array{courses: array<int, \Inc\DTO\Course\CourseCardDTO>, articles: list<array{id: int, title: string, url: string, excerpt: string, thumbnail: string}>, articles_url: string}
+	 * @return array{courses: array<int, \Inc\DTO\Course\CourseCardDTO>, articles: list<array{id: int, title: string, url: string, excerpt: string, thumbnail: string}>, articles_url: string, trial_url: string}
 	 */
 	public function build( string $subjectKey, array $units, int $participationId ): array {
 		if ( '' === $subjectKey ) {
@@ -51,6 +51,7 @@ class GuestResultSidebarService {
 				'courses'      => array(),
 				'articles'     => array(),
 				'articles_url' => '',
+				'trial_url'    => '',
 			);
 		}
 
@@ -70,6 +71,8 @@ class GuestResultSidebarService {
 				$cards
 			),
 			'articles_url' => $links->articles,
+			// Призыв на пробное занятие внизу сайдбара: форма записи на странице направления.
+			'trial_url'    => '' !== $links->subject ? $links->subject . '#signup' : '',
 		);
 	}
 

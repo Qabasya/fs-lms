@@ -108,14 +108,14 @@ export function renderTask(t, ctx = {}) {
     // иначе — прежний контрол «балл + верно».
     const grade = hasCriteria ? criteriaGradeBlock(t) : hasOgeRubric ? ogeRubricGradeBlock(t) : canGrade ? `
             <div class="sum-task-grade${gradedCls}" data-task-id="${t.task_id}" data-max="${t.max_score ?? ''}">
-                <input type="number" class="stg-score" step="0.5" min="0" value="${t.score ?? ''}" placeholder="балл"${dis}>
+                <input type="number" class="stg-score" step="1" min="0" value="${t.score ?? ''}" placeholder="балл"${dis}>
                 <span class="stg-of">/ ${t.max_score != null ? fmtNum(t.max_score) : '1'}</span>
                 <label class="stg-ok"><input type="checkbox" class="stg-ok-cb" ${t.verdict === 'correct' ? 'checked' : ''}${dis}>верно</label>
                 <input type="text" class="stg-fb" placeholder="комментарий" value="${t.feedback ? esc(t.feedback) : ''}"${dis}>
                 ${gradeSaveButton(locked)}
             </div>` : canGradeSubmissionTask ? `
             <div class="sum-task-grade sum-task-grade--batch${gradedCls}" data-submission-id="${t.task_submission_id}" data-max="${t.max_score ?? 1}">
-                <input type="number" class="stg-score" step="0.5" min="0" value="${t.score ?? ''}" placeholder="балл"${dis}>
+                <input type="number" class="stg-score" step="1" min="0" value="${t.score ?? ''}" placeholder="балл"${dis}>
                 <span class="stg-of">/ ${t.max_score != null ? fmtNum(t.max_score) : '1'}</span>
                 <input type="text" class="stg-fb" placeholder="комментарий" value="${t.feedback ? esc(t.feedback) : ''}"${dis}>
                 ${gradeSaveButton(locked)}
@@ -191,7 +191,7 @@ function criteriaGradeBlock(t) {
     const rows = t.criteria.map((c, i) => `
             <div class="stg-criterion" data-idx="${i}" data-max="${c.max_points}">
                 <span class="stgc-label">${esc(c.label)}</span>
-                <input type="number" class="stgc-points" min="0" max="${c.max_points}" step="0.5" value="${c.awarded ?? 0}"${dis}>
+                <input type="number" class="stgc-points" min="0" max="${c.max_points}" step="1" value="${c.awarded ?? 0}"${dis}>
                 <span class="stgc-of">/ ${fmtNum(c.max_points)}</span>
             </div>`).join('');
     return `
