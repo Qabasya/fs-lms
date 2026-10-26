@@ -56,6 +56,7 @@ use Inc\Controllers\Task\TaskEditorButtonsController;
 use Inc\Controllers\Pages\AllTasksPageController;
 use Inc\Controllers\Article\ArticleMetaBoxController;
 use Inc\Controllers\Article\ArticleSlugController;
+use Inc\Controllers\Media\StaleImageUrlController;
 use Inc\Controllers\Seo\ContentSeoController;
 use Inc\Controllers\Pages\ArticlePageController;
 use Inc\Controllers\Pages\SubjectLandingController;
@@ -207,6 +208,7 @@ final class Init {
 			ArticleSlugController::class,    // Слаг статьи: article-task-{задание}-{номер}
 			ArticlePageController::class,    // Frontend-страница статьи
 			ContentSeoController::class,     // Title, description, схема и noindex-фильтры страниц заданий и статей (Rank Math)
+			StaleImageUrlController::class,  // Картинки с пропавшим файлом (оптимизатор заменил .png на .avif) получают адрес существующего файла
 			SubjectLandingController::class, // Разделы лендинга предмета (шорткоды страниц)
 			TypographyController::class,     // Неразрывные пробелы после предлогов на всех публичных страницах
 			AssessmentPageController::class, // Frontend-страница контрольной
