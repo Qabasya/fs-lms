@@ -205,6 +205,34 @@ class ExamParticipantRepository extends AbstractExamRepository {
 	}
 
 	/**
+	 * Гость становится учеником: участник привязывается к карточке, а личные данные гостя (ФИО, контакты, их хеши) стираются —
+	 * они теперь в карточке ученика. Школа и класс остаются. Только гость (`person_id IS NULL`).
+	 *
+	 * @return bool true — участник привязан этим вызовом.
+	 */
+	public function linkToPerson( int $id, int $personId, string $atUtc ): bool {
+		return 1 === $this->write( $this->wpdb->prepare(
+			'UPDATE %i SET person_id = %d, name_enc = NULL, phone_enc = NULL, messenger_enc = NULL, name_hash = NULL, phone_hash = NULL, updated_at = %s
+			 WHERE id = %d AND person_id IS NULL',
+			$this->table,
+			$personId,
+			$atUtc,
+			$id
+		) );
+	}
+
+	/** Удаляет участника без единого участия (остаток после объединения с карточкой ученика). */
+	public function deleteWithoutParticipations( int $id ): void {
+		$this->write( $this->wpdb->prepare(
+			'DELETE FROM %i WHERE id = %d AND person_id IS NULL AND NOT EXISTS ( SELECT 1 FROM %i WHERE participant_id = %d )',
+			$this->table,
+			$id,
+			TableName::ExamParticipations->prefixed(),
+			$id
+		) );
+	}
+
+	/**
 	 * Обезличивание: идентифицирующие поля очищаются, `school_name` остаётся для агрегатов. Только гость (`person_id IS NULL`) и только один раз.
 	 *
 	 * @return bool true — участник обезличен этим вызовом.

@@ -41,12 +41,11 @@ class ApplyPrefillLinkService {
 	}
 
 	/**
-	 * Данные для заполнения формы по токену из адреса.
+	 * Номер гостя из токена, если подпись верна и срок не вышел; иначе null.
 	 *
-	 * @return array{subject_key: string, last_name: string, first_name: string, middle_name: string, phone: string, school: string, grade: string}|null
-	 *         null — токен неверный, просрочен или гость обезличен.
+	 * Заявка запоминает его, и при зачислении результаты экзамена гостя переходят к ученику.
 	 */
-	public function resolve( string $token ): ?array {
+	public function participantId( string $token ): ?int {
 		$parts = explode( '.', $token );
 		if ( 3 !== count( $parts ) || ! ctype_digit( $parts[0] ) || ! ctype_digit( $parts[1] ) ) {
 			return null;
@@ -55,7 +54,22 @@ class ApplyPrefillLinkService {
 			return null;
 		}
 
-		$participant = $this->participants->find( (int) $parts[0] );
+		return (int) $parts[0];
+	}
+
+	/**
+	 * Данные для заполнения формы по токену из адреса.
+	 *
+	 * @return array{subject_key: string, last_name: string, first_name: string, middle_name: string, phone: string, school: string, grade: string}|null
+	 *         null — токен неверный, просрочен или гость обезличен.
+	 */
+	public function resolve( string $token ): ?array {
+		$participantId = $this->participantId( $token );
+		if ( null === $participantId ) {
+			return null;
+		}
+
+		$participant = $this->participants->find( $participantId );
 		if ( null === $participant || null !== $participant->anonymizedAt || null !== $participant->personId ) {
 			return null;
 		}

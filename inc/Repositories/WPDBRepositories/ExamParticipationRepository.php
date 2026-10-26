@@ -139,6 +139,31 @@ class ExamParticipationRepository extends AbstractExamRepository {
 		) );
 	}
 
+	/** Участия участника становятся ученическими (гость зачислен): аудитория меняется только у гостевых. */
+	public function makeStudentAudience( int $participantId, string $atUtc ): int {
+		return $this->write( $this->wpdb->prepare(
+			'UPDATE %i SET audience = %s, updated_at = %s WHERE participant_id = %d AND audience = %s',
+			$this->table,
+			ExamAudience::Student->value,
+			$atUtc,
+			$participantId,
+			ExamAudience::Guest->value
+		) );
+	}
+
+	/**
+	 * Переносит участия гостя к другому участнику (у ученика уже есть своя запись участника). Участие в том же проведении,
+	 * что уже есть у ученика, не переносится (`IGNORE` по уникальному ключу проведение + участник) и остаётся у гостя.
+	 */
+	public function moveToParticipant( int $fromParticipantId, int $toParticipantId ): int {
+		return $this->write( $this->wpdb->prepare(
+			'UPDATE IGNORE %i SET participant_id = %d WHERE participant_id = %d',
+			$this->table,
+			$toParticipantId,
+			$fromParticipantId
+		) );
+	}
+
 	/** Допуск гостя на площадке: отметка и автор; `null` снимает допуск. `version` не меняет — допуск не указатель вкладки. */
 	public function setAdmission( int $participationId, ?string $atUtc, ?int $byUserId ): void {
 		if ( null === $atUtc ) {

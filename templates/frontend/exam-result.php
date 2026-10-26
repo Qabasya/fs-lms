@@ -25,7 +25,7 @@ declare( strict_types=1 );
  * @var list<array<string, mixed>> $units
  * @var array{correct: int, partial: int, wrong: int, pending: int} $counts
  * @var list<array<string, mixed>> $tasks
- * @var array{courses: array, articles: array, articles_url: string, trial_url?: string}|null $sidebar Сайдбар: заглушка «Курсы», статьи по ошибкам (11b.3.1) и призыв на пробное занятие
+ * @var array{courses: array, articles: array, articles_url: string, trial_url?: string}|null $sidebar Сайдбар: заглушка «Курсы» и призыв на пробное занятие (статьи по ошибкам в нём не показываются)
  * @var array<string, string> $contacts
  * @var bool   $can_end_session Кнопка «Завершить сеанс»: показана, когда работа сдана
  * @var array<int, array{label: string, url?: string, current?: bool}> $crumbs
@@ -38,7 +38,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 $phone = (string) ( $contacts['phone'] ?? '' );
 
 $sidebar_data = (array) ( $sidebar ?? array() );
-$has_sidebar  = ! empty( $sidebar_data['courses'] ) || ! empty( $sidebar_data['articles'] ) || '' !== (string) ( $sidebar_data['trial_url'] ?? '' );
+// Статьи по ошибкам в сайдбаре результата не показываются: только курсы и призыв на пробное занятие.
+$has_sidebar  = ! empty( $sidebar_data['courses'] ) || '' !== (string) ( $sidebar_data['trial_url'] ?? '' );
 ?>
 
 <main class="fs-lms-join-page fs-exam-result" id="fs-exam-result" data-revealed="<?php echo $revealed ? '1' : '0'; ?>">
@@ -84,11 +85,8 @@ $has_sidebar  = ! empty( $sidebar_data['courses'] ) || ! empty( $sidebar_data['a
 			<?php if ( $has_sidebar ) : ?>
 				<aside class="fs-task-sidebar fs-exam-result__aside">
 					<?php
-					$sidebar_courses      = $sidebar_data['courses'];
-					$sidebar_articles     = $sidebar_data['articles'];
-					$sidebar_articles_url = (string) $sidebar_data['articles_url'];
+					$sidebar_courses = $sidebar_data['courses'];
 					include __DIR__ . '/partials/sidebar-courses.php';
-					include __DIR__ . '/partials/sidebar-articles.php';
 
 					// Призыв на пробное занятие — внизу сайдбара, как под заданиями и статьями.
 					$trial_cta_kind = 'exam';

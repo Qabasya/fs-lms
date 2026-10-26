@@ -163,6 +163,37 @@ class AssessmentAttemptRepository {
 		return array_map( array( AttemptDTO::class, 'fromArray' ), $rows ?: array() );
 	}
 
+	/** Попытки участий участника получают ученика (гость зачислен): без него они не попадают в выборки по ученику. */
+	public function assignStudentToParticipantAttempts( int $participantId, int $personId ): int {
+		return (int) $this->wpdb->query( $this->wpdb->prepare(
+			'UPDATE %i a INNER JOIN %i p ON p.id = a.exam_participation_id SET a.student_person_id = %d WHERE p.participant_id = %d AND a.student_person_id IS NULL',
+			$this->table,
+			TableName::ExamParticipations->prefixed(),
+			$personId,
+			$participantId
+		) );
+	}
+
+	/**
+	 * Утверждает оценённые попытки участника, в которых не осталось ручной проверки: гость видел результат без утверждения,
+	 * а у ученика он раскрывается только после него, и без этого пробник пропал бы из кабинета.
+	 */
+	public function approveRevealedOfParticipant( int $participantId, int $byUserId, string $atLocal ): int {
+		return (int) $this->wpdb->query( $this->wpdb->prepare(
+			'UPDATE %i a INNER JOIN %i p ON p.id = a.exam_participation_id
+			 SET a.approved_at = %s, a.approved_by_user_id = %d
+			 WHERE p.participant_id = %d AND a.approved_at IS NULL AND a.status = %s
+			   AND NOT EXISTS ( SELECT 1 FROM %i ans WHERE ans.attempt_id = a.id AND ans.is_correct IS NULL )',
+			$this->table,
+			TableName::ExamParticipations->prefixed(),
+			$atLocal,
+			$byUserId,
+			$participantId,
+			AttemptStatus::Graded->value,
+			TableName::AssessmentAnswers->prefixed()
+		) );
+	}
+
 	public function listByStudentAndAssessment( int $studentPersonId, int $assessmentId ): array {
 		$rows = $this->wpdb->get_results(
 			$this->wpdb->prepare(

@@ -35,6 +35,7 @@ use Inc\Enums\Log\OperationType;
 use Inc\Services\Person\ConsentService;
 use Inc\Services\Profile\NotificationService;
 use Inc\Services\Email\EmailService;
+use Inc\Services\Exam\ExamGuestPromotionService;
 use Inc\Services\Person\PersonService;
 use Inc\Contracts\ClockInterface;
 use Inc\Services\Security\PiiCryptoService;
@@ -68,6 +69,7 @@ readonly class EnrollmentService {
 		private EnrollmentAccountsService    $accounts,
 		private FamilyEmailPolicy            $familyEmails,
 		private NotificationService          $notifications,
+		private ?ExamGuestPromotionService   $guestPromotion = null,
 	) {}
 
 	/**
@@ -142,6 +144,16 @@ readonly class EnrollmentService {
 
 		// Generic-сейм для опциональных модулей. Без подписчиков — no-op.
 		do_action( 'fs_lms_student_enrolled', $recordId, $studentPersonId );
+
+		// Заявка подана по личной ссылке гостя экзамена («Гости экзамена» → «Выдать ссылку»): результаты его пробника
+		// переходят к новому ученику и показываются в кабинете, как у остальных. Сбой зачисление не срывает.
+		if ( null !== $this->guestPromotion && null !== $app->examParticipantId ) {
+			try {
+				$this->guestPromotion->promote( $app->examParticipantId, $studentPersonId, get_current_user_id() );
+			} catch ( \Throwable $e ) {
+				PluginLogger::exception( 'EnrollmentService', $e, array( 'application_id' => $app->id, 'participant_id' => $app->examParticipantId ), true );
+			}
+		}
 
 		try {
 			$student  = $this->accounts->provisionStudent( $studentDto, $studentPersonId );

@@ -164,6 +164,7 @@ readonly class ApplicationService {
 				studentEmailHash:   $emailHash,
 				parentSubmittedIp:  $ctx->ip,
 				subjectKey:         '' !== $input->subjectKey ? $input->subjectKey : null,
+				examParticipantId:  $input->examParticipantId > 0 ? $input->examParticipantId : null,
 				usernameHash:       $this->logins->hash( $input->username ),
 				expiresAt:          $expiresAt,
 			) );

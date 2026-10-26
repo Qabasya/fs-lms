@@ -31,6 +31,10 @@ $prefill        = $prefill ?? array();
 
         <?php wp_nonce_field( Nonce::Apply->value, 'security' ); ?>
 
+        <?php if ( '' !== (string) ( $guest_token ?? '' ) ) : ?>
+            <input type="hidden" id="fs_guest_token" value="<?php echo esc_attr( (string) $guest_token ); ?>">
+        <?php endif; ?>
+
         <?php include __DIR__ . '/partials/form-trap.php'; ?>
 
         <div class="fs-apply-card__field-group fs-form-group">

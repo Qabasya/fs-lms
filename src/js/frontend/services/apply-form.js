@@ -52,6 +52,8 @@ function collectFormData() {
         school:      document.getElementById( 'fs_school' )?.value.trim()     ?? '',
         grade:       document.getElementById( 'fs_grade' )?.value             ?? '',
         subject_key: document.getElementById( 'fs_subject' )?.value           ?? '',
+        // Личная ссылка гостя экзамена: по ней результаты его пробника перейдут к ученику при зачислении.
+        guest_token: document.getElementById( 'fs_guest_token' )?.value       ?? '',
     };
 }
 

@@ -23,6 +23,7 @@ use Inc\Repositories\OptionsRepositories\ConsentDefinitionsRepository;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Repositories\WPDBRepositories\ApplicationRepository;
 use Inc\Repositories\WPDBRepositories\PersonDocumentsRepository;
+use Inc\Services\Exam\ApplyPrefillLinkService;
 use Inc\Services\Application\ApplicationService;
 use Inc\Services\Application\ApplyFormTrackingService;
 use Inc\Services\Application\JoinCodeService;
@@ -91,6 +92,7 @@ class ApplicationCallbacks extends BaseController {
 		private readonly LoginAvailabilityService     $logins,
 		private readonly JoinFormTrackingService      $joinTracking,
 		private readonly ApplyFormTrackingService     $applyTracking,
+		private readonly ApplyPrefillLinkService      $prefillLinks,
 	) {
 		parent::__construct();
 	}
@@ -442,6 +444,8 @@ class ApplicationCallbacks extends BaseController {
 			username:        $username,
 			password:        $password,
 			subjectKey:      $subjectKey,
+			// Подпись и срок токена проверяет сервис; неверный токен просто игнорируется (заявка как обычная).
+			examParticipantId: (int) ( $this->prefillLinks->participantId( $this->sanitizeText( 'guest_token' ) ) ?? 0 ),
 		);
 
 		try {

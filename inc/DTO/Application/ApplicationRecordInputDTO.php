@@ -20,6 +20,7 @@ readonly class ApplicationRecordInputDTO {
 		public ?string $subjectKey         = null,
 		public ?string $usernameHash       = null,
 		public ?string $expiresAt          = null,
+		public ?int    $examParticipantId  = null,
 	) {}
 
 	public function toArray(): array {
@@ -47,6 +48,9 @@ readonly class ApplicationRecordInputDTO {
 		}
 		if ( null !== $this->expiresAt ) {
 			$data['expires_at'] = $this->expiresAt;
+		}
+		if ( null !== $this->examParticipantId ) {
+			$data['exam_participant_id'] = $this->examParticipantId;
 		}
 		if ( null !== $this->usernameHash ) {
 			$data['username_hash'] = $this->usernameHash;

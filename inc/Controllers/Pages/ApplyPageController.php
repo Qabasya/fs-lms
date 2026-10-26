@@ -59,6 +59,8 @@ class ApplyPageController extends BaseController implements ServiceInterface {
 		$this->render( 'frontend/apply', array(
 			'subjects' => $this->subjects->readActive(),
 			'prefill'  => $prefill ?? array(),
+			// Токен возвращается формой в заявку: по нему при зачислении результаты экзамена гостя переходят к ученику.
+			'guest_token' => null !== $prefill ? $token : '',
 			'honeypot' => $this->formGuard->honeypotField(),
 		) );
 		return (string) ob_get_clean();
