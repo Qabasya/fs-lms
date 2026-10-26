@@ -34,14 +34,16 @@ const CELL_TITLES = { correct: 'верно', partial: 'частично', incorr
 let root = null;
 let api = null;
 let data = null;
+let handlers = {};
 const query = { event_id: 0, session_id: 0, audience: 'all' };
 // По умолчанию выбрано последнее добавленное проведение; после выбора «Все проведения» вручную оно не возвращается (до смены предмета).
 let eventDefaulted = false;
 // Клиентские фильтры таблицы; сбрасываются при смене проведения, сеанса и участников.
 const view = { search: '', group: '', school: '', mode: 'students' };
 
-export function renderExamStats(r) {
+export function renderExamStats(r, h = {}) {
     root = r;
+    handlers = h;
     const cfg = examConfig();
     if (!cfg) {
         root.innerHTML = emptyState('prof-ktp', icoAlert(30), 'Данные экзаменов недоступны', '', true);
@@ -158,7 +160,8 @@ function tableHtml() {
     if (!rows.length) { return '<div class="exam-conduct-empty">Никого не нашли: измените поиск или фильтры.</div>'; }
 
     const head = `<tr><th class="exam-grid-name">ФИО</th>${t.columns.map(c => `<th>${esc(c)}</th>`).join('')}<th class="exam-grid-sum">Первичный балл</th><th class="exam-grid-sum">${esc(t.secondary_label)}</th></tr>`;
-    const body = rows.map(r => `<tr>
+    // Строка целиком открывает проверку работы этого ученика (если есть, куда переходить).
+    const body = rows.map(r => `<tr${r.attempt_id && handlers.openWorkReview ? ` class="exam-grid-row" data-attempt="${r.attempt_id}" tabindex="0"` : ''}>
             <td class="exam-grid-name">${esc(r.name)}</td>
             ${t.columns.map(c => cellHtml(r.units[c])).join('')}
             <td class="exam-grid-sum">${r.primary}</td>
@@ -221,6 +224,15 @@ function wire() {
     root.querySelectorAll('[data-mode]').forEach(btn => btn.addEventListener('click', () => {
         if (btn.dataset.mode !== view.mode) { view.mode = btn.dataset.mode; render(); }
     }));
+    const table = root.querySelector('#examStatsTable');
+    const openRow = e => {
+        const row = e.target.closest('tr[data-attempt]');
+        if (row) { handlers.openWorkReview?.('attempt', Number(row.dataset.attempt)); }
+    };
+    table?.addEventListener('click', openRow);
+    table?.addEventListener('keydown', e => {
+        if ('Enter' === e.key || ' ' === e.key) { e.preventDefault(); openRow(e); }
+    });
     root.querySelector('#examStatsSearch')?.addEventListener('input', e => { view.search = e.target.value; redrawTable(); });
     root.querySelectorAll('[data-view]').forEach(sel => sel.addEventListener('change', () => { view[sel.dataset.view] = sel.value; redrawTable(); }));
 }

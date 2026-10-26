@@ -286,6 +286,8 @@ class ExamStatsService {
 			$second = $ege ? $summary['secondary'] : $summary['grade'];
 			$list[] = array(
 				'participation_id' => $row['participation']->id,
+				// Клик по строке открывает проверку этой работы.
+				'attempt_id'       => $attempt->id,
 				'name'             => $this->names->participantName( $participant ),
 				'audience'         => $row['participation']->audience,
 				'school'           => $this->profiles->school( $row['participation'], $participant ),

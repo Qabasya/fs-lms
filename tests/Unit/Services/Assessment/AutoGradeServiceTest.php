@@ -39,7 +39,10 @@ class AutoGradeServiceTest extends TestCase {
 	/** @var array<string, mixed> Захваченные аргументы последнего attempts->update(). */
 	private array $captured = array();
 
-	/** @var array<int, string> Сохранённые ответы ученика: task_id → answer_text (по умолчанию ответов нет). */
+	/** @var array<int, array<string, mixed>> Данные, записанные в строки ответов через upsert(): task_id → поля. */
+	private array $answersWritten = array();
+
+	/** @var array<int, string|array<string, mixed>> Сохранённые ответы ученика: task_id → answer_text или полная строка ответа (по умолчанию ответов нет). */
 	private array $savedAnswers = array();
 
 	protected function setUp(): void {
@@ -71,12 +74,24 @@ class AutoGradeServiceTest extends TestCase {
 		// Оцениваем по полному составу работы; сохранённые ответы задаёт тест ($savedAnswers).
 		$this->answers->method( 'listByAttempt' )->willReturnCallback(
 			fn(): array => array_map(
-				static fn( int $taskId, string $text ): object => (object) array( 'taskId' => $taskId, 'answerText' => $text ),
+				static fn( int $taskId, string|array $saved ): object => (object) ( ( is_array( $saved ) ? $saved : array( 'answerText' => $saved ) ) + array(
+					'taskId'         => $taskId,
+					'answerText'     => '',
+					'isCorrect'      => null,
+					'score'          => null,
+					'maxScore'       => null,
+					'gradedByUserId' => null,
+				) ),
 				array_keys( $this->savedAnswers ),
 				$this->savedAnswers
 			)
 		);
-		$this->answers->method( 'upsert' )->willReturn( true );
+		$this->answers->method( 'upsert' )->willReturnCallback(
+			function ( int $attemptId, int $taskId, array $data ): bool {
+				$this->answersWritten[ $taskId ] = $data;
+				return true;
+			}
+		);
 
 		// Захват итогов, которые сервис пишет в попытку.
 		$this->attempts->method( 'update' )->willReturnCallback(
@@ -201,5 +216,58 @@ class AutoGradeServiceTest extends TestCase {
 		$this->service->gradeAttempt( $this->attempt() );
 
 		$this->assertSame( 'submitted', $this->captured['status'] );
+	}
+
+	public function test_table_answer_goes_to_checker_in_the_form_of_the_reference(): void {
+		$this->assessments->method( 'get' )->willReturn( $this->assessment( AssessmentKind::EgeComputer ) );
+		fs_test_seed_post( array( 'ID' => 10, 'post_type' => 'test_tasks' ) );
+		$this->posts->method( 'get' )->willReturnCallback( fn( int $id ) => get_post( $id ) );
+		$this->resolver->method( 'resolveId' )->willReturn( '' );
+		$this->templates->method( 'get' )->willReturn( null );
+
+		// Модуль станции приводит «12|34» к «12 34» фильтром показа ответа — проверка получает то же самое.
+		$GLOBALS['_fs_test_filter_returns'][ \Inc\Services\Course\WorkDetailService::TABLE_ANSWER_FILTER ] = '12 34';
+		$this->savedAnswers = array( 10 => '12|34' );
+
+		$this->batchCheck->expects( $this->once() )->method( 'check' )
+			->with( array( 10 => '12 34' ) )
+			->willReturn( new BatchCheckResultDTO( perTask: array( 10 => array( 'verdict' => 'correct', 'score' => 1.0, 'maxScore' => 1.0 ) ), correctCount: 1, totalCount: 1, weightedScore: 1.0, maxWeightedScore: 1.0, hasManual: false ) );
+
+		$this->service->evaluate( $this->assessment( AssessmentKind::EgeComputer ), array( 10 ), array( 10 => '12|34' ) );
+
+		unset( $GLOBALS['_fs_test_filter_returns'] );
+	}
+
+	/** Пересчёт старой сдачи: неверно оценённое автозадание исправляется, оценка преподавателя остаётся. */
+	public function test_regrade_fixes_automatic_rows_and_keeps_teacher_grades(): void {
+		$this->assessments->method( 'get' )->willReturn( $this->assessment( AssessmentKind::EgeComputer ) );
+		$this->seedThreeTasks();
+		$this->savedAnswers = array(
+			// #10 проверено неверно (баг) — чекер теперь говорит «верно» 2/2.
+			10 => array( 'answerText' => '1', 'isCorrect' => false, 'score' => 0.0, 'maxScore' => 2.0 ),
+			// #20 ручное с ответом — ждёт преподавателя как раньше.
+			20 => array( 'answerText' => 'мой ответ', 'isCorrect' => null, 'score' => null, 'maxScore' => 3.0 ),
+			// #30 оценено преподавателем — не трогаем, даже если чекер считает иначе.
+			30 => array( 'answerText' => '2', 'isCorrect' => true, 'score' => 2.0, 'maxScore' => 2.0, 'gradedByUserId' => 5 ),
+		);
+		$this->answersWritten = array();
+
+		$changed = $this->service->regradeAutomatic( $this->attempt() );
+
+		$this->assertSame( 1, $changed );
+		$this->assertArrayHasKey( 10, $this->answersWritten );
+		$this->assertSame( 1, $this->answersWritten[10]['is_correct'] );
+		$this->assertArrayNotHasKey( 20, $this->answersWritten );
+		$this->assertArrayNotHasKey( 30, $this->answersWritten );
+	}
+
+	public function test_regrade_dry_run_writes_nothing(): void {
+		$this->assessments->method( 'get' )->willReturn( $this->assessment( AssessmentKind::EgeComputer ) );
+		$this->seedThreeTasks();
+		$this->savedAnswers = array( 10 => array( 'answerText' => '1', 'isCorrect' => false, 'score' => 0.0, 'maxScore' => 2.0 ) );
+		$this->answersWritten = array();
+
+		$this->assertSame( 1, $this->service->regradeAutomatic( $this->attempt(), true ) );
+		$this->assertSame( array(), $this->answersWritten );
 	}
 }

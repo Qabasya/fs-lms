@@ -60,7 +60,7 @@ class GradingCallbacks extends BaseController {
 			}
 		}
 
-		$detail = $this->workDetail->forWork( $sourceType, $sourceId );
+		$detail = $this->workDetail->forWork( $sourceType, $sourceId, true );
 		if ( null === $detail ) {
 			$this->error( 'Работа не найдена.' );
 			return;

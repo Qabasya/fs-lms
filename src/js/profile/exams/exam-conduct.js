@@ -15,7 +15,7 @@ import { confirmDialog } from '../../common/components/confirm-dialog.js';
 import { createApi } from '../api.js';
 import { DOW_JS } from '../constants.js';
 import { bindPhoneMask } from '../../common/input-masks.js';
-import { examConfig, examSubjects, subjectPickerHtml, wireSubjectPicker, approvalBlockReason, approvableRows, approveButtonLabel, approvalItems, approvalSummaryText, skippedListHtml, exportButtonsHtml, wireExportButtons } from './exam-common.js';
+import { examConfig, examSubjects, subjectPickerHtml, wireSubjectPicker, approvalBlockReason, approvableRows, approveButtonLabel, approvalItems, approvalSummaryText, skippedListHtml, exportButtonsHtml, wireExportButtons, resultStatusPillHtml } from './exam-common.js';
 import { openMoveSessionForm, openCancelSessionForm } from './exam-session-actions.js';
 import { audienceSegHtml, searchHtml, groupSelectHtml, schoolSelectHtml, rowMatches, UNREGISTERED } from './exam-row-filters.js';
 
@@ -47,11 +47,12 @@ const ACTION_LABELS = {
 const PAYMENT_PILL = { paid: 'prof-state-now', pending: 'prof-state-soon' };
 
 
+/** Прохождение: не начат — жёлтый, в процессе и сдана — зелёный, неявка — красный (как состояния результата, см. `resultStatusPillHtml`). */
 const PROGRESS_PILL = {
-    not_started: 'prof-state-soon',
+    not_started: 'prof-state-wait',
     in_progress: 'prof-state-now',
-    submitted: 'prof-state-done',
-    missed: 'prof-state-done',
+    submitted: 'prof-state-now',
+    missed: 'prof-state-err',
 };
 
 let requestedSessionId = 0;
@@ -413,7 +414,7 @@ function rowHtml(r) {
     const pill = cancelled
         ? '<span class="prof-state-pill prof-state-done">Запись отменена</span>'
         : `<span class="prof-state-pill ${PROGRESS_PILL[r.progress] || 'prof-state-done'}">${esc(r.progress_label)}</span>`;
-    const result = 'none' === r.result_status ? '' : `<span class="prof-state-pill prof-state-soon">${esc(r.result_status_label)}</span>`;
+    const result = 'none' === r.result_status ? '' : resultStatusPillHtml(r.result_status, r.result_status_label);
     const stamp = 'guest' !== r.audience ? sessionBadgeHtml(r) : '';
     const score = r.score ? `<span class="exam-conduct-score">${scoreText(r.score)}</span>` : '';
 

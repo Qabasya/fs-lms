@@ -14,7 +14,7 @@ import { createApi } from '../api.js';
 import {
     examConfig, examSubjects, currentSubject, setCurrentSubject, subjectPickerHtml, wireSubjectPicker, noSubjectsHtml,
     approvalBlockReason, approvableRows, approveButtonLabel, approvalItems, approvalSummaryText, skippedListHtml, exportButtonsHtml, wireExportButtons,
-    newestEventId,
+    newestEventId, resultStatusPillHtml,
 } from './exam-common.js';
 import { scoreText } from './exam-conduct.js';
 import { confirmDialog } from '../../common/components/confirm-dialog.js';
@@ -301,7 +301,7 @@ function rowHtml(r) {
         <td>${r.school ? esc(r.school) : '—'}</td>
         <td>${when}</td>
         <td class="exam-results-score">${r.score ? scoreText(r.score) : '—'}</td>
-        <td><span class="prof-state-pill prof-state-soon">${esc(r.result_status_label)}</span></td>
+        <td>${resultStatusPillHtml(r.result_status, r.result_status_label)}</td>
     </tr>`;
 }
 

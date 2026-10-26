@@ -93,12 +93,15 @@ class WorkDetailService {
 	) {}
 
 	/**
+	 * @param bool $collapseCommon Общее (типовое) условие заданий сворачивается: экран проверки преподавателя
+	 *                             не должен прокручивать его в каждом задании; ученику и гостю оно показывается целиком.
+	 *
 	 * @return array<string,mixed>|null  null, если работа не найдена / тип неизвестен
 	 */
-	public function forWork( string $sourceType, int $sourceId ): ?array {
+	public function forWork( string $sourceType, int $sourceId, bool $collapseCommon = false ): ?array {
 		return match ( WorkSourceType::fromValueOrNull( $sourceType ) ) {
-			WorkSourceType::Submission => $this->fromSubmission( $sourceId ),
-			WorkSourceType::Attempt    => $this->fromAttempt( $sourceId ),
+			WorkSourceType::Submission => $this->fromSubmission( $sourceId, $collapseCommon ),
+			WorkSourceType::Attempt    => $this->fromAttempt( $sourceId, $collapseCommon ),
 			default                    => null,
 		};
 	}
@@ -182,7 +185,7 @@ class WorkDetailService {
 
 				$tasks[] = array(
 					'n'         => ++$n,
-					'condition' => $this->condition( $taskId ),
+					'condition' => $this->condition( $taskId, true ),
 					'answer'    => $answer,
 					'code'      => $code,
 					// Эталон нужен и в прошлых раундах (Tasks.md, п. 1): read-only
@@ -247,7 +250,7 @@ class WorkDetailService {
 		return array( $this->correctAnswers->formatStudentAnswer( $taskId, (string) wp_json_encode( $rawAnswer ) ), null );
 	}
 
-	private function fromSubmission( int $submissionId ): ?array {
+	private function fromSubmission( int $submissionId, bool $collapseCommon = false ): ?array {
 		$sub = $this->submissions->find( $submissionId );
 		if ( ! $sub ) {
 			return null;
@@ -310,7 +313,7 @@ class WorkDetailService {
 					: ( ( $row->score ?? 0.0 ) >= ( $row->maxScore ?? 1.0 ) ? 'correct' : 'incorrect' );
 				$tasks[] = array(
 					'n'                  => ++$n,
-					'condition'          => $this->condition( $taskId ),
+					'condition'          => $this->condition( $taskId, $collapseCommon ),
 					'answer'             => $answer,
 					'code'               => $code,
 					'correct'            => $this->correctAnswers->resolve( $taskId ),
@@ -352,7 +355,7 @@ class WorkDetailService {
 
 			$tasks[] = array(
 				'n'                  => ++$n,
-				'condition'          => $this->condition( $taskId ),
+				'condition'          => $this->condition( $taskId, $collapseCommon ),
 				'answer'             => $answer,
 				'code'               => $code,
 				'correct'            => $this->correctAnswers->resolve( $taskId ),
@@ -430,7 +433,7 @@ class WorkDetailService {
 		);
 	}
 
-	private function fromAttempt( int $attemptId ): ?array {
+	private function fromAttempt( int $attemptId, bool $collapseCommon = false ): ?array {
 		$attempt = $this->attempts->find( $attemptId );
 		if ( ! $attempt ) {
 			return null;
@@ -526,7 +529,7 @@ class WorkDetailService {
 				'number'     => str_starts_with( $unitKey, 'n:' ) ? substr( $unitKey, 2 ) : '',
 				// Устойчив к порядку и повторам номера: не индекс строки, а единица + задание.
 				'anchor'     => 'u-' . md5( $unitKey . ':' . $taskId ),
-				'condition'  => $this->condition( $taskId ),
+				'condition'  => $this->condition( $taskId, $collapseCommon ),
 				'answer'     => $answerText,
 				'code'       => $code,
 				'files'      => $files,
@@ -658,8 +661,8 @@ class WorkDetailService {
 	}
 
 	/** Условие задания хранится в мете (`task_condition` и составные шаблоны), не в `post_content`. */
-	private function condition( int $taskId ): string {
-		return $this->taskMeta->getCombinedCondition( $this->posts->taskMeta( $taskId ) );
+	private function condition( int $taskId, bool $collapseCommon = false ): string {
+		return $this->taskMeta->getCombinedCondition( $this->posts->taskMeta( $taskId ), $collapseCommon );
 	}
 
 	/**

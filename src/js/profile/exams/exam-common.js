@@ -140,6 +140,14 @@ export function validateEventForm(v) {
 
 /* ── Утверждение работ (8.5): общее для «Проведения экзамена» и «Результатов» ───────────────── */
 
+/** Цвет пилюли состояния работы: нет работы — красный, готова к утверждению — жёлтый, утверждена / результат выдан — зелёный. */
+const RESULT_PILL = { none: 'prof-state-err', ready: 'prof-state-wait', approved: 'prof-state-now' };
+
+/** Пилюля состояния работы (`result_status`, подпись приходит с сервера); остальные состояния — прежняя нейтральная «скоро». */
+export function resultStatusPillHtml(status, label) {
+    return `<span class="prof-state-pill ${RESULT_PILL[status] || 'prof-state-soon'}">${esc(label)}</span>`;
+}
+
 /** Причины, по которым строку нельзя отметить для утверждения: ключ — `result_status`/признак строки. */
 const APPROVAL_BLOCKED = {
     guest: 'Гостю утверждение не требуется',

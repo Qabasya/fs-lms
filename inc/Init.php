@@ -102,6 +102,7 @@ use Inc\Controllers\Course\SubmissionController;
 use Inc\Cli\LogArchiveCommand;
 use Inc\Cli\SubjectBundleCommand;
 use Inc\Cli\TaskConditionCleanupCommand;
+use Inc\Cli\AttemptRegradeCommand;
 use Inc\Cli\TaskFileSchemeCommand;
 use Inc\Cli\ExamCommand;
 use Inc\Cli\ExamStandCommand;
@@ -232,6 +233,7 @@ final class Init {
 			TaskBulkEditController::class, // AJAX массовой правки заданий через CSV
 			LogArchiveCommand::class, // WP-CLI: возврат журналов из месячного архива (только под WP_CLI)
 			SubjectBundleCommand::class, // WP-CLI: перенос предмета пакетом (регистрируется только под WP_CLI)
+			AttemptRegradeCommand::class, // WP-CLI: пересчёт автоматически проверяемых заданий сданных попыток станции
 			TaskFileSchemeCommand::class, // WP-CLI: http:// → https:// в ссылках на файлы заданий
 			TaskConditionCleanupCommand::class, // WP-CLI: пустые строки по краям условий заданий
 			ExamCommand::class, // WP-CLI: команды управления экзаменами
@@ -390,6 +392,16 @@ final class Init {
 				$container->get( \Inc\Migrations\ExamPagesMigration::class )->run();
 			},
 			20
+		);
+		// Пересчёт уже сданных попыток станции после исправления проверки (табличные ответы, №19 связки, пустое ручное задание) —
+		// порциями. Строго после `init`: проверка читает термы номеров заданий, а таксономии предметов регистрируются на `init`;
+		// на `plugins_loaded` номера не находятся, и пересчёт шёл бы с неполным контекстом (другие баллы, не сработал бы табличный фильтр).
+		add_action(
+			'init',
+			static function () use ( $container ): void {
+				$container->get( \Inc\Migrations\AttemptRegradeMigration::class )->run();
+			},
+			99
 		);
 	}
 }

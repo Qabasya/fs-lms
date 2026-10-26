@@ -141,6 +141,28 @@ class AssessmentAttemptRepository {
 		return array_map( array( AttemptDTO::class, 'fromArray' ), $rows ?: array() );
 	}
 
+	/**
+	 * Сданные попытки (`submitted` / `graded`) с ID больше заданного — порциями по возрастанию ID.
+	 * Пересчёт оценок старых сдач идёт по ним; идущие и истёкшие попытки не берутся.
+	 *
+	 * @return AttemptDTO[]
+	 */
+	public function listSubmittedAfter( int $afterId, int $limit ): array {
+		$rows = $this->wpdb->get_results(
+			$this->wpdb->prepare(
+				'SELECT * FROM %i WHERE id > %d AND status IN ( %s, %s ) ORDER BY id ASC LIMIT %d',
+				$this->table,
+				$afterId,
+				AttemptStatus::Submitted->value,
+				AttemptStatus::Graded->value,
+				$limit
+			),
+			ARRAY_A
+		);
+
+		return array_map( array( AttemptDTO::class, 'fromArray' ), $rows ?: array() );
+	}
+
 	public function listByStudentAndAssessment( int $studentPersonId, int $assessmentId ): array {
 		$rows = $this->wpdb->get_results(
 			$this->wpdb->prepare(

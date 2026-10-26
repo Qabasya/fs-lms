@@ -431,6 +431,10 @@
   th { position: sticky; top: 0; font-weight: t.$font-semibold; color: var(--muted); background: var(--surface-2); }
 
   tbody tr:hover td:not(.exam-cell) { background: var(--surface-2); }
+
+  // Строка ученика открывает его работу.
+  tbody tr.exam-grid-row { cursor: pointer; }
+  tbody tr.exam-grid-row:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 }
 
 .exam-grid-name {

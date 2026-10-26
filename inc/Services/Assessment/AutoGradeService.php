@@ -17,6 +17,7 @@ use Inc\Repositories\WPDBRepositories\AssessmentAnswerRepository;
 use Inc\Repositories\WPDBRepositories\AssessmentAttemptRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Services\Course\BatchCheckService;
+use Inc\Services\Course\WorkDetailService;
 use Inc\Services\Template\TemplateRegistry;
 use Inc\Services\Template\TemplateResolver;
 
@@ -45,7 +46,7 @@ class AutoGradeService {
 	 * Пересчитывает итоговый балл и статус попытки на основе текущих ответов.
 	 * Вызывается после ручной оценки отдельного ответа преподавателем.
 	 */
-	public function finalize( AttemptDTO $attempt ): AttemptDTO {
+	public function finalize( AttemptDTO $attempt, bool $announce = true ): AttemptDTO {
 		$assessment = $this->assessments->get( $attempt->assessmentId );
 		// D16.1: контрольная — бинарный балл, max каждого задания = 1 (иначе после
 		// ручной оценки развёрнутого ответа max «поехал» бы с логики критериев).
@@ -80,7 +81,71 @@ class AutoGradeService {
 			$totalMax   = $totals['max'];
 		}
 
-		return $this->persistTotals( $attempt, $totalScore, $totalMax, $hasManual );
+		return $this->persistTotals( $attempt, $totalScore, $totalMax, $hasManual, $announce );
+	}
+
+	/**
+	 * Пересчитывает автоматически проверяемые задания уже сданной попытки станции по сохранённым ответам.
+	 *
+	 * Нужен после исправления проверки (табличные ответы №17–27 с `|`, дочернее №19 связки, ручное задание без ответа):
+	 * оценка считается один раз при сдаче, и старые сдачи сами не исправляются. Не трогает ничего, что выставил
+	 * преподаватель (`graded_by_user_id`), и ручные задания с ответом (они ждут проверки как раньше); пишет только строки,
+	 * где результат изменился. Событие «попытка оценена» повторно не отправляется.
+	 *
+	 * @param bool $dryRun Только посчитать, ничего не записывая
+	 *
+	 * @return int Сколько заданий изменилось (или изменилось бы)
+	 */
+	public function regradeAutomatic( AttemptDTO $attempt, bool $dryRun = false ): int {
+		$assessment = $this->assessments->get( $attempt->assessmentId );
+		if ( null === $assessment || ! $assessment->kind->isStation() ) {
+			return 0;
+		}
+
+		$byTask    = array();
+		$rawByTask = array();
+		foreach ( $this->answers->listByAttempt( $attempt->id ) as $answer ) {
+			$byTask[ (int) $answer->taskId ]    = $answer;
+			$rawByTask[ (int) $answer->taskId ] = $answer->answerText;
+		}
+		if ( array() === $byTask ) {
+			return 0;
+		}
+
+		$result  = $this->evaluate( $assessment, $assessment->taskIds, $rawByTask );
+		$changed = 0;
+		foreach ( $result['perTask'] as $taskId => $auto ) {
+			$answer = $byTask[ $taskId ] ?? null;
+			if ( null === $answer || null !== $answer->gradedByUserId || $auto['pending'] ) {
+				continue;
+			}
+
+			$same = $answer->isCorrect === $auto['correct']
+				&& abs( (float) $answer->score - $auto['score'] ) < 0.001
+				&& abs( (float) $answer->maxScore - $auto['max'] ) < 0.001;
+			if ( $same ) {
+				continue;
+			}
+
+			++$changed;
+			if ( ! $dryRun ) {
+				$this->answers->upsert( $attempt->id, $taskId, array(
+					'is_correct' => $auto['correct'] ? 1 : 0,
+					'score'      => $auto['score'],
+					'max_score'  => $auto['max'],
+				) );
+			}
+		}
+
+		if ( $changed > 0 && ! $dryRun ) {
+			$this->finalize( $attempt, false );
+			if ( $attempt->isExam() ) {
+				// Открытые вкладки проверки увидят «результат изменился», а не затрут его старой версией.
+				$this->attempts->bumpResultVersion( $attempt->id, $attempt->resultVersion );
+			}
+		}
+
+		return $changed;
 	}
 
 	/**
@@ -207,7 +272,11 @@ class AutoGradeService {
 				$decoded                = is_array( $raw ) ? $raw : ( is_string( $raw ) && '' !== $raw ? json_decode( $raw, true ) : null );
 				$taskAnswers[ $taskId ] = is_array( $decoded ) ? $decoded : array();
 			} else {
-				$taskAnswers[ $taskId ] = is_string( $raw ) ? $raw : '';
+				// Табличный ответ станции («12|34» — ячейки через `|`) приводится к виду эталона (`12 34`) тем же фильтром,
+				// что и показ ответа учителю: проверка убирает пробелы, но не `|`, и верный ответ в таблице не засчитывался.
+				$taskAnswers[ $taskId ] = is_string( $raw )
+					? ( null !== $assessment ? (string) apply_filters( WorkDetailService::TABLE_ANSWER_FILTER, $raw, $assessment, $taskId ) : $raw )
+					: '';
 			}
 		}
 
@@ -310,7 +379,7 @@ class AutoGradeService {
 	 * Сохраняет итоговый балл/статус попытки и диспатчит AttemptGraded, если попытка
 	 * полностью авто-оценена. Общий хвост finalize() и gradeAttempt().
 	 */
-	private function persistTotals( AttemptDTO $attempt, float $totalScore, float $totalMax, bool $hasManual ): AttemptDTO {
+	private function persistTotals( AttemptDTO $attempt, float $totalScore, float $totalMax, bool $hasManual, bool $announce = true ): AttemptDTO {
 		$newStatus = $hasManual ? AttemptStatus::Submitted : AttemptStatus::Graded;
 
 		$this->attempts->update( $attempt->id, [
@@ -319,7 +388,7 @@ class AutoGradeService {
 			'max_score'   => $totalMax,
 		] );
 
-		if ( $newStatus === AttemptStatus::Graded ) {
+		if ( $announce && $newStatus === AttemptStatus::Graded ) {
 			$this->dispatcher->dispatch(
 				LogEvent::AttemptGraded,
 				new LearningEvent(

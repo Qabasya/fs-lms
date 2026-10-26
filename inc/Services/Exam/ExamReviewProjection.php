@@ -162,7 +162,7 @@ class ExamReviewProjection {
 			);
 		}
 
-		$detail = $this->details->forWork( WorkSourceType::Attempt->value, $attempt->id );
+		$detail = $this->details->forWork( WorkSourceType::Attempt->value, $attempt->id, self::MODE_MANAGE === $mode );
 		if ( null === $detail ) {
 			return null;
 		}

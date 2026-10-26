@@ -58,6 +58,15 @@ class TemplateResolver {
 	 * @return string ID выбранного шаблона
 	 */
 	public function resolveId( \WP_Post $post ): string {
+		// 0. Дочернее задание связки 19-21 — обычное `standard_task` (TaskBundleService::upsertChild()): свой ответ лежит в
+		// `task_answer`. Глобальная привязка шаблона к номеру 19 (триплет) к нему не относится: иначе проверка искала бы
+		// `task_19_answer` в мете ребёнка, не находила и не засчитывала верный ответ (в экзамене не засчитывалось №19).
+		if ( '' !== (string) $this->posts->getMeta( $post->ID, PostMetaName::TaskBundleParentId->value ) ) {
+			$own = (string) $this->posts->getMeta( $post->ID, PostMetaName::TemplateType->value );
+
+			return '' !== $own ? $own : TaskTemplate::Standard->value;
+		}
+
 		// 1. Извлечение ключа предмета из типа поста (например, "math_tasks" -> "math")
 		$subject_key = PostTypeResolver::subjectFromTaskPostType( $post->post_type );
 		

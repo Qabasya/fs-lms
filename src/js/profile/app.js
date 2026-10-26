@@ -83,7 +83,7 @@ const SCREENS = {
         attendance: renderLearnerAttendance,
     }),
     'exam-conduct':       (root) => renderExamConduct(root, { openWorkReview: openWorkReviewFrom('exam-conduct') }),
-    'exam-stats':         renderExamStats,
+    'exam-stats':         (root) => renderExamStats(root, { openWorkReview: openWorkReviewFrom('exam-stats') }),
     'exam-plan':          renderExamPlan,
     'exam-results':       (root) => renderExamResults(root, { openWorkReview: openWorkReviewFrom('exam-results') }),
     'exam-payments':      renderExamPayments,
