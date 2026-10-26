@@ -491,8 +491,14 @@ trait Sanitizer {
 
 	// ── Value-based helpers (for FieldInterface::sanitize implementations) ──
 
+	/**
+	 * Однострочный текст из уже полученного массива.
+	 *
+	 * Слэши НЕ снимаются: вызывающий код читает массив через {@see unslashArray()},
+	 * второй `wp_unslash()` съел бы `\` (LaTeX, код, пути) в значении.
+	 */
 	protected function sanitizeTextValue( mixed $value ): string {
-		return sanitize_text_field( wp_unslash( is_string( $value ) ? $value : (string) $value ) );
+		return sanitize_text_field( is_string( $value ) ? $value : (string) $value );
 	}
 
 	/**
@@ -501,11 +507,17 @@ trait Sanitizer {
 	 * @see sanitizeTextValue() — однострочный вариант (переносы схлопываются).
 	 */
 	protected function sanitizeMultilineTextValue( mixed $value ): string {
-		return sanitize_textarea_field( wp_unslash( is_string( $value ) ? $value : (string) $value ) );
+		return sanitize_textarea_field( is_string( $value ) ? $value : (string) $value );
 	}
 
+	/**
+	 * HTML-значение из уже полученного массива.
+	 *
+	 * Слэши здесь НЕ снимаются: вызывающий код читает массив через {@see unslashArray()},
+	 * и повторный `wp_unslash()` съел бы `\` из LaTeX (`\vec` → `vec`).
+	 */
 	protected function sanitizeHtmlValue( mixed $value ): string {
-		return SafeHtml::post( wp_unslash( is_string( $value ) ? $value : (string) $value ) );
+		return SafeHtml::post( is_string( $value ) ? $value : (string) $value );
 	}
 
 	protected function sanitizeKeyValue( mixed $value ): string {

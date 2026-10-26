@@ -107,6 +107,13 @@ class ExamGuestDirectoryService {
 		$status = ExamRegistrationStatus::tryFrom( (string) ( $row['registration_status'] ?? '' ) );
 
 		return array(
+			// Отметка «Запись подтверждена» — та же, что в меню строки гостя на доске проведения (`exam_participations.staff_confirmed_at`).
+			'participation_id' => (string) ( $row['participation_id'] ?? '' ),
+			'session_id' => (string) ( $row['session_id'] ?? '' ),
+			'notified'   => ! empty( $row['staff_notified_at'] ) ? '1' : '0',
+			'can_notify' => ! $anonymized && isset( $row['participation_id'] ) ? '1' : '0',
+			'confirmed'  => ! empty( $row['staff_confirmed_at'] ) ? '1' : '0',
+			'can_confirm' => ! $anonymized && isset( $row['participation_id'], $row['session_id'] ) && ExamRegistrationStatus::Confirmed === $status ? '1' : '0',
 			'apply_link' => $anonymized ? '' : $this->applyLinks->issue( $participant->id ),
 			'name'       => $anonymized ? 'Обезличен' : $this->guestData->decryptName( $participant ),
 			'phone'      => $contacts['phone'],

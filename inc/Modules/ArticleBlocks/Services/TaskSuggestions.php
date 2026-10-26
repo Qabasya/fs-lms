@@ -56,7 +56,8 @@ class TaskSuggestions {
 	 * @return array<int, array{value: int, label: string}>
 	 */
 	public function search( mixed $query ): array {
-		$query = $this->sanitizeTextValue( $query );
+		// Сырое значение запроса WPBakery приходит со слэшами WP.
+		$query = $this->sanitizeTextValue( is_string( $query ) ? wp_unslash( $query ) : $query );
 
 		if ( '' === $query ) {
 			return array();

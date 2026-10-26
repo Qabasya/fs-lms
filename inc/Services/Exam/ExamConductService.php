@@ -165,6 +165,30 @@ class ExamConductService {
 	}
 
 	/**
+	 * Ручная отметка «Оповещение отправлено» (список «Гости экзамена»): предшествует подтверждению записи.
+	 * Снятие оповещения снимает и подтверждение — подтверждённой запись без оповещения не бывает.
+	 *
+	 * @throws CodedException Нет доступа к гостю.
+	 */
+	public function notifyGuest( int $actorUserId, int $participationId, bool $notified ): void {
+		$participation = $this->guestParticipationFor( $actorUserId, $participationId );
+
+		$this->participations->setStaffNotification( $participationId, $notified ? $this->time->nowUtc() : null, $notified ? $actorUserId : null );
+		if ( ! $notified && null !== $participation->staffConfirmedAt ) {
+			$this->participations->setStaffConfirmation( $participationId, null, null );
+		}
+
+		ExamLogAction::GuestNotified->record(
+			array(
+				'event_id'         => $participation->eventId,
+				'participation_id' => $participationId,
+				'actor'            => $actorUserId,
+				'context'          => array( 'notified' => $notified ),
+			)
+		);
+	}
+
+	/**
 	 * Ссылка входа гостя (11b.1.2): действующая запись обязательна, сеанс не закончился; выдача допускает гостя, если он ещё не допущен. Прежний ключ отзывается, поколение растёт.
 	 * Права `ExportPII` и `ManageLmsPlatform` не нужны: ссылка не содержит персональных данных.
 	 *

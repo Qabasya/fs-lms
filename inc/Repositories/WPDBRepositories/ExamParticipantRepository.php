@@ -82,7 +82,7 @@ class ExamParticipantRepository extends AbstractExamRepository {
 			$params[] = (string) $filters['school'];
 		}
 
-		$sql = 'SELECT p.*, pn.id AS participation_id, pn.event_id, ev.title AS event_title, r.id AS registration_id, r.status AS registration_status,
+		$sql = 'SELECT p.*, pn.id AS participation_id, pn.staff_confirmed_at, pn.staff_notified_at, pn.event_id, ev.title AS event_title, r.id AS registration_id, r.status AS registration_status,
 				s.id AS session_id, s.scheduled_at, s.planned_end_at, s.status AS session_status
 			FROM %i p
 			LEFT JOIN %i pn ON pn.participant_id = p.id

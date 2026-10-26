@@ -16,11 +16,17 @@
 
   // Ступени масштаба текста задания (тулбар A+ / A− / A). Классы, а не
   // inline-стиль: JS только переключает ступень.
-  &--fs-1 { --kege-tfs: 15.5px; }
-  &--fs-2 { --kege-tfs: 17.5px; }
-  &--fs-3 { --kege-tfs: 20px; }
-  &--fs-4 { --kege-tfs: 22px; }
-  &--fs-5 { --kege-tfs: 24px; }
+  // 21 ступень: 10 вниз (−6% базового кегля за шаг, до 8px), базовая 10 (20px),
+  // 10 вверх (+4% за шаг, до 28px). --kege-imgz = множитель к базе: картинки
+  // условия масштабируются вместе с текстом.
+  @for $i from 0 through 20 {
+    $k: if($i <= 10, 1 - (10 - $i) * 0.06, 1 + ($i - 10) * 0.04);
+
+    &--fs-#{$i} {
+      --kege-tfs: #{20px * $k};
+      --kege-imgz: #{$k};
+    }
+  }
 }
 
 .kege-ex-head {
@@ -189,6 +195,9 @@
   li { margin-bottom: 0.3em; }
 
   > :last-child { margin-bottom: 0; }
+
+  // Картинки условия тянутся за ступенью масштаба текста.
+  img { zoom: var(--kege-imgz, 1); max-width: 100%; height: auto; }
 
   // Подпункты составного задания (19–21) приходят из AttemptTaskViewBuilder.
   .fs-attempt-subcondition + .fs-attempt-subcondition { margin-top: 0.9em; }

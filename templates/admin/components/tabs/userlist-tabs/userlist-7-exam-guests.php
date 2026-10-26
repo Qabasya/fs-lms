@@ -10,6 +10,8 @@ declare( strict_types=1 );
  */
 
 use Inc\Enums\Access\Capability;
+use Inc\Enums\Wp\AjaxHook;
+use Inc\Enums\Wp\Nonce;
 use Inc\Services\Log\LogNameResolver;
 
 require_once FS_LMS_PATH . 'templates/admin/components/UI/ui_renderers.php';
@@ -105,6 +107,8 @@ $pageUrl       = add_query_arg( array_filter( array( 'orderby' => $orderby, 'ord
 			<th class="column-title tw-5">Класс</th>
 			<th class="column-title tw-10">Заявка</th>
 			<th class="column-title tw-15">Экзамен</th>
+			<th class="column-title tw-10">Оповещение</th>
+			<th class="column-title tw-10">Подтверждение</th>
 			<th class="column-title tw-10">
 				<?php echo LogNameResolver::sortableHeader( 'Сеанс', 'session', $orderby, $order, $sortUrl ); // phpcs:ignore ?>
 			</th>
@@ -113,7 +117,7 @@ $pageUrl       = add_query_arg( array_filter( array( 'orderby' => $orderby, 'ord
 		<tbody id="the-list">
 		<?php if ( array() === $guests ) : ?>
 			<tr>
-				<td colspan="8">
+				<td colspan="10">
 					<div class="notice notice-info inline fs-table__no-items">
 						<p>Гостей нет.</p>
 					</div>
@@ -134,6 +138,16 @@ $pageUrl       = add_query_arg( array_filter( array( 'orderby' => $orderby, 'ord
 					<td class="column-title"><?php echo esc_html( '' !== $guest['grade'] ? $guest['grade'] : '—' ); ?></td>
 					<td class="column-date"><?php echo esc_html( $guest['created_at'] ); ?></td>
 					<td class="column-title"><?php echo esc_html( '' !== $guest['event'] ? $guest['event'] : '—' ); ?></td>
+					<td class="column-title">
+						<?php if ( '1' === $guest['can_notify'] ) : ?>
+							<input type="checkbox" class="js-guest-flag" data-flag="notify" data-participation="<?php echo esc_attr( $guest['participation_id'] ); ?>" data-action="<?php echo esc_attr( AjaxHook::NotifyExamGuest->jsAction() ); ?>" data-nonce="<?php echo esc_attr( Nonce::ExamManage->create() ); ?>" aria-label="Оповещение отправлено"<?php checked( '1', $guest['notified'] ); ?>>
+						<?php endif; ?>
+					</td>
+					<td class="column-title">
+						<?php if ( '1' === $guest['can_notify'] ) : ?>
+							<input type="checkbox" class="js-guest-flag" data-flag="confirm" data-can-confirm="<?php echo esc_attr( $guest['can_confirm'] ); ?>" data-participation="<?php echo esc_attr( $guest['participation_id'] ); ?>" data-session="<?php echo esc_attr( $guest['session_id'] ); ?>" data-action="<?php echo esc_attr( AjaxHook::ConfirmExamGuest->jsAction() ); ?>" data-nonce="<?php echo esc_attr( Nonce::ExamManage->create() ); ?>" aria-label="Запись подтверждена"<?php checked( '1', $guest['confirmed'] ); ?><?php disabled( '1' !== $guest['notified'] || ( '1' !== $guest['can_confirm'] && '1' !== $guest['confirmed'] ) ); ?>>
+						<?php endif; ?>
+					</td>
 					<td class="column-title">
 						<?php echo esc_html( '' !== $guest['session'] ? $guest['session'] : 'не записан' ); ?>
 						<?php if ( '' !== $guest['status'] ) : ?>

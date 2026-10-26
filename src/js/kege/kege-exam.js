@@ -783,8 +783,8 @@ export function initKegeExam() {
 
 	/* ── Масштаб текста задания (A+ / A− / A): ступени задаёт SCSS, JS только ── */
 	/* переключает класс на .kege-ex — собственных стилей не выставляет. */
-	const FS_STEPS   = [ 'kege-ex--fs-1', 'kege-ex--fs-2', 'kege-ex--fs-3', 'kege-ex--fs-4', 'kege-ex--fs-5' ];
-	const FS_DEFAULT = 2;
+	const FS_STEPS   = Array.from( { length: 21 }, ( _, n ) => `kege-ex--fs-${ n }` );
+	const FS_DEFAULT = 10;
 	let   fsIdx      = FS_DEFAULT;
 	const applyFs = () => FS_STEPS.forEach( ( cls, i ) => exam.classList.toggle( cls, i === fsIdx ) );
 	const setFs = ( i ) => {

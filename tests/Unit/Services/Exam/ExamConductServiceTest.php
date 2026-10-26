@@ -353,6 +353,32 @@ class ExamConductServiceTest extends TestCase {
 		$this->service->confirmGuest( 10, 4, true );
 	}
 
+	// ── «Оповещение отправлено»: предшествует подтверждению записи ───────────────────────────────
+
+	public function test_notify_guest_sets_notification(): void {
+		$this->participations->method( 'find' )->willReturn( $this->guestParticipation( array() ) );
+		$this->participations->expects( self::once() )->method( 'setStaffNotification' )->with( 4, self::isString(), 10 );
+		$this->participations->expects( self::never() )->method( 'setStaffConfirmation' );
+
+		$this->service->notifyGuest( 10, 4, true );
+	}
+
+	public function test_unnotify_guest_also_clears_confirmation(): void {
+		$this->participations->method( 'find' )->willReturn( $this->guestParticipation( array( 'staff_confirmed_at' => '2026-03-10 07:00:00', 'staff_confirmed_by_user_id' => '10' ) ) );
+		$this->participations->expects( self::once() )->method( 'setStaffNotification' )->with( 4, null, null );
+		$this->participations->expects( self::once() )->method( 'setStaffConfirmation' )->with( 4, null, null );
+
+		$this->service->notifyGuest( 10, 4, false );
+	}
+
+	public function test_notify_guest_denied_for_student_participation(): void {
+		$this->participations->method( 'find' )->willReturn( $this->guestParticipation( array( 'audience' => 'student' ) ) );
+		$this->participations->expects( self::never() )->method( 'setStaffNotification' );
+
+		$this->expectException( CodedException::class );
+		$this->service->notifyGuest( 10, 4, true );
+	}
+
 	// ── 11b.5 ссылка результата ──────────────────────────────────────────────────────────────────
 
 	public function test_result_link_requires_share_cap_and_submitted_attempt(): void {

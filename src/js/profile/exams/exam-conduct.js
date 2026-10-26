@@ -426,7 +426,7 @@ function rowHtml(r) {
             ${'guest' === r.audience ? guestPillsHtml(r) : ''}
             ${passed ? `<div class="pr-sub">${passed}</div>` : ''}
         </div>
-        ${score}${left}${'guest' === r.audience ? '' : pill}${result}
+        ${score}${left}${pill}${result}
         ${'guest' === r.audience ? guestLinkButtonHtml(r) : ''}
         ${r.actions.length ? '<button type="button" class="prof-btn prof-btn-sm prof-btn-ghost" data-menu aria-label="Действия">⋯</button>' : ''}
     </div>`;
@@ -438,9 +438,9 @@ function rowHtml(r) {
  */
 function guestLinkButtonHtml(r) {
     if (r.actions.includes('entry_link')) {
-        // Выданная ссылка копируется как есть (адрес хранится зашифрованным); «Перевыпустить» остаётся в меню «⋯».
-        const label = r.entry_link_url ? 'Скопировать ссылку' : (r.entry_link_issued ? 'Перевыпустить ссылку' : 'Выдать ссылку');
-        return `<button type="button" class="prof-btn prof-btn-sm" data-link="entry_link"${r.entry_link_url ? ' data-copy-stored' : ''}>${label}</button>`;
+        // Выданная ссылка копируется и перевыпускается из меню «⋯»; кнопка нужна, только пока ссылки нет.
+        if (r.entry_link_url) { return ''; }
+        return `<button type="button" class="prof-btn prof-btn-sm" data-link="entry_link">${r.entry_link_issued ? 'Перевыпустить ссылку' : 'Выдать ссылку'}</button>`;
     }
     if (r.actions.includes('result_link')) {
         return `<button type="button" class="prof-btn prof-btn-sm" data-link="result_link">${r.result_link_issued ? 'Перевыпустить ссылку результата' : 'Выдать ссылку результата'}</button>`;
@@ -448,7 +448,7 @@ function guestLinkButtonHtml(r) {
     return '';
 }
 
-/** У гостя независимые состояния, а не одна «галочка»: подтверждение записи сотрудником, оплата и попытка — отдельными пилюлями. */
+/** У гостя независимые состояния, а не одна «галочка»: подтверждение записи сотрудником и оплата — отдельными пилюлями. */
 function guestPillsHtml(r) {
     // Отметка сотрудника относится к действующей записи: у отменённой бейдж не показываем.
     const confirmed = r.staff_confirmed_at && 'cancelled' !== r.registration_status
@@ -457,9 +457,8 @@ function guestPillsHtml(r) {
     const pay = r.payment
         ? `<span class="prof-state-pill ${PAYMENT_PILL[r.payment.state] || 'prof-state-done'}">Оплата: ${esc(r.payment.label)}</span>`
         : '<span class="prof-state-pill prof-state-done">Оплата: —</span>';
-    const progress = `<span class="prof-state-pill ${PROGRESS_PILL[r.progress] || 'prof-state-done'}">Попытка: ${esc(r.progress_label)}</span>`;
 
-    return `<div class="exam-guest-pills">${sessionBadgeHtml(r)}${confirmed}${pay}${progress}</div>`;
+    return `<div class="exam-guest-pills">${sessionBadgeHtml(r)}${confirmed}${pay}</div>`;
 }
 
 /** Гости с бронью без записи: «Место удерживается до …» и ссылка на оплату (11a.7.7). Не строки доски: записи и попытки у них ещё нет. */
@@ -620,6 +619,9 @@ function wire() {
         const row = board.rows.find(r => r.registration_id === Number(btn.closest('.exam-conduct-row').dataset.reg));
         if (!row) { return; }
         const items = row.actions.filter(a => !['anonymize', 'delete_guest'].includes(a) || examConfig()?.canAnonymizeGuests).map(a => ({ v: a, label: actionLabel(a, row) }));
+        if (row.entry_link_url && row.actions.includes('entry_link')) {
+            items.unshift({ v: 'copy_entry_link', label: 'Скопировать ссылку' });
+        }
         openCtxMenu(btn, items, v => runAction(v, row, btn), { alignRight: true });
     }));
 }
@@ -682,6 +684,7 @@ function runAction(action, row, anchor) {
         case 'arrival': act('markArrival', { registration_id: row.registration_id, arrived: row.arrived_at ? 0 : 1 }); break;
         case 'confirm_guest': act('confirmGuest', { participation_id: row.participation_id, confirmed: row.staff_confirmed_at ? 0 : 1 }, row.staff_confirmed_at ? 'Подтверждение снято' : 'Запись подтверждена'); break;
         case 'admit': act('admitGuest', { participation_id: row.participation_id, admitted: 0 }, 'Ссылка входа отозвана'); break;
+        case 'copy_entry_link': copyStoredLink(row.entry_link_url, anchor); break;
         case 'entry_link': issueGuestLink(row, anchor, { apiKey: 'issueEntryLink', issued: row.entry_link_issued, title: 'Ссылка на вход', label: 'Ссылка на вход' }); break;
         case 'result_link': issueGuestLink(row, anchor, { apiKey: 'issueResultLink', issued: row.result_link_issued, title: 'Ссылка результата', label: 'Ссылка результата' }); break;
         case 'anonymize': openReasonForm(anchor, {

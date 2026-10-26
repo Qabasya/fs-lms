@@ -342,6 +342,20 @@ class ExamConductCallbacks extends BaseController {
 		$this->runOnBoard( $sessionId, fn () => $this->conduct->admit( get_current_user_id(), $participationId, $admitted ) );
 	}
 
+	/** «Оповещение отправлено» (ручная отметка сотрудника в списке гостей): снятие снимает и подтверждение. */
+	public function ajaxNotifyExamGuest(): void {
+		$this->authorize( Nonce::ExamManage, Capability::ManageExamGuests );
+
+		$participationId = $this->requireInt( 'participation_id' );
+		$notified        = $this->sanitizeBool( 'notified' );
+
+		$this->run( function () use ( $participationId, $notified ): array {
+			$this->conduct->notifyGuest( get_current_user_id(), $participationId, $notified );
+
+			return array( 'notified' => $notified );
+		} );
+	}
+
 	/** «Запись подтверждена» (ручная отметка сотрудника у гостя): ответ — обновлённая доска. */
 	public function ajaxConfirmExamGuest(): void {
 		$this->authorize( Nonce::ExamManage, Capability::ManageExamGuests );
