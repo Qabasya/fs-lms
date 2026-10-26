@@ -114,6 +114,11 @@ readonly class PersonInputDTO {
 		return trim( "{$this->lastName} {$this->firstName} {$this->middleName}" );
 	}
 
+	/** Имя WP-аккаунта ученика: «Фамилия Имя» (у родителя — {@see fullName()}). */
+	public function studentAccountName(): string {
+		return trim( "{$this->lastName} {$this->firstName}" );
+	}
+
 	/**
 	 * Преобразует DTO в массив для вставки/обновления в БД.
 	 * Пустые строки преобразуются в null (кроме обязательных полей).

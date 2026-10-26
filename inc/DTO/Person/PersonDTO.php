@@ -77,6 +77,15 @@ readonly class PersonDTO {
 	}
 
 	/**
+	 * Имя WP-аккаунта (`display_name`): у ученика — «Фамилия Имя», у родителя — полное ФИО.
+	 * Единственное правило отображаемого имени аккаунта: создание учётки, правка карточки и
+	 * миграция `AccountDisplayNameMigration` берут его отсюда.
+	 */
+	public function accountName(): string {
+		return $this->isStudent ? trim( "{$this->lastName} {$this->firstName}" ) : $this->fullName();
+	}
+
+	/**
 	 * Короткое имя «Фамилия И.О.» — для тесных мест (карточки расписания).
 	 */
 	public function shortName(): string {

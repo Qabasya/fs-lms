@@ -378,6 +378,8 @@ final class Init {
 		$container->get( \Inc\Migrations\AssessmentSlugMigration::class )->run();
 		// Лента «Активность»: события ученика писали ID персоны вместо WP-пользователя.
 		$container->get( \Inc\Migrations\LearningEventActorMigration::class )->run();
+		// Имя аккаунта: ученик — «Фамилия Имя», родитель — полное ФИО (раньше было вперемешку).
+		$container->get( \Inc\Migrations\AccountDisplayNameMigration::class )->run();
 		// Уроки-черновики больше не открываются по дате — уже открытые фиксируем в БД.
 		$container->get( \Inc\Migrations\DraftLessonOpenMigration::class )->run();
 		// Страницы создаются через wp_insert_post → get_permalink, которому нужен $wp_rewrite: на загрузке плагина его ещё нет (фатал),

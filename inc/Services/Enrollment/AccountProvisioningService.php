@@ -78,7 +78,7 @@ readonly class AccountProvisioningService {
 			return $this->existingCredentials( $existingUser->ID );
 		}
 
-		$userId = $this->createUser( $username, $email, $password, $data->fullName(), $data->firstName, $data->lastName, UserRole::FSStudent );
+		$userId = $this->createUser( $username, $email, $password, $data->studentAccountName(), $data->firstName, $data->lastName, UserRole::FSStudent );
 
 		$this->logEvents->dispatch(
 			LogEvent::UserCreated,

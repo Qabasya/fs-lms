@@ -147,10 +147,13 @@ class PersonUpdateCallbacks extends BaseController {
 			}
 
 			// Изменение отображаемого имени
-			if ( $lastName || $firstName ) {
-				$userData['display_name'] = trim( $lastName . ' ' . $firstName . ' ' . $middleName );
-				$userData['first_name']   = $firstName;
-				$userData['last_name']    = $lastName;
+			if ( $lastName || $firstName || $middleName ) {
+				// Имя аккаунта собирается из актуальной карточки, а не из присланных полей: правка одного отчества не должна его терять.
+				$updated = $this->personRepository->find( $personId ) ?? $person;
+
+				$userData['display_name'] = $updated->accountName();
+				$userData['first_name']   = $updated->firstName;
+				$userData['last_name']    = $updated->lastName;
 			}
 
 			// Обновление пользователя WP
