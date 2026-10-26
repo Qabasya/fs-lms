@@ -16,7 +16,11 @@ use Inc\Enums\Course\WorkType;
 class WorkTypeField extends BaseField {
 
 	public function render( \WP_Post $post, string $id, string $label, mixed $value ): void {
-		$current = WorkType::fromValueOrDefault( is_string( $value ) ? $value : '' )->value;
+		$value = is_string( $value ) ? $value : '';
+		if ( '' === $value && isset( $_GET['fs_lms_work_type'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- предвыбор типа новой работы из конструктора курса.
+			$value = sanitize_key( wp_unslash( (string) $_GET['fs_lms_work_type'] ) );
+		}
+		$current = WorkType::fromValueOrDefault( $value )->value;
 		?>
 		<div class="fs-field">
 			<label class="fs-field__label" for="<?php echo esc_attr( $id ); ?>">

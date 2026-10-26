@@ -190,7 +190,8 @@ export function refEditor( ed, step, ctx ) {
 			const postType  = isWork
 				? subjectKey + '_works'
 				: subjectKey + '_assessments';
-			const newWin = window.open( adminBase + 'post-new.php?post_type=' + encodeURIComponent( postType ), '_blank' );
+			const typeArg = ( isWork && step.work_type ) ? '&fs_lms_work_type=' + encodeURIComponent( step.work_type ) : '';
+			const newWin  = window.open( adminBase + 'post-new.php?post_type=' + encodeURIComponent( postType ) + typeArg, '_blank' );
 			let lastHref = '';
 			const poll = setInterval( () => {
 				if ( newWin && ! newWin.closed ) {
@@ -203,7 +204,6 @@ export function refEditor( ed, step, ctx ) {
 					clearInterval( poll );
 					step.payload.ref = parseInt( postId, 10 );
 					step._title      = meta.name + ' #' + postId;
-					step.work_type   = ''; // тип новой работы неизвестен до перезагрузки — общий значок
 					step.title       = step._title;
 					renderStepsRow(); renderStepBody(); saveSteps();
 					showToast( meta.name + ' добавлена в шаг', 'success' );

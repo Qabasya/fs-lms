@@ -43,13 +43,18 @@ const TYPE_UI = {
 	assessment: { ui: 'assessment', name: 'Экзамен', inline: false, candKind: 'assessment' },
 };
 
-/** Опции поповера «Добавить шаг» (плоский type-first). */
+/**
+ * Опции поповера «Добавить шаг» (плоский type-first). Работа разделена по типам:
+ * `workType` сразу задаёт тип новой работы (уходит в редактор работы параметром).
+ */
 const ADD_TYPES = [
-	{ type: 'text',       desc: 'Текст, формулы, картинки' },
-	{ type: 'video',      desc: 'YouTube, Vimeo, файл' },
-	{ type: 'task',       desc: 'Задача из предмета или банка — любого типа' },
-	{ type: 'work',       desc: 'Работа из библиотеки' },
-	{ type: 'assessment', desc: 'Экзамен из библиотеки' },
+	{ type: 'text',  desc: 'Текст, формулы, картинки' },
+	{ type: 'work',  workType: 'independent', desc: 'Самостоятельная работа из библиотеки' },
+	{ type: 'work',  workType: 'survey',      desc: 'Короткие вопросы с готовыми вариантами' },
+	{ type: 'work',  workType: 'practice',    desc: 'Классная работа из библиотеки' },
+	{ type: 'work',  workType: 'homework',    desc: 'Домашняя работа из библиотеки' },
+	{ type: 'video', desc: 'YouTube, Vimeo, файл' },
+	{ type: 'task',  desc: 'Задача из предмета или банка — любого типа' },
 ];
 
 /** Максимум шагов в одном уроке (зеркалит серверный LessonAuthoringService::MAX_STEPS_PER_LESSON). */
@@ -62,7 +67,7 @@ const icon   = ( ourType ) => stepIcon( uiMeta( ourType ).ui );
 const stepMeta = ( step ) => uiMeta( step ? step.type : 'text' );
 // У работы глиф зависит от её типа (практика / самостоятельная / домашняя / опрос) — совпадает со значком в рейке плеера.
 const WORK_GLYPHS = [ 'practice', 'independent', 'homework', 'survey' ];
-const WORK_NAMES  = { practice: 'Практика', independent: 'Самостоятельная работа', homework: 'Домашнее задание', survey: 'Опрос' };
+const WORK_NAMES  = { practice: 'Практика', independent: 'Самостоятельная работа', homework: 'Домашняя работа', survey: 'Опрос' };
 const glyphForStep = ( step ) => ( step && 'work' === step.type && WORK_GLYPHS.includes( step.work_type ) ) ? step.work_type : stepMeta( step ).ui;
 const iconForStep = ( step ) => stepIcon( glyphForStep( step ) );
 
@@ -311,20 +316,22 @@ export function createStepEditor( opts ) {
 		showToast( 'Связка разложена на ' + newSteps.length + ' отдельных шага', 'success' );
 	}
 
-	function addStep( menuType ) {
+	function addStep( menuType, workType = '' ) {
 		if ( lesson.steps.length >= MAX_STEPS ) {
 			showToast( `В уроке не может быть больше ${ MAX_STEPS } шагов`, 'error' );
 			return;
 		}
 		const meta = uiMeta( menuType );
+		const name = ( 'work' === menuType && WORK_NAMES[ workType ] ) ? WORK_NAMES[ workType ] : meta.name;
 		const step = meta.inline
-			? { key: tmpKey( 's' ), type: menuType, title: meta.name, payload: { title: '' } }
-			: { key: tmpKey( 's' ), type: menuType, title: meta.name, payload: { ref: 0 } };
+			? { key: tmpKey( 's' ), type: menuType, title: name, payload: { title: '' } }
+			: { key: tmpKey( 's' ), type: menuType, title: name, payload: { ref: 0 } };
+		if ( 'work' === menuType && workType ) { step.work_type = workType; }
 		lesson.steps.push( step );
 		activeKey = step.key;
 		renderStepsRow(); renderStepBody(); onChange();
 		saveSteps();
-		showToast( meta.name + ' добавлен', 'success' );
+		showToast( name + ' добавлен', 'success' );
 	}
 
 	// ══════════ POPOVER ══════════
@@ -335,16 +342,16 @@ export function createStepEditor( opts ) {
 		pop.className = 'fs-cb-popover';
 		const addList = allowed ? ADD_TYPES.filter( ( o ) => allowed.includes( o.type ) ) : ADD_TYPES;
 		pop.innerHTML = '<div class="sp-title">Добавить шаг</div>' + addList.map( ( o ) => `
-			<div class="sp-option" data-type="${ o.type }">
-				<span class="spo-ico" data-type="${ uiMeta( o.type ).ui }">${ icon( o.type ) }</span>
-				<div><div class="spo-name">${ esc( uiMeta( o.type ).name ) }</div><div class="spo-desc">${ esc( o.desc ) }</div></div>
+			<div class="sp-option" data-type="${ o.type }" data-work-type="${ o.workType || '' }">
+				<span class="spo-ico" data-type="${ o.workType || uiMeta( o.type ).ui }">${ o.workType ? stepIcon( o.workType ) : icon( o.type ) }</span>
+				<div><div class="spo-name">${ esc( o.workType ? WORK_NAMES[ o.workType ] : uiMeta( o.type ).name ) }</div><div class="spo-desc">${ esc( o.desc ) }</div></div>
 			</div>` ).join( '' );
 		document.body.appendChild( pop );
 		const r = e.currentTarget.getBoundingClientRect();
 		pop.style.top  = `${ window.scrollY + r.bottom + 6 }px`;
 		pop.style.left = `${ Math.min( r.left, window.innerWidth - 260 ) }px`;
 		pop.querySelectorAll( '.sp-option' ).forEach( ( opt ) => opt.addEventListener( 'click', () => {
-			addStep( opt.dataset.type );
+			addStep( opt.dataset.type, opt.dataset.workType );
 			closePopover();
 		} ) );
 		setTimeout( () => document.addEventListener( 'click', closePopover, { once: true } ), 0 );
