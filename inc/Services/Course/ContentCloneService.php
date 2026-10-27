@@ -9,6 +9,7 @@ use Inc\DTO\Course\LessonDTO;
 use Inc\DTO\Course\ModuleDTO;
 use Inc\DTO\Course\StepDTO;
 use Inc\DTO\Course\WorkDTO;
+use Inc\Enums\Course\StepType;
 use Inc\Enums\Wp\PostMetaName;
 use Inc\Managers\Assessment\AssessmentManager;
 use Inc\Managers\Course\CourseManager;
@@ -81,20 +82,25 @@ class ContentCloneService {
 	/**
 	 * Клон работы: новый пост + копия item_ids[].
 	 *
+	 * @param string $toSubject    Предмет копии; пусто — тот же предмет.
+	 * @param string $titleSuffix  Что дописать к названию (при импорте название остаётся прежним).
+	 *
 	 * @return int ID новой работы или 0 при ошибке.
 	 */
-	public function cloneWork( int $workId ): int {
+	public function cloneWork( int $workId, string $toSubject = '', string $titleSuffix = ' (копия)' ): int {
 		$work = $this->works->get( $workId );
 		if ( null === $work ) {
 			return 0;
 		}
 
+		$subject = '' !== $toSubject ? $toSubject : $work->subjectKey;
+
 		return $this->works->create(
-			$work->subjectKey,
+			$subject,
 			new WorkDTO(
 				id          : 0,
-				subjectKey  : $work->subjectKey,
-				title       : $work->title . ' (копия)',
+				subjectKey  : $subject,
+				title       : $work->title . $titleSuffix,
 				instructions: $work->instructions,
 				workType    : $work->workType,
 				itemIds     : $work->itemIds,
@@ -108,17 +114,20 @@ class ContentCloneService {
 	/**
 	 * Клон контрольной: новый пост + копия task_ids[] и настроек.
 	 *
+	 * @param string $toSubject   Предмет копии; пусто — тот же предмет.
+	 * @param string $titleSuffix Что дописать к названию (при импорте название остаётся прежним).
+	 *
 	 * @return int ID новой контрольной или 0 при ошибке.
 	 */
-	public function cloneAssessment( int $assessmentId ): int {
+	public function cloneAssessment( int $assessmentId, string $toSubject = '', string $titleSuffix = ' (копия)' ): int {
 		$assessment = $this->assessments->get( $assessmentId );
 		if ( null === $assessment ) {
 			return 0;
 		}
 
 		$newId = $this->posts->insert( array(
-			'post_title'  => $assessment->title . ' (копия)',
-			'post_type'   => PostTypeResolver::assessments( $assessment->subjectKey ),
+			'post_title'  => $assessment->title . $titleSuffix,
+			'post_type'   => PostTypeResolver::assessments( '' !== $toSubject ? $toSubject : $assessment->subjectKey ),
 			'post_status' => 'draft',
 			'post_author' => get_current_user_id(),
 		) );
@@ -136,6 +145,97 @@ class ContentCloneService {
 		}
 
 		return $newId;
+	}
+
+	/**
+	 * Импорт уроков из другого предмета: независимые копии урока, его работ и контрольных в
+	 * целевом предмете. Правка копии не задевает исходный курс, поэтому работы и контрольные
+	 * копируются тоже; задания (общий тренажёр) остаются ссылками. Работа или контрольная,
+	 * стоящая в нескольких импортируемых уроках, копируется один раз — уроки продолжают её делить.
+	 * Названия сохраняются, копии — черновики, шаги помечены «проверить».
+	 *
+	 * @param int[]  $lessonIds Исходные уроки (любые предметы)
+	 * @param string $toSubject Предмет, куда копируем
+	 *
+	 * @return array{lessons: array<int,int>, works: int, assessments: int} lessons: исходный ID → ID копии
+	 */
+	public function importLessons( array $lessonIds, string $toSubject ): array {
+		$result    = array( 'lessons' => array(), 'works' => 0, 'assessments' => 0 );
+		$workMap   = array();
+		$asmMap    = array();
+
+		foreach ( $lessonIds as $lessonId ) {
+			$lesson = $this->lessons->get( (int) $lessonId );
+			if ( null === $lesson ) {
+				continue;
+			}
+
+			$steps = array();
+			foreach ( $lesson->steps as $step ) {
+				$ref = (int) ( $step->payload['ref'] ?? 0 );
+				if ( StepType::Work === $step->type && $ref > 0 ) {
+					$workMap[ $ref ] ??= $this->cloneWork( $ref, $toSubject, '' );
+					$step                = $this->withRef( $step, $workMap[ $ref ] );
+				} elseif ( StepType::Assessment === $step->type && $ref > 0 ) {
+					$asmMap[ $ref ] ??= $this->cloneAssessment( $ref, $toSubject, '' );
+					$step             = $this->withRef( $step, $asmMap[ $ref ] );
+				}
+				$steps[] = $step;
+			}
+
+			$newId = $this->lessons->create(
+				$toSubject,
+				new LessonDTO(
+					id        : 0,
+					subjectKey: $toSubject,
+					topic     : $lesson->topic,
+					steps     : $this->markStepsForReview( $steps ),
+					authorId  : get_current_user_id(),
+					status    : 'draft',
+				)
+			);
+			if ( $newId <= 0 ) {
+				continue;
+			}
+
+			$this->posts->updateMeta( $newId, PostMetaName::ImportedFrom->value, (int) $lessonId );
+			$result['lessons'][ (int) $lessonId ] = $newId;
+		}
+
+		$result['works']       = count( array_filter( $workMap ) );
+		$result['assessments'] = count( array_filter( $asmMap ) );
+
+		return $result;
+	}
+
+	/**
+	 * Какие из исходных уроков уже импортировались в предмет: исходный ID → последняя копия.
+	 *
+	 * @param int[] $sourceLessonIds
+	 *
+	 * @return array<int, array{id: int, title: string}>
+	 */
+	public function importedCopies( array $sourceLessonIds, string $subject ): array {
+		$wanted = array_flip( array_map( 'intval', $sourceLessonIds ) );
+		$found  = array();
+
+		$copies = $this->posts->search( PostTypeResolver::lessons( $subject ), array(
+			'status' => array( 'publish', 'draft', 'pending', 'private', 'future', 'fs_archived' ),
+			'limit'  => -1,
+		) );
+		foreach ( $copies as $copy ) {
+			$source = (int) $this->posts->getMeta( $copy->ID, PostMetaName::ImportedFrom->value );
+			if ( isset( $wanted[ $source ] ) ) {
+				$found[ $source ] = array( 'id' => $copy->ID, 'title' => $copy->post_title );
+			}
+		}
+
+		return $found;
+	}
+
+	/** Копия шага с другой ссылкой на работу или контрольную. */
+	private function withRef( StepDTO $step, int $ref ): StepDTO {
+		return $ref > 0 ? new StepDTO( $step->key, $step->type, array_merge( $step->payload, array( 'ref' => $ref ) ) ) : $step;
 	}
 
 	/**

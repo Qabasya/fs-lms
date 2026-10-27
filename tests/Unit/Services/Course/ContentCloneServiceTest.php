@@ -171,6 +171,119 @@ class ContentCloneServiceTest extends TestCase {
 		self::assertSame( 'highest', $meta['scoring_policy'] );
 	}
 
+	// ── importLessons: копия урока в другой предмет ─────────────────────────
+
+	/** Урок py с работой, контрольной и заданием — всё, на что урок может ссылаться. */
+	private function seedPythonLesson( int $lessonId = 100, int $workId = 101, int $assessmentId = 102 ): void {
+		fs_test_seed_post(
+			array( 'ID' => $workId, 'post_type' => 'py_works', 'post_title' => 'Цикл for. ДЗ', 'post_status' => 'publish', 'post_content' => 'Инструкция' ),
+			array( PostMetaName::Meta->value => array( 'work_type' => 'homework', 'item_ids' => array( 5, 6 ) ) )
+		);
+		fs_test_seed_post(
+			array( 'ID' => $assessmentId, 'post_type' => 'py_assessments', 'post_title' => 'Контрольная по циклам', 'post_status' => 'publish' ),
+			array( PostMetaName::Meta->value => array( 'task_ids' => array( 7, 8 ), 'time_limit_minutes' => 45 ) )
+		);
+		fs_test_seed_post(
+			array( 'ID' => $lessonId, 'post_type' => 'py_lessons', 'post_title' => 'Цикл for', 'post_status' => 'publish' ),
+			array( PostMetaName::Meta->value => array( 'steps' => array(
+				array( 'key' => 's1', 'type' => 'text', 'payload' => array( 'content' => 'Теория' ) ),
+				array( 'key' => 's2', 'type' => 'task', 'payload' => array( 'ref' => 9 ) ),
+				array( 'key' => 's3', 'type' => 'work', 'payload' => array( 'ref' => $workId ) ),
+				array( 'key' => 's4', 'type' => 'assessment', 'payload' => array( 'ref' => $assessmentId ) ),
+			) ) )
+		);
+	}
+
+	public function test_import_lesson_creates_draft_copy_in_target_subject(): void {
+		$this->seedPythonLesson();
+
+		$result = $this->service->importLessons( array( 100 ), 'oge' );
+
+		$newId = $result['lessons'][100];
+		self::assertGreaterThan( 0, $newId );
+		self::assertSame( 'oge_lessons', get_post( $newId )->post_type );
+		$copy = $this->lessons->get( $newId );
+		self::assertSame( 'oge', $copy->subjectKey );
+		self::assertSame( 'Цикл for', $copy->topic ); // название сохраняется: это импорт, а не дубликат
+		self::assertSame( 'draft', $copy->status );
+		self::assertTrue( $copy->steps[0]->payload['needs_review'] );
+		self::assertSame( 100, (int) $GLOBALS['_fs_test_meta'][ $newId ][ PostMetaName::ImportedFrom->value ] );
+	}
+
+	/** Работа копируется: правка копии не должна задевать исходный курс. */
+	public function test_import_lesson_copies_work_into_target_subject(): void {
+		$this->seedPythonLesson();
+
+		$result = $this->service->importLessons( array( 100 ), 'oge' );
+
+		$copy    = $this->lessons->get( $result['lessons'][100] );
+		$workRef = (int) $copy->steps[2]->payload['ref'];
+		self::assertNotSame( 101, $workRef );
+		self::assertSame( 'oge_works', get_post( $workRef )->post_type );
+		$workCopy = $this->works->get( $workRef );
+		self::assertSame( 'Цикл for. ДЗ', $workCopy->title );
+		self::assertSame( array( 5, 6 ), $workCopy->itemIds );
+		self::assertSame( 1, $result['works'] );
+
+		// Исходные работа и урок не тронуты.
+		self::assertSame( 'py_works', get_post( 101 )->post_type );
+		self::assertSame( 101, (int) $this->lessons->get( 100 )->steps[2]->payload['ref'] );
+	}
+
+	public function test_import_lesson_copies_assessment_and_keeps_task_refs(): void {
+		$this->seedPythonLesson();
+
+		$result = $this->service->importLessons( array( 100 ), 'oge' );
+
+		$copy = $this->lessons->get( $result['lessons'][100] );
+		$asm  = (int) $copy->steps[3]->payload['ref'];
+		self::assertNotSame( 102, $asm );
+		self::assertSame( 'oge_assessments', get_post( $asm )->post_type );
+		self::assertSame( array( 7, 8 ), $GLOBALS['_fs_test_meta'][ $asm ][ PostMetaName::Meta->value ]['task_ids'] );
+		self::assertSame( 1, $result['assessments'] );
+		// Задания — общий тренажёр, на них остаётся ссылка.
+		self::assertSame( 9, (int) $copy->steps[1]->payload['ref'] );
+	}
+
+	/** Одна работа в двух импортируемых уроках копируется один раз — уроки продолжают делить её. */
+	public function test_import_lessons_copies_shared_work_once(): void {
+		$this->seedPythonLesson( 100, 101, 102 );
+		fs_test_seed_post(
+			array( 'ID' => 103, 'post_type' => 'py_lessons', 'post_title' => 'Повторение', 'post_status' => 'publish' ),
+			array( PostMetaName::Meta->value => array( 'steps' => array(
+				array( 'key' => 's1', 'type' => 'work', 'payload' => array( 'ref' => 101 ) ),
+			) ) )
+		);
+
+		$result = $this->service->importLessons( array( 100, 103 ), 'oge' );
+
+		$first  = $this->lessons->get( $result['lessons'][100] )->steps[2]->payload['ref'];
+		$second = $this->lessons->get( $result['lessons'][103] )->steps[0]->payload['ref'];
+		self::assertSame( $first, $second );
+		self::assertSame( 1, $result['works'] );
+	}
+
+	public function test_import_lessons_skips_missing_lessons(): void {
+		$this->seedPythonLesson();
+
+		$result = $this->service->importLessons( array( 100, 999 ), 'oge' );
+
+		self::assertArrayHasKey( 100, $result['lessons'] );
+		self::assertArrayNotHasKey( 999, $result['lessons'] );
+	}
+
+	public function test_imported_copies_finds_earlier_imports_in_target_subject(): void {
+		$this->seedPythonLesson();
+		$first = $this->service->importLessons( array( 100 ), 'oge' )['lessons'][100];
+
+		$found = $this->service->importedCopies( array( 100, 555 ), 'oge' );
+
+		self::assertSame( array( 100 ), array_keys( $found ) );
+		self::assertSame( $first, $found[100]['id'] );
+		self::assertSame( 'Цикл for', $found[100]['title'] );
+		self::assertSame( array(), $this->service->importedCopies( array( 100 ), 'rus' ) ); // другой предмет — не дубль
+	}
+
 	// ── cloneCourse ─────────────────────────────────────────────────────────
 
 	public function test_clone_course_returns_zero_for_missing(): void {

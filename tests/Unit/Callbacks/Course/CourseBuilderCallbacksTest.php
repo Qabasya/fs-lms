@@ -160,6 +160,45 @@ class CourseBuilderCallbacksTest extends TestCase {
 		self::assertSame( array( 10, 11 ), $this->courses->get( 1 )->modules[0]->lessonIds );
 	}
 
+	public function test_import_lessons_from_subject_returns_nodes_and_links_copies(): void {
+		$this->seedLesson( 10, 'oge', 'publish', 'Урок 10' );
+		$this->seedLesson( 50, 'py', 'publish', 'Цикл for' );
+		$this->seedLesson( 60, 'oge', 'draft', 'Цикл for' ); // копия от замоканного cloneService
+		$this->seedCourse( 1, 'oge', array( array( 'id' => 'm1', 'title' => 'M', 'lesson_ids' => array( 10 ) ) ) );
+		$this->cloneService->method( 'importedCopies' )->willReturn( array() );
+		$this->cloneService->method( 'importLessons' )->with( array( 50 ), 'oge' )
+			->willReturn( array( 'lessons' => array( 50 => 60 ), 'works' => 1, 'assessments' => 0 ) );
+		$_POST = array( 'course_id' => '1', 'module_id' => 'm1', 'lesson_ids' => array( '50' ), 'after_lesson_id' => '10' );
+
+		$r = fs_test_capture_json( fn() => $this->callbacks->ajaxImportLessonsFromSubject() );
+
+		self::assertTrue( $r->success );
+		self::assertSame( 'imported', $r->payload['status'] );
+		self::assertSame( 60, $r->payload['nodes'][0]['id'] );
+		self::assertSame( array( 10, 60 ), $this->courses->get( 1 )->modules[0]->lessonIds );
+	}
+
+	public function test_import_lessons_from_subject_asks_confirmation_for_duplicates(): void {
+		$this->seedLesson( 50, 'py', 'publish', 'Цикл for' );
+		$this->seedCourse( 1, 'oge', array( array( 'id' => 'm1', 'title' => 'M', 'lesson_ids' => array() ) ) );
+		$this->cloneService->method( 'importedCopies' )->willReturn( array( 50 => array( 'id' => 60, 'title' => 'Цикл for' ) ) );
+		$this->cloneService->expects( self::never() )->method( 'importLessons' );
+		$_POST = array( 'course_id' => '1', 'module_id' => 'm1', 'lesson_ids' => array( '50' ) );
+
+		$r = fs_test_capture_json( fn() => $this->callbacks->ajaxImportLessonsFromSubject() );
+
+		self::assertTrue( $r->success );
+		self::assertSame( 'duplicates', $r->payload['status'] );
+		self::assertSame( 50, $r->payload['duplicates'][0]['id'] );
+	}
+
+	public function test_import_lessons_from_subject_errors_when_nothing_to_import(): void {
+		$this->seedCourse( 1, 'oge', array( array( 'id' => 'm1', 'title' => 'M', 'lesson_ids' => array() ) ) );
+		$_POST = array( 'course_id' => '1', 'module_id' => 'm1', 'lesson_ids' => array( '999' ) );
+
+		self::assertFalse( fs_test_capture_json( fn() => $this->callbacks->ajaxImportLessonsFromSubject() )->success );
+	}
+
 	public function test_denies_without_capability(): void {
 		$GLOBALS['_fs_test_can'] = false;
 		$_POST = array( 'subject_key' => 'inf', 'title' => 'X' );

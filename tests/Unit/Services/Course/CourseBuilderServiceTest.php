@@ -217,4 +217,78 @@ class CourseBuilderServiceTest extends TestCase {
 
 		self::assertNull( $this->service->duplicateLessonInModule( 1, 'm1', 10 ) );
 	}
+
+	// ── importLessonsFromSubject ────────────────────────────────────────────
+
+	public function test_import_lessons_inserts_copies_after_anchor_in_order(): void {
+		$this->seedLesson( 10, 'oge', array(), 'publish', 'Урок 10' );
+		$this->seedLesson( 11, 'oge', array(), 'publish', 'Урок 11' );
+		$this->seedLesson( 50, 'py', array(), 'publish', 'Цикл for' );
+		$this->seedLesson( 51, 'py', array(), 'publish', 'Условия' );
+		// Копии, которые «создаёт» замоканный cloneService.
+		$this->seedLesson( 60, 'oge', array(), 'draft', 'Цикл for' );
+		$this->seedLesson( 61, 'oge', array(), 'draft', 'Условия' );
+		$this->seedCourse( 1, 'oge', array( array( 'id' => 'm1', 'title' => 'M', 'lesson_ids' => array( 10, 11 ) ) ) );
+		$this->cloneService->method( 'importedCopies' )->willReturn( array() );
+		$this->cloneService->expects( self::once() )->method( 'importLessons' )->with( array( 50, 51 ), 'oge' )
+			->willReturn( array( 'lessons' => array( 50 => 60, 51 => 61 ), 'works' => 2, 'assessments' => 1 ) );
+
+		$result = $this->service->importLessonsFromSubject( 1, 'm1', array( 50, 51 ), 10, false );
+
+		self::assertSame( 'imported', $result['status'] );
+		self::assertSame( array( 60, 61 ), array_column( $result['nodes'], 'id' ) );
+		self::assertSame( 2, $result['works'] );
+		self::assertSame( 1, $result['assessments'] );
+		self::assertSame( array( 10, 60, 61, 11 ), $this->courses->get( 1 )->modules[0]->lessonIds );
+	}
+
+	/** Повторный импорт без подтверждения ничего не создаёт и называет уже импортированные уроки. */
+	public function test_import_lessons_reports_duplicates_and_waits_for_confirmation(): void {
+		$this->seedLesson( 50, 'py', array(), 'publish', 'Цикл for' );
+		$this->seedCourse( 1, 'oge', array( array( 'id' => 'm1', 'title' => 'M', 'lesson_ids' => array() ) ) );
+		$this->cloneService->method( 'importedCopies' )->willReturn( array( 50 => array( 'id' => 60, 'title' => 'Цикл for' ) ) );
+		$this->cloneService->expects( self::never() )->method( 'importLessons' );
+
+		$result = $this->service->importLessonsFromSubject( 1, 'm1', array( 50 ), 0, false );
+
+		self::assertSame( 'duplicates', $result['status'] );
+		self::assertSame( array( array( 'id' => 50, 'title' => 'Цикл for' ) ), $result['duplicates'] );
+		self::assertSame( array(), $this->courses->get( 1 )->modules[0]->lessonIds );
+	}
+
+	public function test_import_lessons_with_force_imports_despite_duplicates(): void {
+		$this->seedLesson( 50, 'py', array(), 'publish', 'Цикл for' );
+		$this->seedLesson( 62, 'oge', array(), 'draft', 'Цикл for' );
+		$this->seedCourse( 1, 'oge', array( array( 'id' => 'm1', 'title' => 'M', 'lesson_ids' => array() ) ) );
+		$this->cloneService->method( 'importedCopies' )->willReturn( array( 50 => array( 'id' => 60, 'title' => 'Цикл for' ) ) );
+		$this->cloneService->method( 'importLessons' )->willReturn( array( 'lessons' => array( 50 => 62 ), 'works' => 0, 'assessments' => 0 ) );
+
+		$result = $this->service->importLessonsFromSubject( 1, 'm1', array( 50 ), 0, true );
+
+		self::assertSame( 'imported', $result['status'] );
+		self::assertSame( array( 62 ), $this->courses->get( 1 )->modules[0]->lessonIds );
+	}
+
+	/** В импорт попадают только настоящие уроки: чужие посты и групповые форки отбрасываются. */
+	public function test_import_lessons_ignores_non_lessons_and_group_forks(): void {
+		$this->seedLesson( 50, 'py', array(), 'publish', 'Цикл for' );
+		fs_test_seed_post( array( 'ID' => 70, 'post_type' => 'py_works', 'post_title' => 'Не урок' ) );
+		fs_test_seed_post(
+			array( 'ID' => 71, 'post_type' => 'py_lessons', 'post_title' => 'Форк группы' ),
+			array( 'fs_lms_meta' => array( 'steps' => array() ), \Inc\Enums\Wp\PostMetaName::ForkedForGroup->value => 5 )
+		);
+		$this->seedCourse( 1, 'oge', array( array( 'id' => 'm1', 'title' => 'M', 'lesson_ids' => array() ) ) );
+		$this->cloneService->method( 'importedCopies' )->willReturn( array() );
+		$this->cloneService->expects( self::once() )->method( 'importLessons' )->with( array( 50 ), 'oge' )
+			->willReturn( array( 'lessons' => array(), 'works' => 0, 'assessments' => 0 ) );
+
+		$this->service->importLessonsFromSubject( 1, 'm1', array( 50, 70, 71, 999 ), 0, false );
+	}
+
+	public function test_import_lessons_null_for_missing_course_or_nothing_to_import(): void {
+		self::assertNull( $this->service->importLessonsFromSubject( 999, 'm1', array( 50 ), 0, false ) );
+
+		$this->seedCourse( 1, 'oge', array( array( 'id' => 'm1', 'title' => 'M', 'lesson_ids' => array() ) ) );
+		self::assertNull( $this->service->importLessonsFromSubject( 1, 'm1', array( 999 ), 0, false ) );
+	}
 }

@@ -270,6 +270,111 @@ class CourseBuilderService {
 	}
 
 	/**
+	 * Импорт уроков из других предметов в модуль курса: копии уроков (с их работами и
+	 * контрольными, см. {@see ContentCloneService::importLessons()}) вставляются после выбранного
+	 * урока модуля в порядке выбора.
+	 *
+	 * Если какой-то из уроков уже импортировался в предмет курса, без `$force` ничего не создаётся:
+	 * возвращается список таких уроков — интерфейс переспрашивает автора и повторяет вызов с `$force`.
+	 *
+	 * @param int   $courseId
+	 * @param string $moduleId
+	 * @param int[] $sourceLessonIds Исходные уроки любых предметов (не уроки и групповые форки отбрасываются)
+	 * @param int   $afterLessonId   Урок модуля, после которого вставить; 0 или чужой — в конец
+	 * @param bool  $force           Импортировать, даже если урок уже импортировался
+	 *
+	 * @return array{status: string, duplicates?: array<int, array{id: int, title: string}>, nodes?: array<int, array<string, mixed>>, works?: int, assessments?: int}|null
+	 *         null — курса нет или импортировать нечего.
+	 */
+	public function importLessonsFromSubject( int $courseId, string $moduleId, array $sourceLessonIds, int $afterLessonId = 0, bool $force = false ): ?array {
+		$course = $this->courses->get( $courseId );
+		if ( null === $course ) {
+			return null;
+		}
+
+		$sources = $this->importableLessons( $sourceLessonIds );
+		if ( array() === $sources ) {
+			return null;
+		}
+
+		$ids = array_keys( $sources );
+		if ( ! $force ) {
+			$already = $this->cloneService->importedCopies( $ids, $course->subjectKey );
+			if ( array() !== $already ) {
+				return array(
+					'status'     => 'duplicates',
+					'duplicates' => array_values( array_map(
+						static fn( int $id ): array => array( 'id' => $id, 'title' => $sources[ $id ] ),
+						array_intersect( $ids, array_keys( $already ) )
+					) ),
+				);
+			}
+		}
+
+		$imported = $this->cloneService->importLessons( $ids, $course->subjectKey );
+		$newIds   = array_values( $imported['lessons'] );
+		if ( array() === $newIds ) {
+			return null;
+		}
+
+		$modules = array();
+		$added   = false;
+		foreach ( $course->modules as $module ) {
+			$lessonIds = $module->lessonIds;
+			if ( $module->id === $moduleId ) {
+				$pos = $afterLessonId > 0 ? array_search( $afterLessonId, $lessonIds, true ) : false;
+				array_splice( $lessonIds, false === $pos ? count( $lessonIds ) : $pos + 1, 0, $newIds );
+				$added = true;
+			}
+			$modules[] = new ModuleDTO( $module->id, $module->title, $lessonIds, $module->description );
+		}
+		if ( ! $added && ! empty( $modules ) ) {
+			$last = $modules[ array_key_last( $modules ) ];
+			$modules[ array_key_last( $modules ) ] = new ModuleDTO( $last->id, $last->title, array_merge( $last->lessonIds, $newIds ), $last->description );
+		}
+
+		$this->courses->update( $courseId, $this->withModules( $course, $modules ) );
+
+		$nodes = array();
+		foreach ( $newIds as $newId ) {
+			$created = $this->lessons->get( $newId );
+			if ( null !== $created ) {
+				$nodes[] = $this->lessonNode( $created );
+			}
+		}
+
+		return array(
+			'status'      => 'imported',
+			'nodes'       => $nodes,
+			'works'       => $imported['works'],
+			'assessments' => $imported['assessments'],
+		);
+	}
+
+	/**
+	 * Оставляет настоящие уроки (не групповые форки, существующие): ID => название.
+	 *
+	 * @param int[] $lessonIds
+	 *
+	 * @return array<int, string>
+	 */
+	private function importableLessons( array $lessonIds ): array {
+		$result = array();
+		foreach ( array_unique( array_map( 'intval', $lessonIds ) ) as $id ) {
+			$post = $id > 0 ? $this->posts->get( $id ) : null;
+			if ( ! $post instanceof \WP_Post || ! PostTypeResolver::isLessonPostType( $post->post_type ) ) {
+				continue;
+			}
+			if ( '' !== (string) $this->posts->getMeta( $id, PostMetaName::ForkedForGroup->value ) ) {
+				continue;
+			}
+			$result[ $id ] = $post->post_title;
+		}
+
+		return $result;
+	}
+
+	/**
 	 * Обновляет заголовок и статус публикации урока (без перезаписи шагов).
 	 *
 	 * @param int    $lessonId

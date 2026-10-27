@@ -155,6 +155,37 @@ class CourseBuilderCallbacks extends BaseController {
 	}
 
 	/**
+	 * Импорт уроков из другого предмета (копии с работами и контрольными).
+	 * Params: course_id, module_id, lesson_ids[], after_lesson_id?, force?
+	 *
+	 * Если урок уже импортировался в предмет курса, без `force` ничего не создаётся и приходит
+	 * `{status: 'duplicates', duplicates: [...]}` — интерфейс спрашивает автора и повторяет с `force`.
+	 *
+	 * ВРЕМЕННО без ограничений по автору источника: импортировать можно уроки любых предметов
+	 * (см. ReleaseHistory — в следующей версии только там, где пользователь автор).
+	 */
+	public function ajaxImportLessonsFromSubject(): void {
+		$this->authorize( Nonce::AuthorCourse, Capability::AuthorLmsCourses );
+
+		$course_id = $this->requireInt( 'course_id' );
+		$module_id = $this->requireKey( 'module_id' );
+		$lesson_ids = $this->sanitizeIntList( 'lesson_ids' );
+		$after_id  = $this->sanitizeInt( 'after_lesson_id' );
+		$force     = $this->sanitizeBool( 'force' );
+
+		$result = $this->builder->importLessonsFromSubject( $course_id, $module_id, $lesson_ids, $after_id, $force );
+		if ( null === $result ) {
+			$this->error( 'Не удалось импортировать уроки: выберите существующие уроки.' );
+			return;
+		}
+
+		if ( 'imported' === $result['status'] ) {
+			$this->syncCourseToGroups( $course_id );
+		}
+		$this->success( $result );
+	}
+
+	/**
 	 * Обновляет заголовок/публикацию урока. Params: lesson_id, title, published, course_id?
 	 *
 	 * Опубликованный урок доезжает до открытых групп курса: черновики туда не
