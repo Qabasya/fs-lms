@@ -59,4 +59,26 @@ class LatexPageShortcodeServiceTest extends TestCase {
 	public function test_empty_condition_stays_empty(): void {
 		self::assertSame( '', $this->service->ensure( '' ) );
 	}
+
+	/** Станции ЕГЭ и ОГЭ: без QuickLaTeX шорткод `[latexpage]` убирается, а `$…$` и `$$…$$` становятся делимитерами MathJax. */
+	public function test_to_mathjax_converts_dollar_formulas_and_drops_shortcode(): void {
+		$service = new LatexPageShortcodeService();
+
+		self::assertSame(
+			'<p>Найдите \\(\\frac{a}{b}\\) и \\[x^2\\]</p>',
+			$service->toMathJax( '[latexpage]' . "\n" . '<p>Найдите $\\frac{a}{b}$ и $$x^2$$</p>' )
+		);
+	}
+
+	/** Без шорткода автор долларов-формул не задумывал: цены и подобное остаются как есть. */
+	public function test_to_mathjax_leaves_text_without_shortcode_untouched(): void {
+		$service = new LatexPageShortcodeService();
+
+		self::assertSame( '<p>Цена $5 и $6</p>', $service->toMathJax( '<p>Цена $5 и $6</p>' ) );
+		self::assertSame( '', $service->toMathJax( '' ) );
+	}
+
+	public function test_to_mathjax_drops_shortcode_even_when_no_formula(): void {
+		self::assertSame( '<p>Текст</p>', ( new LatexPageShortcodeService() )->toMathJax( "[latexpage]\n<p>Текст</p>" ) );
+	}
 }

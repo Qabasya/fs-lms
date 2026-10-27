@@ -23,6 +23,7 @@ class TaskMetaService {
 
 	public function __construct(
 		private readonly ConditionHtmlNormalizer $normalizer = new ConditionHtmlNormalizer(),
+		private readonly LatexPageShortcodeService $latex = new LatexPageShortcodeService(),
 	) {}
 
 	/**
@@ -30,7 +31,7 @@ class TaskMetaService {
 	 * тренажёра, плеера курса и контрольных ({@see ConditionHtmlNormalizer}).
 	 */
 	public function cleanCondition( string $html ): string {
-		return $this->normalizer->normalize( $html );
+		return $this->normalizer->normalize( $this->latex->toMathJax( $html ) );
 	}
 
 	/**

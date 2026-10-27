@@ -53,4 +53,23 @@ readonly class LatexPageShortcodeService {
 
 		return self::SHORTCODE . "\n" . $html;
 	}
+
+	/**
+	 * Формулы условия для MathJax (станции ЕГЭ и ОГЭ, плеер): `$…$` → `\(…\)`, `$$…$$` → `\[…\]`,
+	 * сам `[latexpage]` убирается. Работает только у условия с шорткодом — это пометка автора, что
+	 * доллары в тексте — формулы (иначе «5$ и 6$» превратились бы в формулу). Если QuickLaTeX активен,
+	 * шорткод к этому моменту уже разобран (формулы стали картинками) и условие остаётся как есть.
+	 *
+	 * @param string $html Условие после `the_content`
+	 */
+	public function toMathJax( string $html ): string {
+		if ( ! str_contains( $html, self::SHORTCODE ) ) {
+			return $html;
+		}
+
+		$html = trim( str_replace( self::SHORTCODE, '', $html ) );
+		$html = (string) preg_replace( '/\$\$([^$\n]+)\$\$/', '\\\\[$1\\\\]', $html );
+
+		return (string) preg_replace( '/\$([^$\n]+)\$/', '\\\\($1\\\\)', $html );
+	}
 }
