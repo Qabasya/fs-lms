@@ -8,6 +8,7 @@ use Inc\Managers\Wp\PostManager;
 use Inc\Managers\Wp\TermManager;
 use Inc\Repositories\OptionsRepositories\TaxonomyRepository;
 use Inc\Services\Subject\PostTypeResolver;
+use Inc\Shared\Traits\AuthorFilter;
 use Inc\Shared\Traits\Sanitizer;
 
 /**
@@ -33,6 +34,7 @@ use Inc\Shared\Traits\Sanitizer;
 class SubjectTaskListFilters {
 
 	use Sanitizer;
+	use AuthorFilter;
 
 	/** Статусы, среди которых ищем авторов записей для фильтра «Автор». */
 	private const AUTHOR_LOOKUP_STATUSES = array( 'publish', 'draft', 'pending', 'private', 'future', 'fs_archived' );
@@ -142,26 +144,6 @@ class SubjectTaskListFilters {
 		// Без `limit` — значит в пределах потолка PostManager: селект авторов не
 		// стоит того, чтобы поднимать в память весь банк предмета целиком
 		// (тот же приём у банка задач, {@see ProblemListFilters::authorSelect()}).
-		$tasks     = $this->posts->search( $postType, array( 'status' => self::AUTHOR_LOOKUP_STATUSES, 'orderby' => 'ID' ) );
-		$authorIds = array_unique( array_map( static fn( $p ): int => (int) $p->post_author, $tasks ) );
-
-		if ( count( $authorIds ) < 2 ) {
-			return null;
-		}
-
-		$options = array();
-		foreach ( $authorIds as $uid ) {
-			$user = get_user_by( 'id', $uid );
-			if ( false !== $user ) {
-				$options[ $uid ] = $user->display_name;
-			}
-		}
-
-		return array(
-			'name'      => 'author',
-			'options'   => $options,
-			'selected'  => (string) $this->sanitizeGetInt( 'author' ),
-			'all_label' => 'Все авторы',
-		);
+		return $this->authorSelectFor( $this->posts->search( $postType, array( 'status' => self::AUTHOR_LOOKUP_STATUSES, 'orderby' => 'ID' ) ) );
 	}
 }

@@ -11,6 +11,7 @@ use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Services\Course\BankUsageIndex;
 use Inc\Services\Course\ContentUsageService;
 use Inc\Services\Subject\PostTypeResolver;
+use Inc\Shared\Traits\AuthorFilter;
 use Inc\Shared\Traits\Sanitizer;
 
 /**
@@ -28,6 +29,7 @@ use Inc\Shared\Traits\Sanitizer;
 class ProblemListFilters {
 
 	use Sanitizer;
+	use AuthorFilter;
 
 	/** Статусы, среди которых ищем авторов для фильтра «Автор». */
 	private const AUTHOR_LOOKUP_STATUSES = array( 'publish', 'draft', 'pending', 'private', 'fs_archived' );
@@ -330,27 +332,7 @@ class ProblemListFilters {
 	 * @return array{name: string, options: array, selected: string, all_label: string}|null
 	 */
 	private function authorSelect(): ?array {
-		$problems  = $this->posts->search( PostTypeResolver::problems(), array( 'status' => self::AUTHOR_LOOKUP_STATUSES ) );
-		$authorIds = array_unique( array_map( static fn( $p ): int => (int) $p->post_author, $problems ) );
-
-		if ( count( $authorIds ) < 2 ) {
-			return null;
-		}
-
-		$options = array();
-		foreach ( $authorIds as $uid ) {
-			$user = get_user_by( 'id', $uid );
-			if ( false !== $user ) {
-				$options[ $uid ] = $user->display_name;
-			}
-		}
-
-		return array(
-			'name'      => 'author',
-			'options'   => $options,
-			'selected'  => (string) $this->sanitizeGetInt( 'author' ),
-			'all_label' => 'Все авторы',
-		);
+		return $this->authorSelectFor( $this->posts->search( PostTypeResolver::problems(), array( 'status' => self::AUTHOR_LOOKUP_STATUSES ) ) );
 	}
 
 	/**

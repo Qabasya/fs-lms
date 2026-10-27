@@ -10,6 +10,7 @@ use Inc\Enums\Wp\PostMetaName;
 use Inc\Managers\Wp\PostManager;
 use Inc\Services\Course\BankUsageIndex;
 use Inc\Services\Subject\PostTypeResolver;
+use Inc\Shared\Traits\AuthorFilter;
 use Inc\Shared\Traits\Sanitizer;
 
 /**
@@ -26,6 +27,7 @@ use Inc\Shared\Traits\Sanitizer;
 class BankListFilters {
 
 	use Sanitizer;
+	use AuthorFilter;
 
 	/** Статусы, среди которых ищем авторов для фильтра «Автор». */
 	private const AUTHOR_LOOKUP_STATUSES = array( 'publish', 'draft', 'pending', 'private', 'fs_archived' );
@@ -256,26 +258,6 @@ class BankListFilters {
 	 * @return array{name: string, options: array, selected: string, all_label: string}|null
 	 */
 	private function authorSelect( string $postType ): ?array {
-		$posts     = $this->posts->search( $postType, array( 'status' => self::AUTHOR_LOOKUP_STATUSES ) );
-		$authorIds = array_unique( array_map( static fn( $p ): int => (int) $p->post_author, $posts ) );
-
-		if ( count( $authorIds ) < 2 ) {
-			return null;
-		}
-
-		$options = array();
-		foreach ( $authorIds as $uid ) {
-			$user = get_user_by( 'id', $uid );
-			if ( false !== $user ) {
-				$options[ $uid ] = $user->display_name;
-			}
-		}
-
-		return array(
-			'name'      => 'author',
-			'options'   => $options,
-			'selected'  => (string) $this->sanitizeGetInt( 'author' ),
-			'all_label' => 'Все авторы',
-		);
+		return $this->authorSelectFor( $this->posts->search( $postType, array( 'status' => self::AUTHOR_LOOKUP_STATUSES ) ) );
 	}
 }
