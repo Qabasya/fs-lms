@@ -12,7 +12,7 @@ import { workCardHtml, workChipHtml, workStatusText } from './work-card.js';
 import { learnerLayout, learnerFlat } from './program-window.js';
 import { courseTabsShell, syncCourseTabs } from './course-tabs.js';
 import { isParent, getChildId, childBar, childPickHtml, wireChild, onChildChange } from './learner-child.js';
-import { initSchedule, todayRowsHtml } from './schedule-view.js';
+import { initSchedule, todayRowsHtml, scheduleCardHtml } from './schedule-view.js';
 
 // Экраны ученика и родителя одни: ключ несёт роль (student-* / parent-*), рендер общий.
 const RENDERERS = {};
@@ -91,17 +91,7 @@ function renderHome(root, d) {
             ${homeTile('Посещаемость', att.percent === null ? '—' : att.percent + '%', '#2f9e44', 'check')}
         </div>
         <div class="prof-dash-grid2">
-            <div class="prof-card prof-sched-card">
-                <div class="prof-card-head">
-                    <h3>Расписание</h3>
-                    <div class="prof-seg ch-act" id="profSchedToggle">
-                        <button class="on" data-mode="today">Сегодня</button>
-                        <button data-mode="week">Неделя</button>
-                        <button data-mode="month">Месяц</button>
-                    </div>
-                </div>
-                <div id="profSchedBody" class="prof-swap"></div>
-            </div>
+            ${scheduleCardHtml()}
             <div class="prof-card">
                 <div class="prof-card-head"><h3>Дедлайны и оценки</h3></div>
                 <div>

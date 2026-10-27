@@ -14,7 +14,7 @@
 import { esc, plural, fmtDayMonth, todayIso, chipBg, scheduleTone, groupSubjectKey, shortName, emptyState, roomLabel } from './utils.js';
 import { icoCalendar, icoCheck, icoAlert, icoMapPin, icoBookmark, icoShield, icoChevronRight, icoChevronDown, icoHome, icoJournal, icoUsers, icoDocCheck } from '../common/icons.js';
 import { createApi } from './api.js';
-import { initSchedule, todayRowsHtml } from './schedule-view.js';
+import { initSchedule, todayRowsHtml, scheduleCardHtml } from './schedule-view.js';
 
 /** Ключ запомненной раскрытости аккордеонов главной. */
 const ACC_KEY = 'fsProfDashAcc';
@@ -67,17 +67,7 @@ function render() {
             ${statTile('На проверке', String(s.to_review), 'работ ждут оценки', '#7048e8', 'check')}
         </div>
 
-        <div class="prof-card prof-sched-card">
-            <div class="prof-card-head">
-                <h3>Расписание</h3>
-                <div class="prof-seg ch-act" id="profSchedToggle">
-                    <button class="on" data-mode="today">Сегодня</button>
-                    <button data-mode="week">Неделя</button>
-                    <button data-mode="month">Месяц</button>
-                </div>
-            </div>
-            <div id="profSchedBody" class="prof-swap"></div>
-        </div>
+        ${scheduleCardHtml()}
 
         ${accordion('attention', 'Требует внимания', `${attnCount} ${plural(attnCount, 'задача', 'задачи', 'задач')}`, `
             ${alerts.map(alertRow).join('')}

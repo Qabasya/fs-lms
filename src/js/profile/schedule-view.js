@@ -12,6 +12,26 @@ import { esc, fmtDayMonth, todayIso } from './utils.js';
 import { DOW_JS, DOW_RU } from './constants.js';
 
 /**
+ * Карточка «Расписание» с переключателем режимов в шапке и пустым телом, которое
+ * заполняет {@link initSchedule}. Одна разметка на кабинет преподавателя и ученика.
+ *
+ * @returns {string}
+ */
+export function scheduleCardHtml() {
+    return `<div class="prof-card prof-sched-card">
+        <div class="prof-card-head">
+            <h3>Расписание</h3>
+            <div class="prof-seg ch-act" id="profSchedToggle">
+                <button class="on" data-mode="today">Сегодня</button>
+                <button data-mode="week">Неделя</button>
+                <button data-mode="month">Месяц</button>
+            </div>
+        </div>
+        <div id="profSchedBody" class="prof-swap"></div>
+    </div>`;
+}
+
+/**
  * Подключает переключатель расписания.
  *
  * @param {object}   o
