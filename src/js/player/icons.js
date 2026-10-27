@@ -33,7 +33,7 @@ export const TYPES = {
 const WORK_TYPES = {
 	practice: { label: 'Практика', c: '#099268', soft: '#e1f2ed' },
 	independent: { label: 'Самостоятельная работа', c: '#7048e8', soft: '#eee9fc' },
-	homework: { label: 'Домашнее задание', c: '#e8590c', soft: '#fcebe2' },
+	homework: { label: 'Домашняя работа', c: '#e8590c', soft: '#fcebe2' },
 	survey: { label: 'Опрос', c: '#0c8599', soft: '#e2f0f3' },
 };
 

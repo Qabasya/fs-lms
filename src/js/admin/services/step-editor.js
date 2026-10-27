@@ -1,3 +1,4 @@
+import { WORK_NAMES, suggestWorkTitle } from '../modules/work-title.js';
 import '../_types.js';
 import { stepIcon, icoPlus, icoX } from '../../common/icons.js';
 import { escapeHtml as esc } from '../../common/utils.js';
@@ -67,7 +68,6 @@ const icon   = ( ourType ) => stepIcon( uiMeta( ourType ).ui );
 const stepMeta = ( step ) => uiMeta( step ? step.type : 'text' );
 // У работы глиф зависит от её типа (практика / самостоятельная / домашняя / опрос) — совпадает со значком в рейке плеера.
 const WORK_GLYPHS = [ 'practice', 'independent', 'homework', 'survey' ];
-const WORK_NAMES  = { practice: 'Практика', independent: 'Самостоятельная работа', homework: 'Домашняя работа', survey: 'Опрос' };
 const glyphForStep = ( step ) => ( step && 'work' === step.type && WORK_GLYPHS.includes( step.work_type ) ) ? step.work_type : stepMeta( step ).ui;
 const iconForStep = ( step ) => stepIcon( glyphForStep( step ) );
 
@@ -92,6 +92,8 @@ export function createStepEditor( opts ) {
 	const onChange   = typeof opts.onChange === 'function' ? opts.onChange : () => {};
 	const setStatusE = typeof opts.setStatus === 'function' ? opts.setStatus : null;
 	const allowed    = Array.isArray( opts.allowedTypes ) ? opts.allowedTypes : null;
+	// Название предыдущего урока курса — для автозаполнения названия опроса и самостоятельной.
+	const previousTitle = typeof opts.previousTitle === 'function' ? opts.previousTitle : () => '';
 	// База wp-admin для ссылок «Редактировать ↗»/«Добавить новую» — из fs_lms_vars.ajaxurl
 	// (редактор шагов живёт только в админке: курс-билдер + метабокс урока).
 	const adminBase  = ( typeof fs_lms_vars !== 'undefined' && fs_lms_vars )
@@ -232,6 +234,8 @@ export function createStepEditor( opts ) {
 				saveSteps,
 				scheduleSave,
 				expandStepToBundle,
+				// Название новой работы: «Тема. Тип работы» (см. work-title.js).
+				workTitle: ( workType ) => suggestWorkTitle( workType, String( lesson.title || '' ), previousTitle() ),
 			} );
 		}
 	}

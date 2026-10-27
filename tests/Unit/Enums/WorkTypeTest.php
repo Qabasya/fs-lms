@@ -24,7 +24,7 @@ class WorkTypeTest extends TestCase {
 	public function test_options_map_value_to_label(): void {
 		$options = WorkType::options();
 		self::assertArrayHasKey( 'homework', $options );
-		self::assertSame( 'Домашнее задание', $options['homework'] );
+		self::assertSame( 'Домашняя работа', $options['homework'] );
 		self::assertCount( 4, $options );
 		self::assertSame( 'Опрос', $options['survey'] );
 	}

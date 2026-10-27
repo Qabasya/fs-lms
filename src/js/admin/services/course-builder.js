@@ -640,6 +640,12 @@ function createApp( mount ) {
 			setStatus:      persist.setStatus,
 			initialStepRef: stepRef || undefined,
 			initialStepKey: stepKey || undefined,
+			// Прошлая тема — предыдущий урок курса (через границы модулей).
+			previousTitle:  () => {
+				const all = state.course.modules.flatMap( ( m ) => m.lessons );
+				const i   = all.findIndex( ( l ) => l.id === lesson.id );
+				return i > 0 ? String( all[ i - 1 ].title || '' ) : '';
+			},
 		} );
 	}
 

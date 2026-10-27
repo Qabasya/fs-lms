@@ -49,6 +49,7 @@ class WorkMetaBoxController extends BaseController implements ServiceInterface {
 
 	public function register(): void {
 		add_action( 'add_meta_boxes', array( $this, 'handleAddMetaBoxes' ) );
+		add_filter( 'default_title', array( $this, 'prefillWorkTitle' ), 10, 2 );
 		add_action( 'add_meta_boxes', array( $this, 'tidyWorkMetaBoxes' ), 100 );
 		add_action( 'save_post', array( $this, 'handleWorkSave' ) );
 		add_action( 'transition_post_status', array( $this, 'handleWorkPublish' ), 10, 3 );
@@ -155,6 +156,20 @@ class WorkMetaBoxController extends BaseController implements ServiceInterface {
 			'data'       => array( 'work-id' => $post->ID, 'subject' => $subject, 'level' => 'work', 'number-prefix' => $numberPrefix ),
 			'json'       => (string) $json,
 		) );
+	}
+
+	/**
+	 * Название новой работы из конструктора курса («Тема. Тип работы»): приходит в `fs_lms_work_title`.
+	 *
+	 * @param string   $title Заголовок по умолчанию
+	 * @param \WP_Post $post  Создаваемая запись
+	 */
+	public function prefillWorkTitle( string $title, \WP_Post $post ): string {
+		if ( '' !== $title || ! PostTypeResolver::isWorkPostType( $post->post_type ) ) {
+			return $title;
+		}
+
+		return $this->sanitizeText( 'fs_lms_work_title', 'GET' );
 	}
 
 	public function handleWorkPublish( string $new_status, string $old_status, \WP_Post $post ): void {

@@ -13,7 +13,7 @@ import { loadRefPreview, loadTaskPreview } from '../step-preview.js';
  */
 
 export function refEditor( ed, step, ctx ) {
-	const { stepMeta, adminBase, subjectKey, openLibraryPicker, renderStepsRow, renderStepBody, saveSteps, scheduleSave, expandStepToBundle } = ctx;
+	const { stepMeta, adminBase, subjectKey, openLibraryPicker, renderStepsRow, renderStepBody, saveSteps, scheduleSave, expandStepToBundle, workTitle } = ctx;
 	const meta     = stepMeta( step );
 	const candKind = meta.candKind; // task | work | assessment
 	const refId    = parseInt( step.payload.ref || 0, 10 );
@@ -190,7 +190,10 @@ export function refEditor( ed, step, ctx ) {
 			const postType  = isWork
 				? subjectKey + '_works'
 				: subjectKey + '_assessments';
-			const typeArg = ( isWork && step.work_type ) ? '&fs_lms_work_type=' + encodeURIComponent( step.work_type ) : '';
+			let typeArg = ( isWork && step.work_type ) ? '&fs_lms_work_type=' + encodeURIComponent( step.work_type ) : '';
+			// Новая работа открывается с названием «Тема. Тип работы» — автору остаётся поправить.
+			const title = ( isWork && step.work_type && workTitle ) ? workTitle( step.work_type ) : '';
+			if ( title ) { typeArg += '&fs_lms_work_title=' + encodeURIComponent( title ); }
 			const newWin  = window.open( adminBase + 'post-new.php?post_type=' + encodeURIComponent( postType ) + typeArg, '_blank' );
 			let lastHref = '';
 			const poll = setInterval( () => {

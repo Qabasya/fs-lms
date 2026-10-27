@@ -22,7 +22,7 @@ enum WorkType: string {
 	/** Самостоятельная работа. */
 	case Independent = 'independent';
 
-	/** Домашнее задание. */
+	/** Домашняя работа. */
 	case Homework = 'homework';
 
 	/** Опрос: короткие вопросы с ограниченным набором шаблонов заданий ({@see self::allowedTemplates()}). */
@@ -37,7 +37,7 @@ enum WorkType: string {
 		return match ( $this ) {
 			self::Practice    => 'Практика',
 			self::Independent => 'Самостоятельная работа',
-			self::Homework    => 'Домашнее задание',
+			self::Homework    => 'Домашняя работа',
 			self::Survey      => 'Опрос',
 		};
 	}

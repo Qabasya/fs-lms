@@ -40,7 +40,7 @@ enum GradeBadge: string {
 		return match ( $this ) {
 			self::Independent => 'Самостоятельная',
 			self::Practice    => 'Практическая',
-			self::Homework    => 'Домашнее задание',
+			self::Homework    => 'Домашняя работа',
 			self::Survey      => 'Опрос',
 			self::Control     => 'Контрольная',
 			self::Exam        => 'Экзамен',

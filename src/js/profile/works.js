@@ -35,7 +35,7 @@ const WORK_TYPE_OPTIONS = [
     { value: '', label: 'Все типы работ' },
     { value: 'practice', label: 'Практика' },
     { value: 'independent', label: 'Самостоятельная работа' },
-    { value: 'homework', label: 'Домашнее задание' },
+    { value: 'homework', label: 'Домашняя работа' },
     { value: 'survey', label: 'Опрос' },
 ];
 
