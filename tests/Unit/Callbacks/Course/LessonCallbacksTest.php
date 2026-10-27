@@ -108,6 +108,28 @@ class LessonCallbacksTest extends TestCase {
 		self::assertArrayNotHasKey( 'needs_review', $steps[1]->payload );  // без флага ключ не добавляется
 	}
 
+	public function test_save_lesson_steps_persists_work_type_of_work_step(): void {
+		// Шаг-работа без ссылки помнит тип: по нему «Добавить новую» подставляет название.
+		$this->seedLesson( 5, 'inf', array( 'old' ) );
+		$_POST = array(
+			'lesson_id'   => '5',
+			'subject_key' => 'inf',
+			'steps'       => array(
+				array( 'key' => 's1', 'type' => 'work', 'work_type' => 'survey', 'payload' => array( 'ref' => '0' ) ),
+				array( 'key' => 's2', 'type' => 'work', 'work_type' => 'bogus', 'payload' => array( 'ref' => '0' ) ),
+				array( 'key' => 's3', 'type' => 'text', 'work_type' => 'survey', 'payload' => array( 'title' => 'C' ) ),
+			),
+		);
+
+		$r = fs_test_capture_json( fn() => $this->callbacks->ajaxSaveLessonSteps() );
+
+		self::assertTrue( $r->success );
+		$steps = $this->lessons->get( 5 )->steps;
+		self::assertSame( 'survey', $steps[0]->workType );
+		self::assertSame( '', $steps[1]->workType );
+		self::assertSame( '', $steps[2]->workType );
+	}
+
 	public function test_save_lesson_steps_persists_video_chapters_and_attachments(): void {
 		// D21 (T14.12): главы и вложения видео-шага переживают sanitizeStep —
 		// сортировка по времени, отброс пустых строк, только int-id вложений.

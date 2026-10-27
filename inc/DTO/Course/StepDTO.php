@@ -28,11 +28,14 @@ readonly class StepDTO {
 	 *   task:       { ref, source }   source: subject|bank
 	 *   work:       { ref }
 	 *   assessment: { ref }
+	 * @param string               $workType Тип работы шага `work` (practice|independent|homework|survey): '' — не задан.
+	 *   Живёт вне payload: нужен у шага без ссылки (новая работа получает название и ограничение шаблонов по типу).
 	 */
 	public function __construct(
 		public string   $key,
 		public StepType $type,
 		public array    $payload,
+		public string   $workType = '',
 	) {}
 
 	public static function fromArray( array $data ): self {
@@ -42,15 +45,21 @@ readonly class StepDTO {
 			key    : (string) ( $data['key'] ?? '' ),
 			type   : StepType::fromValueOrDefault( (string) ( $data['type'] ?? '' ) ),
 			payload: is_array( $payload ) ? $payload : array(),
+			workType: (string) ( $data['work_type'] ?? '' ),
 		);
 	}
 
 	public function toArray(): array {
-		return array(
+		$data = array(
 			'key'     => $this->key,
 			'type'    => $this->type->value,
 			'payload' => $this->payload,
 		);
+		if ( '' !== $this->workType ) {
+			$data['work_type'] = $this->workType;
+		}
+
+		return $data;
 	}
 
 	/**
@@ -86,7 +95,7 @@ readonly class StepDTO {
 			}
 		}
 
-		return new self( $this->key, $this->type, array_merge( $this->payload, $extra ) );
+		return new self( $this->key, $this->type, array_merge( $this->payload, $extra ), $this->workType );
 	}
 
 	/**

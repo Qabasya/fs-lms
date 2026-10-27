@@ -247,7 +247,7 @@ class ContentCloneService {
 
 	/** Копия шага с другой ссылкой на работу или контрольную. */
 	private function withRef( StepDTO $step, int $ref ): StepDTO {
-		return $ref > 0 ? new StepDTO( $step->key, $step->type, array_merge( $step->payload, array( 'ref' => $ref ) ) ) : $step;
+		return $ref > 0 ? new StepDTO( $step->key, $step->type, array_merge( $step->payload, array( 'ref' => $ref ) ), $step->workType ) : $step;
 	}
 
 	/**

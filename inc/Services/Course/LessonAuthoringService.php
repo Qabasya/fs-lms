@@ -406,7 +406,7 @@ class LessonAuthoringService {
 				throw new \InvalidArgumentException( 'Экзамен-станцию нельзя добавить в урок: назначьте его через «Мои экзамены».' );
 			}
 
-			$steps[] = new StepDTO( '' !== $key ? $key : $this->generateStepKey(), $type, $payload );
+			$steps[] = new StepDTO( '' !== $key ? $key : $this->generateStepKey(), $type, $payload, (string) ( $raw['work_type'] ?? '' ) );
 		}
 
 		return $steps;
@@ -532,7 +532,15 @@ class LessonAuthoringService {
 			}
 		}
 
-		return array( 'key' => $key, 'type' => $type, 'payload' => $payload );
+		$step = array( 'key' => $key, 'type' => $type, 'payload' => $payload );
+
+		// Тип работы шага: без него шаг без ссылки теряет название и ограничение шаблонов после перезагрузки.
+		$work_type = $this->sanitizeKeyValue( $raw['work_type'] ?? '' );
+		if ( 'work' === $type && null !== WorkType::tryFrom( $work_type ) ) {
+			$step['work_type'] = $work_type;
+		}
+
+		return $step;
 	}
 
 	/**
