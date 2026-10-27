@@ -73,7 +73,7 @@ class MediaManager {
 		}
 
 		$type = mime_content_type( $file['tmp_name'] );
-		if ( ! in_array( $type, self::ALLOWED_MIME_TYPES, true ) ) {
+		if ( ! $this->isAllowedMime( (string) $type ) ) {
 			throw new \RuntimeException( 'Недопустимый тип файла.' );
 		}
 
@@ -84,16 +84,9 @@ class MediaManager {
 		// T13.2: точечно расширяем WP-whitelist ТОЛЬКО на время нашей (уже
 		// провалидированной finfo-проверкой выше) загрузки: .py/.heic/.rar нет в
 		// дефолтном wp_check_filetype, глобально загрузки не ослабляем.
-		$extraMimes = static function ( array $mimes ): array {
-			$mimes['py']   = 'text/x-python';
-			$mimes['heic'] = 'image/heic';
-			$mimes['heif'] = 'image/heif';
-			$mimes['rar']  = 'application/vnd.rar';
-			return $mimes;
-		};
 		$attachmentId = $this->withFilter(
 			'upload_mimes',
-			$extraMimes,
+			$this->extendUploadMimes( ... ),
 			static fn() => media_handle_upload( $fileKey, $postParent )
 		);
 
@@ -135,6 +128,29 @@ class MediaManager {
 		$check['type'] = 'text/plain';
 
 		return $check;
+	}
+
+	/**
+	 * Допустим ли реальный (finfo) тип содержимого. Единый белый список: им же
+	 * пользуется пакет переноса предмета ({@see \Inc\Services\Subject\Bundle\MediaSideloader}).
+	 */
+	public function isAllowedMime( string $type ): bool {
+		return in_array( $type, self::ALLOWED_MIME_TYPES, true );
+	}
+
+	/**
+	 * Фильтр 'upload_mimes': расширения плагина, которых нет в дефолте WP. Вешать только
+	 * на время загрузки (см. {@see ScopedFilter::withFilter()}) — глобально загрузки не ослабляем.
+	 *
+	 * @param array<string,string> $mimes Расширение => MIME
+	 * @return array<string,string>
+	 */
+	public function extendUploadMimes( array $mimes ): array {
+		$mimes['py']   = 'text/x-python';
+		$mimes['heic'] = 'image/heic';
+		$mimes['heif'] = 'image/heif';
+		$mimes['rar']  = 'application/vnd.rar';
+		return $mimes;
 	}
 
 	public function delete( int $attachmentId ): bool {

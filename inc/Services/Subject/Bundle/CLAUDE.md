@@ -53,6 +53,6 @@
 - **Безопасность распаковки**: `BundleArchive` отвергает архив с path traversal,
   посторонними файлами и превышением распакованного объёма; `sha256` каждого
   медиафайла проверяется **до** первой записи в БД. MIME-белый список
-  `MediaSideloader` — зеркало `MediaManager`, расширять его ради импорта нельзя.
+  `MediaSideloader` берёт белый список у `MediaManager::isAllowedMime()` (одна копия), расширять его ради импорта нельзя.
 - **Большие предметы** — WP-CLI (`inc/Cli/SubjectBundleCommand.php`):
   `wp fs-lms subject export <key> --out=file.zip`, `wp fs-lms subject import file.zip [--dry-run]`.

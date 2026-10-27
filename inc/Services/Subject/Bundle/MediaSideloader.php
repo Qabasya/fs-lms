@@ -4,6 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Subject\Bundle;
 
+use Inc\Managers\Wp\MediaManager;
 use Inc\Services\Subject\Import\ImportedEntitiesCollector;
 use Inc\Shared\Traits\ScopedFilter;
 use Inc\Shared\PluginLogger;
@@ -22,8 +23,8 @@ use Inc\Shared\PluginLogger;
  *
  * ### Контроль типов
  *
- * Белый список MIME намеренно совпадает с {@see \Inc\Managers\Wp\MediaManager}
- * и не расширяется ради импорта: пакет — такой же пользовательский ввод, как
+ * Белый список MIME — тот же объект, что у {@see \Inc\Managers\Wp\MediaManager}
+ * (`isAllowedMime()`), и не расширяется ради импорта: пакет — такой же пользовательский ввод, как
  * загрузка файла через форму, и ослаблять для него правила нельзя. Проверяется
  * реальный тип содержимого (`finfo`), а не расширение из архива.
  *
@@ -37,31 +38,9 @@ class MediaSideloader {
 
 	use ScopedFilter;
 
-	/**
-	 * Допустимые MIME-типы — зеркало {@see \Inc\Managers\Wp\MediaManager}.
-	 */
-	private const array ALLOWED_MIME_TYPES = array(
-		'image/jpeg',
-		'image/png',
-		'image/gif',
-		'image/webp',
-		'image/heic',
-		'image/heif',
-		'application/pdf',
-		'application/msword',
-		'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-		'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-		'application/vnd.ms-excel',
-		'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-		'application/vnd.oasis.opendocument.text',
-		'application/vnd.oasis.opendocument.presentation',
-		'text/plain',
-		'text/csv',
-		'application/csv',
-		'text/x-python',
-		'application/zip',
-		'application/x-zip-compressed',
-	);
+	public function __construct(
+		private readonly MediaManager $mediaManager,
+	) {}
 
 	/**
 	 * Заливает все файлы пакета и возвращает карту `_export_id` → новый ID.
@@ -140,16 +119,9 @@ class MediaSideloader {
 			return 0;
 		}
 
-		$extraMimes = static function ( array $mimes ): array {
-			$mimes['py']   = 'text/x-python';
-			$mimes['heic'] = 'image/heic';
-			$mimes['heif'] = 'image/heif';
-			return $mimes;
-		};
-
 		$attachmentId = $this->withFilter(
 			'upload_mimes',
-			$extraMimes,
+			$this->mediaManager->extendUploadMimes( ... ),
 			static function () use ( $filename, $tmp ) {
 				try {
 					return media_handle_sideload(
@@ -189,7 +161,7 @@ class MediaSideloader {
 	private function rejectionReason( string $path, string $relative ): ?string {
 		$type = mime_content_type( $path );
 
-		if ( is_string( $type ) && in_array( $type, self::ALLOWED_MIME_TYPES, true ) ) {
+		if ( is_string( $type ) && $this->mediaManager->isAllowedMime( $type ) ) {
 			return null;
 		}
 

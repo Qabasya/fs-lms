@@ -85,4 +85,20 @@ class MediaManagerTest extends TestCase {
 		$this->expectExceptionMessage( 'Недопустимый тип файла.' );
 		$this->manager->uploadFromRequest( 'answer_file' );
 	}
+
+	/** Белый список один на форму и пакет переноса предмета: RAR и Python принимаются везде. */
+	public function test_whitelist_accepts_rar_and_python(): void {
+		self::assertTrue( $this->manager->isAllowedMime( 'application/vnd.rar' ) );
+		self::assertTrue( $this->manager->isAllowedMime( 'text/x-python' ) );
+		self::assertFalse( $this->manager->isAllowedMime( 'application/x-msdownload' ) );
+	}
+
+	public function test_extends_wp_upload_mimes_with_plugin_extensions(): void {
+		$mimes = $this->manager->extendUploadMimes( array( 'jpg' => 'image/jpeg' ) );
+
+		self::assertSame( 'image/jpeg', $mimes['jpg'] );
+		self::assertSame( 'text/x-python', $mimes['py'] );
+		self::assertSame( 'application/vnd.rar', $mimes['rar'] );
+		self::assertSame( 'image/heic', $mimes['heic'] );
+	}
 }
