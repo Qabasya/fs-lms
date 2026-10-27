@@ -4,16 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Export;
 
-use Inc\Contracts\CsvExportProviderInterface;
 use Inc\DTO\Export\CsvColumn;
-use Inc\Enums\Wp\MetaKeys;
-use Inc\Repositories\OptionsRepositories\SubjectRepository;
-use Inc\Repositories\OptionsRepositories\UserRepository;
-use Inc\Repositories\WPDBRepositories\GroupsRepository;
-use Inc\Repositories\WPDBRepositories\PersonDocumentsRepository;
-use Inc\Repositories\WPDBRepositories\PersonRepository;
-use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
-use Inc\Services\Security\PiiCryptoService;
 
 /**
  * Class StudentsExportProvider
@@ -56,28 +47,7 @@ use Inc\Services\Security\PiiCryptoService;
  * чекбокс в UI). По умолчанию файл содержит лишь контактные данные, и
  * расшифровка пароля вообще не выполняется.
  */
-class StudentsExportProvider implements CsvExportProviderInterface {
-
-	/**
-	 * Конструктор провайдера.
-	 *
-	 * @param PersonRepository          $persons         Репозиторий лиц
-	 * @param StudentRecordRepository   $studentRecords  Репозиторий записей студентов
-	 * @param PersonDocumentsRepository $personDocuments Репозиторий документов лиц
-	 * @param GroupsRepository          $groups          Репозиторий групп
-	 * @param SubjectRepository         $subjects        Репозиторий предметов
-	 * @param UserRepository            $userRepository  Репозиторий пользователей WP
-	 * @param PiiCryptoService          $crypto          Сервис шифрования PII
-	 */
-	public function __construct(
-		private readonly PersonRepository          $persons,
-		private readonly StudentRecordRepository   $studentRecords,
-		private readonly PersonDocumentsRepository $personDocuments,
-		private readonly GroupsRepository          $groups,
-		private readonly SubjectRepository         $subjects,
-		private readonly UserRepository            $userRepository,
-		private readonly PiiCryptoService          $crypto,
-	) {}
+class StudentsExportProvider extends AbstractPersonExportProvider {
 
 	/**
 	 * Возвращает структуру колонок CSV-файла.
@@ -140,9 +110,7 @@ class StudentsExportProvider implements CsvExportProviderInterface {
 		$withPasswords  = self::wantsPasswords( $context );
 
 		// Получение списка студентов (is_student = true)
-		$persons = $ids
-			? array_filter( array_map( fn( int $id ) => $this->persons->find( $id ), $ids ) )
-			: $this->persons->findByIsStudent( true );
+		$persons = $this->selectPersons( $ids, true );
 
 		foreach ( $persons as $person ) {
 			$docs     = $this->personDocuments->findByPersonId( $person->id );
@@ -158,27 +126,15 @@ class StudentsExportProvider implements CsvExportProviderInterface {
 				if ( $rec->parentPersonId ) {
 					$parentIds[ $rec->parentPersonId ] = $rec->parentPersonId;
 				}
-				if ( $rec->groupId ) {
-					$group = $this->groups->findById( $rec->groupId );
-					if ( $group ) {
-						$groupNames[]   = $group->name;
-						$subjectNames[] = $this->subjects->getByKey( $group->subject_key )?->name ?? $group->subject_key;
-					}
+				$names = $this->groupAndSubject( $rec->groupId );
+				if ( $names ) {
+					$groupNames[]   = $names['group'];
+					$subjectNames[] = $names['subject'];
 				}
 			}
 
 			// Расшифровка пароля — только если пароли реально попадут в файл
-			$password = '';
-			if ( $withPasswords && $person->wpUserId ) {
-				$enc = $this->userRepository->getMeta( $person->wpUserId, MetaKeys::EncPassword->value );
-				if ( $enc ) {
-					try {
-						$password = $this->crypto->decrypt( (string) base64_decode( $enc ) );
-					} catch ( \Throwable ) {
-						// Не удалось расшифровать — оставляем пустым
-					}
-				}
-			}
+			$password = $withPasswords ? $this->decryptedPassword( $person->wpUserId ) : '';
 
 			yield array(
 				'person_id'   => $person->id,
@@ -206,23 +162,5 @@ class StudentsExportProvider implements CsvExportProviderInterface {
 	 */
 	public function filename(): string {
 		return 'students';
-	}
-
-	/**
-	 * Расшифровывает строку из зашифрованного BLOB.
-	 *
-	 * @param string|null $enc Зашифрованные данные
-	 *
-	 * @return string
-	 */
-	private function decrypt( ?string $enc ): string {
-		if ( ! $enc ) {
-			return '';
-		}
-		try {
-			return $this->crypto->decrypt( $enc );
-		} catch ( \Throwable ) {
-			return '';
-		}
 	}
 }

@@ -4,16 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Export;
 
-use Inc\Contracts\CsvExportProviderInterface;
 use Inc\DTO\Export\CsvColumn;
-use Inc\Enums\Wp\MetaKeys;
-use Inc\Repositories\OptionsRepositories\SubjectRepository;
-use Inc\Repositories\OptionsRepositories\UserRepository;
-use Inc\Repositories\WPDBRepositories\GroupsRepository;
-use Inc\Repositories\WPDBRepositories\PersonDocumentsRepository;
-use Inc\Repositories\WPDBRepositories\PersonRepository;
-use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
-use Inc\Services\Security\PiiCryptoService;
 
 /**
  * Class ParentsExportProvider
@@ -49,7 +40,7 @@ use Inc\Services\Security\PiiCryptoService;
  * - Пароль расшифровывается из мета-поля пользователя (если сохранён)
  * - Расшифровка выполняется только для администраторов (экспорт)
  */
-class ParentsExportProvider implements CsvExportProviderInterface {
+class ParentsExportProvider extends AbstractPersonExportProvider {
 
 	/**
 	 * Колонки блока «документы и ИНН» (ключ данных => заголовок). Один набор на родителя
@@ -64,27 +55,6 @@ class ParentsExportProvider implements CsvExportProviderInterface {
 		'inn'             => 'ИНН',
 		'address'         => 'Адрес',
 	);
-
-	/**
-	 * Конструктор провайдера.
-	 *
-	 * @param PersonRepository          $persons         Репозиторий лиц
-	 * @param StudentRecordRepository   $studentRecords  Репозиторий записей студентов
-	 * @param PersonDocumentsRepository $personDocuments Репозиторий документов лиц
-	 * @param GroupsRepository          $groups          Репозиторий групп
-	 * @param SubjectRepository         $subjects        Репозиторий предметов
-	 * @param UserRepository            $userRepository  Репозиторий пользователей WP
-	 * @param PiiCryptoService          $crypto          Сервис шифрования PII
-	 */
-	public function __construct(
-		private readonly PersonRepository          $persons,
-		private readonly StudentRecordRepository   $studentRecords,
-		private readonly PersonDocumentsRepository $personDocuments,
-		private readonly GroupsRepository          $groups,
-		private readonly SubjectRepository         $subjects,
-		private readonly UserRepository            $userRepository,
-		private readonly PiiCryptoService          $crypto,
-	) {}
 
 	/**
 	 * Возвращает структуру колонок CSV-файла.
@@ -159,9 +129,7 @@ class ParentsExportProvider implements CsvExportProviderInterface {
 		$withDocuments = self::wantsDocuments( $context );
 
 		// Получение списка родителей (is_student = false)
-		$persons = $ids
-			? array_filter( array_map( fn( int $id ) => $this->persons->find( $id ), $ids ) )
-			: $this->persons->findByIsStudent( false );
+		$persons = $this->selectPersons( $ids, false );
 
 		foreach ( $persons as $parent ) {
 			$docs   = $this->personDocuments->findByPersonId( $parent->id );
@@ -183,27 +151,15 @@ class ParentsExportProvider implements CsvExportProviderInterface {
 					$studentIds[ $student->id ]  = $student->id;
 					$students[ $student->id ]    = $student;
 				}
-				if ( $rec->groupId ) {
-					$group = $this->groups->findById( $rec->groupId );
-					if ( $group ) {
-						$groupNames[]   = $group->name;
-						$subjectNames[] = $this->subjects->getByKey( $group->subject_key )?->name ?? $group->subject_key;
-					}
+				$names = $this->groupAndSubject( $rec->groupId );
+				if ( $names ) {
+					$groupNames[]   = $names['group'];
+					$subjectNames[] = $names['subject'];
 				}
 			}
 
 			// Расшифровка пароля — только если пароли реально попадут в файл
-			$password = '';
-			if ( $withPasswords && $parent->wpUserId ) {
-				$enc = $this->userRepository->getMeta( $parent->wpUserId, MetaKeys::EncPassword->value );
-				if ( $enc ) {
-					try {
-						$password = $this->crypto->decrypt( (string) base64_decode( $enc ) );
-					} catch ( \Throwable ) {
-						// Не удалось расшифровать — оставляем пустым
-					}
-				}
-			}
+			$password = $withPasswords ? $this->decryptedPassword( $parent->wpUserId ) : '';
 
 			yield array(
 				'person_id'   => $parent->id,
@@ -271,23 +227,5 @@ class ParentsExportProvider implements CsvExportProviderInterface {
 	 */
 	public function filename(): string {
 		return 'parents';
-	}
-
-	/**
-	 * Расшифровывает строку из зашифрованного BLOB.
-	 *
-	 * @param string|null $enc Зашифрованные данные
-	 *
-	 * @return string
-	 */
-	private function decrypt( ?string $enc ): string {
-		if ( ! $enc ) {
-			return '';
-		}
-		try {
-			return $this->crypto->decrypt( $enc );
-		} catch ( \Throwable ) {
-			return '';
-		}
 	}
 }
