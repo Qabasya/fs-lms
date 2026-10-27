@@ -11,6 +11,7 @@ namespace Inc\Controllers\Exam;
 
 use Inc\Contracts\ServiceInterface;
 use Inc\Core\BaseController;
+use Inc\Enums\Wp\PostMetaName;
 use Inc\Enums\Wp\TransientKey;
 use Inc\Managers\Wp\TransientManager;
 use Inc\Services\Exam\ExamVariantGuard;
@@ -42,7 +43,7 @@ class ExamVariantGuardController extends BaseController implements ServiceInterf
 	 * Подключает защиту метаданных, содержимого и удаления замороженных вариантов.
 	 */
 	public function register(): void {
-		add_filter( 'update_post_metadata', array( $this, 'guardMeta' ), 1, 3 );
+		add_filter( 'update_post_metadata', array( $this, 'guardMetaUpdate' ), 1, 4 );
 		add_filter( 'add_post_metadata', array( $this, 'guardMeta' ), 1, 3 );
 		add_filter( 'delete_post_metadata', array( $this, 'guardMeta' ), 1, 3 );
 		add_filter( 'wp_insert_post_data', array( $this, 'guardPostData' ), 1, 2 );
@@ -50,6 +51,31 @@ class ExamVariantGuardController extends BaseController implements ServiceInterf
 		add_filter( 'pre_delete_post', array( $this, 'guardDelete' ), 5, 2 );
 		add_filter( 'pre_delete_attachment', array( $this, 'guardAttachment' ), 5, 2 );
 		add_action( 'admin_notices', array( $this, 'renderNotice' ) );
+	}
+
+	/**
+	 * Обновление меты: как {@see guardMeta()}, но правка одного лишь текста условия замороженного
+	 * задания проходит — опечатку в условии исправить можно, ответ и баллы остаются прежними.
+	 *
+	 * @param mixed  $check     null — штатный путь; не null — операция отменена.
+	 * @param int    $objectId  Пост.
+	 * @param string $metaKey   Ключ меты.
+	 * @param mixed  $metaValue Новое значение.
+	 *
+	 * @return mixed
+	 */
+	public function guardMetaUpdate( mixed $check, mixed $objectId, mixed $metaKey, mixed $metaValue = null ): mixed {
+		if ( null === $check && in_array( (string) $metaKey, ExamVariantGuard::GUARDED_META, true ) && $this->guard->isPostFrozen( (int) $objectId ) ) {
+			// Та же запись, что уже хранится (метабокс пишет все поля подряд), — не правка: молча пропускаем.
+			if ( $this->guard->isMetaUnchanged( (int) $objectId, (string) $metaKey, $metaValue ) ) {
+				return $check;
+			}
+			if ( PostMetaName::Meta->value === (string) $metaKey && $this->guard->isConditionOnlyEdit( (int) $objectId, $metaValue ) ) {
+				return $check;
+			}
+		}
+
+		return $this->guardMeta( $check, $objectId, $metaKey );
 	}
 
 	/**

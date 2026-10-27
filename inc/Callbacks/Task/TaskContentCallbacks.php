@@ -86,7 +86,8 @@ class TaskContentCallbacks extends BaseController {
 		$postId     = $this->sanitizeInt( 'post_id' );
 		$rawMeta    = $this->unslashArray( PostMetaName::Meta->value );
 
-		if ( $postId > 0 && $this->variantGuard->isTaskFrozen( $postId ) ) {
+		// Замороженное задание правится только в тексте условия (остальное — копией варианта).
+		if ( $postId > 0 && $this->variantGuard->isTaskFrozen( $postId ) && ! $this->variantGuard->isConditionOnlyEdit( $postId, $rawMeta ) ) {
 			$this->error( $this->variantGuard->reason( $postId ) );
 			return;
 		}

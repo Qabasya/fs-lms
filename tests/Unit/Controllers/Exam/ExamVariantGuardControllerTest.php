@@ -48,6 +48,16 @@ class ExamVariantGuardControllerTest extends TestCase {
 		self::assertFalse( $this->controller->guardMeta( null, 11, 'fs_lms_meta' ) );
 	}
 
+	/** Правка только условия замороженного задания проходит через обновление меты; удаление и добавление — нет. */
+	public function test_update_meta_allows_condition_only_edit_of_frozen_task(): void {
+		$this->guard->method( 'isConditionOnlyEdit' )->willReturnCallback( static fn ( int $id, mixed $meta ): bool => 11 === $id && array( 'ok' ) === $meta );
+
+		self::assertNull( $this->controller->guardMetaUpdate( null, 11, 'fs_lms_meta', array( 'ok' ) ) );
+		self::assertFalse( $this->controller->guardMetaUpdate( null, 11, 'fs_lms_meta', array( 'changed answer' ) ) );
+		self::assertFalse( $this->controller->guardMetaUpdate( null, 11, 'fs_lms_template_type', array( 'ok' ) ), 'Другие ключи — только как раньше.' );
+		self::assertFalse( $this->controller->guardMeta( null, 11, 'fs_lms_meta' ), 'Удаление и добавление исключения не получают.' );
+	}
+
 	public function test_unfrozen_posts_and_foreign_keys_are_untouched(): void {
 		self::assertNull( $this->controller->guardMeta( null, 77, 'fs_lms_meta' ), 'Свободный вариант правится как обычно.' );
 		self::assertNull( $this->controller->guardMeta( null, 500, '_edit_lock' ), 'Служебная мета WordPress не блокируется.' );

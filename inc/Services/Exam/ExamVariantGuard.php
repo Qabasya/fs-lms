@@ -81,6 +81,67 @@ class ExamVariantGuard {
 		return isset( $this->taskMap()[ $taskId ] );
 	}
 
+	/**
+	 * Правка только текста условия замороженного задания: поля `*_condition` меняются, всё остальное
+	 * (ответ, баллы, шаблон, состав) остаётся как было. Опечатку в условии исправить можно — на
+	 * результат и оценивание она не влияет. Только для заданий; сам вариант (контрольная) этим не открывается.
+	 *
+	 * @param mixed $newMeta Новое значение меты `fs_lms_meta` задания
+	 */
+	public function isConditionOnlyEdit( int $taskId, mixed $newMeta ): bool {
+		if ( ! is_array( $newMeta ) || ! $this->isTaskFrozen( $taskId ) || $this->isAssessmentFrozen( $taskId ) ) {
+			return false;
+		}
+
+		$current = $this->posts->getMeta( $taskId, PostMetaName::Meta->value );
+
+		return is_array( $current ) && $this->withoutConditions( $current ) === $this->withoutConditions( $newMeta );
+	}
+
+	/** Значение меты не меняется (запись того же): такая запись безвредна и отказа не вызывает. */
+	public function isMetaUnchanged( int $postId, string $metaKey, mixed $newValue ): bool {
+		$current = $this->posts->getMeta( $postId, $metaKey );
+
+		return is_array( $current ) && is_array( $newValue )
+			? $this->normalized( $current ) === $this->normalized( $newValue )
+			: (string) $current === (string) $newValue;
+	}
+
+	/**
+	 * @param array<mixed> $meta
+	 *
+	 * @return array<mixed>
+	 */
+	private function normalized( array $meta ): array {
+		$out = array();
+		foreach ( $meta as $key => $value ) {
+			$out[ $key ] = is_array( $value ) ? $this->normalized( $value ) : (string) $value;
+		}
+		ksort( $out );
+
+		return $out;
+	}
+
+	/**
+	 * Мета без полей условия, значения приведены к строкам: «2» и 2 не считаются правкой.
+	 *
+	 * @param array<mixed> $meta
+	 *
+	 * @return array<mixed>
+	 */
+	private function withoutConditions( array $meta ): array {
+		$kept = array();
+		foreach ( $meta as $key => $value ) {
+			if ( is_string( $key ) && str_ends_with( $key, '_condition' ) ) {
+				continue;
+			}
+			$kept[ $key ] = is_array( $value ) ? $this->withoutConditions( $value ) : (string) $value;
+		}
+		ksort( $kept );
+
+		return $kept;
+	}
+
 	/** Любой пост работы или задания: вариант либо задание замороженного варианта. */
 	public function isPostFrozen( int $postId ): bool {
 		return $this->isAssessmentFrozen( $postId ) || $this->isTaskFrozen( $postId );
