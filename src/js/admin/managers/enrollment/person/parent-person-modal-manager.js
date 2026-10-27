@@ -15,6 +15,7 @@
  */
 
 import { ParentPersonModal } from '../../../modals/enrollment/person/parent-person-modal.js';
+import { createPersonActions } from './person-modal-actions.js';
 import { PiiExportService } from '../../../services/pii-export-service.js';
 
 const $ = jQuery;
@@ -23,6 +24,16 @@ const $ = jQuery;
 const NONCES   = () => fs_lms_applications_vars.nonces;
 const ACTIONS  = () => fs_lms_vars.ajax_actions;
 const AJAX_URL = () => fs_lms_vars.ajaxurl;
+
+// AJAX-действия модалки; различия ролей — список полей и предложение нового пароля.
+const actions = createPersonActions( ParentPersonModal, {
+    editableFields: [
+        'last_name', 'first_name', 'middle_name',
+        'phone', 'email', 'password',
+        'birth_date', 'doc_number', 'inn', 'address',
+        'doc_issued_by', 'doc_issued_date',
+    ],
+} );
 
 /**
  * Основной объект-менеджер.
@@ -174,42 +185,7 @@ export const ParentPersonModalManager = {
      * @private
      */
     _startEditing() {
-        const personId = ParentPersonModal.getPersonId();
-        const wpUserId = ParentPersonModal.getWpUserId();
-
-        // Если personId отсутствует (новый родитель), просто включаем режим редактирования
-        if ( ! personId ) {
-            ParentPersonModal.setEditing( true );
-            return;
-        }
-
-        // ПАТТЕРН: Параллельные AJAX-запросы через $.when
-        // Запрашиваем полные персональные данные (без маскирования)
-        const piiPromise = $.post( AJAX_URL(), {
-            action:    ACTIONS().revealAllPersonPii,
-            person_id: personId,
-            reason:    'admin_userlist_edit', // Причина раскрытия для логирования/аудита
-            security:  NONCES().revealPii,
-        } ).done( ( res ) => {
-            if ( res.success ) ParentPersonModal.fillRevealed( res.data );
-        } );
-
-        // Если есть связанный пользователь WordPress, запрашиваем его пароль
-        const credPromise = wpUserId
-            ? $.post( AJAX_URL(), {
-                action:   ACTIONS().revealUserCredentials,
-                user_id:  wpUserId,
-                security: NONCES().revealPii,
-            } ).done( ( res ) => {
-                if ( res.success ) ParentPersonModal.fillRevealed( { password: res.data.password || '' } );
-            } )
-            : $.Deferred().resolve(); // Если wpUserId нет, создаем сразу разрешенный Deferred
-
-        // Ждем завершения обоих запросов, затем включаем режим редактирования.
-        // .always() срабатывает независимо от успеха/ошибки, гарантируя, что UI не заблокируется.
-        $.when( piiPromise, credPromise ).always( () => {
-            ParentPersonModal.setEditing( true );
-        } );
+        actions.startEditing();
     },
 
     /**
@@ -218,30 +194,7 @@ export const ParentPersonModalManager = {
      * @private
      */
     _revealAll() {
-        const personId = ParentPersonModal.getPersonId();
-        const wpUserId = ParentPersonModal.getWpUserId();
-        if ( ! personId ) return;
-
-        // Раскрываем PII
-        $.post( AJAX_URL(), {
-            action:    ACTIONS().revealAllPersonPii,
-            person_id: personId,
-            reason:    'admin_userlist_reveal',
-            security:  NONCES().revealPii,
-        } ).done( ( res ) => {
-            if ( res.success ) ParentPersonModal.fillRevealed( res.data );
-        } );
-
-        // Раскрываем пароль, если есть связанный пользователь
-        if ( wpUserId ) {
-            $.post( AJAX_URL(), {
-                action:   ACTIONS().revealUserCredentials,
-                user_id:  wpUserId,
-                security: NONCES().revealPii,
-            } ).done( ( res ) => {
-                if ( res.success ) ParentPersonModal.fillRevealed( { password: res.data.password || '' } );
-            } );
-        }
+        actions.revealAll();
     },
 
     /**
@@ -250,35 +203,7 @@ export const ParentPersonModalManager = {
      * @private
      */
     _save() {
-        const personId = ParentPersonModal.getPersonId();
-        if ( ! personId ) return;
-
-        // Белый список полей, которые разрешено редактировать.
-        // Это защита от mass assignment атак, когда злоумышленник может подменить дополнительные поля в запросе.
-        const allowed = [
-            'last_name', 'first_name', 'middle_name',
-            'phone', 'email', 'password',
-            'birth_date', 'doc_number', 'inn', 'address',
-            'doc_issued_by', 'doc_issued_date',
-        ];
-
-        const edit = ParentPersonModal.getEditData();
-        const payload = {
-            action:    ACTIONS().updatePerson,
-            security:  NONCES().updatePerson,
-            person_id: personId,
-        };
-
-        // Фильтрация полей: добавляем в payload только разрешенные поля, 
-        // которые не содержат символ '•' (маркер маскированного значения).
-        // Это предотвращает отправку на сервер маскированных данных вместо реальных.
-        allowed.forEach( k => {
-            if ( edit[ k ] && ! edit[ k ].includes( '•' ) ) payload[ k ] = edit[ k ];
-        } );
-
-        $.post( AJAX_URL(), payload ).done( ( res ) => {
-            if ( res.success ) ParentPersonModal.setEditing( false );
-        } );
+        actions.save();
     },
 
     /**
@@ -302,23 +227,6 @@ export const ParentPersonModalManager = {
      * @param {jQuery} $btn - jQuery-объект кнопки, на которую нажали.
      */
     _regeneratePassword( wpUserId, $btn ) {
-        // Блокируем кнопку для предотвращения повторных кликов
-        $btn.prop( 'disabled', true );
-
-        $.post( AJAX_URL(), {
-            action:   ACTIONS().regenerateUserPassword,
-            user_id:  wpUserId,
-            security: NONCES().revealPii,
-        } ).done( ( res ) => {
-            if ( res.success ) {
-                // Обновляем отображение пароля в модалке
-                ParentPersonModal.fillRevealed( { password: res.data.password || '' } );
-                // Удаляем кнопку, так как пароль уже сгенерирован
-                $btn.remove();
-            } else {
-                // Разблокируем кнопку при ошибке
-                $btn.prop( 'disabled', false );
-            }
-        } );
+        actions.regeneratePassword( wpUserId, $btn );
     },
 };
