@@ -129,4 +129,47 @@ class WorkCallbacksTest extends TestCase {
 		self::assertFalse( $r->success );
 		self::assertStringContainsString( 'Опрос', (string) ( $r->payload['message'] ?? $r->payload ) );
 	}
+
+	/** Новые элементы работы проверяются: чужой черновик или не задание в работу не попадают. */
+	public function test_save_work_items_rejects_new_items_that_do_not_validate(): void {
+		$this->manager->method( 'get' )->willReturn( new \Inc\DTO\Course\WorkDTO(
+			id          : 5,
+			subjectKey  : 'inf',
+			title       : 'Работа',
+			workType    : \Inc\Enums\Course\WorkType::Practice,
+			itemIds     : array( 10 ),
+			instructions: '',
+			authorId    : 1,
+			status      : 'draft',
+		) );
+		$this->auth->method( 'disallowedItemIds' )->willReturn( array() );
+		// Из новых (20, 30) валидно только 20.
+		$this->auth->expects( $this->once() )->method( 'validateItemIds' )->with( 'inf', array( 20, 30 ) )->willReturn( array( 20 ) );
+		$this->manager->expects( $this->never() )->method( 'setItemIds' );
+		$_POST = array( 'work_id' => '5', 'item_ids' => array( '10', '20', '30' ) );
+
+		$r = fs_test_capture_json( fn() => $this->cb->ajaxSaveWorkItems() );
+
+		self::assertFalse( $r->success );
+		self::assertStringContainsString( '30', (string) ( $r->payload['message'] ?? $r->payload ) );
+	}
+
+	public function test_save_work_items_does_not_revalidate_items_already_in_work(): void {
+		$this->manager->method( 'get' )->willReturn( new \Inc\DTO\Course\WorkDTO(
+			id          : 5,
+			subjectKey  : 'inf',
+			title       : 'Работа',
+			workType    : \Inc\Enums\Course\WorkType::Practice,
+			itemIds     : array( 10, 20 ),
+			instructions: '',
+			authorId    : 1,
+			status      : 'draft',
+		) );
+		$this->auth->method( 'disallowedItemIds' )->willReturn( array() );
+		$this->auth->expects( $this->never() )->method( 'validateItemIds' );
+		$this->manager->method( 'setItemIds' )->willReturn( true );
+		$_POST = array( 'work_id' => '5', 'item_ids' => array( '20', '10' ) );
+
+		self::assertTrue( fs_test_capture_json( fn() => $this->cb->ajaxSaveWorkItems() )->success );
+	}
 }

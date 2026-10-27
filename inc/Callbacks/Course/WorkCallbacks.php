@@ -56,6 +56,20 @@ class WorkCallbacks extends BaseController {
 				) );
 				return;
 			}
+
+			// Проверяем только новые элементы: уже стоящие в работе не пересматриваем (старые работы
+			// могут содержать то, что сегодняшние правила не пропустили бы).
+			$added = array_values( array_diff( $item_ids, $work->itemIds ) );
+			$bad   = array() === $added
+				? array()
+				: array_values( array_diff( $added, $this->authoringService->validateItemIds( $work->subjectKey, $added ) ) );
+			if ( array() !== $bad ) {
+				$this->error( sprintf(
+					'Эти элементы нельзя добавить в работу (ID: %s): это не задание или задание другого предмета не опубликовано.',
+					implode( ', ', $bad )
+				) );
+				return;
+			}
 		}
 
 		if ( $this->workManager->setItemIds( $work_id, $item_ids ) ) {
@@ -104,6 +118,7 @@ class WorkCallbacks extends BaseController {
 		$source      = $this->sanitizeKey( 'source' );
 		$page        = max( 1, $this->sanitizeInt( 'page' ) );
 		$work_type   = $this->sanitizeKey( 'work_type' );
+		$target      = $this->sanitizeKey( 'target_subject' );
 
 		if ( ! in_array( $scope, array( 'mine', 'subject' ), true ) ) {
 			$scope = 'mine';
@@ -113,7 +128,7 @@ class WorkCallbacks extends BaseController {
 		}
 
 		$this->success(
-			$this->authoringService->getItemCandidates( $subject_key, $collection, $scope, $search, $source, $page, $work_type )
+			$this->authoringService->getItemCandidates( $subject_key, $collection, $scope, $search, $source, $page, $work_type, $target )
 		);
 	}
 

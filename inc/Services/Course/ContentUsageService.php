@@ -151,17 +151,25 @@ class ContentUsageService {
 			return array();
 		}
 
-		$result = array();
-		foreach ( $this->consumers( $consumer_cpt ) as $consumer ) {
-			$meta = $this->posts->getMeta( $consumer->ID, PostMetaName::Meta->value );
-			$meta = is_array( $meta ) ? $meta : array();
+		// Задание одного предмета может стоять в работе другого (кросс-предметный импорт
+		// заданий), поэтому работы-потребители ищем по всем предметам, а не только по предмету задания.
+		$cpts = 'task' === $type
+			? array_map( static fn( string $key ): string => PostTypeResolver::works( $key ), $this->subjectKeysWith( PostTypeResolver::subjectFromTaskPostType( $post->post_type ) ) )
+			: array( $consumer_cpt );
 
-			if ( $this->references( $meta, $field, $is_scalar, $postId ) ) {
-				$result[] = array(
-					'id'    => $consumer->ID,
-					'title' => $consumer->post_title,
-					'type'  => $consumer->post_type,
-				);
+		$result = array();
+		foreach ( $cpts as $cpt ) {
+			foreach ( $this->consumers( $cpt ) as $consumer ) {
+				$meta = $this->posts->getMeta( $consumer->ID, PostMetaName::Meta->value );
+				$meta = is_array( $meta ) ? $meta : array();
+
+				if ( $this->references( $meta, $field, $is_scalar, $postId ) ) {
+					$result[] = array(
+						'id'    => $consumer->ID,
+						'title' => $consumer->post_title,
+						'type'  => $consumer->post_type,
+					);
+				}
 			}
 		}
 
@@ -287,19 +295,19 @@ class ContentUsageService {
 	 * @return array<int, array{id: int, title: string, type: string}>
 	 */
 	private function directLessonConsumers( int $postId, string $type ): array {
+		$own = '';
 		if ( 'task' === $type ) {
 			$post = $this->posts->get( $postId );
 			if ( ! $post instanceof \WP_Post ) {
 				return array();
 			}
-			$subject = PostTypeResolver::subjectFromTaskPostType( $post->post_type );
-			return $this->lessonsWithTaskStep( $postId, PostTypeResolver::lessons( $subject ) );
+			$own = PostTypeResolver::subjectFromTaskPostType( $post->post_type );
 		}
 
-		// problem — кросс-предметный поиск.
+		// Кросс-предметный поиск: задание (как и задача банка) может стоять в уроке другого предмета.
 		$result = array();
-		foreach ( $this->subjects->readAll() as $s ) {
-			$result = array_merge( $result, $this->lessonsWithTaskStep( $postId, PostTypeResolver::lessons( $s->key ) ) );
+		foreach ( $this->subjectKeysWith( $own ) as $key ) {
+			$result = array_merge( $result, $this->lessonsWithTaskStep( $postId, PostTypeResolver::lessons( $key ) ) );
 		}
 		return $result;
 	}
@@ -544,6 +552,17 @@ class ContentUsageService {
 		}
 
 		return $ids;
+	}
+
+	/**
+	 * Ключи всех предметов; `$own` (предмет самого поста) идёт первым, даже если его нет в списке.
+	 *
+	 * @return string[]
+	 */
+	private function subjectKeysWith( string $own = '' ): array {
+		$keys = array_map( static fn( $s ): string => $s->key, $this->subjects->readAll() );
+
+		return array_values( array_unique( array_filter( array_merge( array( $own ), $keys ) ) ) );
 	}
 
 	/**

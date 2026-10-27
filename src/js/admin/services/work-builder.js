@@ -18,6 +18,14 @@ function mount( el ) {
 	const workId      = parseInt( el.dataset.workId, 10 ) || 0;
 	const subject     = String( el.dataset.subject || '' );
 	const numberPrefix = String( el.dataset.numberPrefix || '' );
+
+	// Предметы-источники для «Массового добавления заданий»; свой предмет — первым (он выбран по умолчанию).
+	let allSubjects = [];
+	try { allSubjects = JSON.parse( el.dataset.subjects || '[]' ); } catch { allSubjects = []; }
+	const bulkSubjects = [
+		...allSubjects.filter( ( s ) => s.key === subject ),
+		...allSubjects.filter( ( s ) => s.key !== subject ),
+	];
 	const acts        = fs_lms_vars.ajax_actions;
 	const nonces      = fs_lms_vars.nonces;
 
@@ -49,10 +57,11 @@ function mount( el ) {
 		// Окно «Массовое добавление заданий»: тот же эндпоинт, но постранично. Источник
 		// выбирает окно — 'subject' (приватный банк, как «Выбрать из банка») или 'public'.
 		bulkSearch: ( q, scope, page, fromSubject ) => post( acts.getWorkItemCandidates, nonces.authorWork, {
-			subject_key: fromSubject || subject,
-			search:      q,
-			source:      candidateSource( q, scope ),
-			work_type:   workType(),
+			subject_key:    fromSubject || subject,
+			target_subject: subject, // в какую работу добавляем: из чужого предмета — только опубликованное
+			search:         q,
+			source:         candidateSource( q, scope ),
+			work_type:      workType(),
 			page,
 		} ),
 
@@ -63,6 +72,7 @@ function mount( el ) {
 		} ),
 
 		subjectKey: subject,
+		bulkSubjects,
 
 		// Тип работы — для сужения шаблонов у новой задачи («Создать задачу»).
 		workType,

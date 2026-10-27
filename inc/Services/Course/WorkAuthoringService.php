@@ -142,6 +142,9 @@ class WorkAuthoringService {
 	 * @param int    $page             Страница выдачи, с 1. У смешанных источников страница —
 	 *                                 это страница заданий предмета плюс страница банка, поэтому
 	 *                                 конец списка — пустая страница, а не неполная.
+	 * @param string $targetSubject    Предмет работы, в которую добавляют. Отличается от `$subjectKey` —
+	 *                                 значит идёт кросс-предметный импорт: из чужого предмета берутся только
+	 *                                 опубликованные задания (черновик чужого предмета в работу не пустят).
 	 * @param string $workType         Тип работы ({@see WorkType}); у типа с ограничением шаблонов
 	 *                                 ({@see WorkType::allowedTemplates()}) остаются только подходящие
 	 *                                 задания, страницы нарезаются уже по отобранным.
@@ -154,17 +157,18 @@ class WorkAuthoringService {
 		string $search           = '',
 		string $source           = 'subject',
 		int    $page             = 1,
-		string $workType         = ''
+		string $workType         = '',
+		string $targetSubject    = ''
 	): array {
 		$allowed = WorkType::tryFrom( $workType )?->allowedTemplates();
 		if ( null === $allowed ) {
-			return $this->sourceItemCandidates( $subjectKey, $collectionTermId, $scope, $search, $source, $page );
+			return $this->sourceItemCandidates( $subjectKey, $collectionTermId, $scope, $search, $source, $page, $targetSubject );
 		}
 
 		$need = max( 1, $page ) * self::CANDIDATES_PER_PAGE;
 		$kept = array();
 		for ( $raw = 1; $raw <= self::MAX_SCAN_PAGES && count( $kept ) < $need; $raw++ ) {
-			$batch = $this->sourceItemCandidates( $subjectKey, $collectionTermId, $scope, $search, $source, $raw );
+			$batch = $this->sourceItemCandidates( $subjectKey, $collectionTermId, $scope, $search, $source, $raw, $targetSubject );
 			if ( array() === $batch ) {
 				break;
 			}
@@ -215,13 +219,15 @@ class WorkAuthoringService {
 		string $scope,
 		string $search,
 		string $source,
-		int    $page
+		int    $page,
+		string $targetSubject = ''
 	): array {
 		if ( 'public' === $source ) {
 			return $this->getTaskCandidates( $subjectKey, 0, $collectionTermId, 'subject', $search, true, $page );
 		}
 
-		$tasks    = $this->getTaskCandidates( $subjectKey, 0, $collectionTermId, $scope, $search, false, $page );
+		$foreign  = '' !== $targetSubject && $targetSubject !== $subjectKey;
+		$tasks    = $this->getTaskCandidates( $subjectKey, 0, $collectionTermId, $scope, $search, $foreign, $page );
 		$problems = $this->getProblemCandidates( $search, 'all' === $source ? '' : $subjectKey, $page );
 
 		return array_merge( $tasks, $problems );
@@ -294,9 +300,12 @@ class WorkAuthoringService {
 	}
 
 	/**
-	 * Валидирует item_ids: оставляет только {key}_tasks предмета и fs_lms_problems.
+	 * Валидирует элементы работы: оставляет задания предмета работы (любой статус), опубликованные
+	 * задания других предметов (кросс-предметный импорт) и задачи банка `fs_lms_problems`.
 	 *
-	 * @param string $subjectKey
+	 * Чужой черновик не пускаем: он ещё не вышел из рук автора и может пропасть или измениться.
+	 *
+	 * @param string $subjectKey Предмет работы
 	 * @param int[]  $itemIds
 	 * @return int[]
 	 */
@@ -308,8 +317,11 @@ class WorkAuthoringService {
 			if ( ! $post instanceof \WP_Post ) {
 				return false;
 			}
-			return $post->post_type === $task_cpt
-				|| PostTypeResolver::isProblemPostType( $post->post_type );
+			if ( $post->post_type === $task_cpt || PostTypeResolver::isProblemPostType( $post->post_type ) ) {
+				return true;
+			}
+
+			return PostTypeResolver::isTaskPostType( $post->post_type ) && 'publish' === $post->post_status;
 		} ) );
 	}
 }

@@ -91,6 +91,36 @@ class ContentUsageServiceTest extends TestCase {
 		self::assertStringContainsString( 'step_ref=41', $paths[0]['url'] ); // ссылка на шаг контрольной
 	}
 
+	/** Задание одного предмета может стоять в работе другого (кросс-предметный импорт заданий). */
+	public function test_task_used_in_work_of_another_subject_counts(): void {
+		$GLOBALS['_test_options']['fs_lms_subjects_list'] = array(
+			'inf' => array( 'key' => 'inf', 'name' => 'Информатика' ),
+			'py'  => array( 'key' => 'py', 'name' => 'Python' ),
+		);
+		fs_test_seed_post( array( 'ID' => 50, 'post_type' => 'inf_tasks' ) );
+		fs_test_seed_post( array( 'ID' => 51, 'post_type' => 'py_works' ), array( 'fs_lms_meta' => array( 'item_ids' => array( 50 ) ) ) );
+		fs_test_seed_post( array( 'ID' => 52, 'post_type' => 'py_lessons' ), array( 'fs_lms_meta' => array( 'steps' => array( array( 'key' => 's1', 'type' => 'work', 'payload' => array( 'ref' => 51 ) ) ) ) ) );
+		fs_test_seed_post( array( 'ID' => 53, 'post_type' => 'py_courses' ), array( 'fs_lms_meta' => array( 'modules' => array( array( 'id' => 'm1', 'title' => 'M', 'lesson_ids' => array( 52 ) ) ) ) ) );
+
+		self::assertSame( 1, $this->usage->usageCount( 'task', 50 ) );
+		self::assertSame( 51, $this->usage->usageList( 'task', 50 )[0]['id'] );
+
+		$paths = $this->usage->usagePathList( 'task', 50 );
+		self::assertCount( 1, $paths );
+		self::assertStringContainsString( 'course=53', $paths[0]['url'] );
+	}
+
+	public function test_task_used_as_direct_step_in_lesson_of_another_subject_counts(): void {
+		$GLOBALS['_test_options']['fs_lms_subjects_list'] = array(
+			'inf' => array( 'key' => 'inf', 'name' => 'Информатика' ),
+			'py'  => array( 'key' => 'py', 'name' => 'Python' ),
+		);
+		fs_test_seed_post( array( 'ID' => 60, 'post_type' => 'inf_tasks' ) );
+		fs_test_seed_post( array( 'ID' => 61, 'post_type' => 'py_lessons' ), array( 'fs_lms_meta' => array( 'steps' => array( array( 'key' => 's1', 'type' => 'task', 'payload' => array( 'ref' => 60 ) ) ) ) ) );
+
+		self::assertSame( 1, $this->usage->usageCount( 'task', 60 ) );
+	}
+
 	public function test_orphan_has_zero_usage(): void {
 		fs_test_seed_post( array( 'ID' => 30, 'post_type' => 'inf_tasks' ) );
 		fs_test_seed_post( array( 'ID' => 31, 'post_type' => 'inf_works' ), array( 'fs_lms_meta' => array( 'item_ids' => array( 999 ) ) ) );

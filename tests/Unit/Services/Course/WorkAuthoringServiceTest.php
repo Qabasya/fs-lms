@@ -44,11 +44,26 @@ class WorkAuthoringServiceTest extends TestCase {
 		self::assertSame( array( 1, 2 ), $ids );
 	}
 
-	public function test_validate_item_ids_drops_foreign_and_missing(): void {
+	public function test_validate_item_ids_drops_missing_and_non_task_posts(): void {
 		fs_test_seed_post( array( 'ID' => 1, 'post_type' => 'inf_tasks' ) );
-		fs_test_seed_post( array( 'ID' => 3, 'post_type' => 'rus_tasks' ) );
+		fs_test_seed_post( array( 'ID' => 4, 'post_type' => 'inf_lessons' ) );
 
-		self::assertSame( array( 1 ), $this->service->validateItemIds( 'inf', array( 1, 3, 9999 ) ) );
+		self::assertSame( array( 1 ), $this->service->validateItemIds( 'inf', array( 1, 4, 9999 ) ) );
+	}
+
+	/** Кросс-предметный импорт: опубликованное задание другого предмета можно поставить в работу. */
+	public function test_validate_item_ids_keeps_published_task_of_another_subject(): void {
+		fs_test_seed_post( array( 'ID' => 3, 'post_type' => 'rus_tasks', 'post_status' => 'publish' ) );
+
+		self::assertSame( array( 3 ), $this->service->validateItemIds( 'inf', array( 3 ) ) );
+	}
+
+	public function test_validate_item_ids_drops_unpublished_task_of_another_subject(): void {
+		fs_test_seed_post( array( 'ID' => 3, 'post_type' => 'rus_tasks', 'post_status' => 'draft' ) );
+		fs_test_seed_post( array( 'ID' => 1, 'post_type' => 'inf_tasks', 'post_status' => 'draft' ) );
+
+		// Свой черновик допустим (автор собирает работу до публикации заданий), чужой — нет.
+		self::assertSame( array( 1 ), $this->service->validateItemIds( 'inf', array( 3, 1 ) ) );
 	}
 
 	public function test_validate_item_ids_keeps_problems(): void {
@@ -215,5 +230,18 @@ class WorkAuthoringServiceTest extends TestCase {
 
 		self::assertSame( array( 1, 3 ), $this->service->disallowedItemIds( WorkType::Survey, array( 1, 2, 3 ) ) );
 		self::assertSame( array(), $this->service->disallowedItemIds( WorkType::Practice, array( 1, 2, 3 ) ) );
+	}
+
+	/** Задания другого предмета в приватном источнике — только опубликованные (чужой черновик в работу не пустят). */
+	public function test_item_candidates_of_another_subject_exclude_drafts_when_target_given(): void {
+		fs_test_seed_post( array( 'ID' => 1, 'post_type' => 'rus_tasks', 'post_title' => 'Опубликованное', 'post_status' => 'publish' ) );
+		fs_test_seed_post( array( 'ID' => 2, 'post_type' => 'rus_tasks', 'post_title' => 'Черновик', 'post_status' => 'draft' ) );
+
+		$foreign = array_column( $this->service->getItemCandidates( 'rus', 0, 'subject', '', 'subject', 1, '', 'inf' ), 'id' );
+		$own     = array_column( $this->service->getItemCandidates( 'rus', 0, 'subject', '', 'subject', 1, '', 'rus' ), 'id' );
+		sort( $own );
+
+		self::assertSame( array( 1 ), $foreign );
+		self::assertSame( array( 1, 2 ), $own );
 	}
 }
