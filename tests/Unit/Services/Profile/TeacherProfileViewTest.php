@@ -99,6 +99,23 @@ class TeacherProfileViewTest extends TestCase {
 		self::assertNotContains( 'exam-plan', $built['screens'] );
 	}
 
+	/** Преподаватель без групп по экзаменационным предметам (inf_ege, inf_oge) разделов экзаменов не видит. */
+	public function test_exam_nav_hidden_for_teacher_without_exam_subjects(): void {
+		$this->grant( 1, Capability::ManageExams );
+		$guard = $this->createStub( ExamAccessGuard::class );
+		$guard->method( 'manageableSubjectKeys' )->willReturn( array() );
+		$groups = $this->createStub( GroupsRepository::class );
+		$groups->method( 'findAll' )->willReturn( array() );
+		$groups->method( 'findByTeacherId' )->willReturn( array() );
+		$view  = new TeacherProfileView( $groups, $this->createMock( CourseManager::class ), $this->subjects, $guard );
+
+		$built = $view->build( new ProfileContext( 1, null, UserRole::FSTeacher, null, false ) );
+
+		self::assertSame( array(), $built['examNav'] );
+		self::assertArrayNotHasKey( 'exams', $built );
+		self::assertNotContains( 'exam-plan', $built['screens'] );
+	}
+
 	public function test_office_sees_only_payments_item(): void {
 		$this->grant( 1, Capability::ResolveExamPayments );
 

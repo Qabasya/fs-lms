@@ -19,7 +19,9 @@ use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
  *
  * Матчится только попадание в окно [scheduled_at − 45 мин; ends_at + 45 мин]
  * (`ends_at IS NULL` → scheduled_at + 3 ч); из нескольких — минимум |recorded − scheduled|,
- * строгая ничья — неоднозначность (unmatched, ручная привязка).
+ * строгая ничья — неоднозначность (unmatched, ручная привязка). Строки одного дополнительного
+ * занятия для части группы (общий `extra_key`, по строке на ученика) — одно занятие, а не ничья:
+ * берётся первая, а запись затем привязывается ко всем её строкам.
  *
  * @package Inc\Modules\VideoLibrary\Services
  */
@@ -78,7 +80,7 @@ class VideoLessonResolver {
 				$best         = $lesson;
 				$bestDistance = $distance;
 				$ambiguous    = false;
-			} elseif ( $distance === $bestDistance ) {
+			} elseif ( $distance === $bestDistance && ! $this->sameExtraLesson( $best, $lesson ) ) {
 				$ambiguous = true;
 			}
 		}
@@ -100,6 +102,14 @@ class VideoLessonResolver {
 			'group_lesson_id' => $best->id,
 			'reason'          => self::REASON_MATCHED,
 		);
+	}
+
+	/** Строки одного дополнительного занятия: та же группа и общий `extra_key`. */
+	private function sameExtraLesson( ?GroupLessonDTO $a, GroupLessonDTO $b ): bool {
+		return null !== $a
+			&& null !== $a->extraKey
+			&& $a->extraKey === $b->extraKey
+			&& $a->groupId === $b->groupId;
 	}
 
 	private function inWindow( GroupLessonDTO $lesson, int $recordedTs, \DateTimeZone $tz ): bool {

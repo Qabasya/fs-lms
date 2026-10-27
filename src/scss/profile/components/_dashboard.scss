@@ -65,6 +65,9 @@
 .prof-dash-grid2 { display: grid; grid-template-columns: minmax(0, 1fr); gap: rem(18); }
 .prof-sched-card { margin-bottom: rem(18); }
 
+/* переключатель Сегодня/Неделя/Месяц — отдельной строкой под заголовком «Расписание» */
+.prof-sched-switch { padding: rem(10) rem(18); border-bottom: 1px solid var(--line-2); }
+
 /* разделитель между идущим занятием и остальными — как граница строки */
 .prof-sched-now-divider { margin: 0; border: 0; border-bottom: 1px solid var(--line-2); }
 

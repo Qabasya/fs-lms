@@ -68,7 +68,9 @@ final class TeacherProfileView implements ProfileViewInterface {
 		}
 
 		// «Мои экзамены» — своя секция сайдбара, в общий `nav` пункты не попадают.
-		$canExams    = user_can( $context->wpUserId, Capability::ManageExams->value );
+		// Преподаватель без групп по экзаменационным предметам (inf_ege, inf_oge) экзамены не видит;
+		// методист и администратор — видят всегда (manageableSubjectKeys() отдаёт им все такие предметы).
+		$canExams    = user_can( $context->wpUserId, Capability::ManageExams->value ) && array() !== $this->manageableExamSubjects( $context );
 		$canPayments = user_can( $context->wpUserId, Capability::ResolveExamPayments->value );
 		$examNav     = array();
 		if ( $canExams ) {
@@ -96,13 +98,23 @@ final class TeacherProfileView implements ProfileViewInterface {
 	}
 
 	/**
+	 * Экзаменационные предметы, по которым сотрудник может вести экзамены.
+	 *
+	 * @return string[]
+	 */
+	private function manageableExamSubjects( ProfileContext $context ): array {
+		$all = array_map( static fn ( $subject ): string => (string) $subject->key, $this->subjects->readActive() );
+
+		return $this->examGuard->manageableSubjectKeys( $context->wpUserId, $all );
+	}
+
+	/**
 	 * Блок конфига экранов экзаменов: nonce сотрудника, экшены, предметы, по которым он может назначать, готовность гостевой записи.
 	 *
 	 * @return array<string, mixed>
 	 */
 	private function examsConfig( ProfileContext $context ): array {
-		$all     = array_map( static fn ( $subject ): string => (string) $subject->key, $this->subjects->readActive() );
-		$allowed = $this->examGuard->manageableSubjectKeys( $context->wpUserId, $all );
+		$allowed = $this->manageableExamSubjects( $context );
 
 		$subjects = array();
 		foreach ( $allowed as $key ) {

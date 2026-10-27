@@ -131,30 +131,54 @@ class VideoRegistrationService {
 		}
 
 		if ( null !== $recording->groupLessonId ) {
-			$lesson  = $this->groupLessons->find( $recording->groupLessonId );
 			$pointer = $this->s3Pointer( $recording->s3Bucket, $recording->s3Key );
-			if ( null !== $lesson && $lesson->recordingUrl === $pointer ) {
-				$this->groupLessons->setRecordingUrl( $recording->groupLessonId, null );
+			foreach ( $this->lessonIds( $recording->groupLessonId ) as $id ) {
+				$lesson = $this->groupLessons->find( $id );
+				if ( null !== $lesson && $lesson->recordingUrl === $pointer ) {
+					$this->groupLessons->setRecordingUrl( $id, null );
+				}
 			}
 		}
 
 		return $this->recordings->detach( $recordingId );
 	}
 
-	/** Привязка: реестр + указатель на занятии + held (только поверх scheduled). */
+	/**
+	 * Привязка: реестр + указатель на занятии + held (только поверх scheduled).
+	 * Дополнительное занятие для части группы — по строке на ученика: запись получают все его строки,
+	 * иначе её увидел бы один ученик из участников.
+	 */
 	private function bindToLesson( int $recordingId, int $groupLessonId, string $bucket, string $key ): void {
 		$this->recordings->attach( $recordingId, $groupLessonId );
-		$this->groupLessons->setRecordingUrl( $groupLessonId, $this->s3Pointer( $bucket, $key ) );
 
-		// «Запись есть → занятие состоялось»: held фиксирует дату от reflow.
-		// cancelled/moved не перетираем — статус выставлен осознанно.
-		$lesson = $this->groupLessons->find( $groupLessonId );
-		if ( null !== $lesson && LessonStatus::Scheduled->value === $lesson->status ) {
-			$this->groupLessons->setStatus( $groupLessonId, LessonStatus::Held );
+		$pointer = $this->s3Pointer( $bucket, $key );
+		foreach ( $this->lessonIds( $groupLessonId ) as $id ) {
+			$this->groupLessons->setRecordingUrl( $id, $pointer );
+
+			// «Запись есть → занятие состоялось»: held фиксирует дату от reflow.
+			// cancelled/moved не перетираем — статус выставлен осознанно.
+			$lesson = $this->groupLessons->find( $id );
+			if ( null !== $lesson && LessonStatus::Scheduled->value === $lesson->status ) {
+				$this->groupLessons->setStatus( $id, LessonStatus::Held );
+			}
+
+			// Единый хук для уведомлений кабинета — покрывает и авто-матч (register()), и ручную привязку (attachManually()).
+			do_action( 'fs_lms_recording_attached', $id );
 		}
+	}
 
-		// Единый хук для уведомлений кабинета — покрывает и авто-матч (register()), и ручную привязку (attachManually()).
-		do_action( 'fs_lms_recording_attached', $groupLessonId );
+	/**
+	 * Строки занятия, которым принадлежит запись: само занятие и (для дополнительного) его строки других учеников.
+	 *
+	 * @return int[]
+	 */
+	private function lessonIds( int $groupLessonId ): array {
+		$lesson = $this->groupLessons->find( $groupLessonId );
+		if ( null === $lesson ) {
+			return array( $groupLessonId );
+		}
+		$ids = $this->groupLessons->extraSiblingIds( $lesson );
+		return array() !== $ids ? $ids : array( $groupLessonId );
 	}
 
 	private function s3Pointer( string $bucket, string $key ): string {

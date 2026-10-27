@@ -143,11 +143,19 @@ class LessonDeliveryCallbacks extends BaseController {
 		$this->authorize( Nonce::SaveSchedule, Capability::ManageLmsTeaching );
 		$groupLessonId = $this->requireInt( 'group_lesson_id' );
 
-		$this->requireProgramRow( $groupLessonId );
+		$row = $this->requireProgramRow( $groupLessonId );
+
+		// Дополнительное занятие для части группы — по строке на ученика: запись общая для всех его строк.
+		$siblingIds = $this->groupLessons->extraSiblingIds( $row );
+		if ( ! in_array( $groupLessonId, $siblingIds, true ) ) {
+			$siblingIds[] = $groupLessonId;
+		}
 
 		if ( $this->hasParam( 'recording_skipped' ) ) {
 			$skipped = $this->sanitizeBool( 'recording_skipped' );
-			$this->groupLessons->setRecordingSkipped( $groupLessonId, $skipped );
+			foreach ( $siblingIds as $id ) {
+				$this->groupLessons->setRecordingSkipped( $id, $skipped );
+			}
 			$this->success( array( 'saved' => true, 'recording_skipped' => $skipped ) );
 		}
 
@@ -179,14 +187,16 @@ class LessonDeliveryCallbacks extends BaseController {
 			}
 		}
 
-		if ( null !== $pointer ) {
-			$this->groupLessons->setRecordingUrl( $groupLessonId, '' !== $pointer ? $pointer : null );
-		}
-		if ( null !== $link ) {
-			$this->groupLessons->setRecordingLink( $groupLessonId, '' !== $link ? $link : null );
-		}
-		if ( '' !== (string) $pointer || '' !== (string) $link ) {
-			do_action( 'fs_lms_recording_attached', $groupLessonId );
+		foreach ( $siblingIds as $id ) {
+			if ( null !== $pointer ) {
+				$this->groupLessons->setRecordingUrl( $id, '' !== $pointer ? $pointer : null );
+			}
+			if ( null !== $link ) {
+				$this->groupLessons->setRecordingLink( $id, '' !== $link ? $link : null );
+			}
+			if ( '' !== (string) $pointer || '' !== (string) $link ) {
+				do_action( 'fs_lms_recording_attached', $id );
+			}
 		}
 
 		// В ответе — то, что сохранили (null — поле снято или не менялось).

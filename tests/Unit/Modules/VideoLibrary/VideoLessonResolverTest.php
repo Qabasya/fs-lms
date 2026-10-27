@@ -42,6 +42,7 @@ class VideoLessonResolverTest extends TestCase {
 			updatedByUserId : null,
 			kind            : LessonKind::fromValueOrDefault( (string) ( $over['kind'] ?? '' ) ),
 			status          : $over['status'] ?? 'scheduled',
+			extraKey        : $over['extra_key'] ?? null,
 		);
 	}
 
@@ -105,6 +106,41 @@ class VideoLessonResolverTest extends TestCase {
 
 		self::assertNull( $result['group_lesson_id'] );
 		self::assertSame( 'ambiguous', $result['reason'] );
+	}
+
+	/** Доп. занятие для части группы — по строке на ученика с одним временем: это одно занятие, а не ничья. */
+	public function test_rows_of_one_extra_lesson_are_not_ambiguous(): void {
+		$this->lessons->method( 'listByGroupAndDay' )->willReturn( array(
+			$this->lesson( 201, '2026-07-08 18:00:00', array( 'kind' => 'individual', 'extra_key' => 'abc' ) ),
+			$this->lesson( 202, '2026-07-08 18:00:00', array( 'kind' => 'individual', 'extra_key' => 'abc' ) ),
+			$this->lesson( 203, '2026-07-08 18:00:00', array( 'kind' => 'individual', 'extra_key' => 'abc' ) ),
+		) );
+
+		$result = $this->resolver->resolve( $this->at( '2026-07-08 18:02:00' ), 3, null );
+
+		self::assertSame( 201, $result['group_lesson_id'] );
+		self::assertSame( 'matched', $result['reason'] );
+	}
+
+	/** Одинаковое время у строк с разными ключами (два разных доп. занятия) по-прежнему неоднозначно. */
+	public function test_rows_of_different_extra_lessons_stay_ambiguous(): void {
+		$this->lessons->method( 'listByGroupAndDay' )->willReturn( array(
+			$this->lesson( 201, '2026-07-08 18:00:00', array( 'kind' => 'individual', 'extra_key' => 'abc' ) ),
+			$this->lesson( 202, '2026-07-08 18:00:00', array( 'kind' => 'individual', 'extra_key' => 'xyz' ) ),
+		) );
+
+		self::assertSame( 'ambiguous', $this->resolver->resolve( $this->at( '2026-07-08 18:02:00' ), 3, null )['reason'] );
+	}
+
+	/** Ничья со стороны чужого занятия не снимается тем, что дальше идут строки того же доп. занятия. */
+	public function test_extra_rows_do_not_hide_tie_with_another_lesson(): void {
+		$this->lessons->method( 'listByGroupAndDay' )->willReturn( array(
+			$this->lesson( 201, '2026-07-08 18:00:00', array( 'kind' => 'individual', 'extra_key' => 'abc' ) ),
+			$this->lesson( 150, '2026-07-08 18:00:00' ),
+			$this->lesson( 202, '2026-07-08 18:00:00', array( 'kind' => 'individual', 'extra_key' => 'abc' ) ),
+		) );
+
+		self::assertSame( 'ambiguous', $this->resolver->resolve( $this->at( '2026-07-08 18:02:00' ), 3, null )['reason'] );
 	}
 
 	public function test_cancelled_lessons_are_skipped(): void {

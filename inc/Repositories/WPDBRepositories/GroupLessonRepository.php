@@ -439,6 +439,28 @@ class GroupLessonRepository {
 		);
 	}
 
+	/**
+	 * ID строк одного дополнительного занятия для части группы (`extra_key`): по строке на ученика,
+	 * время и ссылки общие. Запись занятия принадлежит всем строкам сразу. Включает саму строку;
+	 * у занятия без `extra_key` — только она.
+	 *
+	 * @return int[]
+	 */
+	public function extraSiblingIds( GroupLessonDTO $lesson ): array {
+		if ( null === $lesson->extraKey ) {
+			return array( $lesson->id );
+		}
+		$ids = $this->wpdb->get_col(
+			$this->wpdb->prepare(
+				'SELECT id FROM %i WHERE group_id = %d AND extra_key = %s ORDER BY id ASC',
+				$this->table,
+				$lesson->groupId,
+				$lesson->extraKey
+			)
+		);
+		return array() !== $ids ? array_map( 'intval', $ids ) : array( $lesson->id );
+	}
+
 	/** Указатель записи занятия (модуль VideoLibrary пишет `s3://{bucket}/{key}`). */
 	public function setRecordingUrl( int $id, ?string $url ): bool {
 		return false !== $this->wpdb->update(

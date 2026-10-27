@@ -148,6 +148,30 @@ class VideoRegistrationServiceTest extends TestCase {
 		self::assertSame( 10, $result['recording_id'] );
 	}
 
+	/** Доп. занятие для троих — по строке на ученика: запись и «проведено» получают все три строки. */
+	public function test_match_binds_all_rows_of_extra_lesson(): void {
+		$this->upsertReturns( 10, true );
+		$this->resolver->method( 'resolve' )->willReturn( array( 'group_lesson_id' => 55, 'reason' => 'matched' ) );
+		$this->groupLessons->method( 'find' )->willReturnCallback( fn( int $id ) => $this->lesson( $id, 'scheduled' ) );
+		$this->groupLessons->method( 'extraSiblingIds' )->willReturn( array( 55, 56, 57 ) );
+
+		$this->recordings->expects( self::once() )->method( 'attach' )->with( 10, 55 );
+		$pointers = array();
+		$this->groupLessons->expects( self::exactly( 3 ) )->method( 'setRecordingUrl' )
+			->willReturnCallback( function ( int $id, ?string $url ) use ( &$pointers ): bool {
+				$pointers[ $id ] = $url;
+				return true;
+			} );
+		$this->groupLessons->expects( self::exactly( 3 ) )->method( 'setStatus' );
+
+		$this->service->register( $this->input() );
+
+		self::assertSame(
+			array( 55 => 's3://test-bucket/videos/kege-1/rec.webm', 56 => 's3://test-bucket/videos/kege-1/rec.webm', 57 => 's3://test-bucket/videos/kege-1/rec.webm' ),
+			$pointers
+		);
+	}
+
 	public function test_held_is_not_set_over_cancelled(): void {
 		$this->upsertReturns( 10, true );
 		$this->resolver->method( 'resolve' )->willReturn( array( 'group_lesson_id' => 55, 'reason' => 'matched' ) );

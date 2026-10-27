@@ -68,9 +68,9 @@ function render() {
         </div>
 
         <div class="prof-card prof-sched-card">
-            <div class="prof-card-head">
-                <h3>Расписание</h3>
-                <div class="prof-seg ch-act" id="profSchedToggle">
+            <div class="prof-card-head"><h3>Расписание</h3></div>
+            <div class="prof-sched-switch">
+                <div class="prof-seg" id="profSchedToggle">
                     <button class="on" data-mode="today">Сегодня</button>
                     <button data-mode="week">Неделя</button>
                     <button data-mode="month">Месяц</button>

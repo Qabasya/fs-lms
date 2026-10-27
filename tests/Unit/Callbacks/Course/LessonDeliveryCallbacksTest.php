@@ -143,6 +143,18 @@ class LessonDeliveryCallbacksTest extends TestCase {
 		self::assertSame( 's3://bucket/videos/rec.webm', $r->payload['recording_url'] );
 	}
 
+	/** Доп. занятие для части группы: ссылка пишется во все строки учеников, а не в одну. */
+	public function test_set_recording_url_applies_to_all_rows_of_extra_lesson(): void {
+		$this->program->method( 'getProgramRow' )->with( 42 )->willReturn( $this->programRow() );
+		$this->guard->method( 'canManage' )->willReturn( true );
+		$this->groupLessons->method( 'extraSiblingIds' )->willReturn( array( 42, 43, 44 ) );
+		$this->groupLessons->expects( $this->exactly( 3 ) )->method( 'setRecordingUrl' );
+
+		$_POST = array( 'group_lesson_id' => '42', 'recording_url' => 's3://bucket/videos/rec.webm' );
+
+		self::assertTrue( fs_test_capture_json( fn() => $this->cb->ajaxSetRecordingUrl() )->success );
+	}
+
 	public function test_set_recording_url_empty_clears_pointer(): void {
 		$this->program->method( 'getProgramRow' )->willReturn( $this->programRow() );
 		$this->guard->method( 'canManage' )->willReturn( true );
