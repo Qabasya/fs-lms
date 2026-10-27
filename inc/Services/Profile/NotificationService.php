@@ -18,6 +18,7 @@ use Inc\Repositories\WPDBRepositories\NotificationRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 use Inc\Services\Course\EffectiveTeacherResolver;
+use Inc\Services\Course\LessonWorkLink;
 
 /**
  * Class NotificationService
@@ -48,6 +49,7 @@ readonly class NotificationService {
 		private EffectiveTeacherResolver  $effectiveTeacher,
 		private UserRepository            $users,
 		private UserManager               $userManager,
+		private LessonWorkLink            $workLink,
 	) {}
 
 	/**
@@ -285,11 +287,7 @@ readonly class NotificationService {
 	 * (`?step=`), как в {@see \Inc\Services\Profile\LearnerService::deadlines()}.
 	 */
 	public function lessonWorkUrl( GroupLessonDTO $lesson, int $workId ): string {
-		$baseUrl = PageRoutes::LessonPlayer->lessonUrl( $lesson->groupId, $lesson->id );
-		$content = $lesson->lessonId ? $this->lessons->get( $lesson->lessonId ) : null;
-		$stepKey = $content?->stepKeyForWork( $workId );
-
-		return $stepKey ? (string) add_query_arg( array( 'step' => $stepKey ), $baseUrl ) : $baseUrl;
+		return $this->workLink->forRow( $lesson, $workId );
 	}
 
 	/**

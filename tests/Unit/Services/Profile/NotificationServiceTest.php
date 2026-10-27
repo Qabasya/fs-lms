@@ -52,7 +52,7 @@ class NotificationServiceTest extends TestCase {
 			$this->effectiveTeacher,
 			$this->users,
 			$this->userManager,
-			$this->createMock( \Inc\Services\Course\LiveLessonService::class ),
+			new \Inc\Services\Course\LessonWorkLink( $this->lessons ),
 		);
 	}
 

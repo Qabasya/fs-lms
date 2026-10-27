@@ -89,8 +89,8 @@ $visibility = $this->createStub( \Inc\Services\Course\LessonVisibilityService::c
 		$this->examsService->method( 'upcomingEvents' )->willReturnCallback( fn (): array => $this->examEvents );
 		$this->service = new LearnerService(
 			$contextBuilder,
-			new \Inc\Services\Profile\Learner\LearnerScheduleSection( $this->submissions, $this->worksResolver, $this->lessons, $homework ),
-			new \Inc\Services\Profile\Learner\LearnerPerformanceSection( $this->gradebook, $this->attendance, $this->submissions, $this->attempts, $this->lessons, $homework, $this->createStub( \Inc\Services\Course\WorkMarksService::class ), $this->createStub( \Inc\Managers\Assessment\AssessmentManager::class ), new \Inc\Services\Assessment\AttemptRevealPolicy( $this->createStub( \Inc\Repositories\WPDBRepositories\ExamParticipationRepository::class ) ) ),
+			new \Inc\Services\Profile\Learner\LearnerScheduleSection( $this->submissions, $this->worksResolver, new \Inc\Services\Course\LessonWorkLink( $this->lessons ), $homework ),
+			new \Inc\Services\Profile\Learner\LearnerPerformanceSection( $this->gradebook, $this->attendance, $this->submissions, $this->attempts, new \Inc\Services\Course\LessonWorkLink( $this->lessons ), $homework, $this->createStub( \Inc\Services\Course\WorkMarksService::class ), $this->createStub( \Inc\Managers\Assessment\AssessmentManager::class ), new \Inc\Services\Assessment\AttemptRevealPolicy( $this->createStub( \Inc\Repositories\WPDBRepositories\ExamParticipationRepository::class ) ) ),
 			new \Inc\Services\Profile\Learner\LearnerCoursesSection(
 				$this->courses, $this->lessons, $this->progress, $this->examLock, $contextBuilder, $this->createStub( \Inc\Managers\Assessment\AssessmentManager::class ),
 			),

@@ -50,7 +50,7 @@ class LearnerPerformanceSectionTest extends TestCase {
 			$this->createMock( AttendanceRepository::class ),
 			$this->createMock( SubmissionRepository::class ),
 			$this->attempts,
-			$this->createMock( LessonManager::class ),
+			new \Inc\Services\Course\LessonWorkLink( $this->createMock( LessonManager::class ) ),
 			$deadlines,
 			$this->marks,
 			$this->assessments,

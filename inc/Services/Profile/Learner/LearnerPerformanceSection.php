@@ -9,13 +9,13 @@ use Inc\DTO\Profile\LearnerContextDTO;
 use Inc\Enums\Course\GradeBadge;
 use Inc\Enums\Course\WorkSourceType;
 use Inc\Managers\Assessment\AssessmentManager;
-use Inc\Managers\Course\LessonManager;
 use Inc\Repositories\WPDBRepositories\AssessmentAttemptRepository;
 use Inc\Repositories\WPDBRepositories\AttendanceRepository;
 use Inc\Repositories\WPDBRepositories\SubmissionRepository;
 use Inc\Services\Assessment\AttemptRevealPolicy;
 use Inc\Services\Course\GradebookService;
 use Inc\Services\Course\HomeworkDeadlineService;
+use Inc\Services\Course\LessonWorkLink;
 use Inc\Services\Course\WorkMarksService;
 
 /**
@@ -35,7 +35,7 @@ class LearnerPerformanceSection {
 		private readonly AttendanceRepository        $attendance,
 		private readonly SubmissionRepository        $submissions,
 		private readonly AssessmentAttemptRepository $attempts,
-		private readonly LessonManager               $lessons,
+		private readonly LessonWorkLink              $workLink,
 		private readonly HomeworkDeadlineService     $deadlines,
 		private readonly WorkMarksService            $marks,
 		private readonly AssessmentManager           $assessments,
@@ -207,14 +207,10 @@ class LearnerPerformanceSection {
 
 	/** Плеер урока + `?step=<ключ шага работы>`; нет шага — просто плеер урока. */
 	private function workStepUrl( LearnerContextDTO $ctx, int $groupLessonId, int $workId ): string {
-		$row     = $ctx->rawRows[ $groupLessonId ] ?? null;
-		$lesson  = $row?->lessonId ? $this->lessons->get( $row->lessonId ) : null;
 		$baseUrl = (string) ( $ctx->lessonMap[ $groupLessonId ]['player_url'] ?? '' );
-		$stepKey = $lesson?->stepKeyForWork( $workId );
+		$row     = $ctx->rawRows[ $groupLessonId ] ?? null;
 
-		return ( '' !== $baseUrl && $stepKey )
-			? (string) add_query_arg( 'step', $stepKey, $baseUrl )
-			: $baseUrl;
+		return null === $row ? $baseUrl : $this->workLink->forRow( $row, $workId, $baseUrl );
 	}
 
 	/**

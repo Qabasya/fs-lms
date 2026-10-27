@@ -5,18 +5,17 @@ declare( strict_types=1 );
 namespace Inc\Services\Profile\Learner;
 
 use Inc\DTO\Profile\LearnerContextDTO;
-use Inc\Managers\Course\LessonManager;
 use Inc\Repositories\WPDBRepositories\SubmissionRepository;
 use Inc\Services\Course\EffectiveWorksResolver;
 use Inc\Services\Course\HomeworkDeadlineService;
+use Inc\Services\Course\LessonWorkLink;
 
 /**
  * Class LearnerScheduleSection
  *
  * Секция кабинета ученика: ближайшие занятия и дедлайны работ.
  *
- * Выделена из LearnerService (Т14.3). Дип-линк `?step=` дублируется в
- * NotificationService — общая точка на будущее, в распиле не дедуплицируется.
+ * Выделена из LearnerService (Т14.3). Дип-линк `?step=` собирает {@see LessonWorkLink}.
  *
  * @package Inc\Services\Profile\Learner
  */
@@ -25,7 +24,7 @@ class LearnerScheduleSection {
 	public function __construct(
 		private readonly SubmissionRepository    $submissions,
 		private readonly EffectiveWorksResolver  $worksResolver,
-		private readonly LessonManager           $lessons,
+		private readonly LessonWorkLink          $workLink,
 		private readonly HomeworkDeadlineService $homeworkDeadlines,
 	) {}
 
@@ -71,9 +70,7 @@ class LearnerScheduleSection {
 				$submittedWorkIds[ $sub->workId ] = true;
 			}
 
-			// Урок строки — для deep-link к конкретной работе (ключ шага); базовый
-			// URL плеера уже посчитан в lessonMap (для уроков с контентом).
-			$lesson  = $row->lessonId ? $this->lessons->get( $row->lessonId ) : null;
+			// Базовый URL плеера уже посчитан в lessonMap (для уроков с контентом).
 			$baseUrl = (string) ( $ctx->lessonMap[ $glid ]['player_url'] ?? '' );
 
 			foreach ( $this->worksResolver->resolve( $row ) as $work ) {
@@ -88,10 +85,7 @@ class LearnerScheduleSection {
 				}
 
 				// Bug 2: ссылка «сразу к нужной работе» — плеер урока + ?step=<ключ шага>.
-				$stepKey = $lesson?->stepKeyForWork( $work->id );
-				$workUrl = ( '' !== $baseUrl && $stepKey )
-					? (string) add_query_arg( 'step', $stepKey, $baseUrl )
-					: $baseUrl;
+				$workUrl = $this->workLink->forRow( $row, $work->id, $baseUrl );
 
 				$deadlines[] = array(
 					'due_at'     => $due,
