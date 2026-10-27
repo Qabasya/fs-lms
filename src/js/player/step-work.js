@@ -524,6 +524,7 @@ function mountWork( panel, root ) {
 		const widgetEl      = card.querySelector( '.fs-task-widget' );
 		const isChoice      = verdict && Array.isArray( verdict.correctOptionIds );
 		let vd = '';
+		const solution = state.solutions[ taskId ] || '';
 
 		if ( ! verdict ) {
 			vd = vdBlock( 'wait', 'Нет данных проверки', 'Результат появится после проверки.' );
@@ -535,7 +536,10 @@ function mountWork( panel, root ) {
 		} else if ( 'correct' === verdict.verdict && verdict.corrected ) {
 			vd = vdBlock( 'warn', `Верно · +${ verdict.score ?? 1 } балл`, 'Сначала проверка показала ошибку, потом ответ исправлен.' );
 		} else if ( 'correct' === verdict.verdict ) {
-			vd = vdBlock( 'ok', `Верно · +${ verdict.score ?? 1 } балл`, '' );
+			// Решение опроса — внутри плашки: «Верно · текст решения»; без решения — просто «Верно».
+			vd = vdBlock( 'ok', 'Верно', '', solution );
+		} else if ( solution ) {
+			vd = vdBlock( 'no', 'Неверно', '', solution );
 		} else {
 			vd = vdBlock( 'no', 'Неверно · 0 баллов', isChoice ? '' : 'Правильный ответ станет доступен после разбора с преподавателем.' );
 		}
@@ -551,7 +555,6 @@ function mountWork( panel, root ) {
 			conditionHtml +
 			answerHtml +
 			vd +
-			solutionBlock( state.solutions[ taskId ] ) +
 			'</div>';
 	}
 
@@ -618,15 +621,15 @@ function mountWork( panel, root ) {
 
 /* ── Вспомогательные ──────────────────────────────────────────────────── */
 
-/** Решение вопроса опроса (HTML уже очищен сервером); пусто — решение ещё не открыто или его нет. */
-function solutionBlock( html ) {
-	return html ? `<div class="work-solution"><b>Решение</b><div class="wpc">${ html }</div></div>` : '';
-}
-
-function vdBlock( kind, title, body ) {
+/**
+ * Плашка вердикта. `solutionHtml` — решение вопроса опроса (HTML очищен сервером): идёт в той же
+ * плашке после заголовка через « · ».
+ */
+function vdBlock( kind, title, body, solutionHtml = '' ) {
 	const icon = 'ok' === kind || 'warn' === kind ? ICO.check( 13 ) : ( 'no' === kind ? ICO.cross( 11 ) : ICO.clock( 13 ) );
 	return `<div class="vd vd-${ kind }"><span class="vi">${ icon }</span><div>` +
 		`<b>${ esc( title ) }</b>` + ( body ? `<span>${ esc( body ) }</span>` : '' ) +
+		( solutionHtml ? `<div class="vd-solution wpc">${ solutionHtml }</div>` : '' ) +
 		'</div></div>';
 }
 

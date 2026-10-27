@@ -149,6 +149,14 @@
   }
 }
 
+.vd-solution {
+  margin-top: rem(6);
+  font-weight: 400;
+
+  > :first-child { margin-top: 0; }
+  > :last-child { margin-bottom: 0; }
+}
+
 .vd-ok {
   background: var(--ok-soft);
   border: 1px solid var(--ok-line);
