@@ -6,7 +6,6 @@ namespace Inc\Services\Import;
 
 use Inc\Contracts\ClockInterface;
 use Inc\Contracts\LogEventDispatcherInterface;
-use Inc\DTO\Enrollment\StudentRecordInputDTO;
 use Inc\DTO\Import\ImportContextDTO;
 use Inc\DTO\Import\ImportRowResultDTO;
 use Inc\DTO\Log\Events\EnrollmentStatusEvent;
@@ -17,7 +16,6 @@ use Inc\Enums\Import\ImportColumn;
 use Inc\Enums\Import\ImportMode;
 use Inc\Enums\Log\LogEvent;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
-use Inc\Shared\Traits\TransactionRunner;
 use InvalidArgumentException;
 
 /**
@@ -43,8 +41,6 @@ use InvalidArgumentException;
  * Предмет и период берутся из {@see ImportContextDTO} (выбор в UI), а не из CSV.
  */
 readonly class StudentRowImporter extends AbstractRowImporter {
-
-	use TransactionRunner;
 
 	/**
 	 * @param StudentRecordWriter         $writer          Резолв/создание группы и persons
@@ -83,57 +79,22 @@ readonly class StudentRowImporter extends AbstractRowImporter {
 	 * @throws InvalidArgumentException При отсутствии обязательных значений
 	 */
 	public function import( array $row, ImportContextDTO $ctx ): ImportRowResultDTO {
-		$get = static fn( ImportColumn $col ): string => trim( (string) ( $row[ $col->value ] ?? '' ) );
+		$get = $this->cell( $row );
 
-		$lastName   = $get( ImportColumn::LastName );
-		$firstName  = $get( ImportColumn::FirstName );
 		$groupName  = $get( ImportColumn::Group );
 		$contractNo = $get( ImportColumn::ContractNo );
-		$pLastName  = $get( ImportColumn::ParentLastName );
-		$pFirstName = $get( ImportColumn::ParentFirstName );
 
 		$this->requireValues( array(
-			ImportColumn::LastName->value        => $lastName,
-			ImportColumn::FirstName->value       => $firstName,
+			ImportColumn::LastName->value        => $get( ImportColumn::LastName ),
+			ImportColumn::FirstName->value       => $get( ImportColumn::FirstName ),
 			ImportColumn::Group->value           => $groupName,
 			ImportColumn::ContractNo->value      => $contractNo,
-			ImportColumn::ParentLastName->value  => $pLastName,
-			ImportColumn::ParentFirstName->value => $pFirstName,
+			ImportColumn::ParentLastName->value  => $get( ImportColumn::ParentLastName ),
+			ImportColumn::ParentFirstName->value => $get( ImportColumn::ParentFirstName ),
 		) );
 
-		$studentEmail = $get( ImportColumn::Email );
-		$parentEmail  = $get( ImportColumn::ParentEmail );
-
-		$studentInput = new PersonInputDTO(
-			lastName:   $lastName,
-			firstName:  $firstName,
-			docNumber:  $get( ImportColumn::DocNumber ),
-			isStudent:  true,
-			middleName: $get( ImportColumn::MiddleName ),
-			docType:    $this->docTypeResolver->resolve( $get( ImportColumn::DocType ) ),
-			birthDate:  $this->toDate( $get( ImportColumn::BirthDate ) ) ?? '',
-			inn:        $get( ImportColumn::Inn ),
-			phone:      $get( ImportColumn::Phone ),
-			school:     $get( ImportColumn::School ),
-			grade:      $get( ImportColumn::Grade ),
-			email:      '' !== $studentEmail ? $studentEmail : null,
-		);
-
-		$parentInput = new PersonInputDTO(
-			lastName:      $pLastName,
-			firstName:     $pFirstName,
-			docNumber:     $get( ImportColumn::ParentDocNumber ),
-			isStudent:     false,
-			middleName:    $get( ImportColumn::ParentMiddleName ),
-			docType:       $this->docTypeResolver->resolve( $get( ImportColumn::ParentDocType ) ),
-			birthDate:     $this->toDate( $get( ImportColumn::ParentBirthDate ) ) ?? '',
-			inn:           $get( ImportColumn::ParentInn ),
-			address:       $get( ImportColumn::ParentAddress ),
-			phone:         $get( ImportColumn::ParentPhone ),
-			docIssuedBy:   $get( ImportColumn::ParentDocIssuedBy ),
-			docIssuedDate: $this->toDate( $get( ImportColumn::ParentDocIssuedDate ) ) ?? '',
-			email:         '' !== $parentEmail ? $parentEmail : null,
-		);
+		$studentInput = $this->studentInput( $get, $this->docTypeResolver );
+		$parentInput  = $this->parentInput( $get, $this->docTypeResolver );
 
 		// Резолв существующих сущностей (только чтение)
 		$groupId   = $this->writer->resolveGroupId( $groupName, $ctx );
@@ -154,39 +115,10 @@ readonly class StudentRowImporter extends AbstractRowImporter {
 
 		$now = $this->clock->now( 'mysql', true );
 
-		[ $recordId, $studentId, $parentId, $groupId ] = $this->inTransaction(
-			function () use ( $groupId, $studentId, $parentId, $groupName, $ctx, $studentInput, $parentInput, $get, $now, $lastName, $firstName, $contractNo ): array {
-				$groupId   ??= $this->writer->createGroup( $groupName, $ctx );
-				$parentId  ??= $this->writer->createPerson( $parentInput );
-				$studentId ??= $this->writer->createPerson( $studentInput );
-
-				[ $status, $reason, $expelledAt, $expelledBy ] = $this->resolveLifecycle( $get, $ctx, $now );
-
-				$recordId = $this->studentRecords->create( new StudentRecordInputDTO(
-					studentPersonId:    $studentId,
-					parentPersonId:     $parentId,
-					status:             $status,
-					enrolledAt:         $this->toDateTime( $get( ImportColumn::EnrolledAt ) ) ?? $now,
-					createdAt:          $now,
-					updatedAt:          $now,
-					groupId:            $groupId,
-					snapshotLastName:   $lastName,
-					snapshotFirstName:  $firstName,
-					snapshotMiddleName: $get( ImportColumn::MiddleName ) ?: null,
-					snapshotSchool:     $get( ImportColumn::School ) ?: null,
-					snapshotGrade:      $get( ImportColumn::Grade ) ?: null,
-					contractNo:         $contractNo,
-					contractDate:       $this->toDate( $get( ImportColumn::ContractDate ) ),
-					orderNo:            $get( ImportColumn::OrderNo ) ?: null,
-					orderDate:          $this->toDate( $get( ImportColumn::OrderDate ) ),
-					enrolledByUserId:   $ctx->actorId ?: null,
-					expelledAt:         $expelledAt,
-					expelReason:        $reason,
-					expelledByUserId:   $expelledBy,
-				) );
-
-				return array( $recordId, $studentId, $parentId, $groupId );
-			}
+		[ $recordId, $studentId, $parentId, $groupId ] = $this->persistRecord(
+			$this->writer, $this->studentRecords, $ctx, $get, $studentInput, $parentInput,
+			$groupName, $groupId, $studentId, $parentId, $now,
+			fn(): array => $this->resolveLifecycle( $get, $ctx, $now )
 		);
 
 		$this->logEvents->dispatch(
