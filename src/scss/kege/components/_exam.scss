@@ -299,7 +299,7 @@
   &:focus { border-color: var(--kege-cyan); }
 }
 
-.kege-save-btn { background: var(--kege-teal); color: var(--kege-on); height: 38px; padding: 0 20px; font-size: 13.5px; }
+.kege-save-btn { background: var(--kege-teal); color: var(--kege-on); height: rem(38); padding: 0 rem(20); font-size: rem(13.5); }
 .kege-save-btn:hover { filter: brightness(1.08); }
 
 .kege-save-status { font-size: 13px; color: var(--kege-muted); min-width: 20px; }
@@ -403,7 +403,33 @@
 }
 
 .kege-save2 { flex: 1; background: var(--kege-teal); color: var(--kege-on); padding: 10px; font-size: 13.5px; }
-.kege-save2.is-saved { background: var(--kege-green); }
+
+// Кнопка «Сохранить ответ» и крестик удаления справа от неё.
+.kege-save-wrap { display: flex; align-items: stretch; gap: rem(8); }
+.kege-ap-actions .kege-save-wrap { flex: 1; }
+.kege-ap-actions .kege-save-del { height: auto; }
+
+.kege-save-btn.is-saved,
+.kege-save2.is-saved {
+  background: var(--kege-line);
+  color: var(--kege-muted);
+  cursor: default;
+  filter: none;
+}
+
+.kege-save-del {
+  flex: 0 0 auto;
+  min-width: rem(38);
+  height: rem(38);
+  border: 1px solid var(--kege-red);
+  background: var(--kege-surface);
+  color: var(--kege-red);
+  font-size: rem(15);
+  cursor: pointer;
+
+  &[hidden] { display: none; }
+  &:hover { background: color-mix(in oklab, var(--kege-red) 8%, var(--kege-surface)); }
+}
 
 /* Задания 13-16 ОГЭ («Развёрнутый ответ», §3.3/§6.2 .docs/Tasks.md) — только
    загрузка файла, без текстового поля. */

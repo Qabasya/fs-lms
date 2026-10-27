@@ -322,7 +322,54 @@ export function initKegeExam() {
 		markSaved( current.taskId, savedAnswers.has( String( current.taskId ) ) );
 		syncCount();
 		rememberPreviewAnswers();
+		current.sync?.();
 		return true;
+	};
+
+	/**
+	 * Кнопка «Сохранить ответ» + крестик удаления справа. Пока поле совпадает с
+	 * подтверждённым сервером ответом, кнопка серая, неактивная и подписана
+	 * «Ответ сохранён!»; любая правка возвращает её в исходный вид. Состояние
+	 * считается из значений, а не из клика, поэтому его же выставляет автосохранение.
+	 *
+	 * @param {HTMLButtonElement} saveBtn Кнопка сохранения (уже со своим классом)
+	 * @param {{taskId: string, collect: (function(): string)}} ctx Привязка задания
+	 * @param {function(): void} clearFields Очищает поля ответа
+	 * @return {{wrap: HTMLElement, sync: (function(): void)}}
+	 */
+	const mountSaveControl = ( saveBtn, ctx, clearFields ) => {
+		const wrap = document.createElement( 'span' );
+		wrap.className = 'kege-save-wrap';
+
+		const delBtn = document.createElement( 'button' );
+		delBtn.type = 'button';
+		delBtn.className = 'kege-save-del';
+		delBtn.textContent = '✕';
+		delBtn.title = 'Удалить ответ';
+		delBtn.setAttribute( 'aria-label', 'Удалить ответ' );
+		delBtn.hidden = true;
+		wrap.append( saveBtn, delBtn );
+
+		const sync = () => {
+			const text = ctx.collect();
+			const done = '' !== text && text === storedAnswer( ctx.taskId );
+			saveBtn.textContent = done ? 'Ответ сохранён!' : 'Сохранить ответ';
+			saveBtn.classList.toggle( 'is-saved', done );
+			saveBtn.disabled = done;
+			delBtn.hidden = ! done;
+		};
+
+		saveBtn.addEventListener( 'click', async () => {
+			await flushAnswer();
+			sync();
+		} );
+		delBtn.addEventListener( 'click', async () => {
+			clearFields();
+			await flushAnswer();
+			sync();
+		} );
+
+		return { wrap, sync };
 	};
 
 	/**
@@ -389,6 +436,7 @@ export function initKegeExam() {
 	 */
 	const autosaveOn = ( inputs ) => {
 		inputs.forEach( ( input ) => {
+			input.addEventListener( 'input', () => { binding?.sync?.(); } );
 			input.addEventListener( 'input', queueAnswer );
 			input.addEventListener( 'blur', () => { void flushAnswer(); } );
 			input.addEventListener( 'keydown', ( e ) => { if ( 'Enter' === e.key ) { void flushAnswer(); } } );
@@ -479,7 +527,9 @@ export function initKegeExam() {
 			saveBtn.type = 'button';
 			saveBtn.className = 'kege-save2';
 			saveBtn.textContent = 'Сохранить ответ';
-			actions.append( saveBtn );
+			const clearTriple = () => { subs.forEach( ( key ) => { inputs[ key ].value = ''; } ); };
+			const saveCtl = mountSaveControl( saveBtn, { taskId, collect: () => binding.collect() }, clearTriple );
+			actions.append( saveCtl.wrap );
 			panelWrap.append( actions, statusEl );
 
 			binding = {
@@ -497,8 +547,9 @@ export function initKegeExam() {
 					return any ? JSON.stringify( out ) : '';
 				},
 			};
+			binding.sync = saveCtl.sync;
 			autosaveOn( subs.map( ( key ) => inputs[ key ] ) );
-			saveBtn.addEventListener( 'click', () => { void flushAnswer(); } );
+			saveCtl.sync();
 		} else if ( 'table' === shape ) {
 			panelWrap.hidden = false;
 
@@ -528,11 +579,8 @@ export function initKegeExam() {
 
 			const inputs = [];
 
-			/** Строка «Сохранить ответ» → «Сохранено!» до следующей правки. */
-			const markUnsaved = () => {
-				saveBtn.textContent = 'Сохранить ответ';
-				saveBtn.classList.remove( 'is-saved' );
-			};
+			/** Любая правка таблицы возвращает кнопку в «Сохранить ответ». */
+			const markUnsaved = () => { binding?.sync?.(); };
 
 			/** Добавляет строку в конец таблицы и возвращает её input'ы. */
 			const addRow = ( label ) => {
@@ -593,7 +641,9 @@ export function initKegeExam() {
 			saveBtn.type = 'button';
 			saveBtn.className = 'kege-save2';
 			saveBtn.textContent = 'Сохранить ответ';
-			actions.append( clearBtn, saveBtn );
+			const clearTable = () => { inputs.forEach( ( row ) => row.forEach( ( i ) => { i.value = ''; } ) ); };
+			const saveCtl = mountSaveControl( saveBtn, { taskId, collect: () => binding.collect() }, clearTable );
+			actions.append( clearBtn, saveCtl.wrap );
 			panelWrap.append( actions, statusEl );
 
 			binding = {
@@ -608,20 +658,13 @@ export function initKegeExam() {
 			// Автосейва здесь нет намеренно (2026-08-21): значения фиксируются только
 			// по явному клику «Сохранить ответ» — во время набора таблицы промежуточные
 			// (заведомо неполные) состояния на сервер не летят.
-			saveBtn.addEventListener( 'click', async () => {
-				if ( await flushAnswer() ) {
-					saveBtn.textContent = 'Сохранено!';
-					saveBtn.classList.add( 'is-saved' );
-				}
-			} );
+			binding.sync = saveCtl.sync;
 			clearBtn.addEventListener( 'click', async () => {
-				inputs.forEach( ( row ) => row.forEach( ( i ) => { i.value = ''; } ) );
-				markUnsaved();
-				if ( await flushAnswer() ) {
-					saveBtn.textContent = 'Сохранено!';
-					saveBtn.classList.add( 'is-saved' );
-				}
+				clearTable();
+				await flushAnswer();
+				saveCtl.sync();
 			} );
+			saveCtl.sync();
 		} else if ( 'file' === shape ) {
 			// Задания 13-16 ОГЭ («Развёрнутый ответ») — только загрузка файла, без
 			// текстового поля (решено с пользователем 2026-08-18). Формат ответа —
@@ -741,9 +784,11 @@ export function initKegeExam() {
 			// Клик — немедленная запись: под дебаунсом кнопка «Сохранить ответ»
 			// откладывала отправку на полторы секунды, и уход со страницы или
 			// досрочная сдача в этом окне теряли ответ.
-			saveBtn.addEventListener( 'click', () => { void flushAnswer(); } );
+			const saveCtl = mountSaveControl( saveBtn, binding, () => { input.value = ''; } );
+			binding.sync = saveCtl.sync;
+			saveCtl.sync();
 
-			bottom.append( input, saveBtn, statusEl );
+			bottom.append( input, saveCtl.wrap, statusEl );
 		}
 	}
 
