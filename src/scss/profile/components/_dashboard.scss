@@ -65,9 +65,6 @@
 .prof-dash-grid2 { display: grid; grid-template-columns: minmax(0, 1fr); gap: rem(18); }
 .prof-sched-card { margin-bottom: rem(18); }
 
-/* переключатель Сегодня/Неделя/Месяц — отдельной строкой под заголовком «Расписание» */
-.prof-sched-switch { padding: rem(10) rem(18); border-bottom: 1px solid var(--line-2); }
-
 /* разделитель между идущим занятием и остальными — как граница строки */
 .prof-sched-now-divider { margin: 0; border: 0; border-bottom: 1px solid var(--line-2); }
 
@@ -281,6 +278,10 @@ a.prof-lesson-go, a.prof-work-item, a.prof-grade-attempt { text-decoration: none
   background: var(--surface); border: 1px solid var(--line);
   border-radius: var(--radius); padding: rem(16) rem(18); box-shadow: var(--shadow-sm);
 }
+
+/* плитка-ссылка (дедлайны ученика ведут к последней несданной работе) */
+a.prof-stat-tile { display: block; text-decoration: none; color: inherit; transition: box-shadow $tr; }
+a.prof-stat-tile:hover { box-shadow: var(--shadow-md); }
 .prof-stat-tile .st-top { display: flex; align-items: center; gap: rem(8); color: var(--muted); font-size: rem(12.5); font-weight: 500; }
 .prof-stat-tile .st-ico { width: rem(28); height: rem(28); border-radius: rem(8); display: flex; align-items: center; justify-content: center; }
 .prof-stat-tile .st-val { font-size: rem(28); font-weight: 700; letter-spacing: -.02em; margin-top: rem(8); font-variant-numeric: tabular-nums; }
@@ -307,6 +308,9 @@ a.prof-lesson-go, a.prof-work-item, a.prof-grade-attempt { text-decoration: none
 /* ── Мобильный (Фаза 5): плитки в столбец, недельная сетка скроллится ── */
 @media (max-width: $breakpoint-mobile) {
   .prof-stat-tiles { grid-template-columns: minmax(0, 1fr); }
+
+  // ФИО в приветствии — на новой строке после «Здравствуйте,»
+  .prof-hello-name { display: block; }
 
   // Единый вид плиток во всех кабинетах: иконка и подпись в строке, число под подписью.
   .prof-stat-tile { padding: rem(14) rem(16); }

@@ -12,6 +12,16 @@ export { esc };
 import { AVA_COLORS } from './constants.js';
 import { PATH_CHECK, PATH_CROSS, icoCheck } from '../common/icons.js';
 
+/**
+ * Последняя несданная работа среди дедлайнов ученика: с самым поздним сроком
+ * и ссылкой в плеер (без ссылки к работе не перейти). Нет такой — null.
+ */
+export function lastDeadline(deadlines) {
+    return (deadlines || [])
+        .filter(d => d.player_url)
+        .reduce((best, d) => (!best || String(d.due_at) > String(best.due_at) ? d : best), null);
+}
+
 let toastTimer;
 
 /**

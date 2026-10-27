@@ -7,7 +7,7 @@
 .prof-card { @include cab-card; }
 
 .prof-card-head {
-  display: flex; align-items: center; gap: rem(10);
+  display: flex; flex-wrap: wrap; align-items: center; gap: rem(10);
   padding: rem(16) rem(18); border-bottom: 1px solid var(--line-2);
 }
 .prof-card-head h3 { font-size: rem(15); font-weight: 700; letter-spacing: -.01em; }

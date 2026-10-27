@@ -4,7 +4,7 @@
    отдаёт всё; родитель переключает ребёнка (fsProfile.children). Read-only.
    ══════════════════════════════════════════════════════════════════════ */
 
-import { esc, fmtDayMonth, fmtDate, emptyState, chipBg, chipHtml, chipText, chipSoft, scheduleTone, shortName, todayIso, roomLabel } from './utils.js';
+import { esc, fmtDayMonth, fmtDate, emptyState, chipBg, chipHtml, chipText, chipSoft, scheduleTone, shortName, todayIso, roomLabel, lastDeadline } from './utils.js';
 import { toggleVisible, applyProgress } from '../common/utils.js';
 import { icoCalendar, icoCheck, icoAlert, icoSearch, icoChevronRight, icoChevronDown, icoClock, icoStar, icoHome, icoLock } from '../common/icons.js';
 import { createApi } from './api.js';
@@ -82,19 +82,19 @@ function renderHome(root, d) {
         ${childBar(false)}
         ${examLockBanner(d)}
         <div class="prof-dash-hello">
-            <h1>Здравствуйте, ${esc(name)} 👋</h1>
+            <h1>Здравствуйте,<span class="prof-hello-name"> ${esc(name)}</span></h1>
             <p>${d.groups.map(g => esc(g.name) + ' · ' + esc(g.subject)).join(' · ') || 'Нет активных групп'}</p>
             ${childPickHtml()}
         </div>
         <div class="prof-stat-tiles prof-stat-tiles--learner">
-            ${homeTile('Дедлайнов', String(d.deadlines.length), '#f08c00', 'alert')}
+            ${homeTile('Дедлайнов', String(d.deadlines.length), '#f08c00', 'alert', lastDeadline(d.deadlines)?.player_url)}
             ${homeTile('Посещаемость', att.percent === null ? '—' : att.percent + '%', '#2f9e44', 'check')}
         </div>
         <div class="prof-dash-grid2">
             <div class="prof-card prof-sched-card">
-                <div class="prof-card-head"><h3>Расписание</h3></div>
-                <div class="prof-sched-switch">
-                    <div class="prof-seg" id="profSchedToggle">
+                <div class="prof-card-head">
+                    <h3>Расписание</h3>
+                    <div class="prof-seg ch-act" id="profSchedToggle">
                         <button class="on" data-mode="today">Сегодня</button>
                         <button data-mode="week">Неделя</button>
                         <button data-mode="month">Месяц</button>
@@ -639,12 +639,14 @@ function attRow(r) {
     </div>`;
 }
 
-function homeTile(label, val, color, ico) {
+function homeTile(label, val, color, ico, href = '') {
     const icons = { cal: icoCalendar, check: icoCheck, alert: icoAlert };
-    return `<div class="prof-stat-tile">
+    const tag = href ? 'a' : 'div';
+    const link = href ? ` href="${esc(href)}"` : '';
+    return `<${tag} class="prof-stat-tile${href ? ' is-link' : ''}"${link}>
         <div class="st-top"><span class="st-ico" style="background:${color}1a;color:${color}">${icons[ico](16)}</span>${esc(label)}</div>
         <div class="st-val">${esc(val)}</div>
-    </div>`;
+    </${tag}>`;
 }
 
 /* ── Helpers ──────────────────────────────────────────────────────────── */
