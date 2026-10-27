@@ -147,23 +147,32 @@ class VideoLibraryCallbacks extends BaseController {
 		$groupLessonId = $this->requireInt( 'group_lesson_id' );
 		$url           = $this->sanitizeText( 'recording_url' );
 
-		if ( null === $this->groupLessons->find( $groupLessonId ) ) {
+		$lesson = $this->groupLessons->find( $groupLessonId );
+		if ( null === $lesson ) {
 			$this->error( 'Занятие не найдено.' );
 			return;
 		}
 
+		// Дополнительное занятие для части группы — по строке на ученика: запись общая для всех его строк.
+		$ids = $this->groupLessons->extraSiblingIds( $lesson );
+		if ( ! in_array( $groupLessonId, $ids, true ) ) {
+			$ids[] = $groupLessonId;
+		}
+
 		// Прямая ссылка (облако) — во внешнюю ссылку занятия, указатель хранилища —
 		// в recording_url; «снять» очищает оба (алерт считает занятие без записи).
-		if ( '' === $url ) {
-			$this->groupLessons->setRecordingUrl( $groupLessonId, null );
-			$this->groupLessons->setRecordingLink( $groupLessonId, null );
-		} elseif ( preg_match( '#^https?://#i', $url ) ) {
-			$this->groupLessons->setRecordingLink( $groupLessonId, esc_url_raw( $url ) );
-		} else {
-			$this->groupLessons->setRecordingUrl( $groupLessonId, $url );
-		}
-		if ( '' !== $url ) {
-			do_action( 'fs_lms_recording_attached', $groupLessonId );
+		foreach ( $ids as $id ) {
+			if ( '' === $url ) {
+				$this->groupLessons->setRecordingUrl( $id, null );
+				$this->groupLessons->setRecordingLink( $id, null );
+			} elseif ( preg_match( '#^https?://#i', $url ) ) {
+				$this->groupLessons->setRecordingLink( $id, esc_url_raw( $url ) );
+			} else {
+				$this->groupLessons->setRecordingUrl( $id, $url );
+			}
+			if ( '' !== $url ) {
+				do_action( 'fs_lms_recording_attached', $id );
+			}
 		}
 
 		$this->success( array( 'message' => '' !== $url ? 'Ссылка сохранена.' : 'Ссылка снята.' ) );

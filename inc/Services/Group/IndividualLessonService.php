@@ -7,6 +7,7 @@ namespace Inc\Services\Group;
 use Inc\DTO\Course\GroupLessonDTO;
 use Inc\DTO\Course\GroupLessonInputDTO;
 use Inc\Enums\Course\LessonKind;
+use Inc\Enums\Course\LessonStatus;
 use Inc\Enums\Profile\NotificationType;
 use Inc\Enums\Wp\PageRoutes;
 use Inc\Managers\Course\CourseManager;
@@ -288,9 +289,17 @@ readonly class IndividualLessonService {
 		$template = $rows[0];
 		$newRoom  = null !== $roomId ? ( $roomId > 0 ? $roomId : null ) : $template->roomId;
 		$newLesson = ( null !== $lessonId && $lessonId > 0 ) ? $lessonId : $template->lessonId;
+		$recorded = null;
+		foreach ( $rows as $row ) {
+			if ( $row->hasRecording() ) {
+				$recorded = $row;
+				break;
+			}
+		}
 		foreach ( $studentPersonIds as $personId ) {
 			if ( ! isset( $existing[ $personId ] ) ) {
-				$this->insertIndividual( $groupId, $personId, $scheduledAt, $endsAt, $newLesson, $template->label, $template->teacherUserId, $actorUserId, $newRoom, $extraKey, $broadcastUrl );
+				$id = $this->insertIndividual( $groupId, $personId, $scheduledAt, $endsAt, $newLesson, $template->label, $template->teacherUserId, $actorUserId, $newRoom, $extraKey, $broadcastUrl );
+				$this->copyRecording( $recorded, $id );
 			}
 		}
 
@@ -399,6 +408,20 @@ readonly class IndividualLessonService {
 		}
 
 		return $names;
+	}
+
+	/** Запись занятия принадлежит всем его строкам: ученик, добавленный позже, получает её сразу. */
+	private function copyRecording( ?GroupLessonDTO $source, int $id ): void {
+		if ( null === $source ) {
+			return;
+		}
+		if ( null !== $source->recordingUrl && '' !== $source->recordingUrl ) {
+			$this->groupLessons->setRecordingUrl( $id, $source->recordingUrl );
+		}
+		if ( null !== $source->recordingLink ) {
+			$this->groupLessons->setRecordingLink( $id, $source->recordingLink );
+		}
+		$this->groupLessons->setStatus( $id, LessonStatus::Held );
 	}
 
 	/** Вставка индивидуального занятия и событие обучения. */

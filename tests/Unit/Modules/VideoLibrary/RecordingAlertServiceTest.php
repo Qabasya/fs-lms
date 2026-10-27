@@ -42,13 +42,13 @@ class RecordingAlertServiceTest extends TestCase {
 		);
 	}
 
-	private function lessonRow( int $id, int $groupId, ?int $lessonId, ?string $label = null, LessonKind $kind = LessonKind::Group, ?int $teacherId = null ): GroupLessonDTO {
+	private function lessonRow( int $id, int $groupId, ?int $lessonId, ?string $label = null, LessonKind $kind = LessonKind::Group, ?int $teacherId = null, ?string $extraKey = null ): GroupLessonDTO {
 		return new GroupLessonDTO(
 			id: $id, groupId: $groupId, lessonId: $lessonId, position: 0, workIdsSnapshot: null,
 			extraWorkIds: array(), scheduledAt: '2026-07-20 10:00:00', endsAt: null, isPinned: false,
 			teacherUserId: $teacherId, visibility: 'open', openedAt: null, homeworkDueAt: null,
 			allowLate: true, recordingUrl: null, createdByUserId: null, updatedByUserId: null,
-			label: $label, status: 'held', kind: $kind,
+			label: $label, status: 'held', kind: $kind, extraKey: $extraKey,
 		);
 	}
 
@@ -135,4 +135,23 @@ class RecordingAlertServiceTest extends TestCase {
 		self::assertSame( array( array( 5, 9 ), array( 5, 7 ), array( 5, null ) ), $calls );
 	}
 
+	public function test_rows_of_one_extra_lesson_are_listed_once(): void {
+		// Дополнительное занятие для трёх учеников — три строки с общим extra_key, а запись у него одна.
+		$this->groupLessons->method( 'listPastWithoutRecording' )->willReturn( array(
+			$this->lessonRow( 55, 4, 1, null, LessonKind::Individual, null, 'k1' ),
+			$this->lessonRow( 56, 4, 1, null, LessonKind::Individual, null, 'k1' ),
+			$this->lessonRow( 57, 4, 1, null, LessonKind::Individual, null, 'k1' ),
+			$this->lessonRow( 58, 4, 1, null, LessonKind::Individual, null, 'k2' ),
+			$this->lessonRow( 59, 4, 1, null, LessonKind::Individual ),
+			$this->lessonRow( 60, 4, 1, null, LessonKind::Individual ),
+		) );
+		$this->groups->method( 'findById' )->willReturn( (object) array( 'name' => 'Г', 'teacher_id' => 7 ) );
+		$this->recordings->method( 'listCandidates' )->willReturn( array() );
+		$this->lessons->method( 'get' )->willReturn( $this->lesson( 'Тема' ) );
+
+		$ids = array_column( $this->service->pending(), 'id' );
+
+		// Без ключа строки самостоятельны (59, 60); с общим ключом — одна карточка.
+		self::assertSame( array( 55, 58, 59, 60 ), $ids );
+	}
 }

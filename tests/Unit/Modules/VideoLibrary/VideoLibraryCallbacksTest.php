@@ -107,6 +107,24 @@ class VideoLibraryCallbacksTest extends TestCase {
 		self::assertTrue( fs_test_capture_json( fn() => $this->cb->ajaxSetLessonRecordingUrl() )->success );
 	}
 
+	/** Дополнительное занятие — по строке на ученика: ссылка ложится на все строки, а не на одну. */
+	public function test_set_lesson_recording_url_covers_all_extra_lesson_rows(): void {
+		$this->groupLessons->method( 'find' )->with( 42 )->willReturn( $this->row() );
+		$this->groupLessons->method( 'extraSiblingIds' )->willReturn( array( 42, 43, 44 ) );
+		$saved = array();
+		$this->groupLessons->method( 'setRecordingLink' )->willReturnCallback(
+			static function ( int $id ) use ( &$saved ): bool {
+				$saved[] = $id;
+				return true;
+			}
+		);
+
+		$_POST = array( 'group_lesson_id' => '42', 'recording_url' => 'https://example.com/rec.mp4' );
+
+		self::assertTrue( fs_test_capture_json( fn() => $this->cb->ajaxSetLessonRecordingUrl() )->success );
+		self::assertSame( array( 42, 43, 44 ), $saved );
+	}
+
 	public function test_set_lesson_recording_url_rejects_unknown_lesson(): void {
 		$this->groupLessons->method( 'find' )->willReturn( null );
 		$this->groupLessons->expects( self::never() )->method( 'setRecordingUrl' );

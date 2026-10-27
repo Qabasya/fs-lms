@@ -568,7 +568,7 @@ class GroupLessonRepository {
 	public function countPastWithoutRecording( string $now ): int {
 		return (int) $this->wpdb->get_var(
 			$this->wpdb->prepare(
-				'SELECT COUNT(*) FROM %i WHERE ' . $this->missingRecordingCondition(),
+				'SELECT COUNT(DISTINCT IF( extra_key IS NULL, CONCAT( \'i\', id ), CONCAT( group_id, \':\', extra_key ) )) FROM %i WHERE ' . $this->missingRecordingCondition(),
 				$this->table,
 				$now
 			)

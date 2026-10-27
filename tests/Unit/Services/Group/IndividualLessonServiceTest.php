@@ -309,4 +309,25 @@ class IndividualLessonServiceTest extends TestCase {
 
 		$this->service->updateExtraLessons( 1, 'k1', array( 9001, 9002 ), '2026-05-20 15:00:00', null, null, null, 99 );
 	}
+
+	public function test_update_extra_lessons_gives_new_student_the_existing_recording(): void {
+		$this->groups->method( 'findById' )->willReturn( new \stdClass() );
+		$this->records->method( 'findActiveByGroupId' )->willReturn( array(
+			(object) array( 'studentPersonId' => 9001, 'snapshotLastName' => 'А', 'snapshotFirstName' => 'А' ),
+			(object) array( 'studentPersonId' => 9002, 'snapshotLastName' => 'Б', 'snapshotFirstName' => 'Б' ),
+		) );
+		$withRecording = GroupLessonDTO::fromArray( array(
+			'id' => 10, 'group_id' => 1, 'kind' => 'individual', 'student_person_id' => 9001, 'extra_key' => 'k1',
+			'scheduled_at' => '2026-05-20 15:00:00', 'ends_at' => '2026-05-20 16:00:00', 'status' => 'held',
+			'recording_url' => 's3://b/k.webm', 'recording_link' => 'https://example.com/r',
+		) );
+		$this->groupLessons->method( 'listByGroup' )->willReturn( array( $withRecording ) );
+		$this->groupLessons->method( 'find' )->willReturn( $withRecording );
+		$this->groupLessons->method( 'add' )->willReturn( 55 );
+		$this->groupLessons->expects( self::once() )->method( 'setRecordingUrl' )->with( 55, 's3://b/k.webm' );
+		$this->groupLessons->expects( self::once() )->method( 'setRecordingLink' )->with( 55, 'https://example.com/r' );
+		$this->groupLessons->expects( self::once() )->method( 'setStatus' )->with( 55, \Inc\Enums\Course\LessonStatus::Held );
+
+		$this->service->updateExtraLessons( 1, 'k1', array( 9001, 9002 ), '2026-05-20 15:00:00', null, null, null, 99 );
+	}
 }

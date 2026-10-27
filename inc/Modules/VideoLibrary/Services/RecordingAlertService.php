@@ -71,9 +71,19 @@ class RecordingAlertService {
 		$groupTeachers = array();
 		$candidates    = array();
 		$out           = array();
+		$seenExtra     = array();
 
 		foreach ( $this->groupLessons->listPastWithoutRecording( current_time( 'mysql' ), $limit ) as $row ) {
 			$groupId = (int) $row->groupId;
+
+			// Дополнительное занятие для части группы — по строке на ученика, а запись у него одна.
+			if ( null !== $row->extraKey ) {
+				$extraId = $groupId . ':' . $row->extraKey;
+				if ( isset( $seenExtra[ $extraId ] ) ) {
+					continue;
+				}
+				$seenExtra[ $extraId ] = true;
+			}
 
 			if ( ! isset( $groupNames[ $groupId ] ) ) {
 				$group                     = $this->groups->findById( $groupId );
