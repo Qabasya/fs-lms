@@ -6,15 +6,14 @@
  *              пользователя и возвращает его промисом.
  *
  * @requires jQuery
- * @requires openModal, closeModal, bindEsc, unbindEsc — базовые утилиты модалок
+ * @requires openModal, closeModal, unbindEsc, awaitModalDecision — базовые утилиты модалок
  */
 
-import { openModal, closeModal, bindEsc, unbindEsc } from '../modules/modal-base.js';
+import { openModal, closeModal, unbindEsc, awaitModalDecision } from '../modules/modal-base.js';
 
 const $ = jQuery;
 
-const ESC_SCOPE = 'pii_export';
-const EVT       = '.pii_export';
+const SCOPE = 'pii_export';
 
 /**
  * Модалка «Экспорт персональных данных».
@@ -62,35 +61,10 @@ export const PiiExportModal = {
 
         openModal( this.$modal );
 
-        return new Promise( ( resolve, reject ) => {
-            this.$modal.find( '.fs-lms-modal-confirm' )
-                .off( `click${ EVT }` )
-                .on( `click${ EVT }`, () => {
-                    const includePasswords = $checkbox.prop( 'checked' ) === true;
-                    const includeDocuments = withDocuments && $documents.prop( 'checked' ) === true;
-                    this._close();
-                    resolve( { includePasswords, includeDocuments } );
-                } );
-
-            this.$modal.find( '.fs-lms-modal-cancel' )
-                .off( `click${ EVT }` )
-                .on( `click${ EVT }`, () => {
-                    this._close();
-                    reject( 'cancel' );
-                } );
-
-            this.$modal.find( '.fs-lms-modal-close, .fs-lms-modal-backdrop' )
-                .off( `click${ EVT }` )
-                .on( `click${ EVT }`, () => {
-                    this._close();
-                    reject( 'close' );
-                } );
-
-            bindEsc( ESC_SCOPE, () => {
-                this._close();
-                reject( 'esc' );
-            } );
-        } );
+        return awaitModalDecision( this.$modal, SCOPE, () => ( {
+            includePasswords: $checkbox.prop( 'checked' ) === true,
+            includeDocuments: withDocuments && $documents.prop( 'checked' ) === true,
+        } ) );
     },
 
     /**
@@ -99,6 +73,6 @@ export const PiiExportModal = {
      */
     _close() {
         closeModal( this.$modal );
-        unbindEsc( ESC_SCOPE );
+        unbindEsc( SCOPE );
     },
 };

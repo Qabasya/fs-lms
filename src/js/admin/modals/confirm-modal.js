@@ -13,7 +13,7 @@
  * @requires openModal, closeModal, bindEsc, unbindEsc - базовые уutilities управления модальными окнами
  */
 
-import { openModal, closeModal, bindEsc, unbindEsc } from '../modules/modal-base.js';
+import { openModal, closeModal, unbindEsc, awaitModalDecision } from '../modules/modal-base.js';
 
 const $ = jQuery;
 
@@ -94,44 +94,9 @@ const ConfirmModal = {
         // Базовая логика открытия через утилиту
         openModal(this.$modal);
 
-        // ВОЗВРАТ PROMISE:
-        // Это ключевая особенность модуля. Вместо передачи колбэков, мы возвращаем Promise.
-        // Это позволяет вызывающему коду использовать синтаксис await:
-        // await ConfirmModal.confirm({ title: 'Удалить?' });
-        return new Promise((resolve, reject) => {
-
-            // Обработчик подтверждения.
-            // .off('click.confirm') удаляет предыдущие обработчики с этим неймспейсом,
-            // предотвращая их дублирование при повторных открытиях модалки.
-            $confirmBtn
-                .off('click.confirm')
-                .on('click.confirm', () => {
-                    this._close();
-                    resolve(); // Разрешаем промис, сигнализируя об успехе
-                });
-
-            // Обработчик кнопки "Отмена"
-            this.$modal.find('.fs-lms-modal-cancel')
-                .off('click.confirm')
-                .on('click.confirm', () => {
-                    this._close();
-                    reject('cancel'); // Отклоняем промис с причиной 'cancel'
-                });
-
-            // Обработчики закрытия через крестик или клик по затемненному фону
-            this.$modal.find('.fs-lms-modal-close, .fs-lms-modal-backdrop')
-                .off('click.confirm')
-                .on('click.confirm', () => {
-                    this._close();
-                    reject('close'); // Отклоняем промис с причиной 'close'
-                });
-
-            // Обработчик клавиши ESC
-            bindEsc('confirm', () => {
-                this._close();
-                reject('esc'); // Отклоняем промис с причиной 'esc'
-            });
-        });
+        // ВОЗВРАТ PROMISE: вызывающий код пишет await ConfirmModal.confirm({ title: 'Удалить?' });
+        // resolve — подтверждено; reject — 'cancel' | 'close' | 'esc'.
+        return awaitModalDecision(this.$modal, 'confirm');
     },
 
     /**

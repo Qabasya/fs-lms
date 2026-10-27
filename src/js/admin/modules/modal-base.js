@@ -174,3 +174,42 @@ export function unbindEsc(ns) {
     // Это безопаснее, чем .off('keydown'), который удалил бы ВСЕ обработчики keydown на документе.
     $(document).off('keydown.modal_' + ns);
 }
+
+/**
+ * Ждёт решения пользователя в уже открытой модалке: «подтвердить» — resolve, остальное — reject.
+ *
+ * Общий протокол промис-модалок (ConfirmModal, PiiExportModal, BundleExportModal): кнопки
+ * `.fs-lms-modal-confirm` / `-cancel`, крестик и фон, клавиша Esc. После решения модалка закрывается,
+ * обработчики с неймспейсом `scope` снимаются (повторное открытие их не удваивает).
+ *
+ * @param {jQuery}   $modal  Открытая модалка.
+ * @param {string}   scope   Неймспейс кликов и Esc (уникальный у модалки).
+ * @param {Function} [collect] () => значение для resolve; вызывается ДО закрытия, пока поля доступны.
+ * @returns {Promise<*>} reject: 'cancel' (кнопка «Отмена»), 'close' (крестик/фон), 'esc'.
+ */
+export function awaitModalDecision($modal, scope, collect = () => undefined) {
+    const evt = 'click.' + scope;
+
+    return new Promise((resolve, reject) => {
+        const finish = (settle, value) => {
+            closeModal($modal);
+            unbindEsc(scope);
+            settle(value);
+        };
+
+        $modal.find('.fs-lms-modal-confirm')
+            .off(evt)
+            .on(evt, () => finish(resolve, collect()));
+
+        $modal.find('.fs-lms-modal-cancel')
+            .off(evt)
+            .on(evt, () => finish(reject, 'cancel'));
+
+        $modal.find('.fs-lms-modal-close, .fs-lms-modal-backdrop')
+            .off(evt)
+            .on(evt, () => finish(reject, 'close'));
+
+        bindEsc(scope, () => finish(reject, 'esc'));
+    });
+}
+

@@ -8,12 +8,11 @@
  * @requires openModal, closeModal, bindEsc, unbindEsc — базовые утилиты модалок
  */
 
-import { openModal, closeModal, bindEsc, unbindEsc } from '../modules/modal-base.js';
+import { openModal, closeModal, unbindEsc, awaitModalDecision } from '../modules/modal-base.js';
 
 const $ = jQuery;
 
-const ESC_SCOPE = 'bundle_export';
-const EVT       = '.bundle_export';
+const SCOPE = 'bundle_export';
 
 /**
  * Модалка «Экспорт предмета в пакет».
@@ -89,32 +88,12 @@ export const BundleExportModal = {
 
         openModal( this.$modal );
 
-        return new Promise( ( resolve, reject ) => {
-            this.$modal.find( '.fs-lms-modal-confirm' )
-                .off( `click${ EVT }` )
-                .on( `click${ EVT }`, () => {
-                    const scope = {
-                        format:            this._format(),
-                        includeCurriculum: this.$modal.find( '.js-bundle-curriculum' ).prop( 'checked' ) === true,
-                        includeMedia:      this.$modal.find( '.js-bundle-media' ).prop( 'checked' ) === true,
-                        includeStudents:   this.$modal.find( '.js-bundle-students' ).prop( 'checked' ) === true,
-                    };
-                    this._close();
-                    resolve( scope );
-                } );
-
-            this.$modal.find( '.fs-lms-modal-cancel, .fs-lms-modal-close, .fs-lms-modal-backdrop' )
-                .off( `click${ EVT }` )
-                .on( `click${ EVT }`, () => {
-                    this._close();
-                    reject( 'cancel' );
-                } );
-
-            bindEsc( ESC_SCOPE, () => {
-                this._close();
-                reject( 'esc' );
-            } );
-        } );
+        return awaitModalDecision( this.$modal, SCOPE, () => ( {
+            format:            this._format(),
+            includeCurriculum: this.$modal.find( '.js-bundle-curriculum' ).prop( 'checked' ) === true,
+            includeMedia:      this.$modal.find( '.js-bundle-media' ).prop( 'checked' ) === true,
+            includeStudents:   this.$modal.find( '.js-bundle-students' ).prop( 'checked' ) === true,
+        } ) );
     },
 
     /**
@@ -123,6 +102,6 @@ export const BundleExportModal = {
      */
     _close() {
         closeModal( this.$modal );
-        unbindEsc( ESC_SCOPE );
+        unbindEsc( SCOPE );
     },
 };
