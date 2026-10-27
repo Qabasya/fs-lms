@@ -5,6 +5,7 @@ declare( strict_types=1 );
 namespace Inc\Services\Course;
 
 use Inc\Shared\SafeHtml;
+use Inc\DTO\Task\TaskCriteriaDTO;
 use Inc\Enums\Subject\TaskTemplate;
 use Inc\Enums\Course\AttemptSource;
 use Inc\Enums\Course\SubmissionStatus;
@@ -724,16 +725,10 @@ class WorkDetailService {
 		$ids   = is_array( $decoded['files'] ?? null ) ? $decoded['files'] : array();
 		$files = array();
 		foreach ( $ids as $attachmentId ) {
-			$attachmentId = (int) $attachmentId;
-			$url          = $attachmentId ? $this->media->url( $attachmentId ) : null;
-			if ( ! $url ) {
-				continue;
+			$file = $this->media->describe( (int) $attachmentId );
+			if ( null !== $file ) {
+				$files[] = $file;
 			}
-			$files[] = array(
-				'url'  => $url,
-				'name' => get_the_title( $attachmentId ) ?: "Файл #{$attachmentId}",
-				'mime' => get_post_mime_type( $attachmentId ) ?: '',
-			);
 		}
 
 		return array( 'text' => (string) ( $decoded['text'] ?? '' ), 'files' => $files );
@@ -746,23 +741,7 @@ class WorkDetailService {
 	 * @return array<int, array{label: string, max_points: float, awarded: float|null}>
 	 */
 	private function criteriaFor( int $taskId, ?array $criteriaScores ): array {
-		$meta = $this->posts->getMeta( $taskId, PostMetaName::Meta->value );
-		$defs = is_array( $meta ) && is_array( $meta['task_criteria']['criteria'] ?? null )
-			? $meta['task_criteria']['criteria']
-			: array();
-		if ( empty( $defs ) ) {
-			return array();
-		}
-
-		$out = array();
-		foreach ( $defs as $i => $def ) {
-			$out[] = array(
-				'label'      => (string) ( $def['label'] ?? '' ),
-				'max_points' => (float) ( $def['max_points'] ?? 0 ),
-				'awarded'    => isset( $criteriaScores[ $i ] ) ? (float) $criteriaScores[ $i ] : null,
-			);
-		}
-		return $out;
+		return TaskCriteriaDTO::fromMeta( $this->posts->getMeta( $taskId, PostMetaName::Meta->value ) )->rows( $criteriaScores );
 	}
 
 	/** @return array<int|string,mixed> */

@@ -126,11 +126,10 @@ class AttemptResultServiceTest extends TestCase {
 		$this->posts->method( 'getMeta' )->willReturnCallback( function ( int $postId, string $key ) {
 			return PostMetaName::TemplateType->value === $key ? 'file_answer_task' : array();
 		} );
-		$this->media->method( 'url' )->willReturnMap( array(
-			array( 501, 'https://example.test/photo.jpg' ),
-			array( 502, 'https://example.test/doc.pdf' ),
+		$this->media->method( 'describe' )->willReturnMap( array(
+			array( 501, array( 'url' => 'https://example.test/photo.jpg', 'name' => 'photo', 'mime' => 'image/jpeg' ) ),
+			array( 502, array( 'url' => 'https://example.test/doc.pdf', 'name' => 'doc', 'mime' => 'application/pdf' ) ),
 		) );
-		$GLOBALS['_fs_test_post_mime_types'] = array( 501 => 'image/jpeg', 502 => 'application/pdf' );
 
 		$result = $this->service->studentPerTask( 7, 99 );
 		$files  = $result[0]['files'];
@@ -150,7 +149,7 @@ class AttemptResultServiceTest extends TestCase {
 		$this->posts->method( 'getMeta' )->willReturnCallback( function ( int $postId, string $key ) {
 			return PostMetaName::TemplateType->value === $key ? 'file_answer_task' : array();
 		} );
-		$this->media->expects( $this->never() )->method( 'url' );
+		$this->media->expects( $this->never() )->method( 'describe' );
 
 		$result = $this->service->studentPerTask( 7, 99 );
 

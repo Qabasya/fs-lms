@@ -142,7 +142,7 @@ class WorkDetailServiceTest extends TestCase {
 	public function test_from_work_attachment_fields_null_when_no_attachment(): void {
 		$this->submissions->method( 'find' )->willReturn( $this->sub( null ) );
 		$this->submissions->method( 'listPerTaskByStudentWorkLesson' )->willReturn( array() );
-		$this->media->expects( $this->never() )->method( 'url' );
+		$this->media->expects( $this->never() )->method( 'describe' );
 
 		$detail = $this->service->forWork( 'submission', 7 );
 
@@ -404,11 +404,10 @@ class WorkDetailServiceTest extends TestCase {
 			}
 			return array(); // task_criteria отсутствуют
 		} );
-		$this->media->method( 'url' )->willReturnMap( array(
-			array( 501, 'https://example.test/a.jpg' ),
-			array( 502, 'https://example.test/b.py' ),
+		$this->media->method( 'describe' )->willReturnMap( array(
+			array( 501, array( 'url' => 'https://example.test/a.jpg', 'name' => 'a', 'mime' => 'image/jpeg' ) ),
+			array( 502, array( 'url' => 'https://example.test/b.py', 'name' => 'b', 'mime' => 'text/x-python' ) ),
 		) );
-		$GLOBALS['_fs_test_post_mime_types'] = array( 501 => 'image/jpeg', 502 => 'text/x-python' );
 
 		$detail = $this->service->forWork( 'attempt', 9 );
 		$task   = $detail['tasks'][0];
@@ -453,7 +452,7 @@ class WorkDetailServiceTest extends TestCase {
 			}
 			return array();
 		} );
-		$this->media->expects( $this->never() )->method( 'url' );
+		$this->media->expects( $this->never() )->method( 'describe' );
 
 		$task = $this->service->forWork( 'attempt', 9 )['tasks'][0];
 

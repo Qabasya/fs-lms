@@ -51,8 +51,9 @@ class SubmissionCallbacksTest extends TestCase {
 		$this->persons->method( 'findByWpUserId' )->willReturn( $this->person( 99 ) );
 		$this->attempts->method( 'find' )->with( 7 )->willReturn( $this->attempt( 7, 99 ) );
 		$this->media->method( 'uploadFromRequest' )->with( 'answer_file' )->willReturn( 502 );
-		$this->media->method( 'url' )->with( 502 )->willReturn( 'https://example.test/solution.py' );
-		$GLOBALS['_fs_test_post_mime_types'][502] = 'text/x-python';
+		$this->media->method( 'describe' )->with( 502 )->willReturn(
+			array( 'url' => 'https://example.test/solution.py', 'name' => 'solution', 'mime' => 'text/x-python' )
+		);
 		$_POST = array( 'attempt_id' => '7' );
 
 		$r = fs_test_capture_json( fn() => $this->cb->ajaxUploadAnswerFile() );

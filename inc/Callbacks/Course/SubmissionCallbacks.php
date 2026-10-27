@@ -76,12 +76,7 @@ class SubmissionCallbacks extends BaseController {
 			return;
 		}
 
-		$this->success( array(
-			'attachment_id' => $attachmentId,
-			'url'           => $this->media->url( $attachmentId ),
-			'name'          => get_the_title( $attachmentId ) ?: "Файл #{$attachmentId}",
-			'mime'          => get_post_mime_type( $attachmentId ) ?: '',
-		) );
+		$this->success( array( 'attachment_id' => $attachmentId ) + ( $this->media->describe( $attachmentId ) ?? array() ) );
 	}
 
 

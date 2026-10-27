@@ -101,4 +101,8 @@ class MediaManagerTest extends TestCase {
 		self::assertSame( 'application/vnd.rar', $mimes['rar'] );
 		self::assertSame( 'image/heic', $mimes['heic'] );
 	}
+
+	public function test_describe_returns_null_without_attachment(): void {
+		self::assertNull( $this->manager->describe( 0 ) );
+	}
 }

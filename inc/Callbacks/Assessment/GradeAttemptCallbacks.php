@@ -7,6 +7,7 @@ namespace Inc\Callbacks\Assessment;
 use Inc\Contracts\ClockInterface;
 use Inc\Core\BaseController;
 use Inc\DTO\Assessment\AttemptDTO;
+use Inc\DTO\Task\TaskCriteriaDTO;
 use Inc\Enums\Access\Capability;
 use Inc\Enums\Exam\ExamLogAction;
 use Inc\Enums\Log\ErrorCode;
@@ -148,10 +149,7 @@ class GradeAttemptCallbacks extends BaseController {
 			return;
 		}
 
-		$meta         = $this->posts->getMeta( $taskId, PostMetaName::Meta->value );
-		$criteriaDefs = is_array( $meta ) && is_array( $meta['task_criteria']['criteria'] ?? null )
-			? $meta['task_criteria']['criteria']
-			: array();
+		$criteriaDefs = TaskCriteriaDTO::fromMeta( $this->posts->getMeta( $taskId, PostMetaName::Meta->value ) )->defs();
 
 		if ( ! empty( $criteriaDefs ) ) {
 			$submittedRaw = $this->sanitizeText( 'criteria_scores' );

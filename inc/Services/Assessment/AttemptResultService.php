@@ -6,6 +6,7 @@ namespace Inc\Services\Assessment;
 
 use Inc\DTO\Assessment\AssessmentDTO;
 use Inc\DTO\Assessment\AttemptDTO;
+use Inc\DTO\Task\TaskCriteriaDTO;
 use Inc\Enums\Subject\TaskTemplate;
 use Inc\Enums\Wp\PostMetaName;
 use Inc\Managers\Assessment\AssessmentManager;
@@ -184,37 +185,16 @@ class AttemptResultService {
 
 		$files = array();
 		foreach ( $ids as $attachmentId ) {
-			$attachmentId = (int) $attachmentId;
-			$url          = $attachmentId ? $this->media->url( $attachmentId ) : null;
-			if ( ! $url ) {
-				continue;
+			$file = $this->media->describe( (int) $attachmentId );
+			if ( null !== $file ) {
+				$files[] = $file;
 			}
-			$files[] = array(
-				'url'  => $url,
-				'name' => get_the_title( $attachmentId ) ?: "Файл #{$attachmentId}",
-				'mime' => get_post_mime_type( $attachmentId ) ?: '',
-			);
 		}
 		return $files;
 	}
 
 	/** @return list<array{label: string, max_points: float, awarded: ?float}> */
 	private function criteriaFor( int $taskId, ?array $criteriaScores ): array {
-		$meta = $this->posts->getMeta( $taskId, PostMetaName::Meta->value );
-		$defs = is_array( $meta ) && is_array( $meta['task_criteria']['criteria'] ?? null )
-			? $meta['task_criteria']['criteria'] : array();
-		if ( empty( $defs ) ) {
-			return array();
-		}
-
-		$out = array();
-		foreach ( $defs as $i => $def ) {
-			$out[] = array(
-				'label'      => (string) ( $def['label'] ?? '' ),
-				'max_points' => (float) ( $def['max_points'] ?? 0 ),
-				'awarded'    => isset( $criteriaScores[ $i ] ) ? (float) $criteriaScores[ $i ] : null,
-			);
-		}
-		return $out;
+		return TaskCriteriaDTO::fromMeta( $this->posts->getMeta( $taskId, PostMetaName::Meta->value ) )->rows( $criteriaScores );
 	}
 }

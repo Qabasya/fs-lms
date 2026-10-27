@@ -157,6 +157,24 @@ class MediaManager {
 		return (bool) wp_delete_attachment( $attachmentId, true );
 	}
 
+	/**
+	 * Описание вложения для интерфейса: ссылка, имя, MIME. null — вложения нет.
+	 *
+	 * @return array{url: string, name: string, mime: string}|null
+	 */
+	public function describe( int $attachmentId ): ?array {
+		$url = $attachmentId ? $this->url( $attachmentId ) : '';
+		if ( '' === $url ) {
+			return null;
+		}
+
+		return array(
+			'url'  => $url,
+			'name' => get_the_title( $attachmentId ) ?: "Файл #{$attachmentId}",
+			'mime' => get_post_mime_type( $attachmentId ) ?: '',
+		);
+	}
+
 	public function url( int $attachmentId ): string {
 		return (string) wp_get_attachment_url( $attachmentId );
 	}
