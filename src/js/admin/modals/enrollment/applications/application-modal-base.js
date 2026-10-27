@@ -24,6 +24,9 @@ const $ = jQuery;
  * и использует аккордеон для организации контента.
  */
 export const createApplicationModal = ( cfg ) => ( {
+
+    /** @type {string[]} Поля формы — их же отправляет менеджер при сохранении. */
+    fields: cfg.fields,
     /** @type {jQuery|null} Ссылка на основной контейнер модального окна */
     $modal: null,
 
