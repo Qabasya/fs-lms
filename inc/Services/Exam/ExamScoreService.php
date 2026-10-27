@@ -120,13 +120,7 @@ class ExamScoreService {
 		foreach ( $groups as $unitKey => $members ) {
 			$totals = $this->unitTotals( $assessment, $members );
 
-			$status = 'correct';
-			foreach ( $members as $member ) {
-				$verdict = (string) ( $member['verdict'] ?? 'pending' );
-				if ( ( self::STATUS_SEVERITY[ $verdict ] ?? 0 ) > ( self::STATUS_SEVERITY[ $status ] ?? 0 ) ) {
-					$status = $verdict;
-				}
-			}
+			$status = $this->unitStatus( $members );
 
 			$units[] = array(
 				'unit_key' => $unitKey,
@@ -139,6 +133,33 @@ class ExamScoreService {
 		}
 
 		return $units;
+	}
+
+	/**
+	 * Статус единицы: худший вердикт её заданий, кроме смешанного случая — когда заданий одного
+	 * номера несколько и решена только часть, единица «частично» (жёлтая), а не «неверно». Если
+	 * решено ни одно — худший вердикт (красная), если все — «верно». Ожидающее проверки задание
+	 * по-прежнему перекрывает остальное: итог неизвестен.
+	 *
+	 * @param array<int, array<string, mixed>> $members
+	 */
+	private function unitStatus( array $members ): string {
+		$status   = 'correct';
+		$verdicts = array();
+		foreach ( $members as $member ) {
+			$verdict    = (string) ( $member['verdict'] ?? 'pending' );
+			$verdicts[] = $verdict;
+			if ( ( self::STATUS_SEVERITY[ $verdict ] ?? 0 ) > ( self::STATUS_SEVERITY[ $status ] ?? 0 ) ) {
+				$status = $verdict;
+			}
+		}
+
+		$solved = count( array_filter( $verdicts, static fn ( string $v ): bool => in_array( $v, array( 'correct', 'partial' ), true ) ) );
+		if ( count( $members ) > 1 && $solved > 0 && 'pending' !== $status && 'correct' !== $status ) {
+			return 'partial';
+		}
+
+		return $status;
 	}
 
 	/**

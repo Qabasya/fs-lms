@@ -176,6 +176,38 @@ class ExamScoreServiceTest extends TestCase {
 		self::assertSame( 'partial', $units[0]['status'] );
 	}
 
+	/** @return array<string, mixed> */
+	private function member( int $id, string $verdict ): array {
+		return array( 'task_id' => $id, 'unit_key' => 'n:14', 'number' => '14', 'anchor' => 'a' . $id, 'verdict' => $verdict, 'score' => 'correct' === $verdict ? 1.0 : 0.0, 'max_score' => 1.0 );
+	}
+
+	/** Несколько заданий одного номера: решено часть — жёлтый (частично), ничего — красный, всё — зелёный. */
+	public function test_unit_with_some_tasks_solved_is_partial(): void {
+		$this->assessments->method( 'get' )->willReturn( $this->assessment( AssessmentKind::EgeComputer, array( 101 => '14', 102 => '14' ) ) );
+
+		$units = $this->service->units( $this->attempt( 1.0, 2.0 ), array( $this->member( 101, 'correct' ), $this->member( 102, 'incorrect' ) ) );
+
+		self::assertSame( 'partial', $units[0]['status'] );
+	}
+
+	public function test_unit_with_a_solved_and_an_unanswered_task_is_partial(): void {
+		$this->assessments->method( 'get' )->willReturn( $this->assessment( AssessmentKind::EgeComputer, array( 101 => '14', 102 => '14' ) ) );
+
+		$units = $this->service->units( $this->attempt( 1.0, 2.0 ), array( $this->member( 101, 'correct' ), $this->member( 102, 'unanswered' ) ) );
+
+		self::assertSame( 'partial', $units[0]['status'] );
+	}
+
+	public function test_unit_with_no_task_solved_is_incorrect_and_all_solved_is_correct(): void {
+		$this->assessments->method( 'get' )->willReturn( $this->assessment( AssessmentKind::EgeComputer, array( 101 => '14', 102 => '14' ) ) );
+
+		$none = $this->service->units( $this->attempt( 0.0, 2.0 ), array( $this->member( 101, 'incorrect' ), $this->member( 102, 'unanswered' ) ) );
+		$all  = $this->service->units( $this->attempt( 2.0, 2.0 ), array( $this->member( 101, 'correct' ), $this->member( 102, 'correct' ) ) );
+
+		self::assertSame( 'incorrect', $none[0]['status'] );
+		self::assertSame( 'correct', $all[0]['status'] );
+	}
+
 	public function test_pending_beats_every_other_status(): void {
 		$assessment = $this->assessment( AssessmentKind::EgeComputer, array( 101 => '14', 102 => '14' ) );
 		$this->assessments->method( 'get' )->willReturn( $assessment );
