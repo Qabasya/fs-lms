@@ -100,9 +100,28 @@ class MediaManagerTest extends TestCase {
 		self::assertSame( 'text/x-python', $mimes['py'] );
 		self::assertSame( 'application/vnd.rar', $mimes['rar'] );
 		self::assertSame( 'image/heic', $mimes['heic'] );
+		self::assertSame( 'text/plain', $mimes['kum'] ); // программы КуМир: станция КЕГЭ принимает .kum
 	}
 
 	public function test_describe_returns_null_without_attachment(): void {
 		self::assertNull( $this->manager->describe( 0 ) );
+	}
+
+	/** Текст с запятыми libmagic принимает за CSV: для .txt и .kum (КуМир) возвращаем штатный text/plain. */
+	public function test_text_files_detected_as_csv_are_allowed_as_plain_text(): void {
+		$rejected = array( 'ext' => false, 'type' => false, 'proper_filename' => false );
+
+		foreach ( array( 'answer.txt' => 'txt', 'prog.kum' => 'kum' ) as $name => $ext ) {
+			$check = $this->manager->allowTxtDetectedAsCsv( $rejected, '/tmp/x', $name, null, 'text/csv' );
+
+			self::assertSame( $ext, $check['ext'], $name );
+			self::assertSame( 'text/plain', $check['type'], $name );
+		}
+	}
+
+	public function test_other_extensions_detected_as_csv_stay_rejected(): void {
+		$rejected = array( 'ext' => false, 'type' => false, 'proper_filename' => false );
+
+		self::assertSame( $rejected, $this->manager->allowTxtDetectedAsCsv( $rejected, '/tmp/x', 'a.exe', null, 'text/csv' ) );
 	}
 }

@@ -98,7 +98,7 @@ class MediaManager {
 	}
 
 	/**
-	 * Фильтр 'wp_check_filetype_and_ext': спасает .txt, который finfo принял за CSV.
+	 * Фильтр 'wp_check_filetype_and_ext': спасает .txt и .kum (КуМир), которые finfo принял за CSV.
 	 *
 	 * Текстовые файлы, где строки вида «1,5» (дробная часть через запятую — данные
 	 * ЕГЭ, задание 27), libmagic определяет как text/csv; ядро видит расхождение
@@ -120,11 +120,11 @@ class MediaManager {
 		}
 
 		$ext = strtolower( (string) pathinfo( $filename, PATHINFO_EXTENSION ) );
-		if ( 'txt' !== $ext || ! in_array( $realMime, array( 'text/csv', 'application/csv' ), true ) ) {
+		if ( ! in_array( $ext, array( 'txt', 'kum' ), true ) || ! in_array( $realMime, array( 'text/csv', 'application/csv' ), true ) ) {
 			return $check;
 		}
 
-		$check['ext']  = 'txt';
+		$check['ext']  = $ext;
 		$check['type'] = 'text/plain';
 
 		return $check;
@@ -150,6 +150,7 @@ class MediaManager {
 		$mimes['heic'] = 'image/heic';
 		$mimes['heif'] = 'image/heif';
 		$mimes['rar']  = 'application/vnd.rar';
+		$mimes['kum']  = 'text/plain'; // программы КуМир (станция КЕГЭ): обычный текст
 		return $mimes;
 	}
 
