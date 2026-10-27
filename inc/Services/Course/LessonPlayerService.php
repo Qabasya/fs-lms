@@ -51,6 +51,7 @@ class LessonPlayerService {
 		private readonly CourseNavService             $nav,
 		private readonly WorkTaskCheckService         $taskChecks,
 		private readonly GroupsRepository             $groups,
+		private readonly WorkSolutionReveal           $solutionReveal,
 	) {}
 
 	/**
@@ -318,6 +319,9 @@ class LessonPlayerService {
 			$tasks[] = $this->solutions->attachTo( $bundle, (int) $bundle['task_id'], $isTeacher );
 		}
 
+		$attemptsUsed = $this->submissionService->workAttemptsUsed( $studentPersonId, $groupLesson->id, $workId );
+		$current      = $this->currentSubmission( $studentPersonId, $groupLesson->id, $workId );
+
 		return array(
 			'ref'             => $workId,
 			'work_found'      => true,
@@ -331,14 +335,17 @@ class LessonPlayerService {
 			'tasks'           => $tasks,
 			// Лимит сдач — настройка работы (0 = без ограничений): плеер предупреждает
 			// о предпоследней и последней попытке и прячет «Пройти заново».
-			'attempts_used'   => $this->submissionService->workAttemptsUsed( $studentPersonId, $groupLesson->id, $workId ),
+			'attempts_used'   => $attemptsUsed,
 			'max_attempts'    => $work->maxAttempts,
+			// Решение вопросов опроса: после верного ответа или исчерпания попыток (иначе пусто).
+			// Преподавателю решения приходят в самих заданиях — для него здесь пусто.
+			'solutions'       => $isTeacher ? array() : $this->solutionReveal->forStudent( $work, $current['submission']['verdicts'] ?? array(), $attemptsUsed ),
 			// Засчитанные задания: при пересдаче их ответы остаются, но правке закрыты.
 			'locked_task_ids' => $this->submissionService->lockedTaskIds( $studentPersonId, $groupLesson->id, $workId ),
 			// Проверки ответа кнопкой в текущем раунде сдачи: состояние чипов после перезагрузки.
 			'checks'          => $this->taskChecks->state( $studentPersonId, $groupLesson->id, $workId ),
 			'checks_max'      => WorkTaskCheckService::MAX_CHECKS,
-		) + $this->currentSubmission( $studentPersonId, $groupLesson->id, $workId );
+		) + $current;
 	}
 
 	/**

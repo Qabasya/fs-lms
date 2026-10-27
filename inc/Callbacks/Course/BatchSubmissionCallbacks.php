@@ -15,6 +15,7 @@ use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Repositories\WPDBRepositories\SubmissionRepository;
 use Inc\Services\Course\GroupAccessGuard;
 use Inc\Services\Course\SubmissionService;
+use Inc\Services\Course\WorkSolutionReveal;
 use Inc\Services\Course\WorkTaskCheckService;
 use Inc\Shared\CodedException;
 use Inc\Shared\Traits\Authorizer;
@@ -42,6 +43,7 @@ class BatchSubmissionCallbacks extends BaseController {
 		private readonly GroupAccessGuard      $guard,
 		private readonly WorkManager           $works,
 		private readonly WorkTaskCheckService  $taskChecks,
+		private readonly WorkSolutionReveal    $solutionReveal,
 	) {
 		parent::__construct();
 	}
@@ -98,7 +100,10 @@ class BatchSubmissionCallbacks extends BaseController {
 
 			// T14.11: пооответные вердикты батч-проверки (агрегатная строка хранит
 			// их JSON в answer_text) — плеер строит из них экран результатов.
-			$perTask = json_decode( (string) $aggregate->answerText, true );
+			$perTask      = json_decode( (string) $aggregate->answerText, true );
+			$perTask      = is_array( $perTask ) ? $perTask : array();
+			$work         = $this->works->get( $workId );
+			$attemptsUsed = $this->submissionService->workAttemptsUsed( $person->id, $groupLessonId, $workId );
 
 			$this->success( array(
 				'submission_id' => $aggregate->id,
@@ -107,12 +112,14 @@ class BatchSubmissionCallbacks extends BaseController {
 				'correct'       => (int) ( $aggregate->score ?? 0 ),
 				'total'         => (int) ( $aggregate->maxScore ?? 0 ),
 				'tally'         => ( (int) ( $aggregate->score ?? 0 ) ) . '/' . ( (int) ( $aggregate->maxScore ?? 0 ) ),
-				'per_task'      => is_array( $perTask ) ? $perTask : array(),
+				'per_task'      => $perTask,
+				// Решение вопросов опроса: после верного ответа или исчерпания попыток (иначе пусто).
+				'solutions'     => null !== $work ? $this->solutionReveal->forStudent( $work, $perTask, $attemptsUsed ) : array(),
 				'submitted_at'  => $aggregate->submittedAt,
 				// Лимит сдач — настройка работы (0 = без ограничений): плеер обновляет
 				// предупреждение и прячет «Пройти заново», не перезагружая урок.
-				'attempts_used' => $this->submissionService->workAttemptsUsed( $person->id, $groupLessonId, $workId ),
-				'max_attempts'  => $this->works->get( $workId )?->maxAttempts ?? 0,
+				'attempts_used' => $attemptsUsed,
+				'max_attempts'  => $work?->maxAttempts ?? 0,
 				// Засчитанные задания при пересдаче заблокированы (.docs/Tasks.md, п. 1).
 				'locked_task_ids' => $this->submissionService->lockedTaskIds( $person->id, $groupLessonId, $workId ),
 			) );
