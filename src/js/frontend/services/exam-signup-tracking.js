@@ -12,6 +12,7 @@
  */
 
 import { TRAP_SELECTOR } from './form-trap.js';
+import { createFormTracker, NOOP_TRACKER } from './form-tracker.js';
 
 /** ID визита: связывает события одной сессии формы; сервер принимает a-z0-9, до 16 символов. */
 const VISIT = Math.random().toString( 36 ).slice( 2, 10 );
@@ -20,13 +21,6 @@ const VISIT = Math.random().toString( 36 ).slice( 2, 10 );
 export function examVisitId() {
     return VISIT;
 }
-
-const NOOP_TRACKER = {
-    submitAttempt() {},
-    invalid() {},
-    failed() {},
-    succeeded() {},
-};
 
 /**
  * Сколько полей заполнено: обычные поля — по значению, согласия — по отметке, дата и время — по выбору.
@@ -69,70 +63,12 @@ function invalidFieldNames( form ) {
 export function createExamSignupTracker( form, vars ) {
     if ( ! vars?.actions?.track || ! vars?.nonce ) { return NOOP_TRACKER; }
 
-    const openedAt = Date.now();
-    let submits  = 0;
-    let started  = false;
-    let finished = false;
-    let leftSent = false;
-
-    /**
-     * @param {string} event
-     * @param {{ fields?: string[], message?: string }} extra
-     */
-    const send = ( event, extra = {} ) => {
-        const { total, filled } = fieldStats( form );
-        const body = new URLSearchParams( {
-            action:   vars.actions.track,
-            security: vars.nonce,
-            visit:    VISIT,
-            event,
-            seconds:  String( Math.round( ( Date.now() - openedAt ) / 1000 ) ),
-            submits:  String( submits ),
-            filled:   String( filled ),
-            total:    String( total ),
-            message:  extra.message ?? '',
-        } );
-        ( extra.fields ?? [] ).forEach( ( name ) => body.append( 'fields[]', name ) );
-
-        // keepalive — запрос доживает до конца даже при закрытии вкладки (событие left).
-        fetch( vars.ajax_url, { method: 'POST', credentials: 'same-origin', body, keepalive: true } ).catch( () => {} );
-    };
-
-    form.addEventListener( 'input', () => {
-        if ( started ) { return; }
-        started = true;
-        send( 'started' );
+    return createFormTracker( form, {
+        ajaxUrl:             vars.ajax_url,
+        params:              () => ( { action: vars.actions.track, security: vars.nonce, visit: VISIT } ),
+        fieldStats,
+        invalidFieldNames,
+        leftRequiresStarted: true,
+        credentials:         'same-origin',
     } );
-
-    // pagehide — единственное событие, которое надёжно срабатывает при закрытии вкладки на телефоне.
-    window.addEventListener( 'pagehide', () => {
-        if ( finished || leftSent || ! started ) { return; }
-        leftSent = true;
-        send( 'left' );
-    } );
-
-    // Возврат из bfcache (кнопка «Назад») — визит продолжается.
-    window.addEventListener( 'pageshow', ( event ) => {
-        if ( event.persisted ) { leftSent = false; }
-    } );
-
-    return {
-        submitAttempt() {
-            submits++;
-        },
-        /** @param {string} [message] */
-        invalid( message = '' ) {
-            send( 'invalid', { fields: invalidFieldNames( form ), message } );
-        },
-        /**
-         * @param {string} [message]
-         * @param {string} [field] Поле, на которое указал сервер.
-         */
-        failed( message = '', field = '' ) {
-            send( 'submit_failed', { message, fields: field ? [ field ] : [] } );
-        },
-        succeeded() {
-            finished = true;
-        },
-    };
 }

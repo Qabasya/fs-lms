@@ -16,6 +16,7 @@
 
 import { onCaptchaEvent } from './captcha.js';
 import { TRAP_SELECTOR } from './form-trap.js';
+import { createFormTracker, NOOP_TRACKER } from './form-tracker.js';
 
 /** @type {{ ajax_url: string, actions: { track?: string }, nonces: { track?: string } }|undefined} */
 const vars = window.fs_lms_apply_vars;
@@ -27,14 +28,6 @@ const VISIT = Math.random().toString( 36 ).slice( 2, 10 );
 export function applyVisitId() {
     return VISIT;
 }
-
-const NOOP_TRACKER = {
-    submitAttempt() {},
-    invalid() {},
-    failed() {},
-    stage() {},
-    succeeded() {},
-};
 
 /**
  * @param {HTMLFormElement} form
@@ -49,96 +42,35 @@ function fieldStats( form ) {
 }
 
 /**
- * Имена полей, у которых сейчас показана ошибка (validation-manager ставит .form-invalid на группу).
- *
- * @param {HTMLFormElement} form
- * @returns {string[]}
- */
-function invalidFieldNames( form ) {
-    return [ ...form.querySelectorAll( '.form-invalid' ) ]
-        .map( ( group ) => group.querySelector( 'input[name], select[name], textarea[name]' )?.name )
-        .filter( Boolean );
-}
-
-/**
  * @param {HTMLFormElement} form
  */
 export function createApplyTracker( form ) {
-    if ( ! vars?.actions?.track || ! vars?.nonces?.track ) { return NOOP_TRACKER; }
+    if ( ! vars?.actions?.track || ! vars?.nonces?.track ) { return { ...NOOP_TRACKER, stage() {} }; }
 
-    const openedAt = Date.now();
-    let submits  = 0;
-    let started  = false;
-    let finished = false;
-    let leftSent = false;
-    let stage    = 'form';
+    let stage = 'form';
 
-    /**
-     * @param {string} event
-     * @param {{ fields?: string[], message?: string, captcha?: string }} extra
-     */
-    const send = ( event, extra = {} ) => {
-        const { total, filled } = fieldStats( form );
-        const body = new URLSearchParams( {
+    const tracker = createFormTracker( form, {
+        ajaxUrl:    vars.ajax_url,
+        params:     () => ( {
             action:   vars.actions.track,
             security: vars.nonces.track,
             visit:    VISIT,
-            event,
             stage,
-            seconds:  String( Math.round( ( Date.now() - openedAt ) / 1000 ) ),
-            submits:  String( submits ),
-            filled:   String( filled ),
-            total:    String( total ),
-            message:  extra.message ?? '',
-            captcha:  extra.captcha ?? '',
-        } );
-        ( extra.fields ?? [] ).forEach( ( name ) => body.append( 'fields[]', name ) );
-
-        // keepalive — запрос доживает до конца даже при закрытии вкладки (событие left).
-        fetch( vars.ajax_url, { method: 'POST', body, keepalive: true } ).catch( () => {} );
-    };
-
-    form.addEventListener( 'input', () => {
-        if ( started ) { return; }
-        started = true;
-        send( 'started' );
+            captcha:  '',
+        } ),
+        fieldStats,
     } );
 
     onCaptchaEvent( ( event, detail ) => {
-        if ( 'shown' === event ) { send( 'captcha_shown' ); }
-        if ( 'failed' === event ) { send( 'captcha_failed', { captcha: detail } ); }
-    } );
-
-    // pagehide — единственное событие, которое надёжно срабатывает при закрытии вкладки на телефоне.
-    window.addEventListener( 'pagehide', () => {
-        if ( finished || leftSent ) { return; }
-        leftSent = true;
-        send( 'left' );
-    } );
-
-    // Возврат из bfcache (кнопка «Назад») — визит продолжается.
-    window.addEventListener( 'pageshow', ( event ) => {
-        if ( event.persisted ) { leftSent = false; }
+        if ( 'shown' === event ) { tracker.send( 'captcha_shown' ); }
+        if ( 'failed' === event ) { tracker.send( 'captcha_failed', { captcha: detail } ); }
     } );
 
     return {
-        submitAttempt() {
-            submits++;
-        },
-        /** @param {string} [message] */
-        invalid( message = '' ) {
-            send( 'invalid', { fields: invalidFieldNames( form ), message } );
-        },
-        /** @param {string} [message] */
-        failed( message = '' ) {
-            send( 'submit_failed', { message } );
-        },
+        ...tracker,
         /** @param {'form'|'otp'} next Этап, на который перешла форма. */
         stage( next ) {
             stage = next;
-        },
-        succeeded() {
-            finished = true;
         },
     };
 }
