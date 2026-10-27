@@ -36,6 +36,25 @@ readonly class TaskSolutionService {
 	) {}
 
 	/**
+	 * Пакет задачи для плеера: убирает служебную `meta` и, если разрешено, добавляет эталон.
+	 *
+	 * @param array<string, mixed> $bundle      Результат `StepContentRenderer::taskBundle()`
+	 * @param int                  $taskId      ID задачи
+	 * @param bool                 $withSolution Показывать ли эталон (false — ученик)
+	 *
+	 * @return array<string, mixed>
+	 */
+	public function attachTo( array $bundle, int $taskId, bool $withSolution = true ): array {
+		$solution = $withSolution ? $this->forTask( $taskId, $bundle['meta'] ) : null;
+		unset( $bundle['meta'] );
+		if ( null !== $solution ) {
+			$bundle['solution'] = $solution;
+		}
+
+		return $bundle;
+	}
+
+	/**
 	 * @param int                  $taskId ID задачи
 	 * @param array<string, mixed> $meta   Мета задачи из `StepContentRenderer::taskBundle()`
 	 *

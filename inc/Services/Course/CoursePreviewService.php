@@ -203,24 +203,10 @@ class CoursePreviewService {
 			return $empty;
 		}
 
+		// Эталон каждой задачи работы — как у task-шага (см. renderTaskData()).
 		$tasks = array();
-		foreach ( $work->itemIds as $taskId ) {
-			$bundle = $this->stepRenderer->taskBundle( (int) $taskId, false, true );
-			if ( null === $bundle ) {
-				continue;
-			}
-			if ( ! $bundle['auto_grade'] ) {
-				$bundle['widget_data'] = array( 'type' => 'text_answer' );
-			}
-
-			// Эталон каждой задачи работы — как у task-шага (см. renderTaskData()).
-			$solution = $this->solutions->forTask( (int) $taskId, $bundle['meta'] );
-			unset( $bundle['meta'] );
-			if ( null !== $solution ) {
-				$bundle['solution'] = $solution;
-			}
-
-			$tasks[] = $bundle;
+		foreach ( $this->stepRenderer->workTaskBundles( $work ) as $bundle ) {
+			$tasks[] = $this->solutions->attachTo( $bundle, (int) $bundle['task_id'] );
 		}
 
 		return array(
@@ -255,12 +241,7 @@ class CoursePreviewService {
 		// Эталон каждой задачи — как у задач работы: «Показать решение» для автора.
 		$tasks = array();
 		foreach ( $this->stepRenderer->assessmentTaskBundles( $asmId ) as $bundle ) {
-			$solution = $this->solutions->forTask( (int) $bundle['task_id'], $bundle['meta'] );
-			unset( $bundle['meta'] );
-			if ( null !== $solution ) {
-				$bundle['solution'] = $solution;
-			}
-			$tasks[] = $bundle;
+			$tasks[] = $this->solutions->attachTo( $bundle, (int) $bundle['task_id'] );
 		}
 
 		return array(

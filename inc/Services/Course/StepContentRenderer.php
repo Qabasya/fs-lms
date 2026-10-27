@@ -6,6 +6,7 @@ namespace Inc\Services\Course;
 
 use Inc\Shared\SafeHtml;
 use Inc\DTO\Course\StepDTO;
+use Inc\DTO\Course\WorkDTO;
 use Inc\Enums\Subject\TaskTemplate;
 use Inc\Enums\Wp\PostMetaName;
 use Inc\Managers\Assessment\AssessmentManager;
@@ -120,6 +121,28 @@ class StepContentRenderer {
 			'check_enabled'  => $autoGrade && $template->allowsInlineCheck(),
 			'meta'           => $meta,
 		);
+	}
+
+	/**
+	 * Задачи работы для инлайн-показа в плеере: ручные шаблоны сдаются свободным текстом
+	 * (проверит преподаватель). `meta` оставлена — по ней вызывающий строит эталон и убирает её.
+	 *
+	 * @return array<int, array<string, mixed>>
+	 */
+	public function workTaskBundles( WorkDTO $work ): array {
+		$bundles = array();
+		foreach ( $work->itemIds as $taskId ) {
+			$bundle = $this->taskBundle( (int) $taskId, false, true );
+			if ( null === $bundle ) {
+				continue;
+			}
+			if ( ! $bundle['auto_grade'] ) {
+				$bundle['widget_data'] = array( 'type' => 'text_answer' );
+			}
+			$bundles[] = $bundle;
+		}
+
+		return $bundles;
 	}
 
 	/**

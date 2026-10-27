@@ -278,12 +278,7 @@ class LessonPlayerService {
 
 		$tasks = array();
 		foreach ( $this->stepRenderer->assessmentTaskBundles( (int) $data['ref'] ) as $bundle ) {
-			$solution = $this->solutions->forTask( (int) $bundle['task_id'], $bundle['meta'] );
-			unset( $bundle['meta'] );
-			if ( null !== $solution ) {
-				$bundle['solution'] = $solution;
-			}
-			$tasks[] = $bundle;
+			$tasks[] = $this->solutions->attachTo( $bundle, (int) $bundle['task_id'] );
 		}
 
 		return $data + array(
@@ -317,26 +312,10 @@ class LessonPlayerService {
 			return $empty;
 		}
 
+		// Эталон каждой задачи работы — только преподавателю («Показать решение»).
 		$tasks = array();
-		foreach ( $work->itemIds as $taskId ) {
-			$bundle = $this->stepRenderer->taskBundle( (int) $taskId, false, true );
-			if ( null === $bundle ) {
-				continue;
-			}
-
-			// Ручные шаблоны в работе сдаются свободным текстом (проверит преподаватель).
-			if ( ! $bundle['auto_grade'] ) {
-				$bundle['widget_data'] = array( 'type' => 'text_answer' );
-			}
-
-			// Эталон каждой задачи работы — только преподавателю («Показать решение»).
-			$solution = $isTeacher ? $this->solutions->forTask( (int) $taskId, $bundle['meta'] ) : null;
-			unset( $bundle['meta'] );
-			if ( null !== $solution ) {
-				$bundle['solution'] = $solution;
-			}
-
-			$tasks[] = $bundle;
+		foreach ( $this->stepRenderer->workTaskBundles( $work ) as $bundle ) {
+			$tasks[] = $this->solutions->attachTo( $bundle, (int) $bundle['task_id'], $isTeacher );
 		}
 
 		return array(
