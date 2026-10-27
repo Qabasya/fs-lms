@@ -150,21 +150,9 @@ class WorkMetaBoxController extends BaseController implements ServiceInterface {
 		$json          = wp_json_encode( $steps, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT );
 		$numberPrefix  = (string) ( $this->postManager->taskMeta( $post->ID )['task_number_prefix'] ?? '' );
 
-		// Предметы для выбора источника в окне «Массовое добавление заданий» (кросс-предметный импорт).
-		$subjects = array_map(
-			static fn( $s ): array => array( 'key' => $s->key, 'name' => $s->name ),
-			$this->subjects->readAll()
-		);
-
 		$this->render( 'admin/metaboxes/builder-shell', array(
 			'root_class' => 'fs-lms-work-builder',
-			'data'       => array(
-				'work-id'       => $post->ID,
-				'subject'       => $subject,
-				'level'         => 'work',
-				'number-prefix' => $numberPrefix,
-				'subjects'      => (string) wp_json_encode( array_values( $subjects ) ),
-			),
+			'data'       => array( 'work-id' => $post->ID, 'subject' => $subject, 'level' => 'work', 'number-prefix' => $numberPrefix ),
 			'json'       => (string) $json,
 		) );
 	}

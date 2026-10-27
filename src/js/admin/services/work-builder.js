@@ -20,8 +20,7 @@ function mount( el ) {
 	const numberPrefix = String( el.dataset.numberPrefix || '' );
 
 	// Предметы-источники для «Массового добавления заданий»; свой предмет — первым (он выбран по умолчанию).
-	let allSubjects = [];
-	try { allSubjects = JSON.parse( el.dataset.subjects || '[]' ); } catch { allSubjects = []; }
+	const allSubjects  = fs_lms_vars.subjects || [];
 	const bulkSubjects = [
 		...allSubjects.filter( ( s ) => s.key === subject ),
 		...allSubjects.filter( ( s ) => s.key !== subject ),

@@ -7,6 +7,7 @@ namespace Inc\Core\Assets;
 use Inc\Enums\Wp\AjaxHook;
 use Inc\Enums\Wp\Nonce;
 use Inc\Enums\Wp\PageRoutes;
+use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Repositories\OptionsRepositories\TaxonomyRepository;
 use Inc\Services\Subject\ArticlePublishValidator;
 use Inc\Services\Subject\PostTypeResolver;
@@ -29,6 +30,7 @@ class AdminLocalizations {
 		private readonly TaxonomyRepository      $taxonomy_repository,
 		private readonly TemplateRegistry        $templateRegistry,
 		private readonly ArticlePublishValidator $articleValidator,
+		private readonly SubjectRepository       $subjects,
 	) {}
 
 	/**
@@ -190,6 +192,11 @@ class AdminLocalizations {
 				'taskCreation'      => Nonce::TaskCreation->create(),
 			),
 			'ajax_actions'     => AjaxHook::toJsArray(),
+			// Предметы сайта (ключ и название): источники в окнах импорта заданий и уроков.
+			'subjects'         => array_values( array_map(
+				static fn( $s ): array => array( 'key' => $s->key, 'name' => $s->name ),
+				$this->subjects->readAll()
+			) ),
 			// Фаза 5, D3/D4: URL preview-плеера курса (кнопка «Просмотр» в конструкторе).
 			'coursePreviewUrl' => PageRoutes::CoursePreview->url(),
 		);

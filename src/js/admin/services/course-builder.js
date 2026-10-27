@@ -7,6 +7,7 @@ import { ajax, tmpKey } from './step-ajax.js';
 import { createPersistence } from './course-persistence.js';
 import { showToast } from '../modules/toast.js';
 import { ConfirmModal } from '../modals/confirm-modal.js';
+import { BulkPickModal } from '../modals/bulk-pick-modal.js';
 
 /* global jQuery, fs_lms_vars */
 const $ = jQuery;
@@ -148,6 +149,7 @@ function createApp( mount ) {
 										<button type="button" class="add-opt" data-add-kind="lesson">${ icoPlus( 13 ) }Урок</button>
 										<button type="button" class="add-opt" data-add-kind="module">${ icoModule( 13 ) }Модуль</button>
 										<button type="button" class="add-opt" data-add-kind="import">${ icoImport( 13 ) }Импорт урока</button>
+										<button type="button" class="add-opt" data-add-kind="import-subject">${ icoImport( 13 ) }Импорт из другого предмета</button>
 									</div>
 								</div>
 								<button type="button" class="button add-main" data-add-main>
@@ -188,6 +190,7 @@ function createApp( mount ) {
 			lesson: addLesson,
 			module: addModule,
 			import: () => importLessonFlow( addMain ),
+			'import-subject': importFromSubjectFlow,
 		};
 		addMain.addEventListener( 'click', () => { closeAddMenu(); addActions.lesson(); } );
 		addWrap.querySelectorAll( '[data-add-kind]' ).forEach( ( btn ) => {
@@ -773,6 +776,64 @@ function createApp( mount ) {
 			.then( () => reloadTree( lessonId ) )
 			.then( () => showToast( 'Урок добавлен в курс', 'success' ) )
 			.catch( ( msg ) => showToast( msg, 'error' ) );
+	}
+
+	// ── импорт уроков из другого предмета: копии с работами и контрольными ──
+	function importFromSubjectFlow() {
+		const point = insertionPoint();
+		if ( ! point ) { showToast( 'Сначала добавьте модуль', 'error' ); return; }
+
+		const others = ( fs_lms_vars.subjects || [] ).filter( ( s ) => s.key !== state.course.subject_key );
+		if ( ! others.length ) { showToast( 'Других предметов нет', 'info' ); return; }
+
+		BulkPickModal.open( {
+			title:             'Импорт уроков из другого предмета',
+			confirmText:       'Импортировать',
+			searchPlaceholder: 'Поиск урока…',
+			emptyText:         'В этом предмете нет уроков',
+			subjects:          others,
+			// Эндпоинт отдаёт уроки предмета целиком: вторая страница пуста — конец списка.
+			fetchFn:           ( search, source, fromSubject, page ) => ( page > 1
+				? Promise.resolve( [] )
+				: ajax( acts().getStepCandidates, { subject_key: fromSubject, kind: 'lesson', source: 'subject', search } ) ),
+		} ).then(
+			( items ) => importLessonsFromSubject( point, items.map( ( it ) => parseInt( it.id, 10 ) ), false ),
+			() => {}
+		);
+	}
+
+	function importLessonsFromSubject( point, lessonIds, force ) {
+		return ajax( acts().importLessonsFromSubject, {
+			course_id:       courseId,
+			module_id:       point.mod.id,
+			lesson_ids:      lessonIds,
+			after_lesson_id: point.afterId,
+			force:           force ? 1 : 0,
+		} ).then( ( res ) => {
+			if ( 'duplicates' === res.status ) { return confirmRepeatedImport( point, lessonIds, res.duplicates ); }
+
+			const first = res.nodes[ 0 ]?.id;
+			return reloadTree( first ).then( () => showToast(
+				`Импортировано уроков: ${ res.nodes.length } (копии работ: ${ res.works }, контрольных: ${ res.assessments })`,
+				'success'
+			) );
+		} ).catch( ( msg ) => showToast( msg, 'error' ) );
+	}
+
+	// Урок уже импортировался в этот предмет — копия получится ещё одна, спрашиваем автора.
+	function confirmRepeatedImport( point, lessonIds, duplicates ) {
+		const names = duplicates.map( ( d ) => `«${ d.title }»` ).join( ', ' );
+
+		return ConfirmModal.confirm( {
+			title:       'Эти уроки уже импортировались',
+			message:     `${ names } — уже есть копии в этом предмете. Импортировать ещё раз? Получатся новые независимые копии.`,
+			confirmText: 'Импортировать',
+			cancelText:  'Отмена',
+			isDanger:    false,
+		} ).then(
+			() => importLessonsFromSubject( point, lessonIds, true ),
+			() => {}
+		);
 	}
 
 	// Перезагрузка дерева с сервера (после импорта — чтобы подтянуть шаги урока).

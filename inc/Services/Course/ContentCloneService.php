@@ -95,7 +95,7 @@ class ContentCloneService {
 
 		$subject = '' !== $toSubject ? $toSubject : $work->subjectKey;
 
-		return $this->works->create(
+		$newId = $this->works->create(
 			$subject,
 			new WorkDTO(
 				id          : 0,
@@ -109,6 +109,18 @@ class ContentCloneService {
 				maxAttempts : $work->maxAttempts,
 			)
 		);
+
+		// Префикс названий задач («1.12. ДЗ») живёт в мете работы вне WorkDTO — переносим вручную.
+		$sourceMeta = $this->posts->getMeta( $workId, PostMetaName::Meta->value );
+		$prefix     = is_array( $sourceMeta ) ? (string) ( $sourceMeta['task_number_prefix'] ?? '' ) : '';
+		if ( $newId > 0 && '' !== $prefix ) {
+			$meta                       = $this->posts->getMeta( $newId, PostMetaName::Meta->value );
+			$meta                       = is_array( $meta ) ? $meta : array();
+			$meta['task_number_prefix'] = $prefix;
+			$this->posts->updateMeta( $newId, PostMetaName::Meta->value, $meta );
+		}
+
+		return $newId;
 	}
 
 	/**

@@ -143,6 +143,18 @@ class ContentCloneServiceTest extends TestCase {
 		self::assertSame( 'draft', $cloned->status );
 	}
 
+	/** Префикс названий задач работы («1.12. ДЗ») живёт в мете работы вне WorkDTO — копия его не теряет. */
+	public function test_clone_work_keeps_task_number_prefix(): void {
+		fs_test_seed_post(
+			array( 'ID' => 12, 'post_type' => 'inf_works', 'post_title' => 'ДЗ', 'post_status' => 'publish' ),
+			array( PostMetaName::Meta->value => array( 'work_type' => 'homework', 'item_ids' => array( 5 ), 'task_number_prefix' => '1.12. ДЗ' ) )
+		);
+
+		$newId = $this->service->cloneWork( 12 );
+
+		self::assertSame( '1.12. ДЗ', $GLOBALS['_fs_test_meta'][ $newId ][ PostMetaName::Meta->value ]['task_number_prefix'] );
+	}
+
 	// ── cloneAssessment ─────────────────────────────────────────────────────
 
 	public function test_clone_assessment_returns_zero_for_missing(): void {

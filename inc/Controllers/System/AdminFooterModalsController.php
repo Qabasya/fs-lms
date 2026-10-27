@@ -55,9 +55,17 @@ class AdminFooterModalsController extends BaseController implements ServiceInter
 			require_once $this->path( 'templates/admin/components/modals/lecture-image-modal.php' );
 		}
 
-		// «Массовое добавление заданий» — только там, где есть конструктор работы.
+		// Окно множественного выбора — там, где есть конструктор работы («Массовое добавление
+		// заданий») и конструктор курса («Импорт из другого предмета»).
 		$screen = get_current_screen();
-		if ( $screen && PostTypeResolver::isWorkPostType( $screen->post_type ) ) {
+		if (
+			$screen
+			&& (
+				PostTypeResolver::isWorkPostType( $screen->post_type )
+				|| PostTypeResolver::isCoursePostType( $screen->post_type )
+				|| AdminScreenContext::from( $screen, $this->sanitizeText( 'page', 'GET' ) )->isCourseBuilderPage()
+			)
+		) {
 			require_once $this->path( 'templates/admin/components/modals/bulk-pick-modal.php' );
 		}
 	}
