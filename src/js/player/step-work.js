@@ -53,6 +53,8 @@ function mountWork( panel, root ) {
 	let state;
 	try { state = JSON.parse( root.dataset.state || '{}' ); } catch { state = {}; }
 	state.task_results    = state.task_results || {};
+	// Решения вопросов опроса: task_id → HTML; сервер кладёт сюда только открытые (после верного ответа или исчерпания попыток).
+	state.solutions       = state.solutions && 'object' === typeof state.solutions ? state.solutions : {};
 	// Лимит сдач работы (0 = без ограничения).
 	state.attempts_used   = Number( state.attempts_used ) || 0;
 	state.max_attempts    = Number( state.max_attempts ) || 0;
@@ -417,6 +419,7 @@ function mountWork( panel, root ) {
 		if ( undefined !== d.attempts_used ) { state.attempts_used = Number( d.attempts_used ) || 0; }
 		if ( undefined !== d.max_attempts ) { state.max_attempts = Number( d.max_attempts ) || 0; }
 		if ( Array.isArray( d.locked_task_ids ) ) { state.locked_task_ids = d.locked_task_ids; }
+		state.solutions = d.solutions && 'object' === typeof d.solutions && ! Array.isArray( d.solutions ) ? d.solutions : {};
 		state.submission = {
 			status      : d.status,
 			status_label: d.status_label,
@@ -548,6 +551,7 @@ function mountWork( panel, root ) {
 			conditionHtml +
 			answerHtml +
 			vd +
+			solutionBlock( state.solutions[ taskId ] ) +
 			'</div>';
 	}
 
@@ -613,6 +617,11 @@ function mountWork( panel, root ) {
 }
 
 /* ── Вспомогательные ──────────────────────────────────────────────────── */
+
+/** Решение вопроса опроса (HTML уже очищен сервером); пусто — решение ещё не открыто или его нет. */
+function solutionBlock( html ) {
+	return html ? `<div class="work-solution"><b>Решение</b><div class="wpc">${ html }</div></div>` : '';
+}
 
 function vdBlock( kind, title, body ) {
 	const icon = 'ok' === kind || 'warn' === kind ? ICO.check( 13 ) : ( 'no' === kind ? ICO.cross( 11 ) : ICO.clock( 13 ) );
