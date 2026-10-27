@@ -5,7 +5,7 @@ import { openPicker, expandPicked } from '../modules/picker.js';
 import { readSteps } from './step-editor.js';
 import { showToast } from '../modules/toast.js';
 import { ConfirmModal } from '../modals/confirm-modal.js';
-import { BulkTaskModal } from '../modals/bulk-task-modal.js';
+import { BulkPickModal } from '../modals/bulk-pick-modal.js';
 
 /* global jQuery, fs_lms_vars */
 const $ = jQuery;
@@ -103,10 +103,12 @@ const defaultNewSlot = ( i ) => ( { key: 'slot_' + i, taskId: 0, title: '' } );
  * @param {string}      config.emptyText                Текст пустого редактора.
  * @param {Function}    config.persist  (slots) => Promise              Сохранение item_ids.
  * @param {Function}    config.search   (query) => Promise<{id,title}[]>
- * @param {Function}   [config.bulkSearch] (query, scope, page) => Promise<Object[]>  Страница кандидатов
+ * @param {Function}   [config.bulkSearch] (query, scope, page, subject) => Promise<Object[]>  Страница кандидатов
  *                                            для окна «Массовое добавление заданий». Задан — кнопка
  *                                            «Добавить задачу» получает меню с этим пунктом (как
  *                                            «Добавить» в конструкторе курса); не задан — обычная кнопка.
+ * @param {{key: string, name: string}[]} [config.bulkSubjects] Предметы для выбора в окне массового добавления;
+ *                                            меньше двух — выбора нет, берётся `subjectKey`.
  * @param {Function}    config.preview  (taskId) => Promise<Object>
  * @param {string}     [config.subjectKey]    Предмет — прокидывается в URL «Создать задачу»
  *                                            (post-new.php?fs_lms_subject=…), чтобы новый
@@ -220,9 +222,34 @@ export function createSlotBuilder( el, config ) {
 	 * добавляется в работу одним сохранением.
 	 */
 	function openBulkAdd() {
-		BulkTaskModal.open( {
-			fetchFn:  config.bulkSearch,
-			takenIds: slots.filter( ( s ) => s.taskId > 0 ).map( ( s ) => s.taskId ),
+		const taken = slots.filter( ( s ) => s.taskId > 0 ).map( ( s ) => s.taskId );
+
+		BulkPickModal.open( {
+			title:             'Массовое добавление заданий',
+			confirmText:       'Добавить в работу',
+			searchPlaceholder: 'Поиск по названию…',
+			emptyText:         'Задания не найдены',
+			takenLabel:        'В работе',
+			sources:           [
+				{ value: 'subject', label: 'Приватный банк' },
+				{ value: 'public',  label: 'Публичные задачи' },
+			],
+			subjects:          config.bulkSubjects || [],
+			subject:           config.subjectKey || '',
+			takenIds:          taken,
+			fetchFn:           ( query, source, subject, page ) => config.bulkSearch( query, source, page, subject ),
+
+			// Родитель связки 19–21 раскладывается в работе на подзадания — «уже в работе»
+			// он тогда, когда в ней стоят все его части.
+			isTaken: ( item, takenSet ) => ( Array.isArray( item.bundle_children ) && item.bundle_children.length
+				? item.bundle_children.every( ( child ) => takenSet.has( parseInt( child.id, 10 ) ) )
+				: takenSet.has( parseInt( item.id, 10 ) ) ),
+
+			// В приватном банке вперемешку идут задачи банка и свои задания предмета —
+			// метка различает их; у публичных задач источник один, метка была бы шумом.
+			originLabel: ( item, { source } ) => ( 'public' === source
+				? ''
+				: ( 'problem' === item.type || 'bank' === item.source ? 'Банк' : 'Предмет' ) ),
 		} ).then( addMany, () => {} );
 	}
 

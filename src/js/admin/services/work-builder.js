@@ -48,8 +48,8 @@ function mount( el ) {
 
 		// Окно «Массовое добавление заданий»: тот же эндпоинт, но постранично. Источник
 		// выбирает окно — 'subject' (приватный банк, как «Выбрать из банка») или 'public'.
-		bulkSearch: ( q, scope, page ) => post( acts.getWorkItemCandidates, nonces.authorWork, {
-			subject_key: subject,
+		bulkSearch: ( q, scope, page, fromSubject ) => post( acts.getWorkItemCandidates, nonces.authorWork, {
+			subject_key: fromSubject || subject,
 			search:      q,
 			source:      candidateSource( q, scope ),
 			work_type:   workType(),

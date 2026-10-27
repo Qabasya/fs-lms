@@ -58,7 +58,7 @@ class AdminFooterModalsController extends BaseController implements ServiceInter
 		// «Массовое добавление заданий» — только там, где есть конструктор работы.
 		$screen = get_current_screen();
 		if ( $screen && PostTypeResolver::isWorkPostType( $screen->post_type ) ) {
-			require_once $this->path( 'templates/admin/components/modals/bulk-task-modal.php' );
+			require_once $this->path( 'templates/admin/components/modals/bulk-pick-modal.php' );
 		}
 	}
 
