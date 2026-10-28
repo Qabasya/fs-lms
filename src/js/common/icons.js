@@ -164,9 +164,6 @@ const fill24 = ( body, s ) =>
 export const icoPlus = ( s = 13 ) =>
 	fill20( '<path d="M10 4v6H4v2h6v6h2v-6h6v-2h-6V4z"/>', s );
 
-export const icoDuplicate = ( s = 13 ) =>
-	fill24( '<path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>', s );
-
 export const icoX = ( s = 13 ) =>
 	fill24( '<path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>', s );
 

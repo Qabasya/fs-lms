@@ -156,7 +156,7 @@ export function createStepEditor( opts ) {
 			chip.dataset.type = glyphForStep( s );
 			chip.draggable = true;
 			chip.innerHTML = `
-				<div class="step-chip-box"><span class="sc-num">${ i + 1 }</span>${ iconForStep( s ) }${ s.payload && s.payload.needs_review ? '<span class="dashicons dashicons-warning fs-dashicon fs-dashicon--danger sc-warn" title="Дублированный шаг — измените контент"></span>' : '' }${ lesson.steps.length > 1 ? `<button type="button" class="sc-del" data-del title="Удалить этот шаг" aria-label="Удалить этот шаг">${ icoX( 10 ) }</button>` : '' }</div>
+				<div class="step-chip-box"><span class="sc-num">${ i + 1 }</span>${ iconForStep( s ) }${ s.shared ? '<span class="dashicons dashicons-warning fs-dashicon fs-dashicon--danger sc-warn" title="Изменения в этом шаге повлекут за собой изменения в оригинале"></span>' : '' }${ lesson.steps.length > 1 ? `<button type="button" class="sc-del" data-del title="Удалить этот шаг" aria-label="Удалить этот шаг">${ icoX( 10 ) }</button>` : '' }</div>
 				<span class="sc-type">${ esc( stepMeta( s ).name ) }</span>`;
 			chip.addEventListener( 'click', () => { activeKey = s.key; renderStepsRow(); renderStepBody(); } );
 			chip.querySelector( '[data-del]' )?.addEventListener( 'click', ( e ) => { e.stopPropagation(); delStep( s ); } );
@@ -214,7 +214,7 @@ export function createStepEditor( opts ) {
 		const titleInput = body.querySelector( '[data-step-title]' );
 		if ( meta.inline ) {
 			titleInput.addEventListener( 'input', () => {
-				step.payload.title = titleInput.value; clearReviewFlag( step );
+				step.payload.title = titleInput.value;
 				renderStepsRow();
 				scheduleSave();
 			} );
@@ -222,7 +222,7 @@ export function createStepEditor( opts ) {
 
 		const ed = body.querySelector( '[data-step-editor]' );
 		if ( meta.inline ) {
-			inlineEditor( ed, step, { tinyState, scheduleSave, clearReviewFlag } );
+			inlineEditor( ed, step, { tinyState, scheduleSave } );
 		} else {
 			refEditor( ed, step, {
 				stepMeta,
@@ -241,27 +241,6 @@ export function createStepEditor( opts ) {
 	}
 
 	// ══════════ STEP actions ══════════
-	// Снимает метку «дубликат — не изменён» при правке контента шага и убирает значок-напоминание.
-	// Вызывать ТОЛЬКО из обработчиков реального пользовательского ввода (keyup/input/paste), НЕ из
-	// scheduleSave: TinyMCE дёргает NodeChange на init, и автосейв снял бы значок у первого шага при открытии.
-	// Ссылки из HTML (уникальные, отсортированные) — зеркало StepDTO::linksOf().
-	function reviewLinks( html ) {
-		const found = String( html || '' ).replace( /&amp;/g, '&' ).match( /https?:\/\/[^\s"'<>]+/gi ) || [];
-		return Array.from( new Set( found ) ).sort();
-	}
-	// У лекции-дубликата со ссылками метка снимается, только когда набор ссылок изменился.
-	function clearReviewFlag( step ) {
-		if ( step && step.payload && step.payload.needs_review ) {
-			const origin = step.payload.review_links;
-			if ( 'text' === step.type && Array.isArray( origin )
-				&& reviewLinks( step.payload.content ).join( '\n' ) === origin.join( '\n' ) ) {
-				return;
-			}
-			delete step.payload.needs_review;
-			delete step.payload.review_links;
-			renderStepsRow();
-		}
-	}
 	// Есть ли в шаге содержимое (для подтверждения удаления).
 	function stepHasContent( step ) {
 		const p = step.payload || {};

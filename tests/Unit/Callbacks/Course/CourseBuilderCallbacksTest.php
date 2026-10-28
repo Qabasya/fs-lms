@@ -10,6 +10,8 @@ use Inc\Managers\Course\LessonManager;
 use Inc\Managers\Wp\PostManager;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Services\Course\ContentCloneService;
+use Inc\Services\Course\ContentUsageService;
+use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Services\Course\CourseAssignmentService;
 use Inc\Services\Course\CourseBuilderService;
 use Inc\Services\Course\CoursePublishValidator;
@@ -26,6 +28,7 @@ class CourseBuilderCallbacksTest extends TestCase {
 	private CourseManager          $courses;
 	private LessonManager          $lessons;
 	private ContentCloneService    $cloneService;
+	private ContentUsageService    $usage;
 
 	protected function setUp(): void {
 		parent::setUp();
@@ -35,6 +38,7 @@ class CourseBuilderCallbacksTest extends TestCase {
 		$this->courses      = new CourseManager( $posts );
 		$this->lessons      = new LessonManager( $posts );
 		$this->cloneService = $this->createMock( ContentCloneService::class );
+		$this->usage        = new ContentUsageService( $posts, $this->createMock( SubjectRepository::class ) );
 		$this->callbacks    = new CourseBuilderCallbacks(
 			new CourseBuilderService(
 				$this->courses,
@@ -43,6 +47,7 @@ class CourseBuilderCallbacksTest extends TestCase {
 				$this->cloneService,
 				$this->createMock( GroupsRepository::class ),
 				$this->createMock( OpenCourseValidator::class ),
+				$this->usage,
 			),
 			new CoursePublishValidator( $this->courses, $this->lessons ),
 			$this->createMock( CourseAssignmentService::class )
@@ -144,20 +149,6 @@ class CourseBuilderCallbacksTest extends TestCase {
 		$lesson = $this->lessons->get( 10 );
 		self::assertSame( 'Новое', $lesson->topic );
 		self::assertSame( 'publish', $lesson->status );
-	}
-
-	public function test_duplicate_lesson_in_module_returns_node_and_links(): void {
-		$this->seedLesson( 10, 'inf', 'publish', 'Урок 1' );
-		$this->seedLesson( 11, 'inf', 'draft', 'Урок 1 (копия)' ); // «копия» от замоканного cloneService
-		$this->seedCourse( 1, 'inf', array( array( 'id' => 'm1', 'title' => 'M', 'lesson_ids' => array( 10 ) ) ) );
-		$this->cloneService->method( 'cloneLesson' )->with( 10 )->willReturn( 11 );
-		$_POST = array( 'course_id' => '1', 'module_id' => 'm1', 'lesson_id' => '10' );
-
-		$r = fs_test_capture_json( fn() => $this->callbacks->ajaxDuplicateLessonInModule() );
-
-		self::assertTrue( $r->success );
-		self::assertSame( 11, $r->payload['id'] );
-		self::assertSame( array( 10, 11 ), $this->courses->get( 1 )->modules[0]->lessonIds );
 	}
 
 	public function test_import_lessons_from_subject_returns_nodes_and_links_copies(): void {

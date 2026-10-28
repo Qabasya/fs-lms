@@ -55,23 +55,17 @@ export function createPersistence( { courseId, mount, state, onPublishToggle } )
 		}, 800 );
 	}
 
-	/**
-	 * @param {{ reviewCheck?: boolean }} [opts] reviewCheck — запросить мягкую проверку
-	 *        неизменённых дубликатов; ответ `{ saved: false, unchanged: [...] }` значит «нужно подтверждение».
-	 */
-	function saveCourseMeta( opts = {} ) {
+	function saveCourseMeta() {
 		const payload = {
 			course_id: courseId,
 			title:     state.course.title,
 			status:    state.course.status || 'draft',
 		};
-		if ( opts.reviewCheck ) { payload.review_check = 1; }
 		if ( state.course.author_id )    { payload.author_id    = state.course.author_id; }
 		// 0 — «снять аватар»: отправляем и ноль, не только положительный ID.
 		if ( Number.isInteger( state.course.thumbnail_id ) ) { payload.thumbnail_id = state.course.thumbnail_id; }
 		return ajax( acts().saveCourseMeta, payload )
 			.then( ( data ) => {
-				if ( data && false === data.saved ) { return data; }
 				setStatus( 'Все изменения сохранены' );
 				return data;
 			} )

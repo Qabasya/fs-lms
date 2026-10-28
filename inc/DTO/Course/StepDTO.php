@@ -63,59 +63,6 @@ readonly class StepDTO {
 	}
 
 	/**
-	 * Ссылки из HTML (уникальные, отсортированные): у лекции-дубликата автор меняет
-	 * именно их. Зеркало `reviewLinks()` в step-editor.js.
-	 *
-	 * @return string[]
-	 */
-	public static function linksOf( string $html ): array {
-		$found = preg_match_all( '#https?://[^\s"\'<>]+#i', str_replace( '&amp;', '&', $html ), $matches );
-		$links = false === $found ? array() : array_values( array_unique( $matches[0] ) );
-		sort( $links );
-
-		return $links;
-	}
-
-	/**
-	 * Копия шага с меткой «дубликат — контент не изменён». Трансляцию не метим: её
-	 * содержимое не меняется никогда. У лекции со ссылками метка помнит исходный набор
-	 * ссылок — снимается только когда он изменился, а не от любой правки текста.
-	 */
-	public function markedForReview(): self {
-		if ( StepType::Broadcast === $this->type ) {
-			return $this;
-		}
-
-		$extra = array( 'needs_review' => true );
-
-		if ( StepType::Text === $this->type ) {
-			$links = self::linksOf( (string) ( $this->payload['content'] ?? '' ) );
-			if ( array() !== $links ) {
-				$extra['review_links'] = $links;
-			}
-		}
-
-		return new self( $this->key, $this->type, array_merge( $this->payload, $extra ), $this->workType );
-	}
-
-	/**
-	 * Метка «не изменён» ещё действует: у лекции с запомненными ссылками — пока набор
-	 * ссылок прежний, у остальных шагов — пока метку не сняла правка.
-	 */
-	public function isUnreviewed(): bool {
-		if ( empty( $this->payload['needs_review'] ) ) {
-			return false;
-		}
-
-		$origin = $this->payload['review_links'] ?? null;
-		if ( StepType::Text === $this->type && is_array( $origin ) ) {
-			return self::linksOf( (string) ( $this->payload['content'] ?? '' ) ) === array_values( $origin );
-		}
-
-		return true;
-	}
-
-	/**
 	 * Десериализует meta-массив `steps[]` в список DTO (нечитаемые элементы отбрасываются).
 	 *
 	 * @param array<int, mixed> $rows

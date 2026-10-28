@@ -1,5 +1,5 @@
 import '../_types.js';
-import { icoGrip, icoCaret, icoPlus, icoImport, icoModule, icoDuplicate, icoEye, icoChevronLeft } from '../../common/icons.js';
+import { icoGrip, icoCaret, icoPlus, icoImport, icoModule, icoEye, icoChevronLeft } from '../../common/icons.js';
 import { escapeHtml as esc } from '../modules/utils.js';
 import { openPicker } from '../modules/picker.js';
 import { createStepEditor } from './step-editor.js';
@@ -211,19 +211,7 @@ function createApp( mount ) {
 				mount.querySelector( '[data-strip-publish]' )?.remove();
 			};
 
-			// Неизменённые дубликаты не блокируют публикацию — просим подтвердить.
-			persist.saveCourseMeta( { reviewCheck: true } ).then( ( data ) => {
-				if ( ! data || false !== data.saved ) { done(); return; }
-
-				const list = data.unchanged.slice( 0, 3 ).join( '; ' ) + ( data.unchanged.length > 3 ? ` и ещё ${ data.unchanged.length - 3 }` : '' );
-				ConfirmModal.confirm( {
-					title:       'Есть неизменённый контент',
-					message:     `Здесь есть неизменённый контент: ${ list }. Всё равно опубликовать?`,
-					confirmText: 'Всё равно опубликовать',
-					isDanger:    false,
-				} ).then( () => persist.saveCourseMeta().then( done ) )
-					.catch( () => { state.course.status = prevStatus; } );
-			} ).catch( () => { state.course.status = prevStatus; } );
+			persist.saveCourseMeta().then( done ).catch( () => { state.course.status = prevStatus; } );
 		} );
 
 		// Strip: аватар курса — картинка из медиатеки (используется чипом курса в кабинетах)
@@ -603,7 +591,6 @@ function createApp( mount ) {
 						${ lesson.published ? 'Опубликован' : 'Черновик' }
 					</button>
 					<button type="button" class="lesson-flag lesson-flag--preview" data-les-preview>${ icoEye( 13 ) } Просмотр</button>
-					<button type="button" class="lesson-flag lesson-flag--dup" data-les-dup>${ icoDuplicate( 13 ) } Дублировать урок</button>
 					<button type="button" class="lesson-flag danger" data-les-del>Убрать урок</button>
 				</div>
 			</div>
@@ -624,7 +611,6 @@ function createApp( mount ) {
 			url.searchParams.set( 'lesson', lesson.id );
 			window.open( url.toString(), '_blank' );
 		} );
-		pane.querySelector( '[data-les-dup]' ).addEventListener( 'click', () => duplicateLesson( lesson, module ) );
 		pane.querySelector( '[data-les-del]' ).addEventListener( 'click', () => removeLesson( lesson, module ) );
 
 		// Единый редактор шагов (общий модуль). Статус автосейва — в подвал курс-билдера.
@@ -698,17 +684,6 @@ function createApp( mount ) {
 				mod.collapsed = false;
 				selectLesson( node.id );
 				showToast( 'Урок добавлен', 'success' );
-			} )
-			.catch( ( msg ) => showToast( msg, 'error' ) );
-	}
-	function duplicateLesson( lesson, module ) {
-		ajax( acts().duplicateLessonInModule, { course_id: courseId, module_id: module.id, lesson_id: lesson.id } )
-			.then( ( node ) => {
-				const i = module.lessons.indexOf( lesson );
-				module.lessons.splice( i + 1, 0, node );
-				module.collapsed = false;
-				selectLesson( node.id );
-				showToast( 'Урок дублирован', 'success' );
 			} )
 			.catch( ( msg ) => showToast( msg, 'error' ) );
 	}

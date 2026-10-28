@@ -7,8 +7,10 @@ namespace Unit\Services\Course;
 use Inc\Managers\Course\CourseManager;
 use Inc\Managers\Course\LessonManager;
 use Inc\Managers\Wp\PostManager;
+use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Services\Course\ContentCloneService;
+use Inc\Services\Course\ContentUsageService;
 use Inc\Services\Course\CourseBuilderService;
 use Inc\Services\Course\OpenCourseValidator;
 use PHPUnit\Framework\TestCase;
@@ -19,6 +21,7 @@ class CourseBuilderServiceTest extends TestCase {
 	private CourseManager        $courses;
 	private LessonManager        $lessons;
 	private ContentCloneService  $cloneService;
+	private ContentUsageService  $usage;
 
 	protected function setUp(): void {
 		parent::setUp();
@@ -27,6 +30,7 @@ class CourseBuilderServiceTest extends TestCase {
 		$this->courses      = new CourseManager( $posts );
 		$this->lessons      = new LessonManager( $posts );
 		$this->cloneService = $this->createMock( ContentCloneService::class );
+		$this->usage        = new ContentUsageService( $posts, $this->createMock( SubjectRepository::class ) );
 		$this->service      = new CourseBuilderService(
 			$this->courses,
 			$this->lessons,
@@ -34,6 +38,7 @@ class CourseBuilderServiceTest extends TestCase {
 			$this->cloneService,
 			$this->createMock( GroupsRepository::class ),
 			$this->createMock( OpenCourseValidator::class ),
+			$this->usage,
 		);
 	}
 
@@ -49,6 +54,42 @@ class CourseBuilderServiceTest extends TestCase {
 			array( 'ID' => $id, 'post_type' => $subject . '_lessons', 'post_title' => '' !== $title ? $title : ( 'Урок ' . $id ), 'post_status' => $status ),
 			array( 'fs_lms_meta' => array( 'steps' => $steps ) )
 		);
+	}
+
+	public function test_build_tree_marks_work_and_assessment_steps_shared_with_another_lesson(): void {
+		$this->seedLesson( 10, 'inf', array(
+			array( 'key' => 's1', 'type' => 'work', 'payload' => array( 'ref' => 99 ) ),
+			array( 'key' => 's2', 'type' => 'work', 'payload' => array( 'ref' => 98 ) ),
+			array( 'key' => 's3', 'type' => 'assessment', 'payload' => array( 'ref' => 97 ) ),
+			array( 'key' => 's4', 'type' => 'task', 'payload' => array( 'ref' => 96 ) ),
+		), 'publish' );
+		// Второй урок (другого курса) использует работу 99 и контрольную 97; работа 98 — только в первом.
+		$this->seedLesson( 11, 'inf', array(
+			array( 'key' => 's1', 'type' => 'work', 'payload' => array( 'ref' => 99 ) ),
+			array( 'key' => 's2', 'type' => 'assessment', 'payload' => array( 'ref' => 97 ) ),
+			array( 'key' => 's3', 'type' => 'task', 'payload' => array( 'ref' => 96 ) ),
+		), 'publish' );
+		$this->seedCourse( 1, 'inf', array( array( 'id' => 'm1', 'title' => 'M', 'lesson_ids' => array( 10 ) ) ) );
+
+		$steps = $this->service->buildTree( 1 )['modules'][0]['lessons'][0]['steps'];
+
+		self::assertTrue( $steps[0]['shared'] );                    // работа есть и в уроке 11
+		self::assertArrayNotHasKey( 'shared', $steps[1] );          // работа 98 — только здесь
+		self::assertTrue( $steps[2]['shared'] );                    // контрольная — так же, как работа
+		self::assertArrayNotHasKey( 'shared', $steps[3] );          // задание тренажёра общее всегда — не отмечается
+	}
+
+	public function test_build_tree_does_not_mark_work_repeated_inside_one_lesson(): void {
+		$this->seedLesson( 10, 'inf', array(
+			array( 'key' => 's1', 'type' => 'work', 'payload' => array( 'ref' => 99 ) ),
+			array( 'key' => 's2', 'type' => 'work', 'payload' => array( 'ref' => 99 ) ),
+		), 'publish' );
+		$this->seedCourse( 1, 'inf', array( array( 'id' => 'm1', 'title' => 'M', 'lesson_ids' => array( 10 ) ) ) );
+
+		$steps = $this->service->buildTree( 1 )['modules'][0]['lessons'][0]['steps'];
+
+		self::assertArrayNotHasKey( 'shared', $steps[0] );
+		self::assertArrayNotHasKey( 'shared', $steps[1] );
 	}
 
 	public function test_build_tree_resolves_modules_lessons_and_step_titles(): void {
@@ -76,6 +117,7 @@ class CourseBuilderServiceTest extends TestCase {
 	/** @return array{0: CourseBuilderService, 1: \PHPUnit\Framework\MockObject\MockObject} сервис и PostManager со шпионом setThumbnail */
 	private function serviceWithThumbnailSpy(): array {
 		$posts = $this->getMockBuilder( PostManager::class )->onlyMethods( array( 'setThumbnail' ) )->getMock();
+		$this->usage = new ContentUsageService( $posts, $this->createMock( SubjectRepository::class ) );
 
 		$service = new CourseBuilderService(
 			new CourseManager( $posts ),
@@ -84,6 +126,7 @@ class CourseBuilderServiceTest extends TestCase {
 			$this->cloneService,
 			$this->createMock( GroupsRepository::class ),
 			$this->createMock( OpenCourseValidator::class ),
+			$this->usage,
 		);
 
 		return array( $service, $posts );
@@ -188,34 +231,6 @@ class CourseBuilderServiceTest extends TestCase {
 		self::assertNotNull( $course );
 		self::assertSame( 'Мой курс', $course->title );
 		self::assertSame( 'inf', $course->subjectKey );
-	}
-
-	public function test_duplicate_lesson_in_module_inserts_copy_after_original(): void {
-		$this->seedLesson( 10, 'inf', array(
-			array( 'key' => 's1', 'type' => 'text', 'payload' => array( 'title' => 'Лекция' ) ),
-		), 'publish', 'Урок 1' );
-		// Копия, которую «создаёт» замоканный cloneService (с пометкой needs_review).
-		$this->seedLesson( 11, 'inf', array(
-			array( 'key' => 's1', 'type' => 'text', 'payload' => array( 'title' => 'Лекция', 'needs_review' => true ) ),
-		), 'draft', 'Урок 1 (копия)' );
-		$this->seedCourse( 1, 'inf', array(
-			array( 'id' => 'm1', 'title' => 'M', 'lesson_ids' => array( 10 ) ),
-		) );
-		$this->cloneService->method( 'cloneLesson' )->with( 10 )->willReturn( 11 );
-
-		$node = $this->service->duplicateLessonInModule( 1, 'm1', 10 );
-
-		self::assertNotNull( $node );
-		self::assertSame( 11, $node['id'] );
-		self::assertTrue( $node['steps'][0]['payload']['needs_review'] ); // флаг доезжает до ноды
-		self::assertSame( array( 10, 11 ), $this->courses->get( 1 )->modules[0]->lessonIds ); // копия сразу после оригинала
-	}
-
-	public function test_duplicate_lesson_in_module_null_when_lesson_not_in_module(): void {
-		$this->seedCourse( 1, 'inf', array( array( 'id' => 'm1', 'title' => 'M', 'lesson_ids' => array() ) ) );
-		$this->cloneService->expects( self::never() )->method( 'cloneLesson' ); // без сирот: клон не вызывается
-
-		self::assertNull( $this->service->duplicateLessonInModule( 1, 'm1', 10 ) );
 	}
 
 	// ── importLessonsFromSubject ────────────────────────────────────────────

@@ -519,19 +519,6 @@ class LessonAuthoringService {
 			}
 		}
 
-		// Метка «дубликат — контент не изменён»: переживает сохранение (напоминание преподавателю).
-		// Лекция помнит исходные ссылки: метка снимается, только когда их набор изменился.
-		if ( filter_var( $raw_payload['needs_review'] ?? false, FILTER_VALIDATE_BOOLEAN ) && 'broadcast' !== $type ) {
-			$payload['needs_review'] = true;
-
-			if ( 'text' === $type && is_array( $raw_payload['review_links'] ?? null ) ) {
-				$payload['review_links'] = array_values( array_map( 'strval', array_filter( $raw_payload['review_links'], 'is_scalar' ) ) );
-				if ( ! StepDTO::fromArray( array( 'type' => 'text', 'payload' => $payload ) )->isUnreviewed() ) {
-					unset( $payload['needs_review'], $payload['review_links'] );
-				}
-			}
-		}
-
 		$step = array( 'key' => $key, 'type' => $type, 'payload' => $payload );
 
 		// Тип работы шага: без него шаг без ссылки теряет название и ограничение шаблонов после перезагрузки.

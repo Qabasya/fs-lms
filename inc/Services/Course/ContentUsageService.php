@@ -177,6 +177,33 @@ class ContentUsageService {
 	}
 
 	/**
+	 * Уроки предмета, в шагах которых стоит работа или контрольная: `"{work|assessment}:{ref}" => [lessonId, …]`.
+	 * Один проход по урокам — для пометки «общая работа» во всём дереве конструктора, а не по запросу на шаг.
+	 * Групповые форки уроков не считаются: они копируют ссылки оригинала и сами по себе общими работу не делают.
+	 *
+	 * @param string $subjectKey Предмет
+	 *
+	 * @return array<string, int[]>
+	 */
+	public function sharedStepRefs( string $subjectKey ): array {
+		$index = array();
+		foreach ( $this->consumers( PostTypeResolver::lessons( $subjectKey ) ) as $lesson ) {
+			if ( ! empty( $this->posts->getMeta( $lesson->ID, PostMetaName::ForkedForGroup->value ) ) ) {
+				continue;
+			}
+			$meta = $this->posts->getMeta( $lesson->ID, PostMetaName::Meta->value );
+			$meta = is_array( $meta ) ? $meta : array();
+			foreach ( array( 'work', 'assessment' ) as $kind ) {
+				foreach ( $this->stepRefs( $meta, $kind ) as $ref ) {
+					$index[ $kind . ':' . $ref ][ $lesson->ID ] = $lesson->ID;
+				}
+			}
+		}
+
+		return array_map( 'array_values', $index );
+	}
+
+	/**
 	 * Возвращает список хлебных крошек использования для задач и задач из банка.
 	 *
 	 * Цепочка: задача → работа → урок → курс.

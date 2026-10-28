@@ -7,7 +7,7 @@ import { registerLectureBlocks } from './lecture-blocks.js';
  * TinyMCE/wp.editor с кнопками блоков и LaTeX, поля видео-шага, ссылка
  * трансляции. Вынесено из step-editor.js без изменения поведения: связки с
  * инстансом редактора передаются через `ctx` — `tinyState` (держатель id
- * активного TinyMCE, общий с destroyTiny), `scheduleSave`, `clearReviewFlag`.
+ * активного TinyMCE, общий с destroyTiny), `scheduleSave`.
  *
  * Таблица, блок кода и формула — общие с редактором задания кнопки
  * (`tinymce/editor-blocks.js`). Регистрируются прямо в `setup`, а не внешним
@@ -80,7 +80,7 @@ export function destroyTiny( tinyState ) {
 }
 
 export function inlineEditor( ed, step, ctx ) {
-	const { tinyState, scheduleSave, clearReviewFlag } = ctx;
+	const { tinyState, scheduleSave } = ctx;
 	if ( 'text' === step.type ) {
 		const tid = `fs-se-rte-${ Date.now() }`;
 		tinyState.id = tid;
@@ -91,8 +91,6 @@ export function inlineEditor( ed, step, ctx ) {
 		function onEditorChange() {
 			const mc = window.tinymce?.get( tid );
 			step.payload.content = mc ? mc.getContent() : ( ed.querySelector( '#' + tid )?.value ?? '' );
-			// Лекция-дубликат: ссылку могли поменять диалогом (без клавиатуры) — проверяем по набору ссылок.
-			if ( step.payload.review_links ) { clearReviewFlag( step ); }
 			scheduleSave();
 		}
 
@@ -129,7 +127,6 @@ export function inlineEditor( ed, step, ctx ) {
 				},
 			} );
 			editor.on( 'NodeChange change', onEditorChange );
-			editor.on( 'keyup paste cut', () => clearReviewFlag( step ) );
 		}
 
 		// TinyMCE вычищает класс у `<pre>` и `<table>` при переключении вкладок
@@ -177,7 +174,7 @@ export function inlineEditor( ed, step, ctx ) {
 			div.className = 'rte-area';
 			div.contentEditable = 'true';
 			div.innerHTML = step.payload.content || '';
-			div.addEventListener( 'input', () => { step.payload.content = div.innerHTML; clearReviewFlag( step ); scheduleSave(); } );
+			div.addEventListener( 'input', () => { step.payload.content = div.innerHTML; scheduleSave(); } );
 			ed.appendChild( div );
 		}
 	} else if ( 'video' === step.type ) {
@@ -196,8 +193,8 @@ export function inlineEditor( ed, step, ctx ) {
 		const desc = ed.querySelector( '[data-desc]' );
 		url.value  = step.payload.url || '';
 		desc.value = step.payload.description || '';
-		url.addEventListener( 'input', () => { step.payload.url = url.value; clearReviewFlag( step ); scheduleSave(); } );
-		desc.addEventListener( 'input', () => { step.payload.description = desc.value; clearReviewFlag( step ); scheduleSave(); } );
+		url.addEventListener( 'input', () => { step.payload.url = url.value; scheduleSave(); } );
+		desc.addEventListener( 'input', () => { step.payload.description = desc.value; scheduleSave(); } );
 
 		renderChapterRows( ed.querySelector( '[data-chapters]' ), step, scheduleSave );
 		renderAttachmentRows( ed.querySelector( '[data-attach-list]' ), step, scheduleSave );

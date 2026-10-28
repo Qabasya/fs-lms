@@ -135,26 +135,6 @@ class CourseBuilderCallbacks extends BaseController {
 	}
 
 	/**
-	 * Дублирует урок в модуле. Params: course_id, module_id, lesson_id
-	 */
-	public function ajaxDuplicateLessonInModule(): void {
-		$this->authorize( Nonce::AuthorCourse, Capability::AuthorLmsCourses );
-
-		$course_id = $this->requireInt( 'course_id' );
-		$module_id = $this->requireKey( 'module_id' );
-		$lesson_id = $this->requireInt( 'lesson_id' );
-
-		$node = $this->builder->duplicateLessonInModule( $course_id, $module_id, $lesson_id );
-		if ( null === $node ) {
-			$this->error( 'Не удалось дублировать урок.' );
-			return;
-		}
-
-		$this->syncCourseToGroups( $course_id );
-		$this->success( $node );
-	}
-
-	/**
 	 * Импорт уроков из другого предмета (копии с работами и контрольными).
 	 * Params: course_id, module_id, lesson_ids[], after_lesson_id?, force?
 	 *
@@ -229,16 +209,6 @@ class CourseBuilderCallbacks extends BaseController {
 			if ( null !== $emptyStepError ) {
 				$this->error( $emptyStepError );
 				return;
-			}
-
-			// Мягкая проверка: неизменённые дубликаты не блокируют, а просят подтверждение.
-			// Клиент шлёт review_check только по кнопке «Опубликовать»; после «Всё равно» — без него.
-			if ( $this->sanitizeBool( 'review_check' ) ) {
-				$unchanged = $this->publishValidator->unchangedSteps( $course_id );
-				if ( array() !== $unchanged ) {
-					$this->success( array( 'saved' => false, 'unchanged' => $unchanged ) );
-					return;
-				}
 			}
 		}
 

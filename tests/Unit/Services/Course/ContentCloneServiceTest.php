@@ -90,26 +90,12 @@ class ContentCloneServiceTest extends TestCase {
 		self::assertSame( 's2', $cloned->steps[1]->key );
 	}
 
-	public function test_clone_lesson_marks_steps_for_review(): void {
-		fs_test_seed_post(
-			array( 'ID' => 3, 'post_type' => 'inf_lessons', 'post_title' => 'Урок', 'post_status' => 'publish' ),
-			array( PostMetaName::Meta->value => array( 'steps' => array(
-				array( 'key' => 's1', 'type' => 'text', 'payload' => array( 'content' => 'Hello' ) ),
-			) ) )
-		);
-
-		$cloned = $this->lessons->get( $this->service->cloneLesson( 3 ) );
-
-		// Каждый шаг копии помечен «изменить контент» (payload.needs_review).
-		self::assertTrue( $cloned->steps[0]->payload['needs_review'] );
-	}
-
-	public function test_clone_lesson_drops_legacy_broadcast_and_remembers_lecture_links(): void {
+	public function test_clone_lesson_drops_legacy_broadcast_step(): void {
 		fs_test_seed_post(
 			array( 'ID' => 4, 'post_type' => 'inf_lessons', 'post_title' => 'Урок', 'post_status' => 'publish' ),
 			array( PostMetaName::Meta->value => array( 'steps' => array(
 				array( 'key' => 's1', 'type' => 'broadcast', 'payload' => array( 'stream_url' => 'https://t.me/x' ) ),
-				array( 'key' => 's2', 'type' => 'text', 'payload' => array( 'content' => '<a href="https://b.ru/2">б</a> <a href="https://a.ru/1">а</a>' ) ),
+				array( 'key' => 's2', 'type' => 'text', 'payload' => array( 'content' => 'Текст' ) ),
 			) ) )
 		);
 
@@ -117,8 +103,7 @@ class ContentCloneServiceTest extends TestCase {
 
 		// Остаток шага «Трансляция» (теперь его строит плеер) в копию не попадает.
 		self::assertCount( 1, $cloned->steps );
-		self::assertTrue( $cloned->steps[0]->payload['needs_review'] );
-		self::assertSame( array( 'https://a.ru/1', 'https://b.ru/2' ), $cloned->steps[0]->payload['review_links'] );
+		self::assertArrayNotHasKey( 'needs_review', $cloned->steps[0]->payload );
 	}
 
 	// ── cloneWork ───────────────────────────────────────────────────────────
@@ -218,7 +203,7 @@ class ContentCloneServiceTest extends TestCase {
 		self::assertSame( 'oge', $copy->subjectKey );
 		self::assertSame( 'Цикл for', $copy->topic ); // название сохраняется: это импорт, а не дубликат
 		self::assertSame( 'draft', $copy->status );
-		self::assertTrue( $copy->steps[0]->payload['needs_review'] );
+		self::assertArrayNotHasKey( 'needs_review', $copy->steps[0]->payload ); // метки «дубликат» больше нет
 		self::assertSame( 100, (int) $GLOBALS['_fs_test_meta'][ $newId ][ PostMetaName::ImportedFrom->value ] );
 	}
 

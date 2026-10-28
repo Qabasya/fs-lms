@@ -59,24 +59,11 @@ class ContentCloneService {
 				id        : 0,
 				subjectKey: $lesson->subjectKey,
 				topic     : $lesson->topic . ' (копия)',
-				steps     : $this->markStepsForReview( $lesson->steps ),
+				steps     : $lesson->steps,
 				authorId  : get_current_user_id(),
 				status    : 'draft',
 			)
 		);
-	}
-
-	/**
-	 * Помечает шаги копии как «дубликат — контент не изменён» (payload.needs_review),
-	 * чтобы конструктор показал преподавателю напоминание изменить контент.
-	 * Правила (трансляция без метки, лекция — по ссылкам) — в {@see StepDTO::markedForReview()}.
-	 *
-	 * @param StepDTO[] $steps
-	 *
-	 * @return StepDTO[]
-	 */
-	private function markStepsForReview( array $steps ): array {
-		return array_map( static fn( StepDTO $step ): StepDTO => $step->markedForReview(), $steps );
 	}
 
 	/**
@@ -164,7 +151,7 @@ class ContentCloneService {
 	 * целевом предмете. Правка копии не задевает исходный курс, поэтому работы и контрольные
 	 * копируются тоже; задания (общий тренажёр) остаются ссылками. Работа или контрольная,
 	 * стоящая в нескольких импортируемых уроках, копируется один раз — уроки продолжают её делить.
-	 * Названия сохраняются, копии — черновики, шаги помечены «проверить».
+	 * Названия сохраняются, копии — черновики.
 	 *
 	 * @param int[]  $lessonIds Исходные уроки (любые предметы)
 	 * @param string $toSubject Предмет, куда копируем
@@ -201,7 +188,7 @@ class ContentCloneService {
 					id        : 0,
 					subjectKey: $toSubject,
 					topic     : $lesson->topic,
-					steps     : $this->markStepsForReview( $steps ),
+					steps     : $steps,
 					authorId  : get_current_user_id(),
 					status    : 'draft',
 				)

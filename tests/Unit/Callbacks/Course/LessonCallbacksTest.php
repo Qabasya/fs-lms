@@ -89,7 +89,7 @@ class LessonCallbacksTest extends TestCase {
 		self::assertFalse( fs_test_capture_json( fn() => $this->callbacks->ajaxCreateTaskDraft() )->success );
 	}
 
-	public function test_save_lesson_steps_preserves_needs_review_flag(): void {
+	public function test_save_lesson_steps_drops_legacy_needs_review_flag(): void {
 		$this->seedLesson( 5, 'inf', array( 's1' ) );
 		$_POST = array(
 			'lesson_id'   => '5',
@@ -104,8 +104,8 @@ class LessonCallbacksTest extends TestCase {
 
 		self::assertTrue( $r->success );
 		$steps = $this->lessons->get( 5 )->steps;
-		self::assertTrue( $steps[0]->payload['needs_review'] );            // флаг переживает sanitizeStep
-		self::assertArrayNotHasKey( 'needs_review', $steps[1]->payload );  // без флага ключ не добавляется
+		self::assertArrayNotHasKey( 'needs_review', $steps[0]->payload ); // метка «дубликат» снята: старые данные чистятся при сохранении
+		self::assertArrayNotHasKey( 'needs_review', $steps[1]->payload );
 	}
 
 	public function test_save_lesson_steps_persists_work_type_of_work_step(): void {

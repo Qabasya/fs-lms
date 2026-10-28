@@ -36,6 +36,7 @@ class CourseBuilderService {
 		private readonly ContentCloneService  $cloneService,
 		private readonly GroupsRepository     $groups,
 		private readonly OpenCourseValidator  $openCourseValidator,
+		private readonly ContentUsageService  $usage,
 	) {}
 
 	/**
@@ -71,13 +72,15 @@ class CourseBuilderService {
 			return null;
 		}
 
+		$sharedRefs = $this->usage->sharedStepRefs( $course->subjectKey );
+
 		$modules = array();
 		foreach ( $course->modules as $module ) {
 			$lessons = array();
 			foreach ( $module->lessonIds as $lessonId ) {
 				$lesson = $this->lessons->get( $lessonId );
 				if ( null !== $lesson ) {
-					$lessons[] = $this->lessonNode( $lesson );
+					$lessons[] = $this->lessonNode( $lesson, $sharedRefs );
 				}
 			}
 
@@ -217,55 +220,6 @@ class CourseBuilderService {
 		$this->courses->update( $courseId, $this->withModules( $course, $modules ) );
 
 		$created = $this->lessons->get( $lessonId );
-		return null !== $created ? $this->lessonNode( $created ) : null;
-	}
-
-	/**
-	 * Дублирует урок: клонирует пост (steps + « (копия)») и вставляет копию
-	 * сразу после оригинала в том же модуле.
-	 *
-	 * @param int    $courseId
-	 * @param string $moduleId
-	 * @param int    $lessonId Оригинальный урок для дублирования.
-	 *
-	 * @return array<string, mixed>|null Нода нового урока для дерева, либо null.
-	 */
-	public function duplicateLessonInModule( int $courseId, string $moduleId, int $lessonId ): ?array {
-		$course = $this->courses->get( $courseId );
-		if ( null === $course ) {
-			return null;
-		}
-
-		// Проверяем модуль и наличие оригинала в нём ДО клонирования — чтобы не плодить сирот.
-		$target = null;
-		foreach ( $course->modules as $module ) {
-			if ( $module->id === $moduleId ) {
-				$target = $module;
-				break;
-			}
-		}
-		if ( null === $target || ! in_array( $lessonId, $target->lessonIds, true ) ) {
-			return null;
-		}
-
-		$newId = $this->cloneService->cloneLesson( $lessonId );
-		if ( $newId <= 0 ) {
-			return null;
-		}
-
-		$modules = array();
-		foreach ( $course->modules as $module ) {
-			$lessonIds = $module->lessonIds;
-			if ( $module->id === $moduleId ) {
-				$pos = (int) array_search( $lessonId, $lessonIds, true );
-				array_splice( $lessonIds, $pos + 1, 0, array( $newId ) );
-			}
-			$modules[] = new ModuleDTO( $module->id, $module->title, $lessonIds, $module->description );
-		}
-
-		$this->courses->update( $courseId, $this->withModules( $course, $modules ) );
-
-		$created = $this->lessons->get( $newId );
 		return null !== $created ? $this->lessonNode( $created ) : null;
 	}
 
@@ -452,17 +406,33 @@ class CourseBuilderService {
 	/**
 	 * Нода урока для дерева конструктора.
 	 *
-	 * @param LessonDTO $lesson
+	 * @param LessonDTO            $lesson
+	 * @param array<string, int[]> $sharedRefs Индекс {@see ContentUsageService::sharedStepRefs()}; без него шаги не помечаются
 	 *
 	 * @return array<string, mixed>
 	 */
-	private function lessonNode( LessonDTO $lesson ): array {
+	private function lessonNode( LessonDTO $lesson, array $sharedRefs = array() ): array {
 		return array(
 			'id'        => $lesson->id,
 			'title'     => $lesson->topic,
 			'published' => 'publish' === $lesson->status,
-			'steps'     => array_map( array( $this, 'stepNode' ), $lesson->steps ),
+			'steps'     => array_map( fn( StepDTO $step ): array => $this->stepNode( $step, $this->isSharedStep( $step, $lesson->id, $sharedRefs ) ), $lesson->steps ),
 		);
+	}
+
+	/**
+	 * Работа или контрольная шага стоит ещё в каком-то уроке: правка её содержимого заденет и тот урок.
+	 *
+	 * @param array<string, int[]> $sharedRefs
+	 */
+	private function isSharedStep( StepDTO $step, int $lessonId, array $sharedRefs ): bool {
+		if ( StepType::Work !== $step->type && StepType::Assessment !== $step->type ) {
+			return false;
+		}
+
+		$ref = (int) ( $step->payload['ref'] ?? 0 );
+
+		return $ref > 0 && array() !== array_diff( $sharedRefs[ $step->type->value . ':' . $ref ] ?? array(), array( $lessonId ) );
 	}
 
 	/**
@@ -470,10 +440,11 @@ class CourseBuilderService {
 	 * ссылочного — из заголовка связанной сущности.
 	 *
 	 * @param StepDTO $step
+	 * @param bool    $shared Работа или контрольная шага общая с другим уроком
 	 *
-	 * @return array{key: string, type: string, title: string, payload: array, work_type?: string}
+	 * @return array{key: string, type: string, title: string, payload: array, work_type?: string, shared?: bool}
 	 */
-	private function stepNode( StepDTO $step ): array {
+	private function stepNode( StepDTO $step, bool $shared = false ): array {
 		$title = (string) ( $step->payload['title'] ?? '' );
 
 		if ( '' === $title && $step->type->isRef() ) {
@@ -488,6 +459,10 @@ class CourseBuilderService {
 			'title'   => '' !== $title ? $title : $step->type->label(),
 			'payload' => $step->payload,
 		);
+
+		if ( $shared ) {
+			$node['shared'] = true;
+		}
 
 		// Тип работы нужен конструктору, чтобы показать у шага значок по типу (практика / СР / ДЗ / опрос).
 		if ( StepType::Work === $step->type ) {

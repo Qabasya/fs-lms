@@ -91,7 +91,6 @@ export function refEditor( ed, step, ctx ) {
 			step.title          = title;
 			step.work_type      = item && item.work_type ? item.work_type : '';
 			step.payload.source = 'bank' === source ? 'bank' : 'subject';
-			delete step.payload.needs_review;
 			renderStepsRow(); renderStepBody(); saveSteps();
 		};
 
@@ -165,6 +164,7 @@ export function refEditor( ed, step, ctx ) {
 			'<a class="button" href="' + adminBase + 'post.php?post=' + refId + '&action=edit" target="_blank" rel="noopener">Редактировать ↗</a>' +
 			'<span class="fs-cb-ref-preview" data-ref-preview></span>' +
 			'<button type="button" class="button fs-sb-btn-danger" data-pick>' + icoReplace( 13 ) + ' Заменить</button>' +
+			( step.shared ? '<button type="button" class="button" data-copy title="Эта ' + ( isWork ? 'работа' : 'контрольная' ) + ' стоит и в другом уроке: копию можно менять, не задевая оригинал">Сделать копию</button>' : '' ) +
 			'</div>' +
 			'<div class="fs-cb-ref-tasks"></div>';
 		loadRefPreview(
@@ -178,10 +178,30 @@ export function refEditor( ed, step, ctx ) {
 	const pickBtn = ed.querySelector( '[data-pick]' );
 	if ( pickBtn ) {
 		pickBtn.addEventListener( 'click', ( e ) => openLibraryPicker( e, candKind, ( id, title, source, item ) => {
-			step.payload.ref = id; step._title = title; step.title = title; delete step.payload.needs_review;
+			step.payload.ref = id; step._title = title; step.title = title;
 			step.work_type = item && item.work_type ? item.work_type : '';
+			delete step.shared; // общая ли выбранная, узнаем при следующей загрузке конструктора
 			renderStepsRow(); renderStepBody(); saveSteps();
 		} ) );
+	}
+
+	// «Сделать копию»: работа/контрольная клонируется вместе с составом, шаг переключается на копию.
+	const copyBtn = ed.querySelector( '[data-copy]' );
+	if ( copyBtn ) {
+		copyBtn.addEventListener( 'click', () => {
+			copyBtn.disabled = true;
+			const params = isWork ? { work_id: refId } : { assessment_id: refId };
+			ajax( isWork ? acts().cloneWork : acts().cloneAssessment, params )
+				.then( ( data ) => {
+					step.payload.ref = parseInt( data.id, 10 );
+					step._title      = ( step._title || step.title ) + ' (копия)';
+					step.title       = step._title;
+					delete step.shared;
+					renderStepsRow(); renderStepBody(); saveSteps();
+					showToast( 'Создана копия — её можно менять, оригинал не изменится', 'success' );
+				} )
+				.catch( ( msg ) => { copyBtn.disabled = false; showToast( msg, 'error' ); } );
+		} );
 	}
 
 	const createBtn = ed.querySelector( '[data-create]' );
@@ -208,6 +228,7 @@ export function refEditor( ed, step, ctx ) {
 					step.payload.ref = parseInt( postId, 10 );
 					step._title      = meta.name + ' #' + postId;
 					step.title       = step._title;
+					delete step.shared;
 					renderStepsRow(); renderStepBody(); saveSteps();
 					showToast( meta.name + ' добавлена в шаг', 'success' );
 					return;

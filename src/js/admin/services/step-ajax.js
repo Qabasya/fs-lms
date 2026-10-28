@@ -20,8 +20,10 @@ function nonceFor( action ) {
 	const a = acts();
 	const lessonScoped     = [ a.saveLessonSteps, a.getStepCandidates ];
 	const assessmentScoped = [ a.getTaskPreview, a.getRefPreview ];
+	const subjectScoped    = [ a.cloneWork, a.cloneAssessment ]; // CloneCallbacks проверяет нонс предмета
 	if ( lessonScoped.includes( action ) )     { return fs_lms_vars.nonces.authorLesson; }
 	if ( assessmentScoped.includes( action ) ) { return fs_lms_vars.nonces.authorAssessment; }
+	if ( subjectScoped.includes( action ) )    { return fs_lms_vars.nonces.subject; }
 	return fs_lms_vars.nonces.authorCourse;
 }
 
