@@ -192,6 +192,7 @@ function syncUrl(screen, extra) {
     url.searchParams.delete('gid');
     url.searchParams.delete('pid');
     url.searchParams.delete('submission');
+    url.searchParams.delete('attempt');
     navParamsExcept(screen).forEach(name => url.searchParams.delete(name)); // состояние чужих экранов (nav-state.js)
     Object.entries(extra || {}).forEach(([k, v]) => url.searchParams.set(k, v));
     window.history.replaceState(window.history.state, '', url);
@@ -237,7 +238,7 @@ function setTopbar(screen, override) {
    из Сводки и из «Работ» (D3). `from` — экран, на который вернёт «‹ Назад». */
 function openWorkReviewFrom(from) {
     return (sourceType, sourceId) => {
-        syncUrl(from, 'submission' === sourceType ? { submission: sourceId } : {});
+        syncUrl(from, 'submission' === sourceType ? { submission: sourceId } : ('attempt' === sourceType ? { attempt: sourceId } : {}));
         openWorkReview(sourceType, sourceId, from);
         go('work-review');
     };
@@ -256,12 +257,27 @@ function openExamReviewFrom(eventId, anchor) {
     go('exam-review');
 }
 
+/** Положительное целое из параметра адреса; всё прочее («1e2», «0x10», «1.5», пусто) — null. */
+function positiveIdParam(raw) {
+    const id = Number(raw);
+    return /^\d+$/.test(raw || '') && Number.isSafeInteger(id) && id >= 1 ? id : null;
+}
+
 /** Read a submission deep-link without trusting malformed query parameters. */
 export function submissionDeepLink(params, screens) {
     const from = params.get('screen');
-    const submission = params.get('submission');
-    const sourceId = Number(submission);
-    if (!/^\d+$/.test(submission || '') || !Number.isSafeInteger(sourceId) || sourceId < 1 || !['works', 'summary', 'activity'].includes(from) || !screens.includes(from)) {
+    const sourceId = positiveIdParam(params.get('submission'));
+    if (null === sourceId || !['works', 'summary', 'activity'].includes(from) || !screens.includes(from)) {
+        return null;
+    }
+    return { from, sourceId };
+}
+
+/** Работа экзамена по ссылке `?screen=exam-results&attempt=ID` (новая вкладка из таблицы результатов). */
+export function attemptDeepLink(params, screens) {
+    const from = params.get('screen');
+    const sourceId = positiveIdParam(params.get('attempt'));
+    if (null === sourceId || !['exam-results', 'exam-conduct', 'exam-stats'].includes(from) || !screens.includes(from)) {
         return null;
     }
     return { from, sourceId };
@@ -588,6 +604,7 @@ export function initProfile() {
     const pid = params.get('pid');
     const course = params.get('course');
     const submissionLink = submissionDeepLink(params, cfg.screens);
+    const attemptLink = attemptDeepLink(params, cfg.screens);
     if ('summary' === wanted && gid && pid && cfg.screens.includes('summary')) {
         // Сводка ученика в новой вкладке (ссылка из «Групп», журнала и «Главной»).
         go('summary');
@@ -600,6 +617,8 @@ export function initProfile() {
         openGroupsFor(gid);
     } else if (submissionLink) {
         openWorkReviewFrom(submissionLink.from)('submission', submissionLink.sourceId);
+    } else if (attemptLink) {
+        openWorkReviewFrom(attemptLink.from)('attempt', attemptLink.sourceId);
     } else if ('teacher-courses' === wanted && course && cfg.screens.includes(wanted)) {
         // «К курсу» из плеера урока (Tasks.md З4) — страница этого курса.
         openCoursePage(course);

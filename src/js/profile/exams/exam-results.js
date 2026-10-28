@@ -294,7 +294,7 @@ function rowHtml(r) {
             : '');
     const when = r.session_date ? `${esc(fmtDate(r.session_date))} · ${esc(r.session_time)}` : '—';
     const off = (reporting && blocked && !inReport) || (selecting && reason);
-    return `<tr class="exam-results-row${off ? ' is-off' : ''}" data-attempt="${r.attempt_id}" tabindex="0">
+    return `<tr class="exam-results-row${off ? ' is-off' : ''}" data-attempt="${r.attempt_id}"${reporting || selecting ? '' : ` data-src-type="attempt" data-src-id="${r.attempt_id}"`} tabindex="0">
         ${check ? `<td class="exam-results-check">${check}</td>` : (reporting || selecting ? '<td class="exam-results-check"></td>' : '')}
         <td class="exam-results-name">${esc(r.name)}${0 === query.event_id ? `<span class="exam-results-sub">${esc(r.event_title)}</span>` : ''}</td>
         <td>${'student' === r.audience ? 'Наш ученик' : 'Гость'}</td>

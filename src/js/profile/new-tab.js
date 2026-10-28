@@ -2,7 +2,7 @@
    Открытие в новой вкладке пунктов меню, групп и курсов сайдбара, занятий КТП, учеников, уроков и сдач работ: колёсико мыши, Ctrl/Cmd+клик и контекстное меню.
    Строки кабинета — не ссылки (<div>/<button> с обработчиком клика), поэтому «новая вкладка» собирается здесь одним
    делегированным обработчиком по адресу строки: `data-href`, `data-url` (урок), `data-alert-*` (ученик на «Главной»)
-   или `data-src-*` (сдача; адрес — глубокая ссылка экрана `?screen=…&submission=ID`, см. submissionDeepLink в app.js).
+   или `data-src-*` (сдача — `?screen=…&submission=ID`, работа экзамена — `?screen=exam-results&attempt=ID`; см. app.js).
    ══════════════════════════════════════════════════════════════════════ */
 
 import { openCtxMenu, profileUrl, toast } from './utils.js';
@@ -16,7 +16,7 @@ const TARGET = [
 const INNER_CONTROLS = 'button, a, input, select, textarea, label';
 
 /** Адрес строки или null, если у неё нет страницы, которую можно открыть отдельно. */
-function hrefOf(el) {
+export function hrefOf(el) {
     if (el.dataset.href) { return el.dataset.href; }
     if (el.dataset.url) { return el.dataset.url; }
     // Сайдбар: адрес совпадает с глубокой ссылкой, которую app.js разбирает при загрузке (экран / ?gid / ?course).
@@ -26,8 +26,11 @@ function hrefOf(el) {
     if (el.dataset.alertPid) {
         return profileUrl({ screen: 'summary', gid: el.dataset.alertGrp, pid: el.dataset.alertPid });
     }
-    // Сдача — только у экранов, где работает глубокая ссылка на неё; попытки экзамена отдельного адреса не имеют.
+    // Сдача и работа экзамена — только у экранов, где работает их глубокая ссылка (submissionDeepLink / attemptDeepLink в app.js).
     const screen = el.closest('.prof-screen')?.dataset.screen;
+    if ('attempt' === el.dataset.srcType && 'exam-results' === screen) {
+        return profileUrl({ screen, attempt: el.dataset.srcId });
+    }
     if ('submission' === el.dataset.srcType && ['works', 'summary', 'activity'].includes(screen)) {
         return profileUrl({ screen, submission: el.dataset.srcId });
     }
