@@ -18,7 +18,8 @@ readonly class LoginNoticeDTO {
 
 	/**
 	 * @param LoginNotice $notice      Уведомление
-	 * @param int         $waitMinutes Минуты до конца блокировки; 0 — не заблокирован
+	 * @param int         $waitMinutes Locked — минуты до конца блокировки; Last — на сколько минут закроется
+	 *                                 вход после последней неудачи; 0 — не нужно
 	 */
 	public function __construct(
 		public LoginNotice $notice,
@@ -26,14 +27,14 @@ readonly class LoginNoticeDTO {
 	) {}
 
 	/**
-	 * Параметры адреса `/sign-in/`: `login` и, для блокировки, `wait`.
+	 * Параметры адреса `/sign-in/`: `login` и, для блокировки и последней попытки, `wait`.
 	 *
 	 * @return array<string, string|int>
 	 */
 	public function queryArgs(): array {
 		$args = array( 'login' => $this->notice->value );
 
-		if ( LoginNotice::Locked === $this->notice && $this->waitMinutes > 0 ) {
+		if ( in_array( $this->notice, array( LoginNotice::Locked, LoginNotice::Last ), true ) && $this->waitMinutes > 0 ) {
 			$args['wait'] = $this->waitMinutes;
 		}
 

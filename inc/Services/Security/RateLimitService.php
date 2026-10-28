@@ -83,8 +83,13 @@ readonly class RateLimitService {
 
 	// Неудачные входы: счётчик на пару IP + пользователь. Лимита по одному IP нет —
 	// с одного адреса выходят около 20 человек (перебор логинов сдерживает капча).
-	public const LIMIT_LOGIN  = 3;
-	public const LOGIN_WINDOW = 15 * MINUTE_IN_SECONDS;
+	// Как на iPhone: LIMIT_LOGIN неудач за LOGIN_WINDOW закрывают вход, и каждая следующая блокировка
+	// длиннее прошлой (LOGIN_LOCK_STEPS, последняя ступень повторяется). Ступень помнится
+	// LOGIN_LOCK_MEMORY после последней неудачи, успешный вход сбрасывает всё.
+	public const LIMIT_LOGIN       = 3;
+	public const LOGIN_WINDOW      = 5 * MINUTE_IN_SECONDS;
+	public const LOGIN_LOCK_STEPS  = array( 15 * MINUTE_IN_SECONDS, HOUR_IN_SECONDS, DAY_IN_SECONDS );
+	public const LOGIN_LOCK_MEMORY = DAY_IN_SECONDS;
 
 	// Ключ приглашения экзамена: только неудачные проверки, успешные открытия не считаются (за общим адресом школы их десятки).
 	public const LIMIT_INVITATION_FAILURES = 20;
@@ -289,7 +294,7 @@ readonly class RateLimitService {
 	 * @return bool
 	 */
 	public function isLoginLocked( string $ip, string $userKey ): bool {
-		return 0 === $this->loginAttemptsLeft( $ip, $userKey );
+		return $this->loginState( $ip, $userKey )['locked_until'] > time();
 	}
 
 	/**
@@ -298,30 +303,53 @@ readonly class RateLimitService {
 	 * @param string $ip      IP-адрес клиента
 	 * @param string $userKey Идентификатор пользователя
 	 *
-	 * @return int
+	 * @return int 0 — вход закрыт
 	 */
 	public function loginAttemptsLeft( string $ip, string $userKey ): int {
-		$data = $this->peek( $this->loginKey( $ip, $userKey ) );
-
-		return max( 0, self::LIMIT_LOGIN - (int) ( $data['count'] ?? 0 ) );
+		return $this->attemptsLeft( $this->loginState( $ip, $userKey ), time() );
 	}
 
 	/**
-	 * Учитывает неудачный вход пары.
+	 * Учитывает неудачный вход пары. Последняя неудача окна закрывает вход на ступень вперёд:
+	 * 15 минут, час, сутки (дальше — сутки). Пока вход закрыт, неудачи не считаются и блокировку не продлевают.
 	 *
 	 * @param string $ip      IP-адрес клиента
 	 * @param string $userKey Идентификатор пользователя
 	 *
-	 * @return int Остаток попыток после учёта (0 — вход закрыт до конца окна)
+	 * @return int Остаток попыток после учёта (0 — вход закрыт)
 	 */
 	public function registerLoginFailure( string $ip, string $userKey ): int {
-		$this->check( $this->loginKey( $ip, $userKey ), self::LIMIT_LOGIN, self::LOGIN_WINDOW );
+		$now   = time();
+		$state = $this->loginState( $ip, $userKey );
 
-		return $this->loginAttemptsLeft( $ip, $userKey );
+		if ( $state['locked_until'] > $now ) {
+			return 0;
+		}
+
+		if ( $now >= $state['reset_at'] ) {
+			$state['count']    = 0;
+			$state['reset_at'] = $now + self::LOGIN_WINDOW;
+		}
+
+		++$state['count'];
+
+		if ( $state['count'] >= self::LIMIT_LOGIN ) {
+			++$state['level'];
+			$state['locked_until'] = $now + $this->loginLockSeconds( $state['level'] );
+			// Новое окно подсчёта начнётся с первой неудачи после конца блокировки.
+			$state['count']    = 0;
+			$state['reset_at'] = $state['locked_until'];
+		}
+
+		$state['touched_at'] = microtime( true );
+		$ttl                 = max( $state['reset_at'], $state['locked_until'] ) - $now + self::LOGIN_LOCK_MEMORY;
+		set_transient( $this->loginKey( $ip, $userKey ), $state, $ttl );
+
+		return $this->attemptsLeft( $state, $now );
 	}
 
 	/**
-	 * Сбрасывает счётчик неудачных входов пары (после успешного входа).
+	 * Сбрасывает счётчик, блокировку и ступень неудачных входов пары (после успешного входа).
 	 *
 	 * @param string $ip      IP-адрес клиента
 	 * @param string $userKey Идентификатор пользователя
@@ -333,21 +361,53 @@ readonly class RateLimitService {
 	}
 
 	/**
-	 * Минуты до конца окна счётчика входа, округлённые вверх.
+	 * Минуты до конца блокировки входа, округлённые вверх.
 	 *
 	 * @param string $ip      IP-адрес клиента
 	 * @param string $userKey Идентификатор пользователя
 	 *
-	 * @return int 0 — счётчика нет или окно истекло
+	 * @return int 0 — вход не закрыт
 	 */
 	public function loginRetryAfter( string $ip, string $userKey ): int {
-		$data = $this->peek( $this->loginKey( $ip, $userKey ) );
+		return (int) ceil( $this->loginRetrySeconds( $ip, $userKey ) / MINUTE_IN_SECONDS );
+	}
 
-		if ( null === $data ) {
-			return 0;
-		}
+	/**
+	 * Секунды до конца блокировки входа (для таймера на форме).
+	 *
+	 * @param string $ip      IP-адрес клиента
+	 * @param string $userKey Идентификатор пользователя
+	 *
+	 * @return int 0 — вход не закрыт
+	 */
+	public function loginRetrySeconds( string $ip, string $userKey ): int {
+		return max( 0, $this->loginState( $ip, $userKey )['locked_until'] - time() );
+	}
 
-		return max( 1, (int) ceil( ( (int) $data['reset_at'] - time() ) / MINUTE_IN_SECONDS ) );
+	/**
+	 * Снимает блокировку, неудачи и ступень пользователя со всех адресов сразу (сброс администратором).
+	 *
+	 * Счётчики лежат под хешем «IP + пользователь», по пользователю их не перечислить, поэтому
+	 * ставится метка времени: счётчик, записанный не позже неё, считается пустым ({@see self::loginState()}).
+	 *
+	 * @param string $userKey Идентификатор пользователя (см. LoginGuardService)
+	 *
+	 * @return void
+	 */
+	public function resetLoginLock( string $userKey ): void {
+		set_transient( $this->loginResetKey( $userKey ), microtime( true ), max( self::LOGIN_LOCK_STEPS ) + self::LOGIN_LOCK_MEMORY );
+	}
+
+	/**
+	 * На сколько минут закроется вход при следующей блокировке пары (для предупреждения «осталась одна попытка»).
+	 *
+	 * @param string $ip      IP-адрес клиента
+	 * @param string $userKey Идентификатор пользователя
+	 *
+	 * @return int
+	 */
+	public function loginNextLockMinutes( string $ip, string $userKey ): int {
+		return intdiv( $this->loginLockSeconds( $this->loginState( $ip, $userKey )['level'] + 1 ), MINUTE_IN_SECONDS );
 	}
 
 	/**
@@ -472,6 +532,63 @@ readonly class RateLimitService {
 		set_transient( $key, $data, $ttl );
 
 		return $data['count'] <= $limit;
+	}
+
+	/**
+	 * Состояние счётчика входа пары: неудачи окна, блокировка и ступень. Счётчики прежнего формата
+	 * (только `count` и `reset_at`) читаются как ступень 0 без блокировки. Счётчик, записанный не позже
+	 * сброса администратором ({@see self::resetLoginLock()}), считается пустым.
+	 *
+	 * @return array{count: int, reset_at: int, level: int, locked_until: int, touched_at: float}
+	 */
+	private function loginState( string $ip, string $userKey ): array {
+		$data = get_transient( $this->loginKey( $ip, $userKey ) );
+		$data = is_array( $data ) ? $data : array();
+
+		$state = array(
+			'count'        => (int) ( $data['count'] ?? 0 ),
+			'reset_at'     => (int) ( $data['reset_at'] ?? 0 ),
+			'level'        => (int) ( $data['level'] ?? 0 ),
+			'locked_until' => (int) ( $data['locked_until'] ?? 0 ),
+			'touched_at'   => (float) ( $data['touched_at'] ?? 0 ),
+		);
+
+		$resetAt = get_transient( $this->loginResetKey( $userKey ) );
+		if ( false !== $resetAt && (float) $resetAt >= $state['touched_at'] ) {
+			return array( 'count' => 0, 'reset_at' => 0, 'level' => 0, 'locked_until' => 0, 'touched_at' => 0.0 );
+		}
+
+		return $state;
+	}
+
+	/** Ключ метки сброса блокировок пользователя: общий для всех адресов, без пользователя в открытом виде. */
+	public function loginResetKey( string $userKey ): string {
+		$salt = defined( 'FS_LMS_HASH_SALT' ) ? FS_LMS_HASH_SALT : '';
+
+		return 'fs_lms_rl_loginreset_' . hash( 'sha256', $userKey . $salt );
+	}
+
+	/**
+	 * @param array{count: int, reset_at: int, level: int, locked_until: int, touched_at: float} $state
+	 */
+	private function attemptsLeft( array $state, int $now ): int {
+		if ( $state['locked_until'] > $now ) {
+			return 0;
+		}
+
+		// Окно прошлых неудач истекло: отсчёт начнётся заново.
+		if ( $now >= $state['reset_at'] ) {
+			return self::LIMIT_LOGIN;
+		}
+
+		return max( 0, self::LIMIT_LOGIN - $state['count'] );
+	}
+
+	/** Длительность блокировки по её номеру подряд (с 1); номер за последней ступенью берёт последнюю. */
+	private function loginLockSeconds( int $level ): int {
+		$steps = self::LOGIN_LOCK_STEPS;
+
+		return $steps[ min( max( $level, 1 ), count( $steps ) ) - 1 ];
 	}
 
 	/**

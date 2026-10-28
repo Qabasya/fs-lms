@@ -7,12 +7,44 @@
  * @requires jQuery
  */
 
+import { showNotice } from '../../../modules/utils.js';
+
 const $ = jQuery;
 
 // Геттеры для глобальных переменных WordPress.
 const NONCES   = () => fs_lms_applications_vars.nonces;
 const ACTIONS  = () => fs_lms_vars.ajax_actions;
 const AJAX_URL = () => fs_lms_vars.ajaxurl;
+
+/**
+ * Снимает блокировку входа аккаунта (серия неверных паролей) со всех адресов. Общий для карточек
+ * ученика, родителя и преподавателя: сервер один, различается только то, где показать результат.
+ *
+ * @param {number} wpUserId  ID пользователя WP.
+ * @param {jQuery} $btn      Кнопка «Снять блокировку входа» (блокируется на время запроса).
+ * @param {jQuery} $notices  Контейнер для уведомления о результате (тело модалки).
+ */
+export function unlockUserLogin( wpUserId, $btn, $notices ) {
+    if ( ! wpUserId ) return;
+
+    $btn.prop( 'disabled', true );
+
+    $.post( AJAX_URL(), {
+        action:   ACTIONS().unlockUserLogin,
+        user_id:  wpUserId,
+        security: NONCES().revealPii,
+    } ).done( ( res ) => {
+        if ( res.success ) {
+            showNotice( 'Блокировка входа снята: можно входить с первой попытки.', 'success', $notices );
+        } else {
+            showNotice( typeof res.data === 'string' ? res.data : 'Не удалось снять блокировку.', 'error', $notices );
+        }
+    } ).fail( () => {
+        showNotice( 'Не удалось снять блокировку: ошибка соединения.', 'error', $notices );
+    } ).always( () => {
+        $btn.prop( 'disabled', false );
+    } );
+}
 
 /**
  * @param {Object}   modal                 UI-компонент модалки персоны ({@link createPersonModal}).
@@ -106,6 +138,16 @@ export function createPersonActions( modal, { editableFields, offerRegenerate = 
             $.post( AJAX_URL(), payload ).done( ( res ) => {
                 if ( res.success ) modal.setEditing( false );
             } );
+        },
+
+        /**
+         * Снимает блокировку входа аккаунта (серия неверных паролей) со всех адресов.
+         *
+         * @param {number} wpUserId ID пользователя WP.
+         * @param {jQuery} $btn     Кнопка «Снять блокировку входа» (блокируется на время запроса).
+         */
+        unlockLogin( wpUserId, $btn ) {
+            unlockUserLogin( wpUserId, $btn, modal.$el.find( '.fs-lms-modal-body' ) );
         },
 
         /**

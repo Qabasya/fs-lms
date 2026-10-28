@@ -127,6 +127,7 @@ foreach ( $subjectRepo->readAll() as $dto ) {
 				) );
 
 				$teacherData = array(
+					'user_id'        => $user->ID,
 					'full_name'      => $user->display_name,
 					'email'          => $user->user_email,
 					'subjects_groups' => $subjectsGroupsData,

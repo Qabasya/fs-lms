@@ -65,6 +65,11 @@
     input[type="text"],
     input[type="password"] {
       @include fs-field-input($important: true);
+
+      &:disabled {
+        color: $color-muted-2;
+        cursor: not-allowed;
+      }
     }
 
     .js-toggle-secret {
@@ -89,6 +94,34 @@
 
   &__submit {
     @include fs-form-submit(rem(7.2) rem(14.4));
+  }
+
+  // Блокировка входа: таймер и пояснение под кнопкой «Войти».
+  &__lock {
+    margin-top: $spacing-lg;
+    text-align: center;
+    line-height: $line-height-relaxed;
+  }
+
+  // text-align повторён на абзацах: темы сайта перебивают выравнивание у <p>, и унаследованного центра мало.
+  &__lock-timer {
+    margin: 0 0 $spacing-xs;
+    text-align: center;
+    font-size: $font-size-base;
+    font-weight: $font-medium;
+    color: $color-text;
+  }
+
+  &__lock-note {
+    margin: 0;
+    text-align: center;
+    font-size: $font-size-xs;
+    color: $color-muted;
+  }
+
+  // Приписка идёт двумя строками: «подождите…» и «или свяжитесь…».
+  &__lock-line {
+    display: block;
   }
 
   &__footer {

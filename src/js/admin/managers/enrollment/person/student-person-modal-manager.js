@@ -111,6 +111,12 @@ export const StudentPersonModalManager = {
             this._save();
         } );
 
+        // Снятие блокировки входа аккаунта студента (после серии неверных паролей)
+        $( document ).on( 'click.spmm_unlock', '#fs-student-person-modal .js-pmm-unlock', ( e ) => {
+            e.preventDefault();
+            actions.unlockLogin( StudentPersonModal.getWpUserId(), $( e.currentTarget ) );
+        } );
+
         // Экспорт персональных данных студента в файл
         $( document ).on( 'click.spmm_export', '.js-export-person[data-person-type="student"]', ( e ) => {
             e.preventDefault();

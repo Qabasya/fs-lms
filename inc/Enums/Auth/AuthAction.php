@@ -10,6 +10,8 @@ enum AuthAction: string {
 	case OtpSent       = 'otp_sent';
 	case OtpVerified   = 'otp_verified';
 	case PasswordReset = 'password_reset';
+	// Администратор снял блокировку входа аккаунта
+	case LoginUnlocked = 'login_unlocked';
 	// Форма заявки (/lms/apply): что происходило до отправки кода (события шлёт браузер)
 	case ApplyStarted        = 'apply_started';
 	case ApplyInvalid        = 'apply_invalid';
@@ -35,7 +37,8 @@ enum AuthAction: string {
 			self::OtpSent       => 'OTP отправлен',
 			self::OtpVerified   => 'OTP подтверждён',
 			self::PasswordReset => 'Сброс пароля',
-			self::ApplyStarted       => 'Заявка: начал заполнять',
+			self::LoginUnlocked => 'Блокировка входа снята',
+			self::ApplyStarted      => 'Заявка: начал заполнять',
 			self::ApplyInvalid       => 'Заявка: форма не прошла проверку',
 			self::ApplyCaptchaShown  => 'Заявка: капча показала задание',
 			self::ApplyCaptchaFailed => 'Заявка: капча не пройдена',

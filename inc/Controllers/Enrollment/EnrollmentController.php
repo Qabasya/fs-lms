@@ -104,6 +104,7 @@ class EnrollmentController extends AjaxController {
 			// ── Учётные данные ──
 			array( AjaxHook::RevealUserCredentials, $this->credentials ),
 			array( AjaxHook::RegenerateUserPassword, $this->credentials ),
+			array( AjaxHook::UnlockUserLogin, $this->credentials ),
 		);
 	}
 

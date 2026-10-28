@@ -19,6 +19,12 @@
  * После возврата кнопкой «Назад» (страница из bfcache) состояние формы сбрасывается — иначе
  * кнопка остаётся заблокированной, а токен прошлой попытки — в скрытом поле.
  *
+ * Блокировка входа (серия неверных паролей): сервер отдаёт форму с отключёнными полями и блоком
+ * `[data-login-lock]` с остатком в секундах. Здесь идёт обратный отсчёт; по его концу поля и кнопка
+ * («[data-lock-field]») включаются, блок и красная плашка скрываются. Кнопка «Войти» на время паузы
+ * остаётся неактивной в любом исходе инициализации. Отсчёт — от абсолютного времени, а не по тикам,
+ * поэтому вкладка в фоне и возврат из bfcache не сбивают его.
+ *
  * Глобальные переменные: fs_lms_login_vars (FrontendAssets::loginVars; captcha_key
  * дописывает модуль SmartCaptcha).
  */
@@ -33,10 +39,14 @@ export function initLoginForm() {
     if ( ! form ) { return; }
 
     const button = form.querySelector( '#wp-submit' );
+    const lock   = startLoginLock( form );
+    // Кнопка «Войти» блокируется вместе с полями: пока поля отключены сервером или идёт отсчёт, она не включается —
+    // даже если блок таймера не нашёлся (кнопка не должна быть активной при отключённых полях).
+    const isLocked = () => lock.active || true === form.querySelector( '#user_pass' )?.disabled;
 
     // Капчи нет — обработчик не нужен, но форма должна стать доступной.
     if ( ! vars || ! isCaptchaEnabled() ) {
-        if ( button ) { button.disabled = false; }
+        if ( button && ! isLocked() ) { button.disabled = false; }
         return;
     }
 
@@ -52,7 +62,7 @@ export function initLoginForm() {
         showStatus( false );
         tokenInput.value = '';
         if ( failureInput ) { failureInput.value = ''; }
-        button.disabled  = false;
+        button.disabled  = isLocked();
         resetCaptcha();
     } );
 
@@ -96,8 +106,64 @@ export function initLoginForm() {
         button.disabled = true;
     } );
 
-    // Обработчик подключён — форму можно отправлять.
-    button.disabled = false;
+    // Обработчик подключён — форму можно отправлять (если вход не закрыт блокировкой).
+    button.disabled = isLocked();
+}
+
+/**
+ * Обратный отсчёт блокировки входа: таймер в блоке `[data-login-lock]`, по концу — включает форму.
+ *
+ * @param {HTMLFormElement} form Форма входа
+ * @returns {{ active: boolean }} `active` — пока пауза не кончилась (читается лениво: меняется по таймеру)
+ */
+function startLoginLock( form ) {
+    // Блок стоит под формой, а не внутри неё (шаблон auth-page.php): искать надо по документу.
+    const lockEl = document.querySelector( '[data-login-lock]' );
+    const state  = { active: false };
+    const left   = lockEl ? parseInt( lockEl.dataset.loginLock, 10 ) : 0;
+
+    if ( ! lockEl || ! ( left > 0 ) ) { return state; }
+
+    const timerEl  = lockEl.querySelector( '[data-login-lock-timer]' );
+    const deadline = Date.now() + left * 1000;
+    let intervalId = null;
+
+    state.active = true;
+
+    const unlock = () => {
+        state.active = false;
+        window.clearInterval( intervalId );
+        lockEl.hidden = true;
+        document.querySelector( '.fs-auth-card__error' )?.setAttribute( 'hidden', '' );
+        form.querySelectorAll( '[data-lock-field]' ).forEach( ( field ) => { field.disabled = false; } );
+        form.querySelector( '#user_pass' )?.focus?.();
+    };
+
+    const tick = () => {
+        const seconds = Math.max( 0, Math.ceil( ( deadline - Date.now() ) / 1000 ) );
+        if ( timerEl ) { timerEl.textContent = formatCountdown( seconds ); }
+        if ( 0 === seconds ) { unlock(); }
+    };
+
+    tick();
+    if ( state.active ) { intervalId = window.setInterval( tick, 1000 ); }
+
+    return state;
+}
+
+/**
+ * «14:32» до часа, «1:05:09» — от часа (блокировка длится до суток).
+ *
+ * @param {number} totalSeconds Секунды, не меньше нуля
+ * @returns {string}
+ */
+export function formatCountdown( totalSeconds ) {
+    const hours   = Math.floor( totalSeconds / 3600 );
+    const minutes = Math.floor( ( totalSeconds % 3600 ) / 60 );
+    const seconds = totalSeconds % 60;
+    const pad     = ( n ) => String( n ).padStart( 2, '0' );
+
+    return hours > 0 ? `${ hours }:${ pad( minutes ) }:${ pad( seconds ) }` : `${ pad( minutes ) }:${ pad( seconds ) }`;
 }
 
 /**

@@ -154,6 +154,7 @@ enum AjaxHook: string {
 	case GetStudentGroups            = 'get_student_groups';
 	case RevealUserCredentials       = 'reveal_user_credentials';
 	case RegenerateUserPassword      = 'regenerate_user_password';
+	case UnlockUserLogin             = 'unlock_user_login'; // params: user_id — снять блокировку входа аккаунта со всех адресов
 	case GetStudentsByGroup          = 'get_students_by_group';
 	case GetPersonData               = 'get_person_data';
 	case SelectExistingParent        = 'select_existing_parent';

@@ -109,6 +109,9 @@ export const createPersonModal = ( cfg ) => ( {
         // Удаляем кнопку генерации пароля, если она была создана
         this.$el.find( `.${ cfg.regenClass }` ).remove();
 
+        // «Снять блокировку входа» прячем до установки аккаунта следующей персоны
+        this.$el.find( '.js-pmm-unlock' ).prop( 'hidden', true ).prop( 'disabled', false );
+
         // Выходим из режима редактирования (если были в нем)
         this.setEditing( false );
 
@@ -133,6 +136,9 @@ export const createPersonModal = ( cfg ) => ( {
      */
     setWpUserId( id ) {
         this.$el.data( 'wpUserId', id );
+
+        // «Снять блокировку входа» нужна только у персоны с аккаунтом.
+        this.$el.find( '.js-pmm-unlock' ).prop( 'hidden', ! ( parseInt( id, 10 ) > 0 ) );
     },
 
     /**

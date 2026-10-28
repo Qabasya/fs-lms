@@ -74,10 +74,11 @@ export const TeacherViewModal = {
 
     /**
      * Открытие модального окна с заполнением данными преподавателя.
-     * @param {Object} data - Объект с данными преподавателя (full_name, email, subjects_groups).
+     * @param {Object} data - Объект с данными преподавателя (user_id, full_name, email, subjects_groups).
      */
     open( data ) {
         this._fill( data );
+        this._setWpUserId( data.user_id );
         bindEsc( 'teacher_view', () => this.close() );
         openModal( this.$modal );
     },
@@ -88,6 +89,26 @@ export const TeacherViewModal = {
     close() {
         unbindEsc( 'teacher_view' );
         closeModal( this.$modal );
+        this._setWpUserId( 0 );
+    },
+
+    /**
+     * ID аккаунта открытого преподавателя (0 — не открыт или аккаунта нет).
+     * @returns {number}
+     */
+    getWpUserId() {
+        return parseInt( this.$modal.data( 'wpUserId' ), 10 ) || 0;
+    },
+
+    /**
+     * Запоминает аккаунт и показывает «Снять блокировку входа» только когда он есть.
+     * @private
+     * @param {number|string} id - ID пользователя WordPress.
+     */
+    _setWpUserId( id ) {
+        const wpUserId = parseInt( id, 10 ) || 0;
+        this.$modal.data( 'wpUserId', wpUserId );
+        this.$modal.find( '.js-tvm-unlock' ).prop( 'hidden', wpUserId <= 0 ).prop( 'disabled', false );
     },
 
     /**

@@ -212,6 +212,8 @@ $copy_btn = '<button type="button" class="fs-copy-field__btn" aria-label="Коп
 
 		<div class="fs-lms-modal-footer">
 			<button type="button" class="button js-pmm-close"><?php esc_html_e( 'Закрыть', 'fs-lms' ); ?></button>
+			<?php // Видна, только когда у персоны есть аккаунт; снимает блокировку входа после серии неверных паролей. ?>
+			<button type="button" class="button js-pmm-unlock" hidden><?php esc_html_e( 'Снять блокировку входа', 'fs-lms' ); ?></button>
 			<button type="button" class="button js-pmm-edit"><?php esc_html_e( 'Редактировать', 'fs-lms' ); ?></button>
 		</div>
 	</div>

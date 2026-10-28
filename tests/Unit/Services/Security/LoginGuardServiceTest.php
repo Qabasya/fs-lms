@@ -77,11 +77,19 @@ class LoginGuardServiceTest extends TestCase {
 
 		self::assertInstanceOf( WP_Error::class, $result );
 		self::assertSame( LoginGuardService::CODE_LOCKED, $result->get_error_code() );
+		self::assertStringContainsString( 'через 15 мин.', $result->get_error_message() );
+	}
+
+	public function test_pair_is_still_open_after_second_failure(): void {
+		$service = $this->makeService( logins: array( 'ivan' => $this->user( 5 ) ) );
+		$this->failTimes( $service, 'ivan', 2 );
+
+		self::assertInstanceOf( WP_User::class, $service->guard( $this->user( 5 ), 'ivan', '', self::IP, true ) );
 	}
 
 	public function test_trusted_ip_is_never_locked(): void {
 		$service = $this->makeService( logins: array( 'ivan' => $this->user( 5 ) ), trusted: true );
-		$this->failTimes( $service, 'ivan', 5 );
+		$this->failTimes( $service, 'ivan', 20 );
 
 		$result = $service->guard( $this->user( 5 ), 'ivan', '', self::IP, true );
 
@@ -127,7 +135,26 @@ class LoginGuardServiceTest extends TestCase {
 		self::assertSame( 3, $this->rateLimit->loginAttemptsLeft( self::IP, 'id:5' ) );
 	}
 
+	public function test_success_resets_escalation_step(): void {
+		$user    = $this->user( 5 );
+		$service = $this->makeService( logins: array( 'ivan' => $user ) );
+		$this->failTimes( $service, 'ivan', 3 );
+		$this->endLock( $service, 'ivan' );
+
+		$service->onSuccess( $user, self::IP );
+
+		self::assertSame( 15, $this->rateLimit->loginNextLockMinutes( self::IP, 'id:5' ) );
+	}
+
 	// ── Уведомления ─────────────────────────────────────────────────────────────
+
+	/** Сдвигает время счётчика пары назад: блокировка и окно неудач кончаются. */
+	private function endLock( LoginGuardService $service, string $login ): void {
+		$key = $this->rateLimit->loginKey( self::IP, $service->userKey( $login ) );
+		foreach ( array( 'reset_at', 'locked_until' ) as $field ) {
+			$GLOBALS['_test_transients'][ $key ][ $field ] -= DAY_IN_SECONDS;
+		}
+	}
 
 	public function test_notice_after_first_failure_is_failed(): void {
 		$service = $this->makeService();
@@ -136,11 +163,15 @@ class LoginGuardServiceTest extends TestCase {
 		self::assertSame( LoginNotice::Failed, $service->noticeFor( 'ivan', null, self::IP )->notice );
 	}
 
-	public function test_notice_after_second_failure_is_last(): void {
+	public function test_notice_after_second_failure_is_last_with_length_of_next_lock(): void {
 		$service = $this->makeService();
 		$this->failTimes( $service, 'ivan', 2 );
 
-		self::assertSame( LoginNotice::Last, $service->noticeFor( 'ivan', null, self::IP )->notice );
+		$notice = $service->noticeFor( 'ivan', null, self::IP );
+
+		self::assertSame( LoginNotice::Last, $notice->notice );
+		self::assertSame( 15, $notice->waitMinutes );
+		self::assertSame( array( 'login' => 'last', 'wait' => 15 ), $notice->queryArgs() );
 	}
 
 	public function test_notice_after_third_failure_is_locked_with_wait(): void {
@@ -154,12 +185,83 @@ class LoginGuardServiceTest extends TestCase {
 		self::assertSame( array( 'login' => 'locked', 'wait' => 15 ), $notice->queryArgs() );
 	}
 
+	public function test_second_round_warns_about_an_hour_and_locks_for_it(): void {
+		$service = $this->makeService();
+		$this->failTimes( $service, 'ivan', 3 );
+		$this->endLock( $service, 'ivan' );
+
+		$this->failTimes( $service, 'ivan', 2 );
+		self::assertSame( 60, $service->noticeFor( 'ivan', null, self::IP )->waitMinutes );
+		self::assertStringContainsString( 'на 1 ч.', LoginNotice::Last->message( 60 ) );
+
+		$this->failTimes( $service, 'ivan', 1 );
+		$notice = $service->noticeFor( 'ivan', null, self::IP );
+		self::assertSame( LoginNotice::Locked, $notice->notice );
+		self::assertSame( 60, $notice->waitMinutes );
+	}
+
 	public function test_notice_for_captcha_error(): void {
 		$service = $this->makeService();
 
 		$notice = $service->noticeFor( 'ivan', new WP_Error( LoginGuardService::CODE_CAPTCHA, 'x' ), self::IP );
 
 		self::assertSame( LoginNotice::Captcha, $notice->notice );
+	}
+
+	// ── Блокировка для формы и сброс администратором ────────────────────────────
+
+	public function test_lock_seconds_are_zero_while_open_and_run_after_lock(): void {
+		$service = $this->makeService( logins: array( 'ivan' => $this->user( 5 ) ) );
+		self::assertSame( 0, $service->lockSecondsFor( 'ivan', self::IP ) );
+
+		$this->failTimes( $service, 'ivan', 2 );
+		self::assertSame( 0, $service->lockSecondsFor( 'ivan', self::IP ) );
+
+		$this->failTimes( $service, 'ivan', 1 );
+		self::assertEqualsWithDelta( 15 * MINUTE_IN_SECONDS, $service->lockSecondsFor( 'ivan', self::IP ), 2 );
+	}
+
+	public function test_lock_seconds_follow_the_pair_not_the_login_spelling(): void {
+		$user    = $this->user( 5 );
+		$service = $this->makeService( logins: array( 'ivan' => $user ), emails: array( 'ivan@test.ru' => $user ) );
+		$this->failTimes( $service, 'ivan', 3 );
+
+		self::assertGreaterThan( 0, $service->lockSecondsFor( 'ivan@test.ru', self::IP ) );
+		self::assertSame( 0, $service->lockSecondsFor( 'ivan', '10.0.0.2' ), 'другой адрес — другая пара' );
+	}
+
+	public function test_lock_seconds_for_empty_login_and_trusted_ip_are_zero(): void {
+		$service = $this->makeService( logins: array( 'ivan' => $this->user( 5 ) ) );
+		$this->failTimes( $service, 'ivan', 3 );
+		self::assertSame( 0, $service->lockSecondsFor( '  ', self::IP ) );
+
+		$trusted = $this->makeService( logins: array( 'ivan' => $this->user( 5 ) ), trusted: true );
+		$this->failTimes( $trusted, 'ivan', 3 );
+		self::assertSame( 0, $trusted->lockSecondsFor( 'ivan', self::IP ) );
+	}
+
+	public function test_admin_unlock_opens_the_account_from_every_address(): void {
+		$service = $this->makeService( logins: array( 'ivan' => $this->user( 5 ) ) );
+		$this->failTimes( $service, 'ivan', 3 );
+		$service->onFailure( 'ivan', new WP_Error( 'incorrect_password', 'x' ), '10.0.0.2' );
+		$service->onFailure( 'ivan', new WP_Error( 'incorrect_password', 'x' ), '10.0.0.2' );
+		$service->onFailure( 'ivan', new WP_Error( 'incorrect_password', 'x' ), '10.0.0.2' );
+		self::assertInstanceOf( WP_Error::class, $service->guard( $this->user( 5 ), 'ivan', '', '10.0.0.2', true ) );
+
+		$service->unlockUser( 5 );
+
+		self::assertInstanceOf( WP_User::class, $service->guard( $this->user( 5 ), 'ivan', '', self::IP, true ) );
+		self::assertInstanceOf( WP_User::class, $service->guard( $this->user( 5 ), 'ivan', '', '10.0.0.2', true ) );
+		self::assertSame( 0, $service->lockSecondsFor( 'ivan', self::IP ) );
+	}
+
+	public function test_admin_unlock_leaves_other_accounts_locked(): void {
+		$service = $this->makeService( logins: array( 'ivan' => $this->user( 5 ), 'petr' => $this->user( 6 ) ) );
+		$this->failTimes( $service, 'petr', 3 );
+
+		$service->unlockUser( 5 );
+
+		self::assertGreaterThan( 0, $service->lockSecondsFor( 'petr', self::IP ) );
 	}
 
 	// ── Капча ───────────────────────────────────────────────────────────────────

@@ -73,12 +73,16 @@ class AuthPageController extends BaseController implements ServiceInterface {
 			exit;
 		}
 
+		$login       = $this->sanitizeGetText( 'fs_user' );
+		$lockSeconds = $this->loginGuard->lockSecondsFor( $login, $this->requestContext()->ip );
+
 		ob_start();
 		$this->render(
 			'frontend/auth-page',
 			array(
-				'error_message' => $this->loginNoticeMessage(),
-				'prefill_login' => $this->sanitizeGetText( 'fs_user' ),
+				'error_message' => $this->loginNoticeMessage( $login, $lockSeconds ),
+				'lock_seconds'  => $lockSeconds,
+				'prefill_login' => $login,
 				'consent_url'   => $this->consentUrl(),
 				'logo_url'      => $this->url( 'assets/img/logo.svg' ),
 				'home_url'      => home_url( '/' ),
@@ -92,18 +96,28 @@ class AuthPageController extends BaseController implements ServiceInterface {
 	/**
 	 * Текст уведомления по флагу `login` из редиректа неудачного входа.
 	 *
-	 * Флаг и `wait` только для отображения: решение о блокировке принимает сервер.
+	 * Флаг и `wait` только для отображения: решение о блокировке принимает сервер. Пока блокировка
+	 * действует, текст строится по её настоящему остатку (флаг мог устареть или отсутствовать), а когда
+	 * пауза уже кончилась, устаревшее «Повторите вход через…» не показывается.
+	 *
+	 * @param string $login       Логин из неудачной попытки; '' — неизвестен
+	 * @param int    $lockSeconds Секунды до конца блокировки этого логина с этого адреса
 	 *
 	 * @return string Пустая строка — уведомления нет.
 	 */
-	private function loginNoticeMessage(): string {
+	private function loginNoticeMessage( string $login, int $lockSeconds ): string {
+		// Время блокировки показывает таймер под формой — плашка только называет причину.
+		if ( $lockSeconds > 0 ) {
+			return LoginNotice::Locked->messageWithTimer();
+		}
+
 		$notice = LoginNotice::tryFrom( $this->sanitizeGetKey( 'login' ) );
 
-		if ( null === $notice ) {
+		if ( null === $notice || ( LoginNotice::Locked === $notice && '' !== $login ) ) {
 			return '';
 		}
 
-		$maxWait = intdiv( RateLimitService::LOGIN_WINDOW, MINUTE_IN_SECONDS );
+		$maxWait = intdiv( max( RateLimitService::LOGIN_LOCK_STEPS ), MINUTE_IN_SECONDS );
 		$wait    = min( max( $this->sanitizeGetInt( 'wait' ), 0 ), $maxWait );
 
 		return $notice->message( $wait );

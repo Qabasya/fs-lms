@@ -43,6 +43,8 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
 			<button type="button" class="button fs-lms-modal-cancel">
 				<?php esc_html_e( 'Закрыть', 'fs-lms' ); ?>
 			</button>
+			<?php // Снимает блокировку входа после серии неверных паролей; ID аккаунта приходит с данными строки. ?>
+			<button type="button" class="button js-tvm-unlock" hidden><?php esc_html_e( 'Снять блокировку входа', 'fs-lms' ); ?></button>
 		</div>
 	</div>
 </div>

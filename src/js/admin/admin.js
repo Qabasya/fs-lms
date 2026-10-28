@@ -45,6 +45,7 @@ import { ApplicationEnrollmentModalManager } from './managers/enrollment/applica
 import { TrialAccessModalManager } from './managers/enrollment/applications/trial-access-modal-manager.js';
 import { StudentPersonModalManager } from './managers/enrollment/person/student-person-modal-manager.js';
 import { ParentPersonModalManager } from './managers/enrollment/person/parent-person-modal-manager.js';
+import { TeacherViewModalManager } from './managers/enrollment/person/teacher-view-modal-manager.js';
 import { ExpelModalManager } from './managers/enrollment/expel-modal-manager.js';
 import { ArchiveViewModalManager } from './managers/enrollment/archive-view-modal-manager.js';
 
@@ -179,6 +180,7 @@ function loadBuilder( chunk, exportName ) {
 
         if ( document.querySelector( '.fs-lms-teachers' ) ) {
             TeacherViewModal.init();
+            TeacherViewModalManager.init();
         }
 
         ExpelModalManager.init();

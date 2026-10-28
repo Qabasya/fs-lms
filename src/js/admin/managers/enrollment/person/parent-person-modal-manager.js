@@ -102,6 +102,12 @@ export const ParentPersonModalManager = {
             this._save();
         } );
 
+        // Снятие блокировки входа аккаунта родителя (после серии неверных паролей)
+        $( document ).on( 'click.ppmm_unlock', '#fs-parent-person-modal .js-pmm-unlock', ( e ) => {
+            e.preventDefault();
+            actions.unlockLogin( ParentPersonModal.getWpUserId(), $( e.currentTarget ) );
+        } );
+
         // Экспорт персональных данных в файл
         $( document ).on( 'click.ppmm_export', '.js-export-person[data-person-type="parent"]', ( e ) => {
             e.preventDefault();

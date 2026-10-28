@@ -95,6 +95,11 @@ if (!function_exists('home_url')) {
         return ($GLOBALS['_fs_test_home_url'] ?? 'http://example.com') . $path;
     }
 }
+if (!function_exists('site_url')) {
+    function site_url(string $path = '', ?string $scheme = null): string {
+        return 'http://example.com/' . ltrim($path, '/');
+    }
+}
 if (!function_exists('set_url_scheme')) {
     // Упрощённая версия ядра: схему берём из home_url(), как это делает WordPress
     // для внутренних ссылок (тестам хватает http/https).

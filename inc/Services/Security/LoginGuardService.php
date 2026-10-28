@@ -18,7 +18,9 @@ use WP_User;
  * Class LoginGuardService
  *
  * Защита входа от перебора: лимит неудачных попыток на пару IP + пользователь
- * и невидимая капча на форме входа.
+ * и невидимая капча на форме входа. Лимит ступенчатый, как на iPhone: 3 неудачи за 5 минут
+ * закрывают вход на 15 минут, следующие 3 после этого — на час, дальше — на сутки
+ * ({@see RateLimitService}).
  *
  * @package Inc\Services\Security
  *
@@ -139,9 +141,38 @@ readonly class LoginGuardService {
 
 		return match ( $left ) {
 			0       => new LoginNoticeDTO( LoginNotice::Locked, $this->rateLimit->loginRetryAfter( $ip, $userKey ) ),
-			1       => new LoginNoticeDTO( LoginNotice::Last ),
+			1       => new LoginNoticeDTO( LoginNotice::Last, $this->rateLimit->loginNextLockMinutes( $ip, $userKey ) ),
 			default => new LoginNoticeDTO( LoginNotice::Failed ),
 		};
+	}
+
+	/**
+	 * Сколько секунд осталось блокировке входа для логина с этого адреса (для таймера и отключённой формы).
+	 *
+	 * Доверенный адрес и пустой логин не блокируются.
+	 *
+	 * @param string $login Введённый логин или email
+	 * @param string $ip    IP клиента
+	 *
+	 * @return int 0 — вход открыт
+	 */
+	public function lockSecondsFor( string $login, string $ip ): int {
+		if ( '' === trim( $login ) || $this->pluginConfig->isTrustedIp( $ip ) ) {
+			return 0;
+		}
+
+		return $this->rateLimit->loginRetrySeconds( $ip, $this->userKey( $login ) );
+	}
+
+	/**
+	 * Снимает блокировку входа аккаунта со всех адресов и возвращает первую ступень (сброс администратором).
+	 *
+	 * @param int $userId ID пользователя WordPress
+	 *
+	 * @return void
+	 */
+	public function unlockUser( int $userId ): void {
+		$this->rateLimit->resetLoginLock( $this->userIdKey( $userId ) );
 	}
 
 	/**
