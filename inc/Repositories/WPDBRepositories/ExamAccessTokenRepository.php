@@ -89,6 +89,24 @@ class ExamAccessTokenRepository extends AbstractExamRepository {
 		) );
 	}
 
+	/**
+	 * Цели из списка, у которых действующий ключ отмечен как переданный (одним запросом — для списков).
+	 *
+	 * @param list<int> $targetIds
+	 * @return list<int>
+	 */
+	public function passedTargetIds( ExamTokenPurpose $purpose, array $targetIds ): array {
+		$targetIds = array_values( array_unique( array_map( 'intval', $targetIds ) ) );
+		if ( array() === $targetIds ) {
+			return array();
+		}
+
+		return $this->readInts( $this->wpdb->prepare(
+			'SELECT DISTINCT target_id FROM %i WHERE purpose = %s AND revoked_at IS NULL AND passed_at IS NOT NULL AND target_id IN ( ' . implode( ',', array_fill( 0, count( $targetIds ), '%d' ) ) . ' )',
+			array_merge( array( $this->table, $purpose->value ), $targetIds )
+		) );
+	}
+
 	/** Ручная отметка «Ссылка передана»; повторная отметка ничего не меняет. */
 	public function markPassed( int $id, int $userId, string $atUtc ): void {
 		$this->write( $this->wpdb->prepare(

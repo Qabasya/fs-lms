@@ -457,6 +457,41 @@ class ExamConductViewServiceTest extends TestCase {
 		self::assertSame( 'not_started', $row['progress'] );
 	}
 
+	public function test_guest_result_is_formed_until_the_result_link_is_marked_passed(): void {
+		$this->givenBoard(
+			array( $this->registration( 1, 1 ) ),
+			array( 1 => $this->participation( 1, 1, 'guest' ) ),
+			array( 1 => $this->attempt( 1, 1, 'graded' ) )
+		);
+		$this->guestBoard->method( 'paymentOf' )->willReturn( array( 'state' => 'paid', 'label' => 'Оплачено' ) );
+
+		$row = $this->service->sessionBoard( 10, 7 )['rows'][0];
+
+		self::assertSame( 'Результат сформирован', $row['result_status_label'] );
+	}
+
+	public function test_guest_result_is_sent_after_the_result_link_is_marked_passed(): void {
+		$this->givenBoard(
+			array( $this->registration( 1, 1 ) ),
+			array( 1 => $this->participation( 1, 1, 'guest' ) ),
+			array( 1 => $this->attempt( 1, 1, 'graded' ) )
+		);
+		$this->guestBoard->method( 'paymentOf' )->willReturn( array( 'state' => 'paid', 'label' => 'Оплачено' ) );
+		$this->tokens->method( 'activeToken' )->willReturnCallback( static fn ( \Inc\Enums\Exam\ExamTokenPurpose $purpose ): ?\Inc\DTO\Exam\ExamAccessTokenDTO => \Inc\Enums\Exam\ExamTokenPurpose::Result === $purpose
+			? \Inc\DTO\Exam\ExamAccessTokenDTO::fromArray( array(
+				'id' => 31, 'purpose' => 'result', 'target_id' => 1, 'token_hash' => str_repeat( 'a', 64 ), 'generation' => 1, 'issuer_user_id' => 10,
+				'created_at' => '2026-03-10 06:00:00', 'passed_at' => '2026-03-10 06:30:00', 'passed_by_user_id' => 10,
+			) )
+			: null );
+
+		$row = $this->service->sessionBoard( 10, 7 )['rows'][0];
+
+		self::assertSame( 'Результат отправлен', $row['result_status_label'] );
+		self::assertSame( 'approved', $row['result_status'] );
+		self::assertStringStartsWith( 'Ссылка на результат передана 10.03 09:30', $row['result_link_passed'], 'время — местное (+3)' );
+		self::assertNull( $row['entry_link_passed'] );
+	}
+
 	public function test_board_without_guests_has_no_guest_columns(): void {
 		$this->givenBoard(
 			array( $this->registration( 1, 1 ) ),

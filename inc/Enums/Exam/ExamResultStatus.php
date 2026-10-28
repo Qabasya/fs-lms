@@ -16,13 +16,17 @@ enum ExamResultStatus: string {
 	case Ready         = 'ready';
 	case Approved      = 'approved';
 
-	/** Подпись для интерфейса без изменения сохраняемого значения. */
-	public function label( ExamAudience $audience ): string {
+	/**
+	 * Подпись для интерфейса без изменения сохраняемого значения.
+	 *
+	 * @param bool $sent Гостю результат отправлен: сотрудник отметил «ссылка результата передана» (только для готового результата гостя).
+	 */
+	public function label( ExamAudience $audience, bool $sent = false ): string {
 		return match ( $this ) {
 			self::None => 'Нет работы',
 			self::PendingReview => 'Ожидает проверки',
 			self::Ready => 'Готова к утверждению',
-			self::Approved => ExamAudience::Guest === $audience ? 'Результат выдан' : 'Утверждена',
+			self::Approved => ExamAudience::Guest === $audience ? ( $sent ? 'Результат отправлен' : 'Результат сформирован' ) : 'Утверждена',
 		};
 	}
 }

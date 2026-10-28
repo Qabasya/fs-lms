@@ -309,15 +309,17 @@ class ExamConductViewService {
 		return $actions;
 	}
 
-	/** «Передана 10.10 15:00, Иванов» — или null, пока сотрудник не отметил вручную. */
-	private function passedLabel( ?\Inc\DTO\Exam\ExamAccessTokenDTO $token ): ?string {
+	/**
+	 * «Передана 10.10 15:00, Иванов» (`$what` — подлежащее, у ссылки результата — «Ссылка на результат передана»); null — сотрудник не отметил.
+	 */
+	private function passedLabel( ?\Inc\DTO\Exam\ExamAccessTokenDTO $token, string $what = 'Передана' ): ?string {
 		if ( null === $token || null === $token->passedAt ) {
 			return null;
 		}
 		$local = $this->time->toLocal( $token->passedAt );
 		$user  = null !== $token->passedByUserId ? $this->users->find( $token->passedByUserId ) : null;
 
-		return sprintf( 'Передана %s.%s %s%s', substr( $local, 8, 2 ), substr( $local, 5, 2 ), substr( $local, 11, 5 ), $user ? ', ' . $user->display_name : '' );
+		return sprintf( '%s %s.%s %s%s', $what, substr( $local, 8, 2 ), substr( $local, 5, 2 ), substr( $local, 11, 5 ), $user ? ', ' . $user->display_name : '' );
 	}
 
 	/**
@@ -396,6 +398,7 @@ class ExamConductViewService {
 		$attempt  = $this->attemptOf( $participation, $registration );
 		$progress = $this->progressOf( $registration, $attempt );
 		$result   = $this->resultStatus( $attempt, $audience );
+		$resultLink = ExamAudience::Guest === $audience ? $this->tokens->activeToken( ExamTokenPurpose::Result, $participation->id ) : null;
 		$source   = null !== $participation->sourceId ? $this->sources->find( $participation->sourceId ) : null;
 
 		return array(
@@ -423,7 +426,7 @@ class ExamConductViewService {
 			'result_version'      => $attempt?->resultVersion,
 			'score'               => $this->scoreOf( $attempt, $event ),
 			'result_status'       => $result,
-			'result_status_label' => $this->resultLabel( $result, $audience ),
+			'result_status_label' => $this->resultLabel( $result, $audience, null !== $resultLink?->passedAt ),
 			'actions'             => $this->rowActions( $registration, $attempt, $others, $participation ),
 			'admitted_at'         => null !== $participation->admittedAt ? $this->time->toLocal( $participation->admittedAt ) : null,
 			'staff_confirmed_at'  => ExamAudience::Guest === $audience && null !== $participation->staffConfirmedAt ? $this->time->toLocal( $participation->staffConfirmedAt ) : null,
@@ -431,7 +434,7 @@ class ExamConductViewService {
 			// Адрес действующей ссылки входа из зашифрованного ключа: «Скопировать ссылку» без перевыпуска. Пусто — ключ выпущен до хранения.
 			'entry_link_url'      => ExamAudience::Guest === $audience ? $this->entryUrl( $participation->id ) : '',
 			'entry_link_passed'   => $this->passedLabel( ExamAudience::Guest === $audience ? $this->tokens->activeToken( ExamTokenPurpose::Entry, $participation->id ) : null ),
-			'result_link_passed'  => $this->passedLabel( ExamAudience::Guest === $audience ? $this->tokens->activeToken( ExamTokenPurpose::Result, $participation->id ) : null ),
+			'result_link_passed'  => $this->passedLabel( $resultLink, 'Ссылка на результат передана' ),
 			'result_link_issued'  => ExamAudience::Guest === $audience && $this->tokens->hasActive( ExamTokenPurpose::Result, $participation->id ),
 		);
 	}
@@ -600,15 +603,15 @@ class ExamConductViewService {
 	/**
 	 * Состояние результата строки.
 	 *
-	 * Гостю утверждение не требуется: готовая работа для него равнозначна утверждённой («Результат выдан»).
+	 * Гостю утверждение не требуется: готовая работа для него равнозначна утверждённой («Результат сформирован», после отметки передачи ссылки — «Результат отправлен»).
 	 */
 	private function resultStatus( ?AttemptDTO $attempt, ExamAudience $audience ): string {
 		return $this->resultStates->status( $attempt, $audience )->value;
 	}
 
 	/** Готовит подпись состояния результата с учётом аудитории. */
-	private function resultLabel( string $result, ExamAudience $audience ): string {
-		return ExamResultStatus::from( $result )->label( $audience );
+	private function resultLabel( string $result, ExamAudience $audience, bool $sent = false ): string {
+		return ExamResultStatus::from( $result )->label( $audience, $sent );
 	}
 
 	/** ФИО участника для таблицы сотрудника. */

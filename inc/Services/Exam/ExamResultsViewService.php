@@ -13,6 +13,7 @@ use Inc\DTO\Exam\ExamEventDTO;
 use Inc\DTO\Exam\ExamParticipationDTO;
 use Inc\Enums\Assessment\AttemptStatus;
 use Inc\Enums\Exam\ExamAudience;
+use Inc\Enums\Exam\ExamTokenPurpose;
 use Inc\Enums\Exam\ExamEventStatus;
 use Inc\Repositories\WPDBRepositories\ExamEventRepository;
 use Inc\Repositories\WPDBRepositories\ExamSessionRepository;
@@ -41,6 +42,7 @@ class ExamResultsViewService {
 		private readonly ExamResultStatusService $resultStates,
 		private readonly ExamEventViewService $eventView,
 		private readonly ExamParticipantProfileService $profiles,
+		private readonly ExamAccessTokenService $tokens,
 	) {}
 
 	/**
@@ -158,6 +160,13 @@ class ExamResultsViewService {
 			$attempts[ (int) $attempt->examParticipationId ] = $attempt;
 		}
 
+		// «Результат отправлен» — у гостей, которым сотрудник отметил передачу ссылки результата (одним запросом на проведение).
+		$guestIds = array_map(
+			static fn ( ExamParticipationDTO $p ): int => $p->id,
+			array_filter( $participations, static fn ( ExamParticipationDTO $p ): bool => ExamAudience::Guest->value === $p->audience )
+		);
+		$sent     = $this->tokens->passedTargets( ExamTokenPurpose::Result, array_values( $guestIds ) );
+
 		$rows = array();
 		foreach ( $participations as $participation ) {
 			$attempt     = $attempts[ $participation->id ] ?? null;
@@ -193,7 +202,7 @@ class ExamResultsViewService {
 				'group_id'            => $group['id'],
 				'group'               => $group['name'],
 				'result_status'       => $result->value,
-				'result_status_label' => $result->label( $audience ),
+				'result_status_label' => $result->label( $audience, isset( $sent[ $participation->id ] ) ),
 				'score'               => AttemptStatus::InProgress === $attempt->status ? null : $this->scores->summarize( $attempt, $event ),
 			);
 		}

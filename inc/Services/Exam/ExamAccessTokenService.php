@@ -196,6 +196,16 @@ class ExamAccessTokenService {
 		return $this->tokens->findActive( $purpose, $targetId );
 	}
 
+	/**
+	 * Цели из списка, чей действующий ключ отмечен «Ссылка передана».
+	 *
+	 * @param list<int> $targetIds
+	 * @return array<int, true> Ключ — id цели.
+	 */
+	public function passedTargets( ExamTokenPurpose $purpose, array $targetIds ): array {
+		return array_fill_keys( $this->tokens->passedTargetIds( $purpose, $targetIds ), true );
+	}
+
 	/** Ручная отметка «Ссылка передана»: копирование ссылки её не ставит. */
 	public function markPassed( int $tokenId, int $actorUserId ): void {
 		$this->tokens->markPassed( $tokenId, $actorUserId, $this->time->nowUtc() );

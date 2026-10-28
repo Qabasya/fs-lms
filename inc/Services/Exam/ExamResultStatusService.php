@@ -26,7 +26,7 @@ class ExamResultStatusService {
 	/**
 	 * Состояние результата строки.
 	 *
-	 * Гостю утверждение не требуется: готовая работа для него равнозначна утверждённой («Результат выдан»).
+	 * Гостю утверждение не требуется: готовая работа для него равнозначна утверждённой («Результат сформирован», после отметки передачи ссылки — «Результат отправлен»).
 	 */
 	public function status( ?AttemptDTO $attempt, ExamAudience $audience ): ExamResultStatus {
 		if ( null === $attempt || AttemptStatus::InProgress === $attempt->status ) {

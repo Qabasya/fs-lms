@@ -24,6 +24,8 @@ use Inc\Services\Exam\ExamResultsViewService;
 use Inc\Services\Exam\ExamScoreService;
 use Inc\Services\Exam\ExamTime;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+use Inc\Enums\Exam\ExamTokenPurpose;
+use Inc\Services\Exam\ExamAccessTokenService;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Tests\Support\ExamFixtures;
@@ -67,6 +69,7 @@ class ExamResultsViewServiceTest extends TestCase {
 		$this->sources        = $this->createMock( ExamSourceRepository::class );
 		$this->groupsRepo     = $this->createMock( \Inc\Repositories\WPDBRepositories\GroupsRepository::class );
 		$this->time           = $this->createMock( ExamTime::class );
+		$this->tokens         = $this->createMock( ExamAccessTokenService::class );
 
 		$this->time->method( 'nowUtc' )->willReturn( '2026-03-10 08:00:00' );
 		$this->time->method( 'nowLocal' )->willReturn( '2026-03-10 11:00:00' );
@@ -84,6 +87,8 @@ class ExamResultsViewServiceTest extends TestCase {
 		$this->service = $this->viewService( $this->guard );
 	}
 
+	private ExamAccessTokenService&MockObject $tokens;
+
 	private function viewService( ExamAccessGuard $guard ): ExamResultsViewService {
 		return new ExamResultsViewService(
 			$this->events, $this->sessions, $this->registrations, $this->participations, $this->participants, $this->attempts,
@@ -92,6 +97,7 @@ class ExamResultsViewServiceTest extends TestCase {
 			new \Inc\Services\Exam\ExamResultStatusService( $this->answers ),
 			new \Inc\Services\Exam\ExamEventViewService( $this->sessions, $this->sources, $this->registrations, $this->time ),
 			new \Inc\Services\Exam\ExamParticipantProfileService( $this->records, $this->sources, $this->groupsRepo ),
+			$this->tokens,
 		);
 	}
 
@@ -221,9 +227,20 @@ class ExamResultsViewServiceTest extends TestCase {
 		self::assertSame( 'Иванов Пётр', $row['name'] );
 		self::assertSame( 'ready', $row['result_status'] );
 		self::assertSame( 'Готова к утверждению', $row['result_status_label'] );
-		self::assertSame( 'Результат выдан', $result['items'][2]['result_status_label'] );
+		self::assertSame( 'Результат сформирован', $result['items'][2]['result_status_label'] );
 		self::assertSame( 10, $row['score']['primary'] );
 		self::assertSame( array( 'events', 'sessions', 'sources', 'groups', 'schools' ), array_keys( $result['filters'] ) );
+	}
+
+	public function test_guest_result_becomes_sent_once_the_result_link_is_marked_passed(): void {
+		$this->givenResults();
+		$this->tokens->method( 'passedTargets' )->with( ExamTokenPurpose::Result, array( 3 ) )->willReturn( array( 3 => true ) );
+
+		$items = $this->service->results( 10, 'inf_ege', array() )['items'];
+
+		self::assertSame( 'Результат отправлен', $items[2]['result_status_label'] );
+		self::assertSame( 'approved', $items[2]['result_status'], 'значение статуса для фильтров не меняется' );
+		self::assertSame( 'Готова к утверждению', $items[0]['result_status_label'], 'у ученика подпись прежняя' );
 	}
 
 	public function test_event_and_session_filters_do_not_expand_selection(): void {
