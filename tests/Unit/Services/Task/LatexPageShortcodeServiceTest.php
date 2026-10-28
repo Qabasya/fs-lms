@@ -81,4 +81,16 @@ class LatexPageShortcodeServiceTest extends TestCase {
 	public function test_to_mathjax_drops_shortcode_even_when_no_formula(): void {
 		self::assertSame( '<p>Текст</p>', ( new LatexPageShortcodeService() )->toMathJax( "[latexpage]\n<p>Текст</p>" ) );
 	}
+
+	/** Шорткод плагина KaTeX в условии станции: инлайн → `\(…\)`, `display="true"` → `\[…\]`. */
+	public function test_to_mathjax_converts_katex_shortcode(): void {
+		$service = new LatexPageShortcodeService();
+
+		self::assertSame(
+			'<p>\\(d(A, B) = \\sqrt{(x_2 - x_1)^2 + (y_2 - y_1)^2}\\).</p>',
+			$service->toMathJax( '<p>[katex]d(A, B) = \\sqrt{(x_2 - x_1)^2 + (y_2 - y_1)^2}[/katex].</p>' )
+		);
+		self::assertSame( '\\[x^2\\]', $service->toMathJax( '[katex display="true"]x^2[/katex]' ) );
+		self::assertSame( '[katex][/katex]', $service->toMathJax( '[katex][/katex]' ) );
+	}
 }

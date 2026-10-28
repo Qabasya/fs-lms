@@ -234,6 +234,30 @@
 
   &__label { color: $color-muted; }
 
+  // Файлы задания и ученика: подпись и кнопки скачивания в ряд.
+  &__files { margin: 0 0 $spacing-sm; }
+
+  &__file-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: $spacing-sm;
+    margin-top: $spacing-xs;
+  }
+
+  &__file {
+    display: inline-flex;
+    align-items: center;
+    gap: $spacing-xs;
+    padding: $spacing-xs $spacing-sm;
+    font-size: $font-size-sm;
+    color: inherit;
+    text-decoration: none;
+    background: $color-bg-subtle;
+    border-radius: $border-radius-sm;
+
+    &:hover { text-decoration: underline; }
+  }
+
   &__code {
     margin: $spacing-xs 0 $spacing-sm;
     padding: $spacing-sm $spacing-md;

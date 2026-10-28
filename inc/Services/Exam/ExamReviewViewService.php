@@ -130,6 +130,7 @@ class ExamReviewViewService {
 				'answer'       => (string) ( $task['answer'] ?? '' ),
 				'code'         => (string) ( $task['code'] ?? '' ),
 				'files'        => (array) ( $task['files'] ?? array() ),
+				'task_files'   => (array) ( $task['task_files'] ?? array() ),
 				'correct'      => ! $pending && 'correct' !== $verdict && 'corrected' !== $verdict ? (string) ( $task['correct'] ?? '' ) : '',
 				'solution'     => ! $pending && is_array( $task['solution'] ?? null ) ? $task['solution'] : null,
 				'answer_time'  => $this->answerTime( $task['answer_first_sec'] ?? null, $task['answer_last_sec'] ?? null ),

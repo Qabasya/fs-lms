@@ -63,6 +63,8 @@ readonly class LatexPageShortcodeService {
 	 * @param string $html Условие после `the_content`
 	 */
 	public function toMathJax( string $html ): string {
+		$html = $this->katexToMathJax( $html );
+
 		if ( ! str_contains( $html, self::SHORTCODE ) ) {
 			return $html;
 		}
@@ -71,5 +73,34 @@ readonly class LatexPageShortcodeService {
 		$html = (string) preg_replace( '/\$\$([^$\n]+)\$\$/', '\\\\[$1\\\\]', $html );
 
 		return (string) preg_replace( '/\$([^$\n]+)\$/', '\\\\($1\\\\)', $html );
+	}
+
+	/**
+	 * Шорткод плагина KaTeX `[katex]…[/katex]` (и `[latex]`) → делимитеры MathJax: `\(…\)`, а при
+	 * `display="true"` — `\[…\]`. Условия задания не проходят `do_shortcode`, поэтому без этого
+	 * формула выводилась бы текстом; MathJax уже подключён на станциях ЕГЭ/ОГЭ, в плеере и контрольной,
+	 * и читает тот же TeX, что KaTeX.
+	 *
+	 * @param string $html Условие
+	 */
+	private function katexToMathJax( string $html ): string {
+		if ( ! str_contains( $html, '[katex' ) && ! str_contains( $html, '[latex ' ) && ! str_contains( $html, '[latex]' ) ) {
+			return $html;
+		}
+
+		return (string) preg_replace_callback(
+			'/\[(?:katex|latex)((?:\s+[^\]]*)?)\](.*?)\[\/(?:katex|latex)\]/s',
+			static function ( array $m ): string {
+				$tex = trim( (string) preg_replace( '|<br\s*/?>|', "\n", $m[2] ) );
+				if ( '' === $tex ) {
+					return $m[0];
+				}
+
+				$display = (bool) preg_match( '/display\s*=\s*["\']?(?:true|1)/i', $m[1] );
+
+				return $display ? '\\[' . $tex . '\\]' : '\\(' . $tex . '\\)';
+			},
+			$html
+		);
 	}
 }

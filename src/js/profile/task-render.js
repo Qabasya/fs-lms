@@ -154,6 +154,7 @@ export function renderTask(t, ctx = {}) {
             <div class="sum-task-cond">${t.condition || '<i>условие недоступно</i>'}</div>
             ${t.answer || !t.code ? `<div class="sum-task-ans"><span class="sta-label">Ответ ученика:</span> <span class="sta-val">${t.answer ? esc(t.answer) : '—'}</span></div>` : ''}
             ${t.code ? codeBlock(t.code) : ''}
+            ${t.task_files && t.task_files.length ? taskFilesBlock(t.task_files, 'Файлы задания:') : ''}
             ${t.files && t.files.length ? taskFilesBlock(t.files) : ''}
             ${showCorrect ? `<div class="sum-task-ans sum-task-correct"><span class="sta-label">Правильный ответ:</span> <span class="sta-val">${esc(t.correct)}</span></div>` : ''}
             ${solutionBlock(t.solution)}
@@ -174,14 +175,17 @@ export function codeBlock(code) {
 
 /* Эпик 13 (D16): файлы ученика в ответе «Развёрнутый ответ» — превью изображения
    или ссылка «Открыть файл» для остального. */
-export function taskFilesBlock(files) {
+export function taskFilesBlock(files, label = 'Файлы ученика:') {
     const items = files.map((f) => {
         const isImage = f.mime && f.mime.indexOf('image/') === 0;
-        return isImage
-            ? `<a href="${esc(f.url)}" target="_blank" rel="noopener noreferrer"><img src="${esc(f.url)}" class="sum-task-files__img" alt="${esc(f.name)}"></a>`
-            : `<a href="${esc(f.url)}" target="_blank" rel="noopener noreferrer" class="sum-task-files__link">${esc(f.name)}</a>`;
+        if (isImage) {
+            return `<a href="${esc(f.url)}" target="_blank" rel="noopener noreferrer"><img src="${esc(f.url)}" class="sum-task-files__img" alt="${esc(f.name)}"></a>`;
+        }
+        // Файл своего сайта скачивается; чужая ссылка (download === false) открывается во вкладке.
+        const mode = f.download === false ? ' target="_blank" rel="noopener noreferrer"' : ` download="${esc(f.name)}"`;
+        return `<a href="${esc(f.url)}"${mode} class="sum-task-files__link">${esc(f.name)}</a>`;
     }).join('');
-    return `<div class="sum-task-files"><span class="sta-label">Файлы ученика:</span><div class="sum-task-files__list">${items}</div></div>`;
+    return `<div class="sum-task-files"><span class="sta-label">${label}</span><div class="sum-task-files__list">${items}</div></div>`;
 }
 
 /* Эпик 13 (D17): покритерийное оценивание — строка на критерий, балл задачи = сумма. */

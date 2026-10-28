@@ -91,6 +91,7 @@ class WorkDetailService {
 		private readonly ExamParticipationRepository $examParticipations,
 		private readonly ExamParticipantRepository   $examParticipants,
 		private readonly GuestParticipantMaterializer $guestData,
+		private readonly StepContentRenderer         $stepContent,
 	) {}
 
 	/**
@@ -187,6 +188,7 @@ class WorkDetailService {
 				$tasks[] = array(
 					'n'         => ++$n,
 					'condition' => $this->condition( $taskId, true ),
+					'task_files' => $this->taskFiles( $taskId ),
 					'answer'    => $answer,
 					'code'      => $code,
 					// Эталон нужен и в прошлых раундах (Tasks.md, п. 1): read-only
@@ -315,6 +317,7 @@ class WorkDetailService {
 				$tasks[] = array(
 					'n'                  => ++$n,
 					'condition'          => $this->condition( $taskId, $collapseCommon ),
+					'task_files'          => $this->taskFiles( $taskId ),
 					'answer'             => $answer,
 					'code'               => $code,
 					'correct'            => $this->correctAnswers->resolve( $taskId ),
@@ -357,6 +360,7 @@ class WorkDetailService {
 			$tasks[] = array(
 				'n'                  => ++$n,
 				'condition'          => $this->condition( $taskId, $collapseCommon ),
+				'task_files'          => $this->taskFiles( $taskId ),
 				'answer'             => $answer,
 				'code'               => $code,
 				'correct'            => $this->correctAnswers->resolve( $taskId ),
@@ -531,6 +535,7 @@ class WorkDetailService {
 				// Устойчив к порядку и повторам номера: не индекс строки, а единица + задание.
 				'anchor'     => 'u-' . md5( $unitKey . ':' . $taskId ),
 				'condition'  => $this->condition( $taskId, $collapseCommon ),
+				'task_files'  => $this->taskFiles( $taskId ),
 				'answer'     => $answerText,
 				'code'       => $code,
 				'files'      => $files,
@@ -664,6 +669,15 @@ class WorkDetailService {
 	/** Условие задания хранится в мете (`task_condition` и составные шаблоны), не в `post_content`. */
 	private function condition( int $taskId, bool $collapseCommon = false ): string {
 		return $this->taskMeta->getCombinedCondition( $this->posts->taskMeta( $taskId ), $collapseCommon );
+	}
+
+	/**
+	 * Файлы, приложенные к заданию автором (материалы, файлы шаблона), — те же, что видит ученик в плеере.
+	 *
+	 * @return list<array{name: string, url: string, download: bool}>
+	 */
+	private function taskFiles( int $taskId ): array {
+		return array_values( $this->stepContent->buildFiles( $this->posts->taskMeta( $taskId ) ) );
 	}
 
 	/**

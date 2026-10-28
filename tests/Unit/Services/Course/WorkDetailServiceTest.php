@@ -7,6 +7,7 @@ namespace Unit\Services\Course;
 use Inc\DTO\Assessment\AttemptAnswerDTO;
 use Inc\DTO\Assessment\AttemptDTO;
 use Inc\DTO\Course\GroupLessonDTO;
+use Inc\Services\Course\StepContentRenderer;
 use Inc\DTO\Course\SubmissionDTO;
 use Inc\DTO\Enrollment\StudentRecordDTO;
 use Inc\Enums\Enrollment\EnrollmentStatus;
@@ -82,6 +83,7 @@ class WorkDetailServiceTest extends TestCase {
 			$this->createMock( \Inc\Repositories\WPDBRepositories\ExamParticipationRepository::class ),
 			$this->createMock( \Inc\Repositories\WPDBRepositories\ExamParticipantRepository::class ),
 			$this->createMock( \Inc\Services\Exam\GuestParticipantMaterializer::class ),
+			$this->createMock( StepContentRenderer::class ),
 		);
 	}
 

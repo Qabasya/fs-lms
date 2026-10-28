@@ -2,6 +2,8 @@
 
 declare( strict_types=1 );
 
+use Inc\Enums\Ui\Icon;
+
 /**
  * Разбор работы: показатели, навигация по заданиям и карточки заданий (этапы 11b.3 и 12.3).
  *
@@ -71,8 +73,29 @@ $answer_label = $answer_label ?? __( 'Ваш ответ:', 'fs-lms' );
 					<pre class="fs-exam-task__code"><code><?php echo esc_html( (string) $task['code'] ); ?></code></pre>
 				<?php endif; ?>
 
-				<?php foreach ( (array) $task['files'] as $file ) : ?>
-					<p class="fs-exam-task__line"><a href="<?php echo esc_url( (string) ( $file['url'] ?? '' ) ); ?>" target="_blank" rel="noopener noreferrer"><?php echo esc_html( (string) ( $file['name'] ?? __( 'Файл', 'fs-lms' ) ) ); ?></a></p>
+				<?php
+				// Файлы задания (приложил автор) и файлы ученика — кнопки скачивания; файл чужого сайта открывается во вкладке.
+				$file_groups = array(
+					__( 'Файлы задания:', 'fs-lms' ) => (array) ( $task['task_files'] ?? array() ),
+					__( 'Файлы ученика:', 'fs-lms' ) => (array) $task['files'],
+				);
+				foreach ( $file_groups as $files_label => $files ) :
+					if ( array() === $files ) {
+						continue;
+					}
+					?>
+					<div class="fs-exam-task__files">
+						<span class="fs-exam-task__label"><?php echo esc_html( $files_label ); ?></span>
+						<div class="fs-exam-task__file-list">
+							<?php foreach ( $files as $file ) : ?>
+								<a class="fs-exam-task__file" href="<?php echo esc_url( (string) ( $file['url'] ?? '' ) ); ?>"
+									<?php echo false === ( $file['download'] ?? true ) ? 'target="_blank" rel="noopener noreferrer"' : 'download="' . esc_attr( (string) ( $file['name'] ?? '' ) ) . '"'; ?>>
+									<?php echo Icon::Download->svg(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+									<span><?php echo esc_html( (string) ( $file['name'] ?? __( 'Файл', 'fs-lms' ) ) ); ?></span>
+								</a>
+							<?php endforeach; ?>
+						</div>
+					</div>
 				<?php endforeach; ?>
 
 				<?php if ( '' !== (string) $task['correct'] ) : ?>
