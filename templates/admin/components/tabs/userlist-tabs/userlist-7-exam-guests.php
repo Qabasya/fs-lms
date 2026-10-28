@@ -33,6 +33,15 @@ $orderbyRaw    = sanitize_key( wp_unslash( $_GET['orderby'] ?? '' ) );
 $orderby       = in_array( $orderbyRaw, array( 'name', 'session' ), true ) ? $orderbyRaw : '';
 $order         = 'desc' === sanitize_key( wp_unslash( $_GET['order'] ?? '' ) ) ? 'desc' : 'asc';
 
+$options = $exam_guests->filterOptions( $eventFilter );
+// Сеанс и школа другого проведения (остались в адресе после смены проведения) не должны молча обнулять список.
+if ( ! isset( $options['sessions'][ $sessionFilter ] ) ) {
+	$sessionFilter = 0;
+}
+if ( ! isset( $options['schools'][ $schoolFilter ] ) ) {
+	$schoolFilter = '';
+}
+
 $filters = array_filter( array(
 	'event_id'   => $eventFilter,
 	'session_id' => $sessionFilter,
@@ -40,7 +49,6 @@ $filters = array_filter( array(
 ) );
 
 $result  = $exam_guests->page( $page, $perPage, $filters, $orderby, $order );
-$options = $exam_guests->filterOptions();
 $guests  = $result['rows'];
 $total   = $result['total'];
 $pages   = (int) ceil( $total / $perPage );

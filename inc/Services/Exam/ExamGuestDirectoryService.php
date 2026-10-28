@@ -11,6 +11,7 @@ namespace Inc\Services\Exam;
 
 use Inc\DTO\Exam\ExamParticipantDTO;
 use Inc\Enums\Exam\ExamRegistrationStatus;
+use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Repositories\WPDBRepositories\ExamParticipantRepository;
 
 /**
@@ -27,6 +28,7 @@ class ExamGuestDirectoryService {
 		private readonly GuestParticipantMaterializer $guestData,
 		private readonly ExamTime $time,
 		private readonly ApplyPrefillLinkService $applyLinks,
+		private readonly SubjectRepository $subjects,
 	) {}
 
 	/**
@@ -67,25 +69,37 @@ class ExamGuestDirectoryService {
 	}
 
 	/**
-	 * Словари фильтров: проведения, сеансы, школы.
+	 * Словари фильтров: проведения (с предметом), сеансы и школы. Выбранное проведение сужает сеансы и школы —
+	 * иначе в списке сеансов видны сеансы всех предметов.
 	 *
+	 * @param int $eventId Выбранное проведение; 0 — без сужения.
 	 * @return array{events: array<int, string>, sessions: array<int, string>, schools: array<string, string>}
 	 */
-	public function filterOptions(): array {
+	public function filterOptions( int $eventId = 0 ): array {
 		$events   = array();
 		$sessions = array();
 		foreach ( $this->participants->guestSessionOptions() as $row ) {
-			$events[ (int) $row['event_id'] ] = (string) $row['event_title'];
-			if ( isset( $row['session_id'] ) ) {
+			$rowEvent = (int) $row['event_id'];
+			$events[ $rowEvent ] = $this->eventLabel( (string) $row['event_title'], (string) ( $row['subject_key'] ?? '' ) );
+			if ( isset( $row['session_id'] ) && ( 0 === $eventId || $rowEvent === $eventId ) ) {
 				$sessions[ (int) $row['session_id'] ] = $this->time->toLocal( (string) $row['scheduled_at'] ) . ' · ' . (string) $row['event_title'];
 			}
 		}
 		$schools = array();
-		foreach ( $this->participants->guestSchools() as $school ) {
+		foreach ( $this->participants->guestSchools( $eventId ) as $school ) {
 			$schools[ $school ] = $school;
 		}
 
 		return array( 'events' => $events, 'sessions' => $sessions, 'schools' => $schools );
+	}
+
+	/** «Название · Предмет»; предмета нет в справочнике — ключ, нет ключа — одно название. */
+	private function eventLabel( string $title, string $subjectKey ): string {
+		if ( '' === $subjectKey ) {
+			return $title;
+		}
+
+		return $title . ' · ' . ( $this->subjects->getByKey( $subjectKey )?->name ?? $subjectKey );
 	}
 
 	/**

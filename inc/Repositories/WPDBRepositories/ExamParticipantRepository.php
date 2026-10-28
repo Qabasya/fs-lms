@@ -129,9 +129,18 @@ class ExamParticipantRepository extends AbstractExamRepository {
 	 *
 	 * @return string[]
 	 */
-	public function guestSchools(): array {
+	public function guestSchools( int $eventId = 0 ): array {
 		$rows = $this->readRows(
-			$this->wpdb->prepare( 'SELECT DISTINCT school_name FROM %i WHERE person_id IS NULL AND school_name IS NOT NULL AND school_name <> %s ORDER BY school_name', $this->table, '' )
+			$eventId > 0
+				? $this->wpdb->prepare(
+					'SELECT DISTINCT p.school_name FROM %i p JOIN %i pn ON pn.participant_id = p.id
+					WHERE p.person_id IS NULL AND p.school_name IS NOT NULL AND p.school_name <> %s AND pn.event_id = %d ORDER BY p.school_name',
+					$this->table,
+					TableName::ExamParticipations->prefixed(),
+					'',
+					$eventId
+				)
+				: $this->wpdb->prepare( 'SELECT DISTINCT school_name FROM %i WHERE person_id IS NULL AND school_name IS NOT NULL AND school_name <> %s ORDER BY school_name', $this->table, '' )
 		);
 
 		return array_map( static fn ( array $row ): string => (string) $row['school_name'], $rows );
@@ -140,12 +149,12 @@ class ExamParticipantRepository extends AbstractExamRepository {
 	/**
 	 * Проведения и сеансы, на которые записаны гости, — словарь фильтров.
 	 *
-	 * @return list<array<string, mixed>> event_id, event_title, session_id, scheduled_at
+	 * @return list<array<string, mixed>> event_id, event_title, subject_key, session_id, scheduled_at
 	 */
 	public function guestSessionOptions(): array {
 		return $this->readRows(
 			$this->wpdb->prepare(
-				'SELECT DISTINCT ev.id AS event_id, ev.title AS event_title, s.id AS session_id, s.scheduled_at
+				'SELECT DISTINCT ev.id AS event_id, ev.title AS event_title, ev.subject_key, s.id AS session_id, s.scheduled_at
 				FROM %i p
 				JOIN %i pn ON pn.participant_id = p.id
 				JOIN %i ev ON ev.id = pn.event_id

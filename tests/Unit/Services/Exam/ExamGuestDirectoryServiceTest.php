@@ -4,6 +4,8 @@ declare( strict_types=1 );
 
 namespace Tests\Unit\Services\Exam;
 
+use Inc\DTO\Subject\SubjectDTO;
+use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Repositories\WPDBRepositories\ExamParticipantRepository;
 use Inc\Services\Exam\ExamGuestDirectoryService;
 use Inc\Services\Exam\ExamTime;
@@ -12,16 +14,23 @@ use PHPUnit\Framework\TestCase;
 
 class ExamGuestDirectoryServiceTest extends TestCase {
 
-	private function service( array $rows ): ExamGuestDirectoryService {
+	private function service( array $rows, array $options = array(), array $schoolsByEvent = array() ): ExamGuestDirectoryService {
 		$participants = $this->createMock( ExamParticipantRepository::class );
 		$participants->method( 'listGuestRows' )->willReturn( $rows );
+		$participants->method( 'guestSessionOptions' )->willReturn( $options );
+		$participants->method( 'guestSchools' )->willReturnCallback( static fn ( int $eventId = 0 ): array => $schoolsByEvent[ $eventId ] ?? array() );
 		$guestData = $this->createMock( GuestParticipantMaterializer::class );
 		$guestData->method( 'decryptName' )->willReturn( 'Иванов Пётр' );
 		$guestData->method( 'decryptContacts' )->willReturn( array( 'phone' => '+79990001122', 'messenger' => '@ivan' ) );
 		$time = $this->createMock( ExamTime::class );
 		$time->method( 'toLocal' )->willReturnCallback( static fn ( string $u ): string => $u );
 
-		return new ExamGuestDirectoryService( $participants, $guestData, $time, $this->createMock( \Inc\Services\Exam\ApplyPrefillLinkService::class ) );
+		$subjects = $this->createMock( SubjectRepository::class );
+		$subjects->method( 'getByKey' )->willReturnCallback(
+			static fn ( string $key ): ?SubjectDTO => 'inf' === $key ? new SubjectDTO( 'inf', 'Информатика ЕГЭ' ) : null
+		);
+
+		return new ExamGuestDirectoryService( $participants, $guestData, $time, $this->createMock( \Inc\Services\Exam\ApplyPrefillLinkService::class ), $subjects );
 	}
 
 	public function test_row_has_form_data_and_session(): void {
@@ -61,5 +70,34 @@ class ExamGuestDirectoryServiceTest extends TestCase {
 
 		self::assertSame( array( '2026-03-10 07:00:00', '2026-03-12 07:00:00', '' ), array_column( $asc['rows'], 'session' ) );
 		self::assertSame( array( '2026-03-12 07:00:00', '2026-03-10 07:00:00', '' ), array_column( $desc['rows'], 'session' ) );
+	}
+
+	/** @return list<array<string, mixed>> Два проведения: информатика и неизвестный предмет, у каждого по сеансу. */
+	private function options(): array {
+		return array(
+			array( 'event_id' => 2, 'event_title' => 'Пробный', 'subject_key' => 'inf', 'session_id' => 20, 'scheduled_at' => '2026-03-12 07:00:00' ),
+			array( 'event_id' => 1, 'event_title' => 'Зимний', 'subject_key' => 'math', 'session_id' => 10, 'scheduled_at' => '2026-03-10 07:00:00' ),
+		);
+	}
+
+	public function test_event_option_is_labelled_with_the_subject(): void {
+		$options = $this->service( array(), $this->options() )->filterOptions();
+
+		self::assertSame( 'Пробный · Информатика ЕГЭ', $options['events'][2] );
+		self::assertSame( 'Зимний · math', $options['events'][1], 'предмета нет в справочнике — подпись по ключу' );
+	}
+
+	public function test_sessions_are_all_listed_without_event_and_narrowed_with_it(): void {
+		$service = $this->service( array(), $this->options() );
+
+		self::assertSame( array( 20, 10 ), array_keys( $service->filterOptions()['sessions'] ) );
+		self::assertSame( array( 20 ), array_keys( $service->filterOptions( 2 )['sessions'] ) );
+	}
+
+	public function test_schools_are_narrowed_by_the_chosen_event(): void {
+		$service = $this->service( array(), $this->options(), array( 0 => array( 'А', 'Б' ), 2 => array( 'Б' ) ) );
+
+		self::assertSame( array( 'А', 'Б' ), array_keys( $service->filterOptions()['schools'] ) );
+		self::assertSame( array( 'Б' ), array_keys( $service->filterOptions( 2 )['schools'] ) );
 	}
 }
