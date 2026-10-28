@@ -269,6 +269,80 @@ class ExamConductViewServiceTest extends TestCase {
 		self::assertSame( 'Иванов Пётр', $this->service->sessionBoard( 10, 7 )['rows'][0]['name'] );
 	}
 
+	/** Сервис с заданными проведениями и сеансами; остальные зависимости — как в setUp(). */
+	private function serviceWith( ExamEventRepository $events, ExamSessionRepository $sessions ): ExamConductViewService {
+		return new ExamConductViewService(
+			$events,
+			$sessions,
+			$this->registrations,
+			$this->participations,
+			$this->participants,
+			$this->attempts,
+			new \Inc\Services\Exam\ExamResultStatusService( $this->answers ),
+			$this->sources,
+			new \Inc\Services\Exam\ExamParticipantNameService( $this->records, $this->guestData ),
+			$this->createMock( RoomRepository::class ),
+			$this->roomService,
+			$this->scores,
+			$this->guard,
+			$this->time,
+			$this->createMock( ExamPlanService::class ),
+			$this->tokens,
+			$this->guestBoard,
+			new UserManager(),
+			new \Inc\Services\Exam\ExamEventViewService( $sessions, $this->sources, $this->registrations, $this->time ),
+			$this->profiles,
+		);
+	}
+
+	/** Два проведения предмета: сеансы 10.03 (проведение 3) и 12.03 + отменённый 12.03 (проведение 4) и черновик 4 дня. */
+	private function subjectWithTwoEvents(): ExamConductViewService {
+		$events = $this->createMock( ExamEventRepository::class );
+		$events->method( 'findBySubjectKey' )->with( 'inf_ege' )->willReturn( array(
+			$this->examEvent( array( 'id' => '3', 'status' => 'published' ) ),
+			$this->examEvent( array( 'id' => '4', 'status' => 'published' ) ),
+			$this->examEvent( array( 'id' => '5', 'status' => 'draft' ) ),
+		) );
+		$sessions = $this->createMock( ExamSessionRepository::class );
+		$sessions->method( 'findByEvent' )->willReturnCallback( fn ( int $eventId ): array => match ( $eventId ) {
+			3 => array( $this->examSession( array( 'id' => '7', 'event_id' => '3' ) ) ),
+			4 => array(
+				$this->examSession( array( 'id' => '8', 'event_id' => '4', 'scheduled_at' => '2026-03-12 05:00:00', 'status' => 'cancelled' ) ),
+				$this->examSession( array( 'id' => '9', 'event_id' => '4', 'scheduled_at' => '2026-03-12 07:00:00' ) ),
+			),
+			5 => array( $this->examSession( array( 'id' => '11', 'event_id' => '5', 'scheduled_at' => '2026-03-14 07:00:00' ) ) ),
+			default => array(),
+		} );
+
+		return $this->serviceWith( $events, $sessions );
+	}
+
+	public function test_subject_session_on_date_is_found_among_all_events_of_the_subject(): void {
+		$service = $this->subjectWithTwoEvents();
+
+		self::assertSame( 7, $service->subjectSessionOnDate( 10, 'inf_ege', '2026-03-10' ) );
+		self::assertSame( 9, $service->subjectSessionOnDate( 10, 'inf_ege', '2026-03-12' ), 'отменённый сеанс того же дня пропускается' );
+	}
+
+	public function test_subject_session_on_date_is_null_without_a_session_that_day(): void {
+		$service = $this->subjectWithTwoEvents();
+
+		self::assertNull( $service->subjectSessionOnDate( 10, 'inf_ege', '2026-03-20' ) );
+		self::assertNull( $service->subjectSessionOnDate( 10, 'inf_ege', '2026-03-14' ), 'черновик проведения не открывается' );
+	}
+
+	public function test_date_is_compared_in_site_local_time(): void {
+		$events = $this->createMock( ExamEventRepository::class );
+		$events->method( 'findBySubjectKey' )->willReturn( array( $this->examEvent( array( 'status' => 'published' ) ) ) );
+		$sessions = $this->createMock( ExamSessionRepository::class );
+		// 22:30 UTC 10.03 — это уже 01:30 11.03 по местному времени (+3).
+		$sessions->method( 'findByEvent' )->willReturn( array( $this->examSession( array( 'scheduled_at' => '2026-03-10 22:30:00' ) ) ) );
+		$service = $this->serviceWith( $events, $sessions );
+
+		self::assertSame( 7, $service->subjectSessionOnDate( 10, 'inf_ege', '2026-03-11' ) );
+		self::assertNull( $service->subjectSessionOnDate( 10, 'inf_ege', '2026-03-10' ) );
+	}
+
 	public function test_board_denied_for_foreign_event(): void {
 		$guard = $this->createMock( ExamAccessGuard::class );
 		$guard->method( 'canManageEvent' )->willReturn( false );

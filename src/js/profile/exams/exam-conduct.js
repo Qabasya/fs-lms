@@ -17,7 +17,7 @@ import { DOW_JS } from '../constants.js';
 import { bindPhoneMask } from '../../common/input-masks.js';
 import { examConfig, examSubjects, subjectPickerHtml, wireSubjectPicker, approvalBlockReason, approvableRows, approveButtonLabel, approvalItems, approvalSummaryText, skippedListHtml, exportButtonsHtml, wireExportButtons, resultStatusPillHtml } from './exam-common.js';
 import { openMoveSessionForm, openCancelSessionForm } from './exam-session-actions.js';
-import { audienceSegHtml, searchHtml, groupSelectHtml, schoolSelectHtml, rowMatches, UNREGISTERED } from './exam-row-filters.js';
+import { audienceSegHtml, searchHtml, groupSelectHtml, schoolSelectHtml, rowMatches, pruneView, UNREGISTERED } from './exam-row-filters.js';
 
 const REFRESH_MS = 30000;
 const TICK_MS = 1000;
@@ -68,6 +68,7 @@ let sessionId = 0;
 const view = { audience: 'all', search: '', group: '', school: '' };
 let unregistered = []; // ученики направления без записи: показываются, пока в фильтре групп выбран пункт «Незаписавшиеся»
 let allSessions = false; // режим «Все сеансы»: список участников всего проведения; sessionId остаётся опорным сеансом
+let pendingDate = ''; // день сеанса до смены предмета: сервер ищет у нового предмета сеанс на тот же день
 let chosenSubject = ''; // предмет, выбранный переключателем; пусто — экран сам выбирает ближайший сеанс
 let fetchedAt = 0;
 let selecting = false;
@@ -111,7 +112,8 @@ export function renderExamConduct(r, h = {}) {
 async function load() {
     try {
         const all = allSessions ? 1 : 0;
-        const params = sessionId ? { session_id: sessionId, all } : (chosenSubject ? { subject_key: chosenSubject, all } : { all });
+        const params = sessionId ? { session_id: sessionId, all } : (chosenSubject ? { subject_key: chosenSubject, all, ...(pendingDate ? { date: pendingDate } : {}) } : { all });
+        pendingDate = '';
         const data = await api('getConduct', params);
         board = data.board || null;
     } catch (err) {
@@ -119,7 +121,11 @@ async function load() {
         root.innerHTML = emptyState('prof-ktp', icoAlert(30), 'Не удалось загрузить сеанс', ajaxErrorText(err, 'Ошибка загрузки'), true);
         return;
     }
-    if (board) { sessionId = board.session.id; }
+    if (board) {
+        sessionId = board.session.id;
+        allSessions = !!board.all; // при смене предмета режим («Все сеансы» или сеанс того же дня) решает сервер
+        Object.assign(view, pruneView(view, board.rows));
+    }
     fetchedAt = Date.now();
     await loadUnregistered();
     render();
@@ -334,10 +340,11 @@ function subjectSwitcher() {
 function wireSubject() {
     const current = chosenSubject || board?.event?.subject_key || '';
     wireSubjectPicker('examConductSubjectBtn', examSubjects(), current, key => {
+        // Выбранный сеанс переживает смену предмета: сервер найдёт у нового предмета сеанс на тот же день.
+        pendingDate = allSessions || !board ? '' : board.session.date;
         chosenSubject = key;
         sessionId = 0;
         allSessions = true;
-        resetFilters();
         resetSelection();
         load();
     });
@@ -537,7 +544,6 @@ function wire() {
     root.querySelector('[data-event]')?.addEventListener('change', e => {
         sessionId = Number(e.target.value);
         allSessions = true;
-        resetFilters();
         resetSelection();
         load();
     });

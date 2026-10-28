@@ -74,6 +74,46 @@ class ExamConductCallbacksTest extends TestCase {
 		self::assertSame( 7, $r->payload['board']['session']['id'] );
 	}
 
+	/** Коллбеки с чистым сервисом доски: у общего мока `sessionBoard` уже настроен в setUp(). */
+	private function callbacksWithBoard( ExamConductViewService $board ): ExamConductCallbacks {
+		return new ExamConductCallbacks( $this->conduct, $this->registration, $this->attempts, $this->approval, $this->exports, $this->onSite, $this->retention, $this->createMock( \Inc\Services\Exam\ExamGuestDeletionService::class ), $board );
+	}
+
+	public function test_subject_switch_keeps_the_session_date_when_the_new_subject_has_one(): void {
+		$_POST = array( 'subject_key' => 'inf_oge', 'date' => '2026-03-12', 'all' => '1' );
+		$board = $this->createMock( ExamConductViewService::class );
+		$board->expects( self::once() )->method( 'subjectSessionOnDate' )->with( 10, 'inf_oge', '2026-03-12' )->willReturn( 12 );
+		$board->expects( self::never() )->method( 'defaultSessionId' );
+		$board->expects( self::once() )->method( 'sessionBoard' )->with( 10, 12, false )->willReturn( array( 'session' => array( 'id' => 12 ), 'all' => false, 'rows' => array() ) );
+		$cb = $this->callbacksWithBoard( $board );
+
+		$r = fs_test_capture_json( fn() => $cb->ajaxGetExamConduct() );
+
+		self::assertSame( 12, $r->payload['board']['session']['id'] );
+		self::assertFalse( $r->payload['board']['all'] );
+	}
+
+	public function test_subject_switch_falls_back_to_all_sessions_without_a_session_that_day(): void {
+		$_POST = array( 'subject_key' => 'inf_oge', 'date' => '2026-03-12' );
+		$board = $this->createMock( ExamConductViewService::class );
+		$board->method( 'subjectSessionOnDate' )->willReturn( null );
+		$board->method( 'defaultSessionId' )->with( 10, 'inf_oge' )->willReturn( 5 );
+		$board->expects( self::once() )->method( 'sessionBoard' )->with( 10, 5, true )->willReturn( array( 'session' => array( 'id' => 5 ), 'all' => true, 'rows' => array() ) );
+		$cb = $this->callbacksWithBoard( $board );
+
+		$r = fs_test_capture_json( fn() => $cb->ajaxGetExamConduct() );
+
+		self::assertTrue( $r->payload['board']['all'] );
+	}
+
+	public function test_date_without_subject_is_ignored(): void {
+		$_POST = array( 'date' => '2026-03-12' );
+		$this->board->expects( self::never() )->method( 'subjectSessionOnDate' );
+		$this->board->method( 'defaultSessionId' )->willReturn( 7 );
+
+		self::assertTrue( fs_test_capture_json( fn() => $this->cb->ajaxGetExamConduct() )->success );
+	}
+
 	public function test_no_sessions_returns_null_board(): void {
 		$_POST = array();
 		$this->board->method( 'defaultSessionId' )->willReturn( null );

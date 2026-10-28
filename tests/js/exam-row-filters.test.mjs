@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { rowMatches, groupSelectHtml, schoolSelectHtml, SELF_REGISTERED } from '../../src/js/profile/exams/exam-row-filters.js';
+import { rowMatches, groupSelectHtml, schoolSelectHtml, pruneView, SELF_REGISTERED, UNREGISTERED } from '../../src/js/profile/exams/exam-row-filters.js';
 
 const rows = [
 	{ audience: 'student', name: 'Иванов Пётр', group: '10А', school: 'Лицей 5' },
@@ -35,4 +35,18 @@ test('группы не показываются для гостей, школы
 	assert.match(groupSelectHtml(rows, 'all', ''), /10А[\s\S]*11Б/);
 	assert.match(schoolSelectHtml(rows, 'all', ''), /Самозапись[\s\S]*Школа 7/);
 	assert.equal(groupSelectHtml([{ audience: 'guest', group: '' }], 'all', ''), '');
+});
+
+test('смена предмета: аудитория и поиск остаются, группа и школа — только если есть в новом списке', () => {
+	const kept = pruneView(view({ audience: 'student', search: 'пет', group: '10А' }), rows);
+	assert.deepEqual(kept, view({ audience: 'student', search: 'пет', group: '10А' }));
+
+	const dropped = pruneView(view({ audience: 'student', search: 'пет', group: '9В', school: 'Школа 99' }), rows);
+	assert.deepEqual(dropped, view({ audience: 'student', search: 'пет' }));
+});
+
+test('смена предмета: служебные значения фильтров не сбрасываются', () => {
+	assert.equal(pruneView(view({ group: UNREGISTERED }), rows).group, UNREGISTERED);
+	assert.equal(pruneView(view({ school: SELF_REGISTERED }), rows).school, SELF_REGISTERED);
+	assert.equal(pruneView(view({ school: SELF_REGISTERED }), rows.filter(r => r.school)).school, '', 'самозаписанных гостей в списке нет');
 });

@@ -615,6 +615,29 @@ class ExamConductViewService {
 		return $this->choicesOfSubject( $actorUserId, $current->subjectKey );
 	}
 
+	/**
+	 * Сеанс предмета на указанный местный день среди всех его доступных проведений — чтобы смена предмета на доске
+	 * не теряла выбранный сеанс: «сегодняшний» остаётся сегодняшним. Отменённые сеансы и непубликованные проведения не в счёт.
+	 *
+	 * @param string $localDate День по времени сайта, `Y-m-d`.
+	 *
+	 * @return int|null null — в этот день у предмета сеансов нет.
+	 */
+	public function subjectSessionOnDate( int $actorUserId, string $subjectKey, string $localDate ): ?int {
+		foreach ( $this->events->findBySubjectKey( $subjectKey ) as $event ) {
+			if ( ExamEventStatus::Published->value !== $event->status || ! $this->guard->canManageEvent( $actorUserId, $event ) ) {
+				continue;
+			}
+			foreach ( $this->sessions->findByEvent( $event->id ) as $session ) {
+				if ( ExamSessionStatus::Cancelled->value !== $session->status && substr( $this->time->toLocal( $session->scheduledAt ), 0, 10 ) === $localDate ) {
+					return $session->id;
+				}
+			}
+		}
+
+		return null;
+	}
+
 	/** Сеанс для открытия экрана по выбранному предмету: первое проведение предмета (его идущий или ближайший сеанс). */
 	private function subjectSessionId( int $actorUserId, string $subjectKey ): ?int {
 		$choices = $this->choicesOfSubject( $actorUserId, $subjectKey );

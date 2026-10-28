@@ -62,6 +62,23 @@ export function schoolSelectHtml(rows, audience, current) {
 }
 
 /**
+ * Фильтры после смены предмета или проведения: аудитория и поиск остаются, группа и школа — только если такие есть
+ * в новом списке строк (иначе выбранное значение пропало бы из селекта, а список остался пустым).
+ *
+ * @template {{audience:string, search:string, group:string, school:string}} V
+ * @param {V} view
+ * @param {{audience:string, group?:string, school?:string}[]} rows
+ * @returns {V}
+ */
+export function pruneView(view, rows) {
+    const groups = rows.filter(r => 'student' === r.audience).map(r => r.group);
+    const guests = rows.filter(r => 'guest' === r.audience);
+    const groupOk = !view.group || UNREGISTERED === view.group || groups.includes(view.group);
+    const schoolOk = !view.school || (SELF_REGISTERED === view.school ? guests.some(r => !r.school) : guests.some(r => r.school === view.school));
+    return { ...view, group: groupOk ? view.group : '', school: schoolOk ? view.school : '' };
+}
+
+/**
  * Подходит ли строка под фильтры. Группа и школа сужают именно свою аудиторию:
  * выбранная группа оставляет только учеников этой группы, выбранная школа — только гостей этой школы.
  *

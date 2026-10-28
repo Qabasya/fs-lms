@@ -66,15 +66,27 @@ class ExamConductCallbacks extends BaseController {
 
 		$sessionId  = $this->sanitizeInt( 'session_id' );
 		$subjectKey = $this->hasParam( 'subject_key' ) ? $this->sanitizeKey( 'subject_key' ) : '';
+		$date       = $this->hasParam( 'date' ) ? $this->sanitizeText( 'date' ) : '';
 
 		$this->run(
-			function () use ( $sessionId, $subjectKey ): array {
-				$resolved = $sessionId > 0 ? $sessionId : $this->board->defaultSessionId( get_current_user_id(), '' !== $subjectKey ? $subjectKey : null );
+			function () use ( $sessionId, $subjectKey, $date ): array {
+				$userId = get_current_user_id();
+				// Смена предмета с выбранным сеансом: сеанс того же дня у нового предмета, нет его — «Все сеансы».
+				$sameDay = ( 0 === $sessionId && '' !== $subjectKey && 1 === preg_match( '/^\d{4}-\d{2}-\d{2}$/', $date ) )
+					? $this->board->subjectSessionOnDate( $userId, $subjectKey, $date )
+					: null;
+				if ( null !== $sameDay ) {
+					return array( 'board' => $this->board->sessionBoard( $userId, $sameDay, false ) );
+				}
+
+				$resolved = $sessionId > 0 ? $sessionId : $this->board->defaultSessionId( $userId, '' !== $subjectKey ? $subjectKey : null );
 				if ( null === $resolved ) {
 						return array( 'board' => null );
 				}
 
-				return array( 'board' => $this->boardOf( $resolved ) );
+				$all = '' !== $date && 0 === $sessionId ? true : $this->sanitizeBool( 'all' );
+
+				return array( 'board' => $this->board->sessionBoard( $userId, $resolved, $all ) );
 			}
 		);
 	}
