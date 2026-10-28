@@ -691,7 +691,8 @@ function runAction(action, row, anchor) {
         case 'delete_registration': deleteRegistration(row); break;
         case 'transfer': openTransferForm(anchor, row); break;
         case 'extend': openExtendForm(anchor, row); break;
-        case 'seat': openSeatMenu(anchor, row); break;
+        // Меню из пункта меню: openCtxMenu закрывает себя после колбэка и закрыл бы только что открытое меню мест.
+        case 'seat': setTimeout(() => openSeatMenu(anchor, row), 0); break;
         case 'arrival': act('markArrival', { registration_id: row.registration_id, arrived: row.arrived_at ? 0 : 1 }); break;
         case 'confirm_guest': act('confirmGuest', { participation_id: row.participation_id, confirmed: row.staff_confirmed_at ? 0 : 1 }, row.staff_confirmed_at ? 'Подтверждение снято' : 'Запись подтверждена'); break;
         case 'admit': act('admitGuest', { participation_id: row.participation_id, admitted: 0 }, 'Ссылка входа отозвана'); break;

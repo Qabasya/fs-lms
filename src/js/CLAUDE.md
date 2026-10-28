@@ -100,3 +100,5 @@ All `wp_localize_script` calls live in the `inc/Core/Assets/*` layer only (facad
 - **PHP: enum `Inc\Enums\Ui\Icon`** — `Icon::Check->svg( 16 )` (без аргумента — размер по умолчанию кейса). В шаблонах: `<?php echo Icon::X->svg(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>`.
 - Глифы типов шагов урока — `STEP_GLYPHS` / `stepIcon( ui )` в `common/icons.js`; конструктор курса (`step-editor.js`) и плеер (`player/icons.js` → `typeIco`) используют один набор. `player/icons.js` — только мета типов (TYPES/typeMeta) и совместимый фасад `ICO` поверх common.
 - Цвет всегда `currentColor` (наследуется от родителя); размер — аргумент фабрики. Общие глифы (check/chevron/lock/…) в JS- и PHP-источниках должны визуально совпадать.
+
+- **Меню из пункта меню — в следующей задаче.** `openCtxMenu` после колбэка пункта сам зовёт `closeCtxMenu()`: меню, открытое прямо из колбэка, закрывается тут же (так «Отметить место» в меню строки доски проведения не показывало список мест). Открывать второе меню через `setTimeout(…, 0)`; формы-поповеры (`openPop`) этого не требуют. Найдено живым прогоном, юнит-тест DOM не ловит.
