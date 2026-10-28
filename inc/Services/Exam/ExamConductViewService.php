@@ -258,6 +258,10 @@ class ExamConductViewService {
 				$actions[] = ExamConductAction::Transfer->value;
 			}
 			$actions[] = ExamConductAction::Arrival->value;
+		} elseif ( null === $attempt && array() !== $otherOpenSessions && ExamRegistrationStatus::Missed->value === $registration->status
+			&& null !== $participation && ExamAudience::Guest->value === $participation->audience ) {
+			// Неявка гостя: сотрудник может пустить его на другой сеанс (ExamRegistrationService::transferByStaff()).
+			$actions = array( ExamConductAction::Transfer->value );
 		}
 
 		// Отменённая запись ученика без попытки — мусор в списке: её можно убрать совсем (у гостя для этого «удалить заявку»).

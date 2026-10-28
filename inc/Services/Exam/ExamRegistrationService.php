@@ -443,7 +443,10 @@ class ExamRegistrationService {
 				$this->lockParticipant( (int) $participation?->participantId );
 				$locked  = $this->participations->findForUpdate( (int) $participation?->id );
 				$current = $this->registrations->find( $registrationId );
-				if ( null === $locked || null === $current || 1 !== $current->activeSlot ) {
+				// Неявка гостя — не тупик: сотрудник, решивший его пустить, открывает ему другой сеанс (у ученика своя запись).
+				$reopening = null !== $locked && null !== $current && null === $locked->activeRegistrationId
+					&& ExamRegistrationStatus::Missed->value === $current->status && ExamAudience::Guest->value === $locked->audience;
+				if ( null === $locked || null === $current || ( 1 !== $current->activeSlot && ! $reopening ) ) {
 						throw new CodedException( ErrorCode::ExamNotFound, 'Действующей записи нет.' );
 				}
 
@@ -538,9 +541,13 @@ class ExamRegistrationService {
 			throw $this->noSeatsError( $newSession->id );
 		}
 
-		$this->sessions->releaseSeat( $oldSession->id );
-		if ( ! $this->registrations->deactivate( $current->id, ExamRegistrationStatus::Transferred, $nowUtc, $reason, $actorUserId ) ) {
-			throw new CodedException( ErrorCode::ExamNotFound, 'Действующей записи нет.' );
+		// Запись в неявке уже закрыта, а место возвращено при её отметке: закрывать и освобождать нечего.
+		$fromMissed = ExamRegistrationStatus::Missed->value === $current->status;
+		if ( ! $fromMissed ) {
+			$this->sessions->releaseSeat( $oldSession->id );
+			if ( ! $this->registrations->deactivate( $current->id, ExamRegistrationStatus::Transferred, $nowUtc, $reason, $actorUserId ) ) {
+				throw new CodedException( ErrorCode::ExamNotFound, 'Действующей записи нет.' );
+			}
 		}
 
 		$registrationId = $this->insertConfirmed( $participation->id, $newSession->id, null, $actorUserId, $nowUtc );
@@ -552,6 +559,9 @@ class ExamRegistrationService {
 			'new_session_id'      => $newSession->id,
 			'by'                  => $byStaff ? 'staff' : 'self',
 		);
+		if ( $fromMissed ) {
+			$payload['from_missed'] = true;
+		}
 		if ( null !== $reason ) {
 			$payload['reason'] = $reason;
 		}
@@ -568,6 +578,7 @@ class ExamRegistrationService {
 					array(
 						'old_registration_id' => $current->id,
 						'old_session_id'      => $oldSession->id,
+						'from_missed'         => $fromMissed ? true : null,
 						'reason'              => $reason,
 					),
 					static fn ( mixed $value ): bool => null !== $value

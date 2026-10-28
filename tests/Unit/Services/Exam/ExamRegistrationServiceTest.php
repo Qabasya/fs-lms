@@ -137,10 +137,10 @@ class ExamRegistrationServiceTest extends TestCase {
 		) );
 	}
 
-	private function registration(): ExamRegistrationDTO {
+	private function registration( ExamRegistrationStatus $status = ExamRegistrationStatus::Confirmed ): ExamRegistrationDTO {
 		return ExamRegistrationDTO::fromArray( array(
 			'id' => self::REGISTRATION, 'participation_id' => self::PARTICIPATION, 'session_id' => self::OLD_SESSION,
-			'status' => ExamRegistrationStatus::Confirmed->value, 'active_slot' => 1, 'created_at' => '2026-03-01 00:00:00',
+			'status' => $status->value, 'active_slot' => ExamRegistrationStatus::Confirmed === $status ? 1 : null, 'created_at' => '2026-03-01 00:00:00',
 		) );
 	}
 
@@ -993,6 +993,63 @@ class ExamRegistrationServiceTest extends TestCase {
 		$result = $this->service->transferByStaff( 9, self::REGISTRATION, self::NEW_SESSION, 'Просьба родителей' );
 
 		self::assertSame( 22, $result->registrationId );
+	}
+
+	// ---- перенос неявки гостя -------------------------------------------------------------------------------------------------------
+
+	/** Гость отмечен неявкой (запись закрыта, место возвращено), сотрудник открывает ему другой сеанс. */
+	private function arrangeMissedTransfer( string $audience ): void {
+		$this->registrations->method( 'find' )->willReturn( $this->registration( ExamRegistrationStatus::Missed ) );
+		$this->participations->method( 'find' )->willReturn( $this->participation( 5, null, $audience ) );
+		$this->participations->method( 'findForUpdate' )->willReturn( $this->participation( 5, null, $audience ) );
+		$this->accessGuard->method( 'canManageSubject' )->willReturn( true );
+		$this->participants->method( 'findForUpdate' )->willReturn( $this->participant() );
+		$this->registrations->method( 'hasOverlappingActive' )->willReturn( false );
+		$this->sessions->method( 'lockInOrder' )->willReturn( array(
+			self::OLD_SESSION => $this->session( self::OLD_SESSION, '2026-03-10 05:00:00', '2026-03-10 07:55:00' ), // прошёл
+			self::NEW_SESSION => $this->session( self::NEW_SESSION, '2026-03-10 08:00:00', '2026-03-10 11:55:00' ),
+		) );
+		$this->sessions->method( 'occupySeat' )->willReturn( true );
+		$this->registrations->method( 'insert' )->willReturn( 22 );
+	}
+
+	public function test_staff_reopens_missed_guest_on_another_session_without_closing_or_releasing_anything(): void {
+		$this->arrangeMissedTransfer( 'guest' );
+		$this->registrations->expects( self::never() )->method( 'deactivate' );
+		$this->sessions->expects( self::never() )->method( 'releaseSeat' );
+		$this->participations->expects( self::once() )->method( 'setActiveRegistration' )->with( self::PARTICIPATION, 22 );
+		$this->resolutions->expects( self::once() )->method( 'insert' )->with( self::callback( static fn ( array $r ): bool => 'transferred' === $r['kind'] && self::NEW_SESSION === $r['new_session_id'] && self::OLD_SESSION === $r['old_session_id'] ) );
+
+		$result = $this->service->transferByStaff( 9, self::REGISTRATION, self::NEW_SESSION, 'Опоздал по уважительной причине' );
+
+		self::assertSame( 22, $result->registrationId );
+		self::assertSame( ExamRegistrationStatus::Confirmed, $result->status );
+	}
+
+	public function test_missed_student_registration_cannot_be_transferred(): void {
+		$this->arrangeMissedTransfer( 'student' );
+		$this->registrations->expects( self::never() )->method( 'insert' );
+
+		$this->expectException( CodedException::class );
+		$this->service->transferByStaff( 9, self::REGISTRATION, self::NEW_SESSION, 'Пустить' );
+	}
+
+	public function test_missed_guest_cannot_take_a_seat_in_a_full_session(): void {
+		$this->registrations->method( 'find' )->willReturn( $this->registration( ExamRegistrationStatus::Missed ) );
+		$this->participations->method( 'find' )->willReturn( $this->participation( 5, null, 'guest' ) );
+		$this->participations->method( 'findForUpdate' )->willReturn( $this->participation( 5, null, 'guest' ) );
+		$this->accessGuard->method( 'canManageSubject' )->willReturn( true );
+		$this->participants->method( 'findForUpdate' )->willReturn( $this->participant() );
+		$this->registrations->method( 'hasOverlappingActive' )->willReturn( false );
+		$this->sessions->method( 'lockInOrder' )->willReturn( array(
+			self::OLD_SESSION => $this->session( self::OLD_SESSION, '2026-03-10 05:00:00', '2026-03-10 07:55:00' ),
+			self::NEW_SESSION => $this->session( self::NEW_SESSION, '2026-03-10 08:00:00', '2026-03-10 11:55:00' ),
+		) );
+		$this->sessions->method( 'occupySeat' )->willReturn( false );
+		$this->registrations->expects( self::never() )->method( 'insert' );
+
+		$this->expectException( CodedException::class );
+		$this->service->transferByStaff( 9, self::REGISTRATION, self::NEW_SESSION, 'Пустить' );
 	}
 
 	public function test_staff_transfer_requires_reason(): void {
