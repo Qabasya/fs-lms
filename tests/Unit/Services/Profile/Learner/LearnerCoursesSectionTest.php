@@ -5,6 +5,8 @@ declare( strict_types=1 );
 namespace Unit\Services\Profile\Learner;
 
 use Inc\DTO\Assessment\AttemptDTO;
+use Inc\DTO\Course\CourseDTO;
+use Inc\DTO\Course\GroupLessonDTO;
 use Inc\Managers\Assessment\AssessmentManager;
 use Inc\Managers\Course\CourseManager;
 use Inc\Managers\Course\LessonManager;
@@ -24,6 +26,7 @@ use PHPUnit\Framework\TestCase;
 class LearnerCoursesSectionTest extends TestCase {
 
 	private ExamLockService&MockObject $lock;
+	private CourseManager&MockObject $courses;
 	private AssessmentManager&MockObject $assessments;
 	private LearnerCoursesSection $section;
 
@@ -36,8 +39,9 @@ class LearnerCoursesSectionTest extends TestCase {
 			static fn ( int $assessmentId, int $registrationId ): string => "https://site.test/exam-{$assessmentId}/?exam_reg={$registrationId}"
 		);
 
+		$this->courses = $this->createMock( CourseManager::class );
 		$this->section = new LearnerCoursesSection(
-			$this->createMock( CourseManager::class ),
+			$this->courses,
 			$this->createMock( LessonManager::class ),
 			$this->createMock( LessonProgressService::class ),
 			$this->lock,
@@ -76,5 +80,33 @@ class LearnerCoursesSectionTest extends TestCase {
 
 		self::assertStringNotContainsString( 'exam_reg', $banner['url'] );
 		self::assertFalse( $banner['is_exam'] );
+	}
+
+	/** Проведённое занятие не должно теряться за копией той же темы в пуле: у копии нет ни даты, ни ссылки в плеер. */
+	public function test_held_row_wins_over_pool_copy_of_the_same_lesson(): void {
+		$this->courses->method( 'get' )->willReturn( CourseDTO::fromArray( array(
+			'id' => 1,
+			'modules' => array( array( 'id' => 'm1', 'title' => 'Модуль', 'lesson_ids' => array( 3744 ) ) ),
+		) ) );
+
+		$row = static fn ( int $id, ?string $at ): GroupLessonDTO => GroupLessonDTO::fromArray( array(
+			'id' => $id, 'group_id' => 8, 'lesson_id' => 3744, 'position' => $id, 'scheduled_at' => $at,
+		) );
+		$item = static fn ( int $id, string $date ): array => array(
+			'topic' => 'Тема', 'date' => $date, 'room' => '', 'status' => '' === $date ? 'done' : 'done',
+			'player_url' => '' === $date ? '' : "https://site.test/lesson/?gl={$id}",
+		);
+
+		$courses = $this->section->buildCourses(
+			array( 8 => array( 'course_id' => 1, 'room_id' => 0, 'teacher_id' => 0, 'name' => 'КЕГЭ-4', 'subject' => '', 'subject_key' => '' ) ),
+			array( 101 => $row( 101, '2026-10-20 18:00:00' ), 250 => $row( 250, null ) ),
+			array( 101 => $item( 101, '2026-10-20' ), 250 => $item( 250, '' ) ),
+			array(),
+			10
+		);
+
+		$lesson = $courses[0]['modules'][0]['lessons'][0];
+		self::assertSame( 'https://site.test/lesson/?gl=101', $lesson['player_url'] );
+		self::assertSame( '2026-10-20', $lesson['date'] );
 	}
 }

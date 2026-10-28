@@ -76,11 +76,18 @@ class LearnerCoursesSection {
 	 */
 	public function buildCourses( array $groups, array $rawRows, array $lessonMap, array $roomNames, int $personId ): array {
 		// lessonId → item ученика, по группе (групповые занятия с контентом).
+		// Тема может стоять в программе дважды (занятие на дате и копия в пуле): датированная строка не затирается копией без даты.
 		$byLesson = array();
+		$dated    = array();
 		foreach ( $rawRows as $glid => $row ) {
 			if ( $row->kind->isIndividual() || null === $row->lessonId || 0 === (int) $row->lessonId ) {
 				continue;
 			}
+			$isDated = null !== $row->scheduledAt;
+			if ( ! $isDated && ! empty( $dated[ $row->groupId ][ (int) $row->lessonId ] ) ) {
+				continue;
+			}
+			$dated[ $row->groupId ][ (int) $row->lessonId ]    = $isDated;
 			$byLesson[ $row->groupId ][ (int) $row->lessonId ] = $lessonMap[ $glid ] ?? null;
 		}
 
