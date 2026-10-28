@@ -12,6 +12,7 @@ use Inc\DTO\Exam\ExamParticipantDTO;
 use Inc\DTO\Exam\ExamParticipationDTO;
 use Inc\DTO\Exam\ExamRegistrationDTO;
 use Inc\Enums\Exam\ExamAudience;
+use Inc\Enums\Log\ErrorCode;
 use Inc\Repositories\WPDBRepositories\AssessmentAnswerRepository;
 use Inc\Repositories\WPDBRepositories\AssessmentAttemptRepository;
 use Inc\Repositories\WPDBRepositories\ExamEventRepository;
@@ -158,6 +159,87 @@ class ExamConductServiceTest extends TestCase {
 		self::assertSame( '2026-03-10 08:00:00', $calls[0][0] );
 		self::assertSame( 10, $calls[0][1] );
 		self::assertSame( array( null, null ), $calls[1] );
+	}
+
+	// ---- место за компьютером ----------------------------------------------------------------------------------------------------
+
+	public function test_seat_is_set_after_arrival(): void {
+		$this->registrations->method( 'find' )->willReturn( $this->registration( 1, 1, 'confirmed', '2026-03-10 07:50:00' ) );
+		$this->participations->method( 'find' )->willReturn( $this->participation( 1 ) );
+		$this->registrations->expects( self::once() )->method( 'setSeat' )->with( 1, 5 );
+
+		$this->service->setSeat( 10, 1, 5 );
+	}
+
+	public function test_seat_requires_arrival_first(): void {
+		$this->registrations->method( 'find' )->willReturn( $this->registration( 1, 1 ) );
+		$this->participations->method( 'find' )->willReturn( $this->participation( 1 ) );
+		$this->registrations->expects( self::never() )->method( 'setSeat' );
+
+		$this->expectException( CodedException::class );
+		$this->service->setSeat( 10, 1, 5 );
+	}
+
+	public function test_seat_outside_session_capacity_is_rejected(): void {
+		$this->registrations->method( 'find' )->willReturn( $this->registration( 1, 1, 'confirmed', '2026-03-10 07:50:00' ) );
+		$this->participations->method( 'find' )->willReturn( $this->participation( 1 ) );
+		$this->registrations->expects( self::never() )->method( 'setSeat' );
+
+		foreach ( array( 0, -1, 13 ) as $seat ) { // вместимость тестового сеанса — 12
+			try {
+				$this->service->setSeat( 10, 1, $seat );
+				self::fail( "место {$seat} должно быть отклонено" );
+			} catch ( CodedException $e ) {
+				self::assertSame( ErrorCode::ExamInput, $e->errorCode );
+			}
+		}
+	}
+
+	public function test_taken_seat_is_a_conflict(): void {
+		$this->registrations->method( 'find' )->willReturn( $this->registration( 1, 1, 'confirmed', '2026-03-10 07:50:00' ) );
+		$this->participations->method( 'find' )->willReturn( $this->participation( 1 ) );
+		$this->registrations->method( 'setSeat' )->willThrowException( new \Inc\Repositories\WPDBRepositories\DuplicateKeyException( 'session_seat' ) );
+
+		try {
+			$this->service->setSeat( 10, 1, 5 );
+			self::fail( 'занятое место должно быть отклонено' );
+		} catch ( CodedException $e ) {
+			self::assertSame( ErrorCode::ExamConflict, $e->errorCode );
+			self::assertSame( 'Это место уже занято.', $e->getMessage() );
+		}
+	}
+
+	public function test_seat_can_be_cleared_without_arrival(): void {
+		$this->registrations->method( 'find' )->willReturn( $this->registration( 1, 1 ) );
+		$this->participations->method( 'find' )->willReturn( $this->participation( 1 ) );
+		$this->registrations->expects( self::once() )->method( 'setSeat' )->with( 1, null );
+
+		$this->service->setSeat( 10, 1, null );
+	}
+
+	public function test_seat_of_inactive_registration_is_rejected(): void {
+		$this->registrations->method( 'find' )->willReturn( $this->registration( 1, 1, 'cancelled', '2026-03-10 07:50:00' ) );
+		$this->participations->method( 'find' )->willReturn( $this->participation( 1 ) );
+		$this->registrations->expects( self::never() )->method( 'setSeat' );
+
+		$this->expectException( CodedException::class );
+		$this->service->setSeat( 10, 1, 5 );
+	}
+
+	public function test_clearing_arrival_clears_the_seat_too(): void {
+		$this->registrations->method( 'find' )->willReturn( $this->registration( 1, 1, 'confirmed', '2026-03-10 07:50:00' ) );
+		$this->participations->method( 'find' )->willReturn( $this->participation( 1 ) );
+		$this->registrations->expects( self::once() )->method( 'setSeat' )->with( 1, null );
+
+		$this->service->markArrival( 10, 1, false );
+	}
+
+	public function test_setting_arrival_keeps_the_seat(): void {
+		$this->registrations->method( 'find' )->willReturn( $this->registration( 1, 1 ) );
+		$this->participations->method( 'find' )->willReturn( $this->participation( 1 ) );
+		$this->registrations->expects( self::never() )->method( 'setSeat' );
+
+		$this->service->markArrival( 10, 1, true );
 	}
 
 	public function test_arrival_does_not_change_registration_status(): void {

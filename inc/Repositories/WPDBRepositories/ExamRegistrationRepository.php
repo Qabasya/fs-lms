@@ -36,6 +36,15 @@ class ExamRegistrationRepository extends AbstractExamRepository {
 		);
 	}
 
+	/**
+	 * Место за компьютером (операционная отметка после прихода); `null` снимает место.
+	 *
+	 * @throws DuplicateKeyException Место в этом сеансе уже занято другой действующей записью (`session_seat`).
+	 */
+	public function setSeat( int $id, ?int $seatNo ): void {
+		$this->updateRow( $this->table, array( 'seat_no' => $seatNo ), array( 'id' => $id ) );
+	}
+
 	public function find( int $id ): ?ExamRegistrationDTO {
 		return $this->hydrate( $this->readRow( $this->wpdb->prepare( 'SELECT * FROM %i WHERE id = %d', $this->table, $id ) ) );
 	}

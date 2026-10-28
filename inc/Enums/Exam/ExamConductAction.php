@@ -16,6 +16,7 @@ enum ExamConductAction: string {
 	case Transfer         = 'transfer';
 	case Extend           = 'extend';
 	case Arrival          = 'arrival';
+	case Seat             = 'seat';
 	case OpenWork         = 'open_work';
 	case Admit            = 'admit';
 	case ConfirmGuest     = 'confirm_guest';

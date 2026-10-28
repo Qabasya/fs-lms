@@ -254,3 +254,21 @@ export function printList(rows) {
     window.addEventListener('afterprint', cleanup);
     window.print();
 }
+
+/**
+ * Пункты меню выбора места за компьютером: места от 1 до вместимости сеанса, кроме занятых другими;
+ * своё место (если есть) отмечено, над ним — «Снять место».
+ *
+ * @param {number} capacity Вместимость сеанса
+ * @param {Array<number|null|undefined>} taken Места, занятые другими записями сеанса
+ * @param {number|null} current Место этой записи
+ * @returns {{v: string, label: string, active: boolean}[]}
+ */
+export function seatOptions(capacity, taken, current) {
+    const busy = new Set(taken.filter(Boolean));
+    const items = [];
+    for (let n = 1; n <= capacity; n++) {
+        if (!busy.has(n)) { items.push({ v: String(n), label: `Место ${n}`, active: n === current }); }
+    }
+    return current ? [{ v: '0', label: 'Снять место', active: false }, ...items] : items;
+}

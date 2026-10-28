@@ -31,6 +31,7 @@ enum ExamLogAction: string {
 	case RegistrationTransferred = 'registration_transferred';
 	case NoShow = 'no_show';
 	case Arrival = 'arrival';
+	case Seat = 'seat';
 	case ApplicationCaptured = 'application_captured';
 	case ApplicationConverted = 'application_converted';
 	case ApplicationAccepted = 'application_accepted';
@@ -118,6 +119,7 @@ enum ExamLogAction: string {
 			self::RegistrationTransferred => 'Заявка: перенос сотрудником',
 			self::NoShow => 'Заявка: неявка',
 			self::Arrival => 'Заявка: отметка о прибытии',
+			self::Seat => 'Заявка: место за компьютером',
 			self::ApplicationCaptured => 'Гость: бронь места',
 			self::ApplicationConverted => 'Гость: бронь превращена в запись',
 			self::ApplicationAccepted => 'Гость: запись без оплаты',

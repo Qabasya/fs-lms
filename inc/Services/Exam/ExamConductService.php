@@ -27,6 +27,7 @@ use Inc\Enums\Log\LogEvent;
 use Inc\Enums\Log\OperationType;
 use Inc\Enums\Wp\PageRoutes;
 use Inc\Repositories\WPDBRepositories\AssessmentAttemptRepository;
+use Inc\Repositories\WPDBRepositories\DuplicateKeyException;
 use Inc\Repositories\WPDBRepositories\ExamEventRepository;
 use Inc\Repositories\WPDBRepositories\ExamParticipantRepository;
 use Inc\Repositories\WPDBRepositories\ExamParticipationRepository;
@@ -353,6 +354,10 @@ class ExamConductService {
 			$arrived ? $this->time->nowUtc() : null,
 			$arrived ? $actorUserId : null
 		);
+		// Место отмечается только после прихода: снятый приход снимает и место.
+		if ( ! $arrived ) {
+			$this->registrations->setSeat( $registrationId, null );
+		}
 
 		ExamLogAction::Arrival->record(
 			array(
@@ -362,6 +367,51 @@ class ExamConductService {
 				'participation_id' => $participation->id,
 				'actor'            => $actorUserId,
 				'context'          => array( 'arrived' => $arrived ),
+			)
+		);
+	}
+
+	/**
+	 * Место за компьютером: номер от 1 до вместимости сеанса, ставится после отметки прихода; `null` снимает место.
+	 * Занятость места решает уникальный ключ `session_seat`, а не предварительное чтение: два сотрудника не посадят двоих на одно место.
+	 *
+	 * @throws CodedException Запись недоступна или не действует, приход не отмечен, место вне вместимости либо занято.
+	 */
+	public function setSeat( int $actorUserId, int $registrationId, ?int $seatNo ): void {
+		$registration  = $this->registrations->find( $registrationId );
+		$participation = null !== $registration ? $this->participations->find( $registration->participationId ) : null;
+		$event         = null !== $participation ? $this->events->find( $participation->eventId ) : null;
+		if ( null === $registration || null === $event || ! $this->guard->canManageEvent( $actorUserId, $event ) ) {
+			throw new CodedException( ErrorCode::ExamAccess, 'Запись не найдена.' );
+		}
+		if ( 1 !== $registration->activeSlot ) {
+			throw new CodedException( ErrorCode::ExamState, 'Запись не действует.' );
+		}
+
+		if ( null !== $seatNo ) {
+			if ( null === $registration->arrivedAt ) {
+				throw new CodedException( ErrorCode::ExamState, 'Сначала отметьте приход.' );
+			}
+			$session = $this->sessions->find( $registration->sessionId );
+			if ( null === $session || $seatNo < 1 || $seatNo > $session->capacity ) {
+				throw new CodedException( ErrorCode::ExamInput, 'Такого места в кабинете нет.' );
+			}
+		}
+
+		try {
+			$this->registrations->setSeat( $registrationId, $seatNo );
+		} catch ( DuplicateKeyException ) {
+			throw new CodedException( ErrorCode::ExamConflict, 'Это место уже занято.' );
+		}
+
+		ExamLogAction::Seat->record(
+			array(
+				'event_id'         => $event->id,
+				'session_id'       => $registration->sessionId,
+				'registration_id'  => $registrationId,
+				'participation_id' => $participation->id,
+				'actor'            => $actorUserId,
+				'context'          => array( 'seat_no' => $seatNo ),
 			)
 		);
 	}

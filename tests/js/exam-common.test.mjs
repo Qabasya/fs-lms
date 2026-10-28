@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { endTime, toDateTimeLocal, sessionsByDate, inPeriod, validateEventForm } from '../../src/js/profile/exams/exam-common.js';
+import { endTime, toDateTimeLocal, sessionsByDate, inPeriod, validateEventForm, seatOptions } from '../../src/js/profile/exams/exam-common.js';
 
 test('окончание сеанса — начало плюс длительность формата: 10:00 + 235 мин = 13:55', () => {
 	assert.equal(endTime('10:00', 235), '13:55');
@@ -62,4 +62,23 @@ test('форма проведения: пустое название, перев
 test('форма проведения: период через границу месяцев и выходные допустим; даты записи необязательны', () => {
 	assert.deepEqual(validateEventForm({ ...valid, registration_opens_at: '', registration_closes_at: '' }), {});
 	assert.equal(validateEventForm({ ...valid, period_to: '' }).period_from, 'Укажите даты проведения.');
+});
+
+test('места за компьютером: от 1 до вместимости, занятые другими не предлагаются', () => {
+	assert.deepEqual(seatOptions(4, [2], null).map(o => o.v), ['1', '3', '4']);
+	assert.deepEqual(seatOptions(3, [], null).map(o => o.label), ['Место 1', 'Место 2', 'Место 3']);
+});
+
+test('места: своё место отмечено и остаётся в списке, сверху — «Снять место»', () => {
+	const items = seatOptions(4, [1, 3], 2);
+
+	assert.deepEqual(items.map(o => o.v), ['0', '2', '4']);
+	assert.equal(items[0].label, 'Снять место');
+	assert.equal(items.find(o => '2' === o.v).active, true);
+	assert.equal(items.find(o => '4' === o.v).active, false);
+});
+
+test('места: без вместимости и с мусором в занятых список пуст или не ломается', () => {
+	assert.deepEqual(seatOptions(0, [], null), []);
+	assert.deepEqual(seatOptions(2, [null, undefined, 1], null).map(o => o.v), ['2']);
 });

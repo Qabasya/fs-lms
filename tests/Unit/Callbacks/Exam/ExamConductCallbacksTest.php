@@ -114,6 +114,28 @@ class ExamConductCallbacksTest extends TestCase {
 		self::assertTrue( fs_test_capture_json( fn() => $this->cb->ajaxGetExamConduct() )->success );
 	}
 
+	public function test_set_seat_passes_the_seat_and_returns_the_board(): void {
+		$_POST = array( 'session_id' => '7', 'registration_id' => '5', 'seat_no' => '4' );
+		$this->conduct->expects( self::once() )->method( 'setSeat' )->with( 10, 5, 4 );
+
+		self::assertTrue( fs_test_capture_json( fn() => $this->cb->ajaxSetExamSeat() )->success );
+	}
+
+	public function test_set_seat_with_zero_clears_it(): void {
+		$_POST = array( 'session_id' => '7', 'registration_id' => '5', 'seat_no' => '0' );
+		$this->conduct->expects( self::once() )->method( 'setSeat' )->with( 10, 5, null );
+
+		self::assertTrue( fs_test_capture_json( fn() => $this->cb->ajaxSetExamSeat() )->success );
+	}
+
+	public function test_set_seat_requires_manage_exams(): void {
+		$GLOBALS['_fs_test_can'] = false;
+		$_POST                   = array( 'session_id' => '7', 'registration_id' => '5', 'seat_no' => '4' );
+		$this->conduct->expects( self::never() )->method( 'setSeat' );
+
+		self::assertFalse( fs_test_capture_json( fn() => $this->cb->ajaxSetExamSeat() )->success );
+	}
+
 	public function test_no_sessions_returns_null_board(): void {
 		$_POST = array();
 		$this->board->method( 'defaultSessionId' )->willReturn( null );

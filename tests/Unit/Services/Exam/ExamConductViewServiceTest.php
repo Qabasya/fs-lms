@@ -385,6 +385,15 @@ class ExamConductViewServiceTest extends TestCase {
 		self::assertSame( array( 'anonymize', 'delete_guest' ), $this->service->rowActions( $this->registration( 1, 1, 'cancelled' ), null, $open, $this->participation( 1, null, 'guest' ) ) );
 	}
 
+	public function test_seat_action_only_for_arrived_active_registration(): void {
+		$arrived = $this->registration( 1, 1, 'confirmed', '2026-03-10 07:50:00' );
+
+		self::assertContains( 'seat', $this->service->rowActions( $arrived, null, array() ) );
+		self::assertContains( 'seat', $this->service->rowActions( $arrived, $this->attempt( 1, 1, 'in_progress' ), array() ), 'и пока идёт работа' );
+		self::assertNotContains( 'seat', $this->service->rowActions( $this->registration( 1, 1 ), null, array() ), 'приход не отмечен' );
+		self::assertNotContains( 'seat', $this->service->rowActions( $this->registration( 1, 1, 'cancelled', '2026-03-10 07:50:00' ), null, array() ) );
+	}
+
 	public function test_missed_guest_can_be_moved_to_another_session_but_missed_student_cannot(): void {
 		$open   = array( $this->examSession( array( 'id' => '8' ) ) );
 		$missed = $this->registration( 1, 1, 'missed' );

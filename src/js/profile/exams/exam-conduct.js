@@ -15,7 +15,7 @@ import { confirmDialog } from '../../common/components/confirm-dialog.js';
 import { createApi } from '../api.js';
 import { DOW_JS } from '../constants.js';
 import { bindPhoneMask } from '../../common/input-masks.js';
-import { examConfig, examSubjects, subjectPickerHtml, wireSubjectPicker, approvalBlockReason, approvableRows, approveButtonLabel, approvalItems, approvalSummaryText, skippedListHtml, exportButtonsHtml, wireExportButtons, resultStatusPillHtml } from './exam-common.js';
+import { examConfig, examSubjects, subjectPickerHtml, wireSubjectPicker, approvalBlockReason, approvableRows, approveButtonLabel, approvalItems, approvalSummaryText, skippedListHtml, exportButtonsHtml, wireExportButtons, resultStatusPillHtml, seatOptions } from './exam-common.js';
 import { openMoveSessionForm, openCancelSessionForm } from './exam-session-actions.js';
 import { audienceSegHtml, searchHtml, groupSelectHtml, schoolSelectHtml, rowMatches, pruneView, UNREGISTERED } from './exam-row-filters.js';
 
@@ -31,6 +31,7 @@ const ACTION_LABELS = {
     transfer: 'Назначить другой сеанс',
     extend: 'Продлить',
     arrival: 'Отметить приход',
+    seat: 'Отметить место',
     open_work: 'Открыть работу',
     confirm_guest: 'Запись подтверждена',
     admit: 'Отозвать ссылку входа',
@@ -417,6 +418,7 @@ function rowHtml(r) {
         : '';
     const passed = [r.entry_link_passed, r.result_link_passed].filter(Boolean).map(esc).join(' · ');
     const arrived = r.arrived_at ? `<span class="exam-conduct-arrived" title="Приход отмечен">приход ${esc(r.arrived_at.slice(11, 16))}</span>` : '';
+    const seat = r.seat_no ? `<span class="exam-conduct-arrived" title="Место за компьютером">место ${r.seat_no}</span>` : '';
     const cancelled = 'cancelled' === r.registration_status;
     const pill = cancelled
         ? '<span class="prof-state-pill prof-state-done">Запись отменена</span>'
@@ -429,7 +431,7 @@ function rowHtml(r) {
         ${selecting ? checkboxHtml(r) : ''}
         <div class="pr-info">
             <div class="pr-name">${esc(r.name)}</div>
-            <div class="pr-sub">${esc(r.audience_label)}${r.source ? ` · ${esc(r.source)}` : ''} ${arrived}</div>
+            <div class="pr-sub">${esc(r.audience_label)}${r.source ? ` · ${esc(r.source)}` : ''} ${arrived} ${seat}</div>
             ${stamp}
             ${'guest' === r.audience ? guestPillsHtml(r) : ''}
             ${passed ? `<div class="pr-sub">${passed}</div>` : ''}
@@ -635,6 +637,7 @@ function wire() {
 
 function actionLabel(action, row) {
     if ('arrival' === action && row.arrived_at) { return 'Снять отметку прихода'; }
+    if ('seat' === action && row.seat_no) { return 'Изменить место'; }
     if ('confirm_guest' === action && row.staff_confirmed_at) { return 'Снять подтверждение записи'; }
     if ('entry_link' === action && row.entry_link_issued) { return 'Перевыпустить ссылку на вход'; }
     if ('result_link' === action && row.result_link_issued) { return 'Скопировать ссылку результата (выдать новую)'; }
@@ -688,6 +691,7 @@ function runAction(action, row, anchor) {
         case 'delete_registration': deleteRegistration(row); break;
         case 'transfer': openTransferForm(anchor, row); break;
         case 'extend': openExtendForm(anchor, row); break;
+        case 'seat': openSeatMenu(anchor, row); break;
         case 'arrival': act('markArrival', { registration_id: row.registration_id, arrived: row.arrived_at ? 0 : 1 }); break;
         case 'confirm_guest': act('confirmGuest', { participation_id: row.participation_id, confirmed: row.staff_confirmed_at ? 0 : 1 }, row.staff_confirmed_at ? 'Подтверждение снято' : 'Запись подтверждена'); break;
         case 'admit': act('admitGuest', { participation_id: row.participation_id, admitted: 0 }, 'Ссылка входа отозвана'); break;
@@ -750,6 +754,17 @@ function openReasonForm(anchor, o) {
             return '';
         },
     });
+}
+
+/** Меню мест сеанса записи: от 1 до вместимости, занятые другими не предлагаются; «Снять место» — у посаженного. */
+function openSeatMenu(anchor, row) {
+    const own = row.session || board.session; // в «Все сеансы» у строки свой сеанс, иначе сеанс доски
+    const taken = board.rows
+        .filter(r => r.registration_id !== row.registration_id && (r.session?.id ?? board.session.id) === own.id)
+        .map(r => r.seat_no);
+    const items = seatOptions(own.capacity, taken, row.seat_no);
+    if (!items.length) { toast('Свободных мест в кабинете нет', 'error'); return; }
+    openCtxMenu(anchor, items, v => act('setSeat', { registration_id: row.registration_id, seat_no: Number(v) }, '0' === v ? 'Место снято' : `Место ${v}`), { alignRight: true });
 }
 
 function openTransferForm(anchor, row) {

@@ -143,6 +143,7 @@ use Inc\Migrations\Migration_1_0_100;
 use Inc\Migrations\Migration_1_0_101;
 use Inc\Migrations\Migration_1_0_102;
 use Inc\Migrations\Migration_1_0_103;
+use Inc\Migrations\Migration_1_0_104;
 use Inc\Migrations\Migration_1_0_81;
 use Inc\Migrations\Migration_1_0_82;
 use Inc\Migrations\Migration_1_0_83;
@@ -363,6 +364,7 @@ final class Init {
 		$migrationRunner->register( new Migration_1_0_101() );
 		$migrationRunner->register( new Migration_1_0_102() );
 		$migrationRunner->register( new Migration_1_0_103() );
+		$migrationRunner->register( new Migration_1_0_104() );
 		$migrationRunner->run();
 
 		// Data-миграция (не схема): ссылки на файлы заданий со старой схемой

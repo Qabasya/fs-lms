@@ -264,6 +264,11 @@ class ExamConductViewService {
 			$actions = array( ExamConductAction::Transfer->value );
 		}
 
+		// Место за компьютером — после отметки прихода и пока запись действует (в том числе во время работы).
+		if ( 1 === $registration->activeSlot && ExamRegistrationStatus::Confirmed->value === $registration->status && null !== $registration->arrivedAt ) {
+			$actions[] = ExamConductAction::Seat->value;
+		}
+
 		// Отменённая запись ученика без попытки — мусор в списке: её можно убрать совсем (у гостя для этого «удалить заявку»).
 		if ( null === $attempt && ExamRegistrationStatus::Cancelled->value === $registration->status
 			&& null !== $participation && ExamAudience::Student->value === $participation->audience ) {
@@ -347,6 +352,7 @@ class ExamConductViewService {
 					'id'         => $session->id,
 					'date'       => substr( $start, 0, 10 ),
 					'time_start' => substr( $start, 11, 5 ),
+					'capacity'   => $session->capacity,
 				);
 				$rows[]      = $row;
 			}
@@ -404,6 +410,7 @@ class ExamConductViewService {
 			'group'               => $this->profiles->groupName( $participant ),
 			'school'              => $this->profiles->school( $participation, $participant ),
 			'registration_status' => $registration->status,
+			'seat_no'             => $registration->seatNo,
 			// Гость: независимые состояния — оплата, подтверждение записи (`staff_confirmed_at`: отметка сотрудника), допуск (`admitted_at`: ссылка входа выдана), попытка (`progress`); у ученика оплаты нет.
 			'payment'             => ExamAudience::Guest === $audience ? $this->guestBoard->paymentOf( $participation->id ) : null,
 			'arrived_at'          => null !== $registration->arrivedAt ? $this->time->toLocal( $registration->arrivedAt ) : null,

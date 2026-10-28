@@ -163,6 +163,22 @@ class ExamConductCallbacks extends BaseController {
 		);
 	}
 
+	/** Отмечает место ученика за компьютером; `seat_no = 0` снимает место. */
+	public function ajaxSetExamSeat(): void {
+		$this->authorize( Nonce::ExamManage, Capability::ManageExams );
+
+		$sessionId      = $this->requireInt( 'session_id' );
+		$registrationId = $this->requireInt( 'registration_id' );
+		$seatNo         = $this->sanitizeInt( 'seat_no' );
+
+		$this->runOnBoard(
+			$sessionId,
+			function () use ( $registrationId, $seatNo ): void {
+				$this->conduct->setSeat( get_current_user_id(), $registrationId, $seatNo > 0 ? $seatNo : null );
+			}
+		);
+	}
+
 	/**
 	 * Массовое утверждение (8.5.3): каждая работа — в своей транзакции, частичный успех допустим.
 	 * Ответ — число утверждённых, список пропущенных с причинами и (если передан сеанс) обновлённая доска.

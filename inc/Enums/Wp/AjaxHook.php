@@ -421,6 +421,7 @@ enum AjaxHook: string {
 	case AcceptExamHoldWithoutPayment   = 'accept_exam_hold_without_payment';   // params: session_id (для доски), application_id, reason; ответ: доска
 	case IssueExamGuestPayLink          = 'issue_exam_guest_pay_link';          // params: application_id; ответ: pay_url (один раз, прежний ключ отзывается)
 	case MarkExamArrival                = 'mark_exam_arrival';                  // params: session_id (для доски), registration_id, arrived (0/1); ответ: доска
+	case SetExamSeat                    = 'set_exam_seat';                      // params: session_id (для доски), registration_id, seat_no (0 — снять); ответ: доска
 
 	case LogExamClientEvent     = 'log_exam_client_event';    // публичный, БЕЗ nonce (нужен, когда сессия уже потеряна): attempt_id, kind (left_page|save_failed|session_lost|network_error), detail?; всегда success, пишет в журнал «Экзамены»
 	case GetExamResults         = 'get_exam_results';         // params: subject_key, event_id?, session_id?, status? (pending_review|ready|approved|all), audience? (student|guest|all), source_id?; ответ: filters, items
