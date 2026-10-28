@@ -1,7 +1,7 @@
 # Мастер-классы: контракт имён и классов
 
 Источник правды о том, **какие классы создаются, что в них есть, что возвращают и от чего зависят**. Продуктовая часть —
-`SPEC.md`. «(новое)» — в коде ещё нет; «(изменить)» — существующий класс ядра; остальное проверено по коду на 2026-10-24.
+`SPEC.md`. «(новое)» — в коде ещё нет; «(изменить)» — существующий класс ядра; остальное проверено по коду на 2026-10-28 (ред. 3, `SPEC.md` §16).
 
 Правила для каждого файла (корневой `CLAUDE.md`, `basic_doc.md` §26):
 
@@ -83,7 +83,8 @@ inc/Modules/Masterclass/
 учеников. Чтение — новый метод `Services\Group\ServiceGroupResolver` (новое, ядро): `ids(): array` (кеш на запрос),
 `isService( int $groupId ): bool`. Потребители:
 - `Callbacks\Enrollment\EnrollmentLifecycleCallbacks::ajaxGetStudentGroups()` — исключить из списка;
-- `Services\Enrollment\OpenGroupEnrollmentService::enrollMany()` — `\InvalidArgumentException( 'В служебную группу учеников не добавляют.' )`;
+- `Services\Enrollment\OpenGroupEnrollmentService::enrollableGroup()` — общая проверка для `enrollMany()` и `planFromSubject()`
+  («Добавить всех учеников предмета»): служебная группа → `\InvalidArgumentException( 'В служебную группу учеников не добавляют.' )`;
 - `Services\Export\StudentsExportProvider::rows()` — ученик, у которого все записи в служебных группах, пропускается.
 В этапе 0 — `grep` остальных выборов группы для зачисления (`findByPeriodAndSubject`, `findByFilters`) и решение по каждому
 записать в `tasks/stage-00.md`.
@@ -180,7 +181,7 @@ inc/Modules/Masterclass/
 - `MasterclassLogAction : string` (значение — snake_case, менять нельзя): `MasterclassCreated`, `MasterclassUpdated`,
   `MasterclassExtended`, `DeleteRequested`, `MasterclassPurged`, `AccountsCreated`, `AccountDeleted`, `AccountDetached`,
   `FlyersPrinted`, `LoginBeforeStart`, `LoginOnSite`, `LoginAtHome`, `Frozen`, `ContactOpened`, `ContactPhone`,
-  `ContactMessenger`, `ApplyClicked`, `ApplicationBound`, `ApplicationBindFailed`, `Enrolled`. `label(): string`;
+  `ContactMessenger`, `ApplyClicked`, `ApplicationBound`, `ApplicationBindFailed`, `Enrolled`, `LoginsUnlocked`. `label(): string`;
   `static fromContact( MasterclassContactKind ): self`. Хука `do_action` нет: внутри модуля пишет `MasterclassLogWriter` напрямую.
 
 ## 6. DTO (`Inc\Modules\Masterclass\DTO`, `readonly class`, новое)
@@ -219,6 +220,8 @@ inc/Modules/Masterclass/
 - `find( int $id )`; `findByUserId( int $userId )`; `findByPersonId( int $personId )` — `?MasterclassAccountDTO`, **включая удалённые**
   (вызывающий проверяет `isDeleted()`)
 - `listByMasterclass( int $masterclassId ): list<MasterclassAccountDTO>` — по возрастанию `id`
+- `liveUserIds( int $masterclassId ): list<int>` — `user_id` аккаунтов с учёткой, не удалённых (`user_id IS NOT NULL AND deleted_at IS NULL`;
+  для `unlockLogins()`)
 - `insertPending( int $masterclassId, string $nowUtc ): int` — **`id` = `N`**
 - `attach( int $id, int $userId, int $personId, int $studentRecordId ): void`
 - `setState( int $id, MasterclassAccountState $state, ?int $applicationId = null ): void`
@@ -278,7 +281,7 @@ inc/Modules/Masterclass/
 ### `MasterclassAccountService`
 Зависимости: `MasterclassAccountRepository`, `MasterclassRepository`, `AccountProvisioningService`, `PersonService`,
 `StudentRecordRepository`, `UserManager`, `PasswordGeneratorService`, `DeletionEventDispatcher`, `ApplicationRepository`,
-`MasterclassLogWriter`, `ClockInterface`. Трейт `TransactionRunner`.
+`MasterclassLogWriter`, `LoginGuardService`, `ClockInterface`. Трейт `TransactionRunner`.
 
 - `public const LOGIN_PREFIX = 'student-'`; `public const CHUNK_MAX = 25`; `public static function loginFor( int $n ): string`.
 - `createChunk( int $masterclassId, int $count, int $actorUserId ): int` — `$count` 1–`CHUNK_MAX`; мастер-класс есть, не вычищен,
@@ -302,6 +305,8 @@ inc/Modules/Masterclass/
   удаляет потом `GroupDeletionHandler` (по `group_lesson_id`), отдельной чистки нет.
 - `detachAccount( MasterclassAccountDTO $a, int $actorUserId ): void` — `StudentRecordRepository::deleteTrialByStudent( personId )`,
   `clearStudentRecord()`; учётка и физлицо остаются за заявкой; журнал `AccountDetached`.
+- `unlockLogins( int $masterclassId, int $actorUserId ): int` — для каждого `liveUserIds()` `LoginGuardService::unlockUser( $userId )`;
+  возвращает число аккаунтов; журнал `LoginsUnlocked` (`context.count`). Мастер-класса нет / вычищен → `\InvalidArgumentException`.
 - `hasLiveApplication( MasterclassAccountDTO $a ): bool` — `ApplicationRepository::find( applicationId )` в статусе
   `PendingParent`, `ReadyForReview` или `Enrolling`.
 
@@ -389,7 +394,8 @@ IP — из `RequestContextProvider`. Сбой гасится (`PluginLogger::ex
 
 ### `MasterclassAdminController`
 `PAGE_SLUG = 'fs_lms_masterclasses'`; экшены: `CREATE_ACTION = 'fs_lms_masterclass_create'`, `UPDATE_ACTION`, `EXTEND_ACTION`,
-`DELETE_ACTION`, `ADD_ACCOUNTS_ACTION`, `LESSONS_ACTION`, `FLYERS_ACTION = 'fs_lms_masterclass_flyers'` (admin-post).
+`DELETE_ACTION`, `ADD_ACCOUNTS_ACTION`, `LESSONS_ACTION`, `UNLOCK_ACTION = 'fs_lms_masterclass_unlock'`,
+`FLYERS_ACTION = 'fs_lms_masterclass_flyers'` (admin-post).
 `register()`: `MenuManager::register( array(), array( subpage: parent_slug Menu::Main->value, page_title/menu_title «Мастер-классы»,
 capability Capability::ManageLmsPlatform->value, menu_slug PAGE_SLUG, callback array( $this, 'renderPage' ) ) )`;
 `wp_ajax_*` → `MasterclassAdminCallbacks`; `admin_post_` + `FLYERS_ACTION` → `MasterclassAdminCallbacks::printFlyers`;
@@ -442,6 +448,7 @@ MasterclassService::serviceGroupIds() )`. `fs_lms_group_deleting` (10, 2) → `M
 - `ajaxExtend()` — `id`, `days` → `success( { freeze_at, purge_at } )` (местное время).
 - `ajaxDelete()` — `id` → `success( { detached: int } )`.
 - `ajaxAddAccounts()` — `id`, `count` (≤ `CHUNK_MAX`) → `success( { created: int, total: int } )`.
+- `ajaxUnlock()` — `id` → `success( { unlocked: int } )` (`MasterclassAccountService::unlockLogins()`).
 - `ajaxLessons()` — `subject_key` → `success( lessonOptions() )`.
 - `printFlyers(): void` (admin-post, GET `id`, `security`) — `Nonce::Config->verify()` + `current_user_can( ManageLmsPlatform )`
   (не AJAX-метод — прямая проверка права допустима, `CLAUDE.md`), `nocache_headers()`, `require templates/flyers.php` (свой
@@ -456,7 +463,8 @@ MasterclassService::serviceGroupIds() )`. `fs_lms_group_deleting` (10, 2) → `M
 - `admin-page.php`: `.fs-page-header`, переключатель «Мастер-классы | Журнал», карточка-форма создания/правки (`admin-form.php`,
   `.fs-card`, скрыта атрибутом `hidden`, без модалки — модульный JS не тянет `modal-base.js` ядра), таблица `overview()` (школа,
   дата и окно местного времени, преподаватель, состояние, воронка), действия: «Открыть в плеере», «Докинуть», «Печать флаеров»
-  (ссылка на `admin-post.php?action=…&id=…&security=…`, `target="_blank"`), «Продлить», «Изменить», «Удалить» (подтверждение).
+  (ссылка на `admin-post.php?action=…&id=…&security=…`, `target="_blank"`), «Снять блокировки», «Продлить», «Изменить», «Удалить»
+  (подтверждение).
 - `assets/admin.js` — self-contained IIFE на jQuery (как `AdSync/assets/admin.js`): форма, список уроков по предмету (непригодные —
   неактивны с причиной), цикл `ajaxAddAccounts` с прогрессом «создано X из Y», продление, удаление. Показ/скрытие — `hidden`,
   стили из JS не задаются.
@@ -479,7 +487,7 @@ MasterclassService::serviceGroupIds() )`. `fs_lms_group_deleting` (10, 2) → `M
 - `MasterclassAccessGuardTest` — заморозка по `freeze_at`, чужая группа, не `isTrial`, `Enrolled`, удалённый; `viewFor()` (баннер).
 - `MasterclassServiceTest` — валидации, порядок `create()`, `update()` синхронизирует преподавателя и расписание, `extend()`, `requestDelete()`.
 - `MasterclassAccountServiceTest` — `loginFor()`, `createChunk()` (номер = id, занятый логин, откат при сбое учётки, лимит 25),
-  `flyers()`, `deleteAccount()` (метка до события), `detachAccount()`.
+  `flyers()`, `deleteAccount()` (метка до события), `detachAccount()`, `unlockLogins()` (все живые аккаунты, удалённые не трогаются, журнал).
 - `MasterclassConversionServiceTest` — привязка (поля заявки, `trial_owner`, `syncCredentials`), отказ при живой заявке и при уже
   привязанной заявке, `markEnrolled()` переписывает имя учётки.
 - `MasterclassLifecycleServiceTest` — бюджет аккаунтов, идемпотентность каждого шага, отвязка при `delete_requested_at`, группа не
