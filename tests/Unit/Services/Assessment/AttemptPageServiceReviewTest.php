@@ -94,6 +94,28 @@ class AttemptPageServiceReviewTest extends TestCase {
 		);
 	}
 
+	public function test_exam_page_carries_the_student_name_for_the_station_head(): void {
+		$ctx = new AttemptContext( ExamAudience::Student, 3, 51, 11, 102 );
+		$this->examAttempts->method( 'contextForStudent' )->willReturn( $ctx );
+		$this->examAttempts->method( 'stationState' )->willReturn( array( 'assessment_id' => 9, 'attempt' => null ) );
+		$this->persons->method( 'find' )->willReturn( $this->person( 11 ) );
+
+		$page = $this->service->buildForExam( $this->assessment(), 102, 51 );
+
+		self::assertSame( 'Новиков М', $page->examineeName );
+	}
+
+	public function test_guest_exam_page_carries_the_guest_name(): void {
+		$ctx = new AttemptContext( ExamAudience::Guest, 3, 51, null, null );
+		$this->examAttempts->method( 'contextForGuest' )->willReturn( $ctx );
+		$this->examAttempts->method( 'guestName' )->with( $ctx )->willReturn( 'Иванов Пётр' );
+		$this->examAttempts->method( 'stationState' )->willReturn( array( 'assessment_id' => 9, 'attempt' => null ) );
+
+		$page = $this->service->buildForGuestExam( $this->assessment(), 51 );
+
+		self::assertSame( 'Иванов Пётр', $page->examineeName );
+	}
+
 	public function test_group_manager_sees_the_students_attempt_revealed(): void {
 		$this->attempts->method( 'find' )->willReturn( $this->attempt() );
 		$this->persons->method( 'findByWpUserId' )->willReturn( $this->person( 77 ) ); // преподаватель

@@ -17,6 +17,7 @@
  * @var \Inc\DTO\Assessment\AttemptDTO    $activeAttempt
  * @var array<int, array{template: string, materials: array, taskNumber: int}> $taskViews
  * @var bool                              $previewMode Предпросмотр автора: экран отрендерен скрытым
+ * @var string                            $examineeName ФИО сдающего (ученик или гость); пусто — в шапке имени нет
  */
 declare( strict_types=1 );
 
@@ -72,6 +73,10 @@ foreach ( $assessment->taskIds as $i => $taskId ) {
 		<?php if ( ! $assessment->hideIntro ) : ?>
 			<span class="kege-kim-t" id="kegeHeadKim"></span>
 			<span class="kege-kim-t" id="kegeHeadBr"></span>
+		<?php endif; ?>
+		<?php // Имя не зависит от ритуала: при скрытых экранах входа оно — единственное, что подтверждает, чья это работа. ?>
+		<?php if ( ! empty( $examineeName ) ) : ?>
+			<span class="kege-kim-t" id="kegeHeadName"><?php echo esc_html( $examineeName ); ?></span>
 		<?php endif; ?>
 		<span class="kege-hd-sp"></span>
 		<button type="button" class="kege-head-link" id="kegeFinishEarly">Завершить экзамен досрочно</button>

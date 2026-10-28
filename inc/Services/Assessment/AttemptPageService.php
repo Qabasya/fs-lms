@@ -153,6 +153,7 @@ readonly class AttemptPageService {
 			outcomeState:   $result['state'],
 			canRetry:       false,
 			now:            $now,
+			examineeName:   $person->fullName(),
 		);
 	}
 
@@ -192,6 +193,7 @@ readonly class AttemptPageService {
 			canRetry:       false,
 			now:            $now,
 			guestMode:      true,
+			examineeName:   $this->examAttempts->guestName( $ctx ),
 		);
 	}
 

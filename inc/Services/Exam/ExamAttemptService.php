@@ -70,6 +70,7 @@ class ExamAttemptService {
 		private readonly ExamOutbox $outbox,
 		private readonly ExamTime $time,
 		private readonly GuestSessionService $guestSessions,
+		private readonly GuestParticipantMaterializer $guestData,
 	) {}
 
 	/**
@@ -98,6 +99,14 @@ class ExamAttemptService {
 	 */
 	public function contextForGuest(): ?AttemptContext {
 		return $this->guestSessions->current();
+	}
+
+	/** ФИО гостя для шапки станции; участие или участник исчезли — пустая строка (шапка просто без имени). */
+	public function guestName( AttemptContext $ctx ): string {
+		$participation = $this->participations->find( $ctx->participationId );
+		$participant   = null !== $participation ? $this->participants->find( $participation->participantId ) : null;
+
+		return null !== $participant ? $this->guestData->decryptName( $participant ) : '';
 	}
 
 	/**

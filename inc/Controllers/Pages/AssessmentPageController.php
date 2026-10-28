@@ -202,6 +202,7 @@ class AssessmentPageController extends BaseController implements ServiceInterfac
 		$reviewMode     = $page->reviewMode;
 		$reviewReveal   = $page->reviewReveal;
 		$guestMode      = $page->guestMode;
+		$examineeName   = $page->examineeName;
 		$attemptsUsed   = $page->attemptsUsed;
 
 		// Публичный экзамен открывается сразу на заданиях — без экранов ритуала и входа,

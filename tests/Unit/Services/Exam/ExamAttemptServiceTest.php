@@ -32,6 +32,7 @@ use Inc\Services\Exam\ExamFormatRegistry;
 use Inc\Services\Exam\ExamNoShowService;
 use Inc\Services\Exam\ExamOutbox;
 use Inc\Services\Exam\ExamTime;
+use Inc\Services\Exam\GuestParticipantMaterializer;
 use Inc\Shared\CodedException;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -61,6 +62,7 @@ class ExamAttemptServiceTest extends TestCase {
 	private ExamOutbox&MockObject $outbox;
 	private ExamAccessGuard&MockObject $accessGuard;
 	private \Inc\Services\Exam\GuestSessionService&MockObject $guestSessions;
+	private GuestParticipantMaterializer&MockObject $guestData;
 	private ExamAttemptService $service;
 
 	/** @var array{utc: string, local: string} Текущее время теста. */
@@ -78,6 +80,7 @@ class ExamAttemptServiceTest extends TestCase {
 		$this->persons        = $this->createMock( PersonRepository::class );
 		$this->attemptService = $this->createMock( AttemptService::class );
 		$this->noShow         = $this->createMock( ExamNoShowService::class );
+		$this->guestData      = $this->createMock( GuestParticipantMaterializer::class );
 		$this->outbox         = $this->createMock( ExamOutbox::class );
 		$this->accessGuard    = $this->createMock( ExamAccessGuard::class );
 		$this->guestSessions  = $this->createMock( \Inc\Services\Exam\GuestSessionService::class );
@@ -89,7 +92,7 @@ class ExamAttemptServiceTest extends TestCase {
 			$this->participations, $this->participants, $this->registrations, $this->sessions, $this->events, $this->attempts,
 			$this->persons, $this->createMock( AssessmentManager::class ), $this->attemptService, $this->noShow,
 			$this->createMock( ExamFormatRegistry::class ), $this->accessGuard, $this->outbox, new ExamTime( $clock ),
-			$this->guestSessions,
+			$this->guestSessions, $this->guestData,
 		);
 	}
 
@@ -602,7 +605,7 @@ class ExamAttemptServiceTest extends TestCase {
 			$this->participations, $this->participants, $this->createMock( ExamRegistrationRepository::class ), $this->sessions, $this->events, $this->attempts,
 			$this->persons, $this->createMock( AssessmentManager::class ), $this->attemptService, $this->noShow,
 			$this->createMock( ExamFormatRegistry::class ), $this->accessGuard, $this->outbox, new ExamTime( $this->createMock( ClockInterface::class ) ),
-			$this->guestSessions,
+			$this->guestSessions, $this->guestData,
 		);
 		try {
 			$missing->contextForStudent( 42, 999 );
@@ -613,6 +616,27 @@ class ExamAttemptServiceTest extends TestCase {
 		self::assertSame( array( ErrorCode::ExamAccess, 'Экзамен недоступен.' ), $messages['foreign'] ?? null );
 		self::assertSame( $messages['missing'] ?? null, $messages['foreign'] ?? null );
 	}
+	/* ── Имя участника для шапки станции ── */
+
+	public function test_guest_name_is_decrypted_from_the_participant_of_the_context(): void {
+		$participant = ExamParticipantDTO::fromArray( array( 'id' => 4, 'name_enc' => 'sealed', 'created_at' => '2026-03-01 00:00:00', 'updated_at' => '2026-03-01 00:00:00' ) );
+		$this->participations->method( 'find' )->with( self::PARTICIPATION )->willReturn( $this->participation() );
+		$this->participants->method( 'find' )->with( 4 )->willReturn( $participant );
+		$this->guestData->method( 'decryptName' )->with( $participant )->willReturn( 'Иванов Пётр' );
+
+		$guest = new AttemptContext( ExamAudience::Guest, self::PARTICIPATION, self::REGISTRATION, null, null );
+
+		self::assertSame( 'Иванов Пётр', $this->service->guestName( $guest ) );
+	}
+
+	public function test_guest_name_is_empty_when_participation_is_gone(): void {
+		$this->participations->method( 'find' )->willReturn( null );
+
+		$guest = new AttemptContext( ExamAudience::Guest, self::PARTICIPATION, self::REGISTRATION, null, null );
+
+		self::assertSame( '', $this->service->guestName( $guest ) );
+	}
+
 	/* ── Продление ── */
 
 	private function arrangeExtend( string $status = 'in_progress', bool $canManage = true ): void {
