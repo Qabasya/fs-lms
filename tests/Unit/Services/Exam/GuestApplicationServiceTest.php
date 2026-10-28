@@ -113,7 +113,7 @@ class GuestApplicationServiceTest extends TestCase {
 		return new GuestApplicationService(
 			$this->applications, $this->participants, $this->participations, $this->events, $this->sessions, $this->holds, $identity, $this->consents,
 			$this->config, $this->outbox, $this->rate, $this->users,
-			new GuestParticipantMaterializer( $this->participants, $this->crypto, $identity, $this->createStub( \Inc\Services\Exam\ExamTime::class ) ),
+			new GuestParticipantMaterializer( $this->participants, $this->crypto, $identity, $this->createStub( \Inc\Services\Exam\ExamTime::class ), $this->participations ),
 			$this->guard,
 			$this->log
 		);

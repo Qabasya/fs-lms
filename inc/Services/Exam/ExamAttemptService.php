@@ -103,10 +103,7 @@ class ExamAttemptService {
 
 	/** ФИО гостя для шапки станции; участие или участник исчезли — пустая строка (шапка просто без имени). */
 	public function guestName( AttemptContext $ctx ): string {
-		$participation = $this->participations->find( $ctx->participationId );
-		$participant   = null !== $participation ? $this->participants->find( $participation->participantId ) : null;
-
-		return null !== $participant ? $this->guestData->decryptName( $participant ) : '';
+		return $this->guestData->nameOfParticipation( $ctx->participationId );
 	}
 
 	/**

@@ -19,6 +19,7 @@ declare( strict_types=1 );
  * @var bool   $revealed
  * @var string $event_title
  * @var string $title
+ * @var string $guest_name ФИО гостя (попадает в последнюю хлебную крошку)
  * @var string $submitted
  * @var string $caption
  * @var bool   $preliminary

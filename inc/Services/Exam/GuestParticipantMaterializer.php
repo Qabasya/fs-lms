@@ -12,6 +12,7 @@ namespace Inc\Services\Exam;
 use Inc\DTO\Exam\ExamGuestApplicationDTO;
 use Inc\DTO\Exam\ExamParticipantDTO;
 use Inc\Repositories\WPDBRepositories\ExamParticipantRepository;
+use Inc\Repositories\WPDBRepositories\ExamParticipationRepository;
 use Inc\Services\Security\PiiCryptoService;
 
 /**
@@ -29,6 +30,7 @@ class GuestParticipantMaterializer {
 		private readonly PiiCryptoService $crypto,
 		private readonly GuestIdentity $identity,
 		private readonly ExamTime $time,
+		private readonly ExamParticipationRepository $participations,
 	) {}
 
 	/**
@@ -122,6 +124,17 @@ class GuestParticipantMaterializer {
 		}
 
 		return trim( implode( ' ', array_filter( array( (string) ( $draft['last_name'] ?? '' ), (string) ( $draft['first_name'] ?? '' ), (string) ( $draft['middle_name'] ?? '' ) ) ) ) );
+	}
+
+	/**
+	 * ФИО гостя по участию — для его же страниц (шапка станции, результат); участие или участник исчезли — пустая строка.
+	 * Единственное место, где участие превращается в имя: страницы гостя не расшифровывают его сами.
+	 */
+	public function nameOfParticipation( int $participationId ): string {
+		$participation = $this->participations->find( $participationId );
+		$participant   = null !== $participation ? $this->participants->find( $participation->participantId ) : null;
+
+		return null !== $participant ? $this->decryptName( $participant ) : '';
 	}
 
 	/** ФИО гостя для экранов сотрудника; расшифровка не удалась или данных нет — «Гость #id». */

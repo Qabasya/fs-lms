@@ -166,7 +166,8 @@ class ExamGuestPageController extends BaseController implements ServiceInterface
 				'url'   => home_url( '/' ),
 			),
 			array(
-				'label'   => __( 'Результат экзамена', 'fs-lms' ),
+				// ФИО гостя в последней крошке: по ссылке результата видно, чья это работа.
+				'label'   => $this->resultCrumbLabel( (string) ( $data['guest_name'] ?? '' ) ),
 				'current' => true,
 			),
 		);
@@ -175,6 +176,13 @@ class ExamGuestPageController extends BaseController implements ServiceInterface
 		$this->render( 'frontend/exam-result', $data );
 
 		return (string) ob_get_clean();
+	}
+
+	/** «Результат экзамена: Иванов Пётр»; имени нет — просто «Результат экзамена». */
+	private function resultCrumbLabel( string $guestName ): string {
+		$label = __( 'Результат экзамена', 'fs-lms' );
+
+		return '' !== $guestName ? $label . ': ' . $guestName : $label;
 	}
 
 	/** Шорткод школьного отчёта. */

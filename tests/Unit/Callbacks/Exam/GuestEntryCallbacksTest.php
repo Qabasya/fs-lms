@@ -261,4 +261,29 @@ class GuestEntryCallbacksTest extends TestCase {
 			$this->createMock( \Inc\Managers\Wp\PostManager::class )
 		) )->renderResultPage() );
 	}
+	public function test_result_page_breadcrumb_carries_the_guest_name(): void {
+		$this->sessions->method( 'viewableParticipationId' )->willReturn( 4 );
+		$result = $this->createMock( \Inc\Services\Exam\GuestResultViewService::class );
+		$result->method( 'build' )->willReturn( array(
+			'revealed' => true, 'guest_name' => 'Иванов Пётр', 'event_title' => 'Пробный ЕГЭ', 'title' => 'Пробный ЕГЭ', 'submitted' => '',
+			'caption' => '10 баллов', 'preliminary' => false, 'units' => array(), 'counts' => array( 'correct' => 0, 'partial' => 0, 'wrong' => 0, 'pending' => 0 ),
+			'tasks' => array(), 'contacts' => array(),
+		) );
+		$sidebar = $this->createMock( \Inc\Services\Exam\GuestResultSidebarService::class );
+		$sidebar->method( 'build' )->willReturn( array( 'courses' => array(), 'articles' => array(), 'articles_url' => '' ) );
+
+		$html = ( new \Inc\Controllers\Exam\ExamGuestPageController(
+			$this->access,
+			$this->sessions,
+			$this->createMock( \Inc\Services\Exam\GuestSignupViewService::class ),
+			$this->createMock( \Inc\Services\Exam\GuestEntryViewService::class ),
+			$result,
+			$sidebar,
+			$this->createMock( \Inc\Services\Exam\ExamReportViewService::class ),
+			$this->createMock( \Inc\Services\Exam\GuestPageResponder::class ),
+			$this->createMock( \Inc\Managers\Wp\PostManager::class )
+		) )->renderResultPage();
+
+		self::assertStringContainsString( 'Результат экзамена: Иванов Пётр', $html );
+	}
 }

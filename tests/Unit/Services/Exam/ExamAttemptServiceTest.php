@@ -618,23 +618,12 @@ class ExamAttemptServiceTest extends TestCase {
 	}
 	/* ── Имя участника для шапки станции ── */
 
-	public function test_guest_name_is_decrypted_from_the_participant_of_the_context(): void {
-		$participant = ExamParticipantDTO::fromArray( array( 'id' => 4, 'name_enc' => 'sealed', 'created_at' => '2026-03-01 00:00:00', 'updated_at' => '2026-03-01 00:00:00' ) );
-		$this->participations->method( 'find' )->with( self::PARTICIPATION )->willReturn( $this->participation() );
-		$this->participants->method( 'find' )->with( 4 )->willReturn( $participant );
-		$this->guestData->method( 'decryptName' )->with( $participant )->willReturn( 'Иванов Пётр' );
+	public function test_guest_name_is_the_name_of_the_context_participation(): void {
+		$this->guestData->method( 'nameOfParticipation' )->with( self::PARTICIPATION )->willReturn( 'Иванов Пётр' );
 
 		$guest = new AttemptContext( ExamAudience::Guest, self::PARTICIPATION, self::REGISTRATION, null, null );
 
 		self::assertSame( 'Иванов Пётр', $this->service->guestName( $guest ) );
-	}
-
-	public function test_guest_name_is_empty_when_participation_is_gone(): void {
-		$this->participations->method( 'find' )->willReturn( null );
-
-		$guest = new AttemptContext( ExamAudience::Guest, self::PARTICIPATION, self::REGISTRATION, null, null );
-
-		self::assertSame( '', $this->service->guestName( $guest ) );
 	}
 
 	/* ── Продление ── */

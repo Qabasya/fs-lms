@@ -69,9 +69,12 @@ class ExamReviewViewServiceTest extends TestCase {
 		self::assertFalse( $data['preliminary'] );
 		$contacts = $this->createMock( CenterContactsService::class );
 		$contacts->expects( self::once() )->method( 'get' )->willReturn( array( 'phone' => 'test-phone' ) );
-		$guest = ( new GuestResultViewService( $review, $contacts ) )->build( 80 );
+		$guestData = $this->createMock( \Inc\Services\Exam\GuestParticipantMaterializer::class );
+		$guestData->method( 'nameOfParticipation' )->with( 80 )->willReturn( 'Иванов Пётр' );
+		$guest = ( new GuestResultViewService( $review, $contacts, $guestData ) )->build( 80 );
 		self::assertSame( array( 'phone' => 'test-phone' ), $guest['contacts'] );
-		unset( $guest['contacts'] );
+		self::assertSame( 'Иванов Пётр', $guest['guest_name'], 'имя — для заголовка страницы гостя' );
+		unset( $guest['contacts'], $guest['guest_name'] );
 		self::assertSame( $data, $guest );
 	}
 
