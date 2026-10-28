@@ -206,6 +206,11 @@ class ExamAccessTokenService {
 		return array_fill_keys( $this->tokens->passedTargetIds( $purpose, $targetIds ), true );
 	}
 
+	/** Снимает ручную отметку «Ссылка передана». */
+	public function clearPassed( int $tokenId ): void {
+		$this->tokens->clearPassed( $tokenId );
+	}
+
 	/** Ручная отметка «Ссылка передана»: копирование ссылки её не ставит. */
 	public function markPassed( int $tokenId, int $actorUserId ): void {
 		$this->tokens->markPassed( $tokenId, $actorUserId, $this->time->nowUtc() );

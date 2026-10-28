@@ -287,11 +287,12 @@ class ExamConductService {
 	}
 
 	/**
-	 * Ручная отметка «Ссылка передана» (8.8.6): ставит сотрудник после того, как отдал ссылку входа или результата. **Копирование ссылки отметку не ставит.**
+	 * Ручная отметка «Ссылка передана» (8.8.6): ставит сотрудник после того, как отдал ссылку входа или результата, и может снять,
+	 * если поставил по ошибке (`$passed = false`). **Копирование ссылки отметку не ставит.**
 	 *
 	 * @throws CodedException Участие недоступно, назначение ссылки не поддерживается или действующий ключ не выдан.
 	 */
-	public function markLinkPassed( int $actorUserId, int $participationId, ExamTokenPurpose $purpose ): void {
+	public function markLinkPassed( int $actorUserId, int $participationId, ExamTokenPurpose $purpose, bool $passed = true ): void {
 		if ( ! in_array( $purpose, array( ExamTokenPurpose::Entry, ExamTokenPurpose::Result ), true ) ) {
 			throw new CodedException( ErrorCode::ExamState, 'Эту ссылку отметить нельзя.' );
 		}
@@ -300,6 +301,12 @@ class ExamConductService {
 		$token = $this->tokens->activeToken( $purpose, $participationId );
 		if ( null === $token ) {
 			throw new CodedException( ErrorCode::ExamState, 'Сначала выдайте ссылку.' );
+		}
+		if ( ! $passed ) {
+			$this->tokens->clearPassed( $token->id );
+			ExamLogAction::LinkPassedCleared->record( array( 'event_id' => $participation->eventId, 'participation_id' => $participationId, 'actor' => $actorUserId, 'context' => array( 'purpose' => $purpose->value ) ) );
+
+			return;
 		}
 		$this->tokens->markPassed( $token->id, $actorUserId );
 

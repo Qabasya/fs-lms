@@ -59,6 +59,7 @@ enum ExamLogAction: string {
 	case ResultLinkIssued = 'result_link_issued';
 	case ResultLinkRevoked = 'result_link_revoked';
 	case LinkMarkedPassed = 'link_marked_passed';
+	case LinkPassedCleared = 'link_passed_cleared';
 	case AttemptStarted = 'attempt_started';
 	case AttemptSubmitted = 'attempt_submitted';
 	case AttemptExpired = 'attempt_expired';
@@ -147,6 +148,7 @@ enum ExamLogAction: string {
 			self::ResultLinkIssued => 'Ссылка результата: выдана',
 			self::ResultLinkRevoked => 'Ссылка результата: отозвана',
 			self::LinkMarkedPassed => 'Ссылка: отмечена как переданная',
+			self::LinkPassedCleared => 'Ссылка: отметка о передаче снята',
 			self::AttemptStarted => 'Работа: начата',
 			self::AttemptSubmitted => 'Работа: сдана',
 			self::AttemptExpired => 'Работа: завершена по времени',

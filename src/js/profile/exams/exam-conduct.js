@@ -640,6 +640,8 @@ function actionLabel(action, row) {
     if ('seat' === action && row.seat_no) { return 'Изменить место'; }
     if ('confirm_guest' === action && row.staff_confirmed_at) { return 'Снять подтверждение записи'; }
     if ('entry_link' === action && row.entry_link_issued) { return 'Перевыпустить ссылку на вход'; }
+    if ('mark_entry_passed' === action && row.entry_link_passed) { return 'Снять отметку: ссылка входа передана'; }
+    if ('mark_result_passed' === action && row.result_link_passed) { return 'Снять отметку: ссылка результата передана'; }
     if ('result_link' === action && row.result_link_issued) { return 'Скопировать ссылку результата (выдать новую)'; }
     return ACTION_LABELS[action];
 }
@@ -685,6 +687,11 @@ async function deleteRegistration(row) {
     act('deleteRegistration', { registration_id: row.registration_id }, 'Запись удалена');
 }
 
+/** Отметка «ссылка передана»: поставить или, если уже стоит, снять (на случай ошибочного нажатия). */
+function toggleLinkPassed(row, purpose, passedLabel) {
+    act('markLinkPassed', { participation_id: row.participation_id, purpose, passed: passedLabel ? 0 : 1 }, passedLabel ? 'Отметка снята' : 'Отмечено');
+}
+
 function runAction(action, row, anchor) {
     switch (action) {
         case 'cancel': openReasonForm(anchor, { title: 'Отменить запись', submit: 'Отменить запись', confirm: `Отменить запись: ${row.name}?`, run: reason => act('cancelRegistration', { registration_id: row.registration_id, reason }, 'Запись отменена') }); break;
@@ -710,8 +717,8 @@ function runAction(action, row, anchor) {
                 'Удалить', 'Не удалять'
             ).then(ok => { if (ok) { act('deleteGuest', { participant_id: row.participant_id }, 'Заявка удалена'); } });
             break;
-        case 'mark_entry_passed': act('markLinkPassed', { participation_id: row.participation_id, purpose: 'entry' }, 'Отмечено'); break;
-        case 'mark_result_passed': act('markLinkPassed', { participation_id: row.participation_id, purpose: 'result' }, 'Отмечено'); break;
+        case 'mark_entry_passed': toggleLinkPassed(row, 'entry', row.entry_link_passed); break;
+        case 'mark_result_passed': toggleLinkPassed(row, 'result', row.result_link_passed); break;
         case 'revoke_result_link': act('revokeResultLink', { participation_id: row.participation_id }, 'Ссылка результата отозвана'); break;
         case 'open_work': handlers.openWorkReview?.('attempt', row.attempt_id); break;
         default: break;

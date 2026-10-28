@@ -529,6 +529,24 @@ class ExamConductServiceTest extends TestCase {
 		$this->service->markLinkPassed( 10, 4, \Inc\Enums\Exam\ExamTokenPurpose::Entry );
 	}
 
+	public function test_mark_link_passed_can_be_cleared_in_case_of_a_mistake(): void {
+		$this->participations->method( 'find' )->willReturn( $this->guestParticipation() );
+		$this->tokens->method( 'activeToken' )->willReturn( $this->accessToken( 31 ) );
+		$this->tokens->expects( self::once() )->method( 'clearPassed' )->with( 31 );
+		$this->tokens->expects( self::never() )->method( 'markPassed' );
+
+		$this->service->markLinkPassed( 10, 4, \Inc\Enums\Exam\ExamTokenPurpose::Result, false );
+	}
+
+	public function test_clearing_mark_requires_issued_link(): void {
+		$this->participations->method( 'find' )->willReturn( $this->guestParticipation() );
+		$this->tokens->method( 'activeToken' )->willReturn( null );
+		$this->tokens->expects( self::never() )->method( 'clearPassed' );
+
+		$this->expectException( CodedException::class );
+		$this->service->markLinkPassed( 10, 4, \Inc\Enums\Exam\ExamTokenPurpose::Result, false );
+	}
+
 	public function test_mark_link_passed_requires_issued_link(): void {
 		$this->participations->method( 'find' )->willReturn( $this->guestParticipation() );
 		$this->tokens->method( 'activeToken' )->willReturn( null );

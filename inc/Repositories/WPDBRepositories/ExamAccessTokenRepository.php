@@ -118,6 +118,15 @@ class ExamAccessTokenRepository extends AbstractExamRepository {
 		) );
 	}
 
+	/** Снимает отметку «Ссылка передана» (ошибочно поставленную); без отметки ничего не меняет. */
+	public function clearPassed( int $id ): void {
+		$this->write( $this->wpdb->prepare(
+			'UPDATE %i SET passed_at = NULL, passed_by_user_id = NULL WHERE id = %d AND passed_at IS NOT NULL',
+			$this->table,
+			$id
+		) );
+	}
+
 	/** Удаляет ключи, истёкшие или отозванные раньше срока. @return int Число удалённых. */
 	public function purgeInactiveBefore( string $cutoffUtc, int $limit = 1000 ): int {
 		return $this->write( $this->wpdb->prepare(

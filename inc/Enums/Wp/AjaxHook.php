@@ -409,7 +409,7 @@ enum AjaxHook: string {
 	case RevokeExamReportLink           = 'revoke_exam_report_link';            // params: report_id, version
 	case DeleteExamGuest                = 'delete_exam_guest';                  // params: participant_id, session_id; права ManageExamGuests + ManageLmsPlatform; полное удаление тестовой заявки; ответ: board
 	case AnonymizeExamGuest             = 'anonymize_exam_guest';               // params: participant_id, reason, session_id; права ManageExamGuests + ManageLmsPlatform; ответ: board
-	case MarkExamLinkPassed             = 'mark_exam_link_passed';              // params: participation_id, purpose (entry|result), session_id; ответ: board
+	case MarkExamLinkPassed             = 'mark_exam_link_passed';              // params: participation_id, purpose (entry|result), session_id, passed? (0 — снять отметку, по умолчанию 1); ответ: board
 	case GetExamPaymentQueue            = 'get_exam_payment_queue';             // params: tab (needs_help|resolved); ответ: items
 	case ResolveExamPayment             = 'resolve_exam_payment';               // params: application_id, kind (transferred|refunded_outside|other), session_id?, reason, amount?; ответ: items
 	case EndExamGuestSession            = 'end_exam_guest_session';             // публичный (nonce ExamGuest): отзыв гостевой сессии и удаление куки; ответ: url нейтральной страницы

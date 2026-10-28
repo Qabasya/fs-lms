@@ -136,6 +136,20 @@ class ExamConductCallbacksTest extends TestCase {
 		self::assertFalse( fs_test_capture_json( fn() => $this->cb->ajaxSetExamSeat() )->success );
 	}
 
+	public function test_link_passed_mark_is_set_by_default_and_cleared_with_passed_zero(): void {
+		$set = array( 'session_id' => '7', 'participation_id' => '4', 'purpose' => 'result' );
+		$this->conduct->expects( self::exactly( 2 ) )->method( 'markLinkPassed' )->willReturnCallback( function ( int $actor, int $participation, $purpose, bool $passed ) use ( &$calls ): void {
+			$calls[] = $passed;
+		} );
+
+		$_POST = $set;
+		fs_test_capture_json( fn() => $this->cb->ajaxMarkExamLinkPassed() );
+		$_POST = $set + array( 'passed' => '0' );
+		fs_test_capture_json( fn() => $this->cb->ajaxMarkExamLinkPassed() );
+
+		self::assertSame( array( true, false ), $calls );
+	}
+
 	public function test_no_sessions_returns_null_board(): void {
 		$_POST = array();
 		$this->board->method( 'defaultSessionId' )->willReturn( null );

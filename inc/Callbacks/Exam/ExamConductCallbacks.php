@@ -429,7 +429,7 @@ class ExamConductCallbacks extends BaseController {
 		$this->runOnBoard( $sessionId, fn () => $this->guestDeletion->deleteByStaff( get_current_user_id(), $participantId ) );
 	}
 
-	/** «Ссылка передана»: ручная отметка (копирование её не ставит). Ответ — обновлённая доска. */
+	/** «Ссылка передана»: ручная отметка (копирование её не ставит); `passed = 0` снимает её. Ответ — обновлённая доска. */
 	public function ajaxMarkExamLinkPassed(): void {
 		$this->authorize( Nonce::ExamManage, Capability::ManageExamGuests );
 
@@ -441,7 +441,9 @@ class ExamConductCallbacks extends BaseController {
 			return;
 		}
 
-		$this->runOnBoard( $sessionId, fn () => $this->conduct->markLinkPassed( get_current_user_id(), $participationId, $purpose ) );
+		$passed = ! $this->hasParam( 'passed' ) || $this->sanitizeBool( 'passed' );
+
+		$this->runOnBoard( $sessionId, fn () => $this->conduct->markLinkPassed( get_current_user_id(), $participationId, $purpose, $passed ) );
 	}
 
 	/** «Скопировать ссылку результата»: выдаёт новый ключ (прежний перестаёт работать). Право — `ShareExamResults`. */
