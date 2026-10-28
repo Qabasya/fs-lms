@@ -8,6 +8,7 @@ use Inc\Contracts\ClockInterface;
 use Inc\DTO\Course\GroupLessonDTO;
 use Inc\DTO\Course\SubmissionDTO;
 use Inc\DTO\Course\WorkDTO;
+use Inc\Enums\Course\LessonKind;
 use Inc\Enums\Course\SubmissionStatus;
 use Inc\Enums\Course\WorkType;
 use Inc\Managers\Course\LessonManager;
@@ -83,6 +84,21 @@ class PassedWorksServiceTest extends TestCase {
 	/** @return array{row: GroupLessonDTO, at: string} */
 	private function entry( int $id, string $at = '2026-10-19 10:00:00' ): array {
 		return array( 'row' => $this->row( $id ), 'at' => $at );
+	}
+
+	/** Строка дополнительного занятия для части группы: по строке на ученика, общий `extra_key`. */
+	private function extra( int $id, int $personId, string $scheduledAt = '2026-10-19 10:00:00' ): GroupLessonDTO {
+		return new GroupLessonDTO(
+			id: $id, groupId: 1, lessonId: 10, position: 0, workIdsSnapshot: null, extraWorkIds: array(),
+			scheduledAt: $scheduledAt, endsAt: null, isPinned: true, teacherUserId: null, visibility: 'open',
+			openedAt: null, homeworkDueAt: null, allowLate: true, recordingUrl: null, createdByUserId: null, updatedByUserId: null,
+			kind: LessonKind::Individual, studentPersonId: $personId, extraKey: 'k1'
+		);
+	}
+
+	/** Сдачи по строкам занятия: group_lesson_id => сдачи. */
+	private function submissionsByRow( array $map ): void {
+		$this->submissions->method( 'listAggregatesByGroupLesson' )->willReturnCallback( static fn( int $id ): array => $map[ $id ] ?? array() );
 	}
 
 	private function work( int $id = 3, WorkType $type = WorkType::Practice ): WorkDTO {
@@ -191,6 +207,102 @@ class PassedWorksServiceTest extends TestCase {
 
 		self::assertSame( array(), $feed['items'] );
 		self::assertNull( $feed['next'] );
+	}
+
+	// ── Дополнительное занятие для части группы: одна работа на всех ─────────
+
+	public function test_feed_shows_extra_lesson_as_one_work_for_all_its_students(): void {
+		$first  = $this->extra( 6, 10 );
+		$second = $this->extra( 5, 11 );
+		$this->groupLessons->method( 'listFeedPage' )->willReturn( array(
+			array( 'row' => $first, 'at' => '2026-10-19 10:00:00' ),
+			array( 'row' => $second, 'at' => '2026-10-19 10:00:00' ),
+		) );
+		$this->groupLessons->method( 'listExtraSiblings' )->willReturn( array( $second, $first ) );
+		$this->deadlines->method( 'assignedWorks' )->willReturn( array( $this->work() ) );
+		$this->submissionsByRow( array( 6 => array( $this->submission( 10, SubmissionStatus::PendingReview ) ) ) );
+
+		$items = $this->service->feed( 7, false, 0, '', '', '' )['items'];
+
+		self::assertCount( 1, $items, 'четыре строки доп. занятия — одна работа, а не по карточке на ученика' );
+		self::assertSame( 6, $items[0]['group_lesson_id'] );
+		self::assertSame( 2, $items[0]['total'] );
+		self::assertSame( 1, $items[0]['submitted'] );
+		self::assertSame( 1, $items[0]['missing'] );
+		self::assertSame( 1, $items[0]['pending'] );
+	}
+
+	public function test_feed_does_not_repeat_extra_lesson_on_the_next_page(): void {
+		$first  = $this->extra( 6, 10 );
+		$second = $this->extra( 5, 11 );
+		// Страница началась со второй строки доп. занятия: первая осталась на прошлой странице.
+		$this->groupLessons->method( 'listFeedPage' )->willReturn( array( array( 'row' => $second, 'at' => '2026-10-19 10:00:00' ) ) );
+		$this->groupLessons->method( 'listExtraSiblings' )->willReturn( array( $second, $first ) );
+		$this->deadlines->method( 'assignedWorks' )->willReturn( array( $this->work() ) );
+		$this->submissionsByRow( array() );
+
+		$feed = $this->service->feed( 7, false, 0, '', '', '2026-10-19 10:00:00|6' );
+
+		self::assertSame( array(), $feed['items'] );
+		self::assertNull( $feed['next'] );
+	}
+
+	public function test_feed_treats_extra_row_moved_to_another_time_as_its_own_lesson(): void {
+		$moved = $this->extra( 6, 10, '2026-10-18 10:00:00' );
+		$stays = $this->extra( 5, 11 );
+		$this->groupLessons->method( 'listFeedPage' )->willReturn( array(
+			array( 'row' => $stays, 'at' => '2026-10-19 10:00:00' ),
+			array( 'row' => $moved, 'at' => '2026-10-18 10:00:00' ),
+		) );
+		$this->groupLessons->method( 'listExtraSiblings' )->willReturn( array( $stays, $moved ) );
+		$this->deadlines->method( 'assignedWorks' )->willReturn( array( $this->work() ) );
+		$this->submissionsByRow( array() );
+
+		$items = $this->service->feed( 7, false, 0, '', '', '' )['items'];
+
+		self::assertCount( 2, $items );
+		self::assertSame( array( 1, 1 ), array( $items[0]['total'], $items[1]['total'] ) );
+	}
+
+	public function test_students_of_extra_lesson_come_from_all_its_rows_with_own_row_id(): void {
+		$first  = $this->extra( 6, 10 );
+		$second = $this->extra( 5, 11 );
+		$this->groupLessons->method( 'find' )->willReturn( $second );
+		$this->groupLessons->method( 'listExtraSiblings' )->willReturn( array( $second, $first ) );
+		$this->submissionsByRow( array( 6 => array( $this->submission( 10 ) ) ) );
+
+		$students = $this->service->students( 5, 3, 7, false );
+
+		self::assertCount( 2, $students );
+		self::assertSame( array( 10, 6, 'graded' ), array( $students[0]['student_person_id'], $students[0]['group_lesson_id'], $students[0]['status'] ) );
+		self::assertSame( array( 11, 5, '' ), array( $students[1]['student_person_id'], $students[1]['group_lesson_id'], $students[1]['status'] ) );
+	}
+
+	public function test_credit_for_extra_lesson_goes_to_the_row_of_each_student(): void {
+		$first  = $this->extra( 6, 10 );
+		$second = $this->extra( 5, 11 );
+		$this->groupLessons->method( 'find' )->willReturn( $second );
+		$this->groupLessons->method( 'listExtraSiblings' )->willReturn( array( $second, $first ) );
+		$this->submissionsByRow( array() );
+
+		$calls = array();
+		$this->submissionService->method( 'creditWork' )->willReturnCallback( static function ( int $personId, int $rowId ) use ( &$calls ): bool {
+			$calls[ $personId ] = $rowId;
+			return true;
+		} );
+
+		self::assertSame( 2, $this->service->credit( 5, 3, array(), 7, false ) );
+		self::assertSame( array( 10 => 6, 11 => 5 ), $calls, 'зачёт пишется под строкой занятия самого ученика' );
+	}
+
+	public function test_uncredit_for_extra_lesson_goes_to_the_row_of_the_student(): void {
+		$first  = $this->extra( 6, 10 );
+		$second = $this->extra( 5, 11 );
+		$this->groupLessons->method( 'find' )->willReturn( $second );
+		$this->groupLessons->method( 'listExtraSiblings' )->willReturn( array( $second, $first ) );
+		$this->submissionService->expects( $this->once() )->method( 'revokeWorkCredit' )->with( 10, 6, 3 )->willReturn( true );
+
+		self::assertTrue( $this->service->uncredit( 5, 3, 10, 7, false ) );
 	}
 
 	// ── feed(): порции ────────────────────────────────────────────────────────

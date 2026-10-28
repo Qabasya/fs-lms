@@ -94,7 +94,12 @@ class PassedWorksService {
 		$context = array( 'students' => array(), 'groups' => array() );
 
 		foreach ( $rows as $i => $entry ) {
-			array_push( $items, ...$this->lessonItems( $entry['row'], $entry['at'], $type, $status, $context ) );
+			$unit = $this->unitRows( $entry['row'] );
+
+			// Строки дополнительного занятия показываются одной карточкой — на первой из них; остальные пропускаются.
+			if ( $unit[0]->id === $entry['row']->id ) {
+				array_push( $items, ...$this->lessonItems( $unit, $entry['at'], $type, $status, $context ) );
+			}
 
 			if ( count( $items ) >= self::PAGE_SIZE ) {
 				$next = ( $i < $last || $hasMore ) ? self::cursorOf( $entry ) : null;
@@ -117,8 +122,10 @@ class PassedWorksService {
 	 *
 	 * `status` — статус сдачи ({@see SubmissionStatus}) или пусто, если сдачи нет. У сдавшего есть ещё `marks`
 	 * (вердикты по заданиям — полоска в карточке), `submitted_at` и `duration_sec` (сколько решал).
+	 * `group_lesson_id` — строка занятия, под которой хранится прогресс ученика: у дополнительного занятия
+	 * для части группы она своя у каждого ученика, у остальных — одна.
 	 *
-	 * @return array<int, array{student_person_id:int, student_name:string, submission_id:int, status:string, score:?float, max_score:?float, credited:bool, marks:string[], submitted_at:?string, duration_sec:?int}>|null null — занятие вне доступных групп
+	 * @return array<int, array{student_person_id:int, student_name:string, group_lesson_id:int, submission_id:int, status:string, score:?float, max_score:?float, credited:bool, marks:string[], submitted_at:?string, duration_sec:?int}>|null null — занятие вне доступных групп
 	 */
 	public function students( int $groupLessonId, int $workId, int $userId, bool $allGroups ): ?array {
 		$row = $this->accessibleRow( $groupLessonId, $userId, $allGroups );
@@ -126,15 +133,18 @@ class PassedWorksService {
 			return null;
 		}
 
-		$expected = $this->expectedStudents( $row->studentPersonId, $row->kind->isIndividual(), $this->activeStudents( $row->groupId ) );
-		$byPerson = $this->lessonSubmissions( $groupLessonId )[ $workId ] ?? array();
+		$unit     = $this->unitRows( $row );
+		$active   = $this->activeStudents( $row->groupId );
+		$owners   = $this->studentRows( $unit, $active );
+		$byPerson = $this->unitSubmissions( $unit )[ $workId ] ?? array();
 
 		$out = array();
-		foreach ( $expected as $personId => $name ) {
+		foreach ( $owners as $personId => $owner ) {
 			$sub   = $byPerson[ $personId ] ?? null;
 			$out[] = array(
 				'student_person_id' => $personId,
-				'student_name'      => $name,
+				'student_name'      => $active[ $personId ],
+				'group_lesson_id'   => $owner->id,
 				'submission_id'     => $sub->id ?? 0,
 				'status'            => null !== $sub ? $sub->status->value : '',
 				'score'             => $sub?->score,
@@ -173,7 +183,7 @@ class PassedWorksService {
 			if ( array() !== $personIds && ! in_array( $student['student_person_id'], $personIds, true ) ) {
 				continue;
 			}
-			if ( $this->submissionService->creditWork( $student['student_person_id'], $groupLessonId, $workId, $userId ) ) {
+			if ( $this->submissionService->creditWork( $student['student_person_id'], $student['group_lesson_id'], $workId, $userId ) ) {
 				++$credited;
 			}
 		}
@@ -187,30 +197,39 @@ class PassedWorksService {
 	 * @return bool|null null — занятие вне доступных групп; false — засчитанной вручную работы нет
 	 */
 	public function uncredit( int $groupLessonId, int $workId, int $personId, int $userId, bool $allGroups ): ?bool {
-		if ( null === $this->accessibleRow( $groupLessonId, $userId, $allGroups ) ) {
+		$row = $this->accessibleRow( $groupLessonId, $userId, $allGroups );
+		if ( null === $row ) {
 			return null;
 		}
 
-		return $this->submissionService->revokeWorkCredit( $personId, $groupLessonId, $workId );
+		$owner = $this->studentRows( $this->unitRows( $row ), $this->activeStudents( $row->groupId ) )[ $personId ] ?? $row;
+
+		return $this->submissionService->revokeWorkCredit( $personId, $owner->id, $workId );
 	}
 
 	/**
 	 * Работы одного занятия, прошедшие фильтры, — строки списка.
 	 *
 	 * Работа со сдачами показывается, даже если её потом убрали из набора занятия: сдача не должна пропасть.
+	 * Дополнительное занятие для части группы — одна работа на всех его учеников: «сдали N из M» считается по
+	 * всем строкам занятия сразу.
 	 *
+	 * @param GroupLessonDTO[]                                                              $unit    Строки одного занятия ({@see self::unitRows()})
 	 * @param array{students: array<int, array<int, string>>, groups: array<int, string>} $context Кеш на время запроса (ученики и названия групп)
 	 *
 	 * @return array<int, array<string, mixed>>
 	 */
-	private function lessonItems( GroupLessonDTO $row, string $at, string $type, string $status, array &$context ): array {
-		$submitted = $this->lessonSubmissions( $row->id );
+	private function lessonItems( array $unit, string $at, string $type, string $status, array &$context ): array {
+		$row       = $unit[0];
+		$submitted = $this->unitSubmissions( $unit );
 
 		/** @var array<int, WorkDTO> $works */
 		$works = array();
-		foreach ( $this->deadlines->assignedWorks( $row ) as $work ) {
-			if ( array() !== $work->itemIds ) {
-				$works[ $work->id ] = $work;
+		foreach ( $unit as $member ) {
+			foreach ( $this->deadlines->assignedWorks( $member ) as $work ) {
+				if ( array() !== $work->itemIds ) {
+					$works[ $work->id ] ??= $work;
+				}
 			}
 		}
 		foreach ( array_keys( $submitted ) as $workId ) {
@@ -228,7 +247,7 @@ class PassedWorksService {
 		$gid                       = $row->groupId;
 		$context['students'][ $gid ] ??= $this->activeStudents( $gid );
 		$context['groups'][ $gid ]   ??= (string) ( $this->groups->findById( $gid )->name ?? '' );
-		$expected                    = $this->expectedStudents( $row->studentPersonId, $row->kind->isIndividual(), $context['students'][ $gid ] );
+		$expected                    = array_intersect_key( $context['students'][ $gid ], $this->studentRows( $unit, $context['students'][ $gid ] ) );
 		$topic                       = $row->lessonId ? ( $this->lessons->get( $row->lessonId )?->topic ?? '' ) : '';
 		$pendingStatuses             = self::pendingStatuses();
 
@@ -325,11 +344,65 @@ class PassedWorksService {
 			: array();
 	}
 
-	/** @return array<int, array<int, SubmissionDTO>> work_id => [person_id => сдача] занятия */
-	private function lessonSubmissions( int $groupLessonId ): array {
+	/**
+	 * Строки, из которых складывается одно занятие в экране «Работы».
+	 *
+	 * У обычного занятия это оно само. Дополнительное занятие для части группы хранится строкой на каждого
+	 * ученика (общий `extra_key`), а работа у него одна: берутся все строки с тем же временем. Строка с другим
+	 * временем (занятие одного ученика перенесли отдельно) считается своим занятием. Первой идёт строка с
+	 * наибольшим ID — в ленте (дата, ID по убыванию) она стоит раньше остальных, и занятие показывается на ней.
+	 *
+	 * @return GroupLessonDTO[] Не пусто
+	 */
+	private function unitRows( GroupLessonDTO $row ): array {
+		if ( null === $row->extraKey || null === $row->scheduledAt ) {
+			return array( $row );
+		}
+
+		$unit = array( $row->id => $row );
+		foreach ( $this->groupLessons->listExtraSiblings( $row ) as $sibling ) {
+			if ( $sibling->scheduledAt === $row->scheduledAt ) {
+				$unit[ $sibling->id ] = $sibling;
+			}
+		}
+		krsort( $unit );
+
+		return array_values( $unit );
+	}
+
+	/**
+	 * Чья строка хранит прогресс каждого ученика занятия: person_id => строка. У обычного занятия все ученики
+	 * группы на одной строке, у индивидуального и дополнительного — на своей. Ученик не из группы не попадает.
+	 *
+	 * @param GroupLessonDTO[]   $unit   {@see self::unitRows()}
+	 * @param array<int, string> $active person_id => «Фамилия Имя» активных учеников группы
+	 *
+	 * @return array<int, GroupLessonDTO>
+	 */
+	private function studentRows( array $unit, array $active ): array {
+		$out = array();
+		foreach ( $unit as $member ) {
+			foreach ( array_keys( $this->expectedStudents( $member->studentPersonId, $member->kind->isIndividual(), $active ) ) as $personId ) {
+				$out[ $personId ] ??= $member;
+			}
+		}
+
+		return $out;
+	}
+
+	/**
+	 * Сдачи занятия: work_id => [person_id => сдача]. Для нескольких строк — сдачи всех учеников вместе.
+	 *
+	 * @param GroupLessonDTO[] $unit {@see self::unitRows()}
+	 *
+	 * @return array<int, array<int, SubmissionDTO>>
+	 */
+	private function unitSubmissions( array $unit ): array {
 		$map = array();
-		foreach ( $this->submissions->listAggregatesByGroupLesson( $groupLessonId ) as $sub ) {
-			$map[ $sub->workId ][ $sub->studentPersonId ] = $sub;
+		foreach ( $unit as $member ) {
+			foreach ( $this->submissions->listAggregatesByGroupLesson( $member->id ) as $sub ) {
+				$map[ $sub->workId ][ $sub->studentPersonId ] = $sub;
+			}
 		}
 
 		return $map;

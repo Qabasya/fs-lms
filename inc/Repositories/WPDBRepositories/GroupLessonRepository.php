@@ -461,6 +461,29 @@ class GroupLessonRepository {
 		return array() !== $ids ? array_map( 'intval', $ids ) : array( $lesson->id );
 	}
 
+	/**
+	 * Сами строки одного дополнительного занятия для части группы (`extra_key`), а не только их ID
+	 * ({@see self::extraSiblingIds()}): экран «Работы» считает по ним сдачи каждого ученика. Включает
+	 * саму строку; у занятия без `extra_key` — только она.
+	 *
+	 * @return GroupLessonDTO[]
+	 */
+	public function listExtraSiblings( GroupLessonDTO $lesson ): array {
+		if ( null === $lesson->extraKey ) {
+			return array( $lesson );
+		}
+		$rows = $this->wpdb->get_results(
+			$this->wpdb->prepare(
+				'SELECT * FROM %i WHERE group_id = %d AND extra_key = %s ORDER BY id ASC',
+				$this->table,
+				$lesson->groupId,
+				$lesson->extraKey
+			),
+			ARRAY_A
+		);
+		return $rows ? array_map( [ GroupLessonDTO::class, 'fromArray' ], $rows ) : array( $lesson );
+	}
+
 	/** Указатель записи занятия (модуль VideoLibrary пишет `s3://{bucket}/{key}`). */
 	public function setRecordingUrl( int $id, ?string $url ): bool {
 		return false !== $this->wpdb->update(
