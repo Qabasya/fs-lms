@@ -20,6 +20,17 @@
  *                             только LessonPlayerController; для ученика не задаётся.
  * @var bool|null $locked_parent Урок открыл родитель ученика группы: контент закрыт
  *                             оверлеем «только для ученика». Ставит только LessonPlayerController.
+ * @var int|null $player_user_id ID пользователя WP, открывшего урок; для швов `fs_lms_player_*`.
+ * @var \Inc\DTO\Course\GroupLessonDTO|null $player_row Занятие; для швов `fs_lms_player_*`. Оба ставит только
+ *                             LessonPlayerController (в предпросмотре курса не заданы).
+ *
+ * ### Швы плеера (только вид ученика; не для преподавателя, родителя и предпросмотра)
+ *
+ * - фильтр `fs_lms_player_back_url` (string $url, int $userId, GroupLessonDTO $row): пустая строка — кнопки «Назад» нет;
+ * - фильтр `fs_lms_player_lock_html` (string $html, int $userId, GroupLessonDTO $row): непустой уже экранированный HTML
+ *   заменяет текст окна блокировки (иконка остаётся);
+ * - экшены `fs_lms_player_header_actions` (в `.s-right` перед колокольчиком), `fs_lms_player_before_content` (перед
+ *   `.player`), `fs_lms_player_footer` (перед `wp_footer()`), аргументы (int $userId, GroupLessonDTO $row).
  *
  * @package FS LMS
  */
@@ -35,6 +46,10 @@ use Inc\Enums\Ui\Icon;
 use Inc\Enums\Wp\PageRoutes;
 
 $profile_url = PageRoutes::UserProfile->url();
+
+// Швы плеера зовутся только в виде ученика: у преподавателя, родителя и в предпросмотре курса модули ничего не меняют.
+$player_user_id = (int) ( $player_user_id ?? 0 );
+$player_row     = ( $player_row ?? null ) instanceof \Inc\DTO\Course\GroupLessonDTO ? $player_row : null;
 
 // ── Оболочка (T14.2): read-модель shell с безопасными фолбэками ──────────
 $shell           = is_array( $view['shell'] ?? null ) ? $view['shell'] : array();
@@ -91,6 +106,12 @@ if ( $locked_parent ) {
 	$back_url = add_query_arg( array( 'screen' => LearnerScreen::Lessons->key(), 'group' => $groupId ), $profile_url );
 }
 
+$seams_on = ! $is_teacher && ! $is_preview && ! $locked_parent && null !== $player_row;
+if ( $seams_on ) {
+	// Пустая строка от подписчика — «Назад» не выводится (ученику без кабинета возвращаться некуда).
+	$back_url = (string) apply_filters( 'fs_lms_player_back_url', $back_url, $player_user_id, $player_row );
+}
+
 ?>
 <!DOCTYPE html>
 <html <?php language_attributes(); ?>>
@@ -125,10 +146,12 @@ $next_url    = null !== $next_lesson
 	<!-- Шапка — часть страницы: уезжает при прокрутке (липкий — только воркбар работы). -->
 	<header class="s-top">
 		<?php // «Назад» возвращает на экран кабинета, откуда пришли (КТП, журнал…) в том же состоянии — оно хранится в адресе (nav-state.js, player/shell.js initBack); без кабинета в истории ссылка ведёт к курсу. ?>
+		<?php if ( '' !== $back_url ) : ?>
 		<a class="s-back" href="<?php echo esc_url( $back_url ); ?>" data-profile="<?php echo esc_url( $profile_url ); ?>">
 			<?php echo Icon::Back->svg(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
 			<?php esc_html_e( 'Назад', 'fs-lms' ); ?>
 		</a>
+		<?php endif; ?>
 		<div>
 			<div class="s-crumb">
 				<?php esc_html_e( 'Мои курсы', 'fs-lms' ); ?><?php if ( '' !== $course_title ) : ?> · <b><?php echo esc_html( $course_title ); ?></b><?php endif; ?><?php if ( '' !== $module_label ) : ?> · <?php echo esc_html( $module_label ); ?><?php endif; ?>
@@ -172,11 +195,22 @@ $next_url    = null !== $next_lesson
 					<span class="sp-bar"><span id="fsProgBar" data-width="<?php echo esc_attr( (string) $lesson_pct ); ?>"></span></span>
 				</div>
 			<?php endif; ?>
+			<?php
+			if ( $seams_on ) {
+				do_action( 'fs_lms_player_header_actions', $player_user_id, $player_row );
+			}
+			?>
 			<button type="button" class="s-ibtn" data-toast="<?php esc_attr_e( 'Уведомлений нет', 'fs-lms' ); ?>">
 				<?php echo Icon::Bell->svg(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
 			</button>
 		</div>
 	</header>
+
+	<?php
+	if ( $seams_on ) {
+		do_action( 'fs_lms_player_before_content', $player_user_id, $player_row );
+	}
+	?>
 
 	<!-- плеер: рейка шагов + контент -->
 	<div class="player" id="fsPlayer">
@@ -259,10 +293,12 @@ $next_url    = null !== $next_lesson
 				<div class="lesson-end" id="fsLessonEnd" hidden>
 					<div class="le-t"><?php esc_html_e( 'Это последний шаг урока', 'fs-lms' ); ?></div>
 					<div class="le-actions">
+						<?php if ( '' !== $back_url ) : ?>
 						<a class="b b-pri" href="<?php echo esc_url( $back_url ); ?>">
 							<?php echo Icon::Back->svg(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
 							<?php esc_html_e( 'Вернуться к курсу', 'fs-lms' ); ?>
 						</a>
+						<?php endif; ?>
 						<?php if ( '' !== $next_url && ! empty( $next_lesson['available'] ) ) : ?>
 							<a class="b b-pri" href="<?php echo esc_url( $next_url ); ?>">
 								<?php esc_html_e( 'Следующий урок', 'fs-lms' ); ?>
@@ -281,7 +317,13 @@ $next_url    = null !== $next_lesson
 				<div class="lock-ico">
 					<?php echo Icon::Lock->svg( 28 ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
 				</div>
-				<?php if ( $locked_parent ) : ?>
+				<?php
+				// Шов: непустой HTML модуля (уже экранирован) заменяет стандартный текст окна.
+				$lock_html = $seams_on ? (string) apply_filters( 'fs_lms_player_lock_html', '', $player_user_id, $player_row ) : '';
+				?>
+				<?php if ( '' !== $lock_html ) : ?>
+					<?php echo $lock_html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+				<?php elseif ( $locked_parent ) : ?>
 					<div class="lock-title" id="fsLockTitle"><?php esc_html_e( 'Материалы курса доступны только ученику', 'fs-lms' ); ?></div>
 					<p class="lock-sub"><?php esc_html_e( 'Уроки и задания открываются в личном кабинете обучающегося. Успеваемость, оценки и посещаемость ребёнка вы можете посмотреть в своём кабинете.', 'fs-lms' ); ?></p>
 					<div class="lock-actions">
@@ -344,6 +386,11 @@ $next_url    = null !== $next_lesson
 	<span><?php esc_html_e( 'Готово', 'fs-lms' ); ?></span>
 </div>
 
+<?php
+if ( $seams_on ) {
+	do_action( 'fs_lms_player_footer', $player_user_id, $player_row );
+}
+?>
 <?php wp_footer(); ?>
 </body>
 </html>

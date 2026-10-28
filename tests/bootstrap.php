@@ -95,6 +95,12 @@ if (!function_exists('home_url')) {
         return ($GLOBALS['_fs_test_home_url'] ?? 'http://example.com') . $path;
     }
 }
+// Каркас страницы с собственным <html> (плеер урока): сами хуки wp_head/wp_footer в тестах ничего не выводят.
+if (!function_exists('language_attributes')) { function language_attributes(): void { echo 'lang="ru-RU"'; } }
+if (!function_exists('bloginfo'))            { function bloginfo(string $show = ''): void { echo 'UTF-8'; } }
+if (!function_exists('wp_head'))             { function wp_head(): void {} }
+if (!function_exists('wp_footer'))           { function wp_footer(): void {} }
+if (!function_exists('is_admin_bar_showing')) { function is_admin_bar_showing(): bool { return false; } }
 if (!function_exists('site_url')) {
     function site_url(string $path = '', ?string $scheme = null): string {
         return 'http://example.com/' . ltrim($path, '/');
@@ -180,6 +186,10 @@ if (!function_exists('apply_filters')) {
     // через $GLOBALS['_fs_test_filter_returns'][$hook] — нужно там, где код
     // спрашивает разрешение фильтром (напр. байпас гарда удаления термов).
     function apply_filters(string $hook, mixed $value, mixed ...$args): mixed {
+        // По флагу $GLOBALS['_fs_test_record_filters'] вызовы пишутся в $GLOBALS['_fs_test_filter_calls'] — тест видит аргументы шва.
+        if (!empty($GLOBALS['_fs_test_record_filters'])) {
+            $GLOBALS['_fs_test_filter_calls'][] = ['hook' => $hook, 'value' => $value, 'args' => $args];
+        }
         return array_key_exists($hook, $GLOBALS['_fs_test_filter_returns'] ?? [])
             ? $GLOBALS['_fs_test_filter_returns'][$hook]
             : $value;
@@ -190,6 +200,10 @@ if (!function_exists('do_action')) {
     // тесты могут проверить, что сервис дёрнул generic-шов (например, fs_lms_video_registered).
     function do_action(string $hook, mixed ...$args): void {
         $GLOBALS['_fs_test_actions'][] = ['hook' => $hook, 'args' => $args];
+        // Тест может сымитировать упавшего подписчика: $GLOBALS['_fs_test_action_throws'][$hook] = new \RuntimeException( … ).
+        if (isset($GLOBALS['_fs_test_action_throws'][$hook])) {
+            throw $GLOBALS['_fs_test_action_throws'][$hook];
+        }
     }
 }
 if (!function_exists('add_filter')) {

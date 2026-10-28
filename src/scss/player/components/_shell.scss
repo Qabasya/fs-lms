@@ -145,6 +145,29 @@ body.fs-player-page { overflow: visible; }
   50% { opacity: .35; }
 }
 
+/* Плашка над уроком (нужна модулям: объявление, предложение записаться). Разметку выдаёт шов fs_lms_player_before_content. */
+.s-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: rem(16);
+  padding: rem(10) rem(24);
+  background: var(--accent-soft);
+  border-bottom: 1px solid var(--line);
+  color: var(--ink-2);
+  font-size: rem(14);
+  line-height: 1.45;
+
+  .s-banner__text { min-width: 0; }
+
+  .s-banner__actions {
+    display: flex;
+    align-items: center;
+    gap: rem(10);
+    flex-shrink: 0;
+  }
+}
+
 .s-ibtn {
   width: rem(34);
   height: rem(34);

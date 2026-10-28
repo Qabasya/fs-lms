@@ -18,6 +18,7 @@ use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 use Inc\Services\Email\EmailService;
 use Inc\Services\Enrollment\OpenGroupEnrollmentService;
+use Inc\Services\Group\ServiceGroupResolver;
 use Inc\Services\Exam\ExamAudienceResolver;
 use Inc\Services\Profile\NotificationService;
 use PHPUnit\Framework\TestCase;
@@ -60,6 +61,7 @@ class OpenGroupEnrollmentServiceTest extends TestCase {
 			$this->email,
 			$this->audience,
 			$this->notifications,
+			new ServiceGroupResolver(),
 		);
 
 		$GLOBALS['_fs_test_actions'] = array();
@@ -258,8 +260,42 @@ class OpenGroupEnrollmentServiceTest extends TestCase {
 		$this->service->planFromSubject( 'inf_ege', 1 );
 	}
 
-	// --- helpers ---
+	// --- служебные группы (Ш4) ---
 
+	protected function tearDown(): void {
+		unset( $GLOBALS['_fs_test_filter_returns'] );
+		parent::tearDown();
+	}
+
+	public function test_enroll_many_refuses_a_service_group(): void {
+		$GLOBALS['_fs_test_filter_returns']['fs_lms_service_group_ids'] = array( 1 );
+		$this->setupGroup( 'open' );
+		$this->records->expects( $this->never() )->method( 'create' );
+
+		$this->expectException( \InvalidArgumentException::class );
+		$this->expectExceptionMessage( 'В служебную группу учеников не добавляют.' );
+		$this->service->enrollMany( array( 5 ), 1, 99 );
+	}
+
+	public function test_plan_from_subject_refuses_a_service_group(): void {
+		$GLOBALS['_fs_test_filter_returns']['fs_lms_service_group_ids'] = array( 1 );
+		$this->setupGroup( 'open' );
+		$this->audience->expects( $this->never() )->method( 'studentPersonIds' );
+
+		$this->expectException( \InvalidArgumentException::class );
+		$this->expectExceptionMessage( 'В служебную группу учеников не добавляют.' );
+		$this->service->planFromSubject( 'inf', 1 );
+	}
+
+	public function test_a_shared_group_is_not_service_unless_a_module_says_so(): void {
+		$this->setupGroup( 'scheduled', shared: true );
+		$this->records->method( 'findActiveByGroupId' )->willReturn( array() );
+		$this->audience->method( 'studentPersonIds' )->willReturn( array( 5 ) );
+
+		self::assertSame( array( 5 ), $this->service->planFromSubject( 'inf', 1 )['ids'] );
+	}
+
+	// --- helpers ---
 	private function setupGroup( string $accessMode, bool $shared = false ): void {
 		$group              = new \stdClass();
 		$group->id          = 1;

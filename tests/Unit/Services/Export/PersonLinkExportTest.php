@@ -15,6 +15,7 @@ use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 use Inc\Services\Export\ParentsExportProvider;
 use Inc\Services\Export\StudentsExportProvider;
+use Inc\Services\Group\ServiceGroupResolver;
 use Inc\Services\Security\PiiCryptoService;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -55,14 +56,16 @@ class PersonLinkExportTest extends TestCase {
 	private function students(): StudentsExportProvider {
 		return new StudentsExportProvider(
 			$this->persons, $this->records, $this->docs, $this->createMock( GroupsRepository::class ),
-			$this->createMock( SubjectRepository::class ), $this->createMock( UserRepository::class ), $this->crypto
+			$this->createMock( SubjectRepository::class ), $this->createMock( UserRepository::class ), $this->crypto,
+			new ServiceGroupResolver()
 		);
 	}
 
 	private function parents(): ParentsExportProvider {
 		return new ParentsExportProvider(
 			$this->persons, $this->records, $this->docs, $this->createMock( GroupsRepository::class ),
-			$this->createMock( SubjectRepository::class ), $this->createMock( UserRepository::class ), $this->crypto
+			$this->createMock( SubjectRepository::class ), $this->createMock( UserRepository::class ), $this->crypto,
+			new ServiceGroupResolver()
 		);
 	}
 

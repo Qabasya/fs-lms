@@ -51,6 +51,14 @@ npx gulp styles:common    # common CSS only
 
 **Модули** (`inc/Modules/`) — конфигурация наследует `Modules/Shared/ModuleConfig` (опция + дефолты + тумблер с приоритетом константы `wp-config.php`). Ключи модульных опций живут В МОДУЛЕ и НЕ попадают в core-`OptionName`: ядро не должно знать о модулях. По той же причине модуль публикует свои реализации ядру фильтрами (напр. `fs_lms_captcha_provider`), а не биндингом в core-контейнере.
 
+**Мастер-классы** (`inc/Modules/Masterclass/`, правила модуля — `inc/Modules/Masterclass/CLAUDE.md`, спека — `.docs/masterclass-feature/`) — временные аккаунты `student-N`
+для детей на занятиях во внешних школах. Ядро знает один класс — `MasterclassModule` (строка в `Init::getServices()`); остальная связь — универсальные швы
+`fs_lms_lesson_access`, `fs_lms_service_group_ids`, `fs_lms_group_deleting`, `fs_lms_player_*`, `fs_lms_apply_prefill`, `fs_lms_captcha_fallback_unlimited`
+(`.docs/masterclass-feature/CONTRACTS.md` §2), названные по смыслу ядра. Слова «masterclass» и «мастер-класс» вне модуля запрещены (`ModuleBoundaryTest`).
+Две вещи касаются любого кода ядра: (1) **служебные группы** (`ServiceGroupResolver`): код, который предлагает группу для зачисления, добавляет в неё учеников или
+выгружает учеников, обходит их через `isService()`; (2) доступ к занятию ученика идёт только через `LessonAccessPolicy::resolve()` (шов может понизить уровень
+`AccessLevel`, повысить — нет), обход политики сломает заморозку.
+
 **КТП (`inc/Callbacks/Course/`)** разложена по ответственностям, и сервисный слой зеркалит
 это разбиение один-в-один: `ProgramCallbacks` ↔ `ProgramCompositionService`,
 `LessonScheduleCallbacks` ↔ `ScheduleReflowService`, `IndividualLessonCallbacks` ↔

@@ -105,7 +105,17 @@ readonly class CaptchaService {
 			return $this->validate( $token, $remoteIp ) ? CaptchaOutcome::Passed : CaptchaOutcome::Rejected;
 		}
 
-		if ( null === $failure || ! $failure->allowsFallback() || ! $this->rateLimit->allowCaptchaFallback( $remoteIp, $scope ) ) {
+		if ( null === $failure || ! $failure->allowsFallback() ) {
+			return CaptchaOutcome::Rejected;
+		}
+
+		// Шов `fs_lms_captcha_fallback_unlimited` (bool $unlimited, CaptchaScope $scope, string $identifier, string $remoteIp):
+		// модуль снимает лимит пропусков по IP для запроса, который он знает (напр. класс за одним адресом входит по своим
+		// логинам). Спрашивается только при сбое доставки, который вообще разрешает пропуск, и только `true` снимает лимит.
+		// Токен, закрытое задание и неразрешающий сбой шов не затрагивает; запись в журнал остаётся.
+		$unlimited = true === apply_filters( 'fs_lms_captcha_fallback_unlimited', false, $scope, (string) $identifier, $remoteIp );
+
+		if ( ! $unlimited && ! $this->rateLimit->allowCaptchaFallback( $remoteIp, $scope ) ) {
 			return CaptchaOutcome::Rejected;
 		}
 
@@ -116,7 +126,8 @@ readonly class CaptchaService {
 			array_filter( array(
 				'form'  => $scope->value,
 				'visit' => $visit,
-				'note'  => ucfirst( $scope->label() ) . ': капча не дошла до браузера, пропущено по смягчённому правилу',
+				'note'  => ucfirst( $scope->label() ) . ': капча не дошла до браузера, пропущено по смягчённому правилу'
+					. ( $unlimited ? ' без лимита по правилу модуля' : '' ),
 			) ),
 			$identifier
 		);

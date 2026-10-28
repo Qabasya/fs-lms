@@ -18,6 +18,7 @@ use Inc\Enums\Course\AccessMode;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 use Inc\Services\Enrollment\EnrollmentService;
+use Inc\Services\Group\ServiceGroupResolver;
 use Inc\Shared\Traits\Authorizer;
 use Inc\Shared\Traits\Sanitizer;
 
@@ -44,6 +45,7 @@ class EnrollmentLifecycleCallbacks extends BaseController {
 		private readonly LogEventDispatcherInterface $logEvents,
 		private readonly GroupsRepository            $studentGroupRepository,
 		private readonly StudentRecordRepository     $studentRecordRepository,
+		private readonly ServiceGroupResolver        $serviceGroups,
 	) {
 		parent::__construct();
 	}
@@ -215,7 +217,11 @@ class EnrollmentLifecycleCallbacks extends BaseController {
 		$subjectKey    = $this->sanitizeText( 'subject_id' );
 		$applicationId = $this->sanitizeInt( 'application_id' );
 
-		$groups = $this->studentGroupRepository->findByPeriodAndSubject( $periodId, $subjectKey );
+		// Служебные группы (заводят модули) настоящим ученикам не предлагаются.
+		$groups = array_filter(
+			$this->studentGroupRepository->findByPeriodAndSubject( $periodId, $subjectKey ),
+			fn( object $g ): bool => ! $this->serviceGroups->isService( (int) $g->id )
+		);
 
 		// Форма зачисления передаёт заявку: временный доступ самого ученика группу не занимает —
 		// зачисление заменит его настоящей записью ({@see EnrollmentService::enroll()}).

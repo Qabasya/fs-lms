@@ -62,6 +62,30 @@ class PasswordGeneratorService {
 	}
 
 	/**
+	 * Алфавит «читаемого» пароля: без символов, которые путают в напечатанном виде (0/O, 1/l/I).
+	 * 57 знаков: цифры 2–9, заглавные без I и O, строчные без l.
+	 */
+	public const READABLE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
+
+	/**
+	 * Генерирует пароль, который можно прочитать с листа бумаги (флаер, ведомость), не гадая «ноль или буква».
+	 * Источник случайности — `random_int()`. Без сохранения и без установки пользователю — как {@see self::generatePlain()}.
+	 *
+	 * @param int $length Длина; значение вне 1–64 приводится к границе.
+	 */
+	public function generateReadable( int $length = 8 ): string {
+		$length   = min( 64, max( 1, $length ) );
+		$last     = strlen( self::READABLE_ALPHABET ) - 1;
+		$password = '';
+
+		for ( $i = 0; $i < $length; $i++ ) {
+			$password .= self::READABLE_ALPHABET[ random_int( 0, $last ) ];
+		}
+
+		return $password;
+	}
+
+	/**
 	 * Генерирует пароль, устанавливает его пользователю, хранит зашифрованным в user meta.
 	 * Возвращает пароль в открытом виде — для немедленного показа/отправки.
 	 *

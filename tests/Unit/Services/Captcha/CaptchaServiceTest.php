@@ -113,6 +113,102 @@ class CaptchaServiceTest extends TestCase {
 		);
 	}
 
+	// ── Шов fs_lms_captcha_fallback_unlimited (Ш6) ───────────────────────────────
+
+	protected function tearDown(): void {
+		unset( $GLOBALS['_fs_test_filter_returns'], $GLOBALS['_fs_test_record_filters'], $GLOBALS['_fs_test_filter_calls'] );
+		parent::tearDown();
+	}
+
+	private function unlimitedAnswer( mixed $value ): void {
+		$GLOBALS['_fs_test_filter_returns']['fs_lms_captcha_fallback_unlimited'] = $value;
+	}
+
+	public function test_seam_without_subscriber_keeps_the_limit(): void {
+		$service = $this->makeService();
+
+		for ( $i = 1; $i <= 30; $i++ ) {
+			self::assertSame( CaptchaOutcome::Fallback, $service->check( '', self::IP, CaptchaScope::Login, CaptchaFailure::NotLoaded ), "пропуск #$i" );
+		}
+		self::assertSame( CaptchaOutcome::Rejected, $service->check( '', self::IP, CaptchaScope::Login, CaptchaFailure::NotLoaded ), 'лимит входа — 30 в час' );
+	}
+
+	public function test_subscriber_can_lift_the_limit_for_a_known_request(): void {
+		$this->unlimitedAnswer( true );
+		$service = $this->makeService();
+
+		for ( $i = 1; $i <= 40; $i++ ) {
+			self::assertSame( CaptchaOutcome::Fallback, $service->check( '', self::IP, CaptchaScope::Login, CaptchaFailure::NotLoaded, 'student-5' ), "пропуск #$i" );
+		}
+	}
+
+	public function test_only_true_lifts_the_limit(): void {
+		$service = $this->makeService();
+		$this->unlimitedAnswer( 'yes' );
+
+		for ( $i = 1; $i <= 30; $i++ ) {
+			$service->check( '', self::IP, CaptchaScope::Login, CaptchaFailure::NotLoaded );
+		}
+
+		self::assertSame( CaptchaOutcome::Rejected, $service->check( '', self::IP, CaptchaScope::Login, CaptchaFailure::NotLoaded ), 'не-true шов не считается' );
+	}
+
+	public function test_seam_receives_scope_identifier_and_ip(): void {
+		$GLOBALS['_fs_test_record_filters'] = true;
+		$service                            = $this->makeService();
+
+		$service->check( '', self::IP, CaptchaScope::Login, CaptchaFailure::NotLoaded, 'student-5' );
+
+		$calls = array_values( array_filter( $GLOBALS['_fs_test_filter_calls'], static fn( array $c ): bool => 'fs_lms_captcha_fallback_unlimited' === $c['hook'] ) );
+		self::assertCount( 1, $calls );
+		self::assertFalse( $calls[0]['value'], 'по умолчанию лимит действует' );
+		self::assertSame( array( CaptchaScope::Login, 'student-5', self::IP ), $calls[0]['args'] );
+	}
+
+	public function test_seam_is_not_asked_for_a_token_or_a_failure_that_forbids_fallback(): void {
+		$GLOBALS['_fs_test_record_filters'] = true;
+		$this->unlimitedAnswer( true );
+
+		$this->makeService( tokenValid: false )->check( 'tok', self::IP, CaptchaScope::Login, CaptchaFailure::NotLoaded, 'student-5' );
+		$this->makeService()->check( '', self::IP, CaptchaScope::Login, CaptchaFailure::Dismissed, 'student-5' );
+		$this->makeService()->check( '', self::IP, CaptchaScope::Login, null, 'student-5' );
+
+		self::assertSame( array(), $GLOBALS['_fs_test_filter_calls'] ?? array(), 'шов зовётся только при сбое доставки, который разрешает пропуск' );
+	}
+
+	public function test_dismissed_challenge_stays_rejected_even_when_a_subscriber_lifts_the_limit(): void {
+		$this->unlimitedAnswer( true );
+
+		self::assertSame( CaptchaOutcome::Rejected, $this->makeService()->check( '', self::IP, CaptchaScope::Login, CaptchaFailure::Dismissed, 'student-5' ) );
+	}
+
+	public function test_lifted_limit_is_still_logged_and_marked_in_the_note(): void {
+		$this->unlimitedAnswer( true );
+		$service = $this->makeService();
+		$this->authLog->expects( $this->once() )->method( 'recordEvent' )->with(
+			AuthAction::CaptchaFallback,
+			AuthResult::Success,
+			$this->anything(),
+			$this->callback( static fn( array $d ): bool => str_contains( (string) $d['note'], 'без лимита по правилу модуля' ) ),
+			'student-5'
+		);
+
+		$service->check( '', self::IP, CaptchaScope::Login, CaptchaFailure::NotLoaded, 'student-5' );
+	}
+
+	public function test_limited_fallback_note_has_no_module_remark(): void {
+		$service = $this->makeService();
+		$this->authLog->expects( $this->once() )->method( 'recordEvent' )->with(
+			AuthAction::CaptchaFallback,
+			AuthResult::Success,
+			$this->anything(),
+			$this->callback( static fn( array $d ): bool => ! str_contains( (string) $d['note'], 'модуля' ) ),
+			null
+		);
+
+		$service->check( '', self::IP, CaptchaScope::Login, CaptchaFailure::NotLoaded );
+	}
+
 	public function test_fallback_is_limited_per_ip_and_scope(): void {
 		$service = $this->makeService();
 

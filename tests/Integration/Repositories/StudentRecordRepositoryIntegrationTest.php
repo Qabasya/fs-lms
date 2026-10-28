@@ -27,6 +27,53 @@ class StudentRecordRepositoryIntegrationTest extends TestCase {
 		$this->repo = new StudentRecordRepository( $this->wpdb );
 	}
 
+	/** Ш4: вкладка «Ученики» не показывает записи служебных групп модулей. */
+	public function test_student_list_can_exclude_service_groups(): void {
+		$this->wpdb->queueCol( array() );
+
+		$this->repo->listDistinctStudentIds( array( 'status' => 'active', 'exclude_group_ids' => array( 7, 9 ) ), 1, 0 );
+
+		$query = $this->wpdb->lastQuery();
+		self::assertStringContainsString( "sr.status = 'active'", $query );
+		self::assertStringContainsString( 'sr.group_id NOT IN (7, 9)', $query );
+	}
+
+	public function test_student_count_uses_the_same_exclusion(): void {
+		$this->wpdb->queueVar( 0 );
+
+		$this->repo->countDistinctStudents( array( 'status' => 'active', 'exclude_group_ids' => array( 7 ) ) );
+
+		self::assertStringContainsString( 'sr.group_id NOT IN (7)', $this->wpdb->lastQuery() );
+	}
+
+	public function test_student_list_without_exclusions_has_no_group_restriction(): void {
+		$this->wpdb->queueCol( array() );
+
+		$this->repo->listDistinctStudentIds( array( 'status' => 'active', 'exclude_group_ids' => array() ), 1, 0 );
+
+		self::assertStringNotContainsString( 'NOT IN', $this->wpdb->lastQuery() );
+	}
+
+	public function test_exclusion_ignores_garbage_ids(): void {
+		$this->wpdb->queueCol( array() );
+
+		$this->repo->listDistinctStudentIds( array( 'exclude_group_ids' => array( '7', 0, 'abc', -0, '9' ) ), 1, 0 );
+
+		self::assertStringContainsString( 'NOT IN (7, 9)', $this->wpdb->lastQuery() );
+	}
+
+	/** Ш7: временный доступ без заявки (аккаунт модуля) плитку «ждём анкету родителя» не получает. */
+	public function test_find_active_trials_takes_only_students_with_an_application(): void {
+		$this->wpdb->queueResults( array() );
+
+		$this->repo->findActiveTrials();
+
+		$query = $this->wpdb->lastQuery();
+		self::assertStringContainsString( 'r.is_trial = 1', $query );
+		self::assertStringContainsString( "r.status = 'active'", $query );
+		self::assertMatchesRegularExpression( '/EXISTS\s*\(\s*SELECT 1 FROM \S*fs_lms_applications\W* a WHERE a\.student_person_id = r\.student_person_id\s*\)/', $query );
+	}
+
 	public function test_exists_active_returns_true_when_active_record_present(): void {
 		$this->wpdb->queueVar( 1 );
 

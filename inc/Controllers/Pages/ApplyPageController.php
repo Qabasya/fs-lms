@@ -53,14 +53,19 @@ class ApplyPageController extends BaseController implements ServiceInterface {
 	public function renderApplyForm(): string {
 		// Личная ссылка гостя экзамена: поля формы заполнены, курсор — на почте (её у гостя нет).
 		$token   = sanitize_text_field( wp_unslash( $_GET[ ApplyPrefillLinkService::QUERY_ARG ] ?? '' ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- публичная ссылка, подпись проверяет сервис.
-		$prefill = '' !== $token ? $this->prefillLinks->resolve( $token ) : null;
+		$guestPrefill = '' !== $token ? $this->prefillLinks->resolve( $token ) : null;
+
+		// Шов `fs_lms_apply_prefill` (array $prefill): модуль предзаполняет форму для своего посетителя (ключи — те, что читает
+		// templates/frontend/apply-fields.php: subject_key, school, last_name…). Приходит уже разобранная ссылка гостя экзамена
+		// (или пусто); подписчик вправе вернуть её нетронутой. Токен гостя ниже определяется ссылкой, а не ответом шва.
+		$prefill = (array) apply_filters( 'fs_lms_apply_prefill', $guestPrefill ?? array() );
 
 		ob_start();
 		$this->render( 'frontend/apply', array(
 			'subjects' => $this->subjects->readActive(),
-			'prefill'  => $prefill ?? array(),
+			'prefill'  => $prefill,
 			// Токен возвращается формой в заявку: по нему при зачислении результаты экзамена гостя переходят к ученику.
-			'guest_token' => null !== $prefill ? $token : '',
+			'guest_token' => null !== $guestPrefill ? $token : '',
 			'honeypot' => $this->formGuard->honeypotField(),
 		) );
 		return (string) ob_get_clean();

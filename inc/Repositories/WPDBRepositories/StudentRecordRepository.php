@@ -380,13 +380,24 @@ class StudentRecordRepository {
 	}
 
 	/**
-	 * Все действующие записи временного доступа.
+	 * Действующие записи временного доступа ученикам с заявкой.
+	 *
+	 * Временный доступ в понимании ядра выдаётся по заявке ({@see \Inc\Services\Enrollment\TrialAccessService::grant()}),
+	 * поэтому запись без заявки у ученика сюда не входит: ею пользуются модули, у которых временный аккаунт заводится без заявки
+	 * (плитка «ждём анкету родителя» такому ученику не нужна — ждать некого).
 	 *
 	 * @return StudentRecordDTO[]
 	 */
 	public function findActiveTrials(): array {
 		$rows = $this->wpdb->get_results(
-			$this->wpdb->prepare( 'SELECT * FROM %i WHERE is_trial = 1 AND status = %s ORDER BY id', $this->table, EnrollmentStatus::Active->value ),
+			$this->wpdb->prepare(
+				'SELECT r.* FROM %i r WHERE r.is_trial = 1 AND r.status = %s
+				   AND EXISTS ( SELECT 1 FROM %i a WHERE a.student_person_id = r.student_person_id )
+				 ORDER BY r.id',
+				$this->table,
+				EnrollmentStatus::Active->value,
+				TableName::Applications->prefixed()
+			),
 			ARRAY_A
 		);
 
@@ -618,7 +629,7 @@ class StudentRecordRepository {
 	/**
 	 * Возвращает уникальные student_person_id с пагинацией и сортировкой.
 	 *
-	 * @param array  $filters Массив фильтров (status, group_id, subject_key, student_name)
+	 * @param array  $filters Массив фильтров (status, group_id, exclude_group_ids, subject_key, student_name)
 	 * @param int    $page    Номер страницы
 	 * @param int    $perPage Количество записей на странице; 0 — без пагинации (все)
 	 * @param string $orderby Поле сортировки: student_name|enrolled_at
@@ -790,6 +801,13 @@ class StudentRecordRepository {
 		if ( ! empty( $filters['group_id'] ) ) {
 			$where  .= " AND {$prefix}group_id = %d";
 			$args[] = (int) $filters['group_id'];
+		}
+
+		// Не показывать записи этих групп (служебные группы модулей; ID из ServiceGroupResolver).
+		$excludedGroups = array_values( array_filter( array_map( 'intval', (array) ( $filters['exclude_group_ids'] ?? array() ) ) ) );
+		if ( array() !== $excludedGroups ) {
+			$where .= " AND {$prefix}group_id NOT IN (" . implode( ', ', array_fill( 0, count( $excludedGroups ), '%d' ) ) . ')';
+			array_push( $args, ...$excludedGroups );
 		}
 
 		// Фильтр по предмету (требует LEFT JOIN groups g на стороне вызывающего метода)

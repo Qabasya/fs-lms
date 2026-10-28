@@ -5,6 +5,7 @@ declare( strict_types=1 );
 namespace Inc\Services\Course;
 
 use Inc\DTO\Course\CourseDTO;
+use Inc\DTO\Course\LessonDTO;
 use Inc\Managers\Course\LessonManager;
 use Inc\Managers\Course\WorkManager;
 use Inc\Managers\Wp\PostManager;
@@ -66,19 +67,35 @@ class OpenCourseValidator {
 				continue;
 			}
 
-			if ( ! empty( $lesson->assessmentIds() ) ) {
-				$problems[] = sprintf( '«%s»: контрольные недоступны в открытом курсе', $lesson->topic );
-			}
+			$problems = array_merge( $problems, $this->lessonProblems( $lesson ) );
+		}
 
-			$workTaskIds = array();
-			foreach ( $lesson->workIds() as $workId ) {
-				$workTaskIds = array_merge( $workTaskIds, $this->works->get( (int) $workId )?->itemIds ?? array() );
-			}
+		return $problems;
+	}
 
-			$manualTasks = $this->manualTaskCount( array_merge( $lesson->taskIds(), $workTaskIds ) );
-			if ( $manualTasks > 0 ) {
-				$problems[] = sprintf( '«%s»: задач без автопроверки — %d', $lesson->topic, $manualTasks );
-			}
+	/**
+	 * Нарушения D-C у одного урока (пустой — урок полностью автопроверяемый).
+	 *
+	 * Тот же разбор, что у курса ({@see self::problems()}), но по одному уроку: им пользуются и те, кто
+	 * показывает урок вне курса (например, модуль с одним занятием без курса-обёртки).
+	 *
+	 * @return string[] Тексты нарушений; каждый называет урок.
+	 */
+	public function lessonProblems( LessonDTO $lesson ): array {
+		$problems = array();
+
+		if ( ! empty( $lesson->assessmentIds() ) ) {
+			$problems[] = sprintf( '«%s»: контрольные недоступны в открытом курсе', $lesson->topic );
+		}
+
+		$workTaskIds = array();
+		foreach ( $lesson->workIds() as $workId ) {
+			$workTaskIds = array_merge( $workTaskIds, $this->works->get( (int) $workId )?->itemIds ?? array() );
+		}
+
+		$manualTasks = $this->manualTaskCount( array_merge( $lesson->taskIds(), $workTaskIds ) );
+		if ( $manualTasks > 0 ) {
+			$problems[] = sprintf( '«%s»: задач без автопроверки — %d', $lesson->topic, $manualTasks );
 		}
 
 		return $problems;

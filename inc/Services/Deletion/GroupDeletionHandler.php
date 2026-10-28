@@ -22,6 +22,7 @@ use Inc\Repositories\WPDBRepositories\WorkTaskCheckRepository;
 use Inc\Enums\Settings\AvatarEntity;
 use Inc\Services\Course\ContentCloneService;
 use Inc\Services\Shared\AvatarService;
+use Inc\Shared\PluginLogger;
 use Inc\Shared\Traits\TransactionRunner;
 
 class GroupDeletionHandler {
@@ -47,9 +48,26 @@ class GroupDeletionHandler {
 		private readonly AvatarService $avatars,
 	) {}
 
+	/**
+	 * Полное удаление группы со всеми данными занятий и записями учеников.
+	 *
+	 * ### Шов `fs_lms_group_deleting`
+	 *
+	 * `do_action( 'fs_lms_group_deleting', int $groupId, int $actorId )` — первой строкой, до транзакции и до чтения
+	 * любых данных группы. Подписчик (модуль) убирает то, что связано с группой и чего ядро не удаляет само: учётки и
+	 * физлица, заведённые модулем для группы (`deleteAllByGroupAndCollect()` собирает «сирот» только по непробным записям).
+	 * Удаление группы идёт любым путём (страница «Группы», снос предмета, сам модуль), и каждый проходит здесь.
+	 * Исключение подписчика пишется в журнал и удаление группы не останавливает.
+	 */
 	public function handle( DeleteGroupEvent $event ): void {
 		$groupId = $event->groupId;
 		$actorId = $event->actorId;
+
+		try {
+			do_action( 'fs_lms_group_deleting', $groupId, $actorId );
+		} catch ( \Throwable $e ) {
+			PluginLogger::exception( 'GroupDeletionHandler', $e, array( 'group_id' => $groupId, 'hook' => 'fs_lms_group_deleting' ), true );
+		}
 
 		$affected = $this->inTransaction( function () use ( $groupId ) {
 			// Реальных FK в схеме нет — осиротевшие group_lessons/attendance/submissions/

@@ -116,6 +116,11 @@ class StudentsExportProvider extends AbstractPersonExportProvider {
 			$docs     = $this->personDocuments->findByPersonId( $person->id );
 			// Активные записи студента (текущее зачисление)
 			$records  = $this->studentRecords->findActiveByStudent( $person->id );
+
+			// Ученик, чьи записи все в служебных группах (заводят модули), в выгрузку настоящих учеников не входит.
+			if ( array() !== $records && array() === array_filter( $records, fn( $rec ): bool => ! $this->serviceGroups->isService( (int) $rec->groupId ) ) ) {
+				continue;
+			}
 			$wpUser   = $person->wpUserId ? get_userdata( $person->wpUserId ) : null;
 
 			// Сбор групп и предметов, в которых студент обучается

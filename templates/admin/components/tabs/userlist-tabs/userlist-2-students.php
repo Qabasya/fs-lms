@@ -15,6 +15,7 @@ use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
+use Inc\Services\Group\ServiceGroupResolver;
 use Inc\Services\Log\LogNameResolver;
 
 require_once FS_LMS_PATH . 'templates/admin/components/UI/ui_renderers.php';
@@ -37,7 +38,10 @@ $nameFilter    = trim( sanitize_text_field( wp_unslash( $_GET['student_name'] ??
 $orderby       = 'student_name' === sanitize_key( wp_unslash( $_GET['orderby'] ?? '' ) ) ? 'student_name' : 'enrolled_at';
 $order         = 'asc' === sanitize_key( wp_unslash( $_GET['order'] ?? '' ) ) ? 'ASC' : 'DESC';
 
-$filters = array( 'status' => EnrollmentStatus::Active->value );
+// Служебные группы модулей (временные аккаунты и т.п.) в списке настоящих учеников не показываются.
+$serviceGroupIds = ( new ServiceGroupResolver() )->ids();
+
+$filters = array( 'status' => EnrollmentStatus::Active->value, 'exclude_group_ids' => $serviceGroupIds );
 if ( '' !== $subjectFilter ) {
 	$filters['subject_key'] = $subjectFilter;
 }
@@ -60,6 +64,9 @@ foreach ( $subjectRepo->readAll() as $dto ) {
 
 $groupOptions = array();
 foreach ( $groupRepo->findAll() as $g ) {
+	if ( in_array( (int) $g->id, $serviceGroupIds, true ) ) {
+		continue; // фильтр по служебной группе дал бы пустой список
+	}
 	$groupOptions[ $g->id ] = $g->name . ' (' . ( $allSubjects[ $g->subject_key ] ?? $g->subject_key ) . ')';
 }
 

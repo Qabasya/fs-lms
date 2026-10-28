@@ -10,6 +10,7 @@ use Inc\Modules\AdSync\AdSyncModule;
 use Inc\Modules\ArticleBlocks\ArticleBlocksModule;
 use Inc\Modules\DaData\DaDataModule;
 use Inc\Modules\EgeComputer\EgeComputerModule;
+use Inc\Modules\Masterclass\MasterclassModule;
 use Inc\Modules\PublicExams\PublicExamsModule;
 use Inc\Modules\SmartCaptcha\SmartCaptchaModule;
 use Inc\Modules\VideoLibrary\VideoLibraryModule;
@@ -288,6 +289,7 @@ final class Init {
 			DaDataModule::class,              // Inc\Modules\DaData — автодополнение DaData на /lms/join (флаг-гейт)
 			SmartCaptchaModule::class,        // Inc\Modules\SmartCaptcha — капча Yandex на /lms/apply и /sign-in/ (флаг-гейт)
 			VideoLibraryModule::class,        // Inc\Modules\VideoLibrary — видеозаписи занятий S3 + REST (флаг-гейт)
+			MasterclassModule::class,         // Inc\Modules\Masterclass — мастер-классы во внешних школах: временные аккаунты (флаг-гейт)
 			ArticleBlocksModule::class,       // Inc\Modules\ArticleBlocks — блоки статей для WPBakery (флаг-гейт редактора)
 		);
 	}

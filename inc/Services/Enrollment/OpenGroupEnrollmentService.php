@@ -19,6 +19,7 @@ use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 use Inc\Services\Email\EmailService;
 use Inc\Services\Exam\ExamAudienceResolver;
+use Inc\Services\Group\ServiceGroupResolver;
 use Inc\Services\Profile\NotificationService;
 use Inc\Shared\PluginLogger;
 
@@ -56,6 +57,7 @@ class OpenGroupEnrollmentService {
 		private readonly EmailService                $email,
 		private readonly ExamAudienceResolver        $audience,
 		private readonly NotificationService         $notifications,
+		private readonly ServiceGroupResolver        $serviceGroups,
 	) {}
 
 	/**
@@ -135,6 +137,10 @@ class OpenGroupEnrollmentService {
 		$group = $this->groups->findById( $groupId );
 		if ( ! $group ) {
 			throw new \InvalidArgumentException( 'Группа не найдена.' );
+		}
+		// Служебная группа (заводит модуль) — не для зачисления настоящих учеников; проверка общая для enrollMany() и planFromSubject().
+		if ( $this->serviceGroups->isService( $groupId ) ) {
+			throw new \InvalidArgumentException( 'В служебную группу учеников не добавляют.' );
 		}
 		$open = AccessMode::Open === AccessMode::fromValueOrDefault( (string) ( $group->access_mode ?? '' ) );
 		if ( ! $open && ! $this->isShared( $group ) ) {

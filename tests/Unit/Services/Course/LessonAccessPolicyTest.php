@@ -65,8 +65,94 @@ class LessonAccessPolicyTest extends TestCase {
 		$this->groups->method( 'findById' )->willReturn( $group );
 	}
 
-	// --- resolve() matrix ---
+	protected function tearDown(): void {
+		unset( $GLOBALS['_fs_test_filter_returns'] );
+		parent::tearDown();
+	}
 
+	/** Подписчик шва fs_lms_lesson_access отвечает заданным значением (заглушка apply_filters). */
+	private function subscriberReturns( mixed $value ): void {
+		$GLOBALS['_fs_test_filter_returns']['fs_lms_lesson_access'] = $value;
+	}
+
+	// --- Шов fs_lms_lesson_access (Ш1) ---
+
+	public function test_seam_without_subscriber_keeps_core_matrix(): void {
+		$record = $this->makeRecord( EnrollmentStatus::Active );
+		$open   = $this->makeLesson( visibility: 'open', openedAt: '2024-01-10 10:00:00' );
+		$hidden = $this->makeLesson( visibility: 'hidden', openedAt: null );
+
+		self::assertSame( AccessLevel::ReadSubmit, $this->policy->resolve( $record, $open ) );
+		self::assertSame( AccessLevel::None, $this->policy->resolve( $record, $hidden ) );
+	}
+
+	public function test_seam_subscriber_can_lower_to_none(): void {
+		$this->subscriberReturns( AccessLevel::None );
+		$record = $this->makeRecord( EnrollmentStatus::Active );
+		$lesson = $this->makeLesson( visibility: 'open', openedAt: '2024-01-10 10:00:00' );
+
+		self::assertSame( AccessLevel::None, $this->policy->resolve( $record, $lesson ) );
+	}
+
+	public function test_seam_subscriber_can_lower_to_read(): void {
+		$this->subscriberReturns( AccessLevel::Read );
+		$record = $this->makeRecord( EnrollmentStatus::Active );
+		$lesson = $this->makeLesson( visibility: 'open', openedAt: '2024-01-10 10:00:00' );
+
+		self::assertSame( AccessLevel::Read, $this->policy->resolve( $record, $lesson ) );
+	}
+
+	public function test_seam_subscriber_cannot_raise_the_level(): void {
+		// Скрытый урок закрыт матрицей ядра: подписчик не может его открыть.
+		$this->subscriberReturns( AccessLevel::ReadSubmit );
+		$record = $this->makeRecord( EnrollmentStatus::Active );
+		$hidden = $this->makeLesson( visibility: 'hidden', openedAt: null );
+
+		self::assertSame( AccessLevel::None, $this->policy->resolve( $record, $hidden ) );
+	}
+
+	public function test_seam_subscriber_cannot_raise_read_to_read_submit(): void {
+		$GLOBALS['_test_options']['fs_lms_expulsion_retention_policy'] = 'retain';
+		$this->subscriberReturns( AccessLevel::ReadSubmit );
+		$record = $this->makeRecord( EnrollmentStatus::Expelled, expelledAt: '2024-03-01 00:00:00' );
+		$lesson = $this->makeLesson( visibility: 'open', openedAt: '2024-02-15 00:00:00' );
+
+		self::assertSame( AccessLevel::Read, $this->policy->resolve( $record, $lesson ), 'отчисленный остаётся только с чтением' );
+	}
+
+	public function test_seam_ignores_value_of_foreign_type(): void {
+		$record = $this->makeRecord( EnrollmentStatus::Active );
+		$lesson = $this->makeLesson( visibility: 'open', openedAt: '2024-01-10 10:00:00' );
+
+		foreach ( array( 'none', null, false, 0, new \stdClass() ) as $bad ) {
+			$this->subscriberReturns( $bad );
+			self::assertSame( AccessLevel::ReadSubmit, $this->policy->resolve( $record, $lesson ) );
+		}
+	}
+
+	public function test_seam_lowering_closes_can_read_can_submit_and_visible_lessons(): void {
+		// canRead/canSubmit/visibleLessonsForStudent построены на resolve(): один шов закрывает всё.
+		$record = $this->makeRecord( EnrollmentStatus::Active );
+		$lesson = $this->makeLesson( visibility: 'open', openedAt: '2024-01-10 10:00:00' );
+		$this->groupLessons->method( 'find' )->willReturn( $lesson );
+		$this->groupLessons->method( 'listOpenByGroup' )->willReturn( array( $lesson ) );
+		$this->studentRecords->method( 'findAllByStudentAndGroup' )->willReturn( array( $record ) );
+
+		self::assertTrue( $this->policy->canRead( 5, 42 ) );
+		self::assertTrue( $this->policy->canSubmit( 5, 42 ) );
+		self::assertCount( 1, $this->policy->visibleLessonsForStudent( 5, 10 ) );
+
+		$this->subscriberReturns( AccessLevel::None );
+		self::assertFalse( $this->policy->canRead( 5, 42 ) );
+		self::assertFalse( $this->policy->canSubmit( 5, 42 ) );
+		self::assertSame( array(), $this->policy->visibleLessonsForStudent( 5, 10 ) );
+
+		$this->subscriberReturns( AccessLevel::Read );
+		self::assertTrue( $this->policy->canRead( 5, 42 ), 'чтение осталось' );
+		self::assertFalse( $this->policy->canSubmit( 5, 42 ), 'сдача закрыта' );
+	}
+
+	// --- resolve() matrix ---
 	public function test_hidden_lesson_returns_none_for_active_student(): void {
 		$record = $this->makeRecord( EnrollmentStatus::Active );
 		$lesson = $this->makeLesson( visibility: 'hidden', openedAt: '2024-01-10 10:00:00' );

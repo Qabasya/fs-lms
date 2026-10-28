@@ -1,110 +1,122 @@
 # Этап 0. Швы ядра
 
-Зависимости: нет (ветка уже на `master` 1.1.85).
+Зависимости: нет (ветка на `master` 1.1.85).
 Результат: семь универсальных швов Ш1–Ш7, компонент `.s-banner`, мелкие правки ядра и тесты ядра «без подписчиков поведение
 прежнее». Модуля ещё нет; в ядре нет слова «мастер-класс».
 
 Перед началом прочитать `README.md`, `../SPEC.md` §10–§11, `../CONTRACTS.md` §2.
 
-**Порядок:** 0.1 → 0.2 → 0.3 → 0.4 → 0.5 → 0.6 → 0.7 → 0.8 → 0.9. Ш1 первой: от неё зависит вся заморозка и самый широкий тест
-(доступ ко всем занятиям всех учеников).
+## Статус (проверено 2026-10-28)
 
-## Статус
+**Сделано и проверено:** 0.1–0.9. Код не закоммичен (рабочее дерево ветки `public-mk-feat`).
 
-Не начат.
+- **PHPUnit полностью:** 4040 → **4205** тестов (+165), все зелёные; запуск локально с расширениями `sodium`, `fileinfo`, `pdo_sqlite`, `sqlite3`.
+- **Мутации** (тесты должны падать, когда шов сломан): Ш1 — фильтр не применяется / повышение разрешено; Ш2 — швы включены для всех видов; Ш6 — любое
+  «истинное» вместо строгого `true` / обход проверки сбоя; сканер границы — слово подложено в файл ядра. Во всех случаях тесты упали, после отката зелёные.
+- **На настоящей MariaDB (`wp_db`, всё в транзакции с ROLLBACK, остатков нет):** Ш7 — 9 проверок; фильтр `exclude_group_ids` вкладки «Ученики» — 9 проверок.
+- **Загрузка DI на стенде:** `Init::getServices()` — 121 из 121; плюс явно 14 изменённых классов (`ServiceGroupResolver`, оба потребителя, провайдеры выгрузки, плеер и др.).
+- **Живая проверка плеера на стенде** (HTTP, реальный ученик и временный администратор, обоих убрали): ученик — 200, без ошибок PHP, «Назад», прогресс, нет `.s-banner`;
+  преподаватель — режим преподавателя; гость — 302. Итог 12 из 12.
+- **PHPStan 5** — по изменённым и новым строкам `inc/`: одно замечание, и то в перенесённом без изменений коде (`?->` рядом с `??` в `OpenCourseValidator`).
+  Весь вывод по файлам шумный (неизвестные `wpdb` и WP-функции), поэтому смотрели по `git diff -U0`.
+- `npx eslint .` — чисто; `npx stylelint` — 0 ошибок (126 прежних предупреждений); `npx gulp build` — собирается; JS-тесты 239.
+- `grep -rni masterclass inc templates src` — пусто; закреплено тестом `ModuleBoundaryTest`.
+
+**Что изменилось по сравнению с текстом этапа (код — правда):**
+- Ш2: контроллер отдаёт шаблону `$player_user_id` и `$player_row` (а не `$userId`/`$row`: в области контроллера это те же переменные, но неявно). Подробности — `CONTRACTS.md` Ш2.
+- Ш4: добавлен потребитель, которого не было в списке, — вкладка «Ученики» админки (она показывала все активные записи, включая временные, и массовое «Отчислить» могло их задеть).
+  Фильтр `exclude_group_ids` в `StudentRecordRepository::buildWhereClause()`.
+- Ш6: ограничение «только вход» ядро не накладывает — оно в подписчике (этап 3).
+- В тестовом `bootstrap.php`: заглушки `language_attributes`, `bloginfo`, `wp_head`, `wp_footer`, `is_admin_bar_showing`; `apply_filters` по флагу `_fs_test_record_filters`
+  пишет вызовы в `_fs_test_filter_calls`; `do_action` бросает исключение, заданное в `_fs_test_action_throws[хук]`. Пригодятся тестам модуля.
+
+**Не проверено (прямо):**
+- Ш1/Ш2/Ш4/Ш5/Ш6 работают **с настоящим подписчиком** на живом WordPress только в тестах с заглушкой `apply_filters`; живая проверка со `Masterclass`-подписчиком — этапы 2–3.
+- `.s-banner` на странице плеера глазами не смотрели (стили собираются, разметки с ним пока нет).
+- Ш3 (удаление группы) — тестом с моками; настоящее удаление с подписчиком — этап 4.
+- Браузерный прогон плеера не делали (HTTP-проверка разметки).
+
+**Находки для следующих этапов:**
+- `groups.id`, `student_records.group_id`, `group_lessons.group_id` — `smallint unsigned`: **не больше 65 535 групп за всё время установки**, id удалённых групп не переиспользуются.
+  Мастер-класс = группа на визит; запаса хватает на десятилетия, но `GroupsRepository::create()` при исчерпании вернёт 0 — `MasterclassService::create()` обязан превратить это
+  в понятную ошибку (в контрактах уже `\RuntimeException`). В тестах на БД брать `group_id` ≤ 65 535 (больший молча обрезается до 65 535).
+- В `apply-fields.php` `autofocus` стоит на почте при любом непустом `$prefill` — решить в этапе 5 (`CONTRACTS.md` Ш5).
 
 ---
 
 ## 0.1 Исходная точка
 
-- [ ] `grep -rni masterclass inc` — пусто (фиксируем «до»); `git status` чист; `php vendor/bin/phpunit` зелёный до правок (запомнить число тестов).
-- [ ] Номер версии релиза — вопрос владельцу (`README.md`); пока работаем без бампа версии.
-
-**Готово, когда:** базовый прогон PHPUnit зелёный, число тестов записано здесь.
+- [x] `grep -rni masterclass inc` — пусто; `git status` чист; PHPUnit зелёный до правок: **4040 тестов**.
+- [x] Номер версии релиза — вопрос владельцу (`README.md`); без бампа версии.
 
 ## 0.2 Ш1: `fs_lms_lesson_access`
 
-**Зачем.** Заморозка мастер-класса — понижение уровня доступа, поэтому она проходит через единственное место решения о доступе.
+- [x] `Enums\Access\AccessLevel::rank(): int`.
+- [x] `LessonAccessPolicy::resolve()` → `resolveBase()` + фильтр; принимается только `AccessLevel` не выше базового.
+- [x] Тесты: прежняя матрица; понижение; повышение игнорируется; не-`AccessLevel` игнорируется; `canRead`/`canSubmit`/`visibleLessonsForStudent` закрываются.
+- [x] Предусловие §11 п.2 закреплено: `LessonFreezeChainTest` — понижение до `None` закрывает шаг в `LessonGateResolver`, через который идут `SubmitTaskAnswerCallbacks` и
+  `ajaxMarkStepProgress()` (оба колбэка используют `gate->resolveStep()->isAvailable()` — проверено чтением и их тестами).
 
-- [ ] `Enums\Access\AccessLevel::rank(): int` (`None` 0 < `Read` 1 < `ReadSubmit` 2).
-- [ ] `LessonAccessPolicy::resolve()` → `resolveBase()` + `apply_filters( 'fs_lms_lesson_access', $base, $record, $lesson )`;
-  результат принимается, только если это `AccessLevel` и **не выше** базового. Докблок с контрактом шва.
-- [ ] Тесты: без подписчика — прежняя матрица `LessonAccessPolicyTest`; подписчик понижает; попытка повысить игнорируется;
-  фильтр вернул не `AccessLevel` — игнорируется.
-- [ ] **Закрепить предусловие `SPEC.md` §11 п.2:** с подписчиком, понижающим до `None`, `SubmitTaskAnswerCallbacks` и
-  `LessonPlayerCallbacks::ajaxMarkStepProgress()` отвечают отказом (`canRead`/`canSubmit`/`visibleLessonsForStudent` стоят на `resolve()`).
-  Если какой-то путь записи ученика в обход — доработать гейт и записать сюда.
-
-**Готово, когда:** тесты Ш1 зелёные, весь `LessonAccessPolicyTest` и тесты гейтов без изменений.
+**Готово:** тесты зелёные, `LessonAccessPolicyTest` и тесты гейтов без правок прежних кейсов; мутации падают.
 
 ## 0.3 Ш2: плеер + `.s-banner` + иконки
 
-- [ ] `LessonPlayerController` отдаёт шаблону `$userId` и `$row`; в `templates/frontend/lesson-player/player.php`, **только в виде ученика**
-  (`! $isTeacher && ! $isParent`, в предпросмотре не вызываются): `fs_lms_player_back_url` (пустая строка — `.s-back` не выводится),
-  `fs_lms_player_lock_html` (непустая заменяет стандартные ветки `.lock-modal`, иконка остаётся), экшены `fs_lms_player_header_actions`,
-  `fs_lms_player_before_content`, `fs_lms_player_footer` — места по `CONTRACTS.md` §2.
-- [ ] `.s-banner` (`.s-banner__text`, `.s-banner__actions`) в `src/scss/player/components/_shell.scss` — только токены.
-- [ ] `Enums\Ui\Icon`: `Phone`, `Message`, `Logout` (+ SVG, цвет `currentColor`).
-- [ ] Тесты: без подписчиков разметка плеера для ученика не меняется; у учителя и родителя хуки не вызываются.
+- [x] Контроллер отдаёт `$player_user_id`/`$player_row`; в `player.php` швы `back_url`, `lock_html`, `header_actions`, `before_content`, `footer` — только в виде ученика.
+- [x] `.s-banner` в `_shell.scss` на токенах; `Icon::Phone`/`Message`/`Logout` (отрисованы и сверены глазами рядом с `Bell`/`Lock`/`Back`).
+- [x] Тесты: `PlayerSeamsRenderTest` (8), `IconTest` (все иконки — корректный XML, сетка 20, цвет от родителя).
 
-**Готово, когда:** тесты зелёные, `npx stylelint` и `npx gulp build` чисты, `git diff` разметки плеера без подписчиков пуст.
+**Готово:** тесты, `npx stylelint`, `npx gulp build` чисты; без подписчиков разметка плеера для ученика не изменилась (живая проверка).
 
 ## 0.4 Ш3: `fs_lms_group_deleting`
 
-- [ ] `GroupDeletionHandler::handle()` — первой строкой, до транзакции; исключение подписчика ловится (`try/catch` + `PluginLogger::exception`)
-  и удаление группы не останавливает.
-- [ ] Тесты: подписчик вызван с `groupId`/`actorId`; его исключение не мешает удалению; без подписчика поведение прежнее.
-
-**Готово, когда:** тесты зелёные.
+- [x] Первой строкой `handle()`, исключение подписчика пишется в журнал и удаление не останавливает.
+- [x] `GroupDeletionHandlerTest` (3).
 
 ## 0.5 Ш4: служебные группы
 
-- [ ] `Services\Group\ServiceGroupResolver` (`ids()` с кешем на запрос, `isService( int )`), фильтр `fs_lms_service_group_ids`.
-- [ ] Потребители: `EnrollmentLifecycleCallbacks::ajaxGetStudentGroups()` (исключить); **`OpenGroupEnrollmentService::enrollableGroup()`**
-  (общая проверка `enrollMany()` и `planFromSubject()`) → `\InvalidArgumentException( 'В служебную группу учеников не добавляют.' )`;
-  `StudentsExportProvider::rows()` (ученик, у которого все записи в служебных группах, пропускается).
-- [ ] **`grep` остальных выборов группы для зачисления/добавления** (`findByPeriodAndSubject`, `findByFilters`, список открытых групп в
-  «Добавить в открытую группу», пикер групп кабинета) и решение по каждому — **записать сюда таблицей**: «место → служебные скрываем / не нужно, почему».
-- [ ] Тесты: без подписчиков списки прежние; со служебной группой — исключена и из списка, и из `enrollMany()`/`planFromSubject()`, и из выгрузки.
+- [x] `Services\Group\ServiceGroupResolver` (`ids()` с кешем на запрос, `isService()`; ответ нормализуется до уникальных положительных int).
+- [x] Потребители и **решения по всем местам выбора группы** (таблица ниже).
+- [x] Тесты: резолвер (5), `OpenGroupEnrollmentServiceTest` (+3), `StudentsExportServiceGroupTest` (4), `EnrollmentLifecycleCallbacksTest` (2), фильтр списка (4); фильтр вкладки — на `wp_db`.
 
-**Готово, когда:** таблица решений заполнена, тесты зелёные.
+| Место | Решение |
+|---|---|
+| `EnrollmentLifecycleCallbacks::ajaxGetStudentGroups()` — выбор группы при зачислении заявки | **скрываем** служебные |
+| `OpenGroupEnrollmentService::enrollableGroup()` — `enrollMany()` и `planFromSubject()` («Добавить всех учеников предмета») | **отказ** с текстом «В служебную группу учеников не добавляют.» |
+| `StudentsExportProvider::rows()` — выгрузка учеников | **пропускаем** ученика, у которого все записи в служебных группах |
+| Вкладка «Ученики» админки (`userlist-2-students.php`): список, счётчик, выпадающий список групп | **скрываем** (`exclude_group_ids`) |
+| Страница «Группы» (`AdminCallbacks`, `findByFilters`) | не скрываем: сотрудник должен видеть группу и удалять её (удаление идёт через Ш3) |
+| `ContentUsageService` (где используется урок/курс) | не скрываем: это отчёт об использовании |
+| `SubjectArchiveGuard` (группы текущего периода блокируют архивацию предмета) | не скрываем: штатное поведение, группа с данными |
+| `StudentGroupCallbacks::ajaxSearchStudentsForGroup()` | не нужно: ищет учеников, группа — контекст; само добавление отсекает `enrollableGroup()` |
+| Список групп преподавателя в кабинете | не скрываем: преподаватель мастер-класса должен её видеть |
+| `ExamAudienceResolver`, аудитория экзаменов | не трогаем: записи `isTrial` в аудиторию не входят (решение 6 спеки), `enrollOne()` их пропускает |
+| AD-провижн (`AdSync`) | не трогаем: временные записи исключены (решение 6 спеки) |
+
+**Готово:** таблица заполнена, тесты зелёные.
 
 ## 0.6 Ш5, Ш6
 
-- [ ] Ш5: `ApplyPageController::renderApplyForm()` — `$prefill = (array) apply_filters( 'fs_lms_apply_prefill', $prefill ?? array() )` после
-  разбора ссылки гостя экзамена; ключи — те, что читает `templates/frontend/apply-fields.php`. Тест: без подписчиков прежнее.
-- [ ] Ш6: `CaptchaService::check()` — перед `allowCaptchaFallback()`: при `$failure?->allowsFallback()` и `true === apply_filters(
-  'fs_lms_captcha_fallback_unlimited', false, $scope, (string) $identifier, $remoteIp )` лимит по IP не применяется; запись
-  `AuthAction::CaptchaFallback` остаётся (`note` — «без лимита по правилу модуля»). Тесты: без подписчика лимит прежний; с подписчиком
-  лимит снят **только** для `Login`-скоупа и разрешающего сбоя.
-
-**Готово, когда:** тесты зелёные.
+- [x] Ш5: `ApplyPageController::renderApplyForm()` — фильтр после разбора ссылки гостя; токен гостя не зависит от ответа шва; `ApplyPageControllerTest` (5).
+- [x] Ш6: `CaptchaService::check()` — шов только при разрешающем сбое, строгое `true`, запись в журнал остаётся (с пометкой в `note`); `CaptchaServiceTest` (+8).
 
 ## 0.7 Ш7: `findActiveTrials()`
 
-- [ ] `AND EXISTS ( SELECT 1 FROM {applications} a WHERE a.student_person_id = r.student_person_id )` (`TableName::Applications`).
-- [ ] **Тест на MariaDB:** временная запись без заявки плитку «ждём анкету родителя» не получает; с заявкой — получает.
-
-**Готово, когда:** тест на `wp_db` зелёный, `NotificationCronService::trialAccess()` без других изменений.
+- [x] `EXISTS` по заявке. Тест на вид запроса (`FakeWpdb`) и **проверка на `wp_db`**: запись без заявки не найдена, с заявкой найдена, появление заявки добавляет запись,
+  непробные и неактивные не входят, всё откатилось.
 
 ## 0.8 Мелкие правки ядра
 
-- [ ] `OpenCourseValidator::lessonProblems( LessonDTO ): array` (тело цикла `problems()`), `problems()` зовёт его. Поведение прежнее.
-- [ ] `PasswordGeneratorService::generateReadable( int $length = 8 ): string` — алфавит без `0 O 1 l I`, `random_int`. Тест: длина, алфавит,
-  разные значения за серию.
-
-**Готово, когда:** тесты `OpenCourseValidatorTest` без правок зелёные + новые.
+- [x] `OpenCourseValidator::lessonProblems()`; `problems()` зовёт его. У валидатора раньше тестов не было — добавлен `OpenCourseValidatorTest` (8), в том числе буквальные
+  тексты `problems()`.
+- [x] `PasswordGeneratorService::generateReadable()` (алфавит из 57 знаков без `0 O 1 l I`, `random_int`, длина 1–64); `PasswordGeneratorReadableTest` (6).
 
 ## 0.9 Граница модуля
 
-- [ ] Тест-сканер: в `inc/` (кроме `inc/Modules/Masterclass/`) нет `Masterclass` / `masterclass` (образец — `tests/js/profile-no-native-select.test.mjs`,
-  но на PHP/PHPUnit).
-
-**Готово, когда:** сканер зелёный, и красный, если подложить слово в файл ядра (проверить вручную один раз).
+- [x] `tests/Unit/Modules/Masterclass/ModuleBoundaryTest`: сканирует `inc/` (кроме `inc/Modules/Masterclass/`), `templates/`, `src/` на `masterclass` и «мастер-класс»;
+  самопроверка сканера на подложенном дереве; красный при слове в файле ядра (проверено вручную).
 
 ---
 
 ## Проверки этапа
 
-PHPUnit полностью; DI-загрузка; PHPStan уровня 5 по правленым файлам; `npx eslint .`; `npx stylelint "src/scss/**/*.scss"`; `npx gulp build`;
-п. 0.7 — на `wp_db`; `grep -rni masterclass inc` пуст. Затем **переписать этап 1** по факту.
+Выполнены (см. «Статус»). Затем **переписан этап 1** — см. `stage-01.md`.

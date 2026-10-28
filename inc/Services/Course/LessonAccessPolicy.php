@@ -30,9 +30,30 @@ class LessonAccessPolicy {
 
 	/**
 	 * Разрешить доступ одной записи к одному уроку группы.
-	 * Полная матрица: видимость × статус × даты × политика ретеншна.
+	 * Полная матрица: видимость × статус × даты × политика ретеншна ({@see self::resolveBase()}), затем шов
+	 * `fs_lms_lesson_access`.
+	 *
+	 * ### Шов `fs_lms_lesson_access`
+	 *
+	 * `apply_filters( 'fs_lms_lesson_access', AccessLevel $level, StudentRecordDTO $record, GroupLessonDTO $lesson )` —
+	 * подписчик (модуль) может **только понизить** уровень: закрыть урок записи, у которой по своим правилам доступа нет
+	 * (срок вышел, доступ приостановлен). Результат принимается, если это `AccessLevel` и он не выше базового; повышение
+	 * и значение другого типа игнорируются — модуль не может открыть то, что закрыто матрицей ядра.
+	 *
+	 * Через `resolve()` идут `canRead()`, `canSubmit()` и `visibleLessonsForStudent()`, а через них — гейты страницы урока,
+	 * ответов и прогресса шагов: понижение здесь закрывает всё сразу. Новый путь доступа к занятию обязан идти через `resolve()`.
 	 */
 	public function resolve( StudentRecordDTO $record, GroupLessonDTO $lesson ): AccessLevel {
+		$base     = $this->resolveBase( $record, $lesson );
+		$filtered = apply_filters( 'fs_lms_lesson_access', $base, $record, $lesson );
+
+		return ( $filtered instanceof AccessLevel && $filtered->rank() <= $base->rank() ) ? $filtered : $base;
+	}
+
+	/**
+	 * Матрица доступа ядра без подписчиков шва.
+	 */
+	private function resolveBase( StudentRecordDTO $record, GroupLessonDTO $lesson ): AccessLevel {
 		// #13 (T2.34): скрытый урок с наступившей датой занятия авто-открывается —
 		// все прошедшие уроки доступны сразу, без ручной публикации.
 		$effectiveVisibility = $this->visibility->effectiveVisibility( $lesson );

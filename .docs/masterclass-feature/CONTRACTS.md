@@ -43,12 +43,14 @@ inc/Modules/Masterclass/
 │                 MasterclassAuthController, MasterclassPlayerController, MasterclassEnrollmentController,
 │                 MasterclassCronController
 ├── Callbacks/    MasterclassSettingsCallbacks, MasterclassAdminCallbacks, MasterclassPlayerCallbacks
-├── templates/    settings-tab.php, admin-page.php, admin-form.php, admin-log.php, flyers.php,
+├── templates/    settings-tab.php, admin-page.php, admin-form.php, admin-accounts.php, admin-log.php, flyers.php,
 │                 player-banner.php, player-actions.php, player-contact.php, player-lock.php
-└── assets/       admin.js, flyers.css, player.js
+└── assets/       settings.js, admin.js, flyers.css, player.js
 ```
 
-Тесты — `tests/Unit/Modules/Masterclass/` (как у остальных модулей).
+Тесты — `tests/Unit/Modules/Masterclass/` и `tests/Integration/Modules/Masterclass/` (репозитории на дубле wpdb); проверки на настоящей MariaDB и загрузка DI —
+скрипты `tests/stand/masterclass-schema-check.php` и `tests/stand/di-boot-check.php`. `assets/settings.js` (вкладка настроек, этап 1) добавлен к списку: у
+вкладки «Настройки → Мастер-классы» свой скрипт, `admin.js` страницы модуля грузится только на ней.
 
 ## 2. Изменения ядра (универсальные швы, этап 0)
 
@@ -60,6 +62,9 @@ inc/Modules/Masterclass/
 возвращает `$filtered`, только если это `AccessLevel` и он **не выше** `$base` (порядок `None < Read < ReadSubmit`), иначе `$base`.
 Нужен метод `AccessLevel::rank(): int` (изменить `Enums\Access\AccessLevel`: сейчас там только кейсы `None`, `Read`, `ReadSubmit`). Тесты: без подписчика — прежняя матрица;
 подписчик может понизить; попытка повысить игнорируется.
+**Сделано (этап 0).** Подписчик получает `( AccessLevel $level, StudentRecordDTO $record, GroupLessonDTO $lesson )` — регистрировать `add_filter( …, 10, 3 )`.
+Значение не-`AccessLevel` игнорируется. Тесты — `LessonAccessPolicyTest` (шов), `AccessLevelTest`, `LessonFreezeChainTest` (понижение закрывает шаг урока в
+`LessonGateResolver`, а значит ответы и прогресс: оба колбэка идут через гейт).
 
 ### Ш2. Плеер (изменить `Controllers\Course\LessonPlayerController`, `templates/frontend/lesson-player/player.php`)
 Только в виде ученика (`! $isTeacher && ! $isParent`; в предпросмотре — не вызываются):
@@ -69,14 +74,18 @@ inc/Modules/Masterclass/
 - `do_action( 'fs_lms_player_header_actions', $userId, $row )` — внутри `.s-right` перед кнопкой-колокольчиком.
 - `do_action( 'fs_lms_player_before_content', $userId, $row )` — перед `<div class="player" id="fsPlayer">`.
 - `do_action( 'fs_lms_player_footer', $userId, $row )` — перед `wp_footer()`.
-Переменные `$userId` и `$row` шаблону отдаёт контроллер (сейчас не передаются). Плюс общий компонент `.s-banner`
-(`.s-banner__text`, `.s-banner__actions`) в `src/scss/player/components/_shell.scss` — токены и переменные темы, без сырых значений.
-Кейсы `Icon::Phone`, `Icon::Message`, `Icon::Logout` (изменить `Enums\Ui\Icon` + SVG; JS-двойники в `common/icons.js` не нужны).
+**Сделано (этап 0).** Шаблону контроллер отдаёт `$player_user_id` (int) и `$player_row` (`GroupLessonDTO`); шаблон выводит их в швы как
+`$userId` и `$row`. Переменные не заданы в предпросмотре курса (`CoursePreviewController`) — там швы выключены. Порядок экшенов:
+`header_actions` → `before_content` → `footer`. Общий компонент `.s-banner` (`.s-banner__text`, `.s-banner__actions`) — в
+`src/scss/player/components/_shell.scss`, на токенах темы. Кейсы `Icon::Phone`, `Icon::Message`, `Icon::Logout` (сетка 20, глифы Feather
+приведены масштабом группы; JS-двойники не нужны). Кнопка «Вернуться к курсу» в конце урока тоже пропадает при пустом `back_url`.
+Тесты — `PlayerSeamsRenderTest` (рендер настоящего `player.php`), `IconTest`.
 
 ### Ш3. `Services\Deletion\GroupDeletionHandler::handle()` (изменить)
 Первой строкой, до транзакции: `do_action( 'fs_lms_group_deleting', $event->groupId, $event->actorId )`. Докблок: подписчик
 убирает свои данные, связанные с группой (учётки временных учеников ядро не трогает — `deleteAllByGroupAndCollect()` собирает
-только `is_trial = 0`); исключение подписчика удаление группы не останавливает (обернуть в `try/catch` + `PluginLogger::exception`).
+только `is_trial = 0`); исключение подписчика удаление группы не останавливает (`try/catch` + `PluginLogger::exception( …, true )`).
+**Сделано (этап 0);** тесты — `GroupDeletionHandlerTest` (экшен раньше первого чтения данных, упавший подписчик не мешает).
 
 ### Ш4. Служебные группы (изменить)
 Фильтр `fs_lms_service_group_ids` → `list<int>`: группы, созданные модулями для своих целей, — не для зачисления настоящих
@@ -85,18 +94,30 @@ inc/Modules/Masterclass/
 - `Callbacks\Enrollment\EnrollmentLifecycleCallbacks::ajaxGetStudentGroups()` — исключить из списка;
 - `Services\Enrollment\OpenGroupEnrollmentService::enrollableGroup()` — общая проверка для `enrollMany()` и `planFromSubject()`
   («Добавить всех учеников предмета»): служебная группа → `\InvalidArgumentException( 'В служебную группу учеников не добавляют.' )`;
-- `Services\Export\StudentsExportProvider::rows()` — ученик, у которого все записи в служебных группах, пропускается.
-В этапе 0 — `grep` остальных выборов группы для зачисления (`findByPeriodAndSubject`, `findByFilters`) и решение по каждому
-записать в `tasks/stage-00.md`.
+- `Services\Export\StudentsExportProvider::rows()` — ученик, у которого все записи в служебных группах, пропускается
+  (`ServiceGroupResolver` приходит через конструктор `AbstractPersonExportProvider`);
+- вкладка «Ученики» админки (`templates/admin/components/tabs/userlist-tabs/userlist-2-students.php`): фильтр
+  `exclude_group_ids` в `StudentRecordRepository::buildWhereClause()` (`NOT IN`, список и счётчик «Найдено учеников»), служебные группы
+  убраны и из выпадающего списка групп.
+**Сделано (этап 0).** Резолвер — обычный класс без зависимостей, в `Init::getServices()` не нужен (контейнер собирает сам). Решения по остальным
+местам выбора группы — таблица в `tasks/stage-00.md`. Тесты — `ServiceGroupResolverTest`, `OpenGroupEnrollmentServiceTest`,
+`StudentsExportServiceGroupTest`, `EnrollmentLifecycleCallbacksTest`, `StudentRecordRepositoryIntegrationTest`; фильтр вкладки проверен на `wp_db`.
 
 ### Ш5. `Controllers\Pages\ApplyPageController::renderApplyForm()` (изменить)
 `$prefill = (array) apply_filters( 'fs_lms_apply_prefill', $prefill ?? array() )` — после разбора ссылки гостя экзамена; ключи —
 те же, что читает `templates/frontend/apply-fields.php` (`subject_key`, `school`, …).
+**Сделано (этап 0).** Токен гостя экзамена определяется ссылкой, а не ответом шва: модуль не может «выдать» себя за гостя. Не-массив от подписчика
+считается пустым. Тест — `ApplyPageControllerTest`. **Для этапа 5:** в `apply-fields.php` `autofocus` стоит на почте при любом непустом
+`$prefill` (задумано для гостя экзамена, у которого фамилия и имя уже заполнены); у мастер-класса имя пустое, и курсор окажется не на первом
+поле — решить в этапе 5 (например, служебный ключ предзаполнения или `autofocus` по тому, заполнено ли имя).
 
 ### Ш6. `Services\Captcha\CaptchaService::check()` (изменить)
 Перед `allowCaptchaFallback()`: если `$failure?->allowsFallback()` и
 `true === apply_filters( 'fs_lms_captcha_fallback_unlimited', false, $scope, (string) $identifier, $remoteIp )` — лимит по IP не
 применяется (запись `AuthAction::CaptchaFallback` в журнал остаётся, в `note` — «без лимита по правилу модуля»).
+**Сделано (этап 0).** Шов спрашивается только при токене-пустышке и сбое доставки, который разрешает пропуск (не при токене, закрытом задании или
+неразрешающем сбое); снимает лимит только строгое `true`. **Ограничение «только для входа» ядро не накладывает: оно в подписчике** (модуль проверяет
+`CaptchaScope::Login === $scope` и логин `student-N`, этап 3). Тесты — `CaptchaServiceTest` (мутации: нестрогое `true`, обход проверки сбоя).
 
 ### Ш7. `Repositories\WPDBRepositories\StudentRecordRepository::findActiveTrials()` (изменить)
 Добавить `AND EXISTS ( SELECT 1 FROM {applications} a WHERE a.student_person_id = r.student_person_id )` (`TableName::Applications`):
@@ -117,6 +138,10 @@ inc/Modules/Masterclass/
 в будущем — `SHOW COLUMNS … LIKE` + обычный `ADD COLUMN` и подъём `VERSION`. Вызывается из `MasterclassModule::register()`
 до любых зависящих от таблиц регистраций, **в том числе при выключенном модуле** (Ш1 и `deleted_user` читают таблицы).
 Удаление таблиц — общий `uninstall.php` (по префиксу `fs_lms_`).
+**Сделано (этап 1).** `VERSION_OPTION` и `VERSION` — публичные константы; DDL вынесены в публичные `masterclassesDdl()`, `accountsDdl()`, `logDdl( string $collate )`
+(так колонки и ключи проверяет юнит-тест по таблицам ниже, а `ensure()` лишь зовёт `dbDelta`). На `wp_db` проверено: `ensure()` на чистой базе создаёт три таблицы,
+повторный вызов (с сброшенной опцией, то есть повторный `dbDelta`) не меняет `SHOW CREATE TABLE`; настоящие таблицы создаются уже при загрузке плагина, и при
+выключенном модуле. Тест — `MasterclassSchemaTest`, стенд — `tests/stand/masterclass-schema-check.php`.
 
 ### `fs_lms_masterclasses`
 | Колонка | Тип | Примечание |
@@ -169,6 +194,12 @@ inc/Modules/Masterclass/
 Геттеры: `startTime(): string`, `endTime(): string` (валидное `HH:MM`, иначе по умолчанию), `batchSize(): int`,
 `homeTimeoutMinutes(): int`, `freezeDays(): int`, `unusedPurgeDays(): int`, `frozenPurgeDays(): int`, `logRetentionDays(): int`
 (границы — приватным `bounded()` по образцу `PluginConfig::bounded()`), `messengerUrl(): string`, `bannerText(): string`.
+**Сделано (этап 1).** Публичные константы `OPTION`, `TOGGLE_CONSTANT`, `DEFAULT_START_TIME` / `DEFAULT_END_TIME` / `DEFAULT_BANNER_TEXT`, `BANNER_MAX = 300` и таблица
+`INT_BOUNDS` (ключ → `[по умолчанию, минимум, максимум]`; ею же пользуется шаблон вкладки). Правила чтения: целое за границей **клампится** к границе, нечисловое → по умолчанию;
+окно: если время не `HH:MM` или конец не позже начала — обе границы по умолчанию целиком (`startTime()` / `endTime()` всегда дают пригодную пару); `bannerText()` пустой → текст
+по умолчанию, длиннее 300 → обрезается. Добавлен `normalize( array $partial ): array` — приводит присланные значения перед `save()` (клампит числа, режет баннер, отбрасывает
+неизвестные ключи и `enabled`, не добавляет непришедшие), а плохое время и «конец не позже начала» (с учётом сохранённого парного значения) — `\InvalidArgumentException`
+с текстом для пользователя. Тест — `MasterclassConfigTest`.
 
 ## 5. Энумы (`Inc\Modules\Masterclass\Enums`, новое)
 
@@ -183,6 +214,8 @@ inc/Modules/Masterclass/
   `FlyersPrinted`, `LoginBeforeStart`, `LoginOnSite`, `LoginAtHome`, `Frozen`, `ContactOpened`, `ContactPhone`,
   `ContactMessenger`, `ApplyClicked`, `ApplicationBound`, `ApplicationBindFailed`, `Enrolled`, `LoginsUnlocked`. `label(): string`;
   `static fromContact( MasterclassContactKind ): self`. Хука `do_action` нет: внутри модуля пишет `MasterclassLogWriter` напрямую.
+**Сделано (этап 1).** Все пять энумов со значениями выше; у каждого `label()` (`MasterclassContactKind` — ещё `fromRequest()`). Значения зафиксированы тестом и влезают в
+колонки (`state varchar(10)`, `delete_reason varchar(20)`, `action varchar(40)`). `LoginPlace` в БД не хранится — он попадает в контекст журнала. Тест — `MasterclassEnumsTest`.
 
 ## 6. DTO (`Inc\Modules\Masterclass\DTO`, `readonly class`, новое)
 
@@ -197,6 +230,13 @@ inc/Modules/Masterclass/
 - `MasterclassFlyerDTO` — `number`, `login`, `password`, `schoolName`, `loginUrl`.
 - `MasterclassFunnelDTO` — `created`, `loggedIn`, `atHome`, `contacted`, `applied`, `enrolled`; `toArray()`.
 - `MasterclassLogInputDTO` / `MasterclassLogDTO` — копия `ExamLogInputDTO` / `ExamLogDTO` с `?int $masterclassId`, `?int $accountId`.
+
+**Сделано (этап 1).** Все DTO — `readonly class`; `fromArray()` читает пустую строку как `NULL`. Уточнения к контракту:
+- `MasterclassDTO::isFrozen( $nowUtc )` — `now >= freeze_at` (в сам момент `freeze_at` уже закрыто); `isRunning()` — обе границы окна включены; добавлен
+  `isDeleteRequested(): bool`. Заморозка выводится из времени, `frozen_at` на неё не влияет (тест `test_freeze_is_derived_from_time_not_from_the_tick_mark`).
+- `MasterclassAccountDTO::fromArray()`: неизвестное состояние в БД читается как `Active`, неизвестная причина — как отсутствующая (список аккаунтов не падает на испорченной строке;
+  состояние пишет только модуль).
+- `MasterclassViewDTO::state` — энум, в `toArray()` уходит его значение. Тест — `MasterclassDtoTest`.
 
 ## 7. Репозитории (`Inc\Modules\Masterclass\Repositories`, новое; все `extends AbstractExamRepository`)
 
@@ -222,6 +262,8 @@ inc/Modules/Masterclass/
 - `listByMasterclass( int $masterclassId ): list<MasterclassAccountDTO>` — по возрастанию `id`
 - `liveUserIds( int $masterclassId ): list<int>` — `user_id` аккаунтов с учёткой, не удалённых (`user_id IS NOT NULL AND deleted_at IS NULL`;
   для `unlockLogins()`)
+- `pageByMasterclass( int $masterclassId, int $page, int $perPage, bool $withDeleted ): array{rows: list<MasterclassAccountDTO>, total: int}` —
+  по возрастанию `id`; без `$withDeleted` только `deleted_at IS NULL` (для списка аккаунтов страницы)
 - `insertPending( int $masterclassId, string $nowUtc ): int` — **`id` = `N`**
 - `attach( int $id, int $userId, int $personId, int $studentRecordId ): void`
 - `setState( int $id, MasterclassAccountState $state, ?int $applicationId = null ): void`
@@ -242,6 +284,18 @@ inc/Modules/Masterclass/
 - `list( array $filters, int $page, int $perPage ): array{rows: list<MasterclassLogDTO>, total: int}` — фильтры `action`,
   `masterclass_id`, `account_id`, `date_from`, `date_to`
 - `distinctActions(): list<string>`; `purgeOlderThan( string $utc ): int`
+
+**Сделано (этап 1).** Проверено на `wp_db` (`tests/stand/masterclass-schema-check.php`, 100+ проверок) и на дубле wpdb (`MasterclassRepositoriesTest`). Уточнения к контракту:
+- Условные `UPDATE` (`markFirstLogin / markHome / markContact`, `markDeleted`) требуют ещё `deleted_at IS NULL`: у удалённого аккаунта отметки не ставятся. `markFrozen` — ещё `purged_at IS NULL`.
+  `markDeleteRequested` не двигает уже стоящее время запроса (по нему упорядочена очередь тика) и не трогает вычищенный; `markPurged` повторно отметку не двигает.
+- `MasterclassAccountRepository::funnel()` не считает номера с `delete_reason = 'create_failed'`: это сожжённые номера без учётки, а не выданные аккаунты. Остальные удалённые считаются.
+- `attach()` — `void`, безусловный по `deleted_at` (между `insertPending()` и `attach()` одного вызова `createChunk()` аккаунт может удалить только чистильщик «зависших»
+  с порогом в часы). `UNIQUE user_id`: второй аккаунт на того же пользователя — `DuplicateKeyException`; несколько аккаунтов без учётки (`NULL`) допустимы.
+- `MasterclassRepository`: `UNIQUE group_id` — `DuplicateKeyException` на вторую запись той же группы; после `markPurged()` номер группы можно занять снова. `runningFor()` берёт
+  невычищенные мастер-классы с `starts_at − lead <= now <= ends_at`.
+- `MasterclassLogRepository` **не** наследует `AbstractLogRepository` (тот привязан к core-энуму `LogChannel`); читает и фильтрует сам. Фильтры `date_from` / `date_to` — `Y-m-d`, границы
+  суток включительно, **в UTC** (как у журналов ядра); страница журнала (этап 6) переводит местные даты сама.
+- Метки времени `created_at` / `updated_at` пишутся явно (`gmdate()` / переданное `$nowUtc`): `DEFAULT CURRENT_TIMESTAMP` берёт пояс БД, а не UTC.
 
 ## 8. Сервисы (`Inc\Modules\Masterclass\Services`, новое)
 
@@ -274,7 +328,8 @@ inc/Modules/Masterclass/
 - `lessonOptions( string $subjectKey ): list<array{id: int, title: string, problems: list<string>}>` — опубликованные уроки
   `LessonManager::getBankBySubject()`; непригодные отдаются с `problems` (форма показывает причину и не даёт выбрать).
 - `teacherOptions(): list<array{id: int, name: string}>` — `UserRepository::getByRole( UserRole::FSTeacher )`.
-- `serviceGroupIds(): list<int>` — `MasterclassRepository::activeGroupIds()` с кешем на запрос.
+- ~~`serviceGroupIds()`~~ — **убрано (этап 1)**: Ш4 читает `MasterclassRepository::activeGroupIds()` прямо в `MasterclassIntegrityController`, а кеш на запрос уже есть в
+  `ServiceGroupResolver` ядра.
 - `private deadlines( string $endsAtUtc ): array{freeze_at, unused_purge_at, purge_at}`; `private groupName( string $school,
   string $dateLocal ): string` — «Мастер-класс · {школа} · {дд.мм.гггг}», занято (`existsByNameAndPeriod`) — « (2)», « (3)».
 
@@ -296,6 +351,10 @@ inc/Modules/Masterclass/
   `AccountsCreated` (сколько создано). Возвращает число созданных.
 - `flyers( int $masterclassId, int $actorUserId ): list<MasterclassFlyerDTO>` — живые аккаунты в `Active` с читаемой копией
   пароля (`getCredentials()` не `null`); журнал `FlyersPrinted` (число, без паролей).
+- `page( int $masterclassId, int $page = 1, int $perPage = 50, bool $withDeleted = false ): array{masterclass: MasterclassDTO, rows: list<array>, total: int}` —
+  список аккаунтов для страницы (решение 24). Строка: `number`, `login` (`loginFor( number )`), `state` (подпись `MasterclassAccountState`), `firstLoginLocal`,
+  `homeLocal`, `contactLocal`, `deletedLocal` (`?string`, местное время через `ExamTime`), `deleteReason` (подпись или `null`), `hasApplication: bool`.
+  **Паролей и ПД нет.** Мастер-класса нет → `\InvalidArgumentException`. Вычищенный мастер-класс отдаёт пустой список.
 - `findLiveByUserId( int $userId ): ?MasterclassAccountDTO` — не удалён и не `Enrolled`.
 - `playerUrlFor( int $userId ): ?string` — `PageRoutes::LessonPlayer->lessonUrl( groupId, groupLessonId )`; `null`, если нет живого
   аккаунта или мастер-класс без группы.
@@ -366,10 +425,14 @@ inc/Modules/Masterclass/
 - `onUserDeleted( int $userId ): void` — `markDeletedByUserId( UserDeleted )`; если поставилось — журнал `AccountDeleted`.
 
 ### `MasterclassLogWriter`
-Зависимости: `MasterclassLogRepository`, `MasterclassAccountRepository`, `ClockInterface`. Трейт `RequestContextProvider`.
+Зависимости: `MasterclassLogRepository`, `ClockInterface` (`MasterclassAccountRepository` не нужен: номер аккаунта и есть его `id`, подпись «Ученик#N» строится без запроса в БД).
+Трейт `RequestContextProvider`.
 `write( MasterclassLogAction $action, array $data = array() ): void` — ключи `$data`: `masterclass_id`, `account_id`, `actor`,
 `actor_type` (`user`|`guest`|`system`), `result`, `context` (массив без паролей и ПД). Подпись «Ученик#N» — по `account_id`;
 IP — из `RequestContextProvider`. Сбой гасится (`PluginLogger::exception( 'MasterclassLog', …, true )`).
+**Сделано (этап 1).** Актор: `actor` не задан и `actor_type` не задан — пользователь текущего запроса (`user`), иначе `system`; явный `actor_type = system` не приписывает действие
+администратору, оказавшемуся в сессии. `result` кроме `failure` читается как `success`; неположительные id отбрасываются. Из `context` на любой глубине вырезаются ключи
+`/pass|pwd|secret|token|nonce/i`. Тест — `MasterclassLogWriterTest`.
 
 ### Дополнение ядра `PasswordGeneratorService` (изменить)
 `generateReadable( int $length = 8 ): string` — алфавит без `0 O 1 l I`, `random_int`. Существующие методы не меняются.
@@ -381,16 +444,32 @@ IP — из `RequestContextProvider`. Сбой гасится (`PluginLogger::ex
 Конструктор: все контроллеры ниже + `MasterclassSchema`, `MasterclassConfig`. `register()`:
 `$schema->ensure()` → `$settings->register()` → `$integrity->register()` → если `! $config->isEnabled()` — выход →
 `$admin->register()`, `$auth->register()`, `$player->register()`, `$enrollment->register()`, `$cron->register()`.
+**Сделано (этап 1):** конструктор пока `( MasterclassSchema, MasterclassConfig, MasterclassSettingsController, MasterclassIntegrityController, MasterclassAdminController )`, после
+выхода регистрируется только `$admin`; остальные контроллеры добавляются в конструктор и в хвост `register()` по мере появления (этапы 2–5). Тест — `MasterclassModuleTest`
+(порядок и состав при выключенном и включённом модуле); на стенде — `tests/stand/di-boot-check.php on|off`.
 
 ### `MasterclassSettingsController` (всегда)
 `SAVE_ACTION = 'fs_lms_masterclass_save_settings'`. `register()`: `wp_ajax_` + `SAVE_ACTION` → `MasterclassSettingsCallbacks::ajaxSave`;
 `fs_lms_settings_tabs` (`'tab-masterclasses' => array( 'title' => 'Мастер-классы', 'path' => … templates/settings-tab.php )`, только
 при включённом); `fs_lms_dashboard_modules` (`id` `masterclass`, `const_key` `FS_LMS_MASTERCLASS`); `fs_lms_module_toggle_masterclass`
 → `onToggle( bool )`: `config->save( enabled )`, при выключении — `MasterclassCronController::unschedule()`.
+**Сделано (этап 1):** константы `SAVE_ACTION` и `TAB = 'tab-masterclasses'`; `onToggle()` пока только сохраняет флаг — `unschedule()` добавляется с крон-контроллером (этап 4).
+Вкладка отдаёт шаблону данные ключом `masterclass_config` (**не** `config`: страница настроек уже держит под `$config` массив настроек плагина, а `extract( …, EXTR_SKIP )`
+его не перезапишет — так вкладка падала на живой странице). Скрипт `assets/settings.js` грузится только на `?page=fs_lms_settings&tab=tab-masterclasses` при включённом модуле,
+локализация `fsLmsMasterclassSettings = { ajaxurl, action, nonce }`. Проверено по HTTP: вкладка, форма, скрипт и пункт меню есть при включённом модуле и исчезают при выключенном;
+страница модуля при выключенном — 403; тумблер Dashboard (`fs_lms_toggle_module`) включает и выключает; карточка есть всегда. Тесты — `MasterclassSettingsControllerTest`,
+`MasterclassTemplatesRenderTest` (рендер повторяет механизм `settings.php`).
 
 ### `MasterclassIntegrityController` (всегда)
 `add_filter( 'fs_lms_lesson_access', array( $guard, 'filterLessonAccess' ), 10, 3 )`;
-`add_action( 'deleted_user', array( $lifecycle, 'onUserDeleted' ) )`.
+`add_action( 'deleted_user', array( $lifecycle, 'onUserDeleted' ) )`;
+`add_filter( 'fs_lms_service_group_ids', … )` → `array_merge( $ids, MasterclassService::serviceGroupIds() )` (Ш4: группа остаётся служебной и при
+выключенном модуле, иначе она вернулась бы в списки зачисления);
+`add_action( 'fs_lms_group_deleting', array( $lifecycle, 'onGroupDeleting' ), 10, 2 )` (Ш3: удаление группы любым путём убирает учётки и при выключенном
+модуле, иначе `student-N` остались бы сиротами). *(Решено 2026-10-28, этап 0: оба шва — «всегда».)*
+**Сделано (этап 1):** контроллер зависит только от `MasterclassRepository` и держит одну подписку — Ш4 `fs_lms_service_group_ids` → `filterServiceGroupIds( mixed ): array`
+(дописывает `activeGroupIds()`; не-массив от чужого подписчика считается пустым; сбой чтения таблицы гасится и логируется — список возвращается как пришёл, чтобы модуль не ронял
+зачисление и выгрузку ядра). Ш1 (этап 3), `deleted_user` и Ш3 (этап 4) добавляются вместе со своими обработчиками. Тест — `MasterclassIntegrityControllerTest`.
 
 ### `MasterclassAdminController`
 `PAGE_SLUG = 'fs_lms_masterclasses'`; экшены: `CREATE_ACTION = 'fs_lms_masterclass_create'`, `UPDATE_ACTION`, `EXTEND_ACTION`,
@@ -402,7 +481,11 @@ capability Capability::ManageLmsPlatform->value, menu_slug PAGE_SLUG, callback a
 `admin_enqueue_scripts` → `enqueueAssets()` (только на `PAGE_SLUG`: `assets/admin.js` + `wp_localize_script( 'fsLmsMasterclass',
 { ajaxurl, nonce: Nonce::Config->create(), actions, chunkMax, defaults } )` — исключение «модуль локализует свой admin-JS в своём
 контроллере», `CLAUDE.md`). `renderPage()`: `require` `templates/admin-page.php` с данными `MasterclassService::overview()`,
+вид `?view=accounts&id=N[&paged=N][&deleted=1]` — `templates/admin-accounts.php` с `MasterclassAccountService::page()` (серверный рендер, без AJAX;
+`id` через `Sanitizer`, нет мастер-класса — сообщение на странице, не фатал),
 вкладка `?view=log` — `templates/admin-log.php` с `MasterclassLogRepository::list()`.
+**Сделано (этап 1):** `PAGE_SLUG`, регистрация подстраницы через `MenuManager` и `renderPage()` с шаблоном-заглушкой `admin-page.php` (заголовок и описание); AJAX, виды и
+`enqueueAssets()` — этап 2. Проверено по HTTP: пункт меню «Мастер-классы» и страница открываются при включённом модуле.
 
 ### `MasterclassAuthController`
 `template_redirect` (приоритет 5 — раньше `ProfileController`) → `redirectAccount()`: залогинен, `PageRoutes::SignIn->isCurrent()`
@@ -425,8 +508,8 @@ capability Capability::ManageLmsPlatform->value, menu_slug PAGE_SLUG, callback a
 ### `MasterclassEnrollmentController`
 `fs_lms_application_created` → `onApplicationCreated( int $applicationId )`: `get_current_user_id()` 0 → выход, иначе
 `bindApplication()`. `fs_lms_student_enrolled` (10, 2) → `markEnrolled( $studentPersonId )`. `fs_lms_apply_prefill` → пустой
-`$prefill` и залогинен → `MasterclassConversionService::prefill()`. `fs_lms_service_group_ids` → `array_merge( $ids,
-MasterclassService::serviceGroupIds() )`. `fs_lms_group_deleting` (10, 2) → `MasterclassLifecycleService::onGroupDeleting()`.
+`$prefill` и залогинен → `MasterclassConversionService::prefill()`. (Подписки Ш4 `fs_lms_service_group_ids` и Ш3 `fs_lms_group_deleting` живут в
+`MasterclassIntegrityController` — они нужны и при выключенном модуле.)
 (Обработчики — однострочные методы контроллера, как `AdSyncController::onApplicationCreated`.)
 
 ### `MasterclassCronController`
@@ -439,6 +522,9 @@ MasterclassService::serviceGroupIds() )`. `fs_lms_group_deleting` (10, 2) → `M
 ### `MasterclassSettingsCallbacks`
 `ajaxSave()` — `authorize( Nonce::Config, Capability::ManageLmsPlatform )`; целые через `sanitizeInt()`, время/текст —
 `sanitizeText()`, `messenger_url` — `esc_url_raw( sanitizeText() )`; сохраняются только присланные ключи (`MasterclassConfig::save()`).
+**Сделано (этап 1):** «присланный» — `hasParam()`; ссылка — `sanitizeHttpUrlOrNull()` (`http(s)://…`; `javascript:`, `ftp:` и текст без точки — отказ с сообщением, пустая строка очищает ссылку);
+приведение и проверка окна — `MasterclassConfig::normalize()` (при отказе не сохраняется ничего, в том числе остальные присланные поля). Ключа `enabled` в запросе нет: тумблер на Dashboard.
+Ответ об ошибке — `wp_send_json_error( строка )`, JS показывает `res.data`. Тест — `MasterclassSettingsCallbacksTest`; по HTTP проверены сохранение, кириллица, отказы, ответ 403 без nonce.
 
 ### `MasterclassAdminCallbacks`
 Везде первая строка `authorize( Nonce::Config, Capability::ManageLmsPlatform )`; `\InvalidArgumentException` → `error( $e->getMessage() )`.
@@ -463,8 +549,11 @@ MasterclassService::serviceGroupIds() )`. `fs_lms_group_deleting` (10, 2) → `M
 - `admin-page.php`: `.fs-page-header`, переключатель «Мастер-классы | Журнал», карточка-форма создания/правки (`admin-form.php`,
   `.fs-card`, скрыта атрибутом `hidden`, без модалки — модульный JS не тянет `modal-base.js` ядра), таблица `overview()` (школа,
   дата и окно местного времени, преподаватель, состояние, воронка), действия: «Открыть в плеере», «Докинуть», «Печать флаеров»
-  (ссылка на `admin-post.php?action=…&id=…&security=…`, `target="_blank"`), «Снять блокировки», «Продлить», «Изменить», «Удалить»
+  (ссылка на `admin-post.php?action=…&id=…&security=…`, `target="_blank"`), «Аккаунты», «Снять блокировки», «Продлить», «Изменить», «Удалить»
   (подтверждение).
+- `admin-accounts.php`: заголовок мастер-класса (школа, дата), ссылка «← К мастер-классам», таблица аккаунтов (`MasterclassAccountService::page()`): «№», «Логин»,
+  «Состояние», «Первый вход», «Дома», «Связался», «Заявка» (да/нет), у удалённых — «Удалён: причина»; галочка «Показать удалённые», пагинация по 50. Только штатные классы
+  админки (`wp-list-table`), без паролей.
 - `assets/admin.js` — self-contained IIFE на jQuery (как `AdSync/assets/admin.js`): форма, список уроков по предмету (непригодные —
   неактивны с причиной), цикл `ajaxAddAccounts` с прогрессом «создано X из Y», продление, удаление. Показ/скрытие — `hidden`,
   стили из JS не задаются.
@@ -487,7 +576,7 @@ MasterclassService::serviceGroupIds() )`. `fs_lms_group_deleting` (10, 2) → `M
 - `MasterclassAccessGuardTest` — заморозка по `freeze_at`, чужая группа, не `isTrial`, `Enrolled`, удалённый; `viewFor()` (баннер).
 - `MasterclassServiceTest` — валидации, порядок `create()`, `update()` синхронизирует преподавателя и расписание, `extend()`, `requestDelete()`.
 - `MasterclassAccountServiceTest` — `loginFor()`, `createChunk()` (номер = id, занятый логин, откат при сбое учётки, лимит 25),
-  `flyers()`, `deleteAccount()` (метка до события), `detachAccount()`, `unlockLogins()` (все живые аккаунты, удалённые не трогаются, журнал).
+  `flyers()`, `deleteAccount()` (метка до события), `detachAccount()`, `unlockLogins()` (все живые аккаунты, удалённые не трогаются, журнал), `page()` (50 на страницу, удалённые по флагу, нет паролей и ПД в строке, местное время, мастер-класса нет — исключение).
 - `MasterclassConversionServiceTest` — привязка (поля заявки, `trial_owner`, `syncCredentials`), отказ при живой заявке и при уже
   привязанной заявке, `markEnrolled()` переписывает имя учётки.
 - `MasterclassLifecycleServiceTest` — бюджет аккаунтов, идемпотентность каждого шага, отвязка при `delete_requested_at`, группа не

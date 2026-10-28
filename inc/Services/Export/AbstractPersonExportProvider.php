@@ -13,6 +13,7 @@ use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\WPDBRepositories\PersonDocumentsRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
+use Inc\Services\Group\ServiceGroupResolver;
 use Inc\Services\Security\PiiCryptoService;
 
 /**
@@ -34,6 +35,7 @@ abstract class AbstractPersonExportProvider implements CsvExportProviderInterfac
 	 * @param SubjectRepository         $subjects        Репозиторий предметов
 	 * @param UserRepository            $userRepository  Репозиторий пользователей WP
 	 * @param PiiCryptoService          $crypto          Сервис шифрования PII
+	 * @param ServiceGroupResolver      $serviceGroups   Служебные группы модулей (их ученики в выгрузку не входят)
 	 */
 	public function __construct(
 		protected readonly PersonRepository          $persons,
@@ -43,6 +45,7 @@ abstract class AbstractPersonExportProvider implements CsvExportProviderInterfac
 		protected readonly SubjectRepository         $subjects,
 		protected readonly UserRepository            $userRepository,
 		protected readonly PiiCryptoService          $crypto,
+		protected readonly ServiceGroupResolver      $serviceGroups,
 	) {}
 
 	/**

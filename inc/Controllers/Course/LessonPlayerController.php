@@ -121,6 +121,9 @@ class LessonPlayerController extends BaseController implements ServiceInterface 
 		$live_stream_url  = $this->player->liveStreamUrl( $row, $view );
 		$active_step      = $this->sanitizeGetKey( 'step' );
 		$is_teacher       = $isTeacher;
+		// Для швов плеера (`fs_lms_player_*`): кто смотрит и какое это занятие. Шаблон зовёт хуки только в виде ученика.
+		$player_user_id  = $userId;
+		$player_row      = $row;
 		// Бейдж «Режим преподавателя» ведёт в предпросмотр того же урока (только автору курса).
 		$mode_switch_url  = $isTeacher
 			? $this->modeSwitch->previewUrl( $userId, (int) ( $view['shell']['course_id'] ?? 0 ), (int) ( $view['lesson_id'] ?? 0 ), $row->id )
