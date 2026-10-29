@@ -5,6 +5,7 @@ declare( strict_types=1 );
 namespace Unit\Services\Task;
 
 use Inc\Services\Task\ConditionHtmlNormalizer;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -119,6 +120,32 @@ class ConditionHtmlNormalizerTest extends TestCase {
 		self::assertSame(
 			"<p>F{$nb}={$nb}{$nb}¬(x{$nb}∨{$nb}y)</p>",
 			$this->normalizer->normalize( "<p>F{$nb}={$nb} ¬(x ∨ y)</p>" )
+		);
+	}
+
+	#[DataProvider( 'logicFormulas' )]
+	public function test_every_logic_operator_glues_the_formula( string $formula ): void {
+		$nb = "\u{00A0}";
+		self::assertSame(
+			'<p>' . str_replace( ' ', $nb, $formula ) . ' верно</p>',
+			$this->normalizer->normalize( "<p>{$formula} верно</p>" )
+		);
+	}
+
+	/** @return array<string, array{string}> */
+	public static function logicFormulas(): array {
+		return array(
+			'импликация →'       => array( '(x → y) ∧ ¬ z' ),
+			'импликация ⇒'       => array( 'x ⇒ y ∨ z' ),
+			'эквиваленция ≡'     => array( '(x ≡ y) ∨ w' ),
+			'эквиваленция ↔'     => array( 'x ↔ ¬ y' ),
+			'исключающее ИЛИ ⊕'  => array( 'x ⊕ y ⊕ z' ),
+			'штрих Шеффера ↑'    => array( 'x ↑ y' ),
+			'стрелка Пирса ↓'    => array( 'x ↓ y' ),
+			'конъюнкция ·'       => array( 'x · y ∨ z' ),
+			'ASCII-стрелка'      => array( 'x -&gt; y' ),
+			'ASCII-конъюнкция'   => array( 'x /\ y' ),
+			'ASCII-дизъюнкция'   => array( 'x \/ y' ),
 		);
 	}
 }
