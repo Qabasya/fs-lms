@@ -246,6 +246,46 @@ try {
 	ok( 'продление: заморозка уехала на 5 дней, остальные сроки — на ту же разницу', 432000 === strtotime( $extended->freezeAt . ' UTC' ) - strtotime( $main->freezeAt . ' UTC' )
 		&& 432000 === strtotime( $extended->purgeAt . ' UTC' ) - strtotime( $main->purgeAt . ' UTC' )
 		&& 432000 === strtotime( $extended->unusedPurgeAt . ' UTC' ) - strtotime( $main->unusedPurgeAt . ' UTC' ) );
+
+	// ── I. Аудит 2.7: поиск учеников в центре печати (SQL) ───────────────────────────────────────────────────────
+	$persons       = $container->get( \Inc\Repositories\WPDBRepositories\PersonRepository::class );
+	$personService = $container->get( \Inc\Services\Person\PersonService::class );
+	$records       = $container->get( \Inc\Repositories\WPDBRepositories\StudentRecordRepository::class );
+	$realGroupId   = (int) $wpdb->get_var( "SELECT id FROM {$wpdb->prefix}fs_lms_groups WHERE id NOT IN (" . implode( ',', array_map( 'intval', array_values( $created ) ) ) . ') ORDER BY id LIMIT 1' );
+	$serviceIds    = ( new ServiceGroupResolver() )->ids();
+
+	ok( 'поиск: без служебных групп «Ученик» находит временных', array() !== $persons->searchStudents( 'Ученик#', 20 ) );
+	ok( 'поиск: со служебными группами «Ученик#» не находит никого', array() === $persons->searchStudents( 'Ученик#', 20, $serviceIds ) );
+
+	$now    = gmdate( 'Y-m-d H:i:s' );
+	$record = static fn ( int $personId, int $groupId ): \Inc\DTO\Enrollment\StudentRecordInputDTO => new \Inc\DTO\Enrollment\StudentRecordInputDTO(
+		studentPersonId:   $personId,
+		parentPersonId:    0,
+		status:            'active',
+		enrolledAt:        $now,
+		createdAt:         $now,
+		updatedAt:         $now,
+		groupId:           $groupId,
+		snapshotLastName:  'zz_mk',
+		snapshotFirstName: 'Ученик',
+	);
+	$mixed = $personService->createOrFindBy( new \Inc\DTO\Person\PersonInputDTO( lastName: 'zz_mk_Смешанный', firstName: 'Ученик', docNumber: '' ) );
+	foreach ( array( (int) $main->groupId, $realGroupId ) as $gid ) {
+		$records->create( $record( $mixed, $gid ) );
+	}
+	$onlyService = $personService->createOrFindBy( new \Inc\DTO\Person\PersonInputDTO( lastName: 'zz_mk_Служебный', firstName: 'Ученик', docNumber: '' ) );
+	$records->create( $record( $onlyService, (int) $main->groupId ) );
+	$archived = $personService->createOrFindBy( new \Inc\DTO\Person\PersonInputDTO( lastName: 'zz_mk_Архивный', firstName: 'Ученик', docNumber: '' ) );
+
+	$found = static fn ( string $q ): array => array_map( static fn ( $p ): int => $p->id, $persons->searchStudents( $q, 20, $serviceIds ) );
+	ok( 'поиск: ученик и в служебной, и в обычной группе находится', in_array( $mixed, $found( 'zz_mk_Смешанный' ), true ) );
+	ok( 'поиск: ученик только в служебной группе скрыт', ! in_array( $onlyService, $found( 'zz_mk_Служебный' ), true ) );
+	ok( 'поиск: ученик без записей (архивный) находится', in_array( $archived, $found( 'zz_mk_Архивный' ), true ) );
+
+	foreach ( array( $mixed, $onlyService, $archived ) as $personId ) {
+		$dispatcher->dispatch( new DeleteStudentEvent( $personId, 1 ) );
+	}
+	ok( 'поиск: тестовые физлица убраны', 0 === rows( 'fs_lms_persons', "last_name LIKE 'zz_mk_%'" ) );
 } finally {
 	$cleanup();
 }
