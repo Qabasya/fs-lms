@@ -399,7 +399,18 @@ class StepContentRenderer {
 	private function buildFillData( array $meta ): array {
 		$text   = (string) ( $meta['task_gap_text']['text'] ?? '' );
 		$parsed = FillTextParser::parse( $text );
-		return array( 'type' => 'fill', 'segments' => $parsed->segments );
+		$data   = array( 'type' => 'fill', 'segments' => $parsed->segments );
+
+		// Режим плиток: на клиент уходит только перемешанный банк — какая плитка к какому пропуску, знает чекер.
+		if ( FillTextParser::MODE_TILES === ( $meta['task_gap_text']['answer_mode'] ?? '' ) ) {
+			$extra = is_array( $meta['task_gap_text']['extra_tiles'] ?? null ) ? $meta['task_gap_text']['extra_tiles'] : array();
+			$tiles = FillTextParser::tilesFor( $parsed, array_map( 'strval', $extra ) );
+			shuffle( $tiles );
+			$data['answer_mode'] = FillTextParser::MODE_TILES;
+			$data['tiles']       = $tiles;
+		}
+
+		return $data;
 	}
 
 	private function resolveAudioUrl( int $attachmentId ): string {

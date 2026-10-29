@@ -69,4 +69,16 @@ class FillCheckerTest extends TestCase {
 		$result = $this->checker->check( $this->content( 'Обычный текст без пропусков.' ), [] );
 		self::assertFalse( $result->isCorrect );
 	}
+
+	public function test_tiles_mode_answer_is_checked_like_typed_answer(): void {
+		$content = array( 'task_gap_text' => array(
+			'text'        => '[[красный|алый]] и [[круг]]',
+			'answer_mode' => 'tiles',
+			'extra_tiles' => array( 'квадрат' ),
+		) );
+
+		self::assertTrue( $this->checker->check( $content, array( 0 => 'красный', 1 => 'круг' ) )->isCorrect );
+		self::assertTrue( $this->checker->check( $content, array( 0 => 'алый', 1 => 'круг' ) )->isCorrect );
+		self::assertFalse( $this->checker->check( $content, array( 0 => 'красный', 1 => 'квадрат' ) )->isCorrect );
+	}
 }

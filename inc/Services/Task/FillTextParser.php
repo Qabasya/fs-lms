@@ -22,6 +22,10 @@ class FillTextParser {
 
 	use AnswerNormalizer;
 
+	/** Режим ответа задания «Пропуски в тексте»: вписать в поле (по умолчанию) или перетащить плитки. */
+	public const MODE_INPUT = 'input';
+	public const MODE_TILES = 'tiles';
+
 	/**
 	 * Парсит текст и возвращает сегменты + список пропусков.
 	 *
@@ -69,6 +73,24 @@ class FillTextParser {
 		}
 
 		return new ParsedFillText( $segments, $gaps );
+	}
+
+	/**
+	 * Плитки банка для режима плиток: первый вариант каждого пропуска + лишние слова автора.
+	 * Пустые отбрасываются; повторы остаются (два пропуска с одним словом — две плитки).
+	 *
+	 * @param ParsedFillText $parsed Результат parse().
+	 * @param string[]       $extra  Лишние плитки (`extra_tiles`).
+	 *
+	 * @return string[]
+	 */
+	public static function tilesFor( ParsedFillText $parsed, array $extra ): array {
+		$firsts = array_map( static fn( array $variants ): string => (string) ( $variants[0] ?? '' ), $parsed->gaps );
+
+		return array_values( array_filter(
+			array_map( 'trim', array_merge( $firsts, $extra ) ),
+			static fn( string $tile ): bool => '' !== $tile
+		) );
 	}
 
 	/**
