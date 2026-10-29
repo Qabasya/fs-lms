@@ -47,6 +47,7 @@ export function initTaskWidget( panel ) {
 		case 'matching':    return buildMatchingWidget( container, widgetData, isDone );
 		case 'ordering':    return buildOrderingWidget( container, widgetData, isDone );
 		case 'fill':        return buildFillWidget( container, widgetData, isDone );
+		case 'drag_fill':   return buildDragFillWidget( container, widgetData, isDone );
 		default:            return null;
 	}
 }
@@ -562,18 +563,43 @@ function buildFillWidget( container, data, isDone ) {
  * Ответ тот же, что у режима ввода (`{индекс пропуска: слово}`), поэтому проверка не меняется.
  */
 function buildFillTilesWidget( container, data, isDone ) {
+	return buildTilesWidget( container, data, isDone, {
+		slotType:     'gap',
+		wrapperClass: 'fs-widget-fill fs-widget-fill-tiles',
+		textClass:    'fs-widget-fill-text',
+		slotClass:    'fs-widget-fill-slot',
+	} );
+}
+
+// ── Drag-fill (формула со слотами, плитки перетаскиванием) ─────────────────
+
+/** «Перетаскивание пропусков»: формула крупно, плитки (в т.ч. лишние) — в слоты; порядок в группе проверяет сервер. */
+function buildDragFillWidget( container, data, isDone ) {
+	return buildTilesWidget( container, data, isDone, {
+		slotType:     'slot',
+		wrapperClass: 'fs-drag-fill-formula',
+		textClass:    'fs-drag-fill-text',
+		slotClass:    'fs-drag-fill-slot',
+	} );
+}
+
+/**
+ * Общая сборка «текст/формула со слотами + банк плиток» поверх `createBoard()`/`mountTileBoard()`.
+ * Ответ — `{индекс слота: плитка}`, пустой слот — ''.
+ */
+function buildTilesWidget( container, data, isDone, { slotType, wrapperClass, textClass, slotClass } ) {
 	const segments = Array.isArray( data.segments ) ? data.segments : [];
-	const wrapper  = make( 'div', 'fs-widget-fill fs-widget-fill-tiles' );
+	const wrapper  = make( 'div', wrapperClass );
 	const slots    = [];
 
 	segments.forEach( ( seg ) => {
-		if ( 'gap' === seg.type ) {
-			const slot = make( 'span', 'fs-widget-fill-slot' );
+		if ( slotType === seg.type ) {
+			const slot = make( 'span', slotClass );
 			slots[ seg.index ] = slot;
 			wrapper.appendChild( slot );
 			return;
 		}
-		const span       = make( 'span', 'fs-widget-fill-text' );
+		const span       = make( 'span', textClass );
 		span.textContent = seg.content || '';
 		wrapper.appendChild( span );
 	} );

@@ -420,6 +420,45 @@
   &.is-filled { border-bottom-color: var(--accent); }
 }
 
+// «Перетаскивание пропусков»: формула крупнее, слоты — пустые карточки, плитка в слоте остаётся карточкой.
+.fs-drag-fill-formula {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: rem(8);
+  font: 600 rem(22) var(--font);
+  color: var(--ink);
+}
+
+.fs-drag-fill-slot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: rem(52);
+  min-height: rem(40);
+  border: 1.5px dashed var(--line);
+  border-radius: rem(8);
+  background: var(--surface);
+  cursor: pointer;
+
+  &:focus-visible {
+    outline: none;
+    border-color: var(--accent);
+  }
+
+  &.is-filled { border-style: solid; }
+
+  .fs-tile.is-placed {
+    padding: rem(6) rem(12);
+    border: 1px solid var(--line);
+    border-radius: rem(8);
+    background: var(--surface);
+    box-shadow: var(--shadow-sm);
+    font: inherit;
+    cursor: grab;
+  }
+}
+
 /* ── Условие, попытки, подсказка, футер ─────────────────────────────── */
 .fs-task-subpart + .fs-task-subpart { margin-top: rem(8); }
 

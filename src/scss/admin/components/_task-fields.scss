@@ -111,6 +111,18 @@
 	}
 }
 
+// ── Перетаскивание пропусков ──────────────────────────────────────────────────
+
+.fs-task-drag-fill-field {
+	.fs-task-drag-fill__row {
+		@extend %task-field-row;
+	}
+
+	.js-drag-fill-any-order {
+		margin-top: v.$spacing-sm;
+	}
+}
+
 // ── Сортировка ────────────────────────────────────────────────────────────────
 
 .fs-task-order-field {

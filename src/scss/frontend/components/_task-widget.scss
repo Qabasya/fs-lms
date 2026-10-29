@@ -304,6 +304,38 @@
 	&.is-filled { border-bottom-color: $color-accent; }
 }
 
+// «Перетаскивание пропусков»
+.fs-drag-fill-formula {
+	display:     flex;
+	flex-wrap:   wrap;
+	align-items: center;
+	gap:         $spacing-sm;
+	font-size:   rem(22);
+}
+
+.fs-drag-fill-slot {
+	display:         inline-flex;
+	align-items:     center;
+	justify-content: center;
+	min-width:       rem(52);
+	min-height:      rem(40);
+	border:          1px dashed $color-border;
+	border-radius:   $border-radius-lg;
+	background:      $color-white;
+	cursor:          pointer;
+
+	&.is-filled { border-style: solid; }
+
+	.fs-tile.is-placed {
+		padding:       $spacing-xs $spacing-md;
+		border:        1px solid $color-border;
+		border-radius: $border-radius-lg;
+		box-shadow:    $shadow-surface;
+		font:          inherit;
+		cursor:        grab;
+	}
+}
+
 // ── Счётчик попыток ────────────────────────────────────────────────────────
 
 .fs-attempt-indicator {

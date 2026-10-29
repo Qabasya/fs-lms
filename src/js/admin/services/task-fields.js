@@ -5,6 +5,7 @@
 
 import { renderFieldError } from '../../common/validation-manager.js';
 import { toggleVisible } from '../../common/utils.js';
+import { countSlots, setAllGroups } from '../../common/drag-fill-formula.js';
 
 export const TaskFields = {
 
@@ -13,12 +14,13 @@ export const TaskFields = {
 	 *                                     или контейнер модалки-редактора задач.
 	 */
 	init( root = document ) {
-		if ( ! root.querySelector( '.fs-task-options-field, .fs-task-pairs-field, .fs-task-order-field, .fs-task-audio-field, .fs-task-materials-field, .fs-task-criteria-field, .fs-lms-file-group' ) ) {
+		if ( ! root.querySelector( '.fs-task-options-field, .fs-task-pairs-field, .fs-task-order-field, .fs-task-drag-fill-field, .fs-task-audio-field, .fs-task-materials-field, .fs-task-criteria-field, .fs-lms-file-group' ) ) {
 			return;
 		}
 		this.bindOptions( root );
 		this.bindPairs( root );
 		this.bindOrder( root );
+		this.bindDragFill( root );
 		this.bindAudio( root );
 		this.bindMaterials( root );
 		this.bindCriteria( root );
@@ -115,6 +117,41 @@ export const TaskFields = {
 			list.addEventListener( 'input', ( e ) => {
 				if ( e.target.classList.contains( 'js-pair-left' )
 					|| e.target.classList.contains( 'js-pair-right' ) ) { checkDup(); }
+			} );
+		} );
+	},
+
+	// ── Перетаскивание пропусков ────────────────────────────────────────────
+
+	bindDragFill( root = document ) {
+		root.querySelectorAll( '.fs-task-drag-fill-field' ).forEach( ( wrap ) => {
+			const formula = wrap.querySelector( '.js-drag-fill-formula' );
+			const rows    = wrap.querySelector( '.js-drag-fill-rows' );
+			const tpl     = wrap.querySelector( '.js-drag-fill-row-tpl' );
+			const anyOrder = wrap.querySelector( '.js-drag-fill-any-order' );
+
+			if ( ! formula || ! rows || ! tpl ) return;
+
+			const items = () => rows.querySelectorAll( '.fs-task-drag-fill__row' );
+
+			// Строк слотов ровно столько, сколько {N} в формуле (не меньше одной).
+			const syncRows = () => {
+				const want = Math.max( 1, countSlots( formula.value ) );
+				while ( items().length > want ) { rows.lastElementChild.remove(); }
+				while ( items().length < want ) {
+					const holder = document.createElement( 'div' );
+					holder.innerHTML = tpl.innerHTML.replace( /__IDX__/g, String( items().length ) ).trim();
+					const row = holder.firstElementChild;
+					row.querySelector( '.js-drag-fill-num' ).textContent = `{${ items().length + 1 }}`;
+					rows.appendChild( row );
+				}
+			};
+
+			formula.addEventListener( 'input', syncRows );
+
+			anyOrder?.addEventListener( 'click', () => {
+				const groups = setAllGroups( items().length );
+				items().forEach( ( row, i ) => { row.querySelector( 'input[type="number"]' ).value = String( groups[ i ] ); } );
 			} );
 		} );
 	},

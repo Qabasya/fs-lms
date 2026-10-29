@@ -43,13 +43,27 @@ class DragFillField extends BaseField {
 			<p class="description">
 				Верная плитка для каждого пропуска. Пропуски с одинаковым номером группы взаимозаменяемы (порядок неважен).
 			</p>
-			<?php for ( $i = 0; $i < $rows; $i++ ) : ?>
-				<div class="fs-task-drag-fill__row">
-					<span>{<?php echo (int) ( $i + 1 ); ?>}</span>
-					<input type="text" name="<?php echo $base; ?>[slots][<?php echo (int) $i; ?>][answer]" value="<?php echo esc_attr( (string) ( $slots[ $i ]['answer'] ?? '' ) ); ?>" placeholder="Верная плитка">
-					<input type="number" min="1" name="<?php echo $base; ?>[slots][<?php echo (int) $i; ?>][group]" value="<?php echo esc_attr( (string) ( $slots[ $i ]['group'] ?? '' ) ); ?>" placeholder="Группа">
-				</div>
-			<?php endfor; ?>
+			<div class="fs-task-drag-fill__rows js-drag-fill-rows">
+				<?php for ( $i = 0; $i < $rows; $i++ ) : ?>
+					<?php $this->renderRow( $base, $i, (string) ( $slots[ $i ]['answer'] ?? '' ), (string) ( $slots[ $i ]['group'] ?? '' ) ); ?>
+				<?php endfor; ?>
+			</div>
+			<button type="button" class="button js-drag-fill-any-order">Порядок неважен</button>
+
+			<script type="text/template" class="js-drag-fill-row-tpl">
+				<?php $this->renderRow( $base, '__IDX__', '', '' ); ?>
+			</script>
+		</div>
+		<?php
+	}
+
+	/** Строка слота: номер, верная плитка, группа. `$i` — индекс с нуля (или `__IDX__` в шаблоне для JS). */
+	private function renderRow( string $base, int|string $i, string $answer, string $group ): void {
+		?>
+		<div class="fs-task-drag-fill__row">
+			<span class="js-drag-fill-num">{<?php echo is_int( $i ) ? (int) ( $i + 1 ) : esc_html( $i ); ?>}</span>
+			<input type="text" name="<?php echo $base; ?>[slots][<?php echo esc_attr( (string) $i ); ?>][answer]" value="<?php echo esc_attr( $answer ); ?>" placeholder="Верная плитка">
+			<input type="number" min="1" name="<?php echo $base; ?>[slots][<?php echo esc_attr( (string) $i ); ?>][group]" value="<?php echo esc_attr( $group ); ?>" placeholder="Группа">
 		</div>
 		<?php
 	}
