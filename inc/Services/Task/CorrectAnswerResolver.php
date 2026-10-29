@@ -54,6 +54,7 @@ class CorrectAnswerResolver {
 			TaskTemplate::Matching => $this->matching( $meta ),
 			TaskTemplate::Ordering => $this->ordering( $meta ),
 			TaskTemplate::Fill     => $this->fill( $meta ),
+			TaskTemplate::DragFill => $this->dragFill( $meta ),
 			default                => '', // ручная проверка (код/файл/развёрнутый) — эталона нет
 		};
 
@@ -129,6 +130,7 @@ class CorrectAnswerResolver {
 			TaskTemplate::Matching => $this->studentMatching( $decoded ),
 			TaskTemplate::Ordering => $this->studentOrdering( $decoded ),
 			TaskTemplate::Fill     => $this->studentFill( $decoded ),
+			TaskTemplate::DragFill => $this->studentFill( $decoded ),
 			TaskTemplate::Triple   => $this->studentTriple( $decoded ),
 			default                => '',
 		};
@@ -334,6 +336,31 @@ class CorrectAnswerResolver {
 			}
 		}
 		return implode( "\n", $out );
+	}
+
+	/** Формула с верными плитками; слоты с общей группой (≥ 2) помечаются «Порядок неважен». */
+	private function dragFill( array $meta ): string {
+		$data    = is_array( $meta['task_drag_fill'] ?? null ) ? $meta['task_drag_fill'] : array();
+		$formula = (string) ( $data['formula'] ?? '' );
+		$slots   = is_array( $data['slots'] ?? null ) ? array_values( $data['slots'] ) : array();
+		if ( '' === $formula || array() === $slots ) {
+			return '';
+		}
+
+		$answers = array_map( static fn( $slot ): string => (string) ( $slot['answer'] ?? '' ), $slots );
+		$groups  = array();
+		foreach ( $slots as $i => $slot ) {
+			$groups[ (int) ( $slot['group'] ?? 0 ) ][] = $i + 1;
+		}
+
+		$lines = array( DragFillParser::render( $formula, $answers ) );
+		foreach ( $groups as $numbers ) {
+			if ( count( $numbers ) > 1 ) {
+				$lines[] = 'Порядок неважен: ' . implode( ', ', $numbers );
+			}
+		}
+
+		return implode( "\n", $lines );
 	}
 
 	private function fill( array $meta ): string {

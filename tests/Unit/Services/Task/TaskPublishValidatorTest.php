@@ -41,7 +41,8 @@ class TaskPublishValidatorTest extends TestCase {
 		// getSoftError() валидирует поля по editorType(); поля описываем типом + меткой.
 		// 'task_answer' → rich_text с меткой «Правильный ответ»; прочие — невалидируемый тип.
 		$specs = [
-			'task_answer' => [ 'type' => 'rich_text', 'label' => 'Правильный ответ' ],
+			'task_answer'    => [ 'type' => 'rich_text', 'label' => 'Правильный ответ' ],
+			'task_drag_fill' => [ 'type' => 'drag_fill', 'label' => 'Формула и плитки' ],
 		];
 
 		$template = new class extends BaseTemplate {
@@ -96,6 +97,36 @@ class TaskPublishValidatorTest extends TestCase {
 		$error = $this->validator->getBlockingError( 'math_tasks', [ 'math_topic' => [ 5 ] ] );
 
 		self::assertNull( $error );
+	}
+
+	// ── getSoftError(): «Перетаскивание пропусков» ───────────────────────────────
+
+	private function dragFillError( array $value ): ?string {
+		$this->templateRegistry->method( 'get' )->willReturn( $this->makeTemplate( [ 'task_drag_fill' ] ) );
+
+		return $this->validator->getSoftError( [ 'task_drag_fill' => $value ], 'drag_fill_task' );
+	}
+
+	public function test_drag_fill_without_slots_in_formula_is_rejected(): void {
+		self::assertIsString( $this->dragFillError( [ 'formula' => 'V = h', 'tiles' => [ 'h' ], 'slots' => [] ] ) );
+	}
+
+	public function test_drag_fill_with_empty_correct_tile_is_rejected(): void {
+		$error = $this->dragFillError( [
+			'formula' => 'V = {1} * {2}',
+			'tiles'   => [ 'h' ],
+			'slots'   => [ [ 'answer' => 'h', 'group' => 1 ], [ 'answer' => '', 'group' => 1 ] ],
+		] );
+
+		self::assertIsString( $error );
+	}
+
+	public function test_drag_fill_complete_is_accepted(): void {
+		self::assertNull( $this->dragFillError( [
+			'formula' => 'V = {1} * {2}',
+			'tiles'   => [ 'h', 'w' ],
+			'slots'   => [ [ 'answer' => 'h', 'group' => 1 ], [ 'answer' => 'w', 'group' => 1 ] ],
+		] ) );
 	}
 
 	// ── getSoftError() ───────────────────────────────────────────────────────────

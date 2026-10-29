@@ -57,6 +57,33 @@ class CorrectAnswerResolverTest extends TestCase {
 		self::assertSame( "[1] Москва\n[2] Волга", $this->resolver( $meta, 'fill_task' )->resolve( 1 ) );
 	}
 
+	public function test_drag_fill_shows_formula_and_interchangeable_slots(): void {
+		$meta = array( 'task_drag_fill' => array(
+			'formula' => 'V = {1} * {2} * {3}',
+			'tiles'   => array( 'h', 'w', 'i', 'k' ),
+			'slots'   => array(
+				array( 'answer' => 'h', 'group' => 1 ),
+				array( 'answer' => 'w', 'group' => 1 ),
+				array( 'answer' => 'i', 'group' => 1 ),
+			),
+		) );
+
+		self::assertSame(
+			"V = h * w * i\nПорядок неважен: 1, 2, 3",
+			$this->resolver( $meta, 'drag_fill_task' )->resolve( 1 )
+		);
+	}
+
+	public function test_drag_fill_with_ordered_slots_has_no_group_note(): void {
+		$meta = array( 'task_drag_fill' => array(
+			'formula' => '{1} + {2}',
+			'tiles'   => array( 'a', 'b' ),
+			'slots'   => array( array( 'answer' => 'a', 'group' => 1 ), array( 'answer' => 'b', 'group' => 2 ) ),
+		) );
+
+		self::assertSame( 'a + b', $this->resolver( $meta, 'drag_fill_task' )->resolve( 1 ) );
+	}
+
 	public function test_manual_template_returns_null(): void {
 		self::assertNull( $this->resolver( array( 'x' => 'y' ), 'code_task' )->resolve( 1 ) );
 	}

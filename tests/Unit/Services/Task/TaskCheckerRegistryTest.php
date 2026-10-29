@@ -6,6 +6,7 @@ namespace Unit\Services\Task;
 
 use Inc\Enums\Subject\TaskTemplate;
 use Inc\Services\Task\Checkers\ChoiceChecker;
+use Inc\Services\Task\Checkers\DragFillChecker;
 use Inc\Services\Task\Checkers\FillChecker;
 use Inc\Services\Task\Checkers\MatchingChecker;
 use Inc\Services\Task\Checkers\OrderingChecker;
@@ -26,6 +27,7 @@ class TaskCheckerRegistryTest extends TestCase {
 			new MatchingChecker(),
 			new OrderingChecker(),
 			new FillChecker(),
+			new DragFillChecker(),
 		);
 	}
 
@@ -34,6 +36,8 @@ class TaskCheckerRegistryTest extends TestCase {
 		self::assertTrue( $this->registry->has( TaskTemplate::Matching ) );
 		self::assertTrue( $this->registry->has( TaskTemplate::Ordering ) );
 		self::assertTrue( $this->registry->has( TaskTemplate::Fill ) );
+		self::assertTrue( $this->registry->has( TaskTemplate::DragFill ) );
+		self::assertInstanceOf( DragFillChecker::class, $this->registry->get( TaskTemplate::DragFill ) );
 		self::assertTrue( $this->registry->has( TaskTemplate::Standard ) );
 	}
 

@@ -15,6 +15,7 @@ use Inc\Services\Task\Checkers\TextAnswerChecker;
 use Inc\Services\Task\CompositeSubItemResolver;
 use Inc\Services\Task\CorrectAnswerResolver;
 use Inc\Services\Task\TaskCheckerRegistry;
+use Inc\Services\Task\Checkers\DragFillChecker;
 use Inc\Services\Task\Checkers\FillChecker;
 use Inc\Services\Task\Checkers\MatchingChecker;
 use Inc\Services\Task\Checkers\OrderingChecker;
@@ -46,6 +47,7 @@ class BatchCheckServiceTest extends TestCase {
 			new MatchingChecker(),
 			new OrderingChecker(),
 			new FillChecker(),
+			new DragFillChecker(),
 		);
 		$this->svc = new BatchCheckService(
 			$this->posts,

@@ -35,7 +35,7 @@ class WorkTypeTest extends TestCase {
 
 	public function test_survey_allows_only_simple_question_templates(): void {
 		self::assertSame(
-			array( TaskTemplate::Choice, TaskTemplate::Matching, TaskTemplate::Ordering, TaskTemplate::Fill, TaskTemplate::Standard ),
+			array( TaskTemplate::Choice, TaskTemplate::Matching, TaskTemplate::Ordering, TaskTemplate::Fill, TaskTemplate::DragFill, TaskTemplate::Standard ),
 			WorkType::Survey->allowedTemplates()
 		);
 	}

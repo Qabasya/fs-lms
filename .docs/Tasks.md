@@ -100,26 +100,32 @@
 ## Этап 2. Тип «Перетаскивание пропусков» — серверная часть
 
 Тесты первыми:
-- [ ] `DragFillCheckerTest` (по образцу `FillCheckerTest`/`OrderingCheckerTest`):
+- [x] `DragFillCheckerTest` (по образцу `FillCheckerTest`/`OrderingCheckerTest`):
   - порядок важен (разные группы): верный/неверный;
   - одна группа: любая перестановка верна (`h*w*i`, `i*w*h`, `w*h*i`);
   - `a + b * c`: перестановка `b`/`c` верна, обмен `a` с `b` — нет;
   - повторы: `h*h*i` против `h*i*i` — неверно;
   - пустой/частичный ответ, лишняя плитка, регистр и пробелы, ответ не массив, пустой контент → `incorrect`;
   - `itemFeedback` по слотам;
-- [ ] `DragFillFieldTest`: `sanitize()` — число слотов формулы совпадает с `slots`, группы — целые ≥ 1, пустые плитки отбрасываются, верная плитка обязана быть в `tiles`;
-- [ ] `TaskCheckerRegistryTest`: `TaskTemplate::DragFill` → `DragFillChecker`;
-- [ ] `TaskTemplateTest`: `label()`, `class()`, `fromDatabase('drag_fill_task')`, `allowsInlineCheck() === false` (как Choice/Matching/Ordering), `needsManualReview() === false`;
-- [ ] `WorkTypeTest`: `Survey->allowedTemplates()` теперь включает `DragFill`; остальные типы — `null`;
-- [ ] `StepContentRendererTest`: `buildDragFillData()` — формула, слоты, перемешанный банк без отметок «верная», без `slots[].answer`;
-- [ ] `CorrectAnswerResolverTest`: эталон для преподавателя — «V = h * w * i» с пометкой групп; `TaskSolutionServiceTest`/`TaskPreviewServiceTest` — шаблон не падает;
-- [ ] `SubmitTaskAnswerCallbacksTest`: ответ идёт через гейт урока, чекер вызывается, ответ в форме `{слот: плитка}` принимается.
+- [x] `DragFillFieldTest`: `sanitize()` — число слотов формулы совпадает с `slots`, группы — целые ≥ 1, пустые плитки отбрасываются, верная плитка обязана быть в `tiles`;
+- [x] `TaskCheckerRegistryTest`: `TaskTemplate::DragFill` → `DragFillChecker`;
+- [x] `TaskTemplateTest`: `label()`, `class()`, `fromDatabase('drag_fill_task')`, `allowsInlineCheck() === false` (как Choice/Matching/Ordering), `needsManualReview() === false`;
+- [x] `WorkTypeTest`: `Survey->allowedTemplates()` теперь включает `DragFill`; остальные типы — `null`;
+- [x] `StepContentRendererTest`: `buildDragFillData()` — формула, слоты, перемешанный банк без отметок «верная», без `slots[].answer`;
+- [x] `CorrectAnswerResolverTest`: эталон для преподавателя — «V = h * w * i» + строка «Порядок неважен: 1, 2, 3»; (`TaskSolutionServiceTest`/`TaskPreviewServiceTest` — НЕ проверены);
+- [ ] (НЕ сделано) `SubmitTaskAnswerCallbacksTest`: ответ идёт через гейт урока, чекер вызывается, ответ в форме `{слот: плитка}` принимается.
 
 Код: `TaskTemplate::DragFill` (`class()`, `label()` «Перетаскивание пропусков», `allowsInlineCheck()`), `DragFillTaskTemplate`,
 `DragFillField` (редактор: формула с `{N}`, список плиток, у слота — выбор верной плитки и номер группы, кнопка «Порядок неважен»;
 `editorType()` для модалки), `DragFillChecker`, `TaskCheckerRegistry`, `WorkType::allowedTemplates()`,
 `StepContentRenderer`, `CorrectAnswerResolver`, `TaskPreviewService`, `TaskSolutionService`, `StepSettingsDTO` (проверить строку с `Ordering`).
 Сверить ветвления по `TaskTemplate::Ordering`/`Matching` (`grep`) — новый кейс не должен нигде проваливаться в `default`.
+
+Готово (без браузера): `DragFillParser` (`segments()`/`slotCount()`/`render()`), `DragFillChecker`, `DragFillField` (сервер-рендер: формула, плитки по строке, строки слотов «плитка + группа»;
+JS-редактор с кнопкой «Порядок неважен» — этап 3), `DragFillTaskTemplate`, `TaskTemplate::DragFill`, реестр чекеров (конструктор получил `DragFillChecker` — тесты, создающие
+реестр вручную, обновлены), `StepContentRenderer::buildDragFillData()` (`type: drag_fill`, `segments`, `tiles`), `CorrectAnswerResolver`, `TaskPublishValidator::checkDragFill()`
+(формула без `{N}` или слот без верной плитки не публикуются). `StepSettingsDTO` не менялся: банк перемешивается всегда, настройка `shuffle` для типа смысла не имеет.
+DI проверен (`Container::get(TaskCheckerRegistry)` → `has(DragFill)`). Не сделано: `SubmitTaskAnswerCallbacksTest`, PHPStan (нет в контейнере).
 
 ## Этап 3. Тип «Перетаскивание пропусков» — клиент
 

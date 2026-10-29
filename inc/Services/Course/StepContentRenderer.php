@@ -12,6 +12,7 @@ use Inc\Enums\Wp\PostMetaName;
 use Inc\Managers\Assessment\AssessmentManager;
 use Inc\Managers\Wp\MediaManager;
 use Inc\Managers\Wp\PostManager;
+use Inc\Services\Task\DragFillParser;
 use Inc\Services\Task\FillTextParser;
 use Inc\Services\Task\TaskCheckerRegistry;
 use Inc\Services\Task\TaskMetaService;
@@ -331,6 +332,9 @@ class StepContentRenderer {
 			TaskTemplate::Fill =>
 				$this->buildFillData( $meta ),
 
+			TaskTemplate::DragFill =>
+				$this->buildDragFillData( $meta ),
+
 			// Задания с кодом (Code/FileCode) авто-проверяются как обычный
 			// текстовый ответ (TextCheckerAnswer сверяет только task_answer), но
 			// рядом с ним ученику доступно необязательное поле «Код» — чисто
@@ -394,6 +398,19 @@ class StepContentRenderer {
 			}
 		}
 		return array( 'type' => 'ordering', 'items' => $data );
+	}
+
+	/** Формула и перемешанный банк; верные плитки и группы слотов на клиент не уходят — их знает чекер. */
+	private function buildDragFillData( array $meta ): array {
+		$data  = is_array( $meta['task_drag_fill'] ?? null ) ? $meta['task_drag_fill'] : array();
+		$tiles = array_map( 'strval', is_array( $data['tiles'] ?? null ) ? $data['tiles'] : array() );
+		shuffle( $tiles );
+
+		return array(
+			'type'     => 'drag_fill',
+			'segments' => DragFillParser::segments( (string) ( $data['formula'] ?? '' ) ),
+			'tiles'    => $tiles,
+		);
 	}
 
 	private function buildFillData( array $meta ): array {

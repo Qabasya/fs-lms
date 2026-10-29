@@ -8,6 +8,7 @@ use Inc\MetaBoxes\Templates\AlternativeConditionsTemplate;
 use Inc\MetaBoxes\Templates\AudioTaskTemplate;
 use Inc\MetaBoxes\Templates\ChoiceTaskTemplate;
 use Inc\MetaBoxes\Templates\CodeTaskTemplate;
+use Inc\MetaBoxes\Templates\DragFillTaskTemplate;
 use Inc\MetaBoxes\Templates\FileAnswerTaskTemplate;
 use Inc\MetaBoxes\Templates\FileCodeTaskTemplate;
 use Inc\MetaBoxes\Templates\FileTaskTemplate;
@@ -59,6 +60,9 @@ enum TaskTemplate: string {
 
 	/** Пропуски в тексте. */
 	case Fill     = 'fill_task';
+
+	/** Перетаскивание пропусков: плитки в слоты формулы, группы слотов — порядок неважен. */
+	case DragFill = 'drag_fill_task';
 
 	/** Аудио-плеер + текстовый ответ. */
 	case Audio    = 'audio_task';
@@ -134,6 +138,7 @@ enum TaskTemplate: string {
 			self::Matching => MatchingTaskTemplate::class,
 			self::Ordering => OrderingTaskTemplate::class,
 			self::Fill     => FillTaskTemplate::class,
+			self::DragFill => DragFillTaskTemplate::class,
 			self::Audio    => AudioTaskTemplate::class,
 			self::FileAnswer => FileAnswerTaskTemplate::class,
 			self::AlternativeConditions => AlternativeConditionsTemplate::class,
@@ -160,6 +165,7 @@ enum TaskTemplate: string {
 			self::Matching     => 'Сопоставление',
 			self::Ordering     => 'Сортировка',
 			self::Fill         => 'Пропуски в тексте',
+			self::DragFill     => 'Перетаскивание пропусков',
 			self::Audio        => 'Задание с аудио',
 			self::FileAnswer   => 'Развёрнутый ответ (файл, ручная проверка)',
 			self::AlternativeConditions => 'Два условия на выбор (ОГЭ №13)',
@@ -193,7 +199,7 @@ enum TaskTemplate: string {
 	 */
 	public function allowsInlineCheck(): bool {
 		return ! $this->needsManualReview() && ! match ( $this ) {
-			self::Choice, self::Matching, self::Ordering => true,
+			self::Choice, self::Matching, self::Ordering, self::DragFill => true,
 			default => false,
 		};
 	}

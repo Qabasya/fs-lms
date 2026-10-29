@@ -50,7 +50,7 @@ enum WorkType: string {
 	 */
 	public function allowedTemplates(): ?array {
 		return self::Survey === $this
-			? array( TaskTemplate::Choice, TaskTemplate::Matching, TaskTemplate::Ordering, TaskTemplate::Fill, TaskTemplate::Standard )
+			? array( TaskTemplate::Choice, TaskTemplate::Matching, TaskTemplate::Ordering, TaskTemplate::Fill, TaskTemplate::DragFill, TaskTemplate::Standard )
 			: null;
 	}
 

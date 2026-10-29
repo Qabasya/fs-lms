@@ -71,6 +71,7 @@ class TaskPublishValidator {
 				'pairs'       => $this->checkPairs( $value ),
 				'order_items' => $this->checkOrderItems( $value ),
 				'gap_text'    => $this->checkGapText( $value ),
+				'drag_fill'   => $this->checkDragFill( $value ),
 				'audio'       => $this->checkAudio( $value ),
 				default       => null,
 			};
@@ -113,6 +114,19 @@ class TaskPublishValidator {
 		}
 		if ( ! preg_match( '/\[\[.+?\]\]/', $text ) ) {
 			return 'Добавьте хотя бы один пропуск [[...]] в тексте.';
+		}
+		return null;
+	}
+
+	private function checkDragFill( mixed $value ): ?string {
+		$slots = is_array( $value['slots'] ?? null ) ? $value['slots'] : array();
+		if ( array() === $slots ) {
+			return 'Добавьте в формулу хотя бы один пропуск {1}.';
+		}
+		foreach ( $slots as $slot ) {
+			if ( '' === trim( (string) ( $slot['answer'] ?? '' ) ) ) {
+				return 'Укажите верную плитку для каждого пропуска формулы.';
+			}
 		}
 		return null;
 	}

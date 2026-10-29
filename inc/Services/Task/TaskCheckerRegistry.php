@@ -7,6 +7,7 @@ namespace Inc\Services\Task;
 use Inc\Contracts\TaskCheckerInterface;
 use Inc\Enums\Subject\TaskTemplate;
 use Inc\Services\Task\Checkers\ChoiceChecker;
+use Inc\Services\Task\Checkers\DragFillChecker;
 use Inc\Services\Task\Checkers\FillChecker;
 use Inc\Services\Task\Checkers\MatchingChecker;
 use Inc\Services\Task\Checkers\OrderingChecker;
@@ -41,6 +42,7 @@ class TaskCheckerRegistry {
 		MatchingChecker    $matching,
 		OrderingChecker    $ordering,
 		FillChecker        $fill,
+		DragFillChecker    $dragFill,
 	) {
 		$this->map = array(
 			// Текстовый ответ (`task_answer`) — сверяется строка ответа.
@@ -56,6 +58,7 @@ class TaskCheckerRegistry {
 			TaskTemplate::Matching->value     => $matching,
 			TaskTemplate::Ordering->value     => $ordering,
 			TaskTemplate::Fill->value         => $fill,
+			TaskTemplate::DragFill->value     => $dragFill,
 			// TaskTemplate::FileAnswer / AlternativeConditions — намеренно НЕ в реестре: ручные.
 		);
 	}
