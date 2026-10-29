@@ -9,7 +9,7 @@
 
 ## Статус
 
-Не начат. *(Переписать по факту этапа 5.)*
+Не начат. **Уточнено по факту этапа 5 (2026-10-29):** все действия модуля, нужные журналу, уже пишутся (`MasterclassLogAction`: вход, «дома», клики «Связаться», `ApplicationBound`/`ApplicationBindFailed`, `Enrolled`, `AccountDeleted` с причиной, `MasterclassPurged`, `Frozen`); отказ привязки заявки идёт с `result = failure` и `context.reason` (`live_application`, `application_not_found`, `application_already_bound`, `no_person`, `exception`) — фильтр «только ошибки» вкладки должен их показывать. Воронка (`MasterclassAccountRepository::funnel()`) считает зачисленных и мягко удалённых аккаунтов.
 
 ---
 

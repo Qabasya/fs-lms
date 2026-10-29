@@ -61,6 +61,13 @@ class ApplyPageControllerTest extends TestCase {
 		self::assertMatchesRegularExpression( '/<option value="inf"[^>]*selected/', $html );
 		self::assertDoesNotMatchRegularExpression( '/<option value="mat"[^>]*selected/', $html );
 		self::assertStringContainsString( 'value="Школа № 5"', $html );
+		self::assertStringNotContainsString( 'autofocus', $html, 'имя не заполнено — курсор остаётся на первом поле, а не прыгает на почту' );
+	}
+
+	public function test_the_cursor_jumps_to_the_email_only_when_the_name_is_already_filled(): void {
+		$GLOBALS['_fs_test_filter_returns']['fs_lms_apply_prefill'] = array( 'subject_key' => 'inf', 'last_name' => 'Гостев', 'first_name' => 'Иван' );
+
+		self::assertStringContainsString( 'autofocus', $this->controller->renderApplyForm() );
 	}
 
 	public function test_a_non_array_answer_is_treated_as_an_empty_prefill(): void {

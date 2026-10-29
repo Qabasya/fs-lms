@@ -121,7 +121,7 @@ $prefill        = $prefill ?? array();
                         type="email"
                         name="email"
                         id="fs_email"
-                        <?php echo array() !== $prefill ? 'autofocus' : ''; ?>
+                        <?php echo '' !== ( $prefill['last_name'] ?? '' ) ? 'autofocus' : ''; ?>
                         placeholder="<?php esc_attr_e( 'ivanov@mail.ru', 'fs-lms' ); ?>"
                         required
                         aria-required="true"

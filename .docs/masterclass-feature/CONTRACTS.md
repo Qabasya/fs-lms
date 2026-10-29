@@ -435,6 +435,8 @@ inc/Modules/Masterclass/
 - `logContact( int $userId, MasterclassContactKind $kind ): void` — только живые аккаунты; `markContact()`; журнал `fromContact()`.
 - `prefill( int $userId ): array` — для Ш5: живой аккаунт → `array( subject_key, school => schoolName )`, иначе `array()`.
 
+**Сделано (этап 5).** `MasterclassConversionService` — конструктор `( MasterclassAccountRepository, MasterclassRepository, MasterclassAccountService, ApplicationRepository, PersonRepository, UserManager, TrialAccessService, PiiCryptoService, MasterclassLogWriter, ClockInterface )`, «нет живой заявки» — через `MasterclassAccountService::hasLiveApplication()`; привязка не бросает, отказы пишутся `ApplicationBindFailed` (кроме пользователя без аккаунта). `markEnrolled()` сбрасывает `student_record_id`. `MasterclassEnrollmentController( MasterclassConversionService )` дополнительно подписан на `fs_lms_apply_response` (подсказка про новые логин и пароль в `notice`). Тесты — `MasterclassConversionServiceTest` (29), `MasterclassEnrollmentControllerTest` (13).
+
 ### `MasterclassLifecycleService`
 Зависимости: `MasterclassRepository`, `MasterclassAccountRepository`, `MasterclassAccountService`, `MasterclassLogRepository`,
 `MasterclassConfig`, `DeletionEventDispatcher`, `MasterclassLogWriter`, `ClockInterface`.

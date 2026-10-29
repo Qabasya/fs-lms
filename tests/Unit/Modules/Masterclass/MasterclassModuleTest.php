@@ -8,6 +8,7 @@ use Inc\Modules\Masterclass\Config\MasterclassConfig;
 use Inc\Modules\Masterclass\Controllers\MasterclassAdminController;
 use Inc\Modules\Masterclass\Controllers\MasterclassAuthController;
 use Inc\Modules\Masterclass\Controllers\MasterclassCronController;
+use Inc\Modules\Masterclass\Controllers\MasterclassEnrollmentController;
 use Inc\Modules\Masterclass\Controllers\MasterclassIntegrityController;
 use Inc\Modules\Masterclass\Controllers\MasterclassPlayerController;
 use Inc\Modules\Masterclass\Controllers\MasterclassSettingsController;
@@ -50,10 +51,13 @@ class MasterclassModuleTest extends TestCase {
 		$player = $this->createStub( MasterclassPlayerController::class );
 		$player->method( 'register' )->willReturnCallback( fn() => $this->calls[] = 'player' );
 
+		$enrollment = $this->createStub( MasterclassEnrollmentController::class );
+		$enrollment->method( 'register' )->willReturnCallback( fn() => $this->calls[] = 'enrollment' );
+
 		$cron = $this->createStub( MasterclassCronController::class );
 		$cron->method( 'register' )->willReturnCallback( fn() => $this->calls[] = 'cron' );
 
-		return new MasterclassModule( $schema, $config, $settings, $integrity, $admin, $auth, $player, $cron );
+		return new MasterclassModule( $schema, $config, $settings, $integrity, $admin, $auth, $player, $enrollment, $cron );
 	}
 
 	public function test_disabled_module_registers_schema_settings_and_integrity_only(): void {
@@ -65,7 +69,7 @@ class MasterclassModuleTest extends TestCase {
 	public function test_enabled_module_registers_everything_after_them(): void {
 		$this->module( true )->register();
 
-		self::assertSame( array( 'schema', 'settings', 'integrity', 'admin', 'auth', 'player', 'cron' ), $this->calls );
+		self::assertSame( array( 'schema', 'settings', 'integrity', 'admin', 'auth', 'player', 'enrollment', 'cron' ), $this->calls );
 	}
 
 	public function test_the_schema_is_ensured_before_anything_that_reads_tables(): void {

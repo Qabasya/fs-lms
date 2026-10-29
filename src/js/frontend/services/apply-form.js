@@ -175,17 +175,20 @@ function showOtpStep( maskedEmail ) {
     document.getElementById( 'fs_otp_code' )?.focus( { preventScroll: true } );
 }
 
-function showSuccess( notice ) {
+function showSuccess( notice, waiting = false ) {
     _tracker.succeeded();
     document.querySelector( '.js-otp-input-block' ).hidden  = true;
     document.querySelector( '.js-otp-success-block' ).hidden = false;
     scrollToTop();
 
-    // Необязательное серверное сообщение + спиннер (например, статус создания доменной учётки).
+    // Необязательное серверное сообщение; спиннер — только если сервер ждёт ответа через опрос (например, статус
+    // создания доменной учётки), а не просто сообщает («входите с новыми логином и паролем»).
     if ( notice ) {
-        const statusEl = document.querySelector( '.js-apply-status' );
-        const noticeEl = document.querySelector( '.js-apply-notice' );
+        const statusEl  = document.querySelector( '.js-apply-status' );
+        const noticeEl  = document.querySelector( '.js-apply-notice' );
+        const spinnerEl = document.querySelector( '.js-apply-spinner' );
         if ( noticeEl ) { noticeEl.textContent = notice; }
+        if ( spinnerEl ) { spinnerEl.hidden = ! waiting; }
         if ( statusEl ) { statusEl.hidden = false; }
     }
 }
@@ -278,7 +281,7 @@ async function handleOtpSubmit( e ) {
         return;
     }
 
-    showSuccess( res.data?.notice );
+    showSuccess( res.data?.notice, Boolean( res.data?.poll?.action ) );
     startStatusPoll( res.data?.poll );
 }
 
