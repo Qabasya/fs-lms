@@ -26,6 +26,7 @@ class StudentDirectoryService {
 		private readonly StudentRecordRepository $records,
 		private readonly GroupsRepository $groups,
 		private readonly SubjectRepository $subjects,
+		private readonly ServiceGroupResolver $serviceGroups,
 	) {}
 
 	/**
@@ -40,6 +41,11 @@ class StudentDirectoryService {
 		$groups   = array();
 		$students = array();
 		foreach ( $this->teacherGroups->idsFor( $userId, $allGroups ) as $groupId ) {
+			// Служебная группа модуля (временные ученики) в пикер не входит: сводка по ученику нужна настоящим.
+			if ( $this->serviceGroups->isService( $groupId ) ) {
+				continue;
+			}
+
 			$records = $this->records->findActiveByGroupId( $groupId );
 			$group   = empty( $records ) ? null : $this->groups->findById( $groupId );
 			if ( null === $group ) {

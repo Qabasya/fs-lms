@@ -4,6 +4,7 @@ declare( strict_types=1 );
 
 namespace Unit\Services\Group;
 
+use Inc\DTO\Enrollment\StudentRecordDTO;
 use Inc\Services\Group\ServiceGroupResolver;
 use PHPUnit\Framework\TestCase;
 
@@ -58,5 +59,31 @@ class ServiceGroupResolverTest extends TestCase {
 
 		self::assertTrue( $resolver->isService( 5 ), 'ответ запомнен на запрос' );
 		self::assertFalse( $resolver->isService( 6 ) );
+	}
+	private function record( int $groupId ): StudentRecordDTO {
+		return StudentRecordDTO::fromArray( array(
+			'id' => $groupId, 'student_person_id' => 1, 'parent_person_id' => 0, 'group_id' => $groupId, 'status' => 'active',
+			'enrolled_at' => '2026-09-01 00:00:00', 'created_at' => '2026-09-01 00:00:00', 'updated_at' => '2026-09-01 00:00:00',
+		) );
+	}
+
+	public function test_a_student_is_service_only_when_every_record_is_in_a_service_group(): void {
+		$this->subscriberReturns( array( 5, 9 ) );
+		$resolver = new ServiceGroupResolver();
+
+		self::assertTrue( $resolver->onlyServiceRecords( array( $this->record( 5 ) ) ) );
+		self::assertTrue( $resolver->onlyServiceRecords( array( $this->record( 5 ), $this->record( 9 ) ) ) );
+		self::assertFalse( $resolver->onlyServiceRecords( array( $this->record( 5 ), $this->record( 6 ) ) ), 'есть настоящая группа — ученик настоящий' );
+		self::assertFalse( $resolver->onlyServiceRecords( array( $this->record( 6 ) ) ) );
+	}
+
+	public function test_a_student_without_records_is_not_service_only(): void {
+		$this->subscriberReturns( array( 5 ) );
+
+		self::assertFalse( ( new ServiceGroupResolver() )->onlyServiceRecords( array() ), 'архивный ученик без записей остаётся виден' );
+	}
+
+	public function test_without_service_groups_nobody_is_service_only(): void {
+		self::assertFalse( ( new ServiceGroupResolver() )->onlyServiceRecords( array( $this->record( 5 ) ) ) );
 	}
 }

@@ -18,6 +18,7 @@ use Inc\Enums\Log\OperationType;
 use Inc\Services\Enrollment\OpenGroupEnrollmentService;
 use Inc\Services\Group\GroupModeService;
 use Inc\Services\Group\MeetingsNormalizer;
+use Inc\Services\Group\ServiceGroupResolver;
 use Inc\Repositories\OptionsRepositories\UserRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
@@ -65,6 +66,7 @@ class StudentGroupCallbacks extends BaseController {
 		private readonly UserRepository              $userRepository,
 		private readonly OpenGroupEnrollmentService  $openGroupEnrollment,
 		private readonly GroupModeService            $groupMode,
+		private readonly ServiceGroupResolver        $serviceGroups,
 	) {
 		parent::__construct();
 	}
@@ -310,6 +312,10 @@ class StudentGroupCallbacks extends BaseController {
 				continue;
 			}
 			if ( $group_id && $this->studentRecordRepository->existsActive( $person->id, $group_id ) ) {
+				continue;
+			}
+			// Временные ученики служебной группы модуля: добавлять их некуда, в подборе они шум.
+			if ( $this->serviceGroups->onlyServiceRecords( $this->studentRecordRepository->findActiveByStudent( $person->id ) ) ) {
 				continue;
 			}
 			$result[] = array(

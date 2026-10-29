@@ -258,23 +258,38 @@ class PersonRepository {
 	 * {@see searchParentsClause()}: вводят ФИО целиком, а не по колонкам.
 	 * Мягко удалённые лица (expelled_at) не ищутся — их ПДн уже недоступны.
 	 *
-	 * @param string $search Строка поиска
-	 * @param int    $limit  Максимум результатов
+	 * Ученик, у которого есть записи и все они в служебных группах модулей (`$serviceGroupIds`), не ищется:
+	 * иначе поиск «Ученик» вернул бы сотни временных аккаунтов. Без записей (архивный) — ищется.
+	 *
+	 * @param string $search          Строка поиска
+	 * @param int    $limit           Максимум результатов
+	 * @param int[]  $serviceGroupIds Служебные группы (`ServiceGroupResolver::ids()`)
 	 *
 	 * @return PersonDTO[]
 	 */
-	public function searchStudents( string $search, int $limit = 20 ): array {
-		$like = '%' . $this->wpdb->esc_like( trim( $search ) ) . '%';
+	public function searchStudents( string $search, int $limit = 20, array $serviceGroupIds = array() ): array {
+		$like       = '%' . $this->wpdb->esc_like( trim( $search ) ) . '%';
+		$serviceIds = array_values( array_filter( array_map( 'intval', $serviceGroupIds ), static fn( int $id ): bool => $id > 0 ) );
+
+		$serviceSql  = '';
+		$serviceArgs = array();
+		if ( array() !== $serviceIds ) {
+			$in          = implode( ', ', array_fill( 0, count( $serviceIds ), '%d' ) );
+			$records     = TableName::StudentRecords->prefixed();
+			$serviceSql  = " AND ( NOT EXISTS ( SELECT 1 FROM %i s WHERE s.student_person_id = p.id AND s.group_id IN ($in) )
+				OR EXISTS ( SELECT 1 FROM %i o WHERE o.student_person_id = p.id AND o.group_id NOT IN ($in) ) )";
+			$serviceArgs = array_merge( array( $records ), $serviceIds, array( $records ), $serviceIds );
+		}
 
 		$rows = $this->wpdb->get_results(
+			// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- состав $serviceSql — только плейсхолдеры.
 			$this->wpdb->prepare(
-				"SELECT * FROM %i
-				WHERE is_student = 1 AND expelled_at IS NULL AND CONCAT_WS(' ', last_name, first_name, middle_name) LIKE %s
-				ORDER BY last_name, first_name, middle_name
+				"SELECT p.* FROM %i p
+				WHERE p.is_student = 1 AND p.expelled_at IS NULL AND CONCAT_WS(' ', p.last_name, p.first_name, p.middle_name) LIKE %s"
+				. $serviceSql .
+				" ORDER BY p.last_name, p.first_name, p.middle_name
 				LIMIT %d",
-				$this->table,
-				$like,
-				$limit
+				...array_merge( array( $this->table, $like ), $serviceArgs, array( $limit ) )
 			),
 			ARRAY_A
 		);

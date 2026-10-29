@@ -12,6 +12,7 @@ use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\WPDBRepositories\PersonDocumentsRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
+use Inc\Services\Group\ServiceGroupResolver;
 use Inc\Services\Security\PiiCryptoService;
 
 /**
@@ -63,6 +64,7 @@ class StudentBundleExporter {
 	 * @param PersonDocumentsRepository $documents       Репозиторий документов и контактов
 	 * @param UserRepository            $users           Репозиторий пользователей WP (пароли)
 	 * @param PiiCryptoService          $crypto          Шифрование ПД
+	 * @param ServiceGroupResolver      $serviceGroups   Служебные группы модулей (в пакет не входят: временные аккаунты с паролями — не для чужого сайта)
 	 */
 	public function __construct(
 		private readonly GroupsRepository          $groups,
@@ -71,6 +73,7 @@ class StudentBundleExporter {
 		private readonly PersonDocumentsRepository $documents,
 		private readonly UserRepository            $users,
 		private readonly PiiCryptoService          $crypto,
+		private readonly ServiceGroupResolver      $serviceGroups,
 	) {}
 
 	/**
@@ -91,6 +94,10 @@ class StudentBundleExporter {
 
 		foreach ( $this->groups->findBySubjectKey( $subjectKey ) as $group ) {
 			$groupId   = (int) $group->id;
+			if ( $this->serviceGroups->isService( $groupId ) ) {
+				continue;
+			}
+
 			$courseId  = (int) ( $group->course_id ?? 0 );
 			$courseRef = $courseExportIds[ $courseId ] ?? null;
 

@@ -118,7 +118,7 @@ class StudentsExportProvider extends AbstractPersonExportProvider {
 			$records  = $this->studentRecords->findActiveByStudent( $person->id );
 
 			// Ученик, чьи записи все в служебных группах (заводят модули), в выгрузку настоящих учеников не входит.
-			if ( array() !== $records && array() === array_filter( $records, fn( $rec ): bool => ! $this->serviceGroups->isService( (int) $rec->groupId ) ) ) {
+			if ( $this->serviceGroups->onlyServiceRecords( $records ) ) {
 				continue;
 			}
 			$wpUser   = $person->wpUserId ? get_userdata( $person->wpUserId ) : null;

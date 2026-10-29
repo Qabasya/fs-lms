@@ -53,4 +53,24 @@ class ServiceGroupResolver {
 	public function isService( int $groupId ): bool {
 		return in_array( $groupId, $this->ids(), true );
 	}
+
+	/**
+	 * Все ли записи ученика — в служебных группах (тогда это не «настоящий» ученик: его не предлагают в списках выбора,
+	 * не выгружают и не переносят пакетом). Ученик без записей служебным не считается — архивные остаются видны.
+	 *
+	 * @param list<\Inc\DTO\Enrollment\StudentRecordDTO> $records Записи ученика.
+	 */
+	public function onlyServiceRecords( array $records ): bool {
+		if ( array() === $records ) {
+			return false;
+		}
+
+		foreach ( $records as $record ) {
+			if ( ! $this->isService( $record->groupId ) ) {
+				return false;
+			}
+		}
+
+		return true;
+	}
 }

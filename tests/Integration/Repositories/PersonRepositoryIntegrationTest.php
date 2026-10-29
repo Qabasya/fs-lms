@@ -103,4 +103,34 @@ class PersonRepositoryIntegrationTest extends TestCase {
 		self::assertStringContainsString( 'expelled_at IS NOT NULL', $query );
 		self::assertStringContainsString( 'INTERVAL 30 DAY', $query );
 	}
+	// ── searchStudents() ─────────────────────────────────────────────────────────
+
+	public function test_search_students_without_service_groups_adds_no_group_condition(): void {
+		$this->wpdb->queueResults( array() );
+
+		$this->repo->searchStudents( 'Иван' );
+
+		$query = $this->wpdb->lastQuery();
+		self::assertStringContainsString( 'is_student = 1', $query );
+		self::assertStringContainsString( 'expelled_at IS NULL', $query );
+		self::assertStringNotContainsString( 'student_person_id', $query );
+	}
+
+	public function test_search_students_hides_those_whose_records_all_sit_in_service_groups(): void {
+		$this->wpdb->queueResults( array() );
+
+		$this->repo->searchStudents( 'Ученик', 20, array( 31, 32 ) );
+
+		$query = $this->wpdb->lastQuery();
+		self::assertMatchesRegularExpression( '/NOT EXISTS \(\s*SELECT 1 FROM \S+ s WHERE s\.student_person_id = p\.id AND s\.group_id IN \(31, 32\)\s*\)/', $query, 'есть запись в служебной группе…' );
+		self::assertMatchesRegularExpression( '/OR EXISTS \(\s*SELECT 1 FROM \S+ o WHERE o\.student_person_id = p\.id AND o\.group_id NOT IN \(31, 32\)\s*\)/', $query, '…и нет записи в обычной — тогда скрыт' );
+	}
+
+	public function test_search_students_ignores_garbage_service_group_ids(): void {
+		$this->wpdb->queueResults( array() );
+
+		$this->repo->searchStudents( 'Ученик', 20, array( '31', 0, 'abc', -4 ) );
+
+		self::assertStringContainsString( 'IN (31)', $this->wpdb->lastQuery() );
+	}
 }

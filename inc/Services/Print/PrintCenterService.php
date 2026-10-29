@@ -19,6 +19,7 @@ use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 use Inc\Services\Export\OneTimeDownloadService;
+use Inc\Services\Group\ServiceGroupResolver;
 use Inc\Services\Log\ExportLogWriter;
 
 /**
@@ -50,6 +51,7 @@ class PrintCenterService {
 		private readonly LogEventDispatcherInterface $logEvents,
 		private readonly PdfFormFiller           $pdfFiller,
 		private readonly TaxDeductionForm        $taxForm,
+		private readonly ServiceGroupResolver    $serviceGroups,
 		private readonly string                  $templatesDir = FS_LMS_PATH . 'templates/documents/',
 	) {}
 
@@ -83,7 +85,8 @@ class PrintCenterService {
 				'name' => $p->fullName(),
 				'hint' => $this->studentHint( $p ),
 			),
-			$this->persons->searchStudents( $query )
+			// Служебные группы модулей (временные ученики) в поиск не входят: договора у них нет.
+			$this->persons->searchStudents( $query, 20, $this->serviceGroups->ids() )
 		);
 	}
 
