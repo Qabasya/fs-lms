@@ -77,4 +77,25 @@ class ConditionHtmlNormalizerTest extends TestCase {
 	public function test_only_blanks_give_empty_string(): void {
 		self::assertSame( '', $this->normalizer->normalize( "<p>&nbsp;</p>\n<br>\n" ) );
 	}
+
+	public function test_formula_spaces_become_non_breaking(): void {
+		$nb = "\u{00A0}";
+		self::assertSame(
+			"<p>Вычислите F{$nb}={$nb}x{$nb}+{$nb}+{$nb}y{$nb}-{$nb}z при x больше нуля.</p>",
+			$this->normalizer->normalize( '<p>Вычислите F = x + + y - z при x больше нуля.</p>' )
+		);
+	}
+
+	public function test_comparison_entities_are_glued_and_prose_is_not(): void {
+		$nb = "\u{00A0}";
+		self::assertSame(
+			"<p>Если A{$nb}&lt;{$nb}B, то выведите слово.</p>",
+			$this->normalizer->normalize( '<p>Если A &lt; B, то выведите слово.</p>' )
+		);
+	}
+
+	public function test_formula_inside_code_pre_tags_and_math_is_untouched(): void {
+		$html = '<pre>a = b + c</pre><code>x = y</code><p>\\(a = b + c\\)</p>';
+		self::assertSame( $html, $this->normalizer->normalize( $html ) );
+	}
 }

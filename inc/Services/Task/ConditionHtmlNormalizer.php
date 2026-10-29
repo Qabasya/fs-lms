@@ -20,7 +20,10 @@ namespace Inc\Services\Task;
  *   `\r` — переводы строк редактор WordPress хранит как `\r\n`);
  * - срезает пустые блоки и `<br>` в начале и в конце;
  * - три и больше пустых абзаца `<p>` подряд внутри текста схлопывает в один —
- *   одиночную отбивку автор мог поставить намеренно.
+ *   одиночную отбивку автор мог поставить намеренно;
+ * - пробелы внутри формул вида `F = x + y - z` делает неразрывными, чтобы формула
+ *   при нехватке места переносилась целиком, а не рвалась на знаке. Текст внутри
+ *   `<pre>`, `<code>`, `<script>`, `<style>` и формулы MathJax (`\(…\)`, `\[…\]`) не трогается.
  *
  * Работает и с сырым значением поля (абзацы — пустые строки, `wpautop` ещё
  * не прошёл), и с готовым HTML. Пустые строки внутри `<pre>` не трогаются:
@@ -37,6 +40,15 @@ readonly class ConditionHtmlNormalizer {
 
 	/** Невидимые символы: BOM, zero-width, word joiner, управляющие (кроме \t и \n). */
 	private const INVISIBLE = '/[\x{FEFF}\x{200B}-\x{200D}\x{2060}\x{0000}-\x{0008}\x{000B}\x{000C}\x{000E}-\x{001F}\x{007F}]/u';
+
+	/** Знак операции или сравнения (в тексте `<` и `>` приходят сущностями). */
+	private const OPERATOR = '(?:&lt;|&gt;|&le;|&ge;|&ne;|[=+\-\x{2212}*\/%^<>\x{00D7}\x{00F7}\x{2264}\x{2265}\x{2260}\x{2248}\x{2261}\x{2192}\x{21D2}\x{2227}\x{2228}])';
+
+	/** Операнд: любая последовательность без пробелов и скобок разметки, кроме самого знака. */
+	private const OPERAND = '(?!' . self::OPERATOR . '(?:\s|$))[^\s<>]+';
+
+	/** Теги, текст внутри которых остаётся как есть. */
+	private const VERBATIM_TAGS = array( 'pre', 'code', 'script', 'style' );
 
 	/**
 	 * @param string $html Условие (сырое значение поля или HTML после `wpautop`/`the_content`)
@@ -70,6 +82,65 @@ readonly class ConditionHtmlNormalizer {
 			$html
 		);
 
-		return trim( $html );
+		return trim( $this->glueFormulas( $html ) );
+	}
+
+	/**
+	 * Склеивает пробелы в формулах неразрывными, обходя разметку, `<pre>`/`<code>` и MathJax.
+	 */
+	private function glueFormulas( string $html ): string {
+		$parts   = preg_split( '/(<[^>]*>)/u', $html, -1, PREG_SPLIT_DELIM_CAPTURE ) ?: array( $html );
+		$verbose = 0;
+
+		foreach ( $parts as $i => $part ) {
+			if ( str_starts_with( $part, '<' ) ) {
+				$verbose = max( 0, $verbose + $this->verbatimDelta( $part ) );
+				continue;
+			}
+
+			if ( 0 === $verbose && '' !== $part ) {
+				$parts[ $i ] = $this->glueText( $part );
+			}
+		}
+
+		return implode( '', $parts );
+	}
+
+	/** +1 на открытии `<pre>`/`<code>`/…, -1 на закрытии, 0 на прочих тегах. */
+	private function verbatimDelta( string $tag ): int {
+		if ( ! preg_match( '/^<(\/?)([a-z0-9]+)/i', $tag, $m ) || ! in_array( strtolower( $m[2] ), self::VERBATIM_TAGS, true ) ) {
+			return 0;
+		}
+
+		return '/' === $m[1] ? -1 : 1;
+	}
+
+	/** Текстовый узел: формулы MathJax пропускаются, остальное склеивается. */
+	private function glueText( string $text ): string {
+		$chunks = preg_split( '/(\\\\\(.*?\\\\\)|\\\\\[.*?\\\\\])/su', $text, -1, PREG_SPLIT_DELIM_CAPTURE ) ?: array( $text );
+
+		foreach ( $chunks as $i => $chunk ) {
+			if ( 0 === $i % 2 ) {
+				$chunks[ $i ] = $this->glueChunk( $chunk );
+			}
+		}
+
+		return implode( '', $chunks );
+	}
+
+	/**
+	 * Формула: необязательный операнд, затем знаки, каждый с необязательным операндом после.
+	 * Подряд два операнда формулу не продолжают, поэтому обычные слова рядом не склеиваются.
+	 */
+	private function glueChunk( string $text ): string {
+		$op      = self::OPERATOR;
+		$operand = self::OPERAND;
+		$pattern = "/(?:{$operand}[ ])?{$op}(?:[ ]{$operand})?(?:[ ]{$op}(?:[ ]{$operand})?)*/u";
+
+		return (string) preg_replace_callback(
+			$pattern,
+			static fn( array $m ): string => str_replace( ' ', "\u{00A0}", $m[0] ),
+			$text
+		);
 	}
 }
