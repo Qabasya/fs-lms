@@ -13,6 +13,7 @@ use Inc\Modules\Masterclass\DTO\MasterclassViewDTO;
 use Inc\Modules\Masterclass\Enums\AccountDeleteReason;
 use Inc\Modules\Masterclass\Enums\MasterclassAccountState;
 use Inc\Modules\Masterclass\Enums\MasterclassLogAction;
+use Inc\Modules\Masterclass\Enums\MasterclassStatus;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -125,6 +126,33 @@ class MasterclassDtoTest extends TestCase {
 	public function test_delete_requested_flag(): void {
 		self::assertFalse( MasterclassDTO::fromArray( $this->masterclassRow() )->isDeleteRequested() );
 		self::assertTrue( MasterclassDTO::fromArray( $this->masterclassRow( array( 'delete_requested_at' => '2026-11-11 09:00:00' ) ) )->isDeleteRequested() );
+	}
+
+	public function test_status_follows_the_clock_through_the_whole_lifecycle(): void {
+		$dto = MasterclassDTO::fromArray( $this->masterclassRow() );
+
+		self::assertSame( MasterclassStatus::Waiting, $dto->status( '2026-11-10 05:59:59' ) );
+		self::assertSame( MasterclassStatus::Running, $dto->status( '2026-11-10 06:00:00' ), 'начало окна — уже идёт' );
+		self::assertSame( MasterclassStatus::Running, $dto->status( '2026-11-10 11:00:00' ), 'конец окна — ещё идёт' );
+		self::assertSame( MasterclassStatus::OpenAtHome, $dto->status( '2026-11-10 11:00:01' ) );
+		self::assertSame( MasterclassStatus::OpenAtHome, $dto->status( '2026-11-24 10:59:59' ) );
+		self::assertSame( MasterclassStatus::Frozen, $dto->status( '2026-11-24 11:00:00' ) );
+	}
+
+	public function test_status_of_a_deleting_or_purged_masterclass_wins_over_time(): void {
+		$deleting = MasterclassDTO::fromArray( $this->masterclassRow( array( 'delete_requested_at' => '2026-11-11 09:00:00' ) ) );
+		$purged   = MasterclassDTO::fromArray( $this->masterclassRow( array( 'delete_requested_at' => '2026-11-11 09:00:00', 'purged_at' => '2026-11-12 09:00:00', 'group_id' => null ) ) );
+
+		self::assertSame( MasterclassStatus::Deleting, $deleting->status( '2026-11-10 05:00:00' ) );
+		self::assertSame( MasterclassStatus::Deleting, $deleting->status( '2027-01-01 00:00:00' ) );
+		self::assertSame( MasterclassStatus::Purged, $purged->status( '2026-11-10 05:00:00' ) );
+	}
+
+	public function test_status_labels_are_the_words_of_the_list(): void {
+		self::assertSame(
+			array( 'ждёт', 'идёт', 'открыт дома', 'заморожен', 'удаляется', 'вычищен' ),
+			array_map( static fn ( MasterclassStatus $s ): string => $s->label(), MasterclassStatus::cases() )
+		);
 	}
 
 	/**

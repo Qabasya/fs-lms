@@ -4,6 +4,8 @@ declare( strict_types=1 );
 
 namespace Inc\Modules\Masterclass\DTO;
 
+use Inc\Modules\Masterclass\Enums\MasterclassStatus;
+
 /**
  * Мастер-класс (строка `fs_lms_masterclasses`).
  *
@@ -103,6 +105,22 @@ readonly class MasterclassDTO {
 	/** Администратор запросил удаление (тик вычистит). */
 	public function isDeleteRequested(): bool {
 		return null !== $this->deleteRequestedAt;
+	}
+
+	/**
+	 * Состояние для списка: вычищен и «удаляется» главнее времени, дальше — по часам (заморозка, дома, идёт, ждёт).
+	 *
+	 * @param string $nowUtc Текущее время (UTC)
+	 */
+	public function status( string $nowUtc ): MasterclassStatus {
+		return match ( true ) {
+			$this->isPurged()                => MasterclassStatus::Purged,
+			$this->isDeleteRequested()       => MasterclassStatus::Deleting,
+			$this->isFrozen( $nowUtc )       => MasterclassStatus::Frozen,
+			$nowUtc > $this->endsAt          => MasterclassStatus::OpenAtHome,
+			$nowUtc >= $this->startsAt       => MasterclassStatus::Running,
+			default                          => MasterclassStatus::Waiting,
+		};
 	}
 
 	private static function nullableInt( mixed $value ): ?int {
