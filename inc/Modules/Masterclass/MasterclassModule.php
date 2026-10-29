@@ -7,7 +7,9 @@ namespace Inc\Modules\Masterclass;
 use Inc\Contracts\ServiceInterface;
 use Inc\Modules\Masterclass\Config\MasterclassConfig;
 use Inc\Modules\Masterclass\Controllers\MasterclassAdminController;
+use Inc\Modules\Masterclass\Controllers\MasterclassAuthController;
 use Inc\Modules\Masterclass\Controllers\MasterclassIntegrityController;
+use Inc\Modules\Masterclass\Controllers\MasterclassPlayerController;
 use Inc\Modules\Masterclass\Controllers\MasterclassSettingsController;
 use Inc\Modules\Masterclass\Schema\MasterclassSchema;
 
@@ -40,6 +42,8 @@ class MasterclassModule implements ServiceInterface {
 		private readonly MasterclassSettingsController $settings,
 		private readonly MasterclassIntegrityController $integrity,
 		private readonly MasterclassAdminController $admin,
+		private readonly MasterclassAuthController $auth,
+		private readonly MasterclassPlayerController $player,
 	) {}
 
 	public function register(): void {
@@ -52,5 +56,7 @@ class MasterclassModule implements ServiceInterface {
 		}
 
 		$this->admin->register();
+		$this->auth->register();
+		$this->player->register();
 	}
 }

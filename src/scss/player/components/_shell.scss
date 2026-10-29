@@ -327,7 +327,9 @@ body.fs-player-page { overflow: visible; }
   .lock-actions {
     margin-top: rem(20);
     display: flex;
+    flex-wrap: wrap;
     justify-content: center;
+    gap: rem(10);
   }
 
   .lock-countdown + .lock-actions {

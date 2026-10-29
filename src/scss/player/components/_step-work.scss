@@ -292,6 +292,8 @@
   justify-content: center;
   z-index: $z-modal;
   animation: dim-in 0.16s ease;
+
+  &[hidden] { display: none; } /* окна, которые модули держат в разметке до показа */
 }
 
 .cp-modal {
