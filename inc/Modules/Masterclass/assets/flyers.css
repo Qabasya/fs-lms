@@ -1,0 +1,125 @@
+/*
+ * Печатная форма флаеров мастер-класса: 4 флаера на лист A4 (2 × 2).
+ *
+ * Единственное место модуля с «сырыми» величинами: размеры задаются в mm, потому что это печатный носитель,
+ * а не интерфейс (токены сайта здесь не подходят). Документ автономный — стили админки и темы в него не попадают.
+ */
+
+@page {
+	size: A4 portrait;
+	margin: 10mm;
+}
+
+*,
+*::before,
+*::after {
+	box-sizing: border-box;
+}
+
+body.flyers {
+	margin: 0;
+	padding: 0;
+	font-family: Arial, Helvetica, sans-serif;
+	color: #000;
+	background: #fff;
+}
+
+.flyers__bar {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 4mm;
+	padding: 4mm 10mm;
+	border-bottom: 0.3mm solid #ccc;
+}
+
+.flyers__summary {
+	margin: 0;
+	font-size: 11pt;
+}
+
+.flyers__print {
+	padding: 2mm 6mm;
+	font-size: 11pt;
+	cursor: pointer;
+}
+
+.flyers__empty {
+	margin: 10mm;
+	font-size: 12pt;
+}
+
+.sheet {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	grid-auto-rows: 138mm;
+	width: 190mm;
+	margin: 0 auto;
+	break-after: page;
+	page-break-after: always;
+}
+
+.sheet:last-of-type {
+	break-after: auto;
+	page-break-after: auto;
+}
+
+.flyer {
+	display: flex;
+	flex-direction: column;
+	justify-content: space-between;
+	padding: 8mm;
+	border: 0.3mm dashed #888;
+}
+
+.flyer__school {
+	margin: 0;
+	font-size: 14pt;
+	line-height: 1.2;
+}
+
+.flyer__lead {
+	margin: 0;
+	font-size: 12pt;
+}
+
+.flyer__data {
+	margin: 0;
+}
+
+.flyer__data dt {
+	margin-top: 3mm;
+	font-size: 9pt;
+	text-transform: uppercase;
+	color: #555;
+}
+
+.flyer__data dd {
+	margin: 0.5mm 0 0;
+	font-size: 12pt;
+	word-break: break-all;
+}
+
+.flyer__secret {
+	font-family: "Courier New", Courier, monospace;
+	font-size: 18pt;
+	font-weight: bold;
+	letter-spacing: 0.3mm;
+}
+
+.flyer__number {
+	margin: 0;
+	font-size: 10pt;
+	text-align: right;
+	color: #555;
+}
+
+@media print {
+	.flyers__bar {
+		display: none;
+	}
+
+	.sheet {
+		margin: 0;
+	}
+}

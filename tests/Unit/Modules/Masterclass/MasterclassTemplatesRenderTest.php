@@ -10,12 +10,10 @@ use Inc\Modules\Masterclass\Controllers\MasterclassSettingsController;
 use PHPUnit\Framework\TestCase;
 
 /**
- * Рендер настоящих шаблонов модуля: вкладка настроек показывает текущие значения и границы,
- * страница модуля открывается с заголовком.
+ * Рендер настоящего шаблона вкладки настроек: текущие значения и границы. Страница модуля (список, аккаунты)
+ * рендерится через контроллер — `MasterclassAdminControllerTest`.
  */
 class MasterclassTemplatesRenderTest extends TestCase {
-
-	private const TEMPLATES = __DIR__ . '/../../../../inc/Modules/Masterclass/templates/';
 
 	protected function setUp(): void {
 		parent::setUp();
@@ -129,17 +127,5 @@ class MasterclassTemplatesRenderTest extends TestCase {
 		self::assertStringNotContainsString( 'style=', $html, 'инлайновых стилей нет' );
 		self::assertStringNotContainsString( '<svg', $html, 'инлайновых иконок нет' );
 		self::assertStringNotContainsString( 'name="enabled"', $html, 'тумблер модуля живёт на Dashboard' );
-	}
-
-	public function test_admin_page_opens_with_the_title(): void {
-		ob_start();
-		( static function (): void {
-			require self::TEMPLATES . 'admin-page.php';
-		} )();
-		$html = (string) ob_get_clean();
-
-		self::assertStringContainsString( 'Мастер-классы', $html );
-		self::assertStringContainsString( 'fs-page-header', $html );
-		self::assertStringNotContainsString( 'style=', $html );
 	}
 }

@@ -914,6 +914,20 @@ if (!function_exists('size_format')) {
     function size_format(int|float $bytes, int $decimals = 0): string|false { return $bytes . ' B'; }
 }
 
+if (!function_exists('wp_enqueue_script')) {
+    // Подключённые скрипты складываются в $GLOBALS['_fs_test_scripts'][handle] = ['src' => …, 'deps' => …].
+    function wp_enqueue_script(string $handle, string $src = '', array $deps = [], string|bool|null $ver = false, bool|array $args = false): void {
+        $GLOBALS['_fs_test_scripts'][$handle] = ['src' => $src, 'deps' => $deps];
+    }
+}
+if (!function_exists('wp_localize_script')) {
+    // Данные скрипта: $GLOBALS['_fs_test_localized'][handle] = [объект, данные].
+    function wp_localize_script(string $handle, string $objectName, array $data): bool {
+        $GLOBALS['_fs_test_localized'][$handle] = [$objectName, $data];
+        return true;
+    }
+}
+
 /** Сбрасывает флаги авторизации харнесса к «всё разрешено» (вызывать в setUp). */
 function fs_test_reset_ajax(): void {
     $GLOBALS['_fs_test_can']      = true;
