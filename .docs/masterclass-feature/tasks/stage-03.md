@@ -11,7 +11,19 @@
 
 ## Статус
 
-Не начат. *(Переписать по факту этапа 2.)*
+Не начат. **Переписан по факту этапа 2 (2026-10-29).** Что уже есть и чего нет:
+
+- **Готово в этапе 2 и используется здесь:** `MasterclassAccountService::findLiveByUserId()` (живой = не удалён и не `Enrolled`), `playerUrlFor( $userId )` (адрес `PageRoutes::LessonPlayer->lessonUrl( group, group_lesson )`
+  или `null`), `unlockLogins()`; `MasterclassDTO::isFrozen()` / `isRunning()` / `status()`; `MasterclassAccountRepository::markFirstLogin / markHome / markContact` (условные `UPDATE … IS NULL`, `bool`);
+  `MasterclassRepository::runningFor( $nowUtc, $leadMinutes )` (для Ш6); DTO `MasterclassViewDTO`; `MasterclassLogWriter` (`LoginBeforeStart/OnSite/AtHome`, `ContactOpened/Phone/Messenger`, `Frozen` уже в `MasterclassLogAction`).
+- **Нет и делается здесь:** `MasterclassAccessGuard`, `MasterclassLoginTracker`, `MasterclassAuthController`, `MasterclassPlayerController`, `MasterclassPlayerCallbacks`, `templates/player-*.php`, `assets/player.js`.
+  В `MasterclassModule` добавляются `$auth` и `$player` (после `$admin`, только при включённом модуле); в `MasterclassIntegrityController` — подписка Ш1 (`fs_lms_lesson_access`, всегда).
+- **«Первый вход» на странице аккаунтов** (`admin-accounts.php`, колонки «Первый вход» / «Дома» / «Связался») заполняется трекером — это проверка этого этапа, а не 2.6: после входа под `student-N` строка списка аккаунтов должна показать время.
+- Страница модуля уже умеет «Снять блокировки» (`MasterclassAccountService::unlockLogins()`): проверка 3.6 «класс ошибся тремя паролями → сняли блокировки» идёт через неё (в этапе 2 проверено: после трёх ошибок вход закрыт даже с верным паролем).
+- **Инструментарий проверки уже отработан в этапе 2:** HTTP-вход `POST /wp-login.php` (`log`, `pwd`, cookie `wordpress_test_cookie`; успех — `Set-Cookie wordpress_logged_in_…`), headless Chrome по CDP со временным mu-plugin
+  `zz-dev-login.php` (одноразовый токен → `wp_set_auth_cookie`, ещё отдаёт nonce по действию), скрипты в scratchpad; **стек медленный** — запрос ≈ 60 с, пока в контейнере включена проверка меток времени opcache
+  (`opcache.validate_timestamps=1` + файлы по bind-mount с Windows); на время e2e помогает временный `conf.d/zz-mk-fast.ini` с `opcache.validate_timestamps=0` (≈ 13 с на запрос) — **убрать после** и `apachectl graceful`.
+- Тестовые заглушки `wp_enqueue_script` / `wp_localize_script` уже в `tests/bootstrap.php`; заглушка `add_query_arg` принимает только массив.
 
 ---
 

@@ -129,6 +129,15 @@ inc/Modules/Masterclass/
   `problems()`); `problems()` зовёт его. Поведение не меняется.
 - `Init::getServices()`: `MasterclassModule::class` рядом с `VideoLibraryModule` (+ `use`).
 - Предусловия из `SPEC.md` §11 (исправления текущего кода) — до этапа 2.
+- **Аудит этапа 2 (п. 2.7): ещё четыре места ядра обходят служебные группы** (всё через `ServiceGroupResolver`, без слов модуля в ядре):
+  `ServiceGroupResolver::onlyServiceRecords( list<StudentRecordDTO> ): bool` — единое правило «все записи ученика в служебных группах» (выгрузка учеников переведена на него);
+  `StudentBundleExporter` (пакет переноса предмета) пропускает служебную группу целиком — иначе в чужой сайт уехали бы временные аккаунты с паролями открытым текстом;
+  `StudentDirectoryService` («Сводка по ученику») не показывает служебные группы; `StudentGroupCallbacks::ajaxSearchStudentsForGroup()` и `PersonRepository::searchStudents( …, $serviceGroupIds )`
+  (центр печати; `NOT EXISTS`/`EXISTS` по `student_records`) скрывают учеников, у которых все записи в служебных группах. Конструкторы этих классов получили `ServiceGroupResolver`.
+  Решения по остальным местам — таблица в `tasks/stage-02.md` п. 2.7. Тесты: `ServiceGroupResolverTest`, `StudentBundleExporterServiceGroupTest`, `StudentDirectoryServiceGroupTest`,
+  `StudentGroupSearchCallbacksTest`, `PrintCenterSearchServiceGroupTest`, `PersonRepositoryIntegrationTest`; SQL поиска — на `wp_db` (`masterclass-stage2-check.php`, раздел I).
+- Тестовый `tests/bootstrap.php`: заглушки `wp_enqueue_script` / `wp_localize_script` (складывают в `$GLOBALS['_fs_test_scripts']` / `['_fs_test_localized']`). Заглушка `add_query_arg` принимает только массив
+  аргументов — в шаблонах `add_query_arg( array( 'paged' => 2 ), $url )`, не `add_query_arg( 'paged', 2, $url )`.
 
 ## 3. Схема (`Schema\MasterclassSchema`, новое)
 
@@ -333,6 +342,18 @@ inc/Modules/Masterclass/
 - `private deadlines( string $endsAtUtc ): array{freeze_at, unused_purge_at, purge_at}`; `private groupName( string $school,
   string $dateLocal ): string` — «Мастер-класс · {школа} · {дд.мм.гггг}», занято (`existsByNameAndPeriod`) — « (2)», « (3)».
 
+**Сделано (этап 2).** Отличия от контракта выше (правда — код, `tests/Unit/Modules/Masterclass/MasterclassServiceTest.php`):
+- Конструктор: вместо `UserRepository` для проверки преподавателя — `UserManager::find()` (роль `FSTeacher` по `roles`), `UserRepository::getByRole()` остался только для `teacherOptions()`;
+  добавлен `MasterclassAccountService` (`requestDelete()` берёт число аккаунтов с живой заявкой у него: `countWithLiveApplication()`) и `MasterclassAccountRepository` (воронка в `overview()`).
+- Состояние в `overview()` — энум `MasterclassStatus` (`label()` — слова списка), а не строка; считает `MasterclassDTO::status( $nowUtc )`: вычищен → удаляется → заморожен → дома → идёт → ждёт.
+- Проверки ввода: школа непустая и ≤ `SCHOOL_MAX` (200), время строго `Y-m-d H:i:s` (ловит и `2026-02-30`), конец позже начала; сообщения — для людей. Имя группы перебирает суффиксы до 100, дальше — отказ.
+- `update()`: **предмет не меняется** (отказ); урок — только пока `GroupLessonUsageGuard::hasLearningData()` ложно (проверяется до проверки нового урока); сроки пересчитываются и отметки
+  `frozen_at`/`unused_purged_at` сбрасываются **только когда сдвинулось окно** — правка школы или преподавателя «Продление» не затирает; расписание занятия трогается, только если сдвинулось окно или сменился
+  преподаватель; имя группы пересобирается, если сменилась школа или дата (период берётся из группы).
+- `extend()`: сбрасывает и `unused_purged_at` (сдвинутый срок должен отработать заново); база — большее из (`freeze_at`, сейчас), остальные сроки — на ту же разницу в секундах.
+- `requestDelete()`: повтор безвреден — метку не двигает и в журнал второй раз не пишет, число аккаунтов с заявкой возвращает; вычищенный мастер-класс — исключение.
+- `create()`: журнал — после `COMMIT`; сбой группы/занятия/строки откатывает всё (проверено на `wp_db`: `tests/stand/masterclass-stage2-check.php`).
+
 ### `MasterclassAccountService`
 Зависимости: `MasterclassAccountRepository`, `MasterclassRepository`, `AccountProvisioningService`, `PersonService`,
 `StudentRecordRepository`, `UserManager`, `PasswordGeneratorService`, `DeletionEventDispatcher`, `ApplicationRepository`,
@@ -368,6 +389,16 @@ inc/Modules/Masterclass/
   возвращает число аккаунтов; журнал `LoginsUnlocked` (`context.count`). Мастер-класса нет / вычищен → `\InvalidArgumentException`.
 - `hasLiveApplication( MasterclassAccountDTO $a ): bool` — `ApplicationRepository::find( applicationId )` в статусе
   `PendingParent`, `ReadyForReview` или `Enrolling`.
+
+**Сделано (этап 2).** Отличия от контракта (тест — `MasterclassAccountServiceTest`, стенд — `masterclass-stage2-check.php`):
+- Конструктор: последним параметром `ExamTime` (время `page()` — местное), перед ним `ClockInterface`.
+- Добавлен `countWithLiveApplication( int $masterclassId ): int` (для `MasterclassService::requestDelete()`).
+- `createChunk()`: сбой шага → **сначала** `markDeleted( CreateFailed )`, потом откат созданного через `DeleteStudentEvent` (сбой отката гасится и логируется — порция идёт дальше); журнал
+  `AccountsCreated` — один на порцию и только если создан хотя бы один. Запись, вернувшая `0`, — сбой, как и исключение. Пустой `docNumber` физлица не склеивает аккаунты (`PersonService` дедуплицирует только по непустому).
+- `deleteAccount()` возвращает `void` и **идемпотентен**: если метка не поставилась (уже удалён), событие не диспетчеризуется и журнал не пишется. `detachAccount()` тоже безвреден при повторе.
+- `flyers()` — мастер-класса нет → `\InvalidArgumentException`; вычищенный не отказ (список просто пуст). `unlockLogins()` — вычищенный → исключение. `page()` вычищенного — пустой список, `total = 0`.
+- Замер на dev-стеке (`wp_db`, WP-CLI): порция 25 аккаунтов ≈ 2,4–5,2 с (холодный и прогретый процесс), 500 аккаунтов — 48 с. Страница крутит порции по `chunkMax = 25`.
+- Параллельные порции двух процессов (`worker`): номера уникальны (`AUTO_INCREMENT`), «зависших» строк нет.
 
 ### `MasterclassAccessGuard`
 Зависимости: `MasterclassAccountRepository`, `MasterclassRepository`, `MasterclassConfig`, `PluginConfig`, `ClockInterface`.
@@ -487,6 +518,16 @@ capability Capability::ManageLmsPlatform->value, menu_slug PAGE_SLUG, callback a
 **Сделано (этап 1):** `PAGE_SLUG`, регистрация подстраницы через `MenuManager` и `renderPage()` с шаблоном-заглушкой `admin-page.php` (заголовок и описание); AJAX, виды и
 `enqueueAssets()` — этап 2. Проверено по HTTP: пункт меню «Мастер-классы» и страница открываются при включённом модуле.
 
+**Сделано (этап 2).** Тест — `MasterclassAdminControllerTest` (в нём же рендер настоящих шаблонов обоих видов; `AdminAccountsRenderTest` из плана — это его блок «вид аккаунты»):
+- Конструктор: `MenuManager`, `MasterclassAdminCallbacks`, `MasterclassService`, `MasterclassAccountService`, `SubjectRepository`, `MasterclassConfig`, `ExamTime`. Константы: `CREATE/UPDATE/EXTEND/DELETE/ADD_ACCOUNTS/LESSONS/UNLOCK_ACTION`,
+  `FLYERS_ACTION`, `VIEW_ACCOUNTS = 'accounts'`, `PER_PAGE = 20`, `ACCOUNTS_PER_PAGE = 50`.
+- `enqueueAssets()` — только на `?page=fs_lms_masterclasses` и **не на виде аккаунтов** (серверный рендер, JS не нужен). Локализация `fsLmsMasterclass = { ajaxurl, nonce, actions{create,update,extend,delete,addAccounts,lessons,unlock},
+  chunkMax, defaults{batchSize,startTime,endTime} }`.
+- `renderPage()`: `?view=accounts&id=N[&paged=N][&deleted=1]` → `admin-accounts.php`, иначе `admin-page.php`; вид `log` — этап 6 (пока вкладка «Журнал» в шапке — неактивная заглушка). Шаблоны подключаются замыканием с
+  `extract( $vars, EXTR_SKIP )` — свои переменные, пересечений со страницей настроек нет. Данные списка — массивы (`listView()`: `rows[]` с `status`, `funnel`, местным окном, адресами `accounts_url` / `flyers_url` /
+  `player_url`; форма берёт предметы `readAll()` без архивных и без `hasBank = false`, преподавателей `teacherOptions()`).
+- Ссылка на флаеры: `admin-post.php?action=…&id=N&security=<Nonce::Config>`, открывается в новой вкладке.
+
 ### `MasterclassAuthController`
 `template_redirect` (приоритет 5 — раньше `ProfileController`) → `redirectAccount()`: залогинен, `PageRoutes::SignIn->isCurrent()`
 или `PageRoutes::UserProfile->isCurrent()`, `playerUrlFor()` не `null` → `wp_safe_redirect(); exit;`.
@@ -540,6 +581,13 @@ capability Capability::ManageLmsPlatform->value, menu_slug PAGE_SLUG, callback a
   (не AJAX-метод — прямая проверка права допустима, `CLAUDE.md`), `nocache_headers()`, `require templates/flyers.php` (свой
   `<!doctype html>`, `assets/flyers.css`), `exit`.
 
+**Сделано (этап 2).** Тест — `MasterclassAdminCallbacksTest` (право и nonce на **каждом** входе, спрашивается именно `ManageLmsPlatform`, мутации убиты):
+- Конструктор: `MasterclassService`, `MasterclassAccountService`, `MasterclassAccountRepository` (для `total` в `ajaxAddAccounts` — `countLive()`), `ExamTime` (местное время в ответе `ajaxExtend`).
+- Ввод формы: `school_name` / `subject_key` / `lesson_id` / `teacher_user_id` обязательны (`requireText/Key/Int`), `starts_at` / `ends_at` — `sanitizeText()`, строгий разбор формата — в сервисе. `id` — `requireInt`.
+- Отказ сервиса (`\InvalidArgumentException` / `\RuntimeException`) — `error( $message )` его же текстом; сбой хранилища (`\RuntimeException`) дополнительно в журнал PHP (`PluginLogger::exception`).
+- `printFlyers()`: `Nonce::Config->verify()` → прямая проверка права (`wp_die` 403) → `flyersDocument( $id )` (публичный, возвращает HTML — так он тестируется; мастер-класса нет → `\InvalidArgumentException` → `wp_die` 404) →
+  `nocache_headers()`, `Content-Type`, вывод, `exit`. Выдача пишется в журнал сервисом (`FlyersPrinted`, число, без паролей).
+
 ### `MasterclassPlayerCallbacks`
 `ajaxContact()` — `Nonce::LearnerActivity->verify()`; не залогинен → `error`; `kind` → `MasterclassContactKind::fromRequest()`
 (неизвестный → `error`); `logContact( get_current_user_id(), $kind )`; ответ `success()` всегда (по ответу не узнать, аккаунт ли).
@@ -559,6 +607,15 @@ capability Capability::ManageLmsPlatform->value, menu_slug PAGE_SLUG, callback a
   стили из JS не задаются.
 - `flyers.php` + `assets/flyers.css`: 4 флаера на A4 (`@media print`), школа, номер, логин, пароль, адрес `/sign-in/`. Пароли не
   логируются. Размеры печати в `mm` — единственное место с «сырыми» величинами (печатный носитель, не UI).
+**Сделано (этап 2).** `admin-page.php` (список + форма + панель числа), `admin-form.php`, `admin-accounts.php`, `flyers.php`, `assets/admin.js`, `assets/flyers.css`, **`assets/flyers.js`** (кнопка «Печать» — inline-JS в
+печатном документе нельзя). Подробности:
+- `admin-page.php`: переменные `rows, total, page, pages, teachers, subjects, defaults, list_url, chunk_max`; действия строки — `data-mk-action="add|unlock|extend|edit|delete"` (кнопки `button-link`) и ссылки
+  «Открыть в плеере» / «Аккаунты» / «Печать флаеров». У «удаляется» и «вычищен» изменяющих действий нет (у вычищенного — только «Аккаунты»). Общая панель `#fs-masterclass-panel` (число дней / число аккаунтов) вместо
+  модалки; сообщение и прогресс — `#fs-masterclass-notice` (`hidden`).
+- `admin-accounts.php`: «№ · Логин · Состояние · Первый вход · Дома · Связался · Заявка», у удалённых — «Удалён <время>: <причина>»; «Показать/Скрыть удалённые»; страницы по 50 («← Назад» / «Вперёд →»; ссылки
+  сохраняют `deleted=1`); пустой список, вычищенный мастер-класс и несуществующий `id` — сообщение, а не фатал. Дата мастер-класса — `д.м.Г`.
+- `flyers.php`: свой `<!doctype html>`, 4 флаера на лист (`.sheet` → `.flyer`), школа, адрес `/sign-in/`, логин, пароль, «№ N»; пустой список — «Нет аккаунтов для печати…». Размеры в `mm` — только в `flyers.css`.
+- `admin.js`: цикл `addAccounts()` идёт по набранному числу, а не по числу порций (порция может создать меньше, чем просили); после трёх подряд пустых порций прекращает; на 403 `E-SESSION` просит обновить страницу.
 - `player-*.php` — только штатные классы плеера (`.s-banner`, `.lock-*`, `.b .b-pri`, `.cp-dim/.cp-modal`) и `Icon`.
 - `assets/player.js` — self-contained, без зависимостей: открытие/закрытие окна (`hidden`), отправка вида клика
   `fetch( data-ajax, { method: 'POST', keepalive: true, body } )` (`keepalive` — переход по `tel:`/мессенджеру не обрывает запрос).
