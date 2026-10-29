@@ -6,6 +6,7 @@ namespace Inc\Modules\Masterclass\Controllers;
 
 use Inc\Core\BaseController;
 use Inc\Modules\Masterclass\Repositories\MasterclassRepository;
+use Inc\Modules\Masterclass\Services\MasterclassAccessGuard;
 use Inc\Shared\PluginLogger;
 
 /**
@@ -17,9 +18,11 @@ use Inc\Shared\PluginLogger;
  * - Ш4 `fs_lms_service_group_ids` — группа мастер-класса остаётся служебной, иначе при выключении модуля она
  *   вернулась бы в списки зачисления, «Добавить всех учеников предмета» и выгрузку учеников.
  *
- * Дальше сюда же приходят Ш1 `fs_lms_lesson_access` (этап 3), `deleted_user` и Ш3 `fs_lms_group_deleting`
- * (этап 4): при выключенном модуле заморозка должна действовать, а удаление группы или пользователя — не
- * оставлять сирот. Подписка на метод, которого ещё нет, не регистрируется.
+ * - Ш1 `fs_lms_lesson_access` — заморозка действует и при выключенном модуле, иначе выключение открыло бы
+ *   замороженные занятия.
+ *
+ * Дальше сюда же приходят `deleted_user` и Ш3 `fs_lms_group_deleting` (этап 4): удаление группы или пользователя
+ * не должно оставлять сирот. Подписка на метод, которого ещё нет, не регистрируется.
  *
  * @package Inc\Modules\Masterclass\Controllers
  */
@@ -27,12 +30,14 @@ class MasterclassIntegrityController extends BaseController {
 
 	public function __construct(
 		private readonly MasterclassRepository $masterclasses,
+		private readonly MasterclassAccessGuard $guard,
 	) {
 		parent::__construct();
 	}
 
 	public function register(): void {
 		add_filter( 'fs_lms_service_group_ids', array( $this, 'filterServiceGroupIds' ) );
+		add_filter( 'fs_lms_lesson_access', array( $this->guard, 'filterLessonAccess' ), 10, 3 );
 	}
 
 	/**
