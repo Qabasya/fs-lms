@@ -251,6 +251,59 @@
 	}
 }
 
+// Плитки (режим плиток «Пропусков в тексте»)
+.fs-tile-bank {
+	display:    flex;
+	flex-wrap:  wrap;
+	gap:        $spacing-sm;
+	min-height: rem(40);
+	margin-top: $spacing-md;
+}
+
+.fs-tile {
+	padding:       $spacing-xs $spacing-md;
+	border:        1px solid $color-border;
+	border-radius: $border-radius-lg;
+	background:    $color-white;
+	box-shadow:    $shadow-surface;
+	font-family:   $font-family;
+	font-size:     $font-size-md;
+	cursor:        grab;
+	user-select:   none;
+
+	&.is-selected { border-color: $color-accent; }
+
+	&:disabled {
+		cursor:  default;
+		opacity: 0.6;
+	}
+
+	&.is-placed {
+		padding:       0;
+		border:        none;
+		border-radius: 0;
+		background:    none;
+		box-shadow:    none;
+		font:          inherit;
+	}
+}
+
+.fs-widget-fill-slot {
+	display:       inline-block;
+	min-width:     rem(56);
+	margin:        0 $spacing-xs;
+	border-bottom: 2px solid $color-border;
+	text-align:    center;
+	cursor:        pointer;
+
+	&:focus-visible {
+		outline:             none;
+		border-bottom-color: $color-accent;
+	}
+
+	&.is-filled { border-bottom-color: $color-accent; }
+}
+
 // ── Счётчик попыток ────────────────────────────────────────────────────────
 
 .fs-attempt-indicator {

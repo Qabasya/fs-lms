@@ -76,19 +76,23 @@
 ## Этап 1. «Пропуски в тексте» — режим плиток
 
 **PHP, тесты первыми** (`tests/Unit/...`):
-- [ ] `FillTextParserTest`: новый `tilesFor(ParsedFillText, array $extra): array` — первые варианты + лишние, без пустых;
-- [ ] `GapTextFieldTest`: `sanitize()` сохраняет `answer_mode` только из `input|tiles`, чистит `extra_tiles`, неизвестное значение → `input`;
-- [ ] `StepContentRendererTest`: `buildFillData()` при `tiles` отдаёт `answer_mode` и перемешанный банк; верные ответы по слотам на клиент **не** уходят; при `input` — как раньше (регрессия);
-- [ ] `FillCheckerTest`: ответ плитками (`gapIndex => строка`) проверяется как раньше, синонимы `[[красный|алый]]` принимают плитку «красный».
+- [x] `FillTextParserTest`: новый `tilesFor(ParsedFillText, array $extra): array` — первые варианты + лишние, без пустых;
+- [x] `GapTextFieldTest`: `sanitize()` сохраняет `answer_mode` только из `input|tiles`, чистит `extra_tiles`, неизвестное значение → `input`;
+- [x] `StepContentRendererTest`: `buildFillData()` при `tiles` отдаёт `answer_mode` и перемешанный банк; верные ответы по слотам на клиент **не** уходят; при `input` — как раньше (регрессия);
+- [x] `FillCheckerTest`: ответ плитками (`gapIndex => строка`) проверяется как раньше, синонимы `[[красный|алый]]` принимают плитку «красный».
 
 **Код:** `GapTextField` (переключатель режима + поле «Лишние плитки»), `StepContentRenderer::buildFillData()`, `TaskPreviewService`
 (превью режима), `slot-builder.js`/`step-preview.js` (подсветка не ломается).
 
 **JS, тесты первыми** (`tests/js/fill-tiles-widget.test.mjs`):
-- [ ] в режиме `tiles` рисуется банк и слоты вместо `<input>`; в `input` — как раньше;
-- [ ] после `place` слот получает класс «заполнен», плитка в банке скрыта, текст слота = текст плитки;
-- [ ] `collectAnswer()` даёт `{индекс: текст}`; `setAnswer()` восстанавливает;
-- [ ] `lock()` после проверки.
+- [x] в режиме `tiles` рисуется банк и слоты вместо `<input>`; в `input` — как раньше;
+- [x] после `place` слот получает класс «заполнен», плитка в банке скрыта, текст слота = текст плитки;
+- [x] `collectAnswer()` даёт `{индекс: текст}`; `setAnswer()` восстанавливает;
+- [x] `lock()` после проверки.
+
+Готово: DOM-привязка — `common/tile-board-view.js` (`mountTileBoard()`, тесты `tile-board-view.test.mjs` + заглушка `tests/js/helpers/fake-dom.mjs`),
+режим в `task-widget.js` (`buildFillTilesWidget()`); превью `TaskPreviewService`/`slot-builder.js`/`step-preview.js` не менялись — они показывают текст с
+подсветкой ответов, режим на них не влияет. Не проверено в браузере (мышь, тап, вид плиток).
 
 **Стили** (токены, без inline): плитка — как `.placed-theme` (`--surface`, рамка, `--shadow-sm`, `cursor: grab`);
 **вложенная плитка** — без фона, рамки и тени, кегль текста абзаца, слот остаётся с подчёркиванием снизу; пустой слот — подчёркивание.

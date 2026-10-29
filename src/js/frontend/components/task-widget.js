@@ -21,6 +21,8 @@
 
 import { icoCheck, icoCross } from '../../common/icons.js';
 import { bindTabIndent } from '../../common/utils.js';
+import { createBoard } from '../../common/tile-board.js';
+import { mountTileBoard } from '../../common/tile-board-view.js';
 
 const CHECK_SVG = icoCheck( 13 );
 const CROSS_SVG = icoCross( 12 );
@@ -513,6 +515,10 @@ function attachOrderingDragDrop( list, onDrop ) {
 // ── Fill (inline gap inputs) ───────────────────────────────────────────────
 
 function buildFillWidget( container, data, isDone ) {
+	if ( 'tiles' === data.answer_mode ) {
+		return buildFillTilesWidget( container, data, isDone );
+	}
+
 	const segments  = Array.isArray( data.segments ) ? data.segments : [];
 	const wrapper   = make( 'div', 'fs-widget-fill' );
 	const gapInputs = [];
@@ -549,6 +555,53 @@ function buildFillWidget( container, data, isDone ) {
 		),
 		{ setAnswer: ( v ) => gapInputs.forEach( ( inp ) => { inp.value = String( v?.[ inp.dataset.gapIndex ] ?? '' ); } ) }
 	);
+}
+
+/**
+ * Пропуски в тексте, режим плиток: вместо полей ввода — слоты в тексте и банк плиток под ним.
+ * Ответ тот же, что у режима ввода (`{индекс пропуска: слово}`), поэтому проверка не меняется.
+ */
+function buildFillTilesWidget( container, data, isDone ) {
+	const segments = Array.isArray( data.segments ) ? data.segments : [];
+	const wrapper  = make( 'div', 'fs-widget-fill fs-widget-fill-tiles' );
+	const slots    = [];
+
+	segments.forEach( ( seg ) => {
+		if ( 'gap' === seg.type ) {
+			const slot = make( 'span', 'fs-widget-fill-slot' );
+			slots[ seg.index ] = slot;
+			wrapper.appendChild( slot );
+			return;
+		}
+		const span       = make( 'span', 'fs-widget-fill-text' );
+		span.textContent = seg.content || '';
+		wrapper.appendChild( span );
+	} );
+
+	const bank = make( 'div', 'fs-tile-bank' );
+	container.appendChild( wrapper );
+	container.appendChild( bank );
+
+	let notifyChange = () => {};
+	const board      = createBoard( {
+		tiles:    Array.isArray( data.tiles ) ? data.tiles : [],
+		slots:    slots.length,
+		onChange: () => notifyChange(),
+	} );
+	const view       = mountTileBoard( { board, bank, slots } );
+
+	if ( isDone ) { view.lock(); }
+
+	return widgetApi( {
+		collectAnswer: () => JSON.stringify( board.collect() ),
+		hasAnswer:     () => Object.values( board.collect() ).some( ( text ) => '' !== text ),
+		setAnswer:     ( v ) => {
+			board.restore( v );
+			view.refresh();
+		},
+		onChange:      ( cb ) => { notifyChange = cb; },
+		lock:          () => view.lock(),
+	} );
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────

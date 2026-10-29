@@ -362,6 +362,64 @@
   &:focus { border-bottom-color: var(--accent); }
 }
 
+// Плитки (режим плиток «Пропусков в тексте», «Перетаскивание пропусков»): карточка как плитка КТП.
+.fs-tile-bank {
+  display: flex;
+  flex-wrap: wrap;
+  gap: rem(8);
+  min-height: rem(40);
+  margin-top: rem(12);
+}
+
+.fs-tile {
+  padding: rem(6) rem(12);
+  border: 1px solid var(--line);
+  border-radius: rem(8);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  font: 600 $font-size-md var(--font);
+  color: var(--ink-2);
+  cursor: grab;
+  user-select: none;
+
+  &.is-selected {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+  }
+
+  &:disabled {
+    cursor: default;
+    opacity: 0.6;
+  }
+
+  // Вложенная в текст: остаётся только слово, подчёркивание даёт слот.
+  &.is-placed {
+    padding: 0;
+    border: none;
+    border-radius: 0;
+    background: none;
+    box-shadow: none;
+    font: inherit;
+    color: inherit;
+  }
+}
+
+.fs-widget-fill-slot {
+  display: inline-block;
+  min-width: rem(56);
+  margin: 0 rem(4);
+  border-bottom: 2px solid var(--accent-soft-2);
+  text-align: center;
+  cursor: pointer;
+
+  &:focus-visible {
+    outline: none;
+    border-bottom-color: var(--accent);
+  }
+
+  &.is-filled { border-bottom-color: var(--accent); }
+}
+
 /* ── Условие, попытки, подсказка, футер ─────────────────────────────── */
 .fs-task-subpart + .fs-task-subpart { margin-top: rem(8); }
 
