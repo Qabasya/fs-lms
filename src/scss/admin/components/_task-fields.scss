@@ -116,6 +116,29 @@
 .fs-task-drag-fill-field {
 	.fs-task-drag-fill__row {
 		@extend %task-field-row;
+
+		box-sizing: border-box;
+		padding: 0 v.$spacing-md;
+		margin-bottom: v.$spacing-sm;
+
+		.js-drag-fill-num {
+			flex: 0 0 v.$spacing-xl;
+		}
+
+		input {
+			box-sizing: border-box;
+			height: 2.25rem;
+			margin: 0;
+		}
+
+		input[type='text'] {
+			flex: 1;
+			min-width: 0;
+		}
+
+		input[type='number'] {
+			flex: 0 0 6rem;
+		}
 	}
 
 	.js-drag-fill-any-order {

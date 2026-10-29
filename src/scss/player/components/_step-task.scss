@@ -446,17 +446,15 @@
     border-color: var(--accent);
   }
 
-  &.is-filled { border-style: solid; }
-
-  .fs-tile.is-placed {
-    padding: rem(6) rem(12);
-    border: 1px solid var(--line);
-    border-radius: rem(8);
-    background: var(--surface);
-    box-shadow: var(--shadow-sm);
-    font: inherit;
-    cursor: grab;
+  // Значение поставлено — остаётся только символ формулы, без карточки и рамки слота.
+  &.is-filled {
+    min-width: 0;
+    min-height: 0;
+    border-color: transparent;
+    background: none;
   }
+
+  .fs-tile.is-placed { cursor: grab; }
 }
 
 /* ── Условие, попытки, подсказка, футер ─────────────────────────────── */

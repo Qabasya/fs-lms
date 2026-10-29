@@ -324,16 +324,15 @@
 	background:      $color-white;
 	cursor:          pointer;
 
-	&.is-filled { border-style: solid; }
-
-	.fs-tile.is-placed {
-		padding:       $spacing-xs $spacing-md;
-		border:        1px solid $color-border;
-		border-radius: $border-radius-lg;
-		box-shadow:    $shadow-surface;
-		font:          inherit;
-		cursor:        grab;
+	// Значение поставлено — остаётся только символ формулы, без карточки и рамки слота.
+	&.is-filled {
+		min-width:    0;
+		min-height:   0;
+		border-color: transparent;
+		background:   none;
 	}
+
+	.fs-tile.is-placed { cursor: grab; }
 }
 
 // ── Счётчик попыток ────────────────────────────────────────────────────────
