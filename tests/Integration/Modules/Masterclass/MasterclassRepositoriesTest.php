@@ -363,15 +363,30 @@ class MasterclassRepositoriesTest extends TestCase {
 		);
 	}
 
-	public function test_next_purgeable_and_count_live_skip_enrolled(): void {
-		$repository = new MasterclassAccountRepository( $this->wpdb );
+	public function test_next_purgeable_takes_attached_live_accounts_after_the_cursor_and_skips_enrolled(): void {
+		( new MasterclassAccountRepository( $this->wpdb ) )->nextPurgeable( 7, 100, 12 );
 
-		$repository->nextPurgeable( 7, 100 );
-		self::assertStringContainsString( "deleted_at IS NULL AND state <> 'enrolled'", $this->wpdb->lastQuery() );
+		self::assertStringContainsString(
+			"masterclass_id = 7 AND id > 12 AND deleted_at IS NULL AND student_record_id IS NOT NULL AND state <> 'enrolled' ORDER BY id ASC LIMIT 100",
+			$this->wpdb->lastQuery()
+		);
+	}
 
+	public function test_count_live_skips_enrolled(): void {
 		$this->wpdb->queueVar( '4' );
-		self::assertSame( 4, $repository->countLive( 7 ) );
+
+		self::assertSame( 4, ( new MasterclassAccountRepository( $this->wpdb ) )->countLive( 7 ) );
 		self::assertStringContainsString( "deleted_at IS NULL AND state <> 'enrolled'", $this->wpdb->lastQuery() );
+	}
+
+	public function test_count_attached_counts_only_accounts_that_still_hold_a_record(): void {
+		$this->wpdb->queueVar( '2' );
+
+		self::assertSame( 2, ( new MasterclassAccountRepository( $this->wpdb ) )->countAttached( 7 ) );
+		self::assertStringContainsString(
+			"deleted_at IS NULL AND student_record_id IS NOT NULL AND state <> 'enrolled'",
+			$this->wpdb->lastQuery()
+		);
 	}
 
 	public function test_count_by_masterclass_counts_deleted_numbers_too(): void {

@@ -36,6 +36,7 @@ class MasterclassSettingsController extends BaseController {
 	public function __construct(
 		private readonly MasterclassSettingsCallbacks $callbacks,
 		private readonly MasterclassConfig $config,
+		private readonly MasterclassCronController $cron,
 	) {
 		parent::__construct();
 	}
@@ -87,8 +88,13 @@ class MasterclassSettingsController extends BaseController {
 		return $modules;
 	}
 
+	/** Тумблер Dashboard: флаг пишется в опцию модуля, при выключении снимается событие тика. */
 	public function onToggle( bool $enabled ): void {
 		$this->config->save( array( 'enabled' => $enabled ) );
+
+		if ( ! $enabled ) {
+			$this->cron->unschedule();
+		}
 	}
 
 	public function enqueueAssets(): void {

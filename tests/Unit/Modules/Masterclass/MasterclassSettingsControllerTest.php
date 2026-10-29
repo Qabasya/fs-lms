@@ -6,7 +6,9 @@ namespace Unit\Modules\Masterclass;
 
 use Inc\Modules\Masterclass\Callbacks\MasterclassSettingsCallbacks;
 use Inc\Modules\Masterclass\Config\MasterclassConfig;
+use Inc\Modules\Masterclass\Controllers\MasterclassCronController;
 use Inc\Modules\Masterclass\Controllers\MasterclassSettingsController;
+use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -16,14 +18,17 @@ class MasterclassSettingsControllerTest extends TestCase {
 
 	private MasterclassConfig $config;
 	private MasterclassSettingsController $controller;
+	private MasterclassCronController&MockObject $cron;
 
 	protected function setUp(): void {
 		parent::setUp();
 		$GLOBALS['_test_options'] = array();
 		$this->config             = new MasterclassConfig();
+		$this->cron               = $this->createMock( MasterclassCronController::class );
 		$this->controller         = new MasterclassSettingsController(
 			$this->createStub( MasterclassSettingsCallbacks::class ),
-			$this->config
+			$this->config,
+			$this->cron
 		);
 	}
 
@@ -79,6 +84,13 @@ class MasterclassSettingsControllerTest extends TestCase {
 		$this->controller->onToggle( false );
 		self::assertFalse( $GLOBALS['_test_options'][ MasterclassConfig::OPTION ]['enabled'] );
 		self::assertFalse( $this->config->isEnabled() );
+	}
+
+	public function test_disabling_the_module_unschedules_the_tick_and_enabling_does_not(): void {
+		$this->cron->expects( self::once() )->method( 'unschedule' );
+
+		$this->controller->onToggle( true );
+		$this->controller->onToggle( false );
 	}
 
 	public function test_toggle_keeps_the_other_settings(): void {

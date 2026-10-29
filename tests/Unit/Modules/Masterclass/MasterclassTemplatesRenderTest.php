@@ -6,6 +6,7 @@ namespace Unit\Modules\Masterclass;
 
 use Inc\Modules\Masterclass\Callbacks\MasterclassSettingsCallbacks;
 use Inc\Modules\Masterclass\Config\MasterclassConfig;
+use Inc\Modules\Masterclass\Controllers\MasterclassCronController;
 use Inc\Modules\Masterclass\Controllers\MasterclassSettingsController;
 use PHPUnit\Framework\TestCase;
 
@@ -32,7 +33,7 @@ class MasterclassTemplatesRenderTest extends TestCase {
 	 * Так и поймана ошибка «Call to a member function startTime() on array» на живой странице.
 	 */
 	private function renderSettings(): string {
-		$tab = ( new MasterclassSettingsController( $this->createStub( MasterclassSettingsCallbacks::class ), new MasterclassConfig() ) )
+		$tab = ( new MasterclassSettingsController( $this->createStub( MasterclassSettingsCallbacks::class ), new MasterclassConfig(), $this->createStub( MasterclassCronController::class ) ) )
 			->registerSettingsTab( array() );
 
 		self::assertArrayHasKey( MasterclassSettingsController::TAB, $tab, 'вкладка есть только при включённом модуле' );

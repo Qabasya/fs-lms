@@ -241,18 +241,38 @@ class MasterclassAccountRepository extends AbstractExamRepository {
 	}
 
 	/**
-	 * Очередная порция аккаунтов, которые вычищаются вместе с мастер-классом (зачисленные не трогаются).
+	 * Очередная порция аккаунтов, которые вычищаются вместе с мастер-классом: живые, с записью в группе, не зачисленные.
+	 * Отвязанные (`student_record_id IS NULL`) сюда не попадают — иначе тик выбирал бы их вечно. Пропущенные
+	 * вызывающим (аккаунт с заявкой, срок которого вышел без «Удалить») обходятся курсором `$afterId`.
+	 *
+	 * @param int $afterId Брать аккаунты с номером больше этого.
 	 *
 	 * @return list<MasterclassAccountDTO>
 	 */
-	public function nextPurgeable( int $masterclassId, int $limit ): array {
+	public function nextPurgeable( int $masterclassId, int $limit, int $afterId = 0 ): array {
 		return $this->many(
 			$this->wpdb->prepare(
-				'SELECT * FROM %i WHERE masterclass_id = %d AND deleted_at IS NULL AND state <> %s ORDER BY id ASC LIMIT %d',
+				'SELECT * FROM %i WHERE masterclass_id = %d AND id > %d AND deleted_at IS NULL AND student_record_id IS NOT NULL AND state <> %s ORDER BY id ASC LIMIT %d',
 				$this->table,
 				$masterclassId,
+				max( 0, $afterId ),
 				MasterclassAccountState::Enrolled->value,
 				max( 1, $limit )
+			)
+		);
+	}
+
+	/**
+	 * Сколько живых аккаунтов ещё держат запись в группе мастер-класса (не зачисленные, не отвязанные). Пока их
+	 * нет — группу можно сносить.
+	 */
+	public function countAttached( int $masterclassId ): int {
+		return $this->readInt(
+			$this->wpdb->prepare(
+				'SELECT COUNT(*) FROM %i WHERE masterclass_id = %d AND deleted_at IS NULL AND student_record_id IS NOT NULL AND state <> %s',
+				$this->table,
+				$masterclassId,
+				MasterclassAccountState::Enrolled->value
 			)
 		);
 	}

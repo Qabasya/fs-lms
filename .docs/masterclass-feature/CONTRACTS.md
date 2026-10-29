@@ -455,6 +455,8 @@ inc/Modules/Masterclass/
   со страницы «Группы» или снос предмета).
 - `onUserDeleted( int $userId ): void` — `markDeletedByUserId( UserDeleted )`; если поставилось — журнал `AccountDeleted`.
 
+**Сделано (этап 4).** Тест — `MasterclassLifecycleServiceTest` (24). Отличия от текста выше: `purgeUnused/purgeExpired` ранний выход при пустом бюджете и выборка по 25; `nextPurgeable( $id, $limit, $afterId = 0 )` берёт только аккаунты с записью в группе (отвязанные не выбираются), пропущенные аккаунты с заявкой обходятся курсором; `dropGroups()` сносит группу при `countAttached() === 0` (новый метод репозитория аккаунтов); `onGroupDeleting()` использует тот же обход без бюджета и отвязывает аккаунты с заявкой всегда; `finish()` — отметка `purged_at` и запись `MasterclassPurged` один раз (Ш3 мог успеть раньше). `MasterclassCronController( CronManager, ExamTickLock, MasterclassLifecycleService )` — не наследует `BaseController`, сам регистрирует интервал `every_15_minutes`; `MasterclassSettingsController` получил `MasterclassCronController` (`onToggle( false )` → `unschedule()`); `MasterclassIntegrityController( MasterclassRepository, MasterclassAccessGuard, MasterclassLifecycleService )` подписан на Ш1, Ш3 и `deleted_user`.
+
 ### `MasterclassLogWriter`
 Зависимости: `MasterclassLogRepository`, `ClockInterface` (`MasterclassAccountRepository` не нужен: номер аккаунта и есть его `id`, подпись «Ученик#N» строится без запроса в БД).
 Трейт `RequestContextProvider`.

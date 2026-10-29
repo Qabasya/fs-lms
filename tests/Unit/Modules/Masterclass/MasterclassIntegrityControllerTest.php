@@ -7,6 +7,7 @@ namespace Unit\Modules\Masterclass;
 use Inc\Modules\Masterclass\Controllers\MasterclassIntegrityController;
 use Inc\Modules\Masterclass\Repositories\MasterclassRepository;
 use Inc\Modules\Masterclass\Services\MasterclassAccessGuard;
+use Inc\Modules\Masterclass\Services\MasterclassLifecycleService;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -15,7 +16,7 @@ use PHPUnit\Framework\TestCase;
 class MasterclassIntegrityControllerTest extends TestCase {
 
 	private function controller( MasterclassRepository $repository ): MasterclassIntegrityController {
-		return new MasterclassIntegrityController( $repository, $this->createStub( MasterclassAccessGuard::class ) );
+		return new MasterclassIntegrityController( $repository, $this->createStub( MasterclassAccessGuard::class ), $this->createStub( MasterclassLifecycleService::class ) );
 	}
 
 	public function test_masterclass_groups_are_appended_to_the_service_ones(): void {
@@ -32,7 +33,7 @@ class MasterclassIntegrityControllerTest extends TestCase {
 		$constructor = ( new \ReflectionClass( MasterclassIntegrityController::class ) )->getConstructor();
 		$types       = array_map( static fn ( \ReflectionParameter $p ): string => (string) $p->getType(), $constructor->getParameters() );
 
-		self::assertSame( array( MasterclassRepository::class, MasterclassAccessGuard::class ), $types );
+		self::assertSame( array( MasterclassRepository::class, MasterclassAccessGuard::class, MasterclassLifecycleService::class ), $types );
 	}
 
 	public function test_without_masterclass_groups_the_list_is_unchanged(): void {

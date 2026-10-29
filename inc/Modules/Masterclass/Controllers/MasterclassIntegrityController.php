@@ -7,6 +7,7 @@ namespace Inc\Modules\Masterclass\Controllers;
 use Inc\Core\BaseController;
 use Inc\Modules\Masterclass\Repositories\MasterclassRepository;
 use Inc\Modules\Masterclass\Services\MasterclassAccessGuard;
+use Inc\Modules\Masterclass\Services\MasterclassLifecycleService;
 use Inc\Shared\PluginLogger;
 
 /**
@@ -21,8 +22,11 @@ use Inc\Shared\PluginLogger;
  * - Ш1 `fs_lms_lesson_access` — заморозка действует и при выключенном модуле, иначе выключение открыло бы
  *   замороженные занятия.
  *
- * Дальше сюда же приходят `deleted_user` и Ш3 `fs_lms_group_deleting` (этап 4): удаление группы или пользователя
- * не должно оставлять сирот. Подписка на метод, которого ещё нет, не регистрируется.
+ * - Ш3 `fs_lms_group_deleting` — группу удаляют любым путём (страница «Группы», снос предмета): аккаунты убираются
+ *   до сноса записей, иначе учётки `student-N` остались бы сиротами (ядро временных учеников не собирает).
+ * - `deleted_user` — удаление пользователя WordPress помечает аккаунт удалённым, чтобы воронка и список не лгали.
+ *
+ * Подписка на метод, которого ещё нет, не регистрируется.
  *
  * @package Inc\Modules\Masterclass\Controllers
  */
@@ -31,6 +35,7 @@ class MasterclassIntegrityController extends BaseController {
 	public function __construct(
 		private readonly MasterclassRepository $masterclasses,
 		private readonly MasterclassAccessGuard $guard,
+		private readonly MasterclassLifecycleService $lifecycle,
 	) {
 		parent::__construct();
 	}
@@ -38,6 +43,8 @@ class MasterclassIntegrityController extends BaseController {
 	public function register(): void {
 		add_filter( 'fs_lms_service_group_ids', array( $this, 'filterServiceGroupIds' ) );
 		add_filter( 'fs_lms_lesson_access', array( $this->guard, 'filterLessonAccess' ), 10, 3 );
+		add_action( 'fs_lms_group_deleting', array( $this->lifecycle, 'onGroupDeleting' ), 10, 2 );
+		add_action( 'deleted_user', array( $this->lifecycle, 'onUserDeleted' ) );
 	}
 
 	/**

@@ -8,6 +8,7 @@ use Inc\Contracts\ServiceInterface;
 use Inc\Modules\Masterclass\Config\MasterclassConfig;
 use Inc\Modules\Masterclass\Controllers\MasterclassAdminController;
 use Inc\Modules\Masterclass\Controllers\MasterclassAuthController;
+use Inc\Modules\Masterclass\Controllers\MasterclassCronController;
 use Inc\Modules\Masterclass\Controllers\MasterclassIntegrityController;
 use Inc\Modules\Masterclass\Controllers\MasterclassPlayerController;
 use Inc\Modules\Masterclass\Controllers\MasterclassSettingsController;
@@ -44,6 +45,7 @@ class MasterclassModule implements ServiceInterface {
 		private readonly MasterclassAdminController $admin,
 		private readonly MasterclassAuthController $auth,
 		private readonly MasterclassPlayerController $player,
+		private readonly MasterclassCronController $cron,
 	) {}
 
 	public function register(): void {
@@ -58,5 +60,6 @@ class MasterclassModule implements ServiceInterface {
 		$this->admin->register();
 		$this->auth->register();
 		$this->player->register();
+		$this->cron->register();
 	}
 }
