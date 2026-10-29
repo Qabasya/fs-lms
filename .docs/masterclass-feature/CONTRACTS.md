@@ -546,6 +546,10 @@ capability Capability::ManageLmsPlatform->value, menu_slug PAGE_SLUG, callback a
 `apply_filters( 'fs_lms_is_player_route', false )` и `viewFor()` не `null`.
 `wp_ajax_` + `CONTACT_ACTION = 'fs_lms_masterclass_contact'` → `MasterclassPlayerCallbacks::ajaxContact`.
 
+**Сделано (этап 3).** `MasterclassAuthController( MasterclassAccountService, MasterclassLoginTracker )`: `accountRedirectUrl(): ?string` (чистая часть редиректа), `filterLoginRedirect`, `onLogin` (сбой трекера вход не рвёт), `filterCaptchaBypass` (только `CaptchaScope::Login`, решение другого подписчика `true` не отменяется).
+`MasterclassPlayerController( MasterclassAccessGuard, MasterclassLoginTracker, MasterclassPlayerCallbacks )`: `CONTACT_ACTION`, методы-швы `filterBackUrl/filterLockHtml/renderActions/renderBanner/renderContact`, `onPlayerRoute`, `enqueueAssets`; шаблоны рендерятся в строку замыканием. Тесты — `MasterclassAuthControllerTest`, `MasterclassPlayerControllerTest`.
+`MasterclassConversionService` пока `( MasterclassAccountRepository, MasterclassLogWriter, ClockInterface )` и только `logContact()` — этап 5 расширит конструктор.
+
 ### `MasterclassEnrollmentController`
 `fs_lms_application_created` → `onApplicationCreated( int $applicationId )`: `get_current_user_id()` 0 → выход, иначе
 `bindApplication()`. `fs_lms_student_enrolled` (10, 2) → `markEnrolled( $studentPersonId )`. `fs_lms_apply_prefill` → пустой

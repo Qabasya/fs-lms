@@ -361,9 +361,12 @@
 
   .macts {
     display: flex;
+    flex-wrap: wrap;
     justify-content: flex-end;
     gap: rem(10);
   }
+
+  p + .macts { margin-top: rem(20); } /* окно без блока .mm между текстом и кнопками (модули) */
 }
 
 @keyframes dim-in {
