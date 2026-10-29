@@ -98,4 +98,27 @@ class ConditionHtmlNormalizerTest extends TestCase {
 		$html = '<pre>a = b + c</pre><code>x = y</code><p>\\(a = b + c\\)</p>';
 		self::assertSame( $html, $this->normalizer->normalize( $html ) );
 	}
+
+	public function test_logic_formula_with_prefix_negation_is_glued_whole(): void {
+		$nb = "\u{00A0}";
+		$in = '<p>F = ¬((¬ x ∨ y) ∧ ¬ w) ∨ ¬(z ∧ ¬(y ∧ w)) для Миши</p>';
+
+		self::assertSame(
+			'<p>' . str_replace( ' ', $nb, 'F = ¬((¬ x ∨ y) ∧ ¬ w) ∨ ¬(z ∧ ¬(y ∧ w))' ) . ' для Миши</p>',
+			$this->normalizer->normalize( $in )
+		);
+	}
+
+	public function test_words_without_operator_are_not_glued(): void {
+		$html = '<p>Даны числа A B и 5 7 в таблице.</p>';
+		self::assertSame( $html, $this->normalizer->normalize( $html ) );
+	}
+
+	public function test_mixed_nbsp_and_space_separators_are_all_non_breaking(): void {
+		$nb = "\u{00A0}";
+		self::assertSame(
+			"<p>F{$nb}={$nb}{$nb}¬(x{$nb}∨{$nb}y)</p>",
+			$this->normalizer->normalize( "<p>F{$nb}={$nb} ¬(x ∨ y)</p>" )
+		);
+	}
 }

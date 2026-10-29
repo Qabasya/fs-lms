@@ -42,10 +42,14 @@ readonly class ConditionHtmlNormalizer {
 	private const INVISIBLE = '/[\x{FEFF}\x{200B}-\x{200D}\x{2060}\x{0000}-\x{0008}\x{000B}\x{000C}\x{000E}-\x{001F}\x{007F}]/u';
 
 	/** Знак операции или сравнения (в тексте `<` и `>` приходят сущностями). */
-	private const OPERATOR = '(?:&lt;|&gt;|&le;|&ge;|&ne;|[=+\-\x{2212}*\/%^<>\x{00D7}\x{00F7}\x{2264}\x{2265}\x{2260}\x{2248}\x{2261}\x{2192}\x{21D2}\x{2227}\x{2228}])';
+	private const OPERATOR = '(?:&lt;|&gt;|&le;|&ge;|&ne;|[=+\-\x{2212}*\/%^\x{00AC}\x{00D7}\x{00F7}\x{2264}\x{2265}\x{2260}\x{2248}\x{2261}\x{2192}\x{21D2}\x{2194}\x{21D4}\x{2227}\x{2228}\x{2295}])';
 
-	/** Операнд: любая последовательность без пробелов и скобок разметки, кроме самого знака. */
-	private const OPERAND = '(?!' . self::OPERATOR . '(?:\s|$))[^\s<>]+';
+	/**
+	 * Токен формулы: цепочка символов (знаки, скобки, запятые), цифр и одиночных латинских
+	 * переменных (`x`, `y2`, `F`). Слово из двух и более букв токеном не является — так проза
+	 * не попадает в формулу. Токен ограничен пробелами (в том числе уже неразрывными) или краями текста.
+	 */
+	private const TOKEN = '(?<![^\s\x{00A0}])(?:&(?:lt|gt|le|ge|ne);|[^\p{L}\p{N}\s\x{00A0}<>&]|\d+|[A-Za-z]\d*(?![A-Za-z]))+(?![^\s\x{00A0}])';
 
 	/** Теги, текст внутри которых остаётся как есть. */
 	private const VERBATIM_TAGS = array( 'pre', 'code', 'script', 'style' );
@@ -129,17 +133,18 @@ readonly class ConditionHtmlNormalizer {
 	}
 
 	/**
-	 * Формула: необязательный операнд, затем знаки, каждый с необязательным операндом после.
-	 * Подряд два операнда формулу не продолжают, поэтому обычные слова рядом не склеиваются.
+	 * Формула — подряд идущие токены формулы, среди которых есть знак операции.
+	 * Пробелы между ними заменяются неразрывными.
 	 */
 	private function glueChunk( string $text ): string {
-		$op      = self::OPERATOR;
-		$operand = self::OPERAND;
-		$pattern = "/(?:{$operand}[ ])?{$op}(?:[ ]{$operand})?(?:[ ]{$op}(?:[ ]{$operand})?)*/u";
+		$token   = self::TOKEN;
+		$pattern = "/{$token}(?:[ \x{00A0}]+{$token})+/u";
 
 		return (string) preg_replace_callback(
 			$pattern,
-			static fn( array $m ): string => str_replace( ' ', "\u{00A0}", $m[0] ),
+			fn( array $m ): string => 1 === preg_match( '/' . self::OPERATOR . '/u', $m[0] )
+				? (string) preg_replace( '/ +/', "\u{00A0}", $m[0] )
+				: $m[0],
 			$text
 		);
 	}
