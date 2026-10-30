@@ -146,7 +146,7 @@ class GuestSignupViewService {
 	private function sessionCards( ExamEventDTO $event, string $nowUtc, ExamSourceDTO $source ): array {
 		$cards = array();
 		foreach ( $this->sessions->findByEvent( $event->id ) as $session ) {
-			if ( ExamSessionStatus::Open->value !== $session->status || $session->scheduledAt <= $nowUtc || ! $source->allowsSession( $session->id ) ) {
+			if ( ExamSessionStatus::Open->value !== $session->status || $session->scheduledAt <= $nowUtc || $this->time->guestSignupClosed( $session->scheduledAt, $nowUtc ) || ! $source->allowsSession( $session->id ) ) {
 				continue;
 			}
 			$cards[] = $this->card( $session );

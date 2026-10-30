@@ -69,4 +69,17 @@ class ExamTime {
 	public function endOfLocalDayUtc( string $date ): string {
 		return $this->toUtc( $date . ' 23:59:59' );
 	}
+
+	/**
+	 * Закрыта ли гостевая запись на сеанс: с начала местных суток сеанса (сеанс 30.10 11:00 — запись до 30.10 00:00).
+	 * Единственное место правила: показ сеансов в форме и приём заявки опираются на него.
+	 *
+	 * @param string $sessionStartUtc Начало сеанса (UTC)
+	 * @param string $nowUtc          Сейчас (UTC)
+	 */
+	public function guestSignupClosed( string $sessionStartUtc, string $nowUtc ): bool {
+		$dayStartUtc = $this->toUtc( substr( $this->toLocal( $sessionStartUtc ), 0, 10 ) . ' 00:00:00' );
+
+		return $nowUtc >= $dayStartUtc;
+	}
 }

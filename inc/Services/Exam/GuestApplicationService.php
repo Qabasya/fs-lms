@@ -76,6 +76,7 @@ class GuestApplicationService {
 		private readonly GuestParticipantMaterializer $materializer,
 		private readonly ExamAccessGuard $guard,
 		private readonly LogEventDispatcherInterface $logEvents,
+		private readonly ExamTime $time,
 	) {}
 
 	/**
@@ -222,6 +223,10 @@ class GuestApplicationService {
 		// Сеанс должен быть из проведения и, если у ссылки школы задан список сеансов, входить в него (проверка сервера, а не формы).
 		if ( null === $session || $session->eventId !== $event->id || ( null === $staffUserId && ! $source->allowsSession( $session->id ) ) ) {
 			throw new GuestFormException( ErrorCode::ExamInput, 'Выберите дату и время.', 'session_id' );
+		}
+		// В день экзамена гость не записывается (с 00:00 суток сеанса); сотрудник на площадке — может.
+		if ( null === $staffUserId && $this->time->guestSignupClosed( $session->scheduledAt, $this->time->nowUtc() ) ) {
+			throw new GuestFormException( ErrorCode::ExamClosed, 'Запись на этот сеанс закрыта. Свяжитесь с центром.', 'session_id' );
 		}
 
 		$ipHash = '' !== $ctx->ip ? $this->rateLimit->ipHash( $ctx->ip ) : '';

@@ -57,6 +57,7 @@ class GuestApplicationServiceTest extends TestCase {
 	private UserRepository&MockObject $users;
 	private \Inc\Services\Exam\ExamAccessGuard&MockObject $guard;
 	private \Inc\Contracts\LogEventDispatcherInterface&MockObject $log;
+	private \Inc\Services\Exam\ExamTime&MockObject $time;
 	private GuestApplicationService $service;
 
 	/** @var array<string, mixed> */
@@ -81,6 +82,8 @@ class GuestApplicationServiceTest extends TestCase {
 		$this->users          = $this->createMock( UserRepository::class );
 		$this->guard          = $this->createMock( \Inc\Services\Exam\ExamAccessGuard::class );
 		$this->log            = $this->createMock( \Inc\Contracts\LogEventDispatcherInterface::class );
+		$this->time           = $this->createMock( \Inc\Services\Exam\ExamTime::class );
+		$this->time->method( 'nowUtc' )->willReturn( '2026-03-09 12:00:00' );
 
 		$this->crypto->method( 'encrypt' )->willReturnCallback( static fn ( string $v ): string => 'ENC(' . base64_encode( $v ) . ')' );
 		$this->crypto->method( 'hash' )->willReturnCallback( static fn ( string $v ): string => hash( 'sha256', mb_strtolower( trim( $v ) ) ) );
@@ -115,7 +118,8 @@ class GuestApplicationServiceTest extends TestCase {
 			$this->config, $this->outbox, $this->rate, $this->users,
 			new GuestParticipantMaterializer( $this->participants, $this->crypto, $identity, $this->createStub( \Inc\Services\Exam\ExamTime::class ), $this->participations ),
 			$this->guard,
-			$this->log
+			$this->log,
+			$this->time
 		);
 	}
 
@@ -257,6 +261,27 @@ class GuestApplicationServiceTest extends TestCase {
 
 	public function test_session_of_other_event_is_rejected(): void {
 		$this->assertFormError( 'session_id', ErrorCode::ExamInput, fn () => $this->apply( array( 'session_id' => 99 ) ) );
+	}
+
+	/** Гость не записывается на сеанс в его день: правило ExamTime, граница — начало местных суток сеанса. */
+	public function test_guest_cannot_apply_when_signup_for_session_is_closed(): void {
+		$this->time->method( 'guestSignupClosed' )->with( '2026-03-10 07:00:00', '2026-03-09 12:00:00' )->willReturn( true );
+		$this->holds->expects( self::never() )->method( 'capture' );
+
+		$this->assertFormError( 'session_id', ErrorCode::ExamClosed, fn () => $this->apply() );
+	}
+
+	public function test_guest_can_apply_while_signup_is_open(): void {
+		$this->time->method( 'guestSignupClosed' )->willReturn( false );
+
+		self::assertSame( 9, $this->apply()->id );
+	}
+
+	/** Сотрудник на площадке записывает человека и в день экзамена. */
+	public function test_staff_can_apply_even_when_guest_signup_is_closed(): void {
+		$this->time->method( 'guestSignupClosed' )->willReturn( true );
+
+		self::assertSame( 9, $this->apply( array(), null, 0, 5 )->id );
 	}
 
 	/** @return array<string, array{0: string, 1: array<string, mixed>}> */
