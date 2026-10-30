@@ -856,7 +856,6 @@ async function renderStudentTab(pop, body, place) {
     body.innerHTML = `<form id="ecStudentForm">
         <label class="gp-field gp-field--top"><span>Ученик</span><input type="search" id="ecStudentSearch" placeholder="Начните вводить фамилию" autocomplete="off"></label>
         <div class="exam-student-list" id="ecStudentList"></div>
-        <div class="gp-warn">Ученика запишут на этот сеанс в обход запретов самозаписи и сверх мест, если их нет. Записанного на другой сеанс переносите через «Перенести».</div>
         <div class="gp-error" id="ecStudentError" role="alert" hidden></div>
         <div class="gp-row">
             <button type="submit" class="prof-btn prof-btn-sm prof-btn-primary" id="ecStudentSubmit" disabled>Добавить</button>
