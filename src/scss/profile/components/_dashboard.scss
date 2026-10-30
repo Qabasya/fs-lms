@@ -298,7 +298,7 @@ a.prof-lesson-go, a.prof-work-item, a.prof-grade-attempt { text-decoration: none
 a.prof-stat-tile { display: block; text-decoration: none; color: inherit; transition: box-shadow $tr; }
 a.prof-stat-tile:hover { box-shadow: var(--shadow-md); }
 .prof-stat-tile .st-top { display: flex; align-items: center; gap: rem(8); color: var(--muted); font-size: rem(12.5); font-weight: 500; }
-.prof-stat-tile .st-ico { width: rem(28); height: rem(28); border-radius: rem(8); display: flex; align-items: center; justify-content: center; }
+.prof-stat-tile .st-ico { width: rem(28); height: rem(28); border-radius: rem(8); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .prof-stat-tile .st-val { font-size: rem(28); font-weight: 700; letter-spacing: -.02em; margin-top: rem(8); font-variant-numeric: tabular-nums; }
 .prof-stat-tile .st-delta { font-size: rem(12); margin-top: rem(2); }
 

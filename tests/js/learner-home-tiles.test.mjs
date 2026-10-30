@@ -8,15 +8,32 @@ const deadlines = [ { player_url: '/lesson/1', due_at: '2027-05-02 10:00:00' } ]
 const exam = ( over = {} ) => ( { subject_key: 'inf_ege', subject: 'Информатика ЕГЭ', days: 32, hours: 770, urgent: false, ...over } );
 
 test( 'до недели — дни, в последние 7 суток — часы', () => {
-	assert.equal( examCountdownValue( exam() ), '32 дн.' );
+	assert.equal( examCountdownValue( exam() ), '32 дня' );
 	assert.equal( examCountdownValue( exam( { urgent: true, hours: 22 } ) ), '22 ч' );
 	assert.equal( examCountdownValue( exam( { days: 0, urgent: true, hours: 3 } ) ), '3 ч' );
+} );
+
+test( 'дни склоняются целиком: 1 день, 2–4 дня, 5–9 и 0 дней, 11–14 дней', () => {
+	const word = ( days ) => examCountdownValue( exam( { days } ) );
+
+	assert.deepEqual( [ 1, 2, 4, 5, 9, 10, 11, 14, 21, 22, 25, 101 ].map( word ), [
+		'1 день', '2 дня', '4 дня', '5 дней', '9 дней', '10 дней', '11 дней', '14 дней', '21 день', '22 дня', '25 дней', '101 день',
+	] );
+	assert.equal( word( 0 ), '0 дней' );
+} );
+
+test( 'подпись предмета: последнее слово склеено с предыдущим неразрывным пробелом, чтобы переносилась целиком', () => {
+	const label = ( subject ) => homeTileModels( { deadlines, attendance, exam_countdown: [ exam( { subject } ) ], highlights: null }, { parent: false } )[ 1 ].label;
+
+	assert.equal( label( 'Информатика ЕГЭ' ), 'До экзамена · Информатика\u00A0ЕГЭ' );
+	assert.equal( label( 'Программирование на Python' ), 'До экзамена · Программирование на\u00A0Python' );
+	assert.equal( label( 'Физика' ), 'До экзамена · Физика' );
 } );
 
 test( 'ученику «До экзамена» заменяет «Посещаемость»; срочное помечено', () => {
 	const tiles = homeTileModels( { deadlines, attendance, exam_countdown: [ exam( { urgent: true, hours: 22 } ) ], highlights: null }, { parent: false } );
 
-	assert.deepEqual( tiles.map( ( t ) => t.label ), [ 'Дедлайнов', 'До экзамена · Информатика ЕГЭ' ] );
+	assert.deepEqual( tiles.map( ( t ) => t.label ), [ 'Дедлайнов', 'До экзамена · Информатика\u00A0ЕГЭ' ] );
 	assert.equal( tiles[ 1 ].value, '22 ч' );
 	assert.equal( tiles[ 1 ].urgent, true );
 	assert.equal( tiles[ 0 ].href, '/lesson/1' );

@@ -8,11 +8,19 @@
  *  - пилот на тестовом аккаунте: «Серия без пропусков», «Осталось исправить», «Последний результат» (серия и «осталось исправить» — всегда, в том числе нули; «Последний результат» — когда он есть).
  */
 
-const MAX_EXAM_TILES = 2;
+import { pluralRu } from '../common/plural.js';
 
-/** «32 дн.» дальше недели, «22 ч» в последние 7 суток. */
+const MAX_EXAM_TILES = 2;
+const NBSP = '\u00A0';
+
+/** Склеивает последнее слово с предыдущим неразрывным пробелом: «Информатика ЕГЭ» при нехватке места переносится целиком. */
+function glueLastWord( text ) {
+    return String( text ).replace( /\s+(\S+)$/, `${ NBSP }$1` );
+}
+
+/** «32 дня» / «1 день» / «5 дней» дальше недели, «22 ч» в последние 7 суток. */
 export function examCountdownValue( item ) {
-    return item.urgent ? `${ item.hours } ч` : `${ item.days } дн.`;
+    return item.urgent ? `${ item.hours } ч` : `${ item.days } ${ pluralRu( item.days, 'день', 'дня', 'дней' ) }`;
 }
 
 /**
@@ -28,7 +36,7 @@ export function homeTileModels( d, { parent } ) {
     const exams = parent ? [] : ( d.exam_countdown || [] ).slice( 0, MAX_EXAM_TILES );
     if ( exams.length ) {
         exams.forEach( ( item ) => tiles.push( {
-            label: `До экзамена · ${ item.subject }`,
+            label: `До экзамена · ${ glueLastWord( item.subject ) }`,
             value: examCountdownValue( item ),
             color: item.urgent ? '#e03131' : '#1c7ed6',
             ico: 'cal',
