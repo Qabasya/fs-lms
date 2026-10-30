@@ -62,6 +62,13 @@
 
 .prof-stat-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(rem(260), 1fr)); gap: rem(18); margin-bottom: rem(18); }
 .prof-stat-tiles--attendance { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+// Главная ученика: ширина плитки не меняется (260), лишнее место уходит в горизонтальный отступ — ряд тянется от левого края
+// до правого края секции (как `.prof-card-head`), а не обрывается пустой колонкой. `auto-fit` схлопывает пустые колонки.
+.prof-stat-tiles--learner {
+  grid-template-columns: repeat(auto-fit, min(100%, #{rem(260)}));
+  justify-content: space-between;
+}
 .prof-dash-grid2 { display: grid; grid-template-columns: minmax(0, 1fr); gap: rem(18); }
 .prof-sched-card { margin-bottom: rem(18); }
 
