@@ -35,6 +35,10 @@ readonly class LearnerDashboardDTO {
 		public array  $lessons,
 		public array  $grades,
 		public array  $attendance,
+		/** @var array<int, array<string, mixed>> «До экзамена» по предметам групп (ближайший первым) */
+		public array  $examCountdown = array(),
+		/** @var array<string, mixed>|null Дополнительные плитки главной (пилот на тестовом аккаунте); null — не показываются */
+		public ?array $highlights = null,
 	) {}
 
 	/**
@@ -53,6 +57,8 @@ readonly class LearnerDashboardDTO {
 			'lessons'    => $this->lessons,
 			'grades'     => $this->grades,
 			'attendance' => $this->attendance,
+			'exam_countdown' => $this->examCountdown,
+			'highlights' => $this->highlights,
 		);
 	}
 }

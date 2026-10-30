@@ -148,6 +148,26 @@ readonly class PluginConfig {
 	}
 
 	/** Число из настроек, приведённое к границам; нечисловое — значение по умолчанию. */
+	/**
+	 * Дата и время экзамена по предмету для плитки «До экзамена»: `ключ предмета => ГГГГ-ММ-ДД ЧЧ:ММ` (местное время сайта).
+	 * Некорректные записи отбрасываются.
+	 *
+	 * @return array<string, string>
+	 */
+	public function examDates(): array {
+		$stored = $this->repository->get()['exam_dates'] ?? array();
+		$dates  = array();
+		foreach ( is_array( $stored ) ? $stored : array() as $subjectKey => $value ) {
+			$key  = (string) $subjectKey;
+			$date = \DateTimeImmutable::createFromFormat( '!Y-m-d H:i', (string) $value );
+			if ( '' !== $key && false !== $date && $date->format( 'Y-m-d H:i' ) === (string) $value ) {
+				$dates[ $key ] = (string) $value;
+			}
+		}
+
+		return $dates;
+	}
+
 	private function bounded( string $key, int $default, int $min, int $max ): int {
 		$value = $this->repository->get()[ $key ] ?? $default;
 
@@ -198,6 +218,7 @@ readonly class PluginConfig {
 				'source_active_holds'  => $this->examSourceActiveHoldsLimit(),
 				'guest_retention_days' => $this->examGuestRetentionDays(),
 				'unpaid_retention_days' => $this->examUnpaidRetentionDays(),
+				'dates'                => $this->examDates(),
 				'contacts'             => $this->centerContactsFallback(),
 			),
 		);

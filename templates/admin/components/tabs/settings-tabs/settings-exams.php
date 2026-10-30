@@ -33,6 +33,30 @@ $exam_text = static function ( string $name, string $label, string $value, strin
 <div id="tab-exams" class="tab-pane active">
 <div class="fs-lms-config">
 	<form id="fs-config-form" class="fs-config-form">
+		<!-- ======== Даты экзаменов (плитка «До экзамена» у ученика) ======== -->
+		<div class="fs-card fs-card--flat" id="fs-config-exam-dates">
+			<div class="fs-card__header">
+				<h2 class="fs-card__title">Даты экзаменов</h2>
+			</div>
+			<div class="fs-card__body">
+				<p class="fs-card__desc">На главной ученика по предмету его группы показывается «До экзамена»: в днях, а в последнюю неделю — в часах (красным). Время — по часам сайта. Пустое поле — плитка по этому предмету не показывается.</p>
+				<?php foreach ( (array) ( $subjects ?? array() ) as $exam_subject ) : ?>
+					<?php $exam_when = (string) ( $exam['dates'][ $exam_subject->key ] ?? '' ); ?>
+					<div class="fs-field">
+						<label for="fs-config-exam-date-<?php echo esc_attr( $exam_subject->key ); ?>" class="fs-field__label"><?php echo esc_html( $exam_subject->name ); ?></label>
+						<div class="fs-field__control">
+							<input type="datetime-local" id="fs-config-exam-date-<?php echo esc_attr( $exam_subject->key ); ?>" name="exam_date__<?php echo esc_attr( $exam_subject->key ); ?>" data-exam-field
+								value="<?php echo esc_attr( str_replace( ' ', 'T', $exam_when ) ); ?>" />
+						</div>
+					</div>
+				<?php endforeach; ?>
+			</div>
+			<div class="fs-card__footer">
+				<button type="submit" class="button button-primary js-config-save">Сохранить</button>
+				<span class="fs-config-status js-config-status"></span>
+			</div>
+		</div>
+
 		<!-- ======== Экзамены для гостей ======== -->
 		<div class="fs-card fs-card--flat" id="fs-config-exams">
 			<div class="fs-card__header">

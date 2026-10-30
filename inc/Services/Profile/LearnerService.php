@@ -5,8 +5,10 @@ declare( strict_types=1 );
 namespace Inc\Services\Profile;
 
 use Inc\DTO\Profile\LearnerDashboardDTO;
+use Inc\Services\Profile\Learner\ExamCountdownSection;
 use Inc\Services\Profile\Learner\LearnerContextBuilder;
 use Inc\Services\Profile\Learner\LearnerCoursesSection;
+use Inc\Services\Profile\Learner\LearnerHighlightsSection;
 use Inc\Services\Profile\Learner\LearnerPerformanceSection;
 use Inc\Services\Profile\Learner\LearnerScheduleSection;
 use Inc\Services\Exam\LearnerExamsService;
@@ -30,6 +32,8 @@ class LearnerService {
 		private readonly LearnerPerformanceSection $performance,
 		private readonly LearnerCoursesSection     $coursesSection,
 		private readonly LearnerExamsService      $examsService,
+		private readonly ExamCountdownSection     $examCountdown,
+		private readonly LearnerHighlightsSection $highlights,
 	) {}
 
 	/**
@@ -60,16 +64,42 @@ class LearnerService {
 			static fn ( array $a, array $b ): int => strcmp( ( $a['date'] ?? '' ) . ' ' . ( $a['start'] ?? '' ), ( $b['date'] ?? '' ) . ' ' . ( $b['start'] ?? '' ) )
 		);
 
+		$deadlines  = $this->schedule->deadlines( $ctx, $personId );
+		$attendance = $this->performance->attendance( $ctx, $personId, $grades );
+
 		return new LearnerDashboardDTO(
 			examLock:   $this->coursesSection->examLock( $personId ),
 			groups:     $visibleGroups,
 			courses:    $this->coursesSection->buildCourses( $ctx->groups, $ctx->rawRows, $ctx->lessonMap, $ctx->roomNames, $personId ),
 			upcoming:   array_slice( $upcomingEvents, 0, 6 ),
-			deadlines:  array_slice( $this->schedule->deadlines( $ctx, $personId ), 0, 6 ),
+			deadlines:  array_slice( $deadlines, 0, 6 ),
 			recent:     array_slice( $this->performance->recentGrades( $grades ), 0, 5 ),
 			lessons:    $ctx->allLessons,
 			grades:     $grades,
-			attendance: $this->performance->attendance( $ctx, $personId, $grades ),
+			attendance: $attendance,
+			examCountdown: $this->examCountdown->forGroups( $ctx->groups, $ctx->now ),
+			highlights: $this->highlightsFor( $personId, $attendance, $deadlines ),
+		);
+	}
+
+	/**
+	 * Дополнительные плитки главной — пилот: только смотрящему из списка тестовых логинов, у остальных `null`.
+	 *
+	 * @param array{rows: array} $attendance Посещаемость
+	 * @param array<int, array>  $deadlines  Дедлайны целиком (до обрезки)
+	 *
+	 * @return array{streak: int, to_fix: int, last_result: array{value: string, note: string}|null}|null
+	 */
+	private function highlightsFor( int $personId, array $attendance, array $deadlines ): ?array {
+		$viewer = get_userdata( get_current_user_id() );
+		if ( ! $this->highlights->enabledFor( $viewer ? (string) $viewer->user_login : '' ) ) {
+			return null;
+		}
+
+		return array(
+			'streak'      => $this->highlights->streak( $attendance['rows'] ),
+			'to_fix'      => $this->highlights->toFix( $deadlines ),
+			'last_result' => $this->highlights->lastResult( $this->examsService->build( $personId )['exams'] ),
 		);
 	}
 }

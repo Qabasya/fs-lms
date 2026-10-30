@@ -280,6 +280,9 @@ a.prof-lesson-go, a.prof-work-item, a.prof-grade-attempt { text-decoration: none
 }
 
 /* плитка-ссылка (дедлайны ученика ведут к последней несданной работе) */
+
+/* «До экзамена» в последние 7 суток — красным */
+.prof-stat-tile.is-urgent .st-val { color: var(--err); }
 a.prof-stat-tile { display: block; text-decoration: none; color: inherit; transition: box-shadow $tr; }
 a.prof-stat-tile:hover { box-shadow: var(--shadow-md); }
 .prof-stat-tile .st-top { display: flex; align-items: center; gap: rem(8); color: var(--muted); font-size: rem(12.5); font-weight: 500; }

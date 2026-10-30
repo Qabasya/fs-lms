@@ -50,6 +50,12 @@ class LearnerServiceTest extends TestCase {
 	/** @var array<int, array<string, mixed>> События экзаменов, которые отдаёт сервис «Моих экзаменов». */
 	private array $examEvents = array();
 
+	/** @var array<string, string> Даты экзаменов из настроек плагина (по ключу предмета). */
+	private array $examDates = array();
+	/** @var array<int, array<string, mixed>> Карточки экзаменов кабинета. */
+	private array $examCards = array();
+	private \Inc\Services\Shared\PluginConfig&\PHPUnit\Framework\MockObject\Stub $examConfig;
+
 	protected function setUp(): void {
 		parent::setUp();
 		$this->records      = $this->createMock( StudentRecordRepository::class );
@@ -87,6 +93,9 @@ $visibility = $this->createStub( \Inc\Services\Course\LessonVisibilityService::c
 
 		$this->examsService = $this->createStub( \Inc\Services\Exam\LearnerExamsService::class );
 		$this->examsService->method( 'upcomingEvents' )->willReturnCallback( fn (): array => $this->examEvents );
+		$this->examsService->method( 'build' )->willReturnCallback( fn (): array => array( 'exams' => $this->examCards ) );
+		$this->examConfig = $this->createStub( \Inc\Services\Shared\PluginConfig::class );
+		$this->examConfig->method( 'examDates' )->willReturnCallback( fn (): array => $this->examDates );
 		$this->service = new LearnerService(
 			$contextBuilder,
 			new \Inc\Services\Profile\Learner\LearnerScheduleSection( $this->submissions, $this->worksResolver, new \Inc\Services\Course\LessonWorkLink( $this->lessons ), $homework ),
@@ -95,6 +104,8 @@ $visibility = $this->createStub( \Inc\Services\Course\LessonVisibilityService::c
 				$this->courses, $this->lessons, $this->progress, $this->examLock, $contextBuilder, $this->createStub( \Inc\Managers\Assessment\AssessmentManager::class ),
 			),
 			$this->examsService,
+			new \Inc\Services\Profile\Learner\ExamCountdownSection( $this->examConfig ),
+			new \Inc\Services\Profile\Learner\LearnerHighlightsSection(),
 		);
 	}
 
@@ -481,5 +492,56 @@ $visibility = $this->createStub( \Inc\Services\Course\LessonVisibilityService::c
 		self::assertCount( 2, $d['courses'] );
 		$open = array_values( array_filter( $d['courses'], static fn( $c ) => 2 === $c['id'] ) )[0];
 		self::assertTrue( $open['open'] );
+	}
+
+	private function arrangeOneGroup(): void {
+		$this->records->method( 'findActiveByStudent' )->willReturn( array( (object) array( 'groupId' => 1 ) ) );
+		$this->groups->method( 'findById' )->willReturn( (object) array( 'id' => 1, 'name' => 'Г1', 'subject_key' => 'inf_ege' ) );
+		$this->subjects->method( 'getByKey' )->willReturn( new \Inc\DTO\Subject\SubjectDTO( key: 'inf_ege', name: 'Информатика ЕГЭ' ) );
+		$this->groupLessons->method( 'listByGroup' )->willReturn( array() );
+		$this->gradebook->method( 'forStudent' )->willReturn( array() );
+		$this->attendance->method( 'listByStudent' )->willReturn( array() );
+	}
+
+	/** «До экзамена» по предмету группы: дата из настроек плагина, в ответе кабинета — `exam_countdown`. */
+	public function test_dashboard_carries_exam_countdown_for_group_subject(): void {
+		$this->arrangeOneGroup();
+		$this->examDates = array( 'inf_ege' => '2999-06-02 10:00' );
+
+		$countdown = $this->service->build( 9001 )->toArray()['exam_countdown'];
+
+		self::assertCount( 1, $countdown );
+		self::assertSame( 'inf_ege', $countdown[0]['subject_key'] );
+		self::assertFalse( $countdown[0]['urgent'] );
+	}
+
+	public function test_dashboard_has_no_countdown_without_date_and_no_highlights_for_regular_accounts(): void {
+		$this->arrangeOneGroup();
+
+		$data = $this->service->build( 9001 )->toArray();
+
+		self::assertSame( array(), $data['exam_countdown'] );
+		self::assertNull( $data['highlights'] );
+	}
+
+	/** Дополнительные плитки — пилот: видны только смотрящему из списка (тестовый аккаунт). */
+	public function test_highlights_are_built_for_the_pilot_account(): void {
+		$this->arrangeOneGroup();
+		$GLOBALS['_fs_test_user_id']  = 117;
+		$viewer                       = new \WP_User();
+		$viewer->ID                   = 117;
+		$viewer->user_login           = 'belova2024';
+		$GLOBALS['_fs_test_userdata'] = array( 117 => $viewer );
+		$this->examCards = array( array( 'title' => 'Пробник', 'result' => array( 'primary' => 18, 'primary_max' => 29, 'secondary' => 72, 'grade' => null ), 'approved_at' => '2027-04-01 10:00:00' ) );
+
+		try {
+			$data = $this->service->build( 9001 )->toArray();
+		} finally {
+			unset( $GLOBALS['_fs_test_user_id'], $GLOBALS['_fs_test_userdata'] );
+		}
+
+		self::assertSame( 0, $data['highlights']['streak'] );
+		self::assertSame( 0, $data['highlights']['to_fix'] );
+		self::assertSame( '72', $data['highlights']['last_result']['value'] );
 	}
 }

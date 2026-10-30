@@ -54,4 +54,22 @@ class PluginConfigTest extends TestCase {
 
 		self::assertSame( 30, $state['exams']['hold_minutes'] );
 	}
+
+	/** Даты экзаменов (по предметам): только корректные «ГГГГ-ММ-ДД ЧЧ:ММ», мусор отбрасывается. */
+	public function test_exam_dates_keep_only_valid_entries(): void {
+		$c = $this->config( array( 'exam_dates' => array(
+			'inf_ege' => '2027-06-02 10:00',
+			'inf_oge' => '2027-05-20 09:30',
+			'bad'     => 'завтра',
+			'rus_ege' => '2027-13-45 10:00',
+			''        => '2027-06-02 10:00',
+		) ) );
+
+		self::assertSame( array( 'inf_ege' => '2027-06-02 10:00', 'inf_oge' => '2027-05-20 09:30' ), $c->examDates() );
+	}
+
+	public function test_exam_dates_default_to_empty_and_reach_the_view_state(): void {
+		self::assertSame( array(), $this->config()->examDates() );
+		self::assertSame( array( 'inf_ege' => '2027-06-02 10:00' ), $this->config( array( 'exam_dates' => array( 'inf_ege' => '2027-06-02 10:00' ) ) )->viewState()['exams']['dates'] );
+	}
 }

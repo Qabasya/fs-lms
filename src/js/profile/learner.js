@@ -4,7 +4,8 @@
    отдаёт всё; родитель переключает ребёнка (fsProfile.children). Read-only.
    ══════════════════════════════════════════════════════════════════════ */
 
-import { esc, fmtDayMonth, fmtDate, emptyState, chipBg, chipHtml, chipText, chipSoft, scheduleTone, shortName, todayIso, roomLabel, lastDeadline } from './utils.js';
+import { homeTileModels } from './learner-home-tiles.js';
+import { esc, fmtDayMonth, fmtDate, emptyState, chipBg, chipHtml, chipText, chipSoft, scheduleTone, shortName, todayIso, roomLabel } from './utils.js';
 import { toggleVisible, applyProgress } from '../common/utils.js';
 import { icoCalendar, icoCheck, icoAlert, icoSearch, icoChevronRight, icoChevronDown, icoClock, icoStar, icoHome, icoLock } from '../common/icons.js';
 import { createApi } from './api.js';
@@ -76,7 +77,6 @@ function greetingName() {
 
 function renderHome(root, d) {
     const name = greetingName();
-    const att = d.attendance;
     root.innerHTML = `
     <div class="prof-dash">
         ${childBar(false)}
@@ -87,8 +87,7 @@ function renderHome(root, d) {
             ${childPickHtml()}
         </div>
         <div class="prof-stat-tiles prof-stat-tiles--learner">
-            ${homeTile('Дедлайнов', String(d.deadlines.length), '#f08c00', 'alert', lastDeadline(d.deadlines)?.player_url)}
-            ${homeTile('Посещаемость', att.percent === null ? '—' : att.percent + '%', '#2f9e44', 'check')}
+            ${homeTileModels(d, { parent: isParent() }).map(t => homeTile(t.label, t.value, t.color, t.ico, t.href || '', t)).join('')}
         </div>
         <div class="prof-dash-grid2">
             ${scheduleCardHtml()}
@@ -631,13 +630,14 @@ function attRow(r) {
     </div>`;
 }
 
-function homeTile(label, val, color, ico, href = '') {
+function homeTile(label, val, color, ico, href = '', opts = {}) {
     const icons = { cal: icoCalendar, check: icoCheck, alert: icoAlert };
     const tag = href ? 'a' : 'div';
     const link = href ? ` href="${esc(href)}"` : '';
-    return `<${tag} class="prof-stat-tile${href ? ' is-link' : ''}"${link}>
+    const note = opts.note ? `<div class="st-delta">${esc(opts.note)}</div>` : '';
+    return `<${tag} class="prof-stat-tile${href ? ' is-link' : ''}${opts.urgent ? ' is-urgent' : ''}"${link}>
         <div class="st-top"><span class="st-ico" style="background:${color}1a;color:${color}">${icons[ico](16)}</span>${esc(label)}</div>
-        <div class="st-val">${esc(val)}</div>
+        <div class="st-val">${esc(val)}</div>${note}
     </${tag}>`;
 }
 

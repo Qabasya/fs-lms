@@ -67,6 +67,23 @@ class ConfigCallbacks extends BaseController {
 			}
 		}
 
+		// Даты экзаменов по предметам: поля `exam_date__{ключ предмета}` (datetime-local); пустое снимает дату.
+		// Карта заменяется целиком, но только если форма прислала хотя бы одно такое поле.
+		$dates = array();
+		foreach ( array_keys( $_POST ) as $name ) {
+			if ( ! str_starts_with( (string) $name, 'exam_date__' ) ) {
+				continue;
+			}
+			$subject = sanitize_key( substr( (string) $name, strlen( 'exam_date__' ) ) );
+			$value   = str_replace( 'T', ' ', $this->sanitizeText( (string) $name ) );
+			if ( '' !== $subject && '' !== $value ) {
+				$dates[ $subject ] = substr( $value, 0, 16 );
+			}
+		}
+		if ( array() !== array_filter( array_keys( $_POST ), static fn( $n ): bool => str_starts_with( (string) $n, 'exam_date__' ) ) ) {
+			$settings['exam_dates'] = $dates;
+		}
+
 		return $settings;
 	}
 
