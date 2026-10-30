@@ -26,6 +26,7 @@ class LearnerProfileController extends AjaxController {
 	protected function ajaxActions(): array {
 		return array(
 			array( AjaxHook::GetLearnerProfile, $this->callbacks ),
+			array( AjaxHook::SaveHomeLayout, $this->callbacks ),
 			array( AjaxHook::LogLearnerActivity, $this->activityCallbacks ),
 		);
 	}

@@ -12,5 +12,7 @@ enum MetaKeys: string {
 	case UserStatus = "fs_lms_user_status";
 	/** Последний запрос преподавателя к сайту (местное время, mysql) — «Преподавателя нет на месте». */
 	case LastSeenAt = "fs_lms_last_seen_at";
+	/** Раскладка главной ученика/родителя («Кастомизация»): порядок секций и набор плиток (JSON-массив). */
+	case HomeLayout = "fs_lms_home_layout";
 
 }

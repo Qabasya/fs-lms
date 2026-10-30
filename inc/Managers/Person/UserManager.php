@@ -236,4 +236,21 @@ class UserManager {
 		update_user_meta( $userId, MetaKeys::LastSeenAt->value, $datetime );
 	}
 
+
+	/**
+	 * Сохранённая раскладка главной пользователя (как записана, без проверки) или пустой массив.
+	 *
+	 * @return array<string, mixed>
+	 */
+	public function homeLayout( int $userId ): array {
+		$value = get_user_meta( $userId, MetaKeys::HomeLayout->value, true );
+
+		return is_array( $value ) ? $value : array();
+	}
+
+	/** @param array<string, mixed> $layout Уже проверенная раскладка ({@see \Inc\Services\Profile\HomeLayoutService}) */
+	public function setHomeLayout( int $userId, array $layout ): void {
+		update_user_meta( $userId, MetaKeys::HomeLayout->value, $layout );
+	}
+
 }

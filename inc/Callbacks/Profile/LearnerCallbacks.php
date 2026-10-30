@@ -6,6 +6,7 @@ namespace Inc\Callbacks\Profile;
 
 use Inc\Core\BaseController;
 use Inc\Enums\Wp\Nonce;
+use Inc\Services\Profile\HomeLayoutService;
 use Inc\Services\Profile\LearnerService;
 use Inc\Services\Profile\ProfileViewResolver;
 use Inc\Shared\Traits\AjaxResponse;
@@ -29,6 +30,7 @@ class LearnerCallbacks extends BaseController {
 	public function __construct(
 		private readonly LearnerService      $service,
 		private readonly ProfileViewResolver $resolver,
+		private readonly HomeLayoutService   $layouts,
 	) {
 		parent::__construct();
 	}
@@ -50,6 +52,29 @@ class LearnerCallbacks extends BaseController {
 			return;
 		}
 
-		$this->success( $this->service->build( $personId )->toArray() );
+		// Раскладка главной — настройка смотрящего (родитель настраивает свою главную, а не ребёнка).
+		$this->success( $this->service->build( $personId )->toArray() + array( 'home_layout' => $this->layouts->get( get_current_user_id() ) ) );
+	}
+
+	/**
+	 * «Кастомизация» главной: сохраняет порядок секций и набор плиток текущего пользователя. Без capability — как и чтение профиля,
+	 * доступ по нонсу и входу; сохраняется только то, что прошло белый список ({@see HomeLayoutService}).
+	 * Params: layout — JSON `{sections: string[], tiles: string[]|null}`.
+	 */
+	public function ajaxSaveHomeLayout(): void {
+		Nonce::LearnerProfile->verify();
+
+		if ( ! is_user_logged_in() ) {
+			$this->error( __( 'Требуется вход.', 'fs-lms' ) );
+			return;
+		}
+
+		$layout = json_decode( $this->sanitizeAnswerText( 'layout' ), true );
+		if ( ! is_array( $layout ) ) {
+			$this->error( __( 'Некорректная раскладка.', 'fs-lms' ) );
+			return;
+		}
+
+		$this->success( array( 'layout' => $this->layouts->save( get_current_user_id(), $layout ) ) );
 	}
 }

@@ -327,6 +327,7 @@ enum AjaxHook: string {
 
 	// ==== ЛК учащегося/родителя (Эпик 7) ====
 	case GetLearnerProfile       = 'get_learner_profile';      // [student_person_id] — родитель выбирает ребёнка; ученик игнорит
+	case SaveHomeLayout          = 'save_home_layout';         // layout (JSON: sections[], tiles[]|null) — «Кастомизация» главной ученика/родителя, настройка самого смотрящего
 	case LogLearnerActivity      = 'log_learner_activity';     // type=page|recording; page | group_lesson_id; [student_person_id] — открытие экрана кабинета / записи занятия (лента «Активность»)
 
 	// ==== Кабинеты / аудитории (офис, Эпик 9) ====
