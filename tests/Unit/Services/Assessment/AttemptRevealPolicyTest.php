@@ -9,7 +9,10 @@ use Inc\DTO\Assessment\AttemptDTO;
 use Inc\Enums\Assessment\AssessmentKind;
 use Inc\Enums\Assessment\AttemptStatus;
 use Inc\Enums\Assessment\ScoringPolicy;
+use Inc\DTO\Exam\ExamAccessTokenDTO;
 use Inc\DTO\Exam\ExamParticipationDTO;
+use Inc\Enums\Exam\ExamTokenPurpose;
+use Inc\Repositories\WPDBRepositories\ExamAccessTokenRepository;
 use Inc\Repositories\WPDBRepositories\ExamParticipationRepository;
 use Inc\Services\Assessment\AttemptRevealPolicy;
 use PHPUnit\Framework\TestCase;
@@ -23,10 +26,13 @@ class AttemptRevealPolicyTest extends TestCase {
 
 	private ExamParticipationRepository $participations;
 
+	private ExamAccessTokenRepository $tokens;
+
 	protected function setUp(): void {
 		parent::setUp();
 		$this->participations = $this->createMock( ExamParticipationRepository::class );
-		$this->policy         = new AttemptRevealPolicy( $this->participations );
+		$this->tokens         = $this->createMock( ExamAccessTokenRepository::class );
+		$this->policy         = new AttemptRevealPolicy( $this->participations, $this->tokens );
 	}
 
 	private function assessment( AssessmentKind $kind ): AssessmentDTO {
@@ -133,20 +139,55 @@ class AttemptRevealPolicyTest extends TestCase {
 		) );
 	}
 
-	public function test_exam_guest_revealed_after_submit(): void {
+	/** Гость результат сам не получает: сдача раскрытия не даёт, нужна выданная ссылка результата. */
+	public function test_exam_guest_hidden_after_submit_without_result_link(): void {
 		$this->participation( 'guest' );
+		$this->tokens->method( 'findActive' )->willReturn( null );
+		self::assertFalse( $this->policy->isRevealed(
+			$this->assessment( AssessmentKind::EgeComputer ),
+			$this->examAttempt( AttemptStatus::Submitted )
+		) );
+	}
+
+	public function test_exam_guest_revealed_after_submit_when_result_link_issued(): void {
+		$this->participation( 'guest' );
+		$this->tokens->method( 'findActive' )->with( ExamTokenPurpose::Result, 7 )->willReturn( $this->resultToken() );
 		self::assertTrue( $this->policy->isRevealed(
 			$this->assessment( AssessmentKind::EgeComputer ),
 			$this->examAttempt( AttemptStatus::Submitted )
 		) );
 	}
 
-	public function test_exam_guest_hidden_while_in_progress(): void {
+	public function test_exam_guest_hidden_while_in_progress_even_with_result_link(): void {
 		$this->participation( 'guest' );
+		$this->tokens->method( 'findActive' )->willReturn( $this->resultToken() );
 		self::assertFalse( $this->policy->isRevealed(
 			$this->assessment( AssessmentKind::EgeComputer ),
 			$this->examAttempt( AttemptStatus::InProgress )
 		) );
+	}
+
+	/** Отозванная ссылка (`findActive` не находит) снова закрывает результат. */
+	public function test_exam_guest_hidden_after_result_link_revoked(): void {
+		$this->participation( 'guest' );
+		$this->tokens->method( 'findActive' )->willReturn( null );
+		self::assertFalse( $this->policy->isRevealed(
+			$this->assessment( AssessmentKind::EgeComputer ),
+			$this->examAttempt( AttemptStatus::Graded, '2026-01-01 12:00:00' )
+		) );
+	}
+
+	public function test_exam_student_does_not_depend_on_result_link(): void {
+		$this->participation( 'student' );
+		$this->tokens->expects( self::never() )->method( 'findActive' );
+		self::assertTrue( $this->policy->isRevealed(
+			$this->assessment( AssessmentKind::EgeComputer ),
+			$this->examAttempt( AttemptStatus::Graded, '2026-01-01 12:00:00' )
+		) );
+	}
+
+	private function resultToken(): ExamAccessTokenDTO {
+		return ( new \ReflectionClass( ExamAccessTokenDTO::class ) )->newInstanceWithoutConstructor();
 	}
 
 	public function test_exam_without_participation_row_is_hidden(): void {

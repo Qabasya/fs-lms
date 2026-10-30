@@ -226,7 +226,7 @@ class GuestEntryCallbacksTest extends TestCase {
 	public function test_end_session_revokes_and_clears_cookie(): void {
 		$_COOKIE[ GuestSessionService::COOKIE_ENTRY ] = str_repeat( 'e', 64 );
 		$this->sessions->method( 'viewableParticipationId' )->willReturn( 4 );
-		$this->result->method( 'isParticipationRevealed' )->willReturn( true );
+		$this->result->method( 'isParticipationSubmitted' )->willReturn( true );
 		$this->sessions->expects( self::once() )->method( 'revoke' )->with( str_repeat( 'e', 64 ) );
 		$this->responder->expects( self::once() )->method( 'clearCookies' )->with( array( GuestSessionService::COOKIE_ENTRY, GuestSessionService::COOKIE_RESULT ) );
 
@@ -236,9 +236,18 @@ class GuestEntryCallbacksTest extends TestCase {
 		self::assertSame( home_url( '/' ), $r->payload['url'] );
 	}
 
+	/** Результат гостю закрыт, пока не выдана ссылка, но выйти из экзамена он может сразу после сдачи. */
+	public function test_end_session_does_not_depend_on_result_reveal(): void {
+		$this->sessions->method( 'viewableParticipationId' )->willReturn( 4 );
+		$this->result->method( 'isParticipationSubmitted' )->willReturn( true );
+		$this->result->expects( self::never() )->method( 'isParticipationRevealed' );
+
+		self::assertTrue( fs_test_capture_json( fn() => $this->cb->ajaxEndExamGuestSession() )->success );
+	}
+
 	public function test_end_session_denied_before_submit(): void {
 		$this->sessions->method( 'viewableParticipationId' )->willReturn( 4 );
-		$this->result->method( 'isParticipationRevealed' )->willReturn( false );
+		$this->result->method( 'isParticipationSubmitted' )->willReturn( false );
 		$this->sessions->expects( self::never() )->method( 'revoke' );
 
 		self::assertFalse( fs_test_capture_json( fn() => $this->cb->ajaxEndExamGuestSession() )->success );

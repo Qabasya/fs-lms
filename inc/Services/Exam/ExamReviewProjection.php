@@ -10,6 +10,7 @@ declare( strict_types=1 );
 namespace Inc\Services\Exam;
 
 use Inc\DTO\Assessment\AttemptDTO;
+use Inc\Enums\Assessment\AttemptStatus;
 use Inc\Enums\Course\WorkSourceType;
 use Inc\Repositories\WPDBRepositories\AssessmentAttemptRepository;
 use Inc\Repositories\WPDBRepositories\ExamEventRepository;
@@ -87,7 +88,7 @@ class ExamReviewProjection {
 
 	/**
 	 * Разбор по участию (гость по своей сессии, школьный отчёт по составу отчёта): попытка — текущая попытка этого участия, номер из запроса не принимается.
-	 * Гостю разбор раскрыт сразу после сдачи ({@see AttemptService::isRevealed()}); до сдачи — `revealed = false`.
+	 * Гостю разбор раскрыт, только пока выдана ссылка результата ({@see \Inc\Services\Assessment\AttemptRevealPolicy}); до сдачи и до выдачи ссылки — `revealed = false`.
 	 *
 	 * @return array<string, mixed>|null null — участия или попытки нет.
 	 */
@@ -116,6 +117,18 @@ class ExamReviewProjection {
 		$attempt = $this->attempts->find( $participation->currentAttemptId );
 
 		return null !== $attempt && $attempt->examParticipationId === $participation->id && $this->attemptService->isRevealed( $attempt );
+	}
+
+	/** Сдана ли текущая работа участия — независимо от раскрытия результата (гостю результат отдаёт ссылка). */
+	public function isParticipationSubmitted( int $participationId ): bool {
+		$participation = $this->participations->find( $participationId );
+		if ( null === $participation || null === $participation->currentAttemptId ) {
+			return false;
+		}
+
+		$attempt = $this->attempts->find( $participation->currentAttemptId );
+
+		return null !== $attempt && $attempt->examParticipationId === $participation->id && AttemptStatus::InProgress !== $attempt->status;
 	}
 
 	/**

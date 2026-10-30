@@ -9,6 +9,8 @@ use Inc\DTO\Assessment\AttemptDTO;
 use Inc\Enums\Assessment\AssessmentKind;
 use Inc\Enums\Assessment\AttemptStatus;
 use Inc\Enums\Exam\ExamAudience;
+use Inc\Enums\Exam\ExamTokenPurpose;
+use Inc\Repositories\WPDBRepositories\ExamAccessTokenRepository;
 use Inc\Repositories\WPDBRepositories\ExamParticipationRepository;
 
 /**
@@ -27,7 +29,9 @@ use Inc\Repositories\WPDBRepositories\ExamParticipationRepository;
  *    в разделе «Сводка по ученику», пишет `assessment_attempts.approved_at`
  *    ({@see \Inc\Repositories\WPDBRepositories\AssessmentAttemptRepository::approve()}).
  *
- * **Экзамены (этап 7)**: ученик не получает баллы до утверждения работы; гость получает разбор сразу.
+ * **Экзамены (этап 7)**: ученик не получает баллы до утверждения работы; гость — только по выданной ему ссылке результата
+ * («Скопировать ссылку результата»): сдача сама ничего не раскрывает, отзыв ссылки закрывает результат снова.
+ * Публичный экзамен без попытки в БД (`publicMode`) этой политики не касается — там результат виден сразу.
  *
  * `Control` ответы ученику не отдаёт вообще ({@see AttemptResultService}) —
  * эта политика его не касается, метод для него всегда возвращает `true`.
@@ -38,6 +42,7 @@ class AttemptRevealPolicy {
 
 	public function __construct(
 		private readonly ExamParticipationRepository $participations,
+		private readonly ExamAccessTokenRepository $tokens,
 	) {}
 
 	/** Можно ли показывать ученику правильные ответы/критериальные баллы этой попытки. */
@@ -58,7 +63,7 @@ class AttemptRevealPolicy {
 	/**
 	 * Раскрытие для экзаменной попытки (7.5.1).
 	 * Ученик (audience=student) видит после утверждения.
-	 * Гость (audience=guest) видит сразу после сдачи.
+	 * Гость (audience=guest) видит сданную работу только при действующей ссылке результата.
 	 */
 	private function isExamRevealed( AttemptDTO $attempt ): bool {
 		if ( null === $attempt->examParticipationId ) {
@@ -70,9 +75,10 @@ class AttemptRevealPolicy {
 			return false;
 		}
 
-		// Гость: раскрыть сразу после сдачи
+		// Гость: результат ему передаёт сотрудник ссылкой — до её выдачи (и после отзыва) работа закрыта.
 		if ( ExamAudience::Guest->value === $participation->audience ) {
-			return AttemptStatus::InProgress !== $attempt->status;
+			return AttemptStatus::InProgress !== $attempt->status
+				&& null !== $this->tokens->findActive( ExamTokenPurpose::Result, $participation->id );
 		}
 
 		// Ученик: раскрыть только после утверждения (ОГЭ тоже требует явного утверждения на экзаменах)

@@ -38,7 +38,7 @@ class GuestEntryCallbacks extends BaseController {
 		Nonce::ExamGuest->verify();
 
 		$participationId = $this->sessions->viewableParticipationId();
-		if ( null === $participationId || ! $this->reviews->isParticipationRevealed( $participationId ) ) {
+		if ( null === $participationId || ! $this->reviews->isParticipationSubmitted( $participationId ) ) {
 			$this->error( 'Завершить сеанс можно после сдачи работы.' );
 			return;
 		}

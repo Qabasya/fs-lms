@@ -237,6 +237,29 @@ class ExamReviewProjectionTest extends TestCase {
 		self::assertTrue( $this->projection->isParticipationRevealed( 7 ) );
 	}
 
+	public function test_submitted_check_is_true_for_finished_attempt_regardless_of_reveal(): void {
+		$this->participations->method( 'find' )->willReturn( $this->participation() );
+		$this->attempts->method( 'find' )->willReturn( $this->attempt() );
+		$this->attemptService->expects( self::never() )->method( 'isRevealed' );
+
+		self::assertTrue( $this->projection->isParticipationSubmitted( 7 ) );
+	}
+
+	public function test_submitted_check_is_false_for_running_attempt_and_foreign_attempt(): void {
+		$this->participations->method( 'find' )->willReturn( $this->participation() );
+		$running = new AttemptDTO(
+			id: 11, assessmentId: 5, studentPersonId: 3, groupId: null, attemptNumber: 1,
+			startedAt: '2026-03-10 10:00:00', deadlineAt: '2026-03-10 13:55:00', submittedAt: null,
+			status: AttemptStatus::InProgress, totalScore: null, maxScore: null, gradedByUserId: null,
+			createdAt: '2026-03-10 10:00:00', updatedAt: '2026-03-10 10:00:00',
+			examParticipationId: 7, examRegistrationId: 2,
+		);
+		$this->attempts->method( 'find' )->willReturnOnConsecutiveCalls( $running, $this->attempt( 11, 8 ) );
+
+		self::assertFalse( $this->projection->isParticipationSubmitted( 7 ) );
+		self::assertFalse( $this->projection->isParticipationSubmitted( 7 ) );
+	}
+
 	public function test_reveal_check_rejects_attempt_of_another_participation(): void {
 		$this->participations->method( 'find' )->willReturn( $this->participation() );
 		$this->events->method( 'find' )->willReturn( $this->event() );

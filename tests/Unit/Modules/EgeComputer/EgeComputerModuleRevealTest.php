@@ -35,7 +35,7 @@ class EgeComputerModuleRevealTest extends TestCase {
 			$this->createMock( EgeComputerConfig::class ),
 			$this->sheet,
 			$this->createMock( PreviewResultCallbacks::class ),
-			new AttemptRevealPolicy( $this->createStub( \Inc\Repositories\WPDBRepositories\ExamParticipationRepository::class ) ),
+			new AttemptRevealPolicy( $this->createStub( \Inc\Repositories\WPDBRepositories\ExamParticipationRepository::class ), $this->createStub( \Inc\Repositories\WPDBRepositories\ExamAccessTokenRepository::class ) ),
 			new ArchiveTaskNumber(),
 			$this->createMock( KegeFilesZipCallbacks::class ),
 		);
