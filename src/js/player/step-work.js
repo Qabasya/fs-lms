@@ -571,7 +571,8 @@ function mountWork( panel, root ) {
 		if ( ! container || card.querySelector( '.fs-locked-answer-label' ) ) { return; }
 
 		const label       = document.createElement( 'div' );
-		label.className   = 'fs-locked-answer-label';
+		// Тот же вид подписи, что у «Код (необязательно)»: шрифт, цвет и отступы общего класса.
+		label.className   = 'fs-widget-code-label fs-locked-answer-label';
 		label.textContent = 'Ваш ответ:';
 		container.before( label );
 	}

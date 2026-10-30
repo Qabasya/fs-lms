@@ -117,13 +117,7 @@
     pointer-events: none;
   }
 
-  // Засчитано: над закрытым полем — «Ваш ответ:», само поле на зелёном фоне.
-  .fs-locked-answer-label {
-    margin-bottom: rem(6);
-    font: 600 rem(12) var(--font);
-    color: var(--ok-text);
-  }
-
+  // Засчитано: над закрытым полем — «Ваш ответ:» (вид подписи — общий `.fs-widget-code-label`), само поле на зелёном фоне.
   &.is-locked .fs-widget-text.lock,
   &.is-locked .fs-widget-fill-gap:disabled {
     background: var(--ok-soft);
