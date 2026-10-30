@@ -201,6 +201,21 @@ class ExamSessionRepository extends AbstractExamRepository {
 		) );
 	}
 
+	/**
+	 * Место сверх вместимости — решение сотрудника («Добавить участника»): тот же счётчик, но без проверки `capacity`.
+	 * Закрытый или отменённый сеанс место не принимает.
+	 *
+	 * @return bool true — место занято (затронута ровно одна строка).
+	 */
+	public function occupySeatOverCapacity( int $id ): bool {
+		return 1 === $this->write( $this->wpdb->prepare(
+			'UPDATE %i SET occupied_count = occupied_count + 1 WHERE id = %d AND status = %s',
+			$this->table,
+			$id,
+			ExamSessionStatus::Open->value
+		) );
+	}
+
 	/** @return bool true — место освобождено; false — занятых мест уже не было. */
 	public function releaseSeat( int $id ): bool {
 		return 1 === $this->write( $this->wpdb->prepare(

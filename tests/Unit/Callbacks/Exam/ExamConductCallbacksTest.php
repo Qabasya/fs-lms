@@ -187,6 +187,33 @@ class ExamConductCallbacksTest extends TestCase {
 		self::assertTrue( fs_test_capture_json( fn() => $this->cb->ajaxTransferExamRegistration() )->success );
 	}
 
+	/** «Добавить участника → Ученик»: запись ученика сотрудником, ответ — обновлённая доска. */
+	public function test_add_student_delegates_to_staff_registration(): void {
+		$_POST = array( 'session_id' => '7', 'person_id' => '5001', 'request_key' => 'rk-1' );
+		$this->registration->expects( self::once() )->method( 'registerByStaff' )->with( 10, 5001, 7, 'rk-1' )
+			->willReturn( $this->createMock( RegistrationResultDTO::class ) );
+
+		$r = fs_test_capture_json( fn() => $this->cb->ajaxAddExamStudent() );
+
+		self::assertTrue( $r->success );
+		self::assertSame( 7, $r->payload['board']['session']['id'] );
+	}
+
+	public function test_add_student_requires_manage_exams(): void {
+		$GLOBALS['_fs_test_can'] = false;
+		$_POST                   = array( 'session_id' => '7', 'person_id' => '5001', 'request_key' => 'rk-1' );
+		$this->registration->expects( self::never() )->method( 'registerByStaff' );
+
+		self::assertFalse( fs_test_capture_json( fn() => $this->cb->ajaxAddExamStudent() )->success );
+	}
+
+	public function test_add_student_reports_refusal_with_code(): void {
+		$_POST = array( 'session_id' => '7', 'person_id' => '5001', 'request_key' => 'rk-1' );
+		$this->registration->method( 'registerByStaff' )->willThrowException( new CodedException( ErrorCode::ExamStarted, 'Экзамен уже начат или сдан.' ) );
+
+		self::assertFalse( fs_test_capture_json( fn() => $this->cb->ajaxAddExamStudent() )->success );
+	}
+
 	public function test_extend_delegates_minutes_and_reason(): void {
 		$_POST = array( 'session_id' => '7', 'attempt_id' => '11', 'minutes' => '10', 'reason' => 'Сбой' );
 		$this->attempts->expects( self::once() )->method( 'extend' )->with( 10, 11, 10, 'Сбой' );

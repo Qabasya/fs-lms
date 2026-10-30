@@ -117,10 +117,30 @@ class ExamRegistrationService {
 	 *
 	 * @throws CodedException Ключ повтора некорректен, запись закрыта, конфликтует с правилами или свободных мест нет.
 	 */
-	public function registerParticipant( int $participantId, ExamAudience $audience, int $sessionId, string $requestKey, ?int $actorUserId, array $warnings = array() ): RegistrationResultDTO {
+	public function registerParticipant( int $participantId, ExamAudience $audience, int $sessionId, string $requestKey, ?int $actorUserId, array $warnings = array(), bool $overCapacity = false ): RegistrationResultDTO {
 		$this->assertRequestKey( $requestKey );
 
-		return $this->inTransactionWithRetry( fn (): RegistrationResultDTO => $this->registerLocked( $participantId, $audience, $sessionId, $requestKey, $actorUserId, false, null, $warnings ) );
+		return $this->inTransactionWithRetry( fn (): RegistrationResultDTO => $this->registerLocked( $participantId, $audience, $sessionId, $requestKey, $actorUserId, false, null, $warnings, null, $overCapacity ) );
+	}
+
+	/**
+	 * «Добавить участника → Ученик»: сотрудник записывает ученика на сеанс поверх правил самозаписи — окно записи, «сеанс уже
+	 * начался», скрытие сеанса от учеников и аудитория направления не проверяются, место берётся и сверх вместимости.
+	 * Остаются состояние проведения и сеанса (не закончен, не отменён), одна действующая запись, отсутствие попытки, пересечение
+	 * с другим проведением.
+	 *
+	 * @throws CodedException Нет доступа к проведению либо запись нарушает оставшиеся правила.
+	 */
+	public function registerByStaff( int $actorUserId, int $personId, int $sessionId, string $requestKey ): RegistrationResultDTO {
+		$session = $this->sessions->find( $sessionId );
+		$event   = null !== $session ? $this->events->find( $session->eventId ) : null;
+		if ( null === $session || null === $event || ! $this->accessGuard->canManageSubject( $actorUserId, $event->subjectKey ) ) {
+			throw new CodedException( ErrorCode::ExamAccess, 'Сеанс не найден.' );
+		}
+
+		$participantId = $this->participants->getOrCreateForPerson( $personId );
+
+		return $this->registerParticipant( $participantId, ExamAudience::Student, $sessionId, $requestKey, $actorUserId, array(), true );
 	}
 
 	/**
@@ -177,7 +197,7 @@ class ExamRegistrationService {
 	 *
 	 * @throws CodedException Сеанс закрыт, запись конфликтует с правилами или свободных мест нет.
 	 */
-	private function registerLocked( int $participantId, ExamAudience $audience, int $sessionId, string $requestKey, ?int $actorUserId, bool $seatHeld, ?int $sourceId, array $warnings, ?int $recordedBy = null ): RegistrationResultDTO {
+	private function registerLocked( int $participantId, ExamAudience $audience, int $sessionId, string $requestKey, ?int $actorUserId, bool $seatHeld, ?int $sourceId, array $warnings, ?int $recordedBy = null, bool $overCapacity = false ): RegistrationResultDTO {
 		// Блокировка 1: участник (сериализует проверку пересечений между проведениями).
 		$this->lockParticipant( $participantId );
 
@@ -206,8 +226,13 @@ class ExamRegistrationService {
 		$this->assertCanRegister( $event, $session, $participation, $nowUtc, null !== $actorUserId, ! $seatHeld );
 
 		// Место занимается одним условным UPDATE: вместимость проверяет сама база.
+		// Сверх вместимости сажает только сотрудник (`$overCapacity`); в журнал уходит пометка.
+		$overflow = false;
 		if ( ! $seatHeld && ! $this->sessions->occupySeat( $session->id ) ) {
-			throw $this->noSeatsError( $session->id );
+			if ( ! $overCapacity || ! $this->sessions->occupySeatOverCapacity( $session->id ) ) {
+				throw $this->noSeatsError( $session->id );
+			}
+			$overflow = true;
 		}
 
 		try {
@@ -259,6 +284,7 @@ class ExamRegistrationService {
 						'audience'  => $audience->value,
 						'source_id' => $sourceId,
 						'seat_held' => $seatHeld ? true : null,
+						'over_capacity' => $overflow ? true : null,
 						'warnings'  => array() === $warnings ? null : $warnings,
 					),
 					static fn ( mixed $value ): bool => null !== $value

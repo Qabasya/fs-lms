@@ -234,6 +234,29 @@ class ExamHoldServiceTest extends TestCase {
 		self::assertSame( 9, $this->inserted['created_by_user_id'] );
 	}
 
+	/** Сотрудник добавляет гостя на полный сеанс: бронь занимает место сверх вместимости. */
+	public function test_staff_hold_goes_over_capacity_when_session_is_full(): void {
+		$this->sessions = $this->createMock( ExamSessionRepository::class );
+		$this->sessions->method( 'findForUpdate' )->willReturn( $this->session );
+		$this->sessions->method( 'occupySeat' )->willReturn( false );
+		$this->sessions->expects( self::once() )->method( 'occupySeatOverCapacity' )->willReturn( true );
+		$this->service = $this->makeService();
+
+		$result = $this->service->capture( $this->captureData( array( 'created_by_user_id' => 9 ) ), 20 );
+
+		self::assertSame( self::APPLICATION, $result->id );
+	}
+
+	public function test_guest_hold_still_refuses_full_session(): void {
+		$this->sessions = $this->createMock( ExamSessionRepository::class );
+		$this->sessions->method( 'findForUpdate' )->willReturn( $this->session );
+		$this->sessions->method( 'occupySeat' )->willReturn( false );
+		$this->sessions->expects( self::never() )->method( 'occupySeatOverCapacity' );
+		$this->service = $this->makeService();
+
+		$this->assertRefusal( ErrorCode::ExamFull, fn () => $this->service->capture( $this->captureData(), 20 ), 'Свободных мест нет.' );
+	}
+
 	public function test_staff_cannot_hold_for_finished_session(): void {
 		$this->session = $this->examSession( array( 'scheduled_at' => '2026-03-10 03:00:00', 'planned_end_at' => '2026-03-10 06:55:00' ) );
 		$this->sessions->expects( self::never() )->method( 'occupySeat' );

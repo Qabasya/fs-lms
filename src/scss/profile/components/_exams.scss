@@ -108,6 +108,19 @@
   background: var(--err-soft, var(--surface-2)); border-radius: t.$border-radius-sm;
 }
 
+/* «Добавить участника → Ученик»: поиск и короткий список незаписавшихся */
+.gp-exam .exam-student-list { display: flex; flex-direction: column; gap: t.$spacing-xs; margin: 0 0 t.$spacing-sm; }
+
+.gp-exam .exam-student-row {
+  display: flex; justify-content: space-between; gap: t.$spacing-sm; padding: t.$spacing-xs t.$spacing-md;
+  font: inherit; font-size: t.$font-size-sm; color: var(--ink); text-align: left;
+  background: var(--surface); border: 1px solid var(--line); border-radius: t.$border-radius-sm; cursor: pointer;
+
+  &:hover { border-color: var(--accent-soft-2); }
+  &.on { border-color: var(--accent); background: var(--accent-soft); }
+}
+.gp-exam .exam-student-meta { font-size: t.$font-size-xs; color: var(--muted-2); }
+
 /* «Настройки проведения»: окно 1200px; на узком экране его ограничивает вьюпорт (на телефоне — отдельные правила модалки) */
 @media (min-width: #{$breakpoint-mobile + 1}) {
   .gp-form.gp-event { width: min(#{$exam-event-form-width}, calc(100vw - #{t.rem(60)})); }

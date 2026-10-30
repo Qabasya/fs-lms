@@ -371,6 +371,68 @@ class ExamRegistrationServiceTest extends TestCase {
 		self::assertSame( 55, $result->registrationId );
 	}
 
+	// ── Запись ученика сотрудником «насильно» (Добавить участника → Ученик) ───────────────────────
+
+	private function arrangeStaffStudent( ?ExamSessionDTO $session = null ): void {
+		$this->arrangeRegistration( $session ?? $this->session( self::OLD_SESSION, '2026-03-10 06:00:00', '2026-03-10 09:55:00', 'open', false ) );
+		$this->participants->method( 'getOrCreateForPerson' )->willReturn( self::PARTICIPANT );
+		$this->accessGuard->method( 'canManageSubject' )->willReturn( true );
+		$this->eventDto = $this->event( array( 'registration_closes_at' => '2026-03-09 00:00:00' ) );
+	}
+
+	/** Сеанс идёт, окно записи закрыто, сеанс скрыт от учеников, ученик не из аудитории — сотрудник записывает всё равно. */
+	public function test_staff_registers_student_over_every_student_guard(): void {
+		$this->arrangeStaffStudent();
+		$this->audience->method( 'isEligible' )->willReturn( false );
+		$this->sessions->method( 'occupySeat' )->willReturn( true );
+
+		$result = $this->service->registerByStaff( 9, 5001, self::OLD_SESSION, 'key-staff-student' );
+
+		self::assertSame( 55, $result->registrationId );
+	}
+
+	/** Мест нет — сотрудник сажает сверх вместимости; место занимает отдельный запрос без проверки `capacity`. */
+	public function test_staff_registers_student_over_capacity(): void {
+		$this->arrangeStaffStudent();
+		$this->sessions->method( 'occupySeat' )->willReturn( false );
+		$this->sessions->expects( self::once() )->method( 'occupySeatOverCapacity' )->with( self::OLD_SESSION )->willReturn( true );
+
+		self::assertSame( 55, $this->service->registerByStaff( 9, 5001, self::OLD_SESSION, 'key-over' )->registrationId );
+	}
+
+	public function test_staff_register_requires_event_scope(): void {
+		$this->arrangeRegistration();
+		$this->participants->method( 'getOrCreateForPerson' )->willReturn( self::PARTICIPANT );
+		$this->accessGuard->method( 'canManageSubject' )->willReturn( false );
+		$this->registrations->expects( self::never() )->method( 'insert' );
+
+		try {
+			$this->service->registerByStaff( 9, 5001, self::OLD_SESSION, 'key-no-scope' );
+			self::fail( 'Ожидался отказ в доступе.' );
+		} catch ( CodedException $e ) {
+			self::assertSame( ErrorCode::ExamAccess, $e->errorCode );
+		}
+	}
+
+	public function test_staff_register_still_refuses_finished_session(): void {
+		$this->arrangeStaffStudent( $this->session( self::OLD_SESSION, '2026-03-10 03:00:00', '2026-03-10 06:55:00' ) );
+		$this->sessions->expects( self::never() )->method( 'occupySeatOverCapacity' );
+
+		$this->expectException( CodedException::class );
+		$this->service->registerByStaff( 9, 5001, self::OLD_SESSION, 'key-finished' );
+	}
+
+	/** Самозапись ученика полный сеанс по-прежнему не принимает: превышение — только решение сотрудника. */
+	public function test_self_registration_never_goes_over_capacity(): void {
+		$this->arrangeRegistration();
+		$this->sessions->method( 'occupySeat' )->willReturn( false );
+		$this->sessions->expects( self::never() )->method( 'occupySeatOverCapacity' );
+		$this->guestApplications->method( 'countHeldBySession' )->willReturn( 0 );
+
+		$this->expectException( CodedException::class );
+		$this->service->registerParticipant( self::PARTICIPANT, ExamAudience::Student, self::OLD_SESSION, 'key-self', null );
+	}
+
 	public function test_rule_attempt_exists(): void {
 		$this->arrangeRegistration( null, $this->participation( 5, 77 ) );
 

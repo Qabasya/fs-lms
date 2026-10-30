@@ -150,6 +150,7 @@ final class TeacherProfileView implements ProfileViewInterface {
 				'markArrival'       => AjaxHook::MarkExamArrival->jsAction(),
 				'setSeat'           => AjaxHook::SetExamSeat->jsAction(),
 				'addGuest'          => AjaxHook::AddExamGuestOnSite->jsAction(),
+				'addStudent'        => AjaxHook::AddExamStudent->jsAction(),
 				'issuePayLink'      => AjaxHook::IssueExamGuestPayLink->jsAction(),
 				'acceptHold'        => AjaxHook::AcceptExamHoldWithoutPayment->jsAction(),
 				'admitGuest'        => AjaxHook::AdmitExamGuest->jsAction(),
@@ -179,7 +180,7 @@ final class TeacherProfileView implements ProfileViewInterface {
 			),
 			'subjects'         => $subjects,
 			// Выгрузка и печать списка участников — только при обоих экспортных правах (стандарт выгрузки ПД).
-			// Кнопка «Добавить гостя» — только при праве на гостей; сервер проверит его снова.
+			// Вкладка «Гость» в «Добавить участника» — только при праве на гостей; сервер проверит его снова.
 			'canManageGuests'  => user_can( $context->wpUserId, Capability::ManageExamGuests->value ),
 			// «Создать отчёт» на экране «Результаты» — только с правом выдавать результаты школам; сервер проверит его снова.
 			// «Удалить данные гостя» — оба права (раздел и персональные данные); сервер проверит их снова.

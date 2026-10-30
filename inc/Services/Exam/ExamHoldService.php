@@ -113,7 +113,9 @@ class ExamHoldService {
 
 				$this->assertCanCapture( $event->status, $event->guestRegistrationEnabled, $event->registrationOpensAt, $event->registrationClosesAt, $session->status, $session->scheduledAt, $session->plannedEndAt, null !== $staffUserId, $nowUtc );
 
-				if ( ! $this->sessions->occupySeat( $sessionId ) ) {
+				// Гость сам на полный сеанс не попадает; сотрудник добавляет и сверх вместимости (его решение).
+				if ( ! $this->sessions->occupySeat( $sessionId )
+					&& ( null === $staffUserId || ! $this->sessions->occupySeatOverCapacity( $sessionId ) ) ) {
 					throw new CodedException( ErrorCode::ExamFull, 'Свободных мест нет.' );
 				}
 

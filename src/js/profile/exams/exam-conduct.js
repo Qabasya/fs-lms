@@ -310,16 +310,22 @@ function toolbar() {
     const unreg = unregisteredMode();
     const approval = unreg ? '' : approvalToolbar();
     const exports = (unreg ? visibleUnregistered().length : visibleRows().length) ? exportButtonsHtml() : '';
-    const guest = unreg ? '' : guestButtonHtml();
+    const guest = unreg ? '' : participantButtonHtml();
     if (!approval && !exports && !guest) { return ''; }
     return `<div class="exam-conduct-toolbar">${guest}${approval}${exports}</div>`;
 }
 
-/** «Добавить гостя» — только с правом на гостей, пока сеанс открыт и есть источник; окончательно решает сервер. */
-function guestButtonHtml() {
+/** «Добавить участника» (ученик или гость): пока сеанс открыт; вкладка «Гость» — только с правом на гостей и при наличии источника. Решает сервер. */
+function participantButtonHtml() {
     const cfg = examConfig();
-    if (allSessions || !cfg || !cfg.canManageGuests || 'open' !== board.session.status || !(board.sources || []).length) { return ''; }
-    return '<button type="button" class="prof-btn prof-btn-sm" data-add-guest>Добавить гостя</button>';
+    if (allSessions || !cfg || 'open' !== board.session.status) { return ''; }
+    return '<button type="button" class="prof-btn prof-btn-sm" data-add-participant>Добавить участника</button>';
+}
+
+/** Можно ли добавлять гостей: право и хотя бы один источник заявки. */
+function canAddGuest() {
+    const cfg = examConfig();
+    return !!cfg && !!cfg.canManageGuests && !!(board.sources || []).length;
 }
 
 /** Панель массового утверждения: кнопка входа в режим выбора или «Отмена» и кнопка подтверждения. */
@@ -608,7 +614,7 @@ function wire() {
             run: reason => act('acceptHold', { application_id: applicationId, reason }, 'Гость принят без оплаты'),
         });
     }));
-    root.querySelector('[data-add-guest]')?.addEventListener('click', e => openGuestForm(e.currentTarget));
+    root.querySelector('[data-add-participant]')?.addEventListener('click', e => openParticipantForm(e.currentTarget));
     root.querySelector('[data-session-menu]')?.addEventListener('click', e => {
         const s = Object.assign({ date: board.session.date, time_start: board.session.time_start }, board.session);
         const ctx = { api, anchor: e.currentTarget, session: s, rooms: board.rooms, onDone: () => { load(); } };
@@ -809,18 +815,95 @@ function openExtendForm(anchor, row) {
     });
 }
 
+/* ── Добавить участника: ученик или гость ─────────────────────────────── */
+
+/** Один диалог на двоих: вкладка «Ученик» записывает ученика насильно, «Гость» — прежняя форма гостя на месте. */
+function openParticipantForm(anchor) {
+    const pop = document.getElementById('profGradePop');
+    if (!pop) { return; }
+    const tabs = [['student', 'Ученик'], ...(canAddGuest() ? [['guest', 'Гость']] : [])];
+    const draw = kind => {
+        pop.innerHTML = `<div class="gp-form gp-exam">
+            <div class="gp-title">Добавить участника</div>
+            ${tabs.length > 1 ? `<div class="prof-seg" role="group" aria-label="Кого добавить">${tabs.map(([key, label]) =>
+        `<button type="button" class="${kind === key ? 'on' : ''}" data-kind="${key}">${label}</button>`).join('')}</div>` : ''}
+            <div id="ecParticipantBody"></div>
+        </div>`;
+        pop.querySelectorAll('[data-kind]').forEach(btn => btn.addEventListener('click', () => draw(btn.dataset.kind)));
+        const body = pop.querySelector('#ecParticipantBody');
+        if ('guest' === kind) { renderGuestTab(pop, body); } else { renderStudentTab(pop, body); }
+    };
+    draw('student');
+    openGradePopPositioned(pop, anchor);
+}
+
+/** Ученик из списка «Незаписавшиеся»: запись идёт поверх запретов самозаписи (окно, начало сеанса) и сверх вместимости. */
+async function renderStudentTab(pop, body) {
+    const requestKey = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : String(Date.now()) + Math.random();
+    body.innerHTML = '<div class="gp-warn">Загрузка списка…</div>';
+    let rows = [];
+    try {
+        rows = (await api('getUnregistered', { session_id: sessionId })).rows || [];
+    } catch (err) {
+        body.innerHTML = `<div class="gp-error" role="alert">${esc(ajaxErrorText(err, 'Не удалось загрузить список учеников'))}</div>`;
+        return;
+    }
+    let chosen = null;
+    body.innerHTML = `<form id="ecStudentForm">
+        <label class="gp-field gp-field--top"><span>Ученик</span><input type="search" id="ecStudentSearch" placeholder="Начните вводить фамилию" autocomplete="off"></label>
+        <div class="exam-student-list" id="ecStudentList"></div>
+        <div class="gp-warn">Ученика запишут на этот сеанс в обход запретов самозаписи и сверх мест, если их нет. Записанного на другой сеанс переносите через «Перенести».</div>
+        <div class="gp-error" id="ecStudentError" role="alert" hidden></div>
+        <div class="gp-row">
+            <button type="submit" class="prof-btn prof-btn-sm prof-btn-primary" id="ecStudentSubmit" disabled>Добавить</button>
+            <button type="button" class="prof-btn prof-btn-sm" data-ec="cancel">Закрыть</button>
+        </div>
+    </form>`;
+    const search = body.querySelector('#ecStudentSearch');
+    const list = body.querySelector('#ecStudentList');
+    const submit = body.querySelector('#ecStudentSubmit');
+    const errorBox = body.querySelector('#ecStudentError');
+    const drawList = () => {
+        const q = search.value.trim().toLowerCase();
+        const found = rows.filter(r => !q || r.name.toLowerCase().includes(q)).slice(0, 8);
+        list.innerHTML = found.length
+            ? found.map(r => `<button type="button" class="exam-student-row${chosen === r.person_id ? ' on' : ''}" data-pid="${r.person_id}">${esc(r.name)}${r.group ? ` <span class="exam-student-meta">${esc(r.group)}</span>` : ''}</button>`).join('')
+            : '<div class="exam-student-meta">Никого не найдено</div>';
+        list.querySelectorAll('[data-pid]').forEach(btn => btn.addEventListener('click', () => {
+            chosen = Number(btn.dataset.pid);
+            submit.disabled = false;
+            drawList();
+        }));
+    };
+    search.addEventListener('input', drawList);
+    drawList();
+    body.querySelector('[data-ec="cancel"]').addEventListener('click', closeGradePop);
+    body.querySelector('#ecStudentForm').addEventListener('submit', async ev => {
+        ev.preventDefault();
+        if (null === chosen) { return; }
+        errorBox.hidden = true;
+        submit.disabled = true;
+        try {
+            applyBoard(await api('addStudent', { session_id: sessionId, all: allSessions ? 1 : 0, person_id: chosen, request_key: requestKey }));
+            closeGradePop();
+            toast('Ученик записан на сеанс');
+        } catch (err) {
+            submit.disabled = false;
+            errorBox.hidden = false;
+            errorBox.textContent = ajaxErrorText(err, 'Не удалось записать ученика');
+        }
+    });
+}
+
 /* ── Гость на месте (11a.7) ───────────────────────────────────────────── */
 
 /** Сначала форма, потом (при похожем госте) подтверждение, в конце — ссылка на оплату один раз. Оплата — только по ссылке. */
-function openGuestForm(anchor) {
-    const pop = document.getElementById('profGradePop');
-    if (!pop) { return; }
+function renderGuestTab(pop, body) {
     const requestKey = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : String(Date.now()) + Math.random();
     const field = (name, label, required = false) => 'phone' === name
         ? `<label class="gp-field"><span>${label}</span><input type="tel" name="${name}" inputmode="tel" autocomplete="off" placeholder="+7 (___) ___-__-__"${required ? ' required' : ''}></label>`
         : `<label class="gp-field"><span>${label}</span><input type="text" name="${name}" maxlength="100"${required ? ' required' : ''}></label>`;
-    pop.innerHTML = `<form class="gp-form gp-exam" id="ecGuestForm">
-        <div class="gp-title">Добавить гостя</div>
+    body.innerHTML = `<form id="ecGuestForm">
         <label class="gp-field"><span>Источник</span><select name="source_id">${board.sources.map(x => `<option value="${x.id}">${esc(x.label)}</option>`).join('')}</select></label>
         ${field('last_name', 'Фамилия', true)}${field('first_name', 'Имя', true)}${field('middle_name', 'Отчество')}${field('phone', 'Телефон', true)}${field('messenger', 'Мессенджер')}
         <label class="gp-field gp-field--check gp-field--line"><input type="checkbox" name="consents[]" value="pd_processing"><span>Согласие на обработку персональных данных получено</span></label>
@@ -860,7 +943,6 @@ function openGuestForm(anchor) {
             showError(ajaxErrorText(err, 'Не удалось добавить гостя'));
         }
     });
-    openGradePopPositioned(pop, anchor);
 }
 
 /** Ссылка на оплату показывается один раз; потерянную можно выпустить заново из строки гостя. */

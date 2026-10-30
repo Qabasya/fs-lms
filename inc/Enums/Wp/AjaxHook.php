@@ -399,6 +399,7 @@ enum AjaxHook: string {
 	case ExportExamUnregistered         = 'export_exam_unregistered';           // params: session_id, person_ids[]?; ответ: url (CSV без контактов; ManageLmsPlatform + ExportPII)
 	case GetExamUnregisteredPrintList   = 'get_exam_unregistered_print_list';   // params: session_id, person_ids[]?; ответ: rows (ФИО, источник, сеанс; ManageLmsPlatform + ExportPII)
 	case AddExamGuestOnSite             = 'add_exam_guest_on_site';             // params: session_id, source_id, last_name, first_name, middle_name?, phone, messenger?, consents[], request_key, confirmed? (0/1); ответ: status created (pay_url — один раз) | needs_confirmation (candidates)
+	case AddExamStudent                 = 'add_exam_student';                   // params: session_id, person_id, request_key; ответ: board — сотрудник записывает ученика на сеанс поверх правил самозаписи, в том числе сверх вместимости (ManageExams)
 	case IssueExamResultLink            = 'issue_exam_result_link';             // params: participation_id; ответ: url (один раз, прежний ключ отзывается)
 	case RevokeExamResultLink           = 'revoke_exam_result_link';            // params: participation_id, session_id; ответ: board
 	case GetExamReports                 = 'get_exam_reports';                   // params: event_id; ответ: reports, blocked (participation_id → причина), sources

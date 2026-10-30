@@ -349,6 +349,25 @@ class ExamConductCallbacks extends BaseController {
 		}
 	}
 
+	/**
+	 * «Добавить участника → Ученик»: сотрудник записывает ученика на сеанс поверх правил самозаписи (окно, «сеанс начался»,
+	 * скрытие от учеников, аудитория) и при необходимости сверх вместимости. Ответ — обновлённая доска.
+	 */
+	public function ajaxAddExamStudent(): void {
+		$this->authorize( Nonce::ExamManage, Capability::ManageExams );
+
+		$sessionId  = $this->requireInt( 'session_id' );
+		$personId   = $this->requireInt( 'person_id' );
+		$requestKey = $this->requireText( 'request_key' );
+
+		$this->runOnBoard(
+			$sessionId,
+			function () use ( $personId, $sessionId, $requestKey ): void {
+				$this->registration->registerByStaff( get_current_user_id(), $personId, $sessionId, $requestKey );
+			}
+		);
+	}
+
 	/** Удаление отменённой записи ученика без попыток: ответ — обновлённая доска. */
 	public function ajaxDeleteExamRegistration(): void {
 		$this->authorize( Nonce::ExamManage, Capability::ManageExams );
