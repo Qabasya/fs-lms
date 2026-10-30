@@ -63,15 +63,14 @@ class RecordingAlertService {
 	 *
 	 * @return array<int, array{
 	 *     id:int, group_id:int, group_name:string, topic:string, scheduled_at:string,
-	 *     candidates:array<int, array{id:int, s3_key:string, recorded_at:string}>
+	 *     candidates:array<int, array{id:int, s3_key:string, recorded_at:string, group_name:string}>
 	 * }>
 	 */
 	public function pending( int $limit = 30 ): array {
-		$groupNames    = array();
-		$groupTeachers = array();
-		$candidates    = array();
-		$out           = array();
-		$seenExtra     = array();
+		$groupNames = array();
+		$candidates = null;
+		$out        = array();
+		$seenExtra  = array();
 
 		foreach ( $this->groupLessons->listPastWithoutRecording( current_time( 'mysql' ), $limit ) as $row ) {
 			$groupId = (int) $row->groupId;
@@ -86,24 +85,10 @@ class RecordingAlertService {
 			}
 
 			if ( ! isset( $groupNames[ $groupId ] ) ) {
-				$group                     = $this->groups->findById( $groupId );
-				$groupNames[ $groupId ]    = (string) ( $group->name ?? '' );
-				$groupTeachers[ $groupId ] = (int) ( $group->teacher_id ?? 0 );
+				$groupNames[ $groupId ] = (string) ( $this->groups->findById( $groupId )->name ?? '' );
 			}
-			$teacherId = LessonKind::Individual === $row->kind
-				? ( $row->teacherUserId ?? $groupTeachers[ $groupId ] )
-				: null;
-			$cacheKey  = $groupId . ':' . ( $teacherId ?? 0 );
-			if ( ! isset( $candidates[ $cacheKey ] ) ) {
-				$candidates[ $cacheKey ] = array_map(
-					static fn( VideoRecordingDTO $r ): array => array(
-						'id'          => $r->id,
-						's3_key'      => $r->s3Key,
-						'recorded_at' => (string) $r->recordedAt,
-					),
-					$this->recordings->listCandidates( $groupId, $teacherId )
-				);
-			}
+			// Администратор выбирает из всех непривязанных записей хранилища: читается один раз на весь список.
+			$candidates ??= $this->allUnmatched( $groupNames );
 
 			$out[] = array(
 				'id'           => (int) $row->id,
@@ -111,7 +96,32 @@ class RecordingAlertService {
 				'group_name'   => $groupNames[ $groupId ],
 				'topic'        => $this->topicOf( $row->lessonId, $row->label ),
 				'scheduled_at' => (string) ( $row->scheduledAt ?? '' ),
-				'candidates'   => $candidates[ $cacheKey ],
+				'candidates'   => $candidates,
+			);
+		}
+
+		return $out;
+	}
+
+	/**
+	 * Все непривязанные записи хранилища для выбора администратором; название группы — чтобы отличать записи в меню.
+	 *
+	 * @param array<int, string> $groupNames Уже прочитанные названия групп (дополняется)
+	 *
+	 * @return array<int, array{id:int, s3_key:string, recorded_at:string, group_name:string}>
+	 */
+	private function allUnmatched( array &$groupNames ): array {
+		$out = array();
+		foreach ( $this->recordings->listAllUnmatched() as $recording ) {
+			$groupId = (int) $recording->groupId;
+			if ( $groupId > 0 && ! isset( $groupNames[ $groupId ] ) ) {
+				$groupNames[ $groupId ] = (string) ( $this->groups->findById( $groupId )->name ?? '' );
+			}
+			$out[] = array(
+				'id'          => $recording->id,
+				's3_key'      => $recording->s3Key,
+				'recorded_at' => (string) $recording->recordedAt,
+				'group_name'  => $groupId > 0 ? $groupNames[ $groupId ] : '',
 			);
 		}
 

@@ -112,6 +112,7 @@
 			var html = lessons.map( function ( l ) {
 				var options = ( l.candidates || [] ).map( function ( c ) {
 					return '<option value="' + self.esc( c.id ) + '">'
+						+ ( c.group_name ? self.esc( c.group_name ) + ' · ' : '' )
 						+ self.esc( c.s3_key ) + ' · ' + self.esc( c.recorded_at ) + '</option>';
 				} ).join( '' );
 

@@ -128,6 +128,23 @@ class VideoRecordingRepository {
 		return array_map( static fn( $r ) => VideoRecordingDTO::fromRow( $r ), $rows ?: array() );
 	}
 
+	/**
+	 * Все непривязанные записи хранилища — любой группы и без группы (для выбора администратором; название он подбирает сам).
+	 * Свежие первыми; список ограничен, чтобы выпадающее меню оставалось рабочим.
+	 *
+	 * @return VideoRecordingDTO[]
+	 */
+	public function listAllUnmatched( int $limit = 300 ): array {
+		$rows = $this->wpdb->get_results(
+			$this->wpdb->prepare(
+				"SELECT * FROM {$this->table} WHERE status = %s ORDER BY recorded_at DESC LIMIT %d",
+				VideoRecordingStatus::Unmatched->value,
+				max( 1, $limit )
+			)
+		);
+		return array_map( static fn( $r ) => VideoRecordingDTO::fromRow( $r ), $rows ?: array() );
+	}
+
 	/** Записи группы плюс личной папки преподавателя для индивидуального занятия.
 	 *
 	 * @return VideoRecordingDTO[]

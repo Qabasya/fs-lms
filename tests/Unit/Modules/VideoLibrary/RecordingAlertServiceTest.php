@@ -52,10 +52,10 @@ class RecordingAlertServiceTest extends TestCase {
 		);
 	}
 
-	private function recording( int $id, string $key ): VideoRecordingDTO {
+	private function recording( int $id, string $key, ?int $groupId = 5 ): VideoRecordingDTO {
 		return new VideoRecordingDTO(
 			id: $id, s3Bucket: 'b', s3Key: $key, manifestKey: null, groupSlug: 'kege-1',
-			groupId: 5, teacherUserId: null, groupLessonId: null, status: 'unmatched',
+			groupId: $groupId, teacherUserId: null, groupLessonId: null, status: 'unmatched',
 			recordedAt: '2026-07-20 10:05:00', sizeBytes: 1, sha256: '', durationSec: null,
 			payload: null, createdAt: '', updatedAt: '',
 		);
@@ -72,7 +72,7 @@ class RecordingAlertServiceTest extends TestCase {
 			->willReturn( array( $this->lessonRow( 42, 5, 1 ) ) );
 		$this->groups->method( 'findById' )->with( 5 )->willReturn( (object) array( 'name' => 'КЕГЭ-1' ) );
 		$this->lessons->method( 'get' )->with( 1 )->willReturn( $this->lesson( 'Циклы' ) );
-		$this->recordings->method( 'listCandidates' )->with( 5 )
+		$this->recordings->method( 'listAllUnmatched' )
 			->willReturn( array( $this->recording( 7, 'videos/kege-1/rec.webm' ) ) );
 
 		$rows = $this->service->pending();
@@ -86,8 +86,8 @@ class RecordingAlertServiceTest extends TestCase {
 		self::assertSame( 'videos/kege-1/rec.webm', $rows[0]['candidates'][0]['s3_key'] );
 	}
 
-	public function test_group_and_candidates_are_read_once_per_group(): void {
-		// Три занятия: два в группе 5, одно в группе 6 — два чтения, а не три.
+	public function test_group_is_read_once_per_group_and_all_unmatched_recordings_once(): void {
+		// Три занятия: два в группе 5, одно в группе 6 — два чтения групп; общий список записей читается один раз.
 		$this->groupLessons->method( 'listPastWithoutRecording' )->willReturn( array(
 			$this->lessonRow( 42, 5, 1 ),
 			$this->lessonRow( 43, 5, 1 ),
@@ -95,10 +95,29 @@ class RecordingAlertServiceTest extends TestCase {
 		) );
 		$this->groups->expects( self::exactly( 2 ) )->method( 'findById' )
 			->willReturn( (object) array( 'name' => 'Группа' ) );
-		$this->recordings->expects( self::exactly( 2 ) )->method( 'listCandidates' )->willReturn( array() );
+		$this->recordings->expects( self::once() )->method( 'listAllUnmatched' )->willReturn( array() );
 		$this->lessons->method( 'get' )->willReturn( $this->lesson( 'Тема' ) );
 
 		self::assertCount( 3, $this->service->pending() );
+	}
+
+	/** Админ выбирает из ВСЕХ непривязанных записей хранилища — чужой группы и без группы тоже; название подбирает сам. */
+	public function test_admin_candidates_include_recordings_of_other_groups_and_without_group(): void {
+		$this->groupLessons->method( 'listPastWithoutRecording' )->willReturn( array( $this->lessonRow( 42, 5, 1 ) ) );
+		$this->groups->method( 'findById' )->willReturnCallback(
+			static fn ( int $id ): object => (object) array( 'name' => 5 === $id ? 'КЕГЭ-1' : 'Другая группа' )
+		);
+		$this->lessons->method( 'get' )->willReturn( $this->lesson( 'Тема' ) );
+		$this->recordings->method( 'listAllUnmatched' )->willReturn( array(
+			$this->recording( 7, 'videos/kege-1/a.webm', 5 ),
+			$this->recording( 8, 'videos/other/b.webm', 6 ),
+			$this->recording( 9, 'videos/unknown/c.webm', null ),
+		) );
+
+		$candidates = $this->service->pending()[0]['candidates'];
+
+		self::assertSame( array( 7, 8, 9 ), array_column( $candidates, 'id' ) );
+		self::assertSame( array( 'КЕГЭ-1', 'Другая группа', '' ), array_column( $candidates, 'group_name' ) );
 	}
 
 	public function test_topic_falls_back_to_lesson_label_without_content(): void {
@@ -106,7 +125,7 @@ class RecordingAlertServiceTest extends TestCase {
 		$this->groupLessons->method( 'listPastWithoutRecording' )
 			->willReturn( array( $this->lessonRow( 42, 5, null, 'Консультация' ) ) );
 		$this->groups->method( 'findById' )->willReturn( (object) array( 'name' => 'КЕГЭ-1' ) );
-		$this->recordings->method( 'listCandidates' )->willReturn( array() );
+		$this->recordings->method( 'listAllUnmatched' )->willReturn( array() );
 		$this->lessons->expects( self::never() )->method( 'get' );
 
 		self::assertSame( 'Консультация', $this->service->pending()[0]['topic'] );
@@ -117,24 +136,6 @@ class RecordingAlertServiceTest extends TestCase {
 
 		self::assertSame( 4, $this->service->countPending() );
 	}
-	public function test_individual_candidates_use_lesson_teacher_override(): void {
-		$this->groupLessons->method( 'listPastWithoutRecording' )->willReturn( array(
-			$this->lessonRow( 42, 5, null, 'Индивидуальное', LessonKind::Individual, 9 ),
-			$this->lessonRow( 43, 5, null, 'Индивидуальное', LessonKind::Individual ),
-			$this->lessonRow( 44, 5, null, 'Групповое' ),
-		) );
-		$this->groups->method( 'findById' )->willReturn( (object) array( 'name' => 'КЕГЭ-1', 'teacher_id' => 7 ) );
-		$calls = array();
-		$this->recordings->expects( self::exactly( 3 ) )->method( 'listCandidates' )->willReturnCallback(
-			static function ( int $groupId, ?int $teacherId ) use ( &$calls ): array {
-				$calls[] = array( $groupId, $teacherId );
-				return array();
-			}
-		);
-		self::assertCount( 3, $this->service->pending() );
-		self::assertSame( array( array( 5, 9 ), array( 5, 7 ), array( 5, null ) ), $calls );
-	}
-
 	public function test_rows_of_one_extra_lesson_are_listed_once(): void {
 		// Дополнительное занятие для трёх учеников — три строки с общим extra_key, а запись у него одна.
 		$this->groupLessons->method( 'listPastWithoutRecording' )->willReturn( array(
@@ -146,7 +147,7 @@ class RecordingAlertServiceTest extends TestCase {
 			$this->lessonRow( 60, 4, 1, null, LessonKind::Individual ),
 		) );
 		$this->groups->method( 'findById' )->willReturn( (object) array( 'name' => 'Г', 'teacher_id' => 7 ) );
-		$this->recordings->method( 'listCandidates' )->willReturn( array() );
+		$this->recordings->method( 'listAllUnmatched' )->willReturn( array() );
 		$this->lessons->method( 'get' )->willReturn( $this->lesson( 'Тема' ) );
 
 		$ids = array_column( $this->service->pending(), 'id' );
