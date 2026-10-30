@@ -4,10 +4,10 @@
    отдаёт всё; родитель переключает ребёнка (fsProfile.children). Read-only.
    ══════════════════════════════════════════════════════════════════════ */
 
-import { homeTileModels, addableTiles, addTile, removeTile, moveSection, MAX_TILES } from './learner-home-tiles.js';
+import { homeTileModels, addableTiles, addTile, removeTile, MAX_TILES } from './learner-home-tiles.js';
 import { esc, toast, openCtxMenu, fmtDayMonth, fmtDate, emptyState, chipBg, chipHtml, chipText, chipSoft, scheduleTone, shortName, todayIso, roomLabel } from './utils.js';
 import { toggleVisible, applyProgress } from '../common/utils.js';
-import { icoCalendar, icoCheck, icoAlert, icoSearch, icoChevronRight, icoChevronDown, icoClock, icoStar, icoHome, icoLock, icoHandle, icoMinus, icoPlus } from '../common/icons.js';
+import { icoCalendar, icoCheck, icoAlert, icoSearch, icoChevronRight, icoChevronDown, icoClock, icoStar, icoHome, icoLock, icoMinus, icoPlus } from '../common/icons.js';
 import { createApi } from './api.js';
 import { workCardHtml, workChipHtml, workStatusText } from './work-card.js';
 import { learnerLayout, learnerFlat } from './program-window.js';
@@ -100,10 +100,6 @@ function saveLayout() {
     api('saveHomeLayout', { layout: JSON.stringify(homeLayout) }).catch(e => toast(e.message || 'Не удалось сохранить раскладку', 'error'));
 }
 
-function handleHtml() {
-    return `<button type="button" class="prof-home-handle" draggable="true" data-home-handle aria-label="Перетащить секцию" title="Перетащить">${icoHandle(18)}</button>`;
-}
-
 /** Секция плиток: в режиме кастомизации — «−» на плитках и пунктирная «+» на свободном месте (до шести). */
 function tilesSectionHtml(d, layout, who) {
     const tiles = homeTileModels(d, who, layout);
@@ -111,12 +107,12 @@ function tilesSectionHtml(d, layout, who) {
     const items = tiles.map(t => homeTile(t.label, t.value, t.color, t.ico, homeEdit ? '' : (t.href || ''), { ...t, removable: homeEdit })).join('');
     const room = homeEdit && tiles.length < MAX_TILES && addableTiles(d, who, ids).length;
     const add = room ? `<button type="button" class="prof-stat-tile prof-stat-tile--add" data-home-add aria-label="Добавить плитку">${icoPlus(26)}</button>` : '';
-    return `<div class="prof-stat-tiles prof-stat-tiles--learner" data-home-section="tiles">${homeEdit ? handleHtml() : ''}${items}${add}</div>`;
+    return `<div class="prof-stat-tiles prof-stat-tiles--learner" data-home-section="tiles">${items}${add}</div>`;
 }
 
 function deadlinesSectionHtml(d) {
     return `<div class="prof-card" data-home-section="deadlines">
-        <div class="prof-card-head"><h3>Дедлайны и оценки</h3>${homeEdit ? handleHtml() : ''}</div>
+        <div class="prof-card-head"><h3>Дедлайны и оценки</h3></div>
         <div>
             ${d.deadlines.map(dlRow).join('')}
             ${d.recent.map(gradeRow).join('')}
@@ -144,7 +140,7 @@ function renderHome(root, d) {
             ${childPickHtml()}
         </div>
         ${homeEdit ? `<div class="prof-home-editbar">
-            <span>Режим кастомизации: перетаскивайте секции, убирайте и добавляйте плитки</span>
+            <span>Режим кастомизации: тяните секции мышью, убирайте и добавляйте плитки</span>
             <button type="button" class="prof-btn prof-btn-sm" data-home-reset>Сбросить</button>
             <button type="button" class="prof-btn prof-btn-sm prof-btn-primary" data-home-done>Готово</button>
         </div>` : ''}
@@ -155,37 +151,90 @@ function renderHome(root, d) {
     if (homeEdit) { wireHomeEdit(root, d, who, layout); }
 }
 
+/**
+ * Перетаскивание элементов контейнера целиком: берёшь элемент — он тащится, остальные раздвигаются под него сразу (DOM
+ * переставляется на лету, сдвиг плавный через Web Animations). Порядок читается из DOM на отпускании. Правило «направление»:
+ * элемент перескакивает через соседа, только когда курсор прошёл его середину, поэтому высокие блоки не дёргаются туда-сюда.
+ * Столбец (секции) сравнивает по вертикали; сетка (плитки) — по горизонтали в своей строке и по вертикали между строками.
+ *
+ * @param {Element}                      container Контейнер элементов
+ * @param {string}                       selector  Прямые элементы контейнера (`:scope > …`)
+ * @param {(order: Element[]) => void}   onDrop    Элементы в новом порядке после отпускания
+ * @param {{grid?: boolean}}             [opts]
+ */
+function wireSortable(container, selector, onDrop, { grid = false } = {}) {
+    if (!container) { return; }
+    const items = () => [...container.querySelectorAll(`:scope > ${selector}`)];
+    let dragged = null;
+
+    items().forEach(item => {
+        item.draggable = true;
+        item.addEventListener('dragstart', (e) => {
+            if (e.target !== item) { return; }
+            e.stopPropagation(); // вложенный сортируемый список (плитки в секции) не должен запускать перетаскивание секции
+            dragged = item;
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', '');
+            requestAnimationFrame(() => item.classList.add('is-dragging'));
+        });
+        item.addEventListener('dragend', (e) => {
+            if (e.target !== item) { return; }
+            e.stopPropagation();
+            item.classList.remove('is-dragging');
+            dragged = null;
+            onDrop(items());
+        });
+    });
+
+    container.addEventListener('dragover', (e) => {
+        if (!dragged) { return; }
+        e.preventDefault();
+        e.stopPropagation();
+        const target = e.target.closest(selector);
+        if (!target || target === dragged || target.parentElement !== container) { return; }
+
+        const rect = target.getBoundingClientRect();
+        const there = dragged.compareDocumentPosition(target) & Node.DOCUMENT_POSITION_FOLLOWING;
+        const sameRow = grid && Math.abs(rect.top - dragged.getBoundingClientRect().top) < rect.height / 2;
+        const pointer = sameRow ? e.clientX : e.clientY;
+        const middle = sameRow ? rect.left + rect.width / 2 : rect.top + rect.height / 2;
+        if (there ? pointer > middle : pointer < middle) {
+            moveWithShift(items(), () => container.insertBefore(dragged, there ? target.nextSibling : target));
+        }
+    });
+    container.addEventListener('drop', (e) => e.preventDefault());
+}
+
+/** Выполняет перестановку и плавно сдвигает затронутые элементы со старого места на новое (FLIP). */
+function moveWithShift(list, mutate) {
+    const before = new Map(list.map(el => [el, el.getBoundingClientRect()]));
+    mutate();
+    list.forEach(el => {
+        const was = before.get(el);
+        const now = el.getBoundingClientRect();
+        const dx = was.left - now.left;
+        const dy = was.top - now.top;
+        if ((dx || dy) && !el.classList.contains('is-dragging')) {
+            el.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' }], { duration: 200, easing: 'ease-out' });
+        }
+    });
+}
+
 /** Режим кастомизации: перетаскивание секций, «−» у плиток, «+» на свободном месте, «Готово» и «Сбросить». */
 function wireHomeEdit(root, d, who, layout) {
     const redraw = () => renderHome(root, d);
     const effectiveTiles = () => layout.tiles ?? homeTileModels(d, who, layout).map(t => t.id);
     const commit = (change) => { Object.assign(layout, change); saveLayout(); redraw(); };
 
-    // У карточки расписания ручка вставляется в шапку (разметка карточки общая с кабинетом преподавателя).
-    root.querySelector('.prof-sched-card .prof-card-head')?.insertAdjacentHTML('beforeend', handleHtml());
-
-    let dragging = null;
-    root.querySelectorAll('[data-home-handle]').forEach(handle => {
-        const section = handle.closest('[data-home-section]');
-        handle.addEventListener('dragstart', (e) => {
-            dragging = section.dataset.homeSection;
-            e.dataTransfer.effectAllowed = 'move';
-            e.dataTransfer.setData('text/plain', dragging);
-            section.classList.add('is-dragging');
-        });
-        handle.addEventListener('dragend', () => section.classList.remove('is-dragging'));
+    // Секции целиком; плитки — внутри своей секции (порядок плиток сохраняется как явный набор).
+    wireSortable(root.querySelector('.prof-dash-grid2'), '[data-home-section]', (order) => {
+        const sections = order.map(el => el.dataset.homeSection);
+        if (sections.join() !== layout.sections.join()) { commit({ sections }); }
     });
-    root.querySelectorAll('[data-home-section]').forEach(section => {
-        section.addEventListener('dragover', (e) => { if (dragging) { e.preventDefault(); } });
-        section.addEventListener('drop', (e) => {
-            e.preventDefault();
-            const from = dragging;
-            dragging = null;
-            if (from && from !== section.dataset.homeSection) {
-                commit({ sections: moveSection(layout.sections, from, section.dataset.homeSection) });
-            }
-        });
-    });
+    wireSortable(root.querySelector('.prof-stat-tiles[data-home-section]'), '.prof-stat-tile[data-tile-id]', (order) => {
+        const tiles = order.map(el => el.dataset.tileId);
+        if (tiles.join() !== effectiveTiles().join()) { commit({ tiles }); }
+    }, { grid: true });
 
     root.querySelectorAll('[data-home-remove]').forEach(btn => btn.addEventListener('click', () => {
         commit({ tiles: removeTile(effectiveTiles(), btn.dataset.homeRemove) });
@@ -734,7 +783,8 @@ function homeTile(label, val, color, ico, href = '', opts = {}) {
     const tag = href ? 'a' : 'div';
     const link = href ? ` href="${esc(href)}"` : '';
     const note = opts.note ? `<div class="st-delta">${esc(opts.note)}</div>` : '';
-    return `<${tag} class="prof-stat-tile${href ? ' is-link' : ''}${opts.urgent ? ' is-urgent' : ''}"${link}>${remove}
+    const id = opts.removable ? ` data-tile-id="${esc(opts.id)}"` : '';
+    return `<${tag} class="prof-stat-tile${href ? ' is-link' : ''}${opts.urgent ? ' is-urgent' : ''}"${link}${id}>${remove}
         <div class="st-top"><span class="st-ico" style="background:${color}1a;color:${color}">${icons[ico](16)}</span>${esc(label)}</div>
         <div class="st-val">${esc(val)}</div>${note}
     </${tag}>`;

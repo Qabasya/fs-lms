@@ -354,27 +354,42 @@ a.prof-stat-tile:hover { box-shadow: var(--shadow-md); }
   > span { flex: 1; min-width: 0; }
 }
 
+// Режим кастомизации: секции и плитки «подрагивают» вокруг центра (как значки на iPhone) — видно, что их можно взять и перенести;
+// у каждого своя фаза (через nth-child), чтобы не качались в унисон. Взятый элемент замирает и становится бледным «местом».
+@keyframes prof-home-jiggle {
+  0%, 100% { transform: rotate(-0.4deg); }
+  50% { transform: rotate(0.4deg); }
+}
+
 .prof-dash-grid2.is-editing > [data-home-section] {
   position: relative;
+  cursor: grab;
+  animation: prof-home-jiggle 0.28s ease-in-out infinite;
   outline: 1px dashed var(--line);
   outline-offset: rem(4);
   border-radius: rem(10);
 
-  &.is-dragging { opacity: 0.45; }
+  &:nth-child(even) { animation-delay: -0.14s; }
+
+  .prof-stat-tile[data-tile-id] {
+    cursor: grab;
+    animation: prof-home-jiggle 0.24s ease-in-out infinite;
+
+    &:nth-child(even) { animation-delay: -0.12s; }
+    &:nth-child(3n) { animation-duration: 0.3s; }
+  }
+
+  &.is-dragging,
+  .prof-stat-tile[data-tile-id].is-dragging {
+    opacity: 0.4;
+    animation: none;
+  }
 }
 
-// Две черты — ручка перетаскивания секции: у плиток в правом верхнем углу ряда, у карточек — в шапке.
-.prof-home-handle {
-  display: inline-flex; align-items: center; justify-content: center;
-  width: rem(30); height: rem(26); padding: 0; border: 1px solid var(--line); border-radius: rem(7);
-  background: var(--surface); color: var(--muted); cursor: grab;
-
-  &:hover { color: var(--ink); border-color: var(--accent-soft-2); }
-  &:active { cursor: grabbing; }
+@media (prefers-reduced-motion: reduce) {
+  .prof-dash-grid2.is-editing > [data-home-section],
+  .prof-dash-grid2.is-editing .prof-stat-tile[data-tile-id] { animation: none; }
 }
-
-.prof-stat-tiles[data-home-section] > .prof-home-handle { position: absolute; top: rem(-14); right: 0; z-index: 2; }
-.prof-card-head > .prof-home-handle { margin-left: rem(8); }
 
 .prof-stat-tile { position: relative; }
 

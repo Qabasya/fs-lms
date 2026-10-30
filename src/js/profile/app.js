@@ -1,7 +1,7 @@
 import { createApi } from './api.js';
 import { getChildId } from './learner-child.js';
 import { esc, shortName, chipBg, chipHtml, closeGradePop, closeCtxMenu, openCtxMenuRaw } from './utils.js';
-import { icoHome, icoUsers, icoJournal, icoDocCheck, icoInbox, icoSwap, icoCalendarBoard, icoBook, icoStar, icoClock, icoCaret, icoGear, icoLogout, icoHandle } from '../common/icons.js';
+import { icoHome, icoUsers, icoJournal, icoDocCheck, icoInbox, icoSwap, icoCalendarBoard, icoBook, icoStar, icoClock, icoCaret, icoGear, icoLogout, icoPencil } from '../common/icons.js';
 import { renderDashboard } from './dashboard.js';
 import { renderJournal, setJournalGroup } from './journal.js';
 import { renderGroups, setGroupsGroup } from './groups.js';
@@ -472,7 +472,7 @@ function openUserMenu(anchor) {
     const homeKey = cfg.screens.find(key => key.endsWith('-home')) || '';
     const customize = homeKey ? `
         <div class="ctx-item" data-user-act="customize">
-            ${icoHandle(16)}
+            ${icoPencil(16)}
             Кастомизация
         </div>` : '';
     const html = `${customize}
