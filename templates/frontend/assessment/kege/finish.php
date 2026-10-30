@@ -43,7 +43,11 @@ $examTitle = AssessmentKind::OgeComputer === $assessment->kind
 // Официальная попытка экзамена: выход ведёт в «Мои экзамены» (backUrl задаёт контроллер страницы).
 $isExamAttempt = null !== $lastAttempt && $lastAttempt->isExam();
 
-$kegeSheet = apply_filters( EgeComputerModule::SHEET_FILTER, null, $assessment, $lastAttempt, $taskViews, ! empty( $reviewReveal ) );
+// Гость экзамена результат не видит: вместо листа — просьба связаться с преподавателем.
+// Лист для него даже не собирается, чтобы баллы и эталоны не попали в разметку.
+$isGuestFinish = ! empty( $guestMode );
+
+$kegeSheet = $isGuestFinish ? null : apply_filters( EgeComputerModule::SHEET_FILTER, null, $assessment, $lastAttempt, $taskViews, ! empty( $reviewReveal ) );
 if ( ! $kegeSheet instanceof KegeSheetDTO ) {
 	$kegeSheet = KegeSheetDTO::blank();
 }
@@ -83,7 +87,12 @@ if ( ! empty( $reviewMode ) && ! empty( $reviewReveal ) && $lastAttempt && ! emp
 			</div>
 		<?php endif; ?>
 
-		<?php if ( ! $kegeSheet->revealed ) : ?>
+		<?php if ( $isGuestFinish ) : ?>
+			<div class="kege-fin-pending">
+				<div class="kege-fin-pending__title">Экзамен завершён</div>
+				<p class="kege-fin-pending__text">Чтобы узнать результаты, свяжитесь с преподавателем.</p>
+			</div>
+		<?php elseif ( ! $kegeSheet->revealed ) : ?>
 			<?php
 			// D18: результаты видны ученику только после подтверждения учителем —
 			// для ОГЭ это факт полной ручной проверки заданий 13-16 (AttemptStatus::Graded),
@@ -153,6 +162,8 @@ if ( ! empty( $reviewMode ) && ! empty( $reviewReveal ) && $lastAttempt && ! emp
 			</div>
 		<?php endif; ?>
 
+		<?php if ( ! $isGuestFinish ) : ?>
 		<button type="button" class="kege-btn kege-btn--cyan kege-fin-done" id="kegeFinishBtn"><?php echo $isExamAttempt ? ( null === ( $person ?? null ) && empty( $reviewMode ) ? 'Посмотреть результат' : 'К моим экзаменам' ) : 'Выход'; ?></button>
+		<?php endif; ?>
 	</div>
 </div>
