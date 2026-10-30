@@ -51,6 +51,7 @@ use Inc\Controllers\Enrollment\ExpulsionController;
 use Inc\Controllers\Enrollment\RecoveryController;
 use Inc\Controllers\Group\StudentGroupController;
 use Inc\Controllers\Subject\SubjectController;
+use Inc\Controllers\Task\TaskRevisionController;
 use Inc\Controllers\Task\TaskCreationController;
 use Inc\Controllers\Task\TaskEditorButtonsController;
 use Inc\Controllers\Pages\AllTasksPageController;
@@ -186,6 +187,7 @@ final class Init {
 			ModulesDashboardController::class, // AJAX и локализация для Dashboard-модулей
 			MediaUploadController::class,     // Проверка типов загружаемых файлов (.txt, принятый finfo за CSV)
 			SubjectController::class, // Управление предметами и CPT
+			TaskRevisionController::class, // История изменений заданий (ревизии с метой)
 			MetaBoxController::class,        // Метабоксы заданий
 			LearningMenuController::class,   // Меню «Обучение» (банки контента): пункты + подсветка
 			BankChromeController::class,     // Шапка банков над list-table + лендинг-фолбэки

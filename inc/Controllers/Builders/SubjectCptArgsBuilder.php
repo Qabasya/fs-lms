@@ -90,7 +90,8 @@ class SubjectCptArgsBuilder {
 			),
 			'options' => array_merge(
 				array(
-					'supports'        => array( 'title' ),
+					// `revisions` — история изменений задания (мета входит в ревизию: TaskRevisionService).
+					'supports'        => array( 'title', 'revisions' ),
 					'show_in_menu'    => false,
 					// По умолчанию наследует show_in_menu (false) — без этого в админбаре
 					// страницы задания/статьи нет пункта «Изменить».
