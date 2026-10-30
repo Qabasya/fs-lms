@@ -86,10 +86,10 @@ function renderHome(root, d) {
             <p>${d.groups.map(g => esc(g.name) + ' · ' + esc(g.subject)).join(' · ') || 'Нет активных групп'}</p>
             ${childPickHtml()}
         </div>
-        <div class="prof-stat-tiles prof-stat-tiles--learner">
-            ${homeTileModels(d, { parent: isParent() }).map(t => homeTile(t.label, t.value, t.color, t.ico, t.href || '', t)).join('')}
-        </div>
         <div class="prof-dash-grid2">
+            <div class="prof-stat-tiles prof-stat-tiles--learner">
+                ${homeTileModels(d, { parent: isParent() }).map(t => homeTile(t.label, t.value, t.color, t.ico, t.href || '', t)).join('')}
+            </div>
             ${scheduleCardHtml()}
             <div class="prof-card">
                 <div class="prof-card-head"><h3>Дедлайны и оценки</h3></div>
