@@ -357,8 +357,8 @@ a.prof-stat-tile:hover { box-shadow: var(--shadow-md); }
 // Режим кастомизации: секции и плитки «подрагивают» вокруг центра (как значки на iPhone) — видно, что их можно взять и перенести;
 // у каждого своя фаза (через nth-child), чтобы не качались в унисон. Взятый элемент замирает и становится бледным «местом».
 @keyframes prof-home-jiggle {
-  0%, 100% { transform: rotate(-0.4deg); }
-  50% { transform: rotate(0.4deg); }
+  0%, 100% { transform: rotate(-0.2deg); }
+  50% { transform: rotate(0.2deg); }
 }
 
 .prof-dash-grid2.is-editing > [data-home-section] {
@@ -404,7 +404,7 @@ a.prof-stat-tile:hover { box-shadow: var(--shadow-md); }
 // Свободное место (плиток меньше шести): серая «тень» плитки с пунктиром и «+» — открывает выбор плитки.
 .prof-stat-tile--add {
   display: flex; align-items: center; justify-content: center; min-height: rem(88);
-  border: 2px dashed var(--line); background: var(--surface-2); color: var(--muted-2); box-shadow: none; cursor: pointer;
+  border: 2px dashed var(--line-3); background: var(--line-2); color: var(--muted-2); box-shadow: none; cursor: pointer;
 
   &:hover { border-color: var(--accent); color: var(--accent); }
 }
