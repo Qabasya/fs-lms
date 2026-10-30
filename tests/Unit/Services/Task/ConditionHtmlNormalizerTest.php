@@ -148,4 +148,29 @@ class ConditionHtmlNormalizerTest extends TestCase {
 			'ASCII-дизъюнкция'   => array( 'x \/ y' ),
 		);
 	}
+
+	/**
+	 * Регресс: двоичная строка из 22 цифр в `<b>` вырезалась целиком (задание inf_oge/2027) —
+	 * регулярка склейки формул упиралась в лимит отката, preg_* возвращал null, текст становился пустым.
+	 */
+	public function test_long_digit_run_is_not_lost(): void {
+		$html = '<p style="text-align: center;"><b>0101101010111110101001</b></p>';
+
+		self::assertSame( $html, $this->normalizer->normalize( $html ) );
+	}
+
+	public function test_very_long_digit_and_symbol_runs_are_kept(): void {
+		$digits  = str_repeat( '01', 500 );
+		$symbols = str_repeat( 'x+', 300 ) . 'y';
+
+		self::assertSame( "<p>{$digits}</p>", $this->normalizer->normalize( "<p>{$digits}</p>" ) );
+		self::assertSame( "<p>{$symbols}</p>", $this->normalizer->normalize( "<p>{$symbols}</p>" ) );
+	}
+
+	public function test_formula_next_to_long_digit_run_is_still_glued(): void {
+		self::assertSame(
+			"<p>0101101010111110101001 и F\u{00A0}=\u{00A0}x\u{00A0}+\u{00A0}y</p>",
+			$this->normalizer->normalize( '<p>0101101010111110101001 и F = x + y</p>' )
+		);
+	}
 }

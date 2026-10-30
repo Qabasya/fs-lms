@@ -48,8 +48,11 @@ readonly class ConditionHtmlNormalizer {
 	 * Токен формулы: цепочка символов (знаки, скобки, запятые), цифр и одиночных латинских
 	 * переменных (`x`, `y2`, `F`). Слово из двух и более букв токеном не является — так проза
 	 * не попадает в формулу. Токен ограничен пробелами (в том числе уже неразрывными) или краями текста.
+	 *
+	 * Квантификаторы притяжательные (`++`, `*+`): `\d+` внутри `(…)+` допускает 2^n разбиений цепочки цифр, и на
+	 * двоичной строке из 20+ цифр PCRE упирался в лимит отката, `preg_*` отдавал `null`, а текст условия пропадал целиком.
 	 */
-	private const TOKEN = '(?<![^\s\x{00A0}])(?:&(?:lt|gt|le|ge|ne);|[^\p{L}\p{N}\s\x{00A0}<>&]|\d+|[A-Za-z]\d*(?![A-Za-z]))+(?![^\s\x{00A0}])';
+	private const TOKEN = '(?<![^\s\x{00A0}])(?:&(?:lt|gt|le|ge|ne);|[^\p{L}\p{N}\s\x{00A0}<>&]|\d++|[A-Za-z]\d*+(?![A-Za-z]))++(?![^\s\x{00A0}])';
 
 	/** Теги, текст внутри которых остаётся как есть. */
 	private const VERBATIM_TAGS = array( 'pre', 'code', 'script', 'style' );
@@ -140,12 +143,15 @@ readonly class ConditionHtmlNormalizer {
 		$token   = self::TOKEN;
 		$pattern = "/{$token}(?:[ \x{00A0}]+{$token})+/u";
 
-		return (string) preg_replace_callback(
+		$glued = preg_replace_callback(
 			$pattern,
 			fn( array $m ): string => 1 === preg_match( '/' . self::OPERATOR . '/u', $m[0] )
 				? (string) preg_replace( '/ +/', "\u{00A0}", $m[0] )
 				: $m[0],
 			$text
 		);
+
+		// Ошибка PCRE (лимит отката) даёт null: текст условия терять нельзя — отдаём как был.
+		return is_string( $glued ) ? $glued : $text;
 	}
 }
