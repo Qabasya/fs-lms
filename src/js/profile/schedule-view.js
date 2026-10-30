@@ -17,8 +17,8 @@ import { DOW_JS, DOW_RU } from './constants.js';
  *
  * @returns {string}
  */
-export function scheduleCardHtml() {
-    return `<div class="prof-card prof-sched-card">
+export function scheduleCardHtml(attrs = '') {
+    return `<div class="prof-card prof-sched-card"${attrs ? ' ' + attrs : ''}>
         <div class="prof-card-head">
             <h3>Расписание</h3>
             <div class="prof-seg ch-act" id="profSchedToggle">

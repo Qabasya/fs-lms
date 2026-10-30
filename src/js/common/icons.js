@@ -24,6 +24,13 @@ export const PATH_CROSS = 'M5 5l10 10M15 5 5 15';
 const stroke20 = ( body, s, c = 'currentColor' ) =>
 	`<svg width="${ s }" height="${ s }" viewBox="0 0 20 20" fill="none">${ body.split( '{c}' ).join( c ) }</svg>`;
 
+/** Ручка перетаскивания: две горизонтальные черты. */
+export const icoHandle = ( s = 16 ) =>
+	stroke20( '<path d="M4 7.5h12M4 12.5h12" stroke="{c}" stroke-width="1.8" stroke-linecap="round"/>', s );
+
+export const icoMinus = ( s = 14 ) =>
+	stroke20( '<path d="M5 10h10" stroke="{c}" stroke-width="2" stroke-linecap="round"/>', s );
+
 export const icoCheck = ( s = 14 ) =>
 	stroke20( `<path d="${ PATH_CHECK }" stroke="{c}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>`, s );
 

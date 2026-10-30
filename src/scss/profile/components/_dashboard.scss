@@ -344,3 +344,52 @@ a.prof-stat-tile:hover { box-shadow: var(--shadow-md); }
     overflow-x: auto;
   }
 }
+
+/* ── «Кастомизация» главной: ручки секций, «−» у плиток, пунктирная «+», панель режима ─────────────── */
+.prof-home-editbar {
+  display: flex; align-items: center; gap: rem(10); margin-bottom: rem(18); padding: rem(10) rem(14);
+  border: 1px dashed var(--accent); border-radius: rem(10); background: var(--accent-soft);
+  color: var(--accent-700); font-size: rem(13);
+
+  > span { flex: 1; min-width: 0; }
+}
+
+.prof-dash-grid2.is-editing > [data-home-section] {
+  position: relative;
+  outline: 1px dashed var(--line);
+  outline-offset: rem(4);
+  border-radius: rem(10);
+
+  &.is-dragging { opacity: 0.45; }
+}
+
+// Две черты — ручка перетаскивания секции: у плиток в правом верхнем углу ряда, у карточек — в шапке.
+.prof-home-handle {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: rem(30); height: rem(26); padding: 0; border: 1px solid var(--line); border-radius: rem(7);
+  background: var(--surface); color: var(--muted); cursor: grab;
+
+  &:hover { color: var(--ink); border-color: var(--accent-soft-2); }
+  &:active { cursor: grabbing; }
+}
+
+.prof-stat-tiles[data-home-section] > .prof-home-handle { position: absolute; top: rem(-14); right: 0; z-index: 2; }
+.prof-card-head > .prof-home-handle { margin-left: rem(8); }
+
+.prof-stat-tile { position: relative; }
+
+// Красный «−» у плитки: убрать её с главной.
+.prof-home-minus {
+  position: absolute; top: rem(-8); right: rem(-8); z-index: 2;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: rem(22); height: rem(22); padding: 0; border: 0; border-radius: 50%;
+  background: var(--err); color: var(--ink-inverse); cursor: pointer; box-shadow: var(--shadow-sm);
+}
+
+// Свободное место (плиток меньше шести): серая «тень» плитки с пунктиром и «+» — открывает выбор плитки.
+.prof-stat-tile--add {
+  display: flex; align-items: center; justify-content: center; min-height: rem(88);
+  border: 2px dashed var(--line); background: var(--surface-2); color: var(--muted-2); box-shadow: none; cursor: pointer;
+
+  &:hover { border-color: var(--accent); color: var(--accent); }
+}

@@ -1,7 +1,7 @@
 import { createApi } from './api.js';
 import { getChildId } from './learner-child.js';
 import { esc, shortName, chipBg, chipHtml, closeGradePop, closeCtxMenu, openCtxMenuRaw } from './utils.js';
-import { icoHome, icoUsers, icoJournal, icoDocCheck, icoInbox, icoSwap, icoCalendarBoard, icoBook, icoStar, icoClock, icoCaret, icoGear, icoLogout } from '../common/icons.js';
+import { icoHome, icoUsers, icoJournal, icoDocCheck, icoInbox, icoSwap, icoCalendarBoard, icoBook, icoStar, icoClock, icoCaret, icoGear, icoLogout, icoHandle } from '../common/icons.js';
 import { renderDashboard } from './dashboard.js';
 import { renderJournal, setJournalGroup } from './journal.js';
 import { renderGroups, setGroupsGroup } from './groups.js';
@@ -11,7 +11,7 @@ import { renderWorkReview, openWorkReview, getReturnTo } from './work-review.js'
 import { renderSubstitutions } from './substitutions.js';
 import { renderKTP, selectKtpGroup } from './ktp.js';
 import { renderActivity } from './activity.js';
-import { renderLearnerHome, renderLearnerLessons, renderLearnerGrades, renderLearnerAttendance } from './learner.js';
+import { renderLearnerHome, enterHomeCustomize, renderLearnerLessons, renderLearnerGrades, renderLearnerAttendance } from './learner.js';
 import { renderLearnerExams, openLearnerExam } from './exams/learner-exams.js';
 import { renderExamPlan } from './exams/exam-plan.js';
 import { renderExamConduct, openExamConductFor } from './exams/exam-conduct.js';
@@ -468,7 +468,14 @@ function mountScreens() {
 
 /* ── Меню пользователя (шестерёнка) — dropdown вверх с «Выход» ────────── */
 function openUserMenu(anchor) {
-    const html = `
+    // «Кастомизация» главной — только у ученика и родителя (у них есть экран «Главная» с раскладкой).
+    const homeKey = cfg.screens.find(key => key.endsWith('-home')) || '';
+    const customize = homeKey ? `
+        <div class="ctx-item" data-user-act="customize">
+            ${icoHandle(16)}
+            Кастомизация
+        </div>` : '';
+    const html = `${customize}
         <div class="ctx-item danger" data-user-act="logout">
             ${icoLogout(16)}
             Выход
@@ -476,6 +483,11 @@ function openUserMenu(anchor) {
     openCtxMenuRaw(html, anchor, null, { up: true });
     const menu = document.getElementById('profCtxMenu');
     if (!menu) return;
+    menu.querySelector('[data-user-act="customize"]')?.addEventListener('click', () => {
+        closeCtxMenu();
+        go(homeKey);
+        enterHomeCustomize();
+    });
     const item = menu.querySelector('[data-user-act="logout"]');
     if (item) item.addEventListener('click', () => {
         closeCtxMenu();

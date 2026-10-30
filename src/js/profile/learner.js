@@ -4,10 +4,10 @@
    отдаёт всё; родитель переключает ребёнка (fsProfile.children). Read-only.
    ══════════════════════════════════════════════════════════════════════ */
 
-import { homeTileModels } from './learner-home-tiles.js';
-import { esc, fmtDayMonth, fmtDate, emptyState, chipBg, chipHtml, chipText, chipSoft, scheduleTone, shortName, todayIso, roomLabel } from './utils.js';
+import { homeTileModels, addableTiles, addTile, removeTile, moveSection, MAX_TILES } from './learner-home-tiles.js';
+import { esc, toast, openCtxMenu, fmtDayMonth, fmtDate, emptyState, chipBg, chipHtml, chipText, chipSoft, scheduleTone, shortName, todayIso, roomLabel } from './utils.js';
 import { toggleVisible, applyProgress } from '../common/utils.js';
-import { icoCalendar, icoCheck, icoAlert, icoSearch, icoChevronRight, icoChevronDown, icoClock, icoStar, icoHome, icoLock } from '../common/icons.js';
+import { icoCalendar, icoCheck, icoAlert, icoSearch, icoChevronRight, icoChevronDown, icoClock, icoStar, icoHome, icoLock, icoHandle, icoMinus, icoPlus } from '../common/icons.js';
 import { createApi } from './api.js';
 import { workCardHtml, workChipHtml, workStatusText } from './work-card.js';
 import { learnerLayout, learnerFlat } from './program-window.js';
@@ -75,8 +75,65 @@ function greetingName() {
     return (words.length > 1 ? words.slice(1).join(' ') : own) || 'родитель';
 }
 
+/* ── «Кастомизация» главной: порядок секций и набор плиток (до шести) — настройка смотрящего, хранится на сервере ── */
+const DEFAULT_SECTIONS = ['tiles', 'schedule', 'deadlines'];
+let homeEdit = false;   // режим «Кастомизация»
+let homeLayout = null;  // { sections: string[], tiles: string[]|null } — раскладка смотрящего
+
+/** Меню пользователя → «Кастомизация»: включает режим и перерисовывает главную. */
+export function enterHomeCustomize() {
+    homeEdit = true;
+    rerenderAll();
+}
+
+function layoutOf(d) {
+    homeLayout ??= {
+        sections: [...(d.home_layout?.sections || DEFAULT_SECTIONS)],
+        tiles: Array.isArray(d.home_layout?.tiles) ? [...d.home_layout.tiles] : null,
+    };
+    return homeLayout;
+}
+
+/** Сохраняет раскладку; сбой не ломает экран — тост. */
+function saveLayout() {
+    if (!api) { return; }
+    api('saveHomeLayout', { layout: JSON.stringify(homeLayout) }).catch(e => toast(e.message || 'Не удалось сохранить раскладку', 'error'));
+}
+
+function handleHtml() {
+    return `<button type="button" class="prof-home-handle" draggable="true" data-home-handle aria-label="Перетащить секцию" title="Перетащить">${icoHandle(18)}</button>`;
+}
+
+/** Секция плиток: в режиме кастомизации — «−» на плитках и пунктирная «+» на свободном месте (до шести). */
+function tilesSectionHtml(d, layout, who) {
+    const tiles = homeTileModels(d, who, layout);
+    const ids = tiles.map(t => t.id);
+    const items = tiles.map(t => homeTile(t.label, t.value, t.color, t.ico, homeEdit ? '' : (t.href || ''), { ...t, removable: homeEdit })).join('');
+    const room = homeEdit && tiles.length < MAX_TILES && addableTiles(d, who, ids).length;
+    const add = room ? `<button type="button" class="prof-stat-tile prof-stat-tile--add" data-home-add aria-label="Добавить плитку">${icoPlus(26)}</button>` : '';
+    return `<div class="prof-stat-tiles prof-stat-tiles--learner" data-home-section="tiles">${homeEdit ? handleHtml() : ''}${items}${add}</div>`;
+}
+
+function deadlinesSectionHtml(d) {
+    return `<div class="prof-card" data-home-section="deadlines">
+        <div class="prof-card-head"><h3>Дедлайны и оценки</h3>${homeEdit ? handleHtml() : ''}</div>
+        <div>
+            ${d.deadlines.map(dlRow).join('')}
+            ${d.recent.map(gradeRow).join('')}
+            ${(d.deadlines.length + d.recent.length) ? '' : empty('Пока пусто.')}
+        </div>
+    </div>`;
+}
+
 function renderHome(root, d) {
     const name = greetingName();
+    const who = { parent: isParent() };
+    const layout = layoutOf(d);
+    const sections = {
+        tiles: tilesSectionHtml(d, layout, who),
+        schedule: scheduleCardHtml('data-home-section="schedule"'),
+        deadlines: deadlinesSectionHtml(d),
+    };
     root.innerHTML = `
     <div class="prof-dash">
         ${childBar(false)}
@@ -86,23 +143,64 @@ function renderHome(root, d) {
             <p>${d.groups.map(g => esc(g.name) + ' · ' + esc(g.subject)).join(' · ') || 'Нет активных групп'}</p>
             ${childPickHtml()}
         </div>
-        <div class="prof-dash-grid2">
-            <div class="prof-stat-tiles prof-stat-tiles--learner">
-                ${homeTileModels(d, { parent: isParent() }).map(t => homeTile(t.label, t.value, t.color, t.ico, t.href || '', t)).join('')}
-            </div>
-            ${scheduleCardHtml()}
-            <div class="prof-card">
-                <div class="prof-card-head"><h3>Дедлайны и оценки</h3></div>
-                <div>
-                    ${d.deadlines.map(dlRow).join('')}
-                    ${d.recent.map(gradeRow).join('')}
-                    ${(d.deadlines.length + d.recent.length) ? '' : empty('Пока пусто.')}
-                </div>
-            </div>
-        </div>
+        ${homeEdit ? `<div class="prof-home-editbar">
+            <span>Режим кастомизации: перетаскивайте секции, убирайте и добавляйте плитки</span>
+            <button type="button" class="prof-btn prof-btn-sm" data-home-reset>Сбросить</button>
+            <button type="button" class="prof-btn prof-btn-sm prof-btn-primary" data-home-done>Готово</button>
+        </div>` : ''}
+        <div class="prof-dash-grid2${homeEdit ? ' is-editing' : ''}">${layout.sections.map(id => sections[id] || '').join('')}</div>
     </div>`;
     wireChild(root);
     mountSchedule(root, d);
+    if (homeEdit) { wireHomeEdit(root, d, who, layout); }
+}
+
+/** Режим кастомизации: перетаскивание секций, «−» у плиток, «+» на свободном месте, «Готово» и «Сбросить». */
+function wireHomeEdit(root, d, who, layout) {
+    const redraw = () => renderHome(root, d);
+    const effectiveTiles = () => layout.tiles ?? homeTileModels(d, who, layout).map(t => t.id);
+    const commit = (change) => { Object.assign(layout, change); saveLayout(); redraw(); };
+
+    // У карточки расписания ручка вставляется в шапку (разметка карточки общая с кабинетом преподавателя).
+    root.querySelector('.prof-sched-card .prof-card-head')?.insertAdjacentHTML('beforeend', handleHtml());
+
+    let dragging = null;
+    root.querySelectorAll('[data-home-handle]').forEach(handle => {
+        const section = handle.closest('[data-home-section]');
+        handle.addEventListener('dragstart', (e) => {
+            dragging = section.dataset.homeSection;
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', dragging);
+            section.classList.add('is-dragging');
+        });
+        handle.addEventListener('dragend', () => section.classList.remove('is-dragging'));
+    });
+    root.querySelectorAll('[data-home-section]').forEach(section => {
+        section.addEventListener('dragover', (e) => { if (dragging) { e.preventDefault(); } });
+        section.addEventListener('drop', (e) => {
+            e.preventDefault();
+            const from = dragging;
+            dragging = null;
+            if (from && from !== section.dataset.homeSection) {
+                commit({ sections: moveSection(layout.sections, from, section.dataset.homeSection) });
+            }
+        });
+    });
+
+    root.querySelectorAll('[data-home-remove]').forEach(btn => btn.addEventListener('click', () => {
+        commit({ tiles: removeTile(effectiveTiles(), btn.dataset.homeRemove) });
+    }));
+    root.querySelector('[data-home-add]')?.addEventListener('click', (e) => {
+        const items = addableTiles(d, who, effectiveTiles()).map(t => ({ v: t.id, label: t.label.replace(/\u00A0/g, ' ') }));
+        openCtxMenu(e.currentTarget, items, (id) => commit({ tiles: addTile(effectiveTiles(), id) }));
+    });
+    root.querySelector('[data-home-reset]')?.addEventListener('click', () => {
+        commit({ sections: [...DEFAULT_SECTIONS], tiles: null });
+    });
+    root.querySelector('[data-home-done]')?.addEventListener('click', () => {
+        homeEdit = false;
+        redraw();
+    });
 }
 
 /* ── Мои курсы (дизайн Student Courses) ───────────────────────────────────
@@ -631,11 +729,12 @@ function attRow(r) {
 }
 
 function homeTile(label, val, color, ico, href = '', opts = {}) {
+    const remove = opts.removable ? `<button type="button" class="prof-home-minus" data-home-remove="${esc(opts.id)}" aria-label="Убрать плитку">${icoMinus(14)}</button>` : '';
     const icons = { cal: icoCalendar, check: icoCheck, alert: icoAlert };
     const tag = href ? 'a' : 'div';
     const link = href ? ` href="${esc(href)}"` : '';
     const note = opts.note ? `<div class="st-delta">${esc(opts.note)}</div>` : '';
-    return `<${tag} class="prof-stat-tile${href ? ' is-link' : ''}${opts.urgent ? ' is-urgent' : ''}"${link}>
+    return `<${tag} class="prof-stat-tile${href ? ' is-link' : ''}${opts.urgent ? ' is-urgent' : ''}"${link}>${remove}
         <div class="st-top"><span class="st-ico" style="background:${color}1a;color:${color}">${icons[ico](16)}</span>${esc(label)}</div>
         <div class="st-val">${esc(val)}</div>${note}
     </${tag}>`;
