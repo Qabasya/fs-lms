@@ -130,6 +130,37 @@ class WorkCallbacksTest extends TestCase {
 		self::assertStringContainsString( 'Опрос', (string) ( $r->payload['message'] ?? $r->payload ) );
 	}
 
+	/** Практика не принимает опросные шаблоны: сохранение состава с таким заданием — ошибка с перечнем допустимых. */
+	public function test_save_work_items_rejects_survey_only_templates_in_practice(): void {
+		$this->manager->method( 'get' )->willReturn( new \Inc\DTO\Course\WorkDTO(
+			id: 5, subjectKey: 'inf', title: 'Практика', workType: \Inc\Enums\Course\WorkType::Practice,
+			itemIds: array( 10 ), instructions: '', authorId: 1, status: 'draft',
+		) );
+		$this->auth->method( 'disallowedItemIds' )->with( \Inc\Enums\Course\WorkType::Practice, array( 20 ) )->willReturn( array( 20 ) );
+		$this->manager->expects( $this->never() )->method( 'setItemIds' );
+		$_POST = array( 'work_id' => '5', 'item_ids' => array( '10', '20' ) );
+
+		$r = fs_test_capture_json( fn() => $this->cb->ajaxSaveWorkItems() );
+
+		self::assertFalse( $r->success );
+		self::assertStringContainsString( 'Практика', (string) ( $r->payload['message'] ?? $r->payload ) );
+	}
+
+	/** Уже стоящие в работе элементы не пересматриваются: старую практику с опросным заданием можно править дальше. */
+	public function test_save_work_items_keeps_legacy_survey_only_items_already_in_the_work(): void {
+		$this->manager->method( 'get' )->willReturn( new \Inc\DTO\Course\WorkDTO(
+			id: 5, subjectKey: 'inf', title: 'Практика', workType: \Inc\Enums\Course\WorkType::Practice,
+			itemIds: array( 10, 20 ), instructions: '', authorId: 1, status: 'draft',
+		) );
+		// 20 — опросное, но оно уже в работе; проверяется только добавляемое (30).
+		$this->auth->expects( $this->once() )->method( 'disallowedItemIds' )->with( \Inc\Enums\Course\WorkType::Practice, array( 30 ) )->willReturn( array() );
+		$this->auth->method( 'validateItemIds' )->willReturn( array( 30 ) );
+		$this->manager->expects( $this->once() )->method( 'setItemIds' )->with( 5, array( 20, 10, 30 ) )->willReturn( true );
+		$_POST = array( 'work_id' => '5', 'item_ids' => array( '20', '10', '30' ) );
+
+		self::assertTrue( fs_test_capture_json( fn() => $this->cb->ajaxSaveWorkItems() )->success );
+	}
+
 	/** Новые элементы работы проверяются: чужой черновик или не задание в работу не попадают. */
 	public function test_save_work_items_rejects_new_items_that_do_not_validate(): void {
 		$this->manager->method( 'get' )->willReturn( new \Inc\DTO\Course\WorkDTO(

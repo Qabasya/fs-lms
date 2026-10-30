@@ -43,15 +43,21 @@ enum WorkType: string {
 	}
 
 	/**
-	 * Шаблоны заданий, которые можно класть в работу этого типа; `null` — без ограничений.
-	 * Опрос собирается только из вопросов с готовыми вариантами и простым ответом.
+	 * Шаблоны заданий, которые можно класть в работу этого типа. Всегда список, не «без ограничений»:
+	 * «Опрос» — вопросы с вариантами и простой ответ (белый список); остальные типы — все шаблоны, кроме
+	 * опросных ({@see TaskTemplate::isSurveyOnly()}).
 	 *
-	 * @return TaskTemplate[]|null
+	 * @return TaskTemplate[]
 	 */
-	public function allowedTemplates(): ?array {
-		return self::Survey === $this
-			? array( TaskTemplate::Choice, TaskTemplate::Matching, TaskTemplate::Ordering, TaskTemplate::Fill, TaskTemplate::DragFill, TaskTemplate::Standard )
-			: null;
+	public function allowedTemplates(): array {
+		if ( self::Survey === $this ) {
+			return array( TaskTemplate::Choice, TaskTemplate::Matching, TaskTemplate::Ordering, TaskTemplate::Fill, TaskTemplate::DragFill, TaskTemplate::Standard );
+		}
+
+		return array_values( array_filter(
+			TaskTemplate::cases(),
+			static fn( TaskTemplate $template ): bool => ! $template->isSurveyOnly()
+		) );
 	}
 
 	/**

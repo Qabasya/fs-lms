@@ -6,6 +6,7 @@ namespace Inc\Controllers\Course;
 
 use Inc\Contracts\ServiceInterface;
 use Inc\Core\BaseController;
+use Inc\Enums\Course\WorkType;
 use Inc\Enums\Wp\Nonce;
 use Inc\Enums\Wp\PostMetaName;
 use Inc\Managers\Course\WorkManager;
@@ -14,6 +15,7 @@ use Inc\Managers\Wp\PostManager;
 use Inc\MetaBoxes\Templates\WorkTemplate;
 use Inc\Registrars\MetaBoxRegistrar;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
+use Inc\Services\Course\WorkAuthoringService;
 use Inc\Services\Subject\PostTypeResolver;
 use Inc\Services\Task\TaskPublishGuard;
 use Inc\Shared\Traits\Authorizer;
@@ -43,6 +45,7 @@ class WorkMetaBoxController extends BaseController implements ServiceInterface {
 		private readonly WorkManager       $works,
 		private readonly PostManager       $postManager,
 		private readonly TaskPublishGuard  $guard,
+		private readonly WorkAuthoringService $authoring,
 	) {
 		parent::__construct();
 	}
@@ -56,6 +59,7 @@ class WorkMetaBoxController extends BaseController implements ServiceInterface {
 		// #10: не даём опубликовать работу без названия (откат в draft + notice).
 		add_filter( 'wp_insert_post_data', array( $this, 'validateWorkTitle' ), 10, 2 );
 		add_action( 'admin_notices', array( $this, 'showPublishError' ) );
+		add_action( 'admin_notices', array( $this, 'showTypeChangeWarning' ) );
 	}
 
 	/**
@@ -86,6 +90,15 @@ class WorkMetaBoxController extends BaseController implements ServiceInterface {
 			return;
 		}
 		$this->guard->renderDeferredError( 'fs_lms_work_publish_error_', __( 'Невозможно опубликовать работу', 'fs-lms' ) );
+	}
+
+	/** Выводит отложенное предупреждение: смена типа работы отклонена (задания не подходят новому типу). */
+	public function showTypeChangeWarning(): void {
+		$screen = get_current_screen();
+		if ( ! $screen || ! PostTypeResolver::isWorkPostType( $screen->post_type ) ) {
+			return;
+		}
+		$this->guard->renderDeferredWarning( 'fs_lms_work_type_change_', __( 'Тип работы не изменён', 'fs-lms' ) );
 	}
 
 	public function tidyWorkMetaBoxes( string $post_type ): void {
@@ -209,8 +222,46 @@ class WorkMetaBoxController extends BaseController implements ServiceInterface {
 		$this->metaBoxManager->saveFieldsMerge(
 			$post_id,
 			PostMetaName::Meta->value,
-			$this->unslashArray( PostMetaName::Meta->value ),
+			$this->withoutRejectedTypeChange( $post_id, $this->unslashArray( PostMetaName::Meta->value ) ),
 			$this->template->get_fields()
 		);
+	}
+
+	/**
+	 * Смена типа не должна обходить запрет шаблонов: если новый тип не принимает задания, которые прежний принимал
+	 * (опросные из «Опроса» — в практику, домашнюю и т. п.), тип остаётся прежним, а автору уходит предупреждение
+	 * со списком заданий. Нарушения, которые были и у прежнего типа (старые работы), смену не блокируют.
+	 *
+	 * @param array<string, mixed> $posted Присланная мета работы
+	 *
+	 * @return array<string, mixed> Она же, без `work_type`, если смена отклонена
+	 */
+	private function withoutRejectedTypeChange( int $post_id, array $posted ): array {
+		$work = $this->works->get( $post_id );
+		$new  = WorkType::tryFrom( (string) ( $posted['work_type'] ?? '' ) );
+		if ( null === $work || null === $new || $new === $work->workType || array() === $work->itemIds ) {
+			return $posted;
+		}
+
+		$bad = array_values( array_diff(
+			$this->authoring->disallowedItemIds( $new, $work->itemIds ),
+			$this->authoring->disallowedItemIds( $work->workType, $work->itemIds )
+		) );
+		if ( array() === $bad ) {
+			return $posted;
+		}
+
+		unset( $posted['work_type'] );
+		$this->guard->warn(
+			'fs_lms_work_type_change_',
+			sprintf(
+				'Работу нельзя перевести в тип «%s»: в ней есть задания с шаблонами, которых этот тип не допускает (ID: %s). Уберите их из работы или оставьте тип «%s».',
+				$new->label(),
+				implode( ', ', $bad ),
+				$work->workType->label()
+			)
+		);
+
+		return $posted;
 	}
 }

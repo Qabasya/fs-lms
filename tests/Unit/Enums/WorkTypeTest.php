@@ -40,9 +40,32 @@ class WorkTypeTest extends TestCase {
 		);
 	}
 
-	public function test_other_work_types_have_no_template_restriction(): void {
+	/** Остальные типы — «все шаблоны, кроме опросных»: список, а не «без ограничений». */
+	public function test_other_work_types_allow_everything_except_survey_only_templates(): void {
+		$expected = array_values( array_filter( TaskTemplate::cases(), static fn( TaskTemplate $t ): bool => ! $t->isSurveyOnly() ) );
+
 		foreach ( array( WorkType::Practice, WorkType::Independent, WorkType::Homework ) as $type ) {
-			self::assertNull( $type->allowedTemplates() );
+			self::assertEqualsCanonicalizing( $expected, $type->allowedTemplates(), $type->value );
+			self::assertContains( TaskTemplate::Standard, $type->allowedTemplates() );
+			self::assertContains( TaskTemplate::Code, $type->allowedTemplates() );
+		}
+	}
+
+	public function test_no_work_type_returns_null_allowed_templates(): void {
+		foreach ( WorkType::cases() as $type ) {
+			self::assertIsArray( $type->allowedTemplates(), $type->value );
+		}
+	}
+
+	public function test_survey_only_templates_are_allowed_only_in_survey(): void {
+		foreach ( TaskTemplate::cases() as $template ) {
+			if ( ! $template->isSurveyOnly() ) {
+				continue;
+			}
+			self::assertContains( $template, WorkType::Survey->allowedTemplates(), $template->value );
+			foreach ( array( WorkType::Practice, WorkType::Independent, WorkType::Homework ) as $type ) {
+				self::assertNotContains( $template, $type->allowedTemplates(), $template->value . ' / ' . $type->value );
+			}
 		}
 	}
 

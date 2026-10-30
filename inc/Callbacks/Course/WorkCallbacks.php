@@ -43,24 +43,25 @@ class WorkCallbacks extends BaseController {
 		$work_id  = $this->requireInt( 'work_id' );
 		$item_ids = $this->sanitizeIntList( 'item_ids' );
 
-		// Тип работы ограничивает шаблоны заданий (у «Опроса» — только вопросы с вариантами и простым ответом).
+		// Тип работы ограничивает шаблоны заданий: опросные — только в «Опросе», в остальных типах их нет.
 		$work = $this->workManager->get( $work_id );
 		if ( null !== $work ) {
-			$bad = $this->authoringService->disallowedItemIds( $work->workType, $item_ids );
+			// Проверяем только новые элементы: уже стоящие в работе не пересматриваем (старые работы
+			// могут содержать то, что сегодняшние правила не пропустили бы — правка состава их не ломает).
+			$added = array_values( array_diff( $item_ids, $work->itemIds ) );
+
+			$bad = array() === $added ? array() : $this->authoringService->disallowedItemIds( $work->workType, $added );
 			if ( array() !== $bad ) {
 				$this->error( sprintf(
 					'В работу типа «%s» нельзя добавить задания с этим шаблоном (ID: %s). Допустимы: %s.',
 					$work->workType->label(),
 					implode( ', ', $bad ),
-					implode( ', ', array_map( static fn( $t ) => $t->label(), $work->workType->allowedTemplates() ?? array() ) )
+					implode( ', ', array_map( static fn( $t ) => $t->label(), $work->workType->allowedTemplates() ) )
 				) );
 				return;
 			}
 
-			// Проверяем только новые элементы: уже стоящие в работе не пересматриваем (старые работы
-			// могут содержать то, что сегодняшние правила не пропустили бы).
-			$added = array_values( array_diff( $item_ids, $work->itemIds ) );
-			$bad   = array() === $added
+			$bad = array() === $added
 				? array()
 				: array_values( array_diff( $added, $this->authoringService->validateItemIds( $work->subjectKey, $added ) ) );
 			if ( array() !== $bad ) {

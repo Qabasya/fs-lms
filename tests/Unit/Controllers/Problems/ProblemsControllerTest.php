@@ -202,10 +202,10 @@ class ProblemsControllerTest extends TestCase {
 	}
 
 	/** Черновик, созданный из конструктора «Опроса»: пометка типа работы в мете, статус — черновик. */
-	private function surveyDraft( int $id = 201, string $status = 'draft' ): void {
+	private function surveyDraft( int $id = 201, string $status = 'draft', string $workType = 'survey' ): void {
 		fs_test_seed_post( array( 'ID' => $id, 'post_type' => 'fs_lms_problems', 'post_status' => $status ) );
 		$this->posts->method( 'getMeta' )->willReturnCallback(
-			static fn( int $postId, string $key ): mixed => 'fs_lms_bank_task_work_type' === $key ? 'survey' : ''
+			static fn( int $postId, string $key ): mixed => 'fs_lms_bank_task_work_type' === $key ? $workType : ''
 		);
 	}
 
@@ -243,5 +243,42 @@ class ProblemsControllerTest extends TestCase {
 		$this->posts->expects( $this->once() )->method( 'updateMeta' )->with( 202, 'fs_lms_template_type', 'code_task' );
 
 		$this->controller->saveTemplateType( 202 );
+	}
+
+	/** Черновик из конструктора практики: опросные шаблоны ему недоступны, обычные — да. */
+	public function test_practice_draft_rejects_survey_only_template(): void {
+		$this->surveyDraft( 203, 'draft', 'practice' );
+		$this->formFor( 203, 'choice_task' );
+
+		$this->posts->expects( $this->never() )->method( 'updateMeta' );
+
+		$this->controller->saveTemplateType( 203 );
+	}
+
+	public function test_practice_draft_accepts_regular_template(): void {
+		$this->surveyDraft( 203, 'draft', 'practice' );
+		$this->formFor( 203, 'code_task' );
+
+		$this->posts->expects( $this->once() )->method( 'updateMeta' )->with( 203, 'fs_lms_template_type', 'code_task' );
+
+		$this->controller->saveTemplateType( 203 );
+	}
+
+	/** Новый черновик из конструктора не-опроса получает пометку типа работы и обычный шаблон по умолчанию. */
+	public function test_new_practice_draft_is_marked_with_work_type(): void {
+		fs_test_seed_post( array( 'ID' => 204, 'post_type' => 'fs_lms_problems', 'post_status' => 'auto-draft' ) );
+		$_GET = array( 'fs_lms_subject' => 'inf', 'fs_lms_work_type' => 'practice' );
+		$this->subjects->method( 'getByKey' )->willReturn( new SubjectDTO( key: 'inf', name: 'Информатика' ) );
+		$this->posts->method( 'getMeta' )->willReturn( '' );
+
+		$marks = array();
+		$this->posts->method( 'updateMeta' )->willReturnCallback( function ( int $id, string $key, mixed $value ) use ( &$marks ): void {
+			$marks[ $key ] = $value;
+		} );
+
+		$this->controller->prefillDraftFromQuery( 204, get_post( 204 ) );
+
+		self::assertSame( 'practice', $marks['fs_lms_bank_task_work_type'] ?? null );
+		self::assertNotContains( $marks['fs_lms_template_type'] ?? 'standard_task', array( 'choice_task', 'matching_task', 'ordering_task', 'fill_task', 'drag_fill_task' ) );
 	}
 }

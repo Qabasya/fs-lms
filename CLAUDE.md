@@ -286,6 +286,7 @@ Log format: `[FS LMS] CONTEXT: message | Context: {timestamp, user_id, ip, ...da
   открытая до экзамена, или прямой запрос получают эталон, закрытые шаги и сдачи. Экзаменационную блокировку **не** переносить в
   `LessonAccessPolicy::canRead()/canSubmit()`: через `canRead()` идёт `AssessmentAccessPolicy`, и экзамен заблокирует сам себя.
   Тесты — `SubmitTaskAnswerCallbacksTest`, `LessonPlayerCallbacksTest`, `SubmissionServiceTest`, `WorkTaskCheckServiceTest`.
+- **Шаблон задания и тип работы.** Опросные шаблоны (`TaskTemplate::isSurveyOnly()`: выбор, сопоставление, сортировка, пропуски, перетаскивание пропусков) — только в работах `WorkType::Survey`; `WorkType::allowedTemplates()` всегда список, `null` трактовать как «всё разрешено» нельзя. Проверка — при добавлении элементов (`WorkCallbacks`) и смене типа (`WorkMetaBoxController`), не при показе ученику.
 - **Исправление ошибки — это и правило.** Нашли класс ошибок (а не одну опечатку) — дописать правило сюда или в локальный `CLAUDE.md`
   каталога (для экзаменов — `inc/Services/Exam/CLAUDE.md`) и добавить тест, который это ловит.
 

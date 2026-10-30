@@ -145,9 +145,9 @@ class WorkAuthoringService {
 	 * @param string $targetSubject    Предмет работы, в которую добавляют. Отличается от `$subjectKey` —
 	 *                                 значит идёт кросс-предметный импорт: из чужого предмета берутся только
 	 *                                 опубликованные задания (черновик чужого предмета в работу не пустят).
-	 * @param string $workType         Тип работы ({@see WorkType}); у типа с ограничением шаблонов
-	 *                                 ({@see WorkType::allowedTemplates()}) остаются только подходящие
-	 *                                 задания, страницы нарезаются уже по отобранным.
+	 * @param string $workType         Тип работы ({@see WorkType}); остаются только задания с шаблонами,
+	 *                                 разрешёнными типом ({@see WorkType::allowedTemplates()}), страницы
+	 *                                 нарезаются уже по отобранным. Пусто — без отбора.
 	 * @return array<int, array{id: int, title: string, author: int, type: string}>
 	 */
 	public function getItemCandidates(
@@ -160,10 +160,12 @@ class WorkAuthoringService {
 		string $workType         = '',
 		string $targetSubject    = ''
 	): array {
-		$allowed = WorkType::tryFrom( $workType )?->allowedTemplates();
-		if ( null === $allowed ) {
+		// Тип работы не указан (пикер вне работы) — отбора по шаблону нет.
+		$type = WorkType::tryFrom( $workType );
+		if ( null === $type ) {
 			return $this->sourceItemCandidates( $subjectKey, $collectionTermId, $scope, $search, $source, $page, $targetSubject );
 		}
+		$allowed = $type->allowedTemplates();
 
 		$need = max( 1, $page ) * self::CANDIDATES_PER_PAGE;
 		$kept = array();
@@ -191,9 +193,6 @@ class WorkAuthoringService {
 	 */
 	public function disallowedItemIds( WorkType $type, array $itemIds ): array {
 		$allowed = $type->allowedTemplates();
-		if ( null === $allowed ) {
-			return array();
-		}
 
 		return array_values( array_filter(
 			array_map( 'intval', $itemIds ),

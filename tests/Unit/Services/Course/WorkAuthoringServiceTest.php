@@ -198,13 +198,43 @@ class WorkAuthoringServiceTest extends TestCase {
 		self::assertSame( array( 2, 4, 6 ), $ids );
 	}
 
-	public function test_other_work_types_are_not_filtered_by_template(): void {
+	/** Практика/самостоятельная/домашняя не принимают опросные шаблоны: в кандидатах остаются обычные задания. */
+	public function test_non_survey_candidates_exclude_survey_only_templates(): void {
+		$this->templatesByParity(); // чётные — Choice (опросный), нечётные — Code
+		for ( $id = 1; $id <= 6; $id++ ) {
+			fs_test_seed_post( array( 'ID' => $id, 'post_type' => 'inf_tasks', 'post_title' => "Задача {$id}" ) );
+		}
+
+		foreach ( array( WorkType::Practice, WorkType::Independent, WorkType::Homework ) as $type ) {
+			$ids = array_column( $this->service->getItemCandidates( 'inf', 0, 'subject', '', 'subject', 1, $type->value ), 'id' );
+			sort( $ids );
+			self::assertSame( array( 1, 3, 5 ), $ids, $type->value );
+		}
+	}
+
+	/** Тип работы не указан (пикер вне работы) — отбора по шаблону нет. */
+	public function test_unknown_work_type_is_not_filtered(): void {
 		$this->resolver->expects( self::never() )->method( 'resolveEnum' );
 		for ( $id = 1; $id <= 3; $id++ ) {
 			fs_test_seed_post( array( 'ID' => $id, 'post_type' => 'inf_tasks', 'post_title' => "Задача {$id}" ) );
 		}
 
-		self::assertCount( 3, $this->service->getItemCandidates( 'inf', 0, 'subject', '', 'subject', 1, WorkType::Homework->value ) );
+		self::assertCount( 3, $this->service->getItemCandidates( 'inf', 0, 'subject', '', 'subject', 1, '' ) );
+	}
+
+	/** Страницы практики нарезаются после отбора: подходящие из дальних страниц источника не теряются. */
+	public function test_non_survey_candidates_are_paged_after_filtering(): void {
+		$this->templatesByParity();
+		for ( $id = 1; $id <= 160; $id++ ) {
+			fs_test_seed_post( array( 'ID' => $id, 'post_type' => 'inf_tasks', 'post_title' => "Задача {$id}" ) );
+		}
+
+		$first  = array_column( $this->service->getItemCandidates( 'inf', 0, 'subject', '', 'subject', 1, 'practice' ), 'id' );
+		$second = array_column( $this->service->getItemCandidates( 'inf', 0, 'subject', '', 'subject', 2, 'practice' ), 'id' );
+
+		self::assertCount( 50, $first );
+		self::assertCount( 30, $second );
+		self::assertSame( array(), array_intersect( $first, $second ) );
 	}
 
 	/** Страницы нарезаются по отобранным заданиям: подходящие из дальних страниц источника не теряются. */
@@ -229,7 +259,9 @@ class WorkAuthoringServiceTest extends TestCase {
 		}
 
 		self::assertSame( array( 1, 3 ), $this->service->disallowedItemIds( WorkType::Survey, array( 1, 2, 3 ) ) );
-		self::assertSame( array(), $this->service->disallowedItemIds( WorkType::Practice, array( 1, 2, 3 ) ) );
+		// Практика — наоборот: опросные (чётные, Choice) в неё нельзя.
+		self::assertSame( array( 2 ), $this->service->disallowedItemIds( WorkType::Practice, array( 1, 2, 3 ) ) );
+		self::assertSame( array( 2 ), $this->service->disallowedItemIds( WorkType::Homework, array( 1, 2, 3 ) ) );
 	}
 
 	/** Задания другого предмета в приватном источнике — только опубликованные (чужой черновик в работу не пустят). */
