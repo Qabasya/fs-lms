@@ -267,11 +267,14 @@ class BundleLoader extends BaseController {
 					'publicResult'      => (string) apply_filters( self::KEGE_PUBLIC_RESULT_FILTER, '' ),
 					// «Скачать все файлы» одним ZIP (модуль EgeComputer).
 					'filesZip'          => (string) apply_filters( self::KEGE_FILES_ZIP_FILTER, '' ),
+					// Гость экзамена: «Завершить сессию» на последнем экране — отзыв гостевой сессии и переход на главную.
+					'endGuestSession'   => AjaxHook::EndExamGuestSession->jsAction(),
 				),
 				'nonces'   => array(
 					'startAttempt'     => Nonce::StartAttempt->create(),
 					'submitAttempt'    => Nonce::SubmitAttempt->create(),
 					'uploadAnswerFile' => Nonce::UploadAnswerFile->create(),
+					'endGuestSession'  => Nonce::ExamGuest->create(),
 				),
 			)
 		);

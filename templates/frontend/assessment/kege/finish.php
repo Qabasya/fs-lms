@@ -92,6 +92,8 @@ if ( ! empty( $reviewMode ) && ! empty( $reviewReveal ) && $lastAttempt && ! emp
 				<div class="kege-fin-pending__title">Экзамен завершён</div>
 				<p class="kege-fin-pending__text">Чтобы узнать результаты, свяжитесь с преподавателем.</p>
 			</div>
+			<?php // Выход гостя: отзыв гостевой сессии и переход на главную (kege-entry.js, действие EndExamGuestSession). ?>
+			<button type="button" class="kege-btn kege-btn--cyan kege-fin-done" id="kegeGuestEnd">Завершить сессию</button>
 		<?php elseif ( ! $kegeSheet->revealed ) : ?>
 			<?php
 			// D18: результаты видны ученику только после подтверждения учителем —

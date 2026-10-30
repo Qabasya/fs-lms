@@ -65,6 +65,15 @@ class KegeFinishGuestTemplateTest extends TestCase {
 		self::assertStringNotContainsString( 'kegeFinishBtn', $html );
 	}
 
+	/** Гость выходит сам: «Завершить сессию» отзывает его сессию и ведёт на главную сайта. */
+	public function test_guest_has_end_session_button(): void {
+		$html = $this->render( true );
+
+		self::assertStringContainsString( 'id="kegeGuestEnd"', $html );
+		self::assertStringContainsString( 'Завершить сессию', $html );
+		self::assertStringNotContainsString( 'id="kegeGuestEnd"', $this->render( false ) );
+	}
+
 	public function test_non_guest_screen_is_unchanged(): void {
 		$html = $this->render( false );
 

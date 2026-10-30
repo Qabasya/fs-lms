@@ -156,11 +156,11 @@
 // ЕГЭ («Утвердить работу»). Занимает место таблиц/сводки баллов, тот же
 // центрированный стиль карточки, что и .kege-mcard.
 .kege-fin-pending {
-  flex: 1;
-  min-height: 0;
+  // Ширина как у полосы КИМ/бланка (.kege-fin-kim); высота — по содержимому, лишнего места нет: больше текста — выше панель.
+  flex: 0 0 auto;
   width: 100%;
-  max-width: rem(460);
-  margin: auto;
+  max-width: rem(980);
+  margin-block: auto;
   text-align: center;
   background: var(--kege-surface);
   border: 1px solid var(--kege-line-2);

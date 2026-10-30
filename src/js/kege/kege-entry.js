@@ -386,6 +386,30 @@ export function renderKegeSheet( sheet ) {
 }
 
 /**
+ * «Завершить сессию» гостя экзамена на последнем экране: сервер отзывает гостевую сессию (после сдачи) и отдаёт адрес
+ * главной страницы; ритуал станции очищается, экран не остаётся в истории.
+ */
+function initGuestEnd() {
+	const button = document.getElementById( 'kegeGuestEnd' );
+	const vars   = window.fs_lms_kege_vars;
+	if ( ! button || ! vars ) { return; }
+
+	button.addEventListener( 'click', async () => {
+		button.disabled = true;
+		try {
+			const body = new URLSearchParams( { action: vars.actions.endGuestSession, security: vars.nonces.endGuestSession } );
+			const json = await ( await fetch( vars.ajax_url, { method: 'POST', credentials: 'same-origin', body } ) ).json();
+			if ( ! json.success ) { throw new Error( ajaxErrorText( json, 'Не удалось завершить сессию' ) ); }
+			clearKegeState();
+			window.location.replace( json.data.url );
+		} catch ( e ) {
+			button.disabled    = false;
+			button.textContent = e.message || 'Не удалось завершить сессию';
+		}
+	} );
+}
+
+/**
  * Лист ответов (kege/finish.php): строки таблиц и баллы отдаёт сервер, клиенту
  * остаются тренажёрные номера КИМ/бланка из ритуала и выход со станции.
  */
@@ -409,6 +433,8 @@ function initFinishScreen( state ) {
 	// Предпросмотр автора: лист раскрывается без перезагрузки страницы, уже после
 	// того, как ритуал сгенерировал номера (см. kege-exam.js).
 	document.addEventListener( 'fs-kege-preview-finish', () => syncHead( loadKegeState() ) );
+
+	initGuestEnd();
 
 	document.getElementById( 'kegeFinishBtn' )?.addEventListener( 'click', () => {
 		// Лист ответов — последний экран станции: уходим туда же, куда ведёт
