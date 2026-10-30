@@ -896,4 +896,13 @@ class SubmissionServiceTest extends TestCase {
 		self::assertSame( 0, $this->service->workAttemptsUsed( 10, 7, 3 ) );
 		self::assertSame( [], $this->service->lockedTaskIds( 10, 7, 3 ) );
 	}
+
+	/** Срок работы вышел (сейчас 2024-06-01 12:00) — пересдача закрыта плеером; нет срока — не просрочено. */
+	public function test_is_past_due_compares_work_deadline_with_now(): void {
+		$work = $this->makeWork( 3 );
+
+		self::assertTrue( $this->service->isPastDue( $this->makeRow( 3, true, null, [ 3 => '2024-06-01 11:59:59' ] ), $work ) );
+		self::assertFalse( $this->service->isPastDue( $this->makeRow( 3, true, null, [ 3 => '2024-06-01 12:00:01' ] ), $work ) );
+		self::assertFalse( $this->service->isPastDue( $this->makeRow( 3 ), $work ), 'без срока просрочки нет' );
+	}
 }

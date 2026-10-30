@@ -589,7 +589,9 @@ function dlRow(d) {
     const when = d.overdue
         ? `<span class="prof-dl-overdue">Просрочено</span> ${fmtDateTime(d.due_at)}`
         : `до ${fmtDateTime(d.due_at)}`;
-    const sub = [ esc(d.group_name), when ].filter(Boolean).join(' · ');
+    // Сданная, но не полностью верная работа: сколько заданий ещё не решено.
+    const left = d.remaining ? `Осталось: ${d.remaining} из ${d.total}` : '';
+    const sub = [ esc(d.group_name), when, left ].filter(Boolean).join(' · ');
     const inner = `
         <div class="prof-work-ico att">${icoClock(18)}</div>
         <div class="prof-work-main"><div class="prof-work-title">${esc(d.topic || 'Домашнее задание')}</div><div class="prof-work-sub">${sub}</div></div>`;

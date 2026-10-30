@@ -4,6 +4,8 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Profile\Learner;
 
+use Inc\DTO\Course\SubmissionDTO;
+use Inc\DTO\Course\WorkDTO;
 use Inc\DTO\Profile\LearnerContextDTO;
 use Inc\Repositories\WPDBRepositories\SubmissionRepository;
 use Inc\Services\Course\EffectiveWorksResolver;
@@ -66,26 +68,39 @@ class LearnerScheduleSection {
 
 		foreach ( $ctx->rawRows as $glid => $row ) {
 			$submittedWorkIds = array();
+			$aggregates       = array();
 			foreach ( $this->submissions->listByStudentAndGroupLesson( $personId, $row->progressId() ) as $sub ) {
 				$submittedWorkIds[ $sub->workId ] = true;
+				if ( null === $sub->taskId ) {
+					$aggregates[ $sub->workId ] = $sub;
+				}
 			}
 
 			// Базовый URL плеера уже посчитан в lessonMap (для уроков с контентом).
 			$baseUrl = (string) ( $ctx->lessonMap[ $glid ]['player_url'] ?? '' );
 
 			foreach ( $this->worksResolver->resolve( $row ) as $work ) {
-				if ( isset( $submittedWorkIds[ $work->id ] ) ) {
-					continue;
-				}
-
 				// ДЗ без явного дедлайна — к началу следующего занятия.
 				$due = $this->homeworkDeadlines->deadlineFor( $row, $work, $next[ $glid ] ?? null );
 				if ( null === $due ) {
 					continue;
 				}
 
+				// Сданная работа остаётся в дедлайнах, пока в ней есть нерешённые задания, есть попытки и срок не вышел.
+				$unsolved = null;
+				if ( isset( $submittedWorkIds[ $work->id ] ) ) {
+					$unsolved = $this->unsolvedOf( $work, $aggregates[ $work->id ] ?? null );
+					if ( null === $unsolved || $due < $ctx->now ) {
+						continue;
+					}
+				}
+
 				// Bug 2: ссылка «сразу к нужной работе» — плеер урока + ?step=<ключ шага>.
 				$workUrl = $this->workLink->forRow( $row, $work->id, $baseUrl );
+				if ( null !== $unsolved && '' !== $workUrl ) {
+					// Плеер откроет работу на первом нерешённом задании.
+					$workUrl = (string) add_query_arg( array( 'task' => $unsolved['first_task_id'] ), $workUrl );
+				}
 
 				$deadlines[] = array(
 					'due_at'     => $due,
@@ -93,7 +108,11 @@ class LearnerScheduleSection {
 					'group_name' => $ctx->lessonMap[ $glid ]['group_name'],
 					'overdue'    => $due < $ctx->now,
 					'player_url' => $workUrl,
-				);
+				) + ( null !== $unsolved ? array(
+					'remaining'     => $unsolved['remaining'],
+					'total'         => $unsolved['total'],
+					'first_task_id' => $unsolved['first_task_id'],
+				) : array() );
 			}
 		}
 
@@ -107,5 +126,30 @@ class LearnerScheduleSection {
 		);
 
 		return $deadlines;
+	}
+
+	/**
+	 * Нерешённые задания сданной работы: неверный ответ или ответа нет; верные и ждущие ручной проверки — решённые.
+	 * `null` — исправлять нечего (всё решено) или попытки закончились, либо сдачи нет.
+	 *
+	 * @return array{remaining: int, total: int, first_task_id: int}|null
+	 */
+	private function unsolvedOf( WorkDTO $work, ?SubmissionDTO $aggregate ): ?array {
+		if ( null === $aggregate || ( $work->maxAttempts > 0 && $aggregate->attemptCount >= $work->maxAttempts ) || array() === $work->itemIds ) {
+			return null;
+		}
+
+		$decoded  = json_decode( (string) $aggregate->answerText, true );
+		$verdicts = is_array( $decoded ) ? $decoded : array();
+		$unsolved = array_values( array_filter(
+			array_map( 'intval', $work->itemIds ),
+			static fn( int $taskId ): bool => ! in_array( $verdicts[ $taskId ]['verdict'] ?? '', array( 'correct', 'pending' ), true )
+		) );
+
+		return array() === $unsolved ? null : array(
+			'remaining'     => count( $unsolved ),
+			'total'         => count( $work->itemIds ),
+			'first_task_id' => $unsolved[0],
+		);
 	}
 }

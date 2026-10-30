@@ -11,6 +11,7 @@ use Inc\DTO\Course\GradeDTO;
 use Inc\DTO\Course\GroupLessonDTO;
 use Inc\DTO\Course\SubmissionDTO;
 use Inc\DTO\Course\SubmissionInputDTO;
+use Inc\DTO\Course\WorkDTO;
 use Inc\DTO\Course\WorkTimingDTO;
 use Inc\DTO\Log\Events\LearningEvent;
 use Inc\Enums\Course\AttemptSource;
@@ -458,6 +459,16 @@ class SubmissionService {
 	 * Сколько раз ученик уже сдавал эту работу. Плеер читает это же число, чтобы
 	 * предупредить о предпоследней и последней попытке.
 	 */
+	/**
+	 * Вышел ли срок сдачи работы на этом занятии (плеер по этому признаку скрывает «Исправить и сдать заново»).
+	 * Сам срок сдачу не запрещает — он даёт метку «Просрочено»; нет срока — не просрочено.
+	 */
+	public function isPastDue( GroupLessonDTO $row, WorkDTO $work ): bool {
+		$due = $this->deadlines->deadlineForRow( $row, $work );
+
+		return null !== $due && $due < $this->clock->now();
+	}
+
 	public function workAttemptsUsed( int $studentPersonId, int $groupLessonId, int $workId ): int {
 		$groupLessonId = $this->progressKey( $groupLessonId );
 

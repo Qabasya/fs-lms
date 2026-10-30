@@ -115,7 +115,20 @@
      виджеты умеют lock() до конца (перетаскивание, аудио) — страхует pointer-events. */
   &.is-locked .fs-task-widget {
     pointer-events: none;
-    opacity: 0.75;
+  }
+
+  // Засчитано: над закрытым полем — «Ваш ответ:», само поле на зелёном фоне.
+  .fs-locked-answer-label {
+    margin-bottom: rem(6);
+    font: 600 rem(12) var(--font);
+    color: var(--ok-text);
+  }
+
+  &.is-locked .fs-widget-text.lock,
+  &.is-locked .fs-widget-fill-gap:disabled {
+    background: var(--ok-soft);
+    border-color: var(--ok-line);
+    color: var(--ink);
   }
 
   .th {
@@ -250,6 +263,9 @@
   }
 
   .rstats { display: flex; gap: rem(26); }
+
+  // Кнопка пересдачи — справа от баллов, в той же строке.
+  .b { flex-shrink: 0; white-space: nowrap; }
 
   .rs {
     text-align: right;

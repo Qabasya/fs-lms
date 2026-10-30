@@ -337,6 +337,8 @@ class LessonPlayerService {
 			// о предпоследней и последней попытке и прячет «Пройти заново».
 			'attempts_used'   => $attemptsUsed,
 			'max_attempts'    => $work->maxAttempts,
+			// Срок сдачи вышел: пересдача (кнопка «Исправить и сдать заново») закрыта.
+			'past_due'        => $this->submissionService->isPastDue( $groupLesson, $work ),
 			// Решение вопросов опроса: после верного ответа или исчерпания попыток (иначе пусто).
 			// Преподавателю решения приходят в самих заданиях — для него здесь пусто.
 			'solutions'       => $isTeacher ? array() : $this->solutionReveal->forStudent( $work, $current['submission']['verdicts'] ?? array(), $attemptsUsed ),

@@ -196,6 +196,69 @@ $visibility = $this->createStub( \Inc\Services\Course\LessonVisibilityService::c
 		self::assertSame( array(), $d['deadlines'] );
 	}
 
+	/** Сдача с агрегатом вердиктов (`task_id => {verdict}`) и числом израсходованных попыток. */
+	private function submittedWithVerdicts( int $workId, array $verdicts, int $attempts = 1 ): \Inc\DTO\Course\SubmissionDTO {
+		return new \Inc\DTO\Course\SubmissionDTO(
+			id: 1, studentPersonId: 9001, groupLessonId: 10, workId: $workId,
+			workType: \Inc\Enums\Course\WorkType::Homework, taskId: null, answerText: (string) wp_json_encode( $verdicts ),
+			attachmentId: null, dueAt: null, status: \Inc\Enums\Course\SubmissionStatus::Graded,
+			score: null, maxScore: null, feedback: null, gradedByUserId: null,
+			submittedAt: '2026-05-12 10:00:00', gradedAt: null, createdAt: '', updatedAt: '', attemptCount: $attempts,
+		);
+	}
+
+	/** @return array<string, mixed>[] Дедлайны ученика с одной сданной домашней работой на двух заданиях */
+	private function deadlinesForSubmittedHomework( array $verdicts, string $due = '2026-05-25 12:00:00', int $maxAttempts = 0, int $attempts = 1 ): array {
+		$this->records->method( 'findActiveByStudent' )->willReturn( array( (object) array( 'groupId' => 1 ) ) );
+		$this->groups->method( 'findById' )->willReturn( (object) array( 'id' => 1, 'name' => 'Г1', 'subject_key' => 'inf' ) );
+		$this->groupLessons->method( 'listByGroup' )->willReturn( array( $this->row( 10, '2026-05-10 09:00:00', $due ) ) );
+		$this->lessons->method( 'get' )->willReturn( null );
+		$this->gradebook->method( 'forStudent' )->willReturn( array() );
+		$this->attendance->method( 'listByStudent' )->willReturn( array() );
+		$work = new \Inc\DTO\Course\WorkDTO(
+			id: 501, subjectKey: 'inf', title: 'ДЗ №1', workType: \Inc\Enums\Course\WorkType::Homework,
+			itemIds: array( 101, 102 ), instructions: '', authorId: 1, status: 'publish', maxAttempts: $maxAttempts,
+		);
+		$this->worksResolver->method( 'resolve' )->willReturn( array( $work ) );
+		$this->submissions->method( 'listByStudentAndGroupLesson' )->willReturn( array( $this->submittedWithVerdicts( 501, $verdicts, $attempts ) ) );
+
+		return $this->service->build( 9001 )->toArray()['deadlines'];
+	}
+
+	/** Сданная, но не полностью верная работа остаётся в дедлайнах: «Осталось: N из M». */
+	public function test_partly_wrong_submitted_homework_stays_in_deadlines_with_remaining_count(): void {
+		$deadlines = $this->deadlinesForSubmittedHomework( array( 101 => array( 'verdict' => 'correct' ), 102 => array( 'verdict' => 'incorrect' ) ) );
+
+		self::assertCount( 1, $deadlines );
+		self::assertSame( 1, $deadlines[0]['remaining'] );
+		self::assertSame( 2, $deadlines[0]['total'] );
+		self::assertSame( 102, $deadlines[0]['first_task_id'] );
+	}
+
+	public function test_task_without_verdict_counts_as_unsolved(): void {
+		$deadlines = $this->deadlinesForSubmittedHomework( array( 101 => array( 'verdict' => 'correct' ) ) );
+
+		self::assertSame( 1, $deadlines[0]['remaining'] );
+		self::assertSame( 102, $deadlines[0]['first_task_id'] );
+	}
+
+	public function test_fully_correct_submitted_homework_leaves_deadlines(): void {
+		self::assertSame( array(), $this->deadlinesForSubmittedHomework( array( 101 => array( 'verdict' => 'correct' ), 102 => array( 'verdict' => 'correct' ) ) ) );
+	}
+
+	/** Срок вышел или попытки закончились — работу из дедлайнов убираем. */
+	public function test_submitted_homework_leaves_deadlines_when_past_due_or_attempts_are_over(): void {
+		$wrong = array( 101 => array( 'verdict' => 'incorrect' ), 102 => array( 'verdict' => 'incorrect' ) );
+
+		self::assertSame( array(), $this->deadlinesForSubmittedHomework( $wrong, '2026-05-10 12:00:00' ) );
+	}
+
+	public function test_submitted_homework_leaves_deadlines_when_attempts_are_exhausted(): void {
+		$wrong = array( 101 => array( 'verdict' => 'incorrect' ), 102 => array( 'verdict' => 'incorrect' ) );
+
+		self::assertSame( array(), $this->deadlinesForSubmittedHomework( $wrong, '2026-05-25 12:00:00', 2, 2 ) );
+	}
+
 	public function test_build_lists_missed_homework_due_at_next_lesson(): void {
 		$this->records->method( 'findActiveByStudent' )->willReturn( array(
 			(object) array( 'groupId' => 1 ),

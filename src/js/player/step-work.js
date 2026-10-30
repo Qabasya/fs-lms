@@ -18,6 +18,7 @@
  * черновиком, поэтому перезагрузка страницы отсчёт не сбрасывает. На сервер
  * уходят секунды ДО сдачи — сервер откладывает их от своих часов.
  */
+import { retryAvailable } from './work-retry.js';
 import { initTaskWidget } from '../frontend/components/task-widget.js';
 import { getCore, onPanelShow, isPreview, isTeacherMode } from './core.js';
 import { esc, ICO } from './icons.js';
@@ -281,7 +282,8 @@ function mountWork( panel, root ) {
 		const chip = card.querySelector( '[data-task-chip]' );
 		if ( ! chip ) { return; }
 		if ( card.classList.contains( 'is-locked' ) ) {
-			chip.className = 'stc stc-saved';
+			// «Засчитано» — зелёный: задание принято и правке закрыто.
+			chip.className = 'stc stc-ok';
 			chip.innerHTML = `${ ICO.check( 11 ) }<span>Засчитано</span>`;
 			return;
 		}
@@ -458,6 +460,15 @@ function mountWork( panel, root ) {
 		const manualCount = countVerdicts( verdicts, 'pending' );
 		const autoTotal   = Object.keys( verdicts ).length - manualCount;
 
+		// «Исправить и сдать заново» — вверху, справа от баллов: пока есть что исправлять, остались попытки и срок не вышел.
+		const canRetry = retryAvailable( {
+			left:      attemptsLeft(),
+			allLocked: allLocked(),
+			pastDue:   !! state.past_due,
+			verdicts,
+			taskIds:   cards.map( ( card ) => card.dataset.taskId ),
+		} );
+
 		let h = '<div class="res">' +
 			`<span class="ri">${ ICO.check( 22 ) }</span>` +
 			'<span class="rt"><b>Работа завершена</b>' +
@@ -466,7 +477,9 @@ function mountWork( panel, root ) {
 			'<span class="rstats">' +
 				`<span class="rs"><b>${ sub?.score ?? 0 } / ${ sub?.max_score ?? 0 }</b><span>баллов</span></span>` +
 				( manualCount ? `<span class="rs"><b>до ${ manualCount }</b><span>за ручную проверку</span></span>` : '' ) +
-			'</span></div>';
+			'</span>' +
+			( canRetry ? '<button type="button" class="b" data-work-retry>Исправить и сдать заново</button>' : '' ) +
+			'</div>';
 
 		h += '<div class="wstack">';
 		cards.forEach( ( card, i ) => {
@@ -477,15 +490,9 @@ function mountWork( panel, root ) {
 		} );
 		h += '</div>';
 
-		// Пересдача — только пока остались попытки и есть что исправлять; когда
-		// лимит исчерпан, вместо кнопки объясняем почему (иначе клик молча падал
-		// бы на серверной проверке).
-		const left     = attemptsLeft();
-		const canRetry = left > 0 && ! allLocked();
+		// Подпись под результатами: сколько попыток осталось или почему кнопки нет (иначе клик молча падал бы на сервере).
+		const left = attemptsLeft();
 		h += '<div class="work-resfoot">' +
-			( canRetry
-				? '<button type="button" class="b" data-work-retry>Исправить и сдать заново</button>'
-				: '' ) +
 			( Infinity !== left
 				? `<span class="work-attempts-note">${ esc( left > 0
 					? `Осталось попыток: ${ left } из ${ state.max_attempts }`
@@ -558,6 +565,17 @@ function mountWork( panel, root ) {
 			'</div>';
 	}
 
+	/** Засчитанное задание: над закрытым полем ответа — подпись «Ваш ответ:» (поле на зелёном фоне, см. стили). */
+	function markLockedAnswer( card ) {
+		const container = card.querySelector( '.fs-task-widget' );
+		if ( ! container || card.querySelector( '.fs-locked-answer-label' ) ) { return; }
+
+		const label       = document.createElement( 'div' );
+		label.className   = 'fs-locked-answer-label';
+		label.textContent = 'Ваш ответ:';
+		container.before( label );
+	}
+
 	// ── «Исправить и сдать заново» (.docs/Tasks.md, п. 1) ─────────────────
 	// Ответы прошлой сдачи остаются в полях; засчитанные задания (верные и
 	// оценённые преподавателем) закрыты — сервер их всё равно не перепроверит.
@@ -592,6 +610,7 @@ function mountWork( panel, root ) {
 			card.classList.toggle( 'is-locked', locked.has( taskId ) );
 			if ( locked.has( taskId ) ) {
 				widget.lock();
+				markLockedAnswer( card );
 				updateChip( card, widget );
 				return;
 			}
@@ -617,6 +636,23 @@ function mountWork( panel, root ) {
 
 	// Уже сдана (перезагрузка) — сразу результаты; иначе ученик на форме — идёт отсчёт.
 	if ( state.submission ) { renderResults(); } else { startTiming( false ); }
+
+	// Переход с плитки дедлайна (`?task=ID`): работа открывается на первом нерешённом задании — при возможности сразу в режиме
+	// исправления, с прокруткой и фокусом на нём.
+	focusRequestedTask();
+
+	function focusRequestedTask() {
+		const taskId = new URLSearchParams( window.location.search ).get( 'task' );
+		if ( ! taskId ) { return; }
+
+		if ( state.submission && root.querySelector( '[data-work-retry]' ) ) { retry(); }
+
+		const card = cards.find( ( c ) => c.dataset.taskId === taskId );
+		if ( ! card || card.hidden ) { return; }
+
+		card.scrollIntoView( { block: 'start', behavior: 'smooth' } );
+		card.querySelector( 'textarea, input:not([type="hidden"]), button, [tabindex]' )?.focus( { preventScroll: true } );
+	}
 }
 
 /* ── Вспомогательные ──────────────────────────────────────────────────── */
