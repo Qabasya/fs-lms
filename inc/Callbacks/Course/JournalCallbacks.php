@@ -72,7 +72,11 @@ class JournalCallbacks extends BaseController {
 		}
 		$this->guardNotFuture( $row );
 
-		$this->attendance->mark( $groupLessonId, $personId, $present, $userId );
+		try {
+			$this->attendance->mark( $groupLessonId, $personId, $present, $userId );
+		} catch ( \InvalidArgumentException $e ) {
+			$this->error( $e->getMessage() );
+		}
 		$this->success();
 	}
 
@@ -91,7 +95,11 @@ class JournalCallbacks extends BaseController {
 		}
 		$this->guardNotFuture( $row );
 
-		$this->attendance->clear( $groupLessonId, $personId );
+		try {
+			$this->attendance->clear( $groupLessonId, $personId );
+		} catch ( \InvalidArgumentException $e ) {
+			$this->error( $e->getMessage() );
+		}
 		$this->success();
 	}
 

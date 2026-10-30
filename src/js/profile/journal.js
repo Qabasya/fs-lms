@@ -255,6 +255,7 @@ function lessonHead(l, i) {
     return `<th class="hd-col${future ? ' future' : ''}" data-glid="${l.group_lesson_id}" title="${esc(l.topic)}${esc(contTag)} · ${l.date}${roomTip}${future ? ' · ещё не прошло' : ''}">
         <div class="hd-date">${dd}.${m}</div>
         ${l.is_continuation ? '<div class="hd-cont">прод.</div>' : ''}
+        ${l.extra_students ? '<div class="hd-cont">доп.</div>' : ''}
     </th>`;
 }
 
@@ -280,6 +281,10 @@ function worksFor(glid, pid) {
 
 function attCell(pid, l, r, c) {
     const glid = l.group_lesson_id;
+    // Дополнительное занятие для части группы: ученик не участвует — ячейка пустая и не отмечается.
+    if (l.extra_students && !l.extra_students.includes(pid)) {
+        return `<td class="gc na" data-glid="${glid}" data-pid="${pid}" data-r="${r}" data-c="${c}" tabindex="-1"></td>`;
+    }
     const open = !!state.data.open;
     // Эпик 15 (продолжение): открытая группа — учитель посещаемость не отмечает
     // (класс att не ставится, клики-попапы не работают), но «+» показывается

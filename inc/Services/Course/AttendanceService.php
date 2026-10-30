@@ -29,11 +29,21 @@ class AttendanceService {
 		private readonly NotificationService     $notifications,
 	) {}
 
-	/** Отметка одного ученика на занятии. */
+	/**
+	 * Отметка одного ученика на занятии. Дополнительное занятие для части группы адресуется ключом единицы
+	 * ({@see ExtraLessonUnits}), а отметка пишется под строку самого ученика.
+	 *
+	 * @throws \InvalidArgumentException Ученик не участвует в дополнительном занятии
+	 */
 	public function mark( int $groupLessonId, int $studentPersonId, bool $present, int $actorUserId ): void {
+		$lesson = $this->groupLessons->find( $groupLessonId );
+		if ( null !== $lesson ) {
+			$lesson = $this->ownRow( $lesson, $studentPersonId );
+			$groupLessonId = $lesson->id;
+		}
+
 		$this->attendance->upsert( $groupLessonId, $studentPersonId, $present, $actorUserId );
 
-		$lesson = $this->groupLessons->find( $groupLessonId );
 		if ( null === $lesson ) {
 			return;
 		}
@@ -51,6 +61,11 @@ class AttendanceService {
 	 * занятие» по ней отзывается — отметки больше нет.
 	 */
 	public function clear( int $groupLessonId, int $studentPersonId ): void {
+		$lesson = $this->groupLessons->find( $groupLessonId );
+		if ( null !== $lesson ) {
+			$groupLessonId = $this->ownRow( $lesson, $studentPersonId )->id;
+		}
+
 		$this->attendance->delete( $groupLessonId, $studentPersonId );
 		$this->retractMissed( $groupLessonId, $studentPersonId );
 	}
@@ -61,6 +76,19 @@ class AttendanceService {
 	public function markAll( int $groupLessonId, bool $present, int $actorUserId ): void {
 		$row = $this->groupLessons->find( $groupLessonId );
 		if ( ! $row ) {
+			return;
+		}
+		if ( $this->isExtra( $row ) ) {
+			// Дополнительное занятие: отмечаются только его ученики, каждый — на своей строке.
+			foreach ( $this->extraUnit( $row ) as $member ) {
+				$this->attendance->upsert( $member->id, (int) $member->studentPersonId, $present, $actorUserId );
+				$this->notifyAttendance(
+					$member,
+					(int) $member->studentPersonId,
+					$this->notifications->studentSnapshotName( (int) $member->studentPersonId, $member->groupId ),
+					$present
+				);
+			}
 			return;
 		}
 		foreach ( $this->records->findActiveByGroupId( $row->groupId ) as $rec ) {
@@ -240,10 +268,46 @@ class AttendanceService {
 	 * @return array<int, array<int, bool>> groupLessonId => [studentPersonId => isPresent]
 	 */
 	public function matrixForGroup( int $groupId ): array {
+		// Отметки дополнительных занятий лежат под строкой ученика; журнал адресует их ключом единицы.
+		$unitKeys = ExtraLessonUnits::keyMap( $this->groupLessons->listByGroup( $groupId ) );
+
 		$matrix = array();
 		foreach ( $this->attendance->listByGroup( $groupId ) as $a ) {
-			$matrix[ $a->groupLessonId ][ $a->studentPersonId ] = $a->isPresent;
+			$matrix[ $unitKeys[ $a->groupLessonId ] ?? $a->groupLessonId ][ $a->studentPersonId ] = $a->isPresent;
 		}
 		return $matrix;
+	}
+
+	/** Дополнительное занятие для части группы (строка на ученика с общим ключом и временем). */
+	private function isExtra( GroupLessonDTO $row ): bool {
+		return $row->kind->isIndividual() && null !== $row->extraKey && null !== $row->scheduledAt && null !== $row->studentPersonId;
+	}
+
+	/**
+	 * Строки одного дополнительного занятия: общий ключ и то же время.
+	 *
+	 * @return non-empty-list<GroupLessonDTO>
+	 */
+	private function extraUnit( GroupLessonDTO $row ): array {
+		$unit = ExtraLessonUnits::group( array_filter(
+			$this->groupLessons->listExtraSiblings( $row ),
+			static fn( GroupLessonDTO $sibling ): bool => $sibling->scheduledAt === $row->scheduledAt
+		) );
+
+		return $unit[0] ?? array( $row );
+	}
+
+	/**
+	 * Строка, под которой хранится отметка ученика: у обычного занятия — оно само, у дополнительного — строка ученика.
+	 *
+	 * @throws \InvalidArgumentException Ученик не участвует в дополнительном занятии
+	 */
+	private function ownRow( GroupLessonDTO $lesson, int $studentPersonId ): GroupLessonDTO {
+		if ( ! $this->isExtra( $lesson ) ) {
+			return $lesson;
+		}
+
+		return ExtraLessonUnits::rowOf( $this->extraUnit( $lesson ), $studentPersonId )
+			?? throw new \InvalidArgumentException( 'Ученик не участвует в этом дополнительном занятии.' );
 	}
 }

@@ -4,6 +4,7 @@ declare( strict_types=1 );
 
 namespace Unit\Services\Course;
 
+use Inc\DTO\Course\AttendanceDTO;
 use Inc\DTO\Course\GroupLessonDTO;
 use Inc\DTO\Enrollment\StudentRecordDTO;
 use Inc\Enums\Profile\NotificationType;
@@ -258,5 +259,82 @@ class AttendanceServiceTest extends TestCase {
 		$this->attendance->method( 'insertPresentIfMissing' )->willReturn( false );
 
 		self::assertSame( 0, $this->service->autoMarkIndividualGroups( '2026-05-02 12:00:00' ) );
+	}
+
+	// ── Дополнительное занятие для части группы: отметка ложится под строку самого ученика ──────────
+
+	/** @return GroupLessonDTO[] строки доп. занятия: 59 — ученик 9008, 60 — ученик 9003 (ключ занятия — 60) */
+	private function extraUnit(): array {
+		$base = array( 'group_id' => 5, 'kind' => 'individual', 'extra_key' => 'k1', 'scheduled_at' => '2026-05-01 10:00:00' );
+		return array(
+			$this->lesson( $base + array( 'id' => 59, 'student_person_id' => 9008 ) ),
+			$this->lesson( $base + array( 'id' => 60, 'student_person_id' => 9003 ) ),
+		);
+	}
+
+	public function test_mark_on_extra_lesson_is_saved_under_the_students_own_row(): void {
+		$unit = $this->extraUnit();
+		$this->groupLessons->method( 'find' )->with( 60 )->willReturn( $unit[1] );
+		$this->groupLessons->method( 'listExtraSiblings' )->willReturn( $unit );
+		$this->groupLessons->method( 'listByGroup' )->willReturn( $unit );
+		$this->attendance->method( 'listByGroup' )->willReturn( array() );
+
+		$this->attendance->expects( self::once() )->method( 'upsert' )->with( 59, 9008, true, 3 );
+
+		$this->service->mark( 60, 9008, true, 3 );
+	}
+
+	public function test_mark_of_student_outside_extra_lesson_is_rejected(): void {
+		$unit = $this->extraUnit();
+		$this->groupLessons->method( 'find' )->willReturn( $unit[1] );
+		$this->groupLessons->method( 'listExtraSiblings' )->willReturn( $unit );
+		$this->attendance->expects( self::never() )->method( 'upsert' );
+
+		$this->expectException( \InvalidArgumentException::class );
+		$this->service->mark( 60, 7777, true, 3 );
+	}
+
+	public function test_clear_on_extra_lesson_removes_the_mark_from_own_row(): void {
+		$unit = $this->extraUnit();
+		$this->groupLessons->method( 'find' )->willReturn( $unit[1] );
+		$this->groupLessons->method( 'listExtraSiblings' )->willReturn( $unit );
+		$this->attendance->expects( self::once() )->method( 'delete' )->with( 59, 9008 );
+
+		$this->service->clear( 60, 9008 );
+	}
+
+	public function test_mark_all_on_extra_lesson_marks_only_its_students_on_their_rows(): void {
+		$unit = $this->extraUnit();
+		$this->groupLessons->method( 'find' )->willReturn( $unit[1] );
+		$this->groupLessons->method( 'listExtraSiblings' )->willReturn( $unit );
+		$this->groupLessons->method( 'listByGroup' )->willReturn( $unit );
+		$this->attendance->method( 'listByGroup' )->willReturn( array() );
+		$this->records->expects( self::never() )->method( 'findActiveByGroupId' );
+
+		$calls = array();
+		$this->attendance->method( 'upsert' )->willReturnCallback(
+			function ( int $glid, int $pid, bool $present ) use ( &$calls ): void {
+				$calls[] = array( $glid, $pid, $present );
+			}
+		);
+
+		$this->service->markAll( 60, true, 3 );
+
+		self::assertEqualsCanonicalizing( array( array( 59, 9008, true ), array( 60, 9003, true ) ), $calls );
+	}
+
+	public function test_matrix_moves_extra_marks_to_the_unit_key(): void {
+		$unit = $this->extraUnit();
+		$this->groupLessons->method( 'listByGroup' )->willReturn( array_merge( array( $this->lesson( array( 'id' => 100 ) ) ), $unit ) );
+		$this->attendance->method( 'listByGroup' )->willReturn( array(
+			$this->mark( 100, true ),
+			AttendanceDTO::fromArray( array( 'id' => 8, 'group_lesson_id' => 59, 'student_person_id' => 9008, 'is_present' => 1, 'marked_by' => 3, 'marked_at' => '2026-05-01 11:00:00' ) ),
+			AttendanceDTO::fromArray( array( 'id' => 9, 'group_lesson_id' => 60, 'student_person_id' => 9003, 'is_present' => 0, 'marked_by' => 3, 'marked_at' => '2026-05-01 11:00:00' ) ),
+		) );
+
+		self::assertSame(
+			array( 100 => array( 10 => true ), 60 => array( 9008 => true, 9003 => false ) ),
+			$this->service->matrixForGroup( 5 )
+		);
 	}
 }

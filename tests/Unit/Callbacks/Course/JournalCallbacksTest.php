@@ -69,6 +69,16 @@ class JournalCallbacksTest extends TestCase {
 		self::assertFalse( fs_test_capture_json( fn() => $this->cb->ajaxSaveAttendance() )->success );
 	}
 
+	/** Ученик не из дополнительного занятия: сервис отказывает, ответ — ошибка, а не 500. */
+	public function test_save_attendance_reports_student_outside_extra_lesson(): void {
+		$this->groupLessons->method( 'find' )->willReturn( $this->row( 10, 5 ) );
+		$this->guard->method( 'canWriteJournal' )->willReturn( true );
+		$this->attendance->method( 'mark' )->willThrowException( new \InvalidArgumentException( 'Ученик не участвует в этом дополнительном занятии.' ) );
+		$_POST = array( 'group_lesson_id' => '10', 'student_person_id' => '900', 'is_present' => '1' );
+
+		self::assertFalse( fs_test_capture_json( fn() => $this->cb->ajaxSaveAttendance() )->success );
+	}
+
 	public function test_save_attendance_blocked_for_future_lesson(): void {
 		$future = new GroupLessonDTO(
 			id: 10, groupId: 5, lessonId: 1, position: 0, workIdsSnapshot: null, extraWorkIds: array(),

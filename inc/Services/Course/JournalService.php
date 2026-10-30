@@ -4,6 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Course;
 
+use Inc\DTO\Course\GroupLessonDTO;
 use Inc\Enums\Course\AccessMode;
 use Inc\Managers\Course\LessonManager;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
@@ -95,6 +96,12 @@ class JournalService {
 			);
 		}
 
+		// Дополнительные занятия для части группы — по столбцу на занятие (ключ — строка с наибольшим ID);
+		// «extra_students» — кто в нём участвует, остальные ячейки столбца не отмечаются.
+		if ( ! $isOpen ) {
+			$lessons = $this->withExtraColumns( $lessons, $this->groupLessons->listByGroup( $groupId ), $groupRoomId, $roomNames );
+		}
+
 		// Посещаемость (+/−). В открытой группе учителя нет — вручную никто не отмечает,
 		// «+» синтезируется из фактического прохождения ВСЕХ шагов урока (D-C продолжение).
 		$attendance = $isOpen
@@ -132,6 +139,42 @@ class JournalService {
 			'types'      => $types,
 			'open'       => $isOpen,
 		);
+	}
+
+	/**
+	 * Вставляет столбцы дополнительных занятий среди датированных столбцов по дате.
+	 *
+	 * @param array<int, array<string, mixed>> $lessons     Столбцы журнала
+	 * @param GroupLessonDTO[]                 $rows        Строки группы
+	 * @param array<int, string>               $roomNames   id кабинета → название
+	 *
+	 * @return array<int, array<string, mixed>>
+	 */
+	private function withExtraColumns( array $lessons, array $rows, int $groupRoomId, array $roomNames ): array {
+		foreach ( ExtraLessonUnits::group( $rows ) as $unit ) {
+			$head      = $unit[0];
+			$lesson    = $head->lessonId ? $this->lessons->get( $head->lessonId ) : null;
+			$effRoomId = ! empty( $head->roomId ) ? (int) $head->roomId : $groupRoomId;
+			$column    = array(
+				'group_lesson_id' => ExtraLessonUnits::key( $unit ),
+				'date'            => substr( (string) $head->scheduledAt, 0, 10 ),
+				'topic'           => $lesson?->topic ?? ( $head->label ?? '' ),
+				'room'            => ( $effRoomId && isset( $roomNames[ $effRoomId ] ) ) ? $roomNames[ $effRoomId ] : '',
+				'is_continuation' => false,
+				'extra_students'  => array_map( static fn( GroupLessonDTO $member ): int => (int) $member->studentPersonId, $unit ),
+			);
+
+			$at = count( $lessons );
+			foreach ( $lessons as $i => $existing ) {
+				if ( '' !== $existing['date'] && $existing['date'] > $column['date'] ) {
+					$at = $i;
+					break;
+				}
+			}
+			array_splice( $lessons, $at, 0, array( $column ) );
+		}
+
+		return $lessons;
 	}
 
 	/**

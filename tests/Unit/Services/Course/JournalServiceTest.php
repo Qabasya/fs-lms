@@ -143,6 +143,46 @@ class JournalServiceTest extends TestCase {
 		self::assertSame( '2026-09-10', $result['lessons'][0]['date'] );
 	}
 
+	private function extraRow( int $id, int $personId, string $at = '2026-10-22 15:00:00' ): GroupLessonDTO {
+		return GroupLessonDTO::fromArray( array(
+			'id' => $id, 'group_id' => 5, 'lesson_id' => null, 'position' => 0, 'kind' => 'individual', 'status' => 'scheduled',
+			'visibility' => 'open', 'scheduled_at' => $at, 'student_person_id' => $personId, 'extra_key' => 'k1', 'label' => 'Доп. занятие',
+		) );
+	}
+
+	/** Дополнительное занятие для части группы — один столбец журнала (ключ — строка с наибольшим ID), а не столбец на каждого. */
+	public function test_extra_lesson_is_one_journal_column_with_its_students(): void {
+		$this->groups->method( 'findById' )->willReturn( (object) array( 'access_mode' => 'scheduled' ) );
+		$this->records->method( 'findActiveByGroupId' )->willReturn( array( $this->studentRecord( 1 ), $this->studentRecord( 2 ), $this->studentRecord( 3 ) ) );
+		$this->groupLessons->method( 'listByGroup' )->willReturn( array(
+			$this->glRow( 10, 20, '2026-10-20 10:00:00' ),
+			$this->extraRow( 59, 1 ),
+			$this->extraRow( 60, 2 ),
+			$this->glRow( 11, 21, '2026-10-24 10:00:00' ),
+		) );
+		$this->attendance->method( 'matrixForGroup' )->willReturn( array( 60 => array( 1 => true ) ) );
+
+		$result = $this->service->forGroup( 5 );
+
+		self::assertSame( array( 10, 60, 11 ), array_column( $result['lessons'], 'group_lesson_id' ) );
+		$extra = $result['lessons'][1];
+		self::assertSame( '2026-10-22', $extra['date'] );
+		self::assertSame( 'Доп. занятие', $extra['topic'] );
+		self::assertEqualsCanonicalizing( array( 1, 2 ), $extra['extra_students'] );
+		self::assertArrayNotHasKey( 'extra_students', $result['lessons'][0] );
+	}
+
+	public function test_regular_individual_lesson_without_extra_key_still_has_no_column(): void {
+		$this->groups->method( 'findById' )->willReturn( (object) array( 'access_mode' => 'scheduled' ) );
+		$this->records->method( 'findActiveByGroupId' )->willReturn( array( $this->studentRecord( 1 ) ) );
+		$this->groupLessons->method( 'listByGroup' )->willReturn( array(
+			GroupLessonDTO::fromArray( array( 'id' => 70, 'group_id' => 5, 'kind' => 'individual', 'student_person_id' => 1, 'scheduled_at' => '2026-10-22 15:00:00', 'visibility' => 'open', 'status' => 'scheduled', 'position' => 0 ) ),
+		) );
+		$this->attendance->method( 'matrixForGroup' )->willReturn( array() );
+
+		self::assertSame( array(), $this->service->forGroup( 5 )['lessons'] );
+	}
+
 	private function glRow( int $id, int $lessonId, ?string $scheduledAt = null, bool $isPinned = false, bool $hasAttendance = false ): GroupLessonDTO {
 		return new GroupLessonDTO(
 			id: $id, groupId: 5, lessonId: $lessonId, position: 0, workIdsSnapshot: null, extraWorkIds: array(),
