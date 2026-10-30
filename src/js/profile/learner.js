@@ -4,10 +4,10 @@
    отдаёт всё; родитель переключает ребёнка (fsProfile.children). Read-only.
    ══════════════════════════════════════════════════════════════════════ */
 
-import { homeTileModels, addableTiles, addTile, removeTile, MAX_TILES } from './learner-home-tiles.js';
+import { homeTileModels, addableTiles, addTile, removeTile, shiftItem, MAX_TILES } from './learner-home-tiles.js';
 import { esc, toast, openCtxMenu, fmtDayMonth, fmtDate, emptyState, chipBg, chipHtml, chipText, chipSoft, scheduleTone, shortName, todayIso, roomLabel } from './utils.js';
 import { toggleVisible, applyProgress } from '../common/utils.js';
-import { icoCalendar, icoCheck, icoAlert, icoSearch, icoChevronRight, icoChevronDown, icoClock, icoStar, icoHome, icoLock, icoMinus, icoPlus } from '../common/icons.js';
+import { icoCalendar, icoCheck, icoAlert, icoSearch, icoChevronRight, icoChevronDown, icoClock, icoStar, icoHome, icoLock, icoMinus, icoPlus, icoArrowUp, icoArrowDown } from '../common/icons.js';
 import { createApi } from './api.js';
 import { workCardHtml, workChipHtml, workStatusText } from './work-card.js';
 import { learnerLayout, learnerFlat } from './program-window.js';
@@ -100,6 +100,11 @@ function saveLayout() {
     api('saveHomeLayout', { layout: JSON.stringify(homeLayout) }).catch(e => toast(e.message || 'Не удалось сохранить раскладку', 'error'));
 }
 
+/** Стрелки «выше / ниже» — перестановка там, где перетаскивание неудобно (телефон, тач); на мыши их скрывают стили. */
+function arrowsHtml() {
+    return `<span class="prof-home-arrows"><button type="button" data-home-shift="-1" aria-label="Выше">${icoArrowUp(14)}</button><button type="button" data-home-shift="1" aria-label="Ниже">${icoArrowDown(14)}</button></span>`;
+}
+
 /** Секция плиток: в режиме кастомизации — «−» на плитках и пунктирная «+» на свободном месте (до шести). */
 function tilesSectionHtml(d, layout, who) {
     const tiles = homeTileModels(d, who, layout);
@@ -107,12 +112,12 @@ function tilesSectionHtml(d, layout, who) {
     const items = tiles.map(t => homeTile(t.label, t.value, t.color, t.ico, homeEdit ? '' : (t.href || ''), { ...t, removable: homeEdit })).join('');
     const room = homeEdit && tiles.length < MAX_TILES && addableTiles(d, who, ids).length;
     const add = room ? `<button type="button" class="prof-stat-tile prof-stat-tile--add" data-home-add aria-label="Добавить плитку">${icoPlus(26)}</button>` : '';
-    return `<div class="prof-stat-tiles prof-stat-tiles--learner" data-home-section="tiles">${items}${add}</div>`;
+    return `<div class="prof-stat-tiles prof-stat-tiles--learner" data-home-section="tiles">${homeEdit ? arrowsHtml() : ''}${items}${add}</div>`;
 }
 
 function deadlinesSectionHtml(d) {
     return `<div class="prof-card" data-home-section="deadlines">
-        <div class="prof-card-head"><h3>Дедлайны и оценки</h3></div>
+        <div class="prof-card-head"><h3>Дедлайны и оценки</h3>${homeEdit ? arrowsHtml() : ''}</div>
         <div>
             ${d.deadlines.map(dlRow).join('')}
             ${d.recent.map(gradeRow).join('')}
@@ -163,7 +168,8 @@ function renderHome(root, d) {
  * @param {{grid?: boolean}}             [opts]
  */
 function wireSortable(container, selector, onDrop, { grid = false } = {}) {
-    if (!container) { return; }
+    // На тач-экранах перетаскивание не включаем: оно спорит с прокруткой — там работают стрелки «выше / ниже».
+    if (!container || window.matchMedia('(pointer: coarse)').matches) { return; }
     const items = () => [...container.querySelectorAll(`:scope > ${selector}`)];
     let dragged = null;
 
@@ -225,6 +231,19 @@ function wireHomeEdit(root, d, who, layout) {
     const redraw = () => renderHome(root, d);
     const effectiveTiles = () => layout.tiles ?? homeTileModels(d, who, layout).map(t => t.id);
     const commit = (change) => { Object.assign(layout, change); saveLayout(); redraw(); };
+
+    // У карточки расписания стрелки вставляются в шапку (разметка карточки общая с кабинетом преподавателя).
+    root.querySelector('.prof-sched-card .prof-card-head')?.insertAdjacentHTML('beforeend', arrowsHtml());
+    root.querySelectorAll('[data-home-shift]').forEach(btn => btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const delta = Number(btn.dataset.homeShift);
+        const tile = btn.closest('[data-tile-id]');
+        if (tile) {
+            commit({ tiles: shiftItem(effectiveTiles(), tile.dataset.tileId, delta) });
+        } else {
+            commit({ sections: shiftItem(layout.sections, btn.closest('[data-home-section]').dataset.homeSection, delta) });
+        }
+    }));
 
     // Секции целиком; плитки — внутри своей секции (порядок плиток сохраняется как явный набор).
     wireSortable(root.querySelector('.prof-dash-grid2'), '[data-home-section]', (order) => {
@@ -778,7 +797,7 @@ function attRow(r) {
 }
 
 function homeTile(label, val, color, ico, href = '', opts = {}) {
-    const remove = opts.removable ? `<button type="button" class="prof-home-minus" data-home-remove="${esc(opts.id)}" aria-label="Убрать плитку">${icoMinus(14)}</button>` : '';
+    const remove = opts.removable ? `<button type="button" class="prof-home-minus" data-home-remove="${esc(opts.id)}" aria-label="Убрать плитку">${icoMinus(14)}</button>${arrowsHtml()}` : '';
     const icons = { cal: icoCalendar, check: icoCheck, alert: icoAlert };
     const tag = href ? 'a' : 'div';
     const link = href ? ` href="${esc(href)}"` : '';

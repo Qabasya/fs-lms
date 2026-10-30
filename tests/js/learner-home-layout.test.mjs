@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import {
-    addTile, addableTiles, defaultTileIds, homeTileModels, moveSection, removeTile, MAX_TILES,
+    addTile, addableTiles, defaultTileIds, homeTileModels, moveSection, removeTile, shiftItem, tileCatalog, MAX_TILES,
 } from '../../src/js/profile/learner-home-tiles.js';
 
 const deadlines = [ { player_url: '/lesson/1', due_at: '2027-05-02 10:00:00' } ];
@@ -12,13 +12,14 @@ const pilot = { ...base, highlights: { streak: 4, to_fix: 2, last_result: { valu
 const ids = ( tiles ) => tiles.map( ( t ) => t.id );
 
 test( 'у плиток есть стабильные id: дедлайны, экзамен по предмету, посещаемость, пилотные', () => {
-	assert.deepEqual( ids( homeTileModels( pilot, { parent: false } ) ), [ 'deadlines', 'exam:inf_ege', 'exam:rus_ege', 'streak', 'to_fix', 'last_result' ] );
+	assert.deepEqual( ids( tileCatalog( pilot, { parent: false } ) ), [ 'deadlines', 'exam:inf_ege', 'exam:rus_ege', 'attendance', 'streak', 'to_fix', 'last_result' ] );
 	assert.deepEqual( ids( homeTileModels( base, { parent: true } ) ), [ 'deadlines', 'attendance' ] );
 	assert.deepEqual( ids( homeTileModels( { ...base, exam_countdown: [] }, { parent: false } ) ), [ 'deadlines', 'attendance' ] );
 } );
 
-test( 'по умолчанию — прежний набор: дедлайны, до двух экзаменов или посещаемость, плитки пилота', () => {
-	assert.deepEqual( defaultTileIds( pilot, { parent: false } ), [ 'deadlines', 'exam:inf_ege', 'exam:rus_ege', 'streak', 'to_fix', 'last_result' ] );
+test( 'по умолчанию — прежний набор: дедлайны и до двух экзаменов (или посещаемость); новые плитки только через «+»', () => {
+	assert.deepEqual( defaultTileIds( pilot, { parent: false } ), [ 'deadlines', 'exam:inf_ege', 'exam:rus_ege' ] );
+	assert.deepEqual( defaultTileIds( { ...pilot, exam_countdown: [] }, { parent: false } ), [ 'deadlines', 'attendance' ] );
 	assert.deepEqual( defaultTileIds( { ...base, exam_countdown: [ exam( 'a' ), exam( 'b' ), exam( 'c' ) ] }, { parent: false } ), [ 'deadlines', 'exam:a', 'exam:b' ] );
 } );
 
@@ -59,4 +60,12 @@ test( 'перестановка секций: перенос на место д�
 
 test( 'перестановка плиток тем же способом', () => {
 	assert.deepEqual( moveSection( [ 'a', 'b', 'c' ], 'c', 'a' ), [ 'c', 'a', 'b' ] );
+} );
+
+test( 'стрелки на телефоне: сдвиг на одно место вверх/вниз; на краях и для неизвестного id ничего не меняется', () => {
+	assert.deepEqual( shiftItem( [ 'a', 'b', 'c' ], 'b', -1 ), [ 'b', 'a', 'c' ] );
+	assert.deepEqual( shiftItem( [ 'a', 'b', 'c' ], 'b', 1 ), [ 'a', 'c', 'b' ] );
+	assert.deepEqual( shiftItem( [ 'a', 'b', 'c' ], 'a', -1 ), [ 'a', 'b', 'c' ] );
+	assert.deepEqual( shiftItem( [ 'a', 'b', 'c' ], 'c', 1 ), [ 'a', 'b', 'c' ] );
+	assert.deepEqual( shiftItem( [ 'a', 'b', 'c' ], 'zzz', 1 ), [ 'a', 'b', 'c' ] );
 } );

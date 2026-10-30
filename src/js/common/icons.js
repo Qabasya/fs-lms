@@ -28,6 +28,13 @@ const stroke20 = ( body, s, c = 'currentColor' ) =>
 export const icoHandle = ( s = 16 ) =>
 	stroke20( '<path d="M4 7.5h12M4 12.5h12" stroke="{c}" stroke-width="1.8" stroke-linecap="round"/>', s );
 
+/** Стрелки «выше / ниже» (перестановка на телефоне в режиме «Кастомизация»). */
+export const icoArrowUp = ( s = 14 ) =>
+	stroke20( '<path d="M5 12.5l5-5 5 5" stroke="{c}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>', s );
+
+export const icoArrowDown = ( s = 14 ) =>
+	stroke20( '<path d="M5 7.5l5 5 5-5" stroke="{c}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>', s );
+
 export const icoMinus = ( s = 14 ) =>
 	stroke20( '<path d="M5 10h10" stroke="{c}" stroke-width="2" stroke-linecap="round"/>', s );
 

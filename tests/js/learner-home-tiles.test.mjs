@@ -51,21 +51,24 @@ test( 'несколько экзаменов — по плитке на кажд
 	assert.equal( tiles.filter( ( t ) => t.label.startsWith( 'До экзамена' ) ).length, 2 );
 } );
 
-test( 'дополнительные плитки пилота: серия, осталось исправить, последний результат', () => {
+test( 'плитки пилота не входят в набор по умолчанию — они в меню «+» и появляются, когда их добавили', () => {
 	const highlights = { streak: 5, to_fix: 3, last_result: { value: '72', note: 'Пробник · баллов' } };
-	const tiles = homeTileModels( { deadlines, attendance, exam_countdown: [], highlights }, { parent: false } );
+	const d = { deadlines, attendance, exam_countdown: [], highlights };
 
-	assert.deepEqual( tiles.slice( 2 ).map( ( t ) => [ t.label, t.value ] ), [
+	assert.deepEqual( homeTileModels( d, { parent: false } ).map( ( t ) => t.label ), [ 'Дедлайнов', 'Посещаемость' ] );
+
+	const chosen = homeTileModels( d, { parent: false }, { tiles: [ 'deadlines', 'attendance', 'streak', 'to_fix', 'last_result' ] } );
+	assert.deepEqual( chosen.slice( 2 ).map( ( t ) => [ t.label, t.value ] ), [
 		[ 'Серия без пропусков', '5' ],
 		[ 'Осталось исправить', '3' ],
 		[ 'Последний результат', '72' ],
 	] );
-	assert.equal( tiles[ 4 ].note, 'Пробник · баллов' );
+	assert.equal( chosen[ 4 ].note, 'Пробник · баллов' );
 } );
 
-test( 'у пилота серия и «осталось исправить» видны и с нулём, «Последний результат» — только когда он есть', () => {
+test( 'у пилота серия и «осталось исправить» доступны и с нулём, «Последний результат» — только когда он есть', () => {
 	const highlights = { streak: 0, to_fix: 0, last_result: null };
-	const tiles = homeTileModels( { deadlines, attendance, exam_countdown: [], highlights }, { parent: false } );
+	const tiles = homeTileModels( { deadlines, attendance, exam_countdown: [], highlights }, { parent: false }, { tiles: [ 'streak', 'to_fix', 'last_result' ] } );
 
-	assert.deepEqual( tiles.slice( 2 ).map( ( t ) => [ t.label, t.value ] ), [ [ 'Серия без пропусков', '0' ], [ 'Осталось исправить', '0' ] ] );
+	assert.deepEqual( tiles.map( ( t ) => [ t.label, t.value ] ), [ [ 'Серия без пропусков', '0' ], [ 'Осталось исправить', '0' ] ] );
 } );

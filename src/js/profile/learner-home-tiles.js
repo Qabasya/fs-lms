@@ -6,7 +6,7 @@
  *    дальше недели в днях, в последние 7 суток — в часах и красным;
  *  - «Посещаемость» — когда у ученика нет экзамена с датой, а родителю — всегда;
  *  - «Кастомизация»: пользователь сам выбирает набор и порядок плиток (`layout.tiles`, до {@link MAX_TILES}); `null` — набор по умолчанию;
- *  - пилот на тестовом аккаунте: «Серия без пропусков», «Осталось исправить», «Последний результат» (серия и «осталось исправить» — всегда, в том числе нули; «Последний результат» — когда он есть).
+ *  - плитки пилота на тестовом аккаунте (в набор по умолчанию не входят, добавляются через «+»): «Серия без пропусков», «Осталось исправить», «Последний результат» (серия и «осталось исправить» — всегда, в том числе нули; «Последний результат» — когда он есть).
  */
 
 import { pluralRu } from '../common/plural.js';
@@ -64,16 +64,16 @@ export function tileCatalog( d, { parent } ) {
 }
 
 /**
- * Набор плиток по умолчанию (id): «Дедлайнов», до двух «До экзамена» (иначе «Посещаемость» — родителю всегда она),
- * затем плитки пилота.
+ * Набор плиток по умолчанию (id) — тот, что был у пользователей всегда: «Дедлайнов» и до двух «До экзамена»
+ * (иначе «Посещаемость»; родителю всегда она). Новые плитки (серия, осталось исправить, последний результат) в набор по
+ * умолчанию не входят: их добавляют только через «Кастомизацию» («+»).
  */
 export function defaultTileIds( d, who ) {
     const catalog = tileCatalog( d, who );
     const exams   = catalog.filter( ( t ) => t.id.startsWith( 'exam:' ) ).slice( 0, MAX_EXAM_TILES );
     const middle  = exams.length ? exams : catalog.filter( ( t ) => 'attendance' === t.id );
-    const extra   = catalog.filter( ( t ) => [ 'streak', 'to_fix', 'last_result' ].includes( t.id ) );
 
-    return [ catalog[ 0 ], ...middle, ...extra ].map( ( t ) => t.id );
+    return [ catalog[ 0 ], ...middle ].map( ( t ) => t.id );
 }
 
 /**
@@ -113,6 +113,18 @@ export function moveSection( list, fromId, toId ) {
     const from = list.indexOf( fromId );
     const to   = list.indexOf( toId );
     if ( from < 0 || to < 0 || from === to ) { return [ ...list ]; }
+
+    const next = [ ...list ];
+    next.splice( to, 0, next.splice( from, 1 )[ 0 ] );
+
+    return next;
+}
+
+/** Сдвиг элемента на одно место (стрелки «выше / ниже» на телефоне); на краях и для неизвестного id список не меняется. */
+export function shiftItem( list, id, delta ) {
+    const from = list.indexOf( id );
+    const to   = from + delta;
+    if ( from < 0 || to < 0 || to >= list.length ) { return [ ...list ]; }
 
     const next = [ ...list ];
     next.splice( to, 0, next.splice( from, 1 )[ 0 ] );
