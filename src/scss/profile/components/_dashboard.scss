@@ -72,6 +72,9 @@
 .prof-dash-grid2 { display: grid; grid-template-columns: minmax(0, 1fr); gap: rem(18); }
 .prof-sched-card { margin-bottom: rem(18); }
 
+// В сетке главной промежуток между блоками задаёт сам `gap`: нижний отступ карточки расписания его удваивал (36 вместо 18).
+.prof-dash-grid2 > .prof-sched-card { margin-bottom: 0; }
+
 /* разделитель между идущим занятием и остальными — как граница строки */
 .prof-sched-now-divider { margin: 0; border: 0; border-bottom: 1px solid var(--line-2); }
 
