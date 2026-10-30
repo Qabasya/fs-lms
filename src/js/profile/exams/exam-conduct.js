@@ -822,6 +822,9 @@ function openParticipantForm(anchor) {
     const pop = document.getElementById('profGradePop');
     if (!pop) { return; }
     const tabs = [['student', 'Ученик'], ...(canAddGuest() ? [['guest', 'Гость']] : [])];
+    // Кнопка стоит у правого края панели: форма выравнивается по её правой границе и раскрывается влево.
+    // Ширина известна только после отрисовки содержимого, поэтому позиция пересчитывается после каждой.
+    const place = () => openGradePopPositioned(pop, anchor, { alignEnd: true });
     const draw = kind => {
         pop.innerHTML = `<div class="gp-form gp-exam">
             <div class="gp-title">Добавить участника</div>
@@ -831,14 +834,14 @@ function openParticipantForm(anchor) {
         </div>`;
         pop.querySelectorAll('[data-kind]').forEach(btn => btn.addEventListener('click', () => draw(btn.dataset.kind)));
         const body = pop.querySelector('#ecParticipantBody');
-        if ('guest' === kind) { renderGuestTab(pop, body); } else { renderStudentTab(pop, body); }
+        if ('guest' === kind) { renderGuestTab(pop, body); } else { renderStudentTab(pop, body, place); }
+        place();
     };
     draw('student');
-    openGradePopPositioned(pop, anchor);
 }
 
 /** Ученик из списка «Незаписавшиеся»: запись идёт поверх запретов самозаписи (окно, начало сеанса) и сверх вместимости. */
-async function renderStudentTab(pop, body) {
+async function renderStudentTab(pop, body, place) {
     const requestKey = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : String(Date.now()) + Math.random();
     body.innerHTML = '<div class="gp-warn">Загрузка списка…</div>';
     let rows = [];
@@ -846,6 +849,7 @@ async function renderStudentTab(pop, body) {
         rows = (await api('getUnregistered', { session_id: sessionId })).rows || [];
     } catch (err) {
         body.innerHTML = `<div class="gp-error" role="alert">${esc(ajaxErrorText(err, 'Не удалось загрузить список учеников'))}</div>`;
+        place();
         return;
     }
     let chosen = null;
@@ -878,6 +882,7 @@ async function renderStudentTab(pop, body) {
     search.addEventListener('input', drawList);
     drawList();
     body.querySelector('[data-ec="cancel"]').addEventListener('click', closeGradePop);
+    place();
     body.querySelector('#ecStudentForm').addEventListener('submit', async ev => {
         ev.preventDefault();
         if (null === chosen) { return; }

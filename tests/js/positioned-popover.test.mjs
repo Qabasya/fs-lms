@@ -78,3 +78,24 @@ test('исчезнувший якорь не оставляет открытую
     assert.equal(s.pop.style.top, '10px');
     assert.equal(s.listeners.size, 1);
 });
+
+test('выравнивание по правому краю якоря: правая граница формы = правая граница кнопки', t => {
+    const s = stand(t);
+    openGradePopPositioned(s.pop, s.anchor, { alignEnd: true });
+    // Якорь: left 1400, width 100 → правый край 1500; форма шириной 620 → left = 880.
+    assert.equal(s.pop.style.left, '880px');
+});
+
+test('выравнивание по правому краю не выводит форму за экран и следует за сужением окна', t => {
+    const s = stand(t);
+    openGradePopPositioned(s.pop, s.anchor, { alignEnd: true });
+    globalThis.window.innerWidth = 390;
+    s.resize();
+    assert.equal(s.pop.style.left, '10px');
+});
+
+test('без параметра форма по-прежнему центрируется на якоре', t => {
+    const s = stand(t);
+    openGradePopPositioned(s.pop, s.anchor);
+    assert.equal(s.pop.style.left, '1140px'); // 1450 - 620 / 2
+});

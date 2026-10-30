@@ -286,28 +286,36 @@ function clearGradePopPositioning() {
 
 function repositionGradePop() {
     if (!positionedGradePop) return;
-    const { pop, anchor } = positionedGradePop;
+    const { pop, anchor, alignEnd } = positionedGradePop;
     if (!pop.classList.contains('open')) {
         clearGradePopPositioning();
         return;
     }
     // Центрированная форма сама следует за экраном; её координаты не меняем.
-    if (!pop.classList.contains('is-modal')) positionGradePop(pop, anchor);
+    if (!pop.classList.contains('is-modal')) positionGradePop(pop, anchor, alignEnd);
 }
 
-export function openGradePopPositioned(pop, anchor) {
+/**
+ * Поповер у якоря. По умолчанию центрируется на нём; `alignEnd` — правая граница формы по правой границе якоря
+ * (кнопка у правого края панели: форма раскрывается влево, а не уходит за границу).
+ *
+ * @param {HTMLElement} pop
+ * @param {HTMLElement} anchor
+ * @param {{alignEnd?: boolean}} [options]
+ */
+export function openGradePopPositioned(pop, anchor, { alignEnd = false } = {}) {
     pop.classList.add('open');
-    positionedGradePop = { pop, anchor };
+    positionedGradePop = { pop, anchor, alignEnd };
     window.addEventListener('resize', repositionGradePop);
-    positionGradePop(pop, anchor);
+    positionGradePop(pop, anchor, alignEnd);
     const backdrop = document.getElementById('profCtxBackdrop');
     if (backdrop) backdrop.classList.add('open');
 }
 
-function positionGradePop(pop, anchor) {
+function positionGradePop(pop, anchor, alignEnd = false) {
     const r = anchor.getBoundingClientRect();
     const pw = pop.offsetWidth, ph = pop.offsetHeight;
-    let left = r.left + r.width / 2 - pw / 2;
+    let left = alignEnd ? r.left + r.width - pw : r.left + r.width / 2 - pw / 2;
     left = Math.max(10, Math.min(left, window.innerWidth - pw - 10));
     let top = r.bottom + 6;
     if (top + ph > window.innerHeight - 10) top = r.top - ph - 6;

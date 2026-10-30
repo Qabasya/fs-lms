@@ -108,6 +108,9 @@
   background: var(--err-soft, var(--surface-2)); border-radius: t.$border-radius-sm;
 }
 
+/* «Добавить участника»: переключатель «Ученик / Гость» отделён от формы под ним */
+.gp-exam .prof-seg { margin-bottom: t.$spacing-lg; }
+
 /* «Добавить участника → Ученик»: поиск и короткий список незаписавшихся */
 .gp-exam .exam-student-list { display: flex; flex-direction: column; gap: t.$spacing-xs; margin: 0 0 t.$spacing-sm; }
 
