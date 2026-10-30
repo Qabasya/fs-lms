@@ -199,6 +199,12 @@ if (!function_exists('add_filter')) {
         return true;
     }
 }
+if (!function_exists('in_the_loop')) {
+    function in_the_loop(): bool { return (bool) ($GLOBALS['_fs_test_in_loop'] ?? false); }
+}
+if (!function_exists('is_main_query')) {
+    function is_main_query(): bool { return (bool) ($GLOBALS['_fs_test_main_query'] ?? false); }
+}
 if (!function_exists('is_page')) {
     function is_page(string|int|array $page = ''): bool {
         return in_array($GLOBALS['_fs_test_page_slug'] ?? null, (array) $page, true);

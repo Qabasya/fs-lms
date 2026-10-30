@@ -64,6 +64,7 @@ class ExamGuestPageController extends BaseController implements ServiceInterface
 		add_action( 'template_redirect', array( $this, 'handleResultPage' ), 5 );
 		add_shortcode( PageRoutes::ExamReport->guestExamShortCode()->value, array( $this, 'renderReportPage' ) );
 		add_action( 'template_redirect', array( $this, 'handleReportPage' ), 5 );
+		add_filter( 'the_title', array( $this, 'filterResultTitle' ) );
 		add_filter( 'wp_robots', array( $this, 'filterRobots' ) );
 		add_filter( 'get_canonical_url', array( $this, 'filterCanonicalUrl' ) );
 		add_filter( 'wp_sitemaps_posts_query_args', array( $this, 'excludeFromSitemap' ), 10, 2 );
@@ -166,8 +167,8 @@ class ExamGuestPageController extends BaseController implements ServiceInterface
 				'url'   => home_url( '/' ),
 			),
 			array(
-				// ФИО гостя в последней крошке: по ссылке результата видно, чья это работа.
-				'label'   => $this->resultCrumbLabel( (string) ( $data['guest_name'] ?? '' ) ),
+				// ФИО гостя — в заголовке страницы (`filterResultTitle()`), крошка без него.
+				'label'   => __( 'Результат экзамена', 'fs-lms' ),
 				'current' => true,
 			),
 		);
@@ -178,11 +179,19 @@ class ExamGuestPageController extends BaseController implements ServiceInterface
 		return (string) ob_get_clean();
 	}
 
-	/** «Результат экзамена: Иванов Пётр»; имени нет — просто «Результат экзамена». */
-	private function resultCrumbLabel( string $guestName ): string {
-		$label = __( 'Результат экзамена', 'fs-lms' );
+	/**
+	 * Заголовок страницы результата с ФИО гостя: «Результат экзамена: Иванов Пётр». Только заголовок записи в основном
+	 * цикле страницы и только при гостевой сессии просмотра: вкладка браузера (`<title>`), меню и чужие страницы без ФИО.
+	 */
+	public function filterResultTitle( string $title ): string {
+		if ( ! PageRoutes::ExamResult->isCurrent() || ! in_the_loop() || ! is_main_query() ) {
+			return $title;
+		}
 
-		return '' !== $guestName ? $label . ': ' . $guestName : $label;
+		$participationId = $this->sessions->viewableParticipationId();
+		$name            = null !== $participationId ? $this->result->guestName( $participationId ) : '';
+
+		return '' !== $name ? $title . ': ' . $name : $title;
 	}
 
 	/** Шорткод школьного отчёта. */

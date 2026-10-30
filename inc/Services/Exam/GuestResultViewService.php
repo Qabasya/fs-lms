@@ -21,6 +21,11 @@ class GuestResultViewService {
 		private readonly GuestParticipantMaterializer $guestData,
 	) {}
 
+	/** ФИО гостя участия — для заголовка страницы результата; пусто, если имени нет. */
+	public function guestName( int $participationId ): string {
+		return $this->guestData->nameOfParticipation( $participationId );
+	}
+
 	/**
 	 * Добавляет контакты центра и ФИО гостя к общему разбору участия для гостевой страницы.
 	 *

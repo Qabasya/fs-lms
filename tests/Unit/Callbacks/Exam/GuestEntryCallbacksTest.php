@@ -270,7 +270,8 @@ class GuestEntryCallbacksTest extends TestCase {
 			$this->createMock( \Inc\Managers\Wp\PostManager::class )
 		) )->renderResultPage() );
 	}
-	public function test_result_page_breadcrumb_carries_the_guest_name(): void {
+	/** ФИО гостя вынесено из хлебной крошки в заголовок страницы (`filterResultTitle()`): крошка — просто «Результат экзамена». */
+	public function test_result_page_breadcrumb_has_no_guest_name(): void {
 		$this->sessions->method( 'viewableParticipationId' )->willReturn( 4 );
 		$result = $this->createMock( \Inc\Services\Exam\GuestResultViewService::class );
 		$result->method( 'build' )->willReturn( array(
@@ -293,6 +294,7 @@ class GuestEntryCallbacksTest extends TestCase {
 			$this->createMock( \Inc\Managers\Wp\PostManager::class )
 		) )->renderResultPage();
 
-		self::assertStringContainsString( 'Результат экзамена: Иванов Пётр', $html );
+		self::assertStringContainsString( 'Результат экзамена', $html );
+		self::assertStringNotContainsString( 'Результат экзамена: Иванов Пётр', $html );
 	}
 }
