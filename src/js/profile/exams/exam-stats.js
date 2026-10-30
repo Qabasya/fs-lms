@@ -11,7 +11,7 @@ import { icoCalendarBoard, icoAlert } from '../../common/icons.js';
 import { createApi } from '../api.js';
 import { audienceSegHtml, searchHtml, groupSelectHtml, schoolSelectHtml, rowMatches } from './exam-row-filters.js';
 import {
-    examConfig, examSubjects, currentSubject, setCurrentSubject, subjectPickerHtml, wireSubjectPicker, noSubjectsHtml, newestEventId,
+    examConfig, examSubjects, currentSubject, setCurrentSubject, subjectPickerHtml, wireSubjectPicker, noSubjectsHtml, 
 } from './exam-common.js';
 
 
@@ -53,20 +53,19 @@ export function renderExamStats(r, h = {}) {
         root.innerHTML = noSubjectsHtml();
         return;
     }
-    api = createApi(cfg);
+    // Чтение статистики кешируется на минуту (со сверкой в фоне): переключение «ученики / гости / все» и возврат на экран не ходят в БД.
+    api = createApi(cfg, { cache: { getStats: { ttl: 60000, swr: true } } });
     load();
 }
 
 async function load() {
     try {
-        data = await api('getStats', { subject_key: currentSubject(), ...query });
-        if (!eventDefaulted) {
-            eventDefaulted = true;
-            const newest = newestEventId(data.filters.events);
-            if (newest && !query.event_id) {
-                query.event_id = newest;
-                data = await api('getStats', { subject_key: currentSubject(), ...query });
-            }
+        // Первый заход: самое новое проведение выбирает сервер — один запрос вместо двух (список, потом выбранное).
+        const first = !eventDefaulted;
+        data = await api('getStats', { subject_key: currentSubject(), ...query, ...(first && !query.event_id ? { newest_event: 1 } : {}) });
+        eventDefaulted = true;
+        if (first && !query.event_id && data.filters.selected_event_id) {
+            query.event_id = data.filters.selected_event_id;
         }
     } catch (err) {
         data = null;

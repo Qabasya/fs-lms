@@ -76,9 +76,15 @@ class ExamStatsServiceTest extends TestCase {
 		$this->guard->method( 'canManageEvent' )->willReturn( true );
 
 		$this->participantRepo = $this->createMock( \Inc\Repositories\WPDBRepositories\ExamParticipantRepository::class );
-		$this->participantRepo->method( 'find' )->willReturnCallback( static fn ( int $id ): \Inc\DTO\Exam\ExamParticipantDTO => \Inc\DTO\Exam\ExamParticipantDTO::fromArray( array(
-			'id' => $id, 'person_id' => null, 'created_at' => '2026-03-01 00:00:00', 'updated_at' => '2026-03-01 00:00:00',
-		) ) );
+		$this->participantRepo->method( 'findMany' )->willReturnCallback( static function ( array $ids ): array {
+			$map = array();
+			foreach ( $ids as $id ) {
+				$map[ $id ] = \Inc\DTO\Exam\ExamParticipantDTO::fromArray( array(
+					'id' => $id, 'person_id' => null, 'created_at' => '2026-03-01 00:00:00', 'updated_at' => '2026-03-01 00:00:00',
+				) );
+			}
+			return $map;
+		} );
 		$this->nameService = $this->createMock( \Inc\Services\Exam\ExamParticipantNameService::class );
 		$this->nameService->method( 'participantName' )->willReturnCallback( static fn ( \Inc\DTO\Exam\ExamParticipantDTO $p ): string => 'Гость ' . $p->id );
 		$this->profileService = $this->createMock( \Inc\Services\Exam\ExamParticipantProfileService::class );
@@ -86,7 +92,7 @@ class ExamStatsServiceTest extends TestCase {
 		$this->profileService->method( 'groupName' )->willReturn( '' );
 		$this->events->method( 'findBySubjectKey' )->willReturn( array( $this->examEvent( array( 'status' => 'published' ) ) ) );
 		$this->participations->method( 'findByEvent' )->willReturnCallback( fn (): array => $this->partList );
-		$this->registrations->method( 'findByParticipation' )->willReturnCallback( fn ( int $id ): array => $this->history[ $id ] ?? array() );
+		$this->registrations->method( 'findByParticipations' )->willReturnCallback( fn ( array $ids ): array => array_intersect_key( $this->history, array_flip( $ids ) ) );
 		$this->attempts->method( 'listByParticipations' )->willReturnCallback( fn (): array => $this->attemptList );
 		$this->scores->method( 'summarize' )->willReturnCallback( fn ( AttemptDTO $a ): array => $this->summaries[ $a->id ] );
 		$this->scores->method( 'units' )->willReturnCallback( fn ( AttemptDTO $a ): array => $this->units[ $a->id ] ?? array() );
@@ -466,5 +472,66 @@ class ExamStatsServiceTest extends TestCase {
 		self::assertSame( 1, $rows['14']['unanswered'] );
 		self::assertSame( 1, $rows['26']['partial'] );
 		self::assertSame( 2.0, $rows['26']['max'] );
+	}
+
+	/**
+	 * Статистика открывалась ~10 с: итог и ответы попытки считались заново в каждом блоке (KPI, таблица, разбор по заданиям),
+	 * а на реальной БД с задержкой каждый запрос дорог. Теперь — один раз на попытку за запрос.
+	 */
+	public function test_each_attempt_is_summarized_and_read_once_per_request(): void {
+		$this->givenTen();
+		$this->units[201] = array( array( 'unit_key' => 'n:1', 'number' => '1', 'score' => 1.0, 'max' => 1.0, 'status' => 'correct', 'anchor' => '' ) );
+
+		$summarized = array();
+		$read       = array();
+		$scores     = $this->createMock( ExamScoreService::class );
+		$scores->method( 'summarize' )->willReturnCallback( function ( AttemptDTO $a ) use ( &$summarized ): array {
+			$summarized[] = $a->id;
+			return $this->summaries[ $a->id ];
+		} );
+		$scores->method( 'units' )->willReturnCallback( fn ( AttemptDTO $a ): array => $this->units[ $a->id ] ?? array() );
+		$this->answers = $this->createMock( AssessmentAnswerRepository::class );
+		$this->answers->method( 'listByAttempt' )->willReturnCallback( function ( int $attemptId ) use ( &$read ): array {
+			$read[] = $attemptId;
+			return array();
+		} );
+		$assessments = $this->createMock( AssessmentManager::class );
+		$assessments->method( 'get' )->willReturn( $this->assessment() );
+		$scoringUnits = $this->createMock( ScoringUnits::class );
+		$scoringUnits->method( 'keysFor' )->willReturn( array( 11 => 'n:1' ) );
+		$service = $this->makeService( $assessments, $scoringUnits, $this->createMock( ExamFormatRegistry::class ), $this->createStub( ExamTime::class ), $scores );
+
+		$service->overview( 10, array( 'subject_key' => 'inf_ege', 'event_id' => 3 ) );
+
+		self::assertSame( $summarized, array_values( array_unique( $summarized ) ), 'итог попытки посчитан дважды' );
+		self::assertSame( $read, array_values( array_unique( $read ) ), 'ответы попытки прочитаны дважды' );
+		self::assertNotEmpty( $summarized );
+	}
+
+	/** Первый заход: «самое новое проведение» выбирает сервер — один запрос вместо двух (список, потом выбранное). */
+	public function test_newest_event_is_chosen_by_the_server_when_asked(): void {
+		$this->givenTen();
+		$this->events = $this->createMock( ExamEventRepository::class );
+		$this->events->method( 'findBySubjectKey' )->willReturn( array(
+			$this->examEvent( array( 'id' => '3', 'status' => 'published', 'title' => 'Весна' ) ),
+			$this->examEvent( array( 'id' => '9', 'status' => 'published', 'title' => 'Осень' ) ),
+			$this->examEvent( array( 'id' => '5', 'status' => 'published', 'title' => 'Зима' ) ),
+		) );
+		$assessments = $this->createMock( AssessmentManager::class );
+		$assessments->method( 'get' )->willReturn( $this->assessment() );
+		$service = $this->makeService( $assessments, $this->createMock( ScoringUnits::class ), $this->createMock( ExamFormatRegistry::class ), $this->createStub( ExamTime::class ) );
+
+		$data = $service->overview( 10, array( 'subject_key' => 'inf_ege', 'event_id' => 0, 'newest_event' => true ) );
+
+		self::assertSame( 9, $data['filters']['selected_event_id'] );
+		self::assertCount( 3, $data['filters']['events'] );
+	}
+
+	public function test_without_the_flag_all_events_stay_selected(): void {
+		$this->givenTen();
+
+		$data = $this->service->overview( 10, array( 'subject_key' => 'inf_ege', 'event_id' => 0 ) );
+
+		self::assertSame( 0, $data['filters']['selected_event_id'] );
 	}
 }

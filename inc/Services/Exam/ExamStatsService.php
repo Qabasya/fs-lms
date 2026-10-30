@@ -47,6 +47,18 @@ class ExamStatsService {
 
 	public const BUCKETS = array( 'correct', 'partial', 'incorrect', 'unanswered', 'pending' );
 
+	/**
+	 * Результаты расчётов по ID попытки на время запроса: KPI, таблица и разбор по заданиям читают одну и ту же попытку,
+	 * а каждое чтение — запросы к БД (на удалённой базе статистика открывалась ~10 с).
+	 *
+	 * @var array{summary: array<int, array<string, mixed>>, taskRows: array<int, list<array<string, mixed>>>, units: array<int, list<array<string, mixed>>>}
+	 */
+	private array $memo = array(
+		'summary'  => array(),
+		'taskRows' => array(),
+		'units'    => array(),
+	);
+
 	/** Получает ответы и шкалы для статистики в проверенной области доступа к проведению. */
 	public function __construct(
 		private readonly ExamEventRepository $events,
@@ -69,7 +81,7 @@ class ExamStatsService {
 	/**
 	 * Готовит статистику по выбранным фильтрам в пределах доступа пользователя.
 	 *
-	 * @param array{subject_key?: string, event_id?: int, session_id?: int, audience?: string} $filters
+	 * @param array{subject_key?: string, event_id?: int, session_id?: int, audience?: string, newest_event?: bool} $filters
 	 *
 	 * @return array{filters: array<string, mixed>, format: ?array<string, mixed>, kpi: array<string, mixed>, tasks: list<array<string, mixed>>, table: array<string, mixed>, summary: array<string, mixed>}
 	 *
@@ -87,6 +99,11 @@ class ExamStatsService {
 				fn ( ExamEventDTO $e ): bool => in_array( $e->status, array( ExamEventStatus::Published->value, ExamEventStatus::Completed->value ), true ) && $this->guard->canManageEvent( $actorUserId, $e )
 			)
 		);
+
+		// «Самое новое проведение» выбирает сервер (первый заход экрана): список проведений и данные — одним запросом.
+		if ( 0 === $eventId && ! empty( $filters['newest_event'] ) && array() !== $available ) {
+			$eventId = max( array_map( static fn ( ExamEventDTO $e ): int => $e->id, $available ) );
+		}
 
 		$selected = $available;
 		if ( $eventId > 0 ) {
@@ -111,6 +128,7 @@ class ExamStatsService {
 
 		return array(
 			'filters' => array(
+				'selected_event_id' => $eventId,
 				'events'   => array_map(
 					static fn ( ExamEventDTO $e ): array => array(
 						'id'    => $e->id,
@@ -143,7 +161,7 @@ class ExamStatsService {
 			if ( AttemptStatus::InProgress === $attempt->status ) {
 				continue;
 			}
-			foreach ( $this->scores->units( $attempt, $this->taskRows( $attempt ) ) as $unit ) {
+			foreach ( $this->scoredUnits( $attempt ) as $unit ) {
 				$number = (string) $unit['number'];
 				if ( '' === $number ) {
 					continue; // задание без номера в единицы формата не входит
@@ -233,7 +251,7 @@ class ExamStatsService {
 	 */
 	private function unitDetails( AttemptDTO $attempt ): array {
 		$units = array();
-		foreach ( $this->scores->units( $attempt, $this->taskRows( $attempt ) ) as $unit ) {
+		foreach ( $this->scoredUnits( $attempt ) as $unit ) {
 			$number = (string) $unit['number'];
 			if ( '' === $number ) {
 				continue;
@@ -264,14 +282,20 @@ class ExamStatsService {
 		$list    = array();
 		$ege     = true;
 
+		// Участники сданных работ — одним запросом, а не по запросу на строку.
+		$participants = $this->participants->findMany( array_map(
+			static fn ( array $r ): int => $r['participation']->participantId,
+			array_filter( $rows, static fn ( array $r ): bool => null !== $r['attempt'] && AttemptStatus::InProgress !== $r['attempt']->status )
+		) );
+
 		foreach ( $rows as $row ) {
 			$attempt     = $row['attempt'];
-			$participant = null !== $attempt && AttemptStatus::InProgress !== $attempt->status ? $this->participants->find( $row['participation']->participantId ) : null;
+			$participant = null !== $attempt && AttemptStatus::InProgress !== $attempt->status ? ( $participants[ $row['participation']->participantId ] ?? null ) : null;
 			if ( null === $attempt || null === $participant ) {
 				continue;
 			}
 
-			$summary = $this->scores->summarize( $attempt, $row['event'] );
+			$summary = $this->summaryOf( $attempt, $row['event'] );
 			$units   = array();
 			foreach ( $this->unitDetails( $attempt ) as $unit ) {
 				$columns[ $unit['number'] ] = true;
@@ -383,9 +407,12 @@ class ExamStatsService {
 			$byParticipation[ (int) $attempt->examParticipationId ] = $attempt;
 		}
 
+		// Истории записей — одним запросом на проведение, а не по запросу на участие.
+		$histories = $this->registrations->findByParticipations( $ids );
+
 		$rows = array();
 		foreach ( $participations as $participation ) {
-			$history = $this->registrations->findByParticipation( $participation->id );
+			$history = $histories[ $participation->id ] ?? array();
 			$last    = array() === $history ? null : $history[ array_key_last( $history ) ];
 			$attempt = $byParticipation[ $participation->id ] ?? null;
 
@@ -472,7 +499,7 @@ class ExamStatsService {
 			}
 			++$kpi['submitted'];
 
-			$summary = $this->scores->summarize( $attempt, $row['event'] );
+			$summary = $this->summaryOf( $attempt, $row['event'] );
 			if ( ! empty( $summary['pending'] ) ) {
 				++$kpi['pending_review'];
 				continue;
@@ -564,6 +591,11 @@ class ExamStatsService {
 	 * @return list<array<string, mixed>>
 	 */
 	private function taskRows( AttemptDTO $attempt ): array {
+		return $this->memo['taskRows'][ $attempt->id ] ??= $this->buildTaskRows( $attempt );
+	}
+
+	/** @return list<array<string, mixed>> */
+	private function buildTaskRows( AttemptDTO $attempt ): array {
 		$assessment = $this->assessments->get( $attempt->assessmentId );
 		if ( null === $assessment ) {
 			return array();
@@ -613,5 +645,23 @@ class ExamStatsService {
 		}
 
 		return $isCorrect ? 'correct' : 'incorrect';
+	}
+
+	/**
+	 * Итог попытки ({@see ExamScoreService::summarize()}) — один расчёт на попытку за запрос.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function summaryOf( AttemptDTO $attempt, ExamEventDTO $event ): array {
+		return $this->memo['summary'][ $attempt->id ] ??= $this->scores->summarize( $attempt, $event );
+	}
+
+	/**
+	 * Единицы оценивания попытки ({@see ExamScoreService::units()}) — один расчёт на попытку за запрос.
+	 *
+	 * @return list<array<string, mixed>>
+	 */
+	private function scoredUnits( AttemptDTO $attempt ): array {
+		return $this->memo['units'][ $attempt->id ] ??= $this->scores->units( $attempt, $this->taskRows( $attempt ) );
 	}
 }

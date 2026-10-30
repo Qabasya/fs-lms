@@ -25,6 +25,38 @@ class ExamParticipantRepository extends AbstractExamRepository {
 	}
 
 	/**
+	 * Участники одним запросом (списки и статистика).
+	 *
+	 * @param int[] $ids
+	 *
+	 * @return array<int, ExamParticipantDTO> id → участник (не найденных в ответе нет)
+	 */
+	public function findMany( array $ids ): array {
+		$ids = array_values( array_unique( array_filter( array_map( 'intval', $ids ) ) ) );
+		if ( array() === $ids ) {
+			return array();
+		}
+
+		$placeholders = implode( ', ', array_fill( 0, count( $ids ), '%d' ) );
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$rows = $this->readRows( $this->wpdb->prepare(
+			"SELECT * FROM %i WHERE id IN ($placeholders)",
+			array_merge( array( $this->table ), $ids )
+		) );
+		// phpcs:enable
+
+		$map = array();
+		foreach ( $rows as $row ) {
+			$dto = $this->hydrate( $row );
+			if ( null !== $dto ) {
+				$map[ $dto->id ] = $dto;
+			}
+		}
+
+		return $map;
+	}
+
+	/**
 	 * Блокирующее чтение участника — точка сериализации одного человека между проведениями
 	 * (проверка пересечения по времени). Порядок блокировок: участник → участие → сеансы.
 	 * Вызывать только внутри транзакции.

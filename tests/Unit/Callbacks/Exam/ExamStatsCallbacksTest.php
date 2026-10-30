@@ -51,7 +51,15 @@ class ExamStatsCallbacksTest extends TestCase {
 
 	public function test_filters_are_sanitized_and_passed(): void {
 		$_POST = array( 'subject_key' => 'inf_ege', 'event_id' => '3', 'session_id' => 'x', 'audience' => 'DROP' );
-		$this->stats->expects( self::once() )->method( 'overview' )->with( 10, array( 'subject_key' => 'inf_ege', 'event_id' => 3, 'session_id' => 0, 'audience' => 'all' ) )
+		$this->stats->expects( self::once() )->method( 'overview' )->with( 10, array( 'subject_key' => 'inf_ege', 'event_id' => 3, 'session_id' => 0, 'audience' => 'all', 'newest_event' => false ) )
+			->willReturn( array( 'filters' => array(), 'format' => null, 'kpi' => array(), 'tasks' => array() ) );
+
+		self::assertTrue( fs_test_capture_json( fn() => $this->cb->ajaxGetExamStats() )->success );
+	}
+
+	public function test_newest_event_flag_is_passed_to_service(): void {
+		$_POST = array( 'subject_key' => 'inf_ege', 'newest_event' => '1' );
+		$this->stats->expects( self::once() )->method( 'overview' )->with( 10, self::callback( static fn ( array $f ): bool => true === $f['newest_event'] && 0 === $f['event_id'] ) )
 			->willReturn( array( 'filters' => array(), 'format' => null, 'kpi' => array(), 'tasks' => array() ) );
 
 		self::assertTrue( fs_test_capture_json( fn() => $this->cb->ajaxGetExamStats() )->success );

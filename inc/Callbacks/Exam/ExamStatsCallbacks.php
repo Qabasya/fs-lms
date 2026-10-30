@@ -47,6 +47,8 @@ class ExamStatsCallbacks extends BaseController {
 			'event_id'    => $this->sanitizeInt( 'event_id' ),
 			'session_id'  => $this->sanitizeInt( 'session_id' ),
 			'audience'    => in_array( $audience, self::AUDIENCES, true ) ? $audience : 'all',
+			// Первый заход экрана: проведение по умолчанию (самое новое) выбирает сервер — без второго запроса.
+			'newest_event' => $this->sanitizeBool( 'newest_event' ),
 		);
 
 		try {

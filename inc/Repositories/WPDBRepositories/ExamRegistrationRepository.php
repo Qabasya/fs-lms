@@ -55,6 +55,35 @@ class ExamRegistrationRepository extends AbstractExamRepository {
 		return array_map( array( ExamRegistrationDTO::class, 'fromArray' ), $rows );
 	}
 
+	/**
+	 * Истории записей нескольких участий одним запросом (списки и статистика: по запросу на участие дорого на удалённой базе).
+	 *
+	 * @param int[] $participationIds
+	 *
+	 * @return array<int, ExamRegistrationDTO[]> participation_id → записи по возрастанию ID (участия без записей нет в ответе)
+	 */
+	public function findByParticipations( array $participationIds ): array {
+		$ids = array_values( array_unique( array_filter( array_map( 'intval', $participationIds ) ) ) );
+		if ( array() === $ids ) {
+			return array();
+		}
+
+		$placeholders = implode( ', ', array_fill( 0, count( $ids ), '%d' ) );
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$rows = $this->readRows( $this->wpdb->prepare(
+			"SELECT * FROM %i WHERE participation_id IN ($placeholders) ORDER BY id ASC",
+			array_merge( array( $this->table ), $ids )
+		) );
+		// phpcs:enable
+
+		$grouped = array();
+		foreach ( $rows as $row ) {
+			$grouped[ (int) $row['participation_id'] ][] = ExamRegistrationDTO::fromArray( $row );
+		}
+
+		return $grouped;
+	}
+
 	/** Действующая запись участия (`active_slot = 1`). */
 	public function findActive( int $participationId ): ?ExamRegistrationDTO {
 		return $this->hydrate( $this->readRow( $this->wpdb->prepare(

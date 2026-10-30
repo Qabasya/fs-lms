@@ -82,9 +82,16 @@ class ExamParticipantProfileService {
 			: $none;
 	}
 
+	/** @var array<int, ?\Inc\DTO\Enrollment\StudentRecordDTO> Зачисление по ученику на время запроса: список статистики спрашивает его по нескольку раз на строку. */
+	private array $recordMemo = array();
+
 	private function record( int $personId ): ?\Inc\DTO\Enrollment\StudentRecordDTO {
 		// Группа и школа ученика — по основному зачислению: запись общей группы «группой ученика» не бывает.
-		return $this->studentRecords->findActiveByStudentFirst( $personId ) ?? ( $this->studentRecords->findByStudent( $personId, false )[0] ?? null );
+		if ( ! array_key_exists( $personId, $this->recordMemo ) ) {
+			$this->recordMemo[ $personId ] = $this->studentRecords->findActiveByStudentFirst( $personId ) ?? ( $this->studentRecords->findByStudent( $personId, false )[0] ?? null );
+		}
+
+		return $this->recordMemo[ $personId ];
 	}
 
 	private function source( ?int $sourceId ): ?ExamSourceDTO {
