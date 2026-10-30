@@ -5,6 +5,7 @@ declare( strict_types=1 );
 namespace Inc\MetaBoxes\Fields;
 
 use Inc\Services\Task\DragFillParser;
+use Inc\Shared\TileText;
 
 /**
  * Class DragFillField
@@ -12,6 +13,7 @@ use Inc\Services\Task\DragFillParser;
  * Поле задания «Перетаскивание пропусков»: формула со слотами `{N}`, плитки банка и по слоту — верная плитка
  * и группа (слоты одной группы взаимозаменяемы).
  *
+ * В формуле, плитках и ответах допустимы только `<sub>`/`<sup>` ({@see TileText}).
  * Хранит: { formula: 'V = {1} * {2}', tiles: ['h','w','k'], slots: [ {answer: 'h', group: 1}, … ] }
  * POST-структура: fs_lms_meta[task_drag_fill][formula|tiles|slots][i][answer|group]
  *
@@ -73,7 +75,7 @@ class DragFillField extends BaseField {
 			return array( 'formula' => '', 'tiles' => array(), 'slots' => array() );
 		}
 
-		$formula = sanitize_text_field( wp_unslash( (string) ( $value['formula'] ?? '' ) ) );
+		$formula = TileText::clean( wp_unslash( (string) ( $value['formula'] ?? '' ) ) );
 		$count   = DragFillParser::slotCount( $formula );
 		$raw     = is_array( $value['slots'] ?? null ) ? array_values( $value['slots'] ) : array();
 		$slots   = $this->sanitizeSlots( $raw, $count );
@@ -102,7 +104,7 @@ class DragFillField extends BaseField {
 			$slot   = is_array( $raw[ $i ] ?? null ) ? $raw[ $i ] : array();
 			$group  = (int) ( $slot['group'] ?? 0 );
 			$slots[] = array(
-				'answer' => sanitize_text_field( wp_unslash( (string) ( $slot['answer'] ?? '' ) ) ),
+				'answer' => TileText::clean( wp_unslash( (string) ( $slot['answer'] ?? '' ) ) ),
 				'group'  => $group,
 			);
 			if ( $group >= 1 ) {
@@ -134,7 +136,7 @@ class DragFillField extends BaseField {
 			return array();
 		}
 
-		$tiles = array_map( static fn( $tile ): string => sanitize_text_field( wp_unslash( (string) $tile ) ), $raw );
+		$tiles = array_map( static fn( $tile ): string => TileText::clean( wp_unslash( (string) $tile ) ), $raw );
 
 		return array_values( array_filter( $tiles, static fn( string $tile ): bool => '' !== $tile ) );
 	}

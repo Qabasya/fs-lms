@@ -25,6 +25,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 use Inc\Enums\Ui\Icon;
 
+// «Перетаскивание пропусков»: решение — итоговая формула в том же виде, что и условие (текст и слоты с подставленными плитками).
+$solution_formula = (array) ( $teacher_solution['variants']['drag_fill'] ?? array() );
+$solution_inline  = ! empty( $solution_inline ) || array() !== $solution_formula;
 ?>
 <details class="fs-solution">
 	<summary class="fs-solution__toggle">
@@ -32,6 +35,14 @@ use Inc\Enums\Ui\Icon;
 		<?php esc_html_e( 'Показать решение', 'fs-lms' ); ?>
 	</summary>
 	<div class="fs-solution__body">
+		<?php if ( array() !== $solution_formula ) : ?>
+			<div class="fs-drag-fill-formula fs-drag-fill-formula--solution">
+				<?php foreach ( $solution_formula as $solution_part ) : ?>
+					<?php // HTML уже собран `TileText::html()`: всё экранировано, кроме <sub>/<sup>. ?>
+					<?php echo 'slot' === ( $solution_part['type'] ?? '' ) ? '<span class="fs-drag-fill-answer">' . $solution_part['html'] . '</span>' : '<span class="fs-drag-fill-text">' . $solution_part['html'] . '</span>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+				<?php endforeach; ?>
+			</div>
+		<?php endif; ?>
 		<?php if ( '' !== (string) $teacher_solution['answer'] && empty( $solution_inline ) ) : ?>
 			<div class="fs-solution__row">
 				<span class="fs-solution__label"><?php esc_html_e( 'Правильный ответ', 'fs-lms' ); ?></span>

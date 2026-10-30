@@ -17,6 +17,7 @@ export class FakeElement {
 		this.type       = '';
 		this.value      = '';
 		this._text      = '';
+		this._html      = null;
 		const element   = this;
 		this.classList  = {
 			contains: ( name ) => element.className.split( /\s+/ ).includes( name ),
@@ -33,6 +34,18 @@ export class FakeElement {
 	set textContent( value ) {
 		this.children = [];
 		this._text    = String( value );
+		this._html    = null;
+	}
+
+	/** HTML-разметка: сохраняется как есть, `textContent` — та же строка без тегов и с раскрытыми сущностями. */
+	get innerHTML() {
+		return this._html ?? this.textContent;
+	}
+
+	set innerHTML( value ) {
+		this.children = [];
+		this._html    = String( value );
+		this._text    = this._html.replace( /<[^>]*>/g, '' ).replace( /&lt;/g, '<' ).replace( /&gt;/g, '>' ).replace( /&amp;/g, '&' );
 	}
 
 	appendChild( child ) {

@@ -89,4 +89,20 @@ class DragFillFieldTest extends TestCase {
 	public function test_editor_type(): void {
 		self::assertSame( 'drag_fill', $this->field->editorType() );
 	}
+
+	/** Индексы и степени (`x<sub>1</sub>`) — в формуле, плитках и верных ответах; чужая разметка вырезается. */
+	public function test_sub_and_sup_survive_in_formula_tiles_and_answers_while_other_markup_is_stripped(): void {
+		$result = $this->field->sanitize( array(
+			'formula' => 'S = {1}<sup>2</sup> + <b>{2}</b>',
+			'tiles'   => array( 'x<sub>1</sub>', '<script>y</script>' ),
+			'slots'   => array(
+				array( 'answer' => 'x<sub onclick="e()">1</sub>', 'group' => 1 ),
+				array( 'answer' => 'y', 'group' => 2 ),
+			),
+		) );
+
+		self::assertSame( 'S = {1}<sup>2</sup> + {2}', $result['formula'] );
+		self::assertSame( array( 'x<sub>1</sub>', 'y' ), array_column( $result['slots'], 'answer' ) );
+		self::assertSame( array( 'x<sub>1</sub>', 'y' ), $result['tiles'] );
+	}
 }

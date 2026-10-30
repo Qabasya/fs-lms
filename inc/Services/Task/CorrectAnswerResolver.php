@@ -7,6 +7,7 @@ namespace Inc\Services\Task;
 use Inc\Enums\Subject\TaskTemplate;
 use Inc\Enums\Wp\PostMetaName;
 use Inc\Managers\Wp\PostManager;
+use Inc\Shared\TileText;
 
 /**
  * Class CorrectAnswerResolver
@@ -347,7 +348,9 @@ class CorrectAnswerResolver {
 			return '';
 		}
 
-		$answers = array_map( static fn( $slot ): string => (string) ( $slot['answer'] ?? '' ), $slots );
+		// Строка эталона — читаемый текст: индексы и степени без тегов.
+		$formula = TileText::plain( $formula );
+		$answers = array_map( static fn( $slot ): string => TileText::plain( (string) ( $slot['answer'] ?? '' ) ), $slots );
 		$groups  = array();
 		foreach ( $slots as $i => $slot ) {
 			$groups[ (int) ( $slot['group'] ?? 0 ) ][] = $i + 1;

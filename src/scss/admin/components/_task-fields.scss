@@ -131,13 +131,11 @@
 			margin: 0;
 		}
 
-		input[type='text'] {
-			flex: 1;
-			min-width: 0;
-		}
-
+		// Оба поля слота одной ширины (не тянутся на всю строку), номер {N} — фиксированная колонка.
+		input[type='text'],
 		input[type='number'] {
-			flex: 0 0 6rem;
+			flex: 0 0 120px;
+			width: 120px;
 		}
 	}
 

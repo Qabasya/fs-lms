@@ -363,12 +363,17 @@
 }
 
 // Плитки (режим плиток «Пропусков в тексте», «Перетаскивание пропусков»): карточка как плитка КТП.
+// Банк — отдельная панель, чтобы не сливаться с текстом или формулой; пустым (все плитки в слотах) не схлопывается.
 .fs-tile-bank {
   display: flex;
   flex-wrap: wrap;
   gap: rem(8);
-  min-height: rem(40);
+  min-height: rem(64);
   margin-top: rem(12);
+  padding: rem(12) rem(14);
+  border: 1px solid var(--line);
+  border-radius: rem(10);
+  background: var(--surface-2);
 }
 
 .fs-tile {
@@ -420,14 +425,23 @@
   &.is-filled { border-bottom-color: var(--accent); }
 }
 
-// «Перетаскивание пропусков»: формула крупнее, слоты — пустые карточки, плитка в слоте остаётся карточкой.
+// «Перетаскивание пропусков»: формула крупнее и по центру, с воздухом сверху и снизу; слот — рамка под значение.
 .fs-drag-fill-formula {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  justify-content: center;
   gap: rem(8);
+  margin: rem(28) 0;
   font: 600 rem(22) var(--font);
   color: var(--ink);
+}
+
+// «Показать решение»: та же формула, но в слотах — верные значения.
+.fs-drag-fill-answer {
+  padding: 0 rem(8);
+  border-bottom: 2px solid var(--ok);
+  color: var(--ok);
 }
 
 .fs-drag-fill-slot {
@@ -446,11 +460,9 @@
     border-color: var(--accent);
   }
 
-  // Значение поставлено — остаётся только символ формулы, без карточки и рамки слота.
+  // Значение поставлено: рамка слота остаётся (место под значение видно), фона у слота и плитки нет.
   &.is-filled {
-    min-width: 0;
-    min-height: 0;
-    border-color: transparent;
+    border-style: solid;
     background: none;
   }
 

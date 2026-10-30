@@ -106,3 +106,19 @@ test( 'onChange доски вызывается на place из интерфей
 	slot.emit( 'click' );
 	assert.equal( calls, 1 );
 } );
+
+test( 'плитка с индексом: sub/sup рисуются тегами, чужая разметка экранируется, значение для ответа остаётся исходным', () => {
+	const board = createBoard( { tiles: [ 'x<sub>1</sub>', '<b>y</b>' ], slots: 1 } );
+	const bank  = new FakeElement();
+	const slot  = new FakeElement( 'span' );
+	mountTileBoard( { board, bank, slots: [ slot ] } );
+
+	const [ first, second ] = bank.byClass( 'fs-tile' );
+	assert.equal( first.innerHTML, 'x<sub>1</sub>' );
+	assert.equal( second.innerHTML, '&lt;b&gt;y&lt;/b&gt;' );
+
+	first.emit( 'click' );
+	slot.emit( 'click' );
+	assert.equal( slot.byClass( 'is-placed' )[ 0 ].innerHTML, 'x<sub>1</sub>' );
+	assert.deepEqual( board.collect(), { 0: 'x<sub>1</sub>' } );
+} );

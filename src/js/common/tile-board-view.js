@@ -1,3 +1,5 @@
+import { tileHtml } from './tile-html.js';
+
 /**
  * DOM-привязка к состоянию `createBoard()` (tile-board.js): рисует плитки банка и содержимое слотов,
  * навешивает перетаскивание, тап и клавиатуру. Слоты и банк — готовые элементы разметки виджета.
@@ -5,6 +7,8 @@
  *
  * Плитка банка — `button.fs-tile`; плитка в слоте — вложенный `span.fs-tile.is-placed` (без рамки и фона,
  * кегль окружающего текста); слот — `role=button` с `tabindex`, Enter/Space = тап.
+ *
+ * Текст плитки выводится через `tileHtml()`: индексы и степени (`<sub>`/`<sup>`) рисуются тегами, остальное экранируется.
  *
  * @param {{board: object, bank: HTMLElement, slots: HTMLElement[]}} options
  * @returns {{refresh: function, lock: function}}
@@ -21,7 +25,7 @@ export function mountTileBoard( { board, bank, slots } ) {
 	function tileEl( tile, placed ) {
 		const el       = document.createElement( placed ? 'span' : 'button' );
 		el.className   = placed ? 'fs-tile is-placed' : 'fs-tile';
-		el.textContent = tile.text;
+		el.innerHTML   = tileHtml( tile.text );
 		el.dataset.tileId = String( tile.id );
 		if ( ! placed ) {
 			el.type = 'button';

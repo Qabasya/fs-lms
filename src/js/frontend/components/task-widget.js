@@ -23,6 +23,7 @@ import { icoCheck, icoCross } from '../../common/icons.js';
 import { bindTabIndent } from '../../common/utils.js';
 import { createBoard } from '../../common/tile-board.js';
 import { mountTileBoard } from '../../common/tile-board-view.js';
+import { tileHtml } from '../../common/tile-html.js';
 
 const CHECK_SVG = icoCheck( 13 );
 const CROSS_SVG = icoCross( 12 );
@@ -580,14 +581,16 @@ function buildDragFillWidget( container, data, isDone ) {
 		wrapperClass: 'fs-drag-fill-formula',
 		textClass:    'fs-drag-fill-text',
 		slotClass:    'fs-drag-fill-slot',
+		richText:     true,
 	} );
 }
 
 /**
  * Общая сборка «текст/формула со слотами + банк плиток» поверх `createBoard()`/`mountTileBoard()`.
+ * `richText` — текст между слотами выводится через `tileHtml()` (индексы и степени).
  * Ответ — `{индекс слота: плитка}`, пустой слот — ''.
  */
-function buildTilesWidget( container, data, isDone, { slotType, wrapperClass, textClass, slotClass } ) {
+function buildTilesWidget( container, data, isDone, { slotType, wrapperClass, textClass, slotClass, richText = false } ) {
 	const segments = Array.isArray( data.segments ) ? data.segments : [];
 	const wrapper  = make( 'div', wrapperClass );
 	const slots    = [];
@@ -599,8 +602,9 @@ function buildTilesWidget( container, data, isDone, { slotType, wrapperClass, te
 			wrapper.appendChild( slot );
 			return;
 		}
-		const span       = make( 'span', textClass );
-		span.textContent = seg.content || '';
+		const span = make( 'span', textClass );
+		// Формула «Перетаскивания пропусков» допускает индексы и степени; обычный текст пропусков — только текстом.
+		if ( richText ) { span.innerHTML = tileHtml( seg.content ); } else { span.textContent = seg.content || ''; }
 		wrapper.appendChild( span );
 	} );
 

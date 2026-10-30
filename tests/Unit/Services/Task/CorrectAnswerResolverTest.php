@@ -84,6 +84,17 @@ class CorrectAnswerResolverTest extends TestCase {
 		self::assertSame( 'a + b', $this->resolver( $meta, 'drag_fill_task' )->resolve( 1 ) );
 	}
 
+	/** В строке эталона индексы и степени читаются без тегов. */
+	public function test_drag_fill_answer_line_is_plain_text(): void {
+		$meta = array( 'task_drag_fill' => array(
+			'formula' => 'S = {1}<sup>2</sup> + {2}',
+			'tiles'   => array( 'x<sub>1</sub>', 'y' ),
+			'slots'   => array( array( 'answer' => 'x<sub>1</sub>', 'group' => 1 ), array( 'answer' => 'y', 'group' => 2 ) ),
+		) );
+
+		self::assertSame( 'S = x12 + y', $this->resolver( $meta, 'drag_fill_task' )->resolve( 1 ) );
+	}
+
 	public function test_manual_template_returns_null(): void {
 		self::assertNull( $this->resolver( array( 'x' => 'y' ), 'code_task' )->resolve( 1 ) );
 	}

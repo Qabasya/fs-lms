@@ -109,4 +109,12 @@ class DragFillCheckerTest extends TestCase {
 		self::assertFalse( $result->isCorrect );
 		self::assertSame( array( true, false, true ), $result->itemFeedback );
 	}
+
+	/** Теги — часть значения плитки: индекс `x₁` и обычное `x1` — разные плитки. */
+	public function test_tile_with_sub_is_compared_together_with_its_tags(): void {
+		$content = $this->content( '{1} + {2}', array( 'x<sub>1</sub>', 'y' ), array( 1, 2 ), array( 'x1' ) );
+
+		self::assertTrue( $this->checker->check( $content, array( 'x<sub>1</sub>', 'y' ) )->isCorrect );
+		self::assertFalse( $this->checker->check( $content, array( 'x1', 'y' ) )->isCorrect );
+	}
 }

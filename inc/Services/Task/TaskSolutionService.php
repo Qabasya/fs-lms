@@ -5,6 +5,7 @@ declare( strict_types=1 );
 namespace Inc\Services\Task;
 
 use Inc\Shared\SafeHtml;
+use Inc\Shared\TileText;
 
 /**
  * Class TaskSolutionService
@@ -58,7 +59,7 @@ readonly class TaskSolutionService {
 	 * @param int                  $taskId ID задачи
 	 * @param array<string, mixed> $meta   Мета задачи из `StepContentRenderer::taskBundle()`
 	 *
-	 * @return array{answer:string, html:string, code:string, variants:array{correct_ids:string[], pairs:array<int,array{left:string,right:string}>, order:string[]}}|null
+	 * @return array{answer:string, html:string, code:string, variants:array{correct_ids:string[], pairs:array<int,array{left:string,right:string}>, order:string[], drag_fill:list<array{type:string, html:string}>}}|null
 	 *         null — эталона нет (ручной шаблон без решения).
 	 */
 	public function forTask( int $taskId, array $meta ): ?array {
@@ -93,7 +94,7 @@ readonly class TaskSolutionService {
 	 *
 	 * @param array<string, mixed> $meta
 	 *
-	 * @return array{correct_ids:string[], pairs:array<int,array{left:string,right:string}>, order:string[]}
+	 * @return array{correct_ids:string[], pairs:array<int,array{left:string,right:string}>, order:string[], drag_fill:list<array{type:string, html:string}>}
 	 */
 	private function variants( array $meta ): array {
 		$correctIds = array();
@@ -122,6 +123,32 @@ readonly class TaskSolutionService {
 			'correct_ids' => $correctIds,
 			'pairs'       => $pairs,
 			'order'       => $order,
+			'drag_fill'   => $this->dragFillFormula( $meta ),
 		);
+	}
+
+	/**
+	 * «Перетаскивание пропусков»: итоговая формула для «Показать решение» — текст и слоты с подставленными верными плитками
+	 * (безопасный HTML, допустимы только `<sub>`/`<sup>`). У других шаблонов пусто.
+	 *
+	 * @param array<string, mixed> $meta
+	 *
+	 * @return list<array{type:string, html:string}>
+	 */
+	private function dragFillFormula( array $meta ): array {
+		$data = is_array( $meta['task_drag_fill'] ?? null ) ? $meta['task_drag_fill'] : array();
+		$slots = is_array( $data['slots'] ?? null ) ? array_values( $data['slots'] ) : array();
+		if ( array() === $slots ) {
+			return array();
+		}
+
+		$parts = array();
+		foreach ( DragFillParser::segments( (string) ( $data['formula'] ?? '' ) ) as $segment ) {
+			$parts[] = 'slot' === $segment['type']
+				? array( 'type' => 'slot', 'html' => TileText::html( (string) ( $slots[ $segment['index'] ]['answer'] ?? '' ) ) )
+				: array( 'type' => 'text', 'html' => TileText::html( (string) ( $segment['content'] ?? '' ) ) );
+		}
+
+		return $parts;
 	}
 }

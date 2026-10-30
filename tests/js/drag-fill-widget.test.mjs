@@ -103,3 +103,22 @@ test( 'без сегментов и плиток виджет не падает'
 	const { api } = mount( { type: 'drag_fill' } );
 	assert.equal( api.hasAnswer(), false );
 } );
+
+test( 'формула с индексом и степенью: текст между слотами рисуется тегами', () => {
+	const { container } = mount( {
+		type:     'drag_fill',
+		segments: [ { type: 'text', content: 'S = ' }, { type: 'slot', index: 0 }, { type: 'text', content: '<sup>2</sup>' } ],
+		tiles:    [ 'x<sub>1</sub>' ],
+	} );
+
+	assert.equal( container.byClass( 'fs-drag-fill-text' )[ 1 ].innerHTML, '<sup>2</sup>' );
+	assert.equal( container.byClass( 'fs-tile' )[ 0 ].innerHTML, 'x<sub>1</sub>' );
+} );
+
+test( 'в «Пропусках в тексте» текст по-прежнему обычный: теги в нём не оживают', () => {
+	const container = new FakeElement();
+	container.dataset.widget = JSON.stringify( { type: 'fill', answer_mode: 'tiles', segments: [ { type: 'text', content: 'a <sub>b' }, { type: 'gap', index: 0 } ], tiles: [ 'k' ] } );
+	initTaskWidget( { querySelector: () => container } );
+
+	assert.equal( container.byClass( 'fs-widget-fill-text' )[ 0 ].innerHTML, 'a <sub>b' );
+} );

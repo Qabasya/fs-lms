@@ -91,4 +91,33 @@ class TaskSolutionServiceTest extends TestCase {
 		self::assertSame( array( array( 'left' => 'x', 'right' => 'y' ) ), $solution['variants']['pairs'] );
 		self::assertSame( array( 'первый', 'второй' ), $solution['variants']['order'] );
 	}
+
+	/** «Показать решение» у «Перетаскивания пропусков» — итоговая формула: текст и слоты с подставленными верными плитками. */
+	public function test_drag_fill_solution_is_the_final_formula_with_substituted_tiles(): void {
+		$this->correctAnswers->method( 'resolve' )->willReturn( 'S = x1 + y' );
+
+		$solution = $this->service->forTask( 77, array( 'task_drag_fill' => array(
+			'formula' => 'S = {1} + {2}',
+			'tiles'   => array( 'x<sub>1</sub>', 'y', 'k' ),
+			'slots'   => array( array( 'answer' => 'x<sub>1</sub>', 'group' => 1 ), array( 'answer' => '<img src=x>', 'group' => 2 ) ),
+		) ) );
+
+		self::assertSame(
+			array(
+				array( 'type' => 'text', 'html' => 'S = ' ),
+				array( 'type' => 'slot', 'html' => 'x<sub>1</sub>' ),
+				array( 'type' => 'text', 'html' => ' + ' ),
+				array( 'type' => 'slot', 'html' => '&lt;img src=x&gt;' ),
+			),
+			$solution['variants']['drag_fill']
+		);
+	}
+
+	public function test_variants_have_no_drag_fill_for_other_templates(): void {
+		$this->correctAnswers->method( 'resolve' )->willReturn( 'x' );
+
+		$solution = $this->service->forTask( 77, array( 'task_answer' => 'x' ) );
+
+		self::assertSame( array(), $solution['variants']['drag_fill'] );
+	}
 }
