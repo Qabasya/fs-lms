@@ -370,6 +370,13 @@ class ApplicationCallbacks extends BaseController {
 			}
 		}
 
+		// Из доверенной сети (заявку заполняют в офисе) код на почту не нужен:
+		// шаг OTP пропускается, письмо не тратится; капча и ловушка выше остаются.
+		if ( $this->pluginConfig->isTrustedIp( $ip ) ) {
+			$this->authLog->recordEvent( AuthAction::OtpTrustedIp, AuthResult::Success, null, array_filter( array( 'visit' => $visit ) ), $email );
+			$this->success( array( 'otp_required' => false ) );
+		}
+
 		// Ограничение отправок OTP на один адрес (анти-бомбинг, окно — сутки)
 		if ( ! $this->rateLimitService->allowOtpSendForEmail( $email ) ) {
 			$this->error( 'Слишком много отправок кода на эту почту. Попробуйте завтра.' );
@@ -412,11 +419,13 @@ class ApplicationCallbacks extends BaseController {
 		$school     = ApplicationService::schoolWithCity( $this->sanitizeText( 'city' ), $this->sanitizeText( 'school' ) );
 		$grade      = $this->sanitizeInt( 'grade' );
 		$birthDate  = $this->requireText( 'birth_date' );
-		$otpCode    = $this->requireText( 'otp_code' );
-		$username   = $this->requireText( 'username' );
+		// Из доверенной сети OTP не запрашивается (см. ajaxSendOtpCode) — поле может быть пустым.
+		$skipOtp  = $this->pluginConfig->isTrustedIp( $ip );
+		$otpCode  = $skipOtp ? $this->sanitizeText( 'otp_code' ) : $this->requireText( 'otp_code' );
+		$username = $this->requireText( 'username' );
 		// Без sanitize_text_field: она вырезает «%» с двумя hex-цифрами за ним (Pass%12ab → Passab).
 		// Допустимые символы проверяет CredentialsPolicy в ApplicationService.
-		$password   = $this->unslashRawString( 'password' );
+		$password = $this->unslashRawString( 'password' );
 		if ( '' === $password ) {
 			$this->error( 'Поле обязательно для заполнения' );
 		}
@@ -449,14 +458,17 @@ class ApplicationCallbacks extends BaseController {
 		);
 
 		try {
-			$result = $this->applicationService->createApplication( $dto );
+			$result = $this->applicationService->createApplication( $dto, $skipOtp );
 		} catch ( \DomainException $e ) {
 			$this->error( $e->getMessage() );
 		} catch ( \RuntimeException $e ) {
 			$this->error( $e->getMessage() );
 		}
 
-		$this->authLog->record( $email, AuthAction::OtpVerified, AuthResult::Success );
+		// Факт «без OTP из доверенной сети» уже записан на шаге A (OtpTrustedIp), не дублируем.
+		if ( ! $skipOtp ) {
+			$this->authLog->record( $email, AuthAction::OtpVerified, AuthResult::Success );
+		}
 
 		/**
 		 * Generic-сейм для опциональных модулей (напр. AdSync): заявка создана.

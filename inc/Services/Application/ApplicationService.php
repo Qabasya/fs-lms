@@ -95,20 +95,22 @@ readonly class ApplicationService {
 	/**
 	 * Создаёт новую заявку (шаг B — после верификации OTP).
 	 *
-	 * @param ApplicationInputDTO $input Данные формы
+	 * @param ApplicationInputDTO $input   Данные формы
+	 * @param bool                $skipOtp Пропустить проверку OTP (заявка из доверенной сети FS_LMS_TRUSTED_IPS,
+	 *                                     решение принимает только ApplicationCallbacks по реальному IP запроса)
 	 *
 	 * @throws RuntimeException   Если OTP-код неверен или истёк
 	 * @throws DomainException    Если уже есть незавершённая заявка с таким email или логин/пароль не по правилам
 	 *
 	 * @return ApplicationCreatedDTO
 	 */
-	public function createApplication( ApplicationInputDTO $input ): ApplicationCreatedDTO {
+	public function createApplication( ApplicationInputDTO $input, bool $skipOtp = false ): ApplicationCreatedDTO {
 		// До verify(): успешная проверка гасит код, и из-за опечатки в пароле пришлось бы запрашивать новый.
 		$this->credentials->assertLogin( $input->username );
 		$this->credentials->assertPassword( $input->password );
 
-		// verify() — проверка OTP-кода
-		if ( ! $this->emailOtpService->verify( $input->email, $input->otpCode ) ) {
+		// verify() — проверка OTP-кода; из доверенной сети код на почту не запрашивается вовсе
+		if ( ! $skipOtp && ! $this->emailOtpService->verify( $input->email, $input->otpCode ) ) {
 			throw new RuntimeException( 'Неверный или истёкший код подтверждения.' );
 		}
 

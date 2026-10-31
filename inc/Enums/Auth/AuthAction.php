@@ -5,10 +5,12 @@ declare( strict_types=1 );
 namespace Inc\Enums\Auth;
 
 enum AuthAction: string {
-	case Login         = 'login';
-	case LoginFailed   = 'login_failed';
-	case OtpSent       = 'otp_sent';
-	case OtpVerified   = 'otp_verified';
+	case Login       = 'login';
+	case LoginFailed = 'login_failed';
+	case OtpSent     = 'otp_sent';
+	case OtpVerified = 'otp_verified';
+	// Заявка подана из доверенной сети (FS_LMS_TRUSTED_IPS): код на почту не запрашивался
+	case OtpTrustedIp  = 'otp_trusted_ip';
 	case PasswordReset = 'password_reset';
 	// Администратор снял блокировку входа аккаунта
 	case LoginUnlocked = 'login_unlocked';
@@ -36,6 +38,7 @@ enum AuthAction: string {
 			self::LoginFailed   => 'Неудача входа',
 			self::OtpSent       => 'OTP отправлен',
 			self::OtpVerified   => 'OTP подтверждён',
+			self::OtpTrustedIp  => 'OTP пропущен (доверенный IP)',
 			self::PasswordReset => 'Сброс пароля',
 			self::LoginUnlocked => 'Блокировка входа снята',
 			self::ApplyStarted      => 'Заявка: начал заполнять',

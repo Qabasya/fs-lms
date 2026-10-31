@@ -235,23 +235,11 @@ function startStatusPoll( poll ) {
 
 // ── Обработчики событий ───────────────────────────────────────────────────────
 
-async function handleOtpSubmit( e ) {
-    e.preventDefault();
-
-    const form    = document.getElementById( 'fs-lms-otp-form' );
-    const btn     = document.getElementById( 'fs-otp-submit' );
-    const otpCode = document.getElementById( 'fs_otp_code' )?.value.trim() ?? '';
-
-    clearError( form );
-
-    _tracker.submitAttempt();
-
-    if ( ! otpCode ) {
-        showError( form, 'Введите код подтверждения.' );
-        _tracker.invalid( 'не введён код' );
-        return;
-    }
-
+/**
+ * Создание заявки (шаг B). Из доверенной сети вызывается сразу после шага A
+ * с пустым кодом — сервер OTP в этом случае не проверяет.
+ */
+async function submitApplication( otpCode, btn, form ) {
     setLoading( btn, true );
 
     let res;
@@ -280,6 +268,26 @@ async function handleOtpSubmit( e ) {
 
     showSuccess( res.data?.notice );
     startStatusPoll( res.data?.poll );
+}
+
+async function handleOtpSubmit( e ) {
+    e.preventDefault();
+
+    const form    = document.getElementById( 'fs-lms-otp-form' );
+    const btn     = document.getElementById( 'fs-otp-submit' );
+    const otpCode = document.getElementById( 'fs_otp_code' )?.value.trim() ?? '';
+
+    clearError( form );
+
+    _tracker.submitAttempt();
+
+    if ( ! otpCode ) {
+        showError( form, 'Введите код подтверждения.' );
+        _tracker.invalid( 'не введён код' );
+        return;
+    }
+
+    await submitApplication( otpCode, btn, form );
 }
 
 async function handleResendOtp() {
@@ -447,6 +455,17 @@ function bindFormBehaviors() {
         }
 
         _formData = data;
+
+        // Доверенная сеть (офис): сервер не просит код — заявка создаётся сразу,
+        // экран успеха живёт в otp-step, поэтому переключаем этап без ожидания ввода.
+        if ( res.data?.otp_required === false ) {
+            document.getElementById( 'apply-form' ).classList.remove( 'fs-apply-card__step--active' );
+            document.getElementById( 'otp-step' ).classList.add( 'fs-apply-card__step--active' );
+            scrollToTop();
+            await submitApplication( '', btn, applyForm );
+            return;
+        }
+
         showOtpStep( res.data.masked_email );
     } );
 
