@@ -4,7 +4,7 @@
    разницы «е»/«ё». Сначала — по фамилии, затем по имени, внутри — по алфавиту.
    Фильтр клиентский: ученики уже загружены пикером. */
 
-import { esc, initials, avaColor, plural } from './utils.js';
+import { esc, plural } from './utils.js';
 import { icoSearch } from '../common/icons.js';
 
 const norm = (s) => String(s || '').toLowerCase().replace(/ё/g, 'е').trim();
@@ -96,7 +96,6 @@ export function wireStudentSearch(input, students, groupName, onPick) {
         list.innerHTML = shown.length
             ? shown.map((s, i) => `
                 <div class="stu-opt" role="option" aria-selected="false" data-i="${i}">
-                    <span class="stu-opt-ava" style="background:${avaColor(students, s.person_id)}">${initials(s.name)}</span>
                     <span class="stu-opt-name">${esc(s.name)}</span>
                     <span class="stu-opt-meta">${esc(meta(s))}</span>
                 </div>`).join('')

@@ -70,9 +70,10 @@ table.jgrid { border-collapse: separate; border-spacing: 0; width: max-content; 
 .jgrid td { border-bottom: 1px solid var(--line-2); border-right: 1px solid var(--line-2); padding: 0; text-align: center; height: rem(34); }
 
 .cell-idx { font-size: rem(12); color: var(--muted-2); }
-.cell-name { text-align: left; padding: 0 rem(12); }
+
+/* Специфичность выше `.jgrid td { padding: 0 }` — иначе боковые отступы имени сбиваются. */
+.jgrid td.cell-name { text-align: left; padding: 0 rem(24); }
 .cn-wrap { display: flex; align-items: center; gap: rem(9); }
-.cn-ava { width: rem(24); height: rem(24); border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: rem(10); font-weight: 700; color: var(--ink-inverse); }
 .cn-name { font-size: rem(13); font-weight: 500; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* Tasks.md п. 3: имя ученика — ссылка на его «Сводку». */

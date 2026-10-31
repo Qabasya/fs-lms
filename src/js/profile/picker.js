@@ -3,7 +3,7 @@
    были продублированы в каждом экране. Любой другой выбор из списка — тот же вид:
    optionPickerBtnHtml + openOptionPicker (без чипа). Родной select в кабинете не нужен. */
 
-import { esc, shortName, initials, chipBg, chipHtml, avatarUrl, groupSubjectKey, avaColor, openCtxMenu } from './utils.js';
+import { esc, shortName, chipBg, chipHtml, avatarUrl, groupSubjectKey, openCtxMenu } from './utils.js';
 import { icoCaret } from '../common/icons.js';
 
 const CARET = icoCaret(12, 'kp-caret');
@@ -85,7 +85,6 @@ export function openOptionPicker(anchor, options, currentValue, onPick) {
 export function studentPickerBtnHtml(student, roster, btnId) {
     const hasRoster = roster && roster.length;
     return `<button type="button" class="kp-btn" id="${btnId}" ${hasRoster ? '' : 'disabled'}>
-        ${student ? `<span class="kp-chip" style="background:${avaColor(roster, student.person_id)}">${initials(student.name)}</span>` : ''}
         <span class="kp-txt">${student ? esc(student.name) : '— нет активных учеников —'}</span>
         ${hasRoster ? CARET : ''}
     </button>`;
@@ -132,8 +131,6 @@ export function openStudentPicker(anchor, roster, currentId, onPick) {
             v: String(s.person_id),
             label: s.name,
             active: s.person_id === currentId,
-            swatch: avaColor(roster, s.person_id),
-            chip: initials(s.name),
         })),
         v => {
             const id = parseInt(v, 10);

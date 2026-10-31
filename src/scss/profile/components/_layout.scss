@@ -157,13 +157,8 @@ body.prof-menu-off .prof-mtoggle { display: flex; }
   display: flex; align-items: center; gap: rem(10);
 }
 
-.prof-avatar {
-  width: rem(34); height: rem(34); border-radius: 50%; flex-shrink: 0;
-  display: flex; align-items: center; justify-content: center;
-  font-size: rem(13); font-weight: 700; color: var(--ink-inverse);
-  background: linear-gradient(135deg, var(--ava-from), var(--ava-to));
-}
-.prof-side-user .su-meta { flex: 1; min-width: 0; }
+/* Аватарки в кабинете убраны: имя и роль начинаются с отступа примерно в ширину аватарки. */
+.prof-side-user .su-meta { flex: 1; min-width: 0; margin-left: rem(40); }
 .prof-side-user .su-name { font-size: rem(13); font-weight: 600; }
 .prof-side-user .su-role { font-size: rem(11); color: var(--muted-2); }
 

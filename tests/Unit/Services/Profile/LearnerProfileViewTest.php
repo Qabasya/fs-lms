@@ -40,4 +40,16 @@ class LearnerProfileViewTest extends TestCase {
 
 		self::assertSame( 'student-exams', end( $keys ) );
 	}
+
+	public function test_ranking_item_present_for_student_only(): void {
+		$student = ( new LearnerProfileView() )->build( new ProfileContext( 1, 5, UserRole::FSStudent, 5, false, array() ) );
+		$parent  = ( new LearnerProfileView() )->build( new ProfileContext( 1, 3, UserRole::FSParent, 7, true, array( array( 'personId' => 7, 'name' => 'A' ) ) ) );
+
+		self::assertContains( 'student-ranking', array_column( $student['nav'], 'key' ) );
+		self::assertContains( 'student-ranking', $student['screens'] );
+		self::assertSame( 'Рейтинг', array_column( $student['nav'], 'label', 'key' )['student-ranking'] );
+
+		self::assertNotContains( 'parent-ranking', array_column( $parent['nav'], 'key' ), 'Родителю рейтинг не показывается.' );
+		self::assertNotContains( 'parent-ranking', $parent['screens'] );
+	}
 }

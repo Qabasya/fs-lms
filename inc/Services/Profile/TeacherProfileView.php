@@ -16,6 +16,7 @@ use Inc\Managers\Course\CourseManager;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Services\Exam\ExamAccessGuard;
+use Inc\Services\Profile\Learner\LearnerRankingSection;
 
 /**
  * Class TeacherProfileView
@@ -45,6 +46,7 @@ final class TeacherProfileView implements ProfileViewInterface {
 		private readonly SubjectRepository $subjects,
 		private readonly ExamAccessGuard   $examGuard,
 		private readonly RankingAccessService $rankingAccess,
+		private readonly LearnerRankingSection $ranking,
 	) {}
 
 	public function build( ProfileContext $context ): array {
@@ -211,6 +213,8 @@ final class TeacherProfileView implements ProfileViewInterface {
 				'nonce' => Nonce::SaveSchedule->create(),
 				'actions' => array( 'getRanking' => AjaxHook::GetSubjectRanking->jsAction() ),
 				'subjects' => $this->rankingAccess->subjectsFor( $context->wpUserId ),
+				// Варианты селекта периода (начавшиеся периоды текущего учебного года), чтобы рейтинг прошлых периодов открывался сразу.
+				'periods' => $this->ranking->periodsFor( current_time( 'mysql' ) ),
 			),
 			'groups'   => array_map(
 				fn( $g ): array => array(

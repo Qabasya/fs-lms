@@ -27,6 +27,9 @@ class LearnerRankingSectionTest extends TestCase {
 			['2028-02-29', '2027-12-01 00:00:00', '2028-03-01 00:00:00'],
 			['2027-03-01', '2027-03-01 00:00:00', '2027-06-01 00:00:00'],
 			['2027-05-31', '2027-03-01 00:00:00', '2027-06-01 00:00:00'],
+			['2027-06-01', '2027-06-01 00:00:00', '2027-09-01 00:00:00'],
+			['2027-07-20', '2027-06-01 00:00:00', '2027-09-01 00:00:00'],
+			['2027-08-31', '2027-06-01 00:00:00', '2027-09-01 00:00:00'],
 		];
 	}
 
@@ -37,13 +40,52 @@ class LearnerRankingSectionTest extends TestCase {
 		self::assertSame($until, $section->period($now)['until']);
 	}
 
-	public function test_summer_does_not_read_or_show_ranking(): void {
+	public function test_summer_computes_ranking_for_the_summer_period(): void {
 		$repo = $this->createMock(LearnerRankingRepository::class);
-		$repo->expects(self::never())->method('studentIds');
+		$repo->expects(self::exactly(3))->method('studentIds')->with('python')->willReturn([1]);
 		$section = new LearnerRankingSection($repo, $this->points());
 		foreach (['2027-06-01', '2027-07-20', '2027-08-31'] as $day) {
-			self::assertSame([], $section->forGroups(1, [['subject_key' => 'python']], $day));
+			$items = $section->forGroups(1, [['subject_key' => 'python']], $day);
+			self::assertCount(1, $items, "рейтинг считается летом ($day)");
+			self::assertSame('Июнь — август 2027', $items[0]['period']);
 		}
+	}
+
+	public function test_periods_for_offers_only_current_academic_year_started_periods(): void {
+		$section = new LearnerRankingSection($this->createStub(LearnerRankingRepository::class), $this->points());
+
+		$october = $section->periodsFor('2026-10-31 12:00:00');
+		self::assertSame('Сентябрь — ноябрь 2026', $october[0]['label'], 'новые периоды первыми');
+		self::assertTrue($october[0]['current']);
+		self::assertCount(1, $october, 'в октябре начался только один период этого учебного года');
+
+		$february = $section->periodsFor('2027-02-15 12:00:00');
+		self::assertSame(['Декабрь 2026 — февраль 2027', 'Сентябрь — ноябрь 2026'], array_column($february, 'label'));
+		self::assertFalse($february[1]['current']);
+
+		$july = $section->periodsFor('2026-07-20 12:00:00');
+		self::assertSame('Июнь — август 2026', $july[0]['label']);
+		self::assertTrue($july[0]['current'], 'летом текущий — летний период');
+		self::assertCount(4, $july, 'летом доступны все четыре периода завершившегося учебного года');
+		// Будущие периоды и прошлый учебный год не предлагаются.
+		self::assertFalse((bool) array_filter($october, static fn( array $p ): bool => str_contains( $p['label'], 'Декабрь 2026' )));
+		self::assertFalse((bool) array_filter($february, static fn( array $p ): bool => str_contains( $p['label'], '2025' )));
+	}
+
+	public function test_scores_for_subject_uses_explicit_period_bounds(): void {
+		$repo = $this->createMock(LearnerRankingRepository::class);
+		$repo->method('studentIds')->willReturn([1]);
+		$repo->expects(self::once())->method('workEvents')->with('python', '2026-03-01 00:00:00', '2026-06-01 00:00:00')->willReturn([]);
+		$repo->expects(self::once())->method('assessmentEvents')->with('python', '2026-03-01 00:00:00', '2026-06-01 00:00:00')->willReturn([]);
+		$section = new LearnerRankingSection($repo, $this->points());
+
+		$scores = $section->scoresForSubject('python', '2026-10-31 12:00:00', array(
+			'from'  => '2026-03-01 00:00:00',
+			'until' => '2026-06-01 00:00:00',
+			'label' => 'Март — май 2026',
+		));
+
+		self::assertArrayHasKey(1, $scores);
 	}
 
 	public function test_dense_rank_counts_all_four_sources_and_successful_repeats(): void {

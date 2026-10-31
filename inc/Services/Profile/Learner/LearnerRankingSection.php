@@ -21,15 +21,12 @@ class LearnerRankingSection {
 	) {}
 
 	/**
-	 * Summer has no ranking. New subjects need no special configuration.
+	 * Рейтинг считается во всех четырёх периодах учебного года, включая летний (июнь — август).
 	 *
 	 * @return list<array<string, mixed>>
 	 */
 	public function forGroups( int $personId, array $groups, string $nowLocal ): array {
 		$period = $this->period( $nowLocal );
-		if ( null === $period ) {
-			return array();
-		}
 
 		$items = array();
 		foreach ( $groups as $group ) {
@@ -56,11 +53,8 @@ class LearnerRankingSection {
 	}
 
 	/** Shared subject-wide calculation used by learner tiles and the staff ranking table. */
-	public function scoresForSubject( string $subject, string $nowLocal ): array {
-		$period = $this->period( $nowLocal );
-		if ( null === $period ) {
-			return array();
-		}
+	public function scoresForSubject( string $subject, string $nowLocal, ?array $period = null ): array {
+		$period = $period ?? $this->period( $nowLocal );
 		$totals = array_fill_keys( $this->repository->studentIds( $subject ), 0.0 );
 		$events = array_merge(
 			$this->repository->workEvents( $subject, $period['from'], $period['until'] ),
@@ -112,16 +106,23 @@ class LearnerRankingSection {
 	}
 
 	/**
-	 * Current school trimester, with an exclusive upper date bound.
+	 * Текущий период учебного года, с эксклюзивной верхней границей.
 	 *
-	 * @return array{from: string, until: string, label: string}|null
+	 * Год делится на четыре фиксированных периода: сентябрь — ноябрь, декабрь — февраль,
+	 * март — май, июнь — август (рейтинг считается и летом).
+	 *
+	 * @return array{from: string, until: string, label: string}
 	 */
-	public function period( string $nowLocal ): ?array {
+	public function period( string $nowLocal ): array {
 		$now   = new \DateTimeImmutable( $nowLocal );
 		$month = (int) $now->format( 'n' );
 		$year  = (int) $now->format( 'Y' );
 		if ( $month >= 6 && $month <= 8 ) {
-			return null;
+			return array(
+				'from'  => "$year-06-01 00:00:00",
+				'until' => "$year-09-01 00:00:00",
+				'label' => "Июнь — август $year",
+			);
 		}
 		if ( $month >= 9 && $month <= 11 ) {
 			return array(
@@ -144,5 +145,39 @@ class LearnerRankingSection {
 			'until' => "$end_year-03-01 00:00:00",
 			'label' => "Декабрь $start_year — февраль $end_year",
 		);
+	}
+
+	/**
+	 * Периоды для выбора на экране «Рейтинг»: только уже начавшиеся периоды текущего
+	 * учебного года (с сентября) — текущий и прошлые, будущие не предлагаются.
+	 * Новые — первыми; у текущего периода `current: true`.
+	 *
+	 * @return list<array{from: string, until: string, label: string, current: bool}>
+	 */
+	public function periodsFor( string $nowLocal ): array {
+		$now           = new \DateTimeImmutable( $nowLocal );
+		$academic_start = ( (int) $now->format( 'n' ) >= 9 ) ? (int) $now->format( 'Y' ) : (int) $now->format( 'Y' ) - 1;
+		$currentFrom   = $this->period( $nowLocal )['from'];
+		$periods       = array();
+		$next          = $academic_start + 1;
+		foreach ( array(
+			array( "$academic_start-09-01 00:00:00", "$academic_start-12-01 00:00:00", "Сентябрь — ноябрь $academic_start" ),
+			array( "$academic_start-12-01 00:00:00", "$next-03-01 00:00:00", "Декабрь $academic_start — февраль $next" ),
+			array( "$next-03-01 00:00:00", "$next-06-01 00:00:00", "Март — май $next" ),
+			array( "$next-06-01 00:00:00", "$next-09-01 00:00:00", "Июнь — август $next" ),
+		) as $row ) {
+			// Будущие периоды не предлагаем.
+			if ( $row[0] > $nowLocal ) {
+				continue;
+			}
+			$periods[] = array(
+				'from'    => $row[0],
+				'until'   => $row[1],
+				'label'   => $row[2],
+				'current' => $row[0] === $currentFrom,
+			);
+		}
+
+		return array_reverse( $periods );
 	}
 }

@@ -15,6 +15,7 @@ use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 use Inc\Services\Course\LiveLessonService;
+use Inc\Services\Profile\Learner\LearnerRankingSection;
 use Inc\Services\Shared\AvatarService;
 
 /**
@@ -47,6 +48,8 @@ class ProfileViewResolver {
 		private readonly LiveLessonService       $live,
 		private readonly AvatarService           $avatars,
 		private readonly HomeLayoutService       $layouts,
+		private readonly RankingAccessService    $rankingAccess,
+		private readonly LearnerRankingSection   $rankingSection,
 	) {}
 
 
@@ -80,7 +83,7 @@ class ProfileViewResolver {
 			$subjectPersonId = $children[0]['personId'] ?? null;
 		}
 
-		return new ProfileContext( $wpUserId, $personId, $role, $subjectPersonId, $readOnly, $children );
+		return new ProfileContext( $wpUserId, $personId, $role, $subjectPersonId, $readOnly, $children, $person );
 	}
 
 	/**
@@ -151,6 +154,17 @@ class ProfileViewResolver {
 						'cancel'   => AjaxHook::CancelExamRegistration->jsAction(),
 					)
 				);
+
+				// Экран «Рейтинг» (только ученику): направления — предметы его активных
+				// групп, сервер повторно проверяет каждый запрос (RankingCallbacks).
+				if ( null !== $ctx->personId ) {
+					$config['ranking'] = array(
+						'nonce'    => Nonce::LearnerProfile->create(),
+						'actions'  => array( 'getRanking' => AjaxHook::GetSubjectRanking->jsAction() ),
+						'subjects' => $this->rankingAccess->learnerSubjectsFor( $ctx->personId ),
+						'periods'  => $this->rankingSection->periodsFor( (string) current_time( 'mysql' ) ),
+					);
+				}
 			}
 		}
 
@@ -195,8 +209,13 @@ class ProfileViewResolver {
 				'role'            => $ctx->role->value,
 				'readOnly'        => $ctx->readOnly,
 				'user'            => array(
-					'name'     => $name,
-					'initials' => $this->initials( $name ),
+					'name'          => $name,
+					'initials'      => $this->initials( $name ),
+					// Приветствие главной: имя/отчество смотрящего и его день рождения (по времени сайта).
+					'firstName'     => $ctx->person?->firstName ?? '',
+					'middleName'    => $ctx->person?->middleName ?? '',
+					'birthdayToday' => null !== $ctx->person && null !== $ctx->person->birthDate && '' !== $ctx->person->birthDate
+						&& substr( $ctx->person->birthDate, 5 ) === substr( (string) current_time( 'Y-m-d' ), 5 ),
 				),
 				'subjectPersonId' => $ctx->subjectPersonId,
 				// Аватары предметов и групп (Настройки → Аватары): {subject: {key: url}, group: {id: url}}.

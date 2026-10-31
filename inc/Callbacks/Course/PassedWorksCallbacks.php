@@ -34,15 +34,18 @@ class PassedWorksCallbacks extends BaseController {
 
 	/**
 	 * Порция списка работ прошедших занятий, новые сверху.
-	 * Params: group_id? (0 — все группы пользователя), type? (значение WorkType), status? (pending|missing), cursor? (метка из прошлой порции).
+	 * Params: group_id? (0 — все группы пользователя), type? (значение WorkType), status? (pending|missing),
+	 * sort? ('' — по дате выдачи, submissions — по свежести сдач), cursor? (метка из прошлой порции).
 	 */
 	public function ajaxGetPassedWorks(): void {
 		$this->authorize( Nonce::GradeWork, Capability::ManageLmsTeaching );
 
 		$type   = $this->sanitizeKey( 'type' );
 		$status = $this->sanitizeKey( 'status' );
+		$sort   = $this->sanitizeKey( 'sort' );
 		if ( ( '' !== $type && null === WorkType::tryFrom( $type ) )
-			|| ! in_array( $status, array( '', PassedWorksService::STATUS_PENDING, PassedWorksService::STATUS_MISSING ), true ) ) {
+			|| ! in_array( $status, array( '', PassedWorksService::STATUS_PENDING, PassedWorksService::STATUS_MISSING ), true )
+			|| ! in_array( $sort, array( '', PassedWorksService::SORT_SUBMISSIONS ), true ) ) {
 			$this->error( 'Некорректные параметры.' );
 			return;
 		}
@@ -55,7 +58,8 @@ class PassedWorksCallbacks extends BaseController {
 				$this->sanitizeInt( 'group_id' ),
 				$type,
 				$status,
-				$this->sanitizeText( 'cursor' )
+				$this->sanitizeText( 'cursor' ),
+				$sort
 			);
 		} catch ( \InvalidArgumentException $e ) {
 			$this->error( $e->getMessage() );

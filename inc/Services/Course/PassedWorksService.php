@@ -41,8 +41,14 @@ class PassedWorksService {
 	/** Быстрый фильтр: есть ученики, не сдавшие работу. */
 	public const STATUS_MISSING = 'missing';
 
+	/** Сортировка «Новые сдачи»: сверху работы со свежими сдачами, по убыванию времени последней сдачи. */
+	public const SORT_SUBMISSIONS = 'submissions';
+
 	/** Сколько занятий просматривается за один запрос: редкий фильтр не должен перебирать всю историю разом. */
 	private const SCAN_LIMIT = 40;
+
+	/** Сколько пар «занятие + работа» из сдач просматривается за один запрос в режиме {@see self::SORT_SUBMISSIONS}. */
+	private const PAIR_SCAN_LIMIT = 40;
 
 	public function __construct(
 		private readonly TeacherGroupResolver     $teacherGroups,
@@ -68,12 +74,17 @@ class PassedWorksService {
 	 * @param string $type    Значение {@see WorkType}; пусто — любой тип
 	 * @param string $status  {@see self::STATUS_PENDING} / {@see self::STATUS_MISSING}; пусто — без фильтра
 	 * @param string $cursor  Метка продолжения из прошлой порции; пусто — с самого начала
+	 * @param string $sort    '' — по дате выдачи (занятия от новых к старым); {@see self::SORT_SUBMISSIONS} — по свежести сдач
 	 *
 	 * @return array{items: array<int, array<string, mixed>>, next: ?string, pending_total: ?int} `pending_total` — только в первой порции
 	 *
 	 * @throws \InvalidArgumentException Метка продолжения не распознана.
 	 */
-	public function feed( int $userId, bool $allGroups, int $groupId, string $type, string $status, string $cursor ): array {
+	public function feed( int $userId, bool $allGroups, int $groupId, string $type, string $status, string $cursor, string $sort = '' ): array {
+		if ( self::SORT_SUBMISSIONS === $sort ) {
+			return $this->feedBySubmissions( $userId, $allGroups, $groupId, $type, $status, $cursor );
+		}
+
 		[ $cursorAt, $cursorId ] = self::parseCursor( $cursor );
 
 		$groupIds = $this->teacherGroups->idsFor( $userId, $allGroups );
@@ -107,6 +118,98 @@ class PassedWorksService {
 			}
 			if ( $i === $last && $hasMore ) {
 				$next = self::cursorOf( $entry );
+			}
+		}
+
+		return array(
+			'items'         => $items,
+			'next'          => $next,
+			'pending_total' => '' === $cursor ? $this->pendingTotal( $groupIds ) : null,
+		);
+	}
+
+	/**
+	 * Порция списка в режиме «Новые сдачи»: работы с сдачами выше, чем свежее последняя сдача.
+	 *
+	 * Берёт пары «строка занятия + работа» из сдач (новые сверху), склеивает строки одного занятия
+	 * ({@see self::unitRows()} — дополнительное занятие для части группы хранится по строке на ученика)
+	 * и строит строки списка только по работам с сдачами. Работы без сдач в этом режиме не показываются.
+	 * Продолжение — по метке `latest_at|group_lesson_id|work_id` последней просмотренной пары.
+	 *
+	 * @param string $cursor Метка вида `latest_at|group_lesson_id|work_id`; пусто — с самого начала
+	 *
+	 * @return array{items: array<int, array<string, mixed>>, next: ?string, pending_total: ?int}
+	 *
+	 * @throws \InvalidArgumentException Метка продолжения не распознана.
+	 */
+	private function feedBySubmissions( int $userId, bool $allGroups, int $groupId, string $type, string $status, string $cursor ): array {
+		[ $cursorAt, $cursorLessonId, $cursorWorkId ] = self::parseSubCursor( $cursor );
+
+		$groupIds = $this->teacherGroups->idsFor( $userId, $allGroups );
+		if ( $groupId > 0 ) {
+			$groupIds = in_array( $groupId, $groupIds, true ) ? array( $groupId ) : array();
+		}
+		if ( array() === $groupIds ) {
+			return array(
+				'items'         => array(),
+				'next'          => null,
+				'pending_total' => '' === $cursor ? 0 : null,
+			);
+		}
+
+		$pairs   = $this->submissions->listWorkLatestPage( $groupIds, $this->clock->now(), $cursorAt, $cursorLessonId, $cursorWorkId, self::PAIR_SCAN_LIMIT + 1 );
+		$hasMore = count( $pairs ) > self::PAIR_SCAN_LIMIT;
+		$pairs   = array_slice( $pairs, 0, self::PAIR_SCAN_LIMIT );
+
+		// Пары упорядочены от свежих к старым, поэтому первая строка занятия встречается самой
+		// верхней — по ней и крепим занятие; остальные его строки (другие ученики доп. занятия)
+		// в порядке вывода не участвуют, но их работы в занятие входят.
+		$units = array();
+		foreach ( $pairs as $pair ) {
+			$row = $this->groupLessons->find( $pair['group_lesson_id'] );
+			if ( null === $row ) {
+				continue;
+			}
+			$unit = $this->unitRows( $row );
+			$uid  = $unit[0]->id;
+			if ( ! isset( $units[ $uid ] ) ) {
+				$units[ $uid ] = array(
+					'unit'   => $unit,
+					'works'  => array(),
+					'latest' => $pair['latest_at'],
+				);
+			}
+			$units[ $uid ]['works'][ $pair['work_id'] ] = true;
+			if ( $pair['latest_at'] > $units[ $uid ]['latest'] ) {
+				$units[ $uid ]['latest'] = $pair['latest_at'];
+			}
+		}
+
+		$items   = array();
+		$next    = null;
+		$context = array(
+			'students' => array(),
+			'groups'   => array(),
+		);
+
+		$stoppedEarly = false;
+		foreach ( $units as $unit ) {
+			$row = $unit['unit'][0];
+			// Дата занятия как в ленте: время занятия, а если его нет — время самой свежей сдачи.
+			$at = null !== $row->scheduledAt ? $row->scheduledAt : $unit['latest'];
+			array_push( $items, ...$this->lessonItems( $unit['unit'], $at, $type, $status, $context, array_map( 'intval', array_keys( $unit['works'] ) ) ) );
+
+			if ( count( $items ) >= self::PAGE_SIZE ) {
+				$stoppedEarly = true;
+				break;
+			}
+		}
+		// Метка — после последней просмотренной пары: страница закрыта раньше (набран PAGE_SIZE)
+		// либо окно выборки исчерпано не до конца (за пределами могут быть ещё пары).
+		if ( $stoppedEarly || $hasMore ) {
+			$last = $pairs[ count( $pairs ) - 1 ] ?? null;
+			if ( null !== $last ) {
+				$next = $last['latest_at'] . '|' . $last['group_lesson_id'] . '|' . $last['work_id'];
 			}
 		}
 
@@ -214,12 +317,13 @@ class PassedWorksService {
 	 * Дополнительное занятие для части группы — одна работа на всех его учеников: «сдали N из M» считается по
 	 * всем строкам занятия сразу.
 	 *
-	 * @param GroupLessonDTO[]                                                              $unit    Строки одного занятия ({@see self::unitRows()})
+	 * @param GroupLessonDTO[]                                                            $unit    Строки одного занятия ({@see self::unitRows()})
 	 * @param array{students: array<int, array<int, string>>, groups: array<int, string>} $context Кеш на время запроса (ученики и названия групп)
+	 * @param int[]|null                                                                  $onlyWorkIds null — все работы занятия; иначе — только перечисленные (режим «Новые сдачи»)
 	 *
 	 * @return array<int, array<string, mixed>>
 	 */
-	private function lessonItems( array $unit, string $at, string $type, string $status, array &$context ): array {
+	private function lessonItems( array $unit, string $at, string $type, string $status, array &$context, ?array $onlyWorkIds = null ): array {
 		$row       = $unit[0];
 		$submitted = $this->unitSubmissions( $unit );
 
@@ -227,12 +331,18 @@ class PassedWorksService {
 		$works = array();
 		foreach ( $unit as $member ) {
 			foreach ( $this->deadlines->assignedWorks( $member ) as $work ) {
+				if ( null !== $onlyWorkIds && ! in_array( $work->id, $onlyWorkIds, true ) ) {
+					continue;
+				}
 				if ( array() !== $work->itemIds ) {
 					$works[ $work->id ] ??= $work;
 				}
 			}
 		}
 		foreach ( array_keys( $submitted ) as $workId ) {
+			if ( null !== $onlyWorkIds && ! in_array( $workId, $onlyWorkIds, true ) ) {
+				continue;
+			}
 			if ( ! isset( $works[ $workId ] ) ) {
 				$work = $this->works->get( $workId );
 				if ( null !== $work ) {
@@ -431,5 +541,23 @@ class PassedWorksService {
 		}
 
 		return array( $m[1], (int) $m[2] );
+	}
+
+	/**
+	 * Метка продолжения режима «Новые сдачи»: «самая свежая сдача», ID строки занятия и ID работы.
+	 *
+	 * @return array{0: ?string, 1: int, 2: int} [«дата», ID строки, ID работы]; для пустой метки — [null, 0, 0]
+	 *
+	 * @throws \InvalidArgumentException Метка не распознана.
+	 */
+	private static function parseSubCursor( string $cursor ): array {
+		if ( '' === $cursor ) {
+			return array( null, 0, 0 );
+		}
+		if ( 1 !== preg_match( '/^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\|(\d+)\|(\d+)$/', $cursor, $m ) ) {
+			throw new \InvalidArgumentException( 'Некорректная метка продолжения списка.' );
+		}
+
+		return array( $m[1], (int) $m[2], (int) $m[3] );
 	}
 }

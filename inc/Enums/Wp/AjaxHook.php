@@ -305,7 +305,7 @@ enum AjaxHook: string {
 	case ResetAttempts           = 'reset_attempts'; // params: source_type (submission|attempt), source_id — удаляет попытки/сдачи ученика по этой работе/экзамену
 
 	// ==== Экран «Работы» (D3, .docs/Tasks.md): один список работ прошедших занятий ====
-	case GetPassedWorks        = 'get_passed_works';         // params: group_id?, type?, status? (pending|missing), cursor? — порция списка работ, новые сверху
+	case GetPassedWorks        = 'get_passed_works';         // params: group_id?, type?, status? (pending|missing), sort? (''|submissions), cursor? — порция списка работ: по дате выдачи или по свежести сдач
 	case GetPassedWorkStudents = 'get_passed_work_students'; // params: group_lesson_id, work_id — ученики работы занятия (сдали / ждут проверки / не сдали)
 	case CreditWork            = 'credit_work';              // params: group_lesson_id, work_id, person_ids[]? — засчитать работу несдавшим (макс. балл)
 	case UncreditWork          = 'uncredit_work';            // params: group_lesson_id, work_id, person_id — снять зачёт, выставленный вручную
@@ -323,7 +323,7 @@ enum AjaxHook: string {
 	case SetRoomOverride         = 'set_room_override';        // params: group_id, room_id|'', valid_from, valid_to — замена кабинета на период
 
 	// ==== «Главная» кабинета (ЛК преподавателя, Эпик 6) ====
-	case GetSubjectRanking = 'get_subject_ranking';
+	case GetSubjectRanking = 'get_subject_ranking'; // params: subject_key, group_id? (0 — все), period_from? (from периода; пусто — текущий) — рейтинг направления: места, баллы, группы и список периодов
 	case GetProfileDashboard    = 'get_profile_dashboard';    // без params — агрегат по всем группам текущего пользователя
 	case GetTaughtCourseProgram = 'get_taught_course_program'; // params: course_id — модули и уроки курса для страницы курса преподавателя (Tasks.md З4)
 

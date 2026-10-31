@@ -70,11 +70,25 @@ onChildChange(() => { load(true); rerenderAll(); });
 
 /* ── Home ─────────────────────────────────────────────────────────────── */
 /** Имя в приветствии: у родителя — его собственное «Имя Отчество» (в аккаунте имя хранится как «Фамилия Имя Отчество»). */
+/** Ученику — имя, родителю — имя и отчество; без привязанного Person — прежний разбор display name «Фамилия Имя [Отчество]». */
 function greetingName() {
-    const own = window.fsProfile?.user?.name || '';
-    if (!isParent()) { return own || 'ученик'; }
-    const words = own.trim().split(/\s+/).filter(Boolean);
-    return (words.length > 1 ? words.slice(1).join(' ') : own) || 'родитель';
+    const u    = window.fsProfile?.user || {};
+    const own  = u.name || '';
+    const tail = own.trim().split(/\s+/).filter(Boolean).slice(1).join(' ');
+    if (isParent()) {
+        return [u.firstName, u.middleName].filter(Boolean).join(' ') || tail || own || 'родитель';
+    }
+    return u.firstName || tail || own || 'ученик';
+}
+
+/** Приветствие в шапке главной: «Привет, Имя» ученику, «Здравствуйте, Имя Отчество» родителю; в день рождения — поздравление. */
+export function greetingHtml() {
+    const name = greetingName();
+    if (window.fsProfile?.user?.birthdayToday) {
+        return `<h1><span class="prof-hello-name">🎉 С днём рождения, ${esc(name)}! 🎉</span></h1>`;
+    }
+    const hello = isParent() ? 'Здравствуйте,' : 'Привет,';
+    return `<h1>${hello}<span class="prof-hello-name"> ${esc(name)}</span></h1>`;
 }
 
 /* ── «Кастомизация» главной: порядок секций и набор плиток (до шести) — настройка смотрящего, хранится на сервере ── */
@@ -114,7 +128,6 @@ function deadlinesSectionHtml(d) {
 }
 
 function renderHome(root, d) {
-    const name = greetingName();
     const who = { parent: isParent() };
     const layout = layoutOf(d);
     const sections = {
@@ -127,7 +140,7 @@ function renderHome(root, d) {
         ${childBar(false)}
         ${examLockBanner(d)}
         <div class="prof-dash-hello">
-            <h1>Здравствуйте,<span class="prof-hello-name"> ${esc(name)}</span></h1>
+            ${greetingHtml()}
             <p>${d.groups.map(g => esc(g.name) + ' · ' + esc(g.subject)).join(' · ') || 'Нет активных групп'}</p>
             ${childPickHtml()}
         </div>

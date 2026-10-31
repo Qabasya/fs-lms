@@ -34,7 +34,7 @@ import { renderTeacherCourses, openTeacherCourse } from './teacher-courses.js';
 /* Экраны ученика и родителя одни и те же, а ключ несёт роль: student-grades / parent-grades
    (виден в адресе ?screen=). Реестры ниже получают оба набора из одного описания. */
 const LEARNER_PREFIXES = ['student', 'parent'];
-const LEARNER_SCREEN_RE = /^(?:learner|student|parent)-(home|lessons|exams|grades|attendance)$/;
+const LEARNER_SCREEN_RE = /^(?:learner|student|parent)-(home|lessons|exams|grades|attendance|ranking)$/;
 
 function forLearnerRoles(byScreen) {
     const out = {};
@@ -78,7 +78,10 @@ const SCREENS = {
     ktp:                  (root) => renderKTP(root),
     activity:             (root) => renderActivity(root, { openWorkReview: openWorkReviewFrom('activity') }),
     'teacher-courses':    renderTeacherCourses,
-    ranking:              renderRanking,
+    ranking:              (root) => renderRanking(root, summaryLink()),
+    // «Рейтинг» ученика (родителю экран не выдаётся, LearnerScreen::Ranking): тот же рендер,
+    // но своё состояние в адресе (student-ranking_*) и без «Сводки» (summaryLink пуст у ученика).
+    'student-ranking':    (root) => renderRanking(root, summaryLink(), 'student-ranking'),
     ...forLearnerRoles({
         home:       (root) => renderLearnerHome(root, { openExam: openLearnerExamFrom }),
         lessons:    renderLearnerLessons,
@@ -96,6 +99,7 @@ const SCREENS = {
 const TOPBAR = {
     dashboard:            { title: 'Главная' },
     ranking:              { title: 'Рейтинг учеников' },
+    'student-ranking':    { title: 'Рейтинг' },
     groups:               { title: 'Группы' },
     journal:              { title: 'Журнал' },
     works:                { title: 'Работы' },
@@ -123,6 +127,7 @@ const TOPBAR = {
 const NAV_ICONS = {
     dashboard:            icoHome(19),
     ranking:              icoStar(19),
+    'student-ranking':    icoStar(19),
     groups:               icoUsers(19),
     journal:              icoJournal(19),
     works:                icoInbox(19),
@@ -436,7 +441,6 @@ function buildSidebar() {
         const hideRole = ['lms_student', 'lms_parent'].includes(cfg.role);
         const roleLabel = hideRole ? '' : (ROLE_LABELS[cfg.role] || 'Пользователь');
         user.innerHTML = `
-            <div class="prof-avatar">${esc(u.initials)}</div>
             <div class="su-meta">
                 <div class="su-name">${esc(u.name)}</div>
                 ${roleLabel ? `<div class="su-role">${esc(roleLabel)}</div>` : ''}

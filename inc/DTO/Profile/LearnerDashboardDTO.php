@@ -39,7 +39,7 @@ readonly class LearnerDashboardDTO {
 		public array $examCountdown = array(),
 		/** @var array<string, mixed>|null Дополнительные плитки главной (пилот на тестовом аккаунте); null — не показываются */
 		public ?array $highlights = null,
-		/** @var list<array<string, mixed>> Subject ranking in the current trimester; empty during summer. */
+		/** @var list<array<string, mixed>> Subject ranking in the current period (включая летний). */
 		public array $rankings = array(),
 		/** @var int Нерешённые задания сданных работ во всём списке дедлайнов. */
 		public int $toFix = 0,

@@ -12,12 +12,17 @@ namespace Inc\Services\Profile;
 use Inc\Enums\Access\Capability;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
+use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 
 /** Staff see subject-wide rankings only for directions they are permitted to teach or manage. */
 class RankingAccessService {
 
 	/** Receives authoritative group ownership and active subject definitions. */
-	public function __construct( private readonly GroupsRepository $groups, private readonly SubjectRepository $subjects ) {}
+	public function __construct(
+		private readonly GroupsRepository $groups,
+		private readonly SubjectRepository $subjects,
+		private readonly StudentRecordRepository $records,
+	) {}
 
 	/** Capability actually authorizing this request; parent/learner roles never qualify. */
 	public function capabilityFor( int $userId ): ?Capability {
@@ -42,6 +47,27 @@ class RankingAccessService {
 		$result = array();
 		foreach ( $this->subjects->readActive() as $subject ) {
 			if ( null === $owned || isset( $owned[ $subject->key ] ) ) {
+				$result[] = array(
+					'key'  => (string) $subject->key,
+					'name' => (string) $subject->name,
+				);
+			}
+		}
+		return $result;
+	}
+
+	/** Направления ученика — предметы его активных групп; чужие направления экран «Рейтинг» не отдаёт. */
+	public function learnerSubjectsFor( int $personId ): array {
+		$owned = array();
+		foreach ( $this->records->findActiveByStudent( $personId ) as $record ) {
+			$group = $this->groups->findById( $record->groupId );
+			if ( null !== $group ) {
+				$owned[ (string) $group->subject_key ] = true;
+			}
+		}
+		$result = array();
+		foreach ( $this->subjects->readActive() as $subject ) {
+			if ( isset( $owned[ $subject->key ] ) ) {
 				$result[] = array(
 					'key'  => (string) $subject->key,
 					'name' => (string) $subject->name,

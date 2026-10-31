@@ -4,6 +4,7 @@ declare( strict_types=1 );
 
 namespace Unit\Services\Profile;
 
+use Inc\DTO\Person\PersonDTO;
 use Inc\DTO\Profile\ProfileContext;
 use Inc\Enums\Access\UserRole;
 use Inc\Managers\Course\CourseManager;
@@ -39,12 +40,15 @@ class ProfileViewResolverTest extends TestCase {
 				$this->createMock( SubjectRepository::class ),
 				$this->createMock( ExamAccessGuard::class ),
 				$this->createStub( \Inc\Services\Profile\RankingAccessService::class ),
+				$this->createStub( \Inc\Services\Profile\Learner\LearnerRankingSection::class ),
 			),
 			new LearnerProfileView(),
 			$this->createMock( SubjectRepository::class ),
 			$this->createMock( \Inc\Services\Course\LiveLessonService::class ),
 			$this->createMock( AvatarService::class ),
 			$this->createStub( \Inc\Services\Profile\HomeLayoutService::class ),
+			$this->createStub( \Inc\Services\Profile\RankingAccessService::class ),
+			$this->createStub( \Inc\Services\Profile\Learner\LearnerRankingSection::class ),
 		);
 	}
 
@@ -59,7 +63,7 @@ class ProfileViewResolverTest extends TestCase {
 	}
 
 	/** Резолвер с заранее известным контекстом пользователя (роль и «только чтение»). */
-	private function resolverFor( UserRole $role ): ProfileViewResolver {
+	private function resolverFor( UserRole $role, ?PersonDTO $person = null ): ProfileViewResolver {
 		$user             = new \WP_User();
 		$user->ID         = 21;
 		$user->roles      = array( $role->value );
@@ -67,7 +71,7 @@ class ProfileViewResolverTest extends TestCase {
 		$GLOBALS['_fs_test_userdata'] = array( 21 => $user );
 
 		$people = $this->createMock( PersonRepository::class );
-		$people->method( 'findByWpUserId' )->willReturn( null );
+		$people->method( 'findByWpUserId' )->willReturn( $person );
 
 		return new ProfileViewResolver(
 			$people,
@@ -79,12 +83,15 @@ class ProfileViewResolverTest extends TestCase {
 				$this->createMock( SubjectRepository::class ),
 				$this->createMock( ExamAccessGuard::class ),
 				$this->createStub( \Inc\Services\Profile\RankingAccessService::class ),
+				$this->createStub( \Inc\Services\Profile\Learner\LearnerRankingSection::class ),
 			),
 			new LearnerProfileView(),
 			$this->createMock( SubjectRepository::class ),
 			$this->createMock( \Inc\Services\Course\LiveLessonService::class ),
 			$this->createMock( AvatarService::class ),
 			$this->createStub( \Inc\Services\Profile\HomeLayoutService::class ),
+			$this->createStub( \Inc\Services\Profile\RankingAccessService::class ),
+			$this->createStub( \Inc\Services\Profile\Learner\LearnerRankingSection::class ),
 		);
 	}
 
@@ -118,8 +125,57 @@ class ProfileViewResolverTest extends TestCase {
 		self::assertArrayNotHasKey( 'exams', $config, 'Блок «exams» ученика преподавателю не выдаётся (у него свой — в витрине).' );
 	}
 
+	public function test_student_config_has_ranking_block_but_parent_does_not(): void {
+		$person = new PersonDTO( 15, 21, 'Иванов', 'Иван', null, null, true, null, null, null, '2026-01-01 00:00:00', '2026-01-01 00:00:00' );
+
+		$student = $this->resolverFor( UserRole::FSStudent, $person )->jsConfig( 21 );
+		$parent  = $this->resolverFor( UserRole::FSParent, $person )->jsConfig( 21 );
+		unset( $GLOBALS['_fs_test_userdata'] );
+
+		self::assertSame( 'get_subject_ranking', $student['ranking']['actions']['getRanking'] ?? null );
+		self::assertArrayHasKey( 'subjects', $student['ranking'] );
+		self::assertArrayHasKey( 'periods', $student['ranking'] );
+		self::assertArrayNotHasKey( 'ranking', $parent, 'Родителю блок рейтинга не выдаётся.' );
+	}
+
 	public function test_back_office_roles_have_no_front_cabinet(): void {
 		self::assertNull( $this->resolver->viewFor( UserRole::FSMethodist ) );
+	}
+
+	// Флаг дня рождения сравнивается с current_time() — в WP-окружении он настоящий, даты считаем от «сегодня».
+
+	public function test_user_block_carries_greeting_name_and_birthday_flag(): void {
+		$today  = current_time( 'Y-m-d' );
+		$person = new PersonDTO( 15, 21, 'Иванов', 'Иван', null, $today, true, null, null, null, '2026-01-01 00:00:00', '2026-01-01 00:00:00' );
+
+		$config = $this->resolverFor( UserRole::FSStudent, $person )->jsConfig( 21 );
+		unset( $GLOBALS['_fs_test_userdata'] );
+
+		self::assertSame( 'Иван', $config['user']['firstName'] );
+		self::assertSame( '', $config['user']['middleName'] );
+		self::assertTrue( $config['user']['birthdayToday'], 'у ученика с днём рождения сегодня — поздравление' );
+	}
+
+	public function test_user_block_birthday_flag_false_on_other_day_and_parent_gets_middle_name(): void {
+		$today = current_time( 'Y-m-d' );
+		$other = '06-15' === substr( $today, 5 ) ? '1985-06-16' : '1985-06-15';
+		$person = new PersonDTO( 16, 21, 'Петрова', 'Мария', 'Сергеевна', $other, false, null, null, null, '2026-01-01 00:00:00', '2026-01-01 00:00:00' );
+
+		$config = $this->resolverFor( UserRole::FSParent, $person )->jsConfig( 21 );
+		unset( $GLOBALS['_fs_test_userdata'] );
+
+		self::assertSame( 'Мария', $config['user']['firstName'] );
+		self::assertSame( 'Сергеевна', $config['user']['middleName'] );
+		self::assertFalse( $config['user']['birthdayToday'], "{$other} — не сегодня" );
+	}
+
+	public function test_user_block_without_person_has_empty_greeting_fields(): void {
+		$config = $this->resolverFor( UserRole::FSStudent )->jsConfig( 21 );
+		unset( $GLOBALS['_fs_test_userdata'] );
+
+		self::assertSame( '', $config['user']['firstName'] );
+		self::assertSame( '', $config['user']['middleName'] );
+		self::assertFalse( $config['user']['birthdayToday'], 'без привязанного Person поздравления нет' );
 	}
 
 	/**
@@ -151,12 +207,15 @@ class ProfileViewResolverTest extends TestCase {
 				$this->createMock( SubjectRepository::class ),
 				$this->createMock( ExamAccessGuard::class ),
 				$this->createStub( \Inc\Services\Profile\RankingAccessService::class ),
+				$this->createStub( \Inc\Services\Profile\Learner\LearnerRankingSection::class ),
 			),
 			new LearnerProfileView(),
 			$this->createMock( SubjectRepository::class ),
 			$this->createMock( \Inc\Services\Course\LiveLessonService::class ),
 			$this->createMock( AvatarService::class ),
 			$this->createStub( \Inc\Services\Profile\HomeLayoutService::class ),
+			$this->createStub( \Inc\Services\Profile\RankingAccessService::class ),
+			$this->createStub( \Inc\Services\Profile\Learner\LearnerRankingSection::class ),
 		);
 
 		$config = $resolver->jsConfig( 5 );

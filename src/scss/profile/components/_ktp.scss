@@ -44,6 +44,9 @@
   padding: rem(8) rem(12); border: 1px solid var(--line); border-radius: var(--radius-sm);
   background: var(--surface); color: var(--ink); font: 600 rem(14) var(--font); cursor: pointer;
   box-shadow: var(--shadow-sm); transition: border-color $tr, background $tr; max-width: rem(320);
+
+  /* Одна высота у всех селектов: кнопка с чипом выше текстовой (чип 26 + отступы 16 + бордюр 2). */
+  min-height: rem(44);
 }
 .kp-btn:hover { border-color: var(--accent-soft-2); background: var(--surface-2); }
 .kp-btn:disabled { cursor: default; color: var(--muted-2); background: var(--surface-2); box-shadow: none; }

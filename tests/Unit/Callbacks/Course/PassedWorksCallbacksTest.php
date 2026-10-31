@@ -23,7 +23,7 @@ class PassedWorksCallbacksTest extends TestCase {
 
 	public function test_get_passed_works_passes_filters_and_cursor_to_service(): void {
 		$this->passed->expects( $this->once() )->method( 'feed' )
-			->with( $this->anything(), false, 4, 'homework', 'pending', '2026-10-11 10:00:00|11' )
+			->with( $this->anything(), false, 4, 'homework', 'pending', '2026-10-11 10:00:00|11', '' )
 			->willReturn( array( 'items' => array( array( 'work_id' => 3 ) ), 'next' => null, 'pending_total' => 2 ) );
 		$_POST = array( 'group_id' => '4', 'type' => 'homework', 'status' => 'pending', 'cursor' => '2026-10-11 10:00:00|11' );
 
@@ -36,11 +36,27 @@ class PassedWorksCallbacksTest extends TestCase {
 
 	public function test_get_passed_works_allows_empty_filters(): void {
 		$this->passed->expects( $this->once() )->method( 'feed' )
-			->with( $this->anything(), false, 0, '', '', '' )
+			->with( $this->anything(), false, 0, '', '', '', '' )
 			->willReturn( array( 'items' => array(), 'next' => null, 'pending_total' => 0 ) );
 		$_POST = array();
 
 		self::assertTrue( fs_test_capture_json( fn() => $this->cb->ajaxGetPassedWorks() )->success );
+	}
+
+	public function test_get_passed_works_passes_sort_to_service(): void {
+		$this->passed->expects( $this->once() )->method( 'feed' )
+			->with( $this->anything(), false, 0, '', '', '', 'submissions' )
+			->willReturn( array( 'items' => array(), 'next' => null, 'pending_total' => 0 ) );
+		$_POST = array( 'sort' => 'submissions' );
+
+		self::assertTrue( fs_test_capture_json( fn() => $this->cb->ajaxGetPassedWorks() )->success );
+	}
+
+	public function test_get_passed_works_rejects_unknown_sort(): void {
+		$this->passed->expects( $this->never() )->method( 'feed' );
+		$_POST = array( 'sort' => 'grade' );
+
+		self::assertFalse( fs_test_capture_json( fn() => $this->cb->ajaxGetPassedWorks() )->success );
 	}
 
 	public function test_get_passed_works_rejects_unknown_type(): void {
@@ -68,7 +84,7 @@ class PassedWorksCallbacksTest extends TestCase {
 		$GLOBALS['_test_user_can']   = array( 1 => array( 'manage_lms_platform' => true ) );
 		$GLOBALS['_fs_test_user_id'] = 1;
 		$this->passed->expects( $this->once() )->method( 'feed' )
-			->with( 1, true, 0, '', '', '' )
+			->with( 1, true, 0, '', '', '', '' )
 			->willReturn( array( 'items' => array(), 'next' => null, 'pending_total' => 0 ) );
 		$_POST = array();
 

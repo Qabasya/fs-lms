@@ -1,20 +1,74 @@
 import { createApi } from './api.js';
-import { esc } from './utils.js';
-import { subjectPickerBtnHtml, openSubjectPicker, optionPickerBtnHtml, openOptionPicker } from './picker.js';
+import { esc, profileUrl } from './utils.js';
+import { subjectPickerBtnHtml, openSubjectPicker, groupPickerBtnHtml, openGroupPicker, optionPickerBtnHtml, openOptionPicker } from './picker.js';
 import { readNav, saveNav } from './nav-state.js';
 
-/** Staff subject ranking. Server assigns places before applying the group filter. */
-export function renderRanking(root) {
+/**
+ * Панель выбора периода, направления и группы — тот же вид, что на экране «Сводка по ученику».
+ * Направление не предлагается, когда доступно только одно (у ученика — своё): выбирать нечего.
+ */
+export function rankingPickersHtml(subject, groups, groupId, periods, periodFrom, showSubject = true) {
+    const selected = groups.find(group => Number(group.id) === groupId);
+    const period = periods.find(item => item.from === periodFrom);
+    return `<div class="sum-pickers">
+        <div class="prof-ktp-pick"><span class="kp-label">Период</span>${optionPickerBtnHtml(period?.label || 'Текущий', 'rankingPeriod')}</div>
+        ${showSubject ? `<div class="prof-ktp-pick"><span class="kp-label">Направление</span>${subjectPickerBtnHtml(subject, 'rankingSubject')}</div>` : ''}
+        <div class="prof-ktp-pick"><span class="kp-label">Группа</span>${groupPickerBtnHtml(selected || { id: 0, name: 'Все группы', subject: '' }, 'rankingGroup')}</div>
+    </div>`;
+}
+
+/**
+ * Таблица рейтинга — классы журнала (`jgrid`): липкая шапка, подсветка строки,
+ * место и ученик — `cell-idx`/`cell-name` журнала, группа и баллы — по центру, как данные журнала.
+ * Имя ученика кликабельно, как в журнале: ведёт в «Сводку по ученику» (openSummary).
+ */
+export function rankingTableHtml(data, canOpenSummary = false) {
+    const rows = data?.rows || [];
+    const nameCell = (row) => {
+        const inner = `<span class="cn-name">${esc(row.name || '—')}</span>`;
+        const gid = row.groups?.[0]?.id;
+        return canOpenSummary && gid
+            ? `<button type="button" class="cn-wrap cn-link" data-summary-pid="${row.person_id}" data-summary-gid="${gid}" data-href="${esc(profileUrl({ screen: 'summary', gid, pid: row.person_id }))}" title="Открыть сводку по ученику">${inner}</button>`
+            : `<div class="cn-wrap">${inner}</div>`;
+    };
+    return `<div class="prof-journal-wrap"><div class="j-scroll"><table class="jgrid ranking-table">
+        <thead><tr>
+            <th class="col-name"><div class="hd-name">Ученик</div></th>
+            <th class="col-mid"><div class="hd-name">Группа</div></th>
+            <th class="col-mid"><div class="hd-name">Баллы</div></th>
+            <th class="col-rank"><div class="hd-name">Место в рейтинге</div></th>
+        </tr></thead>
+        <tbody>${rows.length ? rows.map(row => `<tr>
+            <td class="cell-name">${nameCell(row)}</td>
+            <td class="cell-c">${esc((row.groups || []).map(group => group.name).join(', '))}</td>
+            <td class="cell-c">${Number(row.score).toLocaleString('ru-RU', { maximumFractionDigits: 2 })}</td>
+            <td class="cell-rank">${esc(String(row.rank))}</td>
+        </tr>`).join('') : '<tr><td class="cell-empty" colspan="4">Нет активных учеников в выбранной группе.</td></tr>'}</tbody>
+    </table></div></div>`;
+}
+
+/**
+ * Рейтинг направления: у сотрудника — экран `ranking`, у ученика — `student-ranking`
+ * (своё состояние в адресе). Места — общие по направлению; при выбранной группе сервер
+ * пересчитывает их плотно внутри неё.
+ */
+export function renderRanking(root, handlers = {}, screen = 'ranking') {
     const config = window.fsProfile?.ranking;
     const subjects = config?.subjects || [];
     if (!subjects.length) {
         root.innerHTML = '<div class="prof-ranking"><h1>Рейтинг</h1><p>Нет доступных направлений. За вами пока не закреплены группы.</p></div>';
         return;
     }
+    // Выбор направления имеет смысл, только когда их несколько; у ученика список и так
+    // ограничен его группами — при одном направлении пикер не рисуем.
+    const showSubject = subjects.length > 1;
     const api = createApi(config);
-    const nav = readNav('ranking');
+    const nav = readNav(screen);
     let subject = subjects.find(item => item.key === nav.s) || subjects[0];
     let groupId = Number(nav.g) || 0;
+    // Периоды приходят с конфигом экрана; '' — текущий период. Чужая/устаревшая метка из адреса гасится.
+    let periods = Array.isArray(config?.periods) ? config.periods : [];
+    let periodFrom = periods.some(item => item.from === nav.p) ? nav.p : '';
     let groups = [];
     let data = null;
     let requestId = 0;
@@ -23,19 +77,17 @@ export function renderRanking(root) {
     root.replaceChildren(shell);
 
     function render(message = '') {
-        const selectedGroup = groups.find(group => Number(group.id) === groupId);
-        const rows = data?.rows || [];
-        const content = message ? `<p class="ranking-message" role="status">${esc(message)}</p>`
-            : data?.summer ? '<p class="ranking-message">Летом рейтинг не показывается. Новый триместр начнётся в сентябре.</p>'
-                : `<div class="prof-journal-wrap"><div class="j-scroll"><table class="jgrid ranking-table">
-                    <caption class="ranking-caption">${esc(data?.period || '')}</caption>
-                    <thead><tr><th scope="col">Место</th><th scope="col">ФИО</th><th scope="col">Группа</th><th scope="col">Баллы</th></tr></thead>
-                    <tbody>${rows.length ? rows.map(row => `<tr><td>${esc(row.rank)}</td><td>${esc(row.name || '—')}</td><td>${esc((row.groups || []).map(group => group.name).join(', '))}</td><td>${Number(row.score).toLocaleString('ru-RU', { maximumFractionDigits: 2 })}</td></tr>`).join('') : '<tr><td colspan="4">Нет активных учеников в выбранной группе.</td></tr>'}</tbody>
-                </table></div></div>`;
-        shell.innerHTML = `<header class="ranking-head"><h1>Рейтинг</h1><div class="prof-ktp-pickers">
-            <div class="prof-ktp-pick"><span class="kp-label">Направление</span>${subjectPickerBtnHtml(subject, 'rankingSubject')}</div>
-            <div class="prof-ktp-pick"><span class="kp-label">Группа</span>${optionPickerBtnHtml(selectedGroup?.name || 'Все группы', 'rankingGroup', 'Фильтр по группе')}</div>
-            </div></header>${content}`;
+        const content = message ? `<p class="ranking-message" role="status">${esc(message)}</p>` : rankingTableHtml(data, 'function' === typeof handlers.openSummary);
+        shell.innerHTML = `<div class="sum-head">${rankingPickersHtml(subject, groups, groupId, periods, periodFrom, showSubject)}</div>${content}`;
+        shell.querySelectorAll('[data-summary-pid]').forEach(btn => btn.addEventListener('click', () => {
+            handlers.openSummary(+btn.dataset.summaryGid, +btn.dataset.summaryPid);
+        }));
+        shell.querySelector('#rankingPeriod')?.addEventListener('click', event => {
+            openOptionPicker(event.currentTarget, periods.map(item => ({ value: item.from, label: item.label })), periodFrom, value => {
+                periodFrom = value;
+                load();
+            });
+        });
         shell.querySelector('#rankingSubject')?.addEventListener('click', event => {
             openSubjectPicker(event.currentTarget, subjects, subject.key, key => {
                 subject = subjects.find(item => item.key === key);
@@ -45,22 +97,23 @@ export function renderRanking(root) {
             });
         });
         shell.querySelector('#rankingGroup')?.addEventListener('click', event => {
-            openOptionPicker(event.currentTarget, [{ value: '0', label: 'Все группы' }, ...groups.map(group => ({ value: String(group.id), label: group.name }))], String(groupId), value => {
-                groupId = Number(value);
+            openGroupPicker(event.currentTarget, groups, groupId, id => {
+                groupId = id;
                 load();
-            });
+            }, [{ v: '0', label: 'Все группы', chip: '∀', first: true }]);
         });
     }
 
     async function load() {
         const request = ++requestId;
-        saveNav('ranking', { s: subject.key, g: groupId || '' });
+        saveNav(screen, { s: showSubject ? subject.key : '', g: groupId || '', p: periodFrom });
         render('Загрузка рейтинга…');
         try {
-            const response = await api('getRanking', { subject_key: subject.key, group_id: groupId });
+            const response = await api('getRanking', { subject_key: subject.key, group_id: groupId, period_from: periodFrom });
             if (request !== requestId || !root.contains(shell)) { return; }
             data = response;
             groups = response.groups || [];
+            periods = response.periods || periods;
             render();
         } catch (error) {
             if (request === requestId && root.contains(shell)) { render(error.message || 'Не удалось загрузить рейтинг.'); }

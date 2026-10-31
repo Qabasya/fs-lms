@@ -73,7 +73,7 @@ class PassedWorksServiceTest extends TestCase {
 		);
 	}
 
-	private function row( int $id = 5, int $groupId = 1, string $scheduledAt = '2026-10-19 10:00:00' ): GroupLessonDTO {
+	private function row( int $id = 5, int $groupId = 1, ?string $scheduledAt = '2026-10-19 10:00:00' ): GroupLessonDTO {
 		return new GroupLessonDTO(
 			id: $id, groupId: $groupId, lessonId: 10, position: 0, workIdsSnapshot: null, extraWorkIds: array(),
 			scheduledAt: $scheduledAt, endsAt: null, isPinned: false, teacherUserId: null, visibility: 'open',
@@ -388,6 +388,137 @@ class PassedWorksServiceTest extends TestCase {
 
 		self::assertSame( 5, $this->service->feed( 7, false, 0, '', '', '' )['pending_total'] );
 		self::assertNull( $this->service->feed( 7, false, 0, '', '', '2026-10-11 10:00:00|11' )['pending_total'] );
+	}
+
+	// ── feed(): режим «Новые сдачи» (сортировка по свежести сдач) ───────────
+
+	public function test_feed_submissions_orders_works_by_latest_submission(): void {
+		$this->submissions->method( 'listWorkLatestPage' )->willReturn( array(
+			array( 'group_lesson_id' => 5, 'work_id' => 3, 'latest_at' => '2026-10-19 12:00:00' ),
+			array( 'group_lesson_id' => 6, 'work_id' => 4, 'latest_at' => '2026-10-19 11:00:00' ),
+		) );
+		$this->groupLessons->method( 'find' )->willReturnCallback( fn( int $id ): GroupLessonDTO => $this->row( $id ) );
+		$this->deadlines->method( 'assignedWorks' )->willReturn( array( $this->work( 3 ), $this->work( 4, WorkType::Homework ) ) );
+		$this->submissionsByRow( array(
+			5 => array( $this->submission( 10, SubmissionStatus::Graded, 3 ) ),
+			6 => array( $this->submission( 11, SubmissionStatus::Graded, 4 ) ),
+		) );
+
+		$feed = $this->service->feed( 7, false, 0, '', '', '', PassedWorksService::SORT_SUBMISSIONS );
+
+		self::assertSame( array( 3, 4 ), array_column( $feed['items'], 'work_id' ), 'сверху работа со свежей сдачей' );
+		self::assertNull( $feed['next'] );
+	}
+
+	public function test_feed_submissions_keeps_only_works_with_submissions(): void {
+		$this->submissions->method( 'listWorkLatestPage' )->willReturn( array(
+			array( 'group_lesson_id' => 5, 'work_id' => 3, 'latest_at' => '2026-10-19 12:00:00' ),
+		) );
+		$this->groupLessons->method( 'find' )->willReturn( $this->row( 5 ) );
+		$this->deadlines->method( 'assignedWorks' )->willReturn( array( $this->work( 3 ), $this->work( 4 ) ) );
+		$this->submissionsByRow( array( 5 => array( $this->submission( 10, SubmissionStatus::Graded, 3 ) ) ) );
+
+		$items = $this->service->feed( 7, false, 0, '', '', '', PassedWorksService::SORT_SUBMISSIONS )['items'];
+
+		self::assertCount( 1, $items );
+		self::assertSame( 3, $items[0]['work_id'], 'работа без сдач в режиме «Новые сдачи» не показывается' );
+	}
+
+	public function test_feed_submissions_applies_type_and_status_filters(): void {
+		$this->submissions->method( 'listWorkLatestPage' )->willReturn( array(
+			array( 'group_lesson_id' => 5, 'work_id' => 3, 'latest_at' => '2026-10-19 12:00:00' ),
+			array( 'group_lesson_id' => 6, 'work_id' => 4, 'latest_at' => '2026-10-19 11:30:00' ),
+		) );
+		$this->groupLessons->method( 'find' )->willReturnCallback( fn( int $id ): GroupLessonDTO => $this->row( $id ) );
+		$this->deadlines->method( 'assignedWorks' )->willReturn( array( $this->work( 3 ), $this->work( 4, WorkType::Homework ) ) );
+		$this->submissionsByRow( array(
+			5 => array( $this->submission( 10, SubmissionStatus::Graded, 3 ) ),
+			6 => array( $this->submission( 11, SubmissionStatus::PendingReview, 4 ) ),
+		) );
+
+		$byType = $this->service->feed( 7, false, 0, 'homework', '', '', PassedWorksService::SORT_SUBMISSIONS )['items'];
+		self::assertSame( array( 4 ), array_column( $byType, 'work_id' ), 'тип работы фильтрует и в этом режиме' );
+
+		$byStatus = $this->service->feed( 7, false, 0, '', 'pending', '', PassedWorksService::SORT_SUBMISSIONS )['items'];
+		self::assertSame( array( 4 ), array_column( $byStatus, 'work_id' ), 'проверенная работа не проходит фильтр «Ждут проверки»' );
+	}
+
+	public function test_feed_submissions_merges_extra_lesson_rows_into_one_item(): void {
+		$first  = $this->extra( 6, 10 );
+		$second = $this->extra( 5, 11 );
+		$this->submissions->method( 'listWorkLatestPage' )->willReturn( array(
+			array( 'group_lesson_id' => 6, 'work_id' => 3, 'latest_at' => '2026-10-19 12:00:00' ),
+			array( 'group_lesson_id' => 5, 'work_id' => 3, 'latest_at' => '2026-10-19 11:00:00' ),
+		) );
+		$this->groupLessons->method( 'find' )->willReturnCallback( static fn( int $id ): GroupLessonDTO => 6 === $id ? $first : $second );
+		$this->groupLessons->method( 'listExtraSiblings' )->willReturn( array( $second, $first ) );
+		$this->deadlines->method( 'assignedWorks' )->willReturn( array( $this->work() ) );
+		$this->submissionsByRow( array( 6 => array( $this->submission( 10, SubmissionStatus::PendingReview ) ) ) );
+
+		$items = $this->service->feed( 7, false, 0, '', '', '', PassedWorksService::SORT_SUBMISSIONS )['items'];
+
+		self::assertCount( 1, $items, 'две строки доп. занятия — одна работа, а не по карточке на ученика' );
+		self::assertSame( 6, $items[0]['group_lesson_id'] );
+		self::assertSame( 2, $items[0]['total'] );
+		self::assertSame( 1, $items[0]['submitted'] );
+		self::assertSame( 1, $items[0]['pending'] );
+	}
+
+	public function test_feed_submissions_closes_page_at_ten_works_with_pair_cursor(): void {
+		$pairs = array();
+		for ( $i = 1; $i <= 11; $i++ ) {
+			$pairs[] = array( 'group_lesson_id' => $i, 'work_id' => $i, 'latest_at' => sprintf( '2026-10-%02d 12:00:00', $i ) );
+		}
+		$this->submissions->method( 'listWorkLatestPage' )->willReturn( $pairs );
+		$this->groupLessons->method( 'find' )->willReturnCallback(
+			fn( int $id ): GroupLessonDTO => $this->row( $id, 1, sprintf( '2026-10-%02d 10:00:00', $id ) )
+		);
+		$this->deadlines->method( 'assignedWorks' )->willReturnCallback(
+			fn( GroupLessonDTO $r ): array => array( $this->work( $r->id ) )
+		);
+		$this->submissionsByRow( array() );
+
+		$feed = $this->service->feed( 7, false, 0, '', '', '', PassedWorksService::SORT_SUBMISSIONS );
+
+		self::assertCount( PassedWorksService::PAGE_SIZE, $feed['items'] );
+		self::assertSame( '2026-10-11 12:00:00|11|11', $feed['next'], 'продолжение — после последней просмотренной пары' );
+	}
+
+	public function test_feed_submissions_uses_latest_submission_as_date_when_lesson_has_no_time(): void {
+		$this->submissions->method( 'listWorkLatestPage' )->willReturn( array(
+			array( 'group_lesson_id' => 5, 'work_id' => 3, 'latest_at' => '2026-10-19 12:00:00' ),
+		) );
+		$this->groupLessons->method( 'find' )->willReturn( $this->row( 5, 1, null ) );
+		$this->deadlines->method( 'assignedWorks' )->willReturn( array( $this->work( 3 ) ) );
+		$this->submissionsByRow( array( 5 => array( $this->submission( 10, SubmissionStatus::Graded, 3 ) ) ) );
+
+		$items = $this->service->feed( 7, false, 0, '', '', '', PassedWorksService::SORT_SUBMISSIONS )['items'];
+
+		self::assertSame( '2026-10-19', $items[0]['date'], 'у занятия без времени дата берётся от самой свежей сдачи' );
+	}
+
+	public function test_feed_submissions_passes_cursor_to_repository(): void {
+		$this->submissions->expects( $this->once() )->method( 'listWorkLatestPage' )
+			->with( array( 1 ), '2026-10-20 12:00:00', '2026-10-19 12:00:00', 5, 3, 41 )
+			->willReturn( array() );
+
+		$this->service->feed( 7, false, 0, '', '', '2026-10-19 12:00:00|5|3', PassedWorksService::SORT_SUBMISSIONS );
+	}
+
+	public function test_feed_submissions_rejects_malformed_cursor(): void {
+		$this->submissions->expects( $this->never() )->method( 'listWorkLatestPage' );
+		$this->expectException( \InvalidArgumentException::class );
+
+		$this->service->feed( 7, false, 0, '', '', '2026-10-19 12:00:00|5', PassedWorksService::SORT_SUBMISSIONS );
+	}
+
+	public function test_feed_submissions_group_filter_outside_access_returns_nothing(): void {
+		$this->submissions->expects( $this->never() )->method( 'listWorkLatestPage' );
+
+		$feed = $this->service->feed( 7, false, 99, '', '', '', PassedWorksService::SORT_SUBMISSIONS );
+
+		self::assertSame( array(), $feed['items'] );
+		self::assertNull( $feed['next'] );
 	}
 
 	// ── students(): статусы учеников ──────────────────────────────────────────

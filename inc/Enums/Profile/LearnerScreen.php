@@ -7,7 +7,8 @@ namespace Inc\Enums\Profile;
 /**
  * Экраны кабинета ученика и родителя. Ключ экрана — часть адреса
  * (`/profile/?screen=student-grades`), у ученика префикс `student-`, у родителя
- * `parent-`: набор экранов один, а адрес говорит, чей это кабинет.
+ * `parent-`: набор экранов почти один (рейтинг — только ученику,
+ * {@see LearnerProfileView}), а адрес говорит, чей это кабинет.
  *
  * Сервер может выдать ссылку любого префикса: кабинет (`app.js`) сам приводит
  * её к ключу роли вошедшего, поэтому уведомление, ушедшее и ученику, и родителю,
@@ -17,6 +18,7 @@ namespace Inc\Enums\Profile;
 enum LearnerScreen: string {
 
 	case Home       = 'home';
+	case Ranking    = 'ranking'; // Только ученику (витрина отфильтровывает для родителя).
 	case Lessons    = 'lessons';
 	case Grades     = 'grades';
 	case Attendance = 'attendance';
@@ -33,6 +35,7 @@ enum LearnerScreen: string {
 	public function label(): string {
 		return match ( $this ) {
 			self::Home       => 'Главная',
+			self::Ranking    => 'Рейтинг',
 			self::Lessons    => 'Мои курсы',
 			self::Grades     => 'Мои оценки',
 			self::Attendance => 'Посещаемость',

@@ -15,9 +15,10 @@
 export const NAV_SCREENS = {
     ktp:     ['g', 'm'],
     journal: ['g', 'm'],
-    ranking: ['s', 'g'],
+    ranking: ['s', 'g', 'p'],
+    'student-ranking': ['s', 'g', 'p'],
     summary: ['g', 'p', 'tab'],
-    works:   ['g', 't', 's'],
+    works:   ['g', 't', 's', 'o'],
 };
 
 /** Адрес страницы; вне браузера (тесты, SSR) его нет — состояние тогда просто не помнится. */

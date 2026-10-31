@@ -4,6 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\DTO\Profile;
 
+use Inc\DTO\Person\PersonDTO;
 use Inc\Enums\Access\UserRole;
 
 /**
@@ -27,6 +28,7 @@ final readonly class ProfileContext {
 	 * @param int|null                                     $subjectPersonId Чьи данные показывать: ученик — свои; родитель — выбранного ребёнка.
 	 * @param bool                                         $readOnly        true — режим только чтения (родитель).
 	 * @param list<array{personId: int, name: string}>    $children        Дети родителя для переключателя (пусто для остальных).
+	 * @param PersonDTO|null                               $person          Лицо смотрящего (ФИО, дата рождения) — для приветствия главной.
 	 */
 	public function __construct(
 		public int $wpUserId,
@@ -35,6 +37,7 @@ final readonly class ProfileContext {
 		public ?int $subjectPersonId,
 		public bool $readOnly,
 		public array $children = array(),
+		public ?PersonDTO $person = null,
 	) {}
 
 	/**

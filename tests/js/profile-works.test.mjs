@@ -46,6 +46,7 @@ class FakeRoot {
         const html = this.html;
         this.rows = [...html.matchAll(/data-key="([^"]+)"/g)].map((m) => new FakeElement({ key: m[1] }));
         this.statuses = [...html.matchAll(/data-status="([^"]*)"/g)].map((m) => new FakeElement({ status: m[1] }));
+        this.sorts = [...html.matchAll(/data-sort="([^"]*)"/g)].map((m) => new FakeElement({ sort: m[1] }));
         this.more = /data-more/.test(html) ? new FakeElement() : null;
         this.refresh = /data-refresh/.test(html) ? new FakeElement() : null;
         this.back = /class="wk-back"/.test(html) ? new FakeElement() : null;
@@ -65,6 +66,7 @@ class FakeRoot {
 
     querySelectorAll(selector) {
         if (selector === '[data-status]') { return this.statuses; }
+        if (selector === '[data-sort]') { return this.sorts; }
         if (selector === '.wk-row[data-key]') { return this.rows; }
         return [];
     }
@@ -121,7 +123,7 @@ const students = (overrides = []) => [
 test('первая порция грузится с пустыми фильтрами; видно сдачи, ожидающие проверки, и число у фильтра', async () => {
     const { root, calls } = await setup(() => ({ items: [item(5, 3)], next: null, pending_total: 4 }));
 
-    assert.deepEqual(calls[0], { action: 'passed', params: { group_id: 0, type: '', status: '', cursor: '' } });
+    assert.deepEqual(calls[0], { action: 'passed', params: { group_id: 0, type: '', status: '', sort: '', cursor: '' } });
     assert.match(root.html, /Работа 3/);
     assert.match(root.html, /сдали 1 из 2/);
     assert.match(root.html, /на проверке 1/);
@@ -185,14 +187,14 @@ test('смена фильтров начинает список с первой 
     menu.pick('homework');
     await tick();
 
-    assert.deepEqual(calls[1].params, { group_id: 0, type: 'homework', status: '', cursor: '' });
+    assert.deepEqual(calls[1].params, { group_id: 0, type: 'homework', status: '', sort: '', cursor: '' });
     assert.match(root.html, /Работа 8/);
     assert.doesNotMatch(root.html, /Работа 3/);
 
     root.statuses.find((s) => s.dataset.status === 'missing').fire('click');
     await tick();
 
-    assert.deepEqual(calls[2].params, { group_id: 0, type: 'homework', status: 'missing', cursor: '' });
+    assert.deepEqual(calls[2].params, { group_id: 0, type: 'homework', status: 'missing', sort: '', cursor: '' });
 });
 
 test('ответ на прежние фильтры не затирает список под новыми', async () => {
@@ -289,6 +291,27 @@ test('после обновления учеников счётчики рабо
 
     assert.match(root.html, /сдали 2 из 2/);
     assert.doesNotMatch(root.html, /на проверке/);
+});
+
+test('переключатель сортировки: «Новые сдачи» отмечен в сегменте и уходит в запрос', async () => {
+    const { root, calls } = await setup((action, params) => 'submissions' === params.sort
+        ? { items: [item(9, 8, { title: 'Работа со свежей сдачей' })], next: null, pending_total: 0 }
+        : { items: [item(5, 3)], next: null, pending_total: 1 });
+
+    assert.match(root.html, /class="on" data-sort=""/);
+    assert.match(root.html, /class="" data-sort="submissions">Новые сдачи</);
+
+    const before = calls.length;
+    root.sorts.find((s) => '' === s.dataset.sort).fire('click');
+    assert.equal(calls.length, before, 'клик по активной сортировке список заново не грузит');
+
+    root.sorts.find((s) => 'submissions' === s.dataset.sort).fire('click');
+    await tick();
+
+    assert.deepEqual(calls[1].params, { group_id: 0, type: '', status: '', sort: 'submissions', cursor: '' });
+    assert.match(root.html, /class="on" data-sort="submissions"/);
+    assert.match(root.html, /Работа со свежей сдачей/);
+    assert.doesNotMatch(root.html, /Работа 3/);
 });
 
 test('быстрый статус из ссылки главной переключает список на «Ждут проверки»', async () => {

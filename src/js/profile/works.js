@@ -1,6 +1,7 @@
 /* ══════════════════════════════════════════════════════════════════════
    Экран «Работы» (D3, .docs/Tasks.md) — один список работ прошедших занятий
-   групп преподавателя, всегда сначала новые (по дате занятия).
+   групп преподавателя. Сортировка: «По выдаче» (занятия от новых к старым,
+   как раньше) или «Новые сдачи» (сверху работы со свежими сдачами учеников).
 
    Список грузится порциями: первые работы сразу, следующие — когда нижний край
    списка подходит к экрану. Фильтры — группа, тип работы и быстрый статус
@@ -28,6 +29,12 @@ const STATUS_FILTERS = [
     { key: '', label: 'Все' },
     { key: 'pending', label: 'Ждут проверки' },
     { key: 'missing', label: 'Есть несдавшие' },
+];
+
+/** Сортировка списка: ключ = параметр `sort` запроса (PassedWorksService::SORT_*). */
+const SORT_OPTIONS = [
+    { key: '', label: 'По выдаче' },
+    { key: 'submissions', label: 'Новые сдачи' },
 ];
 
 /** Тип работы: значение = Inc\Enums\Course\WorkType. */
@@ -64,6 +71,7 @@ export function renderWorks(r, opts = {}) {
         filterGroupId: Number(nav.g) || 0, // 0 = все группы
         filterType:   WORK_TYPE_OPTIONS.some((o) => o.value && o.value === nav.t) ? nav.t : '',
         filterStatus: STATUS_FILTERS.some((s) => s.key && s.key === nav.s) ? nav.s : '',
+        sortBy:       SORT_OPTIONS.some((o) => o.key && o.key === nav.o) ? nav.o : '',
         items:        [],    // загруженные порции, новые сверху
         next:         null,  // метка продолжения; null — список закончился
         loaded:       false, // первая порция получена (или не получилась)
@@ -133,6 +141,7 @@ async function fetchPage(cursor, requestId) {
             group_id: state.filterGroupId,
             type:     state.filterType,
             status:   state.filterStatus,
+            sort:     state.sortBy,
             cursor,
         });
         if (requestId !== listRequest) { return; }
@@ -208,7 +217,7 @@ function setScrollPosition(top) { const el = scroller(); if (el) { el.scrollTop 
 /* ── Render ───────────────────────────────────────────────────────────── */
 function render() {
     observer?.disconnect();
-    saveNav('works', { g: state.filterGroupId, t: state.filterType, s: state.filterStatus });
+    saveNav('works', { g: state.filterGroupId, t: state.filterType, s: state.filterStatus, o: state.sortBy });
     root.innerHTML = `
     <div class="prof-works">
         <div class="prof-swap">${state.selected ? stepTwoHtml() : stepOneHtml()}</div>
@@ -238,6 +247,8 @@ function filtersHtml() {
     }).join('');
 
     const type = WORK_TYPE_OPTIONS.find((o) => o.value === state.filterType) || WORK_TYPE_OPTIONS[0];
+    const sort = SORT_OPTIONS.map((o) =>
+        `<button type="button" class="${o.key === state.sortBy ? 'on' : ''}" data-sort="${o.key}">${esc(o.label)}</button>`).join('');
     return `<div class="wk-filters">
         <div class="wk-filter">
             ${groupPickerBtnHtml(g || { id: 0, name: 'Все группы', subject: '' }, 'wkGroupBtn')}
@@ -245,6 +256,7 @@ function filtersHtml() {
         <div class="wk-filter">
             ${optionPickerBtnHtml(type.label, 'wkTypeBtn', 'Тип работы')}
         </div>
+        <div class="prof-seg" role="group" aria-label="Сортировка работ">${sort}</div>
         <div class="prof-seg" role="group" aria-label="Статус работ">${statuses}</div>
         <button type="button" class="prof-btn prof-btn-sm wk-refresh" data-refresh${state.refreshing ? ' disabled' : ''}>${state.refreshing ? 'Обновление…' : 'Обновить'}</button>
     </div>`;
@@ -424,6 +436,11 @@ function wireStepOne() {
     root.querySelectorAll('[data-status]').forEach((btn) =>
         btn.addEventListener('click', () => {
             if (btn.dataset.status !== state.filterStatus) { state.filterStatus = btn.dataset.status; loadFirstPage(); }
+        }));
+
+    root.querySelectorAll('[data-sort]').forEach((btn) =>
+        btn.addEventListener('click', () => {
+            if (btn.dataset.sort !== state.sortBy) { state.sortBy = btn.dataset.sort; loadFirstPage(); }
         }));
 
     wireListArea();

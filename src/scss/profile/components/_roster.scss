@@ -41,14 +41,6 @@
 .pr-row--link { cursor: pointer; }
 .pr-row--link:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
-.pr-ava {
-  flex: none;
-  width: rem(38); height: rem(38);
-  border-radius: 50%;
-  display: grid; place-items: center;
-  color: var(--ink-inverse); font-size: rem(13); font-weight: 700;
-}
-
 .pr-info { flex: 1 1 auto; min-width: 0; }
 .pr-name { font-size: rem(14.5); font-weight: 600; color: var(--ink); }
 

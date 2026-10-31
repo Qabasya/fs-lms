@@ -24,14 +24,20 @@ final class LearnerProfileView implements ProfileViewInterface {
 		// Ключи экранов с префиксом роли: student-* / parent-* (виден в адресе кабинета).
 		$forParent = UserRole::FSParent === $context->role;
 
+		// «Рейтинг» — только ученику: родителю места ребёнка среди других учеников не показываем.
+		$screens = LearnerScreen::cases();
+		if ( $forParent ) {
+			$screens = array_values( array_filter( $screens, static fn( LearnerScreen $screen ): bool => LearnerScreen::Ranking !== $screen ) );
+		}
+
 		return array(
 			'nav'     => array_map(
 				static fn( LearnerScreen $screen ): array => array( 'key' => $screen->key( $forParent ), 'label' => $screen->label() ),
-				LearnerScreen::cases()
+				$screens
 			),
 			'screens' => array_map(
 				static fn( LearnerScreen $screen ): string => $screen->key( $forParent ),
-				LearnerScreen::cases()
+				$screens
 			),
 		);
 	}

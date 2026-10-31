@@ -284,6 +284,65 @@ class SubmissionRepository {
 		return array_map( array( SubmissionDTO::class, 'fromArray' ), $rows ?: array() );
 	}
 
+	/**
+	 * Пары «строка занятия + работа» с самой свежей сдачей — режим «Новые сдачи» экрана
+	 * «Работы» (D3): работы выстраиваются по времени последней сдачи, а не по дате занятия.
+	 * Порция — ключевой меткой (latest_at, group_lesson_id, work_id) по убыванию.
+	 *
+	 * Только агрегатные сдачи (task_id IS NULL): per-task строки пакетной сдачи дублировали бы
+	 * работу. Только прошедшие занятия — как лента {@see GroupLessonRepository::listFeedPage()}.
+	 *
+	 * @param int[] $groupIds
+	 *
+	 * @return array<int, array{group_lesson_id:int, work_id:int, latest_at:string}>
+	 */
+	public function listWorkLatestPage(
+		array $groupIds,
+		string $now,
+		?string $cursorAt,
+		int $cursorLessonId,
+		int $cursorWorkId,
+		int $limit
+	): array {
+		if ( array() === $groupIds || $limit < 1 ) {
+			return array();
+		}
+		$groupPlaceholders = implode( ', ', array_fill( 0, count( $groupIds ), '%d' ) );
+		$args              = array_merge( array( $this->table, $this->glTable ), $groupIds, array( $now ) );
+		$cursorSql         = '';
+
+		if ( null !== $cursorAt ) {
+			$cursorSql = ' HAVING ( latest_at < %s OR ( latest_at = %s AND ( gl.id < %d OR ( gl.id = %d AND s.work_id < %d ) ) ) )';
+			array_push( $args, $cursorAt, $cursorAt, $cursorLessonId, $cursorLessonId, $cursorWorkId );
+		}
+		$args[] = $limit;
+
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$sql = $this->wpdb->prepare(
+			"SELECT gl.id AS group_lesson_id, s.work_id AS work_id, MAX( s.submitted_at ) AS latest_at
+			 FROM %i s
+			 INNER JOIN %i gl ON gl.id = s.group_lesson_id
+			 WHERE gl.group_id IN ($groupPlaceholders) AND s.task_id IS NULL AND s.submitted_at IS NOT NULL
+			   AND ( gl.scheduled_at IS NULL OR gl.scheduled_at <= %s )
+			 GROUP BY gl.id, s.work_id
+			 $cursorSql
+			 ORDER BY latest_at DESC, gl.id DESC, work_id DESC
+			 LIMIT %d",
+			$args
+		);
+		// phpcs:enable
+		$rows = $this->wpdb->get_results( $sql, ARRAY_A );
+
+		return array_map(
+			static fn( array $r ): array => array(
+				'group_lesson_id' => (int) $r['group_lesson_id'],
+				'work_id'         => (int) $r['work_id'],
+				'latest_at'       => (string) $r['latest_at'],
+			),
+			$rows ?: array()
+		);
+	}
+
 	/** Каскадная очистка при удалении занятия (GroupDeletionHandler). */
 	public function deleteAllByGroupLesson( int $groupLessonId ): int {
 		return (int) $this->wpdb->delete( $this->table, array( 'group_lesson_id' => $groupLessonId ) );
