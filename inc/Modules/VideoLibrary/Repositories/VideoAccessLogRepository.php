@@ -19,8 +19,8 @@ use Inc\Modules\VideoLibrary\Schema\VideoSchema;
  */
 class VideoAccessLogRepository {
 
-	/** Окно агрегации сессии в секундах (30 минут без событий — новая строка). */
-	public const AGGREGATE_WINDOW = 1800;
+	/** Окно агрегации сессии в секундах (3 часа: запись занятия идёт ~2 часа и смотрят с паузами). */
+	public const AGGREGATE_WINDOW = 10800;
 
 	private \wpdb  $wpdb;
 	private string $table;
