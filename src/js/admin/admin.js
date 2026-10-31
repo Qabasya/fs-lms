@@ -19,6 +19,7 @@ import { EmailTemplateSettings } from './services/settings/email-template-settin
 import { ConsentSettings } from './services/settings/consent-settings.js';
 import { ConfigSettings } from './services/settings/config-settings.js';
 import { AvatarSettings } from './services/settings/avatar-settings.js';
+import { RankingSettings } from './services/settings/ranking-settings.js';
 import { HardDeleteStudentService } from './services/hard-delete-student-service.js';
 import { ArchiveTable } from './services/tables/archive-table.js';
 import { LeadsTable } from './services/tables/leads-table.js';
@@ -193,6 +194,7 @@ function loadBuilder( chunk, exportName ) {
         ConsentSettings.init();
         ConfigSettings.init();
         AvatarSettings.init();
+        RankingSettings.init();
 
         HardDeleteStudentService.init();
 

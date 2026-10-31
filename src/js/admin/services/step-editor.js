@@ -409,6 +409,7 @@ export function readSteps( el ) {
 				title:   s.title || '',
 				_title:  s._title || '',
 				work_type: s.work_type || '',
+				points: s.points,
 			} ) ).filter( ( s ) => TYPE_UI[ s.type ] )
 			: [];
 	} catch ( e ) {

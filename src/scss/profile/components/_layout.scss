@@ -291,3 +291,34 @@ body.prof-menu-off .prof-mtoggle { display: flex; }
 
   body.admin-bar .prof-sidebar { top: rem(46); }
 }
+
+// В режиме кастомизации меняются только пункты навигации, блоки групп/курсов остаются обычными.
+.prof-nav-item.is-menu-editing {
+  min-height: rem(62);
+  padding-right: rem(70);
+  cursor: grab;
+  outline: 1px dashed var(--line);
+  outline-offset: rem(-1);
+
+  &.is-dragging { opacity: 0.4; }
+  &.is-menu-hidden { color: var(--muted-2); background: var(--line-2); }
+}
+
+.prof-menu-eye,
+.prof-menu-arrows button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: rem(25);
+  height: rem(25);
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: rem(6);
+  background: var(--surface);
+  color: var(--ink-2);
+  cursor: pointer;
+}
+
+.prof-menu-eye { position: absolute; top: rem(4); right: rem(4); }
+.prof-menu-arrows { position: absolute; right: rem(4); bottom: rem(4); display: flex; gap: rem(3); }
+.prof-menu-title { min-width: 0; }

@@ -7,12 +7,14 @@ namespace Inc\Controllers\Settings;
 use Inc\Controllers\System\AjaxController;
 
 use Inc\Callbacks\Settings\ConfigCallbacks;
+use Inc\Callbacks\Settings\RankingSettingsCallbacks;
 use Inc\Enums\Wp\AjaxHook;
 
 class ConfigController extends AjaxController {
 
 	public function __construct(
 		private readonly ConfigCallbacks $configCallbacks,
+		private readonly RankingSettingsCallbacks $rankingCallbacks,
 	) {
 		parent::__construct();
 	}
@@ -20,6 +22,7 @@ class ConfigController extends AjaxController {
 	protected function ajaxActions(): array {
 		return array(
 			array( AjaxHook::SaveConfig, $this->configCallbacks ),
+			array( AjaxHook::SaveRankingSettings, $this->rankingCallbacks ),
 			array( AjaxHook::GenerateKey, $this->configCallbacks ),
 		);
 	}

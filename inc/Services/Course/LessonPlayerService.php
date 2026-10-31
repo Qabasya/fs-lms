@@ -321,6 +321,14 @@ class LessonPlayerService {
 
 		$attemptsUsed = $this->submissionService->workAttemptsUsed( $studentPersonId, $groupLesson->id, $workId );
 		$current      = $this->currentSubmission( $studentPersonId, $groupLesson->id, $workId );
+		foreach ( $tasks as &$task ) {
+			$taskId = (int) $task['task_id'];
+			// Цена сданной задачи — снимок, изменения работы не меняют её задним числом.
+			$task['max_score'] = $current['task_results'][ $taskId ]['max_score']
+				?? $current['submission']['verdicts'][ $taskId ]['maxScore']
+				?? $task['max_score'];
+		}
+		unset( $task );
 
 		return array(
 			'ref'             => $workId,
@@ -330,8 +338,8 @@ class LessonPlayerService {
 			'work_type_label' => $work->workType->label(),
 			'instructions'    => SafeHtml::post( $work->instructions ),
 			'task_count'      => count( $tasks ),
-			// Батч-проверка без явных весов — вес каждой задачи равен 1.
-			'total_points'    => count( $tasks ),
+			// Сумма цен задач с учётом сохранённых снимков сдачи.
+			'total_points'    => (int) array_sum( array_column( $tasks, 'max_score' ) ),
 			'tasks'           => $tasks,
 			// Лимит сдач — настройка работы (0 = без ограничений): плеер предупреждает
 			// о предпоследней и последней попытке и прячет «Пройти заново».

@@ -45,8 +45,8 @@ class BatchCheckService {
 	 * @param array<int|string, float> $taskPoints     task_id (или "taskId:key") => баллов (пусто → вес 1)
 	 * @param AssessmentKind|null    $kind             Тип экзамена; если передан и expandsComposites() — разворачивает составные шаблоны.
 	 */
-	public function check( array $taskAnswers, array $taskPoints = [], ?AssessmentKind $kind = null ): BatchCheckResultDTO {
-		$perTask          = [];
+	public function check( array $taskAnswers, array $taskPoints = array(), ?AssessmentKind $kind = null ): BatchCheckResultDTO {
+		$perTask          = array();
 		$correctCount     = 0;
 		$totalCount       = 0;
 		$weightedScore    = 0.0;
@@ -61,23 +61,28 @@ class BatchCheckService {
 			$post = $this->posts->get( $taskId );
 			if ( ! $post ) {
 				$hasManual = true;
-				$totalCount++;
-				$maxWeightedScore += 1.0;
-				$perTask[ $taskId ] = [ 'verdict' => 'pending', 'score' => 0.0, 'maxScore' => 1.0 ];
+				++$totalCount;
+				$missingWeight      = (float) ( $taskPoints[ $taskId ] ?? 1.0 );
+				$maxWeightedScore  += $missingWeight;
+				$perTask[ $taskId ] = array(
+					'verdict'  => 'pending',
+					'score'    => 0.0,
+					'maxScore' => $missingWeight,
+				);
 				continue;
 			}
 
 			$template = $this->resolver->resolveEnum( $post );
 			$meta     = $this->posts->getMeta( $post->ID, PostMetaName::Meta->value );
-			$metaArr  = is_array( $meta ) ? $meta : [];
+			$metaArr  = is_array( $meta ) ? $meta : array();
 
 			// Разворот составного шаблона (ThreeInOne → 19 / 20 / 21) в режиме ЕГЭ.
 			// Какие именно подпункты берёт запись — решает CompositeSubItemResolver:
 			// запись, помеченная номером одного из них, отвечает только за свой номер.
-			$subItems = $expandComposites ? $this->subItems->forPost( $post ) : [];
+			$subItems = $expandComposites ? $this->subItems->forPost( $post ) : array();
 
 			if ( ! empty( $subItems ) ) {
-				$studentAnswers = is_array( $answer ) ? $answer : [];
+				$studentAnswers = is_array( $answer ) ? $answer : array();
 				foreach ( $subItems as $sub ) {
 					$subKey       = "{$taskId}:{$sub['key']}";
 					// Вес под-задания: точечный ("taskId:key"), иначе — общий вес слота
@@ -86,7 +91,7 @@ class BatchCheckService {
 					$subAnswer    = (string) ( $studentAnswers[ $sub['key'] ] ?? '' );
 					$correctAnswer = (string) ( $metaArr[ $sub['answer_field'] ] ?? '' );
 
-					$totalCount++;
+					++$totalCount;
 					$maxWeightedScore += $subWeight;
 
 					// Та же нормализация, что у чекеров (Tasks.md, п. 4): регистр и
@@ -96,28 +101,32 @@ class BatchCheckService {
 					$earned    = $isCorrect ? $subWeight : 0.0;
 
 					if ( $isCorrect ) {
-						$correctCount++;
+						++$correctCount;
 					}
 					$weightedScore += $earned;
 
-					$perTask[ $subKey ] = [
+					$perTask[ $subKey ] = array(
 						'verdict'  => $isCorrect ? 'correct' : 'incorrect',
 						'score'    => $earned,
 						'maxScore' => $subWeight,
-					];
+					);
 				}
 				continue;
 			}
 
 			// Обычная задача — через TaskCheckerRegistry.
 			$weight = isset( $taskPoints[ $taskId ] ) ? (float) $taskPoints[ $taskId ] : 1.0;
-			$totalCount++;
+			++$totalCount;
 			$maxWeightedScore += $weight;
 
 			$checker = $this->checkers->get( $template );
 			if ( null === $checker ) {
 				$hasManual = true;
-				$perTask[ $taskId ] = [ 'verdict' => 'pending', 'score' => 0.0, 'maxScore' => $weight ];
+				$perTask[ $taskId ] = array(
+					'verdict'  => 'pending',
+					'score'    => 0.0,
+					'maxScore' => $weight,
+				);
 				continue;
 			}
 
@@ -125,15 +134,15 @@ class BatchCheckService {
 			$earned = $result->isCorrect ? $weight : round( $result->score / max( $result->maxScore, 1.0 ) * $weight, 2 );
 
 			if ( $result->isCorrect ) {
-				$correctCount++;
+				++$correctCount;
 			}
 			$weightedScore += $earned;
 
-			$perTask[ $taskId ] = [
+			$perTask[ $taskId ] = array(
 				'verdict'  => $result->isCorrect ? 'correct' : 'incorrect',
 				'score'    => $earned,
 				'maxScore' => $weight,
-			];
+			);
 
 			if ( TaskTemplate::Choice === $template ) {
 				$perTask[ $taskId ]['correctOptionIds'] = $this->correctAnswers->choiceCorrectIds( $taskId );

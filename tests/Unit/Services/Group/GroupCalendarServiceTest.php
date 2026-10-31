@@ -31,6 +31,7 @@ class GroupCalendarServiceTest extends TestCase {
 	private SessionCalendarService&\PHPUnit\Framework\MockObject\MockObject $calendar;
 	private LessonManager&\PHPUnit\Framework\MockObject\MockObject $lessonManager;
 	private GroupCalendarService $service;
+	private \Inc\Managers\Course\CourseManager $courses;
 
 	protected function setUp(): void {
 		parent::setUp();
@@ -39,6 +40,7 @@ class GroupCalendarServiceTest extends TestCase {
 		$this->rooms         = $this->createMock( RoomRepository::class );
 		$this->calendar      = $this->createMock( SessionCalendarService::class );
 		$this->lessonManager = $this->createMock( LessonManager::class );
+		$this->courses = $this->createMock( \Inc\Managers\Course\CourseManager::class );
 
 		$program = new ProgramCompositionService(
 			$this->groupLessons,
@@ -58,6 +60,7 @@ class GroupCalendarServiceTest extends TestCase {
 			$program,
 			$this->lessonManager,
 			$this->createMock( \Inc\Services\Group\IndividualLessonService::class ),
+			$this->courses,
 		);
 	}
 

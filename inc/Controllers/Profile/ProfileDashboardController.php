@@ -6,6 +6,7 @@ namespace Inc\Controllers\Profile;
 
 use Inc\Controllers\System\AjaxController;
 use Inc\Callbacks\Profile\DashboardCallbacks;
+use Inc\Callbacks\Profile\RankingCallbacks;
 use Inc\Callbacks\Profile\TeacherCoursesCallbacks;
 use Inc\Enums\Wp\AjaxHook;
 
@@ -19,6 +20,7 @@ class ProfileDashboardController extends AjaxController {
 	public function __construct(
 		private readonly DashboardCallbacks      $callbacks,
 		private readonly TeacherCoursesCallbacks $courses,
+		private readonly RankingCallbacks $ranking,
 	) {
 		parent::__construct();
 	}
@@ -26,6 +28,7 @@ class ProfileDashboardController extends AjaxController {
 	protected function ajaxActions(): array {
 		return array(
 			array( AjaxHook::GetProfileDashboard, $this->callbacks ),
+			array( AjaxHook::GetSubjectRanking, $this->ranking ),
 			array( AjaxHook::GetTaughtCourseProgram, $this->courses ),
 		);
 	}

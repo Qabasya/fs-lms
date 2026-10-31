@@ -94,6 +94,7 @@ class ContentCloneService {
 				authorId    : get_current_user_id(),
 				status      : 'draft',
 				maxAttempts : $work->maxAttempts,
+				taskPoints  : $work->taskPoints,
 			)
 		);
 

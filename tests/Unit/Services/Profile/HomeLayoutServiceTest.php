@@ -6,6 +6,7 @@ namespace Unit\Services\Profile;
 
 use Inc\Managers\Person\UserManager;
 use Inc\Services\Profile\HomeLayoutService;
+use Inc\Enums\Access\UserRole;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 
@@ -79,4 +80,48 @@ class HomeLayoutServiceTest extends TestCase {
 			$this->service->save( 5, array( 'tiles' => array( 'streak', 'bogus' ) ) )
 		);
 	}
+
+	public function test_staff_schema_keeps_order_and_rejects_learner_tiles(): void {
+		$raw = array( 'sections' => array( 'attention', 'tiles', 'schedule' ), 'tiles' => array( 'attendance', 'to_review', 'ranking:python', 'lessons_today' ) );
+		foreach ( array( UserRole::FSTeacher, UserRole::FSOffice ) as $role ) {
+			self::assertSame( array( 'sections' => $raw['sections'], 'tiles' => array( 'to_review', 'lessons_today' ) ), $this->service->normalize( $raw, $role ) );
+			self::assertSame( array( 'tiles', 'schedule', 'attention' ), $this->service->defaultLayout( $role )['sections'] );
+		}
+	}
+
+	public function test_parent_ranking_is_allowed_but_exam_countdown_is_not(): void {
+		self::assertSame( array( 'ranking:python', 'attendance' ), $this->service->normalize( array( 'tiles' => array( 'exam:python', 'ranking:python', 'attendance', 'to_review' ) ), UserRole::FSParent )['tiles'] );
+	}
+
+
+	public function test_menu_order_uses_available_screen_whitelist_and_students_cannot_hide_even_with_malicious_input(): void {
+		$raw = array( 'menuOrder' => array( 'student-grades', 'exam-payments', 'student-home', 'student-grades' ), 'menuHidden' => array( 'student-home' ) );
+		$layout = $this->service->normalize( $raw, UserRole::FSStudent, array( 'student-home', 'student-grades' ) );
+		self::assertSame( array( 'student-grades', 'student-home' ), $layout['menuOrder'] );
+		self::assertSame( array(), $layout['menuHidden'] );
+		self::assertSame( array(), $this->service->normalize( array( 'menuHidden' => array( 'parent-home' ) ), UserRole::FSParent )['menuHidden'] );
+	}
+
+	public function test_menu_and_home_partial_updates_keep_each_others_preferences(): void {
+		$stored = array( 'sections' => array( 'attention', 'schedule', 'tiles' ), 'tiles' => array( 'to_review' ), 'menuOrder' => array( 'journal', 'dashboard' ), 'menuHidden' => array( 'journal' ) );
+		$this->users->method( 'homeLayout' )->willReturn( $stored );
+		$this->users->expects( self::exactly( 2 ) )->method( 'setHomeLayout' );
+		$menu = $this->service->save( 5, array( 'menuOrder' => array( 'dashboard', 'journal' ) ), UserRole::FSTeacher, array( 'dashboard', 'journal' ) );
+		self::assertSame( $stored['sections'], $menu['sections'] );
+		self::assertSame( $stored['tiles'], $menu['tiles'] );
+		self::assertSame( array( 'journal' ), $menu['menuHidden'] );
+		$home = $this->service->save( 5, array( 'tiles' => null ), UserRole::FSTeacher, array( 'dashboard', 'journal' ) );
+		self::assertSame( $stored['menuOrder'], $home['menuOrder'] );
+		self::assertSame( $stored['menuHidden'], $home['menuHidden'] );
+	}
+
+	public function test_staff_can_hide_only_current_available_menu_items_and_reset_restores_visibility(): void {
+		$raw = array( 'menuOrder' => array( 'journal', 'groups', 'exam-results' ), 'menuHidden' => array( 'journal', 'exam-results', 'exam-payments' ) );
+		$layout = $this->service->normalize( $raw, UserRole::FSTeacher, array( 'dashboard', 'journal', 'exam-results' ) );
+		self::assertSame( array( 'journal', 'exam-results' ), $layout['menuHidden'] );
+		self::assertSame( array( 'journal', 'exam-results' ), $layout['menuOrder'] );
+		$reset = $this->service->normalize( array( 'menuOrder' => array(), 'menuHidden' => array() ), UserRole::FSTeacher );
+		self::assertSame( array(), $reset['menuHidden'] );
+	}
+
 }

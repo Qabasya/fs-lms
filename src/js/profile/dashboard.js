@@ -14,6 +14,8 @@
 import { esc, plural, fmtDayMonth, todayIso, chipBg, scheduleTone, groupSubjectKey, shortName, emptyState, roomLabel } from './utils.js';
 import { icoCalendar, icoCheck, icoAlert, icoMapPin, icoBookmark, icoShield, icoChevronRight, icoChevronDown, icoHome, icoJournal, icoUsers, icoDocCheck } from '../common/icons.js';
 import { createApi } from './api.js';
+import { tilesHtml, arrowsHtml, editBarHtml, wireHomeEditor } from './home-customization.js';
+import { persistHomeLayout } from './home-layout-preferences.js';
 import { initSchedule, todayRowsHtml, scheduleCardHtml } from './schedule-view.js';
 
 /** Ключ запомненной раскрытости аккордеонов главной. */
@@ -22,6 +24,19 @@ const ACC_KEY = 'fsProfDashAcc';
 let root = null;
 let state = null;
 let api = null;
+let homeEdit = false;
+let homeLayout = null;
+const DEFAULT_SECTIONS = ['tiles', 'schedule', 'attention'];
+
+export function enterDashboardCustomize() {
+    homeEdit = true;
+    if (state?.data) render();
+}
+
+function saveLayout() {
+    if (window.fsProfile?.homeLayout) persistHomeLayout(homeLayout);
+}
+
 let nav = { openJournalFor: () => {}, openReview: () => {}, openWorks: () => {}, openSummary: null, openExamConduct: null };
 
 export function renderDashboard(r, handlers) {
@@ -53,6 +68,20 @@ function render() {
     const alerts = d.worklist.alerts || [];
     const attnCount = alerts.length + d.worklist.to_fill.length + d.worklist.to_review.length;
 
+    homeLayout ??= { sections: [...(d.home_layout?.sections || DEFAULT_SECTIONS)], tiles: d.home_layout?.tiles ?? null };
+    const catalog = [
+        { id: 'lessons_today', label: 'Занятий сегодня', value: String(s.lessons_today), note: `${s.groups} ${plural(s.groups, 'группа', 'группы', 'групп')}${s.individual ? ` · ${s.individual} инд.` : ''}`, color: '#3b5bdb', ico: 'cal' },
+        { id: 'to_review', label: 'На проверке', value: String(s.to_review), note: 'работ ждут оценки', color: '#7048e8', ico: 'check' },
+    ];
+    const sections = {
+        tiles: tilesHtml(catalog, ['lessons_today', 'to_review'], homeLayout, homeEdit, false),
+        schedule: scheduleCardHtml('data-home-section="schedule"'),
+        attention: `<div data-home-section="attention">${homeEdit ? arrowsHtml() : ''}${accordion('attention', 'Требует внимания', `${attnCount} ${plural(attnCount, 'задача', 'задачи', 'задач')}`, `
+            ${alerts.map(alertRow).join('')}
+            ${d.worklist.to_fill.map(fillRow).join('')}
+            ${d.worklist.to_review.map(reviewRow).join('')}
+            ${attnCount ? '' : '<div class="rev-empty">Всё в порядке — журналы заполнены, работы проверены.</div>'}`, icoAlert)}</div>`,
+    };
     root.innerHTML = `
     <div class="prof-dash">
         <div class="prof-dash-hello">
@@ -62,19 +91,14 @@ function render() {
 
         ${d.covering.length ? coveringBanner(d.covering) : ''}
 
-        <div class="prof-stat-tiles">
-            ${statTile('Занятий сегодня', String(s.lessons_today), `${s.groups} ${plural(s.groups, 'группа', 'группы', 'групп')}${s.individual ? ` · ${s.individual} инд.` : ''}`, '#3b5bdb', 'cal')}
-            ${statTile('На проверке', String(s.to_review), 'работ ждут оценки', '#7048e8', 'check')}
-        </div>
-
-        ${scheduleCardHtml()}
-
-        ${accordion('attention', 'Требует внимания', `${attnCount} ${plural(attnCount, 'задача', 'задачи', 'задач')}`, `
-            ${alerts.map(alertRow).join('')}
-            ${d.worklist.to_fill.map(fillRow).join('')}
-            ${d.worklist.to_review.map(reviewRow).join('')}
-            ${attnCount ? '' : '<div class="rev-empty">Всё в порядке — журналы заполнены, работы проверены.</div>'}`, icoAlert)}
+        ${homeEdit ? editBarHtml() : ''}
+        <div class="prof-dash-grid2${homeEdit ? ' is-editing' : ''}">${homeLayout.sections.map(id => sections[id] || '').join('')}</div>
     </div>`;
+
+    if (homeEdit) {
+        wireHomeEditor(root, { layout: homeLayout, catalog, defaultTiles: ['lessons_today', 'to_review'], defaultSections: DEFAULT_SECTIONS,
+            save: saveLayout, redraw: render, done: () => { homeEdit = false; render(); } });
+    }
 
     initSchedule({
         toggle:    root.querySelector('#profSchedToggle'),
@@ -186,18 +210,6 @@ function readAccOpen() {
 
 function saveAccOpen(key, open) {
     try { localStorage.setItem(ACC_KEY, JSON.stringify(Object.assign(readAccOpen(), { [key]: open }))); } catch { /* браузер без хранилища — просто не запомним */ }
-}
-
-function statTile(label, val, delta, color, ico) {
-    const icons = { cal: icoCalendar, check: icoCheck, alert: icoAlert };
-    return `<div class="prof-stat-tile">
-        <div class="st-top">
-            <span class="st-ico" style="background:${color}1a;color:${color}">${icons[ico](16)}</span>
-            ${esc(label)}
-        </div>
-        <div class="st-val">${esc(val)}</div>
-        <div class="st-delta">${esc(delta)}</div>
-    </div>`;
 }
 
 /** Сеансы экзаменов в виде элементов расписания: `start`/`end` — как у занятий, чтобы сортировались вместе. */

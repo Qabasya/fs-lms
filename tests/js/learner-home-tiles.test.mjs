@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { examCountdownValue, homeTileModels } from '../../src/js/profile/learner-home-tiles.js';
+import { examCountdownValue, homeTileModels as models } from '../../src/js/profile/learner-home-tiles.js';
+
+const homeTileModels = (d, who, layout) => models({ home_subjects: [{ key: 'inf_ege', exam: true }], ...d }, who, layout);
 
 const attendance = { percent: 91 };
 const deadlines = [ { player_url: '/lesson/1', due_at: '2027-05-02 10:00:00' } ];
@@ -39,23 +41,23 @@ test( 'ученику «До экзамена» заменяет «Посеща�
 	assert.equal( tiles[ 0 ].href, '/lesson/1' );
 } );
 
-test( 'без даты экзамена остаётся «Посещаемость»; родителю она остаётся всегда', () => {
-	assert.equal( homeTileModels( { deadlines, attendance, exam_countdown: [], highlights: null }, { parent: false } )[ 1 ].label, 'Посещаемость' );
+test( 'без даты экзамена у ученика нет посещаемости по умолчанию; родителю она остаётся всегда', () => {
+	assert.deepEqual( homeTileModels( { deadlines, attendance, exam_countdown: [], highlights: null }, { parent: false } ).map(t => t.id), ['deadlines'] );
 	assert.equal( homeTileModels( { deadlines, attendance, exam_countdown: [ exam() ], highlights: null }, { parent: true } )[ 1 ].label, 'Посещаемость' );
 	assert.equal( homeTileModels( { deadlines, attendance: { percent: null }, exam_countdown: [], highlights: null }, { parent: true } )[ 1 ].value, '—' );
 } );
 
-test( 'несколько экзаменов — по плитке на каждый, но не больше двух', () => {
+test( 'экзамены одного предмета не дублируют плитку', () => {
 	const tiles = homeTileModels( { deadlines, attendance, exam_countdown: [ exam(), exam( { subject: 'Русский ЕГЭ' } ), exam( { subject: 'Физика ЕГЭ' } ) ], highlights: null }, { parent: false } );
 
-	assert.equal( tiles.filter( ( t ) => t.label.startsWith( 'До экзамена' ) ).length, 2 );
+	assert.equal( tiles.filter( ( t ) => t.label.startsWith( 'До экзамена' ) ).length, 1 );
 } );
 
 test( 'плитки пилота не входят в набор по умолчанию — они в меню «+» и появляются, когда их добавили', () => {
 	const highlights = { streak: 5, to_fix: 3, last_result: { value: '72', note: 'Пробник · баллов' } };
 	const d = { deadlines, attendance, exam_countdown: [], highlights };
 
-	assert.deepEqual( homeTileModels( d, { parent: false } ).map( ( t ) => t.label ), [ 'Дедлайнов', 'Посещаемость' ] );
+	assert.deepEqual( homeTileModels( d, { parent: false } ).map( ( t ) => t.label ), [ 'Дедлайнов' ] );
 
 	const chosen = homeTileModels( d, { parent: false }, { tiles: [ 'deadlines', 'attendance', 'streak', 'to_fix', 'last_result' ] } );
 	assert.deepEqual( chosen.slice( 2 ).map( ( t ) => [ t.label, t.value ] ), [

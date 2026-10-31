@@ -8,6 +8,8 @@ use Inc\Core\BaseController;
 use Inc\Enums\Access\Capability;
 use Inc\Enums\Wp\Nonce;
 use Inc\Services\Profile\DashboardService;
+use Inc\Services\Profile\HomeLayoutService;
+use Inc\Enums\Access\UserRole;
 use Inc\Shared\Traits\AjaxResponse;
 use Inc\Shared\Traits\Authorizer;
 
@@ -23,6 +25,7 @@ class DashboardCallbacks extends BaseController {
 
 	public function __construct(
 		private readonly DashboardService $service,
+		private readonly HomeLayoutService $layouts,
 	) {
 		parent::__construct();
 	}
@@ -33,6 +36,6 @@ class DashboardCallbacks extends BaseController {
 		$userId   = get_current_user_id();
 		$isOffice = user_can( $userId, Capability::ManageLmsPlatform->value );
 
-		$this->success( $this->service->build( $userId, $isOffice ) );
+		$this->success( $this->service->build( $userId, $isOffice ) + array( 'home_layout' => $this->layouts->get( $userId, $isOffice ? UserRole::FSOffice : UserRole::FSTeacher ) ) );
 	}
 }

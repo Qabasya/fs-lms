@@ -140,6 +140,16 @@ class ContentCloneServiceTest extends TestCase {
 		self::assertSame( '1.12. ДЗ', $GLOBALS['_fs_test_meta'][ $newId ][ PostMetaName::Meta->value ]['task_number_prefix'] );
 	}
 
+	public function test_clone_work_preserves_configured_task_scores_and_prefix(): void {
+		fs_test_seed_post(
+			array( 'ID' => 17, 'post_type' => 'inf_works', 'post_title' => 'Баллы', 'post_status' => 'publish' ),
+			array( PostMetaName::Meta->value => array( 'work_type' => 'homework', 'item_ids' => array( 10, 20 ), 'task_points' => array( 10 => 2.0, 20 => 3 ), 'task_number_prefix' => 'Т1' ) )
+		);
+		$newId = $this->service->cloneWork( 17 );
+		self::assertSame( array( 10 => 2, 20 => 3 ), $this->works->get( $newId )->taskPoints );
+		self::assertSame( 'Т1', $GLOBALS['_fs_test_meta'][ $newId ][ PostMetaName::Meta->value ]['task_number_prefix'] );
+	}
+
 	// ── cloneAssessment ─────────────────────────────────────────────────────
 
 	public function test_clone_assessment_returns_zero_for_missing(): void {

@@ -2,6 +2,7 @@ import '../_types.js';
 import { icoPlus, icoX, icoReplace, icoImport, icoCaret, icoTrash, icoGrip } from '../../common/icons.js';
 import { escapeHtml as esc } from '../modules/utils.js';
 import { openPicker, expandPicked } from '../modules/picker.js';
+import { createSlotSaveQueue } from './slot-persistence.js';
 import { readSteps } from './step-editor.js';
 import { showToast } from '../modules/toast.js';
 import { ConfirmModal } from '../modals/confirm-modal.js';
@@ -120,6 +121,7 @@ const defaultNewSlot = ( i ) => ( { key: 'slot_' + i, taskId: 0, title: '' } );
  * @param {Function}   [config.mapSlot]    (step,i) => slot              Маппинг начальных слотов.
  * @param {Function}   [config.newSlot]    (i) => slot                   Пустой слот для «+ Задача».
  * @param {Function}   [config.renderExtraBody] (container, slot, index, api) => void
+ * @param {boolean}    [config.preserveSlotOnExpand] Keep the original slot settings on the first bundled child.
  * @param {Function}   [config.onReady]    (api) => void                 Хук после первого рендера.
  * @param {boolean}    [config.reorderable] Перетаскивание слотов и «+ Добавить» под каждым слотом
  *                                            (не для конструкторов с позиционными слотами).
@@ -129,12 +131,14 @@ export function createSlotBuilder( el, config ) {
 	const mapSlot = typeof config.mapSlot === 'function' ? config.mapSlot : defaultMapSlot;
 	const newSlot = typeof config.newSlot === 'function' ? config.newSlot : defaultNewSlot;
 
+	const persistSnapshot = createSlotSaveQueue( config.persist );
 	const initialSteps = readSteps( el );
 	el.innerHTML = '';
 
 	let slots       = initialSteps.map( mapSlot );
 	let activeIndex = slots.length ? 0 : -1;
 	let dragIndex   = null;
+	let saveVersion = 0;
 
 	const canBulkAdd = typeof config.bulkSearch === 'function';
 
@@ -376,6 +380,7 @@ export function createSlotBuilder( el, config ) {
 
 		const replacement = children.map( ( c, i ) => {
 			const s = newSlot( index + i );
+			if ( i === 0 && config.preserveSlotOnExpand ) { Object.assign( s, slots[ index ] ); }
 			s.taskId = c.id;
 			s.title  = c.title;
 			return s;
@@ -759,6 +764,9 @@ export function createSlotBuilder( el, config ) {
 		if ( state === 'saving' ) {
 			statusEl.className   = 'fs-sb-status saving';
 			statusEl.textContent = 'Сохранение…';
+		} else if ( state === 'error' ) {
+			statusEl.className = 'fs-sb-status';
+			statusEl.textContent = 'Изменения не сохранены';
 		} else {
 			statusEl.className = 'fs-sb-status';
 			statusEl.innerHTML = '<span class="fs-sb-dot"></span> Все изменения сохранены';
@@ -766,16 +774,18 @@ export function createSlotBuilder( el, config ) {
 	}
 
 	function save() {
+		const version = ++saveVersion;
 		setStatus( 'saving' );
-		Promise.resolve( config.persist( slots ) )
+		persistSnapshot( slots )
 			.then( ( data ) => {
+				if ( version !== saveVersion ) { return; }
 				setStatus( 'saved' );
 				// Хук получения ответа сохранения (например, вердикт полноты ЕГЭ).
 				if ( typeof config.onPersisted === 'function' ) { config.onPersisted( data ); }
 			} )
 			.catch( ( msg ) => {
 				showToast( String( msg ) || 'Ошибка сохранения', 'error' );
-				setStatus( 'saved' );
+				if ( version === saveVersion ) { setStatus( 'error' ); }
 			} );
 	}
 }

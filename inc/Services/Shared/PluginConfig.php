@@ -52,10 +52,12 @@ readonly class PluginConfig {
 		$raw  = FS_LMS_TRUSTED_IPS;
 		$list = is_array( $raw ) ? $raw : explode( ',', (string) $raw );
 
-		return array_values( array_filter(
+		return array_values(
+			array_filter(
 			array_map( static fn( $ip ): string => trim( (string) $ip ), $list ),
 			static fn( string $ip ): bool => false !== filter_var( $ip, FILTER_VALIDATE_IP )
-		) );
+			)
+		);
 	}
 
 	/**
@@ -168,6 +170,29 @@ readonly class PluginConfig {
 		return $dates;
 	}
 
+	/** Ranking weights and attendance bonus; defaults preserve the original task-only score. */
+	public function rankingSettings(): array {
+		$stored   = $this->repository->get();
+		$defaults = array(
+			'practice'                 => 0.0,
+			'independent'              => 1.0,
+			'homework'                 => 1.0,
+			'survey'                   => 1.0,
+			'assessment'               => 1.0,
+			'attendance_bonus'         => 0.0,
+			'attendance_streak_length' => 3,
+		);
+		foreach ( $defaults as $key => $fallback ) {
+			$value = $stored[ 'ranking_' . $key ] ?? $fallback;
+			$max   = 'attendance_streak_length' === $key ? 100 : 1000;
+			$min   = 'attendance_streak_length' === $key ? 2 : 0;
+			if ( is_numeric( $value ) && is_finite( (float) $value ) && (float) $value >= $min && (float) $value <= $max ) {
+				$defaults[ $key ] = 'attendance_streak_length' === $key ? (int) $value : round( (float) $value, 2 );
+			}
+		}
+		return $defaults;
+	}
+
 	private function bounded( string $key, int $default, int $min, int $max ): int {
 		$value = $this->repository->get()[ $key ] ?? $default;
 
@@ -209,6 +234,7 @@ readonly class PluginConfig {
 				'url' => $this->brandLogoUrl(),
 			),
 			'consultation_url' => $this->consultationUrl(),
+			'ranking'          => $this->rankingSettings(),
 			'exams'            => array(
 				'product_9'            => $this->examProductId( 9 ),
 				'product_11'           => $this->examProductId( 11 ),

@@ -33,7 +33,7 @@ class TeacherProfileViewTest extends TestCase {
 		$this->subjects->method( 'getByKey' )->willReturnCallback( static fn ( string $key ): ?SubjectDTO => new SubjectDTO( $key, strtoupper( $key ) ) );
 		$this->guard->method( 'manageableSubjectKeys' )->willReturn( array( 'inf_ege' ) );
 
-		$this->view = new TeacherProfileView( $groups, $this->createMock( CourseManager::class ), $this->subjects, $this->guard );
+		$this->view = new TeacherProfileView( $groups, $this->createMock( CourseManager::class ), $this->subjects, $this->guard, $this->createStub( \Inc\Services\Profile\RankingAccessService::class ) );
 		$GLOBALS['_test_user_can'] = array();
 	}
 
@@ -107,7 +107,7 @@ class TeacherProfileViewTest extends TestCase {
 		$groups = $this->createStub( GroupsRepository::class );
 		$groups->method( 'findAll' )->willReturn( array() );
 		$groups->method( 'findByTeacherId' )->willReturn( array() );
-		$view  = new TeacherProfileView( $groups, $this->createMock( CourseManager::class ), $this->subjects, $guard );
+		$view  = new TeacherProfileView( $groups, $this->createMock( CourseManager::class ), $this->subjects, $guard, $this->createStub( \Inc\Services\Profile\RankingAccessService::class ) );
 
 		$built = $view->build( new ProfileContext( 1, null, UserRole::FSTeacher, null, false ) );
 

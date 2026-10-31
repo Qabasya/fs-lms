@@ -4,10 +4,12 @@
    отдаёт всё; родитель переключает ребёнка (fsProfile.children). Read-only.
    ══════════════════════════════════════════════════════════════════════ */
 
-import { homeTileModels, addableTiles, addTile, removeTile, shiftItem, MAX_TILES } from './learner-home-tiles.js';
-import { esc, toast, openCtxMenu, fmtDayMonth, fmtDate, emptyState, chipBg, chipHtml, chipText, chipSoft, scheduleTone, shortName, todayIso, roomLabel } from './utils.js';
+import { persistHomeLayout } from './home-layout-preferences.js';
+import { defaultTileIds, tileCatalog } from './learner-home-tiles.js';
+import { homeTile, arrowsHtml, tilesHtml, editBarHtml, wireHomeEditor } from './home-customization.js';
+import { esc, toast, fmtDayMonth, fmtDate, emptyState, chipBg, chipHtml, chipText, chipSoft, scheduleTone, shortName, todayIso, roomLabel } from './utils.js';
 import { toggleVisible, applyProgress } from '../common/utils.js';
-import { icoCalendar, icoCheck, icoAlert, icoSearch, icoChevronRight, icoChevronDown, icoClock, icoStar, icoHome, icoLock, icoMinus, icoPlus, icoArrowUp, icoArrowDown } from '../common/icons.js';
+import { icoCalendar, icoCheck, icoAlert, icoSearch, icoChevronRight, icoChevronDown, icoClock, icoStar, icoHome, icoLock } from '../common/icons.js';
 import { createApi } from './api.js';
 import { workCardHtml, workChipHtml, workStatusText } from './work-card.js';
 import { learnerLayout, learnerFlat } from './program-window.js';
@@ -97,22 +99,7 @@ function layoutOf(d) {
 /** Сохраняет раскладку; сбой не ломает экран — тост. */
 function saveLayout() {
     if (!api) { return; }
-    api('saveHomeLayout', { layout: JSON.stringify(homeLayout) }).catch(e => toast(e.message || 'Не удалось сохранить раскладку', 'error'));
-}
-
-/** Стрелки «выше / ниже» — перестановка там, где перетаскивание неудобно (телефон, тач); на мыши их скрывают стили. */
-function arrowsHtml() {
-    return `<span class="prof-home-arrows"><button type="button" data-home-shift="-1" aria-label="Выше">${icoArrowUp(14)}</button><button type="button" data-home-shift="1" aria-label="Ниже">${icoArrowDown(14)}</button></span>`;
-}
-
-/** Секция плиток: в режиме кастомизации — «−» на плитках и пунктирная «+» на свободном месте (до шести). */
-function tilesSectionHtml(d, layout, who) {
-    const tiles = homeTileModels(d, who, layout);
-    const ids = tiles.map(t => t.id);
-    const items = tiles.map(t => homeTile(t.label, t.value, t.color, t.ico, homeEdit ? '' : (t.href || ''), { ...t, removable: homeEdit })).join('');
-    const room = homeEdit && tiles.length < MAX_TILES && addableTiles(d, who, ids).length;
-    const add = room ? `<button type="button" class="prof-stat-tile prof-stat-tile--add" data-home-add aria-label="Добавить плитку">${icoPlus(26)}</button>` : '';
-    return `<div class="prof-stat-tiles prof-stat-tiles--learner" data-home-section="tiles">${homeEdit ? arrowsHtml() : ''}${items}${add}</div>`;
+    persistHomeLayout(homeLayout);
 }
 
 function deadlinesSectionHtml(d) {
@@ -131,7 +118,7 @@ function renderHome(root, d) {
     const who = { parent: isParent() };
     const layout = layoutOf(d);
     const sections = {
-        tiles: tilesSectionHtml(d, layout, who),
+        tiles: tilesHtml(tileCatalog(d, who), defaultTileIds(d, who), layout, homeEdit),
         schedule: scheduleCardHtml('data-home-section="schedule"'),
         deadlines: deadlinesSectionHtml(d),
     };
@@ -144,131 +131,15 @@ function renderHome(root, d) {
             <p>${d.groups.map(g => esc(g.name) + ' · ' + esc(g.subject)).join(' · ') || 'Нет активных групп'}</p>
             ${childPickHtml()}
         </div>
-        ${homeEdit ? `<div class="prof-home-editbar">
-            <span>Режим кастомизации: тяните секции мышью, убирайте и добавляйте плитки</span>
-            <button type="button" class="prof-btn prof-btn-sm" data-home-reset>Сбросить</button>
-            <button type="button" class="prof-btn prof-btn-sm prof-btn-primary" data-home-done>Готово</button>
-        </div>` : ''}
+        ${homeEdit ? editBarHtml() : ''}
         <div class="prof-dash-grid2${homeEdit ? ' is-editing' : ''}">${layout.sections.map(id => sections[id] || '').join('')}</div>
     </div>`;
     wireChild(root);
     mountSchedule(root, d);
-    if (homeEdit) { wireHomeEdit(root, d, who, layout); }
-}
-
-/**
- * Перетаскивание элементов контейнера целиком: берёшь элемент — он тащится, остальные раздвигаются под него сразу (DOM
- * переставляется на лету, сдвиг плавный через Web Animations). Порядок читается из DOM на отпускании. Правило «направление»:
- * элемент перескакивает через соседа, только когда курсор прошёл его середину, поэтому высокие блоки не дёргаются туда-сюда.
- * Столбец (секции) сравнивает по вертикали; сетка (плитки) — по горизонтали в своей строке и по вертикали между строками.
- *
- * @param {Element}                      container Контейнер элементов
- * @param {string}                       selector  Прямые элементы контейнера (`:scope > …`)
- * @param {(order: Element[]) => void}   onDrop    Элементы в новом порядке после отпускания
- * @param {{grid?: boolean}}             [opts]
- */
-function wireSortable(container, selector, onDrop, { grid = false } = {}) {
-    // На тач-экранах перетаскивание не включаем: оно спорит с прокруткой — там работают стрелки «выше / ниже».
-    if (!container || window.matchMedia('(pointer: coarse)').matches) { return; }
-    const items = () => [...container.querySelectorAll(`:scope > ${selector}`)];
-    let dragged = null;
-
-    items().forEach(item => {
-        item.draggable = true;
-        item.addEventListener('dragstart', (e) => {
-            if (e.target !== item) { return; }
-            e.stopPropagation(); // вложенный сортируемый список (плитки в секции) не должен запускать перетаскивание секции
-            dragged = item;
-            e.dataTransfer.effectAllowed = 'move';
-            e.dataTransfer.setData('text/plain', '');
-            requestAnimationFrame(() => item.classList.add('is-dragging'));
-        });
-        item.addEventListener('dragend', (e) => {
-            if (e.target !== item) { return; }
-            e.stopPropagation();
-            item.classList.remove('is-dragging');
-            dragged = null;
-            onDrop(items());
-        });
-    });
-
-    container.addEventListener('dragover', (e) => {
-        if (!dragged) { return; }
-        e.preventDefault();
-        e.stopPropagation();
-        const target = e.target.closest(selector);
-        if (!target || target === dragged || target.parentElement !== container) { return; }
-
-        const rect = target.getBoundingClientRect();
-        const there = dragged.compareDocumentPosition(target) & Node.DOCUMENT_POSITION_FOLLOWING;
-        const sameRow = grid && Math.abs(rect.top - dragged.getBoundingClientRect().top) < rect.height / 2;
-        const pointer = sameRow ? e.clientX : e.clientY;
-        const middle = sameRow ? rect.left + rect.width / 2 : rect.top + rect.height / 2;
-        if (there ? pointer > middle : pointer < middle) {
-            moveWithShift(items(), () => container.insertBefore(dragged, there ? target.nextSibling : target));
-        }
-    });
-    container.addEventListener('drop', (e) => e.preventDefault());
-}
-
-/** Выполняет перестановку и плавно сдвигает затронутые элементы со старого места на новое (FLIP). */
-function moveWithShift(list, mutate) {
-    const before = new Map(list.map(el => [el, el.getBoundingClientRect()]));
-    mutate();
-    list.forEach(el => {
-        const was = before.get(el);
-        const now = el.getBoundingClientRect();
-        const dx = was.left - now.left;
-        const dy = was.top - now.top;
-        if ((dx || dy) && !el.classList.contains('is-dragging')) {
-            el.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' }], { duration: 200, easing: 'ease-out' });
-        }
-    });
-}
-
-/** Режим кастомизации: перетаскивание секций, «−» у плиток, «+» на свободном месте, «Готово» и «Сбросить». */
-function wireHomeEdit(root, d, who, layout) {
-    const redraw = () => renderHome(root, d);
-    const effectiveTiles = () => layout.tiles ?? homeTileModels(d, who, layout).map(t => t.id);
-    const commit = (change) => { Object.assign(layout, change); saveLayout(); redraw(); };
-
-    // У карточки расписания стрелки вставляются в шапку (разметка карточки общая с кабинетом преподавателя).
-    root.querySelector('.prof-sched-card .prof-card-head')?.insertAdjacentHTML('beforeend', arrowsHtml());
-    root.querySelectorAll('[data-home-shift]').forEach(btn => btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const delta = Number(btn.dataset.homeShift);
-        const tile = btn.closest('[data-tile-id]');
-        if (tile) {
-            commit({ tiles: shiftItem(effectiveTiles(), tile.dataset.tileId, delta) });
-        } else {
-            commit({ sections: shiftItem(layout.sections, btn.closest('[data-home-section]').dataset.homeSection, delta) });
-        }
-    }));
-
-    // Секции целиком; плитки — внутри своей секции (порядок плиток сохраняется как явный набор).
-    wireSortable(root.querySelector('.prof-dash-grid2'), '[data-home-section]', (order) => {
-        const sections = order.map(el => el.dataset.homeSection);
-        if (sections.join() !== layout.sections.join()) { commit({ sections }); }
-    });
-    wireSortable(root.querySelector('.prof-stat-tiles[data-home-section]'), '.prof-stat-tile[data-tile-id]', (order) => {
-        const tiles = order.map(el => el.dataset.tileId);
-        if (tiles.join() !== effectiveTiles().join()) { commit({ tiles }); }
-    }, { grid: true });
-
-    root.querySelectorAll('[data-home-remove]').forEach(btn => btn.addEventListener('click', () => {
-        commit({ tiles: removeTile(effectiveTiles(), btn.dataset.homeRemove) });
-    }));
-    root.querySelector('[data-home-add]')?.addEventListener('click', (e) => {
-        const items = addableTiles(d, who, effectiveTiles()).map(t => ({ v: t.id, label: t.label.replace(/\u00A0/g, ' ') }));
-        openCtxMenu(e.currentTarget, items, (id) => commit({ tiles: addTile(effectiveTiles(), id) }));
-    });
-    root.querySelector('[data-home-reset]')?.addEventListener('click', () => {
-        commit({ sections: [...DEFAULT_SECTIONS], tiles: null });
-    });
-    root.querySelector('[data-home-done]')?.addEventListener('click', () => {
-        homeEdit = false;
-        redraw();
-    });
+    if (homeEdit) {
+        wireHomeEditor(root, { layout, catalog: tileCatalog(d, who), defaultTiles: defaultTileIds(d, who), defaultSections: DEFAULT_SECTIONS,
+            save: saveLayout, redraw: () => renderHome(root, d), done: () => { homeEdit = false; renderHome(root, d); } });
+    }
 }
 
 /* ── Мои курсы (дизайн Student Courses) ───────────────────────────────────
@@ -794,19 +665,6 @@ function attRow(r) {
         <span class="lrn-topic" title="${esc(r.topic || '')}">${esc(r.topic || '—')}</span>
         <span class="sum-works">${works}</span>
     </div>`;
-}
-
-function homeTile(label, val, color, ico, href = '', opts = {}) {
-    const remove = opts.removable ? `<button type="button" class="prof-home-minus" data-home-remove="${esc(opts.id)}" aria-label="Убрать плитку">${icoMinus(14)}</button>${arrowsHtml()}` : '';
-    const icons = { cal: icoCalendar, check: icoCheck, alert: icoAlert };
-    const tag = href ? 'a' : 'div';
-    const link = href ? ` href="${esc(href)}"` : '';
-    const note = opts.note ? `<div class="st-delta">${esc(opts.note)}</div>` : '';
-    const id = opts.removable ? ` data-tile-id="${esc(opts.id)}"` : '';
-    return `<${tag} class="prof-stat-tile${href ? ' is-link' : ''}${opts.urgent ? ' is-urgent' : ''}"${link}${id}>${remove}
-        <div class="st-top"><span class="st-ico" style="background:${color}1a;color:${color}">${icons[ico](16)}</span>${esc(label)}</div>
-        <div class="st-val">${esc(val)}</div>${note}
-    </${tag}>`;
 }
 
 /* ── Helpers ──────────────────────────────────────────────────────────── */

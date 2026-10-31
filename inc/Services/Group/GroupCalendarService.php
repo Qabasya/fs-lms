@@ -7,6 +7,7 @@ namespace Inc\Services\Group;
 use Inc\Enums\Course\AccessMode;
 use Inc\Enums\Wp\PageRoutes;
 use Inc\Managers\Course\LessonManager;
+use Inc\Managers\Course\CourseManager;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\WPDBRepositories\RoomRepository;
 use Inc\Services\Course\EffectiveTeacherResolver;
@@ -44,6 +45,7 @@ readonly class GroupCalendarService {
 		private ProgramCompositionService $program,
 		private LessonManager             $lessonManager,
 		private IndividualLessonService   $individual,
+		private CourseManager              $courses,
 	) {}
 
 	/**
@@ -95,6 +97,8 @@ readonly class GroupCalendarService {
 		}
 
 		$entries    = $this->program->numberThemes( $this->program->getProgram( $groupId ) );
+		$course = ! empty( $group->course_id ) ? $this->courses->get( (int) $group->course_id ) : null;
+		$courseNumbers = $course?->lessonNumbers() ?? array();
 		$lessonDays = array_flip( $meta['lessonDays'] );
 		// Индивидуальная группа: штатного расписания нет, любой день — обычный, «вне расписания» не бывает.
 		$individual = $this->program->isIndividualGroup( $groupId );
@@ -118,7 +122,7 @@ readonly class GroupCalendarService {
 			$themes[]   = array(
 				'group_lesson_id' => $row->id,
 				'lesson_id'       => $row->lessonId,
-				'n'               => $entry['n'],
+				'n'               => $courseNumbers[ $row->lessonId ?? 0 ] ?? $entry['n'],
 				// T12.6 (D14): часть темы (1/2, 2/2) — origin+continuation считаются одной темой.
 				'part'            => $entry['part'],
 				'total_parts'     => $entry['totalParts'],

@@ -6,6 +6,7 @@ namespace Inc\Callbacks\Profile;
 
 use Inc\Core\BaseController;
 use Inc\Enums\Wp\Nonce;
+use Inc\Enums\Access\UserRole;
 use Inc\Services\Profile\HomeLayoutService;
 use Inc\Services\Profile\LearnerService;
 use Inc\Services\Profile\ProfileViewResolver;
@@ -53,7 +54,7 @@ class LearnerCallbacks extends BaseController {
 		}
 
 		// Раскладка главной — настройка смотрящего (родитель настраивает свою главную, а не ребёнка).
-		$this->success( $this->service->build( $personId )->toArray() + array( 'home_layout' => $this->layouts->get( get_current_user_id() ) ) );
+		$this->success( $this->service->build( $personId )->toArray() + array( 'home_layout' => $this->layouts->get( get_current_user_id(), $ctx->role ) ) );
 	}
 
 	/**
@@ -75,6 +76,15 @@ class LearnerCallbacks extends BaseController {
 			return;
 		}
 
-		$this->success( array( 'layout' => $this->layouts->save( get_current_user_id(), $layout ) ) );
+		$ctx = $this->resolver->context( get_current_user_id() );
+		if ( ! in_array( $ctx->role, array( UserRole::FSStudent, UserRole::FSParent, UserRole::FSTeacher, UserRole::FSOffice ), true ) ) {
+			$this->error( __( 'Кабинет недоступен.', 'fs-lms' ) );
+			return;
+		}
+
+		$view = $this->resolver->viewFor( $ctx->role );
+		$built = null !== $view ? $view->build( $ctx ) : array();
+		$menuKeys = null !== $view ? array_column( array_merge( $built['nav'] ?? array(), $built['examNav'] ?? array() ), 'key' ) : null;
+		$this->success( array( 'layout' => $this->layouts->save( get_current_user_id(), $layout, $ctx->role, $menuKeys ) ) );
 	}
 }

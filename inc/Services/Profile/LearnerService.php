@@ -5,12 +5,14 @@ declare( strict_types=1 );
 namespace Inc\Services\Profile;
 
 use Inc\DTO\Profile\LearnerDashboardDTO;
+use Inc\Enums\Exam\ExamSubject;
 use Inc\Services\Profile\Learner\ExamCountdownSection;
 use Inc\Services\Profile\Learner\LearnerContextBuilder;
 use Inc\Services\Profile\Learner\LearnerCoursesSection;
 use Inc\Services\Profile\Learner\LearnerHighlightsSection;
 use Inc\Services\Profile\Learner\LearnerPerformanceSection;
 use Inc\Services\Profile\Learner\LearnerScheduleSection;
+use Inc\Services\Profile\Learner\LearnerRankingSection;
 use Inc\Services\Exam\LearnerExamsService;
 
 /**
@@ -27,13 +29,14 @@ use Inc\Services\Exam\LearnerExamsService;
 class LearnerService {
 
 	public function __construct(
-		private readonly LearnerContextBuilder     $contextBuilder,
-		private readonly LearnerScheduleSection    $schedule,
+		private readonly LearnerContextBuilder $contextBuilder,
+		private readonly LearnerScheduleSection $schedule,
 		private readonly LearnerPerformanceSection $performance,
-		private readonly LearnerCoursesSection     $coursesSection,
-		private readonly LearnerExamsService      $examsService,
-		private readonly ExamCountdownSection     $examCountdown,
+		private readonly LearnerCoursesSection $coursesSection,
+		private readonly LearnerExamsService $examsService,
+		private readonly ExamCountdownSection $examCountdown,
 		private readonly LearnerHighlightsSection $highlights,
+		private readonly LearnerRankingSection $ranking,
 	) {}
 
 	/**
@@ -50,10 +53,12 @@ class LearnerService {
 		// №2 (D17.2): открытые группы существуют только как курсы в «Мои курсы» —
 		// как ГРУППЫ в блоке приветствия/статистике ученика их не показываем
 		// (видны лишь в админке). Полный список групп нужен курсам и оценкам.
-		$visibleGroups = array_values( array_filter(
-			$ctx->groups,
-			static fn( $g ) => 'open' !== ( $g['access_mode'] ?? 'scheduled' )
-		) );
+		$visibleGroups = array_values(
+			array_filter(
+				$ctx->groups,
+				static fn( $g ) => 'open' !== ( $g['access_mode'] ?? 'scheduled' )
+			)
+		);
 
 		$grades = $this->performance->grades( $ctx, $personId );
 
@@ -79,7 +84,30 @@ class LearnerService {
 			attendance: $attendance,
 			examCountdown: $this->examCountdown->forGroups( $ctx->groups, $ctx->now ),
 			highlights: $this->highlightsFor( $personId, $attendance, $deadlines ),
+			rankings: $this->ranking->forGroups( $personId, $ctx->groups, $ctx->now ),
+			toFix: $this->highlights->toFix( $deadlines ),
+			homeSubjects: $this->homeSubjects( $ctx->groups ),
 		);
+	}
+
+	/**
+	 * Предметы всех групп, включая открытые, без повторов.
+	 *
+	 * @return list<array{key: string, name: string, exam: bool}>
+	 */
+	private function homeSubjects( array $groups ): array {
+		$subjects = array();
+		foreach ( $groups as $group ) {
+			$key = (string) ( $group['subject_key'] ?? '' );
+			if ( '' !== $key && ! isset( $subjects[ $key ] ) ) {
+				$subjects[ $key ] = array(
+					'key'  => $key,
+					'name' => (string) ( $group['subject'] ?? $key ),
+					'exam' => ExamSubject::supports( $key ),
+				);
+			}
+		}
+		return array_values( $subjects );
 	}
 
 	/**

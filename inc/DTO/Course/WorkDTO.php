@@ -25,6 +25,7 @@ readonly class WorkDTO {
 	 * @param string   $instructions = post_content (описание/инструкция перед началом; ранее жила в мете)
 	 * @param int      $authorId
 	 * @param string   $status
+	 * @param array<int, int> $taskPoints Баллы заданий этой работы, по умолчанию один.
 	 * @param int      $maxAttempts  Лимит сдач работы учеником; 0 — без ограничений (мета `max_attempts`)
 	 */
 	public function __construct(
@@ -37,6 +38,7 @@ readonly class WorkDTO {
 		public int      $authorId,
 		public string   $status,
 		public int      $maxAttempts = 0,
+		public array $taskPoints = array(),
 	) {}
 
 	public static function fromPost( \WP_Post $post, array $meta ): self {
@@ -50,6 +52,7 @@ readonly class WorkDTO {
 			authorId    : (int) $post->post_author,
 			status      : $post->post_status,
 			maxAttempts : max( 0, (int) ( $meta['max_attempts'] ?? 0 ) ),
+			taskPoints  : self::normalizePoints( self::intIds( $meta['item_ids'] ?? array() ), $meta['task_points'] ?? array() ),
 		);
 	}
 
@@ -64,6 +67,7 @@ readonly class WorkDTO {
 			authorId    : (int) ( $data['author_id'] ?? 0 ),
 			status      : (string) ( $data['status'] ?? 'draft' ),
 			maxAttempts : max( 0, (int) ( $data['max_attempts'] ?? 0 ) ),
+			taskPoints  : self::normalizePoints( self::intIds( $data['item_ids'] ?? array() ), $data['task_points'] ?? array() ),
 		);
 	}
 
@@ -78,7 +82,25 @@ readonly class WorkDTO {
 			'author_id'    => $this->authorId,
 			'status'       => $this->status,
 			'max_attempts' => $this->maxAttempts,
+			'task_points'  => self::normalizePoints( $this->itemIds, $this->taskPoints ),
 		);
+	}
+
+	/** Настроенные баллы задачи этой работы; старые работы используют один балл. */
+	public function pointsForTask( int $taskId ): float {
+		return (float) ( self::normalizePoints( $this->itemIds, $this->taskPoints )[ $taskId ] ?? 1 );
+	}
+
+	/** Нормализация прочитанной меты: только члены работы, повреждённые веса заменяются единицей. */
+	private static function normalizePoints( array $itemIds, mixed $raw ): array {
+		$raw    = is_array( $raw ) ? $raw : array();
+		$points = array();
+		foreach ( $itemIds as $id ) {
+			$value        = $raw[ $id ] ?? 1;
+			$valid        = ( is_int( $value ) || is_float( $value ) || is_string( $value ) ) && preg_match( '/^[0-9]+$/', (string) $value ) && (int) $value >= 1 && (int) $value <= 999;
+			$points[ $id ] = $valid ? (int) $value : 1;
+		}
+		return $points;
 	}
 
 	public function isEmpty(): bool {

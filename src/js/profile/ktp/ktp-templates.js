@@ -21,7 +21,7 @@ function draftBadge(t) {
 
 export function themeCardHtml(t) {
     return `<div class="prof-theme-card" draggable="true" data-glid="${t.group_lesson_id}">
-        <span class="tc-num">${t.n}${partLabel(t)}</span>
+        <span class="tc-num">${esc(t.n)}${partLabel(t)}</span>
         <div class="tc-body">
             <div class="tc-title">${esc(t.topic || 'Без названия')}</div>
             <div class="tc-meta">${t.is_pinned ? '<span class="tc-pinned">закреплено</span>' : ''}${draftBadge(t)}</div>

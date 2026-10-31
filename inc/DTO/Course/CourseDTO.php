@@ -92,4 +92,20 @@ readonly class CourseDTO {
 
 		return $ids;
 	}
+	/**
+	 * Номер урока из структуры курса: модуль.урок, первый дубль сохраняет своё место.
+	 * В КТП один lessonId соответствует одной теме, поэтому используется первое вхождение.
+	 *
+	 * @return array<int, string>
+	 */
+	public function lessonNumbers(): array {
+		$numbers = array();
+		foreach ( array_values( $this->modules ) as $moduleIndex => $module ) {
+			foreach ( array_values( $module->lessonIds ) as $lessonIndex => $lessonId ) {
+				$numbers[ (int) $lessonId ] ??= ( $moduleIndex + 1 ) . '.' . ( $lessonIndex + 1 );
+			}
+		}
+		return $numbers;
+	}
+
 }

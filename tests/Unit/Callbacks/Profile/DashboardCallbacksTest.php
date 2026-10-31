@@ -6,6 +6,7 @@ namespace Unit\Callbacks\Profile;
 
 use Inc\Callbacks\Profile\DashboardCallbacks;
 use Inc\Services\Profile\DashboardService;
+use Inc\Services\Profile\HomeLayoutService;
 use PHPUnit\Framework\TestCase;
 
 class DashboardCallbacksTest extends TestCase {
@@ -17,7 +18,9 @@ class DashboardCallbacksTest extends TestCase {
 		parent::setUp();
 		fs_test_reset_ajax();
 		$this->service = $this->createMock( DashboardService::class );
-		$this->cb      = new DashboardCallbacks( $this->service );
+		$layouts = $this->createStub( HomeLayoutService::class );
+		$layouts->method( 'get' )->willReturn( array( 'sections' => array( 'tiles', 'schedule', 'attention' ), 'tiles' => null ) );
+		$this->cb      = new DashboardCallbacks( $this->service, $layouts );
 	}
 
 	public function test_returns_dashboard_payload(): void {
@@ -29,5 +32,6 @@ class DashboardCallbacksTest extends TestCase {
 
 		self::assertTrue( $r->success );
 		self::assertSame( 3, $r->payload['stats']['lessons_today'] );
+		self::assertSame( array( 'tiles', 'schedule', 'attention' ), $r->payload['home_layout']['sections'] );
 	}
 }

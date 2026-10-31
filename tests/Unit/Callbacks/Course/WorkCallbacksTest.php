@@ -203,4 +203,17 @@ class WorkCallbacksTest extends TestCase {
 
 		self::assertTrue( fs_test_capture_json( fn() => $this->cb->ajaxSaveWorkItems() )->success );
 	}
+
+	public function test_save_points_passes_raw_values_for_server_validation_and_reports_invalid_values(): void {
+		$this->manager->expects( self::once() )->method( 'setItemIds' )->with( 5, array( 10 ), array( 10 => '2' ) )->willReturn( true );
+		$_POST = array( 'work_id' => 5, 'item_ids' => array( 10 ), 'task_points' => array( 10 => '2' ) );
+		self::assertTrue( fs_test_capture_json( fn() => $this->cb->ajaxSaveWorkItems() )->success );
+	}
+
+	public function test_invalid_points_do_not_report_success(): void {
+		$this->manager->expects( self::once() )->method( 'setItemIds' )->willThrowException( new \InvalidArgumentException( 'Баллы от 1 до 1000' ) );
+		$_POST = array( 'work_id' => 5, 'item_ids' => array( 10 ), 'task_points' => array( 10 => 'bad' ) );
+		self::assertFalse( fs_test_capture_json( fn() => $this->cb->ajaxSaveWorkItems() )->success );
+	}
+
 }

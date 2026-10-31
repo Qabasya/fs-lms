@@ -258,4 +258,12 @@ public function test_empty_answers_returns_zero_counts(): void {
 		self::assertArrayNotHasKey( '11:19', $result->perTask );
 		self::assertSame( 1, $result->correctCount ); // 3/3 → isCorrect=true in partial
 	}
+	public function test_missing_task_retains_work_price_as_pending_maximum(): void {
+		$this->posts->method('get')->willReturn(null);
+		$result=$this->svc->check([17=>'answer'],[17=>3.0]);
+		self::assertSame(3.0,$result->perTask[17]['maxScore']);
+		self::assertSame(3.0,$result->maxWeightedScore);
+		self::assertSame('pending',$result->perTask[17]['verdict']);
+	}
+
 }

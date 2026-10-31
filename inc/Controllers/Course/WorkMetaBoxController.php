@@ -136,7 +136,7 @@ class WorkMetaBoxController extends BaseController implements ServiceInterface {
 	public function renderSettingsContent( \WP_Post $post ): void {
 		wp_nonce_field( Nonce::SaveMeta->value, 'fs_lms_meta_nonce' );
 		$this->render( 'admin/metaboxes/fields-wrapper', array(
-			'wrapper_class' => 'fs-lms-work-settings',
+			'wrapper_class' => 'fs-lms-work-settings fs-lms-work-settings--row',
 			'post'          => $post,
 			'template'      => $this->template,
 			'values'        => $this->postManager->taskMeta( $post->ID ),
@@ -158,6 +158,7 @@ class WorkMetaBoxController extends BaseController implements ServiceInterface {
 				'key'     => 'item_' . $id,
 				'type'    => 'task',
 				'payload' => array( 'ref' => $id ),
+				'points'  => $work?->pointsForTask( $id ) ?? 1.0,
 				'_title'  => get_the_title( $id ),
 			);
 		}

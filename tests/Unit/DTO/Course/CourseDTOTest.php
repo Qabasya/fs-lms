@@ -81,4 +81,12 @@ class CourseDTOTest extends TestCase {
 
 		self::assertEquals( $dto, CourseDTO::fromArray( $dto->toArray() ) );
 	}
+	public function test_lesson_numbers_follow_real_module_order_and_keep_first_duplicate(): void {
+		$course = CourseDTO::fromArray( array( 'modules' => array(
+			array( 'id' => 'second', 'title' => 'Без номера', 'lesson_ids' => array( 42, 9 ) ),
+			array( 'id' => 'first', 'title' => '99', 'lesson_ids' => array( 7, 42, 8 ) ),
+		) ) );
+		self::assertSame( array( 42 => '1.1', 9 => '1.2', 7 => '2.1', 8 => '2.3' ), $course->lessonNumbers() );
+	}
+
 }

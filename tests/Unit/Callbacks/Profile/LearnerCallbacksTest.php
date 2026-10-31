@@ -76,7 +76,7 @@ class LearnerCallbacksTest extends TestCase {
 		$GLOBALS['_fs_test_user_id'] = 12;
 		$this->resolver->method( 'context' )->willReturn( new ProfileContext( 12, 5, UserRole::FSStudent, 5, false, array() ) );
 		$layout = array( 'sections' => array( 'deadlines', 'tiles', 'schedule' ), 'tiles' => array( 'streak' ) );
-		$this->layouts->expects( $this->once() )->method( 'save' )->with( 12, $layout )->willReturn( $layout );
+		$this->layouts->expects( $this->once() )->method( 'save' )->with( 12, $layout, UserRole::FSStudent )->willReturn( $layout );
 		$_POST = array( 'layout' => wp_json_encode( $layout ) );
 
 		try {
@@ -100,4 +100,20 @@ class LearnerCallbacksTest extends TestCase {
 		$_POST = array( 'layout' => 'не json' );
 		self::assertFalse( fs_test_capture_json( fn() => $this->cb->ajaxSaveHomeLayout() )->success );
 	}
+
+	public function test_staff_save_uses_current_viewer_role_and_never_requested_user(): void {
+		$this->resolver->method( 'context' )->willReturn( new ProfileContext( 1, 5, UserRole::FSTeacher, 5, false ) );
+		$layout = array( 'tiles' => array( 'to_review' ) );
+		$this->layouts->expects( self::once() )->method( 'save' )->with( get_current_user_id(), $layout, UserRole::FSTeacher )->willReturn( $layout );
+		$_POST = array( 'layout' => wp_json_encode( $layout ), 'user_id' => 999, 'role' => UserRole::FSOffice->value );
+		self::assertTrue( fs_test_capture_json( fn() => $this->cb->ajaxSaveHomeLayout() )->success );
+	}
+
+	public function test_role_without_frontend_cabinet_cannot_save(): void {
+		$this->resolver->method( 'context' )->willReturn( new ProfileContext( 1, 5, UserRole::FSMethodist, 5, false ) );
+		$this->layouts->expects( self::never() )->method( 'save' );
+		$_POST = array( 'layout' => '{}' );
+		self::assertFalse( fs_test_capture_json( fn() => $this->cb->ajaxSaveHomeLayout() )->success );
+	}
+
 }

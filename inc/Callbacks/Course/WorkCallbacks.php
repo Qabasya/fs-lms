@@ -73,7 +73,16 @@ class WorkCallbacks extends BaseController {
 			}
 		}
 
-		if ( $this->workManager->setItemIds( $work_id, $item_ids ) ) {
+		try {
+			$points = $this->hasParam( 'task_points' ) ? $this->unslashArray( 'task_points' ) : null;
+			$saved = null === $points
+				? $this->workManager->setItemIds( $work_id, $item_ids )
+				: $this->workManager->setItemIds( $work_id, $item_ids, $points );
+		} catch ( \InvalidArgumentException $exception ) {
+			$this->error( $exception->getMessage() );
+			return;
+		}
+		if ( $saved ) {
 			$this->success( array( 'count' => count( array_filter( $item_ids ) ) ) );
 		} else {
 			$this->error( 'Работа не найдена.' );

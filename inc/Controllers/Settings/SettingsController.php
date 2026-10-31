@@ -1,4 +1,9 @@
 <?php
+/**
+ * Статистика настроек главной страницы.
+ *
+ * @package FS_LMS
+ */
 
 declare( strict_types=1 );
 
@@ -12,6 +17,7 @@ use Inc\Callbacks\Settings\EmailTemplateSettingsCallbacks;
 use Inc\Callbacks\Settings\RolesSettingsCallbacks;
 use Inc\Enums\Access\Capability;
 use Inc\Enums\Wp\AjaxHook;
+use Inc\Services\Profile\HomeLayoutStatisticsService;
 
 /**
  * Class SettingsController
@@ -49,9 +55,10 @@ class SettingsController extends AjaxController {
 	 */
 	public function __construct(
 		private readonly EmailTemplateSettingsCallbacks $emailTemplateCallbacks,
-		private readonly ConsentSettingsCallbacks       $consentCallbacks,
-		private readonly AcademicPeriodCallbacks        $academicPeriodCallbacks,
-		private readonly RolesSettingsCallbacks         $rolesCallbacks,
+		private readonly ConsentSettingsCallbacks $consentCallbacks,
+		private readonly AcademicPeriodCallbacks $academicPeriodCallbacks,
+		private readonly RolesSettingsCallbacks $rolesCallbacks,
+		private readonly HomeLayoutStatisticsService $homeLayoutStatistics,
 	) {
 		parent::__construct();
 	}
@@ -65,15 +72,25 @@ class SettingsController extends AjaxController {
 		parent::register();
 
 		// Вкладка «Роли» видна только носителям Capability::ManageLmsRoles (administrator).
-		add_filter( 'fs_lms_settings_tabs', function ( array $tabs ): array {
-			if ( current_user_can( Capability::ManageLmsRoles->value ) ) {
-				$tabs['tab-8'] = array(
-					'title' => 'Роли',
-					'file'  => '/components/tabs/settings-tabs/settings-8-roles.php',
-				);
+		add_filter(
+			'fs_lms_settings_tabs',
+			function ( array $tabs ): array {
+				if ( current_user_can( Capability::ManageLmsRoles->value ) ) {
+					$tabs['tab-8'] = array(
+						'title' => 'Роли',
+						'file'  => '/components/tabs/settings-tabs/settings-8-roles.php',
+					);
+				}
+				if ( current_user_can( Capability::ManageLmsPlatform->value ) ) {
+					$tabs['tab-home-layout'] = array(
+						'title' => 'Кастомизация',
+						'file'  => '/components/tabs/settings-tabs/settings-home-layout.php',
+						'data'  => array( 'load_home_layout_statistics' => $this->homeLayoutStatistics->build( ... ) ),
+					);
+				}
+				return $tabs;
 			}
-			return $tabs;
-		} );
+		);
 	}
 
 	/**

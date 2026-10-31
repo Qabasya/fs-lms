@@ -38,11 +38,13 @@ class ProfileViewResolverTest extends TestCase {
 				$this->createMock( CourseManager::class ),
 				$this->createMock( SubjectRepository::class ),
 				$this->createMock( ExamAccessGuard::class ),
+				$this->createStub( \Inc\Services\Profile\RankingAccessService::class ),
 			),
 			new LearnerProfileView(),
 			$this->createMock( SubjectRepository::class ),
 			$this->createMock( \Inc\Services\Course\LiveLessonService::class ),
 			$this->createMock( AvatarService::class ),
+			$this->createStub( \Inc\Services\Profile\HomeLayoutService::class ),
 		);
 	}
 
@@ -76,11 +78,13 @@ class ProfileViewResolverTest extends TestCase {
 				$this->createMock( CourseManager::class ),
 				$this->createMock( SubjectRepository::class ),
 				$this->createMock( ExamAccessGuard::class ),
+				$this->createStub( \Inc\Services\Profile\RankingAccessService::class ),
 			),
 			new LearnerProfileView(),
 			$this->createMock( SubjectRepository::class ),
 			$this->createMock( \Inc\Services\Course\LiveLessonService::class ),
 			$this->createMock( AvatarService::class ),
+			$this->createStub( \Inc\Services\Profile\HomeLayoutService::class ),
 		);
 	}
 
@@ -146,11 +150,13 @@ class ProfileViewResolverTest extends TestCase {
 				$this->createMock( CourseManager::class ),
 				$this->createMock( SubjectRepository::class ),
 				$this->createMock( ExamAccessGuard::class ),
+				$this->createStub( \Inc\Services\Profile\RankingAccessService::class ),
 			),
 			new LearnerProfileView(),
 			$this->createMock( SubjectRepository::class ),
 			$this->createMock( \Inc\Services\Course\LiveLessonService::class ),
 			$this->createMock( AvatarService::class ),
+			$this->createStub( \Inc\Services\Profile\HomeLayoutService::class ),
 		);
 
 		$config = $resolver->jsConfig( 5 );

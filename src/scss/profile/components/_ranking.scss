@@ -1,0 +1,25 @@
+@use '../variables' as *;
+
+.prof-ranking { padding: rem(22) rem(26); }
+.ranking-head { display: flex; flex-wrap: wrap; align-items: end; gap: rem(18); margin-bottom: rem(20); }
+.ranking-head h1 { margin: 0 auto 0 0; font-size: rem(24); }
+.ranking-head .prof-ktp-pickers { flex-wrap: wrap; }
+.ranking-message { padding: rem(24) 0; color: var(--muted); }
+.ranking-caption { padding: rem(12); color: var(--muted-2); text-align: left; }
+.ranking-table { width: 100%; }
+.ranking-table th { padding: rem(12); text-align: left; color: var(--muted-2); font-size: rem(12); }
+.ranking-table td { padding: rem(10) rem(12); text-align: left; }
+
+.ranking-table th:first-child,
+.ranking-table td:first-child { width: rem(70); text-align: center; }
+
+.ranking-table th:last-child,
+.ranking-table td:last-child { text-align: right; font-variant-numeric: tabular-nums; }
+
+@include below($bp-mobile) {
+  .prof-ranking { padding: rem(16) rem(10); }
+  .ranking-head { align-items: stretch; }
+  .ranking-head .prof-ktp-pickers { width: 100%; }
+  .ranking-head .prof-ktp-pick { min-width: 0; flex: 1; }
+  .ranking-head .kp-btn { max-width: 100%; }
+}

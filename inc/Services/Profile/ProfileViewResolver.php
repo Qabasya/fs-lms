@@ -46,6 +46,7 @@ class ProfileViewResolver {
 		private readonly SubjectRepository       $subjects,
 		private readonly LiveLessonService       $live,
 		private readonly AvatarService           $avatars,
+		private readonly HomeLayoutService       $layouts,
 	) {}
 
 
@@ -151,6 +152,14 @@ class ProfileViewResolver {
 					)
 				);
 			}
+		}
+
+		if ( null !== $this->viewFor( $ctx->role ) ) {
+			$config['homeLayout'] = array(
+				'nonce'   => Nonce::LearnerProfile->create(),
+				'layout'  => $this->layouts->get( $wpUserId, $ctx->role, array_column( array_merge( $config['nav'] ?? array(), $config['examNav'] ?? array() ), 'key' ) ),
+				'actions' => array( 'saveHomeLayout' => AjaxHook::SaveHomeLayout->jsAction() ),
+			);
 		}
 
 		// Баннер «Занятие уже идёт» в шапке — только ученику: окна его занятий на ближайшие сутки.

@@ -213,4 +213,19 @@ class BatchSubmissionCallbacksTest extends TestCase {
 		self::assertTrue( $r->success );
 		self::assertSame( 501, $r->payload['submission_id'] );
 	}
+	public function test_submit_returns_fractional_points_and_authoritative_manual_task_snapshot(): void {
+		$this->persons->method('findByWpUserId')->willReturn(PersonDTO::fromArray(['id'=>99,'created_at'=>'2024-01-01 00:00:00','updated_at'=>'2024-01-01 00:00:00']));
+		$this->groupLessons->method('find')->willReturn($this->makeRow(5));
+		$this->service->method('submitBatch')->willReturn($this->aggregate('{"72":{"verdict":"incorrect","score":2.5,"maxScore":3}}',2.5,3.0));
+		$task=SubmissionDTO::fromArray(['id'=>20,'student_person_id'=>99,'group_lesson_id'=>5,'work_id'=>55,'work_type'=>'homework','task_id'=>72,'status'=>'graded','score'=>2.5,'max_score'=>3,'answer_text'=>'manual answer','feedback'=>'reviewed','created_at'=>'2024-01-01 00:00:00','updated_at'=>'2024-01-01 00:00:00']);
+		$this->service->method('getSubmissionsForView')->willReturn([$task]);
+		$_POST=['group_lesson_id'=>'5','work_id'=>'55','answers'=>'{"72":"manual answer"}'];
+		$reply=fs_test_capture_json(fn()=>$this->cb->ajaxSubmitBatchWork());
+		self::assertTrue($reply->success);
+		self::assertSame(2.5,$reply->payload['score']);
+		self::assertSame(3.0,$reply->payload['max_score']);
+		self::assertSame(2.5,$reply->payload['task_results'][72]['score']);
+		self::assertSame('graded',$reply->payload['task_results'][72]['status']);
+	}
+
 }

@@ -9,6 +9,7 @@ use Inc\Enums\Course\ProgressStatus;
 use Inc\Enums\Wp\Nonce;
 use Inc\Enums\Wp\PostMetaName;
 use Inc\Managers\Assessment\AssessmentManager;
+use Inc\Managers\Course\WorkManager;
 use Inc\Managers\Wp\PostManager;
 use Inc\Services\Course\BatchCheckService;
 use Inc\Services\Course\CoursePreviewAccessGuard;
@@ -44,6 +45,7 @@ class PreviewSolveCallbacks extends BaseController {
 		private readonly BatchCheckService        $batchCheck,
 		private readonly AssessmentManager        $assessments,
 		private readonly CoursePreviewAccessGuard $access,
+		private readonly WorkManager $works,
 	) {
 		parent::__construct();
 	}
@@ -106,7 +108,7 @@ class PreviewSolveCallbacks extends BaseController {
 	/**
 	 * Проверка работы (набора заданий) без сохранения.
 	 *
-	 * POST: ref (work post id — для симметрии, проверка идёт по answers), answers
+	 * POST: ref (work post id; состав и стоимость задач читаются на сервере), answers
 	 * (JSON: {"taskId": answer, ...}).
 	 */
 	public function ajaxPreviewCheckWork(): void {
@@ -118,12 +120,28 @@ class PreviewSolveCallbacks extends BaseController {
 			return;
 		}
 
-		$result = $this->batchCheck->check( $answers );
+		$work = $this->works->get( $this->requireInt( 'ref' ) );
+		if ( null === $work ) {
+			$this->error( 'Работа не найдена.' );
+			return;
+		}
+		$points = array();
+		foreach ( array_keys( $answers ) as $taskId ) {
+			if ( (int) $taskId <= 0 || (string) (int) $taskId !== (string) $taskId || ! in_array( (int) $taskId, $work->itemIds, true ) ) {
+				$this->error( 'Задание не входит в состав работы.' );
+				return;
+			}
+			$points[ (int) $taskId ] = $work->pointsForTask( (int) $taskId );
+		}
+		$result = $this->batchCheck->check( $answers, $points );
 
 		$this->success( array(
 			'status'       => 'preview',
 			'status_label' => __( 'Предпросмотр', 'fs-lms' ),
 			'correct'      => (int) $result->correctCount,
+			'score'        => $result->weightedScore,
+			'max_score'    => $result->maxWeightedScore,
+			'tally'        => $result->weightedScore . '/' . $result->maxWeightedScore,
 			'total'        => (int) $result->totalCount,
 			'per_task'     => $result->perTask,
 			'submitted_at' => null,

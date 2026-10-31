@@ -1,17 +1,13 @@
 /**
- * Плитки главной ученика/родителя как данные (без разметки).
- *
- *  - «Дедлайнов» — всегда;
- *  - «До экзамена · предмет» (до двух) — ученику вместо «Посещаемости», пока для предмета его групп задана дата экзамена;
- *    дальше недели в днях, в последние 7 суток — в часах и красным;
- *  - «Посещаемость» — когда у ученика нет экзамена с датой, а родителю — всегда;
- *  - «Кастомизация»: пользователь сам выбирает набор и порядок плиток (`layout.tiles`, до {@link MAX_TILES}); `null` — набор по умолчанию;
- *  - плитки пилота на тестовом аккаунте (в набор по умолчанию не входят, добавляются через «+»): «Серия без пропусков», «Осталось исправить», «Последний результат» (серия и «осталось исправить» — всегда, в том числе нули; «Последний результат» — когда он есть).
+ * Каталог и раскладка плиток ученика/родителя.
+ * У ученика по умолчанию дедлайны, доступные счётчики экзаменационных предметов и рейтинг;
+ * при наличии других направлений — также «Осталось исправить».
+ * Родителю остаются дедлайны и посещаемость выбранного ребёнка.
+ * Явный выбор layout.tiles сохраняет набор и порядок пользователя; null использует defaults.
+ * Серия без пропусков и последний результат остаются дополнительными плитками пилота.
  */
 
 import { pluralRu } from '../common/plural.js';
-
-const MAX_EXAM_TILES = 2;
 
 /** Не больше плиток в ряду главной. */
 export const MAX_TILES = 6;
@@ -29,7 +25,7 @@ export function examCountdownValue( item ) {
 
 /**
  * Все плитки, которые у пользователя есть чем наполнить (в каноническом порядке), с id: `deadlines`, `exam:{предмет}`,
- * `attendance`, `streak`, `to_fix`, `last_result`. Родителю «До экзамена» недоступно.
+ * `attendance`, `streak`, `to_fix`, `last_result`, `ranking:{предмет}`. Родителю «До экзамена» недоступно.
  *
  * @param {{deadlines: Array, attendance: {percent: number|null}, exam_countdown?: Array, highlights?: object|null}} d Ответ кабинета
  * @param {{parent: boolean}} who
@@ -54,26 +50,41 @@ export function tileCatalog( d, { parent } ) {
     const h = d.highlights;
     if ( h ) {
         tiles.push( { id: 'streak', label: 'Серия без пропусков', value: String( h.streak ), color: '#2f9e44', ico: 'check', note: 'занятий подряд' } );
-        tiles.push( { id: 'to_fix', label: 'Осталось исправить', value: String( h.to_fix ), color: '#f08c00', ico: 'alert', note: 'заданий в сданных работах' } );
+
+    }
+    if ( !parent || h ) {
+        tiles.push( { id: 'to_fix', label: 'Осталось исправить', value: String( d.to_fix ?? h?.to_fix ?? 0 ), color: '#f08c00', ico: 'alert', note: 'заданий в сданных работах' } );
     }
     if ( h && h.last_result ) {
         tiles.push( { id: 'last_result', label: 'Последний результат', value: h.last_result.value, color: '#7048e8', ico: 'check', note: h.last_result.note } );
     }
 
+    ( d.rankings || [] ).forEach( item => tiles.push( {
+        id: `ranking:${ item.subject_key }`, label: `Рейтинг · ${ glueLastWord( item.subject ) }`,
+        value: `${ item.rank } место`, color: '#f08c00', ico: 'star',
+        note: `${ item.score } ${ pluralRu( item.score, 'балл', 'балла', 'баллов' ) } · ${ item.period }`,
+    } ) );
+
     return tiles;
 }
 
 /**
- * Набор плиток по умолчанию (id) — тот, что был у пользователей всегда: «Дедлайнов» и до двух «До экзамена»
- * (иначе «Посещаемость»; родителю всегда она). Новые плитки (серия, осталось исправить, последний результат) в набор по
- * умолчанию не входят: их добавляют только через «Кастомизацию» («+»).
+ * Родителю остаётся прежний набор. Ученику — дедлайны и показатели его направлений:
+ * экзаменационные предметы дают счётчик, остальные — исправления; рейтинг доступен всем направлениям.
+ * При лимите шести сначала сохраняем по одному представителю каждого вида.
  */
 export function defaultTileIds( d, who ) {
+    if ( who.parent ) return [ 'deadlines', 'attendance' ];
+    const subjects = d.home_subjects || [];
+    const exams = [ ...new Set( subjects.filter( s => s.exam ).map( s => s.key ) ) ];
+    const others = [ ...new Set( subjects.filter( s => !s.exam ).map( s => s.key ) ) ];
     const catalog = tileCatalog( d, who );
-    const exams   = catalog.filter( ( t ) => t.id.startsWith( 'exam:' ) ).slice( 0, MAX_EXAM_TILES );
-    const middle  = exams.length ? exams : catalog.filter( ( t ) => 'attendance' === t.id );
-
-    return [ catalog[ 0 ], ...middle ].map( ( t ) => t.id );
+    const available = new Set( catalog.map( t => t.id ) );
+    const countdowns = exams.map( key => `exam:${ key }` ).filter( id => available.has( id ) );
+    const rankings = subjects.map( s => `ranking:${ s.key }` ).filter( id => available.has( id ) );
+    return [ ...new Set( [ 'deadlines', countdowns[ 0 ], others.length ? 'to_fix' : null,
+        rankings[ 0 ], ...countdowns.slice( 1 ), ...rankings.slice( 1 ) ] ) ]
+        .filter( id => id && available.has( id ) ).slice( 0, MAX_TILES );
 }
 
 /**
@@ -130,4 +141,9 @@ export function shiftItem( list, id, delta ) {
     next.splice( to, 0, next.splice( from, 1 )[ 0 ] );
 
     return next;
+}
+
+/** Замена на свободную плитку без изменения позиции и количества. */
+export function replaceTile( ids, oldId, newId ) {
+    return !ids.includes( oldId ) || ids.includes( newId ) ? [ ...ids ] : ids.map( id => id === oldId ? newId : id );
 }

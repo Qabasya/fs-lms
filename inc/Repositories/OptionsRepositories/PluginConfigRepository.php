@@ -27,6 +27,13 @@ readonly class PluginConfigRepository {
 		'exam_unpaid_retention_days' => 30,
 		// Дата и время экзамена по предмету (`ключ предмета => ГГГГ-ММ-ДД ЧЧ:ММ`, местное время): плитка «До экзамена» у ученика.
 		'exam_dates'               => array(),
+		'ranking_practice'                 => 0.0,
+		'ranking_independent'              => 1.0,
+		'ranking_homework'                 => 1.0,
+		'ranking_survey'                   => 1.0,
+		'ranking_assessment'               => 1.0,
+		'ranking_attendance_bonus'         => 0.0,
+		'ranking_attendance_streak_length' => 3,
 		'center_phone'             => '',
 		'center_email'             => '',
 		'center_hours'             => '',

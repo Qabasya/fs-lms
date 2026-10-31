@@ -24,6 +24,7 @@ class WorkManager {
 	) {}
 
 	public function create( string $subjectKey, WorkDTO $dto ): int {
+		$this->assertTotalPoints( $dto->toArray()['task_points'] );
 		$id = $this->posts->insert( array(
 			'post_title'   => $dto->title,
 			'post_content' => $dto->instructions,
@@ -40,6 +41,7 @@ class WorkManager {
 	}
 
 	public function update( int $workId, WorkDTO $dto ): bool {
+		$this->assertTotalPoints( $dto->toArray()['task_points'] );
 		$updated = $this->posts->update( $workId, array(
 			'post_title' => $dto->title,
 		) );
@@ -89,8 +91,11 @@ class WorkManager {
 	 *
 	 * @param int   $workId
 	 * @param int[] $itemIds Упорядоченные ID заданий/задач.
+	 * @param array<int, int>|null $taskPoints Карта баллов; null сохраняет прежние веса.
+	 *
+	 * @throws \InvalidArgumentException Некорректные баллы либо превышение суммы 9999.
 	 */
-	public function setItemIds( int $workId, array $itemIds ): bool {
+	public function setItemIds( int $workId, array $itemIds, ?array $taskPoints = null ): bool {
 		$post = $this->posts->get( $workId );
 		if ( null === $post || ! PostTypeResolver::isWorkPostType( $post->post_type ) ) {
 			return false;
@@ -102,21 +107,49 @@ class WorkManager {
 			return false;
 		}
 
-		$meta = $this->posts->getMeta( $workId, PostMetaName::Meta->value );
-		$meta = is_array( $meta ) ? $meta : array();
-		$meta['item_ids'] = $ids;
+		$meta       = $this->posts->getMeta( $workId, PostMetaName::Meta->value );
+		$meta       = is_array( $meta ) ? $meta : array();
+		$points     = $taskPoints ?? ( is_array( $meta['task_points'] ?? null ) ? $meta['task_points'] : array() );
+		$normalized = array();
+		foreach ( $ids as $id ) {
+			$value = array_key_exists( $id, $points ) ? $points[ $id ] : 1;
+			if ( ( ! is_int( $value ) && ! is_float( $value ) && ! is_string( $value ) ) || ! preg_match( '/^[0-9]+$/', (string) $value ) || (int) $value < 1 || (int) $value > 999 ) {
+				throw new \InvalidArgumentException( 'Баллы за задачу должны быть целым числом от 1 до 999.' );
+			}
+			$normalized[ $id ] = (int) $value;
+		}
+		$this->assertTotalPoints( $normalized );
+		$meta['item_ids']    = $ids;
+		$meta['task_points'] = $normalized;
 
 		$this->posts->updateMeta( $workId, PostMetaName::Meta->value, $meta );
 		return true;
 	}
 
+	/**
+	 * Проверяет вместимость суммы баллов в существующем хранилище результатов работы.
+	 *
+	 * @throws \InvalidArgumentException Сумма не помещается в поле результата работы.
+	 */
+	private function assertTotalPoints( array $points ): void {
+		if ( array_sum( $points ) > 9999 ) {
+			throw new \InvalidArgumentException( 'Сумма баллов за работу не должна превышать 9999.' );
+		}
+	}
+
 	private function saveMeta( int $workId, WorkDTO $dto ): void {
 		// instructions схлопнут в post_content (см. create/update) — в мете не дублируем.
-		$this->posts->updateMeta( $workId, PostMetaName::Meta->value, array(
-			'work_type'    => $dto->workType->value,
-			'item_ids'     => $dto->itemIds,
-			'max_attempts' => $dto->maxAttempts,
-		) );
+		$existing = $this->posts->getMeta( $workId, PostMetaName::Meta->value );
+		$meta     = array_merge(
+			is_array( $existing ) ? $existing : array(),
+			array(
+				'work_type'    => $dto->workType->value,
+				'item_ids'     => $dto->itemIds,
+				'max_attempts' => $dto->maxAttempts,
+				'task_points'  => $dto->toArray()['task_points'],
+			)
+		);
+		$this->posts->updateMeta( $workId, PostMetaName::Meta->value, $meta );
 		// Плоский ключ для фильтрации в list table (meta_query не умеет в сериализованные массивы).
 		$this->posts->updateMeta( $workId, PostMetaName::WorkType->value, $dto->workType->value );
 	}

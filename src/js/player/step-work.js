@@ -19,6 +19,7 @@
  * уходят секунды ДО сдачи — сервер откладывает их от своих часов.
  */
 import { retryAvailable } from './work-retry.js';
+import { workPointsLabel, workTaskMaximum, pendingWorkPoints, workTaskVerdictHtml, workSubmissionFromResponse, mergeWorkTaskResult } from './work-result.js';
 import { initTaskWidget } from '../frontend/components/task-widget.js';
 import { getCore, onPanelShow, isPreview, isTeacherMode } from './core.js';
 import { esc, ICO } from './icons.js';
@@ -284,7 +285,8 @@ function mountWork( panel, root ) {
 		if ( card.classList.contains( 'is-locked' ) ) {
 			// «Засчитано» — зелёный: задание принято и правке закрыто.
 			chip.className = 'stc stc-ok';
-			chip.innerHTML = `${ ICO.check( 11 ) }<span>Засчитано</span>`;
+			const result = state.task_results[ card.dataset.taskId ];
+			chip.innerHTML = `${ ICO.check( 11 ) }<span>Засчитано · +${ esc( workPointsLabel( result?.score ?? state.submission?.verdicts?.[ card.dataset.taskId ]?.score ?? 0 ) ) }</span>`;
 			return;
 		}
 		const verdict = activeCheck( card, widget );
@@ -422,19 +424,11 @@ function mountWork( panel, root ) {
 		if ( undefined !== d.max_attempts ) { state.max_attempts = Number( d.max_attempts ) || 0; }
 		if ( Array.isArray( d.locked_task_ids ) ) { state.locked_task_ids = d.locked_task_ids; }
 		state.solutions = d.solutions && 'object' === typeof d.solutions && ! Array.isArray( d.solutions ) ? d.solutions : {};
-		state.submission = {
-			status      : d.status,
-			status_label: d.status_label,
-			score       : d.correct,
-			max_score   : d.total,
-			verdicts    : d.per_task || {},
-			submitted_at: d.submitted_at,
-		};
-		// Ответы последней сдачи — источник для показа в результатах и повторной сдачи.
+		state.submission = workSubmissionFromResponse( d );
+		// Ответы и баллы последней сдачи восстанавливаются из доверенного серверного снимка.
 		widgets.forEach( ( widget, taskId ) => {
-			state.task_results[ taskId ] = Object.assign(
-				{}, state.task_results[ taskId ], { answer: widget.collectAnswer() }
-			);
+			state.task_results[ taskId ] = d.task_results?.[ taskId ]
+				?? mergeWorkTaskResult( state.task_results[ taskId ], d.per_task?.[ taskId ], widget.collectAnswer() );
 		} );
 		clearDrafts( draftKey );
 		clearDrafts( timingKey );
@@ -457,8 +451,9 @@ function mountWork( panel, root ) {
 		const verdicts = sub?.verdicts || {};
 
 		const okCount     = countVerdicts( verdicts, 'correct' );
-		const manualCount = countVerdicts( verdicts, 'pending' );
-		const autoTotal   = Object.keys( verdicts ).length - manualCount;
+		const manualCount = Object.entries( verdicts ).filter( ( [ id, verdict ] ) => verdict?.verdict === 'pending' && state.task_results[ id ]?.status !== 'graded' ).length;
+		const manualMax = pendingWorkPoints( verdicts, state.task_results, Object.fromEntries( cards.map( card => [ card.dataset.taskId, card.dataset.maxScore ] ) ) );
+		const autoTotal   = Object.keys( verdicts ).length - countVerdicts( verdicts, 'pending' );
 
 		// «Исправить и сдать заново» — вверху, справа от баллов: пока есть что исправлять, остались попытки и срок не вышел.
 		const canRetry = retryAvailable( {
@@ -476,7 +471,7 @@ function mountWork( panel, root ) {
 				( manualCount ? ' · развёрнутые ответы на проверке у преподавателя' : '' ) + '</span></span>' +
 			'<span class="rstats">' +
 				`<span class="rs"><b>${ sub?.score ?? 0 } / ${ sub?.max_score ?? 0 }</b><span>баллов</span></span>` +
-				( manualCount ? `<span class="rs"><b>до ${ manualCount }</b><span>за ручную проверку</span></span>` : '' ) +
+				( manualCount ? `<span class="rs"><b>до ${ esc( workPointsLabel( manualMax ) ) }</b><span>за ручную проверку</span></span>` : '' ) +
 			'</span>' +
 			( canRetry ? '<button type="button" class="b" data-work-retry>Исправить и сдать заново</button>' : '' ) +
 			'</div>';
@@ -486,6 +481,11 @@ function mountWork( panel, root ) {
 			const taskId  = card.dataset.taskId;
 			const verdict = verdicts[ taskId ] || null;
 			const result  = state.task_results[ taskId ] || null;
+			if ( card.dataset.maxScore !== undefined ) {
+				card.dataset.maxScore = String( workTaskMaximum( verdict, result, card.dataset.maxScore ) );
+				const points = card.querySelector( '[data-task-points]' );
+				if ( points ) points.textContent = workPointsLabel( card.dataset.maxScore );
+			}
 			h += resultCard( i + 1, card, verdict, result );
 		} );
 		h += '</div>';
@@ -530,26 +530,10 @@ function mountWork( panel, root ) {
 		const conditionHtml = conditionEl ? conditionEl.outerHTML : '';
 		const widgetEl      = card.querySelector( '.fs-task-widget' );
 		const isChoice      = verdict && Array.isArray( verdict.correctOptionIds );
-		let vd = '';
 		const solution = state.solutions[ taskId ] || '';
-
-		if ( ! verdict ) {
-			vd = vdBlock( 'wait', 'Нет данных проверки', 'Результат появится после проверки.' );
-		} else if ( 'pending' === verdict.verdict ) {
-			// Ручная проверка: балл может быть уже выставлен преподавателем (task_results).
-			vd = 'graded' === result?.status
-				? vdBlock( 'ok', `Проверено · ${ result.score ?? 0 } из ${ result.max_score ?? 1 }`, result?.feedback || '' )
-				: vdBlock( 'wait', 'На проверке у преподавателя', 'Оценка появится после проверки — обычно в течение пары дней.' );
-		} else if ( 'correct' === verdict.verdict && verdict.corrected ) {
-			vd = vdBlock( 'warn', `Верно · +${ verdict.score ?? 1 } балл`, 'Сначала проверка показала ошибку, потом ответ исправлен.' );
-		} else if ( 'correct' === verdict.verdict ) {
-			// Решение опроса — внутри плашки: «Верно · текст решения»; без решения — просто «Верно».
-			vd = vdBlock( 'ok', 'Верно', '', solution );
-		} else if ( solution ) {
-			vd = vdBlock( 'no', 'Неверно', '', solution );
-		} else {
-			vd = vdBlock( 'no', 'Неверно · 0 баллов', isChoice ? '' : 'Правильный ответ станет доступен после разбора с преподавателем.' );
-		}
+		const vd = workTaskVerdictHtml( verdict, result, solution, card.dataset.auto === '0' );
+		const maximum = workTaskMaximum( verdict, result, card.dataset.maxScore ?? 1 );
+		const points = card.dataset.maxScore !== undefined ? `<span class="stc">${ esc( workPointsLabel( maximum ) ) }</span>` : '';
 
 		// Choice: варианты ответа с подсветкой (revealResult() в renderResults()) —
 		// вместо текста выбранных id. Для остальных типов — как раньше, текстом.
@@ -558,7 +542,7 @@ function mountWork( panel, root ) {
 			: answerBlock( result?.answer );
 
 		return `<div class="a-task" data-result-task-id="${ esc( taskId ) }">` +
-			`<div class="th"><span class="tkn">${ n }</span><b>${ esc( title ) }</b></div>` +
+			`<div class="th"><span class="tkn">${ n }</span><b>${ esc( title ) }</b>${ points }</div>` +
 			conditionHtml +
 			answerHtml +
 			vd +
@@ -657,18 +641,6 @@ function mountWork( panel, root ) {
 }
 
 /* ── Вспомогательные ──────────────────────────────────────────────────── */
-
-/**
- * Плашка вердикта. `solutionHtml` — решение вопроса опроса (HTML очищен сервером): идёт в той же
- * плашке после заголовка через « · ».
- */
-function vdBlock( kind, title, body, solutionHtml = '' ) {
-	const icon = 'ok' === kind || 'warn' === kind ? ICO.check( 13 ) : ( 'no' === kind ? ICO.cross( 11 ) : ICO.clock( 13 ) );
-	return `<div class="vd vd-${ kind }"><span class="vi">${ icon }</span><div>` +
-		`<b>${ esc( title ) }</b>` + ( body ? `<span>${ esc( body ) }</span>` : '' ) +
-		( solutionHtml ? `<div class="vd-solution wpc">${ solutionHtml }</div>` : '' ) +
-		'</div></div>';
-}
 
 function countVerdicts( verdicts, kind ) {
 	return Object.values( verdicts ).filter( ( v ) => v && v.verdict === kind ).length;

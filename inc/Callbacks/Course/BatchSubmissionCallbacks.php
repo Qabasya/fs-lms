@@ -18,6 +18,7 @@ use Inc\Services\Course\SubmissionService;
 use Inc\Services\Course\WorkSolutionReveal;
 use Inc\Services\Course\WorkTaskCheckService;
 use Inc\Shared\CodedException;
+use Inc\Shared\SafeHtml;
 use Inc\Shared\Traits\Authorizer;
 use Inc\Shared\Traits\AjaxResponse;
 use Inc\Shared\Traits\Sanitizer;
@@ -105,14 +106,30 @@ class BatchSubmissionCallbacks extends BaseController {
 			$work         = $this->works->get( $workId );
 			$attemptsUsed = $this->submissionService->workAttemptsUsed( $person->id, $groupLessonId, $workId );
 
-			$this->success( array(
+			$taskResults = array();
+			foreach ( $this->submissionService->getSubmissionsForView( $person->id, $groupLessonId ) as $taskSubmission ) {
+				if ( $taskSubmission->workId === $workId && null !== $taskSubmission->taskId ) {
+					$taskResults[ $taskSubmission->taskId ] = array(
+						'status'    => $taskSubmission->status->value,
+						'answer'    => $taskSubmission->answerText,
+						'score'     => $taskSubmission->score,
+						'max_score' => $taskSubmission->maxScore,
+						'feedback'  => null !== $taskSubmission->feedback ? SafeHtml::post( $taskSubmission->feedback ) : null,
+					);
+				}
+			}
+			$this->success(
+				array(
 				'submission_id' => $aggregate->id,
 				'status'        => $aggregate->status->value,
 				'status_label'  => $aggregate->status->label(),
-				'correct'       => (int) ( $aggregate->score ?? 0 ),
-				'total'         => (int) ( $aggregate->maxScore ?? 0 ),
-				'tally'         => ( (int) ( $aggregate->score ?? 0 ) ) . '/' . ( (int) ( $aggregate->maxScore ?? 0 ) ),
+					'correct'         => count( array_filter( $perTask, static fn( array $task ): bool => 'correct' === ( $task['verdict'] ?? '' ) ) ),
+					'score'           => (float) ( $aggregate->score ?? 0 ),
+					'max_score'       => (float) ( $aggregate->maxScore ?? 0 ),
+					'total'           => count( $perTask ),
+					'tally'           => ( $aggregate->score ?? 0 ) . '/' . ( $aggregate->maxScore ?? 0 ),
 				'per_task'      => $perTask,
+					'task_results'    => $taskResults,
 				// Решение вопросов опроса: после верного ответа или исчерпания попыток (иначе пусто).
 				'solutions'     => null !== $work ? $this->solutionReveal->forStudent( $work, $perTask, $attemptsUsed ) : array(),
 				'submitted_at'  => $aggregate->submittedAt,
@@ -122,7 +139,8 @@ class BatchSubmissionCallbacks extends BaseController {
 				'max_attempts'  => $work?->maxAttempts ?? 0,
 				// Засчитанные задания при пересдаче заблокированы (.docs/Tasks.md, п. 1).
 				'locked_task_ids' => $this->submissionService->lockedTaskIds( $person->id, $groupLessonId, $workId ),
-			) );
+				)
+			);
 		} catch ( CodedException $e ) {
 			$this->fail( $e->errorCode, $e->getMessage(), $logContext );
 		} catch ( \InvalidArgumentException $e ) {

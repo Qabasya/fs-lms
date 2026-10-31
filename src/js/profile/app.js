@@ -1,8 +1,11 @@
+import { canHideMenu, orderedMenu, menuItemHtml, wireMenuEditor } from './menu-customization.js';
+import { persistHomeLayout } from './home-layout-preferences.js';
 import { createApi } from './api.js';
 import { getChildId } from './learner-child.js';
 import { esc, shortName, chipBg, chipHtml, closeGradePop, closeCtxMenu, openCtxMenuRaw } from './utils.js';
 import { icoHome, icoUsers, icoJournal, icoDocCheck, icoInbox, icoSwap, icoCalendarBoard, icoBook, icoStar, icoClock, icoCaret, icoGear, icoLogout, icoPencil } from '../common/icons.js';
-import { renderDashboard } from './dashboard.js';
+import { renderRanking } from './ranking.js';
+import { renderDashboard, enterDashboardCustomize } from './dashboard.js';
 import { renderJournal, setJournalGroup } from './journal.js';
 import { renderGroups, setGroupsGroup } from './groups.js';
 import { renderSummary, openSummaryFor } from './summary.js';
@@ -75,6 +78,7 @@ const SCREENS = {
     ktp:                  (root) => renderKTP(root),
     activity:             (root) => renderActivity(root, { openWorkReview: openWorkReviewFrom('activity') }),
     'teacher-courses':    renderTeacherCourses,
+    ranking:              renderRanking,
     ...forLearnerRoles({
         home:       (root) => renderLearnerHome(root, { openExam: openLearnerExamFrom }),
         lessons:    renderLearnerLessons,
@@ -91,6 +95,7 @@ const SCREENS = {
 
 const TOPBAR = {
     dashboard:            { title: 'Главная' },
+    ranking:              { title: 'Рейтинг учеников' },
     groups:               { title: 'Группы' },
     journal:              { title: 'Журнал' },
     works:                { title: 'Работы' },
@@ -117,6 +122,7 @@ const TOPBAR = {
 
 const NAV_ICONS = {
     dashboard:            icoHome(19),
+    ranking:              icoStar(19),
     groups:               icoUsers(19),
     journal:              icoJournal(19),
     works:                icoInbox(19),
@@ -146,6 +152,22 @@ const ROLE_LABELS = {
 };
 
 let cfg;
+let menuEditing = false;
+let menuLayout = {menuOrder: [], menuHidden: []};
+
+function commitMenu(patch) {
+    Object.assign(menuLayout, patch);
+    persistHomeLayout(patch);
+    rebuildSidebar();
+}
+
+function rebuildSidebar() {
+    buildSidebar();
+    wireSidebar();
+    const active = document.querySelector('.prof-screen.active')?.dataset.screen;
+    document.querySelectorAll('.prof-nav-item[data-go]').forEach(node => node.classList.toggle('active', node.dataset.go === active));
+}
+
 
 /* #15-C: свёрнутость секций сайдбара + фильтр «Мои курсы» (module-level, как
    mod.collapsed в course-builder.js — флаг переживает re-render buildSidebar()). */
@@ -374,11 +396,8 @@ function buildSidebar() {
     const nav = document.getElementById('profNav');
 
     let html = sectionHeader('Меню', 'navCollapsed');
-    html += sectionBody('navCollapsed', cfg.nav.map(item => `
-        <div class="prof-nav-item" data-go="${esc(item.key)}">
-            <span class="ni-ico">${NAV_ICONS[item.key] || ''}</span>
-            ${esc(item.label)}
-        </div>`).join(''));
+    html += sectionBody('navCollapsed', `<div data-menu-block="main">${orderedMenu(cfg.nav, menuLayout, menuEditing, canHideMenu(cfg.role))
+        .map(item => menuItemHtml(item, NAV_ICONS[item.key] || '', menuEditing, canHideMenu(cfg.role))).join('')}</div>`);
 
     if (cfg.groups && cfg.groups.length) {
         html += sectionHeader('Мои группы', 'groupsCollapsed');
@@ -404,11 +423,8 @@ function buildSidebar() {
     // «Мои экзамены» сотрудника: своя секция последней в сайдбаре (после групп и курсов); пункты приходят по праву (cfg.examNav), без пунктов секции нет.
     if (cfg.examNav && cfg.examNav.length) {
         html += sectionHeader('Мои экзамены', 'examsCollapsed');
-        html += sectionBody('examsCollapsed', cfg.examNav.map(item => `
-            <div class="prof-nav-item" data-go="${esc(item.key)}">
-                <span class="ni-ico">${NAV_ICONS[item.key] || ''}</span>
-                ${esc(item.label)}
-            </div>`).join(''));
+        html += sectionBody('examsCollapsed', `<div data-menu-block="exams">${orderedMenu(cfg.examNav, menuLayout, menuEditing, canHideMenu(cfg.role))
+            .map(item => menuItemHtml(item, NAV_ICONS[item.key] || '', menuEditing, canHideMenu(cfg.role))).join('')}</div>`);
     }
 
     if (nav) nav.innerHTML = html;
@@ -468,8 +484,8 @@ function mountScreens() {
 
 /* ── Меню пользователя (шестерёнка) — dropdown вверх с «Выход» ────────── */
 function openUserMenu(anchor) {
-    // «Кастомизация» главной — только у ученика и родителя (у них есть экран «Главная» с раскладкой).
-    const homeKey = cfg.screens.find(key => key.endsWith('-home')) || '';
+    // Кастомизация доступна у всех ролей, у которых уже есть главная кабинета.
+    const homeKey = cfg.screens.find(key => key.endsWith('-home')) || (cfg.screens.includes('dashboard') ? 'dashboard' : '');
     const customize = homeKey ? `
         <div class="ctx-item" data-user-act="customize">
             ${icoPencil(16)}
@@ -486,7 +502,12 @@ function openUserMenu(anchor) {
     menu.querySelector('[data-user-act="customize"]')?.addEventListener('click', () => {
         closeCtxMenu();
         go(homeKey);
-        enterHomeCustomize();
+        menuEditing = true;
+        sidebarState.navCollapsed = false;
+        sidebarState.examsCollapsed = false;
+        rebuildSidebar();
+        if (homeKey === 'dashboard') enterDashboardCustomize();
+        else enterHomeCustomize();
     });
     const item = menu.querySelector('[data-user-act="logout"]');
     if (item) item.addEventListener('click', () => {
@@ -497,9 +518,10 @@ function openUserMenu(anchor) {
 }
 
 /* ── Wiring ──────────────────────────────────────────────────────────── */
-function wire() {
+function wireSidebar() {
+    wireMenuEditor(document.getElementById('profNav'), {layout: menuLayout, editing: menuEditing, mayHide: canHideMenu(cfg.role), commit: commitMenu});
     document.querySelectorAll('.prof-nav-item[data-go]').forEach(n =>
-        n.addEventListener('click', () => go(n.dataset.go)));
+        n.addEventListener('click', () => { if (!menuEditing) go(n.dataset.go); }));
     document.querySelectorAll('.prof-group-item').forEach(el =>
         el.addEventListener('click', () => openGroupsFor(el.dataset.grp)));
     wireCourseItems();
@@ -533,6 +555,10 @@ function wire() {
     const gear = document.getElementById('profUserGear');
     if (gear) gear.addEventListener('click', () => openUserMenu(gear));
 
+}
+
+function wire() {
+    wireSidebar();
     const backdrop = document.getElementById('profCtxBackdrop');
     // Открытое меню (в т.ч. поверх модалки или панели) закрывается первым: панель под ним остаётся.
     const menuOpen = () => document.getElementById('profCtxMenu')?.classList.contains('open');
@@ -595,6 +621,9 @@ export function initProfile() {
     cfg = window.fsProfile || defaultConfig();
     if (!cfg.screens || !cfg.screens.length) cfg = defaultConfig();
 
+    menuLayout = {menuOrder: [...(cfg.homeLayout?.layout?.menuOrder || [])], menuHidden: canHideMenu(cfg.role) ? [...(cfg.homeLayout?.layout?.menuHidden || [])] : []};
+    document.addEventListener('fs-profile-menu-done', () => { menuEditing = false; rebuildSidebar(); });
+    document.addEventListener('fs-profile-menu-reset', () => commitMenu({menuOrder: [], menuHidden: []}));
     buildSidebar();
     buildStage();
     initScrollChrome();

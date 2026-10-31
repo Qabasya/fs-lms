@@ -1,12 +1,13 @@
 import '../_types.js';
 import { createSlotBuilder, post } from './slot-builder.js';
+import { workSlot, workTaskPoints } from './work-task-points.js';
 import { candidateSource } from '../modules/picker.js';
 
 /* global fs_lms_vars */
 
 /**
  * WorkBuilder — конструктор работы поверх общего {@link createSlotBuilder}.
- * Работа — плоский список задач (item_ids), без баллов и видов.
+ * Работа — упорядоченные задачи с баллами этой работы (по умолчанию один).
  */
 export const WorkBuilder = {
 	init() {
@@ -34,6 +35,28 @@ function mount( el ) {
 	createSlotBuilder( el, {
 		treeTitle: 'Структура работы',
 		reorderable: true,
+		preserveSlotOnExpand: true,
+		mapSlot: workSlot,
+		newSlot: ( index ) => ( { key: 'slot_' + index, taskId: 0, title: '', points: 1 } ),
+		renderExtraBody: ( body, slot, index, api ) => {
+			const label = document.createElement( 'label' );
+			label.className = 'fs-sb-task-section fs-sb-work-points';
+			label.textContent = 'Баллов за задачу: ';
+			const input = document.createElement( 'input' );
+			input.type = 'number';
+			input.required = true;
+			input.min = '1';
+			input.max = '999';
+			input.step = '1';
+			input.value = String( slot.points ?? 1 );
+			input.addEventListener( 'change', () => {
+				if ( !input.checkValidity() || !Number.isInteger( Number( input.value ) ) ) { input.reportValidity(); return; }
+				slot.points = Number( input.value );
+				api.save();
+			} );
+			label.appendChild( input );
+			body.appendChild( label );
+		},
 		emptyText: 'Нет заданий — нажмите «+ Задача».',
 
 		// Пустые (ещё не заполненные) слоты — taskId=0 — в item_ids не идут: несколько
@@ -42,6 +65,7 @@ function mount( el ) {
 		persist: ( slots ) => post( acts.saveWorkItems, nonces.authorWork, {
 			work_id:  workId,
 			item_ids: slots.filter( ( s ) => s.taskId > 0 ).map( ( s ) => s.taskId ),
+			task_points: workTaskPoints( slots ),
 		} ),
 
 		// Дропдаун по умолчанию (пустой поиск) — только задания предмета; «Все

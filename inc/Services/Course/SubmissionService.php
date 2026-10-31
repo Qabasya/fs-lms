@@ -60,21 +60,32 @@ class SubmissionService {
 			throw new \InvalidArgumentException( 'Сдача не найдена.' );
 		}
 
-		$this->submissions->update( $submissionId, array(
+		if ( null !== $sub->taskId ) {
+			$this->gradeBatchTask( $submissionId, $grade->score, $grade->feedback ?? '', $teacherUserId );
+			$this->dispatchGraded( $sub->groupLessonId, $submissionId, $teacherUserId );
+			return;
+		}
+		// A submitted work owns its grading scale. Legacy unstructured answers have no snapshot.
+		$maximum = $sub->maxScore ?? $grade->maxScore;
+		$this->assertScore( $grade->score, $maximum );
+		$this->submissions->update(
+			$submissionId,
+			array(
 			'status'            => $grade->status,
 			'score'             => $grade->score,
-			'max_score'         => $grade->maxScore,
+				'max_score'         => $maximum,
 			'feedback'          => $grade->feedback,
 			'graded_by_user_id' => $teacherUserId,
 			'graded_at'         => $this->clock->now(),
-		) );
+			)
+		);
 
 		$this->dispatchGraded( $sub->groupLessonId, $submissionId, $teacherUserId );
 	}
 
 	/**
 	 * «Засчитать» работу целиком ученику без сдачи (занятие прошло, работу решали вне платформы):
-	 * каждое задание получает максимальный балл (1), агрегат закрывается как проверенный.
+	 * каждое задание получает настроенный максимальный балл, агрегат закрывается как проверенный.
 	 * Сдача ученика приоритетнее: если она уже есть, ничего не меняется.
 	 *
 	 * @return bool true — зачёт выставлен; false — у ученика уже есть сдача этой работы.
@@ -105,9 +116,13 @@ class SubmissionService {
 		$dueAt   = $this->deadlines->deadlineForRow( $row, $work );
 		$verdict = array();
 
+		$totalPoints = 0.0;
 		foreach ( $work->itemIds as $taskId ) {
 			$taskId = (int) $taskId;
-			$this->submissions->create( new SubmissionInputDTO(
+			$points       = $work->pointsForTask( $taskId );
+			$totalPoints += $points;
+			$this->submissions->create(
+				new SubmissionInputDTO(
 				studentPersonId : $studentPersonId,
 				groupLessonId   : $groupLessonId,
 				workId          : $workId,
@@ -117,14 +132,20 @@ class SubmissionService {
 				status          : SubmissionStatus::Graded->value,
 				submittedAt     : $now,
 				gradedAt        : $now,
-				score           : 1.0,
-				maxScore        : 1.0,
-			) );
-			$verdict[ $taskId ] = array( 'verdict' => 'correct', 'score' => 1.0, 'maxScore' => 1.0 );
+					score           : $points,
+					maxScore        : $points,
+				)
+			);
+			$verdict[ $taskId ] = array(
+				'verdict'  => 'correct',
+				'score'    => $points,
+				'maxScore' => $points,
+			);
 		}
 
-		$count       = count( $work->itemIds );
-		$aggregateId = $this->submissions->create( new SubmissionInputDTO(
+		$count       = $totalPoints;
+		$aggregateId = $this->submissions->create(
+			new SubmissionInputDTO(
 			studentPersonId : $studentPersonId,
 			groupLessonId   : $groupLessonId,
 			workId          : $workId,
@@ -136,13 +157,20 @@ class SubmissionService {
 			gradedAt        : $now,
 			score           : (float) $count,
 			maxScore        : (float) $count,
-		) );
+			)
+		);
 
 		// Отметка преподавателя делает балл авторитетным (как у «Засчитать задание»); попыток ученик не делал.
 		foreach ( $this->submissions->listPerTaskByStudentWorkLesson( $studentPersonId, $groupLessonId, $workId ) as $taskRow ) {
 			$this->submissions->update( $taskRow->id, array( 'graded_by_user_id' => $teacherUserId ) );
 		}
-		$this->submissions->update( $aggregateId, array( 'graded_by_user_id' => $teacherUserId, 'attempt_count' => 0 ) );
+		$this->submissions->update(
+			$aggregateId,
+			array(
+				'graded_by_user_id' => $teacherUserId,
+				'attempt_count'     => 0,
+			)
+		);
 
 		// Событие «проверена» не шлём: оно рассылает ученику уведомление, а работу он не сдавал.
 
@@ -206,7 +234,7 @@ class SubmissionService {
 	 * прежних вердиктов закрытых заданий и новых по остальным.
 	 *
 	 * @param  array<int, mixed> $answers task_id => ответ (строка или массив для сложных типов)
-	 * @param  array<int, float> $taskPoints task_id => вес (пусто → 1 на задачу)
+	 * @param  array<int, float>  $taskPoints Deprecated client weights; persisted work/snapshot prices are authoritative
 	 * @param  WorkTimingDTO|null $timing  Замер времени от плеера (затраченное время раунда, моменты ответов)
 	 * @return SubmissionDTO Агрегатная строка (task_id=null).
 	 * @throws CodedException При нарушении правил доступа, сроков и лимита попыток.
@@ -216,7 +244,7 @@ class SubmissionService {
 		int   $groupLessonId,
 		int   $workId,
 		array $answers,
-		array $taskPoints = [],
+		array $taskPoints = array(),
 		?WorkTimingDTO $timing = null,
 	): SubmissionDTO {
 		$timing ??= new WorkTimingDTO();
@@ -252,6 +280,15 @@ class SubmissionService {
 			throw new CodedException( ErrorCode::WorkNotFound, 'Работа не найдена.' );
 		}
 
+		foreach ( array_keys( $answers ) as $taskId ) {
+			if ( (int) $taskId <= 0 || (string) (int) $taskId !== (string) $taskId ) {
+				throw new CodedException( ErrorCode::WorkFormat, 'Неверный идентификатор задания.' );
+			}
+		}
+		if ( array_diff( array_map( 'intval', array_keys( $answers ) ), $work->itemIds ) ) {
+			throw new CodedException( ErrorCode::WorkNotInLesson, 'Задание не входит в состав работы.' );
+		}
+
 		// Срок сдачи не запрещает: после него работу всё так же принимаем, а снапшот
 		// срока в сдаче даёт ей постоянную метку «Просрочено» (T12.2, D13). Срок —
 		// per-work дедлайн, иначе legacy homeworkDueAt, у ДЗ — начало следующего занятия.
@@ -280,12 +317,27 @@ class SubmissionService {
 			throw new CodedException( ErrorCode::WorkNothing, 'Все задания уже засчитаны — пересдавать нечего.' );
 		}
 
-		$result = $this->batchChecker->check( $toCheck, $taskPoints );
+		// The client-supplied taskPoints argument is retained for compatibility only.
+		// A submitted task retains its original maximum even if the author later changes its price.
+		$serverPoints  = array();
+		$existingTasks = array();
+		foreach ( array_keys( $toCheck ) as $taskId ) {
+			$taskId                   = (int) $taskId;
+			$existingTasks[ $taskId ] = $this->submissions->findForWork( $studentPersonId, $storeId, $workId, $taskId );
+			$serverPoints[ $taskId ]  = $existingTasks[ $taskId ]?->maxScore
+				?? $previousVerdicts[ $taskId ]['maxScore']
+				?? $work->pointsForTask( $taskId );
+		}
+		$result = $this->batchChecker->check( $toCheck, $serverPoints );
 		$now    = $this->clock->now();
 
 		foreach ( $toCheck as $taskId => $answer ) {
 			$taskId     = (int) $taskId;
-			$taskResult = $result->perTask[ $taskId ] ?? [ 'verdict' => 'pending', 'score' => 0.0, 'maxScore' => 1.0 ];
+			$taskResult = $result->perTask[ $taskId ] ?? array(
+				'verdict'  => 'pending',
+				'score'    => 0.0,
+				'maxScore' => $serverPoints[ $taskId ],
+			);
 			$taskStatus = 'pending' === $taskResult['verdict']
 				? SubmissionStatus::PendingReview->value
 				: SubmissionStatus::Graded->value;
@@ -312,9 +364,9 @@ class SubmissionService {
 			// прошлая отметка о проверке (пересдача уже проверенной работы) снимается.
 			$taskGradedAt = SubmissionStatus::Graded->value === $taskStatus ? $now : null;
 
-			$existing = $this->submissions->findForWork( $studentPersonId, $storeId, $workId, $taskId );
+			$existing = $existingTasks[ $taskId ];
 			if ( $existing ) {
-				$taskUpdate = [
+				$taskUpdate = array(
 					'answer_text'       => $answerStored,
 					'score'             => $taskResult['score'],
 					'max_score'         => $taskResult['maxScore'],
@@ -323,10 +375,11 @@ class SubmissionService {
 					'graded_at'         => $taskGradedAt,
 					// Новый ответ — прежняя оценка и отзыв преподавателя к нему не относятся.
 					'graded_by_user_id' => null,
-				] + $this->dueUpdate( $row, $dueAt );
+				) + $this->dueUpdate( $row, $dueAt );
 				$this->submissions->update( $existing->id, $taskUpdate );
 			} else {
-				$this->submissions->create( new SubmissionInputDTO(
+				$this->submissions->create(
+					new SubmissionInputDTO(
 					studentPersonId : $studentPersonId,
 					groupLessonId   : $storeId,
 					workId          : $workId,
@@ -339,7 +392,8 @@ class SubmissionService {
 					gradedAt        : $taskGradedAt,
 					score           : (float) $taskResult['score'],
 					maxScore        : (float) $taskResult['maxScore'],
-				) );
+					)
+				);
 			}
 		}
 
@@ -348,7 +402,8 @@ class SubmissionService {
 		$perTask = array_intersect_key( $previousVerdicts, array_flip( $locked ) ) + $fresh;
 		ksort( $perTask );
 
-		$correctCount = count( array_filter( $perTask, static fn( $v ) => 'correct' === ( $v['verdict'] ?? '' ) ) );
+		$earnedPoints  = (float) array_sum( array_column( $perTask, 'score' ) );
+		$maximumPoints = (float) array_sum( array_column( $perTask, 'maxScore' ) );
 		$hasPending   = array() !== array_filter( $perTask, static fn( $v ) => 'pending' === ( $v['verdict'] ?? '' ) );
 
 		// Работа без ручных заданий проверена целиком автопроверкой — учителю в
@@ -361,10 +416,10 @@ class SubmissionService {
 		$verdicts = wp_json_encode( $perTask );
 
 		if ( $aggregate ) {
-			$aggregateUpdate = [
+			$aggregateUpdate = array(
 				'answer_text'   => $verdicts,
-				'score'         => (float) $correctCount,
-				'max_score'     => (float) count( $perTask ),
+				'score'         => $earnedPoints,
+				'max_score'     => $maximumPoints,
 				'status'        => $status,
 				'submitted_at'  => $now,
 				'graded_at'     => $gradedAt,
@@ -374,11 +429,12 @@ class SubmissionService {
 				'duration_sec'  => null === $timing->elapsedSec
 					? $aggregate->durationSec
 					: ( $aggregate->durationSec ?? 0 ) + $timing->elapsedSec,
-			] + $this->dueUpdate( $row, $dueAt );
+			) + $this->dueUpdate( $row, $dueAt );
 			$this->submissions->update( $aggregate->id, $aggregateUpdate );
 			$aggregateId = $aggregate->id;
 		} else {
-			$aggregateId = $this->submissions->create( new SubmissionInputDTO(
+			$aggregateId = $this->submissions->create(
+				new SubmissionInputDTO(
 				studentPersonId : $studentPersonId,
 				groupLessonId   : $storeId,
 				workId          : $workId,
@@ -389,13 +445,17 @@ class SubmissionService {
 				status          : $status,
 				submittedAt     : $now,
 				gradedAt        : $gradedAt,
-			) );
-			$this->submissions->update( $aggregateId, [
-				'score'         => (float) $correctCount,
-				'max_score'     => (float) count( $perTask ),
+				)
+			);
+			$this->submissions->update(
+				$aggregateId,
+				array(
+					'score'         => $earnedPoints,
+					'max_score'     => $maximumPoints,
 				'attempt_count' => $attemptsUsed + 1,
 				'duration_sec'  => $timing->elapsedSec,
-			] );
+				)
+			);
 		}
 
 		// entityId — id самой (агрегатной) сдачи, как и в single-пути submit(): значение
@@ -600,16 +660,20 @@ class SubmissionService {
 			throw new \InvalidArgumentException( 'Per-task сдача не найдена.' );
 		}
 
-		$maxScore = $sub->maxScore ?? 1.0;
+		$maxScore = $sub->maxScore ?? $this->workManager->get( $sub->workId )?->pointsForTask( $sub->taskId ) ?? 1.0;
+		$this->assertScore( $score, $maxScore );
 
-		$this->submissions->update( $submissionId, [
+		$this->submissions->update(
+			$submissionId,
+			array(
 			'score'             => $score,
 			'max_score'         => $maxScore,
 			'feedback'          => $feedback,
 			'status'            => SubmissionStatus::Graded->value,
 			'graded_by_user_id' => $teacherUserId,
 			'graded_at'         => $this->clock->now(),
-		] );
+			)
+		);
 
 		$this->syncAggregateSnapshot( $sub, $score, $maxScore );
 		$this->recalculateAggregate( $sub->studentPersonId, $sub->groupLessonId, $sub->workId, $teacherUserId );
@@ -634,8 +698,13 @@ class SubmissionService {
 		$decoded = json_decode( $raw, true );
 		$answer  = is_array( $decoded ) ? $decoded : $raw;
 
-		$result = $this->batchChecker->check( array( $sub->taskId => $answer ), array() );
-		$auto   = $result->perTask[ $sub->taskId ] ?? array( 'verdict' => 'pending', 'score' => 0.0, 'maxScore' => 1.0 );
+		$maximum = $sub->maxScore ?? $this->workManager->get( $sub->workId )?->pointsForTask( $sub->taskId ) ?? 1.0;
+		$result  = $this->batchChecker->check( array( $sub->taskId => $answer ), array( $sub->taskId => $maximum ) );
+		$auto    = $result->perTask[ $sub->taskId ] ?? array(
+			'verdict'  => 'pending',
+			'score'    => 0.0,
+			'maxScore' => 1.0,
+		);
 		if ( 'pending' === $auto['verdict'] ) {
 			throw new \InvalidArgumentException( 'Задание проверяется вручную: зачёт отменить нельзя.' );
 		}
@@ -643,14 +712,17 @@ class SubmissionService {
 		$maxScore = $sub->maxScore ?? (float) $auto['maxScore'];
 		$score    = 'correct' === $auto['verdict'] ? $maxScore : min( (float) $auto['score'], $maxScore );
 
-		$this->submissions->update( $submissionId, [
+		$this->submissions->update(
+			$submissionId,
+			array(
 			'score'             => $score,
 			'max_score'         => $maxScore,
 			'feedback'          => null,
 			'status'            => SubmissionStatus::Graded->value,
 			'graded_by_user_id' => null,
 			'graded_at'         => $this->clock->now(),
-		] );
+			)
+		);
 
 		$this->syncAggregateSnapshot( $sub, $score, $maxScore );
 		$this->recalculateAggregate( $sub->studentPersonId, $sub->groupLessonId, $sub->workId, $teacherUserId );
@@ -715,13 +787,16 @@ class SubmissionService {
 			if ( SubmissionStatus::Graded === $row->status ) {
 				continue;
 			}
-			$this->submissions->update( $row->id, array(
+			$this->submissions->update(
+				$row->id,
+				array(
 				'score'             => $row->score ?? 0.0,
-				'max_score'         => $row->maxScore ?? 1.0,
+					'max_score'         => $row->maxScore ?? $this->workManager->get( $row->workId )?->pointsForTask( $row->taskId ?? 0 ) ?? 1.0,
 				'status'            => SubmissionStatus::Graded->value,
 				'graded_by_user_id' => $teacherUserId,
 				'graded_at'         => $now,
-			) );
+				)
+			);
 		}
 
 		if ( ! empty( $perTaskRows ) ) {
@@ -731,11 +806,14 @@ class SubmissionService {
 		}
 
 		// Свободный ответ без разбора на задачи — закрываем агрегат как есть.
-		$this->submissions->update( $submissionId, array(
+		$this->submissions->update(
+			$submissionId,
+			array(
 			'status'            => SubmissionStatus::Graded->value,
 			'graded_by_user_id' => $teacherUserId,
 			'graded_at'         => $now,
-		) );
+			)
+		);
 		$this->dispatchGraded( $sub->groupLessonId, $submissionId, $teacherUserId );
 	}
 
@@ -753,7 +831,6 @@ class SubmissionService {
 
 		$totalScore   = 0.0;
 		$totalMax     = 0.0;
-		$correctCount = 0;
 		$hasPending   = false;
 
 		foreach ( $perTaskRows as $row ) {
@@ -763,24 +840,30 @@ class SubmissionService {
 				continue;
 			}
 			$earned = $row->score ?? 0.0;
-			$max    = $row->maxScore ?? 1.0;
 			$totalScore += $earned;
-			if ( $earned >= $max && $max > 0 ) {
-				$correctCount++;
-			}
 		}
 
 		$newStatus = $hasPending
 			? SubmissionStatus::PendingReview->value
 			: SubmissionStatus::Graded->value;
 
-		$this->submissions->update( $aggregate->id, [
-			'score'             => (float) $correctCount,
-			'max_score'         => (float) count( $perTaskRows ),
+		$this->submissions->update(
+			$aggregate->id,
+			array(
+				'score'             => $totalScore,
+				'max_score'         => $totalMax,
 			'status'            => $newStatus,
 			'graded_by_user_id' => $teacherUserId,
 			'graded_at'         => $this->clock->now(),
-		] );
+			)
+		);
+	}
+
+	/** Rejects impossible manual marks without accepting a client-defined maximum. */
+	private function assertScore( float $score, float $maximum ): void {
+		if ( ! is_finite( $score ) || ! is_finite( $maximum ) || $maximum <= 0 || $score < 0 || $score > $maximum ) {
+			throw new \InvalidArgumentException( 'Балл должен быть от 0 до максимума задания.' );
+		}
 	}
 
 	/** Преподаватель возвращает на доработку. */
@@ -790,12 +873,15 @@ class SubmissionService {
 			throw new \InvalidArgumentException( 'Сдача не найдена.' );
 		}
 
-		$this->submissions->update( $submissionId, array(
+		$this->submissions->update(
+			$submissionId,
+			array(
 			'status'            => 'returned',
 			'feedback'          => $feedback,
 			'graded_by_user_id' => $teacherUserId,
 			'graded_at'         => $this->clock->now(),
-		) );
+			)
+		);
 
 		$row = $this->groupLessons->find( $sub->groupLessonId );
 		$this->dispatcher->dispatch(

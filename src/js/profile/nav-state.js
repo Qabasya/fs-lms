@@ -15,6 +15,7 @@
 export const NAV_SCREENS = {
     ktp:     ['g', 'm'],
     journal: ['g', 'm'],
+    ranking: ['s', 'g'],
     summary: ['g', 'p', 'tab'],
     works:   ['g', 't', 's'],
 };

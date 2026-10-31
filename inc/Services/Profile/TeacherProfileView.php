@@ -44,6 +44,7 @@ final class TeacherProfileView implements ProfileViewInterface {
 		private readonly CourseManager     $courses,
 		private readonly SubjectRepository $subjects,
 		private readonly ExamAccessGuard   $examGuard,
+		private readonly RankingAccessService $rankingAccess,
 	) {}
 
 	public function build( ProfileContext $context ): array {
@@ -52,6 +53,7 @@ final class TeacherProfileView implements ProfileViewInterface {
 		$nav = array(
 			array( 'key' => 'dashboard', 'label' => 'Главная' ),
 			array( 'key' => 'journal',   'label' => 'Журнал' ),
+			array( 'key' => 'ranking', 'label' => 'Рейтинг' ),
 			// D3: основной вход в проверку — сразу после «Журнала», до «Сводки».
 			array( 'key' => 'works',     'label' => 'Работы' ),
 			array( 'key' => 'summary',   'label' => 'Сводка по ученику' ),
@@ -59,7 +61,7 @@ final class TeacherProfileView implements ProfileViewInterface {
 			array( 'key' => 'activity',  'label' => 'Активность' ),
 		);
 		// teacher-courses — страница курса (Tasks.md З4): вход кликом по курсу в сайдбаре, не из меню.
-		$screens = array( 'dashboard', 'groups', 'journal', 'works', 'summary', 'ktp', 'activity', 'teacher-courses' );
+		$screens = array( 'dashboard', 'groups', 'journal', 'works', 'summary', 'ktp', 'activity', 'teacher-courses', 'ranking' );
 
 		// Замены (кабинет + педагог) — офисный инструмент, препод не видит.
 		if ( UserRole::FSOffice === $context->role ) {
@@ -205,6 +207,11 @@ final class TeacherProfileView implements ProfileViewInterface {
 			: $this->groups->findByTeacherId( $context->wpUserId );
 
 		$config = array(
+			'ranking' => array(
+				'nonce' => Nonce::SaveSchedule->create(),
+				'actions' => array( 'getRanking' => AjaxHook::GetSubjectRanking->jsAction() ),
+				'subjects' => $this->rankingAccess->subjectsFor( $context->wpUserId ),
+			),
 			'groups'   => array_map(
 				fn( $g ): array => array(
 					'id'          => (int) $g->id,

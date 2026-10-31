@@ -394,12 +394,21 @@ a.prof-stat-tile:hover { box-shadow: var(--shadow-md); }
 .prof-stat-tile { position: relative; }
 
 // Красный «−» у плитки: убрать её с главной.
-.prof-home-minus {
+.prof-home-minus,
+.prof-home-replace {
   position: absolute; top: rem(-8); right: rem(-8); z-index: 2;
   display: inline-flex; align-items: center; justify-content: center;
   width: rem(22); height: rem(22); padding: 0; border: 0; border-radius: 50%;
   background: var(--err); color: var(--ink-inverse); cursor: pointer; box-shadow: var(--shadow-sm);
 }
+
+.prof-home-replace {
+  right: rem(20); background: var(--accent);
+
+  &:disabled { opacity: 0.4; cursor: default; }
+}
+
+[data-home-section="attention"] > .prof-home-arrows { position: absolute; top: rem(-16); right: 0; z-index: 2; }
 
 // Свободное место (плиток меньше шести): серая «тень» плитки с пунктиром и «+» — открывает выбор плитки.
 .prof-stat-tile--add {

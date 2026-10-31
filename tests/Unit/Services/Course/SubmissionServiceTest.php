@@ -110,13 +110,13 @@ class SubmissionServiceTest extends TestCase {
 		);
 	}
 
-	private function makeWork( int $id, WorkType $type = WorkType::Practice ): WorkDTO {
+	private function makeWork( int $id, WorkType $type = WorkType::Practice, array $itemIds = [ 1 ] ): WorkDTO {
 		return new WorkDTO(
 			id         : $id,
 			subjectKey : 'inf',
 			title      : "Work #$id",
 			workType   : $type,
-			itemIds    : [],
+			itemIds    : $itemIds,
 			instructions: '',
 			authorId   : 1,
 			status     : 'publish',
@@ -852,8 +852,8 @@ class SubmissionServiceTest extends TestCase {
 	public function test_resubmit_on_continuation_refreshes_due_at(): void {
 		$this->policy->method( 'canSubmit' )->willReturn( true );
 		$this->groupLessons->method( 'find' )->willReturn( $this->makeContinuation() );
-		$this->resolver->method( 'resolve' )->willReturn( [ $this->makeWork( 3 ) ] );
-		$this->workManager->method( 'get' )->willReturn( $this->makeWork( 3 ) );
+		$this->resolver->method( 'resolve' )->willReturn( [ $this->makeWork( 3, WorkType::Practice, [ 1, 2 ] ) ] );
+		$this->workManager->method( 'get' )->willReturn( $this->makeWork( 3, WorkType::Practice, [ 1, 2 ] ) );
 		$this->batchChecker->method( 'check' )->willReturn( new BatchCheckResultDTO(
 			perTask         : [ 2 => [ 'verdict' => 'correct', 'score' => 1.0, 'maxScore' => 1.0 ] ],
 			correctCount    : 1,
@@ -905,4 +905,104 @@ class SubmissionServiceTest extends TestCase {
 		self::assertFalse( $this->service->isPastDue( $this->makeRow( 3, true, null, [ 3 => '2024-06-01 12:00:01' ] ), $work ) );
 		self::assertFalse( $this->service->isPastDue( $this->makeRow( 3 ), $work ), 'без срока просрочки нет' );
 	}
+	private function weightedWork( array $points = [ 1 => 2, 2 => 3 ] ): WorkDTO {
+		return new WorkDTO( 3, 'inf', 'Weighted work', WorkType::Homework, [1,2], '', 1, 'publish', taskPoints: $points );
+	}
+
+	private function arrangeWeightedWork( ?SubmissionDTO $aggregate = null, array $points = [1=>2,2=>3] ): void {
+		$this->policy->method('canSubmit')->willReturn(true);
+		$this->groupLessons->method('find')->willReturn($this->makeRow());
+		$this->resolver->method('resolve')->willReturn([$this->weightedWork($points)]);
+		$this->workManager->method('get')->willReturn($this->weightedWork($points));
+		$this->submissions->method('findAggregate')->willReturnOnConsecutiveCalls($aggregate, $aggregate ?? $this->makeSubmission(1,SubmissionStatus::Graded));
+		$this->submissions->method('create')->willReturn(20);
+	}
+
+	public function test_persisted_task_prices_ignore_client_weights_and_snapshot_each_history_row(): void {
+		$this->arrangeWeightedWork();
+		$this->batchChecker->expects(self::once())->method('check')->with([1=>'a',2=>'b'],[1=>2.0,2=>3.0])->willReturn(
+			new BatchCheckResultDTO([1=>['verdict'=>'correct','score'=>2.0,'maxScore'=>2.0],2=>['verdict'=>'correct','score'=>3.0,'maxScore'=>3.0]],2,2,5.0,5.0,false)
+		);
+		$created=[];
+		$this->submissions->method('create')->willReturnCallback(static function(SubmissionInputDTO $input)use(&$created):int{$created[]=$input;return 20;});
+		$histories=[];
+		$this->taskAttempts->method('create')->willReturnCallback(static function(...$args)use(&$histories):int{$histories[]=$args;return 1;});
+		$updates=[];
+		$this->submissions->method('update')->willReturnCallback(static function(int $id,array $data)use(&$updates):bool{$updates[]=$data;return true;});
+		$this->service->submitBatch(10,5,3,[1=>'a',2=>'b'],[1=>900,2=>900]);
+		self::assertSame([2.0,3.0],array_map(static fn(SubmissionInputDTO $row):float=>$row->maxScore,array_slice($created,0,2)));
+		self::assertSame([2.0,3.0],array_column($histories,8));
+		self::assertSame([2.0,3.0],array_column($histories,7));
+		self::assertSame(5.0,$updates[0]['score']);
+		self::assertSame(5.0,$updates[0]['max_score']);
+	}
+
+	public function test_retry_keeps_locked_and_unlocked_original_prices_after_author_changes_work(): void {
+		$aggregate=$this->aggregateAfter(1,[1=>['verdict'=>'correct','score'=>2.0,'maxScore'=>2.0],2=>['verdict'=>'incorrect','score'=>0.0,'maxScore'=>3.0]]);
+		$this->arrangeWeightedWork($aggregate,[1=>9,2=>10]);
+		$this->submissions->method('findForWork')->willReturn($this->makePerTaskSubmission(22,2,3.0));
+		$this->batchChecker->expects(self::once())->method('check')->with([2=>'b'],[2=>3.0])->willReturn(new BatchCheckResultDTO([2=>['verdict'=>'correct','score'=>3.0,'maxScore'=>3.0]],1,1,3.0,3.0,false));
+		$updates=[];
+		$this->submissions->method('update')->willReturnCallback(static function(int $id,array $data)use(&$updates):bool{$updates[$id][]=$data;return true;});
+		$this->service->submitBatch(10,5,3,[1=>'tamper locked',2=>'b'],[2=>800]);
+		$summary=$updates[1][0];
+		self::assertSame(5.0,$summary['score']);
+		self::assertSame(5.0,$summary['max_score']);
+		self::assertSame(3.0,$updates[22][0]['max_score']);
+		$verdicts=json_decode($summary['answer_text'],true);
+		self::assertSame(2.0,(float)$verdicts[1]['maxScore']);
+	}
+
+	public function test_arbitrary_bank_task_cannot_be_added_to_work_submission(): void {
+		$this->arrangeWeightedWork();
+		$this->batchChecker->expects(self::never())->method('check');
+		$this->taskAttempts->expects(self::never())->method('create');
+		$this->expectException(\Inc\Shared\CodedException::class);
+		$this->service->submitBatch(10,5,3,[999=>'answer'],[999=>500]);
+	}
+
+	public function test_teacher_credit_uses_each_configured_price_and_summed_maximum(): void {
+		$this->groupLessons->method('find')->willReturn($this->makeRow());
+		$this->resolver->method('resolve')->willReturn([$this->weightedWork()]);
+		$created=[];
+		$this->submissions->method('create')->willReturnCallback(static function(SubmissionInputDTO $row)use(&$created):int{$created[]=$row;return 20;});
+		self::assertTrue($this->service->creditWork(10,5,3,99));
+		self::assertSame([2.0,3.0,5.0],array_map(static fn(SubmissionInputDTO $row):float=>$row->score,$created));
+		self::assertSame([2.0,3.0,5.0],array_map(static fn(SubmissionInputDTO $row):float=>$row->maxScore,$created));
+	}
+
+	public function test_manual_mark_cannot_exceed_snapshotted_price(): void {
+		$this->submissions->method('find')->willReturn($this->makePerTaskSubmission(22,2,3.0));
+		$this->submissions->expects(self::never())->method('update');
+		$this->expectException(\InvalidArgumentException::class);
+		$this->service->gradeBatchTask(22,4.0,'',99);
+	}
+
+	public function test_noncanonical_answer_keys_cannot_duplicate_ranking_history(): void {
+		$this->arrangeWeightedWork();
+		$this->taskAttempts->expects(self::never())->method('create');
+		foreach ([['1'=>'a','01'=>'a'],['1foo'=>'a']] as $answers) {
+			try {
+				$this->service->submitBatch(10,5,3,$answers);
+				self::fail('Noncanonical task key accepted');
+			} catch (\Inc\Shared\CodedException $exception) {
+				self::assertSame(\Inc\Enums\Log\ErrorCode::WorkFormat,$exception->errorCode);
+			}
+		}
+	}
+
+	public function test_manual_partial_mark_preserves_snapshot_maximum_and_aggregate_points(): void {
+		$task=$this->makePerTaskSubmission(22,2,3.0);
+		$this->submissions->method('find')->willReturn($task);
+		$this->submissions->method('findAggregate')->willReturn($this->makeAggregateWithVerdicts(1,[2=>['verdict'=>'pending','score'=>0.0,'maxScore'=>3.0]]));
+		$marked=new SubmissionDTO(id:22,studentPersonId:10,groupLessonId:5,workId:3,workType:WorkType::Homework,taskId:2,answerText:'answer',attachmentId:null,dueAt:null,status:SubmissionStatus::Graded,score:2.5,maxScore:3.0,feedback:null,gradedByUserId:99,submittedAt:'2024-01-01 10:00:00',gradedAt:'2024-01-01 10:00:00',createdAt:'2024-01-01 10:00:00',updatedAt:'2024-01-01 10:00:00');
+		$this->submissions->method('listPerTaskByStudentWorkLesson')->willReturn([$marked]);
+		$updates=[];
+		$this->submissions->method('update')->willReturnCallback(static function(int $id,array $data)use(&$updates):bool{$updates[$id][]=$data;return true;});
+		$this->service->gradeBatchTask(22,2.5,'manual',99);
+		self::assertSame(3.0,$updates[22][0]['max_score']);
+		self::assertSame(2.5,$updates[1][1]['score']);
+		self::assertSame(3.0,$updates[1][1]['max_score']);
+	}
+
 }

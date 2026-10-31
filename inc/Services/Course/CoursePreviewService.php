@@ -217,7 +217,7 @@ class CoursePreviewService {
 			'work_type_label' => $work->workType->label(),
 			'instructions'    => SafeHtml::post( $work->instructions ),
 			'task_count'      => count( $tasks ),
-			'total_points'    => count( $tasks ),
+			'total_points'    => (int) array_sum( array_column( $tasks, 'max_score' ) ),
 			'tasks'           => $tasks,
 			'submission'      => null,
 			'task_results'    => array(),

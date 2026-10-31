@@ -57,4 +57,14 @@ class WorkDTOTest extends TestCase {
 		self::assertEquals( $dto, $again );
 		self::assertSame( 'independent', $dto->toArray()['work_type'] );
 	}
+
+	public function test_points_are_work_specific_integer_member_values_with_legacy_defaults(): void {
+		$dto = WorkDTO::fromArray( array( 'item_ids' => array( 3, 5, 7 ), 'task_points' => array( 3 => '2', 5 => 1001, 999 => 8 ) ) );
+		self::assertSame( array( 3 => 2, 5 => 1, 7 => 1 ), $dto->taskPoints );
+		self::assertSame( 2.0, $dto->pointsForTask( 3 ) );
+		self::assertSame( 1.0, $dto->pointsForTask( 7 ) );
+		self::assertSame( $dto->taskPoints, $dto->toArray()['task_points'] );
+		self::assertSame( array( 3 => 1 ), WorkDTO::fromArray( array( 'item_ids' => array( 3 ) ) )->taskPoints );
+	}
+
 }

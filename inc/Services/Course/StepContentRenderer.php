@@ -140,6 +140,7 @@ class StepContentRenderer {
 			if ( ! $bundle['auto_grade'] ) {
 				$bundle['widget_data'] = array( 'type' => 'text_answer' );
 			}
+			$bundle['max_score'] = (int) $work->pointsForTask( (int) $taskId );
 			$bundles[] = $bundle;
 		}
 

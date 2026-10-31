@@ -28,7 +28,7 @@ enum AttemptSource: string {
 	case Work = 'work';
 
 	/** Префикс синтетического ключа работы. */
-	private const string WORK_PREFIX = 'work:';
+	public const string WORK_PREFIX = 'work:';
 
 	/**
 	 * Ключ шага для попыток по задачам работы.

@@ -2,7 +2,7 @@
 /**
  * Работа или контрольная в режиме преподавателя: условия задач и «Показать решение».
  *
- * Без полей ответа, чипов, баллов, прогресса и «Завершить работу» — преподаватель
+ * Без полей ответа, чипов статуса, прогресса и «Завершить работу» — преподаватель
  * показывает задачи классу и сверяется с эталоном, сдавать ему нечего. Общий для
  * work- и assessment-шагов (одинаковая вёрстка карточек).
  *
@@ -23,6 +23,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 use Inc\Enums\Course\StepType;
 use Inc\Enums\Ui\Icon;
+use Inc\Services\Shared\Pluralizer;
 
 ?>
 <div class="work-static">
@@ -50,6 +51,9 @@ use Inc\Enums\Ui\Icon;
 					<div class="th">
 						<span class="tkn"><?php echo esc_html( (string) ( $tw_i + 1 ) ); ?></span>
 						<b><?php echo esc_html( (string) $tw_task['title'] ); ?></b>
+						<?php if ( 'work' === $tw_type ) : ?>
+							<span class="stc"><?php echo esc_html( Pluralizer::withNumber( (int) ( $tw_task['max_score'] ?? 1 ), 'балл', 'балла', 'баллов' ) ); ?></span>
+						<?php endif; ?>
 					</div>
 
 					<?php

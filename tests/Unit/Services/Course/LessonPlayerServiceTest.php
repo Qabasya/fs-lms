@@ -406,7 +406,7 @@ class LessonPlayerServiceTest extends TestCase {
 	/**
 	 * Контекст work-шага: работа 55 с задачами 71, 72 (choice с эталоном в мете).
 	 */
-	private function arrangeWorkStep(): GroupLessonDTO {
+	private function arrangeWorkStep( array $points = array() ): GroupLessonDTO {
 		$step   = new StepDTO( 'w1', StepType::Work, array( 'ref' => 55 ) );
 		$lesson = $this->makeLesson( 10, array( $step ) );
 		$this->lessons->method( 'get' )->willReturn( $lesson );
@@ -416,6 +416,7 @@ class LessonPlayerServiceTest extends TestCase {
 			id          : 55,
 			subjectKey  : 'inf',
 			title       : 'Работа №2 «Циклы»',
+			taskPoints  : $points,
 			workType    : \Inc\Enums\Course\WorkType::Practice,
 			itemIds     : array( 71, 72 ),
 			instructions: 'Решите все задачи.',
@@ -480,6 +481,34 @@ class LessonPlayerServiceTest extends TestCase {
 		self::assertArrayHasKey( '71', $render['submission']['verdicts'] );
 		self::assertArrayHasKey( 71, $render['task_results'] );
 		self::assertSame( '["o2"]', $render['task_results'][71]['answer'] );
+	}
+
+
+	public function test_work_render_shows_configured_task_points_without_revealing_correct_answers(): void {
+		$groupLesson = $this->arrangeWorkStep( array( 71 => 2, 72 => 5 ) );
+		$this->submissionService->method( 'getSubmissionsForView' )->willReturn( array() );
+		$render = $this->service->buildView( 1, $groupLesson )['steps'][0]['render'];
+		self::assertSame( 7, $render['total_points'] );
+		self::assertSame( array( 2, 5 ), array_column( $render['tasks'], 'max_score' ) );
+		foreach ( $render['tasks'] as $task ) {
+			self::assertArrayNotHasKey( 'solution', $task );
+			foreach ( $task['widget_data']['options'] as $option ) {
+				self::assertSame( array( 'id', 'text' ), array_keys( $option ) );
+			}
+		}
+	}
+
+	public function test_work_render_uses_submitted_maximum_snapshot_when_editor_points_changed(): void {
+		$groupLesson = $this->arrangeWorkStep( array( 71 => 50, 72 => 5 ) );
+		$aggregate = $this->submissionRow( 1, null, '{"71":{"verdict":"correct","score":2,"maxScore":2}}', 'graded', 2.0, 7.0 );
+		$perTask = $this->submissionRow( 2, 71, '["o2"]', 'graded', 2.0, 2.0 );
+		$this->submissionService->method( 'getSubmissionsForView' )->willReturn( array( $aggregate, $perTask ) );
+		$render = $this->service->buildView( 1, $groupLesson )['steps'][0]['render'];
+		self::assertSame( 7, $render['total_points'] );
+		self::assertSame( 2.0, $render['tasks'][0]['max_score'] );
+		self::assertSame( 5, $render['tasks'][1]['max_score'] );
+		self::assertSame( 2.0, $render['submission']['score'] );
+		self::assertSame( 7.0, $render['submission']['max_score'] );
 	}
 
 	public function test_work_render_handles_missing_work(): void {

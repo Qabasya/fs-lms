@@ -31,7 +31,7 @@ class WorkTemplate extends BaseTemplate {
 			),
 			// Сколько раз ученик может сдать работу; 0 — без ограничений.
 			'max_attempts' => array(
-				'label'  => 'Максимум попыток сдачи (0 — без ограничений)',
+				'label'  => 'Максимум попыток (0 — без ограничений)',
 				'object' => new NumberInputField(),
 			),
 		);

@@ -35,6 +35,7 @@ class PreviewSolveCallbacksTest extends TestCase {
 	private $batch;
 	private $assessments;
 	private $access;
+	private $works;
 	private PreviewSolveCallbacks $cb;
 
 	protected function setUp(): void {
@@ -42,6 +43,7 @@ class PreviewSolveCallbacksTest extends TestCase {
 		fs_test_reset_ajax();
 		fs_test_reset_posts();
 
+		$this->works = $this->createMock( \Inc\Managers\Course\WorkManager::class );
 		$this->posts       = $this->createMock( PostManager::class );
 		$this->checkers    = $this->createMock( TaskCheckerRegistry::class );
 		$this->resolver    = $this->createMock( TemplateResolver::class );
@@ -57,7 +59,8 @@ class PreviewSolveCallbacksTest extends TestCase {
 			$this->resolver,
 			$this->batch,
 			$this->assessments,
-			$this->access
+			$this->access,
+			$this->works
 		);
 	}
 
@@ -129,7 +132,8 @@ class PreviewSolveCallbacksTest extends TestCase {
 			$this->resolver,
 			$this->batch,
 			$this->assessments,
-			$access
+			$access,
+			$this->works
 		);
 
 		$this->checkers->expects( self::never() )->method( 'get' );
@@ -149,7 +153,8 @@ class PreviewSolveCallbacksTest extends TestCase {
 			$this->resolver,
 			$this->batch,
 			$this->assessments,
-			$access
+			$access,
+			$this->works
 		);
 
 		$this->batch->expects( self::never() )->method( 'check' );
@@ -163,6 +168,7 @@ class PreviewSolveCallbacksTest extends TestCase {
 	// ── Работа ───────────────────────────────────────────────────────────────
 
 	public function test_check_work_grades_via_batch_without_persist(): void {
+		$this->works->method('get')->willReturn(new \Inc\DTO\Course\WorkDTO(55,'inf','Work',\Inc\Enums\Course\WorkType::Homework,[1],'',1,'publish'));
 		$result = new BatchCheckResultDTO(
 			array( 1 => array( 'verdict' => 'correct', 'score' => 1.0, 'maxScore' => 1.0 ) ),
 			1,
@@ -231,4 +237,25 @@ class PreviewSolveCallbacksTest extends TestCase {
 
 		self::assertFalse( $r->success );
 	}
+	public function test_work_preview_uses_persisted_weights_and_returns_points_without_writing(): void {
+		$this->works->method('get')->with(55)->willReturn(new \Inc\DTO\Course\WorkDTO(55,'inf','Weighted',\Inc\Enums\Course\WorkType::Homework,[1,2],'',1,'publish',taskPoints:[1=>2,2=>3]));
+		$this->batch->expects(self::once())->method('check')->with([1=>'a',2=>'b'],[1=>2.0,2=>3.0])->willReturn(new BatchCheckResultDTO([1=>['verdict'=>'correct','score'=>2.0,'maxScore'=>2.0],2=>['verdict'=>'correct','score'=>3.0,'maxScore'=>3.0]],2,2,5.0,5.0,false));
+		$_POST=['ref'=>'55','answers'=>'{"1":"a","2":"b"}','task_points'=>[1=>500,2=>500]];
+		$reply=fs_test_capture_json(fn()=>$this->cb->ajaxPreviewCheckWork());
+		self::assertTrue($reply->success);
+		self::assertSame(5.0,$reply->payload['score']);
+		self::assertSame(5.0,$reply->payload['max_score']);
+		self::assertSame(2,$reply->payload['correct']);
+		self::assertSame(3.0,$reply->payload['per_task'][2]['score']);
+	}
+
+	public function test_work_preview_rejects_foreign_or_noncanonical_task_ids(): void {
+		$this->works->method('get')->willReturn(new \Inc\DTO\Course\WorkDTO(55,'inf','Weighted',\Inc\Enums\Course\WorkType::Homework,[1],'',1,'publish'));
+		$this->batch->expects(self::never())->method('check');
+		foreach (['{"999":"a"}','{"1":"a","01":"a"}','{"1foo":"a"}'] as $answers) {
+			$_POST=['ref'=>'55','answers'=>$answers];
+			self::assertFalse(fs_test_capture_json(fn()=>$this->cb->ajaxPreviewCheckWork())->success);
+		}
+	}
+
 }

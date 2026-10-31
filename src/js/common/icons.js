@@ -199,6 +199,9 @@ export const icoModule = ( s = 13 ) =>
 export const icoEye = ( s = 14 ) =>
 	fill20( '<path d="M10 4C5.5 4 2 10 2 10s3.5 6 8 6 8-6 8-6-3.5-6-8-6zm0 10a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm0-6a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/>', s );
 
+export const icoEyeOff = ( s = 14 ) =>
+	stroke20( '<path d="M2 2l16 16M8 4.2A8 8 0 0 1 10 4c4.5 0 8 6 8 6a19 19 0 0 1-3 3.7M5.2 5.2A20 20 0 0 0 2 10s3.5 6 8 6a8 8 0 0 0 4-.9M8.2 8.2a2.5 2.5 0 0 0 3.6 3.6" stroke="{c}" stroke-width="1.5" stroke-linecap="round"/>', s );
+
 /* ── Глифы типов шагов урока (viewBox 24×24) ──────────────────────────────
    Ключи — UI-типы конструктора (step-editor.js TYPE_UI): lecture, video,
    practice, assessment, task. Маппинг StepType → UI: text→lecture, video→video,

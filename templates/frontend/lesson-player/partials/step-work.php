@@ -24,6 +24,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 use Inc\Enums\Course\StepType;
 use Inc\Enums\Course\WorkType;
 use Inc\Enums\Ui\Icon;
+use Inc\Services\Shared\Pluralizer;
 
 if ( empty( $render['work_found'] ) ) : ?>
 	<div class="card16">
@@ -67,6 +68,8 @@ $work_state     = array(
 	'work_id'       => (int) $render['ref'],
 	'submission'    => $render['submission'] ?? null,
 	'task_results'  => $render['task_results'] ?? array(),
+	'solutions'     => $render['solutions'] ?? array(),
+	'past_due'      => (bool) ( $render['past_due'] ?? false ),
 	// Лимит сдач (настройка работы, 0 — без ограничений): предупреждения и блок «Пройти заново».
 	'attempts_used'   => (int) ( $render['attempts_used'] ?? 0 ),
 	'max_attempts'    => (int) ( $render['max_attempts'] ?? 0 ),
@@ -132,11 +135,13 @@ $work_meta_line = sprintf(
 				$work_task_checkable = $work_check_allowed && ! empty( $work_task['check_enabled'] ); ?>
 				<div class="a-task"
 					data-task-id="<?php echo esc_attr( (string) $work_task['task_id'] ); ?>"
+					data-max-score="<?php echo esc_attr( (string) ( $work_task['max_score'] ?? 1 ) ); ?>"
 					data-auto="<?php echo esc_attr( $work_task['auto_grade'] ? '1' : '0' ); ?>"
 					data-title="<?php echo esc_attr( (string) $work_task['title'] ); ?>">
 					<div class="th">
 						<span class="tkn"><?php echo esc_html( (string) ( $work_i + 1 ) ); ?></span>
 						<b><?php echo esc_html( (string) $work_task['title'] ); ?></b>
+						<span class="stc" data-task-points><?php echo esc_html( Pluralizer::withNumber( (int) ( $work_task['max_score'] ?? 1 ), 'балл', 'балла', 'баллов' ) ); ?></span>
 						<span class="stc stc-none" data-task-chip><?php esc_html_e( 'Нет ответа', 'fs-lms' ); ?></span>
 						<?php if ( $work_task_checkable ) : ?>
 							<button type="button" class="b b-sm b-dis" data-task-check disabled><?php esc_html_e( 'Проверить ответ', 'fs-lms' ); ?></button>

@@ -82,6 +82,7 @@ enum AjaxHook: string {
 
 	// ==================== Настройки: конфигурация ====================
 	case SaveConfig              = 'save_config';
+	case SaveRankingSettings = 'save_ranking_settings';
 	case GenerateKey             = 'generate_key';
 
 	// ==================== Настройки: аватары ====================
@@ -322,6 +323,7 @@ enum AjaxHook: string {
 	case SetRoomOverride         = 'set_room_override';        // params: group_id, room_id|'', valid_from, valid_to — замена кабинета на период
 
 	// ==== «Главная» кабинета (ЛК преподавателя, Эпик 6) ====
+	case GetSubjectRanking = 'get_subject_ranking';
 	case GetProfileDashboard    = 'get_profile_dashboard';    // без params — агрегат по всем группам текущего пользователя
 	case GetTaughtCourseProgram = 'get_taught_course_program'; // params: course_id — модули и уроки курса для страницы курса преподавателя (Tasks.md З4)
 

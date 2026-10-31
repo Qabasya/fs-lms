@@ -106,6 +106,7 @@ $visibility = $this->createStub( \Inc\Services\Course\LessonVisibilityService::c
 			$this->examsService,
 			new \Inc\Services\Profile\Learner\ExamCountdownSection( $this->examConfig ),
 			new \Inc\Services\Profile\Learner\LearnerHighlightsSection(),
+			$this->createStub( \Inc\Services\Profile\Learner\LearnerRankingSection::class ),
 		);
 	}
 
@@ -544,4 +545,33 @@ $visibility = $this->createStub( \Inc\Services\Course\LessonVisibilityService::c
 		self::assertSame( 0, $data['highlights']['to_fix'] );
 		self::assertSame( '72', $data['highlights']['last_result']['value'] );
 	}
+
+	public function test_default_tile_payload_covers_all_subjects_and_to_fix_uses_full_deadline_list(): void {
+		$context = $this->createStub( \Inc\Services\Profile\Learner\LearnerContextBuilder::class );
+		$groups = array(
+			array( 'subject_key' => 'inf_ege', 'subject' => 'Информатика ЕГЭ' ),
+			array( 'subject_key' => 'python', 'subject' => 'Python', 'access_mode' => 'open' ),
+			array( 'subject_key' => 'inf_oge', 'subject' => 'Информатика ОГЭ' ),
+			array( 'subject_key' => 'python', 'subject' => 'Python' ),
+		);
+		$context->method( 'build' )->willReturn( new \Inc\DTO\Profile\LearnerContextDTO( $groups, array(), array(), array(), array(), '2026-10-31 12:00:00' ) );
+		$schedule = $this->createStub( \Inc\Services\Profile\Learner\LearnerScheduleSection::class );
+		$schedule->method( 'deadlines' )->willReturn( array_fill( 0, 8, array( 'remaining' => 2 ) ) );
+		$performance = $this->createStub( \Inc\Services\Profile\Learner\LearnerPerformanceSection::class );
+		$performance->method( 'attendance' )->willReturn( array( 'rows' => array() ) );
+		$service = new LearnerService(
+			$context, $schedule, $performance,
+			$this->createStub( \Inc\Services\Profile\Learner\LearnerCoursesSection::class ),
+			$this->examsService,
+			$this->createStub( \Inc\Services\Profile\Learner\ExamCountdownSection::class ),
+			new \Inc\Services\Profile\Learner\LearnerHighlightsSection(),
+			$this->createStub( \Inc\Services\Profile\Learner\LearnerRankingSection::class ),
+		);
+		$data = $service->build( 9001 )->toArray();
+		self::assertCount( 6, $data['deadlines'] );
+		self::assertSame( 16, $data['to_fix'] );
+		self::assertSame( array( 'inf_ege', 'python', 'inf_oge' ), array_column( $data['home_subjects'], 'key' ) );
+		self::assertSame( array( true, false, true ), array_column( $data['home_subjects'], 'exam' ) );
+	}
+
 }
