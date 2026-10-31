@@ -38,9 +38,11 @@ function mount( el ) {
 		preserveSlotOnExpand: true,
 		mapSlot: workSlot,
 		newSlot: ( index ) => ( { key: 'slot_' + index, taskId: 0, title: '', points: 1 } ),
-		renderExtraBody: ( body, slot, index, api ) => {
+		// «Баллов за задачу» — первым элементом ряда действий слота (перед «Заменить задачу»),
+		// а не секцией тела: цена задачи относится к действиям над ней в этой работе.
+		renderActionsStart: ( actions, slot, index, api ) => {
 			const label = document.createElement( 'label' );
-			label.className = 'fs-sb-task-section fs-sb-work-points';
+			label.className = 'fs-sb-work-points';
 			label.textContent = 'Баллов за задачу: ';
 			const input = document.createElement( 'input' );
 			input.type = 'number';
@@ -55,7 +57,7 @@ function mount( el ) {
 				api.save();
 			} );
 			label.appendChild( input );
-			body.appendChild( label );
+			actions.appendChild( label );
 		},
 		emptyText: 'Нет заданий — нажмите «+ Задача».',
 

@@ -121,6 +121,8 @@ const defaultNewSlot = ( i ) => ( { key: 'slot_' + i, taskId: 0, title: '' } );
  * @param {Function}   [config.mapSlot]    (step,i) => slot              Маппинг начальных слотов.
  * @param {Function}   [config.newSlot]    (i) => slot                   Пустой слот для «+ Задача».
  * @param {Function}   [config.renderExtraBody] (container, slot, index, api) => void
+ * @param {Function}   [config.renderActionsStart] (actions, slot, index, api) => void
+ *                                            Элементы в начало ряда действий слота (до «Заменить задачу»).
  * @param {boolean}    [config.preserveSlotOnExpand] Keep the original slot settings on the first bundled child.
  * @param {Function}   [config.onReady]    (api) => void                 Хук после первого рендера.
  * @param {boolean}    [config.reorderable] Перетаскивание слотов и «+ Добавить» под каждым слотом
@@ -595,6 +597,12 @@ export function createSlotBuilder( el, config ) {
 	function renderActions( container, slot, index ) {
 		const actions = document.createElement( 'div' );
 		actions.className = 'fs-sb-task-actions';
+
+		// config.renderActionsStart (опц.) — элементы в начало ряда действий, до кнопок
+		// выбора/создания (у работы здесь живёт «Баллов за задачу»).
+		if ( typeof config.renderActionsStart === 'function' ) {
+			config.renderActionsStart( actions, slot, index, api );
+		}
 
 		// config.onPick (опц.) — перехват пика до дефолтного assignPicked(); должен
 		// вернуть true, если сам обработал присвоение (EGE-связка, задача C).

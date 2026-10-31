@@ -43,11 +43,20 @@
   }
 }
 
-// Цена задачи относится к текущей работе и стоит непосредственно перед действиями слота.
+// Цена задачи относится к текущей работе и стоит первым элементом ряда действий слота
+// (перед «Заменить задачу»); высота инпута повторяет высоту кнопок ряда.
 .fs-lms-work-builder .fs-sb-work-points {
   display: flex;
   align-items: center;
   gap: $spacing-sm;
+  margin: 0;
 
-  input { width: rem(80); }
+  input {
+    box-sizing: border-box;
+    width: rem(80);
+    height: 45px;
+    min-height: 45px;
+    margin: 0;
+    border-radius: $border-radius-md;
+  }
 }
