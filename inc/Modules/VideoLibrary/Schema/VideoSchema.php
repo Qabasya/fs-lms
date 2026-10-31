@@ -19,12 +19,18 @@ namespace Inc\Modules\VideoLibrary\Schema;
 class VideoSchema {
 
 	private const VERSION_OPTION = 'fs_lms_video_schema_version';
-	private const VERSION        = '1';
+	private const VERSION        = '2';
 
 	/** Имя таблицы с префиксом WP. */
 	public static function table(): string {
 		global $wpdb;
 		return $wpdb->prefix . 'fs_lms_video_recordings';
+	}
+
+	/** Таблица журнала доступа к записям (presigned-выдачи и просмотры), v2. */
+	public static function accessTable(): string {
+		global $wpdb;
+		return $wpdb->prefix . 'fs_lms_video_access_log';
 	}
 
 	/** Создаёт/обновляет таблицу при смене версии. Вызывать только при включённом модуле. */
@@ -62,6 +68,29 @@ class VideoSchema {
 				KEY group_lesson_id (group_lesson_id),
 				KEY status (status),
 				KEY group_recorded (group_id, recorded_at)
+			) $collate;"
+		);
+
+		// Журнал доступа: одна строка = сессия просмотра (пользователь × запись, окно агрегации).
+		// requests_count — выдачи presigned-ссылки, watch_seconds — фактический просмотр (heartbeat плеера).
+		$access = self::accessTable();
+		dbDelta(
+			"CREATE TABLE $access (
+				id              bigint unsigned   NOT NULL AUTO_INCREMENT,
+				wp_user_id      bigint unsigned   NOT NULL,
+				user_role       varchar(30)       NOT NULL DEFAULT '',
+				group_lesson_id int unsigned      DEFAULT NULL,
+				s3_bucket       varchar(100)      NOT NULL,
+				s3_key          varchar(500)      NOT NULL,
+				requests_count  int unsigned      NOT NULL DEFAULT 0,
+				watch_seconds   int unsigned      NOT NULL DEFAULT 0,
+				ip              varchar(45)       NOT NULL DEFAULT '',
+				first_at        datetime          NOT NULL,
+				last_at         datetime          NOT NULL,
+				PRIMARY KEY  (id),
+				KEY user_key (wp_user_id, s3_key(191), last_at),
+				KEY last_at (last_at),
+				KEY group_lesson_id (group_lesson_id)
 			) $collate;"
 		);
 

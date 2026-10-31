@@ -10,6 +10,7 @@ use Inc\Enums\Wp\Nonce;
 use Inc\Managers\Course\LessonManager;
 use Inc\Services\Course\GroupAccessGuard;
 use Inc\Modules\VideoLibrary\Services\RecordingAlertService;
+use Inc\Modules\VideoLibrary\Services\VideoAccessLogService;
 use Inc\Modules\VideoLibrary\Services\VideoRegistrationService;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Shared\Traits\Authorizer;
@@ -36,8 +37,27 @@ class VideoLibraryCallbacks extends BaseController {
 		private readonly LessonManager            $lessons,
 		private readonly RecordingAlertService    $alerts,
 		private readonly GroupAccessGuard         $accessGuard,
+		private readonly VideoAccessLogService    $accessLog,
 	) {
 		parent::__construct();
+	}
+
+	/**
+	 * Heartbeat просмотра записи из плеера: накопленные секунды — в журнал доступа.
+	 * Без capability (ученик/родитель LMS-прав не имеют): nonce + вход, ключ записи
+	 * сервер берёт из занятия, клиент присылает только group_lesson_id и секунды.
+	 * Params: group_lesson_id, seconds
+	 */
+	public function ajaxWatch(): void {
+		Nonce::LearnerActivity->verify();
+
+		if ( ! is_user_logged_in() ) {
+			$this->error( 'Требуется вход.' );
+			return;
+		}
+
+		$this->accessLog->logWatch( $this->sanitizeInt( 'group_lesson_id' ), $this->sanitizeInt( 'seconds' ) );
+		$this->success();
 	}
 
 	/** Занятия группы на календарный день (кандидаты ручной привязки). */

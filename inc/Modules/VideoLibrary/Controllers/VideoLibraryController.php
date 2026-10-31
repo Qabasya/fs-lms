@@ -10,6 +10,7 @@ use Inc\DTO\Course\GroupLessonDTO;
 use Inc\Enums\Wp\Nonce;
 use Inc\Modules\VideoLibrary\Services\RecordingAlertService;
 use Inc\Modules\VideoLibrary\Services\S3UrlSigner;
+use Inc\Modules\VideoLibrary\Services\VideoAccessLogService;
 
 /**
  * Class VideoLibraryController
@@ -36,11 +37,23 @@ class VideoLibraryController {
 	/** Привязка записи преподавателем из шага «Трансляция» плеера. */
 	public const TEACHER_ATTACH_ACTION = 'fs_lms_video_teacher_attach';
 
+	/** Heartbeat просмотра записи из плеера (ученик/родитель). */
+	public const WATCH_ACTION = 'fs_lms_video_watch';
+
+	/**
+	 * Префикс транзиента кеша presigned-ссылки (модульный транзиент — исключение
+	 * из правила core TransientKey, ключ локализован здесь): одна ссылка на
+	 * пользователя и запись, чтобы перезагрузки плеера не заставляли браузер
+	 * скачивать видео заново по новой подписи.
+	 */
+	private const URL_CACHE_PREFIX = 'fsvid_url_';
+
 	public function __construct(
 		private readonly VideoLibraryCallbacks $callbacks,
 		private readonly S3UrlSigner           $signer,
 		private readonly VideoLibraryConfig    $config,
 		private readonly RecordingAlertService $alerts,
+		private readonly VideoAccessLogService $accessLog,
 	) {}
 
 	public function register(): void {
@@ -59,6 +72,10 @@ class VideoLibraryController {
 		if ( $this->config->s3Ready() ) {
 			add_filter( 'fs_lms_recording_url', array( $this, 'filterRecordingUrl' ), 10, 2 );
 		}
+
+		// Heartbeat просмотра: конфиг в шаг «Запись занятия» + приём накопленных секунд.
+		add_filter( 'fs_lms_recording_watch', array( $this, 'filterRecordingWatch' ), 10, 2 );
+		add_action( 'wp_ajax_' . self::WATCH_ACTION, array( $this->callbacks, 'ajaxWatch' ) );
 	}
 
 	/**
@@ -90,12 +107,51 @@ class VideoLibraryController {
 
 	/**
 	 * `s3://{bucket}/{key}` → presigned https; прочие значения (прямые URL, null) — как есть.
+	 *
+	 * Ссылка кешируется на пользователя и запись почти на её TTL: каждая новая подпись
+	 * меняет URL, и браузер качает видео заново вместо переиспользования кеша — именно
+	 * это раздувает трафик при перезагрузках и повторных заходах. Выдача логируется
+	 * (журнал доступа модуля).
 	 */
 	public function filterRecordingUrl( ?string $url, mixed $groupLesson = null ): ?string {
 		if ( null === $url || ! preg_match( '#^s3://([^/]+)/(.+)$#', $url, $m ) ) {
 			return $url;
 		}
 
-		return $this->signer->presign( $m[1], $m[2] );
+		$userId       = get_current_user_id();
+		$groupLessonId = $groupLesson instanceof GroupLessonDTO ? $groupLesson->id : null;
+		$this->accessLog->logPresign( $m[1], $m[2], $groupLessonId );
+
+		$cacheKey = self::URL_CACHE_PREFIX . md5( $userId . '|' . $m[1] . '|' . $m[2] );
+		$cached   = get_transient( $cacheKey );
+		if ( is_string( $cached ) && '' !== $cached ) {
+			return $cached;
+		}
+
+		$signed = $this->signer->presign( $m[1], $m[2] );
+		// Запас 5 минут до истечения подписи, но не меньше 5 минут жизни кеша.
+		set_transient( $cacheKey, $signed, max( 300, $this->config->presignTtl() - 300 ) );
+
+		return $signed;
+	}
+
+	/**
+	 * Конфиг heartbeat просмотра для шага «Запись занятия»: действие и nonce подставляются
+	 * в разметку, плеер шлёт накопленные секунды просмотра. Только для записи из S3.
+	 *
+	 * @return array{action: string, nonce: string}|null
+	 */
+	public function filterRecordingWatch( mixed $watch, mixed $groupLesson = null ): mixed {
+		if ( null !== $watch || ! $groupLesson instanceof GroupLessonDTO ) {
+			return $watch;
+		}
+		if ( ! preg_match( '#^s3://#', (string) ( $groupLesson->recordingUrl ?? '' ) ) ) {
+			return $watch;
+		}
+
+		return array(
+			'action' => self::WATCH_ACTION,
+			'nonce'  => Nonce::LearnerActivity->create(),
+		);
 	}
 }

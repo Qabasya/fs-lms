@@ -51,7 +51,15 @@ $bc_skipped  = ! empty( $render['recording_skipped'] );
 	<h2><?php echo esc_html( $step['title'] ); ?></h2>
 
 	<?php // Открытие записи учеником/родителем уходит в ленту «Активность» (step-broadcast.js). ?>
-	<div class="gap16 bc-body"<?php echo ( $bc_after && ! $bc_teacher && empty( $is_preview ) ) ? ' data-recording-track data-group-lesson-id="' . esc_attr( (string) ( $view['group_lesson_id'] ?? 0 ) ) . '"' : ''; ?>>
+	<?php
+	$bc_watch     = is_array( $render['watch'] ?? null ) ? $render['watch'] : null;
+	$bc_track     = $bc_after && ! $bc_teacher && empty( $is_preview );
+	$bc_trackAttr = $bc_track ? ' data-recording-track data-group-lesson-id="' . esc_attr( (string) ( $view['group_lesson_id'] ?? 0 ) ) . '"' : '';
+	if ( $bc_track && null !== $bc_watch ) {
+		$bc_trackAttr .= ' data-watch-action="' . esc_attr( (string) $bc_watch['action'] ) . '" data-watch-nonce="' . esc_attr( (string) $bc_watch['nonce'] ) . '"';
+	}
+	?>
+	<div class="gap16 bc-body"<?php echo $bc_trackAttr; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped — атрибуты экранированы выше ?>>
 		<?php if ( ! $bc_after ) : ?>
 			<?php if ( '' !== $stream_url ) : ?>
 				<div class="bc-actions">

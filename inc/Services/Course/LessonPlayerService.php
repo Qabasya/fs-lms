@@ -228,6 +228,9 @@ class LessonPlayerService {
 		// Запись отменена преподавателем: без записи шаг у ученика и так не показывается, преподавателю остаётся «вернуть».
 		$render['recording_skipped'] = $isOver && $groupLesson->recordingSkipped;
 
+		// Generic-шов: модуль VideoLibrary подставляет конфиг heartbeat просмотра (учёт трафика S3).
+		$render['watch'] = apply_filters( 'fs_lms_recording_watch', null, $groupLesson );
+
 		$hasContent = $isOver
 			? ( '' !== $render['video_url'] || '' !== $render['record_link'] )
 			: '' !== $render['stream_url'];

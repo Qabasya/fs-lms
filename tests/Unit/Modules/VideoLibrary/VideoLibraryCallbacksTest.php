@@ -41,7 +41,8 @@ class VideoLibraryCallbacksTest extends TestCase {
 			$this->groupLessons,
 			$this->lessons,
 			$this->alerts,
-			$this->guard
+			$this->guard,
+			$this->createMock( \Inc\Modules\VideoLibrary\Services\VideoAccessLogService::class )
 		);
 	}
 

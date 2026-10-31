@@ -127,4 +127,55 @@ function trackRecordingOpen( box ) {
 	box.querySelectorAll( 'a[href]' ).forEach( ( a ) => a.addEventListener( 'click', send ) );
 	// `play` не всплывает — слушаем на захвате.
 	box.addEventListener( 'play', send, true );
+
+	initWatchHeartbeat( box );
+}
+
+/**
+ * Учёт фактического просмотра записи (трафик S3): накапливаем секунды воспроизведения
+ * и шлём порциями на сервер (журнал доступа модуля VideoLibrary). Конфиг приходит
+ * в разметке (data-watch-*), без него — учёта нет (модуль выключен или запись внешняя).
+ */
+function initWatchHeartbeat( box ) {
+	const action = box.dataset.watchAction;
+	const nonce  = box.dataset.watchNonce;
+	const video  = box.querySelector( 'video' );
+	if ( ! action || ! nonce || ! video ) { return; }
+
+	const FLUSH_AT = 60; // порция — минута просмотра
+	let watched = 0;
+	let lastTs  = null;
+
+	const flush = () => {
+		if ( watched < 1 ) { return; }
+		const seconds = Math.round( watched );
+		watched = 0;
+
+		const body = new URLSearchParams( {
+			action,
+			security:        nonce,
+			group_lesson_id: box.dataset.groupLessonId,
+			seconds,
+		} );
+		// sendBeacon — чтобы дожать остаток при закрытии вкладки; keepalive для fetch.
+		if ( navigator.sendBeacon ) {
+			navigator.sendBeacon( vars.ajax_url, body );
+		} else {
+			fetch( vars.ajax_url, { method: 'POST', body, keepalive: true } ).catch( () => {} );
+		}
+	};
+
+	video.addEventListener( 'timeupdate', () => {
+		if ( video.paused || video.seeking ) { lastTs = video.currentTime; return; }
+		if ( lastTs !== null ) {
+			const delta = video.currentTime - lastTs;
+			// Перемотка назад/вперёд даёт скачок — не считаем её просмотром.
+			if ( delta > 0 && delta < 2 ) { watched += delta; }
+		}
+		lastTs = video.currentTime;
+		if ( watched >= FLUSH_AT ) { flush(); }
+	} );
+	video.addEventListener( 'pause', () => { lastTs = null; flush(); } );
+	video.addEventListener( 'ended', () => { lastTs = null; flush(); } );
+	window.addEventListener( 'pagehide', flush );
 }

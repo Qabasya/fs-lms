@@ -10,6 +10,7 @@ use Inc\Enums\Wp\Menu;
 use Inc\Enums\Wp\Nonce;
 use Inc\Modules\VideoLibrary\Callbacks\VideoLibrarySettingsCallbacks;
 use Inc\Modules\VideoLibrary\Config\VideoLibraryConfig;
+use Inc\Modules\VideoLibrary\Repositories\VideoAccessLogRepository;
 use Inc\Modules\VideoLibrary\Services\RecordingAlertService;
 use Inc\Shared\Traits\Sanitizer;
 
@@ -39,6 +40,7 @@ class VideoLibrarySettingsController extends BaseController {
 		private readonly VideoLibrarySettingsCallbacks $callbacks,
 		private readonly VideoLibraryConfig            $config,
 		private readonly RecordingAlertService         $alerts,
+		private readonly VideoAccessLogRepository      $accessLog,
 	) {
 		parent::__construct();
 	}
@@ -114,8 +116,35 @@ class VideoLibrarySettingsController extends BaseController {
 			return;
 		}
 
-		$config = $this->config;
+		$config           = $this->config;
+		$access_recent    = $this->accessLog->recent( 50 );
+		$access_top       = $this->accessLog->topByWatch( wp_date( 'Y-m-d H:i:s', time() - WEEK_IN_SECONDS, wp_timezone() ) );
+		$access_names     = $this->accessUserNames( $access_recent, $access_top );
 		require $this->path( 'inc/Modules/VideoLibrary/templates/settings-section.php' );
+	}
+
+	/**
+	 * Имена пользователей для строк журнала доступа (одним проходом, без N+1).
+	 *
+	 * @param array<int, array<string, mixed>> $recent
+	 * @param array<int, array<string, mixed>> $top
+	 *
+	 * @return array<int, string> user_id => display name
+	 */
+	private function accessUserNames( array $recent, array $top ): array {
+		$ids = array();
+		foreach ( array_merge( $recent, $top ) as $row ) {
+			$ids[ (int) ( $row['wp_user_id'] ?? 0 ) ] = true;
+		}
+		unset( $ids[0] );
+
+		$names = array();
+		foreach ( array_keys( $ids ) as $id ) {
+			$user        = get_userdata( $id );
+			$names[ $id ] = false !== $user ? ( $user->display_name ?: $user->user_login ) : '';
+		}
+
+		return $names;
 	}
 
 	/**
