@@ -34,18 +34,18 @@ use Inc\Services\Course\LiveLessonService;
 class LearnerContextBuilder {
 
 	public function __construct(
-		private readonly StudentRecordRepository  $records,
-		private readonly GroupsRepository         $groups,
-		private readonly GroupLessonRepository    $groupLessons,
-		private readonly LessonManager            $lessons,
-		private readonly CourseManager            $courses,
-		private readonly SubjectRepository        $subjects,
-		private readonly RoomRepository           $rooms,
-		private readonly ClockInterface           $clock,
+		private readonly StudentRecordRepository $records,
+		private readonly GroupsRepository $groups,
+		private readonly GroupLessonRepository $groupLessons,
+		private readonly LessonManager $lessons,
+		private readonly CourseManager $courses,
+		private readonly SubjectRepository $subjects,
+		private readonly RoomRepository $rooms,
+		private readonly ClockInterface $clock,
 		private readonly EffectiveTeacherResolver $effectiveTeacher,
-		private readonly LessonProgressService    $progress,
-		private readonly LessonGateResolver       $gate,
-		private readonly LiveLessonService        $live,
+		private readonly LessonProgressService $progress,
+		private readonly LessonGateResolver $gate,
+		private readonly LiveLessonService $live,
 	) {}
 
 	/**
@@ -70,14 +70,16 @@ class LearnerContextBuilder {
 		$rawRows      = array(); // T12.2: сырые строки — нужны для per-work дедлайнов.
 		$teacherNames = array(); // кэш id→display_name на всё построение.
 
+		$rowsByGroup = $this->groupLessons->listByGroups( array_keys( $groups ) );
 		foreach ( array_keys( $groups ) as $gid ) {
-			foreach ( $this->groupLessons->listByGroup( $gid ) as $row ) {
-				// Чужие индивидуальные занятия ученику не показываем.
-				if ( $row->kind->isIndividual() && $row->studentPersonId !== $personId ) {
-					continue;
-				}
-
-				$item                  = $this->lessonCard( $row, $groups[ $gid ], $personId, $roomNames, $teacherNames );
+			$groupRows         = $rowsByGroup[ $gid ] ?? array();
+			$groupRows         = array_values( array_filter( $groupRows, static fn( GroupLessonDTO $row ): bool => ! $row->kind->isIndividual() || $row->studentPersonId === $personId ) );
+			$effectiveTeachers = $this->effectiveTeacher->forLessons( $groupRows );
+			$contentRows       = array_values( array_filter( $groupRows, static fn( GroupLessonDTO $row ): bool => ( $row->lessonId ?? 0 ) > 0 ) );
+			$completed         = $this->progress->completedLessons( $personId, $contentRows );
+			$gates             = $this->gate->resolveLessons( $personId, $contentRows );
+			foreach ( $groupRows as $row ) {
+				$item                  = $this->lessonCard( $row, $groups[ $gid ], $personId, $roomNames, $teacherNames, $effectiveTeachers, $completed, $gates );
 				$lessonMap[ $row->id ] = $item;
 				$allLessons[]          = $item;
 				$rawRows[ $row->id ]   = $row;
@@ -110,12 +112,14 @@ class LearnerContextBuilder {
 	private function groupCards( int $personId ): array {
 		$groups = array();
 
-		foreach ( $this->records->findActiveByStudent( $personId ) as $rec ) {
+		$records   = $this->records->findActiveByStudent( $personId );
+		$groupRows = $this->groups->findByIds( array_map( static fn( $record ): int => $record->groupId, $records ) );
+		foreach ( $records as $rec ) {
 			if ( isset( $groups[ $rec->groupId ] ) ) {
 				continue;
 			}
 
-			$g = $this->groups->findById( $rec->groupId );
+			$g = $groupRows[ $rec->groupId ] ?? null;
 			if ( ! $g ) {
 				continue;
 			}
@@ -149,12 +153,12 @@ class LearnerContextBuilder {
 	 *
 	 * @return array<string, mixed>
 	 */
-	private function lessonCard( GroupLessonDTO $row, array $group, int $personId, array $roomNames, array &$teacherNames ): array {
+	private function lessonCard( GroupLessonDTO $row, array $group, int $personId, array $roomNames, array &$teacherNames, array $effectiveTeachers, array $completed, array $gates ): array {
 		$hasContent = null !== $row->lessonId && 0 !== $row->lessonId;
 		// #14: эффективный кабинет занятия = кабинет строки ?? дефолтный кабинет группы.
 		$roomId = ! empty( $row->roomId ) ? (int) $row->roomId : (int) ( $group['room_id'] ?? 0 );
 		// Фактический препод занятия (Эпик 5, D5): разовый override › замена › препод группы.
-		$teacherId = $this->effectiveTeacher->forLesson( $row );
+		$teacherId = array_key_exists( $row->id, $effectiveTeachers ) ? $effectiveTeachers[ $row->id ] : $this->effectiveTeacher->forLesson( $row );
 		if ( $teacherId && ! isset( $teacherNames[ $teacherId ] ) ) {
 			$teacherNames[ $teacherId ] = get_userdata( $teacherId )->display_name ?? '';
 		}
@@ -180,7 +184,7 @@ class LearnerContextBuilder {
 			// Вход в плеер курса (T14.13): урок с контентом получает ссылку
 			// в плеер и статус прохождения (done / available / locked).
 			'player_url'      => $hasContent ? PageRoutes::LessonPlayer->lessonUrl( (int) $group['id'], $row->id ) : '',
-			'status'          => $hasContent ? $this->lessonStatus( $personId, $row ) : '',
+			'status'          => $hasContent ? $this->lessonStatus( $personId, $row, $completed, $gates ) : '',
 			// Идёт прямо сейчас (по расписанию занятия): строка на главной ведёт в урок и в трансляцию группы.
 			'live'            => $isLive,
 			// Для расписания «Сегодня / Неделя / Месяц»: soon — ещё не началось, now — идёт, done — прошло.
@@ -195,11 +199,11 @@ class LearnerContextBuilder {
 	}
 
 	/** Статус занятия для «Мои курсы»: пройден / доступен / закрыт (T14.13). */
-	private function lessonStatus( int $personId, GroupLessonDTO $row ): string {
-		if ( $this->progress->isLessonCompleted( $personId, $row->id ) ) {
+	private function lessonStatus( int $personId, GroupLessonDTO $row, array $completed, array $gates ): string {
+		if ( $completed[ $row->id ] ?? $this->progress->isLessonCompleted( $personId, $row->id ) ) {
 			return 'done';
 		}
 
-		return $this->gate->resolveLesson( $personId, $row )->isAvailable() ? 'available' : 'locked';
+		return ( $gates[ $row->id ] ?? $this->gate->resolveLesson( $personId, $row ) )->isAvailable() ? 'available' : 'locked';
 	}
 }

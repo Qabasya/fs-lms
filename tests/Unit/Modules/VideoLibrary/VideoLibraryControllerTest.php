@@ -23,10 +23,13 @@ class VideoLibraryControllerTest extends TestCase {
 		$this->accessLog = $this->createMock( \Inc\Modules\VideoLibrary\Services\VideoAccessLogService::class );
 		$this->controller = new VideoLibraryController(
 			$this->createMock( VideoLibraryCallbacks::class ),
-			$this->signer,
+			new \Inc\Modules\VideoLibrary\Services\RecordingUrlService(
+				$this->signer,
+				$this->createStub( VideoLibraryConfig::class ),
+				$this->accessLog,
+			),
 			$this->createMock( VideoLibraryConfig::class ),
 			$this->createMock( \Inc\Modules\VideoLibrary\Services\RecordingAlertService::class ),
-			$this->accessLog,
 		);
 	}
 

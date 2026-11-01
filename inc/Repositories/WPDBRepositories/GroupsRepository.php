@@ -374,4 +374,22 @@ class GroupsRepository {
 	public function clearRoomId( int $roomId ): int {
 		return (int) $this->wpdb->update( $this->table, array( 'room_id' => null ), array( 'room_id' => $roomId ) );
 	}
+
+	/**
+	 * Load only the requested groups, keyed by ID.
+	 * @param int[] $ids Group IDs.
+	 * @return array<int, object>
+	 */
+	public function findByIds( array $ids ): array {
+		$result = array();
+		foreach ( array_chunk( array_values( array_unique( $ids ) ), 500 ) as $chunk ) {
+			$placeholders = implode( ',', array_fill( 0, count( $chunk ), '%d' ) );
+			$rows = $this->wpdb->get_results( $this->wpdb->prepare( "SELECT * FROM %i WHERE id IN ($placeholders)", array_merge( array( $this->table ), $chunk ) ) );
+			foreach ( $rows ?: array() as $row ) {
+				$result[ (int) $row->id ] = $row;
+			}
+		}
+		return $result;
+	}
+
 }

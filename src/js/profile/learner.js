@@ -53,7 +53,7 @@ async function screen(root, renderer, title) {
 function rerenderAll() {
     document.querySelectorAll('.prof-screen[data-screen^="student-"], .prof-screen[data-screen^="parent-"]').forEach(sec => {
         const r = RENDERERS[sec.dataset.screen];
-        if (r) screen(sec, r, sec.dataset.screen);
+        if (r && (sec.dataset.mounted || sec.classList.contains('active'))) screen(sec, r, sec.dataset.screen);
     });
 }
 
@@ -489,9 +489,9 @@ function renderAttendance(root, d) {
         ${childBar()}
         <div class="prof-dash-hello"><h1>Посещаемость</h1></div>
         <div class="prof-stat-tiles prof-stat-tiles--learner prof-stat-tiles--attendance">
-            ${homeTile('Посещаемость', a.percent === null ? '—' : a.percent + '%', '#2f9e44', 'check')}
-            ${homeTile('Присутствовал', String(a.present), '#3b5bdb', 'cal')}
-            ${homeTile('Пропущено', String(a.total - a.present), '#e03131', 'alert')}
+            ${homeTile('Посещаемость', a.percent === null ? '—' : a.percent + '%', 'success', 'check')}
+            ${homeTile('Присутствовал', String(a.present), 'primary', 'cal')}
+            ${homeTile('Пропущено', String(a.total - a.present), 'danger', 'alert')}
         </div>
         <div class="prof-card">
             <div class="prof-card-head"><h3>По занятиям</h3></div>

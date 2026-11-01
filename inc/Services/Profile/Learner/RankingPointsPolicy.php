@@ -15,6 +15,11 @@ class RankingPointsPolicy {
 	/** Receives current core ranking settings. */
 	public function __construct( private readonly \Inc\Services\Shared\PluginConfig $config ) {}
 
+	/** One validated snapshot per calculation. */
+	public function settings(): array {
+		return $this->config->rankingSettings();
+	}
+
 	/** Weight of one fully solved task, configured independently of exam grades. */
 	public function forSolvedTask( string $source ): float {
 		return (float) ( $this->config->rankingSettings()[ $source ] ?? 0.0 );

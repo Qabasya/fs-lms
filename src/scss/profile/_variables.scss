@@ -87,3 +87,12 @@ $pin-focus-width: t.rem(2);
   --side-w: #{t.rem(244)};
   --top-h: #{t.rem(60)};
 }
+
+// Геометрия таблицы рейтинга, согласованная с журналом.
+$ranking-page-padding-y: t.rem(22);
+$ranking-page-padding-x: t.rem(26);
+$ranking-mobile-padding-x: t.rem(10);
+$ranking-row-height: t.rem(34);
+$ranking-name-padding: t.rem(24);
+$ranking-result-width: t.rem(64);
+$ranking-mobile-name-width: t.rem(150);

@@ -83,7 +83,7 @@ class DashboardServiceTest extends TestCase {
 		$this->attendance->method( 'matrixForGroup' )->willReturn( array() ); // нет отметок
 		$this->records->method( 'countActiveByGroup' )->willReturn( 6 );
 		$this->lessons->method( 'get' )->willReturn( $this->lesson() );
-		$this->submissions->method( 'listQueueByGroup' )->willReturn( array( (object) array() ) ); // 1 на проверку
+		$this->submissions->method( 'queueCountsByGroups' )->willReturn( array( 1 => 1 ) ); // 1 на проверку
 		$this->groupLessons->method( 'listByGroup' )->willReturn( array(
 			$this->row( 10, '2026-05-20 09:00:00', '2026-05-20 09:45:00' ), // сегодня, прошло → done + to_fill
 			$this->row( 11, '2026-05-10 09:00:00', '2026-05-10 09:45:00' ), // прошлое → to_fill
@@ -111,7 +111,7 @@ class DashboardServiceTest extends TestCase {
 			new \Inc\DTO\Course\SubstitutionDTO( 1, 1, 99, 55, '2026-05-25', '2026-05-31', null, 3, '2026-05-01 00:00:00' ),
 		) );
 		$this->attendance->method( 'matrixForGroup' )->willReturn( array() );
-		$this->submissions->method( 'listQueueByGroup' )->willReturn( array() );
+		$this->submissions->method( 'queueCountsByGroups' )->willReturn( array() );
 		$this->groupLessons->method( 'listByGroup' )->willReturn( array(
 			$this->row( 10, '2026-05-20 09:00:00', '2026-05-20 09:45:00' ),
 			$this->row( 12, '2026-05-26 09:00:00', '2026-05-26 09:45:00' ),
@@ -137,7 +137,7 @@ class DashboardServiceTest extends TestCase {
 		);
 		$this->attendance->method( 'matrixForGroup' )->willReturn( array() );
 		$this->records->method( 'countActiveByGroup' )->willReturn( 6 );
-		$this->submissions->method( 'listQueueByGroup' )->willReturn( array() );
+		$this->submissions->method( 'queueCountsByGroups' )->willReturn( array() );
 		$this->groupLessons->method( 'listByGroup' )->willReturn( array() );
 
 		$d = $this->service->build( 99, false );
@@ -156,7 +156,7 @@ class DashboardServiceTest extends TestCase {
 		$this->substitutions->method( 'findActiveForGroup' )->willReturn( null );
 		$this->attendance->method( 'matrixForGroup' )->willReturn( array() );
 		$this->records->method( 'countActiveByGroup' )->willReturn( 6 );
-		$this->submissions->method( 'listQueueByGroup' )->willReturn( array() );
+		$this->submissions->method( 'queueCountsByGroups' )->willReturn( array() );
 		$this->groupLessons->method( 'listByGroup' )->willReturn( array() );
 
 		$d = $this->service->build( 55, false );
@@ -261,7 +261,7 @@ class DashboardServiceTest extends TestCase {
 		$this->substitutions->method( 'findActiveForGroup' )->willReturn( null );
 		$this->attendance->method( 'matrixForGroup' )->willReturn( array() );
 		$this->lessons->method( 'get' )->willReturn( $this->lesson() );
-		$this->submissions->method( 'listQueueByGroup' )->willReturn( array() );
+		$this->submissions->method( 'queueCountsByGroups' )->willReturn( array() );
 		$this->groupLessons->method( 'listByGroup' )->willReturn( array( $this->row( 10, '2026-05-20 09:00:00', '2026-05-20 09:45:00' ) ) );
 		$this->examSessions->method( 'listForTeacherBetween' )->willReturn( array( $this->examRow(), $this->examRow( array( 'id' => '72' ) ) ) );
 

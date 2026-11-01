@@ -410,6 +410,36 @@ class PassedWorksServiceTest extends TestCase {
 		self::assertNull( $feed['next'] );
 	}
 
+	public function test_submission_pages_do_not_skip_unrendered_pairs(): void {
+		$pairs = array();
+		for ( $id = 20; $id >= 1; --$id ) {
+			$pairs[] = array( 'group_lesson_id' => $id, 'work_id' => $id, 'latest_at' => sprintf( '2026-10-%02d 12:00:00', $id ) );
+		}
+		$this->submissions->method( 'listWorkLatestPage' )->willReturnCallback(
+			static fn( $groups, $now, $at ) => array_values( array_filter( $pairs, static fn( $pair ) => null === $at || $pair['latest_at'] < $at ) )
+		);
+		$this->groupLessons->method( 'find' )->willReturnCallback( fn( $id ) => $this->row( $id ) );
+		$this->deadlines->method( 'assignedWorks' )->willReturnCallback( fn( $row ) => array( $this->work( $row->id ) ) );
+		$this->submissionsByRow( array() );
+		$first = $this->service->feed( 7, false, 0, '', '', '', PassedWorksService::SORT_SUBMISSIONS );
+		$second = $this->service->feed( 7, false, 0, '', '', $first['next'], PassedWorksService::SORT_SUBMISSIONS );
+		self::assertSame( range( 20, 1 ), array_column( array_merge( $first['items'], $second['items'] ), 'work_id' ) );
+		self::assertNull( $second['next'] );
+	}
+
+	public function test_submission_order_is_per_work_across_lessons(): void {
+		$this->submissions->method( 'listWorkLatestPage' )->willReturn( array(
+			array( 'group_lesson_id' => 5, 'work_id' => 3, 'latest_at' => '2026-10-19 12:00:00' ),
+			array( 'group_lesson_id' => 6, 'work_id' => 5, 'latest_at' => '2026-10-19 11:00:00' ),
+			array( 'group_lesson_id' => 5, 'work_id' => 4, 'latest_at' => '2026-10-19 10:00:00' ),
+		) );
+		$this->groupLessons->method( 'find' )->willReturnCallback( fn( $id ) => $this->row( $id ) );
+		$this->deadlines->method( 'assignedWorks' )->willReturnCallback( fn( $row ) => 5 === $row->id ? array( $this->work( 3 ), $this->work( 4 ) ) : array( $this->work( 5 ) ) );
+		$this->submissionsByRow( array() );
+		$feed = $this->service->feed( 7, false, 0, '', '', '', PassedWorksService::SORT_SUBMISSIONS );
+		self::assertSame( array( 3, 5, 4 ), array_column( $feed['items'], 'work_id' ) );
+	}
+
 	public function test_feed_submissions_keeps_only_works_with_submissions(): void {
 		$this->submissions->method( 'listWorkLatestPage' )->willReturn( array(
 			array( 'group_lesson_id' => 5, 'work_id' => 3, 'latest_at' => '2026-10-19 12:00:00' ),
@@ -481,7 +511,7 @@ class PassedWorksServiceTest extends TestCase {
 		$feed = $this->service->feed( 7, false, 0, '', '', '', PassedWorksService::SORT_SUBMISSIONS );
 
 		self::assertCount( PassedWorksService::PAGE_SIZE, $feed['items'] );
-		self::assertSame( '2026-10-11 12:00:00|11|11', $feed['next'], 'продолжение — после последней просмотренной пары' );
+		self::assertSame( '2026-10-10 12:00:00|10|10', $feed['next'], 'продолжение — после последней просмотренной пары' );
 	}
 
 	public function test_feed_submissions_uses_latest_submission_as_date_when_lesson_has_no_time(): void {
@@ -563,5 +593,28 @@ class PassedWorksServiceTest extends TestCase {
 		$this->submissionService->expects( $this->never() )->method( 'creditWork' );
 
 		self::assertNull( $this->service->credit( 5, 3, array(), 7, false ) );
+	}
+
+	public function test_submission_pagination_with_equal_dates_and_sparse_filter_scans_all_chunks(): void {
+		$pairs = array();
+		for ( $id = 125; $id >= 1; --$id ) {
+			$pairs[] = array( 'group_lesson_id' => $id, 'work_id' => $id, 'latest_at' => '2026-10-19 12:00:00' );
+		}
+		$this->submissions->method( 'listWorkLatestPage' )->willReturnCallback(
+			static fn( $groups, $now, $at, $gl, $work, $limit ): array => array_slice( array_values( array_filter( $pairs, static fn( $pair ): bool => null === $at || $pair['group_lesson_id'] < $gl ) ), 0, $limit )
+		);
+		$this->groupLessons->method( 'find' )->willReturnCallback( fn( $id ) => $this->row( $id ) );
+		$this->deadlines->method( 'assignedWorks' )->willReturnCallback( fn( $row ) => array( $this->work( $row->id, 0 === $row->id % 7 ? WorkType::Homework : WorkType::Practice ) ) );
+		$this->submissionsByRow( array() );
+		$ids = array();
+		$cursor = '';
+		for ( $page = 0; $page < 20; ++$page ) {
+			$feed = $this->service->feed( 7, false, 0, 'homework', '', $cursor, PassedWorksService::SORT_SUBMISSIONS );
+			$ids = array_merge( $ids, array_column( $feed['items'], 'work_id' ) );
+			if ( null === $feed['next'] ) { break; }
+			self::assertNotSame( $cursor, $feed['next'] );
+			$cursor = $feed['next'];
+		}
+		self::assertSame( range( 119, 7, -7 ), $ids );
 	}
 }

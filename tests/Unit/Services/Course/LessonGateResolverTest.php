@@ -187,4 +187,17 @@ class LessonGateResolverTest extends TestCase {
 
 		self::assertSame( GateState::Available, $this->resolver->resolveStep( 9, $this->groupLesson(), 's_b' ) );
 	}
+
+	public function test_batch_gates_share_access_lookup_and_keep_date_restriction(): void {
+		$rows = array();
+		for ( $id = 1; $id <= 100; ++$id ) {
+			$rows[] = GroupLessonDTO::fromArray( array( 'id' => $id, 'group_id' => 1, 'position' => 0, 'scheduled_at' => 100 === $id ? '2025-01-01 00:00:00' : null ) );
+		}
+		$this->access->expects( $this->once() )->method( 'readabilityForLessons' )->with( 9, $rows )->willReturn( array_fill_keys( range( 1, 100 ), true ) );
+		$this->access->expects( $this->never() )->method( 'canRead' );
+		$expected = array_fill_keys( range( 1, 100 ), GateState::Available );
+		$expected[100] = GateState::Locked;
+		self::assertSame( $expected, $this->resolver->resolveLessons( 9, $rows ) );
+	}
+
 }

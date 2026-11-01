@@ -21,11 +21,11 @@ class LessonAccessPolicy {
 	private array $openModeCache = array();
 
 	public function __construct(
-		private readonly StudentRecordRepository   $studentRecords,
-		private readonly GroupLessonRepository     $groupLessons,
+		private readonly StudentRecordRepository $studentRecords,
+		private readonly GroupLessonRepository $groupLessons,
 		private readonly ExpulsionPolicyRepository $expulsionPolicy,
-		private readonly LessonVisibilityService   $visibility,
-		private readonly GroupsRepository          $groups,
+		private readonly LessonVisibilityService $visibility,
+		private readonly GroupsRepository $groups,
 	) {}
 
 	/**
@@ -86,6 +86,30 @@ class LessonAccessPolicy {
 			}
 		}
 		return false;
+	}
+
+	/**
+	 * Read access for loaded rows; enrollment history is read once per group.
+	 *
+	 * @param GroupLessonDTO[] $lessons Program rows.
+	 * @return array<int, bool>
+	 */
+	public function readabilityForLessons( int $studentPersonId, array $lessons ): array {
+		$records = array();
+		$result  = array();
+		foreach ( $lessons as $lesson ) {
+			if ( ! array_key_exists( $lesson->groupId, $records ) ) {
+				$records[ $lesson->groupId ] = $this->studentRecords->findAllByStudentAndGroup( $studentPersonId, $lesson->groupId );
+			}
+			$result[ $lesson->id ] = false;
+			foreach ( $records[ $lesson->groupId ] as $record ) {
+				if ( $this->resolve( $record, $lesson ) !== AccessLevel::None ) {
+					$result[ $lesson->id ] = true;
+					break;
+				}
+			}
+		}
+		return $result;
 	}
 
 	/** Может ли ученик сдавать работы урока. */

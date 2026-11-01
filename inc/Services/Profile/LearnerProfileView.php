@@ -21,6 +21,10 @@ use Inc\Enums\Profile\LearnerScreen;
 final class LearnerProfileView implements ProfileViewInterface {
 
 	public function build( ProfileContext $context ): array {
+		return $this->navigation( $context );
+	}
+
+	public function navigation( ProfileContext $context ): array {
 		// Ключи экранов с префиксом роли: student-* / parent-* (виден в адресе кабинета).
 		$forParent = UserRole::FSParent === $context->role;
 

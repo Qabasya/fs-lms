@@ -10,7 +10,7 @@ use Inc\Enums\Wp\Menu;
 use Inc\Enums\Wp\Nonce;
 use Inc\Modules\VideoLibrary\Callbacks\VideoLibrarySettingsCallbacks;
 use Inc\Modules\VideoLibrary\Config\VideoLibraryConfig;
-use Inc\Modules\VideoLibrary\Repositories\VideoAccessLogRepository;
+use Inc\Modules\VideoLibrary\Services\VideoAccessLogPageService;
 use Inc\Modules\VideoLibrary\Services\RecordingAlertService;
 use Inc\Shared\Traits\Sanitizer;
 
@@ -40,7 +40,7 @@ class VideoLibrarySettingsController extends BaseController {
 		private readonly VideoLibrarySettingsCallbacks $callbacks,
 		private readonly VideoLibraryConfig            $config,
 		private readonly RecordingAlertService         $alerts,
-		private readonly VideoAccessLogRepository      $accessLog,
+		private readonly VideoAccessLogPageService     $accessLog,
 	) {
 		parent::__construct();
 	}
@@ -48,6 +48,7 @@ class VideoLibrarySettingsController extends BaseController {
 	public function register(): void {
 		add_action( 'wp_ajax_' . self::SAVE_ACTION, array( $this->callbacks, 'ajaxSaveSettings' ) );
 		add_action( 'wp_ajax_' . self::EXPORT_GROUPS_ACTION, array( $this->callbacks, 'ajaxExportGroups' ) );
+		add_filter( 'fs_lms_log_tabs', array( $this, 'registerLogTab' ) );
 		add_filter( 'fs_lms_settings_tabs', array( $this, 'registerSettingsTab' ) );
 		add_action( 'fs_lms_s3_settings', array( $this, 'renderSection' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueueAssets' ) );
@@ -116,35 +117,20 @@ class VideoLibrarySettingsController extends BaseController {
 			return;
 		}
 
-		$config           = $this->config;
-		$access_recent    = $this->accessLog->recent( 50 );
-		$access_top       = $this->accessLog->topByWatch( wp_date( 'Y-m-d H:i:s', time() - WEEK_IN_SECONDS, wp_timezone() ) );
-		$access_names     = $this->accessUserNames( $access_recent, $access_top );
+		$config = $this->config;
 		require $this->path( 'inc/Modules/VideoLibrary/templates/settings-section.php' );
 	}
 
-	/**
-	 * Имена пользователей для строк журнала доступа (одним проходом, без N+1).
-	 *
-	 * @param array<int, array<string, mixed>> $recent
-	 * @param array<int, array<string, mixed>> $top
-	 *
-	 * @return array<int, string> user_id => display name
-	 */
-	private function accessUserNames( array $recent, array $top ): array {
-		$ids = array();
-		foreach ( array_merge( $recent, $top ) as $row ) {
-			$ids[ (int) ( $row['wp_user_id'] ?? 0 ) ] = true;
+	/** Registers a module-owned log page without introducing a core channel dependency. */
+	public function registerLogTab( array $tabs ): array {
+		if ( $this->config->isEnabled() ) {
+			$tabs[ VideoAccessLogPageService::TAB ] = array(
+				'label' => 'Доступ к видео',
+				'path' => $this->path( 'inc/Modules/VideoLibrary/templates/access-log.php' ),
+				'load' => $this->accessLog->build( ... ),
+			);
 		}
-		unset( $ids[0] );
-
-		$names = array();
-		foreach ( array_keys( $ids ) as $id ) {
-			$user        = get_userdata( $id );
-			$names[ $id ] = false !== $user ? ( $user->display_name ?: $user->user_login ) : '';
-		}
-
-		return $names;
+		return $tabs;
 	}
 
 	/**

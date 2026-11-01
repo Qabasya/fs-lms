@@ -924,4 +924,26 @@ class GroupLessonRepository {
 		);
 		return array_map( [ GroupLessonDTO::class, 'fromArray' ], $rows ?: array() );
 	}
+
+	/**
+	 * Program rows for the authorized groups, preserving position within each group.
+	 * @param int[] $groupIds Group IDs.
+	 * @return array<int, GroupLessonDTO[]>
+	 */
+	public function listByGroups( array $groupIds ): array {
+		$result = array();
+		foreach ( array_chunk( array_values( array_unique( $groupIds ) ), 500 ) as $ids ) {
+			$placeholders = implode( ',', array_fill( 0, count( $ids ), '%d' ) );
+			$rows = $this->wpdb->get_results( $this->wpdb->prepare(
+				'SELECT gl.*, ' . self::HAS_ATTENDANCE . " FROM %i gl WHERE gl.group_id IN ($placeholders) ORDER BY gl.group_id ASC, gl.position ASC",
+				array_merge( array( TableName::Attendance->prefixed(), $this->table ), $ids )
+			), ARRAY_A );
+			foreach ( $rows ?: array() as $row ) {
+				$dto = GroupLessonDTO::fromArray( $row );
+				$result[ $dto->groupId ][] = $dto;
+			}
+		}
+		return $result;
+	}
+
 }

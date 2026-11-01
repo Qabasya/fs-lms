@@ -12,7 +12,7 @@ use Inc\Repositories\WPDBRepositories\LearnerRankingRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 use Inc\Services\Profile\RankingAccessService;
 use Inc\Services\Profile\SubjectRankingService;
-use Inc\Services\Profile\Learner\LearnerRankingSection;
+use Inc\Services\Profile\RankingCalculationService;
 use Inc\Services\Profile\Learner\RankingPointsPolicy;
 use Inc\Services\Shared\PluginConfig;
 use PHPUnit\Framework\TestCase;
@@ -27,7 +27,7 @@ class SubjectRankingServiceTest extends TestCase {
 	private function access(): RankingAccessService {
 		$groups=$this->createStub(GroupsRepository::class);
 		$groups->method('findByTeacherId')->willReturn([(object)['subject_key'=>'inf_ege']]);
-		$groups->method('findById')->willReturn((object)['subject_key'=>'inf_ege']);
+		$groups->method('findByIds')->willReturn([11 => (object)['subject_key'=>'inf_ege']]);
 		$subjects=$this->createStub(SubjectRepository::class);
 		$subjects->method('readActive')->willReturn([(object)['key'=>'inf_ege','name'=>'Информатика'],(object)['key'=>'python','name'=>'Python']]);
 		$records=$this->createStub(StudentRecordRepository::class);
@@ -51,7 +51,7 @@ class SubjectRankingServiceTest extends TestCase {
 		$repo->method('roster')->willReturn($roster);
 		$config=$this->createStub(PluginConfig::class);
 		$config->method('rankingSettings')->willReturn(['homework'=>1.0,'attendance_bonus'=>0.0]);
-		$ranking=new LearnerRankingSection($repo,new RankingPointsPolicy($config));
+		$ranking=new RankingCalculationService($repo,new RankingPointsPolicy($config));
 		$clock=$this->createStub(ClockInterface::class);
 		$clock->method('now')->willReturn($now);
 		return new SubjectRankingService($this->access(),$repo,$ranking,$clock);
@@ -104,7 +104,7 @@ class SubjectRankingServiceTest extends TestCase {
 		$config->method('rankingSettings')->willReturn(['homework'=>1.0,'attendance_bonus'=>0.0]);
 		$clock=$this->createStub(ClockInterface::class);
 		$clock->method('now')->willReturn('2026-10-31 12:00:00');
-		$service=new SubjectRankingService($this->access(),$repo,new LearnerRankingSection($repo,new RankingPointsPolicy($config)),$clock);
+		$service=new SubjectRankingService($this->access(),$repo,new RankingCalculationService($repo,new RankingPointsPolicy($config)),$clock);
 
 		$all=$service->build(7,'inf_ege');
 		self::assertSame([1,2,3],array_column($all['rows'],'rank'),'все группы — общие места направления (эталон)');

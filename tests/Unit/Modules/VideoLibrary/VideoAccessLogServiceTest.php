@@ -19,13 +19,15 @@ class VideoAccessLogServiceTest extends TestCase {
 	private VideoAccessLogRepository&\PHPUnit\Framework\MockObject\MockObject $log;
 	private GroupLessonRepository $groupLessons;
 	private VideoAccessLogService $service;
+	private \Inc\Modules\VideoLibrary\Services\VideoWatchAccessService $access;
 
 	protected function setUp(): void {
 		parent::setUp();
 		$GLOBALS['_fs_test_user_id'] = 77;
 		$this->log          = $this->createMock( VideoAccessLogRepository::class );
 		$this->groupLessons = $this->createStub( GroupLessonRepository::class );
-		$this->service      = new VideoAccessLogService( $this->log, $this->groupLessons );
+		$this->access = $this->createMock( \Inc\Modules\VideoLibrary\Services\VideoWatchAccessService::class );
+		$this->service      = new VideoAccessLogService( $this->log, $this->groupLessons, $this->access );
 	}
 
 	protected function tearDown(): void {
@@ -58,6 +60,7 @@ class VideoAccessLogServiceTest extends TestCase {
 	}
 
 	public function test_watch_uses_s3_key_from_lesson(): void {
+		$this->access->method( 'canWatch' )->willReturn( true );
 		$this->groupLessons->method( 'find' )->with( 42 )
 			->willReturn( $this->lesson( 's3://bucket/videos/rec.webm' ) );
 		$this->log->expects( self::once() )
@@ -76,6 +79,7 @@ class VideoAccessLogServiceTest extends TestCase {
 	}
 
 	public function test_watch_portion_is_capped(): void {
+		$this->access->method( 'canWatch' )->willReturn( true );
 		$this->groupLessons->method( 'find' )
 			->willReturn( $this->lesson( 's3://bucket/videos/rec.webm' ) );
 		$this->log->expects( self::once() )
@@ -83,5 +87,12 @@ class VideoAccessLogServiceTest extends TestCase {
 			->with( 77, self::anything(), 42, 'bucket', 'videos/rec.webm', self::anything(), 0, 3600 );
 
 		$this->service->logWatch( 42, 999999 );
+	}
+
+	public function test_denied_lesson_never_writes_telemetry(): void {
+		$this->groupLessons->method( 'find' )->willReturn( $this->lesson( 's3://bucket/private.webm' ) );
+		$this->access->expects( self::once() )->method( 'canWatch' )->with( 77, self::anything() )->willReturn( false );
+		$this->log->expects( self::never() )->method( 'touch' );
+		$this->service->logWatch( 42, 120 );
 	}
 }

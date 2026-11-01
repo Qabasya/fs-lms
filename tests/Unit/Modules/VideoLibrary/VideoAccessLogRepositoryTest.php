@@ -81,4 +81,35 @@ class VideoAccessLogRepositoryTest extends TestCase {
 		self::assertSame( 3600, $top[0]['watch_seconds'] );
 		self::assertStringContainsString( 'GROUP BY wp_user_id, s3_key', $this->db->lastQuery() );
 	}
+	public function test_page_is_bounded_and_rejects_sort_injection(): void {
+		$this->db->queueVar( 120 );
+		$this->db->queueResults( array( array( 'id' => 101 ) ) );
+		$result = $this->repo->page( array( 'wp_user_id' => 7, 'group_lesson_id' => 42, 'date_from' => '2026-11-01' ), 2, 50, 'id; DROP TABLE users', 'invalid' );
+		self::assertSame( 120, $result['total'] );
+		self::assertSame( 2, $result['page'] );
+		self::assertStringContainsString( 'wp_user_id = 7', $this->db->lastQuery() );
+		self::assertStringContainsString( 'group_lesson_id = 42', $this->db->lastQuery() );
+		self::assertStringContainsString( 'ORDER BY id DESC', $this->db->lastQuery() );
+		self::assertStringContainsString( 'LIMIT 50 OFFSET 50', $this->db->lastQuery() );
+		self::assertStringNotContainsString( 'DROP', $this->db->lastQuery() );
+	}
+
+	public function test_empty_page_does_not_request_unbounded_history(): void {
+		$this->db->queueVar( 0 );
+		$this->db->queueResults( array() );
+		$result = $this->repo->page( array(), 999, 10000, 'last_at', 'ASC' );
+		self::assertSame( 1, $result['page'] );
+		self::assertSame( 100, $result['per_page'] );
+		self::assertSame( array(), $result['rows'] );
+		self::assertStringContainsString( 'LIMIT 100 OFFSET 0', $this->db->lastQuery() );
+	}
+
+
+	public function test_summary_uses_the_same_filters_as_the_page(): void {
+		$this->db->queueRow( array( 'users' => '2', 'requests' => '4', 'seconds' => '60' ) );
+		self::assertSame( array( 'users' => 2, 'requests' => 4, 'seconds' => 60 ), $this->repo->summary( array( 'wp_user_id' => 7, 'date_to' => '2026-11-01', 'recording' => 'a.webm' ) ) );
+		self::assertStringContainsString( 'wp_user_id = 7', $this->db->lastQuery() );
+		self::assertStringContainsString( "last_at <= '2026-11-01 23:59:59'", $this->db->lastQuery() );
+		self::assertStringContainsString( "s3_key LIKE '%a.webm%'", $this->db->lastQuery() );
+	}
 }

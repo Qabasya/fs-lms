@@ -537,4 +537,13 @@ class GroupLessonRepositoryTest extends TestCase {
 		self::assertStringContainsString( "status = 'scheduled'", $this->wpdb->lastQuery() );
 	}
 
+
+	public function test_batch_programs_keep_group_scope_and_attendance_fact(): void {
+		$this->wpdb->queueResults( array( array( 'id' => 3, 'group_id' => 11, 'position' => 0, 'has_attendance' => 1 ), array( 'id' => 4, 'group_id' => 12, 'position' => 0 ) ) );
+		$result = $this->repo->listByGroups( array( 11, 12 ) );
+		self::assertSame( array( 11, 12 ), array_keys( $result ) );
+		self::assertTrue( $result[11][0]->hasAttendance );
+		self::assertStringContainsString( 'gl.group_id IN (11,12)', $this->wpdb->lastQuery() );
+		self::assertStringContainsString( 'ORDER BY gl.group_id ASC, gl.position ASC', $this->wpdb->lastQuery() );
+	}
 }

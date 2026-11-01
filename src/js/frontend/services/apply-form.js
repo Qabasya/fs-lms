@@ -177,6 +177,8 @@ function showOtpStep( maskedEmail ) {
 
 function showSuccess( notice ) {
     _tracker.succeeded();
+    document.getElementById( 'apply-form' ).classList.remove( 'fs-apply-card__step--active' );
+    document.getElementById( 'otp-step' ).classList.add( 'fs-apply-card__step--active' );
     document.querySelector( '.js-otp-input-block' ).hidden  = true;
     document.querySelector( '.js-otp-success-block' ).hidden = false;
     scrollToTop();
@@ -456,12 +458,8 @@ function bindFormBehaviors() {
 
         _formData = data;
 
-        // Доверенная сеть (офис): сервер не просит код — заявка создаётся сразу,
-        // экран успеха живёт в otp-step, поэтому переключаем этап без ожидания ввода.
+        // До успешного создания остаёмся на форме: здесь видны ошибки и доступен повтор.
         if ( res.data?.otp_required === false ) {
-            document.getElementById( 'apply-form' ).classList.remove( 'fs-apply-card__step--active' );
-            document.getElementById( 'otp-step' ).classList.add( 'fs-apply-card__step--active' );
-            scrollToTop();
             await submitApplication( '', btn, applyForm );
             return;
         }

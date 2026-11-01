@@ -35,7 +35,7 @@ class LearnerRankingSectionTest extends TestCase {
 
 	#[DataProvider('periods')]
 	public function test_period_boundaries(string $now, string $from, string $until): void {
-		$section = new LearnerRankingSection($this->createStub(LearnerRankingRepository::class), $this->points());
+		$section = new LearnerRankingSection( new \Inc\Services\Profile\RankingCalculationService($this->createStub(LearnerRankingRepository::class), $this->points()) );
 		self::assertSame($from, $section->period($now)['from']);
 		self::assertSame($until, $section->period($now)['until']);
 	}
@@ -43,7 +43,7 @@ class LearnerRankingSectionTest extends TestCase {
 	public function test_summer_computes_ranking_for_the_summer_period(): void {
 		$repo = $this->createMock(LearnerRankingRepository::class);
 		$repo->expects(self::exactly(3))->method('studentIds')->with('python')->willReturn([1]);
-		$section = new LearnerRankingSection($repo, $this->points());
+		$section = new LearnerRankingSection( new \Inc\Services\Profile\RankingCalculationService($repo, $this->points()) );
 		foreach (['2027-06-01', '2027-07-20', '2027-08-31'] as $day) {
 			$items = $section->forGroups(1, [['subject_key' => 'python']], $day);
 			self::assertCount(1, $items, "рейтинг считается летом ($day)");
@@ -52,7 +52,7 @@ class LearnerRankingSectionTest extends TestCase {
 	}
 
 	public function test_periods_for_offers_only_current_academic_year_started_periods(): void {
-		$section = new LearnerRankingSection($this->createStub(LearnerRankingRepository::class), $this->points());
+		$section = new LearnerRankingSection( new \Inc\Services\Profile\RankingCalculationService($this->createStub(LearnerRankingRepository::class), $this->points()) );
 
 		$october = $section->periodsFor('2026-10-31 12:00:00');
 		self::assertSame('Сентябрь — ноябрь 2026', $october[0]['label'], 'новые периоды первыми');
@@ -77,7 +77,7 @@ class LearnerRankingSectionTest extends TestCase {
 		$repo->method('studentIds')->willReturn([1]);
 		$repo->expects(self::once())->method('workEvents')->with('python', '2026-03-01 00:00:00', '2026-06-01 00:00:00')->willReturn([]);
 		$repo->expects(self::once())->method('assessmentEvents')->with('python', '2026-03-01 00:00:00', '2026-06-01 00:00:00')->willReturn([]);
-		$section = new LearnerRankingSection($repo, $this->points());
+		$section = new LearnerRankingSection( new \Inc\Services\Profile\RankingCalculationService($repo, $this->points()) );
 
 		$scores = $section->scoresForSubject('python', '2026-10-31 12:00:00', array(
 			'from'  => '2026-03-01 00:00:00',
@@ -104,7 +104,7 @@ class LearnerRankingSectionTest extends TestCase {
 		$work[] = ['student_person_id' => 99, 'source' => 'homework'];
 		$repo->method('workEvents')->willReturn($work);
 		$repo->method('assessmentEvents')->willReturn(array_map(static fn(int $id): array => ['student_person_id' => $id, 'source' => 'assessment'], [1,2,3]));
-		$section = new LearnerRankingSection($repo, $this->points());
+		$section = new LearnerRankingSection( new \Inc\Services\Profile\RankingCalculationService($repo, $this->points()) );
 		$groups = [['subject_key' => 'python', 'subject' => 'Python'], ['subject_key' => 'python']];
 		$result = $section->forGroups(3, $groups, '2026-10-31');
 		self::assertCount(1, $result);
@@ -116,7 +116,7 @@ class LearnerRankingSectionTest extends TestCase {
 		$repo = $this->createStub(LearnerRankingRepository::class);
 		$repo->method('studentIds')->willReturn([1, 2]);
 		$repo->method('workEvents')->willReturnCallback(static fn(string $subject): array => 'robo' === $subject ? [['student_person_id' => 2, 'source' => 'survey']] : []);
-		$section = new LearnerRankingSection($repo, $this->points());
+		$section = new LearnerRankingSection( new \Inc\Services\Profile\RankingCalculationService($repo, $this->points()) );
 		$result = $section->forGroups(1, [['subject_key' => 'python'], ['subject_key' => 'robo']], '2026-10-31');
 		self::assertSame([1, 2], array_column($result, 'rank'));
 		self::assertSame([0.0, 0.0], array_column($result, 'score'));
@@ -129,7 +129,7 @@ class LearnerRankingSectionTest extends TestCase {
 			['student_person_id'=>1,'source'=>'homework'],
 			['student_person_id'=>2,'source'=>'survey'],
 		]);
-		$section = new LearnerRankingSection($repo, $this->points(['practice'=>0.1,'homework'=>0.2,'survey'=>0.3]));
+		$section = new LearnerRankingSection( new \Inc\Services\Profile\RankingCalculationService($repo, $this->points(['practice'=>0.1,'homework'=>0.2,'survey'=>0.3])) );
 		foreach ([1,2] as $student) {
 			$result = $section->forGroups($student, [['subject_key'=>'python']], '2026-10-31');
 			self::assertSame(0.3, $result[0]['score']);
@@ -148,7 +148,7 @@ class LearnerRankingSectionTest extends TestCase {
 			$events[] = $event; // Duplicate enrollment rows never count as another lesson.
 		}
 		$repo->expects(self::once())->method('attendanceEvents')->with('python','2026-09-01 00:00:00','2026-12-01 00:00:00','2026-10-31')->willReturn($events);
-		$section = new LearnerRankingSection($repo, $this->points(['attendance_bonus'=>0.25]));
+		$section = new LearnerRankingSection( new \Inc\Services\Profile\RankingCalculationService($repo, $this->points(['attendance_bonus'=>0.25])) );
 		$result = $section->forGroups(1, [['subject_key'=>'python']], '2026-10-31');
 		self::assertSame(0.75,$result[0]['score']);
 	}
@@ -157,7 +157,7 @@ class LearnerRankingSectionTest extends TestCase {
 		$repo=$this->createMock(LearnerRankingRepository::class);
 		$repo->method('studentIds')->willReturn([1]);
 		$repo->expects(self::never())->method('attendanceEvents');
-		$section=new LearnerRankingSection($repo,$this->points());
+		$section=new LearnerRankingSection( new \Inc\Services\Profile\RankingCalculationService($repo,$this->points()) );
 		self::assertSame(0.0,$section->forGroups(1,[['subject_key'=>'python']],'2026-10-31')[0]['score']);
 	}
 
@@ -172,7 +172,7 @@ class LearnerRankingSectionTest extends TestCase {
 		]);
 		// Exam event stays one solved task even if its formal primary score was larger.
 		$repo->method('assessmentEvents')->willReturn([['student_person_id'=>1,'source'=>'assessment']]);
-		$section=new LearnerRankingSection($repo,$this->points(['homework'=>0.5,'assessment'=>1.0]));
+		$section=new LearnerRankingSection( new \Inc\Services\Profile\RankingCalculationService($repo,$this->points(['homework'=>0.5,'assessment'=>1.0])) );
 		$result=$section->forGroups(1,[['subject_key'=>'python']],'2026-10-31');
 		self::assertSame(5.0,$result[0]['score']);
 		self::assertSame(1,$result[0]['rank']);

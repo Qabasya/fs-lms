@@ -28,5 +28,8 @@ interface ProfileViewInterface {
 	 *         nav     — пункты сайдбара (ключ экрана + подпись);
 	 *         screens — ключи экранов, монтируемых на сцену (в порядке отображения).
 	 */
+	/** Navigation without assembling screen data. */
+	public function navigation( ProfileContext $context ): array;
+
 	public function build( ProfileContext $context ): array;
 }

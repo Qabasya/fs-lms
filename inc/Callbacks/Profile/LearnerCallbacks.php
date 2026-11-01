@@ -83,7 +83,7 @@ class LearnerCallbacks extends BaseController {
 		}
 
 		$view = $this->resolver->viewFor( $ctx->role );
-		$built = null !== $view ? $view->build( $ctx ) : array();
+		$built = null !== $view ? $view->navigation( $ctx ) : array();
 		$menuKeys = null !== $view ? array_column( array_merge( $built['nav'] ?? array(), $built['examNav'] ?? array() ), 'key' ) : null;
 		$this->success( array( 'layout' => $this->layouts->save( get_current_user_id(), $layout, $ctx->role, $menuKeys ) ) );
 	}

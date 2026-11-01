@@ -174,4 +174,12 @@ class AssessmentAttemptRepositoryTest extends TestCase {
 
 		self::assertStringNotContainsString( 'exam_participation_id', $this->wpdb->lastQuery() );
 	}
+
+	public function test_passed_assessment_batch_is_student_scoped(): void {
+		$this->wpdb->queueCol( array( 30 ) );
+		self::assertSame( array( 30 => true ), $this->repo->passedAssessmentIds( 9, array( 30 ) ) );
+		self::assertStringContainsString( 'student_person_id = 9', $this->wpdb->lastQuery() );
+		self::assertStringContainsString( "status IN ('submitted', 'graded')", $this->wpdb->lastQuery() );
+	}
+
 }

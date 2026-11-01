@@ -80,16 +80,18 @@ class DashboardService {
 		$todayGroupIds   = array();
 		$todayIndividual = 0;
 
+		$queueCounts = $this->submissions->queueCountsByGroups( array_keys( $groups ) );
 		foreach ( $groups as $gid => $g ) {
 			$isCovering = isset( $covering[ $gid ] );
 
 			$coveredUntil = $this->coveredUntil( $gid, $today, $userId, $isCovering );
 			$matrix       = $this->attendance->matrixForGroup( $gid );
-			$activeCount  = $this->records->countActiveByGroup( $gid );
+			$activeRecords = $this->records->findActiveByGroupId( $gid );
+			$activeCount = count( $activeRecords );
 
 			// НБ-9: ФИО учеников группы — для подписи индивидуальных занятий в расписании.
 			$studentNames = array();
-			foreach ( $this->records->findActiveByGroupId( $gid ) as $rec ) {
+			foreach ( $activeRecords as $rec ) {
 				$studentNames[ $rec->studentPersonId ] = trim( $rec->snapshotLastName . ' ' . $rec->snapshotFirstName );
 			}
 
@@ -135,7 +137,7 @@ class DashboardService {
 			}
 
 			// «Проверить»: очередь сдач группы.
-			$queue = count( $this->submissions->listQueueByGroup( $gid ) );
+			$queue = ( $queueCounts[ $gid ] ?? 0 );
 			if ( $queue > 0 ) {
 				$toReview[]   = array( 'group_id' => $gid, 'group_name' => $g->name, 'count' => $queue );
 				$reviewTotal += $queue;

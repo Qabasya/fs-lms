@@ -110,14 +110,7 @@ class WorkManager {
 		$meta       = $this->posts->getMeta( $workId, PostMetaName::Meta->value );
 		$meta       = is_array( $meta ) ? $meta : array();
 		$points     = $taskPoints ?? ( is_array( $meta['task_points'] ?? null ) ? $meta['task_points'] : array() );
-		$normalized = array();
-		foreach ( $ids as $id ) {
-			$value = array_key_exists( $id, $points ) ? $points[ $id ] : 1;
-			if ( ( ! is_int( $value ) && ! is_float( $value ) && ! is_string( $value ) ) || ! preg_match( '/^[0-9]+$/', (string) $value ) || (int) $value < 1 || (int) $value > 999 ) {
-				throw new \InvalidArgumentException( 'Баллы за задачу должны быть целым числом от 1 до 999.' );
-			}
-			$normalized[ $id ] = (int) $value;
-		}
+		$normalized = WorkDTO::normalizePoints( $ids, $points, true );
 		$this->assertTotalPoints( $normalized );
 		$meta['item_ids']    = $ids;
 		$meta['task_points'] = $normalized;

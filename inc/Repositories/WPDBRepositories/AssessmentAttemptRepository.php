@@ -435,4 +435,20 @@ class AssessmentAttemptRepository {
 		);
 		return array_map( 'intval', $ids ?: array() );
 	}
+	/** Assessment references with a submitted/graded attempt for this student. */
+	public function passedAssessmentIds( int $studentId, array $assessmentIds ): array {
+		$result = array();
+		foreach ( array_chunk( array_values( array_unique( $assessmentIds ) ), 500 ) as $ids ) {
+			$placeholders = implode( ',', array_fill( 0, count( $ids ), '%d' ) );
+			$values = $this->wpdb->get_col( $this->wpdb->prepare(
+				"SELECT DISTINCT assessment_id FROM %i WHERE student_person_id = %d AND assessment_id IN ($placeholders) AND status IN (%s, %s)",
+				array_merge( array( $this->table, $studentId ), $ids, array( AttemptStatus::Submitted->value, AttemptStatus::Graded->value ) )
+			) );
+			foreach ( $values ?: array() as $id ) {
+				$result[ (int) $id ] = true;
+			}
+		}
+		return $result;
+	}
+
 }

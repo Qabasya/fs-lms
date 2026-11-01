@@ -178,4 +178,31 @@ class LessonProgressServiceTest extends TestCase {
 
 		self::assertFalse( $this->service->isLessonCompleted( 9, 3 ) );
 	}
+
+	public function test_batch_completion_shares_facts_and_canonical_progress_for_continuations(): void {
+		$rows = array();
+		for ( $id = 3; $id <= 102; ++$id ) {
+			$rows[] = GroupLessonDTO::fromArray( array( 'id' => $id, 'group_id' => 1, 'position' => 0, 'lesson_id' => 7, 'continued_from_id' => 3 ) );
+		}
+		$this->groupLessons->expects( $this->never() )->method( 'find' );
+		$this->lessons->expects( $this->once() )->method( 'get' )->with( 7 )->willReturn( $this->lessonWith( array(
+			$this->step( 'text', 'text' ), $this->step( 'work', 'work', array( 'ref' => 20 ) ),
+			$this->step( 'exam', 'assessment', array( 'ref' => 30 ) ),
+		) ) );
+		$this->progress->expects( $this->once() )->method( 'statusesForLessons' )->with( 9, $this->callback( static fn( array $ids ): bool => array( 3 ) === array_values( array_unique( $ids ) ) ) )->willReturn( array( 3 => array( 'text' => ProgressStatus::Completed ) ) );
+		$this->submissions->expects( $this->once() )->method( 'completedWorksForLessons' )->willReturn( array( 3 => array( 20 => true ) ) );
+		$this->attempts->expects( $this->once() )->method( 'passedAssessmentIds' )->with( 9, array( 30 ) )->willReturn( array( 30 => true ) );
+		self::assertSame( array_fill_keys( range( 3, 102 ), true ), $this->service->completedLessons( 9, $rows ) );
+	}
+
+	public function test_batch_completion_ignores_stored_completed_for_unsubmitted_work(): void {
+		$this->lessons->method( 'get' )->willReturn( $this->lessonWith( array( $this->step( 'work', 'work', array( 'ref' => 20 ) ) ) ) );
+		$this->progress->method( 'statusesForLessons' )->willReturn( array( 3 => array( 'work' => ProgressStatus::Completed ) ) );
+		self::assertSame( array( 3 => false ), $this->service->completedLessons( 9, array( $this->groupLesson() ) ) );
+	}
+
+	public function test_batch_completion_without_content_is_false(): void {
+		self::assertSame( array( 3 => false ), $this->service->completedLessons( 9, array( $this->groupLesson() ) ) );
+	}
+
 }

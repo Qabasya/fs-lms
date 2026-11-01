@@ -66,15 +66,16 @@ function moveWithShift(list, mutate) {
     });
 }
 
-export function homeTile(label, val, color, ico, href = '', opts = {}) {
+export function homeTile(label, val, tone, ico, href = '', opts = {}) {
     const remove = opts.removable ? `<button type="button" class="prof-home-minus" data-home-remove="${esc(opts.id)}" aria-label="Убрать плитку">${icoMinus(14)}</button><button type="button" class="prof-home-replace" data-home-replace="${esc(opts.id)}" aria-label="Заменить плитку" title="Заменить">${icoSwap(14)}</button>${arrowsHtml()}` : '';
+    const toneClass = ['primary', 'info', 'success', 'warning', 'danger', 'violet'].includes(tone) ? tone : 'primary';
     const icons = { cal: icoCalendar, check: icoCheck, alert: icoAlert, star: icoStar };
     const tag = href ? 'a' : 'div';
     const link = href ? ` href="${esc(href)}"` : '';
     const note = opts.note ? `<div class="st-delta">${esc(opts.note)}</div>` : '';
     const id = opts.removable ? ` data-tile-id="${esc(opts.id)}"` : '';
     return `<${tag} class="prof-stat-tile${href ? ' is-link' : ''}${opts.urgent ? ' is-urgent' : ''}"${link}${id}>${remove}
-        <div class="st-top"><span class="st-ico" style="background:${color}1a;color:${color}">${icons[ico](16)}</span>${esc(label)}</div>
+        <div class="st-top"><span class="st-ico st-ico--${toneClass}">${icons[ico](16)}</span>${esc(label)}</div>
         <div class="st-val">${esc(val)}</div>${note}
     </${tag}>`;
 }
@@ -89,7 +90,7 @@ export function editBarHtml() {
 export function tilesHtml(catalog, defaults, layout, editing, learner = true) {
     const ids = layout.tiles ?? defaults;
     const tiles = ids.map(id => catalog.find(t => t.id === id)).filter(Boolean).slice(0, MAX_TILES);
-    const items = tiles.map(t => homeTile(t.label, t.value, t.color, t.ico, editing ? '' : (t.href || ''), { ...t, removable: editing })).join('');
+    const items = tiles.map(t => homeTile(t.label, t.value, t.tone, t.ico, editing ? '' : (t.href || ''), { ...t, removable: editing })).join('');
     const room = editing && ids.length < MAX_TILES && catalog.some(t => !ids.includes(t.id));
     const add = room ? `<button type="button" class="prof-stat-tile prof-stat-tile--add" data-home-add aria-label="Добавить плитку">${icoPlus(26)}</button>` : '';
     return `<div class="prof-stat-tiles${learner ? ' prof-stat-tiles--learner' : ''}" data-home-section="tiles">${editing ? arrowsHtml() : ''}${items}${add}</div>`;

@@ -15,6 +15,7 @@ use Inc\Services\Subject\PostTypeResolver;
  * @package Inc\DTO\Course
  */
 readonly class WorkDTO {
+	public array $taskPoints;
 
 	/**
 	 * @param int      $id
@@ -38,8 +39,10 @@ readonly class WorkDTO {
 		public int      $authorId,
 		public string   $status,
 		public int      $maxAttempts = 0,
-		public array $taskPoints = array(),
-	) {}
+		array $taskPoints = array(),
+	) {
+		$this->taskPoints = self::normalizePoints( $itemIds, $taskPoints );
+	}
 
 	public static function fromPost( \WP_Post $post, array $meta ): self {
 		return new self(
@@ -82,22 +85,25 @@ readonly class WorkDTO {
 			'author_id'    => $this->authorId,
 			'status'       => $this->status,
 			'max_attempts' => $this->maxAttempts,
-			'task_points'  => self::normalizePoints( $this->itemIds, $this->taskPoints ),
+			'task_points'  => $this->taskPoints,
 		);
 	}
 
 	/** Настроенные баллы задачи этой работы; старые работы используют один балл. */
 	public function pointsForTask( int $taskId ): float {
-		return (float) ( self::normalizePoints( $this->itemIds, $this->taskPoints )[ $taskId ] ?? 1 );
+		return (float) ( $this->taskPoints[ $taskId ] ?? 1 );
 	}
 
 	/** Нормализация прочитанной меты: только члены работы, повреждённые веса заменяются единицей. */
-	private static function normalizePoints( array $itemIds, mixed $raw ): array {
+	public static function normalizePoints( array $itemIds, mixed $raw, bool $strict = false ): array {
 		$raw    = is_array( $raw ) ? $raw : array();
 		$points = array();
 		foreach ( $itemIds as $id ) {
-			$value        = $raw[ $id ] ?? 1;
+			$value        = array_key_exists( $id, $raw ) ? $raw[ $id ] : 1;
 			$valid        = ( is_int( $value ) || is_float( $value ) || is_string( $value ) ) && preg_match( '/^[0-9]+$/', (string) $value ) && (int) $value >= 1 && (int) $value <= 999;
+			if ( ! $valid && $strict ) {
+				throw new \InvalidArgumentException( 'Баллы за задачу должны быть целым числом от 1 до 999.' );
+			}
 			$points[ $id ] = $valid ? (int) $value : 1;
 		}
 		return $points;

@@ -49,7 +49,7 @@ final class TeacherProfileView implements ProfileViewInterface {
 		private readonly LearnerRankingSection $ranking,
 	) {}
 
-	public function build( ProfileContext $context ): array {
+	public function navigation( ProfileContext $context ): array {
 		// T12.7: пункт «Группы» убран из меню — экран остаётся в $screens (маршрут жив),
 		// вход теперь только кликом по группе в сайдбарном блоке «Мои группы» (D10, openGroupsFor).
 		$nav = array(
@@ -90,11 +90,13 @@ final class TeacherProfileView implements ProfileViewInterface {
 		}
 		$screens = array_merge( $screens, array_column( $examNav, 'key' ) );
 
-		$config = array_merge(
-			array( 'nav' => $nav, 'screens' => $screens, 'examNav' => $examNav ),
-			$this->teacherConfig( $context )
-		);
-		if ( $canExams || $canPayments ) {
+		return array( 'nav' => $nav, 'screens' => $screens, 'examNav' => $examNav );
+	}
+
+	public function build( ProfileContext $context ): array {
+		$navigation = $this->navigation( $context );
+		$config = array_merge( $navigation, $this->teacherConfig( $context ) );
+		if ( array() !== $navigation['examNav'] ) {
 			$config['exams'] = $this->examsConfig( $context );
 		}
 

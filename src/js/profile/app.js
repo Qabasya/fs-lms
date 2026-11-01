@@ -238,6 +238,7 @@ function trackScreen(screen) {
 }
 
 function go(screen) {
+    mountScreen(screen);
     trackScreen(screen);
     syncUrl(screen);
     document.querySelectorAll('.prof-screen').forEach(s =>
@@ -273,8 +274,8 @@ function openWorkReviewFrom(from) {
 
 /* 5.5: клик по экзамену в расписании «Главной» — карточка этого проведения в «Моих экзаменах». */
 function openLearnerExamFrom(eventId) {
-    openLearnerExam(eventId);
     go(learnerScreen('exams'));
+    openLearnerExam(eventId);
 }
 
 /* 7.4: разбор экзамена — тоже программный экран (не в cfg.screens): из карточки «Мои экзамены»,
@@ -463,13 +464,15 @@ function buildStage() {
         + '<section class="prof-screen" data-screen="exam-review"></section>';
 }
 
-function mountScreens() {
-    cfg.screens.forEach(key => {
-        const root = document.querySelector(`.prof-screen[data-screen="${key}"]`);
-        const render = SCREENS[key];
-        if (root && render) render(root);
-    });
+function mountScreen(key) {
+    if (!cfg.screens.includes(key)) return;
+    const root = document.querySelector(`.prof-screen[data-screen="${key}"]`);
+    if (!root || root.dataset.mounted || !SCREENS[key]) return;
+    root.dataset.mounted = 'true';
+    SCREENS[key](root);
+}
 
+function mountScreens() {
     const examReviewRoot = document.querySelector('.prof-screen[data-screen="exam-review"]');
     if (examReviewRoot) { renderExamReview(examReviewRoot, { onBack: () => go(learnerScreen('exams')) }); }
 
@@ -656,8 +659,8 @@ export function initProfile() {
         openSummaryFor(gid, pid);
     } else if ('ktp' === wanted && gid && cfg.screens.includes('ktp')) {
         // Уведомление преподавателю («не прикреплена запись»): КТП этой группы.
-        selectKtpGroup(gid);
         go('ktp');
+        selectKtpGroup(gid);
     } else if (gid && cfg.screens.includes('groups')) {
         openGroupsFor(gid);
     } else if (submissionLink) {
@@ -669,12 +672,12 @@ export function initProfile() {
         openCoursePage(course);
     } else if (learnerScreen('exams') === wanted && params.get('event') && cfg.screens.includes(wanted)) {
         // Уведомление об экзамене: карточка этого проведения (9.1.4).
-        openLearnerExam(params.get('event'));
         go(wanted);
+        openLearnerExam(params.get('event'));
     } else if ('exam-conduct' === wanted && params.get('session') && cfg.screens.includes(wanted)) {
         // Уведомление сотруднику: доска этого сеанса (9.1.4).
-        openExamConductFor(params.get('session'));
         go(wanted);
+        openExamConductFor(params.get('session'));
     } else {
         go(wanted && cfg.screens.includes(wanted) ? wanted : cfg.screens[0]);
     }

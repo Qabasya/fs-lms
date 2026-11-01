@@ -16,6 +16,25 @@ use Inc\Enums\Wp\MetaKeys;
  */
 class UserManager {
 
+	/** Names for a bounded set of IDs, fetched in one WordPress query. */
+	public function displayNames( array $ids ): array {
+		$ids = array_values( array_filter( array_unique( array_map( 'intval', $ids ) ), static fn( int $id ): bool => $id > 0 ) );
+		if ( array() === $ids ) {
+			return array();
+		}
+		$names = array();
+		foreach ( get_users(
+			array(
+				'include' => $ids,
+				'fields'  => array( 'ID', 'display_name', 'user_login' ),
+				'number'  => count( $ids ),
+			)
+		) as $user ) {
+			$names[ (int) $user->ID ] = $user->display_name ?: $user->user_login;
+		}
+		return $names;
+	}
+
 	/**
 	 * Находит WP-пользователя по ID.
 	 *
@@ -86,10 +105,12 @@ class UserManager {
 			throw new \RuntimeException( "Пользователь с ID {$userId} не найден." );
 		}
 
-		$result = wp_update_user( array(
-			'ID'                  => $userId,
-			'user_activation_key' => '',
-		) );
+		$result = wp_update_user(
+			array(
+				'ID'                  => $userId,
+				'user_activation_key' => '',
+			)
+		);
 
 		if ( is_wp_error( $result ) ) {
 			throw new \RuntimeException(
@@ -252,5 +273,4 @@ class UserManager {
 	public function setHomeLayout( int $userId, array $layout ): void {
 		update_user_meta( $userId, MetaKeys::HomeLayout->value, $layout );
 	}
-
 }

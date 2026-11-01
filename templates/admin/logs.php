@@ -28,9 +28,12 @@ foreach ( LogChannel::cases() as $channel ) {
 	$tab = $channel->adminTab();
 	$tabs[ $tab['id'] ] = array(
 		'channel' => $channel,
+		'label' => $channel->label(),
 		'file'    => '/components/tabs/logs-tabs/' . $tab['partial'] . '.php',
 	);
 }
+
+$tabs = apply_filters( 'fs_lms_log_tabs', $tabs );
 
 $page_slug = sanitize_key( $_GET['page'] ?? 'fs_lms_logs' ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 ?>
@@ -81,7 +84,7 @@ $page_slug = sanitize_key( $_GET['page'] ?? 'fs_lms_logs' ); // phpcs:ignore Wor
 		<?php foreach ( $tabs as $tab_id => $tab ) : ?>
 			<a href="?page=<?php echo esc_attr( $page_slug ); ?>&tab=<?php echo esc_attr( $tab_id ); ?>"
 				class="nav-tab <?php echo $active_tab === $tab_id ? 'nav-tab-active' : ''; ?>">
-				<?php echo esc_html( $tab['channel']->label() ); ?>
+				<?php echo esc_html( $tab['label'] ); ?>
 			</a>
 		<?php endforeach; ?>
 	</h2>
@@ -89,7 +92,11 @@ $page_slug = sanitize_key( $_GET['page'] ?? 'fs_lms_logs' ); // phpcs:ignore Wor
 	<div class="tab-content">
 		<?php
 		if ( isset( $tabs[ $active_tab ] ) ) {
-			$file_path = rtrim( plugin_dir_path( __FILE__ ), '/' ) . $tabs[ $active_tab ]['file'];
+			$tab = $tabs[ $active_tab ];
+			$file_path = $tab['path'] ?? rtrim( plugin_dir_path( __FILE__ ), '/' ) . $tab['file'];
+			if ( isset( $tab['load'] ) && is_callable( $tab['load'] ) ) {
+				extract( $tab['load'](), EXTR_SKIP );
+			}
 			if ( file_exists( $file_path ) ) {
 				include $file_path;
 			}

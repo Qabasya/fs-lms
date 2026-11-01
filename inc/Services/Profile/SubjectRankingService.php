@@ -11,7 +11,7 @@ namespace Inc\Services\Profile;
 
 use Inc\Contracts\ClockInterface;
 use Inc\Repositories\WPDBRepositories\LearnerRankingRepository;
-use Inc\Services\Profile\Learner\LearnerRankingSection;
+
 
 /**
  * Reuses the learner ranking calculation. «Все группы» — общие места направления (эталон
@@ -23,7 +23,7 @@ class SubjectRankingService {
 	public function __construct(
 		private readonly RankingAccessService $access,
 		private readonly LearnerRankingRepository $repository,
-		private readonly LearnerRankingSection $ranking,
+		private readonly RankingCalculationService $ranking,
 		private readonly ClockInterface $clock,
 	) {}
 
@@ -31,7 +31,7 @@ class SubjectRankingService {
 	 * Server authorization applies to every subject request, including manipulated UI selections.
 	 *
 	 * @param int    $groupId    0 — все группы направления.
-	 * @param string $periodFrom Граница периода (`from` из {@see LearnerRankingSection::periodsFor()});
+	 * @param string $periodFrom Граница периода (`from` из {@see RankingCalculationService::periodsFor()});
 	 *                           пусто — текущий период.
 	 *
 	 * @throws \DomainException        The staff member cannot view this subject.
@@ -111,14 +111,9 @@ class SubjectRankingService {
 		if ( $groupId > 0 ) {
 			// Выбрана группа — места пересчитываются плотно внутри неё (свой рейтинг группы);
 			// «Все группы» оставляет общие места направления (эталон плитки ученика).
-			$unique = array_values( array_unique( array_map( static fn( array $row ): float => $row['score'], $rows ) ) );
-			rsort( $unique, SORT_NUMERIC );
-			$rank_of = array();
-			foreach ( $unique as $i => $score ) {
-				$rank_of[ (string) $score ] = $i + 1;
-			}
+			$ranks = $this->ranking->rankTotals( array_column( $rows, 'score', 'person_id' ) );
 			foreach ( $rows as &$row ) {
-				$row['rank'] = $rank_of[ (string) $row['score'] ];
+				$row['rank'] = $ranks[ $row['person_id'] ]['rank'];
 			}
 			unset( $row );
 		}

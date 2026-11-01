@@ -111,4 +111,18 @@ class LessonProgressRepositoryTest extends TestCase {
 		self::assertCount( 1, $this->wpdb->deletes );
 		self::assertSame( array( 'group_lesson_id' => 3 ), $this->wpdb->deletes[0]['where'] );
 	}
+
+	public function test_batch_statuses_are_bounded_and_preserve_safe_enum_fallback(): void {
+		$this->wpdb->queueResults( array( $this->row( array( 'status' => 'unknown' ) ) ) );
+		self::assertSame( array( 3 => array( 's_a' => ProgressStatus::Locked ) ), $this->repo->statusesForLessons( 9, range( 1, 501 ) ) );
+		self::assertCount( 2, $this->wpdb->queries );
+		self::assertStringContainsString( 'student_person_id = 9', $this->wpdb->lastQuery() );
+		self::assertStringContainsString( 'IN (501)', $this->wpdb->lastQuery() );
+	}
+
+	public function test_empty_batch_does_not_query(): void {
+		self::assertSame( array(), $this->repo->statusesForLessons( 9, array() ) );
+		self::assertCount( 0, $this->wpdb->queries );
+	}
+
 }

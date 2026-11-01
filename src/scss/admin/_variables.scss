@@ -112,3 +112,9 @@ $table-add-icon-size: rem(22);
 $table-add-container-height: rem(48);
 
 // Миксин cb-chip переехал в _mixins.scss (variables — только токены).
+
+// Размеры полей редактора работы.
+$work-settings-field-min-width: rem(120);
+$work-settings-field-max-width: rem(300);
+$work-points-input-width: rem(80);
+$work-points-input-height: 32px;

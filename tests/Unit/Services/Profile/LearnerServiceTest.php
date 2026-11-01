@@ -61,6 +61,16 @@ class LearnerServiceTest extends TestCase {
 		$this->records      = $this->createMock( StudentRecordRepository::class );
 		$this->groups       = $this->createMock( GroupsRepository::class );
 		$this->groupLessons = $this->createMock( GroupLessonRepository::class );
+		$this->groups->method( 'findByIds' )->willReturnCallback( function ( array $ids ): array {
+			$result = array();
+			foreach ( $ids as $id ) { $result[ $id ] = $this->groups->findById( $id ); }
+			return $result;
+		} );
+		$this->groupLessons->method( 'listByGroups' )->willReturnCallback( function ( array $ids ): array {
+			$result = array();
+			foreach ( $ids as $id ) { $result[ $id ] = $this->groupLessons->listByGroup( $id ); }
+			return $result;
+		} );
 		$this->lessons      = $this->createMock( LessonManager::class );
 		$this->courses      = $this->createMock( CourseManager::class );
 		$this->gradebook    = $this->createMock( GradebookService::class );
@@ -574,4 +584,18 @@ $visibility = $this->createStub( \Inc\Services\Course\LessonVisibilityService::c
 		self::assertSame( array( true, false, true ), array_column( $data['home_subjects'], 'exam' ) );
 	}
 
+
+	public function test_context_consumes_batch_facts_without_per_lesson_fallback(): void {
+		$row = $this->row( 10, '2026-05-10 09:00:00', null, 7 );
+		$this->records->method( 'findActiveByStudent' )->willReturn( array( (object) array( 'groupId' => 1 ) ) );
+		$this->groups->method( 'findById' )->willReturn( (object) array( 'id' => 1, 'name' => 'Г1', 'subject_key' => 'inf' ) );
+		$this->groupLessons->method( 'listByGroup' )->willReturn( array( $row ) );
+		$this->progress->expects( $this->once() )->method( 'completedLessons' )->with( 9001, array( $row ) )->willReturn( array( 10 => false ) );
+		$this->progress->expects( $this->never() )->method( 'isLessonCompleted' );
+		$this->gate->expects( $this->once() )->method( 'resolveLessons' )->with( 9001, array( $row ) )->willReturn( array( 10 => \Inc\Enums\Course\GateState::Available ) );
+		$this->gate->expects( $this->never() )->method( 'resolveLesson' );
+		$this->effectiveTeacher->expects( $this->once() )->method( 'forLessons' )->with( array( $row ) )->willReturn( array( 10 => null ) );
+		$this->effectiveTeacher->expects( $this->never() )->method( 'forLesson' );
+		self::assertIsArray( $this->service->build( 9001 )->toArray() );
+	}
 }

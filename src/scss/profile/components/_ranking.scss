@@ -1,17 +1,18 @@
 @use '../variables' as *;
+@use '../../shared/tokens' as t;
 
 /* Экран «Рейтинг»: панель выбора и таблица целиком переиспользуют классы
    «Сводки по ученику» (sum-head/sum-pickers) и журнала (jgrid, cell-*) —
    здесь только caption периода, центрирование колонок и их ширины. */
-.prof-ranking { padding: rem(22) rem(26); }
-.prof-ranking .sum-head { margin-bottom: rem(20); }
+.prof-ranking { padding: $ranking-page-padding-y $ranking-page-padding-x; }
+.prof-ranking .sum-head { margin-bottom: t.$spacing-xl; }
 
-.ranking-message { padding: rem(24) 0; color: var(--muted); }
+.ranking-message { padding: $ranking-name-padding 0; color: var(--muted); }
 
-/* Шапка — высотой со строки данных (2.125rem, как tbody журнала); заголовки — по центру
+/* Шапка — высотой со строки данных ($ranking-row-height, как tbody журнала); заголовки — по центру
    обеих осей (в журнале подпись колонки ученика прижата влево, здесь данные всех колонок
    по центру — и шапки за ними). */
-.ranking-table thead tr { height: 2.125rem; }
+.ranking-table thead tr { height: $ranking-row-height; }
 .ranking-table thead th { vertical-align: middle; }
 .ranking-table .hd-name { text-align: center; }
 
@@ -20,26 +21,26 @@
 .ranking-table thead .col-name { background: var(--surface-2); }
 
 /* Имя — с теми же боковыми паддингами, что .cell-name журнала. */
-.ranking-table .cell-name { padding: 0 rem(24); }
-.ranking-table .cell-c { padding: 0 rem(12); }
-.ranking-table .cell-empty { padding: rem(12); text-align: center; color: var(--muted); }
-.ranking-table .cell-rank { font-size: rem(12); color: var(--muted-2); text-align: center; }
+.ranking-table .cell-name { padding: 0 $ranking-name-padding; }
+.ranking-table .cell-c { padding: 0 t.$spacing-md; }
+.ranking-table .cell-empty { padding: t.$spacing-md; text-align: center; color: var(--muted); }
+.ranking-table .cell-rank { font-size: t.$font-size-xs; color: var(--muted-2); text-align: center; }
 
 /* Ширины по образцу журнала: имя — 188 px и липнет слева (перед ним нет колонки «#»,
-   журнальный сдвиг left: 38px не нужен). «Группа», «Баллы» и «Место в рейтинге» — 4rem. */
+   журнальный сдвиг left: 38px не нужен). «Группа», «Баллы» и «Место в рейтинге» — $ranking-result-width. */
 .ranking-table { min-width: 0; }
 .ranking-table .col-name { left: 0; }
 
 .ranking-table .col-mid,
-.ranking-table .col-rank { width: 4rem; }
+.ranking-table .col-rank { width: $ranking-result-width; }
 
 @include below($bp-mobile) {
-  .prof-ranking { padding: rem(16) rem(10); }
+  .prof-ranking { padding: t.$spacing-lg $ranking-mobile-padding-x; }
   .prof-ranking .sum-pickers { width: 100%; }
   .prof-ranking .prof-ktp-pick { min-width: 0; flex: 1; }
   .prof-ranking .kp-btn { max-width: 100%; }
 
   /* Узкие колонки: таблица шире экрана и прокручивается по горизонтали,
      имя липнет слева — мобильный паттерн журнала. */
-  .ranking-table .col-name { width: rem(150); min-width: rem(150); }
+  .ranking-table .col-name { width: $ranking-mobile-name-width; min-width: $ranking-mobile-name-width; }
 }

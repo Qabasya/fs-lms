@@ -70,8 +70,8 @@ function render() {
 
     homeLayout ??= { sections: [...(d.home_layout?.sections || DEFAULT_SECTIONS)], tiles: d.home_layout?.tiles ?? null };
     const catalog = [
-        { id: 'lessons_today', label: 'Занятий сегодня', value: String(s.lessons_today), note: `${s.groups} ${plural(s.groups, 'группа', 'группы', 'групп')}${s.individual ? ` · ${s.individual} инд.` : ''}`, color: '#3b5bdb', ico: 'cal' },
-        { id: 'to_review', label: 'На проверке', value: String(s.to_review), note: 'работ ждут оценки', color: '#7048e8', ico: 'check' },
+        { id: 'lessons_today', label: 'Занятий сегодня', value: String(s.lessons_today), note: `${s.groups} ${plural(s.groups, 'группа', 'группы', 'групп')}${s.individual ? ` · ${s.individual} инд.` : ''}`, tone: 'primary', ico: 'cal' },
+        { id: 'to_review', label: 'На проверке', value: String(s.to_review), note: 'работ ждут оценки', tone: 'violet', ico: 'check' },
     ];
     const sections = {
         tiles: tilesHtml(catalog, ['lessons_today', 'to_review'], homeLayout, homeEdit, false),

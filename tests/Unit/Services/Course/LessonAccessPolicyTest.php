@@ -291,4 +291,17 @@ class LessonAccessPolicyTest extends TestCase {
 			updatedByUserId : null,
 		);
 	}
+
+	public function test_batch_read_access_reads_enrollment_once_per_group(): void {
+		$this->studentRecords->expects( $this->once() )->method( 'findAllByStudentAndGroup' )->with( 9, 1 )->willReturn( array( $this->makeRecord( EnrollmentStatus::Active ) ) );
+		$this->groupLessons->expects( $this->never() )->method( 'find' );
+		$rows = array();
+		for ( $id = 1; $id <= 100; ++$id ) {
+			$rows[] = GroupLessonDTO::fromArray( array( 'id' => $id, 'group_id' => 1, 'position' => 0, 'visibility' => 100 === $id ? 'hidden' : 'open' ) );
+		}
+		$expected = array_fill_keys( range( 1, 100 ), true );
+		$expected[100] = false;
+		self::assertSame( $expected, $this->policy->readabilityForLessons( 9, $rows ) );
+	}
+
 }

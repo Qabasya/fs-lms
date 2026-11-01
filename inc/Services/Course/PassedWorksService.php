@@ -161,55 +161,26 @@ class PassedWorksService {
 		$hasMore = count( $pairs ) > self::PAIR_SCAN_LIMIT;
 		$pairs   = array_slice( $pairs, 0, self::PAIR_SCAN_LIMIT );
 
-		// Пары упорядочены от свежих к старым, поэтому первая строка занятия встречается самой
-		// верхней — по ней и крепим занятие; остальные его строки (другие ученики доп. занятия)
-		// в порядке вывода не участвуют, но их работы в занятие входят.
-		$units = array();
-		foreach ( $pairs as $pair ) {
+		$items = array();
+		$next = null;
+		$seen = array();
+		$context = array( 'students' => array(), 'groups' => array() );
+		foreach ( $pairs as $index => $pair ) {
 			$row = $this->groupLessons->find( $pair['group_lesson_id'] );
-			if ( null === $row ) {
-				continue;
+			if ( null !== $row ) {
+				$unit = $this->unitRows( $row );
+				$key = $unit[0]->id . ':' . $pair['work_id'];
+				if ( ! isset( $seen[ $key ] ) ) {
+					$seen[ $key ] = true;
+					$at = $row->scheduledAt ?? $pair['latest_at'];
+					array_push( $items, ...$this->lessonItems( $unit, $at, $type, $status, $context, array( $pair['work_id'] ) ) );
+				}
 			}
-			$unit = $this->unitRows( $row );
-			$uid  = $unit[0]->id;
-			if ( ! isset( $units[ $uid ] ) ) {
-				$units[ $uid ] = array(
-					'unit'   => $unit,
-					'works'  => array(),
-					'latest' => $pair['latest_at'],
-				);
-			}
-			$units[ $uid ]['works'][ $pair['work_id'] ] = true;
-			if ( $pair['latest_at'] > $units[ $uid ]['latest'] ) {
-				$units[ $uid ]['latest'] = $pair['latest_at'];
-			}
-		}
-
-		$items   = array();
-		$next    = null;
-		$context = array(
-			'students' => array(),
-			'groups'   => array(),
-		);
-
-		$stoppedEarly = false;
-		foreach ( $units as $unit ) {
-			$row = $unit['unit'][0];
-			// Дата занятия как в ленте: время занятия, а если его нет — время самой свежей сдачи.
-			$at = null !== $row->scheduledAt ? $row->scheduledAt : $unit['latest'];
-			array_push( $items, ...$this->lessonItems( $unit['unit'], $at, $type, $status, $context, array_map( 'intval', array_keys( $unit['works'] ) ) ) );
-
-			if ( count( $items ) >= self::PAGE_SIZE ) {
-				$stoppedEarly = true;
+			if ( count( $items ) >= self::PAGE_SIZE || $index === count( $pairs ) - 1 ) {
+				if ( $index < count( $pairs ) - 1 || $hasMore ) {
+					$next = $pair['latest_at'] . '|' . $pair['group_lesson_id'] . '|' . $pair['work_id'];
+				}
 				break;
-			}
-		}
-		// Метка — после последней просмотренной пары: страница закрыта раньше (набран PAGE_SIZE)
-		// либо окно выборки исчерпано не до конца (за пределами могут быть ещё пары).
-		if ( $stoppedEarly || $hasMore ) {
-			$last = $pairs[ count( $pairs ) - 1 ] ?? null;
-			if ( null !== $last ) {
-				$next = $last['latest_at'] . '|' . $last['group_lesson_id'] . '|' . $last['work_id'];
 			}
 		}
 

@@ -54,13 +54,27 @@ class EffectiveTeacherResolverTest extends TestCase {
 		self::assertSame( 55, $this->resolver->forLesson( $lesson ) );
 	}
 
+	public function test_batch_reads_group_and_substitutions_once_for_one_hundred_lessons(): void {
+		$this->groups->expects( self::once() )->method( 'findById' )->with( 7 )->willReturn( (object) array( 'teacher_id' => 42 ) );
+		$this->substitutions->expects( self::once() )->method( 'listByGroup' )->with( 7 )->willReturn( array( $this->sub( 55 ) ) );
+		$this->substitutions->expects( self::never() )->method( 'findActiveForGroup' );
+		$lessons = array();
+		for ( $id = 1; $id <= 100; ++$id ) {
+			$lessons[] = $this->lesson( null, $id <= 50 ? '2026-05-20 10:00:00' : '2026-06-20 10:00:00', $id );
+		}
+		$result = $this->resolver->forLessons( $lessons );
+		self::assertCount( 100, $result );
+		self::assertSame( 55, $result[1] );
+		self::assertSame( 42, $result[100] );
+	}
+
 	private function sub( int $substituteTeacherId ): SubstitutionDTO {
 		return new SubstitutionDTO( 1, 7, 42, $substituteTeacherId, '2026-05-01', '2026-05-31', null, 3, '2026-05-01 00:00:00' );
 	}
 
-	private function lesson( ?int $teacherUserId, ?string $scheduledAt ): GroupLessonDTO {
+	private function lesson( ?int $teacherUserId, ?string $scheduledAt, int $id = 1 ): GroupLessonDTO {
 		return new GroupLessonDTO(
-			id: 1, groupId: 7, lessonId: 10, position: 0, workIdsSnapshot: null, extraWorkIds: array(),
+			id: $id, groupId: 7, lessonId: 10, position: 0, workIdsSnapshot: null, extraWorkIds: array(),
 			scheduledAt: $scheduledAt, endsAt: null, isPinned: false, teacherUserId: $teacherUserId,
 			visibility: 'open', openedAt: null, homeworkDueAt: null, allowLate: true, recordingUrl: null,
 			createdByUserId: null, updatedByUserId: null,

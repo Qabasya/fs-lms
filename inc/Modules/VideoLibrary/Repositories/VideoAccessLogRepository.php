@@ -22,7 +22,7 @@ class VideoAccessLogRepository {
 	/** Окно агрегации сессии в секундах (3 часа: запись занятия идёт ~2 часа и смотрят с паузами). */
 	public const AGGREGATE_WINDOW = 10800;
 
-	private \wpdb  $wpdb;
+	private \wpdb $wpdb;
 	private string $table;
 
 	public function __construct( ?\wpdb $wpdb = null ) {
@@ -137,5 +137,71 @@ class VideoAccessLogRepository {
 		);
 
 		return is_array( $rows ) ? $rows : array();
+	}
+	/** Filtered, bounded log page; all values are prepared. */
+	public function page( array $filters, int $page, int $perPage, string $orderby, string $order ): array {
+		[ $where, $args ] = $this->filteredWhere( $filters );
+		$total            = (int) $this->wpdb->get_var( $this->wpdb->prepare( "SELECT COUNT(*) FROM %i WHERE $where", $args ) );
+		$orderby          = in_array( $orderby, array( 'id', 'last_at', 'watch_seconds', 'requests_count' ), true ) ? $orderby : 'id';
+		$order            = 'ASC' === $order ? 'ASC' : 'DESC';
+		$perPage          = max( 1, min( 100, $perPage ) );
+		$page             = max( 1, min( $page, max( 1, (int) ceil( $total / $perPage ) ) ) );
+		$rows             = $this->wpdb->get_results(
+			$this->wpdb->prepare(
+				"SELECT * FROM %i WHERE $where ORDER BY $orderby $order, id $order LIMIT %d OFFSET %d",
+				array_merge( $args, array( $perPage, ( $page - 1 ) * $perPage ) )
+			),
+			ARRAY_A
+		);
+		return array(
+			'rows'     => is_array( $rows ) ? $rows : array(),
+			'total'    => $total,
+			'page'     => $page,
+			'per_page' => $perPage,
+		);
+	}
+
+
+	/** Aggregate the same filtered slice without loading its sessions into PHP. */
+	public function summary( array $filters ): array {
+		[ $where, $args ] = $this->filteredWhere( $filters );
+		$row              = $this->wpdb->get_row(
+			$this->wpdb->prepare(
+				"SELECT COUNT(DISTINCT wp_user_id) AS users, SUM(requests_count) AS requests, SUM(watch_seconds) AS seconds FROM %i WHERE $where",
+				$args
+			),
+			ARRAY_A
+		);
+		return array(
+			'users'    => (int) ( $row['users'] ?? 0 ),
+			'requests' => (int) ( $row['requests'] ?? 0 ),
+			'seconds'  => (int) ( $row['seconds'] ?? 0 ),
+		);
+	}
+
+	/** Shared prepared filter predicates for the page and summary. */
+	private function filteredWhere( array $filters ): array {
+		$args  = array( $this->table );
+		$where = '1=1';
+		foreach ( array( 'wp_user_id', 'group_lesson_id' ) as $field ) {
+			if ( ! empty( $filters[ $field ] ) ) {
+				$where .= " AND $field = %d";
+				$args[] = (int) $filters[ $field ];
+			}
+		}
+		foreach ( array(
+			'date_from' => '>=',
+			'date_to'   => '<=',
+		) as $field => $operator ) {
+			if ( ! empty( $filters[ $field ] ) ) {
+				$where .= " AND last_at $operator %s";
+				$args[] = $filters[ $field ] . ( 'date_from' === $field ? ' 00:00:00' : ' 23:59:59' );
+			}
+		}
+		if ( ! empty( $filters['recording'] ) ) {
+			$where .= ' AND s3_key LIKE %s';
+			$args[] = '%' . $this->wpdb->esc_like( $filters['recording'] ) . '%';
+		}
+		return array( $where, $args );
 	}
 }

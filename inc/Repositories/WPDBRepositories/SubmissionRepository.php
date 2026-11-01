@@ -7,6 +7,7 @@ namespace Inc\Repositories\WPDBRepositories;
 use Inc\DTO\Course\SubmissionDTO;
 use Inc\DTO\Course\SubmissionInputDTO;
 use Inc\Enums\Settings\TableName;
+use Inc\Enums\Course\SubmissionStatus;
 
 class SubmissionRepository {
 
@@ -97,6 +98,20 @@ class SubmissionRepository {
 	 * @param  string[] $statuses
 	 * @return SubmissionDTO[]
 	 */
+/** Counts queues without hydrating submissions, for a bounded authorized group set. */
+	public function queueCountsByGroups( array $groupIds ): array {
+		if ( array() === $groupIds ) {
+			return array();
+		}
+		$placeholders = implode( ', ', array_fill( 0, count( $groupIds ), '%d' ) );
+		$rows = $this->wpdb->get_results( $this->wpdb->prepare(
+			"SELECT gl.group_id, COUNT(*) AS cnt FROM %i s JOIN %i gl ON gl.id = s.group_lesson_id
+			 WHERE gl.group_id IN ($placeholders) AND s.status = %s GROUP BY gl.group_id",
+			array_merge( array( $this->table, $this->glTable ), $groupIds, array( SubmissionStatus::Submitted->value ) )
+		), ARRAY_A );
+		return array_map( 'intval', array_column( $rows ?: array(), 'cnt', 'group_id' ) );
+	}
+
 	public function listQueueByGroup( int $groupId, array $statuses = array( 'submitted' ) ): array {
 		if ( empty( $statuses ) ) {
 			return array();
@@ -308,25 +323,30 @@ class SubmissionRepository {
 			return array();
 		}
 		$groupPlaceholders = implode( ', ', array_fill( 0, count( $groupIds ), '%d' ) );
-		$args              = array_merge( array( $this->table, $this->glTable ), $groupIds, array( $now ) );
+		$args              = array_merge( array( $this->table, $this->glTable, $this->glTable ), $groupIds, array( $now ) );
 		$cursorSql         = '';
 
 		if ( null !== $cursorAt ) {
-			$cursorSql = ' HAVING ( latest_at < %s OR ( latest_at = %s AND ( gl.id < %d OR ( gl.id = %d AND s.work_id < %d ) ) ) )';
+			$cursorSql = ' HAVING ( latest_at < %s OR ( latest_at = %s AND ( unit.id < %d OR ( unit.id = %d AND s.work_id < %d ) ) ) )';
 			array_push( $args, $cursorAt, $cursorAt, $cursorLessonId, $cursorLessonId, $cursorWorkId );
 		}
 		$args[] = $limit;
 
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$sql = $this->wpdb->prepare(
-			"SELECT gl.id AS group_lesson_id, s.work_id AS work_id, MAX( s.submitted_at ) AS latest_at
+			"SELECT unit.id AS group_lesson_id, s.work_id AS work_id, MAX( s.submitted_at ) AS latest_at
 			 FROM %i s
 			 INNER JOIN %i gl ON gl.id = s.group_lesson_id
+			 INNER JOIN %i unit ON unit.id = CASE
+			 WHEN gl.extra_key IS NOT NULL AND gl.scheduled_at IS NOT NULL THEN
+			 (SELECT MAX(sibling.id) FROM {$this->glTable} sibling
+			 WHERE sibling.group_id = gl.group_id AND sibling.extra_key = gl.extra_key AND sibling.scheduled_at = gl.scheduled_at)
+			 ELSE gl.id END
 			 WHERE gl.group_id IN ($groupPlaceholders) AND s.task_id IS NULL AND s.submitted_at IS NOT NULL
 			   AND ( gl.scheduled_at IS NULL OR gl.scheduled_at <= %s )
-			 GROUP BY gl.id, s.work_id
+			 GROUP BY unit.id, s.work_id
 			 $cursorSql
-			 ORDER BY latest_at DESC, gl.id DESC, work_id DESC
+			 ORDER BY latest_at DESC, group_lesson_id DESC, work_id DESC
 			 LIMIT %d",
 			$args
 		);
@@ -359,4 +379,20 @@ class SubmissionRepository {
 			'work_id'           => $workId,
 		) );
 	}
+	/** Completed work references without hydrating submission DTOs. */
+	public function completedWorksForLessons( int $studentId, array $lessonIds ): array {
+		$result = array();
+		foreach ( array_chunk( array_values( array_unique( $lessonIds ) ), 500 ) as $ids ) {
+			$placeholders = implode( ',', array_fill( 0, count( $ids ), '%d' ) );
+			$rows = $this->wpdb->get_results( $this->wpdb->prepare(
+				"SELECT DISTINCT group_lesson_id, work_id FROM %i WHERE student_person_id = %d AND group_lesson_id IN ($placeholders) AND status IN (%s, %s)",
+				array_merge( array( $this->table, $studentId ), $ids, array( SubmissionStatus::Submitted->value, SubmissionStatus::Graded->value ) )
+			), ARRAY_A );
+			foreach ( $rows ?: array() as $row ) {
+				$result[ (int) $row['group_lesson_id'] ][ (int) $row['work_id'] ] = true;
+			}
+		}
+		return $result;
+	}
+
 }

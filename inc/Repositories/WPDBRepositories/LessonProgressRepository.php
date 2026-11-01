@@ -161,4 +161,20 @@ class LessonProgressRepository {
 
 		return $map;
 	}
+	/** Stored step statuses for a student and canonical delivery IDs. */
+	public function statusesForLessons( int $studentId, array $lessonIds ): array {
+		$result = array();
+		foreach ( array_chunk( array_values( array_unique( $lessonIds ) ), 500 ) as $ids ) {
+			$placeholders = implode( ',', array_fill( 0, count( $ids ), '%d' ) );
+			$rows = $this->wpdb->get_results( $this->wpdb->prepare(
+				"SELECT group_lesson_id, step_key, status FROM %i WHERE student_person_id = %d AND group_lesson_id IN ($placeholders)",
+				array_merge( array( $this->table, $studentId ), $ids )
+			), ARRAY_A );
+			foreach ( $rows ?: array() as $row ) {
+				$result[ (int) $row['group_lesson_id'] ][ $row['step_key'] ] = ProgressStatus::fromValueOrDefault( (string) $row['status'] );
+			}
+		}
+		return $result;
+	}
+
 }

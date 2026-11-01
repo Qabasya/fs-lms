@@ -278,4 +278,21 @@ class SubmissionRepositoryTest extends TestCase {
 		self::assertSame( [ 'id' => 5 ], $upd['where'] );
 		self::assertSame( 'graded', $upd['data']['status'] );
 	}
+	public function test_queue_counts_are_aggregated_for_authorized_groups(): void {
+		$this->wpdb->queueResults( array( array( 'group_id' => '7', 'cnt' => '12' ) ) );
+		self::assertSame( array( 7 => 12 ), $this->repo->queueCountsByGroups( array( 7, 8 ) ) );
+		self::assertStringContainsString( 'COUNT(*)', $this->wpdb->lastQuery() );
+		self::assertStringContainsString( 'IN (7, 8)', $this->wpdb->lastQuery() );
+		self::assertStringContainsString( "s.status = 'submitted'", $this->wpdb->lastQuery() );
+	}
+
+
+	public function test_completed_work_batch_uses_student_delivery_and_final_statuses(): void {
+		$this->wpdb->queueResults( array( array( 'group_lesson_id' => 3, 'work_id' => 20 ) ) );
+		self::assertSame( array( 3 => array( 20 => true ) ), $this->repo->completedWorksForLessons( 9, array( 3, 3 ) ) );
+		self::assertStringContainsString( 'student_person_id = 9', $this->wpdb->lastQuery() );
+		self::assertStringContainsString( 'IN (3)', $this->wpdb->lastQuery() );
+		self::assertStringContainsString( "status IN ('submitted', 'graded')", $this->wpdb->lastQuery() );
+	}
+
 }

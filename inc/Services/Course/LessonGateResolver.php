@@ -30,11 +30,11 @@ class LessonGateResolver {
 
 	public function __construct(
 		private readonly LessonProgressService $progress,
-		private readonly LessonManager         $lessons,
-		private readonly LessonAccessPolicy    $accessPolicy,
-		private readonly ExamLockService       $examLock,
-		private readonly ClockInterface        $clock,
-		private readonly StepContentRenderer   $steps,
+		private readonly LessonManager $lessons,
+		private readonly LessonAccessPolicy $accessPolicy,
+		private readonly ExamLockService $examLock,
+		private readonly ClockInterface $clock,
+		private readonly StepContentRenderer $steps,
 	) {}
 
 	/**
@@ -58,6 +58,26 @@ class LessonGateResolver {
 	}
 
 	/**
+	 * Resolve loaded program rows without repeating enrollment/exam lookups.
+	 *
+	 * @param GroupLessonDTO[] $lessons Program rows.
+	 * @return array<int, GateState>
+	 */
+	public function resolveLessons( int $studentPersonId, array $lessons ): array {
+		if ( array() === $lessons ) {
+			return array();
+		}
+		$locked   = $this->examLock->isLocked( $studentPersonId );
+		$readable = $locked ? array() : $this->accessPolicy->readabilityForLessons( $studentPersonId, $lessons );
+		$result   = array();
+		foreach ( $lessons as $lesson ) {
+			$result[ $lesson->id ] = ! $locked && ( $readable[ $lesson->id ] ?? false ) && $this->dateReached( $lesson )
+				? GateState::Available : GateState::Locked;
+		}
+		return $result;
+	}
+
+	/**
 	 * Доступен ли шаг урока: урок доступен + выполнен гейт-конфиг шага.
 	 */
 	public function resolveStep( int $studentPersonId, GroupLessonDTO $groupLesson, string $stepKey ): GateState {
@@ -76,7 +96,7 @@ class LessonGateResolver {
 	}
 
 	/**
-	 * @param \Inc\DTO\Course\StepDTO[]          $steps
+	 * @param \Inc\DTO\Course\StepDTO[]                       $steps
 	 * @param array<string, \Inc\Enums\Course\ProgressStatus> $statuses
 	 */
 	private function resolveStepGate( array $steps, string $stepKey, array $statuses ): GateState {
@@ -119,7 +139,7 @@ class LessonGateResolver {
 	 * Поэтому гейт смотрит на ближайший обязательный шаг не позже `$index` —
 	 * решено задание, и все следующие за ним шаги до очередного задания открыты.
 	 *
-	 * @param \Inc\DTO\Course\StepDTO[]                           $steps
+	 * @param \Inc\DTO\Course\StepDTO[]                       $steps
 	 * @param array<string, \Inc\Enums\Course\ProgressStatus> $statuses
 	 */
 	private function requireSolvedUpTo( array $steps, int $index, array $statuses ): GateState {

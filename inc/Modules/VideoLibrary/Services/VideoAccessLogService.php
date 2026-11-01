@@ -30,6 +30,7 @@ class VideoAccessLogService {
 	public function __construct(
 		private readonly VideoAccessLogRepository $log,
 		private readonly GroupLessonRepository    $groupLessons,
+		private readonly VideoWatchAccessService $access,
 	) {}
 
 	/**
@@ -63,6 +64,9 @@ class VideoAccessLogService {
 		}
 
 		$lesson = $this->groupLessons->find( $groupLessonId );
+		if ( null === $lesson || ! $this->access->canWatch( $userId, $lesson ) ) {
+			return;
+		}
 		$url    = null !== $lesson ? (string) ( $lesson->recordingUrl ?? '' ) : '';
 		if ( ! preg_match( '#^s3://([^/]+)/(.+)$#', $url, $m ) ) {
 			return;

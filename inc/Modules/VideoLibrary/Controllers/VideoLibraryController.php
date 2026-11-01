@@ -9,8 +9,7 @@ use Inc\Modules\VideoLibrary\Config\VideoLibraryConfig;
 use Inc\DTO\Course\GroupLessonDTO;
 use Inc\Enums\Wp\Nonce;
 use Inc\Modules\VideoLibrary\Services\RecordingAlertService;
-use Inc\Modules\VideoLibrary\Services\S3UrlSigner;
-use Inc\Modules\VideoLibrary\Services\VideoAccessLogService;
+use Inc\Modules\VideoLibrary\Services\RecordingUrlService;
 
 /**
  * Class VideoLibraryController
@@ -40,20 +39,11 @@ class VideoLibraryController {
 	/** Heartbeat просмотра записи из плеера (ученик/родитель). */
 	public const WATCH_ACTION = 'fs_lms_video_watch';
 
-	/**
-	 * Префикс транзиента кеша presigned-ссылки (модульный транзиент — исключение
-	 * из правила core TransientKey, ключ локализован здесь): одна ссылка на
-	 * пользователя и запись, чтобы перезагрузки плеера не заставляли браузер
-	 * скачивать видео заново по новой подписи.
-	 */
-	private const URL_CACHE_PREFIX = 'fsvid_url_';
-
 	public function __construct(
 		private readonly VideoLibraryCallbacks $callbacks,
-		private readonly S3UrlSigner           $signer,
+		private readonly RecordingUrlService   $urls,
 		private readonly VideoLibraryConfig    $config,
 		private readonly RecordingAlertService $alerts,
-		private readonly VideoAccessLogService $accessLog,
 	) {}
 
 	public function register(): void {
@@ -114,25 +104,7 @@ class VideoLibraryController {
 	 * (журнал доступа модуля).
 	 */
 	public function filterRecordingUrl( ?string $url, mixed $groupLesson = null ): ?string {
-		if ( null === $url || ! preg_match( '#^s3://([^/]+)/(.+)$#', $url, $m ) ) {
-			return $url;
-		}
-
-		$userId       = get_current_user_id();
-		$groupLessonId = $groupLesson instanceof GroupLessonDTO ? $groupLesson->id : null;
-		$this->accessLog->logPresign( $m[1], $m[2], $groupLessonId );
-
-		$cacheKey = self::URL_CACHE_PREFIX . md5( $userId . '|' . $m[1] . '|' . $m[2] );
-		$cached   = get_transient( $cacheKey );
-		if ( is_string( $cached ) && '' !== $cached ) {
-			return $cached;
-		}
-
-		$signed = $this->signer->presign( $m[1], $m[2] );
-		// Запас 5 минут до истечения подписи, но не меньше 5 минут жизни кеша.
-		set_transient( $cacheKey, $signed, max( 300, $this->config->presignTtl() - 300 ) );
-
-		return $signed;
+		return $this->urls->resolve( $url, $groupLesson instanceof GroupLessonDTO ? $groupLesson->id : null );
 	}
 
 	/**

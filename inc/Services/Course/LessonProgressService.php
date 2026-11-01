@@ -29,12 +29,12 @@ use Inc\Repositories\WPDBRepositories\SubmissionRepository;
 class LessonProgressService {
 
 	public function __construct(
-		private readonly LessonProgressRepository    $progress,
-		private readonly GroupLessonRepository       $groupLessons,
-		private readonly LessonManager               $lessons,
-		private readonly SubmissionRepository        $submissions,
+		private readonly LessonProgressRepository $progress,
+		private readonly GroupLessonRepository $groupLessons,
+		private readonly LessonManager $lessons,
+		private readonly SubmissionRepository $submissions,
 		private readonly AssessmentAttemptRepository $attempts,
-		private readonly ClockInterface              $clock,
+		private readonly ClockInterface $clock,
 	) {}
 
 	/**
@@ -185,5 +185,47 @@ class LessonProgressService {
 		}
 
 		return false;
+	}
+	/** Completion projection from a batch of already loaded program rows. */
+	public function completedLessons( int $studentId, array $rows ): array {
+		$definitions   = array();
+		$assessmentIds = array();
+		$progressIds   = array();
+		foreach ( $rows as $row ) {
+			$progressIds[] = $row->progressId();
+			if ( $row->lessonId && ! array_key_exists( $row->lessonId, $definitions ) ) {
+				$definitions[ $row->lessonId ] = $this->lessons->get( $row->lessonId );
+				foreach ( $definitions[ $row->lessonId ]?->steps ?? array() as $step ) {
+					if ( StepType::Assessment === $step->type ) {
+						$id = (int) ( $step->payload['ref'] ?? 0 );
+						if ( $id > 0 ) {
+							$assessmentIds[] = $id;
+						}
+					}
+				}
+			}
+		}
+		$stored      = $this->progress->statusesForLessons( $studentId, $progressIds );
+		$works       = $this->submissions->completedWorksForLessons( $studentId, $progressIds );
+		$assessments = $this->attempts->passedAssessmentIds( $studentId, $assessmentIds );
+		$result      = array();
+		foreach ( $rows as $row ) {
+			$steps    = ( $definitions[ $row->lessonId ?? 0 ] ?? null )?->steps ?? array();
+			$complete = array() !== $steps;
+			foreach ( $steps as $step ) {
+				$id   = (int) ( $step->payload['ref'] ?? 0 );
+				$done = match ( $step->type ) {
+					StepType::Work => isset( $works[ $row->progressId() ][ $id ] ),
+					StepType::Assessment => isset( $assessments[ $id ] ),
+					default => ( $stored[ $row->progressId() ][ $step->key ] ?? ProgressStatus::Available )->isComplete(),
+				};
+				if ( ! $done ) {
+					$complete = false;
+					break;
+				}
+			}
+			$result[ $row->id ] = $complete;
+		}
+		return $result;
 	}
 }

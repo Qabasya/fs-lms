@@ -447,3 +447,11 @@ a.prof-stat-tile:hover { box-shadow: var(--shadow-md); }
     > button { flex: 1 1 0; }
   }
 }
+
+// Semantic icon tones; presentation stays in SCSS.
+@each $name, $color in (primary: var(--accent), info: var(--accent), success: var(--ok), warning: var(--wait-accent), danger: var(--err), 'violet': var(--tone-oge)) {
+  .st-ico--#{$name} {
+    color: $color;
+    background: color-mix(in srgb, $color 10%, transparent);
+  }
+}

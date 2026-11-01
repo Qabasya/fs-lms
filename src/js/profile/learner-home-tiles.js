@@ -29,39 +29,39 @@ export function examCountdownValue( item ) {
  *
  * @param {{deadlines: Array, attendance: {percent: number|null}, exam_countdown?: Array, highlights?: object|null}} d Ответ кабинета
  * @param {{parent: boolean}} who
- * @returns {Array<{id: string, label: string, value: string, color: string, ico: string, href?: string, urgent?: boolean, note?: string}>}
+ * @returns {Array<{id: string, label: string, value: string, tone: string, ico: string, href?: string, urgent?: boolean, note?: string}>}
  */
 export function tileCatalog( d, { parent } ) {
     const last = ( d.deadlines || [] ).filter( ( x ) => x.player_url )
         .reduce( ( best, x ) => ( !best || String( x.due_at ) > String( best.due_at ) ? x : best ), null );
-    const tiles = [ { id: 'deadlines', label: 'Дедлайнов', value: String( d.deadlines.length ), color: '#f08c00', ico: 'alert', href: last?.player_url } ];
+    const tiles = [ { id: 'deadlines', label: 'Дедлайнов', value: String( d.deadlines.length ), tone: 'warning', ico: 'alert', href: last?.player_url } ];
 
     ( parent ? [] : ( d.exam_countdown || [] ) ).forEach( ( item ) => tiles.push( {
         id: `exam:${ item.subject_key }`,
         label: `До экзамена · ${ glueLastWord( item.subject ) }`,
         value: examCountdownValue( item ),
-        color: item.urgent ? '#e03131' : '#1c7ed6',
+        tone: item.urgent ? 'danger' : 'info',
         ico: 'cal',
         urgent: item.urgent,
     } ) );
 
-    tiles.push( { id: 'attendance', label: 'Посещаемость', value: d.attendance.percent === null ? '—' : `${ d.attendance.percent }%`, color: '#2f9e44', ico: 'check' } );
+    tiles.push( { id: 'attendance', label: 'Посещаемость', value: d.attendance.percent === null ? '—' : `${ d.attendance.percent }%`, tone: 'success', ico: 'check' } );
 
     const h = d.highlights;
     if ( h ) {
-        tiles.push( { id: 'streak', label: 'Серия без пропусков', value: String( h.streak ), color: '#2f9e44', ico: 'check', note: 'занятий подряд' } );
+        tiles.push( { id: 'streak', label: 'Серия без пропусков', value: String( h.streak ), tone: 'success', ico: 'check', note: 'занятий подряд' } );
 
     }
     if ( !parent || h ) {
-        tiles.push( { id: 'to_fix', label: 'Осталось исправить', value: String( d.to_fix ?? h?.to_fix ?? 0 ), color: '#f08c00', ico: 'alert', note: 'заданий в сданных работах' } );
+        tiles.push( { id: 'to_fix', label: 'Осталось исправить', value: String( d.to_fix ?? h?.to_fix ?? 0 ), tone: 'warning', ico: 'alert', note: 'заданий в сданных работах' } );
     }
     if ( h && h.last_result ) {
-        tiles.push( { id: 'last_result', label: 'Последний результат', value: h.last_result.value, color: '#7048e8', ico: 'check', note: h.last_result.note } );
+        tiles.push( { id: 'last_result', label: 'Последний результат', value: h.last_result.value, tone: 'violet', ico: 'check', note: h.last_result.note } );
     }
 
     ( d.rankings || [] ).forEach( item => tiles.push( {
         id: `ranking:${ item.subject_key }`, label: `Рейтинг · ${ glueLastWord( item.subject ) }`,
-        value: `${ item.rank } место`, color: '#f08c00', ico: 'star',
+        value: `${ item.rank } место`, tone: 'warning', ico: 'star',
         note: `${ item.score } ${ pluralRu( item.score, 'балл', 'балла', 'баллов' ) } · ${ item.period }`,
     } ) );
 
