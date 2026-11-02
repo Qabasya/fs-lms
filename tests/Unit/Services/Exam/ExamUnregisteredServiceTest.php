@@ -54,8 +54,25 @@ class ExamUnregisteredServiceTest extends TestCase {
 		self::assertSame( 'Не записан', $rows[0]['status'] );
 	}
 
+	public function test_emergency_picker_includes_student_with_a_previous_no_show(): void {
+		$service = $this->service( true, array( 1 ), array( 1 => 'missed' ) );
+		self::assertSame( array( 1 ), array_column( $service->rows( 10, 7, true ), 'person_id' ) );
+		self::assertSame( array(), $service->rows( 10, 7 ), 'The unregistered report keeps its own meaning.' );
+	}
+
+	public function test_emergency_picker_includes_registered_students_and_other_subjects(): void {
+		$service = $this->service( true, array( 1 ), array( 1 => 'confirmed' ), array( 1, 2 ) );
+		self::assertSame( array( 1, 2 ), array_column( $service->rows( 10, 7, true ), 'person_id' ) );
+		self::assertSame( array(), $service->rows( 10, 7 ) );
+	}
+
+	public function test_emergency_picker_still_requires_event_access(): void {
+		$this->expectException( CodedException::class );
+		$this->service( false, array( 1 ), array() )->rows( 10, 7, true );
+	}
+
 	/** @param list<int> $audience @param array<int, string> $registrations person_id → статус записи */
-	private function service( bool $canManage, array $audience, array $registrations ): ExamUnregisteredService {
+	private function service( bool $canManage, array $audience, array $registrations, ?array $allActive = null ): ExamUnregisteredService {
 		$sessions = $this->createMock( ExamSessionRepository::class );
 		$sessions->method( 'find' )->willReturn( $this->examSession() );
 		$events = $this->createMock( ExamEventRepository::class );
@@ -71,7 +88,7 @@ class ExamUnregisteredServiceTest extends TestCase {
 				if ( ! isset( $registrations[ $personId ] ) ) {
 					return null;
 				}
-				return ExamParticipationDTO::fromArray( array( 'id' => $personId, 'event_id' => $eventId, 'participant_id' => $personId, 'audience' => 'student', 'created_at' => '2026-03-01 00:00:00' ) );
+				return ExamParticipationDTO::fromArray( array( 'id' => $personId, 'event_id' => $eventId, 'participant_id' => $personId, 'audience' => 'student', 'transfer_allowed' => 0, 'version' => 1, 'created_at' => '2026-03-01 00:00:00', 'updated_at' => '2026-03-01 00:00:00' ) );
 			}
 		);
 		$registrationRepo = $this->createMock( ExamRegistrationRepository::class );
@@ -84,6 +101,7 @@ class ExamUnregisteredServiceTest extends TestCase {
 			}
 		);
 		$records = $this->createMock( StudentRecordRepository::class );
+		$records->method( 'allActiveStudentPersonIds' )->willReturn( $allActive ?? $audience );
 		$records->method( 'findActiveByStudentFirst' )->willReturnCallback(
 			fn ( int $id ) => new \Inc\DTO\Enrollment\StudentRecordDTO(
 				$id, $id, 0, 5, 'Фамилия' . $id, 'Имя', null, 'Школа', '9', null, null, null, null,

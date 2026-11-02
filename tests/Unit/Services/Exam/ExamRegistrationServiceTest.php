@@ -299,14 +299,14 @@ class ExamRegistrationServiceTest extends TestCase {
 	// ---- правила записи (3.3): по одному тесту на строку таблицы -------------------------------------------------------------------
 
 	/** Всё, что нужно записи участника на сеанс 100, кроме проверяемого правила. */
-	private function arrangeRegistration( ?ExamSessionDTO $session = null, ?ExamParticipationDTO $participation = null ): void {
+	private function arrangeRegistration( ?ExamSessionDTO $session = null, ?ExamParticipationDTO $participation = null, ?ExamRegistrationDTO $active = null, bool $overlaps = false ): void {
 		$session ??= $this->session( self::OLD_SESSION );
 		$this->participants->method( 'findForUpdate' )->willReturn( $this->participant() );
 		$this->sessions->method( 'find' )->willReturn( $session );
 		$this->sessions->method( 'findForUpdate' )->willReturn( $session );
 		$this->participations->method( 'getOrCreateLocked' )->willReturn( $participation ?? $this->participation() );
-		$this->registrations->method( 'findActive' )->willReturn( null );
-		$this->registrations->method( 'hasOverlappingActive' )->willReturn( false );
+		$this->registrations->method( 'findActive' )->willReturn( $active );
+		$this->registrations->method( 'hasOverlappingActive' )->willReturn( $overlaps );
 		$this->registrations->method( 'insert' )->willReturn( 55 );
 	}
 
@@ -398,6 +398,79 @@ class ExamRegistrationServiceTest extends TestCase {
 		$this->sessions->expects( self::once() )->method( 'occupySeatOverCapacity' )->with( self::OLD_SESSION )->willReturn( true );
 
 		self::assertSame( 55, $this->service->registerByStaff( 9, 5001, self::OLD_SESSION, 'key-over' )->registrationId );
+	}
+
+	public function test_emergency_admission_ignores_another_exam_overlap(): void {
+		$this->arrangeRegistration( overlaps: true );
+		$this->participants->method( 'getOrCreateForPerson' )->willReturn( self::PARTICIPANT );
+		$this->accessGuard->method( 'canManageSubject' )->willReturn( true );
+		$this->sessions->method( 'occupySeat' )->willReturn( true );
+		self::assertSame( 55, $this->service->registerByStaff( 9, self::PERSON, self::OLD_SESSION, 'key-emergency-overlap' )->registrationId );
+	}
+
+	public function test_emergency_readmission_after_no_show_does_not_release_old_seat(): void {
+		$this->arrangeStaffStudent();
+		$this->sessions->method( 'occupySeat' )->willReturn( true );
+		$this->registrations->expects( self::never() )->method( 'deactivate' );
+		$this->sessions->expects( self::never() )->method( 'releaseSeat' );
+		$this->participations->expects( self::once() )->method( 'setActiveRegistration' )->with( self::PARTICIPATION, 55 );
+		self::assertSame( 55, $this->service->registerByStaff( 9, self::PERSON, self::OLD_SESSION, 'key-readmit-missed' )->registrationId );
+	}
+
+	public function test_emergency_duplicate_returns_existing_registration_without_another_seat(): void {
+		$this->arrangeRegistration( active: $this->registration() );
+		$this->participants->method( 'getOrCreateForPerson' )->willReturn( self::PARTICIPANT );
+		$this->accessGuard->method( 'canManageSubject' )->willReturn( true );
+		$this->sessions->expects( self::never() )->method( 'occupySeat' );
+		$this->registrations->expects( self::never() )->method( 'insert' );
+		self::assertSame( self::REGISTRATION, $this->service->registerByStaff( 9, self::PERSON, self::OLD_SESSION, 'key-already-here' )->registrationId );
+	}
+
+	public function test_emergency_admission_moves_an_existing_registration_even_into_a_full_session(): void {
+		$this->arrangeRegistration( $this->session( self::NEW_SESSION ), active: $this->registration(), overlaps: true );
+		$this->participants->method( 'getOrCreateForPerson' )->willReturn( self::PARTICIPANT );
+		$this->accessGuard->method( 'canManageSubject' )->willReturn( true );
+		$this->sessions->expects( self::once() )->method( 'lockInOrder' )->with( array( self::OLD_SESSION, self::NEW_SESSION ) )->willReturn( array(
+			self::OLD_SESSION => $this->session( self::OLD_SESSION ), self::NEW_SESSION => $this->session( self::NEW_SESSION ),
+		) );
+		$this->sessions->method( 'occupySeat' )->willReturn( false );
+		$this->sessions->expects( self::once() )->method( 'occupySeatOverCapacity' )->with( self::NEW_SESSION )->willReturn( true );
+		$this->sessions->expects( self::once() )->method( 'releaseSeat' )->with( self::OLD_SESSION );
+		$this->registrations->expects( self::once() )->method( 'deactivate' )->with( self::REGISTRATION, ExamRegistrationStatus::Transferred, self::anything(), self::anything(), 9 )->willReturn( true );
+		$result = $this->service->registerByStaff( 9, self::PERSON, self::NEW_SESSION, 'key-emergency-move' );
+		self::assertSame( 55, $result->registrationId );
+		self::assertSame( self::NEW_SESSION, $result->sessionId );
+	}
+
+	public function test_emergency_admission_preserves_started_work_in_another_session(): void {
+		$this->arrangeRegistration( $this->session( self::NEW_SESSION ), $this->participation( 5, 77 ), $this->registration() );
+		$this->participants->method( 'getOrCreateForPerson' )->willReturn( self::PARTICIPANT );
+		$this->accessGuard->method( 'canManageSubject' )->willReturn( true );
+		$this->sessions->expects( self::never() )->method( 'lockInOrder' );
+		$this->registrations->expects( self::never() )->method( 'deactivate' );
+		$this->expectException( CodedException::class );
+		$this->expectExceptionMessage( 'Экзамен уже начат или сдан.' );
+		$this->service->registerByStaff( 9, self::PERSON, self::NEW_SESSION, 'key-keep-work' );
+	}
+
+	public function test_emergency_duplicate_in_current_session_does_not_reset_started_work(): void {
+		$this->arrangeRegistration( participation: $this->participation( 5, 77 ), active: $this->registration() );
+		$this->participants->method( 'getOrCreateForPerson' )->willReturn( self::PARTICIPANT );
+		$this->accessGuard->method( 'canManageSubject' )->willReturn( true );
+		$this->registrations->expects( self::never() )->method( 'insert' );
+		$this->participations->expects( self::never() )->method( 'setCurrentAttempt' );
+		self::assertSame( self::REGISTRATION, $this->service->registerByStaff( 9, self::PERSON, self::OLD_SESSION, 'key-already-started' )->registrationId );
+	}
+
+	public function test_emergency_transfer_retry_replays_without_releasing_or_occupying_seats(): void {
+		$this->arrangeRegistration( $this->session( self::NEW_SESSION ), active: $this->registration() );
+		$this->participants->method( 'getOrCreateForPerson' )->willReturn( self::PARTICIPANT );
+		$this->accessGuard->method( 'canManageSubject' )->willReturn( true );
+		$this->storedOperation = $this->storedResult( 'register', (string) self::NEW_SESSION, new RegistrationResultDTO( 55, self::PARTICIPATION, self::NEW_SESSION, ExamRegistrationStatus::Confirmed, 0 ) );
+		$this->sessions->expects( self::never() )->method( 'lockInOrder' );
+		$this->sessions->expects( self::never() )->method( 'releaseSeat' );
+		$this->sessions->expects( self::never() )->method( 'occupySeat' );
+		self::assertTrue( $this->service->registerByStaff( 9, self::PERSON, self::NEW_SESSION, 'key-retry-move' )->replayed );
 	}
 
 	public function test_staff_register_requires_event_scope(): void {

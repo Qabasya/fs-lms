@@ -42,12 +42,13 @@ class ExamUnregisteredService {
 
 	/**
 	 * Незаписавшиеся ученики проведения сеанса, по алфавиту.
+	 * Для экстренного подбора ($forAdmission) — все активные ученики без фильтра истории/направления.
 	 *
 	 * @return list<array{person_id: int, name: string, group: string, school: string}>
 	 *
 	 * @throws CodedException `ExamAccess` — сеанса нет или проведение не принадлежит сотруднику.
 	 */
-	public function rows( int $actorUserId, int $sessionId ): array {
+	public function rows( int $actorUserId, int $sessionId, bool $forAdmission = false ): array {
 		$session = $this->sessions->find( $sessionId );
 		$event   = null !== $session ? $this->events->find( $session->eventId ) : null;
 		if ( null === $session || null === $event || ! $this->guard->canManageEvent( $actorUserId, $event ) ) {
@@ -55,8 +56,11 @@ class ExamUnregisteredService {
 		}
 
 		$rows = array();
-		foreach ( $this->audience->studentPersonIds( $event->subjectKey ) as $personId ) {
-			if ( $this->isRegistered( $event->id, $personId ) ) {
+		// Emergency admission is not the "unregistered" report: include no-shows,
+		// existing registrations and students of other subjects for a staff decision.
+		$personIds = $forAdmission ? $this->records->allActiveStudentPersonIds() : $this->audience->studentPersonIds( $event->subjectKey );
+		foreach ( $personIds as $personId ) {
+			if ( ! $forAdmission && $this->isRegistered( $event->id, $personId ) ) {
 				continue;
 			}
 			$record = $this->records->findActiveByStudentFirst( $personId );

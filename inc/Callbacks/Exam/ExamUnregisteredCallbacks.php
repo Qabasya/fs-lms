@@ -38,13 +38,14 @@ class ExamUnregisteredCallbacks extends BaseController {
 		parent::__construct();
 	}
 
-	/** Незаписавшиеся ученики проведения выбранного сеанса. */
+	/** Незаписавшиеся либо все активные ученики для экстренного добавления сотрудником. */
 	public function ajaxGetExamUnregistered(): void {
 		$this->authorize( Nonce::ExamManage, Capability::ManageExams );
 
-		$sessionId = $this->requireInt( 'session_id' );
+		$sessionId    = $this->requireInt( 'session_id' );
+		$forAdmission = $this->sanitizeBool( 'for_admission' );
 
-		$this->run( fn (): array => array( 'rows' => $this->unregistered->rows( get_current_user_id(), $sessionId ) ) );
+		$this->run( fn (): array => array( 'rows' => $this->unregistered->rows( get_current_user_id(), $sessionId, $forAdmission ) ) );
 	}
 
 	/** CSV незаписавшихся: все или выбранные фильтрами. */

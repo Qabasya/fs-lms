@@ -310,7 +310,7 @@ function toolbar() {
     const unreg = unregisteredMode();
     const approval = unreg ? '' : approvalToolbar();
     const exports = (unreg ? visibleUnregistered().length : visibleRows().length) ? exportButtonsHtml() : '';
-    const guest = unreg ? '' : participantButtonHtml();
+    const guest = participantButtonHtml();
     if (!approval && !exports && !guest) { return ''; }
     return `<div class="exam-conduct-toolbar">${guest}${approval}${exports}</div>`;
 }
@@ -840,13 +840,13 @@ function openParticipantForm(anchor) {
     draw('student');
 }
 
-/** Ученик из списка «Незаписавшиеся»: запись идёт поверх запретов самозаписи (окно, начало сеанса) и сверх вместимости. */
+/** Экстренный подбор всех активных учеников, включая неявку и запись на другой сеанс. */
 async function renderStudentTab(pop, body, place) {
     const requestKey = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : String(Date.now()) + Math.random();
     body.innerHTML = '<div class="gp-warn">Загрузка списка…</div>';
     let rows = [];
     try {
-        rows = (await api('getUnregistered', { session_id: sessionId })).rows || [];
+        rows = (await api('getUnregistered', { session_id: sessionId, for_admission: 1 })).rows || [];
     } catch (err) {
         body.innerHTML = `<div class="gp-error" role="alert">${esc(ajaxErrorText(err, 'Не удалось загрузить список учеников'))}</div>`;
         place();

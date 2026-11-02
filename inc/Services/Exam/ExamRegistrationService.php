@@ -126,8 +126,8 @@ class ExamRegistrationService {
 	/**
 	 * «Добавить участника → Ученик»: сотрудник записывает ученика на сеанс поверх правил самозаписи — окно записи, «сеанс уже
 	 * начался», скрытие сеанса от учеников и аудитория направления не проверяются, место берётся и сверх вместимости.
-	 * Остаются состояние проведения и сеанса (не закончен, не отменён), одна действующая запись, отсутствие попытки, пересечение
-	 * с другим проведением.
+	 * Неявка и пересечение с другим проведением не мешают. Действующая запись на другой сеанс переносится,
+	 * повторное добавление в тот же сеанс возвращает существующую запись. Начатые работы не сбрасываются.
 	 *
 	 * @throws CodedException Нет доступа к проведению либо запись нарушает оставшиеся правила.
 	 */
@@ -140,7 +140,22 @@ class ExamRegistrationService {
 
 		$participantId = $this->participants->getOrCreateForPerson( $personId );
 
-		return $this->registerParticipant( $participantId, ExamAudience::Student, $sessionId, $requestKey, $actorUserId, array(), true );
+		$this->assertRequestKey( $requestKey );
+		return $this->inTransactionWithRetry(
+			fn (): RegistrationResultDTO => $this->registerLocked(
+				$participantId,
+				ExamAudience::Student,
+				$sessionId,
+				$requestKey,
+				$actorUserId,
+				false,
+				null,
+				array(),
+				null,
+				true,
+				true
+			)
+		);
 	}
 
 	/**
@@ -197,7 +212,7 @@ class ExamRegistrationService {
 	 *
 	 * @throws CodedException Сеанс закрыт, запись конфликтует с правилами или свободных мест нет.
 	 */
-	private function registerLocked( int $participantId, ExamAudience $audience, int $sessionId, string $requestKey, ?int $actorUserId, bool $seatHeld, ?int $sourceId, array $warnings, ?int $recordedBy = null, bool $overCapacity = false ): RegistrationResultDTO {
+	private function registerLocked( int $participantId, ExamAudience $audience, int $sessionId, string $requestKey, ?int $actorUserId, bool $seatHeld, ?int $sourceId, array $warnings, ?int $recordedBy = null, bool $overCapacity = false, bool $emergency = false ): RegistrationResultDTO {
 		// Блокировка 1: участник (сериализует проверку пересечений между проведениями).
 		$this->lockParticipant( $participantId );
 
@@ -215,6 +230,20 @@ class ExamRegistrationService {
 			return RegistrationResultDTO::fromArray( (array) json_decode( (string) $replayed->resultRef, true ) )->asReplayed();
 		}
 
+		if ( $emergency ) {
+			$active = $this->registrations->findActive( $participation->id );
+			if ( null !== $active ) {
+				// Resolve the existing registration before locking a session: a transfer
+				// must lock both sessions in ID order, never target then source.
+				$result        = $active->sessionId === $sessionId
+					? new RegistrationResultDTO( $active->id, $participation->id, $sessionId, ExamRegistrationStatus::Confirmed, $this->freeSeats( $sessionId ) )
+					: $this->moveRegistration( $participation, $active, $sessionId, true, $actorUserId, 'Экстренное добавление участника', true );
+				$encodedResult = wp_json_encode( $result->toArray() );
+				$this->rememberOperation( $participantId, self::OP_REGISTER, $requestKey, (string) $sessionId, is_string( $encodedResult ) ? $encodedResult : '' );
+				return $result;
+			}
+		}
+
 		// Блокировка 3: сеанс.
 		$session = $this->sessions->findForUpdate( $sessionId );
 		$event   = null !== $session ? $this->events->find( $session->eventId ) : null;
@@ -223,7 +252,7 @@ class ExamRegistrationService {
 		}
 
 		$nowUtc = $this->time->nowUtc();
-		$this->assertCanRegister( $event, $session, $participation, $nowUtc, null !== $actorUserId, ! $seatHeld );
+		$this->assertCanRegister( $event, $session, $participation, $nowUtc, null !== $actorUserId, ! $seatHeld, $emergency );
 
 		// Место занимается одним условным UPDATE: вместимость проверяет сама база.
 		// Сверх вместимости сажает только сотрудник (`$overCapacity`); в журнал уходит пометка.
@@ -281,11 +310,12 @@ class ExamRegistrationService {
 				'actor'            => $actorUserId ?? $recordedBy,
 				'context'          => array_filter(
 					array(
-						'audience'  => $audience->value,
-						'source_id' => $sourceId,
-						'seat_held' => $seatHeld ? true : null,
+						'audience'      => $audience->value,
+						'source_id'     => $sourceId,
+						'seat_held'     => $seatHeld ? true : null,
 						'over_capacity' => $overflow ? true : null,
-						'warnings'  => array() === $warnings ? null : $warnings,
+						'emergency'     => $emergency ? true : null,
+						'warnings'      => array() === $warnings ? null : $warnings,
 					),
 					static fn ( mixed $value ): bool => null !== $value
 				),
@@ -526,7 +556,7 @@ class ExamRegistrationService {
 	 *
 	 * @throws CodedException Перенос нарушает правила, вместимость или действительность записи.
 	 */
-	private function moveRegistration( ExamParticipationDTO $participation, ExamRegistrationDTO $current, int $newSessionId, bool $byStaff, ?int $actorUserId, ?string $reason ): RegistrationResultDTO {
+	private function moveRegistration( ExamParticipationDTO $participation, ExamRegistrationDTO $current, int $newSessionId, bool $byStaff, ?int $actorUserId, ?string $reason, bool $emergency = false ): RegistrationResultDTO {
 		if ( $current->sessionId === $newSessionId ) {
 			throw new CodedException( ErrorCode::ExamConflict, 'Вы уже записаны на этот сеанс.' );
 		}
@@ -561,10 +591,16 @@ class ExamRegistrationService {
 			$this->assertRegistrationWindow( $event, $newSession, $nowUtc );
 		}
 
-		$this->assertNoOverlap( $participation->participantId, $newSession );
+		if ( ! $emergency ) {
+			$this->assertNoOverlap( $participation->participantId, $newSession );
+		}
 
+		$overflow = false;
 		if ( ! $this->sessions->occupySeat( $newSession->id ) ) {
-			throw $this->noSeatsError( $newSession->id );
+			if ( ! $emergency || ! $this->sessions->occupySeatOverCapacity( $newSession->id ) ) {
+				throw $this->noSeatsError( $newSession->id );
+			}
+			$overflow = true;
 		}
 
 		// Запись в неявке уже закрыта, а место возвращено при её отметке: закрывать и освобождать нечего.
@@ -585,6 +621,12 @@ class ExamRegistrationService {
 			'new_session_id'      => $newSession->id,
 			'by'                  => $byStaff ? 'staff' : 'self',
 		);
+		if ( $emergency ) {
+			$payload['emergency'] = true;
+		}
+		if ( $overflow ) {
+			$payload['over_capacity'] = true;
+		}
 		if ( $fromMissed ) {
 			$payload['from_missed'] = true;
 		}
@@ -605,6 +647,8 @@ class ExamRegistrationService {
 						'old_registration_id' => $current->id,
 						'old_session_id'      => $oldSession->id,
 						'from_missed'         => $fromMissed ? true : null,
+						'emergency'           => $emergency ? true : null,
+						'over_capacity'       => $overflow ? true : null,
 						'reason'              => $reason,
 					),
 					static fn ( mixed $value ): bool => null !== $value
@@ -660,7 +704,7 @@ class ExamRegistrationService {
 	 *
 	 * @throws CodedException Проведение или сеанс закрыты, окно истекло, попытка начата, запись уже есть или расписание пересекается.
 	 */
-	private function assertCanRegister( ExamEventDTO $event, ExamSessionDTO $session, ExamParticipationDTO $participation, string $nowUtc, bool $byStaff, bool $checkWindow = true ): void {
+	private function assertCanRegister( ExamEventDTO $event, ExamSessionDTO $session, ExamParticipationDTO $participation, string $nowUtc, bool $byStaff, bool $checkWindow = true, bool $emergency = false ): void {
 		if ( ExamEventStatus::Published->value !== $event->status ) {
 			throw new CodedException( ErrorCode::ExamClosed, 'Запись на этот экзамен закрыта.' );
 		}
@@ -682,7 +726,9 @@ class ExamRegistrationService {
 		if ( null !== $this->registrations->findActive( $participation->id ) ) {
 			throw new CodedException( ErrorCode::ExamConflict, 'Запись на этот экзамен уже есть.' );
 		}
-		$this->assertNoOverlap( $participation->participantId, $session );
+		if ( ! $emergency ) {
+			$this->assertNoOverlap( $participation->participantId, $session );
+		}
 	}
 
 	/**
