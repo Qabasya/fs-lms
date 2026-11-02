@@ -81,6 +81,7 @@ test( 'рейтинг выбранного ребёнка доступен ро�
     const data = { ...base, rankings: [{ subject_key: 'python', subject: 'Python', rank: 2, score: 89, period: 'Сентябрь — ноябрь 2026' }] };
     for ( const parent of [true, false] ) {
         const ranking = tileCatalog( data, { parent } ).find(t => t.id === 'ranking:python');
+        assert.equal(ranking.href, parent ? '' : '?screen=student-ranking&student-ranking_s=python');
         assert.equal( ranking.value, '2 место' );
         assert.equal( ranking.ico, 'star' );
         assert.match( ranking.note, /^89 баллов/ );

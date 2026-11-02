@@ -47,7 +47,9 @@ class SubjectRankingService {
 	 * @param int $personId Физлицо ученика (НЕ wp_user_id).
 	 */
 	public function buildForLearner( int $personId, string $subject, int $groupId = 0, string $periodFrom = '' ): array {
-		return $this->buildWith( $this->access->learnerSubjectsFor( $personId ), $subject, $groupId, $periodFrom );
+		$result = $this->buildWith( $this->access->learnerSubjectsFor( $personId ), $subject, $groupId, $periodFrom );
+		$result['viewer_person_id'] = $personId;
+		return $result;
 	}
 
 	/**

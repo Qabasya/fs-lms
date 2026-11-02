@@ -162,6 +162,7 @@ class SubjectRankingServiceTest extends TestCase {
 
 	public function test_learner_gets_same_table_but_only_for_own_direction(): void {
 		$data=$this->service()->buildForLearner(5,'inf_ege');
+		self::assertSame(5, $data['viewer_person_id']);
 		self::assertSame([1,2,3,4],array_column($data['rows'],'person_id'));
 		self::assertSame([1,1,2,3],array_column($data['rows'],'rank'));
 		self::assertCount(2,$data['groups']);

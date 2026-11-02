@@ -22,7 +22,7 @@ export function rankingPickersHtml(subject, groups, groupId, periods, periodFrom
  * место и ученик — `cell-idx`/`cell-name` журнала, группа и баллы — по центру, как данные журнала.
  * Имя ученика кликабельно, как в журнале: ведёт в «Сводку по ученику» (openSummary).
  */
-export function rankingTableHtml(data, canOpenSummary = false) {
+export function rankingTableHtml(data, canOpenSummary = false, learner = false) {
     const rows = data?.rows || [];
     const nameCell = (row) => {
         const inner = `<span class="cn-name">${esc(row.name || '—')}</span>`;
@@ -31,14 +31,14 @@ export function rankingTableHtml(data, canOpenSummary = false) {
             ? `<button type="button" class="cn-wrap cn-link" data-summary-pid="${row.person_id}" data-summary-gid="${gid}" data-href="${esc(profileUrl({ screen: 'summary', gid, pid: row.person_id }))}" title="Открыть сводку по ученику">${inner}</button>`
             : `<div class="cn-wrap">${inner}</div>`;
     };
-    return `<div class="prof-journal-wrap"><div class="j-scroll"><table class="jgrid ranking-table">
+    return `<div class="prof-journal-wrap"><div class="j-scroll"><table class="jgrid ranking-table${learner ? ' ranking-table--learner' : ''}">
         <thead><tr>
             <th class="col-name"><div class="hd-name">Ученик</div></th>
             <th class="col-mid"><div class="hd-name">Группа</div></th>
             <th class="col-mid"><div class="hd-name">Баллы</div></th>
             <th class="col-rank"><div class="hd-name">Место в рейтинге</div></th>
         </tr></thead>
-        <tbody>${rows.length ? rows.map(row => `<tr>
+        <tbody>${rows.length ? rows.map(row => `<tr${learner && Number(data.viewer_person_id) > 0 && Number(row.person_id) === Number(data.viewer_person_id) ? ' class="ranking-self"' : ''}>
             <td class="cell-name">${nameCell(row)}</td>
             <td class="cell-c">${esc((row.groups || []).map(group => group.name).join(', '))}</td>
             <td class="cell-c">${Number(row.score).toLocaleString('ru-RU', { maximumFractionDigits: 2 })}</td>
@@ -77,7 +77,7 @@ export function renderRanking(root, handlers = {}, screen = 'ranking') {
     root.replaceChildren(shell);
 
     function render(message = '') {
-        const content = message ? `<p class="ranking-message" role="status">${esc(message)}</p>` : rankingTableHtml(data, 'function' === typeof handlers.openSummary);
+        const content = message ? `<p class="ranking-message" role="status">${esc(message)}</p>` : rankingTableHtml(data, 'function' === typeof handlers.openSummary, screen === 'student-ranking');
         shell.innerHTML = `<div class="sum-head">${rankingPickersHtml(subject, groups, groupId, periods, periodFrom, showSubject)}</div>${content}`;
         shell.querySelectorAll('[data-summary-pid]').forEach(btn => btn.addEventListener('click', () => {
             handlers.openSummary(+btn.dataset.summaryGid, +btn.dataset.summaryPid);

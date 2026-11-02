@@ -62,6 +62,7 @@ export function tileCatalog( d, { parent } ) {
     ( d.rankings || [] ).forEach( item => tiles.push( {
         id: `ranking:${ item.subject_key }`, label: `Рейтинг · ${ glueLastWord( item.subject ) }`,
         value: `${ item.rank } место`, tone: 'warning', ico: 'star',
+        href: parent ? '' : `?screen=student-ranking&student-ranking_s=${ encodeURIComponent( item.subject_key ) }`,
         note: `${ item.score } ${ pluralRu( item.score, 'балл', 'балла', 'баллов' ) } · ${ item.period }`,
     } ) );
 

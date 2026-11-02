@@ -84,6 +84,19 @@ test('таблица: пустой срез — строка-заглушка н
     assert.match(html, /cell-empty" colspan="4">Нет активных учеников/);
 });
 
+test('в ученическом рейтинге отмечена только строка текущего ученика', () => {
+    const data = { viewer_person_id: 12, rows: [
+        { person_id: 11, name: 'Первый', groups: [], score: 4, rank: 1 },
+        { person_id: 12, name: 'Я', groups: [], score: 3, rank: 2 },
+    ] };
+    const html = rankingTableHtml(data, false, true);
+    assert.match(html, /ranking-table--learner/);
+    assert.equal((html.match(/class="ranking-self"/g) || []).length, 1);
+    assert.match(html, /<tr class="ranking-self">\s*<td class="cell-name">[^]*?Я/);
+    assert.doesNotMatch(rankingTableHtml(data, true), /ranking-self|ranking-table--learner/);
+    assert.doesNotMatch(rankingTableHtml({ ...data, viewer_person_id: 99 }, false, true), /ranking-self/);
+});
+
 test('селекты: без выбора направления (showSubject=false) — только период и группа', () => {
     const html = rankingPickersHtml(subject, groups, 1, periods, '', false);
 
