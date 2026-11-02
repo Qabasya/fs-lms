@@ -116,7 +116,7 @@ class LiveLessonService {
 
 			$group     = $this->groups->findById( $groupId );
 			$groupUrl  = (string) ( $group->broadcast_url ?? '' );
-			$groupName = (string) ( $group->name ?? '' );
+			$groupName = empty( $group->is_shared ) ? (string) ( $group->name ?? '' ) : '';
 
 			foreach ( $this->groupLessons->listByGroup( $groupId ) as $row ) {
 				if ( null === $row->scheduledAt || '' === $row->scheduledAt ) {

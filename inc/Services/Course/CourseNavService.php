@@ -66,7 +66,7 @@ class CourseNavService {
 
 		return array(
 			'course_id'       => (int) ( $course?->id ?? 0 ),
-			'course_title'    => $course?->title ?? (string) ( $group->name ?? '' ),
+			'course_title'    => $course?->title ?? ( ! $isTeacher && ! empty( $group->is_shared ) ? '' : (string) ( $group->name ?? '' ) ),
 			'module_label'    => null !== $course
 				? $this->moduleLabel( $course, (int) $groupLesson->lessonId )
 				: '',

@@ -210,6 +210,12 @@ final class LearnerRankingDatabaseCheck {
 			$this->expect( 'attendance excludes future / scheduled / cancelled / foreign / previous-trimester lessons', 3, count( $attendance ) );
 			$this->expect( 'missing attendance mark breaks the series', 0, (int) $attendance[1]['present'] );
 			$this->expect( 'active roster deduplicates enrollment records', 1, count( $repository->studentIds( 'probe' ) ) );
+			$this->insert( 'fs_lms_groups', array( 'id' => 3, 'subject_key' => 'probe', 'academic_period_id' => '2026', 'name' => 'Shared', 'is_shared' => 1 ) );
+			foreach ( array( 1, 3 ) as $studentId ) {
+				$this->insert( 'fs_lms_student_records', array( 'student_person_id' => $studentId, 'parent_person_id' => 2, 'group_id' => 3, 'status' => 'active', 'enrolled_at' => '2026-09-01 00:00:00' ) );
+			}
+			$this->expect( 'shared membership does not add ranking participants', 1, count( $repository->studentIds( 'probe' ) ) );
+			$this->expect( 'shared groups are absent from ranking filters and rows', 2, count( $repository->roster( 'probe' ) ) );
 			$this->expect( 'three repeats / no join multiplication', 3, count( $repository->workEvents( 'probe', '2026-09-01 00:00:00', '2026-12-01 00:00:00' ) ) );
 			$this->expect( 'winter local boundary and manual review', 2, count( $repository->workEvents( 'probe', '2026-12-01 00:00:00', '2027-03-01 00:00:00' ) ) );
 			$this->expect( 'full tasks and approval gates', 2, count( $repository->assessmentEvents( 'probe', '2026-09-01 00:00:00', '2026-12-01 00:00:00' ) ) );

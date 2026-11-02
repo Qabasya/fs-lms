@@ -126,7 +126,8 @@ class LearnerContextBuilder {
 
 			$groups[ $rec->groupId ] = array(
 				'id'          => (int) $g->id,
-				'name'        => $g->name,
+				'name'        => ! empty( $g->is_shared ) ? '' : $g->name,
+				'is_shared'   => ! empty( $g->is_shared ),
 				// #12: человекочитаемое название предмета вместо слага (fallback — слаг).
 				'subject'     => $this->subjects->getByKey( $g->subject_key )?->name ?? $g->subject_key,
 				'subject_key' => $g->subject_key,

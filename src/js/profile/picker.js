@@ -42,8 +42,8 @@ export function openSubjectPicker(anchor, subjects, currentKey, onPick) {
 /** Кнопка выбора группы (чип с цветом группы + «Название · предмет»). */
 export function groupPickerBtnHtml(group, btnId) {
     return `<button type="button" class="kp-btn" id="${btnId}">
-        ${chipHtml('kp-chip', group.subject_key || groupSubjectKey(group.id), group.name, group.id, group.avatar)}
-        <span class="kp-txt">${esc(group.name)} · ${esc(group.subject)}</span>
+        ${Number(group.id) ? chipHtml('kp-chip', group.subject_key || groupSubjectKey(group.id), group.name, group.id, group.avatar) : ''}
+        <span class="kp-txt">${esc(group.name)}${group.subject ? ` · ${esc(group.subject)}` : ''}</span>
         ${CARET}
     </button>`;
 }

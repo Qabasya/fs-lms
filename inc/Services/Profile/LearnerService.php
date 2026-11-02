@@ -56,10 +56,11 @@ class LearnerService {
 		$visibleGroups = array_values(
 			array_filter(
 				$ctx->groups,
-				static fn( $g ) => 'open' !== ( $g['access_mode'] ?? 'scheduled' )
+				static fn( $g ) => empty( $g['is_shared'] ) && 'open' !== ( $g['access_mode'] ?? 'scheduled' )
 			)
 		);
 
+		$mainGroups = array_filter( $ctx->groups, static fn( $g ) => empty( $g['is_shared'] ) );
 		$grades = $this->performance->grades( $ctx, $personId );
 
 		// События экзаменов сливаются с занятиями и сортируются по дате и времени до обрезки до 6.
@@ -82,11 +83,11 @@ class LearnerService {
 			lessons:    $ctx->allLessons,
 			grades:     $grades,
 			attendance: $attendance,
-			examCountdown: $this->examCountdown->forGroups( $ctx->groups, $ctx->now ),
+			examCountdown: $this->examCountdown->forGroups( $mainGroups, $ctx->now ),
 			highlights: $this->highlightsFor( $personId, $attendance, $deadlines ),
-			rankings: $this->ranking->forGroups( $personId, $ctx->groups, $ctx->now ),
+			rankings: $this->ranking->forGroups( $personId, $mainGroups, $ctx->now ),
 			toFix: $this->highlights->toFix( $deadlines ),
-			homeSubjects: $this->homeSubjects( $ctx->groups ),
+			homeSubjects: $this->homeSubjects( $mainGroups ),
 		);
 	}
 

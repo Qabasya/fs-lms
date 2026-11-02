@@ -6,13 +6,28 @@ import { installCtxMenu } from './ctx-menu-stub.mjs';
 /* Пикеры кабинета (picker.js): единый вид выбора из списка и порядок пунктов. */
 
 globalThis.window = { fsProfile: { groups: [], avatars: {} } };
-const { openGroupPicker, openOptionPicker, optionPickerBtnHtml } = await import('../../src/js/profile/picker.js');
+const { groupPickerBtnHtml, openGroupPicker, openOptionPicker, optionPickerBtnHtml } = await import('../../src/js/profile/picker.js');
 
 const anchor = { getBoundingClientRect: () => ({ left: 10, right: 210, top: 10, bottom: 40, width: 200 }) };
 const groups = [
     { id: 1, name: 'КОГЭ-1', subject: 'Информатика', subject_key: 'inf' },
     { id: 2, name: 'КОГЭ-2', subject: 'Информатика', subject_key: 'inf' },
 ];
+
+test('невыбранная группа показывается без чипа и лишнего разделителя', () => {
+    const empty = groupPickerBtnHtml({ id: 0, name: 'Выберите группу', subject: '' }, 'group');
+    assert.doesNotMatch(empty, /kp-chip|chip-c0/);
+    assert.match(empty, /<span class="kp-txt">Выберите группу<\/span>/);
+    const selected = groupPickerBtnHtml(groups[0], 'group');
+    assert.match(selected, /kp-chip/);
+    assert.match(selected, /КОГЭ-1 · Информатика/);
+});
+
+test('общая группа доступна в списке преподавателя', () => {
+    const menu = installCtxMenu();
+    openGroupPicker(anchor, [...groups, { id: 3, name: 'Общая', subject: 'Информатика', is_shared: true }], 0, () => {});
+    assert.deepEqual(menu.values(), ['1', '2', '3']);
+});
 
 test('«Все группы» с first: true стоит самым первым пунктом, группы идут следом', () => {
     const menu = installCtxMenu();

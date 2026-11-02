@@ -59,7 +59,7 @@ class RankingAccessService {
 	/** Направления ученика — предметы его активных групп; чужие направления экран «Рейтинг» не отдаёт. */
 	public function learnerSubjectsFor( int $personId ): array {
 		$owned    = array();
-		$records  = $this->records->findActiveByStudent( $personId );
+		$records  = $this->records->findActiveByStudent( $personId, false );
 		$groupIds = array_map( static fn( $record ): int => $record->groupId, $records );
 		foreach ( $this->groups->findByIds( $groupIds ) as $group ) {
 			$owned[ (string) $group->subject_key ] = true;

@@ -299,6 +299,14 @@ readonly class NotificationService {
 	 */
 	public function toClientArray( NotificationDTO $n ): array {
 		$url = $n->url;
+		$payload = $n->payload;
+		if ( ! empty( $payload['group_name'] ) && null !== $n->groupId ) {
+			$user = get_userdata( $n->recipientUserId );
+			$role = $user ? UserRole::primaryForCabinet( (array) $user->roles ) : null;
+			if ( in_array( $role, array( UserRole::FSStudent, UserRole::FSParent ), true ) && $this->isSharedGroup( $n->groupId ) ) {
+				$payload['group_name'] = '';
+			}
+		}
 		if (
 			in_array( $n->type, array( NotificationType::ReviewNeeded, NotificationType::HomeworkSubmitted ), true )
 			&& 'submission' === $n->entityType
@@ -317,7 +325,7 @@ readonly class NotificationService {
 			'type'   => $n->type->value,
 			'tone'   => $n->type->tone(),
 			'title'  => $n->type->title(),
-			'body'   => $this->renderBody( $n->type, $n->payload ),
+			'body'   => $this->renderBody( $n->type, $payload ),
 			'url'    => $url,
 			'time'   => $n->createdAt,
 			'unread' => $n->isUnread(),

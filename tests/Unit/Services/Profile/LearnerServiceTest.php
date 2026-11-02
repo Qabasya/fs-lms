@@ -474,6 +474,18 @@ $visibility = $this->createStub( \Inc\Services\Course\LessonVisibilityService::c
 
 	/* ── №2 (D17.2): открытые группы вне блока групп, но остаются курсами ── */
 
+	public function test_shared_group_is_hidden_but_its_lesson_remains_available(): void {
+		$this->records->method( 'findActiveByStudent' )->willReturn( array( (object) array( 'groupId' => 1 ) ) );
+		$this->groups->method( 'findById' )->willReturn( (object) array( 'id' => 1, 'name' => 'Общая группа', 'subject_key' => 'inf', 'is_shared' => 1 ) );
+		$this->groupLessons->method( 'listByGroup' )->willReturn( array( $this->row( 11, '2026-05-25 09:00:00' ) ) );
+		$data = $this->service->build( 9001 )->toArray();
+		self::assertSame( array(), $data['groups'] );
+		self::assertCount( 1, $data['lessons'] );
+		self::assertSame( '', $data['lessons'][0]['group_name'] );
+		self::assertCount( 1, $data['courses'] );
+		self::assertSame( '', $data['courses'][0]['code'] );
+	}
+
 	public function test_open_groups_hidden_from_groups_but_kept_as_courses(): void {
 		$this->records->method( 'findActiveByStudent' )->willReturn( array(
 			(object) array( 'groupId' => 1 ),

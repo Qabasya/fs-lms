@@ -229,7 +229,7 @@ function scRenderTabs(courses) {
         const pct = c.total ? Math.round(c.passed / c.total * 100) : 0;
         const sub = c.not_started
             ? (c.open ? 'свободное прохождение' : (c.start ? 'старт ' + fmtDayMonth(c.start) : 'скоро'))
-            : `${esc(c.code)} · ${c.passed} из ${c.total} ${scPlural(c.total, ['урок', 'урока', 'уроков'])}`;
+            : `${c.code ? esc(c.code) + ' · ' : ''}${c.passed} из ${c.total} ${scPlural(c.total, ['урок', 'урока', 'уроков'])}`;
         return `<button class="sc-tab${c.id === scState.active ? ' on' : ''}" data-id="${c.id}">
             ${chipHtml('sc-chip', c.subject_key, c.title, c.id, c.avatar)}
             <span class="sc-tb"><span class="sc-tname">${esc(c.title)}</span><span class="sc-tsub">${esc(sub)}</span></span>
@@ -270,7 +270,7 @@ function scRenderHero(courses) {
     document.getElementById('scHero').innerHTML = `
         <div class="sc-hero-top">
             <div class="sc-hinfo">
-                <span class="sc-code ${chipSoft(c.subject_key)}">${esc(c.code)}</span>
+                ${c.code ? `<span class="sc-code ${chipSoft(c.subject_key)}">${esc(c.code)}</span>` : ''}
                 <div class="sc-htitle">${esc(c.title)}</div>
                 ${meta ? `<div class="sc-hmeta">${meta}</div>` : ''}
                 <div class="sc-hprog">
