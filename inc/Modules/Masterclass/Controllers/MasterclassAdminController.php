@@ -13,7 +13,9 @@ use Inc\Managers\Wp\MenuManager;
 use Inc\Modules\Masterclass\Callbacks\MasterclassAdminCallbacks;
 use Inc\Modules\Masterclass\Config\MasterclassConfig;
 use Inc\Modules\Masterclass\DTO\MasterclassDTO;
+use Inc\Modules\Masterclass\Enums\MasterclassLogAction;
 use Inc\Modules\Masterclass\Enums\MasterclassStatus;
+use Inc\Modules\Masterclass\Repositories\MasterclassLogRepository;
 use Inc\Modules\Masterclass\Services\MasterclassAccountService;
 use Inc\Modules\Masterclass\Services\MasterclassService;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
@@ -52,8 +54,12 @@ class MasterclassAdminController extends BaseController {
 	/** Вид «аккаунты мастер-класса» (`?view=accounts`). */
 	public const VIEW_ACCOUNTS = 'accounts';
 
+	/** Вид «журнал модуля» (`?view=log`). */
+	public const VIEW_LOG = 'log';
+
 	public const PER_PAGE          = 20;
 	public const ACCOUNTS_PER_PAGE = 50;
+	public const LOG_PER_PAGE      = 50;
 
 	/** Формат даты и времени на странице (местное время). */
 	private const DISPLAY_FORMAT = 'd.m.Y H:i';
@@ -66,6 +72,7 @@ class MasterclassAdminController extends BaseController {
 		private readonly SubjectRepository $subjects,
 		private readonly MasterclassConfig $config,
 		private readonly ExamTime $time,
+		private readonly MasterclassLogRepository $log,
 	) {
 		parent::__construct();
 	}
@@ -145,6 +152,11 @@ class MasterclassAdminController extends BaseController {
 			return;
 		}
 
+		if ( self::VIEW_LOG === $this->sanitizeGetKey( 'view' ) ) {
+			$this->renderTemplate( 'admin-log.php', $this->logView() );
+			return;
+		}
+
 		$this->renderTemplate( 'admin-page.php', $this->listView() );
 	}
 
@@ -218,6 +230,7 @@ class MasterclassAdminController extends BaseController {
 				'end_time'   => $this->config->endTime(),
 			),
 			'list_url' => $this->pageUrl( array() ),
+			'log_url'  => $this->pageUrl( array( 'view' => self::VIEW_LOG ) ),
 			'chunk_max' => MasterclassAccountService::CHUNK_MAX,
 		);
 	}
@@ -274,6 +287,134 @@ class MasterclassAdminController extends BaseController {
 				'next_url' => $page < $pages ? $this->pageUrl( $paged + array( 'paged' => $page + 1 ) ) : null,
 			)
 		);
+	}
+
+	/**
+	 * Данные вкладки «Журнал»: фильтры из адреса (местные даты → UTC на границах суток),
+	 * страница, словарь действий и строки без паролей и ПД.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function logView(): array {
+		$filters = array(
+			'action'        => $this->sanitizeGetKey( 'mk_action' ),
+			'masterclass_id' => $this->sanitizeGetInt( 'mk_mid' ),
+			'account_id'    => $this->sanitizeGetInt( 'mk_acc' ),
+			'date_from'     => $this->utcDateFrom( $this->sanitizeGetText( 'mk_from' ) ),
+			'date_to'       => $this->utcDateTo( $this->sanitizeGetText( 'mk_to' ) ),
+		);
+
+		$page = max( 1, $this->sanitizeGetInt( 'paged' ) );
+		$result = $this->log->list( array_filter( $filters ), $page, self::LOG_PER_PAGE );
+
+		$actions = array();
+		foreach ( $this->log->distinctActions() as $value ) {
+			$case = MasterclassLogAction::tryFrom( $value );
+
+			$actions[] = array(
+				'value' => $value,
+				'label' => null !== $case ? $case->label() : $value,
+			);
+		}
+
+		$rows = array();
+		foreach ( $result['rows'] as $entry ) {
+			$actionCase = MasterclassLogAction::tryFrom( $entry->action );
+
+			$rows[] = array(
+				'id'             => $entry->id,
+				'time'           => ( new \DateTimeImmutable( $this->time->toLocal( $entry->createdAt ) ) )->format( self::DISPLAY_FORMAT ),
+				'action'         => null !== $actionCase ? $actionCase->label() : $entry->action,
+				'isFailure'      => 'failure' === $entry->result,
+				'actor'          => $entry->actorLabel ?? ( '' !== $entry->actorType ? $entry->actorType : '—' ),
+				'masterclass_id' => $entry->masterclassId,
+				'account'        => null !== $entry->accountId ? 'Ученик#' . $entry->accountId : ( $entry->subjectLabel ?? '—' ),
+				'ip'             => '' !== $entry->actorIp ? $entry->actorIp : '—',
+				'context'        => $this->contextPairs( $entry->context ),
+			);
+		}
+
+		$pages = max( 1, (int) ceil( $result['total'] / self::LOG_PER_PAGE ) );
+		$paged = array_filter(
+			array(
+				'view'      => self::VIEW_LOG,
+				'mk_action' => $filters['action'],
+				'mk_mid'    => $filters['masterclass_id'] > 0 ? $filters['masterclass_id'] : 0,
+				'mk_acc'    => $filters['account_id'] > 0 ? $filters['account_id'] : 0,
+				'mk_from'   => $this->sanitizeGetText( 'mk_from' ),
+				'mk_to'     => $this->sanitizeGetText( 'mk_to' ),
+			)
+		);
+
+		return array(
+			'rows'       => $rows,
+			'total'      => $result['total'],
+			'page'       => $page,
+			'pages'      => $pages,
+			'actions'    => $actions,
+			'filters'    => array(
+				'action'        => $filters['action'],
+				'masterclass_id' => $filters['masterclass_id'],
+				'account_id'    => $filters['account_id'],
+				'date_from'     => $this->sanitizeGetText( 'mk_from' ),
+				'date_to'       => $this->sanitizeGetText( 'mk_to' ),
+			),
+			'list_url'   => $this->pageUrl( array() ),
+			'filter_url' => $this->pageUrl( array( 'view' => self::VIEW_LOG ) ),
+			'prev_url'   => $page > 1 ? $this->pageUrl( $paged + array( 'paged' => $page - 1 ) ) : null,
+			'next_url'   => $page < $pages ? $this->pageUrl( $paged + array( 'paged' => $page + 1 ) ) : null,
+		);
+	}
+
+	/** Местная дата фильтра «от» → UTC-дата границы суток; пусто/не дата — null. */
+	private function utcDateFrom( string $localDate ): ?string {
+		if ( null === $this->localDate( $localDate ) ) {
+			return null;
+		}
+
+		return substr( $this->time->toUtc( $localDate . ' 00:00:00' ), 0, 10 );
+	}
+
+	/** Местная дата фильтра «по» → UTC-дата конца местных суток; пусто/не дата — null. */
+	private function utcDateTo( string $localDate ): ?string {
+		if ( null === $this->localDate( $localDate ) ) {
+			return null;
+		}
+
+		return substr( $this->time->endOfLocalDayUtc( $localDate ), 0, 10 );
+	}
+
+	/** Строгая проверка `Y-m-d` (regex пропускает 13-й месяц, DateTimeImmutable бросил бы). */
+	private function localDate( string $value ): ?string {
+		$date = \DateTimeImmutable::createFromFormat( '!Y-m-d', $value );
+
+		return false !== $date && array() === ( \DateTimeImmutable::getLastErrors() ?: array() ) ? $value : null;
+	}
+
+	/**
+	 * Контекст для показа: только скаляры, без вложенных структур и секретов.
+	 * Писатель журнала вырезает чувствительные ключи при записи; вкладка чистит
+	 * повторно — старые строки могли попасть в таблицу иначе.
+	 *
+	 * @param array<string, mixed> $context
+	 *
+	 * @return array<string, string>
+	 */
+	private function contextPairs( array $context ): array {
+		$pairs = array();
+
+		foreach ( $context as $key => $value ) {
+			if ( ! is_scalar( $value ) || '' === (string) $value ) {
+				continue;
+			}
+			if ( 1 === preg_match( '/pass|pwd|secret|token|nonce/i', (string) $key ) ) {
+				continue;
+			}
+			$text = (string) $value;
+			$pairs[ (string) $key ] = function_exists( 'mb_strimwidth' ) ? mb_strimwidth( $text, 0, 80, '…' ) : substr( $text, 0, 80 );
+		}
+
+		return $pairs;
 	}
 
 	/**

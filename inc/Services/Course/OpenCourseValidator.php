@@ -90,7 +90,10 @@ class OpenCourseValidator {
 
 		$workTaskIds = array();
 		foreach ( $lesson->workIds() as $workId ) {
-			$workTaskIds = array_merge( $workTaskIds, $this->works->get( (int) $workId )?->itemIds ?? array() );
+			$work = $this->works->get( (int) $workId );
+			if ( null !== $work ) {
+				$workTaskIds = array_merge( $workTaskIds, $work->itemIds );
+			}
 		}
 
 		$manualTasks = $this->manualTaskCount( array_merge( $lesson->taskIds(), $workTaskIds ) );

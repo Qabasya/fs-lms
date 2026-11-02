@@ -13,7 +13,10 @@ use Inc\Modules\Masterclass\Config\MasterclassConfig;
 use Inc\Modules\Masterclass\Controllers\MasterclassAdminController;
 use Inc\Modules\Masterclass\DTO\MasterclassDTO;
 use Inc\Modules\Masterclass\DTO\MasterclassFunnelDTO;
+use Inc\Modules\Masterclass\DTO\MasterclassLogDTO;
+use Inc\Modules\Masterclass\Enums\MasterclassLogAction;
 use Inc\Modules\Masterclass\Enums\MasterclassStatus;
+use Inc\Modules\Masterclass\Repositories\MasterclassLogRepository;
 use Inc\Modules\Masterclass\Services\MasterclassAccountService;
 use Inc\Modules\Masterclass\Services\MasterclassService;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
@@ -30,6 +33,7 @@ class MasterclassAdminControllerTest extends TestCase {
 	private MasterclassService&MockObject $service;
 	private MasterclassAccountService&MockObject $accounts;
 	private SubjectRepository&MockObject $subjects;
+	private MasterclassLogRepository&MockObject $log;
 	private MasterclassAdminController $controller;
 
 	protected function setUp(): void {
@@ -44,6 +48,7 @@ class MasterclassAdminControllerTest extends TestCase {
 		$this->service  = $this->createMock( MasterclassService::class );
 		$this->accounts = $this->createMock( MasterclassAccountService::class );
 		$this->subjects = $this->createMock( SubjectRepository::class );
+		$this->log      = $this->createMock( MasterclassLogRepository::class );
 
 		$this->subjects->method( 'readAll' )->willReturn( array(
 			new SubjectDTO( 'inf', 'Информатика' ),
@@ -61,7 +66,8 @@ class MasterclassAdminControllerTest extends TestCase {
 			$this->accounts,
 			$this->subjects,
 			new MasterclassConfig(),
-			new ExamTime( $clock )
+			new ExamTime( $clock ),
+			$this->log
 		);
 	}
 
@@ -395,5 +401,117 @@ class MasterclassAdminControllerTest extends TestCase {
 		$this->accounts->expects( self::once() )->method( 'page' )->with( 0, 1, 50, false )->willThrowException( new \InvalidArgumentException( 'Мастер-класс не найден.' ) );
 
 		self::assertStringContainsString( 'Мастер-класс не найден.', $this->render() );
+	}
+
+	// ─── вид «журнал» (этап 6) ─────────────────────────────────────────────
+
+	/** @return list<MasterclassLogDTO> */
+	private function logRows(): array {
+		return array(
+			new MasterclassLogDTO(
+				id: 2, action: MasterclassLogAction::ApplicationBindFailed->value, result: 'failure',
+				actorType: 'user', actorUserId: 11, actorLabel: 'student-11',
+				masterclassId: 7, accountId: 11, subjectLabel: 'Ученик#11',
+				actorIp: '5.6.7.8', context: array( 'reason' => 'live_application', 'attempt_password' => 's3cret' ),
+				createdAt: '2026-11-12 10:00:00'
+			),
+			new MasterclassLogDTO(
+				id: 1, action: MasterclassLogAction::LoginAtHome->value, result: 'success',
+				actorType: 'user', actorUserId: 12, actorLabel: null,
+				masterclassId: 7, accountId: 12, subjectLabel: 'Ученик#12',
+				actorIp: '', context: array(),
+				createdAt: '2026-11-12 09:30:00'
+			),
+		);
+	}
+
+	public function test_log_view_renders_rows_with_labels_local_time_and_secret_free_context(): void {
+		$_GET = array( 'page' => MasterclassAdminController::PAGE_SLUG, 'view' => 'log' );
+		$this->log->method( 'list' )->willReturn( array( 'rows' => $this->logRows(), 'total' => 2 ) );
+		$this->log->method( 'distinctActions' )->willReturn( array( 'login_at_home', 'legacy_action' ) );
+
+		$html = $this->render();
+
+		self::assertStringContainsString( '12.11.2026 13:00', $html, 'время — местное (Москва, +3)' );
+		self::assertStringContainsString( 'Заявку не удалось привязать', $html, 'подпись действия по enum' );
+		self::assertStringContainsString( 'не удалось', $html, 'отказ помечен' );
+		self::assertStringContainsString( 'Вход дома', $html );
+		self::assertStringContainsString( 'Ученик#12', $html );
+		self::assertStringContainsString( 'Ученик#11', $html );
+		self::assertStringContainsString( '№ 7', $html, 'мастер-класс — ссылка на аккаунты' );
+		self::assertStringContainsString( 'view=accounts', $html );
+		self::assertStringContainsString( 'reason', $html );
+		self::assertStringContainsString( 'live_application', $html );
+		self::assertStringNotContainsString( 's3cret', $html, 'секреты из контекста не показываются' );
+		self::assertStringNotContainsString( 'attempt_password', $html );
+		self::assertStringNotContainsString( ' style="', $html );
+		self::assertStringNotContainsString( '<script', $html );
+		self::assertStringNotContainsString( '<svg', $html );
+	}
+
+	public function test_log_view_passes_filters_converting_local_dates_to_utc_boundaries(): void {
+		$_GET = array(
+			'page' => MasterclassAdminController::PAGE_SLUG, 'view' => 'log', 'paged' => '2',
+			'mk_action' => 'login_at_home', 'mk_mid' => '7', 'mk_acc' => '12',
+			'mk_from' => '2026-11-12', 'mk_to' => '2026-11-12',
+		);
+		$this->log->expects( self::once() )->method( 'list' )->with(
+			array(
+				'action'         => 'login_at_home',
+				'masterclass_id' => 7,
+				'account_id'     => 12,
+				'date_from'      => '2026-11-11',
+				'date_to'        => '2026-11-12',
+			),
+			2,
+			50
+		)->willReturn( array( 'rows' => $this->logRows(), 'total' => 120 ) );
+		$this->log->method( 'distinctActions' )->willReturn( array() );
+
+		$html = $this->render();
+
+		self::assertStringContainsString( 'Страница 2 из 3', $html );
+		self::assertStringContainsString( 'mk_action=login_at_home', $html, 'пагинация сохраняет фильтры' );
+		self::assertStringContainsString( 'mk_mid=7', $html );
+		self::assertStringContainsString( 'mk_acc=12', $html );
+		self::assertStringContainsString( 'mk_from=2026-11-12', $html, 'в форму возвращаются местные даты' );
+		self::assertStringContainsString( 'mk_to=2026-11-12', $html );
+		self::assertStringContainsString( 'paged=1', $html );
+		self::assertStringContainsString( 'paged=3', $html );
+	}
+
+	public function test_log_view_shows_raw_label_for_actions_missing_from_the_enum(): void {
+		$_GET = array( 'page' => MasterclassAdminController::PAGE_SLUG, 'view' => 'log' );
+		$this->log->method( 'list' )->willReturn( array( 'rows' => array(), 'total' => 0 ) );
+		$this->log->method( 'distinctActions' )->willReturn( array( 'legacy_action', 'flyers_printed' ) );
+
+		$html = $this->render();
+
+		self::assertStringContainsString( 'legacy_action', $html, 'неизвестное действие показывается сырым значением' );
+		self::assertStringContainsString( '<option value="legacy_action"', $html );
+		self::assertStringContainsString( 'value="flyers_printed"', $html );
+		self::assertStringContainsString( 'Флаеры напечатаны', $html, 'известное действие фильтруется по подписи enum' );
+		self::assertStringContainsString( 'Записей журнала по этому фильтру нет', $html );
+	}
+
+	public function test_log_view_ignores_garbage_in_filter_fields(): void {
+		$_GET = array(
+			'page' => MasterclassAdminController::PAGE_SLUG, 'view' => 'log',
+			'mk_mid' => '0', 'mk_acc' => 'abc', 'mk_from' => 'not-a-date', 'mk_to' => '2026-13-40',
+		);
+		$this->log->expects( self::once() )->method( 'list' )->with( array(), 1, 50 )
+			->willReturn( array( 'rows' => array(), 'total' => 0 ) );
+		$this->log->method( 'distinctActions' )->willReturn( array() );
+
+		$this->render();
+	}
+
+	public function test_the_list_tab_now_links_to_the_log_view(): void {
+		$this->service->method( 'overview' )->willReturn( array( 'rows' => array(), 'total' => 0 ) );
+		$this->service->method( 'teacherOptions' )->willReturn( array() );
+
+		$html = $this->render();
+
+		self::assertMatchesRegularExpression( '/<a class="nav-tab" href="[^"]*view=log[^"]*">Журнал<\/a>/', $html );
 	}
 }

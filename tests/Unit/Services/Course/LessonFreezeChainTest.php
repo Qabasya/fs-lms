@@ -13,7 +13,6 @@ use Inc\Enums\Course\GateState;
 use Inc\Managers\Course\LessonManager;
 use Inc\Repositories\OptionsRepositories\ExpulsionPolicyRepository;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
-use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 use Inc\Services\Assessment\ExamLockService;
 use Inc\Services\Course\LessonAccessPolicy;
@@ -60,7 +59,7 @@ class LessonFreezeChainTest extends TestCase {
 		$visibility = $this->createStub( LessonVisibilityService::class );
 		$visibility->method( 'effectiveVisibility' )->willReturn( 'open' );
 
-		$policy = new LessonAccessPolicy( $records, $lessonsRepo, new ExpulsionPolicyRepository(), $visibility, $this->createStub( GroupsRepository::class ) );
+		$policy = new LessonAccessPolicy( $records, $lessonsRepo, new ExpulsionPolicyRepository(), $visibility );
 
 		$bank = $this->createStub( LessonManager::class );
 		$bank->method( 'get' )->willReturn( LessonDTO::fromArray( array(

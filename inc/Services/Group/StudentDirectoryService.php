@@ -53,11 +53,12 @@ class StudentDirectoryService {
 			}
 
 			$subjectKey = (string) $group->subject_key;
+			$subject    = $this->subjects->getByKey( $subjectKey );
 			$groups[]   = array(
 				'id'          => $groupId,
 				'name'        => (string) $group->name,
 				'subject_key' => $subjectKey,
-				'subject'     => $this->subjects->getByKey( $subjectKey )?->name ?? $subjectKey,
+				'subject'     => null !== $subject ? $subject->name : $subjectKey,
 			);
 
 			foreach ( $records as $rec ) {

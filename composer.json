@@ -19,11 +19,16 @@
     "wp-coding-standards/wpcs": "3.3",
     "dealerdirect/phpcodesniffer-composer-installer": "^1.2",
     "phpcsstandards/phpcsextra": "^1.5",
-    "sirbrillig/phpcs-variable-analysis": "^2.13"
+    "sirbrillig/phpcs-variable-analysis": "^2.13",
+    "phpstan/phpstan": "^2.3",
+    "php-stubs/wordpress-stubs": "^7.1",
+    "phpstan/extension-installer": "*",
+    "szepeviktor/phpstan-wordpress": "^2.0"
   },
   "config": {
     "allow-plugins": {
-      "dealerdirect/phpcodesniffer-composer-installer": true
+      "dealerdirect/phpcodesniffer-composer-installer": true,
+      "phpstan/extension-installer": true
     }
   },
   "scripts": {

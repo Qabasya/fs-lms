@@ -527,10 +527,20 @@ capability Capability::ManageLmsPlatform->value, menu_slug PAGE_SLUG, callback a
   `FLYERS_ACTION`, `VIEW_ACCOUNTS = 'accounts'`, `PER_PAGE = 20`, `ACCOUNTS_PER_PAGE = 50`.
 - `enqueueAssets()` — только на `?page=fs_lms_masterclasses` и **не на виде аккаунтов** (серверный рендер, JS не нужен). Локализация `fsLmsMasterclass = { ajaxurl, nonce, actions{create,update,extend,delete,addAccounts,lessons,unlock},
   chunkMax, defaults{batchSize,startTime,endTime} }`.
-- `renderPage()`: `?view=accounts&id=N[&paged=N][&deleted=1]` → `admin-accounts.php`, иначе `admin-page.php`; вид `log` — этап 6 (пока вкладка «Журнал» в шапке — неактивная заглушка). Шаблоны подключаются замыканием с
+- `renderPage()`: `?view=accounts&id=N[&paged=N][&deleted=1]` → `admin-accounts.php`, иначе `admin-page.php`; вид `log` — этап 6. Шаблоны подключаются замыканием с
   `extract( $vars, EXTR_SKIP )` — свои переменные, пересечений со страницей настроек нет. Данные списка — массивы (`listView()`: `rows[]` с `status`, `funnel`, местным окном, адресами `accounts_url` / `flyers_url` /
   `player_url`; форма берёт предметы `readAll()` без архивных и без `hasBank = false`, преподавателей `teacherOptions()`).
 - Ссылка на флаеры: `admin-post.php?action=…&id=N&security=<Nonce::Config>`, открывается в новой вкладке.
+
+**Сделано (этап 6).** Конструктор дополнен `MasterclassLogRepository` (последним аргументом). Константы `VIEW_LOG = 'log'`, `LOG_PER_PAGE = 50`.
+`renderPage()` отдаёт вид `log` шаблону `admin-log.php` (`logView()`): фильтры из адреса — `mk_action` (ключ действия), `mk_mid`/`mk_acc`
+(id мастер-класса и аккаунта), `mk_from`/`mk_to` (местные даты `Y-m-d`, строгий разбор — regex пропускает 13-й месяц, поэтому `DateTimeImmutable::createFromFormat`;
+границы переводятся в UTC через `ExamTime`, репозиторий получает `date_from`/`date_to` в UTC). Строки: время в местной зоне, подпись действия
+по `MasterclassLogAction::label()` (значение вне enum — сырым текстом), отказ помечен словом, аккаунт — «Ученик#N», мастер-класс — ссылка
+на его аккаунты, контекст — только скаляры и без ключей, похожих на пароли и токены (писатель чистит при записи, вкладка повторяет при
+показе). Словарь фильтра — `distinctActions()` с подписями enum; пагинация сохраняет фильтры. В шапке списка вкладка «Журнал» — ссылка
+на `?view=log`. Тесты — блок «вид журнал» `MasterclassAdminControllerTest` (фильтры и перевод дат, словарь действий, секреты не
+показываются, гигиена разметки).
 
 ### `MasterclassAuthController`
 `template_redirect` (приоритет 5 — раньше `ProfileController`) → `redirectAccount()`: залогинен, `PageRoutes::SignIn->isCurrent()`
@@ -610,6 +620,10 @@ capability Capability::ManageLmsPlatform->value, menu_slug PAGE_SLUG, callback a
 - `admin-accounts.php`: заголовок мастер-класса (школа, дата), ссылка «← К мастер-классам», таблица аккаунтов (`MasterclassAccountService::page()`): «№», «Логин»,
   «Состояние», «Первый вход», «Дома», «Связался», «Заявка» (да/нет), у удалённых — «Удалён: причина»; галочка «Показать удалённые», пагинация по 50. Только штатные классы
   админки (`wp-list-table`), без паролей.
+- `admin-log.php` (этап 6): вкладка «Журнал» (`?view=log`). Форма фильтров GET — действие (селект из `distinctActions()` с подписями enum),
+  «Мастер-класс №», «Ученик №», период «От/До» (местные даты, `type="date"`); таблица: время (местное), действие (подпись enum, у отказа
+  пометка), актор, мастер-класс (ссылка на его аккаунты), аккаунт («Ученик#N»), IP, контекст (только скаляры, без секретных ключей).
+  Пагинация по 50 сохраняет фильтры. В шапке списка вкладка «Журнал» — ссылка сюда. Паролей и ПД нет.
 - `assets/admin.js` — self-contained IIFE на jQuery (как `AdSync/assets/admin.js`): форма, список уроков по предмету (непригодные —
   неактивны с причиной), цикл `ajaxAddAccounts` с прогрессом «создано X из Y», продление, удаление. Показ/скрытие — `hidden`,
   стили из JS не задаются.
@@ -648,7 +662,11 @@ capability Capability::ManageLmsPlatform->value, menu_slug PAGE_SLUG, callback a
   удаляется при живом аккаунте с заявкой, `onGroupDeleting()`, `onUserDeleted()`, `purgeLog()`.
 - Коллбеки — право/nonce, ключи `Sanitizer`, ответы (память проекта «Cover callbacks with tests»).
 - На MariaDB (`wp_db`): параллельные `createChunk()` (номера уникальны), `markFrozen()` один раз при двух тиках, тик не идёт
-  параллельно, удаление аккаунта из крона (`wp cron event run fs_lms_masterclass_tick`).
+  параллельно, удаление аккаунта из крона (`wp cron event run fs_lms_masterclass_tick`), воронка (`tests/stand/masterclass-funnel-db.php`,
+  этап 6: цифры `funnel()` = ручному SQL, после удаления неиспользованных «создано» и «входили» сохраняются).
+- PHPStan 5 по модулю и правленым файлам ядра: `vendor/bin/phpstan analyse` (конфиг `phpstan.neon`, стабы WordPress через
+  `szepeviktor/phpstan-wordpress`, константы плагина — `phpstan-bootstrap.php`). С 2026-11-02 чист; `?->` рядом с `??` не использовать —
+  правило `nullsafe.neverNull` PHPStan 2.x на это ложно срабатывает (обход — временная переменная и явная проверка на null).
 
 ## 13. Правила модуля (`inc/Modules/Masterclass/CLAUDE.md` и абзац в корневом `CLAUDE.md`, раздел «Модули»)
 

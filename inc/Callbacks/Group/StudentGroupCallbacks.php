@@ -80,6 +80,7 @@ class StudentGroupCallbacks extends BaseController {
 			return $this->sanitizeHttpUrlOrNull( 'broadcast_url' );
 		} catch ( \InvalidArgumentException ) {
 			$this->error( 'Ссылка на трансляцию должна начинаться с http:// или https://' );
+			return null; // error() завершает запрос; return — явный выход для анализатора.
 		}
 	}
 
@@ -116,7 +117,7 @@ class StudentGroupCallbacks extends BaseController {
 		// Обработка расписания из JSON
 		$schedule_json = $this->sanitizeText( 'schedule_json' );
 		// wp_unslash() — удаляет экранирование слешей
-		$raw_entries   = is_string( $schedule_json ) ? json_decode( wp_unslash( $schedule_json ), true ) : null;
+		$raw_entries   = json_decode( wp_unslash( $schedule_json ), true );
 		$schedule      = array();
 
 		if ( is_array( $raw_entries ) ) {
@@ -237,7 +238,7 @@ class StudentGroupCallbacks extends BaseController {
 
 		$teacher_id    = $this->sanitizeInt( 'teacher_id' ) ?: null;
 		$schedule_json = $this->sanitizeText( 'schedule_json' );
-		$raw_entries   = is_string( $schedule_json ) ? json_decode( wp_unslash( $schedule_json ), true ) : null;
+		$raw_entries   = json_decode( wp_unslash( $schedule_json ), true );
 		$schedule      = array();
 
 		if ( is_array( $raw_entries ) ) {

@@ -723,11 +723,12 @@ class StudentRecordRepository {
 	}
 
 	/**
-	 * Формирует WHERE-условие и массив параметров для prepare.
+	 * Число записей ученика (физлица) в группе.
 	 *
-	 * @param array $filters Массив фильтров
+	 * @param int $groupId ID группы
+	 * @param int $personId ID физлица ученика
 	 *
-	 * @return array{0: string, 1: array}
+	 * @return int
 	 */
 	public function countByGroupAndPerson( int $groupId, int $personId ): int {
 		return (int) $this->wpdb->get_var(

@@ -80,6 +80,7 @@ class EnrollmentLifecycleCallbacks extends BaseController {
 				'updated_at' => current_time( 'mysql', true ),
 			) );
 			$this->error( $e->getMessage() );
+			return;
 		}
 
 		if ( $result->partialFailure ) {
@@ -225,9 +226,8 @@ class EnrollmentLifecycleCallbacks extends BaseController {
 
 		// Форма зачисления передаёт заявку: временный доступ самого ученика группу не занимает —
 		// зачисление заменит его настоящей записью ({@see EnrollmentService::enroll()}).
-		$trialStudentId = $applicationId > 0
-			? (int) ( $this->applicationRepository->find( $applicationId )?->studentPersonId ?? 0 )
-			: 0;
+		$application = $applicationId > 0 ? $this->applicationRepository->find( $applicationId ) : null;
+		$trialStudentId = null !== $application ? (int) $application->studentPersonId : 0;
 
 		// Индивидуальная группа с уже зачисленным учеником (один ученик на группу) в выбор не попадает.
 		$groups = array_filter(
@@ -236,10 +236,10 @@ class EnrollmentLifecycleCallbacks extends BaseController {
 				|| 0 === $this->studentRecordRepository->countActiveByGroup( (int) $g->id, $trialStudentId )
 		);
 
-		$result = array_values( array_map(
-			static fn( object $g ) => array( 'id' => (int) $g->id, 'title' => $g->name ),
-			$groups
-		) );
+		$result = array();
+		foreach ( $groups as $g ) {
+			$result[] = array( 'id' => (int) $g->id, 'title' => $g->name );
+		}
 
 		$this->success( $result );
 	}

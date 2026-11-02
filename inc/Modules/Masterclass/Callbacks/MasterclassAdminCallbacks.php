@@ -162,9 +162,8 @@ class MasterclassAdminCallbacks extends BaseController {
 		try {
 			$html = $this->flyersDocument( $this->sanitizeGetInt( 'id' ) );
 		} catch ( \InvalidArgumentException $e ) {
+			// wp_die() не возвращается; return после него недостижим и режет PHPStan.
 			wp_die( esc_html( $e->getMessage() ), 404 );
-
-			return; // wp_die() не возвращается; return — для читателя и анализатора.
 		}
 
 		nocache_headers();

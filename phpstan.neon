@@ -1,0 +1,29 @@
+# PHPStan level 5 — модуль Masterclass и файлы ядра, затронутые фичей.
+# Запуск: vendor/bin/phpstan analyse (конфиг подхватывается по имени).
+# Стабы WordPress гасят шум «функция WP не найдена».
+parameters:
+    level: 5
+    bootstrapFiles:
+        - phpstan-bootstrap.php
+    paths:
+        - inc/Modules/Masterclass
+        - inc/Callbacks/Enrollment/EnrollmentLifecycleCallbacks.php
+        - inc/Callbacks/Group/StudentGroupCallbacks.php
+        - inc/Controllers/Course/LessonPlayerController.php
+        - inc/Controllers/Pages/ApplyPageController.php
+        - inc/Enums/Access/AccessLevel.php
+        - inc/Enums/Ui/Icon.php
+        - inc/Repositories/WPDBRepositories/PersonRepository.php
+        - inc/Repositories/WPDBRepositories/StudentRecordRepository.php
+        - inc/Services/Captcha/CaptchaService.php
+        - inc/Services/Course/LessonAccessPolicy.php
+        - inc/Services/Course/OpenCourseValidator.php
+        - inc/Services/Deletion/GroupDeletionHandler.php
+        - inc/Services/Enrollment/OpenGroupEnrollmentService.php
+        - inc/Services/Export/AbstractPersonExportProvider.php
+        - inc/Services/Export/StudentsExportProvider.php
+        - inc/Services/Group/ServiceGroupResolver.php
+        - inc/Services/Group/StudentDirectoryService.php
+        - inc/Services/Print/PrintCenterService.php
+        - inc/Services/Security/PasswordGeneratorService.php
+        - inc/Services/Subject/Bundle/StudentBundleExporter.php

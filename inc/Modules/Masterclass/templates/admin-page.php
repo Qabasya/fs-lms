@@ -11,6 +11,7 @@
  * @var array<string, string>        $subjects  Предметы с банком уроков: ключ → название
  * @var array<string, mixed>         $defaults  Окно и размер пачки по умолчанию
  * @var string                       $list_url  Адрес страницы модуля
+ * @var string                       $log_url   Адрес вкладки «Журнал»
  * @var int                          $chunk_max Предел аккаунтов в одном запросе
  *
  * @package Inc\Modules\Masterclass
@@ -35,7 +36,7 @@ use Inc\Modules\Masterclass\Enums\MasterclassStatus;
 
 	<nav class="nav-tab-wrapper" aria-label="Разделы">
 		<a class="nav-tab nav-tab-active" href="<?php echo esc_url( $list_url ); ?>">Мастер-классы</a>
-		<span class="nav-tab nav-tab-disabled" aria-disabled="true" title="Появится позже">Журнал</span>
+		<a class="nav-tab" href="<?php echo esc_url( $log_url ); ?>">Журнал</a>
 	</nav>
 
 	<hr class="wp-header-end">

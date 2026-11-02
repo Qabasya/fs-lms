@@ -73,9 +73,11 @@ abstract class AbstractPersonExportProvider implements CsvExportProviderInterfac
 			return null;
 		}
 
+		$subject = $this->subjects->getByKey( (string) $group->subject_key );
+
 		return array(
 			'group'   => $group->name,
-			'subject' => $this->subjects->getByKey( $group->subject_key )?->name ?? $group->subject_key,
+			'subject' => null !== $subject ? $subject->name : (string) $group->subject_key,
 		);
 	}
 

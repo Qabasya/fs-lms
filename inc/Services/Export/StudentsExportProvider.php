@@ -9,10 +9,10 @@ use Inc\DTO\Export\CsvColumn;
 /**
  * Class StudentsExportProvider
  *
- * Провайдер экспорта студентов в CSV.
+ * Провайдер экспорта студентов в CSV. Реализует CsvExportProviderInterface
+ * (наследует реализацию от AbstractPersonExportProvider).
  *
  * @package Inc\Services\Export
- * @implements CsvExportProviderInterface
  *
  * ### Основные обязанности:
  *
@@ -152,7 +152,7 @@ class StudentsExportProvider extends AbstractPersonExportProvider {
 				'school'      => $person->school ?? '',
 				'email'       => $docs ? $this->decrypt( $docs->emailEnc ) : '',
 				'phone'       => $docs ? $this->decrypt( $docs->phoneEnc ) : '',
-				'login'       => $wpUser?->user_login ?? '',
+				'login'       => $wpUser instanceof \WP_User ? (string) $wpUser->user_login : '',
 				'password'    => $password,
 				'groups'      => implode( '; ', array_unique( $groupNames ) ),
 				'subjects'    => implode( '; ', array_unique( $subjectNames ) ),
