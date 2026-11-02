@@ -39,11 +39,11 @@ export function openSubjectPicker(anchor, subjects, currentKey, onPick) {
     );
 }
 
-/** Кнопка выбора группы (чип с цветом группы + «Название · предмет»). */
+/** Кнопка выбора группы (чип с цветом группы и название). */
 export function groupPickerBtnHtml(group, btnId) {
     return `<button type="button" class="kp-btn" id="${btnId}">
         ${Number(group.id) ? chipHtml('kp-chip', group.subject_key || groupSubjectKey(group.id), group.name, group.id, group.avatar) : ''}
-        <span class="kp-txt">${esc(group.name)}${group.subject ? ` · ${esc(group.subject)}` : ''}</span>
+        <span class="kp-txt">${esc(group.name)}</span>
         ${CARET}
     </button>`;
 }
@@ -100,7 +100,7 @@ export function openGroupPicker(anchor, groups, currentId, onPick, extra = []) {
     if (!anchor) return;
     const items = groups.map(g => ({
         v: String(g.id),
-        label: `${g.name} · ${g.subject}`,
+        label: g.name,
         active: g.id === currentId,
         swatchClass: groupChipBg(g),
         swatchImg: avatarUrl(g.subject_key || groupSubjectKey(g.id), g.id, g.avatar),

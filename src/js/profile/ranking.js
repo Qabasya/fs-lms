@@ -7,13 +7,14 @@ import { readNav, saveNav } from './nav-state.js';
  * Панель выбора периода, направления и группы — тот же вид, что на экране «Сводка по ученику».
  * Направление не предлагается, когда доступно только одно (у ученика — своё): выбирать нечего.
  */
-export function rankingPickersHtml(subject, groups, groupId, periods, periodFrom, showSubject = true) {
+export function rankingPickersHtml(subject, groups, groupId, periods, periodFrom, showSubject = true, viewerGroupId = 0) {
     const selected = groups.find(group => Number(group.id) === groupId);
+    const selectedLabel = selected && groupId === viewerGroupId ? { ...selected, name: 'Моя группа' } : selected;
     const period = periods.find(item => item.from === periodFrom);
     return `<div class="sum-pickers">
         <div class="prof-ktp-pick"><span class="kp-label">Период</span>${optionPickerBtnHtml(period?.label || 'Текущий', 'rankingPeriod')}</div>
         ${showSubject ? `<div class="prof-ktp-pick"><span class="kp-label">Направление</span>${subjectPickerBtnHtml(subject, 'rankingSubject')}</div>` : ''}
-        <div class="prof-ktp-pick"><span class="kp-label">Группа</span>${groupPickerBtnHtml(selected || { id: 0, name: 'Все группы', subject: '' }, 'rankingGroup')}</div>
+        <div class="prof-ktp-pick"><span class="kp-label">Группа</span>${groupPickerBtnHtml(selectedLabel || { id: 0, name: 'Все группы', subject: '' }, 'rankingGroup')}</div>
     </div>`;
 }
 
@@ -70,6 +71,7 @@ export function renderRanking(root, handlers = {}, screen = 'ranking') {
     let periods = Array.isArray(config?.periods) ? config.periods : [];
     let periodFrom = periods.some(item => item.from === nav.p) ? nav.p : '';
     let groups = [];
+    let viewerGroupId = 0;
     let data = null;
     let requestId = 0;
     const shell = document.createElement('section');
@@ -78,7 +80,7 @@ export function renderRanking(root, handlers = {}, screen = 'ranking') {
 
     function render(message = '') {
         const content = message ? `<p class="ranking-message" role="status">${esc(message)}</p>` : rankingTableHtml(data, 'function' === typeof handlers.openSummary, screen === 'student-ranking');
-        shell.innerHTML = `<div class="sum-head">${rankingPickersHtml(subject, groups, groupId, periods, periodFrom, showSubject)}</div>${content}`;
+        shell.innerHTML = `<div class="sum-head">${rankingPickersHtml(subject, groups, groupId, periods, periodFrom, showSubject, viewerGroupId)}</div>${content}`;
         shell.querySelectorAll('[data-summary-pid]').forEach(btn => btn.addEventListener('click', () => {
             handlers.openSummary(+btn.dataset.summaryGid, +btn.dataset.summaryPid);
         }));
@@ -93,14 +95,19 @@ export function renderRanking(root, handlers = {}, screen = 'ranking') {
                 subject = subjects.find(item => item.key === key);
                 groupId = 0;
                 groups = [];
+                viewerGroupId = 0;
                 load();
             });
         });
         shell.querySelector('#rankingGroup')?.addEventListener('click', event => {
-            openGroupPicker(event.currentTarget, groups, groupId, id => {
+            const ownGroup = groups.find(group => Number(group.id) === viewerGroupId);
+            const choices = ownGroup ? groups.filter(group => Number(group.id) !== viewerGroupId) : groups;
+            const extra = [{ v: '0', label: 'Все группы', chip: '∀', first: true }];
+            if (ownGroup) extra.push({ v: String(viewerGroupId), label: 'Моя группа', first: true });
+            openGroupPicker(event.currentTarget, choices, groupId, id => {
                 groupId = id;
                 load();
-            }, [{ v: '0', label: 'Все группы', chip: '∀', first: true }]);
+            }, extra);
         });
     }
 
@@ -113,6 +120,7 @@ export function renderRanking(root, handlers = {}, screen = 'ranking') {
             if (request !== requestId || !root.contains(shell)) { return; }
             data = response;
             groups = response.groups || [];
+            viewerGroupId = Number(response.viewer_group_id) || 0;
             periods = response.periods || periods;
             render();
         } catch (error) {

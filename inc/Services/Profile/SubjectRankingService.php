@@ -47,7 +47,7 @@ class SubjectRankingService {
 	 * @param int $personId Физлицо ученика (НЕ wp_user_id).
 	 */
 	public function buildForLearner( int $personId, string $subject, int $groupId = 0, string $periodFrom = '' ): array {
-		$result = $this->buildWith( $this->access->learnerSubjectsFor( $personId ), $subject, $groupId, $periodFrom );
+		$result = $this->buildWith( $this->access->learnerSubjectsFor( $personId ), $subject, $groupId, $periodFrom, $personId );
 		$result['viewer_person_id'] = $personId;
 		return $result;
 	}
@@ -58,7 +58,7 @@ class SubjectRankingService {
 	 * @throws \DomainException         Направление недоступно смотрящему.
 	 * @throws \InvalidArgumentException Группа не входит в направление / период недоступен.
 	 */
-	private function buildWith( array $allowed, string $subject, int $groupId, string $periodFrom ): array {
+	private function buildWith( array $allowed, string $subject, int $groupId, string $periodFrom, int $viewerPersonId = 0 ): array {
 		if ( ! in_array( $subject, array_column( $allowed, 'key' ), true ) ) {
 			throw new \DomainException( 'Нет доступа к рейтингу этого направления.' );
 		}
@@ -81,12 +81,16 @@ class SubjectRankingService {
 		$scores   = $this->ranking->scoresForSubject( $subject, $now, $period );
 		$students = array();
 		$groups   = array();
+		$viewerGroupId = 0;
 		$subjectName = (string) ( array_column( $allowed, 'name', 'key' )[ $subject ] ?? '' );
 		foreach ( $this->repository->roster( $subject ) as $record ) {
 			$id  = (int) $record['student_person_id'];
 			$gid = (int) $record['group_id'];
 			if ( ! isset( $scores[ $id ] ) ) {
 				continue;
+			}
+			if ( $id === $viewerPersonId && 0 === $viewerGroupId ) {
+				$viewerGroupId = $gid;
 			}
 			$groups[ $gid ] = array(
 				'id'      => $gid,
@@ -138,6 +142,7 @@ class SubjectRankingService {
 			'periods'      => $periods,
 			'rows'         => $rows,
 			'groups'       => array_values( $groups ),
+			'viewer_group_id' => $viewerGroupId,
 		);
 	}
 }

@@ -18,7 +18,7 @@ const periods = [
     { from: '2026-06-01 00:00:00', until: '2026-09-01 00:00:00', label: 'Июнь — август 2026', current: false },
 ];
 
-test('селекты: разметка «Сводки» (sum-pickers, prof-ktp-pick), группа — чип-кнопка с «Название · предмет»', () => {
+test('селекты: разметка «Сводки» (sum-pickers, prof-ktp-pick), группа — чип-кнопка без направления', () => {
     const html = rankingPickersHtml(subject, groups, 1, periods, '');
 
     assert.match(html, /^<div class="sum-pickers">/);
@@ -28,7 +28,9 @@ test('селекты: разметка «Сводки» (sum-pickers, prof-ktp-p
     assert.match(html, /id="rankingPeriod"/);
     assert.match(html, /id="rankingSubject"/);
     assert.match(html, /id="rankingGroup"/);
-    assert.match(html, /МЕГЕ-1 · Информатика ЕГЭ/);
+    assert.match(html, /<span class="kp-txt">МЕГЕ-1<\/span>/);
+    assert.doesNotMatch(html, /МЕГЕ-1 · Информатика ЕГЭ/);
+    assert.match(rankingPickersHtml(subject, groups, 1, periods, '', false, 1), /Моя группа/);
 });
 
 test('селекты: текущий период без выбора, выбранный — по метке, без выбранной группы — «Все группы»', () => {
