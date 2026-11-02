@@ -152,23 +152,30 @@ class ExamAccessTokenService {
 	}
 
 	/**
-	 * Меняет открытый ключ на запись о нём. Любой отказ — `null`, без различения причин:
+	 * Меняет открытый ключ на запись о нём. Отказ — `null`; reason содержит безопасное пояснение:
 	 * неверный формат (до обращения к базе), ключ не найден, другое назначение, отозван, истёк.
 	 */
-	public function exchange( ExamTokenPurpose $purpose, string $plain ): ?ExamAccessTokenDTO {
+	public function exchange( ExamTokenPurpose $purpose, string $plain, ?string &$reason = null ): ?ExamAccessTokenDTO {
+		$reason  = 'Ссылка недействительна. Проверьте, что она скопирована полностью, или обратитесь к преподавателю за новой ссылкой.';
 		$isShort = ExamTokenPurpose::Invitation === $purpose && 1 === preg_match( self::SHORT_PATTERN, $plain );
 		if ( ! $isShort && 1 !== preg_match( self::KEY_PATTERN, $plain ) ) {
 			return null;
 		}
 
 		$token = $this->tokens->findByHash( $this->crypto->hash( $plain ) );
-		if ( null === $token || $token->purpose !== $purpose->value || null !== $token->revokedAt ) {
+		if ( null === $token || $token->purpose !== $purpose->value ) {
+			return null;
+		}
+		if ( null !== $token->revokedAt ) {
+			$reason = 'Эта ссылка больше не действует. Обратитесь к преподавателю за новой ссылкой.';
 			return null;
 		}
 		if ( null !== $token->expiresAt && $token->expiresAt <= $this->time->nowUtc() ) {
+			$reason = 'Срок действия ссылки истёк. Обратитесь к преподавателю за новой ссылкой.';
 			return null;
 		}
 
+		$reason = null;
 		return $token;
 	}
 

@@ -19,6 +19,7 @@ readonly class GuestPageOutcome {
 	public const RENDER    = 'render';
 	public const REDIRECT  = 'redirect';
 	public const NOT_FOUND = 'not_found';
+	public const NOTICE    = 'notice';
 
 	/**
 	 * Принимает исход страницы и изменения сессионных кук.
@@ -31,6 +32,8 @@ readonly class GuestPageOutcome {
 		public string $url = '',
 		public array $cookies = array(),
 		public array $clearCookies = array(),
+		public string $message = '',
+		public int $status = 410,
 	) {}
 
 	/** Возвращает разрешение на рендер гостевой страницы. */
@@ -47,6 +50,11 @@ readonly class GuestPageOutcome {
 		return new self( self::REDIRECT, $url, $cookies );
 	}
 
+	/** Понятная причина отказа без данных участника и технических подробностей. */
+	public static function notice( string $message, int $status = 410 ): self {
+		return new self( self::NOTICE, message: $message, status: $status );
+	}
+
 	/** Обычная 404 темы: без слов «ссылка недействительна» и без сведений о проведении. */
 	public static function notFound(): self {
 		return new self( self::NOT_FOUND );
@@ -58,6 +66,6 @@ readonly class GuestPageOutcome {
 	 * @param list<string> $names
 	 */
 	public function withClearedCookies( array $names ): self {
-		return new self( $this->kind, $this->url, $this->cookies, $names );
+		return new self( $this->kind, $this->url, $this->cookies, $names, $this->message, $this->status );
 	}
 }

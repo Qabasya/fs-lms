@@ -125,36 +125,50 @@ class GuestEntryCallbacksTest extends TestCase {
 		self::assertSame( array( GuestSessionService::COOKIE_ENTRY => str_repeat( 'c', 64 ) ), $outcome->cookies );
 	}
 
-	public function test_invalid_expired_revoked_and_wrong_purpose_keys_are_404(): void {
+	public function test_expired_entry_explanation_reaches_notice_without_opening_session(): void {
+		$this->tokens->method( 'exchange' )->willReturnCallback( static function ( ExamTokenPurpose $purpose, string $key, ?string &$reason ): null {
+			$reason = 'Срок действия ссылки истёк. Обратитесь к преподавателю за новой ссылкой.';
+			return null;
+		} );
+		$this->sessions->expects( self::never() )->method( 'openEntry' );
+		$outcome = $this->access->entryPage( str_repeat( 'a', 64 ), '10.0.0.7' );
+		self::assertSame( GuestPageOutcome::NOTICE, $outcome->kind );
+		self::assertSame( 410, $outcome->status );
+		self::assertStringContainsString( 'Срок действия ссылки истёк', $outcome->message );
+		self::assertSame( array(), $outcome->cookies );
+		self::assertSame( $outcome->message, $outcome->withClearedCookies( array( 'cookie' ) )->message );
+	}
+
+	public function test_invalid_expired_revoked_and_wrong_purpose_keys_show_notice(): void {
 		$_GET['k'] = str_repeat( 'a', 64 );
-		$this->tokens->method( 'exchange' )->willReturn( null ); // exchange() не различает причины отказа
+		$this->tokens->method( 'exchange' )->willReturn( null ); // нет действующего ключа
 		$this->rate->expects( self::once() )->method( 'registerInvitationFailure' );
 		$this->sessions->expects( self::never() )->method( 'openEntry' );
 
-		self::assertSame( GuestPageOutcome::NOT_FOUND, $this->access->entryPage( (string) ( $_GET['k'] ?? '' ), '10.0.0.7' )->kind );
+		self::assertSame( GuestPageOutcome::NOTICE, $this->access->entryPage( (string) ( $_GET['k'] ?? '' ), '10.0.0.7' )->kind );
 	}
 
-	public function test_key_without_admission_is_404(): void {
+	public function test_key_without_admission_shows_notice(): void {
 		$_GET['k'] = str_repeat( 'a', 64 );
 		$this->tokens->method( 'exchange' )->willReturn( $this->token() );
 		$this->participations->method( 'find' )->willReturn( $this->participation( array( 'admitted_at' => null ) ) );
 		$this->sessions->expects( self::never() )->method( 'openEntry' );
 
-		self::assertSame( GuestPageOutcome::NOT_FOUND, $this->access->entryPage( (string) ( $_GET['k'] ?? '' ), '10.0.0.7' )->kind );
+		self::assertSame( GuestPageOutcome::NOTICE, $this->access->entryPage( (string) ( $_GET['k'] ?? '' ), '10.0.0.7' )->kind );
 	}
 
-	public function test_page_without_cookie_is_404(): void {
+	public function test_page_without_cookie_shows_notice(): void {
 		$this->sessions->method( 'current' )->willReturn( null );
 
-		self::assertSame( GuestPageOutcome::NOT_FOUND, $this->access->entryPage( (string) ( $_GET['k'] ?? '' ), '10.0.0.7' )->kind );
+		self::assertSame( GuestPageOutcome::NOTICE, $this->access->entryPage( (string) ( $_GET['k'] ?? '' ), '10.0.0.7' )->kind );
 	}
 
-	public function test_locked_ip_gets_404_without_touching_tokens(): void {
+	public function test_locked_ip_gets_notice_without_touching_tokens(): void {
 		$_GET['k'] = str_repeat( 'a', 64 );
 		$this->rate->method( 'isInvitationLocked' )->willReturn( true );
 		$this->tokens->expects( self::never() )->method( 'exchange' );
 
-		self::assertSame( GuestPageOutcome::NOT_FOUND, $this->access->entryPage( (string) ( $_GET['k'] ?? '' ), '10.0.0.7' )->kind );
+		self::assertSame( GuestPageOutcome::NOTICE, $this->access->entryPage( (string) ( $_GET['k'] ?? '' ), '10.0.0.7' )->kind );
 	}
 
 
@@ -164,7 +178,7 @@ class GuestEntryCallbacksTest extends TestCase {
 		$this->sessions->method( 'viewableParticipationId' )->willReturn( null );
 		$this->result->expects( self::never() )->method( 'isParticipationRevealed' );
 
-		self::assertSame( GuestPageOutcome::NOT_FOUND, $this->access->resultPage( (string) ( $_GET['k'] ?? '' ), '10.0.0.7' )->kind );
+		self::assertSame( GuestPageOutcome::NOTICE, $this->access->resultPage( (string) ( $_GET['k'] ?? '' ), '10.0.0.7' )->kind );
 	}
 
 	public function test_result_page_ignores_attempt_id_param(): void {
@@ -176,11 +190,11 @@ class GuestEntryCallbacksTest extends TestCase {
 		self::assertSame( GuestPageOutcome::RENDER, $this->access->resultPage( (string) ( $_GET['k'] ?? '' ), '10.0.0.7' )->kind );
 	}
 
-	public function test_result_page_before_submit_is_404(): void {
+	public function test_result_page_before_submit_shows_notice(): void {
 		$this->sessions->method( 'viewableParticipationId' )->willReturn( 4 );
 		$this->result->method( 'isParticipationRevealed' )->willReturn( false );
 
-		self::assertSame( GuestPageOutcome::NOT_FOUND, $this->access->resultPage( (string) ( $_GET['k'] ?? '' ), '10.0.0.7' )->kind );
+		self::assertSame( GuestPageOutcome::NOTICE, $this->access->resultPage( (string) ( $_GET['k'] ?? '' ), '10.0.0.7' )->kind );
 	}
 
 	public function test_result_key_opens_result_and_redirects_without_key(): void {
@@ -196,30 +210,30 @@ class GuestEntryCallbacksTest extends TestCase {
 		self::assertSame( array( GuestSessionService::COOKIE_RESULT => str_repeat( 'd', 64 ) ), $outcome->cookies );
 	}
 
-	public function test_revoked_result_key_is_404(): void {
+	public function test_revoked_result_key_shows_notice(): void {
 		$_GET['k'] = str_repeat( 'a', 64 );
 		$this->tokens->method( 'exchange' )->willReturn( null );
 		$this->rate->expects( self::once() )->method( 'registerInvitationFailure' );
 		$this->sessions->expects( self::never() )->method( 'openResult' );
 
-		self::assertSame( GuestPageOutcome::NOT_FOUND, $this->access->resultPage( (string) ( $_GET['k'] ?? '' ), '10.0.0.7' )->kind );
+		self::assertSame( GuestPageOutcome::NOTICE, $this->access->resultPage( (string) ( $_GET['k'] ?? '' ), '10.0.0.7' )->kind );
 	}
 
-	public function test_result_key_without_submitted_attempt_is_404(): void {
+	public function test_result_key_without_submitted_attempt_shows_notice(): void {
 		$_GET['k'] = str_repeat( 'a', 64 );
 		$this->tokens->method( 'exchange' )->willReturn( $this->token() );
 		$this->participations->method( 'find' )->willReturn( $this->participation() );
 		$this->sessions->expects( self::never() )->method( 'openResult' );
 
-		self::assertSame( GuestPageOutcome::NOT_FOUND, $this->access->resultPage( (string) ( $_GET['k'] ?? '' ), '10.0.0.7' )->kind );
+		self::assertSame( GuestPageOutcome::NOTICE, $this->access->resultPage( (string) ( $_GET['k'] ?? '' ), '10.0.0.7' )->kind );
 	}
 
-	public function test_entry_key_on_result_page_is_404(): void {
+	public function test_entry_key_on_result_page_shows_notice(): void {
 		$_GET['k'] = str_repeat( 'a', 64 );
 		// exchange(Result, …) по ключу входа возвращает null: назначение не совпадает.
 		$this->tokens->expects( self::once() )->method( 'exchange' )->with( ExamTokenPurpose::Result, self::anything() )->willReturn( null );
 
-		self::assertSame( GuestPageOutcome::NOT_FOUND, $this->access->resultPage( (string) ( $_GET['k'] ?? '' ), '10.0.0.7' )->kind );
+		self::assertSame( GuestPageOutcome::NOTICE, $this->access->resultPage( (string) ( $_GET['k'] ?? '' ), '10.0.0.7' )->kind );
 	}
 
 
@@ -253,11 +267,11 @@ class GuestEntryCallbacksTest extends TestCase {
 		self::assertFalse( fs_test_capture_json( fn() => $this->cb->ajaxEndExamGuestSession() )->success );
 	}
 
-	public function test_result_page_after_end_session_is_404(): void {
+	public function test_result_page_after_end_session_shows_notice(): void {
 		// После отзыва сессии viewableParticipationId() возвращает null — страница отдаёт 404.
 		$this->sessions->method( 'viewableParticipationId' )->willReturn( null );
 
-		self::assertSame( GuestPageOutcome::NOT_FOUND, $this->access->resultPage( (string) ( $_GET['k'] ?? '' ), '10.0.0.7' )->kind );
+		self::assertSame( GuestPageOutcome::NOTICE, $this->access->resultPage( (string) ( $_GET['k'] ?? '' ), '10.0.0.7' )->kind );
 		self::assertSame( '', ( new \Inc\Controllers\Exam\ExamGuestPageController(
 			$this->access,
 			$this->sessions,

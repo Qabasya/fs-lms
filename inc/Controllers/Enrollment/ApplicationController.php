@@ -135,17 +135,12 @@ class ApplicationController extends AjaxController {
 
 		// Страница присоединения родителя (/lms/join/{code})
 		if ( 'join' === $page ) {
-			// Подготовка страницы (валидация кода, расшифровка данных ученика)
-			// Возвращает false, если нужно отдать 404
 			if ( ! $this->callbacks->prepareJoinPage() ) {
-				global $wp_query;
-				// Установка статуса 404
-				$wp_query->set_404();
-				status_header( 404 );
-				// nocache_headers() — запрещает кеширование страницы 404
+				status_header( 410 );
 				nocache_headers();
-
-				return get_404_template();
+				header( 'X-Robots-Tag: noindex, nofollow' );
+				header( 'Referrer-Policy: no-referrer' );
+				return $this->path( 'templates/frontend/link-unavailable.php' );
 			}
 
 			$path = $this->path( 'templates/frontend/join.php' );

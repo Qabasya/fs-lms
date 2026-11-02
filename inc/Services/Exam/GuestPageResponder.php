@@ -1,6 +1,6 @@
 <?php
 /**
- * Исполняет {@see GuestPageOutcome}: заголовки гостевых страниц, куки, редирект, 404 темы.
+ * Исполняет {@see GuestPageOutcome}: заголовки гостевых страниц, куки, редирект и понятное сообщение об отказе.
  *
  * @package FS_LMS
  */
@@ -12,7 +12,7 @@ namespace Inc\Services\Exam;
 use Inc\DTO\Exam\GuestPageOutcome;
 
 /**
- * Исполняет {@see GuestPageOutcome}: заголовки гостевых страниц, куки, редирект, 404 темы.
+ * Исполняет {@see GuestPageOutcome}: заголовки гостевых страниц, куки, редирект и понятное сообщение об отказе.
  *
  * Здесь только транспорт — решений нет. Все гостевые страницы отдаются с `noindex`, `no-store` и `no-referrer`:
  * ключ в адресе не попадает в кеш, поисковик и заголовок Referer.
@@ -46,7 +46,7 @@ class GuestPageResponder {
 	/**
 	 * Исполняет транспорт исхода; для рендера оставляет управление контроллеру.
 	 *
-	 * @return bool true — исход исполнен и выполнение прервано (редирект/404 выходят из скрипта); false — страницу нужно отрисовать.
+	 * @return bool true — исход исполнен и выполнение прервано (редирект/сообщение выходят из скрипта); false — страницу нужно отрисовать.
 	 */
 	public function apply( GuestPageOutcome $outcome ): bool {
 		foreach ( $outcome->clearCookies as $name ) {
@@ -62,6 +62,13 @@ class GuestPageResponder {
 				$this->setCookie( $name, $value, 0 );
 			}
 			wp_safe_redirect( $outcome->url, 302 );
+			exit;
+		}
+
+		if ( GuestPageOutcome::NOTICE === $outcome->kind ) {
+			status_header( $outcome->status );
+			$message = $outcome->message;
+			include dirname( __DIR__, 3 ) . '/templates/frontend/link-unavailable.php';
 			exit;
 		}
 

@@ -71,7 +71,7 @@ class ExamGuestPageController extends BaseController implements ServiceInterface
 		add_action( 'pre_get_posts', array( $this, 'excludeFromSearch' ) );
 	}
 
-	/** Страница формы: заголовки, затем исход (отрисовать / редирект без ключа / 404). */
+	/** Страница формы: заголовки, затем исход (отрисовать / редирект без ключа / пояснение). */
 	public function handleSignupPage(): void {
 		if ( ! PageRoutes::ExamSignup->isCurrent() ) {
 			return;
@@ -89,7 +89,7 @@ class ExamGuestPageController extends BaseController implements ServiceInterface
 		);
 	}
 
-	/** Страница входа: заголовки, затем исход (отрисовать / редирект без ключа / 404). */
+	/** Страница входа: заголовки, затем исход (отрисовать / редирект без ключа / пояснение). */
 	public function handleEntryPage(): void {
 		if ( ! PageRoutes::ExamEntry->isCurrent() ) {
 			return;

@@ -99,25 +99,26 @@ class GuestPageAccessService {
 		return null !== $source && $source->isActive && null === $source->keyRevokedAt ? $source : null;
 	}
 
-	/** Принимает только действующую бронь по платёжному ключу; отказ остаётся обычной 404. */
+	/** Принимает только действующую бронь по платёжному ключу; отказ объясняется пользователю. */
 	private function openPayment( string $key, string $ip ): GuestPageOutcome {
 		if ( $this->rateLimit->isInvitationLocked( $ip ) ) {
-			return GuestPageOutcome::notFound();
+			return GuestPageOutcome::notice( 'Слишком много попыток открыть ссылку. Пожалуйста, попробуйте позже или обратитесь к преподавателю.', 429 );
 		}
 
-		$token       = $this->tokens->exchange( ExamTokenPurpose::Payment, $key );
+		$reason      = null;
+		$token       = $this->tokens->exchange( ExamTokenPurpose::Payment, $key, $reason );
 		$application = null !== $token ? $this->applicationRepo->find( $token->targetId ) : null;
 		if ( null === $application || ! $application->isHeld || null === $application->holdExpiresAt || $application->holdExpiresAt <= $this->time->nowUtc() ) {
 			$this->rateLimit->registerInvitationFailure( $ip );
 
-			return GuestPageOutcome::notFound();
+			return GuestPageOutcome::notice( $reason ?? 'Срок бронирования места истёк или бронь отменена. Обратитесь к преподавателю, чтобы уточнить возможность записи и оплаты.' );
 		}
 
 		try {
 			$this->adapter->addToCart( $application );
 		} catch ( \Throwable $e ) {
 			PluginLogger::exception( 'ExamGuestPayment', $e, array( 'application_id' => $application->id ), true );
-			return GuestPageOutcome::notFound();
+			return GuestPageOutcome::notice( 'Не удалось открыть оплату. Попробуйте позже или обратитесь к преподавателю.', 503 );
 		}
 
 		return GuestPageOutcome::redirect( $this->woo->cartUrl() );
@@ -126,15 +127,16 @@ class GuestPageAccessService {
 	/** Меняет приглашение активного источника на его scope и адрес формы без открытого ключа. */
 	private function exchangeInvitation( string $key, string $ip ): GuestPageOutcome {
 		if ( $this->rateLimit->isInvitationLocked( $ip ) ) {
-			return GuestPageOutcome::notFound();
+			return GuestPageOutcome::notice( 'Слишком много попыток открыть ссылку. Пожалуйста, попробуйте позже или обратитесь к преподавателю.', 429 );
 		}
 
-		$token  = $this->tokens->exchange( ExamTokenPurpose::Invitation, $key );
+		$reason = null;
+		$token  = $this->tokens->exchange( ExamTokenPurpose::Invitation, $key, $reason );
 		$source = null !== $token ? $this->sources->find( $token->targetId ) : null;
 		if ( null === $token || null === $source || ! $source->isActive || null !== $source->keyRevokedAt ) {
 			$this->rateLimit->registerInvitationFailure( $ip );
 
-			return GuestPageOutcome::notFound();
+			return GuestPageOutcome::notice( $reason ?? 'Запись по этой ссылке закрыта. Обратитесь к преподавателю за актуальной ссылкой.' );
 		}
 
 		$cookie = $this->sessions->openInvitation( $source->id, $token->generation );
@@ -150,7 +152,7 @@ class GuestPageAccessService {
 			return $this->exchangeEntry( $key, $ip );
 		}
 
-		return null !== $this->sessions->current() ? GuestPageOutcome::render() : GuestPageOutcome::notFound();
+		return null !== $this->sessions->current() ? GuestPageOutcome::render() : GuestPageOutcome::notice( 'Сеанс доступа завершён. Откройте последнюю ссылку на экзамен, которую вам выдал преподаватель. Если она не работает, обратитесь к нему за новой.', 403 );
 	}
 
 	/** Решение доступа без вывода HTTP-ответа. */
@@ -161,21 +163,25 @@ class GuestPageAccessService {
 
 		$participationId = $this->sessions->viewableParticipationId();
 
-		return null !== $participationId && $this->reviews->isParticipationRevealed( $participationId ) ? GuestPageOutcome::render() : GuestPageOutcome::notFound();
+		if ( null === $participationId ) {
+			return GuestPageOutcome::notice( 'Сеанс доступа к результату завершён. Откройте последнюю ссылку на результат или обратитесь к преподавателю за новой.', 403 );
+		}
+		return $this->reviews->isParticipationRevealed( $participationId ) ? GuestPageOutcome::render() : GuestPageOutcome::notice( 'Результат экзамена ещё не опубликован. Пожалуйста, дождитесь сообщения преподавателя.', 403 );
 	}
 
 	/** Открывает scope результата только гостевого участия с попыткой; срок куки ограничен ключом и сутками. */
 	private function exchangeResult( string $key, string $ip ): GuestPageOutcome {
 		if ( $this->rateLimit->isInvitationLocked( $ip ) ) {
-			return GuestPageOutcome::notFound();
+			return GuestPageOutcome::notice( 'Слишком много попыток открыть ссылку. Пожалуйста, попробуйте позже или обратитесь к преподавателю.', 429 );
 		}
 
-		$token         = $this->tokens->exchange( ExamTokenPurpose::Result, $key );
+		$reason        = null;
+		$token         = $this->tokens->exchange( ExamTokenPurpose::Result, $key, $reason );
 		$participation = null !== $token ? $this->participations->find( $token->targetId ) : null;
 		if ( null === $token || null === $participation || null === $participation->currentAttemptId || ExamAudience::Guest->value !== $participation->audience ) {
 			$this->rateLimit->registerInvitationFailure( $ip );
 
-			return GuestPageOutcome::notFound();
+			return GuestPageOutcome::notice( $reason ?? 'Результат по этой ссылке недоступен. Обратитесь к преподавателю.' );
 		}
 
 		// Сессия результата живёт не дольше ключа и не дольше суток: ссылка у гостя остаётся, кука — нет.
@@ -190,20 +196,26 @@ class GuestPageAccessService {
 	/** Проверяет допуск, активную подтверждённую запись и конец сеанса до выдачи scope входа. */
 	private function exchangeEntry( string $key, string $ip ): GuestPageOutcome {
 		if ( $this->rateLimit->isInvitationLocked( $ip ) ) {
-			return GuestPageOutcome::notFound();
+			return GuestPageOutcome::notice( 'Слишком много попыток открыть ссылку. Пожалуйста, попробуйте позже или обратитесь к преподавателю.', 429 );
 		}
 
-		$token         = $this->tokens->exchange( ExamTokenPurpose::Entry, $key );
+		$reason        = null;
+		$token         = $this->tokens->exchange( ExamTokenPurpose::Entry, $key, $reason );
 		$participation = null !== $token ? $this->participations->find( $token->targetId ) : null;
 		$registration  = null !== $participation && null !== $participation->activeRegistrationId ? $this->registrations->find( $participation->activeRegistrationId ) : null;
 		$session       = null !== $registration ? $this->sessionRepo->find( $registration->sessionId ) : null;
 
 		if ( null === $token || null === $participation || null === $registration || null === $session
 			|| 1 !== $registration->activeSlot || ExamRegistrationStatus::Confirmed->value !== $registration->status
-			|| null === $participation->admittedAt || $session->plannedEndAt <= $this->time->nowUtc() ) {
+			|| null === $participation->admittedAt ) {
 			$this->rateLimit->registerInvitationFailure( $ip );
 
-			return GuestPageOutcome::notFound();
+			return GuestPageOutcome::notice( $reason ?? 'Запись на экзамен больше не активна или допуск ещё не подтверждён. Обратитесь к преподавателю.' );
+		}
+
+		if ( $session->plannedEndAt <= $this->time->nowUtc() ) {
+			$this->rateLimit->registerInvitationFailure( $ip );
+			return GuestPageOutcome::notice( 'Этот сеанс экзамена уже завершён. Обратитесь к преподавателю, чтобы уточнить дальнейшие действия.' );
 		}
 
 		$cookie = $this->sessions->openEntry( $token, $registration->id, $session->plannedEndAt );
@@ -217,7 +229,7 @@ class GuestPageAccessService {
 			return $this->exchangeReport( $key, $ip );
 		}
 
-		return null !== $this->currentReport() ? GuestPageOutcome::render() : GuestPageOutcome::notFound();
+		return null !== $this->currentReport() ? GuestPageOutcome::render() : GuestPageOutcome::notice( 'Ссылка больше не действует. Обратитесь к преподавателю за новой ссылкой.' );
 	}
 
 	/** Действующий отчёт из сессии: допуск перечитывается при каждом обращении. */
@@ -231,15 +243,16 @@ class GuestPageAccessService {
 	/** Открывает scope неотозванного и неистёкшего отчёта; срок куки ограничен отчётом и сутками. */
 	private function exchangeReport( string $key, string $ip ): GuestPageOutcome {
 		if ( $this->rateLimit->isInvitationLocked( $ip ) ) {
-			return GuestPageOutcome::notFound();
+			return GuestPageOutcome::notice( 'Слишком много попыток открыть ссылку. Пожалуйста, попробуйте позже или обратитесь к преподавателю.', 429 );
 		}
 
-		$token  = $this->tokens->exchange( ExamTokenPurpose::Report, $key );
+		$reason = null;
+		$token  = $this->tokens->exchange( ExamTokenPurpose::Report, $key, $reason );
 		$report = null !== $token ? $this->reports->find( $token->targetId ) : null;
 		if ( null === $token || null === $report || ! $this->reportService->isOpen( $report ) ) {
 			$this->rateLimit->registerInvitationFailure( $ip );
 
-			return GuestPageOutcome::notFound();
+			return GuestPageOutcome::notice( $reason ?? 'Доступ к отчёту закрыт. Обратитесь к преподавателю за актуальной ссылкой.' );
 		}
 
 		// Сессия живёт не дольше отчёта и не дольше суток: ссылка остаётся у школы, кука — нет.

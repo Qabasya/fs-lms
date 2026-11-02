@@ -129,12 +129,12 @@ class ExamReportPageTest extends TestCase {
 		self::assertSame( array( GuestSessionService::COOKIE_REPORT => str_repeat( 'f', 64 ) ), $outcome->cookies );
 	}
 
-	public function test_revoked_expired_or_wrong_purpose_key_is_404(): void {
+	public function test_revoked_expired_or_wrong_purpose_key_shows_notice(): void {
 		$_GET['k'] = str_repeat( 'a', 64 );
 		// Ключ другого назначения (вход, результат) — exchange(Report, …) отвечает null.
 		$this->tokens->method( 'exchange' )->willReturn( null );
 		$this->rate->expects( self::atLeastOnce() )->method( 'registerInvitationFailure' );
-		self::assertSame( GuestPageOutcome::NOT_FOUND, $this->access->reportPage( (string) ( $_GET['k'] ?? '' ), '10.0.0.7' )->kind );
+		self::assertSame( GuestPageOutcome::NOTICE, $this->access->reportPage( (string) ( $_GET['k'] ?? '' ), '10.0.0.7' )->kind );
 
 		// Ключ верный, но отчёт отозван или истёк.
 		$this->tokens = $this->createMock( ExamAccessTokenService::class );
@@ -162,13 +162,13 @@ class ExamReportPageTest extends TestCase {
 			);
 		$this->sessions->expects( self::never() )->method( 'openReport' );
 
-		self::assertSame( GuestPageOutcome::NOT_FOUND, $cb->reportPage( (string) ( $_GET['k'] ?? '' ), '10.0.0.7' )->kind );
+		self::assertSame( GuestPageOutcome::NOTICE, $cb->reportPage( (string) ( $_GET['k'] ?? '' ), '10.0.0.7' )->kind );
 	}
 
-	public function test_page_without_session_is_404(): void {
+	public function test_page_without_session_shows_notice(): void {
 		$this->sessions->method( 'currentReportId' )->willReturn( null );
 
-		self::assertSame( GuestPageOutcome::NOT_FOUND, $this->access->reportPage( (string) ( $_GET['k'] ?? '' ), '10.0.0.7' )->kind );
+		self::assertSame( GuestPageOutcome::NOTICE, $this->access->reportPage( (string) ( $_GET['k'] ?? '' ), '10.0.0.7' )->kind );
 		self::assertSame( '', $this->cb->renderReportPage() );
 	}
 

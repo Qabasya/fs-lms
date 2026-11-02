@@ -99,13 +99,14 @@ class ApplicationCallbacks extends BaseController {
 
 	/**
 	 * Валидирует JOIN-код, расшифровывает данные ученика и передаёт их
-	 * в шаблон через set_query_var. Возвращает false, если нужно отдать 404.
+	 * в шаблон через set_query_var. Возвращает false с пояснением для страницы недоступной ссылки.
 	 *
 	 * @return bool
 	 */
 	public function prepareJoinPage(): bool {
 		// get_query_var() — получает кастомный параметр из URL
 		$code = get_query_var( 'fs_lms_join_code', '' );
+		set_query_var( 'fs_lms_link_message', 'Эта ссылка недействительна или больше не доступна. Обратитесь к администратору за новой ссылкой.' );
 
 		// Тестовый дебаг-режим: /lms/join/000 → тестовые данные без БД
 		if ( $this->pluginConfig->isTestEnv() && '000' === $code ) {
@@ -135,14 +136,20 @@ class ApplicationCallbacks extends BaseController {
 		$app  = $this->applicationRepository->findByJoinCodeHash( $hash );
 
 		// Заявка должна существовать и находиться в статусе ожидания родителя
-		if ( null === $app || ApplicationStatus::PendingParent !== $app->status ) {
+		if ( null === $app ) {
+			return false;
+		}
+		if ( ApplicationStatus::Expired === $app->status || ( ApplicationStatus::PendingParent === $app->status && ( $this->joinCodeService->isExpired( $app->joinCodeExpiresAt ) || $this->joinCodeService->isExpired( $app->expiresAt ) ) ) ) {
+			set_query_var( 'fs_lms_link_message', 'Срок действия ссылки истёк. Пожалуйста, обратитесь к администратору, чтобы получить новую ссылку.' );
+			return false;
+		}
+		if ( ApplicationStatus::PendingParent !== $app->status ) {
+			if ( in_array( $app->status, array( ApplicationStatus::ReadyForReview, ApplicationStatus::Enrolling, ApplicationStatus::Converted ), true ) ) {
+				set_query_var( 'fs_lms_link_message', 'Анкета по этой ссылке уже отправлена. Повторно заполнять её не нужно. Если требуется изменить данные, обратитесь к администратору.' );
+			}
 			return false;
 		}
 
-		// Просроченную ссылку закрываем сразу, не дожидаясь тика `ExpireApplications`.
-		if ( $this->joinCodeService->isExpired( $app->joinCodeExpiresAt ) ) {
-			return false;
-		}
 
 		try {
 			// Расшифровка и декодирование данных ученика

@@ -915,3 +915,15 @@ function fs_test_reset_ajax(): void {
     $_POST = [];
     $_GET  = [];
 }
+
+// Query variables for public template preparation (same storage as WP_Query).
+if (!function_exists('get_query_var')) {
+    function get_query_var(string $key, mixed $default = ''): mixed {
+        return $GLOBALS['_fs_test_query_vars'][$key] ?? $default;
+    }
+}
+if (!function_exists('set_query_var')) {
+    function set_query_var(string $key, mixed $value): void {
+        $GLOBALS['_fs_test_query_vars'][$key] = $value;
+    }
+}

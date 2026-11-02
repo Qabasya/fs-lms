@@ -41,6 +41,38 @@ class ExamAccessTokenServiceTest extends TestCase {
 		) );
 	}
 
+	public function test_expired_key_explains_expiry_without_returning_access(): void {
+		$this->tokens->method( 'findByHash' )->willReturn( $this->token( 'entry', expiresAt: '2026-03-10 09:00:00' ) );
+		$reason = null;
+		self::assertNull( $this->service->exchange( ExamTokenPurpose::Entry, str_repeat( 'a', 64 ), $reason ) );
+		self::assertStringContainsString( 'Срок действия ссылки истёк', $reason );
+		self::assertStringContainsString( 'преподавателю', $reason );
+	}
+
+	public function test_replaced_key_requests_new_link(): void {
+		$this->tokens->method( 'findByHash' )->willReturn( $this->token( 'entry', revokedAt: '2026-03-09 09:00:00' ) );
+		$reason = null;
+		self::assertNull( $this->service->exchange( ExamTokenPurpose::Entry, str_repeat( 'a', 64 ), $reason ) );
+		self::assertStringContainsString( 'больше не действует', $reason );
+		self::assertStringContainsString( 'за новой ссылкой', $reason );
+	}
+
+	public function test_wrong_scope_does_not_reveal_expiry_or_revocation(): void {
+		$this->tokens->method( 'findByHash' )->willReturn( $this->token( 'result', revokedAt: '2026-03-09 09:00:00' ) );
+		$reason = null;
+		self::assertNull( $this->service->exchange( ExamTokenPurpose::Entry, str_repeat( 'a', 64 ), $reason ) );
+		self::assertStringContainsString( 'недействительна', $reason );
+		self::assertStringNotContainsString( 'больше не действует', $reason );
+	}
+
+	public function test_valid_key_clears_previous_rejection_reason(): void {
+		$token = $this->token( 'entry' );
+		$this->tokens->method( 'findByHash' )->willReturn( $token );
+		$reason = 'previous';
+		self::assertSame( $token, $this->service->exchange( ExamTokenPurpose::Entry, str_repeat( 'a', 64 ), $reason ) );
+		self::assertNull( $reason );
+	}
+
 	public function test_invitation_key_is_short_and_entry_key_is_long(): void {
 		$this->tokens->method( 'maxGeneration' )->willReturn( 0 );
 		$this->tokens->method( 'insert' )->willReturn( 1 );

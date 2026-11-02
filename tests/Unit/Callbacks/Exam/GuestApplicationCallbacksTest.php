@@ -135,7 +135,7 @@ class GuestApplicationCallbacksTest extends TestCase {
 		$this->tokens->method( 'exchange' )->willReturn( null );
 		$this->rate->expects( self::once() )->method( 'registerInvitationFailure' )->with( '10.0.0.7' );
 
-		self::assertSame( GuestPageOutcome::NOT_FOUND, $this->access->invitationPage( strtolower( trim( (string) ( $_GET['k'] ?? '' ) ) ), strtolower( trim( (string) ( $_GET['pay'] ?? '' ) ) ), (string) ( $_COOKIE[ GuestSessionService::COOKIE_INVITATION ] ?? '' ), '10.0.0.7' )->kind );
+		self::assertSame( GuestPageOutcome::NOTICE, $this->access->invitationPage( strtolower( trim( (string) ( $_GET['k'] ?? '' ) ) ), strtolower( trim( (string) ( $_GET['pay'] ?? '' ) ) ), (string) ( $_COOKIE[ GuestSessionService::COOKIE_INVITATION ] ?? '' ), '10.0.0.7' )->kind );
 	}
 
 	public function test_no_key_no_cookie_opens_public_class_chooser(): void {
@@ -158,21 +158,21 @@ class GuestApplicationCallbacksTest extends TestCase {
 		$this->access->invitationPage( strtolower( trim( (string) ( $_GET['k'] ?? '' ) ) ), strtolower( trim( (string) ( $_GET['pay'] ?? '' ) ) ), (string) ( $_COOKIE[ GuestSessionService::COOKIE_INVITATION ] ?? '' ), '10.0.0.7' );
 	}
 
-	public function test_locked_ip_gets_404_even_with_valid_key(): void {
+	public function test_locked_ip_gets_notice_even_with_valid_key(): void {
 		$_GET['k'] = str_repeat( 'c', 64 );
 		$this->rate->method( 'isInvitationLocked' )->willReturn( true );
 		$this->tokens->expects( self::never() )->method( 'exchange' );
 
-		self::assertSame( GuestPageOutcome::NOT_FOUND, $this->access->invitationPage( strtolower( trim( (string) ( $_GET['k'] ?? '' ) ) ), strtolower( trim( (string) ( $_GET['pay'] ?? '' ) ) ), (string) ( $_COOKIE[ GuestSessionService::COOKIE_INVITATION ] ?? '' ), '10.0.0.7' )->kind );
+		self::assertSame( GuestPageOutcome::NOTICE, $this->access->invitationPage( strtolower( trim( (string) ( $_GET['k'] ?? '' ) ) ), strtolower( trim( (string) ( $_GET['pay'] ?? '' ) ) ), (string) ( $_COOKIE[ GuestSessionService::COOKIE_INVITATION ] ?? '' ), '10.0.0.7' )->kind );
 	}
 
-	public function test_revoked_source_with_valid_key_is_404(): void {
+	public function test_revoked_source_with_valid_key_shows_notice(): void {
 		$_GET['k'] = str_repeat( 'c', 64 );
 		$this->tokens->method( 'exchange' )->willReturn( $this->token() );
 		$this->sources->method( 'find' )->willReturn( $this->source( array( 'key_revoked_at' => '2026-03-02 00:00:00' ) ) );
 		$this->sessions->expects( self::never() )->method( 'openInvitation' );
 
-		self::assertSame( GuestPageOutcome::NOT_FOUND, $this->access->invitationPage( strtolower( trim( (string) ( $_GET['k'] ?? '' ) ) ), strtolower( trim( (string) ( $_GET['pay'] ?? '' ) ) ), (string) ( $_COOKIE[ GuestSessionService::COOKIE_INVITATION ] ?? '' ), '10.0.0.7' )->kind );
+		self::assertSame( GuestPageOutcome::NOTICE, $this->access->invitationPage( strtolower( trim( (string) ( $_GET['k'] ?? '' ) ) ), strtolower( trim( (string) ( $_GET['pay'] ?? '' ) ) ), (string) ( $_COOKIE[ GuestSessionService::COOKIE_INVITATION ] ?? '' ), '10.0.0.7' )->kind );
 	}
 
 	// ── «Перейти к оплате» ────────────────────────────────────────────────────────────────────────
@@ -362,14 +362,14 @@ class GuestApplicationCallbacksTest extends TestCase {
 		self::assertSame( 'https://example.test/cart/', $outcome->url );
 	}
 
-	public function test_pay_link_for_expired_hold_is_404(): void {
+	public function test_pay_link_for_expired_hold_shows_notice(): void {
 		$_GET['pay'] = str_repeat( 'e', 64 );
 		$this->tokens->method( 'exchange' )->willReturn( $this->payToken() );
 		$this->appRepo->method( 'find' )->willReturn( $this->application( false, 'expired_unpaid' ) );
 		$this->adapter->expects( self::never() )->method( 'addToCart' );
 		$this->rate->expects( self::once() )->method( 'registerInvitationFailure' );
 
-		self::assertSame( GuestPageOutcome::NOT_FOUND, $this->access->invitationPage( strtolower( trim( (string) ( $_GET['k'] ?? '' ) ) ), strtolower( trim( (string) ( $_GET['pay'] ?? '' ) ) ), (string) ( $_COOKIE[ GuestSessionService::COOKIE_INVITATION ] ?? '' ), '10.0.0.7' )->kind );
+		self::assertSame( GuestPageOutcome::NOTICE, $this->access->invitationPage( strtolower( trim( (string) ( $_GET['k'] ?? '' ) ) ), strtolower( trim( (string) ( $_GET['pay'] ?? '' ) ) ), (string) ( $_COOKIE[ GuestSessionService::COOKIE_INVITATION ] ?? '' ), '10.0.0.7' )->kind );
 	}
 
 	public function test_pay_link_cart_failure_stays_neutral_and_is_logged(): void {
@@ -380,7 +380,7 @@ class GuestApplicationCallbacksTest extends TestCase {
 		$log = tempnam( sys_get_temp_dir(), 'exam-log-' );
 		$previous = ini_set( 'error_log', $log );
 		try {
-			self::assertSame( GuestPageOutcome::NOT_FOUND, $this->access->invitationPage( strtolower( trim( (string) ( $_GET['k'] ?? '' ) ) ), strtolower( trim( (string) ( $_GET['pay'] ?? '' ) ) ), (string) ( $_COOKIE[ GuestSessionService::COOKIE_INVITATION ] ?? '' ), '10.0.0.7' )->kind );
+			self::assertSame( GuestPageOutcome::NOTICE, $this->access->invitationPage( strtolower( trim( (string) ( $_GET['k'] ?? '' ) ) ), strtolower( trim( (string) ( $_GET['pay'] ?? '' ) ) ), (string) ( $_COOKIE[ GuestSessionService::COOKIE_INVITATION ] ?? '' ), '10.0.0.7' )->kind );
 			$content = (string) file_get_contents( $log );
 			self::assertStringContainsString( 'EXAMGUESTPAYMENT', $content );
 			self::assertStringContainsString( 'Cart unavailable', $content );
@@ -391,13 +391,13 @@ class GuestApplicationCallbacksTest extends TestCase {
 		}
 	}
 
-	public function test_pay_link_token_of_other_purpose_is_404(): void {
+	public function test_pay_link_token_of_other_purpose_shows_notice(): void {
 		$_GET['pay'] = str_repeat( 'e', 64 );
 		// exchange(Payment, …) ключ другого назначения не принимает и отвечает null.
 		$this->tokens->method( 'exchange' )->willReturn( null );
 		$this->adapter->expects( self::never() )->method( 'addToCart' );
 
-		self::assertSame( GuestPageOutcome::NOT_FOUND, $this->access->invitationPage( strtolower( trim( (string) ( $_GET['k'] ?? '' ) ) ), strtolower( trim( (string) ( $_GET['pay'] ?? '' ) ) ), (string) ( $_COOKIE[ GuestSessionService::COOKIE_INVITATION ] ?? '' ), '10.0.0.7' )->kind );
+		self::assertSame( GuestPageOutcome::NOTICE, $this->access->invitationPage( strtolower( trim( (string) ( $_GET['k'] ?? '' ) ) ), strtolower( trim( (string) ( $_GET['pay'] ?? '' ) ) ), (string) ( $_COOKIE[ GuestSessionService::COOKIE_INVITATION ] ?? '' ), '10.0.0.7' )->kind );
 	}
 
 	// ── Журнал формы (11a.2.7) ────────────────────────────────────────────────────────────────────
