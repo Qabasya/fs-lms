@@ -71,6 +71,7 @@ class VideoAccessLogServiceTest extends TestCase {
 	}
 
 	public function test_watch_ignored_for_external_recording(): void {
+		$this->access->method( 'canWatch' )->willReturn( true );
 		$this->groupLessons->method( 'find' )
 			->willReturn( $this->lesson( 'https://vk.com/video-1_2' ) );
 		$this->log->expects( self::never() )->method( 'touch' );
@@ -94,5 +95,34 @@ class VideoAccessLogServiceTest extends TestCase {
 		$this->access->expects( self::once() )->method( 'canWatch' )->with( 77, self::anything() )->willReturn( false );
 		$this->log->expects( self::never() )->method( 'touch' );
 		$this->service->logWatch( 42, 120 );
+	}
+
+	public function test_invalid_portions_and_guests_never_read_a_lesson_or_write(): void {
+		$lessons = $this->createMock( GroupLessonRepository::class );
+		$lessons->expects( self::never() )->method( 'find' );
+		$this->log->expects( self::never() )->method( 'touch' );
+		$this->access->expects( self::never() )->method( 'canWatch' );
+		$service = new VideoAccessLogService( $this->log, $lessons, $this->access );
+		foreach ( array( array( 0, 60 ), array( -1, 60 ), array( 42, 0 ), array( 42, -1 ) ) as [ $lessonId, $seconds ] ) {
+			$service->logWatch( $lessonId, $seconds );
+		}
+		$GLOBALS['_fs_test_user_id'] = 0;
+		$service->logWatch( 42, 60 );
+	}
+
+	public function test_unknown_lesson_never_checks_access_or_writes(): void {
+		$this->groupLessons->method( 'find' )->willReturn( null );
+		$this->access->expects( self::never() )->method( 'canWatch' );
+		$this->log->expects( self::never() )->method( 'touch' );
+		$this->service->logWatch( 404, 60 );
+	}
+
+	public function test_repeated_heartbeats_remain_additive_telemetry(): void {
+		$this->groupLessons->method( 'find' )->willReturn( $this->lesson( 's3://bucket/video' ) );
+		$this->access->method( 'canWatch' )->willReturn( true );
+		$this->log->expects( self::exactly( 2 ) )->method( 'touch' )
+			->with( 77, self::anything(), 42, 'bucket', 'video', self::anything(), 0, 60 );
+		$this->service->logWatch( 42, 60 );
+		$this->service->logWatch( 42, 60 );
 	}
 }

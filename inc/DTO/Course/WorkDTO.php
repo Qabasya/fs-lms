@@ -55,7 +55,7 @@ readonly class WorkDTO {
 			authorId    : (int) $post->post_author,
 			status      : $post->post_status,
 			maxAttempts : max( 0, (int) ( $meta['max_attempts'] ?? 0 ) ),
-			taskPoints  : self::normalizePoints( self::intIds( $meta['item_ids'] ?? array() ), $meta['task_points'] ?? array() ),
+			taskPoints  : is_array( $meta['task_points'] ?? null ) ? $meta['task_points'] : array(),
 		);
 	}
 
@@ -70,7 +70,7 @@ readonly class WorkDTO {
 			authorId    : (int) ( $data['author_id'] ?? 0 ),
 			status      : (string) ( $data['status'] ?? 'draft' ),
 			maxAttempts : max( 0, (int) ( $data['max_attempts'] ?? 0 ) ),
-			taskPoints  : self::normalizePoints( self::intIds( $data['item_ids'] ?? array() ), $data['task_points'] ?? array() ),
+			taskPoints  : is_array( $data['task_points'] ?? null ) ? $data['task_points'] : array(),
 		);
 	}
 

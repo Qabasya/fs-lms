@@ -27,14 +27,17 @@ class RecordingUrlService {
 		if ( null === $url || ! preg_match( '#^s3://([^/]+)/(.+)$#', $url, $matches ) ) {
 			return $url;
 		}
+		if ( ! $this->config->s3Ready() ) {
+			return $url;
+		}
 		$this->accessLog->logPresign( $matches[1], $matches[2], $groupLessonId );
 		$key    = self::URL_CACHE_PREFIX . md5( get_current_user_id() . '|' . $matches[1] . '|' . $matches[2] );
 		$cached = get_transient( $key );
 		if ( is_string( $cached ) && '' !== $cached ) {
 			return $cached;
 		}
-		$signed = $this->signer->presign( $matches[1], $matches[2] );
 		$ttl    = $this->config->presignTtl();
+		$signed = $this->signer->presign( $matches[1], $matches[2], $ttl );
 		// Cache must never outlive the signature, including short configured lifetimes.
 		set_transient( $key, $signed, max( 1, $ttl - min( 300, intdiv( $ttl, 2 ) ) ) );
 		return $signed;

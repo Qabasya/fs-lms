@@ -5,9 +5,6 @@
  *
  * @var \Inc\Modules\VideoLibrary\Config\VideoLibraryConfig $config
  * @var array                                               $subjects Список предметов (объекты с ->key/->name).
- * @var array<int, array<string, mixed>>                    $access_recent Последние строки журнала доступа.
- * @var array<int, array<string, mixed>>                    $access_top    Топ просмотров за неделю.
- * @var array<int, string>                                  $access_names  user_id => имя.
  *
  * @package Inc\Modules\VideoLibrary
  */

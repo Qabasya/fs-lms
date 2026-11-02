@@ -218,7 +218,7 @@ class PassedWorksService {
 			$out[] = array(
 				'student_person_id' => $personId,
 				'student_name'      => $active[ $personId ],
-				'group_lesson_id'   => $owner->id,
+				'group_lesson_id'   => $owner->progressId(),
 				'submission_id'     => $sub->id ?? 0,
 				'status'            => null !== $sub ? $sub->status->value : '',
 				'score'             => $sub?->score,
@@ -278,7 +278,7 @@ class PassedWorksService {
 
 		$owner = $this->studentRows( $this->unitRows( $row ), $this->activeStudents( $row->groupId ) )[ $personId ] ?? $row;
 
-		return $this->submissionService->revokeWorkCredit( $personId, $owner->id, $workId );
+		return $this->submissionService->revokeWorkCredit( $personId, $owner->progressId(), $workId );
 	}
 
 	/**
@@ -479,9 +479,15 @@ class PassedWorksService {
 	 * @return array<int, array<int, SubmissionDTO>>
 	 */
 	private function unitSubmissions( array $unit ): array {
-		$map = array();
+		$map  = array();
+		$seen = array();
 		foreach ( $unit as $member ) {
-			foreach ( $this->submissions->listAggregatesByGroupLesson( $member->id ) as $sub ) {
+			$progressId = $member->progressId();
+			if ( isset( $seen[ $progressId ] ) ) {
+				continue;
+			}
+			$seen[ $progressId ] = true;
+			foreach ( $this->submissions->listAggregatesByGroupLesson( $progressId ) as $sub ) {
 				$map[ $sub->workId ][ $sub->studentPersonId ] = $sub;
 			}
 		}

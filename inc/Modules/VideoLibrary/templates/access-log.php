@@ -55,7 +55,8 @@ $total_pages = (int) ceil( $video_log['total'] / $video_log['per_page'] );
 	<?php if ( array() === $video_log['rows'] ) : ?>
 		<div class="notice notice-info inline fs-table__no-items"><p>Записи не найдены.</p></div>
 	<?php else : ?>
-		<table class="wp-list-table widefat fixed striped fs-table">
+		<div class="fs-logs-table-scroll" role="region" aria-label="Журнал доступа к видео" tabindex="0">
+		<table class="widefat fixed striped fs-table fs-table--video-access">
 			<thead><tr>
 				<?php
 				foreach ( array(
@@ -91,6 +92,7 @@ $total_pages = (int) ceil( $video_log['total'] / $video_log['per_page'] );
 			<?php endforeach; ?>
 			</tbody>
 		</table>
+		</div>
 		<?php if ( $total_pages > 1 ) : ?>
 			<div class="tablenav bottom"><div class="tablenav-pages">
 			<?php

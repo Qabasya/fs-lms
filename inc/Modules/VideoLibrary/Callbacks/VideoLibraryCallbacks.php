@@ -56,7 +56,12 @@ class VideoLibraryCallbacks extends BaseController {
 			return;
 		}
 
-		$this->accessLog->logWatch( $this->sanitizeInt( 'group_lesson_id' ), $this->sanitizeInt( 'seconds' ) );
+		// sanitizeInt() uses absint(): a negative portion must not become valid telemetry.
+		$lessonId = filter_var( $this->sanitizeText( 'group_lesson_id' ), FILTER_VALIDATE_INT );
+		$seconds  = filter_var( $this->sanitizeText( 'seconds' ), FILTER_VALIDATE_INT );
+		if ( false !== $lessonId && false !== $seconds && $lessonId > 0 && $seconds > 0 ) {
+			$this->accessLog->logWatch( $lessonId, $seconds );
+		}
 		$this->success();
 	}
 

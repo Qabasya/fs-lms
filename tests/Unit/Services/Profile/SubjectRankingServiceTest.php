@@ -174,4 +174,37 @@ class SubjectRankingServiceTest extends TestCase {
 		self::assertSame([1,3,4],array_column($data['rows'],'person_id'));
 		self::assertSame('Сентябрь — ноябрь 2026',$data['period']);
 	}
+
+	public function test_shared_calculation_matches_tiles_and_group_ranks_with_decimal_ties(): void {
+		$GLOBALS['_test_user_can'][7] = [Capability::ManageLmsTeaching->value => true];
+		$repo = $this->createStub(LearnerRankingRepository::class);
+		$repo->method('studentIds')->willReturn([1, 2, 3]);
+		$repo->method('workEvents')->willReturn([
+			['student_person_id' => 1, 'source' => 'practice', 'task_points' => 1],
+			['student_person_id' => 1, 'source' => 'homework', 'task_points' => 1],
+			['student_person_id' => 2, 'source' => 'survey', 'task_points' => 1],
+			['student_person_id' => 3, 'source' => 'practice', 'task_points' => 1],
+		]);
+		$repo->method('roster')->willReturn(array_map(static fn(int $id): array => [
+			'student_person_id' => $id, 'snapshot_last_name' => 'Student ' . $id, 'snapshot_first_name' => '',
+			'group_id' => 1 === $id ? 1 : 2, 'group_name' => 'Group',
+		], [1, 2, 3]));
+		$config = $this->createMock(PluginConfig::class);
+		$config->expects(self::exactly(3))->method('rankingSettings')->willReturn([
+			'practice' => 0.1, 'homework' => 0.2, 'survey' => 0.3, 'attendance_bonus' => 0.0,
+		]);
+		$ranking = new RankingCalculationService($repo, new RankingPointsPolicy($config));
+		$clock = $this->createStub(ClockInterface::class);
+		$clock->method('now')->willReturn('2026-11-01 12:00:00');
+		$service = new SubjectRankingService($this->access(), $repo, $ranking, $clock);
+		$tile = (new \Inc\Services\Profile\Learner\LearnerRankingSection($ranking))->forGroups(2, [['subject_key' => 'inf_ege']], '2026-11-01 12:00:00')[0];
+		$all = $service->build(7, 'inf_ege');
+		$student = array_column($all['rows'], null, 'person_id')[2];
+		self::assertSame($tile['score'], $student['score']);
+		self::assertSame($tile['rank'], $student['rank']);
+		self::assertSame([1, 1, 2], array_column($all['rows'], 'rank'));
+		$group = $service->build(7, 'inf_ege', 2);
+		self::assertSame([2, 3], array_column($group['rows'], 'person_id'));
+		self::assertSame([1, 2], array_column($group['rows'], 'rank'));
+	}
 }

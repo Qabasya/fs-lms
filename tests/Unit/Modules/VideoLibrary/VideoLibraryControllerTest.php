@@ -21,11 +21,14 @@ class VideoLibraryControllerTest extends TestCase {
 		$GLOBALS['_test_transients'] = array();
 		$this->signer    = $this->createMock( S3UrlSigner::class );
 		$this->accessLog = $this->createMock( \Inc\Modules\VideoLibrary\Services\VideoAccessLogService::class );
+		$config = $this->createStub( VideoLibraryConfig::class );
+		$config->method( 's3Ready' )->willReturn( true );
+		$config->method( 'presignTtl' )->willReturn( 3600 );
 		$this->controller = new VideoLibraryController(
 			$this->createMock( VideoLibraryCallbacks::class ),
 			new \Inc\Modules\VideoLibrary\Services\RecordingUrlService(
 				$this->signer,
-				$this->createStub( VideoLibraryConfig::class ),
+				$config,
 				$this->accessLog,
 			),
 			$this->createMock( VideoLibraryConfig::class ),

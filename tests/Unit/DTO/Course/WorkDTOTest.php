@@ -67,4 +67,20 @@ class WorkDTOTest extends TestCase {
 		self::assertSame( array( 3 => 1 ), WorkDTO::fromArray( array( 'item_ids' => array( 3 ) ) )->taskPoints );
 	}
 
+	public function test_all_creation_paths_normalize_corrupt_metadata_and_preserve_prices(): void {
+		foreach ( array( null, 'broken', array( 3 => null, 5 => 999, 99 => 4 ) ) as $raw ) {
+			$data = array( 'item_ids' => array( 3, 5 ), 'task_points' => $raw );
+			$post = new WP_Post( array( 'ID' => 10, 'post_type' => 'inf_works' ) );
+			$fromPost = WorkDTO::fromPost( $post, $data );
+			$fromArray = WorkDTO::fromArray( $data );
+			self::assertSame( $fromPost->taskPoints, $fromArray->taskPoints );
+			self::assertSame( 1.0, $fromArray->pointsForTask( 3 ) );
+			self::assertSame( is_array( $raw ) ? 999.0 : 1.0, $fromArray->pointsForTask( 5 ) );
+			self::assertSame( $fromArray->taskPoints, WorkDTO::fromArray( $fromArray->toArray() )->taskPoints );
+		}
+		$direct = new WorkDTO( 1, 'inf', '', WorkType::Homework, array( 3 ), '', 1, 'draft', taskPoints: array( 3 => '4', 5 => 10 ) );
+		self::assertSame( array( 3 => 4 ), $direct->taskPoints );
+		self::assertSame( $direct->taskPoints, ( clone $direct )->taskPoints );
+	}
+
 }

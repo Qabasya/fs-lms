@@ -15,7 +15,8 @@ use Inc\Shared\Traits\RequestContextProvider;
  * ссылку и сколько фактически смотрел. Пишется в двух точках:
  *
  *  - выдача presigned-ссылки ({@see self::logPresign()}) — прокси «открыли запись»;
- *  - heartbeat плеера ({@see self::logWatch()}) — реальные секунды просмотра.
+ *  - heartbeat плеера ({@see self::logWatch()}) — сообщённые клиентом секунды просмотра,
+ *    а не подтверждение фактического S3-трафика.
  *
  * Оба потока агрегируются репозиторием в сессионные строки (окно 3 часа — под
  * длину записи занятия), поэтому долгий просмотр — одна строка с накопленными
@@ -59,7 +60,7 @@ class VideoAccessLogService {
 	 */
 	public function logWatch( int $groupLessonId, int $seconds ): void {
 		$userId = get_current_user_id();
-		if ( $userId <= 0 || $seconds <= 0 ) {
+		if ( $userId <= 0 || $groupLessonId <= 0 || $seconds <= 0 ) {
 			return;
 		}
 

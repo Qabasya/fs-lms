@@ -48,6 +48,22 @@
   margin-left: auto;
 }
 
+// Keep all log columns aligned on phones; WordPress list-table card rules do not apply.
+.fs-logs-table-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+  margin-top: $spacing-xl;
+
+  .fs-table--video-access {
+    min-width: $video-access-table-min-width;
+    margin-top: 0;
+
+    code {
+      overflow-wrap: anywhere;
+    }
+  }
+}
+
 // Пояснение под значением ячейки: расшифровка кода, путь страницы (журнал «Ошибки»)
 .fs-logs__subline {
   display: block;

@@ -24,6 +24,7 @@ class VideoLibraryCallbacksTest extends TestCase {
 	private $alerts;
 	private \Inc\Services\Course\GroupAccessGuard&\PHPUnit\Framework\MockObject\MockObject $guard;
 	private VideoLibraryCallbacks $cb;
+	private \Inc\Modules\VideoLibrary\Services\VideoAccessLogService&\PHPUnit\Framework\MockObject\MockObject $accessLog;
 
 	protected function setUp(): void {
 		parent::setUp();
@@ -35,6 +36,7 @@ class VideoLibraryCallbacksTest extends TestCase {
 		$this->lessons      = $this->createMock( LessonManager::class );
 		$this->alerts       = $this->createMock( RecordingAlertService::class );
 		$this->guard        = $this->createMock( \Inc\Services\Course\GroupAccessGuard::class );
+		$this->accessLog    = $this->createMock( \Inc\Modules\VideoLibrary\Services\VideoAccessLogService::class );
 
 		$this->cb = new VideoLibraryCallbacks(
 			$this->registration,
@@ -42,8 +44,45 @@ class VideoLibraryCallbacksTest extends TestCase {
 			$this->lessons,
 			$this->alerts,
 			$this->guard,
-			$this->createMock( \Inc\Modules\VideoLibrary\Services\VideoAccessLogService::class )
+			$this->accessLog
 		);
+	}
+
+	protected function tearDown(): void {
+		unset( $GLOBALS['_test_logged_in'] );
+		fs_test_reset_ajax();
+		parent::tearDown();
+	}
+
+	public function test_watch_guest_never_reaches_log_service(): void {
+		$GLOBALS['_test_logged_in'] = false;
+		$this->accessLog->expects( self::never() )->method( 'logWatch' );
+		self::assertFalse( fs_test_capture_json( fn() => $this->cb->ajaxWatch() )->success );
+	}
+
+	public function test_watch_invalid_nonce_never_reaches_log_service(): void {
+		$GLOBALS['_fs_test_nonce_ok'] = false;
+		$this->accessLog->expects( self::never() )->method( 'logWatch' );
+		$response = fs_test_capture_json( fn() => $this->cb->ajaxWatch() );
+		self::assertFalse( $response->success );
+		self::assertSame( 'E-SESSION', $response->payload['code'] );
+	}
+
+	public function test_watch_only_passes_lesson_and_seconds_from_request(): void {
+		$_POST = array( 'group_lesson_id' => '42', 'seconds' => '60', 's3_key' => 'forged/private.mp4' );
+		$this->accessLog->expects( self::once() )->method( 'logWatch' )->with( 42, 60 );
+		self::assertTrue( fs_test_capture_json( fn() => $this->cb->ajaxWatch() )->success );
+	}
+
+	public function test_watch_rejects_negative_zero_and_malformed_portions_before_absint(): void {
+		$this->accessLog->expects( self::never() )->method( 'logWatch' );
+		foreach ( array(
+			array( '-42', '60' ), array( '42', '-60' ), array( '0', '60' ), array( '42', '0' ),
+			array( '42', '1.5' ), array( '42', 'bad' ), array( '42', array( '60' ) ),
+		) as [ $lesson, $seconds ] ) {
+			$_POST = array( 'group_lesson_id' => $lesson, 'seconds' => $seconds );
+			self::assertTrue( fs_test_capture_json( fn() => $this->cb->ajaxWatch() )->success );
+		}
 	}
 
 	private function row(): GroupLessonDTO {

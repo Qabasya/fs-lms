@@ -47,4 +47,23 @@ class VideoWatchAccessServiceTest extends TestCase {
 		self::assertTrue( $service->canWatch( 77, $this->lesson( 10 ) ) );
 		self::assertFalse( $service->canWatch( 77, $this->lesson( 11 ) ) );
 	}
+
+	public function test_student_cannot_watch_someone_elses_individual_lesson(): void {
+		$profiles = $this->createStub( ProfileViewResolver::class );
+		$profiles->method( 'context' )->willReturn( new ProfileContext( 77, 10, UserRole::FSStudent, 10, false ) );
+		$gate = $this->createMock( LessonGateResolver::class );
+		$gate->expects( self::never() )->method( 'resolveLesson' );
+		self::assertFalse( ( new VideoWatchAccessService( $profiles, $gate ) )->canWatch( 77, $this->lesson( 11 ) ) );
+	}
+
+	public function test_parent_cannot_watch_when_all_children_are_denied(): void {
+		$profiles = $this->createStub( ProfileViewResolver::class );
+		$profiles->method( 'context' )->willReturn( new ProfileContext( 77, 20, UserRole::FSParent, 10, true, array(
+			array( 'personId' => 10, 'name' => 'Child' ),
+			array( 'personId' => 11, 'name' => 'Child' ),
+		) ) );
+		$gate = $this->createMock( LessonGateResolver::class );
+		$gate->expects( self::exactly( 2 ) )->method( 'resolveLesson' )->willReturn( GateState::Locked );
+		self::assertFalse( ( new VideoWatchAccessService( $profiles, $gate ) )->canWatch( 77, $this->lesson() ) );
+	}
 }

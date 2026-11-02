@@ -440,6 +440,45 @@ class PassedWorksServiceTest extends TestCase {
 		self::assertSame( array( 3, 5, 4 ), array_column( $feed['items'], 'work_id' ) );
 	}
 
+	public function test_per_work_order_survives_pagination_and_type_filter(): void {
+		$pairs = array();
+		for ( $id = 20; $id >= 12; --$id ) {
+			$pairs[] = array( 'group_lesson_id' => $id, 'work_id' => $id, 'latest_at' => '2026-10-19 13:00:00' );
+		}
+		$pairs[] = array( 'group_lesson_id' => 5, 'work_id' => 3, 'latest_at' => '2026-10-19 12:00:00' );
+		$pairs[] = array( 'group_lesson_id' => 6, 'work_id' => 5, 'latest_at' => '2026-10-19 11:00:00' );
+		$pairs[] = array( 'group_lesson_id' => 5, 'work_id' => 4, 'latest_at' => '2026-10-19 10:00:00' );
+		$this->submissions->method( 'listWorkLatestPage' )->willReturnCallback(
+			static fn( $groups, $now, $at, $lesson, $work, $limit ): array => array_slice( array_values( array_filter(
+				$pairs, static fn( $pair ): bool => null === $at || array( $pair['latest_at'], $pair['group_lesson_id'], $pair['work_id'] ) < array( $at, $lesson, $work )
+			) ), 0, $limit )
+		);
+		$this->groupLessons->method( 'find' )->willReturnCallback( fn( $id ) => $this->row( $id ) );
+		$this->deadlines->method( 'assignedWorks' )->willReturnCallback( fn( $row ) => 5 === $row->id
+			? array( $this->work( 3, WorkType::Homework ), $this->work( 4, WorkType::Homework ) )
+			: array( $this->work( 6 === $row->id ? 5 : $row->id, WorkType::Homework ) ) );
+		$this->submissionsByRow( array() );
+		$first = $this->service->feed( 7, false, 1, 'homework', '', '', PassedWorksService::SORT_SUBMISSIONS );
+		$second = $this->service->feed( 7, false, 1, 'homework', '', $first['next'], PassedWorksService::SORT_SUBMISSIONS );
+		self::assertCount( 10, $first['items'] );
+		self::assertSame( array_merge( range( 20, 12 ), array( 3, 5, 4 ) ), array_column( array_merge( $first['items'], $second['items'] ), 'work_id' ) );
+		self::assertNull( $second['next'] );
+	}
+
+	public function test_continuation_reads_and_mutates_only_canonical_progress(): void {
+		$row = GroupLessonDTO::fromArray( array( 'id' => 6, 'group_id' => 1, 'position' => 0, 'continued_from_id' => 5 ) );
+		$this->groupLessons->method( 'find' )->with( 6 )->willReturn( $row );
+		$this->submissions->expects( self::exactly( 2 ) )->method( 'listAggregatesByGroupLesson' )->with( 5 )
+			->willReturn( array( $this->submission( 10 ) ) );
+		$this->submissionService->expects( self::once() )->method( 'creditWork' )->with( 11, 5, 3, 7 )->willReturn( true );
+		$this->submissionService->expects( self::once() )->method( 'revokeWorkCredit' )->with( 11, 5, 3 )->willReturn( true );
+		$students = $this->service->students( 6, 3, 7, false );
+		self::assertSame( array( 5, 5 ), array_column( $students, 'group_lesson_id' ) );
+		self::assertSame( 80, $students[0]['submission_id'] );
+		self::assertSame( 1, $this->service->credit( 6, 3, array(), 7, false ) );
+		self::assertTrue( $this->service->uncredit( 6, 3, 11, 7, false ) );
+	}
+
 	public function test_feed_submissions_keeps_only_works_with_submissions(): void {
 		$this->submissions->method( 'listWorkLatestPage' )->willReturn( array(
 			array( 'group_lesson_id' => 5, 'work_id' => 3, 'latest_at' => '2026-10-19 12:00:00' ),

@@ -123,6 +123,7 @@ if (!function_exists('admin_url')) {
 if (!function_exists('set_transient')) {
     function set_transient(string $transient, mixed $value, int $expiration = 0): bool {
         $GLOBALS['_test_transients'][$transient] = $value;
+        $GLOBALS['_test_transient_ttls'][$transient] = $expiration;
         return true;
     }
 }
