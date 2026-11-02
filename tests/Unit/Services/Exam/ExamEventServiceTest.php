@@ -666,7 +666,7 @@ class ExamEventServiceTest extends TestCase {
 	}
 
 	public function test_delete_cancelled_session(): void {
-		$this->session = $this->examSession( array( 'status' => 'cancelled', 'occupied_count' => '0' ) );
+		$this->session = $this->examSession( array( 'status' => 'cancelled', 'occupied_count' => '1' ) );
 		$this->registrations->method( 'listBySession' )->willReturn( array( $this->historyRegistration( 5, 'cancelled' ) ) );
 		$this->sessions->expects( self::once() )->method( 'delete' )->with( self::SESSION )->willReturn( true );
 

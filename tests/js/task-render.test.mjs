@@ -45,6 +45,7 @@ test('manage для ручной задачи экзамена содержит 
 
     assert.match(html, /sum-task-grade/);
     assert.match(html, /stg-save">Оценить</);
+    assert.doesNotMatch(html, /stg-ok-cb/);
     assert.doesNotMatch(html, /stg-credit/, 'Есть «Оценить» — «Засчитать задание» не нужен.');
 });
 
@@ -101,13 +102,13 @@ test('код выводится блоком, файлы — списком; о�
 
 test('подписи новых вердиктов и якорь задания', () => {
     assert.equal(VERDICT_LABEL.unanswered, 'Нерешено');
-    assert.equal(VERDICT_LABEL.partial, 'Частично');
+    assert.equal(VERDICT_LABEL.partial, 'Частично верно');
 
     const unanswered = renderTask(manualTask({ verdict: 'unanswered' }), { mode: 'read_only', kind: 'exam' });
     const partial = renderTask(manualTask({ verdict: 'partial' }), { mode: 'read_only', kind: 'exam' });
 
     assert.match(unanswered, /sv-unanswered">Нерешено</);
-    assert.match(partial, /sv-partial">Частично</);
+    assert.match(partial, /sv-partial">Частично верно</);
     assert.match(unanswered, /<div class="sum-task" id="u-abc123">/);
 });
 

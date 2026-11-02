@@ -276,7 +276,8 @@ class BundleLoader extends BaseController {
 					'uploadAnswerFile' => Nonce::UploadAnswerFile->create(),
 					'endGuestSession'  => Nonce::ExamGuest->create(),
 				),
-			)
+			),
+			array( 'jquery' )
 		);
 
 		$this->enqueueMathJax();

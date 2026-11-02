@@ -54,7 +54,7 @@ function formatRemaining( seconds ) {
  * @param {string}      deadlineAt Дедлайн попытки ('Y-m-d H:i:s')
  * @param {Object}      options    onExpire / warnAt / nowAt
  */
-export function startCountdown( displayEl, deadlineAt, { onExpire, warnAt = 60, nowAt = '' } = {} ) {
+export function startCountdown( displayEl, deadlineAt, { onExpire, onTick, warnAt = 60, nowAt = '' } = {} ) {
 	if ( ! displayEl || ! deadlineAt ) { return null; }
 
 	const deadline  = parseAt( deadlineAt );
@@ -69,6 +69,7 @@ export function startCountdown( displayEl, deadlineAt, { onExpire, warnAt = 60, 
 
 	const tick = () => {
 		const remaining = remainingSec();
+		if ( onTick && remaining > 0 ) { onTick( remaining ); }
 		if ( remaining <= 0 ) {
 			displayEl.textContent = formatRemaining( 0 );
 			displayEl.classList.add( 'fs-timer--expired' );

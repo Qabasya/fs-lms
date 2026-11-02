@@ -90,12 +90,14 @@ const item = (lessonId, workId, extra = {}) => ({
 });
 
 /** Подготавливает окружение и запускает экран; `handler(action, params)` отвечает вместо сервера. */
-async function setup(handler, { groups = [] } = {}) {
+async function setup(handler, { groups = [], selected = 1, dashboard = false } = {}) {
     const calls = [];
     globalThis.window = {
+        location: { href: `http://localhost/profile/${selected === null ? '' : `?works_g=${selected}`}` },
         fsProfile: {
             works: { nonce: 'nonce', actions: { getPassedWorks: 'passed', getPassedStudents: 'students', creditWork: 'credit', uncreditWork: 'uncredit' } },
             groups,
+            ...(dashboard ? { dashboard: { nonce: 'nonce', actions: { getDashboard: 'dashboard' } } } : {}),
         },
     };
     const menu = installCtxMenu();
@@ -120,10 +122,26 @@ const students = (overrides = []) => [
     ...overrides,
 ];
 
-test('первая порция грузится с пустыми фильтрами; видно сдачи, ожидающие проверки, и число у фильтра', async () => {
+test('без выбора группы список не запрашивается', async () => {
+    const { root, calls } = await setup(() => { throw new Error('unexpected request'); }, { selected: 0 });
+    assert.equal(calls.length, 0);
+    assert.match(root.html, /Выберите группу/);
+});
+
+test('идущая сейчас группа выбирается с самостоятельной работой', async () => {
+    const groups = [{ id: 5, name: 'Группа', subject: 'Информатика' }];
+    const { calls } = await setup((action) => action === 'dashboard'
+        ? { today: [{ group_id: 5, state: 'now', end: '16:00' }] }
+        : { items: [], next: null, pending_total: 0 }, { groups, selected: null, dashboard: true });
+    await tick();
+    assert.equal(calls[1].params.group_id, 5);
+    assert.equal(calls[1].params.type, 'independent');
+});
+
+test('первая порция грузится для выбранной группы; видно сдачи, ожидающие проверки, и число у фильтра', async () => {
     const { root, calls } = await setup(() => ({ items: [item(5, 3)], next: null, pending_total: 4 }));
 
-    assert.deepEqual(calls[0], { action: 'passed', params: { group_id: 0, type: '', status: '', sort: '', cursor: '' } });
+    assert.deepEqual(calls[0], { action: 'passed', params: { group_id: 1, type: '', status: '', sort: '', cursor: '' } });
     assert.match(root.html, /Работа 3/);
     assert.match(root.html, /сдали 1 из 2/);
     assert.match(root.html, /на проверке 1/);
@@ -160,7 +178,7 @@ test('тип работы выбирается тем же меню, что и �
     assert.deepEqual(menu.active(), ['']);
 });
 
-test('в меню групп «Все группы» стоит первым пунктом, выбор группы перезагружает список', async () => {
+test('в меню групп есть пустой выбор, выбор группы перезагружает список', async () => {
     const groups = [
         { id: 4, name: 'КОГЭ-1', subject: 'Информатика', subject_key: 'inf' },
         { id: 5, name: 'КОГЭ-2', subject: 'Информатика', subject_key: 'inf' },
@@ -170,7 +188,7 @@ test('в меню групп «Все группы» стоит первым п�
     root.groupBtn.fire('click');
 
     assert.deepEqual(menu.values(), ['0', '4', '5']);
-    assert.equal(menu.labels()[0], 'Все группы');
+    assert.equal(menu.labels()[0], 'Выберите группу');
 
     menu.pick('5');
     await tick();
@@ -187,14 +205,14 @@ test('смена фильтров начинает список с первой 
     menu.pick('homework');
     await tick();
 
-    assert.deepEqual(calls[1].params, { group_id: 0, type: 'homework', status: '', sort: '', cursor: '' });
+    assert.deepEqual(calls[1].params, { group_id: 1, type: 'homework', status: '', sort: '', cursor: '' });
     assert.match(root.html, /Работа 8/);
     assert.doesNotMatch(root.html, /Работа 3/);
 
     root.statuses.find((s) => s.dataset.status === 'missing').fire('click');
     await tick();
 
-    assert.deepEqual(calls[2].params, { group_id: 0, type: 'homework', status: 'missing', sort: '', cursor: '' });
+    assert.deepEqual(calls[2].params, { group_id: 1, type: 'homework', status: 'missing', sort: '', cursor: '' });
 });
 
 test('ответ на прежние фильтры не затирает список под новыми', async () => {
@@ -308,7 +326,7 @@ test('переключатель сортировки: «Новые сдачи»
     root.sorts.find((s) => 'submissions' === s.dataset.sort).fire('click');
     await tick();
 
-    assert.deepEqual(calls[1].params, { group_id: 0, type: '', status: '', sort: 'submissions', cursor: '' });
+    assert.deepEqual(calls[1].params, { group_id: 1, type: '', status: '', sort: 'submissions', cursor: '' });
     assert.match(root.html, /class="on" data-sort="submissions"/);
     assert.match(root.html, /Работа со свежей сдачей/);
     assert.doesNotMatch(root.html, /Работа 3/);

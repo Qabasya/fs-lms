@@ -46,6 +46,7 @@ class GradeAttemptCallbacksTest extends TestCase {
 			$this->posts,
 			$this->examConduct,
 			$this->examApproval,
+			$this->createStub( \Inc\Managers\Assessment\AssessmentManager::class ),
 		);
 	}
 
@@ -226,6 +227,24 @@ class GradeAttemptCallbacksTest extends TestCase {
 
 		$_POST = array( 'attempt_id' => '5', 'task_id' => '7', 'score' => '4', 'is_correct' => '1' );
 
+		self::assertTrue( fs_test_capture_json( fn() => $this->cb->ajaxGradeAttempt() )->success );
+	}
+
+	public function test_plain_partial_score_ignores_incorrect_client_flag(): void {
+		$this->attempts->method( 'find' )->willReturn( $this->attemptFixture() );
+		$this->guard->method( 'canWriteJournal' )->willReturn( true );
+		$this->posts->method( 'getMeta' )->willReturnMap( array(
+			array( 7, 'fs_lms_template_type', 'file_answer_task' ),
+			array( 7, 'fs_lms_meta', array() ),
+		) );
+		$this->answers->method( 'findByAttemptAndTask' )->willReturn( new \Inc\DTO\Assessment\AttemptAnswerDTO( 1, 5, 7, 'answer', null, null, 3.0, null, null ) );
+		$this->answers->expects( self::once() )->method( 'upsert' )->with( 5, 7, self::callback( static function ( array $data ): bool {
+			self::assertSame( 2.0, $data['score'] );
+			self::assertSame( 0, $data['is_correct'] );
+			return true;
+		} ) );
+		$this->autoGrade->method( 'finalize' )->willReturn( $this->attemptFixture() );
+		$_POST = array( 'attempt_id' => '5', 'task_id' => '7', 'score' => '2', 'is_correct' => '1' );
 		self::assertTrue( fs_test_capture_json( fn() => $this->cb->ajaxGradeAttempt() )->success );
 	}
 

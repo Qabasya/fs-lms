@@ -313,7 +313,7 @@ class WorkDetailService {
 			if ( $gradable && $row ) {
 				$verdict = SubmissionStatus::PendingReview === $row->status
 					? 'pending'
-					: ( ( $row->score ?? 0.0 ) >= ( $row->maxScore ?? 1.0 ) ? 'correct' : 'incorrect' );
+					: $this->verdictFor( ( $row->score ?? 0.0 ) >= ( $row->maxScore ?? 1.0 ), $row->score, $row->maxScore ?? 1.0, false );
 				$tasks[] = array(
 					'n'                  => ++$n,
 					'condition'          => $this->condition( $taskId, $collapseCommon ),
@@ -350,7 +350,7 @@ class WorkDetailService {
 			if ( $manuallyGraded && $row ) {
 				$score    = $row->score;
 				$maxScore = $row->maxScore ?? $maxScore;
-				$verdict  = ( ( $row->score ?? 0.0 ) >= ( $row->maxScore ?? 1.0 ) ) ? 'correct' : 'incorrect';
+				$verdict  = $this->verdictFor( ( $row->score ?? 0.0 ) >= ( $row->maxScore ?? 1.0 ), $row->score, $row->maxScore ?? 1.0, false );
 			}
 			// Ответа на задание не было вовсе — «Нерешено», а не «Неверно» (оценку преподавателя не трогаем).
 			if ( 'incorrect' === $verdict && ! $manuallyGraded && $this->correctAnswers->isEmptyStudentAnswer( $rawAnswer ) ) {

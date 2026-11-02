@@ -551,7 +551,7 @@ function wireAttemptGrading(root, d) {
                     max += +row.dataset.max;
                 });
                 payload.criteria_scores = JSON.stringify(scores);
-                verdict = sum >= max ? 'correct' : 'incorrect';
+                verdict = sum <= 0 ? 'incorrect' : sum >= max ? 'correct' : 'partial';
             } else if (isOgeRubric) {
                 // Holistic-рубрика (§3.4): один выбранный уровень — обычный простой
                 // балл (GradeAttemptCallbacks без критериев), не сумма по критериям.
@@ -559,11 +559,13 @@ function wireAttemptGrading(root, d) {
                 const max   = +box.dataset.max;
                 payload.score      = String(score);
                 payload.is_correct = score >= max ? '1' : '0';
-                verdict = score >= max ? 'correct' : 'incorrect';
+                verdict = score <= 0 ? 'incorrect' : score >= max ? 'correct' : 'partial';
             } else {
-                payload.score = box.querySelector('.stg-score').value || '0';
-                payload.is_correct = box.querySelector('.stg-ok-cb').checked ? '1' : '0';
-                verdict = box.querySelector('.stg-ok-cb').checked ? 'correct' : 'incorrect';
+                const score = Number(box.querySelector('.stg-score').value || 0);
+                const max = Number(box.dataset.max || 1);
+                payload.score = String(score);
+                payload.is_correct = score > 0 && score >= max ? '1' : '0';
+                verdict = score <= 0 ? 'incorrect' : score >= max ? 'correct' : 'partial';
             }
 
             btn.disabled = true;

@@ -15,12 +15,6 @@ import {
 } from './exam-common.js';
 
 
-/** Режимы страницы: таблица учеников и сводная по заданиям (общий prof-seg). */
-const MODES = [
-    { key: 'students', label: 'Ученики' },
-    { key: 'summary', label: 'Сводная' },
-];
-
 /** Порог цвета процента в сводной: от 70 — зелёный, от 40 — жёлтый, ниже — красный (как в таблице преподавателей). */
 function shareClass(value) {
     if (null === value || undefined === value) { return ''; }
@@ -39,7 +33,7 @@ const query = { event_id: 0, session_id: 0, audience: 'all' };
 // По умолчанию выбрано последнее добавленное проведение; после выбора «Все проведения» вручную оно не возвращается (до смены предмета).
 let eventDefaulted = false;
 // Клиентские фильтры таблицы; сбрасываются при смене проведения, сеанса и участников.
-const view = { search: '', group: '', school: '', mode: 'students' };
+const view = { search: '', group: '', school: '' };
 
 export function renderExamStats(r, h = {}) {
     root = r;
@@ -112,7 +106,7 @@ function render() {
                 <select data-filter="event_id" aria-label="Проведение">${options(f.events, query.event_id, e => e.title, 'Все проведения')}</select>
                 ${f.sessions.length ? `<select data-filter="session_id" aria-label="Сеанс">${options(f.sessions, query.session_id, s => `${fmtDate(s.date)} · ${s.time_start}`, 'Все сеансы')}</select>` : ''}
                 ${audienceSegHtml(query.audience)}
-                ${'students' === view.mode ? `${searchHtml(query.audience, view.search, 'examStatsSearch')}${groupSelectHtml(tableRows(), query.audience, view.group)}${schoolSelectHtml(tableRows(), query.audience, view.school)}` : ''}
+                ${searchHtml(query.audience, view.search, 'examStatsSearch')}${groupSelectHtml(tableRows(), query.audience, view.group)}${schoolSelectHtml(tableRows(), query.audience, view.school)}
             </div>
             ${0 === k.registered ? '<div class="exam-conduct-empty">В выбранном проведении пока нет записей.</div>' : ''}
             <div class="prof-stat-tiles exam-stat-tiles">
@@ -120,11 +114,7 @@ function render() {
                 ${averages.join('')}
             </div>
             ${fmt && fmt.mixed ? '<div class="sc-notice exam-notice">В выборке работы разных форматов: средние посчитаны только по одному из них.</div>' : ''}
-            <div class="prof-seg exam-stats-modes" role="tablist" aria-label="Вид статистики">${MODES.map(m =>
-                `<button type="button" role="tab" class="${view.mode === m.key ? 'on' : ''}" data-mode="${m.key}">${esc(m.label)}</button>`).join('')}</div>
-            ${'summary' === view.mode
-                ? `<div class="prof-card exam-stats-table" id="examStatsTable">${summaryHtml()}</div>`
-                : `<div class="prof-card exam-stats-table" id="examStatsTable">${tableHtml()}</div>`}
+            <div class="prof-card exam-stats-table" id="examStatsTable">${tableHtml()}</div>
         </div>`;
     wire();
 }
@@ -171,28 +161,20 @@ function tableHtml() {
             ${t.columns.map(() => '<td></td>').join('')}
             <td class="exam-grid-sum">${num(f.primary)}</td><td class="exam-grid-sum">${num(f.secondary)}</td></tr>`;
 
-    return `<div class="exam-grid-scroll"><table class="exam-grid"><thead>${head}</thead><tbody>${body}</tbody><tfoot>${foot}</tfoot></table></div>`;
+    const summary = summaryRows(t.columns, data.summary);
+    return `<div class="exam-grid-scroll"><table class="exam-grid"><thead>${head}</thead><tbody>${body}</tbody><tfoot>${foot}${summary}</tfoot></table></div>`;
 }
 
-/** Сводная: сданные работы отдельно сверху, затем таблица «номера заданий × попытки / верные / проценты». */
-function summaryHtml() {
-    const sm = data.summary;
-    if (!sm || !sm.columns.length || !sm.works) {
-        return '<div class="exam-conduct-empty">В выбранных проведениях пока нет сданных работ.</div>';
-    }
-    const cell = (value, suffix = '', cls = '') => `<td class="exam-cell${cls}">${null === value || undefined === value ? '—' : `${value}${suffix}`}</td>`;
-    const row = (label, build) => `<tr><th class="exam-grid-name" scope="row">${label}</th>${sm.columns.map(build).join('')}</tr>`;
-
-    return `<div class="exam-summary-works"><span>Сдано работ</span><strong>${sm.works}</strong></div>
-        <div class="exam-grid-scroll"><table class="exam-grid exam-grid--summary">
-            <thead><tr><th class="exam-grid-name">Задание</th>${sm.columns.map(c => `<th>${esc(c.number)}</th>`).join('')}</tr></thead>
-            <tbody>
-                ${row('Попытки', c => cell(c.attempts))}
-                ${row('Верные решения', c => cell(c.correct))}
-                ${row('Процент попыток, %', c => cell(c.attempts_share, '', shareClass(c.attempts_share)))}
-                ${row('Процент верных, %', c => cell(c.correct_share, '', shareClass(c.correct_share)))}
-            </tbody>
-        </table></div>`;
+/** Summary uses the same task columns as the student table. */
+export function summaryRows(columns, summary) {
+    if (!summary || !summary.works) { return ''; }
+    const byNumber = new Map(summary.columns.map(c => [String(c.number), c]));
+    const row = (label, field, colored = false) => `<tr class="exam-grid-foot"><th class="exam-grid-name" scope="row">${label}</th>${columns.map(number => {
+        const value = byNumber.get(String(number))?.[field];
+        return `<td class="exam-cell${colored ? shareClass(value) : ''}">${value == null ? '—' : esc(String(value))}</td>`;
+    }).join('')}<td class="exam-grid-sum"></td><td class="exam-grid-sum"></td></tr>`;
+    return row('Попытки', 'attempts') + row('Верные решения', 'correct')
+        + row('Процент попыток, %', 'attempts_share', true) + row('Процент верных, %', 'correct_share', true);
 }
 
 /** Перерисовывает только таблицу: поле поиска не теряет фокус на каждой букве. */
@@ -219,9 +201,6 @@ function wire() {
         query.audience = btn.dataset.audience;
         Object.assign(view, { group: '', school: '' });
         load();
-    }));
-    root.querySelectorAll('[data-mode]').forEach(btn => btn.addEventListener('click', () => {
-        if (btn.dataset.mode !== view.mode) { view.mode = btn.dataset.mode; render(); }
     }));
     const table = root.querySelector('#examStatsTable');
     const openRow = e => {

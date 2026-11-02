@@ -359,7 +359,10 @@ class ExamEventService {
 				}
 
 				$rows = $this->registrations->listBySession( $locked->id );
-				if ( $locked->occupiedCount > 0 || $this->hasLiveRegistration( $rows ) || $this->guestApplications->countActiveBySession( $locked->id ) > 0 ) {
+				// У отменённого сеанса счётчик мест мог устареть после отмены записей.
+				// Действующие записи и заявки при этом по-прежнему блокируют удаление.
+				$occupiedOpenSession = ExamSessionStatus::Cancelled->value !== $locked->status && $locked->occupiedCount > 0;
+				if ( $occupiedOpenSession || $this->hasLiveRegistration( $rows ) || $this->guestApplications->countActiveBySession( $locked->id ) > 0 ) {
 					throw new CodedException( ErrorCode::ExamState, 'В сеансе есть записи: используйте отмену сеанса.' );
 				}
 

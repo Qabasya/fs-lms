@@ -8,3 +8,6 @@
 @use 'components/entry';
 @use 'components/exam';
 @use 'components/finish';
+@use '../admin/components/modal/base' as modal-base;
+@use '../admin/components/modal/utilities';
+@use '../admin/components/modal/alert';

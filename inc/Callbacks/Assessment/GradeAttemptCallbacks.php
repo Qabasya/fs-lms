@@ -15,6 +15,7 @@ use Inc\Enums\Subject\TaskTemplate;
 use Inc\Enums\Wp\Nonce;
 use Inc\Enums\Wp\PostMetaName;
 use Inc\Managers\Wp\PostManager;
+use Inc\Managers\Assessment\AssessmentManager;
 use Inc\Services\Assessment\AutoGradeService;
 use Inc\Services\Course\GroupAccessGuard;
 use Inc\Services\Exam\ExamApprovalService;
@@ -40,6 +41,7 @@ class GradeAttemptCallbacks extends BaseController {
 		private readonly PostManager                 $posts,
 		private readonly ExamConductService          $examConduct,
 		private readonly ExamApprovalService         $examApproval,
+		private readonly AssessmentManager          $assessments,
 	) {
 		parent::__construct();
 	}
@@ -178,7 +180,9 @@ class GradeAttemptCallbacks extends BaseController {
 			] );
 		} else {
 			$score     = (float) $this->sanitizeText( 'score' );
-			$isCorrect = (bool) $this->sanitizeInt( 'is_correct' );
+			$existing  = $this->answers->findByAttemptAndTask( $attemptId, $taskId );
+			$maxScore  = (float) ( $existing?->maxScore ?? $this->assessments->get( $attempt->assessmentId )?->taskPoints[ $taskId ] ?? 1.0 );
+			$isCorrect = $score > 0 && $score >= $maxScore;
 
 			$this->answers->upsert( $attemptId, $taskId, [
 				'score'             => $score,

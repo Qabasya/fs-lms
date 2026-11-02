@@ -115,7 +115,8 @@ $stationLabel = \Inc\Enums\Assessment\AssessmentKind::OgeComputer === $assessmen
 
 </div>
 
-<div class="kege-toast" id="kegeToast"></div>
+<div class="kege-toast" id="kegeToast" role="status"></div>
+<?php include dirname( __DIR__, 2 ) . '/admin/components/modals/alert-modal.php'; ?>
 
 <?php wp_footer(); ?>
 </body>

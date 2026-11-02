@@ -178,7 +178,7 @@ function rebuildSidebar() {
    mod.collapsed в course-builder.js — флаг переживает re-render buildSidebar()). */
 /* «Мои группы» и «Мои курсы» есть только у преподавателей/методистов/админов
    (у учеников и родителей секций нет) — у них по умолчанию свёрнуты. */
-const sidebarState = { navCollapsed: false, examsCollapsed: true, groupsCollapsed: true, coursesCollapsed: true, courseFilter: '' };
+const sidebarState = { navCollapsed: false, examsCollapsed: true, groupsCollapsed: true, coursesCollapsed: true, courseFilter: '', groupFilter: '' };
 
 /* Свёрнутость секций сайдбара переживает перезагрузку: хранится только булевы флаги секций, фильтр курсов не запоминается. */
 const SECTIONS_KEY = 'fsProfileSections';
@@ -345,6 +345,25 @@ function openGroupsFor(gid) {
     if (g) setGroupsGroup(g.id);
 }
 
+function wireGroupItems() {
+    document.querySelectorAll('.prof-group-item').forEach(el =>
+        el.addEventListener('click', () => openGroupsFor(el.dataset.grp)));
+}
+
+function groupItemsHtml() {
+    const q = sidebarState.groupFilter.trim().toLowerCase();
+    const groups = (cfg.groups || []).filter(g => `${g.name} ${g.subject || ''}`.toLowerCase().includes(q));
+    if (!groups.length) { return '<div class="prof-side-empty">Ничего не найдено.</div>'; }
+    return groups.map(g => `
+        <div class="prof-group-item" data-grp="${g.id}">
+            ${chipHtml('prof-group-chip', g.subject_key || g.subject, g.name, g.id, g.avatar)}
+            <div class="prof-group-meta">
+                <div class="prof-group-name">${esc(g.name)}</div>
+                <div class="prof-group-sub">${esc(g.subject)}</div>
+            </div>
+        </div>`).join('');
+}
+
 function wireCourseItems() {
     document.querySelectorAll('.prof-course-item').forEach(el =>
         el.addEventListener('click', () => openCoursePage(el.dataset.course)));
@@ -407,14 +426,10 @@ function buildSidebar() {
 
     if (cfg.groups && cfg.groups.length) {
         html += sectionHeader('Мои группы', 'groupsCollapsed');
-        html += sectionBody('groupsCollapsed', cfg.groups.map(g => `
-                <div class="prof-group-item" data-grp="${g.id}">
-                    ${chipHtml('prof-group-chip', g.subject_key || g.subject, g.name, g.id, g.avatar)}
-                    <div class="prof-group-meta">
-                        <div class="prof-group-name">${esc(g.name)}</div>
-                        <div class="prof-group-sub">${esc(g.subject)}</div>
-                    </div>
-                </div>`).join(''));
+        const search = cfg.groups.length > COURSE_SEARCH_THRESHOLD
+            ? `<div class="prof-side-search"><input type="text" id="profGroupFilter" placeholder="Поиск группы…" value="${esc(sidebarState.groupFilter)}"></div>`
+            : '';
+        html += sectionBody('groupsCollapsed', `${search}<div id="profGroupsList">${groupItemsHtml()}</div>`);
     }
 
     if (cfg.coursesTaught && cfg.coursesTaught.length) {
@@ -529,8 +544,7 @@ function wireSidebar() {
     wireMenuEditor(document.getElementById('profNav'), {layout: menuLayout, editing: menuEditing, mayHide: canHideMenu(cfg.role), commit: commitMenu});
     document.querySelectorAll('.prof-nav-item[data-go]').forEach(n =>
         n.addEventListener('click', () => { if (!menuEditing) go(n.dataset.go); }));
-    document.querySelectorAll('.prof-group-item').forEach(el =>
-        el.addEventListener('click', () => openGroupsFor(el.dataset.grp)));
+    wireGroupItems();
     wireCourseItems();
 
     document.querySelectorAll('[data-toggle-section]').forEach(el => {
@@ -548,6 +562,15 @@ function wireSidebar() {
             if ('Enter' === e.key || ' ' === e.key) { e.preventDefault(); toggle(); }
         });
     });
+
+    const groupFilter = document.getElementById('profGroupFilter');
+    if (groupFilter) {
+        groupFilter.addEventListener('input', () => {
+            sidebarState.groupFilter = groupFilter.value;
+            const list = document.getElementById('profGroupsList');
+            if (list) { list.innerHTML = groupItemsHtml(); wireGroupItems(); }
+        });
+    }
 
     const courseFilter = document.getElementById('profCourseFilter');
     if (courseFilter) {

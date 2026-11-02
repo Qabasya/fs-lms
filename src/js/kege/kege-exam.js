@@ -10,14 +10,34 @@ import { ajaxErrorText, disableCopying } from '../common/utils.js';
 import { urlencodedBody } from '../common/nonce-refresh.js';
 import { clearKegeState, kegeBr, kegeKim, loadKegeState, setKegeAnswers, setKegeOvertime, setKegeStage, setKegeTask } from './kege-state.js';
 import { renderKegeSheet } from './kege-entry.js';
+import { AlertModal } from '../admin/modals/alert-modal.js';
 
-function toast( msg ) {
+function toast( msg, tone = '' ) {
 	const el = document.getElementById( 'kegeToast' );
 	if ( ! el ) { return; }
 	el.textContent = msg;
+	el.classList.remove( 'is-warning', 'is-error' );
+	if ( tone ) { el.classList.add( `is-${ tone }` ); }
 	el.classList.add( 'show' );
 	clearTimeout( toast._t );
 	toast._t = setTimeout( () => el.classList.remove( 'show' ), 2400 );
+}
+
+/** Warn once per threshold; opening late shows only the most urgent warning. */
+export function deadlineWarnings( notify = toast, alertModal = AlertModal ) {
+	let last = 0;
+	return ( seconds ) => {
+		const level = seconds <= 300 ? 3 : seconds <= 600 ? 2 : seconds <= 1800 ? 1 : 0;
+		if ( level <= last ) { return; }
+		last = level;
+		if ( 3 === level ) {
+			alertModal.init();
+			void alertModal.show( 'Внимание! Экзамен автоматически завершится через 5 минут. Завершайте работу и не забудьте вписать все ответы, иначе они пропадут после автоматического завершения!', 'Внимание' );
+		} else if ( level ) {
+			const minutes = 1 === level ? 30 : 10;
+			notify( `Осталось всего ${ minutes } минут! Скоро нужно будет завершить экзамен.`, 1 === level ? 'warning' : 'error' );
+		}
+	};
 }
 
 /**
@@ -96,6 +116,7 @@ export function initKegeExam() {
 		disableCopying( app );
 	}
 
+	const savedFileNames = new Map();
 	const savedAnswers = new Map(); // taskId (string) -> answerText
 
 	/**
@@ -193,14 +214,14 @@ export function initKegeExam() {
 			const deadlineTs = loadKegeState().deadlineTs;
 			if ( ! deadlineTs ) { return; }
 			publicTimerOn = true;
-			startCountdown( timerEl, fmtLocal( deadlineTs ), { onExpire: handleExpire } );
+			startCountdown( timerEl, fmtLocal( deadlineTs ), { onExpire: handleExpire, onTick: deadlineWarnings() } );
 		};
 		document.addEventListener( 'fs-kege-preview-start', beginPublicTimer );
 
 		document.getElementById( 'kegePreviewTimerToggle' )?.addEventListener( 'click', ( e ) => {
 			e.target.disabled = true;
 			e.target.textContent = 'Отсчёт идёт';
-			startCountdown( timerEl, localDeadline( limit ), { onExpire: handleExpire } );
+			startCountdown( timerEl, localDeadline( limit ), { onExpire: handleExpire, onTick: deadlineWarnings() } );
 		} );
 
 		// Ритуал входа проходится уже после инициализации экрана — обновляем шапку.
@@ -211,6 +232,7 @@ export function initKegeExam() {
 	} else {
 		startCountdown( timerEl, deadlineAt, {
 			nowAt:    app.dataset.now,
+			onTick:   deadlineWarnings(),
 			onExpire: () => { void submitAttempt( true ); },
 		} );
 	}
@@ -677,6 +699,7 @@ export function initKegeExam() {
 			try {
 				const parsed = saved ? JSON.parse( saved ) : {};
 				savedFiles = Array.isArray( parsed.files ) ? parsed.files : [];
+				Object.entries( parsed.file_names || {} ).forEach( ( [ id, name ] ) => savedFileNames.set( String( id ), String( name ) ) );
 			} catch ( _e ) { savedFiles = []; }
 
 			const head = document.createElement( 'div' );
@@ -686,10 +709,7 @@ export function initKegeExam() {
 
 			const chips = document.createElement( 'div' );
 			chips.className = 'kege-ap-file-chips';
-			// Существующие ID сохранены, но имя файла сервер не отдаёт назад — как и
-			// в générique-флоу (assessment.js), чипы восстанавливаются только для
-			// файлов, загруженных в ЭТОЙ сессии; уже сохранённый ответ при этом не
-			// теряется — просто список визуально пуст до следующей загрузки.
+
 			const fileIds = savedFiles.slice();
 
 			const addChip = ( id, name ) => {
@@ -711,6 +731,8 @@ export function initKegeExam() {
 				chip.append( nameEl, rm );
 				chips.appendChild( chip );
 			};
+
+			fileIds.forEach( id => addChip( id, savedFileNames.get( String( id ) ) || `Файл #${ id }` ) );
 
 			const fileInput = document.createElement( 'input' );
 			fileInput.type = 'file';
@@ -743,6 +765,7 @@ export function initKegeExam() {
 						throw new Error( json?.data?.message || json?.data || 'Не удалось загрузить файл' );
 					}
 					fileIds.push( json.data.attachment_id );
+					savedFileNames.set( String( json.data.attachment_id ), json.data.name || file.name );
 					addChip( json.data.attachment_id, json.data.name || file.name );
 					uploadStatus.textContent = '';
 					void flushAnswer();
@@ -759,7 +782,7 @@ export function initKegeExam() {
 				taskId,
 				statusEl,
 				inflight: null,
-				collect: () => fileIds.length ? JSON.stringify( { text: '', files: fileIds } ) : '',
+				collect: () => fileIds.length ? JSON.stringify( { text: '', files: fileIds, file_names: Object.fromEntries( fileIds.map( id => [ String( id ), savedFileNames.get( String( id ) ) || '' ] ) ) } ) : '',
 			};
 		} else {
 			panelWrap.hidden = true;
@@ -993,6 +1016,8 @@ export function initKegeExam() {
 				window.location.reload();
 				return;
 			}
+			// Сервер мог уже завершить попытку по сроку до прихода запроса.
+			if ( auto ) { window.location.reload(); return; }
 			submitting = false;
 			if ( ! auto ) { toast( ajaxErrorText( json, 'Не удалось завершить экзамен.' ) ); }
 		} catch ( e ) {

@@ -14,7 +14,7 @@ export const VERDICT_LABEL = {
     correct: 'Верно',
     corrected: 'Верно с исправлением',
     incorrect: 'Неверно',
-    partial: 'Частично',
+    partial: 'Частично верно',
     unanswered: 'Нерешено',
     pending: 'На проверке',
 };
@@ -105,12 +105,11 @@ export function renderTask(t, ctx = {}) {
     // критерии — оценивание покритерийное (сумма сырых баллов, без весов);
     // holistic-рубрика ОГЭ (§3.4, .docs/Tasks.md) — один балл через dropdown с
     // полным текстом всех уровней рядом (НЕ сумма критериев);
-    // иначе — прежний контрол «балл + верно».
+    // иначе — балл, по которому определяется вердикт.
     const grade = hasCriteria ? criteriaGradeBlock(t) : hasOgeRubric ? ogeRubricGradeBlock(t) : canGrade ? `
             <div class="sum-task-grade${gradedCls}" data-task-id="${t.task_id}" data-max="${t.max_score ?? ''}">
-                <input type="number" class="stg-score" step="1" min="0" value="${t.score ?? ''}" placeholder="балл"${dis}>
+                <input type="number" class="stg-score" step="1" min="0" max="${t.max_score ?? 1}" value="${t.score ?? ''}" placeholder="балл"${dis}>
                 <span class="stg-of">/ ${t.max_score != null ? fmtNum(t.max_score) : '1'}</span>
-                <label class="stg-ok"><input type="checkbox" class="stg-ok-cb" ${t.verdict === 'correct' ? 'checked' : ''}${dis}>верно</label>
                 <input type="text" class="stg-fb" placeholder="комментарий" value="${t.feedback ? esc(t.feedback) : ''}"${dis}>
                 ${gradeSaveButton(locked)}
             </div>` : canGradeSubmissionTask ? `

@@ -139,6 +139,8 @@ input.kege-dcell:focus { border-color: var(--kege-cyan); }
   z-index: 90;
 
   &.show { opacity: 1; transform: translate(-50%, 0); }
+  &.is-warning { border-left: rem(4) solid var(--kege-toast-warning); }
+  &.is-error { border-left: rem(4) solid var(--kege-red); }
 }
 
 // ── Плашка предпросмотра автора (попытка не заводится, ответы не сохраняются).

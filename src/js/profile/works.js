@@ -68,7 +68,7 @@ export function renderWorks(r, opts = {}) {
     state = {
         groups:       Array.isArray(p.groups) ? p.groups : [],
         cfg:          p.works || null,
-        filterGroupId: Number(nav.g) || 0, // 0 = все группы
+        filterGroupId: Number(nav.g) || 0, // 0 = группа не выбрана
         filterType:   WORK_TYPE_OPTIONS.some((o) => o.value && o.value === nav.t) ? nav.t : '',
         filterStatus: STATUS_FILTERS.some((s) => s.key && s.key === nav.s) ? nav.s : '',
         sortBy:       SORT_OPTIONS.some((o) => o.key && o.key === nav.o) ? nav.o : '',
@@ -91,7 +91,17 @@ export function renderWorks(r, opts = {}) {
     } });
     if (!state.cfg) { root.innerHTML = empty('Проверка недоступна', 'Экран «Работы» не настроен.'); return; }
 
-    loadFirstPage();
+    if (undefined === nav.g && p.dashboard) {
+        const current = state;
+        const dashboard = createApi(p.dashboard, { cache: { getDashboard: 30000 } });
+        dashboard('getDashboard').then(data => {
+            if (state !== current) { return; }
+            const live = (data.today || []).find(item => item.state === 'now' && item.end && current.groups.some(g => Number(g.id) === Number(item.group_id)));
+            if (live) { current.filterGroupId = Number(live.group_id); current.filterType = 'independent'; }
+        }).catch(() => {}).finally(() => { if (state === current) { loadFirstPage(); } });
+    } else {
+        loadFirstPage();
+    }
 }
 
 /**
@@ -117,10 +127,11 @@ async function loadFirstPage() {
     state.items = [];
     state.next = null;
     state.loaded = false;
-    state.loading = true;
+    state.loading = state.filterGroupId > 0;
     state.error = '';
     state.selected = null;
     state.students = null;
+    if (!state.filterGroupId) { state.loaded = true; render(); return; }
     render();
     await fetchPage('', requestId);
 }
@@ -251,7 +262,7 @@ function filtersHtml() {
         `<button type="button" class="${o.key === state.sortBy ? 'on' : ''}" data-sort="${o.key}">${esc(o.label)}</button>`).join('');
     return `<div class="wk-filters">
         <div class="wk-filter">
-            ${groupPickerBtnHtml(g || { id: 0, name: 'Все группы', subject: '' }, 'wkGroupBtn')}
+            ${groupPickerBtnHtml(g || { id: 0, name: 'Выберите группу', subject: '' }, 'wkGroupBtn')}
         </div>
         <div class="wk-filter">
             ${optionPickerBtnHtml(type.label, 'wkTypeBtn', 'Тип работы')}
@@ -268,6 +279,7 @@ function visibleItems() {
 }
 
 function listAreaHtml() {
+    if (!state.filterGroupId) { return emptyState('wk-empty-wrap', icoInbox(34), 'Выберите группу', 'После выбора группы здесь появятся её работы.'); }
     if (!state.loaded && state.loading) {
         return '<div class="wk-loading">Загрузка…</div>';
     }
@@ -419,7 +431,7 @@ function wireStepOne() {
             openGroupPicker(gBtn, state.groups, state.filterGroupId, (id) => {
                 state.filterGroupId = id;
                 loadFirstPage();
-            }, [ { v: '0', label: 'Все группы', chip: '∀', first: true } ]);
+            }, [ { v: '0', label: 'Выберите группу', chip: '—', first: true } ]);
         });
     }
 
