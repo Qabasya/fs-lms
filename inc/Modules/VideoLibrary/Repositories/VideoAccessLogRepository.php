@@ -46,58 +46,75 @@ class VideoAccessLogRepository {
 		int $requests = 0,
 		int $watchSeconds = 0,
 	): int {
-		$now    = current_time( 'mysql' );
-		$since  = wp_date( 'Y-m-d H:i:s', time() - self::AGGREGATE_WINDOW, wp_timezone() );
-		$openId = $this->wpdb->get_var(
-			$this->wpdb->prepare(
-				"SELECT id FROM {$this->table}
-				 WHERE wp_user_id = %d AND s3_key = %s AND last_at >= %s
-				 ORDER BY id DESC LIMIT 1",
-				$wpUserId,
-				$key,
-				$since
-			)
-		);
-
-		if ( null !== $openId ) {
-			// group_lesson_id NULL в БД — «ещё не известно»; %d его бы превратил в 0.
-			$setLesson = null !== $groupLessonId ? ', group_lesson_id = ' . (int) $groupLessonId : '';
-			$this->wpdb->query(
+		// Connection-scoped mutex covers the first SELECT/INSERT race as well as increments.
+		// Include bucket and table: identical object keys in different buckets/sites are independent.
+		$lock = hash( 'sha256', ( defined( 'DB_NAME' ) ? DB_NAME : '' ) . "\0" . $this->table . "\0" . $wpUserId . "\0" . $bucket . "\0" . $key );
+		if ( 1 !== (int) $this->wpdb->get_var( $this->wpdb->prepare( 'SELECT GET_LOCK(%s, 2)', $lock ) ) ) {
+			throw new \RuntimeException( 'Не удалось получить блокировку сессии просмотра.' );
+		}
+		try {
+			$now    = current_time( 'mysql' );
+			$since  = wp_date( 'Y-m-d H:i:s', time() - self::AGGREGATE_WINDOW, wp_timezone() );
+			$openId = $this->wpdb->get_var(
 				$this->wpdb->prepare(
-					"UPDATE {$this->table}
-					 SET requests_count = requests_count + %d,
-					     watch_seconds   = watch_seconds + %d,
-					     last_at         = %s,
-					     ip              = %s
-					     {$setLesson}
-					 WHERE id = %d",
-					$requests,
-					$watchSeconds,
-					$now,
-					$ip,
-					(int) $openId
+					"SELECT id FROM {$this->table}
+					 WHERE wp_user_id = %d AND s3_bucket = %s AND s3_key = %s AND last_at >= %s
+					 ORDER BY id DESC LIMIT 1",
+					$wpUserId,
+					$bucket,
+					$key,
+					$since
 				)
 			);
-			return (int) $openId;
+
+			if ( null !== $openId ) {
+				// group_lesson_id NULL в БД — «ещё не известно»; %d его бы превратил в 0.
+				$setLesson = null !== $groupLessonId ? ', group_lesson_id = ' . (int) $groupLessonId : '';
+				$updated = $this->wpdb->query(
+					$this->wpdb->prepare(
+						"UPDATE {$this->table}
+						 SET requests_count = requests_count + %d,
+						     watch_seconds   = watch_seconds + %d,
+						     last_at         = %s,
+						     ip              = %s
+						     {$setLesson}
+						 WHERE id = %d",
+						$requests,
+						$watchSeconds,
+						$now,
+						$ip,
+						(int) $openId
+					)
+				);
+				if ( false === $updated ) {
+					throw new \RuntimeException( 'Не удалось обновить сессию просмотра.' );
+				}
+				return (int) $openId;
+			}
+
+			$inserted = $this->wpdb->insert(
+				$this->table,
+				array(
+					'wp_user_id'      => $wpUserId,
+					'user_role'       => $userRole,
+					'group_lesson_id' => $groupLessonId,
+					's3_bucket'       => $bucket,
+					's3_key'          => $key,
+					'requests_count'  => $requests,
+					'watch_seconds'   => $watchSeconds,
+					'ip'              => $ip,
+					'first_at'        => $now,
+					'last_at'         => $now,
+				)
+			);
+
+			if ( false === $inserted ) {
+				throw new \RuntimeException( 'Не удалось сохранить сессию просмотра.' );
+			}
+			return (int) $this->wpdb->insert_id;
+		} finally {
+			$this->wpdb->get_var( $this->wpdb->prepare( 'SELECT RELEASE_LOCK(%s)', $lock ) );
 		}
-
-		$this->wpdb->insert(
-			$this->table,
-			array(
-				'wp_user_id'      => $wpUserId,
-				'user_role'       => $userRole,
-				'group_lesson_id' => $groupLessonId,
-				's3_bucket'       => $bucket,
-				's3_key'          => $key,
-				'requests_count'  => $requests,
-				'watch_seconds'   => $watchSeconds,
-				'ip'              => $ip,
-				'first_at'        => $now,
-				'last_at'         => $now,
-			)
-		);
-
-		return (int) $this->wpdb->insert_id;
 	}
 
 	/**

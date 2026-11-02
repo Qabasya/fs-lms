@@ -132,11 +132,11 @@ function trackRecordingOpen( box ) {
 }
 
 /**
- * Учёт фактического просмотра записи (трафик S3): накапливаем секунды воспроизведения
+ * Клиентская телеметрия воспроизведения записи (не измерение трафика S3): накапливаем секунды воспроизведения
  * и шлём порциями на сервер (журнал доступа модуля VideoLibrary). Конфиг приходит
  * в разметке (data-watch-*), без него — учёта нет (модуль выключен или запись внешняя).
  */
-function initWatchHeartbeat( box ) {
+export function initWatchHeartbeat( box ) {
 	const action = box.dataset.watchAction;
 	const nonce  = box.dataset.watchNonce;
 	const video  = box.querySelector( 'video' );
@@ -146,7 +146,7 @@ function initWatchHeartbeat( box ) {
 	let watched = 0;
 	let lastTs  = null;
 
-	const flush = () => {
+	const flush = ( leaving = false ) => {
 		if ( watched < 1 ) { return; }
 		const seconds = Math.round( watched );
 		watched = 0;
@@ -157,12 +157,13 @@ function initWatchHeartbeat( box ) {
 			group_lesson_id: box.dataset.groupLessonId,
 			seconds,
 		} );
-		// sendBeacon — чтобы дожать остаток при закрытии вкладки; keepalive для fetch.
-		if ( navigator.sendBeacon ) {
-			navigator.sendBeacon( vars.ajax_url, body );
-		} else {
-			fetch( vars.ajax_url, { method: 'POST', body, keepalive: true } ).catch( () => {} );
-		}
+		// Regular portions use fetch: the shared nonce interceptor can retry a rejected
+		// nonce before any write. Beacon is only a best-effort tail when leaving.
+		if ( leaving && navigator.sendBeacon?.( vars.ajax_url, body ) ) { return; }
+		fetch( vars.ajax_url, { method: 'POST', body, keepalive: true } ).catch( () => {
+			// Delivery is unknown after a network failure. Replaying an additive portion
+			// could double-count it; do not present this telemetry as measured S3 traffic.
+		} );
 	};
 
 	video.addEventListener( 'timeupdate', () => {
@@ -177,5 +178,5 @@ function initWatchHeartbeat( box ) {
 	} );
 	video.addEventListener( 'pause', () => { lastTs = null; flush(); } );
 	video.addEventListener( 'ended', () => { lastTs = null; flush(); } );
-	window.addEventListener( 'pagehide', flush );
+	window.addEventListener( 'pagehide', () => flush( true ) );
 }

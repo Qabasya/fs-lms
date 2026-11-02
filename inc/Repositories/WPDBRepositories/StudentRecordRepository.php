@@ -337,6 +337,21 @@ class StudentRecordRepository {
 		);
 	}
 
+	/** Active roster sizes without hydrating student records; zero-count groups are included. */
+	public function countActiveByGroups( array $groupIds ): array {
+		$ids = array_values( array_unique( array_filter( array_map( 'intval', $groupIds ), static fn( int $id ): bool => $id > 0 ) ) );
+		$counts = array_fill_keys( $ids, 0 );
+		foreach ( array_chunk( $ids, 500 ) as $batch ) {
+			$placeholders = implode( ', ', array_fill( 0, count( $batch ), '%d' ) );
+			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared -- Generated integer placeholders only.
+			$rows = $this->wpdb->get_results( $this->wpdb->prepare( "SELECT group_id, COUNT(*) AS total FROM %i WHERE group_id IN ($placeholders) AND status = %s GROUP BY group_id", array_merge( array( $this->table ), $batch, array( EnrollmentStatus::Active->value ) ) ), ARRAY_A );
+			foreach ( $rows ?? array() as $row ) {
+				$counts[ (int) $row['group_id'] ] = (int) $row['total'];
+			}
+		}
+		return $counts;
+	}
+
 	/**
 	 * Проверяет наличие активной записи студента в группе.
 	 *

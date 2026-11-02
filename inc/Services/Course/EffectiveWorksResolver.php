@@ -48,6 +48,7 @@ class EffectiveWorksResolver {
 
 		$all     = array_unique( array_merge( $snapshot, $live, $row->extraWorkIds ) );
 		$works   = array();
+		$this->workManager->prime( $all );
 		foreach ( $all as $workId ) {
 			$work = $this->workManager->get( $workId );
 			if ( $work ) {

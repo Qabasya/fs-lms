@@ -64,7 +64,7 @@ class JournalServiceTest extends TestCase {
 			->method( 'matrixForGroup' )
 			->with( 5 )
 			->willReturn( array( 10 => array( 1 => true ) ) );
-		$this->progress->expects( self::never() )->method( 'isLessonCompleted' );
+		$this->progress->expects( self::never() )->method( 'completedLessons' );
 
 		$result = $this->service->forGroup( 5 );
 
@@ -80,11 +80,12 @@ class JournalServiceTest extends TestCase {
 		$this->groupLessons->method( 'listByGroup' )->willReturn( array( $this->glRow( 10, 20 ) ) );
 
 		$this->attendance->expects( self::never() )->method( 'matrixForGroup' );
-		$this->progress->method( 'isLessonCompleted' )
-			->willReturnMap( array(
-				array( 1, 10, true ),
-				array( 2, 10, false ),
-			) );
+		$this->progress->method( 'completedLessons' )
+			->willReturnCallback(
+				static fn( int $personId, array $rows ): array => array(
+					10 => 1 === $personId,
+				)
+			);
 
 		$result = $this->service->forGroup( 5 );
 
@@ -97,11 +98,24 @@ class JournalServiceTest extends TestCase {
 		$this->groups->method( 'findById' )->willReturn( (object) array( 'access_mode' => 'open' ) );
 		$this->records->method( 'findActiveByGroupId' )->willReturn( array( $this->studentRecord( 1 ) ) );
 		$this->groupLessons->method( 'listByGroup' )->willReturn( array( $this->glRow( 10, 20 ) ) );
-		$this->progress->method( 'isLessonCompleted' )->willReturn( false );
+		$this->progress->method( 'completedLessons' )->willReturn( array( 10 => false ) );
 
 		$result = $this->service->forGroup( 5 );
 
 		self::assertSame( array(), $result['attendance'] );
+	}
+
+	/** Строки программы читаются один раз на сборку журнала (столбцы + доп. занятия + матрица). */
+	public function test_program_rows_are_read_once(): void {
+		$this->groups->method( 'findById' )->willReturn( (object) array( 'access_mode' => 'open' ) );
+		$this->records->method( 'findActiveByGroupId' )->willReturn( array( $this->studentRecord( 1 ) ) );
+		$this->groupLessons->expects( self::once() )
+			->method( 'listByGroup' )
+			->with( 5 )
+			->willReturn( array( $this->glRow( 10, 20 ) ) );
+		$this->progress->method( 'completedLessons' )->willReturn( array() );
+
+		$this->service->forGroup( 5 );
 	}
 
 	/**

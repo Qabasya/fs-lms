@@ -17,6 +17,9 @@ class FakeWpdb extends \wpdb {
 	/** @var string[] Все выполненные SELECT-запросы (после prepare). */
 	public array $queries = array();
 
+	/** @var string[] Именованные блокировки MySQL (GET_LOCK/RELEASE_LOCK) — инфраструктурный шов конкурентности, не бизнес-SQL. */
+	public array $lockQueries = array();
+
 	/** Сколько строк затронул последний UPDATE/DELETE (у настоящего wpdb заполняет сама база). */
 	public int $rows_affected = 0;
 
@@ -108,6 +111,12 @@ class FakeWpdb extends \wpdb {
 	}
 
 	public function get_var( string $query, int $x = 0, int $y = 0 ): mixed {
+		// Именованные блокировки MySQL (GET_LOCK/RELEASE_LOCK) отвечаем сами —
+		// «блокировка получена», — не трогая очередь возвратов и список бизнес-запросов.
+		if ( preg_match( '/\b(?:GET_LOCK|RELEASE_LOCK)\s*\(/i', $query ) ) {
+			$this->lockQueries[] = $query;
+			return 1;
+		}
 		$this->queries[] = $query;
 		return array_shift( $this->varReturns );
 	}

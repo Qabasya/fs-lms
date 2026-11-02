@@ -73,8 +73,9 @@ class JournalService {
 		// Столбцы-занятия (в обычной группе — датированные). Занятие с отметками
 		// посещаемости попадает в журнал всегда, даже если в КТП у него сняли дату:
 		// журнал — отчёт о реальных занятиях, а не о плане.
+		$rows    = $this->groupLessons->listByGroup( $groupId );
 		$lessons = array();
-		foreach ( $this->groupLessons->listByGroup( $groupId ) as $row ) {
+		foreach ( $rows as $row ) {
 			// Индивидуальные (на одного ученика) не образуют столбец группового журнала.
 			if ( $row->kind->isIndividual() ) {
 				continue;
@@ -99,13 +100,13 @@ class JournalService {
 		// Дополнительные занятия для части группы — по столбцу на занятие (ключ — строка с наибольшим ID);
 		// «extra_students» — кто в нём участвует, остальные ячейки столбца не отмечаются.
 		if ( ! $isOpen ) {
-			$lessons = $this->withExtraColumns( $lessons, $this->groupLessons->listByGroup( $groupId ), $groupRoomId, $roomNames );
+			$lessons = $this->withExtraColumns( $lessons, $rows, $groupRoomId, $roomNames );
 		}
 
 		// Посещаемость (+/−). В открытой группе учителя нет — вручную никто не отмечает,
 		// «+» синтезируется из фактического прохождения ВСЕХ шагов урока (D-C продолжение).
 		$attendance = $isOpen
-			? $this->openCompletionMatrix( $lessons, $students )
+			? $this->openCompletionMatrix( $lessons, $students, $rows )
 			: $this->attendance->matrixForGroup( $groupId );
 
 		// Результаты работ, разложенные по занятию (T10.5): cell_works[glid][pid] = [{badge,value}].
@@ -179,22 +180,27 @@ class JournalService {
 
 	/**
 	 * Матрица «+» для открытой группы: студент × занятие, true — только если
-	 * ВСЕ шаги урока пройдены (LessonProgressService::isLessonCompleted). Незавершённые
-	 * ячейки намеренно отсутствуют в матрице (а не false) — это «ещё не пройдено», а
-	 * не «отсутствовал», такого статуса в открытой группе не существует.
+	 * ВСЕ шаги урока пройдены. Незавершённые ячейки намеренно отсутствуют
+	 * в матрице (а не false) — это «ещё не пройдено», а не «отсутствовал».
 	 *
-	 * @param array<int,array{group_lesson_id:int}> $lessons
+	 * Завершённость считается пакетно (`LessonProgressService::completedLessons`)
+	 * на все строки группы разом — по ячейкам `isLessonCompleted()` давал
+	 * запросы на каждого студента × каждое занятие.
+	 *
+	 * @param array<int,array{group_lesson_id:int}> $lessons Столбцы журнала
 	 * @param array<int,array{person_id:int}>       $students
+	 * @param GroupLessonDTO[]                      $rows     Строки программы группы
 	 *
 	 * @return array<int,array<int,bool>>
 	 */
-	private function openCompletionMatrix( array $lessons, array $students ): array {
+	private function openCompletionMatrix( array $lessons, array $students, array $rows ): array {
 		$matrix = array();
-		foreach ( $lessons as $lesson ) {
-			$glid = (int) $lesson['group_lesson_id'];
-			foreach ( $students as $student ) {
-				$pid = (int) $student['person_id'];
-				if ( $this->progress->isLessonCompleted( $pid, $glid ) ) {
+		foreach ( $students as $student ) {
+			$pid       = (int) $student['person_id'];
+			$completed = $this->progress->completedLessons( $pid, $rows );
+			foreach ( $lessons as $lesson ) {
+				$glid = (int) $lesson['group_lesson_id'];
+				if ( $completed[ $glid ] ?? false ) {
 					$matrix[ $glid ][ $pid ] = true;
 				}
 			}

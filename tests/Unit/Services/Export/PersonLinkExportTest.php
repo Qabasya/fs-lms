@@ -78,7 +78,7 @@ class PersonLinkExportTest extends TestCase {
 	}
 
 	public function test_student_row_carries_parent_id(): void {
-		$this->persons->method( 'find' )->willReturn( $this->person( 5, true, 'Петров' ) );
+		$this->persons->method( 'findByIds' )->willReturn( array( 5 => $this->person( 5, true, 'Петров' ) ) );
 		$this->records->method( 'findActiveByStudent' )->willReturn( array( $this->record( 5, 9 ), $this->record( 5, 9 ) ) );
 		$this->docs->method( 'findByPersonId' )->willReturn( null );
 
@@ -89,10 +89,11 @@ class PersonLinkExportTest extends TestCase {
 	}
 
 	public function test_parent_row_carries_student_ids_without_documents_by_default(): void {
+		$this->persons->method( 'findByIds' )->willReturn( array( 9 => $this->person( 9, false, 'Петрова' ) ) );
 		$this->persons->method( 'find' )->willReturnCallback( fn( int $id ) => match ( $id ) {
-			9 => $this->person( 9, false, 'Петрова' ),
 			5 => $this->person( 5, true, 'Петров' ),
 			6 => $this->person( 6, true, 'Петрова-мл' ),
+			default => null,
 		} );
 		$this->records->method( 'findAllByParent' )->willReturn( array( $this->record( 5, 9 ), $this->record( 6, 9 ), $this->record( 5, 9 ) ) );
 		$this->docs->method( 'findByPersonId' )->willReturn( null );
@@ -105,10 +106,11 @@ class PersonLinkExportTest extends TestCase {
 	}
 
 	public function test_parent_documents_block_includes_parent_and_children(): void {
+		$this->persons->method( 'findByIds' )->willReturn( array( 9 => $this->person( 9, false, 'Петрова', '1980-01-02' ) ) );
 		$this->persons->method( 'find' )->willReturnCallback( fn( int $id ) => match ( $id ) {
-			9 => $this->person( 9, false, 'Петрова', '1980-01-02' ),
 			5 => $this->person( 5, true, 'Петров', '2010-03-04' ),
 			6 => $this->person( 6, true, 'Петрова-мл', '2012-05-06' ),
+			default => null,
 		} );
 		$this->records->method( 'findAllByParent' )->willReturn( array( $this->record( 5, 9 ), $this->record( 6, 9 ) ) );
 		$this->docs->method( 'findByPersonId' )->willReturnCallback( static fn( int $id ) => match ( $id ) {

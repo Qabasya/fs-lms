@@ -162,18 +162,19 @@ class CourseNavService {
 
 	/**
 	 * Карта завершённости уроков программы (glId => bool) с пер-request кэшем:
-	 * нужна и прогрессу оболочки, и дереву — isLessonCompleted дорогой.
+	 * нужна и прогрессу оболочки, и дереву. Считается пакетно
+	 * (`LessonProgressService::completedLessons`) — пошаговый `isLessonCompleted()`
+	 * давал запросы на каждую строку программы.
 	 *
 	 * @return array<int, bool>
 	 */
 	private function completionMap( int $studentPersonId, int $groupId ): array {
 		$key = $studentPersonId . ':' . $groupId;
 		if ( ! isset( $this->completionCache[ $key ] ) ) {
-			$map = array();
-			foreach ( $this->programRows( $groupId ) as $row ) {
-				$map[ $row->id ] = $this->progress->isLessonCompleted( $studentPersonId, $row->id );
-			}
-			$this->completionCache[ $key ] = $map;
+			$this->completionCache[ $key ] = $this->progress->completedLessons(
+				$studentPersonId,
+				$this->programRows( $groupId )
+			);
 		}
 
 		return $this->completionCache[ $key ];

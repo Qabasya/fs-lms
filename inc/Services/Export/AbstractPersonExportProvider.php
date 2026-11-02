@@ -48,16 +48,32 @@ abstract class AbstractPersonExportProvider implements CsvExportProviderInterfac
 	/**
 	 * Лица для выгрузки: выбранные по ID или все лица одной роли.
 	 *
+	 * Пакетное чтение выбранных ID (findByIds), порядок ID сохранён;
+	 * отчислённые исключаются — как точечное `find()`.
+	 *
 	 * @param int[] $ids       ID лиц (пусто — все)
 	 * @param bool  $isStudent Роль для выгрузки «всех»
 	 *
 	 * @return iterable<PersonDTO>
 	 */
 	protected function selectPersons( array $ids, bool $isStudent ): iterable {
-		return $ids
-			? array_filter( array_map( fn( int $id ) => $this->persons->find( $id ), $ids ) )
-			: $this->persons->findByIsStudent( $isStudent );
+		if ( ! $ids ) {
+			return $this->persons->findByIsStudent( $isStudent );
+		}
+		$byId = $this->persons->findByIds( $ids );
+		return array_filter(
+			array_map(
+				static function ( int $id ) use ( $byId ): ?PersonDTO {
+					$person = $byId[ $id ] ?? null;
+					return null !== $person && null === $person->expelledAt ? $person : null;
+				},
+				$ids
+			)
+		);
 	}
+
+	/** @var array<int, object|null> Кэш групп на запрос — выгрузки опрашивают их по записи каждого лица. */
+	private array $groupCache = array();
 
 	/**
 	 * Название группы и предмета группы; null — группы нет.
@@ -65,7 +81,14 @@ abstract class AbstractPersonExportProvider implements CsvExportProviderInterfac
 	 * @return array{group:string, subject:string}|null
 	 */
 	protected function groupAndSubject( ?int $groupId ): ?array {
-		$group = $groupId ? $this->groups->findById( $groupId ) : null;
+		if ( $groupId ) {
+			if ( ! array_key_exists( $groupId, $this->groupCache ) ) {
+				$this->groupCache[ $groupId ] = $this->groups->findById( $groupId );
+			}
+			$group = $this->groupCache[ $groupId ];
+		} else {
+			$group = null;
+		}
 		if ( ! $group ) {
 			return null;
 		}

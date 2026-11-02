@@ -97,8 +97,13 @@ class CourseNavServiceTest extends TestCase {
 		);
 
 		// Пройден только урок 100 (gl=1); текущий — gl=2; остальные закрыты.
-		$this->progress->method( 'isLessonCompleted' )
-			->willReturnCallback( static fn( int $p, int $glId ): bool => 1 === $glId );
+		$this->progress->method( 'completedLessons' )
+			->willReturnCallback(
+				static fn( int $p, array $rows ): array => array_map(
+					static fn( $row ): bool => 1 === $row->id,
+					$rows
+				)
+			);
 		$this->gate->method( 'resolveLesson' )->willReturn( GateState::Locked );
 	}
 

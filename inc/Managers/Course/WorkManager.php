@@ -54,6 +54,15 @@ class WorkManager {
 		return true;
 	}
 
+	/** Prime WordPress posts and metadata in bounded batches before reading a work dictionary. */
+	public function prime( array $workIds ): void {
+		$ids = array_values( array_unique( array_filter( array_map( 'intval', $workIds ), static fn( int $id ): bool => $id > 0 ) ) );
+		foreach ( array_chunk( $ids, 500 ) as $batch ) {
+			$this->posts->primePostCache( $batch );
+			$this->posts->primeMetaCache( $batch );
+		}
+	}
+
 	public function get( int $workId ): ?WorkDTO {
 		$post = $this->posts->get( $workId );
 		if ( null === $post || ! PostTypeResolver::isWorkPostType( $post->post_type ) ) {

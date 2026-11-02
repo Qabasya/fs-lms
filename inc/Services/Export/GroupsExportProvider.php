@@ -70,8 +70,8 @@ class GroupsExportProvider implements CsvExportProviderInterface {
 			new CsvColumn( 'Предмет',          fn( $r ) => $this->subjectName( $r->subject_key ) ),
 			new CsvColumn( 'Период',           fn( $r ) => $this->periodName( $r->academic_period_id ) ),
 			new CsvColumn( 'ID периода',       fn( $r ) => $r->academic_period_id ?? '' ),
-			new CsvColumn( 'Преподаватель',    fn( $r ) => $this->teacherName( $r->teacher_id ) ),
-			new CsvColumn( 'Кол-во учеников',  fn( $r ) => $this->studentCount( $r->id ) ),
+			new CsvColumn( 'Преподаватель',    fn( $r ) => $r->export_teacher_name ?? $this->teacherName( $r->teacher_id ) ),
+			new CsvColumn( 'Кол-во учеников',  fn( $r ) => $r->export_student_count ?? $this->studentCount( $r->id ) ),
 			new CsvColumn( 'Создана',          fn( $r ) => $r->created_at ?? '' ),
 		);
 	}
@@ -87,13 +87,21 @@ class GroupsExportProvider implements CsvExportProviderInterface {
 	public function rows( array $context ): iterable {
 		$ids = $context['ids'] ?? array();
 		if ( ! empty( $ids ) ) {
-			// Возвращаем только выбранные группы
-			return array_filter(
-				array_map( fn( int $id ) => $this->groups->findById( $id ), $ids )
-			);
+			$selected = $this->groups->findByIds( $ids );
+			$rows = array_filter( array_map( static fn( int $id ): ?object => $selected[ $id ] ?? null, $ids ) );
+		} else {
+			$rows = $this->groups->findAll();
 		}
-		// Возвращаем все группы
-		return $this->groups->findAll();
+		foreach ( array_chunk( $rows, 500 ) as $batch ) {
+			$counts = $this->studentRecords->countActiveByGroups( array_column( $batch, 'id' ) );
+			$names = $this->userManager->displayNames( array_column( $batch, 'teacher_id' ) );
+			foreach ( $batch as $group ) {
+				$row = clone $group;
+				$row->export_student_count = $counts[ (int) $row->id ] ?? 0;
+				$row->export_teacher_name = ! empty( $row->teacher_id ) ? ( $names[ (int) $row->teacher_id ] ?? '#' . $row->teacher_id ) : '';
+				yield $row;
+			}
+		}
 	}
 
 	/**
@@ -156,6 +164,6 @@ class GroupsExportProvider implements CsvExportProviderInterface {
 	 * @return int
 	 */
 	private function studentCount( int $groupId ): int {
-		return count( $this->studentRecords->findActiveByGroupId( $groupId ) );
+		return $this->studentRecords->countActiveByGroup( $groupId );
 	}
 }
