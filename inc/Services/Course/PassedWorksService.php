@@ -102,10 +102,10 @@ class PassedWorksService {
 
 		$items   = array();
 		$next    = null;
-		$context = array( 'students' => array(), 'groups' => array() );
+		$context = $this->feedContext( array_column( $rows, 'row' ) );
 
 		foreach ( $rows as $i => $entry ) {
-			$unit = $this->unitRows( $entry['row'] );
+			$unit = $context['units'][ $entry['row']->id ];
 
 			// Строки дополнительного занятия показываются одной карточкой — на первой из них; остальные пропускаются.
 			if ( $unit[0]->id === $entry['row']->id ) {
@@ -164,11 +164,12 @@ class PassedWorksService {
 		$items = array();
 		$next = null;
 		$seen = array();
-		$context = array( 'students' => array(), 'groups' => array() );
+		$rows    = $this->groupLessons->findByIds( array_column( $pairs, 'group_lesson_id' ) );
+		$context = $this->feedContext( $rows );
 		foreach ( $pairs as $index => $pair ) {
-			$row = $this->groupLessons->find( $pair['group_lesson_id'] );
+			$row = $rows[ $pair['group_lesson_id'] ] ?? null;
 			if ( null !== $row ) {
-				$unit = $this->unitRows( $row );
+				$unit = $context['units'][ $row->id ];
 				$key = $unit[0]->id . ':' . $pair['work_id'];
 				if ( ! isset( $seen[ $key ] ) ) {
 					$seen[ $key ] = true;
@@ -296,7 +297,7 @@ class PassedWorksService {
 	 */
 	private function lessonItems( array $unit, string $at, string $type, string $status, array &$context, ?array $onlyWorkIds = null ): array {
 		$row       = $unit[0];
-		$submitted = $this->unitSubmissions( $unit );
+		$submitted = $this->unitSubmissions( $unit, $context['submissions'] ?? null );
 
 		/** @var array<int, WorkDTO> $works */
 		$works = array();
@@ -478,7 +479,7 @@ class PassedWorksService {
 	 *
 	 * @return array<int, array<int, SubmissionDTO>>
 	 */
-	private function unitSubmissions( array $unit ): array {
+	private function unitSubmissions( array $unit, ?array $byLesson = null ): array {
 		$map  = array();
 		$seen = array();
 		foreach ( $unit as $member ) {
@@ -487,12 +488,35 @@ class PassedWorksService {
 				continue;
 			}
 			$seen[ $progressId ] = true;
-			foreach ( $this->submissions->listAggregatesByGroupLesson( $progressId ) as $sub ) {
+			$submissions        = null === $byLesson ? $this->submissions->listAggregatesByGroupLesson( $progressId ) : ( $byLesson[ $progressId ] ?? array() );
+			foreach ( $submissions as $sub ) {
 				$map[ $sub->workId ][ $sub->studentPersonId ] = $sub;
 			}
 		}
 
 		return $map;
+	}
+
+	/** Prepare only the bounded feed window; reuse technical rows and their canonical progress. */
+	private function feedContext( array $rows ): array {
+		$units       = array();
+		$progressIds = array();
+		foreach ( $rows as $row ) {
+			if ( isset( $units[ $row->id ] ) ) {
+				continue;
+			}
+			$unit = $this->unitRows( $row );
+			foreach ( $unit as $member ) {
+				$units[ $member->id ] = $unit;
+				$progressIds[]       = $member->progressId();
+			}
+		}
+		return array(
+			'units'       => $units,
+			'submissions' => $this->submissions->listByGroupLessons( $progressIds, null, true ),
+			'students'    => array(),
+			'groups'      => array(),
+		);
 	}
 
 	/**

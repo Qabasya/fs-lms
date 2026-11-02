@@ -4,6 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Profile\Learner;
 
+use Inc\DTO\Course\GroupLessonDTO;
 use Inc\DTO\Course\SubmissionDTO;
 use Inc\DTO\Course\WorkDTO;
 use Inc\DTO\Profile\LearnerContextDTO;
@@ -63,13 +64,17 @@ class LearnerScheduleSection {
 	 * @return array<int, array<string, mixed>>
 	 */
 	public function deadlines( LearnerContextDTO $ctx, int $personId ): array {
-		$deadlines = array();
-		$next      = $this->homeworkDeadlines->nextLessonStarts( $ctx->rawRows );
+		$deadlines   = array();
+		$next        = $this->homeworkDeadlines->nextLessonStarts( $ctx->rawRows );
+		$submissions = $this->submissions->listByGroupLessons(
+			array_values( array_map( static fn( GroupLessonDTO $row ): int => $row->progressId(), $ctx->rawRows ) ),
+			$personId
+		);
 
 		foreach ( $ctx->rawRows as $glid => $row ) {
 			$submittedWorkIds = array();
 			$aggregates       = array();
-			foreach ( $this->submissions->listByStudentAndGroupLesson( $personId, $row->progressId() ) as $sub ) {
+			foreach ( $submissions[ $row->progressId() ] ?? array() as $sub ) {
 				$submittedWorkIds[ $sub->workId ] = true;
 				if ( null === $sub->taskId ) {
 					$aggregates[ $sub->workId ] = $sub;

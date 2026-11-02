@@ -47,6 +47,25 @@ class PassedWorksServiceTest extends TestCase {
 		$this->deadlines         = $this->createMock( HomeworkDeadlineService::class );
 		$this->works             = $this->createMock( WorkManager::class );
 		$this->marks             = $this->createMock( WorkMarksService::class );
+		// Existing semantic fixtures describe rows individually. Adapt them to the
+		// batch transport; actual query bounds are asserted in repository tests.
+		$this->groupLessons->method( 'findByIds' )->willReturnCallback( function ( array $ids ): array {
+			$rows = array();
+			foreach ( array_unique( $ids ) as $id ) {
+				$row = $this->groupLessons->find( $id );
+				if ( null !== $row ) {
+					$rows[ $id ] = $row;
+				}
+			}
+			return $rows;
+		} );
+		$this->submissions->method( 'listByGroupLessons' )->willReturnCallback( function ( array $ids ): array {
+			$rows = array();
+			foreach ( array_unique( $ids ) as $id ) {
+				$rows[ $id ] = $this->submissions->listAggregatesByGroupLesson( $id );
+			}
+			return $rows;
+		} );
 		$groups                  = $this->createMock( GroupsRepository::class );
 		$groups->method( 'findById' )->willReturn( (object) array( 'name' => 'Группа А' ) );
 		$clock = $this->createMock( ClockInterface::class );

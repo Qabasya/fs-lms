@@ -148,6 +148,48 @@ class SubmissionRepositoryTest extends TestCase {
 		self::assertSame( [], $result );
 	}
 
+	public function test_delivery_batch_keeps_student_and_aggregate_scope(): void {
+		$this->wpdb->queueResults( [
+			$this->makeRow( [ 'id' => 8, 'group_lesson_id' => 5 ] ),
+			$this->makeRow( [ 'id' => 9, 'group_lesson_id' => 6 ] ),
+			$this->makeRow( [ 'id' => 10, 'group_lesson_id' => 5 ] ),
+		] );
+
+		$rows = $this->repo->listByGroupLessons( [ 5, 6, 5, 0, -2 ], 10, true );
+
+		self::assertSame( [ 8, 10 ], array_column( $rows[5], 'id' ) );
+		self::assertSame( [ 9 ], array_column( $rows[6], 'id' ) );
+		self::assertArrayNotHasKey( 7, $rows );
+		$q = $this->wpdb->lastQuery();
+		self::assertStringContainsString( 'group_lesson_id IN (5, 6)', $q );
+		self::assertStringContainsString( 'student_person_id = 10', $q );
+		self::assertStringContainsString( 'task_id IS NULL', $q );
+		self::assertStringContainsString( 'ORDER BY created_at DESC', $q );
+	}
+
+	public function test_delivery_batch_without_student_includes_task_rows(): void {
+		$this->wpdb->queueResults( [ $this->makeRow( [ 'task_id' => 99 ] ) ] );
+
+		$rows = $this->repo->listByGroupLessons( [ 5 ] );
+
+		self::assertSame( 99, $rows[5][0]->taskId );
+		self::assertStringNotContainsString( 'student_person_id =', $this->wpdb->lastQuery() );
+		self::assertStringNotContainsString( 'task_id IS NULL', $this->wpdb->lastQuery() );
+	}
+
+	public function test_delivery_batch_has_bounded_queries_and_skips_empty_input(): void {
+		self::assertSame( [], $this->repo->listByGroupLessons( [ 0, -2 ] ) );
+		self::assertCount( 0, $this->wpdb->queries );
+		$this->wpdb->queueResults( [ $this->makeRow( [ 'group_lesson_id' => 500 ] ) ] );
+		$this->wpdb->queueResults( [ $this->makeRow( [ 'group_lesson_id' => 501 ] ) ] );
+
+		$rows = $this->repo->listByGroupLessons( array_merge( range( 1, 501 ), [ 1, 501 ] ), 10 );
+
+		self::assertCount( 2, $this->wpdb->queries );
+		self::assertSame( [ 500, 501 ], array_keys( $rows ) );
+		self::assertStringContainsString( 'group_lesson_id IN (501) AND student_person_id = 10', $this->wpdb->lastQuery() );
+	}
+
 	// ── listQueueByGroup ──────────────────────────────────────────────────────
 
 	public function test_list_queue_by_group_joins_group_lessons(): void {

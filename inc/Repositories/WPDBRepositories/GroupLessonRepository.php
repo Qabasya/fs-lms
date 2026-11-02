@@ -147,6 +147,27 @@ class GroupLessonRepository {
 		return $row ? GroupLessonDTO::fromArray( $row ) : null;
 	}
 
+	/**
+	 * Selected delivery rows, including the same attendance projection as find().
+	 *
+	 * @param int[] $lessonIds Delivery IDs.
+	 * @return array<int, GroupLessonDTO> Rows keyed by ID; missing rows are omitted.
+	 */
+	public function findByIds( array $lessonIds ): array {
+		$result    = array();
+		$lessonIds = array_values( array_unique( array_filter( array_map( 'intval', $lessonIds ), static fn( int $id ): bool => $id > 0 ) ) );
+		foreach ( array_chunk( $lessonIds, 500 ) as $ids ) {
+			$placeholders = implode( ', ', array_fill( 0, count( $ids ), '%d' ) );
+			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared -- Generated numeric placeholders only.
+			$rows = $this->wpdb->get_results( $this->wpdb->prepare( 'SELECT gl.*, ' . self::HAS_ATTENDANCE . " FROM %i gl WHERE gl.id IN ($placeholders)", array_merge( array( TableName::Attendance->prefixed(), $this->table ), $ids ) ), ARRAY_A );
+			foreach ( $rows ?? array() as $row ) {
+				$lesson                = GroupLessonDTO::fromArray( $row );
+				$result[ $lesson->id ] = $lesson;
+			}
+		}
+		return $result;
+	}
+
 	public function add( GroupLessonInputDTO $dto ): int {
 		$this->wpdb->insert( $this->table, $dto->toArray() );
 		return (int) $this->wpdb->insert_id;

@@ -20,6 +20,36 @@ class GroupLessonRepositoryTest extends TestCase {
 		$this->repo = new GroupLessonRepository( $this->wpdb );
 	}
 
+	public function test_find_by_ids_keeps_attendance_and_canonical_progress(): void {
+		$this->wpdb->queueResults( [
+			[ 'id' => 6, 'group_id' => 3, 'position' => 1, 'continued_from_id' => 5, 'has_attendance' => 1 ],
+			[ 'id' => 5, 'group_id' => 3, 'position' => 0, 'has_attendance' => 0 ],
+		] );
+
+		$rows = $this->repo->findByIds( [ 5, 6, 5, 0, -1 ] );
+
+		self::assertSame( [ 6, 5 ], array_keys( $rows ) );
+		self::assertSame( 5, $rows[6]->progressId() );
+		self::assertTrue( $rows[6]->hasAttendance );
+		self::assertFalse( $rows[5]->hasAttendance );
+		self::assertArrayNotHasKey( 7, $rows );
+		self::assertStringContainsString( 'gl.id IN (5, 6)', $this->wpdb->lastQuery() );
+		self::assertStringContainsString( 'AS has_attendance', $this->wpdb->lastQuery() );
+	}
+
+	public function test_find_by_ids_batches_501_unique_ids_and_skips_empty_input(): void {
+		self::assertSame( [], $this->repo->findByIds( [ 0, -1 ] ) );
+		self::assertCount( 0, $this->wpdb->queries );
+		$this->wpdb->queueResults( [] );
+		$this->wpdb->queueResults( [ [ 'id' => 501, 'group_id' => 3, 'position' => 0 ] ] );
+
+		$rows = $this->repo->findByIds( array_merge( range( 1, 501 ), [ 1, 501 ] ) );
+
+		self::assertCount( 2, $this->wpdb->queries );
+		self::assertSame( [ 501 ], array_keys( $rows ) );
+		self::assertStringContainsString( 'gl.id IN (501)', $this->wpdb->lastQuery() );
+	}
+
 	public function test_list_by_group_orders_by_position(): void {
 		$this->wpdb->queueResults( [] );
 

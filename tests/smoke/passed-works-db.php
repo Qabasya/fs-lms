@@ -9,6 +9,7 @@ declare( strict_types=1 );
 require $argv[1] ?? '/var/www/html/wp-load.php';
 
 use Inc\Repositories\WPDBRepositories\SubmissionRepository;
+use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 
 /** Exercises the production query against disposable fixtures, never application rows. */
 final class PassedWorksDatabaseCheck {
@@ -68,7 +69,7 @@ final class PassedWorksDatabaseCheck {
 	public function run(): void {
 		$prefix = $this->database->prefix;
 		try {
-			foreach ( array( 'fs_lms_submissions', 'fs_lms_group_lessons' ) as $table ) {
+			foreach ( array( 'fs_lms_submissions', 'fs_lms_group_lessons', 'fs_lms_attendance' ) as $table ) {
 				if ( false === $this->database->query( $this->database->prepare( 'CREATE TEMPORARY TABLE %i LIKE %i', self::PREFIX . $table, $prefix . $table ) ) ) {
 					throw new RuntimeException( $this->database->last_error );
 				}
@@ -103,6 +104,29 @@ final class PassedWorksDatabaseCheck {
 			$rows = $this->pages( $repository, 40 );
 			$this->expect( 'rescheduled sibling remains separate', 2, count( array_filter( $rows, static fn( array $row ): bool => 400 === $row['work_id'] ) ) );
 			$this->expect( 'other groups, future lessons and per-task rows excluded', array(), array_values( array_intersect( array( 500, 501, 999 ), array_column( $rows, 'work_id' ) ) ) );
+			// Compare the production batch queries with the old read paths on actual SQL.
+			$expected = array();
+			foreach ( array( 1, 5, 6, 300, 301 ) as $id ) {
+				$expected[ $id ] = $repository->listAggregatesByGroupLesson( $id );
+			}
+			$start = $this->database->num_queries;
+			$batch = $repository->listByGroupLessons( array( 1, 5, 6, 300, 301, 300 ), null, true );
+			$this->expect( 'aggregate delivery batch uses one query', 1, $this->database->num_queries - $start );
+			foreach ( $expected as $id => $submissions ) {
+				$this->expect( 'aggregate batch matches individual delivery ' . $id, serialize( $submissions ), serialize( $batch[ $id ] ) );
+			}
+			$expected = $repository->listByStudentAndGroupLesson( 1, 1 );
+			$this->expect( 'student scope and per-task rows preserved', serialize( $expected ), serialize( $repository->listByGroupLessons( array( 1, 5, 6 ), 1 )[1] ) );
+			$this->expect( 'another learner has no batch entry', array(), $repository->listByGroupLessons( array( 1, 5, 6 ), 999 ) );
+			$this->lesson( 600, array( 'continued_from_id' => 5 ) );
+			$this->insert( 'fs_lms_attendance', array( 'group_lesson_id' => 600, 'student_person_id' => 1, 'is_present' => 1, 'marked_by' => 1, 'marked_at' => '2026-10-19 09:00:00' ) );
+			$lessons = new GroupLessonRepository( $this->database );
+			$expected = array( 5 => $lessons->find( 5 ), 600 => $lessons->find( 600 ) );
+			$start = $this->database->num_queries;
+			$batch = $lessons->findByIds( array( 5, 600, 5, 999 ) );
+			$this->expect( 'delivery batch uses one query', 1, $this->database->num_queries - $start );
+			$this->expect( 'delivery batch preserves attendance, continuation and missing rows', serialize( $expected ), serialize( $batch ) );
+
 		} finally {
 			$this->database->prefix = $prefix;
 		}

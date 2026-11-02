@@ -209,9 +209,7 @@ $visibility = $this->createStub( \Inc\Services\Course\LessonVisibilityService::c
 			itemIds: array(), instructions: '', authorId: 1, status: 'publish',
 		);
 		$this->worksResolver->method( 'resolve' )->willReturn( array( $work ) );
-		$this->submissions->method( 'listByStudentAndGroupLesson' )->with( 9001, 10 )->willReturn( array(
-			$this->submission( 501 ),
-		) );
+		$this->submissions->method( 'listByGroupLessons' )->with( array( 10 ), 9001 )->willReturn( array( 10 => array( $this->submission( 501 ) ) ) );
 
 		$d = $this->service->build( 9001 )->toArray();
 
@@ -242,7 +240,7 @@ $visibility = $this->createStub( \Inc\Services\Course\LessonVisibilityService::c
 			itemIds: array( 101, 102 ), instructions: '', authorId: 1, status: 'publish', maxAttempts: $maxAttempts,
 		);
 		$this->worksResolver->method( 'resolve' )->willReturn( array( $work ) );
-		$this->submissions->method( 'listByStudentAndGroupLesson' )->willReturn( array( $this->submittedWithVerdicts( 501, $verdicts, $attempts ) ) );
+		$this->submissions->method( 'listByGroupLessons' )->willReturn( array( 10 => array( $this->submittedWithVerdicts( 501, $verdicts, $attempts ) ) ) );
 
 		return $this->service->build( 9001 )->toArray()['deadlines'];
 	}

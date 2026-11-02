@@ -93,6 +93,36 @@ class SubmissionRepository {
 	}
 
 	/**
+	 * Read delivery facts in bounded batches, optionally restricted to one learner/aggregate rows.
+	 *
+	 * @param int[] $lessonIds Canonical progress IDs.
+	 * @return array<int, SubmissionDTO[]> Rows keyed by delivery ID; absent deliveries have no entry.
+	 */
+	public function listByGroupLessons( array $lessonIds, ?int $studentId = null, bool $aggregatesOnly = false ): array {
+		$result    = array();
+		$lessonIds = array_values( array_unique( array_filter( array_map( 'intval', $lessonIds ), static fn( int $id ): bool => $id > 0 ) ) );
+		foreach ( array_chunk( $lessonIds, 500 ) as $ids ) {
+			$placeholders = implode( ', ', array_fill( 0, count( $ids ), '%d' ) );
+			$args         = array_merge( array( $this->table ), $ids );
+			$where        = '';
+			if ( null !== $studentId ) {
+				$where .= ' AND student_person_id = %d';
+				$args[] = $studentId;
+			}
+			if ( $aggregatesOnly ) {
+				$where .= ' AND task_id IS NULL';
+			}
+			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared -- Generated placeholders and fixed predicates only.
+			$rows = $this->wpdb->get_results( $this->wpdb->prepare( "SELECT * FROM %i WHERE group_lesson_id IN ($placeholders)$where ORDER BY created_at DESC", $args ), ARRAY_A );
+			foreach ( $rows ?? array() as $row ) {
+				$submission                             = SubmissionDTO::fromArray( $row );
+				$result[ $submission->groupLessonId ][] = $submission;
+			}
+		}
+		return $result;
+	}
+
+	/**
 	 * Очередь проверки: сдачи группы с нужными статусами (JOIN group_lessons → group_id).
 	 *
 	 * @param  string[] $statuses
