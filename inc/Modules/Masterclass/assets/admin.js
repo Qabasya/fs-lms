@@ -162,6 +162,7 @@
 	/** Открывает форму: без `$row` — создание, с ним — правка. */
 	function openForm( $row ) {
 		closePanel();
+		$subject.find( '[data-archived-subject]' ).remove();
 		$form[ 0 ].reset();
 		$start.val( cfg.defaults.startTime );
 		$end.val( cfg.defaults.endTime );
@@ -176,7 +177,11 @@
 
 		if ( editing ) {
 			$school.val( $row.attr( 'data-school' ) );
-			$subject.val( $row.attr( 'data-subject' ) );
+			var subjectKey = $row.attr( 'data-subject' );
+			if ( ! $subject.find( 'option' ).filter( function () { return this.value === subjectKey; } ).length ) {
+				$( '<option>' ).val( subjectKey ).text( $row.attr( 'data-subject-name' ) ).attr( 'data-archived-subject', '' ).appendTo( $subject );
+			}
+			$subject.val( subjectKey );
 			$teacher.val( $row.attr( 'data-teacher' ) );
 			$date.val( $row.attr( 'data-date' ) );
 			$start.val( $row.attr( 'data-start' ) );

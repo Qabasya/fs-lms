@@ -24,6 +24,8 @@ use Inc\Modules\Masterclass\Services\MasterclassAccountService;
 use Inc\Modules\Masterclass\Services\MasterclassLogWriter;
 use Inc\Modules\Masterclass\Services\MasterclassService;
 use Inc\Repositories\OptionsRepositories\AcademicPeriodRepository;
+use Inc\Repositories\OptionsRepositories\SubjectRepository;
+use Inc\DTO\Subject\SubjectDTO;
 use Inc\Repositories\OptionsRepositories\UserRepository;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
@@ -46,6 +48,7 @@ class MasterclassServiceTest extends TestCase {
 	private GroupsRepository&MockObject $groups;
 	private GroupLessonRepository&MockObject $groupLessons;
 	private AcademicPeriodRepository&MockObject $periods;
+	private SubjectRepository&MockObject $subjects;
 	private LessonManager&MockObject $lessons;
 	private OpenCourseValidator&MockObject $validator;
 	private GroupLessonUsageGuard&MockObject $usage;
@@ -91,6 +94,8 @@ class MasterclassServiceTest extends TestCase {
 		$this->groups         = $this->createMock( GroupsRepository::class );
 		$this->groupLessons   = $this->createMock( GroupLessonRepository::class );
 		$this->periods        = $this->createMock( AcademicPeriodRepository::class );
+		$this->subjects       = $this->createMock( SubjectRepository::class );
+		$this->subjects->method( 'getByKey' )->willReturn( new SubjectDTO( 'inf', 'Информатика', false, false ) );
 		$this->lessons        = $this->createMock( LessonManager::class );
 		$this->validator      = $this->createMock( OpenCourseValidator::class );
 		$this->usage          = $this->createMock( GroupLessonUsageGuard::class );
@@ -120,6 +125,7 @@ class MasterclassServiceTest extends TestCase {
 			$this->groups,
 			$this->groupLessons,
 			$this->periods,
+			$this->subjects,
 			$this->lessons,
 			$this->validator,
 			$this->usage,
@@ -241,6 +247,20 @@ class MasterclassServiceTest extends TestCase {
 			self::assertStringContainsString( $messagePart, $e->getMessage() );
 		}
 		self::assertSame( array(), $this->sql, 'транзакция не открывалась' );
+	}
+
+	#[\PHPUnit\Framework\Attributes\DataProvider( 'unavailableSubjectProvider' )]
+	public function test_create_rejects_missing_or_archived_subject( ?SubjectDTO $subject ): void {
+		$this->subjects = $this->createMock( SubjectRepository::class );
+		$this->subjects->method( 'getByKey' )->with( 'inf' )->willReturn( $subject );
+		$this->groups->expects( self::never() )->method( 'create' );
+		$this->expectException( \InvalidArgumentException::class );
+		$this->expectExceptionMessage( 'активное направление' );
+		$this->rebuild()->create( $this->input(), 1 );
+	}
+
+	public static function unavailableSubjectProvider(): array {
+		return array( 'нет предмета' => array( null ), 'архивный' => array( new SubjectDTO( 'inf', 'Информатика', true ) ) );
 	}
 
 	public function test_create_rejects_a_lesson_that_does_not_exist(): void {
@@ -885,6 +905,7 @@ class MasterclassServiceTest extends TestCase {
 			$this->groups,
 			$this->groupLessons,
 			$this->periods,
+			$this->subjects,
 			$this->lessons,
 			$this->validator,
 			$this->usage,

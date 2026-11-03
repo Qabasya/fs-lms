@@ -174,7 +174,7 @@ class MasterclassAdminController extends BaseController {
 		$allSubjects = array();
 		foreach ( $this->subjects->readAll() as $subject ) {
 			$allSubjects[ $subject->key ] = $subject->name;
-			if ( ! $subject->archived && $subject->hasBank ) {
+			if ( ! $subject->archived ) {
 				$subjects[ $subject->key ] = $subject->name;
 			}
 		}

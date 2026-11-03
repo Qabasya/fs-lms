@@ -4,7 +4,7 @@
  * `modal-base.js` ядра). Поведение — `assets/admin.js`.
  *
  * @var list<array{id: int, name: string}> $teachers  Преподаватели
- * @var array<string, string>              $subjects  Предметы с банком уроков: ключ → название
+ * @var array<string, string>              $subjects  Активные предметы: ключ → название
  * @var array<string, mixed>               $defaults  Окно и размер пачки по умолчанию
  * @var int                                $chunk_max Предел аккаунтов в одном запросе
  *

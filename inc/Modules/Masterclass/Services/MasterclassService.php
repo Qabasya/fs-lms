@@ -20,6 +20,7 @@ use Inc\Modules\Masterclass\Enums\MasterclassLogAction;
 use Inc\Modules\Masterclass\Repositories\MasterclassAccountRepository;
 use Inc\Modules\Masterclass\Repositories\MasterclassRepository;
 use Inc\Repositories\OptionsRepositories\AcademicPeriodRepository;
+use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Repositories\OptionsRepositories\UserRepository;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
@@ -72,6 +73,7 @@ class MasterclassService {
 		private readonly GroupsRepository $groups,
 		private readonly GroupLessonRepository $groupLessons,
 		private readonly AcademicPeriodRepository $periods,
+		private readonly SubjectRepository $subjects,
 		private readonly LessonManager $lessons,
 		private readonly OpenCourseValidator $validator,
 		private readonly GroupLessonUsageGuard $usage,
@@ -90,6 +92,11 @@ class MasterclassService {
 	 * @throws \RuntimeException         Группа, занятие или строка не создались (транзакция откатана).
 	 */
 	public function create( MasterclassInputDTO $input, int $actorUserId ): MasterclassDTO {
+		$subject = $this->subjects->getByKey( $input->subjectKey );
+		if ( null === $subject || $subject->archived ) {
+			throw new \InvalidArgumentException( 'Выберите активное направление.' );
+		}
+
 		$school = $this->validatedSchool( $input->schoolName );
 		$this->assertWindow( $input->startsAtLocal, $input->endsAtLocal );
 		$this->assertTeacher( $input->teacherUserId );

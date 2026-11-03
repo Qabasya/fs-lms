@@ -8,7 +8,7 @@
  * @var int                          $page      Текущая страница
  * @var int                          $pages     Всего страниц
  * @var list<array{id: int, name: string}> $teachers Преподаватели для формы
- * @var array<string, string>        $subjects  Предметы с банком уроков: ключ → название
+ * @var array<string, string>        $subjects  Активные предметы: ключ → название
  * @var array<string, mixed>         $defaults  Окно и размер пачки по умолчанию
  * @var string                       $list_url  Адрес страницы модуля
  * @var string                       $log_url   Адрес вкладки «Журнал»
@@ -87,6 +87,7 @@ use Inc\Modules\Masterclass\Enums\MasterclassStatus;
 						data-id="<?php echo esc_attr( (string) $row['id'] ); ?>"
 						data-school="<?php echo esc_attr( $row['school'] ); ?>"
 						data-subject="<?php echo esc_attr( $row['subject_key'] ); ?>"
+						data-subject-name="<?php echo esc_attr( $row['subject_name'] ); ?>"
 						data-lesson="<?php echo esc_attr( (string) $row['lesson_id'] ); ?>"
 						data-teacher="<?php echo esc_attr( (string) $row['teacher_id'] ); ?>"
 						data-date="<?php echo esc_attr( $row['date'] ); ?>"

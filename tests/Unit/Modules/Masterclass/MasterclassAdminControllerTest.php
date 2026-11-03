@@ -272,7 +272,7 @@ class MasterclassAdminControllerTest extends TestCase {
 
 		self::assertStringContainsString( '<option value="inf">Информатика</option>', $html );
 		self::assertStringNotContainsString( 'value="old"', $html, 'архивный предмет не предлагается' );
-		self::assertStringNotContainsString( 'value="bio"', $html, 'предмет без банка уроков не предлагается' );
+		self::assertStringContainsString( '<option value="bio">Биология</option>', $html, 'активный предмет без банка заданий доступен' );
 	}
 
 	public function test_the_page_has_no_inline_styles_scripts_or_svg(): void {
