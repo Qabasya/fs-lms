@@ -72,7 +72,7 @@ class MasterclassLoginTracker {
 	}
 
 	/**
-	 * Открыт плеер: после окна ребёнок «дома», даже если сессия жива с утра (входа не было — `onLogin()` не вызывался).
+	 * Открыт плеер: после окна ребёнок «дома», если ранее был настоящий вход, даже при продолжающейся сессии.
 	 */
 	public function onPlayerOpen( int $userId ): void {
 		$account     = $this->liveAccount( $userId );
@@ -82,7 +82,7 @@ class MasterclassLoginTracker {
 		}
 
 		$now = $this->nowUtc();
-		if ( $now <= $masterclass->endsAt || ! $this->accounts->markHome( $account->id, $now ) ) {
+		if ( null === $account->firstLoginAt || $now <= $masterclass->endsAt || ! $this->accounts->markHome( $account->id, $now ) ) {
 			return;
 		}
 

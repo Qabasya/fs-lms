@@ -20,6 +20,7 @@
   Новый путь доступа к занятию в ядре обязан идти через `LessonAccessPolicy::resolve()`.
 - **Аккаунты не удаляются, а помечаются** (`masterclass_accounts.deleted_at`, `delete_reason`). Номер аккаунта — его `id`, он не повторяется;
   логин строит только `MasterclassAccountService::loginFor()`. Воронка считает и мягко удалённые (кроме `create_failed`: это номер без учётки).
+- **Тестовая сессия до начала** не становится домашним входом при открытии плеера после окна: `onPlayerOpen()` ставит `home_at` только при существующем `first_login_at`.
 - **Одноразовые отметки — условный `UPDATE … WHERE col IS NULL AND deleted_at IS NULL`** (`markFirstLogin / markHome / markContact / markFrozen /
   markDeleteRequested`); результат — `bool` («отметку поставил этот вызов»). Читать-потом-писать нельзя: два запроса одновременно поставят её дважды.
 - **Заявку к аккаунту привязывает только `MasterclassConversionService`** по хуку, аккаунт берётся из сессии, а не из запроса.

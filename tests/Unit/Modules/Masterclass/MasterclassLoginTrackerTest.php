@@ -194,9 +194,19 @@ class MasterclassLoginTrackerTest extends TestCase {
 		$this->tracker()->onPlayerOpen( 105 );
 	}
 
-	public function test_player_open_when_home_is_already_marked_is_silent(): void {
+	public function test_test_session_left_open_after_window_does_not_mark_home(): void {
 		$this->now = '2026-11-10 12:00:00';
 		$this->accounts->method( 'findByUserId' )->willReturn( $this->account() );
+		$this->masterclasses->method( 'find' )->willReturn( $this->masterclass() );
+		$this->accounts->expects( self::never() )->method( 'markHome' );
+		$this->log->expects( self::never() )->method( 'write' );
+
+		$this->tracker()->onPlayerOpen( 105 );
+	}
+
+	public function test_player_open_when_home_is_already_marked_is_silent(): void {
+		$this->now = '2026-11-10 12:00:00';
+		$this->accounts->method( 'findByUserId' )->willReturn( $this->account( array( 'first_login_at' => '2026-11-10 08:00:00' ) ) );
 		$this->masterclasses->method( 'find' )->willReturn( $this->masterclass() );
 		$this->accounts->method( 'markHome' )->willReturn( false );
 		$this->log->expects( self::never() )->method( 'write' );
