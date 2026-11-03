@@ -409,6 +409,17 @@ class MasterclassAccountServiceTest extends TestCase {
 		self::assertSame( 0, $this->service->createChunk( 7, 1, 501 ) );
 	}
 
+	public function test_failed_deletion_marker_does_not_skip_compensation(): void {
+		$this->masterclasses->method( 'find' )->willReturn( $this->masterclass() );
+		$this->accounts->method( 'insertPending' )->willReturn( 15 );
+		$this->users->method( 'findByLogin' )->willReturn( null );
+		$this->persons->method( 'createOrFindBy' )->willReturn( 2015 );
+		$this->provisioning->method( 'provisionStudent' )->willThrowException( new \RuntimeException( 'provision failed' ) );
+		$this->accounts->method( 'markDeleted' )->willThrowException( new \RuntimeException( 'marker failed' ) );
+		$this->deletion->expects( self::once() )->method( 'dispatch' )->with( self::isInstanceOf( DeleteStudentEvent::class ) );
+		self::assertSame( 0, $this->service->createChunk( 7, 1, 501 ) );
+	}
+
 	public function test_a_failing_rollback_does_not_stop_the_chunk(): void {
 		$this->masterclasses->method( 'find' )->willReturn( $this->masterclass() );
 		$next = 15;

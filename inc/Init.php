@@ -282,6 +282,7 @@ final class Init {
 			ExamVariantGuardController::class, // Неизменяемость варианта экзамена после старта
 			SubmissionController::class,       // AJAX сдачи / проверки / журнала
 			AssessmentController::class,       // AJAX попыток контрольных
+			\Inc\Migrations\PromoSchema::class, // Общая схема независимо от включения модулей.
 			// ==== Опциональные модули (изолированы, вырезаются удалением каталога + этой строки) ====
 			AdSyncModule::class,              // Inc\Modules\AdSync — синхронизация заявок с AD (флаг-гейт)
 			EgeComputerModule::class,         // Inc\Modules\EgeComputer — плеер ЕГЭ (Компьютер) (флаг-гейт, T7.20)

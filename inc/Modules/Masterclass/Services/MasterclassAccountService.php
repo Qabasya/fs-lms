@@ -360,8 +360,13 @@ class MasterclassAccountService {
 			$this->accounts->attach( $number, $credentials->userId, $personId, $recordId );
 		} catch ( \Throwable $e ) {
 			PluginLogger::exception( 'MasterclassAccounts', $e, array( 'masterclass_id' => $masterclassId, 'number' => $number ), true );
-			$this->accounts->markDeleted( $number, AccountDeleteReason::CreateFailed, $nowUtc );
-			$this->rollBack( $personId, $actorUserId );
+			try {
+				$this->accounts->markDeleted( $number, AccountDeleteReason::CreateFailed, $nowUtc );
+			} catch ( \Throwable $markError ) {
+				PluginLogger::exception( 'MasterclassAccounts', $markError, array( 'number' => $number ), true );
+			} finally {
+				$this->rollBack( $personId, $actorUserId );
+			}
 
 			return false;
 		}

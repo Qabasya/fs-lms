@@ -24,6 +24,9 @@ enum TableName: string {
 	case ContentReport     = 'fs_lms_content_reports';
 	case ExamLog           = 'fs_lms_exam_log';
 	case TaskBulkSnapshots = 'fs_lms_task_bulk_snapshots';
+	case PromoAccounts = 'fs_lms_promo_accounts';
+	case PromoEvents = 'fs_lms_promo_events';
+	case PromoEventLinks = 'fs_lms_promo_event_links';
 
 	// ==== Этап 2 — программа группы ====
 	case GroupLessons   = 'fs_lms_group_lessons';

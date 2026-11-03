@@ -727,12 +727,18 @@ class Migration_1_0_0 implements MigrationInterface {
 		foreach ( Migration_1_0_84::examDdl( $cc ) as $sql ) {
 			dbDelta( $sql );
 		}
+		foreach ( PromoSchema::ddl( $cc ) as $sql ) {
+			dbDelta( $sql );
+		}
 	}
 
 	public function down(): void {
 		global $wpdb;
 
 		$tables = array(
+			TableName::PromoEventLinks->prefixed(),
+			TableName::PromoEvents->prefixed(),
+			TableName::PromoAccounts->prefixed(),
 			// Экзамены — первыми: дочерние таблицы раньше родительских.
 			TableName::ExamManualResolutions->prefixed(),
 			TableName::ExamPaymentLinks->prefixed(),
@@ -785,6 +791,7 @@ class Migration_1_0_0 implements MigrationInterface {
 			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 			$wpdb->query( "DROP TABLE IF EXISTS $table;" );
 		}
+		delete_option( \Inc\Enums\Settings\OptionName::PromoSchemaVersion->value );
 	}
 
 	public function version(): string {
