@@ -254,3 +254,10 @@
 		.saved-dot { @include cb-status-dot; }
 	}
 }
+
+// В метабоксе отступы оставляют место выступающим кнопкам и фокусу на краях ленты.
+.fs-lms-step-builder .fs-se .steps-row {
+	min-width: 0;
+	padding-inline: $spacing-sm;
+	scroll-padding-inline: $spacing-sm;
+}
