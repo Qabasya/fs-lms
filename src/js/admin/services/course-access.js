@@ -7,11 +7,11 @@ export const CourseAccess = {
 		return `<section class="course-access" id="fs-course-access" aria-label="Доступ к курсу" hidden>
 			<fieldset data-access-fields>
 				<legend>Доступ к курсу</legend>
-				<label><input type="checkbox" data-access-enabled ${ course.self_paced_enabled ? 'checked' : '' }> Самостоятельное прохождение</label>
+				<div class="course-access-option"><div class="fs-toggle"><input id="course-access-enabled" type="checkbox" data-access-enabled aria-label="Самостоятельное прохождение" ${ course.self_paced_enabled ? 'checked' : '' }><label class="fs-toggle-switch" for="course-access-enabled">Самостоятельное прохождение</label></div><label for="course-access-enabled">Самостоятельное прохождение</label></div>
 				<p class="description">Курс появится в «Моих курсах» у учеников выбранных направлений после публикации. Они смогут приступить самостоятельно. Допустимы только задания с автоматической проверкой.</p>
 				<fieldset class="course-access-audience">
 					<legend>Аудитория — направления учеников</legend>
-					${ subjects.map( ( subject ) => `<label><input type="checkbox" data-access-subject value="${ esc( subject.key ) }" ${ selected.includes( subject.key ) ? 'checked' : '' }> ${ esc( subject.name ) }</label>` ).join( '' ) }
+					${ subjects.map( ( subject, index ) => `<div class="course-access-option"><div class="fs-toggle"><input id="course-access-subject-${ index }" type="checkbox" data-access-subject value="${ esc( subject.key ) }" aria-label="${ esc( subject.name ) }" ${ selected.includes( subject.key ) ? 'checked' : '' }><label class="fs-toggle-switch" for="course-access-subject-${ index }">${ esc( subject.name ) }</label></div><label for="course-access-subject-${ index }">${ esc( subject.name ) }</label></div>` ).join( '' ) }
 				</fieldset>
 				<p class="description">Без выбранной аудитории самостоятельная запись недоступна. Существующие зачисления сохраняются.</p>
 				<button type="button" class="button button-primary" data-access-save>Сохранить доступ</button>
