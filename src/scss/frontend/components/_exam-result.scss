@@ -288,8 +288,7 @@
   margin-inline: calc(50% - min(50vw, #{$exam-report-width} / 2));
   padding: 0;
 
-  // Шапка: кнопка выгрузки живёт в заголовке — справа, на всю его высоту.
-  .fs-exam-result__title {
+  .fs-exam-report__meta-row {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
@@ -301,11 +300,10 @@
   // странице не подключён, поэтому вид кнопки повторяем здесь фронтовыми токенами; высотой тянется
   // до высоты строки заголовка, кегль — под неё.
   .fs-exam-report__csv {
-    align-self: stretch;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    padding: 0 $exam-report-btn-padding-x;
+    padding: $spacing-xs $exam-report-btn-padding-x;
     border: 1px solid $color-border;
     border-radius: $border-radius-sm;
     background: $color-white;
@@ -381,7 +379,6 @@
       position: sticky;
       left: 0;
       z-index: 1;
-      width: $exam-report-name-width;
       padding-inline: $spacing-sm;
       overflow: hidden;
       text-align: left;
@@ -399,9 +396,10 @@
 
     thead .fs-exam-report__name { z-index: 2; background: $color-bg-subtle; }
 
-    // Балльные колонки — фиксированные, подпись переносится («балл» — второй строкой).
+    .fs-exam-report__task { width: 2.5%; }
+
     .fs-exam-report__sum {
-      width: $exam-report-sum-width;
+      width: 10%;
       padding-inline: $spacing-xs;
       font-weight: $font-semibold;
       white-space: nowrap;

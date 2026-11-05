@@ -328,12 +328,13 @@ body.fs-lms-course-screen {
 	.description { margin: $spacing-md 0; }
 	.course-access-audience { display: flex; flex-wrap: wrap; gap: $spacing-md $spacing-xl; }
 	.course-access-option { display: flex; align-items: center; gap: $spacing-sm; }
+
 	.fs-toggle input[type="checkbox"] {
 		display: block;
 		position: absolute;
 		opacity: 0;
 
-		&:focus-visible + .fs-toggle-switch { outline: 2px solid currentColor; outline-offset: 2px; }
+		&:focus-visible + .fs-toggle-switch { outline: 2px solid currentcolor; outline-offset: 2px; }
 		&:disabled + .fs-toggle-switch { opacity: 0.5; cursor: default; }
 	}
 	.is-error { color: $color-danger; }

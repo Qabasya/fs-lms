@@ -51,7 +51,7 @@ class ExamReportCsvExportTest extends TestCase {
 
 	/** @return list<string> */
 	private function lines(): array {
-		$csv = ( new ExamReportCsvExport() )->build( $this->table() );
+		$csv = ( new ExamReportCsvExport( new \Inc\Services\Export\CsvExportService( $this->createStub( \Inc\Services\Export\OneTimeDownloadService::class ) ) ) )->build( $this->table() );
 
 		self::assertStringStartsWith( "\xEF\xBB\xBF", $csv, 'BOM для Excel' );
 
@@ -66,6 +66,13 @@ class ExamReportCsvExportTest extends TestCase {
 		self::assertSame( '"Сидорова Анна";1;;;1;', $lines[2], 'на проверке — пустая ячейка, вторичный без окончательного результата пуст' );
 	}
 
+	public function test_formula_in_name_is_neutralized(): void {
+		$table = $this->table();
+		$table['rows'][0]['name'] = '=HYPERLINK("https://example.com")';
+		$export = new ExamReportCsvExport( new \Inc\Services\Export\CsvExportService( $this->createStub( \Inc\Services\Export\OneTimeDownloadService::class ) ) );
+		self::assertStringContainsString( "'=HYPERLINK", $export->build( $table ) );
+	}
+
 	public function test_footer_has_average_and_task_summary(): void {
 		$lines = $this->lines();
 
@@ -77,7 +84,7 @@ class ExamReportCsvExportTest extends TestCase {
 	}
 
 	public function test_empty_report_has_header_only_with_empty_summary(): void {
-		$csv = ( new ExamReportCsvExport() )->build(
+		$csv = ( new ExamReportCsvExport( new \Inc\Services\Export\CsvExportService( $this->createStub( \Inc\Services\Export\OneTimeDownloadService::class ) ) ) )->build(
 			array(
 				'columns' => array(),
 				'rows'    => array(),

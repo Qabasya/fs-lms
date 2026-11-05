@@ -14,12 +14,16 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Exam;
 
+use Inc\Services\Export\CsvExportService;
+
 /**
  * CSV-выгрузка школьного отчёта по матрице {@see ExamReportViewService::matrix()}.
  *
  * @package Inc\Services\Exam
  */
 class ExamReportCsvExport {
+
+	public function __construct( private readonly CsvExportService $csv ) {}
 
 	/**
 	 * Собирает CSV по матрице отчёта (`columns`, `rows` с `cells`/`primary`/`secondary`, `footer`).
@@ -81,6 +85,6 @@ class ExamReportCsvExport {
 	 * @param list<string> $fields
 	 */
 	private function line( $stream, array $fields ): void {
-		fputcsv( $stream, $fields, ';' );
+		fputcsv( $stream, array_map( fn( mixed $field ): string => (string) $this->csv->neutralizeFormula( $field ), $fields ), ';' );
 	}
 }

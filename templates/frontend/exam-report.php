@@ -11,7 +11,7 @@ declare( strict_types=1 );
  * Школьный отчёт (этап 12.3): таблица результатов выбранных участников и разбор одного из них под таблицей. Только чтение.
  *
  * Шорткод `[fs_lms_exam_report]` внутри страницы темы. В разметке нет телефона, мессенджера, ключей, ссылок входа и результата,
- * идентификаторов попыток и участий, кнопок оценивания, CSV и печати: строка раскрывается по порядковому номеру в отчёте (`?row=`; `p` занят WordPress — это ID записи).
+ * идентификаторов попыток и участий или кнопок оценивания: строка раскрывается по порядковому номеру в отчёте (`?row=`; `p` занят WordPress — это ID записи).
  *
  * @package FS LMS
  *
@@ -40,9 +40,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 	<header class="fs-exam-result__head">
 		<h1 class="fs-exam-result__title">
 			<?php echo esc_html( $title ); ?>
-			<a class="prof-btn prof-btn-sm fs-exam-report__csv" href="<?php echo esc_url( add_query_arg( array( 'csv' => '1' ), $page_url ) ); ?>"><?php esc_html_e( 'Скачать отчёт', 'fs-lms' ); ?></a>
 		</h1>
-		<p class="fs-exam-result__meta"><?php echo esc_html( $event ); ?></p>
+		<div class="fs-exam-report__meta-row"><p class="fs-exam-result__meta"><?php echo esc_html( $event ); ?></p><a class="prof-btn prof-btn-sm fs-exam-report__csv" href="<?php echo esc_url( add_query_arg( array( 'csv' => '1' ), $page_url ) ); ?>"><?php esc_html_e( 'Скачать отчёт', 'fs-lms' ); ?></a></div>
 	</header>
 
 	<p class="fs-exam-result__meta fs-exam-report__hint"><?php esc_html_e( 'Нажмите на строку ученика, чтобы открыть его работу ниже.', 'fs-lms' ); ?></p>
@@ -71,8 +70,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 						<?php foreach ( $columns as $number ) : ?>
 							<th class="fs-exam-report__task"><?php echo esc_html( $number ); ?></th>
 						<?php endforeach; ?>
-						<th class="fs-exam-report__sum"><?php esc_html_e( 'Первичный', 'fs-lms' ); ?></th>
-						<th class="fs-exam-report__sum"><?php esc_html_e( 'Вторичный', 'fs-lms' ); ?></th>
+						<th class="fs-exam-report__sum"><?php esc_html_e( 'Балл', 'fs-lms' ); ?></th>
 					</tr>
 				</thead>
 				<tbody>
@@ -82,15 +80,14 @@ if ( ! defined( 'ABSPATH' ) ) {
 							<?php if ( $row['open'] ) : ?>
 								data-row-url="<?php echo esc_url( add_query_arg( array( 'row' => (int) $row['n'] ), $page_url ) . '#fs-exam-report-review' ); ?>"
 							<?php endif; ?>>
-							<th class="fs-exam-report__name" scope="row"><?php echo esc_html( $row['short_name'] ); ?></th>
+							<th class="fs-exam-report__name" scope="row"><?php if ( $row['open'] ) : ?><a href="<?php echo esc_url( add_query_arg( array( 'row' => (int) $row['n'] ), $page_url ) . '#fs-exam-report-review' ); ?>"><?php echo esc_html( $row['short_name'] ); ?></a><?php else : ?><?php echo esc_html( $row['short_name'] ); ?><?php endif; ?></th>
 							<?php foreach ( $columns as $number ) : ?>
 								<?php $cell = $row['cells'][ $number ] ?? null; ?>
 								<td class="fs-exam-report__cell<?php echo null !== $cell && '' !== $cell['class'] ? ' ' . esc_attr( (string) $cell['class'] ) : ''; ?>">
 									<?php echo null !== $cell ? esc_html( (string) $cell['score'] ) : ''; ?>
 								</td>
 							<?php endforeach; ?>
-							<td class="fs-exam-report__sum"><?php echo esc_html( (string) $row['primary'] ); ?></td>
-							<td class="fs-exam-report__sum"><?php echo esc_html( (string) $row['secondary'] ); ?></td>
+							<td class="fs-exam-report__sum"><?php if ( $row['open'] ) : ?><?php echo esc_html( (string) $row['primary'] . ' / ' . ( '' !== $row['secondary'] ? (string) $row['secondary'] : '—' ) ); ?><?php endif; ?></td>
 						</tr>
 					<?php endforeach; ?>
 				</tbody>
@@ -100,15 +97,13 @@ if ( ! defined( 'ABSPATH' ) ) {
 						<?php foreach ( $columns as $number ) : ?>
 							<td class="fs-exam-report__cell"></td>
 						<?php endforeach; ?>
-						<td class="fs-exam-report__sum"><?php echo esc_html( (string) $footer['average_primary'] ); ?></td>
-						<td class="fs-exam-report__sum"><?php echo esc_html( (string) $footer['average_secondary'] ); ?></td>
+						<td class="fs-exam-report__sum"><?php echo esc_html( ( $footer['average_primary'] ?: '—' ) . ' / ' . ( $footer['average_secondary'] ?: '—' ) ); ?></td>
 					</tr>
 					<tr class="fs-exam-report__foot">
 						<th class="fs-exam-report__name" scope="row"><?php esc_html_e( 'Попытки', 'fs-lms' ); ?></th>
 						<?php foreach ( $footer['attempts'] as $value ) : ?>
 							<td class="fs-exam-report__cell"><?php echo esc_html( (string) $value ); ?></td>
 						<?php endforeach; ?>
-						<td class="fs-exam-report__sum"></td>
 						<td class="fs-exam-report__sum"></td>
 					</tr>
 					<tr class="fs-exam-report__foot">
@@ -117,7 +112,6 @@ if ( ! defined( 'ABSPATH' ) ) {
 							<td class="fs-exam-report__cell"><?php echo esc_html( (string) $value ); ?></td>
 						<?php endforeach; ?>
 						<td class="fs-exam-report__sum"></td>
-						<td class="fs-exam-report__sum"></td>
 					</tr>
 					<tr class="fs-exam-report__foot">
 						<th class="fs-exam-report__name" scope="row"><?php esc_html_e( '% попыток', 'fs-lms' ); ?></th>
@@ -125,14 +119,12 @@ if ( ! defined( 'ABSPATH' ) ) {
 							<td class="fs-exam-report__cell is-share"><?php echo esc_html( (string) $value ); ?></td>
 						<?php endforeach; ?>
 						<td class="fs-exam-report__sum"></td>
-						<td class="fs-exam-report__sum"></td>
 					</tr>
 					<tr class="fs-exam-report__foot">
 						<th class="fs-exam-report__name" scope="row"><?php esc_html_e( '% верных', 'fs-lms' ); ?></th>
 						<?php foreach ( $footer['correct_share'] as $value ) : ?>
 							<td class="fs-exam-report__cell is-share"><?php echo esc_html( (string) $value ); ?></td>
 						<?php endforeach; ?>
-						<td class="fs-exam-report__sum"></td>
 						<td class="fs-exam-report__sum"></td>
 					</tr>
 				</tfoot>
