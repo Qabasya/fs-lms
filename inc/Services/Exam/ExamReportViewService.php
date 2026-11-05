@@ -147,6 +147,7 @@ class ExamReportViewService {
 					'cells'     => $cells,
 					'primary'   => $this->number( (float) $summary['primary'] ),
 					'secondary' => ! empty( $summary['final'] ) && isset( $summary['secondary'] ) ? $this->number( (float) $summary['secondary'] ) : '',
+					'grade'     => ! empty( $summary['final'] ) && isset( $summary['grade'] ) ? $this->number( (float) $summary['grade'] ) : '',
 					'final'     => ! empty( $summary['final'] ),
 				)
 			);

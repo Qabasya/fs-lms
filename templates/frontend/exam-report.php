@@ -87,7 +87,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 									<?php echo null !== $cell ? esc_html( (string) $cell['score'] ) : ''; ?>
 								</td>
 							<?php endforeach; ?>
-							<td class="fs-exam-report__sum"><?php if ( $row['open'] ) : ?><?php echo esc_html( (string) $row['primary'] . ' / ' . ( '' !== $row['secondary'] ? (string) $row['secondary'] : '—' ) ); ?><?php endif; ?></td>
+							<td class="fs-exam-report__sum"><?php if ( $row['open'] ) : ?><?php echo esc_html( (string) $row['primary'] . ' / ' . ( '' !== $row['secondary'] ? (string) $row['secondary'] : ( $row['grade'] ?? '' ?: '—' ) ) ); ?><?php endif; ?></td>
 						</tr>
 					<?php endforeach; ?>
 				</tbody>
@@ -97,7 +97,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 						<?php foreach ( $columns as $number ) : ?>
 							<td class="fs-exam-report__cell"></td>
 						<?php endforeach; ?>
-						<td class="fs-exam-report__sum"><?php echo esc_html( ( $footer['average_primary'] ?: '—' ) . ' / ' . ( $footer['average_secondary'] ?: '—' ) ); ?></td>
+						<td class="fs-exam-report__sum"><?php echo esc_html( ( '' !== $footer['average_primary'] ? $footer['average_primary'] : '—' ) . ' / ' . ( '' !== $footer['average_secondary'] ? $footer['average_secondary'] : '—' ) ); ?></td>
 					</tr>
 					<tr class="fs-exam-report__foot">
 						<th class="fs-exam-report__name" scope="row"><?php esc_html_e( 'Попытки', 'fs-lms' ); ?></th>
