@@ -11,6 +11,7 @@ namespace Inc\Modules\VideoLibrary\Repositories;
 
 use Inc\Enums\Settings\TableName;
 use Inc\Modules\VideoLibrary\Schema\VideoSchema;
+use Inc\Modules\VideoLibrary\Enums\VideoRecordingStatus;
 use RuntimeException;
 
 /** Reads identifiers and storage pointers, never credentials or video payloads. */
@@ -55,5 +56,26 @@ class VideoInventoryRepository {
 			'recordings' => $recordings ?? array(),
 			'lessons'    => $lessons ?? array(),
 		);
+	}
+
+	/** Очищает все ссылки и связи записей, не меняя отметку recording_skipped. */
+	public function clearRecordings( bool $dryRun ): array {
+		$lessons = TableName::GroupLessons->prefixed();
+		$videos = VideoSchema::table();
+		$unmatched = VideoRecordingStatus::Unmatched->value;
+		if ( $dryRun ) {
+			$lessonCount = $this->wpdb->get_var( $this->wpdb->prepare( "SELECT COUNT(*) FROM %i WHERE (recording_url IS NOT NULL AND recording_url <> '') OR (recording_link IS NOT NULL AND recording_link <> '')", $lessons ) );
+			$recordingCount = $this->wpdb->get_var( $this->wpdb->prepare( 'SELECT COUNT(*) FROM %i WHERE group_lesson_id IS NOT NULL OR status <> %s', $videos, $unmatched ) );
+			if ( null === $lessonCount || null === $recordingCount ) {
+				throw new RuntimeException( 'Не удалось подсчитать указатели и связи.' );
+			}
+			return array( 'lessons' => (int) $lessonCount, 'recordings' => (int) $recordingCount );
+		}
+		$cleared = $this->wpdb->query( $this->wpdb->prepare( "UPDATE %i SET recording_url = NULL, recording_link = NULL WHERE (recording_url IS NOT NULL AND recording_url <> '') OR (recording_link IS NOT NULL AND recording_link <> '')", $lessons ) );
+		$detached = $this->wpdb->query( $this->wpdb->prepare( 'UPDATE %i SET group_lesson_id = NULL, status = %s WHERE group_lesson_id IS NOT NULL OR status <> %s', $videos, $unmatched, $unmatched ) );
+		if ( false === $cleared || false === $detached ) {
+			throw new RuntimeException( 'Не удалось очистить указатели и связи.' );
+		}
+		return array( 'lessons' => $cleared, 'recordings' => $detached );
 	}
 }

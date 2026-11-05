@@ -11,17 +11,36 @@ namespace Inc\Modules\VideoLibrary\Cli;
 
 use Inc\Contracts\ServiceInterface;
 use Inc\Modules\VideoLibrary\Services\VideoInventoryExportService;
+use Inc\Modules\VideoLibrary\Services\VideoRecordingResetService;
 use WP_CLI;
 
 /** Exports migration inventory without requiring DNS, S3 or a browser session. */
 class VideoInventoryCommand implements ServiceInterface {
 	/** Receives the inventory exporter. */
-	public function __construct( private readonly VideoInventoryExportService $exporter ) {}
+	public function __construct( private readonly VideoInventoryExportService $exporter, private readonly VideoRecordingResetService $reset ) {}
 
 	/** Register only under WP-CLI, including when the runtime module is disabled. */
 	public function register(): void {
 		if ( defined( 'WP_CLI' ) && WP_CLI ) {
 			WP_CLI::add_command( 'fs-lms video inventory', array( $this, 'export' ) );
+			WP_CLI::add_command( 'fs-lms video reset-links', array( $this, 'resetLinks' ) );
+		}
+	}
+
+	/**
+	 * Очищает все ссылки и отвязывает видеозаписи, сохраняя отметки «видео не будет».
+	 *
+	 * ## OPTIONS
+	 *
+	 * [--apply]
+	 * : Выполнить изменения; без флага только подсчёт.
+	 */
+	public function resetLinks( array $args, array $assocArgs ): void {
+		try {
+			$result = $this->reset->reset( ! isset( $assocArgs['apply'] ) );
+			WP_CLI::success( sprintf( '%s: указателей занятий — %d, привязок реестра — %d.', isset( $assocArgs['apply'] ) ? 'Очищено' : 'Будет очищено', $result['lessons'], $result['recordings'] ) );
+		} catch ( \Throwable $e ) {
+			WP_CLI::error( $e->getMessage() );
 		}
 	}
 
