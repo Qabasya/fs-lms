@@ -43,8 +43,6 @@ test( 'ученику «До экзамена» заменяет «Посеща�
 
 test( 'без даты экзамена у ученика нет посещаемости по умолчанию; родителю она остаётся всегда', () => {
 	assert.deepEqual( homeTileModels( { deadlines, attendance, exam_countdown: [], highlights: null }, { parent: false } ).map(t => t.id), ['deadlines'] );
-	assert.equal( homeTileModels( { deadlines, attendance, exam_countdown: [ exam() ], highlights: null }, { parent: true } )[ 1 ].label, 'Посещаемость' );
-	assert.equal( homeTileModels( { deadlines, attendance: { percent: null }, exam_countdown: [], highlights: null }, { parent: true } )[ 1 ].value, '—' );
 } );
 
 test( 'экзамены одного предмета не дублируют плитку', () => {
@@ -60,12 +58,12 @@ test( 'плитки пилота не входят в набор по умолч
 	assert.deepEqual( homeTileModels( d, { parent: false } ).map( ( t ) => t.label ), [ 'Дедлайнов' ] );
 
 	const chosen = homeTileModels( d, { parent: false }, { tiles: [ 'deadlines', 'attendance', 'streak', 'to_fix', 'last_result' ] } );
-	assert.deepEqual( chosen.slice( 2 ).map( ( t ) => [ t.label, t.value ] ), [
+	assert.deepEqual( chosen.slice( 1 ).map( ( t ) => [ t.label, t.value ] ), [
 		[ 'Серия без пропусков', '5' ],
 		[ 'Осталось исправить', '3' ],
 		[ 'Последний результат', '72' ],
 	] );
-	assert.equal( chosen[ 4 ].note, 'Пробник · баллов' );
+	assert.equal( chosen[ 3 ].note, 'Пробник · баллов' );
 } );
 
 test( 'у пилота серия и «осталось исправить» доступны и с нулём, «Последний результат» — только когда он есть', () => {

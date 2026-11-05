@@ -2,7 +2,7 @@
  * Каталог и раскладка плиток ученика/родителя.
  * У ученика по умолчанию дедлайны, доступные счётчики экзаменационных предметов и рейтинг;
  * при наличии других направлений — также «Осталось исправить».
- * Родителю остаются дедлайны и посещаемость выбранного ребёнка.
+ * Родителю остаются дедлайны выбранного ребёнка.
  * Явный выбор layout.tiles сохраняет набор и порядок пользователя; null использует defaults.
  * Серия без пропусков и последний результат остаются дополнительными плитками пилота.
  */
@@ -25,7 +25,7 @@ export function examCountdownValue( item ) {
 
 /**
  * Все плитки, которые у пользователя есть чем наполнить (в каноническом порядке), с id: `deadlines`, `exam:{предмет}`,
- * `attendance`, `streak`, `to_fix`, `last_result`, `ranking:{предмет}`. Родителю «До экзамена» недоступно.
+ * `streak`, `to_fix`, `last_result`, `ranking:{предмет}`. Родителю «До экзамена» недоступно.
  *
  * @param {{deadlines: Array, attendance: {percent: number|null}, exam_countdown?: Array, highlights?: object|null}} d Ответ кабинета
  * @param {{parent: boolean}} who
@@ -45,7 +45,6 @@ export function tileCatalog( d, { parent } ) {
         urgent: item.urgent,
     } ) );
 
-    tiles.push( { id: 'attendance', label: 'Посещаемость', value: d.attendance.percent === null ? '—' : `${ d.attendance.percent }%`, tone: 'success', ico: 'check' } );
 
     const h = d.highlights;
     if ( h ) {
@@ -75,7 +74,7 @@ export function tileCatalog( d, { parent } ) {
  * При лимите шести сначала сохраняем по одному представителю каждого вида.
  */
 export function defaultTileIds( d, who ) {
-    if ( who.parent ) return [ 'deadlines', 'attendance' ];
+    if ( who.parent ) return [ 'deadlines' ];
     const subjects = d.home_subjects || [];
     const exams = [ ...new Set( subjects.filter( s => s.exam ).map( s => s.key ) ) ];
     const others = [ ...new Set( subjects.filter( s => !s.exam ).map( s => s.key ) ) ];

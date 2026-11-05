@@ -12,8 +12,8 @@ const pilot = { ...base, highlights: { streak: 4, to_fix: 2, last_result: { valu
 const ids = ( tiles ) => tiles.map( ( t ) => t.id );
 
 test( 'у плиток есть стабильные id: дедлайны, экзамен по предмету, посещаемость, пилотные', () => {
-	assert.deepEqual( ids( tileCatalog( pilot, { parent: false } ) ), [ 'deadlines', 'exam:inf_ege', 'exam:rus_ege', 'attendance', 'streak', 'to_fix', 'last_result' ] );
-	assert.deepEqual( ids( homeTileModels( base, { parent: true } ) ), [ 'deadlines', 'attendance' ] );
+	assert.deepEqual( ids( tileCatalog( pilot, { parent: false } ) ), [ 'deadlines', 'exam:inf_ege', 'exam:rus_ege', 'streak', 'to_fix', 'last_result' ] );
+	assert.deepEqual( ids( homeTileModels( base, { parent: true } ) ), [ 'deadlines' ] );
 	assert.deepEqual( ids( homeTileModels( { ...base, exam_countdown: [] }, { parent: false } ) ), [ 'deadlines' ] );
 } );
 
@@ -26,7 +26,7 @@ test( 'по умолчанию — дедлайны и доступные счё
 test( 'сохранённый набор определяет, что показано и в каком порядке; недоступные плитки (нет данных) пропускаются', () => {
 	const tiles = homeTileModels( base, { parent: false }, { tiles: [ 'attendance', 'streak', 'exam:rus_ege', 'deadlines' ] } );
 
-	assert.deepEqual( ids( tiles ), [ 'attendance', 'exam:rus_ege', 'deadlines' ] );
+	assert.deepEqual( ids( tiles ), [ 'exam:rus_ege', 'deadlines' ] );
 } );
 
 test( 'пустой сохранённый набор — плиток нет (остаётся «+»); null — по умолчанию', () => {
@@ -34,12 +34,12 @@ test( 'пустой сохранённый набор — плиток нет (�
 	assert.deepEqual( ids( homeTileModels( base, { parent: false }, { tiles: null } ) ), [ 'deadlines', 'exam:inf_ege', 'exam:rus_ege' ] );
 } );
 
-test( 'родителю «До экзамена» недоступно, посещаемость — всегда', () => {
-	assert.deepEqual( ids( addableTiles( base, { parent: true }, [ 'deadlines' ] ) ), [ 'attendance' ] );
+test( 'родителю «До экзамена» и посещаемость недоступны', () => {
+	assert.deepEqual( ids( addableTiles( base, { parent: true }, [ 'deadlines' ] ) ), [] );
 } );
 
 test( 'в меню «+» — доступные плитки, которых ещё нет в наборе', () => {
-	assert.deepEqual( ids( addableTiles( pilot, { parent: false }, [ 'deadlines', 'streak' ] ) ), [ 'exam:inf_ege', 'exam:rus_ege', 'attendance', 'to_fix', 'last_result' ] );
+	assert.deepEqual( ids( addableTiles( pilot, { parent: false }, [ 'deadlines', 'streak' ] ) ), [ 'exam:inf_ege', 'exam:rus_ege', 'to_fix', 'last_result' ] );
 } );
 
 test( 'добавление и удаление плитки: не больше шести, без повторов', () => {
@@ -98,13 +98,13 @@ test( 'обычный ученик Python получает дедлайны, и�
     const data = { ...base, home_subjects: [subject('python')], rankings: [rank('python')], to_fix: 8 };
     assert.deepEqual(defaultTileIds(data, {parent: false}), ['deadlines', 'to_fix', 'ranking:python']);
     assert.equal(tileCatalog(data, {parent: false}).find(t => t.id === 'to_fix').value, '8');
-    assert.deepEqual(defaultTileIds(data, {parent: true}), ['deadlines', 'attendance']);
+    assert.deepEqual(defaultTileIds(data, {parent: true}), ['deadlines']);
 } );
 
 test( 'смешанные предметы дают счётчик, исправления и рейтинги в стабильном порядке всех предметов без дублей', () => {
     const data = { ...base, home_subjects: [subject('inf_ege', true), subject('python'), subject('python')], rankings: [rank('inf_ege'), rank('python')] };
     assert.deepEqual(defaultTileIds(data, {parent: false}), ['deadlines', 'exam:inf_ege', 'to_fix', 'ranking:inf_ege', 'ranking:python']);
-    assert.deepEqual(ids(homeTileModels(data, {parent: false}, {tiles: ['attendance', 'ranking:python']})), ['attendance', 'ranking:python']);
+    assert.deepEqual(ids(homeTileModels(data, {parent: false}, {tiles: ['attendance', 'ranking:python']})), ['ranking:python']);
 } );
 
 test( 'лимит шести сохраняет все основные виды, не использует неподдерживаемый счётчик и скрывает летние рейтинги', () => {

@@ -49,7 +49,6 @@ class HomeLayoutStatisticsService {
 		);
 		$labels   = array(
 			'deadlines'     => 'Дедлайнов',
-			'attendance'    => 'Посещаемость',
 			'streak'        => 'Серия без пропусков',
 			'to_fix'        => 'Осталось исправить',
 			'last_result'   => 'Последний результат',

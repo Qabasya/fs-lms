@@ -52,7 +52,7 @@ class HomeLayoutServiceTest extends TestCase {
 		$tiles = array( 'deadlines', 'deadlines', 'attendance', 'bogus', '<script>', 'exam:inf_ege', 'exam:Bad Key', 'streak', 'to_fix', 'last_result', 'exam:python' );
 
 		self::assertSame(
-			array( 'deadlines', 'attendance', 'exam:inf_ege', 'streak', 'to_fix', 'last_result' ),
+			array( 'deadlines', 'exam:inf_ege', 'streak', 'to_fix', 'last_result', 'exam:python' ),
 			$this->service->normalize( array( 'tiles' => $tiles ) )['tiles']
 		);
 	}
@@ -90,7 +90,7 @@ class HomeLayoutServiceTest extends TestCase {
 	}
 
 	public function test_parent_ranking_is_allowed_but_exam_countdown_is_not(): void {
-		self::assertSame( array( 'ranking:python', 'attendance' ), $this->service->normalize( array( 'tiles' => array( 'exam:python', 'ranking:python', 'attendance', 'to_review' ) ), UserRole::FSParent )['tiles'] );
+		self::assertSame( array( 'ranking:python' ), $this->service->normalize( array( 'tiles' => array( 'exam:python', 'ranking:python', 'attendance', 'to_review' ) ), UserRole::FSParent )['tiles'] );
 	}
 
 

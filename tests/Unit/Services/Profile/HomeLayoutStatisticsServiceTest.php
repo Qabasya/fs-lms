@@ -25,7 +25,7 @@ class HomeLayoutStatisticsServiceTest extends TestCase {
 		self::assertSame( array( 2, 1, 1 ), $report['sections']['tiles']['positions'] );
 		self::assertSame( array( 1, 2, 1 ), $report['sections']['schedule']['positions'] );
 		self::assertSame( array( 1, 0, 1 ), $report['sections']['attention']['positions'] );
-		self::assertSame( 2, $report['tiles']['attendance']['users'] );
+		self::assertArrayNotHasKey( 'attendance', $report['tiles'] );
 		self::assertSame( 2, $report['tiles']['to_review']['users'] );
 	}
 
@@ -40,7 +40,7 @@ class HomeLayoutStatisticsServiceTest extends TestCase {
 		) );
 		self::assertSame( 2, $report['users'] );
 		self::assertSame( 1, $report['automatic'] );
-		self::assertSame( 0, $report['tiles']['attendance']['users'] );
+		self::assertArrayNotHasKey( 'attendance', $report['tiles'] );
 	}
 
 	public function test_office_defaults_for_wp_admin_and_role_specific_tile_validation(): void {
@@ -48,7 +48,7 @@ class HomeLayoutStatisticsServiceTest extends TestCase {
 		$admin['roles'] = array( 'administrator' );
 		$report = $this->report( array( $admin, $this->row( UserRole::FSParent, array( 'tiles', 'schedule', 'deadlines' ), array( 'lessons_today', 'attendance' ) ) ) );
 		self::assertSame( 2, $report['users'] );
-		self::assertSame( 1, $report['tiles']['attendance']['users'] );
+		self::assertArrayNotHasKey( 'attendance', $report['tiles'] );
 		self::assertSame( 1, $report['tiles']['to_review']['users'] );
 		self::assertSame( 0, $report['tiles']['lessons_today']['users'] );
 	}

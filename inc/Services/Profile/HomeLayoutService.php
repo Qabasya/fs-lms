@@ -26,7 +26,7 @@ class HomeLayoutService {
 	public const MAX_TILES = 6;
 
 	/** Плитка ученика/родителя: известный id или показатель по предмету. */
-	private const TILE_ID = '/^(?:deadlines|attendance|streak|to_fix|last_result|(?:exam|ranking):[a-z0-9_]+)$/';
+	private const TILE_ID = '/^(?:deadlines|streak|to_fix|last_result|(?:exam|ranking):[a-z0-9_]+)$/';
 
 	public const STAFF_SECTIONS = array( 'tiles', 'schedule', 'attention' );
 
