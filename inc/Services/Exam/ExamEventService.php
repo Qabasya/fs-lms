@@ -509,8 +509,8 @@ class ExamEventService {
 	}
 
 	/**
-	 * Пересобирает снимок варианта после правки опечатки в работе. Пока сеанс с этим вариантом идёт или у него есть
-	 * незавершённые попытки, снимок менять нельзя: он определяет длительность и состав идущих попыток.
+	 * Пересобирает снимок варианта только до начала первого сеанса с ним.
+	 * После старта общий снимок используется историческими результатами и больше не меняется.
 	 *
 	 * @throws CodedException Нет доступа, вариант не используется, сеанс или попытка ещё идут либо версия изменилась.
 	 */
@@ -525,12 +525,12 @@ class ExamEventService {
 				$now  = $this->time->nowUtc();
 				$used = false;
 				foreach ( $this->sessions->findByEvent( $eventId ) as $session ) {
-					if ( $session->assessmentId !== $assessmentId || ExamSessionStatus::Cancelled->value === $session->status ) {
+					if ( $session->assessmentId !== $assessmentId || ( ExamSessionStatus::Cancelled->value === $session->status && null === $session->firstStartedAt ) ) {
 						continue;
 					}
 					$used = true;
-					if ( $session->scheduledAt <= $now && $now < $session->plannedEndAt ) {
-						throw new CodedException( ErrorCode::ExamState, 'Идёт сеанс с этим вариантом: снимок менять нельзя.' );
+					if ( null !== $session->firstStartedAt || $session->scheduledAt <= $now ) {
+						throw new CodedException( ErrorCode::ExamState, 'Сеанс с этим вариантом уже начался: снимок менять нельзя.' );
 					}
 				}
 				if ( ! $used ) {

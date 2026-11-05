@@ -1012,15 +1012,21 @@ class ExamEventServiceTest extends TestCase {
 		$this->sessionList = array( $this->session );
 		$this->events->expects( self::never() )->method( 'update' );
 
-		$this->assertRefusal( ErrorCode::ExamState, 'Идёт сеанс с этим вариантом: снимок менять нельзя.', fn () => $this->service->rebuildSnapshot( self::ACTOR, self::EVENT, self::ASSESSMENT ) );
+		$this->assertRefusal( ErrorCode::ExamState, 'Сеанс с этим вариантом уже начался: снимок менять нельзя.', fn () => $this->service->rebuildSnapshot( self::ACTOR, self::EVENT, self::ASSESSMENT ) );
 	}
 
 	public function test_rebuild_snapshot_blocked_by_unfinished_attempts(): void {
-		$this->now         = array( 'utc' => '2026-03-10 11:30:00', 'local' => '2026-03-10 14:30:00' );
+		$this->now         = array( 'utc' => '2026-03-01 07:00:00', 'local' => '2026-03-01 10:00:00' );
 		$this->sessionList = array( $this->session );
 		$this->attempts->method( 'countInProgressExamByEvent' )->with( self::EVENT, self::ASSESSMENT )->willReturn( 1 );
 
 		$this->assertRefusal( ErrorCode::ExamState, 'Идёт сеанс с этим вариантом: снимок менять нельзя.', fn () => $this->service->rebuildSnapshot( self::ACTOR, self::EVENT, self::ASSESSMENT ) );
+	}
+
+	public function test_rebuild_snapshot_cannot_rewrite_completed_or_cancelled_started_session(): void {
+		$this->sessionList = array( $this->examSession( array( 'status' => 'cancelled', 'first_started_at' => '2026-03-10 07:05:00' ) ) );
+		$this->events->expects( self::never() )->method( 'update' );
+		$this->assertRefusal( ErrorCode::ExamState, 'Сеанс с этим вариантом уже начался: снимок менять нельзя.', fn () => $this->service->rebuildSnapshot( self::ACTOR, self::EVENT, self::ASSESSMENT ) );
 	}
 
 	public function test_rebuild_snapshot_requires_variant_in_event(): void {
@@ -1031,7 +1037,7 @@ class ExamEventServiceTest extends TestCase {
 
 	public function test_rebuild_snapshot_replaces_only_that_variant(): void {
 		$this->event       = $this->examEvent( array( 'status' => 'published', 'variant_snapshot' => (string) json_encode( array( '501' => array( 'duration_minutes' => 150 ) ) ) ) );
-		$this->now         = array( 'utc' => '2026-03-10 11:30:00', 'local' => '2026-03-10 14:30:00' );
+		$this->now         = array( 'utc' => '2026-03-01 07:00:00', 'local' => '2026-03-01 10:00:00' );
 		$this->sessionList = array( $this->session );
 		$this->events->expects( self::once() )->method( 'update' )->with(
 			self::EVENT,
